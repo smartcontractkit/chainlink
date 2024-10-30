@@ -26,9 +26,10 @@ jobs:
 
       - name: Set up Go
         if: ${{ matrix.language == 'go' }}
-        uses: actions/setup-go@v5.0.2
+        uses: ./.github/actions/setup-go
         with:
           go-version-file: 'go.mod'
+          only-modules: 'true'
 
       - name: Touching core/web/assets/index.html
         if: ${{ matrix.language == 'go' }}

@@ -4,18 +4,17 @@ pragma solidity ^0.8.4;
 import {Ownable2StepMsgSender} from "../../shared/access/Ownable2StepMsgSender.sol";
 import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 
-/// @notice Onchain verification of reports from the offchain reporting protocol
-///         with multiple OCR plugin support.
+/// @notice Onchain verification of reports from the offchain reporting protocol with multiple OCR plugin support.
 abstract contract MultiOCR3Base is ITypeAndVersion, Ownable2StepMsgSender {
   // Maximum number of oracles the offchain reporting protocol is designed for
   uint256 internal constant MAX_NUM_ORACLES = 256;
 
-  /// @notice Triggers a new run of the offchain reporting protocol
-  /// @param ocrPluginType OCR plugin type for which the config was set
-  /// @param configDigest configDigest of this configuration
-  /// @param signers ith element is address ith oracle uses to sign a report
-  /// @param transmitters ith element is address ith oracle uses to transmit a report via the transmit method
-  /// @param F maximum number of faulty/dishonest oracles the protocol can tolerate while still working correctly
+  /// @notice Triggers a new run of the offchain reporting protocol.
+  /// @param ocrPluginType OCR plugin type for which the config was set.
+  /// @param configDigest configDigest of this configuration.
+  /// @param signers ith element is address ith oracle uses to sign a report.
+  /// @param transmitters ith element is address ith oracle uses to transmit a report via the transmit method.
+  /// @param F maximum number of faulty/dishonest oracles the protocol can tolerate while still working correctly.
   event ConfigSet(uint8 ocrPluginType, bytes32 configDigest, address[] signers, address[] transmitters, uint8 F);
 
   /// @notice Optionally emitted to indicate the latest configDigest and sequence number
@@ -44,76 +43,75 @@ abstract contract MultiOCR3Base is ITypeAndVersion, Ownable2StepMsgSender {
   error OracleCannotBeZeroAddress();
   error StaticConfigCannotBeChanged(uint8 ocrPluginType);
 
-  /// @dev Packing these fields used on the hot path in a ConfigInfo variable reduces the
-  ///      retrieval of all of them to a minimum number of SLOADs.
+  /// @dev Packing these fields used on the hot path in a ConfigInfo variable reduces the retrieval of all
+  /// of them to a minimum number of SLOADs.
   struct ConfigInfo {
     bytes32 configDigest;
-    uint8 F; // ──────────────────────────────╮ maximum number of faulty/dishonest oracles the system can tolerate
-    uint8 n; //                               │ number of configured signers
-    bool isSignatureVerificationEnabled; // ──╯ if true, requires signers and verifies signatures on transmission verification
+    uint8 F; // ─────────────────────────────╮ maximum number of faulty/dishonest oracles the system can tolerate.
+    uint8 n; //                              │ number of configured signers.
+    bool isSignatureVerificationEnabled; // ─╯ if true, requires signers and verifies signatures on transmission.
   }
 
-  /// @notice Used for s_oracles[a].role, where a is an address, to track the purpose
-  ///         of the address, or to indicate that the address is unset.
+  /// @notice Used for s_oracles[a].role, where a is an address, to track the purpose of the address, or to indicate
+  /// that the address is unset.
   enum Role {
-    // No oracle role has been set for address a
+    // No oracle role has been set for the address `a`
     Unset,
-    // Signing address for the s_oracles[a].index'th oracle. I.e., report
-    // signatures from this oracle should ecrecover back to address a.
+    // Signing address for the s_oracles[a].index'th oracle. I.e., report signatures from this oracle should ecrecover
+    // back to address `a`.
     Signer,
-    // Transmission address for the s_oracles[a].index'th oracle. I.e., if a
-    // report is received by OCR2Aggregator.transmit in which msg.sender is
-    // a, it is attributed to the s_oracles[a].index'th oracle.
+    // Transmission address for the s_oracles[a].index'th oracle. I.e., if `a` report is received by
+    // OCR2Aggregator.transmit in which msg.sender is  a, it is attributed to the s_oracles[a].index'th oracle.
     Transmitter
   }
 
   struct Oracle {
-    uint8 index; // ───╮ Index of oracle in s_signers/s_transmitters
-    Role role; // ─────╯ Role of the address which mapped to this struct
+    uint8 index; // ─╮ Index of oracle in s_signers/s_transmitters.
+    Role role; // ───╯ Role of the address which mapped to this struct.
   }
 
   /// @notice OCR configuration for a single OCR plugin within a DON.
   struct OCRConfig {
-    ConfigInfo configInfo; //  latest OCR config
-    // NOTE: len(signers) can be different from len(transmitters). There is no index relationship between the two arrays
-    address[] signers; //      addresses oracles use to sign the reports
-    address[] transmitters; // addresses oracles use to transmit the reports
+    ConfigInfo configInfo; //  latest OCR config.
+    // NOTE: len(signers) can be different from len(transmitters). There is no index relationship between the two arrays.
+    address[] signers; //      addresses oracles use to sign the reports.
+    address[] transmitters; // addresses oracles use to transmit the reports.
   }
 
   /// @notice Args to update an OCR Config.
   struct OCRConfigArgs {
-    bytes32 configDigest; // Config digest to update to
-    uint8 ocrPluginType; // ──────────────────╮ OCR plugin type to update config for
-    uint8 F; //                               │ maximum number of faulty/dishonest oracles
-    bool isSignatureVerificationEnabled; // ──╯ if true, requires signers and verifies signatures on transmission verification
-    address[] signers; // signing address of each oracle
-    address[] transmitters; // transmission address of each oracle (i.e. the address the oracle actually sends transactions to the contract from)
+    bytes32 configDigest; // The new config digest.
+    uint8 ocrPluginType; // ─────────────────╮ OCR plugin type to update config for.
+    uint8 F; //                              │ Maximum number of faulty/dishonest oracles.
+    bool isSignatureVerificationEnabled; // ─╯ If true, requires signers and verifies signatures on transmission.
+    address[] signers; // signing address of each oracle.
+    address[] transmitters; // the address the oracle sends transactions from.
   }
 
-  /// @notice mapping of OCR plugin type -> DON config
+  /// @notice mapping of OCR plugin type -> DON config.
   mapping(uint8 ocrPluginType => OCRConfig config) internal s_ocrConfigs;
 
-  /// @notice OCR plugin type => signer OR transmitter address mapping
+  /// @notice OCR plugin type => signer OR transmitter address mapping.
   mapping(uint8 ocrPluginType => mapping(address signerOrTransmiter => Oracle oracle)) internal s_oracles;
 
   // Constant-length components of the msg.data sent to transmit.
-  // See the "If we wanted to call sam" example on for example reasoning
+  // See the "If we wanted to call sam" example on for example reasoning.
   // https://solidity.readthedocs.io/en/v0.7.2/abi-spec.html
 
   /// @notice Constant length component for transmit functions with no signatures.
   /// The signatures are expected to match transmitPlugin(reportContext, report).
-  uint16 private constant TRANSMIT_MSGDATA_CONSTANT_LENGTH_COMPONENT_NO_SIGNATURES = 4 // function selector
-    + 3 * 32 // 3 words containing reportContext
-    + 32 // word containing start location of abiencoded report value
-    + 32; // word containing length of report
+  uint16 private constant TRANSMIT_MSGDATA_CONSTANT_LENGTH_COMPONENT_NO_SIGNATURES = 4 // function selector.
+    + 3 * 32 // 3 words containing reportContext.
+    + 32 // word containing start location of abiencoded report value.
+    + 32; // word containing length of report.
 
   /// @notice Extra constant length component for transmit functions with signatures (relative to no signatures).
   /// The signatures are expected to match transmitPlugin(reportContext, report, rs, ss, rawVs).
-  uint16 private constant TRANSMIT_MSGDATA_EXTRA_CONSTANT_LENGTH_COMPONENT_FOR_SIGNATURES = 32 // word containing location start of abiencoded rs value
-    + 32 // word containing start location of abiencoded ss value
-    + 32 // rawVs value
-    + 32 // word containing length rs
-    + 32; // word containing length of ss
+  uint16 private constant TRANSMIT_MSGDATA_EXTRA_CONSTANT_LENGTH_COMPONENT_FOR_SIGNATURES = 32 // word containing location start of abiencoded rs value.
+    + 32 // word containing start location of abiencoded ss value.
+    + 32 // rawVs value.
+    + 32 // word containing length rs.
+    + 32; // word containing length of ss.
 
   uint256 internal immutable i_chainID;
 
@@ -122,12 +120,12 @@ abstract contract MultiOCR3Base is ITypeAndVersion, Ownable2StepMsgSender {
   }
 
   /// @notice Sets offchain reporting protocol configuration incl. participating oracles.
-  /// NOTE: The OCR3 config must be sanity-checked against the home-chain registry configuration, to ensure
-  /// home-chain and remote-chain parity!
+  /// NOTE: The OCR3 config must be sanity-checked against the home-chain registry configuration, to ensure home-chain
+  /// and remote-chain parity!
   /// @param ocrConfigArgs OCR config update args.
   /// @dev precondition number of transmitters should match the expected F/fChain relationship.
   /// For transmitters, the function only validates that len(transmitters) > 0 && len(transmitters) <= MAX_NUM_ORACLES
-  /// && len(transmitters) <= len(signers) [if sig verification is enabled]
+  /// && len(transmitters) <= len(signers) [if sig verification is enabled].
   function setOCR3Configs(
     OCRConfigArgs[] memory ocrConfigArgs
   ) external onlyOwner {
@@ -147,7 +145,7 @@ abstract contract MultiOCR3Base is ITypeAndVersion, Ownable2StepMsgSender {
     OCRConfig storage ocrConfig = s_ocrConfigs[ocrPluginType];
     ConfigInfo storage configInfo = ocrConfig.configInfo;
 
-    // If F is 0, then the config is not yet set
+    // If F is 0, then the config is not yet set.
     if (configInfo.F == 0) {
       configInfo.isSignatureVerificationEnabled = ocrConfigArgs.isSignatureVerificationEnabled;
     } else {
@@ -169,8 +167,8 @@ abstract contract MultiOCR3Base is ITypeAndVersion, Ownable2StepMsgSender {
 
       if (signers.length > MAX_NUM_ORACLES) revert InvalidConfig(InvalidConfigErrorType.TOO_MANY_SIGNERS);
       if (signers.length <= 3 * ocrConfigArgs.F) revert InvalidConfig(InvalidConfigErrorType.F_TOO_HIGH);
-      // NOTE: Transmitters cannot exceed signers. Transmitters do not have to be >= 3F + 1 because they can match >= 3fChain + 1, where fChain <= F.
-      // fChain is not represented in MultiOCR3Base - so we skip this check.
+      // NOTE: Transmitters cannot exceed signers. Transmitters do not have to be >= 3F + 1 because they can
+      // match >= 3fChain + 1, where fChain <= F. fChain is not represented in MultiOCR3Base - so we skip this check.
       if (signers.length < transmitters.length) revert InvalidConfig(InvalidConfigErrorType.TOO_MANY_TRANSMITTERS);
 
       configInfo.n = uint8(signers.length);
@@ -221,8 +219,8 @@ abstract contract MultiOCR3Base is ITypeAndVersion, Ownable2StepMsgSender {
     }
   }
 
-  /// @notice _transmit is called to post a new report to the contract.
-  ///         The function should be called after the per-DON reporting logic is completed.
+  /// @notice _transmit is called to post a new report to the contract. The function should be called after the per-DON
+  /// reporting logic is completed.
   /// @param ocrPluginType OCR plugin type to transmit report for
   /// @param report serialized report, which the signatures are signing.
   /// @param rs ith element is the R components of the ith signature on report. Must have at most MAX_NUM_ORACLES entries.
@@ -230,28 +228,30 @@ abstract contract MultiOCR3Base is ITypeAndVersion, Ownable2StepMsgSender {
   /// @param rawVs ith element is the the V component of the ith signature.
   function _transmit(
     uint8 ocrPluginType,
-    // NOTE: If these parameters are changed, expectedMsgDataLength and/or
-    // TRANSMIT_MSGDATA_CONSTANT_LENGTH_COMPONENT need to be changed accordingly
+    // NOTE: If these parameters are changed, expectedMsgDataLength and/or TRANSMIT_MSGDATA_CONSTANT_LENGTH_COMPONENT
+    // need to be changed accordingly.
     bytes32[3] calldata reportContext,
     bytes calldata report,
     bytes32[] memory rs,
     bytes32[] memory ss,
-    bytes32 rawVs // signatures
+    bytes32 rawVs
   ) internal {
     // reportContext consists of:
-    // reportContext[0]: ConfigDigest
-    // reportContext[1]: 24 byte padding, 8 byte sequence number
-    // reportContext[2]: ExtraHash
+    // reportContext[0]: ConfigDigest.
+    // reportContext[1]: 24 byte padding, 8 byte sequence number.
+    // reportContext[2]: ExtraHash.
     ConfigInfo memory configInfo = s_ocrConfigs[ocrPluginType].configInfo;
     bytes32 configDigest = reportContext[0];
 
-    // Scoping this reduces stack pressure and gas usage
+    // Scoping this reduces stack pressure and gas usage.
     {
-      uint256 expectedDataLength = uint256(TRANSMIT_MSGDATA_CONSTANT_LENGTH_COMPONENT_NO_SIGNATURES) + report.length; // one byte pure entry in _report
+      // one byte per entry in _report
+      uint256 expectedDataLength = uint256(TRANSMIT_MSGDATA_CONSTANT_LENGTH_COMPONENT_NO_SIGNATURES) + report.length;
 
       if (configInfo.isSignatureVerificationEnabled) {
-        expectedDataLength += TRANSMIT_MSGDATA_EXTRA_CONSTANT_LENGTH_COMPONENT_FOR_SIGNATURES + rs.length * 32 // 32 bytes per entry in _rs
-          + ss.length * 32; // 32 bytes per entry in _ss)
+        // 32 bytes per entry in _rs, _ss
+        expectedDataLength +=
+          TRANSMIT_MSGDATA_EXTRA_CONSTANT_LENGTH_COMPONENT_FOR_SIGNATURES + rs.length * 32 + ss.length * 32;
       }
 
       if (msg.data.length != expectedDataLength) revert WrongMessageLength(expectedDataLength, msg.data.length);
@@ -261,14 +261,14 @@ abstract contract MultiOCR3Base is ITypeAndVersion, Ownable2StepMsgSender {
       revert ConfigDigestMismatch(configInfo.configDigest, configDigest);
     }
     // If the cached chainID at time of deployment doesn't match the current chainID, we reject all signed reports.
-    // This avoids a (rare) scenario where chain A forks into chain A and A', A' still has configDigest
-    // calculated from chain A and so OCR reports will be valid on both forks.
+    // This avoids a (rare) scenario where chain A forks into chain A and A', A' still has configDigest calculated
+    // from chain A and so OCR reports will be valid on both forks.
     _whenChainNotForked();
 
-    // Scoping this reduces stack pressure and gas usage
+    // Scoping this reduces stack pressure and gas usage.
     {
       Oracle memory transmitter = s_oracles[ocrPluginType][msg.sender];
-      // Check that sender is authorized to report
+      // Check that sender is authorized to report.
       if (
         !(
           transmitter.role == Role.Transmitter
@@ -280,7 +280,7 @@ abstract contract MultiOCR3Base is ITypeAndVersion, Ownable2StepMsgSender {
     }
 
     if (configInfo.isSignatureVerificationEnabled) {
-      // Scoping to reduce stack pressure
+      // Scoping to reduce stack pressure.
       {
         if (rs.length != configInfo.F + 1) revert WrongNumberOfSignatures();
         if (rs.length != ss.length) revert SignaturesOutOfRegistration();

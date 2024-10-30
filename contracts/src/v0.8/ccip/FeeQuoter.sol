@@ -18,7 +18,7 @@ import {USDPriceWith18Decimals} from "./libraries/USDPriceWith18Decimals.sol";
 import {EnumerableSet} from "../vendor/openzeppelin-solidity/v5.0.2/contracts/utils/structs/EnumerableSet.sol";
 
 /// @notice The FeeQuoter contract responsibility is to:
-///   - Store the current gas price in USD for a given destination chain,
+///   - Store the current gas price in USD for a given destination chain.
 ///   - Store the price of a token in USD allowing the owner or priceUpdater to update this value.
 ///   - Manage chain specific fee calculations.
 /// The authorized callers in the contract represent the fee price updaters.
@@ -59,147 +59,144 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
 
   /// @dev Contains token price configuration used in both the keystone price updates and the price feed fallback logic.
   struct TokenPriceFeedConfig {
-    address dataFeedAddress; // ──╮ Price feed contract. Can be address(0) to indicate no feed is configured.
-    uint8 tokenDecimals; //       | Decimals of the token, used for both keystone and price feed decimal multiplications.
-    bool isEnabled; // ───────────╯ Whether the token is configured to receive keystone and/or price feed updates.
+    address dataFeedAddress; // ─╮ Price feed contract. Can be address(0) to indicate no feed is configured.
+    uint8 tokenDecimals; //      │ Decimals of the token, used for both keystone and price feed decimal multiplications.
+    bool isEnabled; // ──────────╯ Whether the token is configured to receive keystone and/or price feed updates.
   }
 
-  /// @dev Token price data feed update
+  /// @dev Token price data feed update.
   struct TokenPriceFeedUpdate {
-    address sourceToken; // Source token to update feed for
-    TokenPriceFeedConfig feedConfig; // Feed config update data
+    address sourceToken; // Source token to update feed for.
+    TokenPriceFeedConfig feedConfig; // Feed config update data.
   }
 
-  /// @dev Struct that contains the static configuration
+  /// @dev Struct that contains the static configuration.
   /// RMN depends on this struct, if changing, please notify the RMN maintainers.
   // solhint-disable-next-line gas-struct-packing
   struct StaticConfig {
-    uint96 maxFeeJuelsPerMsg; // ─╮ Maximum fee that can be charged for a message
-    address linkToken; // ────────╯ LINK token address
-    // The amount of time a token price can be stale before it is considered invalid (gas price staleness is configured per dest chain)
+    uint96 maxFeeJuelsPerMsg; // ─╮ Maximum fee that can be charged for a message.
+    address linkToken; // ────────╯ LINK token address.
+    // The amount of time a token price can be stale before it is considered invalid. Gas price staleness is configured
+    // per dest chain.
     uint32 tokenPriceStalenessThreshold;
   }
 
-  /// @dev The struct representing the received CCIP feed report from keystone IReceiver.onReport()
+  /// @dev The struct representing the received CCIP feed report from keystone IReceiver.onReport().
   struct ReceivedCCIPFeedReport {
-    address token; //       Token address
-    uint224 price; // ────╮ Price of the token in USD with 18 decimals
-    uint32 timestamp; // ─╯ Timestamp of the price update
+    address token; //       Token address.
+    uint224 price; // ────╮ Price of the token in USD with 18 decimals.
+    uint32 timestamp; // ─╯ Timestamp of the price update.
   }
 
-  /// @dev Struct to hold the fee & validation configs for a destination chain
+  /// @dev Struct to hold the fee & validation configs for a destination chain.
   struct DestChainConfig {
-    bool isEnabled; // ──────────────────────────╮ Whether this destination chain is enabled
-    uint16 maxNumberOfTokensPerMsg; //           │ Maximum number of distinct ERC20 token transferred per message
-    uint32 maxDataBytes; //                      │ Maximum payload data size in bytes
-    uint32 maxPerMsgGasLimit; //                 │ Maximum gas limit for messages targeting EVMs
-    uint32 destGasOverhead; //                   │ Gas charged on top of the gasLimit to cover destination chain costs
-    uint16 destGasPerPayloadByte; //             │ Destination chain gas charged for passing each byte of `data` payload to receiver
-    uint32 destDataAvailabilityOverheadGas; //   │ Extra data availability gas charged on top of the message, e.g. for OCR
-    uint16 destGasPerDataAvailabilityByte; //    │ Amount of gas to charge per byte of message data that needs availability
-    uint16 destDataAvailabilityMultiplierBps; // │ Multiplier for data availability gas, multiples of bps, or 0.0001
-    // The following three properties are defaults, they can be overridden by setting the TokenTransferFeeConfig for a token
-    uint16 defaultTokenFeeUSDCents; //           │ Default token fee charged per token transfer
-    uint32 defaultTokenDestGasOverhead; // ──────╯ Default gas charged to execute the token transfer on the destination chain
-    uint32 defaultTxGasLimit; //─────────────────╮ Default gas limit for a tx
+    bool isEnabled; // ──────────────────────────╮ Whether this destination chain is enabled.
+    uint16 maxNumberOfTokensPerMsg; //           │ Maximum number of distinct ERC20 tokens transferred per message.
+    uint32 maxDataBytes; //                      │ Maximum data payload size in bytes.
+    uint32 maxPerMsgGasLimit; //                 │ Maximum gas limit for messages targeting EVMs.
+    uint32 destGasOverhead; //                   │ Gas charged on top of the gasLimit to cover destination chain costs.
+    uint16 destGasPerPayloadByte; //             │ Destination chain gas charged each byte of `data` payload.
+    uint32 destDataAvailabilityOverheadGas; //   │ Data availability gas charged for overhead costs e.g. for OCR.
+    uint16 destGasPerDataAvailabilityByte; //    │ Gas units charged per byte of message data that needs availability.
+    uint16 destDataAvailabilityMultiplierBps; // │ Multiplier for data availability gas, multiples of bps, or 0.0001.
+    // The following three properties are defaults, they can be overridden by setting the TokenTransferFeeConfig for a token.
+    uint16 defaultTokenFeeUSDCents; //           │ Default token fee charged per token transfer.
+    uint32 defaultTokenDestGasOverhead; // ──────╯ Default gas charged to execute a token transfer on the destination chain.
+    uint32 defaultTxGasLimit; //─────────────────╮ Default gas limit for a tx.
     uint64 gasMultiplierWeiPerEth; //            │ Multiplier for gas costs, 1e18 based so 11e17 = 10% extra cost.
-    uint32 networkFeeUSDCents; //                │ Flat network fee to charge for messages, multiples of 0.01 USD
-    uint32 gasPriceStalenessThreshold; //        │ The amount of time a gas price can be stale before it is considered invalid (0 means disabled)
+    uint32 networkFeeUSDCents; //                │ Flat network fee to charge for messages, multiples of 0.01 USD.
+    uint32 gasPriceStalenessThreshold; //        │ The amount of time a gas price can be stale before it is considered invalid (0 means disabled).
     bool enforceOutOfOrder; //                   │ Whether to enforce the allowOutOfOrderExecution extraArg value to be true.
     bytes4 chainFamilySelector; // ──────────────╯ Selector that identifies the destination chain's family. Used to determine the correct validations to perform for the dest chain.
   }
 
-  /// @dev Struct to hold the configs and its destination chain selector
-  /// Same as DestChainConfig but with the destChainSelector so that an array of these
-  /// can be passed in the constructor and the applyDestChainConfigUpdates function
-  //solhint-disable gas-struct-packing
+  /// @dev Struct to hold the configs and its destination chain selector. Same as DestChainConfig but with the
+  /// destChainSelector so that an array of these can be passed in the constructor and applyDestChainConfigUpdates.
+  /// solhint-disable gas-struct-packing
   struct DestChainConfigArgs {
-    uint64 destChainSelector; // Destination chain selector
-    DestChainConfig destChainConfig; // Config to update for the chain selector
+    uint64 destChainSelector; // Destination chain selector.
+    DestChainConfig destChainConfig; // Config to update for the chain selector.
   }
 
-  /// @dev Struct to hold the transfer fee configuration for token transfers
+  /// @dev Struct with transfer fee configuration for token transfers.
   struct TokenTransferFeeConfig {
-    uint32 minFeeUSDCents; // ────╮ Minimum fee to charge per token transfer, multiples of 0.01 USD
-    uint32 maxFeeUSDCents; //     │ Maximum fee to charge per token transfer, multiples of 0.01 USD
-    uint16 deciBps; //            │ Basis points charged on token transfers, multiples of 0.1bps, or 1e-5
-    uint32 destGasOverhead; //    │ Gas charged to execute the token transfer on the destination chain
-    //                            │ Extra data availability bytes that are returned from the source pool and sent
-    uint32 destBytesOverhead; //  │ to the destination pool. Must be >= Pool.CCIP_LOCK_OR_BURN_V1_RET_BYTES
-    bool isEnabled; // ───────────╯ Whether this token has custom transfer fees
+    uint32 minFeeUSDCents; // ────╮ Minimum fee to charge per token transfer, multiples of 0.01 USD.
+    uint32 maxFeeUSDCents; //     │ Maximum fee to charge per token transfer, multiples of 0.01 USD.
+    uint16 deciBps; //            │ Basis points charged on token transfers, multiples of 0.1bps, or 1e-5.
+    uint32 destGasOverhead; //    │ Gas charged to execute the token transfer on the destination chain.
+    //                            │ Extra data availability bytes that are returned from the source pool and sent to
+    uint32 destBytesOverhead; //  │ the destination pool. Must be >= Pool.CCIP_LOCK_OR_BURN_V1_RET_BYTES.
+    bool isEnabled; // ───────────╯ Whether this token has custom transfer fees.
   }
 
-  /// @dev Struct to hold the token transfer fee configurations for a token, same as TokenTransferFeeConfig but with the token address included so
-  /// that an array of these can be passed in the TokenTransferFeeConfigArgs struct to set the mapping
+  /// @dev Struct with token transfer fee configurations for a token, same as TokenTransferFeeConfig but with the token
+  /// address included.
   struct TokenTransferFeeConfigSingleTokenArgs {
-    address token; // Token address
-    TokenTransferFeeConfig tokenTransferFeeConfig; // Struct to hold the transfer fee configuration for token transfers
+    address token; // Token address.
+    TokenTransferFeeConfig tokenTransferFeeConfig; // Struct to hold the transfer fee configuration for token transfers.
   }
 
-  /// @dev Struct to hold the token transfer fee configurations for a destination chain and a set of tokens. Same as TokenTransferFeeConfigSingleTokenArgs
-  /// but with the destChainSelector and an array of TokenTransferFeeConfigSingleTokenArgs included so that an array of these can be passed in the constructor
-  /// and the applyTokenTransferFeeConfigUpdates function
+  /// @dev Struct with args for setting the token transfer fee configurations for a destination chain and a set of tokens.
   struct TokenTransferFeeConfigArgs {
-    uint64 destChainSelector; // Destination chain selector
-    TokenTransferFeeConfigSingleTokenArgs[] tokenTransferFeeConfigs; // Array of token transfer fee configurations
+    uint64 destChainSelector; // Destination chain selector.
+    TokenTransferFeeConfigSingleTokenArgs[] tokenTransferFeeConfigs; // Array of token transfer fee configurations.
   }
 
-  /// @dev Struct to hold a pair of destination chain selector and token address so that an array of these can be passed in the
-  /// applyTokenTransferFeeConfigUpdates function to remove the token transfer fee configuration for a token
+  /// @dev Struct with a pair of destination chain selector and token address so that an array of these can be passed in
+  /// the applyTokenTransferFeeConfigUpdates function to remove the token transfer fee configuration for a token.
   struct TokenTransferFeeConfigRemoveArgs {
-    uint64 destChainSelector; // ─╮ Destination chain selector
-    address token; // ────────────╯ Token address
+    uint64 destChainSelector; // ─╮ Destination chain selector.
+    address token; // ────────────╯ Token address.
   }
 
-  /// @dev Struct to hold the fee token configuration for a token, same as the s_premiumMultiplierWeiPerEth but with
-  /// the token address included so that an array of these can be passed in the constructor and
-  /// applyPremiumMultiplierWeiPerEthUpdates to set the mapping
+  /// @dev Struct with fee token configuration for a token.
   struct PremiumMultiplierWeiPerEthArgs {
-    address token; // // ──────────────────╮ Token address
+    address token; // // ──────────────────╮ Token address.
     uint64 premiumMultiplierWeiPerEth; // ─╯ Multiplier for destination chain specific premiums.
   }
 
-  /// @dev The base decimals for cost calculations
+  /// @dev The base decimals for cost calculations.
   uint256 public constant FEE_BASE_DECIMALS = 36;
-  /// @dev The decimals that Keystone reports prices in
+  /// @dev The decimals that Keystone reports prices in.
   uint256 public constant KEYSTONE_PRICE_DECIMALS = 18;
 
   string public constant override typeAndVersion = "FeeQuoter 1.6.0-dev";
 
-  /// @dev The gas price per unit of gas for a given destination chain, in USD with 18 decimals.
-  /// Multiple gas prices can be encoded into the same value. Each price takes {Internal.GAS_PRICE_BITS} bits.
-  /// For example, if Optimism is the destination chain, gas price can include L1 base fee and L2 gas price.
-  /// Logic to parse the price components is chain-specific, and should live in OnRamp.
+  /// @dev The gas price per unit of gas for a given destination chain, in USD with 18 decimals. Multiple gas prices can
+  /// be encoded into the same value. Each price takes {Internal.GAS_PRICE_BITS} bits. For example, if Optimism is the
+  /// destination chain, gas price can include L1 base fee and L2 gas price. Logic to parse the price components is
+  ///  chain-specific, and should live in OnRamp.
   /// @dev Price of 1e18 is 1 USD. Examples:
-  ///     Very Expensive:   1 unit of gas costs 1 USD                  -> 1e18
-  ///     Expensive:        1 unit of gas costs 0.1 USD                -> 1e17
-  ///     Cheap:            1 unit of gas costs 0.000001 USD           -> 1e12
+  ///     Very Expensive:   1 unit of gas costs 1 USD                  -> 1e18.
+  ///     Expensive:        1 unit of gas costs 0.1 USD                -> 1e17.
+  ///     Cheap:            1 unit of gas costs 0.000001 USD           -> 1e12.
   mapping(uint64 destChainSelector => Internal.TimestampedPackedUint224 price) private
     s_usdPerUnitGasByDestChainSelector;
 
   /// @dev The price, in USD with 18 decimals, per 1e18 of the smallest token denomination.
   /// @dev Price of 1e18 represents 1 USD per 1e18 token amount.
-  ///     1 USDC = 1.00 USD per full token, each full token is 1e6 units -> 1 * 1e18 * 1e18 / 1e6 = 1e30
-  ///     1 ETH = 2,000 USD per full token, each full token is 1e18 units -> 2000 * 1e18 * 1e18 / 1e18 = 2_000e18
-  ///     1 LINK = 5.00 USD per full token, each full token is 1e18 units -> 5 * 1e18 * 1e18 / 1e18 = 5e18
+  ///     1 USDC = 1.00 USD per full token, each full token is 1e6 units -> 1 * 1e18 * 1e18 / 1e6 = 1e30.
+  ///     1 ETH = 2,000 USD per full token, each full token is 1e18 units -> 2000 * 1e18 * 1e18 / 1e18 = 2_000e18.
+  ///     1 LINK = 5.00 USD per full token, each full token is 1e18 units -> 5 * 1e18 * 1e18 / 1e18 = 5e18.
   mapping(address token => Internal.TimestampedPackedUint224 price) private s_usdPerToken;
 
   /// @dev Stores the price data feed configurations per token.
   mapping(address token => TokenPriceFeedConfig dataFeedAddress) private s_usdPriceFeedsPerToken;
 
-  /// @dev The multiplier for destination chain specific premiums that can be set by the owner or fee admin
+  /// @dev The multiplier for destination chain specific premiums that can be set by the owner or fee admin.
   mapping(address token => uint64 premiumMultiplierWeiPerEth) private s_premiumMultiplierWeiPerEth;
 
-  /// @dev The destination chain specific fee configs
+  /// @dev The destination chain specific fee configs.
   mapping(uint64 destChainSelector => DestChainConfig destChainConfig) internal s_destChainConfigs;
 
-  /// @dev The token transfer fee config that can be set by the owner or fee admin
+  /// @dev The token transfer fee config that can be set by the owner or fee admin.
   mapping(uint64 destChainSelector => mapping(address token => TokenTransferFeeConfig tranferFeeConfig)) private
     s_tokenTransferFeeConfig;
 
-  /// @dev Maximum fee that can be charged for a message. This is a guard to prevent massively overcharging due to misconfiguration.
+  /// @dev Maximum fee that can be charged for a message. This is a guard to prevent massively overcharging due to
+  /// misconfiguration.
   uint96 internal immutable i_maxFeeJuelsPerMsg;
-  /// @dev The link token address
+  /// @dev The link token address.
   address internal immutable i_linkToken;
 
   /// @dev Subset of tokens which prices tracked by this registry which are fee tokens.
@@ -244,7 +241,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   ) public view override returns (Internal.TimestampedPackedUint224 memory) {
     Internal.TimestampedPackedUint224 memory tokenPrice = s_usdPerToken[token];
 
-    // If the token price is not stale, return it
+    // If the token price is not stale, return it.
     if (block.timestamp - tokenPrice.timestamp < i_tokenPriceStalenessThreshold) {
       return tokenPrice;
     }
@@ -255,7 +252,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       return tokenPrice;
     }
 
-    // If the token price feed is set, retrieve the price from the feed
+    // If the token price feed is set, retrieve the price from the feed.
     Internal.TimestampedPackedUint224 memory feedPrice = _getTokenPriceFromDataFeed(priceFeedConfig);
 
     // We check if the feed price isn't more stale than the stored price. Return the most recent one.
@@ -285,9 +282,9 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     return tokenPrices;
   }
 
-  /// @notice Returns the token price data feed configuration
-  /// @param token The token to retrieve the feed config for
-  /// @return tokenPriceFeedConfig The token price data feed config (if feed address is 0, the feed config is disabled)
+  /// @notice Returns the token price data feed configuration.
+  /// @param token The token to retrieve the feed config for.
+  /// @return tokenPriceFeedConfig The token price data feed config (if feed address is 0, the feed config is disabled).
   function getTokenPriceFeedConfig(
     address token
   ) external view returns (TokenPriceFeedConfig memory) {
@@ -296,12 +293,13 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
 
   /// @notice Get an encoded `gasPrice` for a given destination chain ID.
   /// The 224-bit result encodes necessary gas price components.
-  /// On L1 chains like Ethereum or Avax, the only component is the gas price.
-  /// On Optimistic Rollups, there are two components - the L2 gas price, and L1 base fee for data availability.
-  /// On future chains, there could be more or differing price components.
+  /// - On L1 chains like Ethereum or Avax, the only component is the gas price.
+  /// - On Optimistic Rollups, there are two components - the L2 gas price, and L1 base fee for data availability.
+  /// - On future chains, there could be more or differing price components.
   /// PriceRegistry does not contain chain-specific logic to parse destination chain price components.
   /// @param destChainSelector The destination chain to get the price for.
   /// @return gasPrice The encoded gasPrice for the given destination chain ID.
+  /// @dev Does not validate if the chain is enabled
   function getDestinationChainGasPrice(
     uint64 destChainSelector
   ) external view returns (Internal.TimestampedPackedUint224 memory) {
@@ -345,33 +343,33 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     return (fromTokenAmount * _getValidatedTokenPrice(fromToken)) / _getValidatedTokenPrice(toToken);
   }
 
-  /// @notice Gets the token price for a given token and reverts if the token is not supported
-  /// @param token The address of the token to get the price for
-  /// @return tokenPriceValue The token price
+  /// @notice Gets the token price for a given token and reverts if the token is not supported.
+  /// @param token The address of the token to get the price for.
+  /// @return tokenPriceValue The token price.
   function _getValidatedTokenPrice(
     address token
   ) internal view returns (uint224) {
     Internal.TimestampedPackedUint224 memory tokenPrice = getTokenPrice(token);
-    // Token price must be set at least once
+    // Token price must be set at least once.
     if (tokenPrice.timestamp == 0 || tokenPrice.value == 0) revert TokenNotSupported(token);
     return tokenPrice.value;
   }
 
-  /// @notice Gets the token price from a data feed address, rebased to the same units as s_usdPerToken
-  /// @param priceFeedConfig token data feed configuration with valid data feed address (used to retrieve price & timestamp)
-  /// @return tokenPrice data feed price answer rebased to s_usdPerToken units, with latest block timestamp
+  /// @notice Gets the token price from a data feed address, rebased to the same units as s_usdPerToken.
+  /// @param priceFeedConfig token data feed configuration with valid data feed address (used to retrieve price & timestamp).
+  /// @return tokenPrice data feed price answer rebased to s_usdPerToken units, with latest block timestamp.
   function _getTokenPriceFromDataFeed(
     TokenPriceFeedConfig memory priceFeedConfig
   ) internal view returns (Internal.TimestampedPackedUint224 memory tokenPrice) {
     AggregatorV3Interface dataFeedContract = AggregatorV3Interface(priceFeedConfig.dataFeedAddress);
     (
-      /* uint80 roundID */
+      // uint80 roundID
       ,
       int256 dataFeedAnswer,
-      /* uint startedAt */
+      // uint startedAt
       ,
       uint256 updatedAt,
-      /* uint80 answeredInRound */
+      // uint80 answeredInRound
     ) = dataFeedContract.latestRoundData();
 
     if (dataFeedAnswer < 0) {
@@ -380,7 +378,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     uint224 rebasedValue =
       _calculateRebasedValue(dataFeedContract.decimals(), priceFeedConfig.tokenDecimals, uint256(dataFeedAnswer));
 
-    // Data feed staleness is unchecked to decouple the FeeQuoter from data feed delay issues
+    // Data feed staleness is unchecked to decouple the FeeQuoter from data feed delay issues.
     return Internal.TimestampedPackedUint224({value: rebasedValue, timestamp: uint32(updatedAt)});
   }
 
@@ -393,9 +391,9 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     uint32 gasPriceStalenessThreshold
   ) private view returns (uint224 gasPriceValue) {
     Internal.TimestampedPackedUint224 memory gasPrice = s_usdPerUnitGasByDestChainSelector[destChainSelector];
-    // If the staleness threshold is 0, we consider the gas price to be always valid
+    // If the staleness threshold is 0, we consider the gas price to be always valid.
     if (gasPriceStalenessThreshold != 0) {
-      // We do allow a gas price of 0, but no stale or unset gas prices
+      // We do allow a gas price of 0, but no stale or unset gas prices.
       uint256 timePassed = block.timestamp - gasPrice.timestamp;
       if (timePassed > gasPriceStalenessThreshold) {
         revert StaleGasPrice(destChainSelector, gasPriceStalenessThreshold, timePassed);
@@ -416,8 +414,8 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
 
   /// @notice Add and remove tokens from feeTokens set.
   /// @param feeTokensToRemove The addresses of the tokens which are no longer considered feeTokens.
-  /// @param feeTokensToAdd The addresses of the tokens which are now considered fee tokens
-  /// and can be used to calculate fees.
+  /// @param feeTokensToAdd The addresses of the tokens which are now considered fee tokens and can be used
+  /// to calculate fees.
   function applyFeeTokensUpdates(
     address[] memory feeTokensToRemove,
     address[] memory feeTokensToAdd
@@ -427,7 +425,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
 
   /// @notice Add and remove tokens from feeTokens set.
   /// @param feeTokensToRemove The addresses of the tokens which are no longer considered feeTokens.
-  /// @param feeTokensToAdd The addresses of the tokens which are now considered fee tokens
+  /// @param feeTokensToAdd The addresses of the tokens which are now considered fee tokens.
   /// and can be used to calculate fees.
   function _applyFeeTokensUpdates(address[] memory feeTokensToRemove, address[] memory feeTokensToAdd) private {
     for (uint256 i = 0; i < feeTokensToRemove.length; ++i) {
@@ -450,7 +448,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   function updatePrices(
     Internal.PriceUpdates calldata priceUpdates
   ) external override {
-    // The caller must be a fee updater
+    // The caller must be a fee updater.
     _validateCaller();
 
     uint256 tokenUpdatesLength = priceUpdates.tokenPriceUpdates.length;
@@ -472,16 +470,16 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     }
   }
 
-  /// @notice Updates the USD token price feeds for given tokens
-  /// @param tokenPriceFeedUpdates Token price feed updates to apply
+  /// @notice Updates the USD token price feeds for given tokens.
+  /// @param tokenPriceFeedUpdates Token price feed updates to apply.
   function updateTokenPriceFeeds(
     TokenPriceFeedUpdate[] memory tokenPriceFeedUpdates
   ) external onlyOwner {
     _updateTokenPriceFeeds(tokenPriceFeedUpdates);
   }
 
-  /// @notice Updates the USD token price feeds for given tokens
-  /// @param tokenPriceFeedUpdates Token price feed updates to apply
+  /// @notice Updates the USD token price feeds for given tokens.
+  /// @param tokenPriceFeedUpdates Token price feed updates to apply.
   function _updateTokenPriceFeeds(
     TokenPriceFeedUpdate[] memory tokenPriceFeedUpdates
   ) private {
@@ -495,8 +493,8 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     }
   }
 
-  /// @notice Handles the report containing price feeds and updates the internal price storage
   /// @inheritdoc IReceiver
+  /// @notice Handles the report containing price feeds and updates the internal price storage.
   /// @dev This function is called to process incoming price feed data.
   /// @param metadata Arbitrary metadata associated with the report (not used in this implementation).
   /// @param report Encoded report containing an array of `ReceivedCCIPFeedReport` structs.
@@ -513,17 +511,17 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       if (!feedConfig.isEnabled) {
         revert TokenNotSupported(feeds[i].token);
       }
-      // Keystone reports prices in USD with 18 decimals, so we passing it as 18 in the _calculateRebasedValue function
+      // Keystone reports prices in USD with 18 decimals, so we passing it as 18 in the _calculateRebasedValue function.
       uint224 rebasedValue =
         _calculateRebasedValue(uint8(KEYSTONE_PRICE_DECIMALS), feedConfig.tokenDecimals, feeds[i].price);
 
       // If the feed timestamp is older than the current stored price, skip the update.
-      // We do not revert Keystone price feeds deliberately
+      // We do not revert Keystone price feeds deliberately.
       if (feeds[i].timestamp < s_usdPerToken[feeds[i].token].timestamp) {
         continue;
       }
 
-      // Update the token price with the new value and timestamp
+      // Update the token price with the new value and timestamp.
       s_usdPerToken[feeds[i].token] =
         Internal.TimestampedPackedUint224({value: rebasedValue, timestamp: feeds[i].timestamp});
       emit UsdPerTokenUpdated(feeds[i].token, rebasedValue, feeds[i].timestamp);
@@ -535,7 +533,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   // ================================================================
 
   /// @inheritdoc IFeeQuoter
-  /// @dev The function should always validate message.extraArgs, message.receiver and family-specific configs
+  /// @dev The function should always validate message.extraArgs, message.receiver and family-specific configs.
   function getValidatedFee(
     uint64 destChainSelector,
     Client.EVM2AnyMessage calldata message
@@ -547,7 +545,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     uint256 numberOfTokens = message.tokenAmounts.length;
     _validateMessage(destChainConfig, message.data.length, numberOfTokens, message.receiver);
 
-    // The below call asserts that feeToken is a supported token
+    // The below call asserts that feeToken is a supported token.
     uint224 feeTokenPrice = _getValidatedTokenPrice(message.feeToken);
     uint224 packedGasPrice = _getValidatedGasPrice(destChainSelector, destChainConfig.gasPriceStalenessThreshold);
 
@@ -566,8 +564,8 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       premiumFee = uint256(destChainConfig.networkFeeUSDCents) * 1e16;
     }
 
-    // Calculate data availability cost in USD with 36 decimals. Data availability cost exists on rollups that need to post
-    // transaction calldata onto another storage layer, e.g. Eth mainnet, incurring additional storage gas costs.
+    // Calculate data availability cost in USD with 36 decimals. Data availability cost exists on rollups that need to
+    // post transaction calldata onto another storage layer, e.g. Eth mainnet, incurring additional storage gas costs.
     uint256 dataAvailabilityCost = 0;
 
     // Only calculate data availability cost if data availability multiplier is non-zero.
@@ -584,9 +582,9 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     }
 
     // Calculate execution gas fee on destination chain in USD with 36 decimals.
-    // We add the message gas limit, the overhead gas, the gas of passing message data to receiver, and token transfer gas together.
-    // We then multiply this gas total with the gas multiplier and gas price, converting it into USD with 36 decimals.
-    // uint112(packedGasPrice) = executionGasPrice
+    // We add the message gas limit, the overhead gas, the gas of passing message data to receiver, and token transfer
+    // gas together. We then multiply this gas total with the gas multiplier and gas price, converting it into USD with
+    // 36 decimals. uint112(packedGasPrice) = executionGasPrice
 
     // NOTE: Fee logic is currently only supported for EVM-Chains, and the gas price is assumed to be in wei.
     // fee logic for other chains should be implemented in the future.
@@ -639,8 +637,8 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   /// For each individual transfer, this fee is between [minFeeUSD, maxFeeUSD].
   /// Total transfer fee is the sum of each individual token transfer fee.
   /// @dev Assumes that tokenAmounts are validated to be listed tokens elsewhere.
-  /// @dev Splitting one token transfer into multiple transfers is discouraged,
-  /// as it will result in a transferFee equal or greater than the same amount aggregated/de-duped.
+  /// @dev Splitting one token transfer into multiple transfers is discouraged, as it will result in a transferFee
+  /// equal or greater than the same amount aggregated/de-duped.
   /// @param destChainConfig the config configured for the destination chain selector.
   /// @param destChainSelector the destination chain selector.
   /// @param feeToken address of the feeToken.
@@ -681,8 +679,8 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
           tokenPrice = feeTokenPrice;
         }
 
-        // Calculate token transfer value, then apply fee ratio
-        // ratio represents multiples of 0.1bps, or 1e-5
+        // Calculate token transfer value, then apply fee ratio.
+        // ratio represents multiples of 0.1bps, or 1e-5.
         bpsFeeUSDWei = (tokenPrice._calcUSDValueFromTokenAmount(tokenAmount.amount) * transferFeeConfig.deciBps) / 1e5;
       }
 
@@ -709,23 +707,23 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     return (tokenTransferFeeUSDWei, tokenTransferGas, tokenTransferBytesOverhead);
   }
 
-  /// @notice calculates the rebased value for 1e18 smallest token denomination
-  /// @param dataFeedDecimal decimal of the data feed
-  /// @param tokenDecimal decimal of the token
-  /// @param feedValue value of the data feed
-  /// @return rebasedValue rebased value
+  /// @notice calculates the rebased value for 1e18 smallest token denomination.
+  /// @param dataFeedDecimal decimal of the data feed.
+  /// @param tokenDecimal decimal of the token.
+  /// @param feedValue value of the data feed.
+  /// @return rebasedValue rebased value.
   function _calculateRebasedValue(
     uint8 dataFeedDecimal,
     uint8 tokenDecimal,
     uint256 feedValue
   ) internal pure returns (uint224 rebasedValue) {
-    // Rebase formula for units in smallest token denomination: usdValue * (1e18 * 1e18) / 1eTokenDecimals
+    // Rebase formula for units in smallest token denomination: usdValue * (1e18 * 1e18) / 1eTokenDecimals.
     // feedValue * (10 ** (18 - feedDecimals)) * (10 ** (18 - erc20Decimals))
     // feedValue * (10 ** ((18 - feedDecimals) + (18 - erc20Decimals)))
     // feedValue * (10 ** (36 - feedDecimals - erc20Decimals))
     // feedValue * (10 ** (36 - (feedDecimals + erc20Decimals)))
     // feedValue * (10 ** (36 - excessDecimals))
-    // If excessDecimals > 36 => flip it to feedValue / (10 ** (excessDecimals - 36))
+    // If excessDecimals > 36 => flip it to feedValue / (10 ** (excessDecimals - 36)).
     uint8 excessDecimals = dataFeedDecimal + tokenDecimal;
     uint256 rebasedVal;
 
@@ -762,12 +760,12 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     uint256 dataAvailabilityLengthBytes = Internal.MESSAGE_FIXED_BYTES + messageDataLength
       + (numberOfTokens * Internal.MESSAGE_FIXED_BYTES_PER_TOKEN) + tokenTransferBytesOverhead;
 
-    // destDataAvailabilityOverheadGas is a separate config value for flexibility to be updated independently of message cost.
-    // Its value is determined by CCIP lane implementation, e.g. the overhead data posted for OCR.
+    // destDataAvailabilityOverheadGas is a separate config value for flexibility to be updated independently of message
+    // cost. Its value is determined by CCIP lane implementation, e.g. the overhead data posted for OCR.
     uint256 dataAvailabilityGas = (dataAvailabilityLengthBytes * destChainConfig.destGasPerDataAvailabilityByte)
       + destChainConfig.destDataAvailabilityOverheadGas;
 
-    // dataAvailabilityGasPrice is in 18 decimals, destDataAvailabilityMultiplierBps is in 4 decimals
+    // dataAvailabilityGasPrice is in 18 decimals, destDataAvailabilityMultiplierBps is in 4 decimals.
     // We pad 14 decimals to bring the result to 36 decimals, in line with token bps and execution fee.
     return ((dataAvailabilityGas * dataAvailabilityGasPrice) * destChainConfig.destDataAvailabilityMultiplierBps) * 1e14;
   }
@@ -820,7 +818,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       }
     }
 
-    // Remove the custom fee configs for the tokens that are in the tokensToUseDefaultFeeConfigs array
+    // Remove the custom fee configs for the tokens that are in the tokensToUseDefaultFeeConfigs array.
     for (uint256 i = 0; i < tokensToUseDefaultFeeConfigs.length; ++i) {
       uint64 destChainSelector = tokensToUseDefaultFeeConfigs[i].destChainSelector;
       address token = tokensToUseDefaultFeeConfigs[i].token;
@@ -856,7 +854,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
 
     if (evmExtraArgs.gasLimit > uint256(destChainConfig.maxPerMsgGasLimit)) revert MessageGasLimitTooHigh();
 
-    // If the chain enforces out of order execution, the extra args must allow it, otherwise revert
+    // If the chain enforces out of order execution, the extra args must allow it, otherwise revert.
     if (destChainConfig.enforceOutOfOrder && !evmExtraArgs.allowOutOfOrderExecution) {
       revert ExtraArgOutOfOrderExecutionMustBeTrue();
     }
@@ -867,13 +865,13 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   /// @dev Convert the extra args bytes into a struct.
   /// @param extraArgs The extra args bytes.
   /// @param defaultTxGasLimit default tx gas limit to use in the absence of extra args.
-  /// @return EVMExtraArgs the extra args struct (latest version)
+  /// @return EVMExtraArgsV2 the extra args struct populated with either the given args or default values.
   function _parseUnvalidatedEVMExtraArgsFromBytes(
     bytes calldata extraArgs,
     uint64 defaultTxGasLimit
   ) private pure returns (Client.EVMExtraArgsV2 memory) {
     if (extraArgs.length == 0) {
-      // If extra args are empty, generate default values
+      // If extra args are empty, generate default values.
       return Client.EVMExtraArgsV2({gasLimit: defaultTxGasLimit, allowOutOfOrderExecution: false});
     }
 
@@ -891,8 +889,8 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     revert InvalidExtraArgsTag();
   }
 
-  /// @notice Validate the forwarded message to ensure it matches the configuration limits (message length, number of tokens)
-  /// and family-specific expectations (address format).
+  /// @notice Validate the forwarded message to ensure it matches the configuration limits (message length, number of
+  /// tokens) and family-specific expectations (address format).
   /// @param destChainConfig The destination chain config.
   /// @param dataLength The length of the data field of the message.
   /// @param numberOfTokens The number of tokens to be sent.
@@ -903,7 +901,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     uint256 numberOfTokens,
     bytes memory receiver
   ) internal pure {
-    // Check that payload is formed correctly
+    // Check that payload is formed correctly.
     if (dataLength > uint256(destChainConfig.maxDataBytes)) {
       revert MessageTooLarge(uint256(destChainConfig.maxDataBytes), dataLength);
     }
@@ -914,7 +912,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   }
 
   /// @inheritdoc IFeeQuoter
-  /// @dev precondition - onRampTokenTransfers and sourceTokenAmounts lengths must be equal
+  /// @dev precondition - onRampTokenTransfers and sourceTokenAmounts lengths must be equal.
   function processMessageArgs(
     uint64 destChainSelector,
     address feeToken,
@@ -932,7 +930,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       bytes[] memory destExecDataPerToken
     )
   {
-    // Convert feeToken to link if not already in link
+    // Convert feeToken to link if not already in link.
     if (feeToken == i_linkToken) {
       msgFeeJuels = feeTokenAmount;
     } else {
@@ -944,8 +942,8 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     uint64 defaultTxGasLimit = s_destChainConfigs[destChainSelector].defaultTxGasLimit;
 
     // NOTE: Only EVM chains are supported for now, additional validation logic will be added when supporting other
-    // chain families to parse non-EVM args
-    // Since the message is called after getFee, which will already validate the params, no validation is necessary
+    // chain families to parse non-EVM args.
+    // Since the message is called after getFee, which will already validate the params, no validation is necessary.
     Client.EVMExtraArgsV2 memory parsedExtraArgs = _parseUnvalidatedEVMExtraArgsFromBytes(extraArgs, defaultTxGasLimit);
     isOutOfOrderExecution = parsedExtraArgs.allowOutOfOrderExecution;
     destExecDataPerToken = _processPoolReturnData(destChainSelector, onRampTokenTransfers, sourceTokenAmounts);
@@ -953,11 +951,11 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     return (msgFeeJuels, isOutOfOrderExecution, Client._argsToBytes(parsedExtraArgs), destExecDataPerToken);
   }
 
-  /// @notice Validates pool return data
-  /// @param destChainSelector Destination chain selector to which the token amounts are sent to
-  /// @param onRampTokenTransfers Token amounts with populated pool return data
-  /// @param sourceTokenAmounts Token amounts originally sent in a Client.EVM2AnyMessage message
-  /// @return destExecDataPerToken Destination chain execution data
+  /// @notice Validates pool return data.
+  /// @param destChainSelector Destination chain selector to which the token amounts are sent to.
+  /// @param onRampTokenTransfers Token amounts with populated pool return data.
+  /// @param sourceTokenAmounts Token amounts originally sent in a Client.EVM2AnyMessage message.
+  /// @return destExecDataPerToken Destination chain execution data.
   function _processPoolReturnData(
     uint64 destChainSelector,
     Internal.EVM2AnyTokenTransfer[] calldata onRampTokenTransfers,
@@ -969,7 +967,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       address sourceToken = sourceTokenAmounts[i].token;
 
       // Since the DON has to pay for the extraData to be included on the destination chain, we cap the length of the
-      // extraData. This prevents gas bomb attacks on the NOPs. As destBytesOverhead accounts for both
+      // extraData. This prevents gas bomb attacks on the NOPs. As destBytesOverhead accounts for both.
       // extraData and offchainData, this caps the worst case abuse to the number of bytes reserved for offchainData.
       uint256 destPoolDataLength = onRampTokenTransfers[i].extraData.length;
       if (destPoolDataLength > Pool.CCIP_LOCK_OR_BURN_V1_RET_BYTES) {
@@ -1025,8 +1023,9 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       uint64 destChainSelector = destChainConfigArgs[i].destChainSelector;
       DestChainConfig memory destChainConfig = destChainConfigArg.destChainConfig;
 
-      // destChainSelector must be non-zero, defaultTxGasLimit must be set, and must be less than maxPerMsgGasLimit
-      // Only EVM chains are supported for now, additional validation logic will be added when supporting other chain families
+      // destChainSelector must be non-zero, defaultTxGasLimit must be set, and must be less than maxPerMsgGasLimit.
+      // Only EVM chains are supported for now, additional validation logic will be added when supporting other chain
+      // families
       if (
         destChainSelector == 0 || destChainConfig.defaultTxGasLimit == 0
           || destChainConfig.chainFamilySelector != Internal.CHAIN_FAMILY_SELECTOR_EVM
@@ -1036,7 +1035,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       }
 
       // If the chain family selector is zero, it indicates that the chain was never configured and we
-      // are adding a new chain
+      // are adding a new chain.
       if (s_destChainConfigs[destChainSelector].chainFamilySelector == 0) {
         emit DestChainAdded(destChainSelector, destChainConfig);
       } else {

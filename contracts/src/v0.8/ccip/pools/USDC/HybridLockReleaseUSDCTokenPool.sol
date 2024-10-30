@@ -81,7 +81,7 @@ contract HybridLockReleaseUSDCTokenPool is USDCTokenPool, USDCBridgeMigrator {
   ) public virtual override returns (Pool.ReleaseOrMintOutV1 memory) {
     // Use CCTP Burn/Mint mechanism for chains which have it enabled. The LOCK_RELEASE_FLAG is used in sourcePoolData to
     // discern this, since the source-chain will not be a hybrid-pool but a standard burn-mint. In the event of a
-    // stuck message after a migration has occured, and the message was not executed properly before the migration
+    // stuck message after a migration has occurred, and the message was not executed properly before the migration
     // began, and locked tokens were not released until now, the message will already have been committed to with this
     // flag so it is safe to release the tokens. The source USDC pool is trusted to send messages with the correct
     // flag as well.

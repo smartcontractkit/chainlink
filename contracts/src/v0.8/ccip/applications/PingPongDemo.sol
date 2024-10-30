@@ -10,24 +10,24 @@ import {CCIPReceiver} from "./CCIPReceiver.sol";
 
 import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
-/// @title PingPongDemo - A simple ping-pong contract for demonstrating cross-chain communication
+/// @title PingPongDemo - A simple ping-pong contract for demonstrating cross-chain communication.
 contract PingPongDemo is CCIPReceiver, Ownable2StepMsgSender, ITypeAndVersion {
   event Ping(uint256 pingPongCount);
   event Pong(uint256 pingPongCount);
   event OutOfOrderExecutionChange(bool isOutOfOrder);
 
-  // Default gas limit used for EVMExtraArgsV2 construction
+  // Default gas limit used for EVMExtraArgsV2 construction.
   uint64 private constant DEFAULT_GAS_LIMIT = 200_000;
 
-  // The chain ID of the counterpart ping pong contract
+  // The chain ID of the counterpart ping pong contract.
   uint64 internal s_counterpartChainSelector;
-  // The contract address of the counterpart ping pong contract
+  // The contract address of the counterpart ping pong contract.
   address internal s_counterpartAddress;
-  // Pause ping-ponging
+  // Pause ping-ponging.
   bool private s_isPaused;
-  // The fee token used to pay for CCIP transactions
+  // The fee token used to pay for CCIP transactions.
   IERC20 internal s_feeToken;
-  // Allowing out of order execution
+  // Allowing out of order execution.
   bool private s_outOfOrderExecution;
 
   constructor(address router, IERC20 feeToken) CCIPReceiver(router) {
@@ -78,10 +78,6 @@ contract PingPongDemo is CCIPReceiver, Ownable2StepMsgSender, ITypeAndVersion {
       _respond(pingPongCount + 1);
     }
   }
-
-  /////////////////////////////////////////////////////////////////////
-  // Plumbing
-  /////////////////////////////////////////////////////////////////////
 
   function getCounterpartChainSelector() external view returns (uint64) {
     return s_counterpartChainSelector;

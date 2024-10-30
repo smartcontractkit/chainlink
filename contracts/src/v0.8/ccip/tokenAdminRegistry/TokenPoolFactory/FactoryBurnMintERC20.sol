@@ -79,7 +79,7 @@ contract FactoryBurnMintERC20 is IBurnMintERC20, IGetCCIPAdmin, IERC165, ERC20Bu
   }
 
   // ================================================================
-  // |                            ERC20                             |
+  // │                            ERC20                             │
   // ================================================================
 
   /// @dev Returns the number of decimals used in its user representation.
@@ -120,7 +120,7 @@ contract FactoryBurnMintERC20 is IBurnMintERC20, IGetCCIPAdmin, IERC165, ERC20Bu
   }
 
   // ================================================================
-  // |                      Burning & minting                       |
+  // │                      Burning & minting                       │
   // ================================================================
 
   /// @inheritdoc ERC20Burnable
@@ -157,7 +157,7 @@ contract FactoryBurnMintERC20 is IBurnMintERC20, IGetCCIPAdmin, IERC165, ERC20Bu
   }
 
   // ================================================================
-  // |                            Roles                             |
+  // │                            Roles                             │
   // ================================================================
 
   /// @notice grants both mint and burn roles to `burnAndMinter`.
@@ -243,7 +243,7 @@ contract FactoryBurnMintERC20 is IBurnMintERC20, IGetCCIPAdmin, IERC165, ERC20Bu
   }
 
   // ================================================================
-  // |                            Access                            |
+  // │                            Access                            │
   // ================================================================
 
   /// @notice Checks whether a given address is a minter for this token.
