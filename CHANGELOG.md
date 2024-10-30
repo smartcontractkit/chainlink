@@ -50,6 +50,7 @@
   Reduced Generics: Significantly less bulky code!
 
   #updated #changed #internal
+
 - [#14629](https://github.com/smartcontractkit/chainlink/pull/14629) [`4928e60ddf`](https://github.com/smartcontractkit/chainlink/commit/4928e60ddfe375e4a0c644cb210802b4c4db5dbd) Thanks [@huangzhen1997](https://github.com/huangzhen1997)! - Support Zircuit fraud transactions detection and zk overflow detection #added
 - [#14334](https://github.com/smartcontractkit/chainlink/pull/14334) [`0ad624673f`](https://github.com/smartcontractkit/chainlink/commit/0ad624673f6f1a8e155fc43c67a8ae6caddefa90) Thanks [@krehermann](https://github.com/krehermann)! - #added keystone contract deployment
 - [#14709](https://github.com/smartcontractkit/chainlink/pull/14709) [`1560aa9167`](https://github.com/smartcontractkit/chainlink/commit/1560aa9167a812abe3a8370c033b3290dcbcb261) Thanks [@KuphJr](https://github.com/KuphJr)! - Add encryptionPublicKey to CapabilitiesRegistry.sol
@@ -108,6 +109,7 @@
 - [#14668](https://github.com/smartcontractkit/chainlink/pull/14668) [`dacb6a8c70`](https://github.com/smartcontractkit/chainlink/commit/dacb6a8c708e8d7cb94aa63ae7463f58a38d0e59) Thanks [@winder](https://github.com/winder)! - #internal ccip contract reader config.
 - [#14814](https://github.com/smartcontractkit/chainlink/pull/14814) [`f708ebb094`](https://github.com/smartcontractkit/chainlink/commit/f708ebb094ecd6f4f77e9c480ceacd250fc1fadc) Thanks [@DylanTinianov](https://github.com/DylanTinianov)! - Fix testWSServer issue causing panic in testing #internal
 - [#14635](https://github.com/smartcontractkit/chainlink/pull/14635) [`ee1d6e3b1a`](https://github.com/smartcontractkit/chainlink/commit/ee1d6e3b1a60dc657a5cab869aac0897e33dc76d) Thanks [@dhaidashenko](https://github.com/dhaidashenko)! - Hedera chain type: broadcast transactions only to a single healthy RPC instead of all healthy RPCs to avoid redundant relay fees. #changed
+- [#15031](https://github.com/smartcontractkit/chainlink/pull/15031) [`6951f9e74a`](https://github.com/smartcontractkit/chainlink/commit/6951f9e74ae016fab1548b682d4fd8ed5b818d3c) Thanks [@ogtownsend](https://github.com/ogtownsend)! - #bugfix Update DA oracle config struct members to pointers
 
 ## 2.17.0 - 2024-10-10
 
