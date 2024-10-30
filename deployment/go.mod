@@ -12,7 +12,7 @@ require (
 	github.com/avast/retry-go/v4 v4.6.0
 	github.com/aws/aws-sdk-go v1.54.19
 	github.com/deckarep/golang-set/v2 v2.6.0
-	github.com/ethereum/go-ethereum v1.14.7
+	github.com/ethereum/go-ethereum v1.14.11
 	github.com/go-resty/resty/v2 v2.15.3
 	github.com/google/uuid v1.6.0
 	github.com/hashicorp/consul/sdk v0.16.1
@@ -40,8 +40,6 @@ require (
 	gopkg.in/guregu/null.v4 v4.0.0
 	gotest.tools/v3 v3.5.1
 )
-
-require github.com/fjl/memsize v0.0.2 // indirect
 
 require (
 	contrib.go.opencensus.io/exporter/stackdriver v0.13.5 // indirect
@@ -108,7 +106,7 @@ require (
 	github.com/bits-and-blooms/bitset v1.13.0 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/blendle/zapdriver v1.3.1 // indirect
-	github.com/btcsuite/btcd/btcec/v2 v2.3.2 // indirect
+	github.com/btcsuite/btcd/btcec/v2 v2.3.4 // indirect
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.0.3 // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
 	github.com/bytecodealliance/wasmtime-go/v23 v23.0.0 // indirect

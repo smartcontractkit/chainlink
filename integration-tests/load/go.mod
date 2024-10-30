@@ -11,7 +11,7 @@ replace github.com/smartcontractkit/chainlink/integration-tests => ../
 
 require (
 	github.com/K-Phoen/grabana v0.22.2
-	github.com/ethereum/go-ethereum v1.14.7
+	github.com/ethereum/go-ethereum v1.14.11
 	github.com/go-resty/resty/v2 v2.15.3
 	github.com/pelletier/go-toml/v2 v2.2.3
 	github.com/pkg/errors v0.9.1
@@ -58,7 +58,6 @@ require (
 	github.com/cloudwego/base64x v0.1.4 // indirect
 	github.com/cloudwego/iasm v0.2.0 // indirect
 	github.com/coder/websocket v1.8.12 // indirect
-	github.com/fjl/memsize v0.0.2 // indirect
 	github.com/go-viper/mapstructure/v2 v2.1.0 // indirect
 	github.com/golang-jwt/jwt/v4 v4.5.0 // indirect
 	github.com/google/gnostic-models v0.6.9-0.20230804172637-c7be7c783f49 // indirect
@@ -133,7 +132,7 @@ require (
 	github.com/bgentry/speakeasy v0.1.1-0.20220910012023-760eaf8b6816 // indirect
 	github.com/bits-and-blooms/bitset v1.13.0 // indirect
 	github.com/blendle/zapdriver v1.3.1 // indirect
-	github.com/btcsuite/btcd/btcec/v2 v2.3.2 // indirect
+	github.com/btcsuite/btcd/btcec/v2 v2.3.4 // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
 	github.com/bytecodealliance/wasmtime-go/v23 v23.0.0 // indirect
 	github.com/bytedance/sonic v1.11.6 // indirect

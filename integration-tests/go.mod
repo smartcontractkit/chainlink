@@ -15,7 +15,7 @@ require (
 	github.com/barkimedes/go-deepcopy v0.0.0-20220514131651-17c30cfc62df
 	github.com/chaos-mesh/chaos-mesh/api v0.0.0-20240821051457-da69c6d9617a
 	github.com/cli/go-gh/v2 v2.0.0
-	github.com/ethereum/go-ethereum v1.14.7
+	github.com/ethereum/go-ethereum v1.14.11
 	github.com/fxamacker/cbor/v2 v2.7.0
 	github.com/go-resty/resty/v2 v2.15.3
 	github.com/google/go-cmp v0.6.0
@@ -126,7 +126,7 @@ require (
 	github.com/bits-and-blooms/bitset v1.13.0 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/blendle/zapdriver v1.3.1 // indirect
-	github.com/btcsuite/btcd/btcec/v2 v2.3.2 // indirect
+	github.com/btcsuite/btcd/btcec/v2 v2.3.4 // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
 	github.com/bytecodealliance/wasmtime-go/v23 v23.0.0 // indirect
 	github.com/bytedance/sonic v1.11.6 // indirect
@@ -202,7 +202,6 @@ require (
 	github.com/fatih/camelcase v1.0.0 // indirect
 	github.com/fatih/color v1.17.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
-	github.com/fjl/memsize v0.0.2 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.3 // indirect
 	github.com/gagliardetto/binary v0.7.7 // indirect

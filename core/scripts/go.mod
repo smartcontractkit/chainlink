@@ -10,7 +10,7 @@ replace github.com/smartcontractkit/chainlink/deployment => ../../deployment
 require (
 	github.com/docker/docker v27.3.1+incompatible
 	github.com/docker/go-connections v0.5.0
-	github.com/ethereum/go-ethereum v1.14.7
+	github.com/ethereum/go-ethereum v1.14.11
 	github.com/gkampitakis/go-snaps v0.5.4
 	github.com/google/go-cmp v0.6.0
 	github.com/google/uuid v1.6.0
@@ -39,8 +39,6 @@ require (
 	k8s.io/apimachinery v0.31.1
 	k8s.io/client-go v0.31.1
 )
-
-require github.com/fjl/memsize v0.0.2 // indirect
 
 require (
 	contrib.go.opencensus.io/exporter/stackdriver v0.13.5 // indirect
@@ -75,7 +73,7 @@ require (
 	github.com/bgentry/speakeasy v0.1.1-0.20220910012023-760eaf8b6816 // indirect
 	github.com/bits-and-blooms/bitset v1.13.0 // indirect
 	github.com/blendle/zapdriver v1.3.1 // indirect
-	github.com/btcsuite/btcd/btcec/v2 v2.3.2 // indirect
+	github.com/btcsuite/btcd/btcec/v2 v2.3.4 // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
 	github.com/bytecodealliance/wasmtime-go/v23 v23.0.0 // indirect
 	github.com/bytedance/sonic v1.11.6 // indirect
