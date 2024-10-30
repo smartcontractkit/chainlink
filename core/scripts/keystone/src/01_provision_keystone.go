@@ -34,7 +34,6 @@ func (g *provisionKeystone) Run(args []string) {
 	// provisioning flags
 	ethUrl := fs.String("ethurl", "", "URL of the Ethereum node")
 	accountKey := fs.String("accountkey", "", "private key of the account to deploy from")
-	replaceResources := fs.Bool("replaceresources", false, "replace jobs if they already exist")
 	ocrConfigFile := fs.String("ocrfile", "ocr_config.json", "path to OCR config file")
 	p2pPort := fs.Int64("p2pport", 6690, "p2p port")
 	capabilitiesP2PPort := fs.Int64("capabilitiesp2pport", 6691, "p2p port for capabilities")
@@ -90,7 +89,6 @@ func (g *provisionKeystone) Run(args []string) {
 		*chainID,
 		*p2pPort,
 		*ocrConfigFile,
-		*replaceResources,
 	)
 
 	reg := provisionCapabillitiesRegistry(
@@ -107,7 +105,6 @@ func (g *provisionKeystone) Run(args []string) {
 		*p2pPort,
 		*ocrConfigFile,
 		*artefactsDir,
-		*replaceResources,
 		reg,
 	)
 
@@ -127,7 +124,6 @@ func provisionStreamsDON(
 	chainID int64,
 	p2pPort int64,
 	ocrConfigFilePath string,
-	replaceResources bool,
 ) {
 	setupStreamsTrigger(
 		env,
@@ -135,7 +131,6 @@ func provisionStreamsDON(
 		chainID,
 		p2pPort,
 		ocrConfigFilePath,
-		replaceResources,
 	)
 }
 
@@ -146,7 +141,6 @@ func provisionWorkflowDON(
 	p2pPort int64,
 	ocrConfigFile string,
 	artefactsDir string,
-	replaceJob bool,
 	reg kcr.CapabilitiesRegistryInterface,
 ) (onchainMeta *onchainMeta) {
 	deployForwarder(env, artefactsDir)
@@ -164,7 +158,7 @@ func provisionWorkflowDON(
 	// We don't technically need the capability registry as a dependency
 	// as we just use it for a sanity check
 	// We could remove it so that we can execute provisioning in parallel
-	deployKeystoneWorkflowsTo(nodeSet, reg, chainID, replaceJob)
+	deployKeystoneWorkflowsTo(nodeSet, reg, chainID)
 
 	return onchainMeta
 }

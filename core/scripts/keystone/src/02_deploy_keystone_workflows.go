@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
-	"text/template"
 	"os"
+	"text/template"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"	
+	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 )
 
 type deployKeystoneWorkflows struct{}
@@ -27,7 +27,6 @@ func (g *deployKeystoneWorkflows) Run(args []string) {
 	chainID := fs.Int64("chainid", 1337, "chain id")
 	nodeSetsPath := fs.String("nodesets", defaultNodeSetsPath, "Custom node sets location")
 	nodeSetSize := fs.Int("nodesetsize", 5, "number of nodes in a nodeset")
-	replaceJob := fs.Bool("replacejob", false, "replace jobs if they already exist")
 
 	ethUrl := fs.String("ethurl", "", "URL of the Ethereum node")
 	accountKey := fs.String("accountkey", "", "private key of the account to deploy from")
@@ -47,10 +46,10 @@ func (g *deployKeystoneWorkflows) Run(args []string) {
 	env := helpers.SetupEnv(false)
 
 	o := LoadOnchainMeta(*artefactsDir, env)
-	deployKeystoneWorkflowsTo(workflowNodeSet, o.CapabilitiesRegistry, *chainID, *replaceJob)
+	deployKeystoneWorkflowsTo(workflowNodeSet, o.CapabilitiesRegistry, *chainID)
 }
 
-func deployKeystoneWorkflowsTo(nodeSet NodeSet, reg kcr.CapabilitiesRegistryInterface, chainID int64, replaceJob bool) {
+func deployKeystoneWorkflowsTo(nodeSet NodeSet, reg kcr.CapabilitiesRegistryInterface, chainID int64) {
 	fmt.Println("Deploying Keystone workflow jobs")
 	caps, err := reg.GetCapabilities(&bind.CallOpts{})
 	PanicErr(err)
@@ -93,7 +92,7 @@ func deployKeystoneWorkflowsTo(nodeSet NodeSet, reg kcr.CapabilitiesRegistryInte
 	jobSpecStr := createKeystoneWorkflowJob(workflowConfig)
 	for _, n := range nodeSet.Nodes[1:] { // skip the bootstrap node
 		api := newNodeAPI(n)
-		maybeUpsertJob(api, workflowConfig.JobSpecName, jobSpecStr, replaceJob)
+		upsertJob(api, workflowConfig.JobSpecName, jobSpecStr)
 	}
 }
 

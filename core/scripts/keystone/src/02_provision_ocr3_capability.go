@@ -73,8 +73,8 @@ func provisionOCR3(
 	p2pPort int64,
 	ocrConfigFile string,
 	artefactsDir string,
-) (onchainMeta *onchainMeta, shouldRedeployJobspecs bool) {
-	onchainMeta, shouldRedeployJobspecs = deployOCR3Contract(
+) (onchainMeta *onchainMeta, cacheHit bool) {
+	onchainMeta, cacheHit = deployOCR3Contract(
 		nodeSet,
 		env,
 		ocrConfigFile,
@@ -87,7 +87,6 @@ func provisionOCR3(
 		p2pPort,
 		artefactsDir,
 		onchainMeta,
-		shouldRedeployJobspecs,
 	)
 
 	return
@@ -98,7 +97,7 @@ func deployOCR3Contract(
 	env helpers.Environment,
 	configFile string,
 	artefacts string,
-) (o *onchainMeta, shouldRedeployJobspecs bool) {
+) (o *onchainMeta, cacheHit bool) {
 	o = LoadOnchainMeta(artefacts, env)
 	ocrConf := generateOCR3Config(
 		nodeSet,
@@ -170,7 +169,6 @@ func deployOCR3JobSpecsTo(
 	p2pPort int64,
 	artefactsDir string,
 	onchainMeta *onchainMeta,
-	replaceJob bool,
 ) {
 	ocrAddress := onchainMeta.OCRContract.Address().Hex()
 	nodeKeys := nodeSet.NodeKeys
@@ -203,7 +201,7 @@ func deployOCR3JobSpecsTo(
 		}
 
 		api := newNodeAPI(n)
-		maybeUpsertJob(api, specName, spec, replaceJob)
+		upsertJob(api, specName, spec)
 
 		fmt.Printf("Replaying from block: %d\n", onchainMeta.SetConfigTxBlock)
 		fmt.Printf("EVM Chain ID: %d\n\n", chainID)

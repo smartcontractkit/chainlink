@@ -67,7 +67,6 @@ func (g *provisionStreamsTrigger) Run(args []string) {
 	p2pPort := fs.Int64("p2pport", 6690, "p2p port")
 	ocrConfigFile := fs.String("ocrfile", "ocr_config.json", "path to OCR config file")
 	nodeSetsPath := fs.String("nodesets", "", "Custom node sets location")
-	replaceResources := fs.Bool("replaceresources", false, "Replace bridges and jobs if they already exist")
 	nodeSetSize := fs.Int("nodesetsize", 5, "number of nodes in a nodeset")
 
 	ethUrl := fs.String("ethurl", "", "URL of the Ethereum node")
@@ -101,7 +100,6 @@ func (g *provisionStreamsTrigger) Run(args []string) {
 		*chainID,
 		*p2pPort,
 		*ocrConfigFile,
-		*replaceResources,
 	)
 }
 
@@ -147,11 +145,9 @@ func setupStreamsTrigger(
 	chainId int64,
 	p2pPort int64,
 	ocrConfigFilePath string,
-	replaceResources bool,
 ) {
 	fmt.Printf("Deploying streams trigger for chain %d\n", chainId)
 	fmt.Printf("Using OCR config file: %s\n", ocrConfigFilePath)
-	fmt.Printf("ReplaceResources: %t\n\n", replaceResources)
 
 	fmt.Printf("Deploying Mercury V0.3 contracts\n")
 	_, _, _, verifier := deployMercuryV03Contracts(env)
@@ -186,7 +182,7 @@ func setupStreamsTrigger(
 		PanicErr(err)
 
 		fmt.Printf("Deploying OCR2 job specs for feed %s\n", feed.name)
-		deployOCR2JobSpecsForFeed(nodeSet, verifier, feed, chainId, p2pPort, replaceResources)
+		deployOCR2JobSpecsForFeed(nodeSet, verifier, feed, chainId, p2pPort)
 	}
 
 	fmt.Println("Finished deploying streams trigger")
@@ -229,7 +225,7 @@ func deployMercuryV03Contracts(env helpers.Environment) (linkToken *link_token_i
 	return
 }
 
-func deployOCR2JobSpecsForFeed(nodeSet NodeSet, verifier *verifierContract.Verifier, feed feed, chainId int64, p2pPort int64, replaceJob bool) {
+func deployOCR2JobSpecsForFeed(nodeSet NodeSet, verifier *verifierContract.Verifier, feed feed, chainId int64, p2pPort int64) {
 	// we assign the first node as the bootstrap node
 	for i, n := range nodeSet.NodeKeys {
 		// parallel arrays
@@ -237,7 +233,7 @@ func deployOCR2JobSpecsForFeed(nodeSet NodeSet, verifier *verifierContract.Verif
 		jobSpecName := ""
 		jobSpecStr := ""
 
-		createBridgeIfDoesNotExist(api, feed.bridgeName, feed.bridgeUrl, replaceJob)
+		createBridgeIfDoesNotExist(api, feed.bridgeName, feed.bridgeUrl)
 
 		if i == 0 {
 			// Prepare data for Bootstrap Job
@@ -269,7 +265,7 @@ func deployOCR2JobSpecsForFeed(nodeSet NodeSet, verifier *verifierContract.Verif
 			jobSpecName, jobSpecStr = createMercuryV3OracleJob(mercuryData)
 		}
 
-		maybeUpsertJob(api, jobSpecName, jobSpecStr, replaceJob)
+		upsertJob(api, jobSpecName, jobSpecStr)
 	}
 }
 
@@ -397,7 +393,7 @@ func strToBytes32(str string) [32]byte {
 	return pkBytesFixed
 }
 
-func createBridgeIfDoesNotExist(api *nodeAPI, name string, eaURL string, replaceBridge bool) {
+func createBridgeIfDoesNotExist(api *nodeAPI, name string, eaURL string) {
 	u, err := url.Parse(eaURL)
 	url := models.WebURL(*u)
 	// Confirmations and MinimumContractPayment are not used, so we can leave them as 0
@@ -409,33 +405,41 @@ func createBridgeIfDoesNotExist(api *nodeAPI, name string, eaURL string, replace
 	helpers.PanicErr(err)
 	payload := string(payloadb)
 
-	fmt.Printf("Creating bridge (%s): %s\n", name, eaURL)
-	if doesBridgeExist(api, name) {
-		if replaceBridge {
-			fmt.Println("Updating existing bridge")
-			api.withArgs(name, payload).mustExec(api.methods.UpdateBridge)
-			fmt.Println("Updated bridge", name)
-		} else {
-			fmt.Println("Bridge", name, "already exists, skipping creation")
-			return
-		}
-	} else {
+	bridgeActionType := bridgeAction(api, b)
+	switch bridgeActionType {
+	case shouldCreateBridge:
+		fmt.Printf("Creating bridge (%s): %s\n", name, eaURL)
 		resp := api.withArg(payload).mustExec(api.methods.CreateBridge)
 		resource := mustJSON[presenters.BridgeResource](resp)
 		fmt.Printf("Created bridge: %s %s\n", resource.Name, resource.URL)
+	case shouldUpdateBridge:
+		fmt.Println("Updating existing bridge")
+		api.withArgs(name, payload).mustExec(api.methods.UpdateBridge)
+		fmt.Println("Updated bridge", name)
+	case shouldNoChangeBridge:
+		fmt.Println("No changes needed for bridge", name)
 	}
 }
 
-func doesBridgeExist(api *nodeAPI, name string) bool {
-	resp, err := api.withArg(name).exec(api.methods.ShowBridge)
+// create enum for 3 states: create, update, no change
+var (
+	shouldCreateBridge   = 0
+	shouldUpdateBridge   = 1
+	shouldNoChangeBridge = 2
+)
 
+func bridgeAction(api *nodeAPI, existingBridge bridges.BridgeTypeRequest) int {
+	resp, err := api.withArg(existingBridge.Name.String()).exec(api.methods.ShowBridge)
 	if err != nil {
-		return false
+		return shouldCreateBridge
 	}
 
 	b := mustJSON[presenters.BridgeResource](resp)
-	fmt.Printf("Found bridge: %s with URL: %s\n", b.Name, b.URL)
-	return true
+	fmt.Printf("Found matching bridge: %s with URL: %s\n", b.Name, b.URL)
+	if b.URL == existingBridge.URL.String() {
+		return shouldNoChangeBridge
+	}
+	return shouldUpdateBridge
 }
 
 func generateMercuryOCR2Config(nca []NodeKeys) MercuryOCR2Config {

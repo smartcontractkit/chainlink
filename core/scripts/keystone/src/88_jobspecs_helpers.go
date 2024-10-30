@@ -24,16 +24,11 @@ type JobSpec struct {
 	WorkflowSpec                 WorkflowSpec
 }
 
-func maybeUpsertJob(api *nodeAPI, jobSpecName string, jobSpecStr string, upsert bool) {
+func upsertJob(api *nodeAPI, jobSpecName string, jobSpecStr string) {
 	jobsResp := api.mustExec(api.methods.ListJobs)
 	jobs := mustJSON[[]JobSpec](jobsResp)
 	for _, job := range *jobs {
 		if job.Name == jobSpecName {
-			if !upsert {
-				fmt.Printf("Job already exists: %s, skipping..\n", jobSpecName)
-				return
-			}
-
 			fmt.Printf("Job already exists: %s, replacing..\n", jobSpecName)
 			api.withArg(job.Id).mustExec(api.methods.DeleteJob)
 			fmt.Printf("Deleted job: %s\n", jobSpecName)
