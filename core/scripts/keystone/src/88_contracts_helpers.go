@@ -105,67 +105,64 @@ func LoadOnchainMeta(artefactsDir string, env helpers.Environment) *onchainMeta 
 	hydrated.SetConfigTxBlock = s.SetConfigTxBlock
 	if s.OCR != ZeroAddress {
 		if !contractExists(s.OCR, env) {
-			fmt.Printf("OCR contract at %s does not exist, setting to zero address\n", s.OCR.Hex())
-			s.OCR = ZeroAddress
+			fmt.Printf("OCR contract at %s does not exist\n", s.OCR.Hex())
+		} else {
+			ocr3, err := ocr3_capability.NewOCR3Capability(s.OCR, env.Ec)
+			PanicErr(err)
+			hydrated.OCR3 = ocr3
 		}
-
-		ocr3, err := ocr3_capability.NewOCR3Capability(s.OCR, env.Ec)
-		PanicErr(err)
-		hydrated.OCR3 = ocr3
 	}
 
 	if s.Forwarder != ZeroAddress {
 		if !contractExists(s.Forwarder, env) {
-			fmt.Printf("Forwarder contract at %s does not exist, setting to zero address\n", s.Forwarder.Hex())
-			s.Forwarder = ZeroAddress
+			fmt.Printf("Forwarder contract at %s does not exist\n", s.Forwarder.Hex())
+		} else {
+			fwdr, err := forwarder.NewKeystoneForwarder(s.Forwarder, env.Ec)
+			PanicErr(err)
+			hydrated.Forwarder = fwdr
 		}
-
-		fwdr, err := forwarder.NewKeystoneForwarder(s.Forwarder, env.Ec)
-		PanicErr(err)
-		hydrated.Forwarder = fwdr
 	}
 
 	if s.CapabilitiesRegistry != ZeroAddress {
 		if !contractExists(s.CapabilitiesRegistry, env) {
-			fmt.Printf("CapabilityRegistry contract at %s does not exist, setting to zero address\n", s.CapabilitiesRegistry.Hex())
-			s.CapabilitiesRegistry = ZeroAddress
+			fmt.Printf("CapabilityRegistry contract at %s does not exist\n", s.CapabilitiesRegistry.Hex())
+		} else {
+			cr, err := capabilities_registry.NewCapabilitiesRegistry(s.CapabilitiesRegistry, env.Ec)
+			PanicErr(err)
+			hydrated.CapabilitiesRegistry = cr
 		}
-
-		cr, err := capabilities_registry.NewCapabilitiesRegistry(s.CapabilitiesRegistry, env.Ec)
-		PanicErr(err)
-		hydrated.CapabilitiesRegistry = cr
 	}
+
+	hydrated.InitializedVerifierAddress = s.InitializedVerifierAddress
 
 	if s.Verifier != ZeroAddress {
 		if !contractExists(s.Verifier, env) {
-			fmt.Printf("Verifier contract at %s does not exist, setting to zero address\n", s.Verifier.Hex())
-			s.Verifier = ZeroAddress
+			fmt.Printf("Verifier contract at %s does not exist\n", s.Verifier.Hex())
+			hydrated.InitializedVerifierAddress = ZeroAddress
+		} else {
+			verifier, err := verifierContract.NewVerifier(s.Verifier, env.Ec)
+			PanicErr(err)
+			hydrated.Verifier = verifier
 		}
-
-		verifier, err := verifierContract.NewVerifier(s.Verifier, env.Ec)
-		PanicErr(err)
-		hydrated.Verifier = verifier
 	}
 
 	if s.VerifierProxy != ZeroAddress {
 		if !contractExists(s.VerifierProxy, env) {
-			fmt.Printf("VerifierProxy contract at %s does not exist, setting to zero address\n", s.VerifierProxy.Hex())
-			s.VerifierProxy = ZeroAddress
+			fmt.Printf("VerifierProxy contract at %s does not exist\n", s.VerifierProxy.Hex())
+			hydrated.InitializedVerifierAddress = ZeroAddress
+		} else {
+			verifierProxy, err := verifier_proxy.NewVerifierProxy(s.VerifierProxy, env.Ec)
+			PanicErr(err)
+			hydrated.VerifierProxy = verifierProxy
 		}
-
-		verifierProxy, err := verifier_proxy.NewVerifierProxy(s.VerifierProxy, env.Ec)
-		PanicErr(err)
-		hydrated.VerifierProxy = verifierProxy
 	}
-
-	hydrated.InitializedVerifierAddress = s.InitializedVerifierAddress
 
 	blkNum, err := env.Ec.BlockNumber(context.Background())
 	PanicErr(err)
 
 	if s.SetConfigTxBlock > blkNum {
 		fmt.Printf("Stale SetConfigTxBlock: %d, current block number: %d\n", s.SetConfigTxBlock, blkNum)
-		return hydrated
+		hydrated.SetConfigTxBlock = 0
 	}
 
 	return hydrated

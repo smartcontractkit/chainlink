@@ -61,25 +61,23 @@ func (g *provisionKeystone) Run(args []string) {
 		return
 	}
 
+	// We always want to start with a clean slate
+	/// when it comes to nodesets
+	err = os.RemoveAll(*nodeSetsPath)
+	PanicErr(err)
 	nodeSets := downloadNodeSets(*chainID, *nodeSetsPath, *nodeSetSize)
+
 	if *clean {
 		fmt.Println("Cleaning up resources")
-		// clean nodesets path
-		err = os.RemoveAll(*nodeSetsPath)
-		PanicErr(err)
-
 		for _, node := range nodeSets.Workflow.Nodes {
 			clearJobs(newNodeAPI(node))
 		}
-
 		for _, node := range nodeSets.StreamsTrigger.Nodes {
 			clearJobs(newNodeAPI(node))
 		}
-
 		os.RemoveAll(*artefactsDir)
 	}
 
-	nodeSets = downloadNodeSets(*chainID, *nodeSetsPath, *nodeSetSize)
 	// Kinda hacky but it prevents us from refactoring the setupenv function which
 	// is used in many other places
 	os.Setenv("ETH_URL", *ethUrl)
