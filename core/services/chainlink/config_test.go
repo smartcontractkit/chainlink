@@ -1526,7 +1526,7 @@ func TestConfig_Validate(t *testing.T) {
 		- 0.Nodes.1.Name: invalid value (primary): duplicate - must be unique
 		- 0: 2 errors:
 			- Enabled: invalid value (1): expected bool
-			- ChainID: invalid value (): expected string`},
+			- ChainID: missing: required for all chains`},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			var c Config

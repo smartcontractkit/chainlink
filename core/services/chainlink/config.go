@@ -111,17 +111,44 @@ func (c RawConfig) ValidateConfig() (err error) {
 			err = multierr.Append(err, commonconfig.ErrInvalid{Name: "Enabled", Value: v, Msg: "expected bool"})
 		}
 	}
-	chainID := c.ChainID()
-	if chainID == "" {
+	chainID, exists := c["ChainID"]
+	if !exists {
 		err = multierr.Append(err, commonconfig.ErrMissing{Name: "ChainID", Msg: "required for all chains"})
-	}
-	nodeNames := c.NodeNames()
-	if len(nodeNames) == 0 {
-		err = multierr.Append(err, commonconfig.ErrInvalid{Name: "Nodes", Value: nodeNames, Msg: "expected at least one node"})
 	} else {
-		for i, nodeName := range nodeNames {
-			if nodeName == "" {
-				err = multierr.Append(err, commonconfig.ErrInvalid{Name: fmt.Sprintf("Nodes.%d.Name", i), Value: nodeName, Msg: "expected string"})
+		chainIDStr, ok := chainID.(string)
+		if !ok {
+			err = multierr.Append(err, commonconfig.ErrInvalid{Name: "ChainID", Value: chainID, Msg: "expected string"})
+		} else if chainIDStr == "" {
+			err = multierr.Append(err, commonconfig.ErrEmpty{Name: "ChainID", Msg: "required for all chains"})
+		}
+	}
+	nodes, exists := c["Nodes"]
+	if !exists {
+		err = multierr.Append(err, commonconfig.ErrMissing{Name: "Nodes", Msg: "expected at least one node"})
+	} else {
+		nodeMaps, ok := nodes.([]any)
+		if !ok {
+			err = multierr.Append(err, commonconfig.ErrInvalid{Name: "Nodes", Value: nodes, Msg: "expected array of node configs"})
+		} else if len(nodeMaps) == 0 {
+			err = multierr.Append(err, commonconfig.ErrEmpty{Name: "Nodes", Msg: "expected at least one node"})
+		} else {
+			for i, node := range nodeMaps {
+				nodeConfig, ok := node.(map[string]any)
+				if !ok {
+					err = multierr.Append(err, commonconfig.ErrInvalid{Name: fmt.Sprintf("Nodes.%d", i), Value: nodeConfig, Msg: "expected node config map"})
+				} else {
+					nodeName, exists := nodeConfig["Name"]
+					if !exists {
+						err = multierr.Append(err, commonconfig.ErrMissing{Name: fmt.Sprintf("Nodes.%d.Name", i), Msg: "required for all nodes"})
+					} else {
+						nodeNameStr, ok := nodeName.(string)
+						if !ok {
+							err = multierr.Append(err, commonconfig.ErrInvalid{Name: fmt.Sprintf("Nodes.%d.Name", i), Value: nodeName, Msg: "expected string"})
+						} else if nodeNameStr == "" {
+							err = multierr.Append(err, commonconfig.ErrEmpty{Name: fmt.Sprintf("Nodes.%d.Name", i), Msg: "required for all nodes"})
+						}
+					}
+				}
 			}
 		}
 	}
