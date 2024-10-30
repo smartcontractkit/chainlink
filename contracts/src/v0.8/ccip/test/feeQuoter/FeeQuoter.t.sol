@@ -2294,6 +2294,37 @@ contract FeeQuoter_onReport is FeeQuoter_KeystoneSetup {
     vm.assertEq(s_feeQuoter.getTokenPrice(report[1].token).timestamp, report[1].timestamp);
   }
 
+  function test_OnReport_StaleUpdate_SkipPriceUpdate_Success() public {
+    //Creating a correct report
+    bytes memory encodedPermissionsMetadata =
+              abi.encodePacked(keccak256(abi.encode("workflowCID")), WORKFLOW_NAME_1, WORKFLOW_OWNER_1, REPORT_NAME_1);
+
+    FeeQuoter.ReceivedCCIPFeedReport[] memory report = new FeeQuoter.ReceivedCCIPFeedReport[](1);
+    report[0] =
+              FeeQuoter.ReceivedCCIPFeedReport({token: onReportTestToken1, price: 4e18, timestamp: uint32(block.timestamp)});
+
+    uint224 expectedStoredTokenPrice = s_feeQuoter.calculateRebasedValue(18, 18, report[0].price);
+
+    vm.expectEmit();
+    emit FeeQuoter.UsdPerTokenUpdated(onReportTestToken1, expectedStoredTokenPrice, block.timestamp);
+
+    changePrank(FORWARDER_1);
+    //setting the correct price and time with the correct report
+    s_feeQuoter.onReport(encodedPermissionsMetadata, abi.encode(report));
+
+    //create a stale report
+    report[0] =
+              FeeQuoter.ReceivedCCIPFeedReport({token: onReportTestToken1, price: 4e18, timestamp: uint32(block.timestamp - 1)});
+
+    //record logs to check no events were emitted
+    vm.recordLogs();
+
+    s_feeQuoter.onReport(encodedPermissionsMetadata, abi.encode(report));
+
+    //no logs should have been emitted
+    assertEq(vm.getRecordedLogs().length, 0);
+  }
+
   function test_onReport_TokenNotSupported_Revert() public {
     bytes memory encodedPermissionsMetadata =
       abi.encodePacked(keccak256(abi.encode("workflowCID")), WORKFLOW_NAME_1, WORKFLOW_OWNER_1, REPORT_NAME_1);
@@ -2339,33 +2370,4 @@ contract FeeQuoter_onReport is FeeQuoter_KeystoneSetup {
     s_feeQuoter.onReport(encodedPermissionsMetadata, abi.encode(report));
   }
 
-  function test_OnReport_StaleUpdate_Revert() public {
-    //Creating a correct report
-    bytes memory encodedPermissionsMetadata =
-      abi.encodePacked(keccak256(abi.encode("workflowCID")), WORKFLOW_NAME_1, WORKFLOW_OWNER_1, REPORT_NAME_1);
-
-    FeeQuoter.ReceivedCCIPFeedReport[] memory report = new FeeQuoter.ReceivedCCIPFeedReport[](1);
-    report[0] =
-      FeeQuoter.ReceivedCCIPFeedReport({token: onReportTestToken1, price: 4e18, timestamp: uint32(block.timestamp)});
-
-    uint224 expectedStoredTokenPrice = s_feeQuoter.calculateRebasedValue(18, 18, report[0].price);
-
-    vm.expectEmit();
-    emit FeeQuoter.UsdPerTokenUpdated(onReportTestToken1, expectedStoredTokenPrice, block.timestamp);
-
-    changePrank(FORWARDER_1);
-    //setting the correct price and time with the correct report
-    s_feeQuoter.onReport(encodedPermissionsMetadata, abi.encode(report));
-
-    //create a stale report
-    report[0] =
-      FeeQuoter.ReceivedCCIPFeedReport({token: onReportTestToken1, price: 4e18, timestamp: uint32(block.timestamp - 1)});
-    //expecting a revert
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        FeeQuoter.StaleKeystoneUpdate.selector, onReportTestToken1, block.timestamp - 1, block.timestamp
-      )
-    );
-    s_feeQuoter.onReport(encodedPermissionsMetadata, abi.encode(report));
-  }
 }

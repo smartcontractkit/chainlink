@@ -14,7 +14,7 @@ on:
   merge_group:
   pull_request:
   schedule:
-    - cron: "0 */1 * * *"
+    - cron: "0 0,6,12,18 * * *"
   workflow_dispatch:
     inputs:
       distinct_run_name:
@@ -45,9 +45,8 @@ jobs:
         with:
           filters: |
             changes:
-              - 'integration-tests/deployment/**'
+              - 'deployment/**'
               - '!integration-tests/**'
-              - 'integration-tests/deployment/**'
       - name: Ignore Filter On Workflow Dispatch
         if: ${{ github.event_name == 'workflow_dispatch' }}
         id: ignore-filter

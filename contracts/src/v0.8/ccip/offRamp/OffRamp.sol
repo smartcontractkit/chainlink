@@ -130,7 +130,6 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     Internal.PriceUpdates priceUpdates; // Collection of gas and price updates to commit.
     Internal.MerkleRoot[] merkleRoots; // Collection of merkle roots per source chain to commit.
     IRMNRemote.Signature[] rmnSignatures; // RMN signatures on the merkle roots.
-    uint256 rmnRawVs; // Raw v values of the RMN signatures.
   }
 
   /// @dev Both receiverExecutionGasLimit and tokenGasOverrides are optional. To indicate no override, set the value
@@ -786,7 +785,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     // Verify RMN signatures
     if (!dynamicConfig.isRMNVerificationDisabled) {
       if (commitReport.merkleRoots.length > 0) {
-        i_rmnRemote.verify(address(this), commitReport.merkleRoots, commitReport.rmnSignatures, commitReport.rmnRawVs);
+        i_rmnRemote.verify(address(this), commitReport.merkleRoots, commitReport.rmnSignatures);
       }
     }
 

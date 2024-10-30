@@ -70,9 +70,6 @@ linters-settings:
       - name: atomic
 issues:
   exclude-rules:
-    - path: deployment/memory/(.+)\.go
-      linters:
-        - revive
     - text: "^G404: Use of weak random number generator"
       linters:
         - gosec

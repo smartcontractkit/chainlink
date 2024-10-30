@@ -1693,11 +1693,8 @@ func (b *Telemetry) ValidateConfig() (err error) {
 	if b.Endpoint == nil || *b.Endpoint == "" {
 		err = multierr.Append(err, configutils.ErrMissing{Name: "Endpoint", Msg: "must be set when Telemetry is enabled"})
 	}
-	if b.InsecureConnection != nil && *b.InsecureConnection {
-		if build.IsProd() {
-			err = multierr.Append(err, configutils.ErrInvalid{Name: "InsecureConnection", Value: true, Msg: "cannot be used in production builds"})
-		}
-	} else {
+	if b.InsecureConnection == nil || !*b.InsecureConnection {
+		// InsecureConnection is set and false
 		if b.CACertFile == nil || *b.CACertFile == "" {
 			err = multierr.Append(err, configutils.ErrMissing{Name: "CACertFile", Msg: "must be set, unless InsecureConnection is used"})
 		}

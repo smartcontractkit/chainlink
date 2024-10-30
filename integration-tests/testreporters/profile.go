@@ -11,11 +11,11 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/testreporters"
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 )
 
 type ChainlinkProfileTestReporter struct {
-	Results   []*client.ChainlinkProfileResults
+	Results   []*nodeclient.ChainlinkProfileResults
 	namespace string
 }
 

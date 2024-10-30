@@ -25,9 +25,6 @@ jobs:
           go-directory: core/scripts
           go-version-file: core/scripts/go.mod
           go-module-file: core/scripts/go.sum
-          gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
 
   test-scripts:
     runs-on: ubuntu-latest

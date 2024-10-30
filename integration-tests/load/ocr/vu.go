@@ -14,8 +14,8 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 
+	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ocr"
 )
@@ -30,8 +30,8 @@ type VU struct {
 	roundNum      atomic.Int64
 	seth          *seth.Client
 	lta           common.Address
-	bootstrapNode *client.ChainlinkK8sClient
-	workerNodes   []*client.ChainlinkK8sClient
+	bootstrapNode *nodeclient.ChainlinkK8sClient
+	workerNodes   []*nodeclient.ChainlinkK8sClient
 	msClient      *client2.MockserverClient
 	l             zerolog.Logger
 	ocrInstances  []contracts.OffchainAggregator
@@ -45,8 +45,8 @@ func NewVU(
 	rate int,
 	rateUnit time.Duration,
 	lta common.Address,
-	bootstrapNode *client.ChainlinkK8sClient,
-	workerNodes []*client.ChainlinkK8sClient,
+	bootstrapNode *nodeclient.ChainlinkK8sClient,
+	workerNodes []*nodeclient.ChainlinkK8sClient,
 	msClient *client2.MockserverClient,
 ) *VU {
 	return &VU{
