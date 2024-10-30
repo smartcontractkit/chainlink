@@ -39,12 +39,7 @@ type onchainMeta struct {
 }
 
 func WriteOnchainMeta(o *onchainMeta, artefactsDir string) {
-	_, err := os.Stat(artefactsDir)
-	if err != nil {
-		fmt.Println("Creating artefacts directory" + artefactsDir)
-		err = os.MkdirAll(artefactsDir, 0700)
-		PanicErr(err)
-	}
+	ensureArtefactsDir(artefactsDir)
 
 	fmt.Println("Writing deployed contract addresses to file...")
 	serialzed := OnChainMetaSerialized{}

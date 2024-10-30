@@ -58,7 +58,6 @@ func (g *provisionKeystone) Run(args []string) {
 
 	nodeSets := downloadNodeSets(*chainID, *nodeSetsPath, *nodeSetSize)
 	if *clean {
-
 		fmt.Println("Cleaning up resources")
 		// clean nodesets path
 		err = os.RemoveAll(*nodeSetsPath)

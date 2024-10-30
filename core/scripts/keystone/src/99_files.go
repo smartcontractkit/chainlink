@@ -43,3 +43,12 @@ func mustWriteJSON[T any](fileName string, data T) {
 		panic(fmt.Sprintf("failed to encode data: %v", err))
 	}
 }
+
+func ensureArtefactsDir(artefactsDir string) {
+	_, err := os.Stat(artefactsDir)
+	if err != nil {
+		fmt.Println("Creating artefacts directory" + artefactsDir)
+		err = os.MkdirAll(artefactsDir, 0700)
+		PanicErr(err)
+	}
+}
