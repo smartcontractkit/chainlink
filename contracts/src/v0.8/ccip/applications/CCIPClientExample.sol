@@ -9,7 +9,7 @@ import {CCIPReceiver} from "./CCIPReceiver.sol";
 
 import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
-// @notice Example of a client which supports EVM/non-EVM chains
+// @notice Example of a client which supports EVM/non-EVM chains.
 // @dev If chain specific logic is required for different chain families (e.g. particular
 // decoding the bytes sender for authorization checks), it may be required to point to a helper
 // authorization contract unless all chain families are known up front.
@@ -63,7 +63,7 @@ contract CCIPClientExample is CCIPReceiver, Ownable2StepMsgSender {
     Client.Any2EVMMessage calldata message
   ) external virtual override onlyRouter validChain(message.sourceChainSelector) {
     // Extremely important to ensure only router calls this.
-    // Tokens in message if any will be transferred to this contract
+    // Tokens in message if any will be transferred to this contract.
     // TODO: Validate sender/origin chain and process message and/or tokens.
     _ccipReceive(message);
   }
@@ -140,7 +140,7 @@ contract CCIPClientExample is CCIPReceiver, Ownable2StepMsgSender {
     emit MessageSent(messageId);
   }
 
-  /// @notice user sends tokens to a receiver
+  /// @notice user sends tokens to a receiver.
   /// Approvals can be optimized with a whitelist of tokens and inf approvals if desired.
   function sendTokens(
     uint64 destChainSelector,

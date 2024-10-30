@@ -6,7 +6,7 @@ import {Pool} from "../libraries/Pool.sol";
 import {IERC165} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts/utils/introspection/IERC165.sol";
 
 /// @notice Shared public interface for multiple V1 pool types.
-/// Each pool type handles a different child token model (lock/unlock, mint/burn.)
+/// Each pool type handles a different child token model e.g. lock/unlock, mint/burn.
 interface IPoolV1 is IERC165 {
   /// @notice Lock tokens into the pool or burn the tokens.
   /// @param lockOrBurnIn Encoded data fields for the processing of tokens on the source chain.
