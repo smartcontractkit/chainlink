@@ -183,14 +183,14 @@ func createTriggerResponse(log types.Sequence, version string) capabilities.Trig
 	dataAsValuesMap, err := values.WrapMap(log.Data)
 	if err != nil {
 		return capabilities.TriggerResponse{
-			Err: fmt.Errorf("error decoding log data as values.Map: %s", err),
+			Err: fmt.Errorf("error decoding log data as values.Map: %w", err),
 		}
 	}
 	dataAsMap := map[string]any{}
 	err = dataAsValuesMap.UnwrapTo(&dataAsMap)
 	if err != nil {
 		return capabilities.TriggerResponse{
-			Err: fmt.Errorf("error decoding log data as map[string]any: %s", err),
+			Err: fmt.Errorf("error decoding log data as map[string]any: %w", err),
 		}
 	}
 
@@ -205,7 +205,7 @@ func createTriggerResponse(log types.Sequence, version string) capabilities.Trig
 	})
 	if err != nil {
 		return capabilities.TriggerResponse{
-			Err: fmt.Errorf("error wrapping trigger event: %s", err),
+			Err: fmt.Errorf("error wrapping trigger event: %w", err),
 		}
 	}
 
