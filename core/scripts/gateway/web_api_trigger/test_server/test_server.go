@@ -3,9 +3,8 @@ package main
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
-	"log"
 	"net/http"
+	"time"
 )
 
 func handler(w http.ResponseWriter, r *http.Request) {
@@ -16,12 +15,16 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
 		fmt.Println("GET request received")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("GET request received"))
+		_, err := w.Write([]byte("GET request received"))
+		if err != nil {
+			http.Error(w, "could not write request body", http.StatusInternalServerError)
+			return
+		}
 	}
 
 	// Handle POST requests
 	if r.Method == http.MethodPost {
-		body, err := ioutil.ReadAll(r.Body)
+		body, err := io.ReadAll(r.Body)
 		if err != nil {
 			http.Error(w, "Could not read request body", http.StatusInternalServerError)
 			return
@@ -75,5 +78,12 @@ func main() {
 	// Listen on port 1000
 	port := ":1000"
 	fmt.Printf("Server listening on port %s\n", port)
-	log.Fatal(http.ListenAndServe(port, nil))
+	server := &http.Server{
+		Addr:              port,
+		ReadHeaderTimeout: 30 * time.Second,
+	}
+	err := server.ListenAndServe()
+	if err != nil {
+		panic(err)
+	}
 }
