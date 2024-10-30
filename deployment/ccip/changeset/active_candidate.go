@@ -16,7 +16,7 @@ import (
 
 // SetCandidateExecPluginOps calls setCandidate on CCIPHome contract through the UpdateDON call on CapReg contract
 // This proposes to set up OCR3 config for the provided plugin for the DON
-func SetCandidateOnExistingDon(
+func setCandidateOnExistingDon(
 	pluginConfig ccip_home.CCIPHomeOCR3Config,
 	capReg *capabilities_registry.CapabilitiesRegistry,
 	ccipHome *ccip_home.CCIPHome,
@@ -65,8 +65,8 @@ func SetCandidateOnExistingDon(
 	}}, nil
 }
 
-// PromoteCandidateOp will create the MCMS Operation for `promoteCandidateAndRevokeActive` directed towards the capabilityRegistry
-func PromoteCandidateOp(donID uint32, pluginType uint8, capReg *capabilities_registry.CapabilitiesRegistry,
+// promoteCandidateOp will create the MCMS Operation for `promoteCandidateAndRevokeActive` directed towards the capabilityRegistry
+func promoteCandidateOp(donID uint32, pluginType uint8, capReg *capabilities_registry.CapabilitiesRegistry,
 	ccipHome *ccip_home.CCIPHome, nodes deployment.Nodes) (mcms.Operation, error) {
 
 	allConfigs, err := ccipHome.GetAllConfigs(nil, donID, pluginType)
@@ -113,8 +113,8 @@ func PromoteCandidateOp(donID uint32, pluginType uint8, capReg *capabilities_reg
 	}, nil
 }
 
-// PromoteAllCandidatesForChainOps promotes the candidate commit and exec configs to active by calling promoteCandidateAndRevokeActive on CCIPHome through the UpdateDON call on CapReg contract
-func PromoteAllCandidatesForChainOps(
+// promoteAllCandidatesForChainOps promotes the candidate commit and exec configs to active by calling promoteCandidateAndRevokeActive on CCIPHome through the UpdateDON call on CapReg contract
+func promoteAllCandidatesForChainOps(
 	capReg *capabilities_registry.CapabilitiesRegistry,
 	ccipHome *ccip_home.CCIPHome,
 	chainSelector uint64,
@@ -127,13 +127,13 @@ func PromoteAllCandidatesForChainOps(
 	}
 
 	var mcmsOps []mcms.Operation
-	updateCommitOp, err := PromoteCandidateOp(donID, uint8(cctypes.PluginTypeCCIPCommit), capReg, ccipHome, nodes)
+	updateCommitOp, err := promoteCandidateOp(donID, uint8(cctypes.PluginTypeCCIPCommit), capReg, ccipHome, nodes)
 	if err != nil {
 		return nil, fmt.Errorf("promote candidate op: %w", err)
 	}
 	mcmsOps = append(mcmsOps, updateCommitOp)
 
-	updateExecOp, err := PromoteCandidateOp(donID, uint8(cctypes.PluginTypeCCIPExec), capReg, ccipHome, nodes)
+	updateExecOp, err := promoteCandidateOp(donID, uint8(cctypes.PluginTypeCCIPExec), capReg, ccipHome, nodes)
 	if err != nil {
 		return nil, fmt.Errorf("promote candidate op: %w", err)
 	}
@@ -142,31 +142,39 @@ func PromoteAllCandidatesForChainOps(
 	return mcmsOps, nil
 }
 
-// PromoteAllCandidatesProposal generates a proposal to call promoteCandidate on the CCIPHome through CapReg.
+// PromoteAllCandidatesChangeset generates a proposal to call promoteCandidate on the CCIPHome through CapReg.
 // This needs to be called after SetCandidateProposal is executed.
-func PromoteAllCandidatesProposal(
+func PromoteAllCandidatesChangeset(
 	state ccdeploy.CCIPOnChainState,
 	homeChainSel, newChainSel uint64,
 	nodes deployment.Nodes,
-) (*timelock.MCMSWithTimelockProposal, error) {
-	promoteCandidateOps, err := PromoteAllCandidatesForChainOps(
+) (deployment.ChangesetOutput, error) {
+	promoteCandidateOps, err := promoteAllCandidatesForChainOps(
 		state.Chains[homeChainSel].CapabilityRegistry,
 		state.Chains[homeChainSel].CCIPHome,
 		newChainSel,
 		nodes.NonBootstraps(),
 	)
 	if err != nil {
-		return nil, err
+		return deployment.ChangesetOutput{}, err
 	}
 
-	return ccdeploy.BuildProposalFromBatches(state, []timelock.BatchChainOperation{{
+	prop, err := ccdeploy.BuildProposalFromBatches(state, []timelock.BatchChainOperation{{
 		ChainIdentifier: mcms.ChainIdentifier(homeChainSel),
 		Batch:           promoteCandidateOps,
 	}}, "promoteCandidate for commit and execution", 0)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	return deployment.ChangesetOutput{
+		Proposals: []timelock.MCMSWithTimelockProposal{
+			*prop,
+		},
+	}, nil
 }
 
 // SetCandidateExecPluginProposal calls setCandidate on the CCIPHome for setting up OCR3 exec Plugin config for the new chain.
-func SetCandidatePluginProposal(
+func SetCandidatePluginChangeset(
 	state ccdeploy.CCIPOnChainState,
 	e deployment.Environment,
 	nodes deployment.Nodes,
@@ -174,7 +182,7 @@ func SetCandidatePluginProposal(
 	homeChainSel, feedChainSel, newChainSel uint64,
 	tokenConfig ccdeploy.TokenConfig,
 	pluginType cctypes.PluginType,
-) (*timelock.MCMSWithTimelockProposal, error) {
+) (deployment.ChangesetOutput, error) {
 	newDONArgs, err := ccdeploy.BuildOCR3ConfigForCCIPHome(
 		e.Logger,
 		ocrSecrets,
@@ -186,15 +194,15 @@ func SetCandidatePluginProposal(
 		state.Chains[homeChainSel].RMNHome.Address(),
 	)
 	if err != nil {
-		return nil, err
+		return deployment.ChangesetOutput{}, err
 	}
 
 	execConfig, ok := newDONArgs[pluginType]
 	if !ok {
-		return nil, fmt.Errorf("missing exec plugin in ocr3Configs")
+		return deployment.ChangesetOutput{}, fmt.Errorf("missing exec plugin in ocr3Configs")
 	}
 
-	setCandidateMCMSOps, err := SetCandidateOnExistingDon(
+	setCandidateMCMSOps, err := setCandidateOnExistingDon(
 		execConfig,
 		state.Chains[homeChainSel].CapabilityRegistry,
 		state.Chains[homeChainSel].CCIPHome,
@@ -202,11 +210,20 @@ func SetCandidatePluginProposal(
 		nodes.NonBootstraps(),
 	)
 	if err != nil {
-		return nil, err
+		return deployment.ChangesetOutput{}, err
 	}
 
-	return ccdeploy.BuildProposalFromBatches(state, []timelock.BatchChainOperation{{
+	prop, err := ccdeploy.BuildProposalFromBatches(state, []timelock.BatchChainOperation{{
 		ChainIdentifier: mcms.ChainIdentifier(homeChainSel),
 		Batch:           setCandidateMCMSOps,
 	}}, "SetCandidate for execution", 0)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	return deployment.ChangesetOutput{
+		Proposals: []timelock.MCMSWithTimelockProposal{
+			*prop,
+		},
+	}, nil
+
 }
