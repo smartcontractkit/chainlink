@@ -41,7 +41,6 @@ import (
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 
 	verifierContract "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier"
@@ -150,7 +149,7 @@ func setupStreamsTrigger(
 	fmt.Printf("Using OCR config file: %s\n", ocrConfigFilePath)
 
 	fmt.Printf("Deploying Mercury V0.3 contracts\n")
-	_, _, _, verifier := deployMercuryV03Contracts(env)
+	verifier := deployMercuryV03Contracts(env)
 
 	fmt.Printf("Generating Mercury OCR config\n")
 	ocrConfig := generateMercuryOCR2Config(nodeSet.NodeKeys[1:]) // skip the bootstrap node
@@ -188,7 +187,7 @@ func setupStreamsTrigger(
 	fmt.Println("Finished deploying streams trigger")
 }
 
-func deployMercuryV03Contracts(env helpers.Environment) (linkToken *link_token_interface.LinkToken, nativeToken *link_token_interface.LinkToken, verifierProxy *verifier_proxy.VerifierProxy, verifier *verifierContract.Verifier) {
+func deployMercuryV03Contracts(env helpers.Environment) (verifier *verifierContract.Verifier) {
 	var confirmDeploy = func(tx *types.Transaction, err error) {
 		helpers.ConfirmContractDeployed(context.Background(), env.Ec, tx, env.ChainID)
 		PanicErr(err)
@@ -197,21 +196,6 @@ func deployMercuryV03Contracts(env helpers.Environment) (linkToken *link_token_i
 		helpers.ConfirmTXMined(context.Background(), env.Ec, tx, env.ChainID)
 		PanicErr(err)
 	}
-
-	_, tx, linkToken, err := link_token_interface.DeployLinkToken(env.Owner, env.Ec)
-	confirmDeploy(tx, err)
-
-	// Not sure if we actually need to have tokens
-	tx, err = linkToken.Transfer(env.Owner, env.Owner.From, big.NewInt(1000))
-	confirmTx(tx, err)
-
-	// We reuse the link token for the native token
-	_, tx, nativeToken, err = link_token_interface.DeployLinkToken(env.Owner, env.Ec)
-	confirmDeploy(tx, err)
-
-	// Not sure if we actually need to have tokens
-	tx, err = nativeToken.Transfer(env.Owner, env.Owner.From, big.NewInt(1000))
-	confirmTx(tx, err)
 
 	verifierProxyAddr, tx, verifierProxy, err := verifier_proxy.DeployVerifierProxy(env.Owner, env.Ec, common.Address{}) // zero address for access controller disables access control
 	confirmDeploy(tx, err)
