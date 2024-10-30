@@ -4,7 +4,7 @@ import (
 	"encoding/hex"
 
 	"github.com/ethereum/go-ethereum/common"
-	ksdeploy "github.com/smartcontractkit/chainlink/deployment/keystone" 
+	ksdeploy "github.com/smartcontractkit/chainlink/deployment/keystone"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 )
 
@@ -20,7 +20,6 @@ func ocrConfToContractConfig(ocrConf ksdeploy.Orc2drOracleConfig, configCount ui
 	}
 	return cc
 }
-
 
 func mercuryOCRConfigToContractConfig(ocrConf MercuryOCR2Config, configCount uint32) types.ContractConfig {
 	cc := types.ContractConfig{
@@ -44,7 +43,6 @@ func convertAddressesToOnchainPublicKeys(addresses []common.Address) []types.Onc
 	return keys
 }
 
-
 func convertAddressesToAccounts(addresses []common.Address) []types.Account {
 	accounts := make([]types.Account, len(addresses))
 	for i, addr := range addresses {
@@ -64,7 +62,7 @@ func convertBytes32sToAccounts(bs [][32]byte) []types.Account {
 func convertByteSliceToOnchainPublicKeys(bs [][]byte) []types.OnchainPublicKey {
 	keys := make([]types.OnchainPublicKey, len(bs))
 	for i, b := range bs {
-		keys[i] = types.OnchainPublicKey(hex.EncodeToString(b))
+		keys[i] = types.OnchainPublicKey(b)
 	}
 	return keys
 }
