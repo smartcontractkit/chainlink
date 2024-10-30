@@ -40,6 +40,7 @@ import (
 	datastreamsmercury "github.com/smartcontractkit/chainlink-data-streams/mercury"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
+	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
@@ -522,8 +523,11 @@ func generateMercuryOCR2Config(nca []NodeKeys) MercuryOCR2Config {
 		})
 	}
 
+	secrets := deployment.XXXGenerateTestOCRSecrets()
 	// Values were taken from Data Streams 250ms feeds, given by @austinborn
-	signers, _, _, onchainConfig, offchainConfigVersion, offchainConfig, err := ocr3confighelper.ContractSetConfigArgsForTestsMercuryV02(
+	signers, _, _, onchainConfig, offchainConfigVersion, offchainConfig, err := ocr3confighelper.ContractSetConfigArgsDeterministic(
+		secrets.EphemeralSk,
+		secrets.SharedSecret,
 		10*time.Second,         // DeltaProgress
 		10*time.Second,         // DeltaResend
 		400*time.Millisecond,   // DeltaInitial
@@ -535,9 +539,12 @@ func generateMercuryOCR2Config(nca []NodeKeys) MercuryOCR2Config {
 		[]int{len(identities)}, // S
 		identities,
 		reportingPluginConfig, // reportingPluginConfig []byte,
-		nil,
-		250*time.Millisecond, // Max duration observation
-		int(f),               // f
+		nil,                   // maxDurationInitialization *time.Duration,
+		0,                     // maxDurationQuery time.Duration,
+		250*time.Millisecond,  // Max duration observation
+		0,                     // Max duration should accept attested report
+		0,                     // Max duration should transmit accepted report
+		int(f),                // f
 		onchainConfig,
 	)
 	signerAddresses, err := evm.OnchainPublicKeyToAddress(signers)

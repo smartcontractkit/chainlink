@@ -9,7 +9,9 @@ import (
 	"fmt"
 	"os"
 
-	ksdeploy "github.com/smartcontractkit/chainlink/integration-tests/deployment/keystone"
+	"github.com/smartcontractkit/chainlink/deployment"
+
+	ksdeploy "github.com/smartcontractkit/chainlink/deployment/keystone"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability"
@@ -143,6 +145,7 @@ func deployOCR3Contract(
 func generateOCR3Config(nodeSet NodeSet, configFile string, chainID int64) ksdeploy.Orc2drOracleConfig {
 	topLevelCfg := mustReadOCR3Config(configFile)
 	cfg := topLevelCfg.OracleConfig
+	cfg.OCRSecrets = deployment.XXXGenerateTestOCRSecrets()
 	c, err := ksdeploy.GenerateOCR3Config(cfg, nodeKeysToKsDeployNodeKeys(nodeSet.NodeKeys[1:])) // skip the bootstrap node
 	helpers.PanicErr(err)
 	return c

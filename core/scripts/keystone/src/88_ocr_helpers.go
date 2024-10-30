@@ -4,7 +4,7 @@ import (
 	"encoding/hex"
 
 	"github.com/ethereum/go-ethereum/common"
-	ksdeploy "github.com/smartcontractkit/chainlink/integration-tests/deployment/keystone"
+	ksdeploy "github.com/smartcontractkit/chainlink/deployment/keystone" 
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 )
 
