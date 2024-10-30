@@ -83,7 +83,7 @@ contract TokenPoolFactory is ITypeAndVersion {
   }
 
   // ================================================================
-  // |                   Top-Level Deployment                       |
+  // │                   Top-Level Deployment                       │
   // ================================================================
 
   /// @notice Deploys a token and token pool with the given token information and configures it with remote token pools
@@ -151,7 +151,7 @@ contract TokenPoolFactory is ITypeAndVersion {
   }
 
   // ================================================================
-  // |                Pool Deployment/Configuration                  |
+  // │                Pool Deployment/Configuration                 │
   // ================================================================
 
   /// @notice Deploys a token pool with the given token information and remote token pools

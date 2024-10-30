@@ -4,7 +4,7 @@ pragma solidity ^0.8.4;
 library MerkleMultiProof {
   /// @notice Leaf domain separator, should be used as the first 32 bytes of a leaf's preimage.
   bytes32 internal constant LEAF_DOMAIN_SEPARATOR = 0x0000000000000000000000000000000000000000000000000000000000000000;
-  /// @notice Internal domain separator, should be used as the first 32 bytes of an internal node's preiimage.
+  /// @notice Internal domain separator, should be used as the first 32 bytes of an internal node's preimage.
   bytes32 internal constant INTERNAL_DOMAIN_SEPARATOR =
     0x0000000000000000000000000000000000000000000000000000000000000001;
 
@@ -13,18 +13,15 @@ library MerkleMultiProof {
   error InvalidProof();
   error LeavesCannotBeEmpty();
 
-  /// @notice Computes the root based on provided pre-hashed leaf nodes in
-  /// leaves, internal nodes in proofs, and using proofFlagBits' i-th bit to
-  /// determine if an element of proofs or one of the previously computed leafs
-  /// or internal nodes will be used for the i-th hash.
-  /// @param leaves Should be pre-hashed and the first 32 bytes of a leaf's
-  /// preimage should match LEAF_DOMAIN_SEPARATOR.
-  /// @param proofs The hashes to be used instead of a leaf hash when the proofFlagBits
-  ///  indicates a proof should be used.
-  /// @param proofFlagBits A single uint256 of which each bit indicates whether a leaf or
-  ///  a proof needs to be used in a hash operation.
-  /// @dev the maximum number of hash operations it set to 256. Any input that would require
-  ///  more than 256 hashes to get to a root will revert.
+  /// @notice Computes the root based on provided pre-hashed leaf nodes in leaves, internal nodes  in proofs, and using
+  /// proofFlagBits' i-th bit to determine if an element of proofs or one of the previously computed leafs or internal
+  /// nodes will be used for the i-th hash.
+  /// @param leaves Should be pre-hashed and the first 32 bytes of a leaf's preimage should match LEAF_DOMAIN_SEPARATOR.
+  /// @param proofs Hashes to be used instead of a leaf hash when the proofFlagBits indicates a proof should be used.
+  /// @param proofFlagBits A single uint256 of which each bit indicates whether a leaf or a proof needs to be used in
+  /// a hash operation.
+  /// @dev the maximum number of hash operations it set to 256. Any input that would require more than 256 hashes to get
+  /// to a root will revert.
   /// @dev For given input `leaves` = [a,b,c] `proofs` = [D] and `proofFlagBits` = 5
   ///     totalHashes = 3 + 1 - 1 = 3
   ///  ** round 1 **
@@ -44,10 +41,8 @@ library MerkleMultiProof {
   ///
   ///    i = 3 and no longer < totalHashes. The algorithm is done
   ///    return hashes[totalHashes - 1] = hashes[2]; the last hash we computed.
-  // We mark this function as internal to force it to be inlined in contracts
-  // that use it, but semantically it is public.
-  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
-  function merkleRoot(
+  // We mark this function as internal to force it to be inlined in contracts that use it, but semantically it is public.
+  function _merkleRoot(
     bytes32[] memory leaves,
     bytes32[] memory proofs,
     uint256 proofFlagBits
@@ -99,14 +94,12 @@ library MerkleMultiProof {
     }
   }
 
-  /// @notice Hashes two bytes32 objects in their given order, prepended by the
-  /// INTERNAL_DOMAIN_SEPARATOR.
+  /// @notice Hashes two bytes32 objects in their given order, prepended by the INTERNAL_DOMAIN_SEPARATOR.
   function _hashInternalNode(bytes32 left, bytes32 right) private pure returns (bytes32 hash) {
     return keccak256(abi.encode(INTERNAL_DOMAIN_SEPARATOR, left, right));
   }
 
-  /// @notice Hashes two bytes32 objects. The order is taken into account,
-  /// using the lower value first.
+  /// @notice Hashes two bytes32 objects. The order is taken into account, using the lower value first.
   function _hashPair(bytes32 a, bytes32 b) private pure returns (bytes32) {
     return a < b ? _hashInternalNode(a, b) : _hashInternalNode(b, a);
   }
