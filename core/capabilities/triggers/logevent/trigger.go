@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -180,12 +181,28 @@ func (l *logEventTrigger) listen() {
 
 // Create log event trigger capability response
 func createTriggerResponse(log types.Sequence, version string) capabilities.TriggerResponse {
-	wrappedPayload, err := values.WrapMap(log)
+	dataAsMap := map[string]any{}
+	if err := mapstructure.Decode(log.Data, &dataAsMap); err != nil {
+		return capabilities.TriggerResponse{
+			Err: fmt.Errorf("error decoding log data: %s", err),
+		}
+	}
+
+	wrappedPayload, err := values.WrapMap(&logeventcap.Output{
+		Cursor: log.Cursor,
+		Data:   dataAsMap,
+		Head: logeventcap.Head{
+			Hash:      string(log.Hash),
+			Height:    log.Height,
+			Timestamp: log.Timestamp,
+		},
+	})
 	if err != nil {
 		return capabilities.TriggerResponse{
 			Err: fmt.Errorf("error wrapping trigger event: %s", err),
 		}
 	}
+
 	return capabilities.TriggerResponse{
 		Event: capabilities.TriggerEvent{
 			TriggerType: version,

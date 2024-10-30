@@ -85,26 +85,39 @@ func (j *Config) UnmarshalJSON(b []byte) error {
 
 type Head struct {
 	// Hash corresponds to the JSON schema field "Hash".
-	Hash *string `json:"Hash,omitempty" yaml:"Hash,omitempty" mapstructure:"Hash,omitempty"`
+	Hash string `json:"Hash" yaml:"Hash" mapstructure:"Hash"`
 
 	// Height corresponds to the JSON schema field "Height".
-	Height *string `json:"Height,omitempty" yaml:"Height,omitempty" mapstructure:"Height,omitempty"`
+	Height string `json:"Height" yaml:"Height" mapstructure:"Height"`
 
 	// Timestamp corresponds to the JSON schema field "Timestamp".
-	Timestamp *uint64 `json:"Timestamp,omitempty" yaml:"Timestamp,omitempty" mapstructure:"Timestamp,omitempty"`
+	Timestamp uint64 `json:"Timestamp" yaml:"Timestamp" mapstructure:"Timestamp"`
 }
 
 // UnmarshalJSON implements json.Unmarshaler.
 func (j *Head) UnmarshalJSON(b []byte) error {
+	var raw map[string]interface{}
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return err
+	}
+	if _, ok := raw["Hash"]; raw != nil && !ok {
+		return fmt.Errorf("field Hash in Head: required")
+	}
+	if _, ok := raw["Height"]; raw != nil && !ok {
+		return fmt.Errorf("field Height in Head: required")
+	}
+	if _, ok := raw["Timestamp"]; raw != nil && !ok {
+		return fmt.Errorf("field Timestamp in Head: required")
+	}
 	type Plain Head
 	var plain Plain
 	if err := json.Unmarshal(b, &plain); err != nil {
 		return err
 	}
-	if plain.Hash != nil && len(*plain.Hash) < 1 {
+	if len(plain.Hash) < 1 {
 		return fmt.Errorf("field %s length: must be >= %d", "Hash", 1)
 	}
-	if plain.Height != nil && len(*plain.Height) < 1 {
+	if len(plain.Height) < 1 {
 		return fmt.Errorf("field %s length: must be >= %d", "Height", 1)
 	}
 	*j = Head(plain)
