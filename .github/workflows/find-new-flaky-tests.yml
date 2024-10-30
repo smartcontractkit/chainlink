@@ -86,7 +86,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@fc79d0ec518a24cb2bf016c8a913c62197080cc7
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@3c94fb814eaed39a9429b94e4bd6bc5f3b1ab95d
 
       - name: Find new or updated test packages
         id: find-tests
@@ -219,7 +219,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@fc79d0ec518a24cb2bf016c8a913c62197080cc7
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@3c94fb814eaed39a9429b94e4bd6bc5f3b1ab95d
 
       - name: Run tests with flakeguard
         shell: bash
