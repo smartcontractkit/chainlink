@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {OwnerIsCreator} from "../../shared/access/OwnerIsCreator.sol";
+import {Ownable2StepMsgSender} from "../../shared/access/Ownable2StepMsgSender.sol";
 import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 
 import {Strings} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts/utils/Strings.sol";
 import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts/utils/structs/EnumerableSet.sol";
 
-contract WorkflowRegistry is OwnerIsCreator, ITypeAndVersion {
+contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
   // Bindings
   using EnumerableSet for EnumerableSet.Bytes32Set;
   using EnumerableSet for EnumerableSet.AddressSet;
@@ -111,14 +111,11 @@ contract WorkflowRegistry is OwnerIsCreator, ITypeAndVersion {
   // ================================================================
   // |                            ADMIN                             |
   // ================================================================
-  /**
-   * @notice Updates the list of allowed DON IDs.
-   * @dev If a DON ID with associated workflows is removed from the allowed DONs list,
-   *      the only allowed actions on workflows for that DON are to pause or delete them.
-   *      It will no longer be possible to update, activate, or register new workflows for a removed DON.
-   * @param donIDs The list of unique identifiers for Workflow DONs.
-   * @param allowed True if they should be added to the allowlist, false to remove them.
-   */
+  /// @notice Updates the list of allowed DON IDs.
+  /// @dev If a DON ID with associated workflows is removed from the allowed DONs list, the only allowed actions on workflows for that DON
+  ///      are to pause or delete them. It will no longer be possible to update, activate, or register new workflows for a removed DON.
+  /// @param donIDs The list of unique identifiers for Workflow DONs.
+  /// @param allowed True if they should be added to the allowlist, false to remove them.
   function updateAllowedDONs(uint32[] calldata donIDs, bool allowed) external onlyOwner {
     uint256 length = donIDs.length;
     for (uint256 i = 0; i < length; ++i) {
@@ -133,9 +130,9 @@ contract WorkflowRegistry is OwnerIsCreator, ITypeAndVersion {
   }
 
   /// @notice Updates a list of authorized addresses that can register workflows.
+  /// @dev We don't check if an existing authorized address will be set to false, please take extra caution.
   /// @param addresses The list of addresses.
   /// @param allowed True if they should be added to whitelist, false to remove them.
-  /// @dev We don't check if an existing authorized address will be set to false, please take extra caution.
   function updateAuthorizedAddresses(address[] calldata addresses, bool allowed) external onlyOwner {
     uint256 length = addresses.length;
     for (uint256 i = 0; i < length; ++i) {
@@ -152,34 +149,32 @@ contract WorkflowRegistry is OwnerIsCreator, ITypeAndVersion {
   // ================================================================
   // |                       Workflow Management                    |
   // ================================================================
-  /**
-   * @notice Registers a new workflow.
-   * @dev Registers a new workflow after validating the caller, DON ID, workflow name, and workflow metadata.
-   *      This function performs the following steps:
-   *      - Validates the caller is authorized and the DON ID is allowed.
-   *      - Validates the workflow metadata (workflowID, binaryURL, configURL, secretsURL) lengths.
-   *      - Checks if the workflow with the given name already exists for the owner.
-   *      - Stores the workflow metadata in the appropriate mappings for the owner and DON.
-   *      - Adds the secretsURL to the hash mapping if present.
-   *
-   * Requirements:
-   * - Caller must be an authorized address.
-   * - The provided DON ID must be allowed.
-   * - The workflow name must not exceed `MAX_WORKFLOW_NAME_LENGTH`.
-   * - Workflow metadata must be valid and adhere to set requirements.
-   * - Workflow with the given name must not already exist for the owner.
-   *
-   * Emits:
-   * - `WorkflowRegisteredV1` event upon successful registration.
-   *
-   * @param workflowName The human-readable name for the workflow. Must not exceed 64 characters.
-   * @param workflowID The unique identifier for the workflow based on the WASM binary content, config content and secrets URL.
-   * @param donID The unique identifier of the Workflow DON that this workflow is associated with.
-   * @param status Initial status for this workflow after registration (e.g., Active or Paused).
-   * @param binaryURL The URL pointing to the WASM binary for the workflow.
-   * @param configURL The URL pointing to the configuration file for the workflow.
-   * @param secretsURL The URL pointing to the secrets file for the workflow. Can be empty if there are no secrets.
-   */
+  /// @notice Registers a new workflow.
+  /// @dev Registers a new workflow after validating the caller, DON ID, workflow name, and workflow metadata.
+  ///      This function performs the following steps:
+  ///      - Validates the caller is authorized and the DON ID is allowed.
+  ///      - Validates the workflow metadata (workflowID, binaryURL, configURL, secretsURL) lengths.
+  ///      - Checks if the workflow with the given name already exists for the owner.
+  ///      - Stores the workflow metadata in the appropriate mappings for the owner and DON.
+  ///      - Adds the secretsURL to the hash mapping if present.
+  ///
+  /// Requirements:
+  /// - Caller must be an authorized address.
+  /// - The provided DON ID must be allowed.
+  /// - The workflow name must not exceed `MAX_WORKFLOW_NAME_LENGTH`.
+  /// - Workflow metadata must be valid and adhere to set requirements.
+  /// - Workflow with the given name must not already exist for the owner.
+  ///
+  /// Emits:
+  /// - `WorkflowRegisteredV1` event upon successful registration.
+  ///
+  /// @param workflowName The human-readable name for the workflow. Must not exceed 64 characters.
+  /// @param workflowID The unique identifier for the workflow based on the WASM binary content, config content and secrets URL.
+  /// @param donID The unique identifier of the Workflow DON that this workflow is associated with.
+  /// @param status Initial status for this workflow after registration (e.g., Active or Paused).
+  /// @param binaryURL The URL pointing to the WASM binary for the workflow.
+  /// @param configURL The URL pointing to the configuration file for the workflow.
+  /// @param secretsURL The URL pointing to the secrets file for the workflow. Can be empty if there are no secrets.
   function registerWorkflow(
     string calldata workflowName,
     bytes32 workflowID,
@@ -227,38 +222,36 @@ contract WorkflowRegistry is OwnerIsCreator, ITypeAndVersion {
     emit WorkflowRegisteredV1(workflowID, sender, donID, status, workflowName, binaryURL, configURL, secretsURL);
   }
 
-  /**
-   * @notice Updates the workflow metadata for a given workflow.
-   * @dev Updates the workflow metadata based on the provided parameters.
-   *
-   * - If a field needs to be updated, the new value should be provided.
-   * - If the value should remain unchanged, provide the same value as before.
-   * - To remove an optional field (such as `configURL` or `secretsURL`), pass an empty string ("").
-   *
-   * This function performs the following steps:
-   * - Validates the provided workflow metadata.
-   * - Retrieves the workflow by the caller's address and `workflowName`.
-   * - Updates only the fields that have changed.
-   * - Ensures that the workflow ID (`newWorkflowID`) must change and at least one of the URLs must also change.
-   * - Updates the `secretsURL` hash mappings if the `secretsURL` changes.
-   *
-   * Requirements:
-   * - `binaryURL` must always be provided, as it is required.
-   * - If only one field is being updated, the other fields must be provided with their current values to keep them unchanged,
-   *   otherwise they will be treated as empty strings.
-   * - The DON ID must be in the allowed list to perform updates.
-   * - The caller must be an authorized address. This means that even if the caller is the owner of the workflow, if they were
-   *   later removed from the authorized addresses list, they will not be able to perform updates.
-   *
-   * Emits:
-   * - `WorkflowUpdatedV1` event indicating the workflow has been successfully updated.
-   *
-   * @param workflowName The human-readable name for the workflow.
-   * @param newWorkflowID The rehashed unique identifier for the workflow.
-   * @param binaryURL The URL pointing to the WASM binary. Must always be provided.
-   * @param configURL The URL pointing to the configuration file. Provide an empty string ("") to remove it.
-   * @param secretsURL The URL pointing to the secrets file. Provide an empty string ("") to remove it.
-   */
+  /// @notice Updates the workflow metadata for a given workflow.
+  /// @dev Updates the workflow metadata based on the provided parameters.
+  ///
+  /// - If a field needs to be updated, the new value should be provided.
+  /// - If the value should remain unchanged, provide the same value as before.
+  /// - To remove an optional field (such as `configURL` or `secretsURL`), pass an empty string ("").
+  ///
+  /// This function performs the following steps:
+  /// - Validates the provided workflow metadata.
+  /// - Retrieves the workflow by the caller's address and `workflowName`.
+  /// - Updates only the fields that have changed.
+  /// - Ensures that the workflow ID (`newWorkflowID`) must change and at least one of the URLs must also change.
+  /// - Updates the `secretsURL` hash mappings if the `secretsURL` changes.
+  ///
+  /// Requirements:
+  /// - `binaryURL` must always be provided, as it is required.
+  /// - If only one field is being updated, the other fields must be provided with their current values to keep them unchanged, otherwise
+  ///   they will be treated as empty strings.
+  /// - The DON ID must be in the allowed list to perform updates.
+  /// - The caller must be an authorized address. This means that even if the caller is the owner of the workflow, if they were later
+  ///   removed from the authorized addresses list, they will not be able to perform updates.
+  ///
+  /// Emits:
+  /// - `WorkflowUpdatedV1` event indicating the workflow has been successfully updated.
+  ///
+  /// @param workflowName The human-readable name for the workflow.
+  /// @param newWorkflowID The rehashed unique identifier for the workflow.
+  /// @param binaryURL The URL pointing to the WASM binary. Must always be provided.
+  /// @param configURL The URL pointing to the configuration file. Provide an empty string ("") to remove it.
+  /// @param secretsURL The URL pointing to the secrets file. Provide an empty string ("") to remove it.
   function updateWorkflow(
     string calldata workflowName,
     bytes32 newWorkflowID,
@@ -324,55 +317,43 @@ contract WorkflowRegistry is OwnerIsCreator, ITypeAndVersion {
     );
   }
 
-  /**
-   * @notice Pauses an existing workflow.
-   * @dev Workflows with any DON ID can be paused.
-   *      If a caller was later removed from the authorized addresses list, they will still be able to pause the workflow.
-   * @param workflowName The human-readable name for the workflow. It should be unique per owner.
-   */
-  function pauseWorkflow(
-    string calldata workflowName
-  ) external {
+  /// @notice Pauses an existing workflow.
+  /// @dev Workflows with any DON ID can be paused.
+  ///      If a caller was later removed from the authorized addresses list, they will still be able to pause the workflow.
+  /// @param workflowName The human-readable name for the workflow. It should be unique per owner.
+  function pauseWorkflow(string calldata workflowName) external {
     _updateWorkflowStatus(workflowName, WorkflowStatus.PAUSED);
   }
 
-  /**
-   * @notice Activates an existing workflow.
-   * @dev The DON ID for the workflow must be in the allowed list to perform this action.
-   *      The caller must also be an authorized address. This means that even if the caller is the owner of the workflow,
-   *      if they were later removed from the authorized addresses list, they will not be able to activate the workflow.
-   * @param workflowName The human-readable name for the workflow. It should be unique per owner.
-   */
-  function activateWorkflow(
-    string calldata workflowName
-  ) external onlyAuthorizedAddresses {
+  /// @notice Activates an existing workflow.
+  /// @dev The DON ID for the workflow must be in the allowed list to perform this action.
+  ///      The caller must also be an authorized address. This means that even if the caller is the owner of the workflow, if they were
+  ///      later removed from the authorized addresses list, they will not be able to activate the workflow.
+  /// @param workflowName The human-readable name for the workflow. It should be unique per owner.
+  function activateWorkflow(string calldata workflowName) external onlyAuthorizedAddresses {
     _updateWorkflowStatus(workflowName, WorkflowStatus.ACTIVE);
   }
 
-  /**
-   * @notice Deletes an existing workflow, removing it from the contract storage.
-   * @dev This function permanently removes a workflow associated with the caller's address.
-   *      Workflows with any DON ID can be deleted.
-   *      The caller must also be an authorized address. This means that even if the caller is the owner of the workflow,
-   *      if they were later removed from the authorized addresses list, they will not be able to delete the workflow.
-   *
-   * The function performs the following operations:
-   * - Retrieves the workflow metadata using the workflow name and owner address.
-   * - Ensures that only the owner of the workflow can perform this operation.
-   * - Deletes the workflow from the `s_workflows` mapping.
-   * - Removes the workflow from associated sets (`s_ownerWorkflowKeys`, `s_donWorkflowKeys`, and `s_secretsHashToWorkflows`).
-   *
-   * Requirements:
-   * - The caller must be the owner of the workflow and an authorized address.
-   *
-   * Emits:
-   * - `WorkflowDeletedV1` event indicating that the workflow has been deleted successfully.
-   *
-   * @param workflowName The human-readable name of the workflow to delete.
-   */
-  function deleteWorkflow(
-    string calldata workflowName
-  ) external onlyAuthorizedAddresses {
+  /// @notice Deletes an existing workflow, removing it from the contract storage.
+  /// @dev This function permanently removes a workflow associated with the caller's address.
+  ///      Workflows with any DON ID can be deleted.
+  ///      The caller must also be an authorized address. This means that even if the caller is the owner of the workflow, if they were
+  ///      later removed from the authorized addresses list, they will not be able to delete the workflow.
+  ///
+  /// The function performs the following operations:
+  /// - Retrieves the workflow metadata using the workflow name and owner address.
+  /// - Ensures that only the owner of the workflow can perform this operation.
+  /// - Deletes the workflow from the `s_workflows` mapping.
+  /// - Removes the workflow from associated sets (`s_ownerWorkflowKeys`, `s_donWorkflowKeys`, and `s_secretsHashToWorkflows`).
+  ///
+  /// Requirements:
+  /// - The caller must be the owner of the workflow and an authorized address.
+  ///
+  /// Emits:
+  /// - `WorkflowDeletedV1` event indicating that the workflow has been deleted successfully.
+  ///
+  /// @param workflowName The human-readable name of the workflow to delete.
+  function deleteWorkflow(string calldata workflowName) external onlyAuthorizedAddresses {
     address sender = msg.sender;
 
     // Retrieve workflow metadata from storage
@@ -396,27 +377,23 @@ contract WorkflowRegistry is OwnerIsCreator, ITypeAndVersion {
     emit WorkflowDeletedV1(workflow.workflowID, sender, workflow.donID, workflowName);
   }
 
-  /**
-   * @notice Requests a force update for workflows that share the same secrets URL.
-   * @dev This function allows an owner to request a force update for all workflows that share a given `secretsURL`.
-   *      The `secretsURL` can be shared between multiple workflows, but they must all belong to the same owner.
-   *      This function ensures that the caller owns all workflows associated with the given `secretsURL`.
-   *
-   * The function performs the following steps:
-   * - Hashes the provided `secretsURL` and `msg.sender` to generate a unique mapping key.
-   * - Retrieves all workflows associated with the given secrets hash.
-   * - Collects the names of all matching workflows and emits an event indicating a force update request.
-   *
-   * Requirements:
-   * - The caller must be the owner of all workflows that share the given `secretsURL`.
-   *
-   * Emits:
-   * - `WorkflowForceUpdateSecretsRequestedV1` event indicating that a force update for workflows using this `secretsURL` has been requested.
-   * @param secretsURL The URL pointing to the updated secrets file. This can be shared among multiple workflows.
-   */
-  function requestForceUpdateSecrets(
-    string calldata secretsURL
-  ) external {
+  /// @notice Requests a force update for workflows that share the same secrets URL.
+  /// @dev This function allows an owner to request a force update for all workflows that share a given `secretsURL`.
+  ///      The `secretsURL` can be shared between multiple workflows, but they must all belong to the same owner.
+  ///      This function ensures that the caller owns all workflows associated with the given `secretsURL`.
+  ///
+  /// The function performs the following steps:
+  /// - Hashes the provided `secretsURL` and `msg.sender` to generate a unique mapping key.
+  /// - Retrieves all workflows associated with the given secrets hash.
+  /// - Collects the names of all matching workflows and emits an event indicating a force update request.
+  ///
+  /// Requirements:
+  /// - The caller must be the owner of all workflows that share the given `secretsURL`.
+  ///
+  /// Emits:
+  /// - `WorkflowForceUpdateSecretsRequestedV1` event indicating that a force update for workflows using this `secretsURL` has been requested.
+  /// @param secretsURL The URL pointing to the updated secrets file. This can be shared among multiple workflows.
+  function requestForceUpdateSecrets(string calldata secretsURL) external {
     address sender = msg.sender;
 
     // Use secretsURL and sender hash key to get the mapping key
@@ -465,17 +442,15 @@ contract WorkflowRegistry is OwnerIsCreator, ITypeAndVersion {
     return workflow;
   }
 
-  /**
-   * @notice Retrieves a list of workflow metadata for a specific owner.
-   * @dev This function allows paginated retrieval of workflows owned by a particular address.
-   *      If the `limit` is set to 0 or exceeds the MAX_PAGINATION_LIMIT, the MAX_PAGINATION_LIMIT will be used instead in both cases.
-   * @param workflowOwner The address of the workflow owner for whom the workflow metadata is being retrieved.
-   * @param start The index at which to start retrieving workflows (zero-based index).
-   *      If the start index is greater than or equal to the total number of workflows, an empty array is returned.
-   * @param limit The maximum number of workflow metadata entries to retrieve.
-   *      If the limit exceeds the available number of workflows from the start index, only the available entries are returned.
-   * @return workflowMetadataList An array of WorkflowMetadata structs containing metadata of workflows owned by the specified owner.
-   */
+  /// @notice Retrieves a list of workflow metadata for a specific owner.
+  /// @dev This function allows paginated retrieval of workflows owned by a particular address.
+  ///      If the `limit` is set to 0 or exceeds the MAX_PAGINATION_LIMIT, the MAX_PAGINATION_LIMIT will be used instead in both cases.
+  /// @param workflowOwner The address of the workflow owner for whom the workflow metadata is being retrieved.
+  /// @param start The index at which to start retrieving workflows (zero-based index).
+  ///        If the start index is greater than or equal to the total number of workflows, an empty array is returned.
+  /// @param limit The maximum number of workflow metadata entries to retrieve.
+  ///        If the limit exceeds the available number of workflows from the start index, only the available entries are returned.
+  /// @return workflowMetadataList An array of WorkflowMetadata structs containing metadata of workflows owned by the specified owner.
   function getWorkflowMetadataListByOwner(
     address workflowOwner,
     uint256 start,
@@ -503,17 +478,15 @@ contract WorkflowRegistry is OwnerIsCreator, ITypeAndVersion {
     return workflowMetadataList;
   }
 
-  /**
-   * @notice Retrieves a list of workflow metadata for a specific DON ID.
-   * @dev This function allows paginated retrieval of workflows associated with a particular DON.
-   *      If the `limit` is set to 0 or exceeds the MAX_PAGINATION_LIMIT, the MAX_PAGINATION_LIMIT will be used instead in both cases.
-   * @param donID The unique identifier of the DON whose associated workflows are being retrieved.
-   * @param start The index at which to start retrieving workflows (zero-based index).
-   *      If the start index is greater than or equal to the total number of workflows, an empty array is returned.
-   * @param limit The maximum number of workflow metadata entries to retrieve.
-   *      If the limit exceeds the available number of workflows from the start index, only the available entries are returned.
-   * @return workflowMetadataList An array of WorkflowMetadata structs containing metadata of workflows associated with the specified DON ID.
-   */
+  /// @notice Retrieves a list of workflow metadata for a specific DON ID.
+  /// @dev This function allows paginated retrieval of workflows associated with a particular DON.
+  ///      If the `limit` is set to 0 or exceeds the MAX_PAGINATION_LIMIT, the MAX_PAGINATION_LIMIT will be used instead in both cases.
+  /// @param donID The unique identifier of the DON whose associated workflows are being retrieved.
+  /// @param start The index at which to start retrieving workflows (zero-based index).
+  ///        If the start index is greater than or equal to the total number of workflows, an empty array is returned.
+  /// @param limit The maximum number of workflow metadata entries to retrieve.
+  ///        If the limit exceeds the available number of workflows from the start index, only the available entries are returned.
+  /// @return workflowMetadataList An array of WorkflowMetadata structs containing metadata of workflows associated with the specified DON ID.
   function getWorkflowMetadataListByDON(
     uint32 donID,
     uint256 start,
@@ -541,10 +514,8 @@ contract WorkflowRegistry is OwnerIsCreator, ITypeAndVersion {
     return workflowMetadataList;
   }
 
-  /**
-   * @notice Fetch all allowed DON IDs
-   * @return allowedDONs List of all allowed DON IDs
-   */
+  /// @notice Fetch all allowed DON IDs
+  /// @return allowedDONs List of all allowed DON IDs
   function getAllAllowedDONs() external view returns (uint32[] memory allowedDONs) {
     uint256 len = s_allowedDONs.length();
     allowedDONs = new uint32[](len);
@@ -555,10 +526,8 @@ contract WorkflowRegistry is OwnerIsCreator, ITypeAndVersion {
     return allowedDONs;
   }
 
-  /**
-   * @notice Fetch all authorized addresses
-   * @return authorizedAddresses List of all authorized addresses
-   */
+  /// @notice Fetch all authorized addresses
+  /// @return authorizedAddresses List of all authorized addresses
   function getAllAuthorizedAddresses() external view returns (address[] memory authorizedAddresses) {
     uint256 len = s_authorizedAddresses.length();
     authorizedAddresses = new address[](len);
@@ -572,24 +541,21 @@ contract WorkflowRegistry is OwnerIsCreator, ITypeAndVersion {
   // ================================================================
   // |                        Internal Helpers                      |
   // ================================================================
-  /**
-   * @dev Internal function to update the workflow status.
-   *
-   * This function is used to change the status of an existing workflow, either to "Paused" or "Active".
-   *
-   * The function performs the following operations:
-   * - Retrieves the workflow metadata from storage based on the workflow name.
-   * - Only the owner of the workflow can update the status.
-   * - Checks if the workflow is already in the desired status, and reverts if no change is necessary to avoid unnecessary
-   *   storage writes.
-   * - Updates the status of the workflow and emits the appropriate event (`WorkflowPausedV1` or `WorkflowActivatedV1`).
-   *
-   * Emits:
-   * - `WorkflowPausedV1` or `WorkflowActivatedV1` event indicating that the relevant workflow status has been updated.
-   *
-   * @param workflowName The human-readable name of the workflow.
-   * @param newStatus The new status to set for the workflow (either `Paused` or `Active`).
-   */
+  /// @dev Internal function to update the workflow status.
+  ///
+  /// This function is used to change the status of an existing workflow, either to "Paused" or "Active".
+  ///
+  /// The function performs the following operations:
+  /// - Retrieves the workflow metadata from storage based on the workflow name.
+  /// - Only the owner of the workflow can update the status.
+  /// - Checks if the workflow is already in the desired status, and reverts if no change is necessary to avoid unnecessary storage writes.
+  /// - Updates the status of the workflow and emits the appropriate event (`WorkflowPausedV1` or `WorkflowActivatedV1`).
+  ///
+  /// Emits:
+  /// - `WorkflowPausedV1` or `WorkflowActivatedV1` event indicating that the relevant workflow status has been updated.
+  ///
+  /// @param workflowName The human-readable name of the workflow.
+  /// @param newStatus The new status to set for the workflow (either `Paused` or `Active`).
   function _updateWorkflowStatus(string calldata workflowName, WorkflowStatus newStatus) internal {
     address sender = msg.sender;
 
@@ -617,28 +583,26 @@ contract WorkflowRegistry is OwnerIsCreator, ITypeAndVersion {
     }
   }
 
-  /**
-   * @dev Internal function to retrieve a workflow by the owner and name.
-   *
-   * Passing in `msg.sender` as the owner effectively ensures that the workflow key is uniquely tied to the caller's
-   * address and workflow name, thus belonging to the caller.
-   *
-   * The resulting key is used to uniquely identify the workflow for that specific owner.
-   *
-   * Note: Although a hash collision is theoretically possible, the likelihood is so astronomically low with `keccak256`
-   * (which produces a 256-bit hash) that it can be disregarded for all practical purposes.
-   *
-   * This function is used in place of a modifier in update functions in ensuring workflow ownership and also returns
-   * the workflow key and workflow storage.
-   *
-   * However, if an address besides the msg.sender is passed in, this makes no guarantee on ownership or permissioning
-   * and calling functions should handle those separately accordingly.
-   *
-   * @param sender The address of the owner of the workflow.
-   * @param workflowName The human-readable name of the workflow.
-   * @return workflowKey The unique key for the workflow.
-   * @return workflow The metadata of the workflow.
-   */
+  /// @dev Internal function to retrieve a workflow by the owner and name.
+  ///
+  /// Passing in `msg.sender` as the owner effectively ensures that the workflow key is uniquely tied to the caller's address and workflow
+  /// name, thus belonging to the caller.
+  ///
+  /// The resulting key is used to uniquely identify the workflow for that specific owner.
+  ///
+  /// Note: Although a hash collision is theoretically possible, the likelihood is so astronomically low with `keccak256` (which produces a
+  /// 256-bit hash) that it can be disregarded for all practical purposes.
+  ///
+  /// This function is used in place of a modifier in update functions to ensure workflow ownership and also returns the workflow key and
+  /// workflow storage.
+  ///
+  /// However, if an address other than `msg.sender` is passed in, this makes no guarantee on ownership or permissioning, and calling
+  /// functions should handle those separately as appropriate.
+  ///
+  /// @param sender The address of the owner of the workflow.
+  /// @param workflowName The human-readable name of the workflow.
+  /// @return workflowKey The unique key for the workflow.
+  /// @return workflow The metadata of the workflow.
   function _getWorkflowFromStorageByName(
     address sender,
     string calldata workflowName
@@ -674,18 +638,16 @@ contract WorkflowRegistry is OwnerIsCreator, ITypeAndVersion {
     }
   }
 
-  /**
-   * @dev Internal function to compute a unique hash from the owner's address and a given field.
-   *
-   * This function is used to generate a unique identifier by combining an owner's address with a specific field,
-   * ensuring uniqueness for operations like workflow management or secrets handling.
-   *
-   * The `field` parameter here is of type `calldata string`, which may not work for all use cases.
-   *
-   * @param owner The address of the owner. Typically used to uniquely associate the field with the owner.
-   * @param field A string field, such as the workflow name or secrets URL, that is used to generate the unique hash.
-   * @return A unique bytes32 hash computed from the combination of the owner's address and the given field.
-   */
+  /// @dev Internal function to compute a unique hash from the owner's address and a given field.
+  ///
+  /// This function is used to generate a unique identifier by combining an owner's address with a specific field, ensuring uniqueness for
+  /// operations like workflow management or secrets handling.
+  ///
+  /// The `field` parameter here is of type `calldata string`, which may not work for all use cases.
+  ///
+  /// @param owner The address of the owner. Typically used to uniquely associate the field with the owner.
+  /// @param field A string field, such as the workflow name or secrets URL, that is used to generate the unique hash.
+  /// @return A unique bytes32 hash computed from the combination of the owner's address and the given field.
   function _computeOwnerAndStringFieldHashKey(address owner, string calldata field) internal pure returns (bytes32) {
     return keccak256(abi.encodePacked(owner, field));
   }
