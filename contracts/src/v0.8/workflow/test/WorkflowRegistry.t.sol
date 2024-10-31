@@ -11,7 +11,7 @@ contract WorkflowRegistryTest is Test {
   address private unauthorizedUser = address(2);
   address private authorizedUser = address(3);
   bytes32 private workflowID1 = keccak256(abi.encodePacked("workflow1"));
-  string private workflowName1 = "workflowName";
+  string private workflowName1 = "workflowName1";
   bytes32 private workflowID2 = keccak256(abi.encodePacked("workflow2"));
   string private workflowName2 = "workflowName2";
   bytes32 private newWorkflowID = keccak256(abi.encodePacked("workflow_new"));
@@ -269,7 +269,7 @@ contract WorkflowRegistryTest is Test {
     vm.expectRevert(WorkflowRegistry.WorkflowDoesNotExist.selector);
     registry.getWorkflowMetadata(authorizedUser, workflowName1);
 
-    // // Authorized user should not be able to delete a non-existing workflow
+    // Authorized user should not be able to delete a non-existing workflow
     vm.prank(authorizedUser);
     vm.expectRevert(WorkflowRegistry.WorkflowDoesNotExist.selector);
     registry.deleteWorkflow(workflowName1);
@@ -317,13 +317,21 @@ contract WorkflowRegistryTest is Test {
     // Register multiple workflows for the same owner
     _allowAccessAndRegisterWorkflow(authorizedUser, workflowName1, workflowID1, WorkflowRegistry.WorkflowStatus.ACTIVE);
     _allowAccessAndRegisterWorkflow(authorizedUser, workflowName2, workflowID2, WorkflowRegistry.WorkflowStatus.PAUSED);
+    _allowAccessAndRegisterWorkflow(
+      authorizedUser, "workflow3", keccak256(abi.encodePacked("workflow3")), WorkflowRegistry.WorkflowStatus.ACTIVE
+    );
+    _allowAccessAndRegisterWorkflow(
+      authorizedUser, "workflow4", keccak256(abi.encodePacked("workflow4")), WorkflowRegistry.WorkflowStatus.ACTIVE
+    );
+    _allowAccessAndRegisterWorkflow(
+      authorizedUser, "workflow5", keccak256(abi.encodePacked("workflow5")), WorkflowRegistry.WorkflowStatus.ACTIVE
+    );
 
     // Retrieve the list of workflows for the owner
     WorkflowRegistry.WorkflowMetadata[] memory workflows =
       registry.getWorkflowMetadataListByOwner(authorizedUser, 0, 10);
 
-    // Verify the workflows are retrieved correctly
-    assertEq(workflows.length, 2);
+    // Verify the individual workflows are retrieved correctly
     assertEq(workflows[0].workflowID, workflowID1);
     assertEq(workflows[0].workflowName, workflowName1);
     assertEq(workflows[0].owner, authorizedUser);
@@ -339,18 +347,52 @@ contract WorkflowRegistryTest is Test {
     assertEq(workflows[1].configURL, testConfigURL);
     assertEq(workflows[1].secretsURL, testSecretsURL);
     assertTrue(workflows[1].status == WorkflowRegistry.WorkflowStatus.PAUSED);
+
+    // Pagination: Get first page (2 items)
+    WorkflowRegistry.WorkflowMetadata[] memory firstPage = registry.getWorkflowMetadataListByOwner(authorizedUser, 0, 2);
+    assertEq(firstPage.length, 2);
+    assertEq(firstPage[0].workflowName, workflowName1);
+    assertEq(firstPage[1].workflowName, workflowName2);
+
+    // Pagination: Get second page (2 items)
+    WorkflowRegistry.WorkflowMetadata[] memory secondPage =
+      registry.getWorkflowMetadataListByOwner(authorizedUser, 2, 2);
+    assertEq(secondPage.length, 2);
+    assertEq(secondPage[0].workflowName, "workflow3");
+    assertEq(secondPage[1].workflowName, "workflow4");
+
+    // Pagination: Get last page (1 item)
+    WorkflowRegistry.WorkflowMetadata[] memory lastPage = registry.getWorkflowMetadataListByOwner(authorizedUser, 4, 2);
+    assertEq(lastPage.length, 1);
+    assertEq(lastPage[0].workflowName, "workflow5");
+
+    // Pagination: Request page beyond available items
+    WorkflowRegistry.WorkflowMetadata[] memory emptyPage = registry.getWorkflowMetadataListByOwner(authorizedUser, 6, 2);
+    assertEq(emptyPage.length, 0);
+
+    // Pagination: Request all items at once
+    WorkflowRegistry.WorkflowMetadata[] memory allItems = registry.getWorkflowMetadataListByOwner(authorizedUser, 0, 10);
+    assertEq(allItems.length, 5);
   }
 
   function testGetWorkflowMetadataListByDON() public {
     // Register multiple workflows for the same DON ID
     _allowAccessAndRegisterWorkflow(authorizedUser, workflowName1, workflowID1, WorkflowRegistry.WorkflowStatus.ACTIVE);
     _allowAccessAndRegisterWorkflow(authorizedUser, workflowName2, workflowID2, WorkflowRegistry.WorkflowStatus.PAUSED);
+    _allowAccessAndRegisterWorkflow(
+      authorizedUser, "workflow3", keccak256(abi.encodePacked("workflow3")), WorkflowRegistry.WorkflowStatus.ACTIVE
+    );
+    _allowAccessAndRegisterWorkflow(
+      authorizedUser, "workflow4", keccak256(abi.encodePacked("workflow4")), WorkflowRegistry.WorkflowStatus.PAUSED
+    );
+    _allowAccessAndRegisterWorkflow(
+      authorizedUser, "workflow5", keccak256(abi.encodePacked("workflow5")), WorkflowRegistry.WorkflowStatus.ACTIVE
+    );
 
     // Retrieve the list of workflows for the DON ID
     WorkflowRegistry.WorkflowMetadata[] memory workflows = registry.getWorkflowMetadataListByDON(donID, 0, 10);
 
-    // Verify the workflows are retrieved correctly
-    assertEq(workflows.length, 2);
+    // Verify the individual workflows are retrieved correctly
     assertEq(workflows[0].workflowID, workflowID1);
     assertEq(workflows[0].workflowName, workflowName1);
     assertEq(workflows[0].owner, authorizedUser);
@@ -366,5 +408,35 @@ contract WorkflowRegistryTest is Test {
     assertEq(workflows[1].configURL, testConfigURL);
     assertEq(workflows[1].secretsURL, testSecretsURL);
     assertTrue(workflows[1].status == WorkflowRegistry.WorkflowStatus.PAUSED);
+
+    // Pagination: Get first page (2 items)
+    WorkflowRegistry.WorkflowMetadata[] memory firstPage = registry.getWorkflowMetadataListByDON(donID, 0, 2);
+    assertEq(firstPage.length, 2);
+    assertEq(firstPage[0].workflowName, workflowName1);
+    assertEq(firstPage[1].workflowName, workflowName2);
+
+    // Pagination: Get second page (2 items)
+    WorkflowRegistry.WorkflowMetadata[] memory secondPage = registry.getWorkflowMetadataListByDON(donID, 2, 2);
+    assertEq(secondPage.length, 2);
+    assertEq(secondPage[0].workflowName, "workflow3");
+    assertEq(secondPage[1].workflowName, "workflow4");
+
+    // Pagination: Get last page (1 item)
+    WorkflowRegistry.WorkflowMetadata[] memory lastPage = registry.getWorkflowMetadataListByDON(donID, 4, 2);
+    assertEq(lastPage.length, 1);
+    assertEq(lastPage[0].workflowName, "workflow5");
+
+    // Pagination: Request page beyond available items
+    WorkflowRegistry.WorkflowMetadata[] memory emptyPage = registry.getWorkflowMetadataListByDON(donID, 6, 2);
+    assertEq(emptyPage.length, 0);
+
+    // Pagination: Request all items at once
+    WorkflowRegistry.WorkflowMetadata[] memory allItems = registry.getWorkflowMetadataListByDON(donID, 0, 10);
+    assertEq(allItems.length, 5);
+
+    // Request from non-existent DON ID
+    uint32 nonExistentDonID = 999;
+    WorkflowRegistry.WorkflowMetadata[] memory emptyDON = registry.getWorkflowMetadataListByDON(nonExistentDonID, 0, 10);
+    assertEq(emptyDON.length, 0);
   }
 }
