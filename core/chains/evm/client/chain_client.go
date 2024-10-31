@@ -2,7 +2,7 @@ package client
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"math/big"
 	"sync"
 	"time"
@@ -384,7 +384,7 @@ func (c *chainClient) SendTransaction(ctx context.Context, tx *types.Transaction
 		result = c.txSender.SendTransaction(ctx, tx)
 	}
 	if result == nil {
-		return fmt.Errorf("SendTransaction failed: result is nil")
+		return errors.New("SendTransaction failed: result is nil")
 	}
 	if result.Error() != nil {
 		return result.Error()

@@ -389,9 +389,9 @@ func TestTransactionSender_SendTransaction_aggregateTxResults(t *testing.T) {
 			txResult, err := aggregateTxResults(testCase.ResultsByCode)
 			if !testCase.ExpectedNilResult {
 				if testCase.ExpectedTxResult == "" {
-					assert.NoError(t, err)
+					require.NoError(t, err)
 				} else {
-					assert.EqualError(t, txResult.TxError(), testCase.ExpectedTxResult)
+					require.EqualError(t, txResult.TxError(), testCase.ExpectedTxResult)
 				}
 			}
 

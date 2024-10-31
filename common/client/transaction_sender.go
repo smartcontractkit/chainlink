@@ -3,7 +3,6 @@ package client
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math"
 	"slices"
 	"sync"
@@ -219,7 +218,7 @@ func aggregateTxResults[RESULT any](resultsByCode sendTxResults[RESULT]) (result
 		return r[0], nil
 	}
 
-	criticalErr = fmt.Errorf("expected at least one response on SendTransaction")
+	criticalErr = errors.New("expected at least one response on SendTransaction")
 	return result, criticalErr
 }
 
