@@ -4,7 +4,7 @@ pragma solidity 0.8.24;
 import {ILiquidityContainer} from "../../../liquiditymanager/interfaces/ILiquidityContainer.sol";
 import {ITokenMessenger} from "../USDC/ITokenMessenger.sol";
 
-import {OwnerIsCreator} from "../../../shared/access/OwnerIsCreator.sol";
+import {Ownable2StepMsgSender} from "../../../shared/access/Ownable2StepMsgSender.sol";
 import {Pool} from "../../libraries/Pool.sol";
 import {TokenPool} from "../TokenPool.sol";
 import {USDCTokenPool} from "../USDC/USDCTokenPool.sol";
@@ -81,7 +81,7 @@ contract HybridLockReleaseUSDCTokenPool is USDCTokenPool, USDCBridgeMigrator {
   ) public virtual override returns (Pool.ReleaseOrMintOutV1 memory) {
     // Use CCTP Burn/Mint mechanism for chains which have it enabled. The LOCK_RELEASE_FLAG is used in sourcePoolData to
     // discern this, since the source-chain will not be a hybrid-pool but a standard burn-mint. In the event of a
-    // stuck message after a migration has occured, and the message was not executed properly before the migration
+    // stuck message after a migration has occurred, and the message was not executed properly before the migration
     // began, and locked tokens were not released until now, the message will already have been committed to with this
     // flag so it is safe to release the tokens. The source USDC pool is trusted to send messages with the correct
     // flag as well.
@@ -222,7 +222,7 @@ contract HybridLockReleaseUSDCTokenPool is USDCTokenPool, USDCBridgeMigrator {
   /// @param from The address of the old pool.
   /// @param remoteChainSelector The chain for which liquidity is being transferred.
   function transferLiquidity(address from, uint64 remoteChainSelector) external onlyOwner {
-    OwnerIsCreator(from).acceptOwnership();
+    Ownable2StepMsgSender(from).acceptOwnership();
 
     // Withdraw all available liquidity from the old pool. No check is needed for pending migrations, as the old pool
     // will revert if the migration has begun.

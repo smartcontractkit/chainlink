@@ -86,7 +86,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@fc79d0ec518a24cb2bf016c8a913c62197080cc7
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@e23466e1b565345af550198c55128ab89ef857f2
 
       - name: Find new or updated test packages
         id: find-tests
@@ -219,7 +219,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@fc79d0ec518a24cb2bf016c8a913c62197080cc7
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@e23466e1b565345af550198c55128ab89ef857f2
 
       - name: Run tests with flakeguard
         shell: bash
@@ -262,7 +262,7 @@ jobs:
             ALL_TESTS_COUNT=$(jq 'length' all_tests.json)
             echo "All tests count: $ALL_TESTS_COUNT"
             echo "all_tests_count=$ALL_TESTS_COUNT" >> "$GITHUB_OUTPUT"
-            jq -c 'map(select(.PassRatio < ($runThreshold | tonumber))) | map(.PassRatio |= (. * 100 | tostring + "%"))' all_tests.json --arg runThreshold '${{ inputs.runThreshold }}' > failed_tests.json
+            jq -c 'map(select(.PassRatio < ($runThreshold | tonumber) and .Skipped != true)) | map(.PassRatio |= (. * 100 | tostring + "%"))' all_tests.json --arg runThreshold '${{ inputs.runThreshold }}' > failed_tests.json
             FAILED_TESTS_COUNT=$(jq 'length' failed_tests.json)
             echo "Failed tests count: $FAILED_TESTS_COUNT"
             echo "failed_tests_count=$FAILED_TESTS_COUNT" >> "$GITHUB_OUTPUT"
@@ -283,14 +283,14 @@ jobs:
         if: ${{ fromJson(steps.set_test_results.outputs.failed_tests_count) > 0 }}
         shell: bash
         run: |
-          jq -r '["TestPackage", "TestName", "PassRatio", "RunCount"], ["---------", "---------", "---------", "---------"], (.[] | [.TestPackage, .TestName, .PassRatio, .Runs]) | @tsv' test_results/failed_tests.json | column -t -s$'\t' > test_results/failed_tests_ascii.txt
+          jq -r '["TestPackage", "TestName", "PassRatio", "RunCount", "Skipped"], ["---------", "---------", "---------", "---------", "---------"], (.[] | [.TestPackage, .TestName, .PassRatio, .Runs, .Skipped]) | @tsv' test_results/failed_tests.json | column -t -s$'\t' > test_results/failed_tests_ascii.txt
           cat test_results/failed_tests_ascii.txt
 
       - name: Create ASCII table with all test results
         if: ${{ fromJson(steps.set_test_results.outputs.all_tests_count) > 0 }}
         shell: bash
         run: |
-          jq -r '["TestPackage", "TestName", "PassRatio", "RunCount"], ["---------", "---------", "---------", "---------"], (.[] | [.TestPackage, .TestName, .PassRatio, .Runs]) | @tsv' test_results/all_tests.json | column -t -s$'\t' > test_results/all_tests_ascii.txt
+          jq -r '["TestPackage", "TestName", "PassRatio", "RunCount", "Skipped"], ["---------", "---------", "---------", "---------", "---------"], (.[] | [.TestPackage, .TestName, .PassRatio, .Runs, .Skipped]) | @tsv' test_results/all_tests.json | column -t -s$'\t' > test_results/all_tests_ascii.txt
           cat test_results/all_tests_ascii.txt
 
       - name: Create GitHub Summary

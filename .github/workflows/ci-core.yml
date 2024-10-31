@@ -407,7 +407,7 @@ jobs:
       baseRef: ${{ github.base_ref }}
       headRef: ${{ github.head_ref }}
       runCount: '5'
-      runThreshold: '0.9'
+      runThreshold: '1'
       runWithRace: true
       findByTestFilesDiff: true
       findByAffectedPackages: false

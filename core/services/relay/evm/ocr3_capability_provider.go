@@ -81,7 +81,7 @@ func (d *ocr3CapabilityLogDecoder) Decode(rawLog []byte) (ocrtypes.ContractConfi
 			allPubKeys[raw] = struct{}{}
 		}
 
-		signers = append(signers, pubKey[:])
+		signers = append(signers, pubKey)
 	}
 
 	return ocrtypes.ContractConfig{

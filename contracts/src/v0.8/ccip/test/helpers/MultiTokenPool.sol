@@ -5,7 +5,7 @@ import {IPoolV1} from "../../interfaces/IPool.sol";
 import {IRMN} from "../../interfaces/IRMN.sol";
 import {IRouter} from "../../interfaces/IRouter.sol";
 
-import {OwnerIsCreator} from "../../../shared/access/OwnerIsCreator.sol";
+import {Ownable2StepMsgSender} from "../../../shared/access/Ownable2StepMsgSender.sol";
 import {Pool} from "../../libraries/Pool.sol";
 import {RateLimiter} from "../../libraries/RateLimiter.sol";
 
@@ -14,7 +14,7 @@ import {IERC165} from "../../../vendor/openzeppelin-solidity/v5.0.2/contracts/ut
 import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v5.0.2/contracts/utils/structs/EnumerableSet.sol";
 
 /// @notice This contract is a proof of concept and should NOT be used in production.
-abstract contract MultiTokenPool is IPoolV1, OwnerIsCreator {
+abstract contract MultiTokenPool is IPoolV1, Ownable2StepMsgSender {
   using EnumerableSet for EnumerableSet.AddressSet;
   using EnumerableSet for EnumerableSet.UintSet;
   using RateLimiter for RateLimiter.TokenBucket;

@@ -170,7 +170,7 @@ func TestWaitBoostedFee(t *testing.T) {
 			assert.Equal(t, diff, tc.diff)
 			// we check that the actual diff is approximately equals to expected diff,
 			// as we might get slightly different results locally vs. CI therefore normal Equal() would be unstable
-			//diffUpperLimit := big.NewInt(0).Add(tc.diff, big.NewInt(1e9))
+			// diffUpperLimit := big.NewInt(0).Add(tc.diff, big.NewInt(1e9))
 			//diffLowerLimit := big.NewInt(0).Add(tc.diff, big.NewInt(-1e9))
 			//require.Equalf(t, -1, diff.Cmp(diffUpperLimit), "actual diff (%s) is larger than expected (%s)", diff.String(), diffUpperLimit.String())
 			//require.Equal(t, 1, diff.Cmp(diffLowerLimit), "actual diff (%s) is smaller than expected (%s)", diff.String(), diffLowerLimit.String())

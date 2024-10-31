@@ -11,11 +11,10 @@ import {Client} from "./libraries/Client.sol";
 import {RateLimiter} from "./libraries/RateLimiter.sol";
 import {USDPriceWith18Decimals} from "./libraries/USDPriceWith18Decimals.sol";
 
-/// @notice The aggregate rate limiter is a wrapper of the token bucket rate limiter
-/// which permits rate limiting based on the aggregate value of a group of
-/// token transfers, using a fee quoter to convert to a numeraire asset (e.g. USD).
-/// The contract is a standalone multi-lane message validator contract, which can be called by authorized
-/// ramp contracts to apply rate limit changes to lanes, and revert when the rate limits get breached.
+/// @notice The aggregate rate limiter is a wrapper of the token bucket rate limiter which permits rate limiting based
+/// on the aggregate value of a group of token transfers , using a fee quoter to convert to a numeraire asset e.g. USD.
+/// The contract is a standalone multi-lane message validator contract, which can be called by authorized ramp contracts
+/// to apply rate limit changes to lanes, and revert when the rate limits get breached.
 contract MultiAggregateRateLimiter is IMessageInterceptor, AuthorizedCallers, ITypeAndVersion {
   using RateLimiter for RateLimiter.TokenBucket;
   using USDPriceWith18Decimals for uint224;
@@ -32,27 +31,27 @@ contract MultiAggregateRateLimiter is IMessageInterceptor, AuthorizedCallers, IT
   /// @notice LocalRateLimitToken struct containing the local token address with the remote chain selector.
   /// The struct is used for removals and updates, since the local -> remote token mappings are scoped per-chain.
   struct LocalRateLimitToken {
-    uint64 remoteChainSelector; // ────╮ Remote chain selector for which to update the rate limit token mapping
-    address localToken; // ────────────╯ Token on the chain on which the multi-ARL is deployed
+    uint64 remoteChainSelector; // ─╮ Remote chain selector for which to update the rate limit token mapping.
+    address localToken; // ─────────╯ Token on the chain on which the multi-ARL is deployed.
   }
 
   /// @notice RateLimitTokenArgs struct containing both the local and remote token addresses.
   struct RateLimitTokenArgs {
-    LocalRateLimitToken localTokenArgs; // Local token update args scoped to one remote chain
-    bytes remoteToken; // Token on the remote chain (for OnRamp - dest, of OffRamp - source)
+    LocalRateLimitToken localTokenArgs; // Local token update args scoped to one remote chain.
+    bytes remoteToken; // Token on the remote chain, for OnRamp - dest, or OffRamp - source.
   }
 
   /// @notice Update args for a single rate limiter config update.
   struct RateLimiterConfigArgs {
-    uint64 remoteChainSelector; // ────╮ Remote chain selector to set config for
-    bool isOutboundLane; // ───────────╯ If set to true, represents the outbound message lane (OnRamp), and the inbound message lane otherwise (OffRamp)
+    uint64 remoteChainSelector; // ─╮ Remote chain selector to set config for.
+    bool isOutboundLane; // ────────╯ If set to true, represents the outbound message lane (OnRamp), and the inbound message lane otherwise (OffRamp)
     RateLimiter.Config rateLimiterConfig; // Rate limiter config to set
   }
 
   /// @notice Struct to store rate limit token buckets for both lane directions.
   struct RateLimiterBuckets {
-    RateLimiter.TokenBucket inboundLaneBucket; // Bucket for the inbound lane (remote -> local)
-    RateLimiter.TokenBucket outboundLaneBucket; // Bucket for the outbound lane (local -> remote)
+    RateLimiter.TokenBucket inboundLaneBucket; // Bucket for the inbound lane (remote -> local).
+    RateLimiter.TokenBucket outboundLaneBucket; // Bucket for the outbound lane (local -> remote).
   }
 
   string public constant override typeAndVersion = "MultiAggregateRateLimiter 1.6.0-dev";
@@ -64,7 +63,7 @@ contract MultiAggregateRateLimiter is IMessageInterceptor, AuthorizedCallers, IT
   mapping(uint64 remoteChainSelector => EnumerableMapAddresses.AddressToBytesMap tokensLocalToRemote) private
     s_rateLimitedTokensLocalToRemote;
 
-  /// @notice The address of the FeeQuoter used to query token values for ratelimiting.
+  /// @notice The address of the FeeQuoter used to query token values for rate limiting.
   address internal s_feeQuoter;
 
   /// @notice Rate limiter token bucket states per chain, with separate buckets for inbound and outbound lanes.
@@ -102,7 +101,7 @@ contract MultiAggregateRateLimiter is IMessageInterceptor, AuthorizedCallers, IT
   ) private {
     RateLimiter.TokenBucket storage tokenBucket = _getTokenBucket(remoteChainSelector, isOutgoingLane);
 
-    // Skip rate limiting if it is disabled
+    // Skip rate limiting if it is disabled.
     if (tokenBucket.isEnabled) {
       uint256 value;
       for (uint256 i = 0; i < tokenAmounts.length; ++i) {
@@ -110,7 +109,7 @@ contract MultiAggregateRateLimiter is IMessageInterceptor, AuthorizedCallers, IT
           value += _getTokenValue(tokenAmounts[i]);
         }
       }
-      // Rate limit on aggregated token value
+      // Rate limit on aggregated token value.
       if (value > 0) tokenBucket._consume(value, address(0));
     }
   }
@@ -137,15 +136,15 @@ contract MultiAggregateRateLimiter is IMessageInterceptor, AuthorizedCallers, IT
   function _getTokenValue(
     Client.EVMTokenAmount memory tokenAmount
   ) internal view returns (uint256) {
-    // not fetching validated price, as price staleness is not important for value-based rate limiting
-    // we only need to verify the price is not 0
+    // not fetching validated price, as price staleness is not important for value-based rate limiting we only
+    // need to verify the price is not 0.
     uint224 pricePerToken = IFeeQuoter(s_feeQuoter).getTokenPrice(tokenAmount.token).value;
     if (pricePerToken == 0) revert PriceNotFoundForToken(tokenAmount.token);
     return pricePerToken._calcUSDValueFromTokenAmount(tokenAmount.amount);
   }
 
   /// @notice Gets the token bucket with its values for the block it was requested at.
-  /// @param remoteChainSelector chain selector to retrieve state for
+  /// @param remoteChainSelector chain selector to retrieve state for.
   /// @param isOutboundLane if set to true, fetches the rate limit state for the outbound message lane (OnRamp).
   /// Otherwise fetches for the inbound message lane (OffRamp).
   /// The outbound and inbound message rate limit state is completely separated.
@@ -177,7 +176,7 @@ contract MultiAggregateRateLimiter is IMessageInterceptor, AuthorizedCallers, IT
       RateLimiter.TokenBucket storage tokenBucket = _getTokenBucket(remoteChainSelector, isOutboundLane);
 
       if (tokenBucket.lastUpdated == 0) {
-        // Token bucket needs to be newly added
+        // Token bucket needs to be newly added.
         RateLimiter._validateTokenBucketConfig(configUpdate, false);
         RateLimiter.TokenBucket memory newTokenBucket = RateLimiter.TokenBucket({
           rate: configUpdate.rate,
@@ -200,8 +199,8 @@ contract MultiAggregateRateLimiter is IMessageInterceptor, AuthorizedCallers, IT
   }
 
   /// @notice Gets all tokens which are included in Aggregate Rate Limiting.
-  /// @dev the order of IDs in the list is **not guaranteed**, therefore, if ordering matters when
-  /// making successive calls, one should keep the block height constant to ensure a consistent result.
+  /// @dev the order of IDs in the list is **not guaranteed**, therefore, if ordering matters when making successive
+  /// calls, one should keep the block height constant to ensure a consistent result.
   /// @param remoteChainSelector chain selector to get rate limit tokens for.
   /// @return localTokens The local chain representation of the tokens that are rate limited.
   /// @return remoteTokens The remote representation of the tokens that are rate limited.

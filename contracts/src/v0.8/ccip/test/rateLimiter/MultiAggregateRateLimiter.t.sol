@@ -2,6 +2,7 @@
 pragma solidity 0.8.24;
 
 import {AuthorizedCallers} from "../../../shared/access/AuthorizedCallers.sol";
+import {Ownable2Step} from "../../../shared/access/Ownable2Step.sol";
 import {MultiAggregateRateLimiter} from "../../MultiAggregateRateLimiter.sol";
 import {Client} from "../../libraries/Client.sol";
 import {Internal} from "../../libraries/Internal.sol";
@@ -154,7 +155,7 @@ contract MultiAggregateRateLimiter_setFeeQuoter is MultiAggregateRateLimiterSetu
 
   function test_OnlyOwner_Revert() public {
     vm.startPrank(STRANGER);
-    vm.expectRevert(bytes("Only callable by owner"));
+    vm.expectRevert(Ownable2Step.OnlyCallableByOwner.selector);
 
     s_rateLimiter.setFeeQuoter(STRANGER);
   }
@@ -436,7 +437,7 @@ contract MultiAggregateRateLimiter_applyRateLimiterConfigUpdates is MultiAggrega
     });
     vm.startPrank(STRANGER);
 
-    vm.expectRevert(bytes("Only callable by owner"));
+    vm.expectRevert(Ownable2Step.OnlyCallableByOwner.selector);
     s_rateLimiter.applyRateLimiterConfigUpdates(configUpdates);
   }
 
@@ -733,7 +734,7 @@ contract MultiAggregateRateLimiter_updateRateLimitTokens is MultiAggregateRateLi
 
     vm.startPrank(STRANGER);
 
-    vm.expectRevert(bytes("Only callable by owner"));
+    vm.expectRevert(Ownable2Step.OnlyCallableByOwner.selector);
     s_rateLimiter.updateRateLimitTokens(new MultiAggregateRateLimiter.LocalRateLimitToken[](0), adds);
   }
 }

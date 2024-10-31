@@ -233,7 +233,7 @@ func NewRelayOpts(args types.RelayArgs) *RelayOpts {
 
 func (o *RelayOpts) RelayConfig() (RelayConfig, error) {
 	var empty RelayConfig
-	//TODO this should be done once and the error should be cached
+	// TODO this should be done once and the error should be cached
 	if o.c == nil {
 		var c RelayConfig
 		err := json.Unmarshal(o.RelayArgs.RelayConfig, &c)
