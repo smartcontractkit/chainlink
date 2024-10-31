@@ -359,6 +359,7 @@ jobs:
           echo "| Flakiness Threshold     | ${threshold_percentage}%       |" >> $GITHUB_STEP_SUMMARY
           echo "| Test Run Count          | ${{ env.RUN_COUNT }}         |" >> $GITHUB_STEP_SUMMARY
           echo "| Race Detection          | ${{ inputs.runWithRace }}      |" >> $GITHUB_STEP_SUMMARY
+          echo "| Excluded Tests          | ${{ env.SKIPPED_TESTS }}      |" >> $GITHUB_STEP_SUMMARY
           
       - name: Append No Tests Found Message to GitHub Summary
         if: ${{ fromJson(steps.set_test_results.outputs.all_tests_count) == 0 }}
