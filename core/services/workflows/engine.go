@@ -325,6 +325,7 @@ func (e *Engine) init(ctx context.Context) {
 
 	if retryErr != nil {
 		e.logger.Errorf("initialization failed: %s", retryErr)
+		logCustMsg(e.cma, fmt.Sprintf("initialization failed: %s", retryErr), e.logger)
 		e.afterInit(false)
 		return
 	}
@@ -1204,9 +1205,9 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 	// - that the resulting graph is strongly connected (i.e. no disjointed subgraphs exist)
 	// - etc.
 
+	cma := custmsg.NewLabeler().With(wIDKey, cfg.WorkflowID, woIDKey, cfg.WorkflowOwner, wnKey, cfg.WorkflowName)
 	workflow, err := Parse(cfg.Workflow)
 	if err != nil {
-		cma := custmsg.NewLabeler().With(wIDKey, cfg.WorkflowID, woIDKey, cfg.WorkflowOwner, wnKey, cfg.WorkflowName)
 		logCustMsg(cma, fmt.Sprintf("failed to parse workflow: %s", err), cfg.Lggr)
 		return nil, err
 	}
@@ -1216,8 +1217,8 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 	workflow.name = hex.EncodeToString([]byte(cfg.WorkflowName))
 
 	engine = &Engine{
+		cma:            cma,
 		logger:         cfg.Lggr.Named("WorkflowEngine").With("workflowID", cfg.WorkflowID),
-		cma:            custmsg.NewLabeler().With(wIDKey, cfg.WorkflowID, woIDKey, cfg.WorkflowOwner, wnKey, workflow.name),
 		metrics:        workflowsMetricLabeler{metrics.NewLabeler().With(wIDKey, cfg.WorkflowID, woIDKey, cfg.WorkflowOwner, wnKey, workflow.name)},
 		registry:       cfg.Registry,
 		workflow:       workflow,

@@ -41,18 +41,19 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 	cma := custmsg.NewLabeler().With(wIDKey, spec.WorkflowSpec.WorkflowID, woIDKey, spec.WorkflowSpec.WorkflowOwner, wnKey, spec.WorkflowSpec.WorkflowName)
 	sdkSpec, err := spec.WorkflowSpec.SDKSpec(ctx)
 	if err != nil {
-		logCustMsg(cma, fmt.Sprintf("failed to convert to sdk workflow spec: %v", err), d.logger)
+		logCustMsg(cma, fmt.Sprintf("failed to start workflow engine: failed to get workflow sdk spec: %v", err), d.logger)
 		return nil, err
 	}
 
 	binary, err := spec.WorkflowSpec.RawSpec(ctx)
 	if err != nil {
-		logCustMsg(cma, fmt.Sprintf("failed to fetch binary: %v", err), d.logger)
+		logCustMsg(cma, fmt.Sprintf("failed to start workflow engine: failed to fetch workflow spec binary: %v", err), d.logger)
 		return nil, err
 	}
 
 	config, err := spec.WorkflowSpec.GetConfig(ctx)
 	if err != nil {
+		logCustMsg(cma, fmt.Sprintf("failed to start workflow engine: failed to get workflow spec config: %v", err), d.logger)
 		return nil, err
 	}
 
