@@ -12,10 +12,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/AlekSi/pointer"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/rpc"
 
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
+	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 	"github.com/smartcontractkit/chainlink/deployment"
 
 	"google.golang.org/protobuf/proto"
@@ -163,50 +165,47 @@ type Node struct {
 }
 
 func NodesFromJD(name string, nodeIDs []string, jd deployment.OffchainClient) ([]Node, error) {
+	// lookup nodes based on p2p_ids
 	var nodes []Node
+	selector := strings.Join(nodeIDs, ",")
 	nodesFromJD, err := jd.ListNodes(context.Background(), &nodev1.ListNodesRequest{
 		Filter: &nodev1.ListNodesRequest_Filter{
 			Enabled: 1,
-			Ids:     nodeIDs, // TODO: use p2p_id selectors instead of IDs
-			// Selectors: []*ptypes.Selector{
-			// 	{
-			// 		Key:   "p2p_id",
-			// 		Op:    ptypes.SelectorOp_IN,
-			// 		Value: pointer.ToString(""), // TODO:
-			// 	},
-			// },
+			Selectors: []*ptypes.Selector{
+				{
+					Key:   "p2p_id",
+					Op:    ptypes.SelectorOp_IN,
+					Value: pointer.ToString(selector),
+				},
+			},
 		},
 	})
 	if err != nil {
 		return nil, err
 	}
-	for _, nodeID := range nodeIDs {
+	for _, nodeP2PID := range nodeIDs {
 		// TODO: Filter should accept multiple nodes
 		nodeChainConfigs, err := jd.ListNodeChainConfigs(context.Background(), &nodev1.ListNodeChainConfigsRequest{Filter: &nodev1.ListNodeChainConfigsRequest_Filter{
-			NodeIds: []string{nodeID},
+			NodeIds: []string{nodeP2PID},
 		}})
 		if err != nil {
 			return nil, err
 		}
-		idx := slices.IndexFunc(nodesFromJD.GetNodes(), func(node *nodev1.Node) bool { return node.Id == nodeID })
+		idx := slices.IndexFunc(nodesFromJD.GetNodes(), func(node *nodev1.Node) bool {
+			return slices.ContainsFunc(node.Labels, func(label *ptypes.Label) bool {
+				return label.Key == "p2p_id" && *label.Value == nodeP2PID
+			})
+		})
 		if idx < 0 {
-			return nil, fmt.Errorf("node id not found")
+			return nil, fmt.Errorf("node %v not found", nodeP2PID)
 		}
 		jdNode := nodesFromJD.Nodes[idx]
 
-		// labelIdx := slices.IndexFunc(jdNode.GetLabels(), func(label *ptypes.Label) bool { return label.Key == "p2p_id" })
-		// if labelIdx < 0 {
-		// 	return nil, fmt.Errorf("p2p_id label not found")
-		// }
-		// p2pID := *jdNode.Labels[labelIdx].Value
-
 		nodes = append(nodes, Node{
-			ID: nodeID,
-			// P2PID:        p2pID, // TODO:
-			P2PID:     nodeID,
-			Name:      name,
-			PublicKey: &jdNode.PublicKey,
-			// PublicKey TODO fetch via ListNodes
+			ID:           jdNode.Id,
+			P2PID:        nodeP2PID,
+			Name:         name,
+			PublicKey:    &jdNode.PublicKey,
 			ChainConfigs: nodeChainConfigs.GetChainConfigs(),
 		})
 	}

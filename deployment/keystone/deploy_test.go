@@ -47,7 +47,6 @@ func TestDeploy(t *testing.T) {
 	evmChains := memory.NewMemoryChainsWithChainIDs(t, []uint64{sepoliaChainId, sepoliaArbitrumChainId})
 	// aptosChain := memory.NewMemoryChain(t, aptosChainSel)
 
-	// TODO: also need to tag these nodes
 	wfChains := map[uint64]deployment.Chain{}
 	wfChains[sepoliaChainSel] = evmChains[sepoliaChainSel]
 	// wfChains[aptosChainSel] = aptosChain
@@ -240,10 +239,6 @@ func TestDeployCLO(t *testing.T) {
 	allNops = append(allNops, cwNops...)
 	allNops = append(allNops, assetNops...)
 
-	// TODO:
-	// - replace the multi don code with something similar to above, a single evn with nodes being tagged
-	// - tag all the nodes in this new fake JD
-
 	chains := make(map[uint64]struct{})
 	for _, nop := range allNops {
 		for _, node := range nop.Nodes {
@@ -282,8 +277,11 @@ func TestDeployCLO(t *testing.T) {
 	registryChainSel, err := chainsel.SelectorFromChainId(11155111)
 	require.NoError(t, err)
 
-	var ocr3Config = keystone.OracleConfigSource{
-		MaxFaultyOracles: len(wfNops) / 3,
+	var ocr3Config = keystone.OracleConfigWithSecrets{
+		OracleConfig: keystone.OracleConfig{
+			MaxFaultyOracles: len(wfNops) / 3,
+		},
+		OCRSecrets: deployment.XXXGenerateTestOCRSecrets(),
 	}
 
 	ctx := tests.Context(t)

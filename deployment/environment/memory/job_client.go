@@ -181,7 +181,6 @@ func (j JobClient) ListNodeChainConfigs(ctx context.Context, in *nodev1.ListNode
 			OffchainPublicKey:     common.Bytes2Hex(offpk[:]),
 			OnchainSigningAddress: bundle.OnChainPublicKey(),
 		}
-		// TODO: support AccountAddress
 
 		var ctype nodev1.ChainType
 		switch family {
@@ -202,7 +201,7 @@ func (j JobClient) ListNodeChainConfigs(ctx context.Context, in *nodev1.ListNode
 				Id:   strconv.Itoa(int(chainID)),
 				Type: ctype,
 			},
-			AccountAddress: "", // TODO:
+			AccountAddress: "", // TODO: support AccountAddress
 			AdminAddress:   "",
 			Ocr1Config:     nil,
 			Ocr2Config: &nodev1.OCR2Config{
