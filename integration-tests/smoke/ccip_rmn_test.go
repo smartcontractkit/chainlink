@@ -6,9 +6,10 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/stretchr/testify/require"
+
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
-	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipdeployment "github.com/smartcontractkit/chainlink/deployment/ccip"
