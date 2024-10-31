@@ -325,7 +325,7 @@ func (e *Engine) init(ctx context.Context) {
 
 	if retryErr != nil {
 		e.logger.Errorf("initialization failed: %s", retryErr)
-		logCustMsg(e.cma, fmt.Sprintf("initialization failed: %s", retryErr), e.logger)
+		logCustMsg(e.cma, fmt.Sprintf("workflow registration failed: %s", retryErr), e.logger)
 		e.afterInit(false)
 		return
 	}
