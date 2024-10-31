@@ -228,7 +228,7 @@ func TestShell_UpdateBridge(t *testing.T) {
 			if test.errored {
 				assert.Error(t, client.UpdateBridge(c))
 			} else {
-				assert.Nil(t, client.UpdateBridge(c))
+				assert.NoError(t, client.UpdateBridge(c))
 			}
 		})
 	}
