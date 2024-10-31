@@ -1077,7 +1077,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Ens
 		"chainLength", head.ChainLength(),
 	}
 
-	//Here, we rely on the finalized block provided in the chain instead of the one
+	// Here, we rely on the finalized block provided in the chain instead of the one
 	//provided via a dedicated method to avoid the false warning of the chain being
 	//too short. When `FinalityTagBypass = true,` HeadTracker tracks `finality depth
 	//+ history depth` to prevent excessive CPU usage. Thus, the provided chain may

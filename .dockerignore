@@ -10,6 +10,7 @@ tmp/
 contracts/node_modules
 examples/
 
+deployment/
 integration/
 integration-scripts/
 integration-tests/

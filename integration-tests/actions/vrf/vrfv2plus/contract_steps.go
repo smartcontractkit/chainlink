@@ -14,9 +14,9 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/conversions"
+	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	vrfcommon "github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/common"
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	vrfv2plusconfig "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2plus"
@@ -99,7 +99,7 @@ func DeployVRFV2PlusConsumers(client *seth.Client, coordinator contracts.VRFCoor
 }
 
 func VRFV2_5RegisterProvingKey(
-	vrfKey *client.VRFKey,
+	vrfKey *nodeclient.VRFKey,
 	coordinator contracts.VRFCoordinatorV2_5,
 	gasLaneMaxGas uint64,
 ) (vrfcommon.VRFEncodedProvingKey, error) {
@@ -118,7 +118,7 @@ func VRFV2_5RegisterProvingKey(
 }
 
 func VRFV2PlusUpgradedVersionRegisterProvingKey(
-	vrfKey *client.VRFKey,
+	vrfKey *nodeclient.VRFKey,
 	coordinator contracts.VRFCoordinatorV2PlusUpgradedVersion,
 	gasLaneMaxGasPrice uint64,
 ) (vrfcommon.VRFEncodedProvingKey, error) {

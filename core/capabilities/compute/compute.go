@@ -125,7 +125,7 @@ func (c *Compute) Execute(ctx context.Context, request capabilities.CapabilityRe
 		m = mod
 	}
 
-	return c.executeWithModule(m.module, cfg.Config, request)
+	return c.executeWithModule(ctx, m.module, cfg.Config, request)
 }
 
 func (c *Compute) initModule(id string, cfg *host.ModuleConfig, binary []byte, workflowID, workflowExecutionID, referenceID string) (*module, error) {
@@ -147,7 +147,7 @@ func (c *Compute) initModule(id string, cfg *host.ModuleConfig, binary []byte, w
 	return m, nil
 }
 
-func (c *Compute) executeWithModule(module *host.Module, config []byte, req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
+func (c *Compute) executeWithModule(ctx context.Context, module *host.Module, config []byte, req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 	executeStart := time.Now()
 	capReq := capabilitiespb.CapabilityRequestToProto(req)
 
@@ -160,7 +160,7 @@ func (c *Compute) executeWithModule(module *host.Module, config []byte, req capa
 			},
 		},
 	}
-	resp, err := module.Run(wasmReq)
+	resp, err := module.Run(ctx, wasmReq)
 	if err != nil {
 		return capabilities.CapabilityResponse{}, fmt.Errorf("error running module: %w", err)
 	}
@@ -201,8 +201,8 @@ func (c *Compute) Close() error {
 	return nil
 }
 
-func (c *Compute) createFetcher(workflowID, workflowExecutionID string) func(req *wasmpb.FetchRequest) (*wasmpb.FetchResponse, error) {
-	return func(req *wasmpb.FetchRequest) (*wasmpb.FetchResponse, error) {
+func (c *Compute) createFetcher(workflowID, workflowExecutionID string) func(ctx context.Context, req *wasmpb.FetchRequest) (*wasmpb.FetchResponse, error) {
+	return func(ctx context.Context, req *wasmpb.FetchRequest) (*wasmpb.FetchResponse, error) {
 		if err := validation.ValidateWorkflowOrExecutionID(workflowID); err != nil {
 			return nil, fmt.Errorf("workflow ID %q is invalid: %w", workflowID, err)
 		}
@@ -234,7 +234,7 @@ func (c *Compute) createFetcher(workflowID, workflowExecutionID string) func(req
 			return nil, fmt.Errorf("failed to marshal fetch request: %w", err)
 		}
 
-		resp, err := c.outgoingConnectorHandler.HandleSingleNodeRequest(context.Background(), messageID, payloadBytes)
+		resp, err := c.outgoingConnectorHandler.HandleSingleNodeRequest(ctx, messageID, payloadBytes)
 		if err != nil {
 			return nil, err
 		}

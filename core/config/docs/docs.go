@@ -265,7 +265,7 @@ func parseTOMLDocs(s string) (items []fmt.Stringer, err error) {
 		}
 	}
 	if len(globalTable.codes) == 0 {
-		//drop it
+		// drop it
 		items = items[1:]
 	}
 	if len(desc) > 0 {

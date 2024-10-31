@@ -11,7 +11,7 @@ import (
 
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 )
 
 const (
@@ -46,9 +46,9 @@ type RMNConfig struct {
 }
 
 type NodeConfig struct {
-	NoOfPluginNodes *int                    `toml:",omitempty"`
-	NoOfBootstraps  *int                    `toml:",omitempty"`
-	ClientConfig    *client.ChainlinkConfig `toml:",omitempty"`
+	NoOfPluginNodes *int                        `toml:",omitempty"`
+	NoOfBootstraps  *int                        `toml:",omitempty"`
+	ClientConfig    *nodeclient.ChainlinkConfig `toml:",omitempty"`
 }
 
 type JDConfig struct {

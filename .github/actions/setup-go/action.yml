@@ -13,6 +13,11 @@ inputs:
   go-module-file:
     description: Set where the go module file is located at
     default: "go.sum"
+  restore-module-cache-only:
+    description: |
+      Only restore the module cache, don't automatically update it.
+      Leave the updating to go-mod-cache.yml.
+    default: "true"
 
 runs:
   using: composite
@@ -40,14 +45,33 @@ runs:
       shell: bash
       run: echo "path=./${{ inputs.go-module-file }}" >> $GITHUB_OUTPUT
 
-    - uses: actions/cache@v4.1.1
+    # By default, restore the cache only.
+    # If multiple jobs call actions/cache, then only one will get priority to create upon a cache miss.
+    # We will only restore the cache by default (by calling actions/cache/restore) and let the
+    # `go-mod-cache.yml` workflow handle the creation.
+    - uses: actions/cache/restore@v4.1.1
+      if: ${{ inputs.restore-module-cache-only == 'true' }}
       name: Cache Go Modules
       with:
         path: |
           ${{ steps.go-cache-dir.outputs.gomodcache }}
         # The lifetime of go modules is much higher than the build outputs, so we increase cache efficiency
         # here by not having the primary key contain the branch name
-        key: ${{ runner.os }}-gomod-${{ inputs.cache-version }}-${{ hashFiles(steps.go-module-path.output.path) }}
+        key: ${{ runner.os }}-gomod-${{ inputs.cache-version }}-${{ hashFiles(steps.go-module-path.outputs.path) }}
+        restore-keys: |
+          ${{ runner.os }}-gomod-${{ inputs.cache-version }}-
+
+    # If this is called, then it will create the cache entry upon a cache miss.
+    # The cache is created after a cache miss, and after job completes successfully.
+    - uses: actions/cache@v4.1.1
+      if: ${{ inputs.restore-module-cache-only != 'true' }}
+      name: Cache Go Modules
+      with:
+        path: |
+          ${{ steps.go-cache-dir.outputs.gomodcache }}
+        # The lifetime of go modules is much higher than the build outputs, so we increase cache efficiency
+        # here by not having the primary key contain the branch name
+        key: ${{ runner.os }}-gomod-${{ inputs.cache-version }}-${{ hashFiles(steps.go-module-path.outputs.path) }}
         restore-keys: |
           ${{ runner.os }}-gomod-${{ inputs.cache-version }}-
 

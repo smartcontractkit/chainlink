@@ -31,15 +31,15 @@ func TestRMNHomeReader_GetRMNNodesInfo(t *testing.T) {
 
 	const (
 		chainID1        = 1
-		minObservers1   = 1
+		f1              = 0
 		observerBitmap1 = 1
 
 		chainID2        = 2
-		minObservers2   = 0
+		f2              = 0
 		observerBitmap2 = 1
 	)
 
-	//================================Deploy and configure RMNHome===============================
+	// ================================Deploy and configure RMNHome===============================
 	rmnHomeAddress, _, rmnHome, err := rmn_home.DeployRMNHome(uni.Transactor, uni.Backend)
 	require.NoError(t, err)
 	uni.Backend.Commit()
@@ -49,7 +49,7 @@ func TestRMNHomeReader_GetRMNNodesInfo(t *testing.T) {
 		"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
 		"This is a sample offchain configuration in the static config",
 		chainID1,
-		minObservers1,
+		f1,
 		big.NewInt(observerBitmap1),
 	)
 	require.NoError(t, err)
@@ -83,7 +83,7 @@ func TestRMNHomeReader_GetRMNNodesInfo(t *testing.T) {
 		require.NoError(t, err1)
 	})
 
-	//================================Test RMNHome Reader===============================
+	// ================================Test RMNHome Reader===============================
 	expectedNodesInfo := integrationhelpers.GenerateExpectedRMNHomeNodesInfo(staticConfig, chainID1)
 
 	require.Eventually(
@@ -99,7 +99,7 @@ func TestRMNHomeReader_GetRMNNodesInfo(t *testing.T) {
 		"1123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
 		"This is a sample offchain configuration in the static config 2",
 		chainID2,
-		minObservers2,
+		f2,
 		big.NewInt(observerBitmap2),
 	)
 	require.NoError(t, err)

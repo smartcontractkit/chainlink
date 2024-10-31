@@ -1067,7 +1067,7 @@ ds1 -> ds1_parse -> ds1_multiply
 	assert.Error(t, err, "FA allowed chainlink node to start a new round early")
 
 	//- finally, ensure it can start a legitimate round after restartDelay is
-	//reached start an intervening round
+	// reached start an intervening round
 	submitAnswer(t, answerParams{fa: &fa, roundId: newRound,
 		answer: processedAnswer, from: fa.ned, isNewRound: true,
 		completesAnswer: false})

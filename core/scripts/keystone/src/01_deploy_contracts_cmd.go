@@ -12,7 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-	ksdeploy "github.com/smartcontractkit/chainlink/integration-tests/deployment/keystone"
+	ksdeploy "github.com/smartcontractkit/chainlink/deployment/keystone"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability"
 )

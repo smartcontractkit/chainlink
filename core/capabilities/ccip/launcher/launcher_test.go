@@ -419,7 +419,7 @@ func Test_launcher_processDiff(t *testing.T) {
 			l := &launcher{
 				dons:            tt.fields.dons,
 				regState:        tt.fields.regState,
-				p2pID:           tt.fields.p2pID,
+				myP2PID:         tt.fields.p2pID,
 				lggr:            tt.fields.lggr,
 				homeChainReader: tt.fields.homeChainReader,
 				oracleCreator:   tt.fields.oracleCreator,

@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import {IPoolV1} from "../../interfaces/IPool.sol";
 
+import {Ownable2Step} from "../../../shared/access/Ownable2Step.sol";
 import {TokenAdminRegistry} from "../../tokenAdminRegistry/TokenAdminRegistry.sol";
 import {TokenSetup} from "../TokenSetup.t.sol";
 
@@ -358,7 +359,7 @@ contract TokenAdminRegistry_addRegistryModule is TokenAdminRegistrySetup {
     address newModule = makeAddr("newModule");
     vm.stopPrank();
 
-    vm.expectRevert("Only callable by owner");
+    vm.expectRevert(Ownable2Step.OnlyCallableByOwner.selector);
     s_tokenAdminRegistry.addRegistryModule(newModule);
   }
 }
@@ -389,7 +390,7 @@ contract TokenAdminRegistry_removeRegistryModule is TokenAdminRegistrySetup {
     address newModule = makeAddr("newModule");
     vm.stopPrank();
 
-    vm.expectRevert("Only callable by owner");
+    vm.expectRevert(Ownable2Step.OnlyCallableByOwner.selector);
     s_tokenAdminRegistry.removeRegistryModule(newModule);
   }
 }

@@ -14,7 +14,6 @@ on:
   merge_group:
   pull_request:
   schedule:
-    # Every 6 hours
     - cron: "0 0,6,12,18 * * *"
   workflow_dispatch:
     inputs:
@@ -35,6 +34,7 @@ jobs:
       pull-requests: read
     outputs:
       changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.changes }}
+      deployment-changes: ${{ steps.deployment-changes.outputs.changes }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
@@ -46,9 +46,14 @@ jobs:
         with:
           filters: |
             changes:
-              - 'integration-tests/deployment/**'
+              - 'deployment/**'
               - '!integration-tests/**'
-              - 'integration-tests/deployment/**'
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: deployment-changes
+        with:
+          filters: |
+            changes:
+              - 'deployment/**'
       - name: Ignore Filter On Workflow Dispatch
         if: ${{ github.event_name == 'workflow_dispatch' }}
         id: ignore-filter
@@ -262,7 +267,7 @@ jobs:
     needs: [filter, core]
     name: Flakey Test Detection
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    if: always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
     env:
       CL_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
     permissions:
@@ -399,6 +404,43 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
           SONAR_SCANNER_OPTS: "-Xms6g -Xmx8g"
+
+  trigger-flaky-test-detection-for-root-project:
+    name: Find New Flaky Tests In Root Project
+    uses: ./.github/workflows/find-new-flaky-tests.yml
+    if: ${{ github.event_name == 'pull_request' }}
+    with:
+      repoUrl: 'https://github.com/smartcontractkit/chainlink'
+      projectPath: '.'
+      baseRef: ${{ github.base_ref }}
+      headRef: ${{ github.head_ref }}
+      runThreshold: '1'
+      runWithRace: true
+      findByTestFilesDiff: true
+      findByAffectedPackages: false
+      slackNotificationAfterTestsChannelId: 'C07TRF65CNS' #flaky-test-detector-notifications
+      extraArgs: '{ "skipped_tests": "TestChainComponents" }'
+    secrets:
+      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+
+  trigger-flaky-test-detection-for-deployment-project:
+    name: Find New Flaky Tests In Deployment Project
+    uses: ./.github/workflows/find-new-flaky-tests.yml
+    needs: [filter]
+    if: ${{ github.event_name == 'pull_request' && needs.filter.outputs.deployment-changes == 'true'}}
+    with:
+      repoUrl: 'https://github.com/smartcontractkit/chainlink'
+      projectPath: 'deployment'
+      baseRef: ${{ github.base_ref }}
+      headRef: ${{ github.head_ref }}
+      runThreshold: '1'
+      runWithRace: true
+      findByTestFilesDiff: true
+      findByAffectedPackages: false
+      slackNotificationAfterTestsChannelId: 'C07TRF65CNS' #flaky-test-detector-notifications
+      extraArgs: '{ "skipped_tests": "TestAddLane" }'
+    secrets:
+      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
 
   clean:
     name: Clean Go Tidy & Generate

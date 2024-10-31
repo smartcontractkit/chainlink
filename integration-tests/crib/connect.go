@@ -16,7 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 	msClient "github.com/smartcontractkit/chainlink-testing-framework/lib/client"
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 )
 
 func setSethConfig(cfg tc.TestConfig, netWSURL string, netHTTPURL string, headers http.Header) {
@@ -35,8 +35,8 @@ func setSethConfig(cfg tc.TestConfig, netWSURL string, netHTTPURL string, header
 func ConnectRemote() (
 	*seth.Client,
 	*msClient.MockserverClient,
-	*client.ChainlinkK8sClient,
-	[]*client.ChainlinkK8sClient,
+	*nodeclient.ChainlinkK8sClient,
+	[]*nodeclient.ChainlinkK8sClient,
 	*crib.CoreDONConnectionConfig,
 	error,
 ) {
@@ -76,10 +76,10 @@ func ConnectRemote() (
 		return nil, nil, nil, nil, nil, errors.New("CRIB network is not supported")
 	}
 	// bootstrap node
-	clClients := make([]*client.ChainlinkK8sClient, 0)
-	c, err := client.NewChainlinkK8sClient(&client.ChainlinkConfig{
-		Email:      client.CLNodeTestEmail,
-		Password:   client.CLNodeTestPassword,
+	clClients := make([]*nodeclient.ChainlinkK8sClient, 0)
+	c, err := nodeclient.NewChainlinkK8sClient(&nodeclient.ChainlinkConfig{
+		Email:      nodeclient.CLNodeTestEmail,
+		Password:   nodeclient.CLNodeTestPassword,
 		URL:        vars.NodeURLs[0],
 		InternalIP: vars.NodeInternalDNS[0],
 		Headers:    vars.NodeHeaders[0],
@@ -90,9 +90,9 @@ func ConnectRemote() (
 	clClients = append(clClients, c)
 	// all the other nodes, indices of nodes in CRIB starts with 1
 	for i := 1; i < vars.Nodes; i++ {
-		cl, err := client.NewChainlinkK8sClient(&client.ChainlinkConfig{
-			Email:      client.CLNodeTestEmail,
-			Password:   client.CLNodeTestPassword,
+		cl, err := nodeclient.NewChainlinkK8sClient(&nodeclient.ChainlinkConfig{
+			Email:      nodeclient.CLNodeTestEmail,
+			Password:   nodeclient.CLNodeTestPassword,
 			URL:        vars.NodeURLs[i],
 			InternalIP: vars.NodeInternalDNS[i],
 			Headers:    vars.NodeHeaders[i],

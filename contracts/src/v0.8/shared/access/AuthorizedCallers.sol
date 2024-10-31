@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.4;
 
-import {OwnerIsCreator} from "./OwnerIsCreator.sol";
+import {Ownable2StepMsgSender} from "./Ownable2StepMsgSender.sol";
 import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/structs/EnumerableSet.sol";
 
 /// @title The AuthorizedCallers contract
 /// @notice A contract that manages multiple authorized callers. Enables restricting access to certain functions to a set of addresses.
-contract AuthorizedCallers is OwnerIsCreator {
+contract AuthorizedCallers is Ownable2StepMsgSender {
   using EnumerableSet for EnumerableSet.AddressSet;
 
   event AuthorizedCallerAdded(address caller);

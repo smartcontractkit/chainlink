@@ -46,8 +46,8 @@ import (
 	reportModel "github.com/smartcontractkit/chainlink-testing-framework/lib/testreporters"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
+	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
@@ -74,8 +74,8 @@ type OCRSoakTest struct {
 	testEnvironment  *environment.Environment
 	namespace        string
 	log              zerolog.Logger
-	bootstrapNode    *client.ChainlinkK8sClient
-	workerNodes      []*client.ChainlinkK8sClient
+	bootstrapNode    *nodeclient.ChainlinkK8sClient
+	workerNodes      []*nodeclient.ChainlinkK8sClient
 	mockServer       *ctf_client.MockserverClient
 	filterQuery      geth.FilterQuery
 
@@ -275,7 +275,7 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 	require.NoError(o.t, err, "Error creating seth client")
 	o.seth = sethClient
 
-	nodes, err := client.ConnectChainlinkNodes(o.testEnvironment)
+	nodes, err := nodeclient.ConnectChainlinkNodes(o.testEnvironment)
 	require.NoError(o.t, err, "Connecting to chainlink nodes shouldn't fail")
 	o.bootstrapNode, o.workerNodes = nodes[0], nodes[1:]
 	o.mockServer = ctf_client.ConnectMockServer(o.testEnvironment)
@@ -414,7 +414,7 @@ func (o *OCRSoakTest) TearDownVals(t *testing.T) (
 	*testing.T,
 	*seth.Client,
 	string,
-	[]*client.ChainlinkK8sClient,
+	[]*nodeclient.ChainlinkK8sClient,
 	reportModel.TestReporter,
 	reportModel.GrafanaURLProvider,
 ) {
@@ -520,11 +520,11 @@ func (o *OCRSoakTest) LoadState() error {
 	o.reorgHappened = testState.ReorgHappened
 	o.OCRVersion = testState.OCRVersion
 
-	o.bootstrapNode, err = client.ConnectChainlinkNodeURL(testState.BootStrapNodeURL)
+	o.bootstrapNode, err = nodeclient.ConnectChainlinkNodeURL(testState.BootStrapNodeURL)
 	if err != nil {
 		return err
 	}
-	o.workerNodes, err = client.ConnectChainlinkNodeURLs(testState.WorkerNodeURLs)
+	o.workerNodes, err = nodeclient.ConnectChainlinkNodeURLs(testState.WorkerNodeURLs)
 	if err != nil {
 		return err
 	}

@@ -352,7 +352,7 @@ func deepCopyLocalRegistry(lr *LocalRegistry) LocalRegistry {
 		capCfgs := make(map[string]CapabilityConfiguration, len(don.CapabilityConfigurations))
 		for capID, capCfg := range don.CapabilityConfigurations {
 			capCfgs[capID] = CapabilityConfiguration{
-				Config: capCfg.Config[:],
+				Config: capCfg.Config,
 			}
 		}
 		lrCopy.IDsToDONs[id] = DON{

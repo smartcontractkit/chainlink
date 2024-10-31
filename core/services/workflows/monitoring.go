@@ -15,7 +15,7 @@ import (
 var registerTriggerFailureCounter metric.Int64Counter
 var workflowsRunningGauge metric.Int64Gauge
 var capabilityInvocationCounter metric.Int64Counter
-var workflowExecutionLatencyGauge metric.Int64Gauge //ms
+var workflowExecutionLatencyGauge metric.Int64Gauge // ms
 var workflowStepErrorCounter metric.Int64Counter
 
 func initMonitoringResources() (err error) {

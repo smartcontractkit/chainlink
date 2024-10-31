@@ -3,7 +3,7 @@ pragma solidity 0.8.24;
 
 import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 
-import {OwnerIsCreator} from "../../shared/access/OwnerIsCreator.sol";
+import {Ownable2StepMsgSender} from "../../shared/access/Ownable2StepMsgSender.sol";
 
 /// @notice Stores the home configuration for RMN, that is referenced by CCIP oracles, RMN nodes, and the RMNRemote
 /// contracts.
@@ -56,7 +56,7 @@ import {OwnerIsCreator} from "../../shared/access/OwnerIsCreator.sol";
 ///       │             ├───────────────────►│             │
 ///       └─────────────┘    setSecondary    └─────────────┘
 ///
-contract RMNHome is OwnerIsCreator, ITypeAndVersion {
+contract RMNHome is Ownable2StepMsgSender, ITypeAndVersion {
   event ConfigSet(bytes32 indexed configDigest, uint32 version, StaticConfig staticConfig, DynamicConfig dynamicConfig);
   event ActiveConfigRevoked(bytes32 indexed configDigest);
   event CandidateConfigRevoked(bytes32 indexed configDigest);
@@ -68,7 +68,7 @@ contract RMNHome is OwnerIsCreator, ITypeAndVersion {
   error DuplicateOffchainPublicKey();
   error DuplicateSourceChain();
   error OutOfBoundsObserverNodeIndex();
-  error MinObserversTooHigh();
+  error NotEnoughObservers();
   error ConfigDigestMismatch(bytes32 expectedConfigDigest, bytes32 gotConfigDigest);
   error DigestNotFound(bytes32 configDigest);
   error RevokingZeroDigestNotAllowed();
@@ -80,14 +80,13 @@ contract RMNHome is OwnerIsCreator, ITypeAndVersion {
   }
 
   struct SourceChain {
-    uint64 chainSelector; // ─────╮ The Source chain selector.
-    uint64 minObservers; // ──────╯ Required number of observers to agree on an observation for this source chain.
-    // ObserverNodesBitmap & (1<<i) == (1<<i) iff StaticConfig.nodes[i] is an observer for this source chain.
-    uint256 observerNodesBitmap;
+    uint64 chainSelector; // ─╮ The Source chain selector.
+    uint64 f; // ─────────────╯ Maximum number of faulty observers; f+1 observers required to agree on an observation for this source chain.
+    uint256 observerNodesBitmap; // ObserverNodesBitmap & (1<<i) == (1<<i) iff StaticConfig.nodes[i] is an observer for this source chain.
   }
 
   struct StaticConfig {
-    // No sorting requirement for nodes, but ensure that SourceChain.observerNodeIndices in the home chain config &
+    // No sorting requirement for nodes, but ensure that SourceChain.observerNodesBitmap in the home chain config &
     // Signer.nodeIndex in the remote chain configs are appropriately updated when changing this field.
     Node[] nodes;
     bytes offchainConfig; // Offchain configuration for RMN nodes.
@@ -111,14 +110,14 @@ contract RMNHome is OwnerIsCreator, ITypeAndVersion {
   string public constant override typeAndVersion = "RMNHome 1.6.0-dev";
 
   /// @notice Used for encoding the config digest prefix, unique per Home contract implementation.
-  uint256 private constant PREFIX = 0x000b << (256 - 16); // 0x000b00..00
+  uint256 private constant PREFIX = 0x000b << (256 - 16); // 0x000b00..00.
   /// @notice Used for encoding the config digest prefix
-  uint256 private constant PREFIX_MASK = type(uint256).max << (256 - 16); // 0xFFFF00..00
+  uint256 private constant PREFIX_MASK = type(uint256).max << (256 - 16); // 0xFFFF00..00.
   /// @notice The max number of configs that can be active at the same time.
   uint256 private constant MAX_CONCURRENT_CONFIGS = 2;
   /// @notice Helper to identify the zero config digest with less casting.
   bytes32 private constant ZERO_DIGEST = bytes32(uint256(0));
-  // @notice To ensure that observerNodesBitmap can be bit-encoded into a uint256.
+  /// @notice To ensure that observerNodesBitmap can be bit-encoded into a uint256.
   uint256 private constant MAX_NODES = 256;
 
   /// @notice This array holds the configs.
@@ -146,12 +145,12 @@ contract RMNHome is OwnerIsCreator, ITypeAndVersion {
     return (s_configs[_getActiveIndex()].configDigest, s_configs[_getCandidateIndex()].configDigest);
   }
 
-  /// @notice Returns the active config digest
+  /// @notice Returns the active config digest.
   function getActiveDigest() external view returns (bytes32) {
     return s_configs[_getActiveIndex()].configDigest;
   }
 
-  /// @notice Returns the candidate config digest
+  /// @notice Returns the candidate config digest.
   function getCandidateDigest() public view returns (bytes32) {
     return s_configs[_getCandidateIndex()].configDigest;
   }
@@ -284,6 +283,7 @@ contract RMNHome is OwnerIsCreator, ITypeAndVersion {
     if (digestToRevoke != ZERO_DIGEST) {
       emit ActiveConfigRevoked(digestToRevoke);
     }
+
     emit ConfigPromoted(digestToPromote);
   }
 
@@ -312,7 +312,7 @@ contract RMNHome is OwnerIsCreator, ITypeAndVersion {
   /// @return The calculated config digest.
   function _calculateConfigDigest(bytes memory staticConfig, uint32 version) internal view returns (bytes32) {
     return bytes32(
-      (PREFIX & PREFIX_MASK)
+      PREFIX
         | (
           uint256(
             keccak256(bytes.concat(abi.encode(bytes32("EVM"), block.chainid, address(this), version), staticConfig))
@@ -374,7 +374,7 @@ contract RMNHome is OwnerIsCreator, ITypeAndVersion {
         }
       }
 
-      // all observer node indices are valid
+      // all observer node indices are valid.
       uint256 bitmap = currentSourceChain.observerNodesBitmap;
       // Check if there are any bits set for indexes outside of the expected range.
       if (bitmap & (type(uint256).max >> (256 - numberOfNodes)) != bitmap) {
@@ -386,9 +386,9 @@ contract RMNHome is OwnerIsCreator, ITypeAndVersion {
         bitmap &= bitmap - 1;
       }
 
-      // minObservers are tenable
-      if (currentSourceChain.minObservers > observersCount) {
-        revert MinObserversTooHigh();
+      // min observers are tenable.
+      if (observersCount < 2 * currentSourceChain.f + 1) {
+        revert NotEnoughObservers();
       }
     }
   }

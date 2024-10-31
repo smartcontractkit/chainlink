@@ -37,9 +37,10 @@ import (
 
 	gowiremock "github.com/wiremock/go-wiremock"
 
+	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/automationv2"
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	contractseth "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
@@ -305,7 +306,7 @@ Load Config:
 	chainClient, err := seth_utils.GetChainClientWithConfigFunction(loadedTestConfig, testNetwork, seth_utils.OneEphemeralKeysLiveTestnetCheckFn)
 	require.NoError(t, err, "Error creating seth client")
 
-	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
+	chainlinkNodes, err := nodeclient.ConnectChainlinkNodes(testEnvironment)
 	require.NoError(t, err, "Error connecting to chainlink nodes")
 
 	multicallAddress, err := contracts.DeployMultiCallContract(chainClient)

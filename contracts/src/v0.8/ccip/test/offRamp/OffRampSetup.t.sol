@@ -2,7 +2,6 @@
 pragma solidity 0.8.24;
 
 import {IAny2EVMMessageReceiver} from "../../interfaces/IAny2EVMMessageReceiver.sol";
-import {ICommitStore} from "../../interfaces/ICommitStore.sol";
 import {IRMNRemote} from "../../interfaces/IRMNRemote.sol";
 
 import {AuthorizedCallers} from "../../../shared/access/AuthorizedCallers.sol";
@@ -173,8 +172,9 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
     address feeQuoter
   ) internal pure returns (OffRamp.DynamicConfig memory) {
     return OffRamp.DynamicConfig({
-      permissionLessExecutionThresholdSeconds: PERMISSION_LESS_EXECUTION_THRESHOLD_SECONDS,
       feeQuoter: feeQuoter,
+      permissionLessExecutionThresholdSeconds: PERMISSION_LESS_EXECUTION_THRESHOLD_SECONDS,
+      isRMNVerificationDisabled: false,
       messageInterceptor: address(0)
     });
   }

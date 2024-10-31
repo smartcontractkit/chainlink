@@ -2,6 +2,7 @@
 pragma solidity 0.8.24;
 
 import {AuthorizedCallers} from "../../../shared/access/AuthorizedCallers.sol";
+import {Ownable2Step} from "../../../shared/access/Ownable2Step.sol";
 import {MultiAggregateRateLimiter} from "../../MultiAggregateRateLimiter.sol";
 import {Client} from "../../libraries/Client.sol";
 import {Internal} from "../../libraries/Internal.sol";
@@ -154,7 +155,7 @@ contract MultiAggregateRateLimiter_setFeeQuoter is MultiAggregateRateLimiterSetu
 
   function test_OnlyOwner_Revert() public {
     vm.startPrank(STRANGER);
-    vm.expectRevert(bytes("Only callable by owner"));
+    vm.expectRevert(Ownable2Step.OnlyCallableByOwner.selector);
 
     s_rateLimiter.setFeeQuoter(STRANGER);
   }
@@ -436,7 +437,7 @@ contract MultiAggregateRateLimiter_applyRateLimiterConfigUpdates is MultiAggrega
     });
     vm.startPrank(STRANGER);
 
-    vm.expectRevert(bytes("Only callable by owner"));
+    vm.expectRevert(Ownable2Step.OnlyCallableByOwner.selector);
     s_rateLimiter.applyRateLimiterConfigUpdates(configUpdates);
   }
 
@@ -714,12 +715,26 @@ contract MultiAggregateRateLimiter_updateRateLimitTokens is MultiAggregateRateLi
     s_rateLimiter.updateRateLimitTokens(new MultiAggregateRateLimiter.LocalRateLimitToken[](0), adds);
   }
 
+  function test_ZeroDestToken_AbiEncoded_Revert() public {
+    MultiAggregateRateLimiter.RateLimitTokenArgs[] memory adds = new MultiAggregateRateLimiter.RateLimitTokenArgs[](1);
+    adds[0] = MultiAggregateRateLimiter.RateLimitTokenArgs({
+      localTokenArgs: MultiAggregateRateLimiter.LocalRateLimitToken({
+        remoteChainSelector: CHAIN_SELECTOR_1,
+        localToken: address(0)
+      }),
+      remoteToken: abi.encode(address(0))
+    });
+
+    vm.expectRevert(AuthorizedCallers.ZeroAddressNotAllowed.selector);
+    s_rateLimiter.updateRateLimitTokens(new MultiAggregateRateLimiter.LocalRateLimitToken[](0), adds);
+  }
+
   function test_NonOwner_Revert() public {
     MultiAggregateRateLimiter.RateLimitTokenArgs[] memory adds = new MultiAggregateRateLimiter.RateLimitTokenArgs[](4);
 
     vm.startPrank(STRANGER);
 
-    vm.expectRevert(bytes("Only callable by owner"));
+    vm.expectRevert(Ownable2Step.OnlyCallableByOwner.selector);
     s_rateLimiter.updateRateLimitTokens(new MultiAggregateRateLimiter.LocalRateLimitToken[](0), adds);
   }
 }
