@@ -17,7 +17,6 @@ require (
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/joho/godotenv v1.5.1
 	github.com/jonboulle/clockwork v0.4.0
-	github.com/jpillora/backoff v1.0.0
 	github.com/manyminds/api2go v0.0.0-20171030193247-e7b693844a6f
 	github.com/montanaflynn/stats v0.7.1
 	github.com/olekukonko/tablewriter v0.0.5
@@ -42,6 +41,8 @@ require (
 	k8s.io/apimachinery v0.31.1
 	k8s.io/client-go v0.31.1
 )
+
+require github.com/jpillora/backoff v1.0.0 // indirect
 
 require (
 	contrib.go.opencensus.io/exporter/stackdriver v0.13.5 // indirect
