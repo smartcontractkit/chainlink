@@ -17,6 +17,7 @@ var workflowsRunningGauge metric.Int64Gauge
 var capabilityInvocationCounter metric.Int64Counter
 var workflowExecutionLatencyGauge metric.Int64Gauge // ms
 var workflowStepErrorCounter metric.Int64Counter
+var engineHeartbeatCounter metric.Int64UpDownCounter
 
 func initMonitoringResources() (err error) {
 	registerTriggerFailureCounter, err = beholder.GetMeter().Int64Counter("RegisterTriggerFailure")
@@ -42,6 +43,11 @@ func initMonitoringResources() (err error) {
 	workflowStepErrorCounter, err = beholder.GetMeter().Int64Counter("WorkflowStepError")
 	if err != nil {
 		return fmt.Errorf("failed to register workflow step error counter: %w", err)
+	}
+
+	engineHeartbeatCounter, err = beholder.GetMeter().Int64UpDownCounter("EngineHeartbeat")
+	if err != nil {
+		return fmt.Errorf("failed to register engine heartbeat counter: %w", err)
 	}
 
 	return nil
@@ -80,6 +86,11 @@ func (c workflowsMetricLabeler) incrementTotalWorkflowStepErrorsCounter(ctx cont
 func (c workflowsMetricLabeler) updateTotalWorkflowsGauge(ctx context.Context, val int64) {
 	otelLabels := localMonitoring.KvMapToOtelAttributes(c.Labels)
 	workflowsRunningGauge.Record(ctx, val, metric.WithAttributes(otelLabels...))
+}
+
+func (c workflowsMetricLabeler) incrementEngineHeartbeatCounter(ctx context.Context) {
+	otelLabels := localMonitoring.KvMapToOtelAttributes(c.Labels)
+	engineHeartbeatCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
 // Observability keys

@@ -1049,6 +1049,7 @@ func (e *Engine) heartbeat(ctx context.Context) {
 			e.logger.Info("shutting down heartbeat")
 			return
 		case <-ticker.C:
+			e.metrics.incrementEngineHeartbeatCounter(ctx)
 			logCustMsg(e.cma, "engine heartbeat at: "+e.clock.Now().Format(time.RFC3339), e.logger)
 		}
 	}
