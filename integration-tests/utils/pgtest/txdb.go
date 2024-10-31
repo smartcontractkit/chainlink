@@ -15,8 +15,8 @@ import (
 	"github.com/jmoiron/sqlx"
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
-	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 )
 
 // txdb is a simplified version of https://github.com/DATA-DOG/go-txdb
@@ -61,7 +61,7 @@ func init() {
 		msg := fmt.Sprintf("cannot run tests against database named `%s`. Note that the test database MUST end in `_test` to differentiate from a possible production DB. HINT: Try %s=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable", parsed.Path[1:], env.DatabaseURL)
 		panic(msg)
 	}
-	name := string(dialects.TransactionWrappedPostgres)
+	name := string(pg.TransactionWrappedPostgres)
 	sql.Register(name, &txDriver{
 		dbURL: dbURL,
 		conns: make(map[string]*conn),
@@ -89,7 +89,7 @@ func (d *txDriver) Open(dsn string) (driver.Conn, error) {
 	defer d.Unlock()
 	// Open real db connection if its the first call
 	if d.db == nil {
-		db, err := sql.Open(string(dialects.Postgres), d.dbURL)
+		db, err := sql.Open(string(pg.Postgres), d.dbURL)
 		if err != nil {
 			return nil, err
 		}
