@@ -1,7 +1,7 @@
 /*
 Package evm provides the EVM relay service along with the necessary utilities to interact with the EVM chain.
 
-Using the ChainReaderService for EMV:
+Using the ChainReaderService for EVM:
 
 Initialization requires a ChainReaderConfig. The config is expected to be a static json file (though toml is
 partially supported) that provides ABI definitions, 'method' and 'event' mappings, event definitions, input and
@@ -11,7 +11,7 @@ The general flow of initialization is as follows:
 
   - For each 'contract' in the config, parse the provided ABI in the config
   - For each 'method' (generically a ReadType), optionally create a method or event reader
-  - Set filters in LogPoller for all bindings.
+  - Set filters in LogPoller for all event bindings.
 
 Each method or event binding uses the parsed ABI to create codec instances for encoding and decoding a variety of
 data both as incoming parameters and results from contract outputs (methods and logs).
