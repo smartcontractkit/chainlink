@@ -726,8 +726,10 @@ func (e *Engine) worker(ctx context.Context) {
 			if err != nil {
 				e.logger.With(eIDKey, executionID).Errorf("failed to start execution: %v", err)
 				logCustMsg(cma, fmt.Sprintf("failed to start execution: %s", err), e.logger)
+			} else {
+				e.logger.With(eIDKey, executionID).Debug("execution started")
+				logCustMsg(cma, "execution started", e.logger)
 			}
-			logCustMsg(cma, "execution started", e.logger)
 		case <-ctx.Done():
 			return
 		}
