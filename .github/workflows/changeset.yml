@@ -52,7 +52,7 @@ jobs:
               - '!core/chainlink.Dockerfile'
               - '!core/gethwrappers/**'
             core-changeset:
-              - added: '.changeset/**'
+              - added: '.changeset/*.md'
 
       - name: Check for changeset tags for core
         id: changeset-tags
