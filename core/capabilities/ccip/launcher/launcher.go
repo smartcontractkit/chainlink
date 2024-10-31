@@ -8,6 +8,8 @@ import (
 	"time"
 
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
@@ -252,11 +254,10 @@ func (l *launcher) processAdded(added map[registrysyncer.DonID]registrysyncer.DO
 			continue
 		}
 
-		// TODO: this doesn't seem to be correct; a newly added DON will not have an active
-		// instance but a candidate instance.
-		if err := dep.StartActive(); err != nil {
-			if shutdownErr := dep.CloseActive(); shutdownErr != nil {
-				l.lggr.Errorw("Failed to shutdown active instance after failed start", "donId", donID, "err", shutdownErr)
+		// expect that the new process is a candidate instance.
+		if err := dep.StartCandidate(); err != nil {
+			if shutdownErr := dep.CloseCandidate(); shutdownErr != nil {
+				l.lggr.Errorw("Failed to shutdown candidate instance after failed start", "donId", donID, "err", shutdownErr)
 			}
 			return fmt.Errorf("processAdded: start oracles for CCIP DON %d: %w", donID, err)
 		}
@@ -345,7 +346,7 @@ func updateDON(
 func createFutureActiveCandidateDeployment(
 	donID uint32,
 	prevDeployment ccipDeployment,
-	ocrConfigs []ccipreader.OCR3ConfigWithMeta,
+	ocrConfigs ccipreader.ActiveAndCandidate,
 	oracleCreator cctypes.OracleCreator,
 	pluginType cctypes.PluginType,
 ) (activeCandidateDeployment, error) {
@@ -391,13 +392,14 @@ func createDON(
 			don.ID, err)
 	}
 
+	// TODO: is this true? What if an MCM operation sets to candidate and upgrades immediately within a "tick"?
 	// upon creation we should only have one OCR config per plugin type.
-	if len(commitOCRConfigs) != 1 {
-		return nil, fmt.Errorf("expected exactly one OCR config for CCIP commit plugin (don id: %d), got %d", don.ID, len(commitOCRConfigs))
+	if commitOCRConfigs.ActiveConfig.ConfigDigest != [32]byte{} {
+		return nil, fmt.Errorf("expected the newest config to be a candidate, not active (don id: %d), got %+v", don.ID, commitOCRConfigs)
 	}
 
-	if len(execOCRConfigs) != 1 {
-		return nil, fmt.Errorf("expected exactly one OCR config for CCIP exec plugin (don id: %d), got %d", don.ID, len(execOCRConfigs))
+	if execOCRConfigs.ActiveConfig.ConfigDigest != [32]byte{} {
+		return nil, fmt.Errorf("expected exactly one OCR config for CCIP exec plugin (don id: %d), got %+v", don.ID, execOCRConfigs)
 	}
 
 	if !isMemberOfDON(don, p2pID) && oracleCreator.Type() == cctypes.OracleTypePlugin {
@@ -407,23 +409,34 @@ func createDON(
 
 	// at this point we know we are either a member of the DON or a bootstrap node.
 	// the injected oracleCreator will create the appropriate oracle.
-	commitOracle, err := oracleCreator.Create(don.ID, cctypes.OCR3ConfigWithMeta(commitOCRConfigs[0]))
+	commitOracle, err := oracleCreator.Create(don.ID, cctypes.OCR3ConfigWithMeta(commitOCRConfigs.CandidateConfig))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CCIP commit oracle: %w", err)
 	}
 
-	execOracle, err := oracleCreator.Create(don.ID, cctypes.OCR3ConfigWithMeta(execOCRConfigs[0]))
+	execOracle, err := oracleCreator.Create(don.ID, cctypes.OCR3ConfigWithMeta(execOCRConfigs.CandidateConfig))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CCIP exec oracle: %w", err)
 	}
 
-	// TODO: incorrect, should be setting candidate?
+	commitDigest, err := ocrtypes.BytesToConfigDigest(commitOCRConfigs.CandidateConfig.ConfigDigest[:])
+	if err != nil {
+		return nil, fmt.Errorf("Candidate commit digest does not match type %w", err)
+	}
+
+	execDigest, err := ocrtypes.BytesToConfigDigest(execOCRConfigs.CandidateConfig.ConfigDigest[:])
+	if err != nil {
+		return nil, fmt.Errorf("exec commit digest does not match type %w", err)
+	}
+
 	return &ccipDeployment{
 		commit: activeCandidateDeployment{
-			active: commitOracle,
+			candidate:       commitOracle,
+			candidateDigest: commitDigest,
 		},
 		exec: activeCandidateDeployment{
-			active: execOracle,
+			candidate:       execOracle,
+			candidateDigest: execDigest,
 		},
 	}, nil
 }

@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
-
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"go.uber.org/multierr"
 
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
@@ -13,13 +13,15 @@ import (
 // activeCandidateDeployment represents a active-candidate deployment of OCR instances.
 type activeCandidateDeployment struct {
 	// active is the active OCR instance.
-	// active must always be present.
-	active cctypes.CCIPOracle
+	// activeDigest is used to determine state transitions
+	active       cctypes.CCIPOracle
+	activeDigest ocrtypes.ConfigDigest
 
 	// candidate is the candidate OCR instance.
 	// candidate may or may not be present.
-	// candidate must never be present if active is not present.
-	candidate cctypes.CCIPOracle
+	// candidateDigest is used to determine state transitions
+	candidate       cctypes.CCIPOracle
+	candidateDigest ocrtypes.ConfigDigest
 }
 
 // ccipDeployment represents active-candidate deployments of both commit and exec
@@ -29,6 +31,7 @@ type ccipDeployment struct {
 	exec   activeCandidateDeployment
 }
 
+// TODO: Do we need to update the digests when we "close" the deployment?
 // Close shuts down all OCR instances in the deployment.
 func (c *ccipDeployment) Close() error {
 	// we potentially run into this situation when
@@ -83,6 +86,28 @@ func (c *ccipDeployment) CloseActive() error {
 	return err
 }
 
+// StartCandidate starts the candidate OCR instance.
+// Candidate instances will generate reports but not transmit them
+func (c *ccipDeployment) StartCandidate() error {
+	var err error
+
+	err = multierr.Append(err, c.commit.candidate.Start())
+	err = multierr.Append(err, c.exec.candidate.Start())
+
+	return err
+}
+
+// CloseCandidate shuts off the candidate instance
+// This is used when a candidate is revoked or replaced
+func (c *ccipDeployment) CloseCandidate() error {
+	var err error
+
+	err = multierr.Append(err, c.commit.candidate.Close())
+	err = multierr.Append(err, c.exec.candidate.Close())
+
+	return err
+}
+
 // TransitionDeployment handles the active-candidate deployment transition.
 // prevDeployment is the previous deployment state.
 // there are two possible cases:
@@ -133,10 +158,12 @@ func (c *ccipDeployment) HasCandidateInstance(pluginType cctypes.PluginType) boo
 	}
 }
 
-func isNewCandidateInstance(pluginType cctypes.PluginType, ocrConfigs []ccipreaderpkg.OCR3ConfigWithMeta, prevDeployment ccipDeployment) bool {
-	return len(ocrConfigs) == 2 && !prevDeployment.HasCandidateInstance(pluginType)
+func isNewCandidateInstance(pluginType cctypes.PluginType, ocrConfigs ccipreaderpkg.ActiveAndCandidate, prevDeployment ccipDeployment) bool {
+	return ocrConfigs.CandidateConfig.ConfigDigest != [32]byte{} && !prevDeployment.HasCandidateInstance(pluginType)
 }
 
-func isPromotion(pluginType cctypes.PluginType, ocrConfigs []ccipreaderpkg.OCR3ConfigWithMeta, prevDeployment ccipDeployment) bool {
-	return len(ocrConfigs) == 1 && prevDeployment.HasCandidateInstance(pluginType)
+// Todo: not exactly correct. We could be replacing the candidate with nil
+func isPromotion(pluginType cctypes.PluginType, ocrConfigs ccipreaderpkg.ActiveAndCandidate, prevDeployment ccipDeployment) bool {
+	return ocrConfigs.ActiveConfig.ConfigDigest != [32]byte{} && !prevDeployment.HasCandidateInstance(pluginType)
+
 }
