@@ -81,7 +81,7 @@ runs:
     - uses: actions/cache/restore@v4.1.1
       name: Cache Go Build Outputs (restore)
       # For certain events, we don't necessarily want to create a build cache, but we will benefit from restoring from one. 
-      if: ${{ inputs.only-modules == 'false' && github.event == 'merge_queue' }}
+      if: ${{ inputs.only-modules == 'false' && github.event == 'merge_group' }}
       with:
         path: |
           ${{ steps.go-cache-dir.outputs.gobuildcache }}
@@ -94,7 +94,7 @@ runs:
 
     - uses: actions/cache@v4.1.1
       # don't save cache on merge queue events, only restore
-      if: ${{ inputs.only-modules == 'false' && github.event != 'merge_queue' }}
+      if: ${{ inputs.only-modules == 'false' && github.event != 'merge_group' }}
       name: Cache Go Build Outputs
       with:
         path: |
