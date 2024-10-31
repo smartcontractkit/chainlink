@@ -100,7 +100,7 @@ func TestResolver_DirectRequestSpec(t *testing.T) {
 					DirectRequestSpec: &job.DirectRequestSpec{
 						ContractAddress:          contractAddress,
 						CreatedAt:                f.Timestamp(),
-						EVMChainID:               ubig.NewI(42),
+						EVMChainID:               ubig.NewI(45),
 						MinIncomingConfirmations: clnull.NewUint32(1, true),
 						MinContractPayment:       commonassets.NewLinkFromJuels(1000),
 						Requesters:               models.AddressCollection{requesterAddress},
