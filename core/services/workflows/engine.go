@@ -722,7 +722,6 @@ func (e *Engine) worker(ctx context.Context) {
 			}
 
 			cma := e.cma.With(eIDKey, executionID)
-			logCustMsg(cma, "starting execution on a trigger event", e.logger)
 			err = e.startExecution(ctx, executionID, resp.Event.Outputs)
 			if err != nil {
 				e.logger.With(eIDKey, executionID).Errorf("failed to start execution: %v", err)
