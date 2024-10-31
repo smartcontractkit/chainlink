@@ -163,6 +163,53 @@ func (_c *Master_Cosmos_Call) RunAndReturn(run func() keystore.Cosmos) *Master_C
 	return _c
 }
 
+// Encryption provides a mock function with given fields:
+func (_m *Master) Encryption() keystore.Encryption {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for Encryption")
+	}
+
+	var r0 keystore.Encryption
+	if rf, ok := ret.Get(0).(func() keystore.Encryption); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(keystore.Encryption)
+		}
+	}
+
+	return r0
+}
+
+// Master_Encryption_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Encryption'
+type Master_Encryption_Call struct {
+	*mock.Call
+}
+
+// Encryption is a helper method to define mock.On call
+func (_e *Master_Expecter) Encryption() *Master_Encryption_Call {
+	return &Master_Encryption_Call{Call: _e.mock.On("Encryption")}
+}
+
+func (_c *Master_Encryption_Call) Run(run func()) *Master_Encryption_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Master_Encryption_Call) Return(_a0 keystore.Encryption) *Master_Encryption_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Master_Encryption_Call) RunAndReturn(run func() keystore.Encryption) *Master_Encryption_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Eth provides a mock function with given fields:
 func (_m *Master) Eth() keystore.Eth {
 	ret := _m.Called()
