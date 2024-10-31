@@ -232,5 +232,5 @@ func (p *peer) HealthReport() map[string]error {
 }
 
 func (p *peer) Name() string {
-	return "P2PPeer"
+	return p.lggr.Name()
 }

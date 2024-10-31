@@ -202,5 +202,5 @@ func (c *client) HealthReport() map[string]error {
 }
 
 func (c *client) Name() string {
-	return "TargetClient"
+	return c.lggr.Name()
 }
