@@ -150,7 +150,7 @@ func NewChainClientWithTestNode(
 	nodePoolCfg := TestNodePoolConfig{
 		NodeFinalizedBlockPollInterval: 1 * time.Second,
 	}
-	rpc := NewRPCClient(nodePoolCfg, lggr, parsed, rpcHTTPURL, "eth-primary-rpc-0", id, chainID, commonclient.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+	rpc := NewRPCClient(nodePoolCfg, lggr, parsed, rpcHTTPURL, "eth-primary-rpc-0", id, chainID, commonclient.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "", nil)
 
 	n := commonclient.NewNode[*big.Int, *evmtypes.Head, *RPCClient](
 		nodeCfg, clientMocks.ChainConfig{NoNewHeadsThresholdVal: noNewHeadsThreshold}, lggr, parsed, rpcHTTPURL, "eth-primary-node-0", id, chainID, 1, rpc, "EVM")
@@ -161,7 +161,7 @@ func NewChainClientWithTestNode(
 		if u.Scheme != "http" && u.Scheme != "https" {
 			return nil, pkgerrors.Errorf("sendonly ethereum rpc url scheme must be http(s): %s", u.String())
 		}
-		rpc := NewRPCClient(nodePoolCfg, lggr, nil, &sendonlyRPCURLs[i], fmt.Sprintf("eth-sendonly-rpc-%d", i), id, chainID, commonclient.Secondary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		rpc := NewRPCClient(nodePoolCfg, lggr, nil, &sendonlyRPCURLs[i], fmt.Sprintf("eth-sendonly-rpc-%d", i), id, chainID, commonclient.Secondary, commonclient.QueryTimeout, commonclient.QueryTimeout, "", nil)
 		s := commonclient.NewSendOnlyNode[*big.Int, *RPCClient](
 			lggr, u, fmt.Sprintf("eth-sendonly-%d", i), chainID, rpc)
 		sendonlys = append(sendonlys, s)

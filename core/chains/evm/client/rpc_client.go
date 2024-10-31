@@ -98,6 +98,7 @@ type RPCClient struct {
 	newHeadsPollInterval       time.Duration
 	rpcTimeout                 time.Duration
 	chainType                  chaintype.ChainType
+	clientErrors               config.ClientErrors
 
 	ws   *rawclient
 	http *rawclient
@@ -122,7 +123,7 @@ type RPCClient struct {
 }
 
 var _ commonclient.RPCClient[*big.Int, *evmtypes.Head] = (*RPCClient)(nil)
-var _ commonclient.SendTxRPCClient[*types.Transaction] = (*RPCClient)(nil)
+var _ commonclient.SendTxRPCClient[*types.Transaction, *SendTxResult] = (*RPCClient)(nil)
 
 func NewRPCClient(
 	cfg config.NodePool,
@@ -136,11 +137,13 @@ func NewRPCClient(
 	largePayloadRPCTimeout time.Duration,
 	rpcTimeout time.Duration,
 	chainType chaintype.ChainType,
+	clientErrors config.ClientErrors,
 ) *RPCClient {
 	r := &RPCClient{
 		largePayloadRPCTimeout: largePayloadRPCTimeout,
 		rpcTimeout:             rpcTimeout,
 		chainType:              chainType,
+		clientErrors:           clientErrors,
 	}
 	r.cfg = cfg
 	r.name = name
@@ -790,7 +793,35 @@ func (r *RPCClient) BlockByNumberGeth(ctx context.Context, number *big.Int) (blo
 	return
 }
 
-func (r *RPCClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
+type SendTxResult struct {
+	err   error
+	txErr error
+	code  commonclient.SendTxReturnCode
+}
+
+var _ commonclient.SendTxResult = (*SendTxResult)(nil)
+
+func NewSendTxResult(err error) *SendTxResult {
+	result := &SendTxResult{
+		err:   err,
+		txErr: err,
+	}
+	return result
+}
+
+func (r *SendTxResult) Error() error {
+	return r.err
+}
+
+func (r *SendTxResult) TxError() error {
+	return r.txErr
+}
+
+func (r *SendTxResult) Code() commonclient.SendTxReturnCode {
+	return r.code
+}
+
+func (r *RPCClient) SendTransaction(ctx context.Context, tx *types.Transaction) *SendTxResult {
 	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx, r.largePayloadRPCTimeout)
 	defer cancel()
 	lggr := r.newRqLggr().With("tx", tx)
@@ -807,7 +838,11 @@ func (r *RPCClient) SendTransaction(ctx context.Context, tx *types.Transaction) 
 
 	r.logResult(lggr, err, duration, r.getRPCDomain(), "SendTransaction")
 
-	return err
+	return &SendTxResult{
+		err:   nil,
+		txErr: err,
+		code:  ClassifySendError(err, r.clientErrors, logger.Sugared(logger.Nop()), tx, common.Address{}, r.chainType.IsL2()),
+	}
 }
 
 func (r *RPCClient) SimulateTransaction(ctx context.Context, tx *types.Transaction) error {
