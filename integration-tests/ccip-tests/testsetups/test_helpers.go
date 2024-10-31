@@ -113,7 +113,11 @@ func NewLocalDevEnvironment(t *testing.T, lggr logger.Logger) (ccipdeployment.De
 	}, testEnv, cfg
 }
 
-func NewLocalDevEnvironmentWithRMN(t *testing.T, lggr logger.Logger) (ccipdeployment.DeployedEnv, devenv.RMNCluster) {
+func NewLocalDevEnvironmentWithRMN(
+	t *testing.T,
+	lggr logger.Logger,
+	numRmnNodes int,
+) (ccipdeployment.DeployedEnv, devenv.RMNCluster) {
 	tenv, dockerenv, _ := NewLocalDevEnvironment(t, lggr)
 	state, err := ccipdeployment.LoadOnchainState(tenv.Env, tenv.Ab)
 	require.NoError(t, err)
@@ -131,7 +135,7 @@ func NewLocalDevEnvironmentWithRMN(t *testing.T, lggr logger.Logger) (ccipdeploy
 	})
 	require.NoError(t, err)
 	l := logging.GetTestLogger(t)
-	config := GenerateTestRMNConfig(t, 1, tenv, MustNetworksToRPCMap(dockerenv.EVMNetworks))
+	config := GenerateTestRMNConfig(t, numRmnNodes, tenv, MustNetworksToRPCMap(dockerenv.EVMNetworks))
 	rmnCluster, err := devenv.NewRMNCluster(
 		t, l,
 		[]string{dockerenv.DockerNetwork.ID},
