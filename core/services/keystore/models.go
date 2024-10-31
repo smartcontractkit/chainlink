@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/aptoskey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/encryptionkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
@@ -158,21 +159,23 @@ type keyRing struct {
 	StarkNet   map[string]starkkey.Key
 	Aptos      map[string]aptoskey.Key
 	VRF        map[string]vrfkey.KeyV2
+	Encryption map[string]encryptionkey.Key
 	LegacyKeys LegacyKeyStorage
 }
 
 func newKeyRing() *keyRing {
 	return &keyRing{
-		CSA:      make(map[string]csakey.KeyV2),
-		Eth:      make(map[string]ethkey.KeyV2),
-		OCR:      make(map[string]ocrkey.KeyV2),
-		OCR2:     make(map[string]ocr2key.KeyBundle),
-		P2P:      make(map[string]p2pkey.KeyV2),
-		Cosmos:   make(map[string]cosmoskey.Key),
-		Solana:   make(map[string]solkey.Key),
-		StarkNet: make(map[string]starkkey.Key),
-		Aptos:    make(map[string]aptoskey.Key),
-		VRF:      make(map[string]vrfkey.KeyV2),
+		CSA:        make(map[string]csakey.KeyV2),
+		Eth:        make(map[string]ethkey.KeyV2),
+		OCR:        make(map[string]ocrkey.KeyV2),
+		OCR2:       make(map[string]ocr2key.KeyBundle),
+		P2P:        make(map[string]p2pkey.KeyV2),
+		Cosmos:     make(map[string]cosmoskey.Key),
+		Solana:     make(map[string]solkey.Key),
+		StarkNet:   make(map[string]starkkey.Key),
+		Aptos:      make(map[string]aptoskey.Key),
+		VRF:        make(map[string]vrfkey.KeyV2),
+		Encryption: make(map[string]encryptionkey.Key),
 	}
 }
 
