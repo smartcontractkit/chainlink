@@ -444,7 +444,7 @@ func (d *peerGroupDialer) createPeerGroup(rmnHomeConfigDigest cciptypes.Bytes32)
 	)
 
 	lggr.Infow("Creating new peer group")
-	result, err := d.peerGroupCreator.Create(peergroup.CreateOpts{
+	peerGroup, err := d.peerGroupCreator.Create(peergroup.CreateOpts{
 		CommitConfigDigest:  cciptypes.Bytes32(d.commitConfigDigest),
 		RMNHomeConfigDigest: rmnHomeConfigDigest,
 		OraclePeerIDs:       d.oraclePeerIDs,
@@ -455,7 +455,7 @@ func (d *peerGroupDialer) createPeerGroup(rmnHomeConfigDigest cciptypes.Bytes32)
 	}
 	lggr.Infow("Created new peer group successfully")
 
-	d.activePeerGroups = append(d.activePeerGroups, result.PeerGroup)
+	d.activePeerGroups = append(d.activePeerGroups, peerGroup.PeerGroup)
 	d.activeConfigDigests = append(d.activeConfigDigests, genericEndpointConfigDigest)
 
 	return nil
