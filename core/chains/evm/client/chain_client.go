@@ -380,7 +380,6 @@ func (c *chainClient) SendTransaction(ctx context.Context, tx *types.Transaction
 			return err
 		}
 		result = activeRPC.SendTransaction(ctx, tx)
-
 	} else {
 		result = c.txSender.SendTransaction(ctx, tx)
 	}
