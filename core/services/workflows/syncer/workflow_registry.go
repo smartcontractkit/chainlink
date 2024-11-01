@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/signalers"
 )
 
 const name = "WorkflowRegistrySyncer"
@@ -177,26 +178,6 @@ func (w *workflowRegistry) getTicker(ctx context.Context) <-chan struct{} {
 		return w.tickerCh
 	}
 
-	w.tickerCh = makeTicker(ctx.Done(), defaultTickInterval)
+	w.tickerCh = signalers.MakeTicker(ctx.Done(), defaultTickInterval)
 	return w.tickerCh
-}
-
-func makeTicker(stop <-chan struct{}, d time.Duration) <-chan struct{} {
-	ticker := make(chan struct{})
-	internalTicker := time.NewTicker(d)
-
-	go func() {
-		defer close(ticker)
-		defer internalTicker.Stop()
-
-		for {
-			select {
-			case <-stop:
-				return
-			case <-internalTicker.C:
-			}
-		}
-	}()
-
-	return ticker
 }

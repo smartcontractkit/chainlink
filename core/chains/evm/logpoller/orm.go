@@ -181,11 +181,13 @@ func (o *DSORM) LoadFilters(ctx context.Context) (map[string]Filter, error) {
 		FROM evm.log_poller_filters WHERE evm_chain_id = $1
 		GROUP BY name`
 	var rows []Filter
+	o.lggr.Debug("about to run query")
 	err := o.ds.SelectContext(ctx, &rows, query, ubig.New(o.chainID))
 	filters := make(map[string]Filter)
 	for _, filter := range rows {
 		filters[filter.Name] = filter
 	}
+	o.lggr.Debugf("returning filters: %v and error :%v", filters, err)
 	return filters, err
 }
 

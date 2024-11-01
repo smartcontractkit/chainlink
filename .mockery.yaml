@@ -586,3 +586,6 @@ packages:
   github.com/smartcontractkit/chainlink/v2/core/capabilities/targets:
     interfaces:
       ContractValueGetter:
+  github.com/smartcontractkit/chainlink/v2/core/services/workflows/secrets:
+    interfaces:
+      Updater:
