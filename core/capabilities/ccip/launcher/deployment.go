@@ -1,11 +1,13 @@
 package launcher
 
 import (
+	"fmt"
 	"golang.org/x/exp/maps"
 
-	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"go.uber.org/multierr"
+
+	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
 
 type ccipPlugins map[ocrtypes.ConfigDigest]cctypes.CCIPOracle
@@ -30,17 +32,23 @@ func (c ccipPlugins) Transition(prevPlugins ccipPlugins) error {
 	var err error
 
 	// This shuts down instances that were present previously, but are no longer needed
-	for _, digest := range maps.Keys(prevPlugins) {
-		if c[digest] == nil {
-			err = multierr.Append(err, prevPlugins[digest].Close())
+	for digest, oracle := range prevPlugins {
+		if _, ok := c[digest]; !ok {
+			err = multierr.Append(err, oracle.Close())
 		}
 	}
 
-	// This starts instances that were not previously present, but are in the new config
-	for _, digest := range maps.Keys(c) {
-		if prevPlugins[digest] == nil {
-			err = multierr.Append(err, c[digest].Start())
+	// This will start the instances that were not previously present, but are in the new config
+	for digest, oracle := range c {
+		if _, ok := prevPlugins[digest]; !ok {
+			err = multierr.Append(err, oracle.Start())
 		}
 	}
 	return err
+}
+
+func (c ccipPlugins) PrintDigests() {
+	for _, d := range maps.Keys(c) {
+		fmt.Println(d.Hex())
+	}
 }

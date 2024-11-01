@@ -6,8 +6,9 @@ import (
 	"sync"
 	"time"
 
-	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -213,10 +214,10 @@ func (l *launcher) processUpdate(updated map[registrysyncer.DonID]registrysyncer
 		newP := make(ccipPlugins)
 		for _, c := range latestConfigs {
 			digest := c.ConfigDigest
-			if digest != [32]byte{} && prevPlugins[digest] == nil {
+			if prevPlugins[digest] == nil {
 				oracle, err := l.oracleCreator.Create(don.ID, cctypes.OCR3ConfigWithMeta(c))
 				if err != nil {
-					return fmt.Errorf("failed to create CCIP oracle: %w for digest %w", err, digest)
+					return fmt.Errorf("failed to create CCIP oracle: %w for digest %v", err, digest)
 				}
 
 				newP[digest] = oracle
@@ -231,6 +232,7 @@ func (l *launcher) processUpdate(updated map[registrysyncer.DonID]registrysyncer
 		}
 
 		l.instances[donID] = newP
+		l.regState.IDsToDONs[donID] = updated[donID]
 	}
 
 	return nil
@@ -270,6 +272,7 @@ func (l *launcher) processAdded(added map[registrysyncer.DonID]registrysyncer.DO
 
 		// update state.
 		l.instances[donID] = newPlugins
+		l.regState.IDsToDONs[donID] = added[donID]
 	}
 
 	return nil
@@ -294,6 +297,7 @@ func (l *launcher) processRemoved(removed map[registrysyncer.DonID]registrysynce
 
 		// after a successful shutdown we can safely remove the DON deployment from the map.
 		delete(l.instances, id)
+		delete(l.regState.IDsToDONs, id)
 	}
 
 	return nil
@@ -318,14 +322,14 @@ func createDON(
 		if err != nil {
 			return nil, fmt.Errorf("digest does not match type %w", err)
 		}
-		if digest != [32]byte{} {
-			oracle, err := oracleCreator.Create(don.ID, cctypes.OCR3ConfigWithMeta(config))
-			if err != nil {
-				return nil, fmt.Errorf("failed to create CCIP oracle: %w for digest %w", err, digest)
-			}
 
-			p[digest] = oracle
+		oracle, err := oracleCreator.Create(don.ID, cctypes.OCR3ConfigWithMeta(config))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create CCIP oracle: %w for digest %v", err, digest)
 		}
+
+		p[digest] = oracle
+
 	}
 	return p, nil
 }
@@ -347,11 +351,19 @@ func getConfigsForDon(
 			don.ID, err)
 	}
 
-	return []ccipreader.OCR3ConfigWithMeta{
+	c := []ccipreader.OCR3ConfigWithMeta{
 		commitOCRConfigs.CandidateConfig,
 		commitOCRConfigs.ActiveConfig,
 		execOCRConfigs.CandidateConfig,
 		execOCRConfigs.ActiveConfig,
-	}, nil
+	}
 
+	ret := make([]ccipreader.OCR3ConfigWithMeta, 0, 4)
+	for _, config := range c {
+		if config.ConfigDigest != [32]byte{} {
+			ret = append(ret, config)
+		}
+	}
+
+	return ret, nil
 }
