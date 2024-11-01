@@ -1,4 +1,4 @@
-package keystone_test
+package internal_test
 
 import (
 	"bytes"
@@ -14,7 +14,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/deployment"
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
-	kstest "github.com/smartcontractkit/chainlink/deployment/keystone/test"
+	internal "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
+	kstest "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal/test"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
@@ -24,8 +25,8 @@ import (
 func Test_UpdateNodesRequest_validate(t *testing.T) {
 	type fields struct {
 		p2pToCapabilities map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability
-		//nopToNodes        map[uint32][]*kslib.P2PSigner
-		nopToNodes map[kcr.CapabilitiesRegistryNodeOperator][]*kslib.P2PSignerEnc
+		//nopToNodes        map[uint32][]*internal.P2PSigner
+		nopToNodes map[kcr.CapabilitiesRegistryNodeOperator][]*internal.P2PSignerEnc
 		chain      deployment.Chain
 		registry   *kcr.CapabilitiesRegistry
 	}
@@ -47,14 +48,14 @@ func Test_UpdateNodesRequest_validate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := &kslib.UpdateNodesRequest{
+			req := &internal.UpdateNodesRequest{
 				P2pToCapabilities: tt.fields.p2pToCapabilities,
 				NopToNodes:        tt.fields.nopToNodes,
 				Chain:             tt.fields.chain,
 				Registry:          tt.fields.registry,
 			}
 			if err := req.Validate(); (err != nil) != tt.wantErr {
-				t.Errorf("kslib.UpdateNodesRequest.validate() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("internal.UpdateNodesRequest.validate() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
@@ -67,19 +68,19 @@ func TestUpdateNodes(t *testing.T) {
 
 	type args struct {
 		lggr logger.Logger
-		req  *kslib.UpdateNodesRequest
+		req  *internal.UpdateNodesRequest
 	}
 	tests := []struct {
 		name    string
 		args    args
-		want    *kslib.UpdateNodesResponse
+		want    *internal.UpdateNodesResponse
 		wantErr bool
 	}{
 		{
 			name: "one node, one capability",
 			args: args{
 				lggr: lggr,
-				req: &kslib.UpdateNodesRequest{
+				req: &internal.UpdateNodesRequest{
 					P2pToCapabilities: map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability{
 						testPeerID(t, "peerID_1"): []kcr.CapabilitiesRegistryCapability{
 							{
@@ -89,8 +90,8 @@ func TestUpdateNodes(t *testing.T) {
 							},
 						},
 					},
-					NopToNodes: map[kcr.CapabilitiesRegistryNodeOperator][]*kslib.P2PSignerEnc{
-						testNop(t, "nop1"): []*kslib.P2PSignerEnc{
+					NopToNodes: map[kcr.CapabilitiesRegistryNodeOperator][]*internal.P2PSignerEnc{
+						testNop(t, "nop1"): []*internal.P2PSignerEnc{
 							{
 								P2PKey:              testPeerID(t, "peerID_1"),
 								Signer:              [32]byte{0: 1, 1: 2},
@@ -102,7 +103,7 @@ func TestUpdateNodes(t *testing.T) {
 					Registry: nil, // set in test to ensure no conflicts
 				},
 			},
-			want: &kslib.UpdateNodesResponse{
+			want: &internal.UpdateNodesResponse{
 				NodeParams: []kcr.CapabilitiesRegistryNodeParams{
 					{
 						NodeOperatorId:      1,
@@ -119,7 +120,7 @@ func TestUpdateNodes(t *testing.T) {
 			name: "one node, two capabilities",
 			args: args{
 				lggr: lggr,
-				req: &kslib.UpdateNodesRequest{
+				req: &internal.UpdateNodesRequest{
 					P2pToCapabilities: map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability{
 						testPeerID(t, "peerID_1"): []kcr.CapabilitiesRegistryCapability{
 							{
@@ -134,8 +135,8 @@ func TestUpdateNodes(t *testing.T) {
 							},
 						},
 					},
-					NopToNodes: map[kcr.CapabilitiesRegistryNodeOperator][]*kslib.P2PSignerEnc{
-						testNop(t, "nop1"): []*kslib.P2PSignerEnc{
+					NopToNodes: map[kcr.CapabilitiesRegistryNodeOperator][]*internal.P2PSignerEnc{
+						testNop(t, "nop1"): []*internal.P2PSignerEnc{
 							{
 								P2PKey:              testPeerID(t, "peerID_1"),
 								Signer:              [32]byte{0: 1, 1: 2},
@@ -147,7 +148,7 @@ func TestUpdateNodes(t *testing.T) {
 					Registry: nil, // set in test to ensure no conflicts
 				},
 			},
-			want: &kslib.UpdateNodesResponse{
+			want: &internal.UpdateNodesResponse{
 				NodeParams: []kcr.CapabilitiesRegistryNodeParams{
 					{
 						NodeOperatorId:      1,
@@ -171,7 +172,7 @@ func TestUpdateNodes(t *testing.T) {
 			name: "twos node, one shared capability",
 			args: args{
 				lggr: lggr,
-				req: &kslib.UpdateNodesRequest{
+				req: &internal.UpdateNodesRequest{
 					P2pToCapabilities: map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability{
 						testPeerID(t, "peerID_1"): []kcr.CapabilitiesRegistryCapability{
 							{
@@ -188,15 +189,15 @@ func TestUpdateNodes(t *testing.T) {
 							},
 						},
 					},
-					NopToNodes: map[kcr.CapabilitiesRegistryNodeOperator][]*kslib.P2PSignerEnc{
-						testNop(t, "nopA"): []*kslib.P2PSignerEnc{
+					NopToNodes: map[kcr.CapabilitiesRegistryNodeOperator][]*internal.P2PSignerEnc{
+						testNop(t, "nopA"): []*internal.P2PSignerEnc{
 							{
 								P2PKey:              testPeerID(t, "peerID_1"),
 								Signer:              [32]byte{0: 1, 31: 1},
 								EncryptionPublicKey: [32]byte{0: 7, 1: 7},
 							},
 						},
-						testNop(t, "nopB"): []*kslib.P2PSignerEnc{
+						testNop(t, "nopB"): []*internal.P2PSignerEnc{
 							{
 								P2PKey:              testPeerID(t, "peerID_2"),
 								Signer:              [32]byte{0: 2, 31: 2},
@@ -208,7 +209,7 @@ func TestUpdateNodes(t *testing.T) {
 					Registry: nil, // set in test to ensure no conflicts
 				},
 			},
-			want: &kslib.UpdateNodesResponse{
+			want: &internal.UpdateNodesResponse{
 				NodeParams: []kcr.CapabilitiesRegistryNodeParams{
 					{
 						NodeOperatorId:      1,
@@ -232,7 +233,7 @@ func TestUpdateNodes(t *testing.T) {
 			name: "twos node, different capabilities",
 			args: args{
 				lggr: lggr,
-				req: &kslib.UpdateNodesRequest{
+				req: &internal.UpdateNodesRequest{
 					P2pToCapabilities: map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability{
 						testPeerID(t, "peerID_1"): []kcr.CapabilitiesRegistryCapability{
 							{
@@ -249,15 +250,15 @@ func TestUpdateNodes(t *testing.T) {
 							},
 						},
 					},
-					NopToNodes: map[kcr.CapabilitiesRegistryNodeOperator][]*kslib.P2PSignerEnc{
-						testNop(t, "nopA"): []*kslib.P2PSignerEnc{
+					NopToNodes: map[kcr.CapabilitiesRegistryNodeOperator][]*internal.P2PSignerEnc{
+						testNop(t, "nopA"): []*internal.P2PSignerEnc{
 							{
 								P2PKey:              testPeerID(t, "peerID_1"),
 								Signer:              [32]byte{0: 1, 31: 1},
 								EncryptionPublicKey: [32]byte{0: 7, 1: 7},
 							},
 						},
-						testNop(t, "nopB"): []*kslib.P2PSignerEnc{
+						testNop(t, "nopB"): []*internal.P2PSignerEnc{
 							{
 								P2PKey:              testPeerID(t, "peerID_2"),
 								Signer:              [32]byte{0: 2, 31: 2},
@@ -269,7 +270,7 @@ func TestUpdateNodes(t *testing.T) {
 					Registry: nil, // set in test to ensure no conflicts
 				},
 			},
-			want: &kslib.UpdateNodesResponse{
+			want: &internal.UpdateNodesResponse{
 				NodeParams: []kcr.CapabilitiesRegistryNodeParams{
 					{
 						NodeOperatorId:      1,
@@ -319,7 +320,7 @@ func TestUpdateNodes(t *testing.T) {
 				expectedCaps := capCache.AddCapabilities(tt.args.lggr, tt.args.req.Chain, registry, newCaps)
 				expectedUpdatedCaps[p2p] = expectedCaps
 			}
-			got, err := kslib.UpdateNodes(tt.args.lggr, tt.args.req)
+			got, err := internal.UpdateNodes(tt.args.lggr, tt.args.req)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("UpdateNodes() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -376,8 +377,8 @@ func TestUpdateNodes(t *testing.T) {
 					},
 				},
 			}
-			nopToNodes = map[kcr.CapabilitiesRegistryNodeOperator][]*kslib.P2PSignerEnc{
-				testNop(t, "nopA"): []*kslib.P2PSignerEnc{
+			nopToNodes = map[kcr.CapabilitiesRegistryNodeOperator][]*internal.P2PSignerEnc{
+				testNop(t, "nopA"): []*internal.P2PSignerEnc{
 					{
 						P2PKey:              testPeerID(t, "peerID_1"),
 						Signer:              [32]byte{0: 1, 1: 2},
@@ -411,13 +412,13 @@ func TestUpdateNodes(t *testing.T) {
 		_, err = chain.Confirm(tx)
 		require.NoError(t, err)
 
-		var req = &kslib.UpdateNodesRequest{
+		var req = &internal.UpdateNodesRequest{
 			P2pToCapabilities: p2pToCapabilitiesUpdated,
 			NopToNodes:        nopToNodes,
 			Chain:             chain,
 			Registry:          registry,
 		}
-		_, err = kslib.UpdateNodes(lggr, req)
+		_, err = internal.UpdateNodes(lggr, req)
 		require.NoError(t, err)
 		info, err = registry.GetNode(&bind.CallOpts{}, testPeerID(t, "peerID_1"))
 		require.NoError(t, err)
@@ -425,7 +426,7 @@ func TestUpdateNodes(t *testing.T) {
 		want := info.HashedCapabilityIds[0]
 
 		// update again and ensure the result is the same
-		_, err = kslib.UpdateNodes(lggr, req)
+		_, err = internal.UpdateNodes(lggr, req)
 		require.NoError(t, err)
 		info, err = registry.GetNode(&bind.CallOpts{}, testPeerID(t, "peerID_1"))
 		require.NoError(t, err)
@@ -447,8 +448,8 @@ func TestAppendCapabilities(t *testing.T) {
 				},
 			},
 		}
-		nopToNodes = map[kcr.CapabilitiesRegistryNodeOperator][]*kslib.P2PSignerEnc{
-			testNop(t, "nop"): []*kslib.P2PSignerEnc{
+		nopToNodes = map[kcr.CapabilitiesRegistryNodeOperator][]*internal.P2PSignerEnc{
+			testNop(t, "nop"): []*internal.P2PSignerEnc{
 				{
 					P2PKey:              testPeerID(t, "peerID_1"),
 					Signer:              [32]byte{0: 1, 1: 2},
@@ -483,7 +484,7 @@ func TestAppendCapabilities(t *testing.T) {
 			CapabilityType: 0,
 		},
 	}
-	appendedResp, err := kslib.AppendCapabilities(lggr, registry, chain, []p2pkey.PeerID{testPeerID(t, "peerID_1")}, newCaps)
+	appendedResp, err := internal.AppendCapabilities(lggr, registry, chain, []p2pkey.PeerID{testPeerID(t, "peerID_1")}, newCaps)
 	require.NoError(t, err)
 	require.Len(t, appendedResp, 1)
 	gotCaps := appendedResp[testPeerID(t, "peerID_1")]
@@ -496,7 +497,7 @@ func TestAppendCapabilities(t *testing.T) {
 	}
 
 	// trying to append an existing capability should not change the result
-	appendedResp2, err := kslib.AppendCapabilities(lggr, registry, chain, []p2pkey.PeerID{testPeerID(t, "peerID_1")}, newCaps)
+	appendedResp2, err := internal.AppendCapabilities(lggr, registry, chain, []p2pkey.PeerID{testPeerID(t, "peerID_1")}, newCaps)
 	require.NoError(t, err)
 	require.Len(t, appendedResp2, 1)
 	gotCaps2 := appendedResp2[testPeerID(t, "peerID_1")]

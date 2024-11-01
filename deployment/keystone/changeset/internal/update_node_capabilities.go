@@ -1,14 +1,65 @@
-package keystone
+package internal
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/deployment"
+	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
+type UpdateNodeCapabilitiesImplRequest struct {
+	Chain    deployment.Chain
+	Registry *kcr.CapabilitiesRegistry
+
+	P2pToCapabilities map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability
+	NopToNodes        map[kcr.CapabilitiesRegistryNodeOperator][]*P2PSignerEnc
+}
+
+func (req *UpdateNodeCapabilitiesImplRequest) Validate() error {
+	if len(req.P2pToCapabilities) == 0 {
+		return fmt.Errorf("p2pToCapabilities is empty")
+	}
+	if len(req.NopToNodes) == 0 {
+		return fmt.Errorf("nopToNodes is empty")
+	}
+	if req.Registry == nil {
+		return fmt.Errorf("registry is nil")
+	}
+
+	return nil
+}
+
+func UpdateNodeCapabilitiesImpl(lggr logger.Logger, req *UpdateNodeCapabilitiesImplRequest) (*UpdateNodesResponse, error) {
+	if err := req.Validate(); err != nil {
+		return nil, fmt.Errorf("failed to validate request: %w", err)
+	}
+	// collect all the capabilities and add them to the registry
+	var capabilities []kcr.CapabilitiesRegistryCapability
+	for _, cap := range req.P2pToCapabilities {
+		capabilities = append(capabilities, cap...)
+	}
+	err := kslib.AddCapabilities(lggr, req.Registry, req.Chain, capabilities)
+	if err != nil {
+		return nil, fmt.Errorf("failed to add capabilities: %w", err)
+	}
+
+	updateNodesReq := &UpdateNodesRequest{
+		Chain:             req.Chain,
+		Registry:          req.Registry,
+		P2pToCapabilities: req.P2pToCapabilities,
+		NopToNodes:        req.NopToNodes,
+	}
+	resp, err := UpdateNodes(lggr, updateNodesReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update nodes: %w", err)
+	}
+	return resp, nil
+}
+
+/*
 // AddCapabilities adds the capabilities to the registry
 // it tries to add all capabilities in one go, if that fails, it falls back to adding them one by one
 func AddCapabilities(lggr logger.Logger, registry *kcr.CapabilitiesRegistry, chain deployment.Chain, capabilities []kcr.CapabilitiesRegistryCapability) error {
@@ -62,9 +113,4 @@ func AddCapabilities(lggr logger.Logger, registry *kcr.CapabilitiesRegistry, cha
 	}
 	return nil
 }
-
-// CapabilityID returns a unique id for the capability
-// TODO: mv to chainlink-common? ref https://github.com/smartcontractkit/chainlink/blob/4fb06b4525f03c169c121a68defa9b13677f5f20/contracts/src/v0.8/keystone/CapabilitiesRegistry.sol#L170
-func CapabilityID(c kcr.CapabilitiesRegistryCapability) string {
-	return fmt.Sprintf("%s@%s", c.LabelledName, c.Version)
-}
+*/
