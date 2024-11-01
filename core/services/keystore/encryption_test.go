@@ -33,7 +33,7 @@ func Test_EncryptionKeyStore_E2E(t *testing.T) {
 		defer reset()
 		keys, err := ks.GetAll()
 		require.NoError(t, err)
-		require.Equal(t, 0, len(keys))
+		require.Empty(t, keys)
 	})
 
 	t.Run("errors when getting non-existent ID", func(t *testing.T) {
@@ -56,7 +56,7 @@ func Test_EncryptionKeyStore_E2E(t *testing.T) {
 			k, err2 := ks.Create(ctx)
 
 			assert.Zero(t, k)
-			assert.Error(t, err2)
+			require.Error(t, err2)
 			assert.True(t, errors.Is(err2, keystore.ErrEncryptionKeyExists))
 		})
 	})
@@ -83,7 +83,7 @@ func Test_EncryptionKeyStore_E2E(t *testing.T) {
 			k, err2 := ks.Import(testutils.Context(t), exportJSON, cltest.Password)
 
 			assert.Zero(t, k)
-			assert.Error(t, err2)
+			require.Error(t, err2)
 			assert.Equal(t, fmt.Sprintf("key with ID %s already exists", key.ID()), err2.Error())
 		})
 
@@ -91,13 +91,13 @@ func Test_EncryptionKeyStore_E2E(t *testing.T) {
 			k, err2 := ks.Import(testutils.Context(t), []byte(""), cltest.Password)
 
 			assert.Zero(t, k)
-			assert.Error(t, err2)
+			require.Error(t, err2)
 		})
 
 		t.Run("fails to export non-existent key", func(t *testing.T) {
 			exportJSON, err = ks.Export("non-existent", cltest.Password)
 
-			assert.Error(t, err)
+			require.Error(t, err)
 			assert.Empty(t, exportJSON)
 		})
 	})
@@ -111,12 +111,12 @@ func Test_EncryptionKeyStore_E2E(t *testing.T) {
 		require.NoError(t, err)
 		keys, err := ks.GetAll()
 		require.NoError(t, err)
-		require.Equal(t, 1, len(keys))
+		require.Len(t, keys, 1)
 		_, err = ks.Delete(ctx, newKey.ID())
 		require.NoError(t, err)
 		keys, err = ks.GetAll()
 		require.NoError(t, err)
-		require.Equal(t, 0, len(keys))
+		require.Empty(t, keys)
 		_, err = ks.Get(newKey.ID())
 		require.Error(t, err)
 
@@ -127,7 +127,7 @@ func Test_EncryptionKeyStore_E2E(t *testing.T) {
 
 			err = ks.Add(ctx, newKey)
 
-			assert.Error(t, err)
+			require.Error(t, err)
 			assert.True(t, errors.Is(err, keystore.ErrEncryptionKeyExists))
 		})
 
@@ -135,7 +135,7 @@ func Test_EncryptionKeyStore_E2E(t *testing.T) {
 			k, err2 := ks.Delete(testutils.Context(t), "non-existent")
 
 			assert.Zero(t, k)
-			assert.Error(t, err2)
+			require.Error(t, err2)
 		})
 	})
 
@@ -144,16 +144,16 @@ func Test_EncryptionKeyStore_E2E(t *testing.T) {
 		ctx := testutils.Context(t)
 
 		newKey, err := encryptionkey.New()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		err = ks.Add(ctx, newKey)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		err = keyStore.Encryption().EnsureKey(ctx)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		keys, err2 := ks.GetAll()
-		assert.NoError(t, err2)
+		require.NoError(t, err2)
 
-		require.Equal(t, 1, len(keys))
+		require.Len(t, keys, 1)
 		require.Equal(t, newKey.ID(), keys[0].ID())
 		require.Equal(t, newKey.PublicKey(), keys[0].PublicKey())
 	})
@@ -163,16 +163,16 @@ func Test_EncryptionKeyStore_E2E(t *testing.T) {
 		ctx := testutils.Context(t)
 
 		keys, err := ks.GetAll()
-		assert.NoError(t, err)
-		assert.Equal(t, 0, len(keys))
+		require.NoError(t, err)
+		assert.Empty(t, keys)
 
 		err = keyStore.Encryption().EnsureKey(ctx)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		keys, err = ks.GetAll()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		require.NoError(t, err)
-		require.Equal(t, 1, len(keys))
+		require.Len(t, keys, 1)
 	})
 }
