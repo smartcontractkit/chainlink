@@ -495,7 +495,7 @@ func getDWIndexesWithTypes(eventName string, eventInputs abi.Arguments) map[stri
 		// each dynamic field has an extra field that stores the dwIndexOffset that points to the start of the dynamic data.
 		if isDynamic(input.Type) {
 			dynamicQueue = append(dynamicQueue, input)
-			dwIndexOffset = dwIndexOffset + 1
+			dwIndexOffset++
 		} else {
 			dwIndexOffset = processDWStaticField(input.Type, eventName+"."+input.Name, dataWords, dwIndexOffset)
 		}
