@@ -29,13 +29,13 @@ var (
 	OCR3Capability       deployment.ContractType = "OCR3Capability"
 )
 
-type deployResponse struct {
+type DeployResponse struct {
 	Address common.Address
 	Tx      common.Hash // todo: chain agnostic
 	Tv      deployment.TypeAndVersion
 }
 
-type deployRequest struct {
+type DeployRequest struct {
 	Chain deployment.Chain
 }
 

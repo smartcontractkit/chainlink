@@ -1006,8 +1006,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     return OffRamp.CommitReport({
       priceUpdates: _getSingleTokenPriceUpdateStruct(s_sourceFeeToken, 4e18),
       merkleRoots: roots,
-      rmnSignatures: s_rmnSignatures,
-      rmnRawVs: 0
+      rmnSignatures: s_rmnSignatures
     });
   }
 }
@@ -3217,8 +3216,7 @@ contract OffRamp_applySourceChainConfigUpdates is OffRampSetup {
       OffRamp.CommitReport({
         priceUpdates: _getSingleTokenPriceUpdateStruct(s_sourceFeeToken, 4e18),
         merkleRoots: roots,
-        rmnSignatures: s_rmnSignatures,
-        rmnRawVs: 0
+        rmnSignatures: s_rmnSignatures
       }),
       s_latestSequenceNumber
     );
@@ -3302,8 +3300,7 @@ contract OffRamp_applySourceChainConfigUpdates is OffRampSetup {
       OffRamp.CommitReport({
         priceUpdates: _getSingleTokenPriceUpdateStruct(s_sourceFeeToken, 4e18),
         merkleRoots: roots,
-        rmnSignatures: s_rmnSignatures,
-        rmnRawVs: 0
+        rmnSignatures: s_rmnSignatures
       }),
       s_latestSequenceNumber
     );
@@ -3356,12 +3353,8 @@ contract OffRamp_commit is OffRampSetup {
       merkleRoot: root
     });
 
-    OffRamp.CommitReport memory commitReport = OffRamp.CommitReport({
-      priceUpdates: _getEmptyPriceUpdates(),
-      merkleRoots: roots,
-      rmnSignatures: s_rmnSignatures,
-      rmnRawVs: 0
-    });
+    OffRamp.CommitReport memory commitReport =
+      OffRamp.CommitReport({priceUpdates: _getEmptyPriceUpdates(), merkleRoots: roots, rmnSignatures: s_rmnSignatures});
 
     vm.expectEmit();
     emit OffRamp.CommitReportAccepted(commitReport.merkleRoots, commitReport.priceUpdates);
@@ -3397,12 +3390,8 @@ contract OffRamp_commit is OffRampSetup {
       merkleRoot: root
     });
 
-    OffRamp.CommitReport memory commitReport = OffRamp.CommitReport({
-      priceUpdates: _getEmptyPriceUpdates(),
-      merkleRoots: roots,
-      rmnSignatures: s_rmnSignatures,
-      rmnRawVs: 0
-    });
+    OffRamp.CommitReport memory commitReport =
+      OffRamp.CommitReport({priceUpdates: _getEmptyPriceUpdates(), merkleRoots: roots, rmnSignatures: s_rmnSignatures});
 
     vm.expectEmit();
     emit OffRamp.CommitReportAccepted(commitReport.merkleRoots, commitReport.priceUpdates);
@@ -3429,12 +3418,8 @@ contract OffRamp_commit is OffRampSetup {
       maxSeqNr: maxSeq,
       merkleRoot: "stale report 1"
     });
-    OffRamp.CommitReport memory commitReport = OffRamp.CommitReport({
-      priceUpdates: _getEmptyPriceUpdates(),
-      merkleRoots: roots,
-      rmnSignatures: s_rmnSignatures,
-      rmnRawVs: 0
-    });
+    OffRamp.CommitReport memory commitReport =
+      OffRamp.CommitReport({priceUpdates: _getEmptyPriceUpdates(), merkleRoots: roots, rmnSignatures: s_rmnSignatures});
 
     vm.expectEmit();
     emit OffRamp.CommitReportAccepted(commitReport.merkleRoots, commitReport.priceUpdates);
@@ -3472,8 +3457,7 @@ contract OffRamp_commit is OffRampSetup {
     OffRamp.CommitReport memory commitReport = OffRamp.CommitReport({
       priceUpdates: _getSingleTokenPriceUpdateStruct(s_sourceFeeToken, 4e18),
       merkleRoots: roots,
-      rmnSignatures: s_rmnSignatures,
-      rmnRawVs: 0
+      rmnSignatures: s_rmnSignatures
     });
 
     vm.expectEmit();
@@ -3495,8 +3479,7 @@ contract OffRamp_commit is OffRampSetup {
     OffRamp.CommitReport memory commitReport = OffRamp.CommitReport({
       priceUpdates: _getSingleTokenPriceUpdateStruct(s_sourceFeeToken, 4e18),
       merkleRoots: roots,
-      rmnSignatures: s_rmnSignatures,
-      rmnRawVs: 0
+      rmnSignatures: s_rmnSignatures
     });
 
     vm.expectEmit();
@@ -3514,8 +3497,7 @@ contract OffRamp_commit is OffRampSetup {
     OffRamp.CommitReport memory commitReport = OffRamp.CommitReport({
       priceUpdates: _getSingleTokenPriceUpdateStruct(s_sourceFeeToken, 4e18),
       merkleRoots: roots,
-      rmnSignatures: s_rmnSignatures,
-      rmnRawVs: 0
+      rmnSignatures: s_rmnSignatures
     });
 
     vm.expectEmit();
@@ -3567,8 +3549,7 @@ contract OffRamp_commit is OffRampSetup {
     OffRamp.CommitReport memory commitReport = OffRamp.CommitReport({
       priceUpdates: _getSingleTokenPriceUpdateStruct(s_sourceFeeToken, tokenPrice1),
       merkleRoots: roots,
-      rmnSignatures: s_rmnSignatures,
-      rmnRawVs: 0
+      rmnSignatures: s_rmnSignatures
     });
 
     vm.expectEmit();
@@ -3678,12 +3659,8 @@ contract OffRamp_commit is OffRampSetup {
       onRampAddress: abi.encode(ON_RAMP_ADDRESS_1)
     });
 
-    OffRamp.CommitReport memory commitReport = OffRamp.CommitReport({
-      priceUpdates: _getEmptyPriceUpdates(),
-      merkleRoots: roots,
-      rmnSignatures: s_rmnSignatures,
-      rmnRawVs: 0
-    });
+    OffRamp.CommitReport memory commitReport =
+      OffRamp.CommitReport({priceUpdates: _getEmptyPriceUpdates(), merkleRoots: roots, rmnSignatures: s_rmnSignatures});
 
     vm.expectRevert(abi.encodeWithSelector(OffRamp.CursedByRMN.selector, roots[0].sourceChainSelector));
     _commit(commitReport, s_latestSequenceNumber);
@@ -3698,12 +3675,8 @@ contract OffRamp_commit is OffRampSetup {
       maxSeqNr: 4,
       merkleRoot: bytes32(0)
     });
-    OffRamp.CommitReport memory commitReport = OffRamp.CommitReport({
-      priceUpdates: _getEmptyPriceUpdates(),
-      merkleRoots: roots,
-      rmnSignatures: s_rmnSignatures,
-      rmnRawVs: 0
-    });
+    OffRamp.CommitReport memory commitReport =
+      OffRamp.CommitReport({priceUpdates: _getEmptyPriceUpdates(), merkleRoots: roots, rmnSignatures: s_rmnSignatures});
 
     vm.expectRevert(OffRamp.InvalidRoot.selector);
     _commit(commitReport, s_latestSequenceNumber);
@@ -3718,12 +3691,8 @@ contract OffRamp_commit is OffRampSetup {
       maxSeqNr: 2,
       merkleRoot: bytes32(0)
     });
-    OffRamp.CommitReport memory commitReport = OffRamp.CommitReport({
-      priceUpdates: _getEmptyPriceUpdates(),
-      merkleRoots: roots,
-      rmnSignatures: s_rmnSignatures,
-      rmnRawVs: 0
-    });
+    OffRamp.CommitReport memory commitReport =
+      OffRamp.CommitReport({priceUpdates: _getEmptyPriceUpdates(), merkleRoots: roots, rmnSignatures: s_rmnSignatures});
 
     vm.expectRevert(
       abi.encodeWithSelector(
@@ -3743,12 +3712,8 @@ contract OffRamp_commit is OffRampSetup {
       maxSeqNr: 0,
       merkleRoot: bytes32(0)
     });
-    OffRamp.CommitReport memory commitReport = OffRamp.CommitReport({
-      priceUpdates: _getEmptyPriceUpdates(),
-      merkleRoots: roots,
-      rmnSignatures: s_rmnSignatures,
-      rmnRawVs: 0
-    });
+    OffRamp.CommitReport memory commitReport =
+      OffRamp.CommitReport({priceUpdates: _getEmptyPriceUpdates(), merkleRoots: roots, rmnSignatures: s_rmnSignatures});
 
     vm.expectRevert(
       abi.encodeWithSelector(
@@ -3763,8 +3728,7 @@ contract OffRamp_commit is OffRampSetup {
     OffRamp.CommitReport memory commitReport = OffRamp.CommitReport({
       priceUpdates: _getSingleTokenPriceUpdateStruct(s_sourceFeeToken, 4e18),
       merkleRoots: roots,
-      rmnSignatures: s_rmnSignatures,
-      rmnRawVs: 0
+      rmnSignatures: s_rmnSignatures
     });
 
     vm.expectRevert(OffRamp.StaleCommitReport.selector);
@@ -3776,8 +3740,7 @@ contract OffRamp_commit is OffRampSetup {
     OffRamp.CommitReport memory commitReport = OffRamp.CommitReport({
       priceUpdates: _getSingleTokenPriceUpdateStruct(s_sourceFeeToken, 4e18),
       merkleRoots: roots,
-      rmnSignatures: s_rmnSignatures,
-      rmnRawVs: 0
+      rmnSignatures: s_rmnSignatures
     });
 
     vm.expectEmit();
@@ -3798,12 +3761,8 @@ contract OffRamp_commit is OffRampSetup {
       merkleRoot: "Only a single root"
     });
 
-    OffRamp.CommitReport memory commitReport = OffRamp.CommitReport({
-      priceUpdates: _getEmptyPriceUpdates(),
-      merkleRoots: roots,
-      rmnSignatures: s_rmnSignatures,
-      rmnRawVs: 0
-    });
+    OffRamp.CommitReport memory commitReport =
+      OffRamp.CommitReport({priceUpdates: _getEmptyPriceUpdates(), merkleRoots: roots, rmnSignatures: s_rmnSignatures});
 
     vm.expectRevert(abi.encodeWithSelector(OffRamp.SourceChainNotEnabled.selector, 0));
     _commit(commitReport, s_latestSequenceNumber);
@@ -3818,12 +3777,8 @@ contract OffRamp_commit is OffRampSetup {
       maxSeqNr: 2,
       merkleRoot: "Only a single root"
     });
-    OffRamp.CommitReport memory commitReport = OffRamp.CommitReport({
-      priceUpdates: _getEmptyPriceUpdates(),
-      merkleRoots: roots,
-      rmnSignatures: s_rmnSignatures,
-      rmnRawVs: 0
-    });
+    OffRamp.CommitReport memory commitReport =
+      OffRamp.CommitReport({priceUpdates: _getEmptyPriceUpdates(), merkleRoots: roots, rmnSignatures: s_rmnSignatures});
 
     _commit(commitReport, s_latestSequenceNumber);
     commitReport.merkleRoots[0].minSeqNr = 3;
@@ -3857,8 +3812,7 @@ contract OffRamp_commit is OffRampSetup {
     return OffRamp.CommitReport({
       priceUpdates: _getSingleTokenPriceUpdateStruct(s_sourceFeeToken, 4e18),
       merkleRoots: roots,
-      rmnSignatures: s_rmnSignatures,
-      rmnRawVs: 0
+      rmnSignatures: s_rmnSignatures
     });
   }
 }

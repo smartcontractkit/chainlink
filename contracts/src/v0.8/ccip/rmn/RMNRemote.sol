@@ -71,6 +71,11 @@ contract RMNRemote is OwnerIsCreator, ITypeAndVersion, IRMNRemote {
   Config private s_config;
   uint32 private s_configCount;
 
+  /// @dev RMN nodes only generate sigs with v=27; making this constant allows us to save gas by not transmitting v
+  /// @dev Any valid ECDSA sig (r, s, v) can be "flipped" into (r, s*, v*) without knowing the private key (where v=27 or 28 for secp256k1)
+  /// https://github.com/kadenzipfel/smart-contract-vulnerabilities/blob/master/vulnerabilities/signature-malleability.md
+  uint8 private constant ECDSA_RECOVERY_V = 27;
+
   EnumerableSet.Bytes16Set private s_cursedSubjects;
   mapping(address signer => bool exists) private s_signers; // for more gas efficient verify
 
@@ -90,8 +95,7 @@ contract RMNRemote is OwnerIsCreator, ITypeAndVersion, IRMNRemote {
   function verify(
     address offrampAddress,
     Internal.MerkleRoot[] calldata merkleRoots,
-    Signature[] calldata signatures,
-    uint256 rawVs
+    Signature[] calldata signatures
   ) external view {
     if (s_configCount == 0) {
       revert ConfigNotSet();
@@ -115,8 +119,7 @@ contract RMNRemote is OwnerIsCreator, ITypeAndVersion, IRMNRemote {
     address prevAddress;
     address signerAddress;
     for (uint256 i = 0; i < signatures.length; ++i) {
-      // The v value is bit-encoded into rawVs
-      signerAddress = ecrecover(digest, 27 + uint8(rawVs & 0x01 << i), signatures[i].r, signatures[i].s);
+      signerAddress = ecrecover(digest, ECDSA_RECOVERY_V, signatures[i].r, signatures[i].s);
       if (signerAddress == address(0)) revert InvalidSignature();
       if (prevAddress >= signerAddress) revert OutOfOrderSignatures();
       if (!s_signers[signerAddress]) revert UnexpectedSigner();

@@ -1,6 +1,7 @@
 package ccipevm
 
 import (
+	"fmt"
 	"math"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
@@ -52,15 +53,33 @@ func bytesForMsgTokens(numTokens int) int {
 
 // CalculateMessageMaxGas computes the maximum gas overhead for a message.
 func (gp EstimateProvider) CalculateMessageMaxGas(msg cciptypes.Message) uint64 {
+	maxGas, err := gp.CalculateMessageMaxGasWithError(msg)
+	if err != nil {
+		panic(err)
+	}
+	return maxGas
+}
+
+// CalculateMessageMaxGasWithError computes the maximum gas overhead for a message.
+// TODO: Add destGasOverhead, see:
+// https://github.com/smartcontractkit/chainlink/blob/23452266132228234312947660374fb393e96f1a/contracts/src/v0.8/ccip/FeeQuoter.sol#L97
+func (gp EstimateProvider) CalculateMessageMaxGasWithError(msg cciptypes.Message) (uint64, error) {
 	numTokens := len(msg.TokenAmounts)
 	var data []byte = msg.Data
 	dataLength := len(data)
 
-	// TODO: update interface to return error?
-	// Although this decoding should never fail.
 	messageGasLimit, err := decodeExtraArgsV1V2(msg.ExtraArgs)
 	if err != nil {
-		panic(err)
+		return 0, fmt.Errorf("failed to decode extra args: %w", err)
+	}
+
+	var totalTokenDestGasOverhead uint64
+	for _, rampTokenAmount := range msg.TokenAmounts {
+		tokenDestGasOverhead, err := decodeTokenDestGasOverhead(rampTokenAmount.DestExecData)
+		if err != nil {
+			return 0, fmt.Errorf("failed to decode token dest gas overhead: %w", err)
+		}
+		totalTokenDestGasOverhead += uint64(tokenDestGasOverhead)
 	}
 
 	messageBytes := ConstantMessagePartBytes +
@@ -85,5 +104,6 @@ func (gp EstimateProvider) CalculateMessageMaxGas(msg cciptypes.Message) uint64 
 		SupportsInterfaceCheck +
 		adminRegistryOverhead +
 		rateLimiterOverhead +
-		PerTokenOverheadGas*uint64(numTokens)
+		PerTokenOverheadGas*uint64(numTokens) +
+		totalTokenDestGasOverhead, nil
 }
