@@ -119,7 +119,10 @@ func externalAdapter(initialValue float64, port string, pctBounds float64) *http
 	// Create and start the test server
 	ea := &httptest.Server{
 		Listener: listener,
-		Config:   &http.Server{Handler: handler},
+		Config: &http.Server{
+			Handler:           handler,
+			ReadHeaderTimeout: 5 * time.Second,
+		},
 	}
 	ea.Start()
 
@@ -132,6 +135,7 @@ func externalAdapter(initialValue float64, port string, pctBounds float64) *http
 // It ensures that the value stays within the specified bounds.
 func adjustValue(start, step, floor, ceiling float64) float64 {
 	// Randomly choose to increase or decrease the value
+	// #nosec G404
 	if rand.Intn(2) == 0 {
 		step = -step
 	}

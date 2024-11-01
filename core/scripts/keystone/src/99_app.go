@@ -13,9 +13,10 @@ import (
 	"strings"
 	"sync"
 
-	clsessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/urfave/cli"
 	"go.uber.org/zap/zapcore"
+
+	clsessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
@@ -49,7 +50,10 @@ func newApp(n NodeWthCreds, writer io.Writer) (*clcmd.Shell, *cli.App) {
 		&cmd.MemoryCookieStore{},
 		logger,
 	)
-	cookieAuth.Authenticate(context.Background(), sr)
+
+	_, err = cookieAuth.Authenticate(context.Background(), sr)
+	PanicErr(err)
+
 	http := cmd.NewAuthenticatedHTTPClient(
 		logger,
 		clientOpts,

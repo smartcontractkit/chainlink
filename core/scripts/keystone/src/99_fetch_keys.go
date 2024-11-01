@@ -104,7 +104,7 @@ type OCR2AptosKBTrimmed struct {
 	AptosOnchainPublicKey string `json:"AptosOnchainPublicKey"` // ocr2on_aptos_<key>
 }
 
-func mustFetchNodeKeys(chainId int64, nodes []NodeWthCreds, createAptosKeys bool) []NodeKeys {
+func mustFetchNodeKeys(chainID int64, nodes []NodeWthCreds, createAptosKeys bool) []NodeKeys {
 	nodeKeys := []NodeKeys{}
 
 	for _, n := range nodes {
@@ -112,12 +112,12 @@ func mustFetchNodeKeys(chainId int64, nodes []NodeWthCreds, createAptosKeys bool
 		// Get eth key
 		eKey := api.mustExec(api.methods.ListETHKeys)
 		ethKeys := mustJSON[[]presenters.ETHKeyResource](eKey)
-		ethAddress, err := findFirstGoodEthKeyAddress(chainId, *ethKeys)
+		ethAddress, err := findFirstGoodEthKeyAddress(chainID, *ethKeys)
 		helpers.PanicErr(err)
 
 		var aptosAccount string
 		if createAptosKeys {
-			aptosAccount = getOrCreateAptosKey(api, err)
+			aptosAccount = getOrCreateAptosKey(api)
 		}
 
 		// Get p2p key
@@ -213,10 +213,10 @@ func createAptosOCR2KB(ocr2Bundles *cmd.OCR2KeyBundlePresenters, expectedBundleL
 // getOrCreateAptosKey returns the Aptos account of the node.
 //
 // If the node has no Aptos keys, it creates one and returns the account.
-func getOrCreateAptosKey(api *nodeAPI, err error) string {
+func getOrCreateAptosKey(api *nodeAPI) string {
 	api.output.Reset()
 	aKeysClient := cmd.NewAptosKeysClient(api.methods)
-	err = aKeysClient.ListKeys(&cli.Context{App: api.app})
+	err := aKeysClient.ListKeys(&cli.Context{App: api.app})
 	helpers.PanicErr(err)
 	var aptosKeys []presenters.AptosKeyResource
 	helpers.PanicErr(json.Unmarshal(api.output.Bytes(), &aptosKeys))

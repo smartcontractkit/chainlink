@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"strings"
@@ -56,7 +57,7 @@ func extractRevertReason(errData string, a abi.ABI) (string, string, error) {
 			return errName, string(b), nil
 		}
 	}
-	return "", "", fmt.Errorf("revert Reason could not be found for given abistring")
+	return "", "", errors.New("revert Reason could not be found for given abistring")
 }
 
 func (c *CapabilityRegistryProvisioner) testCallContract(method string, args ...interface{}) error {
@@ -260,7 +261,7 @@ func (b *baseCapability) BindToRegistry(reg kcr.CapabilitiesRegistryInterface) {
 
 func (b *baseCapability) GetHashedCID() [32]byte {
 	if b.registry == nil {
-		panic(fmt.Errorf("registry not bound to capability, cannot get hashed capability ID"))
+		panic(errors.New("registry not bound to capability, cannot get hashed capability ID"))
 	}
 
 	return mustHashCapabilityID(b.registry, b.capability)
@@ -417,7 +418,7 @@ func MergeCapabilitySets(sets ...CapabilitySet) CapabilitySet {
 }
 
 func (c *CapabilitySet) Capabilities() []kcr.CapabilitiesRegistryCapability {
-	var definitions []kcr.CapabilitiesRegistryCapability
+	definitions := make([]kcr.CapabilitiesRegistryCapability, 0, len(*c))
 	for _, cap := range *c {
 		definitions = append(definitions, cap.Capability())
 	}
@@ -426,7 +427,7 @@ func (c *CapabilitySet) Capabilities() []kcr.CapabilitiesRegistryCapability {
 }
 
 func (c *CapabilitySet) IDs() []string {
-	var strings []string
+	strings := make([]string, 0, len(*c))
 	for _, cap := range *c {
 		strings = append(strings, fmt.Sprintf("%s@%s", cap.Capability().LabelledName, cap.Capability().Version))
 	}
@@ -435,7 +436,7 @@ func (c *CapabilitySet) IDs() []string {
 }
 
 func (c *CapabilitySet) HashedIDs(reg kcr.CapabilitiesRegistryInterface) [][32]byte {
-	var ids [][32]byte
+	ids := make([][32]byte, 0, len(*c))
 	for _, cap := range *c {
 		cap.BindToRegistry(reg)
 		ids = append(ids, cap.GetHashedCID())
@@ -445,7 +446,7 @@ func (c *CapabilitySet) HashedIDs(reg kcr.CapabilitiesRegistryInterface) [][32]b
 }
 
 func (c *CapabilitySet) Configs(reg kcr.CapabilitiesRegistryInterface) []kcr.CapabilitiesRegistryCapabilityConfiguration {
-	var configs []kcr.CapabilitiesRegistryCapabilityConfiguration
+	configs := make([]kcr.CapabilitiesRegistryCapabilityConfiguration, 0, len(*c))
 	for _, cap := range *c {
 		cap.BindToRegistry(reg)
 		configs = append(configs, cap.Config())
@@ -504,7 +505,7 @@ func (n *NodeOperator) BindToRegistry(reg kcr.CapabilitiesRegistryInterface) {
 
 func (n *NodeOperator) SetCapabilityRegistryIssuedID(receipt *gethTypes.Receipt) uint32 {
 	if n.reg == nil {
-		panic(fmt.Errorf("registry not bound to node operator, cannot set ID"))
+		panic(errors.New("registry not bound to node operator, cannot set ID"))
 	}
 	// We'll need more complex handling for multiple node operators
 	// since we'll need to handle log ordering

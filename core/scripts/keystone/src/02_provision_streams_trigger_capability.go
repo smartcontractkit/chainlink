@@ -55,7 +55,7 @@ type feed struct {
 
 	// we create a bridge for each feed
 	bridgeName string
-	bridgeUrl  string
+	bridgeURL  string
 }
 
 func v3FeedID(id [32]byte) [32]byte {
@@ -88,12 +88,12 @@ var feeds = []feed{
 func setupStreamsTrigger(
 	env helpers.Environment,
 	nodeSet NodeSet,
-	chainId int64,
+	chainID int64,
 	p2pPort int64,
 	ocrConfigFilePath string,
 	artefactsDir string,
 ) {
-	fmt.Printf("Deploying streams trigger for chain %d\n", chainId)
+	fmt.Printf("Deploying streams trigger for chain %d\n", chainID)
 	fmt.Printf("Using OCR config file: %s\n", ocrConfigFilePath)
 
 	fmt.Printf("Deploying Mercury V0.3 contracts\n")
@@ -107,7 +107,7 @@ func setupStreamsTrigger(
 		fmt.Printf("FeedID: %x\n", feed.id)
 		fmt.Printf("FeedName: %s\n", feed.name)
 		fmt.Printf("BridgeName: %s\n", feed.bridgeName)
-		fmt.Printf("BridgeURL: %s\n", feed.bridgeUrl)
+		fmt.Printf("BridgeURL: %s\n", feed.bridgeURL)
 
 		latestConfigDetails, err := verifier.LatestConfigDetails(nil, feed.id)
 		PanicErr(err)
@@ -116,7 +116,7 @@ func setupStreamsTrigger(
 
 		digester := mercury.NewOffchainConfigDigester(
 			feed.id,
-			big.NewInt(chainId),
+			big.NewInt(chainID),
 			verifier.Address(),
 			ocrtypes.ConfigDigestPrefixMercuryV02,
 		)
@@ -149,7 +149,7 @@ func setupStreamsTrigger(
 		}
 
 		fmt.Printf("Deploying OCR2 job specs for feed %s\n", feed.name)
-		deployOCR2JobSpecsForFeed(nodeSet, verifier, feed, chainId, p2pPort)
+		deployOCR2JobSpecsForFeed(nodeSet, verifier, feed, chainID, p2pPort)
 	}
 
 	fmt.Println("Finished deploying streams trigger")
@@ -198,7 +198,7 @@ func deployMercuryV03Contracts(env helpers.Environment, artefactsDir string) ver
 	return o.Verifier
 }
 
-func deployOCR2JobSpecsForFeed(nodeSet NodeSet, verifier verifierContract.VerifierInterface, feed feed, chainId int64, p2pPort int64) {
+func deployOCR2JobSpecsForFeed(nodeSet NodeSet, verifier verifierContract.VerifierInterface, feed feed, chainID int64, p2pPort int64) {
 	// we assign the first node as the bootstrap node
 	for i, n := range nodeSet.NodeKeys {
 		// parallel arrays
@@ -206,7 +206,7 @@ func deployOCR2JobSpecsForFeed(nodeSet NodeSet, verifier verifierContract.Verifi
 		jobSpecName := ""
 		jobSpecStr := ""
 
-		upsertBridge(api, feed.bridgeName, feed.bridgeUrl)
+		upsertBridge(api, feed.bridgeName, feed.bridgeURL)
 
 		if i == 0 {
 			// Prepare data for Bootstrap Job
@@ -214,7 +214,7 @@ func deployOCR2JobSpecsForFeed(nodeSet NodeSet, verifier verifierContract.Verifi
 				FeedName:        feed.name,
 				VerifierAddress: verifier.Address().Hex(),
 				FeedID:          fmt.Sprintf("%x", feed.id),
-				ChainID:         chainId,
+				ChainID:         chainID,
 			}
 
 			// Create Bootstrap Job
@@ -222,7 +222,7 @@ func deployOCR2JobSpecsForFeed(nodeSet NodeSet, verifier verifierContract.Verifi
 		} else {
 			// Prepare data for Mercury V3 Job
 			mercuryData := MercuryV3JobSpecData{
-				FeedName:        fmt.Sprintf("feed-%s", feed.name),
+				FeedName:        "feed-" + feed.name,
 				BootstrapHost:   fmt.Sprintf("%s@%s:%d", nodeSet.NodeKeys[0].P2PPeerID, nodeSet.Nodes[0].ServiceName, p2pPort),
 				VerifierAddress: verifier.Address().Hex(),
 				Bridge:          feed.bridgeName,
@@ -231,7 +231,7 @@ func deployOCR2JobSpecsForFeed(nodeSet NodeSet, verifier verifierContract.Verifi
 				LinkFeedID:      fmt.Sprintf("%x", feeds[1].id),
 				NativeFeedID:    fmt.Sprintf("%x", feeds[2].id),
 				OCRKeyBundleID:  n.OCR2BundleID,
-				ChainID:         chainId,
+				ChainID:         chainID,
 			}
 
 			// Create Mercury V3 Job
@@ -316,7 +316,7 @@ type MercuryV3JobSpecData struct {
 
 // createMercuryV3BootstrapJob creates a bootstrap job specification using the provided data.
 func createMercuryV3BootstrapJob(data MercuryV3BootstrapJobSpecData) (name string, jobSpecStr string) {
-	name = fmt.Sprintf("boot-%s", data.FeedName)
+	name = "boot-" + data.FeedName
 	data.Name = name
 
 	fmt.Printf("Creating bootstrap job (%s):\nverifier address: %s\nfeed name: %s\nfeed ID: %s\nchain ID: %d\n",
@@ -336,7 +336,7 @@ func createMercuryV3BootstrapJob(data MercuryV3BootstrapJobSpecData) (name strin
 
 // createMercuryV3OracleJob creates a Mercury V3 job specification using the provided data.
 func createMercuryV3OracleJob(data MercuryV3JobSpecData) (name string, jobSpecStr string) {
-	name = fmt.Sprintf("mercury-%s", data.FeedName)
+	name = "mercury-" + data.FeedName
 	data.Name = name
 	fmt.Printf("Creating ocr2 job(%s):\nOCR key bundle ID: %s\nverifier address: %s\nbridge: %s\nnodeCSAKey: %s\nfeed name: %s\nfeed ID: %s\nlink feed ID: %s\nnative feed ID: %s\nchain ID: %d\n",
 		data.Name, data.OCRKeyBundleID, data.VerifierAddress, data.Bridge, data.NodeCSAKey, data.FeedName, data.FeedID, data.LinkFeedID, data.NativeFeedID, data.ChainID)
@@ -368,6 +368,7 @@ func strToBytes32(str string) [32]byte {
 
 func upsertBridge(api *nodeAPI, name string, eaURL string) {
 	u, err := url.Parse(eaURL)
+	helpers.PanicErr(err)
 	url := models.WebURL(*u)
 	// Confirmations and MinimumContractPayment are not used, so we can leave them as 0
 	b := bridges.BridgeTypeRequest{
@@ -441,7 +442,6 @@ func generateMercuryOCR2Config(nca []NodeKeys) MercuryOCR2Config {
 
 	offchainPubKeysBytes := []ocrtypes.OffchainPublicKey{}
 	for _, n := range nca {
-
 		pkBytesFixed := strToBytes32(n.OCR2OffchainPublicKey)
 		offchainPubKeysBytes = append(offchainPubKeysBytes, ocrtypes.OffchainPublicKey(pkBytesFixed))
 	}
@@ -491,12 +491,13 @@ func generateMercuryOCR2Config(nca []NodeKeys) MercuryOCR2Config {
 		int(f),                // f
 		onchainConfig,
 	)
+	PanicErr(err)
 	signerAddresses, err := evm.OnchainPublicKeyToAddress(signers)
 	PanicErr(err)
 
-	var offChainTransmitters [][32]byte
-	for _, n := range nca {
-		offChainTransmitters = append(offChainTransmitters, strToBytes32(n.CSAPublicKey))
+	offChainTransmitters := make([][32]byte, len(nca))
+	for i, n := range nca {
+		offChainTransmitters[i] = strToBytes32(n.CSAPublicKey)
 	}
 
 	config := MercuryOCR2Config{

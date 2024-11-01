@@ -4,8 +4,9 @@ import (
 	"encoding/hex"
 
 	"github.com/ethereum/go-ethereum/common"
-	ksdeploy "github.com/smartcontractkit/chainlink/deployment/keystone"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
+
+	ksdeploy "github.com/smartcontractkit/chainlink/deployment/keystone"
 )
 
 func ocrConfToContractConfig(ocrConf ksdeploy.Orc2drOracleConfig, configCount uint32) types.ContractConfig {

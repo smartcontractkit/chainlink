@@ -107,8 +107,8 @@ func LoadOnchainMeta(artefactsDir string, env helpers.Environment) *onchainMeta 
 		if !contractExists(s.OCR, env) {
 			fmt.Printf("OCR contract at %s does not exist\n", s.OCR.Hex())
 		} else {
-			ocr3, err := ocr3_capability.NewOCR3Capability(s.OCR, env.Ec)
-			PanicErr(err)
+			ocr3, e := ocr3_capability.NewOCR3Capability(s.OCR, env.Ec)
+			PanicErr(e)
 			hydrated.OCR3 = ocr3
 		}
 	}
@@ -117,8 +117,8 @@ func LoadOnchainMeta(artefactsDir string, env helpers.Environment) *onchainMeta 
 		if !contractExists(s.Forwarder, env) {
 			fmt.Printf("Forwarder contract at %s does not exist\n", s.Forwarder.Hex())
 		} else {
-			fwdr, err := forwarder.NewKeystoneForwarder(s.Forwarder, env.Ec)
-			PanicErr(err)
+			fwdr, e := forwarder.NewKeystoneForwarder(s.Forwarder, env.Ec)
+			PanicErr(e)
 			hydrated.Forwarder = fwdr
 		}
 	}
@@ -127,8 +127,8 @@ func LoadOnchainMeta(artefactsDir string, env helpers.Environment) *onchainMeta 
 		if !contractExists(s.CapabilitiesRegistry, env) {
 			fmt.Printf("CapabilityRegistry contract at %s does not exist\n", s.CapabilitiesRegistry.Hex())
 		} else {
-			cr, err := capabilities_registry.NewCapabilitiesRegistry(s.CapabilitiesRegistry, env.Ec)
-			PanicErr(err)
+			cr, e := capabilities_registry.NewCapabilitiesRegistry(s.CapabilitiesRegistry, env.Ec)
+			PanicErr(e)
 			hydrated.CapabilitiesRegistry = cr
 		}
 	}
@@ -140,8 +140,8 @@ func LoadOnchainMeta(artefactsDir string, env helpers.Environment) *onchainMeta 
 			fmt.Printf("Verifier contract at %s does not exist\n", s.Verifier.Hex())
 			hydrated.InitializedVerifierAddress = ZeroAddress
 		} else {
-			verifier, err := verifierContract.NewVerifier(s.Verifier, env.Ec)
-			PanicErr(err)
+			verifier, e := verifierContract.NewVerifier(s.Verifier, env.Ec)
+			PanicErr(e)
 			hydrated.Verifier = verifier
 		}
 	}
@@ -151,8 +151,8 @@ func LoadOnchainMeta(artefactsDir string, env helpers.Environment) *onchainMeta 
 			fmt.Printf("VerifierProxy contract at %s does not exist\n", s.VerifierProxy.Hex())
 			hydrated.InitializedVerifierAddress = ZeroAddress
 		} else {
-			verifierProxy, err := verifier_proxy.NewVerifierProxy(s.VerifierProxy, env.Ec)
-			PanicErr(err)
+			verifierProxy, e := verifier_proxy.NewVerifierProxy(s.VerifierProxy, env.Ec)
+			PanicErr(e)
 			hydrated.VerifierProxy = verifierProxy
 		}
 	}
@@ -175,11 +175,8 @@ func ContractsAlreadyDeployed(artefactsDir string) bool {
 	}
 
 	_, err = os.Stat(deployedContractsFilePath(artefactsDir))
-	if err != nil {
-		return false
-	}
 
-	return true
+	return err == nil
 }
 
 func deployedContractsFilePath(artefactsDir string) string {

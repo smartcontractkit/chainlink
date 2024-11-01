@@ -3,10 +3,12 @@ package src
 import (
 	"flag"
 	"fmt"
-	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"os"
 	"path/filepath"
+	"strconv"
+
+	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
+	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 )
 
 type provisionKeystone struct{}
@@ -32,7 +34,7 @@ func (g *provisionKeystone) Run(args []string) {
 	preprovison := fs.Bool("preprovision", false, "Preprovision crib")
 
 	// provisioning flags
-	ethUrl := fs.String("ethurl", "", "URL of the Ethereum node")
+	ethURL := fs.String("ethurl", "", "URL of the Ethereum node")
 	accountKey := fs.String("accountkey", "", "private key of the account to deploy from")
 	ocrConfigFile := fs.String("ocrfile", "ocr_config.json", "path to OCR config file")
 	p2pPort := fs.Int64("p2pport", 6690, "p2p port")
@@ -44,7 +46,7 @@ func (g *provisionKeystone) Run(args []string) {
 
 	err := fs.Parse(args)
 
-	if err != nil || (!*preprovison && (*ethUrl == "" || *accountKey == "")) {
+	if err != nil || (!*preprovison && (*ethURL == "" || *accountKey == "")) {
 		fs.Usage()
 		os.Exit(1)
 	}
@@ -80,8 +82,8 @@ func (g *provisionKeystone) Run(args []string) {
 
 	// Kinda hacky but it prevents us from refactoring the setupenv function which
 	// is used in many other places
-	os.Setenv("ETH_URL", *ethUrl)
-	os.Setenv("ETH_CHAIN_ID", fmt.Sprintf("%d", *chainID))
+	os.Setenv("ETH_URL", *ethURL)
+	os.Setenv("ETH_CHAIN_ID", strconv.FormatInt(*chainID, 10))
 	os.Setenv("ACCOUNT_KEY", *accountKey)
 	os.Setenv("INSECURE_SKIP_VERIFY", "true")
 	env := helpers.SetupEnv(false)
@@ -208,7 +210,7 @@ func provisionWorkflowDON(
 	// We don't technically need the capability registry as a dependency
 	// as we just use it for a sanity check
 	// We could remove it so that we can execute provisioning in parallel
-	deployKeystoneWorkflowsTo(nodeSet, reg, chainID)
+	deployKeystoneWorkflowsTo(nodeSet, reg)
 
 	return onchainMeta
 }

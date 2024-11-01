@@ -2,6 +2,7 @@ package src
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"sort"
@@ -77,7 +78,7 @@ func (m *K8sClient) GetDeploymentsWithConfigMap() ([]DeploymentWithConfigMap, er
 		return nil, err
 	}
 	if len(deployments.Items) == 0 {
-		return nil, fmt.Errorf("no deployments found, is your nodeset deployed?")
+		return nil, errors.New("no deployments found, is your nodeset deployed?")
 	}
 
 	deploymentsWithConfigMaps := []DeploymentWithConfigMap{}
@@ -86,7 +87,7 @@ func (m *K8sClient) GetDeploymentsWithConfigMap() ([]DeploymentWithConfigMap, er
 		return nil, err
 	}
 	if len(ingressList.Items) == 0 {
-		return nil, fmt.Errorf("no ingress found, is your nodeset deployed?")
+		return nil, errors.New("no ingress found, is your nodeset deployed?")
 	}
 
 	for _, deployment := range deployments.Items {

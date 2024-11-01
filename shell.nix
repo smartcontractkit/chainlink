@@ -65,7 +65,6 @@ in
       ''}
     '';
 
-    GOROOT = "${go}/share/go";
     PGDATA = "db";
     CL_DATABASE_URL = "postgresql://chainlink:chainlink@localhost:5432/chainlink_test?sslmode=disable";
   }

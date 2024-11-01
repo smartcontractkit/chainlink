@@ -8,7 +8,6 @@ import (
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 )
 
-
 func provisionCapabillitiesRegistry(env helpers.Environment, nodeSets NodeSets, chainID int64, artefactsDir string) kcr.CapabilitiesRegistryInterface {
 	fmt.Printf("Provisioning capabilities registry on chain %d\n", chainID)
 	ctx := context.Background()

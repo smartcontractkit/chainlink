@@ -2,6 +2,7 @@ package src
 
 import (
 	"bytes"
+	"strconv"
 	"text/template"
 
 	"context"
@@ -12,10 +13,11 @@ import (
 
 	ksdeploy "github.com/smartcontractkit/chainlink/deployment/keystone"
 
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
 func provisionOCR3(
@@ -37,7 +39,6 @@ func provisionOCR3(
 		nodeSet,
 		chainID,
 		p2pPort,
-		artefactsDir,
 		onchainMeta,
 	)
 
@@ -54,7 +55,6 @@ func deployOCR3Contract(
 	ocrConf := generateOCR3Config(
 		nodeSet,
 		configFile,
-		env.ChainID,
 	)
 
 	if o.OCR3 != nil {
@@ -63,6 +63,7 @@ func deployOCR3Contract(
 		latestConfigDigestBytes, err := o.OCR3.LatestConfigDetails(nil)
 		PanicErr(err)
 		latestConfigDigest, err := types.BytesToConfigDigest(latestConfigDigestBytes.ConfigDigest[:])
+		PanicErr(err)
 
 		cc := ocrConfToContractConfig(ocrConf, latestConfigDigestBytes.ConfigCount)
 		digester := evm.OCR3CapabilityOffchainConfigDigester{
@@ -92,7 +93,7 @@ func deployOCR3Contract(
 	return o, true
 }
 
-func generateOCR3Config(nodeSet NodeSet, configFile string, chainID int64) ksdeploy.Orc2drOracleConfig {
+func generateOCR3Config(nodeSet NodeSet, configFile string) ksdeploy.Orc2drOracleConfig {
 	topLevelCfg := mustReadOCR3Config(configFile)
 	cfg := topLevelCfg.OracleConfig
 	cfg.OCRSecrets = deployment.XXXGenerateTestOCRSecrets()
@@ -120,7 +121,6 @@ func deployOCR3JobSpecsTo(
 	nodeSet NodeSet,
 	chainID int64,
 	p2pPort int64,
-	artefactsDir string,
 	onchainMeta *onchainMeta,
 ) {
 	ocrAddress := onchainMeta.OCR3.Address().Hex()
@@ -141,7 +141,7 @@ func deployOCR3JobSpecsTo(
 			spec = createBootstrapJobSpec(bootstrapSpecConfig)
 		} else {
 			oc := OracleJobSpecConfig{
-				JobSpecName:              fmt.Sprintf("ocr3_oracle"),
+				JobSpecName:              "ocr3_oracle",
 				OCRConfigContractAddress: ocrAddress,
 				OCRKeyBundleID:           nodeKeys[i].OCR2BundleID,
 				BootstrapURI:             fmt.Sprintf("%s@%s:%d", nodeKeys[0].P2PPeerID, nodeSet.Nodes[0].ServiceName, p2pPort),
@@ -159,9 +159,9 @@ func deployOCR3JobSpecsTo(
 		fmt.Printf("Replaying from block: %d\n", onchainMeta.SetConfigTxBlock)
 		fmt.Printf("EVM Chain ID: %d\n\n", chainID)
 		api.withFlags(api.methods.ReplayFromBlock, func(fs *flag.FlagSet) {
-			err := fs.Set("block-number", fmt.Sprint(onchainMeta.SetConfigTxBlock))
+			err := fs.Set("block-number", strconv.FormatUint(onchainMeta.SetConfigTxBlock, 10))
 			helpers.PanicErr(err)
-			err = fs.Set("evm-chain-id", fmt.Sprint(chainID))
+			err = fs.Set("evm-chain-id", strconv.FormatInt(chainID, 10))
 			helpers.PanicErr(err)
 		}).mustExec()
 	}

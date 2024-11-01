@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 	"gopkg.in/yaml.v3"
@@ -154,7 +155,6 @@ func generatePostprovisionConfig(
 	forwarderAddress string,
 	capabillitiesRegistryAddress string,
 ) Helm {
-
 	nodes := make(map[string]Node)
 	nodeNames := []string{}
 	var capabilitiesBootstrapper *ocrcommontypes.BootstrapperLocator
@@ -243,7 +243,7 @@ func generateOverridesToml(
 				ExternalRegistry: toml.ExternalRegistry{
 					Address:   ptr(externalRegistryAddress),
 					NetworkID: ptr("evm"),
-					ChainID:   ptr(fmt.Sprintf("%d", chainID)),
+					ChainID:   ptr(strconv.FormatInt(chainID, 10)),
 				},
 				Peering: toml.P2P{
 					V2: toml.P2PV2{
@@ -278,7 +278,7 @@ func generateOverridesToml(
 
 // New function to generate Ingress
 func generateIngress(nodeNames []string) Ingress {
-	var hosts []Host
+	hosts := make([]Host, 0, len(nodeNames))
 
 	for _, nodeName := range nodeNames {
 		host := Host{
@@ -289,7 +289,7 @@ func generateIngress(nodeNames []string) Ingress {
 						Path: "/",
 						Backend: Backend{
 							Service: Service{
-								Name: fmt.Sprintf("app-%s", nodeName),
+								Name: "app-" + nodeName,
 								Port: Port{
 									Number: 6688,
 								},

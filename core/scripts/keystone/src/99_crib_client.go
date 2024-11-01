@@ -58,9 +58,6 @@ func (m *CribClient) getCLNodes() ([]NodeWthCreds, error) {
 			Host:   deployment.Host,
 			Path:   "",
 		}
-		if err != nil {
-			return nil, err
-		}
 
 		node := NodeWthCreds{
 			// We dont handle both in-cluster and out-of-cluster deployments

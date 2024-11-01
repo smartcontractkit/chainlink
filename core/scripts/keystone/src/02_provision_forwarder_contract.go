@@ -8,7 +8,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder"
 )
 
-
 func deployForwarder(
 	env helpers.Environment,
 	artefacts string,

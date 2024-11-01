@@ -6,10 +6,11 @@ import (
 	"text/template"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 )
 
-func deployKeystoneWorkflowsTo(nodeSet NodeSet, reg kcr.CapabilitiesRegistryInterface, chainID int64) {
+func deployKeystoneWorkflowsTo(nodeSet NodeSet, reg kcr.CapabilitiesRegistryInterface) {
 	fmt.Println("Deploying Keystone workflow jobs")
 	caps, err := reg.GetCapabilities(&bind.CallOpts{})
 	PanicErr(err)
@@ -36,14 +37,14 @@ func deployKeystoneWorkflowsTo(nodeSet NodeSet, reg kcr.CapabilitiesRegistryInte
 		}
 	}
 
-	feedIds := []string{}
+	feedIDs := []string{}
 	for _, feed := range feeds {
-		feedIds = append(feedIds, fmt.Sprintf("0x%x", feed.id))
+		feedIDs = append(feedIDs, fmt.Sprintf("0x%x", feed.id))
 	}
 	workflowConfig := WorkflowJobSpecConfig{
 		JobSpecName:          "keystone_workflow",
 		WorkflowOwnerAddress: "0x1234567890abcdef1234567890abcdef12345678",
-		FeedIDs:              feedIds,
+		FeedIDs:              feedIDs,
 		TargetID:             testnetWrite.GetID(),
 		ConsensusID:          ocr3.GetID(),
 		TriggerID:            streams.GetID(),

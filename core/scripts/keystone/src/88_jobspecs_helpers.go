@@ -17,7 +17,7 @@ type WorkflowSpec struct {
 }
 
 type JobSpec struct {
-	Id                           string
+	ID                           string
 	Name                         string
 	BootstrapSpec                BootSpec
 	OffChainReporting2OracleSpec OCRSpec
@@ -30,7 +30,7 @@ func upsertJob(api *nodeAPI, jobSpecName string, jobSpecStr string) {
 	for _, job := range *jobs {
 		if job.Name == jobSpecName {
 			fmt.Printf("Job already exists: %s, replacing..\n", jobSpecName)
-			api.withArg(job.Id).mustExec(api.methods.DeleteJob)
+			api.withArg(job.ID).mustExec(api.methods.DeleteJob)
 			break
 		}
 	}
@@ -47,7 +47,7 @@ func clearJobs(api *nodeAPI) {
 	jobs := mustJSON[[]JobSpec](jobsResp)
 	for _, job := range *jobs {
 		fmt.Printf("Deleting job: %s\n", job.Name)
-		api.withArg(job.Id).mustExec(api.methods.DeleteJob)
+		api.withArg(job.ID).mustExec(api.methods.DeleteJob)
 	}
 	fmt.Println("All jobs have been deleted.")
 }
