@@ -1,4 +1,4 @@
-package keystone
+package internal
 
 import (
 	"errors"
@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 )
 
 type UpdateNodesRequest struct {
@@ -64,7 +65,7 @@ func UpdateNodes(lggr logger.Logger, req *UpdateNodesRequest) (*UpdateNodesRespo
 	}
 	tx, err := req.Registry.UpdateNodes(req.Chain.DeployerKey, params)
 	if err != nil {
-		err = DecodeErr(kcr.CapabilitiesRegistryABI, err)
+		err = kslib.DecodeErr(kcr.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to call UpdateNodes: %w", err)
 	}
 
@@ -113,8 +114,8 @@ func AppendCapabilities(lggr logger.Logger, registry *kcr.CapabilitiesRegistry, 
 		var deduped []kcr.CapabilitiesRegistryCapability
 		seen := make(map[string]struct{})
 		for _, cap := range mergedCaps {
-			if _, ok := seen[CapabilityID(cap)]; !ok {
-				seen[CapabilityID(cap)] = struct{}{}
+			if _, ok := seen[kslib.CapabilityID(cap)]; !ok {
+				seen[kslib.CapabilityID(cap)] = struct{}{}
 				deduped = append(deduped, cap)
 			}
 		}
@@ -159,9 +160,9 @@ func makeNodeParams(registry *kcr.CapabilitiesRegistry,
 			}
 			hashedCaps := make([][32]byte, len(caps))
 			for i, cap := range caps {
-				hashedCap, exists := capMap[CapabilityID(cap)]
+				hashedCap, exists := capMap[kslib.CapabilityID(cap)]
 				if !exists {
-					return nil, fmt.Errorf("capability id not found for %s", CapabilityID(cap))
+					return nil, fmt.Errorf("capability id not found for %s", kslib.CapabilityID(cap))
 				}
 				hashedCaps[i] = hashedCap
 			}
@@ -178,17 +179,11 @@ func makeNodeParams(registry *kcr.CapabilitiesRegistry,
 	return out, nil
 }
 
-// CapabilityID returns a unique id for the capability
-// TODO: mv to chainlink-common? ref https://github.com/smartcontractkit/chainlink/blob/4fb06b4525f03c169c121a68defa9b13677f5f20/contracts/src/v0.8/keystone/CapabilitiesRegistry.sol#L170
-func CapabilityID(c kcr.CapabilitiesRegistryCapability) string {
-	return fmt.Sprintf("%s@%s", c.LabelledName, c.Version)
-}
-
-// fetchCapabilityIDs fetches the capability ids for the given capabilities
+// fetchkslib.CapabilityIDs fetches the capability ids for the given capabilities
 func fetchCapabilityIDs(registry *kcr.CapabilitiesRegistry, caps []kcr.CapabilitiesRegistryCapability) (map[string][32]byte, error) {
 	out := make(map[string][32]byte)
 	for _, cap := range caps {
-		name := CapabilityID(cap)
+		name := kslib.CapabilityID(cap)
 		if _, exists := out[name]; exists {
 			continue
 		}

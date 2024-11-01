@@ -138,8 +138,8 @@ jobs:
         if: ${{ needs.filter.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-go
         with:
-          # race/fuzz tests don't benefit from build caching
-          only-modules: ${{ matrix.type.cmd == 'go_core_race_tests' || matrix.type.cmd == 'go_core_fuzz' }}
+          # race/fuzz tests don't benefit repeated caching, so restore from develop's build cache
+          restore-build-cache-only: ${{ matrix.type.cmd == 'go_core_race_tests' || matrix.type.cmd == 'go_core_fuzz' }}
           build-cache-version: ${{ matrix.type.cmd }}
 
       - name: Replace chainlink-evm deps

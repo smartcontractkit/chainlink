@@ -63,7 +63,7 @@ func generateMemoryChain(t *testing.T, inputs map[uint64]EVMChain) map[uint64]de
 						continue
 					}
 					if receipt.Status == 0 {
-						errReason, err := deployment.GetErrorReasonFromTx(chain.Backend, chain.DeployerKey.From, *tx, receipt)
+						errReason, err := deployment.GetErrorReasonFromTx(chain.Backend, chain.DeployerKey.From, tx, receipt)
 						if err == nil && errReason != "" {
 							return 0, fmt.Errorf("tx %s reverted,error reason: %s", tx.Hash().Hex(), errReason)
 						}

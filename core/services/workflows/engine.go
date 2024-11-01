@@ -611,6 +611,7 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 			l.Info("workflow finished")
 		case store.StatusErrored:
 			l.Info("execution errored")
+			e.metrics.incrementTotalWorkflowStepErrorsCounter(ctx)
 		case store.StatusCompletedEarlyExit:
 			l.Info("execution terminated early")
 			// NOTE: even though this marks the workflow as completed, any branches of the DAG
@@ -985,7 +986,6 @@ func (e *Engine) isWorkflowFullyProcessed(ctx context.Context, state store.Workf
 					}
 				}
 			}
-			e.metrics.incrementTotalWorkflowStepErrorsCounter(ctx)
 		}
 		return nil
 	})
