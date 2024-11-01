@@ -752,9 +752,9 @@ func TestConfig_Marshal(t *testing.T) {
 				ComputeUnitPriceDefault:  ptr[uint64](100),
 				FeeBumpPeriod:            commoncfg.MustNewDuration(time.Minute),
 				BlockHistoryPollPeriod:   commoncfg.MustNewDuration(time.Minute),
+				BlockHistorySize:         ptr[uint64](1),
 				ComputeUnitLimitDefault:  ptr[uint32](100_000),
 				EstimateComputeUnitLimit: ptr(false),
-				BlockHistorySize:         ptr[uint64](1),
 			},
 			MultiNode: solcfg.MultiNodeConfig{
 				MultiNode: solcfg.MultiNode{
@@ -1279,9 +1279,9 @@ ComputeUnitPriceMin = 10
 ComputeUnitPriceDefault = 100
 FeeBumpPeriod = '1m0s'
 BlockHistoryPollPeriod = '1m0s'
+BlockHistorySize = 1
 ComputeUnitLimitDefault = 100000
 EstimateComputeUnitLimit = false
-BlockHistorySize = 1
 
 [Solana.MultiNode]
 Enabled = false
