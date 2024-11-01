@@ -14,6 +14,7 @@ import (
 	mapset "github.com/deckarep/golang-set/v2"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/smartcontractkit/libocr/networking"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
@@ -238,7 +239,7 @@ type peerGroupDialer struct {
 	oraclePeerIDs      []ragep2ptypes.PeerID
 	commitConfigDigest [32]byte
 
-	activePeerGroups    []peergroup.PeerGroup
+	activePeerGroups    []networking.PeerGroup
 	activeConfigDigests []cciptypes.Bytes32
 
 	syncInterval time.Duration
@@ -261,7 +262,7 @@ const (
 
 func newPeerGroupDialer(
 	lggr logger.Logger,
-	peerGroupFactory peergroup.PeerGroupFactory,
+	peerGroupFactory networking.PeerGroupFactory,
 	rmnHomeReader ccipreaderpkg.RMNHome,
 	bootstrapLocators []commontypes.BootstrapperLocator,
 	oraclePeerIDs []ragep2ptypes.PeerID,
@@ -277,7 +278,7 @@ func newPeerGroupDialer(
 		oraclePeerIDs:      oraclePeerIDs,
 		commitConfigDigest: commitConfigDigest,
 
-		activePeerGroups: []peergroup.PeerGroup{},
+		activePeerGroups: []networking.PeerGroup{},
 
 		syncInterval: 12 * time.Second, // todo: make it configurable
 
@@ -471,7 +472,7 @@ func (d *peerGroupDialer) closeExistingPeerGroups() {
 		d.lggr.Infow("Closed peer group successfully")
 	}
 
-	d.activePeerGroups = []peergroup.PeerGroup{}
+	d.activePeerGroups = []networking.PeerGroup{}
 	d.activeConfigDigests = []cciptypes.Bytes32{}
 }
 
