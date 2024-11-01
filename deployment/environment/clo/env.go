@@ -30,14 +30,14 @@ func NewDonEnv(t *testing.T, cfg DonEnvConfig) *deployment.Environment {
 			}
 		}
 	}
-	out := deployment.Environment{
-		Name:              cfg.DonName,
-		Offchain:          NewJobClient(cfg.Logger, cfg.Nops),
-		NodeIDs:           make([]string, 0),
-		Chains:            cfg.Chains,
-		Logger:            cfg.Logger,
-		ExistingAddresses: deployment.NewMemoryAddressBook(),
-	}
+	out := deployment.NewEnvironment(
+		cfg.DonName,
+		cfg.Logger,
+		deployment.NewMemoryAddressBook(),
+		cfg.Chains,
+		make([]string, 0),
+		NewJobClient(cfg.Logger, cfg.Nops),
+	)
 	// assume that all the nodes in the provided input nops are part of the don
 	for _, nop := range cfg.Nops {
 		for _, node := range nop.Nodes {
@@ -45,7 +45,7 @@ func NewDonEnv(t *testing.T, cfg DonEnvConfig) *deployment.Environment {
 		}
 	}
 
-	return &out
+	return out
 }
 
 func NewDonEnvWithMemoryChains(t *testing.T, cfg DonEnvConfig, ignore func(*models.NodeChainConfig) bool) *deployment.Environment {
@@ -88,19 +88,18 @@ type MultiDonEnvironment struct {
 }
 
 func (mde MultiDonEnvironment) Flatten(name string) *deployment.Environment {
-	return &deployment.Environment{
-		Name:              name,
-		Chains:            mde.Chains,
-		Logger:            mde.Logger,
-		ExistingAddresses: deployment.NewMemoryAddressBook(),
-
-		// TODO: KS-460 integrate with the clo offchain client impl
-		// may need to extend the Environment abstraction use maps rather than slices for Nodes
-		// somehow we need to capture the fact that each nodes belong to nodesets which have different capabilities
-		// purposely nil to catch misuse until we do that work
-		Offchain: nil,
-		NodeIDs:  nil,
-	}
+	// TODO: KS-460 integrate with the clo offchain client impl
+	// may need to extend the Environment abstraction use maps rather than slices for Nodes
+	// somehow we need to capture the fact that each nodes belong to nodesets which have different capabilities
+	// purposely nil to catch misuse until we do that work
+	return deployment.NewEnvironment(
+		name,
+		mde.Logger,
+		deployment.NewMemoryAddressBook(),
+		mde.Chains,
+		nil,
+		nil,
+	)
 }
 
 func newMultiDonEnvironment(logger logger.Logger, donToEnv map[string]*deployment.Environment) *MultiDonEnvironment {
