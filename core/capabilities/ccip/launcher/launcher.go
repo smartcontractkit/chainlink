@@ -210,7 +210,7 @@ func (l *launcher) processUpdate(updated map[registrysyncer.DonID]registrysyncer
 		// If a config digest is not already in our list, we need to create an oracle
 		// If a config digest is already in our list, we just need to point to the old one
 		// newP.Transition will make sure we shut down the old oracles, and start the new ones
-		var newP = make(ccipPlugins)
+		newP := make(ccipPlugins)
 		for _, c := range latestConfigs {
 			digest := c.ConfigDigest
 			if digest != [32]byte{} && prevPlugins[digest] == nil {
@@ -312,7 +312,7 @@ func createDON(
 		lggr.Infow("Not a member of this DON and not a bootstrap node either, skipping", "donId", don.ID, "p2pId", p2pID.String())
 		return nil, nil
 	}
-	var p ccipPlugins
+	p := make(ccipPlugins)
 	for _, config := range configs {
 		digest, err := ocrtypes.BytesToConfigDigest(config.ConfigDigest[:])
 		if err != nil {
