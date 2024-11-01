@@ -21,6 +21,10 @@ inputs:
       Only restore the module cache, don't automatically update it.
       Leave the updating to go-mod-cache.yml.
     default: "true"
+  restore-build-cache-only:
+    description: |
+      Only restore the build cache, don't automatically update/upload it.
+    default: "false"
 
 runs:
   using: composite
@@ -81,7 +85,7 @@ runs:
     - uses: actions/cache/restore@v4.1.1
       name: Cache Go Build Outputs (restore)
       # For certain events, we don't necessarily want to create a build cache, but we will benefit from restoring from one. 
-      if: ${{ inputs.only-modules == 'false' && github.event == 'merge_group' }}
+      if: ${{ inputs.only-modules == 'false' && (github.event == 'merge_group' || inputs.restore-build-cache-only == 'true') }}
       with:
         path: |
           ${{ steps.go-cache-dir.outputs.gobuildcache }}
@@ -93,8 +97,8 @@ runs:
           ${{ runner.os }}-gobuild-${{ inputs.cache-version }}-
 
     - uses: actions/cache@v4.1.1
-      # don't save cache on merge queue events, only restore
-      if: ${{ inputs.only-modules == 'false' && github.event != 'merge_group' }}
+      # don't save cache on merge queue events
+      if: ${{ inputs.only-modules == 'false' && (github.event != 'merge_group' && inputs.restore-build-cache-only == 'false') }}
       name: Cache Go Build Outputs
       with:
         path: |
