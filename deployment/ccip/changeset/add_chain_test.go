@@ -68,7 +68,12 @@ func TestAddChainInbound(t *testing.T) {
 
 	//  Deploy contracts to new chain
 	newChainAddresses := deployment.NewMemoryAddressBook()
-	err = ccipdeployment.DeployChainContracts(e.Env, e.Env.Chains[newChain], newChainAddresses, e.FeeTokenContracts[newChain], ccipdeployment.NewTestMCMSConfig(t, e.Env), rmnHome)
+	err = ccipdeployment.DeployChainContracts(e.Env,
+		e.Env.Chains[newChain], newChainAddresses,
+		ccipdeployment.FeeTokenContracts{
+			LinkToken: state.Chains[newChain].LinkToken,
+			Weth9:     state.Chains[newChain].Weth9,
+		}, ccipdeployment.NewTestMCMSConfig(t, e.Env), rmnHome)
 	require.NoError(t, err)
 	require.NoError(t, e.Env.ExistingAddresses.Merge(newChainAddresses))
 	state, err = ccipdeployment.LoadOnchainState(e.Env)

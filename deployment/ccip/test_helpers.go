@@ -61,11 +61,10 @@ func Context(tb testing.TB) context.Context {
 }
 
 type DeployedEnv struct {
-	Env               deployment.Environment
-	HomeChainSel      uint64
-	FeedChainSel      uint64
-	ReplayBlocks      map[uint64]uint64
-	FeeTokenContracts map[uint64]FeeTokenContracts
+	Env          deployment.Environment
+	HomeChainSel uint64
+	FeedChainSel uint64
+	ReplayBlocks map[uint64]uint64
 }
 
 func (e *DeployedEnv) SetupJobs(t *testing.T) {
