@@ -572,6 +572,7 @@ func (f *evmFinalizer) ProcessOldTxsWithoutReceipts(ctx context.Context, oldTxID
 		// Store errors and continue to allow all transactions a chance to be signaled
 		if f.resumeCallback != nil && oldTx.PipelineTaskRunID.Valid && oldTx.SignalCallback && !oldTx.CallbackCompleted {
 			err = f.resumeCallback(ctx, oldTx.PipelineTaskRunID.UUID, nil, errors.New(ErrCouldNotGetReceipt))
+			// nolint:ifElseChain
 			if errors.Is(err, sql.ErrNoRows) {
 				f.lggr.Debugw("callback missing or already resumed", "etxID", oldTx.ID)
 			} else if err != nil {

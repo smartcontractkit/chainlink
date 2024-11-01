@@ -861,7 +861,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_MaxFeeScenario(t *testing.T) {
 
 		// Once for the bumped attempt which exceeds limit
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
-			return tx.Nonce() == uint64(*etx.Sequence) && tx.GasPrice().Int64() == int64(20000000000)
+			return tx.GasPrice().Int64() == int64(20000000000) && tx.Nonce() == uint64(*etx.Sequence) //nolint:gosec // disable G115
 		}), fromAddress).Return(commonclient.ExceedsMaxFee, errors.New("tx fee (1.10 ether) exceeds the configured cap (1.00 ether)")).Once()
 
 		// Do the thing
@@ -913,7 +913,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		// simulate bumped transaction that is somehow impossible to sign
 		kst.On("SignTx", mock.Anything, fromAddress,
 			mock.MatchedBy(func(tx *types.Transaction) bool {
-				return tx.Nonce() == uint64(*etx.Sequence)
+				return tx.Nonce() == uint64(*etx.Sequence) //nolint:gosec // disable G115
 			}),
 			mock.Anything).Return(nil, errors.New("signing error")).Once()
 		// Use a mock keystore for this test
@@ -939,7 +939,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		ec := newEthConfirmer(t, txStore, ethClient, cfg, evmcfg, ethKeyStore, nil)
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
-			return tx.Nonce() == uint64(*etx.Sequence)
+			return tx.Nonce() == uint64(*etx.Sequence) //nolint:gosec // disable G115
 		}), fromAddress).Return(commonclient.Fatal, errors.New("exceeds block gas limit")).Once()
 
 		require.NoError(t, ec.RebroadcastWhereNecessary(ctx, currentHead))
@@ -959,7 +959,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		ec := newEthConfirmer(t, txStore, ethClient, cfg, evmcfg, ethKeyStore, nil)
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
-			return evmtypes.Nonce(tx.Nonce()) == *etx.Sequence
+			return tx.Nonce() == uint64(*etx.Sequence) //nolint:gosec // disable G115
 		}), fromAddress).Return(commonclient.Successful, nil).Once()
 
 		require.NoError(t, ec.RebroadcastWhereNecessary(ctx, currentHead))
@@ -1002,7 +1002,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		ec := newEthConfirmer(t, txStore, ethClient, cfg, evmcfg, ethKeyStore, nil)
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
-			return evmtypes.Nonce(tx.Nonce()) == *etx.Sequence
+			return tx.Nonce() == uint64(*etx.Sequence) //nolint:gosec // disable G115
 		}), fromAddress).Return(commonclient.Successful, fmt.Errorf("known transaction: %s", etx.TxAttempts[0].Hash.Hex())).Once()
 
 		require.NoError(t, ec.RebroadcastWhereNecessary(ctx, currentHead))
@@ -1029,7 +1029,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		ec := newEthConfirmer(t, txStore, ethClient, cfg, evmcfg, ethKeyStore, nil)
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
-			return evmtypes.Nonce(tx.Nonce()) == *etx.Sequence
+			return tx.Nonce() == uint64(*etx.Sequence) //nolint:gosec // disable G115
 		}), fromAddress).Return(commonclient.TransactionAlreadyKnown, errors.New("nonce too low")).Once()
 
 		require.NoError(t, ec.RebroadcastWhereNecessary(ctx, currentHead))
@@ -1060,7 +1060,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		ec := newEthConfirmer(t, txStore, ethClient, cfg, evmcfg, ethKeyStore, nil)
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
-			return tx.Nonce() == uint64(*etx.Sequence)
+			return tx.Nonce() == uint64(*etx.Sequence) //nolint:gosec // disable G115
 		}), fromAddress).Return(commonclient.Unknown, errors.New("some network error")).Once()
 
 		err := ec.RebroadcastWhereNecessary(ctx, currentHead)
@@ -1084,7 +1084,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 		// Try again and move the attempt into "broadcast"
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
-			return tx.Nonce() == uint64(*etx.Sequence)
+			return tx.Nonce() == uint64(*etx.Sequence) //nolint:gosec // disable G115
 		}), fromAddress).Return(commonclient.Successful, nil).Once()
 
 		require.NoError(t, ec.RebroadcastWhereNecessary(ctx, currentHead))
@@ -1111,10 +1111,10 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		ec := newEthConfirmer(t, txStore, ethClient, cfg, evmcfg, ethKeyStore, nil)
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
-			return tx.Nonce() == uint64(*etx.Sequence)
+			return tx.Nonce() == uint64(*etx.Sequence) //nolint:gosec // disable G115
 		}), fromAddress).Return(commonclient.Underpriced, errors.New("replacement transaction underpriced")).Once()
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
-			return tx.Nonce() == uint64(*etx.Sequence)
+			return tx.Nonce() == uint64(*etx.Sequence) //nolint:gosec // disable G115
 		}), fromAddress).Return(commonclient.Successful, nil).Once()
 
 		// Do the thing
@@ -1147,7 +1147,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		ec := newEthConfirmer(t, txStore, ethClient, cfg, newCfg, ethKeyStore, nil)
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
-			return tx.Nonce() == uint64(*etx.Sequence)
+			return tx.Nonce() == uint64(*etx.Sequence) //nolint:gosec // disable G115
 		}), fromAddress).Return(commonclient.Underpriced, errors.New("underpriced")).Once() // we already submitted at this price, now it's time to bump and submit again but since we simply resubmitted rather than increasing gas price, geth already knows about this tx
 
 		// Do the thing
@@ -1178,7 +1178,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		ec := newEthConfirmer(t, txStore, ethClient, cfg, newCfg, ethKeyStore, nil)
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
-			return tx.Nonce() == uint64(*etx.Sequence)
+			return tx.Nonce() == uint64(*etx.Sequence) //nolint:gosec // disable G115
 		}), fromAddress).Return(commonclient.Underpriced, errors.New("underpriced")).Once() // we already submitted at this price, now it's time to bump and submit again but since we simply resubmitted rather than increasing gas price, geth already knows about this tx
 
 		// Do the thing
@@ -1209,7 +1209,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		ec := newEthConfirmer(t, txStore, ethClient, cfg, newCfg, ethKeyStore, nil)
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
-			return tx.Nonce() == uint64(*etx.Sequence)
+			return tx.Nonce() == uint64(*etx.Sequence) //nolint:gosec // disable G115
 		}), fromAddress).Return(commonclient.Successful, nil).Once()
 		require.NoError(t, ec.RebroadcastWhereNecessary(ctx, currentHead))
 		etx, err = txStore.FindTxWithAttempts(ctx, etx.ID)
@@ -1241,7 +1241,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		ec := newEthConfirmer(t, txStore, ethClient, cfg, newCfg, ethKeyStore, nil)
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
-			return tx.Nonce() == uint64(*etx.Sequence)
+			return tx.Nonce() == uint64(*etx.Sequence) //nolint:gosec // disable G115
 		}), fromAddress).Return(commonclient.Underpriced, errors.New("underpriced")).Once()
 
 		require.Error(t, ec.RebroadcastWhereNecessary(ctx, currentHead))
@@ -1272,10 +1272,10 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		ec := newEthConfirmer(t, txStore, ethClient, cfg, newCfg, ethKeyStore, nil)
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
-			return tx.Nonce() == uint64(*etx.Sequence)
+			return tx.Nonce() == uint64(*etx.Sequence) //nolint:gosec // disable G115
 		}), fromAddress).Return(commonclient.Underpriced, errors.New("replacement transaction underpriced")).Once()
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
-			return tx.Nonce() == uint64(*etx.Sequence)
+			return tx.Nonce() == uint64(*etx.Sequence) //nolint:gosec // disable G115
 		}), fromAddress).Return(commonclient.Successful, nil).Once()
 
 		// Do it
@@ -1359,7 +1359,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyUnderpriced_ThenGoesTh
 			commonclient.Successful, nil).Once()
 		signedLegacyTx := new(types.Transaction)
 		kst.On("SignTx", mock.Anything, mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
-			return tx.Type() == 0x0 && tx.Nonce() == uint64(*etx.Sequence)
+			return tx.Type() == 0x0 && tx.Nonce() == uint64(*etx.Sequence) //nolint:gosec // disable G115
 		}), mock.Anything).Return(
 			signedLegacyTx, nil,
 		).Run(func(args mock.Arguments) {
@@ -1391,7 +1391,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyUnderpriced_ThenGoesTh
 			commonclient.Successful, nil).Once()
 		signedDxFeeTx := new(types.Transaction)
 		kst.On("SignTx", mock.Anything, mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
-			return tx.Type() == 0x2 && tx.Nonce() == uint64(*etx.Sequence)
+			return tx.Type() == 0x2 && tx.Nonce() == uint64(*etx.Sequence) //nolint:gosec // disable G115
 		}), mock.Anything).Return(
 			signedDxFeeTx, nil,
 		).Run(func(args mock.Arguments) {
@@ -1575,11 +1575,11 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyStuckError(t *testing.
 
 		// Return terminally stuck error on first rebroadcast
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
-			return tx.Nonce() == uint64(*etx.Sequence)
+			return tx.Nonce() == uint64(*etx.Sequence) //nolint:gosec // disable G115
 		}), fromAddress).Return(commonclient.TerminallyStuck, errors.New(terminallyStuckError)).Once()
 		// Return successful for purge attempt
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
-			return tx.Nonce() == uint64(*etx.Sequence)
+			return tx.Nonce() == uint64(*etx.Sequence) //nolint:gosec // disable G115
 		}), fromAddress).Return(commonclient.Successful, nil).Once()
 
 		// Start processing transactions for rebroadcast
