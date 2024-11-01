@@ -51,7 +51,7 @@ func New(
 		},
 		tickInterval:  tickInterval,
 		oracleCreator: oracleCreator,
-		instances:     make(map[registrysyncer.DonID]*ccipPlugins),
+		instances:     make(map[registrysyncer.DonID]ccipPlugins),
 	}
 }
 
@@ -80,7 +80,7 @@ type launcher struct {
 	// instances is a map of CCIP DON IDs to a map of the OCR instances that are running on them.
 	// This map uses the config digest as the key, and the instance as the value.
 	// We can have up to a maximum of 4 instances per CCIP DON (active/candidate) x (commit/exec)
-	instances map[registrysyncer.DonID]*ccipPlugins
+	instances map[registrysyncer.DonID]ccipPlugins
 }
 
 // Launch implements registrysyncer.Launcher.
@@ -118,7 +118,7 @@ func (l *launcher) Close() error {
 		// shut down all running oracles.
 		var err error
 		for _, ceDep := range l.instances {
-			err = multierr.Append(err, (*ceDep).Close())
+			err = multierr.Append(err, ceDep.CloseAll())
 		}
 
 		return err
@@ -210,18 +210,18 @@ func (l *launcher) processUpdate(updated map[registrysyncer.DonID]registrysyncer
 		// If a config digest is not already in our list, we need to create an oracle
 		// If a config digest is already in our list, we just need to point to the old one
 		// newP.Transition will make sure we shut down the old oracles, and start the new ones
-		var newP ccipPlugins
+		var newP = make(ccipPlugins)
 		for _, c := range latestConfigs {
 			digest := c.ConfigDigest
-			if digest != [32]byte{} && (*prevPlugins)[digest] == nil {
+			if digest != [32]byte{} && prevPlugins[digest] == nil {
 				oracle, err := l.oracleCreator.Create(don.ID, cctypes.OCR3ConfigWithMeta(c))
 				if err != nil {
 					return fmt.Errorf("failed to create CCIP oracle: %w for digest %w", err, digest)
 				}
 
-				newP[digest] = &oracle
+				newP[digest] = oracle
 			} else {
-				newP[digest] = (*prevPlugins)[digest]
+				newP[digest] = prevPlugins[digest]
 			}
 		}
 
@@ -230,7 +230,7 @@ func (l *launcher) processUpdate(updated map[registrysyncer.DonID]registrysyncer
 			return fmt.Errorf("Could not transition state %w", err)
 		}
 
-		l.instances[donID] = &newP
+		l.instances[donID] = newP
 	}
 
 	return nil
@@ -261,8 +261,8 @@ func (l *launcher) processAdded(added map[registrysyncer.DonID]registrysyncer.DO
 
 		// now that oracles are created, we need to start them. If there are issues with starting
 		// we should shut them down
-		if err := newPlugins.Transition(&ccipPlugins{}); err != nil {
-			if shutdownErr := newPlugins.Close(); shutdownErr != nil {
+		if err := newPlugins.StartAll(); err != nil {
+			if shutdownErr := newPlugins.CloseAll(); shutdownErr != nil {
 				l.lggr.Errorw("Failed to shutdown don instances after a failed start", "donId", donID, "err", shutdownErr)
 			}
 			return fmt.Errorf("processAdded: start oracles for CCIP DON %d: %w", donID, err)
@@ -287,7 +287,7 @@ func (l *launcher) processRemoved(removed map[registrysyncer.DonID]registrysynce
 			continue
 		}
 
-		if err := p.Close(); err != nil {
+		if err := p.CloseAll(); err != nil {
 			return fmt.Errorf("failed to shutdown oracles for CCIP DON %d: %w", id, err)
 
 		}
@@ -307,7 +307,7 @@ func createDON(
 	don registrysyncer.DON,
 	oracleCreator cctypes.OracleCreator,
 	configs []ccipreader.OCR3ConfigWithMeta,
-) (*ccipPlugins, error) {
+) (ccipPlugins, error) {
 	if !isMemberOfDON(don, p2pID) && oracleCreator.Type() == cctypes.OracleTypePlugin {
 		lggr.Infow("Not a member of this DON and not a bootstrap node either, skipping", "donId", don.ID, "p2pId", p2pID.String())
 		return nil, nil
@@ -324,10 +324,10 @@ func createDON(
 				return nil, fmt.Errorf("failed to create CCIP oracle: %w for digest %w", err, digest)
 			}
 
-			p[digest] = &oracle
+			p[digest] = oracle
 		}
 	}
-	return &p, nil
+	return p, nil
 }
 
 func getConfigsForDon(
