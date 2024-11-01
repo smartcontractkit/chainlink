@@ -447,23 +447,23 @@ func (_c *EvmTxStore_DeleteInProgressAttempt_Call) RunAndReturn(run func(context
 }
 
 // FindAttemptsRequiringReceiptFetch provides a mock function with given fields: ctx, chainID
-func (_m *EvmTxStore) FindAttemptsRequiringReceiptFetch(ctx context.Context, chainID *big.Int) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+func (_m *EvmTxStore) FindAttemptsRequiringReceiptFetch(ctx context.Context, chainID *big.Int) ([]txmgr.TxAttempt, error) {
 	ret := _m.Called(ctx, chainID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FindAttemptsRequiringReceiptFetch")
 	}
 
-	var r0 []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	var r0 []txmgr.TxAttempt
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) ([]txmgr.TxAttempt, error)); ok {
 		return rf(ctx, chainID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) []txmgr.TxAttempt); ok {
 		r0 = rf(ctx, chainID)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+			r0 = ret.Get(0).([]txmgr.TxAttempt)
 		}
 	}
 
@@ -495,12 +495,12 @@ func (_c *EvmTxStore_FindAttemptsRequiringReceiptFetch_Call) Run(run func(ctx co
 	return _c
 }
 
-func (_c *EvmTxStore_FindAttemptsRequiringReceiptFetch_Call) Return(hashes []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], err error) *EvmTxStore_FindAttemptsRequiringReceiptFetch_Call {
+func (_c *EvmTxStore_FindAttemptsRequiringReceiptFetch_Call) Return(hashes []txmgr.TxAttempt, err error) *EvmTxStore_FindAttemptsRequiringReceiptFetch_Call {
 	_c.Call.Return(hashes, err)
 	return _c
 }
 
-func (_c *EvmTxStore_FindAttemptsRequiringReceiptFetch_Call) RunAndReturn(run func(context.Context, *big.Int) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_FindAttemptsRequiringReceiptFetch_Call {
+func (_c *EvmTxStore_FindAttemptsRequiringReceiptFetch_Call) RunAndReturn(run func(context.Context, *big.Int) ([]txmgr.TxAttempt, error)) *EvmTxStore_FindAttemptsRequiringReceiptFetch_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1343,23 +1343,23 @@ func (_c *EvmTxStore_FindTxWithSequence_Call) RunAndReturn(run func(context.Cont
 }
 
 // FindTxesByIDs provides a mock function with given fields: ctx, etxIDs, chainID
-func (_m *EvmTxStore) FindTxesByIDs(ctx context.Context, etxIDs []int64, chainID *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+func (_m *EvmTxStore) FindTxesByIDs(ctx context.Context, etxIDs []int64, chainID *big.Int) ([]*txmgr.Tx, error) {
 	ret := _m.Called(ctx, etxIDs, chainID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FindTxesByIDs")
 	}
 
-	var r0 []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	var r0 []*txmgr.Tx
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, []int64, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []int64, *big.Int) ([]*txmgr.Tx, error)); ok {
 		return rf(ctx, etxIDs, chainID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, []int64, *big.Int) []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []int64, *big.Int) []*txmgr.Tx); ok {
 		r0 = rf(ctx, etxIDs, chainID)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+			r0 = ret.Get(0).([]*txmgr.Tx)
 		}
 	}
 
@@ -1392,12 +1392,12 @@ func (_c *EvmTxStore_FindTxesByIDs_Call) Run(run func(ctx context.Context, etxID
 	return _c
 }
 
-func (_c *EvmTxStore_FindTxesByIDs_Call) Return(etxs []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], err error) *EvmTxStore_FindTxesByIDs_Call {
+func (_c *EvmTxStore_FindTxesByIDs_Call) Return(etxs []*txmgr.Tx, err error) *EvmTxStore_FindTxesByIDs_Call {
 	_c.Call.Return(etxs, err)
 	return _c
 }
 
-func (_c *EvmTxStore_FindTxesByIDs_Call) RunAndReturn(run func(context.Context, []int64, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_FindTxesByIDs_Call {
+func (_c *EvmTxStore_FindTxesByIDs_Call) RunAndReturn(run func(context.Context, []int64, *big.Int) ([]*txmgr.Tx, error)) *EvmTxStore_FindTxesByIDs_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1465,23 +1465,23 @@ func (_c *EvmTxStore_FindTxesByMetaFieldAndStates_Call) RunAndReturn(run func(co
 }
 
 // FindTxesPendingCallback provides a mock function with given fields: ctx, latest, finalized, chainID
-func (_m *EvmTxStore) FindTxesPendingCallback(ctx context.Context, latest int64, finalized int64, chainID *big.Int) ([]types.ReceiptPlus[*evmtypes.Receipt], error) {
+func (_m *EvmTxStore) FindTxesPendingCallback(ctx context.Context, latest int64, finalized int64, chainID *big.Int) ([]txmgr.ReceiptPlus, error) {
 	ret := _m.Called(ctx, latest, finalized, chainID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FindTxesPendingCallback")
 	}
 
-	var r0 []types.ReceiptPlus[*evmtypes.Receipt]
+	var r0 []txmgr.ReceiptPlus
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64, int64, *big.Int) ([]types.ReceiptPlus[*evmtypes.Receipt], error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, int64, int64, *big.Int) ([]txmgr.ReceiptPlus, error)); ok {
 		return rf(ctx, latest, finalized, chainID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, int64, int64, *big.Int) []types.ReceiptPlus[*evmtypes.Receipt]); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, int64, int64, *big.Int) []txmgr.ReceiptPlus); ok {
 		r0 = rf(ctx, latest, finalized, chainID)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]types.ReceiptPlus[*evmtypes.Receipt])
+			r0 = ret.Get(0).([]txmgr.ReceiptPlus)
 		}
 	}
 
@@ -1515,12 +1515,12 @@ func (_c *EvmTxStore_FindTxesPendingCallback_Call) Run(run func(ctx context.Cont
 	return _c
 }
 
-func (_c *EvmTxStore_FindTxesPendingCallback_Call) Return(receiptsPlus []types.ReceiptPlus[*evmtypes.Receipt], err error) *EvmTxStore_FindTxesPendingCallback_Call {
+func (_c *EvmTxStore_FindTxesPendingCallback_Call) Return(receiptsPlus []txmgr.ReceiptPlus, err error) *EvmTxStore_FindTxesPendingCallback_Call {
 	_c.Call.Return(receiptsPlus, err)
 	return _c
 }
 
-func (_c *EvmTxStore_FindTxesPendingCallback_Call) RunAndReturn(run func(context.Context, int64, int64, *big.Int) ([]types.ReceiptPlus[*evmtypes.Receipt], error)) *EvmTxStore_FindTxesPendingCallback_Call {
+func (_c *EvmTxStore_FindTxesPendingCallback_Call) RunAndReturn(run func(context.Context, int64, int64, *big.Int) ([]txmgr.ReceiptPlus, error)) *EvmTxStore_FindTxesPendingCallback_Call {
 	_c.Call.Return(run)
 	return _c
 }

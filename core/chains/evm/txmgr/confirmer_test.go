@@ -959,7 +959,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		ec := newEthConfirmer(t, txStore, ethClient, cfg, evmcfg, ethKeyStore, nil)
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
-			return tx.Nonce() == uint64(*etx.Sequence)
+			return evmtypes.Nonce(tx.Nonce()) == *etx.Sequence
 		}), fromAddress).Return(commonclient.Successful, nil).Once()
 
 		require.NoError(t, ec.RebroadcastWhereNecessary(ctx, currentHead))
@@ -1002,7 +1002,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		ec := newEthConfirmer(t, txStore, ethClient, cfg, evmcfg, ethKeyStore, nil)
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
-			return tx.Nonce() == uint64(*etx.Sequence)
+			return evmtypes.Nonce(tx.Nonce()) == *etx.Sequence
 		}), fromAddress).Return(commonclient.Successful, fmt.Errorf("known transaction: %s", etx.TxAttempts[0].Hash.Hex())).Once()
 
 		require.NoError(t, ec.RebroadcastWhereNecessary(ctx, currentHead))
@@ -1029,7 +1029,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		ec := newEthConfirmer(t, txStore, ethClient, cfg, evmcfg, ethKeyStore, nil)
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
-			return tx.Nonce() == uint64(*etx.Sequence)
+			return evmtypes.Nonce(tx.Nonce()) == *etx.Sequence
 		}), fromAddress).Return(commonclient.TransactionAlreadyKnown, errors.New("nonce too low")).Once()
 
 		require.NoError(t, ec.RebroadcastWhereNecessary(ctx, currentHead))
