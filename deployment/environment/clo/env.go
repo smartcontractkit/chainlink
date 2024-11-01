@@ -31,11 +31,12 @@ func NewDonEnv(t *testing.T, cfg DonEnvConfig) *deployment.Environment {
 		}
 	}
 	out := deployment.Environment{
-		Name:     cfg.DonName,
-		Offchain: NewJobClient(cfg.Logger, cfg.Nops),
-		NodeIDs:  make([]string, 0),
-		Chains:   cfg.Chains,
-		Logger:   cfg.Logger,
+		Name:              cfg.DonName,
+		Offchain:          NewJobClient(cfg.Logger, cfg.Nops),
+		NodeIDs:           make([]string, 0),
+		Chains:            cfg.Chains,
+		Logger:            cfg.Logger,
+		ExistingAddresses: deployment.NewMemoryAddressBook(),
 	}
 	// assume that all the nodes in the provided input nops are part of the don
 	for _, nop := range cfg.Nops {
@@ -88,9 +89,10 @@ type MultiDonEnvironment struct {
 
 func (mde MultiDonEnvironment) Flatten(name string) *deployment.Environment {
 	return &deployment.Environment{
-		Name:   name,
-		Chains: mde.Chains,
-		Logger: mde.Logger,
+		Name:              name,
+		Chains:            mde.Chains,
+		Logger:            mde.Logger,
+		ExistingAddresses: deployment.NewMemoryAddressBook(),
 
 		// TODO: KS-460 integrate with the clo offchain client impl
 		// may need to extend the Environment abstraction use maps rather than slices for Nodes

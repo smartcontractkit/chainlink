@@ -12,6 +12,12 @@ type KeystoneChainView struct {
 	// TODO forwarders etc
 }
 
+func NewKeystoneChainView() KeystoneChainView {
+	return KeystoneChainView{
+		CapabilityRegistry: make(map[string]common_v1_0.CapRegView),
+	}
+}
+
 type KeystoneView struct {
 	Chains map[string]KeystoneChainView `json:"chains,omitempty"`
 	Nops   map[string]view.NopView      `json:"nops,omitempty"`
