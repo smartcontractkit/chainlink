@@ -9,10 +9,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
 
+	graphqlClient "github.com/smartcontractkit/chainlink/deployment/environment/web/sdk/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
-	graphqlClient "github.com/smartcontractkit/chainlink/integration-tests/web/sdk/client"
 )
 
 func TestRegisteringMultipleJobDistributor(t *testing.T) {

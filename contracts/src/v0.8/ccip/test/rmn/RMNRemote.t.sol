@@ -2,6 +2,8 @@
 pragma solidity 0.8.24;
 
 import {IRMNRemote} from "../../interfaces/IRMNRemote.sol";
+
+import {Ownable2Step} from "../../../shared/access/Ownable2Step.sol";
 import {Internal} from "../../libraries/Internal.sol";
 import {GLOBAL_CURSE_SUBJECT, LEGACY_CURSE_SUBJECT, RMNRemote} from "../../rmn/RMNRemote.sol";
 import {RMNRemoteSetup} from "./RMNRemoteSetup.t.sol";
@@ -18,6 +20,15 @@ contract RMNRemote_constructor is RMNRemoteSetup {
 }
 
 contract RMNRemote_setConfig is RMNRemoteSetup {
+  function test_setConfig_ZeroValueNotAllowed_revert() public {
+    RMNRemote.Config memory config =
+      RMNRemote.Config({rmnHomeContractConfigDigest: bytes32(0), signers: s_signers, f: 1});
+
+    vm.expectRevert(RMNRemote.ZeroValueNotAllowed.selector);
+
+    s_rmnRemote.setConfig(config);
+  }
+
   function test_setConfig_addSigner_removeSigner_success() public {
     uint32 currentConfigVersion = 0;
     uint256 numSigners = s_signers.length;
@@ -186,7 +197,7 @@ contract RMNRemote_curse is RMNRemoteSetup {
   }
 
   function test_curse_calledByNonOwner_reverts() public {
-    vm.expectRevert("Only callable by owner");
+    vm.expectRevert(Ownable2Step.OnlyCallableByOwner.selector);
     vm.stopPrank();
     vm.prank(STRANGER);
     s_rmnRemote.curse(s_curseSubjects);
@@ -218,7 +229,7 @@ contract RMNRemote_uncurse is RMNRemoteSetup {
   }
 
   function test_uncurse_calledByNonOwner_reverts() public {
-    vm.expectRevert("Only callable by owner");
+    vm.expectRevert(Ownable2Step.OnlyCallableByOwner.selector);
     vm.stopPrank();
     vm.prank(STRANGER);
     s_rmnRemote.uncurse(s_curseSubjects);

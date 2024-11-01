@@ -483,7 +483,7 @@ func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, b []rpc.B
 	case <-ctx.Done():
 		return errors.New("context canceled")
 	default:
-		//do nothing
+		// do nothing
 	}
 
 	for i, elem := range b {

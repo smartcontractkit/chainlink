@@ -1,0 +1,71 @@
+name: Find New Flaky Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      repoUrl:
+        description: 'The URL of the repository to run the flaky test detection.'
+        required: true
+        type: string
+        default: 'https://github.com/smartcontractkit/chainlink'
+      projectPath:
+        required: true
+        type: string
+        description: 'The path to the project to run the flaky test detection.'
+        default: '.'          
+      baseRef:
+        required: true
+        type: string
+        description: 'The base reference or branch to compare changes for detecting flaky tests.'
+        default: 'origin/develop'
+      headRef:
+        required: false
+        type: string
+        description: 'The head reference or branch to compare changes for detecting flaky tests. Default is the current branch.'        
+      runThreshold:
+        required: false
+        type: string
+        description: 'The threshold for the number of times a test can fail before being considered flaky.'
+        default: '0.8'
+      runWithRace:
+        required: false
+        type: boolean
+        description: 'Run tests with -race flag.'
+        default: true
+      findByTestFilesDiff:
+        required: false
+        type: boolean
+        description: 'Find new or updated test packages by comparing test files diff.'
+        default: true
+      findByAffectedPackages:
+        required: false
+        type: boolean
+        description: 'Find new or updated test packages by comparing affected packages.'
+        default: true
+      slack_notification_after_tests_channel_id:
+        description: "Slack channel ID to send the notification to for failed tests."
+        required: false
+        type: string
+      extraArgs:
+        required: false
+        type: string
+        default: '{}'
+        description: 'JSON of extra arguments for the workflow.'        
+
+jobs:
+  trigger-flaky-test-detection:
+    name: Find New Flaky Tests
+    uses: ./.github/workflows/find-new-flaky-tests.yml
+    with:
+      repoUrl: ${{ inputs.repoUrl }}
+      baseRef: ${{ inputs.baseRef }}
+      projectPath: ${{ inputs.projectPath }}
+      headRef: ${{ inputs.headRef }}
+      runThreshold: ${{ inputs.runThreshold }}
+      runWithRace: ${{ inputs.runWithRace }}
+      findByTestFilesDiff: ${{ inputs.findByTestFilesDiff }}
+      findByAffectedPackages: ${{ inputs.findByAffectedPackages }}
+      slackNotificationAfterTestsChannelId: ${{ inputs.slack_notification_after_tests_channel_id }}
+      extraArgs: ${{ inputs.extraArgs }}
+    secrets:
+      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}

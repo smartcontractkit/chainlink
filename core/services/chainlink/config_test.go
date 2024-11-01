@@ -1398,8 +1398,15 @@ func TestConfig_full(t *testing.T) {
 		if got.EVM[c].Transactions.AutoPurge.DetectionApiUrl == nil {
 			got.EVM[c].Transactions.AutoPurge.DetectionApiUrl = new(commoncfg.URL)
 		}
+		if got.EVM[c].GasEstimator.DAOracle.OracleType == nil {
+			oracleType := evmcfg.DAOracleOPStack
+			got.EVM[c].GasEstimator.DAOracle.OracleType = &oracleType
+		}
 		if got.EVM[c].GasEstimator.DAOracle.OracleAddress == nil {
 			got.EVM[c].GasEstimator.DAOracle.OracleAddress = new(types.EIP55Address)
+		}
+		if got.EVM[c].GasEstimator.DAOracle.CustomGasPriceCalldata == nil {
+			got.EVM[c].GasEstimator.DAOracle.CustomGasPriceCalldata = new(string)
 		}
 	}
 

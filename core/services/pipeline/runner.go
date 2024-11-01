@@ -761,7 +761,7 @@ func (r *runner) InsertFinishedRuns(ctx context.Context, ds sqlutil.DataSource, 
 
 func (r *runner) runReaper() {
 	r.lggr.Debugw("Pipeline run reaper starting")
-	ctx, cancel := r.chStop.CtxCancel(context.WithTimeout(context.Background(), r.config.ReaperInterval()))
+	ctx, cancel := r.chStop.CtxWithTimeout(r.config.ReaperInterval())
 	defer cancel()
 
 	err := r.orm.DeleteRunsOlderThan(ctx, r.config.ReaperThreshold())

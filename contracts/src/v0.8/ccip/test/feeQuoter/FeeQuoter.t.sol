@@ -3,6 +3,7 @@ pragma solidity 0.8.24;
 
 import {KeystoneFeedsPermissionHandler} from "../../../keystone/KeystoneFeedsPermissionHandler.sol";
 import {AuthorizedCallers} from "../../../shared/access/AuthorizedCallers.sol";
+import {Ownable2Step} from "../../../shared/access/Ownable2Step.sol";
 import {MockV3Aggregator} from "../../../tests/MockV3Aggregator.sol";
 import {FeeQuoter} from "../../FeeQuoter.sol";
 import {Client} from "../../libraries/Client.sol";
@@ -436,7 +437,7 @@ contract FeeQuoter_applyFeeTokensUpdates is FeeQuoterSetup {
   function test_OnlyCallableByOwner_Revert() public {
     vm.startPrank(STRANGER);
 
-    vm.expectRevert("Only callable by owner");
+    vm.expectRevert(Ownable2Step.OnlyCallableByOwner.selector);
 
     s_feeQuoter.applyFeeTokensUpdates(new address[](0), new address[](0));
   }
@@ -710,7 +711,7 @@ contract FeeQuoter_updateTokenPriceFeeds is FeeQuoterSetup {
     tokenPriceFeedUpdates[0] =
       _getSingleTokenPriceFeedUpdateStruct(s_sourceTokens[0], s_dataFeedByToken[s_sourceTokens[0]], 18);
 
-    _assertTokenPriceFeedConfigUnconfigured(s_feeQuoter.getTokenPriceFeedConfig(tokenPriceFeedUpdates[0].sourceToken));
+    _assertTokenPriceFeedConfigNotConfigured(s_feeQuoter.getTokenPriceFeedConfig(tokenPriceFeedUpdates[0].sourceToken));
 
     vm.expectEmit();
     emit FeeQuoter.PriceFeedPerTokenUpdated(tokenPriceFeedUpdates[0].sourceToken, tokenPriceFeedUpdates[0].feedConfig);
@@ -729,7 +730,9 @@ contract FeeQuoter_updateTokenPriceFeeds is FeeQuoterSetup {
       tokenPriceFeedUpdates[i] =
         _getSingleTokenPriceFeedUpdateStruct(s_sourceTokens[i], s_dataFeedByToken[s_sourceTokens[i]], 18);
 
-      _assertTokenPriceFeedConfigUnconfigured(s_feeQuoter.getTokenPriceFeedConfig(tokenPriceFeedUpdates[i].sourceToken));
+      _assertTokenPriceFeedConfigNotConfigured(
+        s_feeQuoter.getTokenPriceFeedConfig(tokenPriceFeedUpdates[i].sourceToken)
+      );
 
       vm.expectEmit();
       emit FeeQuoter.PriceFeedPerTokenUpdated(tokenPriceFeedUpdates[i].sourceToken, tokenPriceFeedUpdates[i].feedConfig);
@@ -795,7 +798,7 @@ contract FeeQuoter_updateTokenPriceFeeds is FeeQuoterSetup {
       _getSingleTokenPriceFeedUpdateStruct(s_sourceTokens[0], s_dataFeedByToken[s_sourceTokens[0]], 18);
 
     vm.startPrank(STRANGER);
-    vm.expectRevert("Only callable by owner");
+    vm.expectRevert(Ownable2Step.OnlyCallableByOwner.selector);
 
     s_feeQuoter.updateTokenPriceFeeds(tokenPriceFeedUpdates);
   }
@@ -857,7 +860,7 @@ contract FeeQuoter_applyDestChainConfigUpdates is FeeQuoterSetup {
     _assertFeeQuoterDestChainConfigsEqual(destChainConfigArgs[1].destChainConfig, gotDestChainConfig1);
   }
 
-  function test_applyDestChainConfigUpdatesZeroIntput_Success() public {
+  function test_applyDestChainConfigUpdatesZeroInput_Success() public {
     FeeQuoter.DestChainConfigArgs[] memory destChainConfigArgs = new FeeQuoter.DestChainConfigArgs[](0);
 
     vm.recordLogs();
@@ -933,7 +936,7 @@ contract FeeQuoter_getDataAvailabilityCost is FeeQuoterSetup {
 
     assertEq(expectedDataAvailabilityCostUSD, dataAvailabilityCostUSD);
 
-    // Test that the cost is destnation chain specific
+    // Test that the cost is destination chain specific
     FeeQuoter.DestChainConfigArgs[] memory destChainConfigArgs = _generateFeeQuoterDestChainConfigArgs();
     destChainConfigArgs[0].destChainSelector = DEST_CHAIN_SELECTOR + 1;
     destChainConfigArgs[0].destChainConfig.destDataAvailabilityOverheadGas =
@@ -1115,7 +1118,7 @@ contract FeeQuoter_applyPremiumMultiplierWeiPerEthUpdates is FeeQuoterSetup {
     FeeQuoter.PremiumMultiplierWeiPerEthArgs[] memory premiumMultiplierWeiPerEthArgs;
     vm.startPrank(STRANGER);
 
-    vm.expectRevert("Only callable by owner");
+    vm.expectRevert(Ownable2Step.OnlyCallableByOwner.selector);
 
     s_feeQuoter.applyPremiumMultiplierWeiPerEthUpdates(premiumMultiplierWeiPerEthArgs);
   }
@@ -1271,7 +1274,7 @@ contract FeeQuoter_applyTokenTransferFeeConfigUpdates is FeeQuoterSetup {
     vm.startPrank(STRANGER);
     FeeQuoter.TokenTransferFeeConfigArgs[] memory tokenTransferFeeConfigArgs;
 
-    vm.expectRevert("Only callable by owner");
+    vm.expectRevert(Ownable2Step.OnlyCallableByOwner.selector);
 
     s_feeQuoter.applyTokenTransferFeeConfigUpdates(
       tokenTransferFeeConfigArgs, new FeeQuoter.TokenTransferFeeConfigRemoveArgs[](0)
@@ -1956,7 +1959,7 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
       DEST_CHAIN_SELECTOR,
       s_sourceTokens[0],
       0,
-      "abcde",
+      "wrong extra args",
       new Internal.EVM2AnyTokenTransfer[](0),
       new Client.EVMTokenAmount[](0)
     );
@@ -2294,6 +2297,37 @@ contract FeeQuoter_onReport is FeeQuoter_KeystoneSetup {
     vm.assertEq(s_feeQuoter.getTokenPrice(report[1].token).timestamp, report[1].timestamp);
   }
 
+  function test_OnReport_StaleUpdate_SkipPriceUpdate_Success() public {
+    //Creating a correct report
+    bytes memory encodedPermissionsMetadata =
+      abi.encodePacked(keccak256(abi.encode("workflowCID")), WORKFLOW_NAME_1, WORKFLOW_OWNER_1, REPORT_NAME_1);
+
+    FeeQuoter.ReceivedCCIPFeedReport[] memory report = new FeeQuoter.ReceivedCCIPFeedReport[](1);
+    report[0] =
+      FeeQuoter.ReceivedCCIPFeedReport({token: onReportTestToken1, price: 4e18, timestamp: uint32(block.timestamp)});
+
+    uint224 expectedStoredTokenPrice = s_feeQuoter.calculateRebasedValue(18, 18, report[0].price);
+
+    vm.expectEmit();
+    emit FeeQuoter.UsdPerTokenUpdated(onReportTestToken1, expectedStoredTokenPrice, block.timestamp);
+
+    changePrank(FORWARDER_1);
+    //setting the correct price and time with the correct report
+    s_feeQuoter.onReport(encodedPermissionsMetadata, abi.encode(report));
+
+    //create a stale report
+    report[0] =
+      FeeQuoter.ReceivedCCIPFeedReport({token: onReportTestToken1, price: 4e18, timestamp: uint32(block.timestamp - 1)});
+
+    //record logs to check no events were emitted
+    vm.recordLogs();
+
+    s_feeQuoter.onReport(encodedPermissionsMetadata, abi.encode(report));
+
+    //no logs should have been emitted
+    assertEq(vm.getRecordedLogs().length, 0);
+  }
+
   function test_onReport_TokenNotSupported_Revert() public {
     bytes memory encodedPermissionsMetadata =
       abi.encodePacked(keccak256(abi.encode("workflowCID")), WORKFLOW_NAME_1, WORKFLOW_OWNER_1, REPORT_NAME_1);
@@ -2336,36 +2370,6 @@ contract FeeQuoter_onReport is FeeQuoter_KeystoneSetup {
 
     vm.expectRevert(abi.encodeWithSelector(FeeQuoter.TokenNotSupported.selector, s_sourceTokens[1]));
     changePrank(FORWARDER_1);
-    s_feeQuoter.onReport(encodedPermissionsMetadata, abi.encode(report));
-  }
-
-  function test_OnReport_StaleUpdate_Revert() public {
-    //Creating a correct report
-    bytes memory encodedPermissionsMetadata =
-      abi.encodePacked(keccak256(abi.encode("workflowCID")), WORKFLOW_NAME_1, WORKFLOW_OWNER_1, REPORT_NAME_1);
-
-    FeeQuoter.ReceivedCCIPFeedReport[] memory report = new FeeQuoter.ReceivedCCIPFeedReport[](1);
-    report[0] =
-      FeeQuoter.ReceivedCCIPFeedReport({token: onReportTestToken1, price: 4e18, timestamp: uint32(block.timestamp)});
-
-    uint224 expectedStoredTokenPrice = s_feeQuoter.calculateRebasedValue(18, 18, report[0].price);
-
-    vm.expectEmit();
-    emit FeeQuoter.UsdPerTokenUpdated(onReportTestToken1, expectedStoredTokenPrice, block.timestamp);
-
-    changePrank(FORWARDER_1);
-    //setting the correct price and time with the correct report
-    s_feeQuoter.onReport(encodedPermissionsMetadata, abi.encode(report));
-
-    //create a stale report
-    report[0] =
-      FeeQuoter.ReceivedCCIPFeedReport({token: onReportTestToken1, price: 4e18, timestamp: uint32(block.timestamp - 1)});
-    //expecting a revert
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        FeeQuoter.StaleKeystoneUpdate.selector, onReportTestToken1, block.timestamp - 1, block.timestamp
-      )
-    );
     s_feeQuoter.onReport(encodedPermissionsMetadata, abi.encode(report));
   }
 }

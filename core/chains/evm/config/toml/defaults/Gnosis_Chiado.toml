@@ -3,6 +3,7 @@ ChainID = '10200'
 FinalityDepth = 100
 ChainType = 'gnosis'
 LogPollInterval = '5s'
+FinalizedBlockOffset = 2
 NoNewFinalizedHeadsThreshold = '2m'
 
 [GasEstimator]

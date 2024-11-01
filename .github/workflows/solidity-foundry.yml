@@ -179,6 +179,9 @@ jobs:
       # In order to avoid it, in such cases we will extract all required solc versions manually and install them sequentially.
       # More information: https://github.com/foundry-rs/foundry/issues/4736
       - name: Check if Solc version is set in foundry.toml
+        if: ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
+          || contains(fromJson(needs.changes.outputs.all_changes), 'shared')
+          || needs.changes.outputs.non_src_changes == 'true' }}
         shell: bash
         id: check-for-solc-version
         working-directory: contracts
@@ -195,13 +198,19 @@ jobs:
           fi
 
       - name: Install SVM
-        if: ${{ steps.check-for-solc-version.outputs.has_solc_version == 'false' }}
+        if: ${{ steps.check-for-solc-version.outputs.has_solc_version == 'false'
+          && (contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
+          || contains(fromJson(needs.changes.outputs.all_changes), 'shared')
+          || needs.changes.outputs.non_src_changes == 'true') }}
         uses: baptiste0928/cargo-install@904927dbe77864e0f2281519fe9d5bd097a220b3 # v3.1.1
         with:
           crate: svm-rs
 
       - name: Find and install all Solc versions with SVM
-        if: ${{ steps.check-for-solc-version.outputs.has_solc_version == 'false' }}
+        if: ${{ steps.check-for-solc-version.outputs.has_solc_version == 'false'
+          && (contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
+          || contains(fromJson(needs.changes.outputs.all_changes), 'shared')
+          || needs.changes.outputs.non_src_changes == 'true') }}
         shell: bash
         working-directory: contracts/src/v0.8
         run: |

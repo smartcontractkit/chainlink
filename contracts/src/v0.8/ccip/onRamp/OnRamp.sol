@@ -11,7 +11,7 @@ import {IRMNRemote} from "../interfaces/IRMNRemote.sol";
 import {IRouter} from "../interfaces/IRouter.sol";
 import {ITokenAdminRegistry} from "../interfaces/ITokenAdminRegistry.sol";
 
-import {OwnerIsCreator} from "../../shared/access/OwnerIsCreator.sol";
+import {Ownable2StepMsgSender} from "../../shared/access/Ownable2StepMsgSender.sol";
 import {Client} from "../libraries/Client.sol";
 import {Internal} from "../libraries/Internal.sol";
 import {Pool} from "../libraries/Pool.sol";
@@ -24,7 +24,7 @@ import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts
 /// @notice The OnRamp is a contract that handles lane-specific fee logic.
 /// @dev The OnRamp and OffRamp form a cross chain upgradeable unit. Any change to one of them results in an onchain
 /// upgrade of both contracts.
-contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
+contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, Ownable2StepMsgSender {
   using SafeERC20 for IERC20;
   using EnumerableSet for EnumerableSet.AddressSet;
   using USDPriceWith18Decimals for uint224;
@@ -59,10 +59,10 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
   /// RMN depends on this struct, if changing, please notify the RMN maintainers.
   // solhint-disable-next-line gas-struct-packing
   struct StaticConfig {
-    uint64 chainSelector; // ────╮ Source chain selector
-    IRMNRemote rmnRemote; // ────╯ RMN remote address
-    address nonceManager; //       Nonce manager address
-    address tokenAdminRegistry; // Token admin registry address
+    uint64 chainSelector; // ────╮ Source chain selector.
+    IRMNRemote rmnRemote; // ────╯ RMN remote address.
+    address nonceManager; //       Nonce manager address.
+    address tokenAdminRegistry; // Token admin registry address.
   }
 
   /// @dev Struct that contains the dynamic configuration
@@ -75,7 +75,7 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
     address allowlistAdmin; // authorized admin to add or remove allowed senders.
   }
 
-  /// @dev Struct to hold the configs for a single destination chain
+  /// @dev Struct to hold the configs for a single destination chain.
   struct DestChainConfig {
     // The last used sequence number. This is zero in the case where no messages have yet been sent.
     // 0 is not a valid sequence number for any real transaction as this value will be incremented before use.
@@ -85,8 +85,8 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
     EnumerableSet.AddressSet allowedSendersList; // The list of addresses allowed to send messages.
   }
 
-  /// @dev Same as DestChainConfig but with the destChainSelector so that an array of these
-  /// can be passed in the constructor and the applyDestChainConfigUpdates function
+  /// @dev Same as DestChainConfig but with the destChainSelector so that an array of these can be passed in the
+  /// constructor and the applyDestChainConfigUpdates function.
   // solhint-disable gas-struct-packing
   struct DestChainConfigArgs {
     uint64 destChainSelector; // ─╮ Destination chain selector.
@@ -162,7 +162,7 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
     address originalSender
   ) external returns (bytes32) {
     // We rely on a reentrancy guard here due to the untrusted calls performed to the pools. This enables some
-    // optimizations by not following the CEI pattern
+    // optimizations by not following the CEI pattern.
     if (s_dynamicConfig.reentrancyGuardEntered) revert ReentrancyGuardReentrantCall();
     s_dynamicConfig.reentrancyGuardEntered = true;
 
@@ -207,7 +207,7 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
       receiver: message.receiver,
       feeToken: message.feeToken,
       feeTokenAmount: feeTokenAmount,
-      feeValueJuels: 0, // calculated later
+      feeValueJuels: 0, // calculated later.
       // Should be populated via lock / burn pool calls.
       tokenAmounts: new Internal.EVM2AnyTokenTransfer[](message.tokenAmounts.length)
     });
@@ -397,9 +397,9 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
     return (sequenceNumber, allowlistEnabled, router);
   }
 
-  /// @notice get allowedSenders List configured for the DestinationChainSelector
-  /// @param destChainSelector The destination chain selector
-  /// @return isEnabled True if allowlist is enabled
+  /// @notice get allowedSenders List configured for the DestinationChainSelector.
+  /// @param destChainSelector The destination chain selector.
+  /// @return isEnabled True if allowlist is enabled.
   /// @return configuredAddresses This is always populated with the list of allowed senders, even if the allowlist
   /// is turned off. This is because the only way to know what addresses are configured is through this function. If
   /// it would return an empty list when the allowlist is disabled, it would be impossible to know what addresses are
@@ -417,9 +417,9 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
   // │                          Allowlist                           │
   // ================================================================
 
-  /// @notice Updates allowlistConfig for Senders
-  /// @dev configuration used to set the list of senders who are authorized to send messages
-  /// @param allowlistConfigArgsItems Array of AllowlistConfigArguments where each item is for a destChainSelector
+  /// @notice Updates allowlistConfig for Senders.
+  /// @dev configuration used to set the list of senders who are authorized to send messages.
+  /// @param allowlistConfigArgsItems Array of AllowlistConfigArguments where each item is for a destChainSelector.
   function applyAllowlistUpdates(
     AllowlistConfigArgs[] calldata allowlistConfigArgsItems
   ) external {
@@ -474,7 +474,7 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
 
   /// @inheritdoc IEVM2AnyOnRampClient
   function getSupportedTokens(
-    uint64 /*destChainSelector*/
+    uint64 // destChainSelector
   ) external pure returns (address[] memory) {
     revert GetSupportedTokensFunctionalityRemovedCheckAdminRegistry();
   }
@@ -498,9 +498,11 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
   }
 
   /// @notice Withdraws the outstanding fee token balances to the fee aggregator.
-  /// @dev This function can be permissionless as it only transfers accepted fee tokens to the fee aggregator which is a trusted address.
-  function withdrawFeeTokens() external {
-    address[] memory feeTokens = IFeeQuoter(s_dynamicConfig.feeQuoter).getFeeTokens();
+  /// @param feeTokens The fee tokens to withdraw.
+  /// @dev This function can be permissionless as it only transfers tokens to the fee aggregator which is a trusted address.
+  function withdrawFeeTokens(
+    address[] calldata feeTokens
+  ) external {
     address feeAggregator = s_dynamicConfig.feeAggregator;
 
     for (uint256 i = 0; i < feeTokens.length; ++i) {

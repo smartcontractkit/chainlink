@@ -24,8 +24,8 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
+	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
@@ -226,7 +226,7 @@ func TestAutomationChaos(t *testing.T) {
 					err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, "instance=node-", 2, 5, ChaosGroupMajorityPlus)
 					require.NoError(t, err)
 
-					chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
+					chainlinkNodes, err := nodeclient.ConnectChainlinkNodes(testEnvironment)
 					require.NoError(t, err, "Error connecting to Chainlink nodes")
 
 					network = seth_utils.MustReplaceSimulatedNetworkUrlWithK8(l, network, *testEnvironment)

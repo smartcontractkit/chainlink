@@ -56,6 +56,7 @@ func sendRequest(t *testing.T, url string, body []byte) *http.Response {
 }
 
 func TestHTTPServer_HandleRequest_Correct(t *testing.T) {
+	t.Parallel()
 	server, handler, url := startNewServer(t, 100_000, 100_000)
 	defer server.Close()
 
@@ -69,6 +70,7 @@ func TestHTTPServer_HandleRequest_Correct(t *testing.T) {
 }
 
 func TestHTTPServer_HandleRequest_RequestBodyTooBig(t *testing.T) {
+	t.Parallel()
 	server, _, url := startNewServer(t, 5, 100_000)
 	defer server.Close()
 
@@ -77,6 +79,7 @@ func TestHTTPServer_HandleRequest_RequestBodyTooBig(t *testing.T) {
 }
 
 func TestHTTPServer_HandleHealthCheck(t *testing.T) {
+	t.Parallel()
 	server, _, url := startNewServer(t, 100_000, 100_000)
 	defer server.Close()
 

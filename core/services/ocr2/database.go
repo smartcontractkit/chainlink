@@ -219,7 +219,7 @@ func (d *db) StorePendingTransmission(ctx context.Context, t ocrtypes.ReportTime
 	copy(digest, t.ConfigDigest[:])
 
 	extraHash := make([]byte, 32)
-	copy(extraHash[:], tx.ExtraHash[:])
+	copy(extraHash, tx.ExtraHash[:])
 
 	stmt := `
 	INSERT INTO ocr2_pending_transmissions (

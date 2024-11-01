@@ -14,7 +14,7 @@ on:
   merge_group:
   pull_request:
   schedule:
-    - cron: "0 */1 * * *"
+    - cron: "0 0,6,12,18 * * *"
   workflow_dispatch:
     inputs:
       distinct_run_name:
@@ -34,6 +34,7 @@ jobs:
       pull-requests: read
     outputs:
       changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.changes }}
+      deployment-changes: ${{ steps.deployment-changes.outputs.changes }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
@@ -45,14 +46,19 @@ jobs:
         with:
           filters: |
             changes:
-              - 'integration-tests/deployment/**'
+              - 'deployment/**'
               - '!integration-tests/**'
-              - 'integration-tests/deployment/**'
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: deployment-changes
+        with:
+          filters: |
+            changes:
+              - 'deployment/**'
       - name: Ignore Filter On Workflow Dispatch
         if: ${{ github.event_name == 'workflow_dispatch' }}
         id: ignore-filter
         run: echo "changes=true" >> $GITHUB_OUTPUT
-
+  
   golangci:
     # We don't directly merge dependabot PRs, so let's not waste the resources
     if: ${{ (github.event_name == 'pull_request' ||  github.event_name == 'schedule') && github.actor != 'dependabot[bot]' }}
@@ -64,7 +70,7 @@ jobs:
       # For golangci-lint-action's `only-new-issues` option.
       pull-requests: read
     runs-on: ubuntu-24.04-8cores-32GB-ARM
-    needs: [filter]
+    needs: [filter, run-frequency]
     steps:
       - uses: actions/checkout@v4.2.1
       - name: Golang Lint
@@ -73,25 +79,8 @@ jobs:
         with:
           id: core
           name: lint
-          gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-
-      - name: Check Time For Slack Notify
-        if: ${{ failure() && github.event.schedule != ''}}
-        id: check-time
-        shell: bash
-        run: |
-          # Get the current hour (24-hour format)
-          current_hour=$(date +"%H")
-
-          # Check if the current hour is 00 (midnight)
-          if [ "$current_hour" -eq "00" ]; then
-            echo "midnight=true" >> $GITHUB_OUTPUT
-          fi
-
       - name: Notify Slack
-        if: ${{ failure()  && github.event.schedule != '' && steps.check-time.outputs.midnight == 'true' }}
+        if: ${{ failure() && needs.run-frequency.outputs.one-per-day-frequency == 'true' }}
         uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
         env:
           SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
@@ -109,24 +98,23 @@ jobs:
       matrix:
         type:
           - cmd: go_core_tests
-            id: core_unit
+            os: ubuntu22.04-32cores-128GB
+            printResults: true
+          - cmd: go_core_tests_integration
             os: ubuntu22.04-32cores-128GB
             printResults: true
           - cmd: go_core_ccip_deployment_tests
-            id: core_unit
             os: ubuntu22.04-32cores-128GB
             printResults: true
           - cmd: go_core_race_tests
-            id: core_race
-            # use 64cores for overnight runs only due to massive number of runs from PRs
-            os: ${{ github.event_name == 'schedule' && 'ubuntu-latest-64cores-256GB' || 'ubuntu-latest-32cores-128GB' }}
+            # use 64cores for certain scheduled runs only
+            os: ${{ needs.run-frequency.outputs.two-per-day-frequency == 'true' && 'ubuntu-latest-64cores-256GB' || 'ubuntu-latest-32cores-128GB' }}
           - cmd: go_core_fuzz
-            id: core_fuzz
             os: ubuntu22.04-8cores-32GB
     name: Core Tests (${{ matrix.type.cmd }})
     # We don't directly merge dependabot PRs, so let's not waste the resources
-    if: github.actor != 'dependabot[bot]'
-    needs: [filter]
+    if: ${{ github.actor != 'dependabot[bot]' }}
+    needs: [filter, run-frequency]
     runs-on: ${{ matrix.type.os }}
     permissions:
       id-token: write
@@ -134,44 +122,61 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v4.2.1
-      - name: Setup node
-        if: ${{ needs.filter.outputs.changes == 'true' }}
-        uses: actions/setup-node@v4.0.4
+
+      - name: Change Modtime of Files (cache optimization)
+        shell: bash
+        run: |
+          find . -type f,d -exec touch -r {} -d '1970-01-01T00:00:01' {} \; || true
+
       - name: Setup NodeJS
         if: ${{ needs.filter.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-nodejs
         with:
           prod: "true"
+
       - name: Setup Go
         if: ${{ needs.filter.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-go
+        with:
+          # race/fuzz tests don't benefit from build caching
+          only-modules: ${{ matrix.type.cmd == 'go_core_race_tests' || matrix.type.cmd == 'go_core_fuzz' }}
+          build-cache-version: ${{ matrix.type.cmd }}
+
       - name: Replace chainlink-evm deps
         if: ${{ needs.filter.outputs.changes == 'true' && inputs.evm-ref != ''}}
         shell: bash
         run: go get github.com/smartcontractkit/chainlink-integrations/evm/relayer@${{ inputs.evm-ref }}
+
       - name: Setup Solana
         if: ${{ needs.filter.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-solana
+
       - name: Setup wasmd
         if: ${{ needs.filter.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-wasmd
+
       - name: Setup Postgres
         if: ${{ needs.filter.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-postgres
+
       - name: Touching core/web/assets/index.html
         if: ${{ needs.filter.outputs.changes == 'true' }}
         run: mkdir -p core/web/assets && touch core/web/assets/index.html
+
       - name: Download Go vendor packages
         if: ${{ needs.filter.outputs.changes == 'true' }}
         run: go mod download
+
       - name: Build binary
         if: ${{ needs.filter.outputs.changes == 'true' }}
         run: go build -o chainlink.test .
+
       - name: Setup DB
         if: ${{ needs.filter.outputs.changes == 'true' }}
         run: ./chainlink.test local db preparetest
         env:
           CL_DATABASE_URL: ${{ env.DB_URL }}
+
       - name: Install LOOP Plugins
         if: ${{ needs.filter.outputs.changes == 'true' }}
         run: |
@@ -187,14 +192,17 @@ jobs:
           pushd $(go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-starknet/relayer)
           go install ./pkg/chainlink/cmd/chainlink-starknet
           popd
+
       - name: Increase Race Timeout
+        # Increase race timeout for scheduled runs only
         if: ${{ github.event.schedule != '' && needs.filter.outputs.changes == 'true' }}
         run: |
           echo "TIMEOUT=10m" >> $GITHUB_ENV
           echo "COUNT=50" >> $GITHUB_ENV
+
       - name: Install gotestloghelper
-        if: ${{ needs.filter.outputs.changes == 'true' }}
         run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/gotestloghelper@v1.50.0
+
       - name: Run tests
         if: ${{ needs.filter.outputs.changes == 'true' }}
         id: run-tests
@@ -202,13 +210,16 @@ jobs:
           OUTPUT_FILE: ./output.txt
           USE_TEE: false
           CL_DATABASE_URL: ${{ env.DB_URL }}
+
         run: ./tools/bin/${{ matrix.type.cmd }} ./...
+
       - name: Print Filtered Test Results
         if: ${{ failure() && needs.filter.outputs.changes == 'true' && steps.run-tests.conclusion == 'failure' }}
         run: |
           if [[ "${{ matrix.type.printResults }}"  == "true" ]]; then
             cat output.txt | gotestloghelper -ci
           fi
+
       - name: Print Races
         id: print-races
         if: ${{ failure() && matrix.type.cmd == 'go_core_race_tests' && needs.filter.outputs.changes == 'true' }}
@@ -222,12 +233,14 @@ jobs:
           fi
           echo "github.event_name: ${{ github.event_name }}"
           echo "github.ref: ${{ github.ref }}"
+
       - name: Print postgres logs
         if: ${{ always() &&  needs.filter.outputs.changes == 'true' }}
         run: docker compose logs postgres | tee ../../../postgres_logs.txt
         working-directory: ./.github/actions/setup-postgres
+
       - name: Store logs artifacts
-        if: ${{ needs.filter.outputs.changes == 'true' && always() }}
+        if: ${{ always() && needs.filter.outputs.changes == 'true' }}
         uses: actions/upload-artifact@v4.4.3
         with:
           name: ${{ matrix.type.cmd }}_logs
@@ -238,6 +251,7 @@ jobs:
             ./coverage.txt
             ./postgres_logs.txt
           retention-days: 7
+
       - name: Notify Slack
         if: ${{ failure() && steps.print-races.outputs.post_to_slack == 'true' && matrix.type.cmd == 'go_core_race_tests' && (github.event_name == 'merge_group' || github.ref == 'refs/heads/develop') && needs.filter.outputs.changes == 'true' }}
         uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
@@ -246,16 +260,6 @@ jobs:
         with:
           channel-id: "#topic-data-races"
           slack-message: "Race tests failed: \n${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}"
-      - name: Collect Path Output
-        id: collect-path-output
-        env:
-          MATRIX_ID: ${{ matrix.type.id }}
-        run: |
-          # only push the test result file for the unit tests
-          if [[ "$MATRIX_ID" == "core_unit" ]]; then
-            resultsFile='{"testType":"go","filePath":"./output.txt"}'
-            echo "path_output=${resultsFile}" >> $GITHUB_OUTPUT
-          fi
 
   detect-flakey-tests:
     needs: [filter, core]
@@ -270,40 +274,53 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v4.2.1
+
       - name: Setup node
         uses: actions/setup-node@v4.0.4
+
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
         with:
           prod: "true"
+
       - name: Setup Go
         uses: ./.github/actions/setup-go
+
       - name: Setup Postgres
         uses: ./.github/actions/setup-postgres
+
       - name: Touching core/web/assets/index.html
         run: mkdir -p core/web/assets && touch core/web/assets/index.html
+
       - name: Download Go vendor packages
         run: go mod download
+
       - name: Replace chainlink-evm deps
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.evm-ref != ''}}
         shell: bash
         run: go get github.com/smartcontractkit/chainlink-integrations/evm/relayer@${{ inputs.evm-ref }}
+
       - name: Build binary
         run: go build -o chainlink.test .
+
       - name: Setup DB
         run: ./chainlink.test local db preparetest
+
       - name: Load test outputs
         uses: actions/download-artifact@v4.1.8
         with:
           name: go_core_tests_logs
           path: ./artifacts
+
       - name: Delete go_core_tests_logs/coverage.txt
         shell: bash
         run: |
           # Need to delete coverage.txt so the disk doesn't fill up
           rm -f ./artifacts/go_core_tests_logs/coverage.txt
+
       - name: Build flakey test runner
         run: go build ./tools/flakeytests/cmd/runner
+
       - name: Re-run tests
         env:
           GRAFANA_INTERNAL_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
@@ -334,27 +351,37 @@ jobs:
 
   scan:
     name: SonarQube Scan
-    needs: [core]
-    if: ${{ always() && github.actor != 'dependabot[bot]' }}
+    needs: [core, run-frequency]
+    if: ${{ always() && needs.run-frequency.outputs.four-per-day-frequency == 'true' && github.actor != 'dependabot[bot]' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v4.2.1
         with:
           fetch-depth: 0 # fetches all history for all tags and branches to provide more metadata for sonar reports
+
       - name: Download all workflow run artifacts
         uses: actions/download-artifact@v4.1.8
 
       - name: Check and Set SonarQube Report Paths
         shell: bash
         run: |
-          # Check and assign paths for coverage/test reports
+          # Check and assign paths for coverage/test reports in go_core_tests_logs
           if [ -d "go_core_tests_logs" ]; then
             sonarqube_coverage_report_paths=$(find go_core_tests_logs -name coverage.txt | paste -sd "," -)
             sonarqube_tests_report_paths=$(find go_core_tests_logs -name output.txt | paste -sd "," -)
           else
             sonarqube_coverage_report_paths=""
             sonarqube_tests_report_paths=""
+          fi
+
+          # Check and assign paths for coverage/test reports in go_core_tests_integration_logs
+          if [ -d "go_core_tests_integration_logs" ]; then
+            integration_coverage_paths=$(find go_core_tests_integration_logs -name coverage.txt | paste -sd "," -)
+            integration_tests_paths=$(find go_core_tests_integration_logs -name output.txt | paste -sd "," -)
+            # Append to existing paths if they are set, otherwise assign directly
+            sonarqube_coverage_report_paths="${sonarqube_coverage_report_paths:+$sonarqube_coverage_report_paths,}$integration_coverage_paths"
+            sonarqube_tests_report_paths="${sonarqube_tests_report_paths:+$sonarqube_tests_report_paths,}$integration_tests_paths"
           fi
 
           # Check and assign paths for lint reports
@@ -399,6 +426,43 @@ jobs:
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
           SONAR_SCANNER_OPTS: "-Xms6g -Xmx8g"
 
+  trigger-flaky-test-detection-for-root-project:
+    name: Find New Flaky Tests In Root Project
+    uses: ./.github/workflows/find-new-flaky-tests.yml
+    if: ${{ github.event_name == 'pull_request' }}
+    with:
+      repoUrl: 'https://github.com/smartcontractkit/chainlink'
+      projectPath: '.'
+      baseRef: ${{ github.base_ref }}
+      headRef: ${{ github.head_ref }}
+      runThreshold: '1'
+      runWithRace: true
+      findByTestFilesDiff: true
+      findByAffectedPackages: false
+      slackNotificationAfterTestsChannelId: 'C07TRF65CNS' #flaky-test-detector-notifications
+      extraArgs: '{ "skipped_tests": "TestChainComponents" }'
+    secrets:
+      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+
+  trigger-flaky-test-detection-for-deployment-project:
+    name: Find New Flaky Tests In Deployment Project
+    uses: ./.github/workflows/find-new-flaky-tests.yml
+    needs: [filter]
+    if: ${{ github.event_name == 'pull_request' && needs.filter.outputs.deployment-changes == 'true'}}
+    with:
+      repoUrl: 'https://github.com/smartcontractkit/chainlink'
+      projectPath: 'deployment'
+      baseRef: ${{ github.base_ref }}
+      headRef: ${{ github.head_ref }}
+      runThreshold: '1'
+      runWithRace: true
+      findByTestFilesDiff: true
+      findByAffectedPackages: false
+      slackNotificationAfterTestsChannelId: 'C07TRF65CNS' #flaky-test-detector-notifications
+      extraArgs: '{ "skipped_tests": "TestAddLane" }'
+    secrets:
+      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+
   clean:
     name: Clean Go Tidy & Generate
     if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') && github.actor != 'dependabot[bot]' }}
@@ -432,3 +496,47 @@ jobs:
       - run: make gomodtidy
       - name: Ensure clean after tidy
         run: git diff --minimal --exit-code
+
+  run-frequency:
+    name: Scheduled Run Frequency
+    outputs:
+      one-per-day-frequency: ${{ steps.check-time.outputs.one-per-day-frequency || 'false' }}
+      two-per-day-frequency: ${{ steps.check-time.outputs.two-per-day-frequency || 'false' }}
+      four-per-day-frequency: ${{ steps.check-time.outputs.four-per-day-frequency || 'false' }}
+      six-per-day-frequency: ${{ steps.check-time.outputs.six-per-day-frequency || 'false' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check time and set frequencies
+        id: check-time
+        shell: bash
+        run: |
+          if [ "$GITHUB_EVENT_NAME" != "schedule" ]; then
+            # Not a scheduled event, set all frequencies to false
+            echo "one-per-day-frequency=false" >> $GITHUB_OUTPUT
+            echo "two-per-day-frequency=false" >> $GITHUB_OUTPUT
+            echo "four-per-day-frequency=false" >> $GITHUB_OUTPUT
+            echo "six-per-day-frequency=false" >> $GITHUB_OUTPUT
+          else
+            # Scheduled event, check current time for frequencies
+            current_hour=$(date +"%H")
+
+            # Check if the current hour is 00 (one per day)
+            if [ "$current_hour" -eq "00" ]; then
+              echo "one-per-day-frequency=true" >> $GITHUB_OUTPUT
+            fi
+
+            # Check if the current hour is 00 or 12 (twice per day)
+            if [ "$current_hour" -eq "00" ] || [ "$current_hour" -eq "12" ]; then
+              echo "two-per-day-frequency=true" >> $GITHUB_OUTPUT
+            fi
+
+            # Check if the current hour is 00, 06, 12, or 18 (four times per day)
+            if [ "$current_hour" -eq "00" ] || [ "$current_hour" -eq "06" ] || [ "$current_hour" -eq "12" ] || [ "$current_hour" -eq "18" ]; then
+              echo "four-per-day-frequency=true" >> $GITHUB_OUTPUT
+            fi
+
+            # Check if the current hour is one of 00, 04, 08, 12, 16, or 20 (six times per day)
+            if [ "$current_hour" -eq "00" ] || [ "$current_hour" -eq "04" ] || [ "$current_hour" -eq "08" ] || [ "$current_hour" -eq "12" ] || [ "$current_hour" -eq "16" ] || [ "$current_hour" -eq "20" ]; then
+              echo "six-per-day-frequency=true" >> $GITHUB_OUTPUT
+            fi
+          fi

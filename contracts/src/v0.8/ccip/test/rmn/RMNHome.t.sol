@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
+import {Ownable2Step} from "../../../shared/access/Ownable2Step.sol";
 import {Internal} from "../../libraries/Internal.sol";
 import {RMNHome} from "../../rmn/RMNHome.sol";
 import {Test} from "forge-std/Test.sol";
@@ -140,7 +141,7 @@ contract RMNHome_setCandidate is RMNHomeTest {
 
     vm.startPrank(address(0));
 
-    vm.expectRevert("Only callable by owner");
+    vm.expectRevert(Ownable2Step.OnlyCallableByOwner.selector);
     s_rmnHome.setCandidate(config.staticConfig, config.dynamicConfig, ZERO_DIGEST);
   }
 }
@@ -194,7 +195,7 @@ contract RMNHome_revokeCandidate is RMNHomeTest {
   function test_revokeCandidate_OnlyOwner_reverts() public {
     vm.startPrank(address(0));
 
-    vm.expectRevert("Only callable by owner");
+    vm.expectRevert(Ownable2Step.OnlyCallableByOwner.selector);
     s_rmnHome.revokeCandidate(keccak256("configDigest"));
   }
 }
@@ -259,7 +260,7 @@ contract RMNHome_promoteCandidateAndRevokeActive is RMNHomeTest {
   function test_promoteCandidateAndRevokeActive_OnlyOwner_reverts() public {
     vm.startPrank(address(0));
 
-    vm.expectRevert("Only callable by owner");
+    vm.expectRevert(Ownable2Step.OnlyCallableByOwner.selector);
     s_rmnHome.promoteCandidateAndRevokeActive(keccak256("toPromote"), keccak256("ToRevoke"));
   }
 }
@@ -368,7 +369,7 @@ contract RMNHome_setDynamicConfig is RMNHomeTest {
 
     vm.startPrank(address(0));
 
-    vm.expectRevert("Only callable by owner");
+    vm.expectRevert(Ownable2Step.OnlyCallableByOwner.selector);
     s_rmnHome.setDynamicConfig(config.dynamicConfig, keccak256("configDigest"));
   }
 }

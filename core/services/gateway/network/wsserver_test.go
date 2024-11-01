@@ -60,6 +60,7 @@ func sendRequestWithHeader(t *testing.T, url string, headerName string, headerVa
 }
 
 func TestWSServer_HandleRequest_AuthHeaderTooBig(t *testing.T) {
+	t.Parallel()
 	server, _, url := startNewWSServer(t, 100_000)
 	defer server.Close()
 
@@ -73,6 +74,7 @@ func TestWSServer_HandleRequest_AuthHeaderTooBig(t *testing.T) {
 }
 
 func TestWSServer_HandleRequest_AuthHeaderIncorrectlyBase64Encoded(t *testing.T) {
+	t.Parallel()
 	server, _, url := startNewWSServer(t, 100_000)
 	defer server.Close()
 
@@ -81,6 +83,7 @@ func TestWSServer_HandleRequest_AuthHeaderIncorrectlyBase64Encoded(t *testing.T)
 }
 
 func TestWSServer_HandleRequest_AuthHeaderInvalid(t *testing.T) {
+	t.Parallel()
 	server, acceptor, url := startNewWSServer(t, 100_000)
 	defer server.Close()
 

@@ -6,6 +6,7 @@ MinIncomingConfirmations = 1
 LogPollInterval = '30s'
 RPCBlockQueryDelay = 15
 RPCDefaultBatchSize = 100
+FinalizedBlockOffset = 2
 
 [OCR]
 ContractConfirmations = 1

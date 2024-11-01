@@ -951,7 +951,7 @@ targets:
     inputs: 
       consensus_output: $(a-consensus.outputs)
 `
-var OCR2EVMSpecMinimalWithOEVTemplate = `
+var OCR2EVMSpecMinimalWithAdaptiveSendTemplate = `
 type = "offchainreporting2"
 schemaVersion = 1
 name = "%s"
@@ -979,21 +979,14 @@ juelsPerFeeCoinSource = """
 [relayConfig]
 chainID = 0
 
-[oev]
+[adaptiveSend]
 transmitterAddress = '%s'
 contractAddress = '0xF67D0290337bca0847005C7ffD1BC75BA9AAE6e4'
-builders = ['flashbots','rsync']
-hints = ['calldata']
-priceDelay = '30s'
-
-[[oev.refund]] 
-address = '0xc6f339D45474FEf53a20CCe132b03541d8FAE6DE'
-percent = 40
-[[oev.refund]] 
-address = '0x01F5b01FcB4042BcBa451f0409c780c77b98de05'
-percent = 49
+delay = '30s'
+[adaptiveSend.metadata]
+arbitraryParam = 'arbitrary-value'
 `
 
-func GetOCR2EVMWithOEVSpecMinimal(keyBundle, transmitterID, transmitterAddressOEV string) string {
-	return fmt.Sprintf(OCR2EVMSpecMinimalWithOEVTemplate, uuid.New(), keyBundle, transmitterID, transmitterAddressOEV)
+func GetOCR2EVMWithAdaptiveSendSpecMinimal(keyBundle, transmitterID, secondaryTransmitterAddress string) string {
+	return fmt.Sprintf(OCR2EVMSpecMinimalWithAdaptiveSendTemplate, uuid.New(), keyBundle, transmitterID, secondaryTransmitterAddress)
 }

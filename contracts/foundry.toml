@@ -95,7 +95,7 @@ test = 'src/v0.8/transmission/test'
 optimizer_runs = 1_000_000
 src = 'src/v0.8/shared'
 test = 'src/v0.8/shared/test'
-solc_version = '0.8.19'
+solc_version = '0.8.24'
 
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
