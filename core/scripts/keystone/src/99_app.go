@@ -7,21 +7,22 @@ import (
 	"errors"
 	"flag"
 	"io"
+	"net/http"
 	"net/url"
 	"reflect"
 	"runtime"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/urfave/cli"
 	"go.uber.org/zap/zapcore"
-
-	clsessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	clcmd "github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	clsessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
 )
 
 // Package-level cache and mutex
@@ -51,26 +52,17 @@ func newApp(n NodeWthCreds, writer io.Writer) (*clcmd.Shell, *cli.App) {
 		logger,
 	)
 
-	_, err = cookieAuth.Authenticate(context.Background(), sr)
-	PanicErr(err)
-
-	http := cmd.NewAuthenticatedHTTPClient(
-		logger,
-		clientOpts,
-		cookieAuth,
-		sr,
-	)
+	http := NewRetryableAuthenticatedHTTPClient(logger, clientOpts, cookieAuth, sr)
 	// Set the log level back to info for the shell
 	logger.SetLogLevel(zapcore.InfoLevel)
-
 	client := &clcmd.Shell{
-		Logger:              logger,
-		Renderer:            clcmd.RendererJSON{Writer: writer},
-		AppFactory:          clcmd.ChainlinkAppFactory{},
-		Runner:              clcmd.ChainlinkRunner{},
-		HTTP:                http,
-		CookieAuthenticator: cookieAuth,
-		CloseLogger:         closeLggr,
+		Logger:     logger,
+		Renderer:   clcmd.RendererJSON{Writer: writer},
+		AppFactory: clcmd.ChainlinkAppFactory{},
+		Runner:     clcmd.ChainlinkRunner{},
+		HTTP:       http,
+
+		CloseLogger: closeLggr,
 	}
 	app := clcmd.NewApp(client)
 	return client, app
@@ -82,6 +74,7 @@ type nodeAPI struct {
 	output       *bytes.Buffer
 	fs           *flag.FlagSet
 	clientMethod func(*cli.Context) error
+	logger       logger.Logger
 }
 
 func newNodeAPI(n NodeWthCreds) *nodeAPI {
@@ -104,6 +97,7 @@ func newNodeAPI(n NodeWthCreds) *nodeAPI {
 		methods: methods,
 		app:     app,
 		fs:      flag.NewFlagSet("test", flag.ContinueOnError),
+		logger:  methods.Logger.Named("NodeAPI"),
 	}
 
 	// Store the new nodeAPI in the cache
@@ -142,7 +136,6 @@ func (c *nodeAPI) exec(clientMethod ...func(*cli.Context) error) ([]byte, error)
 		PanicErr(errors.New("Only one client method allowed"))
 	}
 
-	c.output.Reset()
 	defer c.output.Reset()
 	defer func() {
 		c.fs = flag.NewFlagSet("test", flag.ContinueOnError)
@@ -152,13 +145,46 @@ func (c *nodeAPI) exec(clientMethod ...func(*cli.Context) error) ([]byte, error)
 	if c.clientMethod == nil {
 		c.clientMethod = clientMethod[0]
 	}
-	ctx := cli.NewContext(c.app, c.fs, nil)
-	err := c.clientMethod(ctx)
-	if err != nil {
-		return nil, err
+
+	retryCount := 3
+	for i := 0; i < retryCount; i++ {
+		c.logger.Tracew("Attempting API request", "attempt", i+1, "maxAttempts", retryCount)
+		c.output.Reset()
+		ctx := cli.NewContext(c.app, c.fs, nil)
+		err := c.clientMethod(ctx)
+
+		if err == nil {
+			c.logger.Tracew("API request completed successfully", "attempt", i+1)
+			return c.output.Bytes(), nil
+		}
+
+		if !strings.Contains(err.Error(), "invalid character '<' looking for beginning of value") {
+			c.logger.Tracew("API request failed with non-retriable error",
+				"attempt", i+1,
+				"err", err,
+			)
+			return nil, err
+		}
+
+		c.logger.Warnw("Encountered 504 gateway error during API request, retrying",
+			"attempt", i+1,
+			"maxAttempts", retryCount,
+			"err", err,
+		)
+
+		if i == retryCount-1 {
+			c.logger.Error("Failed to complete API request after all retry attempts")
+			return nil, err
+		}
+
+		c.logger.Tracew("Waiting before retry attempt",
+			"attempt", i+1,
+			"waitTime", "1s",
+		)
+		time.Sleep(1 * time.Second)
 	}
 
-	return c.output.Bytes(), nil
+	return nil, errors.New("API request failed after retries")
 }
 
 func (c *nodeAPI) mustExec(clientMethod ...func(*cli.Context) error) []byte {
@@ -219,4 +245,145 @@ func mustJSON[T any](bytes []byte) *T {
 		PanicErr(err)
 	}
 	return typedPayload
+}
+
+type retryableAuthenticatedHTTPClient struct {
+	client cmd.HTTPClient
+	logger logger.Logger
+}
+
+func NewRetryableAuthenticatedHTTPClient(lggr logger.Logger, clientOpts clcmd.ClientOpts, cookieAuth cmd.CookieAuthenticator, sessionRequest clsessions.SessionRequest) cmd.HTTPClient {
+	return &retryableAuthenticatedHTTPClient{
+		client: cmd.NewAuthenticatedHTTPClient(lggr, clientOpts, cookieAuth, sessionRequest),
+		logger: lggr.Named("RetryableAuthenticatedHTTPClient"),
+	}
+}
+
+func logBody(body io.Reader) (string, io.Reader) {
+	if body == nil {
+		return "", nil
+	}
+
+	var buf bytes.Buffer
+	tee := io.TeeReader(body, &buf)
+	bodyBytes, _ := io.ReadAll(tee)
+	return string(bodyBytes), bytes.NewReader(buf.Bytes())
+}
+
+func logResponse(logger logger.Logger, resp *http.Response) {
+	if resp == nil {
+		logger.Trace("Response was nil")
+		return
+	}
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		logger.Errorw("Failed to read response body for logging", "err", err)
+		return
+	}
+	// Replace the body so it can be read again by the caller
+	resp.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+
+	logger.Tracew("Response details",
+		"statusCode", resp.StatusCode,
+		"status", resp.Status,
+		"headers", resp.Header,
+		"body", string(bodyBytes),
+	)
+}
+
+func (h *retryableAuthenticatedHTTPClient) Get(ctx context.Context, path string, headers ...map[string]string) (*http.Response, error) {
+	h.logger.Tracew("Making GET request",
+		"path", path,
+		"headers", headers,
+	)
+	return h.doRequestWithRetry(ctx, func() (*http.Response, error) {
+		return h.client.Get(ctx, path, headers...)
+	})
+}
+
+func (h *retryableAuthenticatedHTTPClient) Post(ctx context.Context, path string, body io.Reader) (*http.Response, error) {
+	bodyStr, newBody := logBody(body)
+	h.logger.Tracew("Making POST request",
+		"path", path,
+		"body", bodyStr,
+	)
+	return h.doRequestWithRetry(ctx, func() (*http.Response, error) {
+		return h.client.Post(ctx, path, newBody)
+	})
+}
+
+func (h *retryableAuthenticatedHTTPClient) Put(ctx context.Context, path string, body io.Reader) (*http.Response, error) {
+	bodyStr, newBody := logBody(body)
+	h.logger.Tracew("Making PUT request",
+		"path", path,
+		"body", bodyStr,
+	)
+	return h.doRequestWithRetry(ctx, func() (*http.Response, error) {
+		return h.client.Put(ctx, path, newBody)
+	})
+}
+
+func (h *retryableAuthenticatedHTTPClient) Patch(ctx context.Context, path string, body io.Reader, headers ...map[string]string) (*http.Response, error) {
+	bodyStr, newBody := logBody(body)
+	h.logger.Tracew("Making PATCH request",
+		"path", path,
+		"headers", headers,
+		"body", bodyStr,
+	)
+	return h.doRequestWithRetry(ctx, func() (*http.Response, error) {
+		return h.client.Patch(ctx, path, newBody, headers...)
+	})
+}
+
+func (h *retryableAuthenticatedHTTPClient) Delete(ctx context.Context, path string) (*http.Response, error) {
+	h.logger.Tracew("Making DELETE request",
+		"path", path,
+	)
+	return h.doRequestWithRetry(ctx, func() (*http.Response, error) {
+		return h.client.Delete(ctx, path)
+	})
+}
+
+func (h *retryableAuthenticatedHTTPClient) doRequestWithRetry(ctx context.Context, req func() (*http.Response, error)) (*http.Response, error) {
+	retryCount := 3
+	for i := 0; i < retryCount; i++ {
+		h.logger.Tracew("Attempting request", "attempt", i+1, "maxAttempts", retryCount)
+
+		response, err := req()
+		logResponse(h.logger, response)
+
+		if err == nil || !strings.Contains(err.Error(), "invalid character '<' looking for beginning of value") {
+			if err != nil {
+				h.logger.Warn("Request completed with error",
+					"attempt", i+1,
+					"err", err,
+				)
+			} else {
+				h.logger.Tracew("Request completed successfully",
+					"attempt", i+1,
+					"statusCode", response.StatusCode,
+				)
+			}
+			return response, err
+		}
+
+		h.logger.Warnw("Encountered 504 error during request, retrying",
+			"attempt", i+1,
+			"maxAttempts", retryCount,
+			"err", err,
+		)
+
+		if i == retryCount-1 {
+			h.logger.Error("Failed to complete request after all retry attempts")
+			return response, err
+		}
+
+		h.logger.Tracew("Waiting before retry attempt",
+			"attempt", i+1,
+			"waitTime", "1s",
+		)
+		time.Sleep(1 * time.Second)
+	}
+	return nil, errors.New("request failed after retries")
 }
