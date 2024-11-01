@@ -85,7 +85,7 @@ func writeCribConfig(chart Helm, outputPath string) {
 		helpers.PanicErr(err)
 	} else {
 		ensureArtefactsDir(filepath.Dir(outputPath))
-		err = os.WriteFile(filepath.Join(outputPath), yamlData, 0600)
+		err = os.WriteFile(outputPath, yamlData, 0600)
 		helpers.PanicErr(err)
 	}
 }

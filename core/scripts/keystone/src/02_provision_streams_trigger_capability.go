@@ -454,7 +454,7 @@ func generateMercuryOCR2Config(nca []NodeKeys) MercuryOCR2Config {
 
 	identities := []confighelper.OracleIdentityExtra{}
 	for index := range nca {
-		transmitterAccount := ocrtypes.Account(fmt.Sprintf("%x", nca[index].CSAPublicKey[:]))
+		transmitterAccount := ocrtypes.Account(nca[index].CSAPublicKey)
 
 		identities = append(identities, confighelper.OracleIdentityExtra{
 			OracleIdentity: confighelper.OracleIdentity{
