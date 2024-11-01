@@ -3,8 +3,6 @@ package launcher
 import (
 	"fmt"
 
-	"golang.org/x/exp/maps"
-
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"go.uber.org/multierr"
 
@@ -49,10 +47,4 @@ func (c ccipPlugins) Transition(prevPlugins ccipPlugins) error {
 		}
 	}
 	return err
-}
-
-func (c ccipPlugins) PrintDigests() {
-	for _, d := range maps.Keys(c) {
-		fmt.Println(d.Hex())
-	}
 }
