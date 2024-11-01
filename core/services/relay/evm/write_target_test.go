@@ -150,7 +150,7 @@ func TestEvmWrite(t *testing.T) {
 	require.NoError(t, err)
 	registeredCapabilities, err := cRegistry.List(testutils.Context(t))
 	require.NoError(t, err)
-	require.Equal(t, 1, len(registeredCapabilities)) // WriteTarget should be added to the registry
+	require.Len(t, registeredCapabilities, 1) // WriteTarget should be added to the registry
 
 	reportID := [2]byte{0x00, 0x01}
 	reportMetadata := targets.ReportV1Metadata{
@@ -280,6 +280,6 @@ func TestEvmWrite(t *testing.T) {
 		l, err := capabilityRegistry.List(ctx)
 		require.NoError(t, err)
 
-		assert.Equal(t, 0, len(l))
+		assert.Empty(t, l)
 	})
 }
