@@ -223,6 +223,26 @@ func RunContractReaderInLoopTests[T TestingT[T]](t T, it ChainComponentsInterfac
 		}, it.MaxWaitTimeForEvents(), time.Millisecond*10)
 	})
 
+	t.Run("Filtering can be done on data words using value comparator on a static field in a dynamic struct that is the first dynamic field", func(t T) {
+		ts := &TestStruct{}
+		assert.Eventually(t, func() bool {
+			sequences, err := cr.QueryKey(ctx, boundContract, query.KeyFilter{Key: EventName, Expressions: []query.Expression{
+				query.Comparator("OracleID",
+					primitives.ValueComparator{
+						Value:    uint8(ts2.OracleID),
+						Operator: primitives.Eq,
+					}),
+				query.Comparator("NestedDynamicStruct.FixedBytes",
+					primitives.ValueComparator{
+						Value:    ts2.NestedDynamicStruct.FixedBytes,
+						Operator: primitives.Eq,
+					}),
+			},
+			}, query.LimitAndSort{}, ts)
+			return err == nil && len(sequences) == 1 && reflect.DeepEqual(&ts2, sequences[0].Data)
+		}, it.MaxWaitTimeForEvents(), time.Millisecond*10)
+	})
+
 	t.Run("Filtering can be done on data words using value comparators on fields that require manual index input", func(t T) {
 		empty12Bytes := [12]byte{}
 		val1, val2, val3, val4 := uint32(1), uint32(2), uint32(3), uint64(4)
