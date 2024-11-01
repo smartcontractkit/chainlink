@@ -61,8 +61,8 @@ func TestNonceTracker_LoadSequenceMap(t *testing.T) {
 
 		randNonce1 := testutils.NewRandomPositiveInt64()
 		randNonce2 := testutils.NewRandomPositiveInt64()
-		client.On("NonceAt", mock.Anything, addr1, (*big.Int)(nil)).Return(uint64(randNonce1), nil).Once()
-		client.On("NonceAt", mock.Anything, addr2, (*big.Int)(nil)).Return(uint64(randNonce2), nil).Once()
+		client.On("NonceAt", mock.Anything, addr1, (*big.Int)(nil)).Return(uint64(randNonce1), nil).Once() //nolint:gosec // Disable G115: randNonce1 always positive
+		client.On("NonceAt", mock.Anything, addr2, (*big.Int)(nil)).Return(uint64(randNonce2), nil).Once() //nolint:gosec // Disable G115: randNonce2 always positive
 
 		nonceTracker.LoadNextSequences(ctx, enabledAddresses)
 		seq, err := nonceTracker.GetNextSequence(ctx, addr1)
@@ -273,7 +273,7 @@ func Test_SetNonceAfterInit(t *testing.T) {
 	enabledAddresses := []common.Address{addr}
 	randNonce := testutils.NewRandomPositiveInt64()
 	client.On("NonceAt", mock.Anything, addr, (*big.Int)(nil)).Return(uint64(0), errors.New("failed to retrieve nonce at startup")).Once()
-	client.On("NonceAt", mock.Anything, addr, (*big.Int)(nil)).Return(uint64(randNonce), nil).Once()
+	client.On("NonceAt", mock.Anything, addr, (*big.Int)(nil)).Return(uint64(randNonce), nil).Once() //nolint:gosec // Disable G115: randNonce always positive
 	nonceTracker.LoadNextSequences(ctx, enabledAddresses)
 
 	nonce, err := nonceTracker.GetNextSequence(ctx, addr)
