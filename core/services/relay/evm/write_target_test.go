@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -140,12 +141,16 @@ func TestEvmWrite(t *testing.T) {
 	keyStore := cltest.NewKeyStore(t, db)
 
 	lggr := logger.TestLogger(t)
+	cRegistry := evmcapabilities.NewRegistry(lggr)
 	relayer, err := relayevm.NewRelayer(testutils.Context(t), lggr, chain, relayevm.RelayerOpts{
 		DS:                   db,
 		CSAETHKeystore:       keyStore,
-		CapabilitiesRegistry: evmcapabilities.NewRegistry(lggr),
+		CapabilitiesRegistry: cRegistry,
 	})
 	require.NoError(t, err)
+	registeredCapabilities, err := cRegistry.List(testutils.Context(t))
+	require.NoError(t, err)
+	require.Equal(t, 1, len(registeredCapabilities)) // WriteTarget should be added to the registry
 
 	reportID := [2]byte{0x00, 0x01}
 	reportMetadata := targets.ReportV1Metadata{
@@ -249,5 +254,32 @@ func TestEvmWrite(t *testing.T) {
 
 		_, err = capability.Execute(ctx, req)
 		require.Error(t, err)
+	})
+
+	t.Run("Relayer fails to start WriteTarget capability on missing config", func(t *testing.T) {
+		ctx := testutils.Context(t)
+		testChain := evmmocks.NewChain(t)
+		testCfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+			c.EVM[0].Workflow.FromAddress = nil
+
+			forwarderA := testutils.NewAddress()
+			forwarderAddr, err2 := types.NewEIP55Address(forwarderA.Hex())
+			require.NoError(t, err2)
+			c.EVM[0].Workflow.ForwarderAddress = &forwarderAddr
+		})
+		testChain.On("Config").Return(evmtest.NewChainScopedConfig(t, testCfg))
+		capabilityRegistry := evmcapabilities.NewRegistry(lggr)
+
+		_, err := relayevm.NewRelayer(ctx, lggr, testChain, relayevm.RelayerOpts{
+			DS:                   db,
+			CSAETHKeystore:       keyStore,
+			CapabilitiesRegistry: capabilityRegistry,
+		})
+		require.NoError(t, err)
+
+		l, err := capabilityRegistry.List(ctx)
+		require.NoError(t, err)
+
+		assert.Equal(t, 0, len(l))
 	})
 }
