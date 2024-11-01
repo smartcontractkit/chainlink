@@ -300,7 +300,7 @@ func (l *launcher) processRemoved(removed map[registrysyncer.DonID]registrysynce
 }
 
 // createDON is a pure function that handles the case where a new DON is added to the capability registry.
-// It returns a new ccipDeployment that can then be used to start the active instance.
+// It returns up to 4 plugins that are then started.
 func createDON(
 	lggr logger.Logger,
 	p2pID ragep2ptypes.PeerID,
