@@ -30,10 +30,6 @@ func TestAddLane(t *testing.T) {
 	feeds := state.Chains[e.FeedChainSel].USDFeeds
 	tokenConfig := NewTestTokenConfig(feeds)
 
-	feeTokenContracts := make(map[uint64]FeeTokenContracts)
-	for _, sel := range []uint64{chain1, chain2} {
-		feeTokenContracts[sel] = e.FeeTokenContracts[sel]
-	}
 	// Set up CCIP contracts and a DON per chain.
 	newAddresses := deployment.NewMemoryAddressBook()
 	err = DeployCCIPContracts(e.Env, newAddresses, DeployCCIPContractConfig{
