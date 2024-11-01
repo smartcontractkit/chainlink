@@ -2,6 +2,7 @@ package launcher
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -28,16 +29,17 @@ var (
 	_ registrysyncer.Launcher = (*launcher)(nil)
 )
 
+// New creates a new instance of the CCIP launcher.
 func New(
 	capabilityID string,
-	p2pID ragep2ptypes.PeerID,
+	myP2PID ragep2ptypes.PeerID,
 	lggr logger.Logger,
 	homeChainReader ccipreader.HomeChain,
 	tickInterval time.Duration,
 	oracleCreator cctypes.OracleCreator,
 ) *launcher {
 	return &launcher{
-		p2pID:           p2pID,
+		myP2PID:         myP2PID,
 		capabilityID:    capabilityID,
 		lggr:            lggr,
 		homeChainReader: homeChainReader,
@@ -56,8 +58,12 @@ func New(
 type launcher struct {
 	services.StateMachine
 
-	capabilityID    string
-	p2pID           ragep2ptypes.PeerID
+	// capabilityID is the fully qualified capability registry ID of the CCIP capability.
+	// this is <capability_name>@<capability-semver>, e.g "ccip@1.0.0".
+	capabilityID string
+
+	// myP2PID is the peer ID of the node running this launcher.
+	myP2PID         ragep2ptypes.PeerID
 	lggr            logger.Logger
 	homeChainReader ccipreader.HomeChain
 	stopChan        chan struct{}
@@ -128,6 +134,7 @@ func (l *launcher) Start(context.Context) error {
 	})
 }
 
+// monitor calls tick() at regular intervals to check for changes in the capability registry.
 func (l *launcher) monitor() {
 	defer l.wg.Done()
 	ticker := time.NewTicker(l.tickInterval)
@@ -143,6 +150,8 @@ func (l *launcher) monitor() {
 	}
 }
 
+// tick gets the latest registry state and processes the diff between the current and latest state.
+// This may lead to starting or stopping OCR instances.
 func (l *launcher) tick() error {
 	// Ensure that the home chain reader is healthy.
 	// For new jobs it may be possible that the home chain reader is not yet ready
@@ -189,10 +198,14 @@ func (l *launcher) processUpdate(updated map[registrysyncer.DonID]registrysyncer
 		if !ok {
 			return fmt.Errorf("invariant violation: expected to find CCIP DON %d in the map of running deployments", don.ID)
 		}
+		// we encounter this when a node is removed from the don
+		if prevDeployment == nil {
+			return errors.New("this node was closed")
+		}
 
 		futDeployment, err := updateDON(
 			l.lggr,
-			l.p2pID,
+			l.myP2PID,
 			l.homeChainReader,
 			*prevDeployment,
 			don,
@@ -201,16 +214,19 @@ func (l *launcher) processUpdate(updated map[registrysyncer.DonID]registrysyncer
 		if err != nil {
 			return err
 		}
-		if err := futDeployment.TransitionDeployment(prevDeployment); err != nil {
-			// TODO: how to handle a failed active-candidate deployment?
-			return fmt.Errorf("failed to handle active-candidate deployment for CCIP DON %d: %w", donID, err)
-		}
+		// When we remove a node from the don, this node does not have a future deployment
+		if futDeployment != nil {
+			if err := futDeployment.TransitionDeployment(prevDeployment); err != nil {
+				// TODO: how to handle a failed active-candidate deployment?
+				return fmt.Errorf("failed to handle active-candidate deployment for CCIP DON %d: %w", donID, err)
+			}
 
-		// update state.
-		l.dons[donID] = futDeployment
-		// update the state with the latest config.
-		// this way if one of the starts errors, we don't retry all of them.
-		l.regState.IDsToDONs[donID] = updated[donID]
+			// update state.
+			l.dons[donID] = futDeployment
+			// update the state with the latest config.
+			// this way if one of the starts errors, we don't retry all of them.
+			l.regState.IDsToDONs[donID] = updated[donID]
+		}
 	}
 
 	return nil
@@ -223,24 +239,26 @@ func (l *launcher) processAdded(added map[registrysyncer.DonID]registrysyncer.DO
 	for donID, don := range added {
 		dep, err := createDON(
 			l.lggr,
-			l.p2pID,
+			l.myP2PID,
 			l.homeChainReader,
 			don,
 			l.oracleCreator,
 		)
 		if err != nil {
-			return err
+			return fmt.Errorf("processAdded: call createDON %d: %w", donID, err)
 		}
 		if dep == nil {
 			// not a member of this DON.
 			continue
 		}
 
+		// TODO: this doesn't seem to be correct; a newly added DON will not have an active
+		// instance but a candidate instance.
 		if err := dep.StartActive(); err != nil {
 			if shutdownErr := dep.CloseActive(); shutdownErr != nil {
 				l.lggr.Errorw("Failed to shutdown active instance after failed start", "donId", donID, "err", shutdownErr)
 			}
-			return fmt.Errorf("failed to start oracles for CCIP DON %d: %w", donID, err)
+			return fmt.Errorf("processAdded: start oracles for CCIP DON %d: %w", donID, err)
 		}
 
 		// update state.
@@ -306,26 +324,24 @@ func updateDON(
 			don.ID, err)
 	}
 
-	commitBgd, err := createFutureActiveCandidateDeployment(don.ID, prevDeployment, commitOCRConfigs, oracleCreator, cctypes.PluginTypeCCIPCommit)
+	commitAcd, err := createFutureActiveCandidateDeployment(don.ID, prevDeployment, commitOCRConfigs, oracleCreator, cctypes.PluginTypeCCIPCommit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create future active-candidate deployment for CCIP commit plugin: %w, don id: %d", err, don.ID)
 	}
 
-	execBgd, err := createFutureActiveCandidateDeployment(don.ID, prevDeployment, execOCRConfigs, oracleCreator, cctypes.PluginTypeCCIPExec)
+	execAcd, err := createFutureActiveCandidateDeployment(don.ID, prevDeployment, execOCRConfigs, oracleCreator, cctypes.PluginTypeCCIPExec)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create future active-candidate deployment for CCIP exec plugin: %w, don id: %d", err, don.ID)
 	}
 
 	return &ccipDeployment{
-		commit: commitBgd,
-		exec:   execBgd,
+		commit: commitAcd,
+		exec:   execAcd,
 	}, nil
 }
 
-// valid cases:
-// a) len(ocrConfigs) == 2 && !prevDeployment.HasCandidateInstance(pluginType): this is a new candidate instance.
-// b) len(ocrConfigs) == 1 && prevDeployment.HasCandidateInstance(): this is a promotion of candidate->active.
-// All other cases are invalid. This is enforced in the ccip config contract.
+// TODO: this is not technically correct, CCIPHome has other transitions
+// that are not covered here, e.g revokeCandidate.
 func createFutureActiveCandidateDeployment(
 	donID uint32,
 	prevDeployment ccipDeployment,
@@ -336,13 +352,13 @@ func createFutureActiveCandidateDeployment(
 	var deployment activeCandidateDeployment
 	if isNewCandidateInstance(pluginType, ocrConfigs, prevDeployment) {
 		// this is a new candidate instance.
-		greenOracle, err := oracleCreator.Create(donID, cctypes.OCR3ConfigWithMeta(ocrConfigs[1]))
+		candidateOracle, err := oracleCreator.Create(donID, cctypes.OCR3ConfigWithMeta(ocrConfigs[1]))
 		if err != nil {
 			return activeCandidateDeployment{}, fmt.Errorf("failed to create CCIP commit oracle: %w", err)
 		}
 
 		deployment.active = prevDeployment.commit.active
-		deployment.candidate = greenOracle
+		deployment.candidate = candidateOracle
 	} else if isPromotion(pluginType, ocrConfigs, prevDeployment) {
 		// this is a promotion of candidate->active.
 		deployment.active = prevDeployment.commit.candidate
@@ -401,6 +417,7 @@ func createDON(
 		return nil, fmt.Errorf("failed to create CCIP exec oracle: %w", err)
 	}
 
+	// TODO: incorrect, should be setting candidate?
 	return &ccipDeployment{
 		commit: activeCandidateDeployment{
 			active: commitOracle,

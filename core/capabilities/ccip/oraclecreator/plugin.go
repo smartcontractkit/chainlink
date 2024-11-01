@@ -168,7 +168,8 @@ func (i *pluginOracleCreator) Create(donID uint32, config cctypes.OCR3ConfigWith
 	}
 
 	// TODO: Extract the correct transmitter address from the destsFromAccount
-	factory, transmitter, err := i.createFactoryAndTransmitter(donID, config, destRelayID, contractReaders, chainWriters, destChainWriter, destFromAccounts)
+	factory, transmitter, err := i.createFactoryAndTransmitter(
+		donID, config, destRelayID, contractReaders, chainWriters, destChainWriter, destFromAccounts, publicConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create factory and transmitter: %w", err)
 	}
@@ -224,6 +225,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 	chainWriters map[cciptypes.ChainSelector]types.ChainWriter,
 	destChainWriter types.ChainWriter,
 	destFromAccounts []string,
+	publicConfig ocr3confighelper.PublicConfig,
 ) (ocr3types.ReportingPluginFactory[[]byte], ocr3types.ContractTransmitter[[]byte], error) {
 	var factory ocr3types.ReportingPluginFactory[[]byte]
 	var transmitter ocr3types.ContractTransmitter[[]byte]
@@ -232,9 +234,17 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 			return nil, nil, fmt.Errorf("peer wrapper is not started")
 		}
 
-		rmnPeerClient := rmn.NewPeerClient(i.lggr, i.peerWrapper.PeerGroupFactory, i.bootstrapperLocators)
+		i.lggr.Infow("creating rmn peer client",
+			"bootstrapperLocators", i.bootstrapperLocators, "deltaRound", publicConfig.DeltaRound)
 
-		rmnCrypto := ccipevm.NewEVMRMNCrypto()
+		rmnPeerClient := rmn.NewPeerClient(
+			i.lggr.Named("RMNPeerClient"),
+			i.peerWrapper.PeerGroupFactory,
+			i.bootstrapperLocators,
+			publicConfig.DeltaRound,
+		)
+
+		rmnCrypto := ccipevm.NewEVMRMNCrypto(i.lggr.Named("EVMRMNCrypto"))
 
 		factory = commitocr3.NewPluginFactory(
 			i.lggr.
@@ -245,7 +255,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 			donID,
 			ccipreaderpkg.OCR3ConfigWithMeta(config),
 			ccipevm.NewCommitPluginCodecV1(),
-			ccipevm.NewMessageHasherV1(),
+			ccipevm.NewMessageHasherV1(i.lggr.Named("MessageHasherV1")),
 			i.homeChainReader,
 			i.homeChainSelector,
 			contractReaders,
@@ -266,7 +276,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 			donID,
 			ccipreaderpkg.OCR3ConfigWithMeta(config),
 			ccipevm.NewExecutePluginCodecV1(),
-			ccipevm.NewMessageHasherV1(),
+			ccipevm.NewMessageHasherV1(i.lggr.Named("MessageHasherV1")),
 			i.homeChainReader,
 			ccipevm.NewEVMTokenDataEncoder(),
 			ccipevm.NewGasEstimateProvider(),

@@ -255,13 +255,12 @@ func (o *OCRSoakTestReporter) SendSlackNotification(t *testing.T, slackClient *s
 		return err
 	}
 
-	return testreporters.UploadSlackFile(slackClient, slack.FileUploadParameters{
+	return testreporters.UploadSlackFile(slackClient, slack.UploadFileV2Parameters{
 		Title:           fmt.Sprintf("OCR Soak Test Report %s", o.namespace),
-		Filetype:        "csv",
 		Filename:        fmt.Sprintf("ocr_soak_%s.csv", o.namespace),
 		File:            o.csvLocation,
 		InitialComment:  fmt.Sprintf("OCR Soak Test Report %s.", o.namespace),
-		Channels:        []string{testreporters.SlackChannel},
+		Channel:         testreporters.SlackChannel,
 		ThreadTimestamp: ts,
 	})
 }

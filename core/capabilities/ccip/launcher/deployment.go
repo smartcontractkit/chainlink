@@ -31,10 +31,19 @@ type ccipDeployment struct {
 
 // Close shuts down all OCR instances in the deployment.
 func (c *ccipDeployment) Close() error {
+	// we potentially run into this situation when
+	// trying to close an active instance that doesn't exist
+	// this check protects us from nil pointer exception
+
+	if c == nil {
+		return nil
+	}
 	var err error
 
 	// shutdown active commit instance.
-	err = multierr.Append(err, c.commit.active.Close())
+	if c.commit.active != nil {
+		err = multierr.Append(err, c.commit.active.Close())
+	}
 
 	// shutdown candidate commit instance.
 	if c.commit.candidate != nil {
@@ -42,7 +51,9 @@ func (c *ccipDeployment) Close() error {
 	}
 
 	// shutdown active exec instance.
-	err = multierr.Append(err, c.exec.active.Close())
+	if c.exec.active != nil {
+		err = multierr.Append(err, c.exec.active.Close())
+	}
 
 	// shutdown candidate exec instance.
 	if c.exec.candidate != nil {

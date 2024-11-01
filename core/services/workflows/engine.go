@@ -9,18 +9,17 @@ import (
 	"sync"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/v2/core/monitoring"
-
 	"github.com/jonboulle/clockwork"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/exec"
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/exec"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -89,14 +88,19 @@ func (sucm *stepUpdateManager) len() int64 {
 	return int64(len(sucm.m))
 }
 
+type secretsFetcher interface {
+	SecretsFor(workflowOwner, workflowName string) (map[string]string, error)
+}
+
 // Engine handles the lifecycle of a single workflow and its executions.
 type Engine struct {
 	services.StateMachine
-	cma                  monitoring.CustomMessageLabeler
+	cma                  custmsg.MessageEmitter
 	metrics              workflowsMetricLabeler
 	logger               logger.Logger
 	registry             core.CapabilitiesRegistry
 	workflow             *workflow
+	secretsFetcher       secretsFetcher
 	env                  exec.Env
 	localNode            capabilities.Node
 	executionStates      store.Store
@@ -107,6 +111,7 @@ type Engine struct {
 	stopCh               services.StopChan
 	newWorkerTimeout     time.Duration
 	maxExecutionDuration time.Duration
+	heartbeatCadence     time.Duration
 
 	// testing lifecycle hook to signal when an execution is finished.
 	onExecutionFinished func(string)
@@ -143,6 +148,9 @@ func (e *Engine) Start(_ context.Context) error {
 		e.wg.Add(1)
 		go e.init(ctx)
 
+		e.wg.Add(1)
+		go e.heartbeat(ctx)
+
 		return nil
 	})
 }
@@ -159,11 +167,9 @@ func (e *Engine) resolveWorkflowCapabilities(ctx context.Context) error {
 	for _, t := range e.workflow.triggers {
 		tg, err := e.registry.GetTrigger(ctx, t.ID)
 		if err != nil {
-			e.logger.With(cIDKey, t.ID).Errorf("failed to get trigger capability: %s", err)
-			cerr := e.cma.With(cIDKey, t.ID).SendLogAsCustomMessage(fmt.Sprintf("failed to resolve trigger: %s", err))
-			if cerr != nil {
-				return cerr
-			}
+			log := e.logger.With(cIDKey, t.ID)
+			log.Errorf("failed to get trigger capability: %s", err)
+			logCustMsg(ctx, e.cma.With(cIDKey, t.ID), fmt.Sprintf("failed to resolve trigger: %s", err), log)
 			// we don't immediately return here, since we want to retry all triggers
 			// to notify the user of all errors at once.
 			triggersInitialized = false
@@ -193,10 +199,12 @@ func (e *Engine) resolveWorkflowCapabilities(ctx context.Context) error {
 
 		err := e.initializeCapability(ctx, s)
 		if err != nil {
-			cerr := e.cma.With(wIDKey, e.workflow.id, sIDKey, s.ID, sRKey, s.Ref).SendLogAsCustomMessage(fmt.Sprintf("failed to initialize capability for step: %s", err))
-			if cerr != nil {
-				return cerr
-			}
+			logCustMsg(
+				ctx,
+				e.cma.With(wIDKey, e.workflow.id, sIDKey, s.ID, sRKey, s.Ref),
+				fmt.Sprintf("failed to initialize capability for step: %s", err),
+				e.logger,
+			)
 			return &workflowError{err: err, reason: "failed to initialize capability for step",
 				labels: map[string]string{
 					wIDKey: e.workflow.id,
@@ -212,6 +220,8 @@ func (e *Engine) resolveWorkflowCapabilities(ctx context.Context) error {
 }
 
 func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
+	l := e.logger.With("capabilityID", step.ID)
+
 	// We use varadic err here so that err can be optional, but we assume that
 	// its length is either 0 or 1
 	newCPErr := func(reason string, errs ...error) *workflowError {
@@ -246,7 +256,6 @@ func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
 	// Special treatment for local targets - wrap into a transmission capability
 	// If the DON is nil, this is a local target.
 	if info.CapabilityType == capabilities.CapabilityTypeTarget && info.IsLocal {
-		l := e.logger.With("capabilityID", step.ID)
 		l.Debug("wrapping capability in local transmission protocol")
 		cp = transmission.NewLocalTargetCapability(
 			e.logger,
@@ -263,29 +272,17 @@ func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
 		return newCPErr("capability does not satisfy CallbackCapability")
 	}
 
-	if step.config == nil {
-		c, interpErr := exec.FindAndInterpolateEnvVars(step.Config, e.env)
-		if interpErr != nil {
-			return newCPErr("failed to convert interpolate env vars from config", interpErr)
-		}
-
-		config, ok := c.(map[string]any)
-		if !ok {
-			return newCPErr("failed to convert interpolate env vars from config into map")
-		}
-
-		configMap, newMapErr := values.NewMap(config)
-		if newMapErr != nil {
-			return newCPErr("failed to convert config to values.Map", newMapErr)
-		}
-		step.config = configMap
+	stepConfig, err := e.configForStep(ctx, l, step)
+	if err != nil {
+		return newCPErr("failed to get config for step", err)
 	}
 
 	registrationRequest := capabilities.RegisterToWorkflowRequest{
 		Metadata: capabilities.RegistrationMetadata{
-			WorkflowID: e.workflow.id,
+			WorkflowID:    e.workflow.id,
+			WorkflowOwner: e.workflow.owner,
 		},
-		Config: step.config,
+		Config: stepConfig,
 	}
 
 	err = cc.RegisterToWorkflow(ctx, registrationRequest)
@@ -329,6 +326,7 @@ func (e *Engine) init(ctx context.Context) {
 
 	if retryErr != nil {
 		e.logger.Errorf("initialization failed: %s", retryErr)
+		logCustMsg(ctx, e.cma, fmt.Sprintf("workflow registration failed: %s", retryErr), e.logger)
 		e.afterInit(false)
 		return
 	}
@@ -343,15 +341,14 @@ func (e *Engine) init(ctx context.Context) {
 	for idx, t := range e.workflow.triggers {
 		terr := e.registerTrigger(ctx, t, idx)
 		if terr != nil {
-			e.logger.With(cIDKey, t.ID).Errorf("failed to register trigger: %s", terr)
-			cerr := e.cma.With(cIDKey, t.ID).SendLogAsCustomMessage(fmt.Sprintf("failed to register trigger: %s", terr))
-			if cerr != nil {
-				e.logger.Errorf("failed to send custom message for trigger: %s", terr)
-			}
+			log := e.logger.With(cIDKey, t.ID)
+			log.Errorf("failed to register trigger: %s", terr)
+			logCustMsg(ctx, e.cma.With(cIDKey, t.ID), fmt.Sprintf("failed to register trigger: %s", terr), log)
 		}
 	}
 
 	e.logger.Info("engine initialized")
+	logCustMsg(ctx, e.cma, "workflow registered", e.logger)
 	e.afterInit(true)
 }
 
@@ -443,7 +440,7 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, trig
 	}
 	eventsCh, err := t.trigger.RegisterTrigger(ctx, triggerRegRequest)
 	if err != nil {
-		e.metrics.with(cIDKey, t.ID, tIDKey, triggerID).incrementRegisterTriggerFailureCounter(ctx)
+		e.metrics.incrementRegisterTriggerFailureCounter(ctx)
 		// It's confusing that t.ID is different from triggerID, but
 		// t.ID is the capability ID, and triggerID is the trigger ID.
 		//
@@ -621,10 +618,7 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 			// This is to ensure that any side effects are executed consistently, since otherwise
 			// the async nature of the workflow engine would provide no guarantees.
 		}
-		err = cma.SendLogAsCustomMessage(fmt.Sprintf("execution status: %s", status))
-		if err != nil {
-			return err
-		}
+		logCustMsg(ctx, cma, "execution status: "+status, l)
 		return e.finishExecution(ctx, state.ExecutionID, status)
 	}
 
@@ -674,7 +668,7 @@ func (e *Engine) queueIfReady(state store.WorkflowExecution, step *step) {
 
 func (e *Engine) finishExecution(ctx context.Context, executionID string, status string) error {
 	e.logger.With(eIDKey, executionID, "status", status).Info("finishing execution")
-	metrics := e.metrics.with(eIDKey, executionID, "status", status)
+	metrics := e.metrics.with("status", status)
 	err := e.executionStates.UpdateStatus(ctx, executionID, status)
 	if err != nil {
 		return err
@@ -728,9 +722,14 @@ func (e *Engine) worker(ctx context.Context) {
 				continue
 			}
 
+			cma := e.cma.With(eIDKey, executionID)
 			err = e.startExecution(ctx, executionID, resp.Event.Outputs)
 			if err != nil {
 				e.logger.With(eIDKey, executionID).Errorf("failed to start execution: %v", err)
+				logCustMsg(ctx, cma, fmt.Sprintf("failed to start execution: %s", err), e.logger)
+			} else {
+				e.logger.With(eIDKey, executionID).Debug("execution started")
+				logCustMsg(ctx, cma, "execution started", e.logger)
 			}
 		case <-ctx.Done():
 			return
@@ -752,37 +751,26 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	}
 
 	// TODO ks-462 inputs
-	err := cma.SendLogAsCustomMessage("executing step")
-	if err != nil {
-		return
-	}
-	inputs, outputs, err := e.executeStep(ctx, msg)
+	logCustMsg(ctx, cma, "executing step", l)
+
+	inputs, outputs, err := e.executeStep(ctx, l, msg)
 	var stepStatus string
 	switch {
 	case errors.Is(capabilities.ErrStopExecution, err):
 		lmsg := "step executed successfully with a termination"
 		l.Info(lmsg)
-		cmErr := cma.SendLogAsCustomMessage(lmsg)
-		if cmErr != nil {
-			l.Errorf("failed to send custom message with msg: %s", lmsg)
-		}
+		logCustMsg(ctx, cma, lmsg, l)
 		stepStatus = store.StatusCompletedEarlyExit
 	case err != nil:
-		lmsg := "step executed successfully with a termination"
-		l.Errorf("error executing step request: %s", err)
-		cmErr := cma.SendLogAsCustomMessage(fmt.Sprintf("error executing step request: %s", err))
-		if cmErr != nil {
-			l.Errorf("failed to send custom message with msg: %s", lmsg)
-		}
+		lmsg := fmt.Sprintf("error executing step request: %s", err)
+		l.Error(lmsg)
+		logCustMsg(ctx, cma, lmsg, l)
 		stepStatus = store.StatusErrored
 	default:
-		lmsg := "step executed successfully with a termination"
-		l.With("outputs", outputs).Info("step executed successfully")
+		lmsg := "step executed successfully"
+		l.With("outputs", outputs).Info(lmsg)
 		// TODO ks-462 emit custom message with outputs
-		cmErr := cma.SendLogAsCustomMessage("step executed successfully")
-		if cmErr != nil {
-			l.Errorf("failed to send custom message with msg: %s", lmsg)
-		}
+		logCustMsg(ctx, cma, lmsg, l)
 		stepStatus = store.StatusCompleted
 	}
 
@@ -820,7 +808,43 @@ func merge(baseConfig *values.Map, overrideConfig *values.Map) *values.Map {
 	return m
 }
 
-func (e *Engine) configForStep(ctx context.Context, executionID string, step *step) (*values.Map, error) {
+func (e *Engine) interpolateEnvVars(config map[string]any, env exec.Env) (*values.Map, error) {
+	conf, err := exec.FindAndInterpolateEnvVars(config, env)
+	if err != nil {
+		return nil, err
+	}
+
+	confm, ok := conf.(map[string]any)
+	if !ok {
+		return nil, err
+	}
+
+	configMap, err := values.NewMap(confm)
+	if err != nil {
+		return nil, err
+	}
+	return configMap, nil
+}
+
+// configForStep fetches the config for the step from the workflow registry (for secrets) and from the capabilities
+// registry (for capability-level configuration). It doesn't perform any caching of the config values, since
+// the two registries perform their own caching.
+func (e *Engine) configForStep(ctx context.Context, lggr logger.Logger, step *step) (*values.Map, error) {
+	secrets, err := e.secretsFetcher.SecretsFor(e.workflow.owner, e.workflow.name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch secrets: %w", err)
+	}
+
+	env := exec.Env{
+		Config:  e.env.Config,
+		Binary:  e.env.Binary,
+		Secrets: secrets,
+	}
+	config, err := e.interpolateEnvVars(step.Config, env)
+	if err != nil {
+		return nil, fmt.Errorf("failed to interpolate env vars: %w", err)
+	}
+
 	ID := step.info.ID
 
 	// If the capability info is missing a DON, then
@@ -834,22 +858,22 @@ func (e *Engine) configForStep(ctx context.Context, executionID string, step *st
 
 	capConfig, err := e.registry.ConfigForCapability(ctx, ID, donID)
 	if err != nil {
-		e.logger.Warnw(fmt.Sprintf("could not retrieve config from remote registry: %s", err), "executionID", executionID, "capabilityID", ID)
-		return step.config, nil
+		lggr.Warnw(fmt.Sprintf("could not retrieve config from remote registry: %s", err), "capabilityID", ID)
+		return config, nil
 	}
 
 	if capConfig.DefaultConfig == nil {
-		return step.config, nil
+		return config, nil
 	}
 
 	// Merge the configs with registry config overriding the step config.  This is because
 	// some config fields are sensitive and could affect the safe running of the capability,
 	// so we avoid user provided values by overriding them with config from the capabilities registry.
-	return merge(step.config, capConfig.DefaultConfig), nil
+	return merge(config, capConfig.DefaultConfig), nil
 }
 
 // executeStep executes the referenced capability within a step and returns the result.
-func (e *Engine) executeStep(ctx context.Context, msg stepRequest) (*values.Map, values.Value, error) {
+func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRequest) (*values.Map, values.Value, error) {
 	step, err := e.workflow.Vertex(msg.stepRef)
 	if err != nil {
 		return nil, nil, err
@@ -872,7 +896,7 @@ func (e *Engine) executeStep(ctx context.Context, msg stepRequest) (*values.Map,
 		return nil, nil, err
 	}
 
-	config, err := e.configForStep(ctx, msg.state.ExecutionID, step)
+	config, err := e.configForStep(ctx, lggr, step)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1014,6 +1038,24 @@ func (e *Engine) isWorkflowFullyProcessed(ctx context.Context, state store.Workf
 	return workflowProcessed, store.StatusCompleted, nil
 }
 
+func (e *Engine) heartbeat(ctx context.Context) {
+	defer e.wg.Done()
+
+	ticker := time.NewTicker(e.heartbeatCadence)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			e.logger.Info("shutting down heartbeat")
+			return
+		case <-ticker.C:
+			e.metrics.incrementEngineHeartbeatCounter(ctx)
+			logCustMsg(ctx, e.cma, "engine heartbeat at: "+e.clock.Now().Format(time.RFC3339), e.logger)
+		}
+	}
+}
+
 func (e *Engine) Close() error {
 	return e.StopOnce("Engine", func() error {
 		e.logger.Info("shutting down engine")
@@ -1037,18 +1079,24 @@ func (e *Engine) Close() error {
 				return nil
 			}
 
-			reg := capabilities.UnregisterFromWorkflowRequest{
-				Metadata: capabilities.RegistrationMetadata{
-					WorkflowID: e.workflow.id,
-				},
-				Config: s.config,
-			}
-
 			// if capability is nil, then we haven't initialized
 			// the workflow yet and can safely consider it deregistered
 			// with no further action.
 			if s.capability == nil {
 				return nil
+			}
+
+			stepConfig, err := e.configForStep(ctx, e.logger, s)
+			if err != nil {
+				return fmt.Errorf("cannot fetch config for step: %w", err)
+			}
+
+			reg := capabilities.UnregisterFromWorkflowRequest{
+				Metadata: capabilities.RegistrationMetadata{
+					WorkflowID:    e.workflow.id,
+					WorkflowOwner: e.workflow.owner,
+				},
+				Config: stepConfig,
 			}
 
 			innerErr := s.capability.UnregisterFromWorkflow(ctx, reg)
@@ -1067,7 +1115,7 @@ func (e *Engine) Close() error {
 		if err != nil {
 			return err
 		}
-
+		logCustMsg(ctx, e.cma, "workflow unregistered", e.logger)
 		return nil
 	})
 }
@@ -1086,6 +1134,8 @@ type Config struct {
 	Store                store.Store
 	Config               []byte
 	Binary               []byte
+	SecretsFetcher       secretsFetcher
+	HeartbeatCadence     time.Duration
 
 	// For testing purposes only
 	maxRetries          int
@@ -1100,9 +1150,10 @@ const (
 	defaultQueueSize            = 100000
 	defaultNewWorkerTimeout     = 2 * time.Second
 	defaultMaxExecutionDuration = 10 * time.Minute
+	defaultHeartbeatCadence     = 5 * time.Minute
 )
 
-func NewEngine(cfg Config) (engine *Engine, err error) {
+func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 	if cfg.Store == nil {
 		return nil, &workflowError{reason: "store is nil",
 			labels: map[string]string{
@@ -1125,6 +1176,10 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 
 	if cfg.MaxExecutionDuration == 0 {
 		cfg.MaxExecutionDuration = defaultMaxExecutionDuration
+	}
+
+	if cfg.HeartbeatCadence == 0 {
+		cfg.HeartbeatCadence = defaultHeartbeatCadence
 	}
 
 	if cfg.retryMs == 0 {
@@ -1151,8 +1206,10 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 	// - that the resulting graph is strongly connected (i.e. no disjointed subgraphs exist)
 	// - etc.
 
+	cma := custmsg.NewLabeler().With(wIDKey, cfg.WorkflowID, woIDKey, cfg.WorkflowOwner, wnKey, cfg.WorkflowName)
 	workflow, err := Parse(cfg.Workflow)
 	if err != nil {
+		logCustMsg(ctx, cma, fmt.Sprintf("failed to parse workflow: %s", err), cfg.Lggr)
 		return nil, err
 	}
 
@@ -1161,11 +1218,12 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 	workflow.name = hex.EncodeToString([]byte(cfg.WorkflowName))
 
 	engine = &Engine{
-		logger:   cfg.Lggr.Named("WorkflowEngine").With("workflowID", cfg.WorkflowID),
-		cma:      monitoring.NewCustomMessageLabeler().With(wIDKey, cfg.WorkflowID, woIDKey, cfg.WorkflowOwner, wnKey, workflow.name),
-		metrics:  workflowsMetricLabeler{monitoring.NewMetricsLabeler().With(wIDKey, cfg.WorkflowID, woIDKey, cfg.WorkflowOwner, wnKey, workflow.name)},
-		registry: cfg.Registry,
-		workflow: workflow,
+		cma:            cma,
+		logger:         cfg.Lggr.Named("WorkflowEngine").With("workflowID", cfg.WorkflowID),
+		metrics:        workflowsMetricLabeler{metrics.NewLabeler().With(wIDKey, cfg.WorkflowID, woIDKey, cfg.WorkflowOwner, wnKey, workflow.name)},
+		registry:       cfg.Registry,
+		workflow:       workflow,
+		secretsFetcher: cfg.SecretsFetcher,
 		env: exec.Env{
 			Config: cfg.Config,
 			Binary: cfg.Binary,
@@ -1177,6 +1235,7 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 		stopCh:               make(chan struct{}),
 		newWorkerTimeout:     cfg.NewWorkerTimeout,
 		maxExecutionDuration: cfg.MaxExecutionDuration,
+		heartbeatCadence:     cfg.HeartbeatCadence,
 		onExecutionFinished:  cfg.onExecutionFinished,
 		afterInit:            cfg.afterInit,
 		maxRetries:           cfg.maxRetries,
@@ -1218,4 +1277,11 @@ func (e *workflowError) Error() string {
 	}
 
 	return errStr
+}
+
+func logCustMsg(ctx context.Context, cma custmsg.MessageEmitter, msg string, log logger.Logger) {
+	err := cma.Emit(ctx, msg)
+	if err != nil {
+		log.Errorf("failed to send custom message with msg: %s, err: %v", msg, err)
+	}
 }

@@ -11,7 +11,7 @@ import {IRMNRemote} from "../interfaces/IRMNRemote.sol";
 import {IRouter} from "../interfaces/IRouter.sol";
 import {ITokenAdminRegistry} from "../interfaces/ITokenAdminRegistry.sol";
 
-import {OwnerIsCreator} from "../../shared/access/OwnerIsCreator.sol";
+import {Ownable2StepMsgSender} from "../../shared/access/Ownable2StepMsgSender.sol";
 import {Client} from "../libraries/Client.sol";
 import {Internal} from "../libraries/Internal.sol";
 import {Pool} from "../libraries/Pool.sol";
@@ -21,10 +21,10 @@ import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/
 import {SafeERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
 import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts/utils/structs/EnumerableSet.sol";
 
-/// @notice The OnRamp is a contract that handles lane-specific fee logic
-/// @dev The OnRamp and OffRamp form an xchain upgradeable unit. Any change to one of them
-/// results in an onchain upgrade of all 3.
-contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
+/// @notice The OnRamp is a contract that handles lane-specific fee logic.
+/// @dev The OnRamp and OffRamp form a cross chain upgradeable unit. Any change to one of them results in an onchain
+/// upgrade of both contracts.
+contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, Ownable2StepMsgSender {
   using SafeERC20 for IERC20;
   using EnumerableSet for EnumerableSet.AddressSet;
   using USDPriceWith18Decimals for uint224;
@@ -34,9 +34,9 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
   error MustBeCalledByRouter();
   error RouterMustSetOriginalSender();
   error InvalidConfig();
-  error CursedByRMN(uint64 sourceChainSelector);
+  error CursedByRMN(uint64 destChainSelector);
   error GetSupportedTokensFunctionalityRemovedCheckAdminRegistry();
-  error InvalidDestChainConfig(uint64 sourceChainSelector);
+  error InvalidDestChainConfig(uint64 destChainSelector);
   error OnlyCallableByOwnerOrAllowlistAdmin();
   error SenderNotAllowed(address sender);
   error InvalidAllowListRequest(uint64 destChainSelector);
@@ -44,87 +44,80 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
 
   event ConfigSet(StaticConfig staticConfig, DynamicConfig dynamicConfig);
   event DestChainConfigSet(
-    uint64 indexed destChainSelector, uint64 sequenceNumber, IRouter router, bool allowListEnabled
+    uint64 indexed destChainSelector, uint64 sequenceNumber, IRouter router, bool allowlistEnabled
   );
   event FeeTokenWithdrawn(address indexed feeAggregator, address indexed feeToken, uint256 amount);
   /// RMN depends on this event, if changing, please notify the RMN maintainers.
   event CCIPMessageSent(
     uint64 indexed destChainSelector, uint64 indexed sequenceNumber, Internal.EVM2AnyRampMessage message
   );
-  event AllowListAdminSet(address indexed allowListAdmin);
+  event AllowListAdminSet(address indexed allowlistAdmin);
   event AllowListSendersAdded(uint64 indexed destChainSelector, address[] senders);
   event AllowListSendersRemoved(uint64 indexed destChainSelector, address[] senders);
 
-  /// @dev Struct that contains the static configuration
+  /// @dev Struct that contains the static configuration.
   /// RMN depends on this struct, if changing, please notify the RMN maintainers.
   // solhint-disable-next-line gas-struct-packing
   struct StaticConfig {
-    uint64 chainSelector; // ─────╮ Source chain selector
-    IRMNRemote rmnRemote; // ─────╯ RMN remote address
-    address nonceManager; // Nonce manager address
-    address tokenAdminRegistry; // Token admin registry address
+    uint64 chainSelector; // ────╮ Source chain selector.
+    IRMNRemote rmnRemote; // ────╯ RMN remote address.
+    address nonceManager; //       Nonce manager address.
+    address tokenAdminRegistry; // Token admin registry address.
   }
 
   /// @dev Struct that contains the dynamic configuration
   // solhint-disable-next-line gas-struct-packing
   struct DynamicConfig {
-    address feeQuoter; // FeeQuoter address
-    bool reentrancyGuardEntered; // Reentrancy protection
-    address messageInterceptor; // Optional message interceptor to validate outbound messages (zero address = no interceptor)
-    address feeAggregator; // Fee aggregator address
-    address allowListAdmin; // authorized admin to add or remove allowed senders
+    address feeQuoter; // FeeQuoter address.
+    bool reentrancyGuardEntered; // Reentrancy protection.
+    address messageInterceptor; // Optional message interceptor to validate messages. Zero address = no interceptor.
+    address feeAggregator; // Fee aggregator address.
+    address allowlistAdmin; // authorized admin to add or remove allowed senders.
   }
 
-  /// @dev Struct to hold the configs for a destination chain
-  /// @dev sequenceNumber, allowListEnabled, router will all be packed in 1 slot
+  /// @dev Struct to hold the configs for a single destination chain.
   struct DestChainConfig {
     // The last used sequence number. This is zero in the case where no messages have yet been sent.
-    // 0 is not a valid sequence number for any real transaction.
-    uint64 sequenceNumber; // ──────╮ The last used sequence number
-    bool allowListEnabled; //       │ boolean indicator to specify if allowList check is enabled
-    IRouter router; // ─────────────╯ Local router address  that is allowed to send messages to the destination chain.
-    // This is the list of addresses allowed to send messages from onRamp
-    EnumerableSet.AddressSet allowedSendersList;
+    // 0 is not a valid sequence number for any real transaction as this value will be incremented before use.
+    uint64 sequenceNumber; // ──╮ The last used sequence number.
+    bool allowlistEnabled; //   │ True if the allowlist is enabled.
+    IRouter router; // ─────────╯ Local router address  that is allowed to send messages to the destination chain.
+    EnumerableSet.AddressSet allowedSendersList; // The list of addresses allowed to send messages.
   }
 
-  /// @dev Same as DestChainConfig but with the destChainSelector so that an array of these
-  /// can be passed in the constructor and the applyDestChainConfigUpdates function
-  //solhint-disable gas-struct-packing
+  /// @dev Same as DestChainConfig but with the destChainSelector so that an array of these can be passed in the
+  /// constructor and the applyDestChainConfigUpdates function.
+  // solhint-disable gas-struct-packing
   struct DestChainConfigArgs {
-    uint64 destChainSelector; // ─╮ Destination chain selector
-    IRouter router; //            │ Source router address
-    bool allowListEnabled; //─────╯ Boolean indicator to specify if allowList check is enabled
+    uint64 destChainSelector; // ─╮ Destination chain selector.
+    IRouter router; //            │ Source router address.
+    bool allowlistEnabled; // ────╯ True if the allowlist is enabled.
   }
 
-  /// @dev Struct used to apply AllowList Senders for multiple destChainSelectors
-  /// @dev the senders in the AllowlistedSenders here is the user that sends the message
-  /// @dev the config restricts the chain to allow only allowedList of senders to send message from this chain to a destChainSelector
-  /// @dev destChainSelector, allowListEnabled will be packed in 1 slot
-  //solhint-disable gas-struct-packing
-  struct AllowListConfigArgs {
-    uint64 destChainSelector; // ─────────────╮ Destination chain selector
-    //                                        │ destChainSelector and allowListEnabled are packed in the same slot
-    bool allowListEnabled; // ────────────────╯ boolean indicator to specify if allowList check is enabled.
-    address[] addedAllowlistedSenders; // list of senders to be added to the allowedSendersList
-    address[] removedAllowlistedSenders; // list of senders to be removed from the allowedSendersList
+  /// @dev Struct to hold the allowlist configuration args per dest chain.
+  struct AllowlistConfigArgs {
+    uint64 destChainSelector; // ──╮ Destination chain selector.
+    bool allowlistEnabled; // ─────╯ True if the allowlist is enabled.
+    address[] addedAllowlistedSenders; // list of senders to be added to the allowedSendersList.
+    address[] removedAllowlistedSenders; // list of senders to be removed from the allowedSendersList.
   }
 
   // STATIC CONFIG
   string public constant override typeAndVersion = "OnRamp 1.6.0-dev";
-  /// @dev The chain ID of the source chain that this contract is deployed to
+  /// @dev The chain ID of the source chain that this contract is deployed to.
   uint64 private immutable i_chainSelector;
-  /// @dev The rmn contract
+  /// @dev The rmn contract.
   IRMNRemote private immutable i_rmnRemote;
-  /// @dev The address of the nonce manager
+  /// @dev The address of the nonce manager.
   address private immutable i_nonceManager;
-  /// @dev The address of the token admin registry
+  /// @dev The address of the token admin registry.
   address private immutable i_tokenAdminRegistry;
 
   // DYNAMIC CONFIG
-  /// @dev The dynamic config for the onRamp
+  /// @dev The dynamic config for the onRamp.
   DynamicConfig private s_dynamicConfig;
 
-  /// @dev The destination chain specific configs
+  /// @dev The destination chain specific configs.
   mapping(uint64 destChainSelector => DestChainConfig destChainConfig) private s_destChainConfigs;
 
   constructor(
@@ -152,9 +145,9 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
   // │                          Messaging                           │
   // ================================================================
 
-  /// @notice Gets the next sequence number to be used in the onRamp
-  /// @param destChainSelector The destination chain selector
-  /// @return nextSequenceNumber The next sequence number to be used
+  /// @notice Gets the next sequence number to be used in the onRamp.
+  /// @param destChainSelector The destination chain selector.
+  /// @return nextSequenceNumber The next sequence number to be used.
   function getExpectedNextSequenceNumber(
     uint64 destChainSelector
   ) external view returns (uint64) {
@@ -168,25 +161,24 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
     uint256 feeTokenAmount,
     address originalSender
   ) external returns (bytes32) {
-    // We rely on a reentrancy guard here due to the untrusted calls performed to the pools
-    // This enables some optimizations by not following the CEI pattern
+    // We rely on a reentrancy guard here due to the untrusted calls performed to the pools. This enables some
+    // optimizations by not following the CEI pattern.
     if (s_dynamicConfig.reentrancyGuardEntered) revert ReentrancyGuardReentrantCall();
-
     s_dynamicConfig.reentrancyGuardEntered = true;
 
     DestChainConfig storage destChainConfig = s_destChainConfigs[destChainSelector];
 
-    // NOTE: assumes the message has already been validated through the getFee call
-    // Validate message sender is set and allowed. Not validated in `getFee` since it is not user-driven.
+    // NOTE: assumes the message has already been validated through the getFee call.
+    // Validate originalSender is set and allowed. Not validated in `getFee` since it is not user-driven.
     if (originalSender == address(0)) revert RouterMustSetOriginalSender();
 
-    if (destChainConfig.allowListEnabled) {
+    if (destChainConfig.allowlistEnabled) {
       if (!destChainConfig.allowedSendersList.contains(originalSender)) {
         revert SenderNotAllowed(originalSender);
       }
     }
 
-    // Router address may be zero intentionally to pause.
+    // Router address may be zero intentionally to pause, which should stop all messages.
     if (msg.sender != address(destChainConfig.router)) revert MustBeCalledByRouter();
 
     {
@@ -199,14 +191,14 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
 
     Internal.EVM2AnyRampMessage memory newMessage = Internal.EVM2AnyRampMessage({
       header: Internal.RampMessageHeader({
-        // Should be generated after the message is complete
+        // Should be generated after the message is complete.
         messageId: "",
         sourceChainSelector: i_chainSelector,
         destChainSelector: destChainSelector,
-        // We need the next available sequence number so we increment before we use the value
+        // We need the next available sequence number so we increment before we use the value.
         sequenceNumber: ++destChainConfig.sequenceNumber,
-        // Only bump nonce for messages that specify allowOutOfOrderExecution == false. Otherwise, we
-        // may block ordered message nonces, which is not what we want.
+        // Only bump nonce for messages that specify allowOutOfOrderExecution == false. Otherwise, we may block ordered
+        // message nonces, which is not what we want.
         nonce: 0
       }),
       sender: originalSender,
@@ -215,8 +207,8 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
       receiver: message.receiver,
       feeToken: message.feeToken,
       feeTokenAmount: feeTokenAmount,
-      feeValueJuels: 0, // calculated later
-      // Should be populated via lock / burn pool calls
+      feeValueJuels: 0, // calculated later.
+      // Should be populated via lock / burn pool calls.
       tokenAmounts: new Internal.EVM2AnyTokenTransfer[](message.tokenAmounts.length)
     });
 
@@ -227,8 +219,8 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
         _lockOrBurnSingleToken(tokenAmounts[i], destChainSelector, message.receiver, originalSender);
     }
 
-    // Convert message fee to juels and retrieve converted args
-    // Validate pool return data after it is populated (view function - no state changes)
+    // Convert message fee to juels and retrieve converted args.
+    // Validate pool return data after it is populated (view function - no state changes).
     bool isOutOfOrderExecution;
     bytes memory convertedExtraArgs;
     bytes[] memory destExecDataPerToken;
@@ -247,15 +239,15 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
       newMessage.tokenAmounts[i].destExecData = destExecDataPerToken[i];
     }
 
-    // Hash only after all fields have been set
+    // Hash only after all fields have been set.
     newMessage.header.messageId = Internal._hash(
       newMessage,
-      // Metadata hash preimage to ensure global uniqueness, ensuring 2 identical messages sent to 2 different
-      // lanes will have a distinct hash.
+      // Metadata hash preimage to ensure global uniqueness, ensuring 2 identical messages sent to 2 different lanes
+      // will have a distinct hash.
       keccak256(abi.encode(Internal.EVM_2_ANY_MESSAGE_HASH, i_chainSelector, destChainSelector, address(this)))
     );
 
-    // Emit message request
+    // Emit message request.
     // This must happen after any pool events as some tokens (e.g. USDC) emit events that we expect to precede this
     // event in the offchain code.
     emit CCIPMessageSent(destChainSelector, newMessage.header.sequenceNumber, newMessage);
@@ -265,12 +257,12 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
     return newMessage.header.messageId;
   }
 
-  /// @notice Uses a pool to lock or burn a token
-  /// @param tokenAndAmount Token address and amount to lock or burn
-  /// @param destChainSelector Target destination chain selector of the message
-  /// @param receiver Message receiver
-  /// @param originalSender Message sender
-  /// @return evm2AnyTokenTransfer EVM2Any token and amount data
+  /// @notice Uses a pool to lock or burn a token.
+  /// @param tokenAndAmount Token address and amount to lock or burn.
+  /// @param destChainSelector Target destination chain selector of the message.
+  /// @param receiver Message receiver.
+  /// @param originalSender Message sender.
+  /// @return evm2AnyTokenTransfer EVM2Any token and amount data.
   function _lockOrBurnSingleToken(
     Client.EVMTokenAmount memory tokenAndAmount,
     uint64 destChainSelector,
@@ -297,13 +289,13 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
       })
     );
 
-    // NOTE: pool data validations are outsourced to the FeeQuoter to handle family-specific logic handling
+    // NOTE: pool data validations are outsourced to the FeeQuoter to handle family-specific logic handling.
     return Internal.EVM2AnyTokenTransfer({
       sourcePoolAddress: address(sourcePool),
       destTokenAddress: poolReturnData.destTokenAddress,
       extraData: poolReturnData.destPoolData,
       amount: tokenAndAmount.amount,
-      destExecData: "" // This is set in the processPoolReturnData function
+      destExecData: "" // This is set in the processPoolReturnData function.
     });
   }
 
@@ -335,15 +327,6 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
     DynamicConfig memory dynamicConfig
   ) external onlyOwner {
     _setDynamicConfig(dynamicConfig);
-  }
-
-  /// @notice Gets the source router for a destination chain
-  /// @param destChainSelector The destination chain selector
-  /// @return router the router for the provided destination chain
-  function getRouter(
-    uint64 destChainSelector
-  ) external view returns (IRouter) {
-    return s_destChainConfigs[destChainSelector].router;
   }
 
   /// @notice Internal version of setDynamicConfig to allow for reuse in the constructor.
@@ -389,84 +372,92 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
       }
 
       DestChainConfig storage destChainConfig = s_destChainConfigs[destChainSelector];
+      // The router can be zero to pause the destination chain
       destChainConfig.router = destChainConfigArg.router;
-      destChainConfig.allowListEnabled = destChainConfigArg.allowListEnabled;
+      destChainConfig.allowlistEnabled = destChainConfigArg.allowlistEnabled;
 
       emit DestChainConfigSet(
-        destChainSelector, destChainConfig.sequenceNumber, destChainConfigArg.router, destChainConfig.allowListEnabled
+        destChainSelector, destChainConfig.sequenceNumber, destChainConfigArg.router, destChainConfig.allowlistEnabled
       );
     }
   }
 
-  /// @notice get ChainConfig configured for the DestinationChainSelector
-  /// @param destChainSelector The destination chain selector
-  /// @return sequenceNumber The last used sequence number
-  /// @return allowListEnabled boolean indicator to specify if allowList check is enabled
-  /// @return router address of the router
+  /// @notice get ChainConfig configured for the DestinationChainSelector.
+  /// @param destChainSelector The destination chain selector.
+  /// @return sequenceNumber The last used sequence number.
+  /// @return allowlistEnabled boolean indicator to specify if allowlist check is enabled.
+  /// @return router address of the router.
   function getDestChainConfig(
     uint64 destChainSelector
-  ) public view returns (uint64 sequenceNumber, bool allowListEnabled, address router) {
+  ) external view returns (uint64 sequenceNumber, bool allowlistEnabled, address router) {
     DestChainConfig storage config = s_destChainConfigs[destChainSelector];
     sequenceNumber = config.sequenceNumber;
-    allowListEnabled = config.allowListEnabled;
+    allowlistEnabled = config.allowlistEnabled;
     router = address(config.router);
-    return (sequenceNumber, allowListEnabled, router);
+    return (sequenceNumber, allowlistEnabled, router);
   }
 
-  /// @notice get allowedSenders List configured for the DestinationChainSelector
-  /// @param destChainSelector The destination chain selector
-  /// @return array of allowedList of Senders
+  /// @notice get allowedSenders List configured for the DestinationChainSelector.
+  /// @param destChainSelector The destination chain selector.
+  /// @return isEnabled True if allowlist is enabled.
+  /// @return configuredAddresses This is always populated with the list of allowed senders, even if the allowlist
+  /// is turned off. This is because the only way to know what addresses are configured is through this function. If
+  /// it would return an empty list when the allowlist is disabled, it would be impossible to know what addresses are
+  /// configured.
   function getAllowedSendersList(
     uint64 destChainSelector
-  ) public view returns (address[] memory) {
-    return s_destChainConfigs[destChainSelector].allowedSendersList.values();
+  ) external view returns (bool isEnabled, address[] memory configuredAddresses) {
+    return (
+      s_destChainConfigs[destChainSelector].allowlistEnabled,
+      s_destChainConfigs[destChainSelector].allowedSendersList.values()
+    );
   }
 
   // ================================================================
   // │                          Allowlist                           │
   // ================================================================
 
-  /// @notice Updates allowListConfig for Senders
-  /// @dev configuration used to set the list of senders who are authorized to send messages
-  /// @param allowListConfigArgsItems Array of AllowListConfigArguments where each item is for a destChainSelector
-  function applyAllowListUpdates(
-    AllowListConfigArgs[] calldata allowListConfigArgsItems
+  /// @notice Updates allowlistConfig for Senders.
+  /// @dev configuration used to set the list of senders who are authorized to send messages.
+  /// @param allowlistConfigArgsItems Array of AllowlistConfigArguments where each item is for a destChainSelector.
+  function applyAllowlistUpdates(
+    AllowlistConfigArgs[] calldata allowlistConfigArgsItems
   ) external {
     if (msg.sender != owner()) {
-      if (msg.sender != s_dynamicConfig.allowListAdmin) {
+      if (msg.sender != s_dynamicConfig.allowlistAdmin) {
         revert OnlyCallableByOwnerOrAllowlistAdmin();
       }
     }
 
-    for (uint256 i = 0; i < allowListConfigArgsItems.length; ++i) {
-      AllowListConfigArgs memory allowListConfigArgs = allowListConfigArgsItems[i];
+    for (uint256 i = 0; i < allowlistConfigArgsItems.length; ++i) {
+      AllowlistConfigArgs memory allowlistConfigArgs = allowlistConfigArgsItems[i];
 
-      DestChainConfig storage destChainConfig = s_destChainConfigs[allowListConfigArgs.destChainSelector];
-      destChainConfig.allowListEnabled = allowListConfigArgs.allowListEnabled;
+      DestChainConfig storage destChainConfig = s_destChainConfigs[allowlistConfigArgs.destChainSelector];
+      destChainConfig.allowlistEnabled = allowlistConfigArgs.allowlistEnabled;
 
-      if (allowListConfigArgs.addedAllowlistedSenders.length > 0) {
-        if (allowListConfigArgs.allowListEnabled) {
-          for (uint256 j = 0; j < allowListConfigArgs.addedAllowlistedSenders.length; ++j) {
-            address toAdd = allowListConfigArgs.addedAllowlistedSenders[j];
+      if (allowlistConfigArgs.addedAllowlistedSenders.length > 0) {
+        if (allowlistConfigArgs.allowlistEnabled) {
+          for (uint256 j = 0; j < allowlistConfigArgs.addedAllowlistedSenders.length; ++j) {
+            address toAdd = allowlistConfigArgs.addedAllowlistedSenders[j];
             if (toAdd == address(0)) {
-              revert InvalidAllowListRequest(allowListConfigArgs.destChainSelector);
+              revert InvalidAllowListRequest(allowlistConfigArgs.destChainSelector);
             }
             destChainConfig.allowedSendersList.add(toAdd);
           }
 
-          emit AllowListSendersAdded(allowListConfigArgs.destChainSelector, allowListConfigArgs.addedAllowlistedSenders);
+          emit AllowListSendersAdded(allowlistConfigArgs.destChainSelector, allowlistConfigArgs.addedAllowlistedSenders);
         } else {
-          revert InvalidAllowListRequest(allowListConfigArgs.destChainSelector);
+          revert InvalidAllowListRequest(allowlistConfigArgs.destChainSelector);
         }
       }
 
-      for (uint256 j = 0; j < allowListConfigArgs.removedAllowlistedSenders.length; ++j) {
-        destChainConfig.allowedSendersList.remove(allowListConfigArgs.removedAllowlistedSenders[j]);
+      for (uint256 j = 0; j < allowlistConfigArgs.removedAllowlistedSenders.length; ++j) {
+        destChainConfig.allowedSendersList.remove(allowlistConfigArgs.removedAllowlistedSenders[j]);
       }
 
-      if (allowListConfigArgs.removedAllowlistedSenders.length > 0) {
+      if (allowlistConfigArgs.removedAllowlistedSenders.length > 0) {
         emit AllowListSendersRemoved(
-          allowListConfigArgs.destChainSelector, allowListConfigArgs.removedAllowlistedSenders
+          allowlistConfigArgs.destChainSelector, allowlistConfigArgs.removedAllowlistedSenders
         );
       }
     }
@@ -483,7 +474,7 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
 
   /// @inheritdoc IEVM2AnyOnRampClient
   function getSupportedTokens(
-    uint64 /*destChainSelector*/
+    uint64 // destChainSelector
   ) external pure returns (address[] memory) {
     revert GetSupportedTokensFunctionalityRemovedCheckAdminRegistry();
   }
@@ -507,9 +498,11 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
   }
 
   /// @notice Withdraws the outstanding fee token balances to the fee aggregator.
-  /// @dev This function can be permissionless as it only transfers accepted fee tokens to the fee aggregator which is a trusted address.
-  function withdrawFeeTokens() external {
-    address[] memory feeTokens = IFeeQuoter(s_dynamicConfig.feeQuoter).getFeeTokens();
+  /// @param feeTokens The fee tokens to withdraw.
+  /// @dev This function can be permissionless as it only transfers tokens to the fee aggregator which is a trusted address.
+  function withdrawFeeTokens(
+    address[] calldata feeTokens
+  ) external {
     address feeAggregator = s_dynamicConfig.feeAggregator;
 
     for (uint256 i = 0; i < feeTokens.length; ++i) {

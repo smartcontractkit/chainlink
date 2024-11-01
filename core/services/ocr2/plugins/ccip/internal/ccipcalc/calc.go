@@ -38,7 +38,7 @@ func BigIntSortedMiddle(vals []*big.Int) *big.Int {
 	}
 
 	valsCopy := make([]*big.Int, len(vals))
-	copy(valsCopy[:], vals[:])
+	copy(valsCopy, vals)
 	sort.Slice(valsCopy, func(i, j int) bool {
 		return valsCopy[i].Cmp(valsCopy[j]) == -1
 	})

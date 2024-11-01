@@ -41,7 +41,7 @@ func TestAdapter_Integration(t *testing.T) {
 	logger := logger.TestLogger(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 	url := cfg.Database().URL()
-	db, err := pg.NewConnection(url.String(), cfg.Database().Dialect(), cfg.Database())
+	db, err := pg.NewConnection(ctx, url.String(), cfg.Database().Dialect(), cfg.Database())
 	require.NoError(t, err)
 
 	keystore := keystore.NewInMemory(db, utils.FastScryptParams, logger)

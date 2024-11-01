@@ -185,6 +185,7 @@ type Job struct {
 	CCIPSpecID                    *int32
 	CCIPSpec                      *CCIPSpec
 	CCIPBootstrapSpecID           *int32
+	AdaptiveSendSpec              *AdaptiveSendSpec `toml:"adaptiveSend"`
 	JobSpecErrors                 []SpecError
 	Type                          Type          `toml:"type"`
 	SchemaVersion                 uint32        `toml:"schemaVersion"`
@@ -882,6 +883,7 @@ type WorkflowSpec struct {
 	SpecType      WorkflowSpecType `toml:"spec_type" db:"spec_type"`
 	sdkWorkflow   *sdk.WorkflowSpec
 	rawSpec       []byte
+	config        []byte
 }
 
 var (
@@ -945,6 +947,25 @@ func (w *WorkflowSpec) RawSpec(ctx context.Context) ([]byte, error) {
 	}
 
 	w.rawSpec = rs
+	return rs, nil
+}
+
+func (w *WorkflowSpec) GetConfig(ctx context.Context) ([]byte, error) {
+	if w.config != nil {
+		return w.config, nil
+	}
+
+	workflowSpecFactory, ok := workflowSpecFactories[w.SpecType]
+	if !ok {
+		return nil, fmt.Errorf("unknown spec type %s", w.SpecType)
+	}
+
+	rs, err := workflowSpecFactory.Config(ctx, w.Config)
+	if err != nil {
+		return nil, err
+	}
+
+	w.config = rs
 	return rs, nil
 }
 
@@ -1039,4 +1060,27 @@ type CCIPSpec struct {
 	// PluginConfig contains plugin-specific config, like token price pipelines
 	// and RMN network info for offchain blessing.
 	PluginConfig JSONConfig `toml:"pluginConfig"`
+}
+
+type AdaptiveSendSpec struct {
+	TransmitterAddress *evmtypes.EIP55Address `toml:"transmitterAddress"`
+	ContractAddress    *evmtypes.EIP55Address `toml:"contractAddress"`
+	Delay              time.Duration          `toml:"delay"`
+	Metadata           JSONConfig             `toml:"metadata"`
+}
+
+func (o *AdaptiveSendSpec) Validate() error {
+	if o.TransmitterAddress == nil {
+		return errors.New("no AdaptiveSendSpec.TransmitterAddress found")
+	}
+
+	if o.ContractAddress == nil {
+		return errors.New("no AdaptiveSendSpec.ContractAddress found")
+	}
+
+	if o.Delay.Seconds() <= 1 {
+		return errors.New("AdaptiveSendSpec.Delay not set or smaller than 1s")
+	}
+
+	return nil
 }

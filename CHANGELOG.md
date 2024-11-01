@@ -50,7 +50,6 @@
   Reduced Generics: Significantly less bulky code!
 
   #updated #changed #internal
-
 - [#14629](https://github.com/smartcontractkit/chainlink/pull/14629) [`4928e60ddf`](https://github.com/smartcontractkit/chainlink/commit/4928e60ddfe375e4a0c644cb210802b4c4db5dbd) Thanks [@huangzhen1997](https://github.com/huangzhen1997)! - Support Zircuit fraud transactions detection and zk overflow detection #added
 - [#14334](https://github.com/smartcontractkit/chainlink/pull/14334) [`0ad624673f`](https://github.com/smartcontractkit/chainlink/commit/0ad624673f6f1a8e155fc43c67a8ae6caddefa90) Thanks [@krehermann](https://github.com/krehermann)! - #added keystone contract deployment
 - [#14709](https://github.com/smartcontractkit/chainlink/pull/14709) [`1560aa9167`](https://github.com/smartcontractkit/chainlink/commit/1560aa9167a812abe3a8370c033b3290dcbcb261) Thanks [@KuphJr](https://github.com/KuphJr)! - Add encryptionPublicKey to CapabilitiesRegistry.sol
@@ -91,12 +90,10 @@
 - [#14693](https://github.com/smartcontractkit/chainlink/pull/14693) [`03df8989e8`](https://github.com/smartcontractkit/chainlink/commit/03df8989e8e7549afb05bb49c765c0c07db8669e) Thanks [@ChrisAmora](https://github.com/ChrisAmora)! - #updated Consume Feeds Manager WSRPC protos from Chainlink Protos Repository.
 - [#14694](https://github.com/smartcontractkit/chainlink/pull/14694) [`e9b3397f46`](https://github.com/smartcontractkit/chainlink/commit/e9b3397f465e26209c8c8ccfed66aa9595f8246b) Thanks [@mateusz-sekara](https://github.com/mateusz-sekara)! - Adjustments for usdc reader tests #internal
 - [#14624](https://github.com/smartcontractkit/chainlink/pull/14624) [`be774f00a9`](https://github.com/smartcontractkit/chainlink/commit/be774f00a961d9a7361d9ae5b10c97996f7ab164) Thanks [@mateusz-sekara](https://github.com/mateusz-sekara)! - Registering USDC/CCTP events in the ChainReader during oracle creation #internal
-- [#14534](https://github.com/smartcontractkit/chainlink/pull/14534) [`de268e98b8`](https://github.com/smartcontractkit/chainlink/commit/de268e98b8d68a284e1260297925b91c5d2411bc) Thanks [@huangzhen1997](https://github.com/huangzhen1997)! - - register polling subscription to avoid subscription leaking when rpc client gets closed.
-
+- [#14534](https://github.com/smartcontractkit/chainlink/pull/14534) [`de268e98b8`](https://github.com/smartcontractkit/chainlink/commit/de268e98b8d68a284e1260297925b91c5d2411bc) Thanks [@huangzhen1997](https://github.com/huangzhen1997)!
+  - register polling subscription to avoid subscription leaking when rpc client gets closed.
   - add a temporary special treatment for SubscribeNewHead before we replace it with SubscribeToHeads. Add a goroutine that forwards new head from poller to caller channel.
-  - fix a deadlock in poller, by using a new lock for subs slice in rpc client.
-    #bugfix
-
+  - fix a deadlock in poller, by using a new lock for subs slice in rpc client. #bugfix
 - [#14656](https://github.com/smartcontractkit/chainlink/pull/14656) [`004a0de233`](https://github.com/smartcontractkit/chainlink/commit/004a0de2337b0312558ae7c045e7fc2fb4a05916) Thanks [@dimkouv](https://github.com/dimkouv)! - #added graceful shutdown for ccip oracles
 - [#14720](https://github.com/smartcontractkit/chainlink/pull/14720) [`4f8c55eb01`](https://github.com/smartcontractkit/chainlink/commit/4f8c55eb01b5823f43f49761344e92dc37ec0114) Thanks [@vyzaldysanchez](https://github.com/vyzaldysanchez)! - #updated Refactors store_db
 - [#14530](https://github.com/smartcontractkit/chainlink/pull/14530) [`2c16f46311`](https://github.com/smartcontractkit/chainlink/commit/2c16f4631184a6e3da7f2f3957173500e2c4837b) Thanks [@Madalosso](https://github.com/Madalosso)! - #updated default config values for FinalityTagEnabled to match CCIP configs

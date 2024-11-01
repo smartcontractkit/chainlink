@@ -44,12 +44,12 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/mockserver"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/reorg"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/networks"
+	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/contracts/laneconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testreporters"
 	testutils "github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/utils"
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
@@ -3646,7 +3646,7 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 		return fmt.Errorf("could not find CL nodes for %s", lane.Dest.Common.ChainClient.GetChainID().String())
 	}
 	bootstrapCommit := clNodes[0]
-	var bootstrapExec *client.CLNodesWithKeys
+	var bootstrapExec *nodeclient.CLNodesWithKeys
 	commitNodes := clNodes[env.CommitNodeStartIndex : env.CommitNodeStartIndex+env.NumOfCommitNodes]
 	execNodes := clNodes[env.ExecNodeStartIndex : env.ExecNodeStartIndex+env.NumOfExecNodes]
 	if !commitAndExecOnSameDON {
@@ -3728,15 +3728,15 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 	}
 
 	bootstrapCommitP2PId := bootstrapCommit.KeysBundle.P2PKeys.Data[0].Attributes.PeerID
-	var p2pBootstrappersExec, p2pBootstrappersCommit *client.P2PData
+	var p2pBootstrappersExec, p2pBootstrappersCommit *nodeclient.P2PData
 	if bootstrapExec != nil {
-		p2pBootstrappersExec = &client.P2PData{
+		p2pBootstrappersExec = &nodeclient.P2PData{
 			InternalIP: bootstrapExec.Node.InternalIP(),
 			PeerID:     bootstrapExec.KeysBundle.P2PKeys.Data[0].Attributes.PeerID,
 		}
 	}
 
-	p2pBootstrappersCommit = &client.P2PData{
+	p2pBootstrappersCommit = &nodeclient.P2PData{
 		InternalIP: bootstrapCommit.Node.InternalIP(),
 		PeerID:     bootstrapCommitP2PId,
 	}
@@ -3779,7 +3779,7 @@ func SetOCR2Config(
 	lggr *zerolog.Logger,
 	testConf testconfig.CCIPTestGroupConfig,
 	commitNodes,
-	execNodes []*client.CLNodesWithKeys,
+	execNodes []*nodeclient.CLNodesWithKeys,
 	destCCIP DestCCIPModule,
 	priceReportingDisabled bool,
 ) error {
@@ -3894,8 +3894,8 @@ func SetOCR2Config(
 
 func CreateBootstrapJob(
 	jobParams integrationtesthelpers.CCIPJobSpecParams,
-	bootstrapCommit *client.CLNodesWithKeys,
-	bootstrapExec *client.CLNodesWithKeys,
+	bootstrapCommit *nodeclient.CLNodesWithKeys,
+	bootstrapExec *nodeclient.CLNodesWithKeys,
 ) error {
 	_, err := bootstrapCommit.Node.MustCreateJob(jobParams.BootstrapJob(jobParams.CommitStore.Hex()))
 	if err != nil {
@@ -3913,7 +3913,7 @@ func CreateBootstrapJob(
 func CreateOCR2CCIPCommitJobs(
 	lggr *zerolog.Logger,
 	jobParams integrationtesthelpers.CCIPJobSpecParams,
-	commitNodes []*client.CLNodesWithKeys,
+	commitNodes []*nodeclient.CLNodesWithKeys,
 	mutexes []*sync.Mutex,
 	group *errgroup.Group,
 ) error {
@@ -3921,7 +3921,7 @@ func CreateOCR2CCIPCommitJobs(
 	if err != nil {
 		return fmt.Errorf("failed to create ocr2 commit job spec: %w", err)
 	}
-	createJob := func(index int, node *client.CLNodesWithKeys, ocr2SpecCommit client.OCR2TaskJobSpec, mu *sync.Mutex) error {
+	createJob := func(index int, node *nodeclient.CLNodesWithKeys, ocr2SpecCommit nodeclient.OCR2TaskJobSpec, mu *sync.Mutex) error {
 		mu.Lock()
 		defer mu.Unlock()
 		ocr2SpecCommit.OCR2OracleSpec.OCRKeyBundleID.SetValid(node.KeysBundle.OCR2Key.Data.ID)
@@ -3934,7 +3934,7 @@ func CreateOCR2CCIPCommitJobs(
 		return nil
 	}
 
-	testSpec := client.OCR2TaskJobSpec{
+	testSpec := nodeclient.OCR2TaskJobSpec{
 		Name:           ocr2SpecCommit.Name,
 		JobType:        ocr2SpecCommit.JobType,
 		OCR2OracleSpec: ocr2SpecCommit.OCR2OracleSpec,
@@ -3952,7 +3952,7 @@ func CreateOCR2CCIPCommitJobs(
 func CreateOCR2CCIPExecutionJobs(
 	lggr *zerolog.Logger,
 	jobParams integrationtesthelpers.CCIPJobSpecParams,
-	execNodes []*client.CLNodesWithKeys,
+	execNodes []*nodeclient.CLNodesWithKeys,
 	mutexes []*sync.Mutex,
 	group *errgroup.Group,
 ) error {
@@ -3960,7 +3960,7 @@ func CreateOCR2CCIPExecutionJobs(
 	if err != nil {
 		return fmt.Errorf("failed to create ocr2 execution job spec: %w", err)
 	}
-	createJob := func(index int, node *client.CLNodesWithKeys, ocr2SpecExec client.OCR2TaskJobSpec, mu *sync.Mutex) error {
+	createJob := func(index int, node *nodeclient.CLNodesWithKeys, ocr2SpecExec nodeclient.OCR2TaskJobSpec, mu *sync.Mutex) error {
 		mu.Lock()
 		defer mu.Unlock()
 		ocr2SpecExec.OCR2OracleSpec.OCRKeyBundleID.SetValid(node.KeysBundle.OCR2Key.Data.ID)
@@ -3978,7 +3978,7 @@ func CreateOCR2CCIPExecutionJobs(
 			node := node
 			i := i
 			group.Go(func() error {
-				return createJob(i, node, client.OCR2TaskJobSpec{
+				return createJob(i, node, nodeclient.OCR2TaskJobSpec{
 					Name:              ocr2SpecExec.Name,
 					JobType:           ocr2SpecExec.JobType,
 					MaxTaskDuration:   ocr2SpecExec.MaxTaskDuration,
@@ -4014,8 +4014,8 @@ merge [type=merge left="{}" right="{%s}"];`, source, right)
 type CCIPTestEnv struct {
 	MockServer               *ctfClient.MockserverClient
 	LocalCluster             *test_env.CLClusterTestEnv
-	CLNodesWithKeys          map[string][]*client.CLNodesWithKeys // key - network chain-id
-	CLNodes                  []*client.ChainlinkK8sClient
+	CLNodesWithKeys          map[string][]*nodeclient.CLNodesWithKeys // key - network chain-id
+	CLNodes                  []*nodeclient.ChainlinkK8sClient
 	nodeMutexes              []*sync.Mutex
 	ExecNodeStartIndex       int
 	CommitNodeStartIndex     int
@@ -4109,7 +4109,7 @@ func (c *CCIPTestEnv) ConnectToExistingNodes(envConfig *testconfig.Common) error
 		if cfg == nil {
 			return fmt.Errorf("node %d config is nil", i+1)
 		}
-		clClient, err := client.NewChainlinkK8sClient(cfg, cfg.InternalIP, namespace)
+		clClient, err := nodeclient.NewChainlinkK8sClient(cfg, cfg.InternalIP, namespace)
 		if err != nil {
 			return fmt.Errorf("failed to create chainlink client: %w for node %d config %v", err, i+1, cfg)
 		}
@@ -4125,14 +4125,14 @@ func (c *CCIPTestEnv) ConnectToDeployedNodes() error {
 		// for local cluster, fetch the values from the local cluster
 		for _, chainlinkNode := range c.LocalCluster.ClCluster.Nodes {
 			c.nodeMutexes = append(c.nodeMutexes, &sync.Mutex{})
-			c.CLNodes = append(c.CLNodes, &client.ChainlinkK8sClient{
+			c.CLNodes = append(c.CLNodes, &nodeclient.ChainlinkK8sClient{
 				ChainlinkClient: chainlinkNode.API,
 			})
 		}
 	} else {
 		// in case of k8s, we need to connect to the chainlink nodes
 		log.Info().Msg("Connecting to launched resources")
-		chainlinkK8sNodes, err := client.ConnectChainlinkNodes(c.K8Env)
+		chainlinkK8sNodes, err := nodeclient.ConnectChainlinkNodes(c.K8Env)
 		if err != nil {
 			return fmt.Errorf("failed to connect to chainlink nodes: %w", err)
 		}
@@ -4160,15 +4160,15 @@ func (c *CCIPTestEnv) SetUpNodeKeysAndFund(
 	if c.CLNodes == nil || len(c.CLNodes) == 0 {
 		return fmt.Errorf("no chainlink nodes to setup")
 	}
-	var chainlinkNodes []*client.ChainlinkClient
+	var chainlinkNodes []*nodeclient.ChainlinkClient
 	for _, node := range c.CLNodes {
 		chainlinkNodes = append(chainlinkNodes, node.ChainlinkClient)
 	}
-	nodesWithKeys := make(map[string][]*client.CLNodesWithKeys)
+	nodesWithKeys := make(map[string][]*nodeclient.CLNodesWithKeys)
 
 	populateKeys := func(chain blockchain.EVMClient) error {
 		log.Info().Str("chain id", chain.GetChainID().String()).Msg("creating node keys for chain")
-		_, clNodes, err := client.CreateNodeKeysBundle(chainlinkNodes, "evm", chain.GetChainID().String())
+		_, clNodes, err := nodeclient.CreateNodeKeysBundle(chainlinkNodes, "evm", chain.GetChainID().String())
 		if err != nil {
 			return fmt.Errorf("failed to create node keys for chain %s: %w", chain.GetChainID().String(), err)
 		}

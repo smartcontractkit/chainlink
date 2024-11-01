@@ -245,7 +245,7 @@ func TestCorrectEndpointRouting(t *testing.T) {
 			client:  clientMock,
 		}
 	}
-	//Unknown networks or chainID
+	// Unknown networks or chainID
 	noopEndpoint := tm.GenMonitoringEndpoint("unknown-network", "unknown-chainID", "some-contractID", "some-type")
 	require.Equal(t, "*telemetry.NoopAgent", reflect.TypeOf(noopEndpoint).String())
 	require.Equal(t, 1, obsLogs.Len())
@@ -261,7 +261,7 @@ func TestCorrectEndpointRouting(t *testing.T) {
 	require.Equal(t, 1, obsLogs.Len())
 	require.Contains(t, obsLogs.TakeAll()[0].Message, "no telemetry endpoint found")
 
-	//Known networks and chainID
+	// Known networks and chainID
 	for i, e := range testEndpoints {
 		telemType := fmt.Sprintf("TelemType_%s", e.chainID)
 		contractID := fmt.Sprintf("contractID_%s", e.chainID)

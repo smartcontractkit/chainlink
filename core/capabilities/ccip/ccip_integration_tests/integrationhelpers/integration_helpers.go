@@ -379,7 +379,7 @@ func GenerateRMNHomeConfigs(
 	offchainPK string,
 	offchainCfg string,
 	chainSelector uint64,
-	minObservers uint64,
+	f uint64,
 	observerBitmap *big.Int) (rmn_home.RMNHomeStaticConfig, rmn_home.RMNHomeDynamicConfig, error) {
 	peerIDByte, _ := hex.DecodeString(peerID)
 	var peerIDBytes [32]byte
@@ -408,7 +408,7 @@ func GenerateRMNHomeConfigs(
 		SourceChains: []rmn_home.RMNHomeSourceChain{
 			{
 				ChainSelector:       chainSelector,
-				MinObservers:        minObservers,
+				F:                   f,
 				ObserverNodesBitmap: observerBitmap,
 			},
 		},

@@ -9,8 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -41,7 +39,7 @@ var randomCommitReport = func() cciptypes.CommitPluginReport {
 		PriceUpdates: cciptypes.PriceUpdates{
 			TokenPriceUpdates: []cciptypes.TokenPrice{
 				{
-					TokenID: types.Account(utils.RandomAddress().String()),
+					TokenID: cciptypes.UnknownEncodedAddress(utils.RandomAddress().String()),
 					Price:   cciptypes.NewBigInt(utils.RandUint256()),
 				},
 			},
@@ -55,7 +53,6 @@ var randomCommitReport = func() cciptypes.CommitPluginReport {
 			{R: utils.RandomBytes32(), S: utils.RandomBytes32()},
 			{R: utils.RandomBytes32(), S: utils.RandomBytes32()},
 		},
-		RMNRawVs: cciptypes.NewBigInt(utils.RandUint256()),
 	}
 }
 

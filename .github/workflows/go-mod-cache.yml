@@ -1,0 +1,43 @@
+name: Go Module Cache
+
+# This workflow is responsible for updating the Go Module Cache.
+# It will maintain the cache: linux-gomod-1-<hash>
+# All other workflows should only restore this cache.
+
+# This workflow is useful because it will:
+# 1. Create the cache if it doesn't exist
+#   - This can be a problem when multiple jobs load the same cache.
+#     Only one will get priority to create the cache.
+# 2. Should not fail, therefore creating a cache
+#   - When a Job errors/fails it will not upload a new cache.
+#     So when test/build jobs are responsible for creating the new cache,
+#     they can fail causing cache misses on subsequent runs. Even though
+#     the dependencies haven't changed.
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches:
+      - develop
+  pull_request:
+
+jobs:
+  go-cache:
+    name: Go Cache
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v4.2.1
+
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+        with:
+          only-modules: "true"
+          restore-module-cache-only: "false"
+      
+      - name: Install Dependencies
+        shell: bash
+        run:  go mod download all

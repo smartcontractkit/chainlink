@@ -8,36 +8,36 @@ import {INonceManager} from "./interfaces/INonceManager.sol";
 import {AuthorizedCallers} from "../shared/access/AuthorizedCallers.sol";
 
 /// @title NonceManager
-/// @notice NonceManager contract that manages sender nonces for the on/off ramps
+/// @notice NonceManager contract that manages sender nonces for the on/off ramps.
 contract NonceManager is INonceManager, AuthorizedCallers, ITypeAndVersion {
   error PreviousRampAlreadySet();
 
   event PreviousRampsUpdated(uint64 indexed remoteChainSelector, PreviousRamps prevRamp);
   event SkippedIncorrectNonce(uint64 sourceChainSelector, uint64 nonce, bytes sender);
 
-  /// @dev Struct that contains the previous on/off ramp addresses
+  /// @dev Struct that contains the previous on/off ramp addresses.
   struct PreviousRamps {
-    address prevOnRamp; // Previous onRamp
-    address prevOffRamp; // Previous offRamp
+    address prevOnRamp; // Previous onRamp.
+    address prevOffRamp; // Previous offRamp.
   }
 
-  /// @dev Struct that contains the chain selector and the previous on/off ramps, same as PreviousRamps but with the chain selector
-  /// so that an array of these can be passed to the applyPreviousRampsUpdates function
+  /// @dev Struct with the chain selector and the previous on/off ramps, same as PreviousRamps but with the chain
+  /// selector so that an array of these can be passed to the applyPreviousRampsUpdates function.
   struct PreviousRampsArgs {
-    uint64 remoteChainSelector; // ──╮ Chain selector
-    bool overrideExistingRamps; // ──╯ Whether to override existing ramps
-    PreviousRamps prevRamps; // Previous on/off ramps
+    uint64 remoteChainSelector; // ──╮ Chain selector.
+    bool overrideExistingRamps; // ──╯ Whether to override existing ramps.
+    PreviousRamps prevRamps; // Previous on/off ramps.
   }
 
   string public constant override typeAndVersion = "NonceManager 1.6.0-dev";
 
-  /// @dev The previous on/off ramps per chain selector
+  /// @dev The previous on/off ramps per chain selector.
   mapping(uint64 chainSelector => PreviousRamps previousRamps) private s_previousRamps;
-  /// @dev The current outbound nonce per sender used on the onramp
+  /// @dev The current outbound nonce per sender used on the onramp.
   mapping(uint64 destChainSelector => mapping(address sender => uint64 outboundNonce)) private s_outboundNonces;
-  /// @dev The current inbound nonce per sender used on the offramp
-  /// Eventually in sync with the outbound nonce in the remote source chain NonceManager, used to enforce that messages are
-  /// executed in the same order they are sent (assuming they are DON)
+  /// @dev The current inbound nonce per sender used on the offramp.
+  /// Eventually in sync with the outbound nonce in the remote source chain NonceManager, used to enforce that messages
+  /// are executed in the same order they are sent (assuming they are DON).
   mapping(uint64 sourceChainSelector => mapping(bytes sender => uint64 inboundNonce)) private s_inboundNonces;
 
   constructor(
@@ -88,7 +88,7 @@ contract NonceManager is INonceManager, AuthorizedCallers, ITypeAndVersion {
 
     if (inboundNonce != expectedNonce) {
       // If the nonce is not the expected one, this means that there are still messages in flight so we skip
-      // the nonce increment
+      // the nonce increment.
       emit SkippedIncorrectNonce(sourceChainSelector, expectedNonce, sender);
       return false;
     }
@@ -109,14 +109,14 @@ contract NonceManager is INonceManager, AuthorizedCallers, ITypeAndVersion {
   function _getInboundNonce(uint64 sourceChainSelector, bytes calldata sender) private view returns (uint64) {
     uint64 inboundNonce = s_inboundNonces[sourceChainSelector][sender];
 
-    // When introducing the NonceManager with existing lanes, we still want to have sequential nonces.
-    // Referencing the old offRamp to check the expected nonce if none is set for a
-    // given sender allows us to skip the current message in the current offRamp if it would not be the next according
-    // to the old offRamp. This preserves sequencing between updates.
+    // When introducing the NonceManager with existing lanes, we still want to have sequential nonces. Referencing the
+    // old offRamp to check the expected nonce if none is set for a given sender allows us to skip the current message
+    // in the current offRamp if it would not be the next according to the old offRamp. This preserves sequencing
+    // between updates.
     if (inboundNonce == 0) {
       address prevOffRamp = s_previousRamps[sourceChainSelector].prevOffRamp;
       if (prevOffRamp != address(0)) {
-        // We only expect EVM previous offRamps here so we can safely decode the sender
+        // We only expect EVM previous offRamps here so we can safely decode the sender.
         return IEVM2AnyOnRamp(prevOffRamp).getSenderNonce(abi.decode(sender, (address)));
       }
     }
@@ -136,7 +136,7 @@ contract NonceManager is INonceManager, AuthorizedCallers, ITypeAndVersion {
 
       // If the previous ramps are already set then they should not be updated.
       // In versions prior to the introduction of the NonceManager contract, nonces were tracked in the on/off ramps.
-      // This config does a 1-time migration to move the nonce from on/off ramps into NonceManager
+      // This config does a 1-time migration to move the nonce from on/off ramps into NonceManager.
       if (prevRamps.prevOnRamp != address(0) || prevRamps.prevOffRamp != address(0)) {
         // We do allow explicit overrides as an escape hatch in the case of a misconfiguration.
         if (!previousRampsArg.overrideExistingRamps) {
@@ -151,9 +151,9 @@ contract NonceManager is INonceManager, AuthorizedCallers, ITypeAndVersion {
     }
   }
 
-  /// @notice Gets the previous onRamp address for the given chain selector
-  /// @param chainSelector The chain selector
-  /// @return previousRamps The previous on/offRamp addresses
+  /// @notice Gets the previous onRamp address for the given chain selector.
+  /// @param chainSelector The chain selector.
+  /// @return previousRamps The previous on/offRamp addresses.
   function getPreviousRamps(
     uint64 chainSelector
   ) external view returns (PreviousRamps memory) {

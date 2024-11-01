@@ -6,24 +6,24 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
-	ccdeploy "github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip"
-	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment"
+	ccdeploy "github.com/smartcontractkit/chainlink/deployment/ccip"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
-
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestInitialDeployOnLocal(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := ccdeploy.Context(t)
-	tenv, _, _ := ccdeploy.NewLocalDevEnvironment(t, lggr)
+	tenv, _, _ := testsetups.NewLocalDevEnvironment(t, lggr)
 	e := tenv.Env
 
 	state, err := ccdeploy.LoadOnchainState(tenv.Env, tenv.Ab)
@@ -33,23 +33,23 @@ func TestInitialDeployOnLocal(t *testing.T) {
 	tokenConfig := ccdeploy.NewTokenConfig()
 	tokenConfig.UpsertTokenInfo(ccdeploy.LinkSymbol,
 		pluginconfig.TokenInfo{
-			AggregatorAddress: feeds[ccdeploy.LinkSymbol].Address().String(),
+			AggregatorAddress: cciptypes.UnknownEncodedAddress(feeds[ccdeploy.LinkSymbol].Address().String()),
 			Decimals:          ccdeploy.LinkDecimals,
 			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
 		},
 	)
 	// Apply migration
-	output, err := changeset.InitialDeployChangeSet(tenv.Ab, tenv.Env, ccdeploy.DeployCCIPContractConfig{
-		HomeChainSel:       tenv.HomeChainSel,
-		FeedChainSel:       tenv.FeedChainSel,
-		ChainsToDeploy:     tenv.Env.AllChainSelectors(),
-		TokenConfig:        tokenConfig,
-		MCMSConfig:         ccdeploy.NewTestMCMSConfig(t, e),
-		CapabilityRegistry: state.Chains[tenv.HomeChainSel].CapabilityRegistry.Address(),
-		FeeTokenContracts:  tenv.FeeTokenContracts,
-		OCRSecrets:         deployment.XXXGenerateTestOCRSecrets(),
+	output, err := changeset.InitialDeploy(tenv.Env, ccdeploy.DeployCCIPContractConfig{
+		HomeChainSel:        tenv.HomeChainSel,
+		FeedChainSel:        tenv.FeedChainSel,
+		ChainsToDeploy:      tenv.Env.AllChainSelectors(),
+		TokenConfig:         tokenConfig,
+		MCMSConfig:          ccdeploy.NewTestMCMSConfig(t, e),
+		ExistingAddressBook: tenv.Ab,
+		OCRSecrets:          deployment.XXXGenerateTestOCRSecrets(),
 	})
 	require.NoError(t, err)
+	require.NoError(t, tenv.Ab.Merge(output.AddressBook))
 	// Get new state after migration.
 	state, err = ccdeploy.LoadOnchainState(e, tenv.Ab)
 	require.NoError(t, err)
@@ -85,7 +85,7 @@ func TestInitialDeployOnLocal(t *testing.T) {
 			require.NoError(t, err)
 			block := latesthdr.Number.Uint64()
 			startBlocks[dest] = &block
-			seqNum := ccdeploy.SendRequest(t, e, state, src, dest, false)
+			seqNum := ccdeploy.TestSendRequest(t, e, state, src, dest, false)
 			expectedSeqNum[dest] = seqNum
 		}
 	}

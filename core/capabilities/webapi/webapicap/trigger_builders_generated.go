@@ -22,7 +22,17 @@ func (cfg TriggerConfig) New(w *sdk.WorkflowSpecFactory) TriggerRequestPayloadCa
 	}
 
 	step := sdk.Step[TriggerRequestPayload]{Definition: def}
-	return TriggerRequestPayloadCapFromStep(w, step)
+	raw := step.AddTo(w)
+	return TriggerRequestPayloadWrapper(raw)
+}
+
+// RateLimiterConfigWrapper allows access to field from an sdk.CapDefinition[RateLimiterConfig]
+func RateLimiterConfigWrapper(raw sdk.CapDefinition[RateLimiterConfig]) RateLimiterConfigCap {
+	wrapped, ok := raw.(RateLimiterConfigCap)
+	if ok {
+		return wrapped
+	}
+	return &rateLimiterConfigCap{CapDefinition: raw}
 }
 
 type RateLimiterConfigCap interface {
@@ -34,28 +44,26 @@ type RateLimiterConfigCap interface {
 	private()
 }
 
-// RateLimiterConfigCapFromStep should only be called from generated code to assure type safety
-func RateLimiterConfigCapFromStep(w *sdk.WorkflowSpecFactory, step sdk.Step[RateLimiterConfig]) RateLimiterConfigCap {
-	raw := step.AddTo(w)
-	return &rateLimiterConfig{CapDefinition: raw}
-}
-
-type rateLimiterConfig struct {
+type rateLimiterConfigCap struct {
 	sdk.CapDefinition[RateLimiterConfig]
 }
 
-func (*rateLimiterConfig) private() {}
-func (c *rateLimiterConfig) GlobalBurst() sdk.CapDefinition[int64] {
+func (*rateLimiterConfigCap) private() {}
+func (c *rateLimiterConfigCap) GlobalBurst() sdk.CapDefinition[int64] {
 	return sdk.AccessField[RateLimiterConfig, int64](c.CapDefinition, "globalBurst")
 }
-func (c *rateLimiterConfig) GlobalRPS() sdk.CapDefinition[float64] {
+func (c *rateLimiterConfigCap) GlobalRPS() sdk.CapDefinition[float64] {
 	return sdk.AccessField[RateLimiterConfig, float64](c.CapDefinition, "globalRPS")
 }
-func (c *rateLimiterConfig) PerSenderBurst() sdk.CapDefinition[int64] {
+func (c *rateLimiterConfigCap) PerSenderBurst() sdk.CapDefinition[int64] {
 	return sdk.AccessField[RateLimiterConfig, int64](c.CapDefinition, "perSenderBurst")
 }
-func (c *rateLimiterConfig) PerSenderRPS() sdk.CapDefinition[float64] {
+func (c *rateLimiterConfigCap) PerSenderRPS() sdk.CapDefinition[float64] {
 	return sdk.AccessField[RateLimiterConfig, float64](c.CapDefinition, "perSenderRPS")
+}
+
+func ConstantRateLimiterConfig(value RateLimiterConfig) RateLimiterConfigCap {
+	return &rateLimiterConfigCap{CapDefinition: sdk.ConstantDefinition(value)}
 }
 
 func NewRateLimiterConfigFromFields(
@@ -100,6 +108,15 @@ func (c *simpleRateLimiterConfig) PerSenderRPS() sdk.CapDefinition[float64] {
 
 func (c *simpleRateLimiterConfig) private() {}
 
+// TriggerRequestPayloadWrapper allows access to field from an sdk.CapDefinition[TriggerRequestPayload]
+func TriggerRequestPayloadWrapper(raw sdk.CapDefinition[TriggerRequestPayload]) TriggerRequestPayloadCap {
+	wrapped, ok := raw.(TriggerRequestPayloadCap)
+	if ok {
+		return wrapped
+	}
+	return &triggerRequestPayloadCap{CapDefinition: raw}
+}
+
 type TriggerRequestPayloadCap interface {
 	sdk.CapDefinition[TriggerRequestPayload]
 	Params() TriggerRequestPayloadParamsCap
@@ -110,31 +127,29 @@ type TriggerRequestPayloadCap interface {
 	private()
 }
 
-// TriggerRequestPayloadCapFromStep should only be called from generated code to assure type safety
-func TriggerRequestPayloadCapFromStep(w *sdk.WorkflowSpecFactory, step sdk.Step[TriggerRequestPayload]) TriggerRequestPayloadCap {
-	raw := step.AddTo(w)
-	return &triggerRequestPayload{CapDefinition: raw}
-}
-
-type triggerRequestPayload struct {
+type triggerRequestPayloadCap struct {
 	sdk.CapDefinition[TriggerRequestPayload]
 }
 
-func (*triggerRequestPayload) private() {}
-func (c *triggerRequestPayload) Params() TriggerRequestPayloadParamsCap {
-	return TriggerRequestPayloadParamsCap(sdk.AccessField[TriggerRequestPayload, TriggerRequestPayloadParams](c.CapDefinition, "params"))
+func (*triggerRequestPayloadCap) private() {}
+func (c *triggerRequestPayloadCap) Params() TriggerRequestPayloadParamsCap {
+	return TriggerRequestPayloadParamsWrapper(sdk.AccessField[TriggerRequestPayload, TriggerRequestPayloadParams](c.CapDefinition, "params"))
 }
-func (c *triggerRequestPayload) Timestamp() sdk.CapDefinition[int64] {
+func (c *triggerRequestPayloadCap) Timestamp() sdk.CapDefinition[int64] {
 	return sdk.AccessField[TriggerRequestPayload, int64](c.CapDefinition, "timestamp")
 }
-func (c *triggerRequestPayload) Topics() sdk.CapDefinition[[]string] {
+func (c *triggerRequestPayloadCap) Topics() sdk.CapDefinition[[]string] {
 	return sdk.AccessField[TriggerRequestPayload, []string](c.CapDefinition, "topics")
 }
-func (c *triggerRequestPayload) TriggerEventId() sdk.CapDefinition[string] {
+func (c *triggerRequestPayloadCap) TriggerEventId() sdk.CapDefinition[string] {
 	return sdk.AccessField[TriggerRequestPayload, string](c.CapDefinition, "trigger_event_id")
 }
-func (c *triggerRequestPayload) TriggerId() sdk.CapDefinition[string] {
+func (c *triggerRequestPayloadCap) TriggerId() sdk.CapDefinition[string] {
 	return sdk.AccessField[TriggerRequestPayload, string](c.CapDefinition, "trigger_id")
+}
+
+func ConstantTriggerRequestPayload(value TriggerRequestPayload) TriggerRequestPayloadCap {
+	return &triggerRequestPayloadCap{CapDefinition: sdk.ConstantDefinition(value)}
 }
 
 func NewTriggerRequestPayloadFromFields(
@@ -185,5 +200,14 @@ func (c *simpleTriggerRequestPayload) TriggerId() sdk.CapDefinition[string] {
 }
 
 func (c *simpleTriggerRequestPayload) private() {}
+
+// TriggerRequestPayloadParamsWrapper allows access to field from an sdk.CapDefinition[TriggerRequestPayloadParams]
+func TriggerRequestPayloadParamsWrapper(raw sdk.CapDefinition[TriggerRequestPayloadParams]) TriggerRequestPayloadParamsCap {
+	wrapped, ok := raw.(TriggerRequestPayloadParamsCap)
+	if ok {
+		return wrapped
+	}
+	return TriggerRequestPayloadParamsCap(raw)
+}
 
 type TriggerRequestPayloadParamsCap sdk.CapDefinition[TriggerRequestPayloadParams]

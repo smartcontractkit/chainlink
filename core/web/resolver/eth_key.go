@@ -6,9 +6,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/graph-gophers/graphql-go"
 
+	commonTypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/web/loader"
 )
 
@@ -37,7 +40,8 @@ func NewETHKeys(keys []ETHKey) []*ETHKeyResolver {
 }
 
 func (r *ETHKeyResolver) Chain(ctx context.Context) (*ChainResolver, error) {
-	chain, err := loader.GetChainByID(ctx, r.key.state.EVMChainID.String())
+	relayID := commonTypes.NewRelayID(relay.NetworkEVM, r.key.state.EVMChainID.String())
+	chain, err := loader.GetChainByRelayID(ctx, relayID.Name())
 	if err != nil {
 		return nil, err
 	}

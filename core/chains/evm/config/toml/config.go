@@ -314,8 +314,13 @@ func (c *EVMConfig) ValidateConfig() (err error) {
 	} else {
 		var hasPrimary bool
 		var logBroadcasterEnabled bool
+		var newHeadsPollingInterval commonconfig.Duration
 		if c.LogBroadcasterEnabled != nil {
 			logBroadcasterEnabled = *c.LogBroadcasterEnabled
+		}
+
+		if c.NodePool.NewHeadsPollInterval != nil {
+			newHeadsPollingInterval = *c.NodePool.NewHeadsPollInterval
 		}
 
 		for i, n := range c.Nodes {
@@ -325,9 +330,15 @@ func (c *EVMConfig) ValidateConfig() (err error) {
 
 			hasPrimary = true
 
-			// if the node is a primary node, then the WS URL is required when LogBroadcaster is enabled
-			if logBroadcasterEnabled && (n.WSURL == nil || n.WSURL.IsZero()) {
-				err = multierr.Append(err, commonconfig.ErrMissing{Name: "Nodes", Msg: fmt.Sprintf("%vth node (primary) must have a valid WSURL when LogBroadcaster is enabled", i)})
+			// if the node is a primary node, then the WS URL is required when
+			//	1. LogBroadcaster is enabled
+			//	2. The http polling is disabled (newHeadsPollingInterval == 0)
+			if n.WSURL == nil || n.WSURL.IsZero() {
+				if logBroadcasterEnabled {
+					err = multierr.Append(err, commonconfig.ErrMissing{Name: "Nodes", Msg: fmt.Sprintf("%vth node (primary) must have a valid WSURL when LogBroadcaster is enabled", i)})
+				} else if newHeadsPollingInterval.Duration() == 0 {
+					err = multierr.Append(err, commonconfig.ErrMissing{Name: "Nodes", Msg: fmt.Sprintf("%vth node (primary) must have a valid WSURL when http polling is disabled", i)})
+				}
 			}
 		}
 
@@ -767,9 +778,10 @@ type DAOracle struct {
 type DAOracleType string
 
 const (
-	DAOracleOPStack  = DAOracleType("opstack")
-	DAOracleArbitrum = DAOracleType("arbitrum")
-	DAOracleZKSync   = DAOracleType("zksync")
+	DAOracleOPStack        = DAOracleType("opstack")
+	DAOracleArbitrum       = DAOracleType("arbitrum")
+	DAOracleZKSync         = DAOracleType("zksync")
+	DAOracleCustomCalldata = DAOracleType("custom_calldata")
 )
 
 func (o *DAOracle) ValidateConfig() (err error) {
@@ -779,13 +791,21 @@ func (o *DAOracle) ValidateConfig() (err error) {
 				err = multierr.Append(err, commonconfig.ErrMissing{Name: "OracleAddress", Msg: "required for 'opstack' oracle types"})
 			}
 		}
+		if *o.OracleType == DAOracleCustomCalldata {
+			if o.OracleAddress == nil {
+				err = multierr.Append(err, commonconfig.ErrMissing{Name: "OracleAddress", Msg: "required for 'custom_calldata' oracle types"})
+			}
+			if o.CustomGasPriceCalldata == nil {
+				err = multierr.Append(err, commonconfig.ErrMissing{Name: "CustomGasPriceCalldata", Msg: "required for 'custom_calldata' oracle type"})
+			}
+		}
 	}
 	return
 }
 
 func (o DAOracleType) IsValid() bool {
 	switch o {
-	case "", DAOracleOPStack, DAOracleArbitrum, DAOracleZKSync:
+	case "", DAOracleOPStack, DAOracleArbitrum, DAOracleZKSync, DAOracleCustomCalldata:
 		return true
 	}
 	return false

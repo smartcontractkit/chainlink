@@ -516,7 +516,7 @@ func (s *mockScanner) ScanWorkIDs(context.Context, ...string) ([]string, error) 
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	res := s.workIDs[:]
+	res := s.workIDs
 	s.workIDs = nil
 	return res, s.err
 }
@@ -559,7 +559,7 @@ func (_m *mockORM) SelectStatesByWorkIDs(ctx context.Context, workIDs []string) 
 	_m.lock.Lock()
 	defer _m.lock.Unlock()
 
-	res := _m.records[:]
+	res := _m.records
 	_m.records = nil
 
 	return res, _m.err
