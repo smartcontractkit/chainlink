@@ -1,169 +1,45 @@
 package launcher
 
 import (
-	"fmt"
+	"golang.org/x/exp/maps"
 
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"go.uber.org/multierr"
-
-	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 )
 
-// activeCandidateDeployment represents a active-candidate deployment of OCR instances.
-type activeCandidateDeployment struct {
-	// active is the active OCR instance.
-	// activeDigest is used to determine state transitions
-	active       cctypes.CCIPOracle
-	activeDigest ocrtypes.ConfigDigest
+type ccipPlugins map[ocrtypes.ConfigDigest]*cctypes.CCIPOracle
 
-	// candidate is the candidate OCR instance.
-	// candidate may or may not be present.
-	// candidateDigest is used to determine state transitions
-	candidate       cctypes.CCIPOracle
-	candidateDigest ocrtypes.ConfigDigest
-}
-
-// ccipDeployment represents active-candidate deployments of both commit and exec
-// OCR instances.
-type ccipDeployment struct {
-	commit activeCandidateDeployment
-	exec   activeCandidateDeployment
-}
-
-// TODO: Do we need to update the digests when we "close" the deployment?
-// Close shuts down all OCR instances in the deployment.
-func (c *ccipDeployment) Close() error {
-	// we potentially run into this situation when
-	// trying to close an active instance that doesn't exist
-	// this check protects us from nil pointer exception
-
+// Close is used to shut down an entire don immediately
+func (c *ccipPlugins) Close() error {
 	if c == nil {
 		return nil
 	}
 	var err error
 
-	// shutdown active commit instance.
-	if c.commit.active != nil {
-		err = multierr.Append(err, c.commit.active.Close())
-	}
-
-	// shutdown candidate commit instance.
-	if c.commit.candidate != nil {
-		err = multierr.Append(err, c.commit.candidate.Close())
-	}
-
-	// shutdown active exec instance.
-	if c.exec.active != nil {
-		err = multierr.Append(err, c.exec.active.Close())
-	}
-
-	// shutdown candidate exec instance.
-	if c.exec.candidate != nil {
-		err = multierr.Append(err, c.exec.candidate.Close())
+	for _, oracle := range *c {
+		err = multierr.Append(err, (*oracle).Close())
 	}
 
 	return err
 }
 
-// StartActive starts the active OCR instances.
-func (c *ccipDeployment) StartActive() error {
+// Transition manages starting and stopping ocr instances
+// If there are any new config digests, we need to start those instances
+// If any of the previous config digests are no longer present, we need to shut those down
+// We don't care about if they're exec/commit or active/candidate, that all happens in the plugin
+func (c *ccipPlugins) Transition(prevPlugins *ccipPlugins) error {
 	var err error
-
-	err = multierr.Append(err, c.commit.active.Start())
-	err = multierr.Append(err, c.exec.active.Start())
-
-	return err
-}
-
-// CloseActive shuts down the active OCR instances.
-func (c *ccipDeployment) CloseActive() error {
-	var err error
-
-	err = multierr.Append(err, c.commit.active.Close())
-	err = multierr.Append(err, c.exec.active.Close())
-
-	return err
-}
-
-// StartCandidate starts the candidate OCR instance.
-// Candidate instances will generate reports but not transmit them
-func (c *ccipDeployment) StartCandidate() error {
-	var err error
-
-	err = multierr.Append(err, c.commit.candidate.Start())
-	err = multierr.Append(err, c.exec.candidate.Start())
-
-	return err
-}
-
-// CloseCandidate shuts off the candidate instance
-// This is used when a candidate is revoked or replaced
-func (c *ccipDeployment) CloseCandidate() error {
-	var err error
-
-	err = multierr.Append(err, c.commit.candidate.Close())
-	err = multierr.Append(err, c.exec.candidate.Close())
-
-	return err
-}
-
-// TransitionDeployment handles the active-candidate deployment transition.
-// prevDeployment is the previous deployment state.
-// there are two possible cases:
-//
-// 1. both active and candidate are present in prevDeployment, but only active is present in c.
-// this is a promotion of candidate to active, so we need to shut down the active deployment
-// and make candidate the new active. In this case candidate is already running, so there's no
-// need to start it. However, we need to shut down the active deployment.
-//
-// 2. only active is present in prevDeployment, both active and candidate are present in c.
-// In this case, active is already running, so there's no need to start it. We need to
-// start candidate.
-func (c *ccipDeployment) TransitionDeployment(prevDeployment *ccipDeployment) error {
-	if prevDeployment == nil {
-		return fmt.Errorf("previous deployment is nil")
+	for _, digest := range maps.Keys(*prevPlugins) {
+		if *c == nil || (*c)[digest] == nil {
+			err = multierr.Append(err, (*(*prevPlugins)[digest]).Close())
+		}
 	}
 
-	var err error
-	if prevDeployment.commit.candidate != nil && c.commit.candidate == nil {
-		err = multierr.Append(err, prevDeployment.commit.active.Close())
-	} else if prevDeployment.commit.candidate == nil && c.commit.candidate != nil {
-		err = multierr.Append(err, c.commit.candidate.Start())
-	} else {
-		return fmt.Errorf("invalid active-candidate deployment transition")
+	for _, digest := range maps.Keys(*c) {
+		if *prevPlugins == nil || (*prevPlugins)[digest] == nil {
+			err = multierr.Append(err, (*(*c)[digest]).Start())
+		}
 	}
-
-	if prevDeployment.exec.candidate != nil && c.exec.candidate == nil {
-		err = multierr.Append(err, prevDeployment.exec.active.Close())
-	} else if prevDeployment.exec.candidate == nil && c.exec.candidate != nil {
-		err = multierr.Append(err, c.exec.candidate.Start())
-	} else {
-		return fmt.Errorf("invalid active-candidate deployment transition")
-	}
-
 	return err
-}
-
-// HasCandidateInstance returns true if the deployment has a candidate instance for the
-// given plugin type.
-func (c *ccipDeployment) HasCandidateInstance(pluginType cctypes.PluginType) bool {
-	switch pluginType {
-	case cctypes.PluginTypeCCIPCommit:
-		return c.commit.candidate != nil
-	case cctypes.PluginTypeCCIPExec:
-		return c.exec.candidate != nil
-	default:
-		return false
-	}
-}
-
-func isNewCandidateInstance(pluginType cctypes.PluginType, ocrConfigs ccipreaderpkg.ActiveAndCandidate, prevDeployment ccipDeployment) bool {
-	return ocrConfigs.CandidateConfig.ConfigDigest != [32]byte{} && !prevDeployment.HasCandidateInstance(pluginType)
-}
-
-// Todo: not exactly correct. We could be replacing the candidate with nil
-func isPromotion(pluginType cctypes.PluginType, ocrConfigs ccipreaderpkg.ActiveAndCandidate, prevDeployment ccipDeployment) bool {
-	return ocrConfigs.ActiveConfig.ConfigDigest != [32]byte{} && !prevDeployment.HasCandidateInstance(pluginType)
-
 }
