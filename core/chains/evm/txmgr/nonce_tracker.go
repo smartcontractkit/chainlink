@@ -70,8 +70,12 @@ func (s *nonceTracker) getSequenceForAddr(ctx context.Context, address common.Ad
 		seq++
 		return seq, nil
 	}
-	// Look for nonce on-chain if no tx found for address in TxStore or if error occurred
-	// Returns last mined nonce +1 that should be used for the next transaction
+	// Look for nonce on-chain if no tx found for address in TxStore or if error occurred.
+	// We use the mined transaction count (SequenceAt) to determine the next nonce to use instead of the pending transaction count (PendingSequenceAt).
+	// This allows the TXM to broadcast and track transactions for nonces starting from the last mined transaction preventing the perpetuation of a potential nonce gap.
+	// NOTE: Any transactions already in the mempool would be attempted to be overwritten but an older transaction can get included before being overwritten.
+	// Such could be the case if there was a nonce gap that gets filled unblocking the transactions.
+	// If that occurs, there could be short term noise in the logs surfacing that a transaction expired without ever getting a receipt.
 	nonce, err := s.client.SequenceAt(ctx, address, nil)
 	if err == nil {
 		return nonce, nil
