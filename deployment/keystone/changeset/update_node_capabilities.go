@@ -6,6 +6,7 @@ import (
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/environment/clo/models"
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 
@@ -16,6 +17,18 @@ import (
 var _ deployment.ChangeSet = UpdateNodeCapabilities
 
 type P2PSignerEnc = internal.P2PSignerEnc
+
+func NewP2PSignerEnc(n *models.Node, registryChainSel uint64) (*P2PSignerEnc, error) {
+	p2p, signer, enc, err := kslib.ExtractKeys(n, registryChainSel)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract keys: %w", err)
+	}
+	return &P2PSignerEnc{
+		Signer:              signer,
+		P2PKey:              p2p,
+		EncryptionPublicKey: enc,
+	}, nil
+}
 
 type UpdateNodeCapabilitiesRequest struct {
 	AddressBook      deployment.AddressBook
@@ -38,27 +51,6 @@ func (req *UpdateNodeCapabilitiesRequest) Validate() error {
 	_, exists := chainsel.ChainBySelector(req.RegistryChainSel)
 	if !exists {
 		return fmt.Errorf("registry chain selector %d does not exist", req.RegistryChainSel)
-	}
-	return nil
-}
-
-type UpdateNodeCapabilitiesImplRequest struct {
-	Chain    deployment.Chain
-	Registry *kcr.CapabilitiesRegistry
-
-	P2pToCapabilities map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability
-	NopToNodes        map[kcr.CapabilitiesRegistryNodeOperator][]*internal.P2PSignerEnc
-}
-
-func (req *UpdateNodeCapabilitiesImplRequest) Validate() error {
-	if len(req.P2pToCapabilities) == 0 {
-		return fmt.Errorf("p2pToCapabilities is empty")
-	}
-	if len(req.NopToNodes) == 0 {
-		return fmt.Errorf("nopToNodes is empty")
-	}
-	if req.Registry == nil {
-		return fmt.Errorf("registry is nil")
 	}
 
 	return nil
@@ -83,6 +75,7 @@ func (req *UpdateNodeCapabilitiesRequest) updateNodeCapabilitiesImplRequest(e de
 	if registry == nil {
 		return nil, fmt.Errorf("capabilities registry not found for chain %d", req.RegistryChainSel)
 	}
+
 	return &internal.UpdateNodeCapabilitiesImplRequest{
 		Chain:             registryChain,
 		Registry:          registry,
