@@ -208,22 +208,15 @@ func (l *launcher) processUpdate(updated map[registrysyncer.DonID]registrysyncer
 			return err
 		}
 
-		// If a config digest is not already in our list, we need to create an oracle
-		// If a config digest is already in our list, we just need to point to the old one
-		// newP.Transition will make sure we shut down the old oracles, and start the new ones
-		newP := make(ccipPlugins)
-		for _, c := range latestConfigs {
-			digest := c.ConfigDigest
-			if prevPlugins[digest] == nil {
-				oracle, err := l.oracleCreator.Create(don.ID, cctypes.OCR3ConfigWithMeta(c))
-				if err != nil {
-					return fmt.Errorf("failed to create CCIP oracle: %w for digest %v", err, digest)
-				}
-
-				newP[digest] = oracle
-			} else {
-				newP[digest] = prevPlugins[digest]
-			}
+		newP, err := updateDON(
+			l.lggr,
+			l.myP2PID,
+			prevPlugins,
+			don,
+			l.oracleCreator,
+			latestConfigs)
+		if err != nil {
+			return err
 		}
 
 		err = newP.Transition(prevPlugins)
@@ -256,7 +249,7 @@ func (l *launcher) processAdded(added map[registrysyncer.DonID]registrysyncer.DO
 		if err != nil {
 			return fmt.Errorf("processAdded: call createDON %d: %w", donID, err)
 		}
-		if newPlugins == nil {
+		if len(newPlugins) == 0 {
 			// not a member of this DON.
 			continue
 		}
@@ -303,8 +296,41 @@ func (l *launcher) processRemoved(removed map[registrysyncer.DonID]registrysynce
 	return nil
 }
 
+func updateDON(
+	lggr logger.Logger,
+	p2pID ragep2ptypes.PeerID,
+	prevPlugins ccipPlugins,
+	don registrysyncer.DON,
+	oracleCreator cctypes.OracleCreator,
+	latestConfigs []ccipreader.OCR3ConfigWithMeta,
+) (ccipPlugins, error) {
+	if !isMemberOfDON(don, p2pID) {
+		lggr.Infow("Not a member of this DON, skipping", "donId", don.ID, "p2pId", p2pID.String())
+	}
+
+	newP := make(ccipPlugins)
+	// If a config digest is not already in our list, we need to create an oracle
+	// If a config digest is already in our list, we just need to point to the old one
+	// newP.Transition will make sure we shut down the old oracles, and start the new ones
+	for _, c := range latestConfigs {
+		digest := c.ConfigDigest
+		if _, ok := prevPlugins[digest]; !ok {
+			oracle, err := oracleCreator.Create(don.ID, cctypes.OCR3ConfigWithMeta(c))
+			if err != nil {
+				return nil, fmt.Errorf("failed to create CCIP oracle: %w for digest %x", err, digest)
+			}
+
+			newP[digest] = oracle
+		} else {
+			newP[digest] = prevPlugins[digest]
+		}
+	}
+
+	return newP, nil
+}
+
 // createDON is a pure function that handles the case where a new DON is added to the capability registry.
-// It returns up to 4 plugins that are then started.
+// It returns up to 4 plugins that are later started.
 func createDON(
 	lggr logger.Logger,
 	p2pID ragep2ptypes.PeerID,
@@ -325,11 +351,10 @@ func createDON(
 
 		oracle, err := oracleCreator.Create(don.ID, cctypes.OCR3ConfigWithMeta(config))
 		if err != nil {
-			return nil, fmt.Errorf("failed to create CCIP oracle: %w for digest %v", err, digest)
+			return nil, fmt.Errorf("failed to create CCIP oracle: %w for digest %x", err, digest)
 		}
 
 		p[digest] = oracle
-
 	}
 	return p, nil
 }

@@ -1,14 +1,15 @@
 package launcher
 
 import (
-	"fmt"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"testing"
 
-	mocktypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+
 	"github.com/stretchr/testify/require"
+
+	mocktypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types/mocks"
 )
 
 func Test_ccipDeployment_Transitions(t *testing.T) {
@@ -284,12 +285,6 @@ func Test_ccipDeployment_Transitions(t *testing.T) {
 			for digest, oracle := range args.currDeployment {
 				curr[digest] = oracle
 			}
-
-			fmt.Println("prev...")
-			prev.PrintDigests()
-			fmt.Println("curr...")
-			curr.PrintDigests()
-
 			tt.expect(t, args)
 			defer assertions(t, args)
 			err := curr.Transition(prev)
