@@ -37,9 +37,7 @@ func TestDeployForwarder(t *testing.T) {
 		}
 		env.ExistingAddresses = deployment.NewMemoryAddressBookFromMap(m)
 		// capabilities registry and ocr3 must be deployed on registry chain
-		_, err := changeset.DeployForwarder(env, changeset.DeployRegistryConfig{
-			RegistryChainSelector: registrySel,
-		})
+		_, err := changeset.DeployForwarder(env, registrySel)
 		require.Error(t, err)
 	})
 
@@ -50,9 +48,7 @@ func TestDeployForwarder(t *testing.T) {
 		}
 		env.ExistingAddresses = deployment.NewMemoryAddressBookFromMap(m)
 		// capabilities registry and ocr3 must be deployed on registry chain
-		_, err := changeset.DeployForwarder(env, changeset.DeployRegistryConfig{
-			RegistryChainSelector: registrySel,
-		})
+		_, err := changeset.DeployForwarder(env, registrySel)
 		require.Error(t, err)
 	})
 
@@ -67,9 +63,7 @@ func TestDeployForwarder(t *testing.T) {
 		require.NoError(t, err)
 		// deploy forwarder
 		env.ExistingAddresses = ab
-		resp, err := changeset.DeployForwarder(env, changeset.DeployRegistryConfig{
-			RegistryChainSelector: registrySel,
-		})
+		resp, err := changeset.DeployForwarder(env, registrySel)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		// registry, ocr3, forwarder should be deployed on registry chain
