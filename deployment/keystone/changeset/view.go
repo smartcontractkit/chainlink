@@ -42,7 +42,7 @@ func ViewKeystone(e deployment.Environment) (json.Marshaler, error) {
 	if err != nil {
 		return nil, err
 	}
-	return view.KeystoneView{
+	return &view.KeystoneView{
 		Chains: chainViews,
 		Nops:   nopsView,
 	}, nil

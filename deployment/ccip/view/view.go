@@ -53,5 +53,7 @@ type CCIPView struct {
 }
 
 func (v CCIPView) MarshalJSON() ([]byte, error) {
-	return json.Marshal(v)
+	// Alias to avoid recursive calls
+	type Alias CCIPView
+	return json.MarshalIndent(&struct{ Alias }{Alias: Alias(v)}, "", " ")
 }

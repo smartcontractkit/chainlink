@@ -11,7 +11,6 @@ var _ deployment.ChangeSet = DeployForwarder
 
 type DeployRegistryConfig struct {
 	RegistryChainSelector uint64
-	ExistingAddressBook   deployment.AddressBook
 }
 
 func DeployForwarder(env deployment.Environment, config interface{}) (deployment.ChangesetOutput, error) {
@@ -21,7 +20,7 @@ func DeployForwarder(env deployment.Environment, config interface{}) (deployment
 	}
 	lggr := env.Logger
 	// expect OCR3 to be deployed & capabilities registry
-	regAddrs, err := c.ExistingAddressBook.AddressesForChain(c.RegistryChainSelector)
+	regAddrs, err := env.ExistingAddresses.AddressesForChain(c.RegistryChainSelector)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("no addresses found for chain %d: %w", c.RegistryChainSelector, err)
 	}

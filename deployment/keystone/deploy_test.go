@@ -160,9 +160,6 @@ func TestDeploy(t *testing.T) {
 		_, err := cs.OCR3.LatestConfigDetails(&bind.CallOpts{})
 		require.NoError(t, err)
 	}
-
-	// Ensure we can view the state.
-	ViewK
 }
 
 func requireChains(t *testing.T, donNops []*models.NodeOperator, cs []models.ChainType) {

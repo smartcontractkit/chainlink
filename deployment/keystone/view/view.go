@@ -24,5 +24,7 @@ type KeystoneView struct {
 }
 
 func (v KeystoneView) MarshalJSON() ([]byte, error) {
-	return json.Marshal(v)
+	// Alias to avoid recursive calls
+	type Alias KeystoneView
+	return json.MarshalIndent(&struct{ Alias }{Alias: Alias(v)}, "", " ")
 }

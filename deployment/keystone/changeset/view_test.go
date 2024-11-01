@@ -1,7 +1,6 @@
 package changeset
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -22,21 +21,21 @@ func TestKeystoneView(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	require.NoError(t, env.ExistingAddresses.Merge(resp.AddressBook))
-	resp, err = DeployForwarder(env, DeployRegistryConfig{
-		RegistryChainSelector: registryChain,
-		ExistingAddressBook:   nil,
-	})
+	resp, err = DeployOCR3(env, registryChain)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	require.NoError(t, env.ExistingAddresses.Merge(resp.AddressBook))
-	resp, err = DeployOCR3(env, DeployRegistryConfig{
+	resp, err = DeployForwarder(env, DeployRegistryConfig{
 		RegistryChainSelector: registryChain,
-		ExistingAddressBook:   nil,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	require.NoError(t, env.ExistingAddresses.Merge(resp.AddressBook))
 
 	a, err := ViewKeystone(env)
-	fmt.Println(a)
+	require.NoError(t, err)
+	b, err := a.MarshalJSON()
+	require.NoError(t, err)
+	require.NotEmpty(t, b)
+	t.Log(string(b))
 }
