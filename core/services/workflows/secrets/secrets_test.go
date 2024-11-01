@@ -6,32 +6,23 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/triggers/logevent/logeventcap"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/workflow/generated/workflow_registry_wrapper"
 	coretestutils "github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	secretMocks "github.com/smartcontractkit/chainlink/v2/core/services/workflows/secrets/mocks"
-	"golang.org/x/crypto/sha3"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func Keccak256HashToCommonHash(data []byte) common.Hash {
-	hash := sha3.NewLegacyKeccak256()
-	hash.Write(data)
-	var hashBytes [32]byte
-	copy(hashBytes[:], hash.Sum(nil))
-	return common.BytesToHash(hashBytes[:])
-}
-
 func Test_fetchSecrets(t *testing.T) {
 	var (
 		ctx       = coretestutils.Context(t)
 		lggr      = logger.TestLogger(t)
-		backend   = testutils.NewEVMBackendTH(t)
+		backendTH = testutils.NewEVMBackendTH(t)
 		updater   = secretMocks.NewUpdater[UpdateSecretsCommand](t)
 		fetcherFn = func(_ context.Context, _ string) ([]byte, error) {
 			return nil, assert.AnError
@@ -42,10 +33,11 @@ func Test_fetchSecrets(t *testing.T) {
 	)
 
 	// Deploy a test workflow_registry
-	wfRegistryAddr, _, wfRegistryC, err := workflow_registry_wrapper.DeployWorkflowRegistry(backend.ContractsOwner, backend.Backend)
+	wfRegistryAddr, _, wfRegistryC, err := workflow_registry_wrapper.DeployWorkflowRegistry(backendTH.ContractsOwner, backendTH.Backend)
 	require.NoError(t, err)
-
-	_ = wfRegistryAddr
+	lggr.Infof("deployed workflow registry at %s\n", wfRegistryAddr.Hex())
+	backendTH.Backend.Commit()
+	backendTH.Backend.Commit()
 
 	// Bind the contract
 	/* wfRegistryC, err := workflow_registry_wrapper.NewWorkflowRegistry(wfRegistryAddr, backend.Backend)
@@ -69,10 +61,22 @@ func Test_fetchSecrets(t *testing.T) {
 		},
 	}
 
-	contractReaderConfigEncoded, err := json.Marshal(contractReaderCfg)
-	require.NoError(t, err, "failed to marshal contract reader config")
+	// Encode contractReaderConfig as JSON and decode it into a map[string]any for
+	// the capability request config. Log Event Trigger capability takes in a
+	// []byte as ContractReaderConfig to not depend on evm ChainReaderConfig type
+	// and be chain agnostic
+	contractReaderCfgBytes, err := json.Marshal(contractReaderCfg)
+	require.NoError(t, err)
+	var contractReaderCfgMap logeventcap.ConfigContractReaderConfig
+	err = json.Unmarshal(contractReaderCfgBytes, &contractReaderCfgMap)
+	require.NoError(t, err)
+	// Encode the config map as JSON to specify in the expected call in mocked object
+	// The LogEventTrigger Capability receives a config map, encodes it and
+	// calls NewContractReader with it
+	contractReaderCfgBytes, err = json.Marshal(contractReaderCfgMap)
+	require.NoError(t, err)
 
-	contractReader, err := backend.NewContractReader(ctx, t, contractReaderConfigEncoded)
+	contractReader, err := backendTH.NewContractReader(ctx, t, contractReaderCfgBytes)
 	require.NoError(t, err)
 
 	probes := fetchSecrets(
@@ -84,7 +88,7 @@ func Test_fetchSecrets(t *testing.T) {
 	)
 
 	// generate a log event
-	requestForceUpdateSecrets(t, backend, wfRegistryC, "https://some-url.com")
+	requestForceUpdateSecrets(t, backendTH, wfRegistryC, "https://some-url.com")
 	_ = wfRegistryC
 
 	select {
@@ -102,7 +106,7 @@ func requestForceUpdateSecrets(
 	secretsURL string,
 ) {
 	t.Helper()
-	_, err := wfRegC.RequestForceUpdateSecrets(backend.ContractsOwner, Keccak256HashToCommonHash([]byte(secretsURL)).String())
+	_, err := wfRegC.RequestForceUpdateSecrets(backend.ContractsOwner, secretsURL)
 	require.NoError(t, err, "failed to request force update secrets")
 	backend.Backend.Commit()
 }

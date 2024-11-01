@@ -11,12 +11,12 @@ OPTIMIZE_RUNS=1000000
 
 SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 
-pip3 install --upgrade pip
-python3 -m pip install --require-hashes -r "$SCRIPTPATH"/requirements.txt
+# pip3 install --upgrade pip
+# python3 -m pip install --require-hashes -r "$SCRIPTPATH"/requirements.txt
 
-if ! solc-select versions | grep -q "$SOLC_VERSION"; then
-  solc-select install $SOLC_VERSION
-fi
+# if ! solc-select versions | grep -q "$SOLC_VERSION"; then
+  # solc-select install $SOLC_VERSION
+# fi
 
 solc-select use $SOLC_VERSION
 export SOLC_VERSION=$SOLC_VERSION
@@ -31,6 +31,7 @@ compileContract () {
   solc --overwrite --via-ir --optimize --optimize-runs $OPTIMIZE_RUNS --metadata-hash none \
       -o "$ROOT"/contracts/solc/v$SOLC_VERSION/"$contract" \
       --abi --bin --allow-paths "$ROOT"/contracts/src/v0.8\
+      --evm-version "paris"  \
       "$ROOT"/contracts/src/v0.8/"$1"
 }
 
