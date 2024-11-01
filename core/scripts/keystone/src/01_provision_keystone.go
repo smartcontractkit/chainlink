@@ -67,6 +67,7 @@ func (g *provisionKeystone) Run(args []string) {
 	/// when it comes to nodesets
 	err = os.RemoveAll(*nodeSetsPath)
 	PanicErr(err)
+	fmt.Println("Collecting node sets...")
 	nodeSets := downloadNodeSets(*chainID, *nodeSetsPath, *nodeSetSize)
 
 	if *clean {

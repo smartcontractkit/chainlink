@@ -110,6 +110,7 @@ func mustFetchNodeKeys(chainID int64, nodes []NodeWthCreds, createAptosKeys bool
 	for _, n := range nodes {
 		api := newNodeAPI(n)
 		// Get eth key
+		fmt.Printf("Fetching ETH keys for node %s\n", n.ServiceName)
 		eKey := api.mustExec(api.methods.ListETHKeys)
 		ethKeys := mustJSON[[]presenters.ETHKeyResource](eKey)
 		ethAddress, err := findFirstGoodEthKeyAddress(chainID, *ethKeys)
@@ -121,6 +122,7 @@ func mustFetchNodeKeys(chainID int64, nodes []NodeWthCreds, createAptosKeys bool
 		}
 
 		// Get p2p key
+		fmt.Printf("Fetching P2P key for node %s\n", n.ServiceName)
 		p2pKeys := api.mustExec(api.methods.ListP2PKeys)
 		p2pKey := mustJSON[[]presenters.P2PKeyResource](p2pKeys)
 		if len(*p2pKey) != 1 {
@@ -135,6 +137,7 @@ func mustFetchNodeKeys(chainID int64, nodes []NodeWthCreds, createAptosKeys bool
 		expectedBundleLen := 1
 
 		// evm key bundles
+		fmt.Printf("Fetching OCR2 EVM key bundles for node %s\n", n.ServiceName)
 		ocr2EvmBundles := getTrimmedEVMOCR2KBs(*ocr2Bundles)
 		evmBundleLen := len(ocr2EvmBundles)
 		if evmBundleLen < expectedBundleLen {
@@ -150,9 +153,11 @@ func mustFetchNodeKeys(chainID int64, nodes []NodeWthCreds, createAptosKeys bool
 		// aptos key bundles
 		var ocr2AptosBundles []OCR2AptosKBTrimmed
 		if createAptosKeys {
+			fmt.Printf("Fetching OCR2 Aptos key bundles for node %s\n", n.ServiceName)
 			ocr2AptosBundles = createAptosOCR2KB(ocr2Bundles, expectedBundleLen, api)
 		}
 
+		fmt.Printf("Fetching CSA keys for node %s\n", n.ServiceName)
 		csaKeys := api.mustExec(api.methods.ListCSAKeys)
 		csaKeyResources := mustJSON[[]presenters.CSAKeyResource](csaKeys)
 		csaPubKey, err := findFirstCSAPublicKey(*csaKeyResources)
@@ -237,7 +242,6 @@ func getOrCreateAptosKey(api *nodeAPI) string {
 		PanicErr(errors.New("node must have single aptos key"))
 	}
 
-	fmt.Printf("Node has aptos account %s\n", aptosKeys[0].Account)
 	aptosAccount := aptosKeys[0].Account
 	api.output.Reset()
 
@@ -274,9 +278,6 @@ func findFirstCSAPublicKey(csaKeyResources []presenters.CSAKeyResource) (string,
 func findFirstGoodEthKeyAddress(chainID int64, ethKeys []presenters.ETHKeyResource) (string, error) {
 	for _, ethKey := range ethKeys {
 		if ethKey.EVMChainID.Equal(ubig.NewI(chainID)) && !ethKey.Disabled {
-			if ethKey.EthBalance == nil || ethKey.EthBalance.IsZero() {
-				fmt.Println("WARN: selected ETH address has zero balance", ethKey.Address)
-			}
 			return ethKey.Address, nil
 		}
 	}
