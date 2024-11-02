@@ -201,12 +201,12 @@ func (s CCIPOnChainState) View(chains []uint64) (map[string]view.ChainView, erro
 	return m, nil
 }
 
-func LoadOnchainState(e deployment.Environment, ab deployment.AddressBook) (CCIPOnChainState, error) {
+func LoadOnchainState(e deployment.Environment) (CCIPOnChainState, error) {
 	state := CCIPOnChainState{
 		Chains: make(map[uint64]CCIPChainState),
 	}
 	for chainSelector, chain := range e.Chains {
-		addresses, err := ab.AddressesForChain(chainSelector)
+		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
 		if err != nil {
 			// Chain not found in address book, initialize empty
 			if errors.Is(err, deployment.ErrChainNotFound) {

@@ -29,7 +29,7 @@ import (
 func TestAddChainInbound(t *testing.T) {
 	// 4 chains where the 4th is added after initial deployment.
 	e := ccipdeployment.NewMemoryEnvironmentWithJobs(t, logger.TestLogger(t), 4, 4)
-	state, err := ccipdeployment.LoadOnchainState(e.Env, e.Ab)
+	state, err := ccipdeployment.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	// Take first non-home chain as the new chain.
 	newChain := e.Env.AllChainSelectorsExcluding([]uint64{e.HomeChainSel})[0]
@@ -37,17 +37,18 @@ func TestAddChainInbound(t *testing.T) {
 	initialDeploy := e.Env.AllChainSelectorsExcluding([]uint64{newChain})
 
 	tokenConfig := ccipdeployment.NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
-	err = ccipdeployment.DeployCCIPContracts(e.Env, e.Ab, ccipdeployment.DeployCCIPContractConfig{
-		HomeChainSel:        e.HomeChainSel,
-		FeedChainSel:        e.FeedChainSel,
-		ChainsToDeploy:      initialDeploy,
-		TokenConfig:         tokenConfig,
-		MCMSConfig:          ccipdeployment.NewTestMCMSConfig(t, e.Env),
-		ExistingAddressBook: e.Ab,
-		OCRSecrets:          deployment.XXXGenerateTestOCRSecrets(),
+	newAddresses := deployment.NewMemoryAddressBook()
+	err = ccipdeployment.DeployCCIPContracts(e.Env, newAddresses, ccipdeployment.DeployCCIPContractConfig{
+		HomeChainSel:   e.HomeChainSel,
+		FeedChainSel:   e.FeedChainSel,
+		ChainsToDeploy: initialDeploy,
+		TokenConfig:    tokenConfig,
+		MCMSConfig:     ccipdeployment.NewTestMCMSConfig(t, e.Env),
+		OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
 	})
 	require.NoError(t, err)
-	state, err = ccipdeployment.LoadOnchainState(e.Env, e.Ab)
+	require.NoError(t, e.Env.ExistingAddresses.Merge(newAddresses))
+	state, err = ccipdeployment.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	// Connect all the existing lanes.
@@ -59,16 +60,23 @@ func TestAddChainInbound(t *testing.T) {
 		}
 	}
 
-	rmnHomeAddress, err := deployment.SearchAddressBook(e.Ab, e.HomeChainSel, ccipdeployment.RMNHome)
+	rmnHomeAddress, err := deployment.SearchAddressBook(e.Env.ExistingAddresses, e.HomeChainSel, ccipdeployment.RMNHome)
 	require.NoError(t, err)
 	require.True(t, common.IsHexAddress(rmnHomeAddress))
 	rmnHome, err := rmn_home.NewRMNHome(common.HexToAddress(rmnHomeAddress), e.Env.Chains[e.HomeChainSel].Client)
 	require.NoError(t, err)
 
 	//  Deploy contracts to new chain
-	err = ccipdeployment.DeployChainContracts(e.Env, e.Env.Chains[newChain], e.Ab, e.FeeTokenContracts[newChain], ccipdeployment.NewTestMCMSConfig(t, e.Env), rmnHome)
+	newChainAddresses := deployment.NewMemoryAddressBook()
+	err = ccipdeployment.DeployChainContracts(e.Env,
+		e.Env.Chains[newChain], newChainAddresses,
+		ccipdeployment.FeeTokenContracts{
+			LinkToken: state.Chains[newChain].LinkToken,
+			Weth9:     state.Chains[newChain].Weth9,
+		}, ccipdeployment.NewTestMCMSConfig(t, e.Env), rmnHome)
 	require.NoError(t, err)
-	state, err = ccipdeployment.LoadOnchainState(e.Env, e.Ab)
+	require.NoError(t, e.Env.ExistingAddresses.Merge(newChainAddresses))
+	state, err = ccipdeployment.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	// Transfer onramp/fq ownership to timelock.
@@ -187,7 +195,7 @@ func TestAddChainInbound(t *testing.T) {
 	require.NoError(t, err)
 
 	// Assert the inbound lanes to the new chain are wired correctly.
-	state, err = ccipdeployment.LoadOnchainState(e.Env, e.Ab)
+	state, err = ccipdeployment.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	for _, chain := range initialDeploy {
 		cfg, err2 := state.Chains[chain].OnRamp.GetDestChainConfig(nil, newChain)

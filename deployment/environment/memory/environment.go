@@ -116,14 +116,14 @@ func NewMemoryEnvironmentFromChainsNodes(t *testing.T,
 	for id := range nodes {
 		nodeIDs = append(nodeIDs, id)
 	}
-	return deployment.Environment{
-		Name:     Memory,
-		Offchain: NewMemoryJobClient(nodes),
-		// Note these have the p2p_ prefix.
-		NodeIDs: nodeIDs,
-		Chains:  chains,
-		Logger:  lggr,
-	}
+	return *deployment.NewEnvironment(
+		Memory,
+		lggr,
+		deployment.NewMemoryAddressBook(),
+		chains,
+		nodeIDs, // Note these have the p2p_ prefix.
+		NewMemoryJobClient(nodes),
+	)
 }
 
 // To be used by tests and any kind of deployment logic.
@@ -134,11 +134,12 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Lev
 	for id := range nodes {
 		nodeIDs = append(nodeIDs, id)
 	}
-	return deployment.Environment{
-		Name:     Memory,
-		Offchain: NewMemoryJobClient(nodes),
-		NodeIDs:  nodeIDs,
-		Chains:   chains,
-		Logger:   lggr,
-	}
+	return *deployment.NewEnvironment(
+		Memory,
+		lggr,
+		deployment.NewMemoryAddressBook(),
+		chains,
+		nodeIDs,
+		NewMemoryJobClient(nodes),
+	)
 }

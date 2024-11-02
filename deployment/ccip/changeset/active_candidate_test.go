@@ -10,9 +10,6 @@ import (
 
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
-
 	"github.com/smartcontractkit/chainlink/deployment"
 
 	"github.com/stretchr/testify/require"
@@ -32,41 +29,25 @@ func TestActiveCandidate(t *testing.T) {
 	tenv := ccdeploy.NewMemoryEnvironment(t, lggr, 3, 5)
 	e := tenv.Env
 
-	state, err := ccdeploy.LoadOnchainState(tenv.Env, tenv.Ab)
+	state, err := ccdeploy.LoadOnchainState(tenv.Env)
 	require.NoError(t, err)
 	require.NotNil(t, state.Chains[tenv.HomeChainSel].LinkToken)
 
 	feeds := state.Chains[tenv.FeedChainSel].USDFeeds
-	tokenConfig := ccdeploy.NewTokenConfig()
-
-	tokenConfig.UpsertTokenInfo(ccdeploy.LinkSymbol,
-		pluginconfig.TokenInfo{
-			AggregatorAddress: cciptypes.UnknownEncodedAddress(feeds[ccdeploy.LinkSymbol].Address().String()),
-			Decimals:          ccdeploy.LinkDecimals,
-			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
-		},
-	)
-	tokenConfig.UpsertTokenInfo(ccdeploy.WethSymbol,
-		pluginconfig.TokenInfo{
-			AggregatorAddress: cciptypes.UnknownEncodedAddress(feeds[ccdeploy.WethSymbol].Address().String()),
-			Decimals:          ccdeploy.WethDecimals,
-			DeviationPPB:      cciptypes.NewBigIntFromInt64(4e9),
-		},
-	)
+	tokenConfig := ccdeploy.NewTestTokenConfig(feeds)
 
 	output, err := InitialDeploy(tenv.Env, ccdeploy.DeployCCIPContractConfig{
-		HomeChainSel:        tenv.HomeChainSel,
-		FeedChainSel:        tenv.FeedChainSel,
-		ChainsToDeploy:      tenv.Env.AllChainSelectors(),
-		TokenConfig:         tokenConfig,
-		MCMSConfig:          ccdeploy.NewTestMCMSConfig(t, e),
-		ExistingAddressBook: tenv.Ab,
-		OCRSecrets:          deployment.XXXGenerateTestOCRSecrets(),
+		HomeChainSel:   tenv.HomeChainSel,
+		FeedChainSel:   tenv.FeedChainSel,
+		ChainsToDeploy: tenv.Env.AllChainSelectors(),
+		TokenConfig:    tokenConfig,
+		MCMSConfig:     ccdeploy.NewTestMCMSConfig(t, e),
+		OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
 	})
 	require.NoError(t, err)
 	// Get new state after migration.
-	require.NoError(t, tenv.Ab.Merge(output.AddressBook))
-	state, err = ccdeploy.LoadOnchainState(e, tenv.Ab)
+	require.NoError(t, tenv.Env.ExistingAddresses.Merge(output.AddressBook))
+	state, err = ccdeploy.LoadOnchainState(tenv.Env)
 	require.NoError(t, err)
 	homeCS, destCS := tenv.HomeChainSel, tenv.FeedChainSel
 
@@ -143,7 +124,7 @@ func TestActiveCandidate(t *testing.T) {
 	require.Equal(t, 5, len(donInfo.NodeP2PIds))
 	require.Equal(t, uint32(4), donInfo.ConfigCount)
 
-	state, err = ccdeploy.LoadOnchainState(e, tenv.Ab)
+	state, err = ccdeploy.LoadOnchainState(e)
 	require.NoError(t, err)
 
 	// delete a non-bootstrap node

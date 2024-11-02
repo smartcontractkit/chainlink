@@ -20,7 +20,7 @@ func TestAddLane(t *testing.T) {
 	// We add more chains to the chainlink nodes than the number of chains where CCIP is deployed.
 	e := NewMemoryEnvironmentWithJobs(t, logger.TestLogger(t), 4, 4)
 	// Here we have CR + nodes set up, but no CCIP contracts deployed.
-	state, err := LoadOnchainState(e.Env, e.Ab)
+	state, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	selectors := e.Env.AllChainSelectors()
@@ -30,24 +30,21 @@ func TestAddLane(t *testing.T) {
 	feeds := state.Chains[e.FeedChainSel].USDFeeds
 	tokenConfig := NewTestTokenConfig(feeds)
 
-	feeTokenContracts := make(map[uint64]FeeTokenContracts)
-	for _, sel := range []uint64{chain1, chain2} {
-		feeTokenContracts[sel] = e.FeeTokenContracts[sel]
-	}
 	// Set up CCIP contracts and a DON per chain.
-	err = DeployCCIPContracts(e.Env, e.Ab, DeployCCIPContractConfig{
-		HomeChainSel:        e.HomeChainSel,
-		FeedChainSel:        e.FeedChainSel,
-		TokenConfig:         tokenConfig,
-		MCMSConfig:          NewTestMCMSConfig(t, e.Env),
-		ExistingAddressBook: e.Ab,
-		ChainsToDeploy:      []uint64{chain1, chain2},
-		OCRSecrets:          deployment.XXXGenerateTestOCRSecrets(),
+	newAddresses := deployment.NewMemoryAddressBook()
+	err = DeployCCIPContracts(e.Env, newAddresses, DeployCCIPContractConfig{
+		HomeChainSel:   e.HomeChainSel,
+		FeedChainSel:   e.FeedChainSel,
+		TokenConfig:    tokenConfig,
+		MCMSConfig:     NewTestMCMSConfig(t, e.Env),
+		ChainsToDeploy: []uint64{chain1, chain2},
+		OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
 	})
 	require.NoError(t, err)
+	require.NoError(t, e.Env.ExistingAddresses.Merge(newAddresses))
 
 	// We expect no lanes available on any chain.
-	state, err = LoadOnchainState(e.Env, e.Ab)
+	state, err = LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	for _, sel := range []uint64{chain1, chain2} {
 		chain := state.Chains[sel]

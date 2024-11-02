@@ -12,11 +12,19 @@ type KeystoneChainView struct {
 	// TODO forwarders etc
 }
 
+func NewKeystoneChainView() KeystoneChainView {
+	return KeystoneChainView{
+		CapabilityRegistry: make(map[string]common_v1_0.CapRegView),
+	}
+}
+
 type KeystoneView struct {
 	Chains map[string]KeystoneChainView `json:"chains,omitempty"`
 	Nops   map[string]view.NopView      `json:"nops,omitempty"`
 }
 
 func (v KeystoneView) MarshalJSON() ([]byte, error) {
-	return json.Marshal(v)
+	// Alias to avoid recursive calls
+	type Alias KeystoneView
+	return json.MarshalIndent(&struct{ Alias }{Alias: Alias(v)}, "", " ")
 }
