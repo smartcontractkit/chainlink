@@ -1117,7 +1117,7 @@ func TestVRFV2NodeReorg(t *testing.T) {
 			vrfContracts.CoordinatorV2,
 			randomWordsRequestedEvent.RequestId,
 			randomWordsRequestedEvent.Raw.BlockNumber,
-			configCopy.VRFv2.General.RandomWordsFulfilledEventTimeout.Duration,
+			time.Second*10,
 			l,
 		)
 

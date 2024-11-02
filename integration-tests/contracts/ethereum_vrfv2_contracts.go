@@ -699,12 +699,11 @@ func (v *EthereumVRFCoordinatorV2) WaitForRandomWordsFulfilledEvent(filter Rando
 	}
 	defer subscription.Unsubscribe()
 
-	timer := time.NewTimer(filter.Timeout)
 	for {
 		select {
 		case err := <-subscription.Err():
 			return nil, err
-		case <-timer.C:
+		case <-time.After(filter.Timeout):
 			return nil, fmt.Errorf("timeout waiting for RandomWordsFulfilled event")
 		case randomWordsFulfilledEvent := <-randomWordsFulfilledEventsChannel:
 			return &CoordinatorRandomWordsFulfilled{
