@@ -1091,7 +1091,7 @@ func TestVRFV2NodeReorg(t *testing.T) {
 			*configCopy.VRFv2.General.NumberOfWords,
 			*configCopy.VRFv2.General.RandomnessRequestCountPerRequest,
 			*configCopy.VRFv2.General.RandomnessRequestCountPerRequestDeviation,
-			1 * time.Minute,
+			configCopy.VRFv2.General.RandomWordsFulfilledEventTimeout.Duration,
 			0,
 		)
 		require.NoError(t, err)
@@ -1117,7 +1117,7 @@ func TestVRFV2NodeReorg(t *testing.T) {
 			vrfContracts.CoordinatorV2,
 			randomWordsRequestedEvent.RequestId,
 			randomWordsRequestedEvent.Raw.BlockNumber,
-			time.Second*10,
+			configCopy.VRFv2.General.RandomWordsFulfilledEventTimeout.Duration,
 			l,
 		)
 
