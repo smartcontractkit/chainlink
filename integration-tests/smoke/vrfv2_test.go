@@ -1091,7 +1091,7 @@ func TestVRFV2NodeReorg(t *testing.T) {
 			*configCopy.VRFv2.General.NumberOfWords,
 			*configCopy.VRFv2.General.RandomnessRequestCountPerRequest,
 			*configCopy.VRFv2.General.RandomnessRequestCountPerRequestDeviation,
-			configCopy.VRFv2.General.RandomWordsFulfilledEventTimeout.Duration,
+			1 * time.Minute,
 			0,
 		)
 		require.NoError(t, err)
