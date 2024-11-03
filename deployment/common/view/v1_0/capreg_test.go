@@ -31,16 +31,14 @@ func TestCapRegView_Denormalize(t *testing.T) {
 			name: "one don",
 			fields: fields{
 				Dons: []DonView{
-					{
-						CapabilitiesRegistryDONInfo: cr.CapabilitiesRegistryDONInfo{
-							Id: 1,
-							CapabilityConfigurations: []cr.CapabilitiesRegistryCapabilityConfiguration{
-								{
-									CapabilityId: [32]byte{0: 1},
-								},
+					NewDonView(cr.CapabilitiesRegistryDONInfo{
+						Id: 1,
+						CapabilityConfigurations: []cr.CapabilitiesRegistryCapabilityConfiguration{
+							{
+								CapabilityId: [32]byte{0: 1},
 							},
 						},
-					},
+					}),
 				},
 				Nodes: []NodeView{
 					{
@@ -50,34 +48,29 @@ func TestCapRegView_Denormalize(t *testing.T) {
 					},
 				},
 				Capabilities: []CapabilityView{
-					{
-						CapabilitiesRegistryCapabilityInfo: cr.CapabilitiesRegistryCapabilityInfo{
-							HashedId:     [32]byte{0: 1},
-							LabelledName: "cap1",
-							Version:      "1.0.0",
-						},
-					},
-					{
-						CapabilitiesRegistryCapabilityInfo: cr.CapabilitiesRegistryCapabilityInfo{
-							HashedId:     [32]byte{0: 2},
-							LabelledName: "cap2",
-							Version:      "1.0.0",
-						},
-					},
+					NewCapabilityView(cr.CapabilitiesRegistryCapabilityInfo{
+						HashedId:     [32]byte{0: 1},
+						LabelledName: "cap1",
+						Version:      "1.0.0",
+					}),
+
+					NewCapabilityView(cr.CapabilitiesRegistryCapabilityInfo{
+						HashedId:     [32]byte{0: 2},
+						LabelledName: "cap2",
+						Version:      "1.0.0",
+					}),
 				},
 			},
 			want: []DonCapabilities{
 				{
-					Don: DonView{
-						CapabilitiesRegistryDONInfo: cr.CapabilitiesRegistryDONInfo{
-							Id: 1,
-							CapabilityConfigurations: []cr.CapabilitiesRegistryCapabilityConfiguration{
-								{
-									CapabilityId: [32]byte{0: 1},
-								},
+					Don: NewDonView(cr.CapabilitiesRegistryDONInfo{
+						Id: 1,
+						CapabilityConfigurations: []cr.CapabilitiesRegistryCapabilityConfiguration{
+							{
+								CapabilityId: [32]byte{0: 1},
 							},
 						},
-					},
+					}),
 					Nodes: []NodeView{
 						{
 							INodeInfoProviderNodeInfo: cr.INodeInfoProviderNodeInfo{
@@ -86,13 +79,11 @@ func TestCapRegView_Denormalize(t *testing.T) {
 						},
 					},
 					Capabilities: []CapabilityView{
-						{
-							CapabilitiesRegistryCapabilityInfo: cr.CapabilitiesRegistryCapabilityInfo{
-								HashedId:     [32]byte{0: 1},
-								LabelledName: "cap1",
-								Version:      "1.0.0",
-							},
-						},
+						NewCapabilityView(cr.CapabilitiesRegistryCapabilityInfo{
+							HashedId:     [32]byte{0: 1},
+							LabelledName: "cap1",
+							Version:      "1.0.0",
+						}),
 					},
 				},
 			},
@@ -103,30 +94,27 @@ func TestCapRegView_Denormalize(t *testing.T) {
 			fields: fields{
 				Dons: []DonView{
 					// don1
-					{
-						CapabilitiesRegistryDONInfo: cr.CapabilitiesRegistryDONInfo{
-							Id: 1,
-							CapabilityConfigurations: []cr.CapabilitiesRegistryCapabilityConfiguration{
-								{
-									CapabilityId: [32]byte{0: 1},
-								},
-								{
-									CapabilityId: [32]byte{1: 1},
-								},
+					NewDonView(cr.CapabilitiesRegistryDONInfo{
+						Id: 1,
+						CapabilityConfigurations: []cr.CapabilitiesRegistryCapabilityConfiguration{
+							{
+								CapabilityId: [32]byte{0: 1},
+							},
+							{
+								CapabilityId: [32]byte{1: 1},
 							},
 						},
-					},
+					}),
+
 					// don2
-					{
-						CapabilitiesRegistryDONInfo: cr.CapabilitiesRegistryDONInfo{
-							Id: 2,
-							CapabilityConfigurations: []cr.CapabilitiesRegistryCapabilityConfiguration{
-								{
-									CapabilityId: [32]byte{2: 2},
-								},
+					NewDonView(cr.CapabilitiesRegistryDONInfo{
+						Id: 2,
+						CapabilityConfigurations: []cr.CapabilitiesRegistryCapabilityConfiguration{
+							{
+								CapabilityId: [32]byte{2: 2},
 							},
 						},
-					},
+					}),
 				},
 				Nodes: []NodeView{
 					// nodes for don1
@@ -152,46 +140,38 @@ func TestCapRegView_Denormalize(t *testing.T) {
 				},
 				Capabilities: []CapabilityView{
 					//capabilities for don1
-					{
-						CapabilitiesRegistryCapabilityInfo: cr.CapabilitiesRegistryCapabilityInfo{
-							HashedId:     [32]byte{0: 1}, // matches don ID 1, capabitility ID
-							LabelledName: "cap1",
-							Version:      "1.0.0",
-						},
-					},
-					{
-						CapabilitiesRegistryCapabilityInfo: cr.CapabilitiesRegistryCapabilityInfo{
-							HashedId:     [32]byte{1: 1}, // matches don ID 1, capabitility ID 2
-							LabelledName: "cap2",
-							Version:      "1.0.0",
-						},
-					},
+					NewCapabilityView(cr.CapabilitiesRegistryCapabilityInfo{
+						HashedId:     [32]byte{0: 1},
+						LabelledName: "cap1",
+						Version:      "1.0.0",
+					}),
+					NewCapabilityView(cr.CapabilitiesRegistryCapabilityInfo{
+						HashedId:     [32]byte{1: 1}, // matches don ID 1, capabitility ID 2
+						LabelledName: "cap2",
+						Version:      "1.0.0",
+					}),
+
 					//capabilities for don2
-					{
-						CapabilitiesRegistryCapabilityInfo: cr.CapabilitiesRegistryCapabilityInfo{
-							HashedId:     [32]byte{2: 2}, // matches don ID 2, capabitility ID 1
-							LabelledName: "other cap",
-							Version:      "1.0.0",
-						},
-					},
+					NewCapabilityView(cr.CapabilitiesRegistryCapabilityInfo{
+						HashedId:     [32]byte{2: 2}, // matches don ID 2, capabitility ID 1
+						LabelledName: "other cap",
+						Version:      "1.0.0",
+					}),
 				},
 			},
 			want: []DonCapabilities{
 				{
-					Don: DonView{
-
-						CapabilitiesRegistryDONInfo: cr.CapabilitiesRegistryDONInfo{
-							Id: 1,
-							CapabilityConfigurations: []cr.CapabilitiesRegistryCapabilityConfiguration{
-								{
-									CapabilityId: [32]byte{0: 1},
-								},
-								{
-									CapabilityId: [32]byte{1: 1},
-								},
+					Don: NewDonView(cr.CapabilitiesRegistryDONInfo{
+						Id: 1,
+						CapabilityConfigurations: []cr.CapabilitiesRegistryCapabilityConfiguration{
+							{
+								CapabilityId: [32]byte{0: 1},
+							},
+							{
+								CapabilityId: [32]byte{1: 1},
 							},
 						},
-					},
+					}),
 					Nodes: []NodeView{
 						{
 							INodeInfoProviderNodeInfo: cr.INodeInfoProviderNodeInfo{
@@ -207,33 +187,28 @@ func TestCapRegView_Denormalize(t *testing.T) {
 						},
 					},
 					Capabilities: []CapabilityView{
-						{
-							CapabilitiesRegistryCapabilityInfo: cr.CapabilitiesRegistryCapabilityInfo{
-								HashedId:     [32]byte{0: 1},
-								LabelledName: "cap1",
-								Version:      "1.0.0",
-							},
-						},
-						{
-							CapabilitiesRegistryCapabilityInfo: cr.CapabilitiesRegistryCapabilityInfo{
-								HashedId:     [32]byte{1: 1},
-								LabelledName: "cap2",
-								Version:      "1.0.0",
-							},
-						},
+						NewCapabilityView(cr.CapabilitiesRegistryCapabilityInfo{
+							HashedId:     [32]byte{0: 1},
+							LabelledName: "cap1",
+							Version:      "1.0.0",
+						}),
+
+						NewCapabilityView(cr.CapabilitiesRegistryCapabilityInfo{
+							HashedId:     [32]byte{1: 1},
+							LabelledName: "cap2",
+							Version:      "1.0.0",
+						}),
 					},
 				},
 				{
-					Don: DonView{
-						CapabilitiesRegistryDONInfo: cr.CapabilitiesRegistryDONInfo{
-							Id: 2,
-							CapabilityConfigurations: []cr.CapabilitiesRegistryCapabilityConfiguration{
-								{
-									CapabilityId: [32]byte{2: 2},
-								},
+					Don: NewDonView(cr.CapabilitiesRegistryDONInfo{
+						Id: 2,
+						CapabilityConfigurations: []cr.CapabilitiesRegistryCapabilityConfiguration{
+							{
+								CapabilityId: [32]byte{2: 2},
 							},
 						},
-					},
+					}),
 					Nodes: []NodeView{
 						{
 							INodeInfoProviderNodeInfo: cr.INodeInfoProviderNodeInfo{
@@ -243,13 +218,11 @@ func TestCapRegView_Denormalize(t *testing.T) {
 						},
 					},
 					Capabilities: []CapabilityView{
-						{
-							CapabilitiesRegistryCapabilityInfo: cr.CapabilitiesRegistryCapabilityInfo{
-								HashedId:     [32]byte{2: 2}, // matches don ID 2, capabitility ID 1
-								LabelledName: "other cap",
-								Version:      "1.0.0",
-							},
-						},
+						NewCapabilityView(cr.CapabilitiesRegistryCapabilityInfo{
+							HashedId:     [32]byte{2: 2}, // matches don ID 2, capabitility ID 1
+							LabelledName: "other cap",
+							Version:      "1.0.0",
+						}),
 					},
 				},
 			},
