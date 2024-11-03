@@ -15,6 +15,7 @@ type CapRegView struct {
 	types.ContractMetaData
 	Capabilities []CapabilityView `json:"capabilities,omitempty"`
 	Nodes        []NodeView       `json:"nodes,omitempty"`
+	Nops         []NopView        `json:"nops,omitempty"`
 	Dons         []DonView        `json:"dons,omitempty"`
 }
 
@@ -28,6 +29,10 @@ type DonView struct {
 
 type NodeView struct {
 	capabilities_registry.INodeInfoProviderNodeInfo
+}
+
+type NopView struct {
+	capabilities_registry.CapabilitiesRegistryNodeOperator
 }
 
 func GenerateCapRegView(capReg *capabilities_registry.CapabilitiesRegistry) (CapRegView, error) {
@@ -61,11 +66,21 @@ func GenerateCapRegView(capReg *capabilities_registry.CapabilitiesRegistry) (Cap
 		nodeViews = append(nodeViews, NodeView{nodeInfo})
 	}
 
+	nopInfos, err := capReg.GetNodeOperators(nil)
+	if err != nil {
+		return CapRegView{}, err
+	}
+	var nopViews []NopView
+	for _, nopInfo := range nopInfos {
+		nopViews = append(nopViews, NopView{nopInfo})
+	}
+
 	return CapRegView{
 		ContractMetaData: tv,
 		Capabilities:     capViews,
 		Dons:             donViews,
 		Nodes:            nodeViews,
+		Nops:             nopViews,
 	}, nil
 }
 
@@ -104,6 +119,7 @@ func nodeInDon(node NodeView, don DonView) bool {
 	isMember := false
 	for _, x := range node.CapabilitiesDONIds {
 		if x.Cmp(donId) == 0 {
+			isMember = true
 			break
 		}
 	}
@@ -117,7 +133,6 @@ func capInDon(cap CapabilityView, don DonView) bool {
 			isMember = true
 			break
 		}
-
 	}
 	return isMember
 }
