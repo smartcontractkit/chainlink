@@ -27,6 +27,7 @@ type NopView struct {
 	capabilities_registry.CapabilitiesRegistryNodeOperator
 }
 
+// GenerateCapRegView generates a CapRegView from a CapabilitiesRegistry contract.
 func GenerateCapRegView(capReg *capabilities_registry.CapabilitiesRegistry) (CapRegView, error) {
 	tv, err := types.NewContractMetaData(capReg, capReg.Address())
 	if err != nil {
@@ -76,13 +77,18 @@ func GenerateCapRegView(capReg *capabilities_registry.CapabilitiesRegistry) (Cap
 	}, nil
 }
 
+// DonCapabilities is a view of a Don with its associated Nodes and Capabilities.
 type DonCapabilities struct {
 	Don          DonView
 	Nodes        []NodeView
 	Capabilities []CapabilityView
 }
 
-func (v CapRegView) Denormalize() ([]DonCapabilities, error) {
+// DonCapabilities returns a list of DonCapabilities, which are Dons with their associated
+// Nodes and Capabilities. This is a useful form of the CapRegView, but it is not definitive.
+// The full CapRegView should be used for the most accurate information as it can contain
+// Capabilities and Nodes the are not associated with any Don.
+func (v CapRegView) DonCapabilities() ([]DonCapabilities, error) {
 	var out []DonCapabilities
 	for _, don := range v.Dons {
 		var nodes []NodeView
@@ -106,29 +112,7 @@ func (v CapRegView) Denormalize() ([]DonCapabilities, error) {
 	return out, nil
 }
 
-func nodeInDon(node NodeView, don DonView) bool {
-	donId := big.NewInt(int64(don.Id))
-	isMember := false
-	for _, x := range node.DONIds {
-		if x.Cmp(donId) == 0 {
-			isMember = true
-			break
-		}
-	}
-	return isMember
-}
-
-func capInDon(cap CapabilityView, don DonView) bool {
-	isMember := false
-	for _, cfg := range don.CapabilityConfigurations {
-		if cfg.CapabilityId == cap.CapabilityId {
-			isMember = true
-			break
-		}
-	}
-	return isMember
-}
-
+// CapabilityView is a serialization-friendly view of a capability in the capabilities registry.
 type CapabilityView struct {
 	CapabilityId          string // hex
 	LabelledName          string
@@ -139,6 +123,7 @@ type CapabilityView struct {
 	IsDeprecated          bool           `json:"omitempty"`
 }
 
+// NewCapabilityView creates a CapabilityView from a CapabilitiesRegistryCapabilityInfo.
 func NewCapabilityView(capInfo capabilities_registry.CapabilitiesRegistryCapabilityInfo) CapabilityView {
 	return CapabilityView{
 		CapabilityId:          hex.EncodeToString(capInfo.HashedId[:]),
@@ -151,6 +136,7 @@ func NewCapabilityView(capInfo capabilities_registry.CapabilitiesRegistryCapabil
 	}
 }
 
+// Validate checks that the CapabilityView is valid.
 func (cv CapabilityView) Validate() error {
 	id, err := hex.DecodeString(cv.CapabilityId)
 	if err != nil {
@@ -162,6 +148,7 @@ func (cv CapabilityView) Validate() error {
 	return nil
 }
 
+// DonView is a serialization-friendly view of a Don in the capabilities registry.
 type DonView struct {
 	Id                       uint32
 	ConfigCount              uint32
@@ -172,11 +159,7 @@ type DonView struct {
 	CapabilityConfigurations []CapabilitiesConfiguration
 }
 
-type CapabilitiesConfiguration struct {
-	CapabilityId string // hex 32 bytes
-	Config       string // hex
-}
-
+// NewDonView creates a DonView from a CapabilitiesRegistryDONInfo.
 func NewDonView(d capabilities_registry.CapabilitiesRegistryDONInfo) DonView {
 	return DonView{
 		Id:                       d.Id,
@@ -198,6 +181,13 @@ func (dv DonView) Validate() error {
 	return nil
 }
 
+// CapabilitiesConfiguration is a serialization-friendly view of a capability configuration in the capabilities registry.
+type CapabilitiesConfiguration struct {
+	CapabilityId string // hex 32 bytes
+	Config       string // hex
+}
+
+// NewCapabilityConfigurations creates a list of CapabilitiesConfiguration from a list of CapabilitiesRegistryCapabilityConfiguration.
 func NewCapabilityConfigurations(cfgs []capabilities_registry.CapabilitiesRegistryCapabilityConfiguration) []CapabilitiesConfiguration {
 	var out []CapabilitiesConfiguration
 	for _, cfg := range cfgs {
@@ -224,6 +214,7 @@ func (cc CapabilitiesConfiguration) Validate() error {
 	return nil
 }
 
+// NodeView is a serialization-friendly view of a node in the capabilities registry.
 type NodeView struct {
 	NodeOperatorId      uint32
 	ConfigCount         uint32
@@ -235,6 +226,7 @@ type NodeView struct {
 	DONIds              []*big.Int `json:",don_ids, omitempty"`
 }
 
+// NewNodeView creates a NodeView from a CapabilitiesRegistryNodeInfoProviderNodeInfo.
 func NewNodeView(n capabilities_registry.INodeInfoProviderNodeInfo) NodeView {
 	return NodeView{
 		NodeOperatorId:      n.NodeOperatorId,
@@ -291,4 +283,27 @@ func hexIds(ids [][32]byte) []string {
 		out = append(out, hex.EncodeToString(id[:]))
 	}
 	return out
+}
+
+func nodeInDon(node NodeView, don DonView) bool {
+	donId := big.NewInt(int64(don.Id))
+	isMember := false
+	for _, x := range node.DONIds {
+		if x.Cmp(donId) == 0 {
+			isMember = true
+			break
+		}
+	}
+	return isMember
+}
+
+func capInDon(cap CapabilityView, don DonView) bool {
+	isMember := false
+	for _, cfg := range don.CapabilityConfigurations {
+		if cfg.CapabilityId == cap.CapabilityId {
+			isMember = true
+			break
+		}
+	}
+	return isMember
 }

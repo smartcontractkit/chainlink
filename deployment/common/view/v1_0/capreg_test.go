@@ -224,7 +224,7 @@ func TestCapRegView_Denormalize(t *testing.T) {
 				Nodes:            tt.fields.Nodes,
 				Dons:             tt.fields.Dons,
 			}
-			got, err := v.Denormalize()
+			got, err := v.DonCapabilities()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("CapRegView.Denormalize() error = %v, wantErr %v", err, tt.wantErr)
 				return
