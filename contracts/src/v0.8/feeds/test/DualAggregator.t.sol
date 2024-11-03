@@ -136,6 +136,13 @@ contract DualAggregatorBaseTest is Test {
       0
     );
   }
+
+  function _changePrank(
+    address _prank
+  ) internal {
+    vm.stopPrank();
+    vm.startPrank(_prank);
+  }
 }
 
 contract ConfiguredDualAggregatorBaseTest is DualAggregatorBaseTest {
@@ -563,6 +570,421 @@ contract Trasmit is ConfiguredDualAggregatorBaseTest {
     bytes32 rawVs = bytes32(uint256(v1));
 
     aggregator.transmit(reportContext, report, rs, ss, rawVs);
+  }
+
+  function test_ReadExpectedInitialState() public {
+    _transmitAndCheck(0, 0, 0, 0, false, false); // no transmission but check
+  }
+
+  function test_SyncFeedsTransmitStandardFirstNeverSameBlock() public {
+    vm.skip(true); // skip until passing
+
+    // Report 1
+    _transmitAndCheck({
+      standardFeedPrice: 1,
+      transmitPrimary: true,
+      secondaryFeedPrice: 1,
+      transmitSecondary: false,
+      expectedStandardFeedAnswer: 1,
+      expectedSecondaryFeedAnswer: 0
+    });
+    _transmitAndCheck({
+      standardFeedPrice: 1,
+      transmitPrimary: false,
+      secondaryFeedPrice: 1,
+      transmitSecondary: true,
+      expectedStandardFeedAnswer: 1,
+      expectedSecondaryFeedAnswer: 1
+    });
+
+    // Report 2
+    _transmitAndCheck({
+      standardFeedPrice: 2,
+      transmitPrimary: true,
+      secondaryFeedPrice: 2,
+      transmitSecondary: false,
+      expectedStandardFeedAnswer: 2,
+      expectedSecondaryFeedAnswer: 1
+    });
+    _transmitAndCheck({
+      standardFeedPrice: 2,
+      transmitPrimary: false,
+      secondaryFeedPrice: 2,
+      transmitSecondary: true,
+      expectedStandardFeedAnswer: 2,
+      expectedSecondaryFeedAnswer: 2
+    });
+  }
+
+  function test_SyncFeedsTransmitSecondaryFirstNeverSameBlock() public {
+    vm.skip(true); // skip until passing
+
+    // Report 1
+    _transmitAndCheck({
+      standardFeedPrice: 1,
+      transmitPrimary: false,
+      secondaryFeedPrice: 1,
+      transmitSecondary: true,
+      expectedStandardFeedAnswer: 0, // locked
+      expectedSecondaryFeedAnswer: 1
+    });
+    _transmitAndCheck({
+      standardFeedPrice: 1,
+      transmitPrimary: true,
+      secondaryFeedPrice: 1,
+      transmitSecondary: false,
+      expectedStandardFeedAnswer: 1,
+      expectedSecondaryFeedAnswer: 1
+    });
+
+    // Report 2
+    _transmitAndCheck({
+      standardFeedPrice: 2,
+      transmitPrimary: false,
+      secondaryFeedPrice: 2,
+      transmitSecondary: true,
+      expectedStandardFeedAnswer: 1, // locked
+      expectedSecondaryFeedAnswer: 2
+    });
+    _transmitAndCheck({
+      standardFeedPrice: 2,
+      transmitPrimary: true,
+      secondaryFeedPrice: 2,
+      transmitSecondary: false,
+      expectedStandardFeedAnswer: 2,
+      expectedSecondaryFeedAnswer: 2
+    });
+  }
+
+  function test_SyncFeedsTransmitSecondaryFirstAlwaysSameBlock() public {
+    vm.skip(true); // skip until passing
+
+    // Report 1
+    _transmitAndCheck({
+      standardFeedPrice: 1,
+      transmitPrimary: true,
+      secondaryFeedPrice: 1,
+      transmitSecondary: true,
+      expectedStandardFeedAnswer: 1,
+      expectedSecondaryFeedAnswer: 1
+    });
+
+    // Report 2
+    _transmitAndCheck({
+      standardFeedPrice: 2,
+      transmitPrimary: true,
+      secondaryFeedPrice: 2,
+      transmitSecondary: true,
+      expectedStandardFeedAnswer: 2,
+      expectedSecondaryFeedAnswer: 2
+    });
+  }
+
+  function test_OutOfSyncFeedsSecondaryFeedFallbackToStandardFeed() public {
+    vm.skip(true); // skip until passing
+
+    // Report 1
+    _transmitAndCheck({
+      standardFeedPrice: 1,
+      transmitPrimary: true,
+      secondaryFeedPrice: 1,
+      transmitSecondary: false,
+      expectedStandardFeedAnswer: 1,
+      expectedSecondaryFeedAnswer: 0
+    });
+
+    // Report 2
+    _transmitAndCheck({
+      standardFeedPrice: 2,
+      transmitPrimary: true,
+      secondaryFeedPrice: 2,
+      transmitSecondary: false,
+      expectedStandardFeedAnswer: 2,
+      expectedSecondaryFeedAnswer: 0
+    });
+
+    // todo: skip cutoff window
+
+    // Report 3
+    _transmitAndCheck({
+      standardFeedPrice: 3,
+      transmitPrimary: true,
+      secondaryFeedPrice: 3,
+      transmitSecondary: false,
+      expectedStandardFeedAnswer: 3,
+      expectedSecondaryFeedAnswer: 2 // todo: verify if this is the latest before the cutoff time
+    });
+
+    // Report 4
+    _transmitAndCheck({
+      standardFeedPrice: 4,
+      transmitPrimary: true,
+      secondaryFeedPrice: 1, // old report from before the cutoff time, ignore it
+      transmitSecondary: false,
+      expectedStandardFeedAnswer: 4,
+      expectedSecondaryFeedAnswer: 2 // todo: verify if this is the latest before the cutoff time
+    });
+
+    // Report 5
+    _transmitAndCheck({
+      standardFeedPrice: 5,
+      transmitPrimary: true,
+      secondaryFeedPrice: 4, // old report but still freshest for secondary feed
+      transmitSecondary: true,
+      expectedStandardFeedAnswer: 5,
+      expectedSecondaryFeedAnswer: 4
+    });
+  }
+
+  function test_OutOfSyncFeedsPrimaryIsSourcedFromSecondaryWithLockDelay() public {
+    vm.skip(true); // skip until passing
+
+    // Report 1
+    _transmitAndCheck({
+      standardFeedPrice: 1,
+      transmitPrimary: false,
+      secondaryFeedPrice: 1,
+      transmitSecondary: true,
+      expectedStandardFeedAnswer: 0,
+      expectedSecondaryFeedAnswer: 1
+    });
+
+    // Report 2
+    _transmitAndCheck({
+      standardFeedPrice: 2,
+      transmitPrimary: false,
+      secondaryFeedPrice: 2,
+      transmitSecondary: true,
+      expectedStandardFeedAnswer: 1,
+      expectedSecondaryFeedAnswer: 2
+    });
+
+    // unlock the standard feed
+    skip(1);
+    _transmitAndCheck({
+      standardFeedPrice: 2,
+      transmitPrimary: false,
+      secondaryFeedPrice: 2,
+      transmitSecondary: false,
+      expectedStandardFeedAnswer: 2,
+      expectedSecondaryFeedAnswer: 2
+    });
+  }
+
+  function test_BothFeedsStalledIncomingSecondaryReportIsFromBeforeCutoffTime() public {
+    vm.skip(true); // skip until passing
+
+    uint256 timeBeforeCutoff = block.timestamp;
+    // todo: skip cutoff window
+
+    _changePrank(SECONDARY_PROXY);
+    ReportGenerator.SignedReport memory signedReport =
+      s_reportGenerator.generateSignedReport(1, uint32(timeBeforeCutoff));
+    aggregator.transmit(
+      signedReport.reportContext, signedReport.report, signedReport.rs, signedReport.ss, signedReport.rawVs
+    );
+
+    // check the standard feed
+    _changePrank(aggregator.getTransmitters()[0]);
+    (, int256 standardAnswer,,,) = aggregator.latestRoundData();
+    assertEq(0, standardAnswer, "standard feed answer is not correct");
+
+    // unlock the standard feed
+    skip(1);
+    (, standardAnswer,,,) = aggregator.latestRoundData();
+    assertEq(1, standardAnswer, "standard feed answer is not correct");
+
+    // check the secondary feed
+    _changePrank(SECONDARY_PROXY);
+    (, int256 secondaryAnswer,,,) = aggregator.latestRoundData();
+    assertEq(1, secondaryAnswer, "secondary feed answer is not correct");
+  }
+
+  function test_BothFeedsStalledIncomingPrimaryReportIsFromBeforeCutoffTime() public {
+    vm.skip(true); // skip until passing
+
+    uint256 timeBeforeCutoff = block.timestamp;
+    // todo: skip cutoff window
+
+    _changePrank(aggregator.getTransmitters()[0]);
+    ReportGenerator.SignedReport memory signedReport =
+      s_reportGenerator.generateSignedReport(1, uint32(timeBeforeCutoff));
+    aggregator.transmit(
+      signedReport.reportContext, signedReport.report, signedReport.rs, signedReport.ss, signedReport.rawVs
+    );
+
+    // check the standard feed
+    (, int256 standardAnswer,,,) = aggregator.latestRoundData();
+    assertEq(1, standardAnswer, "standard feed answer is not correct");
+
+    // check the secondary feed
+    _changePrank(SECONDARY_PROXY);
+    (, int256 secondaryAnswer,,,) = aggregator.latestRoundData();
+    assertEq(1, secondaryAnswer, "secondary feed answer is not correct");
+  }
+
+  function test_BothFeedsStalledIncomingReportIsFromAfterCutoffTime() public {
+    vm.skip(true); // skip until passing
+
+    uint256 timeAfterCutoff = block.timestamp + 1;
+    // todo: skip cutoff window
+
+    _changePrank(aggregator.getTransmitters()[0]);
+    ReportGenerator.SignedReport memory signedReport =
+      s_reportGenerator.generateSignedReport(1, uint32(timeAfterCutoff));
+    aggregator.transmit(
+      signedReport.reportContext, signedReport.report, signedReport.rs, signedReport.ss, signedReport.rawVs
+    );
+
+    // check the standard feed
+    (, int256 standardAnswer,,,) = aggregator.latestRoundData();
+    assertEq(1, standardAnswer, "standard feed answer is not correct");
+
+    // check the secondary feed
+    _changePrank(SECONDARY_PROXY);
+    (, int256 secondaryAnswer,,,) = aggregator.latestRoundData();
+    assertEq(0, secondaryAnswer, "secondary feed answer is not correct");
+
+    // unlock the secondary feed
+    skip(1);
+    (, secondaryAnswer,,,) = aggregator.latestRoundData();
+    assertEq(1, secondaryAnswer, "secondary feed answer is not correct");
+  }
+
+  function test_IncomingSecondaryReportHasNotBeenRecordedOlderThanLatestReportOlderThanCutoffTime() public {
+    vm.skip(true); // skip until passing
+
+    // Report 1
+    _transmitAndCheck({
+      standardFeedPrice: 1,
+      transmitPrimary: true,
+      secondaryFeedPrice: 1,
+      transmitSecondary: false,
+      expectedStandardFeedAnswer: 1,
+      expectedSecondaryFeedAnswer: 0
+    });
+
+    // timestamp of missing report 2
+    uint256 timestampReport2 = block.timestamp;
+
+    // Report 3
+    _transmitAndCheck({
+      standardFeedPrice: 3,
+      transmitPrimary: true,
+      secondaryFeedPrice: 3,
+      transmitSecondary: false,
+      expectedStandardFeedAnswer: 3,
+      expectedSecondaryFeedAnswer: 0
+    });
+
+    // todo: skip cutoff window
+
+    // Send missing report 2 to secondary feed
+    _changePrank(SECONDARY_PROXY);
+    ReportGenerator.SignedReport memory signedReport =
+      s_reportGenerator.generateSignedReport(2, uint32(timestampReport2));
+    aggregator.transmit(
+      signedReport.reportContext, signedReport.report, signedReport.rs, signedReport.ss, signedReport.rawVs
+    );
+
+    // check the standard feed
+    _changePrank(aggregator.getTransmitters()[0]);
+    (, int256 standardAnswer,,,) = aggregator.latestRoundData();
+    assertEq(3, standardAnswer, "standard feed answer is not correct");
+
+    // check the secondary feed
+    _changePrank(SECONDARY_PROXY);
+    (, int256 secondaryAnswer,,,) = aggregator.latestRoundData();
+    assertEq(3, secondaryAnswer, "secondary feed answer is not correct");
+  }
+
+  function test_IncomingSecondaryReportHasNotBeenRecordedOlderThanLatestReportNewerThanCutoffTime() public {
+    vm.skip(true); // skip until passing
+
+    // Report 1
+    _transmitAndCheck({
+      standardFeedPrice: 1,
+      transmitPrimary: true,
+      secondaryFeedPrice: 1,
+      transmitSecondary: false,
+      expectedStandardFeedAnswer: 1,
+      expectedSecondaryFeedAnswer: 0
+    });
+
+    // todo: skip cutoff window
+
+    // timestamp of missing report 2
+    uint256 timestampReport2 = block.timestamp;
+
+    // Report 3
+    _transmitAndCheck({
+      standardFeedPrice: 3,
+      transmitPrimary: true,
+      secondaryFeedPrice: 3,
+      transmitSecondary: false,
+      expectedStandardFeedAnswer: 3,
+      expectedSecondaryFeedAnswer: 1
+    });
+
+    // Send missing report 2 to secondary feed
+    _changePrank(SECONDARY_PROXY);
+    ReportGenerator.SignedReport memory signedReport =
+      s_reportGenerator.generateSignedReport(2, uint32(timestampReport2));
+    aggregator.transmit(
+      signedReport.reportContext, signedReport.report, signedReport.rs, signedReport.ss, signedReport.rawVs
+    );
+
+    // check the standard feed
+    _changePrank(aggregator.getTransmitters()[0]);
+    (, int256 standardAnswer,,,) = aggregator.latestRoundData();
+    assertEq(3, standardAnswer, "standard feed answer is not correct");
+
+    // check the secondary feed
+    _changePrank(SECONDARY_PROXY);
+    (, int256 secondaryAnswer,,,) = aggregator.latestRoundData();
+    // todo: for now we're ignoring report 2 due to implementation complexity.
+    // This could maybe be solved by keeping track of orphaned reports.
+    assertEq(1, secondaryAnswer, "secondary feed answer is not correct");
+  }
+
+  function _transmitAndCheck(
+    int192 standardFeedPrice,
+    int192 secondaryFeedPrice,
+    uint256 expectedStandardFeedAnswer,
+    uint256 expectedSecondaryFeedAnswer,
+    bool transmitPrimary,
+    bool transmitSecondary
+  ) internal {
+    // next block
+    skip(12);
+
+    if (transmitSecondary) {
+      _changePrank(SECONDARY_PROXY);
+      ReportGenerator.SignedReport memory signedReport =
+        s_reportGenerator.generateSignedReport(secondaryFeedPrice, uint32(block.timestamp));
+      aggregator.transmit(
+        signedReport.reportContext, signedReport.report, signedReport.rs, signedReport.ss, signedReport.rawVs
+      );
+    }
+
+    if (transmitPrimary) {
+      _changePrank(aggregator.getTransmitters()[0]);
+      ReportGenerator.SignedReport memory signedReport =
+        s_reportGenerator.generateSignedReport(standardFeedPrice, uint32(block.timestamp));
+      aggregator.transmit(
+        signedReport.reportContext, signedReport.report, signedReport.rs, signedReport.ss, signedReport.rawVs
+      );
+    }
+
+    // check the standard feed
+    _changePrank(aggregator.getTransmitters()[0]);
+    (, int256 standardAnswer,,,) = aggregator.latestRoundData();
+    assertEq(int256(expectedStandardFeedAnswer), standardAnswer, "standard feed answer is not correct");
+
+    // check the secondary feed
+    _changePrank(SECONDARY_PROXY);
+    (, int256 secondaryAnswer,,,) = aggregator.latestRoundData();
+    assertEq(int256(expectedSecondaryFeedAnswer), secondaryAnswer, "secondary feed answer is not correct");
   }
 }
 
