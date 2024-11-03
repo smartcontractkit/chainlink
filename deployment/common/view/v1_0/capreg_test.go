@@ -41,11 +41,9 @@ func TestCapRegView_Denormalize(t *testing.T) {
 					}),
 				},
 				Nodes: []NodeView{
-					{
-						INodeInfoProviderNodeInfo: cr.INodeInfoProviderNodeInfo{
-							CapabilitiesDONIds: []*big.Int{big.NewInt(1)},
-						},
-					},
+					NewNodeView(cr.INodeInfoProviderNodeInfo{
+						CapabilitiesDONIds: []*big.Int{big.NewInt(1)},
+					}),
 				},
 				Capabilities: []CapabilityView{
 					NewCapabilityView(cr.CapabilitiesRegistryCapabilityInfo{
@@ -72,11 +70,9 @@ func TestCapRegView_Denormalize(t *testing.T) {
 						},
 					}),
 					Nodes: []NodeView{
-						{
-							INodeInfoProviderNodeInfo: cr.INodeInfoProviderNodeInfo{
-								CapabilitiesDONIds: []*big.Int{big.NewInt(1)},
-							},
-						},
+						NewNodeView(cr.INodeInfoProviderNodeInfo{
+							CapabilitiesDONIds: []*big.Int{big.NewInt(1)},
+						}),
 					},
 					Capabilities: []CapabilityView{
 						NewCapabilityView(cr.CapabilitiesRegistryCapabilityInfo{
@@ -118,25 +114,21 @@ func TestCapRegView_Denormalize(t *testing.T) {
 				},
 				Nodes: []NodeView{
 					// nodes for don1
-					{
-						INodeInfoProviderNodeInfo: cr.INodeInfoProviderNodeInfo{
-							P2pId:              [32]byte{4: 2},
-							CapabilitiesDONIds: []*big.Int{big.NewInt(1)}, // matches don ID 1
-						},
-					},
-					{
-						INodeInfoProviderNodeInfo: cr.INodeInfoProviderNodeInfo{
-							P2pId:              [32]byte{7: 7},
-							CapabilitiesDONIds: []*big.Int{big.NewInt(1)}, // matches don ID 1
-						},
-					},
+					NewNodeView(cr.INodeInfoProviderNodeInfo{
+						P2pId:              [32]byte{4: 2},
+						CapabilitiesDONIds: []*big.Int{big.NewInt(1)}, // matches don ID 1
+					}),
+
+					NewNodeView(cr.INodeInfoProviderNodeInfo{
+						P2pId:              [32]byte{7: 7},
+						CapabilitiesDONIds: []*big.Int{big.NewInt(1)}, // matches don ID 1
+					}),
+
 					// nodes for don2
-					{
-						INodeInfoProviderNodeInfo: cr.INodeInfoProviderNodeInfo{
-							P2pId:              [32]byte{2: 2},
-							CapabilitiesDONIds: []*big.Int{big.NewInt(2)}, // matches don ID 2
-						},
-					},
+					NewNodeView(cr.INodeInfoProviderNodeInfo{
+						P2pId:              [32]byte{2: 2},
+						CapabilitiesDONIds: []*big.Int{big.NewInt(2)}, // matches don ID 2
+					}),
 				},
 				Capabilities: []CapabilityView{
 					//capabilities for don1
@@ -173,18 +165,16 @@ func TestCapRegView_Denormalize(t *testing.T) {
 						},
 					}),
 					Nodes: []NodeView{
-						{
-							INodeInfoProviderNodeInfo: cr.INodeInfoProviderNodeInfo{
-								P2pId:              [32]byte{4: 2},
-								CapabilitiesDONIds: []*big.Int{big.NewInt(1)}, // matches don ID 1
-							},
-						},
-						{
-							INodeInfoProviderNodeInfo: cr.INodeInfoProviderNodeInfo{
-								P2pId:              [32]byte{7: 7},
-								CapabilitiesDONIds: []*big.Int{big.NewInt(1)}, // matches don ID 1
-							},
-						},
+
+						NewNodeView(cr.INodeInfoProviderNodeInfo{
+							P2pId:              [32]byte{4: 2},
+							CapabilitiesDONIds: []*big.Int{big.NewInt(1)}, // matches don ID 1
+						}),
+
+						NewNodeView(cr.INodeInfoProviderNodeInfo{
+							P2pId:              [32]byte{7: 7},
+							CapabilitiesDONIds: []*big.Int{big.NewInt(1)}, // matches don ID 1
+						}),
 					},
 					Capabilities: []CapabilityView{
 						NewCapabilityView(cr.CapabilitiesRegistryCapabilityInfo{
@@ -210,12 +200,10 @@ func TestCapRegView_Denormalize(t *testing.T) {
 						},
 					}),
 					Nodes: []NodeView{
-						{
-							INodeInfoProviderNodeInfo: cr.INodeInfoProviderNodeInfo{
-								P2pId:              [32]byte{2: 2},
-								CapabilitiesDONIds: []*big.Int{big.NewInt(2)}, // matches don ID 2
-							},
-						},
+						NewNodeView(cr.INodeInfoProviderNodeInfo{
+							P2pId:              [32]byte{2: 2},
+							CapabilitiesDONIds: []*big.Int{big.NewInt(2)}, // matches don ID 2
+						}),
 					},
 					Capabilities: []CapabilityView{
 						NewCapabilityView(cr.CapabilitiesRegistryCapabilityInfo{

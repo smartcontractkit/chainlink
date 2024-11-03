@@ -23,6 +23,112 @@ type CapRegView struct {
 	Dons         []DonView        `json:"dons,omitempty"`
 }
 
+type NopView struct {
+	capabilities_registry.CapabilitiesRegistryNodeOperator
+}
+
+func GenerateCapRegView(capReg *capabilities_registry.CapabilitiesRegistry) (CapRegView, error) {
+	tv, err := types.NewContractMetaData(capReg, capReg.Address())
+	if err != nil {
+		return CapRegView{}, err
+	}
+	caps, err := capReg.GetCapabilities(nil)
+	if err != nil {
+		return CapRegView{}, err
+	}
+	var capViews []CapabilityView
+	for _, capability := range caps {
+		capViews = append(capViews, NewCapabilityView(capability))
+	}
+	donInfos, err := capReg.GetDONs(nil)
+	if err != nil {
+		return CapRegView{}, err
+	}
+	var donViews []DonView
+	for _, donInfo := range donInfos {
+		donViews = append(donViews, NewDonView(donInfo))
+	}
+
+	nodeInfos, err := capReg.GetNodes(nil)
+	if err != nil {
+		return CapRegView{}, err
+	}
+	var nodeViews []NodeView
+	for _, nodeInfo := range nodeInfos {
+		nodeViews = append(nodeViews, NewNodeView(nodeInfo))
+	}
+
+	nopInfos, err := capReg.GetNodeOperators(nil)
+	if err != nil {
+		return CapRegView{}, err
+	}
+	var nopViews []NopView
+	for _, nopInfo := range nopInfos {
+		nopViews = append(nopViews, NopView{nopInfo})
+	}
+
+	return CapRegView{
+		ContractMetaData: tv,
+		Capabilities:     capViews,
+		Dons:             donViews,
+		Nodes:            nodeViews,
+		Nops:             nopViews,
+	}, nil
+}
+
+type DonCapabilities struct {
+	Don          DonView
+	Nodes        []NodeView
+	Capabilities []CapabilityView
+}
+
+func (v CapRegView) Denormalize() ([]DonCapabilities, error) {
+	var out []DonCapabilities
+	for _, don := range v.Dons {
+		var nodes []NodeView
+		for _, node := range v.Nodes {
+			if nodeInDon(node, don) {
+				nodes = append(nodes, node)
+			}
+		}
+		var capabilities []CapabilityView
+		for _, cap := range v.Capabilities {
+			if capInDon(cap, don) {
+				capabilities = append(capabilities, cap)
+			}
+		}
+		out = append(out, DonCapabilities{
+			Don:          don,
+			Nodes:        nodes,
+			Capabilities: capabilities,
+		})
+	}
+	return out, nil
+}
+
+func nodeInDon(node NodeView, don DonView) bool {
+	donId := big.NewInt(int64(don.Id))
+	isMember := false
+	for _, x := range node.DONIds {
+		if x.Cmp(donId) == 0 {
+			isMember = true
+			break
+		}
+	}
+	return isMember
+}
+
+func capInDon(cap CapabilityView, don DonView) bool {
+	isMember := false
+	for _, cfg := range don.CapabilityConfigurations {
+		if cfg.CapabilityId == cap.CapabilityId {
+			isMember = true
+			break
+		}
+	}
+	return isMember
+}
+
 type CapabilityView struct {
 	CapabilityId          string // hex
 	LabelledName          string
@@ -92,14 +198,6 @@ func (dv DonView) Validate() error {
 	return nil
 }
 
-func p2pIds(rawIds [][32]byte) []p2pkey.PeerID {
-	var out []p2pkey.PeerID
-	for _, id := range rawIds {
-		out = append(out, p2pkey.PeerID(id))
-	}
-	return out
-}
-
 func NewCapabilityConfigurations(cfgs []capabilities_registry.CapabilitiesRegistryCapabilityConfiguration) []CapabilitiesConfiguration {
 	var out []CapabilitiesConfiguration
 	for _, cfg := range cfgs {
@@ -127,111 +225,70 @@ func (cc CapabilitiesConfiguration) Validate() error {
 }
 
 type NodeView struct {
-	capabilities_registry.INodeInfoProviderNodeInfo
+	NodeOperatorId      uint32
+	ConfigCount         uint32
+	WorkflowDONId       uint32
+	Signer              string // hex 32 bytes
+	P2pId               p2pkey.PeerID
+	EncryptionPublicKey string     // hex 32 bytes
+	CapabilityIds       []string   `json:"capability_ids,omitempty"` // hex 32 bytes
+	DONIds              []*big.Int `json:",don_ids, omitempty"`
 }
 
-type NopView struct {
-	capabilities_registry.CapabilitiesRegistryNodeOperator
+func NewNodeView(n capabilities_registry.INodeInfoProviderNodeInfo) NodeView {
+	return NodeView{
+		NodeOperatorId:      n.NodeOperatorId,
+		ConfigCount:         n.ConfigCount,
+		WorkflowDONId:       n.WorkflowDONId,
+		Signer:              hex.EncodeToString(n.Signer[:]),
+		P2pId:               p2pkey.PeerID(n.P2pId),
+		EncryptionPublicKey: hex.EncodeToString(n.EncryptionPublicKey[:]),
+		CapabilityIds:       hexIds(n.HashedCapabilityIds),
+		DONIds:              n.CapabilitiesDONIds,
+	}
 }
 
-func GenerateCapRegView(capReg *capabilities_registry.CapabilitiesRegistry) (CapRegView, error) {
-	tv, err := types.NewContractMetaData(capReg, capReg.Address())
+func (nv NodeView) Validate() error {
+	s, err := hex.DecodeString(nv.Signer)
 	if err != nil {
-		return CapRegView{}, err
+		return errors.New("signer must be hex encoded")
 	}
-	caps, err := capReg.GetCapabilities(nil)
-	if err != nil {
-		return CapRegView{}, err
-	}
-	var capViews []CapabilityView
-	for _, capability := range caps {
-		capViews = append(capViews, NewCapabilityView(capability))
-	}
-	donInfos, err := capReg.GetDONs(nil)
-	if err != nil {
-		return CapRegView{}, err
-	}
-	var donViews []DonView
-	for _, donInfo := range donInfos {
-		donViews = append(donViews, NewDonView(donInfo))
+	if len(s) != 32 {
+		return errors.New("signer must be 32 bytes")
 	}
 
-	nodeInfos, err := capReg.GetNodes(nil)
+	e, err := hex.DecodeString(nv.EncryptionPublicKey)
 	if err != nil {
-		return CapRegView{}, err
+		return errors.New("encryption public key must be hex encoded")
 	}
-	var nodeViews []NodeView
-	for _, nodeInfo := range nodeInfos {
-		nodeViews = append(nodeViews, NodeView{nodeInfo})
-	}
-
-	nopInfos, err := capReg.GetNodeOperators(nil)
-	if err != nil {
-		return CapRegView{}, err
-	}
-	var nopViews []NopView
-	for _, nopInfo := range nopInfos {
-		nopViews = append(nopViews, NopView{nopInfo})
+	if len(e) != 32 {
+		return errors.New("encryption public key must be 32 bytes")
 	}
 
-	return CapRegView{
-		ContractMetaData: tv,
-		Capabilities:     capViews,
-		Dons:             donViews,
-		Nodes:            nodeViews,
-		Nops:             nopViews,
-	}, nil
-}
-
-type DonCapabilities struct {
-	Don          DonView
-	Nodes        []NodeView
-	Capabilities []CapabilityView
-}
-
-func (v CapRegView) Denormalize() ([]DonCapabilities, error) {
-	var out []DonCapabilities
-	for _, don := range v.Dons {
-		var nodes []NodeView
-		for _, node := range v.Nodes {
-			if nodeInDon(node, don) {
-				nodes = append(nodes, node)
-			}
+	for _, id := range nv.CapabilityIds {
+		cid, err := hex.DecodeString(id)
+		if err != nil {
+			return errors.New("hashed capability id must be hex encoded")
 		}
-		var capabilities []CapabilityView
-		for _, cap := range v.Capabilities {
-			if capInDon(cap, don) {
-				capabilities = append(capabilities, cap)
-			}
-		}
-		out = append(out, DonCapabilities{
-			Don:          don,
-			Nodes:        nodes,
-			Capabilities: capabilities,
-		})
-	}
-	return out, nil
-}
-
-func nodeInDon(node NodeView, don DonView) bool {
-	donId := big.NewInt(int64(don.Id))
-	isMember := false
-	for _, x := range node.CapabilitiesDONIds {
-		if x.Cmp(donId) == 0 {
-			isMember = true
-			break
+		if len(cid) != 32 {
+			return errors.New("hashed capability id must be 32 bytes")
 		}
 	}
-	return isMember
+	return nil
 }
 
-func capInDon(cap CapabilityView, don DonView) bool {
-	isMember := false
-	for _, cfg := range don.CapabilityConfigurations {
-		if cfg.CapabilityId == cap.CapabilityId {
-			isMember = true
-			break
-		}
+func p2pIds(rawIds [][32]byte) []p2pkey.PeerID {
+	var out []p2pkey.PeerID
+	for _, id := range rawIds {
+		out = append(out, p2pkey.PeerID(id))
 	}
-	return isMember
+	return out
+}
+
+func hexIds(ids [][32]byte) []string {
+	var out []string
+	for _, id := range ids {
+		out = append(out, hex.EncodeToString(id[:]))
+	}
+	return out
 }
