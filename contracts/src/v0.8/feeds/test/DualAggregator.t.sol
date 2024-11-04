@@ -87,14 +87,15 @@ contract DualAggregatorHarness is DualAggregator {
     });
   }
 
-  // helper function to inject 6 transmissions
-  function injectTransmissions() public {
-    setTransmission(1, 10, 1, 5);
-    setTransmission(2, 11, 6, 10);
-    setTransmission(3, 12, 11, 15);
-    setTransmission(4, 13, 16, 20);
-    setTransmission(5, 14, 21, 25);
-    setTransmission(6, 15, 26, 30);
+  // helper function to inject transmissions
+  function injectTransmissions(
+    int192[] memory answers,
+    uint32[] memory observationsTimestamps,
+    uint32[] memory recordedTimestamps
+  ) public {
+    for (uint32 i = 0; i < answers.length; i++) {
+      setTransmission(i + 1, answers[i], observationsTimestamps[i], recordedTimestamps[i]);
+    }
   }
 }
 
@@ -641,16 +642,57 @@ contract LatestConfigDigestAndEpoch is TransmittedDualAggregatorBaseTest {
   }
 }
 
+contract RoundDataDualAggregatorBaseTest is ConfiguredDualAggregatorBaseTest {
+  int192[] answers;
+  uint32[] observationsTimestamps;
+  uint32[] recordedTimestamps;
+
+  function setUp() public virtual override {
+    super.setUp();
+  }
+
+  function setDualAggregatorBase(
+    uint256 startingTime,
+    uint32 cutoffTime,
+    uint32 latestPrimaryRound,
+    uint32 latestSecondaryRound
+  ) public {
+    // Fulfill answers
+    answers.push(10);
+    answers.push(11);
+    answers.push(12);
+    answers.push(13);
+    answers.push(14);
+    answers.push(15);
+
+    // Fulfill observations timestamps
+    observationsTimestamps.push(1);
+    observationsTimestamps.push(6);
+    observationsTimestamps.push(11);
+    observationsTimestamps.push(16);
+    observationsTimestamps.push(21);
+    observationsTimestamps.push(26);
+
+    // Fulfill recorded timestamps
+    recordedTimestamps.push(5);
+    recordedTimestamps.push(10);
+    recordedTimestamps.push(15);
+    recordedTimestamps.push(20);
+    recordedTimestamps.push(25);
+    recordedTimestamps.push(30);
+
+    harness.injectTransmissions(answers, observationsTimestamps, recordedTimestamps);
+    harness.setLatestRoundIds(latestPrimaryRound, latestSecondaryRound);
+    harness.setCutoffTime(cutoffTime);
+    vm.warp(startingTime);
+  }
+}
+
 // latestAnswer(): test primary and secondary caller
-contract LatestAnswer is ConfiguredDualAggregatorBaseTest {
+contract LatestAnswer is RoundDataDualAggregatorBaseTest {
   function setUp() public override {
     super.setUp();
-
-    harness.injectTransmissions();
-    harness.setLatestRoundIds(6, 2);
-    harness.setCutoffTime(21);
-
-    vm.warp(31);
+    setDualAggregatorBase(31, 21, 6, 2);
   }
 
   // test return the latest primary answer
@@ -666,14 +708,10 @@ contract LatestAnswer is ConfiguredDualAggregatorBaseTest {
 }
 
 // latestTimestamp(): test primary and secondary caller
-contract LatestTimestamp is ConfiguredDualAggregatorBaseTest {
+contract LatestTimestamp is RoundDataDualAggregatorBaseTest {
   function setUp() public override {
     super.setUp();
-
-    harness.injectTransmissions();
-    harness.setLatestRoundIds(6, 2);
-    harness.setCutoffTime(21);
-    vm.warp(31);
+    setDualAggregatorBase(31, 21, 6, 2);
   }
 
   // test return the latest primary timestamp
@@ -689,13 +727,10 @@ contract LatestTimestamp is ConfiguredDualAggregatorBaseTest {
 }
 
 // latestRound(): test all the paths
-contract LatestRound is ConfiguredDualAggregatorBaseTest {
+contract LatestRound is RoundDataDualAggregatorBaseTest {
   function setUp() public override {
     super.setUp();
-
-    harness.injectTransmissions();
-    harness.setLatestRoundIds(6, 2);
-    vm.warp(30);
+    setDualAggregatorBase(30, 20, 6, 2);
   }
 
   // test return the latest primary round id
@@ -711,8 +746,6 @@ contract LatestRound is ConfiguredDualAggregatorBaseTest {
 
   // test return the latest secondary round id
   function test_ReturnsLatestSecondaryRoundId() public {
-    harness.setCutoffTime(20);
-
     vm.startPrank(address(102));
     assertEq(harness.latestRound(), 2);
   }
@@ -727,13 +760,10 @@ contract LatestRound is ConfiguredDualAggregatorBaseTest {
 }
 
 // getAnswer(): test primary and secondary caller
-contract GetAnswer is ConfiguredDualAggregatorBaseTest {
+contract GetAnswer is RoundDataDualAggregatorBaseTest {
   function setUp() public override {
     super.setUp();
-
-    harness.injectTransmissions();
-    harness.setLatestRoundIds(6, 2);
-    vm.warp(30);
+    setDualAggregatorBase(30, 0, 6, 2);
   }
 
   // test return primary answer
@@ -763,13 +793,10 @@ contract GetAnswer is ConfiguredDualAggregatorBaseTest {
 }
 
 // getTimestamp(): test primary and secondary caller
-contract GetTimestamp is ConfiguredDualAggregatorBaseTest {
+contract GetTimestamp is RoundDataDualAggregatorBaseTest {
   function setUp() public override {
     super.setUp();
-
-    harness.injectTransmissions();
-    harness.setLatestRoundIds(6, 2);
-    vm.warp(30);
+    setDualAggregatorBase(30, 0, 6, 2);
   }
 
   // test return primary timestamp
@@ -805,13 +832,10 @@ contract Description is TransmittedDualAggregatorBaseTest {
 }
 
 // getRoundData(): test primary and secondary caller
-contract GetRoundData is ConfiguredDualAggregatorBaseTest {
+contract GetRoundData is RoundDataDualAggregatorBaseTest {
   function setUp() public override {
     super.setUp();
-
-    harness.injectTransmissions();
-    harness.setLatestRoundIds(6, 2);
-    vm.warp(30);
+    setDualAggregatorBase(30, 0, 6, 2);
   }
 
   // test return primary round data
@@ -869,14 +893,10 @@ contract GetRoundData is ConfiguredDualAggregatorBaseTest {
 }
 // latestRoundData(): test primary and secondary caller
 
-contract LatestRoundData is ConfiguredDualAggregatorBaseTest {
+contract LatestRoundData is RoundDataDualAggregatorBaseTest {
   function setUp() public override {
     super.setUp();
-
-    harness.injectTransmissions();
-    harness.setLatestRoundIds(6, 2);
-    harness.setCutoffTime(21);
-    vm.warp(31);
+    setDualAggregatorBase(31, 21, 6, 2);
   }
 
   // test return the latest primary round data
@@ -1204,7 +1224,7 @@ contract TypeAndVersion is DualAggregatorBaseTest {
 }
 
 // _getSyncPrimaryRound(): test all the paths
-contract GetSyncPrimaryRound is ConfiguredDualAggregatorBaseTest {
+contract GetSyncPrimaryRound is RoundDataDualAggregatorBaseTest {
   function setUp() public override {
     super.setUp();
   }
@@ -1216,32 +1236,20 @@ contract GetSyncPrimaryRound is ConfiguredDualAggregatorBaseTest {
 
   // test with cutoff time reaching the secondary round id
   function test_returnSecondaryRoundId() public {
-    harness.injectTransmissions();
-
-    harness.setLatestRoundIds(6, 2);
-    harness.setCutoffTime(20);
-
-    vm.warp(30);
+    setDualAggregatorBase(30, 20, 6, 2);
     assertEq(harness.exposed_getSyncPrimaryRound(), 2);
   }
 
   // test with cutoff time condition matching in round id 4
   function test_returnSyncFourthRoundId() public {
-    harness.injectTransmissions();
+    setDualAggregatorBase(30, 9, 6, 2);
 
-    harness.setLatestRoundIds(6, 2);
-    harness.setCutoffTime(9);
-
-    vm.warp(30);
     assertEq(harness.exposed_getSyncPrimaryRound(), 4);
   }
 
   // test with cutoff time condition matching in the latest round id
   function test_returnSyncLatestRoundId() public {
-    harness.injectTransmissions();
-
-    harness.setLatestRoundIds(6, 2);
-    harness.setCutoffTime(10);
+    setDualAggregatorBase(50, 10, 6, 2);
 
     vm.warp(50);
     assertEq(harness.exposed_getSyncPrimaryRound(), 6);
