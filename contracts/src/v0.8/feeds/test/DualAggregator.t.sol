@@ -643,9 +643,9 @@ contract LatestConfigDigestAndEpoch is TransmittedDualAggregatorBaseTest {
 }
 
 contract RoundDataDualAggregatorBaseTest is ConfiguredDualAggregatorBaseTest {
-  int192[] answers;
-  uint32[] observationsTimestamps;
-  uint32[] recordedTimestamps;
+  int192[] internal answers = [int192(10), int192(11), int192(12), int192(13), int192(14), int192(15)];
+  uint32[] internal observationsTimestamps = [uint32(1), uint32(6), uint32(11), uint32(16), uint32(21), uint32(26)];
+  uint32[] internal recordedTimestamps = [uint32(5), uint32(10), uint32(15), uint32(20), uint32(25), uint32(30)];
 
   function setUp() public virtual override {
     super.setUp();
@@ -657,30 +657,6 @@ contract RoundDataDualAggregatorBaseTest is ConfiguredDualAggregatorBaseTest {
     uint32 latestPrimaryRound,
     uint32 latestSecondaryRound
   ) public {
-    // Fulfill answers
-    answers.push(10);
-    answers.push(11);
-    answers.push(12);
-    answers.push(13);
-    answers.push(14);
-    answers.push(15);
-
-    // Fulfill observations timestamps
-    observationsTimestamps.push(1);
-    observationsTimestamps.push(6);
-    observationsTimestamps.push(11);
-    observationsTimestamps.push(16);
-    observationsTimestamps.push(21);
-    observationsTimestamps.push(26);
-
-    // Fulfill recorded timestamps
-    recordedTimestamps.push(5);
-    recordedTimestamps.push(10);
-    recordedTimestamps.push(15);
-    recordedTimestamps.push(20);
-    recordedTimestamps.push(25);
-    recordedTimestamps.push(30);
-
     harness.injectTransmissions(answers, observationsTimestamps, recordedTimestamps);
     harness.setLatestRoundIds(latestPrimaryRound, latestSecondaryRound);
     harness.setCutoffTime(cutoffTime);
