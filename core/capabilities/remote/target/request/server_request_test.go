@@ -276,7 +276,7 @@ func NewPeerID() string {
 
 	peerID := append(libp2pMagic(), privKey[:]...)
 
-	return base58.Encode(peerID[:])
+	return base58.Encode(peerID)
 }
 
 func libp2pMagic() []byte {

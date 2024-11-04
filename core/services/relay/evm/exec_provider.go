@@ -71,7 +71,7 @@ func NewSrcExecProvider(
 	}
 
 	return &SrcExecProvider{
-		lggr:                                   lggr,
+		lggr:                                   logger.Named(lggr, "SrcExecProvider"),
 		versionFinder:                          versionFinder,
 		client:                                 client,
 		estimator:                              estimator,
@@ -87,7 +87,7 @@ func NewSrcExecProvider(
 }
 
 func (s *SrcExecProvider) Name() string {
-	return "CCIP.SrcExecProvider"
+	return s.lggr.Name()
 }
 
 func (s *SrcExecProvider) Start(ctx context.Context) error {
@@ -258,7 +258,7 @@ func NewDstExecProvider(
 	offRampAddress cciptypes.Address,
 ) (commontypes.CCIPExecProvider, error) {
 	return &DstExecProvider{
-		lggr:                lggr,
+		lggr:                logger.Named(lggr, "DstExecProvider"),
 		versionFinder:       versionFinder,
 		client:              client,
 		lp:                  lp,
@@ -273,7 +273,7 @@ func NewDstExecProvider(
 }
 
 func (d *DstExecProvider) Name() string {
-	return "CCIP.DestRelayerExecProvider"
+	return d.lggr.Name()
 }
 
 func (d *DstExecProvider) Start(ctx context.Context) error {

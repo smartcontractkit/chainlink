@@ -50,7 +50,7 @@ func Test_CLOSpecApprovalFlow_dynamicPriceGetter(t *testing.T) {
 		ccip.DefaultDestFinalityDepth,
 	)
 
-	//Set up the aggregators here to avoid modifying ccipTH.
+	// Set up the aggregators here to avoid modifying ccipTH.
 	dstLinkAddr := ccipTH.Dest.LinkToken.Address()
 	srcNativeAddr, err := ccipTH.Source.Router.GetWrappedNative(nil)
 	require.NoError(t, err)

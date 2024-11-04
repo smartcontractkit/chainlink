@@ -83,7 +83,7 @@ contract TokenPoolFactory is ITypeAndVersion {
   }
 
   // ================================================================
-  // |                   Top-Level Deployment                       |
+  // │                   Top-Level Deployment                       │
   // ================================================================
 
   /// @notice Deploys a token and token pool with the given token information and configures it with remote token pools
@@ -104,7 +104,7 @@ contract TokenPoolFactory is ITypeAndVersion {
     bytes32 salt
   ) external returns (address, address) {
     // Ensure a unique deployment between senders even if the same input parameter is used to prevent
-    // DOS/Frontrunning attacks
+    // DOS/front running attacks
     salt = keccak256(abi.encodePacked(salt, msg.sender));
 
     // Deploy the token. The constructor parameters are already provided in the tokenInitCode
@@ -143,7 +143,7 @@ contract TokenPoolFactory is ITypeAndVersion {
     PoolType poolType
   ) external returns (address poolAddress) {
     // Ensure a unique deployment between senders even if the same input parameter is used to prevent
-    // DOS/Frontrunning attacks
+    // DOS/front running attacks
     salt = keccak256(abi.encodePacked(salt, msg.sender));
 
     // create the token pool and return the address
@@ -151,7 +151,7 @@ contract TokenPoolFactory is ITypeAndVersion {
   }
 
   // ================================================================
-  // |                Pool Deployment/Configuration                  |
+  // │                Pool Deployment/Configuration                 │
   // ================================================================
 
   /// @notice Deploys a token pool with the given token information and remote token pools

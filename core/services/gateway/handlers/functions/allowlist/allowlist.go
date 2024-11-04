@@ -20,8 +20,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_allow_list"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const (
@@ -128,20 +128,28 @@ func (a *onchainAllowlist) Start(ctx context.Context) error {
 
 		a.loadStoredAllowedSenderList(ctx)
 
+		updateTimeout, err := internal.SafeDurationFromSeconds(a.config.UpdateTimeoutSec)
+		if err != nil {
+			return fmt.Errorf("update timeout: %w", err)
+		}
 		updateOnce := func() {
-			timeoutCtx, cancel := utils.ContextFromChanWithTimeout(a.stopCh, time.Duration(a.config.UpdateTimeoutSec)*time.Second)
+			timeoutCtx, cancel := a.stopCh.CtxWithTimeout(updateTimeout)
 			if err := a.UpdateFromContract(timeoutCtx); err != nil {
 				a.lggr.Errorw("error calling UpdateFromContract", "err", err)
 			}
 			cancel()
 		}
 
+		updateFrequency, err := internal.SafeDurationFromSeconds(a.config.UpdateFrequencySec)
+		if err != nil {
+			return fmt.Errorf("update frequency: %w", err)
+		}
 		a.closeWait.Add(1)
 		go func() {
 			defer a.closeWait.Done()
 			// update immediately after start to populate the allowlist without waiting UpdateFrequencySec seconds
 			updateOnce()
-			ticker := time.NewTicker(time.Duration(a.config.UpdateFrequencySec) * time.Second)
+			ticker := time.NewTicker(updateFrequency)
 			defer ticker.Stop()
 			for {
 				select {

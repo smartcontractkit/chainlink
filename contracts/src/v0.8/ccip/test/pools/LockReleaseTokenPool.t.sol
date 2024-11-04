@@ -3,6 +3,7 @@ pragma solidity 0.8.24;
 
 import {IPoolV1} from "../../interfaces/IPool.sol";
 
+import {Ownable2Step} from "../../../shared/access/Ownable2Step.sol";
 import {BurnMintERC677} from "../../../shared/token/ERC677/BurnMintERC677.sol";
 import {Router} from "../../Router.sol";
 import {Pool} from "../../libraries/Pool.sol";
@@ -70,7 +71,7 @@ contract LockReleaseTokenPool_setRebalancer is LockReleaseTokenPoolSetup {
   function test_SetRebalancer_Revert() public {
     vm.startPrank(STRANGER);
 
-    vm.expectRevert("Only callable by owner");
+    vm.expectRevert(Ownable2Step.OnlyCallableByOwner.selector);
     s_lockReleaseTokenPool.setRebalancer(STRANGER);
   }
 }

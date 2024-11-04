@@ -9,16 +9,16 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
-	"github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/targets"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
+
+	"github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
 	evmcapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/targets"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	gasmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
 	pollermocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
@@ -26,17 +26,16 @@ import (
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
-	relayevm "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
-
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	relayevm "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
 var forwardABI = types.MustGetABI(forwarder.KeystoneForwarderMetaData.ABI)
@@ -142,12 +141,16 @@ func TestEvmWrite(t *testing.T) {
 	keyStore := cltest.NewKeyStore(t, db)
 
 	lggr := logger.TestLogger(t)
+	cRegistry := evmcapabilities.NewRegistry(lggr)
 	relayer, err := relayevm.NewRelayer(testutils.Context(t), lggr, chain, relayevm.RelayerOpts{
 		DS:                   db,
 		CSAETHKeystore:       keyStore,
-		CapabilitiesRegistry: evmcapabilities.NewRegistry(lggr),
+		CapabilitiesRegistry: cRegistry,
 	})
 	require.NoError(t, err)
+	registeredCapabilities, err := cRegistry.List(testutils.Context(t))
+	require.NoError(t, err)
+	require.Len(t, registeredCapabilities, 1) // WriteTarget should be added to the registry
 
 	reportID := [2]byte{0x00, 0x01}
 	reportMetadata := targets.ReportV1Metadata{
@@ -251,5 +254,32 @@ func TestEvmWrite(t *testing.T) {
 
 		_, err = capability.Execute(ctx, req)
 		require.Error(t, err)
+	})
+
+	t.Run("Relayer fails to start WriteTarget capability on missing config", func(t *testing.T) {
+		ctx := testutils.Context(t)
+		testChain := evmmocks.NewChain(t)
+		testCfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+			c.EVM[0].Workflow.FromAddress = nil
+
+			forwarderA := testutils.NewAddress()
+			forwarderAddr, err2 := types.NewEIP55Address(forwarderA.Hex())
+			require.NoError(t, err2)
+			c.EVM[0].Workflow.ForwarderAddress = &forwarderAddr
+		})
+		testChain.On("Config").Return(evmtest.NewChainScopedConfig(t, testCfg))
+		capabilityRegistry := evmcapabilities.NewRegistry(lggr)
+
+		_, err := relayevm.NewRelayer(ctx, lggr, testChain, relayevm.RelayerOpts{
+			DS:                   db,
+			CSAETHKeystore:       keyStore,
+			CapabilitiesRegistry: capabilityRegistry,
+		})
+		require.NoError(t, err)
+
+		l, err := capabilityRegistry.List(ctx)
+		require.NoError(t, err)
+
+		assert.Empty(t, l)
 	})
 }

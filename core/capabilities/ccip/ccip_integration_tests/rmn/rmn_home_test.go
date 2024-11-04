@@ -39,7 +39,7 @@ func TestRMNHomeReader_GetRMNNodesInfo(t *testing.T) {
 		observerBitmap2 = 1
 	)
 
-	//================================Deploy and configure RMNHome===============================
+	// ================================Deploy and configure RMNHome===============================
 	rmnHomeAddress, _, rmnHome, err := rmn_home.DeployRMNHome(uni.Transactor, uni.Backend)
 	require.NoError(t, err)
 	uni.Backend.Commit()
@@ -83,7 +83,7 @@ func TestRMNHomeReader_GetRMNNodesInfo(t *testing.T) {
 		require.NoError(t, err1)
 	})
 
-	//================================Test RMNHome Reader===============================
+	// ================================Test RMNHome Reader===============================
 	expectedNodesInfo := integrationhelpers.GenerateExpectedRMNHomeNodesInfo(staticConfig, chainID1)
 
 	require.Eventually(

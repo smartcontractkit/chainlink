@@ -24,15 +24,15 @@ jobs:
     runs-on: ubuntu-latest
     needs: [changes]
     steps:
-      - name: Check out code
+      - name: Checkout repository
         uses: actions/checkout@v4.2.1
 
       - name: Set up Go
         if: needs.changes.outputs.src == 'true'
-        uses: actions/setup-go@v5.0.2
+        uses: ./.github/actions/setup-go
         with:
           go-version-file: 'go.mod'
-        id: go
+          only-modules: 'true'
 
       - name: Write Go Modules list
         if: needs.changes.outputs.src == 'true'

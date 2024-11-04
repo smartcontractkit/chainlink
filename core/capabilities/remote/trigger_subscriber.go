@@ -3,7 +3,7 @@ package remote
 import (
 	"context"
 	"errors"
-	sync "sync"
+	"sync"
 	"time"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -269,5 +269,5 @@ func (s *triggerSubscriber) HealthReport() map[string]error {
 }
 
 func (s *triggerSubscriber) Name() string {
-	return "TriggerSubscriber"
+	return s.lggr.Name()
 }

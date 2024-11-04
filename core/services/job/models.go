@@ -185,7 +185,7 @@ type Job struct {
 	CCIPSpecID                    *int32
 	CCIPSpec                      *CCIPSpec
 	CCIPBootstrapSpecID           *int32
-	OEVConfig                     *OEVConfig `toml:"oev"`
+	AdaptiveSendSpec              *AdaptiveSendSpec `toml:"adaptiveSend"`
 	JobSpecErrors                 []SpecError
 	Type                          Type          `toml:"type"`
 	SchemaVersion                 uint32        `toml:"schemaVersion"`
@@ -1062,88 +1062,25 @@ type CCIPSpec struct {
 	PluginConfig JSONConfig `toml:"pluginConfig"`
 }
 
-type OEVConfig struct {
+type AdaptiveSendSpec struct {
 	TransmitterAddress *evmtypes.EIP55Address `toml:"transmitterAddress"`
 	ContractAddress    *evmtypes.EIP55Address `toml:"contractAddress"`
-	Builders           []string               `toml:"builders"`
-	Hints              []string               `toml:"hints"`
-	Refund             []OEVRefund            `toml:"refund"`
-	PriceDelay         time.Duration          `toml:"priceDelay"`
+	Delay              time.Duration          `toml:"delay"`
+	Metadata           JSONConfig             `toml:"metadata"`
 }
 
-type OEVRefund struct {
-	Address *evmtypes.EIP55Address `toml:"address"`
-	Percent int                    `toml:"percent"`
-}
-
-func (o *OEVConfig) Validate() error {
+func (o *AdaptiveSendSpec) Validate() error {
 	if o.TransmitterAddress == nil {
-		return errors.New("no OEVTransmitterAddress found")
+		return errors.New("no AdaptiveSendSpec.TransmitterAddress found")
 	}
 
 	if o.ContractAddress == nil {
-		return errors.New("no OEVContractAddress found")
+		return errors.New("no AdaptiveSendSpec.ContractAddress found")
 	}
 
-	if o.Builders == nil {
-		return errors.New("no OEVBuilders found")
-	}
-
-	if len(o.Builders) == 0 {
-		return errors.New("OEVBuilders expects at least one builder, none given")
-	}
-
-	if containsEmptyElement(o.Builders) {
-		return errors.Errorf("OEVBuilders should not contain empty element %q", o.Builders)
-	}
-
-	if o.Hints == nil {
-		return errors.New("no OEVHints found")
-	}
-	if len(o.Hints) == 0 {
-		return errors.New("OEVHints expects at least one hint, none given")
-	}
-
-	if containsEmptyElement(o.Hints) {
-		return errors.Errorf("OEVHints should not contain empty element %q", o.Hints)
-	}
-
-	if o.Refund == nil {
-		return errors.New("no OEVRefund found")
-	}
-
-	if o.PriceDelay.Seconds() <= 1 {
-		return errors.New("OEVPriceDelay not set or smaller than 1s")
-	}
-
-	if o.Refund == nil {
-		return errors.New("no OEVRefund found")
-	}
-
-	totalRefundPercent := 0
-	for _, r := range o.Refund {
-		if r.Address == nil {
-			return errors.New("OEVRefund.Address should not be empty")
-		}
-
-		if r.Percent <= 0 || r.Percent > 100 {
-			return errors.New("OEVRefund.Percent should be between 1 and 100")
-		}
-		totalRefundPercent += r.Percent
-	}
-
-	if totalRefundPercent > 100 {
-		return errors.New("the sum of all OEVRefund.Percent should not be greater than 100")
+	if o.Delay.Seconds() <= 1 {
+		return errors.New("AdaptiveSendSpec.Delay not set or smaller than 1s")
 	}
 
 	return nil
-}
-
-func containsEmptyElement(s []string) bool {
-	for _, str := range s {
-		if str == "" {
-			return true
-		}
-	}
-	return false
 }

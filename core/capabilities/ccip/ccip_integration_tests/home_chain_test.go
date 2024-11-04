@@ -35,7 +35,7 @@ func TestHomeChainReader_ChainConfigs(t *testing.T) {
 	p2pIDs := integrationhelpers.P2pIDsFromInts(arr)
 	uni.AddCapability(p2pIDs)
 
-	//==============================Apply configs to Capability Contract=================================
+	// ==============================Apply configs to Capability Contract=================================
 	encodedChainConfig, err := chainconfig.EncodeChainConfig(chainconfig.ChainConfig{
 		GasPriceDeviationPPB:    cciptypes.NewBigIntFromInt64(1000),
 		DAGasPriceDeviationPPB:  cciptypes.NewBigIntFromInt64(1_000_000),
@@ -62,7 +62,7 @@ func TestHomeChainReader_ChainConfigs(t *testing.T) {
 
 	t.Logf("homchain reader is ready")
 
-	//================================Test HomeChain Reader===============================
+	// ================================Test HomeChain Reader===============================
 	expectedChainConfigs := map[cciptypes.ChainSelector]ccipreader.ChainConfig{}
 	for _, c := range inputConfig {
 		expectedChainConfigs[cciptypes.ChainSelector(c.ChainSelector)] = ccipreader.ChainConfig{

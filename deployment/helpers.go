@@ -44,7 +44,7 @@ func SimTransactOpts() *bind.TransactOpts {
 	}, From: common.HexToAddress("0x0"), NoSend: true, GasLimit: 1_000_000}
 }
 
-func GetErrorReasonFromTx(client bind.ContractBackend, from common.Address, tx types.Transaction, receipt *types.Receipt) (string, error) {
+func GetErrorReasonFromTx(client bind.ContractBackend, from common.Address, tx *types.Transaction, receipt *types.Receipt) (string, error) {
 	call := ethereum.CallMsg{
 		From:     from,
 		To:       tx.To(),

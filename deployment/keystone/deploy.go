@@ -39,7 +39,6 @@ type ConfigureContractsRequest struct {
 	Dons       []DonCapabilities        // externally sourced based on the environment
 	OCR3Config *OracleConfigWithSecrets // TODO: probably should be a map of don to config; but currently we only have one wf don therefore one config
 
-	AddressBook      deployment.AddressBook
 	DoContractDeploy bool // if false, the contracts are assumed to be deployed and the address book is used
 }
 
@@ -49,9 +48,6 @@ func (r ConfigureContractsRequest) Validate() error {
 	}
 	if r.Env == nil {
 		return errors.New("environment is nil")
-	}
-	if r.AddressBook == nil {
-		return errors.New("address book is nil")
 	}
 	if len(r.Dons) == 0 {
 		return errors.New("no DONS")
@@ -75,7 +71,7 @@ func ConfigureContracts(ctx context.Context, lggr logger.Logger, req ConfigureCo
 		return nil, fmt.Errorf("invalid request: %w", err)
 	}
 
-	addrBook := req.AddressBook
+	addrBook := req.Env.ExistingAddresses
 	if req.DoContractDeploy {
 		contractDeployCS, err := DeployContracts(lggr, req.Env, req.RegistryChainSel)
 		if err != nil {

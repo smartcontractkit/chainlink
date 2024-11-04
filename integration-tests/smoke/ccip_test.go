@@ -32,7 +32,7 @@ func TestInitialDeployOnLocal(t *testing.T) {
 	tenv, _, _ := testsetups.NewLocalDevEnvironment(t, lggr)
 	e := tenv.Env
 
-	state, err := ccdeploy.LoadOnchainState(tenv.Env, tenv.Ab)
+	state, err := ccdeploy.LoadOnchainState(tenv.Env)
 	require.NoError(t, err)
 
 	feeds := state.Chains[tenv.FeedChainSel].USDFeeds
@@ -45,19 +45,18 @@ func TestInitialDeployOnLocal(t *testing.T) {
 		},
 	)
 	// Apply migration
-	output, err := changeset.InitialDeployChangeSet(tenv.Ab, tenv.Env, ccdeploy.DeployCCIPContractConfig{
-		HomeChainSel:       tenv.HomeChainSel,
-		FeedChainSel:       tenv.FeedChainSel,
-		ChainsToDeploy:     tenv.Env.AllChainSelectors(),
-		TokenConfig:        tokenConfig,
-		MCMSConfig:         ccdeploy.NewTestMCMSConfig(t, e),
-		CapabilityRegistry: state.Chains[tenv.HomeChainSel].CapabilityRegistry.Address(),
-		FeeTokenContracts:  tenv.FeeTokenContracts,
-		OCRSecrets:         deployment.XXXGenerateTestOCRSecrets(),
+	output, err := changeset.InitialDeploy(tenv.Env, ccdeploy.DeployCCIPContractConfig{
+		HomeChainSel:   tenv.HomeChainSel,
+		FeedChainSel:   tenv.FeedChainSel,
+		ChainsToDeploy: tenv.Env.AllChainSelectors(),
+		TokenConfig:    tokenConfig,
+		MCMSConfig:     ccdeploy.NewTestMCMSConfig(t, e),
+		OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
 	})
 	require.NoError(t, err)
+	require.NoError(t, tenv.Env.ExistingAddresses.Merge(output.AddressBook))
 	// Get new state after migration.
-	state, err = ccdeploy.LoadOnchainState(e, tenv.Ab)
+	state, err = ccdeploy.LoadOnchainState(e)
 	require.NoError(t, err)
 
 	// Ensure capreg logs are up to date.
@@ -122,9 +121,9 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	// if it's a new USDC deployment, set up mock server for attestation,
 	// we need to set it only once for all the lanes as the attestation path uses regex to match the path for
 	// all messages across all lanes
-	err := actions.SetMockServerWithUSDCAttestation(tenv.Env.MockAdapter, nil)
+	err := actions.SetMockServerWithUSDCAttestation(e.MockAdapter, nil)
 	require.NoError(t, err, "failed to set up mock server for attestation")
-	state, err := ccdeploy.LoadOnchainState(tenv.Env, tenv.Ab)
+	state, err := ccdeploy.LoadOnchainState(e)
 	require.NoError(t, err)
 
 	feeds := state.Chains[tenv.FeedChainSel].USDFeeds
@@ -138,31 +137,29 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	)
 
 	// Apply migration
-	output, err := changeset.InitialDeployChangeSet(tenv.Ab, tenv.Env, ccdeploy.DeployCCIPContractConfig{
-		HomeChainSel:       tenv.HomeChainSel,
-		FeedChainSel:       tenv.FeedChainSel,
-		ChainsToDeploy:     tenv.Env.AllChainSelectors(),
-		TokenConfig:        tokenConfig,
-		MCMSConfig:         ccdeploy.NewTestMCMSConfig(t, e),
-		CapabilityRegistry: state.Chains[tenv.HomeChainSel].CapabilityRegistry.Address(),
-		FeeTokenContracts:  tenv.FeeTokenContracts,
-		OCRSecrets: deployment.XXXGenerateTestOCRSecrets(),
+	output, err := changeset.InitialDeploy(e, ccdeploy.DeployCCIPContractConfig{
+		HomeChainSel:   tenv.HomeChainSel,
+		FeedChainSel:   tenv.FeedChainSel,
+		ChainsToDeploy: e.AllChainSelectors(),
+		TokenConfig:    tokenConfig,
+		MCMSConfig:     ccdeploy.NewTestMCMSConfig(t, e),
+		OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
 		USDCConfig: ccdeploy.USDCConfig{
 			Enabled: true,
 			USDCAttestationConfig: ccdeploy.USDCAttestationConfig{
-				API:         tenv.Env.MockAdapter.InternalEndpoint,
+				API: e.MockAdapter.InternalEndpoint,
 				APITimeout:  commonconfig.MustNewDuration(time.Second),
 				APIInterval: commonconfig.MustNewDuration(500 * time.Millisecond),
 			},
 		},
 	})
 	require.NoError(t, err)
-
+	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook))
 	// Get new state after migration and mock USDC token deployment.
-	state, err = ccdeploy.LoadOnchainState(e, tenv.Ab)
+	state, err = ccdeploy.LoadOnchainState(e)
 	require.NoError(t, err)
 
-	err = ccdeploy.SyncUSDCDomains(lggr, tenv.Env.Chains, tenv.HomeChainSel, tenv.FeedChainSel, state)
+	err = ccdeploy.SyncUSDCDomains(lggr, e.Chains, tenv.HomeChainSel, tenv.FeedChainSel, state)
 	require.NoError(t, err, "error while syncing USDC domains")
 
 	// Ensure capreg logs are up to date.
@@ -191,22 +188,22 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	oneCoin := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1))
 	// cast 677 token into ERC20Token
 	homeChainUSDCtoken, err := erc20.NewERC20(state.Chains[tenv.HomeChainSel].BurnMintTokens677[ccdeploy.USDCSymbol].Address(),
-		tenv.Env.Chains[tenv.HomeChainSel].Client)
+		e.Chains[tenv.HomeChainSel].Client)
 	require.NoError(t, err, "failed to cast USDC ERC677 token into ERC20 token in home chain")
 
 	feedChainUSDCtoken, err := erc20.NewERC20(state.Chains[tenv.FeedChainSel].BurnMintTokens677[ccdeploy.USDCSymbol].Address(),
-		tenv.Env.Chains[tenv.FeedChainSel].Client)
+		e.Chains[tenv.FeedChainSel].Client)
 	require.NoError(t, err, "failed to cast USDC ERC677 token into ERC20 token in feed chain")
 	// approve tokens
 
-	tx, err := homeChainUSDCtoken.Approve(tenv.Env.Chains[tenv.HomeChainSel].DeployerKey, state.Chains[tenv.HomeChainSel].Router.Address(), oneCoin)
+	tx, err := homeChainUSDCtoken.Approve(e.Chains[tenv.HomeChainSel].DeployerKey, state.Chains[tenv.HomeChainSel].Router.Address(), oneCoin)
 
 	require.NoError(t, err, "failed to approve USDC tokens in home chain")
-	_, err = tenv.Env.Chains[tenv.HomeChainSel].Confirm(tx)
+	_, err = e.Chains[tenv.HomeChainSel].Confirm(tx)
 	require.NoError(t, err, "failed to confirm USDC token approval in home chain")
-	tx, err = feedChainUSDCtoken.Approve(tenv.Env.Chains[tenv.FeedChainSel].DeployerKey, state.Chains[tenv.FeedChainSel].Router.Address(), oneCoin)
+	tx, err = feedChainUSDCtoken.Approve(e.Chains[tenv.FeedChainSel].DeployerKey, state.Chains[tenv.FeedChainSel].Router.Address(), oneCoin)
 	require.NoError(t, err, "failed to approve USDC tokens in feed chain")
-	_, err = tenv.Env.Chains[tenv.FeedChainSel].Confirm(tx)
+	_, err = e.Chains[tenv.FeedChainSel].Confirm(tx)
 	require.NoError(t, err, "failed to confirm USDC token approval in feed chain")
 	tokens := map[uint64][]router.ClientEVMTokenAmount{
 		tenv.HomeChainSel: {{

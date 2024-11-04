@@ -368,7 +368,7 @@ func takeBackupIfVersionUpgrade(dbUrl url.URL, rootDir string, cfg periodicbacku
 		return errors.Wrap(err, "takeBackupIfVersionUpgrade failed")
 	}
 
-	//Because backups can take a long time we must start a "fake" health report to prevent
+	// Because backups can take a long time we must start a "fake" health report to prevent
 	//node shutdown because of healthcheck fail/timeout
 	err = databaseBackup.RunBackup(appv.String())
 	return err

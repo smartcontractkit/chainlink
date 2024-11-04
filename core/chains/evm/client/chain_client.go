@@ -95,10 +95,6 @@ type Client interface {
 	CheckTxValidity(ctx context.Context, from common.Address, to common.Address, data []byte) *SendError
 }
 
-func ContextWithDefaultTimeout() (ctx context.Context, cancel context.CancelFunc) {
-	return context.WithTimeout(context.Background(), commonclient.QueryTimeout)
-}
-
 type chainClient struct {
 	multiNode *commonclient.MultiNode[
 		*big.Int,
@@ -465,7 +461,7 @@ func (c *chainClient) TransactionReceipt(ctx context.Context, txHash common.Hash
 	if err != nil {
 		return receipt, err
 	}
-	//return rpc.TransactionReceipt(ctx, txHash)
+	// return rpc.TransactionReceipt(ctx, txHash)
 	return r.TransactionReceiptGeth(ctx, txHash)
 }
 

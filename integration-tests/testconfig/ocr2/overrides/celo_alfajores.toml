@@ -1,0 +1,15 @@
+[Network]
+selected_networks = ["CELO_ALFAJORES"]
+
+[Soak.Common]
+chainlink_node_funding = 2
+
+[Soak.OCR2]
+[Soak.OCR2.Common]
+test_duration = "24h"
+
+[Soak.OCR2.Soak]
+time_between_rounds = "2m"
+
+[OCR2.Common]
+number_of_contracts = 2
