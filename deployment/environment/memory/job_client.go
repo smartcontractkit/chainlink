@@ -4,8 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
+	"strings"
 
+	"github.com/AlekSi/pointer"
 	"github.com/ethereum/go-ethereum/common"
 	"google.golang.org/grpc"
 
@@ -13,6 +16,7 @@ import (
 	csav1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/csa"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
+	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 )
@@ -63,35 +67,61 @@ func (j JobClient) GetNode(ctx context.Context, in *nodev1.GetNodeRequest, opts 
 
 func (j JobClient) ListNodes(ctx context.Context, in *nodev1.ListNodesRequest, opts ...grpc.CallOption) (*nodev1.ListNodesResponse, error) {
 	//TODO CCIP-3108
-	fiterIds := make(map[string]any)
-	include := func(id string) bool {
-		if in.Filter == nil || len(in.Filter.Ids) == 0 {
+	include := func(node *nodev1.Node) bool {
+		if in.Filter == nil {
 			return true
 		}
-		// lazy init
-		if len(fiterIds) == 0 {
-			for _, id := range in.Filter.Ids {
-				fiterIds[id] = struct{}{}
+		if len(in.Filter.Ids) > 0 {
+			idx := slices.IndexFunc(in.Filter.Ids, func(id string) bool {
+				return node.Id == id
+			})
+			if idx < 0 {
+				return false
 			}
 		}
-		_, ok := fiterIds[id]
-		return ok
+		for _, selector := range in.Filter.Selectors {
+			idx := slices.IndexFunc(node.Labels, func(label *ptypes.Label) bool {
+				return label.Key == selector.Key
+			})
+			if idx < 0 {
+				return false
+			}
+			label := node.Labels[idx]
+
+			switch selector.Op {
+			case ptypes.SelectorOp_IN:
+				values := strings.Split(*selector.Value, ",")
+				found := slices.Contains(values, *label.Value)
+				if !found {
+					return false
+				}
+			default:
+				panic("unimplemented selector")
+			}
+		}
+		return true
 	}
 	var nodes []*nodev1.Node
 	for id, n := range j.Nodes {
-		if include(id) {
-			nodes = append(nodes, &nodev1.Node{
-				Id:          id,
-				PublicKey:   n.Keys.CSA.ID(),
-				IsEnabled:   true,
-				IsConnected: true,
-			})
+		node := &nodev1.Node{
+			Id:          id,
+			PublicKey:   n.Keys.CSA.ID(),
+			IsEnabled:   true,
+			IsConnected: true,
+			Labels: []*ptypes.Label{
+				{
+					Key:   "p2p_id",
+					Value: pointer.ToString(n.Keys.PeerID.String()),
+				},
+			},
+		}
+		if include(node) {
+			nodes = append(nodes, node)
 		}
 	}
 	return &nodev1.ListNodesResponse{
 		Nodes: nodes,
 	}, nil
-
 }
 
 func (j JobClient) ListNodeChainConfigs(ctx context.Context, in *nodev1.ListNodeChainConfigsRequest, opts ...grpc.CallOption) (*nodev1.ListNodeChainConfigsResponse, error) {
