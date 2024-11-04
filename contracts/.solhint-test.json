@@ -11,6 +11,8 @@
 		"no-inline-assembly": "off",
 		"contract-name-camelcase": "off",
 		"one-contract-per-file":  "off",
+		"avoid-low-level-calls":  "off",
+		"reentrancy":  "off",
 		"func-name-mixedcase": "off",
 		"no-unused-import": "error",
 		"gas-struct-packing": "warn",

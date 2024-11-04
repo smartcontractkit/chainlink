@@ -44,8 +44,8 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
 
   bytes32 internal s_configDigestExec;
   bytes32 internal s_configDigestCommit;
-  uint64 internal constant s_offchainConfigVersion = 3;
-  uint8 internal constant s_F = 1;
+  uint64 internal constant OFFCHAIN_CONFIG_VERSION = 3;
+  uint8 internal constant F = 1;
 
   uint64 internal s_latestSequenceNumber;
 
@@ -80,14 +80,14 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
       sourceChainConfigs
     );
 
-    s_configDigestExec = _getBasicConfigDigest(s_F, s_emptySigners, s_validTransmitters);
-    s_configDigestCommit = _getBasicConfigDigest(s_F, s_validSigners, s_validTransmitters);
+    s_configDigestExec = _getBasicConfigDigest(F, s_emptySigners, s_validTransmitters);
+    s_configDigestCommit = _getBasicConfigDigest(F, s_validSigners, s_validTransmitters);
 
     MultiOCR3Base.OCRConfigArgs[] memory ocrConfigs = new MultiOCR3Base.OCRConfigArgs[](2);
     ocrConfigs[0] = MultiOCR3Base.OCRConfigArgs({
       ocrPluginType: uint8(Internal.OCRPluginType.Execution),
       configDigest: s_configDigestExec,
-      F: s_F,
+      F: F,
       isSignatureVerificationEnabled: false,
       signers: s_emptySigners,
       transmitters: s_validTransmitters
@@ -95,7 +95,7 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
     ocrConfigs[1] = MultiOCR3Base.OCRConfigArgs({
       ocrPluginType: uint8(Internal.OCRPluginType.Commit),
       configDigest: s_configDigestCommit,
-      F: s_F,
+      F: F,
       isSignatureVerificationEnabled: true,
       signers: s_validSigners,
       transmitters: s_validTransmitters
@@ -397,7 +397,7 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
     bytes32[3] memory reportContext = [s_configDigestCommit, bytes32(uint256(sequenceNumber)), s_configDigestCommit];
 
     (bytes32[] memory rs, bytes32[] memory ss,, bytes32 rawVs) =
-      _getSignaturesForDigest(s_validSignerKeys, abi.encode(commitReport), reportContext, s_F + 1);
+      _getSignaturesForDigest(s_validSignerKeys, abi.encode(commitReport), reportContext, F + 1);
 
     vm.startPrank(s_validTransmitters[0]);
     s_offRamp.commit(reportContext, abi.encode(commitReport), rs, ss, rawVs);

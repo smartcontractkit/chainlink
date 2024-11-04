@@ -58,7 +58,7 @@ contract USDCTokenPoolSetup is BaseTest {
     BurnMintERC677 usdcToken = new BurnMintERC677("LINK", "LNK", 18, 0);
     s_token = usdcToken;
     deal(address(s_token), OWNER, type(uint256).max);
-    setUpRamps();
+    _setUpRamps();
 
     s_mockUSDCTransmitter = new MockE2EUSDCTransmitter(0, DEST_DOMAIN_IDENTIFIER, address(s_token));
     s_mockUSDC = new MockUSDCTokenMessenger(0, address(s_mockUSDCTransmitter));
@@ -111,7 +111,7 @@ contract USDCTokenPoolSetup is BaseTest {
     s_usdcTokenPool.setLiquidityProvider(SOURCE_CHAIN_SELECTOR, OWNER);
   }
 
-  function setUpRamps() internal {
+  function _setUpRamps() internal {
     s_router = new Router(address(s_token), address(s_mockRMN));
 
     Router.OnRamp[] memory onRampUpdates = new Router.OnRamp[](1);

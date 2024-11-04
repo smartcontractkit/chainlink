@@ -30,10 +30,10 @@
 ./src/v0.8/functions/v1_0_0
 
 # Ignore tests, this should not be the long term plan but is OK in the short term
-#./src/v0.8/**/*.t.sol
 ./src/v0.8/mocks
 ./src/v0.8/tests
 ./src/v0.8/llo-feeds/**/*.t.sol
+./src/v0.8/automation/**/*.t.sol
 ./src/v0.8/vrf/**/*.t.sol
 ./src/v0.8/vrf/testhelpers
 ./src/v0.8/transmission/**/*.t.sol
@@ -42,14 +42,9 @@
 ./src/v0.8/operatorforwarder/**/*.t.sol
 ./src/v0.8/functions/**/*.t.sol
 ./src/v0.8/functions/tests
-
-
 ./src/v0.8/liquiditymanager/**/*.t.sol
 ./src/v0.8/keystone/**/*.t.sol
 ./src/v0.8/llo-feeds/**/*.t.sol
-./src/v0.8/llo-feeds/**/*.t.sol
-
-
 
 # Always ignore vendor
 ./src/v0.8/vendor

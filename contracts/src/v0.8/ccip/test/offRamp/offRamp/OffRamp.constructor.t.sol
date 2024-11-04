@@ -75,7 +75,7 @@ contract OffRamp_constructor is OffRampSetup {
     ocrConfigs[0] = MultiOCR3Base.OCRConfigArgs({
       ocrPluginType: uint8(Internal.OCRPluginType.Execution),
       configDigest: s_configDigestExec,
-      F: s_F,
+      F: F,
       isSignatureVerificationEnabled: false,
       signers: s_emptySigners,
       transmitters: s_validTransmitters

@@ -76,6 +76,7 @@ contract OnRampTokenPoolReentrancy is OnRampSetup {
     assertGt(expectedFee, 0);
 
     vm.expectRevert(OnRamp.ReentrancyGuardReentrantCall.selector);
+    // solhint-disable-next-line check-send-result
     s_facadeClient.send(amount);
   }
 }

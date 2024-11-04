@@ -206,7 +206,7 @@ contract OffRamp_commit is OffRampSetup {
     ocrConfigs[0] = MultiOCR3Base.OCRConfigArgs({
       ocrPluginType: uint8(Internal.OCRPluginType.Execution),
       configDigest: s_configDigestExec,
-      F: s_F,
+      F: F,
       isSignatureVerificationEnabled: false,
       signers: s_emptySigners,
       transmitters: s_validTransmitters
@@ -220,7 +220,7 @@ contract OffRamp_commit is OffRampSetup {
     ocrConfigs[0] = MultiOCR3Base.OCRConfigArgs({
       ocrPluginType: uint8(Internal.OCRPluginType.Commit),
       configDigest: s_configDigestCommit,
-      F: s_F,
+      F: F,
       isSignatureVerificationEnabled: true,
       signers: s_validSigners,
       transmitters: s_validTransmitters
@@ -289,7 +289,7 @@ contract OffRamp_commit is OffRampSetup {
       [s_configDigestCommit, bytes32(uint256(s_latestSequenceNumber)), s_configDigestCommit];
 
     (bytes32[] memory rs, bytes32[] memory ss,, bytes32 rawVs) =
-      _getSignaturesForDigest(s_validSignerKeys, abi.encode(commitReport), reportContext, s_F + 1);
+      _getSignaturesForDigest(s_validSignerKeys, abi.encode(commitReport), reportContext, F + 1);
 
     vm.expectRevert(MultiOCR3Base.UnauthorizedTransmitter.selector);
     s_offRamp.commit(reportContext, abi.encode(commitReport), rs, ss, rawVs);
@@ -302,7 +302,7 @@ contract OffRamp_commit is OffRampSetup {
 
     bytes32[3] memory reportContext = [bytes32(""), s_configDigestCommit, s_configDigestCommit];
     (bytes32[] memory rs, bytes32[] memory ss,, bytes32 rawVs) =
-      _getSignaturesForDigest(s_validSignerKeys, abi.encode(commitReport), reportContext, s_F + 1);
+      _getSignaturesForDigest(s_validSignerKeys, abi.encode(commitReport), reportContext, F + 1);
 
     vm.startPrank(s_validTransmitters[0]);
     vm.expectRevert();
@@ -316,7 +316,7 @@ contract OffRamp_commit is OffRampSetup {
     ocrConfigs[0] = MultiOCR3Base.OCRConfigArgs({
       ocrPluginType: uint8(Internal.OCRPluginType.Execution),
       configDigest: s_configDigestExec,
-      F: s_F,
+      F: F,
       isSignatureVerificationEnabled: false,
       signers: s_emptySigners,
       transmitters: s_validTransmitters
@@ -327,7 +327,7 @@ contract OffRamp_commit is OffRampSetup {
 
     bytes32[3] memory reportContext = [bytes32(""), s_configDigestCommit, s_configDigestCommit];
     (bytes32[] memory rs, bytes32[] memory ss,, bytes32 rawVs) =
-      _getSignaturesForDigest(s_validSignerKeys, abi.encode(commitReport), reportContext, s_F + 1);
+      _getSignaturesForDigest(s_validSignerKeys, abi.encode(commitReport), reportContext, F + 1);
 
     vm.startPrank(s_validTransmitters[0]);
     vm.expectRevert();

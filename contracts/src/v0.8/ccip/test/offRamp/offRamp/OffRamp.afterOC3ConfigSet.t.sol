@@ -24,7 +24,7 @@ contract OffRamp_afterOC3ConfigSet is OffRampSetup {
     ocrConfigs[0] = MultiOCR3Base.OCRConfigArgs({
       ocrPluginType: uint8(Internal.OCRPluginType.Commit),
       configDigest: s_configDigestCommit,
-      F: s_F,
+      F: F,
       isSignatureVerificationEnabled: false,
       signers: s_validSigners,
       transmitters: s_validTransmitters
