@@ -35,12 +35,9 @@ func TestDeployForwarder(t *testing.T) {
 		m[registrySel] = map[string]deployment.TypeAndVersion{
 			"0x0000000000000000000000000000000000000002": ocrTV,
 		}
-		ab := deployment.NewMemoryAddressBookFromMap(m)
+		env.ExistingAddresses = deployment.NewMemoryAddressBookFromMap(m)
 		// capabilities registry and ocr3 must be deployed on registry chain
-		_, err := changeset.DeployForwarder(env, changeset.DeployRegistryConfig{
-			RegistryChainSelector: registrySel,
-			ExistingAddressBook:   ab,
-		})
+		_, err := changeset.DeployForwarder(env, registrySel)
 		require.Error(t, err)
 	})
 
@@ -49,12 +46,9 @@ func TestDeployForwarder(t *testing.T) {
 		m[registrySel] = map[string]deployment.TypeAndVersion{
 			"0x0000000000000000000000000000000000000001": crTV,
 		}
-		ab := deployment.NewMemoryAddressBookFromMap(m)
+		env.ExistingAddresses = deployment.NewMemoryAddressBookFromMap(m)
 		// capabilities registry and ocr3 must be deployed on registry chain
-		_, err := changeset.DeployForwarder(env, changeset.DeployRegistryConfig{
-			RegistryChainSelector: registrySel,
-			ExistingAddressBook:   ab,
-		})
+		_, err := changeset.DeployForwarder(env, registrySel)
 		require.Error(t, err)
 	})
 
@@ -68,10 +62,8 @@ func TestDeployForwarder(t *testing.T) {
 		err = ab.Save(registrySel, "0x0000000000000000000000000000000000000002", ocrTV)
 		require.NoError(t, err)
 		// deploy forwarder
-		resp, err := changeset.DeployForwarder(env, changeset.DeployRegistryConfig{
-			RegistryChainSelector: registrySel,
-			ExistingAddressBook:   ab,
-		})
+		env.ExistingAddresses = ab
+		resp, err := changeset.DeployForwarder(env, registrySel)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		// registry, ocr3, forwarder should be deployed on registry chain

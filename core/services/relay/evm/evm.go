@@ -217,14 +217,14 @@ func NewRelayer(ctx context.Context, lggr logger.Logger, chain legacyevm.Chain, 
 		capabilitiesRegistry:  opts.CapabilitiesRegistry,
 	}
 
+	wCfg := chain.Config().EVM().Workflow()
 	// Initialize write target capability if configuration is defined
-	if chain.Config().EVM().Workflow().ForwarderAddress() != nil {
-		if chain.Config().EVM().Workflow().GasLimitDefault() == nil {
+	if wCfg.ForwarderAddress() != nil && wCfg.FromAddress() != nil {
+		if wCfg.GasLimitDefault() == nil {
 			return nil, fmt.Errorf("unable to instantiate write target as default gas limit is not set")
 		}
 
-		capability, err := NewWriteTarget(ctx, relayer, chain, *chain.Config().EVM().Workflow().GasLimitDefault(),
-			lggr)
+		capability, err := NewWriteTarget(ctx, relayer, chain, *wCfg.GasLimitDefault(), lggr)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize write target: %w", err)
 		}

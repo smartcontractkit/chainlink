@@ -14,19 +14,21 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
+	internal "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
 type SetupTestRegistryRequest struct {
 	P2pToCapabilities map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability
-	NopToNodes        map[kcr.CapabilitiesRegistryNodeOperator][]*kslib.P2PSignerEnc
-	DonToNodes        map[string][]*kslib.P2PSignerEnc
+	NopToNodes        map[kcr.CapabilitiesRegistryNodeOperator][]*internal.P2PSignerEnc
+	DonToNodes        map[string][]*internal.P2PSignerEnc
 }
 
 type SetupTestRegistryResponse struct {
-	Registry *kcr.CapabilitiesRegistry
-	Chain    deployment.Chain
+	Registry         *kcr.CapabilitiesRegistry
+	Chain            deployment.Chain
+	RegistrySelector uint64
 }
 
 func SetupTestRegistry(t *testing.T, lggr logger.Logger, req *SetupTestRegistryRequest) *SetupTestRegistryResponse {
@@ -63,7 +65,7 @@ func SetupTestRegistry(t *testing.T, lggr logger.Logger, req *SetupTestRegistryR
 	for p2pID := range req.P2pToCapabilities {
 		initialp2pToCapabilities[p2pID] = vanillaCapabilities(registeredCapabilities)
 	}
-	phonyRequest := &kslib.UpdateNodesRequest{
+	phonyRequest := &internal.UpdateNodesRequest{
 		Chain:             chain,
 		Registry:          registry,
 		P2pToCapabilities: req.P2pToCapabilities,
@@ -73,8 +75,9 @@ func SetupTestRegistry(t *testing.T, lggr logger.Logger, req *SetupTestRegistryR
 	require.NoError(t, err)
 	addNodes(t, lggr, chain, registry, nodeParams)
 	return &SetupTestRegistryResponse{
-		Registry: registry,
-		Chain:    chain,
+		Registry:         registry,
+		Chain:            chain,
+		RegistrySelector: chain.Selector,
 	}
 }
 

@@ -103,9 +103,9 @@ func (mc *MultiClient) WaitMined(ctx context.Context, tx *types.Transaction) (*t
 	resultCh := make(chan *types.Receipt)
 	doneCh := make(chan struct{})
 
-	waitMined := func(client *ethclient.Client, tx types.Transaction) {
+	waitMined := func(client *ethclient.Client, tx *types.Transaction) {
 		mc.lggr.Debugf("Waiting for tx %s to be mined with client %v", tx.Hash().Hex(), client)
-		receipt, err := bind.WaitMined(ctx, client, &tx)
+		receipt, err := bind.WaitMined(ctx, client, tx)
 		if err != nil {
 			mc.lggr.Warnf("WaitMined error %v with client %v", err, client)
 			return
@@ -118,9 +118,7 @@ func (mc *MultiClient) WaitMined(ctx context.Context, tx *types.Transaction) (*t
 	}
 
 	for _, client := range append([]*ethclient.Client{mc.Client}, mc.Backups...) {
-		txn := tx
-		c := client
-		go waitMined(c, *txn)
+		go waitMined(client, tx)
 	}
 	var receipt *types.Receipt
 	select {

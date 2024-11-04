@@ -88,7 +88,7 @@ func NewLocalDevEnvironment(t *testing.T, lggr logger.Logger) (ccipdeployment.De
 	require.NoError(t, err)
 
 	ab := deployment.NewMemoryAddressBook()
-	feeContracts, crConfig := ccipdeployment.DeployTestContracts(t, lggr, ab, homeChainSel, feedSel, chains)
+	crConfig := ccipdeployment.DeployTestContracts(t, lggr, ab, homeChainSel, feedSel, chains)
 
 	// start the chainlink nodes with the CR address
 	err = StartChainlinkNodes(t, envConfig,
@@ -99,17 +99,16 @@ func NewLocalDevEnvironment(t *testing.T, lggr logger.Logger) (ccipdeployment.De
 	e, don, err := devenv.NewEnvironment(ctx, lggr, *envConfig)
 	require.NoError(t, err)
 	require.NotNil(t, e)
+	e.ExistingAddresses = ab
 	zeroLogLggr := logging.GetTestLogger(t)
 	// fund the nodes
 	FundNodes(t, zeroLogLggr, testEnv, cfg, don.PluginNodes())
 
 	return ccipdeployment.DeployedEnv{
-		Ab:                ab,
-		Env:               *e,
-		HomeChainSel:      homeChainSel,
-		FeedChainSel:      feedSel,
-		ReplayBlocks:      replayBlocks,
-		FeeTokenContracts: feeContracts,
+		Env:          *e,
+		HomeChainSel: homeChainSel,
+		FeedChainSel: feedSel,
+		ReplayBlocks: replayBlocks,
 	}, testEnv, cfg
 }
 
@@ -119,18 +118,18 @@ func NewLocalDevEnvironmentWithRMN(
 	numRmnNodes int,
 ) (ccipdeployment.DeployedEnv, devenv.RMNCluster) {
 	tenv, dockerenv, _ := NewLocalDevEnvironment(t, lggr)
-	state, err := ccipdeployment.LoadOnchainState(tenv.Env, tenv.Ab)
+	state, err := ccipdeployment.LoadOnchainState(tenv.Env)
 	require.NoError(t, err)
 
 	// Deploy CCIP contracts.
-	err = ccipdeployment.DeployCCIPContracts(tenv.Env, tenv.Ab, ccipdeployment.DeployCCIPContractConfig{
-		HomeChainSel:        tenv.HomeChainSel,
-		FeedChainSel:        tenv.FeedChainSel,
-		ChainsToDeploy:      tenv.Env.AllChainSelectors(),
-		TokenConfig:         ccipdeployment.NewTestTokenConfig(state.Chains[tenv.FeedChainSel].USDFeeds),
-		MCMSConfig:          ccipdeployment.NewTestMCMSConfig(t, tenv.Env),
-		ExistingAddressBook: tenv.Ab,
-		OCRSecrets:          deployment.XXXGenerateTestOCRSecrets(),
+	newAddresses := deployment.NewMemoryAddressBook()
+	err = ccipdeployment.DeployCCIPContracts(tenv.Env, newAddresses, ccipdeployment.DeployCCIPContractConfig{
+		HomeChainSel:   tenv.HomeChainSel,
+		FeedChainSel:   tenv.FeedChainSel,
+		ChainsToDeploy: tenv.Env.AllChainSelectors(),
+		TokenConfig:    ccipdeployment.NewTestTokenConfig(state.Chains[tenv.FeedChainSel].USDFeeds),
+		MCMSConfig:     ccipdeployment.NewTestMCMSConfig(t, tenv.Env),
+		OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
 	})
 	require.NoError(t, err)
 	l := logging.GetTestLogger(t)
@@ -181,7 +180,7 @@ func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv ccipdeployment.Depl
 	bootstrappers := nodes.BootstrapLocators()
 
 	// Just set all RMN nodes to support all chains.
-	state, err := ccipdeployment.LoadOnchainState(tenv.Env, tenv.Ab)
+	state, err := ccipdeployment.LoadOnchainState(tenv.Env)
 	require.NoError(t, err)
 	var chainParams []devenv.ChainParam
 	var remoteChains []devenv.RemoteChains

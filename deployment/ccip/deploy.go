@@ -118,11 +118,10 @@ func deployContract[C Contracts](
 }
 
 type DeployCCIPContractConfig struct {
-	HomeChainSel        uint64
-	FeedChainSel        uint64
-	ChainsToDeploy      []uint64
-	TokenConfig         TokenConfig
-	ExistingAddressBook deployment.AddressBook
+	HomeChainSel   uint64
+	FeedChainSel   uint64
+	ChainsToDeploy []uint64
+	TokenConfig    TokenConfig
 	// I believe it makes sense to have the same signers across all chains
 	// since that's the point MCMS.
 	MCMSConfig MCMSConfig
@@ -148,7 +147,7 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 		e.Logger.Errorw("Failed to get node info", "err", err)
 		return err
 	}
-	existingState, err := LoadOnchainState(e, c.ExistingAddressBook)
+	existingState, err := LoadOnchainState(e)
 	if err != nil {
 		e.Logger.Errorw("Failed to load existing onchain state", "err")
 		return err
@@ -364,16 +363,14 @@ func DeployMCMSContracts(
 	}, nil
 }
 
-func DeployFeeTokensToChains(lggr logger.Logger, ab deployment.AddressBook, chains map[uint64]deployment.Chain) (map[uint64]FeeTokenContracts, error) {
-	feeTokenContractsByChain := make(map[uint64]FeeTokenContracts)
+func DeployFeeTokensToChains(lggr logger.Logger, ab deployment.AddressBook, chains map[uint64]deployment.Chain) error {
 	for _, chain := range chains {
-		feeTokenContracts, err := DeployFeeTokens(lggr, chain, ab)
+		_, err := DeployFeeTokens(lggr, chain, ab)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		feeTokenContractsByChain[chain.Selector] = feeTokenContracts
 	}
-	return feeTokenContractsByChain, nil
+	return nil
 }
 
 // DeployFeeTokens deploys link and weth9. This is _usually_ for test environments only,

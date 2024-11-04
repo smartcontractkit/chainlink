@@ -9,24 +9,19 @@ import (
 
 var _ deployment.ChangeSet = DeployForwarder
 
-type DeployRegistryConfig struct {
-	RegistryChainSelector uint64
-	ExistingAddressBook   deployment.AddressBook
-}
-
 func DeployForwarder(env deployment.Environment, config interface{}) (deployment.ChangesetOutput, error) {
-	c, ok := config.(DeployRegistryConfig)
+	registryChainSel, ok := config.(uint64)
 	if !ok {
 		return deployment.ChangesetOutput{}, deployment.ErrInvalidConfig
 	}
 	lggr := env.Logger
 	// expect OCR3 to be deployed & capabilities registry
-	regAddrs, err := c.ExistingAddressBook.AddressesForChain(c.RegistryChainSelector)
+	regAddrs, err := env.ExistingAddresses.AddressesForChain(registryChainSel)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("no addresses found for chain %d: %w", c.RegistryChainSelector, err)
+		return deployment.ChangesetOutput{}, fmt.Errorf("no addresses found for chain %d: %w", registryChainSel, err)
 	}
 	if len(regAddrs) != 2 {
-		return deployment.ChangesetOutput{}, fmt.Errorf("expected 2 addresses for chain %d, got %d", c.RegistryChainSelector, len(regAddrs))
+		return deployment.ChangesetOutput{}, fmt.Errorf("expected 2 addresses for chain %d, got %d", registryChainSel, len(regAddrs))
 	}
 	ab := deployment.NewMemoryAddressBook()
 	for _, chain := range env.Chains {
