@@ -242,14 +242,14 @@ func TestCapRegView_Denormalize(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			v := CapRegView{
+			v := CapabilityRegistryView{
 				ContractMetaData: tt.fields.ContractMetaData,
 				Capabilities:     tt.fields.Capabilities,
 				Nodes:            tt.fields.Nodes,
 				Dons:             tt.fields.Dons,
 				Nops:             tt.fields.Nops,
 			}
-			got, err := v.DonCapabilities()
+			got, err := v.DonDenormalizedView()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("CapRegView.Denormalize() error = %v, wantErr %v", err, tt.wantErr)
 				return

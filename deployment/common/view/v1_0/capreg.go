@@ -13,10 +13,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
-// CapRegView denotes a view of the capabilities registry contract.
-// Note that the contract itself is 1.0.0 versioned, but we're releasing it first
-// as part of 1.6 for CCIP.
-type CapRegView struct {
+// CapabilityRegistryView is a high-fidelity view of the capabilities registry contract.
+type CapabilityRegistryView struct {
 	types.ContractMetaData
 	Capabilities []CapabilityView `json:"capabilities,omitempty"`
 	Nodes        []NodeView       `json:"nodes,omitempty"`
@@ -24,7 +22,9 @@ type CapRegView struct {
 	Dons         []DonView        `json:"dons,omitempty"`
 }
 
-func (v CapRegView) MarshalJSON() ([]byte, error) {
+// MarshalJSON marshals the CapabilityRegistryView to JSON. It includes the Capabilities, Nodes, Nops, and Dons
+// and a denormalized summary of the Dons with their associated Nodes and Capabilities, which is useful for a high-level view
+func (v CapabilityRegistryView) MarshalJSON() ([]byte, error) {
 	// Alias to avoid recursive calls
 	type Alias struct {
 		types.ContractMetaData
@@ -41,7 +41,7 @@ func (v CapRegView) MarshalJSON() ([]byte, error) {
 		Nops:             v.Nops,
 		Dons:             v.Dons,
 	}
-	dc, err := v.DonCapabilities()
+	dc, err := v.DonDenormalizedView()
 	if err != nil {
 		return nil, err
 	}
@@ -49,15 +49,15 @@ func (v CapRegView) MarshalJSON() ([]byte, error) {
 	return json.MarshalIndent(&a, "", " ")
 }
 
-// GenerateCapRegView generates a CapRegView from a CapabilitiesRegistry contract.
-func GenerateCapRegView(capReg *capabilities_registry.CapabilitiesRegistry) (CapRegView, error) {
+// GenerateCapabilityRegistryView generates a CapRegView from a CapabilitiesRegistry contract.
+func GenerateCapabilityRegistryView(capReg *capabilities_registry.CapabilitiesRegistry) (CapabilityRegistryView, error) {
 	tv, err := types.NewContractMetaData(capReg, capReg.Address())
 	if err != nil {
-		return CapRegView{}, err
+		return CapabilityRegistryView{}, err
 	}
 	caps, err := capReg.GetCapabilities(nil)
 	if err != nil {
-		return CapRegView{}, err
+		return CapabilityRegistryView{}, err
 	}
 	var capViews []CapabilityView
 	for _, capability := range caps {
@@ -65,7 +65,7 @@ func GenerateCapRegView(capReg *capabilities_registry.CapabilitiesRegistry) (Cap
 	}
 	donInfos, err := capReg.GetDONs(nil)
 	if err != nil {
-		return CapRegView{}, err
+		return CapabilityRegistryView{}, err
 	}
 	var donViews []DonView
 	for _, donInfo := range donInfos {
@@ -74,7 +74,7 @@ func GenerateCapRegView(capReg *capabilities_registry.CapabilitiesRegistry) (Cap
 
 	nodeInfos, err := capReg.GetNodes(nil)
 	if err != nil {
-		return CapRegView{}, err
+		return CapabilityRegistryView{}, err
 	}
 	var nodeViews []NodeView
 	for _, nodeInfo := range nodeInfos {
@@ -83,14 +83,14 @@ func GenerateCapRegView(capReg *capabilities_registry.CapabilitiesRegistry) (Cap
 
 	nopInfos, err := capReg.GetNodeOperators(nil)
 	if err != nil {
-		return CapRegView{}, err
+		return CapabilityRegistryView{}, err
 	}
 	var nopViews []NopView
 	for _, nopInfo := range nopInfos {
 		nopViews = append(nopViews, NewNopView(nopInfo))
 	}
 
-	return CapRegView{
+	return CapabilityRegistryView{
 		ContractMetaData: tv,
 		Capabilities:     capViews,
 		Dons:             donViews,
@@ -106,11 +106,11 @@ type DonDenormalizedView struct {
 	Capabilities []CapabilityView       `json:"capabilities"`
 }
 
-// DonCapabilities returns a list of DonCapabilities, which are Dons with their associated
-// Nodes and Capabilities. This is a useful form of the CapRegView, but it is not definitive.
+// DonDenormalizedView returns a list of DonDenormalizedView, which are Dons with their associated
+// Nodes and Capabilities. This is a useful form of the CapabilityRegistryView, but it is not definitive.
 // The full CapRegView should be used for the most accurate information as it can contain
 // Capabilities and Nodes the are not associated with any Don.
-func (v CapRegView) DonCapabilities() ([]DonDenormalizedView, error) {
+func (v CapabilityRegistryView) DonDenormalizedView() ([]DonDenormalizedView, error) {
 	var out []DonDenormalizedView
 	for _, don := range v.Dons {
 		var nodes []NodeDenormalizedView
@@ -138,36 +138,14 @@ func (v CapRegView) DonCapabilities() ([]DonDenormalizedView, error) {
 	return out, nil
 }
 
-func (v CapRegView) nodeDenormalizedView(n NodeView) (NodeDenormalizedView, error) {
-	nop, err := nodeNop(n, v.Nops)
-	if err != nil {
-		return NodeDenormalizedView{}, err
-	}
-	return NodeDenormalizedView{
-		NodeUniversalMetadata: n.NodeUniversalMetadata,
-		Nop:                   nop,
-	}, nil
-}
-
-func nodeNop(n NodeView, nops []NopView) (NopView, error) {
-	for i, nop := range nops {
-		// nops are 1-indexed. there is no natural key to match on, so we use the index.
-		idx := i + 1
-		if n.NodeOperatorID == uint32(idx) {
-			return nop, nil
-		}
-	}
-	return NopView{}, fmt.Errorf("could not find nop for node %d", n.NodeOperatorID)
-}
-
 // CapabilityView is a serialization-friendly view of a capability in the capabilities registry.
 type CapabilityView struct {
-	ID                    string         `json:"id"` // hex
+	ID                    string         `json:"id"` // hex 32 bytes
 	LabelledName          string         `json:"labelled_name"`
 	Version               string         `json:"version"`
 	CapabilityType        uint8          `json:"capability_type"`
 	ResponseType          uint8          `json:"response_type"`
-	ConfigurationContract common.Address `json:"configuration_contract, omitempty"`
+	ConfigurationContract common.Address `json:"configuration_contract,omitempty"`
 	IsDeprecated          bool           `json:"is_deprecated,omitempty"`
 }
 
@@ -346,6 +324,28 @@ func NewNopView(nop capabilities_registry.CapabilitiesRegistryNodeOperator) NopV
 		Admin: nop.Admin,
 		Name:  nop.Name,
 	}
+}
+
+func (v CapabilityRegistryView) nodeDenormalizedView(n NodeView) (NodeDenormalizedView, error) {
+	nop, err := nodeNop(n, v.Nops)
+	if err != nil {
+		return NodeDenormalizedView{}, err
+	}
+	return NodeDenormalizedView{
+		NodeUniversalMetadata: n.NodeUniversalMetadata,
+		Nop:                   nop,
+	}, nil
+}
+
+func nodeNop(n NodeView, nops []NopView) (NopView, error) {
+	for i, nop := range nops {
+		// nops are 1-indexed. there is no natural key to match on, so we use the index.
+		idx := i + 1
+		if n.NodeOperatorID == uint32(idx) {
+			return nop, nil
+		}
+	}
+	return NopView{}, fmt.Errorf("could not find nop for node %d", n.NodeOperatorID)
 }
 
 func p2pIds(rawIds [][32]byte) []p2pkey.PeerID {
