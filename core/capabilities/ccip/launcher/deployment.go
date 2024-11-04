@@ -1,6 +1,7 @@
 package launcher
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 
@@ -61,7 +62,7 @@ func (c pluginRegistry) TransitionFrom(prevPlugins pluginRegistry) error {
 	// This will start the instances that were not previously present, but are in the new config
 	for digest, oracle := range c {
 		if digest == [32]byte{} {
-			allErrs = multierr.Append(allErrs, fmt.Errorf("cannot start a plugin with an empty config digest"))
+			allErrs = multierr.Append(allErrs, errors.New("cannot start a plugin with an empty config digest"))
 		} else if _, ok := prevPlugins[digest]; !ok {
 			wg.Add(1)
 			go func(o cctypes.CCIPOracle) {
