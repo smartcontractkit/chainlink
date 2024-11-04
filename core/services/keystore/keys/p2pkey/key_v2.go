@@ -66,7 +66,7 @@ func NewV2() (KeyV2, error) {
 func MustNewV2XXXTestingOnly(k *big.Int) KeyV2 {
 	seed := make([]byte, ed25519.SeedSize)
 	copy(seed, k.Bytes())
-	pk := ed25519.NewKeyFromSeed(seed[:])
+	pk := ed25519.NewKeyFromSeed(seed)
 	key, err := fromPrivkey(pk)
 	if err != nil {
 		panic(err)

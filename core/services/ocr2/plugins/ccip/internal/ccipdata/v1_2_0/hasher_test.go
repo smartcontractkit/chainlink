@@ -76,3 +76,11 @@ func TestHasherV1_2_0(t *testing.T) {
 	// NOTE: Must match spec
 	require.Equal(t, "4362a13a42e52ff5ce4324e7184dc7aa41704c3146bc842d35d95b94b32a78b6", hex.EncodeToString(hash[:]))
 }
+
+func TestMetaDataHash(t *testing.T) {
+	sourceChainSelector, destChainSelector := uint64(1), uint64(4)
+	onRampAddress := common.HexToAddress("0x5550000000000000000000000000000000000001")
+	ctx := hashutil.NewKeccak()
+	hash := GetMetaDataHash(ctx, ctx.Hash([]byte(MetaDataHashPrefix)), sourceChainSelector, onRampAddress, destChainSelector)
+	require.Equal(t, "bf97bd8e2a1dda6e898eeb79b0c69939f335cc712d784eee3d726cc21121de4c", hex.EncodeToString(hash[:]))
+}

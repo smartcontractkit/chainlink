@@ -6,15 +6,17 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
 
 func Test_calculateMessageMaxGas(t *testing.T) {
 	type args struct {
-		dataLen   int
-		numTokens int
-		extraArgs []byte
+		dataLen          int
+		numTokens        int
+		extraArgs        []byte
+		tokenGasOverhead uint32
 	}
 	tests := []struct {
 		name string
@@ -23,33 +25,48 @@ func Test_calculateMessageMaxGas(t *testing.T) {
 	}{
 		{
 			name: "base",
-			args: args{dataLen: 5, numTokens: 2, extraArgs: makeExtraArgsV1(200_000)},
-			want: 1_022_264,
+			args: args{dataLen: 5, numTokens: 2, extraArgs: makeExtraArgsV1(200_000), tokenGasOverhead: 10},
+			want: 1_022_284,
 		},
 		{
 			name: "large",
-			args: args{dataLen: 1000, numTokens: 1000, extraArgs: makeExtraArgsV1(200_000)},
-			want: 346_677_520,
+			args: args{dataLen: 1000, numTokens: 1000, extraArgs: makeExtraArgsV1(200_000), tokenGasOverhead: 1},
+			want: 346_678_520,
 		},
 		{
 			name: "overheadGas test 1",
-			args: args{dataLen: 0, numTokens: 0, extraArgs: makeExtraArgsV1(200_000)},
+			args: args{dataLen: 0, numTokens: 0, extraArgs: makeExtraArgsV1(200_000), tokenGasOverhead: 100},
 			want: 319_920,
 		},
 		{
 			name: "overheadGas test 2",
-			args: args{dataLen: len([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0}), numTokens: 1, extraArgs: makeExtraArgsV1(200_000)},
-			want: 675_948,
+			args: args{
+				dataLen:          len([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
+				numTokens:        1,
+				extraArgs:        makeExtraArgsV1(200_000),
+				tokenGasOverhead: 2,
+			},
+			want: 675_950,
 		},
 		{
 			name: "allowOOO set to true makes no difference to final gas estimate",
-			args: args{dataLen: 5, numTokens: 2, extraArgs: makeExtraArgsV2(200_000, true)},
-			want: 1_022_264,
+			args: args{
+				dataLen:          5,
+				numTokens:        2,
+				extraArgs:        makeExtraArgsV2(200_000, true),
+				tokenGasOverhead: 100,
+			},
+			want: 1_022_464,
 		},
 		{
 			name: "allowOOO set to false makes no difference to final gas estimate",
-			args: args{dataLen: 5, numTokens: 2, extraArgs: makeExtraArgsV2(200_000, false)},
-			want: 1_022_264,
+			args: args{
+				dataLen:          5,
+				numTokens:        2,
+				extraArgs:        makeExtraArgsV2(200_000, false),
+				tokenGasOverhead: 100,
+			},
+			want: 1_022_464,
 		},
 	}
 
@@ -57,7 +74,7 @@ func Test_calculateMessageMaxGas(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			msg := ccipocr3.Message{
 				Data:         make([]byte, tt.args.dataLen),
-				TokenAmounts: make([]ccipocr3.RampTokenAmount, tt.args.numTokens),
+				TokenAmounts: getTokenAmounts(t, tt.args.numTokens, tt.args.tokenGasOverhead),
 				ExtraArgs:    tt.args.extraArgs,
 			}
 			ep := EstimateProvider{}
@@ -72,36 +89,40 @@ func Test_calculateMessageMaxGas(t *testing.T) {
 // are combined to one function.
 func TestCalculateMaxGas(t *testing.T) {
 	tests := []struct {
-		name           string
-		numRequests    int
-		dataLength     int
-		numberOfTokens int
-		extraArgs      []byte
-		want           uint64
+		name             string
+		numRequests      int
+		dataLength       int
+		numberOfTokens   int
+		extraArgs        []byte
+		tokenGasOverhead uint32
+		want             uint64
 	}{
 		{
-			name:           "maxGasOverheadGas 1",
-			numRequests:    6,
-			dataLength:     0,
-			numberOfTokens: 0,
-			extraArgs:      makeExtraArgsV1(200_000),
-			want:           322_992,
+			name:             "maxGasOverheadGas 1",
+			numRequests:      6,
+			dataLength:       0,
+			numberOfTokens:   0,
+			extraArgs:        makeExtraArgsV1(200_000),
+			tokenGasOverhead: 10,
+			want:             322_992,
 		},
 		{
-			name:           "maxGasOverheadGas 2",
-			numRequests:    3,
-			dataLength:     len([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
-			numberOfTokens: 1,
-			extraArgs:      makeExtraArgsV1(200_000),
-			want:           678_508,
+			name:             "maxGasOverheadGas 2",
+			numRequests:      3,
+			dataLength:       len([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
+			numberOfTokens:   1,
+			extraArgs:        makeExtraArgsV1(200_000),
+			tokenGasOverhead: 10,
+			want:             678_518,
 		},
 		{
-			name:           "v2 extra args",
-			numRequests:    3,
-			dataLength:     len([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
-			numberOfTokens: 1,
-			extraArgs:      makeExtraArgsV2(200_000, true),
-			want:           678_508,
+			name:             "v2 extra args",
+			numRequests:      3,
+			dataLength:       len([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
+			numberOfTokens:   1,
+			extraArgs:        makeExtraArgsV2(200_000, true),
+			tokenGasOverhead: 10,
+			want:             678_518,
 		},
 	}
 
@@ -109,7 +130,7 @@ func TestCalculateMaxGas(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			msg := ccipocr3.Message{
 				Data:         make([]byte, tt.dataLength),
-				TokenAmounts: make([]ccipocr3.RampTokenAmount, tt.numberOfTokens),
+				TokenAmounts: getTokenAmounts(t, tt.numberOfTokens, tt.tokenGasOverhead),
 				ExtraArgs:    tt.extraArgs,
 			}
 			ep := EstimateProvider{}
@@ -154,4 +175,17 @@ func makeExtraArgsV2(gasLimit uint64, allowOOO bool) []byte {
 	extraArgs = append(extraArgs, gasLimitBytes...)
 	extraArgs = append(extraArgs, allowOOOBytes...)
 	return extraArgs
+}
+
+func getTokenAmounts(t *testing.T, numTokens int, tokenGasOverhead uint32) []ccipocr3.RampTokenAmount {
+	tokenDestGasOverhead, err := TokenDestGasOverheadABI.Pack(tokenGasOverhead)
+	require.NoError(t, err)
+
+	tokenAmounts := make([]ccipocr3.RampTokenAmount, numTokens)
+	for i := 0; i < numTokens; i++ {
+		tokenAmounts[i] = ccipocr3.RampTokenAmount{
+			DestExecData: tokenDestGasOverhead,
+		}
+	}
+	return tokenAmounts
 }

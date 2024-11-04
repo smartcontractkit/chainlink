@@ -77,6 +77,13 @@ func (r *FeedsManagerResolver) CreatedAt() graphql.Time {
 	return graphql.Time{Time: r.mgr.CreatedAt}
 }
 
+func (r *FeedsManagerResolver) DisabledAt() *graphql.Time {
+	if r.mgr.DisabledAt == nil {
+		return nil
+	}
+	return &graphql.Time{Time: *r.mgr.DisabledAt}
+}
+
 // -- FeedsManager Query --
 
 type FeedsManagerPayloadResolver struct {
@@ -281,5 +288,81 @@ func NewUpdateFeedsManagerSuccessResolver(mgr feeds.FeedsManager) *UpdateFeedsMa
 }
 
 func (r *UpdateFeedsManagerSuccessResolver) FeedsManager() *FeedsManagerResolver {
+	return NewFeedsManager(r.mgr)
+}
+
+// -- EnableFeedsManager Mutation --
+
+type EnableFeedsManagerPayloadResolver struct {
+	mgr *feeds.FeedsManager
+	NotFoundErrorUnionType
+}
+
+func NewEnableFeedsManagerPayload(mgr *feeds.FeedsManager, err error) *EnableFeedsManagerPayloadResolver {
+	e := NotFoundErrorUnionType{err: err, message: "feeds manager not found", isExpectedErrorFn: nil}
+
+	return &EnableFeedsManagerPayloadResolver{
+		mgr:                    mgr,
+		NotFoundErrorUnionType: e,
+	}
+}
+
+func (r *EnableFeedsManagerPayloadResolver) ToEnableFeedsManagerSuccess() (*EnableFeedsManagerSuccessResolver, bool) {
+	if r.mgr != nil {
+		return NewEnableFeedsManagerSuccessResolver(*r.mgr), true
+	}
+
+	return nil, false
+}
+
+type EnableFeedsManagerSuccessResolver struct {
+	mgr feeds.FeedsManager
+}
+
+func NewEnableFeedsManagerSuccessResolver(mgr feeds.FeedsManager) *EnableFeedsManagerSuccessResolver {
+	return &EnableFeedsManagerSuccessResolver{
+		mgr: mgr,
+	}
+}
+
+func (r *EnableFeedsManagerSuccessResolver) FeedsManager() *FeedsManagerResolver {
+	return NewFeedsManager(r.mgr)
+}
+
+// -- DisableFeedsManager Mutation --
+
+type DisableFeedsManagerPayloadResolver struct {
+	mgr *feeds.FeedsManager
+	NotFoundErrorUnionType
+}
+
+func NewDisableFeedsManagerPayload(mgr *feeds.FeedsManager, err error) *DisableFeedsManagerPayloadResolver {
+	e := NotFoundErrorUnionType{err: err, message: "feeds manager not found", isExpectedErrorFn: nil}
+
+	return &DisableFeedsManagerPayloadResolver{
+		mgr:                    mgr,
+		NotFoundErrorUnionType: e,
+	}
+}
+
+func (r *DisableFeedsManagerPayloadResolver) ToDisableFeedsManagerSuccess() (*DisableFeedsManagerSuccessResolver, bool) {
+	if r.mgr != nil {
+		return NewDisableFeedsManagerSuccessResolver(*r.mgr), true
+	}
+
+	return nil, false
+}
+
+type DisableFeedsManagerSuccessResolver struct {
+	mgr feeds.FeedsManager
+}
+
+func NewDisableFeedsManagerSuccessResolver(mgr feeds.FeedsManager) *DisableFeedsManagerSuccessResolver {
+	return &DisableFeedsManagerSuccessResolver{
+		mgr: mgr,
+	}
+}
+
+func (r *DisableFeedsManagerSuccessResolver) FeedsManager() *FeedsManagerResolver {
 	return NewFeedsManager(r.mgr)
 }

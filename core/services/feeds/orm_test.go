@@ -129,6 +129,7 @@ func Test_ORM_GetManager(t *testing.T) {
 	assert.Equal(t, uri, actual.URI)
 	assert.Equal(t, name, actual.Name)
 	assert.Equal(t, publicKey, actual.PublicKey)
+	assert.Nil(t, actual.DisabledAt)
 
 	_, err = orm.GetManager(ctx, -1)
 	require.Error(t, err)
@@ -159,6 +160,7 @@ func Test_ORM_ListManagers(t *testing.T) {
 	assert.Equal(t, uri, actual.URI)
 	assert.Equal(t, name, actual.Name)
 	assert.Equal(t, publicKey, actual.PublicKey)
+	assert.Nil(t, actual.DisabledAt)
 }
 
 func Test_ORM_ListManagersByIDs(t *testing.T) {
@@ -186,6 +188,7 @@ func Test_ORM_ListManagersByIDs(t *testing.T) {
 	assert.Equal(t, uri, actual.URI)
 	assert.Equal(t, name, actual.Name)
 	assert.Equal(t, publicKey, actual.PublicKey)
+	assert.Nil(t, actual.DisabledAt)
 }
 
 func Test_ORM_UpdateManager(t *testing.T) {
@@ -220,6 +223,34 @@ func Test_ORM_UpdateManager(t *testing.T) {
 	assert.Equal(t, updatedMgr.URI, actual.URI)
 	assert.Equal(t, updatedMgr.Name, actual.Name)
 	assert.Equal(t, updatedMgr.PublicKey, actual.PublicKey)
+}
+
+func Test_ORM_EnableAndDisableManager(t *testing.T) {
+	t.Parallel()
+	ctx := testutils.Context(t)
+
+	var (
+		orm = setupORM(t)
+		mgr = &feeds.FeedsManager{
+			URI:       uri,
+			Name:      name,
+			PublicKey: publicKey,
+		}
+	)
+	id, err := orm.CreateManager(ctx, mgr)
+	require.NoError(t, err)
+
+	mgr, err = orm.GetManager(ctx, id)
+	require.NoError(t, err)
+	require.Nil(t, mgr.DisabledAt)
+
+	mgr, err = orm.DisableManager(ctx, id)
+	require.NoError(t, err)
+	require.NotNil(t, mgr.DisabledAt)
+
+	mgr, err = orm.EnableManager(ctx, id)
+	require.NoError(t, err)
+	require.Nil(t, mgr.DisabledAt)
 }
 
 // Chain Config

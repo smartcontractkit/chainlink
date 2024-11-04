@@ -81,8 +81,15 @@ type DON struct {
 }
 
 func NewDON(ctx context.Context, t *testing.T, lggr logger.Logger, donConfig DonConfiguration,
-	dependentDONs []commoncap.DON, donContext DonContext) *DON {
+	dependentDONs []commoncap.DON, donContext DonContext, supportsOCR bool) *DON {
 	don := &DON{t: t, lggr: lggr.Named(donConfig.name), config: donConfig, capabilitiesRegistry: donContext.capabilityRegistry}
+
+	var newOracleFactoryFn standardcapabilities.NewOracleFactoryFn
+	var libOcr *MockLibOCR
+	if supportsOCR {
+		libOcr = NewMockLibOCR(t, lggr, donConfig.F, 1*time.Second)
+		servicetest.Run(t, libOcr)
+	}
 
 	for i, member := range donConfig.Members {
 		dispatcher := donContext.p2pNetwork.NewDispatcherForNode(member)
@@ -102,10 +109,15 @@ func NewDON(ctx context.Context, t *testing.T, lggr logger.Logger, donConfig Don
 		}
 		don.nodes = append(don.nodes, cn)
 
+		if supportsOCR {
+			factory := newMockLibOcrOracleFactory(libOcr, donConfig.KeyBundles[i], len(donConfig.Members), int(donConfig.F))
+			newOracleFactoryFn = factory.NewOracleFactory
+		}
+
 		cn.start = func() {
 			node := startNewNode(ctx, t, lggr.Named(donConfig.name+"-"+strconv.Itoa(i)), nodeInfo, donContext.EthBlockchain,
 				donContext.capabilityRegistry.getAddress(), dispatcher,
-				peerWrapper{peer: p2pPeer{member}}, capabilityRegistry,
+				peerWrapper{peer: p2pPeer{member}}, capabilityRegistry, newOracleFactoryFn,
 				donConfig.keys[i], func(c *chainlink.Config) {
 					for _, modifier := range don.nodeConfigModifiers {
 						modifier(c, cn)
@@ -172,7 +184,7 @@ func (d *DON) Start(ctx context.Context, t *testing.T) {
 	}
 
 	if d.addOCR3NonStandardCapability {
-		libocr := NewMockLibOCR(t, d.config.F, 1*time.Second)
+		libocr := NewMockLibOCR(t, d.lggr, d.config.F, 1*time.Second)
 		servicetest.Run(t, libocr)
 
 		for _, node := range d.nodes {
@@ -265,6 +277,7 @@ func startNewNode(ctx context.Context,
 	dispatcher remotetypes.Dispatcher,
 	peerWrapper p2ptypes.PeerWrapper,
 	localCapabilities *capabilities.Registry,
+	newOracleFactoryFn standardcapabilities.NewOracleFactoryFn,
 	keyV2 ethkey.KeyV2,
 	setupCfg func(c *chainlink.Config),
 ) *cltest.TestApplication {
@@ -295,7 +308,7 @@ func startNewNode(ctx context.Context,
 	ethBlockchain.Commit()
 
 	return cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, ethBlockchain.SimulatedBackend, nodeInfo,
-		dispatcher, peerWrapper, localCapabilities, keyV2, lggr)
+		dispatcher, peerWrapper, newOracleFactoryFn, localCapabilities, keyV2, lggr)
 }
 
 // Functions below this point are for adding non-standard capabilities to a DON, deliberately verbose. Eventually these

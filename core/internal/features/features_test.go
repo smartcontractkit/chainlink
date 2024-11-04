@@ -658,11 +658,11 @@ func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBac
 	max.Sub(max, big.NewInt(1))
 	ocrContractAddress, _, ocrContract, err := offchainaggregator.DeployOffchainAggregator(owner, b,
 		1000,             // _maximumGasPrice uint32,
-		200,              //_reasonableGasPrice uint32,
+		200,              // _reasonableGasPrice uint32,
 		3.6e7,            // 3.6e7 microLINK, or 36 LINK
 		1e8,              // _linkGweiPerObservation uint32,
 		4e8,              // _linkGweiPerTransmission uint32,
-		linkTokenAddress, //_link common.Address,
+		linkTokenAddress, // _link common.Address,
 		min,              // -2**191
 		max,              // 2**191 - 1
 		accessAddress,
@@ -1359,11 +1359,11 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	h43.ParentHash = h42.Hash
 	newHeads.TrySend(h43)
 
-	gomega.NewWithT(t).Eventually(func() string {
+	require.Eventually(t, func() bool {
 		gasPrice, _, err := estimator.GetFee(testutils.Context(t), nil, 500000, maxGasPrice, nil, nil)
 		require.NoError(t, err)
-		return gasPrice.GasPrice.String()
-	}, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal("45 gwei"))
+		return gasPrice.GasPrice.String() == "45 gwei"
+	}, testutils.WaitTimeout(t), cltest.DBPollingInterval)
 }
 
 func triggerAllKeys(t *testing.T, app *cltest.TestApplication) {

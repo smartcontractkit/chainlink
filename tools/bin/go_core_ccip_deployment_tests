@@ -6,22 +6,23 @@ SCRIPT_PATH=`dirname "$0"`; SCRIPT_PATH=`eval "cd \"$SCRIPT_PATH\" && pwd"`
 OUTPUT_FILE="../output.txt"
 USE_TEE="${USE_TEE:-true}"
 
-# To allow reuse in CI from other repositories
-TOOLS_PATH=${TOOLS_PATH:-"./tools"}
-
+cd ./deployment || exit
+go mod download
 echo "Failed tests and panics: ---------------------"
 echo ""
-use_tee() {
-  if [ "$USE_TEE" = "true" ]; then
-    tee "$@"
+if [[ $GITHUB_EVENT_NAME == "schedule" ]]; then
+  if [[ $DEBUG == "true" ]]; then 
+    go test -json -vet=off ./... -covermode=atomic -coverpkg=./... -coverprofile=coverage.txt | tee $OUTPUT_FILE
   else
-    cat > "$@"
+    go test -json -vet=off ./... -covermode=atomic -coverpkg=./... -coverprofile=coverage.txt | cat > $OUTPUT_FILE
   fi
-}
-
-cd ./integration-tests || exit
-go mod download
-go test -json ./deployment/... -covermode=atomic -coverpkg=./... -coverprofile=coverage.txt | use_tee $OUTPUT_FILE
+else
+  if [[ $DEBUG == "true" ]]; then 
+    go test -vet=off ./... | tee $OUTPUT_FILE
+  else
+    go test -vet=off ./... | cat > $OUTPUT_FILE
+  fi
+fi
 EXITCODE=${PIPESTATUS[0]}
 
 # Assert no known sensitive strings present in test logger output

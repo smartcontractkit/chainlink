@@ -84,7 +84,7 @@ func setupOCR2Contracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBa
 	ocrContractAddress, _, ocrContract, err := ocr2aggregator.DeployOCR2Aggregator(
 		owner,
 		b,
-		linkTokenAddress, //_link common.Address,
+		linkTokenAddress, // _link common.Address,
 		minAnswer,        // -2**191
 		maxAnswer,        // 2**191 - 1
 		accessAddress,
@@ -190,7 +190,6 @@ func setupNodeOCR2(
 
 func TestIntegration_OCR2(t *testing.T) {
 	t.Parallel()
-	testutils.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/BCF-3417")
 	testIntegration_OCR2(t)
 }
 

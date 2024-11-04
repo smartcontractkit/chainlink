@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import {Test} from "forge-std/Test.sol";
 
-import {CCIPRouter} from "../../applications/EtherSenderReceiver.sol";
+import {ICCIPRouter} from "../../applications/EtherSenderReceiver.sol";
 
 import {IRouterClient} from "../../interfaces/IRouterClient.sol";
 import {Client} from "../../libraries/Client.sol";
@@ -28,7 +28,7 @@ contract EtherSenderReceiverTest is Test {
     s_linkToken = new ERC20("Chainlink Token", "LINK");
     s_someOtherWeth = new WETH9();
     s_weth = new WETH9();
-    vm.mockCall(ROUTER, abi.encodeWithSelector(CCIPRouter.getWrappedNative.selector), abi.encode(address(s_weth)));
+    vm.mockCall(ROUTER, abi.encodeWithSelector(ICCIPRouter.getWrappedNative.selector), abi.encode(address(s_weth)));
     s_etherSenderReceiver = new EtherSenderReceiverHelper(ROUTER);
 
     deal(OWNER, 1_000_000 ether);

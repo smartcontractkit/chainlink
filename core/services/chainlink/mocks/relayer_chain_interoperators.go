@@ -40,7 +40,11 @@ func (f *FakeRelayerChainInteroperators) List(filter chainlink.FilterFn) chainli
 }
 
 func (f *FakeRelayerChainInteroperators) Get(id types.RelayID) (loop.Relayer, error) {
-	panic("unimplemented")
+	r, ok := f.Relayers[id]
+	if !ok {
+		return nil, chainlink.ErrNoSuchRelayer
+	}
+	return r, nil
 }
 
 func (f *FakeRelayerChainInteroperators) GetIDToRelayerMap() (map[types.RelayID]loop.Relayer, error) {

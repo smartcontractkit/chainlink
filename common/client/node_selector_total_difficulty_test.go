@@ -111,7 +111,7 @@ func TestTotalDifficultyNodeSelectorWithOrder(t *testing.T) {
 			nodes = append(nodes, node)
 		}
 		selector := newNodeSelector(NodeSelectionModeTotalDifficulty, nodes)
-		//Should select the first node because all things are equal
+		// Should select the first node because all things are equal
 		assert.Same(t, nodes[0], selector.Select())
 	})
 
@@ -130,7 +130,7 @@ func TestTotalDifficultyNodeSelectorWithOrder(t *testing.T) {
 
 		nodes := []Node[types.ID, nodeClient]{node1, node2, node3}
 		selector := newNodeSelector(NodeSelectionModeTotalDifficulty, nodes)
-		//Should select the second node as it has the highest priority
+		// Should select the second node as it has the highest priority
 		assert.Same(t, nodes[1], selector.Select())
 	})
 
@@ -149,7 +149,7 @@ func TestTotalDifficultyNodeSelectorWithOrder(t *testing.T) {
 
 		nodes := []Node[types.ID, nodeClient]{node1, node2, node3}
 		selector := newNodeSelector(NodeSelectionModeTotalDifficulty, nodes)
-		//Should select the third node as it has the highest td
+		// Should select the third node as it has the highest td
 		assert.Same(t, nodes[2], selector.Select())
 	})
 
@@ -172,7 +172,7 @@ func TestTotalDifficultyNodeSelectorWithOrder(t *testing.T) {
 
 		nodes := []Node[types.ID, nodeClient]{node1, node2, node3, node4}
 		selector := newNodeSelector(NodeSelectionModeTotalDifficulty, nodes)
-		//Should select the third node as it has the highest td and will win the priority tie-breaker
+		// Should select the third node as it has the highest td and will win the priority tie-breaker
 		assert.Same(t, nodes[2], selector.Select())
 	})
 }

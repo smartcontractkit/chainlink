@@ -87,7 +87,7 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
 
   event ConfigSet(uint32 indexed donId, uint32 indexed configVersion, uint8 f, address[] signers);
 
-  string public constant override typeAndVersion = "Forwarder and Router 1.0.0";
+  string public constant override typeAndVersion = "KeystoneForwarder 1.0.0";
 
   constructor() OwnerIsCreator() {
     s_forwarders[address(this)] = true;

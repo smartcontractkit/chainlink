@@ -84,10 +84,10 @@ func main() {
 		"trigger_id":       "web-api-trigger@1.0.0",
 		"trigger_event_id": uuid.New().String(),
 		"timestamp":        int(time.Now().Unix()),
-		"topics":           []string{"batch_kv_write"},
+		"topics":           []string{"daily_price_update"},
 		"params": map[string]string{
-			"entrypoint": "0x1234567890",
-			"account":    "0x9876543210",
+			"bid": "101",
+			"ask": "102",
 		},
 	}
 

@@ -16,3 +16,6 @@ PriceMin = '0'
 PriceDefault = '0.1 gwei'
 FeeCapDefault = '1000 gwei'
 BumpThreshold = 5
+
+[GasEstimator.DAOracle]
+OracleType = 'arbitrum'

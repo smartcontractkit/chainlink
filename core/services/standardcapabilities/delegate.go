@@ -14,9 +14,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
-	trigger "github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
 	webapitarget "github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/target"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/trigger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
@@ -46,6 +48,7 @@ type Delegate struct {
 	gatewayConnectorWrapper *gatewayconnector.ServiceWrapper
 	ks                      keystore.Master
 	peerWrapper             *ocrcommon.SingletonPeerWrapper
+	newOracleFactoryFn      func(generic.OracleFactoryParams) (core.OracleFactory, error)
 
 	isNewlyCreatedJob bool
 }
@@ -55,6 +58,8 @@ const (
 	commandOverrideForWebAPITarget        = "__builtin_web-api-target"
 	commandOverrideForCustomComputeAction = "__builtin_custom-compute-action"
 )
+
+type NewOracleFactoryFn func(generic.OracleFactoryParams) (core.OracleFactory, error)
 
 func NewDelegate(
 	logger logger.Logger,
@@ -68,6 +73,7 @@ func NewDelegate(
 	gatewayConnectorWrapper *gatewayconnector.ServiceWrapper,
 	ks keystore.Master,
 	peerWrapper *ocrcommon.SingletonPeerWrapper,
+	newOracleFactoryFn NewOracleFactoryFn,
 ) *Delegate {
 	return &Delegate{
 		logger:                  logger,
@@ -82,6 +88,7 @@ func NewDelegate(
 		gatewayConnectorWrapper: gatewayConnectorWrapper,
 		ks:                      ks,
 		peerWrapper:             peerWrapper,
+		newOracleFactoryFn:      newOracleFactoryFn,
 	}
 }
 
@@ -107,23 +114,22 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		return nil, fmt.Errorf("failed to create relayer set: %w", err)
 	}
 
-	ocrKeyBundles, err := d.ks.OCR2().GetAll()
+	ocrEvmKeyBundles, err := d.ks.OCR2().GetAllOfType(chaintype.EVM)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(ocrKeyBundles) > 1 {
-		return nil, fmt.Errorf("expected exactly one OCR key bundle, but found: %d", len(ocrKeyBundles))
-	}
-
-	var ocrKeyBundle ocr2key.KeyBundle
-	if len(ocrKeyBundles) == 0 {
-		ocrKeyBundle, err = d.ks.OCR2().Create(ctx, chaintype.EVM)
+	var ocrEvmKeyBundle ocr2key.KeyBundle
+	if len(ocrEvmKeyBundles) == 0 {
+		ocrEvmKeyBundle, err = d.ks.OCR2().Create(ctx, chaintype.EVM)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to create OCR key bundle")
 		}
 	} else {
-		ocrKeyBundle = ocrKeyBundles[0]
+		if len(ocrEvmKeyBundles) > 1 {
+			log.Infof("found %d EVM OCR key bundles, which may cause unexpected behavior if using the OracleFactory", len(ocrEvmKeyBundles))
+		}
+		ocrEvmKeyBundle = ocrEvmKeyBundles[0]
 	}
 
 	ethKeyBundles, err := d.ks.Eth().GetAll(ctx)
@@ -141,29 +147,53 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 			return nil, errors.Wrap(err, "failed to create ETH key bundle")
 		}
 	} else {
-		ethKeyBundle = ethKeyBundles[len(ethKeyBundles)-1]
+		// ethKeyBundle = ethKeyBundles[len(ethKeyBundles)-1]
+		if len(ethKeyBundles) > 1 {
+			log.Infof("found %d ETH key bundles, which may cause unexpected behavior if using the OracleFactory", len(ethKeyBundles))
+		}
+		ethKeyBundle = ethKeyBundles[0]
 	}
 
-	log.Debug("oracleFactoryConfig: ", spec.StandardCapabilitiesSpec.OracleFactory)
+	var oracleFactory core.OracleFactory
+	// NOTE: special case for custom Oracle Factory for use in tests
+	if d.newOracleFactoryFn != nil {
+		oracleFactory, err = d.newOracleFactoryFn(generic.OracleFactoryParams{
+			Logger:        log,
+			JobORM:        d.jobORM,
+			JobID:         spec.ID,
+			JobName:       spec.Name.ValueOrZero(),
+			KB:            ocrEvmKeyBundle,
+			Config:        spec.StandardCapabilitiesSpec.OracleFactory,
+			PeerWrapper:   d.peerWrapper,
+			RelayerSet:    relayerSet,
+			TransmitterID: ethKeyBundle.Address.String(),
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create oracle factory from function: %w", err)
+		}
+	} else {
+		log.Debug("oracleFactoryConfig: ", spec.StandardCapabilitiesSpec.OracleFactory)
 
-	if spec.StandardCapabilitiesSpec.OracleFactory.Enabled && d.peerWrapper == nil {
-		return nil, errors.New("P2P stack required for Oracle Factory")
+		if spec.StandardCapabilitiesSpec.OracleFactory.Enabled && d.peerWrapper == nil {
+			return nil, errors.New("P2P stack required for Oracle Factory")
+		}
+
+		oracleFactory, err = generic.NewOracleFactory(generic.OracleFactoryParams{
+			Logger:        log,
+			JobORM:        d.jobORM,
+			JobID:         spec.ID,
+			JobName:       spec.Name.ValueOrZero(),
+			KB:            ocrEvmKeyBundle,
+			Config:        spec.StandardCapabilitiesSpec.OracleFactory,
+			PeerWrapper:   d.peerWrapper,
+			RelayerSet:    relayerSet,
+			TransmitterID: ethKeyBundle.Address.String(),
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create oracle factory: %w", err)
+		}
 	}
 
-	oracleFactory, err := generic.NewOracleFactory(generic.OracleFactoryParams{
-		Logger:        log,
-		JobORM:        d.jobORM,
-		JobID:         spec.ID,
-		JobName:       spec.Name.ValueOrZero(),
-		KB:            ocrKeyBundle,
-		Config:        spec.StandardCapabilitiesSpec.OracleFactory,
-		PeerWrapper:   d.peerWrapper,
-		RelayerSet:    relayerSet,
-		TransmitterID: ethKeyBundle.Address.String(),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create oracle factory: %w", err)
-	}
 	// NOTE: special cases for built-in capabilities (to be moved into LOOPPs in the future)
 	if spec.StandardCapabilitiesSpec.Command == commandOverrideForWebAPITrigger {
 		if d.gatewayConnectorWrapper == nil {
@@ -185,13 +215,13 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		if len(spec.StandardCapabilitiesSpec.Config) == 0 {
 			return nil, errors.New("config is empty")
 		}
-		var targetCfg webapitarget.ServiceConfig
+		var targetCfg webapi.ServiceConfig
 		err := toml.Unmarshal([]byte(spec.StandardCapabilitiesSpec.Config), &targetCfg)
 		if err != nil {
 			return nil, err
 		}
 		lggr := d.logger.Named("WebAPITarget")
-		handler, err := webapitarget.NewConnectorHandler(connector, targetCfg, lggr)
+		handler, err := webapi.NewOutgoingConnectorHandler(connector, targetCfg, capabilities.MethodWebAPITarget, lggr)
 		if err != nil {
 			return nil, err
 		}
@@ -203,7 +233,31 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 	}
 
 	if spec.StandardCapabilitiesSpec.Command == commandOverrideForCustomComputeAction {
-		computeSrvc := compute.NewAction(log, d.registry)
+		if d.gatewayConnectorWrapper == nil {
+			return nil, errors.New("gateway connector is required for custom compute capability")
+		}
+
+		if len(spec.StandardCapabilitiesSpec.Config) == 0 {
+			return nil, errors.New("config is empty")
+		}
+
+		var fetchCfg webapi.ServiceConfig
+		err := toml.Unmarshal([]byte(spec.StandardCapabilitiesSpec.Config), &fetchCfg)
+		if err != nil {
+			return nil, err
+		}
+		lggr := d.logger.Named("ComputeAction")
+
+		handler, err := webapi.NewOutgoingConnectorHandler(d.gatewayConnectorWrapper.GetGatewayConnector(), fetchCfg, capabilities.MethodComputeAction, lggr)
+		if err != nil {
+			return nil, err
+		}
+
+		idGeneratorFn := func() string {
+			return uuid.New().String()
+		}
+
+		computeSrvc := compute.NewAction(fetchCfg, log, d.registry, handler, idGeneratorFn)
 		return []job.ServiceCtx{computeSrvc}, nil
 	}
 

@@ -33,7 +33,7 @@ func (w WasmFileSpecFactory) Spec(ctx context.Context, workflow, configLocation 
 	}
 
 	moduleConfig := &host.ModuleConfig{Logger: logger.NullLogger}
-	spec, err := host.GetWorkflowSpec(moduleConfig, compressedBinary, config)
+	spec, err := host.GetWorkflowSpec(ctx, moduleConfig, compressedBinary, config)
 	if err != nil {
 		return sdk.WorkflowSpec{}, nil, "", err
 	} else if spec == nil {

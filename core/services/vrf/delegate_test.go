@@ -334,7 +334,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 		}).Return(nil).Once()
 		// If we send a completed log we should the respCount increase
 		var reqIDBytes []byte
-		copy(reqIDBytes[:], tc.reqID[:])
+		copy(reqIDBytes, tc.reqID[:])
 		listener.HandleLog(ctx, log.NewLogBroadcast(types.Log{
 			// Data has all the NON-indexed parameters
 			Data: bytes.Join([][]byte{reqIDBytes, // output

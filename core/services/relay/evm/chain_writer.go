@@ -223,17 +223,11 @@ func (w *chainWriter) Close() error {
 }
 
 func (w *chainWriter) HealthReport() map[string]error {
-	return map[string]error{
-		w.Name(): nil,
-	}
+	return map[string]error{w.Name(): w.Healthy()}
 }
 
 func (w *chainWriter) Name() string {
-	return "chain-writer"
-}
-
-func (w *chainWriter) Ready() error {
-	return nil
+	return w.logger.Name()
 }
 
 func (w *chainWriter) Start(ctx context.Context) error {

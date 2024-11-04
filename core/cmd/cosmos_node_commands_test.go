@@ -56,7 +56,7 @@ func TestShell_IndexCosmosNodes(t *testing.T) {
 	assert.Equal(t, string(wantConfig), n.Config)
 	assertTableRenders(t, r)
 
-	//Render table and check the fields order
+	// Render table and check the fields order
 	b := new(bytes.Buffer)
 	rt := cmd.RendererTable{b}
 	require.NoError(t, nodes.RenderTable(rt))

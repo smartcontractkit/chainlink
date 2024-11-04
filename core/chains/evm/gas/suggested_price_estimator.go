@@ -13,11 +13,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	bigmath "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
+	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 
 	"github.com/smartcontractkit/chainlink/v2/common/fee"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
-	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
@@ -124,7 +124,7 @@ func (o *SuggestedPriceEstimator) run() {
 
 func (o *SuggestedPriceEstimator) refreshPrice() {
 	var res hexutil.Big
-	ctx, cancel := o.chStop.CtxCancel(evmclient.ContextWithDefaultTimeout())
+	ctx, cancel := o.chStop.CtxWithTimeout(commonclient.QueryTimeout)
 	defer cancel()
 
 	if err := o.client.CallContext(ctx, &res, "eth_gasPrice"); err != nil {

@@ -140,7 +140,7 @@ type TestBlockHeaderProvider struct {
 func (p *TestBlockHeaderProvider) RlpHeadersBatch(ctx context.Context, blockRange []*big.Int) ([][]byte, error) {
 	var headers [][]byte
 	for range blockRange {
-		var randomBytes [30]byte //random length
+		var randomBytes [30]byte // random length
 		_, err := rand.Read(randomBytes[:])
 		if err != nil {
 			return nil, err

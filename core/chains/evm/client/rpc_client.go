@@ -456,7 +456,13 @@ func (r *RPCClient) SubscribeToHeads(ctx context.Context) (ch <-chan *evmtypes.H
 	if r.newHeadsPollInterval > 0 {
 		interval := r.newHeadsPollInterval
 		timeout := interval
-		poller, channel := commonclient.NewPoller[*evmtypes.Head](interval, r.latestBlock, timeout, r.rpcLog)
+		isHealthCheckRequest := commonclient.CtxIsHeathCheckRequest(ctx)
+		poller, channel := commonclient.NewPoller[*evmtypes.Head](interval, func(ctx context.Context) (*evmtypes.Head, error) {
+			if isHealthCheckRequest {
+				ctx = commonclient.CtxAddHealthCheckFlag(ctx)
+			}
+			return r.latestBlock(ctx)
+		}, timeout, r.rpcLog)
 		if err = poller.Start(ctx); err != nil {
 			return nil, nil, err
 		}
@@ -510,7 +516,13 @@ func (r *RPCClient) SubscribeToFinalizedHeads(ctx context.Context) (<-chan *evmt
 		return nil, nil, errors.New("FinalizedBlockPollInterval is 0")
 	}
 	timeout := interval
-	poller, channel := commonclient.NewPoller[*evmtypes.Head](interval, r.LatestFinalizedBlock, timeout, r.rpcLog)
+	isHealthCheckRequest := commonclient.CtxIsHeathCheckRequest(ctx)
+	poller, channel := commonclient.NewPoller[*evmtypes.Head](interval, func(ctx context.Context) (*evmtypes.Head, error) {
+		if isHealthCheckRequest {
+			ctx = commonclient.CtxAddHealthCheckFlag(ctx)
+		}
+		return r.LatestFinalizedBlock(ctx)
+	}, timeout, r.rpcLog)
 	if err := poller.Start(ctx); err != nil {
 		return nil, nil, err
 	}
@@ -854,24 +866,21 @@ func (r *RPCClient) PendingSequenceAt(ctx context.Context, account common.Addres
 	return
 }
 
-// SequenceAt is a bit of a misnomer. You might expect it to return the highest
+// NonceAt is a bit of a misnomer. You might expect it to return the highest
 // mined nonce at the given block number, but it actually returns the total
 // transaction count which is the highest mined nonce + 1
-func (r *RPCClient) SequenceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (nonce evmtypes.Nonce, err error) {
+func (r *RPCClient) NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (nonce uint64, err error) {
 	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx, r.rpcTimeout)
 	defer cancel()
 	lggr := r.newRqLggr().With("account", account, "blockNumber", blockNumber)
 
 	lggr.Debug("RPC call: evmclient.Client#NonceAt")
 	start := time.Now()
-	var n uint64
 	if http != nil {
-		n, err = http.geth.NonceAt(ctx, account, blockNumber)
-		nonce = evmtypes.Nonce(int64(n))
+		nonce, err = http.geth.NonceAt(ctx, account, blockNumber)
 		err = r.wrapHTTP(err)
 	} else {
-		n, err = ws.geth.NonceAt(ctx, account, blockNumber)
-		nonce = evmtypes.Nonce(int64(n))
+		nonce, err = ws.geth.NonceAt(ctx, account, blockNumber)
 		err = r.wrapWS(err)
 	}
 	duration := time.Since(start)

@@ -8,20 +8,18 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp_1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_5_0"
 )
@@ -52,15 +50,6 @@ func initOrCloseOffRampReader(lggr logger.Logger, versionFinder VersionFinder, a
 	lggr.Infow("Initializing OffRamp Reader", "version", version.String(), "destMaxGasPrice", destMaxGasPrice.String())
 
 	switch version.String() {
-	case ccipdata.V1_0_0, ccipdata.V1_1_0:
-		offRamp, err := v1_0_0.NewOffRamp(lggr, evmAddr, destClient, lp, estimator, destMaxGasPrice)
-		if err != nil {
-			return nil, err
-		}
-		if closeReader {
-			return nil, offRamp.Close()
-		}
-		return offRamp, offRamp.RegisterFilters()
 	case ccipdata.V1_2_0:
 		offRamp, err := v1_2_0.NewOffRamp(lggr, evmAddr, destClient, lp, estimator, destMaxGasPrice)
 		if err != nil {
@@ -90,15 +79,6 @@ func ExecReportToEthTxMeta(ctx context.Context, typ ccipconfig.ContractType, ver
 		return nil, errors.Errorf("expected %v got %v", ccipconfig.EVM2EVMOffRamp, typ)
 	}
 	switch ver.String() {
-	case ccipdata.V1_0_0, ccipdata.V1_1_0:
-		offRampABI := abihelpers.MustParseABI(evm_2_evm_offramp_1_0_0.EVM2EVMOffRampABI)
-		return func(report []byte) (*txmgr.TxMeta, error) {
-			execReport, err := v1_0_0.DecodeExecReport(ctx, abihelpers.MustGetMethodInputs(ccipdata.ManuallyExecute, offRampABI)[:1], report)
-			if err != nil {
-				return nil, err
-			}
-			return execReportToEthTxMeta(execReport)
-		}, nil
 	case ccipdata.V1_2_0, ccipdata.V1_5_0:
 		offRampABI := abihelpers.MustParseABI(evm_2_evm_offramp.EVM2EVMOffRampABI)
 		return func(report []byte) (*txmgr.TxMeta, error) {

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity 0.8.24;
 
 import {IBurnMintERC20} from "../../../token/ERC20/IBurnMintERC20.sol";
 import {IERC677} from "../../../token/ERC677/IERC677.sol";

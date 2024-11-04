@@ -8,9 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
-	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_encoding_utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
@@ -85,7 +83,6 @@ func (c *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.Commi
 		PriceUpdates:  priceUpdates,
 		MerkleRoots:   merkleRoots,
 		RmnSignatures: rmnSignatures,
-		RmnRawVs:      report.RMNRawVs.Int,
 	}
 
 	packed, err := ccipEncodingUtilsABI.Pack("exposeCommitReport", commitReport)
@@ -128,7 +125,7 @@ func (c *CommitPluginCodecV1) Decode(ctx context.Context, bytes []byte) (cciptyp
 	tokenPriceUpdates := make([]cciptypes.TokenPrice, 0, len(commitReport.PriceUpdates.TokenPriceUpdates))
 	for _, update := range commitReport.PriceUpdates.TokenPriceUpdates {
 		tokenPriceUpdates = append(tokenPriceUpdates, cciptypes.TokenPrice{
-			TokenID: types.Account(update.SourceToken.String()),
+			TokenID: cciptypes.UnknownEncodedAddress(update.SourceToken.String()),
 			Price:   cciptypes.NewBigInt(big.NewInt(0).Set(update.UsdPerToken)),
 		})
 	}
@@ -156,7 +153,6 @@ func (c *CommitPluginCodecV1) Decode(ctx context.Context, bytes []byte) (cciptyp
 			GasPriceUpdates:   gasPriceUpdates,
 		},
 		RMNSignatures: rmnSignatures,
-		RMNRawVs:      cciptypes.NewBigInt(commitReport.RmnRawVs),
 	}, nil
 }
 

@@ -226,5 +226,5 @@ func (r *server) HealthReport() map[string]error {
 }
 
 func (r *server) Name() string {
-	return "TargetServer"
+	return r.lggr.Name()
 }

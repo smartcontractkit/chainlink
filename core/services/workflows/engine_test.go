@@ -20,6 +20,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
+	gcmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
+	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 
 	coreCap "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
@@ -27,10 +30,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/wasmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
 )
 
 const testWorkflowId = "<workflow-id>"
@@ -169,7 +174,8 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 		onExecutionFinished: func(weid string) {
 			executionFinished <- weid
 		},
-		clock: clock,
+		SecretsFetcher: syncer.NewWorkflowRegistry(),
+		clock:          clock,
 	}
 	for _, o := range opts {
 		o(&cfg)
@@ -178,7 +184,7 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 	if cfg.Store == nil {
 		cfg.Store = newTestDBStore(t, cfg.clock)
 	}
-	eng, err := NewEngine(cfg)
+	eng, err := NewEngine(testutils.Context(t), cfg)
 	require.NoError(t, err)
 	return eng, &testHooks{initSuccessful: initSuccessful, initFailed: initFailed, executionFinished: executionFinished}
 }
@@ -976,7 +982,7 @@ func TestEngine_Error(t *testing.T) {
 			name:   "Error with error and no reason",
 			labels: map[string]string{eIDKey: "dd3708ac7d8dd6fa4fae0fb87b73f318a4da2526c123e159b72435e3b2fe8751"},
 			err:    err,
-			want:   "executionID dd3708ac7d8dd6fa4fae0fb87b73f318a4da2526c123e159b72435e3b2fe8751: some error",
+			want:   "workflowExecutionID dd3708ac7d8dd6fa4fae0fb87b73f318a4da2526c123e159b72435e3b2fe8751: some error",
 		},
 		{
 			name:   "Error with no error and reason",
@@ -1005,7 +1011,7 @@ func TestEngine_Error(t *testing.T) {
 			},
 			err:    err,
 			reason: "some reason",
-			want:   "workflowID my-workflow-id: executionID dd3708ac7d8dd6fa4fae0fb87b73f318a4da2526c123e159b72435e3b2fe8751: capabilityID streams-trigger:network_eth@1.0.0: some reason: some error",
+			want:   "workflowID my-workflow-id: workflowExecutionID dd3708ac7d8dd6fa4fae0fb87b73f318a4da2526c123e159b72435e3b2fe8751: capabilityID streams-trigger:network_eth@1.0.0: some reason: some error",
 		},
 	}
 
@@ -1416,8 +1422,24 @@ func TestEngine_WithCustomComputeStep(t *testing.T) {
 	ctx := testutils.Context(t)
 	log := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
+	cfg := webapi.ServiceConfig{
+		RateLimiter: common.RateLimiterConfig{
+			GlobalRPS:      100.0,
+			GlobalBurst:    100,
+			PerSenderRPS:   100.0,
+			PerSenderBurst: 100,
+		},
+	}
 
-	compute := compute.NewAction(log, reg)
+	connector := gcmocks.NewGatewayConnector(t)
+	handler, err := webapi.NewOutgoingConnectorHandler(
+		connector,
+		cfg,
+		ghcapabilities.MethodComputeAction, log)
+	require.NoError(t, err)
+
+	idGeneratorFn := func() string { return "validRequestID" }
+	compute := compute.NewAction(cfg, log, reg, handler, idGeneratorFn)
 	require.NoError(t, compute.Start(ctx))
 	defer compute.Close()
 
@@ -1427,6 +1449,7 @@ func TestEngine_WithCustomComputeStep(t *testing.T) {
 	binaryB := wasmtest.CreateTestBinary(cmd, binary, true, t)
 
 	spec, err := host.GetWorkflowSpec(
+		ctx,
 		&host.ModuleConfig{Logger: log},
 		binaryB,
 		nil, // config
@@ -1463,8 +1486,23 @@ func TestEngine_CustomComputePropagatesBreaks(t *testing.T) {
 	ctx := testutils.Context(t)
 	log := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
+	cfg := webapi.ServiceConfig{
+		RateLimiter: common.RateLimiterConfig{
+			GlobalRPS:      100.0,
+			GlobalBurst:    100,
+			PerSenderRPS:   100.0,
+			PerSenderBurst: 100,
+		},
+	}
+	connector := gcmocks.NewGatewayConnector(t)
+	handler, err := webapi.NewOutgoingConnectorHandler(
+		connector,
+		cfg,
+		ghcapabilities.MethodComputeAction, log)
+	require.NoError(t, err)
 
-	compute := compute.NewAction(log, reg)
+	idGeneratorFn := func() string { return "validRequestID" }
+	compute := compute.NewAction(cfg, log, reg, handler, idGeneratorFn)
 	require.NoError(t, compute.Start(ctx))
 	defer compute.Close()
 
@@ -1474,6 +1512,7 @@ func TestEngine_CustomComputePropagatesBreaks(t *testing.T) {
 	binaryB := wasmtest.CreateTestBinary(cmd, binary, true, t)
 
 	spec, err := host.GetWorkflowSpec(
+		ctx,
 		&host.ModuleConfig{Logger: log},
 		binaryB,
 		nil, // config
@@ -1497,5 +1536,124 @@ func TestEngine_CustomComputePropagatesBreaks(t *testing.T) {
 	state, err := eng.executionStates.Get(ctx, eid)
 	require.NoError(t, err)
 
-	assert.Equal(t, state.Status, store.StatusCompletedEarlyExit)
+	assert.Equal(t, store.StatusCompletedEarlyExit, state.Status)
+}
+
+const secretsWorkflow = `
+triggers:
+  - id: "mercury-trigger@1.0.0"
+    config:
+      feedlist:
+        - "0x1111111111111111111100000000000000000000000000000000000000000000" # ETHUSD
+        - "0x2222222222222222222200000000000000000000000000000000000000000000" # LINKUSD
+        - "0x3333333333333333333300000000000000000000000000000000000000000000" # BTCUSD
+
+actions:
+  - id: custom_compute@1.0.0
+    ref: custom_compute
+    config:
+      fidelityToken: $(ENV.secrets.fidelity)
+    inputs:
+      action:
+        - $(trigger.outputs)
+
+consensus:
+  - id: "offchain_reporting@1.0.0"
+    ref: "evm_median"
+    inputs:
+      observations:
+        - "$(trigger.outputs)"
+    config:
+      aggregation_method: "data_feeds_2_0"
+      aggregation_config:
+        "0x1111111111111111111100000000000000000000000000000000000000000000":
+          deviation: "0.001"
+          heartbeat: 3600
+        "0x2222222222222222222200000000000000000000000000000000000000000000":
+          deviation: "0.001"
+          heartbeat: 3600
+        "0x3333333333333333333300000000000000000000000000000000000000000000":
+          deviation: "0.001"
+          heartbeat: 3600
+      encoder: "EVM"
+      encoder_config:
+        abi: "mercury_reports bytes[]"
+
+targets:
+  - id: "write_ethereum-testnet-sepolia@1.0.0"
+    inputs: "$(evm_median.outputs)"
+    config:
+      address: "0x54e220867af6683aE6DcBF535B4f952cB5116510"
+      params: ["$(report)"]
+      abi: "receive(report bytes)"
+`
+
+type mockFetcher struct {
+	retval map[string]string
+}
+
+func (m *mockFetcher) SecretsFor(workflowOwner, workflowName string) (map[string]string, error) {
+	return m.retval, nil
+}
+
+func TestEngine_FetchesSecrets(t *testing.T) {
+	ctx := testutils.Context(t)
+	reg := coreCap.NewRegistry(logger.TestLogger(t))
+
+	trigger, _ := mockTrigger(t)
+	require.NoError(t, reg.Add(ctx, trigger))
+
+	require.NoError(t, reg.Add(ctx, mockConsensus("")))
+
+	target := mockTarget("write_ethereum-testnet-sepolia@1.0.0")
+	require.NoError(t, reg.Add(ctx, target))
+
+	var gotConfig *values.Map
+	action := newMockCapability(
+		// Create a remote capability so we don't use the local transmission protocol.
+		capabilities.MustNewRemoteCapabilityInfo(
+			"custom_compute@1.0.0",
+			capabilities.CapabilityTypeAction,
+			"a custom compute action with custom config",
+			&capabilities.DON{ID: 1},
+		),
+		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
+			// Replace the empty config with the write target config.
+			gotConfig = req.Config
+
+			return capabilities.CapabilityResponse{
+				Value: req.Inputs,
+			}, nil
+		},
+	)
+	require.NoError(t, reg.Add(ctx, action))
+
+	eng, testHooks := newTestEngineWithYAMLSpec(
+		t,
+		reg,
+		secretsWorkflow,
+		func(c *Config) {
+			c.SecretsFetcher = &mockFetcher{
+				retval: map[string]string{
+					"fidelity": "aFidelitySecret",
+				},
+			}
+		},
+	)
+
+	servicetest.Run(t, eng)
+
+	eid := getExecutionId(t, eng, testHooks)
+
+	state, err := eng.executionStates.Get(ctx, eid)
+	require.NoError(t, err)
+
+	assert.Equal(t, store.StatusCompleted, state.Status)
+
+	expected := map[string]any{
+		"fidelityToken": "aFidelitySecret",
+	}
+	expm, err := values.Wrap(expected)
+	require.NoError(t, err)
+	assert.Equal(t, gotConfig, expm)
 }

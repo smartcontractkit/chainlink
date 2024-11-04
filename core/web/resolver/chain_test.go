@@ -160,6 +160,22 @@ func TestResolver_Chain(t *testing.T) {
 				}
 			}
 		`
+		queryWithNetwork = `
+			query GetChain($network: String)  {
+				chain(id: "1", network: $network) {
+					... on Chain {
+						id
+						enabled
+						config
+						network
+					}
+					... on NotFoundError {
+						code
+						message
+					}
+				}
+			}
+		`
 		configTOML = `ChainID = '1'
 AutoCreateKey = false
 BlockBackfillDepth = 100
@@ -290,6 +306,51 @@ ResendAfterThreshold = '1h0m0s'
 					Message:       multipleChainError.Error(),
 				},
 			},
+		},
+		{
+			name:          "should return aptos chain if network is aptos",
+			authenticated: true,
+			variables: map[string]interface{}{
+				"network": relay.NetworkAptos,
+			},
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				chainConf := evmtoml.EVMConfig{
+					Chain:   chain,
+					ChainID: &chainID,
+				}
+
+				chainConfToml, err2 := chainConf.TOMLString()
+				require.NoError(t, err2)
+
+				f.App.On("GetRelayers").Return(&chainlinkmocks.FakeRelayerChainInteroperators{Relayers: map[commontypes.RelayID]loop.Relayer{
+					commontypes.RelayID{
+						Network: relay.NetworkEVM,
+						ChainID: chainID.String(),
+					}: testutils.MockRelayer{ChainStatus: commontypes.ChainStatus{
+						ID:      chainID.String(),
+						Enabled: chainConf.IsEnabled(),
+						Config:  chainConfToml,
+					}},
+					commontypes.RelayID{
+						Network: relay.NetworkAptos,
+						ChainID: chainID.String(),
+					}: testutils.MockRelayer{ChainStatus: commontypes.ChainStatus{
+						ID:      chainID.String(),
+						Enabled: chainConf.IsEnabled(),
+						Config:  chainConfToml,
+					}},
+				}})
+			},
+			query: queryWithNetwork,
+			result: fmt.Sprintf(`
+				{
+					"chain": {
+						"id": "1",
+						"enabled": true,
+						"config": %s,
+						"network": "aptos"
+					}
+				}`, configTOMLEscaped),
 		},
 	}
 

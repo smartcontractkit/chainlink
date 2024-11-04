@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity 0.8.24;
 
 import {CallWithExactGas} from "../../call/CallWithExactGas.sol";
 import {CallWithExactGasHelper} from "./CallWithExactGasHelper.sol";

@@ -2,10 +2,11 @@
 pragma solidity 0.8.24;
 
 import {ICapabilityConfiguration} from "../../keystone/interfaces/ICapabilityConfiguration.sol";
-import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
-import {ICapabilitiesRegistry} from "../interfaces/ICapabilitiesRegistry.sol";
 
-import {OwnerIsCreator} from "../../shared/access/OwnerIsCreator.sol";
+import {INodeInfoProvider} from "../../keystone/interfaces/INodeInfoProvider.sol";
+import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
+
+import {Ownable2StepMsgSender} from "../../shared/access/Ownable2StepMsgSender.sol";
 import {Internal} from "../libraries/Internal.sol";
 
 import {IERC165} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts/interfaces/IERC165.sol";
@@ -63,7 +64,7 @@ import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts
 ///       │             ├───────────────────►│             │
 ///       └─────────────┘    setSecondary    └─────────────┘
 ///
-contract CCIPHome is OwnerIsCreator, ITypeAndVersion, ICapabilityConfiguration, IERC165 {
+contract CCIPHome is Ownable2StepMsgSender, ITypeAndVersion, ICapabilityConfiguration, IERC165 {
   using EnumerableSet for EnumerableSet.UintSet;
 
   event ChainConfigRemoved(uint64 chainSelector);
@@ -73,7 +74,6 @@ contract CCIPHome is OwnerIsCreator, ITypeAndVersion, ICapabilityConfiguration, 
   event CandidateConfigRevoked(bytes32 indexed configDigest);
   event ConfigPromoted(bytes32 indexed configDigest);
 
-  error NodeNotInRegistry(bytes32 p2pId);
   error ChainSelectorNotFound(uint64 chainSelector);
   error FChainMustBePositive();
   error ChainSelectorNotSet();
@@ -94,18 +94,11 @@ contract CCIPHome is OwnerIsCreator, ITypeAndVersion, ICapabilityConfiguration, 
   error InvalidSelector(bytes4 selector);
   error DONIdMismatch(uint32 callDonId, uint32 capabilityRegistryDonId);
 
-  error InvalidStateTransition(
-    bytes32 currentActiveDigest,
-    bytes32 currentCandidateDigest,
-    bytes32 proposedActiveDigest,
-    bytes32 proposedCandidateDigest
-  );
-
   /// @notice Represents an oracle node in OCR3 configs part of the role DON.
   /// Every configured node should be a signer, but does not have to be a transmitter.
   struct OCR3Node {
-    bytes32 p2pId; // Peer2Peer connection ID of the oracle
-    bytes signerKey; // On-chain signer public key
+    bytes32 p2pId; // Peer2Peer connection ID of the oracle.
+    bytes signerKey; // On-chain signer public key.
     bytes transmitterKey; // On-chain transmitter public key. Can be set to empty bytes to represent that the node is a signer but not a transmitter.
   }
 
@@ -120,7 +113,7 @@ contract CCIPHome is OwnerIsCreator, ITypeAndVersion, ICapabilityConfiguration, 
     uint64 offchainConfigVersion; // ──────╯ The version of the exec offchain configuration.
     bytes offrampAddress; // The remote chain offramp address.
     bytes rmnHomeAddress; // The home chain RMN home address.
-    OCR3Node[] nodes; // Keys & IDs of nodes part of the role DON
+    OCR3Node[] nodes; // Keys & IDs of nodes part of the role DON.
     bytes offchainConfig; // The offchain configuration for the OCR3 plugin. Protobuf encoded.
   }
 
@@ -146,13 +139,13 @@ contract CCIPHome is OwnerIsCreator, ITypeAndVersion, ICapabilityConfiguration, 
 
   string public constant override typeAndVersion = "CCIPHome 1.6.0-dev";
 
-  /// @dev A prefix added to all config digests that is unique to the implementation
+  /// @dev A prefix added to all config digests that is unique to the implementation.
   uint256 private constant PREFIX = 0x000a << (256 - 16); // 0x000a00..00
   bytes32 internal constant EMPTY_ENCODED_ADDRESS_HASH = keccak256(abi.encode(address(0)));
   /// @dev 256 is the hard limit due to the bit encoding of their indexes into a uint256.
   uint256 internal constant MAX_NUM_ORACLES = 256;
 
-  /// @notice Used for encoding the config digest prefix
+  /// @notice Used for encoding the config digest prefix.
   uint256 private constant PREFIX_MASK = type(uint256).max << (256 - 16); // 0xFFFF00..00
   /// @notice The max number of configs that can be active at the same time.
   uint256 private constant MAX_CONCURRENT_CONFIGS = 2;
@@ -169,7 +162,7 @@ contract CCIPHome is OwnerIsCreator, ITypeAndVersion, ICapabilityConfiguration, 
   EnumerableSet.UintSet private s_remoteChainSelectors;
 
   /// @notice This array holds the configs.
-  /// @dev A DonID covers a single chain, and the plugin type is used to differentiate between the commit and execution
+  /// @dev A DonID covers a single chain, and the plugin type is used to differentiate between the commit and execution.
   mapping(uint32 donId => mapping(Internal.OCRPluginType pluginType => VersionedConfig[MAX_CONCURRENT_CONFIGS])) private
     s_configs;
 
@@ -209,13 +202,13 @@ contract CCIPHome is OwnerIsCreator, ITypeAndVersion, ICapabilityConfiguration, 
   }
 
   /// @notice Called by the registry prior to the config being set for a particular DON.
-  /// @dev precondition Requires destination chain config to be set
+  /// @dev precondition Requires destination chain config to be set.
   function beforeCapabilityConfigSet(
-    bytes32[] calldata, // nodes
+    bytes32[] calldata, // nodes.
     bytes calldata update,
     // Config count is unused because we don't want to invalidate a config on blue/green promotions so we keep track of
     // the actual newly submitted configs instead of the number of config mutations.
-    uint64, // config count
+    uint64, // config count.
     uint32 donId
   ) external override {
     if (msg.sender != i_capabilitiesRegistry) {
@@ -223,7 +216,7 @@ contract CCIPHome is OwnerIsCreator, ITypeAndVersion, ICapabilityConfiguration, 
     }
 
     bytes4 selector = bytes4(update[:4]);
-    // We only allow self-calls to the following approved methods
+    // We only allow self-calls to the following approved methods.
     if (
       selector != this.setCandidate.selector && selector != this.revokeCandidate.selector
         && selector != this.promoteCandidateAndRevokeActive.selector
@@ -239,7 +232,7 @@ contract CCIPHome is OwnerIsCreator, ITypeAndVersion, ICapabilityConfiguration, 
 
     // solhint-disable-next-line avoid-low-level-calls
     (bool success, bytes memory retData) = address(this).call(update);
-    // if not successful, revert with the original revert
+    // if not successful, revert with the original revert.
     if (!success) {
       assembly {
         revert(add(retData, 0x20), returndatasize())
@@ -386,9 +379,8 @@ contract CCIPHome is OwnerIsCreator, ITypeAndVersion, ICapabilityConfiguration, 
     }
 
     emit CandidateConfigRevoked(configDigest);
-    // Delete only the digest, as that's what's used to determine if a config is active. This means the actual
-    // config stays in storage which should significantly reduce the gas cost of overwriting that storage space in
-    // the future.
+    // Delete only the digest, as that's what's used to determine if a config is active. This means the actual config
+    // stays in storage which should significantly reduce the gas cost of overwriting that storage space in the future.
     delete s_configs[donId][pluginType][candidateConfigIndex].configDigest;
   }
 
@@ -423,6 +415,7 @@ contract CCIPHome is OwnerIsCreator, ITypeAndVersion, ICapabilityConfiguration, 
     if (digestToRevoke != ZERO_DIGEST) {
       emit ActiveConfigRevoked(digestToRevoke);
     }
+
     emit ConfigPromoted(digestToPromote);
   }
 
@@ -438,7 +431,7 @@ contract CCIPHome is OwnerIsCreator, ITypeAndVersion, ICapabilityConfiguration, 
     uint32 version
   ) internal view returns (bytes32) {
     return bytes32(
-      (PREFIX & PREFIX_MASK)
+      PREFIX
         | (
           uint256(
             keccak256(
@@ -478,17 +471,17 @@ contract CCIPHome is OwnerIsCreator, ITypeAndVersion, ICapabilityConfiguration, 
     }
     if (!s_remoteChainSelectors.contains(cfg.chainSelector)) revert ChainSelectorNotFound(cfg.chainSelector);
 
-    // fChain cannot exceed FRoleDON, since it is a subcommittee in the larger DON
+    // fChain cannot exceed FRoleDON, since it is a subcommittee in the larger DON.
     uint256 FRoleDON = cfg.FRoleDON;
     uint256 fChain = s_chainConfigurations[cfg.chainSelector].fChain;
     // fChain > 0 is enforced in applyChainConfigUpdates, and the presence of a chain config is checked above
-    // FRoleDON != 0 because FRoleDON >= fChain is enforced here
+    // FRoleDON != 0 because FRoleDON >= fChain is enforced here.
     if (fChain > FRoleDON) {
       revert FChainTooHigh(fChain, FRoleDON);
     }
 
-    // len(nodes) >= 3 * FRoleDON + 1
-    // len(nodes) == numberOfSigners
+    // len(nodes) >= 3 * FRoleDON + 1.
+    // len(nodes) == numberOfSigners.
     uint256 numberOfNodes = cfg.nodes.length;
     if (numberOfNodes > MAX_NUM_ORACLES) revert TooManySigners();
     if (numberOfNodes <= 3 * FRoleDON) revert FTooHigh();
@@ -498,13 +491,13 @@ contract CCIPHome is OwnerIsCreator, ITypeAndVersion, ICapabilityConfiguration, 
     for (uint256 i = 0; i < numberOfNodes; ++i) {
       OCR3Node memory node = cfg.nodes[i];
 
-      // 3 * fChain + 1 <= nonZeroTransmitters <= 3 * FRoleDON + 1
-      // Transmitters can be set to 0 since there can be more signers than transmitters,
+      // 3 * fChain + 1 <= nonZeroTransmitters <= 3 * FRoleDON + 1.
+      // Transmitters can be set to 0 since there can be more signers than transmitters.
       if (node.transmitterKey.length != 0) {
         nonZeroTransmitters++;
       }
 
-      // Signer key and p2pIds must always be present
+      // Signer key and p2pIds must always be present.
       if (node.signerKey.length == 0 || node.p2pId == bytes32(0)) {
         revert InvalidNode(node);
       }
@@ -512,8 +505,9 @@ contract CCIPHome is OwnerIsCreator, ITypeAndVersion, ICapabilityConfiguration, 
       p2pIds[i] = node.p2pId;
     }
 
-    // We check for chain config presence above, so fChain here must be non-zero. fChain <= FRoleDON due to the checks above.
-    // There can be less transmitters than signers - so they can be set to zero (which indicates that a node is a signer, but not a transmitter).
+    // We check for chain config presence above, so fChain here must be non-zero. fChain <= FRoleDON due to the checks
+    // above. There can be less transmitters than signers - so they can be set to zero (which indicates that a node is
+    // a signer, but not a transmitter).
     uint256 minTransmittersLength = 3 * fChain + 1;
     if (nonZeroTransmitters < minTransmittersLength) {
       revert NotEnoughTransmitters(nonZeroTransmitters, minTransmittersLength);
@@ -548,7 +542,7 @@ contract CCIPHome is OwnerIsCreator, ITypeAndVersion, ICapabilityConfiguration, 
     uint256 startIndex = pageIndex * pageSize;
 
     if (pageSize == 0 || startIndex >= numberOfChains) {
-      return new ChainConfigArgs[](0); // Return an empty array if pageSize is 0 or pageIndex is out of bounds
+      return new ChainConfigArgs[](0); // Return an empty array if pageSize is 0 or pageIndex is out of bounds.
     }
 
     uint256 endIndex = startIndex + pageSize;
@@ -558,9 +552,8 @@ contract CCIPHome is OwnerIsCreator, ITypeAndVersion, ICapabilityConfiguration, 
 
     ChainConfigArgs[] memory paginatedChainConfigs = new ChainConfigArgs[](endIndex - startIndex);
 
-    uint256[] memory chainSelectors = s_remoteChainSelectors.values();
     for (uint256 i = startIndex; i < endIndex; ++i) {
-      uint64 chainSelector = uint64(chainSelectors[i]);
+      uint64 chainSelector = uint64(s_remoteChainSelectors.at(i));
       paginatedChainConfigs[i - startIndex] =
         ChainConfigArgs({chainSelector: chainSelector, chainConfig: s_chainConfigurations[chainSelector]});
     }
@@ -569,7 +562,8 @@ contract CCIPHome is OwnerIsCreator, ITypeAndVersion, ICapabilityConfiguration, 
   }
 
   /// @notice Sets and/or removes chain configurations.
-  /// Does not validate that fChain <= FRoleDON and relies on OCR3Configs to be changed in case fChain becomes larger than the FRoleDON value.
+  /// @dev Does not validate that fChain <= FRoleDON and relies on OCR3Configs to be changed in case fChain becomes
+  /// larger than the FRoleDON value.
   /// @param chainSelectorRemoves The chain configurations to remove.
   /// @param chainConfigAdds The chain configurations to add.
   function applyChainConfigUpdates(
@@ -614,11 +608,8 @@ contract CCIPHome is OwnerIsCreator, ITypeAndVersion, ICapabilityConfiguration, 
   function _ensureInRegistry(
     bytes32[] memory p2pIds
   ) internal view {
-    for (uint256 i = 0; i < p2pIds.length; ++i) {
-      // TODO add a method that does the validation in the ICapabilitiesRegistry contract
-      if (ICapabilitiesRegistry(i_capabilitiesRegistry).getNode(p2pIds[i]).p2pId == bytes32("")) {
-        revert NodeNotInRegistry(p2pIds[i]);
-      }
+    if (p2pIds.length != 0) {
+      INodeInfoProvider(i_capabilitiesRegistry).getNodesByP2PIds(p2pIds);
     }
   }
 }
