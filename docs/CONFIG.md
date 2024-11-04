@@ -10128,7 +10128,7 @@ TxConfirmTimeout is the duration to wait when confirming a tx signature, before 
 ```toml
 TxRetentionTimeout = '0s' # Default
 ```
-TxRetentionTimeout is the duration to retain transactions after being marked as finalized or errored. Set to 0 to immediately drop transactions.
+TxRetentionTimeout is the duration to retain transactions in storage after being marked as finalized or errored. Set to 0 to immediately drop transactions.
 
 ### SkipPreflight
 ```toml
