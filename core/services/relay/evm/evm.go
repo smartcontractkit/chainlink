@@ -218,21 +218,36 @@ func NewRelayer(ctx context.Context, lggr logger.Logger, chain legacyevm.Chain, 
 	}
 
 	wCfg := chain.Config().EVM().Workflow()
-	// Initialize write target capability if configuration is defined
-	if wCfg.ForwarderAddress() != nil && wCfg.FromAddress() != nil {
-		if wCfg.GasLimitDefault() == nil {
-			return nil, fmt.Errorf("unable to instantiate write target as default gas limit is not set")
-		}
 
-		capability, err := NewWriteTarget(ctx, relayer, chain, *wCfg.GasLimitDefault(), lggr)
-		if err != nil {
-			return nil, fmt.Errorf("failed to initialize write target: %w", err)
-		}
-		if err := relayer.capabilitiesRegistry.Add(ctx, capability); err != nil {
-			return nil, err
-		}
-		lggr.Infow("Registered write target", "chain_id", chain.ID())
+	// Do not register write target without required configuration
+	if wCfg.ForwarderAddress() == nil || wCfg.GasLimitDefault() == nil {
+		return relayer, nil
 	}
+
+	ethKeys, err := opts.CSAETHKeystore.Eth().GetAll(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get all eth keys: %w", err)
+	}
+
+	// Do not register write target if there are multiple keys and no from address is set
+	if len(ethKeys) > 1 && wCfg.FromAddress() != nil {
+		return relayer, nil
+	}
+
+	// Do not register write target if there are no keys
+	if len(ethKeys) == 0 {
+		return relayer, nil
+	}
+
+	// Initialize write target capability if configuration is defined
+	capability, err := NewWriteTarget(ctx, relayer, chain, *wCfg.GasLimitDefault(), lggr, &ethKeys[0].EIP55Address)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize write target: %w", err)
+	}
+	if err := relayer.capabilitiesRegistry.Add(ctx, capability); err != nil {
+		return nil, err
+	}
+	lggr.Infow("Registered write target", "chain_id", chain.ID())
 
 	return relayer, nil
 }

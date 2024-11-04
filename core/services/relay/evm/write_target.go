@@ -10,12 +10,20 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/targets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder"
 	relayevmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
-func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain, gasLimitDefault uint64, lggr logger.Logger) (*targets.WriteTarget, error) {
+func NewWriteTarget(
+	ctx context.Context,
+	relayer *Relayer,
+	chain legacyevm.Chain,
+	gasLimitDefault uint64,
+	lggr logger.Logger,
+	fromAddress *types.EIP55Address,
+) (*targets.WriteTarget, error) {
 	// generate ID based on chain selector
 	id := fmt.Sprintf("write_%v@1.0.0", chain.ID())
 	chainName, err := chainselectors.NameFromChainId(chain.ID().Uint64())
@@ -54,7 +62,7 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 				Configs: map[string]*relayevmtypes.ChainWriterDefinition{
 					"report": {
 						ChainSpecificName: "report",
-						FromAddress:       config.FromAddress().Address(),
+						FromAddress:       fromAddress.Address(),
 						GasLimit:          gasLimitDefault,
 					},
 				},
