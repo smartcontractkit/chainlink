@@ -535,7 +535,7 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
    * @notice check if a report has already been transmitted
    * @param report the report to check
    */
-  function existReport(Report memory report) internal view returns (bool exist, uint32 roundId) {
+  function _reportExists(Report memory report) internal view returns (bool exist, uint32 roundId) {
     // get the latest round id
     uint32 latestAggregatorRoundId = s_hotVars.latestAggregatorRoundId;
 
@@ -546,9 +546,8 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
         return (false, 0);
       }
 
-      // get median and validate its range
+      // get median
       int192 median = report.observations[report.observations.length / 2];
-      if (i_minAnswer > median && median > i_maxAnswer) revert MedianIsOutOfMinMaxRange();
 
       if (transmission.observationsTimestamp == report.observationsTimestamp && transmission.answer == median) {
         return (true, round_);
@@ -686,7 +685,7 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     uint256 initialGas = gasleft(); // This line must come first
     Report memory report_ = _decodeReport(report);
 
-    (bool exist, uint32 roundId) = existReport(report_);
+    (bool exist, uint32 roundId) = _reportExists(report_);
     if (exist && msg.sender == s_secondaryProxy) {
       s_hotVars.latestSecondaryRoundId = roundId;
     } else {
@@ -829,8 +828,8 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     int192 median = report.observations[report.observations.length / 2];
     if (i_minAnswer > median && median > i_maxAnswer) revert MedianIsOutOfMinMaxRange();
     
-    uint32 roundId = hotVars.latestAggregatorRoundId++;
-    s_transmissions[roundId] = Transmission({
+    hotVars.latestAggregatorRoundId++;
+    s_transmissions[hotVars.latestAggregatorRoundId] = Transmission({
       answer: median,
       observationsTimestamp: report.observationsTimestamp,
       recordedTimestamp: uint32(block.timestamp)
