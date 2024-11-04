@@ -11,6 +11,7 @@ import (
 	"os/signal"
 	"sort"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -614,12 +615,16 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 	interruption := make(chan os.Signal, 1)
 	//nolint:staticcheck //ignore SA1016 we need to send the os.Kill signal
 	signal.Notify(interruption, os.Kill, os.Interrupt, syscall.SIGTERM)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	var wg sync.WaitGroup
+
 	lastValue := 0
 	newRoundTrigger := time.NewTimer(0) // Want to trigger a new round ASAP
 	defer newRoundTrigger.Stop()
 	o.setFilterQuery()
-	err := o.pollingOCREvents(endTest)
-	require.NoError(o.t, err, "Error setting up polling for OCR events")
+	wg.Add(1)
+	go o.pollingOCREvents(ctx, endTest, &wg)
 
 	n := o.Config.GetNetworkConfig()
 
@@ -708,6 +713,8 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 			o.deleteChaosSimulations()
 			os.Exit(interruptedExitCode) // Exit with interrupted code to indicate test was interrupted, not just a normal failure
 		case <-endTest:
+			cancel()
+			wg.Wait()
 			return
 		case <-newRoundTrigger.C:
 			err := o.triggerNewRound(newValue)
@@ -824,109 +831,107 @@ func (o *OCRSoakTest) setFilterQuery() {
 }
 
 // pollingOCREvents Polls the blocks for OCR events and logs them to the test logger
-func (o *OCRSoakTest) pollingOCREvents(endTest <-chan time.Time) error {
-
+func (o *OCRSoakTest) pollingOCREvents(ctx context.Context, endTest <-chan time.Time, wg *sync.WaitGroup) error {
+	defer wg.Done()
 	// Keep track of the last processed block number
 	processedBlockNum := o.startingBlockNum - 1
-
-	go func() {
-		// TODO: Make this configurable
-		pollInterval := time.Second * 30
-		ticker := time.NewTicker(pollInterval)
-		defer ticker.Stop()
-		o.log.Info().Msg("Start Polling for Answer Updated Events")
-		for {
-			select {
-			case <-endTest:
-				o.log.Info().Msg("Test duration ended, stopping polling")
-				return
-			case <-ticker.C:
-				// Get the latest block number to search up to the current block
-				latestBlock, err := o.seth.Client.BlockNumber(context.Background())
-				if err != nil {
-					o.log.Error().Err(err).Msg("Error getting latest block number")
-					continue
-				}
-
-				// Skip if this block has already been checked
-				if processedBlockNum == latestBlock {
-					o.log.Debug().
-						Uint64("Latest Block", latestBlock).
-						Uint64("Last Processed Block Number", processedBlockNum).
-						Msg("No new blocks since last poll")
-					continue
-				}
-				// Check if the latest block is behind processedBlockNum due to possible reorgs
-				if processedBlockNum > latestBlock {
-					o.log.Error().
-						Uint64("From Block", processedBlockNum).
-						Uint64("To Block", latestBlock).
-						Msg("The latest block is behind the processed block. This could happen due to RPC issues or possibly a reorg")
-					processedBlockNum = latestBlock
-					continue
-				}
-
-				fromBlock := processedBlockNum + 1
-
-				// Prepare the filter query with updated block range
-				o.filterQuery.FromBlock = big.NewInt(0).SetUint64(fromBlock)
-				o.filterQuery.ToBlock = big.NewInt(0).SetUint64(latestBlock)
-
-				o.log.Debug().
-					Uint64("From Block", fromBlock).
-					Uint64("To Block", latestBlock).
-					Msg("Fetching logs for the specified range")
-
-				// Fetch logs for the specified range
-				logs, err := o.seth.Client.FilterLogs(context.Background(), o.filterQuery)
-				if err != nil {
-					o.log.Error().Err(err).Msg("Error fetching logs")
-					continue
-				}
-
-				// Process the fetched logs
-				for _, event := range logs {
-					if o.OCRVersion == "1" {
-						answerUpdated, err := o.ocrV1Instances[0].ParseEventAnswerUpdated(event)
-						if err != nil {
-							o.log.Warn().
-								Err(err).
-								Str("Address", event.Address.Hex()).
-								Uint64("Block Number", event.BlockNumber).
-								Msg("Error parsing event as AnswerUpdated")
-							continue
-						}
-						o.log.Info().
-							Str("Address", event.Address.Hex()).
-							Uint64("Block Number", event.BlockNumber).
-							Uint64("Round ID", answerUpdated.RoundId.Uint64()).
-							Int64("Answer", answerUpdated.Current.Int64()).
-							Msg("Answer Updated Event")
-					} else if o.OCRVersion == "2" {
-						answerUpdated, err := o.ocrV2Instances[0].ParseEventAnswerUpdated(event)
-						if err != nil {
-							o.log.Warn().
-								Err(err).
-								Str("Address", event.Address.Hex()).
-								Uint64("Block Number", event.BlockNumber).
-								Msg("Error parsing event as AnswerUpdated")
-							continue
-						}
-						o.log.Info().
-							Str("Address", event.Address.Hex()).
-							Uint64("Block Number", event.BlockNumber).
-							Uint64("Round ID", answerUpdated.RoundId.Uint64()).
-							Int64("Answer", answerUpdated.Current.Int64()).
-							Msg("Answer Updated Event")
-					}
-				}
-
-				processedBlockNum = latestBlock
+	// TODO: Make this configurable
+	pollInterval := time.Second * 30
+	ticker := time.NewTicker(pollInterval)
+	defer ticker.Stop()
+	o.log.Info().Msg("Start Polling for Answer Updated Events")
+	for {
+		select {
+		case <-ctx.Done():
+			o.log.Info().Msg("Test is done, stopping polling")
+			return nil
+		case <-endTest:
+			o.log.Info().Msg("Test ended, stopping polling")
+			return nil
+		case <-ticker.C:
+			// Get the latest block number to search up to the current block
+			latestBlock, err := o.seth.Client.BlockNumber(context.Background())
+			if err != nil {
+				o.log.Error().Err(err).Msg("Error getting latest block number")
+				continue
 			}
-		}
-	}()
 
-	return nil
+			// Skip if this block has already been checked
+			if processedBlockNum == latestBlock {
+				o.log.Debug().
+					Uint64("Latest Block", latestBlock).
+					Uint64("Last Processed Block Number", processedBlockNum).
+					Msg("No new blocks since last poll")
+				continue
+			}
+			// Check if the latest block is behind processedBlockNum due to possible reorgs
+			if processedBlockNum > latestBlock {
+				o.log.Error().
+					Uint64("From Block", processedBlockNum).
+					Uint64("To Block", latestBlock).
+					Msg("The latest block is behind the processed block. This could happen due to RPC issues or possibly a reorg")
+				processedBlockNum = latestBlock
+				continue
+			}
+
+			fromBlock := processedBlockNum + 1
+
+			// Prepare the filter query with updated block range
+			o.filterQuery.FromBlock = big.NewInt(0).SetUint64(fromBlock)
+			o.filterQuery.ToBlock = big.NewInt(0).SetUint64(latestBlock)
+
+			o.log.Debug().
+				Uint64("From Block", fromBlock).
+				Uint64("To Block", latestBlock).
+				Msg("Fetching logs for the specified range")
+
+			// Fetch logs for the specified range
+			logs, err := o.seth.Client.FilterLogs(context.Background(), o.filterQuery)
+			if err != nil {
+				o.log.Error().Err(err).Msg("Error fetching logs")
+				continue
+			}
+
+			// Process the fetched logs
+			for _, event := range logs {
+				if o.OCRVersion == "1" {
+					answerUpdated, err := o.ocrV1Instances[0].ParseEventAnswerUpdated(event)
+					if err != nil {
+						o.log.Warn().
+							Err(err).
+							Str("Address", event.Address.Hex()).
+							Uint64("Block Number", event.BlockNumber).
+							Msg("Error parsing event as AnswerUpdated")
+						continue
+					}
+					o.log.Info().
+						Str("Address", event.Address.Hex()).
+						Uint64("Block Number", event.BlockNumber).
+						Uint64("Round ID", answerUpdated.RoundId.Uint64()).
+						Int64("Answer", answerUpdated.Current.Int64()).
+						Msg("Answer Updated Event")
+				} else if o.OCRVersion == "2" {
+					answerUpdated, err := o.ocrV2Instances[0].ParseEventAnswerUpdated(event)
+					if err != nil {
+						o.log.Warn().
+							Err(err).
+							Str("Address", event.Address.Hex()).
+							Uint64("Block Number", event.BlockNumber).
+							Msg("Error parsing event as AnswerUpdated")
+						continue
+					}
+					o.log.Info().
+						Str("Address", event.Address.Hex()).
+						Uint64("Block Number", event.BlockNumber).
+						Uint64("Round ID", answerUpdated.RoundId.Uint64()).
+						Int64("Answer", answerUpdated.Current.Int64()).
+						Msg("Answer Updated Event")
+				}
+			}
+
+			processedBlockNum = latestBlock
+		}
+	}
 }
 
 // triggers a new OCR round by setting a new mock adapter value
