@@ -2,6 +2,7 @@ package v1_0
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -23,8 +24,29 @@ type CapRegView struct {
 	Dons         []DonView        `json:"dons,omitempty"`
 }
 
-type NopView struct {
-	capabilities_registry.CapabilitiesRegistryNodeOperator
+func (v CapRegView) MarshalJSON() ([]byte, error) {
+	// Alias to avoid recursive calls
+	type Alias struct {
+		types.ContractMetaData
+		Capabilities    []CapabilityView      `json:"capabilities,omitempty"`
+		Nodes           []NodeView            `json:"nodes,omitempty"`
+		Nops            []NopView             `json:"nops,omitempty"`
+		Dons            []DonView             `json:"dons,omitempty"`
+		DonCapabilities []DonDenormalizedView `json:"don_capabilities_summary,omitempty"`
+	}
+	a := Alias{
+		ContractMetaData: v.ContractMetaData,
+		Capabilities:     v.Capabilities,
+		Nodes:            v.Nodes,
+		Nops:             v.Nops,
+		Dons:             v.Dons,
+	}
+	dc, err := v.DonCapabilities()
+	if err != nil {
+		return nil, err
+	}
+	a.DonCapabilities = dc
+	return json.MarshalIndent(&a, "", " ")
 }
 
 // GenerateCapRegView generates a CapRegView from a CapabilitiesRegistry contract.
@@ -65,7 +87,7 @@ func GenerateCapRegView(capReg *capabilities_registry.CapabilitiesRegistry) (Cap
 	}
 	var nopViews []NopView
 	for _, nopInfo := range nopInfos {
-		nopViews = append(nopViews, NopView{nopInfo})
+		nopViews = append(nopViews, NewNopView(nopInfo))
 	}
 
 	return CapRegView{
@@ -77,24 +99,28 @@ func GenerateCapRegView(capReg *capabilities_registry.CapabilitiesRegistry) (Cap
 	}, nil
 }
 
-// DonCapabilities is a view of a Don with its associated Nodes and Capabilities.
-type DonCapabilities struct {
-	Don          DonView
-	Nodes        []NodeView
-	Capabilities []CapabilityView
+// DonDenormalizedView is a view of a Don with its associated Nodes and Capabilities.
+type DonDenormalizedView struct {
+	Don          DonUniversalMetadata   `json:"don"`
+	Nodes        []NodeDenormalizedView `json:"nodes"`
+	Capabilities []CapabilityView       `json:"capabilities"`
 }
 
 // DonCapabilities returns a list of DonCapabilities, which are Dons with their associated
 // Nodes and Capabilities. This is a useful form of the CapRegView, but it is not definitive.
 // The full CapRegView should be used for the most accurate information as it can contain
 // Capabilities and Nodes the are not associated with any Don.
-func (v CapRegView) DonCapabilities() ([]DonCapabilities, error) {
-	var out []DonCapabilities
+func (v CapRegView) DonCapabilities() ([]DonDenormalizedView, error) {
+	var out []DonDenormalizedView
 	for _, don := range v.Dons {
-		var nodes []NodeView
+		var nodes []NodeDenormalizedView
 		for _, node := range v.Nodes {
 			if nodeInDon(node, don) {
-				nodes = append(nodes, node)
+				ndv, err := v.nodeDenormalizedView(node)
+				if err != nil {
+					return nil, err
+				}
+				nodes = append(nodes, ndv)
 			}
 		}
 		var capabilities []CapabilityView
@@ -103,8 +129,8 @@ func (v CapRegView) DonCapabilities() ([]DonCapabilities, error) {
 				capabilities = append(capabilities, cap)
 			}
 		}
-		out = append(out, DonCapabilities{
-			Don:          don,
+		out = append(out, DonDenormalizedView{
+			Don:          don.DonUniversalMetadata,
 			Nodes:        nodes,
 			Capabilities: capabilities,
 		})
@@ -112,21 +138,43 @@ func (v CapRegView) DonCapabilities() ([]DonCapabilities, error) {
 	return out, nil
 }
 
+func (v CapRegView) nodeDenormalizedView(n NodeView) (NodeDenormalizedView, error) {
+	nop, err := nodeNop(n, v.Nops)
+	if err != nil {
+		return NodeDenormalizedView{}, err
+	}
+	return NodeDenormalizedView{
+		NodeUniversalMetadata: n.NodeUniversalMetadata,
+		Nop:                   nop,
+	}, nil
+}
+
+func nodeNop(n NodeView, nops []NopView) (NopView, error) {
+	for i, nop := range nops {
+		// nops are 1-indexed. there is no natural key to match on, so we use the index.
+		idx := i + 1
+		if n.NodeOperatorID == uint32(idx) {
+			return nop, nil
+		}
+	}
+	return NopView{}, fmt.Errorf("could not find nop for node %d", n.NodeOperatorID)
+}
+
 // CapabilityView is a serialization-friendly view of a capability in the capabilities registry.
 type CapabilityView struct {
-	CapabilityId          string // hex
-	LabelledName          string
-	Version               string
-	CapabilityType        uint8
-	ResponseType          uint8
-	ConfigurationContract common.Address `json:"omitempty"`
-	IsDeprecated          bool           `json:"omitempty"`
+	ID                    string         `json:"id"` // hex
+	LabelledName          string         `json:"labelled_name"`
+	Version               string         `json:"version"`
+	CapabilityType        uint8          `json:"capability_type"`
+	ResponseType          uint8          `json:"response_type"`
+	ConfigurationContract common.Address `json:"configuration_contract, omitempty"`
+	IsDeprecated          bool           `json:"is_deprecated,omitempty"`
 }
 
 // NewCapabilityView creates a CapabilityView from a CapabilitiesRegistryCapabilityInfo.
 func NewCapabilityView(capInfo capabilities_registry.CapabilitiesRegistryCapabilityInfo) CapabilityView {
 	return CapabilityView{
-		CapabilityId:          hex.EncodeToString(capInfo.HashedId[:]),
+		ID:                    hex.EncodeToString(capInfo.HashedId[:]),
 		LabelledName:          capInfo.LabelledName,
 		Version:               capInfo.Version,
 		CapabilityType:        capInfo.CapabilityType,
@@ -138,7 +186,7 @@ func NewCapabilityView(capInfo capabilities_registry.CapabilitiesRegistryCapabil
 
 // Validate checks that the CapabilityView is valid.
 func (cv CapabilityView) Validate() error {
-	id, err := hex.DecodeString(cv.CapabilityId)
+	id, err := hex.DecodeString(cv.ID)
 	if err != nil {
 		return err
 	}
@@ -150,23 +198,29 @@ func (cv CapabilityView) Validate() error {
 
 // DonView is a serialization-friendly view of a Don in the capabilities registry.
 type DonView struct {
-	Id                       uint32
-	ConfigCount              uint32
-	F                        uint8
-	IsPublic                 bool
-	AcceptsWorkflows         bool
-	NodeP2PIds               []p2pkey.PeerID
-	CapabilityConfigurations []CapabilitiesConfiguration
+	DonUniversalMetadata
+	NodeP2PIds               []p2pkey.PeerID             `json:"node_p2p_ids,omitempty"`
+	CapabilityConfigurations []CapabilitiesConfiguration `json:"capability_configurations,omitempty"`
+}
+
+type DonUniversalMetadata struct {
+	ID               uint32 `json:"id"`
+	ConfigCount      uint32 `json:"config_count"`
+	F                uint8  `json:"f"`
+	IsPublic         bool   `json:"is_public,omitempty"`
+	AcceptsWorkflows bool   `json:"accepts_workflows,omitempty"`
 }
 
 // NewDonView creates a DonView from a CapabilitiesRegistryDONInfo.
 func NewDonView(d capabilities_registry.CapabilitiesRegistryDONInfo) DonView {
 	return DonView{
-		Id:                       d.Id,
-		ConfigCount:              d.ConfigCount,
-		F:                        d.F,
-		IsPublic:                 d.IsPublic,
-		AcceptsWorkflows:         d.AcceptsWorkflows,
+		DonUniversalMetadata: DonUniversalMetadata{
+			ID:               d.Id,
+			ConfigCount:      d.ConfigCount,
+			F:                d.F,
+			IsPublic:         d.IsPublic,
+			AcceptsWorkflows: d.AcceptsWorkflows,
+		},
 		NodeP2PIds:               p2pIds(d.NodeP2PIds),
 		CapabilityConfigurations: NewCapabilityConfigurations(d.CapabilityConfigurations),
 	}
@@ -183,8 +237,8 @@ func (dv DonView) Validate() error {
 
 // CapabilitiesConfiguration is a serialization-friendly view of a capability configuration in the capabilities registry.
 type CapabilitiesConfiguration struct {
-	CapabilityId string // hex 32 bytes
-	Config       string // hex
+	ID     string `json:"id"`     // hex 32 bytes
+	Config string `json:"config"` // hex
 }
 
 // NewCapabilityConfigurations creates a list of CapabilitiesConfiguration from a list of CapabilitiesRegistryCapabilityConfiguration.
@@ -192,15 +246,15 @@ func NewCapabilityConfigurations(cfgs []capabilities_registry.CapabilitiesRegist
 	var out []CapabilitiesConfiguration
 	for _, cfg := range cfgs {
 		out = append(out, CapabilitiesConfiguration{
-			CapabilityId: hex.EncodeToString(cfg.CapabilityId[:]),
-			Config:       hex.EncodeToString(cfg.Config),
+			ID:     hex.EncodeToString(cfg.CapabilityId[:]),
+			Config: hex.EncodeToString(cfg.Config),
 		})
 	}
 	return out
 }
 
 func (cc CapabilitiesConfiguration) Validate() error {
-	id, err := hex.DecodeString(cc.CapabilityId)
+	id, err := hex.DecodeString(cc.ID)
 	if err != nil {
 		return errors.New("capability id must be hex encoded")
 	}
@@ -216,27 +270,34 @@ func (cc CapabilitiesConfiguration) Validate() error {
 
 // NodeView is a serialization-friendly view of a node in the capabilities registry.
 type NodeView struct {
-	NodeOperatorId      uint32
-	ConfigCount         uint32
-	WorkflowDONId       uint32
-	Signer              string // hex 32 bytes
-	P2pId               p2pkey.PeerID
-	EncryptionPublicKey string     // hex 32 bytes
-	CapabilityIds       []string   `json:"capability_ids,omitempty"` // hex 32 bytes
-	DONIds              []*big.Int `json:",don_ids, omitempty"`
+	NodeUniversalMetadata
+	NodeOperatorID uint32     `json:"node_operator_id"`
+	CapabilityIDs  []string   `json:"capability_ids,omitempty"` // hex 32 bytes
+	DONIDs         []*big.Int `json:",don_ids, omitempty"`
+}
+
+// NodeUniversalMetadata is a serialization-friendly view of the universal metadata of a node in the capabilities registry.
+type NodeUniversalMetadata struct {
+	ConfigCount         uint32        `json:"config_count"`
+	WorkflowDONID       uint32        `json:"workflow_don_id"`
+	Signer              string        `json:"signer"` // hex 32 bytes
+	P2pId               p2pkey.PeerID `json:"p2p_id"`
+	EncryptionPublicKey string        `json:"encryption_public_key"` // hex 32 bytes
 }
 
 // NewNodeView creates a NodeView from a CapabilitiesRegistryNodeInfoProviderNodeInfo.
 func NewNodeView(n capabilities_registry.INodeInfoProviderNodeInfo) NodeView {
 	return NodeView{
-		NodeOperatorId:      n.NodeOperatorId,
-		ConfigCount:         n.ConfigCount,
-		WorkflowDONId:       n.WorkflowDONId,
-		Signer:              hex.EncodeToString(n.Signer[:]),
-		P2pId:               p2pkey.PeerID(n.P2pId),
-		EncryptionPublicKey: hex.EncodeToString(n.EncryptionPublicKey[:]),
-		CapabilityIds:       hexIds(n.HashedCapabilityIds),
-		DONIds:              n.CapabilitiesDONIds,
+		NodeUniversalMetadata: NodeUniversalMetadata{
+			ConfigCount:         n.ConfigCount,
+			WorkflowDONID:       n.WorkflowDONId,
+			Signer:              hex.EncodeToString(n.Signer[:]),
+			P2pId:               p2pkey.PeerID(n.P2pId),
+			EncryptionPublicKey: hex.EncodeToString(n.EncryptionPublicKey[:]),
+		},
+		NodeOperatorID: n.NodeOperatorId,
+		CapabilityIDs:  hexIds(n.HashedCapabilityIds),
+		DONIDs:         n.CapabilitiesDONIds,
 	}
 }
 
@@ -257,7 +318,7 @@ func (nv NodeView) Validate() error {
 		return errors.New("encryption public key must be 32 bytes")
 	}
 
-	for _, id := range nv.CapabilityIds {
+	for _, id := range nv.CapabilityIDs {
 		cid, err := hex.DecodeString(id)
 		if err != nil {
 			return errors.New("hashed capability id must be hex encoded")
@@ -267,6 +328,24 @@ func (nv NodeView) Validate() error {
 		}
 	}
 	return nil
+}
+
+// NodeDenormalizedView is a serialization-friendly view of a node in the capabilities registry with its associated NOP.
+type NodeDenormalizedView struct {
+	NodeUniversalMetadata
+	Nop NopView `json:"nop"`
+}
+
+type NopView struct {
+	Admin common.Address `json:"admin"`
+	Name  string         `json:"name"`
+}
+
+func NewNopView(nop capabilities_registry.CapabilitiesRegistryNodeOperator) NopView {
+	return NopView{
+		Admin: nop.Admin,
+		Name:  nop.Name,
+	}
 }
 
 func p2pIds(rawIds [][32]byte) []p2pkey.PeerID {
@@ -286,9 +365,9 @@ func hexIds(ids [][32]byte) []string {
 }
 
 func nodeInDon(node NodeView, don DonView) bool {
-	donId := big.NewInt(int64(don.Id))
+	donId := big.NewInt(int64(don.ID))
 	isMember := false
-	for _, x := range node.DONIds {
+	for _, x := range node.DONIDs {
 		if x.Cmp(donId) == 0 {
 			isMember = true
 			break
@@ -300,7 +379,7 @@ func nodeInDon(node NodeView, don DonView) bool {
 func capInDon(cap CapabilityView, don DonView) bool {
 	isMember := false
 	for _, cfg := range don.CapabilityConfigurations {
-		if cfg.CapabilityId == cap.CapabilityId {
+		if cfg.ID == cap.ID {
 			isMember = true
 			break
 		}

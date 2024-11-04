@@ -15,11 +15,12 @@ func TestCapRegView_Denormalize(t *testing.T) {
 		Capabilities     []CapabilityView
 		Nodes            []NodeView
 		Dons             []DonView
+		Nops             []NopView
 	}
 	tests := []struct {
 		name    string
 		fields  fields
-		want    []DonCapabilities
+		want    []DonDenormalizedView
 		wantErr bool
 	}{
 		{
@@ -43,7 +44,11 @@ func TestCapRegView_Denormalize(t *testing.T) {
 				Nodes: []NodeView{
 					NewNodeView(cr.INodeInfoProviderNodeInfo{
 						CapabilitiesDONIds: []*big.Int{big.NewInt(1)},
+						NodeOperatorId:     1, // 1-based index
 					}),
+				},
+				Nops: []NopView{
+					{Name: "first nop"},
 				},
 				Capabilities: []CapabilityView{
 					NewCapabilityView(cr.CapabilitiesRegistryCapabilityInfo{
@@ -59,7 +64,7 @@ func TestCapRegView_Denormalize(t *testing.T) {
 					}),
 				},
 			},
-			want: []DonCapabilities{
+			want: []DonDenormalizedView{
 				{
 					Don: NewDonView(cr.CapabilitiesRegistryDONInfo{
 						Id: 1,
@@ -68,11 +73,15 @@ func TestCapRegView_Denormalize(t *testing.T) {
 								CapabilityId: [32]byte{0: 1},
 							},
 						},
-					}),
-					Nodes: []NodeView{
-						NewNodeView(cr.INodeInfoProviderNodeInfo{
-							CapabilitiesDONIds: []*big.Int{big.NewInt(1)},
-						}),
+					}).DonUniversalMetadata,
+					Nodes: []NodeDenormalizedView{
+						{
+							NodeUniversalMetadata: NewNodeView(cr.INodeInfoProviderNodeInfo{
+								CapabilitiesDONIds: []*big.Int{big.NewInt(1)},
+								NodeOperatorId:     1, // 1-based index
+							}).NodeUniversalMetadata,
+							Nop: NopView{Name: "first nop"},
+						},
 					},
 					Capabilities: []CapabilityView{
 						NewCapabilityView(cr.CapabilitiesRegistryCapabilityInfo{
@@ -115,20 +124,28 @@ func TestCapRegView_Denormalize(t *testing.T) {
 				Nodes: []NodeView{
 					// nodes for don1
 					NewNodeView(cr.INodeInfoProviderNodeInfo{
-						P2pId:              [32]byte{4: 2},
+						P2pId:              [32]byte{31: 1},
 						CapabilitiesDONIds: []*big.Int{big.NewInt(1)}, // matches don ID 1
+						NodeOperatorId:     1,                         // 1-based index
 					}),
 
 					NewNodeView(cr.INodeInfoProviderNodeInfo{
-						P2pId:              [32]byte{7: 7},
+						P2pId:              [32]byte{31: 11},
 						CapabilitiesDONIds: []*big.Int{big.NewInt(1)}, // matches don ID 1
+						NodeOperatorId:     3,                         // 1-based index
 					}),
 
 					// nodes for don2
 					NewNodeView(cr.INodeInfoProviderNodeInfo{
-						P2pId:              [32]byte{2: 2},
+						P2pId:              [32]byte{31: 22},
 						CapabilitiesDONIds: []*big.Int{big.NewInt(2)}, // matches don ID 2
+						NodeOperatorId:     2,                         // 1-based index
 					}),
+				},
+				Nops: []NopView{
+					{Name: "first nop"},
+					{Name: "second nop"},
+					{Name: "third nop"},
 				},
 				Capabilities: []CapabilityView{
 					//capabilities for don1
@@ -151,7 +168,7 @@ func TestCapRegView_Denormalize(t *testing.T) {
 					}),
 				},
 			},
-			want: []DonCapabilities{
+			want: []DonDenormalizedView{
 				{
 					Don: NewDonView(cr.CapabilitiesRegistryDONInfo{
 						Id: 1,
@@ -163,18 +180,22 @@ func TestCapRegView_Denormalize(t *testing.T) {
 								CapabilityId: [32]byte{1: 1},
 							},
 						},
-					}),
-					Nodes: []NodeView{
-
-						NewNodeView(cr.INodeInfoProviderNodeInfo{
-							P2pId:              [32]byte{4: 2},
-							CapabilitiesDONIds: []*big.Int{big.NewInt(1)}, // matches don ID 1
-						}),
-
-						NewNodeView(cr.INodeInfoProviderNodeInfo{
-							P2pId:              [32]byte{7: 7},
-							CapabilitiesDONIds: []*big.Int{big.NewInt(1)}, // matches don ID 1
-						}),
+					}).DonUniversalMetadata,
+					Nodes: []NodeDenormalizedView{
+						{
+							NodeUniversalMetadata: NewNodeView(cr.INodeInfoProviderNodeInfo{
+								P2pId:              [32]byte{31: 1},
+								CapabilitiesDONIds: []*big.Int{big.NewInt(1)}, // matches don ID 1
+							}).NodeUniversalMetadata,
+							Nop: NopView{Name: "first nop"},
+						},
+						{
+							NodeUniversalMetadata: NewNodeView(cr.INodeInfoProviderNodeInfo{
+								P2pId:              [32]byte{31: 11},
+								CapabilitiesDONIds: []*big.Int{big.NewInt(1)}, // matches don ID 1
+							}).NodeUniversalMetadata,
+							Nop: NopView{Name: "third nop"},
+						},
 					},
 					Capabilities: []CapabilityView{
 						NewCapabilityView(cr.CapabilitiesRegistryCapabilityInfo{
@@ -198,12 +219,15 @@ func TestCapRegView_Denormalize(t *testing.T) {
 								CapabilityId: [32]byte{2: 2},
 							},
 						},
-					}),
-					Nodes: []NodeView{
-						NewNodeView(cr.INodeInfoProviderNodeInfo{
-							P2pId:              [32]byte{2: 2},
-							CapabilitiesDONIds: []*big.Int{big.NewInt(2)}, // matches don ID 2
-						}),
+					}).DonUniversalMetadata,
+					Nodes: []NodeDenormalizedView{
+						{
+							NodeUniversalMetadata: NewNodeView(cr.INodeInfoProviderNodeInfo{
+								P2pId:              [32]byte{31: 22},
+								CapabilitiesDONIds: []*big.Int{big.NewInt(2)}, // matches don ID 2
+							}).NodeUniversalMetadata,
+							Nop: NopView{Name: "second nop"},
+						},
 					},
 					Capabilities: []CapabilityView{
 						NewCapabilityView(cr.CapabilitiesRegistryCapabilityInfo{
@@ -223,6 +247,7 @@ func TestCapRegView_Denormalize(t *testing.T) {
 				Capabilities:     tt.fields.Capabilities,
 				Nodes:            tt.fields.Nodes,
 				Dons:             tt.fields.Dons,
+				Nops:             tt.fields.Nops,
 			}
 			got, err := v.DonCapabilities()
 			if (err != nil) != tt.wantErr {
@@ -231,7 +256,10 @@ func TestCapRegView_Denormalize(t *testing.T) {
 			}
 			for i := range got {
 				assert.Equal(t, tt.want[i].Don, got[i].Don)
-				assert.Equal(t, tt.want[i].Nodes, got[i].Nodes)
+				for j := range got[i].Nodes {
+					assert.Equal(t, tt.want[i].Nodes[j].NodeUniversalMetadata, got[i].Nodes[j].NodeUniversalMetadata, "NodeUniversalMetadata mismatch at index %d for don %d", j, i)
+					assert.Equal(t, tt.want[i].Nodes[j].Nop, got[i].Nodes[j].Nop, "Nop mismatch at index %d for don %d", j, i)
+				}
 				assert.Equal(t, tt.want[i].Capabilities, got[i].Capabilities)
 			}
 		})
