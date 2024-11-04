@@ -10186,7 +10186,7 @@ BlockHistorySize = 1 # Default
 BlockHistorySize is the number of blocks to take into consideration when using FeeEstimatorMode = 'blockhistory' to determine compute unit price.
 If set to 1, the compute unit price will be determined by the median of the last block's compute unit prices.
 If set N > 1, the compute unit price will be determined by the average of the medians of the last N blocks' compute unit prices.
-DISCLAIMER: 1:1 ratio between n and RPC calls.
+DISCLAIMER: 1:1 ratio between n and RPC calls. It executes once every 'BlockHistoryPollPeriod' value.
 
 ### ComputeUnitLimitDefault
 ```toml
