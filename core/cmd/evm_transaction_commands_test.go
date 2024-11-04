@@ -211,7 +211,7 @@ func TestShell_SendEther_From_Txm_WEI(t *testing.T) {
 		c.EVM[0].NonceAutoSync = ptr(false)
 		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
 
-		// NOTE: FallbackPollInterval is used in this test to quickly create TxAttempts
+		// NOTE:s FallbackPollInterval is used in this test to quickly create TxAttempts
 		// Testing triggers requires committing transactions and does not work with transactional tests
 		c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(time.Second)
 	},
