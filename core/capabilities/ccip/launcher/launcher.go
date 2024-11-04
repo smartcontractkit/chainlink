@@ -365,7 +365,6 @@ func createDON(
 func getConfigsForDon(
 	homeChainReader ccipreader.HomeChain,
 	don registrysyncer.DON) ([]ccipreader.OCR3ConfigWithMeta, error) {
-
 	// this should be a retryable error.
 	commitOCRConfigs, err := homeChainReader.GetOCRConfigs(context.Background(), don.ID, uint8(cctypes.PluginTypeCCIPCommit))
 	if err != nil {

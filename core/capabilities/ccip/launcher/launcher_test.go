@@ -559,8 +559,8 @@ func Test_launcher_processDiff(t *testing.T) {
 				},
 			},
 			func(t *testing.T, l *launcher) {
-				require.Len(t, l.instances, 0)
-				require.Len(t, l.regState.IDsToDONs, 0)
+				require.Empty(t, l.instances)
+				require.Empty(t, l.regState.IDsToDONs)
 			},
 			false,
 		},
