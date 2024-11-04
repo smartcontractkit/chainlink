@@ -49,6 +49,7 @@ OCR2CacheTTL = '1m0s'
 TxTimeout = '1h0m0s'
 TxRetryTimeout = '10s'
 TxConfirmTimeout = '30s'
+TxRetentionTimeout = '0s'
 SkipPreflight = false
 Commitment = 'confirmed'
 MaxRetries = 0
