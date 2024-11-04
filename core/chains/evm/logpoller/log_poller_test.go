@@ -759,6 +759,7 @@ func TestLogPoller_SynchronizedWithGeth(t *testing.T) {
 				reorg, err1 := ec.BlockByNumber(testutils.Context(t), reorgedBlock)
 				require.NoError(t, err1)
 				require.NoError(t, backend.Fork(reorg.Hash()))
+
 				t.Logf("Reorging from (%v, %x) back to (%v, %x)\n", latest.NumberU64(), latest.Hash(), reorgedBlock.Uint64(), reorg.Hash())
 				// Actually need to change the block here to trigger the reorg.
 				_, err1 = emitter1.EmitLog1(owner, []*big.Int{big.NewInt(1)})
@@ -1150,7 +1151,6 @@ func TestLogPoller_PollAndSaveLogsDeepReorg(t *testing.T) {
 				KeepFinalizedBlocksDepth: 1000,
 			}
 			th := SetupTH(t, lpOpts)
-
 			// Set up a log poller listening for log emitter logs.
 			err := th.LogPoller.RegisterFilter(testutils.Context(t), logpoller.Filter{
 				Name:      "Test Emitter",
