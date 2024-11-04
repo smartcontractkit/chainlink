@@ -2,7 +2,6 @@
 pragma solidity 0.8.24;
 
 import {Pool} from "../../../libraries/Pool.sol";
-import {RateLimiter} from "../../../libraries/RateLimiter.sol";
 import {BurnMintTokenPool} from "../../../pools/BurnMintTokenPool.sol";
 import {TokenPool} from "../../../pools/TokenPool.sol";
 import {BurnMintSetup} from "./BurnMintSetup.t.sol";

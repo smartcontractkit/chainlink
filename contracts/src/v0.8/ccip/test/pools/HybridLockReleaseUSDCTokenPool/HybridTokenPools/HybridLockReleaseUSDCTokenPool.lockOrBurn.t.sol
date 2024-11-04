@@ -1,20 +1,16 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
-import {ILiquidityContainer} from "../../../../../liquiditymanager/interfaces/ILiquidityContainer.sol";
 import {IBurnMintERC20} from "../../../../../shared/token/ERC20/IBurnMintERC20.sol";
 import {ITokenMessenger} from "../../../../pools/USDC/ITokenMessenger.sol";
 
 import {BurnMintERC677} from "../../../../../shared/token/ERC677/BurnMintERC677.sol";
 import {Router} from "../../../../Router.sol";
-import {Internal} from "../../../../libraries/Internal.sol";
 import {Pool} from "../../../../libraries/Pool.sol";
 import {RateLimiter} from "../../../../libraries/RateLimiter.sol";
 
 import {TokenPool} from "../../../../pools/TokenPool.sol";
 import {HybridLockReleaseUSDCTokenPool} from "../../../../pools/USDC/HybridLockReleaseUSDCTokenPool.sol";
-import {LOCK_RELEASE_FLAG} from "../../../../pools/USDC/HybridLockReleaseUSDCTokenPool.sol";
-import {USDCBridgeMigrator} from "../../../../pools/USDC/USDCBridgeMigrator.sol";
 import {USDCTokenPool} from "../../../../pools/USDC/USDCTokenPool.sol";
 import {BaseTest} from "../../../BaseTest.t.sol";
 import {MockE2EUSDCTransmitter} from "../../../mocks/MockE2EUSDCTransmitter.sol";

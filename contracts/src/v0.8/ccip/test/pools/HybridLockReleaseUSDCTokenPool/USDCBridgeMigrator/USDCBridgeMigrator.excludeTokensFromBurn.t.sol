@@ -5,20 +5,14 @@ import {IBurnMintERC20} from "../../../../../shared/token/ERC20/IBurnMintERC20.s
 
 import {BurnMintERC677} from "../../../../../shared/token/ERC677/BurnMintERC677.sol";
 import {Router} from "../../../../Router.sol";
-import {Internal} from "../../../../libraries/Internal.sol";
-import {Pool} from "../../../../libraries/Pool.sol";
 
 import {TokenPool} from "../../../../pools/TokenPool.sol";
 import {HybridLockReleaseUSDCTokenPool} from "../../../../pools/USDC/HybridLockReleaseUSDCTokenPool.sol";
-import {LOCK_RELEASE_FLAG} from "../../../../pools/USDC/HybridLockReleaseUSDCTokenPool.sol";
 import {USDCBridgeMigrator} from "../../../../pools/USDC/USDCBridgeMigrator.sol";
 import {USDCTokenPool} from "../../../../pools/USDC/USDCTokenPool.sol";
 import {BaseTest} from "../../../BaseTest.t.sol";
 import {MockE2EUSDCTransmitter} from "../../../mocks/MockE2EUSDCTransmitter.sol";
 import {MockUSDCTokenMessenger} from "../../../mocks/MockUSDCTokenMessenger.sol";
-import {HybridLockReleaseUSDCTokenPool_releaseOrMint} from
-  "../HybridTokenPools/HybridLockReleaseUSDCTokenPool.releaseOrMint.t.sol";
-import {USDCBridgeMigrator_BurnLockedUSDC} from "./USDCBridgeMigrator.burnLockedUSDC.t.sol";
 
 contract USDCTokenPoolSetup is BaseTest {
   IBurnMintERC20 internal s_token;

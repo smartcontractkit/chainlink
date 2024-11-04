@@ -18,7 +18,6 @@ import {MockE2EUSDCTransmitter} from "../../../mocks/MockE2EUSDCTransmitter.sol"
 import {MockUSDCTokenMessenger} from "../../../mocks/MockUSDCTokenMessenger.sol";
 import {HybridLockReleaseUSDCTokenPool_releaseOrMint} from
   "../HybridTokenPools/HybridLockReleaseUSDCTokenPool.releaseOrMint.t.sol";
-import {USDCBridgeMigrator_BurnLockedUSDC} from "./USDCBridgeMigrator.burnLockedUSDC.t.sol";
 
 contract USDCTokenPoolSetup is BaseTest {
   IBurnMintERC20 internal s_token;

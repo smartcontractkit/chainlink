@@ -2,22 +2,15 @@
 pragma solidity 0.8.24;
 
 import {IBurnMintERC20} from "../../../../shared/token/ERC20/IBurnMintERC20.sol";
-import {ITokenMessenger} from "../../../pools/USDC/ITokenMessenger.sol";
 
-import {Ownable2Step} from "../../../../shared/access/Ownable2Step.sol";
 import {BurnMintERC677} from "../../../../shared/token/ERC677/BurnMintERC677.sol";
 import {Router} from "../../../Router.sol";
-import {Internal} from "../../../libraries/Internal.sol";
-import {Pool} from "../../../libraries/Pool.sol";
-import {RateLimiter} from "../../../libraries/RateLimiter.sol";
 import {TokenPool} from "../../../pools/TokenPool.sol";
 import {USDCTokenPool} from "../../../pools/USDC/USDCTokenPool.sol";
 import {BaseTest} from "../../BaseTest.t.sol";
 import {USDCTokenPoolHelper} from "../../helpers/USDCTokenPoolHelper.sol";
 import {MockE2EUSDCTransmitter} from "../../mocks/MockE2EUSDCTransmitter.sol";
 import {MockUSDCTokenMessenger} from "../../mocks/MockUSDCTokenMessenger.sol";
-
-import {IERC165} from "../../../../vendor/openzeppelin-solidity/v5.0.2/contracts/utils/introspection/IERC165.sol";
 
 contract USDCTokenPoolSetup is BaseTest {
   IBurnMintERC20 internal s_token;
