@@ -224,23 +224,25 @@ func NewRelayer(ctx context.Context, lggr logger.Logger, chain legacyevm.Chain, 
 		return relayer, nil
 	}
 
-	ethKeys, err := opts.CSAETHKeystore.Eth().GetAll(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get all eth keys: %w", err)
+	fromAddress := wCfg.FromAddress()
+
+	// If fromAddress is not specified, default to the eth key if there is only one
+	if fromAddress == nil {
+		ethKeys, err := opts.CSAETHKeystore.Eth().GetAll(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get all eth keys: %w", err)
+		}
+
+		// Do not register write target if there are multiple or no eth keys
+		if len(ethKeys) > 1 || len(ethKeys) == 0 {
+			return relayer, nil
+		}
+
+		fromAddress = &ethKeys[0].EIP55Address
 	}
 
-	// Do not register write target if there are multiple keys and no from address is set
-	if len(ethKeys) > 1 && wCfg.FromAddress() != nil {
-		return relayer, nil
-	}
-
-	// Do not register write target if there are no keys
-	if len(ethKeys) == 0 {
-		return relayer, nil
-	}
-
-	// Initialize write target capability if configuration is defined
-	capability, err := NewWriteTarget(ctx, relayer, chain, *wCfg.GasLimitDefault(), lggr, &ethKeys[0].EIP55Address)
+	// Initialize write target capability
+	capability, err := NewWriteTarget(ctx, relayer, chain, *wCfg.GasLimitDefault(), lggr, fromAddress)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize write target: %w", err)
 	}
