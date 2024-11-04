@@ -5,6 +5,8 @@ go 1.22.8
 // Make sure we're working with the latest chainlink libs
 replace github.com/smartcontractkit/chainlink/v2 => ../
 
+replace github.com/btcsuite/btcd/btcec/v2 => github.com/btcsuite/btcd/btcec/v2 v2.3.2
+
 replace github.com/smartcontractkit/chainlink/deployment => ../deployment
 
 require (
