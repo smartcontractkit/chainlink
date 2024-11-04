@@ -241,7 +241,7 @@ func CCIPSendRequest(
 func TestSendRequest(t *testing.T, e deployment.Environment, state CCIPOnChainState, src, dest uint64, testRouter bool, tokensAndAmounts []router.ClientEVMTokenAmount) uint64 {
 	t.Logf("Sending CCIP request from chain selector %d to chain selector %d",
 		src, dest)
-	tx, blockNum, err := CCIPSendRequest(e, state, src, dest, []byte("hello"), nil, common.HexToAddress("0x0"), testRouter, nil)
+	tx, blockNum, err := CCIPSendRequest(e, state, src, dest, []byte("hello"), tokensAndAmounts, common.HexToAddress("0x0"), testRouter, nil)
 	require.NoError(t, err)
 	it, err := state.Chains[src].OnRamp.FilterCCIPMessageSent(&bind.FilterOpts{
 		Start:   blockNum,
