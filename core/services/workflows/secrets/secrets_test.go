@@ -87,19 +87,27 @@ func Test_fetchSecrets(t *testing.T) {
 
 	giveCfg.StartBlockNum = uint64(0)
 
+	worker := newSecretsWorker(
+		lggr,
+		0,
+		20,
+		wfRegistryAddr.Hex(),
+		contractReader,
+		updater,
+		fetcherFn,
+		func(w *worker) {
+			w.timer = giveTimer
+		},
+	)
+
 	// generate a log event
 	updateAuthorizedAddress(t, backendTH, wfRegistryC, []common.Address{backendTH.ContractsOwner.From}, true)
 	updateAllowedDONs(t, backendTH, wfRegistryC, []uint32{1}, true)
 	registerWorkflow(t, backendTH, wfRegistryC, giveWorkflow)
 
-	probes := fetchSecrets(
+	probes := worker.fetchSecrets(
 		ctx,
-		giveTimer,
-		lggr,
 		giveCfg,
-		contractReader,
-		updater,
-		fetcherFn,
 	)
 
 	done := make(chan struct{})

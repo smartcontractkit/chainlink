@@ -2,15 +2,12 @@ package syncer
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/workflow/generated/workflow_registry_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/signalers"
 )
@@ -23,11 +20,11 @@ var (
 
 type FetcherFunc func(ctx context.Context, url string) ([]byte, error)
 
-type workerProbes struct {
+type workerProbes[T any] struct {
 	Done      <-chan struct{}
 	Err       <-chan error
 	Heartbeat <-chan struct{}
-	Logs      <-chan any
+	Logs      <-chan T
 }
 
 type worker struct {
@@ -38,7 +35,7 @@ type worker struct {
 	cr      types.ContractReader
 	cfg     ContractEventPollerConfig
 	addr    string
-	orm     SecretsUpdater
+	orm     ORM
 	gateway FetcherFunc
 	wg      sync.WaitGroup
 }
@@ -49,7 +46,7 @@ func newSecretsWorker(
 	qryCount uint64,
 	contractAddr string,
 	cr types.ContractReader,
-	orm SecretsUpdater,
+	orm ORM,
 	gateway FetcherFunc,
 	opts ...func(*worker),
 ) *worker {
@@ -83,7 +80,7 @@ func (w *worker) Start(_ context.Context) error {
 	return w.StartOnce("secrets_worker", func() error {
 		ctx, cancel := w.stopCh.NewCtx()
 
-		probes := fetchSecrets(ctx, w.getTicker(ctx), w.lggr, w.cfg, w.cr, w.orm, w.gateway)
+		probes := w.fetchSecrets(ctx, w.cfg)
 
 		w.wg.Add(1)
 		go func() {
@@ -111,158 +108,66 @@ func (w *worker) getTicker(ctx context.Context) <-chan struct{} {
 	return w.timer
 }
 
-func fetchSecrets(
+func (w *worker) fetchSecrets(
 	ctx context.Context,
-	timer <-chan struct{},
-	lggr logger.Logger,
 	cfg ContractEventPollerConfig,
-	cr types.ContractReader,
-	_ SecretsUpdater,
-	_ FetcherFunc,
-) workerProbes {
+) workerProbes[workflow_registry_wrapper.WorkflowRegistryWorkflowForceUpdateSecretsRequestedV1] {
 	var (
 		done          = make(chan struct{})
-		logsCh        = make(chan any)
 		errsCh        = make(chan error)
-		hbCh          = make(chan struct{})
+		wg            sync.WaitGroup
 		ctxwc, cancel = context.WithCancel(ctx)
-
-		cleanup = func() {
-			defer close(done)
-			defer close(logsCh)
-			defer close(errsCh)
-			cancel()
-		}
-
-		// pump heart before each unit of work
-		beat = func() {
-			select {
-			case hbCh <- struct{}{}:
-			default:
-			}
-		}
-
-		sendErr = func(err error) {
-			select {
-			case errsCh <- err:
-			case <-ctx.Done():
-			default:
-			}
-		}
-
-		sendLog = func(ld any) {
-			select {
-			case logsCh <- ld:
-			case <-ctx.Done():
-			}
-		}
 	)
 
+	h := newForceUpdateSecretsHandler(w.orm, w.gateway)
+	eventQueryWorker := newQueryEventsWorker[workflow_registry_wrapper.WorkflowRegistryWorkflowForceUpdateSecretsRequestedV1](w.getTicker(ctx), w.lggr, w.cr)
+	eventHandlerWorker := newForceUpdateSecretsWorker(h, w.lggr)
+
+	doneQuerying, queryErrs, updateSecretsEvents := eventQueryWorker.Run(ctxwc, cfg)
+
+	doneHandling, handlerErrs := eventHandlerWorker.Run(ctxwc, nil)
+
+	wg.Add(1)
 	go func() {
-		defer cleanup()
+		defer wg.Done()
+		<-doneQuerying
+		<-doneHandling
+	}()
 
-		// create query
-		var (
-			logs    []types.Sequence
-			err     error
-			logData values.Value
-
-			boundContracts = []types.BoundContract{
-				{
-					Name:    cfg.ContractName,
-					Address: cfg.ContractAddress,
-				},
-			}
-			cursor       = ""
-			limitAndSort = query.LimitAndSort{
-				SortBy: []query.SortBy{query.NewSortByTimestamp(query.Asc)},
-				Limit:  query.Limit{Count: cfg.QueryCount},
-			}
-		)
-
-		err = cr.Bind(ctx, boundContracts)
-		if err != nil {
-			sendErr(err)
-			return
-		}
-
-		for {
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for err := range queryErrs {
 			select {
 			case <-ctxwc.Done():
 				return
-			case _, open := <-timer:
-				if !open {
-					return
-				}
-
-				beat()
-
-				if cursor != "" {
-					limitAndSort.Limit = query.CursorLimit(cursor, query.CursorFollowing, cfg.QueryCount)
-				}
-
-				logs, err = cr.QueryKey(
-					ctx,
-					types.BoundContract{
-						Name:    cfg.ContractName,
-						Address: cfg.ContractAddress,
-					},
-					query.KeyFilter{
-						Key: cfg.ContractEventName,
-						Expressions: []query.Expression{
-							query.Confidence(primitives.Finalized),
-							query.Block(fmt.Sprintf("%d", cfg.StartBlockNum), primitives.Gte),
-						},
-					},
-					limitAndSort,
-					&logData,
-				)
-
-				if err != nil {
-					lggr.Errorw("QueryKey failure", "err", err)
-					sendErr(err)
-					continue
-				}
-
-				// ChainReader QueryKey API provides logs including the cursor value and not
-				// after the cursor value. If the response only consists of the log corresponding
-				// to the cursor and no log after it, then we understand that there are no new
-				// logs
-				if len(logs) == 1 && logs[0].Cursor == cursor {
-					lggr.Infow("No new logs since", "cursor", cursor)
-					continue
-				}
-
-				for _, log := range logs {
-					if log.Cursor == cursor {
-						continue
-					}
-
-					vm, err := values.WrapMap(log.Data)
-					if err != nil {
-						sendErr(err)
-						continue
-					}
-
-					var dm map[string]any
-					err = vm.UnwrapTo(&dm)
-					if err != nil {
-						sendErr(err)
-						continue
-					}
-
-					lggr.Debugf("Owner: %x, SecretsURL: %x, WorkflowNames: %v", dm["Owner"], dm["SecretsURL"], dm["WorkflowNames"])
-					sendLog(dm)
-					cursor = log.Cursor
-				}
+			case errsCh <- err:
 			}
 		}
 	}()
 
-	return workerProbes{
-		Done:      done,
-		Logs:      logsCh,
-		Err:       errsCh,
-		Heartbeat: hbCh,
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for err := range handlerErrs {
+			select {
+			case <-ctxwc.Done():
+				return
+			case errsCh <- err:
+			}
+		}
+	}()
+
+	go func() {
+		defer close(done)
+		defer close(errsCh)
+		defer cancel()
+		wg.Wait()
+	}()
+
+	return workerProbes[workflow_registry_wrapper.WorkflowRegistryWorkflowForceUpdateSecretsRequestedV1]{
+		Done: done,
+		Err:  errsCh,
+		Logs: updateSecretsEvents,
 	}
 }
