@@ -20,32 +20,32 @@ var workflowStepErrorCounter metric.Int64Counter
 var engineHeartbeatCounter metric.Int64UpDownCounter
 
 func initMonitoringResources() (err error) {
-	registerTriggerFailureCounter, err = beholder.GetMeter().Int64Counter("RegisterTriggerFailure")
+	registerTriggerFailureCounter, err = beholder.GetMeter().Int64Counter("platform.engine.register_trigger.failures")
 	if err != nil {
 		return fmt.Errorf("failed to register trigger failure counter: %w", err)
 	}
 
-	workflowsRunningGauge, err = beholder.GetMeter().Int64Gauge("WorkflowsRunning")
+	workflowsRunningGauge, err = beholder.GetMeter().Int64Gauge("platform.engine.workflows.count")
 	if err != nil {
 		return fmt.Errorf("failed to register workflows running gauge: %w", err)
 	}
 
-	capabilityInvocationCounter, err = beholder.GetMeter().Int64Counter("CapabilityInvocation")
+	capabilityInvocationCounter, err = beholder.GetMeter().Int64Counter("platform.engine.capabilities_invoked.count")
 	if err != nil {
 		return fmt.Errorf("failed to register capability invocation counter: %w", err)
 	}
 
-	workflowExecutionLatencyGauge, err = beholder.GetMeter().Int64Gauge("WorkflowExecutionLatency")
+	workflowExecutionLatencyGauge, err = beholder.GetMeter().Int64Gauge("platform.engine.workflow.time")
 	if err != nil {
 		return fmt.Errorf("failed to register workflow execution latency gauge: %w", err)
 	}
 
-	workflowStepErrorCounter, err = beholder.GetMeter().Int64Counter("WorkflowStepError")
+	workflowStepErrorCounter, err = beholder.GetMeter().Int64Counter("platform.engine.workflow.errors")
 	if err != nil {
 		return fmt.Errorf("failed to register workflow step error counter: %w", err)
 	}
 
-	engineHeartbeatCounter, err = beholder.GetMeter().Int64UpDownCounter("EngineHeartbeat")
+	engineHeartbeatCounter, err = beholder.GetMeter().Int64UpDownCounter("platform.engine.heartbeat")
 	if err != nil {
 		return fmt.Errorf("failed to register engine heartbeat counter: %w", err)
 	}
