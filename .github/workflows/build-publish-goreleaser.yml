@@ -119,6 +119,8 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
         uses: ./.github/actions/goreleaser-build-sign-publish
         with:
+          # Temporary pin to working version as 2.4.2+ is breaking arm64 builds
+          goreleaser-version: "v2.3.2"
           docker-registry: ${{ env.ECR_HOSTNAME }}
           docker-image-tag: ${{ github.ref_name }}
           goreleaser-release-type: release
