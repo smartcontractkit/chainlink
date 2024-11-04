@@ -76,6 +76,7 @@ func NewHandler(handlerConfig json.RawMessage, donConfig *config.DONConfig, don 
 // returns message to be sent back to the capability node
 func (h *handler) sendHTTPMessageToClient(ctx context.Context, req network.HTTPRequest, msg *api.Message) (*api.Message, error) {
 	var payload Response
+	fmt.Printf("req: %v, %d", req)
 	resp, err := h.httpClient.Send(ctx, req)
 	if err != nil {
 		return nil, err

@@ -12,15 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 )
 
-type Transformer[T any, U any] interface {
-	// Transform changes a struct of type T into a struct of type U.  Accepts a variadic list of options to modify the
-	// output struct.
-	Transform(T, ...func(*U)) (*U, error)
-}
-
-// ConfigTransformer is a Transformer that converts a values.Map into a ParsedConfig struct.
-type ConfigTransformer = Transformer[*values.Map, ParsedConfig]
-
 // ParsedConfig is a struct that contains the binary and config for a wasm module, as well as the module config.
 type ParsedConfig struct {
 	Binary []byte
@@ -52,8 +43,8 @@ func shallowCopy(m *values.Map) *values.Map {
 // configuration values such as maxMemoryMBs, timeout, and tickInterval.  Default logger and
 // emitter for the module are taken from the transformer instance.  Override these values with
 // the functional options.
-func (t *transformer) Transform(req *capabilities.CapabilityRequest, opts ...func(*ParsedConfig)) (*capabilities.CapabilityRequest, *ParsedConfig, error) {
-	copiedReq := &capabilities.CapabilityRequest{
+func (t *transformer) Transform(req capabilities.CapabilityRequest, opts ...func(*ParsedConfig)) (capabilities.CapabilityRequest, *ParsedConfig, error) {
+	copiedReq := capabilities.CapabilityRequest{
 		Inputs:   req.Inputs,
 		Metadata: req.Metadata,
 		Config:   shallowCopy(req.Config),
@@ -61,17 +52,17 @@ func (t *transformer) Transform(req *capabilities.CapabilityRequest, opts ...fun
 
 	binary, err := popValue[[]byte](copiedReq.Config, binaryKey)
 	if err != nil {
-		return nil, nil, NewInvalidRequestError(err)
+		return capabilities.CapabilityRequest{}, nil, NewInvalidRequestError(err)
 	}
 
 	config, err := popValue[[]byte](copiedReq.Config, configKey)
 	if err != nil {
-		return nil, nil, NewInvalidRequestError(err)
+		return capabilities.CapabilityRequest{}, nil, NewInvalidRequestError(err)
 	}
 
 	maxMemoryMBs, err := popOptionalValue[int64](copiedReq.Config, maxMemoryMBsKey)
 	if err != nil {
-		return nil, nil, NewInvalidRequestError(err)
+		return capabilities.CapabilityRequest{}, nil, NewInvalidRequestError(err)
 	}
 
 	mc := &host.ModuleConfig{
@@ -82,28 +73,28 @@ func (t *transformer) Transform(req *capabilities.CapabilityRequest, opts ...fun
 
 	timeout, err := popOptionalValue[string](copiedReq.Config, timeoutKey)
 	if err != nil {
-		return nil, nil, NewInvalidRequestError(err)
+		return capabilities.CapabilityRequest{}, nil, NewInvalidRequestError(err)
 	}
 
 	var td time.Duration
 	if timeout != "" {
 		td, err = time.ParseDuration(timeout)
 		if err != nil {
-			return nil, nil, NewInvalidRequestError(err)
+			return capabilities.CapabilityRequest{}, nil, NewInvalidRequestError(err)
 		}
 		mc.Timeout = &td
 	}
 
 	tickInterval, err := popOptionalValue[string](copiedReq.Config, tickIntervalKey)
 	if err != nil {
-		return nil, nil, NewInvalidRequestError(err)
+		return capabilities.CapabilityRequest{}, nil, NewInvalidRequestError(err)
 	}
 
 	var ti time.Duration
 	if tickInterval != "" {
 		ti, err = time.ParseDuration(tickInterval)
 		if err != nil {
-			return nil, nil, NewInvalidRequestError(err)
+			return capabilities.CapabilityRequest{}, nil, NewInvalidRequestError(err)
 		}
 		mc.TickInterval = ti
 	}

@@ -237,14 +237,14 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 			return nil, errors.New("config is empty")
 		}
 
-		var fetchCfg webapi.ServiceConfig
-		err := toml.Unmarshal([]byte(spec.StandardCapabilitiesSpec.Config), &fetchCfg)
+		var cfg compute.Config
+		err := toml.Unmarshal([]byte(spec.StandardCapabilitiesSpec.Config), &cfg)
 		if err != nil {
 			return nil, err
 		}
 		lggr := d.logger.Named("ComputeAction")
 
-		handler, err := webapi.NewOutgoingConnectorHandler(d.gatewayConnectorWrapper.GetGatewayConnector(), fetchCfg, capabilities.MethodComputeAction, lggr)
+		handler, err := webapi.NewOutgoingConnectorHandler(d.gatewayConnectorWrapper.GetGatewayConnector(), cfg.ServiceConfig, capabilities.MethodComputeAction, lggr)
 		if err != nil {
 			return nil, err
 		}
@@ -253,8 +253,8 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 			return uuid.New().String()
 		}
 
-		computeSrvc := compute.NewAction(fetchCfg, log, d.registry, handler, idGeneratorFn)
-		return []job.ServiceCtx{computeSrvc}, nil
+		computeSrvc := compute.NewAction(cfg, log, d.registry, handler, idGeneratorFn)
+		return []job.ServiceCtx{handler, computeSrvc}, nil
 	}
 
 	standardCapability := newStandardCapabilities(log, spec.StandardCapabilitiesSpec, d.cfg, telemetryService, kvStore, d.registry, errorLog,

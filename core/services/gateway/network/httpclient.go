@@ -3,6 +3,7 @@ package network
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -67,6 +68,7 @@ func (c *httpClient) Send(ctx context.Context, req HTTPRequest) (*HTTPResponse, 
 	}
 	defer resp.Body.Close()
 
+	fmt.Printf("bytes: %d", c.config.MaxResponseBytes)
 	reader := http.MaxBytesReader(nil, resp.Body, int64(c.config.MaxResponseBytes))
 	body, err := io.ReadAll(reader)
 	if err != nil {
