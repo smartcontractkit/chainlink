@@ -31,7 +31,7 @@ func (c ccipPlugins) Transition(prevPlugins ccipPlugins) error {
 	var err error
 
 	if len(c) > 4 || len(prevPlugins) > 4 {
-		return fmt.Errorf("have more than 4 instances somehow")
+		return fmt.Errorf("current ccipPlugins or prevPlugins have more than 4 instances: len(prevPlugins): %d, len(currPlugins): %d", len(prevPlugins), len(c))
 	}
 	// This shuts down instances that were present previously, but are no longer needed
 	for digest, oracle := range prevPlugins {

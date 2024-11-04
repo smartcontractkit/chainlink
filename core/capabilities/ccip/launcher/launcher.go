@@ -239,6 +239,9 @@ func (l *launcher) processAdded(added map[registrysyncer.DonID]registrysyncer.DO
 
 	for donID, don := range added {
 		configs, err := getConfigsForDon(l.homeChainReader, don)
+		if err != nil {
+			return fmt.Errorf("failed to get current configs for don %d: %w", donID, err)
+		}
 		newPlugins, err := createDON(
 			l.lggr,
 			l.myP2PID,
