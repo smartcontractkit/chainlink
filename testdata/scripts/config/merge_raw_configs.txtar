@@ -31,7 +31,7 @@ ChainID = '1'
 Enabled = true
 
 [Aptos.Workflow]
-ForwarderAddress = "0xabc"
+ForwarderAddress = "address"
 PublicKey = ""
 
 [[Aptos.Nodes]]
@@ -48,9 +48,28 @@ Log.Level = 'debug'
 [[Aptos]]
 ChainID = '1'
 
+[Aptos.Workflow]
+ForwarderAddress = "replacement-address"
+PublicKey = ""
+
+[[Aptos.Nodes]]
+Name = 'b'
+URL = 'https://example.com/b/updated'
+
 [[Aptos.Nodes]]
 Name = 'c'
 URL = 'https://example.com/c'
+
+[[Aptos]]
+ChainID = '2'
+
+[Aptos.Workflow]
+ForwarderAddress = "chain-two"
+Publickey = "abcdef"
+
+[[Aptos.Nodes]]
+Name = 'd'
+URL = 'https://example.com/d'
 
 -- secrets.toml --
 [Database]
@@ -104,15 +123,26 @@ URL = 'https://example.com/a'
 
 [[Aptos.Nodes]]
 Name = 'b'
-URL = 'https://example.com/b'
+URL = 'https://example.com/b/updated'
 
 [[Aptos.Nodes]]
 Name = 'c'
 URL = 'https://example.com/c'
 
 [Aptos.Workflow]
-ForwarderAddress = '0xabc'
+ForwarderAddress = 'replacement-address'
 PublicKey = ''
+
+[[Aptos]]
+ChainID = '2'
+
+[[Aptos.Nodes]]
+Name = 'd'
+URL = 'https://example.com/d'
+
+[Aptos.Workflow]
+ForwarderAddress = 'chain-two'
+Publickey = 'abcdef'
 
 # Effective Configuration, with defaults applied:
 InsecureFastScrypt = false
@@ -414,14 +444,25 @@ URL = 'https://example.com/a'
 
 [[Aptos.Nodes]]
 Name = 'b'
-URL = 'https://example.com/b'
+URL = 'https://example.com/b/updated'
 
 [[Aptos.Nodes]]
 Name = 'c'
 URL = 'https://example.com/c'
 
 [Aptos.Workflow]
-ForwarderAddress = '0xabc'
+ForwarderAddress = 'replacement-address'
 PublicKey = ''
+
+[[Aptos]]
+ChainID = '2'
+
+[[Aptos.Nodes]]
+Name = 'd'
+URL = 'https://example.com/d'
+
+[Aptos.Workflow]
+ForwarderAddress = 'chain-two'
+Publickey = 'abcdef'
 
 Valid configuration.
