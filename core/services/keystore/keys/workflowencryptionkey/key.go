@@ -1,4 +1,4 @@
-package encryptionkey
+package workflowencryptionkey
 
 import (
 	cryptorand "crypto/rand"
@@ -68,7 +68,7 @@ func (k Key) Raw() Raw {
 }
 
 func (k Key) String() string {
-	return fmt.Sprintf("EncryptionKey{PrivateKey: <redacted>, PublicKey: %s}", *k.publicKey)
+	return fmt.Sprintf("WorkflowEncryptionKey{PrivateKey: <redacted>, PublicKey: %s}", *k.publicKey)
 }
 
 func (k Key) GoString() string {

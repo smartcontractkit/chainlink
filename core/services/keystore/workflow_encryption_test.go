@@ -13,14 +13,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/encryptionkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowencryptionkey"
 )
 
 func Test_EncryptionKeyStore_E2E(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	keyStore := keystore.ExposedNewMaster(t, db)
 	require.NoError(t, keyStore.Unlock(testutils.Context(t), cltest.Password))
-	ks := keyStore.Encryption()
+	ks := keyStore.WorkflowEncryption()
 	reset := func() {
 		ctx := context.Background() // Executed on cleanup
 		_, err := db.Exec("DELETE FROM encrypted_key_rings")
@@ -57,7 +57,7 @@ func Test_EncryptionKeyStore_E2E(t *testing.T) {
 
 			assert.Zero(t, k)
 			require.Error(t, err2)
-			assert.True(t, errors.Is(err2, keystore.ErrEncryptionKeyExists))
+			assert.True(t, errors.Is(err2, keystore.ErrWorkflowEncryptionKeyExists))
 		})
 	})
 
@@ -105,7 +105,7 @@ func Test_EncryptionKeyStore_E2E(t *testing.T) {
 	t.Run("adds an externally created key / deletes a key", func(t *testing.T) {
 		defer reset()
 		ctx := testutils.Context(t)
-		newKey, err := encryptionkey.New()
+		newKey, err := workflowencryptionkey.New()
 		require.NoError(t, err)
 		err = ks.Add(ctx, newKey)
 		require.NoError(t, err)
@@ -128,7 +128,7 @@ func Test_EncryptionKeyStore_E2E(t *testing.T) {
 			err = ks.Add(ctx, newKey)
 
 			require.Error(t, err)
-			assert.True(t, errors.Is(err, keystore.ErrEncryptionKeyExists))
+			assert.True(t, errors.Is(err, keystore.ErrWorkflowEncryptionKeyExists))
 		})
 
 		t.Run("fails to delete non-existent key", func(t *testing.T) {
@@ -143,12 +143,12 @@ func Test_EncryptionKeyStore_E2E(t *testing.T) {
 		defer reset()
 		ctx := testutils.Context(t)
 
-		newKey, err := encryptionkey.New()
+		newKey, err := workflowencryptionkey.New()
 		require.NoError(t, err)
 		err = ks.Add(ctx, newKey)
 		require.NoError(t, err)
 
-		err = keyStore.Encryption().EnsureKey(ctx)
+		err = keyStore.WorkflowEncryption().EnsureKey(ctx)
 		require.NoError(t, err)
 		keys, err2 := ks.GetAll()
 		require.NoError(t, err2)
@@ -166,7 +166,7 @@ func Test_EncryptionKeyStore_E2E(t *testing.T) {
 		require.NoError(t, err)
 		assert.Empty(t, keys)
 
-		err = keyStore.Encryption().EnsureKey(ctx)
+		err = keyStore.WorkflowEncryption().EnsureKey(ctx)
 		require.NoError(t, err)
 
 		keys, err = ks.GetAll()

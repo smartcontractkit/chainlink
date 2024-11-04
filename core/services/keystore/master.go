@@ -14,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/aptoskey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/encryptionkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
@@ -22,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/solkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/starkkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowencryptionkey"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -46,24 +46,24 @@ type Master interface {
 	StarkNet() StarkNet
 	Aptos() Aptos
 	VRF() VRF
-	Encryption() Encryption
+	WorkflowEncryption() WorkflowEncryption
 	Unlock(ctx context.Context, password string) error
 	IsEmpty(ctx context.Context) (bool, error)
 }
 
 type master struct {
 	*keyManager
-	cosmos     *cosmos
-	csa        *csa
-	eth        *eth
-	ocr        *ocr
-	ocr2       ocr2
-	p2p        *p2p
-	solana     *solana
-	starknet   *starknet
-	aptos      *aptos
-	vrf        *vrf
-	encryption *encryption
+	cosmos             *cosmos
+	csa                *csa
+	eth                *eth
+	ocr                *ocr
+	ocr2               ocr2
+	p2p                *p2p
+	solana             *solana
+	starknet           *starknet
+	aptos              *aptos
+	vrf                *vrf
+	workflowEncryption *workflowEncryption
 }
 
 func New(ds sqlutil.DataSource, scryptParams utils.ScryptParams, lggr logger.Logger) Master {
@@ -81,18 +81,18 @@ func newMaster(ds sqlutil.DataSource, scryptParams utils.ScryptParams, lggr logg
 	}
 
 	return &master{
-		keyManager: km,
-		cosmos:     newCosmosKeyStore(km),
-		csa:        newCSAKeyStore(km),
-		eth:        newEthKeyStore(km, orm, orm.ds),
-		ocr:        newOCRKeyStore(km),
-		ocr2:       newOCR2KeyStore(km),
-		p2p:        newP2PKeyStore(km),
-		solana:     newSolanaKeyStore(km),
-		starknet:   newStarkNetKeyStore(km),
-		aptos:      newAptosKeyStore(km),
-		vrf:        newVRFKeyStore(km),
-		encryption: newEncryptionKeyStore(km),
+		keyManager:         km,
+		cosmos:             newCosmosKeyStore(km),
+		csa:                newCSAKeyStore(km),
+		eth:                newEthKeyStore(km, orm, orm.ds),
+		ocr:                newOCRKeyStore(km),
+		ocr2:               newOCR2KeyStore(km),
+		p2p:                newP2PKeyStore(km),
+		solana:             newSolanaKeyStore(km),
+		starknet:           newStarkNetKeyStore(km),
+		aptos:              newAptosKeyStore(km),
+		vrf:                newVRFKeyStore(km),
+		workflowEncryption: newWorkflowEncryptionKeyStore(km),
 	}
 }
 
@@ -136,8 +136,8 @@ func (ks *master) VRF() VRF {
 	return ks.vrf
 }
 
-func (ks *master) Encryption() Encryption {
-	return ks.encryption
+func (ks *master) WorkflowEncryption() WorkflowEncryption {
+	return ks.workflowEncryption
 }
 
 type ORM interface {
@@ -275,8 +275,8 @@ func GetFieldNameForKey(unknownKey Key) (string, error) {
 		return "Aptos", nil
 	case vrfkey.KeyV2:
 		return "VRF", nil
-	case encryptionkey.Key:
-		return "Encryption", nil
+	case workflowencryptionkey.Key:
+		return "WorkflowEncryption", nil
 	}
 	return "", fmt.Errorf("unknown key type: %T", unknownKey)
 }

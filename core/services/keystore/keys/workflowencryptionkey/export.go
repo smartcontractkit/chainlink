@@ -1,4 +1,4 @@
-package encryptionkey
+package workflowencryptionkey
 
 import (
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -40,5 +40,5 @@ func (k Key) ToEncryptedJSON(password string, scryptParams utils.ScryptParams) (
 }
 
 func adulteratedPassword(password string) string {
-	return "encryptionkey" + password
+	return "workflowencryptionkey" + password
 }

@@ -14,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/aptoskey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/encryptionkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
@@ -22,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/solkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/starkkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowencryptionkey"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -149,33 +149,33 @@ func (ks *keyStates) delete(addr common.Address) {
 }
 
 type keyRing struct {
-	CSA        map[string]csakey.KeyV2
-	Eth        map[string]ethkey.KeyV2
-	OCR        map[string]ocrkey.KeyV2
-	OCR2       map[string]ocr2key.KeyBundle
-	P2P        map[string]p2pkey.KeyV2
-	Cosmos     map[string]cosmoskey.Key
-	Solana     map[string]solkey.Key
-	StarkNet   map[string]starkkey.Key
-	Aptos      map[string]aptoskey.Key
-	VRF        map[string]vrfkey.KeyV2
-	Encryption map[string]encryptionkey.Key
-	LegacyKeys LegacyKeyStorage
+	CSA                map[string]csakey.KeyV2
+	Eth                map[string]ethkey.KeyV2
+	OCR                map[string]ocrkey.KeyV2
+	OCR2               map[string]ocr2key.KeyBundle
+	P2P                map[string]p2pkey.KeyV2
+	Cosmos             map[string]cosmoskey.Key
+	Solana             map[string]solkey.Key
+	StarkNet           map[string]starkkey.Key
+	Aptos              map[string]aptoskey.Key
+	VRF                map[string]vrfkey.KeyV2
+	WorkflowEncryption map[string]workflowencryptionkey.Key
+	LegacyKeys         LegacyKeyStorage
 }
 
 func newKeyRing() *keyRing {
 	return &keyRing{
-		CSA:        make(map[string]csakey.KeyV2),
-		Eth:        make(map[string]ethkey.KeyV2),
-		OCR:        make(map[string]ocrkey.KeyV2),
-		OCR2:       make(map[string]ocr2key.KeyBundle),
-		P2P:        make(map[string]p2pkey.KeyV2),
-		Cosmos:     make(map[string]cosmoskey.Key),
-		Solana:     make(map[string]solkey.Key),
-		StarkNet:   make(map[string]starkkey.Key),
-		Aptos:      make(map[string]aptoskey.Key),
-		VRF:        make(map[string]vrfkey.KeyV2),
-		Encryption: make(map[string]encryptionkey.Key),
+		CSA:                make(map[string]csakey.KeyV2),
+		Eth:                make(map[string]ethkey.KeyV2),
+		OCR:                make(map[string]ocrkey.KeyV2),
+		OCR2:               make(map[string]ocr2key.KeyBundle),
+		P2P:                make(map[string]p2pkey.KeyV2),
+		Cosmos:             make(map[string]cosmoskey.Key),
+		Solana:             make(map[string]solkey.Key),
+		StarkNet:           make(map[string]starkkey.Key),
+		Aptos:              make(map[string]aptoskey.Key),
+		VRF:                make(map[string]vrfkey.KeyV2),
+		WorkflowEncryption: make(map[string]workflowencryptionkey.Key),
 	}
 }
 
