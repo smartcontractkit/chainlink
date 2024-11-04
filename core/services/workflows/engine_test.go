@@ -1422,19 +1422,21 @@ func TestEngine_WithCustomComputeStep(t *testing.T) {
 	ctx := testutils.Context(t)
 	log := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
-	cfg := webapi.ServiceConfig{
-		RateLimiter: common.RateLimiterConfig{
-			GlobalRPS:      100.0,
-			GlobalBurst:    100,
-			PerSenderRPS:   100.0,
-			PerSenderBurst: 100,
+	cfg := compute.Config{
+		ServiceConfig: webapi.ServiceConfig{
+			RateLimiter: common.RateLimiterConfig{
+				GlobalRPS:      100.0,
+				GlobalBurst:    100,
+				PerSenderRPS:   100.0,
+				PerSenderBurst: 100,
+			},
 		},
 	}
 
 	connector := gcmocks.NewGatewayConnector(t)
 	handler, err := webapi.NewOutgoingConnectorHandler(
 		connector,
-		cfg,
+		cfg.ServiceConfig,
 		ghcapabilities.MethodComputeAction, log)
 	require.NoError(t, err)
 
@@ -1486,18 +1488,20 @@ func TestEngine_CustomComputePropagatesBreaks(t *testing.T) {
 	ctx := testutils.Context(t)
 	log := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
-	cfg := webapi.ServiceConfig{
-		RateLimiter: common.RateLimiterConfig{
-			GlobalRPS:      100.0,
-			GlobalBurst:    100,
-			PerSenderRPS:   100.0,
-			PerSenderBurst: 100,
+	cfg := compute.Config{
+		ServiceConfig: webapi.ServiceConfig{
+			RateLimiter: common.RateLimiterConfig{
+				GlobalRPS:      100.0,
+				GlobalBurst:    100,
+				PerSenderRPS:   100.0,
+				PerSenderBurst: 100,
+			},
 		},
 	}
 	connector := gcmocks.NewGatewayConnector(t)
 	handler, err := webapi.NewOutgoingConnectorHandler(
 		connector,
-		cfg,
+		cfg.ServiceConfig,
 		ghcapabilities.MethodComputeAction, log)
 	require.NoError(t, err)
 
