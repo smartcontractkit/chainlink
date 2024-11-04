@@ -159,7 +159,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	state, err = ccdeploy.LoadOnchainState(e)
 	require.NoError(t, err)
 
-	err = ccdeploy.SyncUSDCDomains(lggr, e.Chains, tenv.HomeChainSel, tenv.FeedChainSel, state)
+	err = ccdeploy.SyncUSDCDomains(lggr, e.Chains, []uint64{tenv.HomeChainSel, tenv.FeedChainSel}, state)
 	require.NoError(t, err, "error while syncing USDC domains")
 
 	// Ensure capreg logs are up to date.

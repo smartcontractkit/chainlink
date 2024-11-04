@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_messenger"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_transmitter"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/registry_module_owner_custom"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/usdc_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
@@ -47,6 +48,7 @@ var (
 	Router                     deployment.ContractType = "Router"
 	CommitStore                deployment.ContractType = "CommitStore"
 	TokenAdminRegistry         deployment.ContractType = "TokenAdminRegistry"
+	RegistryModule deployment.ContractType = "RegistryModule"
 	NonceManager               deployment.ContractType = "NonceManager"
 	FeeQuoter                  deployment.ContractType = "FeeQuoter"
 	AdminManyChainMultisig     deployment.ContractType = "AdminManyChainMultiSig"
@@ -72,26 +74,27 @@ var (
 
 type Contracts interface {
 	*capabilities_registry.CapabilitiesRegistry |
-		*rmn_proxy_contract.RMNProxyContract |
-		*ccip_home.CCIPHome |
-		*rmn_home.RMNHome |
-		*nonce_manager.NonceManager |
-		*fee_quoter.FeeQuoter |
-		*router.Router |
-		*token_admin_registry.TokenAdminRegistry |
-		*weth9.WETH9 |
-		*rmn_remote.RMNRemote |
-		*owner_helpers.ManyChainMultiSig |
-		*owner_helpers.RBACTimelock |
-		*offramp.OffRamp |
-		*onramp.OnRamp |
-		*burn_mint_erc677.BurnMintERC677 |
-		*maybe_revert_message_receiver.MaybeRevertMessageReceiver |
-		*aggregator_v3_interface.AggregatorV3Interface |
-		*erc20.ERC20 |
-		*mock_usdc_token_transmitter.MockE2EUSDCTransmitter |
-		*mock_usdc_token_messenger.MockE2EUSDCTokenMessenger |
-		*usdc_token_pool.USDCTokenPool
+	*rmn_proxy_contract.RMNProxyContract |
+	*ccip_home.CCIPHome |
+	*rmn_home.RMNHome |
+	*nonce_manager.NonceManager |
+	*fee_quoter.FeeQuoter |
+	*router.Router |
+	*token_admin_registry.TokenAdminRegistry |
+	*registry_module_owner_custom.RegistryModuleOwnerCustom |
+	*weth9.WETH9 |
+	*rmn_remote.RMNRemote |
+	*owner_helpers.ManyChainMultiSig |
+	*owner_helpers.RBACTimelock |
+	*offramp.OffRamp |
+	*onramp.OnRamp |
+	*burn_mint_erc677.BurnMintERC677 |
+	*maybe_revert_message_receiver.MaybeRevertMessageReceiver |
+	*aggregator_v3_interface.AggregatorV3Interface |
+	*erc20.ERC20 |
+	*mock_usdc_token_transmitter.MockE2EUSDCTransmitter |
+	*mock_usdc_token_messenger.MockE2EUSDCTokenMessenger |
+	*usdc_token_pool.USDCTokenPool
 }
 
 type ContractDeploy[C Contracts] struct {
@@ -603,6 +606,29 @@ func DeployChainContracts(
 		return err
 	}
 	e.Logger.Infow("deployed tokenAdminRegistry", "addr", tokenAdminRegistry)
+
+	customRegistryModule, err := deployContract(e.Logger, chain, ab,
+		func(chain deployment.Chain) ContractDeploy[*registry_module_owner_custom.RegistryModuleOwnerCustom] {
+			regModAddr, tx2, regMod, err2 := registry_module_owner_custom.DeployRegistryModuleOwnerCustom(
+				chain.DeployerKey,
+				chain.Client,
+				tokenAdminRegistry.Address)
+			return ContractDeploy[*registry_module_owner_custom.RegistryModuleOwnerCustom]{
+				regModAddr, regMod, tx2, deployment.NewTypeAndVersion(RegistryModule, deployment.Version1_5_0), err2,
+			}
+		})
+	if err != nil {
+		e.Logger.Errorw("Failed to deploy custom registry module", "err", err)
+		return err
+	}
+	e.Logger.Infow("deployed custom registry module", "addr", tokenAdminRegistry)
+
+	tx, err = tokenAdminRegistry.Contract.AddRegistryModule(chain.DeployerKey, customRegistryModule.Address)
+	if err != nil {
+		e.Logger.Errorw("Failed to assign registry module on token admin registry", "err", err)
+		return err
+	}
+	e.Logger.Infow("assigned registry module on token admin registry")
 
 	nonceManager, err := deployContract(e.Logger, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*nonce_manager.NonceManager] {
