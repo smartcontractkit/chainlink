@@ -21,27 +21,6 @@ var (
 	ContractEventName   = "WorkflowForceUpdateSecretsRequestedV1"
 )
 
-type UpdateSecretsCommand struct {
-	SecretsURL    string
-	Contents      []byte
-	WorkflowName  string
-	WorkflowOwner string
-}
-
-type ContractEventPollerConfig struct {
-	ContractName      string
-	ContractAddress   string
-	ContractEventName string
-	StartBlockNum     uint64
-	QueryCount        uint64
-}
-
-type Updater[T any] interface {
-	Update(ctx context.Context, cmd T) (int64, error)
-}
-
-type SecretsUpdater = Updater[UpdateSecretsCommand]
-
 type FetcherFunc func(ctx context.Context, url string) ([]byte, error)
 
 type workerProbes struct {

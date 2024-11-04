@@ -8,12 +8,12 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/workflow/generated/workflow_registry_wrapper"
 	coretestutils "github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
-	secretMocks "github.com/smartcontractkit/chainlink/v2/core/services/workflows/secrets/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/signalers"
 
 	"github.com/stretchr/testify/assert"
@@ -25,7 +25,7 @@ func Test_fetchSecrets(t *testing.T) {
 		ctx       = coretestutils.Context(t)
 		lggr      = logger.TestLogger(t)
 		backendTH = testutils.NewEVMBackendTH(t)
-		updater   = secretMocks.NewUpdater[UpdateSecretsCommand](t)
+		updater   ORM
 		fetcherFn = func(_ context.Context, _ string) ([]byte, error) {
 			return nil, assert.AnError
 		}

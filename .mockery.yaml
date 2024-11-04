@@ -589,3 +589,4 @@ packages:
   github.com/smartcontractkit/chainlink/v2/core/services/workflows/secrets:
     interfaces:
       Updater:
+      ORM:
