@@ -453,6 +453,8 @@ contract TokenPool_setChainRateLimiterConfig is TokenPoolSetup {
 contract LockRelease_setRateLimitAdmin is TokenPoolSetup {
   function test_SetRateLimitAdmin_Success() public {
     assertEq(address(0), s_tokenPool.getRateLimitAdmin());
+    vm.expectEmit();
+    emit TokenPool.RateLimitAdminSet(OWNER);
     s_tokenPool.setRateLimitAdmin(OWNER);
     assertEq(OWNER, s_tokenPool.getRateLimitAdmin());
   }
