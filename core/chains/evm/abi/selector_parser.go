@@ -112,7 +112,7 @@ func parseCompositeType(unescapedSelector string) ([]abi.ArgumentMarshaling, str
 		// if we're at a delimiter the parameter is unnamed
 		if !(rest[0] == ',' || rest[0] == ')') {
 			// attempt to parse name
-			name, rest, err = parseIdentifier(rest[:])
+			name, rest, err = parseIdentifier(rest)
 			if err != nil {
 				return nil, "", fmt.Errorf("failed to parse name: %v", err)
 			}

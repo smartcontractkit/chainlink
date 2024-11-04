@@ -711,7 +711,7 @@ contract FeeQuoter_updateTokenPriceFeeds is FeeQuoterSetup {
     tokenPriceFeedUpdates[0] =
       _getSingleTokenPriceFeedUpdateStruct(s_sourceTokens[0], s_dataFeedByToken[s_sourceTokens[0]], 18);
 
-    _assertTokenPriceFeedConfigUnconfigured(s_feeQuoter.getTokenPriceFeedConfig(tokenPriceFeedUpdates[0].sourceToken));
+    _assertTokenPriceFeedConfigNotConfigured(s_feeQuoter.getTokenPriceFeedConfig(tokenPriceFeedUpdates[0].sourceToken));
 
     vm.expectEmit();
     emit FeeQuoter.PriceFeedPerTokenUpdated(tokenPriceFeedUpdates[0].sourceToken, tokenPriceFeedUpdates[0].feedConfig);
@@ -730,7 +730,9 @@ contract FeeQuoter_updateTokenPriceFeeds is FeeQuoterSetup {
       tokenPriceFeedUpdates[i] =
         _getSingleTokenPriceFeedUpdateStruct(s_sourceTokens[i], s_dataFeedByToken[s_sourceTokens[i]], 18);
 
-      _assertTokenPriceFeedConfigUnconfigured(s_feeQuoter.getTokenPriceFeedConfig(tokenPriceFeedUpdates[i].sourceToken));
+      _assertTokenPriceFeedConfigNotConfigured(
+        s_feeQuoter.getTokenPriceFeedConfig(tokenPriceFeedUpdates[i].sourceToken)
+      );
 
       vm.expectEmit();
       emit FeeQuoter.PriceFeedPerTokenUpdated(tokenPriceFeedUpdates[i].sourceToken, tokenPriceFeedUpdates[i].feedConfig);
@@ -858,7 +860,7 @@ contract FeeQuoter_applyDestChainConfigUpdates is FeeQuoterSetup {
     _assertFeeQuoterDestChainConfigsEqual(destChainConfigArgs[1].destChainConfig, gotDestChainConfig1);
   }
 
-  function test_applyDestChainConfigUpdatesZeroIntput_Success() public {
+  function test_applyDestChainConfigUpdatesZeroInput_Success() public {
     FeeQuoter.DestChainConfigArgs[] memory destChainConfigArgs = new FeeQuoter.DestChainConfigArgs[](0);
 
     vm.recordLogs();
@@ -934,7 +936,7 @@ contract FeeQuoter_getDataAvailabilityCost is FeeQuoterSetup {
 
     assertEq(expectedDataAvailabilityCostUSD, dataAvailabilityCostUSD);
 
-    // Test that the cost is destnation chain specific
+    // Test that the cost is destination chain specific
     FeeQuoter.DestChainConfigArgs[] memory destChainConfigArgs = _generateFeeQuoterDestChainConfigArgs();
     destChainConfigArgs[0].destChainSelector = DEST_CHAIN_SELECTOR + 1;
     destChainConfigArgs[0].destChainConfig.destDataAvailabilityOverheadGas =
@@ -1957,7 +1959,7 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
       DEST_CHAIN_SELECTOR,
       s_sourceTokens[0],
       0,
-      "abcde",
+      "wrong extra args",
       new Internal.EVM2AnyTokenTransfer[](0),
       new Client.EVMTokenAmount[](0)
     );

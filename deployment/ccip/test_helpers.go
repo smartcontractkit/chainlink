@@ -9,15 +9,13 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+	"github.com/stretchr/testify/require"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/stretchr/testify/require"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
@@ -63,12 +61,10 @@ func Context(tb testing.TB) context.Context {
 }
 
 type DeployedEnv struct {
-	Env               deployment.Environment
-	Ab                deployment.AddressBook
-	HomeChainSel      uint64
-	FeedChainSel      uint64
-	ReplayBlocks      map[uint64]uint64
-	FeeTokenContracts map[uint64]FeeTokenContracts
+	Env          deployment.Environment
+	HomeChainSel uint64
+	FeedChainSel uint64
+	ReplayBlocks map[uint64]uint64
 }
 
 func (e *DeployedEnv) SetupJobs(t *testing.T) {
@@ -109,16 +105,16 @@ func DeployTestContracts(t *testing.T,
 	homeChainSel,
 	feedChainSel uint64,
 	chains map[uint64]deployment.Chain,
-) (map[uint64]FeeTokenContracts, deployment.CapabilityRegistryConfig) {
+) deployment.CapabilityRegistryConfig {
 	capReg, err := DeployCapReg(lggr, ab, chains[homeChainSel])
 	require.NoError(t, err)
 	_, err = DeployFeeds(lggr, ab, chains[feedChainSel])
 	require.NoError(t, err)
-	feeTokenContracts, err := DeployFeeTokensToChains(lggr, ab, chains)
+	err = DeployFeeTokensToChains(lggr, ab, chains)
 	require.NoError(t, err)
 	evmChainID, err := chainsel.ChainIdFromSelector(homeChainSel)
 	require.NoError(t, err)
-	return feeTokenContracts, deployment.CapabilityRegistryConfig{
+	return deployment.CapabilityRegistryConfig{
 		EVMChainID: evmChainID,
 		Contract:   capReg.Address,
 	}
@@ -163,7 +159,7 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, numChains int, numNo
 	require.NoError(t, err)
 
 	ab := deployment.NewMemoryAddressBook()
-	feeTokenContracts, crConfig := DeployTestContracts(t, lggr, ab, homeChainSel, feedSel, chains)
+	crConfig := DeployTestContracts(t, lggr, ab, homeChainSel, feedSel, chains)
 	nodes := memory.NewNodes(t, zapcore.InfoLevel, chains, numNodes, 1, crConfig)
 	for _, node := range nodes {
 		require.NoError(t, node.App.Start(ctx))
@@ -173,13 +169,12 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, numChains int, numNo
 	}
 
 	e := memory.NewMemoryEnvironmentFromChainsNodes(t, lggr, chains, nodes)
+	e.ExistingAddresses = ab
 	return DeployedEnv{
-		Ab:                ab,
-		Env:               e,
-		HomeChainSel:      homeChainSel,
-		FeedChainSel:      feedSel,
-		ReplayBlocks:      replayBlocks,
-		FeeTokenContracts: feeTokenContracts,
+		Env:          e,
+		HomeChainSel: homeChainSel,
+		FeedChainSel: feedSel,
+		ReplayBlocks: replayBlocks,
 	}
 }
 
@@ -279,7 +274,7 @@ const (
 
 var (
 	MockLinkPrice = big.NewInt(5e18)
-	MockWethPrice = big.NewInt(9e18)
+	MockWethPrice = big.NewInt(9e8)
 	// MockDescriptionToTokenSymbol maps a mock feed description to token descriptor
 	MockDescriptionToTokenSymbol = map[string]TokenSymbol{
 		MockLinkAggregatorDescription: LinkSymbol,

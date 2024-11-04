@@ -184,7 +184,7 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 	if cfg.Store == nil {
 		cfg.Store = newTestDBStore(t, cfg.clock)
 	}
-	eng, err := NewEngine(cfg)
+	eng, err := NewEngine(testutils.Context(t), cfg)
 	require.NoError(t, err)
 	return eng, &testHooks{initSuccessful: initSuccessful, initFailed: initFailed, executionFinished: executionFinished}
 }

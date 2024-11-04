@@ -7,6 +7,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -37,18 +39,22 @@ func (d *Delegate) OnDeleteJob(context.Context, job.Job) error { return nil }
 
 // ServicesForSpec satisfies the job.Delegate interface.
 func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.ServiceCtx, error) {
+	cma := custmsg.NewLabeler().With(wIDKey, spec.WorkflowSpec.WorkflowID, woIDKey, spec.WorkflowSpec.WorkflowOwner, wnKey, spec.WorkflowSpec.WorkflowName)
 	sdkSpec, err := spec.WorkflowSpec.SDKSpec(ctx)
 	if err != nil {
+		logCustMsg(ctx, cma, fmt.Sprintf("failed to start workflow engine: failed to get workflow sdk spec: %v", err), d.logger)
 		return nil, err
 	}
 
 	binary, err := spec.WorkflowSpec.RawSpec(ctx)
 	if err != nil {
+		logCustMsg(ctx, cma, fmt.Sprintf("failed to start workflow engine: failed to fetch workflow spec binary: %v", err), d.logger)
 		return nil, err
 	}
 
 	config, err := spec.WorkflowSpec.GetConfig(ctx)
 	if err != nil {
+		logCustMsg(ctx, cma, fmt.Sprintf("failed to start workflow engine: failed to get workflow spec config: %v", err), d.logger)
 		return nil, err
 	}
 
@@ -64,7 +70,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		Binary:         binary,
 		SecretsFetcher: d.secretsFetcher,
 	}
-	engine, err := NewEngine(cfg)
+	engine, err := NewEngine(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}

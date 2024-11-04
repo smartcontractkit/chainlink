@@ -43,7 +43,7 @@ func (ckr *cosmosKeyring) reportToSigData(reportCtx ocrtypes.ReportContext, repo
 	}
 	reportLen := make([]byte, 4)
 	binary.BigEndian.PutUint32(reportLen[0:], uint32(len(report)))
-	h.Write(reportLen[:])
+	h.Write(reportLen)
 	h.Write(report)
 	h.Write(rawReportContext[0][:])
 	h.Write(rawReportContext[1][:])

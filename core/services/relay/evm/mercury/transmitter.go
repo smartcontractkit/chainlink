@@ -570,7 +570,7 @@ func (mt *mercuryTransmitter) latestReport(ctx context.Context, feedID [32]byte)
 			if resp.Report == nil {
 				s.lggr.Tracew("latestReport success: returned nil")
 			} else if !bytes.Equal(resp.Report.FeedId, feedID[:]) {
-				err = fmt.Errorf("latestReport failed; mismatched feed IDs, expected: 0x%x, got: 0x%x", mt.feedID[:], resp.Report.FeedId[:])
+				err = fmt.Errorf("latestReport failed; mismatched feed IDs, expected: 0x%x, got: 0x%x", mt.feedID[:], resp.Report.FeedId)
 				s.lggr.Errorw("latestReport failed", "err", err)
 				return err
 			} else {

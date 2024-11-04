@@ -14,6 +14,7 @@ import (
 	mapset "github.com/deckarep/golang-set/v2"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/smartcontractkit/libocr/networking"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
@@ -26,7 +27,7 @@ import (
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
-	"github.com/smartcontractkit/chainlink-ccip/commit/merkleroot/rmn"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/peergroup"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
@@ -230,7 +231,7 @@ func (i *bootstrapOracleCreator) getRmnHomeReader(ctx context.Context, config cc
 type peerGroupDialer struct {
 	lggr logger.Logger
 
-	peerGroupFactory rmn.PeerGroupFactory
+	peerGroupCreator *peergroup.Creator
 	rmnHomeReader    ccipreaderpkg.RMNHome
 
 	// common oracle config
@@ -238,7 +239,7 @@ type peerGroupDialer struct {
 	oraclePeerIDs      []ragep2ptypes.PeerID
 	commitConfigDigest [32]byte
 
-	activePeerGroups    []rmn.PeerGroup
+	activePeerGroups    []networking.PeerGroup
 	activeConfigDigests []cciptypes.Bytes32
 
 	syncInterval time.Duration
@@ -261,7 +262,7 @@ const (
 
 func newPeerGroupDialer(
 	lggr logger.Logger,
-	peerGroupFactory rmn.PeerGroupFactory,
+	peerGroupFactory networking.PeerGroupFactory,
 	rmnHomeReader ccipreaderpkg.RMNHome,
 	bootstrapLocators []commontypes.BootstrapperLocator,
 	oraclePeerIDs []ragep2ptypes.PeerID,
@@ -270,14 +271,14 @@ func newPeerGroupDialer(
 	return &peerGroupDialer{
 		lggr: lggr,
 
-		peerGroupFactory: peerGroupFactory,
+		peerGroupCreator: peergroup.NewCreator(lggr, peerGroupFactory, bootstrapLocators),
 		rmnHomeReader:    rmnHomeReader,
 
 		bootstrapLocators:  bootstrapLocators,
 		oraclePeerIDs:      oraclePeerIDs,
 		commitConfigDigest: commitConfigDigest,
 
-		activePeerGroups: []rmn.PeerGroup{},
+		activePeerGroups: []networking.PeerGroup{},
 
 		syncInterval: 12 * time.Second, // todo: make it configurable
 
@@ -444,17 +445,18 @@ func (d *peerGroupDialer) createPeerGroup(rmnHomeConfigDigest cciptypes.Bytes32)
 	)
 
 	lggr.Infow("Creating new peer group")
-	peerGroup, err := d.peerGroupFactory.NewPeerGroup(
-		[32]byte(genericEndpointConfigDigest),
-		peerIDs,
-		d.bootstrapLocators,
-	)
+	peerGroup, err := d.peerGroupCreator.Create(peergroup.CreateOpts{
+		CommitConfigDigest:  cciptypes.Bytes32(d.commitConfigDigest),
+		RMNHomeConfigDigest: rmnHomeConfigDigest,
+		OraclePeerIDs:       d.oraclePeerIDs,
+		RMNNodes:            rmnNodesInfo,
+	})
 	if err != nil {
 		return fmt.Errorf("new peer group: %w", err)
 	}
 	lggr.Infow("Created new peer group successfully")
 
-	d.activePeerGroups = append(d.activePeerGroups, peerGroup)
+	d.activePeerGroups = append(d.activePeerGroups, peerGroup.PeerGroup)
 	d.activeConfigDigests = append(d.activeConfigDigests, genericEndpointConfigDigest)
 
 	return nil
@@ -470,7 +472,7 @@ func (d *peerGroupDialer) closeExistingPeerGroups() {
 		d.lggr.Infow("Closed peer group successfully")
 	}
 
-	d.activePeerGroups = []rmn.PeerGroup{}
+	d.activePeerGroups = []networking.PeerGroup{}
 	d.activeConfigDigests = []cciptypes.Bytes32{}
 }
 

@@ -710,7 +710,7 @@ func TestVRFV2PlusIntegration_ExternalOwnerConsumerExample(t *testing.T) {
 	backend.Commit()
 	coordinatorAddress, _, coordinator, err :=
 		vrf_coordinator_v2_5.DeployVRFCoordinatorV25(
-			owner, backend, common.Address{}) //bhs not needed for this test
+			owner, backend, common.Address{}) // bhs not needed for this test
 	require.NoError(t, err)
 	_, err = coordinator.SetConfig(owner,
 		uint16(1),      // minimumRequestConfirmations

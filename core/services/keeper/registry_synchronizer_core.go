@@ -52,7 +52,7 @@ type RegistrySynchronizer struct {
 	orm                      *ORM
 	logger                   logger.SugaredLogger
 	wgDone                   sync.WaitGroup
-	syncUpkeepQueueSize      uint32 //Represents the max number of upkeeps that can be synced in parallel
+	syncUpkeepQueueSize      uint32 // Represents the max number of upkeeps that can be synced in parallel
 	mailMon                  *mailbox.Monitor
 }
 

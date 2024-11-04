@@ -40,7 +40,7 @@ func (container *inflightExecReportsContainer) getAll() []InflightInternalExecut
 	defer container.locker.RUnlock()
 
 	reports := make([]InflightInternalExecutionReport, len(container.reports))
-	copy(reports[:], container.reports[:])
+	copy(reports, container.reports)
 
 	return reports
 }

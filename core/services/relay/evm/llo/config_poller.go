@@ -199,7 +199,7 @@ func FullConfigFromProductionConfigSet(unpacked configurator.ConfiguratorProduct
 	var signers []ocrtypes.OnchainPublicKey
 	for _, addr := range unpacked.Signers {
 		addr := addr
-		signers = append(signers, addr[:])
+		signers = append(signers, addr)
 	}
 
 	donIDBig := common.Hash(unpacked.ConfigId).Big()
@@ -231,7 +231,7 @@ func FullConfigFromStagingConfigSet(unpacked configurator.ConfiguratorStagingCon
 	var signers []ocrtypes.OnchainPublicKey
 	for _, addr := range unpacked.Signers {
 		addr := addr
-		signers = append(signers, addr[:])
+		signers = append(signers, addr)
 	}
 
 	donIDBig := common.Hash(unpacked.ConfigId).Big()

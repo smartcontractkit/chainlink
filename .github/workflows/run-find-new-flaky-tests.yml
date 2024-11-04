@@ -8,6 +8,11 @@ on:
         required: true
         type: string
         default: 'https://github.com/smartcontractkit/chainlink'
+      projectPath:
+        required: true
+        type: string
+        description: 'The path to the project to run the flaky test detection.'
+        default: '.'          
       baseRef:
         required: true
         type: string
@@ -17,11 +22,6 @@ on:
         required: false
         type: string
         description: 'The head reference or branch to compare changes for detecting flaky tests. Default is the current branch.'        
-      runCount:
-        required: false
-        type: string
-        description: 'The number of times to run the tests to detect flaky tests.'
-        default: '5'
       runThreshold:
         required: false
         type: string
@@ -46,11 +46,11 @@ on:
         description: "Slack channel ID to send the notification to for failed tests."
         required: false
         type: string
-      slack_notification_after_tests_name:
-        description: "The name of the Slack notification."
+      extraArgs:
         required: false
         type: string
-        default: "Flaky Test Detection"             
+        default: '{}'
+        description: 'JSON of extra arguments for the workflow.'        
 
 jobs:
   trigger-flaky-test-detection:
@@ -59,13 +59,13 @@ jobs:
     with:
       repoUrl: ${{ inputs.repoUrl }}
       baseRef: ${{ inputs.baseRef }}
+      projectPath: ${{ inputs.projectPath }}
       headRef: ${{ inputs.headRef }}
-      runCount: ${{ inputs.runCount }}
       runThreshold: ${{ inputs.runThreshold }}
       runWithRace: ${{ inputs.runWithRace }}
       findByTestFilesDiff: ${{ inputs.findByTestFilesDiff }}
       findByAffectedPackages: ${{ inputs.findByAffectedPackages }}
       slackNotificationAfterTestsChannelId: ${{ inputs.slack_notification_after_tests_channel_id }}
-      slackNotificationAfterTestsName: ${{ inputs.slack_notification_after_tests_name }}
+      extraArgs: ${{ inputs.extraArgs }}
     secrets:
       SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}

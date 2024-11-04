@@ -682,7 +682,7 @@ func (d *Delegate) newServicesGenericPlugin(
 	if ok {
 		providerClientConn = providerConn.ClientConn()
 	} else {
-		//We chose to deal with the difference between a LOOP provider and an embedded provider here rather than
+		// We chose to deal with the difference between a LOOP provider and an embedded provider here rather than
 		//in NewServerAdapter because this has a smaller blast radius, as the scope of this workaround is to
 		//enable the medianpoc for EVM and not touch the other providers.
 		//TODO: remove this workaround when the EVM relayer is running inside of an LOOPP
@@ -754,7 +754,7 @@ func (d *Delegate) newServicesGenericPlugin(
 		srvs = append(srvs, job.NewServiceAdapter(oracle))
 
 	case 3:
-		//OCR3 with OCR2 OnchainKeyring and ContractTransmitter
+		// OCR3 with OCR2 OnchainKeyring and ContractTransmitter
 		plugin := ocr3.NewLOOPPService(
 			pluginLggr,
 			grpcOpts,

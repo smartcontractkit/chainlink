@@ -12,10 +12,20 @@ and then exposed for use in persistent environments like testnet/mainnet.
 - Product agnostic environment abstractions and helpers using those
   abstractions
 
-/deployment/memory
+/deployment/environment/memory
 - package name `memory`
 - In-memory environment for fast integration testing
 - EVM only
+
+/deployment/environment/devenv
+- package name `devenv`
+- Docker environment for higher fidelity testing
+- Support non-EVMs (yet to be implemented)
+
+/deployment/common
+- Deploymnet/configuration/view logic for product agnostic
+contracts (like MCMS, LinkToken etc) which can be shared
+by products.
 
 /deployment/ccip
 - package name `ccipdeployment`

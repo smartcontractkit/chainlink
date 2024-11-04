@@ -19,11 +19,11 @@ library Client {
 
   // If extraArgs is empty bytes, the default is 200k gas limit.
   struct EVM2AnyMessage {
-    bytes receiver; // abi.encode(receiver address) for dest EVM chains
-    bytes data; // Data payload
-    EVMTokenAmount[] tokenAmounts; // Token transfers
+    bytes receiver; // abi.encode(receiver address) for dest EVM chains.
+    bytes data; // Data payload.
+    EVMTokenAmount[] tokenAmounts; // Token transfers.
     address feeToken; // Address of feeToken. address(0) means you will send msg.value.
-    bytes extraArgs; // Populate this with _argsToBytes(EVMExtraArgsV2)
+    bytes extraArgs; // Populate this with _argsToBytes(EVMExtraArgsV2).
   }
 
   // bytes4(keccak256("CCIP EVMExtraArgsV1"));
@@ -43,9 +43,9 @@ library Client {
   bytes4 public constant EVM_EXTRA_ARGS_V2_TAG = 0x181dcf10;
 
   /// @param gasLimit: gas limit for the callback on the destination chain.
-  /// @param allowOutOfOrderExecution: if true, it indicates that the message can be executed in any order relative to other messages from the same sender.
-  /// This value's default varies by chain. On some chains, a particular value is enforced, meaning if the expected value
-  /// is not set, the message request will revert.
+  /// @param allowOutOfOrderExecution: if true, it indicates that the message can be executed in any order relative to
+  /// other messages from the same sender. This value's default varies by chain. On some chains, a particular value is
+  /// enforced, meaning if the expected value is not set, the message request will revert.
   struct EVMExtraArgsV2 {
     uint256 gasLimit;
     bool allowOutOfOrderExecution;

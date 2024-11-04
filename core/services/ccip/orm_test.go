@@ -324,7 +324,7 @@ func TestORM_InsertTokenPricesWhenExpired(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, int64(numAddresses), rowsUpdated)
 
-	//time.Sleep(100 * time.Millisecond)
+	// time.Sleep(100 * time.Millisecond)
 
 	// Insert the second time, no updates, because prices haven't changed
 	rowsUpdated, err = orm.UpsertTokenPricesForDestChain(ctx, destSelector, initTokenUpdates, time.Minute)

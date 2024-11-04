@@ -3,8 +3,8 @@ package v1_6
 import (
 	"fmt"
 
-	"github.com/smartcontractkit/chainlink/deployment/ccip/view/types"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_2"
+	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	router1_2 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 )

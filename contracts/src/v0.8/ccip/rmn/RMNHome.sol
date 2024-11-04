@@ -110,9 +110,9 @@ contract RMNHome is Ownable2StepMsgSender, ITypeAndVersion {
   string public constant override typeAndVersion = "RMNHome 1.6.0-dev";
 
   /// @notice Used for encoding the config digest prefix, unique per Home contract implementation.
-  uint256 private constant PREFIX = 0x000b << (256 - 16); // 0x000b00..00
+  uint256 private constant PREFIX = 0x000b << (256 - 16); // 0x000b00..00.
   /// @notice Used for encoding the config digest prefix
-  uint256 private constant PREFIX_MASK = type(uint256).max << (256 - 16); // 0xFFFF00..00
+  uint256 private constant PREFIX_MASK = type(uint256).max << (256 - 16); // 0xFFFF00..00.
   /// @notice The max number of configs that can be active at the same time.
   uint256 private constant MAX_CONCURRENT_CONFIGS = 2;
   /// @notice Helper to identify the zero config digest with less casting.
@@ -145,12 +145,12 @@ contract RMNHome is Ownable2StepMsgSender, ITypeAndVersion {
     return (s_configs[_getActiveIndex()].configDigest, s_configs[_getCandidateIndex()].configDigest);
   }
 
-  /// @notice Returns the active config digest
+  /// @notice Returns the active config digest.
   function getActiveDigest() external view returns (bytes32) {
     return s_configs[_getActiveIndex()].configDigest;
   }
 
-  /// @notice Returns the candidate config digest
+  /// @notice Returns the candidate config digest.
   function getCandidateDigest() public view returns (bytes32) {
     return s_configs[_getCandidateIndex()].configDigest;
   }
@@ -374,7 +374,7 @@ contract RMNHome is Ownable2StepMsgSender, ITypeAndVersion {
         }
       }
 
-      // all observer node indices are valid
+      // all observer node indices are valid.
       uint256 bitmap = currentSourceChain.observerNodesBitmap;
       // Check if there are any bits set for indexes outside of the expected range.
       if (bitmap & (type(uint256).max >> (256 - numberOfNodes)) != bitmap) {
@@ -386,7 +386,7 @@ contract RMNHome is Ownable2StepMsgSender, ITypeAndVersion {
         bitmap &= bitmap - 1;
       }
 
-      // min observers are tenable
+      // min observers are tenable.
       if (observersCount < 2 * currentSourceChain.f + 1) {
         revert NotEnoughObservers();
       }

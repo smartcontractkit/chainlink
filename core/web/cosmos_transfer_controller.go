@@ -68,7 +68,7 @@ func (tc *CosmosTransfersController) Create(c *gin.Context) {
 	}
 	gasToken = cfgs[i].GasToken()
 
-	//TODO move this inside?
+	// TODO move this inside?
 	coin, err := denom.ConvertDecCoinToDenom(sdk.NewDecCoinFromDec(tr.Token, tr.Amount), gasToken)
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, errors.Errorf("unable to convert %s to %s: %v", tr.Token, gasToken, err))

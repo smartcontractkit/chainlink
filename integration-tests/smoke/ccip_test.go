@@ -26,7 +26,7 @@ func TestInitialDeployOnLocal(t *testing.T) {
 	tenv, _, _ := testsetups.NewLocalDevEnvironment(t, lggr)
 	e := tenv.Env
 
-	state, err := ccdeploy.LoadOnchainState(tenv.Env, tenv.Ab)
+	state, err := ccdeploy.LoadOnchainState(tenv.Env)
 	require.NoError(t, err)
 
 	feeds := state.Chains[tenv.FeedChainSel].USDFeeds
@@ -39,19 +39,18 @@ func TestInitialDeployOnLocal(t *testing.T) {
 		},
 	)
 	// Apply migration
-	output, err := changeset.InitialDeployChangeSet(tenv.Ab, tenv.Env, ccdeploy.DeployCCIPContractConfig{
-		HomeChainSel:       tenv.HomeChainSel,
-		FeedChainSel:       tenv.FeedChainSel,
-		ChainsToDeploy:     tenv.Env.AllChainSelectors(),
-		TokenConfig:        tokenConfig,
-		MCMSConfig:         ccdeploy.NewTestMCMSConfig(t, e),
-		CapabilityRegistry: state.Chains[tenv.HomeChainSel].CapabilityRegistry.Address(),
-		FeeTokenContracts:  tenv.FeeTokenContracts,
-		OCRSecrets:         deployment.XXXGenerateTestOCRSecrets(),
+	output, err := changeset.InitialDeploy(tenv.Env, ccdeploy.DeployCCIPContractConfig{
+		HomeChainSel:   tenv.HomeChainSel,
+		FeedChainSel:   tenv.FeedChainSel,
+		ChainsToDeploy: tenv.Env.AllChainSelectors(),
+		TokenConfig:    tokenConfig,
+		MCMSConfig:     ccdeploy.NewTestMCMSConfig(t, e),
+		OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
 	})
 	require.NoError(t, err)
+	require.NoError(t, tenv.Env.ExistingAddresses.Merge(output.AddressBook))
 	// Get new state after migration.
-	state, err = ccdeploy.LoadOnchainState(e, tenv.Ab)
+	state, err = ccdeploy.LoadOnchainState(e)
 	require.NoError(t, err)
 
 	// Ensure capreg logs are up to date.

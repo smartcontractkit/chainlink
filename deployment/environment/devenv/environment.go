@@ -44,11 +44,12 @@ func NewEnvironment(ctx context.Context, lggr logger.Logger, config EnvironmentC
 	}
 	nodeIDs := jd.don.NodeIds()
 
-	return &deployment.Environment{
-		Name:     DevEnv,
-		Offchain: offChain,
-		NodeIDs:  nodeIDs,
-		Chains:   chains,
-		Logger:   lggr,
-	}, jd.don, nil
+	return deployment.NewEnvironment(
+		DevEnv,
+		lggr,
+		deployment.NewMemoryAddressBook(),
+		chains,
+		nodeIDs,
+		offChain,
+	), jd.don, nil
 }
