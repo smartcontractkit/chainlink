@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"slices"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
@@ -115,7 +116,7 @@ func (v CapabilityRegistryView) DonDenormalizedView() ([]DonDenormalizedView, er
 	for _, don := range v.Dons {
 		var nodes []NodeDenormalizedView
 		for _, node := range v.Nodes {
-			if nodeInDon(node, don) {
+			if don.hasNode(node) {
 				ndv, err := v.nodeDenormalizedView(node)
 				if err != nil {
 					return nil, err
@@ -125,7 +126,7 @@ func (v CapabilityRegistryView) DonDenormalizedView() ([]DonDenormalizedView, er
 		}
 		var capabilities []CapabilityView
 		for _, cap := range v.Capabilities {
-			if capInDon(cap, don) {
+			if don.hasCapability(cap) {
 				capabilities = append(capabilities, cap)
 			}
 		}
@@ -364,25 +365,11 @@ func hexIds(ids [][32]byte) []string {
 	return out
 }
 
-func nodeInDon(node NodeView, don DonView) bool {
-	donId := big.NewInt(int64(don.ID))
-	isMember := false
-	for _, x := range node.DONIDs {
-		if x.Cmp(donId) == 0 {
-			isMember = true
-			break
-		}
-	}
-	return isMember
+func (v DonView) hasNode(node NodeView) bool {
+	donId := big.NewInt(int64(v.ID))
+	return slices.ContainsFunc(node.DONIDs, func(elem *big.Int) bool { return elem.Cmp(donId) == 0 })
 }
 
-func capInDon(cap CapabilityView, don DonView) bool {
-	isMember := false
-	for _, cfg := range don.CapabilityConfigurations {
-		if cfg.ID == cap.ID {
-			isMember = true
-			break
-		}
-	}
-	return isMember
+func (v DonView) hasCapability(candidate CapabilityView) bool {
+	return slices.ContainsFunc(v.CapabilityConfigurations, func(elem CapabilitiesConfiguration) bool { return elem.ID == candidate.ID })
 }
