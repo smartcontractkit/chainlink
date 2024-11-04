@@ -173,7 +173,7 @@ func (ks *p2p) GetOrFirst(id p2pkey.PeerID) (p2pkey.KeyV2, error) {
 	for _, key := range ks.keyRing.P2P {
 		possibleKeys = append(possibleKeys, key.ID())
 	}
-	//To avoid ambiguity, we require the user to specify a peer ID if there are multiple keys
+	// To avoid ambiguity, we require the user to specify a peer ID if there are multiple keys
 	return p2pkey.KeyV2{}, errors.New(
 		"multiple p2p keys found but peer ID was not set - you must specify a P2P.PeerID " +
 			"config var if you have more than one key, or delete the keys you aren't using" +

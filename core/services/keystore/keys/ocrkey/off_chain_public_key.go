@@ -47,7 +47,7 @@ func (ocpk *OffChainPublicKey) UnmarshalText(bs []byte) error {
 	if err != nil {
 		return err
 	}
-	copy(result[:], result[:common.AddressLength])
+	copy(result, result[:common.AddressLength])
 	*ocpk = result
 	return nil
 }

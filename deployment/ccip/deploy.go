@@ -118,12 +118,11 @@ func deployContract[C Contracts](
 }
 
 type DeployCCIPContractConfig struct {
-	HomeChainSel       uint64
-	FeedChainSel       uint64
-	ChainsToDeploy     []uint64
-	TokenConfig        TokenConfig
-	CapabilityRegistry common.Address
-	FeeTokenContracts  map[uint64]FeeTokenContracts
+	HomeChainSel        uint64
+	FeedChainSel        uint64
+	ChainsToDeploy      []uint64
+	TokenConfig         TokenConfig
+	ExistingAddressBook deployment.AddressBook
 	// I believe it makes sense to have the same signers across all chains
 	// since that's the point MCMS.
 	MCMSConfig MCMSConfig
@@ -131,9 +130,15 @@ type DeployCCIPContractConfig struct {
 	OCRSecrets deployment.OCRSecrets
 }
 
-// DeployCCIPContracts assumes that the capability registry and ccip home contracts
-// are already deployed (needed as a first step because the chainlink nodes point to them).
-// It then deploys
+// DeployCCIPContracts assumes the following contracts are deployed:
+// - Capability registry
+// - CCIP home
+// - RMN home
+// - Fee tokens on all chains.
+// and present in ExistingAddressBook.
+// It then deploys the rest of the CCIP chain contracts to the selected chains
+// registers the nodes with the capability registry and creates a DON for
+// each new chain. TODO: Might be better to break this down a bit?
 func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c DeployCCIPContractConfig) error {
 	if c.OCRSecrets.IsEmpty() {
 		return fmt.Errorf("OCR secrets are empty")
@@ -143,10 +148,15 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 		e.Logger.Errorw("Failed to get node info", "err", err)
 		return err
 	}
-	capReg, err := capabilities_registry.NewCapabilitiesRegistry(c.CapabilityRegistry, e.Chains[c.HomeChainSel].Client)
+	existingState, err := LoadOnchainState(e, c.ExistingAddressBook)
 	if err != nil {
-		e.Logger.Errorw("Failed to get capability registry", "err", err)
+		e.Logger.Errorw("Failed to load existing onchain state", "err")
 		return err
+	}
+	capReg := existingState.Chains[c.HomeChainSel].CapabilityRegistry
+	if capReg == nil {
+		e.Logger.Errorw("Failed to get capability registry")
+		return fmt.Errorf("capability registry not found")
 	}
 	cr, err := capReg.GetHashedCapabilityId(
 		&bind.CallOpts{}, CapabilityLabelledName, CapabilityVersion)
@@ -167,6 +177,9 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 		e.Logger.Errorw("Failed to get ccip config", "err", err)
 		return err
 	}
+	if ccipHome.Address() != existingState.Chains[c.HomeChainSel].CCIPHome.Address() {
+		return fmt.Errorf("ccip home address mismatch")
+	}
 
 	// Signal to CR that our nodes support CCIP capability.
 	if err := AddNodes(
@@ -177,19 +190,10 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 	); err != nil {
 		return err
 	}
-
-	rmnHomeAddress, err := deployment.SearchAddressBook(ab, c.HomeChainSel, RMNHome)
-	if err != nil {
-		return fmt.Errorf("rmn home address not found: %w", err)
-	}
-	if !common.IsHexAddress(rmnHomeAddress) {
-		return fmt.Errorf("rmn home address %s is not a valid address", rmnHomeAddress)
-	}
-
-	rmnHome, err := rmn_home.NewRMNHome(common.HexToAddress(rmnHomeAddress), e.Chains[c.HomeChainSel].Client)
-	if err != nil {
+	rmnHome := existingState.Chains[c.HomeChainSel].RMNHome
+	if rmnHome == nil {
 		e.Logger.Errorw("Failed to get rmn home", "err", err)
-		return err
+		return fmt.Errorf("rmn home not found")
 	}
 
 	for _, chainSel := range c.ChainsToDeploy {
@@ -197,11 +201,13 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 		if !ok {
 			return fmt.Errorf("chain %d not found", chainSel)
 		}
-		chainConfig, ok := c.FeeTokenContracts[chainSel]
-		if !ok {
-			return fmt.Errorf("chain %d config not found", chainSel)
+		if existingState.Chains[chainSel].LinkToken == nil || existingState.Chains[chainSel].Weth9 == nil {
+			return fmt.Errorf("fee tokens not found for chain %d", chainSel)
 		}
-		err = DeployChainContracts(e, chain, ab, chainConfig, c.MCMSConfig, rmnHome)
+		err = DeployChainContracts(e, chain, ab, FeeTokenContracts{
+			LinkToken: existingState.Chains[chainSel].LinkToken,
+			Weth9:     existingState.Chains[chainSel].Weth9,
+		}, c.MCMSConfig, rmnHome)
 		if err != nil {
 			return err
 		}
@@ -216,7 +222,7 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 			return err
 		}
 
-		tokenInfo := c.TokenConfig.GetTokenInfo(e.Logger, c.FeeTokenContracts[chainSel].LinkToken, c.FeeTokenContracts[chainSel].Weth9)
+		tokenInfo := c.TokenConfig.GetTokenInfo(e.Logger, existingState.Chains[chainSel].LinkToken, existingState.Chains[chainSel].Weth9)
 		// TODO: Do we want to extract this?
 		// Add chain config for each chain.
 		_, err = AddChainConfig(
@@ -235,7 +241,7 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 			c.OCRSecrets,
 			capReg,
 			ccipHome,
-			common.HexToAddress(rmnHomeAddress),
+			rmnHome.Address(),
 			chainState.OffRamp,
 			c.FeedChainSel,
 			tokenInfo,

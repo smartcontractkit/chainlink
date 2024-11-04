@@ -461,7 +461,7 @@ func (c *chainClient) TransactionReceipt(ctx context.Context, txHash common.Hash
 	if err != nil {
 		return receipt, err
 	}
-	//return rpc.TransactionReceipt(ctx, txHash)
+	// return rpc.TransactionReceipt(ctx, txHash)
 	return r.TransactionReceiptGeth(ctx, txHash)
 }
 

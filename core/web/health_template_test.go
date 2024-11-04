@@ -34,7 +34,7 @@ original error`},
 		{Name: "foo.bar.2.B", Status: passing},
 		{Name: "foo.baz", Status: passing},
 	}
-	//TODO truncated error
+	// TODO truncated error
 }
 
 func Test_checkTree_WriteHTMLTo(t *testing.T) {

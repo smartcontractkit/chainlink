@@ -24,7 +24,7 @@ func TestDeployCCIPContracts(t *testing.T) {
 	// Deploy all the CCIP contracts.
 	ab := deployment.NewMemoryAddressBook()
 	homeChainSel, feedChainSel := allocateCCIPChainSelectors(e.Chains)
-	feeTokenContracts, _ := DeployTestContracts(t, lggr, ab, homeChainSel, feedChainSel, e.Chains)
+	_, _ = DeployTestContracts(t, lggr, ab, homeChainSel, feedChainSel, e.Chains)
 
 	// Load the state after deploying the cap reg and feeds.
 	s, err := LoadOnchainState(e, ab)
@@ -34,14 +34,13 @@ func TestDeployCCIPContracts(t *testing.T) {
 	require.NotNil(t, s.Chains[feedChainSel].USDFeeds)
 
 	err = DeployCCIPContracts(e, ab, DeployCCIPContractConfig{
-		HomeChainSel:       homeChainSel,
-		FeedChainSel:       feedChainSel,
-		ChainsToDeploy:     e.AllChainSelectors(),
-		TokenConfig:        NewTokenConfig(),
-		CapabilityRegistry: s.Chains[homeChainSel].CapabilityRegistry.Address(),
-		FeeTokenContracts:  feeTokenContracts,
-		MCMSConfig:         NewTestMCMSConfig(t, e),
-		OCRSecrets:         deployment.XXXGenerateTestOCRSecrets(),
+		HomeChainSel:        homeChainSel,
+		FeedChainSel:        feedChainSel,
+		ChainsToDeploy:      e.AllChainSelectors(),
+		TokenConfig:         NewTokenConfig(),
+		ExistingAddressBook: ab,
+		MCMSConfig:          NewTestMCMSConfig(t, e),
+		OCRSecrets:          deployment.XXXGenerateTestOCRSecrets(),
 	})
 	require.NoError(t, err)
 	state, err := LoadOnchainState(e, ab)

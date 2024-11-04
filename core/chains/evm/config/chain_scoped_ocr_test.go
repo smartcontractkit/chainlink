@@ -10,7 +10,7 @@ import (
 )
 
 func Test_ocrConfig(t *testing.T) {
-	cfg := testutils.NewTestChainScopedConfig(t, nil) //fallback.toml values
+	cfg := testutils.NewTestChainScopedConfig(t, nil) // fallback.toml values
 
 	require.Equal(t, uint16(4), cfg.EVM().OCR().ContractConfirmations())
 	require.Equal(t, mustParseDuration(t, "10s"), cfg.EVM().OCR().ContractTransmitterTransmitTimeout())

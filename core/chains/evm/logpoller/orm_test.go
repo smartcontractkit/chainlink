@@ -1530,7 +1530,7 @@ func TestSelectLogsWithSigsExcluding(t *testing.T) {
 	topicC := common.HexToHash("0x000c")
 	topicD := common.HexToHash("0x000d")
 
-	//Insert two logs that mimics an oracle request from 2 different addresses (matching will be on topic index 1)
+	// Insert two logs that mimics an oracle request from 2 different addresses (matching will be on topic index 1)
 	require.NoError(t, orm.InsertLogs(ctx, []logpoller.Log{
 		{
 			EvmChainId:     (*ubig.Big)(th.ChainID),
@@ -1559,19 +1559,19 @@ func TestSelectLogsWithSigsExcluding(t *testing.T) {
 	}))
 	require.NoError(t, orm.InsertBlock(ctx, common.HexToHash("0x1"), 1, time.Now(), 0))
 
-	//Get any requestSigA from addressA that do not have a equivalent responseSigA
+	// Get any requestSigA from addressA that do not have a equivalent responseSigA
 	logs, err := orm.SelectIndexedLogsWithSigsExcluding(ctx, requestSigA, responseSigA, 1, addressA, 0, 3, 0)
 	require.NoError(t, err)
 	require.Len(t, logs, 1)
 	require.Equal(t, logs[0].Data, []byte("requestID-A1"))
 
-	//Get any requestSigB from addressB that do not have a equivalent responseSigB
+	// Get any requestSigB from addressB that do not have a equivalent responseSigB
 	logs, err = orm.SelectIndexedLogsWithSigsExcluding(ctx, requestSigB, responseSigB, 1, addressB, 0, 3, 0)
 	require.NoError(t, err)
 	require.Len(t, logs, 1)
 	require.Equal(t, logs[0].Data, []byte("requestID-B1"))
 
-	//Insert a log that mimics response for requestID-A1
+	// Insert a log that mimics response for requestID-A1
 	require.NoError(t, orm.InsertLogs(ctx, []logpoller.Log{
 		{
 			EvmChainId:     (*ubig.Big)(th.ChainID),
@@ -1588,18 +1588,18 @@ func TestSelectLogsWithSigsExcluding(t *testing.T) {
 	}))
 	require.NoError(t, orm.InsertBlock(ctx, common.HexToHash("0x2"), 2, time.Now(), 0))
 
-	//Should return nothing as requestID-A1 has been fulfilled
+	// Should return nothing as requestID-A1 has been fulfilled
 	logs, err = orm.SelectIndexedLogsWithSigsExcluding(ctx, requestSigA, responseSigA, 1, addressA, 0, 3, 0)
 	require.NoError(t, err)
 	require.Len(t, logs, 0)
 
-	//requestID-B1 should still be unfulfilled
+	// requestID-B1 should still be unfulfilled
 	logs, err = orm.SelectIndexedLogsWithSigsExcluding(ctx, requestSigB, responseSigB, 1, addressB, 0, 3, 0)
 	require.NoError(t, err)
 	require.Len(t, logs, 1)
 	require.Equal(t, logs[0].Data, []byte("requestID-B1"))
 
-	//Insert 3 request from addressC (matching will be on topic index 3)
+	// Insert 3 request from addressC (matching will be on topic index 3)
 	require.NoError(t, orm.InsertLogs(ctx, []logpoller.Log{
 		{
 			EvmChainId:     (*ubig.Big)(th.ChainID),
@@ -1639,7 +1639,7 @@ func TestSelectLogsWithSigsExcluding(t *testing.T) {
 	}))
 	require.NoError(t, orm.InsertBlock(ctx, common.HexToHash("0x3"), 3, time.Now(), 0))
 
-	//Get all unfulfilled requests from addressC, match on topic index 3
+	// Get all unfulfilled requests from addressC, match on topic index 3
 	logs, err = orm.SelectIndexedLogsWithSigsExcluding(ctx, requestSigB, responseSigB, 3, addressC, 0, 4, 0)
 	require.NoError(t, err)
 	require.Len(t, logs, 3)
@@ -1647,7 +1647,7 @@ func TestSelectLogsWithSigsExcluding(t *testing.T) {
 	require.Equal(t, logs[1].Data, []byte("requestID-C2"))
 	require.Equal(t, logs[2].Data, []byte("requestID-C3"))
 
-	//Fulfill requestID-C2
+	// Fulfill requestID-C2
 	require.NoError(t, orm.InsertLogs(ctx, []logpoller.Log{
 		{
 			EvmChainId:     (*ubig.Big)(th.ChainID),
@@ -1663,14 +1663,14 @@ func TestSelectLogsWithSigsExcluding(t *testing.T) {
 		},
 	}))
 
-	//Verify that requestID-C2 is now fulfilled (not returned)
+	// Verify that requestID-C2 is now fulfilled (not returned)
 	logs, err = orm.SelectIndexedLogsWithSigsExcluding(ctx, requestSigB, responseSigB, 3, addressC, 0, 4, 0)
 	require.NoError(t, err)
 	require.Len(t, logs, 2)
 	require.Equal(t, logs[0].Data, []byte("requestID-C1"))
 	require.Equal(t, logs[1].Data, []byte("requestID-C3"))
 
-	//Fulfill requestID-C3
+	// Fulfill requestID-C3
 	require.NoError(t, orm.InsertLogs(ctx, []logpoller.Log{
 		{
 			EvmChainId:     (*ubig.Big)(th.ChainID),
@@ -1686,13 +1686,13 @@ func TestSelectLogsWithSigsExcluding(t *testing.T) {
 		},
 	}))
 
-	//Verify that requestID-C3 is now fulfilled (not returned)
+	// Verify that requestID-C3 is now fulfilled (not returned)
 	logs, err = orm.SelectIndexedLogsWithSigsExcluding(ctx, requestSigB, responseSigB, 3, addressC, 0, 4, 0)
 	require.NoError(t, err)
 	require.Len(t, logs, 1)
 	require.Equal(t, logs[0].Data, []byte("requestID-C1"))
 
-	//Should return no logs as the number of confirmations is not satisfied
+	// Should return no logs as the number of confirmations is not satisfied
 	logs, err = orm.SelectIndexedLogsWithSigsExcluding(ctx, requestSigB, responseSigB, 3, addressC, 0, 4, 3)
 	require.NoError(t, err)
 	require.Len(t, logs, 0)
@@ -1705,7 +1705,7 @@ func TestSelectLogsWithSigsExcluding(t *testing.T) {
 	require.NoError(t, orm.InsertBlock(ctx, common.HexToHash("0x9"), 9, time.Now(), 0))
 	require.NoError(t, orm.InsertBlock(ctx, common.HexToHash("0x10"), 10, time.Now(), 0))
 
-	//Fulfill requestID-C3
+	// Fulfill requestID-C3
 	require.NoError(t, orm.InsertLogs(ctx, []logpoller.Log{
 		{
 			EvmChainId:     (*ubig.Big)(th.ChainID),
@@ -1721,18 +1721,18 @@ func TestSelectLogsWithSigsExcluding(t *testing.T) {
 		},
 	}))
 
-	//All logs for addressC should be fulfilled, query should return 0 logs
+	// All logs for addressC should be fulfilled, query should return 0 logs
 	logs, err = orm.SelectIndexedLogsWithSigsExcluding(ctx, requestSigB, responseSigB, 3, addressC, 0, 10, 0)
 	require.NoError(t, err)
 	require.Len(t, logs, 0)
 
-	//Should return 1 log as it does not satisfy the required number of confirmations
+	// Should return 1 log as it does not satisfy the required number of confirmations
 	logs, err = orm.SelectIndexedLogsWithSigsExcluding(ctx, requestSigB, responseSigB, 3, addressC, 0, 10, 3)
 	require.NoError(t, err)
 	require.Len(t, logs, 1)
 	require.Equal(t, logs[0].Data, []byte("requestID-C1"))
 
-	//Insert 3 more blocks so that the requestID-C1 has enough confirmations
+	// Insert 3 more blocks so that the requestID-C1 has enough confirmations
 	require.NoError(t, orm.InsertBlock(ctx, common.HexToHash("0x11"), 11, time.Now(), 0))
 	require.NoError(t, orm.InsertBlock(ctx, common.HexToHash("0x12"), 12, time.Now(), 0))
 	require.NoError(t, orm.InsertBlock(ctx, common.HexToHash("0x13"), 13, time.Now(), 0))
@@ -1741,19 +1741,19 @@ func TestSelectLogsWithSigsExcluding(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, logs, 0)
 
-	//AddressB should still have an unfulfilled log (requestID-B1)
+	// AddressB should still have an unfulfilled log (requestID-B1)
 	logs, err = orm.SelectIndexedLogsWithSigsExcluding(ctx, requestSigB, responseSigB, 1, addressB, 0, 3, 0)
 	require.NoError(t, err)
 	require.Len(t, logs, 1)
 	require.Equal(t, logs[0].Data, []byte("requestID-B1"))
 
-	//Should return requestID-A1 as the fulfillment event is out of the block range
+	// Should return requestID-A1 as the fulfillment event is out of the block range
 	logs, err = orm.SelectIndexedLogsWithSigsExcluding(ctx, requestSigA, responseSigA, 1, addressA, 0, 1, 10)
 	require.NoError(t, err)
 	require.Len(t, logs, 1)
 	require.Equal(t, logs[0].Data, []byte("requestID-A1"))
 
-	//Should return nothing as requestID-B1 is before the block range
+	// Should return nothing as requestID-B1 is before the block range
 	logs, err = orm.SelectIndexedLogsWithSigsExcluding(ctx, requestSigB, responseSigB, 1, addressB, 2, 13, 0)
 	require.NoError(t, err)
 	require.Len(t, logs, 0)

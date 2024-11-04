@@ -8,11 +8,14 @@ import (
 	ccipdeployment "github.com/smartcontractkit/chainlink/deployment/ccip"
 )
 
-// We expect the change set input to be unique per change set.
-// TODO: Maybe there's a generics approach here?
-// Note if the change set is a deployment and it fails we have 2 options:
-// - Just throw away the addresses, fix issue and try again (potentially expensive on mainnet)
-func InitialDeployChangeSet(ab deployment.AddressBook, env deployment.Environment, c ccipdeployment.DeployCCIPContractConfig) (deployment.ChangesetOutput, error) {
+var _ deployment.ChangeSet = InitialDeploy
+
+func InitialDeploy(env deployment.Environment, config interface{}) (deployment.ChangesetOutput, error) {
+	c, ok := config.(ccipdeployment.DeployCCIPContractConfig)
+	if !ok {
+		return deployment.ChangesetOutput{}, deployment.ErrInvalidConfig
+	}
+	ab := deployment.NewMemoryAddressBook()
 	err := ccipdeployment.DeployCCIPContracts(env, ab, c)
 	if err != nil {
 		env.Logger.Errorw("Failed to deploy CCIP contracts", "err", err, "addresses", ab)

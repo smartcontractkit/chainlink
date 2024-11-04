@@ -83,7 +83,7 @@ func setupOCR2Contracts(t *testing.T) (*bind.TransactOpts, *simulated.Backend, c
 	ocrContractAddress, _, ocrContract, err := ocr2aggregator.DeployOCR2Aggregator(
 		owner,
 		b.Client(),
-		linkTokenAddress, //_link common.Address,
+		linkTokenAddress, // _link common.Address,
 		minAnswer,        // -2**191
 		maxAnswer,        // 2**191 - 1
 		accessAddress,

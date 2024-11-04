@@ -113,25 +113,28 @@ func NewLocalDevEnvironment(t *testing.T, lggr logger.Logger) (ccipdeployment.De
 	}, testEnv, cfg
 }
 
-func NewLocalDevEnvironmentWithRMN(t *testing.T, lggr logger.Logger) (ccipdeployment.DeployedEnv, devenv.RMNCluster) {
+func NewLocalDevEnvironmentWithRMN(
+	t *testing.T,
+	lggr logger.Logger,
+	numRmnNodes int,
+) (ccipdeployment.DeployedEnv, devenv.RMNCluster) {
 	tenv, dockerenv, _ := NewLocalDevEnvironment(t, lggr)
 	state, err := ccipdeployment.LoadOnchainState(tenv.Env, tenv.Ab)
 	require.NoError(t, err)
 
 	// Deploy CCIP contracts.
 	err = ccipdeployment.DeployCCIPContracts(tenv.Env, tenv.Ab, ccipdeployment.DeployCCIPContractConfig{
-		HomeChainSel:       tenv.HomeChainSel,
-		FeedChainSel:       tenv.FeedChainSel,
-		ChainsToDeploy:     tenv.Env.AllChainSelectors(),
-		TokenConfig:        ccipdeployment.NewTestTokenConfig(state.Chains[tenv.FeedChainSel].USDFeeds),
-		MCMSConfig:         ccipdeployment.NewTestMCMSConfig(t, tenv.Env),
-		CapabilityRegistry: state.Chains[tenv.HomeChainSel].CapabilityRegistry.Address(),
-		FeeTokenContracts:  tenv.FeeTokenContracts,
-		OCRSecrets:         deployment.XXXGenerateTestOCRSecrets(),
+		HomeChainSel:        tenv.HomeChainSel,
+		FeedChainSel:        tenv.FeedChainSel,
+		ChainsToDeploy:      tenv.Env.AllChainSelectors(),
+		TokenConfig:         ccipdeployment.NewTestTokenConfig(state.Chains[tenv.FeedChainSel].USDFeeds),
+		MCMSConfig:          ccipdeployment.NewTestMCMSConfig(t, tenv.Env),
+		ExistingAddressBook: tenv.Ab,
+		OCRSecrets:          deployment.XXXGenerateTestOCRSecrets(),
 	})
 	require.NoError(t, err)
 	l := logging.GetTestLogger(t)
-	config := GenerateTestRMNConfig(t, 1, tenv, MustNetworksToRPCMap(dockerenv.EVMNetworks))
+	config := GenerateTestRMNConfig(t, numRmnNodes, tenv, MustNetworksToRPCMap(dockerenv.EVMNetworks))
 	rmnCluster, err := devenv.NewRMNCluster(
 		t, l,
 		[]string{dockerenv.DockerNetwork.ID},

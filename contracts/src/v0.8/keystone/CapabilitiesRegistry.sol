@@ -389,7 +389,7 @@ contract CapabilitiesRegistry is INodeInfoProvider, OwnerIsCreator, ITypeAndVers
   /// @param hashedCapabilityId The hashed ID of the deprecated capability
   event CapabilityDeprecated(bytes32 indexed hashedCapabilityId);
 
-  string public constant override typeAndVersion = "CapabilitiesRegistry 1.0.1";
+  string public constant override typeAndVersion = "CapabilitiesRegistry 1.1.0";
 
   /// @notice Mapping of capabilities
   mapping(bytes32 hashedCapabilityId => Capability capability) private s_capabilities;

@@ -1,7 +1,7 @@
 package v1_6
 
 import (
-	"github.com/smartcontractkit/chainlink/deployment/ccip/view/types"
+	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_remote"
 )
 

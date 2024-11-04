@@ -8,7 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
@@ -16,7 +15,6 @@ import (
 func TestDeployCapabilityRegistry(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
-	ab := deployment.NewMemoryAddressBook()
 	cfg := memory.MemoryEnvironmentConfig{
 		Nodes:  1,
 		Chains: 2,
@@ -24,7 +22,7 @@ func TestDeployCapabilityRegistry(t *testing.T) {
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 
 	registrySel := env.AllChainSelectors()[0]
-	resp, err := changeset.DeployCapabilityRegistry(lggr, env, ab, registrySel)
+	resp, err := changeset.DeployCapabilityRegistry(env, registrySel)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	// capabilities registry should be deployed on chain 0
@@ -36,5 +34,4 @@ func TestDeployCapabilityRegistry(t *testing.T) {
 	require.NotEqual(t, registrySel, env.AllChainSelectors()[1])
 	oaddrs, _ := resp.AddressBook.AddressesForChain(env.AllChainSelectors()[1])
 	require.Len(t, oaddrs, 0)
-
 }

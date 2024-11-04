@@ -39,14 +39,13 @@ func TestAddChainInbound(t *testing.T) {
 
 	tokenConfig := ccipdeployment.NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
 	err = ccipdeployment.DeployCCIPContracts(e.Env, e.Ab, ccipdeployment.DeployCCIPContractConfig{
-		HomeChainSel:       e.HomeChainSel,
-		FeedChainSel:       e.FeedChainSel,
-		ChainsToDeploy:     initialDeploy,
-		TokenConfig:        tokenConfig,
-		MCMSConfig:         ccipdeployment.NewTestMCMSConfig(t, e.Env),
-		FeeTokenContracts:  e.FeeTokenContracts,
-		CapabilityRegistry: state.Chains[e.HomeChainSel].CapabilityRegistry.Address(),
-		OCRSecrets:         deployment.XXXGenerateTestOCRSecrets(),
+		HomeChainSel:        e.HomeChainSel,
+		FeedChainSel:        e.FeedChainSel,
+		ChainsToDeploy:      initialDeploy,
+		TokenConfig:         tokenConfig,
+		MCMSConfig:          ccipdeployment.NewTestMCMSConfig(t, e.Env),
+		ExistingAddressBook: e.Ab,
+		OCRSecrets:          deployment.XXXGenerateTestOCRSecrets(),
 	})
 	require.NoError(t, err)
 	state, err = ccipdeployment.LoadOnchainState(e.Env, e.Ab)

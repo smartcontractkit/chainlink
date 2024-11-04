@@ -146,7 +146,7 @@ func Test_P2PKeyStore_E2E(t *testing.T) {
 		require.NoError(t, err)
 		_, err = ks.GetOrFirst(p2pkey.PeerID{})
 		require.Contains(t, err.Error(), "multiple p2p keys found")
-		//Check for possible keys in error message
+		// Check for possible keys in error message
 		require.Contains(t, err.Error(), k1.ID())
 		require.Contains(t, err.Error(), k2.ID())
 		require.Contains(t, err.Error(), k3.ID())

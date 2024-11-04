@@ -3,25 +3,37 @@ package changeset
 import (
 	"fmt"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/deployment"
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 )
 
-func DeployForwarder(lggr logger.Logger, env deployment.Environment, ab deployment.AddressBook, registryChainSel uint64) (deployment.ChangesetOutput, error) {
+var _ deployment.ChangeSet = DeployForwarder
+
+type DeployRegistryConfig struct {
+	RegistryChainSelector uint64
+	ExistingAddressBook   deployment.AddressBook
+}
+
+func DeployForwarder(env deployment.Environment, config interface{}) (deployment.ChangesetOutput, error) {
+	c, ok := config.(DeployRegistryConfig)
+	if !ok {
+		return deployment.ChangesetOutput{}, deployment.ErrInvalidConfig
+	}
+	lggr := env.Logger
 	// expect OCR3 to be deployed & capabilities registry
-	regAddrs, err := ab.AddressesForChain(registryChainSel)
+	regAddrs, err := c.ExistingAddressBook.AddressesForChain(c.RegistryChainSelector)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("no addresses found for chain %d: %w", registryChainSel, err)
+		return deployment.ChangesetOutput{}, fmt.Errorf("no addresses found for chain %d: %w", c.RegistryChainSelector, err)
 	}
 	if len(regAddrs) != 2 {
-		return deployment.ChangesetOutput{}, fmt.Errorf("expected 2 addresses for chain %d, got %d", registryChainSel, len(regAddrs))
+		return deployment.ChangesetOutput{}, fmt.Errorf("expected 2 addresses for chain %d, got %d", c.RegistryChainSelector, len(regAddrs))
 	}
-	for _, c := range env.Chains {
-		lggr.Infow("deploying forwarder", "chainSelector", c.Selector)
-		err := kslib.DeployForwarder(lggr, c, ab)
+	ab := deployment.NewMemoryAddressBook()
+	for _, chain := range env.Chains {
+		lggr.Infow("deploying forwarder", "chainSelector", chain.Selector)
+		err := kslib.DeployForwarder(lggr, chain, ab)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy KeystoneForwarder to chain selector %d: %w", c.Selector, err)
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy KeystoneForwarder to chain selector %d: %w", chain.Selector, err)
 		}
 	}
 

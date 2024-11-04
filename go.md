@@ -230,8 +230,8 @@ flowchart LR
   	chainlink/deployment --> chainlink-protos/orchestrator
   	chainlink/deployment --> chainlink-solana
   	chainlink/deployment --> chainlink-starknet/relayer
-  	chainlink/deployment --> chainlink-testing-framework/grafana
-  click chainlink-testing-framework/grafana href "https://github.com/smartcontractkit/chainlink-testing-framework"
+  	chainlink/deployment --> chainlink-testing-framework/lib/grafana
+  click chainlink-testing-framework/lib/grafana href "https://github.com/smartcontractkit/chainlink-testing-framework"
   	chainlink/deployment --> chainlink-testing-framework/seth
   click chainlink-testing-framework/seth href "https://github.com/smartcontractkit/chainlink-testing-framework"
   	chainlink/deployment --> chainlink-testing-framework/wasp
@@ -242,10 +242,10 @@ flowchart LR
   	chainlink/deployment --> wsrpc
   	chainlink-testing-framework/lib --> chainlink-testing-framework/seth
   	chainlink-testing-framework/lib --> chainlink-testing-framework/wasp
-  	chainlink-testing-framework/lib --> chainlink-testing-framework/grafana
+  	chainlink-testing-framework/lib --> chainlink-testing-framework/lib/grafana
   	chainlink-testing-framework/seth --> seth
   click seth href "https://github.com/smartcontractkit/seth"
-  	chainlink-testing-framework/wasp --> chainlink-testing-framework/grafana
+  	chainlink-testing-framework/wasp --> chainlink-testing-framework/lib/grafana
   	chainlink/integration-tests --> ccip-owner-contracts
   	chainlink/integration-tests --> chain-selectors
   	chainlink/integration-tests --> chainlink-automation
@@ -262,7 +262,6 @@ flowchart LR
   click chainlink-testing-framework/havoc href "https://github.com/smartcontractkit/chainlink-testing-framework"
   	chainlink/integration-tests --> chainlink-testing-framework/lib
   	chainlink/integration-tests --> chainlink-testing-framework/lib/grafana
-  click chainlink-testing-framework/lib/grafana href "https://github.com/smartcontractkit/chainlink-testing-framework"
   	chainlink/integration-tests --> chainlink-testing-framework/seth
   	chainlink/integration-tests --> chainlink-testing-framework/wasp
   	chainlink/integration-tests --> chainlink/deployment
@@ -273,8 +272,6 @@ flowchart LR
   	chainlink/integration-tests --> tdh2/go/tdh2
   	chainlink/integration-tests --> wsrpc
   	chainlink-testing-framework/havoc --> chainlink-testing-framework/lib/grafana
-  	chainlink-testing-framework/lib --> chainlink-testing-framework/lib/grafana
-  	chainlink-testing-framework/wasp --> chainlink-testing-framework/lib/grafana
   	chainlink/load-tests --> chain-selectors
   	chainlink/load-tests --> chainlink-automation
   	chainlink/load-tests --> chainlink-ccip

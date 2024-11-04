@@ -3,12 +3,10 @@ package smoke
 import (
 	"math/big"
 	"os"
-	"sort"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/maps"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
@@ -26,7 +24,12 @@ func TestRMN(t *testing.T) {
 
 	require.NoError(t, os.Setenv("ENABLE_RMN", "true"))
 
-	envWithRMN, rmnCluster := testsetups.NewLocalDevEnvironmentWithRMN(t, logger.TestLogger(t))
+	// In this test setup every RMN node is both observer and signer.
+	const homeF = 2
+	const remoteF = 2
+	const numRmnNodes = 2*homeF + 1
+
+	envWithRMN, rmnCluster := testsetups.NewLocalDevEnvironmentWithRMN(t, logger.TestLogger(t), numRmnNodes)
 	t.Logf("envWithRmn: %#v", envWithRMN)
 
 	var (
@@ -53,7 +56,7 @@ func TestRMN(t *testing.T) {
 	for _, chain := range envWithRMN.Env.Chains {
 		rmnHomeSourceChains = append(rmnHomeSourceChains, rmn_home.RMNHomeSourceChain{
 			ChainSelector:       chain.Selector,
-			F:                   0,
+			F:                   homeF,
 			ObserverNodesBitmap: createObserverNodesBitmap(len(rmnHomeNodes)),
 		})
 	}
@@ -123,7 +126,7 @@ func TestRMN(t *testing.T) {
 		rmnRemoteConfig := rmn_remote.RMNRemoteConfig{
 			RmnHomeContractConfigDigest: activeDigest,
 			Signers:                     rmnRemoteSigners,
-			F:                           0,
+			F:                           remoteF,
 		}
 		t.Logf("Setting RMNRemote config with RMNHome active digest: %x, cfg: %+v", activeDigest[:], rmnRemoteConfig)
 		tx2, err2 := chState.RMNRemote.SetConfig(chain.DeployerKey, rmnRemoteConfig)
@@ -170,30 +173,27 @@ func TestRMN(t *testing.T) {
 	startBlocks := make(map[uint64]*uint64)
 
 	// Send one message from one chain to another.
-	chains := maps.Values(envWithRMN.Env.Chains)
-	t.Logf("all chains: %v", chains)
-
-	sort.Slice(chains, func(i int, j int) bool { return chains[i].Selector < chains[j].Selector })
-	srcChain := chains[0]
-	dstChain := chains[1]
-	require.True(t, srcChain.Selector != dstChain.Selector)
-	t.Logf("source chain is %d dest chain is %d", srcChain.Selector, dstChain.Selector)
-
-	latesthdr, err := dstChain.Client.HeaderByNumber(testcontext.Get(t), nil)
-	require.NoError(t, err)
-	block := latesthdr.Number.Uint64()
-	startBlocks[dstChain.Selector] = &block
-	seqNum := ccipdeployment.TestSendRequest(t, envWithRMN.Env, onChainState, srcChain.Selector, dstChain.Selector, false)
-	t.Logf("expected seqNum: %d", seqNum)
-
 	expectedSeqNum := make(map[uint64]uint64)
-	expectedSeqNum[dstChain.Selector] = seqNum
+	e := envWithRMN.Env
+	for src := range e.Chains {
+		for dest, destChain := range e.Chains {
+			if src == dest {
+				continue
+			}
+			latesthdr, err := destChain.Client.HeaderByNumber(testcontext.Get(t), nil)
+			require.NoError(t, err)
+			block := latesthdr.Number.Uint64()
+			startBlocks[dest] = &block
+			seqNum := ccipdeployment.TestSendRequest(t, e, onChainState, src, dest, false)
+			expectedSeqNum[dest] = seqNum
+		}
+	}
 
-	t.Logf("⌛ Waiting for commit report...")
+	t.Logf("⌛ Waiting for commit reports...")
 	ccipdeployment.ConfirmCommitForAllWithExpectedSeqNums(t, envWithRMN.Env, onChainState, expectedSeqNum, startBlocks)
 	t.Logf("✅ Commit report")
 
-	t.Logf("⌛ Waiting for exec report...")
+	t.Logf("⌛ Waiting for exec reports...")
 	ccipdeployment.ConfirmExecWithSeqNrForAll(t, envWithRMN.Env, onChainState, expectedSeqNum, startBlocks)
 	t.Logf("✅ Exec report")
 }

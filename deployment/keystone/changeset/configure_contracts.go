@@ -23,11 +23,11 @@ func ConfigureInitialContracts(lggr logger.Logger, req *kslib.ConfigureContracts
 	foundForwarder := false
 	for _, addr := range regAddrs {
 		switch addr.Type {
-		case kslib.CapabilityRegistryTypeVersion.Type:
+		case kslib.CapabilitiesRegistry:
 			foundRegistry = true
-		case kslib.OCR3CapabilityTypeVersion.Type:
+		case kslib.OCR3Capability:
 			foundOCR3 = true
-		case kslib.ForwarderTypeVersion.Type:
+		case kslib.KeystoneForwarder:
 			foundForwarder = true
 		}
 	}
@@ -43,7 +43,7 @@ func ConfigureInitialContracts(lggr logger.Logger, req *kslib.ConfigureContracts
 			return deployment.ChangesetOutput{}, fmt.Errorf("no addresses found for chain %d: %w", c.Selector, err2)
 		}
 		for _, addr := range addrs {
-			if addr.Type == kslib.ForwarderTypeVersion.Type {
+			if addr.Type == kslib.KeystoneForwarder {
 				foundForwarder = true
 				break
 			}

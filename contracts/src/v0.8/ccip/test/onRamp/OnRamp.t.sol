@@ -827,7 +827,7 @@ contract OnRamp_withdrawFeeTokens is OnRampSetup {
       emit OnRamp.FeeTokenWithdrawn(FEE_AGGREGATOR, feeTokens[i], amounts[i]);
     }
 
-    s_onRamp.withdrawFeeTokens();
+    s_onRamp.withdrawFeeTokens(feeTokens);
 
     for (uint256 i = 0; i < feeTokens.length; ++i) {
       assertEq(IERC20(feeTokens[i]).balanceOf(FEE_AGGREGATOR), amounts[i]);
@@ -839,7 +839,7 @@ contract OnRamp_withdrawFeeTokens is OnRampSetup {
     vm.expectEmit();
     emit OnRamp.FeeTokenWithdrawn(FEE_AGGREGATOR, s_sourceFeeToken, s_nopFees[s_sourceFeeToken]);
 
-    s_onRamp.withdrawFeeTokens();
+    s_onRamp.withdrawFeeTokens(s_sourceFeeTokens);
 
     assertEq(IERC20(s_sourceFeeToken).balanceOf(FEE_AGGREGATOR), s_nopFees[s_sourceFeeToken]);
     assertEq(IERC20(s_sourceFeeToken).balanceOf(address(s_onRamp)), 0);

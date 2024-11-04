@@ -2,6 +2,7 @@ package logevent
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -180,12 +181,35 @@ func (l *logEventTrigger) listen() {
 
 // Create log event trigger capability response
 func createTriggerResponse(log types.Sequence, version string) capabilities.TriggerResponse {
-	wrappedPayload, err := values.WrapMap(log)
+	dataAsValuesMap, err := values.WrapMap(log.Data)
 	if err != nil {
 		return capabilities.TriggerResponse{
-			Err: fmt.Errorf("error wrapping trigger event: %s", err),
+			Err: fmt.Errorf("error decoding log data as values.Map: %w", err),
 		}
 	}
+	dataAsMap := map[string]any{}
+	err = dataAsValuesMap.UnwrapTo(&dataAsMap)
+	if err != nil {
+		return capabilities.TriggerResponse{
+			Err: fmt.Errorf("error decoding log data as map[string]any: %w", err),
+		}
+	}
+
+	wrappedPayload, err := values.WrapMap(&logeventcap.Output{
+		Cursor: log.Cursor,
+		Data:   dataAsMap,
+		Head: logeventcap.Head{
+			Hash:      "0x" + hex.EncodeToString(log.Hash),
+			Height:    log.Height,
+			Timestamp: log.Timestamp,
+		},
+	})
+	if err != nil {
+		return capabilities.TriggerResponse{
+			Err: fmt.Errorf("error wrapping trigger event: %w", err),
+		}
+	}
+
 	return capabilities.TriggerResponse{
 		Event: capabilities.TriggerEvent{
 			TriggerType: version,

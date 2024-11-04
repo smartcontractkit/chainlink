@@ -498,10 +498,11 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, Ownable2StepMsgSender 
   }
 
   /// @notice Withdraws the outstanding fee token balances to the fee aggregator.
-  /// @dev This function can be permissionless as it only transfers accepted fee tokens to the fee aggregator which is a
-  /// trusted address.
-  function withdrawFeeTokens() external {
-    address[] memory feeTokens = IFeeQuoter(s_dynamicConfig.feeQuoter).getFeeTokens();
+  /// @param feeTokens The fee tokens to withdraw.
+  /// @dev This function can be permissionless as it only transfers tokens to the fee aggregator which is a trusted address.
+  function withdrawFeeTokens(
+    address[] calldata feeTokens
+  ) external {
     address feeAggregator = s_dynamicConfig.feeAggregator;
 
     for (uint256 i = 0; i < feeTokens.length; ++i) {

@@ -7,6 +7,9 @@ inputs:
   cache-version: 
     description: Set this to cache bust
     default: "1"
+  build-cache-version:
+    description: For scoping build caches to certain matrix jobs, takes precedence over cache-version
+    default: ""
   go-version-file:
     description: Set where the go version file is located at
     default: "go.mod"
@@ -75,14 +78,31 @@ runs:
         restore-keys: |
           ${{ runner.os }}-gomod-${{ inputs.cache-version }}-
 
+    - uses: actions/cache/restore@v4.1.1
+      name: Cache Go Build Outputs (restore)
+      # For certain events, we don't necessarily want to create a build cache, but we will benefit from restoring from one. 
+      if: ${{ inputs.only-modules == 'false' && github.event == 'merge_queue' }}
+      with:
+        path: |
+          ${{ steps.go-cache-dir.outputs.gobuildcache }}
+        key: ${{ runner.os }}-gobuild-${{ inputs.build-cache-version || inputs.cache-version }}-${{ hashFiles(steps.go-module-path.outputs.path) }}-${{ steps.branch-name.outputs.current_branch }}
+        restore-keys: |
+          ${{ runner.os }}-gobuild-${{ inputs.build-cache-version || inputs.cache-version }}-${{ hashFiles(steps.go-module-path.outputs.path) }}-develop
+          ${{ runner.os }}-gobuild-${{ inputs.build-cache-version || inputs.cache-version }}-${{ hashFiles(steps.go-module-path.outputs.path) }}-
+          ${{ runner.os }}-gobuild-${{ inputs.build-cache-version || inputs.cache-version }}-
+          ${{ runner.os }}-gobuild-${{ inputs.cache-version }}-
+
     - uses: actions/cache@v4.1.1
-      if: ${{ inputs.only-modules == 'false' }}
+      # don't save cache on merge queue events, only restore
+      if: ${{ inputs.only-modules == 'false' && github.event != 'merge_queue' }}
       name: Cache Go Build Outputs
       with:
         path: |
           ${{ steps.go-cache-dir.outputs.gobuildcache }}
         # The lifetime of go build outputs is pretty short, so we make our primary cache key be the branch name
-        key: ${{ runner.os }}-gobuild-${{ inputs.cache-version }}-${{ hashFiles(steps.go-module-path.output.path) }}-${{ steps.branch-name.outputs.current_branch }}
+        key: ${{ runner.os }}-gobuild-${{ inputs.build-cache-version || inputs.cache-version }}-${{ hashFiles(steps.go-module-path.outputs.path) }}-${{ steps.branch-name.outputs.current_branch }}
         restore-keys: |
-          ${{ runner.os }}-gobuild-${{ inputs.cache-version }}-${{ hashFiles(steps.go-module-path.output.path) }}-
+          ${{ runner.os }}-gobuild-${{ inputs.build-cache-version || inputs.cache-version }}-${{ hashFiles(steps.go-module-path.outputs.path) }}-develop
+          ${{ runner.os }}-gobuild-${{ inputs.build-cache-version || inputs.cache-version }}-${{ hashFiles(steps.go-module-path.outputs.path) }}-
+          ${{ runner.os }}-gobuild-${{ inputs.build-cache-version || inputs.cache-version }}-
           ${{ runner.os }}-gobuild-${{ inputs.cache-version }}-
