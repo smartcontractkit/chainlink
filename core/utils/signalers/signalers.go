@@ -15,6 +15,7 @@ func MakeTicker(stop <-chan struct{}, d time.Duration) <-chan struct{} {
 			case <-stop:
 				return
 			case <-internalTicker.C:
+				ticker <- struct{}{}
 			}
 		}
 	}()

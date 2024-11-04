@@ -2,17 +2,19 @@ package syncer
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/triggers/logevent/logeventcap"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/workflow/generated/workflow_registry_wrapper"
 	coretestutils "github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	secretMocks "github.com/smartcontractkit/chainlink/v2/core/services/workflows/secrets/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/signalers"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -27,21 +29,37 @@ func Test_fetchSecrets(t *testing.T) {
 		fetcherFn = func(_ context.Context, _ string) ([]byte, error) {
 			return nil, assert.AnError
 		}
-		giveTimer    = make(chan struct{})
+		giveTimer      = signalers.MakeTicker(ctx.Done(), 500*time.Millisecond)
+		giveSecretsURL = "https://original-url.com"
+		giveWorkflow   = RegisterWorkflowCMD{
+			Name:       "test-wf",
+			DonID:      uint32(1),
+			Status:     uint8(0),
+			SecretsURL: giveSecretsURL,
+		}
 		contractName = "WorkflowRegistry"
 		eventName    = "WorkflowForceUpdateSecretsRequestedV1"
+		giveCfg      = ContractEventPollerConfig{
+			ContractName:      contractName,
+			ContractEventName: eventName,
+			QueryCount:        20,
+		}
+		sendLogs = 4
+		wantLogs = sendLogs - 1
+		gotLogs  = make([]any, 0)
 	)
+
+	// fill ID with randomd data
+	var giveID [32]byte
+	rand.Read((giveID)[:])
+	giveWorkflow.ID = giveID
 
 	// Deploy a test workflow_registry
 	wfRegistryAddr, _, wfRegistryC, err := workflow_registry_wrapper.DeployWorkflowRegistry(backendTH.ContractsOwner, backendTH.Backend)
 	require.NoError(t, err)
-	lggr.Infof("deployed workflow registry at %s\n", wfRegistryAddr.Hex())
-	backendTH.Backend.Commit()
-	backendTH.Backend.Commit()
 
-	// Bind the contract
-	/* wfRegistryC, err := workflow_registry_wrapper.NewWorkflowRegistry(wfRegistryAddr, backend.Backend)
-	require.NoError(t, err) */
+	lggr.Infof("deployed workflow registry at %s\n", wfRegistryAddr.Hex())
+	giveCfg.ContractAddress = wfRegistryAddr.Hex()
 
 	// Build the ContractReader config
 	contractReaderCfg := evmtypes.ChainReaderConfig{
@@ -61,52 +79,140 @@ func Test_fetchSecrets(t *testing.T) {
 		},
 	}
 
-	// Encode contractReaderConfig as JSON and decode it into a map[string]any for
-	// the capability request config. Log Event Trigger capability takes in a
-	// []byte as ContractReaderConfig to not depend on evm ChainReaderConfig type
-	// and be chain agnostic
 	contractReaderCfgBytes, err := json.Marshal(contractReaderCfg)
-	require.NoError(t, err)
-	var contractReaderCfgMap logeventcap.ConfigContractReaderConfig
-	err = json.Unmarshal(contractReaderCfgBytes, &contractReaderCfgMap)
-	require.NoError(t, err)
-	// Encode the config map as JSON to specify in the expected call in mocked object
-	// The LogEventTrigger Capability receives a config map, encodes it and
-	// calls NewContractReader with it
-	contractReaderCfgBytes, err = json.Marshal(contractReaderCfgMap)
 	require.NoError(t, err)
 
 	contractReader, err := backendTH.NewContractReader(ctx, t, contractReaderCfgBytes)
 	require.NoError(t, err)
 
+	giveCfg.StartBlockNum = uint64(0)
+
+	// generate a log event
+	updateAuthorizedAddress(t, backendTH, wfRegistryC, []common.Address{backendTH.ContractsOwner.From}, true)
+	updateAllowedDONs(t, backendTH, wfRegistryC, []uint32{1}, true)
+	registerWorkflow(t, backendTH, wfRegistryC, giveWorkflow)
+
 	probes := fetchSecrets(
 		ctx,
 		giveTimer,
+		lggr,
+		giveCfg,
 		contractReader,
 		updater,
 		fetcherFn,
 	)
 
-	// generate a log event
-	requestForceUpdateSecrets(t, backendTH, wfRegistryC, "https://some-url.com")
-	_ = wfRegistryC
+	done := make(chan struct{})
 
-	select {
-	case <-time.After(3 * time.Second):
-		t.Fatalf("failed to receive log")
-	case l := <-probes.Logs:
-		lggr.Infof("got log %+v\n", l)
-	}
+	go func() {
+		defer close(done)
+		for {
+			select {
+			case <-time.After(10 * time.Second):
+				t.Fatal("timed out")
+			case l := <-probes.Logs:
+				lggr.Debugf("got some logs %v", l)
+				gotLogs = append(gotLogs, l)
+				if len(gotLogs) == wantLogs {
+					return
+				}
+			case err := <-probes.Err:
+				lggr.Infof("got err %+v", err)
+				return
+			}
+		}
+	}()
+
+	go func() {
+		for i := 0; i < sendLogs; i++ {
+			requestForceUpdateSecrets(t, backendTH, wfRegistryC, giveSecretsURL)
+			backendTH.Backend.Commit()
+		}
+	}()
+
+	<-done
+	assert.Lenf(t, gotLogs, wantLogs, "expected %d, by got %d logs %+v", wantLogs, len(gotLogs), gotLogs)
+	lggr.Infof("received logs %v", gotLogs)
+}
+
+func updateAuthorizedAddress(
+	t *testing.T,
+	th *testutils.EVMBackendTH,
+	wfRegC *workflow_registry_wrapper.WorkflowRegistry,
+	addresses []common.Address,
+	allowed bool,
+) {
+	t.Helper()
+	_, err := wfRegC.UpdateAuthorizedAddresses(th.ContractsOwner, addresses, allowed)
+	require.NoError(t, err, "failed to update authorised addresses")
+	th.Backend.Commit()
+	th.Backend.Commit()
+	th.Backend.Commit()
+}
+
+func updateAllowedDONs(
+	t *testing.T,
+	th *testutils.EVMBackendTH,
+	wfRegC *workflow_registry_wrapper.WorkflowRegistry,
+	donIDs []uint32,
+	allowed bool,
+) {
+	t.Helper()
+	_, err := wfRegC.UpdateAllowedDONs(th.ContractsOwner, donIDs, allowed)
+	require.NoError(t, err, "failed to update DONs")
+	th.Backend.Commit()
+	th.Backend.Commit()
+	th.Backend.Commit()
+}
+
+type RegisterWorkflowCMD struct {
+	Name       string
+	ID         [32]byte
+	DonID      uint32
+	Status     uint8
+	BinaryURL  string
+	ConfigURL  string
+	SecretsURL string
+}
+
+func registerWorkflow(
+	t *testing.T,
+	th *testutils.EVMBackendTH,
+	wfRegC *workflow_registry_wrapper.WorkflowRegistry,
+	input RegisterWorkflowCMD,
+) {
+	t.Helper()
+	_, err := wfRegC.RegisterWorkflow(th.ContractsOwner, input.Name, input.ID, input.DonID,
+		input.Status, input.BinaryURL, input.ConfigURL, input.SecretsURL)
+	require.NoError(t, err, "failed to register workflow")
+	th.Backend.Commit()
+	th.Backend.Commit()
+	th.Backend.Commit()
 }
 
 func requestForceUpdateSecrets(
 	t *testing.T,
-	backend *testutils.EVMBackendTH,
+	th *testutils.EVMBackendTH,
 	wfRegC *workflow_registry_wrapper.WorkflowRegistry,
 	secretsURL string,
 ) {
+	_, err := wfRegC.RequestForceUpdateSecrets(th.ContractsOwner, secretsURL)
+	require.NoError(t, err)
+	th.Backend.Commit()
+	th.Backend.Commit()
+	th.Backend.Commit()
+}
+
+func miner(t *testing.T, tb *testutils.EVMBackendTH, d time.Duration) {
 	t.Helper()
-	_, err := wfRegC.RequestForceUpdateSecrets(backend.ContractsOwner, secretsURL)
-	require.NoError(t, err, "failed to request force update secrets")
-	backend.Backend.Commit()
+
+	ctx := coretestutils.Context(t)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.NewTicker(d).C:
+			tb.Backend.Commit()
+		}
+	}
 }

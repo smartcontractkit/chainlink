@@ -83,7 +83,7 @@ func NewEVMBackendTH(t *testing.T) *EVMBackendTH {
 // Setup core services like log poller and head tracker for the simulated backend
 func (th *EVMBackendTH) SetupCoreServices(t *testing.T) (logpoller.HeadTracker, logpoller.LogPoller) {
 	db := pgtest.NewSqlxDB(t)
-	const finalityDepth = 2
+	const finalityDepth = 1
 	ht := headtracker.NewSimulatedHeadTracker(th.EVMClient, false, finalityDepth)
 	lp := logpoller.NewLogPoller(
 		logpoller.NewORM(testutils.SimulatedChainID, db, th.Lggr),
