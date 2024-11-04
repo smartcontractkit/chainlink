@@ -165,21 +165,55 @@ func (c RawConfig) ChainID() string {
 	return chainID
 }
 
-func (c RawConfig) SetFrom(config RawConfig) error {
-	return mergo.Merge(&c, config, mergo.WithOverride, mergo.WithAppendSlice)
+func (c *RawConfig) SetFrom(config RawConfig) error {
+	if err := config.ValidateConfig(); err != nil {
+		return err
+	}
+
+	// Handle nodes separately since they need special merging logic
+	nodes, _ := config["Nodes"].([]any)
+	existingNodes, _ := (*c)["Nodes"].([]any)
+
+	// Create a copy of config without nodes to merge other fields
+	configWithoutNodes := make(RawConfig)
+	for k, v := range config {
+		if k != "Nodes" {
+			configWithoutNodes[k] = v
+		}
+	}
+
+	// Merge all non-node fields
+	if err := mergo.Merge(c, configWithoutNodes, mergo.WithOverride); err != nil {
+		return err
+	}
+
+	// Handle node merging
+	for _, node := range nodes {
+		nodeConfig, _ := node.(map[string]any)
+		nodeName, _ := nodeConfig["Name"].(string)
+
+		i := slices.Index(c.NodeNames(), nodeName)
+		if i != -1 {
+			existingNode, _ := existingNodes[i].(map[string]any)
+			if err := mergo.Merge(&existingNode, nodeConfig, mergo.WithOverride); err != nil {
+				return err
+			}
+		} else {
+			existingNodes = append(existingNodes, node)
+		}
+	}
+
+	(*c)["Nodes"] = existingNodes
+	return nil
 }
 
 func (c RawConfig) NodeNames() []string {
+	nodes, _ := c["Nodes"].([]any)
 	nodeNames := []string{}
-	nodes, ok := c["Nodes"].([]any)
-	if ok {
-		for _, node := range nodes {
-			nodeConfig, ok := node.(map[string]any)
-			if ok {
-				nodeName, _ := nodeConfig["Name"].(string)
-				nodeNames = append(nodeNames, nodeName)
-			}
-		}
+	for _, node := range nodes {
+		config, _ := node.(map[string]any)
+		nodeName, _ := config["Name"].(string)
+		nodeNames = append(nodeNames, nodeName)
 	}
 	return nodeNames
 }
