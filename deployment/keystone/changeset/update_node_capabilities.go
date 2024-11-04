@@ -64,7 +64,7 @@ func (req *UpdateNodeCapabilitiesRequest) updateNodeCapabilitiesImplRequest(e de
 	if !ok {
 		return nil, fmt.Errorf("registry chain selector %d does not exist in environment", req.RegistryChainSel)
 	}
-	contracts, err := kslib.GetContractSets(&kslib.GetContractSetsRequest{
+	contracts, err := kslib.GetContractSets(e.Logger, &kslib.GetContractSetsRequest{
 		Chains:      map[uint64]deployment.Chain{req.RegistryChainSel: registryChain},
 		AddressBook: req.AddressBook,
 	})
