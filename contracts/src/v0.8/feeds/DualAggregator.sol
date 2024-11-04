@@ -683,11 +683,14 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     // TRANSMIT_MSGDATA_CONSTANT_LENGTH_COMPONENT need to be changed accordingly
 
     uint256 initialGas = gasleft(); // This line must come first
-    Report memory report_ = _decodeReport(report);
-
-    (bool exist, uint32 roundId) = _reportExists(report_);
-    if (exist && msg.sender == s_secondaryProxy) {
-      s_hotVars.latestSecondaryRoundId = roundId;
+  
+    if (msg.sender == s_secondaryProxy) {
+      // Decode the report
+      Report memory report_ = _decodeReport(report);
+      (bool exist, uint32 roundId) = _reportExists(report_);
+      if (exist) {
+        s_hotVars.latestSecondaryRoundId = roundId;
+      }
     } else {
       // Report epoch and round
       uint40 epochAndRound = uint40(uint256(reportContext[1]));
@@ -697,6 +700,9 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
       
       // Verify signatures attached to report
       _verifySignatures(reportContext, report, rs, ss, rawVs);
+
+      // Decode the report
+      Report memory report_ = _decodeReport(report);
 
       int192 juelsPerFeeCoin = _report(s_hotVars, reportContext[0], epochAndRound, report_);
       _payTransmitter(s_hotVars, juelsPerFeeCoin, uint32(initialGas), msg.sender);
