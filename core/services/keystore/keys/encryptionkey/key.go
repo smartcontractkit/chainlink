@@ -14,7 +14,6 @@ type Raw []byte
 
 func (raw Raw) Key() Key {
 	privKey := [32]byte(raw)
-	fmt.Println("raw: ", privKey)
 	return Key{
 		privateKey: &privKey,
 		publicKey:  curve25519PubKeyFromPrivKey(privKey),
