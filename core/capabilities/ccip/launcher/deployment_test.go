@@ -276,17 +276,17 @@ func Test_ccipDeployment_Transitions(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			args := tt.makeArgs(t)
-			prev := make(ccipPlugins)
+			prev := make(pluginRegistry)
 			for digest, oracle := range args.prevDeployment {
 				prev[digest] = oracle
 			}
-			curr := make(ccipPlugins)
+			curr := make(pluginRegistry)
 			for digest, oracle := range args.currDeployment {
 				curr[digest] = oracle
 			}
 			tt.expect(t, args)
 			defer assertions(t, args)
-			err := curr.Transition(prev)
+			err := curr.TransitionFrom(prev)
 			if tt.wantErr {
 				require.Error(t, err)
 			} else {

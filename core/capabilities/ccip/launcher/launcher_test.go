@@ -253,7 +253,7 @@ func Test_updateDON(t *testing.T) {
 		homeChainReader *mocks.HomeChainReader
 		oracleCreator   *mocks.OracleCreator
 		don             registrysyncer.DON
-		prevPlugins     ccipPlugins
+		prevPlugins     pluginRegistry
 	}
 	tests := []struct {
 		name       string
@@ -273,7 +273,7 @@ func Test_updateDON(t *testing.T) {
 					DON:                      getDON(2, []ragep2ptypes.PeerID{p2pID3, p2pID4}, 0),
 					CapabilityConfigurations: defaultCapCfgs,
 				},
-				ccipPlugins{
+				pluginRegistry{
 					utils.RandomBytes32(): mocks.NewCCIPOracle(t),
 					utils.RandomBytes32(): mocks.NewCCIPOracle(t),
 				},
@@ -326,7 +326,7 @@ func Test_updateDON(t *testing.T) {
 					DON:                      getDON(2, []ragep2ptypes.PeerID{p2pID3, p2pID4}, 0),
 					CapabilityConfigurations: defaultCapCfgs,
 				},
-				ccipPlugins{
+				pluginRegistry{
 					utils.RandomBytes32(): mocks.NewCCIPOracle(t),
 					utils.RandomBytes32(): mocks.NewCCIPOracle(t),
 					utils.RandomBytes32(): mocks.NewCCIPOracle(t),
@@ -362,7 +362,7 @@ func Test_updateDON(t *testing.T) {
 					DON:                      getDON(2, []ragep2ptypes.PeerID{p2pID3, p2pID4}, 0),
 					CapabilityConfigurations: defaultCapCfgs,
 				},
-				ccipPlugins{
+				pluginRegistry{
 					digest1: mocks.NewCCIPOracle(t),
 					digest2: mocks.NewCCIPOracle(t),
 				},
@@ -427,7 +427,7 @@ func Test_updateDON(t *testing.T) {
 					DON:                      getDON(2, []ragep2ptypes.PeerID{p2pID3, p2pID4}, 0),
 					CapabilityConfigurations: defaultCapCfgs,
 				},
-				ccipPlugins{
+				pluginRegistry{
 					utils.RandomBytes32(): mocks.NewCCIPOracle(t),
 					utils.RandomBytes32(): mocks.NewCCIPOracle(t),
 					utils.RandomBytes32(): mocks.NewCCIPOracle(t),
@@ -515,7 +515,7 @@ func Test_launcher_processDiff(t *testing.T) {
 		p2pID           ragep2ptypes.PeerID
 		homeChainReader *mocks.HomeChainReader
 		oracleCreator   *mocks.OracleCreator
-		instances       map[registrysyncer.DonID]ccipPlugins
+		instances       map[registrysyncer.DonID]pluginRegistry
 		regState        registrysyncer.LocalRegistry
 	}
 	type args struct {
@@ -531,7 +531,7 @@ func Test_launcher_processDiff(t *testing.T) {
 		{
 			"don removed success",
 			fields{
-				instances: map[registrysyncer.DonID]ccipPlugins{
+				instances: map[registrysyncer.DonID]pluginRegistry{
 					1: {
 						utils.RandomBytes32(): newMock(t,
 							func(t *testing.T) *mocks.CCIPOracle { return mocks.NewCCIPOracle(t) },
@@ -611,7 +611,7 @@ func Test_launcher_processDiff(t *testing.T) {
 					})).
 						Return(execOracle, nil)
 				}),
-				instances: map[registrysyncer.DonID]ccipPlugins{},
+				instances: map[registrysyncer.DonID]pluginRegistry{},
 				regState: registrysyncer.LocalRegistry{
 					IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{},
 				},
@@ -688,7 +688,7 @@ func Test_launcher_processDiff(t *testing.T) {
 					})).
 						Return(execOracle, nil)
 				}),
-				instances: map[registrysyncer.DonID]ccipPlugins{
+				instances: map[registrysyncer.DonID]pluginRegistry{
 					1: {
 						digest1: newMock(t, func(t *testing.T) *mocks.CCIPOracle {
 							return mocks.NewCCIPOracle(t)
