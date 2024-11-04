@@ -7,8 +7,6 @@ import {RMNRemote} from "../../rmn/RMNRemote.sol";
 import {BaseTest} from "../BaseTest.t.sol";
 import {Vm} from "forge-std/Vm.sol";
 
-import "forge-std/console.sol";
-
 contract RMNRemoteSetup is BaseTest {
   RMNRemote public s_rmnRemote;
   address public OFF_RAMP_ADDRESS;
@@ -16,8 +14,8 @@ contract RMNRemoteSetup is BaseTest {
   RMNRemote.Signer[] public s_signers;
   Vm.Wallet[] public s_signerWallets;
 
-  Internal.MerkleRoot[] s_merkleRoots;
-  IRMNRemote.Signature[] s_signatures;
+  Internal.MerkleRoot[] internal s_merkleRoots;
+  IRMNRemote.Signature[] internal s_signatures;
 
   bytes16 internal constant curseSubj1 = bytes16(keccak256("subject 1"));
   bytes16 internal constant curseSubj2 = bytes16(keccak256("subject 2"));

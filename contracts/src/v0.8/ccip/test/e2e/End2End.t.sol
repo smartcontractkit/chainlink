@@ -9,7 +9,7 @@ import {NonceManager} from "../../NonceManager.sol";
 import {LockReleaseTokenPool} from "../../pools/LockReleaseTokenPool.sol";
 import {TokenAdminRegistry} from "../../tokenAdminRegistry/TokenAdminRegistry.sol";
 import "../helpers/MerkleHelper.sol";
-import "../offRamp/OffRampSetup.t.sol";
+import "../offRamp/offRamp/OffRampSetup.t.sol";
 import "../onRamp/OnRampSetup.t.sol";
 
 /// @notice This E2E test implements the following scenario:
