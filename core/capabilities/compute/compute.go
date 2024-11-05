@@ -133,7 +133,7 @@ func (c *Compute) Execute(ctx context.Context, request capabilities.CapabilityRe
 func (c *Compute) initModule(id string, cfg *host.ModuleConfig, binary []byte, requestMetadata capabilities.RequestMetadata) (*module, error) {
 	initStart := time.Now()
 
-	cfg.Fetch = c.createFetcher(requestMetadata)
+	cfg.Fetch = c.createFetcher()
 	mod, err := host.NewModule(cfg, binary)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate WASM module: %w", err)
@@ -203,26 +203,26 @@ func (c *Compute) Close() error {
 	return nil
 }
 
-func (c *Compute) createFetcher(requestMetadata capabilities.RequestMetadata) func(ctx context.Context, req *wasmpb.FetchRequest) (*wasmpb.FetchResponse, error) {
+func (c *Compute) createFetcher() func(ctx context.Context, req *wasmpb.FetchRequest) (*wasmpb.FetchResponse, error) {
 	return func(ctx context.Context, req *wasmpb.FetchRequest) (*wasmpb.FetchResponse, error) {
-		if err := validation.ValidateWorkflowOrExecutionID(requestMetadata.WorkflowID); err != nil {
-			return nil, fmt.Errorf("workflow ID %q is invalid: %w", requestMetadata.WorkflowID, err)
+		if err := validation.ValidateWorkflowOrExecutionID(req.WorkflowId); err != nil {
+			return nil, fmt.Errorf("workflow ID %q is invalid: %w", req.WorkflowId, err)
 		}
-		if err := validation.ValidateWorkflowOrExecutionID(requestMetadata.WorkflowExecutionID); err != nil {
-			return nil, fmt.Errorf("workflow execution ID %q is invalid: %w", requestMetadata.WorkflowExecutionID, err)
+		if err := validation.ValidateWorkflowOrExecutionID(req.WorkflowExecutionId); err != nil {
+			return nil, fmt.Errorf("workflow execution ID %q is invalid: %w", req.WorkflowExecutionId, err)
 		}
 
 		cma := c.emitter.With(
-			wIDKey, requestMetadata.WorkflowID,
-			wnKey, requestMetadata.WorkflowName,
-			woIDKey, requestMetadata.WorkflowOwner,
-			eIDKey, requestMetadata.WorkflowExecutionID,
+			wIDKey, req.WorkflowId,
+			wnKey, req.WorkflowName,
+			woIDKey, req.WorkflowOwner,
+			eIDKey, req.WorkflowExecutionId,
 			timestampKey, time.Now().UTC().Format(time.RFC3339Nano),
 		)
 
 		messageID := strings.Join([]string{
-			requestMetadata.WorkflowID,
-			requestMetadata.WorkflowExecutionID,
+			req.WorkflowId,
+			req.WorkflowExecutionId,
 			ghcapabilities.MethodComputeAction,
 			c.idGenerator(),
 		}, "/")
