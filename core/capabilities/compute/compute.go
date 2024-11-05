@@ -205,24 +205,24 @@ func (c *Compute) Close() error {
 
 func (c *Compute) createFetcher() func(ctx context.Context, req *wasmpb.FetchRequest) (*wasmpb.FetchResponse, error) {
 	return func(ctx context.Context, req *wasmpb.FetchRequest) (*wasmpb.FetchResponse, error) {
-		if err := validation.ValidateWorkflowOrExecutionID(req.WorkflowId); err != nil {
-			return nil, fmt.Errorf("workflow ID %q is invalid: %w", req.WorkflowId, err)
+		if err := validation.ValidateWorkflowOrExecutionID(req.Metadata.WorkflowId); err != nil {
+			return nil, fmt.Errorf("workflow ID %q is invalid: %w", req.Metadata.WorkflowId, err)
 		}
-		if err := validation.ValidateWorkflowOrExecutionID(req.WorkflowExecutionId); err != nil {
-			return nil, fmt.Errorf("workflow execution ID %q is invalid: %w", req.WorkflowExecutionId, err)
+		if err := validation.ValidateWorkflowOrExecutionID(req.Metadata.WorkflowExecutionId); err != nil {
+			return nil, fmt.Errorf("workflow execution ID %q is invalid: %w", req.Metadata.WorkflowExecutionId, err)
 		}
 
 		cma := c.emitter.With(
-			wIDKey, req.WorkflowId,
-			wnKey, req.WorkflowName,
-			woIDKey, req.WorkflowOwner,
-			eIDKey, req.WorkflowExecutionId,
+			wIDKey, req.Metadata.WorkflowId,
+			wnKey, req.Metadata.WorkflowName,
+			woIDKey, req.Metadata.WorkflowOwner,
+			eIDKey, req.Metadata.WorkflowExecutionId,
 			timestampKey, time.Now().UTC().Format(time.RFC3339Nano),
 		)
 
 		messageID := strings.Join([]string{
-			req.WorkflowId,
-			req.WorkflowExecutionId,
+			req.Metadata.WorkflowId,
+			req.Metadata.WorkflowExecutionId,
 			ghcapabilities.MethodComputeAction,
 			c.idGenerator(),
 		}, "/")
@@ -255,13 +255,16 @@ func (c *Compute) createFetcher() func(ctx context.Context, req *wasmpb.FetchReq
 		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal fetch response: %w", err)
 		}
-		if response.StatusCode != http.StatusOK {
+
+		// Only log if the response is not in the 200 range
+		if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
 			msg := fmt.Sprintf("compute fetch request failed with status code %d", response.StatusCode)
 			err = cma.Emit(ctx, msg)
 			if err != nil {
 				c.log.Errorf("failed to send custom message with msg: %s, err: %v", msg, err)
 			}
 		}
+
 		return &response, nil
 	}
 }
