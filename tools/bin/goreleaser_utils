@@ -27,7 +27,7 @@ before_hook() {
   # linux_arm64, rather than being suffixless on native platforms
   if [ "$GOARCH" = "arm64" ]; then
     if [ -d "$BIN_DIR/linux_arm64" ]; then
-      cp "$BIN_DIR/linux_arm64"/chainlink* "$PLUGIN_DIR"
+      cp "$BIN_DIR/linux_arm64_v8.0"/chainlink* "$PLUGIN_DIR"
     else 
       cp "$BIN_DIR"/chainlink* "$PLUGIN_DIR"
     fi
