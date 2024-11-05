@@ -5,7 +5,7 @@ import {Ownable2Step} from "../../../../shared/access/Ownable2Step.sol";
 import {TokenPool} from "../../../pools/TokenPool.sol";
 import {TokenPoolHelper} from "../../helpers/TokenPoolHelper.sol";
 
-import {TokenPoolWithAllowListSetup} from "./TokenPool.withAllowListSetup.t.sol";
+import {TokenPoolWithAllowListSetup} from "./TokenPoolwithAllowListSetup.t.sol";
 
 contract TokenPoolWithAllowList_applyAllowListUpdates is TokenPoolWithAllowListSetup {
   function test_SetAllowList_Success() public {

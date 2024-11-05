@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
-import {TokenPoolWithAllowListSetup} from "./TokenPool.withAllowListSetup.t.sol";
+import {TokenPoolWithAllowListSetup} from "./TokenPoolwithAllowListSetup.t.sol";
 
 contract TokenPoolWithAllowList_getAllowList is TokenPoolWithAllowListSetup {
   function test_GetAllowList_Success() public view {

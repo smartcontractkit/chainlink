@@ -2,7 +2,7 @@
 pragma solidity 0.8.24;
 
 import {TokenPool} from "../../../pools/TokenPool.sol";
-import {TokenPoolWithAllowListSetup} from "./TokenPool.withAllowListSetup.t.sol";
+import {TokenPoolWithAllowListSetup} from "./TokenPoolWithAllowListSetup.t.sol";
 
 contract TokenPoolWithAllowList_setRouter is TokenPoolWithAllowListSetup {
   function test_SetRouter_Success() public {
