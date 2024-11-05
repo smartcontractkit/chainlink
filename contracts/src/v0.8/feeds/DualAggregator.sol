@@ -544,7 +544,9 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
    * @notice check if a report has already been transmitted
    * @param report the report to check
    */
-  function _reportExists(Report memory report) internal returns (bool exist, uint32 roundId) {
+  function _reportExists(
+    Report memory report
+  ) internal returns (bool exist, uint32 roundId) {
     // get the latest round id
     uint32 latestAggregatorRoundId = s_hotVars.latestAggregatorRoundId;
 
@@ -573,7 +575,7 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
   function seeLatestRounds() public returns (uint32 primary, uint32 secondary) {
     return (s_hotVars.latestAggregatorRoundId, s_hotVars.latestSecondaryRoundId);
   }
-  
+
   /**
    * @notice Aggregator round (NOT OCR round) in which last valid report was transmitted
    */
@@ -710,20 +712,11 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
   error SignatureError();
   error DuplicateSigner();
 
-  event NewSecondaryTransmission(
-    uint32 roundId,
-    uint256 actualTimestamp,
-    address sender
-  );
+  event NewSecondaryTransmission(uint32 roundId, uint256 actualTimestamp, address sender);
 
-  event Help(
-    uint32 number
-  );
+  event Help(uint32 number);
 
-  event Exist(
-    bool exist,
-    uint32 roundId
-  );
+  event Exist(bool exist, uint32 roundId);
 
   /// @inheritdoc OCR2Abstract
   function transmit(
@@ -744,44 +737,47 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     // TRANSMIT_MSGDATA_CONSTANT_LENGTH_COMPONENT need to be changed accordingly
 
     uint256 initialGas = gasleft(); // This line must come first
-  
+    Report memory report_;
+
     if (msg.sender == s_secondaryProxy) {
       // Decode the report
-      Report memory report_ = _decodeReport(report);
+      report_ = _decodeReport(report);
       (bool exist, uint32 roundId) = _reportExists(report_);
       emit Exist(exist, roundId);
       if (exist) {
         s_hotVars.latestSecondaryRoundId = roundId;
 
-        emit NewSecondaryTransmission(
-          s_hotVars.latestSecondaryRoundId,
-          block.timestamp,
-          msg.sender
-        );
+        emit NewSecondaryTransmission(s_hotVars.latestSecondaryRoundId, block.timestamp, msg.sender);
         return;
       }
       emit Help(1);
     }
-    
+
     emit Help(2);
     // Report epoch and round
     uint40 epochAndRound = uint40(uint256(reportContext[1]));
 
     // Validate the report data
     _validateReport(epochAndRound, reportContext, report, rs, ss);
-    
+
     // Verify signatures attached to report
     _verifySignatures(reportContext, report, rs, ss, rawVs);
 
     // Decode the report
-    Report memory report_ = _decodeReport(report);
+    report_ = _decodeReport(report);
 
     int192 juelsPerFeeCoin = _report(s_hotVars, reportContext[0], epochAndRound, report_);
     _payTransmitter(s_hotVars, juelsPerFeeCoin, uint32(initialGas), msg.sender);
   }
 
   // helper function to validate the report data
-  function _validateReport(uint40 epochAndRound, bytes32[3] calldata reportContext, bytes calldata report, bytes32[] calldata rs, bytes32[] calldata ss) internal view {
+  function _validateReport(
+    uint40 epochAndRound,
+    bytes32[3] calldata reportContext,
+    bytes calldata report,
+    bytes32[] calldata rs,
+    bytes32[] calldata ss
+  ) internal view {
     if (epochAndRound < s_hotVars.latestEpochAndRound) {
       revert StaleReport();
     }
@@ -805,30 +801,36 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
   }
 
   // helper function to verify the report signatures
-  function _verifySignatures(bytes32[3] calldata reportContext, bytes calldata report, bytes32[] calldata rs, bytes32[] calldata ss, bytes32 rawVs) internal view {
+  function _verifySignatures(
+    bytes32[3] calldata reportContext,
+    bytes calldata report,
+    bytes32[] calldata rs,
+    bytes32[] calldata ss,
+    bytes32 rawVs
+  ) internal view {
     {
-        bytes32 h = keccak256(abi.encode(keccak256(report), reportContext));
+      bytes32 h = keccak256(abi.encode(keccak256(report), reportContext));
 
-        // i-th byte counts number of sigs made by i-th signer
-        uint256 signedCount = 0;
+      // i-th byte counts number of sigs made by i-th signer
+      uint256 signedCount = 0;
 
-        Signer memory signer;
-        for (uint256 i = 0; i < rs.length; i++) {
-          address signerAddress = ecrecover(h, uint8(rawVs[i]) + 27, rs[i], ss[i]);
-          signer = s_signers[signerAddress];
-          if (!signer.active) {
-            revert SignatureError();
-          }
-          unchecked {
-            signedCount += 1 << (8 * signer.index);
-          }
+      Signer memory signer;
+      for (uint256 i = 0; i < rs.length; i++) {
+        address signerAddress = ecrecover(h, uint8(rawVs[i]) + 27, rs[i], ss[i]);
+        signer = s_signers[signerAddress];
+        if (!signer.active) {
+          revert SignatureError();
         }
-
-        // The first byte of the mask can be 0, because we only ever have 31 oracles
-        if (signedCount & 0x0001010101010101010101010101010101010101010101010101010101010101 != signedCount) {
-          revert DuplicateSigner();
+        unchecked {
+          signedCount += 1 << (8 * signer.index);
         }
       }
+
+      // The first byte of the mask can be 0, because we only ever have 31 oracles
+      if (signedCount & 0x0001010101010101010101010101010101010101010101010101010101010101 != signedCount) {
+        revert DuplicateSigner();
+      }
+    }
   }
 
   error OnlyCallableByEOA();
@@ -891,7 +893,6 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     uint40 epochAndRound,
     Report memory report
   ) internal returns (int192 juelsPerFeeCoin) {
-
     if (report.observations.length > MAX_NUM_ORACLES) revert NumObservationsOutOfBounds();
     // Offchain logic ensures that a quorum of oracles is operating on a matching set of at least
     // 2f+1 observations. By assumption, up to f of those can be faulty, which includes being
@@ -903,7 +904,7 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     // get median, validate its range, store it in new aggregator round
     int192 median = report.observations[report.observations.length / 2];
     if (i_minAnswer > median && median > i_maxAnswer) revert MedianIsOutOfMinMaxRange();
-    
+
     hotVars.latestAggregatorRoundId++;
     s_transmissions[hotVars.latestAggregatorRoundId] = Transmission({
       answer: median,
