@@ -56,15 +56,13 @@ jobs:
 
       - uses: actions/cache/restore@v4
         with:
-          path: dist/linux_arm64
+          path: dist/linux_arm64_v8.0
           key: chainlink-arm64-${{ github.sha }}
           fail-on-cache-miss: true
 
       - name: Merge images for both architectures
         uses: ./.github/actions/goreleaser-build-sign-publish
         with:
-            # Temporary pin to working version as 2.4.2+ is breaking arm64 builds
-          goreleaser-version: "v2.3.2"
           docker-registry: ${{ secrets.AWS_SDLC_ECR_HOSTNAME }}
           docker-image-tag: ${{ needs.image-tag.outputs.image-tag }}
           goreleaser-release-type: "merge"
@@ -88,7 +86,7 @@ jobs:
 
           - runner: ubuntu-24.04-4cores-16GB-ARM
             goarch: arm64
-            dist_name: linux_arm64
+            dist_name: linux_arm64_v8.0
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4.2.1
@@ -114,8 +112,6 @@ jobs:
         uses: ./.github/actions/goreleaser-build-sign-publish
         if: steps.cache.outputs.cache-hit != 'true'
         with:
-          # Temporary pin to working version as 2.4.2+ is breaking arm64 builds
-          goreleaser-version: "v2.3.2"
           docker-registry: ${{ secrets.AWS_SDLC_ECR_HOSTNAME }}
           docker-image-tag: ${{ needs.image-tag.outputs.image-tag }}
           goreleaser-release-type: ${{ needs.image-tag.outputs.release-type }}
