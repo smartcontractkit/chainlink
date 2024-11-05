@@ -2,12 +2,10 @@ package launcher
 
 import (
 	"fmt"
-	"sync"
-
 	mapset "github.com/deckarep/golang-set/v2"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"go.uber.org/multierr"
 	"golang.org/x/exp/maps"
+	"golang.org/x/sync/errgroup"
 
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
@@ -36,8 +34,6 @@ func (c pluginRegistry) CloseAll() error {
 // If any of the previous config digests are no longer present, we need to shut those down
 // We don't care about if they're exec/commit or active/candidate, that all happens in the plugin
 func (c pluginRegistry) TransitionFrom(prevPlugins pluginRegistry) error {
-	var allErrs error
-
 	if len(c) > MaxPlugins || len(prevPlugins) > MaxPlugins {
 		return fmt.Errorf("current pluginRegistry or prevPlugins have more than 4 instances: len(prevPlugins): %d, len(currPlugins): %d", len(prevPlugins), len(c))
 	}
@@ -60,30 +56,24 @@ func (c pluginRegistry) TransitionFrom(prevPlugins pluginRegistry) error {
 		})
 	}
 
-	var wg sync.WaitGroup
-	var mu sync.Mutex
+	g := new(errgroup.Group)
 	for _, op := range ops {
-		wg.Add(1)
-		go func(op syncAction) {
-			defer wg.Done()
+		op := op
+		g.Go(func() error {
 			if op.command == closeAction {
 				if err := op.oracle.Close(); err != nil {
-					mu.Lock()
-					allErrs = multierr.Append(allErrs, err)
-					mu.Unlock()
+					return err
 				}
 			} else if op.command == openAction {
 				if err := op.oracle.Start(); err != nil {
-					mu.Lock()
-					allErrs = multierr.Append(allErrs, err)
-					mu.Unlock()
+					return err
 				}
 			}
-		}(op)
+			return nil
+		})
 	}
-	wg.Wait()
 
-	return allErrs
+	return g.Wait()
 }
 
 const (
