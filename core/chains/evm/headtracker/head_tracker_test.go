@@ -1394,6 +1394,7 @@ func NewBlocks(t testing.TB, numHashes int) *blocks {
 	now := time.Now()
 	b.Heads[0] = &evmtypes.Head{Hash: testutils.NewHash(), Number: 0, Timestamp: now, EVMChainID: ubig.New(testutils.FixtureChainID)}
 	for i := 1; i < numHashes; i++ {
+		//nolint:gosec // G115
 		head := b.NewHead(uint64(i))
 		b.Heads[head.Number] = head
 	}

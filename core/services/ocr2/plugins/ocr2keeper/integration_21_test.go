@@ -551,7 +551,7 @@ func listenPerformedN(t *testing.T, backend *simulated.Backend, registry *iregis
 	go func() {
 		for ctx.Err() == nil {
 			h, err := backend.Client().HeaderByNumber(testutils.Context(t), nil)
-			require.NoError(t, err)
+			assert.NoError(t, err)
 			currentBlock := h.Number.Uint64()
 
 			success := make([]bool, len(ids))

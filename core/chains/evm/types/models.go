@@ -66,6 +66,7 @@ func (h *Head) SetFromHeader(header *types.Header) {
 	h.Hash = header.Hash()
 	h.Number = header.Number.Int64()
 	h.ParentHash = header.ParentHash
+	//nolint:gosec // G115
 	h.Timestamp = time.Unix(int64(header.Time), 0)
 	h.Difficulty = header.Difficulty
 }

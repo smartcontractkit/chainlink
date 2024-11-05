@@ -939,6 +939,7 @@ func (c *CCIPIntegrationTestHarness) SetupAndStartNodes(ctx context.Context, t *
 	configBlock := c.SetupOnchainConfig(t, commitOnchainConfig, commitOffchainConfig, execOnchainConfig, execOffchainConfig)
 	c.Nodes = nodes
 	c.Bootstrap = bootstrapNode
+	//nolint:gosec // G115
 	return bootstrapNode, nodes, uint64(configBlock)
 }
 

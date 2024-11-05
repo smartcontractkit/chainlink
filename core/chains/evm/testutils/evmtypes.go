@@ -61,6 +61,7 @@ func Head(val interface{}) *evmtypes.Head {
 	case int:
 		h = evmtypes.NewHead(big.NewInt(int64(t)), evmutils.NewHash(), evmutils.NewHash(), ubig.New(FixtureChainID))
 	case uint64:
+		//nolint:gosec // G115
 		h = evmtypes.NewHead(big.NewInt(int64(t)), evmutils.NewHash(), evmutils.NewHash(), ubig.New(FixtureChainID))
 	case int64:
 		h = evmtypes.NewHead(big.NewInt(t), evmutils.NewHash(), evmutils.NewHash(), ubig.New(FixtureChainID))

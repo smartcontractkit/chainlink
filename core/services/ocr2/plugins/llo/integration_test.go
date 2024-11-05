@@ -85,6 +85,7 @@ func setupBlockchain(t *testing.T) (
 	// Configurator
 	configuratorAddress, _, configurator, err := configurator.DeployConfigurator(steve, backend.Client())
 	require.NoError(t, err)
+	backend.Commit()
 
 	// DestinationVerifierProxy
 	destinationVerifierProxyAddr, _, verifierProxy, err := destination_verifier_proxy.DeployDestinationVerifierProxy(steve, backend.Client())
@@ -100,7 +101,7 @@ func setupBlockchain(t *testing.T) (
 	backend.Commit()
 
 	// Legacy mercury verifier
-	legacyVerifier, legacyVerifierAddr, legacyVerifierProxy, legacyVerifierProxyAddr := setupLegacyMercuryVerifier(t, steve, backend.Client())
+	legacyVerifier, legacyVerifierAddr, legacyVerifierProxy, legacyVerifierProxyAddr := setupLegacyMercuryVerifier(t, steve, backend)
 
 	// ChannelConfigStore
 	configStoreAddress, _, configStore, err := channel_config_store.DeployChannelConfigStore(steve, backend.Client())
@@ -111,30 +112,40 @@ func setupBlockchain(t *testing.T) (
 	return steve, backend, configurator, configuratorAddress, destinationVerifier, destinationVerifierAddr, verifierProxy, destinationVerifierProxyAddr, configStore, configStoreAddress, legacyVerifier, legacyVerifierAddr, legacyVerifierProxy, legacyVerifierProxyAddr
 }
 
-func setupLegacyMercuryVerifier(t *testing.T, steve *bind.TransactOpts, backend bind.ContractBackend) (*verifier.Verifier, common.Address, *verifier_proxy.VerifierProxy, common.Address) {
-	linkTokenAddress, _, linkToken, err := link_token_interface.DeployLinkToken(steve, backend)
+func setupLegacyMercuryVerifier(t *testing.T, steve *bind.TransactOpts, backend *simulated.Backend) (*verifier.Verifier, common.Address, *verifier_proxy.VerifierProxy, common.Address) {
+	linkTokenAddress, _, linkToken, err := link_token_interface.DeployLinkToken(steve, backend.Client())
 	require.NoError(t, err)
+	backend.Commit()
 	_, err = linkToken.Transfer(steve, steve.From, big.NewInt(1000))
 	require.NoError(t, err)
-	nativeTokenAddress, _, nativeToken, err := link_token_interface.DeployLinkToken(steve, backend)
+	backend.Commit()
+	nativeTokenAddress, _, nativeToken, err := link_token_interface.DeployLinkToken(steve, backend.Client())
 	require.NoError(t, err)
+	backend.Commit()
 	_, err = nativeToken.Transfer(steve, steve.From, big.NewInt(1000))
 	require.NoError(t, err)
-	verifierProxyAddr, _, verifierProxy, err := verifier_proxy.DeployVerifierProxy(steve, backend, common.Address{}) // zero address for access controller disables access control
+	backend.Commit()
+	verifierProxyAddr, _, verifierProxy, err := verifier_proxy.DeployVerifierProxy(steve, backend.Client(), common.Address{}) // zero address for access controller disables access control
 	require.NoError(t, err)
-	verifierAddress, _, verifier, err := verifier.DeployVerifier(steve, backend, verifierProxyAddr)
+	backend.Commit()
+	verifierAddress, _, verifier, err := verifier.DeployVerifier(steve, backend.Client(), verifierProxyAddr)
 	require.NoError(t, err)
+	backend.Commit()
 	_, err = verifierProxy.InitializeVerifier(steve, verifierAddress)
 	require.NoError(t, err)
-	rewardManagerAddr, _, rewardManager, err := reward_manager.DeployRewardManager(steve, backend, linkTokenAddress)
+	backend.Commit()
+	rewardManagerAddr, _, rewardManager, err := reward_manager.DeployRewardManager(steve, backend.Client(), linkTokenAddress)
 	require.NoError(t, err)
-	feeManagerAddr, _, _, err := fee_manager.DeployFeeManager(steve, backend, linkTokenAddress, nativeTokenAddress, verifierProxyAddr, rewardManagerAddr)
+	backend.Commit()
+	feeManagerAddr, _, _, err := fee_manager.DeployFeeManager(steve, backend.Client(), linkTokenAddress, nativeTokenAddress, verifierProxyAddr, rewardManagerAddr)
 	require.NoError(t, err)
+	backend.Commit()
 	_, err = verifierProxy.SetFeeManager(steve, feeManagerAddr)
 	require.NoError(t, err)
+	backend.Commit()
 	_, err = rewardManager.SetFeeManager(steve, feeManagerAddr)
 	require.NoError(t, err)
-
+	backend.Commit()
 	return verifier, verifierAddress, verifierProxy, verifierProxyAddr
 }
 

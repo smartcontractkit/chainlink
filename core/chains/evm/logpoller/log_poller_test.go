@@ -351,7 +351,7 @@ func Test_BackupLogPoller(t *testing.T) {
 			// logs shouldn't show up yet
 			logs, err := th.LogPoller.Logs(ctx, 32, 32, EmitterABI.Events["Log1"].ID, th.EmitterAddress1)
 			require.NoError(t, err)
-			require.Equal(t, 0, len(logs))
+			require.Empty(t, logs)
 
 			th.finalizeThroughBlock(t, 32)
 
@@ -372,7 +372,7 @@ func Test_BackupLogPoller(t *testing.T) {
 			//  to help with reorg detection
 			logs, err = th.LogPoller.Logs(ctx, 32, 32, EmitterABI.Events["Log1"].ID, th.EmitterAddress1)
 			require.NoError(t, err)
-			require.Equal(t, 0, len(logs))
+			require.Empty(t, logs)
 			th.Backend.Commit()
 			th.finalizeThroughBlock(t, 64)
 
@@ -387,13 +387,13 @@ func Test_BackupLogPoller(t *testing.T) {
 			// all 3 logs in block 34 should show up now, thanks to backup logger
 			logs, err = th.LogPoller.Logs(ctx, 30, 37, EmitterABI.Events["Log1"].ID, th.EmitterAddress1)
 			require.NoError(t, err)
-			assert.Equal(t, 1, len(logs))
+			assert.Len(t, logs, 1)
 			logs, err = th.LogPoller.Logs(ctx, 32, 32, EmitterABI.Events["Log2"].ID, th.EmitterAddress1)
 			require.NoError(t, err)
-			assert.Equal(t, 1, len(logs))
+			assert.Equal(t, logs, 1)
 			logs, err = th.LogPoller.Logs(ctx, 32, 36, EmitterABI.Events["Log1"].ID, th.EmitterAddress2)
 			require.NoError(t, err)
-			assert.Equal(t, 1, len(logs))
+			assert.Equal(t, logs, 1)
 		})
 	}
 }
@@ -930,7 +930,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 			lgs, err = th.ORM.SelectLogsByBlockRange(testutils.Context(t), 1, 3)
 			require.NoError(t, err)
 
-			require.Equal(t, 2, len(lgs))
+			require.Len(t, lgs, 2)
 			assert.Equal(t, int64(2), lgs[0].BlockNumber)
 			assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000001`), lgs[0].Data)
 			assert.Equal(t, int64(3), lgs[1].BlockNumber)
@@ -1015,7 +1015,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 			assert.Equal(t, int64(36), newStart)
 			lgs, err = th.ORM.SelectLogsByBlockRange(testutils.Context(t), 11, 36)
 			require.NoError(t, err)
-			assert.Equal(t, 25, len(lgs))
+			assert.Len(t, lgs, 25)
 			th.assertHaveCanonical(t, 32, 36) // Should have last finalized block plus unfinalized blocks
 			th.assertDontHave(t, 11, 13)      // Should not have older finalized blocks
 			th.assertDontHave(t, 14, 16)      // Should not have older finalized blocks
