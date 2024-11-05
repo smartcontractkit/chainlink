@@ -134,7 +134,7 @@ func Test_Client_LatestReport(t *testing.T) {
 		},
 		{
 			name:          "with cache enabled",
-			ttl:           1000 * time.Hour, //some large value that will never expire during a test
+			ttl:           1000 * time.Hour, // some large value that will never expire during a test
 			expectedCalls: 1,
 		},
 	}

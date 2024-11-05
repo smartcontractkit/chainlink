@@ -621,7 +621,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 			mock.Anything,
 			contractAddress,
 			uint32(1),
-			mock.AnythingOfType("int64"), //int64(1),
+			mock.AnythingOfType("int64"), // int64(1),
 			mock.Anything,
 		).
 		Return(nil).Once()
@@ -660,7 +660,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 			mock.Anything,
 			contractAddress,
 			uint32(3),
-			mock.AnythingOfType("int64"), //int64(2),
+			mock.AnythingOfType("int64"), // int64(2),
 			mock.Anything,
 		).
 		Return(nil).Once()
@@ -699,7 +699,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 			mock.Anything,
 			contractAddress,
 			uint32(4),
-			mock.AnythingOfType("int64"), //int64(3),
+			mock.AnythingOfType("int64"), // int64(3),
 			mock.Anything,
 		).
 		Return(nil).

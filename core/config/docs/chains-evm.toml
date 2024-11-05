@@ -416,12 +416,13 @@ FinalizedBlockPollInterval = '5s' # Default
 # block.
 #
 # Set false to disable
-EnforceRepeatableRead = false # Default
+EnforceRepeatableRead = true # Default
 # DeathDeclarationDelay defines the minimum duration an RPC must be in unhealthy state before producing an error log message.
 # Larger values might be helpful to reduce the noisiness of health checks like `EnforceRepeatableRead = true', which might be falsely
 # trigger declaration of `FinalizedBlockOutOfSync` due to insignificant network delays in broadcasting of the finalized state among RPCs.
-# RPC will not be picked to handle a request even if this option is set to a nonzero value.
-DeathDeclarationDelay = '10s' # Default
+# Should be greater than `FinalizedBlockPollInterval`.
+# Unhealthy RPC will not be picked to handle a request even if this option is set to a nonzero value.
+DeathDeclarationDelay = '1m' # Default
 # NewHeadsPollInterval define an interval for polling new block periodically using http client rather than subscribe to ws feed
 #
 # Set to 0 to disable.

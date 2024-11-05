@@ -663,7 +663,7 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 	require.NoError(t, err)
 	backend.Commit()
 
-	//Set upkeep to be performed
+	// Set upkeep to be performed
 	_, err = upkeepContract.SetBytesToSend(carrol, payload1)
 	require.NoError(t, err)
 	_, err = upkeepContract.SetShouldPerformUpkeep(carrol, true)

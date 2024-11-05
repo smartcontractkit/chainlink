@@ -115,7 +115,7 @@ func DefaultFeeQuoterDestChainConfig() fee_quoter.FeeQuoterDestChainConfig {
 		DestGasOverhead:                   50_000,
 		DefaultTokenFeeUSDCents:           1,
 		DestGasPerPayloadByte:             10,
-		DestDataAvailabilityOverheadGas:   0,
+		DestDataAvailabilityOverheadGas:   100,
 		DestGasPerDataAvailabilityByte:    100,
 		DestDataAvailabilityMultiplierBps: 1,
 		DefaultTokenDestGasOverhead:       125_000,

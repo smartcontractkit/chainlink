@@ -108,7 +108,7 @@ func (c *client) DoRequest(ctx context.Context, streamsLookup *mercury.StreamsLo
 
 func (c *client) multiFeedsRequest(ctx context.Context, ch chan<- mercury.MercuryData, sl *mercury.StreamsLookup) {
 	// this won't work bc q.Encode() will encode commas as '%2C' but the server is strictly expecting a comma separated list
-	//q := url.Values{
+	// q := url.Values{
 	//	feedIDs:   {strings.Join(sl.Feeds, ",")},
 	//	timestamp: {sl.Time.String()},
 	//}

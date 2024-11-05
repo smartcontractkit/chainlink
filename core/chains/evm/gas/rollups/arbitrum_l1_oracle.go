@@ -16,8 +16,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
+	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
-	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 )
 
 type ArbL1GasOracle interface {
@@ -155,7 +155,7 @@ func (o *arbitrumL1Oracle) refresh() {
 }
 
 func (o *arbitrumL1Oracle) refreshWithError() error {
-	ctx, cancel := o.chStop.CtxCancel(evmclient.ContextWithDefaultTimeout())
+	ctx, cancel := o.chStop.CtxWithTimeout(commonclient.QueryTimeout)
 	defer cancel()
 
 	price, err := o.fetchL1GasPrice(ctx)
@@ -221,7 +221,7 @@ func (o *arbitrumL1Oracle) GasPrice(_ context.Context) (l1GasPrice *assets.Wei, 
 // https://github.com/OffchainLabs/nitro/blob/f7645453cfc77bf3e3644ea1ac031eff629df325/contracts/src/precompiles/ArbGasInfo.sol#L69
 
 func (o *arbitrumL1Oracle) GetPricesInArbGas() (perL2Tx uint32, perL1CalldataUnit uint32, err error) {
-	ctx, cancel := o.chStop.CtxCancel(evmclient.ContextWithDefaultTimeout())
+	ctx, cancel := o.chStop.CtxWithTimeout(commonclient.QueryTimeout)
 	defer cancel()
 	precompile := common.HexToAddress(ArbGasInfoAddress)
 	b, err := o.client.CallContract(ctx, ethereum.CallMsg{

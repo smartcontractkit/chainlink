@@ -5,7 +5,7 @@ import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 import {IPoolV1} from "../interfaces/IPool.sol";
 import {ITokenAdminRegistry} from "../interfaces/ITokenAdminRegistry.sol";
 
-import {OwnerIsCreator} from "../../shared/access/OwnerIsCreator.sol";
+import {Ownable2StepMsgSender} from "../../shared/access/Ownable2StepMsgSender.sol";
 
 import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts/utils/structs/EnumerableSet.sol";
 
@@ -13,7 +13,7 @@ import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts
 /// on a self-serve basis, where tokens can be registered without intervention from the CCIP owner.
 /// @dev This contract is not considered upgradable, as it is a customer facing contract that will store
 /// significant amounts of data.
-contract TokenAdminRegistry is ITokenAdminRegistry, ITypeAndVersion, OwnerIsCreator {
+contract TokenAdminRegistry is ITokenAdminRegistry, ITypeAndVersion, Ownable2StepMsgSender {
   using EnumerableSet for EnumerableSet.AddressSet;
 
   error OnlyRegistryModuleOrOwner(address sender);

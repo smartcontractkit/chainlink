@@ -353,258 +353,50 @@ func TestWorkflowSpec_Validate(t *testing.T) {
 	})
 }
 
-func TestOEVConfig(t *testing.T) {
+func TestAdaptiveSendConfig(t *testing.T) {
 	tests := []struct {
 		name                 string
 		shouldError          bool
 		expectedErrorMessage string
-		config               job.OEVConfig
+		config               job.AdaptiveSendSpec
 	}{
 		{
-			name:                 "OEVTransmitterAddress not set",
+			name:                 "AdaptiveSendSpec.TransmitterAddress not set",
 			shouldError:          true,
-			expectedErrorMessage: "no OEVTransmitterAddress found",
-			config: job.OEVConfig{
+			expectedErrorMessage: "no AdaptiveSendSpec.TransmitterAddress found",
+			config: job.AdaptiveSendSpec{
 				TransmitterAddress: nil,
 				ContractAddress:    ptr(cltest.NewEIP55Address()),
-				Builders:           []string{"builder1", "builder2"},
-				Hints:              []string{"calldata"},
-				Refund: []job.OEVRefund{
-					{
-						Address: ptr(cltest.NewEIP55Address()),
-						Percent: 1,
-					},
-				},
-				PriceDelay: time.Second * 30,
+				Delay:              time.Second * 30,
 			},
 		},
 		{
-			name:                 "OEVContractAddress not set",
+			name:                 "AdaptiveSendSpec.ContractAddress not set",
 			shouldError:          true,
-			expectedErrorMessage: "no OEVContractAddress found",
-			config: job.OEVConfig{
+			expectedErrorMessage: "no AdaptiveSendSpec.ContractAddress found",
+			config: job.AdaptiveSendSpec{
 				TransmitterAddress: ptr(cltest.NewEIP55Address()),
 				ContractAddress:    nil,
-				Builders:           []string{"builder1", "builder2"},
-				Hints:              []string{"calldata"},
-				Refund: []job.OEVRefund{
-					{
-						Address: ptr(cltest.NewEIP55Address()),
-						Percent: 1,
-					},
-				},
-				PriceDelay: time.Second * 30,
+				Delay:              time.Second * 30,
 			},
 		},
 		{
-			name:                 "OEVBuilder not set",
+			name:                 "AdaptiveSendSpec.Delay not set",
 			shouldError:          true,
-			expectedErrorMessage: "no OEVBuilders found",
-			config: job.OEVConfig{
+			expectedErrorMessage: "AdaptiveSendSpec.Delay not set or smaller than 1s",
+			config: job.AdaptiveSendSpec{
 				TransmitterAddress: ptr(cltest.NewEIP55Address()),
 				ContractAddress:    ptr(cltest.NewEIP55Address()),
-				Builders:           nil,
-				Hints:              []string{"calldata"},
-				Refund: []job.OEVRefund{
-					{
-						Address: ptr(cltest.NewEIP55Address()),
-						Percent: 1,
-					},
-				},
-				PriceDelay: time.Second * 30,
 			},
 		},
 		{
-			name:                 "OEVBuilder empty",
+			name:                 "AdaptiveSendSpec.Delay set to 50ms",
 			shouldError:          true,
-			expectedErrorMessage: "OEVBuilders expects at least one builder",
-			config: job.OEVConfig{
+			expectedErrorMessage: "AdaptiveSendSpec.Delay not set or smaller than 1s",
+			config: job.AdaptiveSendSpec{
 				TransmitterAddress: ptr(cltest.NewEIP55Address()),
 				ContractAddress:    ptr(cltest.NewEIP55Address()),
-				Builders:           []string{},
-				Hints:              []string{"calldata"},
-				Refund: []job.OEVRefund{
-					{
-						Address: ptr(cltest.NewEIP55Address()),
-						Percent: 1,
-					},
-				},
-				PriceDelay: time.Second * 30,
-			},
-		},
-		{
-			name:                 "OEVBuilder has empty element",
-			shouldError:          true,
-			expectedErrorMessage: "OEVBuilders should not contain empty element",
-			config: job.OEVConfig{
-				TransmitterAddress: ptr(cltest.NewEIP55Address()),
-				ContractAddress:    ptr(cltest.NewEIP55Address()),
-				Builders:           []string{"builder1", "", "builder2"},
-				Hints:              []string{"calldata"},
-				Refund: []job.OEVRefund{
-					{
-						Address: ptr(cltest.NewEIP55Address()),
-						Percent: 1,
-					},
-				},
-				PriceDelay: time.Second * 30,
-			},
-		},
-		{
-			name:                 "OEVHints not set",
-			shouldError:          true,
-			expectedErrorMessage: "no OEVHints found",
-			config: job.OEVConfig{
-				TransmitterAddress: ptr(cltest.NewEIP55Address()),
-				ContractAddress:    ptr(cltest.NewEIP55Address()),
-				Builders:           []string{"builder1", "builder2"},
-				Hints:              nil,
-				Refund: []job.OEVRefund{
-					{
-						Address: ptr(cltest.NewEIP55Address()),
-						Percent: 1,
-					},
-				},
-				PriceDelay: time.Second * 30,
-			},
-		},
-		{
-			name:                 "OEVHints empty",
-			shouldError:          true,
-			expectedErrorMessage: "OEVHints expects at least one hint",
-			config: job.OEVConfig{
-				TransmitterAddress: ptr(cltest.NewEIP55Address()),
-				ContractAddress:    ptr(cltest.NewEIP55Address()),
-				Builders:           []string{"builder1", "builder2"},
-				Hints:              []string{},
-				Refund: []job.OEVRefund{
-					{
-						Address: ptr(cltest.NewEIP55Address()),
-						Percent: 1,
-					},
-				},
-				PriceDelay: time.Second * 30,
-			},
-		},
-		{
-			name:                 "OEVHints has empty element",
-			shouldError:          true,
-			expectedErrorMessage: "OEVHints should not contain empty element",
-			config: job.OEVConfig{
-				TransmitterAddress: ptr(cltest.NewEIP55Address()),
-				ContractAddress:    ptr(cltest.NewEIP55Address()),
-				Builders:           []string{"builder1", "builder2"},
-				Hints:              []string{"hint1", "", "hint2"},
-				Refund: []job.OEVRefund{
-					{
-						Address: ptr(cltest.NewEIP55Address()),
-						Percent: 1,
-					},
-				},
-				PriceDelay: time.Second * 30,
-			},
-		},
-		{
-			name:                 "OEVPriceDelay not set",
-			shouldError:          true,
-			expectedErrorMessage: "OEVPriceDelay not set or smaller than 1s",
-			config: job.OEVConfig{
-				TransmitterAddress: ptr(cltest.NewEIP55Address()),
-				ContractAddress:    ptr(cltest.NewEIP55Address()),
-				Builders:           []string{"builder1", "builder2"},
-				Hints:              []string{"hint1", "hint2"},
-				Refund: []job.OEVRefund{
-					{
-						Address: ptr(cltest.NewEIP55Address()),
-						Percent: 1,
-					},
-				},
-			},
-		},
-		{
-			name:                 "OEVPriceDelay set to 50ms",
-			shouldError:          true,
-			expectedErrorMessage: "OEVPriceDelay not set or smaller than 1s",
-			config: job.OEVConfig{
-				TransmitterAddress: ptr(cltest.NewEIP55Address()),
-				ContractAddress:    ptr(cltest.NewEIP55Address()),
-				Builders:           []string{"builder1", "builder2"},
-				Hints:              []string{"hint1", "hint2"},
-				Refund: []job.OEVRefund{
-					{
-						Address: ptr(cltest.NewEIP55Address()),
-						Percent: 0,
-					},
-				},
-				PriceDelay: time.Millisecond * 50,
-			},
-		},
-		{
-			name:                 "OEVRefund not set",
-			shouldError:          true,
-			expectedErrorMessage: "no OEVRefund found",
-			config: job.OEVConfig{
-				TransmitterAddress: ptr(cltest.NewEIP55Address()),
-				ContractAddress:    ptr(cltest.NewEIP55Address()),
-				Builders:           []string{"builder1", "builder2"},
-				Hints:              []string{"hint1", "hint2"},
-				PriceDelay:         time.Second * 30,
-			},
-		},
-		{
-			name:                 "OEVRefund.Address not set",
-			shouldError:          true,
-			expectedErrorMessage: "OEVRefund.Address should not be empty",
-			config: job.OEVConfig{
-				TransmitterAddress: ptr(cltest.NewEIP55Address()),
-				ContractAddress:    ptr(cltest.NewEIP55Address()),
-				Builders:           []string{"builder1", "builder2"},
-				Hints:              []string{"hint1", "hint2"},
-				Refund: []job.OEVRefund{
-					{
-						Percent: 1,
-					},
-				},
-				PriceDelay: time.Second * 30,
-			},
-		},
-		{
-			name:                 "OEVRefund.Percent not set",
-			shouldError:          true,
-			expectedErrorMessage: "OEVRefund.Percent should be between 1 and 100",
-			config: job.OEVConfig{
-				TransmitterAddress: ptr(cltest.NewEIP55Address()),
-				ContractAddress:    ptr(cltest.NewEIP55Address()),
-				Builders:           []string{"builder1", "builder2"},
-				Hints:              []string{"hint1", "hint2"},
-				Refund: []job.OEVRefund{
-					{
-						Address: ptr(cltest.NewEIP55Address()),
-					},
-				},
-				PriceDelay: time.Second * 30,
-			},
-		},
-		{
-			name:                 "OEVRefund.Percent over 100",
-			shouldError:          true,
-			expectedErrorMessage: "the sum of all OEVRefund.Percent should not be greater than 100",
-			config: job.OEVConfig{
-				TransmitterAddress: ptr(cltest.NewEIP55Address()),
-				ContractAddress:    ptr(cltest.NewEIP55Address()),
-				Builders:           []string{"builder1", "builder2"},
-				Hints:              []string{"hint1", "hint2"},
-				Refund: []job.OEVRefund{
-					{
-						Address: ptr(cltest.NewEIP55Address()),
-						Percent: 50,
-					},
-					{
-						Address: ptr(cltest.NewEIP55Address()),
-						Percent: 51,
-					},
-				},
-				PriceDelay: time.Second * 30,
+				Delay:              time.Millisecond * 50,
 			},
 		},
 	}

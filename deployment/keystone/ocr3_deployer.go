@@ -3,6 +3,7 @@ package keystone
 import (
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability"
@@ -11,11 +12,6 @@ import (
 type OCR3Deployer struct {
 	lggr     logger.Logger
 	contract *ocr3_capability.OCR3Capability
-}
-
-var OCR3CapabilityTypeVersion = deployment.TypeAndVersion{
-	Type:    OCR3Capability,
-	Version: deployment.Version1_0_0,
 }
 
 func (c *OCR3Deployer) deploy(req DeployRequest) (*DeployResponse, error) {
@@ -36,10 +32,18 @@ func (c *OCR3Deployer) deploy(req DeployRequest) (*DeployResponse, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to confirm transaction %s: %w", tx.Hash().String(), err)
 	}
+	tvStr, err := ocr3.TypeAndVersion(&bind.CallOpts{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get type and version: %w", err)
+	}
+	tv, err := deployment.TypeAndVersionFromString(tvStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse type and version from %s: %w", tvStr, err)
+	}
 	resp := &DeployResponse{
 		Address: ocr3Addr,
 		Tx:      tx.Hash(),
-		Tv:      OCR3CapabilityTypeVersion,
+		Tv:      tv,
 	}
 	c.contract = ocr3
 	return resp, nil

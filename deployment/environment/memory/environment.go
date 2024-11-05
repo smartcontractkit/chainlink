@@ -75,7 +75,7 @@ func generateMemoryChain(t *testing.T, inputs map[uint64]EVMChain) map[uint64]de
 						continue
 					}
 					if receipt.Status == 0 {
-						errReason, err := deployment.GetErrorReasonFromTx(chain.Backend, chain.DeployerKey.From, *tx, receipt)
+						errReason, err := deployment.GetErrorReasonFromTx(chain.Backend, chain.DeployerKey.From, tx, receipt)
 						if err == nil && errReason != "" {
 							return 0, fmt.Errorf("tx %s reverted,error reason: %s", tx.Hash().Hex(), errReason)
 						}
@@ -117,14 +117,14 @@ func NewMemoryEnvironmentFromChainsNodes(t *testing.T,
 	for id := range nodes {
 		nodeIDs = append(nodeIDs, id)
 	}
-	return deployment.Environment{
-		Name:     Memory,
-		Offchain: NewMemoryJobClient(nodes),
-		// Note these have the p2p_ prefix.
-		NodeIDs: nodeIDs,
-		Chains:  chains,
-		Logger:  lggr,
-	}
+	return *deployment.NewEnvironment(
+		Memory,
+		lggr,
+		deployment.NewMemoryAddressBook(),
+		chains,
+		nodeIDs, // Note these have the p2p_ prefix.
+		NewMemoryJobClient(nodes),
+	)
 }
 
 // To be used by tests and any kind of deployment logic.
@@ -135,11 +135,12 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Lev
 	for id := range nodes {
 		nodeIDs = append(nodeIDs, id)
 	}
-	return deployment.Environment{
-		Name:     Memory,
-		Offchain: NewMemoryJobClient(nodes),
-		NodeIDs:  nodeIDs,
-		Chains:   chains,
-		Logger:   lggr,
-	}
+	return *deployment.NewEnvironment(
+		Memory,
+		lggr,
+		deployment.NewMemoryAddressBook(),
+		chains,
+		nodeIDs,
+		NewMemoryJobClient(nodes),
+	)
 }

@@ -16,12 +16,12 @@ var remoteRegistrySyncFailureCounter metric.Int64Counter
 var launcherFailureCounter metric.Int64Counter
 
 func initMonitoringResources() (err error) {
-	remoteRegistrySyncFailureCounter, err = beholder.GetMeter().Int64Counter("RemoteRegistrySyncFailure")
+	remoteRegistrySyncFailureCounter, err = beholder.GetMeter().Int64Counter("platform.registry_syncer.sync.failures")
 	if err != nil {
 		return fmt.Errorf("failed to register sync failure counter: %w", err)
 	}
 
-	launcherFailureCounter, err = beholder.GetMeter().Int64Counter("LauncherFailureCounter")
+	launcherFailureCounter, err = beholder.GetMeter().Int64Counter("platform.registry_syncer.launch.failures")
 	if err != nil {
 		return fmt.Errorf("failed to register launcher failure counter: %w", err)
 	}

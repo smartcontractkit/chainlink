@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	csav1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/csa"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
@@ -61,8 +62,18 @@ func (j JobClient) ListKeypairs(ctx context.Context, in *csav1.ListKeypairsReque
 }
 
 func (j JobClient) GetNode(ctx context.Context, in *nodev1.GetNodeRequest, opts ...grpc.CallOption) (*nodev1.GetNodeResponse, error) {
-	//TODO CCIP-3108 implement me
-	panic("implement me")
+	n, ok := j.Nodes[in.Id]
+	if !ok {
+		return nil, errors.New("node not found")
+	}
+	return &nodev1.GetNodeResponse{
+		Node: &nodev1.Node{
+			Id:          in.Id,
+			PublicKey:   n.Keys.CSA.PublicKeyString(),
+			IsEnabled:   true,
+			IsConnected: true,
+		},
+	}, nil
 }
 
 func (j JobClient) ListNodes(ctx context.Context, in *nodev1.ListNodesRequest, opts ...grpc.CallOption) (*nodev1.ListNodesResponse, error) {

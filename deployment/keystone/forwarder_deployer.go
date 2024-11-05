@@ -3,6 +3,7 @@ package keystone
 import (
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder"
@@ -11,11 +12,6 @@ import (
 type KeystoneForwarderDeployer struct {
 	lggr     logger.Logger
 	contract *forwarder.KeystoneForwarder
-}
-
-var ForwarderTypeVersion = deployment.TypeAndVersion{
-	Type:    KeystoneForwarder,
-	Version: deployment.Version1_0_0,
 }
 
 func (c *KeystoneForwarderDeployer) deploy(req DeployRequest) (*DeployResponse, error) {
@@ -36,10 +32,18 @@ func (c *KeystoneForwarderDeployer) deploy(req DeployRequest) (*DeployResponse, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to confirm and save KeystoneForwarder: %w", err)
 	}
+	tvStr, err := forwarder.TypeAndVersion(&bind.CallOpts{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get type and version: %w", err)
+	}
+	tv, err := deployment.TypeAndVersionFromString(tvStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse type and version from %s: %w", tvStr, err)
+	}
 	resp := &DeployResponse{
 		Address: forwarderAddr,
 		Tx:      tx.Hash(),
-		Tv:      ForwarderTypeVersion,
+		Tv:      tv,
 	}
 	c.contract = forwarder
 	return resp, nil

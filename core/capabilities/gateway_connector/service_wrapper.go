@@ -55,7 +55,7 @@ func NewGatewayConnectorServiceWrapper(config config.GatewayConnector, keystore 
 		config:   config,
 		keystore: keystore,
 		clock:    clock,
-		lggr:     lggr,
+		lggr:     lggr.Named("GatewayConnectorServiceWrapper"),
 	}
 }
 
@@ -106,7 +106,7 @@ func (e *ServiceWrapper) HealthReport() map[string]error {
 }
 
 func (e *ServiceWrapper) Name() string {
-	return "GatewayConnectorServiceWrapper"
+	return e.lggr.Name()
 }
 
 func (e *ServiceWrapper) GetGatewayConnector() connector.GatewayConnector {

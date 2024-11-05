@@ -415,7 +415,7 @@ func makeTestEvmTxm(
 	keyStore keystore.Eth) (txmgr.TxManager, gas.EvmFeeEstimator) {
 	config, dbConfig, evmConfig := MakeTestConfigs(t)
 
-	estimator, err := gas.NewEstimator(logger.TestLogger(t), ethClient, config.ChainType(), evmConfig.GasEstimator())
+	estimator, err := gas.NewEstimator(logger.TestLogger(t), ethClient, config.ChainType(), evmConfig.GasEstimator(), nil)
 	require.NoError(t, err, "failed to create gas estimator")
 
 	lggr := logger.TestLogger(t)
@@ -600,7 +600,11 @@ type TestDAOracleConfig struct {
 	evmconfig.DAOracle
 }
 
-func (d *TestDAOracleConfig) OracleType() toml.DAOracleType { return toml.DAOracleOPStack }
+func (d *TestDAOracleConfig) OracleType() *toml.DAOracleType {
+	oracleType := toml.DAOracleOPStack
+	return &oracleType
+}
+
 func (d *TestDAOracleConfig) OracleAddress() *types.EIP55Address {
 	a, err := types.NewEIP55Address("0x420000000000000000000000000000000000000F")
 	if err != nil {
@@ -608,7 +612,10 @@ func (d *TestDAOracleConfig) OracleAddress() *types.EIP55Address {
 	}
 	return &a
 }
-func (d *TestDAOracleConfig) CustomGasPriceCalldata() string { return "" }
+
+func (d *TestDAOracleConfig) CustomGasPriceCalldata() *string {
+	return nil
+}
 
 func (g *TestGasEstimatorConfig) BlockHistory() evmconfig.BlockHistory {
 	return &TestBlockHistoryConfig{}

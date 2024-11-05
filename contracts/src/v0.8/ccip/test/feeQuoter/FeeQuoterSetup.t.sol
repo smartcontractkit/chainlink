@@ -275,7 +275,7 @@ contract FeeQuoterSetup is TokenSetup {
     assertEq(config1.isEnabled, config2.isEnabled);
   }
 
-  function _assertTokenPriceFeedConfigUnconfigured(
+  function _assertTokenPriceFeedConfigNotConfigured(
     FeeQuoter.TokenPriceFeedConfig memory config
   ) internal pure virtual {
     _assertTokenPriceFeedConfigEquality(
