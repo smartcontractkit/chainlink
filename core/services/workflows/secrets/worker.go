@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/workflow/generated/workflow_registry_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/chans"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/signalers"
 )
 
@@ -29,18 +30,25 @@ type workerProbes[T any] struct {
 
 type worker struct {
 	services.StateMachine
-	stopCh  services.StopChan
-	timer   <-chan struct{}
-	lggr    logger.Logger
-	cr      types.ContractReader
-	cfg     ContractEventPollerConfig
-	addr    string
-	orm     ORM
-	gateway FetcherFunc
-	wg      sync.WaitGroup
+	stopCh   services.StopChan
+	eventsCh <-chan workflow_registry_wrapper.WorkflowRegistryWorkflowForceUpdateSecretsRequestedV1
+	timer    <-chan struct{}
+	lggr     logger.Logger
+	cr       types.ContractReader
+	cfg      ContractEventPollerConfig
+	addr     string
+	orm      ORM
+	gateway  FetcherFunc
+	wg       sync.WaitGroup
 }
 
-func newSecretsWorker(
+func WithTimer(t <-chan struct{}) func(*worker) {
+	return func(w *worker) {
+		w.timer = t
+	}
+}
+
+func NewWorker(
 	lggr logger.Logger,
 	startBlockNum uint64,
 	qryCount uint64,
@@ -74,6 +82,10 @@ func newSecretsWorker(
 	}
 
 	return w
+}
+
+func (w *worker) GetLogs() <-chan workflow_registry_wrapper.WorkflowRegistryWorkflowForceUpdateSecretsRequestedV1 {
+	return w.eventsCh
 }
 
 func (w *worker) Start(_ context.Context) error {
@@ -129,8 +141,11 @@ func (w *worker) fetchSecrets(
 	// Start the workers
 	var (
 		doneQuerying, queryErrs, updateSecretsEvents = eventQueryWorker.Run(ctxwc, cfg)
-		doneHandling, handlerErrs                    = eventHandlerWorker.Run(ctxwc, nil)
+		logs1, logs2                                 = chans.Tee(ctxwc.Done(), updateSecretsEvents)
+		doneHandling, handlerErrs                    = eventHandlerWorker.Run(ctxwc, logs1)
 	)
+
+	w.eventsCh = logs2
 
 	// Wait for the workers to finish
 	wg.Add(1)
@@ -175,6 +190,6 @@ func (w *worker) fetchSecrets(
 	return workerProbes[workflow_registry_wrapper.WorkflowRegistryWorkflowForceUpdateSecretsRequestedV1]{
 		Done: done,
 		Err:  errsCh,
-		Logs: updateSecretsEvents,
+		Logs: logs2,
 	}
 }

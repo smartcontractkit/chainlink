@@ -1,4 +1,4 @@
-package syncer
+package workflow_registry_syncer_test
 
 import (
 	"context"
@@ -9,25 +9,29 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/workflow/generated/workflow_registry_wrapper"
 	coretestutils "github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+	syncer "github.com/smartcontractkit/chainlink/v2/core/services/workflows/secrets"
+	workerMocks "github.com/smartcontractkit/chainlink/v2/core/services/workflows/secrets/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/signalers"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func Test_fetchSecrets(t *testing.T) {
+func Test_SecretsWorker(t *testing.T) {
 	var (
 		ctx       = coretestutils.Context(t)
 		lggr      = logger.TestLogger(t)
 		backendTH = testutils.NewEVMBackendTH(t)
-		updater   ORM
+		orm       = workerMocks.NewORM(t)
 		fetcherFn = func(_ context.Context, _ string) ([]byte, error) {
-			return nil, assert.AnError
+			return nil, nil
 		}
 		giveTimer      = signalers.MakeTicker(ctx.Done(), 500*time.Millisecond)
 		giveSecretsURL = "https://original-url.com"
@@ -39,7 +43,7 @@ func Test_fetchSecrets(t *testing.T) {
 		}
 		contractName = "WorkflowRegistry"
 		eventName    = "WorkflowForceUpdateSecretsRequestedV1"
-		giveCfg      = ContractEventPollerConfig{
+		giveCfg      = syncer.ContractEventPollerConfig{
 			ContractName:      contractName,
 			ContractEventName: eventName,
 			QueryCount:        20,
@@ -87,17 +91,18 @@ func Test_fetchSecrets(t *testing.T) {
 
 	giveCfg.StartBlockNum = uint64(0)
 
-	worker := newSecretsWorker(
+	orm.EXPECT().GetSecretsURL(matches.AnyContext, matches.AnyString).Return(giveSecretsURL, nil).Times(sendLogs)
+	orm.EXPECT().Update(matches.AnyContext, matches.AnyString, matches.AnyString).Return(0, nil).Times(sendLogs)
+
+	worker := syncer.NewWorker(
 		lggr,
 		0,
 		20,
 		wfRegistryAddr.Hex(),
 		contractReader,
-		updater,
+		orm,
 		fetcherFn,
-		func(w *worker) {
-			w.timer = giveTimer
-		},
+		syncer.WithTimer(giveTimer),
 	)
 
 	// generate a log event
@@ -105,10 +110,7 @@ func Test_fetchSecrets(t *testing.T) {
 	updateAllowedDONs(t, backendTH, wfRegistryC, []uint32{1}, true)
 	registerWorkflow(t, backendTH, wfRegistryC, giveWorkflow)
 
-	probes := worker.fetchSecrets(
-		ctx,
-		giveCfg,
-	)
+	servicetest.Run(t, worker)
 
 	done := make(chan struct{})
 
@@ -118,15 +120,12 @@ func Test_fetchSecrets(t *testing.T) {
 			select {
 			case <-time.After(10 * time.Second):
 				t.Fatal("timed out")
-			case l := <-probes.Logs:
+			case l := <-worker.GetLogs():
 				lggr.Debugf("got some logs %v", l)
 				gotLogs = append(gotLogs, l)
 				if len(gotLogs) == wantLogs {
 					return
 				}
-			case err := <-probes.Err:
-				lggr.Infof("got err %+v", err)
-				return
 			}
 		}
 	}()
