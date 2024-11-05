@@ -32,7 +32,7 @@ func TestEncryptKeyRawPrivateKey(t *testing.T) {
 
 	privateKey := privKey.Raw()
 
-	assert.Equal(t, "<Encryption Raw Private Key>", privateKey.String())
+	assert.Equal(t, "<WorkflowEncryption Raw Private Key>", privateKey.String())
 	assert.Equal(t, privateKey.String(), privateKey.GoString())
 }
 

@@ -108,6 +108,7 @@ func (ks *workflowEncryption) Import(ctx context.Context, keyJSON []byte, passwo
 	if ks.isLocked() {
 		return workflowencryptionkey.Key{}, ErrLocked
 	}
+
 	key, err := workflowencryptionkey.FromEncryptedJSON(keyJSON, password)
 	if err != nil {
 		return workflowencryptionkey.Key{}, errors.Wrap(err, "WorkflowEncryptionKeyStore#ImportKey failed to decrypt key")

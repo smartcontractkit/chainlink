@@ -13,15 +13,15 @@ import (
 type Raw []byte
 
 func (raw Raw) Key() Key {
-	privKey := [32]byte(raw)
+	privateKey := [32]byte(raw)
 	return Key{
-		privateKey: &privKey,
-		publicKey:  curve25519PubKeyFromPrivKey(privKey),
+		privateKey: &privateKey,
+		publicKey:  curve25519PubKeyFromPrivateKey(privateKey),
 	}
 }
 
 func (raw Raw) String() string {
-	return "<Encryption Raw Private Key>"
+	return fmt.Sprintf("<%s Raw Private Key>", keyTypeIdentifier)
 }
 
 func (raw Raw) GoString() string {
@@ -38,13 +38,13 @@ type Key struct {
 }
 
 func New() (Key, error) {
-	publicKey, privKey, err := box.GenerateKey(cryptorand.Reader)
+	publicKey, privateKey, err := box.GenerateKey(cryptorand.Reader)
 	if err != nil {
 		return Key{}, err
 	}
 
 	return Key{
-		privateKey: privKey,
+		privateKey: privateKey,
 		publicKey:  publicKey,
 	}, nil
 }
@@ -68,7 +68,7 @@ func (k Key) Raw() Raw {
 }
 
 func (k Key) String() string {
-	return fmt.Sprintf("WorkflowEncryptionKey{PrivateKey: <redacted>, PublicKey: %s}", *k.publicKey)
+	return fmt.Sprintf("%sKey{PrivateKey: <redacted>, PublicKey: %s}", keyTypeIdentifier, *k.publicKey)
 }
 
 func (k Key) GoString() string {
@@ -97,11 +97,11 @@ func (k Key) Decrypt(ciphertext []byte) (plaintext []byte, err error) {
 	return decrypted, nil
 }
 
-func curve25519PubKeyFromPrivKey(privKey [curve25519.PointSize]byte) *[curve25519.PointSize]byte {
+func curve25519PubKeyFromPrivateKey(privateKey [curve25519.PointSize]byte) *[curve25519.PointSize]byte {
 	var publicKey [curve25519.PointSize]byte
 
 	// Derive the public key
-	curve25519.ScalarBaseMult(&publicKey, &privKey)
+	curve25519.ScalarBaseMult(&publicKey, &privateKey)
 
 	return &publicKey
 }

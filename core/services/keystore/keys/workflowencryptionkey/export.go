@@ -7,7 +7,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-const keyTypeIdentifier = "Encryption"
+const keyTypeIdentifier = "WorkflowEncryption"
 
 func FromEncryptedJSON(keyJSON []byte, password string) (Key, error) {
 	return keys.FromEncryptedJSON(
