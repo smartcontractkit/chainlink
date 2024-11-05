@@ -194,6 +194,9 @@ MinContractPayment = 0
 PriceMax = '200 gwei'
 LimitDefault = 6000000
 FeeCapDefault = '200 gwei'
+
+[HeadTracker]
+HistoryDepth = 20
 """
 
 [Common]
