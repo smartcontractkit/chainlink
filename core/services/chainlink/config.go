@@ -124,11 +124,12 @@ func (c RawConfig) parse() (*parsedRawConfig, error) {
 		err = multierr.Append(err, commonconfig.ErrMissing{Name: "ChainID", Msg: "required for all chains"})
 	} else {
 		chainIDStr, ok := chainID.(string)
-		if !ok {
+		switch {
+		case !ok:
 			err = multierr.Append(err, commonconfig.ErrInvalid{Name: "ChainID", Value: chainID, Msg: "expected string"})
-		} else if chainIDStr == "" {
+		case chainIDStr == "":
 			err = multierr.Append(err, commonconfig.ErrEmpty{Name: "ChainID", Msg: "required for all chains"})
-		} else {
+		default:
 			parsedRawConfig.chainID = chainIDStr
 		}
 	}
@@ -137,11 +138,12 @@ func (c RawConfig) parse() (*parsedRawConfig, error) {
 		err = multierr.Append(err, commonconfig.ErrMissing{Name: "Nodes", Msg: "expected at least one node"})
 	} else {
 		nodeMaps, ok := nodes.([]any)
-		if !ok {
+		switch {
+		case !ok:
 			err = multierr.Append(err, commonconfig.ErrInvalid{Name: "Nodes", Value: nodes, Msg: "expected array of node configs"})
-		} else if len(nodeMaps) == 0 {
+		case len(nodeMaps) == 0:
 			err = multierr.Append(err, commonconfig.ErrEmpty{Name: "Nodes", Msg: "expected at least one node"})
-		} else {
+		default:
 			for i, node := range nodeMaps {
 				nodeConfig, ok := node.(map[string]any)
 				if !ok {
@@ -153,11 +155,12 @@ func (c RawConfig) parse() (*parsedRawConfig, error) {
 						err = multierr.Append(err, commonconfig.ErrMissing{Name: fmt.Sprintf("Nodes.%d.Name", i), Msg: "required for all nodes"})
 					} else {
 						nodeNameStr, ok := nodeName.(string)
-						if !ok {
+						switch {
+						case !ok:
 							err = multierr.Append(err, commonconfig.ErrInvalid{Name: fmt.Sprintf("Nodes.%d.Name", i), Value: nodeName, Msg: "expected string"})
-						} else if nodeNameStr == "" {
+						case nodeNameStr == "":
 							err = multierr.Append(err, commonconfig.ErrEmpty{Name: fmt.Sprintf("Nodes.%d.Name", i), Msg: "required for all nodes"})
-						} else {
+						default:
 							parsedRawConfig.nodeNames = append(parsedRawConfig.nodeNames, nodeNameStr)
 						}
 					}
