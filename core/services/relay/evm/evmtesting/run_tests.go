@@ -22,14 +22,14 @@ import (
 )
 
 const (
-	QueryKeyFilterOnDataWordsWithValueComparator                             = "Filtering can be done on data words using value comparator"
-	QueryKeyOnDataWordsWithValueComparatorOnNestedField                      = "Filtering can be done on data words using value comparator on a nested field"
-	QueryKeyFilterOnDataWordsWithValueComparatorOnDynamicField               = "Filtering can be done on data words using value comparator on field that follows a dynamic field"
-	QueryKeyFilteringOnDataWordsUsingValueComparatorsOnFieldsWithManualIndex = "Filtering can be done on data words using value comparators on fields that require manual index input"
-	DynamicTypedTopicsFilterAndCorrectReturn                                 = "Dynamically typed topics can be used to filter and have type correct in return"
-	MultipleTopicCanFilterTogether                                           = "Multiple topics can filter together"
-	FilteringCanBeDoneOnHashedIndexedTopics                                  = "Filtering can be done on indexed topics that get hashed"
-	BindReturnsErrorOnMissingContractAtAddress                               = "Bind returns error on missing contract at address"
+	ContractReaderQueryKeyFilterOnDataWordsWithValueComparator                             = "Filtering can be done on data words using value comparator"
+	ContractReaderQueryKeyOnDataWordsWithValueComparatorOnNestedField                      = "Filtering can be done on data words using value comparator on a nested field"
+	ContractReaderQueryKeyFilterOnDataWordsWithValueComparatorOnDynamicField               = "Filtering can be done on data words using value comparator on field that follows a dynamic field"
+	ContractReaderQueryKeyFilteringOnDataWordsUsingValueComparatorsOnFieldsWithManualIndex = "Filtering can be done on data words using value comparators on fields that require manual index input"
+	ContractReaderDynamicTypedTopicsFilterAndCorrectReturn                                 = "Dynamically typed topics can be used to filter and have type correct in return"
+	ContractReaderMultipleTopicCanFilterTogether                                           = "Multiple topics can filter together"
+	ContractReaderFilteringCanBeDoneOnHashedIndexedTopics                                  = "Filtering can be done on indexed topics that get hashed"
+	ContractReaderBindReturnsErrorOnMissingContractAtAddress                               = "Bind returns error on missing contract at address"
 )
 
 func RunChainComponentsEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfaceTester[T]) {
@@ -47,7 +47,7 @@ func RunContractReaderEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfa
 
 	testCases := []Testcase[T]{
 		{
-			Name: DynamicTypedTopicsFilterAndCorrectReturn,
+			Name: ContractReaderDynamicTypedTopicsFilterAndCorrectReturn,
 			Test: func(t T) {
 				it.Setup(t)
 
@@ -86,7 +86,7 @@ func RunContractReaderEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfa
 			},
 		},
 		{
-			Name: MultipleTopicCanFilterTogether,
+			Name: ContractReaderMultipleTopicCanFilterTogether,
 			Test: func(t T) {
 				it.Setup(t)
 				ctx := it.Helper.Context(t)
@@ -119,7 +119,7 @@ func RunContractReaderEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfa
 			},
 		},
 		{
-			Name: FilteringCanBeDoneOnHashedIndexedTopics,
+			Name: ContractReaderFilteringCanBeDoneOnHashedIndexedTopics,
 			Test: func(t T) {
 				it.Setup(t)
 
@@ -156,7 +156,7 @@ func RunContractReaderEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfa
 			},
 		},
 		{
-			Name: BindReturnsErrorOnMissingContractAtAddress,
+			Name: ContractReaderBindReturnsErrorOnMissingContractAtAddress,
 			Test: func(t T) {
 				it.Setup(t)
 
@@ -178,7 +178,7 @@ func RunContractReaderInLoopTests[T TestingT[T]](t T, it ChainComponentsInterfac
 
 	testCases := []Testcase[T]{
 		{
-			Name: QueryKeyFilterOnDataWordsWithValueComparator,
+			Name: ContractReaderQueryKeyFilterOnDataWordsWithValueComparator,
 			Test: func(t T) {
 				ctx := tests.Context(t)
 				cr := it.GetContractReader(t)
@@ -209,7 +209,7 @@ func RunContractReaderInLoopTests[T TestingT[T]](t T, it ChainComponentsInterfac
 			},
 		},
 		{
-			Name: QueryKeyOnDataWordsWithValueComparatorOnNestedField,
+			Name: ContractReaderQueryKeyOnDataWordsWithValueComparatorOnNestedField,
 			Test: func(t T) {
 				ctx := tests.Context(t)
 				cr := it.GetContractReader(t)
@@ -245,7 +245,7 @@ func RunContractReaderInLoopTests[T TestingT[T]](t T, it ChainComponentsInterfac
 			},
 		},
 		{
-			Name: QueryKeyFilterOnDataWordsWithValueComparatorOnDynamicField,
+			Name: ContractReaderQueryKeyFilterOnDataWordsWithValueComparatorOnDynamicField,
 			Test: func(t T) {
 				ctx := tests.Context(t)
 				cr := it.GetContractReader(t)
@@ -281,7 +281,7 @@ func RunContractReaderInLoopTests[T TestingT[T]](t T, it ChainComponentsInterfac
 			},
 		},
 		{
-			Name: QueryKeyFilteringOnDataWordsUsingValueComparatorsOnFieldsWithManualIndex,
+			Name: ContractReaderQueryKeyFilteringOnDataWordsUsingValueComparatorsOnFieldsWithManualIndex,
 			Test: func(t T) {
 				ctx := tests.Context(t)
 				cr := it.GetContractReader(t)
