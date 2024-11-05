@@ -2,7 +2,7 @@
 pragma solidity 0.8.24;
 
 import {BurnFromMintTokenPool} from "../../../pools/BurnFromMintTokenPool.sol";
-import {BurnMintSetup} from "../BurnMint/BurnMintSetup.t.sol";
+import {BurnMintSetup} from "../BurnMintTokenPool/BurnMintSetup.t.sol";
 
 contract BurnFromMintTokenPoolSetup is BurnMintSetup {
   BurnFromMintTokenPool internal s_pool;

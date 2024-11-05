@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
-import {Internal} from "../../../libraries/Internal.sol";
-import {Pool} from "../../../libraries/Pool.sol";
-import {RateLimiter} from "../../../libraries/RateLimiter.sol";
-import {TokenPool} from "../../../pools/TokenPool.sol";
-import {USDCTokenPool} from "../../../pools/USDC/USDCTokenPool.sol";
-import {MockE2EUSDCTransmitter} from "../../mocks/MockE2EUSDCTransmitter.sol";
+import {Internal} from "../../../../libraries/Internal.sol";
+import {Pool} from "../../../../libraries/Pool.sol";
+import {RateLimiter} from "../../../../libraries/RateLimiter.sol";
+import {TokenPool} from "../../../../pools/TokenPool.sol";
+import {USDCTokenPool} from "../../../../pools/USDC/USDCTokenPool.sol";
+import {MockE2EUSDCTransmitter} from "../../../mocks/MockE2EUSDCTransmitter.sol";
 import {USDCTokenPoolSetup} from "./USDCTokenPoolSetup.t.sol";
 
 contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {

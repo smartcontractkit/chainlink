@@ -5,7 +5,7 @@ import {Pool} from "../../../libraries/Pool.sol";
 import {RateLimiter} from "../../../libraries/RateLimiter.sol";
 import {BurnWithFromMintTokenPool} from "../../../pools/BurnWithFromMintTokenPool.sol";
 import {TokenPool} from "../../../pools/TokenPool.sol";
-import {BurnMintSetup} from "./BurnMintSetup.t.sol";
+import {BurnMintSetup} from "../BurnMintTokenPool/BurnMintSetup.t.sol";
 
 import {IERC20} from "../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 

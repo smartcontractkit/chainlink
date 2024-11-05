@@ -7,7 +7,7 @@ import {TokenPool} from "../../../pools/TokenPool.sol";
 import {BurnMintWithLockReleaseFlagTokenPool} from "../../../pools/USDC/BurnMintWithLockReleaseFlagTokenPool.sol";
 
 import {LOCK_RELEASE_FLAG} from "../../../pools/USDC/HybridLockReleaseUSDCTokenPool.sol";
-import {BurnMintSetup} from "./BurnMintSetup.t.sol";
+import {BurnMintSetup} from "../BurnMintTokenPool/BurnMintSetup.t.sol";
 
 import {IERC20} from "../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
