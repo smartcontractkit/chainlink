@@ -45,7 +45,7 @@ func (c pluginRegistry) TransitionFrom(prevPlugins pluginRegistry) error {
 	prevOracles := mapset.NewSet[ocrtypes.ConfigDigest](maps.Keys(prevPlugins)...)
 	currOracles := mapset.NewSet[ocrtypes.ConfigDigest](maps.Keys(c)...)
 
-	var ops = make([]syncAction, 0, 8)
+	var ops = make([]syncAction, 0, 2*MaxPlugins)
 	for digest := range prevOracles.Difference(currOracles).Iterator().C {
 		ops = append(ops, syncAction{
 			command: closeAction,
