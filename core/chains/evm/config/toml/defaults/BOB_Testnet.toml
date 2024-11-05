@@ -21,3 +21,7 @@ CacheTimeout = '2s'
 
 [GasEstimator.BlockHistory]
 BlockHistorySize = 100
+
+[GasEstimator.DAOracle]
+OracleType = 'opstack'
+OracleAddress = '0x420000000000000000000000000000000000000F'

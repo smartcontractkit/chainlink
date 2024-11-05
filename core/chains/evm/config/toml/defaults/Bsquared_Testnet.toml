@@ -4,12 +4,12 @@ ChainType = 'optimismBedrock'
 # finality_depth was: ~1900
 FinalityDepth = 2000
 # block_time:  ~2s 
-LogPollInterval = '5s' 
+LogPollInterval = '5s'
 
 # finality_depth * block_time / 60 secs = ~66  min (finality time)
-NoNewFinalizedHeadsThreshold = '70m' 
+NoNewFinalizedHeadsThreshold = '70m'
 
-FinalityTagEnabled = true 
+FinalityTagEnabled = true
 
 [GasEstimator]
 EIP1559DynamicFees = true
@@ -21,3 +21,7 @@ CacheTimeout = '2s'
 
 [GasEstimator.BlockHistory]
 BlockHistorySize = 100
+
+[GasEstimator.DAOracle]
+OracleType = 'opstack'
+OracleAddress = '0x420000000000000000000000000000000000000F'

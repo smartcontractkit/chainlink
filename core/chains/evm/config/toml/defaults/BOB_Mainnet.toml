@@ -4,7 +4,7 @@ ChainType = 'optimismBedrock'
 # finality_depth was: ~850
 FinalityDepth = 900
 # block_time was:  2s
-LogPollInterval = '5s'  
+LogPollInterval = '5s'
 
 # finality_depth * block_time / 60 secs = ~30  min (finality time)
 NoNewFinalizedHeadsThreshold = '35m'
@@ -21,3 +21,7 @@ CacheTimeout = '2s'
 
 [GasEstimator.BlockHistory]
 BlockHistorySize = 100
+
+[GasEstimator.DAOracle]
+OracleType = 'opstack'
+OracleAddress = '0x420000000000000000000000000000000000000F'
