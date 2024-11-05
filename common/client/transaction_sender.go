@@ -160,8 +160,8 @@ func (txSender *TransactionSender[TX, RESULT, CHAIN_ID, RPC]) SendTransaction(ct
 	txSender.wg.Add(1)
 	reportWg.Add(1)
 	go func() {
+		defer reportWg.Done()
 		txSender.reportSendTxAnomalies(tx, txResultsToReport)
-		reportWg.Done()
 	}()
 
 	return txSender.collectTxResults(ctx, tx, healthyNodesNum, txResults)
