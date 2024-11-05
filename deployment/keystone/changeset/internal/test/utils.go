@@ -8,8 +8,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 
@@ -19,10 +22,15 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
+type Don struct {
+	Name              string
+	P2PIDs            []p2pkey.PeerID
+	CapabilityConfigs []internal.CapabilityConfig
+}
 type SetupTestRegistryRequest struct {
 	P2pToCapabilities map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability
 	NopToNodes        map[kcr.CapabilitiesRegistryNodeOperator][]*internal.P2PSignerEnc
-	DonToNodes        map[string][]*internal.P2PSignerEnc
+	Dons              []Don
 }
 
 type SetupTestRegistryResponse struct {
@@ -74,6 +82,8 @@ func SetupTestRegistry(t *testing.T, lggr logger.Logger, req *SetupTestRegistryR
 	nodeParams, err := phonyRequest.NodeParams()
 	require.NoError(t, err)
 	addNodes(t, lggr, chain, registry, nodeParams)
+	addDons(t, lggr, chain, registry, capCache, req.Dons)
+
 	return &SetupTestRegistryResponse{
 		Registry:         registry,
 		Chain:            chain,
@@ -108,6 +118,45 @@ func addNodes(t *testing.T, lggr logger.Logger, chain deployment.Chain, registry
 	require.NoError(t, err)
 }
 
+func addDons(t *testing.T, lggr logger.Logger, chain deployment.Chain, registry *kcr.CapabilitiesRegistry, cc *CapabilityCache, dons []Don) {
+	for _, don := range dons {
+		acceptsWorkflows := false
+		// lookup the capabilities
+		var capConfigs []kcr.CapabilitiesRegistryCapabilityConfiguration
+		for _, ccfg := range don.CapabilityConfigs {
+			if ccfg.Config == nil {
+				ccfg.Config = defaultCapConfig(t, ccfg.Capability)
+			}
+			var exists bool
+			ccfg.CapabilityId, exists = cc.Get(ccfg.Capability)
+			require.True(t, exists, "capability not found in cache %v", ccfg.Capability)
+			capConfigs = append(capConfigs, ccfg.CapabilitiesRegistryCapabilityConfiguration)
+			if ccfg.Capability.CapabilityType == 2 { // ocr3 capabilities
+				acceptsWorkflows = true
+			}
+		}
+		// add the don
+		isPublic := true
+		f := len(don.P2PIDs)/3 + 1
+		tx, err := registry.AddDON(chain.DeployerKey, internal.PeerIDsToBytes(don.P2PIDs), capConfigs, isPublic, acceptsWorkflows, uint8(f))
+		if err != nil {
+			err2 := kslib.DecodeErr(kcr.CapabilitiesRegistryABI, err)
+			require.Fail(t, fmt.Sprintf("failed to call AddDON: %s:  %s", err, err2))
+		}
+		_, err = chain.Confirm(tx)
+		require.NoError(t, err)
+	}
+}
+
+func defaultCapConfig(t *testing.T, cap kcr.CapabilitiesRegistryCapability) []byte {
+	empty := &capabilitiespb.CapabilityConfig{
+		DefaultConfig: values.Proto(values.EmptyMap()).GetMapValue(),
+	}
+	emptyb, err := proto.Marshal(empty)
+	require.NoError(t, err)
+	return emptyb
+}
+
 // CapabilityCache tracks registered capabilities by name
 type CapabilityCache struct {
 	t        *testing.T
@@ -119,6 +168,10 @@ func NewCapabiltyCache(t *testing.T) *CapabilityCache {
 		t:        t,
 		nameToId: make(map[string][32]byte),
 	}
+}
+func (cc *CapabilityCache) Get(cap kcr.CapabilitiesRegistryCapability) ([32]byte, bool) {
+	id, exists := cc.nameToId[kslib.CapabilityID(cap)]
+	return id, exists
 }
 
 // AddCapabilities adds the capabilities to the registry and returns the registered capabilities
