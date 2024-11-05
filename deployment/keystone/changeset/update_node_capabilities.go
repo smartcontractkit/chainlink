@@ -30,7 +30,11 @@ func NewP2PSignerEnc(n *models.Node, registryChainSel uint64) (*P2PSignerEnc, er
 	}, nil
 }
 
-type UpdateNodeCapabilitiesRequest struct {
+// UpdateNodeCapabilitiesRequest is a request to set the capabilities of nodes in the registry
+type UpdateNodeCapabilitiesRequest = MutateNodeCapabilitiesRequest
+
+// MutateNodeCapabilitiesRequest is a request to change the capabilities of nodes in the registry
+type MutateNodeCapabilitiesRequest struct {
 	AddressBook      deployment.AddressBook
 	RegistryChainSel uint64
 
@@ -38,7 +42,7 @@ type UpdateNodeCapabilitiesRequest struct {
 	NopToNodes        map[kcr.CapabilitiesRegistryNodeOperator][]*P2PSignerEnc
 }
 
-func (req *UpdateNodeCapabilitiesRequest) Validate() error {
+func (req *MutateNodeCapabilitiesRequest) Validate() error {
 	if req.AddressBook == nil {
 		return fmt.Errorf("address book is nil")
 	}
@@ -56,7 +60,7 @@ func (req *UpdateNodeCapabilitiesRequest) Validate() error {
 	return nil
 }
 
-func (req *UpdateNodeCapabilitiesRequest) updateNodeCapabilitiesImplRequest(e deployment.Environment) (*internal.UpdateNodeCapabilitiesImplRequest, error) {
+func (req *MutateNodeCapabilitiesRequest) updateNodeCapabilitiesImplRequest(e deployment.Environment) (*internal.UpdateNodeCapabilitiesImplRequest, error) {
 	if err := req.Validate(); err != nil {
 		return nil, fmt.Errorf("failed to validate UpdateNodeCapabilitiesRequest: %w", err)
 	}
@@ -86,9 +90,9 @@ func (req *UpdateNodeCapabilitiesRequest) updateNodeCapabilitiesImplRequest(e de
 
 // UpdateNodeCapabilities updates the capabilities of nodes in the registry
 func UpdateNodeCapabilities(env deployment.Environment, config any) (deployment.ChangesetOutput, error) {
-	req, ok := config.(*UpdateNodeCapabilitiesRequest)
+	req, ok := config.(*MutateNodeCapabilitiesRequest)
 	if !ok {
-		return deployment.ChangesetOutput{}, fmt.Errorf("invalid config type. want %T, got %T", &UpdateNodeCapabilitiesRequest{}, config)
+		return deployment.ChangesetOutput{}, fmt.Errorf("invalid config type. want %T, got %T", &MutateNodeCapabilitiesRequest{}, config)
 	}
 	c, err := req.updateNodeCapabilitiesImplRequest(env)
 	if err != nil {
