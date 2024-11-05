@@ -1,12 +1,12 @@
 package launcher
 
 import (
-	"errors"
 	"fmt"
-	"sync"
-
+	mapset "github.com/deckarep/golang-set/v2"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"go.uber.org/multierr"
+	"golang.org/x/exp/maps"
+	"sync"
 
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
@@ -41,41 +41,57 @@ func (c pluginRegistry) TransitionFrom(prevPlugins pluginRegistry) error {
 		return fmt.Errorf("current pluginRegistry or prevPlugins have more than 4 instances: len(prevPlugins): %d, len(currPlugins): %d", len(prevPlugins), len(c))
 	}
 
+	prevOracles := mapset.NewSet[ocrtypes.ConfigDigest](maps.Keys(prevPlugins)...)
+	currOracles := mapset.NewSet[ocrtypes.ConfigDigest](maps.Keys(c)...)
+
+	var ops = make([]syncAction, 0, 8)
+	for digest := range prevOracles.Difference(currOracles).Iterator().C {
+		ops = append(ops, syncAction{
+			command: closeAction,
+			oracle:  prevPlugins[digest],
+		})
+	}
+
+	for digest := range currOracles.Difference(prevOracles).Iterator().C {
+		ops = append(ops, syncAction{
+			command: openAction,
+			oracle:  c[digest],
+		})
+	}
+
 	var wg sync.WaitGroup
 	var mu sync.Mutex
-	// This shuts down instances that were present previously, but are no longer needed
-	for digest, oracle := range prevPlugins {
-		if _, ok := c[digest]; !ok {
-			wg.Add(1)
-			go func(o cctypes.CCIPOracle) {
-				defer wg.Done()
-				if err := o.Close(); err != nil {
+	for _, op := range ops {
+		wg.Add(1)
+		go func(op syncAction) {
+			defer wg.Done()
+			if op.command == closeAction {
+				if err := op.oracle.Close(); err != nil {
 					mu.Lock()
 					allErrs = multierr.Append(allErrs, err)
 					mu.Unlock()
 				}
-			}(oracle)
-		}
-	}
-	wg.Wait()
+			} else if op.command == openAction {
+				if err := op.oracle.Start(); err != nil {
+					mu.Lock()
+					allErrs = multierr.Append(allErrs, err)
+					mu.Unlock()
+				}
+			}
 
-	// This will start the instances that were not previously present, but are in the new config
-	for digest, oracle := range c {
-		if digest == [32]byte{} {
-			allErrs = multierr.Append(allErrs, errors.New("cannot start a plugin with an empty config digest"))
-		} else if _, ok := prevPlugins[digest]; !ok {
-			wg.Add(1)
-			go func(o cctypes.CCIPOracle) {
-				defer wg.Done()
-				if err := o.Start(); err != nil {
-					mu.Lock()
-					allErrs = multierr.Append(allErrs, err)
-					mu.Unlock()
-				}
-			}(oracle)
-		}
+		}(op)
 	}
 	wg.Wait()
 
 	return allErrs
+}
+
+const (
+	closeAction = iota
+	openAction  = iota
+)
+
+type syncAction struct {
+	command int
+	oracle  cctypes.CCIPOracle
 }
