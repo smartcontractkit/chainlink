@@ -515,13 +515,13 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
   /**
    * @notice sync data with the primary rounds, return the freshest valid round id
    */
-  function _getSyncPrimaryRound() internal view returns (uint80 roundId) {
+  function _getSyncPrimaryRound() internal view returns (uint32 roundId) {
     // get the latest round id
     uint32 latestAggregatorRoundId = s_hotVars.latestAggregatorRoundId;
 
     // decreasing loop from the latest primary round id
-    for (uint80 round_ = latestAggregatorRoundId; round_ > 0; --round_) {
-      Transmission memory transmission = s_transmissions[uint32(round_)];
+    for (uint32 round_ = latestAggregatorRoundId; round_ > 0; --round_) {
+      Transmission memory transmission = s_transmissions[round_];
 
       // check if this round does not accomplish the cutoff time condition
       if (transmission.recordedTimestamp + s_cutoffTime < block.timestamp) {
@@ -536,6 +536,34 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
 
     // if the loop couldn't find a match, return the latest secondary round id
     return s_hotVars.latestSecondaryRoundId;
+  }
+
+  /**
+   * @notice Aggregator round (NOT OCR round) in which last valid report was transmitted
+   */
+  function _getLatestRound() internal view returns (uint32) {
+    Transmission memory transmission;
+
+    // check if the message sender is the secondary proxy
+    if (msg.sender == s_secondaryProxy) {
+      transmission = s_transmissions[s_hotVars.latestSecondaryRoundId];
+      // in case the latest secondary round does not accomplish the cutoff time condition,
+      // get the round id syncing with the primary rounds
+      if (transmission.recordedTimestamp + s_cutoffTime < block.timestamp) {
+        return _getSyncPrimaryRound();
+      }
+
+      // in case the latest secondary round accomplish the cutoff time condition, return it
+      return s_hotVars.latestSecondaryRoundId;
+    }
+    // if the message sender is not the secondary proxy, get the latest primary round id
+    transmission = s_transmissions[s_hotVars.latestAggregatorRoundId];
+    // in case the report was sent in the same block, get the previous round id
+    if (transmission.recordedTimestamp == block.timestamp) {
+      return s_hotVars.latestAggregatorRoundId - 1;
+    }
+
+    return s_hotVars.latestAggregatorRoundId;
   }
 
   /**
@@ -832,21 +860,21 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
    * @notice median from the most recent report
    */
   function latestAnswer() public view virtual override returns (int256) {
-    return s_transmissions[s_hotVars.latestAggregatorRoundId].answer;
+    return s_transmissions[_getLatestRound()].answer;
   }
 
   /**
    * @notice timestamp of block in which last report was transmitted
    */
   function latestTimestamp() public view virtual override returns (uint256) {
-    return s_transmissions[s_hotVars.latestAggregatorRoundId].recordedTimestamp;
+    return s_transmissions[_getLatestRound()].recordedTimestamp;
   }
 
   /**
    * @notice Aggregator round (NOT OCR round) in which last report was transmitted
    */
   function latestRound() public view virtual override returns (uint256) {
-    return s_hotVars.latestAggregatorRoundId;
+    return _getLatestRound();
   }
 
   /**
@@ -856,7 +884,7 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
   function getAnswer(
     uint256 roundId
   ) public view virtual override returns (int256) {
-    if (roundId > 0xFFFFFFFF) return 0;
+    if (roundId > _getLatestRound()) return 0;
     return s_transmissions[uint32(roundId)].answer;
   }
 
@@ -867,7 +895,7 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
   function getTimestamp(
     uint256 roundId
   ) public view virtual override returns (uint256) {
-    if (roundId > 0xFFFFFFFF) return 0;
+    if (roundId > _getLatestRound()) return 0;
     return s_transmissions[uint32(roundId)].recordedTimestamp;
   }
 
@@ -920,14 +948,8 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     override
     returns (uint80 roundId_, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
   {
-    // TODO: update this function with implementation from the doc
-
-    if (roundId > type(uint32).max) return (0, 0, 0, 0, 0);
+    if (roundId > _getLatestRound()) return (0, 0, 0, 0, 0);
     Transmission memory transmission = s_transmissions[uint32(roundId)];
-    if (transmission.recordedTimestamp == block.timestamp) {
-      // If latest round is requested before it is unlocked, return with whatever behavior would happen if the round was not yet recorded.
-      revert RoundNotFound();
-    }
 
     return (roundId, transmission.answer, transmission.observationsTimestamp, transmission.recordedTimestamp, roundId);
   }
@@ -947,23 +969,15 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     override
     returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
   {
-    // TODO: update this function with implementation from the doc
-
-    uint32 latestAggregatorRoundId = s_hotVars.latestAggregatorRoundId;
-
-    Transmission memory transmission = s_transmissions[latestAggregatorRoundId];
-
-    // TODO: update this based on design modifications
-    if (transmission.recordedTimestamp == block.timestamp) {
-      transmission = s_transmissions[--latestAggregatorRoundId];
-    }
+    uint80 latestRoundId = _getLatestRound();
+    Transmission memory transmission = s_transmissions[uint32(latestRoundId)];
 
     return (
-      latestAggregatorRoundId,
+      latestRoundId,
       transmission.answer,
       transmission.observationsTimestamp,
       transmission.recordedTimestamp,
-      latestAggregatorRoundId
+      latestRoundId
     );
   }
 
