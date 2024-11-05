@@ -29,9 +29,9 @@ type ContractSet struct {
 }
 
 func (cs ContractSet) View() (view.KeystoneChainView, error) {
-	var out view.KeystoneChainView
+	out := view.NewKeystoneChainView()
 	if cs.CapabilitiesRegistry != nil {
-		capRegView, err := common_v1_0.GenerateCapRegView(cs.CapabilitiesRegistry)
+		capRegView, err := common_v1_0.GenerateCapabilityRegistryView(cs.CapabilitiesRegistry)
 		if err != nil {
 			return view.KeystoneChainView{}, err
 		}

@@ -6,15 +6,23 @@ import {IRMNRemote} from "../../interfaces/IRMNRemote.sol";
 
 import {AuthorizedCallers} from "../../../shared/access/AuthorizedCallers.sol";
 import {NonceManager} from "../../NonceManager.sol";
+import {Router} from "../../Router.sol";
+import {Client} from "../../libraries/Client.sol";
+import {Internal} from "../../libraries/Internal.sol";
+import {OffRamp} from "../../offRamp/OffRamp.sol";
+import {OnRamp} from "../../onRamp/OnRamp.sol";
 import {LockReleaseTokenPool} from "../../pools/LockReleaseTokenPool.sol";
 import {TokenAdminRegistry} from "../../tokenAdminRegistry/TokenAdminRegistry.sol";
-import "../helpers/MerkleHelper.sol";
-import "../offRamp/OffRampSetup.t.sol";
-import "../onRamp/OnRampSetup.t.sol";
+import {MerkleHelper} from "../helpers/MerkleHelper.sol";
+import {OnRampHelper} from "../helpers/OnRampHelper.sol";
+import {OffRampSetup} from "../offRamp/offRamp/OffRampSetup.t.sol";
+import {OnRampSetup} from "../onRamp/OnRampSetup.t.sol";
+
+import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
 /// @notice This E2E test implements the following scenario:
-/// 1. Send multiple messages from multiple source chains to a single destination chain (2 messages from source chain 1 and 1 from
-/// source chain 2).
+/// 1. Send multiple messages from multiple source chains to a single destination chain (2 messages from source chain
+/// 1 and 1 from source chain 2).
 /// 2. Commit multiple merkle roots (1 for each source chain).
 /// 3. Batch execute all the committed messages.
 contract E2E is OnRampSetup, OffRampSetup {

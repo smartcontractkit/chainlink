@@ -815,6 +815,7 @@ func (d *DAOracle) setFrom(f *DAOracle) {
 	if v := f.OracleType; v != nil {
 		d.OracleType = v
 	}
+
 	if v := f.OracleAddress; v != nil {
 		d.OracleAddress = v
 	}

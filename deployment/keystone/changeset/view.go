@@ -13,10 +13,10 @@ import (
 
 var _ deployment.ViewState = ViewKeystone
 
-func ViewKeystone(e deployment.Environment, ab deployment.AddressBook) (json.Marshaler, error) {
+func ViewKeystone(e deployment.Environment) (json.Marshaler, error) {
 	state, err := keystone.GetContractSets(&keystone.GetContractSetsRequest{
 		Chains:      e.Chains,
-		AddressBook: ab,
+		AddressBook: e.ExistingAddresses,
 	})
 	if err != nil {
 		return nil, err
@@ -42,7 +42,7 @@ func ViewKeystone(e deployment.Environment, ab deployment.AddressBook) (json.Mar
 	if err != nil {
 		return nil, err
 	}
-	return view.KeystoneView{
+	return &view.KeystoneView{
 		Chains: chainViews,
 		Nops:   nopsView,
 	}, nil

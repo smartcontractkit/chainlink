@@ -3,20 +3,23 @@ package changeset
 import (
 	"fmt"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	chainsel "github.com/smartcontractkit/chain-selectors"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
+	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
 
+var _ deployment.ChangeSet = AppendNodeCapabilities
+
 type AppendNodeCapabilitiesRequest struct {
-	Chain    deployment.Chain
-	Registry *kcr.CapabilitiesRegistry
+	AddressBook      deployment.AddressBook
+	RegistryChainSel uint64
 
 	P2pToCapabilities map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability
-	NopToNodes        map[kcr.CapabilitiesRegistryNodeOperator][]*kslib.P2PSignerEnc
+	NopToNodes        map[kcr.CapabilitiesRegistryNodeOperator][]*P2PSignerEnc
 }
 
 func (req *AppendNodeCapabilitiesRequest) Validate() error {
@@ -26,12 +29,18 @@ func (req *AppendNodeCapabilitiesRequest) Validate() error {
 	if len(req.NopToNodes) == 0 {
 		return fmt.Errorf("nopToNodes is empty")
 	}
-	if req.Registry == nil {
+	if req.AddressBook == nil {
 		return fmt.Errorf("registry is nil")
 	}
+	_, exists := chainsel.ChainBySelector(req.RegistryChainSel)
+	if !exists {
+		return fmt.Errorf("registry chain selector %d does not exist", req.RegistryChainSel)
+	}
+
 	return nil
 }
 
+/*
 // AppendNodeCapabilibity adds any new capabilities to the registry, merges the new capabilities with the existing capabilities
 // of the node, and updates the nodes in the registry host the union of the new and existing capabilities.
 func AppendNodeCapabilities(lggr logger.Logger, req *AppendNodeCapabilitiesRequest) (deployment.ChangesetOutput, error) {
@@ -41,40 +50,51 @@ func AppendNodeCapabilities(lggr logger.Logger, req *AppendNodeCapabilitiesReque
 	}
 	return deployment.ChangesetOutput{}, nil
 }
+*/
 
-func appendNodeCapabilitiesImpl(lggr logger.Logger, req *AppendNodeCapabilitiesRequest) (*kslib.UpdateNodesResponse, error) {
+// AppendNodeCapabilibity adds any new capabilities to the registry, merges the new capabilities with the existing capabilities
+// of the node, and updates the nodes in the registry host the union of the new and existing capabilities.
+func AppendNodeCapabilities(env deployment.Environment, config any) (deployment.ChangesetOutput, error) {
+	req, ok := config.(*AppendNodeCapabilitiesRequest)
+	if !ok {
+		return deployment.ChangesetOutput{}, fmt.Errorf("invalid config type")
+	}
+
+	cfg, err := req.convert(env)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	_, err = internal.AppendNodeCapabilitiesImpl(env.Logger, cfg)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	return deployment.ChangesetOutput{}, nil
+}
+
+func (req *AppendNodeCapabilitiesRequest) convert(e deployment.Environment) (*internal.AppendNodeCapabilitiesRequest, error) {
 	if err := req.Validate(); err != nil {
-		return nil, fmt.Errorf("failed to validate request: %w", err)
+		return nil, fmt.Errorf("failed to validate UpdateNodeCapabilitiesRequest: %w", err)
 	}
-	// collect all the capabilities and add them to the registry
-	var capabilities []kcr.CapabilitiesRegistryCapability
-	for _, cap := range req.P2pToCapabilities {
-		capabilities = append(capabilities, cap...)
+	registryChain, ok := e.Chains[req.RegistryChainSel]
+	if !ok {
+		return nil, fmt.Errorf("registry chain selector %d does not exist in environment", req.RegistryChainSel)
 	}
-	err := kslib.AddCapabilities(lggr, req.Registry, req.Chain, capabilities)
+	contracts, err := kslib.GetContractSets(&kslib.GetContractSetsRequest{
+		Chains:      map[uint64]deployment.Chain{req.RegistryChainSel: registryChain},
+		AddressBook: req.AddressBook,
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to add capabilities: %w", err)
+		return nil, fmt.Errorf("failed to get contract sets: %w", err)
+	}
+	registry := contracts.ContractSets[req.RegistryChainSel].CapabilitiesRegistry
+	if registry == nil {
+		return nil, fmt.Errorf("capabilities registry not found for chain %d", req.RegistryChainSel)
 	}
 
-	// for each node, merge the new capabilities with the existing ones and update the node
-	capsByPeer := make(map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability)
-	for p2pID, caps := range req.P2pToCapabilities {
-		caps, err := kslib.AppendCapabilities(lggr, req.Registry, req.Chain, []p2pkey.PeerID{p2pID}, caps)
-		if err != nil {
-			return nil, fmt.Errorf("failed to append capabilities for p2p %s: %w", p2pID, err)
-		}
-		capsByPeer[p2pID] = caps[p2pID]
-	}
-
-	updateNodesReq := &kslib.UpdateNodesRequest{
-		Chain:             req.Chain,
-		Registry:          req.Registry,
-		P2pToCapabilities: capsByPeer,
+	return &internal.AppendNodeCapabilitiesRequest{
+		Chain:             registryChain,
+		Registry:          registry,
+		P2pToCapabilities: req.P2pToCapabilities,
 		NopToNodes:        req.NopToNodes,
-	}
-	resp, err := kslib.UpdateNodes(lggr, updateNodesReq)
-	if err != nil {
-		return nil, fmt.Errorf("failed to update nodes: %w", err)
-	}
-	return resp, nil
+	}, nil
 }
