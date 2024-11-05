@@ -1,6 +1,10 @@
 package smoke
 
 import (
+	"fmt"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/usdc_token_pool"
 	"math/big"
 	"testing"
 	"time"
@@ -8,19 +12,15 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/actions"
-
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
+	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccdeploy "github.com/smartcontractkit/chainlink/deployment/ccip"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
-
-	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/erc20"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -29,7 +29,7 @@ import (
 func TestInitialDeployOnLocal(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := ccdeploy.Context(t)
-	tenv, _, _ := testsetups.NewLocalDevEnvironment(t, lggr)
+	tenv := ccdeploy.NewMemoryEnvironment(t, lggr, 3, 4)
 	e := tenv.Env
 
 	state, err := ccdeploy.LoadOnchainState(tenv.Env)
@@ -116,13 +116,14 @@ func TestInitialDeployOnLocal(t *testing.T) {
 func TestUSDCTokenTransfer(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := ccdeploy.Context(t)
-	tenv, _, _ := testsetups.NewLocalDevEnvironment(t, lggr)
+	tenv := ccdeploy.NewMemoryEnvironment(t, lggr, 3, 4)
+
 	e := tenv.Env
 	// if it's a new USDC deployment, set up mock server for attestation,
 	// we need to set it only once for all the lanes as the attestation path uses regex to match the path for
 	// all messages across all lanes
-	err := actions.SetMockServerWithUSDCAttestation(e.MockAdapter, nil)
-	require.NoError(t, err, "failed to set up mock server for attestation")
+	//err := actions.SetMockServerWithUSDCAttestation(e.MockAdapter, nil)
+	//require.NoError(t, err, "failed to set up mock server for attestation")
 	state, err := ccdeploy.LoadOnchainState(e)
 	require.NoError(t, err)
 
@@ -147,7 +148,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 		USDCConfig: ccdeploy.USDCConfig{
 			Enabled: true,
 			USDCAttestationConfig: ccdeploy.USDCAttestationConfig{
-				API: e.MockAdapter.InternalEndpoint,
+				API:         "http://elo.com",
 				APITimeout:  commonconfig.MustNewDuration(time.Second),
 				APIInterval: commonconfig.MustNewDuration(500 * time.Millisecond),
 			},
@@ -159,7 +160,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	state, err = ccdeploy.LoadOnchainState(e)
 	require.NoError(t, err)
 
-	err = ccdeploy.SyncUSDCDomains(lggr, e.Chains, []uint64{tenv.HomeChainSel, tenv.FeedChainSel}, state)
+	err = ccdeploy.SyncUSDCDomains(lggr, e.Chains, tenv.HomeChainSel, tenv.FeedChainSel, state)
 	require.NoError(t, err, "error while syncing USDC domains")
 
 	// Ensure capreg logs are up to date.
@@ -196,8 +197,25 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	require.NoError(t, err, "failed to cast USDC ERC677 token into ERC20 token in feed chain")
 	// approve tokens
 
-	tx, err := homeChainUSDCtoken.Approve(e.Chains[tenv.HomeChainSel].DeployerKey, state.Chains[tenv.HomeChainSel].Router.Address(), oneCoin)
+	tx, err := state.Chains[tenv.HomeChainSel].BurnMintTokens677[ccdeploy.USDCSymbol].Mint(
+		e.Chains[tenv.HomeChainSel].DeployerKey,
+		e.Chains[tenv.HomeChainSel].DeployerKey.From,
+		new(big.Int).Mul(oneCoin, big.NewInt(10)),
+	)
+	require.NoError(t, err)
+	_, err = e.Chains[tenv.HomeChainSel].Confirm(tx)
+	require.NoError(t, err)
 
+	tx, err = state.Chains[tenv.FeedChainSel].BurnMintTokens677[ccdeploy.USDCSymbol].Mint(
+		e.Chains[tenv.FeedChainSel].DeployerKey,
+		e.Chains[tenv.FeedChainSel].DeployerKey.From,
+		new(big.Int).Mul(oneCoin, big.NewInt(10)),
+	)
+	require.NoError(t, err)
+	_, err = e.Chains[tenv.FeedChainSel].Confirm(tx)
+	require.NoError(t, err)
+
+	tx, err = homeChainUSDCtoken.Approve(e.Chains[tenv.HomeChainSel].DeployerKey, state.Chains[tenv.HomeChainSel].Router.Address(), oneCoin)
 	require.NoError(t, err, "failed to approve USDC tokens in home chain")
 	_, err = e.Chains[tenv.HomeChainSel].Confirm(tx)
 	require.NoError(t, err, "failed to confirm USDC token approval in home chain")
@@ -207,14 +225,100 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	require.NoError(t, err, "failed to confirm USDC token approval in feed chain")
 	tokens := map[uint64][]router.ClientEVMTokenAmount{
 		tenv.HomeChainSel: {{
-			Token: homeChainUSDCtoken.Address(),
+			Token:  homeChainUSDCtoken.Address(),
 			Amount: oneCoin,
 		}},
 		tenv.FeedChainSel: {{
-			Token: feedChainUSDCtoken.Address(),
+			Token:  feedChainUSDCtoken.Address(),
 			Amount: oneCoin,
 		}},
 	}
+
+	AttachTokenAndPoolToRegistry(
+		t,
+		e.Chains[tenv.HomeChainSel],
+		state.Chains[tenv.HomeChainSel],
+		e.Chains[tenv.HomeChainSel].DeployerKey,
+		homeChainUSDCtoken.Address(),
+		state.Chains[tenv.HomeChainSel].USDCTokenPool.Address(),
+	)
+
+	AttachTokenAndPoolToRegistry(
+		t,
+		e.Chains[tenv.FeedChainSel],
+		state.Chains[tenv.FeedChainSel],
+		e.Chains[tenv.FeedChainSel].DeployerKey,
+		feedChainUSDCtoken.Address(),
+		state.Chains[tenv.FeedChainSel].USDCTokenPool.Address(),
+	)
+
+	tx, err = state.Chains[tenv.HomeChainSel].USDCTokenPool.ApplyChainUpdates(
+		e.Chains[tenv.HomeChainSel].DeployerKey,
+		[]usdc_token_pool.TokenPoolChainUpdate{
+			{
+				RemoteChainSelector: tenv.FeedChainSel,
+				Allowed:             true,
+				RemotePoolAddress:   state.Chains[tenv.FeedChainSel].USDCTokenPool.Address().Bytes(),
+				RemoteTokenAddress:  feedChainUSDCtoken.Address().Bytes(),
+				OutboundRateLimiterConfig: usdc_token_pool.RateLimiterConfig{
+					IsEnabled: false,
+					Capacity:  big.NewInt(0),
+					Rate:      big.NewInt(0),
+				},
+				InboundRateLimiterConfig: usdc_token_pool.RateLimiterConfig{
+					IsEnabled: false,
+					Capacity:  big.NewInt(0),
+					Rate:      big.NewInt(0),
+				},
+			},
+		},
+	)
+	require.NoError(t, err)
+	_, err = e.Chains[tenv.HomeChainSel].Confirm(tx)
+	require.NoError(t, err)
+
+	tx, err = state.Chains[tenv.FeedChainSel].USDCTokenPool.ApplyChainUpdates(
+		e.Chains[tenv.FeedChainSel].DeployerKey,
+		[]usdc_token_pool.TokenPoolChainUpdate{
+			{
+				RemoteChainSelector: tenv.HomeChainSel,
+				Allowed:             true,
+				RemotePoolAddress:   state.Chains[tenv.HomeChainSel].USDCTokenPool.Address().Bytes(),
+				RemoteTokenAddress:  homeChainUSDCtoken.Address().Bytes(),
+				OutboundRateLimiterConfig: usdc_token_pool.RateLimiterConfig{
+					IsEnabled: false,
+					Capacity:  big.NewInt(0),
+					Rate:      big.NewInt(0),
+				},
+				InboundRateLimiterConfig: usdc_token_pool.RateLimiterConfig{
+					IsEnabled: false,
+					Capacity:  big.NewInt(0),
+					Rate:      big.NewInt(0),
+				},
+			},
+		},
+	)
+	require.NoError(t, err)
+	_, err = e.Chains[tenv.FeedChainSel].Confirm(tx)
+	require.NoError(t, err)
+
+	tx, err = state.Chains[tenv.HomeChainSel].USDCTokenPool.SetRemotePool(
+		e.Chains[tenv.HomeChainSel].DeployerKey,
+		tenv.FeedChainSel,
+		state.Chains[tenv.FeedChainSel].USDCTokenPool.Address().Bytes(),
+	)
+	require.NoError(t, err)
+	_, err = e.Chains[tenv.HomeChainSel].Confirm(tx)
+	require.NoError(t, err)
+
+	tx, err = state.Chains[tenv.FeedChainSel].USDCTokenPool.SetRemotePool(
+		e.Chains[tenv.FeedChainSel].DeployerKey,
+		tenv.HomeChainSel,
+		state.Chains[tenv.HomeChainSel].USDCTokenPool.Address().Bytes(),
+	)
+	require.NoError(t, err)
+	_, err = e.Chains[tenv.FeedChainSel].Confirm(tx)
+	require.NoError(t, err)
 
 	for src := range e.Chains {
 		for dest, destChain := range e.Chains {
@@ -248,4 +352,31 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	ccdeploy.ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
 
 	// TODO: Apply the proposal.
+}
+
+func AttachTokenAndPoolToRegistry(
+	t *testing.T,
+	chain deployment.Chain,
+	state ccdeploy.CCIPChainState,
+	owner *bind.TransactOpts,
+	token common.Address,
+	tokenPool common.Address,
+) {
+	tx, err := state.RegistryModule.RegisterAdminViaOwner(owner, token)
+	require.NoError(t, err)
+	_, err = chain.Confirm(tx)
+	require.NoError(t, err)
+
+	tx, err = state.TokenAdminRegistry.AcceptAdminRole(owner, token)
+	require.NoError(t, err)
+	_, err = chain.Confirm(tx)
+	require.NoError(t, err)
+
+	tx, err = state.TokenAdminRegistry.SetPool(owner, token, tokenPool)
+	require.NoError(t, err)
+	_, err = chain.Confirm(tx)
+	require.NoError(t, err)
+
+	homePool, err := state.TokenAdminRegistry.GetPool(nil, token)
+	fmt.Print(homePool)
 }
