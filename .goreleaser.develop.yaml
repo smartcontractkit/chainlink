@@ -70,6 +70,7 @@ dockers:
       extra_files:
         - tmp/libs
         - tmp/plugins
+        - tmp/workflows
       build_flag_templates:
         - --platform=linux/amd64
         - --pull
@@ -121,6 +122,7 @@ dockers:
       extra_files:
         - tmp/libs
         - tmp/plugins
+        - tmp/workflows
       build_flag_templates:
         - --platform=linux/arm64
         - --pull
@@ -176,6 +178,7 @@ dockers:
       extra_files:
         - tmp/libs
         - tmp/plugins
+        - tmp/workflows
         - ccip/config
       build_flag_templates:
         - --platform=linux/amd64
@@ -231,6 +234,7 @@ dockers:
       extra_files:
         - tmp/libs
         - tmp/plugins
+        - tmp/workflows
         - ccip/config
       build_flag_templates:
         - --platform=linux/arm64
