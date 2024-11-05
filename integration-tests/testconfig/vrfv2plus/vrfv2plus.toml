@@ -184,6 +184,19 @@ LimitDefault = 3500000
 BatchSize = 100
 """
 
+# SIMULATED
+1337 = """
+AutoCreateKey = true
+FinalityDepth = 10
+MinContractPayment = 0
+
+[GasEstimator]
+Mode = 'FixedPrice'
+PriceMin = '0'
+BumpThreshold = 0
+FeeCapDefault = '100 micro'
+PriceMax = '100 micro'
+"""
 
 [Common]
 chainlink_node_funding = 0.7
