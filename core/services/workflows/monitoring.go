@@ -95,14 +95,14 @@ func (c workflowsMetricLabeler) incrementEngineHeartbeatCounter(ctx context.Cont
 
 // Observability keys
 const (
-	cIDKey  = "capabilityID"
-	tIDKey  = "triggerID"
-	wIDKey  = "workflowID"
-	eIDKey  = "workflowExecutionID"
-	wnKey   = "workflowName"
-	woIDKey = "workflowOwner"
-	sIDKey  = "stepID"
-	sRKey   = "stepRef"
+	capabilityIDKey        = "capabilityID"
+	triggerIDKey           = "triggerID"
+	workflowIDKey          = "workflowID"
+	workflowExecutionIDKey = "workflowExecutionID"
+	workflowNameKey        = "workflowName"
+	workflowOwnerKey       = "workflowOwner"
+	stepIDKey              = "stepID"
+	stepRefKey             = "stepRef"
 )
 
-var orderedLabelKeys = []string{sRKey, sIDKey, tIDKey, cIDKey, eIDKey, wIDKey}
+var orderedLabelKeys = []string{stepRefKey, stepIDKey, triggerIDKey, capabilityIDKey, workflowExecutionIDKey, workflowIDKey}

@@ -39,7 +39,7 @@ func (d *Delegate) OnDeleteJob(context.Context, job.Job) error { return nil }
 
 // ServicesForSpec satisfies the job.Delegate interface.
 func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.ServiceCtx, error) {
-	cma := custmsg.NewLabeler().With(wIDKey, spec.WorkflowSpec.WorkflowID, woIDKey, spec.WorkflowSpec.WorkflowOwner, wnKey, spec.WorkflowSpec.WorkflowName)
+	cma := custmsg.NewLabeler().With(workflowIDKey, spec.WorkflowSpec.WorkflowID, workflowOwnerKey, spec.WorkflowSpec.WorkflowOwner, workflowNameKey, spec.WorkflowSpec.WorkflowName)
 	sdkSpec, err := spec.WorkflowSpec.SDKSpec(ctx)
 	if err != nil {
 		logCustMsg(ctx, cma, fmt.Sprintf("failed to start workflow engine: failed to get workflow sdk spec: %v", err), d.logger)

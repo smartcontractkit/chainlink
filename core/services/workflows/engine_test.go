@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
 	gcmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
@@ -973,26 +974,26 @@ func TestEngine_Error(t *testing.T) {
 	}{
 		{
 			name:   "Error with error and reason",
-			labels: map[string]string{wIDKey: "my-workflow-id"},
+			labels: map[string]string{workflowIDKey: "my-workflow-id"},
 			err:    err,
 			reason: "some reason",
 			want:   "workflowID my-workflow-id: some reason: some error",
 		},
 		{
 			name:   "Error with error and no reason",
-			labels: map[string]string{eIDKey: "dd3708ac7d8dd6fa4fae0fb87b73f318a4da2526c123e159b72435e3b2fe8751"},
+			labels: map[string]string{workflowExecutionIDKey: "dd3708ac7d8dd6fa4fae0fb87b73f318a4da2526c123e159b72435e3b2fe8751"},
 			err:    err,
 			want:   "workflowExecutionID dd3708ac7d8dd6fa4fae0fb87b73f318a4da2526c123e159b72435e3b2fe8751: some error",
 		},
 		{
 			name:   "Error with no error and reason",
-			labels: map[string]string{cIDKey: "streams-trigger:network_eth@1.0.0"},
+			labels: map[string]string{capabilityIDKey: "streams-trigger:network_eth@1.0.0"},
 			reason: "some reason",
 			want:   "capabilityID streams-trigger:network_eth@1.0.0: some reason",
 		},
 		{
 			name:   "Error with no error and no reason",
-			labels: map[string]string{tIDKey: "wf_123_trigger_456"},
+			labels: map[string]string{triggerIDKey: "wf_123_trigger_456"},
 			want:   "triggerID wf_123_trigger_456: ",
 		},
 		{
@@ -1005,9 +1006,9 @@ func TestEngine_Error(t *testing.T) {
 		{
 			name: "Multiple labels",
 			labels: map[string]string{
-				wIDKey: "my-workflow-id",
-				eIDKey: "dd3708ac7d8dd6fa4fae0fb87b73f318a4da2526c123e159b72435e3b2fe8751",
-				cIDKey: "streams-trigger:network_eth@1.0.0",
+				workflowIDKey:          "my-workflow-id",
+				workflowExecutionIDKey: "dd3708ac7d8dd6fa4fae0fb87b73f318a4da2526c123e159b72435e3b2fe8751",
+				capabilityIDKey:        "streams-trigger:network_eth@1.0.0",
 			},
 			err:    err,
 			reason: "some reason",
