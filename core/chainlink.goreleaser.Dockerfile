@@ -20,7 +20,7 @@ COPY ./chainlink /usr/local/bin/
 # Copy native libs if cgo is enabled
 COPY ./tmp/libs /usr/local/bin/libs
 
-COPY ./tmp/workflows /usr/local/workflows
+COPY ./tm[p]/workflow[s] /usr/local/workflows
 
 # Copy plugins if exist and enable them
 # https://stackoverflow.com/questions/70096208/dockerfile-copy-folder-if-it-exists-conditional-copy/70096420#70096420
