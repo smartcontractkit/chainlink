@@ -79,6 +79,7 @@ func TestCCIPReader_CommitReportsGTETimestamp(t *testing.T) {
 	tokenA := common.HexToAddress("123")
 	const numReports = 5
 
+	var firstReportTs uint64
 	for i := 0; i < numReports; i++ {
 		_, err := s.contract.EmitCommitReportAccepted(s.auth, ccip_reader_tester.OffRampCommitReport{
 			PriceUpdates: ccip_reader_tester.InternalPriceUpdates{
@@ -116,7 +117,12 @@ func TestCCIPReader_CommitReportsGTETimestamp(t *testing.T) {
 			},
 		})
 		assert.NoError(t, err)
-		s.sb.Commit()
+		bh := s.sb.Commit()
+		b, err := s.sb.Client().BlockByHash(ctx, bh)
+		require.NoError(t, err)
+		if firstReportTs == 0 {
+			firstReportTs = b.Time()
+		}
 	}
 
 	// Need to replay as sometimes the logs are not picked up by the log poller (?)
@@ -129,11 +135,12 @@ func TestCCIPReader_CommitReportsGTETimestamp(t *testing.T) {
 		reports, err = s.reader.CommitReportsGTETimestamp(
 			ctx,
 			chainD,
-			time.Unix(30, 0), // Skips first report, simulated backend report timestamps are [20, 30, 40, ...]
+			// Skips first report
+			time.Unix(int64(firstReportTs)+1, 0),
 			10,
 		)
 		require.NoError(t, err)
-		return len(reports) == numReports
+		return len(reports) == numReports-1
 	}, tests.WaitTimeout(t), 50*time.Millisecond)
 
 	assert.Len(t, reports, numReports-1)
@@ -142,12 +149,10 @@ func TestCCIPReader_CommitReportsGTETimestamp(t *testing.T) {
 	assert.Equal(t, onRampAddress.Bytes(), []byte(reports[0].Report.MerkleRoots[0].OnRampAddress))
 	assert.Equal(t, cciptypes.SeqNum(10), reports[0].Report.MerkleRoots[0].SeqNumsRange.Start())
 	assert.Equal(t, cciptypes.SeqNum(20), reports[0].Report.MerkleRoots[0].SeqNumsRange.End())
-	assert.Equal(t, "0x0100000000000000000000000000000000000000000000000000000000000000",
+	assert.Equal(t, "0x0200000000000000000000000000000000000000000000000000000000000000",
 		reports[0].Report.MerkleRoots[0].MerkleRoot.String())
-
 	assert.Equal(t, tokenA.String(), string(reports[0].Report.PriceUpdates.TokenPriceUpdates[0].TokenID))
 	assert.Equal(t, uint64(1000), reports[0].Report.PriceUpdates.TokenPriceUpdates[0].Price.Uint64())
-
 	assert.Equal(t, chainD, reports[0].Report.PriceUpdates.GasPriceUpdates[0].ChainSel)
 	assert.Equal(t, uint64(90), reports[0].Report.PriceUpdates.GasPriceUpdates[0].GasPrice.Uint64())
 }
