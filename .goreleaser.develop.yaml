@@ -151,6 +151,7 @@ dockers:
         - '{{ .Env.IMG_PRE }}/ccip:sha-{{ .ShortCommit }}-amd64'
       extra_files:
         - tmp/libs
+        - tmp/workflows
         - ccip/config
       build_flag_templates:
         - --platform=linux/amd64
@@ -208,6 +209,7 @@ dockers:
         - '{{ .Env.IMG_PRE }}/ccip:sha-{{ .ShortCommit }}-arm64'
       extra_files:
         - tmp/libs
+        - tmp/workflows
         - ccip/config
       build_flag_templates:
         - --platform=linux/arm64
