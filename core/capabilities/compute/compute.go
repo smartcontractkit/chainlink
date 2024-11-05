@@ -160,6 +160,7 @@ func (c *Compute) executeWithModule(ctx context.Context, module *host.Module, co
 			},
 		},
 	}
+
 	resp, err := module.Run(ctx, wasmReq)
 	if err != nil {
 		return capabilities.CapabilityResponse{}, fmt.Errorf("error running module: %w", err)

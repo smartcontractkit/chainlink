@@ -6,10 +6,12 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jonboulle/clockwork"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -21,6 +23,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/exec"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
+
+	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -661,6 +665,22 @@ func (e *Engine) queueIfReady(state store.WorkflowExecution, step *step) {
 	if !waitingOnDependencies {
 		e.logger.With(sRKey, step.Ref, eIDKey, state.ExecutionID, "state", copyState(state)).
 			Debug("step request enqueued")
+		wrapped, err := values.Wrap(state.Steps)
+		if err != nil {
+			e.logger.Errorf("failed to wrap state: %v", err)
+			return
+		}
+		protoState := values.Proto(wrapped)
+		marshalled, err := proto.Marshal(protoState)
+		if err != nil {
+			e.logger.Errorf("failed to marshal state: %v", err)
+			return
+		}
+		err = os.WriteFile("state"+uuid.New().String(), marshalled, 0644)
+		if err != nil {
+			e.logger.Errorf("failed to write state: %v", err)
+			return
+		}
 		e.pendingStepRequests <- stepRequest{
 			state:   copyState(state),
 			stepRef: step.Ref,
