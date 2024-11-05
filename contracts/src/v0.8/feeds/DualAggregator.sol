@@ -1650,7 +1650,7 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
    *
    */
   function typeAndVersion() external pure virtual override returns (string memory) {
-    return "PrimaryAggregator 1.0.0";
+    return "DualAggregator 1.0.0";
   }
 
   error AggregatorNotAuthorized();

@@ -688,7 +688,7 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
   }
 
   function test_SyncFeedsTransmitSecondaryFirstAlwaysSameBlock() public {
-    vm.skip(true);
+    vm.skip(false);
 
     // Report 1
     _transmitAndCheck({
