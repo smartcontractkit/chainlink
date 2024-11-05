@@ -21,13 +21,6 @@ var (
 
 type FetcherFunc func(ctx context.Context, url string) ([]byte, error)
 
-type workerProbes[T any] struct {
-	Done      <-chan struct{}
-	Err       <-chan error
-	Heartbeat <-chan struct{}
-	Logs      <-chan T
-}
-
 type worker struct {
 	services.StateMachine
 	stopCh   services.StopChan
@@ -92,13 +85,13 @@ func (w *worker) Start(_ context.Context) error {
 	return w.StartOnce("secrets_worker", func() error {
 		ctx, cancel := w.stopCh.NewCtx()
 
-		probes := w.fetchSecrets(ctx, w.cfg)
+		done, _ := w.syncForceUpdateSecretsEvents(ctx, w.cfg)
 
 		w.wg.Add(1)
 		go func() {
 			defer w.wg.Done()
 			defer cancel()
-			<-probes.Done
+			<-done
 		}()
 
 		return nil
@@ -120,17 +113,12 @@ func (w *worker) getTicker(ctx context.Context) <-chan struct{} {
 	return w.timer
 }
 
-func (w *worker) fetchSecrets(
+// syncForceUpdateSecretsEvents synchronizes the force update secrets events from the contract
+// to the local database.
+func (w *worker) syncForceUpdateSecretsEvents(
 	ctx context.Context,
 	cfg ContractEventPollerConfig,
-) workerProbes[workflow_registry_wrapper.WorkflowRegistryWorkflowForceUpdateSecretsRequestedV1] {
-	var (
-		done          = make(chan struct{})
-		errsCh        = make(chan error)
-		wg            sync.WaitGroup
-		ctxwc, cancel = context.WithCancel(ctx)
-	)
-
+) (<-chan struct{}, <-chan error) {
 	// Create the workers
 	var (
 		h                  = newForceUpdateSecretsHandler(w.orm, w.gateway)
@@ -140,56 +128,20 @@ func (w *worker) fetchSecrets(
 
 	// Start the workers
 	var (
-		doneQuerying, queryErrs, updateSecretsEvents = eventQueryWorker.Run(ctxwc, cfg)
-		logs1, logs2                                 = chans.Tee(ctxwc.Done(), updateSecretsEvents)
-		doneHandling, handlerErrs                    = eventHandlerWorker.Run(ctxwc, logs1)
+		doneQuerying, queryErrs, updateSecretsEvents = eventQueryWorker.Run(ctx, cfg)
+		// Tee the update secrets events to the handler worker
+		logs1, logs2              = chans.Tee(ctx.Done(), updateSecretsEvents)
+		doneHandling, handlerErrs = eventHandlerWorker.Run(ctx, logs1)
 	)
 
+	// Set the events channel, which is a read copy of the update secrets events
 	w.eventsCh = logs2
 
-	// Wait for the workers to finish
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		<-doneQuerying
-		<-doneHandling
-	}()
+	// Merge all the done channels and error channels
+	var (
+		done  = chans.AllClosed(ctx.Done(), doneQuerying, doneHandling)
+		errCh = chans.Merge(ctx.Done(), queryErrs, handlerErrs)
+	)
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for err := range queryErrs {
-			select {
-			case <-ctxwc.Done():
-				return
-			case errsCh <- err:
-			}
-		}
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for err := range handlerErrs {
-			select {
-			case <-ctxwc.Done():
-				return
-			case errsCh <- err:
-			}
-		}
-	}()
-
-	// Close channels when done
-	go func() {
-		defer close(done)
-		defer close(errsCh)
-		defer cancel()
-		wg.Wait()
-	}()
-
-	return workerProbes[workflow_registry_wrapper.WorkflowRegistryWorkflowForceUpdateSecretsRequestedV1]{
-		Done: done,
-		Err:  errsCh,
-		Logs: logs2,
-	}
+	return done, errCh
 }
