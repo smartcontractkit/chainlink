@@ -3,9 +3,12 @@ pragma solidity 0.8.24;
 
 import {PingPongDemo} from "../../applications/PingPongDemo.sol";
 import {Client} from "../../libraries/Client.sol";
-import "../onRamp/OnRampSetup.t.sol";
+import {Internal} from "../../libraries/Internal.sol";
+import {OnRamp} from "../../onRamp/OnRamp.sol";
+import {OnRampSetup} from "../onRamp/OnRampSetup.t.sol";
 
-// setup
+import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+
 contract PingPongDappSetup is OnRampSetup {
   PingPongDemo internal s_pingPong;
   IERC20 internal s_feeToken;
@@ -27,7 +30,7 @@ contract PingPongDappSetup is OnRampSetup {
 }
 
 contract PingPong_startPingPong is PingPongDappSetup {
-  uint256 internal pingPongNumber = 1;
+  uint256 internal s_pingPongNumber = 1;
 
   function test_StartPingPong_With_Sequenced_Ordered_Success() public {
     _assertPingPongSuccess();
@@ -41,7 +44,7 @@ contract PingPong_startPingPong is PingPongDappSetup {
 
   function _assertPingPongSuccess() internal {
     vm.expectEmit();
-    emit PingPongDemo.Ping(pingPongNumber);
+    emit PingPongDemo.Ping(s_pingPongNumber);
 
     Internal.EVM2AnyRampMessage memory message;
 

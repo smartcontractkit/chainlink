@@ -3,7 +3,6 @@ pragma solidity 0.8.24;
 
 import {ILiquidityContainer} from "../../../liquiditymanager/interfaces/ILiquidityContainer.sol";
 import {IBurnMintERC20} from "../../../shared/token/ERC20/IBurnMintERC20.sol";
-import {IPoolV1} from "../../interfaces/IPool.sol";
 import {ITokenMessenger} from "../../pools/USDC/ITokenMessenger.sol";
 
 import {BurnMintERC677} from "../../../shared/token/ERC677/BurnMintERC677.sol";
@@ -20,8 +19,6 @@ import {USDCTokenPool} from "../../pools/USDC/USDCTokenPool.sol";
 import {BaseTest} from "../BaseTest.t.sol";
 import {MockE2EUSDCTransmitter} from "../mocks/MockE2EUSDCTransmitter.sol";
 import {MockUSDCTokenMessenger} from "../mocks/MockUSDCTokenMessenger.sol";
-
-import {IERC165} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/introspection/IERC165.sol";
 
 contract USDCTokenPoolSetup is BaseTest {
   IBurnMintERC20 internal s_token;
@@ -61,7 +58,7 @@ contract USDCTokenPoolSetup is BaseTest {
     BurnMintERC677 usdcToken = new BurnMintERC677("LINK", "LNK", 18, 0);
     s_token = usdcToken;
     deal(address(s_token), OWNER, type(uint256).max);
-    setUpRamps();
+    _setUpRamps();
 
     s_mockUSDCTransmitter = new MockE2EUSDCTransmitter(0, DEST_DOMAIN_IDENTIFIER, address(s_token));
     s_mockUSDC = new MockUSDCTokenMessenger(0, address(s_mockUSDCTransmitter));
@@ -114,7 +111,7 @@ contract USDCTokenPoolSetup is BaseTest {
     s_usdcTokenPool.setLiquidityProvider(SOURCE_CHAIN_SELECTOR, OWNER);
   }
 
-  function setUpRamps() internal {
+  function _setUpRamps() internal {
     s_router = new Router(address(s_token), address(s_mockRMN));
 
     Router.OnRamp[] memory onRampUpdates = new Router.OnRamp[](1);

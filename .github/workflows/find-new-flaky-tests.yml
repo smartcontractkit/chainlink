@@ -89,6 +89,7 @@ jobs:
         uses: actions/setup-go@v5.0.2
         with:
           go-version: '1.21.9'
+          cache: false
 
       - name: Install flakeguard
         shell: bash
@@ -187,6 +188,8 @@ jobs:
           prod: "true"
       - name: Setup Go
         uses: ./.github/actions/setup-go
+        with:
+          restore-build-cache-only: "true"
       - name: Setup Solana
         uses: ./.github/actions/setup-solana
       - name: Setup wasmd

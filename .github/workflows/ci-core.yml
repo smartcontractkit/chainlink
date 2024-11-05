@@ -28,13 +28,14 @@ on:
         type: string
 
 jobs:
-  filter: # No need to run core tests if there are only changes to the integration-tests
+  filter:
     name: Detect Changes
     permissions:
       pull-requests: read
     outputs:
-      changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.changes }}
-      deployment-changes: ${{ steps.deployment-changes.outputs.changes }}
+      deployment-changes: ${{ steps.match-some.outputs.deployment == 'true' }}
+      should-run-ci-core: ${{ steps.match-every.outputs.non-ignored == 'true' || steps.match-some.outputs.core-ci == 'true' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' }}
+      should-run-golangci: ${{ steps.match-every.outputs.non-integration-tests == 'true' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
@@ -42,23 +43,49 @@ jobs:
         with:
           repository: smartcontractkit/chainlink
       - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
-        id: changes
+        id: match-some
         with:
+          # "if any changed file matches one or more of the conditions" (https://github.com/dorny/paths-filter/issues/225)
+          predicate-quantifier: some
+          # deployment - any changes to files in `deployments/`
           filters: |
-            changes:
+            deployment:
               - 'deployment/**'
-              - '!integration-tests/**'
+            core-ci:
+              - '.github/workflows/ci-core.yml'
+              - '.github/actions/**'
       - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
-        id: deployment-changes
+        id: match-every
         with:
+          # "if any changed file match all of the conditions" (https://github.com/dorny/paths-filter/issues/225)
+          predicate-quantifier: every
+          # non-integration-tests - only changes made outside of the `integration-tests` directory
+          # everything-except-ignored - only changes except for the negated ones
+          #  - This is opt-in on purpose. To be safe, new files are assumed to have an affect on CI Core unless listed here specifically.
           filters: |
-            changes:
-              - 'deployment/**'
-      - name: Ignore Filter On Workflow Dispatch
-        if: ${{ github.event_name == 'workflow_dispatch' }}
-        id: ignore-filter
-        run: echo "changes=true" >> $GITHUB_OUTPUT
-  
+            non-integration-tests:
+              - '**'
+              - '!integration-tests/**'
+            non-ignored:
+              - '**'
+              - '!docs/**'
+              - '!integration-tests/**'
+              - '!tools/secrets/**'
+              - '!tools/goreleaser-config/**'
+              - '!tools/docker/**'
+              - '!tools/benchmark/**'
+              - '!**/README.md'
+              - '!**/CHANGELOG.md'
+              - '!.goreleaser.develop.yaml'
+              - '!.goreleaser.devspace.yaml'
+              - '!.goreleaser.production.yaml'
+              - '!*.nix'
+              - '!sonar-project.properties'
+              - '!nix.conf'
+              - '!nix-darwin-shell-hook.sh'
+              - '!LICENSE'
+              - '!.github/**'
+    
   golangci:
     # We don't directly merge dependabot PRs, so let's not waste the resources
     if: ${{ (github.event_name == 'pull_request' ||  github.event_name == 'schedule') && github.actor != 'dependabot[bot]' }}
@@ -75,7 +102,7 @@ jobs:
       - uses: actions/checkout@v4.2.1
       - name: Golang Lint
         uses: ./.github/actions/golangci-lint
-        if: ${{ needs.filter.outputs.changes == 'true' }}
+        if: ${{ needs.filter.outputs.should-run-golangci == 'true' }}
         with:
           id: core
           name: lint
@@ -129,13 +156,13 @@ jobs:
           find . -type f,d -exec touch -r {} -d '1970-01-01T00:00:01' {} \; || true
 
       - name: Setup NodeJS
-        if: ${{ needs.filter.outputs.changes == 'true' }}
+        if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
         uses: ./.github/actions/setup-nodejs
         with:
           prod: "true"
 
       - name: Setup Go
-        if: ${{ needs.filter.outputs.changes == 'true' }}
+        if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
         uses: ./.github/actions/setup-go
         with:
           # race/fuzz tests don't benefit repeated caching, so restore from develop's build cache
@@ -143,42 +170,42 @@ jobs:
           build-cache-version: ${{ matrix.type.cmd }}
 
       - name: Replace chainlink-evm deps
-        if: ${{ needs.filter.outputs.changes == 'true' && inputs.evm-ref != ''}}
+        if: ${{ needs.filter.outputs.should-run-ci-core == 'true' && inputs.evm-ref != ''}}
         shell: bash
         run: go get github.com/smartcontractkit/chainlink-integrations/evm/relayer@${{ inputs.evm-ref }}
 
       - name: Setup Solana
-        if: ${{ needs.filter.outputs.changes == 'true' }}
+        if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
         uses: ./.github/actions/setup-solana
 
       - name: Setup wasmd
-        if: ${{ needs.filter.outputs.changes == 'true' }}
+        if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
         uses: ./.github/actions/setup-wasmd
 
       - name: Setup Postgres
-        if: ${{ needs.filter.outputs.changes == 'true' }}
+        if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
         uses: ./.github/actions/setup-postgres
 
       - name: Touching core/web/assets/index.html
-        if: ${{ needs.filter.outputs.changes == 'true' }}
+        if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
         run: mkdir -p core/web/assets && touch core/web/assets/index.html
 
       - name: Download Go vendor packages
-        if: ${{ needs.filter.outputs.changes == 'true' }}
+        if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
         run: go mod download
 
       - name: Build binary
-        if: ${{ needs.filter.outputs.changes == 'true' }}
+        if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
         run: go build -o chainlink.test .
 
       - name: Setup DB
-        if: ${{ needs.filter.outputs.changes == 'true' }}
+        if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
         run: ./chainlink.test local db preparetest
         env:
           CL_DATABASE_URL: ${{ env.DB_URL }}
 
       - name: Install LOOP Plugins
-        if: ${{ needs.filter.outputs.changes == 'true' }}
+        if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
         run: |
           pushd $(go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-feeds)
           go install ./cmd/chainlink-feeds
@@ -195,34 +222,34 @@ jobs:
 
       - name: Increase Race Timeout
         # Increase race timeout for scheduled runs only
-        if: ${{ github.event.schedule != '' && needs.filter.outputs.changes == 'true' }}
+        if: ${{ github.event.schedule != '' && needs.filter.outputs.should-run-ci-core == 'true' }}
         run: |
           echo "TIMEOUT=10m" >> $GITHUB_ENV
           echo "COUNT=50" >> $GITHUB_ENV
 
       - name: Install gotestloghelper
+        if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
         run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/gotestloghelper@v1.50.0
 
       - name: Run tests
-        if: ${{ needs.filter.outputs.changes == 'true' }}
+        if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
         id: run-tests
         env:
           OUTPUT_FILE: ./output.txt
           USE_TEE: false
           CL_DATABASE_URL: ${{ env.DB_URL }}
-
         run: ./tools/bin/${{ matrix.type.cmd }} ./...
 
       - name: Print Filtered Test Results
-        if: ${{ failure() && needs.filter.outputs.changes == 'true' && steps.run-tests.conclusion == 'failure' }}
+        if: ${{ failure() && needs.filter.outputs.should-run-ci-core == 'true' && steps.run-tests.conclusion == 'failure' }}
         run: |
           if [[ "${{ matrix.type.printResults }}"  == "true" ]]; then
             cat output.txt | gotestloghelper -ci
           fi
-
+      
       - name: Print Races
         id: print-races
-        if: ${{ failure() && matrix.type.cmd == 'go_core_race_tests' && needs.filter.outputs.changes == 'true' }}
+        if: ${{ failure() && matrix.type.cmd == 'go_core_race_tests' && needs.filter.outputs.should-run-ci-core == 'true' }}
         run: |
           find race.* | xargs cat > race.txt
           if [[ -s race.txt ]]; then
@@ -235,12 +262,12 @@ jobs:
           echo "github.ref: ${{ github.ref }}"
 
       - name: Print postgres logs
-        if: ${{ always() &&  needs.filter.outputs.changes == 'true' }}
+        if: ${{ always() &&  needs.filter.outputs.should-run-ci-core == 'true' }}
         run: docker compose logs postgres | tee ../../../postgres_logs.txt
         working-directory: ./.github/actions/setup-postgres
 
       - name: Store logs artifacts
-        if: ${{ always() && needs.filter.outputs.changes == 'true' }}
+        if: ${{ always() && needs.filter.outputs.should-run-ci-core == 'true' }}
         uses: actions/upload-artifact@v4.4.3
         with:
           name: ${{ matrix.type.cmd }}_logs
@@ -252,8 +279,13 @@ jobs:
             ./postgres_logs.txt
           retention-days: 7
 
-      - name: Notify Slack
-        if: ${{ failure() && steps.print-races.outputs.post_to_slack == 'true' && matrix.type.cmd == 'go_core_race_tests' && (github.event_name == 'merge_group' || github.ref == 'refs/heads/develop') && needs.filter.outputs.changes == 'true' }}
+      - name: Notify Slack on Race Test Failure
+        if: |
+          failure() &&
+          matrix.type.cmd == 'go_core_race_tests' &&
+          steps.print-races.outputs.post_to_slack == 'true'  &&
+          (github.event_name == 'merge_group' || github.ref == 'refs/heads/develop') &&
+          needs.filter.outputs.should-run-ci-core == 'true'
         uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
         env:
           SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}

@@ -56,6 +56,7 @@ type DelegateConfig struct {
 	RetirementReportCache  RetirementReportCache
 	RetirementReportCodec  datastreamsllo.RetirementReportCodec
 	ShouldRetireCache      datastreamsllo.ShouldRetireCache
+	EAMonitoringEndpoint   ocrcommontypes.MonitoringEndpoint
 
 	// OCR3
 	TraceLogging                 bool
@@ -65,7 +66,7 @@ type DelegateConfig struct {
 	ContractConfigTrackers []ocr2types.ContractConfigTracker
 	ContractTransmitter    ocr3types.ContractTransmitter[llotypes.ReportInfo]
 	Database               ocr3types.Database
-	MonitoringEndpoint     ocrcommontypes.MonitoringEndpoint
+	OCR3MonitoringEndpoint ocrcommontypes.MonitoringEndpoint
 	OffchainConfigDigester ocr2types.OffchainConfigDigester
 	OffchainKeyring        ocr2types.OffchainKeyring
 	OnchainKeyring         ocr3types.OnchainKeyring[llotypes.ReportInfo]
@@ -93,7 +94,7 @@ func NewDelegate(cfg DelegateConfig) (job.ServiceCtx, error) {
 
 	var t TelemeterService
 	if cfg.CaptureEATelemetry {
-		t = NewTelemeterService(lggr, cfg.MonitoringEndpoint)
+		t = NewTelemeterService(lggr, cfg.EAMonitoringEndpoint)
 	} else {
 		t = NullTelemeter
 	}
@@ -131,7 +132,7 @@ func (d *delegate) Start(ctx context.Context) error {
 				Database:                     d.cfg.Database,
 				LocalConfig:                  d.cfg.LocalConfig,
 				Logger:                       ocrLogger,
-				MonitoringEndpoint:           d.cfg.MonitoringEndpoint,
+				MonitoringEndpoint:           d.cfg.OCR3MonitoringEndpoint,
 				OffchainConfigDigester:       d.cfg.OffchainConfigDigester,
 				OffchainKeyring:              d.cfg.OffchainKeyring,
 				OnchainKeyring:               d.cfg.OnchainKeyring,

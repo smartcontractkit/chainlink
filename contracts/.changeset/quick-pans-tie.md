@@ -2,4 +2,4 @@
 '@chainlink/contracts': patch
 ---
 
-improve cron contracts imports
+#internal Enable Solhint for tests

@@ -157,7 +157,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 		chainView.RMNProxy[c.RMNProxy.Address().Hex()] = rmnProxyView
 	}
 	if c.CapabilityRegistry != nil {
-		capRegView, err := common_v1_0.GenerateCapRegView(c.CapabilityRegistry)
+		capRegView, err := common_v1_0.GenerateCapabilityRegistryView(c.CapabilityRegistry)
 		if err != nil {
 			return chainView, err
 		}
