@@ -58,7 +58,7 @@ func (b *Backend) Fork(parentHash common.Hash) error {
 		return err
 	}
 	// TODO: Fairly sure we need to upstream a tx pool sync like this:
-	//func (c *SimulatedBeacon) Rollback() {
+	// func (c *SimulatedBeacon) Rollback() {
 	//	// Flush all transactions from the transaction pools
 	//	+       c.eth.TxPool().Sync()
 	//	maxUint256 := new(big.Int).Sub(new(big.Int).Lsh(common.Big1, 256), common.Big1)
