@@ -50,7 +50,6 @@ func UpdateNodeCapabilitiesImpl(lggr logger.Logger, req *UpdateNodeCapabilitiesI
 		Chain:             req.Chain,
 		Registry:          req.Registry,
 		P2pToCapabilities: req.P2pToCapabilities,
-		NopToNodes:        req.NopToNodes,
 	}
 	resp, err := UpdateNodes(lggr, updateNodesReq)
 	if err != nil {

@@ -84,7 +84,7 @@ func TestAppendNodeCapabilities(t *testing.T) {
 							},
 						},
 					},
-					NopToNodes: nopToNodes,
+					//					NopToNodes: nopToNodes,
 				},
 			},
 			want:    deployment.ChangesetOutput{},

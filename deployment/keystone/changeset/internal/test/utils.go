@@ -18,6 +18,7 @@ import (
 
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 	internal "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
@@ -69,18 +70,47 @@ func SetupTestRegistry(t *testing.T, lggr logger.Logger, req *SetupTestRegistryR
 
 	// add the nodes with the phony capabilities. cannot register a node without a capability and capability must exist
 	// to do this make an initial phony request and extract the node params
-	initialp2pToCapabilities := make(map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability)
+	initialp2pToCapabilities := make(map[p2pkey.PeerID][][32]byte)
+	var err error
 	for p2pID := range req.P2pToCapabilities {
-		initialp2pToCapabilities[p2pID] = vanillaCapabilities(registeredCapabilities)
+		initialp2pToCapabilities[p2pID], err = capabilityIds(registry, registeredCapabilities)
+		require.NoError(t, err)
 	}
-	phonyRequest := &internal.UpdateNodesRequest{
-		Chain:             chain,
-		Registry:          registry,
-		P2pToCapabilities: req.P2pToCapabilities,
-		NopToNodes:        req.NopToNodes,
+	// register the nodes
+	var np []kcr.CapabilitiesRegistryNodeParams
+	for i, nop := range nops {
+		if _, exists := req.NopToNodes[nop]; !exists {
+			require.Fail(t, "missing nopToNodes for %s", nop.Name)
+		}
+		for _, p2pSignerEnc := range req.NopToNodes[nop] {
+			np = append(np, kcr.CapabilitiesRegistryNodeParams{
+				Signer:              p2pSignerEnc.Signer,
+				P2pId:               p2pSignerEnc.P2PKey,
+				EncryptionPublicKey: p2pSignerEnc.EncryptionPublicKey,
+				HashedCapabilityIds: initialp2pToCapabilities[p2pSignerEnc.P2PKey],
+				NodeOperatorId:      uint32(i + 1), // 1-indexed
+			})
+		}
 	}
-	nodeParams, err := phonyRequest.NodeParams()
-	require.NoError(t, err)
+	/*
+		tx, err := registry.AddNodes(chain.DeployerKey, np)
+		if err != nil {
+			err2 := kslib.DecodeErr(kcr.CapabilitiesRegistryABI, err)
+			require.Fail(t, fmt.Sprintf("failed to call AddNodes: %s:  %s", err, err2))
+		}
+		_, err = chain.Confirm(tx)
+		require.NoError(t, err)
+	*/
+	/*	phonyRequest := &internal.UpdateNodesRequest{
+			Chain:             chain,
+			Registry:          registry,
+			P2pToCapabilities: req.P2pToCapabilities,
+			//		NopToNodes:        req.NopToNodes,
+		}
+		nodeParams, err := phonyRequest.NodeParams()
+		require.NoError(t, err)
+	*/
+	nodeParams := np
 	addNodes(t, lggr, chain, registry, nodeParams)
 	addDons(t, lggr, chain, registry, capCache, req.Dons)
 
@@ -240,10 +270,14 @@ func testChain(t *testing.T) deployment.Chain {
 	return chain
 }
 
-func vanillaCapabilities(rcs []kslib.RegisteredCapability) []kcr.CapabilitiesRegistryCapability {
-	out := make([]kcr.CapabilitiesRegistryCapability, len(rcs))
+func capabilityIds(registry *capabilities_registry.CapabilitiesRegistry, rcs []kslib.RegisteredCapability) ([][32]byte, error) {
+	out := make([][32]byte, len(rcs))
 	for i := range rcs {
-		out[i] = rcs[i].CapabilitiesRegistryCapability
+		id, err := registry.GetHashedCapabilityId(&bind.CallOpts{}, rcs[i].LabelledName, rcs[i].Version)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get capability id: %w", err)
+		}
+		out[i] = id
 	}
-	return out
+	return out, nil
 }
