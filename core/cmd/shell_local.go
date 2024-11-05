@@ -475,9 +475,9 @@ func (s *Shell) runNode(c *cli.Context) error {
 	}
 
 	if s.Config.Capabilities().Peering().Enabled() {
-		err2 := app.GetKeyStore().WorkflowEncryption().EnsureKey(rootCtx)
+		err2 := app.GetKeyStore().Workflow().EnsureKey(rootCtx)
 		if err2 != nil {
-			return errors.Wrap(err2, "failed to ensure workflow encryption key")
+			return errors.Wrap(err2, "failed to ensure workflow key")
 		}
 	}
 

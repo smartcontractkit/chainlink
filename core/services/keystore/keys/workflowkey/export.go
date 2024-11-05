@@ -1,4 +1,4 @@
-package workflowencryptionkey
+package workflowkey
 
 import (
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -7,7 +7,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-const keyTypeIdentifier = "WorkflowEncryption"
+const keyTypeIdentifier = "Workflow"
 
 func FromEncryptedJSON(keyJSON []byte, password string) (Key, error) {
 	return keys.FromEncryptedJSON(
@@ -40,5 +40,5 @@ func (k Key) ToEncryptedJSON(password string, scryptParams utils.ScryptParams) (
 }
 
 func adulteratedPassword(password string) string {
-	return "workflowencryptionkey" + password
+	return "workflowkey" + password
 }

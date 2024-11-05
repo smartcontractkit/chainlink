@@ -1,4 +1,4 @@
-package workflowencryptionkey
+package workflowkey
 
 import (
 	cryptorand "crypto/rand"
@@ -32,7 +32,7 @@ func TestEncryptKeyRawPrivateKey(t *testing.T) {
 
 	privateKey := privKey.Raw()
 
-	assert.Equal(t, "<WorkflowEncryption Raw Private Key>", privateKey.String())
+	assert.Equal(t, "<Workflow Raw Private Key>", privateKey.String())
 	assert.Equal(t, privateKey.String(), privateKey.GoString())
 }
 
@@ -52,7 +52,7 @@ func TestEncryptKeyFromRawPrivateKey(t *testing.T) {
 	copy(byteBoxPubKey, boxPubKey[:])
 
 	assert.Equal(t, hex.EncodeToString(byteBoxPubKey), key.PublicKeyString())
-	assert.Equal(t, fmt.Sprintf("WorkflowEncryptionKey{PrivateKey: <redacted>, PublicKey: %s}", byteBoxPubKey), key.String())
+	assert.Equal(t, fmt.Sprintf("WorkflowKey{PrivateKey: <redacted>, PublicKey: %s}", byteBoxPubKey), key.String())
 }
 
 func TestPublicKeyStringAndID(t *testing.T) {

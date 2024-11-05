@@ -1,4 +1,4 @@
-package workflowencryptionkey
+package workflowkey
 
 import (
 	cryptorand "crypto/rand"

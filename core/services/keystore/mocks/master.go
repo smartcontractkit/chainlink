@@ -595,49 +595,49 @@ func (_c *Master_VRF_Call) RunAndReturn(run func() keystore.VRF) *Master_VRF_Cal
 	return _c
 }
 
-// WorkflowEncryption provides a mock function with given fields:
-func (_m *Master) WorkflowEncryption() keystore.WorkflowEncryption {
+// Workflow provides a mock function with given fields:
+func (_m *Master) Workflow() keystore.Workflow {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
-		panic("no return value specified for WorkflowEncryption")
+		panic("no return value specified for Workflow")
 	}
 
-	var r0 keystore.WorkflowEncryption
-	if rf, ok := ret.Get(0).(func() keystore.WorkflowEncryption); ok {
+	var r0 keystore.Workflow
+	if rf, ok := ret.Get(0).(func() keystore.Workflow); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(keystore.WorkflowEncryption)
+			r0 = ret.Get(0).(keystore.Workflow)
 		}
 	}
 
 	return r0
 }
 
-// Master_WorkflowEncryption_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WorkflowEncryption'
-type Master_WorkflowEncryption_Call struct {
+// Master_Workflow_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Workflow'
+type Master_Workflow_Call struct {
 	*mock.Call
 }
 
-// WorkflowEncryption is a helper method to define mock.On call
-func (_e *Master_Expecter) WorkflowEncryption() *Master_WorkflowEncryption_Call {
-	return &Master_WorkflowEncryption_Call{Call: _e.mock.On("WorkflowEncryption")}
+// Workflow is a helper method to define mock.On call
+func (_e *Master_Expecter) Workflow() *Master_Workflow_Call {
+	return &Master_Workflow_Call{Call: _e.mock.On("Workflow")}
 }
 
-func (_c *Master_WorkflowEncryption_Call) Run(run func()) *Master_WorkflowEncryption_Call {
+func (_c *Master_Workflow_Call) Run(run func()) *Master_Workflow_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run()
 	})
 	return _c
 }
 
-func (_c *Master_WorkflowEncryption_Call) Return(_a0 keystore.WorkflowEncryption) *Master_WorkflowEncryption_Call {
+func (_c *Master_Workflow_Call) Return(_a0 keystore.Workflow) *Master_Workflow_Call {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *Master_WorkflowEncryption_Call) RunAndReturn(run func() keystore.WorkflowEncryption) *Master_WorkflowEncryption_Call {
+func (_c *Master_Workflow_Call) RunAndReturn(run func() keystore.Workflow) *Master_Workflow_Call {
 	_c.Call.Return(run)
 	return _c
 }
