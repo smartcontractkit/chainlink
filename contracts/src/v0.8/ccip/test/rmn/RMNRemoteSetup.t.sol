@@ -7,8 +7,6 @@ import {RMNRemote} from "../../rmn/RMNRemote.sol";
 import {BaseTest} from "../BaseTest.t.sol";
 import {Vm} from "forge-std/Vm.sol";
 
-import "forge-std/console.sol";
-
 contract RMNRemoteSetup is BaseTest {
   RMNRemote public s_rmnRemote;
   address public OFF_RAMP_ADDRESS;
@@ -16,18 +14,18 @@ contract RMNRemoteSetup is BaseTest {
   RMNRemote.Signer[] public s_signers;
   Vm.Wallet[] public s_signerWallets;
 
-  Internal.MerkleRoot[] s_merkleRoots;
-  IRMNRemote.Signature[] s_signatures;
+  Internal.MerkleRoot[] internal s_merkleRoots;
+  IRMNRemote.Signature[] internal s_signatures;
 
-  bytes16 internal constant curseSubj1 = bytes16(keccak256("subject 1"));
-  bytes16 internal constant curseSubj2 = bytes16(keccak256("subject 2"));
+  bytes16 internal constant CURSE_SUBJ_1 = bytes16(keccak256("subject 1"));
+  bytes16 internal constant CURSE_SUBJ_2 = bytes16(keccak256("subject 2"));
   bytes16[] internal s_curseSubjects;
 
   function setUp() public virtual override {
     super.setUp();
     s_rmnRemote = new RMNRemote(1);
     OFF_RAMP_ADDRESS = makeAddr("OFF RAMP");
-    s_curseSubjects = [curseSubj1, curseSubj2];
+    s_curseSubjects = [CURSE_SUBJ_1, CURSE_SUBJ_2];
 
     _setupSigners(10);
   }
@@ -46,13 +44,13 @@ contract RMNRemoteSetup is BaseTest {
       s_signers.pop();
     }
 
-    for (uint256 i = 0; i < numSigners; i++) {
+    for (uint256 i = 0; i < numSigners; ++i) {
       s_signerWallets.push(vm.createWallet(_randomNum()));
     }
 
     _sort(s_signerWallets);
 
-    for (uint256 i = 0; i < numSigners; i++) {
+    for (uint256 i = 0; i < numSigners; ++i) {
       s_signers.push(RMNRemote.Signer({onchainPublicKey: s_signerWallets[i].addr, nodeIndex: uint64(i)}));
     }
   }
@@ -60,8 +58,8 @@ contract RMNRemoteSetup is BaseTest {
   /// @notice generates n merkleRoots and matching valid signatures and populates them into
   /// the shared storage vars
   function _generatePayloadAndSigs(uint256 numUpdates, uint256 numSigs) internal {
-    require(numUpdates > 0, "need at least 1 dest lane update");
-    require(numSigs <= s_signerWallets.length, "cannot generate more sigs than signers");
+    vm.assertTrue(numUpdates > 0, "need at least 1 dest lane update");
+    vm.assertTrue(numSigs <= s_signerWallets.length, "cannot generate more sigs than signers");
 
     // remove any existing merkleRoots and sigs
     while (s_merkleRoots.length > 0) {

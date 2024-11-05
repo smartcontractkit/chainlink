@@ -59,7 +59,7 @@ jobs:
 
       - uses: actions/cache/restore@v4
         with:
-          path: dist/linux_arm64
+          path: dist/linux_arm64_v8.0
           key: chainlink-arm64-${{ github.sha }}-${{ github.ref_name }}
           fail-on-cache-miss: true
 
@@ -67,8 +67,6 @@ jobs:
         id: goreleaser-build-sign-publish
         uses: ./.github/actions/goreleaser-build-sign-publish
         with:
-          # Temporary pin to working version as 2.4.2+ is breaking arm64 builds
-          goreleaser-version: "v2.3.2"
           docker-registry: ${{ env.ECR_HOSTNAME }}
           docker-image-tag: ${{ github.ref_name }}
           goreleaser-config: .goreleaser.production.yaml
@@ -89,7 +87,7 @@ jobs:
 
           - runner: ubuntu-24.04-4cores-16GB-ARM
             goarch: arm64
-            dist_name: linux_arm64
+            dist_name: linux_arm64_v8.0
     environment: build-publish
     permissions:
       id-token: write
@@ -121,8 +119,6 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
         uses: ./.github/actions/goreleaser-build-sign-publish
         with:
-          # Temporary pin to working version as 2.4.2+ is breaking arm64 builds
-          goreleaser-version: "v2.3.2"
           docker-registry: ${{ env.ECR_HOSTNAME }}
           docker-image-tag: ${{ github.ref_name }}
           goreleaser-release-type: release

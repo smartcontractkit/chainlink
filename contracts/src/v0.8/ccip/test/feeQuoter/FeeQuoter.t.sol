@@ -2239,13 +2239,13 @@ contract FeeQuoter_KeystoneSetup is FeeQuoterSetup {
   address internal constant WORKFLOW_OWNER_1 = address(0x3);
   bytes10 internal constant WORKFLOW_NAME_1 = "workflow1";
   bytes2 internal constant REPORT_NAME_1 = "01";
-  address internal onReportTestToken1;
-  address internal onReportTestToken2;
+  address internal s_onReportTestToken1;
+  address internal s_onReportTestToken2;
 
   function setUp() public virtual override {
     super.setUp();
-    onReportTestToken1 = s_sourceTokens[0];
-    onReportTestToken2 = _deploySourceToken("onReportTestToken2", 0, 20);
+    s_onReportTestToken1 = s_sourceTokens[0];
+    s_onReportTestToken2 = _deploySourceToken("onReportTestToken2", 0, 20);
 
     KeystoneFeedsPermissionHandler.Permission[] memory permissions = new KeystoneFeedsPermissionHandler.Permission[](1);
     permissions[0] = KeystoneFeedsPermissionHandler.Permission({
@@ -2257,11 +2257,11 @@ contract FeeQuoter_KeystoneSetup is FeeQuoterSetup {
     });
     FeeQuoter.TokenPriceFeedUpdate[] memory tokenPriceFeeds = new FeeQuoter.TokenPriceFeedUpdate[](2);
     tokenPriceFeeds[0] = FeeQuoter.TokenPriceFeedUpdate({
-      sourceToken: onReportTestToken1,
+      sourceToken: s_onReportTestToken1,
       feedConfig: FeeQuoter.TokenPriceFeedConfig({dataFeedAddress: address(0x0), tokenDecimals: 18, isEnabled: true})
     });
     tokenPriceFeeds[1] = FeeQuoter.TokenPriceFeedUpdate({
-      sourceToken: onReportTestToken2,
+      sourceToken: s_onReportTestToken2,
       feedConfig: FeeQuoter.TokenPriceFeedConfig({dataFeedAddress: address(0x0), tokenDecimals: 20, isEnabled: true})
     });
     s_feeQuoter.setReportPermissions(permissions);
@@ -2276,16 +2276,16 @@ contract FeeQuoter_onReport is FeeQuoter_KeystoneSetup {
 
     FeeQuoter.ReceivedCCIPFeedReport[] memory report = new FeeQuoter.ReceivedCCIPFeedReport[](2);
     report[0] =
-      FeeQuoter.ReceivedCCIPFeedReport({token: onReportTestToken1, price: 4e18, timestamp: uint32(block.timestamp)});
+      FeeQuoter.ReceivedCCIPFeedReport({token: s_onReportTestToken1, price: 4e18, timestamp: uint32(block.timestamp)});
     report[1] =
-      FeeQuoter.ReceivedCCIPFeedReport({token: onReportTestToken2, price: 4e18, timestamp: uint32(block.timestamp)});
+      FeeQuoter.ReceivedCCIPFeedReport({token: s_onReportTestToken2, price: 4e18, timestamp: uint32(block.timestamp)});
 
     uint224 expectedStoredToken1Price = s_feeQuoter.calculateRebasedValue(18, 18, report[0].price);
     uint224 expectedStoredToken2Price = s_feeQuoter.calculateRebasedValue(18, 20, report[1].price);
     vm.expectEmit();
-    emit FeeQuoter.UsdPerTokenUpdated(onReportTestToken1, expectedStoredToken1Price, block.timestamp);
+    emit FeeQuoter.UsdPerTokenUpdated(s_onReportTestToken1, expectedStoredToken1Price, block.timestamp);
     vm.expectEmit();
-    emit FeeQuoter.UsdPerTokenUpdated(onReportTestToken2, expectedStoredToken2Price, block.timestamp);
+    emit FeeQuoter.UsdPerTokenUpdated(s_onReportTestToken2, expectedStoredToken2Price, block.timestamp);
 
     changePrank(FORWARDER_1);
     s_feeQuoter.onReport(encodedPermissionsMetadata, abi.encode(report));
@@ -2304,20 +2304,23 @@ contract FeeQuoter_onReport is FeeQuoter_KeystoneSetup {
 
     FeeQuoter.ReceivedCCIPFeedReport[] memory report = new FeeQuoter.ReceivedCCIPFeedReport[](1);
     report[0] =
-      FeeQuoter.ReceivedCCIPFeedReport({token: onReportTestToken1, price: 4e18, timestamp: uint32(block.timestamp)});
+      FeeQuoter.ReceivedCCIPFeedReport({token: s_onReportTestToken1, price: 4e18, timestamp: uint32(block.timestamp)});
 
     uint224 expectedStoredTokenPrice = s_feeQuoter.calculateRebasedValue(18, 18, report[0].price);
 
     vm.expectEmit();
-    emit FeeQuoter.UsdPerTokenUpdated(onReportTestToken1, expectedStoredTokenPrice, block.timestamp);
+    emit FeeQuoter.UsdPerTokenUpdated(s_onReportTestToken1, expectedStoredTokenPrice, block.timestamp);
 
     changePrank(FORWARDER_1);
     //setting the correct price and time with the correct report
     s_feeQuoter.onReport(encodedPermissionsMetadata, abi.encode(report));
 
     //create a stale report
-    report[0] =
-      FeeQuoter.ReceivedCCIPFeedReport({token: onReportTestToken1, price: 4e18, timestamp: uint32(block.timestamp - 1)});
+    report[0] = FeeQuoter.ReceivedCCIPFeedReport({
+      token: s_onReportTestToken1,
+      price: 4e18,
+      timestamp: uint32(block.timestamp - 1)
+    });
 
     //record logs to check no events were emitted
     vm.recordLogs();

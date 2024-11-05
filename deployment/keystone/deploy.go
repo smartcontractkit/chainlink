@@ -145,7 +145,7 @@ func ConfigureRegistry(ctx context.Context, lggr logger.Logger, req ConfigureCon
 		return nil, fmt.Errorf("chain %d not found in environment", req.RegistryChainSel)
 	}
 
-	contractSetsResp, err := GetContractSets(&GetContractSetsRequest{
+	contractSetsResp, err := GetContractSets(req.Env.Logger, &GetContractSetsRequest{
 		Chains:      req.Env.Chains,
 		AddressBook: addrBook,
 	})
@@ -244,7 +244,7 @@ func ConfigureRegistry(ctx context.Context, lggr logger.Logger, req ConfigureCon
 // ConfigureForwardContracts configures the forwarder contracts on all chains for the given DONS
 // the address book is required to contain the an address of the deployed forwarder contract for every chain in the environment
 func ConfigureForwardContracts(env *deployment.Environment, dons []RegisteredDon, addrBook deployment.AddressBook) error {
-	contractSetsResp, err := GetContractSets(&GetContractSetsRequest{
+	contractSetsResp, err := GetContractSets(env.Logger, &GetContractSetsRequest{
 		Chains:      env.Chains,
 		AddressBook: addrBook,
 	})
@@ -279,7 +279,7 @@ func ConfigureOCR3Contract(env *deployment.Environment, chainSel uint64, dons []
 		return fmt.Errorf("chain %d not found in environment", chainSel)
 	}
 
-	contractSetsResp, err := GetContractSets(&GetContractSetsRequest{
+	contractSetsResp, err := GetContractSets(env.Logger, &GetContractSetsRequest{
 		Chains:      env.Chains,
 		AddressBook: addrBook,
 	})
@@ -319,7 +319,7 @@ func ConfigureOCR3ContractFromCLO(env *deployment.Environment, chainSel uint64, 
 	if !ok {
 		return fmt.Errorf("chain %d not found in environment", chainSel)
 	}
-	contractSetsResp, err := GetContractSets(&GetContractSetsRequest{
+	contractSetsResp, err := GetContractSets(env.Logger, &GetContractSetsRequest{
 		Chains:      env.Chains,
 		AddressBook: addrBook,
 	})
