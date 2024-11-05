@@ -25,6 +25,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/validation"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
+	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 )
 
@@ -213,10 +214,10 @@ func (c *Compute) createFetcher() func(ctx context.Context, req *wasmpb.FetchReq
 		}
 
 		cma := c.emitter.With(
-			workflowIDKey, req.Metadata.WorkflowId,
-			workflowNameKey, req.Metadata.WorkflowName,
-			workflowOwnerKey, req.Metadata.WorkflowOwner,
-			workflowExecutionIDKey, req.Metadata.WorkflowExecutionId,
+			platform.WorkflowIDKey, req.Metadata.WorkflowId,
+			platform.WorkflowNameKey, req.Metadata.WorkflowName,
+			platform.WorkflowOwnerKey, req.Metadata.WorkflowOwner,
+			platform.WorkflowExecutionIDKey, req.Metadata.WorkflowExecutionId,
 			timestampKey, time.Now().UTC().Format(time.RFC3339Nano),
 		)
 
