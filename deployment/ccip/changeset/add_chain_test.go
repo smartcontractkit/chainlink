@@ -27,7 +27,6 @@ import (
 )
 
 func TestAddChainInbound(t *testing.T) {
-	t.Skip("TODO FIXME")
 	// 4 chains where the 4th is added after initial deployment.
 	e := ccipdeployment.NewMemoryEnvironmentWithJobs(t, logger.TestLogger(t), 4, 4)
 	state, err := ccipdeployment.LoadOnchainState(e.Env)
