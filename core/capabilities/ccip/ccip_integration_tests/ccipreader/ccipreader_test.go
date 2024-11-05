@@ -136,7 +136,7 @@ func TestCCIPReader_CommitReportsGTETimestamp(t *testing.T) {
 			ctx,
 			chainD,
 			// Skips first report
-			//nolint:gosec
+			//nolint:gosec // this won't overflow
 			time.Unix(int64(firstReportTs)+1, 0),
 			10,
 		)
