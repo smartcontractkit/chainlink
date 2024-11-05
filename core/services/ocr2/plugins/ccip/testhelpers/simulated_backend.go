@@ -36,6 +36,7 @@ func SetupChain(t *testing.T) (*simulated.Backend, *bind.TransactOpts) {
 	// Tests create plenty of transactions so this number can't be too low, every new block mined will tick the clock,
 	// if you mine more than "X hours" transactions, SimulatedBackend will panic because generated timestamps will be in the future.
 	// IMPORTANT: Any adjustments to FirstBlockAge will automatically update PermissionLessExecutionThresholdSeconds in tests
+	//nolint:gosec // G115
 	blockTime := time.UnixMilli(int64(currentHead.Time))
 	err = chain.AdjustTime(time.Since(blockTime) - FirstBlockAge)
 	require.NoError(t, err)

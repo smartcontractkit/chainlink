@@ -45,7 +45,6 @@ var (
 )
 
 func TestVRFV2Integration_SingleRevertedTxn_ForceFulfillment(t *testing.T) {
-	t.Skip("TODO FIXME")
 	t.Parallel()
 
 	ownerKey := cltest.MustGenerateRandomKey(t)
@@ -62,7 +61,6 @@ func TestVRFV2Integration_SingleRevertedTxn_ForceFulfillment(t *testing.T) {
 }
 
 func TestVRFV2Integration_BatchRevertedTxn_ForceFulfillment(t *testing.T) {
-	t.Skip("TODO FIXME")
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
@@ -89,7 +87,6 @@ func TestVRFV2Integration_BatchRevertedTxn_ForceFulfillment(t *testing.T) {
 }
 
 func TestVRFV2Integration_ForceFulfillmentRevertedTxn_Retry(t *testing.T) {
-	t.Skip("TODO FIXME")
 	t.Parallel()
 
 	ownerKey := cltest.MustGenerateRandomKey(t)
@@ -112,7 +109,6 @@ func TestVRFV2Integration_ForceFulfillmentRevertedTxn_Retry(t *testing.T) {
 	t.Log("Done!")
 }
 func TestVRFV2Integration_CanceledSubForceFulfillmentRevertedTxn_Retry(t *testing.T) {
-	t.Skip("TODO FIXME")
 	t.Parallel()
 
 	ownerKey := cltest.MustGenerateRandomKey(t)

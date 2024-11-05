@@ -390,10 +390,10 @@ func Test_BackupLogPoller(t *testing.T) {
 			assert.Len(t, logs, 1)
 			logs, err = th.LogPoller.Logs(ctx, 32, 32, EmitterABI.Events["Log2"].ID, th.EmitterAddress1)
 			require.NoError(t, err)
-			assert.Equal(t, logs, 1)
+			assert.Len(t, logs, 1)
 			logs, err = th.LogPoller.Logs(ctx, 32, 36, EmitterABI.Events["Log1"].ID, th.EmitterAddress2)
 			require.NoError(t, err)
-			assert.Equal(t, logs, 1)
+			assert.Len(t, logs, 1)
 		})
 	}
 }

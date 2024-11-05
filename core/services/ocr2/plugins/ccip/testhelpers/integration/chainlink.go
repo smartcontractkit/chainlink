@@ -412,8 +412,8 @@ func setupNodeCCIP(
 			c.P2P.V2.DefaultBootstrappers = &[]commontypes.BootstrapperLocator{
 				{
 					PeerID: bootstrapPeerID, Addrs: []string{
-					fmt.Sprintf("127.0.0.1:%d", bootstrapPort),
-				},
+						fmt.Sprintf("127.0.0.1:%d", bootstrapPort),
+					},
 				},
 			}
 		}

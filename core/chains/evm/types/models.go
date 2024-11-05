@@ -382,8 +382,9 @@ func (b *Block) UnmarshalJSON(data []byte) error {
 		Hash:          bi.Hash,
 		ParentHash:    bi.ParentHash,
 		BaseFeePerGas: (*assets.Wei)(bi.BaseFeePerGas),
-		Timestamp:     time.Unix(int64(bi.Timestamp), 0),
-		Transactions:  fromInternalTxnSlice(bi.Transactions),
+		//nolint:gosec // G115
+		Timestamp:    time.Unix(int64(bi.Timestamp), 0),
+		Transactions: fromInternalTxnSlice(bi.Transactions),
 	}
 	return nil
 }

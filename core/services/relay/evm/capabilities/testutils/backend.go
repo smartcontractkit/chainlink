@@ -61,7 +61,7 @@ func NewEVMBackendTH(t *testing.T) *EVMBackendTH {
 	h, err := backend.Client().HeaderByNumber(testutils.Context(t), nil)
 	require.NoError(t, err)
 	//nolint:gosec // G115
-	blockTime := time.UnixMilli(int64(h.Time)) //nolint:gosec
+	blockTime := time.UnixMilli(int64(h.Time))
 	err = backend.AdjustTime(time.Since(blockTime) - 24*time.Hour)
 	require.NoError(t, err)
 	backend.Commit()
