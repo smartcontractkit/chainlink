@@ -1,7 +1,9 @@
 package internal_test
 
 import (
+	"bytes"
 	"math/big"
+	"sort"
 	"strconv"
 	"testing"
 
@@ -16,8 +18,8 @@ import (
 	kstest "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal/test"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
-	"github.com/test-go/testify/require"
-	"gotest.tools/v3/assert"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestUpdateDon(t *testing.T) {
@@ -83,14 +85,12 @@ func TestUpdateDon(t *testing.T) {
 			Version:        "1.0.0",
 			CapabilityType: 0,
 		}
-		/*
-			cap_B = kcr.CapabilitiesRegistryCapability{
-				LabelledName:   "cap b",
-				Version:        "1.0.0",
-				CapabilityType: 1,
-			}
 
-		*/
+		cap_B = kcr.CapabilitiesRegistryCapability{
+			LabelledName:   "cap b",
+			Version:        "1.0.0",
+			CapabilityType: 1,
+		}
 	)
 	//		p2p_3 = p2pkey.MustNewV2XXXTestingOnly(big.NewInt(300))
 
@@ -113,20 +113,54 @@ func TestUpdateDon(t *testing.T) {
 		}
 
 		testCfg := setupUpdateDonTest(t, lggr, cfg)
+
 		req := &internal.UpdateDonRequest{
 			Registry: testCfg.Registry,
 			Chain:    testCfg.Chain,
 			P2PIDs:   []p2pkey.PeerID{p2p_1.PeerID(), p2p_2.PeerID(), p2p_3.PeerID(), p2p_4.PeerID()},
 			CapabilityConfigs: []internal.CapabilityConfig{
-				{},
+				{Capability: cap_A}, {Capability: cap_B},
 			},
 		}
-		want := &internal.UpdateDonResponse{}
+		want := &internal.UpdateDonResponse{
+			DonInfo: kcr.CapabilitiesRegistryDONInfo{
+				Id:          1,
+				ConfigCount: 1,
+				NodeP2PIds:  internal.PeerIDsToBytes([]p2pkey.PeerID{p2p_1.PeerID(), p2p_2.PeerID(), p2p_3.PeerID(), p2p_4.PeerID()}),
+				CapabilityConfigurations: []kcr.CapabilitiesRegistryCapabilityConfiguration{
+					{CapabilityId: kstest.MustCapabilityId(t, testCfg.Registry, cap_A)},
+					{CapabilityId: kstest.MustCapabilityId(t, testCfg.Registry, cap_B)},
+				},
+			},
+		}
 
 		got, err := internal.UpdateDon(lggr, req)
 		require.NoError(t, err)
-		assert.Equal(t, want, got)
+		assert.Equal(t, want.DonInfo.Id, got.DonInfo.Id)
+		assert.Equal(t, want.DonInfo.ConfigCount, got.DonInfo.ConfigCount)
+		assert.Equal(t, sortedP2Pids(want.DonInfo.NodeP2PIds), sortedP2Pids(got.DonInfo.NodeP2PIds))
+		assert.Equal(t, capIds(want.DonInfo.CapabilityConfigurations), capIds(got.DonInfo.CapabilityConfigurations))
+
 	})
+}
+
+func sortedP2Pids(p2pids [][32]byte) [][32]byte {
+	// sha256Hash := sha256.New()
+	sort.Slice(p2pids, func(i, j int) bool {
+		return bytes.Compare(p2pids[i][:], p2pids[j][:]) < 0
+	})
+	return p2pids
+}
+
+func capIds(ccs []kcr.CapabilitiesRegistryCapabilityConfiguration) [][32]byte {
+	out := make([][32]byte, len(ccs))
+	for i, cc := range ccs {
+		out[i] = cc.CapabilityId
+	}
+	sort.Slice(out, func(i, j int) bool {
+		return bytes.Compare(out[i][:], out[j][:]) < 0
+	})
+	return out
 }
 
 type minimalNodeCfg struct {

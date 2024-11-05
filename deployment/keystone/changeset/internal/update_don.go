@@ -35,6 +35,23 @@ type UpdateDonRequest struct {
 	CapabilityConfigs []CapabilityConfig
 }
 
+func (r *UpdateDonRequest) appendNodeCapabilitiesRequest() *AppendNodeCapabilitiesRequest {
+	out := &AppendNodeCapabilitiesRequest{
+		Chain:             r.Chain,
+		Registry:          r.Registry,
+		P2pToCapabilities: make(map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability),
+	}
+	for _, p2pid := range r.P2PIDs {
+		if _, exists := out.P2pToCapabilities[p2pid]; !exists {
+			out.P2pToCapabilities[p2pid] = make([]kcr.CapabilitiesRegistryCapability, 0)
+		}
+		for _, cc := range r.CapabilityConfigs {
+			out.P2pToCapabilities[p2pid] = append(out.P2pToCapabilities[p2pid], cc.Capability)
+		}
+	}
+	return out
+}
+
 func (r *UpdateDonRequest) Validate() error {
 	if r.Registry == nil {
 		return fmt.Errorf("registry is required")
@@ -95,6 +112,12 @@ func UpdateDon(lggr logger.Logger, req *UpdateDonRequest) (*UpdateDonResponse, e
 	if err != nil {
 		return nil, fmt.Errorf("failed to compute configs: %w", err)
 	}
+
+	_, err = AppendNodeCapabilitiesImpl(lggr, req.appendNodeCapabilitiesRequest())
+	if err != nil {
+		return nil, fmt.Errorf("failed to append node capabilities: %w", err)
+	}
+
 	tx, err := req.Registry.UpdateDON(req.Chain.DeployerKey, don.Id, don.NodeP2PIds, cfgs, don.IsPublic, don.F)
 	if err != nil {
 		err = kslib.DecodeErr(kcr.CapabilitiesRegistryABI, err)

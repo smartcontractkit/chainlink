@@ -71,10 +71,8 @@ func SetupTestRegistry(t *testing.T, lggr logger.Logger, req *SetupTestRegistryR
 	// add the nodes with the phony capabilities. cannot register a node without a capability and capability must exist
 	// to do this make an initial phony request and extract the node params
 	initialp2pToCapabilities := make(map[p2pkey.PeerID][][32]byte)
-	var err error
 	for p2pID := range req.P2pToCapabilities {
-		initialp2pToCapabilities[p2pID], err = capabilityIds(registry, registeredCapabilities)
-		require.NoError(t, err)
+		initialp2pToCapabilities[p2pID] = mustCapabilityIds(t, registry, registeredCapabilities)
 	}
 	// register the nodes
 	var np []kcr.CapabilitiesRegistryNodeParams
@@ -280,4 +278,18 @@ func capabilityIds(registry *capabilities_registry.CapabilitiesRegistry, rcs []k
 		out[i] = id
 	}
 	return out, nil
+}
+
+func mustCapabilityIds(t *testing.T, registry *capabilities_registry.CapabilitiesRegistry, rcs []kslib.RegisteredCapability) [][32]byte {
+	t.Helper()
+	out, err := capabilityIds(registry, rcs)
+	require.NoError(t, err)
+	return out
+}
+
+func MustCapabilityId(t *testing.T, registry *capabilities_registry.CapabilitiesRegistry, cap capabilities_registry.CapabilitiesRegistryCapability) [32]byte {
+	t.Helper()
+	id, err := registry.GetHashedCapabilityId(&bind.CallOpts{}, cap.LabelledName, cap.Version)
+	require.NoError(t, err)
+	return id
 }
