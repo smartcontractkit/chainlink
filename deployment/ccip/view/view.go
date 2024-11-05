@@ -20,12 +20,12 @@ type ChainView struct {
 	TokenAdminRegistry map[string]v1_5.TokenAdminRegistryView `json:"tokenAdminRegistry,omitempty"`
 	CommitStore        map[string]v1_5.CommitStoreView        `json:"commitStore,omitempty"`
 	// v1.6
-	FeeQuoter          map[string]v1_6.FeeQuoterView     `json:"feeQuoter,omitempty"`
-	NonceManager       map[string]v1_6.NonceManagerView  `json:"nonceManager,omitempty"`
-	RMN                map[string]v1_6.RMNRemoteView     `json:"rmn,omitempty"`
-	OnRamp             map[string]v1_6.OnRampView        `json:"onRamp,omitempty"`
-	OffRamp            map[string]v1_6.OffRampView       `json:"offRamp,omitempty"`
-	CapabilityRegistry map[string]common_v1_0.CapRegView `json:"capabilityRegistry,omitempty"`
+	FeeQuoter          map[string]v1_6.FeeQuoterView                 `json:"feeQuoter,omitempty"`
+	NonceManager       map[string]v1_6.NonceManagerView              `json:"nonceManager,omitempty"`
+	RMN                map[string]v1_6.RMNRemoteView                 `json:"rmn,omitempty"`
+	OnRamp             map[string]v1_6.OnRampView                    `json:"onRamp,omitempty"`
+	OffRamp            map[string]v1_6.OffRampView                   `json:"offRamp,omitempty"`
+	CapabilityRegistry map[string]common_v1_0.CapabilityRegistryView `json:"capabilityRegistry,omitempty"`
 }
 
 func NewChain() ChainView {
@@ -43,7 +43,7 @@ func NewChain() ChainView {
 		RMN:                make(map[string]v1_6.RMNRemoteView),
 		OnRamp:             make(map[string]v1_6.OnRampView),
 		OffRamp:            make(map[string]v1_6.OffRampView),
-		CapabilityRegistry: make(map[string]common_v1_0.CapRegView),
+		CapabilityRegistry: make(map[string]common_v1_0.CapabilityRegistryView),
 	}
 }
 

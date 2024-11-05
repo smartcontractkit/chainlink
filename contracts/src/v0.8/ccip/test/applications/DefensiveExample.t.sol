@@ -13,13 +13,13 @@ contract DefensiveExampleTest is OnRampSetup {
   event MessageRecovered(bytes32 indexed messageId);
 
   DefensiveExample internal s_receiver;
-  uint64 internal sourceChainSelector = 7331;
+  uint64 internal s_sourceChainSelector = 7331;
 
   function setUp() public virtual override {
     super.setUp();
 
     s_receiver = new DefensiveExample(s_destRouter, IERC20(s_destFeeToken));
-    s_receiver.enableChain(sourceChainSelector, abi.encode(""));
+    s_receiver.enableChain(s_sourceChainSelector, abi.encode(""));
   }
 
   function test_Recovery() public {
@@ -44,7 +44,7 @@ contract DefensiveExampleTest is OnRampSetup {
     s_receiver.ccipReceive(
       Client.Any2EVMMessage({
         messageId: messageId,
-        sourceChainSelector: sourceChainSelector,
+        sourceChainSelector: s_sourceChainSelector,
         sender: abi.encode(address(0)), // wrong sender, will revert internally
         data: "",
         destTokenAmounts: destTokenAmounts
@@ -87,7 +87,7 @@ contract DefensiveExampleTest is OnRampSetup {
     s_receiver.ccipReceive(
       Client.Any2EVMMessage({
         messageId: messageId,
-        sourceChainSelector: sourceChainSelector,
+        sourceChainSelector: s_sourceChainSelector,
         sender: abi.encode(address(s_receiver)), // correct sender
         data: "",
         destTokenAmounts: destTokenAmounts

@@ -11,7 +11,7 @@ import {Client} from "../../libraries/Client.sol";
 import {Internal} from "../../libraries/Internal.sol";
 import {OnRamp} from "../../onRamp/OnRamp.sol";
 import {MaybeRevertMessageReceiver} from "../helpers/receivers/MaybeRevertMessageReceiver.sol";
-import {OffRampSetup} from "../offRamp/OffRampSetup.t.sol";
+import {OffRampSetup} from "../offRamp/offRamp/OffRampSetup.t.sol";
 import {OnRampSetup} from "../onRamp/OnRampSetup.t.sol";
 import {RouterSetup} from "../router/RouterSetup.t.sol";
 

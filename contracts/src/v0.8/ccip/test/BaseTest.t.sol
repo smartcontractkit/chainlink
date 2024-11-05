@@ -74,7 +74,7 @@ contract BaseTest is Test {
   IRMNRemote internal s_mockRMNRemote;
 
   // nonce for pseudo-random number generation, not to be exposed to test suites
-  uint256 private randNonce;
+  uint256 private s_randNonce;
 
   function setUp() public virtual {
     // BaseTest.setUp is often called multiple times from tests' setUp due to inheritance.
@@ -136,7 +136,7 @@ contract BaseTest is Test {
 
   /// @dev returns a pseudo-random bytes32
   function _randomBytes32() internal returns (bytes32) {
-    return keccak256(abi.encodePacked(++randNonce));
+    return keccak256(abi.encodePacked(++s_randNonce));
   }
 
   /// @dev returns a pseudo-random number

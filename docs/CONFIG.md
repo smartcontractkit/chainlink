@@ -9503,8 +9503,8 @@ HistoryDepth = 100 # Default
 ```
 HistoryDepth tracks the top N blocks on top of the latest finalized block to keep in the `heads` database table.
 Note that this can easily result in MORE than `N + finality depth`  records since in the case of re-orgs we keep multiple heads for a particular block height.
-This number should be at least as large as `FinalityDepth`.
-There may be a small performance penalty to setting this to something very large (10,000+)
+Higher values help reduce number of RPC requests performed by TXM's Finalizer and improve TXM's Confirmer reorg protection on restarts.
+At the same time, setting the value too high could lead to higher CPU consumption. The following formula could be used to calculate the optimal value: `expected_downtime_on_restart/block_time`.
 
 ### MaxBufferSize
 ```toml
