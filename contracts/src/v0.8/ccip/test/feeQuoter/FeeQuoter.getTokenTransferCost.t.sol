@@ -10,6 +10,8 @@ import {FeeQuoterFeeSetup} from "./FeeQuoterSetup.t.sol";
 contract FeeQuoter_getTokenTransferCost is FeeQuoterFeeSetup {
   using USDPriceWith18Decimals for uint224;
 
+  address internal s_selfServeTokenDefaultPricing = makeAddr("self-serve-token-default-pricing");
+
   function test_NoTokenTransferChargesZeroFee_Success() public view {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
     (uint256 feeUSDWei, uint32 destGasOverhead, uint32 destBytesOverhead) =
@@ -115,7 +117,7 @@ contract FeeQuoter_getTokenTransferCost is FeeQuoterFeeSetup {
     (uint256 feeUSDWei, uint32 destGasOverhead, uint32 destBytesOverhead) =
       s_feeQuoter.getTokenTransferCost(DEST_CHAIN_SELECTOR, message.feeToken, s_feeTokenPrice, message.tokenAmounts);
 
-    uint256 usdWei = _calcUSDValueFromTokenAmount(s_customTokenPrice, tokenAmount);
+    uint256 usdWei = _calcUSDValueFromTokenAmount(CUSTOM_TOKEN_PRICE, tokenAmount);
     uint256 bpsUSDWei = _applyBpsRatio(
       usdWei, s_feeQuoterTokenTransferFeeConfigArgs[0].tokenTransferFeeConfigs[1].tokenTransferFeeConfig.deciBps
     );
@@ -185,7 +187,7 @@ contract FeeQuoter_getTokenTransferCost is FeeQuoterFeeSetup {
 
   function test_MixedTokenTransferFee_Success() public view {
     address[3] memory testTokens = [s_sourceFeeToken, s_sourceRouter.getWrappedNative(), CUSTOM_TOKEN];
-    uint224[3] memory tokenPrices = [s_feeTokenPrice, s_wrappedTokenPrice, s_customTokenPrice];
+    uint224[3] memory tokenPrices = [s_feeTokenPrice, s_wrappedTokenPrice, CUSTOM_TOKEN_PRICE];
     FeeQuoter.TokenTransferFeeConfig[3] memory tokenTransferFeeConfigs = [
       s_feeQuoter.getTokenTransferFeeConfig(DEST_CHAIN_SELECTOR, testTokens[0]),
       s_feeQuoter.getTokenTransferFeeConfig(DEST_CHAIN_SELECTOR, testTokens[1]),
@@ -257,5 +259,13 @@ contract FeeQuoter_getTokenTransferCost is FeeQuoterFeeSetup {
     assertEq(expectedFeeUSDWei, feeUSDWei, "wrong feeUSDWei 3");
     assertEq(expectedTotalGas, destGasOverhead, "wrong destGasOverhead 3");
     assertEq(expectedTotalBytes, destBytesOverhead, "wrong destBytesOverhead 3");
+  }
+
+  function _applyBpsRatio(uint256 tokenAmount, uint16 ratio) internal pure returns (uint256) {
+    return (tokenAmount * ratio) / 1e5;
+  }
+
+  function _calcUSDValueFromTokenAmount(uint224 tokenPrice, uint256 tokenAmount) internal pure returns (uint256) {
+    return (tokenPrice * tokenAmount) / 1e18;
   }
 }

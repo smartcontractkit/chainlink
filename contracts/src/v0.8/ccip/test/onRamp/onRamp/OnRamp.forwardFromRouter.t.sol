@@ -25,6 +25,9 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
 
   MessageInterceptorHelper internal s_outboundMessageInterceptor;
 
+  address internal s_destTokenPool = makeAddr("destTokenPool");
+  address internal s_destToken = makeAddr("destToken");
+
   function setUp() public virtual override {
     super.setUp();
     s_outboundMessageInterceptor = new MessageInterceptorHelper();

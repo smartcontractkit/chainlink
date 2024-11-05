@@ -116,4 +116,12 @@ contract FeeQuoter_updateTokenPriceFeeds is FeeQuoterSetup {
 
     s_feeQuoter.updateTokenPriceFeeds(tokenPriceFeedUpdates);
   }
+
+  function _assertTokenPriceFeedConfigNotConfigured(
+    FeeQuoter.TokenPriceFeedConfig memory config
+  ) internal pure virtual {
+    _assertTokenPriceFeedConfigEquality(
+      config, FeeQuoter.TokenPriceFeedConfig({dataFeedAddress: address(0), tokenDecimals: 0, isEnabled: false})
+    );
+  }
 }

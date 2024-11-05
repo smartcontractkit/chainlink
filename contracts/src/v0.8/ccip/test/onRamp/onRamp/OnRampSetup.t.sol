@@ -9,6 +9,7 @@ import {Router} from "../../../Router.sol";
 import {Client} from "../../../libraries/Client.sol";
 import {Internal} from "../../../libraries/Internal.sol";
 import {OnRamp} from "../../../onRamp/OnRamp.sol";
+import {TokenAdminRegistry} from "../../../tokenAdminRegistry/TokenAdminRegistry.sol";
 import {FeeQuoterFeeSetup} from "../../feeQuoter/FeeQuoterSetup.t.sol";
 import {OnRampHelper} from "../../helpers/OnRampHelper.sol";
 
@@ -81,6 +82,48 @@ contract OnRampSetup is FeeQuoterFeeSetup {
       s_metadataHash,
       s_tokenAdminRegistry
     );
+  }
+
+  function _messageToEvent(
+    Client.EVM2AnyMessage memory message,
+    uint64 sourceChainSelector,
+    uint64 destChainSelector,
+    uint64 seqNum,
+    uint64 nonce,
+    uint256 feeTokenAmount,
+    uint256 feeValueJuels,
+    address originalSender,
+    bytes32 metadataHash,
+    TokenAdminRegistry tokenAdminRegistry
+  ) internal view returns (Internal.EVM2AnyRampMessage memory) {
+    Client.EVMExtraArgsV2 memory extraArgs =
+      s_feeQuoter.parseEVMExtraArgsFromBytes(message.extraArgs, destChainSelector);
+
+    Internal.EVM2AnyRampMessage memory messageEvent = Internal.EVM2AnyRampMessage({
+      header: Internal.RampMessageHeader({
+        messageId: "",
+        sourceChainSelector: sourceChainSelector,
+        destChainSelector: destChainSelector,
+        sequenceNumber: seqNum,
+        nonce: extraArgs.allowOutOfOrderExecution ? 0 : nonce
+      }),
+      sender: originalSender,
+      data: message.data,
+      receiver: message.receiver,
+      extraArgs: Client._argsToBytes(extraArgs),
+      feeToken: message.feeToken,
+      feeTokenAmount: feeTokenAmount,
+      feeValueJuels: feeValueJuels,
+      tokenAmounts: new Internal.EVM2AnyTokenTransfer[](message.tokenAmounts.length)
+    });
+
+    for (uint256 i = 0; i < message.tokenAmounts.length; ++i) {
+      messageEvent.tokenAmounts[i] =
+        _getSourceTokenData(message.tokenAmounts[i], tokenAdminRegistry, DEST_CHAIN_SELECTOR);
+    }
+
+    messageEvent.header.messageId = Internal._hash(messageEvent, metadataHash);
+    return messageEvent;
   }
 
   function _generateDynamicOnRampConfig(

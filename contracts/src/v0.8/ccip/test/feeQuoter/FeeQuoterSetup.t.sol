@@ -17,7 +17,6 @@ contract FeeQuoterSetup is TokenSetup {
   address internal constant CUSTOM_TOKEN_2 = address(bytes20(keccak256("CUSTOM_TOKEN_2")));
 
   uint224 internal constant CUSTOM_TOKEN_PRICE = 1e17; // $0.1 CUSTOM
-  uint224 internal constant CUSTOM_TOKEN_PRICE_2 = 1e18; // $1 CUSTOM
 
   // Encode L1 gas price and L2 gas price into a packed price.
   // L1 gas price is left-shifted to the higher-order bits.
@@ -31,8 +30,6 @@ contract FeeQuoterSetup is TokenSetup {
 
   address[] internal s_sourceFeeTokens;
   uint224[] internal s_sourceTokenPrices;
-  address[] internal s_destFeeTokens;
-  uint224[] internal s_destTokenPrices;
 
   FeeQuoter.PremiumMultiplierWeiPerEthArgs[] internal s_feeQuoterPremiumMultiplierWeiPerEthArgs;
   FeeQuoter.TokenTransferFeeConfigArgs[] internal s_feeQuoterTokenTransferFeeConfigArgs;
@@ -40,7 +37,7 @@ contract FeeQuoterSetup is TokenSetup {
   mapping(address token => address dataFeedAddress) internal s_dataFeedByToken;
 
   function setUp() public virtual override {
-    TokenSetup.setUp();
+    super.setUp();
 
     _deployTokenPriceDataFeed(s_sourceFeeToken, 8, 1e8);
 
@@ -63,13 +60,11 @@ contract FeeQuoterSetup is TokenSetup {
     destFeeTokens[0] = s_destTokens[0];
     destFeeTokens[1] = s_destTokens[1];
     destFeeTokens[2] = s_destRouter.getWrappedNative();
-    s_destFeeTokens = destFeeTokens;
 
     uint224[] memory destTokenPrices = new uint224[](3);
     destTokenPrices[0] = 5e18;
     destTokenPrices[1] = 2000e18;
     destTokenPrices[2] = 2000e18;
-    s_destTokenPrices = destTokenPrices;
 
     uint256 sourceTokenCount = sourceFeeTokens.length;
     uint256 destTokenCount = destFeeTokens.length;
@@ -194,13 +189,6 @@ contract FeeQuoterSetup is TokenSetup {
     return priceUpdates;
   }
 
-  function _getEmptyPriceUpdates() internal pure returns (Internal.PriceUpdates memory priceUpdates) {
-    return Internal.PriceUpdates({
-      tokenPriceUpdates: new Internal.TokenPriceUpdate[](0),
-      gasPriceUpdates: new Internal.GasPriceUpdate[](0)
-    });
-  }
-
   function _getSingleTokenPriceFeedUpdateStruct(
     address sourceToken,
     address dataFeedAddress,
@@ -273,14 +261,6 @@ contract FeeQuoterSetup is TokenSetup {
     assertEq(config1.isEnabled, config2.isEnabled);
   }
 
-  function _assertTokenPriceFeedConfigNotConfigured(
-    FeeQuoter.TokenPriceFeedConfig memory config
-  ) internal pure virtual {
-    _assertTokenPriceFeedConfigEquality(
-      config, FeeQuoter.TokenPriceFeedConfig({dataFeedAddress: address(0), tokenDecimals: 0, isEnabled: false})
-    );
-  }
-
   function _assertTokenTransferFeeConfigEqual(
     FeeQuoter.TokenTransferFeeConfig memory a,
     FeeQuoter.TokenTransferFeeConfig memory b
@@ -291,14 +271,6 @@ contract FeeQuoterSetup is TokenSetup {
     assertEq(a.destGasOverhead, b.destGasOverhead);
     assertEq(a.destBytesOverhead, b.destBytesOverhead);
     assertEq(a.isEnabled, b.isEnabled);
-  }
-
-  function _assertFeeQuoterStaticConfigsEqual(
-    FeeQuoter.StaticConfig memory a,
-    FeeQuoter.StaticConfig memory b
-  ) internal pure {
-    assertEq(a.linkToken, b.linkToken);
-    assertEq(a.maxFeeJuelsPerMsg, b.maxFeeJuelsPerMsg);
   }
 
   function _assertFeeQuoterDestChainConfigsEqual(
@@ -323,19 +295,12 @@ contract FeeQuoterSetup is TokenSetup {
 contract FeeQuoterFeeSetup is FeeQuoterSetup {
   uint224 internal s_feeTokenPrice;
   uint224 internal s_wrappedTokenPrice;
-  uint224 internal s_customTokenPrice;
-
-  address internal s_selfServeTokenDefaultPricing = makeAddr("self-serve-token-default-pricing");
-
-  address internal s_destTokenPool = makeAddr("destTokenPool");
-  address internal s_destToken = makeAddr("destToken");
 
   function setUp() public virtual override {
     super.setUp();
 
     s_feeTokenPrice = s_sourceTokenPrices[0];
     s_wrappedTokenPrice = s_sourceTokenPrices[2];
-    s_customTokenPrice = CUSTOM_TOKEN_PRICE;
 
     s_feeQuoter.updatePrices(_getSingleTokenPriceUpdateStruct(CUSTOM_TOKEN, CUSTOM_TOKEN_PRICE));
   }
@@ -366,48 +331,6 @@ contract FeeQuoterFeeSetup is FeeQuoterSetup {
     });
   }
 
-  function _messageToEvent(
-    Client.EVM2AnyMessage memory message,
-    uint64 sourceChainSelector,
-    uint64 destChainSelector,
-    uint64 seqNum,
-    uint64 nonce,
-    uint256 feeTokenAmount,
-    uint256 feeValueJuels,
-    address originalSender,
-    bytes32 metadataHash,
-    TokenAdminRegistry tokenAdminRegistry
-  ) internal view returns (Internal.EVM2AnyRampMessage memory) {
-    Client.EVMExtraArgsV2 memory extraArgs =
-      s_feeQuoter.parseEVMExtraArgsFromBytes(message.extraArgs, destChainSelector);
-
-    Internal.EVM2AnyRampMessage memory messageEvent = Internal.EVM2AnyRampMessage({
-      header: Internal.RampMessageHeader({
-        messageId: "",
-        sourceChainSelector: sourceChainSelector,
-        destChainSelector: destChainSelector,
-        sequenceNumber: seqNum,
-        nonce: extraArgs.allowOutOfOrderExecution ? 0 : nonce
-      }),
-      sender: originalSender,
-      data: message.data,
-      receiver: message.receiver,
-      extraArgs: Client._argsToBytes(extraArgs),
-      feeToken: message.feeToken,
-      feeTokenAmount: feeTokenAmount,
-      feeValueJuels: feeValueJuels,
-      tokenAmounts: new Internal.EVM2AnyTokenTransfer[](message.tokenAmounts.length)
-    });
-
-    for (uint256 i = 0; i < message.tokenAmounts.length; ++i) {
-      messageEvent.tokenAmounts[i] =
-        _getSourceTokenData(message.tokenAmounts[i], tokenAdminRegistry, DEST_CHAIN_SELECTOR);
-    }
-
-    messageEvent.header.messageId = Internal._hash(messageEvent, metadataHash);
-    return messageEvent;
-  }
-
   function _getSourceTokenData(
     Client.EVMTokenAmount memory tokenAmount,
     TokenAdminRegistry tokenAdminRegistry,
@@ -428,14 +351,6 @@ contract FeeQuoterFeeSetup is FeeQuoterSetup {
       amount: tokenAmount.amount,
       destExecData: abi.encode(expectedDestGasAmount)
     });
-  }
-
-  function _calcUSDValueFromTokenAmount(uint224 tokenPrice, uint256 tokenAmount) internal pure returns (uint256) {
-    return (tokenPrice * tokenAmount) / 1e18;
-  }
-
-  function _applyBpsRatio(uint256 tokenAmount, uint16 ratio) internal pure returns (uint256) {
-    return (tokenAmount * ratio) / 1e5;
   }
 
   function _configUSDCentToWei(

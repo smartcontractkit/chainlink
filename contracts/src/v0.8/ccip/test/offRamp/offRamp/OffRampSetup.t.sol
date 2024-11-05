@@ -446,4 +446,11 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
       )
     );
   }
+
+  function _getEmptyPriceUpdates() internal pure returns (Internal.PriceUpdates memory priceUpdates) {
+    return Internal.PriceUpdates({
+      tokenPriceUpdates: new Internal.TokenPriceUpdate[](0),
+      gasPriceUpdates: new Internal.GasPriceUpdate[](0)
+    });
+  }
 }

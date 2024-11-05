@@ -137,4 +137,12 @@ contract FeeQuoter_constructor is FeeQuoterSetup {
       new FeeQuoter.DestChainConfigArgs[](0)
     );
   }
+
+  function _assertFeeQuoterStaticConfigsEqual(
+    FeeQuoter.StaticConfig memory a,
+    FeeQuoter.StaticConfig memory b
+  ) internal pure {
+    assertEq(a.linkToken, b.linkToken);
+    assertEq(a.maxFeeJuelsPerMsg, b.maxFeeJuelsPerMsg);
+  }
 }
