@@ -197,9 +197,9 @@ func NewRelayer(ctx context.Context, lggr logger.Logger, chain legacyevm.Chain, 
 	sugared := logger.Sugared(lggr).Named("Relayer")
 	mercuryORM := mercury.NewORM(opts.DS)
 	cdcFactory := sync.OnceValues(func() (llo.ChannelDefinitionCacheFactory, error) {
-		chainSelector, err2 := chainselectors.SelectorFromChainId(chain.ID().Uint64())
-		if err2 != nil {
-			return nil, fmt.Errorf("failed to get chain selector for chain id %s: %w", chain.ID(), err2)
+		chainSelector, err := chainselectors.SelectorFromChainId(chain.ID().Uint64())
+		if err != nil {
+			return nil, fmt.Errorf("failed to get chain selector for chain id %s: %w", chain.ID(), err)
 		}
 		lloORM := llo.NewChainScopedORM(opts.DS, chainSelector)
 		return llo.NewChannelDefinitionCacheFactory(sugared, lloORM, chain.LogPoller(), opts.HTTPClient), nil
@@ -228,9 +228,9 @@ func NewRelayer(ctx context.Context, lggr logger.Logger, chain legacyevm.Chain, 
 
 	// If fromAddress is not specified, default to the eth key if there is only one
 	if fromAddress == nil {
-		ethKeys, err2 := opts.CSAETHKeystore.Eth().GetAll(ctx)
-		if err2 != nil {
-			return nil, fmt.Errorf("failed to get all eth keys: %w", err2)
+		ethKeys, err := opts.CSAETHKeystore.Eth().GetAll(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get all eth keys: %w", err)
 		}
 
 		// Do not register write target if there are multiple or no eth keys
@@ -449,11 +449,11 @@ func (r *Relayer) NewMercuryProvider(ctx context.Context, rargs commontypes.Rela
 			lggr.Errorw("trigger capability is enabled but capabilities registry is not set")
 		} else {
 			r.triggerCapability = triggers.NewMercuryTriggerService(0, lggr)
-			if err2 := r.triggerCapability.Start(ctx); err2 != nil {
-				return nil, err2
+			if err := r.triggerCapability.Start(ctx); err != nil {
+				return nil, err
 			}
-			if err2 := r.capabilitiesRegistry.Add(ctx, r.triggerCapability); err2 != nil {
-				return nil, err2
+			if err := r.capabilitiesRegistry.Add(ctx, r.triggerCapability); err != nil {
+				return nil, err
 			}
 			lggr.Infow("successfully added trigger service to the Registry")
 		}
