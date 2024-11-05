@@ -41,7 +41,8 @@ type Backend struct {
 }
 
 // SetExpectPending sets whether the backend should expect txes to be pending
-// We do this to avoid breaking the existing evmtypes.Backend interface.
+// after a Fork. We do this to avoid breaking the existing evmtypes.Backend interface (by
+// for example passing in a pending bool to Fork).
 func (b *Backend) SetExpectPending(pending bool) {
 	b.expectPending = pending
 }
