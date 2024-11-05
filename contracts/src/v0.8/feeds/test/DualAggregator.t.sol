@@ -454,12 +454,14 @@ contract GetRequesterAccessController is DualAggregatorBaseTest {
 // TODO: determine if we need this method still
 contract RequestNewRound is ConfiguredDualAggregatorBaseTest {}
 
-contract Trasmit is ConfiguredDualAggregatorBaseTest {
+contract Transmit is ConfiguredDualAggregatorBaseTest {
   uint32 epoch = 0;
   uint32 round = 0;
 
   function setUp() public override {
     super.setUp();
+
+    aggregator.setCutoffTime(40);
   }
 
   function test_RevertIf_UnauthorizedTransmitter() public {
@@ -584,25 +586,27 @@ contract Trasmit is ConfiguredDualAggregatorBaseTest {
   }
 
   function test_ReadExpectedInitialState() public {
-    _transmitAndCheck(0, 0, 0, 0, false, false); // no transmission but check
+    _transmitAndCheck(0, 0, 0, 0, 0, 0, false, false); // no transmission but check
   }
 
   function test_SyncFeedsTransmitStandardFirstNeverSameBlock() public {
-    vm.skip(true); // skip until passing
-
     // Report 1
     _transmitAndCheck({
       standardFeedPrice: 1,
+      standardObservationsTimestamp: uint32(block.timestamp),
       transmitPrimary: true,
       secondaryFeedPrice: 1,
+      secondaryObservationsTimestamp: uint32(block.timestamp),
       transmitSecondary: false,
       expectedStandardFeedAnswer: 1,
       expectedSecondaryFeedAnswer: 0
     });
     _transmitAndCheck({
       standardFeedPrice: 1,
+      standardObservationsTimestamp: uint32(block.timestamp),
       transmitPrimary: false,
       secondaryFeedPrice: 1,
+      secondaryObservationsTimestamp: uint32(block.timestamp) - 12,
       transmitSecondary: true,
       expectedStandardFeedAnswer: 1,
       expectedSecondaryFeedAnswer: 1
@@ -611,16 +615,20 @@ contract Trasmit is ConfiguredDualAggregatorBaseTest {
     // Report 2
     _transmitAndCheck({
       standardFeedPrice: 2,
+      standardObservationsTimestamp: uint32(block.timestamp),
       transmitPrimary: true,
       secondaryFeedPrice: 2,
+      secondaryObservationsTimestamp: uint32(block.timestamp) - 12,
       transmitSecondary: false,
       expectedStandardFeedAnswer: 2,
       expectedSecondaryFeedAnswer: 1
     });
     _transmitAndCheck({
       standardFeedPrice: 2,
+      standardObservationsTimestamp: uint32(block.timestamp),
       transmitPrimary: false,
       secondaryFeedPrice: 2,
+      secondaryObservationsTimestamp: uint32(block.timestamp) - 12,
       transmitSecondary: true,
       expectedStandardFeedAnswer: 2,
       expectedSecondaryFeedAnswer: 2
@@ -628,21 +636,23 @@ contract Trasmit is ConfiguredDualAggregatorBaseTest {
   }
 
   function test_SyncFeedsTransmitSecondaryFirstNeverSameBlock() public {
-    vm.skip(true); // skip until passing
-
     // Report 1
     _transmitAndCheck({
       standardFeedPrice: 1,
+      standardObservationsTimestamp: uint32(block.timestamp) - 12,
       transmitPrimary: false,
       secondaryFeedPrice: 1,
+      secondaryObservationsTimestamp: uint32(block.timestamp),
       transmitSecondary: true,
       expectedStandardFeedAnswer: 0, // locked
       expectedSecondaryFeedAnswer: 1
     });
     _transmitAndCheck({
       standardFeedPrice: 1,
+      standardObservationsTimestamp: uint32(block.timestamp) - 12,
       transmitPrimary: true,
       secondaryFeedPrice: 1,
+      secondaryObservationsTimestamp: uint32(block.timestamp),
       transmitSecondary: false,
       expectedStandardFeedAnswer: 1,
       expectedSecondaryFeedAnswer: 1
@@ -651,25 +661,27 @@ contract Trasmit is ConfiguredDualAggregatorBaseTest {
     // Report 2
     _transmitAndCheck({
       standardFeedPrice: 2,
+      standardObservationsTimestamp: uint32(block.timestamp) - 12,
       transmitPrimary: false,
       secondaryFeedPrice: 2,
+      secondaryObservationsTimestamp: uint32(block.timestamp),
       transmitSecondary: true,
       expectedStandardFeedAnswer: 1, // locked
       expectedSecondaryFeedAnswer: 2
     });
     _transmitAndCheck({
       standardFeedPrice: 2,
+      standardObservationsTimestamp: uint32(block.timestamp) - 12,
       transmitPrimary: true,
       secondaryFeedPrice: 2,
+      secondaryObservationsTimestamp: uint32(block.timestamp),
       transmitSecondary: false,
       expectedStandardFeedAnswer: 2,
       expectedSecondaryFeedAnswer: 2
     });
   }
 
-  function test_SyncFeedsTransmitSecondaryFirstAlwaysSameBlock() public {
-    vm.skip(true); // skip until passing
-
+  /*function test_SyncFeedsTransmitSecondaryFirstAlwaysSameBlock() public {
     // Report 1
     _transmitAndCheck({
       standardFeedPrice: 1,
@@ -692,8 +704,6 @@ contract Trasmit is ConfiguredDualAggregatorBaseTest {
   }
 
   function test_OutOfSyncFeedsSecondaryFeedFallbackToStandardFeed() public {
-    vm.skip(true); // skip until passing
-
     // Report 1
     _transmitAndCheck({
       standardFeedPrice: 1,
@@ -748,8 +758,6 @@ contract Trasmit is ConfiguredDualAggregatorBaseTest {
   }
 
   function test_OutOfSyncFeedsPrimaryIsSourcedFromSecondaryWithLockDelay() public {
-    vm.skip(true); // skip until passing
-
     // Report 1
     _transmitAndCheck({
       standardFeedPrice: 1,
@@ -956,11 +964,13 @@ contract Trasmit is ConfiguredDualAggregatorBaseTest {
     // todo: for now we're ignoring report 2 due to implementation complexity.
     // This could maybe be solved by keeping track of orphaned reports.
     assertEq(1, secondaryAnswer, "secondary feed answer is not correct");
-  }
+  }*/
 
   function _transmitAndCheck(
     int192 standardFeedPrice,
+    uint32 standardObservationsTimestamp,
     int192 secondaryFeedPrice,
+    uint32 secondaryObservationsTimestamp,
     uint256 expectedStandardFeedAnswer,
     uint256 expectedSecondaryFeedAnswer,
     bool transmitPrimary,
@@ -972,7 +982,7 @@ contract Trasmit is ConfiguredDualAggregatorBaseTest {
     if (transmitSecondary) {
       _changePrank(SECONDARY_PROXY);
       ReportGenerator.SignedReport memory signedReport =
-        s_reportGenerator.generateSignedReport(secondaryFeedPrice, uint32(block.timestamp));
+        s_reportGenerator.generateSignedReport(secondaryFeedPrice, secondaryObservationsTimestamp);
       aggregator.transmit(
         signedReport.reportContext, signedReport.report, signedReport.rs, signedReport.ss, signedReport.rawVs
       );
@@ -981,11 +991,13 @@ contract Trasmit is ConfiguredDualAggregatorBaseTest {
     if (transmitPrimary) {
       _changePrank(aggregator.getTransmitters()[0]);
       ReportGenerator.SignedReport memory signedReport =
-        s_reportGenerator.generateSignedReport(standardFeedPrice, uint32(block.timestamp));
+        s_reportGenerator.generateSignedReport(standardFeedPrice, standardObservationsTimestamp);
       aggregator.transmit(
         signedReport.reportContext, signedReport.report, signedReport.rs, signedReport.ss, signedReport.rawVs
       );
     }
+
+    aggregator.seeLatestRounds();
 
     // check the standard feed
     _changePrank(aggregator.getTransmitters()[0]);

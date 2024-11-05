@@ -538,30 +538,40 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     return s_hotVars.latestSecondaryRoundId;
   }
 
+  event Observations(uint32 transmission, uint32 report);
+
   /**
    * @notice check if a report has already been transmitted
    * @param report the report to check
    */
-  function _reportExists(Report memory report) internal view returns (bool exist, uint32 roundId) {
+  function _reportExists(Report memory report) internal returns (bool exist, uint32 roundId) {
     // get the latest round id
     uint32 latestAggregatorRoundId = s_hotVars.latestAggregatorRoundId;
 
     for (uint32 round_ = latestAggregatorRoundId; round_ > 0; --round_) {
       Transmission memory transmission = s_transmissions[round_];
+      emit Help(3);
+
+      emit Observations(transmission.observationsTimestamp, report.observationsTimestamp);
 
       if (transmission.observationsTimestamp < report.observationsTimestamp) {
         return (false, 0);
       }
-
+      emit Help(4);
       // get median
       int192 median = report.observations[report.observations.length / 2];
 
       if (transmission.observationsTimestamp == report.observationsTimestamp && transmission.answer == median) {
         return (true, round_);
       }
+      emit Help(5);
     }
-
+    emit Help(6);
     return (false, 0);
+  }
+
+  function seeLatestRounds() public returns (uint32 primary, uint32 secondary) {
+    return (s_hotVars.latestAggregatorRoundId, s_hotVars.latestSecondaryRoundId);
   }
   
   /**
@@ -570,9 +580,13 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
   function _getLatestRound() internal view returns (uint32) {
     Transmission memory transmission;
 
+    // get the latest round ids
+    uint32 latestAggregatorRoundId = s_hotVars.latestAggregatorRoundId;
+    uint32 latestSecondaryRoundId = s_hotVars.latestSecondaryRoundId;
+
     // check if the message sender is the secondary proxy
     if (msg.sender == s_secondaryProxy) {
-      transmission = s_transmissions[s_hotVars.latestSecondaryRoundId];
+      transmission = s_transmissions[latestSecondaryRoundId];
       // in case the latest secondary round does not accomplish the cutoff time condition,
       // get the round id syncing with the primary rounds
       if (transmission.recordedTimestamp + s_cutoffTime < block.timestamp) {
@@ -580,16 +594,19 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
       }
 
       // in case the latest secondary round accomplish the cutoff time condition, return it
-      return s_hotVars.latestSecondaryRoundId;
+      return latestSecondaryRoundId;
     }
-    // if the message sender is not the secondary proxy, get the latest primary round id
-    transmission = s_transmissions[s_hotVars.latestAggregatorRoundId];
-    // in case the report was sent in the same block, get the previous round id
-    if (transmission.recordedTimestamp == block.timestamp) {
-      return s_hotVars.latestAggregatorRoundId - 1;
+    // in case the report was sent by the secondary proxy
+    if (latestAggregatorRoundId == latestSecondaryRoundId) {
+      // get the transmission
+      transmission = s_transmissions[latestAggregatorRoundId];
+      // in case the transmission was sent in this same block, return the previous round id
+      if (transmission.recordedTimestamp == block.timestamp) {
+        return latestAggregatorRoundId - 1;
+      }
     }
 
-    return s_hotVars.latestAggregatorRoundId;
+    return latestAggregatorRoundId;
   }
 
   /**
@@ -693,6 +710,21 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
   error SignatureError();
   error DuplicateSigner();
 
+  event NewSecondaryTransmission(
+    uint32 roundId,
+    uint256 actualTimestamp,
+    address sender
+  );
+
+  event Help(
+    uint32 number
+  );
+
+  event Exist(
+    bool exist,
+    uint32 roundId
+  );
+
   /// @inheritdoc OCR2Abstract
   function transmit(
     // reportContext consists of:
@@ -717,25 +749,35 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
       // Decode the report
       Report memory report_ = _decodeReport(report);
       (bool exist, uint32 roundId) = _reportExists(report_);
+      emit Exist(exist, roundId);
       if (exist) {
         s_hotVars.latestSecondaryRoundId = roundId;
+
+        emit NewSecondaryTransmission(
+          s_hotVars.latestSecondaryRoundId,
+          block.timestamp,
+          msg.sender
+        );
+        return;
       }
-    } else {
-      // Report epoch and round
-      uint40 epochAndRound = uint40(uint256(reportContext[1]));
-
-      // Validate the report data
-      _validateReport(epochAndRound, reportContext, report, rs, ss);
-      
-      // Verify signatures attached to report
-      _verifySignatures(reportContext, report, rs, ss, rawVs);
-
-      // Decode the report
-      Report memory report_ = _decodeReport(report);
-
-      int192 juelsPerFeeCoin = _report(s_hotVars, reportContext[0], epochAndRound, report_);
-      _payTransmitter(s_hotVars, juelsPerFeeCoin, uint32(initialGas), msg.sender);
+      emit Help(1);
     }
+    
+    emit Help(2);
+    // Report epoch and round
+    uint40 epochAndRound = uint40(uint256(reportContext[1]));
+
+    // Validate the report data
+    _validateReport(epochAndRound, reportContext, report, rs, ss);
+    
+    // Verify signatures attached to report
+    _verifySignatures(reportContext, report, rs, ss, rawVs);
+
+    // Decode the report
+    Report memory report_ = _decodeReport(report);
+
+    int192 juelsPerFeeCoin = _report(s_hotVars, reportContext[0], epochAndRound, report_);
+    _payTransmitter(s_hotVars, juelsPerFeeCoin, uint32(initialGas), msg.sender);
   }
 
   // helper function to validate the report data
