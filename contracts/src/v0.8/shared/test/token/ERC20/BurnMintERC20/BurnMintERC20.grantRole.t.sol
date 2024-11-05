@@ -47,7 +47,6 @@ contract BurnMintERC20grantRole is BurnMintERC20Setup {
     s_burnMintERC20.revokeMintRole(OWNER);
     s_burnMintERC20.revokeBurnRole(OWNER);
 
-
     uint256 numberOfPools = 10;
     address[] memory permissionedAddresses = new address[](numberOfPools + 1);
     permissionedAddresses[0] = s_mockPool;

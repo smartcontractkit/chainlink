@@ -35,9 +35,7 @@ contract BurnMintERC20mint is BurnMintERC20Setup {
     // Mint max supply
     s_burnMintERC20.mint(OWNER, s_burnMintERC20.maxSupply());
 
-    vm.expectRevert(
-      abi.encodeWithSelector(BurnMintERC20.MaxSupplyExceeded.selector, s_burnMintERC20.maxSupply() + 1)
-    );
+    vm.expectRevert(abi.encodeWithSelector(BurnMintERC20.MaxSupplyExceeded.selector, s_burnMintERC20.maxSupply() + 1));
 
     // Attempt to mint 1 more than max supply
     s_burnMintERC20.mint(OWNER, 1);
