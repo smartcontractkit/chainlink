@@ -1,0 +1,22 @@
+ChainID = '80084'
+FinalityDepth = 1
+LogPollInterval = '1s'
+NoNewHeadsThreshold = '30s'
+RPCBlockQueryDelay = 10
+RPCDefaultBatchSize = 100
+NoNewFinalizedHeadsThreshold = '12m'
+
+[Transactions]
+MaxQueued = 5000
+
+[GasEstimator]
+Mode = 'FeeHistory'
+# The FeeHistory estimator does not enforce PriceMin, setting it to 0 to not place any limits on the price
+PriceMin = '0'
+BumpPercent = 40
+
+[HeadTracker]
+HistoryDepth = 2000
+
+[NodePool]
+SyncThreshold = 10

@@ -1,0 +1,22 @@
+ChainID = '60808'
+# OP stack https://docs.gobob.xyz/learn/introduction/op-stack
+ChainType = 'optimismBedrock'
+# finality_depth was: ~850
+FinalityDepth = 900
+# block_time was:  2s
+LogPollInterval = '5s'  
+
+NoNewFinalizedHeadsThreshold = '10m'
+
+FinalityTagEnabled = true
+
+[GasEstimator]
+EIP1559DynamicFees = true
+Mode = 'FeeHistory'
+
+[GasEstimator.FeeHistory]
+# block_time was: 2s
+CacheTimeout = '2s'
+
+[GasEstimator.BlockHistory]
+BlockHistorySize = 100

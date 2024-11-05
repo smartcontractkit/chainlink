@@ -268,6 +268,10 @@ var mantle = ClientErrors{
 	NonceTooLow:     regexp.MustCompile(`(: |^)'*nonce too low`),
 }
 
+var berachain = ClientErrors{	
+	Fatal:           regexp.MustCompile(`(: |^)'*invalid chain ID`),	
+}
+
 var hederaFatal = regexp.MustCompile(`(: |^)(execution reverted)(:|$) | ^Transaction gas limit '(\d+)' exceeds block gas limit '(\d+)' | ^Transaction gas limit provided '(\d+)' is insufficient of intrinsic gas required '(\d+)' | ^Oversized data:|status INVALID_SIGNATURE`)
 var hedera = ClientErrors{
 	NonceTooLow:           regexp.MustCompile(`Nonce too low`),
@@ -289,7 +293,7 @@ var internal = ClientErrors{
 	TerminallyStuck: regexp.MustCompile(TerminallyStuckMsg),
 }
 
-var clients = []ClientErrors{parity, geth, arbitrum, metis, substrate, avalanche, nethermind, harmony, besu, erigon, klaytn, celo, zkSync, zkEvm, treasure, mantle, aStar, hedera, gnosis, internal}
+var clients = []ClientErrors{parity, geth, arbitrum, metis, substrate, avalanche, nethermind, harmony, besu, erigon, klaytn, celo, zkSync, zkEvm, treasure, mantle, berachain, aStar, hedera, gnosis, internal}
 
 // ClientErrorRegexes returns a map of compiled regexes for each error type
 func ClientErrorRegexes(errsRegex config.ClientErrors) *ClientErrors {

@@ -422,6 +422,8 @@ func Test_Eth_Errors_Fatal(t *testing.T) {
 
 		{"failed to forward tx to sequencer, please try again. Error message: 'invalid sender'", true, "Mantle"},
 
+		{"invalid chain ID", true, "Berachain"},
+
 		{"client error fatal", true, "tomlConfig"},
 		{"[Request ID: d9711488-4c1e-4af2-bc1f-7969913d7b60] Error invoking RPC: transaction 0.0.4425573@1718213476.914320044 failed precheck with status INVALID_SIGNATURE", true, "hedera"},
 		{"invalid chain id for signer", true, "Treasure"},
