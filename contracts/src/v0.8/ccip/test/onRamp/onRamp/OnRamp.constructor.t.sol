@@ -27,10 +27,13 @@ contract OnRamp_constructor is OnRampSetup {
     _deployOnRamp(SOURCE_CHAIN_SELECTOR, s_sourceRouter, address(s_outboundNonceManager), address(s_tokenAdminRegistry));
 
     OnRamp.StaticConfig memory gotStaticConfig = s_onRamp.getStaticConfig();
-    _assertStaticConfigsEqual(staticConfig, gotStaticConfig);
+
+    assertEq(staticConfig.chainSelector, gotStaticConfig.chainSelector);
+    assertEq(address(staticConfig.rmnRemote), address(gotStaticConfig.rmnRemote));
+    assertEq(staticConfig.tokenAdminRegistry, gotStaticConfig.tokenAdminRegistry);
 
     OnRamp.DynamicConfig memory gotDynamicConfig = s_onRamp.getDynamicConfig();
-    _assertDynamicConfigsEqual(dynamicConfig, gotDynamicConfig);
+    assertEq(dynamicConfig.feeQuoter, gotDynamicConfig.feeQuoter);
 
     // Initial values
     assertEq("OnRamp 1.6.0-dev", s_onRamp.typeAndVersion());

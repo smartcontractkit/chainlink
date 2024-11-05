@@ -12,6 +12,7 @@ import {Pool} from "../../../libraries/Pool.sol";
 import {OnRamp} from "../../../onRamp/OnRamp.sol";
 import {TokenPool} from "../../../pools/TokenPool.sol";
 import {MaybeRevertingBurnMintTokenPool} from "../../helpers/MaybeRevertingBurnMintTokenPool.sol";
+import {MessageInterceptorHelper} from "../../helpers/MessageInterceptorHelper.sol";
 import {OnRampSetup} from "./OnRampSetup.t.sol";
 
 import {IERC20} from "../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
@@ -22,8 +23,11 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
     bool strict;
   }
 
+  MessageInterceptorHelper internal s_outboundMessageInterceptor;
+
   function setUp() public virtual override {
     super.setUp();
+    s_outboundMessageInterceptor = new MessageInterceptorHelper();
 
     address[] memory feeTokens = new address[](1);
     feeTokens[0] = s_sourceTokens[1];
@@ -477,5 +481,26 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
     vm.startPrank(address(s_sourceRouter));
     vm.expectRevert(abi.encodeWithSelector(FeeQuoter.SourceTokenDataTooLarge.selector, sourceETH));
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, 0, OWNER);
+  }
+
+  function _enableOutboundMessageInterceptor() internal {
+    (, address msgSender,) = vm.readCallers();
+
+    bool resetPrank = false;
+
+    if (msgSender != OWNER) {
+      vm.stopPrank();
+      vm.startPrank(OWNER);
+      resetPrank = true;
+    }
+
+    OnRamp.DynamicConfig memory dynamicConfig = s_onRamp.getDynamicConfig();
+    dynamicConfig.messageInterceptor = address(s_outboundMessageInterceptor);
+    s_onRamp.setDynamicConfig(dynamicConfig);
+
+    if (resetPrank) {
+      vm.stopPrank();
+      vm.startPrank(msgSender);
+    }
   }
 }
