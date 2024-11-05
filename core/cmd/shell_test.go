@@ -18,6 +18,7 @@ import (
 	"github.com/urfave/cli"
 
 	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
+	mocksqlutil "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/mocks"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
@@ -354,7 +355,7 @@ func TestSetupSolanaRelayer(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	reg := plugins.NewLoopRegistry(lggr, nil, nil, nil, "")
 	ks := mocks.NewSolana(t)
-	db := pgtest.NewSqlxDB(t)
+	ds := mocksqlutil.NewDataSource(t)
 
 	// config 3 chains but only enable 2 => should only be 2 relayer
 	nEnabledChains := 2
@@ -400,7 +401,7 @@ func TestSetupSolanaRelayer(t *testing.T) {
 	cfg := chainlink.SolanaFactoryConfig{
 		Keystore:    ks,
 		TOMLConfigs: tConfig.SolanaConfigs(),
-		DS:          db}
+		DS:          ds}
 
 	// not parallel; shared state
 	t.Run("no plugin", func(t *testing.T) {
@@ -443,7 +444,7 @@ func TestSetupSolanaRelayer(t *testing.T) {
 	dupCfg := chainlink.SolanaFactoryConfig{
 		Keystore:    ks,
 		TOMLConfigs: duplicateConfig.SolanaConfigs(),
-		DS:          db,
+		DS:          ds,
 	}
 
 	// not parallel; shared state
@@ -465,7 +466,7 @@ func TestSetupSolanaRelayer(t *testing.T) {
 		_, err := rf.NewSolana(chainlink.SolanaFactoryConfig{
 			Keystore:    ks,
 			TOMLConfigs: t2Config.SolanaConfigs(),
-			DS:          db,
+			DS:          ds,
 		})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to parse Solana env file")
