@@ -45,6 +45,6 @@ func newP2PSignerEncFromJD(ccfg *v1.ChainConfig, pubkey [32]byte) (*P2PSignerEnc
 	return &P2PSignerEnc{
 		Signer:              sigb,
 		P2PKey:              p2p,
-		EncryptionPublicKey: pubkey, //[32]byte{3: 84, 2: 79, 1: 68, 0: 79}, // TODO. no current way to get this from the node itself (and therefore not in clo or jd)
+		EncryptionPublicKey: pubkey, // TODO. no current way to get this from the node itself (and therefore not in clo or jd)
 	}, nil
 }

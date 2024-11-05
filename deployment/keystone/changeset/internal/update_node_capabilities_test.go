@@ -8,7 +8,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/deployment"
-	//"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	kstest "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal/test"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
@@ -84,7 +83,6 @@ func TestUpdateNodeCapabilities(t *testing.T) {
 							},
 						},
 					},
-					NopToNodes: nopToNodes,
 				},
 			},
 			want:    deployment.ChangesetOutput{},

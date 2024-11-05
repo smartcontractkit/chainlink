@@ -1,8 +1,10 @@
 package internal
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"sort"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 
@@ -19,7 +21,6 @@ type UpdateNodesRequest struct {
 	Registry *kcr.CapabilitiesRegistry
 
 	P2pToCapabilities map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability
-	//NopToNodes        map[kcr.CapabilitiesRegistryNodeOperator][]*P2PSignerEnc
 }
 
 func (req *UpdateNodesRequest) NodeParams() ([]kcr.CapabilitiesRegistryNodeParams, error) {
@@ -165,6 +166,13 @@ func makeNodeParams(registry *kcr.CapabilitiesRegistry,
 			Signer:              node.Signer,
 		})
 	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].NodeOperatorId == out[j].NodeOperatorId {
+			return bytes.Compare(out[i].P2pId[:], out[j].P2pId[:]) < 0
+		}
+		return out[i].NodeOperatorId < out[j].NodeOperatorId
+	})
+
 	return out, nil
 
 }

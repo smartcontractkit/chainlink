@@ -25,8 +25,6 @@ import (
 func TestUpdateDon(t *testing.T) {
 	var (
 		registryChain = chainsel.TEST_90000001
-		//nop_1         = "test nop 1"
-		//nop_2         = "test nop 2"
 		// nodes
 		p2p_1     = p2pkey.MustNewV2XXXTestingOnly(big.NewInt(100))
 		pubKey_1  = "11114981a6119ca3f932cdb8c402d71a72d672adae7849f581ecff8b8e1098e7" // valid csa key
@@ -92,7 +90,6 @@ func TestUpdateDon(t *testing.T) {
 			CapabilityType: 1,
 		}
 	)
-	//		p2p_3 = p2pkey.MustNewV2XXXTestingOnly(big.NewInt(300))
 
 	lggr := logger.Test(t)
 

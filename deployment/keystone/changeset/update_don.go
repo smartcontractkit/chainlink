@@ -8,7 +8,7 @@ import (
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 )
 
-var _ deployment.ChangeSet = UpdateDonX
+var _ deployment.ChangeSet = UpdateDon
 
 // CapabilityConfig is a struct that holds a capability and its configuration
 type CapabilityConfig = internal.CapabilityConfig
@@ -19,7 +19,10 @@ type UpdateDonResponse struct {
 	DonInfo kcr.CapabilitiesRegistryDONInfo
 }
 
-func UpdateDonX(env deployment.Environment, cfg any) (deployment.ChangesetOutput, error) {
+// UpdateDon updates the capabilities of a Don
+// This a complex action in practice that involves registering missing capabilities, adding the nodes, and updating
+// the capabilities of the DON
+func UpdateDon(env deployment.Environment, cfg any) (deployment.ChangesetOutput, error) {
 	req := cfg.(*UpdateDonRequest)
 	_, err := internal.UpdateDon(env.Logger, req)
 	if err != nil {

@@ -29,10 +29,8 @@ type UpdateDonRequest struct {
 	Registry *kcr.CapabilitiesRegistry
 	Chain    deployment.Chain
 
-	P2PIDs []p2pkey.PeerID // this is the unique identifier for the done
-	// CapabilityId field is ignored. it is determined dynamically by the registry
-	// If the Config is nil, a default config is used
-	CapabilityConfigs []CapabilityConfig
+	P2PIDs            []p2pkey.PeerID    // this is the unique identifier for the don
+	CapabilityConfigs []CapabilityConfig // if Config subfield is nil, a default config is used
 }
 
 func (r *UpdateDonRequest) appendNodeCapabilitiesRequest() *AppendNodeCapabilitiesRequest {
@@ -75,38 +73,10 @@ func UpdateDon(lggr logger.Logger, req *UpdateDonRequest) (*UpdateDonResponse, e
 	if err != nil {
 		return nil, fmt.Errorf("failed to get Dons: %w", err)
 	}
-	wantedDonID := SortedHash(PeerIDsToBytes(req.P2PIDs))
-	var don kcr.CapabilitiesRegistryDONInfo
-	found := false
-	for i, di := range getDonsResp {
-		gotID := SortedHash(di.NodeP2PIds)
-		if gotID == wantedDonID {
-			don = getDonsResp[i]
-			found = true
-			break
-		}
-	}
-	if !found {
-		type debugDonInfo struct {
-			OnchainID  uint32
-			P2PIDsHash string
-			Want       []p2pkey.PeerID
-			Got        []p2pkey.PeerID
-		}
-		debugIds := make([]debugDonInfo, len(getDonsResp))
-		for i, di := range getDonsResp {
-			debugIds[i] = debugDonInfo{
-				OnchainID:  di.Id,
-				P2PIDsHash: SortedHash(di.NodeP2PIds),
-				Want:       req.P2PIDs,
-				Got:        BytesToPeerIDs(di.NodeP2PIds),
-			}
-		}
-		b, err2 := json.Marshal(debugIds)
-		if err2 == nil {
-			return nil, fmt.Errorf("don not found by p2pIDs %s in %s", wantedDonID, b)
-		}
-		return nil, fmt.Errorf("don not found by p2pIDs %s in %v", wantedDonID, debugIds)
+
+	don, err := lookupDonByPeerIDs(getDonsResp, req.P2PIDs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to lookup don by p2pIDs: %w", err)
 	}
 	cfgs, err := computeConfigs(req.Registry, req.CapabilityConfigs, don)
 	if err != nil {
@@ -179,4 +149,46 @@ func SortedHash(p2pids [][32]byte) string {
 		sha256Hash.Write(id[:])
 	}
 	return hex.EncodeToString(sha256Hash.Sum(nil))
+}
+
+func lookupDonByPeerIDs(donResp []kcr.CapabilitiesRegistryDONInfo, wanted []p2pkey.PeerID) (kcr.CapabilitiesRegistryDONInfo, error) {
+	var don kcr.CapabilitiesRegistryDONInfo
+	wantedDonID := SortedHash(PeerIDsToBytes(wanted))
+	found := false
+	for i, di := range donResp {
+		gotID := SortedHash(di.NodeP2PIds)
+		if gotID == wantedDonID {
+			don = donResp[i]
+			found = true
+			break
+		}
+	}
+	if !found {
+		return don, verboseDonNotFound(donResp, wanted)
+	}
+	return don, nil
+}
+
+func verboseDonNotFound(donResp []kcr.CapabilitiesRegistryDONInfo, wanted []p2pkey.PeerID) error {
+	type debugDonInfo struct {
+		OnchainID  uint32
+		P2PIDsHash string
+		Want       []p2pkey.PeerID
+		Got        []p2pkey.PeerID
+	}
+	debugIds := make([]debugDonInfo, len(donResp))
+	for i, di := range donResp {
+		debugIds[i] = debugDonInfo{
+			OnchainID:  di.Id,
+			P2PIDsHash: SortedHash(di.NodeP2PIds),
+			Want:       wanted,
+			Got:        BytesToPeerIDs(di.NodeP2PIds),
+		}
+	}
+	wantedID := SortedHash(PeerIDsToBytes(wanted))
+	b, err2 := json.Marshal(debugIds)
+	if err2 == nil {
+		return fmt.Errorf("don not found by p2pIDs %s in %s", wantedID, b)
+	}
+	return fmt.Errorf("don not found by p2pIDs %s in %v", wantedID, debugIds)
 }

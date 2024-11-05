@@ -68,48 +68,30 @@ func SetupTestRegistry(t *testing.T, lggr logger.Logger, req *SetupTestRegistryR
 	}
 	require.Len(t, registeredCapabilities, len(expectedDeduped))
 
-	// add the nodes with the phony capabilities. cannot register a node without a capability and capability must exist
-	// to do this make an initial phony request and extract the node params
+	// make the nodes and register node
+	var nodeParams []kcr.CapabilitiesRegistryNodeParams
 	initialp2pToCapabilities := make(map[p2pkey.PeerID][][32]byte)
 	for p2pID := range req.P2pToCapabilities {
 		initialp2pToCapabilities[p2pID] = mustCapabilityIds(t, registry, registeredCapabilities)
 	}
-	// register the nodes
-	var np []kcr.CapabilitiesRegistryNodeParams
+	// create node with initial capabilities assigned to nop
 	for i, nop := range nops {
 		if _, exists := req.NopToNodes[nop]; !exists {
 			require.Fail(t, "missing nopToNodes for %s", nop.Name)
 		}
 		for _, p2pSignerEnc := range req.NopToNodes[nop] {
-			np = append(np, kcr.CapabilitiesRegistryNodeParams{
+			nodeParams = append(nodeParams, kcr.CapabilitiesRegistryNodeParams{
 				Signer:              p2pSignerEnc.Signer,
 				P2pId:               p2pSignerEnc.P2PKey,
 				EncryptionPublicKey: p2pSignerEnc.EncryptionPublicKey,
 				HashedCapabilityIds: initialp2pToCapabilities[p2pSignerEnc.P2PKey],
-				NodeOperatorId:      uint32(i + 1), // 1-indexed
+				NodeOperatorId:      uint32(i + 1), // nopid in contract is 1-indexed
 			})
 		}
 	}
-	/*
-		tx, err := registry.AddNodes(chain.DeployerKey, np)
-		if err != nil {
-			err2 := kslib.DecodeErr(kcr.CapabilitiesRegistryABI, err)
-			require.Fail(t, fmt.Sprintf("failed to call AddNodes: %s:  %s", err, err2))
-		}
-		_, err = chain.Confirm(tx)
-		require.NoError(t, err)
-	*/
-	/*	phonyRequest := &internal.UpdateNodesRequest{
-			Chain:             chain,
-			Registry:          registry,
-			P2pToCapabilities: req.P2pToCapabilities,
-			//		NopToNodes:        req.NopToNodes,
-		}
-		nodeParams, err := phonyRequest.NodeParams()
-		require.NoError(t, err)
-	*/
-	nodeParams := np
 	addNodes(t, lggr, chain, registry, nodeParams)
+
+	// add the Dons
 	addDons(t, lggr, chain, registry, capCache, req.Dons)
 
 	return &SetupTestRegistryResponse{

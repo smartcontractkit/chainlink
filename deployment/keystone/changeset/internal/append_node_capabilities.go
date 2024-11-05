@@ -15,7 +15,6 @@ type AppendNodeCapabilitiesRequest struct {
 	Registry *kcr.CapabilitiesRegistry
 
 	P2pToCapabilities map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability
-	// NopToNodes        map[kcr.CapabilitiesRegistryNodeOperator][]*P2PSignerEnc
 }
 
 func (req *AppendNodeCapabilitiesRequest) Validate() error {
@@ -56,7 +55,6 @@ func AppendNodeCapabilitiesImpl(lggr logger.Logger, req *AppendNodeCapabilitiesR
 		Chain:             req.Chain,
 		Registry:          req.Registry,
 		P2pToCapabilities: capsByPeer,
-		//		NopToNodes:        req.NopToNodes,
 	}
 	resp, err := UpdateNodes(lggr, updateNodesReq)
 	if err != nil {

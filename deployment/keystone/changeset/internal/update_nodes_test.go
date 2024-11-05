@@ -25,10 +25,9 @@ import (
 func Test_UpdateNodesRequest_validate(t *testing.T) {
 	type fields struct {
 		p2pToCapabilities map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability
-		//nopToNodes        map[uint32][]*internal.P2PSigner
-		nopToNodes map[kcr.CapabilitiesRegistryNodeOperator][]*internal.P2PSignerEnc
-		chain      deployment.Chain
-		registry   *kcr.CapabilitiesRegistry
+		nopToNodes        map[kcr.CapabilitiesRegistryNodeOperator][]*internal.P2PSignerEnc
+		chain             deployment.Chain
+		registry          *kcr.CapabilitiesRegistry
 	}
 	tests := []struct {
 		name    string
@@ -50,9 +49,8 @@ func Test_UpdateNodesRequest_validate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			req := &internal.UpdateNodesRequest{
 				P2pToCapabilities: tt.fields.p2pToCapabilities,
-				//	NopToNodes:        tt.fields.nopToNodes,
-				Chain:    tt.fields.chain,
-				Registry: tt.fields.registry,
+				Chain:             tt.fields.chain,
+				Registry:          tt.fields.registry,
 			}
 			if err := req.Validate(); (err != nil) != tt.wantErr {
 				t.Errorf("internal.UpdateNodesRequest.validate() error = %v, wantErr %v", err, tt.wantErr)
@@ -313,8 +311,6 @@ func TestUpdateNodes(t *testing.T) {
 			tt.args.req.Registry = setupResp.Registry
 			tt.args.req.Chain = setupResp.Chain
 
-			//registry := kstest.SetupUpdateNodes(t, tt.args.lggr, tt.args.req)
-			//tt.args.req.Registry = registry
 			// register the capabilities that the Update will use
 			expectedUpdatedCaps := make(map[p2pkey.PeerID][]kslib.RegisteredCapability)
 			capCache := kstest.NewCapabiltyCache(t)
@@ -416,9 +412,8 @@ func TestUpdateNodes(t *testing.T) {
 
 		var req = &internal.UpdateNodesRequest{
 			P2pToCapabilities: p2pToCapabilitiesUpdated,
-			//			NopToNodes:        nopToNodes,
-			Chain:    chain,
-			Registry: registry,
+			Chain:             chain,
+			Registry:          registry,
 		}
 		_, err = internal.UpdateNodes(lggr, req)
 		require.NoError(t, err)
