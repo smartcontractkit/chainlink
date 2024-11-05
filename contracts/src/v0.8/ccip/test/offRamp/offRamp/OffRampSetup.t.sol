@@ -29,8 +29,6 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
   bytes internal constant ON_RAMP_ADDRESS_2 = abi.encode(0xaA3f843Cf8E33B1F02dd28303b6bD87B1aBF8AE4);
   bytes internal constant ON_RAMP_ADDRESS_3 = abi.encode(0x71830C37Cb193e820de488Da111cfbFcC680a1b9);
 
-  address internal constant BLESS_VOTE_ADDR = address(8888);
-
   IAny2EVMMessageReceiver internal s_receiver;
   IAny2EVMMessageReceiver internal s_secondary_receiver;
   MaybeRevertMessageReceiver internal s_reverting_receiver;
@@ -40,11 +38,9 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
   OffRampHelper internal s_offRamp;
   MessageInterceptorHelper internal s_inboundMessageInterceptor;
   NonceManager internal s_inboundNonceManager;
-  address internal s_sourceTokenPool = makeAddr("sourceTokenPool");
 
   bytes32 internal s_configDigestExec;
   bytes32 internal s_configDigestCommit;
-  uint64 internal constant OFFCHAIN_CONFIG_VERSION = 3;
   uint8 internal constant F = 1;
 
   uint64 internal s_latestSequenceNumber;
@@ -165,9 +161,6 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
     s_destRouter.applyRampUpdates(onRampUpdates, new Router.OffRamp[](0), offRampUpdates);
   }
 
-  uint32 internal constant MAX_TOKEN_POOL_RELEASE_OR_MINT_GAS = 200_000;
-  uint32 internal constant MAX_TOKEN_POOL_TRANSFER_GAS = 50_000;
-
   function _generateDynamicOffRampConfig(
     address feeQuoter
   ) internal pure returns (OffRamp.DynamicConfig memory) {
@@ -176,30 +169,6 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
       permissionLessExecutionThresholdSeconds: PERMISSION_LESS_EXECUTION_THRESHOLD_SECONDS,
       isRMNVerificationDisabled: false,
       messageInterceptor: address(0)
-    });
-  }
-
-  function _convertToGeneralMessage(
-    Internal.Any2EVMRampMessage memory original
-  ) internal view returns (Client.Any2EVMMessage memory message) {
-    uint256 numberOfTokens = original.tokenAmounts.length;
-    Client.EVMTokenAmount[] memory destTokenAmounts = new Client.EVMTokenAmount[](numberOfTokens);
-
-    for (uint256 i = 0; i < numberOfTokens; ++i) {
-      Internal.Any2EVMTokenTransfer memory tokenAmount = original.tokenAmounts[i];
-
-      address destPoolAddress = tokenAmount.destTokenAddress;
-      TokenPool pool = TokenPool(destPoolAddress);
-      destTokenAmounts[i].token = address(pool.getToken());
-      destTokenAmounts[i].amount = tokenAmount.amount;
-    }
-
-    return Client.Any2EVMMessage({
-      messageId: original.header.messageId,
-      sourceChainSelector: original.header.sourceChainSelector,
-      sender: abi.encode(original.sender),
-      data: original.data,
-      destTokenAmounts: destTokenAmounts
     });
   }
 
@@ -345,22 +314,6 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
     assertEq(address(config1.router), address(config2.router));
   }
 
-  function _getDefaultSourceTokenData(
-    Client.EVMTokenAmount[] memory srcTokenAmounts
-  ) internal view returns (Internal.Any2EVMTokenTransfer[] memory) {
-    Internal.Any2EVMTokenTransfer[] memory sourceTokenData = new Internal.Any2EVMTokenTransfer[](srcTokenAmounts.length);
-    for (uint256 i = 0; i < srcTokenAmounts.length; ++i) {
-      sourceTokenData[i] = Internal.Any2EVMTokenTransfer({
-        sourcePoolAddress: abi.encode(s_sourcePoolByToken[srcTokenAmounts[i].token]),
-        destTokenAddress: s_destTokenBySourceToken[srcTokenAmounts[i].token],
-        extraData: "",
-        amount: srcTokenAmounts[i].amount,
-        destGasAmount: DEFAULT_TOKEN_DEST_GAS_OVERHEAD
-      });
-    }
-    return sourceTokenData;
-  }
-
   function _enableInboundMessageInterceptor() internal {
     OffRamp.DynamicConfig memory dynamicConfig = s_offRamp.getDynamicConfig();
     dynamicConfig.messageInterceptor = address(s_inboundMessageInterceptor);
@@ -412,14 +365,14 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
     s_offRamp.execute(reportContext, abi.encode(reports));
   }
 
-  function assertExecutionStateChangedEventLogs(
+  function _assertExecutionStateChangedEventLogs(
     uint64 sourceChainSelector,
     uint64 sequenceNumber,
     bytes32 messageId,
     bytes32 messageHash,
     Internal.MessageExecutionState state,
     bytes memory returnData
-  ) public {
+  ) internal {
     Vm.Log[] memory logs = vm.getRecordedLogs();
     for (uint256 i = 0; i < logs.length; ++i) {
       if (logs[i].topics[0] == OffRamp.ExecutionStateChanged.selector) {
@@ -440,7 +393,7 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
     }
   }
 
-  function assertExecutionStateChangedEventLogs(
+  function _assertExecutionStateChangedEventLogs(
     Vm.Log[] memory logs,
     uint64 sourceChainSelector,
     uint64 sequenceNumber,
@@ -448,7 +401,7 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
     bytes32 messageHash,
     Internal.MessageExecutionState state,
     bytes memory returnData
-  ) public pure {
+  ) internal pure {
     for (uint256 i = 0; i < logs.length; ++i) {
       if (logs[i].topics[0] == OffRamp.ExecutionStateChanged.selector) {
         uint64 logSourceChainSelector = uint64(uint256(logs[i].topics[1]));
@@ -473,7 +426,7 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
   ) internal {
     Vm.Log[] memory logs = vm.getRecordedLogs();
 
-    for (uint256 i = 0; i < logs.length; i++) {
+    for (uint256 i = 0; i < logs.length; ++i) {
       assertTrue(logs[i].topics[0] != eventSelector);
     }
   }

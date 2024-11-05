@@ -215,7 +215,7 @@ contract E2E is OnRampSetup, OffRampSetup {
     vm.recordLogs();
     _execute(reports);
 
-    assertExecutionStateChangedEventLogs(
+    _assertExecutionStateChangedEventLogs(
       SOURCE_CHAIN_SELECTOR,
       messages1[0].header.sequenceNumber,
       messages1[0].header.messageId,
@@ -224,7 +224,7 @@ contract E2E is OnRampSetup, OffRampSetup {
       ""
     );
 
-    assertExecutionStateChangedEventLogs(
+    _assertExecutionStateChangedEventLogs(
       SOURCE_CHAIN_SELECTOR,
       messages1[1].header.sequenceNumber,
       messages1[1].header.messageId,
@@ -233,7 +233,7 @@ contract E2E is OnRampSetup, OffRampSetup {
       ""
     );
 
-    assertExecutionStateChangedEventLogs(
+    _assertExecutionStateChangedEventLogs(
       SOURCE_CHAIN_SELECTOR + 1,
       messages2[0].header.sequenceNumber,
       messages2[0].header.messageId,

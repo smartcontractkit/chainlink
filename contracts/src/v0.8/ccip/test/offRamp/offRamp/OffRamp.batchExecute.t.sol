@@ -25,7 +25,7 @@ contract OffRamp_batchExecute is OffRampSetup {
     s_offRamp.batchExecute(
       _generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new OffRamp.GasLimitOverride[][](1)
     );
-    assertExecutionStateChangedEventLogs(
+    _assertExecutionStateChangedEventLogs(
       messages[0].header.sourceChainSelector,
       messages[0].header.sequenceNumber,
       messages[0].header.messageId,
@@ -54,7 +54,7 @@ contract OffRamp_batchExecute is OffRampSetup {
     s_offRamp.batchExecute(reports, new OffRamp.GasLimitOverride[][](2));
 
     Vm.Log[] memory logs = vm.getRecordedLogs();
-    assertExecutionStateChangedEventLogs(
+    _assertExecutionStateChangedEventLogs(
       logs,
       messages1[0].header.sourceChainSelector,
       messages1[0].header.sequenceNumber,
@@ -64,7 +64,7 @@ contract OffRamp_batchExecute is OffRampSetup {
       ""
     );
 
-    assertExecutionStateChangedEventLogs(
+    _assertExecutionStateChangedEventLogs(
       logs,
       messages1[1].header.sourceChainSelector,
       messages1[1].header.sequenceNumber,
@@ -74,7 +74,7 @@ contract OffRamp_batchExecute is OffRampSetup {
       ""
     );
 
-    assertExecutionStateChangedEventLogs(
+    _assertExecutionStateChangedEventLogs(
       logs,
       messages2[0].header.sourceChainSelector,
       messages2[0].header.sequenceNumber,
@@ -105,7 +105,7 @@ contract OffRamp_batchExecute is OffRampSetup {
 
     Vm.Log[] memory logs = vm.getRecordedLogs();
 
-    assertExecutionStateChangedEventLogs(
+    _assertExecutionStateChangedEventLogs(
       logs,
       messages1[0].header.sourceChainSelector,
       messages1[0].header.sequenceNumber,
@@ -115,7 +115,7 @@ contract OffRamp_batchExecute is OffRampSetup {
       ""
     );
 
-    assertExecutionStateChangedEventLogs(
+    _assertExecutionStateChangedEventLogs(
       logs,
       messages1[1].header.sourceChainSelector,
       messages1[1].header.sequenceNumber,
@@ -125,7 +125,7 @@ contract OffRamp_batchExecute is OffRampSetup {
       ""
     );
 
-    assertExecutionStateChangedEventLogs(
+    _assertExecutionStateChangedEventLogs(
       logs,
       messages2[0].header.sourceChainSelector,
       messages2[0].header.sequenceNumber,
@@ -195,7 +195,7 @@ contract OffRamp_batchExecute is OffRampSetup {
 
     vm.recordLogs();
     s_offRamp.batchExecute(reports, new OffRamp.GasLimitOverride[][](2));
-    assertExecutionStateChangedEventLogs(
+    _assertExecutionStateChangedEventLogs(
       messages[0].header.sourceChainSelector,
       messages[0].header.sequenceNumber,
       messages[0].header.messageId,
