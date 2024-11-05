@@ -76,16 +76,3 @@ The next step is to deploy the OCR3 job specs to the chainlink node cluster. Thi
 
 While we already have the chainlink node cluster deployed, we need to update the TOML configuration for each node to configure the `ChainWriter`.
 After updated TOML configuration overrides are generated per node, the cluster is redeployed such that the updates that effect without wiping the databases.
-
-## Future Work
-
-### Keystone workflow deployment
-Workflow style job spec deployments are not currently support, but it should be a minor modification to the existing OCR job spec deployment logic
-
-### Multi-DON support
-Multiple DONs are not currently supported
-- the devspace profile will need to be expanded so that we have multiple deployments, one per DON.
-- network policy / open ports will likely have to be adjusted in the chart
-
-### Smarter jobspec deployment
-Currently, job specs deployment logic is dumb. The scripts don't check if the jobspec to deploy already exists. If you need to redeploy a job spec that has the same name as a currently uploaded one, you'll want to delete the existing job specs via `./04_delete_ocr3_jobs.sh`.
