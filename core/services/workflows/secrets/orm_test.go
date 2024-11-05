@@ -17,14 +17,9 @@ func TestWorkflowArtifactsORM_GetAndUpdate(t *testing.T) {
 	orm := &orm{ds: db, lggr: lggr}
 
 	giveURL := "https://example.com"
+	giveContent := "some contents"
 
-	// Convert the byte slice to a hexadecimal string
-	cmd := UpdateSecretsCommand{
-		SecretsURL: giveURL,
-		Contents:   "some contents",
-	}
-
-	_, err := orm.Update(ctx, cmd)
+	_, err := orm.Update(ctx, giveURL, giveContent)
 	require.NoError(t, err)
 
 	url, err := orm.GetSecretsURL(ctx, keccak256Hash(giveURL))
@@ -36,8 +31,7 @@ func TestWorkflowArtifactsORM_GetAndUpdate(t *testing.T) {
 	assert.Equal(t, giveURL, artifact.SecretsURL)
 	assert.Equal(t, "some contents", artifact.Contents)
 
-	cmd.Contents = "new contents"
-	_, err = orm.Update(ctx, cmd)
+	_, err = orm.Update(ctx, giveURL, "new contents")
 	require.NoError(t, err)
 
 	artifact, err = orm.GetArtifactByHash(ctx, keccak256Hash(giveURL))

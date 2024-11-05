@@ -5,7 +5,6 @@ package mocks
 import (
 	context "context"
 
-	syncer "github.com/smartcontractkit/chainlink/v2/core/services/workflows/secrets"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -79,9 +78,9 @@ func (_c *ORM_GetSecretsURL_Call) RunAndReturn(run func(context.Context, string)
 	return _c
 }
 
-// Update provides a mock function with given fields: ctx, cmd
-func (_m *ORM) Update(ctx context.Context, cmd syncer.UpdateSecretsCommand) (int64, error) {
-	ret := _m.Called(ctx, cmd)
+// Update provides a mock function with given fields: ctx, secretsURL, contents
+func (_m *ORM) Update(ctx context.Context, secretsURL string, contents string) (int64, error) {
+	ret := _m.Called(ctx, secretsURL, contents)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Update")
@@ -89,17 +88,17 @@ func (_m *ORM) Update(ctx context.Context, cmd syncer.UpdateSecretsCommand) (int
 
 	var r0 int64
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, syncer.UpdateSecretsCommand) (int64, error)); ok {
-		return rf(ctx, cmd)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (int64, error)); ok {
+		return rf(ctx, secretsURL, contents)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, syncer.UpdateSecretsCommand) int64); ok {
-		r0 = rf(ctx, cmd)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) int64); ok {
+		r0 = rf(ctx, secretsURL, contents)
 	} else {
 		r0 = ret.Get(0).(int64)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, syncer.UpdateSecretsCommand) error); ok {
-		r1 = rf(ctx, cmd)
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, secretsURL, contents)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -114,14 +113,15 @@ type ORM_Update_Call struct {
 
 // Update is a helper method to define mock.On call
 //   - ctx context.Context
-//   - cmd syncer.UpdateSecretsCommand
-func (_e *ORM_Expecter) Update(ctx interface{}, cmd interface{}) *ORM_Update_Call {
-	return &ORM_Update_Call{Call: _e.mock.On("Update", ctx, cmd)}
+//   - secretsURL string
+//   - contents string
+func (_e *ORM_Expecter) Update(ctx interface{}, secretsURL interface{}, contents interface{}) *ORM_Update_Call {
+	return &ORM_Update_Call{Call: _e.mock.On("Update", ctx, secretsURL, contents)}
 }
 
-func (_c *ORM_Update_Call) Run(run func(ctx context.Context, cmd syncer.UpdateSecretsCommand)) *ORM_Update_Call {
+func (_c *ORM_Update_Call) Run(run func(ctx context.Context, secretsURL string, contents string)) *ORM_Update_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(syncer.UpdateSecretsCommand))
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
 	})
 	return _c
 }
@@ -131,7 +131,7 @@ func (_c *ORM_Update_Call) Return(_a0 int64, _a1 error) *ORM_Update_Call {
 	return _c
 }
 
-func (_c *ORM_Update_Call) RunAndReturn(run func(context.Context, syncer.UpdateSecretsCommand) (int64, error)) *ORM_Update_Call {
+func (_c *ORM_Update_Call) RunAndReturn(run func(context.Context, string, string) (int64, error)) *ORM_Update_Call {
 	_c.Call.Return(run)
 	return _c
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/mitchellh/mapstructure"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
@@ -13,8 +14,26 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
+type Event interface {
+	GetSecretsURL() string
+}
+
+type event struct {
+	workflow_registry_wrapper.WorkflowRegistryWorkflowForceUpdateSecretsRequestedV1
+}
+
+func newEvent(
+	e workflow_registry_wrapper.WorkflowRegistryWorkflowForceUpdateSecretsRequestedV1,
+) Event {
+	return event{WorkflowRegistryWorkflowForceUpdateSecretsRequestedV1: e}
+}
+
+func (e event) GetSecretsURL() string {
+	return e.SecretsURL.Hex()
+}
+
 type Handler interface {
-	ForceUpdateSecrets(context.Context, workflow_registry_wrapper.WorkflowRegistryWorkflowForceUpdateSecretsRequestedV1) error
+	ForceUpdateSecrets(context.Context, Event) error
 }
 
 type handler struct {
@@ -28,10 +47,10 @@ func newForceUpdateSecretsHandler(orm ORM, fetcher FetcherFunc) Handler {
 
 func (h *handler) ForceUpdateSecrets(
 	ctx context.Context,
-	event workflow_registry_wrapper.WorkflowRegistryWorkflowForceUpdateSecretsRequestedV1,
+	event Event,
 ) error {
 	// Fetch the secrets url from ORM
-	url, err := h.orm.GetSecretsURL(ctx, event.SecretsURL.Hex())
+	url, err := h.orm.GetSecretsURL(ctx, event.GetSecretsURL())
 	if err != nil {
 		return err
 	}
@@ -43,11 +62,7 @@ func (h *handler) ForceUpdateSecrets(
 	}
 
 	// Update the secrets in the ORM
-	cmd := UpdateSecretsCommand{
-		SecretsURL: url,
-		Contents:   string(secrets),
-	}
-	if _, err := h.orm.Update(ctx, cmd); err != nil {
+	if _, err := h.orm.Update(ctx, url, string(secrets)); err != nil {
 		return err
 	}
 
@@ -92,7 +107,7 @@ func (w *forceUpdateSecretsWorker) Run(
 				if !open {
 					return
 				}
-				if err := w.h.ForceUpdateSecrets(ctx, event); err != nil {
+				if err := w.h.ForceUpdateSecrets(ctx, newEvent(event)); err != nil {
 					w.lggr.Errorf("error handling update secrets: %v", err)
 					sendErr(err)
 				}
@@ -106,15 +121,26 @@ func (w *forceUpdateSecretsWorker) Run(
 func newQueryEventsWorker[T any](
 	timer <-chan struct{},
 	lggr logger.Logger,
-	cr types.ContractReader,
+	cr ContractReader,
 ) queryEventsWorker[T] {
 	return queryEventsWorker[T]{timer: timer, lggr: lggr, cr: cr}
+}
+
+type ContractReader interface {
+	Bind(context.Context, []types.BoundContract) error
+	QueryKey(
+		context.Context,
+		types.BoundContract,
+		query.KeyFilter,
+		query.LimitAndSort,
+		any,
+	) ([]types.Sequence, error)
 }
 
 type queryEventsWorker[T any] struct {
 	timer <-chan struct{}
 	lggr  logger.Logger
-	cr    types.ContractReader
+	cr    ContractReader
 }
 
 func (w *queryEventsWorker[T]) Run(

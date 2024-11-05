@@ -119,14 +119,20 @@ func (w *worker) fetchSecrets(
 		ctxwc, cancel = context.WithCancel(ctx)
 	)
 
-	h := newForceUpdateSecretsHandler(w.orm, w.gateway)
-	eventQueryWorker := newQueryEventsWorker[workflow_registry_wrapper.WorkflowRegistryWorkflowForceUpdateSecretsRequestedV1](w.getTicker(ctx), w.lggr, w.cr)
-	eventHandlerWorker := newForceUpdateSecretsWorker(h, w.lggr)
+	// Create the workers
+	var (
+		h                  = newForceUpdateSecretsHandler(w.orm, w.gateway)
+		eventQueryWorker   = newQueryEventsWorker[workflow_registry_wrapper.WorkflowRegistryWorkflowForceUpdateSecretsRequestedV1](w.getTicker(ctx), w.lggr, w.cr)
+		eventHandlerWorker = newForceUpdateSecretsWorker(h, w.lggr)
+	)
 
-	doneQuerying, queryErrs, updateSecretsEvents := eventQueryWorker.Run(ctxwc, cfg)
+	// Start the workers
+	var (
+		doneQuerying, queryErrs, updateSecretsEvents = eventQueryWorker.Run(ctxwc, cfg)
+		doneHandling, handlerErrs                    = eventHandlerWorker.Run(ctxwc, nil)
+	)
 
-	doneHandling, handlerErrs := eventHandlerWorker.Run(ctxwc, nil)
-
+	// Wait for the workers to finish
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -158,6 +164,7 @@ func (w *worker) fetchSecrets(
 		}
 	}()
 
+	// Close channels when done
 	go func() {
 		defer close(done)
 		defer close(errsCh)

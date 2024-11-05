@@ -18,11 +18,9 @@ type ContractEventPollerConfig struct {
 	QueryCount        uint64
 }
 
-type Updater[T any] interface {
-	Update(ctx context.Context, cmd T) (int64, error)
+type SecretsUpdater interface {
+	Update(ctx context.Context, secretsURL, contents string) (int64, error)
 }
-
-type SecretsUpdater = Updater[UpdateSecretsCommand]
 
 type ORM interface {
 	// GetSecretsURL returns the original URL for a given hash value.  Fails if hash does not exist.
@@ -72,15 +70,8 @@ func (orm *orm) GetArtifactByHash(ctx context.Context, hash string) (Artifact, e
 	return artifact, nil // Return the populated Artifact struct
 }
 
-type UpdateSecretsCommand struct {
-	SecretsURL string
-
-	// Contents is the encoded and serialized contents fetched from the given URL.
-	Contents string
-}
-
 // Update updates the contents of the secret at the given URL hash or inserts a new record if not found.
-func (orm *orm) Update(ctx context.Context, cmd UpdateSecretsCommand) (int64, error) {
+func (orm *orm) Update(ctx context.Context, secretsURL, contents string) (int64, error) {
 	var id int64
 	err := orm.ds.QueryRowxContext(ctx,
 		`INSERT INTO workflow_artifacts (secrets_url_hash, secrets_url, contents)
@@ -88,7 +79,7 @@ func (orm *orm) Update(ctx context.Context, cmd UpdateSecretsCommand) (int64, er
          ON CONFLICT (secrets_url_hash) DO UPDATE
          SET secrets_url = EXCLUDED.secrets_url, contents = EXCLUDED.contents
          RETURNING id`,
-		keccak256Hash(cmd.SecretsURL), cmd.SecretsURL, cmd.Contents,
+		keccak256Hash(secretsURL), secretsURL, contents,
 	).Scan(&id)
 
 	if err != nil {
