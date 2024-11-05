@@ -78,7 +78,7 @@ func (c pluginRegistry) TransitionFrom(prevPlugins pluginRegistry) error {
 
 const (
 	closeAction = iota
-	openAction  = iota
+	openAction
 )
 
 type syncAction struct {
