@@ -127,7 +127,7 @@ CommonChainConfigTOML = """
 # over CommonChainConfigTOML and Chainlink Node's defaults. Passing blockchain nodes URLs here will have no effect.
 1337 = """
 AutoCreateKey = true
-FinalityDepth = 1
+FinalityDepth = 10
 MinContractPayment = 0
 [GasEstimator]
 PriceMax = '200 gwei'
