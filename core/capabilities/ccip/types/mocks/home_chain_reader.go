@@ -65,23 +65,23 @@ func (_m *HomeChainReader) Name() string {
 }
 
 // GetOCRConfigs provides a mock function with given fields: ctx, donID, pluginType
-func (_m *HomeChainReader) GetOCRConfigs(ctx context.Context, donID uint32, pluginType uint8) ([]ccipreaderpkg.OCR3ConfigWithMeta, error) {
+func (_m *HomeChainReader) GetOCRConfigs(ctx context.Context, donID uint32, pluginType uint8) (ccipreaderpkg.ActiveAndCandidate, error) {
 	ret := _m.Called(ctx, donID, pluginType)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetOCRConfigs")
 	}
 
-	var r0 []ccipreaderpkg.OCR3ConfigWithMeta
+	var r0 ccipreaderpkg.ActiveAndCandidate
 	var r1 error
-	if rf, ok := ret.Get(0).(func(ctx context.Context, donID uint32, pluginType uint8) ([]ccipreaderpkg.OCR3ConfigWithMeta, error)); ok {
+	if rf, ok := ret.Get(0).(func(ctx context.Context, donID uint32, pluginType uint8) (ccipreaderpkg.ActiveAndCandidate, error)); ok {
 		return rf(ctx, donID, pluginType)
 	}
-	if rf, ok := ret.Get(0).(func(ctx context.Context, donID uint32, pluginType uint8) []ccipreaderpkg.OCR3ConfigWithMeta); ok {
+	if rf, ok := ret.Get(0).(func(ctx context.Context, donID uint32, pluginType uint8) ccipreaderpkg.ActiveAndCandidate); ok {
 		r0 = rf(ctx, donID, pluginType)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]ccipreaderpkg.OCR3ConfigWithMeta)
+			r0 = ret.Get(0).(ccipreaderpkg.ActiveAndCandidate)
 		}
 	}
 

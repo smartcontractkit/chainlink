@@ -41,8 +41,9 @@ func TestTransfersController_CreateSuccess_From(t *testing.T) {
 	balance, err := assets.NewEthValueS("200")
 	require.NoError(t, err)
 
-	ethClient.On("PendingNonceAt", mock.Anything, key.Address).Return(uint64(1), nil)
+	ethClient.On("PendingNonceAt", mock.Anything, key.Address).Return(uint64(1), nil).Maybe()
 	ethClient.On("BalanceAt", mock.Anything, key.Address, (*big.Int)(nil)).Return(balance.ToInt(), nil)
+	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Once()
 
 	app := cltest.NewApplicationWithKey(t, ethClient, key)
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -83,8 +84,9 @@ func TestTransfersController_CreateSuccess_From_WEI(t *testing.T) {
 	balance, err := assets.NewEthValueS("2")
 	require.NoError(t, err)
 
-	ethClient.On("PendingNonceAt", mock.Anything, key.Address).Return(uint64(1), nil)
+	ethClient.On("PendingNonceAt", mock.Anything, key.Address).Return(uint64(1), nil).Maybe()
 	ethClient.On("BalanceAt", mock.Anything, key.Address, (*big.Int)(nil)).Return(balance.ToInt(), nil)
+	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Once()
 
 	app := cltest.NewApplicationWithKey(t, ethClient, key)
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -124,8 +126,9 @@ func TestTransfersController_CreateSuccess_From_BalanceMonitorDisabled(t *testin
 	balance, err := assets.NewEthValueS("200")
 	require.NoError(t, err)
 
-	ethClient.On("PendingNonceAt", mock.Anything, key.Address).Return(uint64(1), nil)
+	ethClient.On("PendingNonceAt", mock.Anything, key.Address).Return(uint64(1), nil).Maybe()
 	ethClient.On("BalanceAt", mock.Anything, key.Address, (*big.Int)(nil)).Return(balance.ToInt(), nil)
+	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Once()
 
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
@@ -193,8 +196,9 @@ func TestTransfersController_TransferBalanceToLowError(t *testing.T) {
 
 	ethClient := cltest.NewEthMocksWithTransactionsOnBlocksAssertions(t)
 
-	ethClient.On("PendingNonceAt", mock.Anything, key.Address).Return(uint64(1), nil)
+	ethClient.On("PendingNonceAt", mock.Anything, key.Address).Return(uint64(1), nil).Maybe()
 	ethClient.On("BalanceAt", mock.Anything, key.Address, (*big.Int)(nil)).Return(assets.NewEth(10).ToInt(), nil)
+	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Once()
 
 	app := cltest.NewApplicationWithKey(t, ethClient, key)
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -231,8 +235,9 @@ func TestTransfersController_TransferBalanceToLowError_ZeroBalance(t *testing.T)
 	balance, err := assets.NewEthValueS("0")
 	require.NoError(t, err)
 
-	ethClient.On("PendingNonceAt", mock.Anything, key.Address).Return(uint64(1), nil)
+	ethClient.On("PendingNonceAt", mock.Anything, key.Address).Return(uint64(1), nil).Maybe()
 	ethClient.On("BalanceAt", mock.Anything, key.Address, (*big.Int)(nil)).Return(balance.ToInt(), nil)
+	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Once()
 
 	app := cltest.NewApplicationWithKey(t, ethClient, key)
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -285,7 +290,7 @@ func TestTransfersController_CreateSuccess_eip1559(t *testing.T) {
 
 	ethClient.On("PendingNonceAt", mock.Anything, key.Address).Return(uint64(1), nil)
 	ethClient.On("BalanceAt", mock.Anything, key.Address, (*big.Int)(nil)).Return(balance.ToInt(), nil)
-	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
+	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil)
 
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)

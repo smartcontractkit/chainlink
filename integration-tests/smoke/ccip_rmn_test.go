@@ -61,7 +61,7 @@ func TestRMN(t *testing.T) {
 		})
 	}
 
-	onChainState, err := ccipdeployment.LoadOnchainState(envWithRMN.Env, envWithRMN.Ab)
+	onChainState, err := ccipdeployment.LoadOnchainState(envWithRMN.Env)
 	require.NoError(t, err)
 	t.Logf("onChainState: %#v", onChainState)
 

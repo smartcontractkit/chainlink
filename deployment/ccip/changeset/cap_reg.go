@@ -7,8 +7,14 @@ import (
 	ccipdeployment "github.com/smartcontractkit/chainlink/deployment/ccip"
 )
 
-// Separated changset because cap reg is an env var for CL nodes.
-func CapRegChangeSet(env deployment.Environment, homeChainSel uint64) (deployment.ChangesetOutput, error) {
+var _ deployment.ChangeSet = DeployCapReg
+
+// DeployCapReg is a separate changeset because cap reg is an env var for CL nodes.
+func DeployCapReg(env deployment.Environment, config interface{}) (deployment.ChangesetOutput, error) {
+	homeChainSel, ok := config.(uint64)
+	if !ok {
+		return deployment.ChangesetOutput{}, deployment.ErrInvalidConfig
+	}
 	// Note we also deploy the cap reg.
 	ab := deployment.NewMemoryAddressBook()
 	_, err := ccipdeployment.DeployCapReg(env.Logger, ab, env.Chains[homeChainSel])

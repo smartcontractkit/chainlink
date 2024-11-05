@@ -68,13 +68,14 @@ func TestDeploy(t *testing.T) {
 	// explicitly deploy the contracts
 	cs, err := keystone.DeployContracts(lggr, env, registryChainSel)
 	require.NoError(t, err)
+	// Deploy successful these are now part of our env.
+	require.NoError(t, env.ExistingAddresses.Merge(cs.AddressBook))
 
 	deployReq := keystone.ConfigureContractsRequest{
 		RegistryChainSel: registryChainSel,
 		Env:              env,
 		OCR3Config:       &ocr3Config,
 		Dons:             []keystone.DonCapabilities{wfDon, cwDon, assetDon},
-		AddressBook:      cs.AddressBook,
 		DoContractDeploy: false,
 	}
 	deployResp, err := keystone.ConfigureContracts(ctx, lggr, deployReq)

@@ -27,22 +27,26 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
+// OnchainClient is an EVM chain client.
+// For EVM specifically we can use existing geth interface
+// to abstract chain clients.
 type OnchainClient interface {
-	// For EVM specifically we can use existing geth interface
-	// to abstract chain clients.
 	bind.ContractBackend
 	bind.DeployBackend
 	BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error)
 	NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error)
 }
 
+// OffchainClient interacts with the job-distributor
+// which is a family agnostic interface for performing
+// DON operations.
 type OffchainClient interface {
-	// The job distributor grpc interface can be used to abstract offchain read/writes
 	jobv1.JobServiceClient
 	nodev1.NodeServiceClient
 	csav1.CSAServiceClient
 }
 
+// Chain represents an EVM chain.
 type Chain struct {
 	// Selectors used as canonical chain identifier.
 	Selector uint64
@@ -52,12 +56,44 @@ type Chain struct {
 	Confirm     func(tx *types.Transaction) (uint64, error)
 }
 
+// Environment represents an instance of a deployed product
+// including on and offchain components. It is intended to be
+// cross-family to enable a coherent view of a product deployed
+// to all its chains.
+// TODO: Add SolChains, AptosChain etc.
+// using Go bindings/libraries from their respective
+// repositories i.e. chainlink-solana, chainlink-cosmos
+// You can think of ExistingAddresses as a set of
+// family agnostic "onchain pointers" meant to be used in conjunction
+// with chain fields to read/write relevant chain state. Similarly,
+// you can think of NodeIDs as "offchain pointers" to be used in
+// conjunction with the Offchain client to read/write relevant
+// offchain state (i.e. state in the DON(s)).
 type Environment struct {
-	Name     string
-	Chains   map[uint64]Chain
-	Offchain OffchainClient
-	NodeIDs  []string
-	Logger   logger.Logger
+	Name              string
+	Logger            logger.Logger
+	ExistingAddresses AddressBook
+	Chains            map[uint64]Chain
+	NodeIDs           []string
+	Offchain          OffchainClient
+}
+
+func NewEnvironment(
+	name string,
+	logger logger.Logger,
+	existingAddrs AddressBook,
+	chains map[uint64]Chain,
+	nodeIDs []string,
+	offchain OffchainClient,
+) *Environment {
+	return &Environment{
+		Name:              name,
+		Logger:            logger,
+		ExistingAddresses: existingAddrs,
+		Chains:            chains,
+		NodeIDs:           nodeIDs,
+		Offchain:          offchain,
+	}
 }
 
 func (e Environment) AllChainSelectors() []uint64 {

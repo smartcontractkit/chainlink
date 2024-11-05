@@ -8,7 +8,6 @@ import {CCIPHome} from "../../capability/CCIPHome.sol";
 import {Internal} from "../../libraries/Internal.sol";
 import {CCIPHomeHelper} from "../helpers/CCIPHomeHelper.sol";
 import {Test} from "forge-std/Test.sol";
-import {Vm} from "forge-std/Vm.sol";
 
 import {IERC165} from "../../../vendor/openzeppelin-solidity/v5.0.2/contracts/interfaces/IERC165.sol";
 

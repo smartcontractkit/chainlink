@@ -2,6 +2,7 @@ package logevent
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -198,7 +199,7 @@ func createTriggerResponse(log types.Sequence, version string) capabilities.Trig
 		Cursor: log.Cursor,
 		Data:   dataAsMap,
 		Head: logeventcap.Head{
-			Hash:      fmt.Sprintf("0x%x", log.Hash),
+			Hash:      "0x" + hex.EncodeToString(log.Hash),
 			Height:    log.Height,
 			Timestamp: log.Timestamp,
 		},

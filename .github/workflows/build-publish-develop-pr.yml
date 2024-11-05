@@ -63,6 +63,8 @@ jobs:
       - name: Merge images for both architectures
         uses: ./.github/actions/goreleaser-build-sign-publish
         with:
+            # Temporary pin to working version as 2.4.2+ is breaking arm64 builds
+          goreleaser-version: "v2.3.2"
           docker-registry: ${{ secrets.AWS_SDLC_ECR_HOSTNAME }}
           docker-image-tag: ${{ needs.image-tag.outputs.image-tag }}
           goreleaser-release-type: "merge"
@@ -112,6 +114,8 @@ jobs:
         uses: ./.github/actions/goreleaser-build-sign-publish
         if: steps.cache.outputs.cache-hit != 'true'
         with:
+          # Temporary pin to working version as 2.4.2+ is breaking arm64 builds
+          goreleaser-version: "v2.3.2"
           docker-registry: ${{ secrets.AWS_SDLC_ECR_HOSTNAME }}
           docker-image-tag: ${{ needs.image-tag.outputs.image-tag }}
           goreleaser-release-type: ${{ needs.image-tag.outputs.release-type }}

@@ -61,8 +61,8 @@ func TestNonceTracker_LoadSequenceMap(t *testing.T) {
 
 		randNonce1 := testutils.NewRandomPositiveInt64()
 		randNonce2 := testutils.NewRandomPositiveInt64()
-		client.On("PendingNonceAt", mock.Anything, addr1).Return(uint64(randNonce1), nil).Once()
-		client.On("PendingNonceAt", mock.Anything, addr2).Return(uint64(randNonce2), nil).Once()
+		client.On("NonceAt", mock.Anything, addr1, mock.Anything).Return(uint64(randNonce1), nil).Once() //nolint:gosec // Disable G115: randNonce1 always positive
+		client.On("NonceAt", mock.Anything, addr2, mock.Anything).Return(uint64(randNonce2), nil).Once() //nolint:gosec // Disable G115: randNonce2 always positive
 
 		nonceTracker.LoadNextSequences(ctx, enabledAddresses)
 		seq, err := nonceTracker.GetNextSequence(ctx, addr1)
@@ -205,7 +205,7 @@ func TestNonceTracker_GetNextSequence(t *testing.T) {
 	t.Run("fails to get sequence if address is enabled, doesn't exist in map, and getSequenceForAddr fails", func(t *testing.T) {
 		enabledAddresses := []common.Address{addr}
 		txStore.On("FindLatestSequence", mock.Anything, addr, chainID).Return(types.Nonce(0), errors.New("no rows")).Twice()
-		client.On("PendingNonceAt", mock.Anything, addr).Return(uint64(0), errors.New("RPC unavailable")).Twice()
+		client.On("NonceAt", mock.Anything, addr, mock.Anything).Return(uint64(0), errors.New("RPC unavailable")).Twice()
 		nonceTracker.LoadNextSequences(ctx, enabledAddresses)
 
 		_, err := nonceTracker.GetNextSequence(ctx, addr)
@@ -217,7 +217,7 @@ func TestNonceTracker_GetNextSequence(t *testing.T) {
 		txStoreNonce := 4
 		enabledAddresses := []common.Address{addr}
 		txStore.On("FindLatestSequence", mock.Anything, addr, chainID).Return(types.Nonce(0), errors.New("no rows")).Once()
-		client.On("PendingNonceAt", mock.Anything, addr).Return(uint64(0), errors.New("RPC unavailable")).Once()
+		client.On("NonceAt", mock.Anything, addr, mock.Anything).Return(uint64(0), errors.New("RPC unavailable")).Once()
 		nonceTracker.LoadNextSequences(ctx, enabledAddresses)
 
 		txStore.On("FindLatestSequence", mock.Anything, addr, chainID).Return(types.Nonce(txStoreNonce), nil).Once()
@@ -272,8 +272,8 @@ func Test_SetNonceAfterInit(t *testing.T) {
 	addr := common.HexToAddress("0xd5e099c71b797516c10ed0f0d895f429c2781142")
 	enabledAddresses := []common.Address{addr}
 	randNonce := testutils.NewRandomPositiveInt64()
-	client.On("PendingNonceAt", mock.Anything, addr).Return(uint64(0), errors.New("failed to retrieve nonce at startup")).Once()
-	client.On("PendingNonceAt", mock.Anything, addr).Return(uint64(randNonce), nil).Once()
+	client.On("NonceAt", mock.Anything, addr, mock.Anything).Return(uint64(0), errors.New("failed to retrieve nonce at startup")).Once()
+	client.On("NonceAt", mock.Anything, addr, mock.Anything).Return(uint64(randNonce), nil).Once() //nolint:gosec // Disable G115: randNonce always positive
 	nonceTracker.LoadNextSequences(ctx, enabledAddresses)
 
 	nonce, err := nonceTracker.GetNextSequence(ctx, addr)

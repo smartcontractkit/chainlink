@@ -14,7 +14,7 @@ func ConfigureInitialContracts(lggr logger.Logger, req *kslib.ConfigureContracts
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to validate request: %w", err)
 	}
 
-	regAddrs, err := req.AddressBook.AddressesForChain(req.RegistryChainSel)
+	regAddrs, err := req.Env.ExistingAddresses.AddressesForChain(req.RegistryChainSel)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("no addresses found for chain %d: %w", req.RegistryChainSel, err)
 	}
@@ -38,7 +38,7 @@ func ConfigureInitialContracts(lggr logger.Logger, req *kslib.ConfigureContracts
 	// forwarder on all chains
 	foundForwarder = false
 	for _, c := range req.Env.Chains {
-		addrs, err2 := req.AddressBook.AddressesForChain(c.Selector)
+		addrs, err2 := req.Env.ExistingAddresses.AddressesForChain(c.Selector)
 		if err2 != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("no addresses found for chain %d: %w", c.Selector, err2)
 		}

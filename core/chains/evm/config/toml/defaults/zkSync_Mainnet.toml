@@ -4,6 +4,7 @@ FinalityDepth = 10
 LogPollInterval = '5s'
 MinIncomingConfirmations = 1
 NoNewHeadsThreshold = '1m'
+FinalizedBlockOffset = 2
 
 [GasEstimator]
 LimitDefault = 100_000_000
