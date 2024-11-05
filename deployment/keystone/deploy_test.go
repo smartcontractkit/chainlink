@@ -260,10 +260,11 @@ func TestDeployCLO(t *testing.T) {
 	allChains := memory.NewMemoryChainsWithChainIDs(t, chainIDs)
 
 	env := &deployment.Environment{
-		Name:     "CLO",
-		Offchain: clo.NewJobClient(lggr, allNops),
-		Chains:   allChains,
-		Logger:   lggr,
+		Name:              "CLO",
+		ExistingAddresses: deployment.NewMemoryAddressBook(),
+		Offchain:          clo.NewJobClient(lggr, allNops),
+		Chains:            allChains,
+		Logger:            lggr,
 	}
 	// assume that all the nodes in the provided input nops are part of the don
 	for _, nop := range allNops {
