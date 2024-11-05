@@ -20,6 +20,7 @@ COPY ./chainlink /usr/local/bin/
 # Copy native libs if cgo is enabled
 COPY ./tmp/libs /usr/local/bin/libs
 
+# Copy workflows
 COPY ./tm[p]/workflow[s] /usr/local/workflows
 
 # Copy plugins if exist and enable them
