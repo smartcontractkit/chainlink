@@ -113,6 +113,144 @@ func TestInitialDeployOnLocal(t *testing.T) {
 	// TODO: Apply the proposal.
 }
 
+func TestTokenTransfer(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	ctx := ccdeploy.Context(t)
+	tenv := ccdeploy.NewMemoryEnvironment(t, lggr, 3, 4)
+
+	e := tenv.Env
+	state, err := ccdeploy.LoadOnchainState(e)
+	require.NoError(t, err)
+
+	feeds := state.Chains[tenv.FeedChainSel].USDFeeds
+	tokenConfig := ccdeploy.NewTokenConfig()
+	tokenConfig.UpsertTokenInfo(ccdeploy.LinkSymbol,
+		pluginconfig.TokenInfo{
+			AggregatorAddress: cciptypes.UnknownEncodedAddress(feeds[ccdeploy.LinkSymbol].Address().String()),
+			Decimals:          ccdeploy.LinkDecimals,
+			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
+		},
+	)
+
+	// Apply migration
+	output, err := changeset.InitialDeploy(e, ccdeploy.DeployCCIPContractConfig{
+		HomeChainSel:   tenv.HomeChainSel,
+		FeedChainSel:   tenv.FeedChainSel,
+		ChainsToDeploy: e.AllChainSelectors(),
+		TokenConfig:    tokenConfig,
+		MCMSConfig:     ccdeploy.NewTestMCMSConfig(t, e),
+		OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
+	})
+	require.NoError(t, err)
+	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook))
+	// Get new state after migration and mock USDC token deployment.
+	state, err = ccdeploy.LoadOnchainState(e)
+	require.NoError(t, err)
+
+	srcToken, _, dstToken, _, err := ccdeploy.DeployTransferableToken(
+		lggr,
+		tenv.Env.Chains,
+		tenv.HomeChainSel,
+		tenv.FeedChainSel,
+		state,
+		e.ExistingAddresses,
+		"MY_TOKEN",
+	)
+	require.NoError(t, err)
+
+	// Ensure capreg logs are up to date.
+	ccdeploy.ReplayLogs(t, e.Offchain, tenv.ReplayBlocks)
+
+	// Apply the jobs.
+	for nodeID, jobs := range output.JobSpecs {
+		for _, job := range jobs {
+			// Note these auto-accept
+			_, err := e.Offchain.ProposeJob(ctx,
+				&jobv1.ProposeJobRequest{
+					NodeId: nodeID,
+					Spec:   job,
+				})
+			require.NoError(t, err)
+		}
+	}
+
+	// Add all lanes
+	require.NoError(t, ccdeploy.AddLanesForAll(e, state))
+	// Need to keep track of the block number for each chain so that event subscription can be done from that block.
+	startBlocks := make(map[uint64]*uint64)
+	// Send a message from each chain to every other chain.
+	expectedSeqNum := make(map[uint64]uint64)
+
+	oneCoin := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1))
+	tx, err := srcToken.Mint(
+		e.Chains[tenv.HomeChainSel].DeployerKey,
+		e.Chains[tenv.HomeChainSel].DeployerKey.From,
+		new(big.Int).Mul(oneCoin, big.NewInt(10)),
+	)
+	require.NoError(t, err)
+	_, err = e.Chains[tenv.HomeChainSel].Confirm(tx)
+	require.NoError(t, err)
+
+	tx, err = dstToken.Mint(
+		e.Chains[tenv.FeedChainSel].DeployerKey,
+		e.Chains[tenv.FeedChainSel].DeployerKey.From,
+		new(big.Int).Mul(oneCoin, big.NewInt(10)),
+	)
+	require.NoError(t, err)
+	_, err = e.Chains[tenv.FeedChainSel].Confirm(tx)
+	require.NoError(t, err)
+
+	tx, err = srcToken.Approve(e.Chains[tenv.HomeChainSel].DeployerKey, state.Chains[tenv.HomeChainSel].Router.Address(), oneCoin)
+	require.NoError(t, err, "failed to approve USDC tokens in home chain")
+	_, err = e.Chains[tenv.HomeChainSel].Confirm(tx)
+	require.NoError(t, err, "failed to confirm USDC token approval in home chain")
+	tx, err = dstToken.Approve(e.Chains[tenv.FeedChainSel].DeployerKey, state.Chains[tenv.FeedChainSel].Router.Address(), oneCoin)
+	require.NoError(t, err, "failed to approve USDC tokens in feed chain")
+	_, err = e.Chains[tenv.FeedChainSel].Confirm(tx)
+	require.NoError(t, err, "failed to confirm USDC token approval in feed chain")
+
+	tokens := map[uint64][]router.ClientEVMTokenAmount{
+		tenv.HomeChainSel: {{
+			Token:  srcToken.Address(),
+			Amount: oneCoin,
+		}},
+		tenv.FeedChainSel: {{
+			Token:  dstToken.Address(),
+			Amount: oneCoin,
+		}},
+	}
+
+	for src := range e.Chains {
+		for dest, destChain := range e.Chains {
+			if src == dest {
+				continue
+			}
+			latesthdr, err := destChain.Client.HeaderByNumber(testcontext.Get(t), nil)
+			require.NoError(t, err)
+			block := latesthdr.Number.Uint64()
+			startBlocks[dest] = &block
+
+			seqNum := ccdeploy.TestSendRequest(t, e, state, src, dest, false, tokens[src])
+			expectedSeqNum[dest] = seqNum
+		}
+	}
+
+	// Wait for all commit reports to land.
+	ccdeploy.ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
+
+	// After commit is reported on all chains, token prices should be updated in FeeQuoter.
+	for dest := range e.Chains {
+		linkAddress := state.Chains[dest].LinkToken.Address()
+		feeQuoter := state.Chains[dest].FeeQuoter
+		timestampedPrice, err := feeQuoter.GetTokenPrice(nil, linkAddress)
+		require.NoError(t, err)
+		require.Equal(t, ccdeploy.MockLinkPrice, timestampedPrice.Value)
+	}
+
+	// Wait for all exec reports to land
+	ccdeploy.ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
+}
+
 func TestUSDCTokenTransfer(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := ccdeploy.Context(t)

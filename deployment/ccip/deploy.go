@@ -2,6 +2,7 @@ package ccipdeployment
 
 import (
 	"fmt"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/burn_mint_token_pool"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -48,7 +49,7 @@ var (
 	Router                     deployment.ContractType = "Router"
 	CommitStore                deployment.ContractType = "CommitStore"
 	TokenAdminRegistry         deployment.ContractType = "TokenAdminRegistry"
-	RegistryModule deployment.ContractType = "RegistryModule"
+	RegistryModule             deployment.ContractType = "RegistryModule"
 	NonceManager               deployment.ContractType = "NonceManager"
 	FeeQuoter                  deployment.ContractType = "FeeQuoter"
 	AdminManyChainMultisig     deployment.ContractType = "AdminManyChainMultiSig"
@@ -74,27 +75,28 @@ var (
 
 type Contracts interface {
 	*capabilities_registry.CapabilitiesRegistry |
-	*rmn_proxy_contract.RMNProxyContract |
-	*ccip_home.CCIPHome |
-	*rmn_home.RMNHome |
-	*nonce_manager.NonceManager |
-	*fee_quoter.FeeQuoter |
-	*router.Router |
-	*token_admin_registry.TokenAdminRegistry |
-	*registry_module_owner_custom.RegistryModuleOwnerCustom |
-	*weth9.WETH9 |
-	*rmn_remote.RMNRemote |
-	*owner_helpers.ManyChainMultiSig |
-	*owner_helpers.RBACTimelock |
-	*offramp.OffRamp |
-	*onramp.OnRamp |
-	*burn_mint_erc677.BurnMintERC677 |
-	*maybe_revert_message_receiver.MaybeRevertMessageReceiver |
-	*aggregator_v3_interface.AggregatorV3Interface |
-	*erc20.ERC20 |
-	*mock_usdc_token_transmitter.MockE2EUSDCTransmitter |
-	*mock_usdc_token_messenger.MockE2EUSDCTokenMessenger |
-	*usdc_token_pool.USDCTokenPool
+		*rmn_proxy_contract.RMNProxyContract |
+		*ccip_home.CCIPHome |
+		*rmn_home.RMNHome |
+		*nonce_manager.NonceManager |
+		*fee_quoter.FeeQuoter |
+		*router.Router |
+		*token_admin_registry.TokenAdminRegistry |
+		*registry_module_owner_custom.RegistryModuleOwnerCustom |
+		*weth9.WETH9 |
+		*rmn_remote.RMNRemote |
+		*owner_helpers.ManyChainMultiSig |
+		*owner_helpers.RBACTimelock |
+		*offramp.OffRamp |
+		*onramp.OnRamp |
+		*burn_mint_erc677.BurnMintERC677 |
+		*burn_mint_token_pool.BurnMintTokenPool |
+		*maybe_revert_message_receiver.MaybeRevertMessageReceiver |
+		*aggregator_v3_interface.AggregatorV3Interface |
+		*erc20.ERC20 |
+		*mock_usdc_token_transmitter.MockE2EUSDCTransmitter |
+		*mock_usdc_token_messenger.MockE2EUSDCTokenMessenger |
+		*usdc_token_pool.USDCTokenPool
 }
 
 type ContractDeploy[C Contracts] struct {

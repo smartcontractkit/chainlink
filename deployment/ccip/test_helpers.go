@@ -3,6 +3,7 @@ package ccipdeployment
 import (
 	"context"
 	"fmt"
+	burn_mint_token_pool "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/burn_mint_token_pool"
 	"math/big"
 	"sort"
 	"testing"
@@ -545,7 +546,196 @@ func DeployUSDCToken(lggr logger.Logger, chain deployment.Chain, ab deployment.A
 	}
 
 	return nil
+}
 
+func DeployTransferableToken(
+	lggr logger.Logger,
+	chains map[uint64]deployment.Chain,
+	src, dst uint64,
+	state CCIPOnChainState,
+	addresses deployment.AddressBook,
+	token string,
+) (*burn_mint_erc677.BurnMintERC677, *burn_mint_token_pool.BurnMintTokenPool, *burn_mint_erc677.BurnMintERC677, *burn_mint_token_pool.BurnMintTokenPool, error) {
+	// Deploy token and pools
+	srcToken, srcPool, err := deployTransferTokenOneEnd(lggr, chains[src], addresses, token)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+	dstToken, dstPool, err := deployTransferTokenOneEnd(lggr, chains[dst], addresses, token)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+
+	// Attach token pools to registry
+	if err := attachTokenToTheRegistry(chains[src], state.Chains[src], chains[src].DeployerKey, srcToken.Address(), srcPool.Address()); err != nil {
+		return nil, nil, nil, nil, err
+	}
+
+	if err := attachTokenToTheRegistry(chains[dst], state.Chains[dst], chains[dst].DeployerKey, dstToken.Address(), dstPool.Address()); err != nil {
+		return nil, nil, nil, nil, err
+	}
+
+	// Connect pool to each other
+	if err := setTokenPoolCounterPart(chains[src], srcPool, dst, dstToken.Address(), dstPool.Address()); err != nil {
+		return nil, nil, nil, nil, err
+	}
+
+	if err := setTokenPoolCounterPart(chains[dst], dstPool, src, srcToken.Address(), srcPool.Address()); err != nil {
+		return nil, nil, nil, nil, err
+	}
+
+	return srcToken, srcPool, dstToken, dstPool, nil
+}
+
+func setTokenPoolCounterPart(
+	chain deployment.Chain,
+	tokenPool *burn_mint_token_pool.BurnMintTokenPool,
+	destChainSelector uint64,
+	destTokenAddress common.Address,
+	destTokenPoolAddress common.Address,
+) error {
+	tx, err := tokenPool.ApplyChainUpdates(
+		chain.DeployerKey,
+		[]burn_mint_token_pool.TokenPoolChainUpdate{
+			{
+				RemoteChainSelector: destChainSelector,
+				Allowed:             true,
+				RemotePoolAddress:   destTokenPoolAddress.Bytes(),
+				RemoteTokenAddress:  destTokenAddress.Bytes(),
+				OutboundRateLimiterConfig: burn_mint_token_pool.RateLimiterConfig{
+					IsEnabled: false,
+					Capacity:  big.NewInt(0),
+					Rate:      big.NewInt(0),
+				},
+				InboundRateLimiterConfig: burn_mint_token_pool.RateLimiterConfig{
+					IsEnabled: false,
+					Capacity:  big.NewInt(0),
+					Rate:      big.NewInt(0),
+				},
+			},
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	_, err = chain.Confirm(tx)
+	if err != nil {
+		return err
+	}
+
+	tx, err = tokenPool.SetRemotePool(
+		chain.DeployerKey,
+		destChainSelector,
+		destTokenPoolAddress.Bytes(),
+	)
+	return err
+}
+
+func attachTokenToTheRegistry(
+	chain deployment.Chain,
+	state CCIPChainState,
+	owner *bind.TransactOpts,
+	token common.Address,
+	tokenPool common.Address,
+) error {
+	tx, err := state.RegistryModule.RegisterAdminViaOwner(owner, token)
+	if err != nil {
+		return err
+	}
+	_, err = chain.Confirm(tx)
+	if err != nil {
+		return err
+	}
+
+	tx, err = state.TokenAdminRegistry.AcceptAdminRole(owner, token)
+	if err != nil {
+		return err
+	}
+	_, err = chain.Confirm(tx)
+	if err != nil {
+		return err
+	}
+
+	tx, err = state.TokenAdminRegistry.SetPool(owner, token, tokenPool)
+	if err != nil {
+		return err
+	}
+	_, err = chain.Confirm(tx)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func deployTransferTokenOneEnd(
+	lggr logger.Logger,
+	chain deployment.Chain,
+	addressBook deployment.AddressBook,
+	tokenSymbol string,
+) (*burn_mint_erc677.BurnMintERC677, *burn_mint_token_pool.BurnMintTokenPool, error) {
+	var rmnAddress, routerAddress string
+	chainAddresses, err := addressBook.AddressesForChain(chain.Selector)
+	if err != nil {
+		return nil, nil, err
+	}
+	for address, v := range chainAddresses {
+		if deployment.NewTypeAndVersion(ARMProxy, deployment.Version1_0_0) == v {
+			rmnAddress = address
+		}
+		if deployment.NewTypeAndVersion(Router, deployment.Version1_2_0) == v {
+			routerAddress = address
+		}
+		if rmnAddress != "" && routerAddress != "" {
+			break
+		}
+	}
+
+	tokenContract, err := deployContract(lggr, chain, addressBook,
+		func(chain deployment.Chain) ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
+			USDCTokenAddr, tx, token, err2 := burn_mint_erc677.DeployBurnMintERC677(
+				chain.DeployerKey,
+				chain.Client,
+				tokenSymbol,
+				tokenSymbol,
+				uint8(18),
+				big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
+			)
+			return ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
+				USDCTokenAddr, token, tx, deployment.NewTypeAndVersion(USDCToken, deployment.Version1_0_0), err2,
+			}
+		})
+	if err != nil {
+		lggr.Errorw("Failed to deploy Token ERC677", "err", err)
+		return nil, nil, err
+	}
+
+	tx, err := tokenContract.Contract.GrantMintRole(chain.DeployerKey, chain.DeployerKey.From)
+	if err != nil {
+		return nil, nil, err
+	}
+	fmt.Println(tx)
+
+	tokenPool, err := deployContract(lggr, chain, addressBook,
+		func(chain deployment.Chain) ContractDeploy[*burn_mint_token_pool.BurnMintTokenPool] {
+			tokenPoolAddress, tx, tokenPoolContract, err2 := burn_mint_token_pool.DeployBurnMintTokenPool(
+				chain.DeployerKey,
+				chain.Client,
+				tokenContract.Address,
+				[]common.Address{},
+				common.HexToAddress(rmnAddress),
+				common.HexToAddress(routerAddress),
+			)
+			return ContractDeploy[*burn_mint_token_pool.BurnMintTokenPool]{
+				tokenPoolAddress, tokenPoolContract, tx, deployment.NewTypeAndVersion(USDCTokenPool, deployment.Version1_0_0), err2,
+			}
+		})
+	if err != nil {
+		lggr.Errorw("Failed to deploy token pool", "err", err)
+		return nil, nil, err
+	}
+
+	return tokenContract.Contract, tokenPool.Contract, nil
 }
 
 func SyncUSDCDomains(lggr logger.Logger, chains map[uint64]deployment.Chain, homeChian, feedChain uint64, state CCIPOnChainState) error {
