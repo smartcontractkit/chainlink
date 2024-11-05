@@ -54,6 +54,7 @@ before_hook() {
 
   # Copy workflow compute WASM artifacts
   cp "$(pwd)"/workflow.wasm "$lib_path/workflows"
+  cp "$(pwd)"/config.yaml "$lib_path/workflows"
 }
 
 install_local_plugins() {
