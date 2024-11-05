@@ -134,7 +134,7 @@ func TestAddChainInbound(t *testing.T) {
 	// Generate and sign inbound proposal to new 4th chain.
 	chainInboundChangeset, err := NewChainInboundChangeset(e.Env, state, e.HomeChainSel, newChain, initialDeploy)
 	require.NoError(t, err)
-	ccipdeployment.ProcessChangeset(t, e.Env, e.Ab, chainInboundChangeset)
+	ccipdeployment.ProcessChangeset(t, e.Env, chainInboundChangeset)
 
 	// TODO This currently is not working - Able to send the request here but request gets stuck in execution
 	// Send a new message and expect that this is delivered once the chain is completely set up as inbound
@@ -143,17 +143,17 @@ func TestAddChainInbound(t *testing.T) {
 	t.Logf("Executing add don and set candidate proposal for commit plugin on chain %d", newChain)
 	addDonChangeset, err := AddDonAndSetCandidateChangeset(state, e.Env, nodes, deployment.XXXGenerateTestOCRSecrets(), e.HomeChainSel, e.FeedChainSel, newChain, tokenConfig, types.PluginTypeCCIPCommit)
 	require.NoError(t, err)
-	ccipdeployment.ProcessChangeset(t, e.Env, e.Ab, addDonChangeset)
+	ccipdeployment.ProcessChangeset(t, e.Env, addDonChangeset)
 
 	t.Logf("Executing promote candidate proposal for exec plugin on chain %d", newChain)
 	setCandidateForExecChangeset, err := SetCandidatePluginChangeset(state, e.Env, nodes, deployment.XXXGenerateTestOCRSecrets(), e.HomeChainSel, e.FeedChainSel, newChain, tokenConfig, types.PluginTypeCCIPExec)
 	require.NoError(t, err)
-	ccipdeployment.ProcessChangeset(t, e.Env, e.Ab, setCandidateForExecChangeset)
+	ccipdeployment.ProcessChangeset(t, e.Env, setCandidateForExecChangeset)
 
 	t.Logf("Executing promote candidate proposal for both commit and exec plugins on chain %d", newChain)
 	donPromoteChangeset, err := PromoteAllCandidatesChangeset(state, e.HomeChainSel, newChain, nodes)
 	require.NoError(t, err)
-	ccipdeployment.ProcessChangeset(t, e.Env, e.Ab, donPromoteChangeset)
+	ccipdeployment.ProcessChangeset(t, e.Env, donPromoteChangeset)
 
 	// verify if the configs are updated
 	require.NoError(t, ccipdeployment.ValidateCCIPHomeConfigSetUp(

@@ -390,13 +390,13 @@ func ConfirmRequestOnSourceAndDest(t *testing.T, env deployment.Environment, sta
 	return nil
 }
 
-func ProcessChangeset(t *testing.T, e deployment.Environment, ab deployment.AddressBook, c deployment.ChangesetOutput) {
+func ProcessChangeset(t *testing.T, e deployment.Environment, c deployment.ChangesetOutput) {
 
 	// TODO: Add support for jobspecs as well
 
 	// sign and execute all proposals provided
 	if len(c.Proposals) != 0 {
-		state, err := LoadOnchainState(e, ab)
+		state, err := LoadOnchainState(e)
 		require.NoError(t, err)
 		for _, prop := range c.Proposals {
 			chains := mapset.NewSet[uint64]()
@@ -413,7 +413,7 @@ func ProcessChangeset(t *testing.T, e deployment.Environment, ab deployment.Addr
 
 	// merge address books
 	if c.AddressBook != nil {
-		err := ab.Merge(c.AddressBook)
+		err := e.ExistingAddresses.Merge(c.AddressBook)
 		require.NoError(t, err)
 	}
 }
