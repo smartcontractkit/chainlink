@@ -118,19 +118,24 @@ func addNodes(t *testing.T, lggr logger.Logger, chain deployment.Chain, registry
 	require.NoError(t, err)
 }
 
-func addDons(t *testing.T, lggr logger.Logger, chain deployment.Chain, registry *kcr.CapabilitiesRegistry, cc *CapabilityCache, dons []Don) {
+func addDons(t *testing.T, lggr logger.Logger, chain deployment.Chain, registry *kcr.CapabilitiesRegistry, capCache *CapabilityCache, dons []Don) {
 	for _, don := range dons {
 		acceptsWorkflows := false
 		// lookup the capabilities
 		var capConfigs []kcr.CapabilitiesRegistryCapabilityConfiguration
 		for _, ccfg := range don.CapabilityConfigs {
-			if ccfg.Config == nil {
-				ccfg.Config = defaultCapConfig(t, ccfg.Capability)
+			var cc = kcr.CapabilitiesRegistryCapabilityConfiguration{
+				CapabilityId: [32]byte{},
+				Config:       ccfg.Config,
+			}
+			if cc.Config == nil {
+				cc.Config = defaultCapConfig(t, ccfg.Capability)
 			}
 			var exists bool
-			ccfg.CapabilityId, exists = cc.Get(ccfg.Capability)
+			//var cc kcr.CapabilitiesRegistryCapabilityConfiguration{}
+			cc.CapabilityId, exists = capCache.Get(ccfg.Capability)
 			require.True(t, exists, "capability not found in cache %v", ccfg.Capability)
-			capConfigs = append(capConfigs, ccfg.CapabilitiesRegistryCapabilityConfiguration)
+			capConfigs = append(capConfigs, cc)
 			if ccfg.Capability.CapabilityType == 2 { // ocr3 capabilities
 				acceptsWorkflows = true
 			}

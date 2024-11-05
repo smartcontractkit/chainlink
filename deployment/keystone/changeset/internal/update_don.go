@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"sort"
 
@@ -20,15 +21,14 @@ import (
 
 // CapabilityConfig is a struct that holds a capability and its configuration
 type CapabilityConfig struct {
-	Capability                                      kcr.CapabilitiesRegistryCapability
-	kcr.CapabilitiesRegistryCapabilityConfiguration // embed bc otherwise with ~ config.config
+	Capability kcr.CapabilitiesRegistryCapability
+	Config     []byte // this is the marshalled proto config. if nil, a default config is used
 }
 
 type UpdateDonRequest struct {
 	Registry *kcr.CapabilitiesRegistry
 	Chain    deployment.Chain
 
-	Name   string
 	P2PIDs []p2pkey.PeerID // this is the unique identifier for the done
 	// CapabilityId field is ignored. it is determined dynamically by the registry
 	// If the Config is nil, a default config is used
@@ -38,9 +38,6 @@ type UpdateDonRequest struct {
 func (r *UpdateDonRequest) Validate() error {
 	if r.Registry == nil {
 		return fmt.Errorf("registry is required")
-	}
-	if r.Name == "" {
-		return fmt.Errorf("name is required")
 	}
 	if len(r.P2PIDs) == 0 {
 		return fmt.Errorf("p2pIDs is required")
@@ -76,13 +73,21 @@ func UpdateDon(lggr logger.Logger, req *UpdateDonRequest) (*UpdateDonResponse, e
 		type debugDonInfo struct {
 			OnchainID  uint32
 			P2PIDsHash string
+			Want       []p2pkey.PeerID
+			Got        []p2pkey.PeerID
 		}
 		debugIds := make([]debugDonInfo, len(getDonsResp))
 		for i, di := range getDonsResp {
 			debugIds[i] = debugDonInfo{
 				OnchainID:  di.Id,
 				P2PIDsHash: SortedHash(di.NodeP2PIds),
+				Want:       req.P2PIDs,
+				Got:        BytesToPeerIDs(di.NodeP2PIds),
 			}
+		}
+		b, err2 := json.Marshal(debugIds)
+		if err2 == nil {
+			return nil, fmt.Errorf("don not found by p2pIDs %s in %s", wantedDonID, b)
 		}
 		return nil, fmt.Errorf("don not found by p2pIDs %s in %v", wantedDonID, debugIds)
 	}
@@ -113,10 +118,18 @@ func PeerIDsToBytes(p2pIDs []p2pkey.PeerID) [][32]byte {
 	return out
 }
 
+func BytesToPeerIDs(p2pIDs [][32]byte) []p2pkey.PeerID {
+	out := make([]p2pkey.PeerID, len(p2pIDs))
+	for i, p2pID := range p2pIDs {
+		out[i] = p2pID
+	}
+	return out
+}
+
 func computeConfigs(registry *kcr.CapabilitiesRegistry, caps []CapabilityConfig, donInfo kcr.CapabilitiesRegistryDONInfo) ([]kcr.CapabilitiesRegistryCapabilityConfiguration, error) {
 	out := make([]kcr.CapabilitiesRegistryCapabilityConfiguration, len(caps))
 	for i, cap := range caps {
-		out[i] = cap.CapabilitiesRegistryCapabilityConfiguration
+		out[i] = kcr.CapabilitiesRegistryCapabilityConfiguration{}
 		id, err := registry.GetHashedCapabilityId(&bind.CallOpts{}, cap.Capability.LabelledName, cap.Capability.Version)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get capability id: %w", err)
