@@ -206,7 +206,7 @@ func TestEvmWrite(t *testing.T) {
 
 	t.Run("succeeds with valid report", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		capability, err := evm.NewWriteTarget(ctx, relayer, chain, gasLimitDefault, lggr)
+		capability, err := evm.NewWriteTarget(ctx, relayer, chain, gasLimitDefault, lggr, evmCfg.EVM().Workflow().FromAddress())
 		require.NoError(t, err)
 
 		req := capabilities.CapabilityRequest{
@@ -221,7 +221,7 @@ func TestEvmWrite(t *testing.T) {
 
 	t.Run("fails with invalid config", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		capability, err := evm.NewWriteTarget(ctx, relayer, chain, gasLimitDefault, logger.TestLogger(t))
+		capability, err := evm.NewWriteTarget(ctx, relayer, chain, gasLimitDefault, logger.TestLogger(t), evmCfg.EVM().Workflow().FromAddress())
 		require.NoError(t, err)
 
 		invalidConfig, err := values.NewMap(map[string]any{
@@ -241,7 +241,7 @@ func TestEvmWrite(t *testing.T) {
 
 	t.Run("fails when TXM CreateTransaction returns error", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		capability, err := evm.NewWriteTarget(ctx, relayer, chain, gasLimitDefault, logger.TestLogger(t))
+		capability, err := evm.NewWriteTarget(ctx, relayer, chain, gasLimitDefault, logger.TestLogger(t), evmCfg.EVM().Workflow().FromAddress())
 		require.NoError(t, err)
 
 		req := capabilities.CapabilityRequest{
