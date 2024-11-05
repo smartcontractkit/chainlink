@@ -6,7 +6,8 @@ FinalityDepth = 900
 # block_time was:  2s
 LogPollInterval = '5s'  
 
-NoNewFinalizedHeadsThreshold = '10m'
+# finality_depth * block_time / 60 secs = ~30  min (finality time)
+NoNewFinalizedHeadsThreshold = '35m'
 
 FinalityTagEnabled = true
 

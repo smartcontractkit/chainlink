@@ -1,32 +1,23 @@
 ChainID = '808813'
-# copied entirely from Optimism_Sepolia.toml
+# OP stack https://docs.gobob.xyz/learn/introduction/op-stack
 ChainType = 'optimismBedrock'
-FinalityDepth = 1
-FinalityTagEnabled = false
-LogPollInterval = '2s'
-NoNewHeadsThreshold = '40s'
-MinIncomingConfirmations = 1
-NoNewFinalizedHeadsThreshold = '15m'
+# finality_depth was: ~850
+FinalityDepth = 900
+# block_time was:  2s
+LogPollInterval = '5s'  
+
+# finality_depth * block_time / 60 secs = ~30  min (finality time)
+NoNewFinalizedHeadsThreshold = '35m'
+
+FinalityTagEnabled = true
 
 [GasEstimator]
 EIP1559DynamicFees = true
-PriceMin = '1 wei'
-BumpMin = '100 wei'
+Mode = 'FeeHistory'
+
+[GasEstimator.FeeHistory]
+# block_time was: 2s
+CacheTimeout = '2s'
 
 [GasEstimator.BlockHistory]
-BlockHistorySize = 60
-
-[Transactions]
-ResendAfterThreshold = '30s'
-
-[HeadTracker]
-HistoryDepth = 300
-
-[NodePool]
-SyncThreshold = 10
-
-[OCR]
-ContractConfirmations = 1
-
-[OCR2.Automation]
-GasLimit = 6500000
+BlockHistorySize = 100

@@ -1,22 +1,18 @@
 ChainID = '80084'
-FinalityDepth = 1
-LogPollInterval = '1s'
-NoNewHeadsThreshold = '30s'
-RPCBlockQueryDelay = 10
-RPCDefaultBatchSize = 100
-NoNewFinalizedHeadsThreshold = '12m'
+# finality_depth: instant
+FinalityDepth = 10 
+# block_time: 5s 
+LogPollInterval = '10s' 
 
-[Transactions]
-MaxQueued = 5000
+FinalityTagEnabled = true
 
 [GasEstimator]
+EIP1559DynamicFees = true
 Mode = 'FeeHistory'
-# The FeeHistory estimator does not enforce PriceMin, setting it to 0 to not place any limits on the price
-PriceMin = '0'
-BumpPercent = 40
 
-[HeadTracker]
-HistoryDepth = 2000
+[GasEstimator.FeeHistory]
+# block_time was: 5s
+CacheTimeout = '5s'
 
-[NodePool]
-SyncThreshold = 10
+[GasEstimator.BlockHistory]
+BlockHistorySize = 100

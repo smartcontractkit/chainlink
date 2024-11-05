@@ -1,33 +1,23 @@
 ChainID = '1301'
-# copied entirely from Optimism_Sepolia.toml
-
+# OP stack: https://docs.unichain.org/docs/getting-started/set-up-a-node#overview
 ChainType = 'optimismBedrock'
-FinalityDepth = 1
-FinalityTagEnabled = false
-LogPollInterval = '2s'
-NoNewHeadsThreshold = '40s'
-MinIncomingConfirmations = 1
-NoNewFinalizedHeadsThreshold = '15m'
+# finality_depth was: ~1900
+FinalityDepth = 2000
+# block_time was:  ~1s 
+LogPollInterval = '5s' 
+
+# finality_depth * block_time / 60 secs = ~33  min (finality time)
+NoNewFinalizedHeadsThreshold = '35m'
+
+FinalityTagEnabled = true
 
 [GasEstimator]
 EIP1559DynamicFees = true
-PriceMin = '1 wei'
-BumpMin = '100 wei'
+Mode = 'FeeHistory'
+
+[GasEstimator.FeeHistory]
+# block_time was: 1s
+CacheTimeout = '1s'
 
 [GasEstimator.BlockHistory]
-BlockHistorySize = 60
-
-[Transactions]
-ResendAfterThreshold = '30s'
-
-[HeadTracker]
-HistoryDepth = 300
-
-[NodePool]
-SyncThreshold = 10
-
-[OCR]
-ContractConfirmations = 1
-
-[OCR2.Automation]
-GasLimit = 6500000
+BlockHistorySize = 100
