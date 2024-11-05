@@ -24,6 +24,8 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
   uint64 internal constant SOURCE_CHAIN_SELECTOR_2 = 6433500567565415381;
   uint64 internal constant SOURCE_CHAIN_SELECTOR_3 = 4051577828743386545;
 
+  address internal constant ON_RAMP_ADDRESS = 0x11118e64e1FB0c487f25dD6D3601FF6aF8d32E4e;
+
   bytes internal constant ON_RAMP_ADDRESS_1 = abi.encode(ON_RAMP_ADDRESS);
   bytes internal constant ON_RAMP_ADDRESS_2 = abi.encode(0xaA3f843Cf8E33B1F02dd28303b6bD87B1aBF8AE4);
   bytes internal constant ON_RAMP_ADDRESS_3 = abi.encode(0x71830C37Cb193e820de488Da111cfbFcC680a1b9);
@@ -165,7 +167,7 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
   ) internal pure returns (OffRamp.DynamicConfig memory) {
     return OffRamp.DynamicConfig({
       feeQuoter: feeQuoter,
-      permissionLessExecutionThresholdSeconds: PERMISSION_LESS_EXECUTION_THRESHOLD_SECONDS,
+      permissionLessExecutionThresholdSeconds: 60 * 60,
       isRMNVerificationDisabled: false,
       messageInterceptor: address(0)
     });
@@ -256,6 +258,18 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
     messages[1] = _generateAny2EVMMessage(sourceChainSelector, onRamp, 2, tokenAmounts, false);
 
     return messages;
+  }
+
+  function _getCastedSourceEVMTokenAmountsWithZeroAmounts()
+    internal
+    view
+    returns (Client.EVMTokenAmount[] memory tokenAmounts)
+  {
+    tokenAmounts = new Client.EVMTokenAmount[](s_sourceTokens.length);
+    for (uint256 i = 0; i < tokenAmounts.length; ++i) {
+      tokenAmounts[i].token = s_sourceTokens[i];
+    }
+    return tokenAmounts;
   }
 
   function _generateReportFromMessages(

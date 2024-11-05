@@ -13,8 +13,24 @@ contract FeeQuoterSetup is TokenSetup {
   uint112 internal constant USD_PER_GAS = 1e6; // 0.001 gwei
   uint112 internal constant USD_PER_DATA_AVAILABILITY_GAS = 1e9; // 1 gwei
 
+  address internal constant DUMMY_CONTRACT_ADDRESS = 0x1111111111111111111111111111111111111112;
   address internal constant CUSTOM_TOKEN = address(12345);
   address internal constant CUSTOM_TOKEN_2 = address(bytes20(keccak256("CUSTOM_TOKEN_2")));
+
+  // Use 16 gas per data availability byte in our tests.
+  // This is an overestimation in OP stack, it ignores 4 gas per 0 byte rule.
+  // Arbitrum on the other hand, does always use 16 gas per data availability byte.
+  // This value may be substantially decreased after EIP 4844.
+  uint16 internal constant DEST_GAS_PER_DATA_AVAILABILITY_BYTE = 16;
+
+  // Total L1 data availability overhead estimate is 33_596 gas.
+  // This value includes complete CommitStore and OffRamp call data.
+  uint32 internal constant DEST_DATA_AVAILABILITY_OVERHEAD_GAS = 188 // Fixed data availability overhead in OP stack.
+    + (32 * 31 + 4) * DEST_GAS_PER_DATA_AVAILABILITY_BYTE // CommitStore single-root transmission takes up about 31 slots, plus selector.
+    + (32 * 34 + 4) * DEST_GAS_PER_DATA_AVAILABILITY_BYTE; // OffRamp transmission excluding EVM2EVMMessage takes up about 34 slots, plus selector.
+
+  // Multiples of bps, or 0.0001, use 6840 to be same as OP mainnet compression factor of 0.684.
+  uint16 internal constant DEST_GAS_DATA_AVAILABILITY_MULTIPLIER_BPS = 6840;
 
   uint224 internal constant CUSTOM_TOKEN_PRICE = 1e17; // $0.1 CUSTOM
 
@@ -91,7 +107,6 @@ contract FeeQuoterSetup is TokenSetup {
     address[] memory feeTokens = new address[](2);
     feeTokens[0] = s_sourceTokens[0];
     feeTokens[1] = s_weth;
-    FeeQuoter.TokenPriceFeedUpdate[] memory tokenPriceFeedUpdates = new FeeQuoter.TokenPriceFeedUpdate[](0);
 
     s_feeQuoterPremiumMultiplierWeiPerEthArgs.push(
       FeeQuoter.PremiumMultiplierWeiPerEthArgs({
@@ -159,7 +174,7 @@ contract FeeQuoterSetup is TokenSetup {
       }),
       priceUpdaters,
       feeTokens,
-      tokenPriceFeedUpdates,
+      new FeeQuoter.TokenPriceFeedUpdate[](0),
       s_feeQuoterTokenTransferFeeConfigArgs,
       s_feeQuoterPremiumMultiplierWeiPerEthArgs,
       _generateFeeQuoterDestChainConfigArgs()

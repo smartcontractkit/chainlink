@@ -16,6 +16,8 @@ import {OnRampHelper} from "../../helpers/OnRampHelper.sol";
 import {IERC20} from "../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
 contract OnRampSetup is FeeQuoterFeeSetup {
+  address internal constant FEE_AGGREGATOR = 0xa33CDB32eAEce34F6affEfF4899cef45744EDea3;
+
   bytes32 internal s_metadataHash;
 
   OnRampHelper internal s_onRamp;

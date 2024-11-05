@@ -136,18 +136,6 @@ contract TokenSetup is RouterSetup {
     }
   }
 
-  function _getCastedSourceEVMTokenAmountsWithZeroAmounts()
-    internal
-    view
-    returns (Client.EVMTokenAmount[] memory tokenAmounts)
-  {
-    tokenAmounts = new Client.EVMTokenAmount[](s_sourceTokens.length);
-    for (uint256 i = 0; i < tokenAmounts.length; ++i) {
-      tokenAmounts[i].token = s_sourceTokens[i];
-    }
-    return tokenAmounts;
-  }
-
   function _setPool(
     TokenAdminRegistry tokenAdminRegistry,
     address token,

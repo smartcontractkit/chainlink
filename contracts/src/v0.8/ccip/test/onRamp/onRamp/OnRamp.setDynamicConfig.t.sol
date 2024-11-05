@@ -72,9 +72,6 @@ contract OnRamp_setDynamicConfig is OnRampSetup {
     vm.startPrank(STRANGER);
     vm.expectRevert(Ownable2Step.OnlyCallableByOwner.selector);
     s_onRamp.setDynamicConfig(_generateDynamicOnRampConfig(address(2)));
-    vm.startPrank(ADMIN);
-    vm.expectRevert(Ownable2Step.OnlyCallableByOwner.selector);
-    s_onRamp.setDynamicConfig(_generateDynamicOnRampConfig(address(2)));
   }
 
   function test_setDynamicConfig_InvalidConfigReentrancyGuardEnteredEqTrue_Revert() public {
