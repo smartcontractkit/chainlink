@@ -29,7 +29,7 @@ contract LockReleaseTokenPoolSetup is RouterSetup {
       new LockReleaseTokenPool(s_token, new address[](0), address(s_mockRMN), true, address(s_sourceRouter));
 
     s_allowedList.push(USER_1);
-    s_allowedList.push(DUMMY_CONTRACT_ADDRESS);
+    s_allowedList.push(OWNER);
     s_lockReleaseTokenPoolWithAllowList =
       new LockReleaseTokenPool(s_token, s_allowedList, address(s_mockRMN), true, address(s_sourceRouter));
 

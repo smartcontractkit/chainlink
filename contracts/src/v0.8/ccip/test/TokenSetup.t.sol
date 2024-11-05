@@ -2,7 +2,6 @@
 pragma solidity 0.8.24;
 
 import {BurnMintERC677} from "../../shared/token/ERC677/BurnMintERC677.sol";
-import {Client} from "../libraries/Client.sol";
 import {BurnMintTokenPool} from "../pools/BurnMintTokenPool.sol";
 import {LockReleaseTokenPool} from "../pools/LockReleaseTokenPool.sol";
 import {TokenPool} from "../pools/TokenPool.sol";
