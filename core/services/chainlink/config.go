@@ -104,13 +104,21 @@ func (rs RawConfigs) ValidateConfig() (err error) {
 // RawConfig is the config used for chains that are not embedded.
 type RawConfig map[string]any
 
-// ValidateConfig returns an error if the Config is not valid for use, as-is.
-func (c RawConfig) ValidateConfig() (err error) {
+type parsedRawConfig struct {
+	chainID     string
+	nodeConfigs []map[string]any
+	nodeNames   []string
+}
+
+func (c RawConfig) parse() (*parsedRawConfig, error) {
+	var err error
 	if v, ok := c["Enabled"]; ok {
 		if _, ok := v.(bool); !ok {
 			err = multierr.Append(err, commonconfig.ErrInvalid{Name: "Enabled", Value: v, Msg: "expected bool"})
 		}
 	}
+
+	parsedRawConfig := &parsedRawConfig{}
 	chainID, exists := c["ChainID"]
 	if !exists {
 		err = multierr.Append(err, commonconfig.ErrMissing{Name: "ChainID", Msg: "required for all chains"})
@@ -120,6 +128,8 @@ func (c RawConfig) ValidateConfig() (err error) {
 			err = multierr.Append(err, commonconfig.ErrInvalid{Name: "ChainID", Value: chainID, Msg: "expected string"})
 		} else if chainIDStr == "" {
 			err = multierr.Append(err, commonconfig.ErrEmpty{Name: "ChainID", Msg: "required for all chains"})
+		} else {
+			parsedRawConfig.chainID = chainIDStr
 		}
 	}
 	nodes, exists := c["Nodes"]
@@ -137,6 +147,7 @@ func (c RawConfig) ValidateConfig() (err error) {
 				if !ok {
 					err = multierr.Append(err, commonconfig.ErrInvalid{Name: fmt.Sprintf("Nodes.%d", i), Value: nodeConfig, Msg: "expected node config map"})
 				} else {
+					parsedRawConfig.nodeConfigs = append(parsedRawConfig.nodeConfigs, nodeConfig)
 					nodeName, exists := nodeConfig["Name"]
 					if !exists {
 						err = multierr.Append(err, commonconfig.ErrMissing{Name: fmt.Sprintf("Nodes.%d.Name", i), Msg: "required for all nodes"})
@@ -146,12 +157,25 @@ func (c RawConfig) ValidateConfig() (err error) {
 							err = multierr.Append(err, commonconfig.ErrInvalid{Name: fmt.Sprintf("Nodes.%d.Name", i), Value: nodeName, Msg: "expected string"})
 						} else if nodeNameStr == "" {
 							err = multierr.Append(err, commonconfig.ErrEmpty{Name: fmt.Sprintf("Nodes.%d.Name", i), Msg: "required for all nodes"})
+						} else {
+							parsedRawConfig.nodeNames = append(parsedRawConfig.nodeNames, nodeNameStr)
 						}
 					}
 				}
 			}
 		}
 	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return parsedRawConfig, err
+}
+
+// ValidateConfig returns an error if the Config is not valid for use, as-is.
+func (c RawConfig) ValidateConfig() error {
+	_, err := c.parse()
 	return err
 }
 
@@ -170,9 +194,15 @@ func (c *RawConfig) SetFrom(config RawConfig) error {
 		return err
 	}
 
-	// Handle nodes separately since they need special merging logic
-	nodes, _ := config["Nodes"].([]any)
-	existingNodes, _ := (*c)["Nodes"].([]any)
+	parsedRawConfig, err := c.parse()
+	if err != nil {
+		return err
+	}
+
+	incomingParsedRawConfig, err := config.parse()
+	if err != nil {
+		return err
+	}
 
 	// Create a copy of config without nodes to merge other fields
 	configWithoutNodes := make(RawConfig)
@@ -188,22 +218,26 @@ func (c *RawConfig) SetFrom(config RawConfig) error {
 	}
 
 	// Handle node merging
-	for _, node := range nodes {
-		nodeConfig, _ := node.(map[string]any)
-		nodeName, _ := nodeConfig["Name"].(string)
-
-		i := slices.Index(c.NodeNames(), nodeName)
+	for i, nodeConfig := range incomingParsedRawConfig.nodeConfigs {
+		nodeName := incomingParsedRawConfig.nodeNames[i]
+		i := slices.Index(parsedRawConfig.nodeNames, nodeName)
 		if i != -1 {
-			existingNode, _ := existingNodes[i].(map[string]any)
-			if err := mergo.Merge(&existingNode, nodeConfig, mergo.WithOverride); err != nil {
+			if err := mergo.Merge(&parsedRawConfig.nodeConfigs[i], nodeConfig, mergo.WithOverride); err != nil {
 				return err
 			}
 		} else {
-			existingNodes = append(existingNodes, node)
+			parsedRawConfig.nodeConfigs = append(parsedRawConfig.nodeConfigs, nodeConfig)
 		}
 	}
 
-	(*c)["Nodes"] = existingNodes
+	// Subsequence SetFrom invocations will call parse(), and expect to be able to cast c["Nodes"] to []any,
+	// so we can't directly assign parsedRawConfig.nodeConfigs back to c["Nodes"].
+	anyConfigs := []any{}
+	for _, nodeConfig := range parsedRawConfig.nodeConfigs {
+		anyConfigs = append(anyConfigs, nodeConfig)
+	}
+
+	(*c)["Nodes"] = anyConfigs
 	return nil
 }
 
