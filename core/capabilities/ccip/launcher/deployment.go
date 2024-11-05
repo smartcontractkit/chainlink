@@ -2,11 +2,12 @@ package launcher
 
 import (
 	"fmt"
+	"sync"
+
 	mapset "github.com/deckarep/golang-set/v2"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"go.uber.org/multierr"
 	"golang.org/x/exp/maps"
-	"sync"
 
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
@@ -78,7 +79,6 @@ func (c pluginRegistry) TransitionFrom(prevPlugins pluginRegistry) error {
 					mu.Unlock()
 				}
 			}
-
 		}(op)
 	}
 	wg.Wait()
