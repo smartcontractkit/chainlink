@@ -355,7 +355,7 @@ func Test_BackupLogPoller(t *testing.T) {
 
 			th.finalizeThroughBlock(t, 32)
 
-			b, ok := primaryRPC.(*simulated.Backend)
+			b, ok := primaryRPC.(*Backend)
 			require.True(t, ok)
 			th.SetActiveClient(b, chaintype.ChainOptimismBedrock) // restore primary rpc
 
@@ -620,8 +620,8 @@ func TestLogPoller_BlockTimestamps(t *testing.T) {
 	// sequence:  [ #1 ] ..(1ns + delay1).. [ #2 ] ..1ns.. [ #3 (LOG1) ] ..(1ns + delay2).. [ #4 ] ..1ns.. [ #5 (LOG2) ]
 	const delay1 = 589 * time.Second
 	const delay2 = 643 * time.Second
-	time1 := start + 1 + uint64(delay1)
-	time2 := time1 + 1 + uint64(delay2)
+	time1 := start + 1 + uint64(589)
+	time2 := time1 + 1 + uint64(643)
 
 	require.NoError(t, th.Backend.AdjustTime(delay1))
 
@@ -669,7 +669,7 @@ func TestLogPoller_BlockTimestamps(t *testing.T) {
 	// Logs should have correct timestamps
 	require.NotZero(t, len(lg1))
 	b, _ := th.Client.BlockByHash(ctx, lg1[0].BlockHash)
-	t.Log(len(lg1), lg1[0].BlockTimestamp)
+	t.Log(len(lg1), lg1[0].BlockTimestamp.String())
 	assert.Equal(t, int64(b.Time()), lg1[0].BlockTimestamp.UTC().Unix(), time1)
 	b2, _ := th.Client.BlockByHash(ctx, lg2[0].BlockHash)
 	assert.Equal(t, int64(b2.Time()), lg2[0].BlockTimestamp.UTC().Unix(), time2)

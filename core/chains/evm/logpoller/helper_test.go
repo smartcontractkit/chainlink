@@ -36,6 +36,14 @@ var (
 
 type Backend struct {
 	*simulated.Backend
+	t             testing.TB
+	expectPending bool
+}
+
+// SetExpectPending sets whether the backend should expect txes to be pending
+// We do this to avoid breaking the existing evmtypes.Backend interface.
+func (b *Backend) SetExpectPending(pending bool) {
+	b.expectPending = pending
 }
 
 // Fork as an override exists to maintain the same behaviour as the old
@@ -48,15 +56,22 @@ func (b *Backend) Fork(parentHash common.Hash) error {
 	if err := b.Backend.Fork(parentHash); err != nil {
 		return err
 	}
-	// It is baffling why _reading_ the pending tx count is
-	// required for rollback to clear the mempool but it appears to be
-	// the case. Suspect some unintentional interaction between
-	// fork/rollback and the simulated beacon whereby reading warms
-	// a cache needed for rollback to work.
-	_, err := b.Client().PendingTransactionCount(context.Background())
-	if err != nil {
-		return err
-	}
+	// TODO: Fairly sure we need to upstream a tx pool sync like this:
+	//func (c *SimulatedBeacon) Rollback() {
+	//	// Flush all transactions from the transaction pools
+	//	+       c.eth.TxPool().Sync()
+	//	maxUint256 := new(big.Int).Sub(new(big.Int).Lsh(common.Big1, 256), common.Big1)
+	// Otherwise its possible the fork adds the txes to the pool
+	// _after_ we Rollback so the rollback is ineffective.
+	// In the meantime we can just wait for the txes to be pending as workaround.
+	require.Eventually(b.t, func() bool {
+		p, err := b.Backend.Client().PendingTransactionCount(context.Background())
+		if err != nil {
+			return false
+		}
+		b.t.Logf("waiting for forked txes to be pending, have %v, want %v\n", p, b.expectPending)
+		return p > 0 == b.expectPending
+	}, testutils.DefaultWaitTimeout, 500*time.Millisecond)
 	b.Rollback()
 	return nil
 }
@@ -116,7 +131,7 @@ func SetupTH(t testing.TB, opts logpoller.Opts) TestHarness {
 		ORM2:            o2,
 		LogPoller:       lp,
 		Client:          esc,
-		Backend:         &Backend{backend},
+		Backend:         &Backend{t: t, Backend: backend, expectPending: true},
 		Owner:           owner,
 		Emitter1:        emitter1,
 		Emitter2:        emitter2,
