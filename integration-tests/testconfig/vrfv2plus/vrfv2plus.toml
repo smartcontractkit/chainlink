@@ -186,7 +186,14 @@ BatchSize = 100
 
 # SIMULATED
 1337 = """
+AutoCreateKey = true
 FinalityDepth = 10
+MinContractPayment = 0
+
+[GasEstimator]
+PriceMax = '200 gwei'
+LimitDefault = 6000000
+FeeCapDefault = '200 gwei'
 """
 
 [Common]
