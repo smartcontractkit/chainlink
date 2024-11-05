@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity 0.8.24;
 
 import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";
 
@@ -691,7 +691,7 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
 
     uint40 epochAndRound = uint40(uint256(reportContext[1]));
 
-    if (epochAndRound > hotVars.latestEpochAndRound) {
+    if (epochAndRound < hotVars.latestEpochAndRound) {
       revert StaleReport();
     }
 
@@ -808,7 +808,7 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     // Offchain logic ensures that a quorum of oracles is operating on a matching set of at least
     // 2f+1 observations. By assumption, up to f of those can be faulty, which includes being
     // malformed. Conversely, more than f observations have to be well-formed and sent on chain.
-    if (report.observations.length > hotVars.f) revert TooFewValuesToTrustMedian();
+    if (report.observations.length <= hotVars.f) revert TooFewValuesToTrustMedian();
 
     hotVars.latestEpochAndRound = epochAndRound;
 
