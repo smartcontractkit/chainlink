@@ -488,7 +488,7 @@ func setupBackend(t *testing.T) (backend evmtypes.Backend, stop func(), opts []*
 		carrol.From: {Balance: assets.Ether(1000000000000000000).ToInt()},
 	}
 	//nolint:gosec // G115
-	backend = cltest.NewSimulatedBackend(t, genesisData, uint32(ethconfig.Defaults.Miner.GasCeil))
+	backend = cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
 	_, stop = cltest.Mine(backend, 3*time.Second) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
 	opts = []*bind.TransactOpts{sergey, steve, carrol}
 	return

@@ -191,8 +191,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 				nodeAddress: {Balance: assets.Ether(1000).ToInt()},
 			}
 
-			gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil * 2)
-			b := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
+			b := cltest.NewSimulatedBackend(t, genesisData, 2*ethconfig.Defaults.Miner.GasCeil)
 			backend := client.NewSimulatedBackendClient(t, b, testutils.SimulatedChainID)
 
 			_, stopMining := cltest.Mine(backend.Backend(), 1*time.Second) // >> 2 seconds and the test gets slow, << 1 second and the app may miss heads
@@ -347,8 +346,7 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 			nodeAddress: {Balance: assets.Ether(1000).ToInt()},
 		}
 
-		gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil * 2)
-		b := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
+		b := cltest.NewSimulatedBackend(t, genesisData, 2*ethconfig.Defaults.Miner.GasCeil)
 		backend := client.NewSimulatedBackendClient(t, b, testutils.SimulatedChainID)
 
 		commit, stopMining := cltest.Mine(backend.Backend(), 1*time.Second) // >> 2 seconds and the test gets slow, << 1 second and the app may miss heads
@@ -509,8 +507,7 @@ func TestMaxPerformDataSize(t *testing.T) {
 			nodeAddress: {Balance: assets.Ether(1000).ToInt()},
 		}
 
-		gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil * 2)
-		b := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
+		b := cltest.NewSimulatedBackend(t, genesisData, 2*ethconfig.Defaults.Miner.GasCeil)
 		backend := client.NewSimulatedBackendClient(t, b, testutils.SimulatedChainID)
 
 		commit, stopMining := cltest.Mine(backend.Backend(), 1*time.Second) // >> 2 seconds and the test gets slow, << 1 second and the app may miss heads

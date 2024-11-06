@@ -56,8 +56,7 @@ func NewEVMBackendTH(t *testing.T) *EVMBackendTH {
 		contractsOwner.From: {Balance: assets.Ether(100000).ToInt()},
 	}
 	chainID := testutils.SimulatedChainID
-	gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil) //nolint:gosec
-	backend := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
+	backend := cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
 	h, err := backend.Client().HeaderByNumber(testutils.Context(t), nil)
 	require.NoError(t, err)
 	//nolint:gosec // G115

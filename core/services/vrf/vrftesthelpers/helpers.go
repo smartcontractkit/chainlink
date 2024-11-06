@@ -205,14 +205,13 @@ func NewVRFCoordinatorUniverse(t *testing.T, keys ...ethkey.KeyV2) CoordinatorUn
 		genesisData[t.From] = gethtypes.Account{Balance: assets.Ether(1000).ToInt()}
 	}
 
-	gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil)
 	consumerABI, err := abi.JSON(strings.NewReader(
 		solidity_vrf_consumer_interface.VRFConsumerABI))
 	require.NoError(t, err)
 	coordinatorABI, err := abi.JSON(strings.NewReader(
 		solidity_vrf_coordinator_interface.VRFCoordinatorABI))
 	require.NoError(t, err)
-	backend := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
+	backend := cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
 	linkAddress, _, linkContract, err := link_token_interface.DeployLinkToken(
 		sergey, backend.Client())
 	require.NoError(t, err, "failed to deploy link contract to simulated ethereum blockchain")

@@ -301,8 +301,7 @@ func setupOperatorContracts(t *testing.T) OperatorContracts {
 	genesisData := gethtypes.GenesisAlloc{
 		user.From: {Balance: assets.Ether(1000).ToInt()},
 	}
-	gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil * 2)
-	b := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
+	b := cltest.NewSimulatedBackend(t, genesisData, 2*ethconfig.Defaults.Miner.GasCeil)
 	linkTokenAddress, _, linkContract, err := link_token_interface.DeployLinkToken(user, b.Client())
 	require.NoError(t, err)
 	b.Commit()
@@ -639,8 +638,7 @@ func setupOCRContracts(t *testing.T) (*bind.TransactOpts, evmtypes.Backend, comm
 	genesisData := gethtypes.GenesisAlloc{
 		owner.From: {Balance: sb},
 	}
-	gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil * 2)
-	b := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
+	b := cltest.NewSimulatedBackend(t, genesisData, 2*ethconfig.Defaults.Miner.GasCeil)
 	linkTokenAddress, _, linkContract, err := link_token_interface.DeployLinkToken(owner, b.Client())
 	require.NoError(t, err)
 	accessAddress, _, _, err :=

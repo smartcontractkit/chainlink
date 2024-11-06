@@ -133,7 +133,7 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 
 	steve := testutils.MustNewSimTransactor(t) // config contract deployer and owner
 	genesisData := types.GenesisAlloc{steve.From: {Balance: assets.Ether(1000).ToInt()}}
-	backend := cltest.NewSimulatedBackend(t, genesisData, uint32(ethconfig.Defaults.Miner.GasCeil))
+	backend := cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
 	backend.Commit() // ensure starting block number at least 1
 
 	ethClient := client.NewSimulatedBackendClient(t, backend, testutils.SimulatedChainID)

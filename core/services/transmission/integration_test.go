@@ -71,8 +71,7 @@ func deployTransmissionUniverse(t *testing.T) *EntryPointUniverse {
 		holder1.From: {Balance: assets.Ether(1000).ToInt()},
 		holder2.From: {Balance: assets.Ether(1000).ToInt()},
 	}
-	gasLimit := uint32(30e6)
-	backend := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
+	backend := cltest.NewSimulatedBackend(t, genesisData, 30e6)
 	backend.Commit()
 
 	// Setup all contracts and addresses used by tests.

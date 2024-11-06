@@ -44,8 +44,7 @@ func TestMarshaledProof(t *testing.T) {
 	auth, err := bind.NewKeyedTransactorWithChainID(ethereumKey, big.NewInt(1337))
 	require.NoError(t, err)
 	genesisData := gethtypes.GenesisAlloc{auth.From: {Balance: assets.Ether(100).ToInt()}}
-	gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil)
-	backend := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
+	backend := cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
 	_, _, verifier, err := solidity_vrf_verifier_wrapper.DeployVRFTestHelper(auth, backend.Client())
 	if err != nil {
 		panic(errors.Wrapf(err, "while initializing EVM contract wrapper"))
