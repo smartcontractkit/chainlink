@@ -85,6 +85,20 @@ func TestRMN(t *testing.T) {
 			{id: 1, isSigner: true, observedChains: remoteChainSelectors},
 			{id: 2, isSigner: true, observedChains: remoteChainSelectors},
 		},
+		messagesToSend: []messageToSend{
+			{
+				fromChain:         remoteChainSelectors[0],
+				toChain:           remoteChainSelectors[1],
+				count:             1,
+				expectedDelivered: true,
+			},
+			{
+				fromChain:         remoteChainSelectors[1],
+				toChain:           remoteChainSelectors[0],
+				count:             1,
+				expectedDelivered: true,
+			},
+		},
 	}
 
 	var (
@@ -235,21 +249,12 @@ func TestRMN(t *testing.T) {
 	// Need to keep track of the block number for each chain so that event subscription can be done from that block.
 	startBlocks := make(map[uint64]*uint64)
 
-	// Send one message from one chain to another.
 	expectedSeqNum := make(map[uint64]uint64)
-	e := envWithRMN.Env
-	for src := range e.Chains {
-		for dest, destChain := range e.Chains {
-			if src == dest {
-				continue
-			}
-			latesthdr, err := destChain.Client.HeaderByNumber(testcontext.Get(t), nil)
-			require.NoError(t, err)
-			block := latesthdr.Number.Uint64()
-			startBlocks[dest] = &block
-			seqNum := ccipdeployment.TestSendRequest(t, e, onChainState, src, dest, false)
-			expectedSeqNum[dest] = seqNum
-		}
+	for _, msg := range tc.messagesToSend {
+		seqNum := ccipdeployment.TestSendRequest(t, envWithRMN.Env, onChainState, msg.fromChain, msg.toChain, false)
+		expectedSeqNum[msg.toChain] = seqNum
+		zero := uint64(0)
+		startBlocks[msg.toChain] = &zero
 	}
 
 	t.Logf("⌛ Waiting for commit reports...")
