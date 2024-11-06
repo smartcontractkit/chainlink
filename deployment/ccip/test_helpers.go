@@ -13,11 +13,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
-	chainselectors "github.com/smartcontractkit/chain-selectors"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_messenger"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_transmitter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/usdc_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
@@ -397,157 +395,6 @@ func ConfirmRequestOnSourceAndDest(t *testing.T, env deployment.Environment, sta
 	return nil
 }
 
-func DeployUSDCToken(lggr logger.Logger, chain deployment.Chain, ab deployment.AddressBook) error {
-	USDCTokenContract, err := deployContract(lggr, chain, ab,
-		func(chain deployment.Chain) ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
-			USDCTokenAddr, tx, token, err2 := burn_mint_erc677.DeployBurnMintERC677(
-				chain.DeployerKey,
-				chain.Client,
-				"USDC Token",
-				"USDC",
-				uint8(18),
-				big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
-			)
-			return ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
-				USDCTokenAddr, token, tx, deployment.NewTypeAndVersion(USDCToken, deployment.Version1_0_0), err2,
-			}
-		})
-	if err != nil {
-		lggr.Errorw("Failed to deploy USDCToken", "err", err)
-		return err
-	}
-	lggr.Infow("deployed USDC token", "addr", USDCTokenContract.Address)
-	chianID, err := chainselectors.ChainIdFromSelector(chain.Selector)
-	if err != nil {
-		lggr.Errorw("Failed to get chain id", "err", err)
-		return err
-	}
-	domainMapping := map[uint64]uint32{
-		1337: 100,
-		2337: 101,
-		3337: 103,
-	}
-
-	usdcMockTransmitter, err := deployContract(lggr, chain, ab,
-		func(chain deployment.Chain) ContractDeploy[*mock_usdc_token_transmitter.MockE2EUSDCTransmitter] {
-			transmitterAddress, tx, mockTransmitterContract, err2 := mock_usdc_token_transmitter.DeployMockE2EUSDCTransmitter(
-				chain.DeployerKey,
-				chain.Client,
-				0,
-				domainMapping[chianID],
-				USDCTokenContract.Address)
-			return ContractDeploy[*mock_usdc_token_transmitter.MockE2EUSDCTransmitter]{
-				transmitterAddress, mockTransmitterContract, tx, deployment.NewTypeAndVersion(USDCMockTransmitter, deployment.Version1_0_0), err2,
-			}
-		})
-	if err != nil {
-		lggr.Errorw("Failed to deploy mock USDC transmitter", "err", err)
-		return err
-	}
-
-	lggr.Infow("deployed mock USDC transmitter", "addr", usdcMockTransmitter.Address)
-
-	usdcTokenMessenger, err := deployContract(lggr, chain, ab,
-		func(chain deployment.Chain) ContractDeploy[*mock_usdc_token_messenger.MockE2EUSDCTokenMessenger] {
-			tokenMessengerAddress, tx, tokenMessengerContract, err2 := mock_usdc_token_messenger.DeployMockE2EUSDCTokenMessenger(
-				chain.DeployerKey,
-				chain.Client,
-				0,
-				usdcMockTransmitter.Address)
-			return ContractDeploy[*mock_usdc_token_messenger.MockE2EUSDCTokenMessenger]{
-				tokenMessengerAddress, tokenMessengerContract, tx, deployment.NewTypeAndVersion(USDCTokenMessenger, deployment.Version1_0_0), err2,
-			}
-		})
-	if err != nil {
-		lggr.Errorw("Failed to deploy USDC token messenger", "err", err)
-		return err
-	}
-	lggr.Infow("deployed mock USDC token messenger", "addr", usdcTokenMessenger.Address)
-	chainAddr, err := ab.AddressesForChain(chain.Selector)
-	if err != nil {
-		lggr.Errorw("Failed to get addresses of chain", "err", err)
-		return err
-	}
-
-	var rmnAddress, routerAddress string
-	//var rmnProxy *rmn_proxy_contract.RMNProxyContract
-	for address, v := range chainAddr {
-		if deployment.NewTypeAndVersion(ARMProxy, deployment.Version1_0_0) == v {
-			rmnAddress = address
-		}
-		if deployment.NewTypeAndVersion(Router, deployment.Version1_2_0) == v {
-			routerAddress = address
-		}
-		if rmnAddress != "" && routerAddress != "" {
-			break
-		}
-	}
-
-	usdcTokenPool, err := deployContract(lggr, chain, ab,
-		func(chain deployment.Chain) ContractDeploy[*usdc_token_pool.USDCTokenPool] {
-			tokenPoolAddress, tx, tokenPoolContract, err2 := usdc_token_pool.DeployUSDCTokenPool(
-				chain.DeployerKey,
-				chain.Client,
-				usdcTokenMessenger.Address,
-				USDCTokenContract.Address,
-				[]common.Address{},
-				common.HexToAddress(rmnAddress),
-				common.HexToAddress(routerAddress),
-			)
-			return ContractDeploy[*usdc_token_pool.USDCTokenPool]{
-				tokenPoolAddress, tokenPoolContract, tx, deployment.NewTypeAndVersion(USDCTokenPool, deployment.Version1_0_0), err2,
-			}
-		})
-	if err != nil {
-		lggr.Errorw("Failed to deploy USDC token pool", "err", err)
-		return err
-	}
-	lggr.Infow("deployed USDC token pool", "addr", usdcTokenPool.Address)
-
-	// grant minter role to token issuer USDC token messenger
-	tx, err := USDCTokenContract.Contract.GrantMintAndBurnRoles(chain.DeployerKey, chain.DeployerKey.From)
-	if err != nil {
-		lggr.Errorw("Failed to grant minter roles to token issuer", "err", err)
-		return err
-	}
-	if _, err = chain.Confirm(tx); err != nil {
-		lggr.Errorw("Failed to confirm grant minter roles tx to token issuer", "tx", tx, "err", err)
-		return err
-	}
-	// grant minter role to USDC token messenger
-	tx, err = USDCTokenContract.Contract.GrantMintAndBurnRoles(chain.DeployerKey, usdcTokenMessenger.Address)
-	if err != nil {
-		lggr.Errorw("Failed to grant minter roles to token messenger", "err", err)
-		return err
-	}
-	if _, err = chain.Confirm(tx); err != nil {
-		lggr.Errorw("Failed to confirm grant minter roles tx to token messenger", "tx", tx, "err", err)
-		return err
-	}
-	// grant minter role to USDC transmitter
-	tx, err = USDCTokenContract.Contract.GrantMintAndBurnRoles(chain.DeployerKey, usdcMockTransmitter.Address)
-	if err != nil {
-		lggr.Errorw("Failed to grant minter roles to token transmitter", "err", err)
-		return err
-	}
-	if _, err = chain.Confirm(tx); err != nil {
-		lggr.Errorw("Failed to confirm grant minter roles tx to token transmitter", "tx", tx, "err", err)
-		return err
-	}
-
-	// Create liquidity by minting
-	hundredCoins := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(100))
-	tx, err = USDCTokenContract.Contract.Mint(chain.DeployerKey, usdcTokenPool.Address, hundredCoins)
-	if err != nil {
-		lggr.Errorw("Failed to mint USDC", "err", err)
-	}
-	if _, err = chain.Confirm(tx); err != nil {
-		lggr.Errorw("Failed to mint USDC", "err", err)
-	}
-
-	return nil
-}
-
 func DeployTransferableToken(
 	lggr logger.Logger,
 	chains map[uint64]deployment.Chain,
@@ -729,7 +576,7 @@ func deployTransferTokenOneEnd(
 				big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
 			)
 			return ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
-				USDCTokenAddr, token, tx, deployment.NewTypeAndVersion(USDCToken, deployment.Version1_0_0), err2,
+				USDCTokenAddr, token, tx, deployment.NewTypeAndVersion(BurnMintToken, deployment.Version1_0_0), err2,
 			}
 		})
 	if err != nil {
@@ -754,7 +601,7 @@ func deployTransferTokenOneEnd(
 				common.HexToAddress(routerAddress),
 			)
 			return ContractDeploy[*burn_mint_token_pool.BurnMintTokenPool]{
-				tokenPoolAddress, tokenPoolContract, tx, deployment.NewTypeAndVersion(USDCTokenPool, deployment.Version1_0_0), err2,
+				tokenPoolAddress, tokenPoolContract, tx, deployment.NewTypeAndVersion(BurnMintTokenPool, deployment.Version1_0_0), err2,
 			}
 		})
 	if err != nil {

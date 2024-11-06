@@ -52,7 +52,7 @@ type CCIPChainState struct {
 	RMNProxy           *rmn_proxy_contract.RMNProxyContract
 	NonceManager       *nonce_manager.NonceManager
 	TokenAdminRegistry *token_admin_registry.TokenAdminRegistry
-	RegistryModule *registry_module_owner_custom.RegistryModuleOwnerCustom
+	RegistryModule     *registry_module_owner_custom.RegistryModuleOwnerCustom
 	Router             *router.Router
 	CommitStore        *commit_store.CommitStore
 	Weth9              *weth9.WETH9
@@ -358,32 +358,6 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				return state, err
 			}
 			state.LinkToken = lt
-		case deployment.NewTypeAndVersion(USDCToken, deployment.Version1_0_0).String():
-			ut, err := burn_mint_erc677.NewBurnMintERC677(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			state.BurnMintTokens677 = map[TokenSymbol]*burn_mint_erc677.BurnMintERC677{
-				USDCSymbol: ut,
-			}
-		case deployment.NewTypeAndVersion(USDCTokenPool, deployment.Version1_0_0).String():
-			utp, err := usdc_token_pool.NewUSDCTokenPool(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			state.USDCTokenPool = utp
-		case deployment.NewTypeAndVersion(USDCMockTransmitter, deployment.Version1_0_0).String():
-			umt, err := mock_usdc_token_transmitter.NewMockE2EUSDCTransmitter(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			state.MockUSDCTransmitter = umt
-		case deployment.NewTypeAndVersion(USDCTokenMessenger, deployment.Version1_0_0).String():
-			utm, err := mock_usdc_token_messenger.NewMockE2EUSDCTokenMessenger(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			state.MockUSDCTokenMessenger = utm
 		case deployment.NewTypeAndVersion(CCIPHome, deployment.Version1_6_0_dev).String():
 			ccipHome, err := ccip_home.NewCCIPHome(common.HexToAddress(address), chain.Client)
 			if err != nil {
