@@ -417,7 +417,7 @@ func checkLogWasConsumed(t *testing.T, fa fluxAggregatorUniverse, ds sqlutil.Dat
 	g := gomega.NewWithT(t)
 	g.Eventually(func() bool {
 		ctx := testutils.Context(t)
-		block, err := fa.backend.Client().BlockByNumber(ctx, big.NewInt(int64(blockNumber)))
+		block, err := fa.backend.Client().BlockByNumber(ctx, new(big.Int).SetUint64(blockNumber))
 		require.NoError(t, err)
 		require.NotNil(t, block)
 		orm := log.NewORM(ds, fa.evmChainID)
