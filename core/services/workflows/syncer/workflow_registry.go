@@ -16,9 +16,9 @@ import (
 )
 
 const (
-	workflowID    = ""
-	workflowOwner = ""
-	workflowName  = ""
+	workflowID    = "924eef66516e5387b6e8ab8cc544685dfe50dfc837996f22beecebced5063962"
+	workflowOwner = "0x00000000000000000000000000000000000000aa"
+	workflowName  = "PoR Hardcoded Workflow"
 )
 
 var (
