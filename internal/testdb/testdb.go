@@ -22,7 +22,7 @@ const (
 // If withTemplate is true, the pristine DB will be used as a template.
 func CreateOrReplace(parsed url.URL, suffix string, withTemplate bool) (string, error) {
 	if parsed.Path == "" {
-		return "", errors.New("path missing from database URL")
+		return "", errors.New("path missing from database URL") //test
 	}
 
 	// Match the naming schema that our dangling DB cleanup methods expect

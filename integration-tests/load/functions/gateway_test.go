@@ -10,7 +10,7 @@ import (
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions"
 )
-
+//test
 func TestGatewayLoad(t *testing.T) {
 	listConfig, err := tc.GetConfig([]string{"GatewayList"}, tc.Functions)
 	require.NoError(t, err)
@@ -30,7 +30,7 @@ func TestGatewayLoad(t *testing.T) {
 		GenName:  functions.MethodSecretsList,
 		Schedule: wasp.Plain(
 			*listConfig.Functions.Performance.RPS,
-			listConfig.Functions.Performance.Duration.Duration,
+			listConfig.Functions.Performance.Duration.Duration, //test
 		),
 		Gun: NewGatewaySecretsSetGun(
 			&listConfig,

@@ -15,7 +15,7 @@ const (
 
 func main() {
 	s := loop.MustNewStartedServer(loggerName)
-	defer s.Stop()
+	defer s.Stop() //test
 
 	p := medianpoc.NewPlugin(s.Logger)
 	defer s.Logger.ErrorIfFn(p.Close, "Failed to close")

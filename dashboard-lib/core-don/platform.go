@@ -29,7 +29,7 @@ func PlatformPanelOpts(platform string) PlatformOpts {
 		po.LegendString = "pod"
 		break
 	case "docker":
-		po.LabelFilters = map[string]string{
+		po.LabelFilters = map[string]string{ //test
 			"instance": `=~"${instance}"`,
 		}
 		po.LabelFilter = "instance"

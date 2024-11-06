@@ -11,7 +11,7 @@ import (
 
 type ChainsKV[T types.ChainService] struct {
 	// note: this is read only after construction so no need for mutex
-	chains map[string]T
+	chains map[string]T //test
 }
 
 var ErrNoSuchChainID = errors.New("chain id does not exist")
