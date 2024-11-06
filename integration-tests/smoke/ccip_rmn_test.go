@@ -33,7 +33,6 @@ const (
 func TestRMN_TwoMessagesOnTwoLanes(t *testing.T) {
 	runRmnTestCase(t, rmnTestCase{
 		name:        "two messages on two lanes",
-		waitTimeout: 10 * time.Minute,
 		waitForExec: true,
 		homeChainConfig: homeChainConfig{
 			f: map[uint64]int{chain0: 1, chain1: 1},
@@ -57,7 +56,6 @@ func TestRMN_TwoMessagesOnTwoLanes(t *testing.T) {
 func TestRMN_MultipleMessagesOnOneLaneNoWaitForExec(t *testing.T) {
 	runRmnTestCase(t, rmnTestCase{
 		name:        "multiple messages on two lanes for rmn batching inspection",
-		waitTimeout: 10 * time.Minute,
 		waitForExec: false, // do not wait for execution reports
 		homeChainConfig: homeChainConfig{
 			f: map[uint64]int{chain0: 1, chain1: 1},
@@ -73,6 +71,28 @@ func TestRMN_MultipleMessagesOnOneLaneNoWaitForExec(t *testing.T) {
 		},
 		messagesToSend: []messageToSend{
 			{fromChain: chain1, toChain: chain0, count: 10, expectedDelivered: true},
+		},
+	})
+}
+
+func TestRMN_NotEnoughObservers(t *testing.T) {
+	runRmnTestCase(t, rmnTestCase{
+		name:                "one message but not enough observers, should not get a commit report",
+		passIfNoCommitAfter: 2 * time.Minute,
+		homeChainConfig: homeChainConfig{
+			f: map[uint64]int{chain0: 1, chain1: 1},
+		},
+		remoteChainsConfig: []remoteChainConfig{
+			{selector: chain0, f: 1},
+			{selector: chain1, f: 1},
+		},
+		rmnNodes: []rmnNode{
+			{id: 0, isSigner: true, observedChains: []uint64{chain0, chain1}},
+			{id: 1, isSigner: true, observedChains: []uint64{chain0, chain1}},
+			{id: 2, isSigner: true, observedChains: []uint64{chain1}},
+		},
+		messagesToSend: []messageToSend{
+			{fromChain: chain0, toChain: chain1, count: 1, expectedDelivered: true},
 		},
 	})
 }
@@ -251,8 +271,27 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	}
 	t.Logf("Sent all messages, expectedSeqNum: %v", expectedSeqNum)
 
+	commitReportReceived := make(chan struct{})
+	go func() {
+		ccipdeployment.ConfirmCommitForAllWithExpectedSeqNums(t, envWithRMN.Env, onChainState, expectedSeqNum, startBlocks)
+		commitReportReceived <- struct{}{}
+		return
+	}()
+
+	if tc.passIfNoCommitAfter > 0 { // wait for a duration and assert that commit reports were not delivered
+		tim := time.NewTimer(tc.passIfNoCommitAfter)
+		t.Logf("waiting for %s before asserting that commit report was not received", tc.passIfNoCommitAfter)
+		select {
+		case <-commitReportReceived:
+			t.Errorf("Commit report was received while it was not expected")
+			return
+		case <-tim.C:
+			return
+		}
+	}
+
 	t.Logf("⌛ Waiting for commit reports...")
-	ccipdeployment.ConfirmCommitForAllWithExpectedSeqNums(t, envWithRMN.Env, onChainState, expectedSeqNum, startBlocks)
+	<-commitReportReceived // wait for commit reports
 	t.Logf("✅ Commit report")
 
 	if tc.waitForExec {
@@ -297,11 +336,13 @@ type messageToSend struct {
 }
 
 type rmnTestCase struct {
-	name               string
-	waitTimeout        time.Duration
-	waitForExec        bool
-	homeChainConfig    homeChainConfig
-	remoteChainsConfig []remoteChainConfig
-	rmnNodes           []rmnNode
-	messagesToSend     []messageToSend
+	name string
+	// If set to 0, the test will wait for commit reports.
+	// If set to a positive value, the test will wait for that duration and will assert that commit report was not delivered.
+	passIfNoCommitAfter time.Duration
+	waitForExec         bool
+	homeChainConfig     homeChainConfig
+	remoteChainsConfig  []remoteChainConfig
+	rmnNodes            []rmnNode
+	messagesToSend      []messageToSend
 }
