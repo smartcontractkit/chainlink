@@ -959,8 +959,8 @@ func (c *CCIPIntegrationTestHarness) SetUpNodesAndJobs(t *testing.T, pricePipeli
 	// Replay for bootstrap.
 	bc, err := bootstrapNode.App.GetRelayers().LegacyEVMChains().Get(strconv.FormatUint(c.Dest.ChainID, 10))
 	require.NoError(t, err)
-	require.LessOrEqual(t, configBlock, math.MaxInt64)
-	require.NoError(t, bc.LogPoller().Replay(context.Background(), int64(configBlock)))
+	require.LessOrEqual(t, configBlock, uint64(math.MaxInt64))
+	require.NoError(t, bc.LogPoller().Replay(context.Background(), int64(configBlock))) //nolint:gosec // G115 false positive
 	c.Dest.Chain.Commit()
 
 	return jobParams
