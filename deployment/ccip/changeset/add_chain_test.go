@@ -132,34 +132,28 @@ func TestAddChainInbound(t *testing.T) {
 	require.NoError(t, err)
 
 	// Generate and sign inbound proposal to new 4th chain.
-	chainInboundProposal, err := NewChainInboundProposal(e.Env, state, e.HomeChainSel, newChain, initialDeploy)
+	chainInboundChangeset, err := NewChainInboundChangeset(e.Env, state, e.HomeChainSel, newChain, initialDeploy)
 	require.NoError(t, err)
-	chainInboundExec := ccipdeployment.SignProposal(t, e.Env, chainInboundProposal)
-	for _, sel := range initialDeploy {
-		ccipdeployment.ExecuteProposal(t, e.Env, chainInboundExec, state, sel)
-	}
+	ccipdeployment.ProcessChangeset(t, e.Env, chainInboundChangeset)
+
 	// TODO This currently is not working - Able to send the request here but request gets stuck in execution
 	// Send a new message and expect that this is delivered once the chain is completely set up as inbound
 	//TestSendRequest(t, e.Env, state, initialDeploy[0], newChain, true)
 
 	t.Logf("Executing add don and set candidate proposal for commit plugin on chain %d", newChain)
-	addDonProp, err := AddDonAndSetCandidateProposal(state, e.Env, nodes, deployment.XXXGenerateTestOCRSecrets(), e.HomeChainSel, e.FeedChainSel, newChain, tokenConfig, types.PluginTypeCCIPCommit)
+	addDonChangeset, err := AddDonAndSetCandidateChangeset(state, e.Env, nodes, deployment.XXXGenerateTestOCRSecrets(), e.HomeChainSel, e.FeedChainSel, newChain, tokenConfig, types.PluginTypeCCIPCommit)
 	require.NoError(t, err)
-
-	addDonExec := ccipdeployment.SignProposal(t, e.Env, addDonProp)
-	ccipdeployment.ExecuteProposal(t, e.Env, addDonExec, state, e.HomeChainSel)
+	ccipdeployment.ProcessChangeset(t, e.Env, addDonChangeset)
 
 	t.Logf("Executing promote candidate proposal for exec plugin on chain %d", newChain)
-	setCandidateForExecProposal, err := SetCandidatePluginProposal(state, e.Env, nodes, deployment.XXXGenerateTestOCRSecrets(), e.HomeChainSel, e.FeedChainSel, newChain, tokenConfig, types.PluginTypeCCIPExec)
+	setCandidateForExecChangeset, err := SetCandidatePluginChangeset(state, e.Env, nodes, deployment.XXXGenerateTestOCRSecrets(), e.HomeChainSel, e.FeedChainSel, newChain, tokenConfig, types.PluginTypeCCIPExec)
 	require.NoError(t, err)
-	setCandidateForExecExec := ccipdeployment.SignProposal(t, e.Env, setCandidateForExecProposal)
-	ccipdeployment.ExecuteProposal(t, e.Env, setCandidateForExecExec, state, e.HomeChainSel)
+	ccipdeployment.ProcessChangeset(t, e.Env, setCandidateForExecChangeset)
 
 	t.Logf("Executing promote candidate proposal for both commit and exec plugins on chain %d", newChain)
-	donPromoteProposal, err := PromoteAllCandidatesProposal(state, e.HomeChainSel, newChain, nodes)
+	donPromoteChangeset, err := PromoteAllCandidatesChangeset(state, e.HomeChainSel, newChain, nodes)
 	require.NoError(t, err)
-	donPromoteExec := ccipdeployment.SignProposal(t, e.Env, donPromoteProposal)
-	ccipdeployment.ExecuteProposal(t, e.Env, donPromoteExec, state, e.HomeChainSel)
+	ccipdeployment.ProcessChangeset(t, e.Env, donPromoteChangeset)
 
 	// verify if the configs are updated
 	require.NoError(t, ccipdeployment.ValidateCCIPHomeConfigSetUp(

@@ -15,7 +15,8 @@ import {USDPriceWith18Decimals} from "../../libraries/USDPriceWith18Decimals.sol
 import {OnRamp} from "../../onRamp/OnRamp.sol";
 import {TokenPool} from "../../pools/TokenPool.sol";
 import {MaybeRevertingBurnMintTokenPool} from "../helpers/MaybeRevertingBurnMintTokenPool.sol";
-import "./OnRampSetup.t.sol";
+import {OnRampHelper} from "../helpers/OnRampHelper.sol";
+import {OnRampSetup} from "./OnRampSetup.t.sol";
 
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 

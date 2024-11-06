@@ -14,7 +14,7 @@ import (
 var _ deployment.ViewState = ViewKeystone
 
 func ViewKeystone(e deployment.Environment) (json.Marshaler, error) {
-	state, err := keystone.GetContractSets(&keystone.GetContractSetsRequest{
+	state, err := keystone.GetContractSets(e.Logger, &keystone.GetContractSetsRequest{
 		Chains:      e.Chains,
 		AddressBook: e.ExistingAddresses,
 	})

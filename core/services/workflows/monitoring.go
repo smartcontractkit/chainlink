@@ -20,32 +20,32 @@ var workflowStepErrorCounter metric.Int64Counter
 var engineHeartbeatCounter metric.Int64UpDownCounter
 
 func initMonitoringResources() (err error) {
-	registerTriggerFailureCounter, err = beholder.GetMeter().Int64Counter("platform.engine.register_trigger.failures")
+	registerTriggerFailureCounter, err = beholder.GetMeter().Int64Counter("platform_engine_registertrigger_failures")
 	if err != nil {
 		return fmt.Errorf("failed to register trigger failure counter: %w", err)
 	}
 
-	workflowsRunningGauge, err = beholder.GetMeter().Int64Gauge("platform.engine.workflows.count")
+	workflowsRunningGauge, err = beholder.GetMeter().Int64Gauge("platform_engine_workflow_count")
 	if err != nil {
 		return fmt.Errorf("failed to register workflows running gauge: %w", err)
 	}
 
-	capabilityInvocationCounter, err = beholder.GetMeter().Int64Counter("platform.engine.capabilities_invoked.count")
+	capabilityInvocationCounter, err = beholder.GetMeter().Int64Counter("platform_engine_capabilities_count")
 	if err != nil {
 		return fmt.Errorf("failed to register capability invocation counter: %w", err)
 	}
 
-	workflowExecutionLatencyGauge, err = beholder.GetMeter().Int64Gauge("platform.engine.workflow.time")
+	workflowExecutionLatencyGauge, err = beholder.GetMeter().Int64Gauge("platform_engine_workflow_time")
 	if err != nil {
 		return fmt.Errorf("failed to register workflow execution latency gauge: %w", err)
 	}
 
-	workflowStepErrorCounter, err = beholder.GetMeter().Int64Counter("platform.engine.workflow.errors")
+	workflowStepErrorCounter, err = beholder.GetMeter().Int64Counter("platform_engine_workflow_errors")
 	if err != nil {
 		return fmt.Errorf("failed to register workflow step error counter: %w", err)
 	}
 
-	engineHeartbeatCounter, err = beholder.GetMeter().Int64UpDownCounter("platform.engine.heartbeat")
+	engineHeartbeatCounter, err = beholder.GetMeter().Int64UpDownCounter("platform_engine_heartbeat")
 	if err != nil {
 		return fmt.Errorf("failed to register engine heartbeat counter: %w", err)
 	}

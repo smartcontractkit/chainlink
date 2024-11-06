@@ -18,6 +18,8 @@ func NewAggregator(name string, config values.Map, lggr logger.Logger) (types.Ag
 		return datafeeds.NewDataFeedsAggregator(config, mc)
 	case "identical":
 		return aggregators.NewIdenticalAggregator(config)
+	case "reduce":
+		return aggregators.NewReduceAggregator(config)
 	default:
 		return nil, fmt.Errorf("aggregator %s not supported", name)
 	}
