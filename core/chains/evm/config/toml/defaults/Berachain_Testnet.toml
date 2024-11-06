@@ -4,6 +4,10 @@ FinalityDepth = 10
 # block_time: 5s 
 LogPollInterval = '10s' 
 
+# finality_depth * block_time / 60 secs = ~0.8  min (finality time)
+NoNewFinalizedHeadsThreshold = '5m'
+
+
 FinalityTagEnabled = true
 
 [GasEstimator]
