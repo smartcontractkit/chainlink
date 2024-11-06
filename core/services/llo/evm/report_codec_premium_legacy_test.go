@@ -175,7 +175,7 @@ func Test_ExtractReportValues(t *testing.T) {
 		report := llo.Report{Values: []llo.StreamValue{(*llo.Quote)(nil), nil, &llo.Quote{Bid: decimal.NewFromInt(37), Benchmark: decimal.NewFromInt(38), Ask: decimal.NewFromInt(39)}}}
 		nativePrice, linkPrice, quote, err := ExtractReportValues(report)
 
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, decimal.Zero, nativePrice)
 		assert.Equal(t, decimal.Zero, linkPrice)
 		assert.Equal(t, &llo.Quote{Bid: decimal.NewFromInt(37), Benchmark: decimal.NewFromInt(38), Ask: decimal.NewFromInt(39)}, quote)
@@ -200,7 +200,7 @@ func Test_ExtractReportValues(t *testing.T) {
 		report := llo.Report{Values: []llo.StreamValue{llo.ToDecimal(decimal.NewFromInt(35)), llo.ToDecimal(decimal.NewFromInt(36)), &llo.Quote{Bid: decimal.NewFromInt(37), Benchmark: decimal.NewFromInt(38), Ask: decimal.NewFromInt(39)}}}
 		nativePrice, linkPrice, quote, err := ExtractReportValues(report)
 
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, decimal.NewFromInt(35), nativePrice)
 		assert.Equal(t, decimal.NewFromInt(36), linkPrice)
 		assert.Equal(t, &llo.Quote{Bid: decimal.NewFromInt(37), Benchmark: decimal.NewFromInt(38), Ask: decimal.NewFromInt(39)}, quote)
@@ -209,7 +209,7 @@ func Test_ExtractReportValues(t *testing.T) {
 		report := llo.Report{Values: []llo.StreamValue{&llo.Quote{Bid: decimal.NewFromInt(35), Benchmark: decimal.NewFromInt(36), Ask: decimal.NewFromInt(37)}, &llo.Quote{Bid: decimal.NewFromInt(38), Benchmark: decimal.NewFromInt(39), Ask: decimal.NewFromInt(40)}, &llo.Quote{Bid: decimal.NewFromInt(41), Benchmark: decimal.NewFromInt(42), Ask: decimal.NewFromInt(43)}}}
 		nativePrice, linkPrice, quote, err := ExtractReportValues(report)
 
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, decimal.NewFromInt(36), nativePrice)
 		assert.Equal(t, decimal.NewFromInt(39), linkPrice)
 		assert.Equal(t, &llo.Quote{Bid: decimal.NewFromInt(41), Benchmark: decimal.NewFromInt(42), Ask: decimal.NewFromInt(43)}, quote)
@@ -218,7 +218,7 @@ func Test_ExtractReportValues(t *testing.T) {
 		report := llo.Report{Values: []llo.StreamValue{nil, nil, &llo.Quote{Bid: decimal.NewFromInt(37), Benchmark: decimal.NewFromInt(38), Ask: decimal.NewFromInt(39)}}}
 		nativePrice, linkPrice, quote, err := ExtractReportValues(report)
 
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, decimal.Zero, nativePrice)
 		assert.Equal(t, decimal.Zero, linkPrice)
 		assert.Equal(t, &llo.Quote{Bid: decimal.NewFromInt(37), Benchmark: decimal.NewFromInt(38), Ask: decimal.NewFromInt(39)}, quote)
