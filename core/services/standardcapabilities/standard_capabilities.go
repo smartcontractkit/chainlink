@@ -3,6 +3,7 @@ package standardcapabilities
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -26,6 +27,9 @@ type standardCapabilities struct {
 	oracleFactory        core.OracleFactory
 
 	capabilitiesLoop *loop.StandardCapabilitiesService
+
+	wg       sync.WaitGroup
+	stopChan services.StopChan
 }
 
 func newStandardCapabilities(
@@ -51,6 +55,7 @@ func newStandardCapabilities(
 		pipelineRunner:       pipelineRunner,
 		relayerSet:           relayerSet,
 		oracleFactory:        oracleFactory,
+		stopChan:             make(chan struct{}),
 	}
 }
 
@@ -74,27 +79,36 @@ func (s *standardCapabilities) Start(ctx context.Context) error {
 			return fmt.Errorf("error starting standard capabilities service: %v", err)
 		}
 
-		if err = s.capabilitiesLoop.WaitCtx(ctx); err != nil {
-			return fmt.Errorf("error waiting for standard capabilities service to start: %v", err)
-		}
+		s.wg.Add(1)
+		go func() {
+			defer s.wg.Done()
+			cctx, cancel := s.stopChan.NewCtx()
+			defer cancel()
 
-		if err = s.capabilitiesLoop.Service.Initialise(ctx, s.spec.Config, s.telemetryService, s.store, s.CapabilitiesRegistry, s.errorLog,
-			s.pipelineRunner, s.relayerSet, s.oracleFactory); err != nil {
-			return fmt.Errorf("error initialising standard capabilities service: %v", err)
-		}
+			if err = s.capabilitiesLoop.WaitCtx(cctx); err != nil {
+				s.log.Errorf("error waiting for standard capabilities service to start: %v", err)
+			}
 
-		capabilityInfos, err := s.capabilitiesLoop.Service.Infos(ctx)
-		if err != nil {
-			return fmt.Errorf("error getting standard capabilities service info: %v", err)
-		}
+			if err = s.capabilitiesLoop.Service.Initialise(cctx, s.spec.Config, s.telemetryService, s.store, s.CapabilitiesRegistry, s.errorLog,
+				s.pipelineRunner, s.relayerSet, s.oracleFactory); err != nil {
+				s.log.Errorf("error initialising standard capabilities service: %v", err)
+			}
 
-		s.log.Info("Started standard capabilities for job spec", "spec", s.spec, "capabilities", capabilityInfos)
+			capabilityInfos, err := s.capabilitiesLoop.Service.Infos(cctx)
+			if err != nil {
+				s.log.Errorf("error getting standard capabilities service info: %v", err)
+			}
+
+			s.log.Info("Started standard capabilities for job spec", "spec", s.spec, "capabilities", capabilityInfos)
+		}()
 
 		return nil
 	})
 }
 
 func (s *standardCapabilities) Close() error {
+	close(s.stopChan)
+	s.wg.Wait()
 	return s.StopOnce("StandardCapabilities", func() error {
 		if s.capabilitiesLoop != nil {
 			return s.capabilitiesLoop.Close()
