@@ -4,7 +4,7 @@ import {IAny2EVMMessageReceiver} from "../../interfaces/IAny2EVMMessageReceiver.
 
 import {CCIPClientExample} from "../../applications/CCIPClientExample.sol";
 import {Client} from "../../libraries/Client.sol";
-import {OnRampSetup} from "../onRamp/OnRampSetup.t.sol";
+import {OnRampSetup} from "../onRamp/onRamp/OnRampSetup.t.sol";
 
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 import {ERC165Checker} from

@@ -146,6 +146,7 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 								"OracleID": {Name: "oracleId"},
 								// this is just to illustrate an example, generic names shouldn't really be formatted like this since other chains might not store it in the same way
 								"NestedStaticStruct.Inner.IntVal": {Name: "nestedStaticStruct.Inner.IntVal"},
+								"NestedDynamicStruct.FixedBytes":  {Name: "nestedDynamicStruct.FixedBytes"},
 								"BigField":                        {Name: "bigField"},
 							},
 						},

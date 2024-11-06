@@ -1,6 +1,8 @@
 package factory
 
 import (
+	"context"
+
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -17,16 +19,16 @@ import (
 )
 
 // NewOnRampReader determines the appropriate version of the onramp and returns a reader for it
-func NewOnRampReader(lggr logger.Logger, versionFinder VersionFinder, sourceSelector, destSelector uint64, onRampAddress cciptypes.Address, sourceLP logpoller.LogPoller, source client.Client) (ccipdata.OnRampReader, error) {
-	return initOrCloseOnRampReader(lggr, versionFinder, sourceSelector, destSelector, onRampAddress, sourceLP, source, false)
+func NewOnRampReader(ctx context.Context, lggr logger.Logger, versionFinder VersionFinder, sourceSelector, destSelector uint64, onRampAddress cciptypes.Address, sourceLP logpoller.LogPoller, source client.Client) (ccipdata.OnRampReader, error) {
+	return initOrCloseOnRampReader(ctx, lggr, versionFinder, sourceSelector, destSelector, onRampAddress, sourceLP, source, false)
 }
 
-func CloseOnRampReader(lggr logger.Logger, versionFinder VersionFinder, sourceSelector, destSelector uint64, onRampAddress cciptypes.Address, sourceLP logpoller.LogPoller, source client.Client) error {
-	_, err := initOrCloseOnRampReader(lggr, versionFinder, sourceSelector, destSelector, onRampAddress, sourceLP, source, true)
+func CloseOnRampReader(ctx context.Context, lggr logger.Logger, versionFinder VersionFinder, sourceSelector, destSelector uint64, onRampAddress cciptypes.Address, sourceLP logpoller.LogPoller, source client.Client) error {
+	_, err := initOrCloseOnRampReader(ctx, lggr, versionFinder, sourceSelector, destSelector, onRampAddress, sourceLP, source, true)
 	return err
 }
 
-func initOrCloseOnRampReader(lggr logger.Logger, versionFinder VersionFinder, sourceSelector, destSelector uint64, onRampAddress cciptypes.Address, sourceLP logpoller.LogPoller, source client.Client, closeReader bool) (ccipdata.OnRampReader, error) {
+func initOrCloseOnRampReader(ctx context.Context, lggr logger.Logger, versionFinder VersionFinder, sourceSelector, destSelector uint64, onRampAddress cciptypes.Address, sourceLP logpoller.LogPoller, source client.Client, closeReader bool) (ccipdata.OnRampReader, error) {
 	contractType, version, err := versionFinder.TypeAndVersion(onRampAddress, source)
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to read type and version")
@@ -51,7 +53,7 @@ func initOrCloseOnRampReader(lggr logger.Logger, versionFinder VersionFinder, so
 		if closeReader {
 			return nil, onRamp.Close()
 		}
-		return onRamp, onRamp.RegisterFilters()
+		return onRamp, onRamp.RegisterFilters(ctx)
 	case ccipdata.V1_5_0:
 		onRamp, err := v1_5_0.NewOnRamp(lggr, sourceSelector, destSelector, onRampAddrEvm, sourceLP, source)
 		if err != nil {
@@ -60,7 +62,7 @@ func initOrCloseOnRampReader(lggr logger.Logger, versionFinder VersionFinder, so
 		if closeReader {
 			return nil, onRamp.Close()
 		}
-		return onRamp, onRamp.RegisterFilters()
+		return onRamp, onRamp.RegisterFilters(ctx)
 	// Adding a new version?
 	// Please update the public factory function in leafer.go if the new version updates the leaf hash function.
 	default:

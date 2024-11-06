@@ -428,10 +428,10 @@ func (o *OffRamp) ChangeConfig(ctx context.Context, onchainConfigBytes []byte, o
 }
 
 func (o *OffRamp) Close() error {
-	return logpollerutil.UnregisterLpFilters(o.lp, o.filters)
+	return logpollerutil.UnregisterLpFilters(context.Background(), o.lp, o.filters)
 }
-func (o *OffRamp) RegisterFilters() error {
-	return logpollerutil.RegisterLpFilters(o.lp, o.filters)
+func (o *OffRamp) RegisterFilters(ctx context.Context) error {
+	return logpollerutil.RegisterLpFilters(ctx, o.lp, o.filters)
 }
 
 func (o *OffRamp) GetExecutionState(ctx context.Context, sequenceNumber uint64) (uint8, error) {

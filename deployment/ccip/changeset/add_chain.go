@@ -100,7 +100,6 @@ func AddDonAndSetCandidateChangeset(
 	pluginType types.PluginType,
 ) (deployment.ChangesetOutput, error) {
 	newDONArgs, err := ccipdeployment.BuildOCR3ConfigForCCIPHome(
-		e.Logger,
 		ocrSecrets,
 		state.Chains[newChainSel].OffRamp,
 		e.Chains[newChainSel],

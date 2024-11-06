@@ -30,7 +30,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     s_offRamp.executeSingleReport(
       _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new OffRamp.GasLimitOverride[](0)
     );
-    assertExecutionStateChangedEventLogs(
+    _assertExecutionStateChangedEventLogs(
       messages[0].header.sourceChainSelector,
       messages[0].header.sequenceNumber,
       messages[0].header.messageId,
@@ -48,7 +48,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     s_offRamp.executeSingleReport(
       _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new OffRamp.GasLimitOverride[](0)
     );
-    assertExecutionStateChangedEventLogs(
+    _assertExecutionStateChangedEventLogs(
       messages[0].header.sourceChainSelector,
       messages[0].header.sequenceNumber,
       messages[0].header.messageId,
@@ -71,7 +71,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     s_offRamp.executeSingleReport(
       _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new OffRamp.GasLimitOverride[](0)
     );
-    assertExecutionStateChangedEventLogs(
+    _assertExecutionStateChangedEventLogs(
       messages[0].header.sourceChainSelector,
       messages[0].header.sequenceNumber,
       messages[0].header.messageId,
@@ -95,7 +95,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     s_offRamp.executeSingleReport(
       _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new OffRamp.GasLimitOverride[](0)
     );
-    assertExecutionStateChangedEventLogs(
+    _assertExecutionStateChangedEventLogs(
       messages[0].header.sourceChainSelector,
       messages[0].header.sequenceNumber,
       messages[0].header.messageId,
@@ -151,7 +151,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     s_offRamp.executeSingleReport(
       _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new OffRamp.GasLimitOverride[](0)
     );
-    assertExecutionStateChangedEventLogs(
+    _assertExecutionStateChangedEventLogs(
       messages[0].header.sourceChainSelector,
       messages[0].header.sequenceNumber,
       messages[0].header.messageId,
@@ -196,7 +196,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     s_offRamp.executeSingleReport(
       _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new OffRamp.GasLimitOverride[](0)
     );
-    assertExecutionStateChangedEventLogs(
+    _assertExecutionStateChangedEventLogs(
       messages[0].header.sourceChainSelector,
       messages[0].header.sequenceNumber,
       messages[0].header.messageId,
@@ -214,7 +214,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     s_offRamp.executeSingleReport(
       _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new OffRamp.GasLimitOverride[](0)
     );
-    assertExecutionStateChangedEventLogs(
+    _assertExecutionStateChangedEventLogs(
       SOURCE_CHAIN_SELECTOR_1,
       messages[0].header.sequenceNumber,
       messages[0].header.messageId,
@@ -241,7 +241,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     s_offRamp.executeSingleReport(
       _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new OffRamp.GasLimitOverride[](0)
     );
-    assertExecutionStateChangedEventLogs(
+    _assertExecutionStateChangedEventLogs(
       SOURCE_CHAIN_SELECTOR_1,
       messages[0].header.sequenceNumber,
       messages[0].header.messageId,
@@ -271,7 +271,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     s_offRamp.executeSingleReport(
       _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new OffRamp.GasLimitOverride[](0)
     );
-    assertExecutionStateChangedEventLogs(
+    _assertExecutionStateChangedEventLogs(
       messages[0].header.sourceChainSelector,
       messages[0].header.sequenceNumber,
       messages[0].header.messageId,
@@ -291,7 +291,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     vm.resumeGasMetering();
     vm.recordLogs();
     s_offRamp.executeSingleReport(report, new OffRamp.GasLimitOverride[](0));
-    assertExecutionStateChangedEventLogs(
+    _assertExecutionStateChangedEventLogs(
       messages[0].header.sourceChainSelector,
       messages[0].header.sequenceNumber,
       messages[0].header.messageId,
@@ -316,7 +316,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     s_offRamp.executeSingleReport(report, new OffRamp.GasLimitOverride[](0));
 
     Vm.Log[] memory logs = vm.getRecordedLogs();
-    assertExecutionStateChangedEventLogs(
+    _assertExecutionStateChangedEventLogs(
       logs,
       SOURCE_CHAIN_SELECTOR_1,
       messages[0].header.sequenceNumber,
@@ -326,7 +326,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
       ""
     );
 
-    assertExecutionStateChangedEventLogs(
+    _assertExecutionStateChangedEventLogs(
       logs,
       SOURCE_CHAIN_SELECTOR_1,
       messages[1].header.sequenceNumber,
@@ -353,7 +353,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
 
     Vm.Log[] memory logs = vm.getRecordedLogs();
 
-    assertExecutionStateChangedEventLogs(
+    _assertExecutionStateChangedEventLogs(
       logs,
       SOURCE_CHAIN_SELECTOR_1,
       messages[0].header.sequenceNumber,
@@ -362,7 +362,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
       Internal.MessageExecutionState.SUCCESS,
       ""
     );
-    assertExecutionStateChangedEventLogs(
+    _assertExecutionStateChangedEventLogs(
       logs,
       SOURCE_CHAIN_SELECTOR_1,
       messages[1].header.sequenceNumber,
@@ -410,7 +410,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
         uint256(Internal.MessageExecutionState.SUCCESS)
       );
 
-      assertExecutionStateChangedEventLogs(
+      _assertExecutionStateChangedEventLogs(
         logs,
         SOURCE_CHAIN_SELECTOR_1,
         messages[i].header.sequenceNumber,
@@ -440,7 +440,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     s_offRamp.executeSingleReport(
       _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new OffRamp.GasLimitOverride[](0)
     );
-    assertExecutionStateChangedEventLogs(
+    _assertExecutionStateChangedEventLogs(
       SOURCE_CHAIN_SELECTOR_1,
       messages[0].header.sequenceNumber,
       messages[0].header.messageId,
@@ -623,7 +623,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
 
     vm.recordLogs();
     s_offRamp.executeSingleReport(executionReport, new OffRamp.GasLimitOverride[](0));
-    assertExecutionStateChangedEventLogs(
+    _assertExecutionStateChangedEventLogs(
       messages[0].header.sourceChainSelector,
       messages[0].header.sequenceNumber,
       messages[0].header.messageId,
@@ -649,7 +649,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     s_offRamp.executeSingleReport(
       _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new OffRamp.GasLimitOverride[](0)
     );
-    assertExecutionStateChangedEventLogs(
+    _assertExecutionStateChangedEventLogs(
       messages[0].header.sourceChainSelector,
       messages[0].header.sequenceNumber,
       messages[0].header.messageId,

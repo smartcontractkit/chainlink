@@ -13,6 +13,8 @@ import {IERC20} from "../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/
 import {Vm} from "forge-std/Vm.sol";
 
 contract OffRamp_manuallyExecute is OffRampSetup {
+  uint32 internal constant MAX_TOKEN_POOL_RELEASE_OR_MINT_GAS = 200_000;
+
   function setUp() public virtual override {
     super.setUp();
     _setupMultipleOffRamps();
@@ -37,7 +39,7 @@ contract OffRamp_manuallyExecute is OffRampSetup {
 
     vm.recordLogs();
     s_offRamp.manuallyExecute(_generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), gasLimitOverrides);
-    assertExecutionStateChangedEventLogs(
+    _assertExecutionStateChangedEventLogs(
       SOURCE_CHAIN_SELECTOR_1,
       messages[0].header.sequenceNumber,
       messages[0].header.messageId,
@@ -63,7 +65,7 @@ contract OffRamp_manuallyExecute is OffRampSetup {
     gasLimitOverrides[0][0].receiverExecutionGasLimit += 1;
     vm.recordLogs();
     s_offRamp.manuallyExecute(_generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), gasLimitOverrides);
-    assertExecutionStateChangedEventLogs(
+    _assertExecutionStateChangedEventLogs(
       SOURCE_CHAIN_SELECTOR_1,
       messages[0].header.sequenceNumber,
       messages[0].header.messageId,
@@ -90,7 +92,7 @@ contract OffRamp_manuallyExecute is OffRampSetup {
 
     vm.recordLogs();
     s_offRamp.manuallyExecute(_generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), gasLimitOverrides);
-    assertExecutionStateChangedEventLogs(
+    _assertExecutionStateChangedEventLogs(
       SOURCE_CHAIN_SELECTOR_1,
       messages[0].header.sequenceNumber,
       messages[0].header.messageId,
@@ -148,7 +150,7 @@ contract OffRamp_manuallyExecute is OffRampSetup {
     Vm.Log[] memory logs = vm.getRecordedLogs();
 
     for (uint256 j = 0; j < 3; ++j) {
-      assertExecutionStateChangedEventLogs(
+      _assertExecutionStateChangedEventLogs(
         logs,
         SOURCE_CHAIN_SELECTOR_1,
         messages1[j].header.sequenceNumber,
@@ -160,7 +162,7 @@ contract OffRamp_manuallyExecute is OffRampSetup {
     }
 
     for (uint256 k = 0; k < 2; ++k) {
-      assertExecutionStateChangedEventLogs(
+      _assertExecutionStateChangedEventLogs(
         logs,
         SOURCE_CHAIN_SELECTOR_3,
         messages2[k].header.sequenceNumber,
@@ -189,7 +191,7 @@ contract OffRamp_manuallyExecute is OffRampSetup {
 
     Vm.Log[] memory logs = vm.getRecordedLogs();
 
-    assertExecutionStateChangedEventLogs(
+    _assertExecutionStateChangedEventLogs(
       logs,
       SOURCE_CHAIN_SELECTOR_1,
       messages[0].header.sequenceNumber,
@@ -199,7 +201,7 @@ contract OffRamp_manuallyExecute is OffRampSetup {
       ""
     );
 
-    assertExecutionStateChangedEventLogs(
+    _assertExecutionStateChangedEventLogs(
       logs,
       SOURCE_CHAIN_SELECTOR_1,
       messages[1].header.sequenceNumber,
@@ -212,7 +214,7 @@ contract OffRamp_manuallyExecute is OffRampSetup {
       )
     );
 
-    assertExecutionStateChangedEventLogs(
+    _assertExecutionStateChangedEventLogs(
       logs,
       SOURCE_CHAIN_SELECTOR_1,
       messages[2].header.sequenceNumber,
@@ -234,7 +236,7 @@ contract OffRamp_manuallyExecute is OffRampSetup {
 
     vm.recordLogs();
     s_offRamp.manuallyExecute(_generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, newMessages), gasLimitOverrides);
-    assertExecutionStateChangedEventLogs(
+    _assertExecutionStateChangedEventLogs(
       SOURCE_CHAIN_SELECTOR_1,
       messages[0].header.sequenceNumber,
       messages[0].header.messageId,
@@ -255,7 +257,7 @@ contract OffRamp_manuallyExecute is OffRampSetup {
     s_offRamp.batchExecute(
       _generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new OffRamp.GasLimitOverride[][](1)
     );
-    assertExecutionStateChangedEventLogs(
+    _assertExecutionStateChangedEventLogs(
       SOURCE_CHAIN_SELECTOR_1,
       messages[0].header.sequenceNumber,
       messages[0].header.messageId,
@@ -273,7 +275,7 @@ contract OffRamp_manuallyExecute is OffRampSetup {
 
     vm.recordLogs();
     s_offRamp.manuallyExecute(_generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), gasLimitOverrides);
-    assertExecutionStateChangedEventLogs(
+    _assertExecutionStateChangedEventLogs(
       SOURCE_CHAIN_SELECTOR_1,
       messages[0].header.sequenceNumber,
       messages[0].header.messageId,
@@ -516,7 +518,7 @@ contract OffRamp_manuallyExecute is OffRampSetup {
 
     vm.recordLogs();
     s_offRamp.manuallyExecute(_generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), gasLimitOverrides);
-    assertExecutionStateChangedEventLogs(
+    _assertExecutionStateChangedEventLogs(
       SOURCE_CHAIN_SELECTOR_1,
       messages[0].header.sequenceNumber,
       messages[0].header.messageId,
