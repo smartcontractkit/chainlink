@@ -495,6 +495,9 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
   // cutoff time defines the time window in which a secondary report is valid
   uint32 internal s_cutoffTime;
 
+  // wether if the primary latest report has to be locked or not
+  bool internal primaryLocked;
+
   /**
    * @notice emitted when a new cutoff time is set
    * @param cutoffTime the new defined cutoff time
@@ -544,7 +547,7 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
    */
   function _reportExists(
     Report memory report
-  ) internal returns (bool exist, uint32 roundId) {
+  ) internal view returns (bool exist, uint32 roundId) {
     // get the latest round id
     uint32 latestAggregatorRoundId = s_hotVars.latestAggregatorRoundId;
 
@@ -590,8 +593,8 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     if (latestAggregatorRoundId == latestSecondaryRoundId) {
       // get the transmission
       transmission = s_transmissions[latestAggregatorRoundId];
-      // in case the transmission was sent in this same block, return the previous round id
-      if (transmission.recordedTimestamp == block.timestamp) {
+      // in case the transmission was sent in this same block only by the secondary proxy, return the previous round id
+      if (primaryLocked && transmission.recordedTimestamp == block.timestamp) {
         return latestAggregatorRoundId - 1;
       }
     }
@@ -713,8 +716,6 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     bytes32[] calldata ss,
     bytes32 rawVs
   ) external override {
-    // TODO: update this function with implementation from the doc
-
     // NOTE: If the arguments to this function are changed, _requireExpectedMsgDataLength and/or
     // TRANSMIT_MSGDATA_CONSTANT_LENGTH_COMPONENT need to be changed accordingly
 
@@ -725,10 +726,17 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
       // Decode the report
       report_ = _decodeReport(report);
       (bool exist, uint32 roundId) = _reportExists(report_);
+      // In case the report exists, only copy the round id
       if (exist) {
         s_hotVars.latestSecondaryRoundId = roundId;
         return;
+      } else {
+        // In case the report doesn't exist, lock the primary feed
+        primaryLocked = true;
       }
+    } else {
+      // In case the sender is the primary proxy, unlock the latest report
+      primaryLocked = false;
     }
     // Report epoch and round
     uint40 epochAndRound = uint40(uint256(reportContext[1]));

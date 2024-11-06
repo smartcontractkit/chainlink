@@ -988,6 +988,20 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
     assertEq(1, secondaryAnswer, "secondary feed answer is not correct");
   }
 
+  function test_PrimaryAndSecondaryReportRecordedSameBlock() public {
+    // Report 1
+    _transmitAndCheck({
+      standardFeedPrice: 1,
+      standardObservationsTimestamp: uint32(block.timestamp),
+      secondaryObservationsTimestamp: uint32(block.timestamp),
+      transmitPrimary: true,
+      secondaryFeedPrice: 1,
+      transmitSecondary: true,
+      expectedStandardFeedAnswer: 1,
+      expectedSecondaryFeedAnswer: 1
+    });
+  }
+
   function _transmitAndCheck(
     int192 standardFeedPrice,
     uint32 standardObservationsTimestamp,
