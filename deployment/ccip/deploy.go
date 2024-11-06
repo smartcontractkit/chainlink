@@ -2,7 +2,6 @@ package ccipdeployment
 
 import (
 	"fmt"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/burn_mint_token_pool"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -21,6 +20,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/nonce_manager"
@@ -43,7 +43,7 @@ var (
 	Router                     deployment.ContractType = "Router"
 	CommitStore                deployment.ContractType = "CommitStore"
 	TokenAdminRegistry         deployment.ContractType = "TokenAdminRegistry"
-	RegistryModule             deployment.ContractType = "RegistryModule"
+	RegistryModule             deployment.ContractType = "RegistryModuleOwnerCustom"
 	NonceManager               deployment.ContractType = "NonceManager"
 	FeeQuoter                  deployment.ContractType = "FeeQuoter"
 	AdminManyChainMultisig     deployment.ContractType = "AdminManyChainMultiSig"

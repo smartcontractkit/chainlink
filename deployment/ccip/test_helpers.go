@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	mapset "github.com/deckarep/golang-set/v2"
-	burn_mint_token_pool "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/burn_mint_token_pool"
 	"math/big"
 	"sort"
 	"testing"
@@ -38,6 +37,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
