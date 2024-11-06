@@ -220,12 +220,13 @@ jobs:
           go install ./pkg/chainlink/cmd/chainlink-starknet
           popd
 
-      - name: Increase Race Timeout
-        # Increase race timeout for scheduled runs only
+      - name: Increase Timeouts for Fuzz/Race
+        # Increase timeouts for scheduled runs only
         if: ${{ github.event.schedule != '' && needs.filter.outputs.should-run-ci-core == 'true' }}
         run: |
           echo "TIMEOUT=10m" >> $GITHUB_ENV
           echo "COUNT=50" >> $GITHUB_ENV
+          echo "FUZZ_SECONDS=500">> $GITHUB_ENV
 
       - name: Install gotestloghelper
         if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}

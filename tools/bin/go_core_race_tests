@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -ex
 OUTPUT_FILE=${OUTPUT_FILE:-"./output.txt"}
-TIMEOUT="${TIMEOUT:-30s}"
+TIMEOUT="${TIMEOUT:-20s}"
 COUNT="${COUNT:-10}"
 
 echo "Failed tests and panics: ---------------------"
