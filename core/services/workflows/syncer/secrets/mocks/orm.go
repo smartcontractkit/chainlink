@@ -78,6 +78,66 @@ func (_c *ORM_GetSecretsURL_Call) RunAndReturn(run func(context.Context, string)
 	return _c
 }
 
+// SecretsFor provides a mock function with given fields: ctx, workflowOwner, workflowName
+func (_m *ORM) SecretsFor(ctx context.Context, workflowOwner string, workflowName string) (map[string]string, error) {
+	ret := _m.Called(ctx, workflowOwner, workflowName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SecretsFor")
+	}
+
+	var r0 map[string]string
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (map[string]string, error)); ok {
+		return rf(ctx, workflowOwner, workflowName)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) map[string]string); ok {
+		r0 = rf(ctx, workflowOwner, workflowName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(map[string]string)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, workflowOwner, workflowName)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ORM_SecretsFor_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SecretsFor'
+type ORM_SecretsFor_Call struct {
+	*mock.Call
+}
+
+// SecretsFor is a helper method to define mock.On call
+//   - ctx context.Context
+//   - workflowOwner string
+//   - workflowName string
+func (_e *ORM_Expecter) SecretsFor(ctx interface{}, workflowOwner interface{}, workflowName interface{}) *ORM_SecretsFor_Call {
+	return &ORM_SecretsFor_Call{Call: _e.mock.On("SecretsFor", ctx, workflowOwner, workflowName)}
+}
+
+func (_c *ORM_SecretsFor_Call) Run(run func(ctx context.Context, workflowOwner string, workflowName string)) *ORM_SecretsFor_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *ORM_SecretsFor_Call) Return(_a0 map[string]string, _a1 error) *ORM_SecretsFor_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ORM_SecretsFor_Call) RunAndReturn(run func(context.Context, string, string) (map[string]string, error)) *ORM_SecretsFor_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Update provides a mock function with given fields: ctx, secretsURL, contents
 func (_m *ORM) Update(ctx context.Context, secretsURL string, contents string) (int64, error) {
 	ret := _m.Called(ctx, secretsURL, contents)

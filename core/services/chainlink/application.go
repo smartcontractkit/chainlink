@@ -218,6 +218,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	workflowRegistrySyncer := syncer.NewWorkflowRegistry(
 		globalLogger,
 		syncer.NewUnimplementedDS(),
+		nil,
 	)
 	srvcs = append(srvcs, workflowRegistrySyncer)
 

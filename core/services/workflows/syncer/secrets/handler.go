@@ -1,8 +1,8 @@
-package syncer
+package secrets
 
 import (
 	"context"
-	"fmt"
+	"strconv"
 
 	"github.com/mitchellh/mapstructure"
 
@@ -10,30 +10,15 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/workflow/generated/workflow_registry_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-type Event interface {
+type URLGetter interface {
 	GetSecretsURL() string
 }
 
-type event struct {
-	workflow_registry_wrapper.WorkflowRegistryWorkflowForceUpdateSecretsRequestedV1
-}
-
-func newEvent(
-	e workflow_registry_wrapper.WorkflowRegistryWorkflowForceUpdateSecretsRequestedV1,
-) Event {
-	return event{WorkflowRegistryWorkflowForceUpdateSecretsRequestedV1: e}
-}
-
-func (e event) GetSecretsURL() string {
-	return e.SecretsURL.Hex()
-}
-
-type Handler interface {
-	ForceUpdateSecrets(context.Context, Event) error
+type Handler[T URLGetter] interface {
+	ForceUpdateSecrets(context.Context, T) error
 }
 
 type handler struct {
@@ -41,13 +26,13 @@ type handler struct {
 	fetcher FetcherFunc
 }
 
-func newForceUpdateSecretsHandler(orm ORM, fetcher FetcherFunc) Handler {
+func newForceUpdateSecretsHandler(orm ORM, fetcher FetcherFunc) *handler {
 	return &handler{orm: orm, fetcher: fetcher}
 }
 
 func (h *handler) ForceUpdateSecrets(
 	ctx context.Context,
-	event Event,
+	event URLGetter,
 ) error {
 	// Fetch the secrets url from ORM
 	url, err := h.orm.GetSecretsURL(ctx, event.GetSecretsURL())
@@ -69,18 +54,22 @@ func (h *handler) ForceUpdateSecrets(
 	return nil
 }
 
-type forceUpdateSecretsWorker struct {
-	h    Handler
+type EventHandlerWorker[T any] interface {
+	Run(context.Context, <-chan T) (<-chan struct{}, <-chan error)
+}
+
+type forceUpdateSecretsWorker[T URLGetter] struct {
+	h    Handler[T]
 	lggr logger.Logger
 }
 
-func newForceUpdateSecretsWorker(h Handler, lggr logger.Logger) forceUpdateSecretsWorker {
-	return forceUpdateSecretsWorker{h: h, lggr: lggr}
+func newForceUpdateSecretsWorker(h Handler[URLGetter], lggr logger.Logger) forceUpdateSecretsWorker[URLGetter] {
+	return forceUpdateSecretsWorker[URLGetter]{h: h, lggr: lggr}
 }
 
-func (w *forceUpdateSecretsWorker) Run(
+func (w *forceUpdateSecretsWorker[T]) Run(
 	ctx context.Context,
-	events <-chan workflow_registry_wrapper.WorkflowRegistryWorkflowForceUpdateSecretsRequestedV1,
+	events <-chan T,
 ) (<-chan struct{}, <-chan error) {
 	var (
 		done = make(chan struct{})
@@ -107,7 +96,7 @@ func (w *forceUpdateSecretsWorker) Run(
 				if !open {
 					return
 				}
-				if err := w.h.ForceUpdateSecrets(ctx, newEvent(event)); err != nil {
+				if err := w.h.ForceUpdateSecrets(ctx, event); err != nil {
 					w.lggr.Errorf("error handling update secrets: %v", err)
 					sendErr(err)
 				}
@@ -135,6 +124,18 @@ type ContractReader interface {
 		query.LimitAndSort,
 		any,
 	) ([]types.Sequence, error)
+}
+
+type ContractEventPollerConfig struct {
+	ContractName      string
+	ContractAddress   string
+	ContractEventName string
+	StartBlockNum     uint64
+	QueryCount        uint64
+}
+
+type QueryEventsWorker[T any] interface {
+	Run(context.Context, ContractEventPollerConfig) (<-chan struct{}, <-chan error, <-chan T)
 }
 
 type queryEventsWorker[T any] struct {
@@ -225,7 +226,7 @@ func (w *queryEventsWorker[T]) Run(
 						Key: cfg.ContractEventName,
 						Expressions: []query.Expression{
 							query.Confidence(primitives.Finalized),
-							query.Block(fmt.Sprintf("%d", cfg.StartBlockNum), primitives.Gte),
+							query.Block(strconv.FormatUint(cfg.StartBlockNum, 10), primitives.Gte),
 						},
 					},
 					limitAndSort,

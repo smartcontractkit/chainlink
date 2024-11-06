@@ -107,3 +107,23 @@ func AllClosed[T any](stop <-chan struct{}, channels ...<-chan T) <-chan struct{
 
 	return done
 }
+
+// Transform applies a function to each value from the input channel and sends the result to the output channel.
+func Transform[T any, U any](stop <-chan struct{}, fn func(T) U, in <-chan T) <-chan U {
+	out := make(chan U)
+	go func() {
+		defer close(out)
+		for {
+			select {
+			case <-stop:
+				return
+			case item, open := <-in:
+				if !open {
+					return
+				}
+				out <- fn(item)
+			}
+		}
+	}()
+	return out
+}

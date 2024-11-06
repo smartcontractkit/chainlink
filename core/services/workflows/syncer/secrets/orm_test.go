@@ -1,4 +1,4 @@
-package syncer
+package secrets
 
 import (
 	"testing"
@@ -6,8 +6,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+
 	"github.com/stretchr/testify/assert"
-	"github.com/test-go/testify/require"
+	"github.com/stretchr/testify/require"
 )
 
 func TestWorkflowArtifactsORM_GetAndUpdate(t *testing.T) {

@@ -1,8 +1,9 @@
-package syncer
+package secrets
 
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"testing"
 
 	types "github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -12,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/workflow/generated/workflow_registry_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/secrets/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/secrets/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 
 	"github.com/stretchr/testify/assert"
@@ -92,17 +93,18 @@ func Test_HandlerWorker(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		var (
 			lggr        = logger.TestLogger(t)
-			mockHandler = NewMockHandler(t)
+			mockHandler = NewMockHandler[URLGetter](t)
 			ctx, cancel = context.WithCancel(testutils.Context(t))
 			worker      = newForceUpdateSecretsWorker(mockHandler, lggr)
-			events      = make(chan workflow_registry_wrapper.WorkflowRegistryWorkflowForceUpdateSecretsRequestedV1)
+			events      = make(chan URLGetter)
+			giveEvent   = newEvent(workflow_registry_wrapper.WorkflowRegistryWorkflowForceUpdateSecretsRequestedV1{})
 		)
 
-		mockHandler.EXPECT().ForceUpdateSecrets(matches.AnyContext, newEvent(workflow_registry_wrapper.WorkflowRegistryWorkflowForceUpdateSecretsRequestedV1{})).Return(nil)
+		mockHandler.EXPECT().ForceUpdateSecrets(matches.AnyContext, giveEvent).Return(nil)
 
 		done, _ := worker.Run(ctx, events)
 
-		events <- workflow_registry_wrapper.WorkflowRegistryWorkflowForceUpdateSecretsRequestedV1{}
+		events <- giveEvent
 
 		cancel()
 		<-done
@@ -111,17 +113,18 @@ func Test_HandlerWorker(t *testing.T) {
 	t.Run("failure to handle event", func(t *testing.T) {
 		var (
 			lggr        = logger.TestLogger(t)
-			mockHandler = NewMockHandler(t)
+			mockHandler = NewMockHandler[URLGetter](t)
 			ctx, cancel = context.WithCancel(testutils.Context(t))
 			worker      = newForceUpdateSecretsWorker(mockHandler, lggr)
-			events      = make(chan workflow_registry_wrapper.WorkflowRegistryWorkflowForceUpdateSecretsRequestedV1)
+			events      = make(chan URLGetter)
+			giveEvent   = newEvent(workflow_registry_wrapper.WorkflowRegistryWorkflowForceUpdateSecretsRequestedV1{})
 		)
 
-		mockHandler.EXPECT().ForceUpdateSecrets(matches.AnyContext, newEvent(workflow_registry_wrapper.WorkflowRegistryWorkflowForceUpdateSecretsRequestedV1{})).Return(assert.AnError)
+		mockHandler.EXPECT().ForceUpdateSecrets(matches.AnyContext, giveEvent).Return(assert.AnError)
 
 		done, errsCh := worker.Run(ctx, events)
 
-		events <- workflow_registry_wrapper.WorkflowRegistryWorkflowForceUpdateSecretsRequestedV1{}
+		events <- giveEvent
 
 		err := <-errsCh
 		require.Error(t, err)
@@ -171,7 +174,7 @@ func Test_QueryEventsHandler(t *testing.T) {
 				Key: giveCfg.ContractEventName,
 				Expressions: []query.Expression{
 					query.Confidence(primitives.Finalized),
-					query.Block(fmt.Sprintf("%d", giveCfg.StartBlockNum), primitives.Gte),
+					query.Block(strconv.FormatUint(giveCfg.StartBlockNum, 10), primitives.Gte),
 				},
 			},
 			query.LimitAndSort{

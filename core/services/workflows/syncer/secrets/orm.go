@@ -1,4 +1,4 @@
-package syncer
+package secrets
 
 import (
 	"context"
@@ -10,22 +10,15 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
-type ContractEventPollerConfig struct {
-	ContractName      string
-	ContractAddress   string
-	ContractEventName string
-	StartBlockNum     uint64
-	QueryCount        uint64
-}
-
-type SecretsUpdater interface {
-	Update(ctx context.Context, secretsURL, contents string) (int64, error)
-}
-
 type ORM interface {
 	// GetSecretsURL returns the original URL for a given hash value.  Fails if hash does not exist.
 	GetSecretsURL(ctx context.Context, hash string) (string, error)
-	SecretsUpdater
+
+	// Update updates the contents of the secret at the given URL hash or inserts a new record if not found.
+	Update(ctx context.Context, secretsURL, contents string) (int64, error)
+
+	// SecretsFor returns a map of secrets for the given workflowOwner and workflowName.
+	SecretsFor(ctx context.Context, workflowOwner, workflowName string) (map[string]string, error)
 }
 
 type orm struct {
@@ -87,6 +80,10 @@ func (orm *orm) Update(ctx context.Context, secretsURL, contents string) (int64,
 	}
 
 	return id, nil
+}
+
+func (orm *orm) SecretsFor(ctx context.Context, workflowOwner, workflowName string) (map[string]string, error) {
+	return map[string]string{}, nil
 }
 
 func keccak256Hash(data string) string {

@@ -175,7 +175,7 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 			executionFinished <- weid
 		},
 		SecretsFetcher: syncer.NewWorkflowRegistry(
-			nil, nil,
+			nil, nil, nil,
 		),
 		clock: clock,
 	}
@@ -1596,7 +1596,7 @@ type mockFetcher struct {
 	retval map[string]string
 }
 
-func (m *mockFetcher) SecretsFor(workflowOwner, workflowName string) (map[string]string, error) {
+func (m *mockFetcher) SecretsFor(_ context.Context, workflowOwner, workflowName string) (map[string]string, error) {
 	return m.retval, nil
 }
 

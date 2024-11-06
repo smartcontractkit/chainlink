@@ -587,7 +587,7 @@ packages:
   github.com/smartcontractkit/chainlink/v2/core/capabilities/targets:
     interfaces:
       ContractValueGetter:
-  github.com/smartcontractkit/chainlink/v2/core/services/workflows/secrets:
+  github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/secrets:
     interfaces:
       ORM:
       ContractReader:

@@ -15,8 +15,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
-	syncer "github.com/smartcontractkit/chainlink/v2/core/services/workflows/secrets"
-	workerMocks "github.com/smartcontractkit/chainlink/v2/core/services/workflows/secrets/mocks"
+	syncer "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/secrets"
+	workerMocks "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/secrets/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/signalers"
 
@@ -94,7 +94,7 @@ func Test_SecretsWorker(t *testing.T) {
 	orm.EXPECT().GetSecretsURL(matches.AnyContext, matches.AnyString).Return(giveSecretsURL, nil).Times(sendLogs)
 	orm.EXPECT().Update(matches.AnyContext, matches.AnyString, matches.AnyString).Return(0, nil).Times(sendLogs)
 
-	worker := syncer.NewWorker(
+	worker := syncer.New(
 		lggr,
 		0,
 		20,

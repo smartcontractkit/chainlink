@@ -1,4 +1,4 @@
-package syncer
+package secrets
 
 import (
 	"context"
@@ -19,6 +19,12 @@ var (
 	ContractEventName   = "WorkflowForceUpdateSecretsRequestedV1"
 )
 
+type Syncer interface {
+	Start(ctx context.Context) error
+	Close() error
+	SecretsFor(ctx context.Context, workflowOwner, workflowName string) (map[string]string, error)
+}
+
 type FetcherFunc func(ctx context.Context, url string) ([]byte, error)
 
 type worker struct {
@@ -29,7 +35,6 @@ type worker struct {
 	lggr     logger.Logger
 	cr       types.ContractReader
 	cfg      ContractEventPollerConfig
-	addr     string
 	orm      ORM
 	gateway  FetcherFunc
 	wg       sync.WaitGroup
@@ -41,7 +46,7 @@ func WithTimer(t <-chan struct{}) func(*worker) {
 	}
 }
 
-func NewWorker(
+func New(
 	lggr logger.Logger,
 	startBlockNum uint64,
 	qryCount uint64,
@@ -106,6 +111,10 @@ func (w *worker) Close() error {
 	})
 }
 
+func (w *worker) SecretsFor(ctx context.Context, workflowOwner, workflowName string) (map[string]string, error) {
+	return w.orm.SecretsFor(ctx, workflowOwner, workflowName)
+}
+
 func (w *worker) getTicker(ctx context.Context) <-chan struct{} {
 	if w.timer == nil {
 		w.timer = signalers.MakeTicker(ctx.Done(), defaultTickInterval)
@@ -131,7 +140,7 @@ func (w *worker) syncForceUpdateSecretsEvents(
 		doneQuerying, queryErrs, updateSecretsEvents = eventQueryWorker.Run(ctx, cfg)
 		// Tee the update secrets events to the handler worker
 		logs1, logs2              = chans.Tee(ctx.Done(), updateSecretsEvents)
-		doneHandling, handlerErrs = eventHandlerWorker.Run(ctx, logs1)
+		doneHandling, handlerErrs = eventHandlerWorker.Run(ctx, chans.Transform(ctx.Done(), newEvent, logs1))
 	)
 
 	// Set the events channel, which is a read copy of the update secrets events
@@ -144,4 +153,18 @@ func (w *worker) syncForceUpdateSecretsEvents(
 	)
 
 	return done, errCh
+}
+
+type event struct {
+	workflow_registry_wrapper.WorkflowRegistryWorkflowForceUpdateSecretsRequestedV1
+}
+
+func newEvent(
+	e workflow_registry_wrapper.WorkflowRegistryWorkflowForceUpdateSecretsRequestedV1,
+) URLGetter {
+	return event{WorkflowRegistryWorkflowForceUpdateSecretsRequestedV1: e}
+}
+
+func (e event) GetSecretsURL() string {
+	return e.SecretsURL.Hex()
 }
