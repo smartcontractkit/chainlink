@@ -97,6 +97,7 @@ solc_version = '0.8.24'
 src = 'src/v0.8/workflow'
 test = 'src/v0.8/workflow/test'
 via_ir = true # reconsider using the --via-ir flag if compilation takes too long
+evm_version = 'paris'
 
 [profile.shared]
 optimizer_runs = 1_000_000
