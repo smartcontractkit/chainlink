@@ -43,10 +43,18 @@ func (w *WorkflowRegistry) Start(ctx context.Context) error {
 	go func() {
 		w.Logger.Info("starting hardcoded workflow...")
 
+		// HACK: don't load the workflow if we aren't a workflow node.
+		_, err := w.Registry.Get(ctx, "offchain_reporting@1.0.0")
+		if err != nil {
+			w.Logger.Info("not a workflow node, skipping hardcoded workflow")
+			return
+		}
+
 		moduleConfig := &host.ModuleConfig{Logger: logger.NullLogger, IsUncompressed: true}
 		spec, err := host.GetWorkflowSpec(ctx, moduleConfig, workflow, config)
 		if err != nil {
 			w.Logger.Errorf("failed to get workflow spec", err)
+			return
 		}
 
 		cfg := workflows.Config{
@@ -64,10 +72,12 @@ func (w *WorkflowRegistry) Start(ctx context.Context) error {
 		engine, err := workflows.NewEngine(ctx, cfg)
 		if err != nil {
 			w.Logger.Errorf("failed to create engine: %w", err)
+			return
 		}
 		err = engine.Start(ctx)
 		if err != nil {
 			w.Logger.Errorf("failed to start hardcoded workflow: %w", err)
+			return
 		}
 		w.subServices = []job.ServiceCtx{engine}
 	}()
