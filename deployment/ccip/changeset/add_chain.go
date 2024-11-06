@@ -92,7 +92,15 @@ func AddDonAndSetCandidateProposal(
 	tokenConfig ccipdeployment.TokenConfig,
 	pluginType types.PluginType,
 ) (*timelock.MCMSWithTimelockProposal, error) {
-	newDONArgs, err := ccipdeployment.BuildOCR3ConfigForCCIPHome(ocrSecrets, state.Chains[newChainSel].OffRamp, e.Chains[newChainSel], feedChainSel, tokenConfig.GetTokenInfo(e.Logger, state.Chains[newChainSel].LinkToken, state.Chains[newChainSel].Weth9), nodes.NonBootstraps(), state.Chains[homeChainSel].RMNHome.Address())
+	newDONArgs, err := ccipdeployment.BuildOCR3ConfigForCCIPHome(
+		ocrSecrets,
+		state.Chains[newChainSel].OffRamp,
+		e.Chains[newChainSel],
+		feedChainSel,
+		tokenConfig.GetTokenInfo(e.Logger, state.Chains[newChainSel].LinkToken, state.Chains[newChainSel].Weth9),
+		nodes.NonBootstraps(),
+		state.Chains[homeChainSel].RMNHome.Address(),
+	)
 	if err != nil {
 		return nil, err
 	}
