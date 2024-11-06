@@ -1082,6 +1082,66 @@ func (_c *Eth_Import_Call) RunAndReturn(run func(context.Context, []byte, string
 	return _c
 }
 
+// SignMessage provides a mock function with given fields: ctx, address, message
+func (_m *Eth) SignMessage(ctx context.Context, address common.Address, message []byte) ([]byte, error) {
+	ret := _m.Called(ctx, address, message)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SignMessage")
+	}
+
+	var r0 []byte
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, []byte) ([]byte, error)); ok {
+		return rf(ctx, address, message)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, []byte) []byte); ok {
+		r0 = rf(ctx, address, message)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]byte)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, common.Address, []byte) error); ok {
+		r1 = rf(ctx, address, message)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// Eth_SignMessage_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SignMessage'
+type Eth_SignMessage_Call struct {
+	*mock.Call
+}
+
+// SignMessage is a helper method to define mock.On call
+//   - ctx context.Context
+//   - address common.Address
+//   - message []byte
+func (_e *Eth_Expecter) SignMessage(ctx interface{}, address interface{}, message interface{}) *Eth_SignMessage_Call {
+	return &Eth_SignMessage_Call{Call: _e.mock.On("SignMessage", ctx, address, message)}
+}
+
+func (_c *Eth_SignMessage_Call) Run(run func(ctx context.Context, address common.Address, message []byte)) *Eth_SignMessage_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(common.Address), args[2].([]byte))
+	})
+	return _c
+}
+
+func (_c *Eth_SignMessage_Call) Return(_a0 []byte, _a1 error) *Eth_SignMessage_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Eth_SignMessage_Call) RunAndReturn(run func(context.Context, common.Address, []byte) ([]byte, error)) *Eth_SignMessage_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SignTx provides a mock function with given fields: ctx, fromAddress, tx, chainID
 func (_m *Eth) SignTx(ctx context.Context, fromAddress common.Address, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error) {
 	ret := _m.Called(ctx, fromAddress, tx, chainID)
