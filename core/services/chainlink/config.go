@@ -75,12 +75,6 @@ func (rs *RawConfigs) SetFrom(configs RawConfigs) error {
 }
 
 func (rs RawConfigs) ValidateConfig() (err error) {
-	for _, config := range rs {
-		if configErr := config.ValidateConfig(); configErr != nil {
-			err = errors.Join(err, configErr)
-		}
-	}
-
 	chainIDs := commonconfig.UniqueStrings{}
 	for i, config := range rs {
 		chainID := config.ChainID()
@@ -105,9 +99,10 @@ func (rs RawConfigs) ValidateConfig() (err error) {
 type RawConfig map[string]any
 
 type parsedRawConfig struct {
-	chainID     string
-	nodeConfigs []map[string]any
-	nodeNames   []string
+	chainID    string
+	nodesExist bool
+	nodes      []map[string]any
+	nodeNames  []string
 }
 
 func (c RawConfig) parse() (*parsedRawConfig, error) {
@@ -133,23 +128,20 @@ func (c RawConfig) parse() (*parsedRawConfig, error) {
 			parsedRawConfig.chainID = chainIDStr
 		}
 	}
-	nodes, exists := c["Nodes"]
-	if !exists {
-		err = multierr.Append(err, commonconfig.ErrMissing{Name: "Nodes", Msg: "expected at least one node"})
-	} else {
+	nodes, nodesExist := c["Nodes"]
+	parsedRawConfig.nodesExist = nodesExist
+	if nodesExist {
 		nodeMaps, ok := nodes.([]any)
 		switch {
 		case !ok:
 			err = multierr.Append(err, commonconfig.ErrInvalid{Name: "Nodes", Value: nodes, Msg: "expected array of node configs"})
-		case len(nodeMaps) == 0:
-			err = multierr.Append(err, commonconfig.ErrEmpty{Name: "Nodes", Msg: "expected at least one node"})
 		default:
 			for i, node := range nodeMaps {
 				nodeConfig, ok := node.(map[string]any)
 				if !ok {
 					err = multierr.Append(err, commonconfig.ErrInvalid{Name: fmt.Sprintf("Nodes.%d", i), Value: nodeConfig, Msg: "expected node config map"})
 				} else {
-					parsedRawConfig.nodeConfigs = append(parsedRawConfig.nodeConfigs, nodeConfig)
+					parsedRawConfig.nodes = append(parsedRawConfig.nodes, nodeConfig)
 					nodeName, exists := nodeConfig["Name"]
 					if !exists {
 						err = multierr.Append(err, commonconfig.ErrMissing{Name: fmt.Sprintf("Nodes.%d.Name", i), Msg: "required for all nodes"})
@@ -169,16 +161,17 @@ func (c RawConfig) parse() (*parsedRawConfig, error) {
 		}
 	}
 
-	if err != nil {
-		return nil, err
-	}
-
 	return parsedRawConfig, err
 }
 
 // ValidateConfig returns an error if the Config is not valid for use, as-is.
 func (c RawConfig) ValidateConfig() error {
-	_, err := c.parse()
+	parsedRawConfig, err := c.parse()
+	if !parsedRawConfig.nodesExist {
+		err = multierr.Append(err, commonconfig.ErrMissing{Name: "Nodes", Msg: "expected at least one node"})
+	} else if len(parsedRawConfig.nodes) == 0 {
+		err = multierr.Append(err, commonconfig.ErrEmpty{Name: "Nodes", Msg: "expected at least one node"})
+	}
 	return err
 }
 
@@ -193,10 +186,6 @@ func (c RawConfig) ChainID() string {
 }
 
 func (c *RawConfig) SetFrom(config RawConfig) error {
-	if err := config.ValidateConfig(); err != nil {
-		return err
-	}
-
 	parsedRawConfig, err := c.parse()
 	if err != nil {
 		return err
@@ -221,22 +210,22 @@ func (c *RawConfig) SetFrom(config RawConfig) error {
 	}
 
 	// Handle node merging
-	for i, nodeConfig := range incomingParsedRawConfig.nodeConfigs {
+	for i, nodeConfig := range incomingParsedRawConfig.nodes {
 		nodeName := incomingParsedRawConfig.nodeNames[i]
 		i := slices.Index(parsedRawConfig.nodeNames, nodeName)
 		if i != -1 {
-			if err := mergo.Merge(&parsedRawConfig.nodeConfigs[i], nodeConfig, mergo.WithOverride); err != nil {
+			if err := mergo.Merge(&parsedRawConfig.nodes[i], nodeConfig, mergo.WithOverride); err != nil {
 				return err
 			}
 		} else {
-			parsedRawConfig.nodeConfigs = append(parsedRawConfig.nodeConfigs, nodeConfig)
+			parsedRawConfig.nodes = append(parsedRawConfig.nodes, nodeConfig)
 		}
 	}
 
 	// Subsequence SetFrom invocations will call parse(), and expect to be able to cast c["Nodes"] to []any,
-	// so we can't directly assign parsedRawConfig.nodeConfigs back to c["Nodes"].
+	// so we can't directly assign parsedRawConfig.nodes back to c["Nodes"].
 	anyConfigs := []any{}
-	for _, nodeConfig := range parsedRawConfig.nodeConfigs {
+	for _, nodeConfig := range parsedRawConfig.nodes {
 		anyConfigs = append(anyConfigs, nodeConfig)
 	}
 
