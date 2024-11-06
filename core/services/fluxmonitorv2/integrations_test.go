@@ -19,7 +19,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
-	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -70,7 +69,7 @@ type fluxAggregatorUniverse struct {
 	flagsContractAddress      common.Address
 	evmChainID                big.Int
 	// Abstraction representation of the ethereum blockchain
-	backend       *simulated.Backend
+	backend       types.Backend
 	aggregatorABI abi.ABI
 	// Cast of participants
 	sergey  *bind.TransactOpts // Owns all the LINK initially
@@ -357,7 +356,7 @@ func submitAnswer(t *testing.T, p answerParams) {
 	checkSubmission(t, p, cb.Int64(), 0)
 }
 
-func awaitSubmission(t *testing.T, backend *simulated.Backend, submissionReceived chan *faw.FluxAggregatorSubmissionReceived) (
+func awaitSubmission(t *testing.T, backend types.Backend, submissionReceived chan *faw.FluxAggregatorSubmissionReceived) (
 	receiptBlock uint64, answer int64,
 ) {
 	t.Helper()

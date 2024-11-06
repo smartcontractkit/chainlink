@@ -17,7 +17,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
-	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/google/uuid"
 	"github.com/onsi/gomega"
 	"github.com/shopspring/decimal"
@@ -107,7 +106,7 @@ type coordinatorV2UniverseCommon struct {
 	proxyAdminAddress            common.Address
 
 	// Abstract representation of the ethereum blockchain
-	backend        *simulated.Backend
+	backend        evmtypes.Backend
 	coordinatorABI *abi.ABI
 	consumerABI    *abi.ABI
 
@@ -443,7 +442,7 @@ func deployOldCoordinator(
 	linkAddress common.Address,
 	bhsAddress common.Address,
 	linkEthFeed common.Address,
-	backend *simulated.Backend,
+	backend evmtypes.Backend,
 	neil *bind.TransactOpts,
 ) (
 	common.Address,
@@ -475,7 +474,7 @@ func deployOldCoordinator(
 
 // Send eth from prefunded account.
 // Amount is number of ETH not wei.
-func sendEth(t *testing.T, key ethkey.KeyV2, b *simulated.Backend, to common.Address, eth int) {
+func sendEth(t *testing.T, key ethkey.KeyV2, b evmtypes.Backend, to common.Address, eth int) {
 	ctx := testutils.Context(t)
 	nonce, err := b.Client().PendingNonceAt(ctx, key.Address)
 	require.NoError(t, err)
@@ -506,7 +505,7 @@ func subscribeVRF(
 	author *bind.TransactOpts,
 	consumerContract vrftesthelpers.VRFConsumerContract,
 	coordinator v22.CoordinatorV2_X,
-	backend *simulated.Backend,
+	backend evmtypes.Backend,
 	fundingAmount *big.Int,
 	nativePayment bool,
 ) (v22.Subscription, *big.Int) {
@@ -679,7 +678,7 @@ func requestRandomnessAndAssertRandomWordsRequestedEvent(
 	numWords uint32,
 	cbGasLimit uint32,
 	coordinator v22.CoordinatorV2_X,
-	backend *simulated.Backend,
+	backend evmtypes.Backend,
 	nativePayment bool,
 ) (requestID *big.Int, requestBlockNumber uint64) {
 	minRequestConfirmations := uint16(2)
@@ -728,7 +727,7 @@ func subscribeAndAssertSubscriptionCreatedEvent(
 	consumerContractAddress common.Address,
 	fundingAmount *big.Int,
 	coordinator v22.CoordinatorV2_X,
-	backend *simulated.Backend,
+	backend evmtypes.Backend,
 	nativePayment bool,
 ) *big.Int {
 	// Create a subscription and fund with LINK.
@@ -795,7 +794,7 @@ func assertNumRandomWords(
 	}
 }
 
-func mine(t *testing.T, requestID, subID *big.Int, backend *simulated.Backend, db *sqlx.DB, vrfVersion vrfcommon.Version, chainID *big.Int) bool {
+func mine(t *testing.T, requestID, subID *big.Int, backend evmtypes.Backend, db *sqlx.DB, vrfVersion vrfcommon.Version, chainID *big.Int) bool {
 	txstore := txmgr.NewTxStore(db, logger.TestLogger(t))
 	var metaField string
 	if vrfVersion == vrfcommon.V2Plus {
@@ -821,7 +820,7 @@ func mine(t *testing.T, requestID, subID *big.Int, backend *simulated.Backend, d
 	}, testutils.WaitTimeout(t), time.Second)
 }
 
-func mineBatch(t *testing.T, requestIDs []*big.Int, subID *big.Int, backend *simulated.Backend, db *sqlx.DB, vrfVersion vrfcommon.Version, chainID *big.Int) bool {
+func mineBatch(t *testing.T, requestIDs []*big.Int, subID *big.Int, backend evmtypes.Backend, db *sqlx.DB, vrfVersion vrfcommon.Version, chainID *big.Int) bool {
 	requestIDMap := map[string]bool{}
 	txstore := txmgr.NewTxStore(db, logger.TestLogger(t))
 	var metaField string
@@ -2292,7 +2291,7 @@ func AssertLinkBalance(t *testing.T, linkContract *link_token_interface.LinkToke
 	assert.Equal(t, balance.String(), b.String(), "invalid balance for %v", address)
 }
 
-func AssertNativeBalance(t *testing.T, backend *simulated.Backend, address common.Address, balance *big.Int) {
+func AssertNativeBalance(t *testing.T, backend evmtypes.Backend, address common.Address, balance *big.Int) {
 	b, err := backend.Client().BalanceAt(testutils.Context(t), address, nil)
 	require.NoError(t, err)
 	assert.Equal(t, balance.String(), b.String(), "invalid balance for %v", address)
@@ -2312,7 +2311,7 @@ func pair(x, y *big.Int) [2]*big.Int { return [2]*big.Int{x, y} }
 // estimateGas returns the estimated gas cost of running the given method on the
 // contract at address to, on the given backend, with the given args, and given
 // that the transaction is sent from the from address.
-func estimateGas(t *testing.T, backend *simulated.Backend,
+func estimateGas(t *testing.T, backend evmtypes.Backend,
 	from, to common.Address, abi *abi.ABI, method string, args ...interface{},
 ) uint64 {
 	rawData, err := abi.Pack(method, args...)

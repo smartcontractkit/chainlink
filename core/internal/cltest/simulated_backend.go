@@ -1,6 +1,7 @@
 package cltest
 
 import (
+	"sync"
 	"testing"
 	"time"
 
@@ -18,19 +19,32 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
-func NewSimulatedBackend(t *testing.T, alloc types.GenesisAlloc, gasLimit uint32) *simulated.Backend {
+func NewSimulatedBackend(t *testing.T, alloc types.GenesisAlloc, gasLimit uint32) evmtypes.Backend {
 	backend := simulated.NewBackend(alloc, simulated.WithBlockGasLimit(uint64(gasLimit)))
 	// NOTE: Make sure to finish closing any application/client before
 	// backend.Close or they can hang
 	t.Cleanup(func() {
 		logger.TestLogger(t).ErrorIfFn(backend.Close, "Error closing simulated backend")
 	})
-	return backend
+
+	return &syncBackend{Backend: backend}
 }
+
+type syncBackend struct {
+	evmtypes.Backend
+	mu sync.Mutex
+}
+
+func (s *syncBackend) Commit() common.Hash {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.Backend.Commit()
+}
+
 func NewApplicationWithConfigV2OnSimulatedBlockchain(
 	t testing.TB,
 	cfg chainlink.GeneralConfig,
-	backend *simulated.Backend,
+	backend evmtypes.Backend,
 	flagsAndDeps ...interface{},
 ) *TestApplication {
 	bid, err := backend.Client().ChainID(testutils.Context(t))
@@ -56,7 +70,7 @@ func NewApplicationWithConfigV2OnSimulatedBlockchain(
 func NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(
 	t testing.TB,
 	cfg chainlink.GeneralConfig,
-	backend *simulated.Backend,
+	backend evmtypes.Backend,
 	flagsAndDeps ...interface{},
 ) *TestApplication {
 	bid, err := backend.Client().ChainID(testutils.Context(t))

@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
-	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -18,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -37,7 +37,7 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 	ctx, cancel := context.WithCancel(testutils.Context(t))
 	defer cancel()
 
-	backend, commit, stopMining, accounts := setupBackend(t)
+	backend, stopMining, accounts := setupBackend(t)
 	defer stopMining()
 	carrol := accounts[2]
 
@@ -55,7 +55,7 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 
 	n := 10
 
-	commit()
+	backend.Commit()
 	lp.PollAndSaveLogs(ctx, 1) // Ensure log poller has a latest block
 
 	ids, addrs, contracts := deployUpkeepCounter(ctx, t, n, ethClient, backend, carrol, logProvider)
@@ -73,11 +73,11 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 
 	poll := pollFn(ctx, t, lp, ethClient)
 
-	triggerEvents(ctx, t, backend, commit, carrol, logsRounds, poll, contracts...)
+	triggerEvents(ctx, t, backend.Commit, carrol, logsRounds, poll, contracts...)
 
-	poll(commit())
+	poll(backend.Commit())
 
-	waitLogPoller(ctx, t, commit, lp, ethClient)
+	waitLogPoller(ctx, t, backend.Commit, lp, ethClient)
 
 	waitLogProvider(ctx, t, logProvider, 3)
 
@@ -92,7 +92,7 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 		filterStore := logprovider.NewUpkeepFilterStore()
 		logProvider2 := logprovider.NewLogProvider(logger.TestLogger(t), lp, big.NewInt(1), logprovider.NewLogEventsPacker(), filterStore, opts)
 
-		poll(commit())
+		poll(backend.Commit())
 		go func() {
 			if err2 := logProvider2.Start(ctx); err2 != nil {
 				t.Logf("error starting log provider: %s", err2)
@@ -125,7 +125,7 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
 	ctx := testutils.Context(t)
 
-	backend, commit, stopMining, accounts := setupBackend(t)
+	backend, stopMining, accounts := setupBackend(t)
 	defer stopMining()
 	carrol := accounts[2]
 
@@ -140,7 +140,7 @@ func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
 	provider, _ := setup(logger.TestLogger(t), lp, nil, nil, filterStore, opts)
 	logProvider := provider.(logprovider.LogEventProviderTest)
 
-	commit()
+	backend.Commit()
 	lp.PollAndSaveLogs(ctx, 1) // Ensure log poller has a latest block
 	_, addrs, contracts := deployUpkeepCounter(ctx, t, 1, ethClient, backend, carrol, logProvider)
 	lp.PollAndSaveLogs(ctx, int64(5))
@@ -151,7 +151,7 @@ func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
 		upkeepID := evmregistry21.GenUpkeepID(types.LogTrigger, "111")
 		id := upkeepID.BigInt()
 		cfg := newPlainLogTriggerConfig(addrs[0])
-		b, err := ethClient.BlockByHash(ctx, commit())
+		b, err := ethClient.BlockByHash(ctx, backend.Commit())
 		require.NoError(t, err)
 		bn := b.Number()
 		err = logProvider.RegisterFilter(ctx, logprovider.FilterOptions{
@@ -168,7 +168,7 @@ func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
 		})
 		require.Error(t, err)
 		// new block
-		b, err = ethClient.BlockByHash(ctx, commit())
+		b, err = ethClient.BlockByHash(ctx, backend.Commit())
 		require.NoError(t, err)
 		bn = b.Number()
 		err = logProvider.RegisterFilter(ctx, logprovider.FilterOptions{
@@ -183,7 +183,7 @@ func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
 		upkeepID := evmregistry21.GenUpkeepID(types.LogTrigger, "222")
 		id := upkeepID.BigInt()
 		cfg := newPlainLogTriggerConfig(addrs[0])
-		b, err := ethClient.BlockByHash(ctx, commit())
+		b, err := ethClient.BlockByHash(ctx, backend.Commit())
 		require.NoError(t, err)
 		bn := b.Number()
 		err = logProvider.RegisterFilter(ctx, logprovider.FilterOptions{
@@ -199,7 +199,7 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 	ctx, cancel := context.WithTimeout(testutils.Context(t), time.Second*60)
 	defer cancel()
 
-	backend, commit, stopMining, accounts := setupBackend(t)
+	backend, stopMining, accounts := setupBackend(t)
 	defer stopMining()
 	carrol := accounts[2]
 
@@ -217,7 +217,7 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 
 	n := 10
 
-	commit()
+	backend.Commit()
 	lp.PollAndSaveLogs(ctx, 1) // Ensure log poller has a latest block
 	_, _, contracts := deployUpkeepCounter(ctx, t, n, ethClient, backend, carrol, logProvider)
 
@@ -225,12 +225,12 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 
 	rounds := 8
 	for i := 0; i < rounds; i++ {
-		poll(commit())
-		triggerEvents(ctx, t, backend, commit, carrol, n, poll, contracts...)
-		poll(commit())
+		poll(backend.Commit())
+		triggerEvents(ctx, t, backend.Commit, carrol, n, poll, contracts...)
+		poll(backend.Commit())
 	}
 
-	waitLogPoller(ctx, t, commit, lp, ethClient)
+	waitLogPoller(ctx, t, backend.Commit, lp, ethClient)
 
 	// starting the log provider should backfill logs
 	go func() {
@@ -250,7 +250,7 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 func TestIntegration_LogRecoverer_Backfill(t *testing.T) {
 	ctx := testutils.Context(t)
 
-	backend, commit, stopMining, accounts := setupBackend(t)
+	backend, stopMining, accounts := setupBackend(t)
 	defer stopMining()
 	carrol := accounts[2]
 
@@ -272,7 +272,7 @@ func TestIntegration_LogRecoverer_Backfill(t *testing.T) {
 	provider, recoverer := setup(logger.TestLogger(t), lp, nil, &mockUpkeepStateStore{}, filterStore, opts)
 	logProvider := provider.(logprovider.LogEventProviderTest)
 
-	commit()
+	backend.Commit()
 	lp.PollAndSaveLogs(ctx, 1) // Ensure log poller has a latest block
 
 	n := 10
@@ -282,17 +282,17 @@ func TestIntegration_LogRecoverer_Backfill(t *testing.T) {
 
 	rounds := 8
 	for i := 0; i < rounds; i++ {
-		triggerEvents(ctx, t, backend, commit, carrol, n, poll, contracts...)
-		poll(commit())
+		triggerEvents(ctx, t, backend.Commit, carrol, n, poll, contracts...)
+		poll(backend.Commit())
 	}
-	poll(commit())
+	poll(backend.Commit())
 
-	waitLogPoller(ctx, t, commit, lp, ethClient)
+	waitLogPoller(ctx, t, backend.Commit, lp, ethClient)
 
 	// create dummy blocks
 	var blockNumber int64
 	for blockNumber < lookbackBlocks*4 {
-		b, err := ethClient.BlockByHash(ctx, commit())
+		b, err := ethClient.BlockByHash(ctx, backend.Commit())
 		require.NoError(t, err)
 		bn := b.Number()
 		blockNumber = bn.Int64()
@@ -308,7 +308,7 @@ func TestIntegration_LogRecoverer_Backfill(t *testing.T) {
 
 	var allProposals []ocr2keepers.UpkeepPayload
 	for {
-		poll(commit())
+		poll(backend.Commit())
 		proposals, err := recoverer.GetRecoveryProposals(ctx)
 		require.NoError(t, err)
 		allProposals = append(allProposals, proposals...)
@@ -375,7 +375,6 @@ func pollFn(ctx context.Context, t *testing.T, lp logpoller.LogPollerTest, ethCl
 func triggerEvents(
 	ctx context.Context,
 	t *testing.T,
-	backend *simulated.Backend,
 	commit func() common.Hash,
 	account *bind.TransactOpts,
 	rounds int,
@@ -405,7 +404,7 @@ func deployUpkeepCounter(
 	t *testing.T,
 	n int,
 	ethClient *evmclient.SimulatedBackendClient,
-	backend *simulated.Backend,
+	backend evmtypes.Backend,
 	account *bind.TransactOpts,
 	logProvider logprovider.LogEventProvider,
 ) (
@@ -449,7 +448,7 @@ func newPlainLogTriggerConfig(upkeepAddr common.Address) logprovider.LogTriggerC
 	}
 }
 
-func setupDependencies(t *testing.T, db *sqlx.DB, backend *simulated.Backend) (logpoller.LogPollerTest, *evmclient.SimulatedBackendClient) {
+func setupDependencies(t *testing.T, db *sqlx.DB, backend evmtypes.Backend) (logpoller.LogPollerTest, *evmclient.SimulatedBackendClient) {
 	ethClient := evmclient.NewSimulatedBackendClient(t, backend, big.NewInt(1337))
 	pollerLggr := logger.TestLogger(t)
 	pollerLggr.SetLogLevel(zapcore.WarnLevel)
@@ -479,7 +478,7 @@ func setup(lggr logger.Logger, poller logpoller.LogPoller, c evmclient.Client, s
 	return provider, recoverer
 }
 
-func setupBackend(t *testing.T) (backend *simulated.Backend, commit func() common.Hash, stop func(), opts []*bind.TransactOpts) {
+func setupBackend(t *testing.T) (backend evmtypes.Backend, stop func(), opts []*bind.TransactOpts) {
 	sergey := testutils.MustNewSimTransactor(t) // owns all the link
 	steve := testutils.MustNewSimTransactor(t)  // registry owner
 	carrol := testutils.MustNewSimTransactor(t) // upkeep owner
@@ -490,7 +489,7 @@ func setupBackend(t *testing.T) (backend *simulated.Backend, commit func() commo
 	}
 	//nolint:gosec // G115
 	backend = cltest.NewSimulatedBackend(t, genesisData, uint32(ethconfig.Defaults.Miner.GasCeil))
-	commit, stop = cltest.Mine(backend, 3*time.Second) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
+	_, stop = cltest.Mine(backend, 3*time.Second) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
 	opts = []*bind.TransactOpts{sergey, steve, carrol}
 	return
 }

@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_verifier_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -29,7 +30,7 @@ type contract struct {
 	contract *bind.BoundContract
 	address  common.Address
 	abi      *abi.ABI
-	backend  *simulated.Backend
+	backend  evmtypes.Backend
 }
 
 // deployVRFContract returns a deployed VRF contract, with some extra attributes

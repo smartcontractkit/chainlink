@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/google/uuid"
 	"github.com/onsi/gomega"
 	"github.com/shopspring/decimal"
@@ -849,7 +848,7 @@ func createSubscriptionAndGetSubscriptionCreatedEvent(
 	t *testing.T,
 	subOwner *bind.TransactOpts,
 	coordinator v22.CoordinatorV2_X,
-	backend *simulated.Backend,
+	backend types.Backend,
 ) v22.SubscriptionCreated {
 	_, err := coordinator.CreateSubscription(subOwner)
 	require.NoError(t, err)
@@ -1432,7 +1431,7 @@ func testSingleConsumerMultipleGasLanes(
 	assertNumRandomWords(t, consumerContract, numWords)
 }
 
-func topUpSubscription(t *testing.T, consumer *bind.TransactOpts, consumerContract vrftesthelpers.VRFConsumerContract, backend *simulated.Backend, fundingAmount *big.Int, nativePayment bool) {
+func topUpSubscription(t *testing.T, consumer *bind.TransactOpts, consumerContract vrftesthelpers.VRFConsumerContract, backend types.Backend, fundingAmount *big.Int, nativePayment bool) {
 	if nativePayment {
 		_, err := consumerContract.TopUpSubscriptionNative(consumer, fundingAmount)
 		require.NoError(t, err)

@@ -21,7 +21,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
-	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/shopspring/decimal"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
@@ -39,6 +38,7 @@ import (
 	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
 	v4 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v4"
 	datastreamsmercury "github.com/smartcontractkit/chainlink-data-streams/mercury"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -90,7 +90,7 @@ func detectPanicLogs(t *testing.T, logObservers []*observer.ObservedLogs) {
 	}
 }
 
-func setupBlockchain(t *testing.T) (*bind.TransactOpts, *simulated.Backend, *verifier.Verifier, common.Address, func() common.Hash) {
+func setupBlockchain(t *testing.T) (*bind.TransactOpts, evmtypes.Backend, *verifier.Verifier, common.Address, func() common.Hash) {
 	steve := testutils.MustNewSimTransactor(t) // config contract deployer and owner
 	genesisData := types.GenesisAlloc{steve.From: {Balance: assets.Ether(1000).ToInt()}}
 	backend := cltest.NewSimulatedBackend(t, genesisData, uint32(ethconfig.Defaults.Miner.GasCeil))

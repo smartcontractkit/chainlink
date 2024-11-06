@@ -18,7 +18,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
-	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
@@ -33,6 +32,7 @@ import (
 
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
@@ -62,7 +62,7 @@ var (
 
 func setupBlockchain(t *testing.T) (
 	*bind.TransactOpts,
-	*simulated.Backend,
+	evmtypes.Backend,
 	*configurator.Configurator,
 	common.Address,
 	*destination_verifier.DestinationVerifier,
@@ -112,7 +112,7 @@ func setupBlockchain(t *testing.T) (
 	return steve, backend, configurator, configuratorAddress, destinationVerifier, destinationVerifierAddr, verifierProxy, destinationVerifierProxyAddr, configStore, configStoreAddress, legacyVerifier, legacyVerifierAddr, legacyVerifierProxy, legacyVerifierProxyAddr
 }
 
-func setupLegacyMercuryVerifier(t *testing.T, steve *bind.TransactOpts, backend *simulated.Backend) (*verifier.Verifier, common.Address, *verifier_proxy.VerifierProxy, common.Address) {
+func setupLegacyMercuryVerifier(t *testing.T, steve *bind.TransactOpts, backend evmtypes.Backend) (*verifier.Verifier, common.Address, *verifier_proxy.VerifierProxy, common.Address) {
 	linkTokenAddress, _, linkToken, err := link_token_interface.DeployLinkToken(steve, backend.Client())
 	require.NoError(t, err)
 	backend.Commit()
@@ -242,7 +242,7 @@ func generateConfig(t *testing.T, oracles []confighelper.OracleIdentityExtra, in
 	return
 }
 
-func setLegacyConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backend *simulated.Backend, legacyVerifier *verifier.Verifier, legacyVerifierAddr common.Address, nodes []Node, oracles []confighelper.OracleIdentityExtra) ocr2types.ConfigDigest {
+func setLegacyConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backend evmtypes.Backend, legacyVerifier *verifier.Verifier, legacyVerifierAddr common.Address, nodes []Node, oracles []confighelper.OracleIdentityExtra) ocr2types.ConfigDigest {
 	onchainConfig, err := (&datastreamsllo.EVMOnchainConfigCodec{}).Encode(datastreamsllo.OnchainConfig{
 		Version:                 1,
 		PredecessorConfigDigest: nil,
@@ -273,15 +273,15 @@ func setLegacyConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backe
 	return l.ConfigDigest
 }
 
-func setStagingConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backend *simulated.Backend, configurator *configurator.Configurator, configuratorAddress common.Address, nodes []Node, oracles []confighelper.OracleIdentityExtra, predecessorConfigDigest ocr2types.ConfigDigest) ocr2types.ConfigDigest {
+func setStagingConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backend evmtypes.Backend, configurator *configurator.Configurator, configuratorAddress common.Address, nodes []Node, oracles []confighelper.OracleIdentityExtra, predecessorConfigDigest ocr2types.ConfigDigest) ocr2types.ConfigDigest {
 	return setBlueGreenConfig(t, donID, steve, backend, configurator, configuratorAddress, nodes, oracles, &predecessorConfigDigest)
 }
 
-func setProductionConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backend *simulated.Backend, configurator *configurator.Configurator, configuratorAddress common.Address, nodes []Node, oracles []confighelper.OracleIdentityExtra) ocr2types.ConfigDigest {
+func setProductionConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backend evmtypes.Backend, configurator *configurator.Configurator, configuratorAddress common.Address, nodes []Node, oracles []confighelper.OracleIdentityExtra) ocr2types.ConfigDigest {
 	return setBlueGreenConfig(t, donID, steve, backend, configurator, configuratorAddress, nodes, oracles, nil)
 }
 
-func setBlueGreenConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backend *simulated.Backend, configurator *configurator.Configurator, configuratorAddress common.Address, nodes []Node, oracles []confighelper.OracleIdentityExtra, predecessorConfigDigest *ocr2types.ConfigDigest) ocr2types.ConfigDigest {
+func setBlueGreenConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backend evmtypes.Backend, configurator *configurator.Configurator, configuratorAddress common.Address, nodes []Node, oracles []confighelper.OracleIdentityExtra, predecessorConfigDigest *ocr2types.ConfigDigest) ocr2types.ConfigDigest {
 	signers, _, _, onchainConfig, offchainConfigVersion, offchainConfig := generateBlueGreenConfig(t, oracles, predecessorConfigDigest)
 
 	var onchainPubKeys [][]byte
@@ -324,7 +324,7 @@ func setBlueGreenConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, ba
 	return cfg.ConfigDigest
 }
 
-func promoteStagingConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backend *simulated.Backend, configurator *configurator.Configurator, configuratorAddress common.Address, isGreenProduction bool) {
+func promoteStagingConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backend evmtypes.Backend, configurator *configurator.Configurator, configuratorAddress common.Address, isGreenProduction bool) {
 	donIDPadded := llo.DonIDToBytes32(donID)
 	_, err := configurator.PromoteStagingConfig(steve, donIDPadded, isGreenProduction)
 	require.NoError(t, err)
@@ -814,7 +814,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 	})
 }
 
-func setupNodes(t *testing.T, nNodes int, backend *simulated.Backend, clientCSAKeys []csakey.KeyV2, streams []Stream) (oracles []confighelper.OracleIdentityExtra, nodes []Node) {
+func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKeys []csakey.KeyV2, streams []Stream) (oracles []confighelper.OracleIdentityExtra, nodes []Node) {
 	ports := freeport.GetN(t, nNodes)
 	for i := 0; i < nNodes; i++ {
 		app, peerID, transmitter, kb, observedLogs := setupNode(t, ports[i], fmt.Sprintf("oracle_streams_%d", i), backend, clientCSAKeys[i])

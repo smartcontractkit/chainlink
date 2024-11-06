@@ -78,7 +78,7 @@ type SimulatedBackendClient struct {
 }
 
 // NewSimulatedBackendClient creates an eth client backed by a simulated backend.
-func NewSimulatedBackendClient(t testing.TB, b *simulated.Backend, chainID *big.Int) *SimulatedBackendClient {
+func NewSimulatedBackendClient(t testing.TB, b evmtypes.Backend, chainID *big.Int) *SimulatedBackendClient {
 	return &SimulatedBackendClient{
 		b:       b,
 		client:  b.Client(),

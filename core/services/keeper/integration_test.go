@@ -54,7 +54,6 @@ func deployKeeperRegistry(
 	version keeper.RegistryVersion,
 	auth *bind.TransactOpts,
 	backend *client.SimulatedBackendClient,
-	commit func() common.Hash,
 	linkAddr, linkFeedAddr, gasFeedAddr common.Address,
 ) (regAddr common.Address, wrapper *keeper.RegistryWrapper) {
 	switch version {
@@ -110,7 +109,7 @@ func deployKeeperRegistry(
 			linkFeedAddr,
 			gasFeedAddr)
 		require.NoError(t, err)
-		commit()
+		backend.Commit()
 
 		regAddr, _, _, err = keeper_registry_wrapper1_3.DeployKeeperRegistry(
 			auth,
@@ -135,7 +134,7 @@ func deployKeeperRegistry(
 	default:
 		panic(errors.Errorf("Deployment of registry verdion %d not defined", version))
 	}
-	commit()
+	backend.Commit()
 	wrapper, err := keeper.NewRegistryWrapper(evmtypes.EIP55AddressFromAddress(regAddr), backend)
 	require.NoError(t, err)
 	return
@@ -196,20 +195,20 @@ func TestKeeperEthIntegration(t *testing.T) {
 			b := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
 			backend := client.NewSimulatedBackendClient(t, b, testutils.SimulatedChainID)
 
-			commit, stopMining := cltest.Mine(backend.Backend(), 1*time.Second) // >> 2 seconds and the test gets slow, << 1 second and the app may miss heads
+			_, stopMining := cltest.Mine(backend.Backend(), 1*time.Second) // >> 2 seconds and the test gets slow, << 1 second and the app may miss heads
 			defer stopMining()
 
 			linkAddr, _, linkToken, err := link_token_interface.DeployLinkToken(sergey, backend)
 			require.NoError(t, err)
-			commit()
+			backend.Commit()
 			gasFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(steve, backend, 18, big.NewInt(60000000000))
 			require.NoError(t, err)
-			commit()
+			backend.Commit()
 			linkFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(steve, backend, 18, big.NewInt(20000000000000000))
 			require.NoError(t, err)
-			commit()
+			backend.Commit()
 
-			regAddr, registryWrapper := deployKeeperRegistry(t, test.registryVersion, steve, backend, commit, linkAddr, linkFeedAddr, gasFeedAddr)
+			regAddr, registryWrapper := deployKeeperRegistry(t, test.registryVersion, steve, backend, linkAddr, linkFeedAddr, gasFeedAddr)
 
 			upkeepAddr, _, upkeepContract, err := basic_upkeep_contract.DeployBasicUpkeepContract(carrol, backend)
 			require.NoError(t, err)
@@ -219,10 +218,10 @@ func TestKeeperEthIntegration(t *testing.T) {
 			require.NoError(t, err)
 			_, err = registryWrapper.SetKeepers(steve, []common.Address{nodeAddress, nelly.From}, []common.Address{nodeAddress, nelly.From})
 			require.NoError(t, err)
-			commit()
+			backend.Commit()
 			registrationTx, err := registryWrapper.RegisterUpkeep(steve, upkeepAddr, 2_500_000, carrol.From, []byte{})
 			require.NoError(t, err)
-			commit()
+			backend.Commit()
 			upkeepID := getUpkeepIDFromTx(t, registryWrapper, registrationTx, backend)
 
 			_, err = upkeepContract.SetBytesToSend(carrol, payload1)
@@ -231,7 +230,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 			require.NoError(t, err)
 			_, err = registryWrapper.AddFunds(carrol, upkeepID, tenEth)
 			require.NoError(t, err)
-			commit()
+			backend.Commit()
 
 			// setup app
 			config, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -280,14 +279,14 @@ func TestKeeperEthIntegration(t *testing.T) {
 			// cancel upkeep
 			_, err = registryWrapper.CancelUpkeep(carrol, upkeepID)
 			require.NoError(t, err)
-			commit()
+			backend.Commit()
 
 			cltest.WaitForCount(t, app.GetDB(), "upkeep_registrations", 0)
 
 			// add new upkeep (same target contract)
 			registrationTx, err = registryWrapper.RegisterUpkeep(steve, upkeepAddr, 2_500_000, carrol.From, []byte{})
 			require.NoError(t, err)
-			commit()
+			backend.Commit()
 
 			upkeepID = getUpkeepIDFromTx(t, registryWrapper, registrationTx, backend)
 			_, err = upkeepContract.SetBytesToSend(carrol, payload3)
@@ -296,7 +295,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 			require.NoError(t, err)
 			_, err = registryWrapper.AddFunds(carrol, upkeepID, tenEth)
 			require.NoError(t, err)
-			commit()
+			backend.Commit()
 
 			// observe update
 			g.Eventually(receivedBytes, 20*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(payload3))
@@ -365,7 +364,7 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 		require.NoError(t, err)
 		commit()
 
-		regAddr, registryWrapper := deployKeeperRegistry(t, keeper.RegistryVersion_1_3, steve, backend, commit, linkAddr, linkFeedAddr, gasFeedAddr)
+		regAddr, registryWrapper := deployKeeperRegistry(t, keeper.RegistryVersion_1_3, steve, backend, linkAddr, linkFeedAddr, gasFeedAddr)
 		commit()
 		fwdrAddress, _, authorizedForwarder, err := authorized_forwarder.DeployAuthorizedForwarder(sergey, backend, linkAddr, sergey.From, steve.From, []byte{})
 		require.NoError(t, err)
@@ -527,7 +526,7 @@ func TestMaxPerformDataSize(t *testing.T) {
 		require.NoError(t, err)
 		commit()
 
-		regAddr, registryWrapper := deployKeeperRegistry(t, keeper.RegistryVersion_1_3, steve, backend, commit, linkAddr, linkFeedAddr, gasFeedAddr)
+		regAddr, registryWrapper := deployKeeperRegistry(t, keeper.RegistryVersion_1_3, steve, backend, linkAddr, linkFeedAddr, gasFeedAddr)
 
 		upkeepAddr, _, upkeepContract, err := basic_upkeep_contract.DeployBasicUpkeepContract(carrol, backend)
 		require.NoError(t, err)

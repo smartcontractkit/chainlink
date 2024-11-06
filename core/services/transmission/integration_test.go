@@ -7,7 +7,6 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -41,7 +40,7 @@ type EntryPointUniverse struct {
 	holder1               *bind.TransactOpts
 	holder1Key            ethkey.KeyV2
 	holder2               *bind.TransactOpts
-	backend               *simulated.Backend
+	backend               evmtypes.Backend
 	entryPointAddress     common.Address
 	entryPoint            *entry_point.EntryPoint
 	factoryAddress        common.Address
