@@ -181,11 +181,11 @@ func TestTokenTransfer(t *testing.T) {
 	// Send a message from each chain to every other chain.
 	expectedSeqNum := make(map[uint64]uint64)
 
-	oneCoin := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1))
+	twoCoins := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(2))
 	tx, err := srcToken.Mint(
 		e.Chains[tenv.HomeChainSel].DeployerKey,
 		e.Chains[tenv.HomeChainSel].DeployerKey.From,
-		new(big.Int).Mul(oneCoin, big.NewInt(10)),
+		new(big.Int).Mul(twoCoins, big.NewInt(10)),
 	)
 	require.NoError(t, err)
 	_, err = e.Chains[tenv.HomeChainSel].Confirm(tx)
@@ -194,17 +194,17 @@ func TestTokenTransfer(t *testing.T) {
 	tx, err = dstToken.Mint(
 		e.Chains[tenv.FeedChainSel].DeployerKey,
 		e.Chains[tenv.FeedChainSel].DeployerKey.From,
-		new(big.Int).Mul(oneCoin, big.NewInt(10)),
+		new(big.Int).Mul(twoCoins, big.NewInt(10)),
 	)
 	require.NoError(t, err)
 	_, err = e.Chains[tenv.FeedChainSel].Confirm(tx)
 	require.NoError(t, err)
 
-	tx, err = srcToken.Approve(e.Chains[tenv.HomeChainSel].DeployerKey, state.Chains[tenv.HomeChainSel].Router.Address(), oneCoin)
+	tx, err = srcToken.Approve(e.Chains[tenv.HomeChainSel].DeployerKey, state.Chains[tenv.HomeChainSel].Router.Address(), twoCoins)
 	require.NoError(t, err, "failed to approve USDC tokens in home chain")
 	_, err = e.Chains[tenv.HomeChainSel].Confirm(tx)
 	require.NoError(t, err, "failed to confirm USDC token approval in home chain")
-	tx, err = dstToken.Approve(e.Chains[tenv.FeedChainSel].DeployerKey, state.Chains[tenv.FeedChainSel].Router.Address(), oneCoin)
+	tx, err = dstToken.Approve(e.Chains[tenv.FeedChainSel].DeployerKey, state.Chains[tenv.FeedChainSel].Router.Address(), twoCoins)
 	require.NoError(t, err, "failed to approve USDC tokens in feed chain")
 	_, err = e.Chains[tenv.FeedChainSel].Confirm(tx)
 	require.NoError(t, err, "failed to confirm USDC token approval in feed chain")
@@ -212,11 +212,11 @@ func TestTokenTransfer(t *testing.T) {
 	tokens := map[uint64][]router.ClientEVMTokenAmount{
 		tenv.HomeChainSel: {{
 			Token:  srcToken.Address(),
-			Amount: oneCoin,
+			Amount: twoCoins,
 		}},
 		tenv.FeedChainSel: {{
 			Token:  dstToken.Address(),
-			Amount: oneCoin,
+			Amount: twoCoins,
 		}},
 	}
 
@@ -256,9 +256,9 @@ func TestTokenTransfer(t *testing.T) {
 	// Wait for all exec reports to land
 	ccdeploy.ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
 
-	balance, err := dstToken.BalanceOf(nil, state.Chains[tenv.HomeChainSel].Receiver.Address())
-	fmt.Println("balance")
-	fmt.Println(balance)
+	balance, err := dstToken.BalanceOf(nil, state.Chains[tenv.FeedChainSel].Receiver.Address())
+	require.NoError(t, err)
+	require.Equal(t, twoCoins, balance)
 }
 
 func TestUSDCTokenTransfer(t *testing.T) {
