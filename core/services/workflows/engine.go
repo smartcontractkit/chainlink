@@ -113,6 +113,7 @@ type Engine struct {
 	newWorkerTimeout     time.Duration
 	maxExecutionDuration time.Duration
 	heartbeatCadence     time.Duration
+	stepTimeoutDuration  time.Duration
 
 	// testing lifecycle hook to signal when an execution is finished.
 	onExecutionFinished func(string)
@@ -771,7 +772,10 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	// TODO ks-462 inputs
 	logCustMsg(ctx, cma, "executing step", l)
 
-	inputs, outputs, err := e.executeStep(ctx, l, msg)
+	stepCtx, cancel := context.WithTimeout(ctx, e.stepTimeoutDuration)
+	defer cancel()
+
+	inputs, outputs, err := e.executeStep(stepCtx, l, msg)
 	var stepStatus string
 	switch {
 	case errors.Is(capabilities.ErrStopExecution, err):
@@ -1169,6 +1173,7 @@ type Config struct {
 	Binary               []byte
 	SecretsFetcher       secretsFetcher
 	HeartbeatCadence     time.Duration
+	StepTimeout          time.Duration
 
 	// For testing purposes only
 	maxRetries          int
@@ -1184,6 +1189,7 @@ const (
 	defaultNewWorkerTimeout     = 2 * time.Second
 	defaultMaxExecutionDuration = 10 * time.Minute
 	defaultHeartbeatCadence     = 5 * time.Minute
+	defaultStepTimeout          = 2 * time.Minute
 )
 
 func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
@@ -1213,6 +1219,10 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 
 	if cfg.HeartbeatCadence == 0 {
 		cfg.HeartbeatCadence = defaultHeartbeatCadence
+	}
+
+	if cfg.StepTimeout == 0 {
+		cfg.StepTimeout = defaultStepTimeout
 	}
 
 	if cfg.retryMs == 0 {
@@ -1267,6 +1277,7 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		triggerEvents:        make(chan capabilities.TriggerResponse),
 		stopCh:               make(chan struct{}),
 		newWorkerTimeout:     cfg.NewWorkerTimeout,
+		stepTimeoutDuration:  cfg.StepTimeout,
 		maxExecutionDuration: cfg.MaxExecutionDuration,
 		heartbeatCadence:     cfg.HeartbeatCadence,
 		onExecutionFinished:  cfg.onExecutionFinished,
