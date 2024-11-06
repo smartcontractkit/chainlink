@@ -205,7 +205,6 @@ func TestContractReaderEventsInitValidation(t *testing.T) {
 }
 
 func TestChainComponents(t *testing.T) {
-	t.Skip("TODO FIXME")
 	t.Parallel()
 	it := &EVMChainComponentsInterfaceTester[*testing.T]{Helper: &helper{}}
 

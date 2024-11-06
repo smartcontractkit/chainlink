@@ -40,6 +40,7 @@ func NewContractReaderTH(t *testing.T) *ContractReaderTH {
 	logEmitterAddress, _, _, err :=
 		log_emitter.DeployLogEmitter(backendTH.ContractsOwner, backendTH.Backend.Client())
 	require.NoError(t, err)
+	backendTH.Backend.Commit()
 	logEmitter, err := log_emitter.NewLogEmitter(logEmitterAddress, backendTH.Backend.Client())
 	require.NoError(t, err)
 

@@ -20,7 +20,6 @@ import (
 
 // Test for Log Event Trigger Capability happy path for EVM
 func TestLogEventTriggerEVMHappyPath(t *testing.T) {
-	t.Skip("TODO FIXME")
 	t.Parallel()
 	th := testutils.NewContractReaderTH(t)
 
@@ -68,7 +67,6 @@ func TestLogEventTriggerEVMHappyPath(t *testing.T) {
 // Test if Log Event Trigger Capability is able to receive only new logs
 // by using cursor and does not receive duplicate logs
 func TestLogEventTriggerCursorNewLogs(t *testing.T) {
-	t.Skip("TODO FIXME")
 	t.Parallel()
 	th := testutils.NewContractReaderTH(t)
 
@@ -126,11 +124,9 @@ func emitLogTxnAndWaitForLog(t *testing.T,
 	log1Ch <-chan capabilities.TriggerResponse,
 	expectedLogVals []*big.Int) {
 	done := make(chan struct{})
-	var err error
 	go func() {
 		defer close(done)
-		_, err =
-			th.LogEmitterContract.EmitLog1(th.BackendTH.ContractsOwner, expectedLogVals)
+		_, err := th.LogEmitterContract.EmitLog1(th.BackendTH.ContractsOwner, expectedLogVals)
 		assert.NoError(t, err)
 		th.BackendTH.Backend.Commit()
 		th.BackendTH.Backend.Commit()
