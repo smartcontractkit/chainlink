@@ -257,4 +257,20 @@ contract OffRamp_releaseOrMintTokens is OffRampSetup {
       }
     }
   }
+
+  function _getDefaultSourceTokenData(
+    Client.EVMTokenAmount[] memory srcTokenAmounts
+  ) internal view returns (Internal.Any2EVMTokenTransfer[] memory) {
+    Internal.Any2EVMTokenTransfer[] memory sourceTokenData = new Internal.Any2EVMTokenTransfer[](srcTokenAmounts.length);
+    for (uint256 i = 0; i < srcTokenAmounts.length; ++i) {
+      sourceTokenData[i] = Internal.Any2EVMTokenTransfer({
+        sourcePoolAddress: abi.encode(s_sourcePoolByToken[srcTokenAmounts[i].token]),
+        destTokenAddress: s_destTokenBySourceToken[srcTokenAmounts[i].token],
+        extraData: "",
+        amount: srcTokenAmounts[i].amount,
+        destGasAmount: DEFAULT_TOKEN_DEST_GAS_OVERHEAD
+      });
+    }
+    return sourceTokenData;
+  }
 }
