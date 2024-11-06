@@ -348,7 +348,6 @@ packages:
         config:
           dir: core/services/relay/evm/mocks
       ChainWriter:
-      ContractReader:
   github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp:
     config:
       dir: core/gethwrappers/ccip/mocks/
