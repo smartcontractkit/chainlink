@@ -21,7 +21,7 @@ func initMonitoringResources() (err error) {
 		return fmt.Errorf("failed to register sync failure counter: %w", err)
 	}
 
-	launcherFailureCounter, err = beholder.GetMeter().Int64Counter("platform_registrysyncer_launch.failures")
+	launcherFailureCounter, err = beholder.GetMeter().Int64Counter("platform_registrysyncer_launch_failures")
 	if err != nil {
 		return fmt.Errorf("failed to register launcher failure counter: %w", err)
 	}

@@ -16,15 +16,15 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
 )
 
-// NewChainInboundProposal generates a proposal
+// NewChainInboundChangeset generates a proposal
 // to connect the new chain to the existing chains.
-func NewChainInboundProposal(
+func NewChainInboundChangeset(
 	e deployment.Environment,
 	state ccipdeployment.CCIPOnChainState,
 	homeChainSel uint64,
 	newChainSel uint64,
 	sources []uint64,
-) (*timelock.MCMSWithTimelockProposal, error) {
+) (deployment.ChangesetOutput, error) {
 	// Generate proposal which enables new destination (from test router) on all source chains.
 	var batches []timelock.BatchChainOperation
 	for _, source := range sources {
@@ -35,7 +35,7 @@ func NewChainInboundProposal(
 			},
 		})
 		if err != nil {
-			return nil, err
+			return deployment.ChangesetOutput{}, err
 		}
 		enableFeeQuoterDest, err := state.Chains[source].FeeQuoter.ApplyDestChainConfigUpdates(
 			deployment.SimTransactOpts(),
@@ -46,7 +46,7 @@ func NewChainInboundProposal(
 				},
 			})
 		if err != nil {
-			return nil, err
+			return deployment.ChangesetOutput{}, err
 		}
 		batches = append(batches, timelock.BatchChainOperation{
 			ChainIdentifier: mcms.ChainIdentifier(source),
@@ -68,7 +68,7 @@ func NewChainInboundProposal(
 
 	addChainOp, err := ccipdeployment.ApplyChainConfigUpdatesOp(e, state, homeChainSel, []uint64{newChainSel})
 	if err != nil {
-		return nil, err
+		return deployment.ChangesetOutput{}, err
 	}
 
 	batches = append(batches, timelock.BatchChainOperation{
@@ -78,12 +78,19 @@ func NewChainInboundProposal(
 		},
 	})
 
-	return ccipdeployment.BuildProposalFromBatches(state, batches, "proposal to set new chains", 0)
+	prop, err := ccipdeployment.BuildProposalFromBatches(state, batches, "proposal to set new chains", 0)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	return deployment.ChangesetOutput{
+		Proposals: []timelock.MCMSWithTimelockProposal{*prop},
+	}, nil
 }
 
-// AddDonAndSetCandidateProposal adds new DON for destination to home chain
+// AddDonAndSetCandidateChangeset adds new DON for destination to home chain
 // and sets the commit plugin config as candidateConfig for the don.
-func AddDonAndSetCandidateProposal(
+func AddDonAndSetCandidateChangeset(
 	state ccipdeployment.CCIPOnChainState,
 	e deployment.Environment,
 	nodes deployment.Nodes,
@@ -91,7 +98,7 @@ func AddDonAndSetCandidateProposal(
 	homeChainSel, feedChainSel, newChainSel uint64,
 	tokenConfig ccipdeployment.TokenConfig,
 	pluginType types.PluginType,
-) (*timelock.MCMSWithTimelockProposal, error) {
+) (deployment.ChangesetOutput, error) {
 	newDONArgs, err := ccipdeployment.BuildOCR3ConfigForCCIPHome(
 		e.Logger,
 		ocrSecrets,
@@ -103,15 +110,15 @@ func AddDonAndSetCandidateProposal(
 		state.Chains[homeChainSel].RMNHome.Address(),
 	)
 	if err != nil {
-		return nil, err
+		return deployment.ChangesetOutput{}, err
 	}
 	latestDon, err := ccipdeployment.LatestCCIPDON(state.Chains[homeChainSel].CapabilityRegistry)
 	if err != nil {
-		return nil, err
+		return deployment.ChangesetOutput{}, err
 	}
 	commitConfig, ok := newDONArgs[pluginType]
 	if !ok {
-		return nil, fmt.Errorf("missing commit plugin in ocr3Configs")
+		return deployment.ChangesetOutput{}, fmt.Errorf("missing commit plugin in ocr3Configs")
 	}
 	donID := latestDon.Id + 1
 	addDonOp, err := ccipdeployment.NewDonWithCandidateOp(
@@ -120,11 +127,18 @@ func AddDonAndSetCandidateProposal(
 		nodes.NonBootstraps(),
 	)
 	if err != nil {
-		return nil, err
+		return deployment.ChangesetOutput{}, err
 	}
 
-	return ccipdeployment.BuildProposalFromBatches(state, []timelock.BatchChainOperation{{
+	prop, err := ccipdeployment.BuildProposalFromBatches(state, []timelock.BatchChainOperation{{
 		ChainIdentifier: mcms.ChainIdentifier(homeChainSel),
 		Batch:           []mcms.Operation{addDonOp},
 	}}, "setCandidate for commit and AddDon on new Chain", 0)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	return deployment.ChangesetOutput{
+		Proposals: []timelock.MCMSWithTimelockProposal{*prop},
+	}, nil
 }

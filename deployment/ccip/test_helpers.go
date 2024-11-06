@@ -3,6 +3,7 @@ package ccipdeployment
 import (
 	"context"
 	"fmt"
+	mapset "github.com/deckarep/golang-set/v2"
 	"math/big"
 	"sort"
 	"testing"
@@ -387,4 +388,32 @@ func ConfirmRequestOnSourceAndDest(t *testing.T, env deployment.Environment, sta
 		ConfirmExecWithSeqNr(t, env.Chains[sourceCS], env.Chains[destCS], state.Chains[destCS].OffRamp, &startBlock, seqNum))
 
 	return nil
+}
+
+func ProcessChangeset(t *testing.T, e deployment.Environment, c deployment.ChangesetOutput) {
+
+	// TODO: Add support for jobspecs as well
+
+	// sign and execute all proposals provided
+	if len(c.Proposals) != 0 {
+		state, err := LoadOnchainState(e)
+		require.NoError(t, err)
+		for _, prop := range c.Proposals {
+			chains := mapset.NewSet[uint64]()
+			for _, op := range prop.Transactions {
+				chains.Add(uint64(op.ChainIdentifier))
+			}
+
+			signed := SignProposal(t, e, &prop)
+			for _, sel := range chains.ToSlice() {
+				ExecuteProposal(t, e, signed, state, sel)
+			}
+		}
+	}
+
+	// merge address books
+	if c.AddressBook != nil {
+		err := e.ExistingAddresses.Merge(c.AddressBook)
+		require.NoError(t, err)
+	}
 }
