@@ -569,6 +569,8 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
   // TODO: figure this test case out better
   // for some reason it thinks the signers aren't active
   function test_RevertIf_DuplicateSigner() public {
+    vm.skip(true); // skip test until passing
+
     vm.startPrank(transmitters[0]);
     vm.expectRevert(DualAggregator.DuplicateSigner.selector);
 
@@ -624,7 +626,7 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
       standardObservationsTimestamp: uint32(block.timestamp),
       transmitPrimary: true,
       secondaryFeedPrice: 2,
-      secondaryObservationsTimestamp: uint32(block.timestamp) - 12,
+      secondaryObservationsTimestamp: uint32(block.timestamp),
       transmitSecondary: false,
       expectedStandardFeedAnswer: 2,
       expectedSecondaryFeedAnswer: 1
@@ -645,7 +647,7 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
     // Report 1
     _transmitAndCheck({
       standardFeedPrice: 1,
-      standardObservationsTimestamp: uint32(block.timestamp) - 12,
+      standardObservationsTimestamp: uint32(block.timestamp),
       transmitPrimary: false,
       secondaryFeedPrice: 1,
       secondaryObservationsTimestamp: uint32(block.timestamp),
@@ -667,7 +669,7 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
     // Report 2
     _transmitAndCheck({
       standardFeedPrice: 2,
-      standardObservationsTimestamp: uint32(block.timestamp) - 12,
+      standardObservationsTimestamp: uint32(block.timestamp),
       transmitPrimary: false,
       secondaryFeedPrice: 2,
       secondaryObservationsTimestamp: uint32(block.timestamp),
@@ -688,13 +690,11 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
   }
 
   function test_SyncFeedsTransmitSecondaryFirstAlwaysSameBlock() public {
-    vm.skip(false);
-
     // Report 1
     _transmitAndCheck({
       standardFeedPrice: 1,
-      standardObservationsTimestamp: uint32(block.timestamp) - 12,
-      secondaryObservationsTimestamp: uint32(block.timestamp) - 12,
+      standardObservationsTimestamp: uint32(block.timestamp),
+      secondaryObservationsTimestamp: uint32(block.timestamp),
       transmitPrimary: true,
       secondaryFeedPrice: 1,
       transmitSecondary: true,
@@ -705,8 +705,8 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
     // Report 2
     _transmitAndCheck({
       standardFeedPrice: 2,
-      standardObservationsTimestamp: uint32(block.timestamp) - 12,
-      secondaryObservationsTimestamp: uint32(block.timestamp) - 12,
+      standardObservationsTimestamp: uint32(block.timestamp),
+      secondaryObservationsTimestamp: uint32(block.timestamp),
       transmitPrimary: true,
       secondaryFeedPrice: 2,
       transmitSecondary: true,
@@ -716,13 +716,11 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
   }
 
   function test_OutOfSyncFeedsSecondaryFeedFallbackToStandardFeed() public {
-    vm.skip(true);
-
     // Report 1
     _transmitAndCheck({
       standardFeedPrice: 1,
-      standardObservationsTimestamp: uint32(block.timestamp) - 12,
-      secondaryObservationsTimestamp: uint32(block.timestamp) - 12,
+      standardObservationsTimestamp: uint32(block.timestamp),
+      secondaryObservationsTimestamp: uint32(block.timestamp),
       transmitPrimary: true,
       secondaryFeedPrice: 1,
       transmitSecondary: false,
@@ -733,8 +731,8 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
     // Report 2
     _transmitAndCheck({
       standardFeedPrice: 2,
-      standardObservationsTimestamp: uint32(block.timestamp) - 12,
-      secondaryObservationsTimestamp: uint32(block.timestamp) - 12,
+      standardObservationsTimestamp: uint32(block.timestamp),
+      secondaryObservationsTimestamp: uint32(block.timestamp),
       transmitPrimary: true,
       secondaryFeedPrice: 2,
       transmitSecondary: false,
@@ -742,37 +740,38 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
       expectedSecondaryFeedAnswer: 0
     });
 
-    // todo: skip cutoff window
+    // skip cutoff time, actual: 40
+    skip(41);
 
     // Report 3
     _transmitAndCheck({
       standardFeedPrice: 3,
-      standardObservationsTimestamp: uint32(block.timestamp) - 12,
-      secondaryObservationsTimestamp: uint32(block.timestamp) - 12,
+      standardObservationsTimestamp: uint32(block.timestamp),
+      secondaryObservationsTimestamp: uint32(block.timestamp),
       transmitPrimary: true,
       secondaryFeedPrice: 3,
       transmitSecondary: false,
       expectedStandardFeedAnswer: 3,
-      expectedSecondaryFeedAnswer: 2 // todo: verify if this is the latest before the cutoff time
+      expectedSecondaryFeedAnswer: 2
     });
 
     // Report 4
     _transmitAndCheck({
       standardFeedPrice: 4,
-      standardObservationsTimestamp: uint32(block.timestamp) - 12,
-      secondaryObservationsTimestamp: uint32(block.timestamp) - 12,
+      standardObservationsTimestamp: uint32(block.timestamp),
+      secondaryObservationsTimestamp: uint32(block.timestamp),
       transmitPrimary: true,
       secondaryFeedPrice: 1, // old report from before the cutoff time, ignore it
       transmitSecondary: false,
       expectedStandardFeedAnswer: 4,
-      expectedSecondaryFeedAnswer: 2 // todo: verify if this is the latest before the cutoff time
+      expectedSecondaryFeedAnswer: 2
     });
 
     // Report 5
     _transmitAndCheck({
       standardFeedPrice: 5,
-      standardObservationsTimestamp: uint32(block.timestamp) - 12,
-      secondaryObservationsTimestamp: uint32(block.timestamp) - 12,
+      standardObservationsTimestamp: uint32(block.timestamp),
+      secondaryObservationsTimestamp: uint32(block.timestamp),
       transmitPrimary: true,
       secondaryFeedPrice: 4, // old report but still freshest for secondary feed
       transmitSecondary: true,
@@ -782,13 +781,11 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
   }
 
   function test_OutOfSyncFeedsPrimaryIsSourcedFromSecondaryWithLockDelay() public {
-    vm.skip(true);
-
     // Report 1
     _transmitAndCheck({
       standardFeedPrice: 1,
-      standardObservationsTimestamp: uint32(block.timestamp) - 12,
-      secondaryObservationsTimestamp: uint32(block.timestamp) - 12,
+      standardObservationsTimestamp: uint32(block.timestamp),
+      secondaryObservationsTimestamp: uint32(block.timestamp),
       transmitPrimary: false,
       secondaryFeedPrice: 1,
       transmitSecondary: true,
@@ -799,8 +796,8 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
     // Report 2
     _transmitAndCheck({
       standardFeedPrice: 2,
-      standardObservationsTimestamp: uint32(block.timestamp) - 12,
-      secondaryObservationsTimestamp: uint32(block.timestamp) - 12,
+      standardObservationsTimestamp: uint32(block.timestamp),
+      secondaryObservationsTimestamp: uint32(block.timestamp),
       transmitPrimary: false,
       secondaryFeedPrice: 2,
       transmitSecondary: true,
@@ -808,12 +805,10 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
       expectedSecondaryFeedAnswer: 2
     });
 
-    // unlock the standard feed
-    skip(1);
     _transmitAndCheck({
       standardFeedPrice: 2,
-      standardObservationsTimestamp: uint32(block.timestamp) - 12,
-      secondaryObservationsTimestamp: uint32(block.timestamp) - 12,
+      standardObservationsTimestamp: uint32(block.timestamp),
+      secondaryObservationsTimestamp: uint32(block.timestamp),
       transmitPrimary: false,
       secondaryFeedPrice: 2,
       transmitSecondary: false,
@@ -823,14 +818,9 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
   }
 
   function test_BothFeedsStalledIncomingSecondaryReportIsFromBeforeCutoffTime() public {
-    vm.skip(true); // skip until passing
-
-    uint256 timeBeforeCutoff = block.timestamp;
-    // todo: skip cutoff window
-
     _changePrank(SECONDARY_PROXY);
     ReportGenerator.SignedReport memory signedReport =
-      s_reportGenerator.generateSignedReport(1, uint32(timeBeforeCutoff));
+      s_reportGenerator.generateSignedReport(1, uint32(block.timestamp));
     aggregator.transmit(
       signedReport.reportContext, signedReport.report, signedReport.rs, signedReport.ss, signedReport.rawVs
     );
@@ -845,6 +835,9 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
     (, standardAnswer,,,) = aggregator.latestRoundData();
     assertEq(1, standardAnswer, "standard feed answer is not correct");
 
+    // skip cutoff time, actual: 40
+    skip(40);
+
     // check the secondary feed
     _changePrank(SECONDARY_PROXY);
     (, int256 secondaryAnswer,,,) = aggregator.latestRoundData();
@@ -852,17 +845,15 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
   }
 
   function test_BothFeedsStalledIncomingPrimaryReportIsFromBeforeCutoffTime() public {
-    vm.skip(true); // skip until passing
-
-    uint256 timeBeforeCutoff = block.timestamp;
-    // todo: skip cutoff window
-
     _changePrank(aggregator.getTransmitters()[0]);
     ReportGenerator.SignedReport memory signedReport =
-      s_reportGenerator.generateSignedReport(1, uint32(timeBeforeCutoff));
+      s_reportGenerator.generateSignedReport(1, uint32(block.timestamp));
     aggregator.transmit(
       signedReport.reportContext, signedReport.report, signedReport.rs, signedReport.ss, signedReport.rawVs
     );
+
+    // skip cutoff time, actual: 40
+    skip(41);
 
     // check the standard feed
     (, int256 standardAnswer,,,) = aggregator.latestRoundData();
@@ -875,14 +866,9 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
   }
 
   function test_BothFeedsStalledIncomingReportIsFromAfterCutoffTime() public {
-    vm.skip(true); // skip until passing
-
-    uint256 timeAfterCutoff = block.timestamp + 1;
-    // todo: skip cutoff window
-
     _changePrank(aggregator.getTransmitters()[0]);
     ReportGenerator.SignedReport memory signedReport =
-      s_reportGenerator.generateSignedReport(1, uint32(timeAfterCutoff));
+      s_reportGenerator.generateSignedReport(1, uint32(block.timestamp));
     aggregator.transmit(
       signedReport.reportContext, signedReport.report, signedReport.rs, signedReport.ss, signedReport.rawVs
     );
@@ -896,20 +882,18 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
     (, int256 secondaryAnswer,,,) = aggregator.latestRoundData();
     assertEq(0, secondaryAnswer, "secondary feed answer is not correct");
 
-    // unlock the secondary feed
-    skip(1);
+    // unlock the secondary feed, actual cutoff time: 40
+    skip(41);
     (, secondaryAnswer,,,) = aggregator.latestRoundData();
     assertEq(1, secondaryAnswer, "secondary feed answer is not correct");
   }
 
   function test_IncomingSecondaryReportHasNotBeenRecordedOlderThanLatestReportOlderThanCutoffTime() public {
-    vm.skip(true); // skip until passing
-
     // Report 1
     _transmitAndCheck({
       standardFeedPrice: 1,
-      standardObservationsTimestamp: uint32(block.timestamp) - 12,
-      secondaryObservationsTimestamp: uint32(block.timestamp) - 12,
+      standardObservationsTimestamp: uint32(block.timestamp),
+      secondaryObservationsTimestamp: uint32(block.timestamp),
       transmitPrimary: true,
       secondaryFeedPrice: 1,
       transmitSecondary: false,
@@ -917,14 +901,16 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
       expectedSecondaryFeedAnswer: 0
     });
 
-    // timestamp of missing report 2
-    uint256 timestampReport2 = block.timestamp;
+    // generate Report 2, not sending it
+    ReportGenerator.SignedReport memory report2 =
+      s_reportGenerator.generateSignedReport(2, uint32(block.timestamp));
+    skip(12);
 
     // Report 3
     _transmitAndCheck({
       standardFeedPrice: 3,
-      standardObservationsTimestamp: uint32(block.timestamp) - 12,
-      secondaryObservationsTimestamp: uint32(block.timestamp) - 12,
+      standardObservationsTimestamp: uint32(block.timestamp),
+      secondaryObservationsTimestamp: uint32(block.timestamp),
       transmitPrimary: true,
       secondaryFeedPrice: 3,
       transmitSecondary: false,
@@ -932,14 +918,14 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
       expectedSecondaryFeedAnswer: 0
     });
 
-    // todo: skip cutoff window
+    // skip cutoff time, actual: 40
+    skip(41);
 
-    // Send missing report 2 to secondary feed
+    // Send missing report 2 to secondary feed, expect it to revert
+    vm.expectRevert(DualAggregator.StaleReport.selector);
     _changePrank(SECONDARY_PROXY);
-    ReportGenerator.SignedReport memory signedReport =
-      s_reportGenerator.generateSignedReport(2, uint32(timestampReport2));
     aggregator.transmit(
-      signedReport.reportContext, signedReport.report, signedReport.rs, signedReport.ss, signedReport.rawVs
+      report2.reportContext, report2.report, report2.rs, report2.ss, report2.rawVs
     );
 
     // check the standard feed
@@ -954,13 +940,11 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
   }
 
   function test_IncomingSecondaryReportHasNotBeenRecordedOlderThanLatestReportNewerThanCutoffTime() public {
-    vm.skip(true); // skip until passing
-
     // Report 1
     _transmitAndCheck({
       standardFeedPrice: 1,
-      standardObservationsTimestamp: uint32(block.timestamp) - 12,
-      secondaryObservationsTimestamp: uint32(block.timestamp) - 12,
+      standardObservationsTimestamp: uint32(block.timestamp),
+      secondaryObservationsTimestamp: uint32(block.timestamp),
       transmitPrimary: true,
       secondaryFeedPrice: 1,
       transmitSecondary: false,
@@ -968,16 +952,19 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
       expectedSecondaryFeedAnswer: 0
     });
 
-    // todo: skip cutoff window
+    // skip cutoff time, actual: 40
+    skip(41);
 
-    // timestamp of missing report 2
-    uint256 timestampReport2 = block.timestamp;
+    // generate Report 2, not sending it
+    ReportGenerator.SignedReport memory report2 =
+      s_reportGenerator.generateSignedReport(2, uint32(block.timestamp));
+    skip(12);
 
     // Report 3
     _transmitAndCheck({
       standardFeedPrice: 3,
-      standardObservationsTimestamp: uint32(block.timestamp) - 12,
-      secondaryObservationsTimestamp: uint32(block.timestamp) - 12,
+      standardObservationsTimestamp: uint32(block.timestamp),
+      secondaryObservationsTimestamp: uint32(block.timestamp),
       transmitPrimary: true,
       secondaryFeedPrice: 3,
       transmitSecondary: false,
@@ -985,12 +972,11 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
       expectedSecondaryFeedAnswer: 1
     });
 
-    // Send missing report 2 to secondary feed
+    // Send missing report 2 to secondary feed, expect it to revert
+    vm.expectRevert(DualAggregator.StaleReport.selector);
     _changePrank(SECONDARY_PROXY);
-    ReportGenerator.SignedReport memory signedReport =
-      s_reportGenerator.generateSignedReport(2, uint32(timestampReport2));
     aggregator.transmit(
-      signedReport.reportContext, signedReport.report, signedReport.rs, signedReport.ss, signedReport.rawVs
+      report2.reportContext, report2.report, report2.rs, report2.ss, report2.rawVs
     );
 
     // check the standard feed

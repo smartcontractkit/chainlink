@@ -538,8 +538,6 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     return s_hotVars.latestSecondaryRoundId;
   }
 
-  event Observations(uint32 transmission, uint32 report);
-
   /**
    * @notice check if a report has already been transmitted
    * @param report the report to check
@@ -552,27 +550,21 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
 
     for (uint32 round_ = latestAggregatorRoundId; round_ > 0; --round_) {
       Transmission memory transmission = s_transmissions[round_];
-      emit Help(3);
-
-      emit Observations(transmission.observationsTimestamp, report.observationsTimestamp);
 
       if (transmission.observationsTimestamp < report.observationsTimestamp) {
         return (false, 0);
       }
-      emit Help(4);
       // get median
       int192 median = report.observations[report.observations.length / 2];
 
       if (transmission.observationsTimestamp == report.observationsTimestamp && transmission.answer == median) {
         return (true, round_);
       }
-      emit Help(5);
     }
-    emit Help(6);
     return (false, 0);
   }
 
-  function seeLatestRounds() public returns (uint32 primary, uint32 secondary) {
+  function seeLatestRounds() public view returns (uint32 primary, uint32 secondary) {
     return (s_hotVars.latestAggregatorRoundId, s_hotVars.latestSecondaryRoundId);
   }
 
@@ -712,12 +704,6 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
   error SignatureError();
   error DuplicateSigner();
 
-  event NewSecondaryTransmission(uint32 roundId, uint256 actualTimestamp, address sender);
-
-  event Help(uint32 number);
-
-  event Exist(bool exist, uint32 roundId);
-
   /// @inheritdoc OCR2Abstract
   function transmit(
     // reportContext consists of:
@@ -743,17 +729,11 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
       // Decode the report
       report_ = _decodeReport(report);
       (bool exist, uint32 roundId) = _reportExists(report_);
-      emit Exist(exist, roundId);
       if (exist) {
         s_hotVars.latestSecondaryRoundId = roundId;
-
-        emit NewSecondaryTransmission(s_hotVars.latestSecondaryRoundId, block.timestamp, msg.sender);
         return;
       }
-      emit Help(1);
     }
-
-    emit Help(2);
     // Report epoch and round
     uint40 epochAndRound = uint40(uint256(reportContext[1]));
 
