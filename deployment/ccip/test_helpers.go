@@ -615,7 +615,10 @@ func deployTransferTokenOneEnd(
 	if err != nil {
 		return nil, nil, err
 	}
-	fmt.Println(tx)
+	_, err = chain.Confirm(tx)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	tokenPool, err := deployContract(lggr, chain, addressBook,
 		func(chain deployment.Chain) ContractDeploy[*burn_mint_token_pool.BurnMintTokenPool] {

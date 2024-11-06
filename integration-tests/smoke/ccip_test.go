@@ -109,7 +109,7 @@ func TestInitialDeployOnLocal(t *testing.T) {
 func TestTokenTransfer(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := ccdeploy.Context(t)
-	tenv := ccdeploy.NewMemoryEnvironment(t, lggr, 3, 4)
+	tenv, _, _ := testsetups.NewLocalDevEnvironment(t, lggr)
 
 	e := tenv.Env
 	state, err := ccdeploy.LoadOnchainState(e)
@@ -194,13 +194,13 @@ func TestTokenTransfer(t *testing.T) {
 	require.NoError(t, err)
 
 	tx, err = srcToken.Approve(e.Chains[tenv.HomeChainSel].DeployerKey, state.Chains[tenv.HomeChainSel].Router.Address(), twoCoins)
-	require.NoError(t, err, "failed to approve USDC tokens in home chain")
+	require.NoError(t, err)
 	_, err = e.Chains[tenv.HomeChainSel].Confirm(tx)
-	require.NoError(t, err, "failed to confirm USDC token approval in home chain")
+	require.NoError(t, err)
 	tx, err = dstToken.Approve(e.Chains[tenv.FeedChainSel].DeployerKey, state.Chains[tenv.FeedChainSel].Router.Address(), twoCoins)
-	require.NoError(t, err, "failed to approve USDC tokens in feed chain")
+	require.NoError(t, err)
 	_, err = e.Chains[tenv.FeedChainSel].Confirm(tx)
-	require.NoError(t, err, "failed to confirm USDC token approval in feed chain")
+	require.NoError(t, err)
 
 	tokens := map[uint64][]router.ClientEVMTokenAmount{
 		tenv.HomeChainSel: {{
@@ -237,7 +237,6 @@ func TestTokenTransfer(t *testing.T) {
 	ccdeploy.ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
 
 	// After commit is reported on all chains, token prices should be updated in FeeQuoter.
-
 	for dest := range e.Chains {
 		linkAddress := state.Chains[dest].LinkToken.Address()
 		feeQuoter := state.Chains[dest].FeeQuoter
