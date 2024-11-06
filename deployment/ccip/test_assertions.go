@@ -63,8 +63,10 @@ func ConfirmGasPriceUpdated(
 	}, []uint64{dest.Selector})
 
 	require.NoError(t, err)
-	require.True(t, it.Next())
-	require.NotEqual(t, InitialGasPrice, it.Event.Value)
+	require.Truef(t, it.Next(), "No gas price update event found on chain %d, fee quoter %s",
+		dest.Selector, srcFeeQuoter.Address().String())
+	require.NotEqualf(t, InitialGasPrice, it.Event.Value, "Gas price not updated on chain %d, fee quoter %s",
+		dest.Selector, srcFeeQuoter.Address().String())
 	return nil
 }
 

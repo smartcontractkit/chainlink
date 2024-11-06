@@ -52,7 +52,6 @@ func SetCandidatePluginChangeset(
 	pluginType cctypes.PluginType,
 ) (deployment.ChangesetOutput, error) {
 	newDONArgs, err := ccdeploy.BuildOCR3ConfigForCCIPHome(
-		e.Logger,
 		ocrSecrets,
 		state.Chains[newChainSel].OffRamp,
 		e.Chains[newChainSel],

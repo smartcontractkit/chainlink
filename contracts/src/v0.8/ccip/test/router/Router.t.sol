@@ -12,7 +12,7 @@ import {Internal} from "../../libraries/Internal.sol";
 import {OnRamp} from "../../onRamp/OnRamp.sol";
 import {MaybeRevertMessageReceiver} from "../helpers/receivers/MaybeRevertMessageReceiver.sol";
 import {OffRampSetup} from "../offRamp/offRamp/OffRampSetup.t.sol";
-import {OnRampSetup} from "../onRamp/OnRampSetup.t.sol";
+import {OnRampSetup} from "../onRamp/onRamp/OnRampSetup.t.sol";
 import {RouterSetup} from "../router/RouterSetup.t.sol";
 
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";

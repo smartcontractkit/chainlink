@@ -1,13 +1,11 @@
 package testhelpers
 
 import (
-	"context"
 	"math/big"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
@@ -57,21 +55,13 @@ func (ks EthKeyStoreSim) Eth() keystore.Eth {
 	return ks.ETHKS
 }
 
-func (ks EthKeyStoreSim) SignTx(address common.Address, tx *ethtypes.Transaction, chainID *big.Int) (*ethtypes.Transaction, error) {
-	if chainID.String() == "1000" {
-		// A terrible hack, just for the multichain test. All simulation clients run on chainID 1337.
-		// We let the DestChainSelector actually use 1337 to make sure the offchainConfig digests are properly generated.
-		return ks.ETHKS.SignTx(context.Background(), address, tx, big.NewInt(1337))
-	}
-	return ks.ETHKS.SignTx(context.Background(), address, tx, chainID)
-}
-
 var _ keystore.Eth = EthKeyStoreSim{}.ETHKS
 
 func ConfirmTxs(t *testing.T, txs []*ethtypes.Transaction, chain *simulated.Backend) {
 	chain.Commit()
+	ctx := tests.Context(t)
 	for _, tx := range txs {
-		rec, err := bind.WaitMined(context.Background(), chain.Client(), tx)
+		rec, err := bind.WaitMined(ctx, chain.Client(), tx)
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), rec.Status)
 	}

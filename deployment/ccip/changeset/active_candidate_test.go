@@ -82,7 +82,7 @@ func TestActiveCandidate(t *testing.T) {
 			require.NoError(t, err)
 			block := latesthdr.Number.Uint64()
 			startBlocks[dest] = &block
-			seqNum := ccdeploy.TestSendRequest(t, e, state, src, dest, false)
+			seqNum := ccdeploy.TestSendRequest(t, e, state, src, dest, false, nil)
 			expectedSeqNum[dest] = seqNum
 		}
 	}
@@ -145,7 +145,6 @@ func TestActiveCandidate(t *testing.T) {
 	// commit and exec plugin we will be using
 	rmnHomeAddress := state.Chains[homeCS].RMNHome.Address()
 	ocr3ConfigMap, err := ccdeploy.BuildOCR3ConfigForCCIPHome(
-		e.Logger,
 		deployment.XXXGenerateTestOCRSecrets(),
 		state.Chains[destCS].OffRamp,
 		e.Chains[destCS],
