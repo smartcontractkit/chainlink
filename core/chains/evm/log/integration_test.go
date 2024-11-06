@@ -136,9 +136,9 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 func TestBroadcaster_BackfillOnNodeStartAndOnReplay(t *testing.T) {
 	testutils.SkipShortDB(t)
 	const (
-		lastStoredBlockHeight = 100
-		blockHeight           = 125
-		replayFrom            = 40
+		lastStoredBlockHeight       = 100
+		blockHeight                 = 125
+		replayFrom            int64 = 40
 	)
 
 	backfillTimes := 2
