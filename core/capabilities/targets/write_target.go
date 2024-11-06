@@ -183,12 +183,12 @@ func evaluate(rawRequest capabilities.CapabilityRequest) (r Request, err error) 
 
 	// REASON: there is an issue with case sensitivity here.
 	if hex.EncodeToString(reportMetadata.WorkflowOwner[:]) != rawRequest.Metadata.WorkflowOwner {
-		// return r, fmt.Errorf("WorkflowOwner in the report does not match WorkflowOwner in the request metadata. Report WorkflowOwner: %+v, request WorkflowOwner: %+v", hex.EncodeToString(reportMetadata.WorkflowOwner[:]), rawRequest.Metadata.WorkflowOwner)
+		return r, fmt.Errorf("WorkflowOwner in the report does not match WorkflowOwner in the request metadata. Report WorkflowOwner: %+v, request WorkflowOwner: %+v", hex.EncodeToString(reportMetadata.WorkflowOwner[:]), rawRequest.Metadata.WorkflowOwner)
 	}
 
 	// REASON: there are slight inconsistencies in the name.
 	if hex.EncodeToString(reportMetadata.WorkflowName[:]) != rawRequest.Metadata.WorkflowName {
-		// return r, fmt.Errorf("WorkflowName in the report does not match WorkflowName in the request metadata. Report WorkflowName: %+v, request WorkflowName: %+v", hex.EncodeToString(reportMetadata.WorkflowName[:]), rawRequest.Metadata.WorkflowName)
+		return r, fmt.Errorf("WorkflowName in the report does not match WorkflowName in the request metadata. Report WorkflowName: %+v, request WorkflowName: %+v", hex.EncodeToString(reportMetadata.WorkflowName[:]), rawRequest.Metadata.WorkflowName)
 	}
 
 	if hex.EncodeToString(reportMetadata.WorkflowCID[:]) != rawRequest.Metadata.WorkflowID {

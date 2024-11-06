@@ -44,7 +44,7 @@ type MessageBody struct {
 	Payload json.RawMessage `json:"payload,omitempty"`
 
 	// Fields only used locally for convenience. Not serialized.
-	Sender string `json:"sender"`
+	Sender string `json:"-"`
 }
 
 func (m *Message) Validate() error {
@@ -75,15 +75,11 @@ func (m *Message) Validate() error {
 	if len(m.Body.Receiver) != 0 && len(m.Body.Receiver) != MessageReceiverLen {
 		return errors.New("invalid Receiver length")
 	}
-	// REASON: The invoke_trigger script signature did not match ExtractSigner here,
-	// so a different signer was derived.
-	if len(m.Body.Sender) == 0 {
-		signerBytes, err := m.ExtractSigner()
-		if err != nil {
-			return err
-		}
-		m.Body.Sender = utils.StringToHex(string(signerBytes))
+	signerBytes, err := m.ExtractSigner()
+	if err != nil {
+		return err
 	}
+	m.Body.Sender = utils.StringToHex(string(signerBytes))
 	return nil
 }
 

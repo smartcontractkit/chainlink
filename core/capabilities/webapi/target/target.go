@@ -71,7 +71,6 @@ func getMessageID(req capabilities.CapabilityRequest) (string, error) {
 	if err := validation.ValidateWorkflowOrExecutionID(req.Metadata.WorkflowExecutionID); err != nil {
 		return "", fmt.Errorf("workflow execution ID is invalid: %w", err)
 	}
-	// REASON: When the WorkflowID is included in the messageID, the messageID max length is exceeded.
 	messageID := []string{
 		req.Metadata.WorkflowExecutionID,
 		ghcapabilities.MethodWebAPITarget,
