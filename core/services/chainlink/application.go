@@ -215,9 +215,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	// TODO: wire this up to config so we only instantiate it
 	// if a workflow registry address is provided.
-	workflowRegistrySyncer := syncer.NewWorkflowRegistry()
-	srvcs = append(srvcs, workflowRegistrySyncer)
-
 	var externalPeerWrapper p2ptypes.PeerWrapper
 	if cfg.Capabilities().Peering().Enabled() {
 		var dispatcher remotetypes.Dispatcher
@@ -467,6 +464,13 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		}
 		webhookJobRunner = delegates[job.Webhook].(*webhook.Delegate).WebhookJobRunner()
 	)
+
+	workflowRegistrySyncer := &syncer.WorkflowRegistry{
+		Logger:   globalLogger,
+		Store:    workflowORM,
+		Registry: opts.CapabilitiesRegistry,
+	}
+	srvcs = append(srvcs, workflowRegistrySyncer)
 
 	delegates[job.Workflow] = workflows.NewDelegate(
 		globalLogger,
