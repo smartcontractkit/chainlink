@@ -91,7 +91,7 @@ ListenAddresses = ['0.0.0.0:6690']
 # override config toml related to EVMNode configs for chainlink nodes; applicable to all EVM node configs in chainlink toml
 CommonChainConfigTOML = """
 AutoCreateKey = true
-FinalityDepth = 10
+FinalityDepth = 1
 MinContractPayment = 0
 
 [GasEstimator]
