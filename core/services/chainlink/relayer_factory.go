@@ -111,7 +111,6 @@ type SolanaFactoryConfig struct {
 }
 
 func (r *RelayerFactory) NewSolana(config SolanaFactoryConfig) (map[types.RelayID]loop.Relayer, error) {
-	config.ValidateConfig()
 	chainCfgs, ds, ks := config.TOMLConfigs, config.DS, config.Keystore
 	solanaRelayers := make(map[types.RelayID]loop.Relayer)
 	var (
