@@ -92,6 +92,7 @@ flowchart LR
 flowchart LR
   subgraph chainlink
     chainlink/v2
+    chainlink/deployment
     chainlink/integration-tests
     chainlink/load-tests
     chainlink/core/scripts
@@ -119,7 +120,6 @@ flowchart LR
   end
 
   subgraph chainlink-testing-framework
-    chainlink-testing-framework/grafana
     chainlink-testing-framework/havoc
     chainlink-testing-framework/lib
     chainlink-testing-framework/lib/grafana

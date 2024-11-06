@@ -1034,6 +1034,8 @@ func (d *Delegate) newServicesLLO(
 	lggr.Infof("Using on-chain signing keys for LLO job %d (%s): %v", jb.ID, jb.Name.ValueOrZero(), kbm)
 	kr := llo.NewOnchainKeyring(lggr, kbm)
 
+	telemetryContractID := fmt.Sprintf("%s/%d", spec.ContractID, pluginCfg.DonID)
+
 	cfg := llo.DelegateConfig{
 		Logger:     lggr,
 		DataSource: d.ds,
@@ -1047,6 +1049,7 @@ func (d *Delegate) newServicesLLO(
 		RetirementReportCache:  d.retirementReportCache,
 		ShouldRetireCache:      provider.ShouldRetireCache(),
 		RetirementReportCodec:  datastreamsllo.StandardRetirementReportCodec{},
+		EAMonitoringEndpoint:   d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, telemetryContractID, synchronization.EnhancedEAMercury),
 
 		TraceLogging:                 d.cfg.OCR2().TraceLogging(),
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
@@ -1055,7 +1058,7 @@ func (d *Delegate) newServicesLLO(
 		ContractConfigTrackers:       provider.ContractConfigTrackers(),
 		Database:                     ocrDB,
 		LocalConfig:                  lc,
-		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, fmt.Sprintf("%d", pluginCfg.DonID), synchronization.EnhancedEAMercury),
+		OCR3MonitoringEndpoint:       d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, telemetryContractID, synchronization.OCR3Mercury),
 		OffchainConfigDigester:       provider.OffchainConfigDigester(),
 		OffchainKeyring:              kb,
 		OnchainKeyring:               kr,

@@ -118,6 +118,8 @@ jobs:
         run: pnpm lint
       - name: Run solhint
         run: pnpm solhint
+      - name: Run solhint on tests
+        run: pnpm solhint-test
 
   prettier:
     defaults:

@@ -165,6 +165,17 @@ func TestCCIPReader_ExecutedMessageRanges(t *testing.T) {
 					consts.EventNameExecutionStateChanged: {
 						ChainSpecificName: consts.EventNameExecutionStateChanged,
 						ReadType:          evmtypes.Event,
+						EventDefinitions: &evmtypes.EventDefinitions{
+							GenericTopicNames: map[string]string{
+								"sourceChainSelector": consts.EventAttributeSourceChain,
+								"sequenceNumber":      consts.EventAttributeSequenceNumber,
+							},
+							GenericDataWordDetails: map[string]evmtypes.DataWordDetail{
+								consts.EventAttributeState: {
+									Name: "state",
+								},
+							},
+						},
 					},
 				},
 			},
@@ -236,6 +247,13 @@ func TestCCIPReader_MsgsBetweenSeqNums(t *testing.T) {
 					consts.EventNameCCIPMessageSent: {
 						ChainSpecificName: "CCIPMessageSent",
 						ReadType:          evmtypes.Event,
+						EventDefinitions: &evmtypes.EventDefinitions{
+							GenericDataWordDetails: map[string]evmtypes.DataWordDetail{
+								consts.EventAttributeSourceChain:    {Name: "message.header.sourceChainSelector"},
+								consts.EventAttributeDestChain:      {Name: "message.header.destChainSelector"},
+								consts.EventAttributeSequenceNumber: {Name: "message.header.sequenceNumber"},
+							},
+						},
 					},
 				},
 			},
