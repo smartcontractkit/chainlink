@@ -175,16 +175,7 @@ func SetCandidatePluginProposal(
 	tokenConfig ccdeploy.TokenConfig,
 	pluginType cctypes.PluginType,
 ) (*timelock.MCMSWithTimelockProposal, error) {
-	newDONArgs, err := ccdeploy.BuildOCR3ConfigForCCIPHome(
-		e.Logger,
-		ocrSecrets,
-		state.Chains[newChainSel].OffRamp,
-		e.Chains[newChainSel],
-		feedChainSel,
-		tokenConfig.GetTokenInfo(e.Logger, state.Chains[newChainSel].LinkToken, state.Chains[newChainSel].Weth9),
-		nodes.NonBootstraps(),
-		state.Chains[homeChainSel].RMNHome.Address(),
-	)
+	newDONArgs, err := ccdeploy.BuildOCR3ConfigForCCIPHome(ocrSecrets, state.Chains[newChainSel].OffRamp, e.Chains[newChainSel], feedChainSel, tokenConfig.GetTokenInfo(e.Logger, state.Chains[newChainSel].LinkToken, state.Chains[newChainSel].Weth9), nodes.NonBootstraps(), state.Chains[homeChainSel].RMNHome.Address())
 	if err != nil {
 		return nil, err
 	}

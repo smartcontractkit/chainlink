@@ -307,7 +307,15 @@ func AddChainConfig(
 	return chainConfig, nil
 }
 
-func BuildOCR3ConfigForCCIPHome(lggr logger.Logger, ocrSecrets deployment.OCRSecrets, offRamp *offramp.OffRamp, dest deployment.Chain, feedChainSel uint64, tokenInfo map[ccipocr3.UnknownEncodedAddress]pluginconfig.TokenInfo, nodes deployment.Nodes, rmnHomeAddress common.Address) (map[cctypes.PluginType]ccip_home.CCIPHomeOCR3Config, error) {
+func BuildOCR3ConfigForCCIPHome(
+	ocrSecrets deployment.OCRSecrets,
+	offRamp *offramp.OffRamp,
+	dest deployment.Chain,
+	feedChainSel uint64,
+	tokenInfo map[ccipocr3.UnknownEncodedAddress]pluginconfig.TokenInfo,
+	nodes deployment.Nodes,
+	rmnHomeAddress common.Address,
+) (map[cctypes.PluginType]ccip_home.CCIPHomeOCR3Config, error) {
 	p2pIDs := nodes.PeerIDs()
 	// Get OCR3 Config from helper
 	var schedule []int
@@ -882,7 +890,7 @@ func AddDON(
 	home deployment.Chain,
 	nodes deployment.Nodes,
 ) error {
-	ocrConfigs, err := BuildOCR3ConfigForCCIPHome(lggr, ocrSecrets, offRamp, dest, feedChainSel, tokenInfo, nodes, rmnHomeAddress)
+	ocrConfigs, err := BuildOCR3ConfigForCCIPHome(ocrSecrets, offRamp, dest, feedChainSel, tokenInfo, nodes, rmnHomeAddress)
 	if err != nil {
 		return err
 	}

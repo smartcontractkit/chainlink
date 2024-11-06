@@ -1,6 +1,7 @@
 package smoke
 
 import (
+	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
 	"github.com/stretchr/testify/require"
 	"math/big"
 	"testing"
@@ -20,7 +21,7 @@ import (
 func TestInitialDeployOnLocal(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := ccdeploy.Context(t)
-	tenv := ccdeploy.NewMemoryEnvironment(t, lggr, 3, 4)
+	tenv, _, _ := testsetups.NewLocalDevEnvironment(t, lggr)
 	e := tenv.Env
 
 	state, err := ccdeploy.LoadOnchainState(tenv.Env)
