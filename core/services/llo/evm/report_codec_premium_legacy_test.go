@@ -52,7 +52,7 @@ func Test_ReportCodecPremiumLegacy(t *testing.T) {
 
 		_, err := rc.Encode(ctx, report, cd)
 		require.Error(t, err)
-		assert.EqualError(t, err, "ReportCodecPremiumLegacy does not support encoding specimen reports")
+		require.EqualError(t, err, "ReportCodecPremiumLegacy does not support encoding specimen reports")
 	})
 
 	t.Run("Encode constructs a report from observations", func(t *testing.T) {
@@ -123,14 +123,14 @@ func Test_ReportCodecPremiumLegacy(t *testing.T) {
 
 	t.Run("Decode errors on invalid report", func(t *testing.T) {
 		_, err := rc.Decode([]byte{1, 2, 3})
-		assert.EqualError(t, err, "failed to decode report: abi: cannot marshal in to go type: length insufficient 3 require 32")
+		require.EqualError(t, err, "failed to decode report: abi: cannot marshal in to go type: length insufficient 3 require 32")
 
 		longBad := make([]byte, 64)
 		for i := 0; i < len(longBad); i++ {
 			longBad[i] = byte(i)
 		}
 		_, err = rc.Decode(longBad)
-		assert.EqualError(t, err, "failed to decode report: abi: improperly encoded uint32 value")
+		require.EqualError(t, err, "failed to decode report: abi: improperly encoded uint32 value")
 	})
 }
 
@@ -148,19 +148,19 @@ func Test_ExtractReportValues(t *testing.T) {
 	t.Run("with wrong number of stream values", func(t *testing.T) {
 		report := llo.Report{Values: []llo.StreamValue{llo.ToDecimal(decimal.NewFromInt(35)), llo.ToDecimal(decimal.NewFromInt(36))}}
 		_, _, _, err := ExtractReportValues(report)
-		assert.EqualError(t, err, "ReportCodecPremiumLegacy requires exactly 3 values (NativePrice, LinkPrice, Quote{Bid, Mid, Ask}); got report.Values: [35 36]")
+		require.EqualError(t, err, "ReportCodecPremiumLegacy requires exactly 3 values (NativePrice, LinkPrice, Quote{Bid, Mid, Ask}); got report.Values: [35 36]")
 	})
 	t.Run("with (nil, nil, nil) values", func(t *testing.T) {
 		report := llo.Report{Values: []llo.StreamValue{nil, nil, nil}}
 		_, _, _, err := ExtractReportValues(report)
 
-		assert.EqualError(t, err, "ReportCodecPremiumLegacy expects third stream value to be of type *Quote; got: <nil>")
+		require.EqualError(t, err, "ReportCodecPremiumLegacy expects third stream value to be of type *Quote; got: <nil>")
 	})
 	t.Run("with ((*llo.Quote)(nil), nil, (*llo.Quote)(nil)) values", func(t *testing.T) {
 		report := llo.Report{Values: []llo.StreamValue{(*llo.Quote)(nil), nil, (*llo.Quote)(nil)}}
 		nativePrice, linkPrice, quote, err := ExtractReportValues(report)
 
-		assert.EqualError(t, err, "ReportCodecPremiumLegacy expects third stream value to be non-nil")
+		require.EqualError(t, err, "ReportCodecPremiumLegacy expects third stream value to be non-nil")
 		assert.Equal(t, decimal.Zero, nativePrice)
 		assert.Equal(t, decimal.Zero, linkPrice)
 		assert.Nil(t, quote)
@@ -169,7 +169,7 @@ func Test_ExtractReportValues(t *testing.T) {
 		report := llo.Report{Values: []llo.StreamValue{llo.ToDecimal(decimal.NewFromInt(35)), llo.ToDecimal(decimal.NewFromInt(36)), llo.ToDecimal(decimal.NewFromInt(37))}}
 		_, _, _, err := ExtractReportValues(report)
 
-		assert.EqualError(t, err, "ReportCodecPremiumLegacy expects third stream value to be of type *Quote; got: *llo.Decimal")
+		require.EqualError(t, err, "ReportCodecPremiumLegacy expects third stream value to be of type *Quote; got: *llo.Decimal")
 	})
 	t.Run("with ((*llo.Quote)(nil), nil, *llo.Quote) values", func(t *testing.T) {
 		report := llo.Report{Values: []llo.StreamValue{(*llo.Quote)(nil), nil, &llo.Quote{Bid: decimal.NewFromInt(37), Benchmark: decimal.NewFromInt(38), Ask: decimal.NewFromInt(39)}}}
@@ -184,17 +184,17 @@ func Test_ExtractReportValues(t *testing.T) {
 		report := llo.Report{Values: []llo.StreamValue{&UnhandledStreamValue{}, &UnhandledStreamValue{}, &UnhandledStreamValue{}}}
 		_, _, _, err := ExtractReportValues(report)
 
-		assert.EqualError(t, err, "ReportCodecPremiumLegacy failed to extract native price: expected *Decimal or *Quote; got: *evm.UnhandledStreamValue")
+		require.EqualError(t, err, "ReportCodecPremiumLegacy failed to extract native price: expected *Decimal or *Quote; got: *evm.UnhandledStreamValue")
 
 		report = llo.Report{Values: []llo.StreamValue{llo.ToDecimal(decimal.NewFromInt(35)), &UnhandledStreamValue{}, &UnhandledStreamValue{}}}
 		_, _, _, err = ExtractReportValues(report)
 
-		assert.EqualError(t, err, "ReportCodecPremiumLegacy failed to extract link price: expected *Decimal or *Quote; got: *evm.UnhandledStreamValue")
+		require.EqualError(t, err, "ReportCodecPremiumLegacy failed to extract link price: expected *Decimal or *Quote; got: *evm.UnhandledStreamValue")
 
 		report = llo.Report{Values: []llo.StreamValue{llo.ToDecimal(decimal.NewFromInt(35)), llo.ToDecimal(decimal.NewFromInt(36)), &UnhandledStreamValue{}}}
 		_, _, _, err = ExtractReportValues(report)
 
-		assert.EqualError(t, err, "ReportCodecPremiumLegacy expects third stream value to be of type *Quote; got: *evm.UnhandledStreamValue")
+		require.EqualError(t, err, "ReportCodecPremiumLegacy expects third stream value to be of type *Quote; got: *evm.UnhandledStreamValue")
 	})
 	t.Run("with (*llo.Decimal, *llo.Decimal, *llo.Quote) values", func(t *testing.T) {
 		report := llo.Report{Values: []llo.StreamValue{llo.ToDecimal(decimal.NewFromInt(35)), llo.ToDecimal(decimal.NewFromInt(36)), &llo.Quote{Bid: decimal.NewFromInt(37), Benchmark: decimal.NewFromInt(38), Ask: decimal.NewFromInt(39)}}}
