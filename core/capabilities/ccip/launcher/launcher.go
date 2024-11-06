@@ -68,7 +68,7 @@ type launcher struct {
 	myP2PID         ragep2ptypes.PeerID
 	lggr            logger.Logger
 	homeChainReader ccipreader.HomeChain
-	stopChan        chan struct{}
+	stopChan        services.StopChan
 	// latestState is the latest capability registry state received from the syncer.
 	latestState registrysyncer.LocalRegistry
 	// regState is the latest capability registry state that we have successfully processed.
@@ -140,12 +140,16 @@ func (l *launcher) Start(context.Context) error {
 func (l *launcher) monitor() {
 	defer l.wg.Done()
 	ticker := time.NewTicker(l.tickInterval)
+
+	ctx, cancel := l.stopChan.NewCtx()
+	defer cancel()
+
 	for {
 		select {
-		case <-l.stopChan:
+		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			if err := l.tick(); err != nil {
+			if err := l.tick(ctx); err != nil {
 				l.lggr.Errorw("Failed to tick", "err", err)
 			}
 		}
@@ -154,7 +158,7 @@ func (l *launcher) monitor() {
 
 // tick gets the latest registry state and processes the diff between the current and latest state.
 // This may lead to starting or stopping OCR instances.
-func (l *launcher) tick() error {
+func (l *launcher) tick(ctx context.Context) error {
 	// Ensure that the home chain reader is healthy.
 	// For new jobs it may be possible that the home chain reader is not yet ready
 	// so we won't be able to fetch configs and start any OCR instances.
@@ -171,7 +175,7 @@ func (l *launcher) tick() error {
 		return fmt.Errorf("failed to diff capability registry states: %w", err)
 	}
 
-	err = l.processDiff(diffRes)
+	err = l.processDiff(ctx, diffRes)
 	if err != nil {
 		return fmt.Errorf("failed to process diff: %w", err)
 	}
@@ -183,17 +187,17 @@ func (l *launcher) tick() error {
 // for any added OCR instances, it will launch them.
 // for any removed OCR instances, it will shut them down.
 // for any updated OCR instances, it will restart them with the new configuration.
-func (l *launcher) processDiff(diff diffResult) error {
+func (l *launcher) processDiff(ctx context.Context, diff diffResult) error {
 	err := l.processRemoved(diff.removed)
-	err = multierr.Append(err, l.processAdded(diff.added))
-	err = multierr.Append(err, l.processUpdate(diff.updated))
+	err = multierr.Append(err, l.processAdded(ctx, diff.added))
+	err = multierr.Append(err, l.processUpdate(ctx, diff.updated))
 
 	return err
 }
 
 // processUpdate will manage when configurations of an existing don are updated
 // If new oracles are needed, they are created and started. Old ones will be shut down
-func (l *launcher) processUpdate(updated map[registrysyncer.DonID]registrysyncer.DON) error {
+func (l *launcher) processUpdate(ctx context.Context, updated map[registrysyncer.DonID]registrysyncer.DON) error {
 	l.lock.Lock()
 	defer l.lock.Unlock()
 
@@ -203,12 +207,13 @@ func (l *launcher) processUpdate(updated map[registrysyncer.DonID]registrysyncer
 			return fmt.Errorf("invariant violation: expected to find CCIP DON %d in the map of running deployments", don.ID)
 		}
 
-		latestConfigs, err := getConfigsForDon(l.homeChainReader, don)
+		latestConfigs, err := getConfigsForDon(ctx, l.homeChainReader, don)
 		if err != nil {
 			return err
 		}
 
 		newPlugins, err := updateDON(
+			ctx,
 			l.lggr,
 			l.myP2PID,
 			prevPlugins,
@@ -233,16 +238,17 @@ func (l *launcher) processUpdate(updated map[registrysyncer.DonID]registrysyncer
 
 // processAdded is for when a new don is created. We know that all oracles
 // must be created and started
-func (l *launcher) processAdded(added map[registrysyncer.DonID]registrysyncer.DON) error {
+func (l *launcher) processAdded(ctx context.Context, added map[registrysyncer.DonID]registrysyncer.DON) error {
 	l.lock.Lock()
 	defer l.lock.Unlock()
 
 	for donID, don := range added {
-		configs, err := getConfigsForDon(l.homeChainReader, don)
+		configs, err := getConfigsForDon(ctx, l.homeChainReader, don)
 		if err != nil {
 			return fmt.Errorf("failed to get current configs for don %d: %w", donID, err)
 		}
 		newPlugins, err := createDON(
+			ctx,
 			l.lggr,
 			l.myP2PID,
 			don,
@@ -300,6 +306,7 @@ func (l *launcher) processRemoved(removed map[registrysyncer.DonID]registrysynce
 }
 
 func updateDON(
+	ctx context.Context,
 	lggr logger.Logger,
 	p2pID ragep2ptypes.PeerID,
 	prevPlugins pluginRegistry,
@@ -318,7 +325,7 @@ func updateDON(
 	for _, c := range latestConfigs {
 		digest := c.ConfigDigest
 		if _, ok := prevPlugins[digest]; !ok {
-			oracle, err := oracleCreator.Create(don.ID, cctypes.OCR3ConfigWithMeta(c))
+			oracle, err := oracleCreator.Create(ctx, don.ID, cctypes.OCR3ConfigWithMeta(c))
 			if err != nil {
 				return nil, fmt.Errorf("failed to create CCIP oracle: %w for digest %x", err, digest)
 			}
@@ -335,6 +342,7 @@ func updateDON(
 // createDON is a pure function that handles the case where a new DON is added to the capability registry.
 // It returns up to 4 plugins that are later started.
 func createDON(
+	ctx context.Context,
 	lggr logger.Logger,
 	p2pID ragep2ptypes.PeerID,
 	don registrysyncer.DON,
@@ -352,7 +360,7 @@ func createDON(
 			return nil, fmt.Errorf("digest does not match type %w", err)
 		}
 
-		oracle, err := oracleCreator.Create(don.ID, cctypes.OCR3ConfigWithMeta(config))
+		oracle, err := oracleCreator.Create(ctx, don.ID, cctypes.OCR3ConfigWithMeta(config))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create CCIP oracle: %w for digest %x", err, digest)
 		}
@@ -363,16 +371,17 @@ func createDON(
 }
 
 func getConfigsForDon(
+	ctx context.Context,
 	homeChainReader ccipreader.HomeChain,
 	don registrysyncer.DON) ([]ccipreader.OCR3ConfigWithMeta, error) {
 	// this should be a retryable error.
-	commitOCRConfigs, err := homeChainReader.GetOCRConfigs(context.Background(), don.ID, uint8(cctypes.PluginTypeCCIPCommit))
+	commitOCRConfigs, err := homeChainReader.GetOCRConfigs(ctx, don.ID, uint8(cctypes.PluginTypeCCIPCommit))
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch OCR configs for CCIP commit plugin (don id: %d) from home chain config contract: %w",
 			don.ID, err)
 	}
 
-	execOCRConfigs, err := homeChainReader.GetOCRConfigs(context.Background(), don.ID, uint8(cctypes.PluginTypeCCIPExec))
+	execOCRConfigs, err := homeChainReader.GetOCRConfigs(ctx, don.ID, uint8(cctypes.PluginTypeCCIPExec))
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch OCR configs for CCIP exec plugin (don id: %d) from home chain config contract: %w",
 			don.ID, err)

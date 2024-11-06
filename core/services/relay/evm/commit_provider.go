@@ -114,7 +114,7 @@ func (p *SrcCommitProvider) Close() error {
 		if p.seenOnRampAddress == nil {
 			return nil
 		}
-		return ccip.CloseOnRampReader(p.lggr, versionFinder, *p.seenSourceChainSelector, *p.seenDestChainSelector, *p.seenOnRampAddress, p.lp, p.client)
+		return ccip.CloseOnRampReader(context.Background(), p.lggr, versionFinder, *p.seenSourceChainSelector, *p.seenDestChainSelector, *p.seenOnRampAddress, p.lp, p.client)
 	})
 
 	var multiErr error
@@ -165,25 +165,26 @@ func (p *DstCommitProvider) Name() string {
 }
 
 func (p *DstCommitProvider) Close() error {
+	ctx := context.Background()
 	versionFinder := ccip.NewEvmVersionFinder()
 
-	unregisterFuncs := make([]func() error, 0, 2)
-	unregisterFuncs = append(unregisterFuncs, func() error {
+	unregisterFuncs := make([]func(ctx context.Context) error, 0, 2)
+	unregisterFuncs = append(unregisterFuncs, func(ctx context.Context) error {
 		if p.seenCommitStoreAddress == nil {
 			return nil
 		}
-		return ccip.CloseCommitStoreReader(p.lggr, versionFinder, *p.seenCommitStoreAddress, p.client, p.lp)
+		return ccip.CloseCommitStoreReader(ctx, p.lggr, versionFinder, *p.seenCommitStoreAddress, p.client, p.lp)
 	})
-	unregisterFuncs = append(unregisterFuncs, func() error {
+	unregisterFuncs = append(unregisterFuncs, func(ctx context.Context) error {
 		if p.seenOffRampAddress == nil {
 			return nil
 		}
-		return ccip.CloseOffRampReader(p.lggr, versionFinder, *p.seenOffRampAddress, p.client, p.lp, nil, big.NewInt(0))
+		return ccip.CloseOffRampReader(ctx, p.lggr, versionFinder, *p.seenOffRampAddress, p.client, p.lp, nil, big.NewInt(0))
 	})
 
 	var multiErr error
 	for _, fn := range unregisterFuncs {
-		if err := fn(); err != nil {
+		if err := fn(ctx); err != nil {
 			multiErr = multierr.Append(multiErr, err)
 		}
 	}
@@ -257,7 +258,7 @@ func (p *DstCommitProvider) NewCommitStoreReader(ctx context.Context, commitStor
 	p.seenCommitStoreAddress = &commitStoreAddress
 
 	versionFinder := ccip.NewEvmVersionFinder()
-	commitStoreReader, err = NewIncompleteDestCommitStoreReader(p.lggr, versionFinder, commitStoreAddress, p.client, p.lp)
+	commitStoreReader, err = NewIncompleteDestCommitStoreReader(ctx, p.lggr, versionFinder, commitStoreAddress, p.client, p.lp)
 	return
 }
 
@@ -267,7 +268,7 @@ func (p *SrcCommitProvider) NewOnRampReader(ctx context.Context, onRampAddress c
 	p.seenDestChainSelector = &destChainSelector
 
 	versionFinder := ccip.NewEvmVersionFinder()
-	onRampReader, err = ccip.NewOnRampReader(p.lggr, versionFinder, sourceChainSelector, destChainSelector, onRampAddress, p.lp, p.client)
+	onRampReader, err = ccip.NewOnRampReader(ctx, p.lggr, versionFinder, sourceChainSelector, destChainSelector, onRampAddress, p.lp, p.client)
 	return
 }
 
@@ -280,7 +281,7 @@ func (p *SrcCommitProvider) NewOffRampReader(ctx context.Context, offRampAddr cc
 }
 
 func (p *DstCommitProvider) NewOffRampReader(ctx context.Context, offRampAddr cciptypes.Address) (offRampReader cciptypes.OffRampReader, err error) {
-	offRampReader, err = ccip.NewOffRampReader(p.lggr, p.versionFinder, offRampAddr, p.client, p.lp, p.gasEstimator, &p.maxGasPrice, true)
+	offRampReader, err = ccip.NewOffRampReader(ctx, p.lggr, p.versionFinder, offRampAddr, p.client, p.lp, p.gasEstimator, &p.maxGasPrice, true)
 	return
 }
 

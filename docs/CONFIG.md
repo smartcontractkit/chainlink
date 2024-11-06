@@ -9503,8 +9503,8 @@ HistoryDepth = 100 # Default
 ```
 HistoryDepth tracks the top N blocks on top of the latest finalized block to keep in the `heads` database table.
 Note that this can easily result in MORE than `N + finality depth`  records since in the case of re-orgs we keep multiple heads for a particular block height.
-This number should be at least as large as `FinalityDepth`.
-There may be a small performance penalty to setting this to something very large (10,000+)
+Higher values help reduce number of RPC requests performed by TXM's Finalizer and improve TXM's Confirmer reorg protection on restarts.
+At the same time, setting the value too high could lead to higher CPU consumption. The following formula could be used to calculate the optimal value: `expected_downtime_on_restart/block_time`.
 
 ### MaxBufferSize
 ```toml
@@ -10064,6 +10064,7 @@ ComputeUnitPriceMin = 0 # Default
 ComputeUnitPriceDefault = 0 # Default
 FeeBumpPeriod = '3s' # Default
 BlockHistoryPollPeriod = '5s' # Default
+BlockHistorySize = 1 # Default
 ComputeUnitLimitDefault = 200_000 # Default
 EstimateComputeUnitLimit = false # Default
 ```
@@ -10177,6 +10178,15 @@ FeeBumpPeriod is the amount of time before a tx is retried with a fee bump
 BlockHistoryPollPeriod = '5s' # Default
 ```
 BlockHistoryPollPeriod is the rate to poll for blocks in the block history fee estimator
+
+### BlockHistorySize
+```toml
+BlockHistorySize = 1 # Default
+```
+BlockHistorySize is the number of blocks to take into consideration when using FeeEstimatorMode = 'blockhistory' to determine compute unit price.
+If set to 1, the compute unit price will be determined by the median of the last block's compute unit prices.
+If set N > 1, the compute unit price will be determined by the average of the medians of the last N blocks' compute unit prices.
+DISCLAIMER: 1:1 ratio between n and RPC calls. It executes once every 'BlockHistoryPollPeriod' value.
 
 ### ComputeUnitLimitDefault
 ```toml

@@ -183,16 +183,16 @@ contract RMNRemote_curse is RMNRemoteSetup {
     s_rmnRemote.curse(s_curseSubjects);
 
     assertEq(abi.encode(s_rmnRemote.getCursedSubjects()), abi.encode(s_curseSubjects));
-    assertTrue(s_rmnRemote.isCursed(curseSubj1));
-    assertTrue(s_rmnRemote.isCursed(curseSubj2));
+    assertTrue(s_rmnRemote.isCursed(CURSE_SUBJ_1));
+    assertTrue(s_rmnRemote.isCursed(CURSE_SUBJ_2));
     // Should not have cursed a random subject
     assertFalse(s_rmnRemote.isCursed(bytes16(keccak256("subject 3"))));
   }
 
   function test_curse_AlreadyCursed_duplicateSubject_reverts() public {
-    s_curseSubjects.push(curseSubj1);
+    s_curseSubjects.push(CURSE_SUBJ_1);
 
-    vm.expectRevert(abi.encodeWithSelector(RMNRemote.AlreadyCursed.selector, curseSubj1));
+    vm.expectRevert(abi.encodeWithSelector(RMNRemote.AlreadyCursed.selector, CURSE_SUBJ_1));
     s_rmnRemote.curse(s_curseSubjects);
   }
 
@@ -217,14 +217,14 @@ contract RMNRemote_uncurse is RMNRemoteSetup {
     s_rmnRemote.uncurse(s_curseSubjects);
 
     assertEq(s_rmnRemote.getCursedSubjects().length, 0);
-    assertFalse(s_rmnRemote.isCursed(curseSubj1));
-    assertFalse(s_rmnRemote.isCursed(curseSubj2));
+    assertFalse(s_rmnRemote.isCursed(CURSE_SUBJ_1));
+    assertFalse(s_rmnRemote.isCursed(CURSE_SUBJ_2));
   }
 
   function test_uncurse_NotCursed_duplicatedUncurseSubject_reverts() public {
-    s_curseSubjects.push(curseSubj1);
+    s_curseSubjects.push(CURSE_SUBJ_1);
 
-    vm.expectRevert(abi.encodeWithSelector(RMNRemote.NotCursed.selector, curseSubj1));
+    vm.expectRevert(abi.encodeWithSelector(RMNRemote.NotCursed.selector, CURSE_SUBJ_1));
     s_rmnRemote.uncurse(s_curseSubjects);
   }
 

@@ -332,7 +332,7 @@ func TestDeployCLO(t *testing.T) {
 		AddressBook: ad,
 	}
 
-	contractSetsResp, err := keystone.GetContractSets(req)
+	contractSetsResp, err := keystone.GetContractSets(lggr, req)
 	require.NoError(t, err)
 	require.Len(t, contractSetsResp.ContractSets, len(env.Chains))
 	// check the registry
