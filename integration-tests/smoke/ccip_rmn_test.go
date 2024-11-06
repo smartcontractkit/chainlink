@@ -126,7 +126,7 @@ func TestRMN(t *testing.T) {
 		rmnRemoteConfig := rmn_remote.RMNRemoteConfig{
 			RmnHomeContractConfigDigest: activeDigest,
 			Signers:                     rmnRemoteSigners,
-			F:                           0,
+			F:                           remoteF,
 		}
 		t.Logf("Setting RMNRemote config with RMNHome active digest: %x, cfg: %+v", activeDigest[:], rmnRemoteConfig)
 		tx2, err2 := chState.RMNRemote.SetConfig(chain.DeployerKey, rmnRemoteConfig)
