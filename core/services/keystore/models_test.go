@@ -106,7 +106,7 @@ func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
 	})
 
 	t.Run("test legacy system", func(t *testing.T) {
-		//Add unsupported keys to raw json
+		// Add unsupported keys to raw json
 		rawJson, _ := json.Marshal(originalKeyRing.raw())
 		var allKeys = map[string][]string{
 			"foo": {
@@ -115,19 +115,19 @@ func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
 		}
 		err := json.Unmarshal(rawJson, &allKeys)
 		require.NoError(t, err)
-		//Add more ocr2 keys
+		// Add more ocr2 keys
 		newOCR2Key1 := ocrkey.MustNewV2XXXTestingOnly(big.NewInt(5))
 		newOCR2Key2 := ocrkey.MustNewV2XXXTestingOnly(big.NewInt(6))
 		allKeys["OCR2"] = append(allKeys["OCR2"], newOCR2Key1.Raw().String())
 		allKeys["OCR2"] = append(allKeys["OCR2"], newOCR2Key2.Raw().String())
 
-		//Add more p2p keys
+		// Add more p2p keys
 		newP2PKey1 := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(5))
 		newP2PKey2 := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(7))
 		allKeys["P2P"] = append(allKeys["P2P"], newP2PKey1.Raw().String())
 		allKeys["P2P"] = append(allKeys["P2P"], newP2PKey2.Raw().String())
 
-		//Run legacy system
+		// Run legacy system
 		newRawJson, _ := json.Marshal(allKeys)
 		err = originalKeyRing.LegacyKeys.StoreUnsupported(newRawJson, originalKeyRing)
 		require.NoError(t, err)
@@ -140,14 +140,14 @@ func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
 		err = json.Unmarshal(unloadedKeysJson, &shouldHaveAllKeys)
 		require.NoError(t, err)
 
-		//Check if keys where added to the raw json
+		// Check if keys where added to the raw json
 		require.Equal(t, shouldHaveAllKeys["foo"], []string{"bar", "biz"})
 		require.Contains(t, shouldHaveAllKeys["OCR2"], newOCR2Key1.Raw().String())
 		require.Contains(t, shouldHaveAllKeys["OCR2"], newOCR2Key2.Raw().String())
 		require.Contains(t, shouldHaveAllKeys["P2P"], newP2PKey1.Raw().String())
 		require.Contains(t, shouldHaveAllKeys["P2P"], newP2PKey2.Raw().String())
 
-		//Check error
+		// Check error
 		err = originalKeyRing.LegacyKeys.StoreUnsupported(newRawJson, nil)
 		require.Error(t, err)
 		_, err = originalKeyRing.LegacyKeys.UnloadUnsupported(nil)

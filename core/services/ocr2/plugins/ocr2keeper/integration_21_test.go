@@ -565,7 +565,7 @@ func listenPerformedN(t *testing.T, backend *backends.SimulatedBackend, registry
 				if iter.Event != nil {
 					t.Logf("[automation-ocr3 | EvmRegistry] upkeep performed event emitted for id %s", iter.Event.Id.String())
 
-					//cache.Store(iter.Event.Id.String(), true)
+					// cache.Store(iter.Event.Id.String(), true)
 					count, ok := cache.Load(iter.Event.Id.String())
 					if !ok {
 						cache.Store(iter.Event.Id.String(), 1)

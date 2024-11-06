@@ -4,6 +4,8 @@ FROM ${BASE_IMAGE}:${IMAGE_VERSION} AS build-env
 
 WORKDIR /go/testdir
 RUN mkdir -p /go/testdir/integration-tests/load
+# Deplyment module uses a local replace for latest code
+COPY deployment/go.mod deployment/go.sum /go/testdir/deployment/
 COPY go.mod go.sum  ./
 COPY integration-tests/go.mod integration-tests/go.sum ./integration-tests/
 COPY integration-tests/load/go.mod integration-tests/load/go.sum ./integration-tests/load/

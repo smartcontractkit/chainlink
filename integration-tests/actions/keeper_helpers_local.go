@@ -5,17 +5,17 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
 
 func CreateKeeperJobsLocal(
 	l zerolog.Logger,
-	chainlinkNodes []*client.ChainlinkClient,
+	chainlinkNodes []*nodeclient.ChainlinkClient,
 	keeperRegistry contracts.KeeperRegistry,
 	ocrConfig contracts.OCRv2Config,
 	evmChainID string,
-) ([]*client.Job, error) {
+) ([]*nodeclient.Job, error) {
 	// Send keeper jobs to registry and chainlink nodes
 	primaryNode := chainlinkNodes[0]
 	primaryNodeAddress, err := primaryNode.PrimaryEthAddress()
@@ -38,14 +38,14 @@ func CreateKeeperJobsLocal(
 		l.Error().Err(err).Msg("Setting keepers in the registry shouldn't fail")
 		return nil, err
 	}
-	jobs := []*client.Job{}
+	jobs := []*nodeclient.Job{}
 	for _, chainlinkNode := range chainlinkNodes {
 		chainlinkNodeAddress, err := chainlinkNode.PrimaryEthAddress()
 		if err != nil {
 			l.Error().Err(err).Msg("Error retrieving chainlink node address")
 			return nil, err
 		}
-		job, err := chainlinkNode.MustCreateJob(&client.KeeperJobSpec{
+		job, err := chainlinkNode.MustCreateJob(&nodeclient.KeeperJobSpec{
 			Name:                     fmt.Sprintf("keeper-test-%s", keeperRegistry.Address()),
 			ContractAddress:          keeperRegistry.Address(),
 			FromAddress:              chainlinkNodeAddress,

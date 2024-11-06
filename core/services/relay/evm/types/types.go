@@ -184,7 +184,8 @@ func (r *ReadType) UnmarshalText(text []byte) error {
 type LLOConfigMode string
 
 const (
-	LLOConfigModeMercury LLOConfigMode = "mercury"
+	LLOConfigModeMercury   LLOConfigMode = "mercury"
+	LLOConfigModeBlueGreen LLOConfigMode = "bluegreen"
 )
 
 func (c LLOConfigMode) String() string {
@@ -232,7 +233,7 @@ func NewRelayOpts(args types.RelayArgs) *RelayOpts {
 
 func (o *RelayOpts) RelayConfig() (RelayConfig, error) {
 	var empty RelayConfig
-	//TODO this should be done once and the error should be cached
+	// TODO this should be done once and the error should be cached
 	if o.c == nil {
 		var c RelayConfig
 		err := json.Unmarshal(o.RelayArgs.RelayConfig, &c)

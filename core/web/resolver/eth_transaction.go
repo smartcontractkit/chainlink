@@ -6,8 +6,11 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/graph-gophers/graphql-go"
 
+	commonTypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
 	"github.com/smartcontractkit/chainlink/v2/core/web/loader"
 )
@@ -98,7 +101,8 @@ func (r *EthTransactionResolver) Hex(ctx context.Context) string {
 
 // Chain resolves the node's chain object field.
 func (r *EthTransactionResolver) Chain(ctx context.Context) (*ChainResolver, error) {
-	chain, err := loader.GetChainByID(ctx, string(r.EVMChainID()))
+	relayID := commonTypes.NewRelayID(relay.NetworkEVM, string(r.EVMChainID()))
+	chain, err := loader.GetChainByRelayID(ctx, relayID.Name())
 	if err != nil {
 		return nil, err
 	}

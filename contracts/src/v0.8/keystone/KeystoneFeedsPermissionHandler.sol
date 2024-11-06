@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";
+import {Ownable2StepMsgSender} from "../shared/access/Ownable2StepMsgSender.sol";
 
 /// @title Keystone Feeds Permission Handler
 /// @notice This contract is designed to manage and validate permissions for accessing specific reports within a decentralized system.
 /// @dev The contract uses mappings to keep track of report permissions associated with a unique report ID.
-abstract contract KeystoneFeedsPermissionHandler is OwnerIsCreator {
+abstract contract KeystoneFeedsPermissionHandler is Ownable2StepMsgSender {
   /// @notice Holds the details for permissions of a report
   /// @dev Workflow names and report names are stored as bytes to optimize for gas efficiency.
   struct Permission {

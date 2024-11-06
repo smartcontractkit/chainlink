@@ -8,7 +8,7 @@ import (
 )
 
 // NOTE: All supported codecs must be specified here
-func NewCodecs() map[llotypes.ReportFormat]llo.ReportCodec {
+func NewReportCodecs() map[llotypes.ReportFormat]llo.ReportCodec {
 	codecs := make(map[llotypes.ReportFormat]llo.ReportCodec)
 
 	codecs[llotypes.ReportFormatJSON] = llo.JSONReportCodec{}

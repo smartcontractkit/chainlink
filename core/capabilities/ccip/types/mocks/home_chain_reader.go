@@ -8,7 +8,7 @@ import (
 
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 
-	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/libocr/ragep2p/types"
 )
@@ -20,68 +20,68 @@ type HomeChainReader struct {
 }
 
 func (_m *HomeChainReader) GetChainConfig(chainSelector cciptypes.ChainSelector) (ccipreaderpkg.ChainConfig, error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (_m *HomeChainReader) GetAllChainConfigs() (map[cciptypes.ChainSelector]ccipreaderpkg.ChainConfig, error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (_m *HomeChainReader) GetSupportedChainsForPeer(id types.PeerID) (mapset.Set[cciptypes.ChainSelector], error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (_m *HomeChainReader) GetKnownCCIPChains() (mapset.Set[cciptypes.ChainSelector], error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (_m *HomeChainReader) GetFChain() (map[cciptypes.ChainSelector]int, error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (_m *HomeChainReader) Start(ctx context.Context) error {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (_m *HomeChainReader) Close() error {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (_m *HomeChainReader) HealthReport() map[string]error {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (_m *HomeChainReader) Name() string {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 // GetOCRConfigs provides a mock function with given fields: ctx, donID, pluginType
-func (_m *HomeChainReader) GetOCRConfigs(ctx context.Context, donID uint32, pluginType uint8) ([]ccipreaderpkg.OCR3ConfigWithMeta, error) {
+func (_m *HomeChainReader) GetOCRConfigs(ctx context.Context, donID uint32, pluginType uint8) (ccipreaderpkg.ActiveAndCandidate, error) {
 	ret := _m.Called(ctx, donID, pluginType)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetOCRConfigs")
 	}
 
-	var r0 []ccipreaderpkg.OCR3ConfigWithMeta
+	var r0 ccipreaderpkg.ActiveAndCandidate
 	var r1 error
-	if rf, ok := ret.Get(0).(func(ctx context.Context, donID uint32, pluginType uint8) ([]ccipreaderpkg.OCR3ConfigWithMeta, error)); ok {
+	if rf, ok := ret.Get(0).(func(ctx context.Context, donID uint32, pluginType uint8) (ccipreaderpkg.ActiveAndCandidate, error)); ok {
 		return rf(ctx, donID, pluginType)
 	}
-	if rf, ok := ret.Get(0).(func(ctx context.Context, donID uint32, pluginType uint8) []ccipreaderpkg.OCR3ConfigWithMeta); ok {
+	if rf, ok := ret.Get(0).(func(ctx context.Context, donID uint32, pluginType uint8) ccipreaderpkg.ActiveAndCandidate); ok {
 		r0 = rf(ctx, donID, pluginType)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]ccipreaderpkg.OCR3ConfigWithMeta)
+			r0 = ret.Get(0).(ccipreaderpkg.ActiveAndCandidate)
 		}
 	}
 

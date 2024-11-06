@@ -10,7 +10,7 @@
 - https://github.com/smartcontractkit/chainlink-common/pull/7777777
 -->
 
-### Resolves
+### Supports
 <!--- Does this work support other open PRs?  Please list them.
 - https://github.com/smartcontractkit/ccip/pull/7777777
 -->

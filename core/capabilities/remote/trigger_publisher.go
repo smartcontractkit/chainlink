@@ -333,5 +333,5 @@ func (p *triggerPublisher) HealthReport() map[string]error {
 }
 
 func (p *triggerPublisher) Name() string {
-	return "TriggerPublisher"
+	return p.lggr.Name()
 }

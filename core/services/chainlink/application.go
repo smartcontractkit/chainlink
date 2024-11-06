@@ -26,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
-
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
@@ -53,6 +52,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
@@ -71,6 +71,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	workflowstore "github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/ldapauth"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/localauth"
@@ -183,9 +184,11 @@ type ApplicationOpts struct {
 	LoopRegistry               *plugins.LoopRegistry
 	GRPCOpts                   loop.GRPCOpts
 	MercuryPool                wsrpc.Pool
+	RetirementReportCache      llo.RetirementReportCache
 	CapabilitiesRegistry       *capabilities.Registry
 	CapabilitiesDispatcher     remotetypes.Dispatcher
 	CapabilitiesPeerWrapper    p2ptypes.PeerWrapper
+	NewOracleFactoryFn         standardcapabilities.NewOracleFactoryFn
 }
 
 // NewApplication initializes a new store if one is not already
@@ -209,6 +212,11 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		// for tests only, in prod Registry should always be set at this point
 		opts.CapabilitiesRegistry = capabilities.NewRegistry(globalLogger)
 	}
+
+	// TODO: wire this up to config so we only instantiate it
+	// if a workflow registry address is provided.
+	workflowRegistrySyncer := syncer.NewWorkflowRegistry()
+	srvcs = append(srvcs, workflowRegistrySyncer)
 
 	var externalPeerWrapper p2ptypes.PeerWrapper
 	if cfg.Capabilities().Peering().Enabled() {
@@ -333,6 +341,9 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	// pool must be started before all relayers and stopped after them
 	if opts.MercuryPool != nil {
 		srvcs = append(srvcs, opts.MercuryPool)
+	}
+	if opts.RetirementReportCache != nil {
+		srvcs = append(srvcs, opts.RetirementReportCache)
 	}
 
 	// EVM chains are used all over the place. This will need to change for fully EVM extraction
@@ -460,6 +471,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	delegates[job.Workflow] = workflows.NewDelegate(
 		globalLogger,
 		opts.CapabilitiesRegistry,
+		workflowRegistrySyncer,
 		workflowORM,
 	)
 
@@ -504,6 +516,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		gatewayConnectorWrapper,
 		keyStore,
 		peerWrapper,
+		opts.NewOracleFactoryFn,
 	)
 
 	if cfg.OCR().Enabled() {
@@ -529,22 +542,25 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg.OCR2(), cfg.Mercury(), cfg.Threshold(), cfg.Insecure(), cfg.JobPipeline(), loopRegistrarConfig)
 
 		delegates[job.OffchainReporting2] = ocr2.NewDelegate(
-			opts.DS,
-			jobORM,
-			bridgeORM,
-			mercuryORM,
-			pipelineRunner,
-			streamRegistry,
-			peerWrapper,
-			telemetryManager,
-			legacyEVMChains,
-			globalLogger,
+			ocr2.DelegateOpts{
+				Ds:                    opts.DS,
+				JobORM:                jobORM,
+				BridgeORM:             bridgeORM,
+				MercuryORM:            mercuryORM,
+				PipelineRunner:        pipelineRunner,
+				StreamRegistry:        streamRegistry,
+				PeerWrapper:           peerWrapper,
+				MonitoringEndpointGen: telemetryManager,
+				LegacyChains:          legacyEVMChains,
+				Lggr:                  globalLogger,
+				Ks:                    keyStore.OCR2(),
+				EthKs:                 keyStore.Eth(),
+				Relayers:              opts.RelayerChainInteroperators,
+				MailMon:               mailMon,
+				CapabilitiesRegistry:  opts.CapabilitiesRegistry,
+				RetirementReportCache: opts.RetirementReportCache,
+			},
 			ocr2DelegateConfig,
-			keyStore.OCR2(),
-			keyStore.Eth(),
-			opts.RelayerChainInteroperators,
-			mailMon,
-			opts.CapabilitiesRegistry,
 		)
 		delegates[job.Bootstrap] = ocrbootstrap.NewDelegateBootstrap(
 			opts.DS,

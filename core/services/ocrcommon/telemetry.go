@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/shopspring/decimal"
 	"github.com/smartcontractkit/libocr/commontypes"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"google.golang.org/protobuf/proto"
@@ -220,18 +222,40 @@ func parseEATelemetry(b []byte) (EATelemetry, error) {
 }
 
 // getJsonParsedValue checks if the next logical task is of type pipeline.TaskTypeJSONParse and trys to return
-// the response as a *big.Int
+// the response as a *big.Int.
+// Currently utils.ToDecimal cannot handle hex strings, so this function also has a special case,
+// to check and handle if the result is a hex string, if the call to utils.ToDecimal fails.
+// Draft PR to add hex string handling to utils.ToDecimal: https://github.com/smartcontractkit/chainlink/pull/14841
 func getJsonParsedValue(trr pipeline.TaskRunResult, trrs *pipeline.TaskRunResults) *float64 {
 	nextTask := trrs.GetNextTaskOf(trr)
 	if nextTask != nil && nextTask.Task.Type() == pipeline.TaskTypeJSONParse {
 		asDecimal, err := utils.ToDecimal(nextTask.Result.Value)
 		if err != nil {
-			return nil
+			v, ok := nextTask.Result.Value.(string)
+			if !ok {
+				return nil
+			}
+			hexAnswer, success := hexStringToDecimal(v)
+			if !success {
+				return nil
+			}
+			asDecimal = hexAnswer
 		}
 		toFloat, _ := asDecimal.Float64()
 		return &toFloat
 	}
 	return nil
+}
+
+// hexStringToDecimal takes in a hex string, and returns (decimal.Decimal, bool), bool indicates success status
+func hexStringToDecimal(hexString string) (decimal.Decimal, bool) {
+	hexString = strings.TrimPrefix(hexString, "0x")
+	n := new(big.Int)
+	_, success := n.SetString(hexString, 16)
+	if !success {
+		return decimal.Decimal{}, false
+	}
+	return decimal.NewFromBigInt(n, 0), true
 }
 
 // getObservation checks pipeline.FinalResult and extracts the observation

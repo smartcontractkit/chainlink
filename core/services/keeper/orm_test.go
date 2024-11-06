@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -57,11 +56,11 @@ func newUpkeep(registry keeper.Registry, upkeepID int64) keeper.UpkeepRegistrati
 func waitLastRunHeight(t *testing.T, db *sqlx.DB, upkeep keeper.UpkeepRegistration, height int64) {
 	t.Helper()
 
-	gomega.NewWithT(t).Eventually(func() int64 {
+	require.Eventually(t, func() bool {
 		err := db.Get(&upkeep, `SELECT * FROM upkeep_registrations WHERE id = $1`, upkeep.ID)
 		require.NoError(t, err)
-		return upkeep.LastRunBlockHeight
-	}, time.Second*2, time.Millisecond*100).Should(gomega.Equal(height))
+		return upkeep.LastRunBlockHeight == height
+	}, time.Second*2, time.Millisecond*100)
 }
 
 func assertLastRunHeight(t *testing.T, db *sqlx.DB, upkeep keeper.UpkeepRegistration, lastRunBlockHeight int64, lastKeeperIndex int64) {

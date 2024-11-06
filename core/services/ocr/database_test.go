@@ -172,7 +172,7 @@ func assertPendingTransmissionEqual(t *testing.T, pt1, pt2 ocrtypes.PendingTrans
 	require.Equal(t, pt1.Rs, pt2.Rs)
 	require.Equal(t, pt1.Ss, pt2.Ss)
 	assert.True(t, bytes.Equal(pt1.Vs[:], pt2.Vs[:]))
-	assert.True(t, bytes.Equal(pt1.SerializedReport[:], pt2.SerializedReport[:]))
+	assert.True(t, bytes.Equal(pt1.SerializedReport, pt2.SerializedReport))
 	assert.Equal(t, pt1.Median, pt2.Median)
 	for i := range pt1.Ss {
 		assert.True(t, bytes.Equal(pt1.Ss[i][:], pt2.Ss[i][:]))

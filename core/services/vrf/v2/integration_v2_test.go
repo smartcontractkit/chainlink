@@ -579,7 +579,7 @@ func createVRFJobs(
 		jobs = append(jobs, jb)
 	}
 	// Wait until all jobs are active and listening for logs
-	gomega.NewWithT(t).Eventually(func() bool {
+	require.Eventually(t, func() bool {
 		jbs := app.JobSpawner().ActiveJobs()
 		var count int
 		for _, jb := range jbs {
@@ -588,7 +588,7 @@ func createVRFJobs(
 			}
 		}
 		return count == len(fromKeys)
-	}, testutils.WaitTimeout(t), 100*time.Millisecond).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), 100*time.Millisecond)
 	// Unfortunately the lb needs heads to be able to backfill logs to new subscribers.
 	// To avoid confirming
 	// TODO: it could just backfill immediately upon receiving a new subscriber? (though would
@@ -789,7 +789,7 @@ func mine(t *testing.T, requestID, subID *big.Int, backend *backends.SimulatedBa
 		t.Errorf("unsupported vrf version %s", vrfVersion)
 	}
 
-	return gomega.NewWithT(t).Eventually(func() bool {
+	return assert.Eventually(t, func() bool {
 		backend.Commit()
 		txes, err := txstore.FindTxesByMetaFieldAndStates(testutils.Context(t), metaField, subID.String(), []txmgrtypes.TxState{txmgrcommon.TxConfirmed}, chainId)
 		require.NoError(t, err)
@@ -801,7 +801,7 @@ func mine(t *testing.T, requestID, subID *big.Int, backend *backends.SimulatedBa
 			}
 		}
 		return false
-	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), time.Second)
 }
 
 func mineBatch(t *testing.T, requestIDs []*big.Int, subID *big.Int, backend *backends.SimulatedBackend, db *sqlx.DB, vrfVersion vrfcommon.Version, chainId *big.Int) bool {
@@ -818,7 +818,7 @@ func mineBatch(t *testing.T, requestIDs []*big.Int, subID *big.Int, backend *bac
 	for _, requestID := range requestIDs {
 		requestIDMap[common.BytesToHash(requestID.Bytes()).String()] = false
 	}
-	return gomega.NewWithT(t).Eventually(func() bool {
+	return assert.Eventually(t, func() bool {
 		backend.Commit()
 		txes, err := txstore.FindTxesByMetaFieldAndStates(testutils.Context(t), metaField, subID.String(), []txmgrtypes.TxState{txmgrcommon.TxConfirmed}, chainId)
 		require.NoError(t, err)
@@ -837,11 +837,11 @@ func mineBatch(t *testing.T, requestIDs []*big.Int, subID *big.Int, backend *bac
 		}
 		t.Log("requestIDMap:", requestIDMap)
 		return foundAll
-	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), time.Second)
 }
 
 func mineForceFulfilled(t *testing.T, requestID *big.Int, subID uint64, forceFulfilledCount int64, uni coordinatorV2Universe, db *sqlx.DB) bool {
-	return gomega.NewWithT(t).Eventually(func() bool {
+	return assert.Eventually(t, func() bool {
 		uni.backend.Commit()
 		var txs []txmgr.DbEthTx
 		err := db.Select(&txs, `
@@ -853,7 +853,7 @@ func mineForceFulfilled(t *testing.T, requestID *big.Int, subID uint64, forceFul
 		require.NoError(t, err)
 		t.Log("num txs", len(txs))
 		return len(txs) == int(forceFulfilledCount)
-	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), time.Second)
 }
 
 func TestVRFV2Integration_SingleConsumer_ForceFulfillment(t *testing.T) {
@@ -1710,7 +1710,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	// We expect the request to be serviced
 	// by the node.
 	var runs []pipeline.Run
-	gomega.NewWithT(t).Eventually(func() bool {
+	require.Eventually(t, func() bool {
 		runs, err = app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err)
 		// It is possible that we send the test request
@@ -1719,11 +1719,11 @@ func TestIntegrationVRFV2(t *testing.T) {
 		// keep blocks coming in for the lb to send the backfilled logs.
 		uni.backend.Commit()
 		return len(runs) == 1 && runs[0].State == pipeline.RunStatusCompleted
-	}, testutils.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), 1*time.Second)
 
 	// Wait for the request to be fulfilled on-chain.
 	var rf []v22.RandomWordsFulfilled
-	gomega.NewWithT(t).Eventually(func() bool {
+	require.Eventually(t, func() bool {
 		rfIterator, err2 := uni.rootContract.FilterRandomWordsFulfilled(nil, nil, nil)
 		require.NoError(t, err2, "failed to logs")
 		uni.backend.Commit()
@@ -1731,7 +1731,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 			rf = append(rf, rfIterator.Event())
 		}
 		return len(rf) == 1
-	}, testutils.WaitTimeout(t), 500*time.Millisecond).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), 500*time.Millisecond)
 	assert.True(t, rf[0].Success(), "expected callback to succeed")
 	fulfillReceipt, err := uni.backend.TransactionReceipt(ctx, rf[0].Raw().TxHash)
 	require.NoError(t, err)
@@ -2249,7 +2249,7 @@ func FindLatestRandomnessRequestedLog(t *testing.T,
 	keyHash [32]byte,
 	requestID *big.Int) v22.RandomWordsRequested {
 	var rf []v22.RandomWordsRequested
-	gomega.NewWithT(t).Eventually(func() bool {
+	require.Eventually(t, func() bool {
 		rfIterator, err2 := coordContract.FilterRandomWordsRequested(nil, [][32]byte{keyHash}, nil, []common.Address{})
 		require.NoError(t, err2, "failed to logs")
 		for rfIterator.Next() {
@@ -2258,7 +2258,7 @@ func FindLatestRandomnessRequestedLog(t *testing.T,
 			}
 		}
 		return len(rf) >= 1
-	}, testutils.WaitTimeout(t), 500*time.Millisecond).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), 500*time.Millisecond)
 	latest := len(rf) - 1
 	return rf[latest]
 }

@@ -24,7 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
@@ -1500,7 +1500,7 @@ func NewExecOffchainConfig(
 }
 
 func NewOffChainAggregatorV2ConfigForCCIPPlugin[T ccipconfig.OffchainConfig](
-	nodes []*client.CLNodesWithKeys,
+	nodes []*nodeclient.CLNodesWithKeys,
 	offchainCfg T,
 	onchainCfg abihelpers.AbiDefined,
 	ocr2Params contracts.OffChainAggregatorV2Config,

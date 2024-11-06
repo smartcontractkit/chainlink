@@ -53,6 +53,7 @@ func ISO8601UTC(t time.Time) string {
 
 // DurationFromNow returns the amount of time since the Time
 // field was last updated.
+// Deprecated: Use [time.Until].
 func DurationFromNow(t time.Time) time.Duration {
 	return time.Until(t)
 }
@@ -157,7 +158,7 @@ func ContextFromChan(chStop chan struct{}) (context.Context, context.CancelFunc)
 // ContextFromChanWithTimeout creates a context with a timeout that finishes when the provided channel receives or is closed.
 // Deprecated: Call [services.StopChan.CtxCancel] directly
 func ContextFromChanWithTimeout(chStop chan struct{}, timeout time.Duration) (context.Context, context.CancelFunc) {
-	return services.StopChan(chStop).CtxCancel(context.WithTimeout(context.Background(), timeout))
+	return services.StopChan(chStop).CtxWithTimeout(timeout)
 }
 
 // Deprecated: use services.StopChan

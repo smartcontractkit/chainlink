@@ -5,7 +5,7 @@ import {IPoolV1} from "../interfaces/IPool.sol";
 import {IRMN} from "../interfaces/IRMN.sol";
 import {IRouter} from "../interfaces/IRouter.sol";
 
-import {OwnerIsCreator} from "../../shared/access/OwnerIsCreator.sol";
+import {Ownable2StepMsgSender} from "../../shared/access/Ownable2StepMsgSender.sol";
 import {Pool} from "../libraries/Pool.sol";
 import {RateLimiter} from "../libraries/RateLimiter.sol";
 
@@ -16,7 +16,7 @@ import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts
 /// @notice Base abstract class with common functions for all token pools.
 /// A token pool serves as isolated place for holding tokens and token specific logic
 /// that may execute as tokens move across the bridge.
-abstract contract TokenPool is IPoolV1, OwnerIsCreator {
+abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
   using EnumerableSet for EnumerableSet.AddressSet;
   using EnumerableSet for EnumerableSet.UintSet;
   using RateLimiter for RateLimiter.TokenBucket;
@@ -80,7 +80,7 @@ abstract contract TokenPool is IPoolV1, OwnerIsCreator {
   /// Only takes effect if i_allowlistEnabled is true.
   /// This can be used to ensure only token-issuer specified addresses can
   /// move tokens.
-  EnumerableSet.AddressSet internal s_allowList;
+  EnumerableSet.AddressSet internal s_allowlist;
   /// @dev The address of the router
   IRouter internal s_router;
   /// @dev A set of allowed chain selectors. We want the allowlist to be enumerable to
@@ -416,13 +416,13 @@ abstract contract TokenPool is IPoolV1, OwnerIsCreator {
     address sender
   ) internal view {
     if (i_allowlistEnabled) {
-      if (!s_allowList.contains(sender)) {
+      if (!s_allowlist.contains(sender)) {
         revert SenderNotAllowed(sender);
       }
     }
   }
 
-  /// @notice Gets whether the allowList functionality is enabled.
+  /// @notice Gets whether the allowlist functionality is enabled.
   /// @return true is enabled, false if not.
   function getAllowListEnabled() external view returns (bool) {
     return i_allowlistEnabled;
@@ -431,7 +431,7 @@ abstract contract TokenPool is IPoolV1, OwnerIsCreator {
   /// @notice Gets the allowed addresses.
   /// @return The allowed addresses.
   function getAllowList() external view returns (address[] memory) {
-    return s_allowList.values();
+    return s_allowlist.values();
   }
 
   /// @notice Apply updates to the allow list.
@@ -447,7 +447,7 @@ abstract contract TokenPool is IPoolV1, OwnerIsCreator {
 
     for (uint256 i = 0; i < removes.length; ++i) {
       address toRemove = removes[i];
-      if (s_allowList.remove(toRemove)) {
+      if (s_allowlist.remove(toRemove)) {
         emit AllowListRemove(toRemove);
       }
     }
@@ -456,7 +456,7 @@ abstract contract TokenPool is IPoolV1, OwnerIsCreator {
       if (toAdd == address(0)) {
         continue;
       }
-      if (s_allowList.add(toAdd)) {
+      if (s_allowlist.add(toAdd)) {
         emit AllowListAdd(toAdd);
       }
     }

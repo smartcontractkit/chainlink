@@ -37,11 +37,12 @@ func TestWasmFileSpecFactory(t *testing.T) {
 	require.NoError(t, bwr.Close())
 
 	t.Run("Raw binary", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		factory := job.WasmFileSpecFactory{}
 		actual, rawSpec, actualSha, err2 := factory.Spec(testutils.Context(t), binaryLocation, configLocation)
 		require.NoError(t, err2)
 
-		expected, err2 := host.GetWorkflowSpec(&host.ModuleConfig{Logger: logger.NullLogger, IsUncompressed: true}, rawBinary, config)
+		expected, err2 := host.GetWorkflowSpec(ctx, &host.ModuleConfig{Logger: logger.NullLogger, IsUncompressed: true}, rawBinary, config)
 		require.NoError(t, err2)
 
 		expectedSha := sha256.New()
@@ -55,6 +56,7 @@ func TestWasmFileSpecFactory(t *testing.T) {
 	})
 
 	t.Run("Compressed binary", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		brLoc := strings.Replace(binaryLocation, ".wasm", ".br", 1)
 		compressedBytes := b.Bytes()
 		require.NoError(t, os.WriteFile(brLoc, compressedBytes, 0600))
@@ -63,7 +65,7 @@ func TestWasmFileSpecFactory(t *testing.T) {
 		actual, rawSpec, actualSha, err2 := factory.Spec(testutils.Context(t), brLoc, configLocation)
 		require.NoError(t, err2)
 
-		expected, err2 := host.GetWorkflowSpec(&host.ModuleConfig{Logger: logger.NullLogger, IsUncompressed: true}, rawBinary, config)
+		expected, err2 := host.GetWorkflowSpec(ctx, &host.ModuleConfig{Logger: logger.NullLogger, IsUncompressed: true}, rawBinary, config)
 		require.NoError(t, err2)
 
 		expectedSha := sha256.New()

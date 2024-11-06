@@ -49,7 +49,7 @@ import (
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ocr"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
@@ -57,7 +57,7 @@ import (
 )
 
 // ChainlinkNodeAddresses will return all the on-chain wallet addresses for a set of Chainlink nodes
-func ChainlinkNodeAddresses(nodes []*client.ChainlinkK8sClient) ([]common.Address, error) {
+func ChainlinkNodeAddresses(nodes []*nodeclient.ChainlinkK8sClient) ([]common.Address, error) {
 	addresses := make([]common.Address, 0)
 	for _, node := range nodes {
 		primaryAddress, err := node.PrimaryEthAddress()
@@ -70,7 +70,7 @@ func ChainlinkNodeAddresses(nodes []*client.ChainlinkK8sClient) ([]common.Addres
 }
 
 // ChainlinkNodeAddressesAtIndex will return all the on-chain wallet addresses for a set of Chainlink nodes
-func ChainlinkNodeAddressesAtIndex(nodes []*client.ChainlinkK8sClient, keyIndex int) ([]common.Address, error) {
+func ChainlinkNodeAddressesAtIndex(nodes []*nodeclient.ChainlinkK8sClient, keyIndex int) ([]common.Address, error) {
 	addresses := make([]common.Address, 0)
 	for _, node := range nodes {
 		nodeAddresses, err := node.EthAddresses()
@@ -83,7 +83,7 @@ func ChainlinkNodeAddressesAtIndex(nodes []*client.ChainlinkK8sClient, keyIndex 
 }
 
 // EncodeOnChainVRFProvingKey encodes uncompressed public VRF key to on-chain representation
-func EncodeOnChainVRFProvingKey(vrfKey client.VRFKey) ([2]*big.Int, error) {
+func EncodeOnChainVRFProvingKey(vrfKey nodeclient.VRFKey) ([2]*big.Int, error) {
 	uncompressed := vrfKey.Data.Attributes.Uncompressed
 	provingKey := [2]*big.Int{}
 	var set1 bool
@@ -699,7 +699,7 @@ func TeardownSuite(
 	t *testing.T,
 	chainClient *seth.Client,
 	env *environment.Environment,
-	chainlinkNodes []*client.ChainlinkK8sClient,
+	chainlinkNodes []*nodeclient.ChainlinkK8sClient,
 	optionalTestReporter testreporters.TestReporter, // Optionally pass in a test reporter to log further metrics
 	failingLogLevel zapcore.Level, // Examines logs after the test, and fails the test if any Chainlink logs are found at or above provided level
 	grafnaUrlProvider testreporters.GrafanaURLProvider,
@@ -735,7 +735,7 @@ func TeardownRemoteSuite(
 	t *testing.T,
 	client *seth.Client,
 	namespace string,
-	chainlinkNodes []*client.ChainlinkK8sClient,
+	chainlinkNodes []*nodeclient.ChainlinkK8sClient,
 	optionalTestReporter testreporters.TestReporter, // Optionally pass in a test reporter to log further metrics
 	grafnaUrlProvider testreporters.GrafanaURLProvider,
 ) error {
@@ -760,7 +760,7 @@ func TeardownRemoteSuite(
 
 // DeleteAllJobs deletes all jobs from all chainlink nodes
 // added here temporarily to avoid circular import
-func DeleteAllJobs(chainlinkNodes []*client.ChainlinkK8sClient) error {
+func DeleteAllJobs(chainlinkNodes []*nodeclient.ChainlinkK8sClient) error {
 	for _, node := range chainlinkNodes {
 		if node == nil {
 			return fmt.Errorf("found a nil chainlink node in the list of chainlink nodes while tearing down: %v", chainlinkNodes)

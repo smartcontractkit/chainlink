@@ -689,7 +689,7 @@ func (c *CCIPContracts) SetupLockAndMintTokenPool(
 		return [20]byte{}, nil, err
 	}
 
-	//native token is used as fee token
+	// native token is used as fee token
 	_, err = c.Source.PriceRegistry.UpdatePrices(c.Source.User, price_registry_1_2_0.InternalPriceUpdates{
 		TokenPriceUpdates: []price_registry_1_2_0.InternalTokenPriceUpdate{
 			{

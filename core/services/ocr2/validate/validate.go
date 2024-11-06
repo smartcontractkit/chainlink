@@ -73,6 +73,9 @@ func ValidatedOracleSpecToml(ctx context.Context, config OCR2Config, insConf Ins
 	if err = validateTimingParameters(config, insConf, spec); err != nil {
 		return jb, err
 	}
+	if err = validateAdaptiveSendSpec(ctx, jb); err != nil {
+		return jb, err
+	}
 	return jb, nil
 }
 
@@ -268,7 +271,7 @@ func validateGenericPluginSpec(ctx context.Context, spec *job.OCR2OracleSpec, rc
 	}
 
 	loopID := fmt.Sprintf("%s-%s-%s", p.PluginName, spec.ContractID, spec.GetID())
-	//Starting and stopping a LOOPP isn't efficient; ideally, we'd initiate the LOOPP once and then reference
+	// Starting and stopping a LOOPP isn't efficient; ideally, we'd initiate the LOOPP once and then reference
 	//it later to conserve resources. This code will be revisited once BCF-3126 is implemented, and we have
 	//the ability to reference the LOOPP for future use.
 	cmdFn, grpcOpts, err := rc.RegisterLOOP(plugins.CmdConfig{
@@ -376,4 +379,11 @@ func validateOCR2LLOSpec(jsonConfig job.JSONConfig) error {
 		return pkgerrors.Wrap(err, "error while unmarshaling plugin config")
 	}
 	return pkgerrors.Wrap(pluginConfig.Validate(), "LLO PluginConfig is invalid")
+}
+
+func validateAdaptiveSendSpec(ctx context.Context, spec job.Job) error {
+	if spec.AdaptiveSendSpec != nil {
+		return spec.AdaptiveSendSpec.Validate()
+	}
+	return nil
 }

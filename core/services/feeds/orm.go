@@ -23,6 +23,8 @@ type ORM interface {
 	ListManagers(ctx context.Context) (mgrs []FeedsManager, err error)
 	ListManagersByIDs(ctx context.Context, ids []int64) ([]FeedsManager, error)
 	UpdateManager(ctx context.Context, mgr FeedsManager) error
+	EnableManager(ctx context.Context, id int64) (*FeedsManager, error)
+	DisableManager(ctx context.Context, id int64) (*FeedsManager, error)
 
 	CreateBatchChainConfig(ctx context.Context, cfgs []ChainConfig) ([]int64, error)
 	CreateChainConfig(ctx context.Context, cfg ChainConfig) (int64, error)
@@ -268,7 +270,7 @@ RETURNING id;
 // GetManager gets a feeds manager by id.
 func (o *orm) GetManager(ctx context.Context, id int64) (mgr *FeedsManager, err error) {
 	stmt := `
-SELECT id, name, uri, public_key, created_at, updated_at
+SELECT id, name, uri, public_key, created_at, updated_at, disabled_at
 FROM feeds_managers
 WHERE id = $1
 `
@@ -281,7 +283,7 @@ WHERE id = $1
 // ListManager lists all feeds managers.
 func (o *orm) ListManagers(ctx context.Context) (mgrs []FeedsManager, err error) {
 	stmt := `
-SELECT id, name, uri, public_key, created_at, updated_at
+SELECT id, name, uri, public_key, created_at, updated_at, disabled_at
 FROM feeds_managers
 ORDER BY created_at;
 `
@@ -293,7 +295,7 @@ ORDER BY created_at;
 // ListManagersByIDs gets feeds managers by ids.
 func (o *orm) ListManagersByIDs(ctx context.Context, ids []int64) (managers []FeedsManager, err error) {
 	stmt := `
-SELECT id, name, uri, public_key, created_at, updated_at
+SELECT id, name, uri, public_key, created_at, updated_at, disabled_at
 FROM feeds_managers
 WHERE id = ANY($1)
 ORDER BY created_at, id;`
@@ -324,6 +326,36 @@ WHERE id = $4;
 		return sql.ErrNoRows
 	}
 	return nil
+}
+
+func (o *orm) EnableManager(ctx context.Context, id int64) (*FeedsManager, error) {
+	stmt := `
+		UPDATE feeds_managers
+		SET disabled_at = NULL
+		WHERE id = $1
+		RETURNING *;
+`
+	mgr := new(FeedsManager)
+	err := o.ds.GetContext(ctx, mgr, stmt, id)
+	if err != nil {
+		return nil, errors.Wrap(err, "EnableManager failed")
+	}
+	return mgr, nil
+}
+
+func (o *orm) DisableManager(ctx context.Context, id int64) (*FeedsManager, error) {
+	stmt := `
+		UPDATE feeds_managers
+		SET disabled_at = NOW()
+		WHERE id = $1
+		RETURNING *;
+`
+	mgr := new(FeedsManager)
+	err := o.ds.GetContext(ctx, mgr, stmt, id)
+	if err != nil {
+		return nil, errors.Wrap(err, "DisableManager failed")
+	}
+	return mgr, nil
 }
 
 // CreateJobProposal creates a job proposal.

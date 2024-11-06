@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity 0.8.24;
 
+import {Ownable2Step} from "../../access/Ownable2Step.sol";
 import {AuthorizedCallers} from "../../access/AuthorizedCallers.sol";
 import {BaseTest} from "../BaseTest.t.sol";
 
 contract AuthorizedCallers_setup is BaseTest {
-  address[] s_callers;
+  address[] internal s_callers;
 
-  AuthorizedCallers s_authorizedCallers;
+  AuthorizedCallers internal s_authorizedCallers;
 
   function setUp() public override {
     super.setUp();
@@ -171,7 +172,7 @@ contract AuthorizedCallers_applyAuthorizedCallerUpdates is AuthorizedCallers_set
       removedCallers: new address[](0)
     });
 
-    vm.expectRevert("Only callable by owner");
+    vm.expectRevert(Ownable2Step.OnlyCallableByOwner.selector);
 
     s_authorizedCallers.applyAuthorizedCallerUpdates(authorizedCallerArgs);
   }

@@ -41,7 +41,7 @@ func (s totalDifficultyNodeSelector[CHAIN_ID, RPC]) Select() Node[CHAIN_ID, RPC]
 		}
 	}
 
-	//If all nodes have td == nil pick one from the nodes that are alive
+	// If all nodes have td == nil pick one from the nodes that are alive
 	if len(nodes) == 0 {
 		return firstOrHighestPriority(aliveNodes)
 	}

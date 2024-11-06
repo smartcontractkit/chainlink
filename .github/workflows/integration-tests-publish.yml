@@ -18,7 +18,7 @@ jobs:
       id-token: write
       contents: read
     name: Publish Integration Test Image
-    runs-on: ubuntu22.04-16cores-64GB
+    runs-on: ubuntu22.04-8cores-32GB
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v4.2.1
@@ -30,7 +30,7 @@ jobs:
         run: |
           echo "other_tags=${ECR_TAG}" >> $GITHUB_OUTPUT
       - name: Build Image
-        uses: smartcontractkit/.github/actions/ctf-build-test-image@a5e4f4c8fbb8e15ab2ad131552eca6ac83c4f4b3 # ctf-build-test-image@0.1.0
+        uses: smartcontractkit/.github/actions/ctf-build-test-image@6781e048ecc1aadf7d605722c32e8068a5f829ce # ctf-build-test-image@0.2.0
         with:
           other_tags: ${{ steps.tags.outputs.other_tags }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}

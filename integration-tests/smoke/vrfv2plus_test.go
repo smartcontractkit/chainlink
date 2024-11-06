@@ -27,11 +27,11 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	vrfcommon "github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/common"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/vrfv2plus"
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
 
+	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	it_utils "github.com/smartcontractkit/chainlink/integration-tests/utils"
@@ -1467,7 +1467,7 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 
 		if !*configCopy.VRFv2Plus.General.UseExistingEnv {
 			l.Info().Msg("Checking BHS Node's transactions")
-			var clNodeTxs *client.TransactionsData
+			var clNodeTxs *nodeclient.TransactionsData
 			var txHash string
 			gom.Eventually(func(g gomega.Gomega) {
 				clNodeTxs, _, err = nodeTypeToNodeMap[vrfcommon.BHS].CLNode.API.ReadTransactions()
@@ -2099,7 +2099,7 @@ func TestVRFv2PlusBatchFulfillmentEnabledDisabled(t *testing.T) {
 		require.True(t, exists, "VRF Node does not exist")
 
 		//ensure that no job present on the node
-		err = actions.DeleteJobs([]*client.ChainlinkClient{vrfNode.CLNode.API})
+		err = actions.DeleteJobs([]*nodeclient.ChainlinkClient{vrfNode.CLNode.API})
 		require.NoError(t, err)
 
 		batchFullfillmentEnabled := true
@@ -2176,7 +2176,7 @@ func TestVRFv2PlusBatchFulfillmentEnabledDisabled(t *testing.T) {
 		clNodeTxs, resp, err := nodeTypeToNodeMap[vrfcommon.VRF].CLNode.API.ReadTransactions()
 		require.NoError(t, err)
 		require.Equal(t, 200, resp.StatusCode)
-		var batchFulfillmentTxs []client.TransactionData
+		var batchFulfillmentTxs []nodeclient.TransactionData
 		for _, tx := range clNodeTxs.Data {
 			if common.HexToAddress(tx.Attributes.To).Cmp(common.HexToAddress(vrfContracts.BatchCoordinatorV2Plus.Address())) == 0 {
 				batchFulfillmentTxs = append(batchFulfillmentTxs, tx)
@@ -2212,7 +2212,7 @@ func TestVRFv2PlusBatchFulfillmentEnabledDisabled(t *testing.T) {
 		vrfNode, exists := nodeTypeToNodeMap[vrfcommon.VRF]
 		require.True(t, exists, "VRF Node does not exist")
 		//ensure that no job present on the node
-		err = actions.DeleteJobs([]*client.ChainlinkClient{vrfNode.CLNode.API})
+		err = actions.DeleteJobs([]*nodeclient.ChainlinkClient{vrfNode.CLNode.API})
 		require.NoError(t, err)
 
 		batchFullfillmentEnabled := false
@@ -2303,7 +2303,7 @@ func TestVRFv2PlusBatchFulfillmentEnabledDisabled(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 200, resp.StatusCode)
 
-		var singleFulfillmentTxs []client.TransactionData
+		var singleFulfillmentTxs []nodeclient.TransactionData
 		for _, tx := range clNodeTxs.Data {
 			if common.HexToAddress(tx.Attributes.To).Cmp(common.HexToAddress(vrfContracts.CoordinatorV2Plus.Address())) == 0 {
 				singleFulfillmentTxs = append(singleFulfillmentTxs, tx)

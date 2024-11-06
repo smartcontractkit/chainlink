@@ -38,6 +38,8 @@ FeeBumpPeriod = '3s' # Default
 BlockHistoryPollPeriod = '5s' # Default
 # ComputeUnitLimitDefault is the compute units limit applied to transactions unless overriden during the txm enqueue
 ComputeUnitLimitDefault = 200_000 # Default
+# EstimateComputeUnitLimit enables or disables compute unit limit estimations per transaction. If estimations return 0 used compute, the ComputeUnitLimitDefault value is used, if set.
+EstimateComputeUnitLimit = false # Default
 
 [Solana.MultiNode]
 # Enabled enables the multinode feature.

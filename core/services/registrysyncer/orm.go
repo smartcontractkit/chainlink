@@ -80,7 +80,7 @@ func (l *LocalRegistry) UnmarshalJSON(data []byte) error {
 
 	l.IDsToDONs = temp.IDsToDONs
 
-	l.IDsToNodes = make(map[p2ptypes.PeerID]kcr.CapabilitiesRegistryNodeInfo)
+	l.IDsToNodes = make(map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo)
 	for peerID, v := range temp.IDsToNodes {
 		hashedCapabilityIds := make([][32]byte, len(v.HashedCapabilityIds))
 		for i, id := range v.HashedCapabilityIds {
@@ -93,7 +93,7 @@ func (l *LocalRegistry) UnmarshalJSON(data []byte) error {
 			bigInt.SetString(id, 10)
 			capabilitiesDONIds[i] = bigInt
 		}
-		l.IDsToNodes[peerID] = kcr.CapabilitiesRegistryNodeInfo{
+		l.IDsToNodes[peerID] = kcr.INodeInfoProviderNodeInfo{
 			NodeOperatorId:      v.NodeOperatorId,
 			ConfigCount:         v.ConfigCount,
 			WorkflowDONId:       v.WorkflowDONId,

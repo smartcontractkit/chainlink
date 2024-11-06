@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
@@ -19,7 +20,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/jmoiron/sqlx"
-	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/libocr/commontypes"
@@ -139,7 +139,7 @@ func testTransmitter(
 	uni.backend.Commit()
 
 	var txStatus uint64
-	gomega.NewWithT(t).Eventually(func() bool {
+	require.Eventually(t, func() bool {
 		uni.backend.Commit()
 		rows, err := uni.db.QueryContext(testutils.Context(t), `SELECT hash FROM evm.tx_attempts LIMIT 1`)
 		require.NoError(t, err, "failed to query txes")
@@ -157,10 +157,10 @@ func testTransmitter(
 		t.Log("tx found:", hexutil.Encode(txHash), "status:", receipt.Status)
 		txStatus = receipt.Status
 		return true
-	}, testutils.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), 1*time.Second)
 
 	// wait for receipt to be written to the db
-	gomega.NewWithT(t).Eventually(func() bool {
+	require.Eventually(t, func() bool {
 		rows, err := uni.db.QueryContext(testutils.Context(t), `SELECT count(*) as cnt FROM evm.receipts LIMIT 1`)
 		require.NoError(t, err, "failed to query receipts")
 		defer rows.Close()
@@ -169,7 +169,7 @@ func testTransmitter(
 			require.NoError(t, rows.Scan(&count), "failed to scan")
 		}
 		return count == 1
-	}, testutils.WaitTimeout(t), 2*time.Second).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), 2*time.Second)
 
 	require.Equal(t, uint64(1), txStatus, "tx status should be success")
 
@@ -415,7 +415,7 @@ func makeTestEvmTxm(
 	keyStore keystore.Eth) (txmgr.TxManager, gas.EvmFeeEstimator) {
 	config, dbConfig, evmConfig := MakeTestConfigs(t)
 
-	estimator, err := gas.NewEstimator(logger.TestLogger(t), ethClient, config.ChainType(), evmConfig.GasEstimator())
+	estimator, err := gas.NewEstimator(logger.TestLogger(t), ethClient, config.ChainType(), evmConfig.GasEstimator(), nil)
 	require.NoError(t, err, "failed to create gas estimator")
 
 	lggr := logger.TestLogger(t)
@@ -600,7 +600,11 @@ type TestDAOracleConfig struct {
 	evmconfig.DAOracle
 }
 
-func (d *TestDAOracleConfig) OracleType() toml.OracleType { return toml.OPStack }
+func (d *TestDAOracleConfig) OracleType() *toml.DAOracleType {
+	oracleType := toml.DAOracleOPStack
+	return &oracleType
+}
+
 func (d *TestDAOracleConfig) OracleAddress() *types.EIP55Address {
 	a, err := types.NewEIP55Address("0x420000000000000000000000000000000000000F")
 	if err != nil {
@@ -608,7 +612,10 @@ func (d *TestDAOracleConfig) OracleAddress() *types.EIP55Address {
 	}
 	return &a
 }
-func (d *TestDAOracleConfig) CustomGasPriceCalldata() string { return "" }
+
+func (d *TestDAOracleConfig) CustomGasPriceCalldata() *string {
+	return nil
+}
 
 func (g *TestGasEstimatorConfig) BlockHistory() evmconfig.BlockHistory {
 	return &TestBlockHistoryConfig{}

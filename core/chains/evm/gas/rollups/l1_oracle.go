@@ -2,6 +2,7 @@ package rollups
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"slices"
@@ -9,7 +10,6 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/rpc"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -33,6 +33,12 @@ type l1OracleClient interface {
 	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
 }
 
+// DAClient is interface of client connections for additional chains layers
+type DAClient interface {
+	SuggestGasPrice(ctx context.Context) (*big.Int, error)
+	FeeHistory(ctx context.Context, blockCount uint64, rewardPercentiles []float64) (feeHistory *ethereum.FeeHistory, err error)
+}
+
 type priceEntry struct {
 	price     *assets.Wei
 	timestamp time.Time
@@ -49,30 +55,43 @@ func IsRollupWithL1Support(chainType chaintype.ChainType) bool {
 	return slices.Contains(supportedChainTypes, chainType)
 }
 
-func NewL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chaintype.ChainType, daOracle evmconfig.DAOracle) (L1Oracle, error) {
+func NewL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chaintype.ChainType, daOracle evmconfig.DAOracle, clientsByChainID map[string]DAClient) (L1Oracle, error) {
 	if !IsRollupWithL1Support(chainType) {
 		return nil, nil
 	}
+
 	var l1Oracle L1Oracle
 	var err error
+
+	// TODO(CCIP-3551) the actual usage of the clientsByChainID should update the check accordingly, potentially return errors instead of logging. Going forward all configs should specify a DAOracle config. This is a fall back to maintain backwards compat.
 	if daOracle != nil {
-		switch daOracle.OracleType() {
-		case toml.OPStack:
+		if clientsByChainID == nil {
+			lggr.Debugf("clientsByChainID map is missing")
+		}
+
+		oracleType := daOracle.OracleType()
+		if oracleType == nil {
+			return nil, errors.New("required field OracleType is nil in non-nil DAOracle config")
+		}
+
+		switch *oracleType {
+		case toml.DAOracleOPStack:
 			l1Oracle, err = NewOpStackL1GasOracle(lggr, ethClient, chainType, daOracle)
-		case toml.Arbitrum:
+		case toml.DAOracleArbitrum:
 			l1Oracle, err = NewArbitrumL1GasOracle(lggr, ethClient)
-		case toml.ZKSync:
+		case toml.DAOracleZKSync:
 			l1Oracle = NewZkSyncL1GasOracle(lggr, ethClient)
-		default:
-			err = fmt.Errorf("unsupported DA oracle type %s. Going forward all chain configs should specify an oracle type", daOracle.OracleType())
+		case toml.DAOracleCustomCalldata:
+			l1Oracle, err = NewCustomCalldataDAOracle(lggr, ethClient, chainType, daOracle)
 		}
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize L1 oracle for chaintype %s: %w", chainType, err)
 		}
-		return l1Oracle, nil
+		if l1Oracle != nil {
+			return l1Oracle, nil
+		}
 	}
 
-	// Going forward all configs should specify a DAOracle config. This is a fall back to maintain backwards compat.
 	switch chainType {
 	case chaintype.ChainArbitrum:
 		l1Oracle, err = NewArbitrumL1GasOracle(lggr, ethClient)
