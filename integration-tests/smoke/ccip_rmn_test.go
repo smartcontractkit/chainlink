@@ -9,7 +9,9 @@ import (
 
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/rs/zerolog"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/osutil"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipdeployment "github.com/smartcontractkit/chainlink/deployment/ccip"
@@ -88,11 +90,11 @@ func TestRMN_NotEnoughObservers(t *testing.T) {
 		},
 		rmnNodes: []rmnNode{
 			{id: 0, isSigner: true, observedChains: []uint64{chain0, chain1}},
-			{id: 1, isSigner: true, observedChains: []uint64{chain0, chain1}},
-			{id: 2, isSigner: true, observedChains: []uint64{chain1}},
+			{id: 1, isSigner: true, observedChains: []uint64{chain0, chain1}, forceExit: true},
+			{id: 2, isSigner: true, observedChains: []uint64{chain0, chain1}, forceExit: true},
 		},
 		messagesToSend: []messageToSend{
-			{fromChain: chain0, toChain: chain1, count: 1, expectedDelivered: true},
+			{fromChain: chain0, toChain: chain1, count: 1, expectedDelivered: false},
 		},
 	})
 }
@@ -236,6 +238,16 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 		t.Logf("RMNRemote config digest after setting: %x", config.Config.RmnHomeContractConfigDigest[:])
 	}
 
+	// Kill the RMN nodes that are marked for force exit
+	for _, n := range tc.rmnNodes {
+		if n.forceExit {
+			t.Logf("Pausing RMN node %d", n.id)
+			rmnN := rmnCluster.Nodes["rmn_"+strconv.Itoa(n.id)]
+			require.NoError(t, osutil.ExecCmd(zerolog.Nop(), "docker kill "+rmnN.Proxy.ContainerName))
+			t.Logf("Paused RMN node %d", n.id)
+		}
+	}
+
 	jobSpecs, err := ccipdeployment.NewCCIPJobSpecs(envWithRMN.Env.NodeIDs, envWithRMN.Env.Offchain)
 	require.NoError(t, err)
 
@@ -326,6 +338,7 @@ type rmnNode struct {
 	id             int
 	isSigner       bool
 	observedChains []uint64
+	forceExit      bool // force exit will simply force exit the rmn node to simulate failure scenarios
 }
 
 type messageToSend struct {
