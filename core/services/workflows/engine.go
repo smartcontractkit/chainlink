@@ -678,10 +678,10 @@ func (e *Engine) queueIfReady(state store.WorkflowExecution, step *step) {
 		// 	e.logger.Errorf("failed to write state: %v", err)
 		// 	return
 		// }
-		// e.pendingStepRequests <- stepRequest{
-		// 	state:   copyState(state),
-		// 	stepRef: step.Ref,
-		// }
+		e.pendingStepRequests <- stepRequest{
+			state:   copyState(state),
+			stepRef: step.Ref,
+		}
 	}
 }
 
