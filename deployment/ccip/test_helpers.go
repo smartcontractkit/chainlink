@@ -627,8 +627,8 @@ func setTokenPoolCounterPart(
 			{
 				RemoteChainSelector: destChainSelector,
 				Allowed:             true,
-				RemotePoolAddress:   destTokenPoolAddress.Bytes(),
-				RemoteTokenAddress:  destTokenAddress.Bytes(),
+				RemotePoolAddress:   common.LeftPadBytes(destTokenPoolAddress.Bytes(), 32),
+				RemoteTokenAddress:  common.LeftPadBytes(destTokenAddress.Bytes(), 32),
 				OutboundRateLimiterConfig: burn_mint_token_pool.RateLimiterConfig{
 					IsEnabled: false,
 					Capacity:  big.NewInt(0),
