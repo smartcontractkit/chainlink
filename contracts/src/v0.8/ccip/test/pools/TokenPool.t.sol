@@ -2,7 +2,7 @@
 pragma solidity 0.8.24;
 
 import {Ownable2Step} from "../../../shared/access/Ownable2Step.sol";
-import {BurnMintERC677} from "../../../shared/token/ERC677/BurnMintERC677.sol";
+import {BurnMintERC20} from "../../../shared/token/ERC20/BurnMintERC20.sol";
 import {Router} from "../../Router.sol";
 import {RateLimiter} from "../../libraries/RateLimiter.sol";
 import {TokenPool} from "../../pools/TokenPool.sol";
@@ -17,7 +17,7 @@ contract TokenPoolSetup is RouterSetup {
 
   function setUp() public virtual override {
     RouterSetup.setUp();
-    s_token = new BurnMintERC677("LINK", "LNK", 18, 0);
+    s_token = new BurnMintERC20("LINK", "LNK", 18, 0, 0);
     deal(address(s_token), OWNER, type(uint256).max);
 
     s_tokenPool = new TokenPoolHelper(s_token, new address[](0), address(s_mockRMN), address(s_sourceRouter));
