@@ -165,6 +165,7 @@ func setupNodeOCR2(
 		// deploy a forwarder
 		faddr, _, authorizedForwarder, err2 := authorized_forwarder.DeployAuthorizedForwarder(owner, b.Client(), common.HexToAddress("0x326C977E6efc84E512bB9C30f76E30c160eD06FB"), owner.From, common.Address{}, []byte{})
 		require.NoError(t, err2)
+		b.Commit()
 
 		// set EOA as an authorized sender for the forwarder
 		_, err2 = authorizedForwarder.SetAuthorizedSenders(owner, []common.Address{transmitter})
@@ -190,7 +191,6 @@ func setupNodeOCR2(
 }
 
 func TestIntegration_OCR2(t *testing.T) {
-	t.Skip("TODO FIXME")
 	t.Parallel()
 	testIntegration_OCR2(t)
 }
@@ -698,7 +698,6 @@ func initOCR2(t *testing.T, lggr logger.Logger, b *simulated.Backend,
 }
 
 func TestIntegration_OCR2_ForwarderFlow(t *testing.T) {
-	t.Skip("TODO FIXME")
 	t.Parallel()
 	owner, b, ocrContractAddress, ocrContract := setupOCR2Contracts(t)
 
