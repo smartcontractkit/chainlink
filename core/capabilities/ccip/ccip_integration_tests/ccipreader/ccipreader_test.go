@@ -18,6 +18,7 @@ import (
 	"golang.org/x/exp/maps"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
@@ -259,6 +260,11 @@ func TestCCIPReader_MsgsBetweenSeqNums(t *testing.T) {
 								consts.EventAttributeDestChain:      {Name: "message.header.destChainSelector"},
 								consts.EventAttributeSequenceNumber: {Name: "message.header.sequenceNumber"},
 							},
+						},
+						OutputModifications: codec.ModifiersConfig{
+							&codec.WrapperModifierConfig{Fields: map[string]string{
+								"Message.FeeTokenAmount": "Int",
+								"Message.FeeValueJuels":  "Int"}},
 						},
 					},
 				},
