@@ -37,6 +37,8 @@ before_hook() {
   cp "$cwd"/plugins/detect-unlock "$lib_path/plugins"
   cp "$cwd"/plugins/lock "$lib_path/plugins"
   cp "$cwd"/plugins/unlock "$lib_path/plugins"
+  cp "$cwd"/plugins/detect-account-creation "$lib_path/plugins"
+  cp "$cwd"/plugins/detect-account-attestation "$lib_path/plugins"
 }
 
 install_local_plugins() {
