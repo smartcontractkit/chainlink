@@ -52,7 +52,7 @@ type Config struct {
 type RawConfigs []RawConfig
 
 func (rs *RawConfigs) SetFrom(configs RawConfigs) error {
-	if err := configs.ValidateConfig(); err != nil {
+	if err := configs.validateKeys(); err != nil {
 		return err
 	}
 
@@ -74,7 +74,7 @@ func (rs *RawConfigs) SetFrom(configs RawConfigs) error {
 	return nil
 }
 
-func (rs RawConfigs) ValidateConfig() (err error) {
+func (rs RawConfigs) validateKeys() (err error) {
 	chainIDs := commonconfig.UniqueStrings{}
 	for i, config := range rs {
 		chainID := config.ChainID()
@@ -93,6 +93,10 @@ func (rs RawConfigs) ValidateConfig() (err error) {
 		}
 	}
 	return
+}
+
+func (rs RawConfigs) ValidateConfig() (err error) {
+	return rs.validateKeys()
 }
 
 // RawConfig is the config used for chains that are not embedded.
