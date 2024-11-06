@@ -584,7 +584,34 @@ func DeployTransferableToken(
 		return nil, nil, nil, nil, err
 	}
 
+	// Add burn/mint permissions
+	if err := grantMintBurnPermissions(chains[src], srcToken, srcPool.Address()); err != nil {
+		return nil, nil, nil, nil, err
+	}
+
+	if err := grantMintBurnPermissions(chains[dst], dstToken, dstPool.Address()); err != nil {
+		return nil, nil, nil, nil, err
+	}
+
 	return srcToken, srcPool, dstToken, dstPool, nil
+}
+
+func grantMintBurnPermissions(chain deployment.Chain, token *burn_mint_erc677.BurnMintERC677, address common.Address) error {
+	tx, err := token.GrantBurnRole(chain.DeployerKey, address)
+	if err != nil {
+		return err
+	}
+	_, err = chain.Confirm(tx)
+	if err != nil {
+		return err
+	}
+
+	tx, err = token.GrantMintRole(chain.DeployerKey, address)
+	if err != nil {
+		return err
+	}
+	_, err = chain.Confirm(tx)
+	return err
 }
 
 func setTokenPoolCounterPart(
