@@ -564,10 +564,6 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     return (false, 0);
   }
 
-  function seeLatestRounds() public view returns (uint32 primary, uint32 secondary) {
-    return (s_hotVars.latestAggregatorRoundId, s_hotVars.latestSecondaryRoundId);
-  }
-
   /**
    * @notice Aggregator round (NOT OCR round) in which last valid report was transmitted
    */

@@ -461,13 +461,15 @@ contract GetRequesterAccessController is DualAggregatorBaseTest {
 contract RequestNewRound is ConfiguredDualAggregatorBaseTest {}
 
 contract Transmit is ConfiguredDualAggregatorBaseTest {
+  uint32 constant CUTOFF_TIME = 40;
+
   uint32 epoch = 0;
   uint32 round = 0;
 
   function setUp() public override {
     super.setUp();
 
-    aggregator.setCutoffTime(40);
+    aggregator.setCutoffTime(CUTOFF_TIME);
   }
 
   function test_RevertIf_UnauthorizedTransmitter() public {
@@ -741,7 +743,7 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
     });
 
     // skip cutoff time, actual: 40
-    skip(41);
+    skip(CUTOFF_TIME + 1);
 
     // Report 3
     _transmitAndCheck({
@@ -836,7 +838,7 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
     assertEq(1, standardAnswer, "standard feed answer is not correct");
 
     // skip cutoff time, actual: 40
-    skip(40);
+    skip(CUTOFF_TIME);
 
     // check the secondary feed
     _changePrank(SECONDARY_PROXY);
@@ -853,7 +855,7 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
     );
 
     // skip cutoff time, actual: 40
-    skip(41);
+    skip(CUTOFF_TIME + 1);
 
     // check the standard feed
     (, int256 standardAnswer,,,) = aggregator.latestRoundData();
@@ -883,7 +885,7 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
     assertEq(0, secondaryAnswer, "secondary feed answer is not correct");
 
     // unlock the secondary feed, actual cutoff time: 40
-    skip(41);
+    skip(CUTOFF_TIME + 1);
     (, secondaryAnswer,,,) = aggregator.latestRoundData();
     assertEq(1, secondaryAnswer, "secondary feed answer is not correct");
   }
@@ -902,8 +904,7 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
     });
 
     // generate Report 2, not sending it
-    ReportGenerator.SignedReport memory report2 =
-      s_reportGenerator.generateSignedReport(2, uint32(block.timestamp));
+    ReportGenerator.SignedReport memory report2 = s_reportGenerator.generateSignedReport(2, uint32(block.timestamp));
     skip(12);
 
     // Report 3
@@ -919,14 +920,12 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
     });
 
     // skip cutoff time, actual: 40
-    skip(41);
+    skip(CUTOFF_TIME + 1);
 
     // Send missing report 2 to secondary feed, expect it to revert
     vm.expectRevert(DualAggregator.StaleReport.selector);
     _changePrank(SECONDARY_PROXY);
-    aggregator.transmit(
-      report2.reportContext, report2.report, report2.rs, report2.ss, report2.rawVs
-    );
+    aggregator.transmit(report2.reportContext, report2.report, report2.rs, report2.ss, report2.rawVs);
 
     // check the standard feed
     _changePrank(aggregator.getTransmitters()[0]);
@@ -953,11 +952,10 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
     });
 
     // skip cutoff time, actual: 40
-    skip(41);
+    skip(CUTOFF_TIME + 1);
 
     // generate Report 2, not sending it
-    ReportGenerator.SignedReport memory report2 =
-      s_reportGenerator.generateSignedReport(2, uint32(block.timestamp));
+    ReportGenerator.SignedReport memory report2 = s_reportGenerator.generateSignedReport(2, uint32(block.timestamp));
     skip(12);
 
     // Report 3
@@ -975,9 +973,7 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
     // Send missing report 2 to secondary feed, expect it to revert
     vm.expectRevert(DualAggregator.StaleReport.selector);
     _changePrank(SECONDARY_PROXY);
-    aggregator.transmit(
-      report2.reportContext, report2.report, report2.rs, report2.ss, report2.rawVs
-    );
+    aggregator.transmit(report2.reportContext, report2.report, report2.rs, report2.ss, report2.rawVs);
 
     // check the standard feed
     _changePrank(aggregator.getTransmitters()[0]);
@@ -1022,8 +1018,6 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
         signedReport.reportContext, signedReport.report, signedReport.rs, signedReport.ss, signedReport.rawVs
       );
     }
-
-    aggregator.seeLatestRounds();
 
     // check the standard feed
     _changePrank(aggregator.getTransmitters()[0]);
