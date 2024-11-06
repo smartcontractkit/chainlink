@@ -220,35 +220,38 @@ func TestTokenTransfer(t *testing.T) {
 		}},
 	}
 
-	src := tenv.HomeChainSel
-	dest := tenv.FeedChainSel
-	destChain := e.Chains[dest]
+	for src := range e.Chains {
+		for dest, destChain := range e.Chains {
+			if src == dest {
+				continue
+			}
+			latesthdr, err := destChain.Client.HeaderByNumber(testcontext.Get(t), nil)
+			require.NoError(t, err)
+			block := latesthdr.Number.Uint64()
+			startBlocks[dest] = &block
 
-	//for src := range e.Chains {
-	//	for dest, destChain := range e.Chains {
-	//		if src == dest {
-	//			continue
-	//		}
-	latesthdr, err := destChain.Client.HeaderByNumber(testcontext.Get(t), nil)
-	require.NoError(t, err)
-	block := latesthdr.Number.Uint64()
-	startBlocks[dest] = &block
-
-	seqNum := ccdeploy.TestSendRequest(t, e, state, src, dest, false, tokens[src])
-	expectedSeqNum[dest] = seqNum
-	//}
-	//}
+			if src == tenv.HomeChainSel && dest == tenv.FeedChainSel {
+				seqNum := ccdeploy.TestSendRequest(t, e, state, src, dest, false, tokens[src])
+				expectedSeqNum[dest] = seqNum
+			} else {
+				seqNum := ccdeploy.TestSendRequest(t, e, state, src, dest, false, nil)
+				expectedSeqNum[dest] = seqNum
+			}
+		}
+	}
 
 	// Wait for all commit reports to land.
 	ccdeploy.ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
 
 	// After commit is reported on all chains, token prices should be updated in FeeQuoter.
 
-	linkAddress := state.Chains[dest].LinkToken.Address()
-	feeQuoter := state.Chains[dest].FeeQuoter
-	timestampedPrice, err := feeQuoter.GetTokenPrice(nil, linkAddress)
-	require.NoError(t, err)
-	require.Equal(t, ccdeploy.MockLinkPrice, timestampedPrice.Value)
+	for dest := range e.Chains {
+		linkAddress := state.Chains[dest].LinkToken.Address()
+		feeQuoter := state.Chains[dest].FeeQuoter
+		timestampedPrice, err := feeQuoter.GetTokenPrice(nil, linkAddress)
+		require.NoError(t, err)
+		require.Equal(t, ccdeploy.MockLinkPrice, timestampedPrice.Value)
+	}
 
 	// Wait for all exec reports to land
 	ccdeploy.ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
