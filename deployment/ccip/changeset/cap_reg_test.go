@@ -1,0 +1,44 @@
+package changeset
+
+import (
+	"testing"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+
+	"github.com/smartcontractkit/chainlink/deployment"
+	ccdeploy "github.com/smartcontractkit/chainlink/deployment/ccip"
+	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+)
+
+func TestDeployCapReg(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
+		Bootstraps: 1,
+		Chains:     2,
+		Nodes:      4,
+	})
+	homeChainSel := e.Chains[0].Selector
+	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
+	require.NoError(t, err)
+	p2pIds := nodes.NonBootstraps().PeerIDs()
+	homeChainCfg := DeployHomeChainConfig{
+		HomeChainSel:     homeChainSel,
+		RMNStaticConfig:  ccdeploy.NewTestRMNStaticConfig(),
+		RMNDynamicConfig: ccdeploy.NewTestRMNDynamicConfig(),
+		NodeOperators:    ccdeploy.NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
+		NodeP2PIDsPerNodeOpAdmin: map[common.Address][][32]byte{
+			e.Chains[homeChainSel].DeployerKey.From: p2pIds,
+		},
+	}
+	output, err := DeployCapReg(e, homeChainCfg)
+	require.NoError(t, err)
+	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook))
+	state, err := ccdeploy.LoadOnchainState(e)
+	require.NoError(t, err)
+	require.NotNil(t, state.Chains[homeChainSel].CapabilityRegistry)
+	require.NotNil(t, state.Chains[homeChainSel].CCIPHome)
+	require.NotNil(t, state.Chains[homeChainSel].RMNHome)
+}

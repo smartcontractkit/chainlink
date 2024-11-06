@@ -12,6 +12,7 @@ import (
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/registry_module_owner_custom"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
@@ -188,11 +189,14 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 	}
 
 	// Signal to CR that our nodes support CCIP capability.
+	p2pIdsByNop := map[uint32][][32]byte{
+		NodeOperatorID: nodes.NonBootstraps().PeerIDs(),
+	}
 	if err := AddNodes(
 		e.Logger,
 		capReg,
 		e.Chains[c.HomeChainSel],
-		nodes.NonBootstraps().PeerIDs(),
+		p2pIdsByNop,
 	); err != nil {
 		return err
 	}

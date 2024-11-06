@@ -85,7 +85,18 @@ func MustABIEncode(abiString string, args ...interface{}) []byte {
 	return encoded
 }
 
-func DeployCapReg(lggr logger.Logger, ab deployment.AddressBook, chain deployment.Chain) (*ContractDeploy[*capabilities_registry.CapabilitiesRegistry], error) {
+func DeployCapReg(
+	lggr logger.Logger,
+	ab deployment.AddressBook,
+	chain deployment.Chain,
+	rmnHomeStatic rmn_home.RMNHomeStaticConfig,
+	rmnHomeDynamic rmn_home.RMNHomeDynamicConfig,
+	nodeOps []capabilities_registry.CapabilitiesRegistryNodeOperator,
+) (
+	*ContractDeploy[*capabilities_registry.CapabilitiesRegistry],
+	map[string]uint32,
+	error,
+) {
 	capReg, err := deployContract(lggr, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*capabilities_registry.CapabilitiesRegistry] {
 			crAddr, tx, cr, err2 := capabilities_registry.DeployCapabilitiesRegistry(
@@ -98,7 +109,7 @@ func DeployCapReg(lggr logger.Logger, ab deployment.AddressBook, chain deploymen
 		})
 	if err != nil {
 		lggr.Errorw("Failed to deploy capreg", "err", err)
-		return nil, err
+		return nil, nil, err
 	}
 
 	lggr.Infow("deployed capreg", "addr", capReg.Address)
@@ -116,7 +127,7 @@ func DeployCapReg(lggr logger.Logger, ab deployment.AddressBook, chain deploymen
 		})
 	if err != nil {
 		lggr.Errorw("Failed to deploy CCIPHome", "err", err)
-		return nil, err
+		return nil, nil, err
 	}
 	lggr.Infow("deployed CCIPHome", "addr", ccipHome.Address)
 
@@ -134,46 +145,40 @@ func DeployCapReg(lggr logger.Logger, ab deployment.AddressBook, chain deploymen
 	)
 	if err != nil {
 		lggr.Errorw("Failed to deploy RMNHome", "err", err)
-		return nil, err
+		return nil, nil, err
 	}
 	lggr.Infow("deployed RMNHome", "addr", rmnHome.Address)
 
-	// TODO: properly configure RMNHome
-	tx, err := rmnHome.Contract.SetCandidate(chain.DeployerKey, rmn_home.RMNHomeStaticConfig{
-		Nodes:          []rmn_home.RMNHomeNode{},
-		OffchainConfig: []byte("static config"),
-	}, rmn_home.RMNHomeDynamicConfig{
-		SourceChains:   []rmn_home.RMNHomeSourceChain{},
-		OffchainConfig: []byte("dynamic config"),
-	}, [32]byte{})
+	// considering the RMNHome is recently deployed, there is no digest to overwrite
+	tx, err := rmnHome.Contract.SetCandidate(chain.DeployerKey, rmnHomeStatic, rmnHomeDynamic, [32]byte{})
 	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
 		lggr.Errorw("Failed to set candidate on RMNHome", "err", err)
-		return nil, err
+		return nil, nil, err
 	}
 
 	rmnCandidateDigest, err := rmnHome.Contract.GetCandidateDigest(nil)
 	if err != nil {
 		lggr.Errorw("Failed to get RMNHome candidate digest", "err", err)
-		return nil, err
+		return nil, nil, err
 	}
 
 	tx, err = rmnHome.Contract.PromoteCandidateAndRevokeActive(chain.DeployerKey, rmnCandidateDigest, [32]byte{})
 	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
 		lggr.Errorw("Failed to promote candidate and revoke active on RMNHome", "err", err)
-		return nil, err
+		return nil, nil, err
 	}
 
 	rmnActiveDigest, err := rmnHome.Contract.GetActiveDigest(nil)
 	if err != nil {
 		lggr.Errorw("Failed to get RMNHome active digest", "err", err)
-		return nil, err
+		return nil, nil, err
 	}
 	lggr.Infow("Got rmn home active digest", "digest", rmnActiveDigest)
 
 	if rmnActiveDigest != rmnCandidateDigest {
 		lggr.Errorw("RMNHome active digest does not match previously candidate digest",
 			"active", rmnActiveDigest, "candidate", rmnCandidateDigest)
-		return nil, errors.New("RMNHome active digest does not match candidate digest")
+		return nil, nil, errors.New("RMNHome active digest does not match candidate digest")
 	}
 
 	tx, err = capReg.Contract.AddCapabilities(chain.DeployerKey, []capabilities_registry.CapabilitiesRegistryCapability{
@@ -187,20 +192,32 @@ func DeployCapReg(lggr logger.Logger, ab deployment.AddressBook, chain deploymen
 	})
 	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
 		lggr.Errorw("Failed to add capabilities", "err", err)
-		return nil, err
+		return nil, nil, err
 	}
-	// TODO: Just one for testing.
-	tx, err = capReg.Contract.AddNodeOperators(chain.DeployerKey, []capabilities_registry.CapabilitiesRegistryNodeOperator{
-		{
-			Admin: chain.DeployerKey.From,
-			Name:  "NodeOperator",
-		},
-	})
-	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
+
+	tx, err = capReg.Contract.AddNodeOperators(chain.DeployerKey, nodeOps)
+	blockNum, err := deployment.ConfirmIfNoError(chain, tx, err)
+	if err != nil {
 		lggr.Errorw("Failed to add node operators", "err", err)
-		return nil, err
+		return nil, nil, err
 	}
-	return capReg, nil
+	// find the NodeOperatorIds for the node operator we just added
+	addedEvent, err := capReg.Contract.FilterNodeOperatorAdded(&bind.FilterOpts{
+		Context: context.Background(),
+		Start:   blockNum,
+	}, nil, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	nopIdByAdmin := make(map[string]uint32)
+	for addedEvent.Next() {
+		for _, nop := range nodeOps {
+			if addedEvent.Event.Admin == nop.Admin {
+				nopIdByAdmin[addedEvent.Event.Admin.String()] = addedEvent.Event.NodeOperatorId
+			}
+		}
+	}
+	return capReg, nopIdByAdmin, nil
 }
 
 func isEqualCapabilitiesRegistryNodeParams(a, b capabilities_registry.CapabilitiesRegistryNodeParams) (bool, error) {
@@ -219,7 +236,7 @@ func AddNodes(
 	lggr logger.Logger,
 	capReg *capabilities_registry.CapabilitiesRegistry,
 	chain deployment.Chain,
-	p2pIDs [][32]byte,
+	p2pIDsByNodeOpId map[uint32][][32]byte,
 ) error {
 	var nodeParams []capabilities_registry.CapabilitiesRegistryNodeParams
 	nodes, err := capReg.GetNodes(nil)
@@ -235,26 +252,28 @@ func AddNodes(
 			HashedCapabilityIds: node.HashedCapabilityIds,
 		}
 	}
-	for _, p2pID := range p2pIDs {
-		// if any p2pIDs are empty throw error
-		if bytes.Equal(p2pID[:], make([]byte, 32)) {
-			return errors.Wrapf(errors.New("empty p2pID"), "p2pID: %x selector: %d", p2pID, chain.Selector)
-		}
-		nodeParam := capabilities_registry.CapabilitiesRegistryNodeParams{
-			NodeOperatorId:      NodeOperatorID,
-			Signer:              p2pID, // Not used in tests
-			P2pId:               p2pID,
-			EncryptionPublicKey: p2pID, // Not used in tests
-			HashedCapabilityIds: [][32]byte{CCIPCapabilityID},
-		}
-		if existing, ok := existingNodeParams[p2pID]; ok {
-			if isEqual, err := isEqualCapabilitiesRegistryNodeParams(existing, nodeParam); err != nil && isEqual {
-				lggr.Infow("Node already exists", "p2pID", p2pID)
-				continue
+	for nopID, p2pIDs := range p2pIDsByNodeOpId {
+		for _, p2pID := range p2pIDs {
+			// if any p2pIDs are empty throw error
+			if bytes.Equal(p2pID[:], make([]byte, 32)) {
+				return errors.Wrapf(errors.New("empty p2pID"), "p2pID: %x selector: %d", p2pID, chain.Selector)
 			}
-		}
+			nodeParam := capabilities_registry.CapabilitiesRegistryNodeParams{
+				NodeOperatorId:      nopID,
+				Signer:              p2pID, // Not used in tests
+				P2pId:               p2pID,
+				EncryptionPublicKey: p2pID, // Not used in tests
+				HashedCapabilityIds: [][32]byte{CCIPCapabilityID},
+			}
+			if existing, ok := existingNodeParams[p2pID]; ok {
+				if isEqual, err := isEqualCapabilitiesRegistryNodeParams(existing, nodeParam); err != nil && isEqual {
+					lggr.Infow("Node already exists", "p2pID", p2pID)
+					continue
+				}
+			}
 
-		nodeParams = append(nodeParams, nodeParam)
+			nodeParams = append(nodeParams, nodeParam)
+		}
 	}
 	if len(nodeParams) == 0 {
 		lggr.Infow("No new nodes to add")

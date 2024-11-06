@@ -3,11 +3,12 @@ package ccipdeployment
 import (
 	"context"
 	"fmt"
-	mapset "github.com/deckarep/golang-set/v2"
 	"math/big"
 	"sort"
 	"testing"
 	"time"
+
+	mapset "github.com/deckarep/golang-set/v2"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 
@@ -111,7 +112,11 @@ func DeployTestContracts(t *testing.T,
 	feedChainSel uint64,
 	chains map[uint64]deployment.Chain,
 ) deployment.CapabilityRegistryConfig {
-	capReg, err := DeployCapReg(lggr, ab, chains[homeChainSel])
+	capReg, _, err := DeployCapReg(lggr, ab, chains[homeChainSel],
+		NewTestRMNStaticConfig(),
+		NewTestRMNDynamicConfig(),
+		NewTestNodeOperator(chains[homeChainSel].DeployerKey.From),
+	)
 	require.NoError(t, err)
 	_, err = DeployFeeds(lggr, ab, chains[feedChainSel])
 	require.NoError(t, err)
