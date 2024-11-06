@@ -61,6 +61,12 @@ type telemeter struct {
 }
 
 func (t *telemeter) EnqueueV3PremiumLegacy(run *pipeline.Run, trrs pipeline.TaskRunResults, streamID uint32, opts llo.DSOpts, val llo.StreamValue, err error) {
+	if t.Service.Ready() != nil {
+		// This should never happen, telemeter should always be started BEFORE
+		// the oracle and closed AFTER it
+		t.eng.SugaredLogger.Errorw("Telemeter not ready, dropping observation", "run", run, "streamID", streamID, "opts", opts, "val", val, "err", err)
+		return
+	}
 	var adapterError *eautils.AdapterError
 	var dpInvariantViolationDetected bool
 	if errors.As(err, &adapterError) && adapterError.Name == adapterLWBAErrorName {

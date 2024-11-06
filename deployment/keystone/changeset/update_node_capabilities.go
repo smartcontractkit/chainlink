@@ -6,6 +6,7 @@ import (
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/environment/clo/models"
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 
@@ -17,7 +18,23 @@ var _ deployment.ChangeSet = UpdateNodeCapabilities
 
 type P2PSignerEnc = internal.P2PSignerEnc
 
-type UpdateNodeCapabilitiesRequest struct {
+func NewP2PSignerEnc(n *models.Node, registryChainSel uint64) (*P2PSignerEnc, error) {
+	p2p, signer, enc, err := kslib.ExtractKeys(n, registryChainSel)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract keys: %w", err)
+	}
+	return &P2PSignerEnc{
+		Signer:              signer,
+		P2PKey:              p2p,
+		EncryptionPublicKey: enc,
+	}, nil
+}
+
+// UpdateNodeCapabilitiesRequest is a request to set the capabilities of nodes in the registry
+type UpdateNodeCapabilitiesRequest = MutateNodeCapabilitiesRequest
+
+// MutateNodeCapabilitiesRequest is a request to change the capabilities of nodes in the registry
+type MutateNodeCapabilitiesRequest struct {
 	AddressBook      deployment.AddressBook
 	RegistryChainSel uint64
 
@@ -25,7 +42,7 @@ type UpdateNodeCapabilitiesRequest struct {
 	NopToNodes        map[kcr.CapabilitiesRegistryNodeOperator][]*P2PSignerEnc
 }
 
-func (req *UpdateNodeCapabilitiesRequest) Validate() error {
+func (req *MutateNodeCapabilitiesRequest) Validate() error {
 	if req.AddressBook == nil {
 		return fmt.Errorf("address book is nil")
 	}
@@ -39,32 +56,11 @@ func (req *UpdateNodeCapabilitiesRequest) Validate() error {
 	if !exists {
 		return fmt.Errorf("registry chain selector %d does not exist", req.RegistryChainSel)
 	}
-	return nil
-}
-
-type UpdateNodeCapabilitiesImplRequest struct {
-	Chain    deployment.Chain
-	Registry *kcr.CapabilitiesRegistry
-
-	P2pToCapabilities map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability
-	NopToNodes        map[kcr.CapabilitiesRegistryNodeOperator][]*internal.P2PSignerEnc
-}
-
-func (req *UpdateNodeCapabilitiesImplRequest) Validate() error {
-	if len(req.P2pToCapabilities) == 0 {
-		return fmt.Errorf("p2pToCapabilities is empty")
-	}
-	if len(req.NopToNodes) == 0 {
-		return fmt.Errorf("nopToNodes is empty")
-	}
-	if req.Registry == nil {
-		return fmt.Errorf("registry is nil")
-	}
 
 	return nil
 }
 
-func (req *UpdateNodeCapabilitiesRequest) updateNodeCapabilitiesImplRequest(e deployment.Environment) (*internal.UpdateNodeCapabilitiesImplRequest, error) {
+func (req *MutateNodeCapabilitiesRequest) updateNodeCapabilitiesImplRequest(e deployment.Environment) (*internal.UpdateNodeCapabilitiesImplRequest, error) {
 	if err := req.Validate(); err != nil {
 		return nil, fmt.Errorf("failed to validate UpdateNodeCapabilitiesRequest: %w", err)
 	}
@@ -72,7 +68,7 @@ func (req *UpdateNodeCapabilitiesRequest) updateNodeCapabilitiesImplRequest(e de
 	if !ok {
 		return nil, fmt.Errorf("registry chain selector %d does not exist in environment", req.RegistryChainSel)
 	}
-	contracts, err := kslib.GetContractSets(&kslib.GetContractSetsRequest{
+	contracts, err := kslib.GetContractSets(e.Logger, &kslib.GetContractSetsRequest{
 		Chains:      map[uint64]deployment.Chain{req.RegistryChainSel: registryChain},
 		AddressBook: req.AddressBook,
 	})
@@ -83,6 +79,7 @@ func (req *UpdateNodeCapabilitiesRequest) updateNodeCapabilitiesImplRequest(e de
 	if registry == nil {
 		return nil, fmt.Errorf("capabilities registry not found for chain %d", req.RegistryChainSel)
 	}
+
 	return &internal.UpdateNodeCapabilitiesImplRequest{
 		Chain:             registryChain,
 		Registry:          registry,
@@ -93,9 +90,9 @@ func (req *UpdateNodeCapabilitiesRequest) updateNodeCapabilitiesImplRequest(e de
 
 // UpdateNodeCapabilities updates the capabilities of nodes in the registry
 func UpdateNodeCapabilities(env deployment.Environment, config any) (deployment.ChangesetOutput, error) {
-	req, ok := config.(*UpdateNodeCapabilitiesRequest)
+	req, ok := config.(*MutateNodeCapabilitiesRequest)
 	if !ok {
-		return deployment.ChangesetOutput{}, fmt.Errorf("invalid config type. want %T, got %T", &UpdateNodeCapabilitiesRequest{}, config)
+		return deployment.ChangesetOutput{}, fmt.Errorf("invalid config type. want %T, got %T", &MutateNodeCapabilitiesRequest{}, config)
 	}
 	c, err := req.updateNodeCapabilitiesImplRequest(env)
 	if err != nil {

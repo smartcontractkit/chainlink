@@ -8,6 +8,7 @@ import (
 
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"github.com/stretchr/testify/mock"
@@ -113,7 +114,7 @@ func Test_createDON(t *testing.T) {
 						},
 					}, nil)
 				oracleCreator.EXPECT().Type().Return(cctypes.OracleTypeBootstrap).Once()
-				oracleCreator.EXPECT().Create(mock.Anything, mock.Anything).Return(mocks.NewCCIPOracle(t), nil).Twice()
+				oracleCreator.EXPECT().Create(mock.Anything, mock.Anything, mock.Anything).Return(mocks.NewCCIPOracle(t), nil).Twice()
 			},
 			false,
 		},
@@ -153,11 +154,11 @@ func Test_createDON(t *testing.T) {
 						},
 					}, nil)
 
-				oracleCreator.EXPECT().Create(mock.Anything, mock.MatchedBy(func(cfg cctypes.OCR3ConfigWithMeta) bool {
+				oracleCreator.EXPECT().Create(mock.Anything, mock.Anything, mock.MatchedBy(func(cfg cctypes.OCR3ConfigWithMeta) bool {
 					return cfg.Config.PluginType == uint8(cctypes.PluginTypeCCIPCommit)
 				})).
 					Return(mocks.NewCCIPOracle(t), nil)
-				oracleCreator.EXPECT().Create(mock.Anything, mock.MatchedBy(func(cfg cctypes.OCR3ConfigWithMeta) bool {
+				oracleCreator.EXPECT().Create(mock.Anything, mock.Anything, mock.MatchedBy(func(cfg cctypes.OCR3ConfigWithMeta) bool {
 					return cfg.Config.PluginType == uint8(cctypes.PluginTypeCCIPExec)
 				})).
 					Return(mocks.NewCCIPOracle(t), nil)
@@ -212,11 +213,11 @@ func Test_createDON(t *testing.T) {
 						},
 					}, nil)
 
-				oracleCreator.EXPECT().Create(mock.Anything, mock.MatchedBy(func(cfg cctypes.OCR3ConfigWithMeta) bool {
+				oracleCreator.EXPECT().Create(mock.Anything, mock.Anything, mock.MatchedBy(func(cfg cctypes.OCR3ConfigWithMeta) bool {
 					return cfg.Config.PluginType == uint8(cctypes.PluginTypeCCIPCommit)
 				})).
 					Return(mocks.NewCCIPOracle(t), nil).Twice()
-				oracleCreator.EXPECT().Create(mock.Anything, mock.MatchedBy(func(cfg cctypes.OCR3ConfigWithMeta) bool {
+				oracleCreator.EXPECT().Create(mock.Anything, mock.Anything, mock.MatchedBy(func(cfg cctypes.OCR3ConfigWithMeta) bool {
 					return cfg.Config.PluginType == uint8(cctypes.PluginTypeCCIPExec)
 				})).
 					Return(mocks.NewCCIPOracle(t), nil).Twice()
@@ -229,10 +230,11 @@ func Test_createDON(t *testing.T) {
 			if tt.expect != nil {
 				tt.expect(t, tt.args, tt.args.oracleCreator, tt.args.homeChainReader)
 			}
+			ctx := testutils.Context(t)
 
-			latestConfigs, err := getConfigsForDon(tt.args.homeChainReader, tt.args.don)
+			latestConfigs, err := getConfigsForDon(ctx, tt.args.homeChainReader, tt.args.don)
 			require.NoError(t, err)
-			_, err = createDON(tt.args.lggr, tt.args.p2pID, tt.args.don, tt.args.oracleCreator, latestConfigs)
+			_, err = createDON(ctx, tt.args.lggr, tt.args.p2pID, tt.args.don, tt.args.oracleCreator, latestConfigs)
 			if tt.wantErr {
 				require.Error(t, err)
 			} else {
@@ -304,11 +306,11 @@ func Test_updateDON(t *testing.T) {
 							ConfigDigest: utils.RandomBytes32(),
 						},
 					}, nil)
-				oracleCreator.EXPECT().Create(mock.Anything, mock.MatchedBy(func(cfg cctypes.OCR3ConfigWithMeta) bool {
+				oracleCreator.EXPECT().Create(mock.Anything, mock.Anything, mock.MatchedBy(func(cfg cctypes.OCR3ConfigWithMeta) bool {
 					return cfg.Config.PluginType == uint8(cctypes.PluginTypeCCIPCommit)
 				})).
 					Return(mocks.NewCCIPOracle(t), nil)
-				oracleCreator.EXPECT().Create(mock.Anything, mock.MatchedBy(func(cfg cctypes.OCR3ConfigWithMeta) bool {
+				oracleCreator.EXPECT().Create(mock.Anything, mock.Anything, mock.MatchedBy(func(cfg cctypes.OCR3ConfigWithMeta) bool {
 					return cfg.Config.PluginType == uint8(cctypes.PluginTypeCCIPExec)
 				})).
 					Return(mocks.NewCCIPOracle(t), nil)
@@ -405,11 +407,11 @@ func Test_updateDON(t *testing.T) {
 							ConfigDigest: utils.RandomBytes32(),
 						},
 					}, nil)
-				oracleCreator.EXPECT().Create(mock.Anything, mock.MatchedBy(func(cfg cctypes.OCR3ConfigWithMeta) bool {
+				oracleCreator.EXPECT().Create(mock.Anything, mock.Anything, mock.MatchedBy(func(cfg cctypes.OCR3ConfigWithMeta) bool {
 					return cfg.Config.PluginType == uint8(cctypes.PluginTypeCCIPCommit)
 				})).
 					Return(mocks.NewCCIPOracle(t), nil).Once()
-				oracleCreator.EXPECT().Create(mock.Anything, mock.MatchedBy(func(cfg cctypes.OCR3ConfigWithMeta) bool {
+				oracleCreator.EXPECT().Create(mock.Anything, mock.Anything, mock.MatchedBy(func(cfg cctypes.OCR3ConfigWithMeta) bool {
 					return cfg.Config.PluginType == uint8(cctypes.PluginTypeCCIPExec)
 				})).
 					Return(mocks.NewCCIPOracle(t), nil).Once()
@@ -472,11 +474,11 @@ func Test_updateDON(t *testing.T) {
 							ConfigDigest: utils.RandomBytes32(),
 						},
 					}, nil)
-				oracleCreator.EXPECT().Create(mock.Anything, mock.MatchedBy(func(cfg cctypes.OCR3ConfigWithMeta) bool {
+				oracleCreator.EXPECT().Create(mock.Anything, mock.Anything, mock.MatchedBy(func(cfg cctypes.OCR3ConfigWithMeta) bool {
 					return cfg.Config.PluginType == uint8(cctypes.PluginTypeCCIPCommit)
 				})).
 					Return(mocks.NewCCIPOracle(t), nil).Twice()
-				oracleCreator.EXPECT().Create(mock.Anything, mock.MatchedBy(func(cfg cctypes.OCR3ConfigWithMeta) bool {
+				oracleCreator.EXPECT().Create(mock.Anything, mock.Anything, mock.MatchedBy(func(cfg cctypes.OCR3ConfigWithMeta) bool {
 					return cfg.Config.PluginType == uint8(cctypes.PluginTypeCCIPExec)
 				})).
 					Return(mocks.NewCCIPOracle(t), nil).Twice()
@@ -489,10 +491,11 @@ func Test_updateDON(t *testing.T) {
 			if tt.expect != nil {
 				tt.expect(t, tt.args, tt.args.oracleCreator, tt.args.homeChainReader)
 			}
+			ctx := testutils.Context(t)
 
-			latestConfigs, err := getConfigsForDon(tt.args.homeChainReader, tt.args.don)
+			latestConfigs, err := getConfigsForDon(ctx, tt.args.homeChainReader, tt.args.don)
 			require.NoError(t, err)
-			newPlugins, err := updateDON(tt.args.lggr, tt.args.p2pID, tt.args.prevPlugins, tt.args.don, tt.args.oracleCreator, latestConfigs)
+			newPlugins, err := updateDON(ctx, tt.args.lggr, tt.args.p2pID, tt.args.prevPlugins, tt.args.don, tt.args.oracleCreator, latestConfigs)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("updateDON() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -602,11 +605,11 @@ func Test_launcher_processDiff(t *testing.T) {
 					commitOracle.On("Start").Return(nil)
 					execOracle := mocks.NewCCIPOracle(t)
 					execOracle.On("Start").Return(nil)
-					m.EXPECT().Create(mock.Anything, mock.MatchedBy(func(cfg cctypes.OCR3ConfigWithMeta) bool {
+					m.EXPECT().Create(mock.Anything, mock.Anything, mock.MatchedBy(func(cfg cctypes.OCR3ConfigWithMeta) bool {
 						return cfg.Config.PluginType == uint8(cctypes.PluginTypeCCIPCommit)
 					})).
 						Return(commitOracle, nil)
-					m.EXPECT().Create(mock.Anything, mock.MatchedBy(func(cfg cctypes.OCR3ConfigWithMeta) bool {
+					m.EXPECT().Create(mock.Anything, mock.Anything, mock.MatchedBy(func(cfg cctypes.OCR3ConfigWithMeta) bool {
 						return cfg.Config.PluginType == uint8(cctypes.PluginTypeCCIPExec)
 					})).
 						Return(execOracle, nil)
@@ -679,11 +682,11 @@ func Test_launcher_processDiff(t *testing.T) {
 					commitOracle.On("Start").Return(nil)
 					execOracle := mocks.NewCCIPOracle(t)
 					execOracle.On("Start").Return(nil)
-					m.EXPECT().Create(mock.Anything, mock.MatchedBy(func(cfg cctypes.OCR3ConfigWithMeta) bool {
+					m.EXPECT().Create(mock.Anything, mock.Anything, mock.MatchedBy(func(cfg cctypes.OCR3ConfigWithMeta) bool {
 						return cfg.Config.PluginType == uint8(cctypes.PluginTypeCCIPCommit)
 					})).
 						Return(commitOracle, nil)
-					m.EXPECT().Create(mock.Anything, mock.MatchedBy(func(cfg cctypes.OCR3ConfigWithMeta) bool {
+					m.EXPECT().Create(mock.Anything, mock.Anything, mock.MatchedBy(func(cfg cctypes.OCR3ConfigWithMeta) bool {
 						return cfg.Config.PluginType == uint8(cctypes.PluginTypeCCIPExec)
 					})).
 						Return(execOracle, nil)
@@ -733,7 +736,7 @@ func Test_launcher_processDiff(t *testing.T) {
 				homeChainReader: tt.fields.homeChainReader,
 				oracleCreator:   tt.fields.oracleCreator,
 			}
-			err := l.processDiff(tt.args.diff)
+			err := l.processDiff(testutils.Context(t), tt.args.diff)
 			if tt.wantErr {
 				require.Error(t, err)
 			} else {

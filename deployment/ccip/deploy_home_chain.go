@@ -308,12 +308,10 @@ func AddChainConfig(
 }
 
 func BuildOCR3ConfigForCCIPHome(
-	lggr logger.Logger,
 	ocrSecrets deployment.OCRSecrets,
 	offRamp *offramp.OffRamp,
 	dest deployment.Chain,
 	feedChainSel uint64,
-	// Token address on Dest chain to aggregate address on feed chain
 	tokenInfo map[ccipocr3.UnknownEncodedAddress]pluginconfig.TokenInfo,
 	nodes deployment.Nodes,
 	rmnHomeAddress common.Address,
@@ -360,6 +358,7 @@ func BuildOCR3ConfigForCCIPHome(
 				InflightCacheExpiry:       *commonconfig.MustNewDuration(InflightCacheExpiry),
 				RootSnoozeTime:            *commonconfig.MustNewDuration(RootSnoozeTime),
 				BatchingStrategyID:        BatchingStrategyID,
+				TokenDataObservers:        []pluginconfig.TokenDataObserverConfig{},
 			})
 		}
 		if err2 != nil {
@@ -891,7 +890,7 @@ func AddDON(
 	home deployment.Chain,
 	nodes deployment.Nodes,
 ) error {
-	ocrConfigs, err := BuildOCR3ConfigForCCIPHome(lggr, ocrSecrets, offRamp, dest, feedChainSel, tokenInfo, nodes, rmnHomeAddress)
+	ocrConfigs, err := BuildOCR3ConfigForCCIPHome(ocrSecrets, offRamp, dest, feedChainSel, tokenInfo, nodes, rmnHomeAddress)
 	if err != nil {
 		return err
 	}

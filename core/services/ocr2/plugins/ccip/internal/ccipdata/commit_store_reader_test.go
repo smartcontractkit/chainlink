@@ -1,7 +1,6 @@
 package ccipdata_test
 
 import (
-	"context"
 	"math/big"
 	"reflect"
 	"testing"
@@ -15,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclientmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
@@ -180,7 +180,7 @@ func TestCommitStoreReaders(t *testing.T) {
 	ge.On("L1Oracle").Return(lm)
 
 	maxGasPrice := big.NewInt(1e8)
-	c12r, err := factory.NewCommitStoreReader(lggr, factory.NewEvmVersionFinder(), ccipcalc.EvmAddrToGeneric(addr2), ec, lp)
+	c12r, err := factory.NewCommitStoreReader(ctx, lggr, factory.NewEvmVersionFinder(), ccipcalc.EvmAddrToGeneric(addr2), ec, lp)
 	require.NoError(t, err)
 	err = c12r.SetGasEstimator(ctx, ge)
 	require.NoError(t, err)
@@ -228,7 +228,7 @@ func TestCommitStoreReaders(t *testing.T) {
 	commitAndGetBlockTs(ec)
 
 	// Capture all logs.
-	lp.PollAndSaveLogs(context.Background(), 1)
+	lp.PollAndSaveLogs(ctx, 1)
 
 	configs := map[string][][]byte{
 		ccipdata.V1_2_0: {onchainConfig2, offchainConfig2},
@@ -248,7 +248,7 @@ func TestCommitStoreReaders(t *testing.T) {
 		cr := cr
 		t.Run("CommitStoreReader "+v, func(t *testing.T) {
 			// Static config.
-			cfg, err := cr.GetCommitStoreStaticConfig(context.Background())
+			cfg, err := cr.GetCommitStoreStaticConfig(ctx)
 			require.NoError(t, err)
 			require.NotNil(t, cfg)
 
@@ -260,33 +260,33 @@ func TestCommitStoreReaders(t *testing.T) {
 			assert.Equal(t, d, rep)
 
 			// Assert reading
-			latest, err := cr.GetLatestPriceEpochAndRound(context.Background())
+			latest, err := cr.GetLatestPriceEpochAndRound(ctx)
 			require.NoError(t, err)
 			assert.Equal(t, er.Uint64(), latest)
 
 			// Assert cursing
-			down, err := cr.IsDown(context.Background())
+			down, err := cr.IsDown(ctx)
 			require.NoError(t, err)
 			assert.False(t, down)
 			_, err = arm.VoteToCurse(user, [32]byte{})
 			require.NoError(t, err)
 			ec.Commit()
-			down, err = cr.IsDown(context.Background())
+			down, err = cr.IsDown(ctx)
 			require.NoError(t, err)
 			assert.True(t, down)
 			_, err = arm.OwnerUnvoteToCurse0(user, nil)
 			require.NoError(t, err)
 			ec.Commit()
 
-			seqNr, err := cr.GetExpectedNextSequenceNumber(context.Background())
+			seqNr, err := cr.GetExpectedNextSequenceNumber(ctx)
 			require.NoError(t, err)
 			assert.Equal(t, rep.Interval.Max+1, seqNr)
 
-			reps, err := cr.GetCommitReportMatchingSeqNum(context.Background(), rep.Interval.Max+1, 0)
+			reps, err := cr.GetCommitReportMatchingSeqNum(ctx, rep.Interval.Max+1, 0)
 			require.NoError(t, err)
 			assert.Len(t, reps, 0)
 
-			reps, err = cr.GetCommitReportMatchingSeqNum(context.Background(), rep.Interval.Max, 0)
+			reps, err = cr.GetCommitReportMatchingSeqNum(ctx, rep.Interval.Max, 0)
 			require.NoError(t, err)
 			require.Len(t, reps, 1)
 			assert.Equal(t, reps[0].Interval, rep.Interval)
@@ -294,7 +294,7 @@ func TestCommitStoreReaders(t *testing.T) {
 			assert.Equal(t, reps[0].GasPrices, rep.GasPrices)
 			assert.Equal(t, reps[0].TokenPrices, rep.TokenPrices)
 
-			reps, err = cr.GetCommitReportMatchingSeqNum(context.Background(), rep.Interval.Min, 0)
+			reps, err = cr.GetCommitReportMatchingSeqNum(ctx, rep.Interval.Min, 0)
 			require.NoError(t, err)
 			require.Len(t, reps, 1)
 			assert.Equal(t, reps[0].Interval, rep.Interval)
@@ -302,12 +302,12 @@ func TestCommitStoreReaders(t *testing.T) {
 			assert.Equal(t, reps[0].GasPrices, rep.GasPrices)
 			assert.Equal(t, reps[0].TokenPrices, rep.TokenPrices)
 
-			reps, err = cr.GetCommitReportMatchingSeqNum(context.Background(), rep.Interval.Min-1, 0)
+			reps, err = cr.GetCommitReportMatchingSeqNum(ctx, rep.Interval.Min-1, 0)
 			require.NoError(t, err)
 			require.Len(t, reps, 0)
 
 			// Sanity
-			reps, err = cr.GetAcceptedCommitReportsGteTimestamp(context.Background(), time.Unix(0, 0), 0)
+			reps, err = cr.GetAcceptedCommitReportsGteTimestamp(ctx, time.Unix(0, 0), 0)
 			require.NoError(t, err)
 			require.Len(t, reps, 1)
 			assert.Equal(t, reps[0].Interval, rep.Interval)
@@ -329,7 +329,7 @@ func TestCommitStoreReaders(t *testing.T) {
 			// We should be able to query for gas prices now.
 			gpe, err := cr.GasPriceEstimator(ctx)
 			require.NoError(t, err)
-			gp, err := gpe.GetGasPrice(context.Background())
+			gp, err := gpe.GetGasPrice(ctx)
 			require.NoError(t, err)
 			assert.True(t, gp.Cmp(big.NewInt(0)) > 0)
 		})
@@ -360,6 +360,7 @@ func TestNewCommitStoreReader(t *testing.T) {
 	}
 	for _, tc := range tt {
 		t.Run(tc.typeAndVersion, func(t *testing.T) {
+			ctx := tests.Context(t)
 			b, err := utils.ABIEncode(`[{"type":"string"}]`, tc.typeAndVersion)
 			require.NoError(t, err)
 			c := evmclientmocks.NewClient(t)
@@ -369,7 +370,7 @@ func TestNewCommitStoreReader(t *testing.T) {
 			if tc.expectedErr == "" {
 				lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 			}
-			_, err = factory.NewCommitStoreReader(logger.Test(t), factory.NewEvmVersionFinder(), addr, c, lp)
+			_, err = factory.NewCommitStoreReader(ctx, logger.Test(t), factory.NewEvmVersionFinder(), addr, c, lp)
 			if tc.expectedErr != "" {
 				require.EqualError(t, err, tc.expectedErr)
 			} else {
