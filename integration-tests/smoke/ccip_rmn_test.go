@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
@@ -19,6 +20,9 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
+
+// Set false to run the RMN tests
+const skipRmnTest = false
 
 const (
 	// TODO: get the selectors dynamically from the config
@@ -74,7 +78,9 @@ func TestRMN_MultipleMessagesOnOneLaneNoWaitForExec(t *testing.T) {
 }
 
 func runRmnTestCase(t *testing.T, tc rmnTestCase) {
-	t.Skip("Local only")
+	if skipRmnTest {
+		t.Skip("Local only")
+	}
 	require.NoError(t, os.Setenv("ENABLE_RMN", "true"))
 
 	envWithRMN, rmnCluster := testsetups.NewLocalDevEnvironmentWithRMN(t, logger.TestLogger(t), len(tc.rmnNodes))
@@ -116,7 +122,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 		rmnHomeSourceChains = append(rmnHomeSourceChains, rmn_home.RMNHomeSourceChain{
 			ChainSelector:       remoteChainSel,
 			F:                   uint64(remoteF),
-			ObserverNodesBitmap: createObserverNodesBitmap(len(rmnHomeNodes)),
+			ObserverNodesBitmap: createObserverNodesBitmap(remoteChainSel, tc.rmnNodes),
 		})
 	}
 
@@ -256,13 +262,14 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	}
 }
 
-func createObserverNodesBitmap(numNodes int) *big.Int {
-	// for now, all nodes support all chains, so the bitmap is all 1s.
-	// first, initialize a big.Int with all bits set to 0.
-	// then, set the first numNodes bits to 1.
+func createObserverNodesBitmap(chainSel uint64, rmnNodes []rmnNode) *big.Int {
 	bitmap := new(big.Int)
-	for i := 0; i < numNodes; i++ {
-		bitmap.SetBit(bitmap, i, 1)
+	for _, n := range rmnNodes {
+		observedChains := mapset.NewSet(n.observedChains...)
+		if !observedChains.Contains(chainSel) {
+			continue
+		}
+		bitmap.SetBit(bitmap, n.id, 1)
 	}
 	return bitmap
 }
