@@ -2,6 +2,7 @@ package v2
 
 import (
 	"fmt"
+	"math"
 	"math/big"
 	"strings"
 	"testing"
@@ -84,6 +85,7 @@ func setupVRFLogPollerListenerTH(t *testing.T) *vrfLogPollerListenerTH {
 
 	h, err := ec.HeaderByNumber(testutils.Context(t), nil)
 	require.NoError(t, err)
+	require.LessOrEqual(t, h.Time, math.MaxInt64)
 	blockTime := time.Unix(int64(h.Time), 0)
 	// VRF Listener relies on block timestamps, but SimulatedBackend uses by default clock starting from 1970-01-01
 	// This trick is used to move the clock closer to the current time. We set first block to be 24 hours ago.

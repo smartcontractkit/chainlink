@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"math"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -958,6 +959,7 @@ func (c *CCIPIntegrationTestHarness) SetUpNodesAndJobs(t *testing.T, pricePipeli
 	// Replay for bootstrap.
 	bc, err := bootstrapNode.App.GetRelayers().LegacyEVMChains().Get(strconv.FormatUint(c.Dest.ChainID, 10))
 	require.NoError(t, err)
+	require.LessOrEqual(t, configBlock, math.MaxInt64)
 	require.NoError(t, bc.LogPoller().Replay(context.Background(), int64(configBlock)))
 	c.Dest.Chain.Commit()
 
