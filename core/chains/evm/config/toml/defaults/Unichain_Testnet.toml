@@ -6,8 +6,9 @@ FinalityDepth = 2000
 # block_time was:  ~1s 
 LogPollInterval = '5s'
 
-# finality_depth * block_time / 60 secs = ~33  min (finality time)
-NoNewFinalizedHeadsThreshold = '35m'
+# batching_size_finalization_percentage = 30% according to the explorer batching view
+# ( batching_size_finalization_percentage * finality_depth) * block_time / 60 secs = ~33  min (finality time)
+NoNewFinalizedHeadsThreshold = '10m'
 
 FinalityTagEnabled = true
 
