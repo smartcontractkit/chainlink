@@ -72,6 +72,7 @@ func setupOCR2Contracts(t *testing.T) (*bind.TransactOpts, *simulated.Backend, c
 	b := simulated.NewBackend(genesisData, simulated.WithBlockGasLimit(gasLimit))
 	linkTokenAddress, _, linkContract, err := link_token_interface.DeployLinkToken(owner, b.Client())
 	require.NoError(t, err)
+	b.Commit()
 	accessAddress, _, _, err := testoffchainaggregator2.DeploySimpleWriteAccessController(owner, b.Client())
 	require.NoError(t, err, "failed to deploy test access controller contract")
 	b.Commit()
@@ -646,6 +647,7 @@ func initOCR2(t *testing.T, lggr logger.Logger, b *simulated.Backend,
 		payees,
 	)
 	require.NoError(t, err)
+	b.Commit()
 	blockBeforeConfig, err = b.Client().BlockByNumber(testutils.Context(t), nil)
 	require.NoError(t, err)
 	signers, effectiveTransmitters, threshold, _, encodedConfigVersion, encodedConfig, err := confighelper2.ContractSetConfigArgsForEthereumIntegrationTest(
