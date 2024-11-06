@@ -257,6 +257,7 @@ func TestTokenTransfer(t *testing.T) {
 	ccdeploy.ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
 
 	balance, err := dstToken.BalanceOf(nil, state.Chains[tenv.HomeChainSel].Receiver.Address())
+	fmt.Println("balance")
 	fmt.Println(balance)
 }
 
