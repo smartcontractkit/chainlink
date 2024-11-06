@@ -557,9 +557,7 @@ func (lp *logPoller) GetReplayFromBlock(ctx context.Context, requested int64) (i
 // loadFilters loads the filters from db, and activates count-based Log Pruning
 // if required by any of the filters
 func (lp *logPoller) loadFilters(ctx context.Context) error {
-	lp.lggr.Debug("callng loadFilters")
 	filters, err := lp.lockAndLoadFilters(ctx)
-	lp.lggr.Debugf("got filters: %+v", filters)
 	if err != nil {
 		return pkgerrors.Wrapf(err, "Failed to load initial filters from db, retrying")
 	}
@@ -580,7 +578,6 @@ func (lp *logPoller) lockAndLoadFilters(ctx context.Context) (filters map[string
 	lp.filterMu.Lock()
 	defer lp.filterMu.Unlock()
 
-	lp.lggr.Debug("about to hit DB")
 	filters, err = lp.orm.LoadFilters(ctx)
 	if err != nil {
 		return filters, err
