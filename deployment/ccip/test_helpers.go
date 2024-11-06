@@ -17,8 +17,6 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_transmitter"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/usdc_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -639,46 +637,4 @@ func deployTransferTokenOneEnd(
 	}
 
 	return tokenContract.Contract, tokenPool.Contract, nil
-}
-
-func SyncUSDCDomains(lggr logger.Logger, chains map[uint64]deployment.Chain, homeChian, feedChain uint64, state CCIPOnChainState) error {
-	setUSDCDomain := func(feed, home uint64, tokenTransmitterIns *mock_usdc_token_transmitter.MockE2EUSDCTransmitter,
-		tokenPoolIns *usdc_token_pool.USDCTokenPool) error {
-		if tokenTransmitterIns == nil {
-			return errors.New("USDC mock token transmitter can't be nil")
-		}
-		if tokenPoolIns == nil {
-			return errors.New("USDC token pool can't be nil")
-		}
-		var allowedCallerBytes [32]byte
-		copy(allowedCallerBytes[12:], tokenPoolIns.Address().Bytes())
-		domain, err1 := tokenTransmitterIns.LocalDomain(nil)
-		if err1 != nil {
-			lggr.Errorw("Failed to get local domain", "err", err1)
-			return err1
-		}
-		updaters := []usdc_token_pool.USDCTokenPoolDomainUpdate{
-			{
-				AllowedCaller:     allowedCallerBytes,
-				DomainIdentifier:  domain,
-				DestChainSelector: home,
-				Enabled:           true,
-			},
-		}
-		tx, err1 := tokenPoolIns.SetDomains(chains[feed].DeployerKey, updaters)
-		if err1 != nil {
-			lggr.Errorw("Failed to set token pool domain", "err", err1)
-			return err1
-		}
-		lggr.Infow("Sync USDC domain", "token pool", tokenPoolIns.Address().Hex(), "domain", domain,
-			"Allowed caller", tokenPoolIns.Address().Hex())
-		_, err1 = chains[feed].Confirm(tx)
-		return err1
-	}
-
-	err := setUSDCDomain(feedChain, homeChian, state.Chains[feedChain].MockUSDCTransmitter, state.Chains[feedChain].USDCTokenPool)
-	if err != nil {
-		return err
-	}
-	return setUSDCDomain(homeChian, feedChain, state.Chains[homeChian].MockUSDCTransmitter, state.Chains[homeChian].USDCTokenPool)
 }

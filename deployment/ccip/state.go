@@ -9,20 +9,16 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_0"
-	common_v1_0 "github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_messenger"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_transmitter"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/registry_module_owner_custom"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/usdc_token_pool"
-
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_0"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_2"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_5"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_6"
+	common_v1_0 "github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/registry_module_owner_custom"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
@@ -81,11 +77,8 @@ type CCIPChainState struct {
 	CCIPConfig *ccip_config.CCIPConfig
 
 	// Test contracts
-	Receiver               *maybe_revert_message_receiver.MaybeRevertMessageReceiver
-	TestRouter             *router.Router
-	USDCTokenPool          *usdc_token_pool.USDCTokenPool
-	MockUSDCTransmitter    *mock_usdc_token_transmitter.MockE2EUSDCTransmitter
-	MockUSDCTokenMessenger *mock_usdc_token_messenger.MockE2EUSDCTokenMessenger
+	Receiver   *maybe_revert_message_receiver.MaybeRevertMessageReceiver
+	TestRouter *router.Router
 }
 
 func (c CCIPChainState) GenerateView() (view.ChainView, error) {

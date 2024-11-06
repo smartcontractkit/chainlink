@@ -99,7 +99,6 @@ func NewLocalDevEnvironment(t *testing.T, lggr logger.Logger) (ccipdeployment.De
 	e, don, err := devenv.NewEnvironment(ctx, lggr, *envConfig)
 	require.NoError(t, err)
 	require.NotNil(t, e)
-	e.MockAdapter = testEnv.MockAdapter
 	e.ExistingAddresses = ab
 	zeroLogLggr := logging.GetTestLogger(t)
 	// fund the nodes
@@ -279,7 +278,6 @@ func CreateDockerEnv(t *testing.T) (
 	builder := test_env.NewCLTestEnvBuilder().
 		WithTestConfig(&cfg).
 		WithTestInstance(t).
-		WithMockAdapter().
 		WithJobDistributor(cfg.CCIP.JobDistributorConfig).
 		WithStandardCleanup()
 
