@@ -24,7 +24,7 @@ contract BurnMintERC20burnFromAlias is BurnMintERC20Setup {
   function test_SenderNotBurner_Reverts() public {
     // The owner was already granted mint and burn roles in the constructor, we will revoke them
     // to allow the test to revert with the correct error message
-    s_burnMintERC20.revokeBurnRole(OWNER);
+    s_burnMintERC20.revokeRole(s_burnMintERC20.BURNER_ROLE(), OWNER);
 
     vm.expectRevert(abi.encodeWithSelector(BurnMintERC20.SenderNotBurner.selector, OWNER));
 

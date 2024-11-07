@@ -20,8 +20,9 @@ contract BurnMintERC20constructor is BurnMintERC20Setup {
     assertEq(decimals, s_burnMintERC20.decimals());
     assertEq(maxSupply, s_burnMintERC20.maxSupply());
 
-    assertTrue(s_burnMintERC20.isMinter(s_alice));
-    assertTrue(s_burnMintERC20.isBurner(s_alice));
+    assertTrue(s_burnMintERC20.hasRole(s_burnMintERC20.DEFAULT_ADMIN_ROLE(), s_alice));
+    assertTrue(s_burnMintERC20.hasRole(s_burnMintERC20.MINTER_ROLE(), s_alice));
+    assertTrue(s_burnMintERC20.hasRole(s_burnMintERC20.BURNER_ROLE(), s_alice));
     assertEq(s_burnMintERC20.balanceOf(s_alice), 1e18);
     assertEq(s_burnMintERC20.totalSupply(), 1e18);
   }

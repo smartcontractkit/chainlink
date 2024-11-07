@@ -2,11 +2,10 @@
 pragma solidity ^0.8.0;
 
 import {IGetCCIPAdmin} from "../../../ccip/interfaces/IGetCCIPAdmin.sol";
-import {IOwnable} from "../../../shared/interfaces/IOwnable.sol";
 import {IBurnMintERC20} from "../../../shared/token/ERC20/IBurnMintERC20.sol";
 
-import {Ownable2StepMsgSender} from "../../../shared/access/Ownable2StepMsgSender.sol";
-
+import {AccessControl} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/access/AccessControl.sol";
+import {IAccessControl} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/access/AccessControl.sol";
 import {ERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 import {ERC20Burnable} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/extensions/ERC20Burnable.sol";
@@ -15,7 +14,7 @@ import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.8.3/contra
 
 /// @notice A basic ERC20 compatible token contract with burn and minting roles.
 /// @dev The total supply can be limited during deployment.
-contract BurnMintERC20 is IBurnMintERC20, IGetCCIPAdmin, IERC165, ERC20Burnable, Ownable2StepMsgSender {
+contract BurnMintERC20 is IBurnMintERC20, IGetCCIPAdmin, IERC165, ERC20Burnable, AccessControl {
   using EnumerableSet for EnumerableSet.AddressSet;
 
   error SenderNotMinter(address sender);
@@ -38,10 +37,8 @@ contract BurnMintERC20 is IBurnMintERC20, IGetCCIPAdmin, IERC165, ERC20Burnable,
   /// and can only be transferred by the owner.
   address internal s_ccipAdmin;
 
-  /// @dev the allowed minter addresses
-  EnumerableSet.AddressSet internal s_minters;
-  /// @dev the allowed burner addresses
-  EnumerableSet.AddressSet internal s_burners;
+  bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
+  bytes32 public constant BURNER_ROLE = keccak256("BURNER_ROLE");
 
   /// @dev the underscores in parameter names are used to suppress compiler warnings about shadowing ERC20 functions
   constructor(
@@ -59,17 +56,20 @@ contract BurnMintERC20 is IBurnMintERC20, IGetCCIPAdmin, IERC165, ERC20Burnable,
     // Mint the initial supply to the new Owner, saving gas by not calling if the mint amount is zero
     if (preMint != 0) _mint(msg.sender, preMint);
 
-    grantMintRole(msg.sender);
-    grantBurnRole(msg.sender);
+    // Set up the owner as the initial minter and burner
+    _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+    _grantRole(MINTER_ROLE, msg.sender);
+    _grantRole(BURNER_ROLE, msg.sender);
+
   }
 
   /// @inheritdoc IERC165
-  function supportsInterface(bytes4 interfaceId) public pure virtual override returns (bool) {
+  function supportsInterface(bytes4 interfaceId) public pure virtual override (AccessControl, IERC165) returns (bool) {
     return
       interfaceId == type(IERC20).interfaceId ||
       interfaceId == type(IBurnMintERC20).interfaceId ||
       interfaceId == type(IERC165).interfaceId ||
-      interfaceId == type(IOwnable).interfaceId ||
+      interfaceId == type(IAccessControl).interfaceId ||
       interfaceId == type(IGetCCIPAdmin).interfaceId;
   }
 
@@ -157,55 +157,11 @@ contract BurnMintERC20 is IBurnMintERC20, IGetCCIPAdmin, IERC165, ERC20Burnable,
   /// @dev calls public functions so this function does not require
   /// access controls. This is handled in the inner functions.
   function grantMintAndBurnRoles(address burnAndMinter) external {
-    grantMintRole(burnAndMinter);
-    grantBurnRole(burnAndMinter);
+    grantRole(MINTER_ROLE, burnAndMinter);
+    grantRole(BURNER_ROLE, burnAndMinter);
   }
 
-  /// @notice Grants mint role to the given address.
-  /// @dev only the owner can call this function.
-  function grantMintRole(address minter) public onlyOwner {
-    if (s_minters.add(minter)) {
-      emit MintAccessGranted(minter);
-    }
-  }
-
-  /// @notice Grants burn role to the given address.
-  /// @dev only the owner can call this function.
-  /// @param burner the address to grant the burner role to
-  function grantBurnRole(address burner) public onlyOwner {
-    if (s_burners.add(burner)) {
-      emit BurnAccessGranted(burner);
-    }
-  }
-
-  /// @notice Revokes mint role for the given address.
-  /// @dev only the owner can call this function.
-  /// @param minter the address to revoke the mint role from.
-  function revokeMintRole(address minter) external onlyOwner {
-    if (s_minters.remove(minter)) {
-      emit MintAccessRevoked(minter);
-    }
-  }
-
-  /// @notice Revokes burn role from the given address.
-  /// @dev only the owner can call this function
-  /// @param burner the address to revoke the burner role from
-  function revokeBurnRole(address burner) external onlyOwner {
-    if (s_burners.remove(burner)) {
-      emit BurnAccessRevoked(burner);
-    }
-  }
-
-  /// @notice Returns all permissioned minters
-  function getMinters() external view returns (address[] memory) {
-    return s_minters.values();
-  }
-
-  /// @notice Returns all permissioned burners
-  function getBurners() external view returns (address[] memory) {
-    return s_burners.values();
-  }
-
+ 
   /// @notice Returns the current CCIPAdmin
   function getCCIPAdmin() external view returns (address) {
     return s_ccipAdmin;
@@ -215,7 +171,7 @@ contract BurnMintERC20 is IBurnMintERC20, IGetCCIPAdmin, IERC165, ERC20Burnable,
   /// @dev only the owner can call this function, NOT the current ccipAdmin, and 1-step ownership transfer is used.
   /// @param newAdmin The address to transfer the CCIPAdmin role to. Setting to address(0) is a valid way to revoke
   /// the role
-  function setCCIPAdmin(address newAdmin) public onlyOwner {
+  function setCCIPAdmin(address newAdmin) public onlyRole(DEFAULT_ADMIN_ROLE) {
     address currentAdmin = s_ccipAdmin;
 
     s_ccipAdmin = newAdmin;
@@ -227,29 +183,17 @@ contract BurnMintERC20 is IBurnMintERC20, IGetCCIPAdmin, IERC165, ERC20Burnable,
   // │                            Access                            │
   // ================================================================
 
-  /// @notice Checks whether a given address is a minter for this token.
-  /// @return true if the address is allowed to mint.
-  function isMinter(address minter) public view returns (bool) {
-    return s_minters.contains(minter);
-  }
-
-  /// @notice Checks whether a given address is a burner for this token.
-  /// @return true if the address is allowed to burn.
-  function isBurner(address burner) public view returns (bool) {
-    return s_burners.contains(burner);
-  }
-
   /// @notice Checks whether the msg.sender is a permissioned minter for this token
   /// @dev Reverts with a SenderNotMinter if the check fails
   modifier onlyMinter() {
-    if (!isMinter(msg.sender)) revert SenderNotMinter(msg.sender);
+    if (!hasRole(MINTER_ROLE, msg.sender)) revert SenderNotMinter(msg.sender);
     _;
   }
 
   /// @notice Checks whether the msg.sender is a permissioned burner for this token
   /// @dev Reverts with a SenderNotBurner if the check fails
   modifier onlyBurner() {
-    if (!isBurner(msg.sender)) revert SenderNotBurner(msg.sender);
+    if (!hasRole(BURNER_ROLE, msg.sender)) revert SenderNotBurner(msg.sender);
     _;
   }
 

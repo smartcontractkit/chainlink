@@ -8,7 +8,7 @@ import {IERC20} from "../../../../../vendor/openzeppelin-solidity/v4.8.3/contrac
 
 contract BurnMintERC20burn is BurnMintERC20Setup {
   function test_BasicBurn_Success() public {
-    s_burnMintERC20.grantBurnRole(OWNER);
+    s_burnMintERC20.grantRole(s_burnMintERC20.BURNER_ROLE(), OWNER);
     deal(address(s_burnMintERC20), OWNER, s_amount);
 
     vm.expectEmit();
@@ -24,7 +24,7 @@ contract BurnMintERC20burn is BurnMintERC20Setup {
   function test_SenderNotBurner_Reverts() public {
     // The owner was already granted mint and burn roles in the constructor, we will revoke them
     // to allow the test to revert with the correct error message
-    s_burnMintERC20.revokeBurnRole(OWNER);
+    s_burnMintERC20.revokeRole(s_burnMintERC20.BURNER_ROLE(), OWNER);
 
     vm.expectRevert(abi.encodeWithSelector(BurnMintERC20.SenderNotBurner.selector, OWNER));
 
@@ -40,7 +40,7 @@ contract BurnMintERC20burn is BurnMintERC20Setup {
   }
 
   function test_BurnFromZeroAddress_Reverts() public {
-    s_burnMintERC20.grantBurnRole(address(0));
+    s_burnMintERC20.grantRole(s_burnMintERC20.BURNER_ROLE(), address(0));
     changePrank(address(0));
 
     vm.expectRevert("ERC20: burn from the zero address");
