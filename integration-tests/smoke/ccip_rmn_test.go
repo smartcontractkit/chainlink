@@ -24,55 +24,49 @@ import (
 )
 
 // Set false to run the RMN tests
-const skipRmnTest = false
-
-const (
-	// TODO: get the selectors dynamically from the config
-	chain0 = 12922642891491394802
-	chain1 = 3379446385462418246
-)
+const skipRmnTest = true
 
 func TestRMN_TwoMessagesOnTwoLanes(t *testing.T) {
 	runRmnTestCase(t, rmnTestCase{
-		name:        "two messages on two lanes",
+		name:        "messages on two lanes",
 		waitForExec: true,
 		homeChainConfig: homeChainConfig{
-			f: map[uint64]int{chain0: 1, chain1: 1},
+			f: map[int]int{chain0: 1, chain1: 1},
 		},
 		remoteChainsConfig: []remoteChainConfig{
-			{selector: chain0, f: 1},
-			{selector: chain1, f: 1},
+			{chainIdx: chain0, f: 1},
+			{chainIdx: chain1, f: 1},
 		},
 		rmnNodes: []rmnNode{
-			{id: 0, isSigner: true, observedChains: []uint64{chain0, chain1}},
-			{id: 1, isSigner: true, observedChains: []uint64{chain0, chain1}},
-			{id: 2, isSigner: true, observedChains: []uint64{chain0, chain1}},
+			{id: 0, isSigner: true, observedChainIdxs: []int{chain0, chain1}},
+			{id: 1, isSigner: true, observedChainIdxs: []int{chain0, chain1}},
+			{id: 2, isSigner: true, observedChainIdxs: []int{chain0, chain1}},
 		},
 		messagesToSend: []messageToSend{
-			{fromChain: chain0, toChain: chain1, count: 1, expectedDelivered: true},
-			{fromChain: chain1, toChain: chain0, count: 1, expectedDelivered: true},
+			{fromChainIdx: chain0, toChainIdx: chain1, count: 1},
+			{fromChainIdx: chain1, toChainIdx: chain0, count: 1},
 		},
 	})
 }
 
 func TestRMN_MultipleMessagesOnOneLaneNoWaitForExec(t *testing.T) {
 	runRmnTestCase(t, rmnTestCase{
-		name:        "multiple messages on two lanes for rmn batching inspection",
+		name:        "multiple messages for rmn batching inspection and one rmn node down",
 		waitForExec: false, // do not wait for execution reports
 		homeChainConfig: homeChainConfig{
-			f: map[uint64]int{chain0: 1, chain1: 1},
+			f: map[int]int{chain0: 1, chain1: 1},
 		},
 		remoteChainsConfig: []remoteChainConfig{
-			{selector: chain0, f: 1},
-			{selector: chain1, f: 1},
+			{chainIdx: chain0, f: 1},
+			{chainIdx: chain1, f: 1},
 		},
 		rmnNodes: []rmnNode{
-			{id: 0, isSigner: true, observedChains: []uint64{chain0, chain1}},
-			{id: 1, isSigner: true, observedChains: []uint64{chain0, chain1}},
-			{id: 2, isSigner: true, observedChains: []uint64{chain0, chain1}},
+			{id: 0, isSigner: true, observedChainIdxs: []int{chain0, chain1}},
+			{id: 1, isSigner: true, observedChainIdxs: []int{chain0, chain1}},
+			{id: 2, isSigner: true, observedChainIdxs: []int{chain0, chain1}, forceExit: true}, // one rmn node is down
 		},
 		messagesToSend: []messageToSend{
-			{fromChain: chain1, toChain: chain0, count: 10, expectedDelivered: true},
+			{fromChainIdx: chain1, toChainIdx: chain0, count: 10},
 		},
 	})
 }
@@ -80,24 +74,104 @@ func TestRMN_MultipleMessagesOnOneLaneNoWaitForExec(t *testing.T) {
 func TestRMN_NotEnoughObservers(t *testing.T) {
 	runRmnTestCase(t, rmnTestCase{
 		name:                "one message but not enough observers, should not get a commit report",
-		passIfNoCommitAfter: 2 * time.Minute,
+		passIfNoCommitAfter: time.Minute, // wait for a minute and assert that commit report was not delivered
 		homeChainConfig: homeChainConfig{
-			f: map[uint64]int{chain0: 1, chain1: 1},
+			f: map[int]int{chain0: 1, chain1: 1},
 		},
 		remoteChainsConfig: []remoteChainConfig{
-			{selector: chain0, f: 1},
-			{selector: chain1, f: 1},
+			{chainIdx: chain0, f: 1},
+			{chainIdx: chain1, f: 1},
 		},
 		rmnNodes: []rmnNode{
-			{id: 0, isSigner: true, observedChains: []uint64{chain0, chain1}},
-			{id: 1, isSigner: true, observedChains: []uint64{chain0, chain1}, forceExit: true},
-			{id: 2, isSigner: true, observedChains: []uint64{chain0, chain1}, forceExit: true},
+			{id: 0, isSigner: true, observedChainIdxs: []int{chain0, chain1}},
+			{id: 1, isSigner: true, observedChainIdxs: []int{chain0, chain1}, forceExit: true},
+			{id: 2, isSigner: true, observedChainIdxs: []int{chain0, chain1}, forceExit: true},
 		},
 		messagesToSend: []messageToSend{
-			{fromChain: chain0, toChain: chain1, count: 1, expectedDelivered: false},
+			{fromChainIdx: chain0, toChainIdx: chain1, count: 1},
 		},
 	})
 }
+
+func TestRMN_DifferentSigners(t *testing.T) {
+	runRmnTestCase(t, rmnTestCase{
+		name: "different signers and different observers",
+		homeChainConfig: homeChainConfig{
+			f: map[int]int{chain0: 1, chain1: 1},
+		},
+		remoteChainsConfig: []remoteChainConfig{
+			{chainIdx: chain0, f: 1},
+			{chainIdx: chain1, f: 1},
+		},
+		rmnNodes: []rmnNode{
+			{id: 0, isSigner: false, observedChainIdxs: []int{chain0, chain1}},
+			{id: 1, isSigner: false, observedChainIdxs: []int{chain0, chain1}},
+			{id: 2, isSigner: false, observedChainIdxs: []int{chain0, chain1}},
+			{id: 3, isSigner: true, observedChainIdxs: []int{}},
+			{id: 4, isSigner: true, observedChainIdxs: []int{}},
+			{id: 5, isSigner: true, observedChainIdxs: []int{}},
+		},
+		messagesToSend: []messageToSend{
+			{fromChainIdx: chain0, toChainIdx: chain1, count: 1},
+		},
+	})
+}
+
+func TestRMN_NotEnoughSigners(t *testing.T) {
+	runRmnTestCase(t, rmnTestCase{
+		name:                "different signers and different observers",
+		passIfNoCommitAfter: time.Minute, // wait for a minute and assert that commit report was not delivered
+		homeChainConfig: homeChainConfig{
+			f: map[int]int{chain0: 1, chain1: 1},
+		},
+		remoteChainsConfig: []remoteChainConfig{
+			{chainIdx: chain0, f: 1},
+			{chainIdx: chain1, f: 1},
+		},
+		rmnNodes: []rmnNode{
+			{id: 0, isSigner: false, observedChainIdxs: []int{chain0, chain1}},
+			{id: 1, isSigner: false, observedChainIdxs: []int{chain0, chain1}},
+			{id: 2, isSigner: false, observedChainIdxs: []int{chain0, chain1}},
+			{id: 3, isSigner: true, observedChainIdxs: []int{}},
+			{id: 4, isSigner: true, observedChainIdxs: []int{}, forceExit: true}, // signer is down
+			{id: 5, isSigner: true, observedChainIdxs: []int{}, forceExit: true}, // signer is down
+		},
+		messagesToSend: []messageToSend{
+			{fromChainIdx: chain0, toChainIdx: chain1, count: 1},
+		},
+	})
+}
+
+func TestRMN_DifferentRmnNodesForDifferentChains(t *testing.T) {
+	runRmnTestCase(t, rmnTestCase{
+		name:        "different rmn nodes support different chains",
+		waitForExec: false,
+		homeChainConfig: homeChainConfig{
+			f: map[int]int{chain0: 1, chain1: 1},
+		},
+		remoteChainsConfig: []remoteChainConfig{
+			{chainIdx: chain0, f: 1},
+			{chainIdx: chain1, f: 1},
+		},
+		rmnNodes: []rmnNode{
+			{id: 0, isSigner: true, observedChainIdxs: []int{chain0}},
+			{id: 1, isSigner: true, observedChainIdxs: []int{chain0}},
+			{id: 2, isSigner: true, observedChainIdxs: []int{chain0}},
+			{id: 3, isSigner: true, observedChainIdxs: []int{chain1}},
+			{id: 4, isSigner: true, observedChainIdxs: []int{chain1}},
+			{id: 5, isSigner: true, observedChainIdxs: []int{chain1}},
+		},
+		messagesToSend: []messageToSend{
+			{fromChainIdx: chain0, toChainIdx: chain1, count: 1},
+			{fromChainIdx: chain1, toChainIdx: chain0, count: 1},
+		},
+	})
+}
+
+const (
+	chain0 = 0
+	chain1 = 1
+)
 
 func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	if skipRmnTest {
@@ -107,6 +181,12 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 
 	envWithRMN, rmnCluster := testsetups.NewLocalDevEnvironmentWithRMN(t, logger.TestLogger(t), len(tc.rmnNodes))
 	t.Logf("envWithRmn: %#v", envWithRMN)
+
+	var chainSelectors []uint64
+	for _, chain := range envWithRMN.Env.Chains {
+		chainSelectors = append(chainSelectors, chain.Selector)
+	}
+	require.Greater(t, len(chainSelectors), 1, "There should be at least two chains")
 
 	remoteChainSelectors := make([]uint64, 0, len(envWithRMN.Env.Chains)-1)
 	for _, chain := range envWithRMN.Env.Chains {
@@ -139,12 +219,12 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	}
 
 	var rmnHomeSourceChains []rmn_home.RMNHomeSourceChain
-	for remoteChainSel, remoteF := range tc.homeChainConfig.f {
+	for remoteChainIdx, remoteF := range tc.homeChainConfig.f {
 		// configure remote chain details on the home contract
 		rmnHomeSourceChains = append(rmnHomeSourceChains, rmn_home.RMNHomeSourceChain{
-			ChainSelector:       remoteChainSel,
+			ChainSelector:       chainSelectors[remoteChainIdx],
 			F:                   uint64(remoteF),
-			ObserverNodesBitmap: createObserverNodesBitmap(remoteChainSel, tc.rmnNodes),
+			ObserverNodesBitmap: createObserverNodesBitmap(chainSelectors[remoteChainIdx], tc.rmnNodes, chainSelectors),
 		})
 	}
 
@@ -208,7 +288,8 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 
 	// Set RMN remote config appropriately
 	for _, remoteCfg := range tc.remoteChainsConfig {
-		chState, ok := onChainState.Chains[remoteCfg.selector]
+		remoteSel := chainSelectors[remoteCfg.chainIdx]
+		chState, ok := onChainState.Chains[remoteSel]
 		require.True(t, ok)
 		rmnRemoteConfig := rmn_remote.RMNRemoteConfig{
 			RmnHomeContractConfigDigest: activeDigest,
@@ -216,7 +297,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 			F:                           uint64(remoteCfg.f),
 		}
 
-		chain := envWithRMN.Env.Chains[remoteCfg.selector]
+		chain := envWithRMN.Env.Chains[chainSelectors[remoteCfg.chainIdx]]
 
 		t.Logf("Setting RMNRemote config with RMNHome active digest: %x, cfg: %+v", activeDigest[:], rmnRemoteConfig)
 		tx2, err2 := chState.RMNRemote.SetConfig(chain.DeployerKey, rmnRemoteConfig)
@@ -273,13 +354,17 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	startBlocks := make(map[uint64]*uint64)
 	expectedSeqNum := make(map[uint64]uint64)
 	for _, msg := range tc.messagesToSend {
+		fromChain := chainSelectors[msg.fromChainIdx]
+		toChain := chainSelectors[msg.toChainIdx]
+
 		for i := 0; i < msg.count; i++ {
-			seqNum := ccipdeployment.TestSendRequest(t, envWithRMN.Env, onChainState, msg.fromChain, msg.toChain, false)
-			expectedSeqNum[msg.toChain] = seqNum
-			t.Logf("Sent message from chain %d to chain %d with seqNum %d", msg.fromChain, msg.toChain, seqNum)
+			seqNum := ccipdeployment.TestSendRequest(t, envWithRMN.Env, onChainState, fromChain, toChain, false)
+			expectedSeqNum[toChain] = seqNum
+			t.Logf("Sent message from chain %d to chain %d with seqNum %d", fromChain, toChain, seqNum)
 		}
+
 		zero := uint64(0)
-		startBlocks[msg.toChain] = &zero
+		startBlocks[toChain] = &zero
 	}
 	t.Logf("Sent all messages, expectedSeqNum: %v", expectedSeqNum)
 
@@ -313,39 +398,44 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	}
 }
 
-func createObserverNodesBitmap(chainSel uint64, rmnNodes []rmnNode) *big.Int {
+func createObserverNodesBitmap(chainSel uint64, rmnNodes []rmnNode, chainSelectors []uint64) *big.Int {
 	bitmap := new(big.Int)
 	for _, n := range rmnNodes {
-		observedChains := mapset.NewSet(n.observedChains...)
-		if !observedChains.Contains(chainSel) {
+		observedChainSelectors := mapset.NewSet[uint64]()
+		for _, chainIdx := range n.observedChainIdxs {
+			observedChainSelectors.Add(chainSelectors[chainIdx])
+		}
+
+		if !observedChainSelectors.Contains(chainSel) {
 			continue
 		}
+
 		bitmap.SetBit(bitmap, n.id, 1)
 	}
+
 	return bitmap
 }
 
 type homeChainConfig struct {
-	f map[uint64]int
+	f map[int]int
 }
 
 type remoteChainConfig struct {
-	selector uint64
+	chainIdx int
 	f        int
 }
 
 type rmnNode struct {
-	id             int
-	isSigner       bool
-	observedChains []uint64
-	forceExit      bool // force exit will simply force exit the rmn node to simulate failure scenarios
+	id                int
+	isSigner          bool
+	observedChainIdxs []int
+	forceExit         bool // force exit will simply force exit the rmn node to simulate failure scenarios
 }
 
 type messageToSend struct {
-	fromChain         uint64
-	toChain           uint64
-	count             int
-	expectedDelivered bool
+	fromChainIdx int
+	toChainIdx   int
+	count        int
 }
 
 type rmnTestCase struct {
