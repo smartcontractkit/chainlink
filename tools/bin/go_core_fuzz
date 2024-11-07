@@ -7,11 +7,11 @@ OUTPUT_FILE=${OUTPUT_FILE:-"./output.txt"}
 FUZZ_TIMEOUT_MINUTES=${FUZZ_TIMEOUT_MINUTES:-"6"}
 
 TOTAL_SECONDS=$((FUZZ_TIMEOUT_MINUTES * 60))
-if (( TOTAL_SECONDS >= 180 )); then
-    # Allow for a 120 second buffer between the timeout, and fuzz test runtime
-    FUZZ_SECONDS=$((TOTAL_SECONDS - 120))
+if (( TOTAL_SECONDS >= 120 )); then
+    # Allow for a 60 second buffer between the timeout, and fuzz test runtime
+    FUZZ_SECONDS=$((TOTAL_SECONDS - 60))
 else
-    echo "Increase FUZZ_TIMEOUT_MINUTES to >=3, received $FUZZ_TIMEOUT_MINUTES"
+    echo "Increase FUZZ_TIMEOUT_MINUTES to >=2, received $FUZZ_TIMEOUT_MINUTES"
     exit 1
 fi
 
