@@ -35,7 +35,6 @@ import (
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
 )
 
 const testWorkflowId = "<workflow-id>"
@@ -149,6 +148,12 @@ func newTestEngineWithYAMLSpec(t *testing.T, reg *coreCap.Registry, spec string,
 	return newTestEngine(t, reg, sdkSpec, opts...)
 }
 
+type mockSecretsFetcher struct{}
+
+func (s mockSecretsFetcher) SecretsFor(workflowOwner, workflowName string) (map[string]string, error) {
+	return map[string]string{}, nil
+}
+
 // newTestEngine creates a new engine with some test defaults.
 func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec, opts ...func(c *Config)) (*Engine, *testHooks) {
 	initFailed := make(chan struct{})
@@ -174,7 +179,7 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 		onExecutionFinished: func(weid string) {
 			executionFinished <- weid
 		},
-		SecretsFetcher: syncer.NewWorkflowRegistry(),
+		SecretsFetcher: mockSecretsFetcher{},
 		clock:          clock,
 	}
 	for _, o := range opts {
