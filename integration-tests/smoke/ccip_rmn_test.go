@@ -373,7 +373,6 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	go func() {
 		ccipdeployment.ConfirmCommitForAllWithExpectedSeqNums(t, envWithRMN.Env, onChainState, expectedSeqNum, startBlocks)
 		commitReportReceived <- struct{}{}
-		return
 	}()
 
 	if tc.passIfNoCommitAfter > 0 { // wait for a duration and assert that commit reports were not delivered
