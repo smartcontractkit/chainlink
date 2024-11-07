@@ -1,12 +1,11 @@
 package launcher
 
 import (
-	"errors"
 	"fmt"
-	"sync"
-
+	mapset "github.com/deckarep/golang-set/v2"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"go.uber.org/multierr"
+	"golang.org/x/exp/maps"
+	"golang.org/x/sync/errgroup"
 
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
@@ -35,47 +34,54 @@ func (c pluginRegistry) CloseAll() error {
 // If any of the previous config digests are no longer present, we need to shut those down
 // We don't care about if they're exec/commit or active/candidate, that all happens in the plugin
 func (c pluginRegistry) TransitionFrom(prevPlugins pluginRegistry) error {
-	var allErrs error
-
 	if len(c) > MaxPlugins || len(prevPlugins) > MaxPlugins {
 		return fmt.Errorf("current pluginRegistry or prevPlugins have more than 4 instances: len(prevPlugins): %d, len(currPlugins): %d", len(prevPlugins), len(c))
 	}
 
-	var wg sync.WaitGroup
-	var mu sync.Mutex
-	// This shuts down instances that were present previously, but are no longer needed
-	for digest, oracle := range prevPlugins {
-		if _, ok := c[digest]; !ok {
-			wg.Add(1)
-			go func(o cctypes.CCIPOracle) {
-				defer wg.Done()
-				if err := o.Close(); err != nil {
-					mu.Lock()
-					allErrs = multierr.Append(allErrs, err)
-					mu.Unlock()
-				}
-			}(oracle)
-		}
-	}
-	wg.Wait()
+	prevOracles := mapset.NewSet[ocrtypes.ConfigDigest](maps.Keys(prevPlugins)...)
+	currOracles := mapset.NewSet[ocrtypes.ConfigDigest](maps.Keys(c)...)
 
-	// This will start the instances that were not previously present, but are in the new config
-	for digest, oracle := range c {
-		if digest == [32]byte{} {
-			allErrs = multierr.Append(allErrs, errors.New("cannot start a plugin with an empty config digest"))
-		} else if _, ok := prevPlugins[digest]; !ok {
-			wg.Add(1)
-			go func(o cctypes.CCIPOracle) {
-				defer wg.Done()
-				if err := o.Start(); err != nil {
-					mu.Lock()
-					allErrs = multierr.Append(allErrs, err)
-					mu.Unlock()
-				}
-			}(oracle)
-		}
+	var ops = make([]syncAction, 0, 2*MaxPlugins)
+	for digest := range prevOracles.Difference(currOracles).Iterator().C {
+		ops = append(ops, syncAction{
+			command: closeAction,
+			oracle:  prevPlugins[digest],
+		})
 	}
-	wg.Wait()
 
-	return allErrs
+	for digest := range currOracles.Difference(prevOracles).Iterator().C {
+		ops = append(ops, syncAction{
+			command: openAction,
+			oracle:  c[digest],
+		})
+	}
+
+	g := new(errgroup.Group)
+	for _, op := range ops {
+		op := op
+		g.Go(func() error {
+			if op.command == closeAction {
+				if err := op.oracle.Close(); err != nil {
+					return err
+				}
+			} else if op.command == openAction {
+				if err := op.oracle.Start(); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+	}
+
+	return g.Wait()
+}
+
+const (
+	closeAction = iota
+	openAction
+)
+
+type syncAction struct {
+	command int
+	oracle  cctypes.CCIPOracle
 }

@@ -100,6 +100,7 @@ func (o *ocr2Node) toNodeKeys() NodeKeys {
 		AptosOnchainPublicKey: aptosOnchainPublicKey,
 	}
 }
+
 func newOcr2NodeFromClo(n *models.Node, registryChainSel uint64) (*ocr2Node, error) {
 	if n.PublicKey == nil {
 		return nil, errors.New("no public key")
@@ -121,6 +122,14 @@ func newOcr2NodeFromClo(n *models.Node, registryChainSel uint64) (*ocr2Node, err
 		cfgs[chaintype.Aptos] = aptosCC
 	}
 	return newOcr2Node(n.ID, cfgs, *n.PublicKey)
+}
+
+func ExtractKeys(n *models.Node, registerChainSel uint64) (p2p p2pkey.PeerID, signer [32]byte, encPubKey [32]byte, err error) {
+	orc2n, err := newOcr2NodeFromClo(n, registerChainSel)
+	if err != nil {
+		return p2p, signer, encPubKey, fmt.Errorf("failed to create ocr2 node for node %s: %w", n.ID, err)
+	}
+	return orc2n.P2PKey, orc2n.Signer, orc2n.EncryptionPublicKey, nil
 }
 
 func newOcr2Node(id string, ccfgs map[chaintype.ChainType]*v1.ChainConfig, csaPubKey string) (*ocr2Node, error) {
@@ -202,30 +211,39 @@ type DonCapabilities struct {
 
 // map the node id to the NOP
 func (dc DonCapabilities) nodeIdToNop(cs uint64) (map[string]capabilities_registry.CapabilitiesRegistryNodeOperator, error) {
-	cid, err := chainsel.ChainIdFromSelector(cs)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get chain id from selector %d: %w", cs, err)
-	}
-	cidStr := strconv.FormatUint(cid, 10)
 	out := make(map[string]capabilities_registry.CapabilitiesRegistryNodeOperator)
 	for _, nop := range dc.Nops {
 		for _, node := range nop.Nodes {
-			found := false
-			for _, chain := range node.ChainConfigs {
-				if chain.Network.ChainID == cidStr {
-					found = true
-					out[node.ID] = capabilities_registry.CapabilitiesRegistryNodeOperator{
-						Name:  nop.Name,
-						Admin: adminAddr(chain.AdminAddress),
-					}
-				}
+			a, err := AdminAddress(node, cs)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get admin address for node %s: %w", node.ID, err)
 			}
-			if !found {
-				return nil, fmt.Errorf("node '%s' %s does not support chain %d", node.Name, node.ID, cid)
-			}
+			out[node.ID] = NodeOperator(dc.Name, a)
+
 		}
 	}
 	return out, nil
+}
+
+func NodeOperator(name string, adminAddress string) capabilities_registry.CapabilitiesRegistryNodeOperator {
+	return capabilities_registry.CapabilitiesRegistryNodeOperator{
+		Name:  name,
+		Admin: adminAddr(adminAddress),
+	}
+}
+
+func AdminAddress(n *models.Node, chainSel uint64) (string, error) {
+	cid, err := chainsel.ChainIdFromSelector(chainSel)
+	if err != nil {
+		return "", fmt.Errorf("failed to get chain id from selector %d: %w", chainSel, err)
+	}
+	cidStr := strconv.FormatUint(cid, 10)
+	for _, chain := range n.ChainConfigs {
+		if chain.Network.ChainID == cidStr {
+			return chain.AdminAddress, nil
+		}
+	}
+	return "", fmt.Errorf("no chain config for chain %d", cid)
 }
 
 // helpers to maintain compatibility with the existing registration functions

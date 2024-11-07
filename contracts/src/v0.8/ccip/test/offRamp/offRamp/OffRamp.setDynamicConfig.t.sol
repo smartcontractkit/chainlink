@@ -43,7 +43,7 @@ contract OffRamp_setDynamicConfig is OffRampSetup {
   }
 
   function test_FeeQuoterZeroAddress_Revert() public {
-    OffRamp.DynamicConfig memory dynamicConfig = _generateDynamicOffRampConfig(ZERO_ADDRESS);
+    OffRamp.DynamicConfig memory dynamicConfig = _generateDynamicOffRampConfig(address(0));
 
     vm.expectRevert(OffRamp.ZeroAddressNotAllowed.selector);
 

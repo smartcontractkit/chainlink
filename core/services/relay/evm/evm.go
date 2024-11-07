@@ -572,7 +572,7 @@ func (r *Relayer) NewLLOProvider(ctx context.Context, rargs commontypes.RelayArg
 	}
 
 	configuratorAddress := common.HexToAddress(relayOpts.ContractID)
-	return NewLLOProvider(context.Background(), transmitter, r.lggr, r.retirementReportCache, r.chain, configuratorAddress, cdc, relayConfig, relayOpts)
+	return NewLLOProvider(ctx, transmitter, r.lggr, r.retirementReportCache, r.chain, configuratorAddress, cdc, relayConfig, relayOpts)
 }
 
 func (r *Relayer) NewFunctionsProvider(ctx context.Context, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.FunctionsProvider, error) {
@@ -838,6 +838,7 @@ func (r *Relayer) NewChainWriter(_ context.Context, config []byte) (commontypes.
 		return nil, fmt.Errorf("failed to unmarshall chain writer config err: %s", err)
 	}
 
+	cfg.MaxGasPrice = r.chain.Config().EVM().GasEstimator().PriceMax()
 	return NewChainWriterService(r.lggr, r.chain.Client(), r.chain.TxManager(), r.chain.GasEstimator(), cfg)
 }
 
@@ -1022,6 +1023,7 @@ func (r *Relayer) NewCCIPExecProvider(ctx context.Context, rargs commontypes.Rel
 	// bail early.
 	if execPluginConfig.IsSourceProvider {
 		return NewSrcExecProvider(
+			ctx,
 			r.lggr,
 			versionFinder,
 			r.chain.Client(),

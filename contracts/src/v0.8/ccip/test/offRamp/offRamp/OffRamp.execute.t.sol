@@ -32,7 +32,7 @@ contract OffRamp_execute is OffRampSetup {
 
     _execute(reports);
 
-    assertExecutionStateChangedEventLogs(
+    _assertExecutionStateChangedEventLogs(
       SOURCE_CHAIN_SELECTOR_1,
       messages[0].header.sequenceNumber,
       messages[0].header.messageId,
@@ -64,7 +64,7 @@ contract OffRamp_execute is OffRampSetup {
 
     Vm.Log[] memory logs = vm.getRecordedLogs();
 
-    assertExecutionStateChangedEventLogs(
+    _assertExecutionStateChangedEventLogs(
       logs,
       messages1[0].header.sourceChainSelector,
       messages1[0].header.sequenceNumber,
@@ -74,7 +74,7 @@ contract OffRamp_execute is OffRampSetup {
       ""
     );
 
-    assertExecutionStateChangedEventLogs(
+    _assertExecutionStateChangedEventLogs(
       logs,
       messages1[1].header.sourceChainSelector,
       messages1[1].header.sequenceNumber,
@@ -84,7 +84,7 @@ contract OffRamp_execute is OffRampSetup {
       ""
     );
 
-    assertExecutionStateChangedEventLogs(
+    _assertExecutionStateChangedEventLogs(
       logs,
       messages2[0].header.sourceChainSelector,
       messages2[0].header.sequenceNumber,
@@ -118,7 +118,7 @@ contract OffRamp_execute is OffRampSetup {
 
     for (uint64 i = 0; i < reports.length; ++i) {
       for (uint64 j = 0; j < reports[i].messages.length; ++j) {
-        assertExecutionStateChangedEventLogs(
+        _assertExecutionStateChangedEventLogs(
           logs,
           reports[i].messages[j].header.sourceChainSelector,
           reports[i].messages[j].header.sequenceNumber,
@@ -158,7 +158,7 @@ contract OffRamp_execute is OffRampSetup {
 
     Vm.Log[] memory logs = vm.getRecordedLogs();
 
-    assertExecutionStateChangedEventLogs(
+    _assertExecutionStateChangedEventLogs(
       logs,
       messages1[0].header.sourceChainSelector,
       messages1[0].header.sequenceNumber,
@@ -171,7 +171,7 @@ contract OffRamp_execute is OffRampSetup {
       )
     );
 
-    assertExecutionStateChangedEventLogs(
+    _assertExecutionStateChangedEventLogs(
       logs,
       messages1[1].header.sourceChainSelector,
       messages1[1].header.sequenceNumber,
@@ -181,7 +181,7 @@ contract OffRamp_execute is OffRampSetup {
       ""
     );
 
-    assertExecutionStateChangedEventLogs(
+    _assertExecutionStateChangedEventLogs(
       logs,
       messages2[0].header.sourceChainSelector,
       messages2[0].header.sequenceNumber,

@@ -1008,6 +1008,7 @@ func TestVRFV2WithBHS(t *testing.T) {
 }
 
 func TestVRFV2NodeReorg(t *testing.T) {
+	t.Skip("Flakey", "https://smartcontract-it.atlassian.net/browse/DEVSVCS-829")
 	t.Parallel()
 	var (
 		env                          *test_env.CLClusterTestEnv

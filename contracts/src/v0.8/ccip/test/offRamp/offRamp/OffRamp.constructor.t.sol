@@ -188,7 +188,7 @@ contract OffRamp_constructor is OffRampSetup {
     s_offRamp = new OffRampHelper(
       OffRamp.StaticConfig({
         chainSelector: DEST_CHAIN_SELECTOR,
-        rmnRemote: IRMNRemote(ZERO_ADDRESS),
+        rmnRemote: IRMNRemote(address(0)),
         tokenAdminRegistry: address(s_tokenAdminRegistry),
         nonceManager: address(s_inboundNonceManager)
       }),
@@ -229,7 +229,7 @@ contract OffRamp_constructor is OffRampSetup {
       OffRamp.StaticConfig({
         chainSelector: DEST_CHAIN_SELECTOR,
         rmnRemote: s_mockRMNRemote,
-        tokenAdminRegistry: ZERO_ADDRESS,
+        tokenAdminRegistry: address(0),
         nonceManager: address(s_inboundNonceManager)
       }),
       _generateDynamicOffRampConfig(address(s_feeQuoter)),
@@ -250,7 +250,7 @@ contract OffRamp_constructor is OffRampSetup {
         chainSelector: DEST_CHAIN_SELECTOR,
         rmnRemote: s_mockRMNRemote,
         tokenAdminRegistry: address(s_tokenAdminRegistry),
-        nonceManager: ZERO_ADDRESS
+        nonceManager: address(0)
       }),
       _generateDynamicOffRampConfig(address(s_feeQuoter)),
       sourceChainConfigs
