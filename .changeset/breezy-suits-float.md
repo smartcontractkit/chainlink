@@ -2,4 +2,4 @@
 "chainlink": minor
 ---
 
-address book remove feature
+#added address book remove feature
