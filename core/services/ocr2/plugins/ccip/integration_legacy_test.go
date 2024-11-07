@@ -26,7 +26,7 @@ import (
 )
 
 func TestIntegration_legacy_CCIP(t *testing.T) {
-	t.Skip("TODO FIXME")
+	t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809")
 	// Run the batches of tests for both pipeline and dynamic price getter setups.
 	// We will remove the pipeline batch once the feature is deleted from the code.
 	tests := []struct {

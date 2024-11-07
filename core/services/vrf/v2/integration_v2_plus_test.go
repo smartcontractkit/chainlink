@@ -590,7 +590,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_BlockHeaderFeeder(t *testing.T) {
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
 	t.Run("link payment", func(tt *testing.T) {
-		tt.Skip("TODO FIXME")
+		tt.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809")
 		testBlockHeaderFeeder(
 			t,
 			ownerKey,
@@ -607,7 +607,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_BlockHeaderFeeder(t *testing.T) {
 		)
 	})
 	t.Run("native payment", func(tt *testing.T) {
-		tt.Skip("TODO FIXME")
+		tt.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809")
 		testBlockHeaderFeeder(
 			t,
 			ownerKey,
@@ -630,7 +630,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_NeedsTopUp(t *testing.T) {
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
 	t.Run("link payment", func(tt *testing.T) {
-		tt.Skip("TODO FIXME")
+		tt.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809")
 		testSingleConsumerNeedsTopUp(
 			t,
 			ownerKey,
@@ -649,7 +649,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_NeedsTopUp(t *testing.T) {
 		)
 	})
 	t.Run("native payment", func(tt *testing.T) {
-		tt.Skip("TODO FIXME")
+		tt.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809")
 		testSingleConsumerNeedsTopUp(
 			t,
 			ownerKey,
@@ -670,14 +670,14 @@ func TestVRFV2PlusIntegration_SingleConsumer_NeedsTopUp(t *testing.T) {
 }
 
 func TestVRFV2PlusIntegration_SingleConsumer_BigGasCallback_Sandwich(t *testing.T) {
-	t.Skip("TODO FIXME")
+	t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809")
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
 	testSingleConsumerBigGasCallbackSandwich(t, ownerKey, uni.coordinatorV2UniverseCommon, uni.batchCoordinatorContractAddress, vrfcommon.V2Plus, false)
 }
 
 func TestVRFV2PlusIntegration_SingleConsumer_MultipleGasLanes(t *testing.T) {
-	t.Skip("TODO FIXME")
+	t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809")
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
 	testSingleConsumerMultipleGasLanes(t, ownerKey, uni.coordinatorV2UniverseCommon, uni.batchCoordinatorContractAddress, vrfcommon.V2Plus, false)

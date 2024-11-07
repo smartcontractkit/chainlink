@@ -782,7 +782,7 @@ func setupForwarderEnabledNode(t *testing.T, owner *bind.TransactOpts, portV2 in
 }
 
 func TestIntegration_OCR(t *testing.T) {
-	t.Skip("TODO FIXME, RUNS LOCALLY FLAKES IN CI")
+	t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809; passes local but fails CI")
 	testutils.SkipShort(t, "long test")
 	t.Parallel()
 	tests := []struct {
@@ -1015,7 +1015,7 @@ observationSource = """
 }
 
 func TestIntegration_OCR_ForwarderFlow(t *testing.T) {
-	t.Skip("TODO FIXME")
+	t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809")
 	testutils.SkipShort(t, "long test")
 	t.Parallel()
 	numOracles := 4

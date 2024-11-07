@@ -22,7 +22,7 @@ import (
 )
 
 func Test_CLOSpecApprovalFlow_pipeline(t *testing.T) {
-	t.Skip("TODO FIXME")
+	t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809")
 	ccipTH := integrationtesthelpers.SetupCCIPIntegrationTH(
 		t,
 		testhelpers.SourceChainID,
@@ -41,7 +41,7 @@ func Test_CLOSpecApprovalFlow_pipeline(t *testing.T) {
 }
 
 func Test_CLOSpecApprovalFlow_dynamicPriceGetter(t *testing.T) {
-	t.Skip("TODO FIXME")
+	t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809")
 	ccipTH := integrationtesthelpers.SetupCCIPIntegrationTH(
 		t,
 		testhelpers.SourceChainID,

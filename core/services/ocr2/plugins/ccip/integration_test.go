@@ -28,7 +28,7 @@ import (
 )
 
 func TestIntegration_CCIP(t *testing.T) {
-	t.Skip("TODO FIXME")
+	t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809")
 	// Run the batches of tests for both pipeline and dynamic price getter setups.
 	// We will remove the pipeline batch once the feature is deleted from the code.
 	tests := []struct {
@@ -647,7 +647,7 @@ func TestIntegration_CCIP(t *testing.T) {
 
 // TestReorg ensures that CCIP works even when a below finality depth reorg happens
 func TestReorg(t *testing.T) {
-	t.Skip("TODO FIXME")
+	t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809")
 	// We need higher finality depth on the destination to perform reorg deep enough to revert commit and execution reports
 	destinationFinalityDepth := uint32(50)
 	ccipTH := integrationtesthelpers.SetupCCIPIntegrationTH(

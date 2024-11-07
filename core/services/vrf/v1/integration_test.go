@@ -47,7 +47,7 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			if tt.name == "eip1559" {
-				t.Skip("TODO FIXME")
+				t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809")
 			}
 			ctx := testutils.Context(t)
 			config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
