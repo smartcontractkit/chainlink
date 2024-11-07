@@ -468,6 +468,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	)
 
 	workflowRegistrySyncer := &syncer.WorkflowRegistry{
+		DS:       opts.DS,
 		Logger:   globalLogger.Named("WorkflowRegistrySyncer"),
 		Store:    workflowORM,
 		Registry: opts.CapabilitiesRegistry,

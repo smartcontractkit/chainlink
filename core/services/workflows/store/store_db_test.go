@@ -238,6 +238,7 @@ func Test_StoreDB_GetUnfinishedSteps(t *testing.T) {
 	store := newTestDBStore(t)
 
 	id := randomID()
+	wid := randomID()
 	stepOne := &WorkflowExecutionStep{
 		ExecutionID: id,
 		Ref:         "step1",
@@ -254,10 +255,26 @@ func Test_StoreDB_GetUnfinishedSteps(t *testing.T) {
 			"step2": stepTwo,
 		},
 		ExecutionID: id,
+		WorkflowID:  wid,
 		Status:      StatusStarted,
 	}
 
 	_, err := store.Add(tests.Context(t), &es)
+	require.NoError(t, err)
+
+	id2 := randomID()
+	wid2 := randomID()
+	es2 := WorkflowExecution{
+		Steps: map[string]*WorkflowExecutionStep{
+			"step1": stepOne,
+			"step2": stepTwo,
+		},
+		ExecutionID: id2,
+		WorkflowID:  wid2,
+		Status:      StatusStarted,
+	}
+
+	_, err = store.Add(tests.Context(t), &es2)
 	require.NoError(t, err)
 
 	id = randomID()
@@ -269,7 +286,7 @@ func Test_StoreDB_GetUnfinishedSteps(t *testing.T) {
 	_, err = store.Add(tests.Context(t), &esTwo)
 	require.NoError(t, err)
 
-	states, err := store.GetUnfinished(tests.Context(t), 0, 100)
+	states, err := store.GetUnfinished(tests.Context(t), wid, 0, 100)
 	require.NoError(t, err)
 
 	assert.Len(t, states, 1)

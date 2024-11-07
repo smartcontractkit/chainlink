@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 
@@ -36,6 +37,7 @@ type WorkflowRegistry struct {
 	Logger      logger.Logger
 	Registry    core.CapabilitiesRegistry
 	Store       store.Store
+	DS          sqlutil.DataSource
 	subServices []job.ServiceCtx
 }
 
@@ -69,6 +71,22 @@ func (w *WorkflowRegistry) trySetup() bool {
 	if err != nil {
 		w.Logger.Info("not a workflow node, skipping hardcoded workflow")
 		return true
+	}
+
+	jb := job.WorkflowSpec{
+		Workflow:      string(workflow),
+		Config:        string(config),
+		WorkflowID:    workflowID,
+		WorkflowName:  workflowName,
+		WorkflowOwner: workflowOwner,
+	}
+	sql := `INSERT INTO workflow_specs (workflow, workflow_id, workflow_owner, workflow_name, created_at, updated_at, spec_type, config)
+	VALUES (:workflow, :workflow_id, :workflow_owner, :workflow_name, NOW(), NOW(), :spec_type, :config)
+	RETURNING id;`
+	_, err = w.DS.NamedExecContext(ctx, sql, jb)
+	if err != nil {
+		w.Logger.Info("failed to create entry: %w", err)
+		return false
 	}
 
 	moduleConfig := &host.ModuleConfig{Logger: logger.NullLogger}
