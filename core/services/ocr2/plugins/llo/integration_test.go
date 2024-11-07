@@ -323,6 +323,7 @@ func promoteStagingConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, 
 }
 
 func TestIntegration_LLO(t *testing.T) {
+	t.Parallel()
 	testStartTimeStamp := time.Now()
 	multiplier := decimal.New(1, 18)
 	expirationWindow := time.Hour / time.Second
@@ -808,7 +809,8 @@ func setupNodes(t *testing.T, nNodes int, backend *backends.SimulatedBackend, cl
 		nodes = append(nodes, Node{
 			app, transmitter, kb, observedLogs,
 		})
-		offchainPublicKey, _ := hex.DecodeString(strings.TrimPrefix(kb.OnChainPublicKey(), "0x"))
+		offchainPublicKey, err := hex.DecodeString(strings.TrimPrefix(kb.OnChainPublicKey(), "0x"))
+		require.NoError(t, err)
 		oracles = append(oracles, confighelper.OracleIdentityExtra{
 			OracleIdentity: confighelper.OracleIdentity{
 				OnchainPublicKey:  offchainPublicKey,

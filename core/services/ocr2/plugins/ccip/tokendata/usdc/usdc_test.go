@@ -20,9 +20,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
@@ -35,15 +37,17 @@ var (
 )
 
 func TestUSDCReader_callAttestationApi(t *testing.T) {
+	ctx := tests.Context(t) //nolint:staticcheck // SA4006 - false positive "unused"
 	t.Skipf("Skipping test because it uses the real USDC attestation API")
 	usdcMessageHash := "912f22a13e9ccb979b621500f6952b2afd6e75be7eadaed93fc2625fe11c52a2"
 	attestationURI, err := url.ParseRequestURI("https://iris-api-sandbox.circle.com")
 	require.NoError(t, err)
 	lggr := logger.TestLogger(t)
-	usdcReader, _ := ccipdata.NewUSDCReader(lggr, "job_123", mockMsgTransmitter, nil, false)
+	usdcReader, err := ccipdata.NewUSDCReader(ctx, lggr, "job_123", mockMsgTransmitter, nil, false)
+	require.NoError(t, err)
 	usdcService := NewUSDCTokenDataReader(lggr, usdcReader, attestationURI, 0, common.Address{}, APIIntervalRateLimitDisabled)
 
-	attestation, err := usdcService.callAttestationApi(context.Background(), [32]byte(common.FromHex(usdcMessageHash)))
+	attestation, err := usdcService.callAttestationApi(ctx, [32]byte(common.FromHex(usdcMessageHash)))
 	require.NoError(t, err)
 
 	require.Equal(t, attestationStatusPending, attestation.Status)
@@ -52,6 +56,7 @@ func TestUSDCReader_callAttestationApi(t *testing.T) {
 
 func TestUSDCReader_callAttestationApiMock(t *testing.T) {
 	t.Parallel()
+	ctx := tests.Context(t)
 	response := attestationResponse{
 		Status:      attestationStatusSuccess,
 		Attestation: "720502893578a89a8a87982982ef781c18b193",
@@ -64,9 +69,9 @@ func TestUSDCReader_callAttestationApiMock(t *testing.T) {
 
 	lggr := logger.TestLogger(t)
 	lp := mocks.NewLogPoller(t)
-	usdcReader, _ := ccipdata.NewUSDCReader(lggr, "job_123", mockMsgTransmitter, lp, false)
+	usdcReader, _ := ccipdata.NewUSDCReader(ctx, lggr, "job_123", mockMsgTransmitter, lp, false)
 	usdcService := NewUSDCTokenDataReader(lggr, usdcReader, attestationURI, 0, common.Address{}, APIIntervalRateLimitDisabled)
-	attestation, err := usdcService.callAttestationApi(context.Background(), utils.RandomBytes32())
+	attestation, err := usdcService.callAttestationApi(ctx, utils.RandomBytes32())
 	require.NoError(t, err)
 
 	require.Equal(t, response.Status, attestation.Status)
@@ -196,12 +201,13 @@ func TestUSDCReader_callAttestationApiMockError(t *testing.T) {
 
 			lggr := logger.TestLogger(t)
 			lp := mocks.NewLogPoller(t)
-			usdcReader, _ := ccipdata.NewUSDCReader(lggr, "job_123", mockMsgTransmitter, lp, false)
+			ctx := testutils.Context(t)
+			usdcReader, _ := ccipdata.NewUSDCReader(ctx, lggr, "job_123", mockMsgTransmitter, lp, false)
 			usdcService := NewUSDCTokenDataReader(lggr, usdcReader, attestationURI, test.customTimeoutSeconds, common.Address{}, APIIntervalRateLimitDisabled)
 			lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
-			require.NoError(t, usdcReader.RegisterFilters())
+			require.NoError(t, usdcReader.RegisterFilters(ctx))
 
-			parentCtx, cancel := context.WithTimeout(context.Background(), time.Duration(test.parentTimeoutSeconds)*time.Second)
+			parentCtx, cancel := context.WithTimeout(ctx, time.Duration(test.parentTimeoutSeconds)*time.Second)
 			defer cancel()
 
 			_, err = usdcService.callAttestationApi(parentCtx, utils.RandomBytes32())
@@ -228,6 +234,7 @@ func getMockUSDCEndpoint(t *testing.T, response attestationResponse) *httptest.S
 
 func TestGetUSDCMessageBody(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 	expectedBody := []byte("0x0000000000000001000000020000000000048d71000000000000000000000000eb08f243e5d3fcff26a9e38ae5520a669f4019d000000000000000000000000023a04d5935ed8bc8e3eb78db3541f0abfb001c6e0000000000000000000000006cb3ed9b441eb674b58495c8b3324b59faff5243000000000000000000000000000000005425890298aed601595a70ab815c96711a31bc65000000000000000000000000ab4f961939bfe6a93567cc57c59eed7084ce2131000000000000000000000000000000000000000000000000000000000000271000000000000000000000000035e08285cfed1ef159236728f843286c55fc0861")
 	usdcReader := ccipdatamocks.USDCReader{}
 	usdcReader.On("GetUSDCMessagePriorToLogIndexInTx", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(expectedBody, nil)
@@ -237,7 +244,7 @@ func TestGetUSDCMessageBody(t *testing.T) {
 	usdcService := NewUSDCTokenDataReader(lggr, &usdcReader, nil, 0, usdcTokenAddr, APIIntervalRateLimitDisabled)
 
 	// Make the first call and assert the underlying function is called
-	body, err := usdcService.getUSDCMessageBody(context.Background(), cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{
+	body, err := usdcService.getUSDCMessageBody(ctx, cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{
 		EVM2EVMMessage: cciptypes.EVM2EVMMessage{
 			TokenAmounts: []cciptypes.TokenAmount{
 				{
@@ -356,6 +363,7 @@ func TestUSDCReader_rateLimiting(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
+			ctx := tests.Context(t)
 
 			response := attestationResponse{
 				Status:      attestationStatusSuccess,
@@ -369,10 +377,9 @@ func TestUSDCReader_rateLimiting(t *testing.T) {
 
 			lggr := logger.TestLogger(t)
 			lp := mocks.NewLogPoller(t)
-			usdcReader, _ := ccipdata.NewUSDCReader(lggr, "job_123", mockMsgTransmitter, lp, false)
+			usdcReader, _ := ccipdata.NewUSDCReader(ctx, lggr, "job_123", mockMsgTransmitter, lp, false)
 			usdcService := NewUSDCTokenDataReader(lggr, usdcReader, attestationURI, 0, utils.RandomAddress(), tc.rateConfig)
 
-			ctx := context.Background()
 			if tc.timeout > 0 {
 				var cf context.CancelFunc
 				ctx, cf = context.WithTimeout(ctx, tc.timeout)

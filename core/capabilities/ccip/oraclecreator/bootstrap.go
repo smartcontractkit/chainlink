@@ -14,6 +14,7 @@ import (
 	mapset "github.com/deckarep/golang-set/v2"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/smartcontractkit/libocr/networking"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
@@ -139,7 +140,7 @@ func (i *bootstrapOracleCreator) Type() cctypes.OracleType {
 }
 
 // Create implements types.OracleCreator.
-func (i *bootstrapOracleCreator) Create(_ uint32, config cctypes.OCR3ConfigWithMeta) (cctypes.CCIPOracle, error) {
+func (i *bootstrapOracleCreator) Create(ctx context.Context, _ uint32, config cctypes.OCR3ConfigWithMeta) (cctypes.CCIPOracle, error) {
 	// Assuming that the chain selector is referring to an evm chain for now.
 	// TODO: add an api that returns chain family.
 	// NOTE: this doesn't really matter for the bootstrap node, it doesn't do anything on-chain.
@@ -157,7 +158,6 @@ func (i *bootstrapOracleCreator) Create(_ uint32, config cctypes.OCR3ConfigWithM
 		oraclePeerIDs = append(oraclePeerIDs, n.P2pID)
 	}
 
-	ctx := context.Background()
 	rmnHomeReader, err := i.getRmnHomeReader(ctx, config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get RMNHome reader: %w", err)
@@ -238,7 +238,7 @@ type peerGroupDialer struct {
 	oraclePeerIDs      []ragep2ptypes.PeerID
 	commitConfigDigest [32]byte
 
-	activePeerGroups    []peergroup.PeerGroup
+	activePeerGroups    []networking.PeerGroup
 	activeConfigDigests []cciptypes.Bytes32
 
 	syncInterval time.Duration
@@ -261,7 +261,7 @@ const (
 
 func newPeerGroupDialer(
 	lggr logger.Logger,
-	peerGroupFactory peergroup.PeerGroupFactory,
+	peerGroupFactory networking.PeerGroupFactory,
 	rmnHomeReader ccipreaderpkg.RMNHome,
 	bootstrapLocators []commontypes.BootstrapperLocator,
 	oraclePeerIDs []ragep2ptypes.PeerID,
@@ -277,7 +277,7 @@ func newPeerGroupDialer(
 		oraclePeerIDs:      oraclePeerIDs,
 		commitConfigDigest: commitConfigDigest,
 
-		activePeerGroups: []peergroup.PeerGroup{},
+		activePeerGroups: []networking.PeerGroup{},
 
 		syncInterval: 12 * time.Second, // todo: make it configurable
 
@@ -471,7 +471,7 @@ func (d *peerGroupDialer) closeExistingPeerGroups() {
 		d.lggr.Infow("Closed peer group successfully")
 	}
 
-	d.activePeerGroups = []peergroup.PeerGroup{}
+	d.activePeerGroups = []networking.PeerGroup{}
 	d.activeConfigDigests = []cciptypes.Bytes32{}
 }
 

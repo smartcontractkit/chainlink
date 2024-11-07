@@ -217,14 +217,14 @@ func NewRelayer(ctx context.Context, lggr logger.Logger, chain legacyevm.Chain, 
 		capabilitiesRegistry:  opts.CapabilitiesRegistry,
 	}
 
+	wCfg := chain.Config().EVM().Workflow()
 	// Initialize write target capability if configuration is defined
-	if chain.Config().EVM().Workflow().ForwarderAddress() != nil {
-		if chain.Config().EVM().Workflow().GasLimitDefault() == nil {
+	if wCfg.ForwarderAddress() != nil && wCfg.FromAddress() != nil {
+		if wCfg.GasLimitDefault() == nil {
 			return nil, fmt.Errorf("unable to instantiate write target as default gas limit is not set")
 		}
 
-		capability, err := NewWriteTarget(ctx, relayer, chain, *chain.Config().EVM().Workflow().GasLimitDefault(),
-			lggr)
+		capability, err := NewWriteTarget(ctx, relayer, chain, *wCfg.GasLimitDefault(), lggr)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize write target: %w", err)
 		}
@@ -572,7 +572,7 @@ func (r *Relayer) NewLLOProvider(ctx context.Context, rargs commontypes.RelayArg
 	}
 
 	configuratorAddress := common.HexToAddress(relayOpts.ContractID)
-	return NewLLOProvider(context.Background(), transmitter, r.lggr, r.retirementReportCache, r.chain, configuratorAddress, cdc, relayConfig, relayOpts)
+	return NewLLOProvider(ctx, transmitter, r.lggr, r.retirementReportCache, r.chain, configuratorAddress, cdc, relayConfig, relayOpts)
 }
 
 func (r *Relayer) NewFunctionsProvider(ctx context.Context, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.FunctionsProvider, error) {
@@ -838,6 +838,7 @@ func (r *Relayer) NewChainWriter(_ context.Context, config []byte) (commontypes.
 		return nil, fmt.Errorf("failed to unmarshall chain writer config err: %s", err)
 	}
 
+	cfg.MaxGasPrice = r.chain.Config().EVM().GasEstimator().PriceMax()
 	return NewChainWriterService(r.lggr, r.chain.Client(), r.chain.TxManager(), r.chain.GasEstimator(), cfg)
 }
 
@@ -1022,6 +1023,7 @@ func (r *Relayer) NewCCIPExecProvider(ctx context.Context, rargs commontypes.Rel
 	// bail early.
 	if execPluginConfig.IsSourceProvider {
 		return NewSrcExecProvider(
+			ctx,
 			r.lggr,
 			versionFinder,
 			r.chain.Client(),

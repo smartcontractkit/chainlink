@@ -74,7 +74,7 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]deployme
 				}
 				blockNumber = receipt.BlockNumber.Uint64()
 				if receipt.Status == 0 {
-					errReason, err := deployment.GetErrorReasonFromTx(ec, chainCfg.DeployerKey.From, *tx, receipt)
+					errReason, err := deployment.GetErrorReasonFromTx(ec, chainCfg.DeployerKey.From, tx, receipt)
 					if err == nil && errReason != "" {
 						return blockNumber, fmt.Errorf("tx %s reverted,error reason: %s", tx.Hash().Hex(), errReason)
 					}

@@ -29,7 +29,7 @@ import (
 func TestAddChainInbound(t *testing.T) {
 	// 4 chains where the 4th is added after initial deployment.
 	e := ccipdeployment.NewMemoryEnvironmentWithJobs(t, logger.TestLogger(t), 4, 4)
-	state, err := ccipdeployment.LoadOnchainState(e.Env, e.Ab)
+	state, err := ccipdeployment.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	// Take first non-home chain as the new chain.
 	newChain := e.Env.AllChainSelectorsExcluding([]uint64{e.HomeChainSel})[0]
@@ -37,17 +37,18 @@ func TestAddChainInbound(t *testing.T) {
 	initialDeploy := e.Env.AllChainSelectorsExcluding([]uint64{newChain})
 
 	tokenConfig := ccipdeployment.NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
-	err = ccipdeployment.DeployCCIPContracts(e.Env, e.Ab, ccipdeployment.DeployCCIPContractConfig{
-		HomeChainSel:        e.HomeChainSel,
-		FeedChainSel:        e.FeedChainSel,
-		ChainsToDeploy:      initialDeploy,
-		TokenConfig:         tokenConfig,
-		MCMSConfig:          ccipdeployment.NewTestMCMSConfig(t, e.Env),
-		ExistingAddressBook: e.Ab,
-		OCRSecrets:          deployment.XXXGenerateTestOCRSecrets(),
+	newAddresses := deployment.NewMemoryAddressBook()
+	err = ccipdeployment.DeployCCIPContracts(e.Env, newAddresses, ccipdeployment.DeployCCIPContractConfig{
+		HomeChainSel:   e.HomeChainSel,
+		FeedChainSel:   e.FeedChainSel,
+		ChainsToDeploy: initialDeploy,
+		TokenConfig:    tokenConfig,
+		MCMSConfig:     ccipdeployment.NewTestMCMSConfig(t, e.Env),
+		OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
 	})
 	require.NoError(t, err)
-	state, err = ccipdeployment.LoadOnchainState(e.Env, e.Ab)
+	require.NoError(t, e.Env.ExistingAddresses.Merge(newAddresses))
+	state, err = ccipdeployment.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	// Connect all the existing lanes.
@@ -59,16 +60,23 @@ func TestAddChainInbound(t *testing.T) {
 		}
 	}
 
-	rmnHomeAddress, err := deployment.SearchAddressBook(e.Ab, e.HomeChainSel, ccipdeployment.RMNHome)
+	rmnHomeAddress, err := deployment.SearchAddressBook(e.Env.ExistingAddresses, e.HomeChainSel, ccipdeployment.RMNHome)
 	require.NoError(t, err)
 	require.True(t, common.IsHexAddress(rmnHomeAddress))
 	rmnHome, err := rmn_home.NewRMNHome(common.HexToAddress(rmnHomeAddress), e.Env.Chains[e.HomeChainSel].Client)
 	require.NoError(t, err)
 
 	//  Deploy contracts to new chain
-	err = ccipdeployment.DeployChainContracts(e.Env, e.Env.Chains[newChain], e.Ab, e.FeeTokenContracts[newChain], ccipdeployment.NewTestMCMSConfig(t, e.Env), rmnHome)
+	newChainAddresses := deployment.NewMemoryAddressBook()
+	err = ccipdeployment.DeployChainContracts(e.Env,
+		e.Env.Chains[newChain], newChainAddresses,
+		ccipdeployment.FeeTokenContracts{
+			LinkToken: state.Chains[newChain].LinkToken,
+			Weth9:     state.Chains[newChain].Weth9,
+		}, ccipdeployment.NewTestMCMSConfig(t, e.Env), rmnHome)
 	require.NoError(t, err)
-	state, err = ccipdeployment.LoadOnchainState(e.Env, e.Ab)
+	require.NoError(t, e.Env.ExistingAddresses.Merge(newChainAddresses))
+	state, err = ccipdeployment.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	// Transfer onramp/fq ownership to timelock.
@@ -124,34 +132,28 @@ func TestAddChainInbound(t *testing.T) {
 	require.NoError(t, err)
 
 	// Generate and sign inbound proposal to new 4th chain.
-	chainInboundProposal, err := NewChainInboundProposal(e.Env, state, e.HomeChainSel, newChain, initialDeploy)
+	chainInboundChangeset, err := NewChainInboundChangeset(e.Env, state, e.HomeChainSel, newChain, initialDeploy)
 	require.NoError(t, err)
-	chainInboundExec := ccipdeployment.SignProposal(t, e.Env, chainInboundProposal)
-	for _, sel := range initialDeploy {
-		ccipdeployment.ExecuteProposal(t, e.Env, chainInboundExec, state, sel)
-	}
+	ccipdeployment.ProcessChangeset(t, e.Env, chainInboundChangeset)
+
 	// TODO This currently is not working - Able to send the request here but request gets stuck in execution
 	// Send a new message and expect that this is delivered once the chain is completely set up as inbound
 	//TestSendRequest(t, e.Env, state, initialDeploy[0], newChain, true)
 
 	t.Logf("Executing add don and set candidate proposal for commit plugin on chain %d", newChain)
-	addDonProp, err := AddDonAndSetCandidateProposal(state, e.Env, nodes, deployment.XXXGenerateTestOCRSecrets(), e.HomeChainSel, e.FeedChainSel, newChain, tokenConfig, types.PluginTypeCCIPCommit)
+	addDonChangeset, err := AddDonAndSetCandidateChangeset(state, e.Env, nodes, deployment.XXXGenerateTestOCRSecrets(), e.HomeChainSel, e.FeedChainSel, newChain, tokenConfig, types.PluginTypeCCIPCommit)
 	require.NoError(t, err)
-
-	addDonExec := ccipdeployment.SignProposal(t, e.Env, addDonProp)
-	ccipdeployment.ExecuteProposal(t, e.Env, addDonExec, state, e.HomeChainSel)
+	ccipdeployment.ProcessChangeset(t, e.Env, addDonChangeset)
 
 	t.Logf("Executing promote candidate proposal for exec plugin on chain %d", newChain)
-	setCandidateForExecProposal, err := SetCandidatePluginProposal(state, e.Env, nodes, deployment.XXXGenerateTestOCRSecrets(), e.HomeChainSel, e.FeedChainSel, newChain, tokenConfig, types.PluginTypeCCIPExec)
+	setCandidateForExecChangeset, err := SetCandidatePluginChangeset(state, e.Env, nodes, deployment.XXXGenerateTestOCRSecrets(), e.HomeChainSel, e.FeedChainSel, newChain, tokenConfig, types.PluginTypeCCIPExec)
 	require.NoError(t, err)
-	setCandidateForExecExec := ccipdeployment.SignProposal(t, e.Env, setCandidateForExecProposal)
-	ccipdeployment.ExecuteProposal(t, e.Env, setCandidateForExecExec, state, e.HomeChainSel)
+	ccipdeployment.ProcessChangeset(t, e.Env, setCandidateForExecChangeset)
 
 	t.Logf("Executing promote candidate proposal for both commit and exec plugins on chain %d", newChain)
-	donPromoteProposal, err := PromoteAllCandidatesProposal(state, e.HomeChainSel, newChain, nodes)
+	donPromoteChangeset, err := PromoteAllCandidatesChangeset(state, e.HomeChainSel, newChain, nodes)
 	require.NoError(t, err)
-	donPromoteExec := ccipdeployment.SignProposal(t, e.Env, donPromoteProposal)
-	ccipdeployment.ExecuteProposal(t, e.Env, donPromoteExec, state, e.HomeChainSel)
+	ccipdeployment.ProcessChangeset(t, e.Env, donPromoteChangeset)
 
 	// verify if the configs are updated
 	require.NoError(t, ccipdeployment.ValidateCCIPHomeConfigSetUp(
@@ -187,7 +189,7 @@ func TestAddChainInbound(t *testing.T) {
 	require.NoError(t, err)
 
 	// Assert the inbound lanes to the new chain are wired correctly.
-	state, err = ccipdeployment.LoadOnchainState(e.Env, e.Ab)
+	state, err = ccipdeployment.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	for _, chain := range initialDeploy {
 		cfg, err2 := state.Chains[chain].OnRamp.GetDestChainConfig(nil, newChain)
@@ -209,7 +211,7 @@ func TestAddChainInbound(t *testing.T) {
 	latesthdr, err := e.Env.Chains[newChain].Client.HeaderByNumber(testcontext.Get(t), nil)
 	require.NoError(t, err)
 	startBlock := latesthdr.Number.Uint64()
-	seqNr := ccipdeployment.TestSendRequest(t, e.Env, state, initialDeploy[0], newChain, true)
+	seqNr := ccipdeployment.TestSendRequest(t, e.Env, state, initialDeploy[0], newChain, true, nil)
 	require.NoError(t,
 		ccipdeployment.ConfirmCommitWithExpectedSeqNumRange(t, e.Env.Chains[initialDeploy[0]], e.Env.Chains[newChain], state.Chains[newChain].OffRamp, &startBlock, cciptypes.SeqNumRange{
 			cciptypes.SeqNum(1),

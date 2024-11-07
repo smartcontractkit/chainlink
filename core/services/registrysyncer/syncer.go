@@ -444,14 +444,10 @@ func (s *registrySyncer) Close() error {
 	})
 }
 
-func (s *registrySyncer) Ready() error {
-	return nil
-}
-
 func (s *registrySyncer) HealthReport() map[string]error {
-	return nil
+	return map[string]error{s.Name(): s.Healthy()}
 }
 
 func (s *registrySyncer) Name() string {
-	return "RegistrySyncer"
+	return s.lggr.Name()
 }

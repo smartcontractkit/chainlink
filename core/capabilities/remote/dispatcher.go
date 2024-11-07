@@ -236,5 +236,5 @@ func (d *dispatcher) HealthReport() map[string]error {
 }
 
 func (d *dispatcher) Name() string {
-	return "Dispatcher"
+	return d.lggr.Name()
 }

@@ -210,7 +210,7 @@ func NewOCR2Transaction(raw map[string]interface{}) (*OCR2Transaction, error) {
 		encoder: evm.EVMAutomationEncoder20{},
 		abi:     contract,
 		raw:     raw,
-		tx:      tx,
+		tx:      &tx,
 	}, nil
 }
 
@@ -218,7 +218,7 @@ type OCR2Transaction struct {
 	encoder evm.EVMAutomationEncoder20
 	abi     abi.ABI
 	raw     map[string]interface{}
-	tx      types.Transaction
+	tx      *types.Transaction
 }
 
 func (t *OCR2Transaction) TransactionHash() common.Hash {
@@ -252,7 +252,7 @@ func (t *OCR2Transaction) To() *common.Address {
 func (t *OCR2Transaction) From() (common.Address, error) {
 	switch t.tx.Type() {
 	case 2:
-		from, err := types.Sender(types.NewLondonSigner(t.tx.ChainId()), &t.tx)
+		from, err := types.Sender(types.NewLondonSigner(t.tx.ChainId()), t.tx)
 		if err != nil {
 			return common.Address{}, fmt.Errorf("failed to get from addr: %s", err)
 		} else {

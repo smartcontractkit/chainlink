@@ -53,6 +53,7 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
   event AllowListAdd(address sender);
   event AllowListRemove(address sender);
   event RouterUpdated(address oldRouter, address newRouter);
+  event RateLimitAdminSet(address rateLimitAdmin);
 
   struct ChainUpdate {
     uint64 remoteChainSelector; // ──╮ Remote chain selector
@@ -326,6 +327,7 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
     address rateLimitAdmin
   ) external onlyOwner {
     s_rateLimitAdmin = rateLimitAdmin;
+    emit RateLimitAdminSet(rateLimitAdmin);
   }
 
   /// @notice Gets the rate limiter admin address.

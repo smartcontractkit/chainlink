@@ -22,7 +22,17 @@ func (cfg Config) New(w *sdk.WorkflowSpecFactory, id string) OutputCap {
 	}
 
 	step := sdk.Step[Output]{Definition: def}
-	return OutputCapFromStep(w, step)
+	raw := step.AddTo(w)
+	return OutputWrapper(raw)
+}
+
+// HeadWrapper allows access to field from an sdk.CapDefinition[Head]
+func HeadWrapper(raw sdk.CapDefinition[Head]) HeadCap {
+	wrapped, ok := raw.(HeadCap)
+	if ok {
+		return wrapped
+	}
+	return &headCap{CapDefinition: raw}
 }
 
 type HeadCap interface {
@@ -33,25 +43,23 @@ type HeadCap interface {
 	private()
 }
 
-// HeadCapFromStep should only be called from generated code to assure type safety
-func HeadCapFromStep(w *sdk.WorkflowSpecFactory, step sdk.Step[Head]) HeadCap {
-	raw := step.AddTo(w)
-	return &head{CapDefinition: raw}
-}
-
-type head struct {
+type headCap struct {
 	sdk.CapDefinition[Head]
 }
 
-func (*head) private() {}
-func (c *head) Hash() sdk.CapDefinition[string] {
+func (*headCap) private() {}
+func (c *headCap) Hash() sdk.CapDefinition[string] {
 	return sdk.AccessField[Head, string](c.CapDefinition, "Hash")
 }
-func (c *head) Height() sdk.CapDefinition[string] {
+func (c *headCap) Height() sdk.CapDefinition[string] {
 	return sdk.AccessField[Head, string](c.CapDefinition, "Height")
 }
-func (c *head) Timestamp() sdk.CapDefinition[uint64] {
+func (c *headCap) Timestamp() sdk.CapDefinition[uint64] {
 	return sdk.AccessField[Head, uint64](c.CapDefinition, "Timestamp")
+}
+
+func ConstantHead(value Head) HeadCap {
+	return &headCap{CapDefinition: sdk.ConstantDefinition(value)}
 }
 
 func NewHeadFromFields(
@@ -89,6 +97,15 @@ func (c *simpleHead) Timestamp() sdk.CapDefinition[uint64] {
 
 func (c *simpleHead) private() {}
 
+// OutputWrapper allows access to field from an sdk.CapDefinition[Output]
+func OutputWrapper(raw sdk.CapDefinition[Output]) OutputCap {
+	wrapped, ok := raw.(OutputCap)
+	if ok {
+		return wrapped
+	}
+	return &outputCap{CapDefinition: raw}
+}
+
 type OutputCap interface {
 	sdk.CapDefinition[Output]
 	Cursor() sdk.CapDefinition[string]
@@ -97,25 +114,23 @@ type OutputCap interface {
 	private()
 }
 
-// OutputCapFromStep should only be called from generated code to assure type safety
-func OutputCapFromStep(w *sdk.WorkflowSpecFactory, step sdk.Step[Output]) OutputCap {
-	raw := step.AddTo(w)
-	return &output{CapDefinition: raw}
-}
-
-type output struct {
+type outputCap struct {
 	sdk.CapDefinition[Output]
 }
 
-func (*output) private() {}
-func (c *output) Cursor() sdk.CapDefinition[string] {
+func (*outputCap) private() {}
+func (c *outputCap) Cursor() sdk.CapDefinition[string] {
 	return sdk.AccessField[Output, string](c.CapDefinition, "Cursor")
 }
-func (c *output) Data() OutputDataCap {
-	return OutputDataCap(sdk.AccessField[Output, OutputData](c.CapDefinition, "Data"))
+func (c *outputCap) Data() OutputDataCap {
+	return OutputDataWrapper(sdk.AccessField[Output, OutputData](c.CapDefinition, "Data"))
 }
-func (c *output) Head() HeadCap {
-	return &head{CapDefinition: sdk.AccessField[Output, Head](c.CapDefinition, "Head")}
+func (c *outputCap) Head() HeadCap {
+	return HeadWrapper(sdk.AccessField[Output, Head](c.CapDefinition, "Head"))
+}
+
+func ConstantOutput(value Output) OutputCap {
+	return &outputCap{CapDefinition: sdk.ConstantDefinition(value)}
 }
 
 func NewOutputFromFields(
@@ -152,5 +167,14 @@ func (c *simpleOutput) Head() HeadCap {
 }
 
 func (c *simpleOutput) private() {}
+
+// OutputDataWrapper allows access to field from an sdk.CapDefinition[OutputData]
+func OutputDataWrapper(raw sdk.CapDefinition[OutputData]) OutputDataCap {
+	wrapped, ok := raw.(OutputDataCap)
+	if ok {
+		return wrapped
+	}
+	return OutputDataCap(raw)
+}
 
 type OutputDataCap sdk.CapDefinition[OutputData]

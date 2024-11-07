@@ -302,7 +302,7 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 		return fmt.Errorf("%w: event %q doesn't exist", commontypes.ErrInvalidConfig, chainReaderDefinition.ChainSpecificName)
 	}
 
-	indexedAsUnIndexedABITypes, indexedTopicsCodecTypes, eventDWs := getEventTypes(event)
+	indexedAsUnIndexedABITypes, indexedTopicsCodecTypes, dwsDetails := getEventTypes(event)
 	if err := indexedTopicsCodecTypes.Init(); err != nil {
 		return err
 	}
@@ -337,7 +337,7 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 		maps.Copy(codecModifiers, topicsModifiers)
 
 		// TODO BCFR-44 no dw modifier for now
-		dataWordsDetails, dWSCodecTypeInfo, initDWQueryingErr := cr.initDWQuerying(contractName, eventName, eventDWs, eventDefinitions.GenericDataWordDetails)
+		dataWordsDetails, dWSCodecTypeInfo, initDWQueryingErr := cr.initDWQuerying(contractName, eventName, dwsDetails, eventDefinitions.GenericDataWordDetails)
 		if initDWQueryingErr != nil {
 			return fmt.Errorf("failed to init dw querying for event: %q, err: %w", eventName, initDWQueryingErr)
 		}
@@ -473,56 +473,36 @@ func (cr *chainReader) addDecoderDef(contractName, itemType string, outputs abi.
 func getEventTypes(event abi.Event) ([]abi.Argument, types.CodecEntry, map[string]read.DataWordDetail) {
 	indexedAsUnIndexedTypes := make([]abi.Argument, 0, types.MaxTopicFields)
 	indexedTypes := make([]abi.Argument, 0, len(event.Inputs))
-	dataWords := make(map[string]read.DataWordDetail)
-	var dwIndex int
-
 	for _, input := range event.Inputs {
-		if !input.Indexed {
-			dwIndex = calculateFieldDWIndex(input, event.Name+"."+input.Name, dataWords, dwIndex)
-			continue
+		if input.Indexed {
+			indexedAsUnIndexed := input
+			indexedAsUnIndexed.Indexed = false
+			// when presenting the filter off-chain, the caller will provide the unHashed version of the input and CR will hash topics when needed.
+			indexedAsUnIndexedTypes = append(indexedAsUnIndexedTypes, indexedAsUnIndexed)
+			indexedTypes = append(indexedTypes, input)
 		}
-
-		indexedAsUnIndexed := input
-		indexedAsUnIndexed.Indexed = false
-		// when presenting the filter off-chain, the caller will provide the unHashed version of the input and CR will hash topics when needed.
-		indexedAsUnIndexedTypes = append(indexedAsUnIndexedTypes, indexedAsUnIndexed)
-		indexedTypes = append(indexedTypes, input)
 	}
 
-	return indexedAsUnIndexedTypes, types.NewCodecEntry(indexedTypes, nil, nil), dataWords
+	return indexedAsUnIndexedTypes, types.NewCodecEntry(indexedTypes, nil, nil), getDWIndexesWithTypes(event.Name, event.Inputs)
 }
 
-// calculateFieldDWIndex recursively calculates the indices of all static unindexed fields in the event
-// and calculates the offset for all unsearchable / dynamic fields.
-func calculateFieldDWIndex(arg abi.Argument, fieldPath string, dataWords map[string]read.DataWordDetail, index int) int {
-	if isDynamic(arg.Type) {
-		return index + 1
+func getDWIndexesWithTypes(eventName string, eventInputs abi.Arguments) map[string]read.DataWordDetail {
+	var dwIndexOffset int
+	dataWords := make(map[string]read.DataWordDetail)
+	dynamicQueue := make([]abi.Argument, 0)
+
+	for _, input := range eventInputs.NonIndexed() {
+		// each dynamic field has an extra field that stores the dwIndexOffset that points to the start of the dynamic data.
+		if isDynamic(input.Type) {
+			dynamicQueue = append(dynamicQueue, input)
+			dwIndexOffset++
+		} else {
+			dwIndexOffset = processDWStaticField(input.Type, eventName+"."+input.Name, dataWords, dwIndexOffset)
+		}
 	}
 
-	return processFields(arg.Type, fieldPath, dataWords, index)
-}
-
-func processFields(fieldType abi.Type, parentFieldPath string, dataWords map[string]read.DataWordDetail, index int) int {
-	switch fieldType.T {
-	case abi.TupleTy:
-		// Recursively process tuple elements
-		for i, tupleElem := range fieldType.TupleElems {
-			fieldName := fieldType.TupleRawNames[i]
-			fullFieldPath := fmt.Sprintf("%s.%s", parentFieldPath, fieldName)
-			index = processFields(*tupleElem, fullFieldPath, dataWords, index)
-		}
-		return index
-	case abi.ArrayTy:
-		// Static arrays are not searchable, however, we can reliably calculate their size so that the fields
-		// after them can be searched.
-		return index + fieldType.Size
-	default:
-		dataWords[parentFieldPath] = read.DataWordDetail{
-			Index:    index,
-			Argument: abi.Argument{Type: fieldType},
-		}
-		return index + 1
-	}
+	processDWDynamicFields(eventName, dataWords, dynamicQueue, dwIndexOffset)
+	return dataWords
 }
 
 func isDynamic(fieldType abi.Type) bool {
@@ -538,6 +518,49 @@ func isDynamic(fieldType abi.Type) bool {
 		}
 	}
 	return false
+}
+
+func processDWStaticField(fieldType abi.Type, parentFieldPath string, dataWords map[string]read.DataWordDetail, index int) int {
+	switch fieldType.T {
+	case abi.TupleTy:
+		// Recursively process tuple elements
+		for i, tupleElem := range fieldType.TupleElems {
+			fieldName := fieldType.TupleRawNames[i]
+			fullFieldPath := fmt.Sprintf("%s.%s", parentFieldPath, fieldName)
+			index = processDWStaticField(*tupleElem, fullFieldPath, dataWords, index)
+		}
+		return index
+	case abi.ArrayTy:
+		// Static arrays are not searchable, however, we can reliably calculate their size so that the fields
+		// after them can be searched.
+		return index + fieldType.Size
+	default:
+		dataWords[parentFieldPath] = read.DataWordDetail{
+			Index:    index,
+			Argument: abi.Argument{Type: fieldType},
+		}
+		return index + 1
+	}
+}
+
+// processDWDynamicFields indexes static fields in dynamic structs.
+// These fields come first after the static fields in the event encoding, so we can calculate their indices.
+func processDWDynamicFields(eventName string, dataWords map[string]read.DataWordDetail, dynamicQueue []abi.Argument, dwIndex int) {
+	for _, arg := range dynamicQueue {
+		switch arg.Type.T {
+		case abi.TupleTy:
+			for i, tupleElem := range arg.Type.TupleElems {
+				// any field after a dynamic field can't be predictably indexed.
+				if isDynamic(*tupleElem) {
+					return
+				}
+				dwIndex = processDWStaticField(*tupleElem, fmt.Sprintf("%s.%s.%s", eventName, arg.Name, arg.Type.TupleRawNames[i]), dataWords, dwIndex)
+			}
+		default:
+			// exit if we see a dynamic field, as we can't predict the index of fields after it.
+			return
+		}
+	}
 }
 
 // ConfirmationsFromConfig maps chain agnostic confidence levels defined in config to predefined EVM finality.

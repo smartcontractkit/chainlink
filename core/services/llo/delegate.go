@@ -35,9 +35,9 @@ type delegate struct {
 	cfg          DelegateConfig
 	reportCodecs map[llotypes.ReportFormat]datastreamsllo.ReportCodec
 
-	src datastreamsllo.ShouldRetireCache
-	ds  datastreamsllo.DataSource
-	t   services.Service
+	src   datastreamsllo.ShouldRetireCache
+	ds    datastreamsllo.DataSource
+	telem services.Service
 
 	oracles []Closer
 }
@@ -56,6 +56,7 @@ type DelegateConfig struct {
 	RetirementReportCache  RetirementReportCache
 	RetirementReportCodec  datastreamsllo.RetirementReportCodec
 	ShouldRetireCache      datastreamsllo.ShouldRetireCache
+	EAMonitoringEndpoint   ocrcommontypes.MonitoringEndpoint
 
 	// OCR3
 	TraceLogging                 bool
@@ -65,7 +66,7 @@ type DelegateConfig struct {
 	ContractConfigTrackers []ocr2types.ContractConfigTracker
 	ContractTransmitter    ocr3types.ContractTransmitter[llotypes.ReportInfo]
 	Database               ocr3types.Database
-	MonitoringEndpoint     ocrcommontypes.MonitoringEndpoint
+	OCR3MonitoringEndpoint ocrcommontypes.MonitoringEndpoint
 	OffchainConfigDigester ocr2types.OffchainConfigDigester
 	OffchainKeyring        ocr2types.OffchainKeyring
 	OnchainKeyring         ocr3types.OnchainKeyring[llotypes.ReportInfo]
@@ -93,7 +94,7 @@ func NewDelegate(cfg DelegateConfig) (job.ServiceCtx, error) {
 
 	var t TelemeterService
 	if cfg.CaptureEATelemetry {
-		t = NewTelemeterService(lggr, cfg.MonitoringEndpoint)
+		t = NewTelemeterService(lggr, cfg.EAMonitoringEndpoint)
 	} else {
 		t = NullTelemeter
 	}
@@ -108,7 +109,13 @@ func (d *delegate) Start(ctx context.Context) error {
 		if !(len(d.cfg.ContractConfigTrackers) == 1 || len(d.cfg.ContractConfigTrackers) == 2) {
 			return fmt.Errorf("expected either 1 or 2 ContractConfigTrackers, got: %d", len(d.cfg.ContractConfigTrackers))
 		}
+
+		d.cfg.Logger.Debugw("Starting LLO job", "instances", len(d.cfg.ContractConfigTrackers), "jobName", d.cfg.JobName.ValueOrZero(), "captureEATelemetry", d.cfg.CaptureEATelemetry)
+
 		var merr error
+
+		merr = errors.Join(merr, d.telem.Start(ctx))
+
 		psrrc := NewPluginScopedRetirementReportCache(d.cfg.RetirementReportCache, d.cfg.OnchainKeyring, d.cfg.RetirementReportCodec)
 		for i, configTracker := range d.cfg.ContractConfigTrackers {
 			lggr := logger.Named(d.cfg.Logger, fmt.Sprintf("%d", i))
@@ -131,7 +138,7 @@ func (d *delegate) Start(ctx context.Context) error {
 				Database:                     d.cfg.Database,
 				LocalConfig:                  d.cfg.LocalConfig,
 				Logger:                       ocrLogger,
-				MonitoringEndpoint:           d.cfg.MonitoringEndpoint,
+				MonitoringEndpoint:           d.cfg.OCR3MonitoringEndpoint,
 				OffchainConfigDigester:       d.cfg.OffchainConfigDigester,
 				OffchainKeyring:              d.cfg.OffchainKeyring,
 				OnchainKeyring:               d.cfg.OnchainKeyring,
@@ -155,10 +162,11 @@ func (d *delegate) Start(ctx context.Context) error {
 }
 
 func (d *delegate) Close() error {
-	return d.StopOnce("LLODelegate", func() (err error) {
+	return d.StopOnce("LLODelegate", func() (merr error) {
 		for _, oracle := range d.oracles {
-			err = errors.Join(err, oracle.Close())
+			merr = errors.Join(merr, oracle.Close())
 		}
-		return err
+		merr = errors.Join(merr, d.telem.Close())
+		return merr
 	})
 }

@@ -265,7 +265,7 @@ func (h *triggerConnectorHandler) HealthReport() map[string]error {
 }
 
 func (h *triggerConnectorHandler) Name() string {
-	return "WebAPITrigger"
+	return h.lggr.Name()
 }
 
 func (h *triggerConnectorHandler) sendResponse(ctx context.Context, gatewayID string, requestBody *api.MessageBody, payload any) error {

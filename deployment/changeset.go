@@ -21,13 +21,15 @@ var (
 type ChangeSet func(e Environment, config interface{}) (ChangesetOutput, error)
 
 // ChangesetOutput is the output of a Changeset function.
+// Think of it like a state transition output.
+// The address book here should contain only new addresses created in
+// this changeset.
 type ChangesetOutput struct {
-	JobSpecs  map[string][]string
-	Proposals []timelock.MCMSWithTimelockProposal
-	// The address book here should contain only new addresses created in this changeset.
+	JobSpecs    map[string][]string
+	Proposals   []timelock.MCMSWithTimelockProposal
 	AddressBook AddressBook
 }
 
 // ViewState produces a product specific JSON representation of
 // the on and offchain state of the environment.
-type ViewState func(e Environment, ab AddressBook) (json.Marshaler, error)
+type ViewState func(e Environment) (json.Marshaler, error)

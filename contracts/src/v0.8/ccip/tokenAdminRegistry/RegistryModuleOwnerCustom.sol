@@ -6,13 +6,16 @@ import {IGetCCIPAdmin} from "../interfaces/IGetCCIPAdmin.sol";
 import {IOwner} from "../interfaces/IOwner.sol";
 import {ITokenAdminRegistry} from "../interfaces/ITokenAdminRegistry.sol";
 
+import {AccessControl} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts/access/AccessControl.sol";
+
 contract RegistryModuleOwnerCustom is ITypeAndVersion {
   error CanOnlySelfRegister(address admin, address token);
+  error RequiredRoleNotFound(address msgSender, bytes32 role, address token);
   error AddressZero();
 
   event AdministratorRegistered(address indexed token, address indexed administrator);
 
-  string public constant override typeAndVersion = "RegistryModuleOwnerCustom 1.5.0";
+  string public constant override typeAndVersion = "RegistryModuleOwnerCustom 1.6.0";
 
   // The TokenAdminRegistry contract
   ITokenAdminRegistry internal immutable i_tokenAdminRegistry;
@@ -42,6 +45,20 @@ contract RegistryModuleOwnerCustom is ITypeAndVersion {
     address token
   ) external {
     _registerAdmin(token, IOwner(token).owner());
+  }
+
+  /// @notice Registers the admin of the token using OZ's AccessControl DEFAULT_ADMIN_ROLE.
+  /// @param token The token to register the admin for.
+  /// @dev The caller must have the DEFAULT_ADMIN_ROLE as defined by the contract itself.
+  function registerAccessControlDefaultAdmin(
+    address token
+  ) external {
+    bytes32 defaultAdminRole = AccessControl(token).DEFAULT_ADMIN_ROLE();
+    if (!AccessControl(token).hasRole(defaultAdminRole, msg.sender)) {
+      revert RequiredRoleNotFound(msg.sender, defaultAdminRole, token);
+    }
+
+    _registerAdmin(token, msg.sender);
   }
 
   /// @notice Registers the admin of the token to msg.sender given that the

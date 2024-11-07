@@ -752,6 +752,7 @@ func TestConfig_Marshal(t *testing.T) {
 				ComputeUnitPriceDefault:  ptr[uint64](100),
 				FeeBumpPeriod:            commoncfg.MustNewDuration(time.Minute),
 				BlockHistoryPollPeriod:   commoncfg.MustNewDuration(time.Minute),
+				BlockHistorySize:         ptr[uint64](1),
 				ComputeUnitLimitDefault:  ptr[uint32](100_000),
 				EstimateComputeUnitLimit: ptr(false),
 			},
@@ -1278,6 +1279,7 @@ ComputeUnitPriceMin = 10
 ComputeUnitPriceDefault = 100
 FeeBumpPeriod = '1m0s'
 BlockHistoryPollPeriod = '1m0s'
+BlockHistorySize = 1
 ComputeUnitLimitDefault = 100000
 EstimateComputeUnitLimit = false
 
@@ -1405,6 +1407,7 @@ func TestConfig_full(t *testing.T) {
 		if got.EVM[c].GasEstimator.DAOracle.OracleAddress == nil {
 			got.EVM[c].GasEstimator.DAOracle.OracleAddress = new(types.EIP55Address)
 		}
+
 		if got.EVM[c].GasEstimator.DAOracle.CustomGasPriceCalldata == nil {
 			got.EVM[c].GasEstimator.DAOracle.CustomGasPriceCalldata = new(string)
 		}
@@ -1517,7 +1520,11 @@ func TestConfig_Validate(t *testing.T) {
 		- 1: 2 errors:
 			- ChainID: missing: required for all chains
 			- Nodes: missing: must have at least one node
-	- Aptos.0.Enabled: invalid value (1): expected bool`},
+	- Aptos: 2 errors:
+		- 0.Nodes.1.Name: invalid value (primary): duplicate - must be unique
+		- 0: 2 errors:
+			- Enabled: invalid value (1): expected bool
+			- ChainID: missing: required for all chains`},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			var c Config
