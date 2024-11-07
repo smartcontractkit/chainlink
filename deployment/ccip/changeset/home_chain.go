@@ -13,10 +13,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 )
 
-var _ deployment.ChangeSet = DeployCapReg
+const (
+	MaxNops = 50 // max number of nops to fetch the nopId for
+)
 
-// DeployCapReg is a separate changeset because cap reg is an env var for CL nodes.
-func DeployCapReg(env deployment.Environment, config interface{}) (deployment.ChangesetOutput, error) {
+var _ deployment.ChangeSet = DeployHomeChain
+
+// DeployHomeChain is a separate changeset because cap reg is an env var for CL nodes.
+func DeployHomeChain(env deployment.Environment, config interface{}) (deployment.ChangesetOutput, error) {
 	cfg, ok := config.(DeployHomeChainConfig)
 	if !ok {
 		return deployment.ChangesetOutput{}, deployment.ErrInvalidConfig
@@ -33,7 +37,7 @@ func DeployCapReg(env deployment.Environment, config interface{}) (deployment.Ch
 		env.Logger.Errorw("Failed to deploy cap reg", "err", err, "addresses", ab)
 		return deployment.ChangesetOutput{}, err
 	}
-	nopIdByName, err := ccipdeployment.GetNodeOperatorIDMap(capReg.Contract, 50) // assuming 50 is sufficient for all node operators
+	nopIdByName, err := ccipdeployment.GetNodeOperatorIDMap(capReg.Contract, MaxNops)
 	// validate all node operators have nopIds
 	for _, nop := range cfg.NodeOperators {
 		if _, ok := nopIdByName[nop.Name]; !ok {

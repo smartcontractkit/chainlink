@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func TestDeployCapReg(t *testing.T) {
+func TestDeployHomeChain(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		Bootstraps: 1,
@@ -34,7 +34,7 @@ func TestDeployCapReg(t *testing.T) {
 			"NodeOperator": p2pIds,
 		},
 	}
-	output, err := DeployCapReg(e, homeChainCfg)
+	output, err := DeployHomeChain(e, homeChainCfg)
 	require.NoError(t, err)
 	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook))
 	state, err := ccdeploy.LoadOnchainState(e)
