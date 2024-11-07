@@ -104,7 +104,7 @@ contract EtherSenderReceiverTest_validatedMessage is EtherSenderReceiverTest {
   error InvalidWethAddress(address want, address got);
   error GasLimitTooLow(uint256 minLimit, uint256 gotLimit);
 
-  function test_Fuzz_validatedMessage_msgSenderOverwrite(
+  function testFuzz_validatedMessage_msgSenderOverwrite(
     bytes memory data
   ) public view {
     Client.EVMTokenAmount[] memory tokenAmounts = new Client.EVMTokenAmount[](1);
@@ -129,7 +129,7 @@ contract EtherSenderReceiverTest_validatedMessage is EtherSenderReceiverTest {
     assertEq(validatedMessage.extraArgs, bytes(""), "extraArgs must be empty");
   }
 
-  function test_Fuzz_validatedMessage_tokenAddressOverwrite(
+  function testFuzz_validatedMessage_tokenAddressOverwrite(
     address token
   ) public view {
     Client.EVMTokenAmount[] memory tokenAmounts = new Client.EVMTokenAmount[](1);
@@ -299,7 +299,7 @@ contract EtherSenderReceiverTest_ccipReceive is EtherSenderReceiverTest {
   error InvalidTokenAmounts(uint256 gotAmounts);
   error InvalidToken(address gotToken, address expectedToken);
 
-  function test_Fuzz_ccipReceive(
+  function testFuzz_ccipReceive(
     uint256 tokenAmount
   ) public {
     // cap to 10 ether because OWNER only has 10 ether.
@@ -407,7 +407,7 @@ contract EtherSenderReceiverTest_ccipSend is EtherSenderReceiverTest {
   uint256 internal constant FEE_WEI = 121212;
   uint256 internal constant FEE_JUELS = 232323;
 
-  function test_Fuzz_ccipSend(uint256 feeFromRouter, uint256 feeSupplied) public {
+  function testFuzz_ccipSend(uint256 feeFromRouter, uint256 feeSupplied) public {
     // cap the fuzzer because OWNER only has a million ether.
     vm.assume(feeSupplied < 1_000_000 ether - AMOUNT);
 
@@ -450,7 +450,7 @@ contract EtherSenderReceiverTest_ccipSend is EtherSenderReceiverTest {
     }
   }
 
-  function test_Fuzz_ccipSend_feeToken(uint256 feeFromRouter, uint256 feeSupplied) public {
+  function testFuzz_ccipSend_feeToken(uint256 feeFromRouter, uint256 feeSupplied) public {
     // cap the fuzzer because OWNER only has a million LINK.
     vm.assume(feeSupplied < 1_000_000 ether - AMOUNT);
 

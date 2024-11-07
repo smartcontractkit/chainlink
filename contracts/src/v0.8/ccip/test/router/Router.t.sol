@@ -333,7 +333,7 @@ contract Router_applyRampUpdates is RouterSetup {
     );
   }
 
-  function test_Fuzz_OffRampUpdates(
+  function testFuzz_OffRampUpdates(
     address[20] memory offRampsInput
   ) public {
     Router.OffRamp[] memory offRamps = new Router.OffRamp[](20);
@@ -514,7 +514,7 @@ contract Router_applyRampUpdates is RouterSetup {
     }
   }
 
-  function test_Fuzz_OnRampUpdates(
+  function testFuzz_OnRampUpdates(
     Router.OnRamp[] memory onRamps
   ) public {
     // Test adding onRamps
@@ -589,7 +589,7 @@ contract Router_applyRampUpdates is RouterSetup {
 }
 
 contract Router_setWrappedNative is OnRampSetup {
-  function test_Fuzz_SetWrappedNative_Success(
+  function testFuzz_SetWrappedNative_Success(
     address wrappedNative
   ) public {
     s_sourceRouter.setWrappedNative(wrappedNative);
