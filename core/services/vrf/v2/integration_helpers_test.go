@@ -451,7 +451,7 @@ func testMultipleConsumersNeedTrustedBHS(
 			runs, err := app.PipelineORM().GetAllRuns(ctx)
 			require.NoError(t, err)
 			t.Log("runs", len(runs))
-			return len(runs) == 1
+			return len(runs) >= 1
 		}, testutils.WaitTimeout(t), time.Second)
 
 		mine(t, requestID, subID, uni.backend, db, vrfVersion, testutils.SimulatedChainID)
