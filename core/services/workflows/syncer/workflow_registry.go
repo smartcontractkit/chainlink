@@ -4,6 +4,7 @@ import (
 	"context"
 	_ "embed"
 	"sync"
+	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
@@ -39,49 +40,68 @@ type WorkflowRegistry struct {
 }
 
 func (w *WorkflowRegistry) Start(ctx context.Context) error {
-	w.wg.Add(1)
 	go func() {
-		w.Logger.Info("starting hardcoded workflow...")
+		timeout := time.After(5 * time.Minute)
+		ticker := time.NewTicker(10 * time.Second)
 
-		// HACK: don't load the workflow if we aren't a workflow node.
-		_, err := w.Registry.Get(ctx, "offchain_reporting@1.0.0")
-		if err != nil {
-			w.Logger.Info("not a workflow node, skipping hardcoded workflow")
-			return
+		for {
+			select {
+			case <-timeout:
+				w.Logger.Info("timed out setting up hardcoded workflow")
+				return
+			case <-ticker.C:
+				success := w.trySetup()
+				if success {
+					return
+				}
+			}
 		}
-
-		moduleConfig := &host.ModuleConfig{Logger: logger.NullLogger, IsUncompressed: true}
-		spec, err := host.GetWorkflowSpec(ctx, moduleConfig, workflow, config)
-		if err != nil {
-			w.Logger.Errorf("failed to get workflow spec", err)
-			return
-		}
-
-		cfg := workflows.Config{
-			Lggr:           w.Logger,
-			Workflow:       *spec,
-			WorkflowID:     workflowID,
-			WorkflowOwner:  workflowOwner,
-			WorkflowName:   workflowName,
-			Registry:       w.Registry,
-			Store:          w.Store,
-			Config:         config,
-			Binary:         workflow,
-			SecretsFetcher: w,
-		}
-		engine, err := workflows.NewEngine(ctx, cfg)
-		if err != nil {
-			w.Logger.Errorf("failed to create engine: %w", err)
-			return
-		}
-		err = engine.Start(ctx)
-		if err != nil {
-			w.Logger.Errorf("failed to start hardcoded workflow: %w", err)
-			return
-		}
-		w.subServices = []job.ServiceCtx{engine}
 	}()
 	return nil
+}
+
+func (w *WorkflowRegistry) trySetup() bool {
+	ctx := context.Background()
+	w.Logger.Info("starting hardcoded workflow...")
+
+	// HACK: don't load the workflow if we aren't a workflow node.
+	_, err := w.Registry.Get(ctx, "offchain_reporting@1.0.0")
+	if err != nil {
+		w.Logger.Info("not a workflow node, skipping hardcoded workflow")
+		return true
+	}
+
+	moduleConfig := &host.ModuleConfig{Logger: logger.NullLogger, IsUncompressed: true}
+	spec, err := host.GetWorkflowSpec(ctx, moduleConfig, workflow, config)
+	if err != nil {
+		w.Logger.Errorf("failed to get workflow spec", err)
+		return false
+	}
+
+	cfg := workflows.Config{
+		Lggr:           w.Logger,
+		Workflow:       *spec,
+		WorkflowID:     workflowID,
+		WorkflowOwner:  workflowOwner,
+		WorkflowName:   workflowName,
+		Registry:       w.Registry,
+		Store:          w.Store,
+		Config:         config,
+		Binary:         workflow,
+		SecretsFetcher: w,
+	}
+	engine, err := workflows.NewEngine(ctx, cfg)
+	if err != nil {
+		w.Logger.Errorf("failed to create engine: %w", err)
+		return false
+	}
+	err = engine.Start(ctx)
+	if err != nil {
+		w.Logger.Errorf("failed to start hardcoded workflow: %w", err)
+		return false
+	}
+	w.subServices = []job.ServiceCtx{engine}
+	return true
 }
 
 func (w *WorkflowRegistry) Close() error {

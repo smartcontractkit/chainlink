@@ -475,7 +475,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	srvcs = append(srvcs, workflowRegistrySyncer)
 
 	delegates[job.Workflow] = workflows.NewDelegate(
-		globalLogger,
+		globalLogger.Named("WorkflowRegistrySyncer"),
 		opts.CapabilitiesRegistry,
 		workflowRegistrySyncer,
 		workflowORM,
