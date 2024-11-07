@@ -3,7 +3,9 @@ package chainlink
 import (
 	"errors"
 	"fmt"
+	"slices"
 
+	"github.com/imdario/mergo"
 	"go.uber.org/multierr"
 
 	gotoml "github.com/pelletier/go-toml/v2"
@@ -49,40 +51,201 @@ type Config struct {
 // RawConfigs is a list of RawConfig.
 type RawConfigs []RawConfig
 
+func (rs *RawConfigs) SetFrom(configs RawConfigs) error {
+	if err := configs.validateKeys(); err != nil {
+		return err
+	}
+
+	for _, config := range configs {
+		chainID := config.ChainID()
+		i := slices.IndexFunc(*rs, func(r RawConfig) bool {
+			otherChainID := r.ChainID()
+			return otherChainID != "" && chainID == otherChainID
+		})
+		if i != -1 {
+			if err := (*rs)[i].SetFrom(config); err != nil {
+				return err
+			}
+		} else {
+			*rs = append(*rs, config)
+		}
+	}
+
+	return nil
+}
+
+func (rs RawConfigs) validateKeys() (err error) {
+	chainIDs := commonconfig.UniqueStrings{}
+	for i, config := range rs {
+		chainID := config.ChainID()
+		if chainIDs.IsDupe(&chainID) {
+			err = errors.Join(err, commonconfig.NewErrDuplicate(fmt.Sprintf("%d.ChainID", i), chainID))
+		}
+	}
+
+	nodeNames := commonconfig.UniqueStrings{}
+	for i, config := range rs {
+		configNodeNames := config.NodeNames()
+		for j, nodeName := range configNodeNames {
+			if nodeNames.IsDupe(&nodeName) {
+				err = errors.Join(err, commonconfig.NewErrDuplicate(fmt.Sprintf("%d.Nodes.%d.Name", i, j), nodeName))
+			}
+		}
+	}
+	return
+}
+
+func (rs RawConfigs) ValidateConfig() (err error) {
+	return rs.validateKeys()
+}
+
 // RawConfig is the config used for chains that are not embedded.
 type RawConfig map[string]any
 
-// ValidateConfig returns an error if the Config is not valid for use, as-is.
-func (c *RawConfig) ValidateConfig() (err error) {
-	if v, ok := (*c)["Enabled"]; ok {
+type parsedRawConfig struct {
+	chainID    string
+	nodesExist bool
+	nodes      []map[string]any
+	nodeNames  []string
+}
+
+func (c RawConfig) parse() (*parsedRawConfig, error) {
+	var err error
+	if v, ok := c["Enabled"]; ok {
 		if _, ok := v.(bool); !ok {
 			err = multierr.Append(err, commonconfig.ErrInvalid{Name: "Enabled", Value: v, Msg: "expected bool"})
 		}
 	}
-	if v, ok := (*c)["ChainID"]; ok {
-		if _, ok := v.(string); !ok {
-			err = multierr.Append(err, commonconfig.ErrInvalid{Name: "ChainID", Value: v, Msg: "expected string"})
+
+	parsedRawConfig := &parsedRawConfig{}
+	chainID, exists := c["ChainID"]
+	if !exists {
+		err = multierr.Append(err, commonconfig.ErrMissing{Name: "ChainID", Msg: "required for all chains"})
+	} else {
+		chainIDStr, ok := chainID.(string)
+		switch {
+		case !ok:
+			err = multierr.Append(err, commonconfig.ErrInvalid{Name: "ChainID", Value: chainID, Msg: "expected string"})
+		case chainIDStr == "":
+			err = multierr.Append(err, commonconfig.ErrEmpty{Name: "ChainID", Msg: "required for all chains"})
+		default:
+			parsedRawConfig.chainID = chainIDStr
 		}
+	}
+	nodes, nodesExist := c["Nodes"]
+	parsedRawConfig.nodesExist = nodesExist
+	if nodesExist {
+		nodeMaps, ok := nodes.([]any)
+		switch {
+		case !ok:
+			err = multierr.Append(err, commonconfig.ErrInvalid{Name: "Nodes", Value: nodes, Msg: "expected array of node configs"})
+		default:
+			for i, node := range nodeMaps {
+				nodeConfig, ok := node.(map[string]any)
+				if !ok {
+					err = multierr.Append(err, commonconfig.ErrInvalid{Name: fmt.Sprintf("Nodes.%d", i), Value: nodeConfig, Msg: "expected node config map"})
+				} else {
+					parsedRawConfig.nodes = append(parsedRawConfig.nodes, nodeConfig)
+					nodeName, exists := nodeConfig["Name"]
+					if !exists {
+						err = multierr.Append(err, commonconfig.ErrMissing{Name: fmt.Sprintf("Nodes.%d.Name", i), Msg: "required for all nodes"})
+					} else {
+						nodeNameStr, ok := nodeName.(string)
+						switch {
+						case !ok:
+							err = multierr.Append(err, commonconfig.ErrInvalid{Name: fmt.Sprintf("Nodes.%d.Name", i), Value: nodeName, Msg: "expected string"})
+						case nodeNameStr == "":
+							err = multierr.Append(err, commonconfig.ErrEmpty{Name: fmt.Sprintf("Nodes.%d.Name", i), Msg: "required for all nodes"})
+						default:
+							parsedRawConfig.nodeNames = append(parsedRawConfig.nodeNames, nodeNameStr)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return parsedRawConfig, err
+}
+
+// ValidateConfig returns an error if the Config is not valid for use, as-is.
+func (c RawConfig) ValidateConfig() error {
+	parsedRawConfig, err := c.parse()
+	if !parsedRawConfig.nodesExist {
+		err = multierr.Append(err, commonconfig.ErrMissing{Name: "Nodes", Msg: "expected at least one node"})
+	} else if len(parsedRawConfig.nodes) == 0 {
+		err = multierr.Append(err, commonconfig.ErrEmpty{Name: "Nodes", Msg: "expected at least one node"})
 	}
 	return err
 }
 
-func (c *RawConfig) IsEnabled() bool {
-	if c == nil {
-		return false
-	}
-
-	enabled, ok := (*c)["Enabled"].(bool)
+func (c RawConfig) IsEnabled() bool {
+	enabled, ok := c["Enabled"].(bool)
 	return ok && enabled
 }
 
-func (c *RawConfig) ChainID() string {
-	if c == nil {
-		return ""
+func (c RawConfig) ChainID() string {
+	chainID, _ := c["ChainID"].(string)
+	return chainID
+}
+
+func (c *RawConfig) SetFrom(config RawConfig) error {
+	parsedRawConfig, err := c.parse()
+	if err != nil {
+		return err
 	}
 
-	chainID, _ := (*c)["ChainID"].(string)
-	return chainID
+	incomingParsedRawConfig, err := config.parse()
+	if err != nil {
+		return err
+	}
+
+	// Create a copy of config without nodes to merge other fields
+	configWithoutNodes := make(RawConfig)
+	for k, v := range config {
+		if k != "Nodes" {
+			configWithoutNodes[k] = v
+		}
+	}
+
+	// Merge all non-node fields
+	if err := mergo.Merge(c, configWithoutNodes, mergo.WithOverride); err != nil {
+		return err
+	}
+
+	// Handle node merging
+	for i, nodeConfig := range incomingParsedRawConfig.nodes {
+		nodeName := incomingParsedRawConfig.nodeNames[i]
+		i := slices.Index(parsedRawConfig.nodeNames, nodeName)
+		if i != -1 {
+			if err := mergo.Merge(&parsedRawConfig.nodes[i], nodeConfig, mergo.WithOverride); err != nil {
+				return err
+			}
+		} else {
+			parsedRawConfig.nodes = append(parsedRawConfig.nodes, nodeConfig)
+		}
+	}
+
+	// Subsequence SetFrom invocations will call parse(), and expect to be able to cast c["Nodes"] to []any,
+	// so we can't directly assign parsedRawConfig.nodes back to c["Nodes"].
+	anyConfigs := []any{}
+	for _, nodeConfig := range parsedRawConfig.nodes {
+		anyConfigs = append(anyConfigs, nodeConfig)
+	}
+
+	(*c)["Nodes"] = anyConfigs
+	return nil
+}
+
+func (c RawConfig) NodeNames() []string {
+	nodes, _ := c["Nodes"].([]any)
+	nodeNames := []string{}
+	for _, node := range nodes {
+		config, _ := node.(map[string]any)
+		nodeName, _ := config["Name"].(string)
+		nodeNames = append(nodeNames, nodeName)
+	}
+	return nodeNames
 }
 
 // TOMLString returns a TOML encoded string.
@@ -185,8 +348,9 @@ func (c *Config) SetFrom(f *Config) (err error) {
 		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err4, "Starknet"))
 	}
 
-	// the plugin should handle it's own defaults and merging
-	c.Aptos = f.Aptos
+	if err5 := c.Aptos.SetFrom(f.Aptos); err5 != nil {
+		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err5, "Aptos"))
+	}
 
 	_, err = commonconfig.MultiErrorList(err)
 

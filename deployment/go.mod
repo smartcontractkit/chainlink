@@ -2,9 +2,6 @@ module github.com/smartcontractkit/chainlink/deployment
 
 go 1.22.8
 
-// Make sure we're working with the latest chainlink libs
-replace github.com/smartcontractkit/chainlink/v2 => ../
-
 require (
 	github.com/AlekSi/pointer v1.1.0
 	github.com/Khan/genqlient v0.7.0
@@ -24,10 +21,10 @@ require (
 	github.com/smartcontractkit/ccip-owner-contracts v0.0.0-20240926212305-a6deabdfce86
 	github.com/smartcontractkit/chain-selectors v1.0.27
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241106140121-4c9ee21ab422
-	github.com/smartcontractkit/chainlink-common v0.3.1-0.20241101093830-33711d0c3de7
+	github.com/smartcontractkit/chainlink-common v0.3.1-0.20241106142051-c7bded1c08ae
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.4.0
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.13
-	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
+	github.com/smartcontractkit/chainlink/v2 v2.14.0-mercury-20240807.0.20241106193309-5560cd76211a
 	github.com/smartcontractkit/libocr v0.0.0-20241007185508-adbe57025f12
 	github.com/stretchr/testify v1.9.0
 	github.com/test-go/testify v1.1.4
