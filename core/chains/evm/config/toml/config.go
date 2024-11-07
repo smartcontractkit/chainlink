@@ -546,7 +546,7 @@ func (a *Automation) setFrom(f *Automation) {
 
 type Workflow struct {
 	FromAddress      *types.EIP55Address `toml:",omitempty"`
-	FromAddressIndex *uint64             `toml:",omitempty"`
+	FromAddressIndex *int                `toml:",omitempty"`
 	ForwarderAddress *types.EIP55Address `toml:",omitempty"`
 	GasLimitDefault  *uint64
 }

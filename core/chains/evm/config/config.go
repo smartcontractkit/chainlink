@@ -176,7 +176,7 @@ type FeeHistory interface {
 
 type Workflow interface {
 	FromAddress() *types.EIP55Address
-	FromAddressIndex() *uint64
+	FromAddressIndex() *int
 	ForwarderAddress() *types.EIP55Address
 	GasLimitDefault() *uint64
 }

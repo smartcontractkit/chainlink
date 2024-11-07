@@ -13,7 +13,7 @@ func (b *workflowConfig) FromAddress() *types.EIP55Address {
 	return b.c.FromAddress
 }
 
-func (b *workflowConfig) FromAddressIndex() *uint64 {
+func (b *workflowConfig) FromAddressIndex() *int {
 	return b.c.FromAddressIndex
 }
 
