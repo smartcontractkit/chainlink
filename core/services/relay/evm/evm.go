@@ -228,25 +228,22 @@ func NewRelayer(ctx context.Context, lggr logger.Logger, chain legacyevm.Chain, 
 
 	// If fromAddress is not specified, default to the eth key if there is only one
 	if fromAddress == nil {
+		// Neither fromAddress nor fromAddressIndex is specified, return without registering write target
+		if wCfg.FromAddressIndex() == nil {
+			return relayer, nil
+		}
+
 		ethKeys, err2 := opts.CSAETHKeystore.Eth().GetAll(ctx)
 		if err2 != nil {
 			return nil, fmt.Errorf("failed to get all eth keys: %w", err2)
 		}
+		fromAddressIndex := *wCfg.FromAddressIndex()
 
-		// Do not register write target if there are no eth keys
-		// We don't want to error here, because the user may not want to instantiate a write target
-		if len(ethKeys) == 0 {
-			return relayer, nil
+		if len(ethKeys) <= int(fromAddressIndex) {
+			return nil, fmt.Errorf("eth key with index %d not found", fromAddressIndex)
 		}
 
-		// Error if theere are multiple eth keys, fromAddress is not specified and other target configuration is present
-		if len(ethKeys) > 1 &&
-			wCfg.ForwarderAddress() != nil &&
-			wCfg.GasLimitDefault() != nil {
-			return nil, errors.New("fromAddress not specified and multiple eth keys found")
-		}
-
-		fromAddress = &ethKeys[0].EIP55Address
+		fromAddress = &ethKeys[fromAddressIndex].EIP55Address
 	}
 
 	// Initialize write target capability
