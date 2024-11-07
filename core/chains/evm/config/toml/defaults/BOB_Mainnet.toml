@@ -1,5 +1,5 @@
 ChainID = '60808'
-# OP stack https://docs.gobob.xyz/learn/introduction/op-stack
+# OP stack https://docs.gobob.xyz/learn/introduction/stack-overview#rollup-layer
 ChainType = 'optimismBedrock'
 # finality_depth was: ~850
 FinalityDepth = 900
