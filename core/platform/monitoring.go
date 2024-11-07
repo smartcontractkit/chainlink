@@ -1,15 +1,22 @@
 package platform
 
-// Observability keys
-const (
-	CapabilityIDKey        = "capabilityID"
-	TriggerIDKey           = "triggerID"
-	WorkflowIDKey          = "workflowID"
-	WorkflowExecutionIDKey = "workflowExecutionID"
-	WorkflowNameKey        = "workflowName"
-	WorkflowOwnerKey       = "workflowOwner"
-	StepIDKey              = "stepID"
-	StepRefKey             = "stepRef"
+import (
+	"iter"
+	"slices"
 )
 
-var OrderedLabelKeys = []string{StepRefKey, StepIDKey, TriggerIDKey, CapabilityIDKey, WorkflowExecutionIDKey, WorkflowIDKey}
+// Observability keys
+const (
+	KeyCapabilityID        = "capabilityID"
+	KeyTriggerID           = "triggerID"
+	KeyWorkflowID          = "workflowID"
+	KeyWorkflowExecutionID = "workflowExecutionID"
+	KeyWorkflowName        = "workflowName"
+	KeyWorkflowOwner       = "workflowOwner"
+	KeyStepID              = "stepID"
+	KeyStepRef             = "stepRef"
+)
+
+func KeysSorted() iter.Seq[string] {
+	return slices.Values([]string{KeyStepRef, KeyStepID, KeyTriggerID, KeyCapabilityID, KeyWorkflowExecutionID, KeyWorkflowID})
+}

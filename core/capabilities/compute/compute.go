@@ -214,10 +214,10 @@ func (c *Compute) createFetcher() func(ctx context.Context, req *wasmpb.FetchReq
 		}
 
 		cma := c.emitter.With(
-			platform.WorkflowIDKey, req.Metadata.WorkflowId,
-			platform.WorkflowNameKey, req.Metadata.WorkflowName,
-			platform.WorkflowOwnerKey, req.Metadata.WorkflowOwner,
-			platform.WorkflowExecutionIDKey, req.Metadata.WorkflowExecutionId,
+			platform.KeyWorkflowID, req.Metadata.WorkflowId,
+			platform.KeyWorkflowName, req.Metadata.WorkflowName,
+			platform.KeyWorkflowOwner, req.Metadata.WorkflowOwner,
+			platform.KeyWorkflowExecutionID, req.Metadata.WorkflowExecutionId,
 			timestampKey, time.Now().UTC().Format(time.RFC3339Nano),
 		)
 
