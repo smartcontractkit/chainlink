@@ -228,7 +228,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 		})
 	}
 
-	onChainState, err := ccipdeployment.LoadOnchainState(envWithRMN.Env, envWithRMN.Ab)
+	onChainState, err := ccipdeployment.LoadOnchainState(envWithRMN.Env)
 	require.NoError(t, err)
 	t.Logf("onChainState: %#v", onChainState)
 
@@ -358,7 +358,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 		toChain := chainSelectors[msg.toChainIdx]
 
 		for i := 0; i < msg.count; i++ {
-			seqNum := ccipdeployment.TestSendRequest(t, envWithRMN.Env, onChainState, fromChain, toChain, false)
+			seqNum := ccipdeployment.TestSendRequest(t, envWithRMN.Env, onChainState, fromChain, toChain, false, nil)
 			expectedSeqNum[toChain] = seqNum
 			t.Logf("Sent message from chain %d to chain %d with seqNum %d", fromChain, toChain, seqNum)
 		}
