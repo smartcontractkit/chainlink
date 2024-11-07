@@ -47,8 +47,11 @@ def main():
         durations_seconds = [60] if os.getenv('GITHUB_EVENT_NAME') == 'scheduled' else [45]
         if args.seconds:
             # However, if seconds was specified, evenly divide total time among all fuzzers
-            # leaving a 5 second buffer for processing/building time between fuzz runs
-            actual_fuzz_time = total_time - (num_fuzzers * 5)
+            # leaving a 10 second buffer for processing/building time between fuzz runs
+            actual_fuzz_time = total_time - (num_fuzzers * 10)
+            if actual_fuzz_time <= 5 * num_fuzzers:
+                print(f"Seconds (--seconds {arg.seconds}) is too low to properly run fuzzers for 5sec each. Exiting.")
+                exit(1)
             durations_seconds = [ actual_fuzz_time / num_fuzzers ]
 
     for duration_seconds in durations_seconds:

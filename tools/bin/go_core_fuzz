@@ -8,8 +8,8 @@ FUZZ_TIMEOUT_MINUTES=${FUZZ_TIMEOUT_MINUTES:-"5"}
 
 TOTAL_SECONDS=$((FUZZ_TIMEOUT_MINUTES * 60))
 if (( TOTAL_SECONDS >= 120 )); then
-    # Allow for a 60 second buffer between the timeout, and fuzz test runtime
-    FUZZ_SECONDS=$((TOTAL_SECONDS - 60))
+    # Allow for a 30 second buffer between the timeout, and fuzz test runtime
+    FUZZ_SECONDS=$((TOTAL_SECONDS - 30))
 else
     echo "Increase FUZZ_TIMEOUT_MINUTES to >=2, received $FUZZ_TIMEOUT_MINUTES"
     exit 1
