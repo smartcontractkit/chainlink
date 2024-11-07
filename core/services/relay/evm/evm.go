@@ -838,6 +838,7 @@ func (r *Relayer) NewChainWriter(_ context.Context, config []byte) (commontypes.
 		return nil, fmt.Errorf("failed to unmarshall chain writer config err: %s", err)
 	}
 
+	cfg.MaxGasPrice = r.chain.Config().EVM().GasEstimator().PriceMax()
 	return NewChainWriterService(r.lggr, r.chain.Client(), r.chain.TxManager(), r.chain.GasEstimator(), cfg)
 }
 
