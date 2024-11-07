@@ -9903,6 +9903,7 @@ GasLimit controls the gas limit for transmit transactions from ocr2automation jo
 ```toml
 [EVM.Workflow]
 FromAddress = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
+FromAddressIndex = 0 # Example
 ForwarderAddress = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
 GasLimitDefault = 400_000 # Default
 ```
@@ -9913,6 +9914,13 @@ GasLimitDefault = 400_000 # Default
 FromAddress = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
 ```
 FromAddress is Address of the transmitter key to use for workflow writes.
+
+### FromAddressIndex
+```toml
+FromAddressIndex = 0 # Example
+```
+FromAddressIndex is the index of the key to use for workflow from address.
+FromAddress takes precedence over FromAddressIndex.
 
 ### ForwarderAddress
 ```toml
