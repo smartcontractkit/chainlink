@@ -16,7 +16,7 @@ import {TokenAdminRegistry} from "../../tokenAdminRegistry/TokenAdminRegistry.so
 import {MerkleHelper} from "../helpers/MerkleHelper.sol";
 import {OnRampHelper} from "../helpers/OnRampHelper.sol";
 import {OffRampSetup} from "../offRamp/offRamp/OffRampSetup.t.sol";
-import {OnRampSetup} from "../onRamp/OnRampSetup.t.sol";
+import {OnRampSetup} from "../onRamp/onRamp/OnRampSetup.t.sol";
 
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
@@ -27,6 +27,9 @@ import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/tok
 /// 3. Batch execute all the committed messages.
 contract E2E is OnRampSetup, OffRampSetup {
   using Internal for Internal.Any2EVMRampMessage;
+
+  uint256 internal constant TOKEN_AMOUNT_1 = 9;
+  uint256 internal constant TOKEN_AMOUNT_2 = 7;
 
   Router internal s_sourceRouter2;
   OnRampHelper internal s_onRamp2;
@@ -137,9 +140,9 @@ contract E2E is OnRampSetup, OffRampSetup {
       uint256 expectedFee = s_sourceRouter.getFee(DEST_CHAIN_SELECTOR, _generateTokenMessage());
       // Asserts that the tokens have been sent and the fee has been paid.
       assertEq(
-        balance0Pre - (messages1.length + messages2.length) * (i_tokenAmount0 + expectedFee), token0.balanceOf(OWNER)
+        balance0Pre - (messages1.length + messages2.length) * (TOKEN_AMOUNT_1 + expectedFee), token0.balanceOf(OWNER)
       );
-      assertEq(balance1Pre - (messages1.length + messages2.length) * i_tokenAmount1, token1.balanceOf(OWNER));
+      assertEq(balance1Pre - (messages1.length + messages2.length) * TOKEN_AMOUNT_2, token1.balanceOf(OWNER));
     }
 
     // Commit
@@ -215,7 +218,7 @@ contract E2E is OnRampSetup, OffRampSetup {
     vm.recordLogs();
     _execute(reports);
 
-    assertExecutionStateChangedEventLogs(
+    _assertExecutionStateChangedEventLogs(
       SOURCE_CHAIN_SELECTOR,
       messages1[0].header.sequenceNumber,
       messages1[0].header.messageId,
@@ -224,7 +227,7 @@ contract E2E is OnRampSetup, OffRampSetup {
       ""
     );
 
-    assertExecutionStateChangedEventLogs(
+    _assertExecutionStateChangedEventLogs(
       SOURCE_CHAIN_SELECTOR,
       messages1[1].header.sequenceNumber,
       messages1[1].header.messageId,
@@ -233,7 +236,7 @@ contract E2E is OnRampSetup, OffRampSetup {
       ""
     );
 
-    assertExecutionStateChangedEventLogs(
+    _assertExecutionStateChangedEventLogs(
       SOURCE_CHAIN_SELECTOR + 1,
       messages2[0].header.sequenceNumber,
       messages2[0].header.messageId,
@@ -252,8 +255,8 @@ contract E2E is OnRampSetup, OffRampSetup {
     TokenAdminRegistry tokenAdminRegistry
   ) public returns (Internal.Any2EVMRampMessage memory) {
     Client.EVM2AnyMessage memory message = _generateTokenMessage();
-    IERC20(s_sourceTokens[0]).approve(address(router), i_tokenAmount0 + router.getFee(DEST_CHAIN_SELECTOR, message));
-    IERC20(s_sourceTokens[1]).approve(address(router), i_tokenAmount1);
+    IERC20(s_sourceTokens[0]).approve(address(router), TOKEN_AMOUNT_1 + router.getFee(DEST_CHAIN_SELECTOR, message));
+    IERC20(s_sourceTokens[1]).approve(address(router), TOKEN_AMOUNT_2);
 
     uint256 feeAmount = router.getFee(DEST_CHAIN_SELECTOR, message);
 
@@ -304,6 +307,19 @@ contract E2E is OnRampSetup, OffRampSetup {
       receiver: abi.decode(msgEvent.receiver, (address)),
       gasLimit: s_feeQuoter.parseEVMExtraArgsFromBytes(msgEvent.extraArgs, DEST_CHAIN_SELECTOR).gasLimit,
       tokenAmounts: any2EVMTokenTransfer
+    });
+  }
+
+  function _generateTokenMessage() public view returns (Client.EVM2AnyMessage memory) {
+    Client.EVMTokenAmount[] memory tokenAmounts = _getCastedSourceEVMTokenAmountsWithZeroAmounts();
+    tokenAmounts[0].amount = TOKEN_AMOUNT_1;
+    tokenAmounts[1].amount = TOKEN_AMOUNT_2;
+    return Client.EVM2AnyMessage({
+      receiver: abi.encode(OWNER),
+      data: "",
+      tokenAmounts: tokenAmounts,
+      feeToken: s_sourceFeeToken,
+      extraArgs: Client._argsToBytes(Client.EVMExtraArgsV1({gasLimit: GAS_LIMIT}))
     });
   }
 }

@@ -131,8 +131,8 @@ type IncompleteDestCommitStoreReader struct {
 	cs cciptypes.CommitStoreReader
 }
 
-func NewIncompleteDestCommitStoreReader(lggr logger.Logger, versionFinder ccip.VersionFinder, address cciptypes.Address, ec client.Client, lp logpoller.LogPoller) (*IncompleteDestCommitStoreReader, error) {
-	cs, err := ccip.NewCommitStoreReader(lggr, versionFinder, address, ec, lp)
+func NewIncompleteDestCommitStoreReader(ctx context.Context, lggr logger.Logger, versionFinder ccip.VersionFinder, address cciptypes.Address, ec client.Client, lp logpoller.LogPoller) (*IncompleteDestCommitStoreReader, error) {
+	cs, err := ccip.NewCommitStoreReader(ctx, lggr, versionFinder, address, ec, lp)
 	if err != nil {
 		return nil, err
 	}

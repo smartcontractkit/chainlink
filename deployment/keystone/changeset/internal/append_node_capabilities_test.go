@@ -84,7 +84,6 @@ func TestAppendNodeCapabilities(t *testing.T) {
 							},
 						},
 					},
-					NopToNodes: nopToNodes,
 				},
 			},
 			want:    deployment.ChangesetOutput{},
@@ -93,7 +92,6 @@ func TestAppendNodeCapabilities(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// chagen the name and args to be mor egeneral
 			setupResp := kstest.SetupTestRegistry(t, lggr, tt.args.initialState)
 
 			tt.args.req.Registry = setupResp.Registry
