@@ -1269,7 +1269,7 @@ func (e *workflowError) Error() string {
 	}
 
 	// prefix the error with the labels
-	for label := range platform.KeysSorted() {
+	for _, label := range platform.OrderedLabelKeys {
 		// This will silently ignore any labels that are not present in the map
 		// are we ok with this?
 		if value, ok := e.labels[label]; ok {
