@@ -194,53 +194,6 @@ func (_c *FeeEstimatorClient_CallContract_Call) RunAndReturn(run func(context.Co
 	return _c
 }
 
-// ConfiguredChainID provides a mock function with given fields:
-func (_m *FeeEstimatorClient) ConfiguredChainID() *big.Int {
-	ret := _m.Called()
-
-	if len(ret) == 0 {
-		panic("no return value specified for ConfiguredChainID")
-	}
-
-	var r0 *big.Int
-	if rf, ok := ret.Get(0).(func() *big.Int); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*big.Int)
-		}
-	}
-
-	return r0
-}
-
-// FeeEstimatorClient_ConfiguredChainID_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ConfiguredChainID'
-type FeeEstimatorClient_ConfiguredChainID_Call struct {
-	*mock.Call
-}
-
-// ConfiguredChainID is a helper method to define mock.On call
-func (_e *FeeEstimatorClient_Expecter) ConfiguredChainID() *FeeEstimatorClient_ConfiguredChainID_Call {
-	return &FeeEstimatorClient_ConfiguredChainID_Call{Call: _e.mock.On("ConfiguredChainID")}
-}
-
-func (_c *FeeEstimatorClient_ConfiguredChainID_Call) Run(run func()) *FeeEstimatorClient_ConfiguredChainID_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run()
-	})
-	return _c
-}
-
-func (_c *FeeEstimatorClient_ConfiguredChainID_Call) Return(_a0 *big.Int) *FeeEstimatorClient_ConfiguredChainID_Call {
-	_c.Call.Return(_a0)
-	return _c
-}
-
-func (_c *FeeEstimatorClient_ConfiguredChainID_Call) RunAndReturn(run func() *big.Int) *FeeEstimatorClient_ConfiguredChainID_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // EstimateGas provides a mock function with given fields: ctx, call
 func (_m *FeeEstimatorClient) EstimateGas(ctx context.Context, call ethereum.CallMsg) (uint64, error) {
 	ret := _m.Called(ctx, call)
