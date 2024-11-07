@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
+	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
@@ -89,10 +90,18 @@ func DeployCapReg(
 	lggr logger.Logger,
 	ab deployment.AddressBook,
 	chain deployment.Chain,
-	rmnHomeStatic rmn_home.RMNHomeStaticConfig,
-	rmnHomeDynamic rmn_home.RMNHomeDynamicConfig,
-	nodeOps []capabilities_registry.CapabilitiesRegistryNodeOperator,
 ) (*ContractDeploy[*capabilities_registry.CapabilitiesRegistry], error) {
+	capRegAddress, err := deployment.SearchAddressBook(ab, chain.Selector, CapabilitiesRegistry)
+	if err == nil {
+		lggr.Infow("Found CapabilitiesRegistry in address book", "address", capRegAddress)
+		cr, err := capabilities_registry.NewCapabilitiesRegistry(common.HexToAddress(capRegAddress), chain.Client)
+		if err != nil {
+			return nil, fmt.Errorf("failed to connect to CapabilitiesRegistry at %s: %w", capRegAddress, err)
+		}
+		return &ContractDeploy[*capabilities_registry.CapabilitiesRegistry]{
+			Address: cr.Address(), Contract: cr, Tv: deployment.NewTypeAndVersion(CapabilitiesRegistry, deployment.Version1_0_0),
+		}, nil
+	}
 	capReg, err := deployContract(lggr, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*capabilities_registry.CapabilitiesRegistry] {
 			crAddr, tx, cr, err2 := capabilities_registry.DeployCapabilitiesRegistry(
@@ -107,8 +116,25 @@ func DeployCapReg(
 		lggr.Errorw("Failed to deploy capreg", "err", err)
 		return nil, err
 	}
+	return capReg, nil
+}
 
-	lggr.Infow("deployed capreg", "addr", capReg.Address)
+func DeployHomeChain(
+	lggr logger.Logger,
+	ab deployment.AddressBook,
+	chain deployment.Chain,
+	rmnHomeStatic rmn_home.RMNHomeStaticConfig,
+	rmnHomeDynamic rmn_home.RMNHomeDynamicConfig,
+	nodeOps []capabilities_registry.CapabilitiesRegistryNodeOperator,
+	nodeP2PIDsPerNodeOpAdmin map[string][][32]byte,
+) (*ContractDeploy[*capabilities_registry.CapabilitiesRegistry], error) {
+	// Deploy CapabilitiesRegistry, CCIPHome, RMNHome
+	capReg, err := DeployCapReg(lggr, ab, chain)
+	if err != nil {
+		return nil, err
+	}
+
+	lggr.Infow("deployed/connected to capreg", "addr", capReg.Address)
 	ccipHome, err := deployContract(
 		lggr, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*ccip_home.CCIPHome] {
@@ -192,16 +218,42 @@ func DeployCapReg(
 	}
 
 	tx, err = capReg.Contract.AddNodeOperators(chain.DeployerKey, nodeOps)
-	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
+	txBlockNum, err := deployment.ConfirmIfNoError(chain, tx, err)
+	if err != nil {
 		lggr.Errorw("Failed to add node operators", "err", err)
 		return nil, err
+	}
+	addedEvent, err := capReg.Contract.FilterNodeOperatorAdded(&bind.FilterOpts{
+		Start:   txBlockNum,
+		Context: context.Background(),
+	}, nil, nil)
+	if err != nil {
+		lggr.Errorw("Failed to filter NodeOperatorAdded event", "err", err)
+		return capReg, err
+	}
+	p2pIDsByNodeOpId := make(map[uint32][][32]byte)
+	for addedEvent.Next() {
+		for nopName, p2pId := range nodeP2PIDsPerNodeOpAdmin {
+			if addedEvent.Event.Name == nopName {
+				lggr.Infow("Added node operator", "admin", addedEvent.Event.Admin, "name", addedEvent.Event.Name)
+				p2pIDsByNodeOpId[addedEvent.Event.NodeOperatorId] = p2pId
+			}
+		}
+	}
+	if len(p2pIDsByNodeOpId) != len(nodeP2PIDsPerNodeOpAdmin) {
+		lggr.Errorw("Failed to add all node operators", "added", maps.Keys(p2pIDsByNodeOpId), "expected", maps.Keys(nodeP2PIDsPerNodeOpAdmin))
+		return capReg, errors.New("failed to add all node operators")
+	}
+	// Adds initial set of nodes to CR, who all have the CCIP capability
+	if err := AddNodes(lggr, capReg.Contract, chain, p2pIDsByNodeOpId); err != nil {
+		return capReg, err
 	}
 	return capReg, nil
 }
 
-// GetNodeOperatorIDMap returns a map of node operator names to their IDs
+// getNodeOperatorIDMap returns a map of node operator names to their IDs
 // If maxNops is greater than the number of node operators, it will return all node operators
-func GetNodeOperatorIDMap(capReg *capabilities_registry.CapabilitiesRegistry, maxNops uint32) (map[string]uint32, error) {
+func getNodeOperatorIDMap(capReg *capabilities_registry.CapabilitiesRegistry, maxNops uint32) (map[string]uint32, error) {
 	nopIdByName := make(map[string]uint32)
 	operators, err := capReg.GetNodeOperators(nil)
 	if err != nil {

@@ -188,18 +188,6 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 		return fmt.Errorf("ccip home address mismatch")
 	}
 
-	// Signal to CR that our nodes support CCIP capability.
-	p2pIdsByNop := map[uint32][][32]byte{
-		NodeOperatorID: nodes.NonBootstraps().PeerIDs(),
-	}
-	if err := AddNodes(
-		e.Logger,
-		capReg,
-		e.Chains[c.HomeChainSel],
-		p2pIdsByNop,
-	); err != nil {
-		return err
-	}
 	rmnHome := existingState.Chains[c.HomeChainSel].RMNHome
 	if rmnHome == nil {
 		e.Logger.Errorw("Failed to get rmn home", "err", err)

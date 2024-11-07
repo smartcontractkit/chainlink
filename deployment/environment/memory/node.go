@@ -12,6 +12,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/jmoiron/sqlx"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -49,6 +50,7 @@ type Node struct {
 	Keys       Keys
 	Addr       net.TCPAddr
 	IsBoostrap bool
+	db         *sqlx.DB
 }
 
 func (n Node) ReplayLogs(chains map[uint64]uint64) error {
@@ -182,6 +184,10 @@ func NewNode(
 		Addr:       net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: port},
 		IsBoostrap: bootstrap,
 	}
+}
+
+func NewApp() {
+
 }
 
 type Keys struct {

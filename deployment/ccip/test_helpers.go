@@ -112,11 +112,7 @@ func DeployTestContracts(t *testing.T,
 	feedChainSel uint64,
 	chains map[uint64]deployment.Chain,
 ) deployment.CapabilityRegistryConfig {
-	capReg, err := DeployCapReg(lggr, ab, chains[homeChainSel],
-		NewTestRMNStaticConfig(),
-		NewTestRMNDynamicConfig(),
-		NewTestNodeOperator(chains[homeChainSel].DeployerKey.From),
-	)
+	capReg, err := DeployCapReg(lggr, ab, chains[homeChainSel])
 	require.NoError(t, err)
 	_, err = DeployFeeds(lggr, ab, chains[feedChainSel])
 	require.NoError(t, err)
@@ -177,9 +173,21 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, numChains int, numNo
 			require.NoError(t, node.App.Stop())
 		})
 	}
-
 	e := memory.NewMemoryEnvironmentFromChainsNodes(t, lggr, chains, nodes)
+	envNodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
+	require.NoError(t, err)
+	_, err = DeployHomeChain(lggr, ab, chains[homeChainSel],
+		NewTestRMNStaticConfig(),
+		NewTestRMNDynamicConfig(),
+		NewTestNodeOperator(chains[homeChainSel].DeployerKey.From),
+		map[string][][32]byte{
+			"NodeOperator": envNodes.NonBootstraps().PeerIDs(),
+		},
+	)
+	require.NoError(t, err)
+
 	e.ExistingAddresses = ab
+
 	return DeployedEnv{
 		Env:          e,
 		HomeChainSel: homeChainSel,

@@ -13,10 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 )
 
-const (
-	MaxNops = 50 // max number of nops to fetch the nopId for
-)
-
 var _ deployment.ChangeSet = DeployHomeChain
 
 // DeployHomeChain is a separate changeset because cap reg is an env var for CL nodes.
@@ -32,35 +28,12 @@ func DeployHomeChain(env deployment.Environment, config interface{}) (deployment
 	homeChainSel := cfg.HomeChainSel
 	// Note we also deploy the cap reg.
 	ab := deployment.NewMemoryAddressBook()
-	capReg, err := ccipdeployment.DeployCapReg(env.Logger, ab, env.Chains[homeChainSel], cfg.RMNStaticConfig, cfg.RMNDynamicConfig, cfg.NodeOperators)
+	_, err = ccipdeployment.DeployHomeChain(env.Logger, ab, env.Chains[homeChainSel], cfg.RMNStaticConfig, cfg.RMNDynamicConfig, cfg.NodeOperators, cfg.NodeP2PIDsPerNodeOpAdmin)
 	if err != nil {
 		env.Logger.Errorw("Failed to deploy cap reg", "err", err, "addresses", ab)
 		return deployment.ChangesetOutput{}, err
 	}
-	nopIdByName, err := ccipdeployment.GetNodeOperatorIDMap(capReg.Contract, MaxNops)
-	// validate all node operators have nopIds
-	for _, nop := range cfg.NodeOperators {
-		if _, ok := nopIdByName[nop.Name]; !ok {
-			return deployment.ChangesetOutput{}, fmt.Errorf("node operator %s does not have a nopId", nop.Name)
-		}
-	}
-	// Adds initial set of nodes to CR, who all have the CCIP capability
-	p2pIDsByNodeOpId := make(map[uint32][][32]byte)
-	for nopName, p2pId := range cfg.NodeP2PIDsPerNodeOpAdmin {
-		nopId, ok := nopIdByName[nopName]
-		if !ok {
-			return deployment.ChangesetOutput{}, fmt.Errorf("node operator %s does not have a nopId", nopName)
-		}
-		p2pIDsByNodeOpId[nopId] = p2pId
-	}
-	if err := ccipdeployment.AddNodes(
-		env.Logger,
-		capReg.Contract,
-		env.Chains[homeChainSel],
-		p2pIDsByNodeOpId,
-	); err != nil {
-		return deployment.ChangesetOutput{}, err
-	}
+
 	return deployment.ChangesetOutput{
 		Proposals:   []timelock.MCMSWithTimelockProposal{},
 		AddressBook: ab,
