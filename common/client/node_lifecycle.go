@@ -519,7 +519,10 @@ func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(syncIssues syncStatus) {
 				finalizedHeadsSub.ResetTimer(noNewFinalizedBlocksTimeoutThreshold)
 			}
 
-			highestSeen := n.poolInfoProvider.HighestUserObservations()
+			var highestSeen ChainInfo
+			if n.poolInfoProvider != nil {
+				highestSeen = n.poolInfoProvider.HighestUserObservations()
+			}
 
 			lggr.Debugw(msgReceivedFinalizedBlock, "blockNumber", latestFinalized.BlockNumber(), "poolHighestBlockNumber", highestSeen.FinalizedBlockNumber, "syncIssues", syncIssues)
 		case err := <-finalizedHeadsSub.Errors:
