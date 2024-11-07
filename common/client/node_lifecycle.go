@@ -7,8 +7,6 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/v2/common/types"
-
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
@@ -17,6 +15,7 @@ import (
 	bigmath "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
 
 	iutils "github.com/smartcontractkit/chainlink/v2/common/internal/utils"
+	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
 
 var (
@@ -132,6 +131,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 		}
 	}
 
+	// Get the latest chain info to use as local highest
 	localHighestChainInfo, _ := n.rpc.GetInterceptedChainInfo()
 	var pollFailures uint32
 
@@ -170,10 +170,6 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 			}
 			if outOfSync, liveNodes := n.isOutOfSyncWithPool(); outOfSync {
 				// note: there must be another live node for us to be out of sync
-				_, highest := n.poolInfoProvider.LatestChainInfo()
-				_, latestChainInfo := n.StateAndLatest()
-				lggr.Errorw("RPC endpoint has fallen behind", "blockNumber", latestChainInfo.BlockNumber, "bestLatestBlockNumber",
-					highest.BlockNumber, "totalDifficulty", latestChainInfo.TotalDifficulty, "nodeState", n.getCachedState())
 				if liveNodes < 2 {
 					lggr.Criticalf("RPC endpoint has fallen behind; %s %s", msgCannotDisable, msgDegradedState)
 					continue
@@ -198,8 +194,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 		case <-headsSub.NoNewHeads:
 			// We haven't received a head on the channel for at least the
 			// threshold amount of time, mark it broken
-			_, latestChainInfo := n.StateAndLatest()
-			lggr.Errorw(fmt.Sprintf("RPC endpoint detected out of sync; no new heads received for %s (last head received was %v)", noNewHeadsTimeoutThreshold, latestChainInfo.BlockNumber), "nodeState", n.getCachedState(), "latestReceivedBlockNumber", latestChainInfo.BlockNumber, "noNewHeadsTimeoutThreshold", noNewHeadsTimeoutThreshold)
+			lggr.Errorw(fmt.Sprintf("RPC endpoint detected out of sync; no new heads received for %s (last head received was %v)", noNewHeadsTimeoutThreshold, localHighestChainInfo.BlockNumber), "nodeState", n.getCachedState(), "latestReceivedBlockNumber", localHighestChainInfo.BlockNumber, "noNewHeadsTimeoutThreshold", noNewHeadsTimeoutThreshold)
 			if n.poolInfoProvider != nil {
 				if l, _ := n.poolInfoProvider.LatestChainInfo(); l < 2 {
 					lggr.Criticalf("RPC endpoint detected out of sync; %s %s", msgCannotDisable, msgDegradedState)
@@ -315,7 +310,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) onNewFinalizedHead(lggr logger.SugaredLogger
 	latestFinalizedBN := latestFinalized.BlockNumber()
 	lggr.Debugw("Got latest finalized head", "latestFinalized", latestFinalized)
 	if latestFinalizedBN <= chainInfo.FinalizedBlockNumber {
-		lggr.Tracew("Ignoring previously seen finalized block number")
+		lggr.Debugw("Ignoring previously seen finalized block number")
 		return false
 	}
 
@@ -334,7 +329,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) onNewHead(lggr logger.SugaredLogger, chainIn
 	lggr.Debugw("Got head", "head", head)
 	lggr = lggr.With("latestReceivedBlockNumber", chainInfo.BlockNumber, "blockNumber", head.BlockNumber(), "nodeState", n.getCachedState())
 	if head.BlockNumber() <= chainInfo.BlockNumber {
-		lggr.Tracew("Ignoring previously seen block number")
+		lggr.Debugw("Ignoring previously seen block number")
 		return false
 	}
 
@@ -372,17 +367,22 @@ func (n *node[CHAIN_ID, HEAD, RPC]) isOutOfSyncWithPool() (outOfSync bool, liveN
 	}
 	// Check against best node
 	ln, ci := n.poolInfoProvider.LatestChainInfo()
-	_, localChainInfo := n.StateAndLatest()
+	localChainInfo, _ := n.rpc.GetInterceptedChainInfo()
 	mode := n.nodePoolCfg.SelectionMode()
 	switch mode {
 	case NodeSelectionModeHighestHead, NodeSelectionModeRoundRobin, NodeSelectionModePriorityLevel:
-		return localChainInfo.BlockNumber < ci.BlockNumber-int64(threshold), ln
+		outOfSync = localChainInfo.BlockNumber < ci.BlockNumber-int64(threshold)
 	case NodeSelectionModeTotalDifficulty:
 		bigThreshold := big.NewInt(int64(threshold))
-		return localChainInfo.TotalDifficulty.Cmp(bigmath.Sub(ci.TotalDifficulty, bigThreshold)) < 0, ln
+		outOfSync = localChainInfo.TotalDifficulty.Cmp(bigmath.Sub(ci.TotalDifficulty, bigThreshold)) < 0
 	default:
 		panic("unrecognized NodeSelectionMode: " + mode)
 	}
+
+	if outOfSync && n.getCachedState() == nodeStateAlive {
+		n.lfcLog.Errorw("RPC endpoint has fallen behind", "blockNumber", localChainInfo.BlockNumber, "bestLatestBlockNumber", ci.BlockNumber, "totalDifficulty", localChainInfo.TotalDifficulty)
+	}
+	return outOfSync, ln
 }
 
 // outOfSyncLoop takes an OutOfSync node and waits until isOutOfSync returns false to go back to live status
@@ -508,8 +508,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(syncIssues syncStatus) {
 				continue
 			}
 
-			_, latestChainInfo := n.StateAndLatest()
-			receivedNewHead := n.onNewFinalizedHead(lggr, &latestChainInfo, latestFinalized)
+			receivedNewHead := n.onNewFinalizedHead(lggr, &localHighestChainInfo, latestFinalized)
 			if !receivedNewHead {
 				continue
 			}
@@ -520,7 +519,9 @@ func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(syncIssues syncStatus) {
 				finalizedHeadsSub.ResetTimer(noNewFinalizedBlocksTimeoutThreshold)
 			}
 
-			lggr.Debugw(msgReceivedFinalizedBlock, "blockNumber", latestFinalized.BlockNumber(), "syncIssues", syncIssues)
+			highestSeen := n.poolInfoProvider.HighestUserObservations()
+
+			lggr.Debugw(msgReceivedFinalizedBlock, "blockNumber", latestFinalized.BlockNumber(), "poolHighestBlockNumber", highestSeen.FinalizedBlockNumber, "syncIssues", syncIssues)
 		case err := <-finalizedHeadsSub.Errors:
 			lggr.Errorw("Finalized head subscription was terminated", "err", err)
 			n.declareUnreachable()
@@ -653,7 +654,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) syncingLoop() {
 		case nodeStateClosed:
 			return
 		default:
-			panic(fmt.Sprintf("syncingLoop can only run for node in nodeStateSyncing state, got: %s", state))
+			panic(fmt.Sprintf("syncingLoop can only run for node in NodeStateSyncing state, got: %s", state))
 		}
 	}
 
