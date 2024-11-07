@@ -152,6 +152,7 @@ type DonInfo struct {
 	Capabilities []kcr.CapabilitiesRegistryCapability // every capability is hosted on each node
 }
 
+// TODO: merge with deployment/environment.go Node
 type Node struct {
 	ID           string
 	P2PID        string
@@ -160,6 +161,7 @@ type Node struct {
 	ChainConfigs []*nodev1.ChainConfig
 }
 
+// TODO: merge with deployment/environment.go NodeInfo, we currently lookup based on p2p_id, and chain-selectors needs non-EVM support
 func NodesFromJD(name string, nodeIDs []string, jd deployment.OffchainClient) ([]Node, error) {
 	// lookup nodes based on p2p_ids
 	var nodes []Node
