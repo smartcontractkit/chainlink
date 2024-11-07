@@ -3,7 +3,6 @@ package changeset
 import (
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -31,8 +30,8 @@ func TestDeployCapReg(t *testing.T) {
 		RMNStaticConfig:  ccdeploy.NewTestRMNStaticConfig(),
 		RMNDynamicConfig: ccdeploy.NewTestRMNDynamicConfig(),
 		NodeOperators:    ccdeploy.NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
-		NodeP2PIDsPerNodeOpAdmin: map[common.Address][][32]byte{
-			e.Chains[homeChainSel].DeployerKey.From: p2pIds,
+		NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
+			"NodeOperator": p2pIds,
 		},
 	}
 	output, err := DeployCapReg(e, homeChainCfg)

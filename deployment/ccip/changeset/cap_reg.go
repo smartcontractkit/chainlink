@@ -28,23 +28,24 @@ func DeployCapReg(env deployment.Environment, config interface{}) (deployment.Ch
 	homeChainSel := cfg.HomeChainSel
 	// Note we also deploy the cap reg.
 	ab := deployment.NewMemoryAddressBook()
-	capReg, nopIdsByAdmin, err := ccipdeployment.DeployCapReg(env.Logger, ab, env.Chains[homeChainSel], cfg.RMNStaticConfig, cfg.RMNDynamicConfig, cfg.NodeOperators)
+	capReg, err := ccipdeployment.DeployCapReg(env.Logger, ab, env.Chains[homeChainSel], cfg.RMNStaticConfig, cfg.RMNDynamicConfig, cfg.NodeOperators)
 	if err != nil {
 		env.Logger.Errorw("Failed to deploy cap reg", "err", err, "addresses", ab)
 		return deployment.ChangesetOutput{}, err
 	}
+	nopIdByName, err := ccipdeployment.GetNodeOperatorIDMap(capReg.Contract, 50) // assuming 50 is sufficient for all node operators
 	// validate all node operators have nopIds
 	for _, nop := range cfg.NodeOperators {
-		if _, ok := nopIdsByAdmin[nop.Admin.String()]; !ok {
+		if _, ok := nopIdByName[nop.Name]; !ok {
 			return deployment.ChangesetOutput{}, fmt.Errorf("node operator %s does not have a nopId", nop.Name)
 		}
 	}
 	// Adds initial set of nodes to CR, who all have the CCIP capability
 	p2pIDsByNodeOpId := make(map[uint32][][32]byte)
-	for nopAdmin, p2pId := range cfg.NodeP2PIDsPerNodeOpAdmin {
-		nopId, ok := nopIdsByAdmin[nopAdmin.String()]
+	for nopName, p2pId := range cfg.NodeP2PIDsPerNodeOpAdmin {
+		nopId, ok := nopIdByName[nopName]
 		if !ok {
-			return deployment.ChangesetOutput{}, fmt.Errorf("node operator %s does not have a nopId", nopAdmin)
+			return deployment.ChangesetOutput{}, fmt.Errorf("node operator %s does not have a nopId", nopName)
 		}
 		p2pIDsByNodeOpId[nopId] = p2pId
 	}
@@ -68,7 +69,7 @@ type DeployHomeChainConfig struct {
 	RMNStaticConfig          rmn_home.RMNHomeStaticConfig
 	RMNDynamicConfig         rmn_home.RMNHomeDynamicConfig
 	NodeOperators            []capabilities_registry.CapabilitiesRegistryNodeOperator
-	NodeP2PIDsPerNodeOpAdmin map[common.Address][][32]byte
+	NodeP2PIDsPerNodeOpAdmin map[string][][32]byte
 }
 
 func (c DeployHomeChainConfig) Validate() error {
@@ -91,7 +92,7 @@ func (c DeployHomeChainConfig) Validate() error {
 		if nop.Name == "" {
 			return fmt.Errorf("node operator name must be set")
 		}
-		if c.NodeP2PIDsPerNodeOpAdmin[nop.Admin] == nil || len(c.NodeP2PIDsPerNodeOpAdmin[nop.Admin]) == 0 {
+		if c.NodeP2PIDsPerNodeOpAdmin[nop.Name] == nil || len(c.NodeP2PIDsPerNodeOpAdmin[nop.Name]) == 0 {
 			return fmt.Errorf("node operator %s must have node p2p ids provided", nop.Name)
 		}
 	}

@@ -112,7 +112,7 @@ func DeployTestContracts(t *testing.T,
 	feedChainSel uint64,
 	chains map[uint64]deployment.Chain,
 ) deployment.CapabilityRegistryConfig {
-	capReg, _, err := DeployCapReg(lggr, ab, chains[homeChainSel],
+	capReg, err := DeployCapReg(lggr, ab, chains[homeChainSel],
 		NewTestRMNStaticConfig(),
 		NewTestRMNDynamicConfig(),
 		NewTestNodeOperator(chains[homeChainSel].DeployerKey.From),

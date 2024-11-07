@@ -92,11 +92,7 @@ func DeployCapReg(
 	rmnHomeStatic rmn_home.RMNHomeStaticConfig,
 	rmnHomeDynamic rmn_home.RMNHomeDynamicConfig,
 	nodeOps []capabilities_registry.CapabilitiesRegistryNodeOperator,
-) (
-	*ContractDeploy[*capabilities_registry.CapabilitiesRegistry],
-	map[string]uint32,
-	error,
-) {
+) (*ContractDeploy[*capabilities_registry.CapabilitiesRegistry], error) {
 	capReg, err := deployContract(lggr, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*capabilities_registry.CapabilitiesRegistry] {
 			crAddr, tx, cr, err2 := capabilities_registry.DeployCapabilitiesRegistry(
@@ -109,7 +105,7 @@ func DeployCapReg(
 		})
 	if err != nil {
 		lggr.Errorw("Failed to deploy capreg", "err", err)
-		return nil, nil, err
+		return nil, err
 	}
 
 	lggr.Infow("deployed capreg", "addr", capReg.Address)
@@ -127,7 +123,7 @@ func DeployCapReg(
 		})
 	if err != nil {
 		lggr.Errorw("Failed to deploy CCIPHome", "err", err)
-		return nil, nil, err
+		return nil, err
 	}
 	lggr.Infow("deployed CCIPHome", "addr", ccipHome.Address)
 
@@ -145,7 +141,7 @@ func DeployCapReg(
 	)
 	if err != nil {
 		lggr.Errorw("Failed to deploy RMNHome", "err", err)
-		return nil, nil, err
+		return nil, err
 	}
 	lggr.Infow("deployed RMNHome", "addr", rmnHome.Address)
 
@@ -153,32 +149,32 @@ func DeployCapReg(
 	tx, err := rmnHome.Contract.SetCandidate(chain.DeployerKey, rmnHomeStatic, rmnHomeDynamic, [32]byte{})
 	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
 		lggr.Errorw("Failed to set candidate on RMNHome", "err", err)
-		return nil, nil, err
+		return nil, err
 	}
 
 	rmnCandidateDigest, err := rmnHome.Contract.GetCandidateDigest(nil)
 	if err != nil {
 		lggr.Errorw("Failed to get RMNHome candidate digest", "err", err)
-		return nil, nil, err
+		return nil, err
 	}
 
 	tx, err = rmnHome.Contract.PromoteCandidateAndRevokeActive(chain.DeployerKey, rmnCandidateDigest, [32]byte{})
 	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
 		lggr.Errorw("Failed to promote candidate and revoke active on RMNHome", "err", err)
-		return nil, nil, err
+		return nil, err
 	}
 
 	rmnActiveDigest, err := rmnHome.Contract.GetActiveDigest(nil)
 	if err != nil {
 		lggr.Errorw("Failed to get RMNHome active digest", "err", err)
-		return nil, nil, err
+		return nil, err
 	}
 	lggr.Infow("Got rmn home active digest", "digest", rmnActiveDigest)
 
 	if rmnActiveDigest != rmnCandidateDigest {
 		lggr.Errorw("RMNHome active digest does not match previously candidate digest",
 			"active", rmnActiveDigest, "candidate", rmnCandidateDigest)
-		return nil, nil, errors.New("RMNHome active digest does not match candidate digest")
+		return nil, errors.New("RMNHome active digest does not match candidate digest")
 	}
 
 	tx, err = capReg.Contract.AddCapabilities(chain.DeployerKey, []capabilities_registry.CapabilitiesRegistryCapability{
@@ -192,32 +188,36 @@ func DeployCapReg(
 	})
 	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
 		lggr.Errorw("Failed to add capabilities", "err", err)
-		return nil, nil, err
+		return nil, err
 	}
 
 	tx, err = capReg.Contract.AddNodeOperators(chain.DeployerKey, nodeOps)
-	blockNum, err := deployment.ConfirmIfNoError(chain, tx, err)
-	if err != nil {
+	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
 		lggr.Errorw("Failed to add node operators", "err", err)
-		return nil, nil, err
+		return nil, err
 	}
-	// find the NodeOperatorIds for the node operator we just added
-	addedEvent, err := capReg.Contract.FilterNodeOperatorAdded(&bind.FilterOpts{
-		Context: context.Background(),
-		Start:   blockNum,
-	}, nil, nil)
+	return capReg, nil
+}
+
+// GetNodeOperatorIDMap returns a map of node operator names to their IDs
+// If maxNops is greater than the number of node operators, it will return all node operators
+func GetNodeOperatorIDMap(capReg *capabilities_registry.CapabilitiesRegistry, maxNops uint32) (map[string]uint32, error) {
+	nopIdByName := make(map[string]uint32)
+	operators, err := capReg.GetNodeOperators(nil)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	nopIdByAdmin := make(map[string]uint32)
-	for addedEvent.Next() {
-		for _, nop := range nodeOps {
-			if addedEvent.Event.Admin == nop.Admin {
-				nopIdByAdmin[addedEvent.Event.Admin.String()] = addedEvent.Event.NodeOperatorId
-			}
+	if len(operators) < int(maxNops) {
+		maxNops = uint32(len(operators))
+	}
+	for i := uint32(1); i <= maxNops; i++ {
+		operator, err := capReg.GetNodeOperator(nil, i)
+		if err != nil {
+			return nil, err
 		}
+		nopIdByName[operator.Name] = i
 	}
-	return capReg, nopIdByAdmin, nil
+	return nopIdByName, nil
 }
 
 func isEqualCapabilitiesRegistryNodeParams(a, b capabilities_registry.CapabilitiesRegistryNodeParams) (bool, error) {
