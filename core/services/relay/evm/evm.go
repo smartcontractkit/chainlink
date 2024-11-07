@@ -239,7 +239,7 @@ func NewRelayer(ctx context.Context, lggr logger.Logger, chain legacyevm.Chain, 
 		}
 
 		fromAddressIndex := *wCfg.FromAddressIndex()
-		if len(ethKeys) <= int(fromAddressIndex) {
+		if len(ethKeys) <= fromAddressIndex {
 			return nil, fmt.Errorf("eth key with index %d not found", fromAddressIndex)
 		}
 
