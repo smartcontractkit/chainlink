@@ -275,7 +275,8 @@ func (o *OCRSoakTest) Environment() *environment.Environment {
 
 // Setup initializes the OCR Soak Test by setting up clients, funding nodes, and deploying OCR contracts.
 func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
-	o.initializeClients(ocrTestConfig)
+	o.initializeClients()
+	o.deployLinkTokenContract(ocrTestConfig)
 	o.fundChainlinkNodes()
 
 	o.startingValue = 5
@@ -290,7 +291,7 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 }
 
 // initializeClients sets up the Seth client, Chainlink nodes, and mock server.
-func (o *OCRSoakTest) initializeClients(ocrTestConfig tt.OcrTestConfig) {
+func (o *OCRSoakTest) initializeClients() {
 	sethClient, err := seth_utils.GetChainClient(o.Config, o.rpcNetwork)
 	require.NoError(o.t, err, "Error creating seth client")
 	o.seth = sethClient
@@ -301,8 +302,10 @@ func (o *OCRSoakTest) initializeClients(ocrTestConfig tt.OcrTestConfig) {
 
 	o.mockServer = ctf_client.ConnectMockServer(o.testEnvironment)
 	require.NoError(o.t, err, "Creating mockserver clients shouldn't fail")
+}
 
-	linkContract, err := actions.LinkTokenContract(o.log, sethClient, ocrTestConfig.GetActiveOCRConfig())
+func (o *OCRSoakTest) deployLinkTokenContract(ocrTestConfig tt.OcrTestConfig) {
+	linkContract, err := actions.LinkTokenContract(o.log, o.seth, ocrTestConfig.GetActiveOCRConfig())
 	require.NoError(o.t, err, "Error loading/deploying link token contract")
 	o.linkContract = linkContract
 }
