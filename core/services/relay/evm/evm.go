@@ -237,8 +237,8 @@ func NewRelayer(ctx context.Context, lggr logger.Logger, chain legacyevm.Chain, 
 		if err2 != nil {
 			return nil, fmt.Errorf("failed to get all eth keys: %w", err2)
 		}
-		fromAddressIndex := *wCfg.FromAddressIndex()
 
+		fromAddressIndex := *wCfg.FromAddressIndex()
 		if len(ethKeys) <= int(fromAddressIndex) {
 			return nil, fmt.Errorf("eth key with index %d not found", fromAddressIndex)
 		}
