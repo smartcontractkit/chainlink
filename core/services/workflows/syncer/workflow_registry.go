@@ -17,8 +17,8 @@ import (
 )
 
 const (
-	workflowID    = "924eef66516e5387b6e8ab8cc544685dfe50dfc837996f22beecebced5063962"
-	workflowOwner = "0x00000000000000000000000000000000000000aa"
+	workflowID    = "924eef66516e5387b6e8ab8cc544685dfe50dfc837886f22beecebced5063968"
+	workflowOwner = "0x0000000000000000000000000000000000000aab"
 	workflowName  = "PoR Hardcoded Workflow"
 )
 
@@ -26,7 +26,7 @@ var (
 	//go:embed config.yaml
 	config []byte
 
-	//go:embed workflow.wasm
+	//go:embed workflow.wasm.br
 	workflow []byte
 )
 
@@ -71,7 +71,7 @@ func (w *WorkflowRegistry) trySetup() bool {
 		return true
 	}
 
-	moduleConfig := &host.ModuleConfig{Logger: logger.NullLogger, IsUncompressed: true}
+	moduleConfig := &host.ModuleConfig{Logger: logger.NullLogger}
 	spec, err := host.GetWorkflowSpec(ctx, moduleConfig, workflow, config)
 	if err != nil {
 		w.Logger.Errorf("failed to get workflow spec", err)
