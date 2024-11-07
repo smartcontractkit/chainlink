@@ -186,8 +186,14 @@ func evaluate(rawRequest capabilities.CapabilityRequest) (r Request, err error) 
 		return r, fmt.Errorf("WorkflowOwner in the report does not match WorkflowOwner in the request metadata. Report WorkflowOwner: %+v, request WorkflowOwner: %+v", hex.EncodeToString(reportMetadata.WorkflowOwner[:]), rawRequest.Metadata.WorkflowOwner)
 	}
 
-	if !strings.EqualFold(hex.EncodeToString(reportMetadata.WorkflowName[:]), rawRequest.Metadata.WorkflowName) {
-		return r, fmt.Errorf("WorkflowName in the report does not match WorkflowName in the request metadata. Report WorkflowName: %+v, request WorkflowName: %+v", hex.EncodeToString(reportMetadata.WorkflowName[:]), rawRequest.Metadata.WorkflowName)
+	decodedName, err := hex.DecodeString(rawRequest.Metadata.WorkflowName)
+	if err != nil {
+		return r, err
+	}
+	var workflowName [10]byte
+	copy(workflowName[:], decodedName)
+	if !bytes.Equal(reportMetadata.WorkflowName[:], workflowName[:]) {
+		return r, fmt.Errorf("WorkflowName in the report does not match WorkflowName in the request metadata. Report WorkflowName: %+v, request WorkflowName: %+v", hex.EncodeToString(reportMetadata.WorkflowName[:]), hex.EncodeToString(workflowName[:]))
 	}
 
 	if hex.EncodeToString(reportMetadata.WorkflowCID[:]) != rawRequest.Metadata.WorkflowID {
