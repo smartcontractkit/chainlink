@@ -15,7 +15,7 @@ import (
 
 var _ deployment.ChangeSet = DeployHomeChain
 
-// DeployHomeChain is a separate changeset because cap reg is an env var for CL nodes.
+// DeployHomeChain is a separate changeset because it is a standalone deployment performed once in home chain for the entire CCIP deployment.
 func DeployHomeChain(env deployment.Environment, config interface{}) (deployment.ChangesetOutput, error) {
 	cfg, ok := config.(DeployHomeChainConfig)
 	if !ok {

@@ -86,6 +86,8 @@ func MustABIEncode(abiString string, args ...interface{}) []byte {
 	return encoded
 }
 
+// DeployCapReg deploys the CapabilitiesRegistry contract if it is not already deployed
+// and returns a ContractDeploy struct with the address and contract instance.
 func DeployCapReg(
 	lggr logger.Logger,
 	ab deployment.AddressBook,
@@ -231,6 +233,7 @@ func DeployHomeChain(
 		lggr.Errorw("Failed to filter NodeOperatorAdded event", "err", err)
 		return capReg, err
 	}
+	// Need to fetch nodeoperators ids to be able to add nodes for corresponding node operators
 	p2pIDsByNodeOpId := make(map[uint32][][32]byte)
 	for addedEvent.Next() {
 		for nopName, p2pId := range nodeP2PIDsPerNodeOpAdmin {
