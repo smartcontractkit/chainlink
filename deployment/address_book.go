@@ -82,6 +82,7 @@ type AddressBook interface {
 	AddressesForChain(chain uint64) (map[string]TypeAndVersion, error)
 	// Allows for merging address books (e.g. new deployments with existing ones)
 	Merge(other AddressBook) error
+	Remove(ab AddressBook) error
 }
 
 type AddressBookMap struct {
