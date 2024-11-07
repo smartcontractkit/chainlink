@@ -468,14 +468,14 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	)
 
 	workflowRegistrySyncer := &syncer.WorkflowRegistry{
-		Logger:   globalLogger,
+		Logger:   globalLogger.Named("WorkflowRegistrySyncer"),
 		Store:    workflowORM,
 		Registry: opts.CapabilitiesRegistry,
 	}
 	srvcs = append(srvcs, workflowRegistrySyncer)
 
 	delegates[job.Workflow] = workflows.NewDelegate(
-		globalLogger.Named("WorkflowRegistrySyncer"),
+		globalLogger,
 		opts.CapabilitiesRegistry,
 		workflowRegistrySyncer,
 		workflowORM,
