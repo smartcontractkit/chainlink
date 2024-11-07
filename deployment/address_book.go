@@ -149,6 +149,31 @@ func (m *AddressBookMap) Merge(ab AddressBook) error {
 	return nil
 }
 
+// Remove removes the address book addresses specified via the argument from the AddressBookMap.
+// Errors if all the addresses in the given address book are not contained in the AddressBookMap.
+func (m *AddressBookMap) Remove(ab AddressBook) error {
+	addresses, err := ab.Addresses()
+	if err != nil {
+		return err
+	}
+
+	addressNotFound := true
+	for chainSelector, chainAddresses := range addresses {
+		for address, _ := range chainAddresses {
+			if _, exists := m.AddressesByChain[chainSelector][address]; exists {
+				addressNotFound = false
+				delete(m.AddressesByChain[chainSelector], address)
+			}
+		}
+	}
+
+	if addressNotFound {
+		return errors.New("AddressBookMap does not contain any address from the given address book")
+	}
+
+	return nil
+}
+
 // TODO: Maybe could add an environment argument
 // which would ensure only mainnet/testnet chain selectors are used
 // for further safety?
