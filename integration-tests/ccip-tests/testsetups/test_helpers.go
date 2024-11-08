@@ -102,7 +102,7 @@ func NewLocalDevEnvironment(t *testing.T, lggr logger.Logger) (ccipdeployment.De
 
 	envNodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
-	_, err = ccipdeployment.DeployHomeChain(lggr, e, chains[homeChainSel],
+	_, err = ccipdeployment.DeployHomeChain(lggr, *e, e.ExistingAddresses, chains[homeChainSel],
 		ccipdeployment.NewTestRMNStaticConfig(),
 		ccipdeployment.NewTestRMNDynamicConfig(),
 		ccipdeployment.NewTestNodeOperator(chains[homeChainSel].DeployerKey.From),

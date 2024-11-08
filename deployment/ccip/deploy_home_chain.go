@@ -124,13 +124,13 @@ func DeployCapReg(
 func DeployHomeChain(
 	lggr logger.Logger,
 	e deployment.Environment,
+	ab deployment.AddressBook,
 	chain deployment.Chain,
 	rmnHomeStatic rmn_home.RMNHomeStaticConfig,
 	rmnHomeDynamic rmn_home.RMNHomeDynamicConfig,
 	nodeOps []capabilities_registry.CapabilitiesRegistryNodeOperator,
 	nodeP2PIDsPerNodeOpAdmin map[string][][32]byte,
 ) (*ContractDeploy[*capabilities_registry.CapabilitiesRegistry], error) {
-	ab := e.ExistingAddresses
 	// load existing state
 	state, err := LoadOnchainState(e)
 	if err != nil {

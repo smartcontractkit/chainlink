@@ -25,8 +25,9 @@ func DeployHomeChain(env deployment.Environment, config interface{}) (deployment
 	if err != nil {
 		return deployment.ChangesetOutput{}, errors.Wrapf(deployment.ErrInvalidConfig, "%v", err)
 	}
+	ab := deployment.NewMemoryAddressBook()
 	// Note we also deploy the cap reg.
-	_, err = ccipdeployment.DeployHomeChain(env.Logger, env, env.Chains[cfg.HomeChainSel], cfg.RMNStaticConfig, cfg.RMNDynamicConfig, cfg.NodeOperators, cfg.NodeP2PIDsPerNodeOpAdmin)
+	_, err = ccipdeployment.DeployHomeChain(env.Logger, env, ab, env.Chains[cfg.HomeChainSel], cfg.RMNStaticConfig, cfg.RMNDynamicConfig, cfg.NodeOperators, cfg.NodeP2PIDsPerNodeOpAdmin)
 	if err != nil {
 		env.Logger.Errorw("Failed to deploy cap reg", "err", err, "addresses", env.ExistingAddresses)
 		return deployment.ChangesetOutput{}, err

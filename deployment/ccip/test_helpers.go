@@ -181,7 +181,7 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, numChains int, numNo
 	envNodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
 	e.ExistingAddresses = ab
-	_, err = DeployHomeChain(lggr, e, chains[homeChainSel],
+	_, err = DeployHomeChain(lggr, e, e.ExistingAddresses, chains[homeChainSel],
 		NewTestRMNStaticConfig(),
 		NewTestRMNDynamicConfig(),
 		NewTestNodeOperator(chains[homeChainSel].DeployerKey.From),
