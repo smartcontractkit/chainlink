@@ -1,4 +1,4 @@
-package secrets
+package syncer
 
 import (
 	"testing"
@@ -23,11 +23,11 @@ func TestWorkflowArtifactsORM_GetAndUpdate(t *testing.T) {
 	_, err := orm.Update(ctx, giveURL, giveContent)
 	require.NoError(t, err)
 
-	url, err := orm.GetSecretsURL(ctx, keccak256Hash(giveURL))
+	url, err := orm.GetSecretsURL(ctx, Keccak256Hash(giveURL))
 	require.NoError(t, err)
 	assert.Equal(t, giveURL, url)
 
-	artifact, err := orm.GetArtifactByHash(ctx, keccak256Hash(giveURL))
+	artifact, err := orm.GetArtifactByHash(ctx, Keccak256Hash(giveURL))
 	require.NoError(t, err)
 	assert.Equal(t, giveURL, artifact.SecretsURL)
 	assert.Equal(t, "some contents", artifact.Contents)
@@ -35,7 +35,7 @@ func TestWorkflowArtifactsORM_GetAndUpdate(t *testing.T) {
 	_, err = orm.Update(ctx, giveURL, "new contents")
 	require.NoError(t, err)
 
-	artifact, err = orm.GetArtifactByHash(ctx, keccak256Hash(giveURL))
+	artifact, err = orm.GetArtifactByHash(ctx, Keccak256Hash(giveURL))
 	require.NoError(t, err)
 	assert.Equal(t, giveURL, artifact.SecretsURL)
 	assert.Equal(t, "new contents", artifact.Contents)

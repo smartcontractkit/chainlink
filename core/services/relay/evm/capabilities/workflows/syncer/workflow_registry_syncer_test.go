@@ -12,15 +12,13 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/workflow/generated/workflow_registry_wrapper"
 	coretestutils "github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
-	syncer "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/secrets"
-	workerMocks "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/secrets/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/signalers"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -29,17 +27,22 @@ func Test_SecretsWorker(t *testing.T) {
 		ctx       = coretestutils.Context(t)
 		lggr      = logger.TestLogger(t)
 		backendTH = testutils.NewEVMBackendTH(t)
-		orm       = workerMocks.NewORM(t)
-		fetcherFn = func(_ context.Context, _ string) ([]byte, error) {
-			return nil, nil
-		}
-		giveTimer      = signalers.MakeTicker(ctx.Done(), 500*time.Millisecond)
+		db        = pgtest.NewSqlxDB(t)
+		orm       = syncer.NewWorkflowRegistryDS(db, lggr)
+
+		giveTicker     = signalers.MakeTicker(ctx.Done(), 500*time.Millisecond)
 		giveSecretsURL = "https://original-url.com"
+		giveHash       = syncer.Keccak256Hash(giveSecretsURL)
 		giveWorkflow   = RegisterWorkflowCMD{
 			Name:       "test-wf",
 			DonID:      uint32(1),
 			Status:     uint8(0),
 			SecretsURL: giveSecretsURL,
+		}
+		giveContents = "contents"
+		wantContents = "updated contents"
+		fetcherFn    = func(_ context.Context, _ string) ([]byte, error) {
+			return []byte(wantContents), nil
 		}
 		contractName = "WorkflowRegistry"
 		eventName    = "WorkflowForceUpdateSecretsRequestedV1"
@@ -48,9 +51,6 @@ func Test_SecretsWorker(t *testing.T) {
 			ContractEventName: eventName,
 			QueryCount:        20,
 		}
-		sendLogs = 4
-		wantLogs = sendLogs - 1
-		gotLogs  = make([]any, 0)
 	)
 
 	// fill ID with randomd data
@@ -91,18 +91,17 @@ func Test_SecretsWorker(t *testing.T) {
 
 	giveCfg.StartBlockNum = uint64(0)
 
-	orm.EXPECT().GetSecretsURL(matches.AnyContext, matches.AnyString).Return(giveSecretsURL, nil).Times(sendLogs)
-	orm.EXPECT().Update(matches.AnyContext, matches.AnyString, matches.AnyString).Return(0, nil).Times(sendLogs)
+	// Seed the DB
+	_, err = orm.Update(ctx, giveSecretsURL, giveContents)
+	require.NoError(t, err)
 
-	worker := syncer.New(
+	worker := syncer.NewWorkflowRegistry(
 		lggr,
-		0,
-		20,
-		wfRegistryAddr.Hex(),
-		contractReader,
 		orm,
+		contractReader,
 		fetcherFn,
-		syncer.WithTimer(giveTimer),
+		giveCfg,
+		syncer.WithTicker(giveTicker),
 	)
 
 	// generate a log event
@@ -112,34 +111,21 @@ func Test_SecretsWorker(t *testing.T) {
 
 	servicetest.Run(t, worker)
 
-	done := make(chan struct{})
-
 	go func() {
-		defer close(done)
 		for {
-			select {
-			case <-time.After(10 * time.Second):
-				t.Fatal("timed out")
-			case l := <-worker.GetLogs():
-				lggr.Debugf("got some logs %v", l)
-				gotLogs = append(gotLogs, l)
-				if len(gotLogs) == wantLogs {
-					return
-				}
-			}
-		}
-	}()
-
-	go func() {
-		for i := 0; i < sendLogs; i++ {
+			<-time.After(time.Second)
 			requestForceUpdateSecrets(t, backendTH, wfRegistryC, giveSecretsURL)
 			backendTH.Backend.Commit()
 		}
 	}()
 
-	<-done
-	assert.Lenf(t, gotLogs, wantLogs, "expected %d, by got %d logs %+v", wantLogs, len(gotLogs), gotLogs)
-	lggr.Infof("received logs %v", gotLogs)
+	// Require the secrets contents to eventually be updated
+	require.Eventually(t, func() bool {
+		secrets, err := orm.GetArtifactByHash(ctx, giveHash)
+		lggr.Debugf("got secrets %v", secrets)
+		require.NoError(t, err)
+		return secrets.Contents == wantContents
+	}, 5*time.Second, time.Second)
 }
 
 func updateAuthorizedAddress(

@@ -1,9 +1,111 @@
 package syncer
 
 import (
+	"context"
+	"strconv"
 	"testing"
+	"time"
+
+	types "github.com/smartcontractkit/chainlink-common/pkg/types"
+	query "github.com/smartcontractkit/chainlink-common/pkg/types/query"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
+
+	"github.com/stretchr/testify/require"
 )
 
-func Test_StartSyncStop(t *testing.T) {
-	t.Skip()
+func Test_Workflow_Registry_Syncer(t *testing.T) {
+	var (
+		done         = make(chan struct{})
+		giveContents = "contents"
+		wantContents = "updated contents"
+		giveCfg      = ContractEventPollerConfig{
+			ContractName:      "MockContract",
+			ContractAddress:   "0xdeadbeef",
+			ContractEventName: "MockEvent",
+			StartBlockNum:     0,
+			QueryCount:        1,
+		}
+		giveURL  = "http://example.com"
+		giveHash = Keccak256Hash(giveURL)
+		giveLog  = types.Sequence{
+			Data: map[string]any{
+				"SecretsURL": []byte(giveHash),
+			},
+			Cursor: "cursor",
+		}
+	)
+
+	var (
+		lggr        = logger.TestLogger(t)
+		db          = pgtest.NewSqlxDB(t)
+		orm         = &orm{ds: db, lggr: lggr}
+		ctx, cancel = context.WithCancel(testutils.Context(t))
+		reader      = NewMockContractReader(t)
+		gateway     = func(_ context.Context, _ string) ([]byte, error) {
+			return []byte(wantContents), nil
+		}
+		ticker = make(chan struct{})
+		worker = NewWorkflowRegistry(lggr, orm, reader, gateway, giveCfg)
+	)
+
+	// Override the ticker
+	worker.ticker = ticker
+
+	// Seed the DB with an original entry
+	_, err := orm.Update(ctx, giveURL, giveContents)
+	require.NoError(t, err)
+
+	// Mock out the contract reader query
+	reader.EXPECT().Bind(matches.AnyContext, []types.BoundContract{
+		{
+			Name:    giveCfg.ContractName,
+			Address: giveCfg.ContractAddress,
+		},
+	}).Return(nil)
+
+	reader.EXPECT().QueryKey(
+		matches.AnyContext,
+		types.BoundContract{
+			Name:    giveCfg.ContractName,
+			Address: giveCfg.ContractAddress,
+		},
+		query.KeyFilter{
+			Key: giveCfg.ContractEventName,
+			Expressions: []query.Expression{
+				query.Confidence(primitives.Finalized),
+				query.Block(strconv.FormatUint(giveCfg.StartBlockNum, 10), primitives.Gte),
+			},
+		},
+		query.LimitAndSort{
+			SortBy: []query.SortBy{query.NewSortByTimestamp(query.Asc)},
+			Limit:  query.Limit{Count: giveCfg.QueryCount},
+		},
+		new(values.Value),
+	).Return([]types.Sequence{giveLog}, nil)
+
+	// Go run the worker
+	go func() {
+		defer close(done)
+
+		worker.Start(ctx)
+	}()
+
+	// Send a tick to start a query
+	ticker <- struct{}{}
+
+	// Require the secrets contents to eventually be updated
+	require.Eventually(t, func() bool {
+		secrets, err := orm.GetArtifactByHash(ctx, giveHash)
+		require.NoError(t, err)
+		return secrets.Contents == wantContents
+	}, 5*time.Second, time.Second)
+
+	// Cleanup the worker
+	cancel()
+	<-done
 }

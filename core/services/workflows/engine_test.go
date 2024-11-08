@@ -175,7 +175,7 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 			executionFinished <- weid
 		},
 		SecretsFetcher: syncer.NewWorkflowRegistry(
-			nil, nil, nil,
+			nil, nil, nil, nil, syncer.ContractEventPollerConfig{},
 		),
 		clock: clock,
 	}

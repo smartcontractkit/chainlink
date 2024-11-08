@@ -581,13 +581,6 @@ packages:
       ORM:
   github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer:
     interfaces:
-      Syncer:
-      ORM:
-  github.com/smartcontractkit/chainlink/v2/core/capabilities/targets:
-    interfaces:
-      ContractValueGetter:
-  github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/secrets:
-    interfaces:
       ORM:
       ContractReader:
         config:
@@ -601,3 +594,6 @@ packages:
           filename: handler_mock.go
           inpackage: true
           dir: "{{ .InterfaceDir }}"
+  github.com/smartcontractkit/chainlink/v2/core/capabilities/targets:
+    interfaces:
+      ContractValueGetter:

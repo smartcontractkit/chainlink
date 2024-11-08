@@ -217,8 +217,10 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	// if a workflow registry address is provided.
 	workflowRegistrySyncer := syncer.NewWorkflowRegistry(
 		globalLogger,
-		syncer.NewUnimplementedDS(),
 		nil,
+		nil,
+		nil,
+		syncer.ContractEventPollerConfig{},
 	)
 	srvcs = append(srvcs, workflowRegistrySyncer)
 
