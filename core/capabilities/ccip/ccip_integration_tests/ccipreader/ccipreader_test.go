@@ -290,7 +290,7 @@ func TestCCIPReader_MsgsBetweenSeqNums(t *testing.T) {
 		FeeToken:       utils.RandomAddress(),
 		FeeTokenAmount: big.NewInt(1),
 		FeeValueJuels:  big.NewInt(2),
-		TokenAmounts:   make([]ccip_reader_tester.InternalEVM2AnyTokenTransfer, 0),
+		TokenAmounts:   []ccip_reader_tester.InternalEVM2AnyTokenTransfer{{Amount: big.NewInt(1)}, {Amount: big.NewInt(2)}},
 	})
 	assert.NoError(t, err)
 
@@ -308,7 +308,7 @@ func TestCCIPReader_MsgsBetweenSeqNums(t *testing.T) {
 		FeeToken:       utils.RandomAddress(),
 		FeeTokenAmount: big.NewInt(3),
 		FeeValueJuels:  big.NewInt(4),
-		TokenAmounts:   make([]ccip_reader_tester.InternalEVM2AnyTokenTransfer, 0),
+		TokenAmounts:   []ccip_reader_tester.InternalEVM2AnyTokenTransfer{{Amount: big.NewInt(3)}, {Amount: big.NewInt(4)}},
 	})
 	assert.NoError(t, err)
 
@@ -337,10 +337,14 @@ func TestCCIPReader_MsgsBetweenSeqNums(t *testing.T) {
 	require.Equal(t, cciptypes.SeqNum(10), msgs[0].Header.SequenceNumber)
 	require.Equal(t, big.NewInt(1), msgs[0].FeeTokenAmount.Int)
 	require.Equal(t, big.NewInt(2), msgs[0].FeeValueJuels.Int)
+	require.Equal(t, int64(1), msgs[0].TokenAmounts[0].Amount.Int64())
+	require.Equal(t, int64(2), msgs[0].TokenAmounts[1].Amount.Int64())
 
 	require.Equal(t, cciptypes.SeqNum(15), msgs[1].Header.SequenceNumber)
 	require.Equal(t, big.NewInt(3), msgs[1].FeeTokenAmount.Int)
 	require.Equal(t, big.NewInt(4), msgs[1].FeeValueJuels.Int)
+	require.Equal(t, int64(3), msgs[1].TokenAmounts[0].Amount.Int64())
+	require.Equal(t, int64(4), msgs[1].TokenAmounts[1].Amount.Int64())
 
 	for _, msg := range msgs {
 		require.Equal(t, chainS1, msg.Header.SourceChainSelector)
