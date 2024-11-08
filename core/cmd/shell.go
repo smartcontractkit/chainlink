@@ -197,7 +197,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 	ds := sqlutil.WrapDataSource(db, appLggr, sqlutil.TimeoutHook(cfg.Database().DefaultQueryTimeout), sqlutil.MonitorHook(cfg.Database().LogSQL))
 	keyStore := keystore.New(ds, utils.GetScryptParams(cfg), appLggr)
 
-	err = keyStoreAuthenticator.authenticate(ctx, keyStore, cfg.Password())
+	err = keyStoreAuthenticator.Authenticate(ctx, keyStore, cfg.Password())
 	if err != nil {
 		return nil, errors.Wrap(err, "error authenticating keystore")
 	}

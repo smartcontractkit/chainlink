@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jmoiron/sqlx"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-
-	"github.com/jmoiron/sqlx"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -80,6 +80,20 @@ type RendererMock struct {
 func (rm *RendererMock) Render(v interface{}, headers ...string) error {
 	rm.Renders = append(rm.Renders, v)
 	return nil
+}
+
+type InstanceAppFactoryWithKeystoreMock struct {
+	App chainlink.Application
+}
+
+// NewApplication creates a new application with specified config and calls the authenticate function of the keystore
+func (f InstanceAppFactoryWithKeystoreMock) NewApplication(ctx context.Context, cfg chainlink.GeneralConfig, lggr logger.Logger, db *sqlx.DB, ks cmd.TerminalKeyStoreAuthenticator) (chainlink.Application, error) {
+	keyStore := f.App.GetKeyStore()
+	err := ks.Authenticate(ctx, keyStore, cfg.Password())
+	if err != nil {
+		return nil, fmt.Errorf("error authenticating keystore: %w", err)
+	}
+	return f.App, nil
 }
 
 // InstanceAppFactory is an InstanceAppFactory
