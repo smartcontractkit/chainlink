@@ -35,18 +35,7 @@ func SetupChain(t *testing.T) (*simulated.Backend, *bind.TransactOpts) {
 		common.Address{}: {
 			Balance: new(big.Int).Mul(big.NewInt(1000), big.NewInt(1e18)),
 		},
-	},
-		simulated.WithBlockGasLimit(ethconfig.Defaults.Miner.GasCeil))
-	//currentHead, err := chain.Client().HeaderByNumber(tests.Context(t), nil)
-	//require.NoError(t, err)
-	// CCIP relies on block timestamps, but SimulatedBackend uses by default clock starting from 1970-01-01
-	// This trick is used to move the clock closer to the current time. We set first block to be X hours ago.
-	// Tests create plenty of transactions so this number can't be too low, every new block mined will tick the clock,
-	// if you mine more than "X hours" transactions, SimulatedBackend will panic because generated timestamps will be in the future.
-	// IMPORTANT: Any adjustments to FirstBlockAge will automatically update PermissionLessExecutionThresholdSeconds in tests
-	//nolint:gosec // G115
-	//blockTime := time.UnixMilli(int64(currentHead.Time))
-	//err = chain.AdjustTime(time.Since(blockTime) - FirstBlockAge)
+	}, simulated.WithBlockGasLimit(ethconfig.Defaults.Miner.GasCeil))
 	require.NoError(t, err)
 	chain.Commit()
 	return chain, user
