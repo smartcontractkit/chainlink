@@ -60,19 +60,36 @@ func TestDeploy(t *testing.T) {
 	assetNodes := memory.NewNodes(t, zapcore.InfoLevel, assetChains, 4, 0, crConfig)
 	require.Len(t, assetNodes, 4)
 
+	// TODO: partition nodes into multiple nops
+
 	wfDon := keystone.DonCapabilities{
-		Name:         keystone.WFDonName,
-		Nodes:        maps.Keys(wfNodes),
+		Name: keystone.WFDonName,
+		Nops: []keystone.NOP{
+			{
+				Name:  "nop 1",
+				Nodes: maps.Keys(wfNodes),
+			},
+		},
 		Capabilities: []kcr.CapabilitiesRegistryCapability{keystone.OCR3Cap},
 	}
 	cwDon := keystone.DonCapabilities{
-		Name:         keystone.TargetDonName,
-		Nodes:        maps.Keys(cwNodes),
+		Name: keystone.TargetDonName,
+		Nops: []keystone.NOP{
+			{
+				Name:  "nop 2",
+				Nodes: maps.Keys(cwNodes),
+			},
+		},
 		Capabilities: []kcr.CapabilitiesRegistryCapability{keystone.WriteChainCap},
 	}
 	assetDon := keystone.DonCapabilities{
-		Name:         keystone.StreamDonName,
-		Nodes:        maps.Keys(assetNodes),
+		Name: keystone.StreamDonName,
+		Nops: []keystone.NOP{
+			{
+				Name:  "nop 3",
+				Nodes: maps.Keys(assetNodes),
+			},
+		},
 		Capabilities: []kcr.CapabilitiesRegistryCapability{keystone.StreamTriggerCap},
 	}
 
@@ -139,7 +156,7 @@ func TestDeploy(t *testing.T) {
 		AddressBook: ad,
 	}
 
-	contractSetsResp, err := keystone.GetContractSets(req)
+	contractSetsResp, err := keystone.GetContractSets(lggr, req)
 	require.NoError(t, err)
 	require.Len(t, contractSetsResp.ContractSets, len(env.Chains))
 	// check the registry
@@ -191,11 +208,15 @@ func TestDeploy(t *testing.T) {
 
 // TODO: Deprecated, remove everything below that leverages CLO
 
-func nodeOperatorsToIDs(nops []*models.NodeOperator) (nodeIDs []string) {
+func nodeOperatorsToIDs(nops []*models.NodeOperator) (nodeIDs []keystone.NOP) {
 	for _, nop := range nops {
-		for _, node := range nop.Nodes {
-			nodeIDs = append(nodeIDs, node.ID)
+		nodeOperator := keystone.NOP{
+			Name: nop.Name,
 		}
+		for _, node := range nop.Nodes {
+			nodeOperator.Nodes = append(nodeOperator.Nodes, node.ID)
+		}
+		nodeIDs = append(nodeIDs, nodeOperator)
 	}
 	return nodeIDs
 }
@@ -219,17 +240,17 @@ func TestDeployCLO(t *testing.T) {
 
 	wfDon := keystone.DonCapabilities{
 		Name:         keystone.WFDonName,
-		Nodes:        wfNodes,
+		Nops:         wfNodes,
 		Capabilities: []kcr.CapabilitiesRegistryCapability{keystone.OCR3Cap},
 	}
 	cwDon := keystone.DonCapabilities{
 		Name:         keystone.TargetDonName,
-		Nodes:        cwNodes,
+		Nops:         cwNodes,
 		Capabilities: []kcr.CapabilitiesRegistryCapability{keystone.WriteChainCap},
 	}
 	assetDon := keystone.DonCapabilities{
 		Name:         keystone.StreamDonName,
-		Nodes:        assetNodes,
+		Nops:         assetNodes,
 		Capabilities: []kcr.CapabilitiesRegistryCapability{keystone.StreamTriggerCap},
 	}
 

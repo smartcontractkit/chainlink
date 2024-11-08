@@ -199,11 +199,16 @@ func makeNodeKeysSlice(nodes []*ocr2Node) []NodeKeys {
 	return out
 }
 
+type NOP struct {
+	Name  string
+	Nodes []string // peerID
+}
+
 // DonCapabilities is a set of capabilities hosted by a set of node operators
 // in is in a convenient form to handle the CLO representation of the nop data
 type DonCapabilities struct {
 	Name         string
-	Nodes        []string
+	Nops         []NOP
 	Capabilities []kcr.CapabilitiesRegistryCapability // every capability is hosted on each nop
 }
 
@@ -215,6 +220,7 @@ func (dc DonInfo) nodeIdToNop(cs uint64) (map[string]capabilities_registry.Capab
 		if err != nil {
 			return nil, fmt.Errorf("failed to get admin address for node %s: %w", node.ID, err)
 		}
+		// TODO: this never mapped to nop name, but don name
 		out[node.ID] = NodeOperator(dc.Name, a)
 
 	}

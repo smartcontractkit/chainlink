@@ -213,7 +213,11 @@ func NodesFromJD(name string, nodeIDs []string, jd deployment.OffchainClient) ([
 func DonInfos(dons []DonCapabilities, jd deployment.OffchainClient) ([]DonInfo, error) {
 	var donInfos []DonInfo
 	for _, don := range dons {
-		nodes, err := NodesFromJD(don.Name, don.Nodes, jd)
+		var nodeIDs []string
+		for _, nop := range don.Nops {
+			nodeIDs = append(nodeIDs, nop.Nodes...)
+		}
+		nodes, err := NodesFromJD(don.Name, nodeIDs, jd)
 		if err != nil {
 			return nil, err
 		}
@@ -313,6 +317,8 @@ func ConfigureRegistry(ctx context.Context, lggr logger.Logger, req ConfigureCon
 		return nil, fmt.Errorf("failed to register nodes: %w", err)
 	}
 	lggr.Infow("registered nodes", "nodes", nodesResp.nodeIDToParams)
+
+	// TODO: annotate nodes with node_operator_id in JD?
 
 	// register DONS
 	donsResp, err := registerDons(lggr, registerDonsRequest{
