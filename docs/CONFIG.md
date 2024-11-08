@@ -3557,7 +3557,8 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '3m0s'
 
 [Transactions.AutoPurge]
-Enabled = false
+Enabled = true
+MinAttempts = 3
 
 [BalanceMonitor]
 Enabled = true
@@ -3661,7 +3662,8 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '3m0s'
 
 [Transactions.AutoPurge]
-Enabled = false
+Enabled = true
+MinAttempts = 3
 
 [BalanceMonitor]
 Enabled = true
@@ -4926,7 +4928,8 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '3m0s'
 
 [Transactions.AutoPurge]
-Enabled = false
+Enabled = true
+MinAttempts = 3
 
 [BalanceMonitor]
 Enabled = true
@@ -5558,7 +5561,8 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '3m0s'
 
 [Transactions.AutoPurge]
-Enabled = false
+Enabled = true
+MinAttempts = 3
 
 [BalanceMonitor]
 Enabled = true
@@ -7145,7 +7149,9 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '3m0s'
 
 [Transactions.AutoPurge]
-Enabled = false
+Enabled = true
+Threshold = 50
+MinAttempts = 3
 
 [BalanceMonitor]
 Enabled = true
@@ -7248,7 +7254,9 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '3m0s'
 
 [Transactions.AutoPurge]
-Enabled = false
+Enabled = true
+Threshold = 50
+MinAttempts = 3
 
 [BalanceMonitor]
 Enabled = true
@@ -8202,7 +8210,8 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [Transactions.AutoPurge]
-Enabled = false
+Enabled = true
+DetectionApiUrl = 'https://sepolia-venus.scroll.io'
 
 [BalanceMonitor]
 Enabled = true
@@ -8310,7 +8319,8 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [Transactions.AutoPurge]
-Enabled = false
+Enabled = true
+DetectionApiUrl = 'https://venus.scroll.io'
 
 [BalanceMonitor]
 Enabled = true

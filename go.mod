@@ -41,7 +41,7 @@ require (
 	github.com/graph-gophers/graphql-go v1.5.0
 	github.com/hashicorp/consul/sdk v0.16.0
 	github.com/hashicorp/go-envparse v0.1.0
-	github.com/hashicorp/go-plugin v1.6.2-0.20240829161738-06afb6d7ae99
+	github.com/hashicorp/go-plugin v1.6.2
 	github.com/hashicorp/go-retryablehttp v0.7.7
 	github.com/hdevalence/ed25519consensus v0.1.0
 	github.com/imdario/mergo v0.3.16

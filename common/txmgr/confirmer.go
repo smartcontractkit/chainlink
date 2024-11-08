@@ -1078,12 +1078,12 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Ens
 	}
 
 	// Here, we rely on the finalized block provided in the chain instead of the one
-	//provided via a dedicated method to avoid the false warning of the chain being
-	//too short. When `FinalityTagBypass = true,` HeadTracker tracks `finality depth
-	//+ history depth` to prevent excessive CPU usage. Thus, the provided chain may
-	//be shorter than the chain from the latest to the latest finalized, marked with
-	//a tag. A proper fix of this issue and complete switch to finality tag support
-	//will be introduced in BCFR-620
+	// provided via a dedicated method to avoid the false warning of the chain being
+	// too short. When `FinalityTagBypass = true,` HeadTracker tracks `finality depth
+	// + history depth` to prevent excessive CPU usage. Thus, the provided chain may
+	// be shorter than the chain from the latest to the latest finalized, marked with
+	// a tag. A proper fix of this issue and complete switch to finality tag support
+	// will be introduced in BCFR-620
 	latestFinalized := head.LatestFinalizedHead()
 	if latestFinalized == nil || !latestFinalized.IsValid() {
 		if ec.nConsecutiveBlocksChainTooShort > logAfterNConsecutiveBlocksChainTooShort {
