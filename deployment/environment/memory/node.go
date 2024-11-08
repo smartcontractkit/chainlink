@@ -10,13 +10,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
-	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -37,7 +35,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
@@ -49,7 +46,6 @@ import (
 type Node struct {
 	App chainlink.Application
 	// Transmitter key/OCR keys for this node
-	Chains     []uint64 // chain selectors
 	Keys       Keys
 	Addr       net.TCPAddr
 	IsBoostrap bool
@@ -72,23 +68,11 @@ func (n Node) ReplayLogs(chains map[uint64]uint64) error {
 func NewNode(
 	t *testing.T,
 	port int, // Port for the P2P V2 listener.
-	chains map[uint64]deployment.Chain,
+	chains map[uint64]EVMChain,
 	logLevel zapcore.Level,
 	bootstrap bool,
 	registryConfig deployment.CapabilityRegistryConfig,
 ) *Node {
-	evmchains := make(map[uint64]EVMChain)
-	for _, chain := range chains {
-		evmChainID, err := chainsel.ChainIdFromSelector(chain.Selector)
-		if err != nil {
-			t.Fatal(err)
-		}
-		evmchains[evmChainID] = EVMChain{
-			Backend:     chain.Client.(*backends.SimulatedBackend),
-			DeployerKey: chain.DeployerKey,
-		}
-	}
-
 	// Do not want to load fixtures as they contain a dummy chainID.
 	// Create database and initial configuration.
 	cfg, db := heavyweight.FullTestDBNoFixturesV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -118,7 +102,7 @@ func NewNode(
 		c.Log.Level = ptr(configv2.LogLevel(logLevel))
 
 		var chainConfigs v2toml.EVMConfigs
-		for chainID := range evmchains {
+		for chainID := range chains {
 			chainConfigs = append(chainConfigs, createConfigV2Chain(chainID))
 		}
 		c.EVM = chainConfigs
@@ -130,7 +114,7 @@ func NewNode(
 
 	// Create clients for the core node backed by sim.
 	clients := make(map[uint64]client.Client)
-	for chainID, chain := range evmchains {
+	for chainID, chain := range chains {
 		clients[chainID] = client.NewSimulatedBackendClient(t, chain.Backend, big.NewInt(int64(chainID)))
 	}
 
@@ -194,7 +178,6 @@ func NewNode(
 
 	return &Node{
 		App:        app,
-		Chains:     maps.Keys(chains),
 		Keys:       keys,
 		Addr:       net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: port},
 		IsBoostrap: bootstrap,
@@ -203,19 +186,15 @@ func NewNode(
 
 type Keys struct {
 	PeerID                   p2pkey.PeerID
-	CSA                      csakey.KeyV2
 	TransmittersByEVMChainID map[uint64]common.Address
-	OCRKeyBundles            map[chaintype.ChainType]ocr2key.KeyBundle
+	OCRKeyBundle             ocr2key.KeyBundle
 }
 
 func CreateKeys(t *testing.T,
-	app chainlink.Application, chains map[uint64]deployment.Chain) Keys {
+	app chainlink.Application, chains map[uint64]EVMChain) Keys {
 	ctx := tests.Context(t)
 	require.NoError(t, app.GetKeyStore().Unlock(ctx, "password"))
 	_, err := app.GetKeyStore().P2P().Create(ctx)
-	require.NoError(t, err)
-
-	csaKey, err := app.GetKeyStore().CSA().Create(ctx)
 	require.NoError(t, err)
 
 	p2pIDs, err := app.GetKeyStore().P2P().GetAll()
@@ -224,63 +203,33 @@ func CreateKeys(t *testing.T,
 	peerID := p2pIDs[0].PeerID()
 	// create a transmitter for each chain
 	transmitters := make(map[uint64]common.Address)
-	keybundles := make(map[chaintype.ChainType]ocr2key.KeyBundle)
-	for _, chain := range chains {
-		family, err := chainsel.GetSelectorFamily(chain.Selector)
-		require.NoError(t, err)
-
-		var ctype chaintype.ChainType
-		switch family {
-		case chainsel.FamilyEVM:
-			ctype = chaintype.EVM
-		case chainsel.FamilySolana:
-			ctype = chaintype.Solana
-		case chainsel.FamilyStarknet:
-			ctype = chaintype.StarkNet
-		case chainsel.FamilyCosmos:
-			ctype = chaintype.Cosmos
-		case chainsel.FamilyAptos:
-			ctype = chaintype.Aptos
-		default:
-			panic(fmt.Sprintf("Unsupported chain family %v", family))
-		}
-
-		keybundle, err := app.GetKeyStore().OCR2().Create(ctx, ctype)
-		require.NoError(t, err)
-		keybundles[ctype] = keybundle
-
-		if family != chainsel.FamilyEVM {
-			// TODO: only support EVM transmission keys for now
-			continue
-		}
-
-		evmChainID, err := chainsel.ChainIdFromSelector(chain.Selector)
-		require.NoError(t, err)
-
-		cid := big.NewInt(int64(evmChainID))
+	for chainID, chain := range chains {
+		cid := big.NewInt(int64(chainID))
 		addrs, err2 := app.GetKeyStore().Eth().EnabledAddressesForChain(ctx, cid)
 		require.NoError(t, err2)
 		if len(addrs) == 1 {
 			// just fund the address
-			transmitters[evmChainID] = addrs[0]
+			fundAddress(t, chain.DeployerKey, addrs[0], assets.Ether(10).ToInt(), chain.Backend)
+			transmitters[chainID] = addrs[0]
 		} else {
 			// create key and fund it
 			_, err3 := app.GetKeyStore().Eth().Create(ctx, cid)
-			require.NoError(t, err3, "failed to create key for chain", evmChainID)
+			require.NoError(t, err3, "failed to create key for chain", chainID)
 			sendingKeys, err3 := app.GetKeyStore().Eth().EnabledAddressesForChain(ctx, cid)
 			require.NoError(t, err3)
 			require.Len(t, sendingKeys, 1)
-			transmitters[evmChainID] = sendingKeys[0]
+			fundAddress(t, chain.DeployerKey, sendingKeys[0], assets.Ether(10).ToInt(), chain.Backend)
+			transmitters[chainID] = sendingKeys[0]
 		}
-		backend := chain.Client.(*backends.SimulatedBackend)
-		fundAddress(t, chain.DeployerKey, transmitters[evmChainID], assets.Ether(1000).ToInt(), backend)
 	}
+	require.Len(t, transmitters, len(chains))
 
+	keybundle, err := app.GetKeyStore().OCR2().Create(ctx, chaintype.EVM)
+	require.NoError(t, err)
 	return Keys{
 		PeerID:                   peerID,
-		CSA:                      csaKey,
 		TransmittersByEVMChainID: transmitters,
-		OCRKeyBundles:            keybundles,
+		OCRKeyBundle:             keybundle,
 	}
 }
 

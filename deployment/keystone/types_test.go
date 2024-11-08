@@ -1,11 +1,19 @@
 package keystone
 
 import (
+	"encoding/json"
+	"os"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/test-go/testify/require"
+
+	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	v1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
+	"github.com/smartcontractkit/chainlink/deployment/environment/clo/models"
+	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 )
 
@@ -132,271 +140,271 @@ func Test_newOcr2Node(t *testing.T) {
 	}
 }
 
-// func Test_mapDonsToNodes(t *testing.T) {
-// 	var (
-// 		pubKey   = "03dacd15fc96c965c648e3623180de002b71a97cf6eeca9affb91f461dcd6ce1"
-// 		evmSig   = "b35409a8d4f9a18da55c5b2bb08a3f5f68d44442"
-// 		aptosSig = "b35409a8d4f9a18da55c5b2bb08a3f5f68d44442b35409a8d4f9a18da55c5b2bb08a3f5f68d44442"
-// 		peerID   = "p2p_12D3KooWMWUKdoAc2ruZf9f55p7NVFj7AFiPm67xjQ8BZBwkqyYv"
-// 		// todo: these should be defined in common
-// 		writerCap        = 3
-// 		ocr3Cap          = 2
-// 		registryChainSel = chainsel.ETHEREUM_TESTNET_SEPOLIA.Selector
-// 		registryChainID  = strconv.FormatUint(chainsel.ETHEREUM_TESTNET_SEPOLIA.EvmChainID, 10)
-// 	)
-// 	type args struct {
-// 		dons              []DonCapabilities
-// 		excludeBootstraps bool
-// 	}
-// 	tests := []struct {
-// 		name    string
-// 		args    args
-// 		wantErr bool
-// 	}{
-// 		{
-// 			name: "writer evm only",
-// 			args: args{
-// 				dons: []DonCapabilities{
-// 					{
-// 						Name: "ok writer",
-// 						Nops: []*models.NodeOperator{
-// 							{
-// 								Nodes: []*models.Node{
-// 									{
-// 										PublicKey: &pubKey,
-// 										ChainConfigs: []*models.NodeChainConfig{
-// 											{
-// 												ID: "1",
-// 												Network: &models.Network{
-// 													ChainType: models.ChainTypeEvm,
-// 													ChainID:   registryChainID,
-// 												},
-// 												Ocr2Config: &models.NodeOCR2Config{
-// 													P2pKeyBundle: &models.NodeOCR2ConfigP2PKeyBundle{
-// 														PeerID: peerID,
-// 													},
-// 													OcrKeyBundle: &models.NodeOCR2ConfigOCRKeyBundle{
-// 														ConfigPublicKey:       pubKey,
-// 														OffchainPublicKey:     pubKey,
-// 														OnchainSigningAddress: evmSig,
-// 													},
-// 												},
-// 											},
-// 										},
-// 									},
-// 								},
-// 							},
-// 						},
-// 						Capabilities: []kcr.CapabilitiesRegistryCapability{
-// 							{
-// 								LabelledName:   "writer",
-// 								Version:        "1",
-// 								CapabilityType: uint8(writerCap),
-// 							},
-// 						},
-// 					},
-// 				},
-// 			},
-// 			wantErr: false,
-// 		},
-// 		{
-// 			name: "err if no evm chain",
-// 			args: args{
-// 				dons: []DonCapabilities{
-// 					{
-// 						Name: "bad chain",
-// 						Nops: []*models.NodeOperator{
-// 							{
-// 								Nodes: []*models.Node{
-// 									{
-// 										PublicKey: &pubKey,
-// 										ChainConfigs: []*models.NodeChainConfig{
-// 											{
-// 												ID: "1",
-// 												Network: &models.Network{
-// 													ChainType: models.ChainTypeSolana,
-// 												},
-// 												Ocr2Config: &models.NodeOCR2Config{
-// 													P2pKeyBundle: &models.NodeOCR2ConfigP2PKeyBundle{
-// 														PeerID: peerID,
-// 													},
-// 													OcrKeyBundle: &models.NodeOCR2ConfigOCRKeyBundle{
-// 														ConfigPublicKey:       pubKey,
-// 														OffchainPublicKey:     pubKey,
-// 														OnchainSigningAddress: evmSig,
-// 													},
-// 												},
-// 											},
-// 										},
-// 									},
-// 								},
-// 							},
-// 						},
-// 						Capabilities: []kcr.CapabilitiesRegistryCapability{
-// 							{
-// 								LabelledName:   "writer",
-// 								Version:        "1",
-// 								CapabilityType: uint8(writerCap),
-// 							},
-// 						},
-// 					},
-// 				},
-// 			},
-// 			wantErr: true,
-// 		},
-// 		{
-// 			name: "ocr3 cap evm only",
-// 			args: args{
-// 				dons: []DonCapabilities{
-// 					{
-// 						Name: "bad chain",
-// 						Nops: []*models.NodeOperator{
-// 							{
-// 								Nodes: []*models.Node{
-// 									{
-// 										PublicKey: &pubKey,
-// 										ChainConfigs: []*models.NodeChainConfig{
-// 											{
-// 												ID: "1",
-// 												Network: &models.Network{
-// 													ChainType: models.ChainTypeEvm,
-// 													ChainID:   registryChainID,
-// 												},
-// 												Ocr2Config: &models.NodeOCR2Config{
-// 													P2pKeyBundle: &models.NodeOCR2ConfigP2PKeyBundle{
-// 														PeerID: peerID,
-// 													},
-// 													OcrKeyBundle: &models.NodeOCR2ConfigOCRKeyBundle{
-// 														ConfigPublicKey:       pubKey,
-// 														OffchainPublicKey:     pubKey,
-// 														OnchainSigningAddress: evmSig,
-// 													},
-// 												},
-// 											},
-// 										},
-// 									},
-// 								},
-// 							},
-// 						},
-// 						Capabilities: []kcr.CapabilitiesRegistryCapability{
-// 							{
-// 								LabelledName:   "ocr3",
-// 								Version:        "1",
-// 								CapabilityType: uint8(ocr3Cap),
-// 							},
-// 						},
-// 					},
-// 				},
-// 			},
-// 			wantErr: false,
-// 		},
-// 		{
-// 			name: "ocr3 cap evm & aptos",
-// 			args: args{
-// 				dons: []DonCapabilities{
-// 					{
-// 						Name: "ok chain",
-// 						Nops: []*models.NodeOperator{
-// 							{
-// 								Nodes: []*models.Node{
-// 									{
-// 										PublicKey: &pubKey,
-// 										ChainConfigs: []*models.NodeChainConfig{
-// 											{
-// 												ID: "1",
-// 												Network: &models.Network{
-// 													ChainType: models.ChainTypeEvm,
-// 													ChainID:   registryChainID,
-// 												},
-// 												Ocr2Config: &models.NodeOCR2Config{
-// 													P2pKeyBundle: &models.NodeOCR2ConfigP2PKeyBundle{
-// 														PeerID: peerID,
-// 													},
-// 													OcrKeyBundle: &models.NodeOCR2ConfigOCRKeyBundle{
-// 														ConfigPublicKey:       pubKey,
-// 														OffchainPublicKey:     pubKey,
-// 														OnchainSigningAddress: evmSig,
-// 													},
-// 												},
-// 											},
-// 											{
-// 												ID: "2",
-// 												Network: &models.Network{
-// 													ChainType: models.ChainTypeAptos,
-// 												},
-// 												Ocr2Config: &models.NodeOCR2Config{
-// 													P2pKeyBundle: &models.NodeOCR2ConfigP2PKeyBundle{
-// 														PeerID: peerID,
-// 													},
-// 													OcrKeyBundle: &models.NodeOCR2ConfigOCRKeyBundle{
-// 														ConfigPublicKey:       pubKey,
-// 														OffchainPublicKey:     pubKey,
-// 														OnchainSigningAddress: aptosSig,
-// 													},
-// 												},
-// 											},
-// 										},
-// 									},
-// 								},
-// 							},
-// 						},
-// 						Capabilities: []kcr.CapabilitiesRegistryCapability{
-// 							{
-// 								LabelledName:   "ocr3",
-// 								Version:        "1",
-// 								CapabilityType: uint8(ocr3Cap),
-// 							},
-// 						},
-// 					},
-// 				},
-// 			},
-// 			wantErr: false,
-// 		},
-// 	}
-// 	for _, tt := range tests {
-// 		t.Run(tt.name, func(t *testing.T) {
-// 			_, err := mapDonsToNodes(tt.args.dons, tt.args.excludeBootstraps, registryChainSel)
-// 			if (err != nil) != tt.wantErr {
-// 				t.Errorf("mapDonsToNodes() error = %v, wantErr %v", err, tt.wantErr)
-// 				return
-// 			}
-// 		})
-// 	}
-// 	// make sure the clo test data is correct
-// 	wfNops := loadTestNops(t, "testdata/workflow_nodes.json")
-// 	cwNops := loadTestNops(t, "testdata/chain_writer_nodes.json")
-// 	assetNops := loadTestNops(t, "testdata/asset_nodes.json")
-// 	require.Len(t, wfNops, 10)
-// 	require.Len(t, cwNops, 10)
-// 	require.Len(t, assetNops, 16)
+func Test_mapDonsToNodes(t *testing.T) {
+	var (
+		pubKey   = "03dacd15fc96c965c648e3623180de002b71a97cf6eeca9affb91f461dcd6ce1"
+		evmSig   = "b35409a8d4f9a18da55c5b2bb08a3f5f68d44442"
+		aptosSig = "b35409a8d4f9a18da55c5b2bb08a3f5f68d44442b35409a8d4f9a18da55c5b2bb08a3f5f68d44442"
+		peerID   = "p2p_12D3KooWMWUKdoAc2ruZf9f55p7NVFj7AFiPm67xjQ8BZBwkqyYv"
+		// todo: these should be defined in common
+		writerCap        = 3
+		ocr3Cap          = 2
+		registryChainSel = chainsel.ETHEREUM_TESTNET_SEPOLIA.Selector
+		registryChainID  = strconv.FormatUint(chainsel.ETHEREUM_TESTNET_SEPOLIA.EvmChainID, 10)
+	)
+	type args struct {
+		dons              []DonCapabilities
+		excludeBootstraps bool
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{
+			name: "writer evm only",
+			args: args{
+				dons: []DonCapabilities{
+					{
+						Name: "ok writer",
+						Nops: []*models.NodeOperator{
+							{
+								Nodes: []*models.Node{
+									{
+										PublicKey: &pubKey,
+										ChainConfigs: []*models.NodeChainConfig{
+											{
+												ID: "1",
+												Network: &models.Network{
+													ChainType: models.ChainTypeEvm,
+													ChainID:   registryChainID,
+												},
+												Ocr2Config: &models.NodeOCR2Config{
+													P2pKeyBundle: &models.NodeOCR2ConfigP2PKeyBundle{
+														PeerID: peerID,
+													},
+													OcrKeyBundle: &models.NodeOCR2ConfigOCRKeyBundle{
+														ConfigPublicKey:       pubKey,
+														OffchainPublicKey:     pubKey,
+														OnchainSigningAddress: evmSig,
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+						Capabilities: []kcr.CapabilitiesRegistryCapability{
+							{
+								LabelledName:   "writer",
+								Version:        "1",
+								CapabilityType: uint8(writerCap),
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "err if no evm chain",
+			args: args{
+				dons: []DonCapabilities{
+					{
+						Name: "bad chain",
+						Nops: []*models.NodeOperator{
+							{
+								Nodes: []*models.Node{
+									{
+										PublicKey: &pubKey,
+										ChainConfigs: []*models.NodeChainConfig{
+											{
+												ID: "1",
+												Network: &models.Network{
+													ChainType: models.ChainTypeSolana,
+												},
+												Ocr2Config: &models.NodeOCR2Config{
+													P2pKeyBundle: &models.NodeOCR2ConfigP2PKeyBundle{
+														PeerID: peerID,
+													},
+													OcrKeyBundle: &models.NodeOCR2ConfigOCRKeyBundle{
+														ConfigPublicKey:       pubKey,
+														OffchainPublicKey:     pubKey,
+														OnchainSigningAddress: evmSig,
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+						Capabilities: []kcr.CapabilitiesRegistryCapability{
+							{
+								LabelledName:   "writer",
+								Version:        "1",
+								CapabilityType: uint8(writerCap),
+							},
+						},
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "ocr3 cap evm only",
+			args: args{
+				dons: []DonCapabilities{
+					{
+						Name: "bad chain",
+						Nops: []*models.NodeOperator{
+							{
+								Nodes: []*models.Node{
+									{
+										PublicKey: &pubKey,
+										ChainConfigs: []*models.NodeChainConfig{
+											{
+												ID: "1",
+												Network: &models.Network{
+													ChainType: models.ChainTypeEvm,
+													ChainID:   registryChainID,
+												},
+												Ocr2Config: &models.NodeOCR2Config{
+													P2pKeyBundle: &models.NodeOCR2ConfigP2PKeyBundle{
+														PeerID: peerID,
+													},
+													OcrKeyBundle: &models.NodeOCR2ConfigOCRKeyBundle{
+														ConfigPublicKey:       pubKey,
+														OffchainPublicKey:     pubKey,
+														OnchainSigningAddress: evmSig,
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+						Capabilities: []kcr.CapabilitiesRegistryCapability{
+							{
+								LabelledName:   "ocr3",
+								Version:        "1",
+								CapabilityType: uint8(ocr3Cap),
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "ocr3 cap evm & aptos",
+			args: args{
+				dons: []DonCapabilities{
+					{
+						Name: "ok chain",
+						Nops: []*models.NodeOperator{
+							{
+								Nodes: []*models.Node{
+									{
+										PublicKey: &pubKey,
+										ChainConfigs: []*models.NodeChainConfig{
+											{
+												ID: "1",
+												Network: &models.Network{
+													ChainType: models.ChainTypeEvm,
+													ChainID:   registryChainID,
+												},
+												Ocr2Config: &models.NodeOCR2Config{
+													P2pKeyBundle: &models.NodeOCR2ConfigP2PKeyBundle{
+														PeerID: peerID,
+													},
+													OcrKeyBundle: &models.NodeOCR2ConfigOCRKeyBundle{
+														ConfigPublicKey:       pubKey,
+														OffchainPublicKey:     pubKey,
+														OnchainSigningAddress: evmSig,
+													},
+												},
+											},
+											{
+												ID: "2",
+												Network: &models.Network{
+													ChainType: models.ChainTypeAptos,
+												},
+												Ocr2Config: &models.NodeOCR2Config{
+													P2pKeyBundle: &models.NodeOCR2ConfigP2PKeyBundle{
+														PeerID: peerID,
+													},
+													OcrKeyBundle: &models.NodeOCR2ConfigOCRKeyBundle{
+														ConfigPublicKey:       pubKey,
+														OffchainPublicKey:     pubKey,
+														OnchainSigningAddress: aptosSig,
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+						Capabilities: []kcr.CapabilitiesRegistryCapability{
+							{
+								LabelledName:   "ocr3",
+								Version:        "1",
+								CapabilityType: uint8(ocr3Cap),
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := mapDonsToNodes(tt.args.dons, tt.args.excludeBootstraps, registryChainSel)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("mapDonsToNodes() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+		})
+	}
+	// make sure the clo test data is correct
+	wfNops := loadTestNops(t, "testdata/workflow_nodes.json")
+	cwNops := loadTestNops(t, "testdata/chain_writer_nodes.json")
+	assetNops := loadTestNops(t, "testdata/asset_nodes.json")
+	require.Len(t, wfNops, 10)
+	require.Len(t, cwNops, 10)
+	require.Len(t, assetNops, 16)
 
-// 	wfDon := DonCapabilities{
-// 		Name:         WFDonName,
-// 		Nops:         wfNops,
-// 		Capabilities: []kcr.CapabilitiesRegistryCapability{OCR3Cap},
-// 	}
-// 	cwDon := DonCapabilities{
-// 		Name:         TargetDonName,
-// 		Nops:         cwNops,
-// 		Capabilities: []kcr.CapabilitiesRegistryCapability{WriteChainCap},
-// 	}
-// 	assetDon := DonCapabilities{
-// 		Name:         StreamDonName,
-// 		Nops:         assetNops,
-// 		Capabilities: []kcr.CapabilitiesRegistryCapability{StreamTriggerCap},
-// 	}
-// 	_, err := mapDonsToNodes([]DonCapabilities{wfDon}, false, registryChainSel)
-// 	require.NoError(t, err, "failed to map wf don")
-// 	_, err = mapDonsToNodes([]DonCapabilities{cwDon}, false, registryChainSel)
-// 	require.NoError(t, err, "failed to map cw don")
-// 	_, err = mapDonsToNodes([]DonCapabilities{assetDon}, false, registryChainSel)
-// 	require.NoError(t, err, "failed to map asset don")
-// }
+	wfDon := DonCapabilities{
+		Name:         WFDonName,
+		Nops:         wfNops,
+		Capabilities: []kcr.CapabilitiesRegistryCapability{OCR3Cap},
+	}
+	cwDon := DonCapabilities{
+		Name:         TargetDonName,
+		Nops:         cwNops,
+		Capabilities: []kcr.CapabilitiesRegistryCapability{WriteChainCap},
+	}
+	assetDon := DonCapabilities{
+		Name:         StreamDonName,
+		Nops:         assetNops,
+		Capabilities: []kcr.CapabilitiesRegistryCapability{StreamTriggerCap},
+	}
+	_, err := mapDonsToNodes([]DonCapabilities{wfDon}, false, registryChainSel)
+	require.NoError(t, err, "failed to map wf don")
+	_, err = mapDonsToNodes([]DonCapabilities{cwDon}, false, registryChainSel)
+	require.NoError(t, err, "failed to map cw don")
+	_, err = mapDonsToNodes([]DonCapabilities{assetDon}, false, registryChainSel)
+	require.NoError(t, err, "failed to map asset don")
+}
 
-// func loadTestNops(t *testing.T, pth string) []*models.NodeOperator {
-// 	f, err := os.ReadFile(pth)
-// 	require.NoError(t, err)
-// 	var nops []*models.NodeOperator
-// 	require.NoError(t, json.Unmarshal(f, &nops))
-// 	return nops
-// }
+func loadTestNops(t *testing.T, pth string) []*models.NodeOperator {
+	f, err := os.ReadFile(pth)
+	require.NoError(t, err)
+	var nops []*models.NodeOperator
+	require.NoError(t, json.Unmarshal(f, &nops))
+	return nops
+}

@@ -1887,58 +1887,6 @@ type FetchCSAKeysResponse struct {
 // GetCsaKeys returns FetchCSAKeysResponse.CsaKeys, and is useful for accessing the field via an interface.
 func (v *FetchCSAKeysResponse) GetCsaKeys() FetchCSAKeysCsaKeysCSAKeysPayload { return v.CsaKeys }
 
-// FetchKeysAptosKeysAptosKeysPayload includes the requested fields of the GraphQL type AptosKeysPayload.
-type FetchKeysAptosKeysAptosKeysPayload struct {
-	Results []FetchKeysAptosKeysAptosKeysPayloadResultsAptosKey `json:"results"`
-}
-
-// GetResults returns FetchKeysAptosKeysAptosKeysPayload.Results, and is useful for accessing the field via an interface.
-func (v *FetchKeysAptosKeysAptosKeysPayload) GetResults() []FetchKeysAptosKeysAptosKeysPayloadResultsAptosKey {
-	return v.Results
-}
-
-// FetchKeysAptosKeysAptosKeysPayloadResultsAptosKey includes the requested fields of the GraphQL type AptosKey.
-type FetchKeysAptosKeysAptosKeysPayloadResultsAptosKey struct {
-	Id      string `json:"id"`
-	Account string `json:"account"`
-}
-
-// GetId returns FetchKeysAptosKeysAptosKeysPayloadResultsAptosKey.Id, and is useful for accessing the field via an interface.
-func (v *FetchKeysAptosKeysAptosKeysPayloadResultsAptosKey) GetId() string { return v.Id }
-
-// GetAccount returns FetchKeysAptosKeysAptosKeysPayloadResultsAptosKey.Account, and is useful for accessing the field via an interface.
-func (v *FetchKeysAptosKeysAptosKeysPayloadResultsAptosKey) GetAccount() string { return v.Account }
-
-// FetchKeysResponse is returned by FetchKeys on success.
-type FetchKeysResponse struct {
-	SolanaKeys FetchKeysSolanaKeysSolanaKeysPayload `json:"solanaKeys"`
-	AptosKeys  FetchKeysAptosKeysAptosKeysPayload   `json:"aptosKeys"`
-}
-
-// GetSolanaKeys returns FetchKeysResponse.SolanaKeys, and is useful for accessing the field via an interface.
-func (v *FetchKeysResponse) GetSolanaKeys() FetchKeysSolanaKeysSolanaKeysPayload { return v.SolanaKeys }
-
-// GetAptosKeys returns FetchKeysResponse.AptosKeys, and is useful for accessing the field via an interface.
-func (v *FetchKeysResponse) GetAptosKeys() FetchKeysAptosKeysAptosKeysPayload { return v.AptosKeys }
-
-// FetchKeysSolanaKeysSolanaKeysPayload includes the requested fields of the GraphQL type SolanaKeysPayload.
-type FetchKeysSolanaKeysSolanaKeysPayload struct {
-	Results []FetchKeysSolanaKeysSolanaKeysPayloadResultsSolanaKey `json:"results"`
-}
-
-// GetResults returns FetchKeysSolanaKeysSolanaKeysPayload.Results, and is useful for accessing the field via an interface.
-func (v *FetchKeysSolanaKeysSolanaKeysPayload) GetResults() []FetchKeysSolanaKeysSolanaKeysPayloadResultsSolanaKey {
-	return v.Results
-}
-
-// FetchKeysSolanaKeysSolanaKeysPayloadResultsSolanaKey includes the requested fields of the GraphQL type SolanaKey.
-type FetchKeysSolanaKeysSolanaKeysPayloadResultsSolanaKey struct {
-	Id string `json:"id"`
-}
-
-// GetId returns FetchKeysSolanaKeysSolanaKeysPayloadResultsSolanaKey.Id, and is useful for accessing the field via an interface.
-func (v *FetchKeysSolanaKeysSolanaKeysPayloadResultsSolanaKey) GetId() string { return v.Id }
-
 // FetchOCR2KeyBundlesOcr2KeyBundlesOCR2KeyBundlesPayload includes the requested fields of the GraphQL type OCR2KeyBundlesPayload.
 type FetchOCR2KeyBundlesOcr2KeyBundlesOCR2KeyBundlesPayload struct {
 	Results []FetchOCR2KeyBundlesOcr2KeyBundlesOCR2KeyBundlesPayloadResultsOCR2KeyBundle `json:"results"`
@@ -5701,45 +5649,6 @@ func FetchCSAKeys(
 	var err_ error
 
 	var data_ FetchCSAKeysResponse
-	resp_ := &graphql.Response{Data: &data_}
-
-	err_ = client_.MakeRequest(
-		ctx_,
-		req_,
-		resp_,
-	)
-
-	return &data_, err_
-}
-
-// The query or mutation executed by FetchKeys.
-const FetchKeys_Operation = `
-query FetchKeys {
-	solanaKeys {
-		results {
-			id
-		}
-	}
-	aptosKeys {
-		results {
-			id
-			account
-		}
-	}
-}
-`
-
-func FetchKeys(
-	ctx_ context.Context,
-	client_ graphql.Client,
-) (*FetchKeysResponse, error) {
-	req_ := &graphql.Request{
-		OpName: "FetchKeys",
-		Query:  FetchKeys_Operation,
-	}
-	var err_ error
-
-	var data_ FetchKeysResponse
 	resp_ := &graphql.Response{Data: &data_}
 
 	err_ = client_.MakeRequest(
