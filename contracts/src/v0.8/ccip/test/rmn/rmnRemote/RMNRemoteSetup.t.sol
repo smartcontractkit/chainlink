@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
-import {IRMNRemote} from "../../interfaces/IRMNRemote.sol";
-import {Internal} from "../../libraries/Internal.sol";
-import {RMNRemote} from "../../rmn/RMNRemote.sol";
-import {BaseTest} from "../BaseTest.t.sol";
+import {IRMNRemote} from "../../../interfaces/IRMNRemote.sol";
+import {Internal} from "../../../libraries/Internal.sol";
+import {RMNRemote} from "../../../rmn/RMNRemote.sol";
+import {BaseTest} from "../../BaseTest.t.sol";
 import {Vm} from "forge-std/Vm.sol";
 
 contract RMNRemoteSetup is BaseTest {

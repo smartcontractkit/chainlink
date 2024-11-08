@@ -1,0 +1,25 @@
+// SPDX-License-Identifier: BUSL-1.1
+pragma solidity 0.8.24;
+
+import {IRMN} from "../../../interfaces/IRMN.sol";
+
+import {ARMProxy} from "../../../rmn/ARMProxy.sol";
+import {MockRMN} from "../../mocks/MockRMN.sol";
+import {Test} from "forge-std/Test.sol";
+import {ARMProxyStandaloneTestSetup} from "./ARMProxyStandaloneTestSetup.t.sol";
+
+contract ARMProxySetARM is ARMProxyStandaloneTestSetup {
+    function test_SetARM() public {
+        vm.expectEmit();
+        emit ARMProxy.ARMSet(MOCK_RMN_ADDRESS);
+        vm.prank(OWNER_ADDRESS);
+        s_armProxy.setARM(MOCK_RMN_ADDRESS);
+        assertEq(s_armProxy.getARM(), MOCK_RMN_ADDRESS);
+    }
+
+    function test_SetARMzero() public {
+        vm.expectRevert(abi.encodeWithSelector(ARMProxy.ZeroAddressNotAllowed.selector));
+        vm.prank(OWNER_ADDRESS);
+        s_armProxy.setARM(address(0x0));
+    }
+}
