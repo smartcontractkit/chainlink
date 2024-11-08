@@ -7,7 +7,6 @@ import {IRouter} from "../../interfaces/IRouter.sol";
 import {Client} from "../../libraries/Client.sol";
 
 import {MaybeRevertMessageReceiver} from "../helpers/receivers/MaybeRevertMessageReceiver.sol";
-import {OnRampSetup} from "../onRamp/onRamp/OnRampSetup.t.sol";
 import {RouterSetup} from "./RouterSetup.t.sol";
 
 contract Router_applyRampUpdates is RouterSetup {
@@ -291,21 +290,5 @@ contract Router_applyRampUpdates is RouterSetup {
 
     vm.expectRevert(abi.encodeWithSelector(Router.OffRampMismatch.selector, SOURCE_CHAIN_SELECTOR, offRamp));
     s_sourceRouter.applyRampUpdates(onRampUpdates, offRampUpdates, offRampUpdates);
-  }
-}
-
-contract Router_setWrappedNative is OnRampSetup {
-  function test_Fuzz_SetWrappedNative_Success(
-    address wrappedNative
-  ) public {
-    s_sourceRouter.setWrappedNative(wrappedNative);
-    assertEq(wrappedNative, s_sourceRouter.getWrappedNative());
-  }
-
-  // Reverts
-  function test_OnlyOwner_Revert() public {
-    vm.stopPrank();
-    vm.expectRevert("Only callable by owner");
-    s_sourceRouter.setWrappedNative(address(1));
   }
 }
