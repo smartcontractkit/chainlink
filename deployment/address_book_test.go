@@ -167,6 +167,7 @@ func TestAddressBook_Remove(t *testing.T) {
 
 func TestAddressBook_ConcurrencyAndDeadlock(t *testing.T) {
 	onRamp100 := NewTypeAndVersion("OnRamp", Version1_0_0)
+	onRamp110 := NewTypeAndVersion("OnRamp", Version1_1_0)
 
 	baseAB := NewMemoryAddressBookFromMap(map[uint64]map[string]TypeAndVersion{
 		chainsel.TEST_90000001.Selector: {
@@ -174,9 +175,10 @@ func TestAddressBook_ConcurrencyAndDeadlock(t *testing.T) {
 		},
 	})
 
+	// concurrent writes
 	var i int64
 	wg := sync.WaitGroup{}
-	for i = 2; i < 100; i++ {
+	for i = 2; i < 1000; i++ {
 		wg.Add(1)
 		go func(input int64) {
 			require.NoError(t, baseAB.Save(
@@ -188,22 +190,44 @@ func TestAddressBook_ConcurrencyAndDeadlock(t *testing.T) {
 		}(i)
 	}
 
-	for i = 0; i < 25; i++ {
+	// concurrent reads
+	for i = 0; i < 100; i++ {
 		wg.Add(1)
 		go func(input int64) {
-			_, err := baseAB.Addresses()
+			addresses, err := baseAB.Addresses()
+			require.NoError(t, err)
+			for chainSelector, chainAddresses := range addresses {
+				// concurrent read chainAddresses from Addresses() method
+				for address, _ := range chainAddresses {
+					addresses[chainSelector][address] = onRamp110
+				}
+
+				// concurrent read chainAddresses from AddressesForChain() method
+				chainAddresses, err = baseAB.AddressesForChain(chainSelector)
+				require.NoError(t, err)
+				for address, _ := range chainAddresses {
+					_ = addresses[chainSelector][address]
+				}
+			}
 			require.NoError(t, err)
 			wg.Done()
 		}(i)
 	}
 
-	additionalAB := NewMemoryAddressBookFromMap(map[uint64]map[string]TypeAndVersion{
-		chainsel.TEST_90000002.Selector: {
-			common.BigToAddress(big.NewInt(0)).String(): onRamp100,
-		},
-	})
-
-	require.NoError(t, baseAB.Merge(additionalAB))
+	// concurrent merges, starts from 1001 to avoid address conflicts
+	for i = 1001; i < 1100; i++ {
+		wg.Add(1)
+		go func(input int64) {
+			// concurrent merge
+			additionalAB := NewMemoryAddressBookFromMap(map[uint64]map[string]TypeAndVersion{
+				chainsel.TEST_90000002.Selector: {
+					common.BigToAddress(big.NewInt(input)).String(): onRamp100,
+				},
+			})
+			require.NoError(t, baseAB.Merge(additionalAB))
+			wg.Done()
+		}(i)
+	}
 
 	wg.Wait()
 }

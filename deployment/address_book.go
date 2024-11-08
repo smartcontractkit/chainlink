@@ -133,7 +133,7 @@ func (m *AddressBookMap) Addresses() (map[uint64]map[string]TypeAndVersion, erro
 	// maps are mutable and pass via a pointer
 	// creating a copy of the map to prevent concurrency
 	// read and changes outside object-bound
-	return maps.Clone(m.AddressesByChain), nil
+	return m.cloneAddresses(m.AddressesByChain), nil
 }
 
 func (m *AddressBookMap) AddressesForChain(chainSelector uint64) (map[string]TypeAndVersion, error) {
@@ -206,6 +206,15 @@ func (m *AddressBookMap) Remove(ab AddressBook) error {
 	}
 
 	return nil
+}
+
+// cloneAddresses creates a deep copy of map[uint64]map[string]TypeAndVersion object
+func (m *AddressBookMap) cloneAddresses(input map[uint64]map[string]TypeAndVersion) map[uint64]map[string]TypeAndVersion {
+	result := make(map[uint64]map[string]TypeAndVersion)
+	for chainSelector, chainAddresses := range input {
+		result[chainSelector] = maps.Clone(chainAddresses)
+	}
+	return result
 }
 
 // TODO: Maybe could add an environment argument
