@@ -263,8 +263,10 @@ func TestCCIPReader_MsgsBetweenSeqNums(t *testing.T) {
 						},
 						OutputModifications: codec.ModifiersConfig{
 							&codec.WrapperModifierConfig{Fields: map[string]string{
-								"Message.FeeTokenAmount": "Int",
-								"Message.FeeValueJuels":  "Int"}},
+								"Message.FeeTokenAmount":      "Int",
+								"Message.FeeValueJuels":       "Int",
+								"Message.TokenAmounts.Amount": "Int",
+							}},
 						},
 					},
 				},
