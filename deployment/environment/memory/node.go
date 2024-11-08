@@ -146,9 +146,11 @@ func NewNode(
 	}
 
 	// Build relayer factory with EVM.
+	beholderAuthHeaders, csaPubKeyHex, err := keystore.BuildBeholderAuth(master)
+	require.NoError(t, err)
 	relayerFactory := chainlink.RelayerFactory{
 		Logger:               lggr,
-		LoopRegistry:         plugins.NewLoopRegistry(lggr.Named("LoopRegistry"), cfg.Tracing(), cfg.Telemetry()),
+		LoopRegistry:         plugins.NewLoopRegistry(lggr.Named("LoopRegistry"), cfg.Tracing(), cfg.Telemetry(), beholderAuthHeaders, csaPubKeyHex),
 		GRPCOpts:             loop.GRPCOpts{},
 		CapabilitiesRegistry: capabilities.NewRegistry(lggr),
 	}
@@ -168,7 +170,7 @@ func NewNode(
 		RestrictedHTTPClient:       &http.Client{},
 		AuditLogger:                audit.NoopLogger,
 		MailMon:                    mailMon,
-		LoopRegistry:               plugins.NewLoopRegistry(lggr, cfg.Tracing(), cfg.Telemetry()),
+		LoopRegistry:               plugins.NewLoopRegistry(lggr, cfg.Tracing(), cfg.Telemetry(), beholderAuthHeaders, csaPubKeyHex),
 	})
 	require.NoError(t, err)
 	t.Cleanup(func() {
