@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
-import {MultiOCR3Base} from "../../ocr/MultiOCR3Base.sol";
-import {MultiOCR3Helper} from "../helpers/MultiOCR3Helper.sol";
+import {MultiOCR3Base} from "../../../ocr/MultiOCR3Base.sol";
+import {MultiOCR3Helper} from "../../helpers/MultiOCR3Helper.sol";
 import {MultiOCR3BaseSetup} from "./MultiOCR3BaseSetup.t.sol";
 
 import {Vm} from "forge-std/Vm.sol";

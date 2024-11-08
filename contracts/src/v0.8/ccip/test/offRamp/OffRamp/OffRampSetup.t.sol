@@ -16,7 +16,7 @@ import {MaybeRevertingBurnMintTokenPool} from "../../helpers/MaybeRevertingBurnM
 import {MessageInterceptorHelper} from "../../helpers/MessageInterceptorHelper.sol";
 import {OffRampHelper} from "../../helpers/OffRampHelper.sol";
 import {MaybeRevertMessageReceiver} from "../../helpers/receivers/MaybeRevertMessageReceiver.sol";
-import {MultiOCR3BaseSetup} from "../../ocr/MultiOCR3BaseSetup.t.sol";
+import {MultiOCR3BaseSetup} from "../../ocr/MultiOCR3Base/MultiOCR3BaseSetup.t.sol";
 import {Vm} from "forge-std/Test.sol";
 
 contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
-import {MultiOCR3Base} from "../../ocr/MultiOCR3Base.sol";
-import {BaseTest} from "../BaseTest.t.sol";
-import {MultiOCR3Helper} from "../helpers/MultiOCR3Helper.sol";
+import {MultiOCR3Base} from "../../../ocr/MultiOCR3Base.sol";
+import {BaseTest} from "../../BaseTest.t.sol";
+import {MultiOCR3Helper} from "../../helpers/MultiOCR3Helper.sol";
 
 contract MultiOCR3BaseSetup is BaseTest {
   // Signer private keys used for these test

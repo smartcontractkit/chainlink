@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
-import {MultiOCR3Base} from "../../ocr/MultiOCR3Base.sol";
+import {MultiOCR3Base} from "../../../ocr/MultiOCR3Base.sol";
 import {MultiOCR3BaseSetup} from "./MultiOCR3BaseSetup.t.sol";
 
 contract MultiOCR3Base_transmit is MultiOCR3BaseSetup {
