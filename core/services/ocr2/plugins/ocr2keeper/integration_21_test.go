@@ -181,7 +181,7 @@ func TestIntegration_KeeperPluginConditionalUpkeep(t *testing.T) {
 }
 
 func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
-	t.Skip("TODO FIXME DEPENDENT ON SPECIFIC BLOCK PATTTERN?")
+	t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809; DEPENDENT ON SPECIFIC BLOCK PATTTERN?")
 	g := gomega.NewWithT(t)
 
 	// setup blockchain

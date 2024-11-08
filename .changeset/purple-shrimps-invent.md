@@ -2,4 +2,4 @@
 "chainlink": patch
 ---
 
-bump geth to 1.14.11 #internal
+Upgrade go-ethereum to v1.14.11 #internal
