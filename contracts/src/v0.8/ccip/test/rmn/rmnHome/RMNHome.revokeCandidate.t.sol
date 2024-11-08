@@ -5,7 +5,6 @@ import {Ownable2Step} from "../../../../shared/access/Ownable2Step.sol";
 import {RMNHome} from "../../../rmn/RMNHome.sol";
 
 import {RMNHomeTestSetup} from "./RMNHomeTestSetup.t.sol";
-import {Test} from "forge-std/Test.sol";
 
 contract RMNHome_revokeCandidate is RMNHomeTestSetup {
   // Sets two configs

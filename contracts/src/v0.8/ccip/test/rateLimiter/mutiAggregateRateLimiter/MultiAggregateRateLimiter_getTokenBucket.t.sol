@@ -2,12 +2,10 @@
 pragma solidity 0.8.24;
 
 import {MultiAggregateRateLimiter} from "../../../MultiAggregateRateLimiter.sol";
-import {Internal} from "../../../libraries/Internal.sol";
 import {RateLimiter} from "../../../libraries/RateLimiter.sol";
 
 import {MultiAggregateRateLimiterSetup} from "./MultiAggregateRateLimiterSetup.t.sol";
 import {stdError} from "forge-std/Test.sol";
-import {Vm} from "forge-std/Vm.sol";
 
 contract MultiAggregateRateLimiter_getTokenBucket is MultiAggregateRateLimiterSetup {
   function test_GetTokenBucket_Success() public view {

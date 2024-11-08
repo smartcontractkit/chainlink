@@ -3,10 +3,7 @@ pragma solidity 0.8.24;
 
 import {MultiAggregateRateLimiter} from "../../../MultiAggregateRateLimiter.sol";
 import {Client} from "../../../libraries/Client.sol";
-import {RateLimiter} from "../../../libraries/RateLimiter.sol";
-
 import {MultiAggregateRateLimiterSetup} from "./MultiAggregateRateLimiterSetup.t.sol";
-import {Vm} from "forge-std/Vm.sol";
 
 contract MultiAggregateRateLimiter_getTokenValue is MultiAggregateRateLimiterSetup {
   function test_GetTokenValue_Success() public view {

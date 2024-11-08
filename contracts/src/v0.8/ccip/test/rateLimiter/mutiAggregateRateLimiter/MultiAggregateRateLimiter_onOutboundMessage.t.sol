@@ -7,10 +7,7 @@ import {Client} from "../../../libraries/Client.sol";
 import {Internal} from "../../../libraries/Internal.sol";
 import {RateLimiter} from "../../../libraries/RateLimiter.sol";
 
-import {MultiAggregateRateLimiterHelper} from "../../helpers/MultiAggregateRateLimiterHelper.sol";
-
 import {MultiAggregateRateLimiterSetup} from "./MultiAggregateRateLimiterSetup.t.sol";
-import {Vm} from "forge-std/Vm.sol";
 
 contract MultiAggregateRateLimiter_onOutboundMessage is MultiAggregateRateLimiterSetup {
   function setUp() public virtual override {

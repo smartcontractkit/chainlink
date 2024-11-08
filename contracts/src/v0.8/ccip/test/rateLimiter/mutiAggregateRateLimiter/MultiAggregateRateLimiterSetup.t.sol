@@ -9,8 +9,6 @@ import {BaseTest} from "../../BaseTest.t.sol";
 
 import {FeeQuoterSetup} from "../../feeQuoter/FeeQuoterSetup.t.sol";
 import {MultiAggregateRateLimiterHelper} from "../../helpers/MultiAggregateRateLimiterHelper.sol";
-import {stdError} from "forge-std/Test.sol";
-import {Vm} from "forge-std/Vm.sol";
 
 contract MultiAggregateRateLimiterSetup is BaseTest, FeeQuoterSetup {
   MultiAggregateRateLimiterHelper internal s_rateLimiter;

@@ -2,10 +2,7 @@
 pragma solidity 0.8.24;
 
 import {MultiAggregateRateLimiter} from "../../../MultiAggregateRateLimiter.sol";
-import {RateLimiter} from "../../../libraries/RateLimiter.sol";
-
 import {MultiAggregateRateLimiterHelper} from "../../helpers/MultiAggregateRateLimiterHelper.sol";
-
 import {MultiAggregateRateLimiterSetup} from "./MultiAggregateRateLimiterSetup.t.sol";
 import {Vm} from "forge-std/Vm.sol";
 

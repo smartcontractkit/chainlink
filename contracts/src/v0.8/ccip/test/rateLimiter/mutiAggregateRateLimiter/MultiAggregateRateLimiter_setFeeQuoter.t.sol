@@ -4,14 +4,7 @@ pragma solidity 0.8.24;
 import {AuthorizedCallers} from "../../../../shared/access/AuthorizedCallers.sol";
 import {Ownable2Step} from "../../../../shared/access/Ownable2Step.sol";
 import {MultiAggregateRateLimiter} from "../../../MultiAggregateRateLimiter.sol";
-import {RateLimiter} from "../../../libraries/RateLimiter.sol";
-import {BaseTest} from "../../BaseTest.t.sol";
-
-import {FeeQuoterSetup} from "../../feeQuoter/FeeQuoterSetup.t.sol";
-import {MultiAggregateRateLimiterHelper} from "../../helpers/MultiAggregateRateLimiterHelper.sol";
-
 import {MultiAggregateRateLimiterSetup} from "./MultiAggregateRateLimiterSetup.t.sol";
-import {Vm} from "forge-std/Vm.sol";
 
 contract MultiAggregateRateLimiter_setFeeQuoter is MultiAggregateRateLimiterSetup {
   function test_Owner_Success() public {

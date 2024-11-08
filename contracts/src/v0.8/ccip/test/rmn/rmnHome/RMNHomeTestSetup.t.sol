@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
-import {Ownable2Step} from "../../../../shared/access/Ownable2Step.sol";
 import {RMNHome} from "../../../rmn/RMNHome.sol";
 import {Test} from "forge-std/Test.sol";
 
