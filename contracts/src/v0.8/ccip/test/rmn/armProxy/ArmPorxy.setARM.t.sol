@@ -3,9 +3,9 @@ pragma solidity 0.8.24;
 
 import {ARMProxy} from "../../../rmn/ARMProxy.sol";
 
-import {ARMProxyStandaloneTestSetup} from "./ARMProxyStandaloneTestSetup.t.sol";
+import {ARMProxyTestSetup} from "./ARMProxyTestSetup.t.sol";
 
-contract ARMProxySetARM is ARMProxyStandaloneTestSetup {
+contract ARMProxy_setARM is ARMProxyTestSetup {
   function test_SetARM() public {
     vm.expectEmit();
     emit ARMProxy.ARMSet(MOCK_RMN_ADDRESS);

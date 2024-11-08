@@ -6,9 +6,9 @@ import {IRMN} from "../../../interfaces/IRMN.sol";
 import {ARMProxy} from "../../../rmn/ARMProxy.sol";
 import {MockRMN} from "../../mocks/MockRMN.sol";
 
-import {ARMProxyStandaloneTestSetup} from "./ARMProxyStandaloneTestSetup.t.sol";
+import {ARMProxyTestSetup} from "./ARMProxyTestSetup.t.sol";
 
-contract ARMProxy_isCursed is ARMProxyStandaloneTestSetup {
+contract ARMProxy_isCursed is ARMProxyTestSetup {
   MockRMN internal s_mockRMN;
 
   function setUp() public virtual override {

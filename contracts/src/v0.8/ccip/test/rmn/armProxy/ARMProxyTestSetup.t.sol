@@ -4,7 +4,7 @@ pragma solidity 0.8.24;
 import {ARMProxy} from "../../../rmn/ARMProxy.sol";
 import {Test} from "forge-std/Test.sol";
 
-contract ARMProxyStandaloneTestSetup is Test {
+contract ARMProxyTestSetup is Test {
   address internal constant EMPTY_ADDRESS = address(0x1);
   address internal constant OWNER_ADDRESS = 0xC0ffeeEeC0fFeeeEc0ffeEeEc0ffEEEEC0FfEEee;
   address internal constant MOCK_RMN_ADDRESS = 0x1337133713371337133713371337133713371337;
