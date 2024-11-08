@@ -145,9 +145,14 @@ func NewNode(
 		CSAETHKeystore: kStore,
 	}
 
-	// Build relayer factory with EVM.
+	// Build Beholder auth
+	ctx := tests.Context(t)
+	require.NoError(t, master.Unlock(ctx, "password"))
+	require.NoError(t, master.CSA().EnsureKey(ctx))
 	beholderAuthHeaders, csaPubKeyHex, err := keystore.BuildBeholderAuth(master)
 	require.NoError(t, err)
+
+	// Build relayer factory with EVM.
 	relayerFactory := chainlink.RelayerFactory{
 		Logger:               lggr,
 		LoopRegistry:         plugins.NewLoopRegistry(lggr.Named("LoopRegistry"), cfg.Tracing(), cfg.Telemetry(), beholderAuthHeaders, csaPubKeyHex),
@@ -195,7 +200,6 @@ type Keys struct {
 func CreateKeys(t *testing.T,
 	app chainlink.Application, chains map[uint64]EVMChain) Keys {
 	ctx := tests.Context(t)
-	require.NoError(t, app.GetKeyStore().Unlock(ctx, "password"))
 	_, err := app.GetKeyStore().P2P().Create(ctx)
 	require.NoError(t, err)
 
