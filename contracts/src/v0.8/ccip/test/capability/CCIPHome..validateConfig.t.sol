@@ -1,15 +1,12 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
-import {ICapabilityConfiguration} from "../../../keystone/interfaces/ICapabilityConfiguration.sol";
 import {INodeInfoProvider} from "../../../keystone/interfaces/INodeInfoProvider.sol";
 
 import {CCIPHome} from "../../capability/CCIPHome.sol";
 import {Internal} from "../../libraries/Internal.sol";
 import {CCIPHomeHelper} from "../helpers/CCIPHomeHelper.sol";
-import {Test} from "forge-std/Test.sol";
 
-import {IERC165} from "../../../vendor/openzeppelin-solidity/v5.0.2/contracts/interfaces/IERC165.sol";
 import {CCIPHomeTestSetup} from "./CCIPHomeTestSetup.t.sol";
 
 contract CCIPHome__validateConfig is CCIPHomeTestSetup {
