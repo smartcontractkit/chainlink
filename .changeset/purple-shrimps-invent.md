@@ -2,4 +2,4 @@
 "chainlink": patch
 ---
 
-bump geth to 1.13.14
+bump geth to 1.14.11 #internal

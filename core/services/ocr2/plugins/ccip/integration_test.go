@@ -9,11 +9,12 @@ import (
 	"testing"
 	"time"
 
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
 
 	"github.com/ethereum/go-ethereum/common"
-	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -28,8 +29,7 @@ import (
 )
 
 func TestIntegration_CCIP(t *testing.T) {
-	t.Skip("TODO FIXME")
-	// Run the batches of tests for both pipeline and dynamic price getter setups.
+	// Run tke batches of tests for both pipeline and dynamic price getter setups.
 	// We will remove the pipeline batch once the feature is deleted from the code.
 	tests := []struct {
 		name                     string
@@ -74,6 +74,7 @@ func TestIntegration_CCIP(t *testing.T) {
 				// Set up the aggregators here to avoid modifying ccipTH.
 				aggSrcNatAddr, _, aggSrcNat, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(ccipTH.Source.User, ccipTH.Source.Chain.Client(), 18, big.NewInt(2e18))
 				require.NoError(t, err)
+				ccipTH.Source.Chain.Commit()
 				_, err = aggSrcNat.UpdateRoundData(ccipTH.Source.User, big.NewInt(50), big.NewInt(17000000), big.NewInt(1000), big.NewInt(1000))
 				require.NoError(t, err)
 				ccipTH.Source.Chain.Commit()
@@ -289,8 +290,10 @@ func TestIntegration_CCIP(t *testing.T) {
 					// Approve the fee amount + the token amount
 					_, err2 = ccipTH.Source.LinkToken.Approve(ccipTH.Source.User, ccipTH.Source.Router.Address(), new(big.Int).Add(fee, tokenAmount))
 					require.NoError(t, err2)
+					ccipTH.Source.Chain.Commit()
 					tx, err2 := ccipTH.Source.Router.CcipSend(ccipTH.Source.User, ccipTH.Dest.ChainSelector, msg)
-					require.NoError(t, err2)
+					require.NoError(t, err2, msg.FeeToken.String(), msg.TokenAmounts)
+					ccipTH.Source.Chain.Commit()
 					txs = append(txs, tx)
 					if !allowOutOfOrderExecution {
 						currentNonce++
@@ -647,7 +650,6 @@ func TestIntegration_CCIP(t *testing.T) {
 
 // TestReorg ensures that CCIP works even when a below finality depth reorg happens
 func TestReorg(t *testing.T) {
-	t.Skip("TODO FIXME")
 	// We need higher finality depth on the destination to perform reorg deep enough to revert commit and execution reports
 	destinationFinalityDepth := uint32(50)
 	ccipTH := integrationtesthelpers.SetupCCIPIntegrationTH(

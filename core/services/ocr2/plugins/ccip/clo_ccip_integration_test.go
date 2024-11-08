@@ -22,7 +22,6 @@ import (
 )
 
 func Test_CLOSpecApprovalFlow_pipeline(t *testing.T) {
-	t.Skip("TODO FIXME")
 	ccipTH := integrationtesthelpers.SetupCCIPIntegrationTH(
 		t,
 		testhelpers.SourceChainID,
@@ -41,7 +40,6 @@ func Test_CLOSpecApprovalFlow_pipeline(t *testing.T) {
 }
 
 func Test_CLOSpecApprovalFlow_dynamicPriceGetter(t *testing.T) {
-	t.Skip("TODO FIXME")
 	ccipTH := integrationtesthelpers.SetupCCIPIntegrationTH(
 		t,
 		testhelpers.SourceChainID,
@@ -134,6 +132,7 @@ func test_CLOSpecApprovalFlow(t *testing.T, ccipTH integrationtesthelpers.CCIPIn
 
 	_, err = ccipTH.Source.LinkToken.Approve(ccipTH.Source.User, ccipTH.Source.Router.Address(), new(big.Int).Set(fee))
 	require.NoError(t, err)
+	ccipTH.Source.Chain.Commit()
 	blockHash := ccipTH.Dest.Chain.Commit()
 	// get the block number
 	block, err := ccipTH.Dest.Chain.Client().BlockByHash(context.Background(), blockHash)

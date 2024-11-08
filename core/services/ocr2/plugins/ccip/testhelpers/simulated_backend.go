@@ -1,11 +1,15 @@
 package testhelpers
 
 import (
+	"context"
+	"errors"
 	"math/big"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
@@ -25,18 +29,24 @@ func SetupChain(t *testing.T) (*simulated.Backend, *bind.TransactOpts) {
 	user, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
 	require.NoError(t, err)
 	chain := simulated.NewBackend(ethtypes.GenesisAlloc{
-		user.From: {Balance: new(big.Int).Mul(big.NewInt(1000), big.NewInt(1e18))}},
+		user.From: {
+			Balance: new(big.Int).Mul(big.NewInt(1000), big.NewInt(1e18)),
+		},
+		common.Address{}: {
+			Balance: new(big.Int).Mul(big.NewInt(1000), big.NewInt(1e18)),
+		},
+	},
 		simulated.WithBlockGasLimit(ethconfig.Defaults.Miner.GasCeil))
-	currentHead, err := chain.Client().HeaderByNumber(tests.Context(t), nil)
-	require.NoError(t, err)
+	//currentHead, err := chain.Client().HeaderByNumber(tests.Context(t), nil)
+	//require.NoError(t, err)
 	// CCIP relies on block timestamps, but SimulatedBackend uses by default clock starting from 1970-01-01
 	// This trick is used to move the clock closer to the current time. We set first block to be X hours ago.
 	// Tests create plenty of transactions so this number can't be too low, every new block mined will tick the clock,
 	// if you mine more than "X hours" transactions, SimulatedBackend will panic because generated timestamps will be in the future.
 	// IMPORTANT: Any adjustments to FirstBlockAge will automatically update PermissionLessExecutionThresholdSeconds in tests
 	//nolint:gosec // G115
-	blockTime := time.UnixMilli(int64(currentHead.Time))
-	err = chain.AdjustTime(time.Since(blockTime) - FirstBlockAge)
+	//blockTime := time.UnixMilli(int64(currentHead.Time))
+	//err = chain.AdjustTime(time.Since(blockTime) - FirstBlockAge)
 	require.NoError(t, err)
 	chain.Commit()
 	return chain, user
@@ -64,5 +74,30 @@ func ConfirmTxs(t *testing.T, txs []*ethtypes.Transaction, chain *simulated.Back
 		rec, err := bind.WaitMined(ctx, chain.Client(), tx)
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), rec.Status)
+		if rec.Status == uint64(1) {
+			r, err := getFailureReason(chain.Client(), common.Address{}, tx, rec.BlockNumber)
+			t.Log("Reverted", r, err)
+		}
 	}
+}
+
+func createCallMsgFromTransaction(from common.Address, tx *ethtypes.Transaction) ethereum.CallMsg {
+	return ethereum.CallMsg{
+		From:     from,
+		To:       tx.To(),
+		Gas:      tx.Gas(),
+		GasPrice: tx.GasPrice(),
+		Value:    tx.Value(),
+		Data:     tx.Data(),
+	}
+}
+func getFailureReason(client simulated.Client, from common.Address, tx *ethtypes.Transaction, blockNumber *big.Int) (string, error) {
+	code, err := client.CallContract(context.Background(), createCallMsgFromTransaction(from, tx), blockNumber)
+	if err != nil {
+		return "", err
+	}
+	if len(code) == 0 {
+		return "", errors.New("no error message or out of gas")
+	}
+	return string(code), nil
 }

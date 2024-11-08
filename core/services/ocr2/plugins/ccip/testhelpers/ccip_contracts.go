@@ -672,6 +672,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 		sourceUser,
 		sourceChain.Client(),
 	)
+	sourceChain.Commit()
 	require.NoError(t, err)
 	sourceARM, err := mock_rmn_contract.NewMockRMNContract(armSourceAddress, sourceChain.Client())
 	require.NoError(t, err)
@@ -681,15 +682,16 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 		armSourceAddress,
 	)
 	require.NoError(t, err)
+	sourceChain.Commit()
 	sourceARMProxy, err := rmn_proxy_contract.NewRMNProxyContract(armProxySourceAddress, sourceChain.Client())
 	require.NoError(t, err)
-	sourceChain.Commit()
 
 	armDestAddress, _, _, err := mock_rmn_contract.DeployMockRMNContract(
 		destUser,
 		destChain.Client(),
 	)
 	require.NoError(t, err)
+	destChain.Commit()
 	armProxyDestAddress, _, _, err := rmn_proxy_contract.DeployRMNProxyContract(
 		destUser,
 		destChain.Client(),
@@ -708,15 +710,15 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 
 	sourceTokenAdminRegistryAddress, _, _, err := token_admin_registry.DeployTokenAdminRegistry(sourceUser, sourceChain.Client())
 	require.NoError(t, err)
+	sourceChain.Commit()
 	sourceTokenAdminRegistry, err := token_admin_registry.NewTokenAdminRegistry(sourceTokenAdminRegistryAddress, sourceChain.Client())
 	require.NoError(t, err)
-	sourceChain.Commit()
 
 	destTokenAdminRegistryAddress, _, _, err := token_admin_registry.DeployTokenAdminRegistry(destUser, destChain.Client())
 	require.NoError(t, err)
+	destChain.Commit()
 	destTokenAdminRegistry, err := token_admin_registry.NewTokenAdminRegistry(destTokenAdminRegistryAddress, destChain.Client())
 	require.NoError(t, err)
-	destChain.Commit()
 
 	// ================================================================
 	// │                       Deploy Tokens                          │
@@ -732,15 +734,16 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 
 	sourceWeth9addr, _, _, err := weth9.DeployWETH9(sourceUser, sourceChain.Client())
 	require.NoError(t, err)
+	sourceChain.Commit()
 	sourceWrapped, err := weth9.NewWETH9(sourceWeth9addr, sourceChain.Client())
 	require.NoError(t, err)
 	t.Logf("Deloyed WETH9 token on source chain at %s", sourceWeth9addr.String())
 
 	sourceCustomTokenAddress, _, _, err := link_token_interface.DeployLinkToken(sourceUser, sourceChain.Client())
 	require.NoError(t, err)
+	sourceChain.Commit()
 	sourceCustomToken, err := link_token_interface.NewLinkToken(sourceCustomTokenAddress, sourceChain.Client())
 	require.NoError(t, err)
-	destChain.Commit()
 	t.Logf("Deloyed custom token on source chain at %s", sourceCustomTokenAddress.String())
 
 	// Dest chain
@@ -754,15 +757,16 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 
 	destWeth9addr, _, _, err := weth9.DeployWETH9(destUser, destChain.Client())
 	require.NoError(t, err)
+	destChain.Commit()
 	destWrapped, err := weth9.NewWETH9(destWeth9addr, destChain.Client())
 	require.NoError(t, err)
 	t.Logf("Deloyed WETH9 token on dest chain at %s", destWeth9addr.String())
 
 	destCustomTokenAddress, _, _, err := link_token_interface.DeployLinkToken(destUser, destChain.Client())
 	require.NoError(t, err)
+	destChain.Commit()
 	destCustomToken, err := link_token_interface.NewLinkToken(destCustomTokenAddress, destChain.Client())
 	require.NoError(t, err)
-	destChain.Commit()
 	t.Logf("Deloyed custom token on dest chain at %s", destCustomTokenAddress.String())
 
 	// ================================================================
@@ -771,15 +775,15 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 
 	sourceRouterAddress, _, _, err := router.DeployRouter(sourceUser, sourceChain.Client(), sourceWeth9addr, armProxySourceAddress)
 	require.NoError(t, err)
+	sourceChain.Commit()
 	sourceRouter, err := router.NewRouter(sourceRouterAddress, sourceChain.Client())
 	require.NoError(t, err)
-	sourceChain.Commit()
 
 	destRouterAddress, _, _, err := router.DeployRouter(destUser, destChain.Client(), destWeth9addr, armProxyDestAddress)
 	require.NoError(t, err)
+	destChain.Commit()
 	destRouter, err := router.NewRouter(destRouterAddress, destChain.Client())
 	require.NoError(t, err)
-	destChain.Commit()
 
 	// ================================================================
 	// │                        Deploy Pools                          │
@@ -996,6 +1000,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 		60*60*24*14, // two weeks
 	)
 	require.NoError(t, err)
+	sourceChain.Commit()
 
 	srcPriceRegistry, err := price_registry_1_2_0.NewPriceRegistry(sourcePricesAddress, sourceChain.Client())
 	require.NoError(t, err)
@@ -1019,6 +1024,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 		},
 	})
 	require.NoError(t, err)
+	sourceChain.Commit()
 
 	// ================================================================
 	// │                        Deploy Lane                           │
@@ -1088,6 +1094,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	require.NoError(t, err)
 	onRamp, err := evm_2_evm_onramp.NewEVM2EVMOnRamp(onRampAddress, sourceChain.Client())
 	require.NoError(t, err)
+	sourceChain.Commit()
 
 	_, err = sourceRouter.ApplyRampUpdates(sourceUser, []router.RouterOnRamp{{DestChainSelector: destChainSelector, OnRamp: onRampAddress}}, nil, nil)
 	require.NoError(t, err)
@@ -1103,6 +1110,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	require.NoError(t, err)
 	destPriceRegistry, err := price_registry_1_2_0.NewPriceRegistry(destPriceRegistryAddress, destChain.Client())
 	require.NoError(t, err)
+	destChain.Commit()
 
 	// Deploy commit store.
 	commitStoreAddress, _, _, err := commit_store_helper_1_2_0.DeployCommitStoreHelper(
@@ -1154,16 +1162,18 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 		[]router.RouterOffRamp{{SourceChainSelector: sourceChainSelector, OffRamp: offRampAddress}},
 	)
 	require.NoError(t, err)
+	destChain.Commit()
 
 	// Deploy 2 revertable (one SS one non-SS)
 	revertingMessageReceiver1Address, _, _, err := maybe_revert_message_receiver.DeployMaybeRevertMessageReceiver(destUser, destChain.Client(), false)
 	require.NoError(t, err)
+	destChain.Commit()
 	revertingMessageReceiver1, _ := maybe_revert_message_receiver.NewMaybeRevertMessageReceiver(revertingMessageReceiver1Address, destChain.Client())
+	destChain.Commit()
 	revertingMessageReceiver2Address, _, _, err := maybe_revert_message_receiver.DeployMaybeRevertMessageReceiver(destUser, destChain.Client(), false)
 	require.NoError(t, err)
+	destChain.Commit()
 	revertingMessageReceiver2, _ := maybe_revert_message_receiver.NewMaybeRevertMessageReceiver(revertingMessageReceiver2Address, destChain.Client())
-	// Need to commit here, or we will hit the block gas limit when deploying the executor
-	sourceChain.Commit()
 	destChain.Commit()
 
 	// Ensure we have at least finality blocks.
@@ -1225,6 +1235,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 func (c *CCIPContracts) SendRequest(t *testing.T, msg router.ClientEVM2AnyMessage) *types.Transaction {
 	tx, err := c.Source.Router.CcipSend(c.Source.User, c.Dest.ChainSelector, msg)
 	require.NoError(t, err)
+	c.Source.Chain.Commit()
 	ConfirmTxs(t, []*types.Transaction{tx}, c.Source.Chain)
 	return tx
 }
