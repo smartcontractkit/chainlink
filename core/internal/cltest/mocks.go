@@ -319,10 +319,10 @@ func NewMockAPIInitializer(t testing.TB) *MockAPIInitializer {
 }
 
 func (m *MockAPIInitializer) Initialize(ctx context.Context, orm sessions.BasicAdminUsersORM, lggr logger.Logger) (sessions.User, error) {
-	m.Count++
 	if user, err := orm.FindUser(ctx, APIEmailAdmin); err == nil {
 		return user, err
 	}
+	m.Count++
 	user := MustRandomUser(m.t)
 	return user, orm.CreateUser(ctx, &user)
 }
