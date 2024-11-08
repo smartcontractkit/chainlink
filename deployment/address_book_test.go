@@ -2,6 +2,8 @@ package deployment
 
 import (
 	"errors"
+	"math/big"
+	"sync"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -161,4 +163,47 @@ func TestAddressBook_Remove(t *testing.T) {
 	// Remove method should error in case no address was matched with the given address book.
 	require.Error(t, baseAB.Remove(testAB))
 	require.EqualValues(t, baseAB, expectingAB)
+}
+
+func TestAddressBook_ConcurrencyAndDeadlock(t *testing.T) {
+	onRamp100 := NewTypeAndVersion("OnRamp", Version1_0_0)
+
+	baseAB := NewMemoryAddressBookFromMap(map[uint64]map[string]TypeAndVersion{
+		chainsel.TEST_90000001.Selector: {
+			common.BigToAddress(big.NewInt(1)).String(): onRamp100,
+		},
+	})
+
+	var i int64
+	wg := sync.WaitGroup{}
+	for i = 2; i < 100; i++ {
+		wg.Add(1)
+		go func(input int64) {
+			require.NoError(t, baseAB.Save(
+				chainsel.TEST_90000001.Selector,
+				common.BigToAddress(big.NewInt(input)).String(),
+				onRamp100,
+			))
+			wg.Done()
+		}(i)
+	}
+
+	for i = 0; i < 25; i++ {
+		wg.Add(1)
+		go func(input int64) {
+			_, err := baseAB.Addresses()
+			require.NoError(t, err)
+			wg.Done()
+		}(i)
+	}
+
+	additionalAB := NewMemoryAddressBookFromMap(map[uint64]map[string]TypeAndVersion{
+		chainsel.TEST_90000002.Selector: {
+			common.BigToAddress(big.NewInt(0)).String(): onRamp100,
+		},
+	})
+
+	require.NoError(t, baseAB.Merge(additionalAB))
+
+	wg.Wait()
 }

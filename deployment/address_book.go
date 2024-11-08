@@ -3,6 +3,9 @@ package deployment
 import (
 	"fmt"
 	"strings"
+	"sync"
+
+	"golang.org/x/exp/maps"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
@@ -87,6 +90,7 @@ type AddressBook interface {
 
 type AddressBookMap struct {
 	AddressesByChain map[uint64]map[string]TypeAndVersion
+	mtx              sync.RWMutex
 }
 
 // Save will save an address for a given chain selector. It will error if there is a conflicting existing address.
@@ -107,6 +111,10 @@ func (m *AddressBookMap) Save(chainSelector uint64, address string, typeAndVersi
 	if typeAndVersion.Type == "" {
 		return fmt.Errorf("type cannot be empty")
 	}
+
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
+
 	if _, exists := m.AddressesByChain[chainSelector]; !exists {
 		// First time chain add, create map
 		m.AddressesByChain[chainSelector] = make(map[string]TypeAndVersion)
@@ -119,7 +127,13 @@ func (m *AddressBookMap) Save(chainSelector uint64, address string, typeAndVersi
 }
 
 func (m *AddressBookMap) Addresses() (map[uint64]map[string]TypeAndVersion, error) {
-	return m.AddressesByChain, nil
+	m.mtx.RLock()
+	defer m.mtx.RUnlock()
+
+	// maps are mutable and pass via a pointer
+	// creating a copy of the map to prevent concurrency
+	// read and changes outside object-bound
+	return maps.Clone(m.AddressesByChain), nil
 }
 
 func (m *AddressBookMap) AddressesForChain(chainSelector uint64) (map[string]TypeAndVersion, error) {
@@ -127,10 +141,18 @@ func (m *AddressBookMap) AddressesForChain(chainSelector uint64) (map[string]Typ
 	if !exists {
 		return nil, errors.Wrapf(ErrInvalidChainSelector, "chain selector %d", chainSelector)
 	}
+
+	m.mtx.RLock()
+	defer m.mtx.RUnlock()
+
 	if _, exists := m.AddressesByChain[chainSelector]; !exists {
 		return nil, errors.Wrapf(ErrChainNotFound, "chain selector %d", chainSelector)
 	}
-	return m.AddressesByChain[chainSelector], nil
+
+	// maps are mutable and pass via a pointer
+	// creating a copy of the map to prevent concurrency
+	// read and changes outside object-bound
+	return maps.Clone(m.AddressesByChain[chainSelector]), nil
 }
 
 // Merge will merge the addresses from another address book into this one.
@@ -140,11 +162,19 @@ func (m *AddressBookMap) Merge(ab AddressBook) error {
 	if err != nil {
 		return err
 	}
-	for chain, chainAddresses := range addresses {
-		for address, typeAndVersions := range chainAddresses {
-			if err := m.Save(chain, address, typeAndVersions); err != nil {
-				return err
+
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
+
+	for chainSelector, chainAddresses := range addresses {
+		for address, typeAndVersion := range chainAddresses {
+			if _, exists := m.AddressesByChain[chainSelector]; !exists {
+				m.AddressesByChain[chainSelector] = make(map[string]TypeAndVersion)
 			}
+			if _, exists := m.AddressesByChain[chainSelector][address]; exists {
+				return fmt.Errorf("address %s already exists for chain %d", address, chainSelector)
+			}
+			m.AddressesByChain[chainSelector][address] = typeAndVersion
 		}
 	}
 	return nil
@@ -157,6 +187,9 @@ func (m *AddressBookMap) Remove(ab AddressBook) error {
 	if err != nil {
 		return err
 	}
+
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
 
 	addressNotFound := true
 	for chainSelector, chainAddresses := range addresses {
