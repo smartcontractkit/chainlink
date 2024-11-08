@@ -11,6 +11,7 @@ import (
 	mapset "github.com/deckarep/golang-set/v2"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
@@ -47,6 +48,11 @@ import (
 const (
 	HomeChainIndex = 0
 	FeedChainIndex = 1
+)
+
+var (
+	// bytes4 public constant EVM_EXTRA_ARGS_V2_TAG = 0x181dcf10;
+	evmExtraArgsV2Tag = hexutil.MustDecode("0x181dcf10")
 )
 
 // Context returns a context with the test's deadline, if available.
@@ -240,7 +246,7 @@ func TestSendRequest(
 	src, dest uint64,
 	testRouter bool,
 	evm2AnyMessage router.ClientEVM2AnyMessage,
-) uint64 {
+) (seqNum uint64) {
 	t.Logf("Sending CCIP request from chain selector %d to chain selector %d",
 		src, dest)
 	tx, blockNum, err := CCIPSendRequest(
@@ -258,9 +264,35 @@ func TestSendRequest(
 	}, []uint64{dest}, []uint64{})
 	require.NoError(t, err)
 	require.True(t, it.Next())
-	seqNum := it.Event.Message.Header.SequenceNumber
-	t.Logf("CCIP message sent from chain selector %d to chain selector %d tx %s seqNum %d", src, dest, tx.Hash().String(), seqNum)
+	seqNum = it.Event.Message.Header.SequenceNumber
+	nonce := it.Event.Message.Header.Nonce
+	sender := it.Event.Message.Sender
+	t.Logf("CCIP message sent from chain selector %d to chain selector %d tx %s seqNum %d nonce %d sender %s",
+		src, dest, tx.Hash().String(), seqNum, nonce, sender.String())
 	return seqNum
+}
+
+func MakeExtraArgsV2(gasLimit uint64, allowOOO bool) []byte {
+	// extra args is the tag followed by the gas limit and allowOOO abi-encoded.
+	var extraArgs []byte
+	extraArgs = append(extraArgs, evmExtraArgsV2Tag...)
+	gasLimitBytes := new(big.Int).SetUint64(gasLimit).Bytes()
+	// pad from the left to 32 bytes
+	gasLimitBytes = common.LeftPadBytes(gasLimitBytes, 32)
+
+	// abi-encode allowOOO
+	var allowOOOBytes []byte
+	if allowOOO {
+		allowOOOBytes = append(allowOOOBytes, 1)
+	} else {
+		allowOOOBytes = append(allowOOOBytes, 0)
+	}
+	// pad from the left to 32 bytes
+	allowOOOBytes = common.LeftPadBytes(allowOOOBytes, 32)
+
+	extraArgs = append(extraArgs, gasLimitBytes...)
+	extraArgs = append(extraArgs, allowOOOBytes...)
+	return extraArgs
 }
 
 // AddLanesForAll adds densely connected lanes for all chains in the environment so that each chain
