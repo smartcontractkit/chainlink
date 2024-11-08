@@ -388,7 +388,7 @@ func (d *DBStore) GetUnfinished(ctx context.Context, workflowID string, offset, 
 	OFFSET $4
 	`
 	var joinRecords []workflowExecutionWithStep
-	err := d.db.SelectContext(ctx, &joinRecords, sql, StatusStarted, limit, offset)
+	err := d.db.SelectContext(ctx, &joinRecords, sql, StatusStarted, workflowID, limit, offset)
 	if err != nil {
 		return []WorkflowExecution{}, err
 	}

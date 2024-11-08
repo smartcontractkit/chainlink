@@ -19,8 +19,8 @@ import (
 
 const (
 	workflowID    = "924eef66516e5387b6e8ab8cc544685dfe50dfc837886f22beecebced5063968"
-	workflowOwner = "0x0000000000000000000000000000000000000aab"
-	workflowName  = "PoR Hardcoded Workflow"
+	workflowOwner = "0x000000000000000000000000000000000000ab"
+	workflowName  = "PoR"
 )
 
 var (
@@ -70,12 +70,12 @@ func (w *WorkflowRegistry) trySetup() bool {
 	_, err := w.Registry.Get(ctx, "offchain_reporting@1.0.0")
 	if err != nil {
 		w.Logger.Info("not a workflow node, skipping hardcoded workflow")
-		return true
+		return false
 	}
 
 	jb := job.WorkflowSpec{
-		Workflow:      string(workflow),
-		Config:        string(config),
+		Workflow:      "a string",
+		Config:        "a config",
 		WorkflowID:    workflowID,
 		WorkflowName:  workflowName,
 		WorkflowOwner: workflowOwner,
@@ -86,7 +86,6 @@ func (w *WorkflowRegistry) trySetup() bool {
 	_, err = w.DS.NamedExecContext(ctx, sql, jb)
 	if err != nil {
 		w.Logger.Info("failed to create entry: %w", err)
-		return false
 	}
 
 	moduleConfig := &host.ModuleConfig{Logger: logger.NullLogger}
