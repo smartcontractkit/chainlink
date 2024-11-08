@@ -134,7 +134,7 @@ func ConfirmTokenPriceUpdated(
 	}
 
 	if len(tokenToInitialPrice) > 0 {
-		return fmt.Errorf("Not all tokens updated on chain  %d", chain.Selector)
+		return fmt.Errorf("not all tokens updated on chain  %d", chain.Selector)
 	}
 
 	return nil

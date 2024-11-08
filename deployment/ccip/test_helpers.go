@@ -3,11 +3,12 @@ package ccipdeployment
 import (
 	"context"
 	"fmt"
-	mapset "github.com/deckarep/golang-set/v2"
 	"math/big"
 	"sort"
 	"testing"
 	"time"
+
+	mapset "github.com/deckarep/golang-set/v2"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 
@@ -183,6 +184,8 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, numChains int, numNo
 	}
 }
 
+// NewMemoryEnvironmentWithJobs creates a new CCIP environment
+// with capreg, fee tokens, feeds, nodes and jobs set up.
 func NewMemoryEnvironmentWithJobs(t *testing.T, lggr logger.Logger, numChains int, numNodes int) DeployedEnv {
 	e := NewMemoryEnvironment(t, lggr, numChains, numNodes)
 	e.SetupJobs(t)
@@ -193,18 +196,15 @@ func CCIPSendRequest(
 	e deployment.Environment,
 	state CCIPOnChainState,
 	src, dest uint64,
-	data []byte,
-	tokensAndAmounts []router.ClientEVMTokenAmount,
-	feeToken common.Address,
 	testRouter bool,
-	extraArgs []byte,
+	evm2AnyMessage router.ClientEVM2AnyMessage,
 ) (*types.Transaction, uint64, error) {
 	msg := router.ClientEVM2AnyMessage{
-		Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
-		Data:         data,
-		TokenAmounts: tokensAndAmounts,
-		FeeToken:     feeToken,
-		ExtraArgs:    extraArgs,
+		Receiver:     evm2AnyMessage.Receiver,
+		Data:         evm2AnyMessage.Data,
+		TokenAmounts: evm2AnyMessage.TokenAmounts,
+		FeeToken:     evm2AnyMessage.FeeToken,
+		ExtraArgs:    evm2AnyMessage.ExtraArgs,
 	}
 	r := state.Chains[src].Router
 	if testRouter {
@@ -233,10 +233,23 @@ func CCIPSendRequest(
 	return tx, blockNum, nil
 }
 
-func TestSendRequest(t *testing.T, e deployment.Environment, state CCIPOnChainState, src, dest uint64, testRouter bool, tokensAndAmounts []router.ClientEVMTokenAmount) uint64 {
+func TestSendRequest(
+	t *testing.T,
+	e deployment.Environment,
+	state CCIPOnChainState,
+	src, dest uint64,
+	testRouter bool,
+	evm2AnyMessage router.ClientEVM2AnyMessage,
+) uint64 {
 	t.Logf("Sending CCIP request from chain selector %d to chain selector %d",
 		src, dest)
-	tx, blockNum, err := CCIPSendRequest(e, state, src, dest, []byte("hello"), tokensAndAmounts, common.HexToAddress("0x0"), testRouter, nil)
+	tx, blockNum, err := CCIPSendRequest(
+		e,
+		state,
+		src, dest,
+		testRouter,
+		evm2AnyMessage,
+	)
 	require.NoError(t, err)
 	it, err := state.Chains[src].OnRamp.FilterCCIPMessageSent(&bind.FilterOpts{
 		Start:   blockNum,
@@ -377,7 +390,13 @@ func ConfirmRequestOnSourceAndDest(t *testing.T, env deployment.Environment, sta
 	require.NoError(t, err)
 	startBlock := latesthdr.Number.Uint64()
 	fmt.Printf("startblock %d", startBlock)
-	seqNum := TestSendRequest(t, env, state, sourceCS, destCS, false, nil)
+	seqNum := TestSendRequest(t, env, state, sourceCS, destCS, false, router.ClientEVM2AnyMessage{
+		Receiver:     common.LeftPadBytes(state.Chains[destCS].Receiver.Address().Bytes(), 32),
+		Data:         []byte("hello world"),
+		TokenAmounts: nil,
+		FeeToken:     common.HexToAddress("0x0"),
+		ExtraArgs:    nil,
+	})
 	require.Equal(t, expectedSeqNr, seqNum)
 
 	fmt.Printf("Request sent for seqnr %d", seqNum)
@@ -517,7 +536,7 @@ func setTokenPoolCounterPart(
 		},
 	)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to apply chain updates on token pool %s: %w", tokenPool.Address(), err)
 	}
 
 	_, err = chain.Confirm(tx)
@@ -530,6 +549,11 @@ func setTokenPoolCounterPart(
 		destChainSelector,
 		destTokenPoolAddress.Bytes(),
 	)
+	if err != nil {
+		return fmt.Errorf("failed to set remote pool on token pool %s: %w", tokenPool.Address(), err)
+	}
+
+	_, err = chain.Confirm(tx)
 	return err
 }
 
