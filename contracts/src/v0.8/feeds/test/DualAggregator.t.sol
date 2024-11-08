@@ -559,7 +559,7 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
     vm.startPrank(transmitters[0]);
 
     ReportGenerator.SignedReport memory signedReport =
-        s_reportGenerator.generateSignedReport(0, uint32(block.timestamp));
+      s_reportGenerator.generateSignedReport(0, uint32(block.timestamp));
 
     signedReport.rs[0] = bytes32(abi.encodePacked("1"));
     signedReport.rs[1] = bytes32(abi.encodePacked("1"));
@@ -567,20 +567,24 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
     signedReport.ss[1] = bytes32(abi.encodePacked("1"));
 
     vm.expectRevert(DualAggregator.SignatureError.selector);
-    aggregator.transmit(signedReport.reportContext, signedReport.report, signedReport.rs, signedReport.ss, signedReport.rawVs);
+    aggregator.transmit(
+      signedReport.reportContext, signedReport.report, signedReport.rs, signedReport.ss, signedReport.rawVs
+    );
   }
 
   function test_RevertIf_DuplicateSigner() public {
     vm.startPrank(transmitters[0]);
 
     ReportGenerator.SignedReport memory signedReport =
-        s_reportGenerator.generateSignedReport(0, uint32(block.timestamp));
+      s_reportGenerator.generateSignedReport(0, uint32(block.timestamp));
 
     signedReport.rs[1] = signedReport.rs[0];
     signedReport.ss[1] = signedReport.ss[0];
 
     vm.expectRevert(DualAggregator.DuplicateSigner.selector);
-    aggregator.transmit(signedReport.reportContext, signedReport.report, signedReport.rs, signedReport.ss, signedReport.rawVs);
+    aggregator.transmit(
+      signedReport.reportContext, signedReport.report, signedReport.rs, signedReport.ss, signedReport.rawVs
+    );
   }
 
   function test_ReadExpectedInitialState() public {
@@ -882,7 +886,7 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
 
     // Report 2 generate from before the cutoff time
     ReportGenerator.SignedReport memory signedReport2 =
-        s_reportGenerator.generateSignedReport(2, uint32(block.timestamp));
+      s_reportGenerator.generateSignedReport(2, uint32(block.timestamp));
     _mineBlock();
 
     // skip cutoff time
@@ -891,8 +895,8 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
     // report 2 transmitted
     _changePrank(aggregator.getTransmitters()[0]);
     aggregator.transmit(
-        signedReport2.reportContext, signedReport2.report, signedReport2.rs, signedReport2.ss, signedReport2.rawVs
-      );
+      signedReport2.reportContext, signedReport2.report, signedReport2.rs, signedReport2.ss, signedReport2.rawVs
+    );
 
     // check the standard feed
     (, int256 standardAnswer,,,) = aggregator.latestRoundData();
@@ -945,7 +949,7 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
 
     // generate Signed Report 2, will not reach standard feed
     ReportGenerator.SignedReport memory signedReport2 =
-        s_reportGenerator.generateSignedReport(2, uint32(block.timestamp));
+      s_reportGenerator.generateSignedReport(2, uint32(block.timestamp));
     _mineBlock();
 
     // skip cutoff time
@@ -965,8 +969,8 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
     // report 2 reaches the secondary feed, but it is dropped due to being an orphan
     vm.expectRevert(DualAggregator.StaleReport.selector);
     aggregator.transmitSecondary(
-        signedReport2.reportContext, signedReport2.report, signedReport2.rs, signedReport2.ss, signedReport2.rawVs
-      );
+      signedReport2.reportContext, signedReport2.report, signedReport2.rs, signedReport2.ss, signedReport2.rawVs
+    );
 
     // check the standard feed
     _changePrank(aggregator.getTransmitters()[0]);
@@ -993,7 +997,7 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
 
     // generate Signed Report 2, will not reach standard feed
     ReportGenerator.SignedReport memory signedReport2 =
-        s_reportGenerator.generateSignedReport(2, uint32(block.timestamp));
+      s_reportGenerator.generateSignedReport(2, uint32(block.timestamp));
     _mineBlock();
 
     // report 3 will reach the standard feed
@@ -1010,8 +1014,8 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
     // report 2 reaches the secondary feed, but it is dropped due to being an orphan
     vm.expectRevert(DualAggregator.StaleReport.selector);
     aggregator.transmitSecondary(
-        signedReport2.reportContext, signedReport2.report, signedReport2.rs, signedReport2.ss, signedReport2.rawVs
-      );
+      signedReport2.reportContext, signedReport2.report, signedReport2.rs, signedReport2.ss, signedReport2.rawVs
+    );
 
     // check the standard feed
     _changePrank(aggregator.getTransmitters()[0]);
@@ -1022,6 +1026,43 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
     _changePrank(SECONDARY_PROXY);
     (, int256 secondaryAnswer,,,) = aggregator.latestRoundData();
     assertEq(report1.price, secondaryAnswer, "secondary feed answer is not correct");
+  }
+
+  function test_IncomingSecondaryReportRevertsDueToMaxIterations() public {
+    // define 4 as the new max sync iterations
+    aggregator.setMaxSyncIterations(4);
+    aggregator.setCutoffTime(60);
+
+    // sign the report 1
+    ReportGenerator.SignedReport memory signedReport =
+      s_reportGenerator.generateSignedReport(1, uint32(block.timestamp));
+    _mineBlock();
+
+    // transmit the signed report from the primary feed
+    _changePrank(aggregator.getTransmitters()[0]);
+    aggregator.transmit(
+      signedReport.reportContext, signedReport.report, signedReport.rs, signedReport.ss, signedReport.rawVs
+    );
+
+    // transmit 4 more reports
+    for (int192 i = 2; i <= 5; ++i) {
+      Report memory report = Report({price: i, timestamp: uint32(block.timestamp)});
+      // transmit report from the primary feed
+      _transmitAndCheck({
+        report: report,
+        transmitPrimary: true,
+        transmitSecondary: false,
+        expectedStandardFeedAnswer: report.price,
+        expectedSecondaryFeedAnswer: 0
+      });
+      _mineBlock();
+    }
+
+    // report 1 reaches the secondary feed, but it reverts due to max sync iterations
+    vm.expectRevert(DualAggregator.MaxSyncIterations.selector);
+    aggregator.transmitSecondary(
+      signedReport.reportContext, signedReport.report, signedReport.rs, signedReport.ss, signedReport.rawVs
+    );
   }
 
   function _transmitAndCheck(

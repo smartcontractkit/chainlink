@@ -516,6 +516,11 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
   event MaxSyncIterationsSet(uint32 maxSyncIterations);
 
   /**
+   * @notice revert when the loop reaches the max sync iterations amount
+   */
+  error MaxSyncIterations();
+
+  /**
    * @notice sets the max time cutoff
    * @param _cutoffTime new max cutoff timestamp
    */
@@ -547,6 +552,11 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
 
     // decreasing loop from the latest primary round id
     for (uint32 round_ = latestAggregatorRoundId; round_ > 0; --round_) {
+      // in case the loop reached the maxIterations, break it
+      if (latestAggregatorRoundId - round_ == maxIterations) {
+        break;
+      }
+
       // in case it's the latest secondary round id, return it
       if (round_ == s_hotVars.latestSecondaryRoundId || latestAggregatorRoundId - round_ == maxIterations) {
         return round_;
@@ -573,8 +583,13 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
   ) internal view returns (bool exist, uint32 roundId) {
     // get the latest round id
     uint32 latestAggregatorRoundId = s_hotVars.latestAggregatorRoundId;
+    uint32 maxIterations = s_maxSyncIterations;
 
     for (uint32 round_ = latestAggregatorRoundId; round_ > 0; --round_) {
+      if (latestAggregatorRoundId - round_ == maxIterations) {
+        revert MaxSyncIterations();
+      }
+
       Transmission memory transmission = s_transmissions[round_];
 
       if (transmission.observationsTimestamp < report.observationsTimestamp) {
@@ -587,6 +602,7 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
         return (true, round_);
       }
     }
+
     return (false, 0);
   }
 
@@ -741,14 +757,7 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     bytes32 rawVs
   ) external override {
     // Call the internal transmit function without the isSecondary flag
-    _transmit(
-      reportContext,
-      report,
-      rs,
-      ss,
-      rawVs,
-      false
-    );
+    _transmit(reportContext, report, rs, ss, rawVs, false);
   }
 
   // Secondary proxy transmit entrypoint, call the internal transmit function with the isSecondary flag
@@ -764,14 +773,7 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     bytes32[] calldata ss,
     bytes32 rawVs
   ) external {
-    _transmit(
-      reportContext,
-      report,
-      rs,
-      ss,
-      rawVs,
-      true
-    );
+    _transmit(reportContext, report, rs, ss, rawVs, true);
   }
 
   // Internal transmit function with all the transmission logic
@@ -793,10 +795,8 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
 
     uint256 initialGas = gasleft(); // This line must come first
 
-    // Report epoch and round
-    uint40 epochAndRound = uint40(uint256(reportContext[1]));
     // Validate the report data
-    _validateReport(epochAndRound, reportContext, report, rs, ss);
+    _validateReport(reportContext, report, rs, ss);
 
     Report memory report_ = _decodeReport(report); // Decode the report
 
@@ -816,6 +816,13 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
       s_primaryLocked = false;
     }
 
+    // Report epoch and round
+    uint40 epochAndRound = uint40(uint256(reportContext[1]));
+
+    if (epochAndRound < s_hotVars.latestEpochAndRound) {
+      revert StaleReport();
+    }
+
     // Verify signatures attached to report
     _verifySignatures(reportContext, report, rs, ss, rawVs);
 
@@ -825,16 +832,11 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
 
   // helper function to validate the report data
   function _validateReport(
-    uint40 epochAndRound,
     bytes32[3] calldata reportContext,
     bytes calldata report,
     bytes32[] calldata rs,
     bytes32[] calldata ss
   ) internal view {
-    if (epochAndRound < s_hotVars.latestEpochAndRound) {
-      revert StaleReport();
-    }
-
     if (!s_transmitters[msg.sender].active) {
       revert UnauthorizedTransmitter();
     }
