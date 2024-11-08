@@ -90,19 +90,19 @@ func MustABIEncode(abiString string, args ...interface{}) []byte {
 // and returns a ContractDeploy struct with the address and contract instance.
 func DeployCapReg(
 	lggr logger.Logger,
+	state CCIPOnChainState,
 	ab deployment.AddressBook,
 	chain deployment.Chain,
 ) (*ContractDeploy[*capabilities_registry.CapabilitiesRegistry], error) {
-	capRegAddress, err := deployment.SearchAddressBook(ab, chain.Selector, CapabilitiesRegistry)
-	if err == nil {
-		lggr.Infow("Found CapabilitiesRegistry in address book", "address", capRegAddress)
-		cr, err := capabilities_registry.NewCapabilitiesRegistry(common.HexToAddress(capRegAddress), chain.Client)
-		if err != nil {
-			return nil, fmt.Errorf("failed to connect to CapabilitiesRegistry at %s: %w", capRegAddress, err)
+	homeChainState, exists := state.Chains[chain.Selector]
+	if exists {
+		cr := homeChainState.CapabilityRegistry
+		if cr != nil {
+			lggr.Infow("Found CapabilitiesRegistry in chain state", "address", cr.Address().String())
+			return &ContractDeploy[*capabilities_registry.CapabilitiesRegistry]{
+				Address: cr.Address(), Contract: cr, Tv: deployment.NewTypeAndVersion(CapabilitiesRegistry, deployment.Version1_0_0),
+			}, nil
 		}
-		return &ContractDeploy[*capabilities_registry.CapabilitiesRegistry]{
-			Address: cr.Address(), Contract: cr, Tv: deployment.NewTypeAndVersion(CapabilitiesRegistry, deployment.Version1_0_0),
-		}, nil
 	}
 	capReg, err := deployContract(lggr, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*capabilities_registry.CapabilitiesRegistry] {
@@ -123,15 +123,21 @@ func DeployCapReg(
 
 func DeployHomeChain(
 	lggr logger.Logger,
-	ab deployment.AddressBook,
+	e deployment.Environment,
 	chain deployment.Chain,
 	rmnHomeStatic rmn_home.RMNHomeStaticConfig,
 	rmnHomeDynamic rmn_home.RMNHomeDynamicConfig,
 	nodeOps []capabilities_registry.CapabilitiesRegistryNodeOperator,
 	nodeP2PIDsPerNodeOpAdmin map[string][][32]byte,
 ) (*ContractDeploy[*capabilities_registry.CapabilitiesRegistry], error) {
+	ab := e.ExistingAddresses
+	// load existing state
+	state, err := LoadOnchainState(e)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load onchain state: %w", err)
+	}
 	// Deploy CapabilitiesRegistry, CCIPHome, RMNHome
-	capReg, err := DeployCapReg(lggr, ab, chain)
+	capReg, err := DeployCapReg(lggr, state, ab, chain)
 	if err != nil {
 		return nil, err
 	}

@@ -28,7 +28,7 @@ func TestDeployCCIPContracts(t *testing.T) {
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
 
-	_, err = DeployHomeChain(lggr, e.ExistingAddresses, e.Chains[homeChainSel],
+	_, err = DeployHomeChain(lggr, e, e.Chains[homeChainSel],
 		NewTestRMNStaticConfig(),
 		NewTestRMNDynamicConfig(),
 		NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),

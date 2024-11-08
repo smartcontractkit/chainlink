@@ -112,7 +112,11 @@ func DeployTestContracts(t *testing.T,
 	feedChainSel uint64,
 	chains map[uint64]deployment.Chain,
 ) deployment.CapabilityRegistryConfig {
-	capReg, err := DeployCapReg(lggr, ab, chains[homeChainSel])
+	capReg, err := DeployCapReg(lggr,
+		// deploying cap reg for the first time on a blank chain state
+		CCIPOnChainState{
+			Chains: make(map[uint64]CCIPChainState),
+		}, ab, chains[homeChainSel])
 	require.NoError(t, err)
 	_, err = DeployFeeds(lggr, ab, chains[feedChainSel])
 	require.NoError(t, err)
@@ -176,7 +180,8 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, numChains int, numNo
 	e := memory.NewMemoryEnvironmentFromChainsNodes(t, lggr, chains, nodes)
 	envNodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
-	_, err = DeployHomeChain(lggr, ab, chains[homeChainSel],
+	e.ExistingAddresses = ab
+	_, err = DeployHomeChain(lggr, e, chains[homeChainSel],
 		NewTestRMNStaticConfig(),
 		NewTestRMNDynamicConfig(),
 		NewTestNodeOperator(chains[homeChainSel].DeployerKey.From),
@@ -185,8 +190,6 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, numChains int, numNo
 		},
 	)
 	require.NoError(t, err)
-
-	e.ExistingAddresses = ab
 
 	return DeployedEnv{
 		Env:          e,

@@ -25,18 +25,16 @@ func DeployHomeChain(env deployment.Environment, config interface{}) (deployment
 	if err != nil {
 		return deployment.ChangesetOutput{}, errors.Wrapf(deployment.ErrInvalidConfig, "%v", err)
 	}
-	homeChainSel := cfg.HomeChainSel
 	// Note we also deploy the cap reg.
-	ab := deployment.NewMemoryAddressBook()
-	_, err = ccipdeployment.DeployHomeChain(env.Logger, ab, env.Chains[homeChainSel], cfg.RMNStaticConfig, cfg.RMNDynamicConfig, cfg.NodeOperators, cfg.NodeP2PIDsPerNodeOpAdmin)
+	_, err = ccipdeployment.DeployHomeChain(env.Logger, env, env.Chains[cfg.HomeChainSel], cfg.RMNStaticConfig, cfg.RMNDynamicConfig, cfg.NodeOperators, cfg.NodeP2PIDsPerNodeOpAdmin)
 	if err != nil {
-		env.Logger.Errorw("Failed to deploy cap reg", "err", err, "addresses", ab)
+		env.Logger.Errorw("Failed to deploy cap reg", "err", err, "addresses", env.ExistingAddresses)
 		return deployment.ChangesetOutput{}, err
 	}
 
 	return deployment.ChangesetOutput{
 		Proposals:   []timelock.MCMSWithTimelockProposal{},
-		AddressBook: ab,
+		AddressBook: env.ExistingAddresses,
 		JobSpecs:    nil,
 	}, nil
 }
@@ -59,7 +57,7 @@ func (c DeployHomeChainConfig) Validate() error {
 	if c.RMNStaticConfig.OffchainConfig == nil {
 		return fmt.Errorf("offchain config for RMNHomeStaticConfig must be set")
 	}
-	if c.NodeOperators == nil || len(c.NodeOperators) == 0 {
+	if len(c.NodeOperators) == 0 {
 		return fmt.Errorf("node operators must be set")
 	}
 	for _, nop := range c.NodeOperators {
@@ -69,7 +67,7 @@ func (c DeployHomeChainConfig) Validate() error {
 		if nop.Name == "" {
 			return fmt.Errorf("node operator name must be set")
 		}
-		if c.NodeP2PIDsPerNodeOpAdmin[nop.Name] == nil || len(c.NodeP2PIDsPerNodeOpAdmin[nop.Name]) == 0 {
+		if len(c.NodeP2PIDsPerNodeOpAdmin[nop.Name]) == 0 {
 			return fmt.Errorf("node operator %s must have node p2p ids provided", nop.Name)
 		}
 	}
