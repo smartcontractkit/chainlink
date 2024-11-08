@@ -35,7 +35,7 @@ func DeployHomeChain(env deployment.Environment, config interface{}) (deployment
 
 	return deployment.ChangesetOutput{
 		Proposals:   []timelock.MCMSWithTimelockProposal{},
-		AddressBook: env.ExistingAddresses,
+		AddressBook: ab,
 		JobSpecs:    nil,
 	}, nil
 }
