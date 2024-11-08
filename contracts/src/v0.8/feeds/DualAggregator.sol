@@ -541,13 +541,14 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
    * @notice sync data with the primary rounds, return the freshest valid round id
    */
   function _getSyncPrimaryRound() internal view returns (uint32 roundId) {
-    // get the latest round id
+    // get the latest round id and the max iterations
     uint32 latestAggregatorRoundId = s_hotVars.latestAggregatorRoundId;
+    uint32 maxIterations = s_maxSyncIterations;
 
     // decreasing loop from the latest primary round id
     for (uint32 round_ = latestAggregatorRoundId; round_ > 0; --round_) {
       // in case it's the latest secondary round id, return it
-      if (round_ == s_hotVars.latestSecondaryRoundId || latestAggregatorRoundId - round_ == s_maxSyncIterations) {
+      if (round_ == s_hotVars.latestSecondaryRoundId || latestAggregatorRoundId - round_ == maxIterations) {
         return round_;
       }
 
@@ -657,7 +658,7 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
   // _decodeReport decodes a serialized report into a Report struct
   function _decodeReport(
     bytes memory rawReport
-  ) internal returns (Report memory) {
+  ) internal pure returns (Report memory) {
     uint32 observationsTimestamp;
     bytes32 rawObservers;
     int192[] memory observations;
@@ -807,10 +808,9 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
         _payTransmitter(s_hotVars, report_.juelsPerFeeCoin, uint32(initialGas), msg.sender);
 
         return;
-      } else {
-        // In case the report doesn't exist, lock the primary feed
-        s_primaryLocked = true;
       }
+      // In case the report doesn't exist, lock the primary feed
+      s_primaryLocked = true;
     } else {
       // In case the sender is the primary proxy, unlock the latest report
       s_primaryLocked = false;
@@ -830,7 +830,7 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     bytes calldata report,
     bytes32[] calldata rs,
     bytes32[] calldata ss
-  ) internal {
+  ) internal view {
     if (epochAndRound < s_hotVars.latestEpochAndRound) {
       revert StaleReport();
     }
@@ -861,28 +861,26 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     bytes32[] calldata ss,
     bytes32 rawVs
   ) internal view {
-    {
-      bytes32 h = keccak256(abi.encode(keccak256(report), reportContext));
+    bytes32 h = keccak256(abi.encode(keccak256(report), reportContext));
 
-      // i-th byte counts number of sigs made by i-th signer
-      uint256 signedCount = 0;
+    // i-th byte counts number of sigs made by i-th signer
+    uint256 signedCount = 0;
 
-      Signer memory signer;
-      for (uint256 i = 0; i < rs.length; i++) {
-        address signerAddress = ecrecover(h, uint8(rawVs[i]) + 27, rs[i], ss[i]);
-        signer = s_signers[signerAddress];
-        if (!signer.active) {
-          revert SignatureError();
-        }
-        unchecked {
-          signedCount += 1 << (8 * signer.index);
-        }
+    Signer memory signer;
+    for (uint256 i = 0; i < rs.length; i++) {
+      address signerAddress = ecrecover(h, uint8(rawVs[i]) + 27, rs[i], ss[i]);
+      signer = s_signers[signerAddress];
+      if (!signer.active) {
+        revert SignatureError();
       }
-
-      // The first byte of the mask can be 0, because we only ever have 31 oracles
-      if (signedCount & 0x0001010101010101010101010101010101010101010101010101010101010101 != signedCount) {
-        revert DuplicateSigner();
+      unchecked {
+        signedCount += 1 << (8 * signer.index);
       }
+    }
+
+    // The first byte of the mask can be 0, because we only ever have 31 oracles
+    if (signedCount & 0x0001010101010101010101010101010101010101010101010101010101010101 != signedCount) {
+      revert DuplicateSigner();
     }
   }
 

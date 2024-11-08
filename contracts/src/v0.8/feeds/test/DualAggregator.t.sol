@@ -869,8 +869,6 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
   }
 
   function test_BothFeedsStalledIncomingPrimaryReportIsFromBeforeCutoffTime() public {
-    vm.skip(true); // skip test until passing
-    
     Report memory report1 = Report({price: 1, timestamp: uint32(block.timestamp)});
     // Report 1
     _transmitAndCheck({
@@ -883,18 +881,27 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
     _mineBlock();
 
     // Report 2 generate from before the cutoff time
-    Report memory report2 = Report({price: 2, timestamp: uint32(block.timestamp)});
+    ReportGenerator.SignedReport memory signedReport2 =
+        s_reportGenerator.generateSignedReport(2, uint32(block.timestamp));
+    _mineBlock();
 
     // skip cutoff time
     skip(CUTOFF_TIME + 1);
 
-    _transmitAndCheck({
-      report: report2,
-      transmitPrimary: true,
-      transmitSecondary: false,
-      expectedStandardFeedAnswer: report2.price,
-      expectedSecondaryFeedAnswer: report2.price // because it comes from before the cutoff immediately unlocked
-    });
+    // report 2 transmitted
+    _changePrank(aggregator.getTransmitters()[0]);
+    aggregator.transmit(
+        signedReport2.reportContext, signedReport2.report, signedReport2.rs, signedReport2.ss, signedReport2.rawVs
+      );
+
+    // check the standard feed
+    (, int256 standardAnswer,,,) = aggregator.latestRoundData();
+    assertEq(2, standardAnswer, "standard feed answer is not correct");
+
+    // check the secondary feed
+    _changePrank(SECONDARY_PROXY);
+    (, int256 secondaryAnswer,,,) = aggregator.latestRoundData();
+    assertEq(report1.price, secondaryAnswer, "secondary feed answer is not correct");
   }
 
   function test_BothFeedsStalledIncomingReportIsFromAfterCutoffTime() public {
@@ -925,8 +932,6 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
   }
 
   function test_IncomingSecondaryReportHasNotBeenRecordedOlderThanLatestReportOlderThanCutoffTime() public {
-    vm.skip(true); // skip test until passing
-    
     Report memory report1 = Report({price: 1, timestamp: uint32(block.timestamp)});
     // Report 1
     _transmitAndCheck({
@@ -938,8 +943,10 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
     });
     _mineBlock();
 
-    // generate Report 2, will not reach standard feed
-    Report memory report2 = Report({price: 2, timestamp: uint32(block.timestamp)});
+    // generate Signed Report 2, will not reach standard feed
+    ReportGenerator.SignedReport memory signedReport2 =
+        s_reportGenerator.generateSignedReport(2, uint32(block.timestamp));
+    _mineBlock();
 
     // skip cutoff time
     skip(CUTOFF_TIME + 1);
@@ -955,14 +962,21 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
     });
     _mineBlock();
 
-    // Send missing report 2 to secondary feed, expect it to be dropped
-    _transmitAndCheck({
-      report: report2,
-      transmitPrimary: false,
-      transmitSecondary: true,
-      expectedStandardFeedAnswer: report3.price,
-      expectedSecondaryFeedAnswer: report1.price
-    });
+    // report 2 reaches the secondary feed, but it is dropped due to being an orphan
+    vm.expectRevert(DualAggregator.StaleReport.selector);
+    aggregator.transmitSecondary(
+        signedReport2.reportContext, signedReport2.report, signedReport2.rs, signedReport2.ss, signedReport2.rawVs
+      );
+
+    // check the standard feed
+    _changePrank(aggregator.getTransmitters()[0]);
+    (, int256 standardAnswer,,,) = aggregator.latestRoundData();
+    assertEq(report3.price, standardAnswer, "standard feed answer is not correct");
+
+    // check the secondary feed
+    _changePrank(SECONDARY_PROXY);
+    (, int256 secondaryAnswer,,,) = aggregator.latestRoundData();
+    assertEq(report1.price, secondaryAnswer, "secondary feed answer is not correct");
   }
 
   function test_IncomingSecondaryReportHasNotBeenRecordedOlderThanLatestReportNewerThanCutoffTime() public {
