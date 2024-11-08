@@ -5,8 +5,9 @@ import {IRMN} from "../../../interfaces/IRMN.sol";
 
 import {ARMProxy} from "../../../rmn/ARMProxy.sol";
 import {MockRMN} from "../../mocks/MockRMN.sol";
-import {Test} from "forge-std/Test.sol";
+
 import {ARMProxyStandaloneTestSetup} from "./ARMProxyStandaloneTestSetup.t.sol";
+import {Test} from "forge-std/Test.sol";
 
 contract ARMProxy_isCursed is ARMProxyStandaloneTestSetup {
   MockRMN internal s_mockRMN;
