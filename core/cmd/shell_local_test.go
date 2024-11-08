@@ -122,7 +122,7 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 				Config:                 cfg,
 				FallbackAPIInitializer: apiPrompt,
 				Runner:                 cltest.EmptyRunner{},
-				AppFactory:             cltest.InstanceAppFactory{App: app},
+				AppFactory:             cmd.ChainlinkAppFactory{},
 				Logger:                 lggr,
 			}
 
