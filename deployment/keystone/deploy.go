@@ -456,7 +456,7 @@ func RegisterNOPS(ctx context.Context, req RegisterNOPSRequest) (*RegisterNOPSRe
 	return resp, nil
 }
 
-func defaultCapConfig(capType uint8, nNodes int) *capabilitiespb.CapabilityConfig {
+func DefaultCapConfig(capType uint8, nNodes int) *capabilitiespb.CapabilityConfig {
 	switch capType {
 	// TODO: use the enum defined in ??
 	case uint8(0): // trigger
@@ -706,7 +706,7 @@ func registerDons(lggr logger.Logger, req registerDonsRequest) (*registerDonsRes
 				wfSupported = true
 			}
 			// TODO: accept configuration from external source for each (don,capability)
-			capCfg := defaultCapConfig(cap.CapabilityType, len(p2pIds))
+			capCfg := DefaultCapConfig(cap.CapabilityType, len(p2pIds))
 			cfgb, err := proto.Marshal(capCfg)
 			if err != nil {
 				return nil, fmt.Errorf("failed to marshal capability config for %v: %w", cap, err)

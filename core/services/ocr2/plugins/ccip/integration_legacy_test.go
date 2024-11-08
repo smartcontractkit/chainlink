@@ -26,7 +26,6 @@ import (
 )
 
 func TestIntegration_legacy_CCIP(t *testing.T) {
-	t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809")
 	// Run the batches of tests for both pipeline and dynamic price getter setups.
 	// We will remove the pipeline batch once the feature is deleted from the code.
 	tests := []struct {
@@ -247,8 +246,10 @@ func TestIntegration_legacy_CCIP(t *testing.T) {
 					// Approve the fee amount + the token amount
 					_, err2 = ccipTH.Source.LinkToken.Approve(ccipTH.Source.User, ccipTH.Source.Router.Address(), new(big.Int).Add(fee, tokenAmount))
 					require.NoError(t, err2)
+					ccipTH.Source.Chain.Commit()
 					tx, err2 := ccipTH.Source.Router.CcipSend(ccipTH.Source.User, ccipTH.Dest.ChainSelector, msg)
 					require.NoError(t, err2)
+					ccipTH.Source.Chain.Commit()
 					txs = append(txs, tx)
 				}
 

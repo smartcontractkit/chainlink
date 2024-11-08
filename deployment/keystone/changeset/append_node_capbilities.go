@@ -56,6 +56,5 @@ func (req *AppendNodeCapabilitiesRequest) convert(e deployment.Environment) (*in
 		Chain:             registryChain,
 		Registry:          registry,
 		P2pToCapabilities: req.P2pToCapabilities,
-		NopToNodes:        req.NopToNodes,
 	}, nil
 }

@@ -73,7 +73,6 @@ type pluginOracleCreator struct {
 	homeChainReader       ccipreaderpkg.HomeChain
 	homeChainSelector     cciptypes.ChainSelector
 	relayers              map[types.RelayID]loop.Relayer
-	evmConfigs            toml.EVMConfigs
 }
 
 func NewPluginOracleCreator(
@@ -91,7 +90,6 @@ func NewPluginOracleCreator(
 	bootstrapperLocators []commontypes.BootstrapperLocator,
 	homeChainReader ccipreaderpkg.HomeChain,
 	homeChainSelector cciptypes.ChainSelector,
-	evmConfigs toml.EVMConfigs,
 ) cctypes.OracleCreator {
 	return &pluginOracleCreator{
 		ocrKeyBundles:         ocrKeyBundles,
@@ -108,7 +106,6 @@ func NewPluginOracleCreator(
 		bootstrapperLocators:  bootstrapperLocators,
 		homeChainReader:       homeChainReader,
 		homeChainSelector:     homeChainSelector,
-		evmConfigs:            evmConfigs,
 	}
 }
 
@@ -367,7 +364,6 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 		cw, err1 := createChainWriter(
 			ctx,
 			chainID,
-			i.evmConfigs,
 			relayer,
 			i.transmitters,
 			execBatchGasLimit)
@@ -480,7 +476,6 @@ func isUSDCEnabled(ofc offChainConfig) bool {
 func createChainWriter(
 	ctx context.Context,
 	chainID *big.Int,
-	evmConfigs toml.EVMConfigs,
 	relayer loop.Relayer,
 	transmitters map[types.RelayID][]string,
 	execBatchGasLimit uint64,
@@ -492,14 +487,8 @@ func createChainWriter(
 		fromAddress = common.HexToAddress(transmitter[0])
 	}
 
-	maxGasPrice := getKeySpecificMaxGasPrice(evmConfigs, chainID, fromAddress)
-	if maxGasPrice == nil {
-		return nil, fmt.Errorf("failed to find max gas price for chain %s", chainID.String())
-	}
-
 	chainWriterRawConfig, err := evmconfig.ChainWriterConfigRaw(
 		fromAddress,
-		maxGasPrice,
 		defaultCommitGasLimit,
 		execBatchGasLimit,
 	)
