@@ -192,14 +192,18 @@ func ConfigureRegistry(ctx context.Context, lggr logger.Logger, req ConfigureCon
 	lggr.Infow("registered capabilities", "capabilities", capabilitiesResp.donToCapabilities)
 
 	// register node operators
-	var nops []kcr.CapabilitiesRegistryNodeOperator
+	dedupedNops := make(map[kcr.CapabilitiesRegistryNodeOperator]struct{})
+	var nopsList []kcr.CapabilitiesRegistryNodeOperator
 	for _, nop := range nodeIdToNop {
-		nops = append(nops, nop)
+		dedupedNops[nop] = struct{}{}
+	}
+	for nop := range dedupedNops {
+		nopsList = append(nopsList, nop)
 	}
 	nopsResp, err := RegisterNOPS(ctx, lggr, RegisterNOPSRequest{
 		Chain:    registryChain,
 		Registry: registry,
-		Nops:     nops,
+		Nops:     nopsList,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to register node operators: %w", err)
