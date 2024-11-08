@@ -345,7 +345,7 @@ func (h *retryableAuthenticatedHTTPClient) Delete(ctx context.Context, path stri
 	})
 }
 
-func (h *retryableAuthenticatedHTTPClient) doRequestWithRetry(ctx context.Context, req func() (*http.Response, error)) (*http.Response, error) {
+func (h *retryableAuthenticatedHTTPClient) doRequestWithRetry(_ context.Context, req func() (*http.Response, error)) (*http.Response, error) {
 	retryCount := 3
 	for i := 0; i < retryCount; i++ {
 		h.logger.Tracew("Attempting request", "attempt", i+1, "maxAttempts", retryCount)
