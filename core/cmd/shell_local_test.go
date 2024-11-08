@@ -83,11 +83,37 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 			})
 			db := pgtest.NewSqlxDB(t)
 			keyStore := cltest.NewKeyStore(t, db)
+			authProviderORM := localauth.NewORM(db, time.Minute, logger.TestLogger(t), audit.NoopLogger)
+
 			lggr := logger.TestLogger(t)
+
+			opts := legacyevm.ChainRelayOpts{
+				Logger:   lggr,
+				KeyStore: keyStore.Eth(),
+				ChainOpts: legacyevm.ChainOpts{
+					AppConfig: cfg,
+					MailMon:   &mailbox.Monitor{},
+					DS:        db,
+				},
+			}
+			testRelayers := genTestEVMRelayers(t, opts, keyStore)
 
 			// Purge the fixture users to test assumption of single admin
 			// initialUser user created above
 			pgtest.MustExec(t, db, "DELETE FROM users;")
+
+			app := mocks.NewApplication(t)
+			app.On("AuthenticationProvider").Return(authProviderORM).Maybe()
+			app.On("BasicAdminUsersORM").Return(authProviderORM).Maybe()
+			app.On("GetKeyStore").Return(keyStore).Maybe()
+			app.On("GetRelayers").Return(testRelayers).Maybe()
+			app.On("Start", mock.Anything).Maybe().Return(nil)
+			app.On("Stop").Maybe().Return(nil)
+			app.On("ID").Maybe().Return(uuid.New())
+
+			ethClient := evmtest.NewEthClientMock(t)
+			ethClient.On("Dial", mock.Anything).Return(nil).Maybe()
+			ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil).Maybe()
 
 			cltest.MustInsertRandomKey(t, keyStore.Eth())
 			apiPrompt := cltest.NewMockAPIInitializer(t)
