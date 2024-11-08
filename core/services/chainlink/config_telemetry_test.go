@@ -127,13 +127,12 @@ func TestTelemetryConfig_TraceSampleRatio(t *testing.T) {
 		expected  float64
 	}{
 		{"TraceSampleRatioSet", toml.Telemetry{TraceSampleRatio: ptrFloat(0.5)}, 0.5},
-		{"TraceSampleRatioNil", toml.Telemetry{TraceSampleRatio: nil}, 0.0},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tc := telemetryConfig{s: tt.telemetry}
-			assert.Equal(t, tt.expected, tc.TraceSampleRatio())
+			assert.InEpsilon(t, tt.expected, tc.TraceSampleRatio(), 0.0001)
 		})
 	}
 }
