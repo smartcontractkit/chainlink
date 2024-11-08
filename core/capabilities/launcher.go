@@ -265,6 +265,7 @@ func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON registrysync
 						codec,
 						signers,
 						int(remoteDON.F+1),
+						info.ID,
 						w.lggr,
 					)
 				} else {
