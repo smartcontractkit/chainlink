@@ -97,6 +97,7 @@ func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing, cfgTeleme
 			for k, v := range cfgTelemetry.ResourceAttributes() {
 				attributes = append(attributes, attribute.String(k, v))
 			}
+
 			clientCfg := beholder.Config{
 				InsecureConnection:       cfgTelemetry.InsecureConnection(),
 				CACertFile:               cfgTelemetry.CACertFile(),
