@@ -504,6 +504,12 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
   bool internal s_primaryLocked;
 
   /**
+   * @notice indicates that a new report arrived from the secondary feed and the round id was updated
+   * @param secondaryRoundId the new secondary round id
+   */
+  event SecondaryRoundIdUpdated(uint32 indexed secondaryRoundId);
+
+  /**
    * @notice emitted when a new cutoff time is set
    * @param cutoffTime the new defined cutoff time
    */
@@ -805,8 +811,9 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
       // In case the report exists, copy the round id and pay the transmitter
       if (exist) {
         s_hotVars.latestSecondaryRoundId = roundId;
-        _payTransmitter(s_hotVars, report_.juelsPerFeeCoin, uint32(initialGas), msg.sender);
+        emit SecondaryRoundIdUpdated(roundId);
 
+        _payTransmitter(s_hotVars, report_.juelsPerFeeCoin, uint32(initialGas), msg.sender);
         return;
       }
       // In case the report doesn't exist, lock the primary feed
@@ -969,6 +976,7 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     // in case the sender is the secondary proxy, update the latest secondary round id
     if (isSecondary) {
       hotVars.latestSecondaryRoundId = hotVars.latestAggregatorRoundId;
+      emit SecondaryRoundIdUpdated(hotVars.latestSecondaryRoundId);
     }
 
     // persist updates to hotVars
