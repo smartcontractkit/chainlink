@@ -3,7 +3,7 @@ pragma solidity 0.8.24;
 
 import {IRouterClient} from "../../interfaces/IRouterClient.sol";
 import {Client} from "../../libraries/Client.sol";
-import {OnRampSetup} from "../onRamp/onRamp/OnRampSetup.t.sol";
+import {OnRampSetup} from "../onRamp/OnRamp/OnRampSetup.t.sol";
 
 contract Router_getFee is OnRampSetup {
   function test_GetFeeSupportedChain_Success() public view {

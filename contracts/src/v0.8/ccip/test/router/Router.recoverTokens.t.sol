@@ -6,7 +6,7 @@ import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/tok
 import {Router} from "../../Router.sol";
 
 import {MaybeRevertMessageReceiver} from "../helpers/receivers/MaybeRevertMessageReceiver.sol";
-import {OnRampSetup} from "../onRamp/onRamp/OnRampSetup.t.sol";
+import {OnRampSetup} from "../onRamp/OnRamp/OnRampSetup.t.sol";
 
 contract Router_recoverTokens is OnRampSetup {
   function test_RecoverTokens_Success() public {

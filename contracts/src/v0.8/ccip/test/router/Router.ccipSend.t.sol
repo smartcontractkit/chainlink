@@ -10,7 +10,7 @@ import {Client} from "../../libraries/Client.sol";
 import {Internal} from "../../libraries/Internal.sol";
 
 import {OnRamp} from "../../onRamp/OnRamp.sol";
-import {OnRampSetup} from "../onRamp/onRamp/OnRampSetup.t.sol";
+import {OnRampSetup} from "../onRamp/OnRamp/OnRampSetup.t.sol";
 
 contract Router_ccipSend is OnRampSetup {
   event Burned(address indexed sender, uint256 amount);
