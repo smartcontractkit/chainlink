@@ -1093,7 +1093,7 @@ func (r *RPCClient) BalanceAt(ctx context.Context, account common.Address, block
 	return
 }
 
-func (r *RPCClient) FeeHistory(ctx context.Context, blockCount uint64, rewardPercentiles []float64) (feeHistory *ethereum.FeeHistory, err error) {
+func (r *RPCClient) FeeHistory(ctx context.Context, blockCount uint64, lastBlock *big.Int, rewardPercentiles []float64) (feeHistory *ethereum.FeeHistory, err error) {
 	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx, r.rpcTimeout)
 	defer cancel()
 	lggr := r.newRqLggr().With("blockCount", blockCount, "rewardPercentiles", rewardPercentiles)
@@ -1101,10 +1101,10 @@ func (r *RPCClient) FeeHistory(ctx context.Context, blockCount uint64, rewardPer
 	lggr.Debug("RPC call: evmclient.Client#FeeHistory")
 	start := time.Now()
 	if http != nil {
-		feeHistory, err = http.geth.FeeHistory(ctx, blockCount, nil, rewardPercentiles)
+		feeHistory, err = http.geth.FeeHistory(ctx, blockCount, lastBlock, rewardPercentiles)
 		err = r.wrapHTTP(err)
 	} else {
-		feeHistory, err = ws.geth.FeeHistory(ctx, blockCount, nil, rewardPercentiles)
+		feeHistory, err = ws.geth.FeeHistory(ctx, blockCount, lastBlock, rewardPercentiles)
 		err = r.wrapWS(err)
 	}
 	duration := time.Since(start)

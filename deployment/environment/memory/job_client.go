@@ -4,15 +4,22 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
+	"strings"
 
+	"github.com/AlekSi/pointer"
 	"github.com/ethereum/go-ethereum/common"
 	"google.golang.org/grpc"
+
+	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	csav1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/csa"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
+	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/validate"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 )
 
 type JobClient struct {
@@ -62,7 +69,7 @@ func (j JobClient) GetNode(ctx context.Context, in *nodev1.GetNodeRequest, opts 
 	return &nodev1.GetNodeResponse{
 		Node: &nodev1.Node{
 			Id:          in.Id,
-			PublicKey:   n.Keys.OCRKeyBundle.ID(), // is this the correct val?
+			PublicKey:   n.Keys.CSA.PublicKeyString(),
 			IsEnabled:   true,
 			IsConnected: true,
 		},
@@ -71,35 +78,61 @@ func (j JobClient) GetNode(ctx context.Context, in *nodev1.GetNodeRequest, opts 
 
 func (j JobClient) ListNodes(ctx context.Context, in *nodev1.ListNodesRequest, opts ...grpc.CallOption) (*nodev1.ListNodesResponse, error) {
 	//TODO CCIP-3108
-	var fiterIds map[string]struct{}
-	include := func(id string) bool {
-		if in.Filter == nil || len(in.Filter.Ids) == 0 {
+	include := func(node *nodev1.Node) bool {
+		if in.Filter == nil {
 			return true
 		}
-		// lazy init
-		if len(fiterIds) == 0 {
-			for _, id := range in.Filter.Ids {
-				fiterIds[id] = struct{}{}
+		if len(in.Filter.Ids) > 0 {
+			idx := slices.IndexFunc(in.Filter.Ids, func(id string) bool {
+				return node.Id == id
+			})
+			if idx < 0 {
+				return false
 			}
 		}
-		_, ok := fiterIds[id]
-		return ok
+		for _, selector := range in.Filter.Selectors {
+			idx := slices.IndexFunc(node.Labels, func(label *ptypes.Label) bool {
+				return label.Key == selector.Key
+			})
+			if idx < 0 {
+				return false
+			}
+			label := node.Labels[idx]
+
+			switch selector.Op {
+			case ptypes.SelectorOp_IN:
+				values := strings.Split(*selector.Value, ",")
+				found := slices.Contains(values, *label.Value)
+				if !found {
+					return false
+				}
+			default:
+				panic("unimplemented selector")
+			}
+		}
+		return true
 	}
 	var nodes []*nodev1.Node
 	for id, n := range j.Nodes {
-		if include(id) {
-			nodes = append(nodes, &nodev1.Node{
-				Id:          id,
-				PublicKey:   n.Keys.OCRKeyBundle.ID(), // is this the correct val?
-				IsEnabled:   true,
-				IsConnected: true,
-			})
+		node := &nodev1.Node{
+			Id:          id,
+			PublicKey:   n.Keys.CSA.ID(),
+			IsEnabled:   true,
+			IsConnected: true,
+			Labels: []*ptypes.Label{
+				{
+					Key:   "p2p_id",
+					Value: pointer.ToString(n.Keys.PeerID.String()),
+				},
+			},
+		}
+		if include(node) {
+			nodes = append(nodes, node)
 		}
 	}
 	return &nodev1.ListNodesResponse{
 		Nodes: nodes,
 	}, nil
-
 }
 
 func (j JobClient) ListNodeChainConfigs(ctx context.Context, in *nodev1.ListNodeChainConfigsRequest, opts ...grpc.CallOption) (*nodev1.ListNodeChainConfigsResponse, error) {
@@ -113,8 +146,17 @@ func (j JobClient) ListNodeChainConfigs(ctx context.Context, in *nodev1.ListNode
 	if !ok {
 		return nil, fmt.Errorf("node id not found: %s", in.Filter.NodeIds[0])
 	}
-	offpk := n.Keys.OCRKeyBundle.OffchainPublicKey()
-	cpk := n.Keys.OCRKeyBundle.ConfigEncryptionPublicKey()
+	evmBundle := n.Keys.OCRKeyBundles[chaintype.EVM]
+	offpk := evmBundle.OffchainPublicKey()
+	cpk := evmBundle.ConfigEncryptionPublicKey()
+
+	evmKeyBundle := &nodev1.OCR2Config_OCRKeyBundle{
+		BundleId:              evmBundle.ID(),
+		ConfigPublicKey:       common.Bytes2Hex(cpk[:]),
+		OffchainPublicKey:     common.Bytes2Hex(offpk[:]),
+		OnchainSigningAddress: evmBundle.OnChainPublicKey(),
+	}
+
 	var chainConfigs []*nodev1.ChainConfig
 	for evmChainID, transmitter := range n.Keys.TransmittersByEVMChainID {
 		chainConfigs = append(chainConfigs, &nodev1.ChainConfig{
@@ -123,6 +165,84 @@ func (j JobClient) ListNodeChainConfigs(ctx context.Context, in *nodev1.ListNode
 				Type: nodev1.ChainType_CHAIN_TYPE_EVM,
 			},
 			AccountAddress: transmitter.String(),
+			AdminAddress:   transmitter.String(), // TODO: custom address
+			Ocr1Config:     nil,
+			Ocr2Config: &nodev1.OCR2Config{
+				Enabled:     true,
+				IsBootstrap: n.IsBoostrap,
+				P2PKeyBundle: &nodev1.OCR2Config_P2PKeyBundle{
+					PeerId: n.Keys.PeerID.String(),
+				},
+				OcrKeyBundle:     evmKeyBundle,
+				Multiaddr:        n.Addr.String(),
+				Plugins:          nil,
+				ForwarderAddress: ptr(""),
+			},
+		})
+	}
+	for _, selector := range n.Chains {
+		family, err := chainsel.GetSelectorFamily(selector)
+		if err != nil {
+			return nil, err
+		}
+		chainID, err := chainsel.ChainIdFromSelector(selector)
+		if err != nil {
+			return nil, err
+		}
+
+		if family == chainsel.FamilyEVM {
+			// already handled above
+			continue
+		}
+
+		var ocrtype chaintype.ChainType
+		switch family {
+		case chainsel.FamilyEVM:
+			ocrtype = chaintype.EVM
+		case chainsel.FamilySolana:
+			ocrtype = chaintype.Solana
+		case chainsel.FamilyStarknet:
+			ocrtype = chaintype.StarkNet
+		case chainsel.FamilyCosmos:
+			ocrtype = chaintype.Cosmos
+		case chainsel.FamilyAptos:
+			ocrtype = chaintype.Aptos
+		default:
+			panic(fmt.Sprintf("Unsupported chain family %v", family))
+		}
+
+		bundle := n.Keys.OCRKeyBundles[ocrtype]
+
+		offpk := bundle.OffchainPublicKey()
+		cpk := bundle.ConfigEncryptionPublicKey()
+
+		keyBundle := &nodev1.OCR2Config_OCRKeyBundle{
+			BundleId:              bundle.ID(),
+			ConfigPublicKey:       common.Bytes2Hex(cpk[:]),
+			OffchainPublicKey:     common.Bytes2Hex(offpk[:]),
+			OnchainSigningAddress: bundle.OnChainPublicKey(),
+		}
+
+		var ctype nodev1.ChainType
+		switch family {
+		case chainsel.FamilyEVM:
+			ctype = nodev1.ChainType_CHAIN_TYPE_EVM
+		case chainsel.FamilySolana:
+			ctype = nodev1.ChainType_CHAIN_TYPE_SOLANA
+		case chainsel.FamilyStarknet:
+			ctype = nodev1.ChainType_CHAIN_TYPE_STARKNET
+		case chainsel.FamilyAptos:
+			ctype = nodev1.ChainType_CHAIN_TYPE_APTOS
+		default:
+			panic(fmt.Sprintf("Unsupported chain family %v", family))
+		}
+
+		chainConfigs = append(chainConfigs, &nodev1.ChainConfig{
+			Chain: &nodev1.Chain{
+				Id:   strconv.Itoa(int(chainID)),
+				Type: ctype,
+			},
+			AccountAddress: "", // TODO: support AccountAddress
 			AdminAddress:   "",
 			Ocr1Config:     nil,
 			Ocr2Config: &nodev1.OCR2Config{
@@ -131,19 +251,13 @@ func (j JobClient) ListNodeChainConfigs(ctx context.Context, in *nodev1.ListNode
 				P2PKeyBundle: &nodev1.OCR2Config_P2PKeyBundle{
 					PeerId: n.Keys.PeerID.String(),
 				},
-				OcrKeyBundle: &nodev1.OCR2Config_OCRKeyBundle{
-					BundleId:              n.Keys.OCRKeyBundle.ID(),
-					ConfigPublicKey:       common.Bytes2Hex(cpk[:]),
-					OffchainPublicKey:     common.Bytes2Hex(offpk[:]),
-					OnchainSigningAddress: n.Keys.OCRKeyBundle.OnChainPublicKey(),
-				},
+				OcrKeyBundle:     keyBundle,
 				Multiaddr:        n.Addr.String(),
 				Plugins:          nil,
 				ForwarderAddress: ptr(""),
 			},
 		})
 	}
-
 	// TODO: I think we can pull it from the feeds manager.
 	return &nodev1.ListNodeChainConfigsResponse{
 		ChainConfigs: chainConfigs,

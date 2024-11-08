@@ -95,6 +95,17 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 				consts.EventNameExecutionStateChanged: {
 					ChainSpecificName: mustGetEventName(consts.EventNameExecutionStateChanged, offrampABI),
 					ReadType:          evmrelaytypes.Event,
+					EventDefinitions: &evmrelaytypes.EventDefinitions{
+						GenericTopicNames: map[string]string{
+							"sourceChainSelector": consts.EventAttributeSourceChain,
+							"sequenceNumber":      consts.EventAttributeSequenceNumber,
+						},
+						GenericDataWordDetails: map[string]evmrelaytypes.DataWordDetail{
+							consts.EventAttributeState: {
+								Name: "state",
+							},
+						},
+					},
 				},
 			},
 		},
@@ -210,6 +221,13 @@ var SourceReaderConfig = evmrelaytypes.ChainReaderConfig{
 				consts.EventNameCCIPMessageSent: {
 					ChainSpecificName: mustGetEventName("CCIPMessageSent", onrampABI),
 					ReadType:          evmrelaytypes.Event,
+					EventDefinitions: &evmrelaytypes.EventDefinitions{
+						GenericDataWordDetails: map[string]evmrelaytypes.DataWordDetail{
+							consts.EventAttributeSourceChain:    {Name: "message.header.sourceChainSelector"},
+							consts.EventAttributeDestChain:      {Name: "message.header.destChainSelector"},
+							consts.EventAttributeSequenceNumber: {Name: "message.header.sequenceNumber"},
+						},
+					},
 				},
 				consts.MethodNameOnRampGetStaticConfig: {
 					ChainSpecificName: mustGetMethodName("getStaticConfig", onrampABI),

@@ -12,7 +12,8 @@ union JobSpec =
     BootstrapSpec |
     GatewaySpec |
     WorkflowSpec |
-    StandardCapabilitiesSpec
+    StandardCapabilitiesSpec |
+    StreamSpec
 
 type CronSpec {
     schedule: String!
@@ -178,4 +179,8 @@ type StandardCapabilitiesSpec {
     createdAt: Time!
     command: String!
     config: String
+}
+
+type StreamSpec {
+    streamID: String!
 }

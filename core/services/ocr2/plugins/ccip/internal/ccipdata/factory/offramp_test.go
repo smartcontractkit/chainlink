@@ -9,6 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	mocks2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
@@ -19,6 +20,7 @@ import (
 )
 
 func TestOffRamp(t *testing.T) {
+	ctx := tests.Context(t)
 	for _, versionStr := range []string{ccipdata.V1_2_0} {
 		lggr := logger.Test(t)
 		addr := cciptypes.Address(utils.RandomAddress().String())
@@ -32,13 +34,13 @@ func TestOffRamp(t *testing.T) {
 		versionFinder := newMockVersionFinder(ccipconfig.EVM2EVMOffRamp, *semver.MustParse(versionStr), nil)
 
 		lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil).Times(len(expFilterNames))
-		_, err := NewOffRampReader(lggr, versionFinder, addr, nil, lp, nil, nil, true)
+		_, err := NewOffRampReader(ctx, lggr, versionFinder, addr, nil, lp, nil, nil, true)
 		assert.NoError(t, err)
 
 		for _, f := range expFilterNames {
 			lp.On("UnregisterFilter", mock.Anything, f).Return(nil)
 		}
-		err = CloseOffRampReader(lggr, versionFinder, addr, nil, lp, nil, nil)
+		err = CloseOffRampReader(ctx, lggr, versionFinder, addr, nil, lp, nil, nil)
 		assert.NoError(t, err)
 	}
 }

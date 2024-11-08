@@ -6,10 +6,12 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/AlekSi/pointer"
 	"github.com/test-go/testify/require"
 	"google.golang.org/grpc"
 
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
+	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 	"github.com/smartcontractkit/chainlink/deployment/environment/clo"
 	"github.com/smartcontractkit/chainlink/deployment/environment/clo/models"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -135,6 +137,12 @@ func TestJobClient_ListNodes(t *testing.T) {
 						Name:        "Chainlink Sepolia Prod Keystone One 9",
 						PublicKey:   "412dc6fe48ea4e34baaa77da2e3b032d39b938597b6f3d61fe7ed183a827a431",
 						IsConnected: true,
+						Labels: []*ptypes.Label{
+							{
+								Key:   "p2p_id",
+								Value: pointer.ToString("780"),
+							},
+						},
 					},
 				},
 			},
@@ -155,12 +163,24 @@ func TestJobClient_ListNodes(t *testing.T) {
 						Name:        "Chainlink Sepolia Prod Keystone One 9",
 						PublicKey:   "412dc6fe48ea4e34baaa77da2e3b032d39b938597b6f3d61fe7ed183a827a431",
 						IsConnected: true,
+						Labels: []*ptypes.Label{
+							{
+								Key:   "p2p_id",
+								Value: pointer.ToString("780"),
+							},
+						},
 					},
 					{
 						Id:          "781",
 						Name:        "Chainlink Sepolia Prod Keystone One 8",
 						PublicKey:   "1141dd1e46797ced9b0fbad49115f18507f6f6e6e3cc86e7e5ba169e58645adc",
 						IsConnected: true,
+						Labels: []*ptypes.Label{
+							{
+								Key:   "p2p_id",
+								Value: pointer.ToString("781"),
+							},
+						},
 					},
 				},
 			},
@@ -181,12 +201,24 @@ func TestJobClient_ListNodes(t *testing.T) {
 						Name:        "Chainlink Sepolia Prod Keystone One 999",
 						PublicKey:   "9991dd1e46797ced9b0fbad49115f18507f6f6e6e3cc86e7e5ba169e58999999",
 						IsConnected: true,
+						Labels: []*ptypes.Label{
+							{
+								Key:   "p2p_id",
+								Value: pointer.ToString("999"),
+							},
+						},
 					},
 					{
 						Id:          "1000",
 						Name:        "Chainlink Sepolia Prod Keystone One 1000",
 						PublicKey:   "1000101e46797ced9b0fbad49115f18507f6f6e6e3cc86e7e5ba169e58641000",
 						IsConnected: true,
+						Labels: []*ptypes.Label{
+							{
+								Key:   "p2p_id",
+								Value: pointer.ToString("1000"),
+							},
+						},
 					},
 				},
 			},

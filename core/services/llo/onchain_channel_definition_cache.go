@@ -108,7 +108,7 @@ type channelDefinitionCache struct {
 	persistedVersion uint32
 
 	wg     sync.WaitGroup
-	chStop chan struct{}
+	chStop services.StopChan
 }
 
 type HTTPClient interface {
@@ -180,7 +180,7 @@ func (c *channelDefinitionCache) Start(ctx context.Context) error {
 func (c *channelDefinitionCache) pollChainLoop() {
 	defer c.wg.Done()
 
-	ctx, cancel := services.StopChan(c.chStop).NewCtx()
+	ctx, cancel := c.chStop.NewCtx()
 	defer cancel()
 
 	pollT := services.NewTicker(c.logPollInterval)
@@ -353,7 +353,7 @@ func (c *channelDefinitionCache) fetchAndSetChannelDefinitions(ctx context.Conte
 	c.definitionsVersion = log.Version
 	c.definitionsMu.Unlock()
 
-	if memoryVersion, persistedVersion, err := c.persist(context.Background()); err != nil {
+	if memoryVersion, persistedVersion, err := c.persist(ctx); err != nil {
 		// If this fails, the failedPersistLoop will try again
 		c.lggr.Warnw("Failed to persist channel definitions", "err", err, "memoryVersion", memoryVersion, "persistedVersion", persistedVersion)
 	}
@@ -457,7 +457,7 @@ func (c *channelDefinitionCache) persist(ctx context.Context) (memoryVersion, pe
 func (c *channelDefinitionCache) failedPersistLoop() {
 	defer c.wg.Done()
 
-	ctx, cancel := services.StopChan(c.chStop).NewCtx()
+	ctx, cancel := c.chStop.NewCtx()
 	defer cancel()
 
 	for {

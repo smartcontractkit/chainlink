@@ -59,7 +59,7 @@ jobs:
 
       - uses: actions/cache/restore@v4
         with:
-          path: dist/linux_arm64
+          path: dist/linux_arm64_v8.0
           key: chainlink-arm64-${{ github.sha }}-${{ github.ref_name }}
           fail-on-cache-miss: true
 
@@ -87,7 +87,7 @@ jobs:
 
           - runner: ubuntu-24.04-4cores-16GB-ARM
             goarch: arm64
-            dist_name: linux_arm64
+            dist_name: linux_arm64_v8.0
     environment: build-publish
     permissions:
       id-token: write

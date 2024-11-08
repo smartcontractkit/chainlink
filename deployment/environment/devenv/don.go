@@ -34,6 +34,7 @@ type NodeInfo struct {
 	Name        string                   // name of the node, used to identify the node, helpful in logs
 	AdminAddr   string                   // admin address to send payments to, applicable only for non-bootstrap nodes
 	MultiAddr   string                   // multi address denoting node's FQN (needed for deriving P2PBootstrappers in OCR), applicable only for bootstrap nodes
+	Labels      map[string]string        // labels to use when registering the node with job distributor
 }
 
 type DON struct {
@@ -104,6 +105,12 @@ func NewRegisteredDON(ctx context.Context, nodeInfo []NodeInfo, jd JobDistributo
 			return nil, fmt.Errorf("failed to create node %d: %w", i, err)
 		}
 		// node Labels so that it's easier to query them
+		for key, value := range info.Labels {
+			node.labels = append(node.labels, &ptypes.Label{
+				Key:   key,
+				Value: pointer.ToString(value),
+			})
+		}
 		if info.IsBootstrap {
 			// create multi address for OCR2, applicable only for bootstrap nodes
 			if info.MultiAddr == "" {
@@ -181,17 +188,35 @@ type JDChainConfigInput struct {
 func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChainConfigInput, jd JobDistributor) error {
 	for i, chain := range chains {
 		chainId := strconv.FormatUint(chain.ChainID, 10)
-		accountAddr, err := n.gqlClient.FetchAccountAddress(ctx, chainId)
-		if err != nil {
-			return fmt.Errorf("failed to fetch account address for node %s: %w", n.Name, err)
+		var account string
+		switch chain.ChainType {
+		case "EVM":
+			accountAddr, err := n.gqlClient.FetchAccountAddress(ctx, chainId)
+			if err != nil {
+				return fmt.Errorf("failed to fetch account address for node %s: %w", n.Name, err)
+			}
+			if accountAddr == nil {
+				return fmt.Errorf("no account address found for node %s", n.Name)
+			}
+			if n.AccountAddr == nil {
+				n.AccountAddr = make(map[uint64]string)
+			}
+			n.AccountAddr[chain.ChainID] = *accountAddr
+			account = *accountAddr
+		case "APTOS", "SOLANA":
+			accounts, err := n.gqlClient.FetchKeys(ctx, chain.ChainType)
+			if err != nil {
+				return fmt.Errorf("failed to fetch account address for node %s: %w", n.Name, err)
+			}
+			if len(accounts) == 0 {
+				return fmt.Errorf("no account address found for node %s", n.Name)
+			}
+
+			account = accounts[0]
+		default:
+			return fmt.Errorf("unsupported chainType %v", chain.ChainType)
 		}
-		if accountAddr == nil {
-			return fmt.Errorf("no account address found for node %s", n.Name)
-		}
-		if n.AccountAddr == nil {
-			n.AccountAddr = make(map[uint64]string)
-		}
-		n.AccountAddr[chain.ChainID] = *accountAddr
+
 		peerID, err := n.gqlClient.FetchP2PPeerID(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to fetch peer id for node %s: %w", n.Name, err)
@@ -221,7 +246,7 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 			JobDistributorID: n.JDId,
 			ChainID:          chainId,
 			ChainType:        chain.ChainType,
-			AccountAddr:      pointer.GetString(accountAddr),
+			AccountAddr:      account,
 			AdminAddr:        n.adminAddr,
 			Ocr2Enabled:      true,
 			Ocr2IsBootstrap:  isBootstrap,
@@ -291,6 +316,20 @@ func (n *Node) RegisterNodeToJobDistributor(ctx context.Context, jd JobDistribut
 		return fmt.Errorf("no csa key found for node %s", n.Name)
 	}
 	csaKey := strings.TrimPrefix(*csaKeyRes, "csa_")
+
+	// tag nodes with p2p_id for easy lookup
+	peerID, err := n.gqlClient.FetchP2PPeerID(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to fetch peer id for node %s: %w", n.Name, err)
+	}
+	if peerID == nil {
+		return fmt.Errorf("no peer id found for node %s", n.Name)
+	}
+	n.labels = append(n.labels, &ptypes.Label{
+		Key:   "p2p_id",
+		Value: pointer.ToString(*peerID),
+	})
+
 	// register the node in the job distributor
 	registerResponse, err := jd.RegisterNode(ctx, &nodev1.RegisterNodeRequest{
 		PublicKey: csaKey,
