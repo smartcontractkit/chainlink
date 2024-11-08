@@ -21,7 +21,8 @@ contract DualAggregatorHarness is DualAggregator {
     uint8 decimals_,
     string memory description_,
     address secondaryProxy_,
-    uint32 cutoffTime_
+    uint32 cutoffTime_,
+    uint32 maxSyncIterations_
   )
     DualAggregator(
       link,
@@ -32,7 +33,8 @@ contract DualAggregatorHarness is DualAggregator {
       decimals_,
       description_,
       secondaryProxy_,
-      cutoffTime_
+      cutoffTime_,
+      maxSyncIterations_
     )
   {}
 
@@ -133,7 +135,8 @@ contract DualAggregatorBaseTest is Test {
       18,
       "TEST",
       SECONDARY_PROXY,
-      0
+      0,
+      10
     );
     harness = new DualAggregatorHarness(
       linkTokenInterface,
@@ -144,7 +147,8 @@ contract DualAggregatorBaseTest is Test {
       18,
       "TEST",
       SECONDARY_PROXY,
-      0
+      0,
+      10
     );
   }
 
@@ -170,13 +174,19 @@ contract ConfiguredDualAggregatorBaseTest is DualAggregatorBaseTest {
     super.setUp();
 
     uint256[] memory privateKeys = new uint256[](MAX_NUM_ORACLES);
-    for (uint256 i = 0; i < MAX_NUM_ORACLES; i++) {
+    for (uint256 i = 0; i < MAX_NUM_ORACLES - 1; i++) {
       uint256 privateKey = uint256(keccak256(abi.encodePacked(i, "oracle-generator-seed")));
       address publicKey = vm.addr(privateKey);
       privateKeys[i] = privateKey;
       transmitters[i] = publicKey;
       signers[i] = publicKey;
     }
+
+    // add the secondary proxy as an approved transmitter/signer
+    uint256 secondaryProxyPrivateKey = uint256(keccak256(abi.encodePacked(uint256(102), "oracle-generator-seed")));
+    privateKeys[MAX_NUM_ORACLES - 1] = secondaryProxyPrivateKey;
+    transmitters[MAX_NUM_ORACLES - 1] = SECONDARY_PROXY;
+    signers[MAX_NUM_ORACLES - 1] = SECONDARY_PROXY;
 
     aggregator.setConfig(signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig);
     configDigest = harness.exposed_configDigestFromConfigData(
@@ -454,12 +464,18 @@ contract GetRequesterAccessController is DualAggregatorBaseTest {
 // TODO: determine if we need this method still
 contract RequestNewRound is ConfiguredDualAggregatorBaseTest {}
 
-contract Trasmit is ConfiguredDualAggregatorBaseTest {
-  uint32 epoch = 0;
-  uint32 round = 0;
+contract Transmit is ConfiguredDualAggregatorBaseTest {
+  uint32 constant CUTOFF_TIME = 40;
+
+  struct Report {
+    int192 price;
+    uint32 timestamp;
+  }
 
   function setUp() public override {
     super.setUp();
+
+    aggregator.setCutoffTime(CUTOFF_TIME);
   }
 
   function test_RevertIf_UnauthorizedTransmitter() public {
@@ -514,7 +530,7 @@ contract Trasmit is ConfiguredDualAggregatorBaseTest {
     vm.startPrank(transmitters[0]);
     vm.expectRevert(DualAggregator.WrongNumberOfSignatures.selector);
 
-    bytes memory epochAndRound = abi.encodePacked(bytes27(0), epoch, round);
+    bytes memory epochAndRound = abi.encodePacked(bytes27(0), uint32(0), uint8(0));
 
     bytes32[3] memory reportContext = [configDigest, bytes32(epochAndRound), bytes32(abi.encodePacked("1"))];
     bytes memory report = new bytes(0);
@@ -529,7 +545,7 @@ contract Trasmit is ConfiguredDualAggregatorBaseTest {
     vm.startPrank(transmitters[0]);
     vm.expectRevert(DualAggregator.SignaturesOutOfRegistration.selector);
 
-    bytes memory epochAndRound = abi.encodePacked(bytes27(0), uint32(epoch), uint32(round));
+    bytes memory epochAndRound = abi.encodePacked(bytes27(0), uint32(0), uint8(0));
     bytes32[3] memory reportContext = [configDigest, bytes32(epochAndRound), bytes32(abi.encodePacked("1"))];
     bytes memory report = new bytes(0);
     bytes32 rawVs = bytes32(abi.encodePacked("1"));
@@ -541,454 +557,585 @@ contract Trasmit is ConfiguredDualAggregatorBaseTest {
 
   function test_RevertIf_SignatureError() public {
     vm.startPrank(transmitters[0]);
+
+    ReportGenerator.SignedReport memory signedReport =
+      s_reportGenerator.generateSignedReport(0, uint32(block.timestamp));
+
+    signedReport.rs[0] = bytes32(abi.encodePacked("1"));
+    signedReport.rs[1] = bytes32(abi.encodePacked("1"));
+    signedReport.ss[0] = bytes32(abi.encodePacked("1"));
+    signedReport.ss[1] = bytes32(abi.encodePacked("1"));
+
     vm.expectRevert(DualAggregator.SignatureError.selector);
-
-    bytes memory epochAndRound = abi.encodePacked(bytes27(0), uint32(epoch), uint32(round));
-    bytes32[3] memory reportContext = [configDigest, bytes32(epochAndRound), bytes32(abi.encodePacked("1"))];
-    bytes memory report = new bytes(0);
-    bytes32 rawVs = bytes32(abi.encodePacked("1"));
-    bytes32[] memory rs = new bytes32[](2);
-    bytes32[] memory ss = new bytes32[](2);
-
-    rs[0] = bytes32(abi.encodePacked("1"));
-    rs[1] = bytes32(abi.encodePacked("1"));
-    ss[0] = bytes32(abi.encodePacked("1"));
-    ss[1] = bytes32(abi.encodePacked("1"));
-
-    aggregator.transmit(reportContext, report, rs, ss, rawVs);
+    aggregator.transmit(
+      signedReport.reportContext, signedReport.report, signedReport.rs, signedReport.ss, signedReport.rawVs
+    );
   }
 
-  // TODO: figure this test case out better
-  // for some reason it thinks the signers aren't active
   function test_RevertIf_DuplicateSigner() public {
     vm.startPrank(transmitters[0]);
+
+    ReportGenerator.SignedReport memory signedReport =
+      s_reportGenerator.generateSignedReport(0, uint32(block.timestamp));
+
+    signedReport.rs[1] = signedReport.rs[0];
+    signedReport.ss[1] = signedReport.ss[0];
+
     vm.expectRevert(DualAggregator.DuplicateSigner.selector);
-
-    bytes memory epochAndRound = abi.encodePacked(bytes27(0), uint32(epoch), uint32(round));
-    bytes32[3] memory reportContext = [configDigest, bytes32(epochAndRound), bytes32(abi.encodePacked("1"))];
-    bytes memory report = new bytes(0);
-
-    bytes32 h = keccak256(abi.encode(keccak256(report), reportContext));
-    (uint8 v1, bytes32 r1, bytes32 s1) = vm.sign(1, h);
-    bytes32[] memory rs = new bytes32[](2);
-    bytes32[] memory ss = new bytes32[](2);
-
-    rs[0] = r1;
-    rs[1] = r1;
-    ss[0] = s1;
-    ss[1] = s1;
-
-    bytes32 rawVs = bytes32(uint256(v1));
-
-    aggregator.transmit(reportContext, report, rs, ss, rawVs);
+    aggregator.transmit(
+      signedReport.reportContext, signedReport.report, signedReport.rs, signedReport.ss, signedReport.rawVs
+    );
   }
 
   function test_ReadExpectedInitialState() public {
-    _transmitAndCheck(0, 0, 0, 0, false, false); // no transmission but check
+    Report memory report1 = Report({price: 1, timestamp: uint32(block.timestamp)});
+    ReportGenerator.SignedReport memory signedReport1 =
+      s_reportGenerator.generateSignedReport(report1.price, report1.timestamp);
+
+    _transmitAndCheck(signedReport1, 0, 0, false, false); // no transmission but check
   }
 
   function test_SyncFeedsTransmitStandardFirstNeverSameBlock() public {
-    vm.skip(true); // skip until passing
-
+    Report memory report1 = Report({price: 1, timestamp: uint32(block.timestamp)});
+    ReportGenerator.SignedReport memory signedReport1 =
+      s_reportGenerator.generateSignedReport(report1.price, report1.timestamp);
     // Report 1
     _transmitAndCheck({
-      standardFeedPrice: 1,
+      signedReport: signedReport1,
       transmitPrimary: true,
-      secondaryFeedPrice: 1,
       transmitSecondary: false,
-      expectedStandardFeedAnswer: 1,
+      expectedStandardFeedAnswer: report1.price,
       expectedSecondaryFeedAnswer: 0
     });
-    _transmitAndCheck({
-      standardFeedPrice: 1,
-      transmitPrimary: false,
-      secondaryFeedPrice: 1,
-      transmitSecondary: true,
-      expectedStandardFeedAnswer: 1,
-      expectedSecondaryFeedAnswer: 1
-    });
+    _mineBlock();
 
+    _transmitAndCheck({
+      signedReport: signedReport1,
+      transmitPrimary: false,
+      transmitSecondary: true,
+      expectedStandardFeedAnswer: report1.price,
+      expectedSecondaryFeedAnswer: report1.price
+    });
+    _mineBlock();
+
+    Report memory report2 = Report({price: 2, timestamp: uint32(block.timestamp)});
+    ReportGenerator.SignedReport memory signedReport2 =
+      s_reportGenerator.generateSignedReport(report2.price, report2.timestamp);
     // Report 2
     _transmitAndCheck({
-      standardFeedPrice: 2,
+      signedReport: signedReport2,
       transmitPrimary: true,
-      secondaryFeedPrice: 2,
       transmitSecondary: false,
-      expectedStandardFeedAnswer: 2,
-      expectedSecondaryFeedAnswer: 1
+      expectedStandardFeedAnswer: report2.price,
+      expectedSecondaryFeedAnswer: report1.price
     });
+    _mineBlock();
+
     _transmitAndCheck({
-      standardFeedPrice: 2,
+      signedReport: signedReport2,
       transmitPrimary: false,
-      secondaryFeedPrice: 2,
       transmitSecondary: true,
-      expectedStandardFeedAnswer: 2,
-      expectedSecondaryFeedAnswer: 2
+      expectedStandardFeedAnswer: report2.price,
+      expectedSecondaryFeedAnswer: report2.price
     });
   }
 
   function test_SyncFeedsTransmitSecondaryFirstNeverSameBlock() public {
-    vm.skip(true); // skip until passing
-
+    Report memory report1 = Report({price: 1, timestamp: uint32(block.timestamp)});
+    ReportGenerator.SignedReport memory signedReport1 =
+      s_reportGenerator.generateSignedReport(report1.price, report1.timestamp);
     // Report 1
     _transmitAndCheck({
-      standardFeedPrice: 1,
+      signedReport: signedReport1,
       transmitPrimary: false,
-      secondaryFeedPrice: 1,
       transmitSecondary: true,
       expectedStandardFeedAnswer: 0, // locked
-      expectedSecondaryFeedAnswer: 1
+      expectedSecondaryFeedAnswer: report1.price
     });
-    _transmitAndCheck({
-      standardFeedPrice: 1,
-      transmitPrimary: true,
-      secondaryFeedPrice: 1,
-      transmitSecondary: false,
-      expectedStandardFeedAnswer: 1,
-      expectedSecondaryFeedAnswer: 1
-    });
+    _mineBlock();
 
+    _transmitAndCheck({
+      signedReport: signedReport1,
+      transmitPrimary: true,
+      transmitSecondary: false,
+      expectedStandardFeedAnswer: report1.price,
+      expectedSecondaryFeedAnswer: report1.price
+    });
+    _mineBlock();
+
+    Report memory report2 = Report({price: 2, timestamp: uint32(block.timestamp)});
+    ReportGenerator.SignedReport memory signedReport2 =
+      s_reportGenerator.generateSignedReport(report2.price, report2.timestamp);
     // Report 2
     _transmitAndCheck({
-      standardFeedPrice: 2,
+      signedReport: signedReport2,
       transmitPrimary: false,
-      secondaryFeedPrice: 2,
       transmitSecondary: true,
-      expectedStandardFeedAnswer: 1, // locked
-      expectedSecondaryFeedAnswer: 2
+      expectedStandardFeedAnswer: report1.price, // locked
+      expectedSecondaryFeedAnswer: report2.price
+    });
+    _mineBlock();
+
+    _transmitAndCheck({
+      signedReport: signedReport2,
+      transmitPrimary: true,
+      transmitSecondary: false,
+      expectedStandardFeedAnswer: report2.price,
+      expectedSecondaryFeedAnswer: report2.price
+    });
+  }
+
+  function test_SyncFeedsTransmitStandardFirstAlwaysSameBlock() public {
+    Report memory report1 = Report({price: 1, timestamp: uint32(block.timestamp)});
+    ReportGenerator.SignedReport memory signedReport1 =
+      s_reportGenerator.generateSignedReport(report1.price, report1.timestamp);
+    // Report 1
+    _transmitAndCheck({
+      signedReport: signedReport1,
+      transmitPrimary: true,
+      transmitSecondary: false,
+      expectedStandardFeedAnswer: report1.price,
+      expectedSecondaryFeedAnswer: 0
     });
     _transmitAndCheck({
-      standardFeedPrice: 2,
+      signedReport: signedReport1,
+      transmitPrimary: false,
+      transmitSecondary: true,
+      expectedStandardFeedAnswer: report1.price,
+      expectedSecondaryFeedAnswer: report1.price
+    });
+
+    _mineBlock();
+
+    Report memory report2 = Report({price: 2, timestamp: uint32(block.timestamp)});
+    ReportGenerator.SignedReport memory signedReport2 =
+      s_reportGenerator.generateSignedReport(report2.price, report2.timestamp);
+    // Report 2
+    _transmitAndCheck({
+      signedReport: signedReport2,
       transmitPrimary: true,
-      secondaryFeedPrice: 2,
       transmitSecondary: false,
-      expectedStandardFeedAnswer: 2,
-      expectedSecondaryFeedAnswer: 2
+      expectedStandardFeedAnswer: report2.price,
+      expectedSecondaryFeedAnswer: report1.price
+    });
+    _transmitAndCheck({
+      signedReport: signedReport2,
+      transmitPrimary: false,
+      transmitSecondary: true,
+      expectedStandardFeedAnswer: report2.price,
+      expectedSecondaryFeedAnswer: report2.price
     });
   }
 
   function test_SyncFeedsTransmitSecondaryFirstAlwaysSameBlock() public {
-    vm.skip(true); // skip until passing
-
+    Report memory report1 = Report({price: 1, timestamp: uint32(block.timestamp)});
+    ReportGenerator.SignedReport memory signedReport1 =
+      s_reportGenerator.generateSignedReport(report1.price, report1.timestamp);
     // Report 1
     _transmitAndCheck({
-      standardFeedPrice: 1,
-      transmitPrimary: true,
-      secondaryFeedPrice: 1,
+      signedReport: signedReport1,
+      transmitPrimary: false,
       transmitSecondary: true,
-      expectedStandardFeedAnswer: 1,
-      expectedSecondaryFeedAnswer: 1
+      expectedStandardFeedAnswer: 0, // locked
+      expectedSecondaryFeedAnswer: report1.price
+    });
+    _transmitAndCheck({
+      signedReport: signedReport1,
+      transmitPrimary: true,
+      transmitSecondary: false,
+      expectedStandardFeedAnswer: report1.price,
+      expectedSecondaryFeedAnswer: report1.price
     });
 
+    _mineBlock();
+
+    Report memory report2 = Report({price: 2, timestamp: uint32(block.timestamp)});
+    ReportGenerator.SignedReport memory signedReport2 =
+      s_reportGenerator.generateSignedReport(report2.price, report2.timestamp);
     // Report 2
     _transmitAndCheck({
-      standardFeedPrice: 2,
-      transmitPrimary: true,
-      secondaryFeedPrice: 2,
+      signedReport: signedReport2,
+      transmitPrimary: false,
       transmitSecondary: true,
-      expectedStandardFeedAnswer: 2,
-      expectedSecondaryFeedAnswer: 2
+      expectedStandardFeedAnswer: report1.price, // locked
+      expectedSecondaryFeedAnswer: report2.price
+    });
+    _transmitAndCheck({
+      signedReport: signedReport2,
+      transmitPrimary: true,
+      transmitSecondary: false,
+      expectedStandardFeedAnswer: report2.price,
+      expectedSecondaryFeedAnswer: report2.price
     });
   }
 
   function test_OutOfSyncFeedsSecondaryFeedFallbackToStandardFeed() public {
-    vm.skip(true); // skip until passing
-
+    Report memory report1 = Report({price: 1, timestamp: uint32(block.timestamp)});
+    ReportGenerator.SignedReport memory signedReport1 =
+      s_reportGenerator.generateSignedReport(report1.price, report1.timestamp);
     // Report 1
     _transmitAndCheck({
-      standardFeedPrice: 1,
+      signedReport: signedReport1,
       transmitPrimary: true,
-      secondaryFeedPrice: 1,
       transmitSecondary: false,
-      expectedStandardFeedAnswer: 1,
+      expectedStandardFeedAnswer: report1.price,
       expectedSecondaryFeedAnswer: 0
     });
+    _mineBlock();
 
+    Report memory report2 = Report({price: 2, timestamp: uint32(block.timestamp)});
+    ReportGenerator.SignedReport memory signedReport2 =
+      s_reportGenerator.generateSignedReport(report2.price, report2.timestamp);
     // Report 2
     _transmitAndCheck({
-      standardFeedPrice: 2,
+      signedReport: signedReport2,
       transmitPrimary: true,
-      secondaryFeedPrice: 2,
       transmitSecondary: false,
-      expectedStandardFeedAnswer: 2,
+      expectedStandardFeedAnswer: report2.price,
       expectedSecondaryFeedAnswer: 0
     });
 
-    // todo: skip cutoff window
+    // skip cutoff time, actual: 40
+    skip(CUTOFF_TIME + 1);
 
+    Report memory report3 = Report({price: 3, timestamp: uint32(block.timestamp)});
+    ReportGenerator.SignedReport memory signedReport3 =
+      s_reportGenerator.generateSignedReport(report3.price, report3.timestamp);
     // Report 3
     _transmitAndCheck({
-      standardFeedPrice: 3,
+      signedReport: signedReport3,
       transmitPrimary: true,
-      secondaryFeedPrice: 3,
       transmitSecondary: false,
-      expectedStandardFeedAnswer: 3,
-      expectedSecondaryFeedAnswer: 2 // todo: verify if this is the latest before the cutoff time
+      expectedStandardFeedAnswer: report3.price,
+      expectedSecondaryFeedAnswer: report2.price // freshest report before cutoff
+    });
+    // transmit old report to secondary feed
+    _transmitAndCheck({
+      signedReport: signedReport1,
+      transmitPrimary: false,
+      transmitSecondary: true,
+      expectedStandardFeedAnswer: report3.price,
+      expectedSecondaryFeedAnswer: report2.price // old report from before the cutoff time, ignore it
     });
 
+    _mineBlock();
+
+    Report memory report4 = Report({price: 4, timestamp: uint32(block.timestamp)});
+    ReportGenerator.SignedReport memory signedReport4 =
+      s_reportGenerator.generateSignedReport(report4.price, report4.timestamp);
     // Report 4
     _transmitAndCheck({
-      standardFeedPrice: 4,
+      signedReport: signedReport4,
       transmitPrimary: true,
-      secondaryFeedPrice: 1, // old report from before the cutoff time, ignore it
       transmitSecondary: false,
-      expectedStandardFeedAnswer: 4,
-      expectedSecondaryFeedAnswer: 2 // todo: verify if this is the latest before the cutoff time
+      expectedStandardFeedAnswer: report4.price,
+      expectedSecondaryFeedAnswer: report2.price // secondary feed is still stale
     });
-
-    // Report 5
     _transmitAndCheck({
-      standardFeedPrice: 5,
-      transmitPrimary: true,
-      secondaryFeedPrice: 4, // old report but still freshest for secondary feed
+      signedReport: signedReport3,
+      transmitPrimary: false,
       transmitSecondary: true,
-      expectedStandardFeedAnswer: 5,
-      expectedSecondaryFeedAnswer: 4
+      expectedStandardFeedAnswer: report4.price,
+      expectedSecondaryFeedAnswer: report3.price // old report but newer than latest secondary report
     });
   }
 
   function test_OutOfSyncFeedsPrimaryIsSourcedFromSecondaryWithLockDelay() public {
-    vm.skip(true); // skip until passing
-
+    Report memory report1 = Report({price: 1, timestamp: uint32(block.timestamp)});
+    ReportGenerator.SignedReport memory signedReport1 =
+      s_reportGenerator.generateSignedReport(report1.price, report1.timestamp);
     // Report 1
     _transmitAndCheck({
-      standardFeedPrice: 1,
+      signedReport: signedReport1,
       transmitPrimary: false,
-      secondaryFeedPrice: 1,
       transmitSecondary: true,
-      expectedStandardFeedAnswer: 0,
-      expectedSecondaryFeedAnswer: 1
+      expectedStandardFeedAnswer: 0, // locked
+      expectedSecondaryFeedAnswer: report1.price
     });
+    _mineBlock();
 
+    Report memory report2 = Report({price: 2, timestamp: uint32(block.timestamp)});
+    ReportGenerator.SignedReport memory signedReport2 =
+      s_reportGenerator.generateSignedReport(report2.price, report2.timestamp);
     // Report 2
     _transmitAndCheck({
-      standardFeedPrice: 2,
+      signedReport: signedReport2,
       transmitPrimary: false,
-      secondaryFeedPrice: 2,
       transmitSecondary: true,
-      expectedStandardFeedAnswer: 1,
-      expectedSecondaryFeedAnswer: 2
-    });
-
-    // unlock the standard feed
-    skip(1);
-    _transmitAndCheck({
-      standardFeedPrice: 2,
-      transmitPrimary: false,
-      secondaryFeedPrice: 2,
-      transmitSecondary: false,
-      expectedStandardFeedAnswer: 2,
-      expectedSecondaryFeedAnswer: 2
+      expectedStandardFeedAnswer: report1.price, // locked,
+      expectedSecondaryFeedAnswer: report2.price
     });
   }
 
   function test_BothFeedsStalledIncomingSecondaryReportIsFromBeforeCutoffTime() public {
-    vm.skip(true); // skip until passing
+    Report memory report1 = Report({price: 1, timestamp: uint32(block.timestamp)});
+    ReportGenerator.SignedReport memory signedReport1 =
+      s_reportGenerator.generateSignedReport(report1.price, report1.timestamp);
+    // Report 1
+    _transmitAndCheck({
+      signedReport: signedReport1,
+      transmitPrimary: true,
+      transmitSecondary: false,
+      expectedStandardFeedAnswer: report1.price,
+      expectedSecondaryFeedAnswer: 0
+    });
+    _mineBlock();
 
-    uint256 timeBeforeCutoff = block.timestamp;
-    // todo: skip cutoff window
+    // Report 2 generate from before the cutoff time
+    Report memory report2 = Report({price: 2, timestamp: uint32(block.timestamp)});
+    ReportGenerator.SignedReport memory signedReport2 =
+      s_reportGenerator.generateSignedReport(report2.price, report2.timestamp);
 
-    _changePrank(SECONDARY_PROXY);
-    ReportGenerator.SignedReport memory signedReport =
-      s_reportGenerator.generateSignedReport(1, uint32(timeBeforeCutoff));
-    aggregator.transmit(
-      signedReport.reportContext, signedReport.report, signedReport.rs, signedReport.ss, signedReport.rawVs
-    );
+    // skip cutoff time
+    skip(CUTOFF_TIME + 1);
 
-    // check the standard feed
-    _changePrank(aggregator.getTransmitters()[0]);
-    (, int256 standardAnswer,,,) = aggregator.latestRoundData();
-    assertEq(0, standardAnswer, "standard feed answer is not correct");
+    _transmitAndCheck({
+      signedReport: signedReport2,
+      transmitPrimary: false,
+      transmitSecondary: true,
+      expectedStandardFeedAnswer: report1.price, // locked
+      expectedSecondaryFeedAnswer: report2.price
+    });
+    _mineBlock();
 
-    // unlock the standard feed
-    skip(1);
-    (, standardAnswer,,,) = aggregator.latestRoundData();
-    assertEq(1, standardAnswer, "standard feed answer is not correct");
-
-    // check the secondary feed
-    _changePrank(SECONDARY_PROXY);
-    (, int256 secondaryAnswer,,,) = aggregator.latestRoundData();
-    assertEq(1, secondaryAnswer, "secondary feed answer is not correct");
+    _transmitAndCheck({
+      signedReport: signedReport2,
+      transmitPrimary: false,
+      transmitSecondary: false,
+      expectedStandardFeedAnswer: report2.price, // unlocked
+      expectedSecondaryFeedAnswer: report2.price
+    });
   }
 
   function test_BothFeedsStalledIncomingPrimaryReportIsFromBeforeCutoffTime() public {
-    vm.skip(true); // skip until passing
+    Report memory report1 = Report({price: 1, timestamp: uint32(block.timestamp)});
+    ReportGenerator.SignedReport memory signedReport1 =
+      s_reportGenerator.generateSignedReport(report1.price, report1.timestamp);
+    // Report 1
+    _transmitAndCheck({
+      signedReport: signedReport1,
+      transmitPrimary: true,
+      transmitSecondary: false,
+      expectedStandardFeedAnswer: report1.price,
+      expectedSecondaryFeedAnswer: 0
+    });
+    _mineBlock();
 
-    uint256 timeBeforeCutoff = block.timestamp;
-    // todo: skip cutoff window
+    // Report 2 generate from before the cutoff time
+    Report memory report2 = Report({price: 2, timestamp: uint32(block.timestamp)});
+    ReportGenerator.SignedReport memory signedReport2 =
+      s_reportGenerator.generateSignedReport(report2.price, report2.timestamp);
+    _mineBlock();
 
-    _changePrank(aggregator.getTransmitters()[0]);
-    ReportGenerator.SignedReport memory signedReport =
-      s_reportGenerator.generateSignedReport(1, uint32(timeBeforeCutoff));
-    aggregator.transmit(
-      signedReport.reportContext, signedReport.report, signedReport.rs, signedReport.ss, signedReport.rawVs
-    );
+    // skip cutoff time
+    skip(CUTOFF_TIME + 1);
 
-    // check the standard feed
-    (, int256 standardAnswer,,,) = aggregator.latestRoundData();
-    assertEq(1, standardAnswer, "standard feed answer is not correct");
-
-    // check the secondary feed
-    _changePrank(SECONDARY_PROXY);
-    (, int256 secondaryAnswer,,,) = aggregator.latestRoundData();
-    assertEq(1, secondaryAnswer, "secondary feed answer is not correct");
+    // report 2 transmitted
+    _transmitAndCheck({
+      signedReport: signedReport2,
+      transmitPrimary: true,
+      transmitSecondary: false,
+      expectedStandardFeedAnswer: report2.price,
+      expectedSecondaryFeedAnswer: report1.price // because newest comes from before the cutoff time
+    });
   }
 
   function test_BothFeedsStalledIncomingReportIsFromAfterCutoffTime() public {
-    vm.skip(true); // skip until passing
+    Report memory report1 = Report({price: 1, timestamp: uint32(block.timestamp)});
+    ReportGenerator.SignedReport memory signedReport1 =
+      s_reportGenerator.generateSignedReport(report1.price, report1.timestamp);
+    // Report 1
+    _transmitAndCheck({
+      signedReport: signedReport1,
+      transmitPrimary: true,
+      transmitSecondary: false,
+      expectedStandardFeedAnswer: report1.price,
+      expectedSecondaryFeedAnswer: 0
+    });
+    _mineBlock();
 
-    uint256 timeAfterCutoff = block.timestamp + 1;
-    // todo: skip cutoff window
+    // skip cutoff time
+    skip(CUTOFF_TIME + 1);
 
-    _changePrank(aggregator.getTransmitters()[0]);
-    ReportGenerator.SignedReport memory signedReport =
-      s_reportGenerator.generateSignedReport(1, uint32(timeAfterCutoff));
-    aggregator.transmit(
-      signedReport.reportContext, signedReport.report, signedReport.rs, signedReport.ss, signedReport.rawVs
-    );
+    // Report 2 generate from after the cutoff time
+    Report memory report2 = Report({price: 2, timestamp: uint32(block.timestamp)});
+    ReportGenerator.SignedReport memory signedReport2 =
+      s_reportGenerator.generateSignedReport(report2.price, report2.timestamp);
 
-    // check the standard feed
-    (, int256 standardAnswer,,,) = aggregator.latestRoundData();
-    assertEq(1, standardAnswer, "standard feed answer is not correct");
-
-    // check the secondary feed
-    _changePrank(SECONDARY_PROXY);
-    (, int256 secondaryAnswer,,,) = aggregator.latestRoundData();
-    assertEq(0, secondaryAnswer, "secondary feed answer is not correct");
-
-    // unlock the secondary feed
-    skip(1);
-    (, secondaryAnswer,,,) = aggregator.latestRoundData();
-    assertEq(1, secondaryAnswer, "secondary feed answer is not correct");
+    _transmitAndCheck({
+      signedReport: signedReport2,
+      transmitPrimary: true,
+      transmitSecondary: false,
+      expectedStandardFeedAnswer: report2.price,
+      expectedSecondaryFeedAnswer: report1.price // because newest comes from after the cutoff time
+    });
   }
 
   function test_IncomingSecondaryReportHasNotBeenRecordedOlderThanLatestReportOlderThanCutoffTime() public {
-    vm.skip(true); // skip until passing
-
+    Report memory report1 = Report({price: 1, timestamp: uint32(block.timestamp)});
+    ReportGenerator.SignedReport memory signedReport1 =
+      s_reportGenerator.generateSignedReport(report1.price, report1.timestamp);
     // Report 1
     _transmitAndCheck({
-      standardFeedPrice: 1,
+      signedReport: signedReport1,
       transmitPrimary: true,
-      secondaryFeedPrice: 1,
       transmitSecondary: false,
-      expectedStandardFeedAnswer: 1,
+      expectedStandardFeedAnswer: report1.price,
       expectedSecondaryFeedAnswer: 0
     });
+    _mineBlock();
 
-    // timestamp of missing report 2
-    uint256 timestampReport2 = block.timestamp;
+    // generate Signed Report 2, will not reach standard feed
+    Report memory report2 = Report({price: 2, timestamp: uint32(block.timestamp)});
+    ReportGenerator.SignedReport memory signedReport2 =
+      s_reportGenerator.generateSignedReport(report2.price, report2.timestamp);
+    _mineBlock();
 
+    // skip cutoff time
+    skip(CUTOFF_TIME + 1);
+
+    Report memory report3 = Report({price: 3, timestamp: uint32(block.timestamp)});
+    ReportGenerator.SignedReport memory signedReport3 =
+      s_reportGenerator.generateSignedReport(report3.price, report3.timestamp);
     // Report 3
     _transmitAndCheck({
-      standardFeedPrice: 3,
+      signedReport: signedReport3,
       transmitPrimary: true,
-      secondaryFeedPrice: 3,
       transmitSecondary: false,
-      expectedStandardFeedAnswer: 3,
-      expectedSecondaryFeedAnswer: 0
+      expectedStandardFeedAnswer: report3.price,
+      expectedSecondaryFeedAnswer: report1.price
     });
+    _mineBlock();
 
-    // todo: skip cutoff window
-
-    // Send missing report 2 to secondary feed
-    _changePrank(SECONDARY_PROXY);
-    ReportGenerator.SignedReport memory signedReport =
-      s_reportGenerator.generateSignedReport(2, uint32(timestampReport2));
-    aggregator.transmit(
-      signedReport.reportContext, signedReport.report, signedReport.rs, signedReport.ss, signedReport.rawVs
+    // report 2 reaches the secondary feed, but it is dropped due to being an orphan
+    vm.expectRevert(DualAggregator.StaleReport.selector);
+    aggregator.transmitSecondary(
+      signedReport2.reportContext, signedReport2.report, signedReport2.rs, signedReport2.ss, signedReport2.rawVs
     );
 
     // check the standard feed
     _changePrank(aggregator.getTransmitters()[0]);
     (, int256 standardAnswer,,,) = aggregator.latestRoundData();
-    assertEq(3, standardAnswer, "standard feed answer is not correct");
+    assertEq(report3.price, standardAnswer, "standard feed answer is not correct");
 
     // check the secondary feed
     _changePrank(SECONDARY_PROXY);
     (, int256 secondaryAnswer,,,) = aggregator.latestRoundData();
-    assertEq(3, secondaryAnswer, "secondary feed answer is not correct");
+    assertEq(report1.price, secondaryAnswer, "secondary feed answer is not correct");
   }
 
   function test_IncomingSecondaryReportHasNotBeenRecordedOlderThanLatestReportNewerThanCutoffTime() public {
-    vm.skip(true); // skip until passing
-
+    Report memory report1 = Report({price: 1, timestamp: uint32(block.timestamp)});
+    ReportGenerator.SignedReport memory signedReport1 =
+      s_reportGenerator.generateSignedReport(report1.price, report1.timestamp);
     // Report 1
     _transmitAndCheck({
-      standardFeedPrice: 1,
+      signedReport: signedReport1,
       transmitPrimary: true,
-      secondaryFeedPrice: 1,
-      transmitSecondary: false,
-      expectedStandardFeedAnswer: 1,
-      expectedSecondaryFeedAnswer: 0
+      transmitSecondary: true,
+      expectedStandardFeedAnswer: report1.price,
+      expectedSecondaryFeedAnswer: report1.price
     });
+    _mineBlock();
 
-    // todo: skip cutoff window
+    // generate Signed Report 2, will not reach standard feed
+    Report memory report2 = Report({price: 2, timestamp: uint32(block.timestamp)});
+    ReportGenerator.SignedReport memory signedReport2 =
+      s_reportGenerator.generateSignedReport(report2.price, report2.timestamp);
+    _mineBlock();
 
-    // timestamp of missing report 2
-    uint256 timestampReport2 = block.timestamp;
-
-    // Report 3
+    // report 3 will reach the standard feed
+    Report memory report3 = Report({price: 3, timestamp: uint32(block.timestamp)});
+    ReportGenerator.SignedReport memory signedReport3 =
+      s_reportGenerator.generateSignedReport(report3.price, report3.timestamp);
     _transmitAndCheck({
-      standardFeedPrice: 3,
+      signedReport: signedReport3,
       transmitPrimary: true,
-      secondaryFeedPrice: 3,
       transmitSecondary: false,
-      expectedStandardFeedAnswer: 3,
-      expectedSecondaryFeedAnswer: 1
+      expectedStandardFeedAnswer: report3.price,
+      expectedSecondaryFeedAnswer: report1.price
     });
+    _mineBlock();
 
-    // Send missing report 2 to secondary feed
-    _changePrank(SECONDARY_PROXY);
-    ReportGenerator.SignedReport memory signedReport =
-      s_reportGenerator.generateSignedReport(2, uint32(timestampReport2));
-    aggregator.transmit(
-      signedReport.reportContext, signedReport.report, signedReport.rs, signedReport.ss, signedReport.rawVs
+    // report 2 reaches the secondary feed, but it is dropped due to being an orphan
+    vm.expectRevert(DualAggregator.StaleReport.selector);
+    aggregator.transmitSecondary(
+      signedReport2.reportContext, signedReport2.report, signedReport2.rs, signedReport2.ss, signedReport2.rawVs
     );
 
     // check the standard feed
     _changePrank(aggregator.getTransmitters()[0]);
     (, int256 standardAnswer,,,) = aggregator.latestRoundData();
-    assertEq(3, standardAnswer, "standard feed answer is not correct");
+    assertEq(report3.price, standardAnswer, "standard feed answer is not correct");
 
     // check the secondary feed
     _changePrank(SECONDARY_PROXY);
     (, int256 secondaryAnswer,,,) = aggregator.latestRoundData();
-    // todo: for now we're ignoring report 2 due to implementation complexity.
-    // This could maybe be solved by keeping track of orphaned reports.
-    assertEq(1, secondaryAnswer, "secondary feed answer is not correct");
+    assertEq(report1.price, secondaryAnswer, "secondary feed answer is not correct");
+  }
+
+  function test_IncomingSecondaryReportRevertsDueToMaxIterations() public {
+    // define 4 as the new max sync iterations
+    aggregator.setMaxSyncIterations(4);
+    aggregator.setCutoffTime(60);
+
+    // sign the report 1
+    ReportGenerator.SignedReport memory signedReport1 =
+      s_reportGenerator.generateSignedReport(1, uint32(block.timestamp));
+    _mineBlock();
+
+    // transmit the signed report from the primary feed
+    _changePrank(aggregator.getTransmitters()[0]);
+    aggregator.transmit(
+      signedReport1.reportContext, signedReport1.report, signedReport1.rs, signedReport1.ss, signedReport1.rawVs
+    );
+
+    // transmit 4 more reports
+    Report memory report;
+    ReportGenerator.SignedReport memory signedReport;
+    for (int192 i = 2; i <= 5; ++i) {
+      report = Report({price: i, timestamp: uint32(block.timestamp)});
+      signedReport = s_reportGenerator.generateSignedReport(report.price, report.timestamp);
+      // transmit report from the primary feed
+      _transmitAndCheck({
+        signedReport: signedReport,
+        transmitPrimary: true,
+        transmitSecondary: false,
+        expectedStandardFeedAnswer: report.price,
+        expectedSecondaryFeedAnswer: 0
+      });
+      _mineBlock();
+    }
+
+    // report 1 reaches the secondary feed, but it reverts due to max sync iterations
+    vm.expectRevert(DualAggregator.MaxSyncIterations.selector);
+    aggregator.transmitSecondary(
+      signedReport1.reportContext, signedReport1.report, signedReport1.rs, signedReport1.ss, signedReport1.rawVs
+    );
   }
 
   function _transmitAndCheck(
-    int192 standardFeedPrice,
-    int192 secondaryFeedPrice,
-    uint256 expectedStandardFeedAnswer,
-    uint256 expectedSecondaryFeedAnswer,
+    ReportGenerator.SignedReport memory signedReport,
+    int256 expectedStandardFeedAnswer,
+    int256 expectedSecondaryFeedAnswer,
     bool transmitPrimary,
     bool transmitSecondary
   ) internal {
-    // next block
-    skip(12);
+    _changePrank(aggregator.getTransmitters()[0]);
 
     if (transmitSecondary) {
-      _changePrank(SECONDARY_PROXY);
-      ReportGenerator.SignedReport memory signedReport =
-        s_reportGenerator.generateSignedReport(secondaryFeedPrice, uint32(block.timestamp));
-      aggregator.transmit(
+      aggregator.transmitSecondary(
         signedReport.reportContext, signedReport.report, signedReport.rs, signedReport.ss, signedReport.rawVs
       );
     }
 
     if (transmitPrimary) {
-      _changePrank(aggregator.getTransmitters()[0]);
-      ReportGenerator.SignedReport memory signedReport =
-        s_reportGenerator.generateSignedReport(standardFeedPrice, uint32(block.timestamp));
       aggregator.transmit(
         signedReport.reportContext, signedReport.report, signedReport.rs, signedReport.ss, signedReport.rawVs
       );
     }
 
     // check the standard feed
-    _changePrank(aggregator.getTransmitters()[0]);
     (, int256 standardAnswer,,,) = aggregator.latestRoundData();
     assertEq(int256(expectedStandardFeedAnswer), standardAnswer, "standard feed answer is not correct");
 
@@ -996,6 +1143,10 @@ contract Trasmit is ConfiguredDualAggregatorBaseTest {
     _changePrank(SECONDARY_PROXY);
     (, int256 secondaryAnswer,,,) = aggregator.latestRoundData();
     assertEq(int256(expectedSecondaryFeedAnswer), secondaryAnswer, "secondary feed answer is not correct");
+  }
+
+  function _mineBlock() internal {
+    skip(12);
   }
 }
 

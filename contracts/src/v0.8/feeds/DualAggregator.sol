@@ -115,7 +115,8 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     uint8 decimals_,
     string memory description_,
     address secondaryProxy_,
-    uint32 cutoffTime_
+    uint32 cutoffTime_,
+    uint32 maxSyncIterations_
   ) {
     s_linkToken = link;
     emit LinkTokenSet(LinkTokenInterface(address(0)), link);
@@ -129,6 +130,7 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     i_maxAnswer = maxAnswer_;
     s_secondaryProxy = secondaryProxy_;
     s_cutoffTime = cutoffTime_;
+    s_maxSyncIterations = maxSyncIterations_;
   }
 
   /**
@@ -495,11 +497,34 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
   // cutoff time defines the time window in which a secondary report is valid
   uint32 internal s_cutoffTime;
 
+  // max iterations the secondary proxy will be able to loop to sync with the primary rounds
+  uint32 internal s_maxSyncIterations;
+
+  // wether if the primary latest report has to be locked or not
+  bool internal s_primaryLocked;
+
+  /**
+   * @notice indicates that a new report arrived from the secondary feed and the round id was updated
+   * @param secondaryRoundId the new secondary round id
+   */
+  event SecondaryRoundIdUpdated(uint32 indexed secondaryRoundId);
+
   /**
    * @notice emitted when a new cutoff time is set
    * @param cutoffTime the new defined cutoff time
    */
   event CutoffTimeSet(uint32 cutoffTime);
+
+  /**
+   * @notice emitted when a new max sync iterations is set
+   * @param maxSyncIterations the new defined max sync iterations
+   */
+  event MaxSyncIterationsSet(uint32 maxSyncIterations);
+
+  /**
+   * @notice revert when the loop reaches the max sync iterations amount
+   */
+  error MaxSyncIterations();
 
   /**
    * @notice sets the max time cutoff
@@ -513,23 +538,40 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
   }
 
   /**
+   * @notice sets the max sync iterations
+   * @param _maxSyncIterations new max sync iterations
+   */
+  function setMaxSyncIterations(
+    uint32 _maxSyncIterations
+  ) external onlyOwner {
+    s_maxSyncIterations = _maxSyncIterations;
+    emit MaxSyncIterationsSet(s_maxSyncIterations);
+  }
+
+  /**
    * @notice sync data with the primary rounds, return the freshest valid round id
    */
   function _getSyncPrimaryRound() internal view returns (uint32 roundId) {
-    // get the latest round id
+    // get the latest round id and the max iterations
     uint32 latestAggregatorRoundId = s_hotVars.latestAggregatorRoundId;
+    uint32 maxIterations = s_maxSyncIterations;
 
     // decreasing loop from the latest primary round id
     for (uint32 round_ = latestAggregatorRoundId; round_ > 0; --round_) {
+      // in case the loop reached the maxIterations, break it
+      if (latestAggregatorRoundId - round_ == maxIterations) {
+        break;
+      }
+
+      // in case it's the latest secondary round id, return it
+      if (round_ == s_hotVars.latestSecondaryRoundId || latestAggregatorRoundId - round_ == maxIterations) {
+        return round_;
+      }
+
       Transmission memory transmission = s_transmissions[round_];
 
       // check if this round does not accomplish the cutoff time condition
       if (transmission.recordedTimestamp + s_cutoffTime < block.timestamp) {
-        return round_;
-      }
-
-      // in case it's the latest secondary round id, return it
-      if (round_ == s_hotVars.latestSecondaryRoundId) {
         return round_;
       }
     }
@@ -539,14 +581,50 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
   }
 
   /**
+   * @notice check if a report has already been transmitted
+   * @param report the report to check
+   */
+  function _doesReportExist(
+    Report memory report
+  ) internal view returns (bool exist, uint32 roundId) {
+    // get the latest round id
+    uint32 latestAggregatorRoundId = s_hotVars.latestAggregatorRoundId;
+    uint32 maxIterations = s_maxSyncIterations;
+
+    for (uint32 round_ = latestAggregatorRoundId; round_ > 0; --round_) {
+      if (latestAggregatorRoundId - round_ == maxIterations) {
+        revert MaxSyncIterations();
+      }
+
+      Transmission memory transmission = s_transmissions[round_];
+
+      if (transmission.observationsTimestamp < report.observationsTimestamp) {
+        return (false, 0);
+      }
+      // get median
+      int192 median = report.observations[report.observations.length / 2];
+
+      if (transmission.observationsTimestamp == report.observationsTimestamp && transmission.answer == median) {
+        return (true, round_);
+      }
+    }
+
+    return (false, 0);
+  }
+
+  /**
    * @notice Aggregator round (NOT OCR round) in which last valid report was transmitted
    */
   function _getLatestRound() internal view returns (uint32) {
     Transmission memory transmission;
 
+    // get the latest round ids
+    uint32 latestAggregatorRoundId = s_hotVars.latestAggregatorRoundId;
+    uint32 latestSecondaryRoundId = s_hotVars.latestSecondaryRoundId;
+
     // check if the message sender is the secondary proxy
     if (msg.sender == s_secondaryProxy) {
-      transmission = s_transmissions[s_hotVars.latestSecondaryRoundId];
+      transmission = s_transmissions[latestSecondaryRoundId];
       // in case the latest secondary round does not accomplish the cutoff time condition,
       // get the round id syncing with the primary rounds
       if (transmission.recordedTimestamp + s_cutoffTime < block.timestamp) {
@@ -554,16 +632,19 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
       }
 
       // in case the latest secondary round accomplish the cutoff time condition, return it
-      return s_hotVars.latestSecondaryRoundId;
+      return latestSecondaryRoundId;
     }
-    // if the message sender is not the secondary proxy, get the latest primary round id
-    transmission = s_transmissions[s_hotVars.latestAggregatorRoundId];
-    // in case the report was sent in the same block, get the previous round id
-    if (transmission.recordedTimestamp == block.timestamp) {
-      return s_hotVars.latestAggregatorRoundId - 1;
+    // in case the report was sent by the secondary proxy
+    if (latestAggregatorRoundId == latestSecondaryRoundId) {
+      // get the transmission
+      transmission = s_transmissions[latestAggregatorRoundId];
+      // in case the transmission was sent in this same block only by the secondary proxy, return the previous round id
+      if (s_primaryLocked && transmission.recordedTimestamp == block.timestamp) {
+        return latestAggregatorRoundId - 1;
+      }
     }
 
-    return s_hotVars.latestAggregatorRoundId;
+    return latestAggregatorRoundId;
   }
 
   /**
@@ -611,6 +692,7 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
 
     uint256 numObservations = observations.length;
     bytes memory observers = abi.encodePacked(rawObservers);
+
     assembly {
       // we truncate observers from length 32 to the number of observations
       mstore(observers, numObservations)
@@ -680,21 +762,88 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     bytes32[] calldata ss,
     bytes32 rawVs
   ) external override {
-    // TODO: update this function with implementation from the doc
+    // Call the internal transmit function without the isSecondary flag
+    _transmit(reportContext, report, rs, ss, rawVs, false);
+  }
 
+  // Secondary proxy transmit entrypoint, call the internal transmit function with the isSecondary flag
+  function transmitSecondary(
+    // reportContext consists of:
+    // reportContext[0]: ConfigDigest
+    // reportContext[1]: 27 byte padding, 4-byte epoch and 1-byte round
+    // reportContext[2]: ExtraHash
+    bytes32[3] calldata reportContext,
+    bytes calldata report,
+    // ECDSA signatures
+    bytes32[] calldata rs,
+    bytes32[] calldata ss,
+    bytes32 rawVs
+  ) external {
+    _transmit(reportContext, report, rs, ss, rawVs, true);
+  }
+
+  // Internal transmit function with all the transmission logic
+  function _transmit(
+    // reportContext consists of:
+    // reportContext[0]: ConfigDigest
+    // reportContext[1]: 27 byte padding, 4-byte epoch and 1-byte round
+    // reportContext[2]: ExtraHash
+    bytes32[3] calldata reportContext,
+    bytes calldata report,
+    // ECDSA signatures
+    bytes32[] calldata rs,
+    bytes32[] calldata ss,
+    bytes32 rawVs,
+    bool isSecondary
+  ) internal {
     // NOTE: If the arguments to this function are changed, _requireExpectedMsgDataLength and/or
     // TRANSMIT_MSGDATA_CONSTANT_LENGTH_COMPONENT need to be changed accordingly
 
     uint256 initialGas = gasleft(); // This line must come first
 
-    HotVars memory hotVars = s_hotVars;
+    // Validate the report data
+    _validateReport(reportContext, report, rs, ss);
 
+    Report memory report_ = _decodeReport(report); // Decode the report
+
+    if (isSecondary) {
+      (bool exist, uint32 roundId) = _doesReportExist(report_);
+      // In case the report exists, copy the round id and pay the transmitter
+      if (exist) {
+        s_hotVars.latestSecondaryRoundId = roundId;
+        emit SecondaryRoundIdUpdated(roundId);
+
+        _payTransmitter(s_hotVars, report_.juelsPerFeeCoin, uint32(initialGas), msg.sender);
+        return;
+      }
+      // In case the report doesn't exist, lock the primary feed
+      s_primaryLocked = true;
+    } else {
+      // In case the sender is the primary proxy, unlock the latest report
+      s_primaryLocked = false;
+    }
+
+    // Report epoch and round
     uint40 epochAndRound = uint40(uint256(reportContext[1]));
 
-    if (epochAndRound < hotVars.latestEpochAndRound) {
+    if (epochAndRound < s_hotVars.latestEpochAndRound) {
       revert StaleReport();
     }
 
+    // Verify signatures attached to report
+    _verifySignatures(reportContext, report, rs, ss, rawVs);
+
+    int192 juelsPerFeeCoin = _report(s_hotVars, reportContext[0], epochAndRound, report_, isSecondary);
+    _payTransmitter(s_hotVars, juelsPerFeeCoin, uint32(initialGas), msg.sender);
+  }
+
+  // helper function to validate the report data
+  function _validateReport(
+    bytes32[3] calldata reportContext,
+    bytes calldata report,
+    bytes32[] calldata rs,
+    bytes32[] calldata ss
+  ) internal view {
     if (!s_transmitters[msg.sender].active) {
       revert UnauthorizedTransmitter();
     }
@@ -705,41 +854,43 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
 
     _requireExpectedMsgDataLength(report, rs, ss);
 
-    if (rs.length != hotVars.f + 1) {
+    if (rs.length != s_hotVars.f + 1) {
       revert WrongNumberOfSignatures();
     }
     if (rs.length != ss.length) {
       revert SignaturesOutOfRegistration();
     }
+  }
 
-    // Verify signatures attached to report
-    {
-      bytes32 h = keccak256(abi.encode(keccak256(report), reportContext));
+  // helper function to verify the report signatures
+  function _verifySignatures(
+    bytes32[3] calldata reportContext,
+    bytes calldata report,
+    bytes32[] calldata rs,
+    bytes32[] calldata ss,
+    bytes32 rawVs
+  ) internal view {
+    bytes32 h = keccak256(abi.encode(keccak256(report), reportContext));
 
-      // i-th byte counts number of sigs made by i-th signer
-      uint256 signedCount = 0;
+    // i-th byte counts number of sigs made by i-th signer
+    uint256 signedCount = 0;
 
-      Signer memory signer;
-      for (uint256 i = 0; i < rs.length; i++) {
-        address signerAddress = ecrecover(h, uint8(rawVs[i]) + 27, rs[i], ss[i]);
-        signer = s_signers[signerAddress];
-        if (!signer.active) {
-          revert SignatureError();
-        }
-        unchecked {
-          signedCount += 1 << (8 * signer.index);
-        }
+    Signer memory signer;
+    for (uint256 i = 0; i < rs.length; i++) {
+      address signerAddress = ecrecover(h, uint8(rawVs[i]) + 27, rs[i], ss[i]);
+      signer = s_signers[signerAddress];
+      if (!signer.active) {
+        revert SignatureError();
       }
-
-      // The first byte of the mask can be 0, because we only ever have 31 oracles
-      if (signedCount & 0x0001010101010101010101010101010101010101010101010101010101010101 != signedCount) {
-        revert DuplicateSigner();
+      unchecked {
+        signedCount += 1 << (8 * signer.index);
       }
     }
 
-    int192 juelsPerFeeCoin = _report(hotVars, reportContext[0], epochAndRound, report);
-
-    _payTransmitter(hotVars, juelsPerFeeCoin, uint32(initialGas), msg.sender);
+    // The first byte of the mask can be 0, because we only ever have 31 oracles
+    if (signedCount & 0x0001010101010101010101010101010101010101010101010101010101010101 != signedCount) {
+      revert DuplicateSigner();
+    }
   }
 
   error OnlyCallableByEOA();
@@ -800,10 +951,9 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     HotVars memory hotVars,
     bytes32 configDigest,
     uint40 epochAndRound,
-    bytes memory rawReport
+    Report memory report,
+    bool isSecondary
   ) internal returns (int192 juelsPerFeeCoin) {
-    Report memory report = _decodeReport(rawReport);
-
     if (report.observations.length > MAX_NUM_ORACLES) revert NumObservationsOutOfBounds();
     // Offchain logic ensures that a quorum of oracles is operating on a matching set of at least
     // 2f+1 observations. By assumption, up to f of those can be faulty, which includes being
@@ -815,12 +965,19 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     // get median, validate its range, store it in new aggregator round
     int192 median = report.observations[report.observations.length / 2];
     if (i_minAnswer > median && median > i_maxAnswer) revert MedianIsOutOfMinMaxRange();
+
     hotVars.latestAggregatorRoundId++;
     s_transmissions[hotVars.latestAggregatorRoundId] = Transmission({
       answer: median,
       observationsTimestamp: report.observationsTimestamp,
       recordedTimestamp: uint32(block.timestamp)
     });
+
+    // in case the sender is the secondary proxy, update the latest secondary round id
+    if (isSecondary) {
+      hotVars.latestSecondaryRoundId = hotVars.latestAggregatorRoundId;
+      emit SecondaryRoundIdUpdated(hotVars.latestSecondaryRoundId);
+    }
 
     // persist updates to hotVars
     s_hotVars = hotVars;
@@ -1555,7 +1712,7 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
    *
    */
   function typeAndVersion() external pure virtual override returns (string memory) {
-    return "PrimaryAggregator 1.0.0";
+    return "DualAggregator 1.0.0";
   }
 
   error AggregatorNotAuthorized();
