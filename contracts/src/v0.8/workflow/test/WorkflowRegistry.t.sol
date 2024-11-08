@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "../dev/WorkflowRegistry.sol";
-import "forge-std/Test.sol";
+import {Ownable2Step} from "../../shared/access/Ownable2Step.sol";
+import {DONAccessControl} from "../dev/DONAccessControl.sol";
+import {WorkflowRegistry} from "../dev/WorkflowRegistry.sol";
+import {Test} from "forge-std/Test.sol";
+import {Vm} from "forge-std/Vm.sol";
 
 contract WorkflowRegistryTest is Test {
   WorkflowRegistry private registry;
@@ -31,17 +34,8 @@ contract WorkflowRegistryTest is Test {
     bytes32 workflowID,
     WorkflowRegistry.WorkflowStatus initialStatus
   ) internal {
-    // owner adds a single authorized address capable of registering workflows
-    address[] memory authorizedUsers = new address[](1);
-    authorizedUsers[0] = workflowOwner;
-    vm.prank(owner);
-    registry.updateAuthorizedAddresses(authorizedUsers, true);
-
-    // owner adds a single DON ID allowed for registering workflows
-    uint32[] memory allowedDONs = new uint32[](1);
-    allowedDONs[0] = donID;
-    vm.prank(owner);
-    registry.updateAllowedDONs(allowedDONs, true);
+    _setupAuthorizedUser(workflowOwner);
+    _setupAllowedDON(donID);
 
     // authorized user registers workflow
     vm.prank(workflowOwner);
@@ -50,10 +44,117 @@ contract WorkflowRegistryTest is Test {
     );
   }
 
-  function testRegisterWorkflowFailsForNotAuthorizedAddressOrForNotAllowedDONId() public {
-    // owner of the contract is not allowed to register workflows
+  function _setupAuthorizedUser(address workflowOwner) internal {
+    // owner adds a single authorized address capable of registering workflows
+    address[] memory authorizedUsers = new address[](1);
+    authorizedUsers[0] = workflowOwner;
     vm.prank(owner);
-    vm.expectRevert(WorkflowRegistry.OnlyAuthorizedAddress.selector);
+    registry.updateDONPermissions(donID, authorizedUsers, true);
+  }
+
+  function _setupAllowedDON(uint32 _donID) internal {
+    // owner adds a single DON ID allowed for registering workflows
+    uint32[] memory allowedDONs = new uint32[](1);
+    allowedDONs[0] = _donID;
+    vm.prank(owner);
+    registry.updateAllowedDONs(allowedDONs, true);
+  }
+
+  function testLockRegistry() public {
+    // Ensure only the owner can lock the registry
+    vm.prank(authorizedUser);
+    vm.expectRevert(Ownable2Step.OnlyCallableByOwner.selector);
+    registry.lockRegistry();
+
+    _allowAccessAndRegisterWorkflow(authorizedUser, workflowName1, workflowID1, WorkflowRegistry.WorkflowStatus.ACTIVE);
+
+    // Lock the registry as the owner
+    vm.prank(owner);
+    registry.lockRegistry();
+
+    // Test all state-changing functions revert when registry is locked
+    vm.startPrank(authorizedUser);
+
+    // Test registerWorkflow
+    vm.expectRevert(WorkflowRegistry.RegistryLocked.selector);
+    registry.registerWorkflow(
+      workflowName2,
+      workflowID2,
+      donID,
+      WorkflowRegistry.WorkflowStatus.ACTIVE,
+      testBinaryURL,
+      testConfigURL,
+      testSecretsURL
+    );
+
+    // Test updateWorkflow
+    vm.expectRevert(WorkflowRegistry.RegistryLocked.selector);
+    registry.updateWorkflow(workflowName1, newWorkflowID, "newBinaryURL", "newConfigURL", "newSecretsURL");
+
+    // Test pauseWorkflow
+    vm.expectRevert(WorkflowRegistry.RegistryLocked.selector);
+    registry.pauseWorkflow(workflowName1);
+
+    // Test activateWorkflow
+    vm.expectRevert(WorkflowRegistry.RegistryLocked.selector);
+    registry.activateWorkflow(workflowName1);
+
+    // Test deleteWorkflow
+    vm.expectRevert(WorkflowRegistry.RegistryLocked.selector);
+    registry.deleteWorkflow(workflowName1);
+
+    // Test requestForceUpdateSecrets
+    vm.expectRevert(WorkflowRegistry.RegistryLocked.selector);
+    registry.requestForceUpdateSecrets(testSecretsURL);
+
+    vm.stopPrank();
+
+    // Test owner functions still revert when registry is locked
+    vm.startPrank(owner);
+
+    vm.expectRevert(WorkflowRegistry.RegistryLocked.selector);
+    address[] memory addresses = new address[](1);
+    addresses[0] = authorizedUser;
+    registry.updateDONPermissions(donID, addresses, true);
+
+    vm.expectRevert(WorkflowRegistry.RegistryLocked.selector);
+    uint32[] memory dons = new uint32[](1);
+    dons[0] = donID;
+    registry.updateAllowedDONs(dons, true);
+
+    vm.stopPrank();
+  }
+
+  function testUnlockRegistry() public {
+    // Check that the registry is initially unlocked
+    bool isLocked = registry.isRegistryLocked();
+    assertFalse(isLocked, "Registry should start off as unlocked");
+
+    // Lock the registry first
+    vm.prank(owner);
+    registry.lockRegistry();
+
+    // Ensure only the owner can unlock the registry
+    vm.prank(authorizedUser);
+    vm.expectRevert(Ownable2Step.OnlyCallableByOwner.selector);
+    registry.unlockRegistry();
+
+    // Unlock the registry as the owner
+    vm.prank(owner);
+    registry.unlockRegistry();
+
+    // Perform an action that requires the registry to be unlocked
+    _allowAccessAndRegisterWorkflow(authorizedUser, workflowName1, workflowID1, WorkflowRegistry.WorkflowStatus.ACTIVE);
+
+    // Verify the workflow was registered successfully
+    WorkflowRegistry.WorkflowMetadata memory workflow = registry.getWorkflowMetadata(authorizedUser, workflowName1);
+    assertEq(workflow.workflowID, workflowID1);
+  }
+
+  function testRegisterWorkflowFailsForNotAuthorizedAddressOrForNotAllowedDONId() public {
+    // owner of the contract is not allowed to register workflows without first setting permissions
+    vm.prank(owner);
+    vm.expectRevert(abi.encodeWithSelector(DONAccessControl.DONNotAllowed.selector, donID));
     registry.registerWorkflow(
       workflowName1,
       workflowID1,
@@ -68,24 +169,11 @@ contract WorkflowRegistryTest is Test {
     address[] memory authorizedUsers = new address[](1);
     authorizedUsers[0] = authorizedUser;
     vm.prank(owner);
-    registry.updateAuthorizedAddresses(authorizedUsers, true);
+    registry.updateDONPermissions(donID, authorizedUsers, true);
 
     // authorized address is still not able to register because DON ID is not allowed
     vm.prank(authorizedUser);
-    vm.expectRevert(WorkflowRegistry.OnlyAllowedDONID.selector);
-    registry.registerWorkflow(
-      workflowName1,
-      workflowID1,
-      donID,
-      WorkflowRegistry.WorkflowStatus.ACTIVE,
-      testBinaryURL,
-      testConfigURL,
-      testSecretsURL
-    );
-
-    // any other unauthorized address still gets the unauthorized error
-    vm.prank(unauthorizedUser);
-    vm.expectRevert(WorkflowRegistry.OnlyAuthorizedAddress.selector);
+    vm.expectRevert(abi.encodeWithSelector(DONAccessControl.DONNotAllowed.selector, donID));
     registry.registerWorkflow(
       workflowName1,
       workflowID1,
@@ -123,6 +211,19 @@ contract WorkflowRegistryTest is Test {
     assertEq(workflow.configURL, testConfigURL);
     assertEq(workflow.secretsURL, testSecretsURL);
     assertTrue(workflow.status == WorkflowRegistry.WorkflowStatus.ACTIVE);
+
+    // any other unauthorized address still gets the unauthorized error
+    vm.prank(unauthorizedUser);
+    vm.expectRevert(abi.encodeWithSelector(DONAccessControl.AddressNotAuthorized.selector, donID, unauthorizedUser));
+    registry.registerWorkflow(
+      workflowName1,
+      workflowID1,
+      donID,
+      WorkflowRegistry.WorkflowStatus.ACTIVE,
+      testBinaryURL,
+      testConfigURL,
+      testSecretsURL
+    );
   }
 
   function testUpdateWorkflow() public {
@@ -194,7 +295,7 @@ contract WorkflowRegistryTest is Test {
     address[] memory authorizedUsers = new address[](1);
     authorizedUsers[0] = anotherAuthorizedUser;
     vm.prank(owner);
-    registry.updateAuthorizedAddresses(authorizedUsers, true);
+    registry.updateDONPermissions(donID, authorizedUsers, true);
 
     // new authorized user is not able to update another user's workflow (same workflow name)
     vm.prank(anotherAuthorizedUser);
@@ -229,26 +330,31 @@ contract WorkflowRegistryTest is Test {
     vm.prank(authorizedUser);
     registry.requestForceUpdateSecrets(testSecretsURL);
 
-    // Verify the event emitted with correct details
+    // Verify the events emitted with correct details
     Vm.Log[] memory entries = vm.getRecordedLogs();
-    assertEq(entries.length, 1);
-    assertEq(entries[0].topics[0], keccak256("WorkflowForceUpdateSecretsRequestedV1(string,address,string[])"));
+    assertEq(entries.length, 2); // Expecting two separate events for each individual workflow
 
-    // Compare the hash of the expected string with the topic
-    bytes32 expectedSecretsURLHash = keccak256(abi.encodePacked(testSecretsURL));
-    assertEq(entries[0].topics[1], expectedSecretsURLHash);
+    for (uint256 i = 0; i < entries.length; i++) {
+      assertEq(entries[i].topics[0], keccak256("WorkflowForceUpdateSecretsRequestedV1(string,address,string)"));
 
-    // Decode the indexed address
-    address decodedOwner = abi.decode(abi.encodePacked(entries[0].topics[2]), (address));
-    assertEq(decodedOwner, authorizedUser);
+      // Compare the hash of the expected string with the topic
+      bytes32 expectedSecretsURLHash = keccak256(abi.encodePacked(testSecretsURL));
+      assertEq(entries[i].topics[1], expectedSecretsURLHash);
 
-    // Decode the non-indexed data
-    string[] memory decodedWorkflowNames = abi.decode(entries[0].data, (string[]));
+      // Decode the indexed address
+      address decodedOwner = abi.decode(abi.encodePacked(entries[i].topics[2]), (address));
+      assertEq(decodedOwner, authorizedUser);
 
-    // Assert the values
-    assertEq(decodedWorkflowNames.length, 2);
-    assertEq(decodedWorkflowNames[0], workflowName1);
-    assertEq(decodedWorkflowNames[1], workflowName2);
+      // Decode the non-indexed workflow name
+      string memory decodedWorkflowName = abi.decode(entries[i].data, (string));
+
+      // Assert the values
+      if (i == 0) {
+        assertEq(decodedWorkflowName, workflowName1);
+      } else {
+        assertEq(decodedWorkflowName, workflowName2);
+      }
+    }
   }
 
   function testDeleteWorkflow() public {
@@ -257,7 +363,7 @@ contract WorkflowRegistryTest is Test {
 
     // Unauthorized user should not be able to delete the workflow
     vm.prank(unauthorizedUser);
-    vm.expectRevert(WorkflowRegistry.OnlyAuthorizedAddress.selector);
+    vm.expectRevert(WorkflowRegistry.WorkflowDoesNotExist.selector);
     registry.deleteWorkflow(workflowName1);
 
     // Authorized user deletes the workflow
@@ -282,8 +388,12 @@ contract WorkflowRegistryTest is Test {
     allowedDONs[1] = 2;
     allowedDONs[2] = 3;
     vm.prank(owner);
-    vm.expectEmit(true, true, false, false);
-    emit WorkflowRegistry.AllowedDONsUpdatedV1(allowedDONs, true);
+
+    for (uint32 i = 0; i < allowedDONs.length; i++) {
+      vm.expectEmit(true, true, false, false);
+      emit DONAccessControl.AllowedDONUpdatedV1(allowedDONs[i], true);
+    }
+
     registry.updateAllowedDONs(allowedDONs, true);
 
     // Verify the allowed DONs list
@@ -294,22 +404,26 @@ contract WorkflowRegistryTest is Test {
     }
   }
 
-  function testGetAllAuthorizedAddresses() public {
+  function testGetAllAuthorizedAddressesByDON() public {
     // Add authorized addresses
     address[] memory authorizedAddresses = new address[](3);
     authorizedAddresses[0] = address(4);
     authorizedAddresses[1] = address(5);
     authorizedAddresses[2] = address(6);
     vm.prank(owner);
-    vm.expectEmit(true, true, false, false);
-    emit WorkflowRegistry.AuthorizedAddressesUpdatedV1(authorizedAddresses, true);
-    registry.updateAuthorizedAddresses(authorizedAddresses, true);
+
+    for (uint32 i = 0; i < authorizedAddresses.length; i++) {
+      vm.expectEmit(true, true, false, false);
+      emit DONAccessControl.DONPermissionUpdatedV1(donID, authorizedAddresses[i], true);
+    }
+
+    registry.updateDONPermissions(donID, authorizedAddresses, true);
 
     // Verify the authorized addresses list
-    address[] memory fetchedAddresses = registry.getAllAuthorizedAddresses();
-    assertEq(fetchedAddresses.length, authorizedAddresses.length);
+    address[] memory permissionedAddresses = registry.getAllAuthorizedAddressesByDON(donID, 0, 10);
+    assertEq(permissionedAddresses.length, authorizedAddresses.length);
     for (uint256 i = 0; i < authorizedAddresses.length; i++) {
-      assertEq(fetchedAddresses[i], authorizedAddresses[i]);
+      assertEq(permissionedAddresses[i], authorizedAddresses[i]);
     }
   }
 
