@@ -82,7 +82,7 @@ func TestActiveCandidate(t *testing.T) {
 			require.NoError(t, err)
 			block := latesthdr.Number.Uint64()
 			startBlocks[dest] = &block
-			seqNum := ccdeploy.TestSendRequest(t, e, state, src, dest, false)
+			seqNum := ccdeploy.TestSendRequest(t, e, state, src, dest, false, nil)
 			expectedSeqNum[dest] = seqNum
 		}
 	}
@@ -145,7 +145,6 @@ func TestActiveCandidate(t *testing.T) {
 	// commit and exec plugin we will be using
 	rmnHomeAddress := state.Chains[homeCS].RMNHome.Address()
 	ocr3ConfigMap, err := ccdeploy.BuildOCR3ConfigForCCIPHome(
-		e.Logger,
 		deployment.XXXGenerateTestOCRSecrets(),
 		state.Chains[destCS].OffRamp,
 		e.Chains[destCS],
@@ -156,7 +155,7 @@ func TestActiveCandidate(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	setCommitCandidateOp, err := SetCandidateOnExistingDon(
+	setCommitCandidateOp, err := ccdeploy.SetCandidateOnExistingDon(
 		ocr3ConfigMap[cctypes.PluginTypeCCIPCommit],
 		state.Chains[homeCS].CapabilityRegistry,
 		state.Chains[homeCS].CCIPHome,
@@ -173,7 +172,7 @@ func TestActiveCandidate(t *testing.T) {
 	ccdeploy.ExecuteProposal(t, e, setCommitCandidateSigned, state, homeCS)
 
 	// create the op for the commit plugin as well
-	setExecCandidateOp, err := SetCandidateOnExistingDon(
+	setExecCandidateOp, err := ccdeploy.SetCandidateOnExistingDon(
 		ocr3ConfigMap[cctypes.PluginTypeCCIPExec],
 		state.Chains[homeCS].CapabilityRegistry,
 		state.Chains[homeCS].CCIPHome,
@@ -207,7 +206,7 @@ func TestActiveCandidate(t *testing.T) {
 	oldCandidateDigest, err := state.Chains[homeCS].CCIPHome.GetCandidateDigest(nil, donID, uint8(cctypes.PluginTypeCCIPExec))
 	require.NoError(t, err)
 
-	promoteOps, err := PromoteAllCandidatesForChainOps(state.Chains[homeCS].CapabilityRegistry, state.Chains[homeCS].CCIPHome, destCS, nodes.NonBootstraps())
+	promoteOps, err := ccdeploy.PromoteAllCandidatesForChainOps(state.Chains[homeCS].CapabilityRegistry, state.Chains[homeCS].CCIPHome, destCS, nodes.NonBootstraps())
 	require.NoError(t, err)
 	promoteProposal, err := ccdeploy.BuildProposalFromBatches(state, []timelock.BatchChainOperation{{
 		ChainIdentifier: mcms.ChainIdentifier(homeCS),

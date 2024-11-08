@@ -58,6 +58,7 @@ ComputeUnitPriceMin = 0
 ComputeUnitPriceDefault = 0
 FeeBumpPeriod = '3s'
 BlockHistoryPollPeriod = '5s'
+BlockHistorySize = 1
 ComputeUnitLimitDefault = 200000
 EstimateComputeUnitLimit = false
 Nodes = []

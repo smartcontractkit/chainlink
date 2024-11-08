@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/solkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/starkkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -158,6 +159,7 @@ type keyRing struct {
 	StarkNet   map[string]starkkey.Key
 	Aptos      map[string]aptoskey.Key
 	VRF        map[string]vrfkey.KeyV2
+	Workflow   map[string]workflowkey.Key
 	LegacyKeys LegacyKeyStorage
 }
 
@@ -173,6 +175,7 @@ func newKeyRing() *keyRing {
 		StarkNet: make(map[string]starkkey.Key),
 		Aptos:    make(map[string]aptoskey.Key),
 		VRF:      make(map[string]vrfkey.KeyV2),
+		Workflow: make(map[string]workflowkey.Key),
 	}
 }
 
