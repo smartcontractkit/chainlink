@@ -113,6 +113,9 @@ func TestLauncher_WiresUpExternalCapabilities(t *testing.T) {
 
 	triggerCapID := randomWord()
 	targetCapID := randomWord()
+	// one capability from onchain registry is not set up locally
+	fullMissingTargetID := "super-duper-target@6.6.6"
+	missingTargetCapID := randomWord()
 	dID := uint32(1)
 	// The below state describes a Workflow DON (AcceptsWorkflows = true),
 	// which exposes the streams-trigger and write_chain capabilities.
@@ -130,8 +133,9 @@ func TestLauncher_WiresUpExternalCapabilities(t *testing.T) {
 					Members:          nodes,
 				},
 				CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
-					fullTriggerCapID: {},
-					fullTargetID:     {},
+					fullTriggerCapID:    {},
+					fullTargetID:        {},
+					fullMissingTargetID: {},
 				},
 			},
 		},
@@ -144,6 +148,10 @@ func TestLauncher_WiresUpExternalCapabilities(t *testing.T) {
 				ID:             "write-chain_evm_1@1.0.0",
 				CapabilityType: capabilities.CapabilityTypeTarget,
 			},
+			fullMissingTargetID: {
+				ID:             fullMissingTargetID,
+				CapabilityType: capabilities.CapabilityTypeTarget,
+			},
 		},
 		IDsToNodes: map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo{
 			nodes[0]: {
@@ -151,28 +159,28 @@ func TestLauncher_WiresUpExternalCapabilities(t *testing.T) {
 				Signer:              randomWord(),
 				P2pId:               nodes[0],
 				EncryptionPublicKey: randomWord(),
-				HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID},
+				HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID, missingTargetCapID},
 			},
 			nodes[1]: {
 				NodeOperatorId:      1,
 				Signer:              randomWord(),
 				P2pId:               nodes[1],
 				EncryptionPublicKey: randomWord(),
-				HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID},
+				HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID, missingTargetCapID},
 			},
 			nodes[2]: {
 				NodeOperatorId:      1,
 				Signer:              randomWord(),
 				P2pId:               nodes[2],
 				EncryptionPublicKey: randomWord(),
-				HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID},
+				HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID, missingTargetCapID},
 			},
 			nodes[3]: {
 				NodeOperatorId:      1,
 				Signer:              randomWord(),
 				P2pId:               nodes[3],
 				EncryptionPublicKey: randomWord(),
-				HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID},
+				HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID, missingTargetCapID},
 			},
 		},
 	}
