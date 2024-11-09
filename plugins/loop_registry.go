@@ -74,9 +74,8 @@ func (m *LoopRegistry) Register(id string) (*RegisteredLoop, error) {
 		envCfg.TelemetryCACertFile = m.cfgTelemetry.CACertFile()
 		envCfg.TelemetryAttributes = m.cfgTelemetry.ResourceAttributes()
 		envCfg.TelemetryTraceSampleRatio = m.cfgTelemetry.TraceSampleRatio()
-		// TODO: Implement these
-		// envCfg.TelemetryBatchProcessor = m.cfgTelemetry.EmitterBatchProcessor()
-		// envCfg.TelemetryExportTimeout = m.cfgTelemetry.EmitterExportTimeout()
+		envCfg.TelemetryEmitterBatchProcessor = m.cfgTelemetry.EmitterBatchProcessor()
+		envCfg.TelemetryEmitterExportTimeout = m.cfgTelemetry.EmitterExportTimeout()
 	}
 
 	m.registry[id] = &RegisteredLoop{Name: id, EnvCfg: envCfg}

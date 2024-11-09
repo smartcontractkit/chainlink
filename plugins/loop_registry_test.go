@@ -56,9 +56,9 @@ func (m mockCfgTelemetry) ResourceAttributes() map[string]string {
 
 func (m mockCfgTelemetry) TraceSampleRatio() float64 { return 0.42 }
 
-func (m mockCfgTelemetry) EmitterBatchProcessor() bool { return false }
+func (m mockCfgTelemetry) EmitterBatchProcessor() bool { return true }
 
-func (m mockCfgTelemetry) EmitterExportTimeout() time.Duration { return 0 }
+func (m mockCfgTelemetry) EmitterExportTimeout() time.Duration { return 1 * time.Second }
 
 func TestLoopRegistry_Register(t *testing.T) {
 	mockCfgTracing := &mockCfgTracing{}
@@ -91,7 +91,6 @@ func TestLoopRegistry_Register(t *testing.T) {
 	require.Equal(t, "http://localhost:9001", envCfg.TelemetryEndpoint)
 	require.Equal(t, loop.OtelAttributes{"foo": "bar"}, envCfg.TelemetryAttributes)
 	require.Equal(t, 0.42, envCfg.TelemetryTraceSampleRatio)
-	// TODO: EmitterBatchProcessor and EmitterExportTimeout to envCfg
-	// require.False(t, true, envCfg.EmitterBatchProcessor)
-	// require.Equal(t, 1*time.Second, envCfg.EmitterExportTimeout)
+	require.Equal(t, true, envCfg.TelemetryEmitterBatchProcessor)
+	require.Equal(t, 1*time.Second, envCfg.TelemetryEmitterExportTimeout)
 }
