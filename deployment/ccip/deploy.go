@@ -12,6 +12,7 @@ import (
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/registry_module_owner_custom"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
@@ -187,15 +188,6 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 		return fmt.Errorf("ccip home address mismatch")
 	}
 
-	// Signal to CR that our nodes support CCIP capability.
-	if err := AddNodes(
-		e.Logger,
-		capReg,
-		e.Chains[c.HomeChainSel],
-		nodes.NonBootstraps().PeerIDs(),
-	); err != nil {
-		return err
-	}
 	rmnHome := existingState.Chains[c.HomeChainSel].RMNHome
 	if rmnHome == nil {
 		e.Logger.Errorw("Failed to get rmn home", "err", err)

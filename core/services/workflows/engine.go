@@ -357,7 +357,7 @@ var (
 )
 
 func (e *Engine) resumeInProgressExecutions(ctx context.Context) error {
-	wipExecutions, err := e.executionStates.GetUnfinished(ctx, defaultOffset, defaultLimit)
+	wipExecutions, err := e.executionStates.GetUnfinished(ctx, e.workflow.id, defaultOffset, defaultLimit)
 	if err != nil {
 		return err
 	}

@@ -213,16 +213,16 @@ type DonCapabilities struct {
 }
 
 // map the node id to the NOP
-func (dc DonInfo) nodeIdToNop(cs uint64) (map[string]capabilities_registry.CapabilitiesRegistryNodeOperator, error) {
+func (dc DonInfo) nopsByNodeID(chainSelector uint64) (map[string]capabilities_registry.CapabilitiesRegistryNodeOperator, error) {
 	out := make(map[string]capabilities_registry.CapabilitiesRegistryNodeOperator)
-	for _, node := range dc.Nodes {
-		a, err := AdminAddress(&node, cs)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get admin address for node %s: %w", node.ID, err)
+	for _, nop := range dc.Nops {
+		for _, node := range nop.Nodes {
+			a, err := AdminAddress(node, chainSelector)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get admin address for node %s: %w", node.ID, err)
+			}
+			out[node.ID] = NodeOperator(nop.Name, a)
 		}
-		// TODO: this never mapped to nop name, but don name
-		out[node.ID] = NodeOperator(dc.Name, a)
-
 	}
 	return out, nil
 }
@@ -254,7 +254,7 @@ func AdminAddress(n *Node, chainSel uint64) (string, error) {
 func nodesToNops(dons []DonInfo, chainSel uint64) (map[string]capabilities_registry.CapabilitiesRegistryNodeOperator, error) {
 	out := make(map[string]capabilities_registry.CapabilitiesRegistryNodeOperator)
 	for _, don := range dons {
-		nops, err := don.nodeIdToNop(chainSel)
+		nops, err := don.nopsByNodeID(chainSel)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get registry NOPs for don %s: %w", don.Name, err)
 		}

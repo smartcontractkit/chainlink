@@ -161,10 +161,17 @@ func NewNode(
 		CSAETHKeystore: kStore,
 	}
 
+	// Build Beholder auth
+	ctx := tests.Context(t)
+	require.NoError(t, master.Unlock(ctx, "password"))
+	require.NoError(t, master.CSA().EnsureKey(ctx))
+	beholderAuthHeaders, csaPubKeyHex, err := keystore.BuildBeholderAuth(master)
+	require.NoError(t, err)
+
 	// Build relayer factory with EVM.
 	relayerFactory := chainlink.RelayerFactory{
 		Logger:               lggr,
-		LoopRegistry:         plugins.NewLoopRegistry(lggr.Named("LoopRegistry"), cfg.Tracing(), cfg.Telemetry()),
+		LoopRegistry:         plugins.NewLoopRegistry(lggr.Named("LoopRegistry"), cfg.Tracing(), cfg.Telemetry(), beholderAuthHeaders, csaPubKeyHex),
 		GRPCOpts:             loop.GRPCOpts{},
 		CapabilitiesRegistry: capabilities.NewRegistry(lggr),
 	}
@@ -184,7 +191,7 @@ func NewNode(
 		RestrictedHTTPClient:       &http.Client{},
 		AuditLogger:                audit.NoopLogger,
 		MailMon:                    mailMon,
-		LoopRegistry:               plugins.NewLoopRegistry(lggr, cfg.Tracing(), cfg.Telemetry()),
+		LoopRegistry:               plugins.NewLoopRegistry(lggr, cfg.Tracing(), cfg.Telemetry(), beholderAuthHeaders, csaPubKeyHex),
 	})
 	require.NoError(t, err)
 	t.Cleanup(func() {
@@ -211,7 +218,6 @@ type Keys struct {
 func CreateKeys(t *testing.T,
 	app chainlink.Application, chains map[uint64]deployment.Chain) Keys {
 	ctx := tests.Context(t)
-	require.NoError(t, app.GetKeyStore().Unlock(ctx, "password"))
 	_, err := app.GetKeyStore().P2P().Create(ctx)
 	require.NoError(t, err)
 
