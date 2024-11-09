@@ -461,7 +461,10 @@ func setupNodeCCIP(
 		},
 		CSAETHKeystore: simEthKeyStore,
 	}
-	loopRegistry := plugins.NewLoopRegistry(lggr.Named("LoopRegistry"), config.Tracing(), config.Telemetry())
+	beholderAuthHeaders, csaPubKeyHex, err := keystore.BuildBeholderAuth(keyStore)
+	require.NoError(t, err)
+
+	loopRegistry := plugins.NewLoopRegistry(lggr.Named("LoopRegistry"), config.Tracing(), config.Telemetry(), beholderAuthHeaders, csaPubKeyHex)
 	relayerFactory := chainlink.RelayerFactory{
 		Logger:               lggr,
 		LoopRegistry:         loopRegistry,
@@ -491,7 +494,7 @@ func setupNodeCCIP(
 		RestrictedHTTPClient:       &http.Client{},
 		AuditLogger:                audit.NoopLogger,
 		MailMon:                    mailMon,
-		LoopRegistry:               plugins.NewLoopRegistry(lggr, config.Tracing(), config.Telemetry()),
+		LoopRegistry:               plugins.NewLoopRegistry(lggr, config.Tracing(), config.Telemetry(), beholderAuthHeaders, csaPubKeyHex),
 	})
 	require.NoError(t, err)
 	require.NoError(t, app.GetKeyStore().Unlock(ctx, "password"))

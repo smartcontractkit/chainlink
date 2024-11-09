@@ -66,7 +66,7 @@ var (
 	grpcOpts        loop.GRPCOpts
 )
 
-func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing, cfgTelemetry config.Telemetry, lggr logger.Logger) error {
+func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing, cfgTelemetry config.Telemetry, lggr logger.Logger, csaPubKeyHex string, beholderAuthHeaders map[string]string) error {
 	// Avoid double initializations, but does not prevent relay methods from being called multiple times.
 	var err error
 	initGlobalsOnce.Do(func() {
@@ -104,6 +104,8 @@ func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing, cfgTeleme
 				OtelExporterGRPCEndpoint: cfgTelemetry.OtelExporterGRPCEndpoint(),
 				ResourceAttributes:       attributes,
 				TraceSampleRatio:         cfgTelemetry.TraceSampleRatio(),
+				AuthPublicKeyHex:         csaPubKeyHex,
+				AuthHeaders:              beholderAuthHeaders,
 			}
 			if tracingCfg.Enabled {
 				clientCfg.TraceSpanExporter, err = tracingCfg.NewSpanExporter()
@@ -174,19 +176,14 @@ func (s *Shell) configExitErr(validateFn func() error) cli.ExitCoder {
 
 // AppFactory implements the NewApplication method.
 type AppFactory interface {
-	NewApplication(ctx context.Context, cfg chainlink.GeneralConfig, appLggr logger.Logger, db *sqlx.DB) (chainlink.Application, error)
+	NewApplication(ctx context.Context, cfg chainlink.GeneralConfig, appLggr logger.Logger, db *sqlx.DB, keyStoreAuthenticator TerminalKeyStoreAuthenticator) (chainlink.Application, error)
 }
 
 // ChainlinkAppFactory is used to create a new Application.
 type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
-func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.GeneralConfig, appLggr logger.Logger, db *sqlx.DB) (app chainlink.Application, err error) {
-	err = initGlobals(cfg.Prometheus(), cfg.Tracing(), cfg.Telemetry(), appLggr)
-	if err != nil {
-		appLggr.Errorf("Failed to initialize globals: %v", err)
-	}
-
+func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.GeneralConfig, appLggr logger.Logger, db *sqlx.DB, keyStoreAuthenticator TerminalKeyStoreAuthenticator) (app chainlink.Application, err error) {
 	err = migrate.SetMigrationENVVars(cfg)
 	if err != nil {
 		return nil, err
@@ -198,11 +195,31 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 	}
 
 	ds := sqlutil.WrapDataSource(db, appLggr, sqlutil.TimeoutHook(cfg.Database().DefaultQueryTimeout), sqlutil.MonitorHook(cfg.Database().LogSQL))
-
 	keyStore := keystore.New(ds, utils.GetScryptParams(cfg), appLggr)
+
+	err = keyStoreAuthenticator.Authenticate(ctx, keyStore, cfg.Password())
+	if err != nil {
+		return nil, errors.Wrap(err, "error authenticating keystore")
+	}
+
+	err = keyStore.CSA().EnsureKey(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to ensure CSA key")
+	}
+
+	beholderAuthHeaders, csaPubKeyHex, err := keystore.BuildBeholderAuth(keyStore)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to build Beholder auth")
+	}
+
+	err = initGlobals(cfg.Prometheus(), cfg.Tracing(), cfg.Telemetry(), appLggr, csaPubKeyHex, beholderAuthHeaders)
+	if err != nil {
+		appLggr.Errorf("Failed to initialize globals: %v", err)
+	}
+
 	mailMon := mailbox.NewMonitor(cfg.AppID().String(), appLggr.Named("Mailbox"))
 
-	loopRegistry := plugins.NewLoopRegistry(appLggr, cfg.Tracing(), cfg.Telemetry())
+	loopRegistry := plugins.NewLoopRegistry(appLggr, cfg.Tracing(), cfg.Telemetry(), beholderAuthHeaders, csaPubKeyHex)
 
 	mercuryPool := wsrpc.NewPool(appLggr, cache.Config{
 		LatestReportTTL:      cfg.Mercury().Cache().LatestReportTTL(),
