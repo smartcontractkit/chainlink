@@ -878,7 +878,8 @@ func (c *CCIPIntegrationTestHarness) ConsistentlyReportNotCommitted(t *testing.T
 		c.Source.Chain.Commit()
 		c.Dest.Chain.Commit()
 		t.Log("min seq num reported", minSeqNum)
-		return minSeqNum > uint64(max)
+		require.GreaterOrEqual(t, max, 0)
+		return minSeqNum > uint64(max) //nolint:gosec // G115 false positive
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeFalse(), "report has been committed")
 }
 
