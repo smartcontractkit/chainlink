@@ -297,7 +297,7 @@ Endpoint = 'example.com/collector'
 InsecureConnection = true
 TraceSampleRatio = 0.01
 EmitterBatchProcessor = true
-EmitterExportTimeout = "1s"
+EmitterExportTimeout = '1s'
 
 [Telemetry.ResourceAttributes]
 Baz = 'test'

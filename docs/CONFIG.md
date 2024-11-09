@@ -1906,7 +1906,7 @@ CACertFile = 'cert-file' # Example
 InsecureConnection = false # Default
 TraceSampleRatio = 0.01 # Default
 EmitterBatchProcessor = true # Default
-EmitterExportTimeout = "1s" # Default
+EmitterExportTimeout = '1s' # Default
 ```
 Telemetry holds OTEL settings.
 This data includes open telemetry metrics, traces, & logs.
@@ -1952,7 +1952,7 @@ EmitterBatchProcessor enables batching for telemetry events
 
 ### EmitterExportTimeout
 ```toml
-EmitterExportTimeout = "1s" # Default
+EmitterExportTimeout = '1s' # Default
 ```
 EmitterExportTimeout sets timeout for exporting telemetry events
 
