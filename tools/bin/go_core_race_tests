@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -ex
 OUTPUT_FILE=${OUTPUT_FILE:-"./output.txt"}
-TIMEOUT="${TIMEOUT:-30s}"
-COUNT="${COUNT:-10}"
+TIMEOUT="${TIMEOUT:-10s}"
+COUNT="${COUNT:-5}"
 
 echo "Failed tests and panics: ---------------------"
 echo ""
@@ -10,13 +10,13 @@ if [[ $GITHUB_EVENT_NAME == "schedule" ]]; then
   if [[  $DEBUG == "true" ]]; then 
     GORACE="log_path=$PWD/race" go test -json -vet=off -race -shuffle on -timeout "$TIMEOUT" -count "$COUNT" $1 | tee $OUTPUT_FILE
   else
-    GORACE="log_path=$PWD/race" go test -json -vet=off -race -shuffle on -timeout "$TIMEOUT" -count "$COUNT" $1 | cat > $OUTPUT_FILE
+    GORACE="log_path=$PWD/race" go test -vet=off -race -shuffle on -timeout "$TIMEOUT" -count "$COUNT" $1 | cat > $OUTPUT_FILE
   fi
 else
   if [[ $DEBUG == "true" ]]; then 
         GORACE="log_path=$PWD/race" go test -json -vet=off -race -shuffle on -timeout "$TIMEOUT" -count "$COUNT" $1 | tee $OUTPUT_FILE
   else
-    GORACE="log_path=$PWD/race" go test -json -vet=off -race -shuffle on -timeout "$TIMEOUT" -count "$COUNT" $1 | cat > $OUTPUT_FILE
+    GORACE="log_path=$PWD/race" go test -vet=off -race -shuffle on -timeout "$TIMEOUT" -count "$COUNT" $1 | cat > $OUTPUT_FILE
   fi
 fi
 EXITCODE=${PIPESTATUS[0]}

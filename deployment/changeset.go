@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	ErrInvalidConfig = errors.New("invalid config")
+	ErrInvalidConfig = errors.New("invalid changeset config")
 )
 
 // ChangeSet represents a set of changes to be made to an environment.

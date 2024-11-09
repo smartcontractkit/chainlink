@@ -46,7 +46,7 @@ import (
 func genTestEVMRelayers(t *testing.T, opts legacyevm.ChainRelayOpts, ks evmrelayer.CSAETHKeystore) *chainlink.CoreRelayerChainInteroperators {
 	f := chainlink.RelayerFactory{
 		Logger:               opts.Logger,
-		LoopRegistry:         plugins.NewLoopRegistry(opts.Logger, opts.AppConfig.Tracing(), opts.AppConfig.Telemetry()),
+		LoopRegistry:         plugins.NewLoopRegistry(opts.Logger, opts.AppConfig.Tracing(), opts.AppConfig.Telemetry(), nil, ""),
 		CapabilitiesRegistry: capabilities.NewRegistry(opts.Logger),
 	}
 
@@ -122,7 +122,7 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 				Config:                 cfg,
 				FallbackAPIInitializer: apiPrompt,
 				Runner:                 cltest.EmptyRunner{},
-				AppFactory:             cltest.InstanceAppFactory{App: app},
+				AppFactory:             cltest.InstanceAppFactoryWithKeystoreMock{App: app},
 				Logger:                 lggr,
 			}
 

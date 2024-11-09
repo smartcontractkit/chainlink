@@ -17,11 +17,11 @@ type TerminalKeyStoreAuthenticator struct {
 	Prompter Prompter
 }
 
-type keystorePassword interface {
+type KeystorePassword interface {
 	Keystore() string
 }
 
-func (auth TerminalKeyStoreAuthenticator) authenticate(ctx context.Context, keyStore keystore.Master, password keystorePassword) error {
+func (auth TerminalKeyStoreAuthenticator) Authenticate(ctx context.Context, keyStore keystore.Master, password KeystorePassword) error {
 	isEmpty, err := keyStore.IsEmpty(ctx)
 	if err != nil {
 		return errors.Wrap(err, "error determining if keystore is empty")
