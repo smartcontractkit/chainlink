@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	types "github.com/smartcontractkit/chainlink-common/pkg/types"
 	query "github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
@@ -20,7 +21,6 @@ import (
 
 func Test_Workflow_Registry_Syncer(t *testing.T) {
 	var (
-		done         = make(chan struct{})
 		giveContents = "contents"
 		wantContents = "updated contents"
 		giveCfg      = ContractEventPollerConfig{
@@ -50,8 +50,11 @@ func Test_Workflow_Registry_Syncer(t *testing.T) {
 			return []byte(wantContents), nil
 		}
 		ticker = make(chan struct{})
-		worker = NewWorkflowRegistry(lggr, orm, reader, gateway, giveCfg)
+		worker = NewWorkflowRegistry(lggr, orm, reader, gateway, giveCfg.ContractAddress)
 	)
+
+	// Cleanup the worker
+	defer cancel()
 
 	// Override the ticker
 	worker.ticker = ticker
@@ -89,11 +92,7 @@ func Test_Workflow_Registry_Syncer(t *testing.T) {
 	).Return([]types.Sequence{giveLog}, nil)
 
 	// Go run the worker
-	go func() {
-		defer close(done)
-
-		worker.Start(ctx)
-	}()
+	servicetest.Run(t, worker)
 
 	// Send a tick to start a query
 	ticker <- struct{}{}
@@ -104,8 +103,4 @@ func Test_Workflow_Registry_Syncer(t *testing.T) {
 		require.NoError(t, err)
 		return secrets == wantContents
 	}, 5*time.Second, time.Second)
-
-	// Cleanup the worker
-	cancel()
-	<-done
 }

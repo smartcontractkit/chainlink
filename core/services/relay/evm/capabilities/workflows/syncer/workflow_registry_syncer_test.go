@@ -47,11 +47,6 @@ func Test_SecretsWorker(t *testing.T) {
 		}
 		contractName = "WorkflowRegistry"
 		eventName    = "WorkflowForceUpdateSecretsRequestedV1"
-		giveCfg      = syncer.ContractEventPollerConfig{
-			ContractName:      contractName,
-			ContractEventName: eventName,
-			QueryCount:        20,
-		}
 	)
 
 	// fill ID with randomd data
@@ -64,7 +59,6 @@ func Test_SecretsWorker(t *testing.T) {
 	require.NoError(t, err)
 
 	lggr.Infof("deployed workflow registry at %s\n", wfRegistryAddr.Hex())
-	giveCfg.ContractAddress = wfRegistryAddr.Hex()
 
 	// Build the ContractReader config
 	contractReaderCfg := evmtypes.ChainReaderConfig{
@@ -90,8 +84,6 @@ func Test_SecretsWorker(t *testing.T) {
 	contractReader, err := backendTH.NewContractReader(ctx, t, contractReaderCfgBytes)
 	require.NoError(t, err)
 
-	giveCfg.StartBlockNum = uint64(0)
-
 	// Seed the DB
 	gotID, err := orm.Update(ctx, giveSecretsURL, giveContents)
 	require.NoError(t, err)
@@ -110,7 +102,7 @@ func Test_SecretsWorker(t *testing.T) {
 		orm,
 		contractReader,
 		fetcherFn,
-		giveCfg,
+		wfRegistryAddr.Hex(),
 		syncer.WithTicker(giveTicker),
 	)
 

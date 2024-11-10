@@ -220,7 +220,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		nil,
 		nil,
 		nil,
-		syncer.ContractEventPollerConfig{},
+		"",
 	)
 	srvcs = append(srvcs, workflowRegistrySyncer)
 

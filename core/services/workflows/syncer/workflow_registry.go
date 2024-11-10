@@ -25,29 +25,28 @@ var (
 	ContractEventName   = "WorkflowForceUpdateSecretsRequestedV1"
 )
 
+// WorkflowRegistryrEventType is the type of event that is emitted by the WorkflowRegistry
 type WorkflowRegistryEventType string
 
 var (
+	// ForceUpdateSecretsEvent is emitted when a request to force update a workflows secrets is made
 	ForceUpdateSecretsEvent WorkflowRegistryEventType = "WorkflowForceUpdateSecretsRequestedV1"
 )
 
+// WorkflowRegistryEvent is an event emitted by the WorkflowRegistry.  Each event is typed
+// so that the consumer can determine how to handle the event.
 type WorkflowRegistryEvent struct {
 	logeventcap.Output
 	EventType WorkflowRegistryEventType
 }
+
+// WorkflowRegistryEventResponse is a response to either parsing a queried event or handling the event.
 type WorkflowRegistryEventResponse struct {
 	Err   error
-	Event WorkflowRegistryEvent
+	Event *WorkflowRegistryEvent
 }
 
-type Syncer interface {
-	Sync(ctx context.Context, isInitialSync bool) error
-}
-
-type URLGetter interface {
-	GetURLHash() string
-}
-
+// ContractReader is the subset of methods needed to query the events of a contract.
 type ContractReader interface {
 	Bind(context.Context, []types.BoundContract) error
 	QueryKey(
@@ -59,6 +58,12 @@ type ContractReader interface {
 	) ([]types.Sequence, error)
 }
 
+// ContractEventPollerConfig is the configuration needed to poll for events on a contract.  Currently
+// requires the ContractEventName.
+//
+// TODO(mstreet3): Can we query all contract events at once and tag each with an event type?
+//
+// TODO(mstreet3): Use LookbackBlocks instead of StartBlockNum
 type ContractEventPollerConfig struct {
 	ContractName      string
 	ContractAddress   string
@@ -67,73 +72,88 @@ type ContractEventPollerConfig struct {
 	QueryCount        uint64
 }
 
+// FetcherFunc is an abstraction for fetching the contents stored at a URL.
 type FetcherFunc func(ctx context.Context, url string) ([]byte, error)
 
+// WorkflowRegistrySyncer is the public interface of the package.
 type WorkflowRegistrySyncer interface {
 	services.Service
 }
 
 var _ WorkflowRegistrySyncer = (*workflowRegistry)(nil)
 
+// workflowRegistry is the implementation of the WorkflowRegistrySyncer interface.
 type workflowRegistry struct {
 	services.StateMachine
-	stopCh  services.StopChan
-	lggr    logger.Logger
-	orm     WorkflowRegistryDS
-	reader  ContractReader
-	gateway FetcherFunc
-	wg      sync.WaitGroup
-	ticker  <-chan struct{}
-	cfg     ContractEventPollerConfig
+	stopCh   services.StopChan
+	lggr     logger.Logger
+	orm      WorkflowRegistryDS
+	reader   ContractReader
+	gateway  FetcherFunc
+	wg       sync.WaitGroup
+	ticker   <-chan struct{}
+	eventsCh chan WorkflowRegistryEventResponse
+	handler  Handler
+	cfg      ContractEventPollerConfig
 }
 
+// WithTicker allows external callers to provide a ticker to the workflowRegistry.  This is useful
+// for overriding the default tick interval.
 func WithTicker(ticker <-chan struct{}) func(*workflowRegistry) {
 	return func(wr *workflowRegistry) {
 		wr.ticker = ticker
 	}
 }
 
+// NewWorkflowRegistry returns a new workflowRegistry.
+// Only queries for WorkflowRegistryForceUpdateSecretsRequestedV1 events.
 func NewWorkflowRegistry(
 	lggr logger.Logger,
 	orm WorkflowRegistryDS,
 	reader ContractReader,
 	gateway FetcherFunc,
-	cfg ContractEventPollerConfig,
+	addr string,
 	opts ...func(*workflowRegistry),
 ) *workflowRegistry {
+
 	wr := &workflowRegistry{
 		lggr:    lggr.Named(name),
 		orm:     orm,
 		reader:  reader,
 		gateway: gateway,
-		cfg:     cfg,
-		stopCh:  make(services.StopChan),
+		cfg: ContractEventPollerConfig{
+			ContractName:      ContractName,
+			ContractAddress:   addr,
+			ContractEventName: ContractEventName,
+			QueryCount:        20,
+			StartBlockNum:     0,
+		},
+		stopCh:   make(services.StopChan),
+		eventsCh: make(chan WorkflowRegistryEventResponse),
 	}
+	wr.handler = newEventHandler(wr.lggr, wr.orm, wr.gateway)
 	for _, opt := range opts {
 		opt(wr)
 	}
 	return wr
 }
 
+// Start starts the workflowRegistry.  It starts two goroutines, one for querying the contract
+// and one for handling the events.
 func (w *workflowRegistry) Start(_ context.Context) error {
 	return w.StartOnce(w.Name(), func() error {
-		var (
-			ctx, _       = w.stopCh.NewCtx()
-			eventsCh     = make(chan WorkflowRegistryEventResponse)
-			ticker       = w.getTicker(ctx.Done())
-			eventHandler = newEventHandler(w.lggr, w.orm, w.gateway)
-		)
+		ctx, _ := w.stopCh.NewCtx()
 
 		w.wg.Add(1)
 		go func() {
 			defer w.wg.Done()
-			queryLoop(ctx, w.cfg, w.lggr, w.reader, ticker, eventsCh)
+			w.queryLoop(ctx, w.cfg)
 		}()
 
 		w.wg.Add(1)
 		go func() {
 			defer w.wg.Done()
-			handlerLoop(ctx, w.lggr, eventHandler, eventsCh)
+			w.handlerLoop(ctx)
 		}()
 
 		return nil
@@ -164,68 +184,55 @@ func (w *workflowRegistry) SecretsFor(ctx context.Context, workflowOwner, workfl
 	return w.orm.SecretsFor(ctx, workflowOwner, workflowName)
 }
 
-func (w *workflowRegistry) getTicker(stop <-chan struct{}) <-chan struct{} {
-	if w.ticker == nil {
-		return signalers.MakeTicker(stop, defaultTickInterval)
-	}
-
-	return w.ticker
-}
-
-func handlerLoop(
-	ctx context.Context,
-	lggr logger.Logger,
-	h Handler,
-	events <-chan WorkflowRegistryEventResponse,
-) {
+// handlerLoop handles the events that are emitted by the contract.
+func (w *workflowRegistry) handlerLoop(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case resp, open := <-events:
+		case resp, open := <-w.eventsCh:
 			if !open {
 				return
 			}
 
-			if resp.Err != nil {
+			if resp.Err != nil || resp.Event == nil {
 				continue
 			}
 
 			event := resp.Event
-			if err := h.Handle(ctx, event); err != nil {
-				lggr.Errorf("failed to handle event: %+v", event)
+			if err := w.handler.Handle(ctx, *event); err != nil {
+				w.lggr.Errorf("failed to handle event: %+v", event)
 				continue
 			}
 		}
 	}
 }
 
-func queryLoop(
+// queryLoop polls the contract for events.
+func (w *workflowRegistry) queryLoop(
 	ctx context.Context,
 	cfg ContractEventPollerConfig,
-	lggr logger.Logger,
-	cr ContractReader,
-	ticker <-chan struct{},
-	eventsCh chan<- WorkflowRegistryEventResponse,
 ) {
 	// setup helpers
 	var (
-		sendLog = func(ld WorkflowRegistryEventResponse) {
+		sendLog = func(resp WorkflowRegistryEventResponse) {
 			select {
-			case eventsCh <- ld:
+			case w.eventsCh <- resp:
 			case <-ctx.Done():
 			}
 		}
 
 		sendErr = func(err error) {
 			select {
-			case eventsCh <- WorkflowRegistryEventResponse{
+			case w.eventsCh <- WorkflowRegistryEventResponse{
 				Err: err,
 			}:
 			case <-ctx.Done():
 			default:
 			}
 		}
+
+		ticker = w.getTicker(ctx.Done())
 	)
 
 	// create query
@@ -248,7 +255,7 @@ func queryLoop(
 	)
 
 	// bind contracts to contract reader
-	err = cr.Bind(ctx, boundContracts)
+	err = w.reader.Bind(ctx, boundContracts)
 	if err != nil {
 		sendErr(err)
 		return
@@ -264,7 +271,7 @@ func queryLoop(
 				limitAndSort.Limit = query.CursorLimit(cursor, query.CursorFollowing, cfg.QueryCount)
 			}
 
-			logs, err = cr.QueryKey(
+			logs, err = w.reader.QueryKey(
 				ctx,
 				types.BoundContract{
 					Name:    cfg.ContractName,
@@ -282,7 +289,7 @@ func queryLoop(
 			)
 
 			if err != nil {
-				lggr.Errorw("QueryKey failure", "err", err)
+				w.lggr.Errorw("QueryKey failure", "err", err)
 				sendErr(err)
 				continue
 			}
@@ -292,7 +299,7 @@ func queryLoop(
 			// to the cursor and no log after it, then we understand that there are no new
 			// logs
 			if len(logs) == 1 && logs[0].Cursor == cursor {
-				lggr.Infow("No new logs since", "cursor", cursor)
+				w.lggr.Infow("No new logs since", "cursor", cursor)
 				continue
 			}
 
@@ -301,7 +308,7 @@ func queryLoop(
 					continue
 				}
 
-				sendLog(toWorkflowRegistryEventResponse(log, lggr))
+				sendLog(toWorkflowRegistryEventResponse(log, w.lggr))
 
 				cursor = log.Cursor
 			}
@@ -309,6 +316,20 @@ func queryLoop(
 	}
 }
 
+// getTicker returns the ticker that the workflowRegistry will use to poll for events.  If the ticker
+// is nil, then a default ticker is returned.
+func (w *workflowRegistry) getTicker(stop <-chan struct{}) <-chan struct{} {
+	if w.ticker == nil {
+		return signalers.MakeTicker(stop, defaultTickInterval)
+	}
+
+	return w.ticker
+}
+
+// toWorkflowRegistryEventResponse converts a types.Sequence to a WorkflowRegistryEventResponse.
+//
+// TODO(mstreet3): The event type is hardcoded to ForceUpdateSecretsEvent.  This should be a parameter
+// or function of the incoming log.
 func toWorkflowRegistryEventResponse(
 	log types.Sequence,
 	lggr logger.Logger,
@@ -331,8 +352,7 @@ func toWorkflowRegistryEventResponse(
 	}
 
 	return WorkflowRegistryEventResponse{
-		Event: WorkflowRegistryEvent{
-			// TODO(mstreet3): This type should be dynamically known from the event if possible
+		Event: &WorkflowRegistryEvent{
 			EventType: ForceUpdateSecretsEvent,
 			Output: logeventcap.Output{
 				Cursor: log.Cursor,
