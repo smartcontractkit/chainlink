@@ -21,27 +21,27 @@ func (_m *ORM) EXPECT() *ORM_Expecter {
 	return &ORM_Expecter{mock: &_m.Mock}
 }
 
-// GetSecretsURL provides a mock function with given fields: ctx, hash
-func (_m *ORM) GetSecretsURL(ctx context.Context, hash string) (string, error) {
-	ret := _m.Called(ctx, hash)
+// GetContents provides a mock function with given fields: ctx, url
+func (_m *ORM) GetContents(ctx context.Context, url string) (string, error) {
+	ret := _m.Called(ctx, url)
 
 	if len(ret) == 0 {
-		panic("no return value specified for GetSecretsURL")
+		panic("no return value specified for GetContents")
 	}
 
 	var r0 string
 	var r1 error
 	if rf, ok := ret.Get(0).(func(context.Context, string) (string, error)); ok {
-		return rf(ctx, hash)
+		return rf(ctx, url)
 	}
 	if rf, ok := ret.Get(0).(func(context.Context, string) string); ok {
-		r0 = rf(ctx, hash)
+		r0 = rf(ctx, url)
 	} else {
 		r0 = ret.Get(0).(string)
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
-		r1 = rf(ctx, hash)
+		r1 = rf(ctx, url)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -49,31 +49,88 @@ func (_m *ORM) GetSecretsURL(ctx context.Context, hash string) (string, error) {
 	return r0, r1
 }
 
-// ORM_GetSecretsURL_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetSecretsURL'
-type ORM_GetSecretsURL_Call struct {
+// ORM_GetContents_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetContents'
+type ORM_GetContents_Call struct {
 	*mock.Call
 }
 
-// GetSecretsURL is a helper method to define mock.On call
+// GetContents is a helper method to define mock.On call
 //   - ctx context.Context
-//   - hash string
-func (_e *ORM_Expecter) GetSecretsURL(ctx interface{}, hash interface{}) *ORM_GetSecretsURL_Call {
-	return &ORM_GetSecretsURL_Call{Call: _e.mock.On("GetSecretsURL", ctx, hash)}
+//   - url string
+func (_e *ORM_Expecter) GetContents(ctx interface{}, url interface{}) *ORM_GetContents_Call {
+	return &ORM_GetContents_Call{Call: _e.mock.On("GetContents", ctx, url)}
 }
 
-func (_c *ORM_GetSecretsURL_Call) Run(run func(ctx context.Context, hash string)) *ORM_GetSecretsURL_Call {
+func (_c *ORM_GetContents_Call) Run(run func(ctx context.Context, url string)) *ORM_GetContents_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context), args[1].(string))
 	})
 	return _c
 }
 
-func (_c *ORM_GetSecretsURL_Call) Return(_a0 string, _a1 error) *ORM_GetSecretsURL_Call {
+func (_c *ORM_GetContents_Call) Return(_a0 string, _a1 error) *ORM_GetContents_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *ORM_GetSecretsURL_Call) RunAndReturn(run func(context.Context, string) (string, error)) *ORM_GetSecretsURL_Call {
+func (_c *ORM_GetContents_Call) RunAndReturn(run func(context.Context, string) (string, error)) *ORM_GetContents_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetSecretsURLByID provides a mock function with given fields: ctx, id
+func (_m *ORM) GetSecretsURLByID(ctx context.Context, id int64) (string, error) {
+	ret := _m.Called(ctx, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetSecretsURLByID")
+	}
+
+	var r0 string
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, int64) (string, error)); ok {
+		return rf(ctx, id)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, int64) string); ok {
+		r0 = rf(ctx, id)
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, int64) error); ok {
+		r1 = rf(ctx, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ORM_GetSecretsURLByID_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetSecretsURLByID'
+type ORM_GetSecretsURLByID_Call struct {
+	*mock.Call
+}
+
+// GetSecretsURLByID is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id int64
+func (_e *ORM_Expecter) GetSecretsURLByID(ctx interface{}, id interface{}) *ORM_GetSecretsURLByID_Call {
+	return &ORM_GetSecretsURLByID_Call{Call: _e.mock.On("GetSecretsURLByID", ctx, id)}
+}
+
+func (_c *ORM_GetSecretsURLByID_Call) Run(run func(ctx context.Context, id int64)) *ORM_GetSecretsURLByID_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(int64))
+	})
+	return _c
+}
+
+func (_c *ORM_GetSecretsURLByID_Call) Return(_a0 string, _a1 error) *ORM_GetSecretsURLByID_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ORM_GetSecretsURLByID_Call) RunAndReturn(run func(context.Context, int64) (string, error)) *ORM_GetSecretsURLByID_Call {
 	_c.Call.Return(run)
 	return _c
 }

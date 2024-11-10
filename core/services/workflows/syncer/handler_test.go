@@ -7,7 +7,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/triggers/logevent/logeventcap"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/workflows/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 
@@ -29,17 +28,14 @@ func Test_Handler(t *testing.T) {
 		mockORM := mocks.NewORM(t)
 		ctx := testutils.Context(t)
 		giveURL := "https://original-url.com"
-		hash := common.Keccak256Hash([]byte(giveURL))
-
 		giveEvent := WorkflowRegistryEvent{
 			Output: logeventcap.Output{
 				Data: map[string]any{
-					"SecretsURL": []byte(hash),
+					"SecretsURL": giveURL,
 				},
 			},
 		}
 
-		mockORM.EXPECT().GetSecretsURL(matches.AnyContext, hash).Return(giveURL, nil)
 		fetcher := func(_ context.Context, _ string) ([]byte, error) {
 			return []byte("contents"), nil
 		}
@@ -49,30 +45,26 @@ func Test_Handler(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("fails to get secrets", func(t *testing.T) {
+	t.Run("fails to get secrets url", func(t *testing.T) {
 		mockORM := mocks.NewORM(t)
 		ctx := testutils.Context(t)
-		giveURL := "http://example.com"
-		hash := common.Keccak256Hash([]byte(giveURL))
-		mockORM.EXPECT().GetSecretsURL(matches.AnyContext, hash).Return("", assert.AnError)
 		h := newForceUpdateSecretsHandler(lggr, mockORM, nil)
 		err := h.Handle(ctx, WorkflowRegistryEvent{
 			Output: logeventcap.Output{
 				Data: map[string]any{
-					"SecretsURL": []byte(hash),
+					"SecretsURL": assert.AnError,
 				},
 			},
 		})
 		require.Error(t, err)
-		require.ErrorIs(t, err, assert.AnError)
+		require.ErrorContains(t, err, assert.AnError.Error())
 	})
 
 	t.Run("fails to fetch contents", func(t *testing.T) {
 		mockORM := mocks.NewORM(t)
 		ctx := testutils.Context(t)
 		giveURL := "http://example.com"
-		hash := common.Keccak256Hash([]byte(giveURL))
-		mockORM.EXPECT().GetSecretsURL(matches.AnyContext, hash).Return("", assert.AnError)
+
 		fetcher := func(_ context.Context, _ string) ([]byte, error) {
 			return nil, assert.AnError
 		}
@@ -81,7 +73,7 @@ func Test_Handler(t *testing.T) {
 		err := h.Handle(ctx, WorkflowRegistryEvent{
 			Output: logeventcap.Output{
 				Data: map[string]any{
-					"SecretsURL": []byte(hash),
+					"SecretsURL": giveURL,
 				},
 			},
 		})
@@ -93,8 +85,7 @@ func Test_Handler(t *testing.T) {
 		mockORM := mocks.NewORM(t)
 		ctx := testutils.Context(t)
 		giveURL := "http://example.com"
-		hash := common.Keccak256Hash([]byte(giveURL))
-		mockORM.EXPECT().GetSecretsURL(matches.AnyContext, hash).Return(giveURL, nil)
+
 		fetcher := func(_ context.Context, _ string) ([]byte, error) {
 			return []byte("contents"), nil
 		}
@@ -103,7 +94,7 @@ func Test_Handler(t *testing.T) {
 		err := h.Handle(ctx, WorkflowRegistryEvent{
 			Output: logeventcap.Output{
 				Data: map[string]any{
-					"SecretsURL": []byte(hash),
+					"SecretsURL": giveURL,
 				},
 			},
 		})
@@ -114,16 +105,16 @@ func Test_Handler(t *testing.T) {
 
 func Test_getURLHash(t *testing.T) {
 	giveURL := "http://example.com"
-	hash := common.Keccak256Hash([]byte(giveURL))
+
 	giveEvent := WorkflowRegistryEvent{
 		Output: logeventcap.Output{
 			Data: map[string]any{
-				"SecretsURL": []byte(hash),
+				"SecretsURL": giveURL,
 			},
 		},
 	}
-	gotHash, err := getURLHash(giveEvent)
+	gotURL, err := getSecretsURL(giveEvent)
 	require.NoError(t, err)
 
-	assert.Equal(t, hash, gotHash)
+	assert.Equal(t, giveURL, gotURL)
 }

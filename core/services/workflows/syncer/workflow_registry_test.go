@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/workflows/common"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 
 	"github.com/stretchr/testify/require"
@@ -31,11 +30,11 @@ func Test_Workflow_Registry_Syncer(t *testing.T) {
 			StartBlockNum:     0,
 			QueryCount:        1,
 		}
-		giveURL  = "http://example.com"
-		giveHash = common.Keccak256Hash([]byte(giveURL))
-		giveLog  = types.Sequence{
+		giveURL = "http://example.com"
+
+		giveLog = types.Sequence{
 			Data: map[string]any{
-				"SecretsURL": []byte(giveHash),
+				"SecretsURL": giveURL,
 			},
 			Cursor: "cursor",
 		}
@@ -101,9 +100,9 @@ func Test_Workflow_Registry_Syncer(t *testing.T) {
 
 	// Require the secrets contents to eventually be updated
 	require.Eventually(t, func() bool {
-		secrets, err := orm.GetArtifactByHash(ctx, giveHash)
+		secrets, err := orm.GetContents(ctx, giveURL)
 		require.NoError(t, err)
-		return secrets.Contents == wantContents
+		return secrets == wantContents
 	}, 5*time.Second, time.Second)
 
 	// Cleanup the worker

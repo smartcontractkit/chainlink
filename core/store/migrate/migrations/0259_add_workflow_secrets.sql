@@ -3,13 +3,12 @@
 -- Create the workflow_artifacts table
 CREATE TABLE workflow_secrets (
     id SERIAL PRIMARY KEY,
-    secrets_url TEXT,
-    secrets_url_hash TEXT UNIQUE,
+    secrets_url TEXT UNIQUE, -- base64 encoded URL
     contents BYTEA
 );
 
 -- Create an index on the secrets_url_hash column
-CREATE INDEX idx_secrets_url_hash ON workflow_secrets(secrets_url_hash);
+CREATE INDEX idx_secrets_url_hash ON workflow_secrets(secrets_url);
 
 -- Alter the workflow_specs table
 ALTER TABLE workflow_specs

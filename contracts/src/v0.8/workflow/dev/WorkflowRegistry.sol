@@ -91,7 +91,7 @@ contract WorkflowRegistry is DONAccessControl, Ownable2StepMsgSender, ITypeAndVe
     uint32 indexed donID,
     string workflowName
   );
-  event WorkflowForceUpdateSecretsRequestedV1(string indexed secretsURL, address indexed owner, string workflowName);
+  event WorkflowForceUpdateSecretsRequestedV1(string secretsURL, address indexed owner, string workflowName);
   event RegistryLockedV1(address lockedBy);
   event RegistryUnlockedV1(address unlockedBy);
 

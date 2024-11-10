@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/test-go/testify/assert"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
@@ -34,10 +33,10 @@ func Test_SecretsWorker(t *testing.T) {
 
 		giveTicker     = signalers.MakeTicker(ctx.Done(), 500*time.Millisecond)
 		giveSecretsURL = "https://original-url.com"
-		giveHash       = crypto.Keccak256Hash([]byte(giveSecretsURL))
+		donID          = uint32(1)
 		giveWorkflow   = RegisterWorkflowCMD{
 			Name:       "test-wf",
-			DonID:      uint32(1),
+			DonID:      donID,
 			Status:     uint8(0),
 			SecretsURL: giveSecretsURL,
 		}
@@ -94,17 +93,17 @@ func Test_SecretsWorker(t *testing.T) {
 	giveCfg.StartBlockNum = uint64(0)
 
 	// Seed the DB
-	_, err = orm.Update(ctx, giveSecretsURL, giveContents)
+	gotID, err := orm.Update(ctx, giveSecretsURL, giveContents)
 	require.NoError(t, err)
 
-	gotSecretsURL, err := orm.GetSecretsURL(ctx, giveHash.Hex())
+	gotSecretsURL, err := orm.GetSecretsURLByID(ctx, gotID)
 	assert.NoError(t, err)
 	assert.Equal(t, giveSecretsURL, gotSecretsURL)
 
 	// verify the DB
-	gotArtifact, err := orm.GetArtifactByHash(ctx, giveHash.Hex())
+	contents, err := orm.GetContents(ctx, giveSecretsURL)
 	assert.NoError(t, err)
-	assert.Equal(t, gotArtifact.Contents, giveContents)
+	assert.Equal(t, contents, giveContents)
 
 	worker := syncer.NewWorkflowRegistry(
 		lggr,
@@ -116,7 +115,7 @@ func Test_SecretsWorker(t *testing.T) {
 	)
 
 	// generate a log event
-	updateAuthorizedAddress(t, backendTH, wfRegistryC, []common.Address{backendTH.ContractsOwner.From}, true)
+	updateAuthorizedAddress(t, backendTH, wfRegistryC, donID, []common.Address{backendTH.ContractsOwner.From}, true)
 	updateAllowedDONs(t, backendTH, wfRegistryC, []uint32{1}, true)
 	registerWorkflow(t, backendTH, wfRegistryC, giveWorkflow)
 
@@ -132,10 +131,10 @@ func Test_SecretsWorker(t *testing.T) {
 
 	// Require the secrets contents to eventually be updated
 	require.Eventually(t, func() bool {
-		secrets, err := orm.GetArtifactByHash(ctx, giveHash.Hex())
+		secrets, err := orm.GetContents(ctx, giveSecretsURL)
 		lggr.Debugf("got secrets %v", secrets)
 		require.NoError(t, err)
-		return secrets.Contents == wantContents
+		return secrets == wantContents
 	}, 5*time.Second, time.Second)
 }
 
@@ -143,11 +142,12 @@ func updateAuthorizedAddress(
 	t *testing.T,
 	th *testutils.EVMBackendTH,
 	wfRegC *workflow_registry_wrapper.WorkflowRegistry,
+	donID uint32,
 	addresses []common.Address,
 	allowed bool,
 ) {
 	t.Helper()
-	_, err := wfRegC.UpdateAuthorizedAddresses(th.ContractsOwner, addresses, allowed)
+	_, err := wfRegC.UpdateDONPermissions(th.ContractsOwner, donID, addresses, allowed)
 	require.NoError(t, err, "failed to update authorised addresses")
 	th.Backend.Commit()
 	th.Backend.Commit()
