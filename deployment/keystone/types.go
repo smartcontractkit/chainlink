@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -212,21 +213,6 @@ type DonCapabilities struct {
 	Capabilities []kcr.CapabilitiesRegistryCapability // every capability is hosted on each nop
 }
 
-// map the node id to the NOP
-func (dc DonInfo) nopsByNodeID(chainSelector uint64) (map[string]capabilities_registry.CapabilitiesRegistryNodeOperator, error) {
-	out := make(map[string]capabilities_registry.CapabilitiesRegistryNodeOperator)
-	for _, nop := range dc.Nops {
-		for _, node := range nop.Nodes {
-			a, err := AdminAddress(node, chainSelector)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get admin address for node %s: %w", node.ID, err)
-			}
-			out[node.ID] = NodeOperator(nop.Name, a)
-		}
-	}
-	return out, nil
-}
-
 func NodeOperator(name string, adminAddress string) capabilities_registry.CapabilitiesRegistryNodeOperator {
 	return capabilities_registry.CapabilitiesRegistryNodeOperator{
 		Name:  name,
@@ -249,23 +235,30 @@ func AdminAddress(n *Node, chainSel uint64) (string, error) {
 	return "", fmt.Errorf("no chain config for chain %d", cid)
 }
 
-// helpers to maintain compatibility with the existing registration functions
-// nodesToNops converts a list of DonCapabilities to a map of node id to NOP
-func nodesToNops(dons []DonInfo, chainSel uint64) (map[string]capabilities_registry.CapabilitiesRegistryNodeOperator, error) {
-	out := make(map[string]capabilities_registry.CapabilitiesRegistryNodeOperator)
+func nopsToNodes(donInfos []DonInfo, dons []DonCapabilities, chainSelector uint64) (map[capabilities_registry.CapabilitiesRegistryNodeOperator][]string, error) {
+	out := make(map[capabilities_registry.CapabilitiesRegistryNodeOperator][]string)
 	for _, don := range dons {
-		nops, err := don.nopsByNodeID(chainSel)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get registry NOPs for don %s: %w", don.Name, err)
-		}
-		for donName, nop := range nops {
-			_, exists := out[donName]
-			if exists {
-				continue
+		for _, nop := range don.Nops {
+			idx := slices.IndexFunc(donInfos, func(donInfo DonInfo) bool {
+				return donInfo.Name == don.Name
+			})
+			if idx < 0 {
+				return nil, fmt.Errorf("couldn't find donInfo for %v", don.Name)
 			}
-			out[donName] = nop
+			donInfo := donInfos[idx]
+			idx = slices.IndexFunc(donInfo.Nodes, func(node Node) bool {
+				return node.P2PID == nop.Nodes[0]
+			})
+			node := donInfo.Nodes[idx]
+			a, err := AdminAddress(&node, chainSelector)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get admin address for node %s: %w", node.ID, err)
+			}
+			nodeOperator := NodeOperator(nop.Name, a)
+			out[nodeOperator] = nop.Nodes
 		}
 	}
+
 	return out, nil
 }
 

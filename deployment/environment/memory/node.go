@@ -221,8 +221,11 @@ func CreateKeys(t *testing.T,
 	_, err := app.GetKeyStore().P2P().Create(ctx)
 	require.NoError(t, err)
 
-	csaKey, err := app.GetKeyStore().CSA().Create(ctx)
+	err = app.GetKeyStore().CSA().EnsureKey(ctx)
 	require.NoError(t, err)
+	csaKeys, err := app.GetKeyStore().CSA().GetAll()
+	require.NoError(t, err)
+	csaKey := csaKeys[0]
 
 	p2pIDs, err := app.GetKeyStore().P2P().GetAll()
 	require.NoError(t, err)

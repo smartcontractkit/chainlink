@@ -15,6 +15,7 @@ import (
 	"github.com/AlekSi/pointer"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/rpc"
+	"golang.org/x/exp/maps"
 
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
@@ -270,12 +271,12 @@ func ConfigureRegistry(ctx context.Context, lggr logger.Logger, req ConfigureCon
 		return nil, fmt.Errorf("failed to map dons to nodes: %w", err)
 	}
 
-	// TODO: we can remove this abstractions and refactor the functions that accept them to accept []DonCapabilities
+	// TODO: we can remove this abstractions and refactor the functions that accept them to accept []DonInfos/DonCapabilities
 	// they are unnecessary indirection
 	donToCapabilities := mapDonsToCaps(donInfos)
-	nodeIdToNop, err := nodesToNops(donInfos, req.RegistryChainSel)
+	nopsToNodeIDs, err := nopsToNodes(donInfos, req.Dons, req.RegistryChainSel)
 	if err != nil {
-		return nil, fmt.Errorf("failed to map nodes to nops: %w", err)
+		return nil, fmt.Errorf("failed to map nops to nodes: %w", err)
 	}
 
 	// register capabilities
@@ -290,14 +291,7 @@ func ConfigureRegistry(ctx context.Context, lggr logger.Logger, req ConfigureCon
 	lggr.Infow("registered capabilities", "capabilities", capabilitiesResp.donToCapabilities)
 
 	// register node operators
-	dedupedNops := make(map[kcr.CapabilitiesRegistryNodeOperator]struct{})
-	var nopsList []kcr.CapabilitiesRegistryNodeOperator
-	for _, nop := range nodeIdToNop {
-		dedupedNops[nop] = struct{}{}
-	}
-	for nop := range dedupedNops {
-		nopsList = append(nopsList, nop)
-	}
+	nopsList := maps.Keys(nopsToNodeIDs)
 	nopsResp, err := RegisterNOPS(ctx, lggr, RegisterNOPSRequest{
 		Chain:    registryChain,
 		Registry: registry,
@@ -312,7 +306,7 @@ func ConfigureRegistry(ctx context.Context, lggr logger.Logger, req ConfigureCon
 	nodesResp, err := registerNodes(lggr, &registerNodesRequest{
 		registry:          registry,
 		chain:             registryChain,
-		nodeIdToNop:       nodeIdToNop,
+		nopToNodeIDs:      nopsToNodeIDs,
 		donToOcr2Nodes:    donToOcr2Nodes,
 		donToCapabilities: capabilitiesResp.donToCapabilities,
 		nops:              nopsResp.Nops,
@@ -653,7 +647,7 @@ func DecodeErr(encodedABI string, err error) error {
 type registerNodesRequest struct {
 	registry          *kcr.CapabilitiesRegistry
 	chain             deployment.Chain
-	nodeIdToNop       map[string]kcr.CapabilitiesRegistryNodeOperator
+	nopToNodeIDs      map[kcr.CapabilitiesRegistryNodeOperator][]string
 	donToOcr2Nodes    map[string][]*ocr2Node
 	donToCapabilities map[string][]RegisteredCapability
 	nops              []*kcr.CapabilitiesRegistryNodeOperatorAdded
@@ -666,21 +660,18 @@ type registerNodesResponse struct {
 // can sign the transactions update the contract state
 // TODO: 467 refactor to support MCMS. Specifically need to separate the call data generation from the actual contract call
 func registerNodes(lggr logger.Logger, req *registerNodesRequest) (*registerNodesResponse, error) {
-	lggr.Infow("registering nodes...", "len", len(req.nodeIdToNop))
-	nopToNodeIDs := make(map[kcr.CapabilitiesRegistryNodeOperator][]string)
-	for nodeID, nop := range req.nodeIdToNop {
-		if _, ok := nopToNodeIDs[nop]; !ok {
-			nopToNodeIDs[nop] = make([]string, 0)
-		}
-		nopToNodeIDs[nop] = append(nopToNodeIDs[nop], nodeID)
+	var count int
+	for _, nodes := range req.nopToNodeIDs {
+		count += len(nodes)
 	}
+	lggr.Infow("registering nodes...", "len", count)
 	nodeToRegisterNop := make(map[string]*kcr.CapabilitiesRegistryNodeOperatorAdded)
 	for _, nop := range req.nops {
 		n := kcr.CapabilitiesRegistryNodeOperator{
 			Name:  nop.Name,
 			Admin: nop.Admin,
 		}
-		nodeIDs := nopToNodeIDs[n]
+		nodeIDs := req.nopToNodeIDs[n]
 		for _, nodeID := range nodeIDs {
 			_, exists := nodeToRegisterNop[nodeID]
 			if !exists {
