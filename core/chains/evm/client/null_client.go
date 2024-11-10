@@ -236,6 +236,6 @@ func (nc *NullClient) CheckTxValidity(_ context.Context, _ common.Address, _ com
 	return nil
 }
 
-func (nc *NullClient) FeeHistory(ctx context.Context, blockCount uint64, rewardPercentiles []float64) (feeHistory *ethereum.FeeHistory, err error) {
+func (nc *NullClient) FeeHistory(ctx context.Context, blockCount uint64, lastBlock *big.Int, rewardPercentiles []float64) (feeHistory *ethereum.FeeHistory, err error) {
 	return nil, nil
 }

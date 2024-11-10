@@ -9,6 +9,7 @@ import (
 	"slices"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -250,9 +251,9 @@ func (cc CapabilitiesConfiguration) Validate() error {
 // NodeView is a serialization-friendly view of a node in the capabilities registry.
 type NodeView struct {
 	NodeUniversalMetadata
-	NodeOperatorID uint32     `json:"node_operator_id"`
-	CapabilityIDs  []string   `json:"capability_ids,omitempty"` // hex 32 bytes
-	DONIDs         []*big.Int `json:",don_ids, omitempty"`
+	NodeOperatorID   uint32     `json:"node_operator_id"`
+	CapabilityIDs    []string   `json:"capability_ids,omitempty"` // hex 32 bytes
+	CapabilityDONIDs []*big.Int `json:"capability_don_ids,omitempty"`
 }
 
 // NodeUniversalMetadata is a serialization-friendly view of the universal metadata of a node in the capabilities registry.
@@ -274,9 +275,9 @@ func NewNodeView(n capabilities_registry.INodeInfoProviderNodeInfo) NodeView {
 			P2pId:               p2pkey.PeerID(n.P2pId),
 			EncryptionPublicKey: hex.EncodeToString(n.EncryptionPublicKey[:]),
 		},
-		NodeOperatorID: n.NodeOperatorId,
-		CapabilityIDs:  hexIds(n.HashedCapabilityIds),
-		DONIDs:         n.CapabilitiesDONIds,
+		NodeOperatorID:   n.NodeOperatorId,
+		CapabilityIDs:    hexIds(n.HashedCapabilityIds),
+		CapabilityDONIDs: n.CapabilitiesDONIds,
 	}
 }
 
@@ -367,7 +368,7 @@ func hexIds(ids [][32]byte) []string {
 
 func (v DonView) hasNode(node NodeView) bool {
 	donId := big.NewInt(int64(v.ID))
-	return slices.ContainsFunc(node.DONIDs, func(elem *big.Int) bool { return elem.Cmp(donId) == 0 })
+	return slices.ContainsFunc(node.CapabilityDONIDs, func(elem *big.Int) bool { return elem.Cmp(donId) == 0 }) || node.WorkflowDONID == v.ID
 }
 
 func (v DonView) hasCapability(candidate CapabilityView) bool {

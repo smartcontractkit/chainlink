@@ -59,6 +59,7 @@ func newStandardCapabilities(
 		pipelineRunner:       pipelineRunner,
 		relayerSet:           relayerSet,
 		oracleFactory:        oracleFactory,
+		stopChan:             make(chan struct{}),
 	}
 }
 
@@ -116,6 +117,8 @@ func (s *standardCapabilities) Start(ctx context.Context) error {
 }
 
 func (s *standardCapabilities) Close() error {
+	close(s.stopChan)
+	s.wg.Wait()
 	return s.StopOnce("StandardCapabilities", func() error {
 		if s.capabilitiesLoop != nil {
 			return s.capabilitiesLoop.Close()

@@ -29,12 +29,12 @@ type DBStore struct {
 // `workflowExecutionRow` describes a row
 // of the `workflow_executions` table
 type workflowExecutionRow struct {
-	ID         string
-	WorkflowID *string
-	Status     string
-	CreatedAt  *time.Time
-	UpdatedAt  *time.Time
-	FinishedAt *time.Time
+	ID         string     `db:"id"`
+	WorkflowID *string    `db:"workflow_id"`
+	Status     string     `db:"status"`
+	CreatedAt  *time.Time `db:"created_at"`
+	UpdatedAt  *time.Time `db:"updated_at"`
+	FinishedAt *time.Time `db:"finished_at"`
 }
 
 // `workflowStepRow` describes a row

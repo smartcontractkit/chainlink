@@ -156,7 +156,7 @@ func (c *SimulatedBackendClient) LINKBalance(ctx context.Context, address common
 	panic("not implemented")
 }
 
-func (c *SimulatedBackendClient) FeeHistory(ctx context.Context, blockCount uint64, rewardPercentiles []float64) (feeHistory *ethereum.FeeHistory, err error) {
+func (c *SimulatedBackendClient) FeeHistory(ctx context.Context, blockCount uint64, lastBlock *big.Int, rewardPercentiles []float64) (feeHistory *ethereum.FeeHistory, err error) {
 	panic("not implemented")
 }
 
