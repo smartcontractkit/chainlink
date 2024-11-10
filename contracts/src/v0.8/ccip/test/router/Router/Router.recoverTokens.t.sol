@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
-import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+import {IERC20} from "../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
-import {Router} from "../../Router.sol";
+import {Router} from "../../../Router.sol";
 
-import {MaybeRevertMessageReceiver} from "../helpers/receivers/MaybeRevertMessageReceiver.sol";
-import {OnRampSetup} from "../onRamp/OnRamp/OnRampSetup.t.sol";
+import {MaybeRevertMessageReceiver} from "../../helpers/receivers/MaybeRevertMessageReceiver.sol";
+import {OnRampSetup} from "../../onRamp/OnRamp/OnRampSetup.t.sol";
 
 contract Router_recoverTokens is OnRampSetup {
   function test_RecoverTokens_Success() public {

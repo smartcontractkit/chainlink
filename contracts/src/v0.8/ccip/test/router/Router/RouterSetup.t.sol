@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
-import {Router} from "../../Router.sol";
-import {Client} from "../../libraries/Client.sol";
-import {Internal} from "../../libraries/Internal.sol";
-import {BaseTest} from "../BaseTest.t.sol";
-import {WETH9} from "../WETH9.sol";
+import {Router} from "../../../Router.sol";
+import {Client} from "../../../libraries/Client.sol";
+import {Internal} from "../../../libraries/Internal.sol";
+import {BaseTest} from "../../BaseTest.t.sol";
+import {WETH9} from "../../WETH9.sol";
 
 contract RouterSetup is BaseTest {
   Router internal s_sourceRouter;
