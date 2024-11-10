@@ -115,7 +115,6 @@ func NewWorkflowRegistry(
 	addr string,
 	opts ...func(*workflowRegistry),
 ) *workflowRegistry {
-
 	wr := &workflowRegistry{
 		lggr:    lggr.Named(name),
 		orm:     orm,
