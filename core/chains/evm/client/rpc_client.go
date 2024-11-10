@@ -456,7 +456,13 @@ func (r *RPCClient) SubscribeToHeads(ctx context.Context) (ch <-chan *evmtypes.H
 	if r.newHeadsPollInterval > 0 {
 		interval := r.newHeadsPollInterval
 		timeout := interval
-		poller, channel := commonclient.NewPoller[*evmtypes.Head](interval, r.latestBlock, timeout, r.rpcLog)
+		isHealthCheckRequest := commonclient.CtxIsHeathCheckRequest(ctx)
+		poller, channel := commonclient.NewPoller[*evmtypes.Head](interval, func(ctx context.Context) (*evmtypes.Head, error) {
+			if isHealthCheckRequest {
+				ctx = commonclient.CtxAddHealthCheckFlag(ctx)
+			}
+			return r.latestBlock(ctx)
+		}, timeout, r.rpcLog)
 		if err = poller.Start(ctx); err != nil {
 			return nil, nil, err
 		}
@@ -510,7 +516,13 @@ func (r *RPCClient) SubscribeToFinalizedHeads(ctx context.Context) (<-chan *evmt
 		return nil, nil, errors.New("FinalizedBlockPollInterval is 0")
 	}
 	timeout := interval
-	poller, channel := commonclient.NewPoller[*evmtypes.Head](interval, r.LatestFinalizedBlock, timeout, r.rpcLog)
+	isHealthCheckRequest := commonclient.CtxIsHeathCheckRequest(ctx)
+	poller, channel := commonclient.NewPoller[*evmtypes.Head](interval, func(ctx context.Context) (*evmtypes.Head, error) {
+		if isHealthCheckRequest {
+			ctx = commonclient.CtxAddHealthCheckFlag(ctx)
+		}
+		return r.LatestFinalizedBlock(ctx)
+	}, timeout, r.rpcLog)
 	if err := poller.Start(ctx); err != nil {
 		return nil, nil, err
 	}
@@ -1081,7 +1093,7 @@ func (r *RPCClient) BalanceAt(ctx context.Context, account common.Address, block
 	return
 }
 
-func (r *RPCClient) FeeHistory(ctx context.Context, blockCount uint64, rewardPercentiles []float64) (feeHistory *ethereum.FeeHistory, err error) {
+func (r *RPCClient) FeeHistory(ctx context.Context, blockCount uint64, lastBlock *big.Int, rewardPercentiles []float64) (feeHistory *ethereum.FeeHistory, err error) {
 	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx, r.rpcTimeout)
 	defer cancel()
 	lggr := r.newRqLggr().With("blockCount", blockCount, "rewardPercentiles", rewardPercentiles)
@@ -1089,10 +1101,10 @@ func (r *RPCClient) FeeHistory(ctx context.Context, blockCount uint64, rewardPer
 	lggr.Debug("RPC call: evmclient.Client#FeeHistory")
 	start := time.Now()
 	if http != nil {
-		feeHistory, err = http.geth.FeeHistory(ctx, blockCount, nil, rewardPercentiles)
+		feeHistory, err = http.geth.FeeHistory(ctx, blockCount, lastBlock, rewardPercentiles)
 		err = r.wrapHTTP(err)
 	} else {
-		feeHistory, err = ws.geth.FeeHistory(ctx, blockCount, nil, rewardPercentiles)
+		feeHistory, err = ws.geth.FeeHistory(ctx, blockCount, lastBlock, rewardPercentiles)
 		err = r.wrapWS(err)
 	}
 	duration := time.Since(start)

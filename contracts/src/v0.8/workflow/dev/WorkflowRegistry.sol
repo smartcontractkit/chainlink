@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {Ownable2StepMsgSender} from "../../shared/access/Ownable2StepMsgSender.sol";
 import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
+
+import {Ownable2StepMsgSender} from "../../shared/access/Ownable2StepMsgSender.sol";
+import {DONAccessControl} from "./DONAccessControl.sol";
 
 import {Strings} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts/utils/Strings.sol";
 import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts/utils/structs/EnumerableSet.sol";
 
-contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
+contract WorkflowRegistry is DONAccessControl, Ownable2StepMsgSender, ITypeAndVersion {
   // Bindings
   using EnumerableSet for EnumerableSet.Bytes32Set;
   using EnumerableSet for EnumerableSet.AddressSet;
@@ -27,13 +29,13 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
 
   // Structs
   struct WorkflowMetadata {
-    bytes32 workflowID; //     Unique identifier from hash of owner address, WASM binary content, config content and secrets URL
-    address owner; // ─────────────────╮ Workflow owner
-    uint32 donID; //                   │ Unique identifier for the Workflow DON
-    WorkflowStatus status; // ─────────╯ Current status of the workflow (active, paused)
-    string workflowName; //    Human readable string capped at 64 characters length
-    string binaryURL; //       URL to the WASM binary
-    string configURL; //       URL to the config
+    bytes32 workflowID; //     Unique identifier from hash of owner address, WASM binary content, config content and secrets URL.
+    address owner; // ─────────────────╮ Workflow owner.
+    uint32 donID; //                   │ Unique identifier for the Workflow DON.
+    WorkflowStatus status; // ─────────╯ Current status of the workflow (active, paused).
+    string workflowName; //    Human readable string capped at 64 characters length.
+    string binaryURL; //       URL to the WASM binary.
+    string configURL; //       URL to the config.
     string secretsURL; //      URL to the encrypted secrets. Workflow DON applies a default refresh period (e.g. daily)
   }
 
@@ -48,14 +50,9 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
   /// This is used to find all workflows that have the same secretsURL when a force secrets update event is requested.
   mapping(bytes32 secretsURLHash => EnumerableSet.Bytes32Set workflowKeys) private s_secretsHashToWorkflows;
 
-  /// @dev List of all authorized EOAs/contracts allowed to access this contract's state functions. All view functions are open access.
-  EnumerableSet.AddressSet private s_authorizedAddresses;
-  /// @dev List of all authorized DON IDs.
-  EnumerableSet.UintSet private s_allowedDONs;
+  bool private s_registryLocked = false;
 
   // Events
-  event AllowedDONsUpdatedV1(uint32[] donIDs, bool allowed);
-  event AuthorizedAddressesUpdatedV1(address[] addresses, bool allowed);
   event WorkflowRegisteredV1(
     bytes32 indexed workflowID,
     address indexed workflowOwner,
@@ -77,19 +74,28 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
     string secretsURL
   );
   event WorkflowPausedV1(
-    bytes32 indexed workflowID, address indexed workflowOwner, uint32 indexed donID, string workflowName
+    bytes32 indexed workflowID,
+    address indexed workflowOwner,
+    uint32 indexed donID,
+    string workflowName
   );
   event WorkflowActivatedV1(
-    bytes32 indexed workflowID, address indexed workflowOwner, uint32 indexed donID, string workflowName
+    bytes32 indexed workflowID,
+    address indexed workflowOwner,
+    uint32 indexed donID,
+    string workflowName
   );
   event WorkflowDeletedV1(
-    bytes32 indexed workflowID, address indexed workflowOwner, uint32 indexed donID, string workflowName
+    bytes32 indexed workflowID,
+    address indexed workflowOwner,
+    uint32 indexed donID,
+    string workflowName
   );
-  event WorkflowForceUpdateSecretsRequestedV1(string indexed secretsURL, address indexed owner, string[] workflowNames);
+  event WorkflowForceUpdateSecretsRequestedV1(string indexed secretsURL, address indexed owner, string workflowName);
+  event RegistryLockedV1(address lockedBy);
+  event RegistryUnlockedV1(address unlockedBy);
 
   // Errors
-  error OnlyAuthorizedAddress();
-  error OnlyAllowedDONID();
   error InvalidWorkflowID();
   error WorkflowAlreadyInDesiredStatus();
   error WorkflowDoesNotExist();
@@ -97,13 +103,13 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
   error WorkflowIDNotUpdated();
   error WorkflowContentNotUpdated();
   error WorkflowAlreadyRegistered();
-  error WorkflowNameTooLong(uint256 length, uint8 maxAllowedLength);
-  error URLTooLong(uint256 length, uint8 maxAllowedLength);
+  error WorkflowNameTooLong(uint256 providedLength, uint8 maxAllowedLength);
+  error URLTooLong(uint256 providedLength, uint8 maxAllowedLength);
+  error RegistryLocked();
 
   // Modifiers
-  // Check if the caller is an authorized address
-  modifier onlyAuthorizedAddresses() {
-    if (!s_authorizedAddresses.contains(msg.sender)) revert OnlyAuthorizedAddress();
+  modifier registryNotLocked() {
+    if (s_registryLocked) revert RegistryLocked();
     _;
   }
 
@@ -112,38 +118,48 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
   // |                            ADMIN                             |
   // ================================================================
   /// @notice Updates the list of allowed DON IDs.
-  /// @dev If a DON ID with associated workflows is removed from the allowed DONs list, the only allowed actions on workflows for that DON
-  ///      are to pause or delete them. It will no longer be possible to update, activate, or register new workflows for a removed DON.
+  /// @dev If a DON ID with associated workflows is removed from the allowed DONs list, the only allowed actions on workflows for
+  /// that DON are to pause or delete them. It will no longer be possible to update, activate, or register new workflows for a
+  /// removed DON.
   /// @param donIDs The list of unique identifiers for Workflow DONs.
   /// @param allowed True if they should be added to the allowlist, false to remove them.
-  function updateAllowedDONs(uint32[] calldata donIDs, bool allowed) external onlyOwner {
+  function updateAllowedDONs(uint32[] calldata donIDs, bool allowed) external onlyOwner registryNotLocked {
     uint256 length = donIDs.length;
     for (uint256 i = 0; i < length; ++i) {
-      if (allowed) {
-        s_allowedDONs.add(donIDs[i]);
-      } else {
-        s_allowedDONs.remove(donIDs[i]);
-      }
+      _updateAllowedDON(donIDs[i], allowed);
     }
-
-    emit AllowedDONsUpdatedV1(donIDs, allowed);
   }
 
   /// @notice Updates a list of authorized addresses that can register workflows.
   /// @dev We don't check if an existing authorized address will be set to false, please take extra caution.
+  /// @param donID The unique identifier for the Workflow DON.
   /// @param addresses The list of addresses.
   /// @param allowed True if they should be added to whitelist, false to remove them.
-  function updateAuthorizedAddresses(address[] calldata addresses, bool allowed) external onlyOwner {
+  function updateDONPermissions(
+    uint32 donID,
+    address[] calldata addresses,
+    bool allowed
+  ) external onlyOwner registryNotLocked {
     uint256 length = addresses.length;
     for (uint256 i = 0; i < length; ++i) {
-      if (allowed) {
-        s_authorizedAddresses.add(addresses[i]);
-      } else {
-        s_authorizedAddresses.remove(addresses[i]);
-      }
+      _updateDONPermission(donID, addresses[i], allowed);
     }
+  }
 
-    emit AuthorizedAddressesUpdatedV1(addresses, allowed);
+  /// @notice Locks the registry, preventing any further modifications.
+  /// @dev This function can only be called by the owner of the contract. Once locked, the registry cannot be modified
+  /// until it is unlocked by calling `unlockRegistry`. Emits a `ContractLocked` event.
+  function lockRegistry() external onlyOwner {
+    s_registryLocked = true;
+    emit RegistryLockedV1(msg.sender);
+  }
+
+  /// @notice Unlocks the registry, allowing modifications to be made.
+  /// @dev This function can only be called by the owner of the contract. Once unlocked, the registry can be modified
+  /// again. Emits a `ContractUnlocked` event.
+  function unlockRegistry() external onlyOwner {
+    s_registryLocked = false;
+    emit RegistryUnlockedV1(msg.sender);
   }
 
   // ================================================================
@@ -183,14 +199,11 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
     string calldata binaryURL,
     string calldata configURL,
     string calldata secretsURL
-  ) external onlyAuthorizedAddresses {
+  ) external registryNotLocked {
     address sender = msg.sender;
-    if (!s_allowedDONs.contains(donID)) revert OnlyAllowedDONID();
 
-    if (bytes(workflowName).length > MAX_WORKFLOW_NAME_LENGTH) {
-      revert WorkflowNameTooLong(bytes(workflowName).length, MAX_WORKFLOW_NAME_LENGTH);
-    }
-
+    _validateDONPermission(donID, sender);
+    _validateWorkflowName(workflowName);
     _validateWorkflowMetadata(workflowID, binaryURL, configURL, secretsURL);
 
     bytes32 workflowKey = _computeOwnerAndStringFieldHashKey(sender, workflowName);
@@ -258,14 +271,13 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
     string calldata binaryURL,
     string calldata configURL,
     string calldata secretsURL
-  ) external onlyAuthorizedAddresses {
+  ) external registryNotLocked {
     _validateWorkflowMetadata(newWorkflowID, binaryURL, configURL, secretsURL);
 
     address sender = msg.sender;
-    (, WorkflowMetadata storage workflow) = _getWorkflowFromStorageByName(sender, workflowName);
+    (bytes32 workflowKey, WorkflowMetadata storage workflow) = _getWorkflowFromStorageByName(sender, workflowName);
 
-    // Check if the DON ID is allowed
-    if (!s_allowedDONs.contains(workflow.donID)) revert OnlyAllowedDONID();
+    _validateDONPermission(workflow.donID, sender);
 
     // Read current values from storage into local variables
     bytes32 currentWorkflowID = workflow.workflowID;
@@ -299,7 +311,7 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
       if (bytes(currentSecretsURL).length > 0) {
         // Using keccak256 instead of _computeOwnerAndStringFieldHashKey as currentSecretsURL is memory
         bytes32 oldSecretsHash = keccak256(abi.encodePacked(sender, currentSecretsURL));
-        s_secretsHashToWorkflows[oldSecretsHash].remove(currentWorkflowID);
+        s_secretsHashToWorkflows[oldSecretsHash].remove(workflowKey);
       }
 
       workflow.secretsURL = secretsURL;
@@ -307,13 +319,20 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
       // Add the new secrets hash if secretsURL is not empty
       if (bytes(secretsURL).length > 0) {
         bytes32 newSecretsHash = _computeOwnerAndStringFieldHashKey(sender, secretsURL);
-        s_secretsHashToWorkflows[newSecretsHash].add(newWorkflowID);
+        s_secretsHashToWorkflows[newSecretsHash].add(workflowKey);
       }
     }
 
     // Emit an event after updating the workflow
     emit WorkflowUpdatedV1(
-      currentWorkflowID, sender, workflow.donID, newWorkflowID, workflow.workflowName, binaryURL, configURL, secretsURL
+      currentWorkflowID,
+      sender,
+      workflow.donID,
+      newWorkflowID,
+      workflow.workflowName,
+      binaryURL,
+      configURL,
+      secretsURL
     );
   }
 
@@ -321,7 +340,7 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
   /// @dev Workflows with any DON ID can be paused.
   ///      If a caller was later removed from the authorized addresses list, they will still be able to pause the workflow.
   /// @param workflowName The human-readable name for the workflow. It should be unique per owner.
-  function pauseWorkflow(string calldata workflowName) external {
+  function pauseWorkflow(string calldata workflowName) external registryNotLocked {
     _updateWorkflowStatus(workflowName, WorkflowStatus.PAUSED);
   }
 
@@ -330,7 +349,7 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
   ///      The caller must also be an authorized address. This means that even if the caller is the owner of the workflow, if they were
   ///      later removed from the authorized addresses list, they will not be able to activate the workflow.
   /// @param workflowName The human-readable name for the workflow. It should be unique per owner.
-  function activateWorkflow(string calldata workflowName) external onlyAuthorizedAddresses {
+  function activateWorkflow(string calldata workflowName) external registryNotLocked {
     _updateWorkflowStatus(workflowName, WorkflowStatus.ACTIVE);
   }
 
@@ -353,11 +372,17 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
   /// - `WorkflowDeletedV1` event indicating that the workflow has been deleted successfully.
   ///
   /// @param workflowName The human-readable name of the workflow to delete.
-  function deleteWorkflow(string calldata workflowName) external onlyAuthorizedAddresses {
+  function deleteWorkflow(string calldata workflowName) external registryNotLocked {
     address sender = msg.sender;
 
     // Retrieve workflow metadata from storage
     (bytes32 workflowKey, WorkflowMetadata storage workflow) = _getWorkflowFromStorageByName(sender, workflowName);
+
+    // Explicitly checking access for the caller instead of using _validateDONPermission so that even if the DON was removed from the
+    // allowed list, the workflow can still be deleted.
+    if (!_hasAccess(workflow.donID, sender)) {
+      revert AddressNotAuthorized(workflow.donID, sender);
+    }
 
     // Remove the workflow from the owner and DON mappings
     s_ownerWorkflowKeys[sender].remove(workflowKey);
@@ -393,7 +418,7 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
   /// Emits:
   /// - `WorkflowForceUpdateSecretsRequestedV1` event indicating that a force update for workflows using this `secretsURL` has been requested.
   /// @param secretsURL The URL pointing to the updated secrets file. This can be shared among multiple workflows.
-  function requestForceUpdateSecrets(string calldata secretsURL) external {
+  function requestForceUpdateSecrets(string calldata secretsURL) external registryNotLocked {
     address sender = msg.sender;
 
     // Use secretsURL and sender hash key to get the mapping key
@@ -408,23 +433,21 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
       revert WorkflowDoesNotExist();
     }
 
-    // Create an array for matching workflow names
-    string[] memory matchingWorkflowNames = new string[](matchCount);
-
-    // Iterate through matched workflows and gather workflow names
+    // Iterate through matched workflows and emit events for accessible ones
     for (uint256 i = 0; i < matchCount; ++i) {
       bytes32 workflowKey = workflowKeys.at(i);
       WorkflowMetadata storage workflow = s_workflows[workflowKey];
-      matchingWorkflowNames[i] = workflow.workflowName;
-    }
 
-    // Emit a single event for all matching workflows
-    emit WorkflowForceUpdateSecretsRequestedV1(secretsURL, sender, matchingWorkflowNames);
+      // Check access and emit event if allowed
+      if (_hasAccess(workflow.donID, sender)) {
+        emit WorkflowForceUpdateSecretsRequestedV1(secretsURL, sender, workflow.workflowName);
+      }
+    }
   }
 
   // External view functions
   // ================================================================
-  // |                        Workflow Queries                      |
+  // |                       Workflow Queries                       |
   // ================================================================
   /// @notice Returns workflow metadata.
   /// @param workflowOwner Address that owns this workflow.
@@ -526,20 +549,42 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
     return allowedDONs;
   }
 
-  /// @notice Fetch all authorized addresses
-  /// @return authorizedAddresses List of all authorized addresses
-  function getAllAuthorizedAddresses() external view returns (address[] memory authorizedAddresses) {
-    uint256 len = s_authorizedAddresses.length();
-    authorizedAddresses = new address[](len);
-    for (uint256 i = 0; i < len; ++i) {
-      authorizedAddresses[i] = s_authorizedAddresses.at(i);
+  function getAllAuthorizedAddressesByDON(
+    uint32 donID,
+    uint256 start,
+    uint256 limit
+  ) external view returns (address[] memory authorizedAddresses) {
+    EnumerableSet.AddressSet storage addresses = s_DONAuthorizedAddresses[donID];
+    uint256 addrCount = addresses.length();
+
+    if (start >= addrCount) {
+      return new address[](0);
+    }
+
+    if (limit > MAX_PAGINATION_LIMIT || limit == 0) {
+      limit = MAX_PAGINATION_LIMIT;
+    }
+
+    uint256 end = (start + limit > addrCount) ? addrCount : start + limit;
+
+    uint256 resultLength = end - start;
+    authorizedAddresses = new address[](resultLength);
+
+    for (uint256 i = 0; i < resultLength; ++i) {
+      authorizedAddresses[i] = addresses.at(start + i);
     }
 
     return authorizedAddresses;
   }
 
+  /// @notice Returns whether the registry is currently locked
+  /// @return True if the registry is locked, false otherwise
+  function isRegistryLocked() external view returns (bool) {
+    return s_registryLocked;
+  }
+
   // ================================================================
-  // |                        Internal Helpers                      |
+  // |                       Internal Helpers                       |
   // ================================================================
   /// @dev Internal function to update the workflow status.
   ///
@@ -548,7 +593,8 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
   /// The function performs the following operations:
   /// - Retrieves the workflow metadata from storage based on the workflow name.
   /// - Only the owner of the workflow can update the status.
-  /// - Checks if the workflow is already in the desired status, and reverts if no change is necessary to avoid unnecessary storage writes.
+  /// - Checks if the workflow is already in the desired status, and reverts if no change is necessary to avoid unnecessary
+  ///   storage writes.
   /// - Updates the status of the workflow and emits the appropriate event (`WorkflowPausedV1` or `WorkflowActivatedV1`).
   ///
   /// Emits:
@@ -567,9 +613,9 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
       revert WorkflowAlreadyInDesiredStatus();
     }
 
-    // Check if the DON ID is allowed when activating a workflow
-    if (newStatus == WorkflowStatus.ACTIVE && !s_allowedDONs.contains(workflow.donID)) {
-      revert OnlyAllowedDONID();
+    // Check if the DON ID is allowed and the address is authorized for the DON when activating a workflow
+    if (newStatus == WorkflowStatus.ACTIVE) {
+      _validateDONPermission(workflow.donID, sender);
     }
 
     // Update the workflow status
@@ -635,6 +681,15 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
 
     if (bytes(secretsURL).length > MAX_URL_LENGTH) {
       revert URLTooLong(bytes(secretsURL).length, MAX_URL_LENGTH);
+    }
+  }
+
+  /// @dev Internal function to validate the length of a workflow name.
+  /// @param workflowName The workflow name to validate.
+  /// @custom:throws WorkflowNameTooLong if the workflow name exceeds MAX_WORKFLOW_NAME_LENGTH (64 characters).
+  function _validateWorkflowName(string calldata workflowName) internal pure {
+    if (bytes(workflowName).length > MAX_WORKFLOW_NAME_LENGTH) {
+      revert WorkflowNameTooLong(bytes(workflowName).length, MAX_WORKFLOW_NAME_LENGTH);
     }
   }
 

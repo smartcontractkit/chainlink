@@ -48,6 +48,7 @@ type SrcExecProvider struct {
 }
 
 func NewSrcExecProvider(
+	ctx context.Context,
 	lggr logger.Logger,
 	versionFinder ccip.VersionFinder,
 	client client.Client,
@@ -64,14 +65,14 @@ func NewSrcExecProvider(
 	var usdcReader *ccip.USDCReaderImpl
 	var err error
 	if usdcAttestationAPI != "" {
-		usdcReader, err = ccip.NewUSDCReader(lggr, jobID, usdcSrcMsgTransmitterAddr, lp, true)
+		usdcReader, err = ccip.NewUSDCReader(ctx, lggr, jobID, usdcSrcMsgTransmitterAddr, lp, true)
 		if err != nil {
 			return nil, fmt.Errorf("new usdc reader: %w", err)
 		}
 	}
 
 	return &SrcExecProvider{
-		lggr:                                   lggr,
+		lggr:                                   logger.Named(lggr, "SrcExecProvider"),
 		versionFinder:                          versionFinder,
 		client:                                 client,
 		estimator:                              estimator,
@@ -87,7 +88,7 @@ func NewSrcExecProvider(
 }
 
 func (s *SrcExecProvider) Name() string {
-	return "CCIP.SrcExecProvider"
+	return s.lggr.Name()
 }
 
 func (s *SrcExecProvider) Start(ctx context.Context) error {
@@ -100,25 +101,26 @@ func (s *SrcExecProvider) Start(ctx context.Context) error {
 
 // Close is called when the job that created this provider is closed.
 func (s *SrcExecProvider) Close() error {
+	ctx := context.Background()
 	versionFinder := ccip.NewEvmVersionFinder()
 
-	unregisterFuncs := make([]func() error, 0, 2)
-	unregisterFuncs = append(unregisterFuncs, func() error {
+	unregisterFuncs := make([]func(context.Context) error, 0, 2)
+	unregisterFuncs = append(unregisterFuncs, func(ctx context.Context) error {
 		// avoid panic in the case NewOnRampReader wasn't called
 		if s.seenOnRampAddress == nil {
 			return nil
 		}
-		return ccip.CloseOnRampReader(s.lggr, versionFinder, *s.seenSourceChainSelector, *s.seenDestChainSelector, *s.seenOnRampAddress, s.lp, s.client)
+		return ccip.CloseOnRampReader(ctx, s.lggr, versionFinder, *s.seenSourceChainSelector, *s.seenDestChainSelector, *s.seenOnRampAddress, s.lp, s.client)
 	})
-	unregisterFuncs = append(unregisterFuncs, func() error {
+	unregisterFuncs = append(unregisterFuncs, func(ctx context.Context) error {
 		if s.usdcAttestationAPI == "" {
 			return nil
 		}
-		return ccip.CloseUSDCReader(s.lggr, s.lggr.Name(), s.usdcSrcMsgTransmitterAddr, s.lp)
+		return ccip.CloseUSDCReader(ctx, s.lggr, s.lggr.Name(), s.usdcSrcMsgTransmitterAddr, s.lp)
 	})
 	var multiErr error
 	for _, fn := range unregisterFuncs {
-		if err := fn(); err != nil {
+		if err := fn(ctx); err != nil {
 			multiErr = multierr.Append(multiErr, err)
 		}
 	}
@@ -176,7 +178,7 @@ func (s *SrcExecProvider) NewOnRampReader(ctx context.Context, onRampAddress cci
 	s.seenOnRampAddress = &onRampAddress
 
 	versionFinder := ccip.NewEvmVersionFinder()
-	onRampReader, err = ccip.NewOnRampReader(s.lggr, versionFinder, sourceChainSelector, destChainSelector, onRampAddress, s.lp, s.client)
+	onRampReader, err = ccip.NewOnRampReader(ctx, s.lggr, versionFinder, sourceChainSelector, destChainSelector, onRampAddress, s.lp, s.client)
 	return
 }
 
@@ -258,7 +260,7 @@ func NewDstExecProvider(
 	offRampAddress cciptypes.Address,
 ) (commontypes.CCIPExecProvider, error) {
 	return &DstExecProvider{
-		lggr:                lggr,
+		lggr:                logger.Named(lggr, "DstExecProvider"),
 		versionFinder:       versionFinder,
 		client:              client,
 		lp:                  lp,
@@ -273,7 +275,7 @@ func NewDstExecProvider(
 }
 
 func (d *DstExecProvider) Name() string {
-	return "CCIP.DestRelayerExecProvider"
+	return d.lggr.Name()
 }
 
 func (d *DstExecProvider) Start(ctx context.Context) error {
@@ -289,22 +291,23 @@ func (d *DstExecProvider) Start(ctx context.Context) error {
 // If NewOnRampReader and NewCommitStoreReader have not been called, their corresponding
 // Close methods will be expected to error.
 func (d *DstExecProvider) Close() error {
+	ctx := context.Background()
 	versionFinder := ccip.NewEvmVersionFinder()
 
-	unregisterFuncs := make([]func() error, 0, 2)
-	unregisterFuncs = append(unregisterFuncs, func() error {
+	unregisterFuncs := make([]func(context.Context) error, 0, 2)
+	unregisterFuncs = append(unregisterFuncs, func(ctx context.Context) error {
 		if d.seenCommitStoreAddr == nil {
 			return nil
 		}
-		return ccip.CloseCommitStoreReader(d.lggr, versionFinder, *d.seenCommitStoreAddr, d.client, d.lp)
+		return ccip.CloseCommitStoreReader(ctx, d.lggr, versionFinder, *d.seenCommitStoreAddr, d.client, d.lp)
 	})
-	unregisterFuncs = append(unregisterFuncs, func() error {
-		return ccip.CloseOffRampReader(d.lggr, versionFinder, d.offRampAddress, d.client, d.lp, nil, big.NewInt(0))
+	unregisterFuncs = append(unregisterFuncs, func(ctx context.Context) error {
+		return ccip.CloseOffRampReader(ctx, d.lggr, versionFinder, d.offRampAddress, d.client, d.lp, nil, big.NewInt(0))
 	})
 
 	var multiErr error
 	for _, fn := range unregisterFuncs {
-		if err := fn(); err != nil {
+		if err := fn(ctx); err != nil {
 			multiErr = multierr.Append(multiErr, err)
 		}
 	}
@@ -347,12 +350,12 @@ func (d *DstExecProvider) NewCommitStoreReader(ctx context.Context, addr cciptyp
 	d.seenCommitStoreAddr = &addr
 
 	versionFinder := ccip.NewEvmVersionFinder()
-	commitStoreReader, err = NewIncompleteDestCommitStoreReader(d.lggr, versionFinder, addr, d.client, d.lp)
+	commitStoreReader, err = NewIncompleteDestCommitStoreReader(ctx, d.lggr, versionFinder, addr, d.client, d.lp)
 	return
 }
 
 func (d *DstExecProvider) NewOffRampReader(ctx context.Context, offRampAddress cciptypes.Address) (offRampReader cciptypes.OffRampReader, err error) {
-	offRampReader, err = ccip.NewOffRampReader(d.lggr, d.versionFinder, offRampAddress, d.client, d.lp, d.gasEstimator, &d.maxGasPrice, true)
+	offRampReader, err = ccip.NewOffRampReader(ctx, d.lggr, d.versionFinder, offRampAddress, d.client, d.lp, d.gasEstimator, &d.maxGasPrice, true)
 	return
 }
 

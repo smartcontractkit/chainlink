@@ -9,15 +9,16 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_0"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
-
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_0"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_2"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_5"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_6"
+	common_v1_0 "github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/registry_module_owner_custom"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
@@ -47,6 +48,7 @@ type CCIPChainState struct {
 	RMNProxy           *rmn_proxy_contract.RMNProxyContract
 	NonceManager       *nonce_manager.NonceManager
 	TokenAdminRegistry *token_admin_registry.TokenAdminRegistry
+	RegistryModule     *registry_module_owner_custom.RegistryModuleOwnerCustom
 	Router             *router.Router
 	CommitStore        *commit_store.CommitStore
 	Weth9              *weth9.WETH9
@@ -156,7 +158,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 		chainView.RMNProxy[c.RMNProxy.Address().Hex()] = rmnProxyView
 	}
 	if c.CapabilityRegistry != nil {
-		capRegView, err := v1_6.GenerateCapRegView(c.CapabilityRegistry)
+		capRegView, err := common_v1_0.GenerateCapabilityRegistryView(c.CapabilityRegistry)
 		if err != nil {
 			return chainView, err
 		}
@@ -175,53 +177,37 @@ type CCIPOnChainState struct {
 	Chains map[uint64]CCIPChainState
 }
 
-func (s CCIPOnChainState) View(chains []uint64) (view.CCIPView, error) {
-	ccipView := view.NewCCIPView()
+func (s CCIPOnChainState) View(chains []uint64) (map[string]view.ChainView, error) {
+	m := make(map[string]view.ChainView)
 	for _, chainSelector := range chains {
 		// TODO: Need a utility for this
 		chainid, err := chainsel.ChainIdFromSelector(chainSelector)
 		if err != nil {
-			return ccipView, err
+			return m, err
 		}
 		chainName, err := chainsel.NameFromChainId(chainid)
 		if err != nil {
-			return ccipView, err
+			return m, err
 		}
 		if _, ok := s.Chains[chainSelector]; !ok {
-			return ccipView, fmt.Errorf("chain not supported %d", chainSelector)
+			return m, fmt.Errorf("chain not supported %d", chainSelector)
 		}
 		chainState := s.Chains[chainSelector]
 		chainView, err := chainState.GenerateView()
 		if err != nil {
-			return ccipView, err
+			return m, err
 		}
-		ccipView.Chains[chainName] = chainView
+		m[chainName] = chainView
 	}
-	return ccipView, nil
+	return m, nil
 }
 
-func StateView(e deployment.Environment, ab deployment.AddressBook) (view.CCIPView, error) {
-	state, err := LoadOnchainState(e, ab)
-	if err != nil {
-		return view.CCIPView{}, err
-	}
-	ccipView, err := state.View(e.AllChainSelectors())
-	if err != nil {
-		return view.CCIPView{}, err
-	}
-	ccipView.NodeOperators, err = view.GenerateNopsView(e.NodeIDs, e.Offchain)
-	if err != nil {
-		return ccipView, err
-	}
-	return ccipView, nil
-}
-
-func LoadOnchainState(e deployment.Environment, ab deployment.AddressBook) (CCIPOnChainState, error) {
+func LoadOnchainState(e deployment.Environment) (CCIPOnChainState, error) {
 	state := CCIPOnChainState{
 		Chains: make(map[uint64]CCIPChainState),
 	}
 	for chainSelector, chain := range e.Chains {
-		addresses, err := ab.AddressesForChain(chainSelector)
+		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
 		if err != nil {
 			// Chain not found in address book, initialize empty
 			if errors.Is(err, deployment.ErrChainNotFound) {
@@ -335,6 +321,12 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				return state, err
 			}
 			state.TokenAdminRegistry = tm
+		case deployment.NewTypeAndVersion(RegistryModule, deployment.Version1_5_0).String():
+			rm, err := registry_module_owner_custom.NewRegistryModuleOwnerCustom(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.RegistryModule = rm
 		case deployment.NewTypeAndVersion(Router, deployment.Version1_2_0).String():
 			r, err := router.NewRouter(common.HexToAddress(address), chain.Client)
 			if err != nil {

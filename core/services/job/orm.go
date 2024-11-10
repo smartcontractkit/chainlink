@@ -304,10 +304,10 @@ func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
 				}
 			}
 
-			if jb.OEVConfig != nil {
-				err = validateKeyStoreMatchForRelay(ctx, jb.OCR2OracleSpec.Relay, tx.keyStore, jb.OEVConfig.TransmitterAddress.String())
+			if jb.AdaptiveSendSpec != nil {
+				err = validateKeyStoreMatchForRelay(ctx, jb.OCR2OracleSpec.Relay, tx.keyStore, jb.AdaptiveSendSpec.TransmitterAddress.String())
 				if err != nil {
-					return fmt.Errorf("failed to validate oev.TransmitterAddress: %w", err)
+					return fmt.Errorf("failed to validate AdaptiveSendSpec.TransmitterAddress: %w", err)
 				}
 			}
 

@@ -67,7 +67,7 @@ func (p *Poller[T]) Err() <-chan error {
 }
 
 func (p *Poller[T]) pollingLoop(ctx context.Context) {
-	ticker := time.NewTicker(p.pollingInterval)
+	ticker := services.NewTicker(p.pollingInterval) // reduce possibility of sending two exactly the same request at once
 	defer ticker.Stop()
 
 	for {

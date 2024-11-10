@@ -9,17 +9,18 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/config"
-
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/registry_module_owner_custom"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/erc20"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/nonce_manager"
@@ -42,6 +43,7 @@ var (
 	Router                     deployment.ContractType = "Router"
 	CommitStore                deployment.ContractType = "CommitStore"
 	TokenAdminRegistry         deployment.ContractType = "TokenAdminRegistry"
+	RegistryModule             deployment.ContractType = "RegistryModuleOwnerCustom"
 	NonceManager               deployment.ContractType = "NonceManager"
 	FeeQuoter                  deployment.ContractType = "FeeQuoter"
 	AdminManyChainMultisig     deployment.ContractType = "AdminManyChainMultiSig"
@@ -57,8 +59,10 @@ var (
 	CapabilitiesRegistry       deployment.ContractType = "CapabilitiesRegistry"
 	PriceFeed                  deployment.ContractType = "PriceFeed"
 	// Note test router maps to a regular router contract.
-	TestRouter   deployment.ContractType = "TestRouter"
-	CCIPReceiver deployment.ContractType = "CCIPReceiver"
+	TestRouter        deployment.ContractType = "TestRouter"
+	CCIPReceiver      deployment.ContractType = "CCIPReceiver"
+	BurnMintToken     deployment.ContractType = "BurnMintToken"
+	BurnMintTokenPool deployment.ContractType = "BurnMintTokenPool"
 )
 
 type Contracts interface {
@@ -70,6 +74,7 @@ type Contracts interface {
 		*fee_quoter.FeeQuoter |
 		*router.Router |
 		*token_admin_registry.TokenAdminRegistry |
+		*registry_module_owner_custom.RegistryModuleOwnerCustom |
 		*weth9.WETH9 |
 		*rmn_remote.RMNRemote |
 		*owner_helpers.ManyChainMultiSig |
@@ -77,8 +82,10 @@ type Contracts interface {
 		*offramp.OffRamp |
 		*onramp.OnRamp |
 		*burn_mint_erc677.BurnMintERC677 |
+		*burn_mint_token_pool.BurnMintTokenPool |
 		*maybe_revert_message_receiver.MaybeRevertMessageReceiver |
-		*aggregator_v3_interface.AggregatorV3Interface
+		*aggregator_v3_interface.AggregatorV3Interface |
+		*erc20.ERC20
 }
 
 type ContractDeploy[C Contracts] struct {
@@ -118,12 +125,10 @@ func deployContract[C Contracts](
 }
 
 type DeployCCIPContractConfig struct {
-	HomeChainSel       uint64
-	FeedChainSel       uint64
-	ChainsToDeploy     []uint64
-	TokenConfig        TokenConfig
-	CapabilityRegistry common.Address
-	FeeTokenContracts  map[uint64]FeeTokenContracts
+	HomeChainSel   uint64
+	FeedChainSel   uint64
+	ChainsToDeploy []uint64
+	TokenConfig    TokenConfig
 	// I believe it makes sense to have the same signers across all chains
 	// since that's the point MCMS.
 	MCMSConfig MCMSConfig
@@ -131,9 +136,15 @@ type DeployCCIPContractConfig struct {
 	OCRSecrets deployment.OCRSecrets
 }
 
-// DeployCCIPContracts assumes that the capability registry and ccip home contracts
-// are already deployed (needed as a first step because the chainlink nodes point to them).
-// It then deploys
+// DeployCCIPContracts assumes the following contracts are deployed:
+// - Capability registry
+// - CCIP home
+// - RMN home
+// - Fee tokens on all chains.
+// and present in ExistingAddressBook.
+// It then deploys the rest of the CCIP chain contracts to the selected chains
+// registers the nodes with the capability registry and creates a DON for
+// each new chain. TODO: Might be better to break this down a bit?
 func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c DeployCCIPContractConfig) error {
 	if c.OCRSecrets.IsEmpty() {
 		return fmt.Errorf("OCR secrets are empty")
@@ -143,10 +154,15 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 		e.Logger.Errorw("Failed to get node info", "err", err)
 		return err
 	}
-	capReg, err := capabilities_registry.NewCapabilitiesRegistry(c.CapabilityRegistry, e.Chains[c.HomeChainSel].Client)
+	existingState, err := LoadOnchainState(e)
 	if err != nil {
-		e.Logger.Errorw("Failed to get capability registry", "err", err)
+		e.Logger.Errorw("Failed to load existing onchain state", "err")
 		return err
+	}
+	capReg := existingState.Chains[c.HomeChainSel].CapabilityRegistry
+	if capReg == nil {
+		e.Logger.Errorw("Failed to get capability registry")
+		return fmt.Errorf("capability registry not found")
 	}
 	cr, err := capReg.GetHashedCapabilityId(
 		&bind.CallOpts{}, CapabilityLabelledName, CapabilityVersion)
@@ -167,6 +183,9 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 		e.Logger.Errorw("Failed to get ccip config", "err", err)
 		return err
 	}
+	if ccipHome.Address() != existingState.Chains[c.HomeChainSel].CCIPHome.Address() {
+		return fmt.Errorf("ccip home address mismatch")
+	}
 
 	// Signal to CR that our nodes support CCIP capability.
 	if err := AddNodes(
@@ -177,19 +196,10 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 	); err != nil {
 		return err
 	}
-
-	rmnHomeAddress, err := deployment.SearchAddressBook(ab, c.HomeChainSel, RMNHome)
-	if err != nil {
-		return fmt.Errorf("rmn home address not found: %w", err)
-	}
-	if !common.IsHexAddress(rmnHomeAddress) {
-		return fmt.Errorf("rmn home address %s is not a valid address", rmnHomeAddress)
-	}
-
-	rmnHome, err := rmn_home.NewRMNHome(common.HexToAddress(rmnHomeAddress), e.Chains[c.HomeChainSel].Client)
-	if err != nil {
+	rmnHome := existingState.Chains[c.HomeChainSel].RMNHome
+	if rmnHome == nil {
 		e.Logger.Errorw("Failed to get rmn home", "err", err)
-		return err
+		return fmt.Errorf("rmn home not found")
 	}
 
 	for _, chainSel := range c.ChainsToDeploy {
@@ -197,11 +207,13 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 		if !ok {
 			return fmt.Errorf("chain %d not found", chainSel)
 		}
-		chainConfig, ok := c.FeeTokenContracts[chainSel]
-		if !ok {
-			return fmt.Errorf("chain %d config not found", chainSel)
+		if existingState.Chains[chainSel].LinkToken == nil || existingState.Chains[chainSel].Weth9 == nil {
+			return fmt.Errorf("fee tokens not found for chain %d", chainSel)
 		}
-		err = DeployChainContracts(e, chain, ab, chainConfig, c.MCMSConfig, rmnHome)
+		err = DeployChainContracts(e, chain, ab, FeeTokenContracts{
+			LinkToken: existingState.Chains[chainSel].LinkToken,
+			Weth9:     existingState.Chains[chainSel].Weth9,
+		}, c.MCMSConfig, rmnHome)
 		if err != nil {
 			return err
 		}
@@ -216,7 +228,7 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 			return err
 		}
 
-		tokenInfo := c.TokenConfig.GetTokenInfo(e.Logger, c.FeeTokenContracts[chainSel].LinkToken, c.FeeTokenContracts[chainSel].Weth9)
+		tokenInfo := c.TokenConfig.GetTokenInfo(e.Logger, existingState.Chains[chainSel].LinkToken, existingState.Chains[chainSel].Weth9)
 		// TODO: Do we want to extract this?
 		// Add chain config for each chain.
 		_, err = AddChainConfig(
@@ -228,14 +240,13 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 		if err != nil {
 			return err
 		}
-
 		// For each chain, we create a DON on the home chain (2 OCR instances)
 		if err := AddDON(
 			e.Logger,
 			c.OCRSecrets,
 			capReg,
 			ccipHome,
-			common.HexToAddress(rmnHomeAddress),
+			rmnHome.Address(),
 			chainState.OffRamp,
 			c.FeedChainSel,
 			tokenInfo,
@@ -358,16 +369,14 @@ func DeployMCMSContracts(
 	}, nil
 }
 
-func DeployFeeTokensToChains(lggr logger.Logger, ab deployment.AddressBook, chains map[uint64]deployment.Chain) (map[uint64]FeeTokenContracts, error) {
-	feeTokenContractsByChain := make(map[uint64]FeeTokenContracts)
+func DeployFeeTokensToChains(lggr logger.Logger, ab deployment.AddressBook, chains map[uint64]deployment.Chain) error {
 	for _, chain := range chains {
-		feeTokenContracts, err := DeployFeeTokens(lggr, chain, ab)
+		_, err := DeployFeeTokens(lggr, chain, ab)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		feeTokenContractsByChain[chain.Selector] = feeTokenContracts
 	}
-	return feeTokenContractsByChain, nil
+	return nil
 }
 
 // DeployFeeTokens deploys link and weth9. This is _usually_ for test environments only,
@@ -552,6 +561,29 @@ func DeployChainContracts(
 		return err
 	}
 	e.Logger.Infow("deployed tokenAdminRegistry", "addr", tokenAdminRegistry)
+
+	customRegistryModule, err := deployContract(e.Logger, chain, ab,
+		func(chain deployment.Chain) ContractDeploy[*registry_module_owner_custom.RegistryModuleOwnerCustom] {
+			regModAddr, tx2, regMod, err2 := registry_module_owner_custom.DeployRegistryModuleOwnerCustom(
+				chain.DeployerKey,
+				chain.Client,
+				tokenAdminRegistry.Address)
+			return ContractDeploy[*registry_module_owner_custom.RegistryModuleOwnerCustom]{
+				regModAddr, regMod, tx2, deployment.NewTypeAndVersion(RegistryModule, deployment.Version1_5_0), err2,
+			}
+		})
+	if err != nil {
+		e.Logger.Errorw("Failed to deploy custom registry module", "err", err)
+		return err
+	}
+	e.Logger.Infow("deployed custom registry module", "addr", tokenAdminRegistry)
+
+	tx, err = tokenAdminRegistry.Contract.AddRegistryModule(chain.DeployerKey, customRegistryModule.Address)
+	if err != nil {
+		e.Logger.Errorw("Failed to assign registry module on token admin registry", "err", err)
+		return err
+	}
+	e.Logger.Infow("assigned registry module on token admin registry")
 
 	nonceManager, err := deployContract(e.Logger, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*nonce_manager.NonceManager] {

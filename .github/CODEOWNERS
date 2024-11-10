@@ -5,7 +5,7 @@
 # Root
 * @smartcontractkit/foundations @smartcontractkit/core
 
-.changeset @smartcontractkit/releng @smartcontractkit/foundations @smartcontractkit/core
+.changeset @smartcontractkit/foundations @smartcontractkit/core
 
 # Chains
 /common @smartcontractkit/bix-framework @smartcontractkit/core
@@ -30,6 +30,10 @@
 /core/services/relay/evm/mercury @smartcontractkit/data-streams-engineers @smartcontractkit/core
 /core/services/webhook @smartcontractkit/foundations @smartcontractkit/bix-framework @smartcontractkit/core
 /core/services/llo @smartcontractkit/data-streams-engineers @smartcontractkit/core
+
+# CCIP
+/core/services/ccip @smartcontractkit/ccip
+/core/services/ocr2/plugins/ccip @smartcontractkit/ccip
 
 # CCIP
 /core/services/ccip @smartcontractkit/ccip

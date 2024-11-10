@@ -26,7 +26,8 @@ consensus:
       observations:
         - "$(trigger.outputs)"
     config:
-      report_id: "0001" 		
+      report_id: "0001"
+      key_id: "evm"	
       aggregation_method: "data_feeds"
       aggregation_config:
         feeds:

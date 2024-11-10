@@ -1887,6 +1887,7 @@ func TestVRFv2PlusPendingBlockSimulationAndZeroConfirmationDelays(t *testing.T) 
 }
 
 func TestVRFv2PlusNodeReorg(t *testing.T) {
+	t.Skip("Flakey", "https://smartcontract-it.atlassian.net/browse/DEVSVCS-829")
 	t.Parallel()
 	var (
 		env                          *test_env.CLClusterTestEnv

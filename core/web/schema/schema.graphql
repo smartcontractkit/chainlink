@@ -10,7 +10,7 @@ schema {
 type Query {
     bridge(id: ID!): BridgePayload!
     bridges(offset: Int, limit: Int): BridgesPayload!
-    chain(id: ID!): ChainPayload!
+    chain(id: ID!, network: String): ChainPayload!
     chains(offset: Int, limit: Int): ChainsPayload!
     configv2: ConfigV2Payload!
     csaKeys: CSAKeysPayload!

@@ -3,18 +3,21 @@ package changeset
 import (
 	"fmt"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/deployment"
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 )
 
-func DeployCapabilityRegistry(lggr logger.Logger, env deployment.Environment, ab deployment.AddressBook, registryChainSel uint64) (deployment.ChangesetOutput, error) {
-	c, ok := env.Chains[registryChainSel]
+func DeployCapabilityRegistry(env deployment.Environment, config interface{}) (deployment.ChangesetOutput, error) {
+	registrySelector, ok := config.(uint64)
+	if !ok {
+		return deployment.ChangesetOutput{}, deployment.ErrInvalidConfig
+	}
+	chain, ok := env.Chains[registrySelector]
 	if !ok {
 		return deployment.ChangesetOutput{}, fmt.Errorf("chain not found in environment")
 	}
-	err := kslib.DeployCapabilitiesRegistry(lggr, c, ab)
-
+	ab := deployment.NewMemoryAddressBook()
+	err := kslib.DeployCapabilitiesRegistry(env.Logger, chain, ab)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy CapabilitiesRegistry: %w", err)
 	}

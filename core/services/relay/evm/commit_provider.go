@@ -3,6 +3,7 @@ package evm
 import (
 	"context"
 	"fmt"
+	"math"
 	"math/big"
 
 	"go.uber.org/multierr"
@@ -47,7 +48,7 @@ func NewSrcCommitProvider(
 	maxGasPrice *big.Int,
 ) commontypes.CCIPCommitProvider {
 	return &SrcCommitProvider{
-		lggr:        lggr,
+		lggr:        logger.Named(lggr, "SrcCommitProvider"),
 		startBlock:  startBlock,
 		client:      client,
 		lp:          lp,
@@ -84,7 +85,7 @@ func NewDstCommitProvider(
 	configWatcher *configWatcher,
 ) commontypes.CCIPCommitProvider {
 	return &DstCommitProvider{
-		lggr:                lggr,
+		lggr:                logger.Named(lggr, "DstCommitProvider"),
 		versionFinder:       versionFinder,
 		startBlock:          startBlock,
 		client:              client,
@@ -96,24 +97,24 @@ func NewDstCommitProvider(
 	}
 }
 
-func (P *SrcCommitProvider) Name() string {
-	return "CCIPCommitProvider.SrcRelayerProvider"
+func (p *SrcCommitProvider) Name() string {
+	return p.lggr.Name()
 }
 
 // Close is called when the job that created this provider is deleted.
 // At this time, any of the methods on the provider may or may not have been called.
 // If NewOnRampReader has not been called, their corresponding
 // Close methods will be expected to error.
-func (P *SrcCommitProvider) Close() error {
+func (p *SrcCommitProvider) Close() error {
 	versionFinder := ccip.NewEvmVersionFinder()
 
 	unregisterFuncs := make([]func() error, 0, 2)
 	unregisterFuncs = append(unregisterFuncs, func() error {
 		// avoid panic in the case NewOnRampReader wasn't called
-		if P.seenOnRampAddress == nil {
+		if p.seenOnRampAddress == nil {
 			return nil
 		}
-		return ccip.CloseOnRampReader(P.lggr, versionFinder, *P.seenSourceChainSelector, *P.seenDestChainSelector, *P.seenOnRampAddress, P.lp, P.client)
+		return ccip.CloseOnRampReader(context.Background(), p.lggr, versionFinder, *p.seenSourceChainSelector, *p.seenDestChainSelector, *p.seenOnRampAddress, p.lp, p.client)
 	})
 
 	var multiErr error
@@ -125,174 +126,181 @@ func (P *SrcCommitProvider) Close() error {
 	return multiErr
 }
 
-func (P *SrcCommitProvider) Ready() error {
+func (p *SrcCommitProvider) Ready() error {
 	return nil
 }
 
-func (P *SrcCommitProvider) HealthReport() map[string]error {
-	return make(map[string]error)
+func (p *SrcCommitProvider) HealthReport() map[string]error {
+	return map[string]error{p.Name(): nil}
 }
 
-func (P *SrcCommitProvider) OffchainConfigDigester() ocrtypes.OffchainConfigDigester {
+func (p *SrcCommitProvider) OffchainConfigDigester() ocrtypes.OffchainConfigDigester {
 	// TODO CCIP-2494
 	// "OffchainConfigDigester called on SrcCommitProvider. Valid on DstCommitProvider."
 	return UnimplementedOffchainConfigDigester{}
 }
 
-func (P *SrcCommitProvider) ContractConfigTracker() ocrtypes.ContractConfigTracker {
+func (p *SrcCommitProvider) ContractConfigTracker() ocrtypes.ContractConfigTracker {
 	// // TODO CCIP-2494
 	// "ContractConfigTracker called on SrcCommitProvider. Valid on DstCommitProvider.")
 	return UnimplementedContractConfigTracker{}
 }
 
-func (P *SrcCommitProvider) ContractTransmitter() ocrtypes.ContractTransmitter {
+func (p *SrcCommitProvider) ContractTransmitter() ocrtypes.ContractTransmitter {
 	// // TODO CCIP-2494
 	// "ContractTransmitter called on SrcCommitProvider. Valid on DstCommitProvider."
 	return UnimplementedContractTransmitter{}
 }
 
-func (P *SrcCommitProvider) ContractReader() commontypes.ContractReader {
+func (p *SrcCommitProvider) ContractReader() commontypes.ContractReader {
 	return nil
 }
 
-func (P *SrcCommitProvider) Codec() commontypes.Codec {
+func (p *SrcCommitProvider) Codec() commontypes.Codec {
 	return nil
 }
 
-func (P *DstCommitProvider) Name() string {
-	return "CCIPCommitProvider.DstRelayerProvider"
+func (p *DstCommitProvider) Name() string {
+	return p.lggr.Name()
 }
 
-func (P *DstCommitProvider) Close() error {
+func (p *DstCommitProvider) Close() error {
+	ctx := context.Background()
 	versionFinder := ccip.NewEvmVersionFinder()
 
-	unregisterFuncs := make([]func() error, 0, 2)
-	unregisterFuncs = append(unregisterFuncs, func() error {
-		if P.seenCommitStoreAddress == nil {
+	unregisterFuncs := make([]func(ctx context.Context) error, 0, 2)
+	unregisterFuncs = append(unregisterFuncs, func(ctx context.Context) error {
+		if p.seenCommitStoreAddress == nil {
 			return nil
 		}
-		return ccip.CloseCommitStoreReader(P.lggr, versionFinder, *P.seenCommitStoreAddress, P.client, P.lp)
+		return ccip.CloseCommitStoreReader(ctx, p.lggr, versionFinder, *p.seenCommitStoreAddress, p.client, p.lp)
 	})
-	unregisterFuncs = append(unregisterFuncs, func() error {
-		if P.seenOffRampAddress == nil {
+	unregisterFuncs = append(unregisterFuncs, func(ctx context.Context) error {
+		if p.seenOffRampAddress == nil {
 			return nil
 		}
-		return ccip.CloseOffRampReader(P.lggr, versionFinder, *P.seenOffRampAddress, P.client, P.lp, nil, big.NewInt(0))
+		return ccip.CloseOffRampReader(ctx, p.lggr, versionFinder, *p.seenOffRampAddress, p.client, p.lp, nil, big.NewInt(0))
 	})
 
 	var multiErr error
 	for _, fn := range unregisterFuncs {
-		if err := fn(); err != nil {
+		if err := fn(ctx); err != nil {
 			multiErr = multierr.Append(multiErr, err)
 		}
 	}
 	return multiErr
 }
 
-func (P *DstCommitProvider) Ready() error {
+func (p *DstCommitProvider) Ready() error {
 	return nil
 }
 
-func (P *DstCommitProvider) HealthReport() map[string]error {
+func (p *DstCommitProvider) HealthReport() map[string]error {
 	return make(map[string]error)
 }
 
-func (P *DstCommitProvider) OffchainConfigDigester() ocrtypes.OffchainConfigDigester {
-	return P.configWatcher.OffchainConfigDigester()
+func (p *DstCommitProvider) OffchainConfigDigester() ocrtypes.OffchainConfigDigester {
+	return p.configWatcher.OffchainConfigDigester()
 }
 
-func (P *DstCommitProvider) ContractConfigTracker() ocrtypes.ContractConfigTracker {
-	return P.configWatcher.ContractConfigTracker()
+func (p *DstCommitProvider) ContractConfigTracker() ocrtypes.ContractConfigTracker {
+	return p.configWatcher.ContractConfigTracker()
 }
 
-func (P *DstCommitProvider) ContractTransmitter() ocrtypes.ContractTransmitter {
-	return P.contractTransmitter
+func (p *DstCommitProvider) ContractTransmitter() ocrtypes.ContractTransmitter {
+	return p.contractTransmitter
 }
 
-func (P *DstCommitProvider) ContractReader() commontypes.ContractReader {
+func (p *DstCommitProvider) ContractReader() commontypes.ContractReader {
 	return nil
 }
 
-func (P *DstCommitProvider) Codec() commontypes.Codec {
+func (p *DstCommitProvider) Codec() commontypes.Codec {
 	return nil
 }
 
-func (P *SrcCommitProvider) Start(ctx context.Context) error {
-	if P.startBlock != 0 {
-		P.lggr.Infow("start replaying src chain", "fromBlock", P.startBlock)
-		return P.lp.Replay(ctx, int64(P.startBlock))
+func (p *SrcCommitProvider) Start(ctx context.Context) error {
+	if p.startBlock != 0 {
+		p.lggr.Infow("start replaying src chain", "fromBlock", p.startBlock)
+		if p.startBlock > math.MaxInt64 {
+			return fmt.Errorf("start block overflows int64: %d", p.startBlock)
+		}
+		return p.lp.Replay(ctx, int64(p.startBlock)) //nolint:gosec // G115 false positive
 	}
 	return nil
 }
 
-func (P *DstCommitProvider) Start(ctx context.Context) error {
-	if P.startBlock != 0 {
-		P.lggr.Infow("start replaying dst chain", "fromBlock", P.startBlock)
-		return P.lp.Replay(ctx, int64(P.startBlock))
+func (p *DstCommitProvider) Start(ctx context.Context) error {
+	if p.startBlock != 0 {
+		p.lggr.Infow("start replaying dst chain", "fromBlock", p.startBlock)
+		if p.startBlock > math.MaxInt64 {
+			return fmt.Errorf("start block overflows int64: %d", p.startBlock)
+		}
+		return p.lp.Replay(ctx, int64(p.startBlock)) //nolint:gosec // G115 false positive
 	}
 	return nil
 }
 
-func (P *SrcCommitProvider) NewPriceGetter(ctx context.Context) (priceGetter cciptypes.PriceGetter, err error) {
+func (p *SrcCommitProvider) NewPriceGetter(ctx context.Context) (priceGetter cciptypes.PriceGetter, err error) {
 	return nil, fmt.Errorf("can't construct a price getter from one relayer")
 }
 
-func (P *DstCommitProvider) NewPriceGetter(ctx context.Context) (priceGetter cciptypes.PriceGetter, err error) {
+func (p *DstCommitProvider) NewPriceGetter(ctx context.Context) (priceGetter cciptypes.PriceGetter, err error) {
 	return nil, fmt.Errorf("can't construct a price getter from one relayer")
 }
 
-func (P *SrcCommitProvider) NewCommitStoreReader(ctx context.Context, commitStoreAddress cciptypes.Address) (commitStoreReader cciptypes.CommitStoreReader, err error) {
-	commitStoreReader = NewIncompleteSourceCommitStoreReader(P.estimator, P.maxGasPrice)
+func (p *SrcCommitProvider) NewCommitStoreReader(ctx context.Context, commitStoreAddress cciptypes.Address) (commitStoreReader cciptypes.CommitStoreReader, err error) {
+	commitStoreReader = NewIncompleteSourceCommitStoreReader(p.estimator, p.maxGasPrice)
 	return
 }
 
-func (P *DstCommitProvider) NewCommitStoreReader(ctx context.Context, commitStoreAddress cciptypes.Address) (commitStoreReader cciptypes.CommitStoreReader, err error) {
-	P.seenCommitStoreAddress = &commitStoreAddress
+func (p *DstCommitProvider) NewCommitStoreReader(ctx context.Context, commitStoreAddress cciptypes.Address) (commitStoreReader cciptypes.CommitStoreReader, err error) {
+	p.seenCommitStoreAddress = &commitStoreAddress
 
 	versionFinder := ccip.NewEvmVersionFinder()
-	commitStoreReader, err = NewIncompleteDestCommitStoreReader(P.lggr, versionFinder, commitStoreAddress, P.client, P.lp)
+	commitStoreReader, err = NewIncompleteDestCommitStoreReader(ctx, p.lggr, versionFinder, commitStoreAddress, p.client, p.lp)
 	return
 }
 
-func (P *SrcCommitProvider) NewOnRampReader(ctx context.Context, onRampAddress cciptypes.Address, sourceChainSelector uint64, destChainSelector uint64) (onRampReader cciptypes.OnRampReader, err error) {
-	P.seenOnRampAddress = &onRampAddress
-	P.seenSourceChainSelector = &sourceChainSelector
-	P.seenDestChainSelector = &destChainSelector
+func (p *SrcCommitProvider) NewOnRampReader(ctx context.Context, onRampAddress cciptypes.Address, sourceChainSelector uint64, destChainSelector uint64) (onRampReader cciptypes.OnRampReader, err error) {
+	p.seenOnRampAddress = &onRampAddress
+	p.seenSourceChainSelector = &sourceChainSelector
+	p.seenDestChainSelector = &destChainSelector
 
 	versionFinder := ccip.NewEvmVersionFinder()
-	onRampReader, err = ccip.NewOnRampReader(P.lggr, versionFinder, sourceChainSelector, destChainSelector, onRampAddress, P.lp, P.client)
+	onRampReader, err = ccip.NewOnRampReader(ctx, p.lggr, versionFinder, sourceChainSelector, destChainSelector, onRampAddress, p.lp, p.client)
 	return
 }
 
-func (P *DstCommitProvider) NewOnRampReader(ctx context.Context, onRampAddress cciptypes.Address, sourceChainSelector uint64, destChainSelector uint64) (onRampReader cciptypes.OnRampReader, err error) {
+func (p *DstCommitProvider) NewOnRampReader(ctx context.Context, onRampAddress cciptypes.Address, sourceChainSelector uint64, destChainSelector uint64) (onRampReader cciptypes.OnRampReader, err error) {
 	return nil, fmt.Errorf("invalid: NewOnRampReader called for DstCommitProvider.NewOnRampReader should be called on SrcCommitProvider")
 }
 
-func (P *SrcCommitProvider) NewOffRampReader(ctx context.Context, offRampAddr cciptypes.Address) (offRampReader cciptypes.OffRampReader, err error) {
+func (p *SrcCommitProvider) NewOffRampReader(ctx context.Context, offRampAddr cciptypes.Address) (offRampReader cciptypes.OffRampReader, err error) {
 	return nil, fmt.Errorf("invalid: NewOffRampReader called for SrcCommitProvider. NewOffRampReader should be called on DstCommitProvider")
 }
 
-func (P *DstCommitProvider) NewOffRampReader(ctx context.Context, offRampAddr cciptypes.Address) (offRampReader cciptypes.OffRampReader, err error) {
-	offRampReader, err = ccip.NewOffRampReader(P.lggr, P.versionFinder, offRampAddr, P.client, P.lp, P.gasEstimator, &P.maxGasPrice, true)
+func (p *DstCommitProvider) NewOffRampReader(ctx context.Context, offRampAddr cciptypes.Address) (offRampReader cciptypes.OffRampReader, err error) {
+	offRampReader, err = ccip.NewOffRampReader(ctx, p.lggr, p.versionFinder, offRampAddr, p.client, p.lp, p.gasEstimator, &p.maxGasPrice, true)
 	return
 }
 
-func (P *SrcCommitProvider) NewPriceRegistryReader(ctx context.Context, addr cciptypes.Address) (priceRegistryReader cciptypes.PriceRegistryReader, err error) {
+func (p *SrcCommitProvider) NewPriceRegistryReader(ctx context.Context, addr cciptypes.Address) (priceRegistryReader cciptypes.PriceRegistryReader, err error) {
 	return nil, fmt.Errorf("invalid: NewPriceRegistryReader called for SrcCommitProvider. NewOffRampReader should be called on DstCommitProvider")
 }
 
-func (P *DstCommitProvider) NewPriceRegistryReader(ctx context.Context, addr cciptypes.Address) (priceRegistryReader cciptypes.PriceRegistryReader, err error) {
-	destPriceRegistry := ccip.NewEvmPriceRegistry(P.lp, P.client, P.lggr, ccip.CommitPluginLabel)
+func (p *DstCommitProvider) NewPriceRegistryReader(ctx context.Context, addr cciptypes.Address) (priceRegistryReader cciptypes.PriceRegistryReader, err error) {
+	destPriceRegistry := ccip.NewEvmPriceRegistry(p.lp, p.client, p.lggr, ccip.CommitPluginLabel)
 	priceRegistryReader, err = destPriceRegistry.NewPriceRegistryReader(ctx, addr)
 	return
 }
 
-func (P *SrcCommitProvider) SourceNativeToken(ctx context.Context, sourceRouterAddr cciptypes.Address) (cciptypes.Address, error) {
+func (p *SrcCommitProvider) SourceNativeToken(ctx context.Context, sourceRouterAddr cciptypes.Address) (cciptypes.Address, error) {
 	sourceRouterAddrHex, err := ccip.GenericAddrToEvm(sourceRouterAddr)
 	if err != nil {
 		return "", err
 	}
-	sourceRouter, err := router.NewRouter(sourceRouterAddrHex, P.client)
+	sourceRouter, err := router.NewRouter(sourceRouterAddrHex, p.client)
 	if err != nil {
 		return "", err
 	}
@@ -304,6 +312,6 @@ func (P *SrcCommitProvider) SourceNativeToken(ctx context.Context, sourceRouterA
 	return ccip.EvmAddrToGeneric(sourceNative), nil
 }
 
-func (P *DstCommitProvider) SourceNativeToken(ctx context.Context, sourceRouterAddr cciptypes.Address) (cciptypes.Address, error) {
+func (p *DstCommitProvider) SourceNativeToken(ctx context.Context, sourceRouterAddr cciptypes.Address) (cciptypes.Address, error) {
 	return "", fmt.Errorf("invalid: SourceNativeToken called for DstCommitProvider. SourceNativeToken should be called on SrcCommitProvider")
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -25,11 +26,6 @@ func (c *CapabilitiesRegistryDeployer) Contract() *capabilities_registry.Capabil
 	return c.contract
 }
 
-var CapabilityRegistryTypeVersion = deployment.TypeAndVersion{
-	Type:    CapabilitiesRegistry,
-	Version: deployment.Version1_0_0,
-}
-
 func (c *CapabilitiesRegistryDeployer) Deploy(req DeployRequest) (*DeployResponse, error) {
 	est, err := estimateDeploymentGas(req.Chain.Client, capabilities_registry.CapabilitiesRegistryABI)
 	if err != nil {
@@ -48,10 +44,19 @@ func (c *CapabilitiesRegistryDeployer) Deploy(req DeployRequest) (*DeployRespons
 	if err != nil {
 		return nil, fmt.Errorf("failed to confirm and save CapabilitiesRegistry: %w", err)
 	}
+	tvStr, err := capabilitiesRegistry.TypeAndVersion(&bind.CallOpts{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get type and version: %w", err)
+	}
+
+	tv, err := deployment.TypeAndVersionFromString(tvStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse type and version from %s: %w", tvStr, err)
+	}
 	resp := &DeployResponse{
 		Address: capabilitiesRegistryAddr,
 		Tx:      tx.Hash(),
-		Tv:      CapabilityRegistryTypeVersion,
+		Tv:      tv,
 	}
 	c.contract = capabilitiesRegistry
 	return resp, nil

@@ -474,6 +474,13 @@ func (s *Shell) runNode(c *cli.Context) error {
 		}
 	}
 
+	if s.Config.Capabilities().Peering().Enabled() {
+		err2 := app.GetKeyStore().Workflow().EnsureKey(rootCtx)
+		if err2 != nil {
+			return errors.Wrap(err2, "failed to ensure workflow key")
+		}
+	}
+
 	err2 := app.GetKeyStore().CSA().EnsureKey(rootCtx)
 	if err2 != nil {
 		return errors.Wrap(err2, "failed to ensure CSA key")

@@ -124,7 +124,7 @@ func (w *launcher) HealthReport() map[string]error {
 }
 
 func (w *launcher) Name() string {
-	return "CapabilitiesLauncher"
+	return w.lggr.Name()
 }
 
 func (w *launcher) Launch(ctx context.Context, state *registrysyncer.LocalRegistry) error {
@@ -265,6 +265,7 @@ func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON registrysync
 						codec,
 						signers,
 						int(remoteDON.F+1),
+						info.ID,
 						w.lggr,
 					)
 				} else {

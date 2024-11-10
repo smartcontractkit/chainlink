@@ -401,8 +401,8 @@ SyncThreshold = 13
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
-EnforceRepeatableRead = false
-DeathDeclarationDelay = '10s'
+EnforceRepeatableRead = true
+DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 
 [EVM.NodePool.Errors]
@@ -498,6 +498,7 @@ ComputeUnitPriceMin = 0
 ComputeUnitPriceDefault = 0
 FeeBumpPeriod = '3s'
 BlockHistoryPollPeriod = '5s'
+BlockHistorySize = 1
 ComputeUnitLimitDefault = 200000
 EstimateComputeUnitLimit = false
 

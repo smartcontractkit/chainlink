@@ -6,6 +6,7 @@ MinIncomingConfirmations = 1
 LogPollInterval = '30s'
 RPCBlockQueryDelay = 15
 RPCDefaultBatchSize = 100
+FinalizedBlockOffset = 2
 
 [OCR]
 ContractConfirmations = 1
@@ -23,3 +24,7 @@ BlockHistorySize = 12
 
 [HeadTracker]
 HistoryDepth = 2000
+
+[Transactions.AutoPurge]
+Enabled = true
+MinAttempts = 3

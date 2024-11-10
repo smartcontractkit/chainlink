@@ -20,5 +20,8 @@ HistoryDepth = 10
 MaxBufferSize = 100
 SamplingInterval = '0s'
 
+[NodePool]
+EnforceRepeatableRead = false # disable for simulation to prevent failure of tests with manual commit and reorgs
+
 [OCR]
 ContractConfirmations = 1

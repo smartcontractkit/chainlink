@@ -39,7 +39,6 @@ type ConfigureContractsRequest struct {
 	Dons       []DonCapabilities        // externally sourced based on the environment
 	OCR3Config *OracleConfigWithSecrets // TODO: probably should be a map of don to config; but currently we only have one wf don therefore one config
 
-	AddressBook      deployment.AddressBook
 	DoContractDeploy bool // if false, the contracts are assumed to be deployed and the address book is used
 }
 
@@ -49,9 +48,6 @@ func (r ConfigureContractsRequest) Validate() error {
 	}
 	if r.Env == nil {
 		return errors.New("environment is nil")
-	}
-	if r.AddressBook == nil {
-		return errors.New("address book is nil")
 	}
 	if len(r.Dons) == 0 {
 		return errors.New("no DONS")
@@ -75,7 +71,7 @@ func ConfigureContracts(ctx context.Context, lggr logger.Logger, req ConfigureCo
 		return nil, fmt.Errorf("invalid request: %w", err)
 	}
 
-	addrBook := req.AddressBook
+	addrBook := req.Env.ExistingAddresses
 	if req.DoContractDeploy {
 		contractDeployCS, err := DeployContracts(lggr, req.Env, req.RegistryChainSel)
 		if err != nil {
@@ -149,7 +145,7 @@ func ConfigureRegistry(ctx context.Context, lggr logger.Logger, req ConfigureCon
 		return nil, fmt.Errorf("chain %d not found in environment", req.RegistryChainSel)
 	}
 
-	contractSetsResp, err := GetContractSets(&GetContractSetsRequest{
+	contractSetsResp, err := GetContractSets(req.Env.Logger, &GetContractSetsRequest{
 		Chains:      req.Env.Chains,
 		AddressBook: addrBook,
 	})
@@ -248,7 +244,7 @@ func ConfigureRegistry(ctx context.Context, lggr logger.Logger, req ConfigureCon
 // ConfigureForwardContracts configures the forwarder contracts on all chains for the given DONS
 // the address book is required to contain the an address of the deployed forwarder contract for every chain in the environment
 func ConfigureForwardContracts(env *deployment.Environment, dons []RegisteredDon, addrBook deployment.AddressBook) error {
-	contractSetsResp, err := GetContractSets(&GetContractSetsRequest{
+	contractSetsResp, err := GetContractSets(env.Logger, &GetContractSetsRequest{
 		Chains:      env.Chains,
 		AddressBook: addrBook,
 	})
@@ -283,7 +279,7 @@ func ConfigureOCR3Contract(env *deployment.Environment, chainSel uint64, dons []
 		return fmt.Errorf("chain %d not found in environment", chainSel)
 	}
 
-	contractSetsResp, err := GetContractSets(&GetContractSetsRequest{
+	contractSetsResp, err := GetContractSets(env.Logger, &GetContractSetsRequest{
 		Chains:      env.Chains,
 		AddressBook: addrBook,
 	})
@@ -323,7 +319,7 @@ func ConfigureOCR3ContractFromCLO(env *deployment.Environment, chainSel uint64, 
 	if !ok {
 		return fmt.Errorf("chain %d not found in environment", chainSel)
 	}
-	contractSetsResp, err := GetContractSets(&GetContractSetsRequest{
+	contractSetsResp, err := GetContractSets(env.Logger, &GetContractSetsRequest{
 		Chains:      env.Chains,
 		AddressBook: addrBook,
 	})
@@ -460,7 +456,7 @@ func RegisterNOPS(ctx context.Context, req RegisterNOPSRequest) (*RegisterNOPSRe
 	return resp, nil
 }
 
-func defaultCapConfig(capType uint8, nNodes int) *capabilitiespb.CapabilityConfig {
+func DefaultCapConfig(capType uint8, nNodes int) *capabilitiespb.CapabilityConfig {
 	switch capType {
 	// TODO: use the enum defined in ??
 	case uint8(0): // trigger
@@ -710,7 +706,7 @@ func registerDons(lggr logger.Logger, req registerDonsRequest) (*registerDonsRes
 				wfSupported = true
 			}
 			// TODO: accept configuration from external source for each (don,capability)
-			capCfg := defaultCapConfig(cap.CapabilityType, len(p2pIds))
+			capCfg := DefaultCapConfig(cap.CapabilityType, len(p2pIds))
 			cfgb, err := proto.Marshal(capCfg)
 			if err != nil {
 				return nil, fmt.Errorf("failed to marshal capability config for %v: %w", cap, err)

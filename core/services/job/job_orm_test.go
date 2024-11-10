@@ -2014,7 +2014,7 @@ func mustInsertPipelineRun(t *testing.T, orm pipeline.ORM, j job.Job) pipeline.R
 	return run
 }
 
-func TestORM_CreateJob_OCR2_With_OEV(t *testing.T) {
+func TestORM_CreateJob_OCR2_With_AdaptiveSend(t *testing.T) {
 	ctx := testutils.Context(t)
 	customChainID := big.New(testutils.NewRandomEVMChainID())
 
@@ -2039,17 +2039,18 @@ func TestORM_CreateJob_OCR2_With_OEV(t *testing.T) {
 
 	jobORM := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore)
 
-	oevTransmitterKey := cltest.MustGenerateRandomKey(t)
+	adaptiveSendKey := cltest.MustGenerateRandomKey(t)
 
-	jb, err := ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), testspecs.GetOCR2EVMWithOEVSpecMinimal(cltest.DefaultOCR2Key.ID(), transmitterID.String(), oevTransmitterKey.EIP55Address.String()), nil)
+	jb, err := ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), testspecs.GetOCR2EVMWithAdaptiveSendSpecMinimal(cltest.DefaultOCR2Key.ID(), transmitterID.String(), adaptiveSendKey.EIP55Address.String()), nil)
 	require.NoError(t, err)
+	require.Equal(t, "arbitrary-value", jb.AdaptiveSendSpec.Metadata["arbitraryParam"])
 
 	t.Run("unknown transmitter address", func(t *testing.T) {
-		require.ErrorContains(t, jobORM.CreateJob(ctx, &jb), "failed to validate oev.TransmitterAddress: no EVM key matching")
+		require.ErrorContains(t, jobORM.CreateJob(ctx, &jb), "failed to validate AdaptiveSendSpec.TransmitterAddress: no EVM key matching")
 	})
 
 	t.Run("multiple jobs", func(t *testing.T) {
-		keyStore.Eth().XXXTestingOnlyAdd(ctx, oevTransmitterKey)
-		require.NoError(t, jobORM.CreateJob(ctx, &jb), "failed to validate oev.TransmitterAddress: no EVM key matching")
+		keyStore.Eth().XXXTestingOnlyAdd(ctx, adaptiveSendKey)
+		require.NoError(t, jobORM.CreateJob(ctx, &jb), "failed to validate AdaptiveSendSpec.TransmitterAddress: no EVM key matching")
 	})
 }

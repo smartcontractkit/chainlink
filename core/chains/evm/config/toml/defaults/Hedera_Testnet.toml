@@ -6,6 +6,7 @@ FinalityDepth = 10
 # Hedera has high TPS, so polling less often 
 LogPollInterval = '10s'
 MinIncomingConfirmations = 1
+FinalizedBlockOffset = 2
 
 [BalanceMonitor]
 Enabled = true

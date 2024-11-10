@@ -56,7 +56,7 @@ func DeployCapabilitiesRegistry(lggr logger.Logger, chain deployment.Chain, ab d
 	if err != nil {
 		return fmt.Errorf("failed to save CapabilitiesRegistry: %w", err)
 	}
-	lggr.Infof("Deployed %s chain selector %d addr %s", CapabilityRegistryTypeVersion.String(), chain.Selector, capabilitiesRegistryResp.Address.String())
+	lggr.Infof("Deployed %s chain selector %d addr %s", capabilitiesRegistryResp.Tv.String(), chain.Selector, capabilitiesRegistryResp.Address.String())
 	return nil
 }
 
