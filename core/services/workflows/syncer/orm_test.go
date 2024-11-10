@@ -6,6 +6,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/workflows/common"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -23,11 +24,11 @@ func TestWorkflowArtifactsORM_GetAndUpdate(t *testing.T) {
 	_, err := orm.Update(ctx, giveURL, giveContent)
 	require.NoError(t, err)
 
-	url, err := orm.GetSecretsURL(ctx, Keccak256Hash(giveURL))
+	url, err := orm.GetSecretsURL(ctx, common.Keccak256Hash([]byte(giveURL)))
 	require.NoError(t, err)
 	assert.Equal(t, giveURL, url)
 
-	artifact, err := orm.GetArtifactByHash(ctx, Keccak256Hash(giveURL))
+	artifact, err := orm.GetArtifactByHash(ctx, common.Keccak256Hash([]byte(giveURL)))
 	require.NoError(t, err)
 	assert.Equal(t, giveURL, artifact.SecretsURL)
 	assert.Equal(t, "some contents", artifact.Contents)
@@ -35,7 +36,7 @@ func TestWorkflowArtifactsORM_GetAndUpdate(t *testing.T) {
 	_, err = orm.Update(ctx, giveURL, "new contents")
 	require.NoError(t, err)
 
-	artifact, err = orm.GetArtifactByHash(ctx, Keccak256Hash(giveURL))
+	artifact, err = orm.GetArtifactByHash(ctx, common.Keccak256Hash([]byte(giveURL)))
 	require.NoError(t, err)
 	assert.Equal(t, giveURL, artifact.SecretsURL)
 	assert.Equal(t, "new contents", artifact.Contents)

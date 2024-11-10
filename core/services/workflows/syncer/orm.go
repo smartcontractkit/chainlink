@@ -2,12 +2,10 @@ package syncer
 
 import (
 	"context"
-	"encoding/hex"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-
-	"golang.org/x/crypto/sha3"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/workflows/common"
 )
 
 type ORM interface {
@@ -74,8 +72,7 @@ func (orm *orm) GetArtifactByHash(ctx context.Context, hash string) (Artifact, e
 
 // Update updates the contents of the secret at the given URL hash or inserts a new record if not found.
 func (orm *orm) Update(ctx context.Context, secretsURL, contents string) (int64, error) {
-	hash := Keccak256Hash(secretsURL)
-	orm.lggr.Debugf("calculated hash %x", hash)
+	hash := common.Keccak256Hash([]byte(secretsURL))
 	var id int64
 	err := orm.ds.QueryRowxContext(ctx,
 		`INSERT INTO workflow_secrets (secrets_url_hash, secrets_url, contents)
@@ -95,13 +92,4 @@ func (orm *orm) Update(ctx context.Context, secretsURL, contents string) (int64,
 
 func (orm *orm) SecretsFor(ctx context.Context, workflowOwner, workflowName string) (map[string]string, error) {
 	return map[string]string{}, nil
-}
-
-func Keccak256Hash(data string) string {
-	// Create a new Keccak-256 hash instance
-	hasher := sha3.NewLegacyKeccak256()
-
-	// Write the input string to the hasher
-	hasher.Write([]byte(data))
-	return hex.EncodeToString(hasher.Sum(nil))
 }

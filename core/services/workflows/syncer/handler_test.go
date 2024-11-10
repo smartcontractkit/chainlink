@@ -7,6 +7,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/triggers/logevent/logeventcap"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/workflows/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 
@@ -28,7 +29,7 @@ func Test_Handler(t *testing.T) {
 		mockORM := mocks.NewORM(t)
 		ctx := testutils.Context(t)
 		giveURL := "https://original-url.com"
-		hash := Keccak256Hash(giveURL)
+		hash := common.Keccak256Hash([]byte(giveURL))
 
 		giveEvent := WorkflowRegistryEvent{
 			Output: logeventcap.Output{
@@ -52,7 +53,7 @@ func Test_Handler(t *testing.T) {
 		mockORM := mocks.NewORM(t)
 		ctx := testutils.Context(t)
 		giveURL := "http://example.com"
-		hash := Keccak256Hash(giveURL)
+		hash := common.Keccak256Hash([]byte(giveURL))
 		mockORM.EXPECT().GetSecretsURL(matches.AnyContext, hash).Return("", assert.AnError)
 		h := newForceUpdateSecretsHandler(lggr, mockORM, nil)
 		err := h.Handle(ctx, WorkflowRegistryEvent{
@@ -70,7 +71,7 @@ func Test_Handler(t *testing.T) {
 		mockORM := mocks.NewORM(t)
 		ctx := testutils.Context(t)
 		giveURL := "http://example.com"
-		hash := Keccak256Hash(giveURL)
+		hash := common.Keccak256Hash([]byte(giveURL))
 		mockORM.EXPECT().GetSecretsURL(matches.AnyContext, hash).Return("", assert.AnError)
 		fetcher := func(_ context.Context, _ string) ([]byte, error) {
 			return nil, assert.AnError
@@ -92,7 +93,7 @@ func Test_Handler(t *testing.T) {
 		mockORM := mocks.NewORM(t)
 		ctx := testutils.Context(t)
 		giveURL := "http://example.com"
-		hash := Keccak256Hash(giveURL)
+		hash := common.Keccak256Hash([]byte(giveURL))
 		mockORM.EXPECT().GetSecretsURL(matches.AnyContext, hash).Return(giveURL, nil)
 		fetcher := func(_ context.Context, _ string) ([]byte, error) {
 			return []byte("contents"), nil
@@ -113,7 +114,7 @@ func Test_Handler(t *testing.T) {
 
 func Test_getURLHash(t *testing.T) {
 	giveURL := "http://example.com"
-	hash := Keccak256Hash(giveURL)
+	hash := common.Keccak256Hash([]byte(giveURL))
 	giveEvent := WorkflowRegistryEvent{
 		Output: logeventcap.Output{
 			Data: map[string]any{

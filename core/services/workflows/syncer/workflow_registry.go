@@ -7,8 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mitchellh/mapstructure"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	types "github.com/smartcontractkit/chainlink-common/pkg/types"
 	query "github.com/smartcontractkit/chainlink-common/pkg/types/query"
@@ -327,16 +325,6 @@ func toWorkflowRegistryEventResponse(
 	err = dataAsValuesMap.UnwrapTo(&dataAsMap)
 	if err != nil {
 		lggr.Debugf("failed to unwrap to map[string]any : %+v", err)
-		return WorkflowRegistryEventResponse{
-			Err: err,
-		}
-	}
-
-	lggr.Debugf("got data before decode %+v", dataAsMap)
-
-	var event any
-	if err := mapstructure.Decode(dataAsMap, &event); err != nil {
-		lggr.Debugf("got error from decoding %s", err)
 		return WorkflowRegistryEventResponse{
 			Err: err,
 		}

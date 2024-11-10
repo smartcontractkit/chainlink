@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/test-go/testify/assert"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/workflow/generated/workflow_registry_wrapper"
@@ -32,7 +34,7 @@ func Test_SecretsWorker(t *testing.T) {
 
 		giveTicker     = signalers.MakeTicker(ctx.Done(), 500*time.Millisecond)
 		giveSecretsURL = "https://original-url.com"
-		giveHash       = syncer.Keccak256Hash(giveSecretsURL)
+		giveHash       = crypto.Keccak256Hash([]byte(giveSecretsURL))
 		giveWorkflow   = RegisterWorkflowCMD{
 			Name:       "test-wf",
 			DonID:      uint32(1),
@@ -95,6 +97,15 @@ func Test_SecretsWorker(t *testing.T) {
 	_, err = orm.Update(ctx, giveSecretsURL, giveContents)
 	require.NoError(t, err)
 
+	gotSecretsURL, err := orm.GetSecretsURL(ctx, giveHash.Hex())
+	assert.NoError(t, err)
+	assert.Equal(t, giveSecretsURL, gotSecretsURL)
+
+	// verify the DB
+	gotArtifact, err := orm.GetArtifactByHash(ctx, giveHash.Hex())
+	assert.NoError(t, err)
+	assert.Equal(t, gotArtifact.Contents, giveContents)
+
 	worker := syncer.NewWorkflowRegistry(
 		lggr,
 		orm,
@@ -121,7 +132,7 @@ func Test_SecretsWorker(t *testing.T) {
 
 	// Require the secrets contents to eventually be updated
 	require.Eventually(t, func() bool {
-		secrets, err := orm.GetArtifactByHash(ctx, giveHash)
+		secrets, err := orm.GetArtifactByHash(ctx, giveHash.Hex())
 		lggr.Debugf("got secrets %v", secrets)
 		require.NoError(t, err)
 		return secrets.Contents == wantContents

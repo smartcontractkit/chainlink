@@ -53,8 +53,6 @@ func (h *forceUpdateSecretsHandler) Handle(
 	ctx context.Context,
 	event WorkflowRegistryEvent,
 ) error {
-	h.lggr.Debugf("got event %+v", event)
-	h.lggr.Debugf("got URL %x", event.Output.Data["SecretsURL"])
 	hash, err := getURLHash(event)
 	if err != nil {
 		h.lggr.Errorf("failed to get URL hash", err)
@@ -70,13 +68,11 @@ func (h *forceUpdateSecretsHandler) Handle(
 
 	// Fetch the contents of the secrets file from the url via the fetcher
 	secrets, err := h.fetcher(ctx, url)
-	h.lggr.Debugf("fetched these contents %s", secrets)
 	if err != nil {
 		return err
 	}
 
 	// Update the secrets in the ORM
-	h.lggr.Debugf("calling update with url %s and secrets %s", url, secrets)
 	if _, err := h.orm.Update(ctx, url, string(secrets)); err != nil {
 		return err
 	}

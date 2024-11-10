@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/workflows/common"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 
 	"github.com/stretchr/testify/require"
@@ -31,7 +32,7 @@ func Test_Workflow_Registry_Syncer(t *testing.T) {
 			QueryCount:        1,
 		}
 		giveURL  = "http://example.com"
-		giveHash = Keccak256Hash(giveURL)
+		giveHash = common.Keccak256Hash([]byte(giveURL))
 		giveLog  = types.Sequence{
 			Data: map[string]any{
 				"SecretsURL": []byte(giveHash),
