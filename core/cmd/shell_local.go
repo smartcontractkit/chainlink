@@ -382,18 +382,13 @@ func (s *Shell) runNode(c *cli.Context) error {
 	// From now on, DB locks and DB connection will be released on every return.
 	// Keep watching on logger.Fatal* calls and os.Exit(), because defer will not be executed.
 
-	app, err := s.AppFactory.NewApplication(rootCtx, s.Config, s.Logger, ldb.DB())
+	app, err := s.AppFactory.NewApplication(rootCtx, s.Config, s.Logger, ldb.DB(), s.KeyStoreAuthenticator)
 	if err != nil {
 		return s.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
 
 	// Local shell initialization always uses local auth users table for admin auth
 	authProviderORM := app.BasicAdminUsersORM()
-	keyStore := app.GetKeyStore()
-	err = s.KeyStoreAuthenticator.authenticate(rootCtx, keyStore, s.Config.Password())
-	if err != nil {
-		return errors.Wrap(err, "error authenticating keystore")
-	}
 
 	legacyEVMChains := app.GetRelayers().LegacyEVMChains()
 
@@ -634,7 +629,7 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 	}
 	defer lggr.ErrorIfFn(db.Close, "Error closing db")
 
-	app, err := s.AppFactory.NewApplication(ctx, s.Config, lggr, db)
+	app, err := s.AppFactory.NewApplication(ctx, s.Config, lggr, db, s.KeyStoreAuthenticator)
 	if err != nil {
 		return s.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
@@ -1281,7 +1276,7 @@ func (s *Shell) RemoveBlocks(c *cli.Context) error {
 	// From now on, DB locks and DB connection will be released on every return.
 	// Keep watching on logger.Fatal* calls and os.Exit(), because defer will not be executed.
 
-	app, err := s.AppFactory.NewApplication(ctx, s.Config, s.Logger, ldb.DB())
+	app, err := s.AppFactory.NewApplication(ctx, s.Config, s.Logger, ldb.DB(), s.KeyStoreAuthenticator)
 	if err != nil {
 		return s.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}

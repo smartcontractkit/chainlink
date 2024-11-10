@@ -74,7 +74,7 @@ func TestStreamsTrigger(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := testutils.Context(t)
 	codec := streams.NewCodec(lggr)
-	agg := triggers.NewMercuryRemoteAggregator(codec, allowedSigners, F, lggr)
+	agg := triggers.NewMercuryRemoteAggregator(codec, allowedSigners, F, "streams-trigger@1.2.3", lggr)
 
 	capInfo := capabilities.CapabilityInfo{
 		ID: triggerID,

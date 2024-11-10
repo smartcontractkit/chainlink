@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
+	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
@@ -85,7 +86,24 @@ func MustABIEncode(abiString string, args ...interface{}) []byte {
 	return encoded
 }
 
-func DeployCapReg(lggr logger.Logger, ab deployment.AddressBook, chain deployment.Chain) (*ContractDeploy[*capabilities_registry.CapabilitiesRegistry], error) {
+// DeployCapReg deploys the CapabilitiesRegistry contract if it is not already deployed
+// and returns a ContractDeploy struct with the address and contract instance.
+func DeployCapReg(
+	lggr logger.Logger,
+	state CCIPOnChainState,
+	ab deployment.AddressBook,
+	chain deployment.Chain,
+) (*ContractDeploy[*capabilities_registry.CapabilitiesRegistry], error) {
+	homeChainState, exists := state.Chains[chain.Selector]
+	if exists {
+		cr := homeChainState.CapabilityRegistry
+		if cr != nil {
+			lggr.Infow("Found CapabilitiesRegistry in chain state", "address", cr.Address().String())
+			return &ContractDeploy[*capabilities_registry.CapabilitiesRegistry]{
+				Address: cr.Address(), Contract: cr, Tv: deployment.NewTypeAndVersion(CapabilitiesRegistry, deployment.Version1_0_0),
+			}, nil
+		}
+	}
 	capReg, err := deployContract(lggr, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*capabilities_registry.CapabilitiesRegistry] {
 			crAddr, tx, cr, err2 := capabilities_registry.DeployCapabilitiesRegistry(
@@ -100,8 +118,31 @@ func DeployCapReg(lggr logger.Logger, ab deployment.AddressBook, chain deploymen
 		lggr.Errorw("Failed to deploy capreg", "err", err)
 		return nil, err
 	}
+	return capReg, nil
+}
 
-	lggr.Infow("deployed capreg", "addr", capReg.Address)
+func DeployHomeChain(
+	lggr logger.Logger,
+	e deployment.Environment,
+	ab deployment.AddressBook,
+	chain deployment.Chain,
+	rmnHomeStatic rmn_home.RMNHomeStaticConfig,
+	rmnHomeDynamic rmn_home.RMNHomeDynamicConfig,
+	nodeOps []capabilities_registry.CapabilitiesRegistryNodeOperator,
+	nodeP2PIDsPerNodeOpAdmin map[string][][32]byte,
+) (*ContractDeploy[*capabilities_registry.CapabilitiesRegistry], error) {
+	// load existing state
+	state, err := LoadOnchainState(e)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load onchain state: %w", err)
+	}
+	// Deploy CapabilitiesRegistry, CCIPHome, RMNHome
+	capReg, err := DeployCapReg(lggr, state, ab, chain)
+	if err != nil {
+		return nil, err
+	}
+
+	lggr.Infow("deployed/connected to capreg", "addr", capReg.Address)
 	ccipHome, err := deployContract(
 		lggr, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*ccip_home.CCIPHome] {
@@ -138,14 +179,8 @@ func DeployCapReg(lggr logger.Logger, ab deployment.AddressBook, chain deploymen
 	}
 	lggr.Infow("deployed RMNHome", "addr", rmnHome.Address)
 
-	// TODO: properly configure RMNHome
-	tx, err := rmnHome.Contract.SetCandidate(chain.DeployerKey, rmn_home.RMNHomeStaticConfig{
-		Nodes:          []rmn_home.RMNHomeNode{},
-		OffchainConfig: []byte("static config"),
-	}, rmn_home.RMNHomeDynamicConfig{
-		SourceChains:   []rmn_home.RMNHomeSourceChain{},
-		OffchainConfig: []byte("dynamic config"),
-	}, [32]byte{})
+	// considering the RMNHome is recently deployed, there is no digest to overwrite
+	tx, err := rmnHome.Contract.SetCandidate(chain.DeployerKey, rmnHomeStatic, rmnHomeDynamic, [32]byte{})
 	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
 		lggr.Errorw("Failed to set candidate on RMNHome", "err", err)
 		return nil, err
@@ -189,18 +224,61 @@ func DeployCapReg(lggr logger.Logger, ab deployment.AddressBook, chain deploymen
 		lggr.Errorw("Failed to add capabilities", "err", err)
 		return nil, err
 	}
-	// TODO: Just one for testing.
-	tx, err = capReg.Contract.AddNodeOperators(chain.DeployerKey, []capabilities_registry.CapabilitiesRegistryNodeOperator{
-		{
-			Admin: chain.DeployerKey.From,
-			Name:  "NodeOperator",
-		},
-	})
-	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
+
+	tx, err = capReg.Contract.AddNodeOperators(chain.DeployerKey, nodeOps)
+	txBlockNum, err := deployment.ConfirmIfNoError(chain, tx, err)
+	if err != nil {
 		lggr.Errorw("Failed to add node operators", "err", err)
 		return nil, err
 	}
+	addedEvent, err := capReg.Contract.FilterNodeOperatorAdded(&bind.FilterOpts{
+		Start:   txBlockNum,
+		Context: context.Background(),
+	}, nil, nil)
+	if err != nil {
+		lggr.Errorw("Failed to filter NodeOperatorAdded event", "err", err)
+		return capReg, err
+	}
+	// Need to fetch nodeoperators ids to be able to add nodes for corresponding node operators
+	p2pIDsByNodeOpId := make(map[uint32][][32]byte)
+	for addedEvent.Next() {
+		for nopName, p2pId := range nodeP2PIDsPerNodeOpAdmin {
+			if addedEvent.Event.Name == nopName {
+				lggr.Infow("Added node operator", "admin", addedEvent.Event.Admin, "name", addedEvent.Event.Name)
+				p2pIDsByNodeOpId[addedEvent.Event.NodeOperatorId] = p2pId
+			}
+		}
+	}
+	if len(p2pIDsByNodeOpId) != len(nodeP2PIDsPerNodeOpAdmin) {
+		lggr.Errorw("Failed to add all node operators", "added", maps.Keys(p2pIDsByNodeOpId), "expected", maps.Keys(nodeP2PIDsPerNodeOpAdmin))
+		return capReg, errors.New("failed to add all node operators")
+	}
+	// Adds initial set of nodes to CR, who all have the CCIP capability
+	if err := AddNodes(lggr, capReg.Contract, chain, p2pIDsByNodeOpId); err != nil {
+		return capReg, err
+	}
 	return capReg, nil
+}
+
+// getNodeOperatorIDMap returns a map of node operator names to their IDs
+// If maxNops is greater than the number of node operators, it will return all node operators
+func getNodeOperatorIDMap(capReg *capabilities_registry.CapabilitiesRegistry, maxNops uint32) (map[string]uint32, error) {
+	nopIdByName := make(map[string]uint32)
+	operators, err := capReg.GetNodeOperators(nil)
+	if err != nil {
+		return nil, err
+	}
+	if len(operators) < int(maxNops) {
+		maxNops = uint32(len(operators))
+	}
+	for i := uint32(1); i <= maxNops; i++ {
+		operator, err := capReg.GetNodeOperator(nil, i)
+		if err != nil {
+			return nil, err
+		}
+		nopIdByName[operator.Name] = i
+	}
+	return nopIdByName, nil
 }
 
 func isEqualCapabilitiesRegistryNodeParams(a, b capabilities_registry.CapabilitiesRegistryNodeParams) (bool, error) {
@@ -219,7 +297,7 @@ func AddNodes(
 	lggr logger.Logger,
 	capReg *capabilities_registry.CapabilitiesRegistry,
 	chain deployment.Chain,
-	p2pIDs [][32]byte,
+	p2pIDsByNodeOpId map[uint32][][32]byte,
 ) error {
 	var nodeParams []capabilities_registry.CapabilitiesRegistryNodeParams
 	nodes, err := capReg.GetNodes(nil)
@@ -235,26 +313,28 @@ func AddNodes(
 			HashedCapabilityIds: node.HashedCapabilityIds,
 		}
 	}
-	for _, p2pID := range p2pIDs {
-		// if any p2pIDs are empty throw error
-		if bytes.Equal(p2pID[:], make([]byte, 32)) {
-			return errors.Wrapf(errors.New("empty p2pID"), "p2pID: %x selector: %d", p2pID, chain.Selector)
-		}
-		nodeParam := capabilities_registry.CapabilitiesRegistryNodeParams{
-			NodeOperatorId:      NodeOperatorID,
-			Signer:              p2pID, // Not used in tests
-			P2pId:               p2pID,
-			EncryptionPublicKey: p2pID, // Not used in tests
-			HashedCapabilityIds: [][32]byte{CCIPCapabilityID},
-		}
-		if existing, ok := existingNodeParams[p2pID]; ok {
-			if isEqual, err := isEqualCapabilitiesRegistryNodeParams(existing, nodeParam); err != nil && isEqual {
-				lggr.Infow("Node already exists", "p2pID", p2pID)
-				continue
+	for nopID, p2pIDs := range p2pIDsByNodeOpId {
+		for _, p2pID := range p2pIDs {
+			// if any p2pIDs are empty throw error
+			if bytes.Equal(p2pID[:], make([]byte, 32)) {
+				return errors.Wrapf(errors.New("empty p2pID"), "p2pID: %x selector: %d", p2pID, chain.Selector)
 			}
-		}
+			nodeParam := capabilities_registry.CapabilitiesRegistryNodeParams{
+				NodeOperatorId:      nopID,
+				Signer:              p2pID, // Not used in tests
+				P2pId:               p2pID,
+				EncryptionPublicKey: p2pID, // Not used in tests
+				HashedCapabilityIds: [][32]byte{CCIPCapabilityID},
+			}
+			if existing, ok := existingNodeParams[p2pID]; ok {
+				if isEqual, err := isEqualCapabilitiesRegistryNodeParams(existing, nodeParam); err != nil && isEqual {
+					lggr.Infow("Node already exists", "p2pID", p2pID)
+					continue
+				}
+			}
 
-		nodeParams = append(nodeParams, nodeParam)
+			nodeParams = append(nodeParams, nodeParam)
+		}
 	}
 	if len(nodeParams) == 0 {
 		lggr.Infow("No new nodes to add")

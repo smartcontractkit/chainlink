@@ -431,12 +431,16 @@ func (r *Relayer) NewMercuryProvider(ctx context.Context, rargs commontypes.Rela
 		if r.capabilitiesRegistry == nil {
 			lggr.Errorw("trigger capability is enabled but capabilities registry is not set")
 		} else {
-			r.triggerCapability = triggers.NewMercuryTriggerService(0, lggr)
-			if err := r.triggerCapability.Start(ctx); err != nil {
-				return nil, err
+			var err2 error
+			r.triggerCapability, err2 = triggers.NewMercuryTriggerService(0, relayConfig.TriggerCapabilityName, relayConfig.TriggerCapabilityVersion, lggr)
+			if err2 != nil {
+				return nil, fmt.Errorf("failed to start required trigger service: %w", err2)
 			}
-			if err := r.capabilitiesRegistry.Add(ctx, r.triggerCapability); err != nil {
-				return nil, err
+			if err2 = r.triggerCapability.Start(ctx); err2 != nil {
+				return nil, err2
+			}
+			if err2 = r.capabilitiesRegistry.Add(ctx, r.triggerCapability); err2 != nil {
+				return nil, err2
 			}
 			lggr.Infow("successfully added trigger service to the Registry")
 		}
