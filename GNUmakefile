@@ -178,6 +178,7 @@ golangci-lint: ## Run golangci-lint for all issues.
 
 .PHONY: modgraph
 modgraph:
+	go install github.com/jmank88/modgraph@v0.1.0
 	./tools/bin/modgraph > go.md
 
 .PHONY: test-short

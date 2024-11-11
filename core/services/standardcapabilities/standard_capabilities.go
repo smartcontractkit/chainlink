@@ -3,6 +3,8 @@ package standardcapabilities
 import (
 	"context"
 	"fmt"
+	"sync"
+	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -11,6 +13,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
+
+const defaultStartTimeout = 3 * time.Minute
 
 type standardCapabilities struct {
 	services.StateMachine
@@ -26,6 +30,10 @@ type standardCapabilities struct {
 	oracleFactory        core.OracleFactory
 
 	capabilitiesLoop *loop.StandardCapabilitiesService
+
+	wg           sync.WaitGroup
+	stopChan     services.StopChan
+	startTimeout time.Duration
 }
 
 func newStandardCapabilities(
@@ -51,6 +59,7 @@ func newStandardCapabilities(
 		pipelineRunner:       pipelineRunner,
 		relayerSet:           relayerSet,
 		oracleFactory:        oracleFactory,
+		stopChan:             make(chan struct{}),
 	}
 }
 
@@ -63,38 +72,53 @@ func (s *standardCapabilities) Start(ctx context.Context) error {
 			Cmd: cmdName,
 			Env: nil,
 		})
-
 		if err != nil {
 			return fmt.Errorf("error registering loop: %v", err)
 		}
 
 		s.capabilitiesLoop = loop.NewStandardCapabilitiesService(s.log, opts, cmdFn)
-
 		if err = s.capabilitiesLoop.Start(ctx); err != nil {
 			return fmt.Errorf("error starting standard capabilities service: %v", err)
 		}
 
-		if err = s.capabilitiesLoop.WaitCtx(ctx); err != nil {
-			return fmt.Errorf("error waiting for standard capabilities service to start: %v", err)
-		}
+		s.wg.Add(1)
+		go func() {
+			defer s.wg.Done()
 
-		if err = s.capabilitiesLoop.Service.Initialise(ctx, s.spec.Config, s.telemetryService, s.store, s.CapabilitiesRegistry, s.errorLog,
-			s.pipelineRunner, s.relayerSet, s.oracleFactory); err != nil {
-			return fmt.Errorf("error initialising standard capabilities service: %v", err)
-		}
+			if s.startTimeout == 0 {
+				s.startTimeout = defaultStartTimeout
+			}
 
-		capabilityInfos, err := s.capabilitiesLoop.Service.Infos(ctx)
-		if err != nil {
-			return fmt.Errorf("error getting standard capabilities service info: %v", err)
-		}
+			cctx, cancel := s.stopChan.CtxWithTimeout(s.startTimeout)
+			defer cancel()
 
-		s.log.Info("Started standard capabilities for job spec", "spec", s.spec, "capabilities", capabilityInfos)
+			if err = s.capabilitiesLoop.WaitCtx(cctx); err != nil {
+				s.log.Errorf("error waiting for standard capabilities service to start: %v", err)
+				return
+			}
+
+			if err = s.capabilitiesLoop.Service.Initialise(cctx, s.spec.Config, s.telemetryService, s.store, s.CapabilitiesRegistry, s.errorLog,
+				s.pipelineRunner, s.relayerSet, s.oracleFactory); err != nil {
+				s.log.Errorf("error initialising standard capabilities service: %v", err)
+				return
+			}
+
+			capabilityInfos, err := s.capabilitiesLoop.Service.Infos(cctx)
+			if err != nil {
+				s.log.Errorf("error getting standard capabilities service info: %v", err)
+				return
+			}
+
+			s.log.Info("Started standard capabilities for job spec", "spec", s.spec, "capabilities", capabilityInfos)
+		}()
 
 		return nil
 	})
 }
 
 func (s *standardCapabilities) Close() error {
+	close(s.stopChan)
+	s.wg.Wait()
 	return s.StopOnce("StandardCapabilities", func() error {
 		if s.capabilitiesLoop != nil {
 			return s.capabilitiesLoop.Close()

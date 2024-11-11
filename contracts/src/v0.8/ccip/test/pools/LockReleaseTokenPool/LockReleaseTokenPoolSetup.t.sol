@@ -7,7 +7,7 @@ import {LockReleaseTokenPool} from "../../../pools/LockReleaseTokenPool.sol";
 import {TokenPool} from "../../../pools/TokenPool.sol";
 
 import {IERC20} from "../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
-import {RouterSetup} from "../../router/RouterSetup.t.sol";
+import {RouterSetup} from "../../router/Router/RouterSetup.t.sol";
 
 contract LockReleaseTokenPoolSetup is RouterSetup {
   IERC20 internal s_token;

@@ -24,3 +24,7 @@ CacheTimeout = '4s'
 
 [HeadTracker]
 HistoryDepth = 2000
+
+[Transactions.AutoPurge]
+Enabled = true
+MinAttempts = 3
