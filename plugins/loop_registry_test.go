@@ -11,7 +11,7 @@ import (
 
 func TestPluginPortManager(t *testing.T) {
 	// register one
-	m := NewLoopRegistry(logger.TestLogger(t), nil, nil)
+	m := NewLoopRegistry(logger.TestLogger(t), nil, nil, nil, "")
 	pFoo, err := m.Register("foo")
 	require.NoError(t, err)
 	require.Equal(t, "foo", pFoo.Name)

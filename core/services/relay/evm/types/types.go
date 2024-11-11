@@ -207,8 +207,10 @@ type RelayConfig struct {
 	SendingKeys pq.StringArray `json:"sendingKeys"`
 
 	// Mercury-specific
-	FeedID                  *common.Hash `json:"feedID"`
-	EnableTriggerCapability bool         `json:"enableTriggerCapability"`
+	FeedID                   *common.Hash `json:"feedID"`
+	EnableTriggerCapability  bool         `json:"enableTriggerCapability"`
+	TriggerCapabilityName    string       `json:"triggerCapabilityName"`
+	TriggerCapabilityVersion string       `json:"triggerCapabilityVersion"`
 
 	// LLO-specific
 	LLODONID      uint32        `json:"lloDonID" toml:"lloDonID"`
