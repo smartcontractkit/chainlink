@@ -439,7 +439,7 @@ func TestCCIPReader_Nonces(t *testing.T) {
 	// Add some nonces.
 	for chain, addrs := range nonces {
 		for addr, nonce := range addrs {
-			_, err := s.contract.SetInboundNonce(s.auth, uint64(chain), nonce, addr.Bytes())
+			_, err := s.contract.SetInboundNonce(s.auth, uint64(chain), nonce, common.LeftPadBytes(addr.Bytes(), 32))
 			assert.NoError(t, err)
 		}
 	}

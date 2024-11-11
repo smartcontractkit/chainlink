@@ -573,8 +573,15 @@ func DeployChainContracts(
 	tx, err = tokenAdminRegistry.Contract.AddRegistryModule(chain.DeployerKey, customRegistryModule.Address)
 	if err != nil {
 		e.Logger.Errorw("Failed to assign registry module on token admin registry", "err", err)
-		return err
+		return fmt.Errorf("failed to assign registry module on token admin registry: %w", err)
 	}
+
+	_, err = chain.Confirm(tx)
+	if err != nil {
+		e.Logger.Errorw("Failed to confirm assign registry module on token admin registry", "err", err)
+		return fmt.Errorf("failed to confirm assign registry module on token admin registry: %w", err)
+	}
+
 	e.Logger.Infow("assigned registry module on token admin registry")
 
 	nonceManager, err := deployContract(e.Logger, chain, ab,
