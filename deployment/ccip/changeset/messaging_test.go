@@ -75,11 +75,8 @@ func Test_Messaging(t *testing.T) {
 		replayed bool
 		nonce    uint64
 		sender   = common.LeftPadBytes(e.Env.Chains[sourceChain].DeployerKey.From.Bytes(), 32)
-	)
-
-	var (
-		out   messagingTestCaseOutput
-		setup = testCaseSetup{
+		out      messagingTestCaseOutput
+		setup    = testCaseSetup{
 			t:            t,
 			sender:       sender,
 			deployedEnv:  e,
@@ -140,7 +137,7 @@ func Test_Messaging(t *testing.T) {
 			state.Chains[destChain].Receiver.Address(),
 			[]byte("hello CCIPReceiver with low exec gas"),
 			func(t *testing.T) {
-				// Message would not be emitted, not enough gas to emit log.
+				// Message should not be emitted, not enough gas to emit log.
 				// TODO: this is still returning a log, probably the older one since FAILURE is the execution state.
 				// Not enough ctx in the message received log to confirm that it's from another test.
 				// Maybe check the log block number and assert that its < the header before block number from above?
