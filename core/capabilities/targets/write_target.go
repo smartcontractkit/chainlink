@@ -327,7 +327,8 @@ func (cap *WriteTarget) Execute(ctx context.Context, rawRequest capabilities.Cap
 		case <-tick.C:
 			txStatus, err := cap.cw.GetTransactionStatus(ctx, txID.String())
 			if err != nil {
-
+				cap.lggr.Errorw("Failed to get transaction status", "request", request, "transaction", txID, "err", err)
+				continue
 			}
 			switch txStatus {
 			case commontypes.Finalized:
