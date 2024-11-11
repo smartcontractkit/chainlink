@@ -95,11 +95,22 @@ func NewLocalDevEnvironment(t *testing.T, lggr logger.Logger) (ccipdeployment.De
 		crConfig,
 		testEnv, cfg)
 	require.NoError(t, err)
-
 	e, don, err := devenv.NewEnvironment(ctx, lggr, *envConfig)
 	require.NoError(t, err)
 	require.NotNil(t, e)
 	e.ExistingAddresses = ab
+
+	envNodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
+	require.NoError(t, err)
+	_, err = ccipdeployment.DeployHomeChain(lggr, *e, e.ExistingAddresses, chains[homeChainSel],
+		ccipdeployment.NewTestRMNStaticConfig(),
+		ccipdeployment.NewTestRMNDynamicConfig(),
+		ccipdeployment.NewTestNodeOperator(chains[homeChainSel].DeployerKey.From),
+		map[string][][32]byte{
+			"NodeOperator": envNodes.NonBootstraps().PeerIDs(),
+		},
+	)
+	require.NoError(t, err)
 	zeroLogLggr := logging.GetTestLogger(t)
 	// fund the nodes
 	FundNodes(t, zeroLogLggr, testEnv, cfg, don.PluginNodes())

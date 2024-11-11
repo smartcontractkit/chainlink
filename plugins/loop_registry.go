@@ -27,17 +27,21 @@ type LoopRegistry struct {
 	mu       sync.Mutex
 	registry map[string]*RegisteredLoop
 
-	lggr         logger.Logger
-	cfgTracing   config.Tracing
-	cfgTelemetry config.Telemetry
+	lggr                   logger.Logger
+	cfgTracing             config.Tracing
+	cfgTelemetry           config.Telemetry
+	telemetryAuthHeaders   map[string]string
+	telemetryAuthPubKeyHex string
 }
 
-func NewLoopRegistry(lggr logger.Logger, tracing config.Tracing, telemetry config.Telemetry) *LoopRegistry {
+func NewLoopRegistry(lggr logger.Logger, tracing config.Tracing, telemetry config.Telemetry, telemetryAuthHeaders map[string]string, telemetryAuthPubKeyHex string) *LoopRegistry {
 	return &LoopRegistry{
-		registry:     map[string]*RegisteredLoop{},
-		lggr:         logger.Named(lggr, "LoopRegistry"),
-		cfgTracing:   tracing,
-		cfgTelemetry: telemetry,
+		registry:               map[string]*RegisteredLoop{},
+		lggr:                   logger.Named(lggr, "LoopRegistry"),
+		cfgTracing:             tracing,
+		cfgTelemetry:           telemetry,
+		telemetryAuthHeaders:   telemetryAuthHeaders,
+		telemetryAuthPubKeyHex: telemetryAuthPubKeyHex,
 	}
 }
 
@@ -74,10 +78,16 @@ func (m *LoopRegistry) Register(id string) (*RegisteredLoop, error) {
 		envCfg.TelemetryCACertFile = m.cfgTelemetry.CACertFile()
 		envCfg.TelemetryAttributes = m.cfgTelemetry.ResourceAttributes()
 		envCfg.TelemetryTraceSampleRatio = m.cfgTelemetry.TraceSampleRatio()
+		envCfg.TelemetryAuthPubKeyHex = m.telemetryAuthPubKeyHex
+	}
+	m.lggr.Debugf("Registered loopp %q with config %v, port %d", id, envCfg, envCfg.PrometheusPort)
+
+	// Add auth header after logging config
+	if m.cfgTelemetry != nil {
+		envCfg.TelemetryAuthHeaders = m.telemetryAuthHeaders
 	}
 
 	m.registry[id] = &RegisteredLoop{Name: id, EnvCfg: envCfg}
-	m.lggr.Debugf("Registered loopp %q with config %v, port %d", id, envCfg, envCfg.PrometheusPort)
 	return m.registry[id], nil
 }
 

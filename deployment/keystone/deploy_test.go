@@ -120,14 +120,22 @@ func TestDeploy(t *testing.T) {
 	require.True(t, ok)
 	gotRegistry := regChainContracts.CapabilitiesRegistry
 	require.NotNil(t, gotRegistry)
-	// contract reads
+	// check DONs
 	gotDons, err := gotRegistry.GetDONs(&bind.CallOpts{})
 	if err != nil {
 		err = keystone.DecodeErr(kcr.CapabilitiesRegistryABI, err)
-		require.Fail(t, fmt.Sprintf("failed to get Dons from registry at %s: %s", gotRegistry.Address().String(), err))
+		require.Fail(t, fmt.Sprintf("failed to get DONs from registry at %s: %s", gotRegistry.Address().String(), err))
 	}
 	require.NoError(t, err)
 	assert.Len(t, gotDons, len(deployReq.Dons))
+	// check NOPs
+	nops, err := gotRegistry.GetNodeOperators(&bind.CallOpts{})
+	if err != nil {
+		err = keystone.DecodeErr(kcr.CapabilitiesRegistryABI, err)
+		require.Fail(t, fmt.Sprintf("failed to get NOPs from registry at %s: %s", gotRegistry.Address().String(), err))
+	}
+	require.NoError(t, err)
+	assert.Len(t, nops, 26) // 10 NOPs owning workflow & writer DONs + 16 NOPs owning Asset DON
 
 	for n, info := range deployResp.DonInfos {
 		found := false
