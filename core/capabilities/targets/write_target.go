@@ -7,12 +7,14 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
@@ -22,6 +24,8 @@ var (
 	_ capabilities.TargetCapability = &WriteTarget{}
 )
 
+const transactionStatusCheckInterval = 2 * time.Second
+
 type WriteTarget struct {
 	cr               ContractValueGetter
 	cw               commontypes.ChainWriter
@@ -30,6 +34,9 @@ type WriteTarget struct {
 	// The minimum amount of gas that the receiver contract must get to process the forwarder report
 	receiverGasMinimum uint64
 	capabilities.CapabilityInfo
+
+	// emitter is used to emit messages from the WASM module to a configured collector.
+	emitter custmsg.MessageEmitter
 
 	lggr logger.Logger
 
@@ -79,6 +86,7 @@ func NewWriteTarget(
 		forwarderAddress,
 		txGasLimit - ForwarderContractLogicGasCost,
 		info,
+		custmsg.NewLabeler(),
 		logger.Named(lggr, "WriteTarget"),
 		false,
 	}
@@ -309,7 +317,34 @@ func (cap *WriteTarget) Execute(ctx context.Context, rawRequest capabilities.Cap
 	}
 
 	cap.lggr.Debugw("Transaction submitted", "request", request, "transaction", txID)
-	return capabilities.CapabilityResponse{}, nil
+
+	tick := time.NewTicker(transactionStatusCheckInterval)
+	defer tick.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return capabilities.CapabilityResponse{}, nil
+		case <-tick.C:
+			txStatus, err := cap.cw.GetTransactionStatus(ctx, txID.String())
+			if err != nil {
+
+			}
+			switch txStatus {
+			case commontypes.Finalized:
+				cap.lggr.Debugw("Transaction finalized", "request", request, "transaction", txID)
+				return capabilities.CapabilityResponse{}, nil
+			case commontypes.Failed, commontypes.Fatal:
+				cap.lggr.Error("Transaction failed", "request", request, "transaction", txID)
+				msg := "failed to submit transaction with ID: " + txID.String()
+				err = cap.emitter.Emit(ctx, msg)
+				if err != nil {
+					cap.lggr.Errorf("failed to send custom message with msg: %s, err: %v", msg, err)
+				}
+				return capabilities.CapabilityResponse{}, fmt.Errorf("submitted transaction failed: %w", err)
+			default:
+			}
+		}
+	}
 }
 
 func (cap *WriteTarget) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {
