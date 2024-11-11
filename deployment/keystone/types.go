@@ -249,13 +249,26 @@ func nopsToNodes(donInfos []DonInfo, dons []DonCapabilities, chainSelector uint6
 			idx = slices.IndexFunc(donInfo.Nodes, func(node Node) bool {
 				return node.P2PID == nop.Nodes[0]
 			})
+			if idx < 0 {
+				return nil, fmt.Errorf("couldn't find node with p2p_id %v", nop.Nodes[0])
+			}
 			node := donInfo.Nodes[idx]
 			a, err := AdminAddress(&node, chainSelector)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get admin address for node %s: %w", node.ID, err)
 			}
 			nodeOperator := NodeOperator(nop.Name, a)
-			out[nodeOperator] = nop.Nodes
+			for _, node := range nop.Nodes {
+
+				idx = slices.IndexFunc(donInfo.Nodes, func(n Node) bool {
+					return n.P2PID == node
+				})
+				if idx < 0 {
+					return nil, fmt.Errorf("couldn't find node with p2p_id %v", node)
+				}
+				out[nodeOperator] = append(out[nodeOperator], donInfo.Nodes[idx].ID)
+
+			}
 		}
 	}
 
