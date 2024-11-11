@@ -93,8 +93,8 @@ type AddressBookMap struct {
 	mtx              sync.RWMutex
 }
 
-// Save will save an address for a given chain selector. It will error if there is a conflicting existing address.
-func (m *AddressBookMap) Save(chainSelector uint64, address string, typeAndVersion TypeAndVersion) error {
+// save will save an address for a given chain selector. It will error if there is a conflicting existing address.
+func (m *AddressBookMap) save(chainSelector uint64, address string, typeAndVersion TypeAndVersion) error {
 	_, exists := chainsel.ChainBySelector(chainSelector)
 	if !exists {
 		return errors.Wrapf(ErrInvalidChainSelector, "chain selector %d", chainSelector)
@@ -112,9 +112,6 @@ func (m *AddressBookMap) Save(chainSelector uint64, address string, typeAndVersi
 		return fmt.Errorf("type cannot be empty")
 	}
 
-	m.mtx.Lock()
-	defer m.mtx.Unlock()
-
 	if _, exists := m.AddressesByChain[chainSelector]; !exists {
 		// First time chain add, create map
 		m.AddressesByChain[chainSelector] = make(map[string]TypeAndVersion)
@@ -124,6 +121,14 @@ func (m *AddressBookMap) Save(chainSelector uint64, address string, typeAndVersi
 	}
 	m.AddressesByChain[chainSelector][address] = typeAndVersion
 	return nil
+}
+
+// Save will save an address for a given chain selector. It will error if there is a conflicting existing address.
+// thread safety version of the save method
+func (m *AddressBookMap) Save(chainSelector uint64, address string, typeAndVersion TypeAndVersion) error {
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
+	return m.save(chainSelector, address, typeAndVersion)
 }
 
 func (m *AddressBookMap) Addresses() (map[uint64]map[string]TypeAndVersion, error) {
@@ -168,13 +173,9 @@ func (m *AddressBookMap) Merge(ab AddressBook) error {
 
 	for chainSelector, chainAddresses := range addresses {
 		for address, typeAndVersion := range chainAddresses {
-			if _, exists := m.AddressesByChain[chainSelector]; !exists {
-				m.AddressesByChain[chainSelector] = make(map[string]TypeAndVersion)
+			if err := m.save(chainSelector, address, typeAndVersion); err != nil {
+				return err
 			}
-			if _, exists := m.AddressesByChain[chainSelector][address]; exists {
-				return fmt.Errorf("address %s already exists for chain %d", address, chainSelector)
-			}
-			m.AddressesByChain[chainSelector][address] = typeAndVersion
 		}
 	}
 	return nil
