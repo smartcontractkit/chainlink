@@ -15,6 +15,25 @@ import (
 	"golang.org/x/exp/maps"
 )
 
+type testCaseSetup struct {
+	t                      *testing.T
+	sender                 []byte
+	deployedEnv            ccipdeployment.DeployedEnv
+	onchainState           ccipdeployment.CCIPOnChainState
+	sourceChain, destChain uint64
+}
+
+type messagingTestCase struct {
+	testCaseSetup
+	replayed bool
+	nonce    uint64
+}
+
+type messagingTestCaseOutput struct {
+	replayed bool
+	nonce    uint64
+}
+
 func Test_Messaging(t *testing.T) {
 	t.Parallel()
 
@@ -58,179 +77,80 @@ func Test_Messaging(t *testing.T) {
 		sender   = common.LeftPadBytes(e.Env.Chains[sourceChain].DeployerKey.From.Bytes(), 32)
 	)
 
+	var (
+		out   messagingTestCaseOutput
+		setup = testCaseSetup{
+			t:            t,
+			sender:       sender,
+			deployedEnv:  e,
+			onchainState: state,
+			sourceChain:  sourceChain,
+			destChain:    destChain,
+		}
+	)
+
 	t.Run("data message to eoa", func(t *testing.T) {
-		// check latest nonce
-		latestNonce, err := state.Chains[destChain].NonceManager.GetInboundNonce(&bind.CallOpts{
-			Context: tests.Context(t),
-		}, sourceChain, sender)
-		require.NoError(t, err)
-		require.Equal(t, nonce, latestNonce)
-
-		startBlocks := make(map[uint64]*uint64)
-		seqNum := ccipdeployment.TestSendRequest(t, e.Env, state, sourceChain, destChain, false, router.ClientEVM2AnyMessage{
-			Receiver:     common.LeftPadBytes(common.HexToAddress("0x1234").Bytes(), 32),
-			Data:         []byte("hello 1234"),
-			TokenAmounts: nil,
-			FeeToken:     common.HexToAddress("0x0"),
-			ExtraArgs:    nil,
-		})
-		expectedSeqNum := make(map[uint64]uint64)
-		expectedSeqNum[destChain] = seqNum
-
-		// hack
-		sleepAndReplay(t, e, sourceChain, destChain)
-		replayed = true
-
-		ccipdeployment.ConfirmCommitForAllWithExpectedSeqNums(t, e.Env, state, expectedSeqNum, startBlocks)
-		ccipdeployment.ConfirmExecWithSeqNrForAll(t, e.Env, state, expectedSeqNum, startBlocks)
-
-		// check the sender latestNonce on the dest, should be incremented
-		latestNonce, err = state.Chains[destChain].NonceManager.GetInboundNonce(&bind.CallOpts{
-			Context: tests.Context(t),
-		}, sourceChain, sender)
-		require.NoError(t, err)
-		require.Equal(t, nonce+1, latestNonce)
-		nonce = latestNonce
-		t.Logf("confirmed nonce bump for sender %x, latestNonce %d", sender, latestNonce)
+		out = runMessagingTestCase(messagingTestCase{
+			testCaseSetup: setup,
+			replayed:      replayed,
+			nonce:         nonce,
+		},
+			common.HexToAddress("0xdead"),
+			[]byte("hello eoa"),
+		)
 	})
 
 	t.Run("message to contract not implementing CCIPReceiver", func(t *testing.T) {
-		// check latest nonce
-		latestNonce, err := state.Chains[destChain].NonceManager.GetInboundNonce(&bind.CallOpts{
-			Context: tests.Context(t),
-		}, sourceChain, sender)
-		require.NoError(t, err)
-		// nonce will be zero if previous test case isn't run.
-		// but should be 1 if previous test case is run.
-		require.Equal(t, nonce, latestNonce)
-
-		startBlocks := make(map[uint64]*uint64)
-		seqNum := ccipdeployment.TestSendRequest(t, e.Env, state, sourceChain, destChain, false, router.ClientEVM2AnyMessage{
-			// FeeQuoter doesn't implement CCIPReceiver
-			Receiver:     common.LeftPadBytes(state.Chains[destChain].FeeQuoter.Address().Bytes(), 32),
-			Data:         []byte("hello FeeQuoter"),
-			TokenAmounts: nil,
-			FeeToken:     common.HexToAddress("0x0"),
-			ExtraArgs:    nil,
-		})
-		expectedSeqNum := make(map[uint64]uint64)
-		expectedSeqNum[destChain] = seqNum
-
-		if !replayed {
-			sleepAndReplay(t, e, sourceChain, destChain)
-			replayed = true
-		}
-
-		ccipdeployment.ConfirmCommitForAllWithExpectedSeqNums(t, e.Env, state, expectedSeqNum, startBlocks)
-		ccipdeployment.ConfirmExecWithSeqNrForAll(t, e.Env, state, expectedSeqNum, startBlocks)
-
-		// check the sender latestNonce on the dest, should be incremented
-		latestNonce, err = state.Chains[destChain].NonceManager.GetInboundNonce(&bind.CallOpts{
-			Context: tests.Context(t),
-		}, sourceChain, sender)
-		require.NoError(t, err)
-		require.Equal(t, nonce+1, latestNonce)
-		nonce = latestNonce
-		t.Logf("confirmed nonce bump for sender %x, latestNonce %d", sender, latestNonce)
+		out = runMessagingTestCase(
+			messagingTestCase{
+				testCaseSetup: setup,
+				replayed:      out.replayed,
+				nonce:         out.nonce,
+			},
+			state.Chains[destChain].FeeQuoter.Address(),
+			[]byte("hello FeeQuoter"),
+		)
 	})
 
 	t.Run("message to contract implementing CCIPReceiver", func(t *testing.T) {
-		// check latest nonce
-		latestNonce, err := state.Chains[destChain].NonceManager.GetInboundNonce(&bind.CallOpts{
-			Context: tests.Context(t),
-		}, sourceChain, sender)
-		require.NoError(t, err)
-		// nonce will be zero if previous test case isn't run.
-		// but should be 1 if previous test case is run.
-		require.Equal(t, nonce, latestNonce)
-
-		startBlocks := make(map[uint64]*uint64)
-		ccipReceiver := state.Chains[destChain].Receiver
-		seqNum := ccipdeployment.TestSendRequest(t, e.Env, state, sourceChain, destChain, false, router.ClientEVM2AnyMessage{
-			Receiver:     common.LeftPadBytes(ccipReceiver.Address().Bytes(), 32),
-			Data:         []byte("hello real CCIPReceiver"),
-			TokenAmounts: nil,
-			FeeToken:     common.HexToAddress("0x0"),
-			ExtraArgs:    nil,
-		})
-		expectedSeqNum := make(map[uint64]uint64)
-		expectedSeqNum[destChain] = seqNum
-
-		if !replayed {
-			sleepAndReplay(t, e, sourceChain, destChain)
-			replayed = true
-		}
-
-		ccipdeployment.ConfirmCommitForAllWithExpectedSeqNums(t, e.Env, state, expectedSeqNum, startBlocks)
-		ccipdeployment.ConfirmExecWithSeqNrForAll(t, e.Env, state, expectedSeqNum, startBlocks)
-
-		iter, err := ccipReceiver.FilterMessageReceived(nil)
-		require.NoError(t, err)
-		require.True(t, iter.Next())
-		// MessageReceived doesn't emit the data unfortunately, so can't check that.
-
-		// check the sender latestNonce on the dest, should be incremented
-		latestNonce, err = state.Chains[destChain].NonceManager.GetInboundNonce(&bind.CallOpts{
-			Context: tests.Context(t),
-		}, sourceChain, sender)
-		require.NoError(t, err)
-		require.Equal(t, nonce+1, latestNonce)
-		nonce = latestNonce
-		t.Logf("confirmed nonce bump for sender %x, latestNonce %d", sender, latestNonce)
+		out = runMessagingTestCase(
+			messagingTestCase{
+				testCaseSetup: setup,
+				replayed:      out.replayed,
+				nonce:         out.nonce,
+			},
+			state.Chains[destChain].Receiver.Address(),
+			[]byte("hello CCIPReceiver"),
+			func(t *testing.T) {
+				iter, err := state.Chains[destChain].Receiver.FilterMessageReceived(nil)
+				require.NoError(t, err)
+				require.True(t, iter.Next())
+				// MessageReceived doesn't emit the data unfortunately, so can't check that.
+			},
+		)
 	})
 
 	t.Run("message to contract implementing CCIPReceiver with low exec gas", func(t *testing.T) {
-		// check latest nonce
-		latestNonce, err := state.Chains[destChain].NonceManager.GetInboundNonce(&bind.CallOpts{
-			Context: tests.Context(t),
-		}, sourceChain, sender)
-		require.NoError(t, err)
-		// nonce will be zero if previous test case isn't run.
-		// but should be 1 if previous test case is run.
-		require.Equal(t, nonce, latestNonce)
-
-		// headerBefore, err := e.Env.Chains[destChain].Client.HeaderByNumber(tests.Context(t), nil)
-		// require.NoError(t, err)
-
-		startBlocks := make(map[uint64]*uint64)
-		ccipReceiver := state.Chains[destChain].Receiver
-		seqNum := ccipdeployment.TestSendRequest(t, e.Env, state, sourceChain, destChain, false, router.ClientEVM2AnyMessage{
-			Receiver:     common.LeftPadBytes(ccipReceiver.Address().Bytes(), 32),
-			Data:         []byte("hello real CCIPReceiver"),
-			TokenAmounts: nil,
-			FeeToken:     common.HexToAddress("0x0"),
-			ExtraArgs:    ccipdeployment.MakeExtraArgsV2(1, false),
-		})
-		expectedSeqNum := make(map[uint64]uint64)
-		expectedSeqNum[destChain] = seqNum
-
-		if !replayed {
-			sleepAndReplay(t, e, sourceChain, destChain)
-			replayed = true
-		}
-
-		ccipdeployment.ConfirmCommitForAllWithExpectedSeqNums(t, e.Env, state, expectedSeqNum, startBlocks)
-		ccipdeployment.ConfirmExecWithSeqNrForAll(t, e.Env, state, expectedSeqNum, startBlocks)
-
-		// Message would not be emitted, not enough gas to emit log.
-		// TODO: this is still returning a log, probably the older one since FAILURE is the execution state.
-		// Not enough ctx in the message received log to confirm that it's from another test.
-		// iter, err := ccipReceiver.FilterMessageReceived(&bind.FilterOpts{
-		// 	Start: headerBefore.Number.Uint64(),
-		// })
-		// require.NoError(t, err)
-		// require.False(t, iter.Next(), "MessageReceived should not be emitted in this test case since gas is too low")
-
-		// check the sender latestNonce on the dest, should be incremented
-		latestNonce, err = state.Chains[destChain].NonceManager.GetInboundNonce(&bind.CallOpts{
-			Context: tests.Context(t),
-		}, sourceChain, sender)
-		require.NoError(t, err)
-		require.Equal(t, nonce+1, latestNonce)
-		nonce = latestNonce
-		t.Logf("confirmed nonce bump for sender %x, latestNonce %d", sender, latestNonce)
-
-		// TODO: manually exec?
+		out = runMessagingTestCase(
+			messagingTestCase{
+				testCaseSetup: setup,
+				replayed:      out.replayed,
+				nonce:         out.nonce,
+			},
+			state.Chains[destChain].Receiver.Address(),
+			[]byte("hello CCIPReceiver with low exec gas"),
+			func(t *testing.T) {
+				// Message would not be emitted, not enough gas to emit log.
+				// TODO: this is still returning a log, probably the older one since FAILURE is the execution state.
+				// Not enough ctx in the message received log to confirm that it's from another test.
+				// Maybe check the log block number and assert that its < the header before block number from above?
+				// iter, err := ccipReceiver.FilterMessageReceived(&bind.FilterOpts{
+				// 	Start: headerBefore.Number.Uint64(),
+				// })
+				// require.NoError(t, err)
+				// require.False(t, iter.Next(), "MessageReceived should not be emitted in this test case since gas is too low")
+			},
+		)
 	})
 }
 
@@ -240,4 +160,53 @@ func sleepAndReplay(t *testing.T, e ccipdeployment.DeployedEnv, sourceChain, des
 	replayBlocks[sourceChain] = 1
 	replayBlocks[destChain] = 1
 	ccipdeployment.ReplayLogs(t, e.Env.Offchain, replayBlocks)
+}
+
+func runMessagingTestCase(
+	tc messagingTestCase,
+	receiver common.Address,
+	msgData []byte,
+	extraAssertions ...func(t *testing.T),
+) (out messagingTestCaseOutput) {
+	// check latest nonce
+	latestNonce, err := tc.onchainState.Chains[tc.destChain].NonceManager.GetInboundNonce(&bind.CallOpts{
+		Context: tests.Context(tc.t),
+	}, tc.sourceChain, tc.sender)
+	require.NoError(tc.t, err)
+	require.Equal(tc.t, tc.nonce, latestNonce)
+
+	startBlocks := make(map[uint64]*uint64)
+	seqNum := ccipdeployment.TestSendRequest(tc.t, tc.deployedEnv.Env, tc.onchainState, tc.sourceChain, tc.destChain, false, router.ClientEVM2AnyMessage{
+		Receiver:     common.LeftPadBytes(receiver.Bytes(), 32),
+		Data:         msgData,
+		TokenAmounts: nil,
+		FeeToken:     common.HexToAddress("0x0"),
+		ExtraArgs:    nil,
+	})
+	expectedSeqNum := make(map[uint64]uint64)
+	expectedSeqNum[tc.destChain] = seqNum
+
+	// hack
+	if !tc.replayed {
+		sleepAndReplay(tc.t, tc.deployedEnv, tc.sourceChain, tc.destChain)
+		out.replayed = true
+	}
+
+	ccipdeployment.ConfirmCommitForAllWithExpectedSeqNums(tc.t, tc.deployedEnv.Env, tc.onchainState, expectedSeqNum, startBlocks)
+	ccipdeployment.ConfirmExecWithSeqNrForAll(tc.t, tc.deployedEnv.Env, tc.onchainState, expectedSeqNum, startBlocks)
+
+	// check the sender latestNonce on the dest, should be incremented
+	latestNonce, err = tc.onchainState.Chains[tc.destChain].NonceManager.GetInboundNonce(&bind.CallOpts{
+		Context: tests.Context(tc.t),
+	}, tc.sourceChain, tc.sender)
+	require.NoError(tc.t, err)
+	require.Equal(tc.t, tc.nonce+1, latestNonce)
+	out.nonce = latestNonce
+	tc.t.Logf("confirmed nonce bump for sender %x, latestNonce %d", tc.sender, latestNonce)
+
+	for _, assertion := range extraAssertions {
+		assertion(tc.t)
+	}
+
+	return
 }
