@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	wasmpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/validation"
@@ -83,7 +82,7 @@ type Compute struct {
 
 	// transformer is used to transform a values.Map into a ParsedConfig struct on each execution
 	// of a request.
-	transformer              ConfigTransformer
+	transformer              *transformer
 	outgoingConnectorHandler *webapi.OutgoingConnectorHandler
 	idGenerator              func() string
 
@@ -149,28 +148,8 @@ func (c *Compute) enqueueRequest(ctx context.Context, req capabilities.Capabilit
 	}
 }
 
-func shallowCopy(m *values.Map) *values.Map {
-	to := values.EmptyMap()
-
-	for k, v := range m.Underlying {
-		to.Underlying[k] = v
-	}
-
-	return to
-}
-
 func (c *Compute) execute(ctx context.Context, respCh chan response, req capabilities.CapabilityRequest) {
-	// Shallow copy the request.
-	// This is because we mutate its overall shape.
-	req = capabilities.CapabilityRequest{
-		Config: shallowCopy(req.Config),
-
-		// These aren't mutated so we ignore them.
-		Metadata: req.Metadata,
-		Inputs:   req.Inputs,
-	}
-
-	cfg, err := c.transformer.Transform(req.Config)
+	copiedReq, cfg, err := c.transformer.Transform(req)
 	if err != nil {
 		respCh <- response{err: fmt.Errorf("invalid request: could not transform config: %w", err)}
 		return
@@ -180,7 +159,7 @@ func (c *Compute) execute(ctx context.Context, respCh chan response, req capabil
 
 	m, ok := c.modules.get(id)
 	if !ok {
-		mod, innerErr := c.initModule(id, cfg.ModuleConfig, cfg.Binary, req.Metadata.WorkflowID, req.Metadata.WorkflowExecutionID, req.Metadata.ReferenceID)
+		mod, innerErr := c.initModule(id, cfg.ModuleConfig, cfg.Binary, copiedReq.Metadata.WorkflowID, copiedReq.Metadata.WorkflowExecutionID, copiedReq.Metadata.ReferenceID)
 		if innerErr != nil {
 			respCh <- response{err: innerErr}
 			return
@@ -189,7 +168,7 @@ func (c *Compute) execute(ctx context.Context, respCh chan response, req capabil
 		m = mod
 	}
 
-	resp, err := c.executeWithModule(ctx, m.module, cfg.Config, req)
+	resp, err := c.executeWithModule(ctx, m.module, cfg.Config, copiedReq)
 	select {
 	case <-c.stopCh:
 	case <-ctx.Done():
