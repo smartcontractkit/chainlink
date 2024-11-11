@@ -1117,7 +1117,7 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
     _changePrank(SECONDARY_PROXY);
     (, int256 secondaryAnswer,,,) = aggregator.latestRoundData();
     assertEq(report1.price, secondaryAnswer, "secondary feed answer is not correct");
-    
+
     _checkRounds(2, 1);
   }
 
@@ -1195,10 +1195,7 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
     assertEq(int256(expectedSecondaryFeedAnswer), secondaryAnswer, "secondary feed answer is not correct");
   }
 
-  function _checkRounds(
-    uint256 expectedPrimaryRound,
-    uint256 expectedSecondaryRound
-  ) internal {
+  function _checkRounds(uint256 expectedPrimaryRound, uint256 expectedSecondaryRound) internal {
     _changePrank(aggregator.getTransmitters()[0]);
     assertEq(expectedPrimaryRound, aggregator.latestRound(), "standard feed round is not correct");
 
