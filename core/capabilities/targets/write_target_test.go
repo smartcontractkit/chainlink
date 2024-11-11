@@ -42,6 +42,9 @@ func TestWriteTarget(t *testing.T) {
 	require.NoError(t, err)
 
 	reportID := [2]byte{0x00, 0x01}
+	var workflowName [10]byte
+	copy(workflowName[:], []byte("name"))
+	workflowOwner := common.HexToAddress("0x1")
 	reportMetadata := targets.ReportV1Metadata{
 		Version:             1,
 		WorkflowExecutionID: [32]byte{},
@@ -49,8 +52,8 @@ func TestWriteTarget(t *testing.T) {
 		DonID:               0,
 		DonConfigVersion:    0,
 		WorkflowCID:         [32]byte{},
-		WorkflowName:        [10]byte{},
-		WorkflowOwner:       [20]byte{},
+		WorkflowName:        workflowName,
+		WorkflowOwner:       workflowOwner,
 		ReportID:            reportID,
 	}
 
@@ -217,4 +220,44 @@ func TestWriteTarget(t *testing.T) {
 		_, err2 := writeTarget.Execute(ctx, req)
 		require.Error(t, err2)
 	})
+
+	tests := []struct {
+		name          string
+		modifyRequest func(*capabilities.CapabilityRequest)
+		expectedError string
+	}{
+		{
+			name: "non-matching WorkflowOwner",
+			modifyRequest: func(req *capabilities.CapabilityRequest) {
+				req.Metadata.WorkflowOwner = "nonmatchingowner"
+			},
+			expectedError: "WorkflowOwner in the report does not match WorkflowOwner in the request metadata",
+		},
+		{
+			name: "non-matching WorkflowName",
+			modifyRequest: func(req *capabilities.CapabilityRequest) {
+				req.Metadata.WorkflowName = hex.EncodeToString([]byte("nonmatchingname"))
+			},
+			expectedError: "WorkflowName in the report does not match WorkflowName in the request metadata",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := capabilities.CapabilityRequest{
+				Metadata: validMetadata,
+				Config:   config,
+				Inputs:   validInputs,
+			}
+			tt.modifyRequest(&req)
+
+			_, err := writeTarget.Execute(ctx, req)
+			if tt.expectedError == "" {
+				require.NoError(t, err)
+			} else {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tt.expectedError)
+			}
+		})
+	}
 }
