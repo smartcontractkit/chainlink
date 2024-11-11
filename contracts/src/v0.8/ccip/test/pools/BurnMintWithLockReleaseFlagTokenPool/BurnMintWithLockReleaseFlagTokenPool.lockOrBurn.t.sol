@@ -18,9 +18,9 @@ contract BurnMintWithLockReleaseFlagTokenPoolSetup is BurnMintSetup {
     BurnMintSetup.setUp();
 
     s_pool = new BurnMintWithLockReleaseFlagTokenPool(
-      s_burnMintERC677, new address[](0), address(s_mockRMN), address(s_sourceRouter)
+      s_burnMintERC20, new address[](0), address(s_mockRMN), address(s_sourceRouter)
     );
-    s_burnMintERC677.grantMintAndBurnRoles(address(s_pool));
+    s_burnMintERC20.grantMintAndBurnRoles(address(s_pool));
 
     _applyChainUpdates(address(s_pool));
   }
@@ -30,8 +30,8 @@ contract BurnMintWithLockReleaseFlagTokenPool_lockOrBurn is BurnMintWithLockRele
   function test_LockOrBurn_CorrectReturnData_Success() public {
     uint256 burnAmount = 20_000e18;
 
-    deal(address(s_burnMintERC677), address(s_pool), burnAmount);
-    assertEq(s_burnMintERC677.balanceOf(address(s_pool)), burnAmount);
+    deal(address(s_burnMintERC20), address(s_pool), burnAmount);
+    assertEq(s_burnMintERC20.balanceOf(address(s_pool)), burnAmount);
 
     vm.startPrank(s_burnMintOnRamp);
 
@@ -45,7 +45,7 @@ contract BurnMintWithLockReleaseFlagTokenPool_lockOrBurn is BurnMintWithLockRele
     emit TokenPool.Burned(address(s_burnMintOnRamp), burnAmount);
 
     bytes4 expectedSignature = bytes4(keccak256("burn(uint256)"));
-    vm.expectCall(address(s_burnMintERC677), abi.encodeWithSelector(expectedSignature, burnAmount));
+    vm.expectCall(address(s_burnMintERC20), abi.encodeWithSelector(expectedSignature, burnAmount));
 
     Pool.LockOrBurnOutV1 memory lockOrBurnOut = s_pool.lockOrBurn(
       Pool.LockOrBurnInV1({
@@ -53,11 +53,11 @@ contract BurnMintWithLockReleaseFlagTokenPool_lockOrBurn is BurnMintWithLockRele
         receiver: bytes(""),
         amount: burnAmount,
         remoteChainSelector: DEST_CHAIN_SELECTOR,
-        localToken: address(s_burnMintERC677)
+        localToken: address(s_burnMintERC20)
       })
     );
 
-    assertEq(s_burnMintERC677.balanceOf(address(s_pool)), 0);
+    assertEq(s_burnMintERC20.balanceOf(address(s_pool)), 0);
 
     assertEq(bytes4(lockOrBurnOut.destPoolData), LOCK_RELEASE_FLAG);
   }
