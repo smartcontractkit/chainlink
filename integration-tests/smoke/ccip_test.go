@@ -4,6 +4,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
@@ -83,7 +84,13 @@ func TestInitialDeployOnLocal(t *testing.T) {
 			require.NoError(t, err)
 			block := latesthdr.Number.Uint64()
 			startBlocks[dest] = &block
-			seqNum := ccdeploy.TestSendRequest(t, e, state, src, dest, false, nil)
+			seqNum := ccdeploy.TestSendRequest(t, e, state, src, dest, false, router.ClientEVM2AnyMessage{
+				Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
+				Data:         []byte("hello world"),
+				TokenAmounts: nil,
+				FeeToken:     common.HexToAddress("0x0"),
+				ExtraArgs:    nil,
+			})
 			expectedSeqNum[dest] = seqNum
 		}
 	}
@@ -223,11 +230,28 @@ func TestTokenTransfer(t *testing.T) {
 			block := latesthdr.Number.Uint64()
 			startBlocks[dest] = &block
 
+			var (
+				receiver = common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32)
+				data     = []byte("hello world")
+				feeToken = common.HexToAddress("0x0")
+			)
 			if src == tenv.HomeChainSel && dest == tenv.FeedChainSel {
-				seqNum := ccdeploy.TestSendRequest(t, e, state, src, dest, false, tokens[src])
+				seqNum := ccdeploy.TestSendRequest(t, e, state, src, dest, false, router.ClientEVM2AnyMessage{
+					Receiver:     receiver,
+					Data:         data,
+					TokenAmounts: tokens[src],
+					FeeToken:     feeToken,
+					ExtraArgs:    nil,
+				})
 				expectedSeqNum[dest] = seqNum
 			} else {
-				seqNum := ccdeploy.TestSendRequest(t, e, state, src, dest, false, nil)
+				seqNum := ccdeploy.TestSendRequest(t, e, state, src, dest, false, router.ClientEVM2AnyMessage{
+					Receiver:     receiver,
+					Data:         data,
+					TokenAmounts: nil,
+					FeeToken:     feeToken,
+					ExtraArgs:    nil,
+				})
 				expectedSeqNum[dest] = seqNum
 			}
 		}

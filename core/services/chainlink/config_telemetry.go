@@ -1,7 +1,10 @@
 package chainlink
 
 import (
+	"time"
+
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/static"
 )
 
 type telemetryConfig struct {
@@ -31,8 +34,24 @@ func (b *telemetryConfig) OtelExporterGRPCEndpoint() string {
 	return *b.s.Endpoint
 }
 
+// ResourceAttributes returns the resource attributes set in the TOML config
+// by the user, but first sets OTEL required attributes:
+//
+//	service.name
+//	service.version
+//
+// These can be overridden by the TOML if the user so chooses
 func (b *telemetryConfig) ResourceAttributes() map[string]string {
-	return b.s.ResourceAttributes
+	defaults := map[string]string{
+		"service.name":    "chainlink",
+		"service.version": static.Version,
+	}
+
+	for k, v := range b.s.ResourceAttributes {
+		defaults[k] = v
+	}
+
+	return defaults
 }
 
 func (b *telemetryConfig) TraceSampleRatio() float64 {
@@ -40,4 +59,18 @@ func (b *telemetryConfig) TraceSampleRatio() float64 {
 		return 0.0
 	}
 	return *b.s.TraceSampleRatio
+}
+
+func (b *telemetryConfig) EmitterBatchProcessor() bool {
+	if b.s.EmitterBatchProcessor == nil {
+		return false
+	}
+	return *b.s.EmitterBatchProcessor
+}
+
+func (b *telemetryConfig) EmitterExportTimeout() time.Duration {
+	if b.s.EmitterExportTimeout == nil {
+		return 0
+	}
+	return b.s.EmitterExportTimeout.Duration()
 }

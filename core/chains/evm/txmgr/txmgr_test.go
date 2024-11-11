@@ -101,7 +101,7 @@ func TestTxm_SendNativeToken_DoesNotSendToZero(t *testing.T) {
 
 	keyStore := cltest.NewKeyStore(t, db).Eth()
 	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
-	estimator, err := gas.NewEstimator(logger.Test(t), ethClient, config.ChainType(), evmConfig.GasEstimator(), nil)
+	estimator, err := gas.NewEstimator(logger.Test(t), ethClient, config.ChainType(), ethClient.ConfiguredChainID(), evmConfig.GasEstimator(), nil)
 	require.NoError(t, err)
 	txm, err := makeTestEvmTxm(t, db, ethClient, estimator, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), keyStore)
 	require.NoError(t, err)
@@ -127,7 +127,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 
 	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
 
-	estimator, err := gas.NewEstimator(logger.Test(t), ethClient, config.ChainType(), evmConfig.GasEstimator(), nil)
+	estimator, err := gas.NewEstimator(logger.Test(t), ethClient, config.ChainType(), ethClient.ConfiguredChainID(), evmConfig.GasEstimator(), nil)
 	require.NoError(t, err)
 	txm, err := makeTestEvmTxm(t, db, ethClient, estimator, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), kst.Eth())
 	require.NoError(t, err)
@@ -409,7 +409,7 @@ func TestTxm_CreateTransaction_OutOfEth(t *testing.T) {
 	config, dbConfig, evmConfig := txmgr.MakeTestConfigs(t)
 
 	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
-	estimator, err := gas.NewEstimator(logger.Test(t), ethClient, config.ChainType(), evmConfig.GasEstimator(), nil)
+	estimator, err := gas.NewEstimator(logger.Test(t), ethClient, config.ChainType(), ethClient.ConfiguredChainID(), evmConfig.GasEstimator(), nil)
 	require.NoError(t, err)
 	txm, err := makeTestEvmTxm(t, db, ethClient, estimator, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), etKeyStore)
 	require.NoError(t, err)
@@ -507,7 +507,7 @@ func TestTxm_Lifecycle(t *testing.T) {
 	keyChangeCh := make(chan struct{})
 	unsub := cltest.NewAwaiter()
 	kst.On("SubscribeToKeyChanges", mock.Anything).Return(keyChangeCh, unsub.ItHappened)
-	estimator, err := gas.NewEstimator(logger.Test(t), ethClient, config.ChainType(), evmConfig.GasEstimator(), nil)
+	estimator, err := gas.NewEstimator(logger.Test(t), ethClient, config.ChainType(), ethClient.ConfiguredChainID(), evmConfig.GasEstimator(), nil)
 	require.NoError(t, err)
 	txm, err := makeTestEvmTxm(t, db, ethClient, estimator, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), kst)
 	require.NoError(t, err)
@@ -562,7 +562,7 @@ func TestTxm_Reset(t *testing.T) {
 	ethClient.On("PendingNonceAt", mock.Anything, addr).Return(uint64(128), nil).Maybe()
 	ethClient.On("PendingNonceAt", mock.Anything, addr2).Return(uint64(44), nil).Maybe()
 
-	estimator, err := gas.NewEstimator(logger.Test(t), ethClient, cfg.EVM().ChainType(), cfg.EVM().GasEstimator(), nil)
+	estimator, err := gas.NewEstimator(logger.Test(t), ethClient, cfg.EVM().ChainType(), ethClient.ConfiguredChainID(), cfg.EVM().GasEstimator(), nil)
 	require.NoError(t, err)
 	txm, err := makeTestEvmTxm(t, db, ethClient, estimator, cfg.EVM(), cfg.EVM().GasEstimator(), cfg.EVM().Transactions(), gcfg.Database(), gcfg.Database().Listener(), kst.Eth())
 	require.NoError(t, err)

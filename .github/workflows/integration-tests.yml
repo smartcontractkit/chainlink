@@ -210,7 +210,7 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'pull_request' && ( needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@ca50645120f0f07ed8c0df08175a5d6b3e4ac454 #ctf-run-tests@0.1.2
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@5412507526722a7b1c5d719fa686eed5a1bc4035 #ctf-run-tests@0.2.0
     with:
       workflow_name: Run Core E2E Tests For PR
       chainlink_version: ${{ inputs.evm-ref || github.sha }}
