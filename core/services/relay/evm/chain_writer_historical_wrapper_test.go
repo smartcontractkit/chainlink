@@ -2,12 +2,13 @@ package evm
 
 import (
 	"context"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/bindings"
+
 	"math/big"
 
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	interfacetesttypes "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests"
-	primitives "github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/bindings"
 )
 
 // This wrapper is required to enable the ChainReader to access historical data

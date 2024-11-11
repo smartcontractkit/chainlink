@@ -4,8 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/big"
+	"reflect"
+	"strings"
+	"testing"
+
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/go-viper/mapstructure/v2"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests"
@@ -14,10 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/bindings"
 	evmcodec "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
-	"math/big"
-	"reflect"
-	"strings"
-	"testing"
 )
 
 const contractName = "ChainReaderTester"
@@ -25,7 +27,7 @@ const contractName = "ChainReaderTester"
 // Wraps EVMChainComponentsInterfaceTester to rely on the EVM bindings generated for CR/CW instead of going directly to CR/CW. This way we can reuse all existing tests. Transformation between expected
 // contract names and read keys will be done here as well as invocation delegation to generated code.
 func WrapContractReaderTesterWithBindings(t *testing.T, wrapped *EVMChainComponentsInterfaceTester[*testing.T]) interfacetests.ChainComponentsInterfaceTester[*testing.T] {
-	//Tests not yet supported by EVM bindings.
+	// Tests not yet supported by EVM bindings.
 	wrapped.DisableTests([]string{
 		interfacetests.ContractReaderGetLatestValueAsValuesDotValue, interfacetests.ContractReaderGetLatestValueNoArgumentsAndPrimitiveReturnAsValuesDotValue, interfacetests.ContractReaderGetLatestValueNoArgumentsAndSliceReturnAsValueDotValue,
 		interfacetests.ContractReaderGetLatestValueGetsLatestForEvent, interfacetests.ContractReaderGetLatestValueBasedOnConfidenceLevelForEvent,
@@ -72,7 +74,7 @@ func newBindingsMapping() bindingsMapping {
 		interfacetests.MethodReturningUint64: "GetDifferentPrimitiveValue",
 	}
 
-	bindingsMapping := bindingsMapping{
+	bm := bindingsMapping{
 		contractNameMapping: map[string]string{
 			interfacetests.AnyContractName:       contractName,
 			interfacetests.AnySecondContractName: contractName,
@@ -82,10 +84,10 @@ func newBindingsMapping() bindingsMapping {
 		chainWriterProxy:            &chainWriterProxy,
 		chainReaderTesters:          map[string]*bindings.ChainReaderTester{},
 	}
-	contractReaderProxy.bm = &bindingsMapping
-	chainWriterProxy.bm = &bindingsMapping
-	bindingsMapping.createDelegates()
-	return bindingsMapping
+	contractReaderProxy.bm = &bm
+	chainWriterProxy.bm = &bm
+	bm.createDelegates()
+	return bm
 }
 
 func getChainReaderConfig(wrapped *EVMChainComponentsInterfaceTester[*testing.T]) types.ChainReaderConfig {
@@ -195,11 +197,11 @@ func (b bindingContractReaderProxy) Bind(ctx context.Context, boundContracts []c
 }
 
 func (b bindingsMapping) translateContractNames(boundContracts []commontypes.BoundContract) []commontypes.BoundContract {
-	updatedBindings := []commontypes.BoundContract{}
+	updatedBindings := make([]commontypes.BoundContract, 0, len(boundContracts))
 	for _, boundContract := range boundContracts {
 		updatedBindings = append(updatedBindings, commontypes.BoundContract{
-			boundContract.Address,
-			b.translateContractName(boundContract.Name),
+			Address: boundContract.Address,
+			Name:    b.translateContractName(boundContract.Name),
 		})
 	}
 	return updatedBindings
@@ -235,15 +237,15 @@ func (b bindingChainWriterProxy) SubmitTransaction(ctx context.Context, contract
 		switch method {
 		case interfacetests.MethodSettingStruct:
 			bindingsInput := bindings.AddTestStructInput{}
-			convertStruct(args, &bindingsInput)
+			_ = convertStruct(args, &bindingsInput)
 			return chainReaderTesters.AddTestStruct(ctx, bindingsInput, transactionID, toAddress, meta)
 		case interfacetests.MethodSettingUint64:
 			bindingsInput := bindings.SetAlterablePrimitiveValueInput{}
-			convertStruct(args, &bindingsInput)
+			_ = convertStruct(args, &bindingsInput)
 			return chainReaderTesters.SetAlterablePrimitiveValue(ctx, bindingsInput, transactionID, toAddress, meta)
 		case interfacetests.MethodTriggeringEvent:
 			bindingsInput := bindings.TriggerEventInput{}
-			convertStruct(args, &bindingsInput)
+			_ = convertStruct(args, &bindingsInput)
 			return chainReaderTesters.TriggerEvent(ctx, bindingsInput, transactionID, toAddress, meta)
 		default:
 			return errors.New("No logic implemented for method: " + method)
@@ -435,7 +437,7 @@ func (d Delegate) apply(ctx context.Context, readKey string, input any, confiden
 // Utility function to converted original types from and to bindings expected types.
 func convertStruct(src any, dst any) error {
 	if reflect.TypeOf(src).Kind() == reflect.Ptr && reflect.TypeOf(dst).Kind() == reflect.Ptr && reflect.TypeOf(src).Elem() == reflect.TypeOf(interfacetests.LatestParams{}) && reflect.TypeOf(dst).Elem() == reflect.TypeOf(bindings.GetElementAtIndexInput{}) {
-		value := (*src.(*interfacetests.LatestParams)).I
+		value := src.(*interfacetests.LatestParams).I
 		dst.(*bindings.GetElementAtIndexInput).I = big.NewInt(int64(value))
 		return nil
 	}
@@ -447,12 +449,13 @@ func convertStruct(src any, dst any) error {
 	if err != nil {
 		return err
 	}
-	if reflect.TypeOf(dst).Elem() == reflect.TypeOf(interfacetests.TestStructWithExtraField{}) {
+	switch {
+	case reflect.TypeOf(dst).Elem() == reflect.TypeOf(interfacetests.TestStructWithExtraField{}):
 		destTestStruct := dst.(*interfacetests.TestStructWithExtraField)
 		if destTestStruct != nil {
 			auxTestStruct := &interfacetests.TestStruct{}
 			decoder, _ := createDecoder(auxTestStruct)
-			decoder.Decode(src)
+			_ = decoder.Decode(src)
 			destTestStruct.TestStruct = *auxTestStruct
 			sourceTestStruct := src.(bindings.TestStruct)
 			destTestStruct.BigField = sourceTestStruct.BigField
@@ -462,7 +465,7 @@ func convertStruct(src any, dst any) error {
 			destTestStruct.NestedDynamicStruct.FixedBytes = sourceTestStruct.NestedDynamicStruct.FixedBytes
 			destTestStruct.ExtraField = interfacetests.AnyExtraValue
 		}
-	} else if reflect.TypeOf(dst).Elem() == reflect.TypeOf(interfacetests.TestStruct{}) {
+	case reflect.TypeOf(dst).Elem() == reflect.TypeOf(interfacetests.TestStruct{}):
 		destTestStruct := dst.(*interfacetests.TestStruct)
 		if destTestStruct != nil {
 			sourceTestStruct := src.(bindings.TestStruct)
@@ -472,7 +475,7 @@ func convertStruct(src any, dst any) error {
 			destTestStruct.NestedDynamicStruct.Inner.I = int(sourceTestStruct.NestedDynamicStruct.Inner.IntVal)
 			destTestStruct.NestedDynamicStruct.FixedBytes = sourceTestStruct.NestedDynamicStruct.FixedBytes
 		}
-	} else if reflect.TypeOf(src) == reflect.TypeOf(interfacetests.TestStruct{}) && reflect.TypeOf(dst) == reflect.TypeOf(&bindings.AddTestStructInput{}) {
+	case reflect.TypeOf(src) == reflect.TypeOf(interfacetests.TestStruct{}) && reflect.TypeOf(dst) == reflect.TypeOf(&bindings.AddTestStructInput{}):
 		destTestStruct := dst.(*bindings.AddTestStructInput)
 		if destTestStruct != nil {
 			sourceTestStruct := src.(interfacetests.TestStruct)
@@ -482,7 +485,7 @@ func convertStruct(src any, dst any) error {
 			destTestStruct.NestedDynamicStruct.Inner.IntVal = int64(sourceTestStruct.NestedDynamicStruct.Inner.I)
 			destTestStruct.NestedDynamicStruct.FixedBytes = sourceTestStruct.NestedDynamicStruct.FixedBytes
 		}
-	} else if reflect.TypeOf(src) == reflect.TypeOf(interfacetests.TestStruct{}) && reflect.TypeOf(dst) == reflect.TypeOf(&bindings.ReturnSeenInput{}) {
+	case reflect.TypeOf(src) == reflect.TypeOf(interfacetests.TestStruct{}) && reflect.TypeOf(dst) == reflect.TypeOf(&bindings.ReturnSeenInput{}):
 		destTestStruct := dst.(*bindings.ReturnSeenInput)
 		if destTestStruct != nil {
 			sourceTestStruct := src.(interfacetests.TestStruct)

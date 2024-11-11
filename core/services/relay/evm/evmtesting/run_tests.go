@@ -295,14 +295,14 @@ func RunContractReaderInLoopTests[T TestingT[T]](t T, it ChainComponentsInterfac
 				copy(val5[:], append(empty12Bytes[:], 5))
 				raw := []byte{9, 8}
 
-				var buf []byte
-				buf = binary.BigEndian.AppendUint32(buf, val1)
-				buf = binary.BigEndian.AppendUint32(buf, val2)
-				buf = binary.BigEndian.AppendUint32(buf, val3)
-				buf = binary.BigEndian.AppendUint64(buf, val4)
-				dataWordOnChainValueToQuery := buf[:]
+				var resExpected []byte
+				resExpected = binary.BigEndian.AppendUint32(resExpected, val1)
+				resExpected = binary.BigEndian.AppendUint32(resExpected, val2)
+				resExpected = binary.BigEndian.AppendUint32(resExpected, val3)
+				resExpected = binary.BigEndian.AppendUint64(resExpected, val4)
+				dataWordOnChainValueToQuery := resExpected
 
-				resExpected := append(buf, common.LeftPadBytes(val5[:], 32)...)
+				resExpected = append(resExpected, common.LeftPadBytes(val5[:], 32)...)
 				resExpected = append(resExpected, common.LeftPadBytes(val6[:], 32)...)
 				resExpected = append(resExpected, common.LeftPadBytes(val7[:], 32)...)
 				resExpected = append(resExpected, raw...)
