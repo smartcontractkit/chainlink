@@ -5,6 +5,7 @@ import {BurnMintERC20} from "../../../../token/ERC20/BurnMintERC20.sol";
 import {BurnMintERC20Setup} from "./BurnMintERC20Setup.t.sol";
 
 import {IERC20} from "../../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+import {Strings} from "../../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/Strings.sol";
 
 contract BurnMintERC20burn is BurnMintERC20Setup {
   function test_BasicBurn_Success() public {
@@ -21,17 +22,21 @@ contract BurnMintERC20burn is BurnMintERC20Setup {
 
   // Revert
 
-  function test_SenderNotBurner_Reverts() public {
-    // The owner was already granted mint and burn roles in the constructor, we will revoke them
-    // to allow the test to revert with the correct error message
-    s_burnMintERC20.revokeRole(s_burnMintERC20.BURNER_ROLE(), OWNER);
-
-    vm.expectRevert(abi.encodeWithSelector(BurnMintERC20.SenderNotBurner.selector, OWNER));
+  function test_burn_SenderNotBurner_Reverts() public {
+    // OZ Access Control v4.8.3 inherited by BurnMintERC20 does not use custom errors, but the revert message is still useful
+    // and should be checked
+    vm.expectRevert(
+      abi.encodePacked(
+        "AccessControl: account ",
+        Strings.toHexString(OWNER),
+        " is missing role ",
+        Strings.toHexString(uint256(s_burnMintERC20.BURNER_ROLE()), 32)
+    ));
 
     s_burnMintERC20.burnFrom(STRANGER, s_amount);
   }
 
-  function test_ExceedsBalance_Reverts() public {
+  function test_burn_ExceedsBalance_Reverts() public {
     changePrank(s_mockPool);
 
     vm.expectRevert("ERC20: burn amount exceeds balance");
@@ -39,7 +44,7 @@ contract BurnMintERC20burn is BurnMintERC20Setup {
     s_burnMintERC20.burn(s_amount * 2);
   }
 
-  function test_BurnFromZeroAddress_Reverts() public {
+  function test_burn_BurnFromZeroAddress_Reverts() public {
     s_burnMintERC20.grantRole(s_burnMintERC20.BURNER_ROLE(), address(0));
     changePrank(address(0));
 

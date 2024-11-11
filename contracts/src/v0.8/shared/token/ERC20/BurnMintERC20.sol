@@ -17,14 +17,9 @@ import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.8.3/contra
 contract BurnMintERC20 is IBurnMintERC20, IGetCCIPAdmin, IERC165, ERC20Burnable, AccessControl {
   using EnumerableSet for EnumerableSet.AddressSet;
 
-  error SenderNotMinter(address sender);
-  error SenderNotBurner(address sender);
   error MaxSupplyExceeded(uint256 supplyAfterMint);
+  error InvalidRecipient(address recipient);
 
-  event MintAccessGranted(address minter);
-  event BurnAccessGranted(address burner);
-  event MintAccessRevoked(address minter);
-  event BurnAccessRevoked(address burner);
   event CCIPAdminTransferred(address indexed previousAdmin, address indexed newAdmin);
 
   /// @dev The number of decimals for the token
@@ -86,29 +81,18 @@ contract BurnMintERC20 is IBurnMintERC20, IGetCCIPAdmin, IERC165, ERC20Burnable,
 
   /// @dev Uses OZ ERC20 _transfer to disallow sending to address(0).
   /// @dev Disallows sending to address(this)
-  function _transfer(address from, address to, uint256 amount) internal virtual override validAddress(to) {
+  function _transfer(address from, address to, uint256 amount) internal virtual override {
+    if (to == address(this)) revert InvalidRecipient(to);
+
     super._transfer(from, to, amount);
   }
 
   /// @dev Uses OZ ERC20 _approve to disallow approving for address(0).
   /// @dev Disallows approving for address(this)
-  function _approve(address owner, address spender, uint256 amount) internal virtual override validAddress(spender) {
+  function _approve(address owner, address spender, uint256 amount) internal virtual override {
+    if (spender == address(this)) revert InvalidRecipient(spender);
+
     super._approve(owner, spender, amount);
-  }
-
-  /// @dev Exists to be backwards compatible with the older naming convention.
-  /// @param spender the account being approved to spend on the users' behalf.
-  /// @param subtractedValue the amount being removed from the approval.
-  /// @return success Bool to return if the approval was successfully decreased.
-  function decreaseApproval(address spender, uint256 subtractedValue) external returns (bool success) {
-    return decreaseAllowance(spender, subtractedValue);
-  }
-
-  /// @dev Exists to be backwards compatible with the older naming convention.
-  /// @param spender the account being approved to spend on the users' behalf.
-  /// @param addedValue the amount being added to the approval.
-  function increaseApproval(address spender, uint256 addedValue) external {
-    increaseAllowance(spender, addedValue);
   }
 
   // ================================================================
@@ -118,7 +102,7 @@ contract BurnMintERC20 is IBurnMintERC20, IGetCCIPAdmin, IERC165, ERC20Burnable,
   /// @inheritdoc ERC20Burnable
   /// @dev Uses OZ ERC20 _burn to disallow burning from address(0).
   /// @dev Decreases the total supply.
-  function burn(uint256 amount) public override(IBurnMintERC20, ERC20Burnable) onlyBurner {
+  function burn(uint256 amount) public override(IBurnMintERC20, ERC20Burnable) onlyRole(BURNER_ROLE) {
     super.burn(amount);
   }
 
@@ -132,7 +116,7 @@ contract BurnMintERC20 is IBurnMintERC20, IGetCCIPAdmin, IERC165, ERC20Burnable,
   /// @inheritdoc ERC20Burnable
   /// @dev Uses OZ ERC20 _burn to disallow burning from address(0).
   /// @dev Decreases the total supply.
-  function burnFrom(address account, uint256 amount) public override(IBurnMintERC20, ERC20Burnable) onlyBurner {
+  function burnFrom(address account, uint256 amount) public override(IBurnMintERC20, ERC20Burnable) onlyRole(BURNER_ROLE) {
     super.burnFrom(account, amount);
   }
 
@@ -140,7 +124,7 @@ contract BurnMintERC20 is IBurnMintERC20, IGetCCIPAdmin, IERC165, ERC20Burnable,
   /// @dev Uses OZ ERC20 _mint to disallow minting to address(0).
   /// @dev Disallows minting to address(this)
   /// @dev Increases the total supply.
-  function mint(address account, uint256 amount) external override onlyMinter validAddress(account) {
+  function mint(address account, uint256 amount) external override onlyRole(MINTER_ROLE) {
     if (i_maxSupply != 0 && totalSupply() + amount > i_maxSupply) revert MaxSupplyExceeded(totalSupply() + amount);
 
     _mint(account, amount);
@@ -175,31 +159,5 @@ contract BurnMintERC20 is IBurnMintERC20, IGetCCIPAdmin, IERC165, ERC20Burnable,
     emit CCIPAdminTransferred(currentAdmin, newAdmin);
   }
 
-  // ================================================================
-  // │                            Access                            │
-  // ================================================================
 
-  /// @notice Checks whether the msg.sender is a permissioned minter for this token
-  /// @dev Reverts with a SenderNotMinter if the check fails
-  modifier onlyMinter() {
-    if (!hasRole(MINTER_ROLE, msg.sender)) revert SenderNotMinter(msg.sender);
-    _;
-  }
-
-  /// @notice Checks whether the msg.sender is a permissioned burner for this token
-  /// @dev Reverts with a SenderNotBurner if the check fails
-  modifier onlyBurner() {
-    if (!hasRole(BURNER_ROLE, msg.sender)) revert SenderNotBurner(msg.sender);
-    _;
-  }
-
-  /// @notice Check if recipient is valid (not this contract address).
-  /// @param recipient the account we transfer/approve to.
-  /// @dev Reverts with an empty revert to be compatible with the existing link token when
-  /// the recipient is this contract address.
-  modifier validAddress(address recipient) virtual {
-    // solhint-disable-next-line reason-string, gas-custom-errors
-    if (recipient == address(this)) revert();
-    _;
-  }
 }
