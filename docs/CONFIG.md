@@ -1905,6 +1905,8 @@ Endpoint = 'example.com/collector' # Example
 CACertFile = 'cert-file' # Example
 InsecureConnection = false # Default
 TraceSampleRatio = 0.01 # Default
+EmitterBatchProcessor = true # Default
+EmitterExportTimeout = '1s' # Default
 ```
 Telemetry holds OTEL settings.
 This data includes open telemetry metrics, traces, & logs.
@@ -1941,6 +1943,18 @@ Only available in dev mode.
 TraceSampleRatio = 0.01 # Default
 ```
 TraceSampleRatio is the rate at which to sample traces. Must be between 0 and 1.
+
+### EmitterBatchProcessor
+```toml
+EmitterBatchProcessor = true # Default
+```
+EmitterBatchProcessor enables batching for telemetry events
+
+### EmitterExportTimeout
+```toml
+EmitterExportTimeout = '1s' # Default
+```
+EmitterExportTimeout sets timeout for exporting telemetry events
 
 ## Telemetry.ResourceAttributes
 ```toml
