@@ -18,6 +18,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
+
+	"github.com/smartcontractkit/chainlink/v2/core/platform"
 )
 
 var (
@@ -337,7 +339,12 @@ func (cap *WriteTarget) Execute(ctx context.Context, rawRequest capabilities.Cap
 			case commontypes.Failed, commontypes.Fatal:
 				cap.lggr.Error("Transaction failed", "request", request, "transaction", txID)
 				msg := "failed to submit transaction with ID: " + txID.String()
-				err = cap.emitter.Emit(ctx, msg)
+				err = cap.emitter.With(
+					platform.KeyWorkflowID, request.Metadata.WorkflowID,
+					platform.KeyWorkflowName, request.Metadata.WorkflowName,
+					platform.KeyWorkflowOwner, request.Metadata.WorkflowOwner,
+					platform.KeyWorkflowExecutionID, request.Metadata.WorkflowExecutionID,
+				).Emit(ctx, msg)
 				if err != nil {
 					cap.lggr.Errorf("failed to send custom message with msg: %s, err: %v", msg, err)
 				}
