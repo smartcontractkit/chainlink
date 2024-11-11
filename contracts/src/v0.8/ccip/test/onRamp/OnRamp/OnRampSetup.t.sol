@@ -10,7 +10,7 @@ import {Client} from "../../../libraries/Client.sol";
 import {Internal} from "../../../libraries/Internal.sol";
 import {OnRamp} from "../../../onRamp/OnRamp.sol";
 import {TokenAdminRegistry} from "../../../tokenAdminRegistry/TokenAdminRegistry.sol";
-import {FeeQuoterFeeSetup} from "../../feeQuoter/FeeQuoter/FeeQuoterSetup.t.sol";
+import {FeeQuoterFeeSetup} from "../../feeQuoter/FeeQuoterSetup.t.sol";
 import {OnRampHelper} from "../../helpers/OnRampHelper.sol";
 
 import {IERC20} from "../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";

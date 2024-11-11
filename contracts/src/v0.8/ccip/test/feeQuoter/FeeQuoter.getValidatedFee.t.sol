@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
-import {FeeQuoter} from "../../../FeeQuoter.sol";
-import {Client} from "../../../libraries/Client.sol";
-import {Internal} from "../../../libraries/Internal.sol";
-import {Pool} from "../../../libraries/Pool.sol";
-import {USDPriceWith18Decimals} from "../../../libraries/USDPriceWith18Decimals.sol";
+import {FeeQuoter} from "../../FeeQuoter.sol";
+import {Client} from "../../libraries/Client.sol";
+import {Internal} from "../../libraries/Internal.sol";
+import {Pool} from "../../libraries/Pool.sol";
+import {USDPriceWith18Decimals} from "../../libraries/USDPriceWith18Decimals.sol";
 import {FeeQuoterFeeSetup} from "./FeeQuoterSetup.t.sol";
 
 contract FeeQuoter_getValidatedFee is FeeQuoterFeeSetup {

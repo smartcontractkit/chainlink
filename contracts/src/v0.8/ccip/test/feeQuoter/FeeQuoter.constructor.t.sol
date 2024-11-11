@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
-import {FeeQuoter} from "../../../FeeQuoter.sol";
-import {FeeQuoterHelper} from "../../helpers/FeeQuoterHelper.sol";
+import {FeeQuoter} from "../../FeeQuoter.sol";
+import {FeeQuoterHelper} from "../helpers/FeeQuoterHelper.sol";
 import {FeeQuoterSetup} from "./FeeQuoterSetup.t.sol";
 
 contract FeeQuoter_constructor is FeeQuoterSetup {

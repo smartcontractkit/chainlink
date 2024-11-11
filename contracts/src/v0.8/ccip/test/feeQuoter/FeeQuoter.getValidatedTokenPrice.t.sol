@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
-import {MockV3Aggregator} from "../../../../tests/MockV3Aggregator.sol";
-import {FeeQuoter} from "../../../FeeQuoter.sol";
-import {Internal} from "../../../libraries/Internal.sol";
+import {MockV3Aggregator} from "../../../tests/MockV3Aggregator.sol";
+import {FeeQuoter} from "../../FeeQuoter.sol";
+import {Internal} from "../../libraries/Internal.sol";
 import {FeeQuoterSetup} from "./FeeQuoterSetup.t.sol";
 
 contract FeeQuoter_getValidatedTokenPrice is FeeQuoterSetup {

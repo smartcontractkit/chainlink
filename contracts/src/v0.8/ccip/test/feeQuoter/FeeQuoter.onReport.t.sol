@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
-import {KeystoneFeedsPermissionHandler} from "../../../../keystone/KeystoneFeedsPermissionHandler.sol";
-import {FeeQuoter} from "../../../FeeQuoter.sol";
+import {KeystoneFeedsPermissionHandler} from "../../../keystone/KeystoneFeedsPermissionHandler.sol";
+import {FeeQuoter} from "../../FeeQuoter.sol";
 import {FeeQuoterSetup} from "./FeeQuoterSetup.t.sol";
 
 contract FeeQuoter_onReport is FeeQuoterSetup {

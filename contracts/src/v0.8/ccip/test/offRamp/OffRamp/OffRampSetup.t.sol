@@ -11,7 +11,7 @@ import {Client} from "../../../libraries/Client.sol";
 import {Internal} from "../../../libraries/Internal.sol";
 import {MultiOCR3Base} from "../../../ocr/MultiOCR3Base.sol";
 import {OffRamp} from "../../../offRamp/OffRamp.sol";
-import {FeeQuoterSetup} from "../../feeQuoter/FeeQuoter/FeeQuoterSetup.t.sol";
+import {FeeQuoterSetup} from "../../feeQuoter/FeeQuoterSetup.t.sol";
 import {MaybeRevertingBurnMintTokenPool} from "../../helpers/MaybeRevertingBurnMintTokenPool.sol";
 import {MessageInterceptorHelper} from "../../helpers/MessageInterceptorHelper.sol";
 import {OffRampHelper} from "../../helpers/OffRampHelper.sol";

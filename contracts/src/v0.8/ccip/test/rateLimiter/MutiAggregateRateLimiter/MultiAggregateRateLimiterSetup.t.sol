@@ -7,7 +7,7 @@ import {Internal} from "../../../libraries/Internal.sol";
 import {RateLimiter} from "../../../libraries/RateLimiter.sol";
 import {BaseTest} from "../../BaseTest.t.sol";
 
-import {FeeQuoterSetup} from "../../feeQuoter/FeeQuoter/FeeQuoterSetup.t.sol";
+import {FeeQuoterSetup} from "../../feeQuoter/FeeQuoterSetup.t.sol";
 import {MultiAggregateRateLimiterHelper} from "../../helpers/MultiAggregateRateLimiterHelper.sol";
 
 contract MultiAggregateRateLimiterSetup is BaseTest, FeeQuoterSetup {

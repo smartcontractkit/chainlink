@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
-import {MockV3Aggregator} from "../../../../tests/MockV3Aggregator.sol";
-import {FeeQuoter} from "../../../FeeQuoter.sol";
-import {Client} from "../../../libraries/Client.sol";
-import {Internal} from "../../../libraries/Internal.sol";
-import {TokenAdminRegistry} from "../../../tokenAdminRegistry/TokenAdminRegistry.sol";
-import {TokenSetup} from "../../TokenSetup.t.sol";
-import {FeeQuoterHelper} from "../../helpers/FeeQuoterHelper.sol";
+import {MockV3Aggregator} from "../../../tests/MockV3Aggregator.sol";
+import {FeeQuoter} from "../../FeeQuoter.sol";
+import {Client} from "../../libraries/Client.sol";
+import {Internal} from "../../libraries/Internal.sol";
+import {TokenAdminRegistry} from "../../tokenAdminRegistry/TokenAdminRegistry.sol";
+import {TokenSetup} from "../TokenSetup.t.sol";
+import {FeeQuoterHelper} from "../helpers/FeeQuoterHelper.sol";
 
 contract FeeQuoterSetup is TokenSetup {
   uint112 internal constant USD_PER_GAS = 1e6; // 0.001 gwei
