@@ -69,7 +69,7 @@ type FeeHistoryEstimatorConfig struct {
 
 type feeHistoryEstimatorClient interface {
 	SuggestGasPrice(ctx context.Context) (*big.Int, error)
-	FeeHistory(ctx context.Context, blockCount uint64, rewardPercentiles []float64) (feeHistory *ethereum.FeeHistory, err error)
+	FeeHistory(ctx context.Context, blockCount uint64, lastBlock *big.Int, rewardPercentiles []float64) (feeHistory *ethereum.FeeHistory, err error)
 }
 
 type FeeHistoryEstimator struct {
@@ -235,7 +235,7 @@ func (f *FeeHistoryEstimator) RefreshDynamicPrice() error {
 	defer cancel()
 
 	// RewardPercentile will be used for maxPriorityFeePerGas estimations and connectivityPercentile to set the highest threshold for bumping.
-	feeHistory, err := f.client.FeeHistory(ctx, max(f.config.BlockHistorySize, 1), []float64{f.config.RewardPercentile, ConnectivityPercentile})
+	feeHistory, err := f.client.FeeHistory(ctx, max(f.config.BlockHistorySize, 1), nil, []float64{f.config.RewardPercentile, ConnectivityPercentile})
 	if err != nil {
 		return err
 	}

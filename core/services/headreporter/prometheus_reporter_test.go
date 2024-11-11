@@ -109,7 +109,7 @@ func newLegacyChainContainer(t *testing.T, db *sqlx.DB) legacyevm.LegacyChainCon
 	config, dbConfig, evmConfig := txmgr.MakeTestConfigs(t)
 	keyStore := cltest.NewKeyStore(t, db).Eth()
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	estimator, err := gas.NewEstimator(logger.TestLogger(t), ethClient, config.ChainType(), evmConfig.GasEstimator(), nil)
+	estimator, err := gas.NewEstimator(logger.TestLogger(t), ethClient, config.ChainType(), ethClient.ConfiguredChainID(), evmConfig.GasEstimator(), nil)
 	require.NoError(t, err)
 	lggr := logger.TestLogger(t)
 	lpOpts := logpoller.Opts{

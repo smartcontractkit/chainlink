@@ -29,12 +29,12 @@ type DBStore struct {
 // `workflowExecutionRow` describes a row
 // of the `workflow_executions` table
 type workflowExecutionRow struct {
-	ID         string
-	WorkflowID *string
-	Status     string
-	CreatedAt  *time.Time
-	UpdatedAt  *time.Time
-	FinishedAt *time.Time
+	ID         string     `db:"id"`
+	WorkflowID *string    `db:"workflow_id"`
+	Status     string     `db:"status"`
+	CreatedAt  *time.Time `db:"created_at"`
+	UpdatedAt  *time.Time `db:"updated_at"`
+	FinishedAt *time.Time `db:"finished_at"`
 }
 
 // `workflowStepRow` describes a row
@@ -362,7 +362,7 @@ func (d *DBStore) transact(ctx context.Context, fn func(*DBStore) error) error {
 	)
 }
 
-func (d *DBStore) GetUnfinished(ctx context.Context, offset, limit int) ([]WorkflowExecution, error) {
+func (d *DBStore) GetUnfinished(ctx context.Context, workflowID string, offset, limit int) ([]WorkflowExecution, error) {
 	sql := `
 	SELECT
 		workflow_steps.workflow_execution_id AS ws_workflow_execution_id,
@@ -382,12 +382,13 @@ func (d *DBStore) GetUnfinished(ctx context.Context, offset, limit int) ([]Workf
 	JOIN workflow_steps
 	ON  workflow_steps.workflow_execution_id = workflow_executions.id
 	WHERE workflow_executions.status = $1
+	AND workflow_executions.workflow_id = $2
 	ORDER BY workflow_executions.created_at DESC
-	LIMIT $2
-	OFFSET $3
+	LIMIT $3
+	OFFSET $4
 	`
 	var joinRecords []workflowExecutionWithStep
-	err := d.db.SelectContext(ctx, &joinRecords, sql, StatusStarted, limit, offset)
+	err := d.db.SelectContext(ctx, &joinRecords, sql, StatusStarted, workflowID, limit, offset)
 	if err != nil {
 		return []WorkflowExecution{}, err
 	}

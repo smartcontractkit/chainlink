@@ -15,8 +15,8 @@ import {LockReleaseTokenPool} from "../../pools/LockReleaseTokenPool.sol";
 import {TokenAdminRegistry} from "../../tokenAdminRegistry/TokenAdminRegistry.sol";
 import {MerkleHelper} from "../helpers/MerkleHelper.sol";
 import {OnRampHelper} from "../helpers/OnRampHelper.sol";
-import {OffRampSetup} from "../offRamp/offRamp/OffRampSetup.t.sol";
-import {OnRampSetup} from "../onRamp/onRamp/OnRampSetup.t.sol";
+import {OffRampSetup} from "../offRamp/OffRamp/OffRampSetup.t.sol";
+import {OnRampSetup} from "../onRamp/OnRamp/OnRampSetup.t.sol";
 
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 

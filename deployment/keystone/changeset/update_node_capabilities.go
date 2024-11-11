@@ -39,7 +39,6 @@ type MutateNodeCapabilitiesRequest struct {
 	RegistryChainSel uint64
 
 	P2pToCapabilities map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability
-	NopToNodes        map[kcr.CapabilitiesRegistryNodeOperator][]*P2PSignerEnc
 }
 
 func (req *MutateNodeCapabilitiesRequest) Validate() error {
@@ -48,9 +47,6 @@ func (req *MutateNodeCapabilitiesRequest) Validate() error {
 	}
 	if len(req.P2pToCapabilities) == 0 {
 		return fmt.Errorf("p2pToCapabilities is empty")
-	}
-	if len(req.NopToNodes) == 0 {
-		return fmt.Errorf("nopToNodes is empty")
 	}
 	_, exists := chainsel.ChainBySelector(req.RegistryChainSel)
 	if !exists {
@@ -84,7 +80,6 @@ func (req *MutateNodeCapabilitiesRequest) updateNodeCapabilitiesImplRequest(e de
 		Chain:             registryChain,
 		Registry:          registry,
 		P2pToCapabilities: req.P2pToCapabilities,
-		NopToNodes:        req.NopToNodes,
 	}, nil
 }
 

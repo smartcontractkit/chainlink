@@ -1657,12 +1657,14 @@ func (t *Tracing) ValidateConfig() (err error) {
 }
 
 type Telemetry struct {
-	Enabled            *bool
-	CACertFile         *string
-	Endpoint           *string
-	InsecureConnection *bool
-	ResourceAttributes map[string]string `toml:",omitempty"`
-	TraceSampleRatio   *float64
+	Enabled               *bool
+	CACertFile            *string
+	Endpoint              *string
+	InsecureConnection    *bool
+	ResourceAttributes    map[string]string `toml:",omitempty"`
+	TraceSampleRatio      *float64
+	EmitterBatchProcessor *bool
+	EmitterExportTimeout  *commonconfig.Duration
 }
 
 func (b *Telemetry) setFrom(f *Telemetry) {
@@ -1683,6 +1685,12 @@ func (b *Telemetry) setFrom(f *Telemetry) {
 	}
 	if v := f.TraceSampleRatio; v != nil {
 		b.TraceSampleRatio = v
+	}
+	if v := f.EmitterBatchProcessor; v != nil {
+		b.EmitterBatchProcessor = v
+	}
+	if v := f.EmitterExportTimeout; v != nil {
+		b.EmitterExportTimeout = v
 	}
 }
 
