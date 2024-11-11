@@ -5,6 +5,16 @@ dependencies. The environment abstractions allow for complex and critical
 deployment/configuration logic to be tested against ephemeral environments
 and then exposed for use in persistent environments like testnet/mainnet.
 
+## Table of Contents
+- [Address Book](##Address-Book)
+- [View](##View)
+- [Environment](##Environment)
+- [Job Distributor](##Job-Distributor)
+- [Changesets](##Changesets)
+- [Directory Structure](##Directory-Structure)
+- [Integration Testing](##Integration-Testing)
+- [FAQ](##FAQ)
+
 ## Address Book
 An [address book](https://github.com/smartcontractkit/chainlink/blob/develop/deployment/address_book.go#L79) represents
 a set of versioned, onchain addresses for a given product across all blockchain families. The primary key 
@@ -98,6 +108,8 @@ by products.
 /deployment/<product>/changeset
 - Think of this as the public API for deployment and configuration
 of your product. 
+- All the changesets should have an associated test using a memory or devenv
+environment.
 - package name `changeset` imported as `<package>changeset`
  
 ## Integration testing
@@ -105,4 +117,10 @@ Integration tests should live in the integration-tests/go.mod module and leverag
 the deployment module for product deployment and configuration. The integration tests
 should only depend on deployment/<product>/changeset and deployment/environment. 
 
-
+## FAQ
+### Should my changeset be idempotent? 
+It depends on the use case and is at your discretion. In many cases
+it would be beneficial to make it idempotent so that if anything goes wrong
+you can re-run it without side effects. However, it's possible that the onchain contract
+design doesn't allow for idempotency so in that case you'd have to be prepared
+with recovery changesets if something goes wrong as re-running it would not be an option.
