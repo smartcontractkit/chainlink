@@ -13,12 +13,4 @@ contract BurnMintERC20transfer is BurnMintERC20Setup {
 
     assertEq(sendingAmount + balancePre, s_burnMintERC20.balanceOf(STRANGER));
   }
-
-  // Reverts
-
-  function test_transfer_InvalidAddress_Reverts() public {
-    vm.expectRevert(abi.encodeWithSelector(BurnMintERC20.InvalidRecipient.selector, address(s_burnMintERC20)));
-
-    s_burnMintERC20.transfer(address(s_burnMintERC20), s_amount);
-  }
 }

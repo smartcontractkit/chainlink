@@ -18,7 +18,6 @@ contract BurnMintERC20 is IBurnMintERC20, IGetCCIPAdmin, IERC165, ERC20Burnable,
   using EnumerableSet for EnumerableSet.AddressSet;
 
   error MaxSupplyExceeded(uint256 supplyAfterMint);
-  error InvalidRecipient(address recipient);
 
   event CCIPAdminTransferred(address indexed previousAdmin, address indexed newAdmin);
 
@@ -77,22 +76,6 @@ contract BurnMintERC20 is IBurnMintERC20, IGetCCIPAdmin, IERC165, ERC20Burnable,
   /// @dev Returns the max supply of the token, 0 if unlimited.
   function maxSupply() public view virtual returns (uint256) {
     return i_maxSupply;
-  }
-
-  /// @dev Uses OZ ERC20 _transfer to disallow sending to address(0).
-  /// @dev Disallows sending to address(this)
-  function _transfer(address from, address to, uint256 amount) internal virtual override {
-    if (to == address(this)) revert InvalidRecipient(to);
-
-    super._transfer(from, to, amount);
-  }
-
-  /// @dev Uses OZ ERC20 _approve to disallow approving for address(0).
-  /// @dev Disallows approving for address(this)
-  function _approve(address owner, address spender, uint256 amount) internal virtual override {
-    if (spender == address(this)) revert InvalidRecipient(spender);
-
-    super._approve(owner, spender, amount);
   }
 
   // ================================================================

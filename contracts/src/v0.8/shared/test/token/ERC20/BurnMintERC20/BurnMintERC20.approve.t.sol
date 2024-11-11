@@ -20,12 +20,4 @@ contract BurnMintERC20approve is BurnMintERC20Setup {
     assertEq(sendingAmount + balancePre, s_burnMintERC20.balanceOf(STRANGER));
     assertEq(ownerBalancePre - sendingAmount, s_burnMintERC20.balanceOf(OWNER));
   }
-
-  // Reverts
-
-  function test_approve_InvalidAddress_Reverts() public {
-    vm.expectRevert(abi.encodeWithSelector(BurnMintERC20.InvalidRecipient.selector, address(s_burnMintERC20)));
-
-    s_burnMintERC20.approve(address(s_burnMintERC20), s_amount);
-  }
 }
