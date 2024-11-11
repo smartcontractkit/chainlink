@@ -816,29 +816,24 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
         _payTransmitter(s_hotVars, report_.juelsPerFeeCoin, uint32(initialGas), msg.sender);
         return;
       }
-      // In case the report doesn't exist, lock the primary feed
-      s_primaryLocked = true;
-    } else {
-      // In case the sender is the primary proxy, unlock the latest report
-      s_primaryLocked = false;
     }
-
     // Report epoch and round
     uint40 epochAndRound = uint40(uint256(reportContext[1]));
 
-    if (epochAndRound == s_hotVars.latestEpochAndRound) {
-      return;
+    if (epochAndRound != s_hotVars.latestEpochAndRound || !s_primaryLocked) {
+      if (epochAndRound <= s_hotVars.latestEpochAndRound) {
+        revert StaleReport();
+      }
+
+      // Verify signatures attached to report
+      _verifySignatures(reportContext, report, rs, ss, rawVs);
+
+      _report(s_hotVars, reportContext[0], epochAndRound, report_, isSecondary);
     }
 
-    if (epochAndRound < s_hotVars.latestEpochAndRound) {
-      revert StaleReport();
-    }
-
-    // Verify signatures attached to report
-    _verifySignatures(reportContext, report, rs, ss, rawVs);
-
-    int192 juelsPerFeeCoin = _report(s_hotVars, reportContext[0], epochAndRound, report_, isSecondary);
-    _payTransmitter(s_hotVars, juelsPerFeeCoin, uint32(initialGas), msg.sender);
+    // Lock/unlock the primary feed and pay the transmitters
+    s_primaryLocked = isSecondary;
+    _payTransmitter(s_hotVars, report_.juelsPerFeeCoin, uint32(initialGas), msg.sender);
   }
 
   // helper function to validate the report data
@@ -957,7 +952,7 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     uint40 epochAndRound,
     Report memory report,
     bool isSecondary
-  ) internal returns (int192 juelsPerFeeCoin) {
+  ) internal {
     if (report.observations.length > MAX_NUM_ORACLES) revert NumObservationsOutOfBounds();
     // Offchain logic ensures that a quorum of oracles is operating on a matching set of at least
     // 2f+1 observations. By assumption, up to f of those can be faulty, which includes being
@@ -1007,8 +1002,6 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     emit AnswerUpdated(median, hotVars.latestAggregatorRoundId, block.timestamp);
 
     _validateAnswer(hotVars.latestAggregatorRoundId, median);
-
-    return report.juelsPerFeeCoin;
   }
 
   /**
