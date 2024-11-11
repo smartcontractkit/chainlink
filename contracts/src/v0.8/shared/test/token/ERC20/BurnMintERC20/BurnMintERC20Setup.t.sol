@@ -4,7 +4,6 @@ pragma solidity 0.8.24;
 import {BurnMintERC20} from "../../../../token/ERC20/BurnMintERC20.sol";
 import {BaseTest} from "../../../BaseTest.t.sol";
 
-
 contract BurnMintERC20Setup is BaseTest {
   BurnMintERC20 internal s_burnMintERC20;
 

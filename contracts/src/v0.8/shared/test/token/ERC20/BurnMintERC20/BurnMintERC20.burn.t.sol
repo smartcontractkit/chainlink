@@ -31,7 +31,8 @@ contract BurnMintERC20burn is BurnMintERC20Setup {
         Strings.toHexString(OWNER),
         " is missing role ",
         Strings.toHexString(uint256(s_burnMintERC20.BURNER_ROLE()), 32)
-    ));
+      )
+    );
 
     s_burnMintERC20.burnFrom(STRANGER, s_amount);
   }

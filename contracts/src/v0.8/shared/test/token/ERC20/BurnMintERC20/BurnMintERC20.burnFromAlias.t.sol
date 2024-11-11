@@ -32,7 +32,8 @@ contract BurnMintERC20burnFromAlias is BurnMintERC20Setup {
         Strings.toHexString(OWNER),
         " is missing role ",
         Strings.toHexString(uint256(s_burnMintERC20.BURNER_ROLE()), 32)
-    ));
+      )
+    );
 
     s_burnMintERC20.burn(OWNER, s_amount);
   }

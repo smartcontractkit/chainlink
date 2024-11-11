@@ -34,7 +34,8 @@ contract BurnMintERC20mint is BurnMintERC20Setup {
         Strings.toHexString(STRANGER),
         " is missing role ",
         Strings.toHexString(uint256(s_burnMintERC20.MINTER_ROLE()), 32)
-    ));
+      )
+    );
 
     s_burnMintERC20.mint(STRANGER, 1e18);
   }
@@ -50,5 +51,4 @@ contract BurnMintERC20mint is BurnMintERC20Setup {
     // Attempt to mint 1 more than max supply
     s_burnMintERC20.mint(OWNER, 1);
   }
-
 }

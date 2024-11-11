@@ -116,7 +116,10 @@ contract BurnMintERC20 is IBurnMintERC20, IGetCCIPAdmin, IERC165, ERC20Burnable,
   /// @inheritdoc ERC20Burnable
   /// @dev Uses OZ ERC20 _burn to disallow burning from address(0).
   /// @dev Decreases the total supply.
-  function burnFrom(address account, uint256 amount) public override(IBurnMintERC20, ERC20Burnable) onlyRole(BURNER_ROLE) {
+  function burnFrom(
+    address account,
+    uint256 amount
+  ) public override(IBurnMintERC20, ERC20Burnable) onlyRole(BURNER_ROLE) {
     super.burnFrom(account, amount);
   }
 
@@ -158,6 +161,4 @@ contract BurnMintERC20 is IBurnMintERC20, IGetCCIPAdmin, IERC165, ERC20Burnable,
 
     emit CCIPAdminTransferred(currentAdmin, newAdmin);
   }
-
-
 }
