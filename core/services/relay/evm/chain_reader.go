@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -217,6 +218,41 @@ func (cr *chainReader) GetLatestValue(ctx context.Context, readName string, conf
 	*ptrToValue = value
 
 	return nil
+}
+
+func (cr *chainReader) GetLatestValueWithHeadData(ctx context.Context, readName string, confidenceLevel primitives.ConfidenceLevel, params any, returnVal any) (*commontypes.Head, error) {
+	if err := cr.GetLatestValue(ctx, readName, confidenceLevel, params, returnVal); err != nil {
+		return nil, err
+	}
+
+	latestHead, finalizedHead, err := cr.ht.LatestAndFinalizedBlock(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	switch confidenceLevel {
+	case primitives.Finalized:
+		if finalizedHead != nil {
+			return ethHeadToCommonHead(finalizedHead), nil
+		}
+		return nil, nil
+	case primitives.Unconfirmed:
+		if latestHead != nil {
+			return ethHeadToCommonHead(latestHead), nil
+		}
+		return nil, nil
+	default:
+		return nil, errors.New("unsupported confidence level")
+	}
+}
+
+func ethHeadToCommonHead(finalizedHead *evmtypes.Head) *commontypes.Head {
+	return &commontypes.Head{
+		Height: strconv.FormatInt(finalizedHead.Number, 10),
+		Hash:   finalizedHead.Hash.Bytes(),
+		//nolint:gosec // disable G115
+		Timestamp: uint64(finalizedHead.Timestamp.Unix()),
+	}
 }
 
 func (cr *chainReader) BatchGetLatestValues(ctx context.Context, request commontypes.BatchGetLatestValuesRequest) (commontypes.BatchGetLatestValuesResult, error) {
