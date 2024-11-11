@@ -202,7 +202,7 @@ func (s *registrySyncer) updateStateLoop() {
 	}
 }
 
-func (s *registrySyncer) localRegistry(ctx context.Context) (*LocalRegistry, error) {
+func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*LocalRegistry, error) {
 	caps := []kcr.CapabilitiesRegistryCapabilityInfo{}
 
 	err := s.reader.GetLatestValue(ctx, s.capabilitiesContract.ReadIdentifier("getCapabilities"), primitives.Unconfirmed, nil, &caps)
@@ -288,33 +288,33 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 		s.reader = reader
 	}
 
-	var lr *LocalRegistry
+	var latestRegistry *LocalRegistry
 	var err error
 
 	if isInitialSync {
 		s.lggr.Debug("syncing with local registry")
-		lr, err = s.orm.LatestLocalRegistry(ctx)
+		latestRegistry, err = s.orm.LatestLocalRegistry(ctx)
 		if err != nil {
 			s.lggr.Warnw("failed to sync with local registry, using remote registry instead", "error", err)
 		} else {
-			lr.lggr = s.lggr
-			lr.getPeerID = s.getPeerID
+			latestRegistry.lggr = s.lggr
+			latestRegistry.getPeerID = s.getPeerID
 		}
 	}
 
-	if lr == nil {
+	if latestRegistry == nil {
 		s.lggr.Debug("syncing with remote registry")
-		localRegistry, err := s.localRegistry(ctx)
+		importedRegistry, err := s.importOnchainRegistry(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to sync with remote registry: %w", err)
 		}
-		lr = localRegistry
+		latestRegistry = importedRegistry
 		// Attempt to send local registry to the update channel without blocking
 		// This is to prevent the tests from hanging if they are not calling `Start()` on the syncer
 		select {
 		case <-s.stopCh:
 			s.lggr.Debug("sync cancelled, stopping")
-		case s.updateChan <- lr:
+		case s.updateChan <- latestRegistry:
 			// Successfully sent state
 			s.lggr.Debug("remote registry update triggered successfully")
 		default:
@@ -324,7 +324,7 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 	}
 
 	for _, h := range s.launchers {
-		lrCopy := deepCopyLocalRegistry(lr)
+		lrCopy := deepCopyLocalRegistry(latestRegistry)
 		if err := h.Launch(ctx, &lrCopy); err != nil {
 			s.lggr.Errorf("error calling launcher: %s", err)
 			s.metrics.incrementLauncherFailureCounter(ctx)
