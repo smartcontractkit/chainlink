@@ -826,6 +826,10 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     // Report epoch and round
     uint40 epochAndRound = uint40(uint256(reportContext[1]));
 
+    if (epochAndRound == s_hotVars.latestEpochAndRound) {
+      return;
+    }
+
     if (epochAndRound < s_hotVars.latestEpochAndRound) {
       revert StaleReport();
     }
