@@ -58,8 +58,6 @@ contract BurnMintERC20 is IBurnMintERC20, IGetCCIPAdmin, IERC165, ERC20Burnable,
 
     // Set up the owner as the initial minter and burner
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-    _grantRole(MINTER_ROLE, msg.sender);
-    _grantRole(BURNER_ROLE, msg.sender);
   }
 
   /// @inheritdoc IERC165
