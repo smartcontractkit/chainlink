@@ -100,6 +100,13 @@ contract DualAggregatorHarness is DualAggregator {
       setTransmission(i + 1, answers[i], observationsTimestamps[i], recordedTimestamps[i]);
     }
   }
+
+  // helper function to define the latestSecondary
+  function isLatestSecondary(
+    bool isSecondary
+  ) public {
+    s_primaryLocked = isSecondary;
+  }
 }
 
 contract DualAggregatorBaseTest is Test {
@@ -1156,26 +1163,16 @@ contract TransmittedDualAggregatorBaseTest is ConfiguredDualAggregatorBaseTest {
   uint32 internal epoch = 0;
   uint32 internal round = 0;
 
-  // TODO: fix the CalldataLengthMismatch issue
   function setUp() public override {
     super.setUp();
 
-    // vm.startPrank(transmitters[0]);
-    // bytes memory epochAndRound = abi.encodePacked(
-    //   bytes27(0),
-    //   uint32(epoch),
-    //   uint32(round)
-    // );
-    // bytes32[3] memory reportContext = [configDigest, bytes32(epochAndRound), bytes32(abi.encodePacked("1"))];
-    // bytes memory report = new bytes(0);
-    // bytes32 rawVs = bytes32(abi.encode(uint32(1)));
-    //
-    // rs.push(bytes32(uint256(uint160(signers[0]))));
-    // rs.push(bytes32(uint256(uint160(signers[0]))));
-    // ss.push(bytes32(uint256(uint160(signers[0]))));
-    // ss.push(bytes32(uint256(uint160(signers[0]))));
-    //
-    // aggregator.transmit(reportContext, report, rs, ss, rawVs);
+    ReportGenerator.SignedReport memory signedReport = s_reportGenerator.generateSignedReport(1, 1);
+
+    vm.warp(1);
+    _changePrank(aggregator.getTransmitters()[0]);
+    aggregator.transmit(
+      signedReport.reportContext, signedReport.report, signedReport.rs, signedReport.ss, signedReport.rawVs
+    );
   }
 }
 
@@ -1185,19 +1182,20 @@ contract LatestTransmissionDetails is TransmittedDualAggregatorBaseTest {
     aggregator.latestTransmissionDetails();
   }
 
-  function test_ReturnsLatestTransmissionDetails() public view {
+  function test_ReturnsLatestTransmissionDetails() public {
+    vm.stopPrank();
+    vm.startPrank(address(100), address(100));
     (bytes32 configDigest, uint32 epoch, uint8 round, int192 latestAnswer, uint64 latestTimestamp) =
       aggregator.latestTransmissionDetails();
 
-    assertEq(configDigest, bytes32(abi.encodePacked("1")));
-    assertEq(epoch, 1);
+    assertEq(configDigest, 0x0001e09a2f737494a8c66f218a47b3bf2797eed117a2aaa1b51760b18935a6f6);
+    assertEq(epoch, 0);
     assertEq(round, 1);
     assertEq(latestAnswer, 1);
     assertEq(latestTimestamp, 1);
   }
 }
 
-// TODO: once transmit logic is updated we can test these better
 contract LatestConfigDigestAndEpoch is TransmittedDualAggregatorBaseTest {
   function test_ReturnsLatestConfigDigestAndEpoch() public view {
     (bool scanLogs, bytes32 configDigest, uint32 epoch) = aggregator.latestConfigDigestAndEpoch();
@@ -1218,7 +1216,7 @@ contract LatestConfigDigestAndEpoch is TransmittedDualAggregatorBaseTest {
       ),
       "configDigest incorrect"
     );
-    assertEq(epoch, 1, "epoch not correct");
+    assertEq(epoch, 0, "epoch not correct");
   }
 }
 
@@ -1235,11 +1233,13 @@ contract RoundDataDualAggregatorBaseTest is ConfiguredDualAggregatorBaseTest {
     uint256 startingTime,
     uint32 cutoffTime,
     uint32 latestPrimaryRound,
-    uint32 latestSecondaryRound
+    uint32 latestSecondaryRound,
+    bool isLatestSecondary
   ) public {
     harness.injectTransmissions(answers, observationsTimestamps, recordedTimestamps);
     harness.setLatestRoundIds(latestPrimaryRound, latestSecondaryRound);
     harness.setCutoffTime(cutoffTime);
+    harness.isLatestSecondary(isLatestSecondary);
     vm.warp(startingTime);
   }
 }
@@ -1248,7 +1248,7 @@ contract RoundDataDualAggregatorBaseTest is ConfiguredDualAggregatorBaseTest {
 contract LatestAnswer is RoundDataDualAggregatorBaseTest {
   function setUp() public override {
     super.setUp();
-    setDualAggregatorBase(31, 21, 6, 2);
+    setDualAggregatorBase(31, 21, 6, 2, false);
   }
 
   // test return the latest primary answer
@@ -1267,7 +1267,7 @@ contract LatestAnswer is RoundDataDualAggregatorBaseTest {
 contract LatestTimestamp is RoundDataDualAggregatorBaseTest {
   function setUp() public override {
     super.setUp();
-    setDualAggregatorBase(31, 21, 6, 2);
+    setDualAggregatorBase(31, 21, 6, 2, false);
   }
 
   // test return the latest primary timestamp
@@ -1286,28 +1286,37 @@ contract LatestTimestamp is RoundDataDualAggregatorBaseTest {
 contract LatestRound is RoundDataDualAggregatorBaseTest {
   function setUp() public override {
     super.setUp();
-    setDualAggregatorBase(30, 20, 6, 2);
   }
 
   // test return the latest primary round id
   function test_ReturnsLatestPrimaryRoundId() public {
+    setDualAggregatorBase(30, 20, 6, 6, false);
+    assertEq(harness.latestRound(), 6);
+  }
+
+  // test return the latest primary round id after block
+  function test_ReturnsLatestPrimaryRoundIdAfterBlock() public {
+    setDualAggregatorBase(30, 20, 6, 6, true);
     vm.warp(31);
     assertEq(harness.latestRound(), 6);
   }
 
   // test latest primary round in the same block, return previous one
-  function test_ReturnsPreviousPrimaryRoundId() public view {
+  function test_ReturnsPreviousPrimaryRoundId() public {
+    setDualAggregatorBase(30, 20, 6, 6, true);
     assertEq(harness.latestRound(), 5);
   }
 
   // test return the latest secondary round id
   function test_ReturnsLatestSecondaryRoundId() public {
+    setDualAggregatorBase(30, 20, 6, 2, false);
     vm.startPrank(address(102));
     assertEq(harness.latestRound(), 2);
   }
 
   // test return the secondary round id synced with primary rounds
   function test_ReturnsSyncedRoundId() public {
+    setDualAggregatorBase(30, 20, 6, 2, false);
     harness.setCutoffTime(9);
 
     vm.startPrank(address(102));
@@ -1319,28 +1328,37 @@ contract LatestRound is RoundDataDualAggregatorBaseTest {
 contract GetAnswer is RoundDataDualAggregatorBaseTest {
   function setUp() public override {
     super.setUp();
-    setDualAggregatorBase(30, 0, 6, 2);
   }
 
   // test return primary answer
   function test_ReturnsPrimaryGetAnswer() public {
+    setDualAggregatorBase(30, 0, 6, 6, false);
+    assertEq(harness.getAnswer(6), 15);
+  }
+
+  // test return primary answer after block
+  function test_ReturnsPrimaryGetAnswerAfterBlock() public {
+    setDualAggregatorBase(30, 0, 6, 6, true);
     vm.warp(31);
     assertEq(harness.getAnswer(6), 15);
   }
 
   // test return primary answer, not allowed
-  function test_ReturnsPrimaryGetAnswerNotAllowed() public view {
+  function test_ReturnsPrimaryGetAnswerNotAllowed() public {
+    setDualAggregatorBase(30, 0, 6, 6, true);
     assertEq(harness.getAnswer(6), 0);
   }
 
   // test return secondary answer
   function test_ReturnsSecondaryGetAnswer() public {
+    setDualAggregatorBase(30, 0, 6, 2, false);
     vm.startPrank(address(102));
     assertEq(harness.getAnswer(2), 11);
   }
 
   // test return secondary answer, not allowed
   function test_ReturnsSecondaryGetAnswerNotAllowed() public {
+    setDualAggregatorBase(30, 0, 6, 2, false);
     harness.setCutoffTime(20);
 
     vm.startPrank(address(102));
@@ -1352,28 +1370,37 @@ contract GetAnswer is RoundDataDualAggregatorBaseTest {
 contract GetTimestamp is RoundDataDualAggregatorBaseTest {
   function setUp() public override {
     super.setUp();
-    setDualAggregatorBase(30, 0, 6, 2);
   }
 
   // test return primary timestamp
   function test_ReturnsPrimaryGetTimestamp() public {
+    setDualAggregatorBase(30, 0, 6, 6, false);
+    assertEq(harness.getTimestamp(6), 30);
+  }
+
+  // test return primary timestamp after block
+  function test_ReturnsPrimaryGetTimestampAfterBlock() public {
+    setDualAggregatorBase(30, 0, 6, 6, true);
     vm.warp(31);
     assertEq(harness.getTimestamp(6), 30);
   }
 
   // test return primary timestamp, not allowed
-  function test_ReturnsPrimaryGetTimestampNotAllowed() public view {
+  function test_ReturnsPrimaryGetTimestampNotAllowed() public {
+    setDualAggregatorBase(30, 0, 6, 6, true);
     assertEq(harness.getTimestamp(6), 0);
   }
 
   // test return secondary timestamp
   function test_ReturnsSecondaryGetTimestamp() public {
+    setDualAggregatorBase(30, 0, 6, 2, false);
     vm.startPrank(address(102));
     assertEq(harness.getTimestamp(2), 10);
   }
 
   // test return secondary timestamp, not allowed
   function test_ReturnsSecondaryGetTimestampNotAllowed() public {
+    setDualAggregatorBase(30, 0, 6, 2, false);
     harness.setCutoffTime(20);
 
     vm.startPrank(address(102));
@@ -1391,11 +1418,24 @@ contract Description is TransmittedDualAggregatorBaseTest {
 contract GetRoundData is RoundDataDualAggregatorBaseTest {
   function setUp() public override {
     super.setUp();
-    setDualAggregatorBase(30, 0, 6, 2);
   }
 
   // test return primary round data
   function test_ReturnsPrimaryGetRoundData() public {
+    setDualAggregatorBase(30, 0, 6, 6, false);
+    (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound) =
+      harness.getRoundData(6);
+
+    assertEq(roundId, 6);
+    assertEq(answer, 15);
+    assertEq(startedAt, 26);
+    assertEq(updatedAt, 30);
+    assertEq(answeredInRound, 6);
+  }
+
+  // test return primary round data after block
+  function test_ReturnsPrimaryGetRoundDataAfterBlock() public {
+    setDualAggregatorBase(30, 0, 6, 6, true);
     vm.warp(31);
     (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound) =
       harness.getRoundData(6);
@@ -1408,7 +1448,8 @@ contract GetRoundData is RoundDataDualAggregatorBaseTest {
   }
 
   // test return primary round data, not allowed
-  function test_ReturnsPrimaryGetRoundDataNotAllowed() public view {
+  function test_ReturnsPrimaryGetRoundDataNotAllowed() public {
+    setDualAggregatorBase(30, 0, 6, 6, true);
     (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound) =
       harness.getRoundData(6);
 
@@ -1421,6 +1462,7 @@ contract GetRoundData is RoundDataDualAggregatorBaseTest {
 
   // test return secondary round data
   function test_ReturnsSecondaryGetRoundData() public {
+    setDualAggregatorBase(30, 0, 6, 2, false);
     vm.startPrank(address(102));
     (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound) =
       harness.getRoundData(2);
@@ -1434,6 +1476,7 @@ contract GetRoundData is RoundDataDualAggregatorBaseTest {
 
   // test return secondary round data, not allowed
   function test_ReturnsSecondaryGetRoundDataNotAllowed() public {
+    setDualAggregatorBase(30, 0, 6, 2, false);
     harness.setCutoffTime(20);
 
     vm.startPrank(address(102));
@@ -1452,7 +1495,7 @@ contract GetRoundData is RoundDataDualAggregatorBaseTest {
 contract LatestRoundData is RoundDataDualAggregatorBaseTest {
   function setUp() public override {
     super.setUp();
-    setDualAggregatorBase(31, 21, 6, 2);
+    setDualAggregatorBase(31, 21, 6, 2, false);
   }
 
   // test return the latest primary round data
@@ -1792,20 +1835,20 @@ contract GetSyncPrimaryRound is RoundDataDualAggregatorBaseTest {
 
   // test with cutoff time reaching the secondary round id
   function test_returnSecondaryRoundId() public {
-    setDualAggregatorBase(30, 20, 6, 2);
+    setDualAggregatorBase(30, 20, 6, 2, false);
     assertEq(harness.exposed_getSyncPrimaryRound(), 2);
   }
 
   // test with cutoff time condition matching in round id 4
   function test_returnSyncFourthRoundId() public {
-    setDualAggregatorBase(30, 9, 6, 2);
+    setDualAggregatorBase(30, 9, 6, 2, false);
 
     assertEq(harness.exposed_getSyncPrimaryRound(), 4);
   }
 
   // test with cutoff time condition matching in the latest round id
   function test_returnSyncLatestRoundId() public {
-    setDualAggregatorBase(50, 10, 6, 2);
+    setDualAggregatorBase(50, 10, 6, 2, false);
 
     vm.warp(50);
     assertEq(harness.exposed_getSyncPrimaryRound(), 6);
