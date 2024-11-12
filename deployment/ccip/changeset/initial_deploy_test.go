@@ -3,6 +3,7 @@ package changeset
 import (
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/deployment"
 
 	ccdeploy "github.com/smartcontractkit/chainlink/deployment/ccip"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
 	"github.com/stretchr/testify/require"
@@ -72,7 +74,13 @@ func TestInitialDeploy(t *testing.T) {
 			require.NoError(t, err)
 			block := latesthdr.Number.Uint64()
 			startBlocks[dest] = &block
-			seqNum := ccdeploy.TestSendRequest(t, e, state, src, dest, false, nil)
+			seqNum := ccdeploy.TestSendRequest(t, e, state, src, dest, false, router.ClientEVM2AnyMessage{
+				Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
+				Data:         []byte("hello"),
+				TokenAmounts: nil,
+				FeeToken:     common.HexToAddress("0x0"),
+				ExtraArgs:    nil,
+			})
 			expectedSeqNum[dest] = seqNum
 		}
 	}

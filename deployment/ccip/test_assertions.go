@@ -134,7 +134,7 @@ func ConfirmTokenPriceUpdated(
 	}
 
 	if len(tokenToInitialPrice) > 0 {
-		return fmt.Errorf("Not all tokens updated on chain  %d", chain.Selector)
+		return fmt.Errorf("not all tokens updated on chain  %d", chain.Selector)
 	}
 
 	return nil
@@ -272,7 +272,7 @@ func ConfirmCommitWithExpectedSeqNumRange(
 }
 
 // ConfirmExecWithSeqNrForAll waits for all chains in the environment to execute the given expectedSeqNums.
-// expectedSeqNums is a map of destinationchain selector to expected sequence number
+// expectedSeqNums is a map of destination chain selector to expected sequence number
 // startBlocks is a map of destination chain selector to start block number to start watching from.
 // If startBlocks is nil, it will start watching from the latest block.
 func ConfirmExecWithSeqNrForAll(
@@ -343,17 +343,17 @@ func ConfirmExecWithSeqNr(
 			scc, executionState := GetExecutionState(t, source, dest, offRamp, expectedSeqNr)
 			t.Logf("Waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence number %d, current onchain minSeqNr: %d, execution state: %s",
 				dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr, scc.MinSeqNr, executionStateToString(executionState))
-			if executionState == EXECUTION_STATE_SUCCESS {
-				t.Logf("Observed SUCCESS execution state on chain %d (offramp %s) from chain %d with expected sequence number %d",
-					dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr)
+			if executionState == EXECUTION_STATE_SUCCESS || executionState == EXECUTION_STATE_FAILURE {
+				t.Logf("Observed %s execution state on chain %d (offramp %s) from chain %d with expected sequence number %d",
+					executionStateToString(executionState), dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr)
 				return nil
 			}
 		case execEvent := <-sink:
-			t.Logf("Received ExecutionStateChanged for seqNum %d on chain %d (offramp %s) from chain %d",
-				execEvent.SequenceNumber, dest.Selector, offRamp.Address().String(), source.Selector)
+			t.Logf("Received ExecutionStateChanged (state %s) for seqNum %d on chain %d (offramp %s) from chain %d",
+				executionStateToString(execEvent.State), execEvent.SequenceNumber, dest.Selector, offRamp.Address().String(), source.Selector)
 			if execEvent.SequenceNumber == expectedSeqNr && execEvent.SourceChainSelector == source.Selector {
-				t.Logf("Received ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence number %d",
-					dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr)
+				t.Logf("Received ExecutionStateChanged (state %s) on chain %d (offramp %s) from chain %d with expected sequence number %d",
+					executionStateToString(execEvent.State), dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr)
 				return nil
 			}
 		case <-timer.C:
