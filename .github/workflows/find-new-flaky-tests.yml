@@ -66,7 +66,7 @@ env:
 jobs:
   find-tests:
     name: Find Tests To Run
-    if: ${{ inputs.runAllTests == false }}
+    if: ${{ inputs.runAllTests == 'false' }}
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.split-packages.outputs.matrix }}
@@ -98,9 +98,10 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@cb4c307f6f0a79a20097129cda7c151d8c5b5d28
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@d5a4c349a305f1dee78eb2869bd98370d3a94789
 
       - name: Find new or updated test packages
+        if: ${{ inputs.runAllTests == 'false' }}
         id: find-tests
         shell: bash
         env:
@@ -115,6 +116,7 @@ jobs:
           echo "packages=$PACKAGES" >> $GITHUB_OUTPUT
 
       - name: Find changed test files 
+        if: ${{ inputs.runAllTests == 'false' }}
         id: find-changed-test-files
         shell: bash
         env:
@@ -134,8 +136,13 @@ jobs:
         shell: bash
         run: |
           if [[ "${{ inputs.runAllTests }}" == "true" ]]; then
-            # Create 5 groups, each with "./..." to run all tests
-            json_groups=$(jq -nc '[ "./...", "./...", "./...", "./...", "./..." ]')
+            # Use ALL_TESTS_RUNNER for a specified number of groups, each with "./..." to run all tests
+            ALL_TESTS_RUN_COUNT=${{ env.ALL_TESTS_RUN_COUNT }}
+            
+            # Create the JSON array dynamically based on ALL_TESTS_RUN_COUNT
+            json_groups=$(jq -nc --argjson count "$ALL_TESTS_RUN_COUNT" \
+              '[range(0; $count) | { "testPackages": "./...", "runs_on": "'"${{ env.ALL_TESTS_RUNNER }}"'" }]')
+              
             echo $json_groups
             echo "matrix=$json_groups" >> $GITHUB_OUTPUT
             exit 0
@@ -163,13 +170,13 @@ jobs:
               # Extract the packages for the current group
               if [[ $group_size -gt 0 ]]; then
                   group=("${PACKAGES[@]:current_index:group_size}")
-                  groups+=("$(IFS=,; echo "${group[*]}")")
+                  groups+=("{\"testPackages\":\"$(IFS=,; echo "${group[*]}")\", \"runs_on\":\"${{ env.DEFAULT_RUNNER }}\"}")
                   current_index=$(($current_index + $group_size))
               fi
           done
 
           # Convert groups array into a JSON array
-          json_groups=$(printf '%s\n' "${groups[@]}" | jq -R . | jq -cs .)
+          json_groups=$(printf '%s\n' "${groups[@]}" | jq -s .)
           echo $json_groups
           echo "matrix=$json_groups" >> $GITHUB_OUTPUT
 
@@ -181,12 +188,12 @@ jobs:
   run-tests:
     name: Run Tests
     needs: find-tests
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runs_on }}
     if: ${{ needs.find-tests.outputs.matrix != '' }}
     strategy:
       fail-fast: false
       matrix: 
-        testPackages: ${{ fromJson(needs.find-tests.outputs.matrix) }}
+        include: ${{ fromJson(needs.find-tests.outputs.matrix) }}
     env:
       DB_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
     steps:
@@ -246,7 +253,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@cb4c307f6f0a79a20097129cda7c151d8c5b5d28
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@d5a4c349a305f1dee78eb2869bd98370d3a94789
 
       - name: Run tests with flakeguard
         shell: bash
@@ -294,12 +301,20 @@ jobs:
           if [ -d "test_results" ]; then
             cd test_results
             ls -R .
-            find . -name '*.json' -exec cat {} + | jq -s 'add | sort_by(.PassRatio)' > all_tests.json
-            ALL_TESTS_COUNT=$(jq 'length' all_tests.json)
+
+            # Use flakeguard aggregate-all to aggregate test results
+            flakeguard aggregate-all --results-path . --output-json ../all_tests.json            
+
+            # Count all tests
+            ALL_TESTS_COUNT=$(jq 'length' ../all_tests.json)
             echo "All tests count: $ALL_TESTS_COUNT"
             echo "all_tests_count=$ALL_TESTS_COUNT" >> "$GITHUB_OUTPUT"
-            jq -c 'map(select(.PassRatio < ($runThreshold | tonumber) and .Skipped != true)) | map(.PassRatio |= (. * 100 | tostring + "%"))' all_tests.json --arg runThreshold '${{ inputs.runThreshold }}' > failed_tests.json
-            FAILED_TESTS_COUNT=$(jq 'length' failed_tests.json)
+
+            # Use flakeguard aggregate-failed to filter and output failed tests based on PassRatio threshold
+            flakeguard aggregate-failed --threshold "${{ inputs.runThreshold }}" --results-path . --output-json ../failed_tests.json
+
+            # Count failed tests
+            FAILED_TESTS_COUNT=$(jq 'length' ../failed_tests.json)
             echo "Failed tests count: $FAILED_TESTS_COUNT"
             echo "failed_tests_count=$FAILED_TESTS_COUNT" >> "$GITHUB_OUTPUT"
           else
