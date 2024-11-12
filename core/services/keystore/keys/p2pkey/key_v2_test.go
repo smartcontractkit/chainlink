@@ -3,6 +3,8 @@ package p2pkey
 import (
 	"crypto/ed25519"
 	"crypto/rand"
+	"encoding/hex"
+	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -17,4 +19,15 @@ func TestP2PKeys_Raw(t *testing.T) {
 
 	assert.Equal(t, r.String(), r.GoString())
 	assert.Equal(t, "<P2P Raw Private Key>", r.String())
+}
+
+func TestP2PKeys_KeyV2(t *testing.T) {
+	kv2, err := NewV2()
+	require.NoError(t, err)
+
+	pkv2 := kv2.PrivKey.Public().(ed25519.PublicKey)
+
+	assert.Equal(t, kv2.String(), kv2.GoString())
+	assert.Equal(t, ragep2ptypes.PeerID(kv2.PeerID()).String(), kv2.ID())
+	assert.Equal(t, hex.EncodeToString(pkv2), kv2.PublicKeyHex())
 }
