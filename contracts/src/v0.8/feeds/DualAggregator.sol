@@ -804,6 +804,9 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     // Validate the report data
     _validateReport(reportContext, report, rs, ss);
 
+    // Verify signatures attached to report
+    _verifySignatures(reportContext, report, rs, ss, rawVs);
+
     Report memory report_ = _decodeReport(report); // Decode the report
 
     if (isSecondary) {
@@ -826,13 +829,14 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     // Report epoch and round
     uint40 epochAndRound = uint40(uint256(reportContext[1]));
 
+    // Only skip the report transmission in case the epochAndRound is equal to the latestEpochAndRound 
+    // and the latest sender was the secondary feed
     if (epochAndRound != s_hotVars.latestEpochAndRound || !s_latestSecondary) {
+      // In case the epochAndRound is lower or equal than the latestEpochAndRound, it's a stale report
+      // because it's older or has already been transmitted
       if (epochAndRound <= s_hotVars.latestEpochAndRound) {
         revert StaleReport();
       }
-
-      // Verify signatures attached to report
-      _verifySignatures(reportContext, report, rs, ss, rawVs);
 
       _report(s_hotVars, reportContext[0], epochAndRound, report_, isSecondary);
     }
