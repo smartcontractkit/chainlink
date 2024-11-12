@@ -19,17 +19,17 @@ on:
       headRef:
         required: false
         type: string
-        description: 'The head reference or branch to compare changes for detecting flaky tests. Default is the current branch.'  
+        description: 'The head reference or branch to compare changes for detecting flaky tests. Default is the current branch.'
+      runAllTests:
+        required: false
+        type: boolean
+        description: 'Run all tests in the project.'
+        default: false    
       runThreshold:
         required: false
         type: string
         description: 'The threshold for the number of times a test can fail before being considered flaky.'
         default: '0.8'
-      runWithRace:
-        required: false
-        type: boolean
-        description: 'Run tests with -race flag.'
-        default: true
       findByTestFilesDiff:
         required: false
         type: boolean
@@ -58,10 +58,12 @@ env:
   SKIPPED_TESTS: ${{ fromJson(inputs.extraArgs)['skipped_tests'] || '' }} # Comma separated list of test names to skip running in the flaky detector. Related issue: TT-1823
   MAX_GROUP_SIZE: ${{ fromJson(inputs.extraArgs)['max_group_size'] || '8' }} # The maximum number of jobs to run in parallel when running tests.
   RUN_COUNT: ${{ fromJson(inputs.extraArgs)['run_count'] || '5' }} # The number of times to run the tests to detect flaky tests.
+  RUN_WITH_RACE: ${{ fromJson(inputs.extraArgs)['run_with_race'] || 'true' }} # Whether to run tests with -race flag.
 
 jobs:
   find-tests:
     name: Find Tests To Run
+    if: ${{ inputs.runAllTests == false }}
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.split-packages.outputs.matrix }}
@@ -237,7 +239,7 @@ jobs:
 
       - name: Run tests with flakeguard
         shell: bash
-        run: flakeguard run --project-path=${{ inputs.projectPath }} --test-packages=${{ matrix.testPackages }} --run-count=${{ env.RUN_COUNT }} --threshold=${{ inputs.runThreshold }} --race=${{ inputs.runWithRace }} --skip-tests=${{ env.SKIPPED_TESTS }} --output-json=test-result.json
+        run: flakeguard run --project-path=${{ inputs.projectPath }} --test-packages=${{ matrix.testPackages }} --run-count=${{ env.RUN_COUNT }} --threshold=${{ inputs.runThreshold }} --race=${{ env.RUN_WITH_RACE }} --skip-tests=${{ env.SKIPPED_TESTS }} --output-json=test-result.json
         env:
           CL_DATABASE_URL: ${{ env.DB_URL }}
 
@@ -386,7 +388,7 @@ jobs:
           echo "|-------------------------|------------|" >> $GITHUB_STEP_SUMMARY
           echo "| Flakiness Threshold     | ${threshold_percentage}%       |" >> $GITHUB_STEP_SUMMARY
           echo "| Test Run Count          | ${{ env.RUN_COUNT }}         |" >> $GITHUB_STEP_SUMMARY
-          echo "| Race Detection          | ${{ inputs.runWithRace }}      |" >> $GITHUB_STEP_SUMMARY
+          echo "| Race Detection          | ${{ env.RUN_WITH_RACE }}      |" >> $GITHUB_STEP_SUMMARY
           echo "| Excluded Tests          | ${{ env.SKIPPED_TESTS }}      |" >> $GITHUB_STEP_SUMMARY
           
       - name: Append No Tests Found Message to GitHub Summary
