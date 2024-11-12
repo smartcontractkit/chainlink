@@ -59,6 +59,9 @@ env:
   MAX_GROUP_SIZE: ${{ fromJson(inputs.extraArgs)['max_group_size'] || '8' }} # The maximum number of jobs to run in parallel when running tests.
   RUN_COUNT: ${{ fromJson(inputs.extraArgs)['run_count'] || '5' }} # The number of times to run the tests to detect flaky tests.
   RUN_WITH_RACE: ${{ fromJson(inputs.extraArgs)['run_with_race'] || 'true' }} # Whether to run tests with -race flag.
+  ALL_TESTS_RUN_COUNT: 5 # The number of times to run all tests to get the pass ratio.
+  ALL_TESTS_RUNNER: 'ubuntu22.04-32cores-128GB' # The runner to use for running all tests.
+  DEFAULT_RUNNER: 'ubuntu-latest' # The default runner to use for running tests.
 
 jobs:
   find-tests:
@@ -130,6 +133,14 @@ jobs:
         if: steps.find-tests.outputs.packages != ''
         shell: bash
         run: |
+          if [[ "${{ inputs.runAllTests }}" == "true" ]]; then
+            # Create 5 groups, each with "./..." to run all tests
+            json_groups=$(jq -nc '[ "./...", "./...", "./...", "./...", "./..." ]')
+            echo $json_groups
+            echo "matrix=$json_groups" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
           PACKAGES=(${{ steps.find-tests.outputs.packages }})
           DESIRED_GROUP_COUNT=$((${{ env.MAX_GROUP_SIZE }}))
           TOTAL_PACKAGES=${#PACKAGES[@]}
