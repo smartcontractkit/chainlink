@@ -45,11 +45,11 @@
         "nixpkgs": "nixpkgs_2"
       },
       "locked": {
-        "lastModified": 1726594821,
-        "narHash": "sha256-ORImH+i+zOCMOdztNDqGDbyyFRC/FKmgbX8w50TNbQY=",
+        "lastModified": 1730775176,
+        "narHash": "sha256-Eeo4NoqoW+/lTiy19l4ndM9StQ5WpgDdjwqeGX1w6eM=",
         "owner": "goreleaser",
         "repo": "nur",
-        "rev": "bd2ee272ddfffbda9377a472131728e83ce2332d",
+        "rev": "fd8a59e1d41f904bd0c12ba04192c8eb1f4cff0f",
         "type": "github"
       },
       "original": {
