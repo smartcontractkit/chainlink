@@ -440,6 +440,23 @@ jobs:
           echo "### All Tests Passed! :white_check_mark:" >> $GITHUB_STEP_SUMMARY
           echo "Ran \`${{ steps.set_test_results.outputs.all_tests_count }}\` tests in total and found no flakes." >> $GITHUB_STEP_SUMMARY
 
+      - name: Calculate Test Repeat Count
+        id: calculate_test_repeat_count
+        shell: bash
+        run: |
+          # Convert environment variables to integers
+          ALL_TESTS_RUNNER_COUNT=${{ env.ALL_TESTS_RUNNER_COUNT }}
+          TEST_REPEAT_COUNT=${{ env.TEST_REPEAT_COUNT }}
+
+          # If runAllTests input is true, multiply the number of runners by the test repeat count as each runner runs all tests
+          # Otherwise, use the test repeat count as each runner runs unique tests
+          if [[ "${{ inputs.runAllTests }}" == "true" ]]; then
+            test_repeat_count=$(( ALL_TESTS_RUNNER_COUNT * TEST_REPEAT_COUNT ))
+          else
+            test_repeat_count=$TEST_REPEAT_COUNT
+          fi
+          echo "test_repeat_count=$test_repeat_count" >> $GITHUB_OUTPUT
+
       - name: Append Additional Info to GitHub Summary
         if: ${{ fromJson(steps.set_test_results.outputs.all_tests_count) > 0 }}
         run: |
@@ -448,7 +465,7 @@ jobs:
           echo "| **Setting**             | **Value**  |" >> $GITHUB_STEP_SUMMARY
           echo "|-------------------------|------------|" >> $GITHUB_STEP_SUMMARY
           echo "| Flakiness Threshold     | ${threshold_percentage}%       |" >> $GITHUB_STEP_SUMMARY
-          echo "| Test Repeat Count       | ${{ env.TEST_REPEAT_COUNT }}   |" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Repeat Count       | ${{ steps.calculate_test_repeat_count.outputs.test_repeat_count }}   |" >> $GITHUB_STEP_SUMMARY
           echo "| Race Detection          | ${{ env.RUN_WITH_RACE }}      |" >> $GITHUB_STEP_SUMMARY
           echo "| Excluded Tests          | ${{ env.SKIPPED_TESTS }}      |" >> $GITHUB_STEP_SUMMARY
           
