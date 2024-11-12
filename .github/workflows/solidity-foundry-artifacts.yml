@@ -9,6 +9,7 @@ on:
         options:
           - "automation"
           - "ccip"
+          - "feeds"
           - "functions"
           - "keystone"
           - "l2ep"
