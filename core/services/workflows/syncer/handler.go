@@ -7,14 +7,15 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-type Handler interface {
-	// Handle processes the event.  Fails if the event type is not supported.
-	Handle(context.Context, WorkflowRegistryEvent) error
+type handler interface {
+	Handle(ctx context.Context, event WorkflowRegistryEvent) error
 }
 
 // eventHandler is a map of event types to their respective handlers that implements Handler.
 type eventHandler struct {
-	handlers map[WorkflowRegistryEventType]Handler
+	lggr    logger.Logger
+	orm     ORM
+	fetcher FetcherFunc
 }
 
 // newEventHandler returns a new eventHandler with a map of event types to their respective handlers.
@@ -24,44 +25,28 @@ func newEventHandler(
 	gateway FetcherFunc,
 ) *eventHandler {
 	return &eventHandler{
-		handlers: map[WorkflowRegistryEventType]Handler{
-			ForceUpdateSecretsEvent: newForceUpdateSecretsHandler(lggr, orm, gateway),
-		},
-	}
-}
-
-func (h *eventHandler) Handle(ctx context.Context, event WorkflowRegistryEvent) error {
-	handler, found := h.handlers[event.EventType]
-	if !found {
-		return fmt.Errorf("event type unsupported : %s", event.EventType)
-	}
-	return handler.Handle(ctx, event)
-}
-
-type forceUpdateSecretsHandler struct {
-	lggr    logger.Logger
-	orm     ORM
-	fetcher FetcherFunc
-}
-
-func newForceUpdateSecretsHandler(lggr logger.Logger, orm ORM, gateway FetcherFunc) *forceUpdateSecretsHandler {
-	return &forceUpdateSecretsHandler{
 		lggr:    lggr,
 		orm:     orm,
 		fetcher: gateway,
 	}
 }
 
+func (h *eventHandler) Handle(ctx context.Context, event WorkflowRegistryEvent) error {
+	switch event.EventType {
+	case ForceUpdateSecretsEvent:
+		return h.forceUpdateSecretsEvent(ctx, event)
+	default:
+		return fmt.Errorf("event type unsupported: %v", event.EventType)
+	}
+}
+
 // Handle processes the ForceUpdateSecretsEvent by fetching the secrets from the URL for a given event
 // and updating the local state.
-func (h *forceUpdateSecretsHandler) Handle(
+func (h *eventHandler) forceUpdateSecretsEvent(
 	ctx context.Context,
 	event WorkflowRegistryEvent,
 ) error {
-	if event.EventType != ForceUpdateSecretsEvent {
-		return fmt.Errorf("event type unsupported : %s", event.EventType)
-	}
-
+	// Get the URL of the secrets file from the event data
 	url, err := getSecretsURL(event)
 	if err != nil {
 		h.lggr.Errorf("failed to get URL hash", err)

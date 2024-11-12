@@ -24,11 +24,11 @@ func Test_Workflow_Registry_Syncer(t *testing.T) {
 		giveContents = "contents"
 		wantContents = "updated contents"
 		giveCfg      = ContractEventPollerConfig{
-			ContractName:      "MockContract",
+			ContractName:      ContractName,
 			ContractAddress:   "0xdeadbeef",
-			ContractEventName: "MockEvent",
+			ContractEventName: ContractEventName,
 			StartBlockNum:     0,
-			QueryCount:        1,
+			QueryCount:        20,
 		}
 		giveURL = "http://example.com"
 

@@ -2,7 +2,6 @@ package syncer
 
 import (
 	"context"
-	"encoding/base64"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -15,7 +14,7 @@ type ORM interface {
 	// GetContents returns the contents of the secret at the given plain URL.
 	GetContents(ctx context.Context, url string) (string, error)
 
-	// Update updates the contents of the secret at the given plain URL or inserts a new record if not found.
+	// Update updates the contents of the secrets at the given plain URL or inserts a new record if not found.
 	Update(ctx context.Context, secretsURL, contents string) (int64, error)
 
 	// SecretsFor returns a map of secrets for the given workflowOwner and workflowName.
@@ -40,28 +39,21 @@ func NewWorkflowRegistryDS(ds sqlutil.DataSource, lggr logger.Logger) *orm {
 
 func (orm *orm) GetSecretsURLByID(ctx context.Context, id int64) (string, error) {
 	var secretsURL string
-	if err := orm.ds.GetContext(ctx, &secretsURL,
+	err := orm.ds.GetContext(ctx, &secretsURL,
 		`SELECT secrets_url FROM workflow_secrets WHERE workflow_secrets.id = $1`,
 		id,
-	); err != nil {
-		return secretsURL, err
-	}
+	)
 
-	url, err := base64.StdEncoding.DecodeString(secretsURL)
-	if err != nil {
-		return secretsURL, err
-	}
-	return string(url), nil
+	return secretsURL, err
 }
 
 func (orm *orm) GetContents(ctx context.Context, url string) (string, error) {
-	encoded := base64.URLEncoding.EncodeToString([]byte(url))
 	var contents string
 	err := orm.ds.GetContext(ctx, &contents,
 		`SELECT contents 
          FROM workflow_secrets 
          WHERE secrets_url = $1`,
-		encoded,
+		url,
 	)
 
 	if err != nil {
@@ -71,9 +63,8 @@ func (orm *orm) GetContents(ctx context.Context, url string) (string, error) {
 	return contents, nil // Return the populated Artifact struct
 }
 
-// Update updates the contents of the secret at the given URL hash or inserts a new record if not found.
+// Update updates the secrets content at the given URL hash or inserts a new record if not found.
 func (orm *orm) Update(ctx context.Context, secretsURL, contents string) (int64, error) {
-	encoded := base64.URLEncoding.EncodeToString([]byte(secretsURL))
 	var id int64
 	err := orm.ds.QueryRowxContext(ctx,
 		`INSERT INTO workflow_secrets (secrets_url, contents)
@@ -81,7 +72,7 @@ func (orm *orm) Update(ctx context.Context, secretsURL, contents string) (int64,
          ON CONFLICT (secrets_url) DO UPDATE
          SET secrets_url = EXCLUDED.secrets_url, contents = EXCLUDED.contents
          RETURNING id`,
-		encoded, contents,
+		secretsURL, contents,
 	).Scan(&id)
 
 	if err != nil {

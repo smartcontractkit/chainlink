@@ -93,7 +93,7 @@ type workflowRegistry struct {
 	wg       sync.WaitGroup
 	ticker   <-chan struct{}
 	eventsCh chan WorkflowRegistryEventResponse
-	handler  Handler
+	handler  handler
 	cfg      ContractEventPollerConfig
 }
 
@@ -141,17 +141,21 @@ func NewWorkflowRegistry(
 // and one for handling the events.
 func (w *workflowRegistry) Start(_ context.Context) error {
 	return w.StartOnce(w.Name(), func() error {
-		ctx, _ := w.stopCh.NewCtx()
+		ctx, cancel := w.stopCh.NewCtx()
 
 		w.wg.Add(1)
 		go func() {
 			defer w.wg.Done()
+			defer cancel()
+
 			w.queryLoop(ctx, w.cfg)
 		}()
 
 		w.wg.Add(1)
 		go func() {
 			defer w.wg.Done()
+			defer cancel()
+
 			w.handlerLoop(ctx)
 		}()
 
@@ -195,6 +199,7 @@ func (w *workflowRegistry) handlerLoop(ctx context.Context) {
 			}
 
 			if resp.Err != nil || resp.Event == nil {
+				w.lggr.Errorf("failed to handle event: %+v", resp.Err)
 				continue
 			}
 
