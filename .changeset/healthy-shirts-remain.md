@@ -2,4 +2,4 @@
 "chainlink": minor
 ---
 
-Remove unused deprecated key interfaces.
+#removed Remove unused deprecated key interfaces.
