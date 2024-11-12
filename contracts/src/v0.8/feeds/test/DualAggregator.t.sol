@@ -120,20 +120,17 @@ contract DualAggregatorBaseTest is Test {
   int192 internal constant MAX_ANSWER = 100;
 
   LinkToken internal s_link;
-  LinkTokenInterface internal linkTokenInterface;
-
   DualAggregatorHarness internal s_aggregator;
 
   function setUp() public virtual {
     s_link = new LinkToken();
 
-    linkTokenInterface = LinkTokenInterface(address(s_link));
     AccessControllerInterface _billingAccessController = AccessControllerInterface(BILLING_ACCESS_CONTROLLER_ADDRESS);
     AccessControllerInterface _requesterAccessController =
       AccessControllerInterface(REQUESTER_ACCESS_CONTROLLER_ADDRESS);
 
     s_aggregator = new DualAggregatorHarness(
-      linkTokenInterface,
+      LinkTokenInterface(address(s_link)),
       MIN_ANSWER,
       MAX_ANSWER,
       _billingAccessController,
@@ -1826,7 +1823,7 @@ contract SetLinkToken is DualAggregatorBaseTest {
   function test_EmitsLinkTokenSet() public {
     deal(address(n_linkToken), address(s_aggregator), 1e5);
     vm.expectEmit();
-    emit LinkTokenSet(linkTokenInterface, newLinkToken);
+    emit LinkTokenSet(LinkTokenInterface(address(s_link)), newLinkToken);
 
     s_aggregator.setLinkToken(newLinkToken, address(43));
   }
@@ -1834,9 +1831,7 @@ contract SetLinkToken is DualAggregatorBaseTest {
 
 contract GetLinkToken is DualAggregatorBaseTest {
   function test_ReturnsLinkToken() public view {
-    assertEq(
-      address(s_aggregator.getLinkToken()), address(linkTokenInterface), "did not return the right link token interface"
-    );
+    assertEq(address(s_aggregator.getLinkToken()), address(s_link), "did not return the right link token interface");
   }
 }
 
