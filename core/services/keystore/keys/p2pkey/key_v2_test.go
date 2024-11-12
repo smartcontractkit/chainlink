@@ -4,8 +4,9 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/hex"
-	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"testing"
+
+	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
