@@ -192,18 +192,20 @@ func (m *AddressBookMap) Remove(ab AddressBook) error {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
 
-	addressNotFound := true
+	// State of m.AddressesByChain storage must not be changed in case of an error
+	// need to do double iteration over the address book. First validation, second actual deletion
 	for chainSelector, chainAddresses := range addresses {
 		for address, _ := range chainAddresses {
-			if _, exists := m.AddressesByChain[chainSelector][address]; exists {
-				addressNotFound = false
-				delete(m.AddressesByChain[chainSelector], address)
+			if _, exists := m.AddressesByChain[chainSelector][address]; !exists {
+				return errors.New("AddressBookMap does not contain address from the given address book")
 			}
 		}
 	}
 
-	if addressNotFound {
-		return errors.New("AddressBookMap does not contain any address from the given address book")
+	for chainSelector, chainAddresses := range addresses {
+		for address, _ := range chainAddresses {
+			delete(m.AddressesByChain[chainSelector], address)
+		}
 	}
 
 	return nil

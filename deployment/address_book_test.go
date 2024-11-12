@@ -139,29 +139,37 @@ func TestAddressBook_Remove(t *testing.T) {
 		},
 	})
 
-	testAB := NewMemoryAddressBookFromMap(map[uint64]map[string]TypeAndVersion{
+	copyOfBaseAB := NewMemoryAddressBookFromMap(baseAB.cloneAddresses(baseAB.AddressesByChain))
+
+	// this address book shouldn't be removed (state of baseAB not changed, error thrown)
+	failAB := NewMemoryAddressBookFromMap(map[uint64]map[string]TypeAndVersion{
 		chainsel.TEST_90000001.Selector: {
-			addr1: onRamp100, // should be removed
+			addr1: onRamp100,
 			addr3: onRamp100, // doesn't exist in TEST_90000001.Selector
+		},
+	})
+	require.Error(t, baseAB.Remove(failAB))
+	require.EqualValues(t, baseAB, copyOfBaseAB)
+
+	// this Address book should be removed without error
+	successAB := NewMemoryAddressBookFromMap(map[uint64]map[string]TypeAndVersion{
+		chainsel.TEST_90000002.Selector: {
+			addr3: onRamp100,
+		},
+		chainsel.TEST_90000001.Selector: {
+			addr2: onRamp100,
 		},
 	})
 
 	expectingAB := NewMemoryAddressBookFromMap(map[uint64]map[string]TypeAndVersion{
 		chainsel.TEST_90000001.Selector: {
-			addr2: onRamp100,
+			addr1: onRamp100,
 		},
 		chainsel.TEST_90000002.Selector: {
-			addr1: onRamp110,
-			addr3: onRamp110,
-		},
+			addr1: onRamp110},
 	})
 
-	// first attempt,
-	require.NoError(t, baseAB.Remove(testAB))
-	require.EqualValues(t, baseAB, expectingAB)
-
-	// Remove method should error in case no address was matched with the given address book.
-	require.Error(t, baseAB.Remove(testAB))
+	require.NoError(t, baseAB.Remove(successAB))
 	require.EqualValues(t, baseAB, expectingAB)
 }
 
