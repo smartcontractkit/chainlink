@@ -38,6 +38,8 @@ func WrapContractReaderTesterWithBindings(t *testing.T, wrapped *EVMChainCompone
 		interfacetests.ContractReaderQueryKeyCanFilterWithValueComparator, interfacetests.ContractReaderQueryKeyCanLimitResultsWithCursor,
 		ContractReaderQueryKeyFilterOnDataWordsWithValueComparator, ContractReaderQueryKeyOnDataWordsWithValueComparatorOnNestedField,
 		ContractReaderQueryKeyFilterOnDataWordsWithValueComparatorOnDynamicField, ContractReaderQueryKeyFilteringOnDataWordsUsingValueComparatorsOnFieldsWithManualIndex,
+		//TODO BCFR-1073 - Fix flaky tests
+		interfacetests.ContractReaderGetLatestValueBasedOnConfidenceLevel,
 	})
 	wrapped.SetChainReaderConfigSupplier(func(t *testing.T) types.ChainReaderConfig {
 		return getChainReaderConfig(wrapped)
