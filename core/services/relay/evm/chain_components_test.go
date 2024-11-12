@@ -206,7 +206,6 @@ func TestContractReaderEventsInitValidation(t *testing.T) {
 	}
 }
 
-//go:generate evm-chain-bindings -contracts contracts/src/v0.8/shared/test/helpers -output core/services/relay/evm/bindings
 func TestChainComponents(t *testing.T) {
 	t.Parallel()
 	it := &EVMChainComponentsInterfaceTester[*testing.T]{Helper: &helper{}}
