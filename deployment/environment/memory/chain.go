@@ -68,7 +68,7 @@ func GenerateChains(t *testing.T, numChains int) map[uint64]EVMChain {
 		// there have to be enough initial funds on each chain to allocate for all the nodes that share the given chain in the test
 		backend := backends.NewSimulatedBackend(core.GenesisAlloc{
 			owner.From: {Balance: big.NewInt(0).Mul(big.NewInt(7000), big.NewInt(params.Ether))}}, 50000000)
-		tweakChainTimestamp(t, backend, time.Hour*8)
+		tweakChainTimestamp(t, backend, time.Hour*1)
 		chains[chainID] = EVMChain{
 			Backend:     backend,
 			DeployerKey: owner,

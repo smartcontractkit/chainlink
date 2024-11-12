@@ -6,6 +6,7 @@ go 1.22.8
 replace github.com/smartcontractkit/chainlink/v2 => ../
 
 require (
+	cosmossdk.io/errors v1.0.1
 	github.com/AlekSi/pointer v1.1.0
 	github.com/Khan/genqlient v0.7.0
 	github.com/Masterminds/semver/v3 v3.3.0
@@ -23,7 +24,7 @@ require (
 	github.com/sethvargo/go-retry v0.2.4
 	github.com/smartcontractkit/ccip-owner-contracts v0.0.0-20240926212305-a6deabdfce86
 	github.com/smartcontractkit/chain-selectors v1.0.27
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241106140121-4c9ee21ab422
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241112113037-79a7af184331
 	github.com/smartcontractkit/chainlink-common v0.3.1-0.20241108204352-914b88b62cf2
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.4.0
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.13
@@ -47,7 +48,6 @@ require (
 	cosmossdk.io/api v0.3.1 // indirect
 	cosmossdk.io/core v0.5.1 // indirect
 	cosmossdk.io/depinject v1.0.0-alpha.4 // indirect
-	cosmossdk.io/errors v1.0.1 // indirect
 	cosmossdk.io/math v1.3.0 // indirect
 	dario.cat/mergo v1.0.1 // indirect
 	filippo.io/edwards25519 v1.1.0 // indirect

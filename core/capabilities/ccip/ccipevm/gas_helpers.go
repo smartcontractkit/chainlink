@@ -27,6 +27,7 @@ const (
 	ExecutionStateProcessingOverheadGas = 2_100 + // COLD_SLOAD_COST for first reading the state
 		20_000 + // SSTORE_SET_GAS for writing from 0 (untouched) to non-zero (in-progress)
 		100 //# SLOAD_GAS = WARM_STORAGE_READ_COST for rewriting from non-zero (in-progress) to non-zero (success/failure)
+	DestGasOverhead = 110_000 + 110_000 + 130_000 // 110K for commit, 110K for RMN, 130K for Exec
 )
 
 func NewGasEstimateProvider() EstimateProvider {
@@ -61,8 +62,6 @@ func (gp EstimateProvider) CalculateMessageMaxGas(msg cciptypes.Message) uint64 
 }
 
 // CalculateMessageMaxGasWithError computes the maximum gas overhead for a message.
-// TODO: Add destGasOverhead, see:
-// https://github.com/smartcontractkit/chainlink/blob/23452266132228234312947660374fb393e96f1a/contracts/src/v0.8/ccip/FeeQuoter.sol#L97
 func (gp EstimateProvider) CalculateMessageMaxGasWithError(msg cciptypes.Message) (uint64, error) {
 	numTokens := len(msg.TokenAmounts)
 	var data []byte = msg.Data
@@ -98,7 +97,8 @@ func (gp EstimateProvider) CalculateMessageMaxGasWithError(msg cciptypes.Message
 		adminRegistryOverhead = TokenAdminRegistryWarmupCost
 	}
 
-	return messageGasLimit.Uint64() +
+	return DestGasOverhead +
+		messageGasLimit.Uint64() +
 		messageCallDataGas +
 		ExecutionStateProcessingOverheadGas +
 		SupportsInterfaceCheck +

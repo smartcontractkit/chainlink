@@ -25,6 +25,7 @@ func ConfirmGasPriceUpdatedForAll(
 	e deployment.Environment,
 	state CCIPOnChainState,
 	startBlocks map[uint64]*uint64,
+	gasPrice *big.Int,
 ) {
 	var wg errgroup.Group
 	for src, srcChain := range e.Chains {
@@ -44,6 +45,7 @@ func ConfirmGasPriceUpdatedForAll(
 					dstChain,
 					state.Chains[srcChain.Selector].FeeQuoter,
 					*startBlock,
+					gasPrice,
 				)
 			})
 		}
@@ -56,6 +58,7 @@ func ConfirmGasPriceUpdated(
 	dest deployment.Chain,
 	srcFeeQuoter *fee_quoter.FeeQuoter,
 	startBlock uint64,
+	gasPrice *big.Int,
 ) error {
 	it, err := srcFeeQuoter.FilterUsdPerUnitGasUpdated(&bind.FilterOpts{
 		Context: context.Background(),
@@ -65,7 +68,7 @@ func ConfirmGasPriceUpdated(
 	require.NoError(t, err)
 	require.Truef(t, it.Next(), "No gas price update event found on chain %d, fee quoter %s",
 		dest.Selector, srcFeeQuoter.Address().String())
-	require.NotEqualf(t, InitialGasPrice, it.Event.Value, "Gas price not updated on chain %d, fee quoter %s",
+	require.NotEqualf(t, gasPrice, it.Event.Value, "Gas price not updated on chain %d, fee quoter %s",
 		dest.Selector, srcFeeQuoter.Address().String())
 	return nil
 }
@@ -75,6 +78,8 @@ func ConfirmTokenPriceUpdatedForAll(
 	e deployment.Environment,
 	state CCIPOnChainState,
 	startBlocks map[uint64]*uint64,
+	linkPrice *big.Int,
+	wethPrice *big.Int,
 ) {
 	var wg errgroup.Group
 	for _, chain := range e.Chains {
@@ -87,8 +92,8 @@ func ConfirmTokenPriceUpdatedForAll(
 			linkAddress := state.Chains[chain.Selector].LinkToken.Address()
 			wethAddress := state.Chains[chain.Selector].Weth9.Address()
 			tokenToPrice := make(map[common.Address]*big.Int)
-			tokenToPrice[linkAddress] = InitialLinkPrice
-			tokenToPrice[wethAddress] = InitialWethPrice
+			tokenToPrice[linkAddress] = linkPrice
+			tokenToPrice[wethAddress] = wethPrice
 			return ConfirmTokenPriceUpdated(
 				t,
 				chain,
