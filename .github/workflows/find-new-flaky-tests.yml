@@ -311,6 +311,10 @@ jobs:
             cd test_results
             ls -R .
 
+            # Fix flakeguard binary path
+            PATH=$PATH:$(go env GOPATH)/bin
+            export PATH
+
             # Use flakeguard aggregate-all to aggregate test results
             flakeguard aggregate-all --results-path . --output-json ../all_tests.json            
 
