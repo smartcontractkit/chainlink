@@ -3,7 +3,6 @@ package headtracker_test
 import (
 	"math/big"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
@@ -87,11 +86,11 @@ func TestHeads_AddHeads(t *testing.T) {
 	var parentHash common.Hash
 	for i := 1; i < 6; i++ {
 		hash := common.BigToHash(big.NewInt(int64(i)))
-		h := evmtypes.NewHead(big.NewInt(int64(i)), hash, parentHash, uint64(time.Now().Unix()), ubig.NewI(0))
+		h := evmtypes.NewHead(big.NewInt(int64(i)), hash, parentHash, ubig.NewI(0))
 		testHeads = append(testHeads, &h)
 		if i == 3 {
 			// uncled block
-			h := evmtypes.NewHead(big.NewInt(int64(i)), uncleHash, parentHash, uint64(time.Now().Unix()), ubig.NewI(0))
+			h := evmtypes.NewHead(big.NewInt(int64(i)), uncleHash, parentHash, ubig.NewI(0))
 			testHeads = append(testHeads, &h)
 		}
 		parentHash = hash
@@ -143,7 +142,7 @@ func TestHeads_MarkFinalized(t *testing.T) {
 	//    H1Uncle       H2Uncle
 	//
 	newHead := func(num int, parent common.Hash) *evmtypes.Head {
-		h := evmtypes.NewHead(big.NewInt(int64(num)), utils.NewHash(), parent, uint64(time.Now().Unix()), ubig.NewI(0))
+		h := evmtypes.NewHead(big.NewInt(int64(num)), utils.NewHash(), parent, ubig.NewI(0))
 		return &h
 	}
 	h0 := newHead(0, utils.NewHash())

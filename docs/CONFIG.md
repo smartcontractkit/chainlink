@@ -5261,8 +5261,8 @@ Enabled = true
 
 [GasEstimator]
 Mode = 'FixedPrice'
-PriceDefault = '20 gwei'
-PriceMax = '100 micro'
+PriceDefault = '1 gwei'
+PriceMax = '1 gwei'
 PriceMin = '0'
 LimitDefault = 500000
 LimitMax = 500000
@@ -5273,8 +5273,8 @@ BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 0
 EIP1559DynamicFees = false
-FeeCapDefault = '100 micro'
-TipCapDefault = '1 wei'
+FeeCapDefault = '1 gwei'
+TipCapDefault = '1 mwei'
 TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
