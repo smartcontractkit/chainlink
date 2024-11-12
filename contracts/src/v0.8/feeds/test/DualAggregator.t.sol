@@ -196,10 +196,21 @@ contract ConfiguredDualAggregatorBaseTest is DualAggregatorBaseTest {
 
 contract Constructor is DualAggregatorBaseTest {
   function test_constructor() public view {
-    // TODO: add more checks here if we want
     assertEq(s_aggregator.i_minAnswer(), MIN_ANSWER, "minAnswer not set correctly");
     assertEq(s_aggregator.i_maxAnswer(), MAX_ANSWER, "maxAnswer not set correctly");
     assertEq(s_aggregator.decimals(), 18, "decimals not set correctly");
+    assertEq(s_aggregator.description(), "TEST", "description not set correctly");
+    assertEq(
+      address(s_aggregator.getBillingAccessController()),
+      BILLING_ACCESS_CONTROLLER_ADDRESS,
+      "billing access controller not set correctly"
+    );
+    assertEq(
+      address(s_aggregator.getRequesterAccessController()),
+      REQUESTER_ACCESS_CONTROLLER_ADDRESS,
+      "requester access controller not set correctly"
+    );
+    assertEq(address(s_aggregator.getLinkToken()), address(s_link), "link token not set correctly");
   }
 }
 
@@ -315,7 +326,7 @@ contract SetConfig is DualAggregatorBaseTest {
     s_aggregator.setConfig(signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig);
   }
 
-  function test_HappyPath() public {
+  function test_SetsTheConfigAndEmitsEvent() public {
     address[] memory signers = new address[](MAX_NUM_ORACLES);
     address[] memory transmitters = new address[](MAX_NUM_ORACLES);
     uint8 f = 1;
@@ -328,51 +339,103 @@ contract SetConfig is DualAggregatorBaseTest {
       transmitters[i] = vm.addr(uint160(2000 + i));
     }
 
+    bytes32 configDigest = s_aggregator.exposed_configDigestFromConfigData(
+      block.chainid,
+      address(s_aggregator),
+      1,
+      signers,
+      transmitters,
+      f,
+      onchainConfig,
+      offchainConfigVersion,
+      offchainConfig
+    );
+
+    vm.expectEmit();
+    emit ConfigSet(0, configDigest, 1, signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig);
     s_aggregator.setConfig(signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig);
 
-    assertEq(true, true, "the setConfig transaction rolled back");
+    (uint32 configCount, uint32 blockNumber, bytes32 digest) = s_aggregator.latestConfigDetails();
+
+    assertEq(configCount, 1, "config count not incremented");
+    assertEq(blockNumber, block.number, "block number is wrong");
+    assertEq(digest, configDigest, "configDigest is not correct");
   }
-}
 
-contract LatestConfigDetails is DualAggregatorBaseTest {
-  address[] internal signers = new address[](MAX_NUM_ORACLES);
-  address[] internal transmitters = new address[](MAX_NUM_ORACLES);
-  uint8 internal f = 1;
-  bytes internal onchainConfig = abi.encodePacked(uint8(1), MIN_ANSWER, MAX_ANSWER);
-  uint64 internal offchainConfigVersion = 1;
-  bytes internal offchainConfig = "1";
-
-  function setUp() public override {
-    super.setUp();
+  function test_ShouldBeAbleToRemoveSigners() public {
+    address[] memory signers = new address[](MAX_NUM_ORACLES);
+    address[] memory transmitters = new address[](MAX_NUM_ORACLES);
+    uint8 f = 1;
+    bytes memory onchainConfig = abi.encodePacked(uint8(1), MIN_ANSWER, MAX_ANSWER);
+    uint64 offchainConfigVersion = 1;
+    bytes memory offchainConfig = "1";
 
     for (uint256 i = 0; i < MAX_NUM_ORACLES; i++) {
       signers[i] = vm.addr(uint160(1000 + i));
       transmitters[i] = vm.addr(uint160(2000 + i));
     }
 
-    s_aggregator.setConfig(signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig);
-  }
+    bytes32 configDigest = s_aggregator.exposed_configDigestFromConfigData(
+      block.chainid,
+      address(s_aggregator),
+      1,
+      signers,
+      transmitters,
+      f,
+      onchainConfig,
+      offchainConfigVersion,
+      offchainConfig
+    );
 
+    uint32 blockNumber = uint32(block.number);
+
+    vm.expectEmit();
+    emit ConfigSet(0, configDigest, 1, signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig);
+    s_aggregator.setConfig(signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig);
+
+    // remove half the signers
+    address[] memory newSigners = new address[](MAX_NUM_ORACLES / 2);
+    address[] memory newTransmitters = new address[](MAX_NUM_ORACLES / 2);
+    for (uint256 i = 0; i < MAX_NUM_ORACLES / 2; i++) {
+      newSigners[i] = signers[i];
+      newTransmitters[i] = transmitters[i];
+    }
+
+    bytes32 newConfigDigest = s_aggregator.exposed_configDigestFromConfigData(
+      block.chainid,
+      address(s_aggregator),
+      2,
+      newSigners,
+      newTransmitters,
+      f,
+      onchainConfig,
+      offchainConfigVersion,
+      offchainConfig
+    );
+
+    vm.expectEmit();
+    emit ConfigSet(
+      blockNumber,
+      newConfigDigest,
+      2,
+      newSigners,
+      newTransmitters,
+      f,
+      onchainConfig,
+      offchainConfigVersion,
+      offchainConfig
+    );
+    s_aggregator.setConfig(newSigners, newTransmitters, f, onchainConfig, offchainConfigVersion, offchainConfig);
+  }
+}
+
+contract LatestConfigDetails is ConfiguredDualAggregatorBaseTest {
   function test_ReturnsConfigDetails() public view {
     (uint32 configCount, uint32 blockNumber, bytes32 configDigest) = s_aggregator.latestConfigDetails();
 
     assertEq(configCount, 1, "config count not incremented");
     assertEq(blockNumber, block.number, "block number is wrong");
-    assertEq(
-      configDigest,
-      s_aggregator.exposed_configDigestFromConfigData(
-        block.chainid,
-        address(s_aggregator),
-        configCount,
-        signers,
-        transmitters,
-        f,
-        onchainConfig,
-        offchainConfigVersion,
-        offchainConfig
-      ),
-      "configDigest is not correct"
-    );
+    assertEq(configDigest, s_configDigest, "configDigest is not correct");
   }
 }
 
@@ -390,10 +453,10 @@ contract SetValidatorConfig is DualAggregatorBaseTest {
     uint32 currentGasLimit
   );
 
-  AggregatorValidatorInterface internal oldValidator = AggregatorValidatorInterface(address(0x0));
-  AggregatorValidatorInterface internal newValidator = AggregatorValidatorInterface(address(42));
-
   function test_EmitsValidatorConfigSet() public {
+    AggregatorValidatorInterface oldValidator = AggregatorValidatorInterface(address(0x0));
+    AggregatorValidatorInterface newValidator = AggregatorValidatorInterface(address(42));
+
     vm.expectEmit();
     emit ValidatorConfigSet(oldValidator, 0, newValidator, 1);
 
@@ -402,16 +465,11 @@ contract SetValidatorConfig is DualAggregatorBaseTest {
 }
 
 contract GetValidatorConfig is DualAggregatorBaseTest {
-  AggregatorValidatorInterface internal newValidator = AggregatorValidatorInterface(address(42));
-  uint32 internal newGasLimit = 1;
-
-  function setUp() public override {
-    super.setUp();
+  function test_ReturnsValidatorConfig() public {
+    AggregatorValidatorInterface newValidator = AggregatorValidatorInterface(address(42));
+    uint32 newGasLimit = 1;
 
     s_aggregator.setValidatorConfig(newValidator, newGasLimit);
-  }
-
-  function test_ReturnsValidatorConfig() public view {
     (AggregatorValidatorInterface returnedValidator, uint32 returnedGasLimit) = s_aggregator.getValidatorConfig();
     assertEq(address(returnedValidator), address(newValidator), "did not return the right validator");
     assertEq(returnedGasLimit, newGasLimit, "did not return the right gas limit");
@@ -421,11 +479,11 @@ contract GetValidatorConfig is DualAggregatorBaseTest {
 contract SetRequesterAccessController is DualAggregatorBaseTest {
   event RequesterAccessControllerSet(AccessControllerInterface old, AccessControllerInterface current);
 
-  AccessControllerInterface internal oldAccessControllerInterface =
-    AccessControllerInterface(REQUESTER_ACCESS_CONTROLLER_ADDRESS);
-  AccessControllerInterface internal newAccessControllerInterface = AccessControllerInterface(address(42));
-
   function test_EmitsRequesterAccessControllerSet() public {
+    AccessControllerInterface oldAccessControllerInterface =
+      AccessControllerInterface(REQUESTER_ACCESS_CONTROLLER_ADDRESS);
+    AccessControllerInterface newAccessControllerInterface = AccessControllerInterface(address(42));
+
     vm.expectEmit();
     emit RequesterAccessControllerSet(oldAccessControllerInterface, newAccessControllerInterface);
 
@@ -434,15 +492,10 @@ contract SetRequesterAccessController is DualAggregatorBaseTest {
 }
 
 contract GetRequesterAccessController is DualAggregatorBaseTest {
-  AccessControllerInterface internal newAccessControllerInterface = AccessControllerInterface(address(42));
-
-  function setUp() public override {
-    super.setUp();
-
+  function test_ReturnsRequesterAccessController() public {
+    AccessControllerInterface newAccessControllerInterface = AccessControllerInterface(address(42));
     s_aggregator.setRequesterAccessController(newAccessControllerInterface);
-  }
 
-  function test_ReturnsRequesterAccessController() public view {
     assertEq(
       address(s_aggregator.getRequesterAccessController()),
       address(newAccessControllerInterface),
@@ -1311,11 +1364,6 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
 }
 
 contract TransmittedDualAggregatorBaseTest is ConfiguredDualAggregatorBaseTest {
-  bytes32[] internal rs;
-  bytes32[] internal ss;
-  uint32 internal epoch = 0;
-  uint32 internal round = 0;
-
   function setUp() public override {
     super.setUp();
 
@@ -1399,10 +1447,6 @@ contract RoundDataDualAggregatorBaseTest is ConfiguredDualAggregatorBaseTest {
 
 // latestAnswer(): test all paths
 contract LatestAnswer is RoundDataDualAggregatorBaseTest {
-  function setUp() public override {
-    super.setUp();
-  }
-
   // test return the latest primary answer
   function test_ReturnsLatestPrimaryAnswer() public {
     setDualAggregatorBase(30, 20, 6, 6, false);
@@ -1441,10 +1485,6 @@ contract LatestAnswer is RoundDataDualAggregatorBaseTest {
 
 // latestTimestamp(): test all paths
 contract LatestTimestamp is RoundDataDualAggregatorBaseTest {
-  function setUp() public override {
-    super.setUp();
-  }
-
   // test return the latest primary timestamp
   function test_ReturnsLatestPrimaryTimestamp() public {
     setDualAggregatorBase(30, 20, 6, 6, false);
@@ -1483,10 +1523,6 @@ contract LatestTimestamp is RoundDataDualAggregatorBaseTest {
 
 // latestRound(): test all the paths
 contract LatestRound is RoundDataDualAggregatorBaseTest {
-  function setUp() public override {
-    super.setUp();
-  }
-
   // test return the latest primary round id
   function test_ReturnsLatestPrimaryRoundId() public {
     setDualAggregatorBase(30, 20, 6, 6, false);
@@ -1525,10 +1561,6 @@ contract LatestRound is RoundDataDualAggregatorBaseTest {
 
 // getAnswer(): test all paths
 contract GetAnswer is RoundDataDualAggregatorBaseTest {
-  function setUp() public override {
-    super.setUp();
-  }
-
   // test return primary answer
   function test_ReturnsPrimaryGetAnswer() public {
     setDualAggregatorBase(30, 0, 6, 6, false);
@@ -1576,10 +1608,6 @@ contract GetAnswer is RoundDataDualAggregatorBaseTest {
 
 // getTimestamp(): test all paths
 contract GetTimestamp is RoundDataDualAggregatorBaseTest {
-  function setUp() public override {
-    super.setUp();
-  }
-
   // test return primary timestamp
   function test_ReturnsPrimaryGetTimestamp() public {
     setDualAggregatorBase(30, 0, 6, 6, false);
@@ -1633,10 +1661,6 @@ contract Description is TransmittedDualAggregatorBaseTest {
 
 // getRoundData(): test all paths
 contract GetRoundData is RoundDataDualAggregatorBaseTest {
-  function setUp() public override {
-    super.setUp();
-  }
-
   // test return primary round data
   function test_ReturnsPrimaryGetRoundData() public {
     setDualAggregatorBase(30, 0, 6, 6, false);
@@ -1726,10 +1750,6 @@ contract GetRoundData is RoundDataDualAggregatorBaseTest {
 
 // latestRoundData(): test all paths
 contract LatestRoundData is RoundDataDualAggregatorBaseTest {
-  function setUp() public override {
-    super.setUp();
-  }
-
   // test return the latest primary round data
   function test_ReturnsLatestPrimaryRoundData() public {
     setDualAggregatorBase(30, 20, 6, 6, false);
@@ -2106,10 +2126,6 @@ contract TypeAndVersion is DualAggregatorBaseTest {
 
 // _getSyncPrimaryRound(): test all the paths
 contract GetSyncPrimaryRound is RoundDataDualAggregatorBaseTest {
-  function setUp() public override {
-    super.setUp();
-  }
-
   // test with 0 reports transmitted
   function test_zeroTransmissions() public view {
     assertEq(s_aggregator.exposed_getSyncPrimaryRound(), 0);
