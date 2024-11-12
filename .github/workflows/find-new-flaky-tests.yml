@@ -60,7 +60,7 @@ env:
   ALL_TESTS_RUNNER_COUNT: ${{ fromJson(inputs.extraArgs)['all_tests_runner_count'] || '2' }} # The number of GitHub runners to use when running all tests `runAllTests=true`.
   TEST_REPEAT_COUNT: ${{ fromJson(inputs.extraArgs)['test_repeat_count'] || '5' }} # The number of times each runner should run a test to detect flaky tests.
   RUN_WITH_RACE: ${{ fromJson(inputs.extraArgs)['run_with_race'] || 'true' }} # Whether to run tests with -race flag.
-  ALL_TESTS_RUNNER: 'ubuntu-latest' # The runner to use for running all tests. #TODO: change
+  ALL_TESTS_RUNNER: ${{ fromJson(inputs.extraArgs)['all_tests_runner'] || 'ubuntu-latest' }} # The runner to use for running all tests. #TODO: change
   # ALL_TESTS_RUNNER: 'ubuntu22.04-32cores-128GB' # The runner to use for running all tests. #TODO: change
   DEFAULT_RUNNER: 'ubuntu-latest' # The default runner to use for running tests.
 
