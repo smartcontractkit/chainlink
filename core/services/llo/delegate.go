@@ -57,6 +57,7 @@ type DelegateConfig struct {
 	RetirementReportCodec  datastreamsllo.RetirementReportCodec
 	ShouldRetireCache      datastreamsllo.ShouldRetireCache
 	EAMonitoringEndpoint   ocrcommontypes.MonitoringEndpoint
+	DonID                  uint32
 
 	// OCR3
 	TraceLogging                 bool
@@ -94,7 +95,7 @@ func NewDelegate(cfg DelegateConfig) (job.ServiceCtx, error) {
 
 	var t TelemeterService
 	if cfg.CaptureEATelemetry {
-		t = NewTelemeterService(lggr, cfg.EAMonitoringEndpoint)
+		t = NewTelemeterService(lggr, cfg.EAMonitoringEndpoint, cfg.DonID)
 	} else {
 		t = NullTelemeter
 	}
