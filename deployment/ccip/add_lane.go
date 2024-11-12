@@ -20,12 +20,14 @@ type InitialPrices struct {
 	GasPrice  *big.Int // uint224 packed gas price in USD (112 for exec // 112 for da)
 }
 
+var DefaultInitialPrices = InitialPrices{
+	LinkPrice: deployment.E18Mult(20),
+	WethPrice: deployment.E18Mult(4000),
+	GasPrice:  big.NewInt(2e12),
+}
+
 func AddLaneWithDefaultPrices(e deployment.Environment, state CCIPOnChainState, from, to uint64) error {
-	return AddLane(e, state, from, to, InitialPrices{
-		LinkPrice: deployment.E18Mult(20),
-		WethPrice: deployment.E18Mult(4000),
-		GasPrice:  big.NewInt(2e12),
-	})
+	return AddLane(e, state, from, to, DefaultInitialPrices)
 }
 
 func AddLane(e deployment.Environment, state CCIPOnChainState, from, to uint64, initialPrices InitialPrices) error {

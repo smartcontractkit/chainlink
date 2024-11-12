@@ -28,7 +28,7 @@ func TestActiveCandidate(t *testing.T) {
 
 	lggr := logger.TestLogger(t)
 	ctx := ccdeploy.Context(t)
-	tenv := ccdeploy.NewMemoryEnvironment(t, lggr, 3, 5)
+	tenv := ccdeploy.NewMemoryEnvironment(t, lggr, 3, 5, ccdeploy.MockLinkPrice, ccdeploy.MockWethPrice)
 	e := tenv.Env
 
 	state, err := ccdeploy.LoadOnchainState(tenv.Env)

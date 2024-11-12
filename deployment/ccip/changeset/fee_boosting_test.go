@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 	"testing"
-	"time"
 
 	"cosmossdk.io/errors"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -159,14 +158,6 @@ func Test_FeeBoosting(t *testing.T) {
 func toPackedFee(execFee, daFee *big.Int) *big.Int {
 	daShifted := new(big.Int).Lsh(daFee, 112)
 	return new(big.Int).Or(daShifted, execFee)
-}
-
-func sleepAndReplay(t *testing.T, e ccipdeployment.DeployedEnv, sourceChain, destChain uint64) {
-	time.Sleep(30 * time.Second)
-	replayBlocks := make(map[uint64]uint64)
-	replayBlocks[sourceChain] = 1
-	replayBlocks[destChain] = 1
-	ccipdeployment.ReplayLogs(t, e.Env.Offchain, replayBlocks)
 }
 
 func startGasPriceTicker(state ccipdeployment.CCIPOnChainState, src uint64, dest uint64) {

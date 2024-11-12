@@ -118,6 +118,8 @@ func DeployTestContracts(t *testing.T,
 	homeChainSel,
 	feedChainSel uint64,
 	chains map[uint64]deployment.Chain,
+	linkPrice *big.Int,
+	wethPrice *big.Int,
 ) deployment.CapabilityRegistryConfig {
 	capReg, err := DeployCapReg(lggr,
 		// deploying cap reg for the first time on a blank chain state
@@ -125,7 +127,7 @@ func DeployTestContracts(t *testing.T,
 			Chains: make(map[uint64]CCIPChainState),
 		}, ab, chains[homeChainSel])
 	require.NoError(t, err)
-	_, err = DeployFeeds(lggr, ab, chains[feedChainSel])
+	_, err = DeployFeeds(lggr, ab, chains[feedChainSel], linkPrice, wethPrice)
 	require.NoError(t, err)
 	err = DeployFeeTokensToChains(lggr, ab, chains)
 	require.NoError(t, err)
@@ -166,7 +168,13 @@ func allocateCCIPChainSelectors(chains map[uint64]deployment.Chain) (homeChainSe
 
 // NewMemoryEnvironment creates a new CCIP environment
 // with capreg, fee tokens, feeds and nodes set up.
-func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, numChains int, numNodes int) DeployedEnv {
+func NewMemoryEnvironment(
+	t *testing.T,
+	lggr logger.Logger,
+	numChains int,
+	numNodes int,
+	linkPrice *big.Int,
+	wethPrice *big.Int) DeployedEnv {
 	require.GreaterOrEqual(t, numChains, 2, "numChains must be at least 2 for home and feed chains")
 	require.GreaterOrEqual(t, numNodes, 4, "numNodes must be at least 4")
 	ctx := testcontext.Get(t)
@@ -176,7 +184,7 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, numChains int, numNo
 	require.NoError(t, err)
 
 	ab := deployment.NewMemoryAddressBook()
-	crConfig := DeployTestContracts(t, lggr, ab, homeChainSel, feedSel, chains)
+	crConfig := DeployTestContracts(t, lggr, ab, homeChainSel, feedSel, chains, linkPrice, wethPrice)
 	nodes := memory.NewNodes(t, zapcore.InfoLevel, evmChains, numNodes, 1, crConfig)
 	for _, node := range nodes {
 		require.NoError(t, node.App.Start(ctx))
@@ -209,7 +217,19 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, numChains int, numNo
 // NewMemoryEnvironmentWithJobs creates a new CCIP environment
 // with capreg, fee tokens, feeds, nodes and jobs set up.
 func NewMemoryEnvironmentWithJobs(t *testing.T, lggr logger.Logger, numChains int, numNodes int) DeployedEnv {
-	e := NewMemoryEnvironment(t, lggr, numChains, numNodes)
+	e := NewMemoryEnvironment(t, lggr, numChains, numNodes, MockLinkPrice, MockWethPrice)
+	e.SetupJobs(t)
+	return e
+}
+
+func NewMemoryEnvironmentWithJobsAndPrices(
+	t *testing.T,
+	lggr logger.Logger,
+	numChains int,
+	numNodes int,
+	linkPrice *big.Int,
+	wethPrice *big.Int) DeployedEnv {
+	e := NewMemoryEnvironment(t, lggr, numChains, numNodes, linkPrice, wethPrice)
 	e.SetupJobs(t)
 	return e
 }
@@ -317,7 +337,7 @@ func AddLanesForAll(e deployment.Environment, state CCIPOnChainState) error {
 	for source := range e.Chains {
 		for dest := range e.Chains {
 			if source != dest {
-				err := AddLane(e, state, source, dest)
+				err := AddLaneWithDefaultPrices(e, state, source, dest)
 				if err != nil {
 					return err
 				}
@@ -356,14 +376,20 @@ var (
 	}
 )
 
-func DeployFeeds(lggr logger.Logger, ab deployment.AddressBook, chain deployment.Chain) (map[string]common.Address, error) {
+func DeployFeeds(
+	lggr logger.Logger,
+	ab deployment.AddressBook,
+	chain deployment.Chain,
+	linkPrice *big.Int,
+	wethPrice *big.Int,
+) (map[string]common.Address, error) {
 	linkTV := deployment.NewTypeAndVersion(PriceFeed, deployment.Version1_0_0)
 	mockLinkFeed := func(chain deployment.Chain) ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface] {
 		linkFeed, tx, _, err1 := mock_v3_aggregator_contract.DeployMockV3Aggregator(
 			chain.DeployerKey,
 			chain.Client,
-			LinkDecimals,  // decimals
-			MockLinkPrice, // initialAnswer
+			LinkDecimals, // decimals
+			linkPrice,    // initialAnswer
 		)
 		aggregatorCr, err2 := aggregator_v3_interface.NewAggregatorV3Interface(linkFeed, chain.Client)
 
@@ -376,7 +402,7 @@ func DeployFeeds(lggr logger.Logger, ab deployment.AddressBook, chain deployment
 		wethFeed, tx, _, err1 := mock_ethusd_aggregator_wrapper.DeployMockETHUSDAggregator(
 			chain.DeployerKey,
 			chain.Client,
-			MockWethPrice, // initialAnswer
+			wethPrice, // initialAnswer
 		)
 		aggregatorCr, err2 := aggregator_v3_interface.NewAggregatorV3Interface(wethFeed, chain.Client)
 

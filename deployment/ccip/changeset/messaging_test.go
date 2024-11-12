@@ -6,13 +6,14 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/test-go/testify/require"
+	"golang.org/x/exp/maps"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipdeployment "github.com/smartcontractkit/chainlink/deployment/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/test-go/testify/require"
-	"golang.org/x/exp/maps"
 )
 
 type testCaseSetup struct {
@@ -69,7 +70,7 @@ func Test_Messaging(t *testing.T) {
 	require.NoError(t, err)
 
 	// connect a single lane, source to dest
-	require.NoError(t, ccipdeployment.AddLane(e.Env, state, sourceChain, destChain))
+	require.NoError(t, ccipdeployment.AddLaneWithDefaultPrices(e.Env, state, sourceChain, destChain))
 
 	var (
 		replayed bool
