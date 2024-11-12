@@ -61,7 +61,7 @@ in
           echo "GORELEASER_KEY must be set in CRIB environments. You can find it in our 1p vault under 'goreleaser-pro-license'."
           exit 1
         fi
-        ${if stdenv.isDarwin then "source ./nix-darwin-shell-hook.sh" else ""}
+        ${if stdenv.isDarwin then "source $(git rev-parse --show-toplevel)/nix-darwin-shell-hook.sh" else ""}
       ''}
     '';
 
