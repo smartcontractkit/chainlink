@@ -354,6 +354,14 @@ jobs:
           path: failed_tests.json
           retention-days: 7        
 
+      - name: Upload All Test Results as Artifact
+        if: ${{ fromJson(steps.set_test_results.outputs.all_tests_count) > 0 }}
+        uses: actions/upload-artifact@v4.4.3
+        with:
+          name: all_tests.json
+          path: all_tests.json
+          retention-days: 1              
+
       - name: Create ASCII table with failed test results
         if: ${{ fromJson(steps.set_test_results.outputs.failed_tests_count) > 0 }}
         shell: bash
