@@ -631,6 +631,74 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
     );
   }
 
+  function test_RevertIf_SendTheSameReportAlternateFirstPrimaryFeed() public {
+    Report memory report1 = Report({price: 1, timestamp: uint32(block.timestamp)});
+    ReportGenerator.SignedReport memory signedReport1 =
+      s_reportGenerator.generateSignedReport(report1.price, report1.timestamp);
+
+    _transmitAndCheck({
+      signedReport: signedReport1,
+      transmitPrimary: true,
+      transmitSecondary: false,
+      expectedStandardFeedAnswer: report1.price,
+      expectedSecondaryFeedAnswer: 0
+    });
+    _checkRounds(1, 0);
+
+    _transmitAndCheck({
+      signedReport: signedReport1,
+      transmitPrimary: false,
+      transmitSecondary: true,
+      expectedStandardFeedAnswer: report1.price,
+      expectedSecondaryFeedAnswer: report1.price
+    });
+    _checkRounds(1, 1);
+
+    vm.expectRevert(DualAggregator.StaleReport.selector);
+    aggregator.transmit(
+      signedReport1.reportContext, signedReport1.report, signedReport1.rs, signedReport1.ss, signedReport1.rawVs
+    );
+
+    vm.expectRevert(DualAggregator.StaleReport.selector);
+    aggregator.transmitSecondary(
+      signedReport1.reportContext, signedReport1.report, signedReport1.rs, signedReport1.ss, signedReport1.rawVs
+    );
+  }
+
+  function test_RevertIf_SendTheSameReportAlternateFirstSecondaryFeed() public {
+    Report memory report1 = Report({price: 1, timestamp: uint32(block.timestamp)});
+    ReportGenerator.SignedReport memory signedReport1 =
+      s_reportGenerator.generateSignedReport(report1.price, report1.timestamp);
+
+    _transmitAndCheck({
+      signedReport: signedReport1,
+      transmitPrimary: false,
+      transmitSecondary: true,
+      expectedStandardFeedAnswer: 0,
+      expectedSecondaryFeedAnswer: report1.price
+    });
+    _checkRounds(0, 1);
+
+    _transmitAndCheck({
+      signedReport: signedReport1,
+      transmitPrimary: true,
+      transmitSecondary: false,
+      expectedStandardFeedAnswer: report1.price,
+      expectedSecondaryFeedAnswer: report1.price
+    });
+    _checkRounds(1, 1);
+
+    vm.expectRevert(DualAggregator.StaleReport.selector);
+    aggregator.transmitSecondary(
+      signedReport1.reportContext, signedReport1.report, signedReport1.rs, signedReport1.ss, signedReport1.rawVs
+    );
+
+    vm.expectRevert(DualAggregator.StaleReport.selector);
+    aggregator.transmit(
+      signedReport1.reportContext, signedReport1.report, signedReport1.rs, signedReport1.ss, signedReport1.rawVs
+    );
+  }
+
   function test_ReadExpectedInitialState() public {
     Report memory report1 = Report({price: 1, timestamp: uint32(block.timestamp)});
     ReportGenerator.SignedReport memory signedReport1 =

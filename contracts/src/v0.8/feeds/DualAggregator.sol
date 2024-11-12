@@ -810,7 +810,8 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
       (bool exist, uint32 roundId) = _doesReportExist(report_);
       // In case the report exists, copy the round id and pay the transmitter
       if (exist) {
-        if (s_latestSecondary) {
+        // In case the round has already been processed by the secondary feed
+        if (s_hotVars.latestSecondaryRoundId >= roundId) {
           revert StaleReport();
         }
 
