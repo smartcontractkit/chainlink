@@ -276,3 +276,150 @@ func TestTokenTransfer(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, twoCoins, balance)
 }
+
+func TestUSDCTokenTransfer(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	ctx := ccdeploy.Context(t)
+	tenv := ccdeploy.NewMemoryEnvironment(t, lggr, 3, 4)
+
+	e := tenv.Env
+	state, err := ccdeploy.LoadOnchainState(e)
+	require.NoError(t, err)
+
+	feeds := state.Chains[tenv.FeedChainSel].USDFeeds
+	tokenConfig := ccdeploy.NewTokenConfig()
+	tokenConfig.UpsertTokenInfo(ccdeploy.LinkSymbol,
+		pluginconfig.TokenInfo{
+			AggregatorAddress: cciptypes.UnknownEncodedAddress(feeds[ccdeploy.LinkSymbol].Address().String()),
+			Decimals:          ccdeploy.LinkDecimals,
+			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
+		},
+	)
+
+	// Apply migration
+	output, err := changeset.InitialDeploy(e, ccdeploy.DeployCCIPContractConfig{
+		HomeChainSel:   tenv.HomeChainSel,
+		FeedChainSel:   tenv.FeedChainSel,
+		ChainsToDeploy: e.AllChainSelectors(),
+		TokenConfig:    tokenConfig,
+		MCMSConfig:     ccdeploy.NewTestMCMSConfig(t, e),
+		OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
+	})
+	require.NoError(t, err)
+	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook))
+	// Get new state after migration and mock USDC token deployment.
+	state, err = ccdeploy.LoadOnchainState(e)
+	require.NoError(t, err)
+
+	srcUSDC, _, dstUSDC, _, err := ccdeploy.DeployUSDCToken(
+		lggr,
+		tenv.Env.Chains,
+		tenv.HomeChainSel,
+		tenv.FeedChainSel,
+		state,
+		e.ExistingAddresses,
+	)
+	require.NoError(t, err)
+
+	// Ensure capreg logs are up to date.
+	ccdeploy.ReplayLogs(t, e.Offchain, tenv.ReplayBlocks)
+
+	// Apply the jobs.
+	for nodeID, jobs := range output.JobSpecs {
+		for _, job := range jobs {
+			// Note these auto-accept
+			_, err := e.Offchain.ProposeJob(ctx,
+				&jobv1.ProposeJobRequest{
+					NodeId: nodeID,
+					Spec:   job,
+				})
+			require.NoError(t, err)
+		}
+	}
+
+	// Add all lanes
+	require.NoError(t, ccdeploy.AddLanesForAll(e, state))
+
+	twoCoins := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(2))
+	tx, err := srcUSDC.Mint(
+		e.Chains[tenv.HomeChainSel].DeployerKey,
+		e.Chains[tenv.HomeChainSel].DeployerKey.From,
+		new(big.Int).Mul(twoCoins, big.NewInt(10)),
+	)
+	require.NoError(t, err)
+	_, err = e.Chains[tenv.HomeChainSel].Confirm(tx)
+	require.NoError(t, err)
+
+	tx, err = dstUSDC.Mint(
+		e.Chains[tenv.FeedChainSel].DeployerKey,
+		e.Chains[tenv.FeedChainSel].DeployerKey.From,
+		new(big.Int).Mul(twoCoins, big.NewInt(10)),
+	)
+	require.NoError(t, err)
+	_, err = e.Chains[tenv.FeedChainSel].Confirm(tx)
+	require.NoError(t, err)
+
+	tx, err = srcUSDC.Approve(e.Chains[tenv.HomeChainSel].DeployerKey, state.Chains[tenv.HomeChainSel].Router.Address(), twoCoins)
+	require.NoError(t, err)
+	_, err = e.Chains[tenv.HomeChainSel].Confirm(tx)
+	require.NoError(t, err)
+	tx, err = dstUSDC.Approve(e.Chains[tenv.FeedChainSel].DeployerKey, state.Chains[tenv.FeedChainSel].Router.Address(), twoCoins)
+	require.NoError(t, err)
+	_, err = e.Chains[tenv.FeedChainSel].Confirm(tx)
+	require.NoError(t, err)
+
+	tokens := map[uint64][]router.ClientEVMTokenAmount{
+		tenv.HomeChainSel: {{
+			Token:  srcUSDC.Address(),
+			Amount: twoCoins,
+		}},
+		tenv.FeedChainSel: {{
+			Token:  dstUSDC.Address(),
+			Amount: twoCoins,
+		}},
+	}
+
+	startBlocks := make(map[uint64]*uint64)
+	expectedSeqNum := make(map[uint64]uint64)
+
+	for src := range e.Chains {
+		for dest, destChain := range e.Chains {
+			if src == dest {
+				continue
+			}
+			var (
+				receiver = common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32)
+				data     = []byte("hello world")
+				feeToken = common.HexToAddress("0x0")
+			)
+
+			latesthdr, err := destChain.Client.HeaderByNumber(testcontext.Get(t), nil)
+			require.NoError(t, err)
+			block := latesthdr.Number.Uint64()
+			startBlocks[dest] = &block
+
+			if src == tenv.HomeChainSel && dest == tenv.FeedChainSel {
+				seqNum := ccdeploy.TestSendRequest(t, e, state, src, dest, false, router.ClientEVM2AnyMessage{
+					Receiver:     receiver,
+					Data:         data,
+					TokenAmounts: tokens[src],
+					FeeToken:     feeToken,
+					ExtraArgs:    nil,
+				})
+				expectedSeqNum[dest] = seqNum
+			} else {
+				seqNum := ccdeploy.TestSendRequest(t, e, state, src, dest, false, router.ClientEVM2AnyMessage{
+					Receiver:     receiver,
+					Data:         data,
+					TokenAmounts: nil,
+					FeeToken:     feeToken,
+					ExtraArgs:    nil,
+				})
+				expectedSeqNum[dest] = seqNum
+			}
+		}
+	}
+
+	// Wait for all commit reports to land.
+	ccdeploy.ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
+}
