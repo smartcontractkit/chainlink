@@ -350,16 +350,16 @@ jobs:
         if: ${{ fromJson(steps.set_test_results.outputs.failed_tests_count) > 0 }}
         uses: actions/upload-artifact@v4.4.3
         with:
-          name: failed_tests.json
           path: failed_tests.json
+          name: failed-test-results.json
           retention-days: 7        
 
       - name: Upload All Test Results as Artifact
         if: ${{ fromJson(steps.set_test_results.outputs.all_tests_count) > 0 }}
         uses: actions/upload-artifact@v4.4.3
         with:
-          name: all_tests.json
           path: all_tests.json
+          name: all-test-results.json
           retention-days: 1              
 
       - name: Create ASCII table with failed test results
@@ -432,7 +432,7 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
           cat failed_tests_ascii.txt >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "For detailed logs of the failed tests, please refer to the 'failed_tests.json' file in the Artifacts section at the bottom of the page." >> $GITHUB_STEP_SUMMARY
+          echo "For detailed logs of the failed tests, please refer to the 'failed-test-results.json' file in the Artifacts section at the bottom of the page." >> $GITHUB_STEP_SUMMARY
 
       - name: Append Success Note if All Tests Passed
         if: ${{ fromJson(steps.set_test_results.outputs.all_tests_count) > 0 && fromJson(steps.set_test_results.outputs.failed_tests_count) == 0 }}
