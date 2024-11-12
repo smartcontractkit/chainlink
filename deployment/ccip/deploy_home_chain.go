@@ -813,7 +813,7 @@ func ValidateCCIPHomeConfigSetUp(
 	}
 	// final sanity checks on configs.
 	commitConfigs, err := ccipHome.GetAllConfigs(&bind.CallOpts{
-		Pending: true,
+		//Pending: true,
 	}, donID, uint8(cctypes.PluginTypeCCIPCommit))
 	if err != nil {
 		return fmt.Errorf("get all commit configs: %w", err)

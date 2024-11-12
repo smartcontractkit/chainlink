@@ -17,6 +17,7 @@ import (
 	evm_2_evm_onramp "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp_1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_v3_aggregator_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
@@ -57,13 +58,13 @@ func TestIntegration_legacy_CCIP(t *testing.T) {
 			} else {
 				// Set up a test price getter.
 				// Set up the aggregators here to avoid modifying ccipTH.
-				aggSrcNatAddr, _, aggSrcNat, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(ccipTH.Source.User, ccipTH.Source.Chain, 18, big.NewInt(2e18))
+				aggSrcNatAddr, _, aggSrcNat, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(ccipTH.Source.User, ccipTH.Source.Chain.Client(), 18, big.NewInt(2e18))
 				require.NoError(t, err)
 				_, err = aggSrcNat.UpdateRoundData(ccipTH.Source.User, big.NewInt(50), big.NewInt(17000000), big.NewInt(1000), big.NewInt(1000))
 				require.NoError(t, err)
 				ccipTH.Source.Chain.Commit()
 
-				aggDstLnkAddr, _, aggDstLnk, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(ccipTH.Dest.User, ccipTH.Dest.Chain, 18, big.NewInt(3e18))
+				aggDstLnkAddr, _, aggDstLnk, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(ccipTH.Dest.User, ccipTH.Dest.Chain.Client(), 18, big.NewInt(3e18))
 				require.NoError(t, err)
 				ccipTH.Dest.Chain.Commit()
 				_, err = aggDstLnk.UpdateRoundData(ccipTH.Dest.User, big.NewInt(50), big.NewInt(8000000), big.NewInt(1000), big.NewInt(1000))
@@ -245,8 +246,10 @@ func TestIntegration_legacy_CCIP(t *testing.T) {
 					// Approve the fee amount + the token amount
 					_, err2 = ccipTH.Source.LinkToken.Approve(ccipTH.Source.User, ccipTH.Source.Router.Address(), new(big.Int).Add(fee, tokenAmount))
 					require.NoError(t, err2)
+					ccipTH.Source.Chain.Commit()
 					tx, err2 := ccipTH.Source.Router.CcipSend(ccipTH.Source.User, ccipTH.Dest.ChainSelector, msg)
 					require.NoError(t, err2)
+					ccipTH.Source.Chain.Commit()
 					txs = append(txs, tx)
 				}
 
@@ -273,6 +276,7 @@ func TestIntegration_legacy_CCIP(t *testing.T) {
 			// create new jobs
 			// Verify all pending requests are sent after the contracts are upgraded
 			t.Run("upgrade contracts and verify requests can be sent with upgraded contract", func(t *testing.T) {
+				ctx := testutils.Context(t)
 				gasLimit := big.NewInt(200_003) // prime number
 				tokenAmount := big.NewInt(100)
 				commitStoreV1 := ccipTH.Dest.CommitStore
@@ -302,11 +306,13 @@ func TestIntegration_legacy_CCIP(t *testing.T) {
 				require.Equal(t, currentSeqNum, int(nonceAtOffRampV1))
 
 				// enable the newly deployed contracts
-				newConfigBlock := ccipTH.Dest.Chain.Blockchain().CurrentBlock().Number.Int64()
+				newConfigBlock, err := ccipTH.Dest.Chain.Client().BlockNumber(ctx)
+				require.NoError(t, err)
 				ccipTH.EnableOnRamp(t)
 				ccipTH.EnableCommitStore(t)
 				ccipTH.EnableOffRamp(t)
-				srcStartBlock := ccipTH.Source.Chain.Blockchain().CurrentBlock().Number.Uint64()
+				srcStartBlock, err := ccipTH.Source.Chain.Client().BlockNumber(ctx)
+				require.NoError(t, err)
 
 				// send a number of requests, the requests should not be delivered yet as the previous contracts are not configured
 				// with the router anymore
