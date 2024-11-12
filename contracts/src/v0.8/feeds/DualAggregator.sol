@@ -500,8 +500,8 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
   // max iterations the secondary proxy will be able to loop to sync with the primary rounds
   uint32 internal s_maxSyncIterations;
 
-  // wether if the primary latest report has to be locked or not
-  bool internal s_primaryLocked;
+  // wether if the latest report was secondary or not
+  bool internal s_latestSecondary;
 
   /**
    * @notice indicates that a new report arrived from the secondary feed and the round id was updated
@@ -639,7 +639,7 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
       // get the transmission
       transmission = s_transmissions[latestAggregatorRoundId];
       // in case the transmission was sent in this same block only by the secondary proxy, return the previous round id
-      if (s_primaryLocked && transmission.recordedTimestamp == block.timestamp) {
+      if (s_latestSecondary && transmission.recordedTimestamp == block.timestamp) {
         return latestAggregatorRoundId - 1;
       }
     }
@@ -804,37 +804,46 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     // Validate the report data
     _validateReport(reportContext, report, rs, ss);
 
+    // Verify signatures attached to report
+    _verifySignatures(reportContext, report, rs, ss, rawVs);
+
     Report memory report_ = _decodeReport(report); // Decode the report
 
     if (isSecondary) {
       (bool exist, uint32 roundId) = _doesReportExist(report_);
       // In case the report exists, copy the round id and pay the transmitter
       if (exist) {
+        // In case the round has already been processed by the secondary feed
+        if (s_hotVars.latestSecondaryRoundId >= roundId) {
+          revert StaleReport();
+        }
+
         s_hotVars.latestSecondaryRoundId = roundId;
         emit SecondaryRoundIdUpdated(roundId);
 
         _payTransmitter(s_hotVars, report_.juelsPerFeeCoin, uint32(initialGas), msg.sender);
         return;
       }
-      // In case the report doesn't exist, lock the primary feed
-      s_primaryLocked = true;
-    } else {
-      // In case the sender is the primary proxy, unlock the latest report
-      s_primaryLocked = false;
     }
 
     // Report epoch and round
     uint40 epochAndRound = uint40(uint256(reportContext[1]));
 
-    if (epochAndRound < s_hotVars.latestEpochAndRound) {
-      revert StaleReport();
+    // Only skip the report transmission in case the epochAndRound is equal to the latestEpochAndRound 
+    // and the latest sender was the secondary feed
+    if (epochAndRound != s_hotVars.latestEpochAndRound || !s_latestSecondary) {
+      // In case the epochAndRound is lower or equal than the latestEpochAndRound, it's a stale report
+      // because it's older or has already been transmitted
+      if (epochAndRound <= s_hotVars.latestEpochAndRound) {
+        revert StaleReport();
+      }
+
+      _report(s_hotVars, reportContext[0], epochAndRound, report_, isSecondary);
     }
 
-    // Verify signatures attached to report
-    _verifySignatures(reportContext, report, rs, ss, rawVs);
-
-    int192 juelsPerFeeCoin = _report(s_hotVars, reportContext[0], epochAndRound, report_, isSecondary);
-    _payTransmitter(s_hotVars, juelsPerFeeCoin, uint32(initialGas), msg.sender);
+    // Store if the latest report was secondary or not
+    s_latestSecondary = isSecondary;
+    _payTransmitter(s_hotVars, report_.juelsPerFeeCoin, uint32(initialGas), msg.sender);
   }
 
   // helper function to validate the report data
@@ -953,7 +962,7 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     uint40 epochAndRound,
     Report memory report,
     bool isSecondary
-  ) internal returns (int192 juelsPerFeeCoin) {
+  ) internal {
     if (report.observations.length > MAX_NUM_ORACLES) revert NumObservationsOutOfBounds();
     // Offchain logic ensures that a quorum of oracles is operating on a matching set of at least
     // 2f+1 observations. By assumption, up to f of those can be faulty, which includes being
@@ -1003,8 +1012,6 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     emit AnswerUpdated(median, hotVars.latestAggregatorRoundId, block.timestamp);
 
     _validateAnswer(hotVars.latestAggregatorRoundId, median);
-
-    return report.juelsPerFeeCoin;
   }
 
   /**
