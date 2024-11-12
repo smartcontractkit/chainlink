@@ -44,7 +44,8 @@ func TestWriteTarget(t *testing.T) {
 	reportID := [2]byte{0x00, 0x01}
 	var workflowName [10]byte
 	copy(workflowName[:], []byte("name"))
-	workflowOwner := common.HexToAddress("0x1")
+	workflowOwnerString := "219BFD3D78fbb740c614432975CBE829E26C490e"
+	workflowOwner := common.HexToAddress(workflowOwnerString)
 	reportMetadata := targets.ReportV1Metadata{
 		Version:             1,
 		WorkflowExecutionID: [32]byte{},
@@ -72,7 +73,7 @@ func TestWriteTarget(t *testing.T) {
 
 	validMetadata := capabilities.RequestMetadata{
 		WorkflowID:          hex.EncodeToString(reportMetadata.WorkflowCID[:]),
-		WorkflowOwner:       hex.EncodeToString(reportMetadata.WorkflowOwner[:]),
+		WorkflowOwner:       workflowOwnerString,
 		WorkflowName:        hex.EncodeToString(reportMetadata.WorkflowName[:]),
 		WorkflowExecutionID: hex.EncodeToString(reportMetadata.WorkflowExecutionID[:]),
 	}

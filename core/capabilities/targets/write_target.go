@@ -179,13 +179,15 @@ func evaluate(rawRequest capabilities.CapabilityRequest) (r Request, err error) 
 	}
 
 	if hex.EncodeToString(reportMetadata.WorkflowExecutionID[:]) != rawRequest.Metadata.WorkflowExecutionID {
-		return r, fmt.Errorf("WorkflowExecutionID in the report does not match WorkflowExecutionID in the request metadata. Report WorkflowExecutionID: %+v, request WorkflowExecutionID: %+v", reportMetadata.WorkflowExecutionID, rawRequest.Metadata.WorkflowExecutionID)
+		return r, fmt.Errorf("WorkflowExecutionID in the report does not match WorkflowExecutionID in the request metadata. Report WorkflowExecutionID: %+v, request WorkflowExecutionID: %+v", hex.EncodeToString(reportMetadata.WorkflowExecutionID[:]), rawRequest.Metadata.WorkflowExecutionID)
 	}
 
+	// case-insensitive verification of the owner address (so that a check-summed address matches its non-checksummed version).
 	if !strings.EqualFold(hex.EncodeToString(reportMetadata.WorkflowOwner[:]), rawRequest.Metadata.WorkflowOwner) {
-		return r, fmt.Errorf("WorkflowOwner in the report does not match WorkflowOwner in the request metadata. Report WorkflowOwner: %+v, request WorkflowOwner: %+v", reportMetadata.WorkflowOwner, rawRequest.Metadata.WorkflowOwner)
+		return r, fmt.Errorf("WorkflowOwner in the report does not match WorkflowOwner in the request metadata. Report WorkflowOwner: %+v, request WorkflowOwner: %+v", hex.EncodeToString(reportMetadata.WorkflowOwner[:]), rawRequest.Metadata.WorkflowOwner)
 	}
 
+	// workflowNames are padded to 10bytes
 	decodedName, err := hex.DecodeString(rawRequest.Metadata.WorkflowName)
 	if err != nil {
 		return r, err
