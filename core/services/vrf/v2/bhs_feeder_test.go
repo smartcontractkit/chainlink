@@ -63,7 +63,7 @@ func TestStartHeartbeats(t *testing.T) {
 
 	heartbeatPeriod := 5 * time.Second
 
-	t.Run("bhs_feeder_startheartbeats_happy_path", func(tt *testing.T) {
+	t.Run("bhs_feeder_startheartbeats_happy_path", func(t *testing.T) {
 		app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, keys...)
 		require.NoError(t, app.Start(testutils.Context(t)))
 
@@ -84,7 +84,7 @@ func TestStartHeartbeats(t *testing.T) {
 		t.Logf("Sleeping %.2f seconds before checking blockhash in BHS added by BHS_Heartbeats_Service\n", diff.Seconds())
 		time.Sleep(diff)
 		// storeEarliest in BHS contract stores blocktip - 256 in the Blockhash Store (BHS)
-		tipHeader, err := uni.backend.HeaderByNumber(testutils.Context(t), nil)
+		tipHeader, err := uni.backend.Client().HeaderByNumber(testutils.Context(t), nil)
 		require.NoError(t, err)
 		// the storeEarliest transaction will end up in a new block, hence the + 1 below.
 		blockNumberStored := tipHeader.Number.Uint64() - 256 + 1

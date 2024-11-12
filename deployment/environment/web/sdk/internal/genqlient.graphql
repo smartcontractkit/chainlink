@@ -45,20 +45,6 @@ query FetchAccounts {
     }
 }
 
-query FetchKeys {
-    solanaKeys {
-        results {
-            id
-        }
-    }
-    aptosKeys {
-        results {
-            id
-            account
-        }
-    }
-}
-
 #####################
 # ocr2KeyBundles
 #####################

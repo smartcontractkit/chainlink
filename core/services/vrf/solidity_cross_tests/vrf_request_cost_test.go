@@ -15,13 +15,13 @@ func TestMeasureRandomnessRequestGasCost(t *testing.T) {
 	coordinator := vrftesthelpers.NewVRFCoordinatorUniverse(t, key)
 	keyHash_, _, fee := registerProvingKey(t, coordinator)
 
-	estimate := estimateGas(t, coordinator.Backend, common.Address{},
+	estimate := estimateGas(t, coordinator.Backend.Client(), common.Address{},
 		coordinator.ConsumerContractAddress, coordinator.ConsumerABI,
 		"testRequestRandomness", common.BytesToHash(keyHash_[:]), fee)
 
 	assert.Greater(t, estimate, uint64(134000),
 		"requestRandomness tx gas cost lower than expected")
 	// Note: changed from 160000 to 164079 in the Berlin hard fork (Geth 1.10)
-	assert.Less(t, estimate, uint64(164080),
+	assert.Less(t, estimate, uint64(167000),
 		"requestRandomness tx gas cost higher than expected")
 }

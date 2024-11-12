@@ -109,7 +109,7 @@ func deployCapReg(t *testing.T, lggr logger.Logger, chain deployment.Chain) *kcr
 }
 
 func addNops(t *testing.T, lggr logger.Logger, chain deployment.Chain, registry *kcr.CapabilitiesRegistry, nops []kcr.CapabilitiesRegistryNodeOperator) *kslib.RegisterNOPSResponse {
-	resp, err := kslib.RegisterNOPS(context.TODO(), kslib.RegisterNOPSRequest{
+	resp, err := kslib.RegisterNOPS(context.TODO(), lggr, kslib.RegisterNOPSRequest{
 		Chain:    chain,
 		Registry: registry,
 		Nops:     nops,
@@ -240,7 +240,7 @@ func (cc *CapabilityCache) AddCapabilities(lggr logger.Logger, chain deployment.
 }
 
 func testChain(t *testing.T) deployment.Chain {
-	chains := memory.NewMemoryChains(t, 1)
+	chains, _ := memory.NewMemoryChains(t, 1)
 	var chain deployment.Chain
 	for _, c := range chains {
 		chain = c

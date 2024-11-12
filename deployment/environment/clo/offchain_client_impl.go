@@ -2,19 +2,14 @@ package clo
 
 import (
 	"context"
-	"fmt"
-	"slices"
-	"strings"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
-	"github.com/AlekSi/pointer"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	csav1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/csa"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
-	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 	"github.com/smartcontractkit/chainlink/deployment/environment/clo/models"
 )
 
@@ -65,64 +60,39 @@ func (j JobClient) GetNode(ctx context.Context, in *nodev1.GetNodeRequest, opts 
 }
 
 func (j JobClient) ListNodes(ctx context.Context, in *nodev1.ListNodesRequest, opts ...grpc.CallOption) (*nodev1.ListNodesResponse, error) {
-	include := func(node *nodev1.Node) bool {
-		if in.Filter == nil {
+	//TODO CCIP-3108
+	var fiterIds map[string]struct{}
+	include := func(id string) bool {
+		if in.Filter == nil || len(in.Filter.Ids) == 0 {
 			return true
 		}
-		if len(in.Filter.Ids) > 0 {
-			idx := slices.IndexFunc(in.Filter.Ids, func(id string) bool {
-				return node.Id == id
-			})
-			if idx < 0 {
-				return false
+		// lazy init
+		if len(fiterIds) == 0 {
+			for _, id := range in.Filter.Ids {
+				fiterIds[id] = struct{}{}
 			}
 		}
-		for _, selector := range in.Filter.Selectors {
-			idx := slices.IndexFunc(node.Labels, func(label *ptypes.Label) bool {
-				return label.Key == selector.Key
-			})
-			if idx < 0 {
-				return false
-			}
-			label := node.Labels[idx]
-
-			switch selector.Op {
-			case ptypes.SelectorOp_IN:
-				values := strings.Split(*selector.Value, ",")
-				found := slices.Contains(values, *label.Value)
-				if !found {
-					return false
-				}
-			default:
-				panic("unimplemented selector")
-			}
-		}
-		return true
+		_, ok := fiterIds[id]
+		return ok
 	}
 	var nodes []*nodev1.Node
 	for _, nop := range j.NodeOperators {
 		for _, n := range nop.Nodes {
-			node := &nodev1.Node{
-				Id:          n.ID,
-				Name:        n.Name,
-				PublicKey:   *n.PublicKey,
-				IsEnabled:   n.Enabled,
-				IsConnected: n.Connected,
-				Labels: []*ptypes.Label{
-					{
-						Key:   "p2p_id",
-						Value: pointer.ToString(n.ID), // here n.ID is also peer ID
-					},
-				},
-			}
-			if include(node) {
-				nodes = append(nodes, node)
+			if include(n.ID) {
+				nodes = append(nodes, &nodev1.Node{
+					Id:          n.ID,
+					Name:        n.Name,
+					PublicKey:   *n.PublicKey, // is this the correct val?
+					IsEnabled:   n.Enabled,
+					IsConnected: n.Connected,
+				})
 			}
 		}
 	}
 	return &nodev1.ListNodesResponse{
 		Nodes: nodes,
 	}, nil
+
 }
 
 func (j JobClient) ListNodeChainConfigs(ctx context.Context, in *nodev1.ListNodeChainConfigsRequest, opts ...grpc.CallOption) (*nodev1.ListNodeChainConfigsResponse, error) {
@@ -214,24 +184,10 @@ func cloNodeToChainConfigs(n *models.Node) []*nodev1.ChainConfig {
 }
 
 func cloChainCfgToJDChainCfg(ccfg *models.NodeChainConfig) *nodev1.ChainConfig {
-	var ctype nodev1.ChainType
-	switch ccfg.Network.ChainType {
-	case models.ChainTypeEvm:
-		ctype = nodev1.ChainType_CHAIN_TYPE_EVM
-	case models.ChainTypeSolana:
-		ctype = nodev1.ChainType_CHAIN_TYPE_SOLANA
-	case models.ChainTypeStarknet:
-		ctype = nodev1.ChainType_CHAIN_TYPE_STARKNET
-	case models.ChainTypeAptos:
-		ctype = nodev1.ChainType_CHAIN_TYPE_APTOS
-	default:
-		panic(fmt.Sprintf("Unsupported chain family %v", ccfg.Network.ChainType))
-	}
-
 	return &nodev1.ChainConfig{
 		Chain: &nodev1.Chain{
 			Id:   ccfg.Network.ChainID,
-			Type: ctype,
+			Type: nodev1.ChainType_CHAIN_TYPE_EVM, // TODO: write conversion func from clo to jd tyes
 		},
 		AccountAddress: ccfg.AccountAddress,
 		AdminAddress:   ccfg.AdminAddress,
