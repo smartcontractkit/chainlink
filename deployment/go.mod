@@ -26,13 +26,8 @@ require (
 	github.com/sethvargo/go-retry v0.2.4
 	github.com/smartcontractkit/ccip-owner-contracts v0.0.0-20240926212305-a6deabdfce86
 	github.com/smartcontractkit/chain-selectors v1.0.27
-<<<<<<< HEAD
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241111114733-aa3b2f8e9f94
-	github.com/smartcontractkit/chainlink-common v0.3.1-0.20241111184621-c61aebee0af9
-=======
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241106140121-4c9ee21ab422
 	github.com/smartcontractkit/chainlink-common v0.3.1-0.20241112140826-0e2daed34ef6
->>>>>>> f261a217b2 (updating go.mod for solana and common)
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.4.0
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.13
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
