@@ -59,7 +59,7 @@ env:
   MAX_GROUP_SIZE: ${{ fromJson(inputs.extraArgs)['max_group_size'] || '8' }} # The maximum number of jobs to run in parallel when running tests.
   RUN_COUNT: ${{ fromJson(inputs.extraArgs)['run_count'] || '5' }} # The number of times to run the tests to detect flaky tests.
   RUN_WITH_RACE: ${{ fromJson(inputs.extraArgs)['run_with_race'] || 'true' }} # Whether to run tests with -race flag.
-  ALL_TESTS_RUN_COUNT: 5 # The number of times to run all tests to get the pass ratio.
+  ALL_TESTS_RUN_COUNT: 2 # The number of times to run all tests to get the pass ratio.
   ALL_TESTS_RUNNER: 'ubuntu-latest' # The runner to use for running all tests. #TODO: change
   # ALL_TESTS_RUNNER: 'ubuntu22.04-32cores-128GB' # The runner to use for running all tests. #TODO: change
   DEFAULT_RUNNER: 'ubuntu-latest' # The default runner to use for running tests.
@@ -67,7 +67,6 @@ env:
 jobs:
   find-tests:
     name: Find Tests To Run
-    if: ${{ inputs.runAllTests == 'false' }}
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.split-packages.outputs.matrix }}
