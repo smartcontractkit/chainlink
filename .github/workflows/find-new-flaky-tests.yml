@@ -297,7 +297,11 @@ jobs:
           path: test_results
           pattern:
             test-result-${{ needs.get-tests.outputs.workflow_id }}-*
-
+            
+      - name: Install flakeguard
+        shell: bash
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@d5a4c349a305f1dee78eb2869bd98370d3a94789
+                
       - name: Set combined test results
         id: set_test_results
         shell: bash
