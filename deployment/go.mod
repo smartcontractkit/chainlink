@@ -5,6 +5,9 @@ go 1.22.8
 // Make sure we're working with the latest chainlink libs
 replace github.com/smartcontractkit/chainlink/v2 => ../
 
+// replicating the replace directive on cosmos SDK
+replace github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
+
 require (
 	github.com/AlekSi/pointer v1.1.0
 	github.com/Khan/genqlient v0.7.0
@@ -24,7 +27,7 @@ require (
 	github.com/smartcontractkit/ccip-owner-contracts v0.0.0-20240926212305-a6deabdfce86
 	github.com/smartcontractkit/chain-selectors v1.0.27
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241111114733-aa3b2f8e9f94
-	github.com/smartcontractkit/chainlink-common v0.3.1-0.20241109002240-af894848b3b4
+	github.com/smartcontractkit/chainlink-common v0.3.1-0.20241111184621-c61aebee0af9
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.4.0
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.13
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
@@ -517,12 +520,4 @@ require (
 	sigs.k8s.io/kustomize/kyaml v0.17.1 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
-)
-
-replace (
-	// replicating the replace directive on cosmos SDK
-	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
-	github.com/sourcegraph/sourcegraph => github.com/sourcegraph/sourcegraph-public-snapshot v0.0.0-20240822153003-c864f15af264
-
-	github.com/sourcegraph/sourcegraph/lib => github.com/sourcegraph/sourcegraph-public-snapshot/lib v0.0.0-20240822153003-c864f15af264
 )
