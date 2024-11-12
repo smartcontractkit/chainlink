@@ -377,13 +377,13 @@ jobs:
 
       - name: Create GitHub Summary (General)
         run: |
-          echo "## Flaky Test Detection Summary" >> $GITHUB_STEP_SUMMARY
+          echo "## Flaky Test Detection Summary for ${{ steps.set_project_path_pretty.outputs.path }} Go Project" >> $GITHUB_STEP_SUMMARY
 
       - name: Create GitHub Summary (Comparative Test Analysis)
         if: ${{ inputs.runAllTests == 'false' }}
         run: |
           echo "### Comparative Test Analysis" >> $GITHUB_STEP_SUMMARY
-          echo "Checked changes between \`${{ inputs.baseRef }}\` and \`${{ env.GIT_HEAD_REF }}\` for ${{ steps.set_project_path_pretty.outputs.path }} Go project. See all changes [here](${{ inputs.repoUrl }}/compare/${{ inputs.baseRef }}...${{ needs.get-tests.outputs.git_head_sha }}#files_bucket)." >> $GITHUB_STEP_SUMMARY
+          echo "Checked changes between \`${{ inputs.baseRef }}\` and \`${{ env.GIT_HEAD_REF }}\`. See all changes [here](${{ inputs.repoUrl }}/compare/${{ inputs.baseRef }}...${{ needs.get-tests.outputs.git_head_sha }}#files_bucket)." >> $GITHUB_STEP_SUMMARY
 
       - name: Create GitHub Summary (All Tests)
         if: ${{ inputs.runAllTests == 'true' }}
@@ -444,7 +444,7 @@ jobs:
         run: |
           threshold_percentage=$(echo "${{ inputs.runThreshold }}" | awk '{printf "%.0f", $1 * 100}')
           echo "### Failed Tests :x:" >> $GITHUB_STEP_SUMMARY
-          echo "Ran ${{ steps.set_test_results.outputs.all_tests_count }} unique tests for ${{ steps.set_project_path_pretty.outputs.path }} Go project. Below are the tests identified as flaky, with a pass ratio lower than the ${threshold_percentage}% threshold:" >> $GITHUB_STEP_SUMMARY
+          echo "Ran ${{ steps.set_test_results.outputs.all_tests_count }} unique tests. Below are the tests identified as flaky, with a pass ratio lower than the ${threshold_percentage}% threshold:" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           cat failed_tests_ascii.txt >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
