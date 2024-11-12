@@ -152,46 +152,45 @@ contract DualAggregatorBaseTest is Test {
 }
 
 contract ConfiguredDualAggregatorBaseTest is DualAggregatorBaseTest {
-  address[] internal signers = new address[](MAX_NUM_ORACLES);
-  address[] internal transmitters = new address[](MAX_NUM_ORACLES);
-  uint8 internal f = 1;
-  bytes internal onchainConfig = abi.encodePacked(uint8(1), MIN_ANSWER, MAX_ANSWER);
-  uint64 internal offchainConfigVersion = 1;
-  bytes internal offchainConfig = "1";
-  bytes32 internal configDigest;
+  address[] internal s_signers;
+  address[] internal s_transmitters;
+  uint8 internal s_f;
+  bytes internal s_onchainConfig;
+  uint64 internal s_offchainConfigVersion;
+  bytes internal s_offchainConfig;
+  bytes32 internal s_configDigest;
   ReportGenerator internal s_reportGenerator;
 
   function setUp() public virtual override {
     super.setUp();
 
+    s_f = 1;
+    s_onchainConfig = abi.encodePacked(uint8(1), MIN_ANSWER, MAX_ANSWER);
+    s_offchainConfigVersion = 1;
+    s_offchainConfig = "1";
+
     uint256[] memory privateKeys = new uint256[](MAX_NUM_ORACLES);
-    for (uint256 i = 0; i < MAX_NUM_ORACLES - 1; i++) {
+    for (uint256 i = 0; i < MAX_NUM_ORACLES; i++) {
       uint256 privateKey = uint256(keccak256(abi.encodePacked(i, "oracle-generator-seed")));
       address publicKey = vm.addr(privateKey);
       privateKeys[i] = privateKey;
-      transmitters[i] = publicKey;
-      signers[i] = publicKey;
+      s_transmitters.push(publicKey);
+      s_signers.push(publicKey);
     }
 
-    // add the secondary proxy as an approved transmitter/signer
-    uint256 secondaryProxyPrivateKey = uint256(keccak256(abi.encodePacked(uint256(102), "oracle-generator-seed")));
-    privateKeys[MAX_NUM_ORACLES - 1] = secondaryProxyPrivateKey;
-    transmitters[MAX_NUM_ORACLES - 1] = SECONDARY_PROXY;
-    signers[MAX_NUM_ORACLES - 1] = SECONDARY_PROXY;
-
-    s_aggregator.setConfig(signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig);
-    configDigest = s_aggregator.exposed_configDigestFromConfigData(
+    s_aggregator.setConfig(s_signers, s_transmitters, s_f, s_onchainConfig, s_offchainConfigVersion, s_offchainConfig);
+    s_configDigest = s_aggregator.exposed_configDigestFromConfigData(
       block.chainid,
       address(s_aggregator),
       1,
-      signers,
-      transmitters,
-      f,
-      onchainConfig,
-      offchainConfigVersion,
-      offchainConfig
+      s_signers,
+      s_transmitters,
+      s_f,
+      s_onchainConfig,
+      s_offchainConfigVersion,
+      s_offchainConfig
     );
-    s_reportGenerator = new ReportGenerator(s_aggregator, privateKeys, configDigest, f);
+    s_reportGenerator = new ReportGenerator(s_aggregator, privateKeys, s_configDigest, s_f);
   }
 }
 
@@ -379,7 +378,7 @@ contract LatestConfigDetails is DualAggregatorBaseTest {
 
 contract GetTransmitters is ConfiguredDualAggregatorBaseTest {
   function test_ReturnsTransmittersList() public view {
-    assertEq(s_aggregator.getTransmitters(), transmitters, "transmiters list is not the same");
+    assertEq(s_aggregator.getTransmitters(), s_transmitters, "transmiters list is not the same");
   }
 }
 
@@ -485,7 +484,7 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
   }
 
   function test_RevertIf_ConfigDigestMismatch() public {
-    vm.startPrank(transmitters[0]);
+    vm.startPrank(s_transmitters[0]);
     vm.expectRevert(DualAggregator.ConfigDigestMismatch.selector);
 
     bytes32[3] memory reportContext =
@@ -502,10 +501,10 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
   }
 
   function test_RevertIf_CalldataLengthMismatch() public {
-    vm.startPrank(transmitters[0]);
+    vm.startPrank(s_transmitters[0]);
     vm.expectRevert(DualAggregator.CalldataLengthMismatch.selector);
 
-    bytes32[3] memory reportContext = [configDigest, bytes32(abi.encodePacked("2")), bytes32(abi.encodePacked("3"))];
+    bytes32[3] memory reportContext = [s_configDigest, bytes32(abi.encodePacked("2")), bytes32(abi.encodePacked("3"))];
     bytes memory report = abi.encodePacked("1");
     bytes32 rawVs = bytes32(abi.encodePacked("1"));
     bytes32[] memory rs = new bytes32[](1);
@@ -518,12 +517,12 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
   }
 
   function test_RevertIf_WrongNumberOfSignatures() public {
-    vm.startPrank(transmitters[0]);
+    vm.startPrank(s_transmitters[0]);
     vm.expectRevert(DualAggregator.WrongNumberOfSignatures.selector);
 
     bytes memory epochAndRound = abi.encodePacked(bytes27(0), uint32(0), uint8(0));
 
-    bytes32[3] memory reportContext = [configDigest, bytes32(epochAndRound), bytes32(abi.encodePacked("1"))];
+    bytes32[3] memory reportContext = [s_configDigest, bytes32(epochAndRound), bytes32(abi.encodePacked("1"))];
     bytes memory report = new bytes(0);
     bytes32 rawVs = bytes32(abi.encodePacked("1"));
     bytes32[] memory rs = new bytes32[](1);
@@ -533,11 +532,11 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
   }
 
   function test_RevertIf_SignaturesOutOfRegistration() public {
-    vm.startPrank(transmitters[0]);
+    vm.startPrank(s_transmitters[0]);
     vm.expectRevert(DualAggregator.SignaturesOutOfRegistration.selector);
 
     bytes memory epochAndRound = abi.encodePacked(bytes27(0), uint32(0), uint8(0));
-    bytes32[3] memory reportContext = [configDigest, bytes32(epochAndRound), bytes32(abi.encodePacked("1"))];
+    bytes32[3] memory reportContext = [s_configDigest, bytes32(epochAndRound), bytes32(abi.encodePacked("1"))];
     bytes memory report = new bytes(0);
     bytes32 rawVs = bytes32(abi.encodePacked("1"));
     bytes32[] memory rs = new bytes32[](2);
@@ -547,7 +546,7 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
   }
 
   function test_RevertIf_SignatureError() public {
-    vm.startPrank(transmitters[0]);
+    vm.startPrank(s_transmitters[0]);
 
     ReportGenerator.SignedReport memory signedReport =
       s_reportGenerator.generateSignedReport(0, uint32(block.timestamp));
@@ -564,7 +563,7 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
   }
 
   function test_RevertIf_DuplicateSigner() public {
-    vm.startPrank(transmitters[0]);
+    vm.startPrank(s_transmitters[0]);
 
     ReportGenerator.SignedReport memory signedReport =
       s_reportGenerator.generateSignedReport(0, uint32(block.timestamp));
@@ -1299,11 +1298,11 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
   }
 
   function _checkRounds(uint256 expectedPrimaryRound, uint256 expectedSecondaryRound) internal {
-    _changePrank(s_aggregator.getTransmitters()[0]);
-    assertEq(expectedPrimaryRound, s_aggregator.latestRound(), "standard feed round is not correct");
-
     _changePrank(SECONDARY_PROXY);
     assertEq(expectedSecondaryRound, s_aggregator.latestRound(), "secondary feed round is not correct");
+
+    _changePrank(s_aggregator.getTransmitters()[0]);
+    assertEq(expectedPrimaryRound, s_aggregator.latestRound(), "standard feed round is not correct");
   }
 
   function _mineBlock() internal {
@@ -1342,7 +1341,7 @@ contract LatestTransmissionDetails is TransmittedDualAggregatorBaseTest {
     (bytes32 configDigest, uint32 epoch, uint8 round, int192 latestAnswer, uint64 latestTimestamp) =
       s_aggregator.latestTransmissionDetails();
 
-    assertEq(configDigest, 0x0001e09a2f737494a8c66f218a47b3bf2797eed117a2aaa1b51760b18935a6f6);
+    assertEq(configDigest, s_configDigest);
     assertEq(epoch, 0);
     assertEq(round, 1);
     assertEq(latestAnswer, 1);
@@ -1361,12 +1360,12 @@ contract LatestConfigDigestAndEpoch is TransmittedDualAggregatorBaseTest {
         block.chainid,
         address(s_aggregator),
         1,
-        signers,
-        transmitters,
-        f,
-        onchainConfig,
-        offchainConfigVersion,
-        offchainConfig
+        s_signers,
+        s_transmitters,
+        s_f,
+        s_onchainConfig,
+        s_offchainConfigVersion,
+        s_offchainConfig
       ),
       "configDigest incorrect"
     );
@@ -1925,14 +1924,14 @@ contract OwedPayment is ConfiguredDualAggregatorBaseTest {
   // TODO: need to figure out a way to toggle the `active` bit on a transmitter
   // right now this is just
   function test_ReturnZeroIfTransmitterNotActive() public view {
-    uint256 returnedValue = s_aggregator.owedPayment(transmitters[0]);
+    uint256 returnedValue = s_aggregator.owedPayment(s_transmitters[0]);
 
     assertEq(returnedValue, 0, "did not return 0 when transmitter inactive");
   }
 
   function test_ReturnOwedAmount() public view {
     // TODO: will need to run a transmit here to increase the amount the transmitter is owed
-    uint256 returnedValue = s_aggregator.owedPayment(transmitters[0]);
+    uint256 returnedValue = s_aggregator.owedPayment(s_transmitters[0]);
 
     assertEq(returnedValue, 0, "did not return the correct owed amount");
   }
@@ -1992,7 +1991,7 @@ contract LinkAvailableForPayment is DualAggregatorBaseTest {
 
 contract OracleObservationCount is ConfiguredDualAggregatorBaseTest {
   function test_ReturnsZeroWhenNoObservations() public view {
-    assertEq(s_aggregator.oracleObservationCount(transmitters[0]), 0, "did not return 0 for observation count");
+    assertEq(s_aggregator.oracleObservationCount(s_transmitters[0]), 0, "did not return 0 for observation count");
   }
 
   function test_ReturnsCorrectObservationCount() public view {
@@ -2003,35 +2002,41 @@ contract OracleObservationCount is ConfiguredDualAggregatorBaseTest {
 contract SetPayees is ConfiguredDualAggregatorBaseTest {
   event PayeeshipTransferred(address indexed transmitter, address indexed previous, address indexed current);
 
-  address[] internal payees = transmitters;
+  address[] internal payees;
+
+  function setUp() public override {
+    super.setUp();
+    payees = s_transmitters;
+  }
 
   function test_EmitsPayeeshipTransferred() public {
     vm.expectEmit();
-    for (uint256 index = 0; index < transmitters.length; index++) {
-      address transmitter = transmitters[0];
+    for (uint256 index = 0; index < s_transmitters.length; index++) {
+      address transmitter = s_transmitters[0];
       address payee = payees[0];
       address currentPayee = address(0);
       emit PayeeshipTransferred(transmitter, currentPayee, payee);
     }
 
-    s_aggregator.setPayees(transmitters, payees);
+    s_aggregator.setPayees(s_transmitters, payees);
   }
 }
 
 contract TransferPayeeship is ConfiguredDualAggregatorBaseTest {
   event PayeeshipTransferRequested(address indexed transmitter, address indexed current, address indexed proposed);
 
-  address[] internal payees = new address[](transmitters.length);
+  address[] internal payees;
   address internal constant PROPOSED = address(43);
 
   function setUp() public override {
     super.setUp();
+    payees = new address[](s_transmitters.length);
 
-    for (uint256 index = 0; index < transmitters.length; index++) {
+    for (uint256 index = 0; index < s_transmitters.length; index++) {
       payees[index] = address(uint160(1000 + index));
     }
 
-    s_aggregator.setPayees(transmitters, payees);
+    s_aggregator.setPayees(s_transmitters, payees);
   }
 
   function test_RevertIf_SenderNotCurrentPayee() public {
@@ -2044,35 +2049,36 @@ contract TransferPayeeship is ConfiguredDualAggregatorBaseTest {
     vm.startPrank(payees[0]);
     vm.expectRevert(DualAggregator.CannotTransferToSelf.selector);
 
-    s_aggregator.transferPayeeship(transmitters[0], payees[0]);
+    s_aggregator.transferPayeeship(s_transmitters[0], payees[0]);
   }
 
   function test_EmitsPayeeshipTransferredRequested() public {
     vm.startPrank(payees[0]);
     vm.expectEmit();
-    emit PayeeshipTransferRequested(transmitters[0], payees[0], PROPOSED);
+    emit PayeeshipTransferRequested(s_transmitters[0], payees[0], PROPOSED);
 
-    s_aggregator.transferPayeeship(transmitters[0], PROPOSED);
+    s_aggregator.transferPayeeship(s_transmitters[0], PROPOSED);
   }
 }
 
 contract AcceptPayeeship is ConfiguredDualAggregatorBaseTest {
   event PayeeshipTransferred(address indexed transmitter, address indexed previous, address indexed current);
 
-  address[] internal payees = new address[](transmitters.length);
+  address[] internal payees;
   address internal constant PROPOSED = address(42);
 
   function setUp() public override {
     super.setUp();
+    payees = new address[](s_transmitters.length);
 
-    for (uint256 index = 0; index < transmitters.length; index++) {
+    for (uint256 index = 0; index < s_transmitters.length; index++) {
       payees[index] = address(uint160(1000 + index));
     }
 
-    s_aggregator.setPayees(transmitters, payees);
+    s_aggregator.setPayees(s_transmitters, payees);
 
     vm.startPrank(payees[0]);
-    s_aggregator.transferPayeeship(transmitters[0], PROPOSED);
+    s_aggregator.transferPayeeship(s_transmitters[0], PROPOSED);
     vm.stopPrank();
   }
 
@@ -2080,15 +2086,15 @@ contract AcceptPayeeship is ConfiguredDualAggregatorBaseTest {
     vm.startPrank(address(43));
     vm.expectRevert(DualAggregator.OnlyProposedPayeesCanAccept.selector);
 
-    s_aggregator.acceptPayeeship(transmitters[0]);
+    s_aggregator.acceptPayeeship(s_transmitters[0]);
   }
 
   function test_EmitsPayeeshipTransferred() public {
     vm.startPrank(PROPOSED);
     vm.expectEmit();
-    emit PayeeshipTransferred(transmitters[0], payees[0], PROPOSED);
+    emit PayeeshipTransferred(s_transmitters[0], payees[0], PROPOSED);
 
-    s_aggregator.acceptPayeeship(transmitters[0]);
+    s_aggregator.acceptPayeeship(s_transmitters[0]);
   }
 }
 
