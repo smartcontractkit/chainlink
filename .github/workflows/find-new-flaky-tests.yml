@@ -360,11 +360,21 @@ jobs:
           jq -r '["TestPackage", "TestName", "PassRatio", "RunCount", "Skipped"], ["---------", "---------", "---------", "---------", "---------"], (.[] | [.TestPackage, .TestName, .PassRatio, .Runs, .Skipped]) | @tsv' test_results/all_tests.json | column -t -s$'\t' > test_results/all_tests_ascii.txt
           cat test_results/all_tests_ascii.txt
 
-      - name: Create GitHub Summary
+      - name: Create GitHub Summary (General)
         run: |
           echo "## Flaky Test Detection Summary" >> $GITHUB_STEP_SUMMARY
+
+      - name: Create GitHub Summary (Comparative Test Analysis)
+        if: ${{ inputs.runAllTests == 'false' }}
+        run: |
           echo "### Comparative Test Analysis" >> $GITHUB_STEP_SUMMARY
           echo "Checked changes between \`${{ inputs.baseRef }}\` and \`${{ env.GIT_HEAD_REF }}\` for ${{ steps.set_project_path_pretty.outputs.path }} project. See all changes [here](${{ inputs.repoUrl }}/compare/${{ inputs.baseRef }}...${{ needs.get-tests.outputs.git_head_sha }}#files_bucket)." >> $GITHUB_STEP_SUMMARY
+
+      - name: Create GitHub Summary (All Tests)
+        if: ${{ inputs.runAllTests == 'true' }}
+        run: |
+          echo "### Running All Tests" >> $GITHUB_STEP_SUMMARY
+          echo "All tests are being executed as \`runAllTests\` is set to true." >> $GITHUB_STEP_SUMMARY
 
       - name: Append Changed Test Files to GitHub Summary
         if: ${{ needs.get-tests.outputs.changed_test_files != '' && inputs.findByTestFilesDiff && !inputs.findByAffectedPackages }}
