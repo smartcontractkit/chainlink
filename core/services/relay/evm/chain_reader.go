@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"maps"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 
@@ -198,7 +197,8 @@ func (cr *chainReader) GetLatestValue(ctx context.Context, readName string, conf
 
 	ptrToValue, isValue := returnVal.(*values.Value)
 	if !isValue {
-		return binding.GetLatestValue(ctx, common.HexToAddress(address), confidenceLevel, params, returnVal)
+		_, err = binding.GetLatestValueWithHeadData(ctx, common.HexToAddress(address), confidenceLevel, params, returnVal)
+		return err
 	}
 
 	contractType, err := cr.CreateContractType(readName, false)
@@ -220,39 +220,35 @@ func (cr *chainReader) GetLatestValue(ctx context.Context, readName string, conf
 	return nil
 }
 
-func (cr *chainReader) GetLatestValueWithHeadData(ctx context.Context, readName string, confidenceLevel primitives.ConfidenceLevel, params any, returnVal any) (*commontypes.Head, error) {
-	if err := cr.GetLatestValue(ctx, readName, confidenceLevel, params, returnVal); err != nil {
-		return nil, err
-	}
-
-	latestHead, finalizedHead, err := cr.ht.LatestAndFinalizedBlock(ctx)
+func (cr *chainReader) GetLatestValueWithHeadData(ctx context.Context, readName string, confidenceLevel primitives.ConfidenceLevel, params any, returnVal any) (head *commontypes.Head, err error) {
+	binding, address, err := cr.bindings.GetReader(readName)
 	if err != nil {
 		return nil, err
 	}
 
-	switch confidenceLevel {
-	case primitives.Finalized:
-		if finalizedHead != nil {
-			return ethHeadToCommonHead(finalizedHead), nil
-		}
-		return nil, nil
-	case primitives.Unconfirmed:
-		if latestHead != nil {
-			return ethHeadToCommonHead(latestHead), nil
-		}
-		return nil, nil
-	default:
-		return nil, errors.New("unsupported confidence level")
+	ptrToValue, isValue := returnVal.(*values.Value)
+	if !isValue {
+		return binding.GetLatestValueWithHeadData(ctx, common.HexToAddress(address), confidenceLevel, params, returnVal)
 	}
-}
 
-func ethHeadToCommonHead(finalizedHead *evmtypes.Head) *commontypes.Head {
-	return &commontypes.Head{
-		Height: strconv.FormatInt(finalizedHead.Number, 10),
-		Hash:   finalizedHead.Hash.Bytes(),
-		//nolint:gosec // disable G115
-		Timestamp: uint64(finalizedHead.Timestamp.Unix()),
+	contractType, err := cr.CreateContractType(readName, false)
+	if err != nil {
+		return nil, err
 	}
+
+	head, err = cr.GetLatestValueWithHeadData(ctx, readName, confidenceLevel, params, contractType)
+	if err != nil {
+		return nil, err
+	}
+
+	value, err := values.Wrap(contractType)
+	if err != nil {
+		return nil, err
+	}
+
+	*ptrToValue = value
+
+	return head, nil
 }
 
 func (cr *chainReader) BatchGetLatestValues(ctx context.Context, request commontypes.BatchGetLatestValuesRequest) (commontypes.BatchGetLatestValuesResult, error) {
