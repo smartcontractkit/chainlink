@@ -12,7 +12,7 @@ contract EtherSenderReceiverTest_ccipReceive is EtherSenderReceiverTestSetup {
   error InvalidTokenAmounts(uint256 gotAmounts);
   error InvalidToken(address gotToken, address expectedToken);
 
-  function test_Fuzz_ccipReceive(
+  function testFuzz_ccipReceive(
     uint256 tokenAmount
   ) public {
     // cap to 10 ether because OWNER only has 10 ether.

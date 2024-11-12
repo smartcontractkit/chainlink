@@ -69,7 +69,7 @@ contract TokenAdminRegistry_proposeAdministrator is TokenAdminRegistrySetup {
 
   mapping(address token => address admin) internal s_AdminByToken;
 
-  function test_Fuzz_proposeAdministrator_Success(address[50] memory tokens, address[50] memory admins) public {
+  function testFuzz_proposeAdministrator_Success(address[50] memory tokens, address[50] memory admins) public {
     TokenAdminRegistry cleanTokenAdminRegistry = new TokenAdminRegistry();
     for (uint256 i = 0; i < tokens.length; i++) {
       if (admins[i] == address(0)) {
