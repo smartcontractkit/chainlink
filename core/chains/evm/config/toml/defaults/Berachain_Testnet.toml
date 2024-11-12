@@ -2,7 +2,7 @@ ChainID = '80084'
 # finality_depth: instant
 FinalityDepth = 10 
 # block_time: 5s, adding 1 second buffer 
-LogPollInterval = '1s' 
+LogPollInterval = '6s' 
 
 # finality_depth * block_time / 60 secs = ~0.8  min (finality time)
 NoNewFinalizedHeadsThreshold = '5m'
