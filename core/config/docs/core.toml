@@ -706,6 +706,10 @@ CACertFile = 'cert-file' # Example
 InsecureConnection = false # Default
 # TraceSampleRatio is the rate at which to sample traces. Must be between 0 and 1.
 TraceSampleRatio = 0.01 # Default
+# EmitterBatchProcessor enables batching for telemetry events
+EmitterBatchProcessor = true # Default
+# EmitterExportTimeout sets timeout for exporting telemetry events
+EmitterExportTimeout = '1s' # Default
 
 # ResourceAttributes are global metadata to include with all telemetry.
 [Telemetry.ResourceAttributes]

@@ -59,23 +59,24 @@ func generateMemoryChain(t *testing.T, inputs map[uint64]EVMChain) map[uint64]de
 		chain := chain
 		sel, err := chainsel.SelectorFromChainId(cid)
 		require.NoError(t, err)
+		backend := NewBackend(chain.Backend)
 		chains[sel] = deployment.Chain{
 			Selector:    sel,
-			Client:      chain.Backend,
+			Client:      backend,
 			DeployerKey: chain.DeployerKey,
 			Confirm: func(tx *types.Transaction) (uint64, error) {
 				if tx == nil {
 					return 0, fmt.Errorf("tx was nil, nothing to confirm")
 				}
 				for {
-					chain.Backend.Commit()
-					receipt, err := chain.Backend.TransactionReceipt(context.Background(), tx.Hash())
+					backend.Commit()
+					receipt, err := backend.TransactionReceipt(context.Background(), tx.Hash())
 					if err != nil {
 						t.Log("failed to get receipt", err)
 						continue
 					}
 					if receipt.Status == 0 {
-						errReason, err := deployment.GetErrorReasonFromTx(chain.Backend, chain.DeployerKey.From, tx, receipt)
+						errReason, err := deployment.GetErrorReasonFromTx(chain.Backend.Client(), chain.DeployerKey.From, tx, receipt)
 						if err == nil && errReason != "" {
 							return 0, fmt.Errorf("tx %s reverted,error reason: %s", tx.Hash().Hex(), errReason)
 						}

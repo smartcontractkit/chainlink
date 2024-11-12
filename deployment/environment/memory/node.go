@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	chainsel "github.com/smartcontractkit/chain-selectors"
@@ -84,7 +83,7 @@ func NewNode(
 			t.Fatal(err)
 		}
 		evmchains[evmChainID] = EVMChain{
-			Backend:     chain.Client.(*backends.SimulatedBackend),
+			Backend:     chain.Client.(*Backend).Sim,
 			DeployerKey: chain.DeployerKey,
 		}
 	}
@@ -281,7 +280,7 @@ func CreateKeys(t *testing.T,
 			require.Len(t, sendingKeys, 1)
 			transmitters[evmChainID] = sendingKeys[0]
 		}
-		backend := chain.Client.(*backends.SimulatedBackend)
+		backend := chain.Client.(*Backend).Sim
 		fundAddress(t, chain.DeployerKey, transmitters[evmChainID], assets.Ether(1000).ToInt(), backend)
 	}
 

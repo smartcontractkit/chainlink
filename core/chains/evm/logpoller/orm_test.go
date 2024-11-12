@@ -2056,8 +2056,18 @@ func TestInsertLogsWithBlock(t *testing.T) {
 
 	correctLog := GenLog(chainID, 1, 1, utils.RandomAddress().String(), event[:], address)
 	invalidLog := GenLog(chainID, -10, -10, utils.RandomAddress().String(), event[:], address)
-	correctBlock := logpoller.NewLogPollerBlock(utils.RandomBytes32(), 20, time.Now(), 10)
-	invalidBlock := logpoller.NewLogPollerBlock(utils.RandomBytes32(), -10, time.Now(), -10)
+	correctBlock := logpoller.LogPollerBlock{
+		BlockHash:            utils.RandomBytes32(),
+		BlockNumber:          20,
+		BlockTimestamp:       time.Now(),
+		FinalizedBlockNumber: 10,
+	}
+	invalidBlock := logpoller.LogPollerBlock{
+		BlockHash:            utils.RandomBytes32(),
+		BlockNumber:          -10,
+		BlockTimestamp:       time.Now(),
+		FinalizedBlockNumber: -10,
+	}
 
 	tests := []struct {
 		name           string
@@ -2193,7 +2203,12 @@ func TestSelectLogsDataWordBetween(t *testing.T) {
 			GenLogWithData(th.ChainID, address, eventSig, 1, 1, firstLogData),
 			GenLogWithData(th.ChainID, address, eventSig, 2, 2, secondLogData),
 		},
-		logpoller.NewLogPollerBlock(utils.RandomBytes32(), 10, time.Now(), 1),
+		logpoller.LogPollerBlock{
+			BlockHash:            utils.RandomBytes32(),
+			BlockNumber:          10,
+			BlockTimestamp:       time.Now(),
+			FinalizedBlockNumber: 1,
+		},
 	)
 	require.NoError(t, err)
 	limiter := query.LimitAndSort{

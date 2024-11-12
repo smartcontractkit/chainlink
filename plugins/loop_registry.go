@@ -78,6 +78,8 @@ func (m *LoopRegistry) Register(id string) (*RegisteredLoop, error) {
 		envCfg.TelemetryCACertFile = m.cfgTelemetry.CACertFile()
 		envCfg.TelemetryAttributes = m.cfgTelemetry.ResourceAttributes()
 		envCfg.TelemetryTraceSampleRatio = m.cfgTelemetry.TraceSampleRatio()
+		envCfg.TelemetryEmitterBatchProcessor = m.cfgTelemetry.EmitterBatchProcessor()
+		envCfg.TelemetryEmitterExportTimeout = m.cfgTelemetry.EmitterExportTimeout()
 		envCfg.TelemetryAuthPubKeyHex = m.telemetryAuthPubKeyHex
 	}
 	m.lggr.Debugf("Registered loopp %q with config %v, port %d", id, envCfg, envCfg.PrometheusPort)

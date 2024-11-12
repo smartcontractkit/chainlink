@@ -3,7 +3,7 @@ pragma solidity 0.8.24;
 
 import {BurnMintERC677} from "../../../../shared/token/ERC677/BurnMintERC677.sol";
 import {TokenPoolHelper} from "../../helpers/TokenPoolHelper.sol";
-import {RouterSetup} from "../../router/RouterSetup.t.sol";
+import {RouterSetup} from "../../router/Router/RouterSetup.t.sol";
 
 import {IERC20} from "../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 

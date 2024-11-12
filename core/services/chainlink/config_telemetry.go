@@ -1,6 +1,8 @@
 package chainlink
 
 import (
+	"time"
+
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 )
@@ -57,4 +59,18 @@ func (b *telemetryConfig) TraceSampleRatio() float64 {
 		return 0.0
 	}
 	return *b.s.TraceSampleRatio
+}
+
+func (b *telemetryConfig) EmitterBatchProcessor() bool {
+	if b.s.EmitterBatchProcessor == nil {
+		return false
+	}
+	return *b.s.EmitterBatchProcessor
+}
+
+func (b *telemetryConfig) EmitterExportTimeout() time.Duration {
+	if b.s.EmitterExportTimeout == nil {
+		return 0
+	}
+	return b.s.EmitterExportTimeout.Duration()
 }

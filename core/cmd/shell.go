@@ -104,6 +104,8 @@ func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing, cfgTeleme
 				OtelExporterGRPCEndpoint: cfgTelemetry.OtelExporterGRPCEndpoint(),
 				ResourceAttributes:       attributes,
 				TraceSampleRatio:         cfgTelemetry.TraceSampleRatio(),
+				EmitterBatchProcessor:    cfgTelemetry.EmitterBatchProcessor(),
+				EmitterExportTimeout:     cfgTelemetry.EmitterExportTimeout(),
 				AuthPublicKeyHex:         csaPubKeyHex,
 				AuthHeaders:              beholderAuthHeaders,
 			}

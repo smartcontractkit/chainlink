@@ -59,7 +59,7 @@ const (
 	DeltaCertifiedCommitRequest             = 10 * time.Second
 	DeltaStage                              = 10 * time.Second
 	Rmax                                    = 3
-	MaxDurationQuery                        = 50 * time.Millisecond
+	MaxDurationQuery                        = 500 * time.Millisecond
 	MaxDurationObservation                  = 5 * time.Second
 	MaxDurationShouldAcceptAttestedReport   = 10 * time.Second
 	MaxDurationShouldTransmitAcceptedReport = 10 * time.Second
@@ -813,7 +813,7 @@ func ValidateCCIPHomeConfigSetUp(
 	}
 	// final sanity checks on configs.
 	commitConfigs, err := ccipHome.GetAllConfigs(&bind.CallOpts{
-		Pending: true,
+		//Pending: true,
 	}, donID, uint8(cctypes.PluginTypeCCIPCommit))
 	if err != nil {
 		return fmt.Errorf("get all commit configs: %w", err)

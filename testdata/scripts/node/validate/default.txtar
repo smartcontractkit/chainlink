@@ -298,6 +298,8 @@ CACertFile = ''
 Endpoint = ''
 InsecureConnection = false
 TraceSampleRatio = 0.01
+EmitterBatchProcessor = true
+EmitterExportTimeout = '1s'
 
 Invalid configuration: invalid secrets: 2 errors:
 	- Database.URL: empty: must be provided and non-empty

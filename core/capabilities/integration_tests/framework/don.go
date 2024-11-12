@@ -292,7 +292,7 @@ func startNewNode(ctx context.Context,
 		}
 	})
 
-	n, err := ethBlockchain.NonceAt(ctx, ethBlockchain.transactionOpts.From, nil)
+	n, err := ethBlockchain.Client().NonceAt(ctx, ethBlockchain.transactionOpts.From, nil)
 	require.NoError(t, err)
 
 	tx := cltest.NewLegacyTransaction(
@@ -303,11 +303,11 @@ func startNewNode(ctx context.Context,
 		nil)
 	signedTx, err := ethBlockchain.transactionOpts.Signer(ethBlockchain.transactionOpts.From, tx)
 	require.NoError(t, err)
-	err = ethBlockchain.SendTransaction(ctx, signedTx)
+	err = ethBlockchain.Client().SendTransaction(ctx, signedTx)
 	require.NoError(t, err)
 	ethBlockchain.Commit()
 
-	return cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, ethBlockchain.SimulatedBackend, nodeInfo,
+	return cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, ethBlockchain.Backend, nodeInfo,
 		dispatcher, peerWrapper, newOracleFactoryFn, localCapabilities, keyV2, lggr)
 }
 
