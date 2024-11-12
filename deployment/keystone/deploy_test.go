@@ -283,7 +283,7 @@ func TestDeployCLO(t *testing.T) {
 	env := &deployment.Environment{
 		Name:              "CLO",
 		ExistingAddresses: deployment.NewMemoryAddressBook(),
-		Offchain:          clo.NewJobClient(lggr, allNops),
+		Offchain:          clo.NewJobClient(lggr, clo.JobClientConfig{Nops: allNops, RemapNodeIDsToPeerIDs: true}),
 		Chains:            allChains,
 		Logger:            lggr,
 	}

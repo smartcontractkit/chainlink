@@ -190,13 +190,22 @@ type GetNodeOperatorsResponse struct {
 	NodeOperators []*models.NodeOperator `json:"nodeOperators"`
 }
 
-func NewJobClient(lggr logger.Logger, nops []*models.NodeOperator) *JobClient {
+type JobClientConfig struct {
+	Nops                  []*models.NodeOperator
+	RemapNodeIDsToPeerIDs bool
+}
+
+func NewJobClient(lggr logger.Logger, cfg JobClientConfig) *JobClient {
+	if cfg.RemapNodeIDsToPeerIDs {
+		SetNodeIdsToPeerIds(cfg.Nops)
+	}
+
 	c := &JobClient{
-		NodeOperators: nops,
+		NodeOperators: cfg.Nops,
 		nodesByID:     make(map[string]*models.Node),
 		lggr:          lggr,
 	}
-	for _, nop := range nops {
+	for _, nop := range c.NodeOperators {
 		for _, n := range nop.Nodes {
 			node := n
 			c.nodesByID[n.ID] = node // maybe should use the public key instead?

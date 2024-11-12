@@ -96,7 +96,8 @@ func TestJobClient_ListNodes(t *testing.T) {
 	nops := parseTestNops(t)
 
 	type fields struct {
-		NodeOperators []*models.NodeOperator
+		NodeOperators         []*models.NodeOperator
+		RemapNodeIDsToPeerIDs bool
 	}
 	type args struct {
 		ctx  context.Context
@@ -223,10 +224,58 @@ func TestJobClient_ListNodes(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "remap node ids to peer ids",
+			fields: fields{
+				NodeOperators: []*models.NodeOperator{
+					{
+						ID: "nop1",
+						Nodes: []*models.Node{
+							{
+								ID:        "nodeID1",
+								Name:      "Node Name 1",
+								PublicKey: pointer.ToString("public key 1"),
+								Connected: true,
+								ChainConfigs: []*models.NodeChainConfig{
+									{
+										Ocr2Config: &models.NodeOCR2Config{
+											P2pKeyBundle: &models.NodeOCR2ConfigP2PKeyBundle{
+												PeerID: "peerID1",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				RemapNodeIDsToPeerIDs: true,
+			},
+			args: args{
+				ctx: context.Background(),
+				in:  &nodev1.ListNodesRequest{},
+			},
+			want: &nodev1.ListNodesResponse{
+				Nodes: []*nodev1.Node{
+					{
+						Id:          "peerID1",
+						Name:        "Node Name 1",
+						PublicKey:   "public key 1",
+						IsConnected: true,
+						Labels: []*ptypes.Label{
+							{
+								Key:   "p2p_id",
+								Value: pointer.ToString("peerID1"),
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			j := clo.NewJobClient(lggr, tt.fields.NodeOperators)
+			j := clo.NewJobClient(lggr, clo.JobClientConfig{Nops: tt.fields.NodeOperators, RemapNodeIDsToPeerIDs: tt.fields.RemapNodeIDsToPeerIDs})
 
 			got, err := j.ListNodes(tt.args.ctx, tt.args.in, tt.args.opts...)
 			if (err != nil) != tt.wantErr {
@@ -590,7 +639,7 @@ func TestJobClient_ListNodeChainConfigs(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			j := clo.NewJobClient(lggr, tt.fields.NodeOperators)
+			j := clo.NewJobClient(lggr, clo.JobClientConfig{Nops: tt.fields.NodeOperators})
 
 			got, err := j.ListNodeChainConfigs(tt.args.ctx, tt.args.in, tt.args.opts...)
 			if (err != nil) != tt.wantErr {

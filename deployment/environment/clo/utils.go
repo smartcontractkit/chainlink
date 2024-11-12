@@ -36,7 +36,7 @@ func NewChainConfig(chain *models.NodeChainConfig) *jd.ChainConfig {
 func NodeP2PId(n *models.Node) (string, error) {
 	p2pIds := make(map[string]struct{})
 	for _, cc := range n.ChainConfigs {
-		if cc.Ocr2Config.Enabled {
+		if cc.Ocr2Config != nil && cc.Ocr2Config.P2pKeyBundle != nil {
 			p2pIds[cc.Ocr2Config.P2pKeyBundle.PeerID] = struct{}{}
 		}
 	}
@@ -76,4 +76,26 @@ func NopsToNodes(nops []*models.NodeOperator) []*models.Node {
 
 func NopsToPeerIds(nops []*models.NodeOperator) ([]string, error) {
 	return NodesToPeerIDs(NopsToNodes(nops))
+}
+
+func SetIdToPeerId(n *models.Node) error {
+	p2pId, err := NodeP2PId(n)
+	if err != nil {
+		return err
+	}
+	n.ID = p2pId
+	return nil
+}
+
+// SetNodeIdsToPeerIds sets the ID of each node in the NOPs to the P2P ID of the node
+// It mutates the input NOPs
+func SetNodeIdsToPeerIds(nops []*models.NodeOperator) error {
+	for _, nop := range nops {
+		for _, n := range nop.Nodes {
+			if err := SetIdToPeerId(n); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
