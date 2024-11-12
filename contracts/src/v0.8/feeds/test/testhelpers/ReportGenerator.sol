@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {AccessControllerInterface} from "../../../shared/interfaces/AccessControllerInterface.sol";
-import {LinkTokenInterface} from "../../../shared/interfaces/LinkTokenInterface.sol";
-import {LinkToken} from "../../../shared/token/ERC677/LinkToken.sol";
 import {DualAggregator} from "../../DualAggregator.sol";
 
 import {Test} from "forge-std/Test.sol";
