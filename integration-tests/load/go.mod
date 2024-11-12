@@ -17,7 +17,11 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.33.0
 	github.com/slack-go/slack v0.15.0
+<<<<<<< HEAD
 	github.com/smartcontractkit/chainlink-common v0.3.1-0.20241111184621-c61aebee0af9
+=======
+	github.com/smartcontractkit/chainlink-common v0.3.1-0.20241112140826-0e2daed34ef6
+>>>>>>> f261a217b2 (updating go.mod for solana and common)
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.13
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.50.5
 	github.com/smartcontractkit/chainlink-testing-framework/wasp v1.50.2
@@ -418,7 +422,7 @@ require (
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20241018134907-a00ba3729b5e // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.1 // indirect
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.3.0 // indirect
-	github.com/smartcontractkit/chainlink-solana v1.1.1-0.20241104202120-39cabce465f6 // indirect
+	github.com/smartcontractkit/chainlink-solana v1.1.1-0.20241112145241-efd6780f6930 // indirect
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.1.1-0.20241017135645-176a23722fd8 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.50.0 // indirect
 	github.com/smartcontractkit/libocr v0.0.0-20241007185508-adbe57025f12 // indirect

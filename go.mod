@@ -76,13 +76,18 @@ require (
 	github.com/shopspring/decimal v1.4.0
 	github.com/smartcontractkit/chain-selectors v1.0.27
 	github.com/smartcontractkit/chainlink-automation v0.8.1
+<<<<<<< HEAD
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241111114733-aa3b2f8e9f94
 	github.com/smartcontractkit/chainlink-common v0.3.1-0.20241111184621-c61aebee0af9
+=======
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241106140121-4c9ee21ab422
+	github.com/smartcontractkit/chainlink-common v0.3.1-0.20241112140826-0e2daed34ef6
+>>>>>>> f261a217b2 (updating go.mod for solana and common)
 	github.com/smartcontractkit/chainlink-cosmos v0.5.2-0.20241017133723-5277829bd53f
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20241018134907-a00ba3729b5e
 	github.com/smartcontractkit/chainlink-feeds v0.1.1
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.3.0
-	github.com/smartcontractkit/chainlink-solana v1.1.1-0.20241104202120-39cabce465f6
+	github.com/smartcontractkit/chainlink-solana v1.1.1-0.20241112145241-efd6780f6930
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.1.1-0.20241017135645-176a23722fd8
 	github.com/smartcontractkit/libocr v0.0.0-20241007185508-adbe57025f12
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20241009055228-33d0c0bf38de
