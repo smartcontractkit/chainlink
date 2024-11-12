@@ -132,7 +132,7 @@ jobs:
           
       - name: Split test packages into groups
         id: split-packages
-        if: steps.find-tests.outputs.packages != ''
+        if: ${{ steps.find-tests.outputs.packages != '' || inputs.runAllTests == 'true' }}
         shell: bash
         run: |
           if [[ "${{ inputs.runAllTests }}" == "true" ]]; then
