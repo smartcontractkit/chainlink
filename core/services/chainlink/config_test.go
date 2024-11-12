@@ -556,12 +556,14 @@ func TestConfig_Marshal(t *testing.T) {
 		Release:     ptr("v1.2.3"),
 	}
 	full.Telemetry = toml.Telemetry{
-		Enabled:            ptr(true),
-		CACertFile:         ptr("cert-file"),
-		Endpoint:           ptr("example.com/collector"),
-		InsecureConnection: ptr(true),
-		ResourceAttributes: map[string]string{"Baz": "test", "Foo": "bar"},
-		TraceSampleRatio:   ptr(0.01),
+		Enabled:               ptr(true),
+		CACertFile:            ptr("cert-file"),
+		Endpoint:              ptr("example.com/collector"),
+		InsecureConnection:    ptr(true),
+		ResourceAttributes:    map[string]string{"Baz": "test", "Foo": "bar"},
+		TraceSampleRatio:      ptr(0.01),
+		EmitterBatchProcessor: ptr(true),
+		EmitterExportTimeout:  commoncfg.MustNewDuration(1 * time.Second),
 	}
 	full.EVM = []*evmcfg.EVMConfig{
 		{

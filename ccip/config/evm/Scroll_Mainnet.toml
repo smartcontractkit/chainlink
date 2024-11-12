@@ -20,3 +20,7 @@ HistoryDepth = 50
 
 [OCR]
 ContractConfirmations = 1
+
+[Transactions.AutoPurge]
+Enabled = true
+DetectionApiUrl = 'https://venus.scroll.io'

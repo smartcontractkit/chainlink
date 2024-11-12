@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -94,7 +95,13 @@ func TestAddLane(t *testing.T) {
 	startBlock := latesthdr.Number.Uint64()
 	// Send traffic on the first lane and it should not be processed by the plugin as onRamp is disabled
 	// we will check this by confirming that the message is not executed by the end of the test
-	seqNum1 := TestSendRequest(t, e.Env, state, chain1, chain2, false, nil)
+	seqNum1 := TestSendRequest(t, e.Env, state, chain1, chain2, false, router.ClientEVM2AnyMessage{
+		Receiver:     common.LeftPadBytes(state.Chains[chain2].Receiver.Address().Bytes(), 32),
+		Data:         []byte("hello world"),
+		TokenAmounts: nil,
+		FeeToken:     common.HexToAddress("0x0"),
+		ExtraArgs:    nil,
+	})
 	require.Equal(t, uint64(1), seqNum1)
 
 	// Add another lane
@@ -104,7 +111,13 @@ func TestAddLane(t *testing.T) {
 	latesthdr, err = e.Env.Chains[chain1].Client.HeaderByNumber(testcontext.Get(t), nil)
 	require.NoError(t, err)
 	startBlock2 := latesthdr.Number.Uint64()
-	seqNum2 := TestSendRequest(t, e.Env, state, chain2, chain1, false, nil)
+	seqNum2 := TestSendRequest(t, e.Env, state, chain2, chain1, false, router.ClientEVM2AnyMessage{
+		Receiver:     common.LeftPadBytes(state.Chains[chain2].Receiver.Address().Bytes(), 32),
+		Data:         []byte("hello world"),
+		TokenAmounts: nil,
+		FeeToken:     common.HexToAddress("0x0"),
+		ExtraArgs:    nil,
+	})
 	require.Equal(t, uint64(1), seqNum2)
 	require.NoError(t, ConfirmExecWithSeqNr(t, e.Env.Chains[chain2], e.Env.Chains[chain1], state.Chains[chain1].OffRamp, &startBlock2, seqNum2))
 

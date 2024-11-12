@@ -92,17 +92,3 @@ func (c workflowsMetricLabeler) incrementEngineHeartbeatCounter(ctx context.Cont
 	otelLabels := localMonitoring.KvMapToOtelAttributes(c.Labels)
 	engineHeartbeatCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
-
-// Observability keys
-const (
-	cIDKey  = "capabilityID"
-	tIDKey  = "triggerID"
-	wIDKey  = "workflowID"
-	eIDKey  = "workflowExecutionID"
-	wnKey   = "workflowName"
-	woIDKey = "workflowOwner"
-	sIDKey  = "stepID"
-	sRKey   = "stepRef"
-)
-
-var orderedLabelKeys = []string{sRKey, sIDKey, tIDKey, cIDKey, eIDKey, wIDKey}

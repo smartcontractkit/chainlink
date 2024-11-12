@@ -15,3 +15,8 @@ ResendAfterThreshold = '3m'
 # set greater than finality depth
 [HeadTracker]
 HistoryDepth = 350
+
+[Transactions.AutoPurge]
+Enabled = true
+Threshold = 50 # 50 blocks at 3s block time ~2.5 minutes
+MinAttempts = 3

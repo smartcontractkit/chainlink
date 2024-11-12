@@ -25,6 +25,18 @@ func TestDeployCCIPContracts(t *testing.T) {
 	homeChainSel, feedChainSel := allocateCCIPChainSelectors(e.Chains)
 	_ = DeployTestContracts(t, lggr, e.ExistingAddresses, homeChainSel, feedChainSel, e.Chains)
 
+	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
+	require.NoError(t, err)
+
+	_, err = DeployHomeChain(lggr, e, e.ExistingAddresses, e.Chains[homeChainSel],
+		NewTestRMNStaticConfig(),
+		NewTestRMNDynamicConfig(),
+		NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
+		map[string][][32]byte{
+			"NodeOperator": nodes.NonBootstraps().PeerIDs(),
+		},
+	)
+	require.NoError(t, err)
 	// Load the state after deploying the cap reg and feeds.
 	s, err := LoadOnchainState(e)
 	require.NoError(t, err)
