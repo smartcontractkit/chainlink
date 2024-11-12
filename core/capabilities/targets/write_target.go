@@ -37,10 +37,8 @@ type WriteTarget struct {
 	receiverGasMinimum uint64
 	capabilities.CapabilityInfo
 
-	// emitter is used to emit messages from the WASM module to a configured collector.
 	emitter custmsg.MessageEmitter
-
-	lggr logger.Logger
+	lggr    logger.Logger
 
 	bound bool
 }
@@ -350,6 +348,7 @@ func (cap *WriteTarget) Execute(ctx context.Context, rawRequest capabilities.Cap
 				}
 				return capabilities.CapabilityResponse{}, fmt.Errorf("submitted transaction failed: %w", err)
 			default:
+				cap.lggr.Debugw("Unexpected transaction status", "request", request, "transaction", txID, "status", txStatus)
 			}
 		}
 	}
