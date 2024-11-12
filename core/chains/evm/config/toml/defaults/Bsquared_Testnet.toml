@@ -3,8 +3,8 @@ ChainID = '1123'
 ChainType = 'optimismBedrock'
 # finality_depth was: ~1900
 FinalityDepth = 2000
-# block_time:  ~2s 
-LogPollInterval = '5s'
+# block_time:  ~2s, adding 1 second buffer  
+LogPollInterval = '3s'
 
 # finality_depth * block_time / 60 secs = ~66  min (finality time)
 NoNewFinalizedHeadsThreshold = '70m'
@@ -16,8 +16,8 @@ EIP1559DynamicFees = true
 Mode = 'FeeHistory'
 
 [GasEstimator.FeeHistory]
-# block_time was: 2s
-CacheTimeout = '2s'
+# block_time was: 2s, per recommendation skip 1-2 blocks
+CacheTimeout = '4s'
 
 [GasEstimator.BlockHistory]
 BlockHistorySize = 100
