@@ -1,0 +1,21 @@
+name: Run Nightly Flaky Test Detector
+
+on:
+  schedule:
+    # Run every night at 3:00 AM UTC
+    - cron: '0 3 * * *'
+
+jobs:
+  trigger-flaky-test-detection:
+    name: Find New Flaky Tests
+    uses: ./.github/workflows/find-new-flaky-tests.yml
+    with:
+      repoUrl: 'https://github.com/smartcontractkit/chainlink'
+      baseRef: 'origin/develop'
+      projectPath: '.'
+      runThreshold: '0.9'
+      runAllTests: 'true'
+      # slackNotificationAfterTestsChannelId: 'C07TRF65CNS' #flaky-test-detector-notifications
+      extraArgs: '{ "skipped_tests": "TestChainComponents", test_repeat_count: 2 }'
+    secrets:
+      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
