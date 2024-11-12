@@ -9,7 +9,7 @@ import {AccessControllerInterface} from "../../shared/interfaces/AccessControlle
 import {AggregatorValidatorInterface} from "../../shared/interfaces/AggregatorValidatorInterface.sol";
 import {LinkTokenInterface} from "../../shared/interfaces/LinkTokenInterface.sol";
 import {LinkToken} from "../../shared/token/ERC677/LinkToken.sol";
-import {ReportGenerator} from "./testhelpers/ReportGenerator.sol";
+import {ReportGenerator} from "./testhelpers/ReportGenerator.t.sol";
 
 contract DualAggregatorHarness is DualAggregator {
   constructor(

@@ -128,7 +128,7 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     setValidatorConfig(AggregatorValidatorInterface(address(0x0)), 0);
     i_minAnswer = minAnswer_;
     i_maxAnswer = maxAnswer_;
-    s_secondaryProxy = secondaryProxy_;
+    i_secondaryProxy = secondaryProxy_;
     s_cutoffTime = cutoffTime_;
     s_maxSyncIterations = maxSyncIterations_;
   }
@@ -492,7 +492,7 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
   mapping(uint32 /* aggregator round ID */ => Transmission) internal s_transmissions;
 
   // secondary proxy address, used to detect who's calling the contract methods
-  address internal immutable s_secondaryProxy;
+  address internal immutable i_secondaryProxy;
 
   // cutoff time defines the time window in which a secondary report is valid
   uint32 internal s_cutoffTime;
@@ -623,7 +623,7 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     uint32 latestSecondaryRoundId = s_hotVars.latestSecondaryRoundId;
 
     // check if the message sender is the secondary proxy
-    if (msg.sender == s_secondaryProxy) {
+    if (msg.sender == i_secondaryProxy) {
       transmission = s_transmissions[latestSecondaryRoundId];
       // in case the latest secondary round does not accomplish the cutoff time condition,
       // get the round id syncing with the primary rounds
