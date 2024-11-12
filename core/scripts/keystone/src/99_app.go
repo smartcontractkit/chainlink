@@ -181,7 +181,7 @@ func (c *nodeAPI) exec(clientMethod ...func(*cli.Context) error) ([]byte, error)
 			"attempt", i+1,
 			"waitTime", "1s",
 		)
-		time.Sleep(1 * time.Second)
+		time.Sleep(3 * time.Second)
 	}
 
 	return nil, errors.New("API request failed after retries")
