@@ -8,7 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
 
-var _ deployment.ChangeSet[AppendNodeCapabilitiesRequest] = AppendNodeCapabilities
+var _ deployment.ChangeSet[*AppendNodeCapabilitiesRequest] = AppendNodeCapabilities
 
 // AppendNodeCapabilitiesRequest is a request to add capabilities to the existing capabilities of nodes in the registry
 type AppendNodeCapabilitiesRequest = MutateNodeCapabilitiesRequest
