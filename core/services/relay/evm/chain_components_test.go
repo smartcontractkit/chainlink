@@ -236,7 +236,6 @@ func (h *helper) Init(t *testing.T) {
 	h.client = h.Client(t)
 
 	h.txm = h.TXM(t, h.client)
-	h.Commit()
 }
 
 func (h *helper) SetupKeys(t *testing.T) {
