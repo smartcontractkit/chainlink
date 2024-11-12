@@ -56,10 +56,10 @@ on:
 env:
   GIT_HEAD_REF: ${{ inputs.headRef || github.ref }}
   SKIPPED_TESTS: ${{ fromJson(inputs.extraArgs)['skipped_tests'] || '' }} # Comma separated list of test names to skip running in the flaky detector. Related issue: TT-1823
-  MAX_GROUP_SIZE: ${{ fromJson(inputs.extraArgs)['max_group_size'] || '8' }} # The maximum number of jobs to run in parallel when running tests.
-  RUN_COUNT: ${{ fromJson(inputs.extraArgs)['run_count'] || '5' }} # The number of times to run the tests to detect flaky tests.
+  DEFAULT_MAX_RUNNER_COUNT: ${{ fromJson(inputs.extraArgs)['default_max_runner_count'] || '8' }} # The default maximum number of GitHub runners to use for parallel test execution.
+  ALL_TESTS_RUNNER_COUNT: 2 # The number of GitHub runners to use when running all tests `runAllTests=true`.
+  TEST_REPEAT_COUNT: ${{ fromJson(inputs.extraArgs)['test_repeat_count'] || '5' }} # The number of times each runner should run a test to detect flaky tests.
   RUN_WITH_RACE: ${{ fromJson(inputs.extraArgs)['run_with_race'] || 'true' }} # Whether to run tests with -race flag.
-  ALL_TESTS_RUN_COUNT: 2 # The number of times to run all tests to get the pass ratio.
   ALL_TESTS_RUNNER: 'ubuntu-latest' # The runner to use for running all tests. #TODO: change
   # ALL_TESTS_RUNNER: 'ubuntu22.04-32cores-128GB' # The runner to use for running all tests. #TODO: change
   DEFAULT_RUNNER: 'ubuntu-latest' # The default runner to use for running tests.
@@ -142,10 +142,10 @@ jobs:
         run: |
           if [[ "${{ inputs.runAllTests }}" == "true" ]]; then
             # Use ALL_TESTS_RUNNER for a specified number of groups, each with "./..." to run all tests
-            ALL_TESTS_RUN_COUNT=${{ env.ALL_TESTS_RUN_COUNT }}
+            ALL_TESTS_RUNNER_COUNT=${{ env.ALL_TESTS_RUNNER_COUNT }}
             
-            # Create the JSON array dynamically based on ALL_TESTS_RUN_COUNT
-            json_groups=$(jq -nc --argjson count "$ALL_TESTS_RUN_COUNT" \
+            # Create the JSON array dynamically based on ALL_TESTS_RUNNER_COUNT
+            json_groups=$(jq -nc --argjson count "$ALL_TESTS_RUNNER_COUNT" \
               '[range(0; $count) | { "testPackages": "./...", "runs_on": "'"${{ env.ALL_TESTS_RUNNER }}"'" }]')
               
             echo $json_groups
@@ -154,7 +154,7 @@ jobs:
           fi
 
           PACKAGES=(${{ steps.get-tests.outputs.packages }})
-          DESIRED_GROUP_COUNT=$((${{ env.MAX_GROUP_SIZE }}))
+          DESIRED_GROUP_COUNT=$((${{ env.DEFAULT_MAX_RUNNER_COUNT }}))
           TOTAL_PACKAGES=${#PACKAGES[@]}
 
           # Number of groups should be no more than the number of packages
@@ -262,7 +262,7 @@ jobs:
 
       - name: Run tests with flakeguard
         shell: bash
-        run: flakeguard run --project-path=${{ inputs.projectPath }} --test-packages=${{ matrix.testPackages }} --run-count=${{ env.RUN_COUNT }} --threshold=${{ inputs.runThreshold }} --race=${{ env.RUN_WITH_RACE }} --skip-tests=${{ env.SKIPPED_TESTS }} --output-json=test-result.json
+        run: flakeguard run --project-path=${{ inputs.projectPath }} --test-packages=${{ matrix.testPackages }} --run-count=${{ env.TEST_REPEAT_COUNT }} --threshold=${{ inputs.runThreshold }} --race=${{ env.RUN_WITH_RACE }} --skip-tests=${{ env.SKIPPED_TESTS }} --output-json=test-result.json
         env:
           CL_DATABASE_URL: ${{ env.DB_URL }}
 
@@ -440,7 +440,7 @@ jobs:
           echo "| **Setting**             | **Value**  |" >> $GITHUB_STEP_SUMMARY
           echo "|-------------------------|------------|" >> $GITHUB_STEP_SUMMARY
           echo "| Flakiness Threshold     | ${threshold_percentage}%       |" >> $GITHUB_STEP_SUMMARY
-          echo "| Test Run Count          | ${{ env.RUN_COUNT }}         |" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Repeat Count       | ${{ env.TEST_REPEAT_COUNT }}   |" >> $GITHUB_STEP_SUMMARY
           echo "| Race Detection          | ${{ env.RUN_WITH_RACE }}      |" >> $GITHUB_STEP_SUMMARY
           echo "| Excluded Tests          | ${{ env.SKIPPED_TESTS }}      |" >> $GITHUB_STEP_SUMMARY
           
