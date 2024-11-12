@@ -500,8 +500,8 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
   // max iterations the secondary proxy will be able to loop to sync with the primary rounds
   uint32 internal s_maxSyncIterations;
 
-  // wether if the primary latest report has to be locked or not
-  bool internal s_primaryLocked;
+  // wether if the latest report was secondary or not
+  bool internal s_latestSecondary;
 
   /**
    * @notice indicates that a new report arrived from the secondary feed and the round id was updated
@@ -639,7 +639,7 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
       // get the transmission
       transmission = s_transmissions[latestAggregatorRoundId];
       // in case the transmission was sent in this same block only by the secondary proxy, return the previous round id
-      if (s_primaryLocked && transmission.recordedTimestamp == block.timestamp) {
+      if (s_latestSecondary && transmission.recordedTimestamp == block.timestamp) {
         return latestAggregatorRoundId - 1;
       }
     }
@@ -810,6 +810,10 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
       (bool exist, uint32 roundId) = _doesReportExist(report_);
       // In case the report exists, copy the round id and pay the transmitter
       if (exist) {
+        if (s_latestSecondary) {
+          revert StaleReport();
+        }
+
         s_hotVars.latestSecondaryRoundId = roundId;
         emit SecondaryRoundIdUpdated(roundId);
 
@@ -817,10 +821,11 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
         return;
       }
     }
+
     // Report epoch and round
     uint40 epochAndRound = uint40(uint256(reportContext[1]));
 
-    if (epochAndRound != s_hotVars.latestEpochAndRound || !s_primaryLocked) {
+    if (epochAndRound != s_hotVars.latestEpochAndRound || !s_latestSecondary) {
       if (epochAndRound <= s_hotVars.latestEpochAndRound) {
         revert StaleReport();
       }
@@ -831,8 +836,8 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
       _report(s_hotVars, reportContext[0], epochAndRound, report_, isSecondary);
     }
 
-    // Lock/unlock the primary feed and pay the transmitters
-    s_primaryLocked = isSecondary;
+    // Store if the latest report was secondary or not
+    s_latestSecondary = isSecondary;
     _payTransmitter(s_hotVars, report_.juelsPerFeeCoin, uint32(initialGas), msg.sender);
   }
 
