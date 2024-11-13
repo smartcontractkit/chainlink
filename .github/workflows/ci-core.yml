@@ -460,7 +460,7 @@ jobs:
           SONAR_SCANNER_OPTS: "-Xms6g -Xmx8g"
 
   trigger-flaky-test-detection-for-root-project:
-    name: Find New Flaky Tests In Root Project
+    name: Find New Flaky Tests In Chainlink Project
     uses: ./.github/workflows/find-new-flaky-tests.yml
     if: ${{ github.event_name == 'pull_request' }}
     with:
