@@ -365,14 +365,14 @@ jobs:
         if: ${{ fromJson(steps.set_test_results.outputs.failed_tests_count) > 0 }}
         shell: bash
         run: |
-          jq -r '["TestPackage", "TestName", "PassRatio", "RunCount", "Skipped"], ["---------", "---------", "---------", "---------", "---------"], (.[] | [.TestPackage, .TestName, .PassRatio, .Runs, .Skipped]) | @tsv' failed_tests.json | column -t -s$'\t' > failed_tests_ascii.txt
+          jq -r '["TestPackage", "TestName", "PassRatio", "RunCount", "Skipped"], ["---------", "---------", "---------", "---------", "---------"], (.[] | [.TestPackage, .TestName, .PassRatioPercentage, .Runs, .Skipped]) | @tsv' failed_tests.json | column -t -s$'\t' > failed_tests_ascii.txt
           cat failed_tests_ascii.txt
 
       - name: Create ASCII table with all test results
         if: ${{ fromJson(steps.set_test_results.outputs.all_tests_count) > 0 }}
         shell: bash
         run: |
-          jq -r '["TestPackage", "TestName", "PassRatio", "RunCount", "Skipped"], ["---------", "---------", "---------", "---------", "---------"], (.[] | [.TestPackage, .TestName, .PassRatio, .Runs, .Skipped]) | @tsv' all_tests.json | column -t -s$'\t' > all_tests_ascii.txt
+          jq -r '["TestPackage", "TestName", "PassRatio", "RunCount", "Skipped"], ["---------", "---------", "---------", "---------", "---------"], (.[] | [.TestPackage, .TestName, .PassRatioPercentage, .Runs, .Skipped]) | @tsv' all_tests.json | column -t -s$'\t' > all_tests_ascii.txt
           cat all_tests_ascii.txt
 
       - name: Create GitHub Summary (General)
