@@ -379,7 +379,7 @@ jobs:
 
       - name: Create GitHub Summary (General)
         run: |
-          echo "## Flaky Test Detection Summary for ${{ steps.set_project_path_pretty.outputs.path }} Go Project" >> $GITHUB_STEP_SUMMARY
+          echo "## Flaky Test Detection Report for \`${{ steps.set_project_path_pretty.outputs.path }}\` Project" >> $GITHUB_STEP_SUMMARY
 
       - name: Create GitHub Summary (Comparative Test Analysis)
         if: ${{ inputs.runAllTests == 'false' }}
@@ -475,13 +475,13 @@ jobs:
         if: ${{ fromJson(steps.set_test_results.outputs.all_tests_count) == 0 }}
         run: |
           echo "### No Tests To Execute" >> $GITHUB_STEP_SUMMARY
-          echo "No updated or new Go tests found for \`${{ steps.set_project_path_pretty.outputs.path }}\` Go project. The flaky detector will not run." >> $GITHUB_STEP_SUMMARY
+          echo "No updated or new Go tests found for \`${{ steps.set_project_path_pretty.outputs.path }}\` project. The flaky detector will not run." >> $GITHUB_STEP_SUMMARY
 
       - name: Post comment on PR if flaky tests found
         if: ${{ fromJson(steps.set_test_results.outputs.failed_tests_count) > 0 && github.event_name == 'pull_request' }}
         uses: actions/github-script@v7
         env:
-          MESSAGE_BODY_1: '### Flaky Test Detector for `${{ steps.set_project_path_pretty.outputs.path }}` Go project has failed :x:'
+          MESSAGE_BODY_1: '### Flaky Test Detector for `${{ steps.set_project_path_pretty.outputs.path }}` project has failed :x:'
           MESSAGE_BODY_2: 'Ran new or updated tests between `${{ inputs.baseRef }}` and ${{ needs.get-tests.outputs.git_head_sha }} (`${{ env.GIT_HEAD_REF }}`).'
           MESSAGE_BODY_3: ${{ format('[View Flaky Detector Details]({0}/{1}/actions/runs/{2}) | [Compare Changes]({3}/compare/{4}...{5}#files_bucket)', github.server_url, github.repository, github.run_id, inputs.repoUrl, github.base_ref, needs.get-tests.outputs.git_head_sha) }}
           MESSAGE_BODY_4: '#### Failed Tests'
@@ -532,7 +532,7 @@ jobs:
                       "type": "section",
                       "text": {
                         "type": "mrkdwn",
-                        "text": "Flaky Test Detector for ${{ steps.set_project_path_pretty.outputs.path }} Go project - ${{ contains(join(needs.*.result, ','), 'failure') && 'Failed :x:' || contains(join(needs.*.result, ','), 'cancelled') && 'Was cancelled :warning:' || 'Passed :white_check_mark:' }}"
+                        "text": "Flaky Test Detector for `${{ steps.set_project_path_pretty.outputs.path }}` project - ${{ contains(join(needs.*.result, ','), 'failure') && 'Failed :x:' || contains(join(needs.*.result, ','), 'cancelled') && 'Was cancelled :warning:' || 'Passed :white_check_mark:' }}"
                       }
                     },
                     {
