@@ -63,6 +63,7 @@ env:
   ALL_TESTS_RUNNER: ${{ fromJson(inputs.extraArgs)['all_tests_runner'] || 'ubuntu22.04-32cores-128GB' }} # The runner to use for running all tests.
   DEFAULT_RUNNER: 'ubuntu-latest' # The default runner to use for running tests.
   UPLOAD_ALL_TEST_RESULTS: ${{ fromJson(inputs.extraArgs)['upload_all_test_results'] || 'false' }} # Whether to upload all test results as artifacts.
+  PRINT_FAILED_TESTS: ${{ fromJson(inputs.extraArgs)['print_failed_tests'] || 'false' }} # Whether to print failed tests in the GitHub console.
 
 jobs:
   get-tests:
@@ -98,7 +99,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@d5a4c349a305f1dee78eb2869bd98370d3a94789
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@df2b8196abe6386777fb6797d63a02bc034464ed
 
       - name: Find new or updated test packages
         if: ${{ inputs.runAllTests == 'false' }}
@@ -258,11 +259,11 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@d5a4c349a305f1dee78eb2869bd98370d3a94789
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@df2b8196abe6386777fb6797d63a02bc034464ed
 
       - name: Run tests with flakeguard
         shell: bash
-        run: flakeguard run --project-path=${{ inputs.projectPath }} --test-packages=${{ matrix.testPackages }} --run-count=${{ env.TEST_REPEAT_COUNT }} --threshold=${{ inputs.runThreshold }} --race=${{ env.RUN_WITH_RACE }} --skip-tests=${{ env.SKIPPED_TESTS }} --output-json=test-result.json
+        run: flakeguard run --project-path=${{ inputs.projectPath }} --test-packages=${{ matrix.testPackages }} --run-count=${{ env.TEST_REPEAT_COUNT }} --threshold=${{ inputs.runThreshold }} --race=${{ env.RUN_WITH_RACE }} --skip-tests=${{ env.SKIPPED_TESTS }} --print-failed-tests=${{ env.PRINT_FAILED_TESTS }} --output-json=test-result.json
         env:
           CL_DATABASE_URL: ${{ env.DB_URL }}
 
@@ -300,7 +301,7 @@ jobs:
             
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@d5a4c349a305f1dee78eb2869bd98370d3a94789
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@df2b8196abe6386777fb6797d63a02bc034464ed
                 
       - name: Set combined test results
         id: set_test_results
