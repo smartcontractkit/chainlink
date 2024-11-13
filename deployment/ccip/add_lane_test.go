@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -119,7 +120,7 @@ func TestAddLane(t *testing.T) {
 		ExtraArgs:    nil,
 	})
 	require.Equal(t, uint64(1), seqNum2)
-	require.NoError(t, ConfirmExecWithSeqNr(t, e.Env.Chains[chain2], e.Env.Chains[chain1], state.Chains[chain1].OffRamp, &startBlock2, seqNum2))
+	require.NoError(t, commonutils.JustError(ConfirmExecWithSeqNr(t, e.Env.Chains[chain2], e.Env.Chains[chain1], state.Chains[chain1].OffRamp, &startBlock2, seqNum2)))
 
 	// now check for the previous message from chain 1 to chain 2 that it has not been executed till now as the onRamp was disabled
 	ConfirmNoExecConsistentlyWithSeqNr(t, e.Env.Chains[chain1], e.Env.Chains[chain2], state.Chains[chain2].OffRamp, seqNum1, 30*time.Second)
@@ -145,5 +146,5 @@ func TestAddLane(t *testing.T) {
 	ReplayLogs(t, e.Env.Offchain, replayBlocks)
 	time.Sleep(30 * time.Second)
 	// Now that the onRamp is enabled, the request should be processed
-	require.NoError(t, ConfirmExecWithSeqNr(t, e.Env.Chains[chain1], e.Env.Chains[chain2], state.Chains[chain2].OffRamp, &startBlock, seqNum1))
+	require.NoError(t, commonutils.JustError(ConfirmExecWithSeqNr(t, e.Env.Chains[chain1], e.Env.Chains[chain2], state.Chains[chain2].OffRamp, &startBlock, seqNum1)))
 }

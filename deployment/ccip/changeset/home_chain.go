@@ -13,14 +13,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 )
 
-var _ deployment.ChangeSet = DeployHomeChain
+var _ deployment.ChangeSet[DeployHomeChainConfig] = DeployHomeChain
 
 // DeployHomeChain is a separate changeset because it is a standalone deployment performed once in home chain for the entire CCIP deployment.
-func DeployHomeChain(env deployment.Environment, config interface{}) (deployment.ChangesetOutput, error) {
-	cfg, ok := config.(DeployHomeChainConfig)
-	if !ok {
-		return deployment.ChangesetOutput{}, deployment.ErrInvalidConfig
-	}
+func DeployHomeChain(env deployment.Environment, cfg DeployHomeChainConfig) (deployment.ChangesetOutput, error) {
+
 	err := cfg.Validate()
 	if err != nil {
 		return deployment.ChangesetOutput{}, errors.Wrapf(deployment.ErrInvalidConfig, "%v", err)

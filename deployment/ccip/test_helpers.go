@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
@@ -287,7 +288,9 @@ func TestSendRequest(
 	return seqNum
 }
 
-func MakeExtraArgsV2(gasLimit uint64, allowOOO bool) []byte {
+// MakeEVMExtraArgsV2 creates the extra args for the EVM2Any message that is destined
+// for an EVM chain. The extra args contain the gas limit and allow out of order flag.
+func MakeEVMExtraArgsV2(gasLimit uint64, allowOOO bool) []byte {
 	// extra args is the tag followed by the gas limit and allowOOO abi-encoded.
 	var extraArgs []byte
 	extraArgs = append(extraArgs, evmExtraArgsV2Tag...)
@@ -454,8 +457,19 @@ func ConfirmRequestOnSourceAndDest(t *testing.T, env deployment.Environment, sta
 		}))
 
 	fmt.Printf("Commit confirmed for seqnr %d", seqNum)
-	require.NoError(t,
-		ConfirmExecWithSeqNr(t, env.Chains[sourceCS], env.Chains[destCS], state.Chains[destCS].OffRamp, &startBlock, seqNum))
+	require.NoError(
+		t,
+		commonutils.JustError(
+			ConfirmExecWithSeqNr(
+				t,
+				env.Chains[sourceCS],
+				env.Chains[destCS],
+				state.Chains[destCS].OffRamp,
+				&startBlock,
+				seqNum,
+			),
+		),
+	)
 
 	return nil
 }

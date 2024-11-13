@@ -57,6 +57,7 @@ type DelegateConfig struct {
 	RetirementReportCodec  datastreamsllo.RetirementReportCodec
 	ShouldRetireCache      datastreamsllo.ShouldRetireCache
 	EAMonitoringEndpoint   ocrcommontypes.MonitoringEndpoint
+	DonID                  uint32
 
 	// OCR3
 	TraceLogging                 bool
@@ -74,7 +75,7 @@ type DelegateConfig struct {
 }
 
 func NewDelegate(cfg DelegateConfig) (job.ServiceCtx, error) {
-	lggr := logger.Sugared(cfg.Logger).With("jobName", cfg.JobName.ValueOrZero())
+	lggr := logger.Sugared(cfg.Logger).With("jobName", cfg.JobName.ValueOrZero(), "donID", cfg.DonID)
 	if cfg.DataSource == nil {
 		return nil, errors.New("DataSource must not be nil")
 	}
@@ -94,7 +95,7 @@ func NewDelegate(cfg DelegateConfig) (job.ServiceCtx, error) {
 
 	var t TelemeterService
 	if cfg.CaptureEATelemetry {
-		t = NewTelemeterService(lggr, cfg.EAMonitoringEndpoint)
+		t = NewTelemeterService(lggr, cfg.EAMonitoringEndpoint, cfg.DonID)
 	} else {
 		t = NullTelemeter
 	}
@@ -110,7 +111,7 @@ func (d *delegate) Start(ctx context.Context) error {
 			return fmt.Errorf("expected either 1 or 2 ContractConfigTrackers, got: %d", len(d.cfg.ContractConfigTrackers))
 		}
 
-		d.cfg.Logger.Debugw("Starting LLO job", "instances", len(d.cfg.ContractConfigTrackers), "jobName", d.cfg.JobName.ValueOrZero(), "captureEATelemetry", d.cfg.CaptureEATelemetry)
+		d.cfg.Logger.Debugw("Starting LLO job", "instances", len(d.cfg.ContractConfigTrackers), "jobName", d.cfg.JobName.ValueOrZero(), "captureEATelemetry", d.cfg.CaptureEATelemetry, "donID", d.cfg.DonID)
 
 		var merr error
 

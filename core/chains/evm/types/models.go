@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math/big"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -18,10 +19,12 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"github.com/ugorji/go/codec"
 
+	chainagnostictypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 
 	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types/internal/blocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
@@ -198,6 +201,9 @@ func (h *Head) ChainString() string {
 
 // String returns a string representation of this head
 func (h *Head) String() string {
+	if h == nil {
+		return "<nil>"
+	}
 	return fmt.Sprintf("Head{Number: %d, Hash: %s, ParentHash: %s}", h.ToInt(), h.Hash.Hex(), h.ParentHash.Hex())
 }
 
@@ -323,6 +329,19 @@ func (h *Head) MarshalJSON() ([]byte, error) {
 	jsonHead.Difficulty = (*hexutil.Big)(h.Difficulty)
 	jsonHead.TotalDifficulty = (*hexutil.Big)(h.TotalDifficulty)
 	return json.Marshal(jsonHead)
+}
+
+func (h *Head) ToChainAgnosticHead() *chainagnostictypes.Head {
+	if h == nil {
+		return nil
+	}
+
+	return &chainagnostictypes.Head{
+		Height: strconv.FormatInt(h.Number, 10),
+		Hash:   h.Hash.Bytes(),
+		//nolint:gosec // G115
+		Timestamp: uint64(h.Timestamp.Unix()),
+	}
 }
 
 // Block represents an ethereum block

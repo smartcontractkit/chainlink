@@ -152,7 +152,7 @@ func (c *Compute) enqueueRequest(ctx context.Context, req capabilities.Capabilit
 }
 
 func (c *Compute) execute(ctx context.Context, respCh chan response, req capabilities.CapabilityRequest) {
-	treq, cfg, err := c.transformer.Transform(req)
+	copiedReq, cfg, err := c.transformer.Transform(req)
 	if err != nil {
 		respCh <- response{err: fmt.Errorf("invalid request: could not transform config: %w", err)}
 		return
@@ -162,15 +162,16 @@ func (c *Compute) execute(ctx context.Context, respCh chan response, req capabil
 
 	m, ok := c.modules.get(id)
 	if !ok {
-		mod, err := c.initModule(id, cfg.ModuleConfig, cfg.Binary, treq.Metadata)
-		if err != nil {
-			respCh <- response{err: err}
+		mod, innerErr := c.initModule(id, cfg.ModuleConfig, cfg.Binary, copiedReq.Metadata)
+		if innerErr != nil {
+			respCh <- response{err: innerErr}
+			return
 		}
 
 		m = mod
 	}
 
-	resp, err := c.executeWithModule(ctx, m.module, cfg.Config, treq)
+	resp, err := c.executeWithModule(ctx, m.module, cfg.Config, copiedReq)
 	select {
 	case <-c.stopCh:
 	case <-ctx.Done():
