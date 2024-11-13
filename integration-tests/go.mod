@@ -36,8 +36,8 @@ require (
 	github.com/slack-go/slack v0.15.0
 	github.com/smartcontractkit/chain-selectors v1.0.28
 	github.com/smartcontractkit/chainlink-automation v0.8.1
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241111114733-aa3b2f8e9f94
-	github.com/smartcontractkit/chainlink-common v0.3.1-0.20241111184621-c61aebee0af9
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241112095015-3e85d9f1898b
+	github.com/smartcontractkit/chainlink-common v0.3.1-0.20241112140826-0e2daed34ef6
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.4.0
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.2
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.13
@@ -45,7 +45,7 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.50.5
 	github.com/smartcontractkit/chainlink-testing-framework/wasp v1.50.2
 	github.com/smartcontractkit/chainlink/deployment v0.0.0-00010101000000-000000000000
-	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
+	github.com/smartcontractkit/chainlink/v2 v2.14.0-mercury-20240807.0.20241106193309-5560cd76211a
 	github.com/smartcontractkit/libocr v0.0.0-20241007185508-adbe57025f12
 	github.com/spf13/cobra v1.8.1
 	github.com/stretchr/testify v1.9.0
@@ -418,7 +418,7 @@ require (
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20241018134907-a00ba3729b5e // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.1 // indirect
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.3.0 // indirect
-	github.com/smartcontractkit/chainlink-solana v1.1.1-0.20241104202120-39cabce465f6 // indirect
+	github.com/smartcontractkit/chainlink-solana v1.1.1-0.20241112145241-efd6780f6930 // indirect
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.1.1-0.20241017135645-176a23722fd8 // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20241009055228-33d0c0bf38de // indirect
