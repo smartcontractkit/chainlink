@@ -238,7 +238,7 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
   // https://github.com/foundry-rs/foundry/issues/5689
   /// forge-dynamicConfig: default.fuzz.runs = 32
   /// forge-dynamicConfig: ccip.fuzz.runs = 32
-  function test_Fuzz_ForwardFromRouter_Success(address originalSender, address receiver, uint96 feeTokenAmount) public {
+  function testFuzz_ForwardFromRouter_Success(address originalSender, address receiver, uint96 feeTokenAmount) public {
     // To avoid RouterMustSetOriginalSender
     vm.assume(originalSender != address(0));
     vm.assume(uint160(receiver) >= Internal.PRECOMPILE_SPACE);

@@ -8,7 +8,7 @@ import {TokenPool} from "../../../pools/TokenPool.sol";
 import {LockReleaseTokenPoolSetup} from "./LockReleaseTokenPoolSetup.t.sol";
 
 contract LockReleaseTokenPool_lockOrBurn is LockReleaseTokenPoolSetup {
-  function test_Fuzz_LockOrBurnNoAllowList_Success(
+  function testFuzz_LockOrBurnNoAllowList_Success(
     uint256 amount
   ) public {
     amount = bound(amount, 1, _getOutboundRateLimiterConfig().capacity);

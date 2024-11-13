@@ -240,7 +240,7 @@ func (cc *CapabilityCache) AddCapabilities(lggr logger.Logger, chain deployment.
 }
 
 func testChain(t *testing.T) deployment.Chain {
-	chains := memory.NewMemoryChains(t, 1)
+	chains, _ := memory.NewMemoryChains(t, 1)
 	var chain deployment.Chain
 	for _, c := range chains {
 		chain = c

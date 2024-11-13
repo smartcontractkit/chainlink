@@ -7,9 +7,10 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -18,8 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
@@ -34,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
 )
 
 var GetAuthorisedSendersABI = evmtypes.MustGetABI(authorized_receiver.AuthorizedReceiverABI).Methods["getAuthorizedSenders"]
@@ -48,26 +48,26 @@ func TestFwdMgr_MaybeForwardTransaction(t *testing.T) {
 	owner := testutils.MustNewSimTransactor(t)
 	ctx := testutils.Context(t)
 
-	ec := backends.NewSimulatedBackend(map[common.Address]core.GenesisAccount{
+	b := simulated.NewBackend(types.GenesisAlloc{
 		owner.From: {
 			Balance: big.NewInt(0).Mul(big.NewInt(10), big.NewInt(1e18)),
 		},
-	}, 10e6)
-	t.Cleanup(func() { ec.Close() })
+	}, simulated.WithBlockGasLimit(10e6))
+	t.Cleanup(func() { b.Close() })
 	linkAddr := common.HexToAddress("0x01BE23585060835E02B77ef475b0Cc51aA1e0709")
-	operatorAddr, _, _, err := operator_wrapper.DeployOperator(owner, ec, linkAddr, owner.From)
+	operatorAddr, _, _, err := operator_wrapper.DeployOperator(owner, b.Client(), linkAddr, owner.From)
 	require.NoError(t, err)
-	forwarderAddr, _, forwarder, err := authorized_forwarder.DeployAuthorizedForwarder(owner, ec, linkAddr, owner.From, operatorAddr, []byte{})
+	forwarderAddr, _, forwarder, err := authorized_forwarder.DeployAuthorizedForwarder(owner, b.Client(), linkAddr, owner.From, operatorAddr, []byte{})
 	require.NoError(t, err)
-	ec.Commit()
+	b.Commit()
 	_, err = forwarder.SetAuthorizedSenders(owner, []common.Address{owner.From})
 	require.NoError(t, err)
-	ec.Commit()
+	b.Commit()
 	authorized, err := forwarder.GetAuthorizedSenders(nil)
 	require.NoError(t, err)
 	t.Log(authorized)
 
-	evmClient := client.NewSimulatedBackendClient(t, ec, testutils.FixtureChainID)
+	evmClient := client.NewSimulatedBackendClient(t, b, testutils.FixtureChainID)
 
 	lpOpts := logpoller.Opts{
 		PollPeriod:               100 * time.Millisecond,
@@ -116,21 +116,21 @@ func TestFwdMgr_AccountUnauthorizedToForward_SkipsForwarding(t *testing.T) {
 	cfg := configtest.NewTestGeneralConfig(t)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	owner := testutils.MustNewSimTransactor(t)
-	ec := backends.NewSimulatedBackend(map[common.Address]core.GenesisAccount{
+	b := simulated.NewBackend(types.GenesisAlloc{
 		owner.From: {
 			Balance: big.NewInt(0).Mul(big.NewInt(10), big.NewInt(1e18)),
 		},
-	}, 10e6)
-	t.Cleanup(func() { ec.Close() })
+	}, simulated.WithBlockGasLimit(10e6))
+	t.Cleanup(func() { b.Close() })
 	linkAddr := common.HexToAddress("0x01BE23585060835E02B77ef475b0Cc51aA1e0709")
-	operatorAddr, _, _, err := operator_wrapper.DeployOperator(owner, ec, linkAddr, owner.From)
+	operatorAddr, _, _, err := operator_wrapper.DeployOperator(owner, b.Client(), linkAddr, owner.From)
 	require.NoError(t, err)
 
-	forwarderAddr, _, _, err := authorized_forwarder.DeployAuthorizedForwarder(owner, ec, linkAddr, owner.From, operatorAddr, []byte{})
+	forwarderAddr, _, _, err := authorized_forwarder.DeployAuthorizedForwarder(owner, b.Client(), linkAddr, owner.From, operatorAddr, []byte{})
 	require.NoError(t, err)
-	ec.Commit()
+	b.Commit()
 
-	evmClient := client.NewSimulatedBackendClient(t, ec, testutils.FixtureChainID)
+	evmClient := client.NewSimulatedBackendClient(t, b, testutils.FixtureChainID)
 	lpOpts := logpoller.Opts{
 		PollPeriod:               100 * time.Millisecond,
 		FinalityDepth:            2,
@@ -166,25 +166,25 @@ func TestFwdMgr_InvalidForwarderForOCR2FeedsStates(t *testing.T) {
 	cfg := configtest.NewTestGeneralConfig(t)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	owner := testutils.MustNewSimTransactor(t)
-	ec := backends.NewSimulatedBackend(map[common.Address]core.GenesisAccount{
+	ec := simulated.NewBackend(types.GenesisAlloc{
 		owner.From: {
 			Balance: big.NewInt(0).Mul(big.NewInt(10), big.NewInt(1e18)),
 		},
-	}, 10e6)
+	}, simulated.WithBlockGasLimit(10e6))
 	t.Cleanup(func() { ec.Close() })
 	linkAddr := common.HexToAddress("0x01BE23585060835E02B77ef475b0Cc51aA1e0709")
-	operatorAddr, _, _, err := operator_wrapper.DeployOperator(owner, ec, linkAddr, owner.From)
+	operatorAddr, _, _, err := operator_wrapper.DeployOperator(owner, ec.Client(), linkAddr, owner.From)
 	require.NoError(t, err)
 
-	forwarderAddr, _, forwarder, err := authorized_forwarder.DeployAuthorizedForwarder(owner, ec, linkAddr, owner.From, operatorAddr, []byte{})
+	forwarderAddr, _, forwarder, err := authorized_forwarder.DeployAuthorizedForwarder(owner, ec.Client(), linkAddr, owner.From, operatorAddr, []byte{})
 	require.NoError(t, err)
 	ec.Commit()
 
-	accessAddress, _, _, err := testocr2aggregator.DeploySimpleWriteAccessController(owner, ec)
+	accessAddress, _, _, err := testocr2aggregator.DeploySimpleWriteAccessController(owner, ec.Client())
 	require.NoError(t, err, "failed to deploy test access controller contract")
 	ocr2Address, _, ocr2, err := testocr2aggregator.DeployOCR2Aggregator(
 		owner,
-		ec,
+		ec.Client(),
 		linkAddr,
 		big.NewInt(0),
 		big.NewInt(10),

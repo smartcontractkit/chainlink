@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -58,11 +58,11 @@ func commitAndGetBlockTs(ec *client.SimulatedBackendClient) uint64 {
 
 func newSim(t *testing.T) (*bind.TransactOpts, *client.SimulatedBackendClient) {
 	user := testutils.MustNewSimTransactor(t)
-	sim := backends.NewSimulatedBackend(map[common.Address]core.GenesisAccount{
+	sim := simulated.NewBackend(map[common.Address]types.Account{
 		user.From: {
 			Balance: big.NewInt(0).Mul(big.NewInt(10), big.NewInt(1e18)),
 		},
-	}, 10e6)
+	}, simulated.WithBlockGasLimit(10e6))
 	ec := client.NewSimulatedBackendClient(t, sim, testutils.SimulatedChainID)
 	return user, ec
 }

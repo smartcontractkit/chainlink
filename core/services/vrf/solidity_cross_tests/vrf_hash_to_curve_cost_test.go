@@ -6,32 +6,31 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_verifier_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-
-	"github.com/ethereum/go-ethereum/eth/ethconfig"
-
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
-
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_verifier_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 )
 
 type contract struct {
 	contract *bind.BoundContract
 	address  common.Address
 	abi      *abi.ABI
-	backend  *backends.SimulatedBackend
+	backend  evmtypes.Backend
 }
 
 // deployVRFContract returns a deployed VRF contract, with some extra attributes
@@ -43,14 +42,13 @@ func deployVRFContract(t *testing.T) (contract, common.Address) {
 		D:         big.NewInt(1),
 	}
 	auth, _ := bind.NewKeyedTransactorWithChainID(&key, testutils.SimulatedChainID)
-	genesisData := core.GenesisAlloc{auth.From: {Balance: assets.Ether(100).ToInt()}}
-	gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil)
-	backend := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
+	genesisData := types.GenesisAlloc{auth.From: {Balance: assets.Ether(100).ToInt()}}
+	backend := cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
 	parsed, err := abi.JSON(strings.NewReader(
 		solidity_vrf_verifier_wrapper.VRFTestHelperABI))
 	require.NoError(t, err, "could not parse VRF ABI")
 	address, _, vRFContract, err := bind.DeployContract(auth, parsed,
-		common.FromHex(solidity_vrf_verifier_wrapper.VRFTestHelperBin), backend)
+		common.FromHex(solidity_vrf_verifier_wrapper.VRFTestHelperBin), backend.Client())
 	require.NoError(t, err, "failed to deploy VRF contract to simulated blockchain")
 	backend.Commit()
 	return contract{vRFContract, address, &parsed, backend}, crypto.PubkeyToAddress(
@@ -60,14 +58,14 @@ func deployVRFContract(t *testing.T) (contract, common.Address) {
 // estimateGas returns the estimated gas cost of running the given method on the
 // contract at address to, on the given backend, with the given args, and given
 // that the transaction is sent from the from address.
-func estimateGas(t *testing.T, backend *backends.SimulatedBackend,
+func estimateGas(t *testing.T, client simulated.Client,
 	from, to common.Address, abi *abi.ABI, method string, args ...interface{},
 ) uint64 {
 	rawData, err := abi.Pack(method, args...)
 	require.NoError(t, err, "failed to construct raw %s transaction with args %s",
 		method, args)
 	callMsg := ethereum.CallMsg{From: from, To: &to, Data: rawData}
-	estimate, err := backend.EstimateGas(testutils.Context(t), callMsg)
+	estimate, err := client.EstimateGas(testutils.Context(t), callMsg)
 	require.NoError(t, err, "failed to estimate gas from %s call with args %s",
 		method, args)
 	return estimate
@@ -75,7 +73,7 @@ func estimateGas(t *testing.T, backend *backends.SimulatedBackend,
 
 func measureHashToCurveGasCost(t *testing.T, contract contract,
 	owner common.Address, input int64) (gasCost, numOrdinates uint64) {
-	estimate := estimateGas(t, contract.backend, owner, contract.address,
+	estimate := estimateGas(t, contract.backend.Client(), owner, contract.address,
 		contract.abi, "hashToCurve_", pair(secp256k1.Coordinates(vrfkey.Generator)),
 		big.NewInt(input))
 

@@ -11,7 +11,7 @@ contract USDCTokenPool_setDomains is USDCTokenPoolSetup {
   // Setting lower fuzz run as 256 runs was causing differing gas results in snapshot.
   /// forge-config: default.fuzz.runs = 32
   /// forge-config: ccip.fuzz.runs = 32
-  function test_Fuzz_SetDomains_Success(
+  function testFuzz_SetDomains_Success(
     bytes32[5] calldata allowedCallers,
     uint32[5] calldata domainIdentifiers,
     uint64[5] calldata destChainSelectors

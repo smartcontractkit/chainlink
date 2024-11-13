@@ -10,7 +10,7 @@ contract EtherSenderReceiverTest_validatedMessage is EtherSenderReceiverTestSetu
   error InvalidWethAddress(address want, address got);
   error GasLimitTooLow(uint256 minLimit, uint256 gotLimit);
 
-  function test_Fuzz_validatedMessage_msgSenderOverwrite(
+  function testFuzz_validatedMessage_msgSenderOverwrite(
     bytes memory data
   ) public view {
     Client.EVMTokenAmount[] memory tokenAmounts = new Client.EVMTokenAmount[](1);
@@ -35,7 +35,7 @@ contract EtherSenderReceiverTest_validatedMessage is EtherSenderReceiverTestSetu
     assertEq(validatedMessage.extraArgs, bytes(""), "extraArgs must be empty");
   }
 
-  function test_Fuzz_validatedMessage_tokenAddressOverwrite(
+  function testFuzz_validatedMessage_tokenAddressOverwrite(
     address token
   ) public view {
     Client.EVMTokenAmount[] memory tokenAmounts = new Client.EVMTokenAmount[](1);

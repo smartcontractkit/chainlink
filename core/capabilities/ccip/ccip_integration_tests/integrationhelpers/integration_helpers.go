@@ -12,16 +12,18 @@ import (
 	"time"
 
 	mapset "github.com/deckarep/golang-set/v2"
-
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	ccipreader "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	configsevm "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
@@ -30,8 +32,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -88,7 +88,7 @@ const (
 
 type TestUniverse struct {
 	Transactor         *bind.TransactOpts
-	Backend            *backends.SimulatedBackend
+	Backend            *simulated.Backend
 	CapReg             *kcr.CapabilitiesRegistry
 	CCIPHome           *ccip_home.CCIPHome
 	TestingT           *testing.T
@@ -101,22 +101,22 @@ type TestUniverse struct {
 
 func NewTestUniverse(ctx context.Context, t *testing.T, lggr logger.Logger) TestUniverse {
 	transactor := testutils.MustNewSimTransactor(t)
-	backend := backends.NewSimulatedBackend(core.GenesisAlloc{
+	backend := simulated.NewBackend(ethtypes.GenesisAlloc{
 		transactor.From: {Balance: assets.Ether(1000).ToInt()},
-	}, 30e6)
+	}, simulated.WithBlockGasLimit(30e6))
 
-	crAddress, _, _, err := kcr.DeployCapabilitiesRegistry(transactor, backend)
+	crAddress, _, _, err := kcr.DeployCapabilitiesRegistry(transactor, backend.Client())
 	require.NoError(t, err)
 	backend.Commit()
 
-	capReg, err := kcr.NewCapabilitiesRegistry(crAddress, backend)
+	capReg, err := kcr.NewCapabilitiesRegistry(crAddress, backend.Client())
 	require.NoError(t, err)
 
-	ccAddress, _, _, err := ccip_home.DeployCCIPHome(transactor, backend, crAddress)
+	ccAddress, _, _, err := ccip_home.DeployCCIPHome(transactor, backend.Client(), crAddress)
 	require.NoError(t, err)
 	backend.Commit()
 
-	cc, err := ccip_home.NewCCIPHome(ccAddress, backend)
+	cc, err := ccip_home.NewCCIPHome(ccAddress, backend.Client())
 	require.NoError(t, err)
 
 	db := pgtest.NewSqlxDB(t)

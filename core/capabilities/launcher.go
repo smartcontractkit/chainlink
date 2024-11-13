@@ -396,9 +396,14 @@ func (w *launcher) exposeCapabilities(ctx context.Context, myPeerID p2ptypes.Pee
 		switch capability.CapabilityType {
 		case capabilities.CapabilityTypeTrigger:
 			newTriggerPublisher := func(cap capabilities.BaseCapability, info capabilities.CapabilityInfo) (remotetypes.ReceiverService, error) {
+				triggerCapability, ok := (cap).(capabilities.TriggerCapability)
+				if !ok {
+					return nil, errors.New("capability does not implement TriggerCapability")
+				}
+
 				publisher := remote.NewTriggerPublisher(
 					capabilityConfig.RemoteTriggerConfig,
-					cap.(capabilities.TriggerCapability),
+					triggerCapability,
 					info,
 					don.DON,
 					idsToDONs,
@@ -419,10 +424,15 @@ func (w *launcher) exposeCapabilities(ctx context.Context, myPeerID p2ptypes.Pee
 			w.lggr.Warn("no remote client configured for capability type consensus, skipping configuration")
 		case capabilities.CapabilityTypeTarget:
 			newTargetServer := func(cap capabilities.BaseCapability, info capabilities.CapabilityInfo) (remotetypes.ReceiverService, error) {
+				targetCapability, ok := (cap).(capabilities.TargetCapability)
+				if !ok {
+					return nil, errors.New("capability does not implement TargetCapability")
+				}
+
 				return target.NewServer(
 					capabilityConfig.RemoteTargetConfig,
 					myPeerID,
-					cap.(capabilities.TargetCapability),
+					targetCapability,
 					info,
 					don.DON,
 					idsToDONs,

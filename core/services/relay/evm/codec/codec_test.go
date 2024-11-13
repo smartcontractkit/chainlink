@@ -172,7 +172,9 @@ func TestCodec_EncodeTupleWithLists(t *testing.T) {
 	require.Equal(t, expected, hexutil.Encode(result)[2:])
 }
 
-type codecInterfaceTester struct{}
+type codecInterfaceTester struct {
+	TestSelectionSupport
+}
 
 func (it *codecInterfaceTester) Setup(_ *testing.T) {}
 
