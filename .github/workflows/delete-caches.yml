@@ -20,23 +20,46 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v4.1.2
 
-      - name: Cleanup Branch Caches
+      - name: Setup gh-actions-cache extension
+        run: gh extension install actions/gh-actions-cache
+
+      - name: Retrieve Trunk SHA
+        id: get-sha
         run: |
-          gh extension install actions/gh-actions-cache
-          
           REPO=${{ github.repository }}
-          BRANCH=refs/pull/${{ github.event.pull_request.number }}/merge
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          SHA=$(gh pr view -R $REPO $PR_NUMBER --json mergeCommit --jq .mergeCommit.oid)
+          echo "sha=$SHA" >> $GITHUB_OUTPUT
 
-          echo "Fetching list of cache key"
-          cacheKeysForPR=$(gh actions-cache list -R $REPO -B $BRANCH | cut -f 1 )
-
-          ## Setting this to not fail the workflow while deleting cache keys. 
+      - name: Cleanup Caches
+        run: |
           set +e
-          echo "Deleting caches..."
-          for cacheKey in $cacheKeysForPR
-          do
-              gh actions-cache delete $cacheKey -R $REPO -B $BRANCH --confirm
+
+          REPO=${{ github.repository }}
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          PR_BRANCH=refs/pull/$PR_NUMBER/merge
+          
+          echo "Fetching list of cache keys for the PR branch"
+          cacheKeysForPR=$(gh actions-cache list -R $REPO -B $PR_BRANCH | cut -f 1)
+
+          echo "Deleting caches for PR branch..."
+          for cacheKey in $cacheKeysForPR; do
+              gh actions-cache delete $cacheKey -R $REPO -B $PR_BRANCH --confirm
           done
+
+          if [[ -n ${{ steps.get-sha.outputs.sha }} ]]; then
+            echo "Found corresponding merge commit ${{ steps.get-sha.outputs.sha }}"
+            QUEUE_BRANCH="gh-readonly-queue/develop/pr-${PR_NUMBER}-${{ steps.get-sha.outputs.sha }}"
+
+            echo "Fetching list of cache keys for the merge queue branch"
+            cacheKeysForQueue=$(gh actions-cache list -R $REPO -B $QUEUE_BRANCH | cut -f 1)
+
+            echo "Deleting caches for merge queue branch..."
+            for cacheKey in $cacheKeysForQueue; do
+                gh actions-cache delete $cacheKey -R $REPO -B $QUEUE_BRANCH --confirm
+            done
+          fi
+
           echo "Done"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
