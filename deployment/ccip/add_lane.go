@@ -23,7 +23,7 @@ type InitialPrices struct {
 var DefaultInitialPrices = InitialPrices{
 	LinkPrice: deployment.E18Mult(20),
 	WethPrice: deployment.E18Mult(4000),
-	GasPrice:  big.NewInt(2e12),
+	GasPrice:  ToPackedFee(big.NewInt(8e14), big.NewInt(0)),
 }
 
 func AddLaneWithDefaultPrices(e deployment.Environment, state CCIPOnChainState, from, to uint64) error {

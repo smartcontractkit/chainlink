@@ -347,6 +347,11 @@ func AddLanesForAll(e deployment.Environment, state CCIPOnChainState) error {
 	return nil
 }
 
+func ToPackedFee(execFee, daFee *big.Int) *big.Int {
+	daShifted := new(big.Int).Lsh(daFee, 112)
+	return new(big.Int).Or(daShifted, execFee)
+}
+
 const (
 	// MockLinkAggregatorDescription This is the description of the MockV3Aggregator.sol contract
 	// nolint:lll
@@ -359,7 +364,7 @@ const (
 )
 
 var (
-	MockLinkPrice = big.NewInt(5e18)
+	MockLinkPrice = deployment.E18Mult(500)
 	MockWethPrice = big.NewInt(9e8)
 	// MockDescriptionToTokenSymbol maps a mock feed description to token descriptor
 	MockDescriptionToTokenSymbol = map[string]TokenSymbol{

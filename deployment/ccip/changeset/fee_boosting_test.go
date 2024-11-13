@@ -1,13 +1,9 @@
 package changeset
 
 import (
-	"context"
-	"fmt"
 	"math/big"
 	"testing"
 
-	"cosmossdk.io/errors"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/test-go/testify/require"
 	"golang.org/x/exp/maps"
@@ -72,9 +68,6 @@ func Test_FeeBoosting(t *testing.T) {
 
 		require.NoError(t, ccipdeployment.AddLane(e.Env, state, sourceChain, destChain, initialPrices))
 
-		startGasPriceTicker(state, sourceChain, destChain)
-		startGasPriceTicker(state, destChain, sourceChain)
-
 		return e, state, sourceChain, destChain
 	}
 
@@ -101,43 +94,36 @@ func Test_FeeBoosting(t *testing.T) {
 	}
 
 	scenarios := []scenario{
-		// {
-		// 	name: "boost needed due to WETH price increase",
-		// 	initialPrices: ccipdeployment.InitialPrices{
-		// 		LinkPrice: deployment.E18Mult(5),
-		// 		WethPrice: deployment.E18Mult(9),
-		// 		GasPrice:  big.NewInt(1.8e11),
-		// 	},
-		// 	priceFeedPrices: priceFeedPrices{
-		// 		linkPrice: deployment.E18Mult(5),
-		// 		wethPrice: big.NewInt(20.1e8),
-		// 	},
-		// },
-		// {
-		// 	name: "boost needed due to LINK price decrease",
-		// 	initialPrices: ccipdeployment.InitialPrices{
-		// 		LinkPrice: deployment.E18Mult(5),
-		// 		WethPrice: deployment.E18Mult(9),
-		// 		GasPrice:  big.NewInt(1.8e11),
-		// 	},
-		// 	priceFeedPrices: priceFeedPrices{
-		// 		linkPrice: big.NewInt(2.24e18),
-		// 		wethPrice: big.NewInt(9e8),
-		// 	},
-		// },
+		{
+			name: "boost needed due to WETH price increase",
+			initialPrices: ccipdeployment.InitialPrices{
+				LinkPrice: deployment.E18Mult(5),
+				WethPrice: deployment.E18Mult(9),
+				GasPrice:  ccipdeployment.ToPackedFee(big.NewInt(1.8e11), big.NewInt(0)),
+			},
+			priceFeedPrices: priceFeedPrices{
+				linkPrice: deployment.E18Mult(5),
+				wethPrice: big.NewInt(9.1e8), // 9 USD per ETH vs 9.1 USD per ETH during execution
+			},
+		},
+		{
+			name: "boost needed due to LINK price decrease",
+			initialPrices: ccipdeployment.InitialPrices{
+				LinkPrice: deployment.E18Mult(5),
+				WethPrice: deployment.E18Mult(9),
+				GasPrice:  ccipdeployment.ToPackedFee(big.NewInt(1.8e11), big.NewInt(0)),
+			},
+			priceFeedPrices: priceFeedPrices{
+				linkPrice: big.NewInt(4.9e18), // 5 USD per LINK vs 4.9 USD per LINK during execution
+				wethPrice: big.NewInt(9e8),
+			},
+		},
 		{
 			name: "boost needed due to gas price increase",
 			initialPrices: ccipdeployment.InitialPrices{
 				LinkPrice: deployment.E18Mult(5),
 				WethPrice: deployment.E18Mult(9),
-				GasPrice:  toPackedFee(big.NewInt(1.8e11), big.NewInt(0)),
-				// GasPrice: new(big.Int).Or(
-				// 	new(big.Int).Lsh(
-				// 		big.NewInt(1.8e11), // 1.6e11 vs 1.8e11 as the gas is 20gwei with 1ETH = 9$
-				// 		112,
-				// 	),
-				// 	big.NewInt(0),
-				// ),
+				GasPrice:  ccipdeployment.ToPackedFee(big.NewInt(1.75e11), big.NewInt(0)), // 19 gwei vs 20 gwei during execution
 			},
 			priceFeedPrices: priceFeedPrices{
 				linkPrice: deployment.E18Mult(5),
@@ -153,18 +139,4 @@ func Test_FeeBoosting(t *testing.T) {
 			runScenario(t, s)
 		})
 	}
-}
-
-func toPackedFee(execFee, daFee *big.Int) *big.Int {
-	daShifted := new(big.Int).Lsh(daFee, 112)
-	return new(big.Int).Or(daShifted, execFee)
-}
-
-func startGasPriceTicker(state ccipdeployment.CCIPOnChainState, src uint64, dest uint64) {
-	fq := state.Chains[src].FeeQuoter
-	gasPrice, err := fq.GetDestinationChainGasPrice(&bind.CallOpts{Context: context.Background()}, dest)
-	if err != nil {
-		fmt.Println(errors.Wrap(err, "failed to get gas price"))
-	}
-	fmt.Println("Gas price for chain", dest, "is", gasPrice)
 }
