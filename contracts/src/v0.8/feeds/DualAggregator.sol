@@ -382,9 +382,8 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
   /// @return the aggregatorRoundId of the next round. Note: The report for this round may have been
   /// transmitted (but not yet mined) *before* requestNewRound() was even called. There is *no*
   /// guarantee of causality between the request and the report at aggregatorRoundId.
-  // TODO: i think we can remove this function entirely
   function requestNewRound() external returns (uint80) {
-    if (!(msg.sender == owner() || s_requesterAccessController.hasAccess(msg.sender, msg.data))) {
+    if (msg.sender != owner() && !s_requesterAccessController.hasAccess(msg.sender, msg.data)) {
       revert OnlyOwnerAndRequesterCanCall();
     }
 
@@ -875,7 +874,7 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
 
     // get median, validate its range, store it in new aggregator round
     int192 median = report.observations[report.observations.length / 2];
-    if (i_minAnswer > median && median > i_maxAnswer) revert MedianIsOutOfMinMaxRange();
+    if (i_minAnswer > median || median > i_maxAnswer) revert MedianIsOutOfMinMaxRange();
 
     hotVars.latestAggregatorRoundId++;
     s_transmissions[hotVars.latestAggregatorRoundId] = Transmission({
@@ -1154,7 +1153,7 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
     uint24 accountingGas
   ) external {
     AccessControllerInterface access = s_billingAccessController;
-    if (!(msg.sender == owner() || access.hasAccess(msg.sender, msg.data))) {
+    if (msg.sender != owner() && !access.hasAccess(msg.sender, msg.data)) {
       revert OnlyOwnerAndBillingAdminCanCall();
     }
     _payOracles();
@@ -1208,7 +1207,7 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
   function withdrawPayment(
     address transmitter
   ) external {
-    if (!(msg.sender == s_payees[transmitter])) revert OnlyPayeeCanWithdraw();
+    if (msg.sender != s_payees[transmitter]) revert OnlyPayeeCanWithdraw();
     _payOracle(transmitter);
   }
 
@@ -1303,7 +1302,7 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
   /// @param amount maximum amount to withdraw, denominated in LINK-wei.
   /// @dev access control provided by billingAccessController
   function withdrawFunds(address recipient, uint256 amount) external {
-    if (!(msg.sender == owner() || s_billingAccessController.hasAccess(msg.sender, msg.data))) {
+    if (msg.sender != owner() && !s_billingAccessController.hasAccess(msg.sender, msg.data)) {
       revert OnlyOwnerAndBillingAdminCanCall();
     }
     uint256 linkDue = _totalLinkDue();
@@ -1497,7 +1496,7 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
       address payee = payees[i];
       address currentPayee = s_payees[transmitter];
       bool zeroedOut = currentPayee == address(0);
-      if (!(zeroedOut || currentPayee == payee)) revert PayeeAlreadySent();
+      if (!zeroedOut && currentPayee != payee) revert PayeeAlreadySent();
       s_payees[transmitter] = payee;
 
       if (currentPayee != payee) {

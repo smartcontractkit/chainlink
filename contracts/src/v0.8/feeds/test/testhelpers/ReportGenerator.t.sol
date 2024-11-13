@@ -48,6 +48,81 @@ contract ReportGenerator is Test {
     return SignedReport({reportContext: reportContext, report: report, rs: rs, ss: ss, rawVs: rawVs});
   }
 
+  function generateSignedReportWithLengthMismatch(
+    int192 price,
+    uint32 observationTimestamp
+  ) public returns (SignedReport memory) {
+    // build report
+    bytes memory report = _buildReport(price, observationTimestamp);
+
+    // add extra faulty bytes to the report
+    report = abi.encode(report, uint8(7));
+
+    // build report context
+    bytes32[3] memory reportContext = _buildReportContext();
+
+    // sign report
+    (bytes32[] memory rs, bytes32[] memory ss, bytes32 rawVs) = _signReport(report, reportContext);
+
+    ++s_currentEpoch;
+
+    return SignedReport({reportContext: reportContext, report: report, rs: rs, ss: ss, rawVs: rawVs});
+  }
+
+  function generateSignedReportWithTooManyOracles(
+    int192 price,
+    uint32 observationTimestamp
+  ) public returns (SignedReport memory) {
+    // add new oracle
+    uint256 newOraclePrivateKey = 123456789;
+    s_oraclePrivateKeys.push(newOraclePrivateKey);
+
+    // build report
+    bytes memory report = _buildReport(price, observationTimestamp);
+
+    // build report context
+    bytes32[3] memory reportContext = _buildReportContext();
+
+    // sign report
+    (bytes32[] memory rs, bytes32[] memory ss, bytes32 rawVs) = _signReport(report, reportContext);
+
+    ++s_currentEpoch;
+
+    // remove new oracle
+    s_oraclePrivateKeys.pop();
+
+    return SignedReport({reportContext: reportContext, report: report, rs: rs, ss: ss, rawVs: rawVs});
+  }
+
+  function generateSignedReportWithFOracles(
+    int192 price,
+    uint32 observationTimestamp,
+    uint8 f
+  ) public returns (SignedReport memory) {
+    // build the observers bytes (string of uint8 id numbers for each observer) and observations array
+    bytes memory rawObservers = new bytes(f);
+    int192[] memory observations = new int192[](f);
+    for (uint256 i; i < f; ++i) {
+      rawObservers[i] = bytes1(uint8(i));
+      observations[i] = price;
+    }
+    // We can convert because we know the length of the array is less than 32
+    bytes32 observers = bytes32(rawObservers);
+
+    // build report
+    bytes memory report = abi.encode(observationTimestamp, observers, observations, JUELS_PER_FEECOIN);
+
+    // build report context
+    bytes32[3] memory reportContext = _buildReportContext();
+
+    // sign report
+    (bytes32[] memory rs, bytes32[] memory ss, bytes32 rawVs) = _signReport(report, reportContext);
+
+    ++s_currentEpoch;
+
+    return SignedReport({reportContext: reportContext, report: report, rs: rs, ss: ss, rawVs: rawVs});
+  }
+
   function _buildReport(int192 price, uint32 observationTimestamp) internal view returns (bytes memory) {
     // build the observers bytes (string of uint8 id numbers for each observer) and observations array
     bytes memory rawObservers = new bytes(s_oraclePrivateKeys.length);
