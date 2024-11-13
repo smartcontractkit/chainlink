@@ -1,7 +1,7 @@
 # Structure
 
 This guide is split into two sections: [Guidelines](#guidelines) and [Rules](#rules).
-Guidelines are recommendations that should be followed but are hard to enforce in an automated way.
+Guidelines are recommendations that should be followed, but are hard to enforce in an automated way.
 Rules are all enforced through CI, this can be through Solhint rules or other tools.
 
 ## Background
@@ -9,7 +9,6 @@ Rules are all enforced through CI, this can be through Solhint rules or other to
 Our starting point is the [official Solidity Style Guide](https://docs.soliditylang.org/en/v0.8.21/style-guide.html) and
 [ConsenSys's Secure Development practices](https://consensys.github.io/smart-contract-best-practices/), 
 but we deviate in some ways.
-We lean heavily on [Prettier](https://github.com/smartcontractkit/chainlink/blob/develop/contracts/.prettierrc) for formatting. 
 We are trying to automate as much of this style guide with Solhint as possible.
 
 This guide is not meant to be applied retroactively.

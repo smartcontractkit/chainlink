@@ -63,9 +63,9 @@ echo " │       Compiling Newproject contracts...      │"
 echo " └──────────────────────────────────────────────┘"
 
 SOLC_VERSION="0.8.24"
-OPTIMIZE_RUNS=26000
+OPTIMIZE_RUNS=1000000
 # Optional optimizer run overrides. Please remove if not used
-OPTIMIZE_RUNS_SINGLE_CONTRACT=500
+OPTIMIZE_RUNS_SINGLE_CONTRACT=5000
 
 
 SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
