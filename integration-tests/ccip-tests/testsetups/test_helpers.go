@@ -88,7 +88,7 @@ func NewLocalDevEnvironment(t *testing.T, lggr logger.Logger) (ccipdeployment.De
 	require.NoError(t, err)
 
 	ab := deployment.NewMemoryAddressBook()
-	crConfig := ccipdeployment.DeployTestContracts(t, lggr, ab, homeChainSel, feedSel, chains)
+	crConfig := ccipdeployment.DeployTestContracts(t, lggr, ab, homeChainSel, feedSel, chains, ccipdeployment.MockLinkPrice, ccipdeployment.MockWethPrice)
 
 	// start the chainlink nodes with the CR address
 	err = StartChainlinkNodes(t, envConfig,
