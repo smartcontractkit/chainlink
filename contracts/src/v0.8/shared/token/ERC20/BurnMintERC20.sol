@@ -15,6 +15,7 @@ import {IERC165} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/ut
 /// @dev The total supply can be limited during deployment.
 contract BurnMintERC20 is IBurnMintERC20, IGetCCIPAdmin, IERC165, ERC20Burnable, AccessControl {
   error MaxSupplyExceeded(uint256 supplyAfterMint);
+  error InvalidRecipient(address recipient);
 
   event CCIPAdminTransferred(address indexed previousAdmin, address indexed newAdmin);
 
@@ -75,6 +76,22 @@ contract BurnMintERC20 is IBurnMintERC20, IGetCCIPAdmin, IERC165, ERC20Burnable,
     return i_maxSupply;
   }
 
+  /// @dev Uses OZ ERC20 _transfer to disallow sending to address(0).
+  /// @dev Disallows sending to address(this)
+  function _transfer(address from, address to, uint256 amount) internal virtual override {
+    if (to == address(this)) revert InvalidRecipient(to);
+
+    super._transfer(from, to, amount);
+  }
+
+  /// @dev Uses OZ ERC20 _approve to disallow approving for address(0).
+  /// @dev Disallows approving for address(this)
+  function _approve(address owner, address spender, uint256 amount) internal virtual override {
+    if (spender == address(this)) revert InvalidRecipient(spender);
+
+    super._approve(owner, spender, amount);
+  }
+
   // ================================================================
   // │                      Burning & minting                       │
   // ================================================================
@@ -108,6 +125,7 @@ contract BurnMintERC20 is IBurnMintERC20, IGetCCIPAdmin, IERC165, ERC20Burnable,
   /// @dev Disallows minting to address(this)
   /// @dev Increases the total supply.
   function mint(address account, uint256 amount) external override onlyRole(MINTER_ROLE) {
+    if (account == address(this)) revert InvalidRecipient(account);
     if (i_maxSupply != 0 && totalSupply() + amount > i_maxSupply) revert MaxSupplyExceeded(totalSupply() + amount);
 
     _mint(account, amount);
