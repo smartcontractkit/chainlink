@@ -25,7 +25,7 @@ on:
 
 env:
   # Use github.sha here otherwise a race condition exists if
-  # a commit is pushed to develop besfore merge is run.
+  # a commit is pushed to develop before merge is run.
   CHECKOUT_REF: ${{ github.event.inputs.git_ref || github.sha }}
 
 
@@ -106,7 +106,7 @@ jobs:
           role-session-name: "split-${{ matrix.goarch }}"
 
       - id: cache
-        uses: actions/cache/@v4.1.1
+        uses: actions/cache@v4.1.1
         with:
           path: dist/${{ matrix.dist_name }}
           key: chainlink-${{ matrix.goarch }}-${{ github.sha }}
