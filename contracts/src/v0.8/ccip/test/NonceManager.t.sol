@@ -11,8 +11,8 @@ import {OnRamp} from "../onRamp/OnRamp.sol";
 import {BaseTest} from "./BaseTest.t.sol";
 import {EVM2EVMOffRampHelper} from "./helpers/EVM2EVMOffRampHelper.sol";
 import {OnRampHelper} from "./helpers/OnRampHelper.sol";
-import {OffRampSetup} from "./offRamp/offRamp/OffRampSetup.t.sol";
-import {OnRampSetup} from "./onRamp/onRamp/OnRampSetup.t.sol";
+import {OffRampSetup} from "./offRamp/OffRamp/OffRampSetup.t.sol";
+import {OnRampSetup} from "./onRamp/OnRamp/OnRampSetup.t.sol";
 
 import {Test} from "forge-std/Test.sol";
 

@@ -21,7 +21,7 @@ contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
     return abi.encodePacked(_version, _burnToken, _mintRecipient, _amount, _messageSender);
   }
 
-  function test_Fuzz_ReleaseOrMint_Success(address recipient, uint256 amount) public {
+  function testFuzz_ReleaseOrMint_Success(address recipient, uint256 amount) public {
     vm.assume(recipient != address(0) && recipient != address(s_token));
     amount = bound(amount, 0, _getInboundRateLimiterConfig().capacity);
 

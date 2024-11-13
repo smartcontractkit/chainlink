@@ -2,6 +2,7 @@ package plugins
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -55,6 +56,10 @@ func (m mockCfgTelemetry) ResourceAttributes() map[string]string {
 
 func (m mockCfgTelemetry) TraceSampleRatio() float64 { return 0.42 }
 
+func (m mockCfgTelemetry) EmitterBatchProcessor() bool { return true }
+
+func (m mockCfgTelemetry) EmitterExportTimeout() time.Duration { return 1 * time.Second }
+
 func TestLoopRegistry_Register(t *testing.T) {
 	mockCfgTracing := &mockCfgTracing{}
 	mockCfgTelemetry := &mockCfgTelemetry{}
@@ -86,4 +91,6 @@ func TestLoopRegistry_Register(t *testing.T) {
 	require.Equal(t, "http://localhost:9001", envCfg.TelemetryEndpoint)
 	require.Equal(t, loop.OtelAttributes{"foo": "bar"}, envCfg.TelemetryAttributes)
 	require.Equal(t, 0.42, envCfg.TelemetryTraceSampleRatio)
+	require.True(t, envCfg.TelemetryEmitterBatchProcessor)
+	require.Equal(t, 1*time.Second, envCfg.TelemetryEmitterExportTimeout)
 }

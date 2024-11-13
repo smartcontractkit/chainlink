@@ -15,7 +15,7 @@ contract FeeQuoter_convertTokenAmount is FeeQuoterSetup {
     assertEq(s_feeQuoter.convertTokenAmount(s_weth, amount, s_sourceTokens[0]), expected);
   }
 
-  function test_Fuzz_ConvertTokenAmount_Success(
+  function testFuzz_ConvertTokenAmount_Success(
     uint256 feeTokenAmount,
     uint224 usdPerFeeToken,
     uint160 usdPerLinkToken,
