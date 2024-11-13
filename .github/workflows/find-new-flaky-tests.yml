@@ -379,7 +379,7 @@ jobs:
 
       - name: Create GitHub Summary (General)
         run: |
-          echo "## Flaky Test Detection Report for \`${{ steps.set_project_path_pretty.outputs.path }}\` Project" >> $GITHUB_STEP_SUMMARY
+          echo "## Flaky Test Detection Report for ${{ steps.set_project_path_pretty.outputs.path }} Project" >> $GITHUB_STEP_SUMMARY
 
       - name: Create GitHub Summary (Comparative Test Analysis)
         if: ${{ inputs.runAllTests == 'false' }}
@@ -450,7 +450,7 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
           cat failed_tests_ascii.txt >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "For detailed logs of the failed tests, please refer to the \`failed-test-results.json\` file in the Artifacts section at the bottom of the page." >> $GITHUB_STEP_SUMMARY
+          echo "For detailed logs of the failed tests, please refer to the failed-test-results.json file in the Artifacts section at the bottom of the page." >> $GITHUB_STEP_SUMMARY
 
       - name: Append Success Note if All Tests Passed
         if: ${{ fromJson(steps.set_test_results.outputs.all_tests_count) > 0 && fromJson(steps.set_test_results.outputs.failed_tests_count) == 0 }}
@@ -475,7 +475,7 @@ jobs:
         if: ${{ fromJson(steps.set_test_results.outputs.all_tests_count) == 0 }}
         run: |
           echo "### No Tests To Execute" >> $GITHUB_STEP_SUMMARY
-          echo "No updated or new Go tests found for \`${{ steps.set_project_path_pretty.outputs.path }}\` project. The flaky detector will not run." >> $GITHUB_STEP_SUMMARY
+          echo "No updated or new Go tests found for ${{ steps.set_project_path_pretty.outputs.path }} project. The flaky detector will not run." >> $GITHUB_STEP_SUMMARY
 
       - name: Post comment on PR if flaky tests found
         if: ${{ fromJson(steps.set_test_results.outputs.failed_tests_count) > 0 && github.event_name == 'pull_request' }}
@@ -532,7 +532,7 @@ jobs:
                       "type": "section",
                       "text": {
                         "type": "mrkdwn",
-                        "text": "Flaky Test Detector for `${{ steps.set_project_path_pretty.outputs.path }}` project - ${{ contains(join(needs.*.result, ','), 'failure') && 'Failed :x:' || contains(join(needs.*.result, ','), 'cancelled') && 'Was cancelled :warning:' || 'Passed :white_check_mark:' }}"
+                        "text": "Flaky Test Detector for ${{ steps.set_project_path_pretty.outputs.path }} project - ${{ contains(join(needs.*.result, ','), 'failure') && 'Failed :x:' || contains(join(needs.*.result, ','), 'cancelled') && 'Was cancelled :warning:' || 'Passed :white_check_mark:' }}"
                       }
                     },
                     {
