@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/AlekSi/pointer"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/rpc"
 	"golang.org/x/exp/maps"
@@ -176,7 +175,7 @@ func NodesFromJD(name string, nodeIDs []string, jd deployment.OffchainClient) ([
 				{
 					Key:   "p2p_id",
 					Op:    ptypes.SelectorOp_IN,
-					Value: pointer.ToString(selector),
+					Value: &selector,
 				},
 			},
 		},

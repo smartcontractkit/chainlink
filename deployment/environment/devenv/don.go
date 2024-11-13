@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/AlekSi/pointer"
 	"github.com/hashicorp/go-multierror"
 	"github.com/rs/zerolog"
 	"github.com/sethvargo/go-retry"
@@ -45,7 +44,7 @@ func (don *DON) PluginNodes() []Node {
 	var pluginNodes []Node
 	for _, node := range don.Nodes {
 		for _, label := range node.labels {
-			if label.Key == NodeLabelKeyType && pointer.GetString(label.Value) == NodeLabelValuePlugin {
+			if label.Key == NodeLabelKeyType && value(label.Value) == NodeLabelValuePlugin {
 				pluginNodes = append(pluginNodes, node)
 			}
 		}
@@ -108,7 +107,7 @@ func NewRegisteredDON(ctx context.Context, nodeInfo []NodeInfo, jd JobDistributo
 		for key, value := range info.Labels {
 			node.labels = append(node.labels, &ptypes.Label{
 				Key:   key,
-				Value: pointer.ToString(value),
+				Value: &value,
 			})
 		}
 		if info.IsBootstrap {
@@ -122,7 +121,7 @@ func NewRegisteredDON(ctx context.Context, nodeInfo []NodeInfo, jd JobDistributo
 			node.adminAddr = ""
 			node.labels = append(node.labels, &ptypes.Label{
 				Key:   NodeLabelKeyType,
-				Value: pointer.ToString(NodeLabelValueBootstrap),
+				Value: ptr(NodeLabelValueBootstrap),
 			})
 		} else {
 			// multi address is not applicable for non-bootstrap nodes
@@ -130,7 +129,7 @@ func NewRegisteredDON(ctx context.Context, nodeInfo []NodeInfo, jd JobDistributo
 			node.multiAddr = ""
 			node.labels = append(node.labels, &ptypes.Label{
 				Key:   NodeLabelKeyType,
-				Value: pointer.ToString(NodeLabelValuePlugin),
+				Value: ptr(NodeLabelValuePlugin),
 			})
 		}
 		// Set up Job distributor in node and register node with the job distributor
@@ -235,7 +234,7 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 		// fetch node labels to know if the node is bootstrap or plugin
 		isBootstrap := false
 		for _, label := range n.labels {
-			if label.Key == NodeLabelKeyType && pointer.GetString(label.Value) == NodeLabelValueBootstrap {
+			if label.Key == NodeLabelKeyType && value(label.Value) == NodeLabelValueBootstrap {
 				isBootstrap = true
 				break
 			}
@@ -251,7 +250,7 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 			Ocr2Enabled:      true,
 			Ocr2IsBootstrap:  isBootstrap,
 			Ocr2Multiaddr:    n.multiAddr,
-			Ocr2P2PPeerID:    pointer.GetString(peerID),
+			Ocr2P2PPeerID:    value(peerID),
 			Ocr2KeyBundleID:  ocr2BundleId,
 			Ocr2Plugins:      `{"commit":true,"execute":true,"median":false,"mercury":false}`,
 		})
@@ -327,7 +326,7 @@ func (n *Node) RegisterNodeToJobDistributor(ctx context.Context, jd JobDistribut
 	}
 	n.labels = append(n.labels, &ptypes.Label{
 		Key:   "p2p_id",
-		Value: pointer.ToString(*peerID),
+		Value: peerID,
 	})
 
 	// register the node in the job distributor
@@ -419,4 +418,16 @@ func (n *Node) ReplayLogs(blockByChain map[uint64]uint64) error {
 		}
 	}
 	return nil
+}
+
+func ptr[T any](v T) *T {
+	return &v
+}
+
+func value[T any](v *T) T {
+	zero := new(T)
+	if v == nil {
+		return *zero
+	}
+	return *v
 }

@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/AlekSi/pointer"
 	"github.com/ethereum/go-ethereum/common"
 	"google.golang.org/grpc"
 
@@ -122,7 +121,7 @@ func (j JobClient) ListNodes(ctx context.Context, in *nodev1.ListNodesRequest, o
 			Labels: []*ptypes.Label{
 				{
 					Key:   "p2p_id",
-					Value: pointer.ToString(n.Keys.PeerID.String()),
+					Value: ptr(n.Keys.PeerID.String()),
 				},
 			},
 		}

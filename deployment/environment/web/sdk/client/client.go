@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/AlekSi/pointer"
 	"github.com/Khan/genqlient/graphql"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/web/sdk/client/doer"
@@ -122,7 +121,7 @@ func (c *client) FetchAccountAddress(ctx context.Context, chainID string) (*stri
 	}
 	for _, keyDetail := range keys.EthKeys.GetResults() {
 		if keyDetail.GetChain().Enabled && keyDetail.GetChain().Id == chainID {
-			return pointer.ToString(keyDetail.Address), nil
+			return &keyDetail.Address, nil
 		}
 	}
 	return nil, fmt.Errorf("no account found for chain %s", chainID)

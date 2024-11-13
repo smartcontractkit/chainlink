@@ -9,7 +9,6 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
-	"github.com/AlekSi/pointer"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	csav1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/csa"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
@@ -115,7 +114,7 @@ func (j JobClient) ListNodes(ctx context.Context, in *nodev1.ListNodesRequest, o
 				Labels: []*ptypes.Label{
 					{
 						Key:   "p2p_id",
-						Value: pointer.ToString(p2pId), // here n.ID is also peer ID
+						Value: &p2pId, // here n.ID is also peer ID
 					},
 				},
 			}
