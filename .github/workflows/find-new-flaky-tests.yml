@@ -102,7 +102,7 @@ jobs:
         run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@7987e7885152907df0c165cecd0aefdd4ad22433
 
       - name: Find new or updated test packages
-        if: ${{ inputs.runAllTests == 'false' }}
+        if: ${{ inputs.runAllTests == false }}
         id: get-tests
         shell: bash
         env:
@@ -117,7 +117,7 @@ jobs:
           echo "packages=$PACKAGES" >> $GITHUB_OUTPUT
 
       - name: Find changed test files 
-        if: ${{ inputs.runAllTests == 'false' }}
+        if: ${{ inputs.runAllTests == false }}
         id: find-changed-test-files
         shell: bash
         env:
@@ -382,7 +382,7 @@ jobs:
           echo "## Flaky Test Detection Report for ${{ steps.set_project_path_pretty.outputs.path }} Project" >> $GITHUB_STEP_SUMMARY
 
       - name: Create GitHub Summary (Comparative Test Analysis)
-        if: ${{ inputs.runAllTests == 'false' }}
+        if: ${{ inputs.runAllTests == false }}
         run: |
           echo "### Comparative Test Analysis" >> $GITHUB_STEP_SUMMARY
           echo "Checked changes between \`${{ inputs.baseRef }}\` and \`${{ env.GIT_HEAD_REF }}\`. See all changes [here](${{ inputs.repoUrl }}/compare/${{ inputs.baseRef }}...${{ needs.get-tests.outputs.git_head_sha }}#files_bucket)." >> $GITHUB_STEP_SUMMARY
