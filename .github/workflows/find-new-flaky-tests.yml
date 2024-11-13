@@ -131,12 +131,6 @@ jobs:
           echo $TEST_FILES
           echo "test_files=$TEST_FILES" >> $GITHUB_OUTPUT
           
-      - name: Debug runAllTests
-        shell: bash
-        run: |
-          echo "runAllTests is set to: ${{ inputs.runAllTests }}"
-          echo "packages: ${{ steps.get-tests.outputs.packages }}"
-
       - name: Split test packages into groups
         id: split-packages
         shell: bash
