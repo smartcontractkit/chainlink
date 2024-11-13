@@ -274,34 +274,6 @@ func TestWorkflow(t *testing.T) {
 		require.NoError(t, err)
 		fmt.Println("Deployed forwarder contract at", forwarderAddress)
 
-		for _, n := range in.NodeSet.NodeSpecs {
-			n.Node.UserConfigOverrides = fmt.Sprintf(`
-			[Feature]
-			LogPoller = true
-
-			[OCR2]
-			Enabled = true
-			DatabaseTimeout = '1s'
-
-			[P2P.V2]
-			Enabled = true
-			ListenAddresses = ['0.0.0.0:6690']
-
-			# This is needed for the target capability to be initialized
-			[[EVM]]
-			ChainID = '%s'
-
-			[[EVM.Nodes]]
-			Name = 'anvil'
-			WSURL = '%s'
-			HTTPURL = '%s'
-			`,
-				bc.ChainID,
-				bc.Nodes[0].HostWSUrl,
-				bc.Nodes[0].HostHTTPUrl,
-			)
-		}
-
 		// TODO: When the capabilities registry address is provided:
 		// - NOPs and nodes are added to the registry.
 		// - Nodes are configured to listen to the registry for updates.
@@ -325,7 +297,7 @@ func TestWorkflow(t *testing.T) {
 				continue
 			}
 
-			in.NodeSet.NodeSpecs[i].Node.UserConfigOverrides = fmt.Sprintf(`
+			in.NodeSet.NodeSpecs[i].Node.TestConfigOverrides = fmt.Sprintf(`
 				[Feature]
 				LogPoller = true
 
@@ -358,8 +330,8 @@ func TestWorkflow(t *testing.T) {
 				ChainID = '%s'
 			`,
 				bc.ChainID,
-				bc.Nodes[0].HostWSUrl,
-				bc.Nodes[0].HostHTTPUrl,
+				bc.Nodes[0].DockerInternalWSUrl,
+				bc.Nodes[0].DockerInternalHTTPUrl,
 				nodesInfo[i].TransmitterAddress,
 				forwarderAddress,
 				capabilitiesRegistryAddress,
@@ -367,7 +339,7 @@ func TestWorkflow(t *testing.T) {
 			)
 		}
 
-		nodeset, err = ns.UpgradeNodeSet(in.NodeSet, bc, "https://example.com", 30*time.Second)
+		nodeset, err = ns.UpgradeNodeSet(in.NodeSet, bc, "https://example.com", 5*time.Second)
 		require.NoError(t, err)
 		nodeClients, err = clclient.NewCLDefaultClients(nodeset.CLNodes, framework.L)
 		require.NoError(t, err)

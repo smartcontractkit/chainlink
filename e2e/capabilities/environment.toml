@@ -1,76 +1,137 @@
+
 [blockchain_a]
-chain_id = "31337"
-image = "f4hrenh9it/foundry:latest"
-port = "8545"
-type = "anvil"
+  chain_id = "31337"
+  image = "f4hrenh9it/foundry:latest"
+  port = "8545"
+  type = "anvil"
 
 [data_provider]
-port = 9111
+  port = 9111
 
 [nodeset]
-nodes = 5
-override_mode = "each"
+  nodes = 5
+  override_mode = "each"
 
-[[nodeset.node_specs]]
+  [[nodeset.node_specs]]
 
-[nodeset.node_specs.db]
-image = "postgres:15.6"
-pull_image = true
+    [nodeset.node_specs.db]
+      image = "postgres:15.6"
+      pull_image = true
 
-[nodeset.node_specs.node]
-docker_file = "../../plugins/chainlink.Dockerfile"
-docker_ctx = "../.."
-docker_image_name = "chainlink"
-pull_image = true
+    [nodeset.node_specs.node]
+      docker_ctx = "../.."
+      docker_file = "../../plugins/chainlink.Dockerfile"
+      docker_image_name = "chainlink"
+      pull_image = true
+      user_config_overrides = """
+            [Feature]
+			LogPoller = true
 
-[[nodeset.node_specs]]
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
 
-[nodeset.node_specs.db]
-image = "postgres:15.6"
-pull_image = true
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:6690']
+      """
 
-[nodeset.node_specs.node]
-docker_file = "../../plugins/chainlink.Dockerfile"
-docker_ctx = "../.."
-docker_image_name = "chainlink"
-pull_image = true
-capabilities = ["./streams"]
+  [[nodeset.node_specs]]
 
-[[nodeset.node_specs]]
+    [nodeset.node_specs.db]
+      image = "postgres:15.6"
+      pull_image = true
 
-[nodeset.node_specs.db]
-image = "postgres:15.6"
-pull_image = true
+    [nodeset.node_specs.node]
+      capabilities = ["./streams"]
+      docker_ctx = "../.."
+      docker_file = "../../plugins/chainlink.Dockerfile"
+      docker_image_name = "chainlink"
+      pull_image = true
+      user_config_overrides = """
+            [Feature]
+			LogPoller = true
 
-[nodeset.node_specs.node]
-docker_file = "../../plugins/chainlink.Dockerfile"
-docker_ctx = "../.."
-docker_image_name = "chainlink"
-pull_image = true
-capabilities = ["./streams"]
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
 
-[[nodeset.node_specs]]
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:6690']
+      """
 
-[nodeset.node_specs.db]
-image = "postgres:15.6"
-pull_image = true
+  [[nodeset.node_specs]]
 
-[nodeset.node_specs.node]
-docker_file = "../../plugins/chainlink.Dockerfile"
-docker_ctx = "../.."
-docker_image_name = "chainlink"
-pull_image = true
-capabilities = ["./streams"]
+    [nodeset.node_specs.db]
+      image = "postgres:15.6"
+      pull_image = true
 
-[[nodeset.node_specs]]
+    [nodeset.node_specs.node]
+      capabilities = ["./streams"]
+      docker_ctx = "../.."
+      docker_file = "../../plugins/chainlink.Dockerfile"
+      docker_image_name = "chainlink"
+      pull_image = true
+      user_config_overrides = """
+            [Feature]
+			LogPoller = true
 
-[nodeset.node_specs.db]
-image = "postgres:15.6"
-pull_image = true
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
 
-[nodeset.node_specs.node]
-docker_file = "../../plugins/chainlink.Dockerfile"
-docker_ctx = "../.."
-docker_image_name = "chainlink"
-pull_image = true
-capabilities = ["./streams"]
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:6690']
+      """
+
+  [[nodeset.node_specs]]
+
+    [nodeset.node_specs.db]
+      image = "postgres:15.6"
+      pull_image = true
+
+    [nodeset.node_specs.node]
+      capabilities = ["./streams"]
+      docker_ctx = "../.."
+      docker_file = "../../plugins/chainlink.Dockerfile"
+      docker_image_name = "chainlink"
+      pull_image = true
+      user_config_overrides = """
+            [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:6690']
+      """
+
+  [[nodeset.node_specs]]
+
+    [nodeset.node_specs.db]
+      image = "postgres:15.6"
+      pull_image = true
+
+    [nodeset.node_specs.node]
+      capabilities = ["./streams"]
+      docker_ctx = "../.."
+      docker_file = "../../plugins/chainlink.Dockerfile"
+      docker_image_name = "chainlink"
+      pull_image = true
+      user_config_overrides = """
+            [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:6690']
+      """
