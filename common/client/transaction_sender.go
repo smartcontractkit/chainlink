@@ -27,7 +27,6 @@ var (
 
 type SendTxResult interface {
 	Code() SendTxReturnCode
-	TxError() error
 	Error() error
 }
 
@@ -165,9 +164,9 @@ func (txSender *TransactionSender[TX, RESULT, CHAIN_ID, RPC]) SendTransaction(ct
 
 func (txSender *TransactionSender[TX, RESULT, CHAIN_ID, RPC]) broadcastTxAsync(ctx context.Context, rpc RPC, tx TX) RESULT {
 	result := rpc.SendTransaction(ctx, tx)
-	txSender.lggr.Debugw("Node sent transaction", "tx", tx, "err", result.TxError())
+	txSender.lggr.Debugw("Node sent transaction", "tx", tx, "err", result.Error())
 	if !slices.Contains(sendTxSuccessfulCodes, result.Code()) && ctx.Err() == nil {
-		txSender.lggr.Warnw("RPC returned error", "tx", tx, "err", result.TxError())
+		txSender.lggr.Warnw("RPC returned error", "tx", tx, "err", result.Error())
 	}
 	return result
 }

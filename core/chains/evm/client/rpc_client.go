@@ -806,27 +806,21 @@ func (r *RPCClient) BlockByNumberGeth(ctx context.Context, number *big.Int) (blo
 }
 
 type SendTxResult struct {
-	err   error
-	txErr error
-	code  commonclient.SendTxReturnCode
+	err  error
+	code commonclient.SendTxReturnCode
 }
 
 var _ commonclient.SendTxResult = (*SendTxResult)(nil)
 
 func NewSendTxResult(err error) *SendTxResult {
 	result := &SendTxResult{
-		err:   err,
-		txErr: err,
+		err: err,
 	}
 	return result
 }
 
 func (r *SendTxResult) Error() error {
 	return r.err
-}
-
-func (r *SendTxResult) TxError() error {
-	return r.txErr
 }
 
 func (r *SendTxResult) Code() commonclient.SendTxReturnCode {
@@ -851,9 +845,8 @@ func (r *RPCClient) SendTransaction(ctx context.Context, tx *types.Transaction) 
 	r.logResult(lggr, err, duration, r.getRPCDomain(), "SendTransaction")
 
 	return &SendTxResult{
-		err:   nil,
-		txErr: err,
-		code:  ClassifySendError(err, r.clientErrors, logger.Sugared(logger.Nop()), tx, common.Address{}, r.chainType.IsL2()),
+		err:  err,
+		code: ClassifySendError(err, r.clientErrors, logger.Sugared(logger.Nop()), tx, common.Address{}, r.chainType.IsL2()),
 	}
 }
 

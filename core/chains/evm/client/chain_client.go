@@ -386,10 +386,7 @@ func (c *chainClient) SendTransaction(ctx context.Context, tx *types.Transaction
 	if result == nil {
 		return errors.New("SendTransaction failed: result is nil")
 	}
-	if result.Error() != nil {
-		return result.Error()
-	}
-	return result.TxError()
+	return result.Error()
 }
 
 func (c *chainClient) SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (commonclient.SendTxReturnCode, error) {
