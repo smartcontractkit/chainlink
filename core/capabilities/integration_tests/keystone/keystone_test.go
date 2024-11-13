@@ -32,6 +32,9 @@ func Test_OneAtATimeTransmissionSchedule(t *testing.T) {
 
 func testTransmissionSchedule(t *testing.T, deltaStage string, schedule string) {
 	ctx := testutils.Context(t)
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	lggr := logger.TestLogger(t)
 	lggr.SetLogLevel(zapcore.InfoLevel)
 

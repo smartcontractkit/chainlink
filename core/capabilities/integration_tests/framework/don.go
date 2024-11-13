@@ -46,7 +46,7 @@ type DonContext struct {
 
 func CreateDonContext(ctx context.Context, t *testing.T) DonContext {
 	ethBlockchain := NewEthBlockchain(t, 1000, 1*time.Second)
-	rageP2PNetwork := NewMockRageP2PNetwork(t, 1000)
+	rageP2PNetwork := NewMockRageP2PNetwork(ctx, t, 1000)
 	capabilitiesRegistry := NewCapabilitiesRegistry(ctx, t, ethBlockchain)
 
 	servicetest.Run(t, rageP2PNetwork)

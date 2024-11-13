@@ -2,6 +2,7 @@ package framework
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"testing"
@@ -20,7 +21,8 @@ import (
 // acts as the rageP2P network layer.
 type MockRageP2PNetwork struct {
 	services.StateMachine
-	t *testing.T
+	t          *testing.T
+	readyError error
 
 	chanBufferSize int
 	stopCh         services.StopChan
@@ -31,13 +33,20 @@ type MockRageP2PNetwork struct {
 	mux sync.Mutex
 }
 
-func NewMockRageP2PNetwork(t *testing.T, chanBufferSize int) *MockRageP2PNetwork {
-	return &MockRageP2PNetwork{
+func NewMockRageP2PNetwork(ctx context.Context, t *testing.T, chanBufferSize int) *MockRageP2PNetwork {
+	network := &MockRageP2PNetwork{
 		t:                  t,
 		stopCh:             make(services.StopChan),
 		chanBufferSize:     chanBufferSize,
 		peerIDToBrokerNode: make(map[p2ptypes.PeerID]*brokerNode),
 	}
+
+	go func() {
+		<-ctx.Done()
+		network.SetReadyError(errors.New("context done"))
+	}()
+
+	return network
 }
 
 func (a *MockRageP2PNetwork) Start(ctx context.Context) error {
@@ -52,6 +61,18 @@ func (a *MockRageP2PNetwork) Close() error {
 		a.wg.Wait()
 		return nil
 	})
+}
+
+func (a *MockRageP2PNetwork) Ready() error {
+	a.mux.Lock()
+	defer a.mux.Unlock()
+	return a.readyError
+}
+
+func (a *MockRageP2PNetwork) SetReadyError(err error) {
+	a.mux.Lock()
+	defer a.mux.Unlock()
+	a.readyError = err
 }
 
 // NewDispatcherForNode creates a new dispatcher for a node with the given peer ID.
@@ -155,6 +176,7 @@ func toPeerID(id []byte) p2ptypes.PeerID {
 
 type broker interface {
 	Send(msg *remotetypes.MessageBody)
+	Ready() error
 }
 
 type brokerDispatcher struct {
@@ -202,7 +224,7 @@ func (t *brokerDispatcher) Close() error {
 }
 
 func (t *brokerDispatcher) Ready() error {
-	return nil
+	return t.broker.Ready()
 }
 
 func (t *brokerDispatcher) HealthReport() map[string]error {
