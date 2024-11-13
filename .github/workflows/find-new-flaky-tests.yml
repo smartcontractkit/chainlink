@@ -530,7 +530,7 @@ jobs:
                       "type": "section",
                       "text": {
                         "type": "mrkdwn",
-                        "text": "Flaky Test Detector for ${{ steps.set_project_path_pretty.outputs.path }} project - ${{ contains(join(needs.*.result, ','), 'failure') && 'Failed :x:' || contains(join(needs.*.result, ','), 'cancelled') && 'Was cancelled :warning:' || 'Passed :white_check_mark:' }}"
+                        "text": "Flaky Test Detector for `${{ steps.set_project_path_pretty.outputs.path }}` project - ${{ contains(join(needs.*.result, ','), 'failure') && 'Failed :x:' || contains(join(needs.*.result, ','), 'cancelled') && 'Was cancelled :warning:' || 'Passed :white_check_mark:' }}"
                       }
                     },
                     {
