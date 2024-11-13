@@ -6,7 +6,7 @@ import {FeeQuoter} from "../../FeeQuoter.sol";
 import {FeeQuoterSetup} from "./FeeQuoterSetup.t.sol";
 
 contract FeeQuoter_applyPremiumMultiplierWeiPerEthUpdates is FeeQuoterSetup {
-  function test_Fuzz_applyPremiumMultiplierWeiPerEthUpdates_Success(
+  function testFuzz_applyPremiumMultiplierWeiPerEthUpdates_Success(
     FeeQuoter.PremiumMultiplierWeiPerEthArgs memory premiumMultiplierWeiPerEthArg
   ) public {
     FeeQuoter.PremiumMultiplierWeiPerEthArgs[] memory premiumMultiplierWeiPerEthArgs =

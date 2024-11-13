@@ -31,7 +31,7 @@ contract OnRamp_withdrawFeeTokens is OnRampSetup {
     }
   }
 
-  function test_Fuzz_WithdrawFeeTokens_Success(
+  function testFuzz_WithdrawFeeTokens_Success(
     uint256[5] memory amounts
   ) public {
     vm.startPrank(OWNER);
