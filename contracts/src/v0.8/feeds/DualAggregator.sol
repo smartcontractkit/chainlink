@@ -7,6 +7,7 @@ import {AggregatorValidatorInterface} from "../shared/interfaces/AggregatorValid
 import {LinkTokenInterface} from "../shared/interfaces/LinkTokenInterface.sol";
 
 import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";
+import {CallWithExactGas} from "../shared/call/CallWithExactGas.sol";
 import {OCR2Abstract} from "../shared/ocr2/OCR2Abstract.sol";
 
 // this contract is a port of OCR2Aggregator from `libocr` it is being used
@@ -323,51 +324,21 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
 
     uint32 prevAggregatorRoundId = aggregatorRoundId - 1;
     int256 prevAggregatorRoundAnswer = s_transmissions[prevAggregatorRoundId].answer;
-    if (
-      !_callWithExactGasEvenIfTargetIsNoContract(
-        vc.gasLimit,
-        address(vc.validator),
-        abi.encodeWithSignature(
-          "validate(uint256,int256,uint256,int256)",
-          uint256(prevAggregatorRoundId),
-          prevAggregatorRoundAnswer,
-          uint256(aggregatorRoundId),
-          answer
-        )
-      )
-      revert InsufficientGas();
-    }
-  }
 
-  uint256 private constant CALL_WITH_EXACT_GAS_CUSHION = 5_000;
+    (, bool sufficientGas) = CallWithExactGas._callWithExactGasEvenIfTargetIsNoContract(
+      abi.encodeWithSignature(
+        "validate(uint256,int256,uint256,int256)",
+        uint256(prevAggregatorRoundId),
+        prevAggregatorRoundAnswer,
+        uint256(aggregatorRoundId),
+        answer
+      ),
       address(vc.validator),
+      vc.gasLimit,
+      CALL_WITH_EXACT_GAS_CUSHION
+    );
 
-  /**
-   * @dev calls target address with exactly gasAmount gas and data as calldata
-   * or reverts if at least gasAmount gas is not available.
-   */
-  function _callWithExactGasEvenIfTargetIsNoContract(
-    uint256 gasAmount,
-    address target,
-    bytes memory data
-  ) private returns (bool sufficientGas) {
-    // solhint-disable-next-line no-inline-assembly
-    assembly {
-      let g := gas()
-      // Compute g -= CALL_WITH_EXACT_GAS_CUSHION and check for underflow. We
-      // need the cushion since the logic following the above call to gas also
-      // costs gas which we cannot account for exactly. So cushion is a
-      // conservative upper bound for the cost of this logic.
-      if iszero(lt(g, CALL_WITH_EXACT_GAS_CUSHION)) {
-        g := sub(g, CALL_WITH_EXACT_GAS_CUSHION)
-        // If g - g//64 <= gasAmount, we don't have enough gas. (We subtract g//64
-        // because of EIP-150.)
-        if gt(sub(g, div(g, 64)), gasAmount) {
-          // Call and ignore success/return data. Note that we did not check
-          // whether a contract actually exists at the target address.
-          pop(call(gasAmount, target, 0, add(data, 0x20), mload(data), 0, 0))
-          sufficientGas := true
-        }
+    // TODO add tests
     if (!sufficientGas) {
       revert InsufficientGas();
     }
