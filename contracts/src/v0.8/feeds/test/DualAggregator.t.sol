@@ -1960,6 +1960,11 @@ contract OwedPayment is ConfiguredDualAggregatorBaseTest {
 contract WithdrawFunds is ConfiguredDualAggregatorBaseTest {
   address internal constant USER = address(42);
 
+  function setUp() public override {
+    super.setUp();
+    s_aggregator.setBilling(10, 1, 100, 100, 0);
+  }
+
   function test_RevertIf_NotOwner() public {
     vm.mockCall(
       BILLING_ACCESS_CONTROLLER_ADDRESS,
@@ -1972,12 +1977,19 @@ contract WithdrawFunds is ConfiguredDualAggregatorBaseTest {
     s_aggregator.withdrawFunds(USER, 42);
   }
 
-  // TODO: need to run a transmit to ensure the user has a lot to withdraw
-  // function test_RevertIf_InsufficientBalance() public {
-  //   vm.expectRevert("insufficient balance");
-  //
-  //   s_aggregator.withdrawFunds(USER, 1e9);
-  // }
+  function test_RevertIf_InsufficientBalance() public {
+    ReportGenerator.SignedReport memory signedReport = s_reportGenerator.generateSignedReport(1, 1);
+
+    _changePrank(s_aggregator.getTransmitters()[0]);
+    s_aggregator.transmit(
+      signedReport.reportContext, signedReport.report, signedReport.rs, signedReport.ss, signedReport.rawVs
+    );
+
+    _changePrank(s_aggregator.owner());
+
+    vm.expectRevert(DualAggregator.InsufficientBalance.selector);
+    s_aggregator.withdrawFunds(USER, 1000 ether);
+  }
 
   function test_RevertIf_InsufficientFunds() public {
     vm.mockCall(
