@@ -9,7 +9,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	commoncodec "github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/workflow/generated/workflow_registry_wrapper"
 	coretestutils "github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -73,11 +72,6 @@ func Test_SecretsWorker(t *testing.T) {
 					forceUpdateSecretsEvent: {
 						ChainSpecificName: forceUpdateSecretsEvent,
 						ReadType:          evmtypes.Event,
-						OutputModifications: commoncodec.ModifiersConfig{
-							&commoncodec.AddressBytesToStringModifierConfig{
-								Fields: syncer.WorkflowRegistryForceUpdateSecretsRequestedV1ModifyFields,
-							},
-						},
 					},
 				},
 			},

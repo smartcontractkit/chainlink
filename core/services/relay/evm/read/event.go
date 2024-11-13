@@ -506,7 +506,16 @@ func (b *EventBinding) decodeLog(ctx context.Context, log *logpoller.Log, into a
 	}
 
 	if err := codec.MapstructureDecode(topicsInto, into); err != nil {
-		return fmt.Errorf("%w: failed to decode log data: %s", commontypes.ErrInvalidEncoding, err.Error())
+		// TODO this works fine, but should be handled properly BCFR-1074
+		for key, topic := range topicsInto {
+			address, ok := topic.(common.Address)
+			if ok {
+				topicsInto[key] = address.String()
+			}
+		}
+		if err = codec.MapstructureDecode(topicsInto, into); err != nil {
+			return fmt.Errorf("%w: failed to decode log data: %s", commontypes.ErrInvalidEncoding, err.Error())
+		}
 	}
 
 	return nil
