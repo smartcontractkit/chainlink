@@ -16,8 +16,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
 
+type TestSendTxRPCClient SendTxRPCClient[any, *sendTxResult]
+
 type sendTxMultiNode struct {
-	*MultiNode[types.ID, SendTxRPCClient[any, *sendTxResult]]
+	*MultiNode[types.ID, TestSendTxRPCClient]
 }
 
 type sendTxRPC struct {
@@ -30,7 +32,6 @@ type sendTxResult struct {
 	code SendTxReturnCode
 }
 
-/*
 var _ SendTxResult = (*sendTxResult)(nil)
 
 func NewSendTxResult(err error) *sendTxResult {
@@ -48,9 +49,7 @@ func (r *sendTxResult) Code() SendTxReturnCode {
 	return r.code
 }
 
-*/
-
-var _ SendTxRPCClient[any, *sendTxResult] = (*sendTxRPC)(nil)
+var _ TestSendTxRPCClient = (*sendTxRPC)(nil)
 
 func newSendTxRPC(sendTxErr error, sendTxRun func(args mock.Arguments)) *sendTxRPC {
 	return &sendTxRPC{sendTxErr: sendTxErr, sendTxRun: sendTxRun}
@@ -64,15 +63,15 @@ func (rpc *sendTxRPC) SendTransaction(ctx context.Context, _ any) *sendTxResult 
 }
 
 func newTestTransactionSender(t *testing.T, chainID types.ID, lggr logger.Logger,
-	nodes []Node[types.ID, SendTxRPCClient[any, *sendTxResult]],
-	sendOnlyNodes []SendOnlyNode[types.ID, SendTxRPCClient[any, *sendTxResult]],
-) (*sendTxMultiNode, *TransactionSender[any, *sendTxResult, types.ID, SendTxRPCClient[any, *sendTxResult]]) {
-	mn := sendTxMultiNode{NewMultiNode[types.ID, SendTxRPCClient[any, *sendTxResult]](
+	nodes []Node[types.ID, TestSendTxRPCClient],
+	sendOnlyNodes []SendOnlyNode[types.ID, TestSendTxRPCClient],
+) (*sendTxMultiNode, *TransactionSender[any, *sendTxResult, types.ID, TestSendTxRPCClient]) {
+	mn := sendTxMultiNode{NewMultiNode[types.ID, TestSendTxRPCClient](
 		lggr, NodeSelectionModeRoundRobin, 0, nodes, sendOnlyNodes, chainID, "chainFamily", 0)}
 	err := mn.StartOnce("startedTestMultiNode", func() error { return nil })
 	require.NoError(t, err)
 
-	txSender := NewTransactionSender[any, *sendTxResult, types.ID, SendTxRPCClient[any, *sendTxResult]](lggr, chainID, mn.chainFamily, mn.MultiNode, NewSendTxResult, tests.TestInterval)
+	txSender := NewTransactionSender[any, *sendTxResult, types.ID, TestSendTxRPCClient](lggr, chainID, mn.chainFamily, mn.MultiNode, NewSendTxResult, tests.TestInterval)
 	err = txSender.Start(tests.Context(t))
 	require.NoError(t, err)
 
@@ -101,9 +100,9 @@ func classifySendTxError(_ any, err error) SendTxReturnCode {
 func TestTransactionSender_SendTransaction(t *testing.T) {
 	t.Parallel()
 
-	newNodeWithState := func(t *testing.T, state nodeState, txErr error, sendTxRun func(args mock.Arguments)) *mockNode[types.ID, SendTxRPCClient[any, *sendTxResult]] {
+	newNodeWithState := func(t *testing.T, state nodeState, txErr error, sendTxRun func(args mock.Arguments)) *mockNode[types.ID, TestSendTxRPCClient] {
 		rpc := newSendTxRPC(txErr, sendTxRun)
-		node := newMockNode[types.ID, SendTxRPCClient[any, *sendTxResult]](t)
+		node := newMockNode[types.ID, TestSendTxRPCClient](t)
 		node.On("String").Return("node name").Maybe()
 		node.On("RPC").Return(rpc).Maybe()
 		node.On("State").Return(state).Maybe()
@@ -111,7 +110,7 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 		return node
 	}
 
-	newNode := func(t *testing.T, txErr error, sendTxRun func(args mock.Arguments)) *mockNode[types.ID, SendTxRPCClient[any, *sendTxResult]] {
+	newNode := func(t *testing.T, txErr error, sendTxRun func(args mock.Arguments)) *mockNode[types.ID, TestSendTxRPCClient] {
 		return newNodeWithState(t, nodeStateAlive, txErr, sendTxRun)
 	}
 
@@ -128,8 +127,8 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 
 		_, txSender := newTestTransactionSender(t, types.RandomID(), lggr,
-			[]Node[types.ID, SendTxRPCClient[any, *sendTxResult]]{mainNode},
-			[]SendOnlyNode[types.ID, SendTxRPCClient[any, *sendTxResult]]{newNode(t, errors.New("unexpected error"), nil)})
+			[]Node[types.ID, TestSendTxRPCClient]{mainNode},
+			[]SendOnlyNode[types.ID, TestSendTxRPCClient]{newNode(t, errors.New("unexpected error"), nil)})
 
 		result := txSender.SendTransaction(tests.Context(t), nil)
 		require.ErrorIs(t, result.Error(), expectedError)
@@ -143,8 +142,8 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		_, txSender := newTestTransactionSender(t, types.RandomID(), lggr,
-			[]Node[types.ID, SendTxRPCClient[any, *sendTxResult]]{mainNode},
-			[]SendOnlyNode[types.ID, SendTxRPCClient[any, *sendTxResult]]{newNode(t, errors.New("unexpected error"), nil)})
+			[]Node[types.ID, TestSendTxRPCClient]{mainNode},
+			[]SendOnlyNode[types.ID, TestSendTxRPCClient]{newNode(t, errors.New("unexpected error"), nil)})
 
 		result := txSender.SendTransaction(tests.Context(t), nil)
 		require.NoError(t, result.Error())
@@ -165,7 +164,7 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 		lggr, _ := logger.TestObserved(t, zap.DebugLevel)
 
 		_, txSender := newTestTransactionSender(t, types.RandomID(), lggr,
-			[]Node[types.ID, SendTxRPCClient[any, *sendTxResult]]{mainNode}, nil)
+			[]Node[types.ID, TestSendTxRPCClient]{mainNode}, nil)
 
 		requestContext, cancel := context.WithCancel(tests.Context(t))
 		cancel()
@@ -188,7 +187,7 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 
 		lggr, _ := logger.TestObserved(t, zap.DebugLevel)
 
-		_, txSender := newTestTransactionSender(t, chainID, lggr, []Node[types.ID, SendTxRPCClient[any, *sendTxResult]]{fastNode, slowNode}, nil)
+		_, txSender := newTestTransactionSender(t, chainID, lggr, []Node[types.ID, TestSendTxRPCClient]{fastNode, slowNode}, nil)
 		result := txSender.SendTransaction(tests.Context(t), nil)
 		require.EqualError(t, result.Error(), expectedError.Error())
 	})
@@ -208,8 +207,8 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 		})
 		lggr, _ := logger.TestObserved(t, zap.WarnLevel)
 		mn, txSender := newTestTransactionSender(t, chainID, lggr,
-			[]Node[types.ID, SendTxRPCClient[any, *sendTxResult]]{fastNode, slowNode},
-			[]SendOnlyNode[types.ID, SendTxRPCClient[any, *sendTxResult]]{slowSendOnly})
+			[]Node[types.ID, TestSendTxRPCClient]{fastNode, slowNode},
+			[]SendOnlyNode[types.ID, TestSendTxRPCClient]{slowSendOnly})
 
 		result := txSender.SendTransaction(tests.Context(t), nil)
 		require.NoError(t, result.Error())
@@ -234,8 +233,8 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 		lggr, _ := logger.TestObserved(t, zap.DebugLevel)
 
 		mn, txSender := newTestTransactionSender(t, chainID, lggr,
-			[]Node[types.ID, SendTxRPCClient[any, *sendTxResult]]{fastNode, slowNode},
-			[]SendOnlyNode[types.ID, SendTxRPCClient[any, *sendTxResult]]{slowSendOnly})
+			[]Node[types.ID, TestSendTxRPCClient]{fastNode, slowNode},
+			[]SendOnlyNode[types.ID, TestSendTxRPCClient]{slowSendOnly})
 
 		require.NoError(t, mn.Close())
 		result := txSender.SendTransaction(tests.Context(t), nil)
@@ -259,8 +258,8 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 		lggr, _ := logger.TestObserved(t, zap.DebugLevel)
 
 		_, txSender := newTestTransactionSender(t, chainID, lggr,
-			[]Node[types.ID, SendTxRPCClient[any, *sendTxResult]]{fastNode, slowNode},
-			[]SendOnlyNode[types.ID, SendTxRPCClient[any, *sendTxResult]]{slowSendOnly})
+			[]Node[types.ID, TestSendTxRPCClient]{fastNode, slowNode},
+			[]SendOnlyNode[types.ID, TestSendTxRPCClient]{slowSendOnly})
 
 		require.NoError(t, txSender.Close())
 		result := txSender.SendTransaction(tests.Context(t), nil)
@@ -274,8 +273,8 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 		lggr, _ := logger.TestObserved(t, zap.DebugLevel)
 
 		_, txSender := newTestTransactionSender(t, chainID, lggr,
-			[]Node[types.ID, SendTxRPCClient[any, *sendTxResult]]{primary},
-			[]SendOnlyNode[types.ID, SendTxRPCClient[any, *sendTxResult]]{sendOnly})
+			[]Node[types.ID, TestSendTxRPCClient]{primary},
+			[]SendOnlyNode[types.ID, TestSendTxRPCClient]{sendOnly})
 
 		result := txSender.SendTransaction(tests.Context(t), nil)
 		assert.EqualError(t, result.Error(), ErroringNodeError.Error())
@@ -293,8 +292,8 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 		lggr, _ := logger.TestObserved(t, zap.DebugLevel)
 
 		_, txSender := newTestTransactionSender(t, chainID, lggr,
-			[]Node[types.ID, SendTxRPCClient[any, *sendTxResult]]{mainNode, unhealthyNode},
-			[]SendOnlyNode[types.ID, SendTxRPCClient[any, *sendTxResult]]{unhealthySendOnlyNode})
+			[]Node[types.ID, TestSendTxRPCClient]{mainNode, unhealthyNode},
+			[]SendOnlyNode[types.ID, TestSendTxRPCClient]{unhealthySendOnlyNode})
 
 		result := txSender.SendTransaction(tests.Context(t), nil)
 		require.NoError(t, result.Error())
@@ -313,7 +312,6 @@ func TestTransactionSender_SendTransaction_aggregateTxResults(t *testing.T) {
 	testCases := []struct {
 		Name                string
 		ExpectedTxResult    string
-		ExpectedNilResult   bool
 		ExpectedCriticalErr string
 		ResultsByCode       sendTxResults[*sendTxResult]
 	}{
@@ -354,16 +352,14 @@ func TestTransactionSender_SendTransaction_aggregateTxResults(t *testing.T) {
 		},
 		{
 			Name:                "Insufficient funds is treated as  error",
-			ExpectedTxResult:    "",
+			ExpectedTxResult:    "insufficientFunds",
 			ExpectedCriticalErr: "",
 			ResultsByCode: sendTxResults[*sendTxResult]{
-				Successful:        {NewSendTxResult(nil)},
 				InsufficientFunds: {NewSendTxResult(errors.New("insufficientFunds"))},
 			},
 		},
 		{
 			Name:                "Logs critical error on empty ResultsByCode",
-			ExpectedNilResult:   true,
 			ExpectedCriticalErr: "expected at least one response on SendTransaction",
 			ResultsByCode:       sendTxResults[*sendTxResult]{},
 		},
@@ -384,12 +380,8 @@ func TestTransactionSender_SendTransaction_aggregateTxResults(t *testing.T) {
 
 		t.Run(testCase.Name, func(t *testing.T) {
 			txResult, err := aggregateTxResults(testCase.ResultsByCode)
-			if !testCase.ExpectedNilResult {
-				if testCase.ExpectedTxResult == "" {
-					require.NoError(t, err)
-				} else {
-					require.EqualError(t, txResult.Error(), testCase.ExpectedTxResult)
-				}
+			if testCase.ExpectedTxResult != "" {
+				assert.EqualError(t, txResult.Error(), testCase.ExpectedTxResult)
 			}
 
 			logger.Sugared(logger.Test(t)).Info("Map: " + fmt.Sprint(testCase.ResultsByCode))
