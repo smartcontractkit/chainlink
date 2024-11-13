@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"sync"
@@ -34,6 +35,14 @@ var (
 	// ForceUpdateSecretsEvent is emitted when a request to force update a workflows secrets is made
 	ForceUpdateSecretsEvent WorkflowRegistryEventType = "WorkflowForceUpdateSecretsRequestedV1"
 )
+
+// WorkflowRegistryForceUpdateSecretsRequestedV1 is a chain agnostic definition of the WorkflowRegistry
+// ForceUpdateSecretsRequested event.
+type WorkflowRegistryForceUpdateSecretsRequestedV1 struct {
+	SecretsURL   string
+	Owner        string
+	WorkflowName string
+}
 
 type Head struct {
 	Hash      string
@@ -96,21 +105,39 @@ var _ WorkflowRegistrySyncer = (*workflowRegistry)(nil)
 // workflowRegistry is the implementation of the WorkflowRegistrySyncer interface.
 type workflowRegistry struct {
 	services.StateMachine
-	stopCh     services.StopChan
-	lggr       logger.Logger
-	orm        WorkflowRegistryDS
-	reader     ContractReader
+
+	// close stopCh to stop the workflowRegistry.
+	stopCh services.StopChan
+
+	// all goroutines are waited on with wg.
+	wg sync.WaitGroup
+
+	// ticker is the interval at which the workflowRegistry will poll the contract for events.
+	ticker <-chan struct{}
+
+	lggr    logger.Logger
+	orm     WorkflowRegistryDS
+	reader  ContractReader
+	gateway FetcherFunc
+
+	// initReader allows the workflowRegistry to initialize a contract reader if one is not provided
+	// and separates the contract reader initialization from the workflowRegistry start up.
 	initReader func(context.Context, logger.Logger, ContractReaderFactory, types.BoundContract) (ContractReader, error)
 	relayer    ContractReaderFactory
-	gateway    FetcherFunc
-	wg         sync.WaitGroup
-	ticker     <-chan struct{}
-	eventTypes []WorkflowRegistryEventType
-	eventsCh   chan WorkflowRegistryEventResponse
-	batchCh    chan []WorkflowRegistryEventResponse
-	handler    handler
+
 	cfg        ContractEventPollerConfig
-	heap       Heap
+	eventTypes []WorkflowRegistryEventType
+
+	// eventsCh is read by the handler and each event is handled once received.
+	eventsCh chan WorkflowRegistryEventResponse
+	handler  handler
+
+	// batchCh is a channel that receives batches of events from the contract query goroutines.
+	batchCh chan []WorkflowRegistryEventResponse
+
+	// heap is a min heap that merges batches of events from the contract query goroutines.  The
+	// default min heap is sorted by block height.
+	heap Heap
 }
 
 // WithTicker allows external callers to provide a ticker to the workflowRegistry.  This is useful
@@ -154,7 +181,7 @@ func NewWorkflowRegistry(
 		stopCh:     make(services.StopChan),
 		eventTypes: ets,
 		eventsCh:   make(chan WorkflowRegistryEventResponse),
-		batchCh:    make(chan []WorkflowRegistryEventResponse, len(ets)), //
+		batchCh:    make(chan []WorkflowRegistryEventResponse, len(ets)),
 	}
 	wr.handler = newEventHandler(wr.lggr, wr.orm, wr.gateway)
 	for _, opt := range opts {
@@ -210,7 +237,7 @@ func (w *workflowRegistry) Name() string {
 }
 
 func (w *workflowRegistry) SecretsFor(ctx context.Context, workflowOwner, workflowName string) (map[string]string, error) {
-	return w.orm.SecretsFor(ctx, workflowOwner, workflowName)
+	return nil, errors.New("not implemented")
 }
 
 // handlerLoop handles the events that are emitted by the contract.

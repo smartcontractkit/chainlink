@@ -16,9 +16,6 @@ type ORM interface {
 
 	// Update updates the contents of the secrets at the given plain URL or inserts a new record if not found.
 	Update(ctx context.Context, secretsURL, contents string) (int64, error)
-
-	// SecretsFor returns a map of secrets for the given workflowOwner and workflowName.
-	SecretsFor(ctx context.Context, workflowOwner, workflowName string) (map[string]string, error)
 }
 
 type WorkflowRegistryDS = ORM
@@ -80,8 +77,4 @@ func (orm *orm) Update(ctx context.Context, secretsURL, contents string) (int64,
 	}
 
 	return id, nil
-}
-
-func (orm *orm) SecretsFor(ctx context.Context, workflowOwner, workflowName string) (map[string]string, error) {
-	return map[string]string{}, nil
 }
