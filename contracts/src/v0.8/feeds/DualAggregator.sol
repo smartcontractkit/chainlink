@@ -1,88 +1,78 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";
-
 import {AccessControllerInterface} from "../shared/interfaces/AccessControllerInterface.sol";
 import {AggregatorV2V3Interface} from "../shared/interfaces/AggregatorV2V3Interface.sol";
 import {AggregatorValidatorInterface} from "../shared/interfaces/AggregatorValidatorInterface.sol";
 import {LinkTokenInterface} from "../shared/interfaces/LinkTokenInterface.sol";
+
+import {Ownable2StepMsgSender} from "../shared/access/Ownable2StepMsgSender.sol";
+import {CallWithExactGas} from "../shared/call/CallWithExactGas.sol";
 import {OCR2Abstract} from "../shared/ocr2/OCR2Abstract.sol";
 
-// this contract is a port of OCR2Aggregator from `libocr`
-// it is being used for a new feeds based project that is ongoing
-// there will be some modernization that happens to this contract
-// as the project progresses
+// this contract is a port of OCR2Aggregator from `libocr` it is being used
+// for a new feeds based project that is ongoing there will be some modernization
+// that happens to this contract as the project progresses
 // solhint-disable max-states-count
-contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface {
+contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3Interface {
+  string public constant override typeAndVersion = "DualAggregator 1.0.0";
+
   // This contract is divided into sections. Each section defines a set of
   // variables, events, and functions that belong together.
 
-  /**
-   *
-   * Section: Variables used in multiple other sections
-   *
-   */
+  // ================================================================
+  // │            Variables used in multiple other sections         │
+  // ================================================================
+
   struct Transmitter {
-    bool active;
-    // Index of oracle in s_signersList/s_transmittersList
-    uint8 index;
-    // juels-denominated payment for transmitters, covering gas costs incurred
-    // by the transmitter plus additional rewards. The entire LINK supply (1e9
-    // LINK = 1e27 Juels) will always fit into a uint96.
-    uint96 paymentJuels;
+    bool active; // ─────────╮ True if active.
+    uint8 index; //          │ Index in `s_transmittersList`.
+    //                       │
+    //                       │ Juels-denominated payment for transmitters, covering gas costs incurred
+    //                       │ by the transmitter plus additional rewards. The entire LINK supply (1e9
+    uint96 paymentJuels; // ─╯ LINK = 1e27 Juels) will always fit into a uint96.
   }
 
-  mapping(address /* transmitter address */ => Transmitter) internal s_transmitters;
+  mapping(address transmitter => Transmitter) internal s_transmitters;
 
   struct Signer {
-    bool active;
-    // Index of oracle in s_signersList/s_transmittersList
-    uint8 index;
+    bool active; // ─╮ True if active.
+    uint8 index; // ─╯ Index of oracle in s_signersList.
   }
 
-  mapping(address /* signer address */ => Signer) internal s_signers;
+  mapping(address signer => Signer) internal s_signers;
 
-  // s_signersList contains the signing address of each oracle
+  /// @notice s_signersList contains the signing address of each oracle
   address[] internal s_signersList;
 
-  // s_transmittersList contains the transmission address of each oracle,
-  // i.e. the address the oracle actually sends transactions to the contract from
+  /// @notice s_transmittersList contains the transmission address of each oracle,
+  /// i.e. the address the oracle actually sends transactions to the contract from
   address[] internal s_transmittersList;
 
-  // We assume that all oracles contribute observations to all rounds. this
-  // variable tracks (per-oracle) from what round an oracle should be rewarded,
-  // i.e. the oracle gets (latestAggregatorRoundId -
-  // rewardFromAggregatorRoundId) * reward
+  /// @notice We assume that all oracles contribute observations to all rounds. this
+  /// variable tracks (per-oracle) from what round an oracle should be rewarded,
+  /// i.e. the oracle gets (latestAggregatorRoundId - rewardFromAggregatorRoundId) * reward
   uint32[MAX_NUM_ORACLES] internal s_rewardFromAggregatorRoundId;
 
   bytes32 internal s_latestConfigDigest;
 
   // Storing these fields used on the hot path in a HotVars variable reduces the
-  // retrieval of all of them to a single SLOAD.
+  // retrieval of all of them to two SLOADs.
   struct HotVars {
-    // maximum number of faulty oracles
-    uint8 f;
-    // epoch and round from OCR protocol.
-    // 32 most sig bits for epoch, 8 least sig bits for round
-    uint40 latestEpochAndRound;
-    // Chainlink Aggregators expose a roundId to consumers. The offchain reporting
-    // protocol does not use this id anywhere. We increment it whenever a new
-    // transmission is made to provide callers with contiguous ids for successive
-    // reports.
-    uint32 latestAggregatorRoundId;
-    // latest transmission round arrived from the Secondary Proxy.
-    uint32 latestSecondaryRoundId;
-    // Highest compensated gas price, in gwei uints
-    uint32 maximumGasPriceGwei;
-    // If gas price is less (in gwei units), transmitter gets half the savings
-    uint32 reasonableGasPriceGwei;
-    // Fixed LINK reward for each observer
-    uint32 observationPaymentGjuels;
-    // Fixed reward for transmitter
-    uint32 transmissionPaymentGjuels;
-    // Overhead incurred by accounting logic
-    uint24 accountingGas;
+    uint8 f; //  ─────────────────────────╮ Maximum number of faulty oracles.
+    //                                    │
+    uint40 latestEpochAndRound; //        │ Epoch and round from OCR protocol.
+    //                                    │ 32 most significant bits for epoch, 8 least sig bits for round.
+    //                                    │
+    uint32 latestAggregatorRoundId; //    │ Chainlink Aggregators expose a roundId to consumers. The offchain protocol
+    //                                    │ does not use this id anywhere. We increment it whenever a new transmission
+    //                                    │ is made to provide callers with contiguous ids for successive reports.
+    uint32 latestSecondaryRoundId; //     │ Latest transmission round arrived from the Secondary Proxy.
+    uint32 maximumGasPriceGwei; //        │ Highest compensated gas price, in gwei uints.
+    uint32 reasonableGasPriceGwei; //     │ If gas price is less (in gwei units), transmitter gets half the savings.
+    uint32 observationPaymentGjuels; //   │ Fixed LINK reward for each observer.
+    uint32 transmissionPaymentGjuels; // ─╯ Fixed reward for transmitter.
+    uint24 accountingGas; //                Overhead incurred by accounting logic.
   }
 
   HotVars internal s_hotVars;
@@ -92,20 +82,12 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
   // Highest answer the system is allowed to report in response to transmissions
   int192 public immutable i_maxAnswer;
 
-  /**
-   *
-   * Section: Constructor
-   *
-   */
-
-  /**
-   * @param link address of the LINK contract
-   * @param minAnswer_ lowest answer the median of a report is allowed to be
-   * @param maxAnswer_ highest answer the median of a report is allowed to be
-   * @param requesterAccessController access controller for requesting new rounds
-   * @param decimals_ answers are stored in fixed-point format, with this many digits of precision
-   * @param description_ short human-readable description of observable this contract's answers pertain to
-   */
+  /// @param link address of the LINK contract
+  /// @param minAnswer_ lowest answer the median of a report is allowed to be
+  /// @param maxAnswer_ highest answer the median of a report is allowed to be
+  /// @param requesterAccessController access controller for requesting new rounds
+  /// @param decimals_ answers are stored in fixed-point format, with this many digits of precision
+  /// @param description_ short human-readable description of observable this contract's answers pertain to
   constructor(
     LinkTokenInterface link,
     int192 minAnswer_,
@@ -118,26 +100,26 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     uint32 cutoffTime_,
     uint32 maxSyncIterations_
   ) {
-    s_linkToken = link;
-    emit LinkTokenSet(LinkTokenInterface(address(0)), link);
-    _setBillingAccessController(billingAccessController);
-
-    decimals = decimals_;
-    s_description = description_;
-    setRequesterAccessController(requesterAccessController);
-    setValidatorConfig(AggregatorValidatorInterface(address(0x0)), 0);
+    i_decimals = decimals_;
     i_minAnswer = minAnswer_;
     i_maxAnswer = maxAnswer_;
     i_secondaryProxy = secondaryProxy_;
+
+    s_linkToken = link;
+    emit LinkTokenSet(LinkTokenInterface(address(0)), link);
+
+    _setBillingAccessController(billingAccessController);
+    setRequesterAccessController(requesterAccessController);
+    setValidatorConfig(AggregatorValidatorInterface(address(0x0)), 0);
+
     s_cutoffTime = cutoffTime_;
     s_maxSyncIterations = maxSyncIterations_;
+    s_description = description_;
   }
 
-  /**
-   *
-   * Section: OCR2Abstract Configuration
-   *
-   */
+  // ================================================================
+  // │                  OCR2Abstract Configuration                  │
+  // ================================================================
 
   // incremented each time a new config is posted. This count is incorporated
   // into the config digest to prevent replay attacks.
@@ -210,7 +192,7 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
 
     // remove any old signer/transmitter addresses
     uint256 oldLength = s_signersList.length;
-    for (uint256 i = 0; i < oldLength; i++) {
+    for (uint256 i = 0; i < oldLength; ++i) {
       address signer = s_signersList[i];
       address transmitter = s_transmittersList[i];
       delete s_signers[signer];
@@ -220,7 +202,7 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     delete s_transmittersList;
 
     // add new signer/transmitter addresses
-    for (uint256 i = 0; i < args.signers.length; i++) {
+    for (uint256 i = 0; i < args.signers.length; ++i) {
       if (s_signers[args.signers[i]].active) {
         revert RepeatedSignerAddress();
       }
@@ -262,7 +244,7 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     );
 
     uint32 latestAggregatorRoundId = s_hotVars.latestAggregatorRoundId;
-    for (uint256 i = 0; i < args.signers.length; i++) {
+    for (uint256 i = 0; i < args.signers.length; ++i) {
       s_rewardFromAggregatorRoundId[i] = latestAggregatorRoundId;
     }
   }
@@ -277,20 +259,15 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     return (s_configCount, s_latestConfigBlockNumber, s_latestConfigDigest);
   }
 
-  /**
-   * @return list of addresses permitted to transmit reports to this contract
-   *
-   * @dev The list will match the order used to specify the transmitter during setConfig
-   */
+  /// @return list of addresses permitted to transmit reports to this contract
+  /// @dev The list will match the order used to specify the transmitter during setConfig
   function getTransmitters() external view returns (address[] memory) {
     return s_transmittersList;
   }
 
-  /**
-   *
-   * Section: Onchain Validation
-   *
-   */
+  // ================================================================
+  // │                      Onchain Validation                      │
+  // ================================================================
 
   // Configuration for validator
   struct ValidatorConfig {
@@ -300,13 +277,11 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
 
   ValidatorConfig private s_validatorConfig;
 
-  /**
-   * @notice indicates that the validator configuration has been set
-   * @param previousValidator previous validator contract
-   * @param previousGasLimit previous gas limit for validate calls
-   * @param currentValidator current validator contract
-   * @param currentGasLimit current gas limit for validate calls
-   */
+  /// @notice indicates that the validator configuration has been set
+  /// @param previousValidator previous validator contract
+  /// @param previousGasLimit previous gas limit for validate calls
+  /// @param currentValidator current validator contract
+  /// @param currentGasLimit current gas limit for validate calls
   event ValidatorConfigSet(
     AggregatorValidatorInterface indexed previousValidator,
     uint32 previousGasLimit,
@@ -314,22 +289,18 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     uint32 currentGasLimit
   );
 
-  /**
-   * @notice validator configuration
-   * @return validator validator contract
-   * @return gasLimit gas limit for validate calls
-   */
+  /// @notice validator configuration
+  /// @return validator validator contract
+  /// @return gasLimit gas limit for validate calls
   function getValidatorConfig() external view returns (AggregatorValidatorInterface validator, uint32 gasLimit) {
     ValidatorConfig memory vc = s_validatorConfig;
     return (vc.validator, vc.gasLimit);
   }
 
-  /**
-   * @notice sets validator configuration
-   * @dev set newValidator to 0x0 to disable validate calls
-   * @param newValidator address of the new validator contract
-   * @param newGasLimit new gas limit for validate calls
-   */
+  // @notice sets validator configuration
+  // @dev set newValidator to 0x0 to disable validate calls
+  // @param newValidator address of the new validator contract
+  // @param newGasLimit new gas limit for validate calls
   function setValidatorConfig(AggregatorValidatorInterface newValidator, uint32 newGasLimit) public onlyOwner {
     ValidatorConfig memory previous = s_validatorConfig;
 
@@ -342,6 +313,8 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
 
   error InsufficientGas();
 
+  uint16 private constant CALL_WITH_EXACT_GAS_CUSHION = 5_000;
+
   function _validateAnswer(uint32 aggregatorRoundId, int256 answer) private {
     ValidatorConfig memory vc = s_validatorConfig;
 
@@ -351,91 +324,52 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
 
     uint32 prevAggregatorRoundId = aggregatorRoundId - 1;
     int256 prevAggregatorRoundAnswer = s_transmissions[prevAggregatorRoundId].answer;
-    if (
-      !_callWithExactGasEvenIfTargetIsNoContract(
-        vc.gasLimit,
-        address(vc.validator),
-        abi.encodeWithSignature(
-          "validate(uint256,int256,uint256,int256)",
-          uint256(prevAggregatorRoundId),
-          prevAggregatorRoundAnswer,
-          uint256(aggregatorRoundId),
-          answer
-        )
-      )
-    ) {
+
+    (, bool sufficientGas) = CallWithExactGas._callWithExactGasEvenIfTargetIsNoContract(
+      abi.encodeWithSignature(
+        "validate(uint256,int256,uint256,int256)",
+        uint256(prevAggregatorRoundId),
+        prevAggregatorRoundAnswer,
+        uint256(aggregatorRoundId),
+        answer
+      ),
+      address(vc.validator),
+      vc.gasLimit,
+      CALL_WITH_EXACT_GAS_CUSHION
+    );
+
+    // TODO add tests
+    if (!sufficientGas) {
       revert InsufficientGas();
     }
   }
 
-  uint256 private constant CALL_WITH_EXACT_GAS_CUSHION = 5_000;
+  // ================================================================
+  // │                       RequestNewRound                        │
+  // ================================================================
 
-  /**
-   * @dev calls target address with exactly gasAmount gas and data as calldata
-   * or reverts if at least gasAmount gas is not available.
-   */
-  function _callWithExactGasEvenIfTargetIsNoContract(
-    uint256 gasAmount,
-    address target,
-    bytes memory data
-  ) private returns (bool sufficientGas) {
-    // solhint-disable-next-line no-inline-assembly
-    assembly {
-      let g := gas()
-      // Compute g -= CALL_WITH_EXACT_GAS_CUSHION and check for underflow. We
-      // need the cushion since the logic following the above call to gas also
-      // costs gas which we cannot account for exactly. So cushion is a
-      // conservative upper bound for the cost of this logic.
-      if iszero(lt(g, CALL_WITH_EXACT_GAS_CUSHION)) {
-        g := sub(g, CALL_WITH_EXACT_GAS_CUSHION)
-        // If g - g//64 <= gasAmount, we don't have enough gas. (We subtract g//64
-        // because of EIP-150.)
-        if gt(sub(g, div(g, 64)), gasAmount) {
-          // Call and ignore success/return data. Note that we did not check
-          // whether a contract actually exists at the target address.
-          pop(call(gasAmount, target, 0, add(data, 0x20), mload(data), 0, 0))
-          sufficientGas := true
-        }
-      }
-    }
-    return sufficientGas;
-  }
-
-  /**
-   *
-   * Section: RequestNewRound
-   *
-   */
   AccessControllerInterface internal s_requesterAccessController;
 
-  /**
-   * @notice emitted when a new requester access controller contract is set
-   * @param old the address prior to the current setting
-   * @param current the address of the new access controller contract
-   */
+  /// @notice emitted when a new requester access controller contract is set
+  /// @param old the address prior to the current setting
+  /// @param current the address of the new access controller contract
   event RequesterAccessControllerSet(AccessControllerInterface old, AccessControllerInterface current);
 
-  /**
-   * @notice emitted to immediately request a new round
-   * @param requester the address of the requester
-   * @param configDigest the latest transmission's configDigest
-   * @param epoch the latest transmission's epoch
-   * @param round the latest transmission's round
-   */
+  /// @notice emitted to immediately request a new round
+  /// @param requester the address of the requester
+  /// @param configDigest the latest transmission's configDigest
+  /// @param epoch the latest transmission's epoch
+  /// @param round the latest transmission's round
   event RoundRequested(address indexed requester, bytes32 configDigest, uint32 epoch, uint8 round);
 
-  /**
-   * @notice address of the requester access controller contract
-   * @return requester access controller address
-   */
+  /// @notice address of the requester access controller contract
+  /// @return requester access controller address
   function getRequesterAccessController() external view returns (AccessControllerInterface) {
     return s_requesterAccessController;
   }
 
-  /**
-   * @notice sets the requester access controller
-   * @param requesterAccessController designates the address of the new requester access controller
-   */
+  /// @notice sets the requester access controller
+  /// @param requesterAccessController designates the address of the new requester access controller
   function setRequesterAccessController(
     AccessControllerInterface requesterAccessController
   ) public onlyOwner {
@@ -447,13 +381,11 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
   }
 
   error OnlyOwnerAndRequesterCanCall();
-  /**
-   * @notice immediately requests a new round
-   * @return the aggregatorRoundId of the next round. Note: The report for this round may have been
-   * transmitted (but not yet mined) *before* requestNewRound() was even called. There is *no*
-   * guarantee of causality between the request and the report at aggregatorRoundId.
-   */
 
+  /// @notice immediately requests a new round
+  /// @return the aggregatorRoundId of the next round. Note: The report for this round may have been
+  /// transmitted (but not yet mined) *before* requestNewRound() was even called. There is *no*
+  /// guarantee of causality between the request and the report at aggregatorRoundId.
   // TODO: i think we can remove this function entirely
   function requestNewRound() external returns (uint80) {
     if (!(msg.sender == owner() || s_requesterAccessController.hasAccess(msg.sender, msg.data))) {
@@ -467,11 +399,9 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     return latestAggregatorRoundId + 1;
   }
 
-  /**
-   *
-   * Section: Secondary Proxy
-   *
-   */
+  // ================================================================
+  // │                       Secondary Proxy                        │
+  // ================================================================
 
   // Used to relieve stack pressure in transmit
   struct Report {
@@ -489,7 +419,7 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     uint32 recordedTimestamp; // when was report received onchain
   }
 
-  mapping(uint32 /* aggregator round ID */ => Transmission) internal s_transmissions;
+  mapping(uint32 aggregatorRoundId => Transmission) internal s_transmissions;
 
   // secondary proxy address, used to detect who's calling the contract methods
   address internal immutable i_secondaryProxy;
@@ -500,36 +430,26 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
   // max iterations the secondary proxy will be able to loop to sync with the primary rounds
   uint32 internal s_maxSyncIterations;
 
-  // wether if the latest report was secondary or not
+  // whether the latest report was secondary or not
   bool internal s_latestSecondary;
 
-  /**
-   * @notice indicates that a new report arrived from the secondary feed and the round id was updated
-   * @param secondaryRoundId the new secondary round id
-   */
+  /// @notice indicates that a new report arrived from the secondary feed and the round id was updated
+  /// @param secondaryRoundId the new secondary round id
   event SecondaryRoundIdUpdated(uint32 indexed secondaryRoundId);
 
-  /**
-   * @notice emitted when a new cutoff time is set
-   * @param cutoffTime the new defined cutoff time
-   */
+  /// @notice emitted when a new cutoff time is set
+  /// @param cutoffTime the new defined cutoff time
   event CutoffTimeSet(uint32 cutoffTime);
 
-  /**
-   * @notice emitted when a new max sync iterations is set
-   * @param maxSyncIterations the new defined max sync iterations
-   */
+  /// @notice emitted when a new max sync iterations is set
+  /// @param maxSyncIterations the new defined max sync iterations
   event MaxSyncIterationsSet(uint32 maxSyncIterations);
 
-  /**
-   * @notice revert when the loop reaches the max sync iterations amount
-   */
+  /// @notice revert when the loop reaches the max sync iterations amount
   error MaxSyncIterations();
 
-  /**
-   * @notice sets the max time cutoff
-   * @param _cutoffTime new max cutoff timestamp
-   */
+  /// @notice sets the max time cutoff
+  /// @param _cutoffTime new max cutoff timestamp
   function setCutoffTime(
     uint32 _cutoffTime
   ) external onlyOwner {
@@ -537,10 +457,8 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     emit CutoffTimeSet(s_cutoffTime);
   }
 
-  /**
-   * @notice sets the max sync iterations
-   * @param _maxSyncIterations new max sync iterations
-   */
+  /// @notice sets the max sync iterations
+  /// @param _maxSyncIterations new max sync iterations
   function setMaxSyncIterations(
     uint32 _maxSyncIterations
   ) external onlyOwner {
@@ -548,9 +466,7 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     emit MaxSyncIterationsSet(s_maxSyncIterations);
   }
 
-  /**
-   * @notice sync data with the primary rounds, return the freshest valid round id
-   */
+  /// @notice sync data with the primary rounds, return the freshest valid round id
   function _getSyncPrimaryRound() internal view returns (uint32 roundId) {
     // get the latest round id and the max iterations
     uint32 latestAggregatorRoundId = s_hotVars.latestAggregatorRoundId;
@@ -580,10 +496,8 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     return s_hotVars.latestSecondaryRoundId;
   }
 
-  /**
-   * @notice check if a report has already been transmitted
-   * @param report the report to check
-   */
+  /// @notice check if a report has already been transmitted
+  /// @param report the report to check
   function _doesReportExist(
     Report memory report
   ) internal view returns (bool exist, uint32 roundId) {
@@ -612,9 +526,7 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     return (false, 0);
   }
 
-  /**
-   * @notice Aggregator round (NOT OCR round) in which last valid report was transmitted
-   */
+  /// @notice Aggregator round (NOT OCR round) in which last valid report was transmitted
   function _getLatestRound() internal view returns (uint32) {
     Transmission memory transmission;
 
@@ -647,24 +559,20 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     return latestAggregatorRoundId;
   }
 
-  /**
-   *
-   * Section: Transmission
-   *
-   */
+  // ================================================================
+  // │                        Transmission                          │
+  // ================================================================
 
-  /**
-   * @notice indicates that a new report was transmitted
-   * @param aggregatorRoundId the round to which this report was assigned
-   * @param answer median of the observations attached to this report
-   * @param transmitter address from which the report was transmitted
-   * @param observationsTimestamp when were observations made offchain
-   * @param observations observations transmitted with this report
-   * @param observers i-th element is the oracle id of the oracle that made the i-th observation
-   * @param juelsPerFeeCoin exchange rate between feeCoin (e.g. ETH on Ethereum) and LINK, denominated in juels
-   * @param configDigest configDigest of transmission
-   * @param epochAndRound least-significant byte is the OCR protocol round number, the other bytes give the big-endian OCR protocol epoch number
-   */
+  /// @notice indicates that a new report was transmitted
+  /// @param aggregatorRoundId the round to which this report was assigned
+  /// @param answer median of the observations attached to this report
+  /// @param transmitter address from which the report was transmitted
+  /// @param observationsTimestamp when were observations made offchain
+  /// @param observations observations transmitted with this report
+  /// @param observers i-th element is the oracle id of the oracle that made the i-th observation
+  /// @param juelsPerFeeCoin exchange rate between feeCoin (e.g. ETH on Ethereum) and LINK, denominated in juels
+  /// @param configDigest configDigest of transmission
+  /// @param epochAndRound least-significant byte is the OCR protocol round number, the other bytes give the big-endian OCR protocol epoch number
   event NewTransmission(
     uint32 indexed aggregatorRoundId,
     int192 answer,
@@ -829,7 +737,7 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     // Report epoch and round
     uint40 epochAndRound = uint40(uint256(reportContext[1]));
 
-    // Only skip the report transmission in case the epochAndRound is equal to the latestEpochAndRound 
+    // Only skip the report transmission in case the epochAndRound is equal to the latestEpochAndRound
     // and the latest sender was the secondary feed
     if (epochAndRound != s_hotVars.latestEpochAndRound || !s_latestSecondary) {
       // In case the epochAndRound is lower or equal than the latestEpochAndRound, it's a stale report
@@ -885,7 +793,7 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     uint256 signedCount = 0;
 
     Signer memory signer;
-    for (uint256 i = 0; i < rs.length; i++) {
+    for (uint256 i = 0; i < rs.length; ++i) {
       address signerAddress = ecrecover(h, uint8(rawVs[i]) + 27, rs[i], ss[i]);
       signer = s_signers[signerAddress];
       if (!signer.active) {
@@ -904,14 +812,12 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
 
   error OnlyCallableByEOA();
 
-  /**
-   * @notice details about the most recent report
-   * @return configDigest domain separation tag for the latest report
-   * @return epoch epoch in which the latest report was generated
-   * @return round OCR round in which the latest report was generated
-   * @return latestAnswer_ median value from latest report
-   * @return latestTimestamp_ when the latest report was transmitted
-   */
+  /// @notice details about the most recent report
+  /// @return configDigest domain separation tag for the latest report
+  /// @return epoch epoch in which the latest report was generated
+  /// @return round OCR round in which the latest report was generated
+  /// @return latestAnswer_ median value from latest report
+  /// @return latestTimestamp_ when the latest report was transmitted
   function latestTransmissionDetails()
     external
     view
@@ -1014,37 +920,27 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     _validateAnswer(hotVars.latestAggregatorRoundId, median);
   }
 
-  /**
-   *
-   * Section: v2 AggregatorInterface
-   *
-   */
+  // ================================================================
+  // │                   v2 AggregatorInterface                     │
+  // ================================================================
 
-  /**
-   * @notice median from the most recent report
-   */
+  /// @notice median from the most recent report
   function latestAnswer() public view virtual override returns (int256) {
     return s_transmissions[_getLatestRound()].answer;
   }
 
-  /**
-   * @notice timestamp of block in which last report was transmitted
-   */
+  /// @notice timestamp of block in which last report was transmitted
   function latestTimestamp() public view virtual override returns (uint256) {
     return s_transmissions[_getLatestRound()].recordedTimestamp;
   }
 
-  /**
-   * @notice Aggregator round (NOT OCR round) in which last report was transmitted
-   */
+  /// @notice Aggregator round (NOT OCR round) in which last report was transmitted
   function latestRound() public view virtual override returns (uint256) {
     return _getLatestRound();
   }
 
-  /**
-   * @notice median of report from given aggregator round (NOT OCR round)
-   * @param roundId the aggregator round of the target report
-   */
+  /// @notice median of report from given aggregator round (NOT OCR round)
+  /// @param roundId the aggregator round of the target report
   function getAnswer(
     uint256 roundId
   ) public view virtual override returns (int256) {
@@ -1052,10 +948,8 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     return s_transmissions[uint32(roundId)].answer;
   }
 
-  /**
-   * @notice timestamp of block in which report from given aggregator round was transmitted
-   * @param roundId aggregator round (NOT OCR round) of target report
-   */
+  /// @notice timestamp of block in which report from given aggregator round was transmitted
+  /// @param roundId aggregator round (NOT OCR round) of target report
   function getTimestamp(
     uint256 roundId
   ) public view virtual override returns (uint256) {
@@ -1063,46 +957,40 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     return s_transmissions[uint32(roundId)].recordedTimestamp;
   }
 
-  /**
-   *
-   * Section: v3 AggregatorInterface
-   *
-   */
+  // ================================================================
+  // │                   v3 AggregatorInterface                     │
+  // ================================================================
 
-  /**
-   * @return answers are stored in fixed-point format, with this many digits of precision
-   */
-  // TODO: determine right way to handle this
-  // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
-  uint8 public immutable override decimals;
+  uint8 private immutable i_decimals;
 
-  /**
-   * @notice aggregator contract version
-   */
-  // TODO: determine right way to handle this
-  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
-  uint256 public constant override version = 6;
+  /// @return answers are stored in fixed-point format, with this many digits of precision
+  function decimals() public view virtual override returns (uint8) {
+    return i_decimals;
+  }
+
+  /// @notice aggregator contract version
+  uint256 public constant VERSION = 6;
+
+  function version() public view virtual override returns (uint256) {
+    return VERSION;
+  }
 
   string internal s_description;
 
-  /**
-   * @notice human-readable description of observable this contract is reporting on
-   */
+  /// @notice human-readable description of observable this contract is reporting on
   function description() public view virtual override returns (string memory) {
     return s_description;
   }
 
   error RoundNotFound();
 
-  /**
-   * @notice details for the given aggregator round
-   * @param roundId target aggregator round (NOT OCR round). Must fit in uint32
-   * @return roundId_ roundId
-   * @return answer median of report from given roundId
-   * @return startedAt timestamp of when observations were made offchain
-   * @return updatedAt timestamp of block in which report from given roundId was transmitted
-   * @return answeredInRound roundId
-   */
+  /// @notice details for the given aggregator round
+  /// @param roundId target aggregator round (NOT OCR round). Must fit in uint32
+  /// @return roundId_ roundId
+  /// @return answer median of report from given roundId
+  /// @return startedAt timestamp of when observations were made offchain
+  /// @return updatedAt timestamp of block in which report from given roundId was transmitted
+  /// @return answeredInRound roundId
   function getRoundData(
     uint80 roundId
   )
@@ -1118,14 +1006,12 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     return (roundId, transmission.answer, transmission.observationsTimestamp, transmission.recordedTimestamp, roundId);
   }
 
-  /**
-   * @notice aggregator details for the most recently transmitted report
-   * @return roundId aggregator round of latest report (NOT OCR round)
-   * @return answer median of latest report
-   * @return startedAt timestamp of when observations were made offchain
-   * @return updatedAt timestamp of block containing latest report
-   * @return answeredInRound aggregator round of latest report
-   */
+  /// @notice aggregator details for the most recently transmitted report
+  /// @return roundId aggregator round of latest report (NOT OCR round)
+  /// @return answer median of latest report
+  /// @return startedAt timestamp of when observations were made offchain
+  /// @return updatedAt timestamp of block containing latest report
+  /// @return answeredInRound aggregator round of latest report
   function latestRoundData()
     public
     view
@@ -1145,37 +1031,31 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     );
   }
 
-  /**
-   *
-   * Section: Configurable LINK Token
-   *
-   */
+  // ================================================================
+  // │                  Configurable LINK Token                     │
+  // ================================================================
 
   // We assume that the token contract is correct. This contract is not written
   // to handle misbehaving ERC20 tokens!
   LinkTokenInterface internal s_linkToken;
 
-  /*
-   * @notice emitted when the LINK token contract is set
-   * @param oldLinkToken the address of the old LINK token contract
-   * @param newLinkToken the address of the new LINK token contract
-   */
+  /// @notice emitted when the LINK token contract is set
+  /// @param oldLinkToken the address of the old LINK token contract
+  /// @param newLinkToken the address of the new LINK token contract
   event LinkTokenSet(LinkTokenInterface indexed oldLinkToken, LinkTokenInterface indexed newLinkToken);
 
   error TransferRemainingFundsFailed();
 
-  /**
-   * @notice sets the LINK token contract used for paying oracles
-   * @param linkToken the address of the LINK token contract
-   * @param recipient remaining funds from the previous token contract are transferred
-   * here
-   * @dev this function will return early (without an error) without changing any state
-   * if linkToken equals getLinkToken().
-   * @dev this will trigger a payout so that a malicious owner cannot take from oracles
-   * what is already owed to them.
-   * @dev we assume that the token contract is correct. This contract is not written
-   * to handle misbehaving ERC20 tokens!
-   */
+  /// @notice sets the LINK token contract used for paying oracles
+  /// @param linkToken the address of the LINK token contract
+  /// @param recipient remaining funds from the previous token contract are transferred
+  /// here
+  /// @dev this function will return early (without an error) without changing any state
+  /// if linkToken equals getLinkToken().
+  /// @dev this will trigger a payout so that a malicious owner cannot take from oracles
+  /// what is already owed to them.
+  /// @dev we assume that the token contract is correct. This contract is not written
+  /// to handle misbehaving ERC20 tokens!
   function setLinkToken(LinkTokenInterface linkToken, address recipient) external onlyOwner {
     LinkTokenInterface oldLinkToken = s_linkToken;
     if (linkToken == oldLinkToken) {
@@ -1195,19 +1075,15 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     emit LinkTokenSet(oldLinkToken, linkToken);
   }
 
-  /*
-   * @notice gets the LINK token contract used for paying oracles
-   * @return linkToken the address of the LINK token contract
-   */
+  /// @notice gets the LINK token contract used for paying oracles
+  /// @return linkToken the address of the LINK token contract
   function getLinkToken() external view returns (LinkTokenInterface linkToken) {
     return s_linkToken;
   }
 
-  /**
-   *
-   * Section: BillingAccessController Management
-   *
-   */
+  // ================================================================
+  // │             BillingAccessController Management               │
+  // ================================================================
 
   // Controls who can change billing parameters. A billingAdmin is not able to
   // affect any OCR protocol settings and therefore cannot tamper with the
@@ -1217,11 +1093,9 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
   // setLinkToken will always fail due to the contract being underfunded.
   AccessControllerInterface internal s_billingAccessController;
 
-  /**
-   * @notice emitted when a new access-control contract is set
-   * @param old the address prior to the current setting
-   * @param current the address of the new access-control contract
-   */
+  /// @notice emitted when a new access-control contract is set
+  /// @param old the address prior to the current setting
+  /// @param current the address of the new access-control contract
   event BillingAccessControllerSet(AccessControllerInterface old, AccessControllerInterface current);
 
   function _setBillingAccessController(
@@ -1234,39 +1108,31 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     }
   }
 
-  /**
-   * @notice sets billingAccessController
-   * @param _billingAccessController new billingAccessController contract address
-   * @dev only owner can call this
-   */
+  /// @notice sets billingAccessController
+  /// @param _billingAccessController new billingAccessController contract address
+  /// @dev only owner can call this
   function setBillingAccessController(
     AccessControllerInterface _billingAccessController
   ) external onlyOwner {
     _setBillingAccessController(_billingAccessController);
   }
 
-  /**
-   * @notice gets billingAccessController
-   * @return address of billingAccessController contract
-   */
+  /// @notice gets billingAccessController
+  /// @return address of billingAccessController contract
   function getBillingAccessController() external view returns (AccessControllerInterface) {
     return s_billingAccessController;
   }
 
-  /**
-   *
-   * Section: Billing Configuration
-   *
-   */
+  // ================================================================
+  // │                    Billing Configuration                     │
+  // ================================================================
 
-  /**
-   * @notice emitted when billing parameters are set
-   * @param maximumGasPriceGwei highest gas price for which transmitter will be compensated
-   * @param reasonableGasPriceGwei transmitter will receive reward for gas prices under this value
-   * @param observationPaymentGjuels reward to oracle for contributing an observation to a successfully transmitted report
-   * @param transmissionPaymentGjuels reward to transmitter of a successful report
-   * @param accountingGas gas overhead incurred by accounting logic
-   */
+  /// @notice emitted when billing parameters are set
+  /// @param maximumGasPriceGwei highest gas price for which transmitter will be compensated
+  /// @param reasonableGasPriceGwei transmitter will receive reward for gas prices under this value
+  /// @param observationPaymentGjuels reward to oracle for contributing an observation to a successfully transmitted report
+  /// @param transmissionPaymentGjuels reward to transmitter of a successful report
+  /// @param accountingGas gas overhead incurred by accounting logic
   event BillingSet(
     uint32 maximumGasPriceGwei,
     uint32 reasonableGasPriceGwei,
@@ -1277,15 +1143,13 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
 
   error OnlyOwnerAndBillingAdminCanCall();
 
-  /**
-   * @notice sets billing parameters
-   * @param maximumGasPriceGwei highest gas price for which transmitter will be compensated
-   * @param reasonableGasPriceGwei transmitter will receive reward for gas prices under this value
-   * @param observationPaymentGjuels reward to oracle for contributing an observation to a successfully transmitted report
-   * @param transmissionPaymentGjuels reward to transmitter of a successful report
-   * @param accountingGas gas overhead incurred by accounting logic
-   * @dev access control provided by billingAccessController
-   */
+  /// @notice sets billing parameters
+  /// @param maximumGasPriceGwei highest gas price for which transmitter will be compensated
+  /// @param reasonableGasPriceGwei transmitter will receive reward for gas prices under this value
+  /// @param observationPaymentGjuels reward to oracle for contributing an observation to a successfully transmitted report
+  /// @param transmissionPaymentGjuels reward to transmitter of a successful report
+  /// @param accountingGas gas overhead incurred by accounting logic
+  /// @dev access control provided by billingAccessController
   function setBilling(
     uint32 maximumGasPriceGwei,
     uint32 reasonableGasPriceGwei,
@@ -1310,14 +1174,12 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     );
   }
 
-  /**
-   * @notice gets billing parameters
-   * @param maximumGasPriceGwei highest gas price for which transmitter will be compensated
-   * @param reasonableGasPriceGwei transmitter will receive reward for gas prices under this value
-   * @param observationPaymentGjuels reward to oracle for contributing an observation to a successfully transmitted report
-   * @param transmissionPaymentGjuels reward to transmitter of a successful report
-   * @param accountingGas gas overhead of the accounting logic
-   */
+  /// @notice gets billing parameters
+  /// @param maximumGasPriceGwei highest gas price for which transmitter will be compensated
+  /// @param reasonableGasPriceGwei transmitter will receive reward for gas prices under this value
+  /// @param observationPaymentGjuels reward to oracle for contributing an observation to a successfully transmitted report
+  /// @param transmissionPaymentGjuels reward to transmitter of a successful report
+  /// @param accountingGas gas overhead of the accounting logic
   function getBilling()
     external
     view
@@ -1338,18 +1200,15 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     );
   }
 
-  /**
-   *
-   * Section: Payments and Withdrawals
-   *
-   */
+  // ================================================================
+  // │                  Payments and Withdrawals                    │
+  // ================================================================
+
   error OnlyPayeeCanWithdraw();
 
-  /**
-   * @notice withdraws an oracle's payment from the contract
-   * @param transmitter the transmitter address of the oracle
-   * @dev must be called by oracle's payee address
-   */
+  /// @notice withdraws an oracle's payment from the contract
+  /// @param transmitter the transmitter address of the oracle
+  /// @dev must be called by oracle's payee address
   function withdrawPayment(
     address transmitter
   ) external {
@@ -1357,10 +1216,8 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     _payOracle(transmitter);
   }
 
-  /**
-   * @notice query an oracle's payment amount, denominated in juels
-   * @param transmitterAddress the transmitter address of the oracle
-   */
+  /// @notice query an oracle's payment amount, denominated in juels
+  /// @param transmitterAddress the transmitter address of the oracle
   function owedPayment(
     address transmitterAddress
   ) public view returns (uint256) {
@@ -1377,13 +1234,11 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     return juelsAmount;
   }
 
-  /**
-   * @notice emitted when an oracle has been paid LINK
-   * @param transmitter address from which the oracle sends reports to the transmit method
-   * @param payee address to which the payment is sent
-   * @param amount amount of LINK sent
-   * @param linkToken address of the LINK token contract
-   */
+  /// @notice emitted when an oracle has been paid LINK
+  /// @param transmitter address from which the oracle sends reports to the transmit method
+  /// @param payee address to which the payment is sent
+  /// @param amount amount of LINK sent
+  /// @param linkToken address of the LINK token contract
   event OraclePaid(
     address indexed transmitter, address indexed payee, uint256 amount, LinkTokenInterface indexed linkToken
   );
@@ -1447,12 +1302,10 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
 
   error InsufficientBalance();
 
-  /**
-   * @notice withdraw any available funds left in the contract, up to amount, after accounting for the funds due to participants in past reports
-   * @param recipient address to send funds to
-   * @param amount maximum amount to withdraw, denominated in LINK-wei.
-   * @dev access control provided by billingAccessController
-   */
+  /// @notice withdraw any available funds left in the contract, up to amount, after accounting for the funds due to participants in past reports
+  /// @param recipient address to send funds to
+  /// @param amount maximum amount to withdraw, denominated in LINK-wei.
+  /// @dev access control provided by billingAccessController
   function withdrawFunds(address recipient, uint256 amount) external {
     if (!(msg.sender == owner() || s_billingAccessController.hasAccess(msg.sender, msg.data))) {
       revert OnlyOwnerAndBillingAdminCanCall();
@@ -1483,22 +1336,20 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
 
     uint32 latestAggregatorRoundId = s_hotVars.latestAggregatorRoundId;
     uint32[MAX_NUM_ORACLES] memory rewardFromAggregatorRoundId = s_rewardFromAggregatorRoundId;
-    for (uint256 i = 0; i < n; i++) {
+    for (uint256 i = 0; i < n; ++i) {
       linkDue += latestAggregatorRoundId - rewardFromAggregatorRoundId[i];
     }
     // Convert observationPaymentGjuels to uint256, or this overflows!
     linkDue *= uint256(s_hotVars.observationPaymentGjuels) * (1 gwei);
-    for (uint256 i = 0; i < n; i++) {
+    for (uint256 i = 0; i < n; ++i) {
       linkDue += uint256(s_transmitters[transmitters[i]].paymentJuels);
     }
 
     return linkDue;
   }
 
-  /**
-   * @notice allows oracles to check that sufficient LINK balance is available
-   * @return availableBalance LINK available on this contract, after accounting for outstanding obligations. can become negative
-   */
+  /// @notice allows oracles to check that sufficient LINK balance is available
+  /// @return availableBalance LINK available on this contract, after accounting for outstanding obligations. can become negative
   function linkAvailableForPayment() external view returns (int256 availableBalance) {
     // there are at most one billion LINK, so this cast is safe
     int256 balance = int256(s_linkToken.balanceOf(address(this)));
@@ -1509,10 +1360,8 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     return int256(balance) - int256(due);
   }
 
-  /**
-   * @notice number of observations oracle is due to be reimbursed for
-   * @param transmitterAddress address used by oracle for signing or transmitting reports
-   */
+  /// @notice number of observations oracle is due to be reimbursed for
+  /// @param transmitterAddress address used by oracle for signing or transmitting reports
   function oracleObservationCount(
     address transmitterAddress
   ) external view returns (uint32) {
@@ -1521,11 +1370,9 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     return s_hotVars.latestAggregatorRoundId - s_rewardFromAggregatorRoundId[transmitter.index];
   }
 
-  /**
-   *
-   * Section: Transmitter Payment
-   *
-   */
+  // ================================================================
+  // │                     Transmitter Payment                      │
+  // ================================================================
 
   // Gas price at which the transmitter should be reimbursed, in gwei/gas
   function _reimbursementGasPriceGwei(
@@ -1617,47 +1464,39 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     }
   }
 
-  /**
-   *
-   * Section: Payee Management
-   *
-   */
+  // ================================================================
+  // │                       Payee Management                       │
+  // ================================================================
 
   // Addresses at which oracles want to receive payments, by transmitter address
-  mapping(address /* transmitter */ => address /* payment address */) internal s_payees;
+  mapping(address transmitter => address paymentAddress) internal s_payees;
 
   // Payee addresses which must be approved by the owner
-  mapping(address /* transmitter */ => address /* payment address */) internal s_proposedPayees;
+  mapping(address transmitter => address paymentAddress) internal s_proposedPayees;
 
-  /**
-   * @notice emitted when a transfer of an oracle's payee address has been initiated
-   * @param transmitter address from which the oracle sends reports to the transmit method
-   * @param current the payee address for the oracle, prior to this setting
-   * @param proposed the proposed new payee address for the oracle
-   */
+  /// @notice emitted when a transfer of an oracle's payee address has been initiated
+  /// @param transmitter address from which the oracle sends reports to the transmit method
+  /// @param current the payee address for the oracle, prior to this setting
+  /// @param proposed the proposed new payee address for the oracle
   event PayeeshipTransferRequested(address indexed transmitter, address indexed current, address indexed proposed);
 
-  /**
-   * @notice emitted when a transfer of an oracle's payee address has been completed
-   * @param transmitter address from which the oracle sends reports to the transmit method
-   * @param current the payee address for the oracle, prior to this setting
-   */
+  /// @notice emitted when a transfer of an oracle's payee address has been completed
+  /// @param transmitter address from which the oracle sends reports to the transmit method
+  /// @param current the payee address for the oracle, prior to this setting
   event PayeeshipTransferred(address indexed transmitter, address indexed previous, address indexed current);
 
   error TransmittersSizeNotEqualPayeeSize();
   error PayeeAlreadySent();
 
-  /**
-   * @notice sets the payees for transmitting addresses
-   * @param transmitters addresses oracles use to transmit the reports
-   * @param payees addresses of payees corresponding to list of transmitters
-   * @dev must be called by owner
-   * @dev cannot be used to change payee addresses, only to initially populate them
-   */
+  /// @notice sets the payees for transmitting addresses
+  /// @param transmitters addresses oracles use to transmit the reports
+  /// @param payees addresses of payees corresponding to list of transmitters
+  /// @dev must be called by owner
+  /// @dev cannot be used to change payee addresses, only to initially populate them
   function setPayees(address[] calldata transmitters, address[] calldata payees) external onlyOwner {
     if (transmitters.length != payees.length) revert TransmittersSizeNotEqualPayeeSize();
 
-    for (uint256 i = 0; i < transmitters.length; i++) {
+    for (uint256 i = 0; i < transmitters.length; ++i) {
       address transmitter = transmitters[i];
       address payee = payees[i];
       address currentPayee = s_payees[transmitter];
@@ -1672,19 +1511,17 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
   }
 
   error OnlyCurrentPayeeCanUpdate();
-  error CannotTransferToSelf();
+  error CannotTransferPayeeToSelf();
 
-  /**
-   * @notice first step of payeeship transfer (safe transfer pattern)
-   * @param transmitter transmitter address of oracle whose payee is changing
-   * @param proposed new payee address
-   * @dev can only be called by payee address
-   */
+  /// @notice first step of payeeship transfer (safe transfer pattern)
+  /// @param transmitter transmitter address of oracle whose payee is changing
+  /// @param proposed new payee address
+  /// @dev can only be called by payee address
   function transferPayeeship(address transmitter, address proposed) external {
     if (msg.sender != s_payees[transmitter]) {
       revert OnlyCurrentPayeeCanUpdate();
     }
-    if (msg.sender == proposed) revert CannotTransferToSelf();
+    if (msg.sender == proposed) revert CannotTransferPayeeToSelf();
 
     address previousProposed = s_proposedPayees[transmitter];
     s_proposedPayees[transmitter] = proposed;
@@ -1696,11 +1533,9 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
 
   error OnlyProposedPayeesCanAccept();
 
-  /**
-   * @notice second step of payeeship transfer (safe transfer pattern)
-   * @param transmitter transmitter address of oracle whose payee is changing
-   * @dev can only be called by proposed new payee address
-   */
+  /// @notice second step of payeeship transfer (safe transfer pattern)
+  /// @param transmitter transmitter address of oracle whose payee is changing
+  /// @dev can only be called by proposed new payee address
   function acceptPayeeship(
     address transmitter
   ) external {
@@ -1713,22 +1548,10 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     emit PayeeshipTransferred(transmitter, currentPayee, msg.sender);
   }
 
-  /**
-   *
-   * Section: TypeAndVersionInterface
-   *
-   */
-  function typeAndVersion() external pure virtual override returns (string memory) {
-    return "DualAggregator 1.0.0";
-  }
+  // ================================================================
+  // │                       Helper Functions                       │
+  // ================================================================
 
-  error AggregatorNotAuthorized();
-
-  /**
-   *
-   * Section: Helper Functions
-   *
-   */
   function _min(uint256 a, uint256 b) internal pure returns (uint256) {
     unchecked {
       if (a < b) return a;

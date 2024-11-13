@@ -2060,7 +2060,7 @@ contract TransferPayeeship is ConfiguredDualAggregatorBaseTest {
 
   function test_RevertIf_SenderIsProposed() public {
     vm.startPrank(payees[0]);
-    vm.expectRevert(DualAggregator.CannotTransferToSelf.selector);
+    vm.expectRevert(DualAggregator.CannotTransferPayeeToSelf.selector);
 
     aggregator.transferPayeeship(transmitters[0], payees[0]);
   }
