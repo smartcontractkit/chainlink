@@ -7,7 +7,7 @@ on:
 
 jobs:
   trigger-flaky-test-detection:
-    name: Find New Flaky Tests
+    name: Find Flaky Tests
     uses: ./.github/workflows/find-new-flaky-tests.yml
     with:
       repoUrl: 'https://github.com/smartcontractkit/chainlink'

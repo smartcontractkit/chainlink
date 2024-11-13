@@ -1,4 +1,4 @@
-name: Find New Flaky Tests
+name: Find Flaky Tests
 
 on:
   workflow_dispatch:
