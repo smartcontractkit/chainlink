@@ -192,7 +192,7 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
 
     // remove any old signer/transmitter addresses
     uint256 oldLength = s_signersList.length;
-    for (uint256 i = 0; i < oldLength; i++) {
+    for (uint256 i = 0; i < oldLength; ++i) {
       address signer = s_signersList[i];
       address transmitter = s_transmittersList[i];
       delete s_signers[signer];
@@ -202,7 +202,7 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     delete s_transmittersList;
 
     // add new signer/transmitter addresses
-    for (uint256 i = 0; i < args.signers.length; i++) {
+    for (uint256 i = 0; i < args.signers.length; ++i) {
       if (s_signers[args.signers[i]].active) {
         revert RepeatedSignerAddress();
       }
@@ -244,7 +244,7 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     );
 
     uint32 latestAggregatorRoundId = s_hotVars.latestAggregatorRoundId;
-    for (uint256 i = 0; i < args.signers.length; i++) {
+    for (uint256 i = 0; i < args.signers.length; ++i) {
       s_rewardFromAggregatorRoundId[i] = latestAggregatorRoundId;
     }
   }
@@ -793,7 +793,7 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
     uint256 signedCount = 0;
 
     Signer memory signer;
-    for (uint256 i = 0; i < rs.length; i++) {
+    for (uint256 i = 0; i < rs.length; ++i) {
       address signerAddress = ecrecover(h, uint8(rawVs[i]) + 27, rs[i], ss[i]);
       signer = s_signers[signerAddress];
       if (!signer.active) {
@@ -1336,12 +1336,12 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
 
     uint32 latestAggregatorRoundId = s_hotVars.latestAggregatorRoundId;
     uint32[MAX_NUM_ORACLES] memory rewardFromAggregatorRoundId = s_rewardFromAggregatorRoundId;
-    for (uint256 i = 0; i < n; i++) {
+    for (uint256 i = 0; i < n; ++i) {
       linkDue += latestAggregatorRoundId - rewardFromAggregatorRoundId[i];
     }
     // Convert observationPaymentGjuels to uint256, or this overflows!
     linkDue *= uint256(s_hotVars.observationPaymentGjuels) * (1 gwei);
-    for (uint256 i = 0; i < n; i++) {
+    for (uint256 i = 0; i < n; ++i) {
       linkDue += uint256(s_transmitters[transmitters[i]].paymentJuels);
     }
 
@@ -1496,7 +1496,7 @@ contract DualAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface
   function setPayees(address[] calldata transmitters, address[] calldata payees) external onlyOwner {
     if (transmitters.length != payees.length) revert TransmittersSizeNotEqualPayeeSize();
 
-    for (uint256 i = 0; i < transmitters.length; i++) {
+    for (uint256 i = 0; i < transmitters.length; ++i) {
       address transmitter = transmitters[i];
       address payee = payees[i];
       address currentPayee = s_payees[transmitter];
