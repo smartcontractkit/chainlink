@@ -48,7 +48,7 @@ func TestResolver_CronSpec(t *testing.T) {
 				}, nil)
 			},
 			query: `
-				query GetJob {
+				FAILquery GetJob {
 					job(id: "1") {
 						... on Job {
 							spec {
