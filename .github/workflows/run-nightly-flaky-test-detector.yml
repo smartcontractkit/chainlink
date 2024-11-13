@@ -13,9 +13,9 @@ jobs:
       repoUrl: 'https://github.com/smartcontractkit/chainlink'
       baseRef: 'origin/develop'
       projectPath: '.'
-      runThreshold: '0.9'
+      runThreshold: '1'
       runAllTests: 'true'
       # slackNotificationAfterTestsChannelId: 'C07TRF65CNS' #flaky-test-detector-notifications
-      extraArgs: '{ "skipped_tests": "TestChainComponents", test_repeat_count: 2 }'
+      extraArgs: '{ "skipped_tests": "TestChainComponents", "test_repeat_count": "5", "all_tests_runner_count": "2" }'
     secrets:
       SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
