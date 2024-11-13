@@ -381,16 +381,16 @@ func TestTransactionSender_SendTransaction_aggregateTxResults(t *testing.T) {
 		t.Run(testCase.Name, func(t *testing.T) {
 			txResult, err := aggregateTxResults(testCase.ResultsByCode)
 			if testCase.ExpectedTxResult != "" {
-				assert.EqualError(t, txResult.Error(), testCase.ExpectedTxResult)
+				require.EqualError(t, txResult.Error(), testCase.ExpectedTxResult)
 			}
 
 			logger.Sugared(logger.Test(t)).Info("Map: " + fmt.Sprint(testCase.ResultsByCode))
 			logger.Sugared(logger.Test(t)).Criticalw("observed invariant violation on SendTransaction", "resultsByCode", testCase.ResultsByCode, "err", err)
 
 			if testCase.ExpectedCriticalErr == "" {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			} else {
-				assert.EqualError(t, err, testCase.ExpectedCriticalErr)
+				require.EqualError(t, err, testCase.ExpectedCriticalErr)
 			}
 		})
 	}
