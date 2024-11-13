@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math/big"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -336,8 +337,9 @@ func (h *Head) ToChainAgnosticHead() *chainagnostictypes.Head {
 	}
 
 	return &chainagnostictypes.Head{
-		Height:    fmt.Sprint(10),
-		Hash:      h.Hash.Bytes(),
+		Height: strconv.FormatInt(h.Number, 10),
+		Hash:   h.Hash.Bytes(),
+		//nolint:gosec // G115
 		Timestamp: uint64(h.Timestamp.Unix()),
 	}
 }

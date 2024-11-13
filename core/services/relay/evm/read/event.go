@@ -300,8 +300,9 @@ func (b *EventBinding) GetLatestValueWithHeadData(ctx context.Context, address c
 	}
 
 	return &commontypes.Head{
-		Height:    fmt.Sprint(log.BlockNumber),
-		Hash:      log.BlockHash.Bytes(),
+		Height: strconv.FormatInt(log.BlockNumber, 10),
+		Hash:   log.BlockHash.Bytes(),
+		//nolint:gosec // G115
 		Timestamp: uint64(log.BlockTimestamp.Unix()),
 	}, nil
 }
