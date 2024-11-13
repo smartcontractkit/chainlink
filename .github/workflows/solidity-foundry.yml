@@ -256,7 +256,7 @@ jobs:
           || needs.changes.outputs.non_src_changes == 'true')
           && matrix.product.setup.run-gas-snapshot }}
         run: |
-          forge snapshot --nmt "test_?Fuzz_\w{1,}?" --check gas-snapshots/${{ matrix.product.name }}.gas-snapshot
+          forge snapshot --nmt "test?(Fuzz|Fork|.*_RevertWhen)_.*" --check gas-snapshots/${{ matrix.product.name }}.gas-snapshot
         id: snapshot
         working-directory: contracts
         env:

@@ -6,7 +6,7 @@ import {Internal} from "../../libraries/Internal.sol";
 import {FeeQuoterSetup} from "./FeeQuoterSetup.t.sol";
 
 contract FeeQuoter_applyDestChainConfigUpdates is FeeQuoterSetup {
-  function test_Fuzz_applyDestChainConfigUpdates_Success(
+  function testFuzz_applyDestChainConfigUpdates_Success(
     FeeQuoter.DestChainConfigArgs memory destChainConfigArgs
   ) public {
     vm.assume(destChainConfigArgs.destChainSelector != 0);

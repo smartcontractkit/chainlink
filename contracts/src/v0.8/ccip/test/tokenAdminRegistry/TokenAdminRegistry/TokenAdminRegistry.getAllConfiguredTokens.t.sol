@@ -5,7 +5,7 @@ import {TokenAdminRegistry} from "../../../tokenAdminRegistry/TokenAdminRegistry
 import {TokenAdminRegistrySetup} from "./TokenAdminRegistrySetup.t.sol";
 
 contract TokenAdminRegistry_getAllConfiguredTokens is TokenAdminRegistrySetup {
-  function test_Fuzz_getAllConfiguredTokens_Success(
+  function testFuzz_getAllConfiguredTokens_Success(
     uint8 numberOfTokens
   ) public {
     TokenAdminRegistry cleanTokenAdminRegistry = new TokenAdminRegistry();

@@ -256,7 +256,7 @@ contract MultiOCR3Base_setOCR3Configs is MultiOCR3BaseSetup {
     _assertOCRConfigUnconfigured(s_multiOCR3.latestConfigDetails(3));
   }
 
-  function test_Fuzz_SetConfig_Success(MultiOCR3Base.OCRConfigArgs memory ocrConfig, uint64 randomAddressOffset) public {
+  function testFuzz_SetConfig_Success(MultiOCR3Base.OCRConfigArgs memory ocrConfig, uint64 randomAddressOffset) public {
     // condition: cannot assume max oracle count
     vm.assume(ocrConfig.transmitters.length <= 255);
     vm.assume(ocrConfig.signers.length <= 255);

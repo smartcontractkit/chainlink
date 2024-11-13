@@ -23,7 +23,7 @@ contract TokenPool_setChainRateLimiterConfig is TokenPoolSetup {
     s_tokenPool.applyChainUpdates(chainUpdates);
   }
 
-  function test_Fuzz_SetChainRateLimiterConfig_Success(uint128 capacity, uint128 rate, uint32 newTime) public {
+  function testFuzz_SetChainRateLimiterConfig_Success(uint128 capacity, uint128 rate, uint32 newTime) public {
     // Cap the lower bound to 4 so 4/2 is still >= 2
     vm.assume(capacity >= 4);
     // Cap the lower bound to 2 so 2/2 is still >= 1

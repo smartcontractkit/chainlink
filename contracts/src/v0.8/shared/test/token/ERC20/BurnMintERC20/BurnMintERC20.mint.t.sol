@@ -8,7 +8,7 @@ import {IERC20} from "../../../../../vendor/openzeppelin-solidity/v4.8.3/contrac
 import {Strings} from "../../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/Strings.sol";
 
 contract BurnMintERC20mint is BurnMintERC20Setup {
-  function test_mint_Success() public {
+  function test_mint() public {
     uint256 balancePre = s_burnMintERC20.balanceOf(OWNER);
 
     s_burnMintERC20.grantMintAndBurnRoles(OWNER);
@@ -23,7 +23,7 @@ contract BurnMintERC20mint is BurnMintERC20Setup {
 
   // Revert
 
-  function test_mint_SenderNotMinter_Reverts() public {
+  function test_mint_RevertWhen_SenderNotMinter() public {
     vm.startPrank(STRANGER);
 
     // OZ Access Control v4.8.3 inherited by BurnMintERC20 does not use custom errors, but the revert message is still useful
@@ -40,7 +40,7 @@ contract BurnMintERC20mint is BurnMintERC20Setup {
     s_burnMintERC20.mint(STRANGER, 1e18);
   }
 
-  function test_mint_MaxSupplyExceeded_Reverts() public {
+  function test_mint_RevertWhen_MaxSupplyExceeded() public {
     changePrank(s_mockPool);
 
     // Mint max supply
@@ -50,5 +50,12 @@ contract BurnMintERC20mint is BurnMintERC20Setup {
 
     // Attempt to mint 1 more than max supply
     s_burnMintERC20.mint(OWNER, 1);
+  }
+
+  function test_mint_RevertWhen_InvalidRecipient() public {
+    s_burnMintERC20.grantMintAndBurnRoles(OWNER);
+
+    vm.expectRevert(abi.encodeWithSelector(BurnMintERC20.InvalidRecipient.selector, address(s_burnMintERC20)));
+    s_burnMintERC20.mint(address(s_burnMintERC20), 1e18);
   }
 }
