@@ -171,7 +171,7 @@ contract FeeQuoter_getValidatedFee is FeeQuoterFeeSetup {
     }
   }
 
-  function test_Fuzz_EnforceOutOfOrder(bool enforce, bool allowOutOfOrderExecution) public {
+  function testFuzz_EnforceOutOfOrder(bool enforce, bool allowOutOfOrderExecution) public {
     // Update config to enforce allowOutOfOrderExecution = defaultVal.
     vm.stopPrank();
     vm.startPrank(OWNER);

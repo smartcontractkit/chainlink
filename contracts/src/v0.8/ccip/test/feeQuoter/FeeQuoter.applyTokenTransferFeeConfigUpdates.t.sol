@@ -7,7 +7,7 @@ import {Pool} from "../../libraries/Pool.sol";
 import {FeeQuoterSetup} from "./FeeQuoterSetup.t.sol";
 
 contract FeeQuoter_applyTokenTransferFeeConfigUpdates is FeeQuoterSetup {
-  function test_Fuzz_ApplyTokenTransferFeeConfig_Success(
+  function testFuzz_ApplyTokenTransferFeeConfig_Success(
     FeeQuoter.TokenTransferFeeConfig[2] memory tokenTransferFeeConfigs
   ) public {
     // To prevent Invalid Fee Range error from the fuzzer, bound the results to a valid range that

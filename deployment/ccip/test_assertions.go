@@ -8,12 +8,12 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
@@ -240,10 +240,10 @@ func ConfirmCommitWithExpectedSeqNumRange(
 		select {
 		case <-ticker.C:
 			// if it's simulated backend, commit to ensure mining
-			if backend, ok := src.Client.(*backends.SimulatedBackend); ok {
+			if backend, ok := src.Client.(*memory.Backend); ok {
 				backend.Commit()
 			}
-			if backend, ok := dest.Client.(*backends.SimulatedBackend); ok {
+			if backend, ok := dest.Client.(*memory.Backend); ok {
 				backend.Commit()
 			}
 			t.Logf("Waiting for commit report on chain selector %d from source selector %d expected seq nr range %s",
@@ -387,10 +387,10 @@ func ConfirmNoExecConsistentlyWithSeqNr(
 
 func GetExecutionState(t *testing.T, source, dest deployment.Chain, offRamp *offramp.OffRamp, expectedSeqNr uint64) (offramp.OffRampSourceChainConfig, uint8) {
 	// if it's simulated backend, commit to ensure mining
-	if backend, ok := source.Client.(*backends.SimulatedBackend); ok {
+	if backend, ok := source.Client.(*memory.Backend); ok {
 		backend.Commit()
 	}
-	if backend, ok := dest.Client.(*backends.SimulatedBackend); ok {
+	if backend, ok := dest.Client.(*memory.Backend); ok {
 		backend.Commit()
 	}
 	scc, err := offRamp.GetSourceChainConfig(nil, source.Selector)

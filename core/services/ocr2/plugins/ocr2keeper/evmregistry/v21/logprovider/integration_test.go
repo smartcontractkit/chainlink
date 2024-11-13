@@ -7,17 +7,17 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -73,11 +73,11 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 
 	poll := pollFn(ctx, t, lp, ethClient)
 
-	triggerEvents(ctx, t, backend, carrol, logsRounds, poll, contracts...)
+	triggerEvents(ctx, t, backend.Commit, carrol, logsRounds, poll, contracts...)
 
 	poll(backend.Commit())
 
-	waitLogPoller(ctx, t, backend, lp, ethClient)
+	waitLogPoller(ctx, t, backend.Commit, lp, ethClient)
 
 	waitLogProvider(ctx, t, logProvider, 3)
 
@@ -226,11 +226,11 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 	rounds := 8
 	for i := 0; i < rounds; i++ {
 		poll(backend.Commit())
-		triggerEvents(ctx, t, backend, carrol, n, poll, contracts...)
+		triggerEvents(ctx, t, backend.Commit, carrol, n, poll, contracts...)
 		poll(backend.Commit())
 	}
 
-	waitLogPoller(ctx, t, backend, lp, ethClient)
+	waitLogPoller(ctx, t, backend.Commit, lp, ethClient)
 
 	// starting the log provider should backfill logs
 	go func() {
@@ -282,12 +282,12 @@ func TestIntegration_LogRecoverer_Backfill(t *testing.T) {
 
 	rounds := 8
 	for i := 0; i < rounds; i++ {
-		triggerEvents(ctx, t, backend, carrol, n, poll, contracts...)
+		triggerEvents(ctx, t, backend.Commit, carrol, n, poll, contracts...)
 		poll(backend.Commit())
 	}
 	poll(backend.Commit())
 
-	waitLogPoller(ctx, t, backend, lp, ethClient)
+	waitLogPoller(ctx, t, backend.Commit, lp, ethClient)
 
 	// create dummy blocks
 	var blockNumber int64
@@ -347,10 +347,10 @@ func waitLogProvider(ctx context.Context, t *testing.T, logProvider logprovider.
 }
 
 // waitLogPoller waits until the log poller is familiar with the given block
-func waitLogPoller(ctx context.Context, t *testing.T, backend *backends.SimulatedBackend, lp logpoller.LogPollerTest, ethClient *evmclient.SimulatedBackendClient) {
+func waitLogPoller(ctx context.Context, t *testing.T, commit func() common.Hash, lp logpoller.LogPollerTest, ethClient *evmclient.SimulatedBackendClient) {
 	t.Log("waiting for log poller to get updated")
 	// let the log poller work
-	b, err := ethClient.BlockByHash(ctx, backend.Commit())
+	b, err := ethClient.BlockByHash(ctx, commit())
 	require.NoError(t, err)
 	latestBlock := b.Number().Int64()
 	for {
@@ -375,7 +375,7 @@ func pollFn(ctx context.Context, t *testing.T, lp logpoller.LogPollerTest, ethCl
 func triggerEvents(
 	ctx context.Context,
 	t *testing.T,
-	backend *backends.SimulatedBackend,
+	commit func() common.Hash,
 	account *bind.TransactOpts,
 	rounds int,
 	poll func(blockHash common.Hash),
@@ -393,7 +393,7 @@ func triggerEvents(
 			}
 			_, err := upkeepContract.Start(account)
 			require.NoError(t, err)
-			blockHash = backend.Commit()
+			blockHash = commit()
 		}
 		poll(blockHash)
 	}
@@ -404,7 +404,7 @@ func deployUpkeepCounter(
 	t *testing.T,
 	n int,
 	ethClient *evmclient.SimulatedBackendClient,
-	backend *backends.SimulatedBackend,
+	backend evmtypes.Backend,
 	account *bind.TransactOpts,
 	logProvider logprovider.LogEventProvider,
 ) (
@@ -414,7 +414,7 @@ func deployUpkeepCounter(
 ) {
 	for i := 0; i < n; i++ {
 		upkeepAddr, _, upkeepContract, err := log_upkeep_counter_wrapper.DeployLogUpkeepCounter(
-			account, backend,
+			account, backend.Client(),
 			big.NewInt(100000),
 		)
 		require.NoError(t, err)
@@ -448,7 +448,7 @@ func newPlainLogTriggerConfig(upkeepAddr common.Address) logprovider.LogTriggerC
 	}
 }
 
-func setupDependencies(t *testing.T, db *sqlx.DB, backend *backends.SimulatedBackend) (logpoller.LogPollerTest, *evmclient.SimulatedBackendClient) {
+func setupDependencies(t *testing.T, db *sqlx.DB, backend evmtypes.Backend) (logpoller.LogPollerTest, *evmclient.SimulatedBackendClient) {
 	ethClient := evmclient.NewSimulatedBackendClient(t, backend, big.NewInt(1337))
 	pollerLggr := logger.TestLogger(t)
 	pollerLggr.SetLogLevel(zapcore.WarnLevel)
@@ -462,6 +462,7 @@ func setupDependencies(t *testing.T, db *sqlx.DB, backend *backends.SimulatedBac
 	}
 	ht := headtracker.NewSimulatedHeadTracker(ethClient, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
 	lp := logpoller.NewLogPoller(lorm, ethClient, pollerLggr, ht, lpOpts)
+	servicetest.Run(t, lp)
 	return lp, ethClient
 }
 
@@ -477,18 +478,19 @@ func setup(lggr logger.Logger, poller logpoller.LogPoller, c evmclient.Client, s
 	return provider, recoverer
 }
 
-func setupBackend(t *testing.T) (*backends.SimulatedBackend, func(), []*bind.TransactOpts) {
+func setupBackend(t *testing.T) (backend evmtypes.Backend, stop func(), opts []*bind.TransactOpts) {
 	sergey := testutils.MustNewSimTransactor(t) // owns all the link
 	steve := testutils.MustNewSimTransactor(t)  // registry owner
 	carrol := testutils.MustNewSimTransactor(t) // upkeep owner
-	genesisData := core.GenesisAlloc{
+	genesisData := gethtypes.GenesisAlloc{
 		sergey.From: {Balance: assets.Ether(1000000000000000000).ToInt()},
 		steve.From:  {Balance: assets.Ether(1000000000000000000).ToInt()},
 		carrol.From: {Balance: assets.Ether(1000000000000000000).ToInt()},
 	}
-	backend := cltest.NewSimulatedBackend(t, genesisData, uint32(ethconfig.Defaults.Miner.GasCeil))
-	stopMining := cltest.Mine(backend, 3*time.Second) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
-	return backend, stopMining, []*bind.TransactOpts{sergey, steve, carrol}
+	backend = cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
+	_, stop = cltest.Mine(backend, 3*time.Second) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
+	opts = []*bind.TransactOpts{sergey, steve, carrol}
+	return
 }
 
 func ptr[T any](v T) *T { return &v }

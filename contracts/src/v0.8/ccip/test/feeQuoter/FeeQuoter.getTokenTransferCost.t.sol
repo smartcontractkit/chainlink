@@ -158,7 +158,7 @@ contract FeeQuoter_getTokenTransferCost is FeeQuoterFeeSetup {
     assertEq(Pool.CCIP_LOCK_OR_BURN_V1_RET_BYTES, destBytesOverhead);
   }
 
-  function test_Fuzz_TokenTransferFeeDuplicateTokens_Success(uint256 transfers, uint256 amount) public view {
+  function testFuzz_TokenTransferFeeDuplicateTokens_Success(uint256 transfers, uint256 amount) public view {
     // It shouldn't be possible to pay materially lower fees by splitting up the transfers.
     // Note it is possible to pay higher fees since the minimum fees are added.
     FeeQuoter.DestChainConfig memory destChainConfig = s_feeQuoter.getDestChainConfig(DEST_CHAIN_SELECTOR);

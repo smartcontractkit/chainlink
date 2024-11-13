@@ -4,7 +4,7 @@ pragma solidity 0.8.24;
 import {PingPongDappSetup} from "./PingPongDappSetup.t.sol";
 
 contract PingPong_setCounterpartAddress is PingPongDappSetup {
-  function test_Fuzz_CounterPartAddress_Success(
+  function testFuzz_CounterPartAddress_Success(
     address counterpartAddress
   ) public {
     s_pingPong.setCounterpartAddress(counterpartAddress);
