@@ -405,7 +405,7 @@ func TestWorkflow(t *testing.T) {
 					type = "standardcapabilities"
 					schemaVersion = 1
 					name = "streams-capabilities"
-					command="/streams"
+					command="/home/streams"
 				`
 				fmt.Println("Creating standard capabilities job spec", scJobSpec)
 				response, _, err2 := nodeClient.CreateJobRaw(scJobSpec)
