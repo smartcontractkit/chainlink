@@ -102,6 +102,7 @@ optimizer_runs = 1_000_000
 src = 'src/v0.8/feeds'
 test = 'src/v0.8/feeds/test'
 solc_version = '0.8.24'
+via_ir = false # set to true before deploying DualAggregator
 
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
