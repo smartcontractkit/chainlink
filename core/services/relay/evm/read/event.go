@@ -233,7 +233,7 @@ func (b *EventBinding) BatchCall(_ common.Address, _, _ any) (Call, error) {
 	return Call{}, fmt.Errorf("%w: events are not yet supported in batch get latest values", commontypes.ErrInvalidType)
 }
 
-func (b *EventBinding) GetLatestValue(ctx context.Context, address common.Address, confidenceLevel primitives.ConfidenceLevel, params, into any) (err error) {
+func (b *EventBinding) GetLatestValueWithHeadData(ctx context.Context, address common.Address, confidenceLevel primitives.ConfidenceLevel, params, into any) (head *commontypes.Head, err error) {
 	var (
 		confs  evmtypes.Confirmations
 		result *string
@@ -256,24 +256,24 @@ func (b *EventBinding) GetLatestValue(ctx context.Context, address common.Addres
 	}()
 
 	if err = b.validateBound(address); err != nil {
-		return err
+		return nil, err
 	}
 
 	confs, err = confidenceToConfirmations(b.confirmationsMapping, confidenceLevel)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	topicTypeID := codec.WrapItemType(b.contractName, b.eventName, true)
 
 	onChainTypedVal, err := b.toNativeOnChainType(topicTypeID, params)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	filterTopics, err := b.extractFilterTopics(topicTypeID, onChainTypedVal)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	var log *logpoller.Log
@@ -281,26 +281,30 @@ func (b *EventBinding) GetLatestValue(ctx context.Context, address common.Addres
 		var hashedTopics []common.Hash
 		hashedTopics, err = b.hashTopics(topicTypeID, filterTopics)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		if log, err = b.getLatestLog(ctx, address, confs, hashedTopics); err != nil {
-			return err
+			return nil, err
 		}
 	} else {
 		if log, err = b.lp.LatestLogByEventSigWithConfs(ctx, b.hash, address, confs); err != nil {
-			return wrapInternalErr(err)
+			return nil, wrapInternalErr(err)
 		}
 	}
 
-	if err := b.decodeLog(ctx, log, into); err != nil {
+	if err = b.decodeLog(ctx, log, into); err != nil {
 		encoded := hex.EncodeToString(log.Data)
 		result = &encoded
-
-		return err
+		return nil, err
 	}
 
-	return nil
+	return &commontypes.Head{
+		Height: strconv.FormatInt(log.BlockNumber, 10),
+		Hash:   log.BlockHash.Bytes(),
+		//nolint:gosec // G115
+		Timestamp: uint64(log.BlockTimestamp.Unix()),
+	}, nil
 }
 
 func (b *EventBinding) QueryKey(ctx context.Context, address common.Address, filter query.KeyFilter, limitAndSort query.LimitAndSort, sequenceDataType any) (sequences []commontypes.Sequence, err error) {

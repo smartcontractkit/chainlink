@@ -26,7 +26,7 @@ contract CallWithExactGasSetup is BaseTest {
 }
 
 contract CallWithExactGas__callWithExactGas is CallWithExactGasSetup {
-  function test_callWithExactGasSuccess(bytes memory payload, bytes4 funcSelector) public {
+  function testFuzz_callWithExactGasSuccess(bytes memory payload, bytes4 funcSelector) public {
     vm.pauseGasMetering();
 
     bytes memory data = abi.encodeWithSelector(funcSelector, payload);
@@ -220,7 +220,7 @@ contract CallWithExactGas__callWithExactGasSafeReturnData is CallWithExactGasSet
     assertGt(gasUsed, 500);
   }
 
-  function test_Fuzz_CallWithExactGasSafeReturnData_ConsumeAllGas_Success(uint8 gasLimitMultiplier) external {
+  function testFuzz_CallWithExactGasSafeReturnData_ConsumeAllGas_Success(uint8 gasLimitMultiplier) external {
     vm.assume(gasLimitMultiplier > 0); // Assume not zero to avoid zero gas being passed to s_gasConsumer
     uint16 maxRetBytes = 0;
 
@@ -368,7 +368,7 @@ contract CallWithExactGas__callWithExactGasSafeReturnData is CallWithExactGasSet
 }
 
 contract CallWithExactGas__callWithExactGasEvenIfTargetIsNoContract is CallWithExactGasSetup {
-  function test_CallWithExactGasEvenIfTargetIsNoContractSuccess(bytes memory payload, bytes4 funcSelector) public {
+  function testFuzz_CallWithExactGasEvenIfTargetIsNoContractSuccess(bytes memory payload, bytes4 funcSelector) public {
     vm.pauseGasMetering();
     bytes memory data = abi.encodeWithSelector(funcSelector, payload);
     vm.assume(

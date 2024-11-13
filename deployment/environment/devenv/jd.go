@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 
+	"golang.org/x/oauth2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/metadata"
 
 	csav1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/csa"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
@@ -17,11 +19,39 @@ type JDConfig struct {
 	GRPC     string
 	WSRPC    string
 	Creds    credentials.TransportCredentials
+	Auth     oauth2.TokenSource
 	NodeInfo []NodeInfo
 }
 
+func authTokenInterceptor(source oauth2.TokenSource) grpc.UnaryClientInterceptor {
+	return func(
+		ctx context.Context,
+		method string,
+		req, reply any,
+		cc *grpc.ClientConn,
+		invoker grpc.UnaryInvoker,
+		opts ...grpc.CallOption,
+	) error {
+		token, err := source.Token()
+		if err != nil {
+			return err
+		}
+
+		return invoker(
+			metadata.AppendToOutgoingContext(ctx, "authorization", "Bearer "+token.AccessToken),
+			method, req, reply, cc, opts...,
+		)
+	}
+}
+
 func NewJDConnection(cfg JDConfig) (*grpc.ClientConn, error) {
-	conn, err := grpc.NewClient(cfg.GRPC, grpc.WithTransportCredentials(cfg.Creds))
+	opts := []grpc.DialOption{
+		grpc.WithTransportCredentials(cfg.Creds),
+	}
+	if cfg.Auth != nil {
+		opts = append(opts, grpc.WithUnaryInterceptor(authTokenInterceptor(cfg.Auth)))
+	}
+	conn, err := grpc.NewClient(cfg.GRPC, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect Job Distributor service. Err: %w", err)
 	}

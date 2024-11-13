@@ -207,12 +207,12 @@ func TestContractReaderEventsInitValidation(t *testing.T) {
 func TestChainComponents(t *testing.T) {
 	t.Parallel()
 	it := &EVMChainComponentsInterfaceTester[*testing.T]{Helper: &helper{}}
-
-	it.Helper.Init(t)
+	it.Init(t)
 
 	// add new subtests here so that it can be run on real chains too
 	RunChainComponentsEvmTests(t, it)
 	RunChainComponentsInLoopEvmTests[*testing.T](t, commontestutils.WrapContractReaderTesterForLoop(it))
+	RunChainComponentsInLoopEvmTests(t, WrapContractReaderTesterWithBindings(t, it))
 }
 
 type helper struct {
@@ -236,7 +236,6 @@ func (h *helper) Init(t *testing.T) {
 	h.client = h.Client(t)
 
 	h.txm = h.TXM(t, h.client)
-	h.Commit()
 }
 
 func (h *helper) SetupKeys(t *testing.T) {

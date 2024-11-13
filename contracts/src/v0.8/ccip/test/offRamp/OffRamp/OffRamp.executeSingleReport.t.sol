@@ -374,7 +374,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     assertEq(uint64(2), s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_1, abi.encode(OWNER)));
   }
 
-  function test_Fuzz_InterleavingOrderedAndUnorderedMessages_Success(
+  function testFuzz_InterleavingOrderedAndUnorderedMessages_Success(
     bool[7] memory orderings
   ) public {
     Internal.Any2EVMRampMessage[] memory messages = new Internal.Any2EVMRampMessage[](orderings.length);

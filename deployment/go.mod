@@ -23,8 +23,8 @@ require (
 	github.com/sethvargo/go-retry v0.2.4
 	github.com/smartcontractkit/ccip-owner-contracts v0.0.0-20240926212305-a6deabdfce86
 	github.com/smartcontractkit/chain-selectors v1.0.29
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241111114733-aa3b2f8e9f94
-	github.com/smartcontractkit/chainlink-common v0.3.1-0.20241111184621-c61aebee0af9
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241112095015-3e85d9f1898b
+	github.com/smartcontractkit/chainlink-common v0.3.1-0.20241113142256-8a7a997a0371
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.4.0
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.13
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
@@ -35,6 +35,7 @@ require (
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/exp v0.0.0-20241009180824-f66d83c29e7c
+	golang.org/x/oauth2 v0.23.0
 	golang.org/x/sync v0.8.0
 	google.golang.org/grpc v1.67.1
 	google.golang.org/protobuf v1.35.1

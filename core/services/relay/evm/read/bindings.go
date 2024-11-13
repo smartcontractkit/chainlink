@@ -20,7 +20,7 @@ import (
 
 type Reader interface {
 	BatchCall(address common.Address, params, retVal any) (Call, error)
-	GetLatestValue(ctx context.Context, addr common.Address, confidence primitives.ConfidenceLevel, params, returnVal any) error
+	GetLatestValueWithHeadData(ctx context.Context, addr common.Address, confidence primitives.ConfidenceLevel, params, returnVal any) (*commontypes.Head, error)
 	QueryKey(context.Context, common.Address, query.KeyFilter, query.LimitAndSort, any) ([]commontypes.Sequence, error)
 
 	Bind(context.Context, ...common.Address) error
