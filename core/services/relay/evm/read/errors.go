@@ -43,8 +43,8 @@ func newErrorFromCall(err error, call Call, block string, batch bool) ErrRead {
 func (e ErrRead) Error() string {
 	var builder strings.Builder
 
-	builder.WriteString("[rpc error]")
-	builder.WriteString(fmt.Sprintf(" batch: %T;", e.Batch))
+	builder.WriteString("[read error]")
+	builder.WriteString(fmt.Sprintf(" batch: %t;", e.Batch))
 	builder.WriteString(fmt.Sprintf(" err: %s;", e.Err.Error()))
 
 	if e.Detail != nil {
