@@ -468,7 +468,7 @@ jobs:
       projectPath: '.'
       baseRef: ${{ github.base_ref }}
       headRef: ${{ github.head_ref }}
-      runThreshold: '1'
+      runThreshold: '0.95'
       findByTestFilesDiff: true
       findByAffectedPackages: false
       slackNotificationAfterTestsChannelId: 'C07TRF65CNS' #flaky-test-detector-notifications
@@ -486,7 +486,7 @@ jobs:
       projectPath: 'deployment'
       baseRef: ${{ github.base_ref }}
       headRef: ${{ github.head_ref }}
-      runThreshold: '1'
+      runThreshold: '0.95'
       findByTestFilesDiff: true
       findByAffectedPackages: false
       slackNotificationAfterTestsChannelId: 'C07TRF65CNS' #flaky-test-detector-notifications

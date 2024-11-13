@@ -29,7 +29,7 @@ on:
         required: false
         type: string
         description: 'The threshold for the number of times a test can fail before being considered flaky.'
-        default: '0.8'
+        default: '0.9'
       findByTestFilesDiff:
         required: false
         type: boolean
