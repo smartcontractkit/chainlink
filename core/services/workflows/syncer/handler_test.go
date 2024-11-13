@@ -106,15 +106,29 @@ func Test_Handler(t *testing.T) {
 }
 
 func Test_getURLHash(t *testing.T) {
-	giveURL := "http://example.com"
+	t.Run("success", func(t *testing.T) {
+		giveURL := "http://example.com"
 
-	giveEvent := WorkflowRegistryEvent{
-		Data: map[string]any{
-			"SecretsURL": giveURL,
-		},
-	}
-	gotURL, err := getSecretsURL(giveEvent)
-	require.NoError(t, err)
+		giveEvent := WorkflowRegistryEvent{
+			Data: WorkflowRegistryForceUpdateSecretsRequestedV1{
+				SecretsURL: giveURL,
+			},
+		}
+		gotURL, err := getSecretsURL(giveEvent)
+		require.NoError(t, err)
 
-	assert.Equal(t, giveURL, gotURL)
+		assert.Equal(t, giveURL, gotURL)
+	})
+
+	t.Run("fail with incorrect type", func(t *testing.T) {
+		giveURL := "http://example.com"
+
+		giveEvent := WorkflowRegistryEvent{
+			Data: map[string]any{
+				"SecretsURL": giveURL,
+			},
+		}
+		_, err := getSecretsURL(giveEvent)
+		require.Error(t, err)
+	})
 }

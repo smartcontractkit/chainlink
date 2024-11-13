@@ -10,6 +10,7 @@ import (
 	types "github.com/smartcontractkit/chainlink-common/pkg/types"
 	query "github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -23,11 +24,10 @@ func Test_Workflow_Registry_Syncer(t *testing.T) {
 		giveContents = "contents"
 		wantContents = "updated contents"
 		giveCfg      = ContractEventPollerConfig{
-			ContractName:      ContractName,
-			ContractAddress:   "0xdeadbeef",
-			ContractEventName: string(ForceUpdateSecretsEvent),
-			StartBlockNum:     0,
-			QueryCount:        20,
+			ContractName:    ContractName,
+			ContractAddress: "0xdeadbeef",
+			StartBlockNum:   0,
+			QueryCount:      20,
 		}
 		giveURL = "http://example.com"
 
@@ -64,13 +64,6 @@ func Test_Workflow_Registry_Syncer(t *testing.T) {
 	require.NoError(t, err)
 
 	// Mock out the contract reader query
-	reader.EXPECT().Bind(matches.AnyContext, []types.BoundContract{
-		{
-			Name:    giveCfg.ContractName,
-			Address: giveCfg.ContractAddress,
-		},
-	}).Return(nil)
-
 	reader.EXPECT().QueryKey(
 		matches.AnyContext,
 		types.BoundContract{
@@ -78,7 +71,7 @@ func Test_Workflow_Registry_Syncer(t *testing.T) {
 			Address: giveCfg.ContractAddress,
 		},
 		query.KeyFilter{
-			Key: giveCfg.ContractEventName,
+			Key: string(ForceUpdateSecretsEvent),
 			Expressions: []query.Expression{
 				query.Confidence(primitives.Finalized),
 				query.Block(strconv.FormatUint(giveCfg.StartBlockNum, 10), primitives.Gte),
@@ -88,7 +81,7 @@ func Test_Workflow_Registry_Syncer(t *testing.T) {
 			SortBy: []query.SortBy{query.NewSortByTimestamp(query.Asc)},
 			Limit:  query.Limit{Count: giveCfg.QueryCount},
 		},
-		new(WorkflowRegistryForceUpdateSecretsRequestedV1),
+		new(values.Value),
 	).Return([]types.Sequence{giveLog}, nil)
 
 	// Go run the worker

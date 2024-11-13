@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/mitchellh/mapstructure"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -71,9 +70,10 @@ func (h *eventHandler) forceUpdateSecretsEvent(
 // getSecretsURL returns the URL of the secrets contents from the event data and fails
 // if the URL is not found or is not a string.
 func getSecretsURL(event WorkflowRegistryEvent) (string, error) {
-	var data WorkflowRegistryForceUpdateSecretsRequestedV1
-	if err := mapstructure.Decode(event.Data, &data); err != nil {
-		return "", fmt.Errorf("failed to decode event data: %v", err)
+	data, ok := event.Data.(WorkflowRegistryForceUpdateSecretsRequestedV1)
+	if !ok {
+		return "", fmt.Errorf("invalid data type %T for event", event.Data)
 	}
+
 	return data.SecretsURL, nil
 }

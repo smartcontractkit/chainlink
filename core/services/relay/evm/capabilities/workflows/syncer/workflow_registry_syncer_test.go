@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/workflow/generated/workflow_registry_wrapper"
 	coretestutils "github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -19,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/signalers"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -84,18 +84,21 @@ func Test_SecretsWorker(t *testing.T) {
 	contractReader, err := backendTH.NewContractReader(ctx, t, contractReaderCfgBytes)
 	require.NoError(t, err)
 
+	err = contractReader.Bind(ctx, []types.BoundContract{{Name: contractName, Address: wfRegistryAddr.Hex()}})
+	require.NoError(t, err)
+
 	// Seed the DB
 	gotID, err := orm.Update(ctx, giveSecretsURL, giveContents)
 	require.NoError(t, err)
 
 	gotSecretsURL, err := orm.GetSecretsURLByID(ctx, gotID)
-	assert.NoError(t, err)
-	assert.Equal(t, giveSecretsURL, gotSecretsURL)
+	require.NoError(t, err)
+	require.Equal(t, giveSecretsURL, gotSecretsURL)
 
 	// verify the DB
 	contents, err := orm.GetContents(ctx, giveSecretsURL)
-	assert.NoError(t, err)
-	assert.Equal(t, contents, giveContents)
+	require.NoError(t, err)
+	require.Equal(t, contents, giveContents)
 
 	worker := syncer.NewWorkflowRegistry(
 		lggr,

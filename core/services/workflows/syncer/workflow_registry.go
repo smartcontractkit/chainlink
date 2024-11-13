@@ -2,19 +2,18 @@ package syncer
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strconv"
 	"sync"
 	"time"
 
-	"github.com/mitchellh/mapstructure"
-
-	commoncodec "github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	types "github.com/smartcontractkit/chainlink-common/pkg/types"
 	query "github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/workflow/generated/workflow_registry_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
@@ -106,9 +105,12 @@ type workflowRegistry struct {
 	gateway    FetcherFunc
 	wg         sync.WaitGroup
 	ticker     <-chan struct{}
+	eventTypes []WorkflowRegistryEventType
 	eventsCh   chan WorkflowRegistryEventResponse
+	batchCh    chan []WorkflowRegistryEventResponse
 	handler    handler
 	cfg        ContractEventPollerConfig
+	heap       Heap
 }
 
 // WithTicker allows external callers to provide a ticker to the workflowRegistry.  This is useful
@@ -135,6 +137,7 @@ func NewWorkflowRegistry(
 	addr string,
 	opts ...func(*workflowRegistry),
 ) *workflowRegistry {
+	ets := []WorkflowRegistryEventType{ForceUpdateSecretsEvent}
 	wr := &workflowRegistry{
 		lggr:    lggr.Named(name),
 		orm:     orm,
@@ -147,8 +150,11 @@ func NewWorkflowRegistry(
 			StartBlockNum:   0,
 		},
 		initReader: newReader,
+		heap:       newBlockHeightHeap(),
 		stopCh:     make(services.StopChan),
+		eventTypes: ets,
 		eventsCh:   make(chan WorkflowRegistryEventResponse),
+		batchCh:    make(chan []WorkflowRegistryEventResponse, len(ets)), //
 	}
 	wr.handler = newEventHandler(wr.lggr, wr.orm, wr.gateway)
 	for _, opt := range opts {
@@ -168,7 +174,7 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 			defer w.wg.Done()
 			defer cancel()
 
-			w.queryLoop(ctx, w.cfg)
+			w.syncEventsLoop(ctx)
 		}()
 
 		w.wg.Add(1)
@@ -232,13 +238,11 @@ func (w *workflowRegistry) handlerLoop(ctx context.Context) {
 	}
 }
 
-// queryLoop polls the contract for events.
-func (w *workflowRegistry) queryLoop(
-	ctx context.Context,
-	cfg ContractEventPollerConfig,
-) {
-	// setup helpers
+// syncEventsLoop polls the contract for events and passes them to a channel for handling.
+func (w *workflowRegistry) syncEventsLoop(ctx context.Context) {
 	var (
+		// sendLog is a helper that sends a WorkflowRegistryEventResponse to the eventsCh in a
+		// blocking way that will send the response or be canceled.
 		sendLog = func(resp WorkflowRegistryEventResponse) {
 			select {
 			case w.eventsCh <- resp:
@@ -246,121 +250,147 @@ func (w *workflowRegistry) queryLoop(
 			}
 		}
 
-		sendErr = func(err error) {
-			select {
-			case w.eventsCh <- WorkflowRegistryEventResponse{
-				Err: err,
-			}:
-			case <-ctx.Done():
-			default:
-			}
-		}
-
 		ticker = w.getTicker(ctx)
+
+		signal = make(chan struct{})
 	)
 
-	// setup contract reader
-	boundContract := types.BoundContract{
-		Name:    cfg.ContractName,
-		Address: cfg.ContractAddress,
-	}
-	reader, err := w.getContractReader(ctx, boundContract)
+	// critical failure if there is no reader, the loop will exit and the parent context will be
+	// canceled.
+	reader, err := w.getContractReader(ctx)
 	if err != nil {
-		sendErr(err)
+		w.lggr.Criticalf("contract reader unavailable : %s", err)
 		return
 	}
 
-	// bind contract to contract reader
-	if err := reader.Bind(ctx, []types.BoundContract{boundContract}); err != nil {
-		sendErr(err)
-		return
+	// fan out and query for each event type
+	for i := 0; i < len(w.eventTypes); i++ {
+		w.wg.Add(1)
+		go func() {
+			defer w.wg.Done()
+
+			queryEvent(
+				ctx,
+				signal,
+				w.lggr,
+				reader,
+				w.cfg,
+				w.eventTypes[i],
+				w.batchCh,
+			)
+		}()
 	}
 
-	/* // setup log handling
-	events := []WorkflowRegistryEventType{ForceUpdateSecretsEvent}
-	logCh := make(chan []types.Sequence, len(events)) */
-
-	// create query
-	var (
-		logs         []types.Sequence
-		logData      WorkflowRegistryForceUpdateSecretsRequestedV1
-		cursor       = ""
-		limitAndSort = query.LimitAndSort{
-			SortBy: []query.SortBy{query.NewSortByTimestamp(query.Asc)},
-			Limit:  query.Limit{Count: cfg.QueryCount},
-		}
-	)
-
-	// Loop until canceled
+	// Periodically send a signal to all the queryEvent goroutines to query the contract
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker:
-			if cursor != "" {
-				limitAndSort.Limit = query.CursorLimit(cursor, query.CursorFollowing, cfg.QueryCount)
-			}
-
-			logs, err = reader.QueryKey(
-				ctx,
-				boundContract,
-				query.KeyFilter{
-					Key: string(ForceUpdateSecretsEvent),
-					Expressions: []query.Expression{
-						query.Confidence(primitives.Finalized),
-						query.Block(strconv.FormatUint(cfg.StartBlockNum, 10), primitives.Gte),
-					},
-				},
-				limitAndSort,
-				&logData,
-			)
-
-			if err != nil {
-				w.lggr.Errorw("QueryKey failure", "err", err)
-				sendErr(err)
-				continue
-			}
-
-			// ChainReader QueryKey API provides logs including the cursor value and not
-			// after the cursor value. If the response only consists of the log corresponding
-			// to the cursor and no log after it, then we understand that there are no new
-			// logs
-			if len(logs) == 1 && logs[0].Cursor == cursor {
-				w.lggr.Infow("No new logs since", "cursor", cursor)
-				continue
-			}
-
-			for _, log := range logs {
-				if log.Cursor == cursor {
-					continue
+			// for each event type, send a signal for it to execute a query and produce a new
+			// batch of event logs
+			for i := 0; i < len(w.eventTypes); i++ {
+				select {
+				case signal <- struct{}{}:
+				case <-ctx.Done():
+					return
 				}
+			}
 
-				sendLog(toWorkflowRegistryEventResponse(log, ForceUpdateSecretsEvent, w.lggr))
+			// block on fan-in until all fetched event logs are sent to the handlers
+			w.orderAndSend(
+				ctx,
+				len(w.eventTypes),
+				w.batchCh,
+				sendLog,
+			)
+		}
+	}
+}
 
-				cursor = log.Cursor
+// orderAndSend reads n batches from the batch channel, heapifies all the batches then dequeues
+// the min heap via the sendLog function.
+func (w *workflowRegistry) orderAndSend(
+	ctx context.Context,
+	batchCount int,
+	batchCh <-chan []WorkflowRegistryEventResponse,
+	sendLog func(WorkflowRegistryEventResponse),
+) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case batch := <-batchCh:
+			for _, response := range batch {
+				w.heap.Push(response)
+			}
+			batchCount--
+
+			// If we have received responses for all the events, then we can drain the heap.
+			if batchCount == 0 {
+				for w.heap.Len() > 0 {
+					sendLog(w.heap.Pop())
+				}
+				return
 			}
 		}
 	}
 }
 
-func queryEvent[T any](
+// getTicker returns the ticker that the workflowRegistry will use to poll for events.  If the ticker
+// is nil, then a default ticker is returned.
+func (w *workflowRegistry) getTicker(ctx context.Context) <-chan struct{} {
+	if w.ticker == nil {
+		return signalers.MakeTicker(ctx.Done(), defaultTickInterval)
+	}
+
+	return w.ticker
+}
+
+// getContractReader initializes a contract reader if needed, otherwise returns the existing
+// reader.
+func (w *workflowRegistry) getContractReader(ctx context.Context) (ContractReader, error) {
+	c := types.BoundContract{
+		Name:    w.cfg.ContractName,
+		Address: w.cfg.ContractAddress,
+	}
+
+	if w.reader == nil {
+		reader, err := w.initReader(ctx, w.lggr, w.relayer, c)
+		if err != nil {
+			return nil, err
+		}
+
+		w.reader = reader
+	}
+
+	return w.reader, nil
+}
+
+// queryEvent queries the contract for events of the given type on each tick from the ticker.
+// Sends a batch of event logs to the batch channel.  The batch represents all the
+// event logs read since the last query.  Loops until the context is canceled.
+func queryEvent(
 	ctx context.Context,
+	ticker <-chan struct{},
 	lggr logger.Logger,
 	reader ContractReader,
-	ticker <-chan struct{},
-	et WorkflowRegistryEventType,
-	bc types.BoundContract,
 	cfg ContractEventPollerConfig,
-	logsCh chan<- []types.Sequence,
+	et WorkflowRegistryEventType,
+	batchCh chan<- []WorkflowRegistryEventResponse,
 ) {
 	// create query
 	var (
-		logsToSend   []types.Sequence
-		logData      WorkflowRegistryForceUpdateSecretsRequestedV1
-		cursor       = ""
-		limitAndSort = query.LimitAndSort{
+		responseBatch []WorkflowRegistryEventResponse
+		logData       values.Value
+		cursor        = ""
+		limitAndSort  = query.LimitAndSort{
 			SortBy: []query.SortBy{query.NewSortByTimestamp(query.Asc)},
 			Limit:  query.Limit{Count: cfg.QueryCount},
+		}
+		bc = types.BoundContract{
+			Name:    cfg.ContractName,
+			Address: cfg.ContractAddress,
 		}
 	)
 
@@ -378,7 +408,7 @@ func queryEvent[T any](
 				ctx,
 				bc,
 				query.KeyFilter{
-					Key: string(ForceUpdateSecretsEvent),
+					Key: string(et),
 					Expressions: []query.Expression{
 						query.Confidence(primitives.Finalized),
 						query.Block(strconv.FormatUint(cfg.StartBlockNum, 10), primitives.Gte),
@@ -390,7 +420,6 @@ func queryEvent[T any](
 
 			if err != nil {
 				lggr.Errorw("QueryKey failure", "err", err)
-
 				continue
 			}
 
@@ -407,41 +436,20 @@ func queryEvent[T any](
 				if log.Cursor == cursor {
 					continue
 				}
-				logsToSend = append(logsToSend, log)
+
+				responseBatch = append(responseBatch, toWorkflowRegistryEventResponse(log, et, lggr))
 				cursor = log.Cursor
 			}
-			logsCh <- logsToSend
-			logsToSend = make([]types.Sequence, 0)
+			batchCh <- responseBatch
 		}
 	}
-}
-
-// getTicker returns the ticker that the workflowRegistry will use to poll for events.  If the ticker
-// is nil, then a default ticker is returned.
-func (w *workflowRegistry) getTicker(ctx context.Context) <-chan struct{} {
-	if w.ticker == nil {
-		return signalers.MakeTicker(ctx.Done(), defaultTickInterval)
-	}
-
-	return w.ticker
-}
-
-func (w *workflowRegistry) getContractReader(ctx context.Context, c types.BoundContract) (ContractReader, error) {
-	if w.reader == nil {
-		reader, err := w.initReader(ctx, w.lggr, w.relayer, c)
-		if err != nil {
-			return nil, err
-		}
-		w.reader = reader
-	}
-	return w.reader, nil
 }
 
 func newReader(
 	ctx context.Context,
 	lggr logger.Logger,
 	factory ContractReaderFactory,
-	contract types.BoundContract,
+	bc types.BoundContract,
 ) (ContractReader, error) {
 	contractReaderCfg := evmtypes.ChainReaderConfig{
 		Contracts: map[string]evmtypes.ChainContractReader{
@@ -454,11 +462,6 @@ func newReader(
 					string(ForceUpdateSecretsEvent): {
 						ChainSpecificName: string(ForceUpdateSecretsEvent),
 						ReadType:          evmtypes.Event,
-						OutputModifications: commoncodec.ModifiersConfig{
-							&commoncodec.AddressBytesToStringModifierConfig{
-								Fields: WorkflowRegistryForceUpdateSecretsRequestedV1ModifyFields,
-							},
-						},
 					},
 				},
 			},
@@ -470,7 +473,17 @@ func newReader(
 		return nil, err
 	}
 
-	return factory.NewContractReader(ctx, marshalledCfg)
+	reader, err := factory.NewContractReader(ctx, marshalledCfg)
+	if err != nil {
+		return nil, err
+	}
+
+	// bind contract to contract reader
+	if err := reader.Bind(ctx, []types.BoundContract{bc}); err != nil {
+		return nil, err
+	}
+
+	return reader, nil
 }
 
 // toWorkflowRegistryEventResponse converts a types.Sequence to a WorkflowRegistryEventResponse.
@@ -484,18 +497,25 @@ func toWorkflowRegistryEventResponse(
 			Cursor:    log.Cursor,
 			EventType: evt,
 			Head: Head{
-				Hash:      fmt.Sprintf("%x", log.Hash),
+				Hash:      hex.EncodeToString(log.Hash),
 				Height:    log.Height,
 				Timestamp: log.Timestamp,
 			},
 		},
 	}
 
+	dataAsValuesMap, err := values.WrapMap(log.Data)
+	if err != nil {
+		return WorkflowRegistryEventResponse{
+			Err: err,
+		}
+	}
+
 	switch evt {
 	case ForceUpdateSecretsEvent:
 		var data WorkflowRegistryForceUpdateSecretsRequestedV1
-		if err := mapstructure.Decode(log.Data, &data); err != nil {
-			lggr.Errorf("failed to decode data: %+v", log.Data)
+		if err := dataAsValuesMap.UnwrapTo(&data); err != nil {
+			lggr.Errorf("failed to unwrap data: %+v", log.Data)
 			resp.Event = nil
 			resp.Err = err
 			return resp
