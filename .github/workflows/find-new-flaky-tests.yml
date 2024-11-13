@@ -143,8 +143,10 @@ jobs:
             json_groups=$(jq -nc --argjson count "$ALL_TESTS_RUNNER_COUNT" \
               '[range(0; $count) | { "testPackages": "./...", "runs_on": "'"${{ env.ALL_TESTS_RUNNER }}"'" }]')
               
-            echo "$json_groups" > matrix.json
-            echo "matrix=$(cat matrix.json)" >> $GITHUB_OUTPUT
+            echo "$json_groups"
+            echo "matrix<<EOF" >> $GITHUB_OUTPUT
+            echo "$json_groups" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
             exit 0
           fi
 
@@ -177,8 +179,10 @@ jobs:
 
           # Convert groups array into a JSON array
           json_groups=$(printf '%s\n' "${groups[@]}" | jq -s .)
-          echo "$json_groups" > matrix.json
-          echo "matrix=$(cat matrix.json)" >> $GITHUB_OUTPUT
+          echo "$json_groups"
+          echo "matrix<<EOF" >> $GITHUB_OUTPUT
+          echo "$json_groups" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Generate random workflow id
         id: gen_id
