@@ -166,7 +166,7 @@ jobs:
         uses: ./.github/actions/setup-go
         with:
           # race/fuzz tests don't benefit repeated caching, so restore from develop's build cache
-          restore-build-cache-only: ${{ matrix.type.cmd == 'go_core_race_tests' || matrix.type.cmd == 'go_core_fuzz' }}
+          restore-build-cache-only: ${{ matrix.type.cmd == 'go_core_fuzz' }}
           build-cache-version: ${{ matrix.type.cmd }}
 
       - name: Replace chainlink-evm deps
@@ -220,12 +220,13 @@ jobs:
           go install ./pkg/chainlink/cmd/chainlink-starknet
           popd
 
-      - name: Increase Race Timeout
-        # Increase race timeout for scheduled runs only
+      - name: Increase Timeouts for Fuzz/Race
+        # Increase timeouts for scheduled runs only
         if: ${{ github.event.schedule != '' && needs.filter.outputs.should-run-ci-core == 'true' }}
         run: |
           echo "TIMEOUT=10m" >> $GITHUB_ENV
           echo "COUNT=50" >> $GITHUB_ENV
+          echo "FUZZ_TIMEOUT_MINUTES=10">> $GITHUB_ENV
 
       - name: Install gotestloghelper
         if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}

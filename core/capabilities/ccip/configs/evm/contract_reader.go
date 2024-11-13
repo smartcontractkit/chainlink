@@ -6,6 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_proxy_contract"
 
@@ -227,6 +228,13 @@ var SourceReaderConfig = evmrelaytypes.ChainReaderConfig{
 							consts.EventAttributeDestChain:      {Name: "message.header.destChainSelector"},
 							consts.EventAttributeSequenceNumber: {Name: "message.header.sequenceNumber"},
 						},
+					},
+					OutputModifications: codec.ModifiersConfig{
+						&codec.WrapperModifierConfig{Fields: map[string]string{
+							"Message.FeeTokenAmount":      "Int",
+							"Message.FeeValueJuels":       "Int",
+							"Message.TokenAmounts.Amount": "Int",
+						}},
 					},
 				},
 				consts.MethodNameOnRampGetStaticConfig: {

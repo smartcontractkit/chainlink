@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -146,7 +146,7 @@ func TestFilters(t *testing.T) {
 		chainID := testutils.NewRandomEVMChainID()
 		db := pgtest.NewSqlxDB(t)
 		o := logpoller.NewORM(chainID, db, lggr)
-		ec := backends.NewSimulatedBackend(map[common.Address]core.GenesisAccount{}, 10e6)
+		ec := simulated.NewBackend(map[common.Address]types.Account{}, simulated.WithBlockGasLimit(10e6))
 		esc := client.NewSimulatedBackendClient(t, ec, chainID)
 		lpOpts := logpoller.Opts{
 			PollPeriod:               1 * time.Hour,

@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/google/uuid"
@@ -154,11 +153,11 @@ func testSingleConsumerHappyPath(
 	assertNumRandomWords(t, consumerContract, numWords)
 
 	// Assert that both send addresses were used to fulfill the requests
-	n, err := uni.backend.PendingNonceAt(ctx, key1.Address)
+	n, err := uni.backend.Client().PendingNonceAt(ctx, key1.Address)
 	require.NoError(t, err)
 	require.EqualValues(t, 1, n)
 
-	n, err = uni.backend.PendingNonceAt(ctx, key2.Address)
+	n, err = uni.backend.Client().PendingNonceAt(ctx, key2.Address)
 	require.NoError(t, err)
 	require.EqualValues(t, 1, n)
 
@@ -849,7 +848,7 @@ func createSubscriptionAndGetSubscriptionCreatedEvent(
 	t *testing.T,
 	subOwner *bind.TransactOpts,
 	coordinator v22.CoordinatorV2_X,
-	backend *backends.SimulatedBackend,
+	backend types.Backend,
 ) v22.SubscriptionCreated {
 	_, err := coordinator.CreateSubscription(subOwner)
 	require.NoError(t, err)
@@ -928,7 +927,7 @@ func testSingleConsumerForcedFulfillment(
 
 	eoaConsumerAddr, _, eoaConsumer, err := vrf_external_sub_owner_example.DeployVRFExternalSubOwnerExample(
 		uni.neil,
-		uni.backend,
+		uni.backend.Client(),
 		uni.oldRootContractAddress,
 		uni.linkContractAddress,
 	)
@@ -1015,6 +1014,7 @@ func testSingleConsumerForcedFulfillment(
 	// Remove consumer and cancel the sub before the request can be fulfilled
 	_, err = uni.oldRootContract.RemoveConsumer(uni.neil, subID, eoaConsumerAddr)
 	require.NoError(t, err, "RemoveConsumer tx failed")
+	uni.backend.Commit()
 	_, err = uni.oldRootContract.CancelSubscription(uni.neil, subID, uni.neil.From)
 	require.NoError(t, err, "CancelSubscription tx failed")
 	uni.backend.Commit()
@@ -1431,7 +1431,7 @@ func testSingleConsumerMultipleGasLanes(
 	assertNumRandomWords(t, consumerContract, numWords)
 }
 
-func topUpSubscription(t *testing.T, consumer *bind.TransactOpts, consumerContract vrftesthelpers.VRFConsumerContract, backend *backends.SimulatedBackend, fundingAmount *big.Int, nativePayment bool) {
+func topUpSubscription(t *testing.T, consumer *bind.TransactOpts, consumerContract vrftesthelpers.VRFConsumerContract, backend types.Backend, fundingAmount *big.Int, nativePayment bool) {
 	if nativePayment {
 		_, err := consumerContract.TopUpSubscriptionNative(consumer, fundingAmount)
 		require.NoError(t, err)
@@ -1517,7 +1517,6 @@ func testConsumerProxyHappyPath(
 	ownerKey ethkey.KeyV2,
 	uni coordinatorV2UniverseCommon,
 	batchCoordinatorAddress common.Address,
-	batchEnabled bool,
 	vrfVersion vrfcommon.Version,
 	nativePayment bool,
 ) {
@@ -1614,11 +1613,11 @@ func testConsumerProxyHappyPath(
 	assertNumRandomWords(t, consumerContract, numWords)
 
 	// Assert that both send addresses were used to fulfill the requests
-	n, err := uni.backend.PendingNonceAt(ctx, key1.Address)
+	n, err := uni.backend.Client().PendingNonceAt(ctx, key1.Address)
 	require.NoError(t, err)
 	require.EqualValues(t, 1, n)
 
-	n, err = uni.backend.PendingNonceAt(ctx, key2.Address)
+	n, err = uni.backend.Client().PendingNonceAt(ctx, key2.Address)
 	require.NoError(t, err)
 	require.EqualValues(t, 1, n)
 
@@ -1631,7 +1630,7 @@ func testConsumerProxyCoordinatorZeroAddress(
 ) {
 	// Deploy another upgradeable consumer, proxy, and proxy admin
 	// to test vrfCoordinator != 0x0 condition.
-	upgradeableConsumerAddress, _, _, err := vrf_consumer_v2_upgradeable_example.DeployVRFConsumerV2UpgradeableExample(uni.neil, uni.backend)
+	upgradeableConsumerAddress, _, _, err := vrf_consumer_v2_upgradeable_example.DeployVRFConsumerV2UpgradeableExample(uni.neil, uni.backend.Client())
 	require.NoError(t, err, "failed to deploy upgradeable consumer to simulated ethereum blockchain")
 	uni.backend.Commit()
 
@@ -1643,7 +1642,7 @@ func testConsumerProxyCoordinatorZeroAddress(
 		uni.linkContractAddress)
 	require.NoError(t, err)
 	_, _, _, err = vrfv2_transparent_upgradeable_proxy.DeployVRFV2TransparentUpgradeableProxy(
-		uni.neil, uni.backend, upgradeableConsumerAddress, uni.proxyAdminAddress, initializeCalldata)
+		uni.neil, uni.backend.Client(), upgradeableConsumerAddress, uni.proxyAdminAddress, initializeCalldata)
 	require.Error(t, err)
 }
 

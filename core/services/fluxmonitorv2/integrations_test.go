@@ -16,9 +16,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
@@ -70,7 +69,7 @@ type fluxAggregatorUniverse struct {
 	flagsContractAddress      common.Address
 	evmChainID                big.Int
 	// Abstraction representation of the ethereum blockchain
-	backend       *backends.SimulatedBackend
+	backend       types.Backend
 	aggregatorABI abi.ABI
 	// Cast of participants
 	sergey  *bind.TransactOpts // Owns all the LINK initially
@@ -117,23 +116,23 @@ func setupFluxAggregatorUniverse(t *testing.T, configOptions ...func(cfg *fluxAg
 	f.neil = testutils.MustNewSimTransactor(t)
 	f.ned = testutils.MustNewSimTransactor(t)
 	f.nallory = oracleTransactor
-	genesisData := core.GenesisAlloc{
+	genesisData := gethtypes.GenesisAlloc{
 		f.sergey.From:  {Balance: assets.Ether(1000).ToInt()},
 		f.neil.From:    {Balance: assets.Ether(1000).ToInt()},
 		f.ned.From:     {Balance: assets.Ether(1000).ToInt()},
 		f.nallory.From: {Balance: assets.Ether(1000).ToInt()},
 	}
-	gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil * 2)
+	gasLimit := ethconfig.Defaults.Miner.GasCeil * 2
 	f.backend = cltest.NewSimulatedBackend(t, genesisData, gasLimit)
 
 	f.aggregatorABI, err = abi.JSON(strings.NewReader(faw.FluxAggregatorABI))
 	require.NoError(t, err, "could not parse FluxAggregator ABI")
 
 	var linkAddress common.Address
-	linkAddress, _, f.linkContract, err = link_token_interface.DeployLinkToken(f.sergey, f.backend)
+	linkAddress, _, f.linkContract, err = link_token_interface.DeployLinkToken(f.sergey, f.backend.Client())
 	require.NoError(t, err, "failed to deploy link contract to simulated ethereum blockchain")
 
-	f.flagsContractAddress, _, f.flagsContract, err = flags_wrapper.DeployFlags(f.sergey, f.backend, f.sergey.From)
+	f.flagsContractAddress, _, f.flagsContract, err = flags_wrapper.DeployFlags(f.sergey, f.backend.Client(), f.sergey.From)
 	require.NoError(t, err, "failed to deploy flags contract to simulated ethereum blockchain")
 
 	f.backend.Commit()
@@ -145,10 +144,10 @@ func setupFluxAggregatorUniverse(t *testing.T, configOptions ...func(cfg *fluxAg
 	waitTimeMs := int64(faTimeout * 5000)
 	time.Sleep(time.Duration((waitTimeMs + waitTimeMs/20) * int64(time.Millisecond)))
 	oldGasLimit := f.sergey.GasLimit
-	f.sergey.GasLimit = uint64(gasLimit)
+	f.sergey.GasLimit = gasLimit
 	f.aggregatorContractAddress, _, f.aggregatorContract, err = faw.DeployFluxAggregator(
 		f.sergey,
-		f.backend,
+		f.backend.Client(),
 		linkAddress,
 		big.NewInt(fee),
 		faTimeout,
@@ -165,6 +164,7 @@ func setupFluxAggregatorUniverse(t *testing.T, configOptions ...func(cfg *fluxAg
 
 	_, err = f.linkContract.Transfer(f.sergey, f.aggregatorContractAddress, oneEth) // Actually, LINK
 	require.NoError(t, err, "failed to fund FluxAggregator contract with LINK")
+	f.backend.Commit()
 
 	_, err = f.aggregatorContract.UpdateAvailableFunds(f.sergey)
 	require.NoError(t, err, "failed to update aggregator's availableFunds field")
@@ -252,7 +252,9 @@ type answerParams struct {
 func checkSubmission(t *testing.T, p answerParams, currentBalance int64, receiptBlock uint64) {
 	t.Helper()
 	if receiptBlock == 0 {
-		receiptBlock = p.fa.backend.Blockchain().CurrentBlock().Number.Uint64()
+		h, err := p.fa.backend.Client().HeaderByNumber(testutils.Context(t), nil)
+		require.NoError(t, err)
+		receiptBlock = h.Number.Uint64()
 	}
 	blockRange := &bind.FilterOpts{Start: 0, End: &receiptBlock}
 
@@ -354,7 +356,7 @@ func submitAnswer(t *testing.T, p answerParams) {
 	checkSubmission(t, p, cb.Int64(), 0)
 }
 
-func awaitSubmission(t *testing.T, backend *backends.SimulatedBackend, submissionReceived chan *faw.FluxAggregatorSubmissionReceived) (
+func awaitSubmission(t *testing.T, backend types.Backend, submissionReceived chan *faw.FluxAggregatorSubmissionReceived) (
 	receiptBlock uint64, answer int64,
 ) {
 	t.Helper()
@@ -415,7 +417,8 @@ func checkLogWasConsumed(t *testing.T, fa fluxAggregatorUniverse, ds sqlutil.Dat
 	g := gomega.NewWithT(t)
 	g.Eventually(func() bool {
 		ctx := testutils.Context(t)
-		block := fa.backend.Blockchain().GetBlockByNumber(blockNumber)
+		block, err := fa.backend.Client().BlockByNumber(ctx, new(big.Int).SetUint64(blockNumber))
+		require.NoError(t, err)
 		require.NotNil(t, block)
 		orm := log.NewORM(ds, fa.evmChainID)
 		consumed, err := orm.WasBroadcastConsumed(ctx, block.Hash(), 0, pipelineSpecID)
@@ -903,7 +906,7 @@ ds1 -> ds1_parse
 
 	j := cltest.CreateJobViaWeb2(t, app, string(requestBody))
 
-	closer := cltest.Mine(fa.backend, 500*time.Millisecond)
+	_, closer := cltest.Mine(fa.backend, 500*time.Millisecond)
 	defer closer()
 
 	// We should see a spec error because the value is too large to submit on-chain.
