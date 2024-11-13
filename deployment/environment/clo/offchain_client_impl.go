@@ -102,6 +102,10 @@ func (j JobClient) ListNodes(ctx context.Context, in *nodev1.ListNodesRequest, o
 	var nodes []*nodev1.Node
 	for _, nop := range j.NodeOperators {
 		for _, n := range nop.Nodes {
+			p2pId, err := NodeP2PId(n)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get p2p id for node %s: %w", n.ID, err)
+			}
 			node := &nodev1.Node{
 				Id:          n.ID,
 				Name:        n.Name,
@@ -111,7 +115,7 @@ func (j JobClient) ListNodes(ctx context.Context, in *nodev1.ListNodesRequest, o
 				Labels: []*ptypes.Label{
 					{
 						Key:   "p2p_id",
-						Value: pointer.ToString(n.ID), // here n.ID is also peer ID
+						Value: pointer.ToString(p2pId), // here n.ID is also peer ID
 					},
 				},
 			}
@@ -191,14 +195,10 @@ type GetNodeOperatorsResponse struct {
 }
 
 type JobClientConfig struct {
-	Nops                  []*models.NodeOperator
-	RemapNodeIDsToPeerIDs bool
+	Nops []*models.NodeOperator
 }
 
 func NewJobClient(lggr logger.Logger, cfg JobClientConfig) *JobClient {
-	if cfg.RemapNodeIDsToPeerIDs {
-		SetNodeIdsToPeerIds(cfg.Nops)
-	}
 
 	c := &JobClient{
 		NodeOperators: cfg.Nops,

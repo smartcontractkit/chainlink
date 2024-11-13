@@ -100,7 +100,7 @@ func (o *ocr2Node) toNodeKeys() NodeKeys {
 		AptosOnchainPublicKey: aptosOnchainPublicKey,
 	}
 }
-func newOcr2NodeFromClo(n *Node, registryChainSel uint64) (*ocr2Node, error) {
+func newOcr2NodeFromJD(n *Node, registryChainSel uint64) (*ocr2Node, error) {
 	if n.PublicKey == nil {
 		return nil, errors.New("no public key")
 	}
@@ -120,11 +120,11 @@ func newOcr2NodeFromClo(n *Node, registryChainSel uint64) (*ocr2Node, error) {
 	if exists {
 		cfgs[chaintype.Aptos] = aptosCC
 	}
-	return newOcr2Node(n.P2PID, cfgs, *n.PublicKey)
+	return newOcr2Node(n.ID, cfgs, *n.PublicKey)
 }
 
 func ExtractKeys(n *Node, registerChainSel uint64) (p2p p2pkey.PeerID, signer [32]byte, encPubKey [32]byte, err error) {
-	orc2n, err := newOcr2NodeFromClo(n, registerChainSel)
+	orc2n, err := newOcr2NodeFromJD(n, registerChainSel)
 	if err != nil {
 		return p2p, signer, encPubKey, fmt.Errorf("failed to create ocr2 node for node %s: %w", n.ID, err)
 	}
@@ -205,12 +205,47 @@ type NOP struct {
 	Nodes []string // peerID
 }
 
+func (v NOP) Validate() error {
+	if v.Name == "" {
+		return errors.New("name is empty")
+	}
+	if len(v.Nodes) == 0 {
+		return errors.New("no nodes")
+	}
+	for i, n := range v.Nodes {
+		_, err := p2pkey.MakePeerID(n)
+		if err != nil {
+			return fmt.Errorf("failed to nop %s: node %d is not valid peer id %s: %w", v.Name, i, n, err)
+		}
+	}
+
+	return nil
+}
+
 // DonCapabilities is a set of capabilities hosted by a set of node operators
 // in is in a convenient form to handle the CLO representation of the nop data
 type DonCapabilities struct {
 	Name         string
 	Nops         []NOP
 	Capabilities []kcr.CapabilitiesRegistryCapability // every capability is hosted on each nop
+}
+
+func (v DonCapabilities) Validate() error {
+	if v.Name == "" {
+		return errors.New("name is empty")
+	}
+	if len(v.Nops) == 0 {
+		return errors.New("no nops")
+	}
+	for i, n := range v.Nops {
+		if err := n.Validate(); err != nil {
+			return fmt.Errorf("failed to validate nop %d '%s': %w", i, n.Name, err)
+		}
+	}
+	if len(v.Capabilities) == 0 {
+		return errors.New("no capabilities")
+	}
+	return nil
 }
 
 func NodeOperator(name string, adminAddress string) capabilities_registry.CapabilitiesRegistryNodeOperator {
@@ -293,7 +328,7 @@ func mapDonsToNodes(dons []DonInfo, excludeBootstraps bool, registryChainSel uin
 
 	for _, don := range dons {
 		for _, node := range don.Nodes {
-			ocr2n, err := newOcr2NodeFromClo(&node, registryChainSel)
+			ocr2n, err := newOcr2NodeFromJD(&node, registryChainSel)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create ocr2 node for node %s: %w", node.ID, err)
 			}

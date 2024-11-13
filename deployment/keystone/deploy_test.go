@@ -208,13 +208,16 @@ func TestDeploy(t *testing.T) {
 
 // TODO: Deprecated, remove everything below that leverages CLO
 
-func nodeOperatorsToIDs(nops []*models.NodeOperator) (nodeIDs []keystone.NOP) {
+func nodeOperatorsToIDs(t *testing.T, nops []*models.NodeOperator) (nodeIDs []keystone.NOP) {
 	for _, nop := range nops {
 		nodeOperator := keystone.NOP{
 			Name: nop.Name,
 		}
 		for _, node := range nop.Nodes {
-			nodeOperator.Nodes = append(nodeOperator.Nodes, node.ID)
+			p2pID, err := clo.NodeP2PId(node)
+			require.NoError(t, err)
+
+			nodeOperator.Nodes = append(nodeOperator.Nodes, p2pID)
 		}
 		nodeIDs = append(nodeIDs, nodeOperator)
 	}
@@ -234,9 +237,9 @@ func TestDeployCLO(t *testing.T) {
 	require.Len(t, assetNops, 16)
 	requireChains(t, assetNops, []models.ChainType{models.ChainTypeEvm})
 
-	wfNodes := nodeOperatorsToIDs(wfNops)
-	cwNodes := nodeOperatorsToIDs(cwNops)
-	assetNodes := nodeOperatorsToIDs(assetNops)
+	wfNodes := nodeOperatorsToIDs(t, wfNops)
+	cwNodes := nodeOperatorsToIDs(t, cwNops)
+	assetNodes := nodeOperatorsToIDs(t, assetNops)
 
 	wfDon := keystone.DonCapabilities{
 		Name:         keystone.WFDonName,
@@ -283,7 +286,7 @@ func TestDeployCLO(t *testing.T) {
 	env := &deployment.Environment{
 		Name:              "CLO",
 		ExistingAddresses: deployment.NewMemoryAddressBook(),
-		Offchain:          clo.NewJobClient(lggr, clo.JobClientConfig{Nops: allNops, RemapNodeIDsToPeerIDs: true}),
+		Offchain:          clo.NewJobClient(lggr, clo.JobClientConfig{Nops: allNops}),
 		Chains:            allChains,
 		Logger:            lggr,
 	}

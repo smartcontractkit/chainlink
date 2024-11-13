@@ -53,8 +53,10 @@ func (r ConfigureContractsRequest) Validate() error {
 	if r.Env == nil {
 		return errors.New("environment is nil")
 	}
-	if len(r.Dons) == 0 {
-		return errors.New("no DONS")
+	for _, don := range r.Dons {
+		if err := don.Validate(); err != nil {
+			return fmt.Errorf("don validation failed for '%s': %w", don.Name, err)
+		}
 	}
 	_, ok := chainsel.ChainBySelector(r.RegistryChainSel)
 	if !ok {
@@ -180,29 +182,39 @@ func NodesFromJD(name string, nodeIDs []string, jd deployment.OffchainClient) ([
 		},
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to list nodes '%s': %w", name, err)
 	}
-	for _, nodeP2PID := range nodeIDs {
+
+	for _, id := range nodeIDs {
+		idx := slices.IndexFunc(nodesFromJD.GetNodes(), func(node *nodev1.Node) bool {
+			return slices.ContainsFunc(node.Labels, func(label *ptypes.Label) bool {
+				return label.Key == "p2p_id" && *label.Value == id
+			})
+		})
+		if idx < 0 {
+			var got []string
+			for _, node := range nodesFromJD.GetNodes() {
+				for _, label := range node.Labels {
+					if label.Key == "p2p_id" {
+						got = append(got, *label.Value)
+					}
+				}
+			}
+			return nil, fmt.Errorf("node id %s not found in list '%s'", id, strings.Join(got, ","))
+		}
+
+		jdNode := nodesFromJD.Nodes[idx]
 		// TODO: Filter should accept multiple nodes
 		nodeChainConfigs, err := jd.ListNodeChainConfigs(context.Background(), &nodev1.ListNodeChainConfigsRequest{Filter: &nodev1.ListNodeChainConfigsRequest_Filter{
-			NodeIds: []string{nodeP2PID},
+			NodeIds: []string{jdNode.Id}, // must use the jd-specific internal node id
 		}})
 		if err != nil {
 			return nil, err
 		}
-		idx := slices.IndexFunc(nodesFromJD.GetNodes(), func(node *nodev1.Node) bool {
-			return slices.ContainsFunc(node.Labels, func(label *ptypes.Label) bool {
-				return label.Key == "p2p_id" && *label.Value == nodeP2PID
-			})
-		})
-		if idx < 0 {
-			return nil, fmt.Errorf("node %v not found", nodeP2PID)
-		}
-		jdNode := nodesFromJD.Nodes[idx]
 
 		nodes = append(nodes, Node{
 			ID:           jdNode.Id,
-			P2PID:        nodeP2PID,
+			P2PID:        id,
 			Name:         name,
 			PublicKey:    &jdNode.PublicKey,
 			ChainConfigs: nodeChainConfigs.GetChainConfigs(),
@@ -438,7 +450,7 @@ func ConfigureOCR3ContractFromJD(env *deployment.Environment, chainSel uint64, n
 	}
 	var ocr2nodes []*ocr2Node
 	for _, node := range nodes {
-		n, err := newOcr2NodeFromClo(&node, chainSel)
+		n, err := newOcr2NodeFromJD(&node, chainSel)
 		if err != nil {
 			return fmt.Errorf("failed to create ocr2 node from clo node: %w", err)
 		}

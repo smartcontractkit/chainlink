@@ -6,7 +6,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/AlekSi/pointer"
 	"github.com/test-go/testify/require"
 	"google.golang.org/grpc"
 
@@ -15,6 +14,13 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/clo"
 	"github.com/smartcontractkit/chainlink/deployment/environment/clo/models"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+)
+
+var (
+	p2pid_1 = "p2p_12D3KooWBCMCCZZ8x57AXvJvpCujqhZzTjWXbReaRE7807807807"
+	p2pid_2 = "p2p_12D3KooWBCMCCZZ8x57AXvJvpCujqhZzTjWXbReaRE6868686868"
+	p2pid_3 = "p2p_12D3KooWBCMCCZZ8x57AXvJvpCujqhZzTjWXbReaRE9999999999"
+	p2pid_4 = "p2p_12D3KooWBCMCCZZ8x57AXvJvpCujqhZzTjWXbReaRE1000000000"
 )
 
 var testNops = `
@@ -28,6 +34,20 @@ var testNops = `
         "name": "Chainlink Sepolia Prod Keystone One 9",
         "publicKey": "412dc6fe48ea4e34baaa77da2e3b032d39b938597b6f3d61fe7ed183a827a431",
         "connected": true,
+		"chainConfigs": [
+          {
+            "network": {
+              "id": "140",
+              "chainID": "421614",
+              "chainType": "EVM"
+            },
+            "ocr2Config": {
+              "p2pKeyBundle": {
+                "peerID": "p2p_12D3KooWBCMCCZZ8x57AXvJvpCujqhZzTjWXbReaRE7807807807"
+              }
+            }
+          }
+		],
         "supportedProducts": [
           "WORKFLOW",
           "OCR3_CAPABILITY"
@@ -36,51 +56,93 @@ var testNops = `
     ],
     "createdAt": "2024-08-14T19:00:07.113658Z"
   },
-  {
-    "id": "68",
-    "name": "Chainlink Keystone Node Operator 8",
-    "nodes": [
-      {
-        "id": "781",
-        "name": "Chainlink Sepolia Prod Keystone One 8",
-        "publicKey": "1141dd1e46797ced9b0fbad49115f18507f6f6e6e3cc86e7e5ba169e58645adc",
-        "connected": true,
-        "supportedProducts": [
-          "WORKFLOW",
-          "OCR3_CAPABILITY"
-        ]
-      }
-    ],
-    "createdAt": "2024-08-14T20:26:37.622463Z"
-  },
-  {
-    "id": "999",
-    "name": "Chainlink Keystone Node Operator 100",
-    "nodes": [
-      {
-        "id": "999",
-        "name": "Chainlink Sepolia Prod Keystone One 999",
-        "publicKey": "9991dd1e46797ced9b0fbad49115f18507f6f6e6e3cc86e7e5ba169e58999999",
-        "connected": true,
-        "supportedProducts": [
-          "WORKFLOW",
-          "OCR3_CAPABILITY"
-        ]
-      },
-      {
-        "id": "1000",
-        "name": "Chainlink Sepolia Prod Keystone One 1000",
-        "publicKey": "1000101e46797ced9b0fbad49115f18507f6f6e6e3cc86e7e5ba169e58641000",
-        "connected": true,
-        "supportedProducts": [
-          "WORKFLOW",
-          "OCR3_CAPABILITY"
-        ]
-      }
-    ],
-    "createdAt": "2024-08-14T20:26:37.622463Z"
-  }
-]	
+	{
+	"id": "68",
+	"name": "Chainlink Keystone Node Operator 8",
+	"nodes": [
+		{
+		"id": "781",
+		"name": "Chainlink Sepolia Prod Keystone One 8",
+		"publicKey": "1141dd1e46797ced9b0fbad49115f18507f6f6e6e3cc86e7e5ba169e58645adc",
+		"connected": true,
+		"chainConfigs": [
+			{
+			"network": {
+				"id": "140",
+				"chainID": "421614",
+				"chainType": "EVM"
+			},
+			"ocr2Config": {
+				"p2pKeyBundle": {
+				"peerID": "p2p_12D3KooWBCMCCZZ8x57AXvJvpCujqhZzTjWXbReaRE6868686868"
+				}
+			}
+			}
+		],
+		"supportedProducts": [
+			"WORKFLOW",
+			"OCR3_CAPABILITY"
+		]
+		}
+	],
+	"createdAt": "2024-08-14T20:26:37.622463Z"
+	},
+	{
+	"id": "999",
+	"name": "Chainlink Keystone Node Operator 100",
+	"nodes": [
+		{
+		"id": "999",
+		"name": "Chainlink Sepolia Prod Keystone One 999",
+		"publicKey": "9991dd1e46797ced9b0fbad49115f18507f6f6e6e3cc86e7e5ba169e58999999",
+		"connected": true,
+		"chainConfigs": [
+			{
+			"network": {
+				"id": "140",
+				"chainID": "421614",
+				"chainType": "EVM"
+			},
+			"ocr2Config": {
+				"p2pKeyBundle": {
+				"peerID": "p2p_12D3KooWBCMCCZZ8x57AXvJvpCujqhZzTjWXbReaRE9999999999"
+				}
+			}
+			}
+		],
+		"supportedProducts": [
+			"WORKFLOW",
+			"OCR3_CAPABILITY"
+		]
+		},
+		{
+		"id": "1000",
+		"name": "Chainlink Sepolia Prod Keystone One 1000",
+		"publicKey": "1000101e46797ced9b0fbad49115f18507f6f6e6e3cc86e7e5ba169e58641000",
+		"connected": true,
+		"chainConfigs": [
+			{
+			"network": {
+				"id": "140",
+				"chainID": "421614",
+				"chainType": "EVM"
+			},
+			"ocr2Config": {
+				"p2pKeyBundle": {
+				"peerID": "p2p_12D3KooWBCMCCZZ8x57AXvJvpCujqhZzTjWXbReaRE1000000000"
+				}
+			}
+			}
+		],
+		"supportedProducts": [
+			"WORKFLOW",
+			"OCR3_CAPABILITY"
+		]
+		}
+	],
+	"createdAt": "2024-08-14T20:26:37.622463Z"
+	}
+]
 `
 
 func parseTestNops(t *testing.T) []*models.NodeOperator {
@@ -141,7 +203,7 @@ func TestJobClient_ListNodes(t *testing.T) {
 						Labels: []*ptypes.Label{
 							{
 								Key:   "p2p_id",
-								Value: pointer.ToString("780"),
+								Value: &p2pid_1,
 							},
 						},
 					},
@@ -167,7 +229,7 @@ func TestJobClient_ListNodes(t *testing.T) {
 						Labels: []*ptypes.Label{
 							{
 								Key:   "p2p_id",
-								Value: pointer.ToString("780"),
+								Value: &p2pid_1,
 							},
 						},
 					},
@@ -179,7 +241,7 @@ func TestJobClient_ListNodes(t *testing.T) {
 						Labels: []*ptypes.Label{
 							{
 								Key:   "p2p_id",
-								Value: pointer.ToString("781"),
+								Value: &p2pid_2,
 							},
 						},
 					},
@@ -205,7 +267,7 @@ func TestJobClient_ListNodes(t *testing.T) {
 						Labels: []*ptypes.Label{
 							{
 								Key:   "p2p_id",
-								Value: pointer.ToString("999"),
+								Value: &p2pid_3,
 							},
 						},
 					},
@@ -217,55 +279,7 @@ func TestJobClient_ListNodes(t *testing.T) {
 						Labels: []*ptypes.Label{
 							{
 								Key:   "p2p_id",
-								Value: pointer.ToString("1000"),
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "remap node ids to peer ids",
-			fields: fields{
-				NodeOperators: []*models.NodeOperator{
-					{
-						ID: "nop1",
-						Nodes: []*models.Node{
-							{
-								ID:        "nodeID1",
-								Name:      "Node Name 1",
-								PublicKey: pointer.ToString("public key 1"),
-								Connected: true,
-								ChainConfigs: []*models.NodeChainConfig{
-									{
-										Ocr2Config: &models.NodeOCR2Config{
-											P2pKeyBundle: &models.NodeOCR2ConfigP2PKeyBundle{
-												PeerID: "peerID1",
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-				RemapNodeIDsToPeerIDs: true,
-			},
-			args: args{
-				ctx: context.Background(),
-				in:  &nodev1.ListNodesRequest{},
-			},
-			want: &nodev1.ListNodesResponse{
-				Nodes: []*nodev1.Node{
-					{
-						Id:          "peerID1",
-						Name:        "Node Name 1",
-						PublicKey:   "public key 1",
-						IsConnected: true,
-						Labels: []*ptypes.Label{
-							{
-								Key:   "p2p_id",
-								Value: pointer.ToString("peerID1"),
+								Value: &p2pid_4,
 							},
 						},
 					},
@@ -275,7 +289,7 @@ func TestJobClient_ListNodes(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			j := clo.NewJobClient(lggr, clo.JobClientConfig{Nops: tt.fields.NodeOperators, RemapNodeIDsToPeerIDs: tt.fields.RemapNodeIDsToPeerIDs})
+			j := clo.NewJobClient(lggr, clo.JobClientConfig{Nops: tt.fields.NodeOperators})
 
 			got, err := j.ListNodes(tt.args.ctx, tt.args.in, tt.args.opts...)
 			if (err != nil) != tt.wantErr {
