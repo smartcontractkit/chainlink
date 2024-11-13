@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/test-go/testify/assert"
 
+	commoncodec "github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/workflow/generated/workflow_registry_wrapper"
 	coretestutils "github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/signalers"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -45,8 +46,8 @@ func Test_SecretsWorker(t *testing.T) {
 		fetcherFn    = func(_ context.Context, _ string) ([]byte, error) {
 			return []byte(wantContents), nil
 		}
-		contractName = "WorkflowRegistry"
-		eventName    = "WorkflowForceUpdateSecretsRequestedV1"
+		contractName            = syncer.ContractName
+		forceUpdateSecretsEvent = string(syncer.ForceUpdateSecretsEvent)
 	)
 
 	// fill ID with randomd data
@@ -65,13 +66,18 @@ func Test_SecretsWorker(t *testing.T) {
 		Contracts: map[string]evmtypes.ChainContractReader{
 			contractName: {
 				ContractPollingFilter: evmtypes.ContractPollingFilter{
-					GenericEventNames: []string{eventName},
+					GenericEventNames: []string{forceUpdateSecretsEvent},
 				},
 				ContractABI: workflow_registry_wrapper.WorkflowRegistryABI,
 				Configs: map[string]*evmtypes.ChainReaderDefinition{
-					eventName: {
-						ChainSpecificName: eventName,
+					forceUpdateSecretsEvent: {
+						ChainSpecificName: forceUpdateSecretsEvent,
 						ReadType:          evmtypes.Event,
+						OutputModifications: commoncodec.ModifiersConfig{
+							&commoncodec.AddressBytesToStringModifierConfig{
+								Fields: syncer.WorkflowRegistryForceUpdateSecretsRequestedV1ModifyFields,
+							},
+						},
 					},
 				},
 			},

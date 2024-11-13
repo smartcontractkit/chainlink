@@ -10,7 +10,6 @@ import (
 	types "github.com/smartcontractkit/chainlink-common/pkg/types"
 	query "github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -26,7 +25,7 @@ func Test_Workflow_Registry_Syncer(t *testing.T) {
 		giveCfg      = ContractEventPollerConfig{
 			ContractName:      ContractName,
 			ContractAddress:   "0xdeadbeef",
-			ContractEventName: ContractEventName,
+			ContractEventName: string(ForceUpdateSecretsEvent),
 			StartBlockNum:     0,
 			QueryCount:        20,
 		}
@@ -35,6 +34,7 @@ func Test_Workflow_Registry_Syncer(t *testing.T) {
 		giveLog = types.Sequence{
 			Data: map[string]any{
 				"SecretsURL": giveURL,
+				"Owner":      "0xowneraddr",
 			},
 			Cursor: "cursor",
 		}
@@ -88,7 +88,7 @@ func Test_Workflow_Registry_Syncer(t *testing.T) {
 			SortBy: []query.SortBy{query.NewSortByTimestamp(query.Asc)},
 			Limit:  query.Limit{Count: giveCfg.QueryCount},
 		},
-		new(values.Value),
+		new(WorkflowRegistryForceUpdateSecretsRequestedV1),
 	).Return([]types.Sequence{giveLog}, nil)
 
 	// Go run the worker

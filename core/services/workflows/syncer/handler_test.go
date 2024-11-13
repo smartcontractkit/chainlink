@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/triggers/logevent/logeventcap"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/mocks"
@@ -22,10 +21,8 @@ func Test_Handler(t *testing.T) {
 		giveURL := "https://original-url.com"
 		giveEvent := WorkflowRegistryEvent{
 			EventType: ForceUpdateSecretsEvent,
-			Output: logeventcap.Output{
-				Data: map[string]any{
-					"SecretsURL": giveURL,
-				},
+			Data: map[string]any{
+				"SecretsURL": giveURL,
 			},
 		}
 
@@ -59,10 +56,8 @@ func Test_Handler(t *testing.T) {
 		h := newEventHandler(lggr, mockORM, nil)
 		err := h.Handle(ctx, WorkflowRegistryEvent{
 			EventType: ForceUpdateSecretsEvent,
-			Output: logeventcap.Output{
-				Data: map[string]any{
-					"SecretsURL": assert.AnError,
-				},
+			Data: map[string]any{
+				"SecretsURL": assert.AnError,
 			},
 		})
 		require.Error(t, err)
@@ -81,10 +76,8 @@ func Test_Handler(t *testing.T) {
 		h := newEventHandler(lggr, mockORM, fetcher)
 		err := h.Handle(ctx, WorkflowRegistryEvent{
 			EventType: ForceUpdateSecretsEvent,
-			Output: logeventcap.Output{
-				Data: map[string]any{
-					"SecretsURL": giveURL,
-				},
+			Data: map[string]any{
+				"SecretsURL": giveURL,
 			},
 		})
 		require.Error(t, err)
@@ -103,10 +96,8 @@ func Test_Handler(t *testing.T) {
 		h := newEventHandler(lggr, mockORM, fetcher)
 		err := h.Handle(ctx, WorkflowRegistryEvent{
 			EventType: ForceUpdateSecretsEvent,
-			Output: logeventcap.Output{
-				Data: map[string]any{
-					"SecretsURL": giveURL,
-				},
+			Data: map[string]any{
+				"SecretsURL": giveURL,
 			},
 		})
 		require.Error(t, err)
@@ -118,10 +109,8 @@ func Test_getURLHash(t *testing.T) {
 	giveURL := "http://example.com"
 
 	giveEvent := WorkflowRegistryEvent{
-		Output: logeventcap.Output{
-			Data: map[string]any{
-				"SecretsURL": giveURL,
-			},
+		Data: map[string]any{
+			"SecretsURL": giveURL,
 		},
 	}
 	gotURL, err := getSecretsURL(giveEvent)
