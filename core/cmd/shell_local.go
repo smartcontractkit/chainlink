@@ -474,6 +474,12 @@ func (s *Shell) runNode(c *cli.Context) error {
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure workflow key")
 		}
+		keys, err := app.GetKeyStore().Workflow().GetAll()
+		if err != nil {
+			lggr.Errorf("WorkflowPublicKey: failed to get keys")
+		} else {
+			lggr.Infof("WorkflowPublicKey: %s", keys[0].PublicKeyString())
+		}
 	}
 
 	err2 := app.GetKeyStore().CSA().EnsureKey(rootCtx)
