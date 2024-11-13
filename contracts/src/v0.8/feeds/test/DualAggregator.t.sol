@@ -522,7 +522,6 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
   }
 
   function test_RevertIf_UnauthorizedTransmitter() public {
-    vm.expectRevert(DualAggregator.UnauthorizedTransmitter.selector);
     bytes32[3] memory reportContext =
       [bytes32(abi.encodePacked("1")), bytes32(abi.encodePacked("2")), bytes32(abi.encodePacked("3"))];
     bytes memory report = abi.encodePacked("1");
@@ -533,12 +532,12 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
     rs[0] = bytes32(abi.encodePacked("1"));
     ss[0] = bytes32(abi.encodePacked("1"));
 
+    vm.expectRevert(DualAggregator.UnauthorizedTransmitter.selector);
     s_aggregator.transmit(reportContext, report, rs, ss, rawVs);
   }
 
   function test_RevertIf_ConfigDigestMismatch() public {
     vm.startPrank(s_transmitters[0]);
-    vm.expectRevert(DualAggregator.ConfigDigestMismatch.selector);
 
     bytes32[3] memory reportContext =
       [bytes32(abi.encodePacked("1")), bytes32(abi.encodePacked("2")), bytes32(abi.encodePacked("3"))];
@@ -550,12 +549,12 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
     rs[0] = bytes32(abi.encodePacked("1"));
     ss[0] = bytes32(abi.encodePacked("1"));
 
+    vm.expectRevert(DualAggregator.ConfigDigestMismatch.selector);
     s_aggregator.transmit(reportContext, report, rs, ss, rawVs);
   }
 
   function test_RevertIf_CalldataLengthMismatch() public {
     vm.startPrank(s_transmitters[0]);
-    vm.expectRevert(DualAggregator.CalldataLengthMismatch.selector);
 
     bytes32[3] memory reportContext = [s_configDigest, bytes32(abi.encodePacked("2")), bytes32(abi.encodePacked("3"))];
     bytes memory report = abi.encodePacked("1");
@@ -566,12 +565,12 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
     rs[0] = bytes32(abi.encodePacked("1"));
     ss[0] = bytes32(abi.encodePacked("1"));
 
+    vm.expectRevert(DualAggregator.CalldataLengthMismatch.selector);
     s_aggregator.transmit(reportContext, report, rs, ss, rawVs);
   }
 
   function test_RevertIf_WrongNumberOfSignatures() public {
     vm.startPrank(s_transmitters[0]);
-    vm.expectRevert(DualAggregator.WrongNumberOfSignatures.selector);
 
     bytes memory epochAndRound = abi.encodePacked(bytes27(0), uint32(0), uint8(0));
 
@@ -581,12 +580,12 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
     bytes32[] memory rs = new bytes32[](1);
     bytes32[] memory ss = new bytes32[](1);
 
+    vm.expectRevert(DualAggregator.WrongNumberOfSignatures.selector);
     s_aggregator.transmit(reportContext, report, rs, ss, rawVs);
   }
 
   function test_RevertIf_SignaturesOutOfRegistration() public {
     vm.startPrank(s_transmitters[0]);
-    vm.expectRevert(DualAggregator.SignaturesOutOfRegistration.selector);
 
     bytes memory epochAndRound = abi.encodePacked(bytes27(0), uint32(0), uint8(0));
     bytes32[3] memory reportContext = [s_configDigest, bytes32(epochAndRound), bytes32(abi.encodePacked("1"))];
@@ -595,6 +594,7 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
     bytes32[] memory rs = new bytes32[](2);
     bytes32[] memory ss = new bytes32[](1);
 
+    vm.expectRevert(DualAggregator.SignaturesOutOfRegistration.selector);
     s_aggregator.transmit(reportContext, report, rs, ss, rawVs);
   }
 
