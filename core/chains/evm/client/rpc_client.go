@@ -137,13 +137,12 @@ func NewRPCClient(
 	largePayloadRPCTimeout time.Duration,
 	rpcTimeout time.Duration,
 	chainType chaintype.ChainType,
-	clientErrors config.ClientErrors,
 ) *RPCClient {
 	r := &RPCClient{
 		largePayloadRPCTimeout: largePayloadRPCTimeout,
 		rpcTimeout:             rpcTimeout,
 		chainType:              chainType,
-		clientErrors:           clientErrors,
+		clientErrors:           cfg.Errors(),
 	}
 	r.cfg = cfg
 	r.name = name

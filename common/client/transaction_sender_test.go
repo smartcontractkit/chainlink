@@ -26,17 +26,16 @@ type sendTxRPC struct {
 }
 
 type sendTxResult struct {
-	err   error
-	txErr error
-	code  SendTxReturnCode
+	err  error
+	code SendTxReturnCode
 }
 
+/*
 var _ SendTxResult = (*sendTxResult)(nil)
 
 func NewSendTxResult(err error) *sendTxResult {
 	result := &sendTxResult{
-		err:   err,
-		txErr: err,
+		err: err,
 	}
 	return result
 }
@@ -45,13 +44,11 @@ func (r *sendTxResult) Error() error {
 	return r.err
 }
 
-func (r *sendTxResult) TxError() error {
-	return r.txErr
-}
-
 func (r *sendTxResult) Code() SendTxReturnCode {
 	return r.code
 }
+
+*/
 
 var _ SendTxRPCClient[any, *sendTxResult] = (*sendTxRPC)(nil)
 
@@ -63,7 +60,7 @@ func (rpc *sendTxRPC) SendTransaction(ctx context.Context, _ any) *sendTxResult 
 	if rpc.sendTxRun != nil {
 		rpc.sendTxRun(mock.Arguments{ctx})
 	}
-	return &sendTxResult{err: rpc.sendTxErr, txErr: rpc.sendTxErr, code: classifySendTxError(nil, rpc.sendTxErr)}
+	return &sendTxResult{err: rpc.sendTxErr, code: classifySendTxError(nil, rpc.sendTxErr)}
 }
 
 func newTestTransactionSender(t *testing.T, chainID types.ID, lggr logger.Logger,
@@ -135,7 +132,7 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 			[]SendOnlyNode[types.ID, SendTxRPCClient[any, *sendTxResult]]{newNode(t, errors.New("unexpected error"), nil)})
 
 		result := txSender.SendTransaction(tests.Context(t), nil)
-		require.ErrorIs(t, result.TxError(), expectedError)
+		require.ErrorIs(t, result.Error(), expectedError)
 		require.Equal(t, Fatal, result.Code())
 		tests.AssertLogCountEventually(t, observedLogs, "Node sent transaction", 2)
 		tests.AssertLogCountEventually(t, observedLogs, "RPC returned error", 2)
@@ -150,7 +147,7 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 			[]SendOnlyNode[types.ID, SendTxRPCClient[any, *sendTxResult]]{newNode(t, errors.New("unexpected error"), nil)})
 
 		result := txSender.SendTransaction(tests.Context(t), nil)
-		require.NoError(t, result.TxError())
+		require.NoError(t, result.Error())
 		require.Equal(t, Successful, result.Code())
 		tests.AssertLogCountEventually(t, observedLogs, "Node sent transaction", 2)
 		tests.AssertLogCountEventually(t, observedLogs, "RPC returned error", 1)
@@ -173,7 +170,7 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 		requestContext, cancel := context.WithCancel(tests.Context(t))
 		cancel()
 		result := txSender.SendTransaction(requestContext, nil)
-		require.EqualError(t, result.TxError(), "context canceled")
+		require.EqualError(t, result.Error(), "context canceled")
 	})
 
 	t.Run("Soft timeout stops results collection", func(t *testing.T) {
@@ -193,7 +190,7 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 
 		_, txSender := newTestTransactionSender(t, chainID, lggr, []Node[types.ID, SendTxRPCClient[any, *sendTxResult]]{fastNode, slowNode}, nil)
 		result := txSender.SendTransaction(tests.Context(t), nil)
-		require.EqualError(t, result.TxError(), expectedError.Error())
+		require.EqualError(t, result.Error(), expectedError.Error())
 	})
 	t.Run("Returns success without waiting for the rest of the nodes", func(t *testing.T) {
 		chainID := types.RandomID()
@@ -281,7 +278,7 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 			[]SendOnlyNode[types.ID, SendTxRPCClient[any, *sendTxResult]]{sendOnly})
 
 		result := txSender.SendTransaction(tests.Context(t), nil)
-		assert.EqualError(t, result.TxError(), ErroringNodeError.Error())
+		assert.EqualError(t, result.Error(), ErroringNodeError.Error())
 	})
 
 	t.Run("Transaction success even if one of the nodes is unhealthy", func(t *testing.T) {
@@ -391,7 +388,7 @@ func TestTransactionSender_SendTransaction_aggregateTxResults(t *testing.T) {
 				if testCase.ExpectedTxResult == "" {
 					require.NoError(t, err)
 				} else {
-					require.EqualError(t, txResult.TxError(), testCase.ExpectedTxResult)
+					require.EqualError(t, txResult.Error(), testCase.ExpectedTxResult)
 				}
 			}
 
