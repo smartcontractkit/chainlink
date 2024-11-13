@@ -62,6 +62,7 @@ env:
   RUN_WITH_RACE: ${{ fromJson(inputs.extraArgs)['run_with_race'] || 'true' }} # Whether to run tests with -race flag.
   ALL_TESTS_RUNNER: ${{ fromJson(inputs.extraArgs)['all_tests_runner'] || 'ubuntu22.04-32cores-128GB' }} # The runner to use for running all tests.
   DEFAULT_RUNNER: 'ubuntu-latest' # The default runner to use for running tests.
+  UPLOAD_ALL_TEST_RESULTS: ${{ fromJson(inputs.extraArgs)['upload_all_test_results'] || 'false' }} # Whether to upload all test results as artifacts.
 
 jobs:
   get-tests:
@@ -354,12 +355,12 @@ jobs:
           retention-days: 7        
 
       - name: Upload All Test Results as Artifact
-        if: ${{ fromJson(steps.set_test_results.outputs.all_tests_count) > 0 }}
+        if: ${{ fromJson(steps.set_test_results.outputs.all_tests_count) > 0 && env.UPLOAD_ALL_TEST_RESULTS == 'true' }}
         uses: actions/upload-artifact@v4.4.3
         with:
           path: all_tests.json
           name: all-test-results.json
-          retention-days: 1              
+          retention-days: 7
 
       - name: Create ASCII table with failed test results
         if: ${{ fromJson(steps.set_test_results.outputs.failed_tests_count) > 0 }}
@@ -444,7 +445,7 @@ jobs:
         run: |
           threshold_percentage=$(echo "${{ inputs.runThreshold }}" | awk '{printf "%.0f", $1 * 100}')
           echo "### Failed Tests :x:" >> $GITHUB_STEP_SUMMARY
-          echo "Ran ${{ steps.set_test_results.outputs.all_tests_count }} unique tests. Below are the tests identified as flaky, with a pass ratio lower than the ${threshold_percentage}% threshold:" >> $GITHUB_STEP_SUMMARY
+          echo "Ran ${{ steps.set_test_results.outputs.all_tests_count }} unique tests ${{ steps.calculate_test_repeat_count.outputs.test_repeat_count }} times. Below are the tests identified as flaky, with a pass ratio lower than the ${threshold_percentage}% threshold:" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           cat failed_tests_ascii.txt >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
@@ -454,7 +455,7 @@ jobs:
         if: ${{ fromJson(steps.set_test_results.outputs.all_tests_count) > 0 && fromJson(steps.set_test_results.outputs.failed_tests_count) == 0 }}
         run: |
           echo "### All Tests Passed! :white_check_mark:" >> $GITHUB_STEP_SUMMARY
-          echo "Ran \`${{ steps.set_test_results.outputs.all_tests_count }}\` unique tests and found no flakes." >> $GITHUB_STEP_SUMMARY
+          echo "Ran \`${{ steps.set_test_results.outputs.all_tests_count }}\` unique tests ${{ steps.calculate_test_repeat_count.outputs.test_repeat_count }} times and found no flakes." >> $GITHUB_STEP_SUMMARY
 
       - name: Append Additional Info to GitHub Summary
         if: ${{ fromJson(steps.set_test_results.outputs.all_tests_count) > 0 }}
