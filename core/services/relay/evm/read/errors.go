@@ -44,8 +44,11 @@ func (e ErrRead) Error() string {
 	var builder strings.Builder
 
 	builder.WriteString("[read error]")
-	builder.WriteString(fmt.Sprintf(" batch: %t;", e.Batch))
 	builder.WriteString(fmt.Sprintf(" err: %s;", e.Err.Error()))
+
+	if e.Batch {
+		builder.WriteString(" batch;")
+	}
 
 	if e.Detail != nil {
 		builder.WriteString(fmt.Sprintf(" block: %s;", e.Detail.Block))
