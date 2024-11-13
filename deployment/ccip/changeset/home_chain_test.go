@@ -56,7 +56,7 @@ func TestDeployHomeChain(t *testing.T) {
 	require.Equal(t, capRegSnap.Nops, []v1_0.NopView{
 		{
 			Admin: e.Chains[homeChainSel].DeployerKey.From,
-			Name:  "NodeOperatorFAIL",
+			Name:  "NodeOperator",
 		},
 	})
 	require.Len(t, capRegSnap.Nodes, len(p2pIds))
