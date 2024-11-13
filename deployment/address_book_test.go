@@ -12,7 +12,7 @@ import (
 
 func TestAddressBook_Save(t *testing.T) {
 	ab := NewMemoryAddressBook()
-	onRamp100 := NewTypeAndVersion("OnRamp", Version1_0_0)
+	onRamp100 := NewTypeAndVersion("FAIL", Version1_0_0)
 	onRamp110 := NewTypeAndVersion("OnRamp", Version1_1_0)
 	addr1 := common.HexToAddress("0x1").String()
 	addr2 := common.HexToAddress("0x2").String()
