@@ -44,7 +44,7 @@ type RegistrySyncer interface {
 
 type registrySyncer struct {
 	services.StateMachine
-	metrics              syncerMetricLabeler
+	metrics              *syncerMetricLabeler
 	stopCh               services.StopChan
 	launchers            []Launcher
 	reader               types.ContractReader
@@ -76,7 +76,14 @@ func New(
 	registryAddress string,
 	orm ORM,
 ) (RegistrySyncer, error) {
+
+	metricLabeler, err := newSyncerMetricLabeler()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create syncer metric labeler: %w", err)
+	}
+
 	return &registrySyncer{
+		metrics:    metricLabeler,
 		stopCh:     make(services.StopChan),
 		updateChan: make(chan *LocalRegistry),
 		lggr:       lggr.Named("RegistrySyncer"),
@@ -131,11 +138,6 @@ func newReader(ctx context.Context, lggr logger.Logger, relayer ContractReaderFa
 
 func (s *registrySyncer) Start(ctx context.Context) error {
 	return s.StartOnce("RegistrySyncer", func() error {
-		err := initMonitoringResources()
-		if err != nil {
-			return err
-		}
-
 		s.wg.Add(1)
 		go func() {
 			defer s.wg.Done()
