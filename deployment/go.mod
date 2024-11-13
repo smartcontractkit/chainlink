@@ -35,6 +35,7 @@ require (
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/exp v0.0.0-20241009180824-f66d83c29e7c
+	golang.org/x/oauth2 v0.23.0
 	golang.org/x/sync v0.8.0
 	google.golang.org/grpc v1.67.1
 	google.golang.org/protobuf v1.35.1
@@ -490,7 +491,6 @@ require (
 	golang.org/x/crypto v0.28.0 // indirect
 	golang.org/x/mod v0.21.0 // indirect
 	golang.org/x/net v0.30.0 // indirect
-	golang.org/x/oauth2 v0.23.0 // indirect
 	golang.org/x/sys v0.26.0 // indirect
 	golang.org/x/term v0.25.0 // indirect
 	golang.org/x/text v0.19.0 // indirect
