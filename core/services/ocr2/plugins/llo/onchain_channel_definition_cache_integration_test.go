@@ -6,13 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/rand/v2"
+	"math/rand"
 	"net/http"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -132,14 +132,16 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 	orm := llo.NewChainScopedORM(db, ETHMainnetChainSelector)
 
 	steve := testutils.MustNewSimTransactor(t) // config contract deployer and owner
-	genesisData := core.GenesisAlloc{steve.From: {Balance: assets.Ether(1000).ToInt()}}
-	backend := cltest.NewSimulatedBackend(t, genesisData, uint32(ethconfig.Defaults.Miner.GasCeil))
+	genesisData := types.GenesisAlloc{steve.From: {Balance: assets.Ether(1000).ToInt()}}
+	backend := cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
 	backend.Commit() // ensure starting block number at least 1
 
 	ethClient := client.NewSimulatedBackendClient(t, backend, testutils.SimulatedChainID)
 
-	configStoreAddress, _, configStoreContract, err := channel_config_store.DeployChannelConfigStore(steve, backend)
+	configStoreAddress, _, configStoreContract, err := channel_config_store.DeployChannelConfigStore(steve, backend.Client())
 	require.NoError(t, err)
+
+	backend.Commit()
 
 	lpOpts := logpoller.Opts{
 		PollPeriod:               100 * time.Millisecond,

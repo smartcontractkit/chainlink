@@ -2,6 +2,7 @@ package framework
 
 import (
 	"context"
+	"testing"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -11,8 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
-
-	"testing"
 
 	"github.com/stretchr/testify/require"
 )
@@ -27,7 +26,7 @@ type CapabilitiesRegistry struct {
 }
 
 func NewCapabilitiesRegistry(ctx context.Context, t *testing.T, backend *EthBlockchain) *CapabilitiesRegistry {
-	addr, _, contract, err := kcr.DeployCapabilitiesRegistry(backend.transactionOpts, backend)
+	addr, _, contract, err := kcr.DeployCapabilitiesRegistry(backend.transactionOpts, backend.Client())
 	require.NoError(t, err)
 	backend.Commit()
 
@@ -40,7 +39,7 @@ func NewCapabilitiesRegistry(ctx context.Context, t *testing.T, backend *EthBloc
 	require.NoError(t, err)
 	blockHash := backend.Commit()
 
-	logs, err := backend.FilterLogs(ctx, ethereum.FilterQuery{
+	logs, err := backend.Client().FilterLogs(ctx, ethereum.FilterQuery{
 		BlockHash: &blockHash,
 		FromBlock: nil,
 		ToBlock:   nil,

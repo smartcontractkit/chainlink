@@ -52,14 +52,23 @@ var _ commontypes.Head[common.Hash] = &Head{}
 var _ htrktypes.Head[common.Hash, *big.Int] = &Head{}
 
 // NewHead returns a Head instance.
-func NewHead(number *big.Int, blockHash common.Hash, parentHash common.Hash, timestamp uint64, chainID *ubig.Big) Head {
+func NewHead(number *big.Int, blockHash common.Hash, parentHash common.Hash, chainID *ubig.Big) Head {
 	return Head{
 		Number:     number.Int64(),
 		Hash:       blockHash,
 		ParentHash: parentHash,
-		Timestamp:  time.Unix(int64(timestamp), 0),
+		Timestamp:  time.Now(),
 		EVMChainID: chainID,
 	}
+}
+
+func (h *Head) SetFromHeader(header *types.Header) {
+	h.Hash = header.Hash()
+	h.Number = header.Number.Int64()
+	h.ParentHash = header.ParentHash
+	//nolint:gosec // G115
+	h.Timestamp = time.Unix(int64(header.Time), 0)
+	h.Difficulty = header.Difficulty
 }
 
 func (h *Head) BlockNumber() int64 {
@@ -373,8 +382,9 @@ func (b *Block) UnmarshalJSON(data []byte) error {
 		Hash:          bi.Hash,
 		ParentHash:    bi.ParentHash,
 		BaseFeePerGas: (*assets.Wei)(bi.BaseFeePerGas),
-		Timestamp:     time.Unix((int64((uint64)(bi.Timestamp))), 0),
-		Transactions:  fromInternalTxnSlice(bi.Transactions),
+		//nolint:gosec // G115
+		Timestamp:    time.Unix(int64(bi.Timestamp), 0),
+		Transactions: fromInternalTxnSlice(bi.Transactions),
 	}
 	return nil
 }

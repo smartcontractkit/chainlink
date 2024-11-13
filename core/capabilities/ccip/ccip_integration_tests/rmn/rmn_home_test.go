@@ -40,7 +40,7 @@ func TestRMNHomeReader_GetRMNNodesInfo(t *testing.T) {
 	)
 
 	// ================================Deploy and configure RMNHome===============================
-	rmnHomeAddress, _, rmnHome, err := rmn_home.DeployRMNHome(uni.Transactor, uni.Backend)
+	rmnHomeAddress, _, rmnHome, err := rmn_home.DeployRMNHome(uni.Transactor, uni.Backend.Client())
 	require.NoError(t, err)
 	uni.Backend.Commit()
 
