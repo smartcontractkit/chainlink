@@ -6,12 +6,12 @@ import {BurnMintERC20Setup} from "./BurnMintERC20Setup.t.sol";
 
 import {Strings} from "../../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/Strings.sol";
 
-contract BurnMintERC20burnFromAlias is BurnMintERC20Setup {
+contract BurnMintERC20_burnFromAlias is BurnMintERC20Setup {
   function setUp() public virtual override {
     BurnMintERC20Setup.setUp();
   }
 
-  function test_burn_Success() public {
+  function test_burn() public {
     s_burnMintERC20.approve(s_mockPool, s_amount);
 
     changePrank(s_mockPool);
@@ -23,7 +23,7 @@ contract BurnMintERC20burnFromAlias is BurnMintERC20Setup {
 
   // Reverts
 
-  function test_burn_SenderNotBurner_Reverts() public {
+  function test_burn_RevertWhen_SenderNotBurner() public {
     // OZ Access Control v4.8.3 inherited by BurnMintERC20 does not use custom errors, but the revert message is still useful
     // and should be checked
     vm.expectRevert(
@@ -38,7 +38,7 @@ contract BurnMintERC20burnFromAlias is BurnMintERC20Setup {
     s_burnMintERC20.burn(OWNER, s_amount);
   }
 
-  function test_burn_InsufficientAllowance_Reverts() public {
+  function test_burn_RevertWhen_InsufficientAllowance() public {
     changePrank(s_mockPool);
 
     vm.expectRevert("ERC20: insufficient allowance");
@@ -46,7 +46,7 @@ contract BurnMintERC20burnFromAlias is BurnMintERC20Setup {
     s_burnMintERC20.burn(OWNER, s_amount);
   }
 
-  function test_burn_ExceedsBalance_Reverts() public {
+  function test_burn_RevertWhen_ExceedsBalance() public {
     s_burnMintERC20.approve(s_mockPool, s_amount * 2);
 
     changePrank(s_mockPool);

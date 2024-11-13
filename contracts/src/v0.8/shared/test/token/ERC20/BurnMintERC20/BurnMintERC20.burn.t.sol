@@ -7,8 +7,8 @@ import {BurnMintERC20Setup} from "./BurnMintERC20Setup.t.sol";
 import {IERC20} from "../../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 import {Strings} from "../../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/Strings.sol";
 
-contract BurnMintERC20burn is BurnMintERC20Setup {
-  function test_BasicBurn_Success() public {
+contract BurnMintERC20_burn is BurnMintERC20Setup {
+  function test_BasicBurn() public {
     s_burnMintERC20.grantRole(s_burnMintERC20.BURNER_ROLE(), OWNER);
     deal(address(s_burnMintERC20), OWNER, s_amount);
 
@@ -22,7 +22,7 @@ contract BurnMintERC20burn is BurnMintERC20Setup {
 
   // Revert
 
-  function test_burn_SenderNotBurner_Reverts() public {
+  function test_burn_RevertWhen_SenderNotBurner() public {
     // OZ Access Control v4.8.3 inherited by BurnMintERC20 does not use custom errors, but the revert message is still useful
     // and should be checked
     vm.expectRevert(
@@ -37,7 +37,7 @@ contract BurnMintERC20burn is BurnMintERC20Setup {
     s_burnMintERC20.burnFrom(STRANGER, s_amount);
   }
 
-  function test_burn_ExceedsBalance_Reverts() public {
+  function test_burn_RevertWhen_ExceedsBalance() public {
     changePrank(s_mockPool);
 
     vm.expectRevert("ERC20: burn amount exceeds balance");
@@ -45,7 +45,7 @@ contract BurnMintERC20burn is BurnMintERC20Setup {
     s_burnMintERC20.burn(s_amount * 2);
   }
 
-  function test_burn_BurnFromZeroAddress_Reverts() public {
+  function test_burn_RevertWhen_BurnFromZeroAddress() public {
     s_burnMintERC20.grantRole(s_burnMintERC20.BURNER_ROLE(), address(0));
     changePrank(address(0));
 

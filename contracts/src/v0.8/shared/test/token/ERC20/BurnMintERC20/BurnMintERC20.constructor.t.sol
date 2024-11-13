@@ -4,8 +4,8 @@ pragma solidity 0.8.24;
 import {BurnMintERC20Setup} from "./BurnMintERC20Setup.t.sol";
 import {BurnMintERC20} from "../../../../token/ERC20/BurnMintERC20.sol";
 
-contract BurnMintERC20constructor is BurnMintERC20Setup {
-  function test_Constructor_Success() public {
+contract BurnMintERC20_constructor is BurnMintERC20Setup {
+  function test_Constructor() public {
     vm.startPrank(s_alice);
 
     string memory name = "Chainlink token v2";

@@ -7,7 +7,7 @@ import {BurnMintERC20Setup} from "./BurnMintERC20Setup.t.sol";
 import {IERC20} from "../../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 import {Strings} from "../../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/Strings.sol";
 
-contract BurnMintERC20mint is BurnMintERC20Setup {
+contract BurnMintERC20_mint is BurnMintERC20Setup {
   function test_mint() public {
     uint256 balancePre = s_burnMintERC20.balanceOf(OWNER);
 
