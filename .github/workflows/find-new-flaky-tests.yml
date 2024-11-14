@@ -194,7 +194,7 @@ jobs:
     name: Run Tests
     needs: get-tests
     runs-on: ${{ matrix.runs_on }}
-    if: ${{ needs.get-tests.outputs.matrix != '' }}
+    if: ${{ needs.get-tests.outputs.matrix != '' && needs.get-tests.outputs.matrix != '[]' }}
     strategy:
       fail-fast: false
       matrix: 
