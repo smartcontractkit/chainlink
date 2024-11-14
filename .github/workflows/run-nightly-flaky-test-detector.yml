@@ -16,6 +16,6 @@ jobs:
       runThreshold: '1'
       runAllTests: 'true'
       # slackNotificationAfterTestsChannelId: 'C07TRF65CNS' #flaky-test-detector-notifications
-      extraArgs: '{ "skipped_tests": "TestChainComponents", "test_repeat_count": "5", "all_tests_runner_count": "2" }'
+      extraArgs: '{ "skipped_tests": "TestChainComponents", "test_repeat_count": "5", "all_tests_runner_count": "3" }'
     secrets:
       SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
