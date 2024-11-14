@@ -342,7 +342,6 @@ func (c *Compute) createFetcher() func(ctx context.Context, req *wasmpb.FetchReq
 			platform.KeyWorkflowID, req.Metadata.WorkflowId,
 			platform.KeyWorkflowName, req.Metadata.WorkflowName,
 			platform.KeyWorkflowOwner, req.Metadata.WorkflowOwner,
-			platform.KeyWorkflowExecutionID, req.Metadata.WorkflowExecutionId,
 		).incrementHTTPRequestCounter(ctx)
 
 		// Only log if the response is not in the 200 range
