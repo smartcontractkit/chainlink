@@ -3,6 +3,7 @@ package changeset
 import (
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/test-go/testify/require"
@@ -143,4 +144,12 @@ func runFeeboostTestCase(tc feeboostTestCase) {
 
 	ccipdeployment.ConfirmCommitForAllWithExpectedSeqNums(tc.t, tc.deployedEnv.Env, tc.onchainState, expectedSeqNum, startBlocks)
 	ccipdeployment.ConfirmExecWithSeqNrForAll(tc.t, tc.deployedEnv.Env, tc.onchainState, expectedSeqNum, startBlocks)
+}
+
+func sleepAndReplay(t *testing.T, e ccipdeployment.DeployedEnv, sourceChain, destChain uint64) {
+	time.Sleep(30 * time.Second)
+	replayBlocks := make(map[uint64]uint64)
+	replayBlocks[sourceChain] = 1
+	replayBlocks[destChain] = 1
+	ccipdeployment.ReplayLogs(t, e.Env.Offchain, replayBlocks)
 }
