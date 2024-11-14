@@ -79,7 +79,7 @@ var _ capabilities.ActionCapability = (*Compute)(nil)
 type Compute struct {
 	stopCh  services.StopChan
 	log     logger.Logger
-	metrics computeMetricsLabeler
+	metrics *computeMetricsLabeler
 
 	// emitter is used to emit messages from the WASM module to a configured collector.
 	emitter  custmsg.MessageEmitter
@@ -248,11 +248,6 @@ func (c *Compute) Info(ctx context.Context) (capabilities.CapabilityInfo, error)
 func (c *Compute) Start(ctx context.Context) error {
 	c.modules.start()
 
-	err := initMonitoringResources()
-	if err != nil {
-		return fmt.Errorf("failed to initialize monitoring resources: %w", err)
-	}
-
 	c.wg.Add(c.numWorkers)
 	for i := 0; i < c.numWorkers; i++ {
 		go func() {
@@ -373,9 +368,13 @@ func NewAction(
 	handler *webapi.OutgoingConnectorHandler,
 	idGenerator func() string,
 	opts ...func(*Compute),
-) *Compute {
+) (*Compute, error) {
 	if config.NumWorkers == 0 {
 		config.NumWorkers = defaultNumWorkers
+	}
+	metricsLabeler, err := newComputeMetricsLabeler(metrics.NewLabeler().With("capability", CapabilityIDCompute))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create compute metrics labeler: %w", err)
 	}
 	var (
 		lggr    = logger.Named(log, "CustomCompute")
@@ -384,7 +383,7 @@ func NewAction(
 			stopCh:                   make(services.StopChan),
 			log:                      lggr,
 			emitter:                  labeler,
-			metrics:                  computeMetricsLabeler{metrics.NewLabeler().With("capability", CapabilityIDCompute)},
+			metrics:                  metricsLabeler,
 			registry:                 registry,
 			modules:                  newModuleCache(clockwork.NewRealClock(), 1*time.Minute, 10*time.Minute, 3),
 			transformer:              NewTransformer(lggr, labeler),
@@ -399,5 +398,5 @@ func NewAction(
 		opt(compute)
 	}
 
-	return compute
+	return compute, nil
 }
