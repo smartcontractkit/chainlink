@@ -202,6 +202,10 @@ func (c *client) CreateJobDistributor(ctx context.Context, in JobDistributorInpu
 		feedsManager := success.GetFeedsManager()
 		return feedsManager.GetId(), nil
 	}
+	if err, ok := response.GetCreateFeedsManager().(*generated.CreateFeedsManagerCreateFeedsManagerSingleFeedsManagerError); ok {
+		msg := err.GetMessage()
+		return "", fmt.Errorf("failed to create feeds manager: %v", msg)
+	}
 	return "", fmt.Errorf("failed to create feeds manager")
 }
 
