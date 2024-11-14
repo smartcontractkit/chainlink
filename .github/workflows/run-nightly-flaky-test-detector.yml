@@ -15,6 +15,7 @@ jobs:
       projectPath: '.'
       runThreshold: '1'
       runAllTests: 'true'
-      extraArgs: '{ "skipped_tests": "TestChainComponents", "test_repeat_count": "5", "all_tests_runner_count": "3", "min_pass_ratio": "0" }'
+      extraArgs: '{ "skipped_tests": "TestChainComponents", "test_repeat_count": "5", "all_tests_runner": "ubuntu22.04-32cores-128GB", "all_tests_runner_count": "3", "min_pass_ratio": "0" }'
     secrets:
       SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+    
