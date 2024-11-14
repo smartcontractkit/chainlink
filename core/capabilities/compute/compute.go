@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -337,7 +338,7 @@ func (c *Compute) createFetcher() func(ctx context.Context, req *wasmpb.FetchReq
 		}
 
 		c.metrics.with(
-			"status", fmt.Sprintf("%d", response.StatusCode),
+			"status", strconv.FormatUint(uint64(response.StatusCode), 10),
 			platform.KeyWorkflowID, req.Metadata.WorkflowId,
 			platform.KeyWorkflowName, req.Metadata.WorkflowName,
 			platform.KeyWorkflowOwner, req.Metadata.WorkflowOwner,
