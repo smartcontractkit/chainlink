@@ -325,20 +325,16 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
     uint32 prevAggregatorRoundId = aggregatorRoundId - 1;
     int256 prevAggregatorRoundAnswer = s_transmissions[prevAggregatorRoundId].answer;
 
-    (, bool sufficientGas) = CallWithExactGas._callWithExactGasEvenIfTargetIsNoContract(
-      abi.encodeWithSignature(
-        "validate(uint256,int256,uint256,int256)",
-        uint256(prevAggregatorRoundId),
-        prevAggregatorRoundAnswer,
-        uint256(aggregatorRoundId),
-        answer
+    (bool success, bool sufficientGas) = CallWithExactGas._callWithExactGasEvenIfTargetIsNoContract(
+      abi.encodeCall(
+        AggregatorValidatorInterface.validate,
+        (uint256(prevAggregatorRoundId), prevAggregatorRoundAnswer, uint256(aggregatorRoundId), answer)
       ),
       address(vc.validator),
       vc.gasLimit,
       CALL_WITH_EXACT_GAS_CUSHION
     );
 
-    // TODO add tests
     if (!sufficientGas) {
       revert InsufficientGas();
     }
@@ -480,7 +476,7 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
       }
 
       // in case it's the latest secondary round id, return it
-      if (round_ == s_hotVars.latestSecondaryRoundId || latestAggregatorRoundId - round_ == maxIterations) {
+      if (round_ == s_hotVars.latestSecondaryRoundId) {
         return round_;
       }
 

@@ -9,9 +9,12 @@ import {AccessControllerInterface} from "../../shared/interfaces/AccessControlle
 import {AggregatorValidatorInterface} from "../../shared/interfaces/AggregatorValidatorInterface.sol";
 import {LinkTokenInterface} from "../../shared/interfaces/LinkTokenInterface.sol";
 import {LinkToken} from "../../shared/token/ERC677/LinkToken.sol";
+
+import {AggregatorValidator} from "./testhelpers/AggregatorValidator.t.sol";
+import {DualAggregatorHelper} from "./testhelpers/DualAggregatorHelper.sol";
 import {ReportGenerator} from "./testhelpers/ReportGenerator.t.sol";
 
-contract DualAggregatorHarness is DualAggregator {
+contract DualAggregatorHarness is DualAggregatorHelper {
   constructor(
     LinkTokenInterface link,
     int192 minAnswer_,
@@ -24,7 +27,7 @@ contract DualAggregatorHarness is DualAggregator {
     uint32 cutoffTime_,
     uint32 maxSyncIterations_
   )
-    DualAggregator(
+    DualAggregatorHelper(
       link,
       minAnswer_,
       maxAnswer_,
@@ -37,38 +40,6 @@ contract DualAggregatorHarness is DualAggregator {
       maxSyncIterations_
     )
   {}
-
-  function exposed_configDigestFromConfigData(
-    uint256 chainId,
-    address contractAddress,
-    uint64 configCount,
-    address[] memory signers,
-    address[] memory transmitters,
-    uint8 f,
-    bytes memory onchainConfig,
-    uint64 offchainConfigVersion,
-    bytes memory offchainConfig
-  ) external pure returns (bytes32) {
-    return _configDigestFromConfigData(
-      chainId,
-      contractAddress,
-      configCount,
-      signers,
-      transmitters,
-      f,
-      onchainConfig,
-      offchainConfigVersion,
-      offchainConfig
-    );
-  }
-
-  function exposed_totalLinkDue() external view returns (uint256 linkDue) {
-    return _totalLinkDue();
-  }
-
-  function exposed_getSyncPrimaryRound() external view returns (uint80 roundId) {
-    return _getSyncPrimaryRound();
-  }
 
   // helper function to define the latest round ids
   function setLatestRoundIds(uint32 _latestAggregatorRoundId, uint32 _latestSecondaryRoundId) public {
@@ -179,7 +150,7 @@ contract ConfiguredDualAggregatorBaseTest is DualAggregatorBaseTest {
     }
 
     s_aggregator.setConfig(s_signers, s_transmitters, s_f, s_onchainConfig, s_offchainConfigVersion, s_offchainConfig);
-    s_configDigest = s_aggregator.exposed_configDigestFromConfigData(
+    s_configDigest = s_aggregator.configDigestFromConfigData(
       block.chainid,
       address(s_aggregator),
       1,
@@ -191,6 +162,30 @@ contract ConfiguredDualAggregatorBaseTest is DualAggregatorBaseTest {
       s_offchainConfig
     );
     s_reportGenerator = new ReportGenerator(s_aggregator, privateKeys, s_configDigest, s_f);
+  }
+}
+
+contract RoundDataDualAggregatorBaseTest is ConfiguredDualAggregatorBaseTest {
+  int192[] internal answers = [int192(10), int192(11), int192(12), int192(13), int192(14), int192(15)];
+  uint32[] internal observationsTimestamps = [uint32(1), uint32(6), uint32(11), uint32(16), uint32(21), uint32(26)];
+  uint32[] internal recordedTimestamps = [uint32(5), uint32(10), uint32(15), uint32(20), uint32(25), uint32(30)];
+
+  function setUp() public virtual override {
+    super.setUp();
+  }
+
+  function setDualAggregatorBase(
+    uint256 startingTime,
+    uint32 cutoffTime,
+    uint32 latestPrimaryRound,
+    uint32 latestSecondaryRound,
+    bool isLatestSecondary
+  ) public {
+    s_aggregator.injectTransmissions(answers, observationsTimestamps, recordedTimestamps);
+    s_aggregator.setLatestRoundIds(latestPrimaryRound, latestSecondaryRound);
+    s_aggregator.setCutoffTime(cutoffTime);
+    s_aggregator.isLatestSecondary(isLatestSecondary);
+    vm.warp(startingTime);
   }
 }
 
@@ -339,7 +334,7 @@ contract SetConfig is DualAggregatorBaseTest {
       transmitters[i] = vm.addr(uint160(2000 + i));
     }
 
-    bytes32 configDigest = s_aggregator.exposed_configDigestFromConfigData(
+    bytes32 configDigest = s_aggregator.configDigestFromConfigData(
       block.chainid,
       address(s_aggregator),
       1,
@@ -375,7 +370,7 @@ contract SetConfig is DualAggregatorBaseTest {
       transmitters[i] = vm.addr(uint160(2000 + i));
     }
 
-    bytes32 configDigest = s_aggregator.exposed_configDigestFromConfigData(
+    bytes32 configDigest = s_aggregator.configDigestFromConfigData(
       block.chainid,
       address(s_aggregator),
       1,
@@ -401,7 +396,7 @@ contract SetConfig is DualAggregatorBaseTest {
       newTransmitters[i] = transmitters[i];
     }
 
-    bytes32 newConfigDigest = s_aggregator.exposed_configDigestFromConfigData(
+    bytes32 newConfigDigest = s_aggregator.configDigestFromConfigData(
       block.chainid,
       address(s_aggregator),
       2,
@@ -473,6 +468,66 @@ contract GetValidatorConfig is DualAggregatorBaseTest {
     (AggregatorValidatorInterface returnedValidator, uint32 returnedGasLimit) = s_aggregator.getValidatorConfig();
     assertEq(address(returnedValidator), address(newValidator), "did not return the right validator");
     assertEq(returnedGasLimit, newGasLimit, "did not return the right gas limit");
+  }
+}
+
+contract ValidateAnswer is ConfiguredDualAggregatorBaseTest {
+  function test_RevertIf_InsufficientGas() public {
+    ReportGenerator.SignedReport memory signedReport1 =
+      s_reportGenerator.generateSignedReport(1, uint32(block.timestamp));
+    AggregatorValidator newValidator = new AggregatorValidator();
+
+    uint256 gas = gasleft();
+    s_aggregator.setValidatorConfig(newValidator, uint32(gas));
+
+    _changePrank(s_aggregator.getTransmitters()[0]);
+    vm.expectRevert(DualAggregator.InsufficientGas.selector);
+    s_aggregator.transmit(
+      signedReport1.reportContext, signedReport1.report, signedReport1.rs, signedReport1.ss, signedReport1.rawVs
+    );
+
+    (uint256 previousRoundId, int256 previousAnswer, uint256 currentRoundId, int256 currentAnswer) =
+      newValidator.getLatestValidatedValues();
+
+    vm.assertEq(previousRoundId, 0, "previous round id not zero");
+    vm.assertEq(previousAnswer, 0, "previous answer not zero");
+    vm.assertEq(currentRoundId, 0, "current round id not zero");
+    vm.assertEq(currentAnswer, 0, "current answer not zero");
+  }
+
+  function test_NotToRevert_ValidatorZeroAddress() public {
+    ReportGenerator.SignedReport memory signedReport1 =
+      s_reportGenerator.generateSignedReport(1, uint32(block.timestamp));
+    AggregatorValidatorInterface newValidator = AggregatorValidatorInterface(address(0));
+
+    uint256 gas = gasleft();
+    s_aggregator.setValidatorConfig(newValidator, uint32(gas));
+
+    _changePrank(s_aggregator.getTransmitters()[0]);
+    s_aggregator.transmit(
+      signedReport1.reportContext, signedReport1.report, signedReport1.rs, signedReport1.ss, signedReport1.rawVs
+    );
+  }
+
+  function test_Success_ValidateAnswer() public {
+    ReportGenerator.SignedReport memory signedReport1 =
+      s_reportGenerator.generateSignedReport(1, uint32(block.timestamp));
+
+    AggregatorValidator newValidator = new AggregatorValidator();
+    s_aggregator.setValidatorConfig(newValidator, 21_000_000);
+
+    _changePrank(s_aggregator.getTransmitters()[0]);
+    s_aggregator.transmit(
+      signedReport1.reportContext, signedReport1.report, signedReport1.rs, signedReport1.ss, signedReport1.rawVs
+    );
+
+    (uint256 previousRoundId, int256 previousAnswer, uint256 currentRoundId, int256 currentAnswer) =
+      newValidator.getLatestValidatedValues();
+
+    vm.assertEq(previousRoundId, 0, "previous round id not the same");
+    vm.assertEq(previousAnswer, 0, "previous answer not the same");
+    vm.assertEq(currentRoundId, 1, "current round id not the same");
+    vm.assertEq(currentAnswer, 1, "current answer not the same");
   }
 }
 
@@ -1404,7 +1459,7 @@ contract LatestConfigDigestAndEpoch is TransmittedDualAggregatorBaseTest {
     assertEq(scanLogs, false, "scanLogs was not correct");
     assertEq(
       configDigest,
-      s_aggregator.exposed_configDigestFromConfigData(
+      s_aggregator.configDigestFromConfigData(
         block.chainid,
         address(s_aggregator),
         1,
@@ -1418,30 +1473,6 @@ contract LatestConfigDigestAndEpoch is TransmittedDualAggregatorBaseTest {
       "configDigest incorrect"
     );
     assertEq(epoch, 0, "epoch not correct");
-  }
-}
-
-contract RoundDataDualAggregatorBaseTest is ConfiguredDualAggregatorBaseTest {
-  int192[] internal answers = [int192(10), int192(11), int192(12), int192(13), int192(14), int192(15)];
-  uint32[] internal observationsTimestamps = [uint32(1), uint32(6), uint32(11), uint32(16), uint32(21), uint32(26)];
-  uint32[] internal recordedTimestamps = [uint32(5), uint32(10), uint32(15), uint32(20), uint32(25), uint32(30)];
-
-  function setUp() public virtual override {
-    super.setUp();
-  }
-
-  function setDualAggregatorBase(
-    uint256 startingTime,
-    uint32 cutoffTime,
-    uint32 latestPrimaryRound,
-    uint32 latestSecondaryRound,
-    bool isLatestSecondary
-  ) public {
-    s_aggregator.injectTransmissions(answers, observationsTimestamps, recordedTimestamps);
-    s_aggregator.setLatestRoundIds(latestPrimaryRound, latestSecondaryRound);
-    s_aggregator.setCutoffTime(cutoffTime);
-    s_aggregator.isLatestSecondary(isLatestSecondary);
-    vm.warp(startingTime);
   }
 }
 
@@ -2140,20 +2171,20 @@ contract TypeAndVersion is DualAggregatorBaseTest {
 contract GetSyncPrimaryRound is RoundDataDualAggregatorBaseTest {
   // test with 0 reports transmitted
   function test_zeroTransmissions() public view {
-    assertEq(s_aggregator.exposed_getSyncPrimaryRound(), 0);
+    assertEq(s_aggregator.getSyncPrimaryRound(), 0);
   }
 
   // test with cutoff time reaching the secondary round id
   function test_returnSecondaryRoundId() public {
     setDualAggregatorBase(30, 20, 6, 2, false);
-    assertEq(s_aggregator.exposed_getSyncPrimaryRound(), 2);
+    assertEq(s_aggregator.getSyncPrimaryRound(), 2);
   }
 
   // test with cutoff time condition matching in round id 4
   function test_returnSyncFourthRoundId() public {
     setDualAggregatorBase(30, 9, 6, 2, false);
 
-    assertEq(s_aggregator.exposed_getSyncPrimaryRound(), 4);
+    assertEq(s_aggregator.getSyncPrimaryRound(), 4);
   }
 
   // test with cutoff time condition matching in the latest round id
@@ -2161,6 +2192,6 @@ contract GetSyncPrimaryRound is RoundDataDualAggregatorBaseTest {
     setDualAggregatorBase(50, 10, 6, 2, false);
 
     vm.warp(50);
-    assertEq(s_aggregator.exposed_getSyncPrimaryRound(), 6);
+    assertEq(s_aggregator.getSyncPrimaryRound(), 6);
   }
 }
