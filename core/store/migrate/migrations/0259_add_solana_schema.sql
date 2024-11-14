@@ -19,17 +19,6 @@ CREATE TABLE solana.log_poller_filters (
     max_logs_kept BIGINT NOT NULL DEFAULT 0 -- same as retention, no need to implement yet
 );
 
--- This generates a unique BIGINT for the log_poller_filters table from hashing (name, chain_id, address, event_sig, subkey_paths).
--- Using an ordinary multi-column index on 5 columns would require a lot of extra storage space.
--- Note for updating this if and when we drop support for postgresql 12 & 13: hashrecordextended() can be used directly in postgresql 14, avoiding the need for a helper function.
--- The helper function is necessary only for the IMMUTABLE keyword.
-CREATE OR REPLACE FUNCTION solana.f_log_poller_filter_hash(name TEXT, chain_id TEXT, address BYTEA, event_sig BYTEA, subkey_paths json)
-    RETURNS BIGINT
-    LANGUAGE SQL IMMUTABLE COST 25 PARALLEL SAFE AS 'SELECT hashtextextended(textin(record_out(($1,$2,$3,$4,$5))), 0)';
-
-CREATE UNIQUE INDEX IF NOT EXISTS solana_log_poller_filters_hash_key
-    ON solana.log_poller_filters (solana.f_log_poller_filter_hash(name, chain_id, address, event_sig, subkey_paths));
-
 CREATE UNIQUE INDEX IF NOT EXISTS solana_log_poller_filter_name ON solana.log_poller_filters (name);
 
 CREATE TABLE solana.logs (
@@ -75,8 +64,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS solana_logs_idx_chain_filter_block_logindex ON
 
 DROP TABLE IF EXISTS solana.logs;
 DROP TABLE IF EXISTS solana.log_poller_filters;
-
-DROP FUNCTION IF EXISTS solana.f_log_poller_filter_hash(name TEXT, chain_id TEXT, address BYTEA, event_sig BYTEA, subkey_paths json);
 
 DROP SCHEMA solana;
 
