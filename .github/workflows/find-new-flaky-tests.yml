@@ -100,7 +100,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@6e5d37c30f7d9bc82805a197731854dffa55d8dc
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@969896e9122482f1ebf9a7ece452a405d50d574a
 
       - name: Find new or updated test packages
         if: ${{ inputs.runAllTests == false }}
@@ -258,11 +258,11 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@6e5d37c30f7d9bc82805a197731854dffa55d8dc
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@969896e9122482f1ebf9a7ece452a405d50d574a
 
       - name: Run tests with flakeguard
         shell: bash
-        run: flakeguard run --project-path=${{ inputs.projectPath }} --test-packages=${{ matrix.testPackages }} --run-count=${{ env.TEST_REPEAT_COUNT }} --threshold=${{ inputs.runThreshold }} --race=${{ env.RUN_WITH_RACE }} --skip-tests=${{ env.SKIPPED_TESTS }} --print-failed-tests=${{ env.PRINT_FAILED_TESTS }} --output-json=test-result.json
+        run: flakeguard run --project-path=${{ inputs.projectPath }} --test-packages=${{ matrix.testPackages }} --run-count=${{ env.TEST_REPEAT_COUNT }} --min-pass-ratio=${{ env.MIN_PASS_RATIO }} --threshold=${{ inputs.runThreshold }} --race=${{ env.RUN_WITH_RACE }} --skip-tests=${{ env.SKIPPED_TESTS }} --print-failed-tests=${{ env.PRINT_FAILED_TESTS }} --output-json=test-result.json
         env:
           CL_DATABASE_URL: ${{ env.DB_URL }}
 
@@ -300,7 +300,7 @@ jobs:
             
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@6e5d37c30f7d9bc82805a197731854dffa55d8dc
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@969896e9122482f1ebf9a7ece452a405d50d574a
                 
       - name: Set combined test results
         id: set_test_results
