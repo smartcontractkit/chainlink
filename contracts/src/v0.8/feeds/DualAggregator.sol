@@ -325,7 +325,7 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
     uint32 prevAggregatorRoundId = aggregatorRoundId - 1;
     int256 prevAggregatorRoundAnswer = s_transmissions[prevAggregatorRoundId].answer;
 
-    (bool success, bool sufficientGas) = CallWithExactGas._callWithExactGasEvenIfTargetIsNoContract(
+    (, bool sufficientGas) = CallWithExactGas._callWithExactGasEvenIfTargetIsNoContract(
       abi.encodeCall(
         AggregatorValidatorInterface.validate,
         (uint256(prevAggregatorRoundId), prevAggregatorRoundAnswer, uint256(aggregatorRoundId), answer)
