@@ -19,10 +19,6 @@ contract WorkflowRegistry_deleteWorkflow is WorkflowRegistrySetup {
     s_registry.deleteWorkflow(s_validWorkflowKey);
   }
 
-  modifier whenTheRegistryIsNotLocked() {
-    _;
-  }
-
   // whenTheRegistryIsNotLocked
   function test_RevertWhen_TheCallerIsNotTheWorkflowOwner() external {
     // Register a workflow first.
@@ -35,10 +31,6 @@ contract WorkflowRegistry_deleteWorkflow is WorkflowRegistrySetup {
     vm.prank(s_unauthorizedAddress);
     vm.expectRevert(abi.encodeWithSelector(WorkflowRegistry.CallerIsNotWorkflowOwner.selector, s_unauthorizedAddress));
     s_registry.deleteWorkflow(s_validWorkflowKey);
-  }
-
-  modifier whenTheCallerIsTheWorkflowOwner() {
-    _;
   }
 
   // whenTheRegistryIsNotLocked whenTheCallerIsTheWorkflowOwner

@@ -70,7 +70,9 @@ contract WorkflowRegistrySetup is Test {
   }
 
   // Helper function to remove an address from the authorized addresses list
-  function _removeAddressFromAuthorizedAddresses(address addressToRemove) internal {
+  function _removeAddressFromAuthorizedAddresses(
+    address addressToRemove
+  ) internal {
     address[] memory addressesToRemove = new address[](1);
     addressesToRemove[0] = addressToRemove;
     vm.prank(s_owner);
@@ -78,7 +80,9 @@ contract WorkflowRegistrySetup is Test {
   }
 
   // Helper function to remove a DON from the allowed DONs list
-  function _removeDONFromAllowedDONs(uint32 donIDToRemove) internal {
+  function _removeDONFromAllowedDONs(
+    uint32 donIDToRemove
+  ) internal {
     uint32[] memory donIDsToRemove = new uint32[](1);
     donIDsToRemove[0] = donIDToRemove;
     vm.prank(s_owner);
@@ -86,7 +90,9 @@ contract WorkflowRegistrySetup is Test {
   }
 
   // Helper function to add an address to the authorized addresses list
-  function _addAddressToAuthorizedAddresses(address addressToAdd) internal {
+  function _addAddressToAuthorizedAddresses(
+    address addressToAdd
+  ) internal {
     address[] memory addressesToAdd = new address[](1);
     addressesToAdd[0] = addressToAdd;
     vm.prank(s_owner);

@@ -13,7 +13,7 @@ contract WorkflowRegistry_activateWorkflow is WorkflowRegistrySetup {
     vm.prank(s_owner);
     s_registry.lockRegistry();
 
-    // Attempt to delete the workflow now after the registry is locked.
+    // Attempt to activate the workflow now after the registry is locked.
     vm.prank(s_authorizedAddress);
     vm.expectRevert(WorkflowRegistry.RegistryLocked.selector);
     s_registry.activateWorkflow(s_validWorkflowKey);

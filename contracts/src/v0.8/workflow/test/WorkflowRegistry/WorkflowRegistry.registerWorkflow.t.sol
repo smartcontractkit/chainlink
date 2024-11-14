@@ -63,8 +63,6 @@ contract WorkflowRegistry_registerWorkflow is WorkflowRegistrySetup {
     vm.expectRevert(
       abi.encodeWithSelector(WorkflowRegistry.WorkflowNameTooLong.selector, bytes(s_invalidWorkflowName).length, 64)
     );
-
-    // vm.expectRevert(abi.encodeWithSelector(WorkflowRegistry.WorkflowNameTooLong.selector, 128, 64));
     s_registry.registerWorkflow(
       s_invalidWorkflowName,
       s_validWorkflowID,
@@ -76,9 +74,7 @@ contract WorkflowRegistry_registerWorkflow is WorkflowRegistrySetup {
     );
   }
 
-  // whenTheCallerIsAnAuthorizedAddress
-  // whenTheRegistryIsNotLocked
-  // whenTheDonIDIsAllowed
+  // whenTheCallerIsAnAuthorizedAddress whenTheRegistryIsNotLocked whenTheDonIDIsAllowed
   function test_RevertWhen_TheBinaryURLIsTooLong() external {
     vm.prank(s_authorizedAddress);
 
@@ -110,9 +106,7 @@ contract WorkflowRegistry_registerWorkflow is WorkflowRegistrySetup {
     );
   }
 
-  // whenTheCallerIsAnAuthorizedAddress
-  // whenTheRegistryIsNotLocked
-  // whenTheDonIDIsAllowed
+  // whenTheCallerIsAnAuthorizedAddress whenTheRegistryIsNotLocked whenTheDonIDIsAllowed
   function test_RevertWhen_TheSecretsURLIsTooLong() external {
     vm.prank(s_authorizedAddress);
 
@@ -123,7 +117,7 @@ contract WorkflowRegistry_registerWorkflow is WorkflowRegistrySetup {
       s_allowedDonID,
       WorkflowRegistry.WorkflowStatus.ACTIVE,
       s_validBinaryURL,
-      s_validBinaryURL,
+      s_validConfigURL,
       s_invalidURL
     );
   }
@@ -139,7 +133,7 @@ contract WorkflowRegistry_registerWorkflow is WorkflowRegistrySetup {
       s_allowedDonID,
       WorkflowRegistry.WorkflowStatus.ACTIVE,
       s_validBinaryURL,
-      s_validBinaryURL,
+      s_validConfigURL,
       s_validSecretsURL
     );
   }
@@ -239,7 +233,7 @@ contract WorkflowRegistry_registerWorkflow is WorkflowRegistrySetup {
     // it should add the url + key to s_secretsHashToWorkflows when the secretsURL is not empty
     vm.expectEmit(true, true, false, true);
     emit WorkflowRegistry.WorkflowForceUpdateSecretsRequestedV1(
-      s_validSecretsURL, s_authorizedAddress, s_validWorkflowName
+      s_authorizedAddress, keccak256(abi.encodePacked(s_authorizedAddress, s_validSecretsURL)), s_validWorkflowName
     );
 
     // Call the function that should emit the event
