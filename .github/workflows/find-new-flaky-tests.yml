@@ -272,7 +272,7 @@ jobs:
         with:
           name: test-result-${{ needs.get-tests.outputs.workflow_id }}-${{ steps.gen_id.outputs.id }}
           path: test-result.json
-          retention-days: 7        
+          retention-days: 1   
 
   report:
     needs: [get-tests, run-tests]
