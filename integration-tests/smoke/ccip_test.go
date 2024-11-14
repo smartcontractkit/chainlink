@@ -19,6 +19,7 @@ import (
 )
 
 func TestInitialDeployOnLocal(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	ctx := ccdeploy.Context(t)
 	tenv, _, _ := testsetups.NewLocalDevEnvironment(t, lggr)
@@ -111,6 +112,7 @@ func TestInitialDeployOnLocal(t *testing.T) {
 }
 
 func TestTokenTransfer(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	ctx := ccdeploy.Context(t)
 	tenv, _, _ := testsetups.NewLocalDevEnvironment(t, lggr)
