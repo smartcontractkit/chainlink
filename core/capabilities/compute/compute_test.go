@@ -189,7 +189,6 @@ func TestComputeFetch(t *testing.T) {
 	th.connector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
 
 	msgID := strings.Join([]string{
-		workflowID,
 		workflowExecutionID,
 		ghcapabilities.MethodComputeAction,
 		validRequestUUID,
