@@ -27,6 +27,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 )
 
+const fifteenMinutesMs = 15 * 60 * 1000
+
 type stepRequest struct {
 	stepRef string
 	state   store.WorkflowExecution
@@ -624,7 +626,7 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 			// the async nature of the workflow engine would provide no guarantees.
 		}
 		logCustMsg(ctx, cma, "execution status: "+status, l)
-		return e.finishExecution(ctx, state.ExecutionID, status)
+		return e.finishExecution(ctx, cma, state.ExecutionID, status)
 	}
 
 	// Finally, since the workflow hasn't timed out or completed, let's
@@ -671,9 +673,12 @@ func (e *Engine) queueIfReady(state store.WorkflowExecution, step *step) {
 	}
 }
 
-func (e *Engine) finishExecution(ctx context.Context, executionID string, status string) error {
-	e.logger.With(platform.KeyWorkflowExecutionID, executionID, "status", status).Info("finishing execution")
+func (e *Engine) finishExecution(ctx context.Context, cma custmsg.MessageEmitter, executionID string, status string) error {
+	l := e.logger.With(platform.KeyWorkflowExecutionID, executionID, "status", status)
 	metrics := e.metrics.with("status", status)
+
+	l.Info("finishing execution")
+
 	err := e.executionStates.UpdateStatus(ctx, executionID, status)
 	if err != nil {
 		return err
@@ -690,6 +695,13 @@ func (e *Engine) finishExecution(ctx context.Context, executionID string, status
 	metrics.updateTotalWorkflowsGauge(ctx, e.stepUpdatesChMap.len())
 	metrics.updateWorkflowExecutionLatencyGauge(ctx, executionDuration)
 	metrics.incrementWorkflowExecutionFinishedCounter(ctx)
+
+	if executionDuration > fifteenMinutesMs {
+		logCustMsg(ctx, cma, fmt.Sprintf("execution duration exceeded 15 minutes: %d", executionDuration), l)
+		l.Warnf("execution duration exceeded 15 minutes: %d", executionDuration)
+	}
+	logCustMsg(ctx, cma, fmt.Sprintf("execution duration: %d", executionDuration), l)
+	l.Infof("execution duration: %d", executionDuration)
 	e.onExecutionFinished(executionID)
 	return nil
 }

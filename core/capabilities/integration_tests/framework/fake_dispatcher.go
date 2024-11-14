@@ -2,10 +2,14 @@ package framework
 
 import (
 	"context"
+	"encoding/hex"
+	"errors"
 	"fmt"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
@@ -16,11 +20,12 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// MockRageP2PNetwork backs the dispatchers created for each node in the test and effectively
+// FakeRageP2PNetwork backs the dispatchers created for each node in the test and effectively
 // acts as the rageP2P network layer.
-type MockRageP2PNetwork struct {
+type FakeRageP2PNetwork struct {
 	services.StateMachine
-	t *testing.T
+	t          *testing.T
+	readyError error
 
 	chanBufferSize int
 	stopCh         services.StopChan
@@ -28,34 +33,56 @@ type MockRageP2PNetwork struct {
 
 	peerIDToBrokerNode map[p2ptypes.PeerID]*brokerNode
 
+	capabilityRegistrations map[CapabilityRegistration]bool
+
 	mux sync.Mutex
 }
 
-func NewMockRageP2PNetwork(t *testing.T, chanBufferSize int) *MockRageP2PNetwork {
-	return &MockRageP2PNetwork{
-		t:                  t,
-		stopCh:             make(services.StopChan),
-		chanBufferSize:     chanBufferSize,
-		peerIDToBrokerNode: make(map[p2ptypes.PeerID]*brokerNode),
+func NewFakeRageP2PNetwork(ctx context.Context, t *testing.T, chanBufferSize int) *FakeRageP2PNetwork {
+	network := &FakeRageP2PNetwork{
+		t:                       t,
+		stopCh:                  make(services.StopChan),
+		chanBufferSize:          chanBufferSize,
+		peerIDToBrokerNode:      make(map[p2ptypes.PeerID]*brokerNode),
+		capabilityRegistrations: make(map[CapabilityRegistration]bool),
 	}
+
+	go func() {
+		<-ctx.Done()
+		network.SetReadyError(errors.New("context done"))
+	}()
+
+	return network
 }
 
-func (a *MockRageP2PNetwork) Start(ctx context.Context) error {
-	return a.StartOnce("MockRageP2PNetwork", func() error {
+func (a *FakeRageP2PNetwork) Start(ctx context.Context) error {
+	return a.StartOnce("FakeRageP2PNetwork", func() error {
 		return nil
 	})
 }
 
-func (a *MockRageP2PNetwork) Close() error {
-	return a.StopOnce("MockRageP2PNetwork", func() error {
+func (a *FakeRageP2PNetwork) Close() error {
+	return a.StopOnce("FakeRageP2PNetwork", func() error {
 		close(a.stopCh)
 		a.wg.Wait()
 		return nil
 	})
 }
 
+func (a *FakeRageP2PNetwork) Ready() error {
+	a.mux.Lock()
+	defer a.mux.Unlock()
+	return a.readyError
+}
+
+func (a *FakeRageP2PNetwork) SetReadyError(err error) {
+	a.mux.Lock()
+	defer a.mux.Unlock()
+	a.readyError = err
+}
+
 // NewDispatcherForNode creates a new dispatcher for a node with the given peer ID.
-func (a *MockRageP2PNetwork) NewDispatcherForNode(nodePeerID p2ptypes.PeerID) remotetypes.Dispatcher {
+func (a *FakeRageP2PNetwork) NewDispatcherForNode(nodePeerID p2ptypes.PeerID) remotetypes.Dispatcher {
 	return &brokerDispatcher{
 		callerPeerID: nodePeerID,
 		broker:       a,
@@ -63,17 +90,40 @@ func (a *MockRageP2PNetwork) NewDispatcherForNode(nodePeerID p2ptypes.PeerID) re
 	}
 }
 
-func (a *MockRageP2PNetwork) HealthReport() map[string]error {
+func (a *FakeRageP2PNetwork) HealthReport() map[string]error {
 	return nil
 }
 
-func (a *MockRageP2PNetwork) Name() string {
-	return "MockRageP2PNetwork"
+func (a *FakeRageP2PNetwork) Name() string {
+	return "FakeRageP2PNetwork"
 }
 
-func (a *MockRageP2PNetwork) registerReceiverNode(nodePeerID p2ptypes.PeerID, capabilityID string, capabilityDonID uint32, receiver remotetypes.Receiver) {
+type CapabilityRegistration struct {
+	nodePeerID      string
+	capabilityID    string
+	capabilityDonID uint32
+}
+
+func (a *FakeRageP2PNetwork) GetCapabilityRegistrations() map[CapabilityRegistration]bool {
 	a.mux.Lock()
 	defer a.mux.Unlock()
+
+	copiedRegistrations := make(map[CapabilityRegistration]bool)
+	for k, v := range a.capabilityRegistrations {
+		copiedRegistrations[k] = v
+	}
+	return copiedRegistrations
+}
+
+func (a *FakeRageP2PNetwork) registerReceiverNode(nodePeerID p2ptypes.PeerID, capabilityID string, capabilityDonID uint32, receiver remotetypes.Receiver) {
+	a.mux.Lock()
+	defer a.mux.Unlock()
+
+	a.capabilityRegistrations[CapabilityRegistration{
+		nodePeerID:      hex.EncodeToString(nodePeerID[:]),
+		capabilityID:    capabilityID,
+		capabilityDonID: capabilityDonID,
+	}] = true
 
 	node, ok := a.peerIDToBrokerNode[nodePeerID]
 	if !ok {
@@ -90,14 +140,22 @@ func (a *MockRageP2PNetwork) registerReceiverNode(nodePeerID p2ptypes.PeerID, ca
 	}
 }
 
-func (a *MockRageP2PNetwork) Send(msg *remotetypes.MessageBody) {
+func (a *FakeRageP2PNetwork) Send(msg *remotetypes.MessageBody) {
 	peerID := toPeerID(msg.Receiver)
-	node, ok := a.peerIDToBrokerNode[peerID]
+
+	node, ok := a.getNodeForPeerID(peerID)
 	if !ok {
 		panic(fmt.Sprintf("node not found for peer ID %v", peerID))
 	}
 
 	node.receiveCh <- msg
+}
+
+func (a *FakeRageP2PNetwork) getNodeForPeerID(peerID types.PeerID) (*brokerNode, bool) {
+	a.mux.Lock()
+	defer a.mux.Unlock()
+	node, ok := a.peerIDToBrokerNode[peerID]
+	return node, ok
 }
 
 type brokerNode struct {
@@ -115,7 +173,7 @@ type registerReceiverRequest struct {
 	receiver remotetypes.Receiver
 }
 
-func (a *MockRageP2PNetwork) newNode() *brokerNode {
+func (a *FakeRageP2PNetwork) newNode() *brokerNode {
 	n := &brokerNode{
 		receiveCh:          make(chan *remotetypes.MessageBody, a.chanBufferSize),
 		registerReceiverCh: make(chan *registerReceiverRequest, a.chanBufferSize),
@@ -155,6 +213,7 @@ func toPeerID(id []byte) p2ptypes.PeerID {
 
 type broker interface {
 	Send(msg *remotetypes.MessageBody)
+	Ready() error
 }
 
 type brokerDispatcher struct {
@@ -190,7 +249,7 @@ func (t *brokerDispatcher) SetReceiver(capabilityId string, donId uint32, receiv
 	}
 	t.receivers[k] = receiver
 
-	t.broker.(*MockRageP2PNetwork).registerReceiverNode(t.callerPeerID, capabilityId, donId, receiver)
+	t.broker.(*FakeRageP2PNetwork).registerReceiverNode(t.callerPeerID, capabilityId, donId, receiver)
 	return nil
 }
 func (t *brokerDispatcher) RemoveReceiver(capabilityId string, donId uint32) {}
@@ -202,7 +261,7 @@ func (t *brokerDispatcher) Close() error {
 }
 
 func (t *brokerDispatcher) Ready() error {
-	return nil
+	return t.broker.Ready()
 }
 
 func (t *brokerDispatcher) HealthReport() map[string]error {
@@ -210,5 +269,5 @@ func (t *brokerDispatcher) HealthReport() map[string]error {
 }
 
 func (t *brokerDispatcher) Name() string {
-	return "mockDispatcher"
+	return "fakeDispatcher"
 }
