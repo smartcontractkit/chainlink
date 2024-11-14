@@ -63,7 +63,7 @@ contract CCIPReaderTester {
     uint64 destChainSelector,
     Internal.TimestampedPackedUint224 memory gasPrice
   ) external {
-      s_destChainGasPrice[destChainSelector] = gasPrice;
+    s_destChainGasPrice[destChainSelector] = gasPrice;
   }
 
   function emitCCIPMessageSent(uint64 destChainSelector, Internal.EVM2AnyRampMessage memory message) external {
