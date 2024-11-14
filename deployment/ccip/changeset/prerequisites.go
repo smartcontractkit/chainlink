@@ -33,15 +33,19 @@ func InitializePrerequisites(env deployment.Environment, cfg PrerequisiteConfig)
 		return deployment.ChangesetOutput{}, errors.Wrapf(deployment.ErrInvalidConfig, "%v", err)
 	}
 	ab := deployment.NewMemoryAddressBook()
-	for _, sel := range cfg.ChainSelectors {
-		if cfg.Deploy {
-			err = ccipdeployment.DeployPrerequisiteContracts(env, ab, env.Chains[sel])
-			if err != nil {
-				env.Logger.Errorw("Failed to deploy prerequisite contracts", "err", err, "addressBook", ab)
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy prerequisite contracts: %w", err)
-			}
-			continue
+	if cfg.Deploy {
+		err = ccipdeployment.DeployPrerequisiteContracts(env, ab, cfg.ChainSelectors)
+		if err != nil {
+			env.Logger.Errorw("Failed to deploy prerequisite contracts", "err", err, "addressBook", ab)
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy prerequisite contracts: %w", err)
 		}
+		return deployment.ChangesetOutput{
+			Proposals:   []timelock.MCMSWithTimelockProposal{},
+			AddressBook: ab,
+			JobSpecs:    nil,
+		}, nil
+	}
+	for _, sel := range cfg.ChainSelectors {
 		for _, ec := range cfg.ExistingContracts {
 			err = ab.Save(sel, ec.Address.String(), ec.TypeAndVersion)
 			if err != nil {
@@ -64,9 +68,13 @@ type ContractConfig struct {
 }
 
 type PrerequisiteConfig struct {
-	ChainSelectors    []uint64
+	ChainSelectors []uint64
+	Deploy         bool
+	// if Deploy is false, ExistingContracts must be set
 	ExistingContracts map[deployment.ContractType]ContractConfig
-	Deploy            bool
+	// TODO handle tokens and feeds in prerequisite config
+	Tokens map[ccipdeployment.TokenSymbol]common.Address
+	Feeds  map[ccipdeployment.TokenSymbol]common.Address
 }
 
 func (c PrerequisiteConfig) Validate() error {

@@ -10,15 +10,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
-
-func TestRevert(t *testing.T) {
-	errStr, err := deployment.ParseErrorFromABI("0x06439c6b0000000000000000000000006d5b0e8314a098e32ce222620f32d24883b87125", fee_quoter.FeeQuoterABI)
-	require.NoError(t, err)
-	fmt.Printf("Error: %s\n", errStr)
-}
 
 func TestDeployCCIPContracts(t *testing.T) {
 	lggr := logger.TestLogger(t)
@@ -49,6 +42,11 @@ func TestDeployCCIPContracts(t *testing.T) {
 	require.NotNil(t, s.Chains[homeChainSel].CapabilityRegistry)
 	require.NotNil(t, s.Chains[homeChainSel].CCIPHome)
 	require.NotNil(t, s.Chains[feedChainSel].USDFeeds)
+
+	newAddr := deployment.NewMemoryAddressBook()
+	err = DeployPrerequisiteContracts(e, newAddr, e.AllChainSelectors())
+	require.NoError(t, err)
+	require.NoError(t, e.ExistingAddresses.Merge(newAddr))
 
 	newAddresses := deployment.NewMemoryAddressBook()
 	err = DeployCCIPContracts(e, newAddresses, DeployCCIPContractConfig{

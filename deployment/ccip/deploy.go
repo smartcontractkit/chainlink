@@ -129,125 +129,128 @@ func deployContract[C Contracts](
 // This is only required for staging and test environments where the contracts are not already deployed.
 // We are not deploying router and RMNProxy here as RMNProxy has dependency on RMNRemote which is a new contract and
 // router depends on RMNProxy.
-func DeployPrerequisiteContracts(e deployment.Environment, ab deployment.AddressBook, chain deployment.Chain) error {
+func DeployPrerequisiteContracts(e deployment.Environment, ab deployment.AddressBook, selectors []uint64) error {
 	state, err := LoadOnchainState(e)
 	if err != nil {
 		e.Logger.Errorw("Failed to load existing onchain state", "err")
 		return err
 	}
 	lggr := e.Logger
-	chainState, chainExists := state.Chains[chain.Selector]
-	var weth9Contract *weth9.WETH9
-	var linkTokenContract *burn_mint_erc677.BurnMintERC677
-	var tokenAdminReg *token_admin_registry.TokenAdminRegistry
-	var registryModule *registry_module_owner_custom.RegistryModuleOwnerCustom
-	if !chainExists {
-		weth9Contract = chainState.Weth9
-		linkTokenContract = chainState.LinkToken
-		tokenAdminReg = chainState.TokenAdminRegistry
-		registryModule = chainState.RegistryModule
-	}
-	if tokenAdminReg == nil {
-		tokenAdminRegistry, err := deployContract(e.Logger, chain, ab,
-			func(chain deployment.Chain) ContractDeploy[*token_admin_registry.TokenAdminRegistry] {
-				tokenAdminRegistryAddr, tx2, tokenAdminRegistry, err2 := token_admin_registry.DeployTokenAdminRegistry(
-					chain.DeployerKey,
-					chain.Client)
-				return ContractDeploy[*token_admin_registry.TokenAdminRegistry]{
-					tokenAdminRegistryAddr, tokenAdminRegistry, tx2, deployment.NewTypeAndVersion(TokenAdminRegistry, deployment.Version1_5_0), err2,
-				}
-			})
-		if err != nil {
-			e.Logger.Errorw("Failed to deploy token admin registry", "err", err)
-			return err
+	for _, sel := range selectors {
+		chain := e.Chains[sel]
+		chainState, chainExists := state.Chains[chain.Selector]
+		var weth9Contract *weth9.WETH9
+		var linkTokenContract *burn_mint_erc677.BurnMintERC677
+		var tokenAdminReg *token_admin_registry.TokenAdminRegistry
+		var registryModule *registry_module_owner_custom.RegistryModuleOwnerCustom
+		if !chainExists {
+			weth9Contract = chainState.Weth9
+			linkTokenContract = chainState.LinkToken
+			tokenAdminReg = chainState.TokenAdminRegistry
+			registryModule = chainState.RegistryModule
 		}
-		e.Logger.Infow("deployed tokenAdminRegistry", "addr", tokenAdminRegistry)
-		tokenAdminReg = tokenAdminRegistry.Contract
-	} else {
-		e.Logger.Infow("tokenAdminRegistry already deployed", "addr", tokenAdminReg.Address)
-	}
-	if registryModule == nil {
-		customRegistryModule, err := deployContract(e.Logger, chain, ab,
-			func(chain deployment.Chain) ContractDeploy[*registry_module_owner_custom.RegistryModuleOwnerCustom] {
-				regModAddr, tx2, regMod, err2 := registry_module_owner_custom.DeployRegistryModuleOwnerCustom(
-					chain.DeployerKey,
-					chain.Client,
-					tokenAdminReg.Address())
-				return ContractDeploy[*registry_module_owner_custom.RegistryModuleOwnerCustom]{
-					regModAddr, regMod, tx2, deployment.NewTypeAndVersion(RegistryModule, deployment.Version1_5_0), err2,
-				}
-			})
-		if err != nil {
-			e.Logger.Errorw("Failed to deploy custom registry module", "err", err)
-			return err
+		if tokenAdminReg == nil {
+			tokenAdminRegistry, err := deployContract(e.Logger, chain, ab,
+				func(chain deployment.Chain) ContractDeploy[*token_admin_registry.TokenAdminRegistry] {
+					tokenAdminRegistryAddr, tx2, tokenAdminRegistry, err2 := token_admin_registry.DeployTokenAdminRegistry(
+						chain.DeployerKey,
+						chain.Client)
+					return ContractDeploy[*token_admin_registry.TokenAdminRegistry]{
+						tokenAdminRegistryAddr, tokenAdminRegistry, tx2, deployment.NewTypeAndVersion(TokenAdminRegistry, deployment.Version1_5_0), err2,
+					}
+				})
+			if err != nil {
+				e.Logger.Errorw("Failed to deploy token admin registry", "err", err)
+				return err
+			}
+			e.Logger.Infow("deployed tokenAdminRegistry", "addr", tokenAdminRegistry)
+			tokenAdminReg = tokenAdminRegistry.Contract
+		} else {
+			e.Logger.Infow("tokenAdminRegistry already deployed", "addr", tokenAdminReg.Address)
 		}
-		e.Logger.Infow("deployed custom registry module", "addr", customRegistryModule)
-		registryModule = customRegistryModule.Contract
-	} else {
-		e.Logger.Infow("custom registry module already deployed", "addr", registryModule.Address)
-	}
-	isRegistryAdded, err := tokenAdminReg.IsRegistryModule(nil, registryModule.Address())
-	if err != nil {
-		e.Logger.Errorw("Failed to check if registry module is added on token admin registry", "err", err)
-		return fmt.Errorf("failed to check if registry module is added on token admin registry: %w", err)
-	}
-	if !isRegistryAdded {
-		tx, err := tokenAdminReg.AddRegistryModule(chain.DeployerKey, registryModule.Address())
-		if err != nil {
-			e.Logger.Errorw("Failed to assign registry module on token admin registry", "err", err)
-			return fmt.Errorf("failed to assign registry module on token admin registry: %w", err)
+		if registryModule == nil {
+			customRegistryModule, err := deployContract(e.Logger, chain, ab,
+				func(chain deployment.Chain) ContractDeploy[*registry_module_owner_custom.RegistryModuleOwnerCustom] {
+					regModAddr, tx2, regMod, err2 := registry_module_owner_custom.DeployRegistryModuleOwnerCustom(
+						chain.DeployerKey,
+						chain.Client,
+						tokenAdminReg.Address())
+					return ContractDeploy[*registry_module_owner_custom.RegistryModuleOwnerCustom]{
+						regModAddr, regMod, tx2, deployment.NewTypeAndVersion(RegistryModule, deployment.Version1_5_0), err2,
+					}
+				})
+			if err != nil {
+				e.Logger.Errorw("Failed to deploy custom registry module", "err", err)
+				return err
+			}
+			e.Logger.Infow("deployed custom registry module", "addr", customRegistryModule)
+			registryModule = customRegistryModule.Contract
+		} else {
+			e.Logger.Infow("custom registry module already deployed", "addr", registryModule.Address)
 		}
+		isRegistryAdded, err := tokenAdminReg.IsRegistryModule(nil, registryModule.Address())
+		if err != nil {
+			e.Logger.Errorw("Failed to check if registry module is added on token admin registry", "err", err)
+			return fmt.Errorf("failed to check if registry module is added on token admin registry: %w", err)
+		}
+		if !isRegistryAdded {
+			tx, err := tokenAdminReg.AddRegistryModule(chain.DeployerKey, registryModule.Address())
+			if err != nil {
+				e.Logger.Errorw("Failed to assign registry module on token admin registry", "err", err)
+				return fmt.Errorf("failed to assign registry module on token admin registry: %w", err)
+			}
 
-		_, err = chain.Confirm(tx)
-		if err != nil {
-			e.Logger.Errorw("Failed to confirm assign registry module on token admin registry", "err", err)
-			return fmt.Errorf("failed to confirm assign registry module on token admin registry: %w", err)
+			_, err = chain.Confirm(tx)
+			if err != nil {
+				e.Logger.Errorw("Failed to confirm assign registry module on token admin registry", "err", err)
+				return fmt.Errorf("failed to confirm assign registry module on token admin registry: %w", err)
+			}
+			e.Logger.Infow("assigned registry module on token admin registry")
 		}
-		e.Logger.Infow("assigned registry module on token admin registry")
-	}
-	if weth9Contract == nil {
-		weth9, err := deployContract(lggr, chain, ab,
-			func(chain deployment.Chain) ContractDeploy[*weth9.WETH9] {
-				weth9Addr, tx2, weth9c, err2 := weth9.DeployWETH9(
-					chain.DeployerKey,
-					chain.Client,
-				)
-				return ContractDeploy[*weth9.WETH9]{
-					weth9Addr, weth9c, tx2, deployment.NewTypeAndVersion(WETH9, deployment.Version1_0_0), err2,
-				}
-			})
-		if err != nil {
-			lggr.Errorw("Failed to deploy weth9", "err", err)
-			return err
+		if weth9Contract == nil {
+			weth9, err := deployContract(lggr, chain, ab,
+				func(chain deployment.Chain) ContractDeploy[*weth9.WETH9] {
+					weth9Addr, tx2, weth9c, err2 := weth9.DeployWETH9(
+						chain.DeployerKey,
+						chain.Client,
+					)
+					return ContractDeploy[*weth9.WETH9]{
+						weth9Addr, weth9c, tx2, deployment.NewTypeAndVersion(WETH9, deployment.Version1_0_0), err2,
+					}
+				})
+			if err != nil {
+				lggr.Errorw("Failed to deploy weth9", "err", err)
+				return err
+			}
+			lggr.Infow("deployed weth9", "addr", weth9.Address)
+			weth9Contract = weth9.Contract
+		} else {
+			lggr.Infow("weth9 already deployed", "addr", weth9Contract.Address)
 		}
-		lggr.Infow("deployed weth9", "addr", weth9.Address)
-		weth9Contract = weth9.Contract
-	} else {
-		lggr.Infow("weth9 already deployed", "addr", weth9Contract.Address)
-	}
-	if linkTokenContract == nil {
-		linkToken, err := deployContract(lggr, chain, ab,
-			func(chain deployment.Chain) ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
-				linkTokenAddr, tx2, linkToken, err2 := burn_mint_erc677.DeployBurnMintERC677(
-					chain.DeployerKey,
-					chain.Client,
-					"Link Token",
-					"LINK",
-					uint8(18),
-					big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
-				)
-				return ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
-					linkTokenAddr, linkToken, tx2, deployment.NewTypeAndVersion(LinkToken, deployment.Version1_0_0), err2,
-				}
-			})
-		if err != nil {
-			lggr.Errorw("Failed to deploy linkToken", "err", err)
-			return err
+		if linkTokenContract == nil {
+			linkToken, err := deployContract(lggr, chain, ab,
+				func(chain deployment.Chain) ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
+					linkTokenAddr, tx2, linkToken, err2 := burn_mint_erc677.DeployBurnMintERC677(
+						chain.DeployerKey,
+						chain.Client,
+						"Link Token",
+						"LINK",
+						uint8(18),
+						big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
+					)
+					return ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
+						linkTokenAddr, linkToken, tx2, deployment.NewTypeAndVersion(LinkToken, deployment.Version1_0_0), err2,
+					}
+				})
+			if err != nil {
+				lggr.Errorw("Failed to deploy linkToken", "err", err)
+				return err
+			}
+			lggr.Infow("deployed linkToken", "addr", linkToken.Address)
+			linkTokenContract = linkToken.Contract
+		} else {
+			lggr.Infow("linkToken already deployed", "addr", linkTokenContract.Address)
 		}
-		lggr.Infow("deployed linkToken", "addr", linkToken.Address)
-		linkTokenContract = linkToken.Contract
-	} else {
-		lggr.Infow("linkToken already deployed", "addr", linkTokenContract.Address)
 	}
 	return nil
 }
