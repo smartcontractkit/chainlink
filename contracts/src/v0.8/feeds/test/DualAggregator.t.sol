@@ -556,8 +556,43 @@ contract GetRequesterAccessController is DualAggregatorBaseTest {
   }
 }
 
-// TODO: determine if we need this method still
-contract RequestNewRound is ConfiguredDualAggregatorBaseTest {}
+contract RequestNewRound is ConfiguredDualAggregatorBaseTest {
+  event RoundRequested(address indexed requester, bytes32 configDigest, uint32 epoch, uint8 round);
+
+  address internal constant USER = address(777);
+
+  function test_RevertIf_NotRequester() public {
+    _changePrank(USER);
+
+    vm.mockCall(
+      REQUESTER_ACCESS_CONTROLLER_ADDRESS,
+      abi.encodeWithSelector(AccessControllerInterface.hasAccess.selector, USER),
+      abi.encode(false)
+    );
+
+    vm.expectRevert(DualAggregator.OnlyOwnerAndRequesterCanCall.selector);
+    s_aggregator.requestNewRound();
+  }
+
+  function test_ShouldRequestNewRound() public {
+    uint256 currentRoundId = s_aggregator.getHotVars().latestAggregatorRoundId;
+    uint40 currentEpochAndRound = s_aggregator.getHotVars().latestEpochAndRound;
+
+    vm.mockCall(
+      REQUESTER_ACCESS_CONTROLLER_ADDRESS,
+      abi.encodeWithSelector(AccessControllerInterface.hasAccess.selector, USER),
+      abi.encode(true)
+    );
+
+    _changePrank(USER);
+
+    vm.expectEmit();
+    emit RoundRequested(USER, s_configDigest, uint32(currentEpochAndRound >> 8), uint8(currentEpochAndRound));
+    uint256 newRoundId = s_aggregator.requestNewRound();
+
+    assertEq(newRoundId, currentRoundId + 1, "round id not incremented");
+  }
+}
 
 contract Transmit is ConfiguredDualAggregatorBaseTest {
   uint32 constant CUTOFF_TIME = 40;
@@ -677,6 +712,61 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
     signedReport.ss[1] = signedReport.ss[0];
 
     vm.expectRevert(DualAggregator.DuplicateSigner.selector);
+    s_aggregator.transmit(
+      signedReport.reportContext, signedReport.report, signedReport.rs, signedReport.ss, signedReport.rawVs
+    );
+  }
+
+  function test_RevertIf_ReportLengthMismatch() public {
+    ReportGenerator.SignedReport memory signedReport =
+      s_reportGenerator.generateSignedReportWithLengthMismatch(0, uint32(block.timestamp));
+
+    _changePrank(s_transmitters[0]);
+
+    vm.expectRevert(DualAggregator.ReportLengthMismatch.selector);
+    s_aggregator.transmit(
+      signedReport.reportContext, signedReport.report, signedReport.rs, signedReport.ss, signedReport.rawVs
+    );
+  }
+
+  function test_RevertIf_NumObservationsOutOfBounds() public {
+    ReportGenerator.SignedReport memory signedReport =
+      s_reportGenerator.generateSignedReportWithTooManyOracles(0, uint32(block.timestamp));
+
+    _changePrank(s_transmitters[0]);
+
+    vm.expectRevert(DualAggregator.NumObservationsOutOfBounds.selector);
+    s_aggregator.transmit(
+      signedReport.reportContext, signedReport.report, signedReport.rs, signedReport.ss, signedReport.rawVs
+    );
+  }
+
+  function test_RevertIf_TooFewValuesToTrustMedian() public {
+    ReportGenerator.SignedReport memory signedReport =
+      s_reportGenerator.generateSignedReportWithFOracles(0, uint32(block.timestamp), s_f);
+
+    _changePrank(s_transmitters[0]);
+
+    vm.expectRevert(DualAggregator.TooFewValuesToTrustMedian.selector);
+    s_aggregator.transmit(
+      signedReport.reportContext, signedReport.report, signedReport.rs, signedReport.ss, signedReport.rawVs
+    );
+  }
+
+  function test_RevertIf_MedianIsOutOfMinMaxRange() public {
+    ReportGenerator.SignedReport memory signedReport =
+      s_reportGenerator.generateSignedReport(MAX_ANSWER + 1, uint32(block.timestamp));
+
+    _changePrank(s_transmitters[0]);
+
+    vm.expectRevert(DualAggregator.MedianIsOutOfMinMaxRange.selector);
+    s_aggregator.transmit(
+      signedReport.reportContext, signedReport.report, signedReport.rs, signedReport.ss, signedReport.rawVs
+    );
+
+    signedReport = s_reportGenerator.generateSignedReport(MIN_ANSWER - 1, uint32(block.timestamp));
+
+    vm.expectRevert(DualAggregator.MedianIsOutOfMinMaxRange.selector);
     s_aggregator.transmit(
       signedReport.reportContext, signedReport.report, signedReport.rs, signedReport.ss, signedReport.rawVs
     );

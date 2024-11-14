@@ -64,4 +64,8 @@ contract DualAggregatorHelper is DualAggregator {
   function totalLinkDue() public view returns (uint256 linkDue) {
     return _totalLinkDue();
   }
+
+  function getHotVars() public view returns (HotVars memory) {
+    return s_hotVars;
+  }
 }
