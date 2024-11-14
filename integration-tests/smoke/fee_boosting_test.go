@@ -1,16 +1,19 @@
-package changeset
+package smoke
 
 import (
 	"math/big"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/test-go/testify/require"
 	"golang.org/x/exp/maps"
 
+	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink/deployment"
+	ccdeploy "github.com/smartcontractkit/chainlink/deployment/ccip"
 	ccipdeployment "github.com/smartcontractkit/chainlink/deployment/ccip"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -30,14 +33,15 @@ type priceFeedPrices struct {
 	wethPrice *big.Int
 }
 
-func Test_FeeBoosting(t *testing.T) {
-	t.Parallel()
+func Test_CCIPFeeBoosting(t *testing.T) {
+	ctx := ccdeploy.Context(t)
 
 	setupTestEnv := func(t *testing.T, numChains int) (ccipdeployment.DeployedEnv, ccipdeployment.CCIPOnChainState, []uint64) {
-		e := ccipdeployment.NewMemoryEnvironmentWithJobsAndPrices(
+		e, _, _ := testsetups.NewLocalDevEnvironment(
 			t, logger.TestLogger(t),
-			numChains, 4,
-			deployment.E18Mult(5), big.NewInt(9e8))
+			deployment.E18Mult(5),
+			big.NewInt(9e8))
+
 		state, err := ccipdeployment.LoadOnchainState(e.Env)
 		require.NoError(t, err)
 
@@ -45,8 +49,8 @@ func Test_FeeBoosting(t *testing.T) {
 		require.Len(t, allChainSelectors, numChains)
 
 		tokenConfig := ccipdeployment.NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
-		newAddresses := deployment.NewMemoryAddressBook()
-		err = ccipdeployment.DeployCCIPContracts(e.Env, newAddresses, ccipdeployment.DeployCCIPContractConfig{
+		// Apply migration
+		output, err := changeset.InitialDeploy(e.Env, ccdeploy.DeployCCIPContractConfig{
 			HomeChainSel:   e.HomeChainSel,
 			FeedChainSel:   e.FeedChainSel,
 			ChainsToDeploy: allChainSelectors,
@@ -55,9 +59,25 @@ func Test_FeeBoosting(t *testing.T) {
 			OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
 		})
 		require.NoError(t, err)
-		require.NoError(t, e.Env.ExistingAddresses.Merge(newAddresses))
+		require.NoError(t, e.Env.ExistingAddresses.Merge(output.AddressBook))
 		state, err = ccipdeployment.LoadOnchainState(e.Env)
 		require.NoError(t, err)
+
+		// Ensure capreg logs are up to date.
+		ccdeploy.ReplayLogs(t, e.Env.Offchain, e.ReplayBlocks)
+
+		// Apply the jobs.
+		for nodeID, jobs := range output.JobSpecs {
+			for _, job := range jobs {
+				// Note these auto-accept
+				_, err := e.Env.Offchain.ProposeJob(ctx,
+					&jobv1.ProposeJobRequest{
+						NodeId: nodeID,
+						Spec:   job,
+					})
+				require.NoError(t, err)
+			}
+		}
 
 		return e, state, allChainSelectors
 	}
@@ -140,16 +160,8 @@ func runFeeboostTestCase(tc feeboostTestCase) {
 	})
 	expectedSeqNum[tc.destChain] = seqNum
 
-	sleepAndReplay(tc.t, tc.deployedEnv, tc.sourceChain, tc.destChain)
+	testsetups.SleepAndReplay(tc.t, tc.deployedEnv, tc.sourceChain, tc.destChain)
 
 	ccipdeployment.ConfirmCommitForAllWithExpectedSeqNums(tc.t, tc.deployedEnv.Env, tc.onchainState, expectedSeqNum, startBlocks)
 	ccipdeployment.ConfirmExecWithSeqNrForAll(tc.t, tc.deployedEnv.Env, tc.onchainState, expectedSeqNum, startBlocks)
-}
-
-func sleepAndReplay(t *testing.T, e ccipdeployment.DeployedEnv, sourceChain, destChain uint64) {
-	time.Sleep(30 * time.Second)
-	replayBlocks := make(map[uint64]uint64)
-	replayBlocks[sourceChain] = 1
-	replayBlocks[destChain] = 1
-	ccipdeployment.ReplayLogs(t, e.Env.Offchain, replayBlocks)
 }

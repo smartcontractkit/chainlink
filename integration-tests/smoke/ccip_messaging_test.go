@@ -2,7 +2,6 @@ package smoke
 
 import (
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -43,7 +42,7 @@ func Test_CCIPMessaging(t *testing.T) {
 	// Setup 2 chains and a single lane.
 	lggr := logger.TestLogger(t)
 	ctx := ccdeploy.Context(t)
-	e, _, _ := testsetups.NewLocalDevEnvironment(t, lggr)
+	e, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr)
 
 	state, err := ccdeploy.LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -171,14 +170,6 @@ func Test_CCIPMessaging(t *testing.T) {
 	})
 }
 
-func sleepAndReplay(t *testing.T, e ccipdeployment.DeployedEnv, sourceChain, destChain uint64) {
-	time.Sleep(30 * time.Second)
-	replayBlocks := make(map[uint64]uint64)
-	replayBlocks[sourceChain] = 1
-	replayBlocks[destChain] = 1
-	ccipdeployment.ReplayLogs(t, e.Env.Offchain, replayBlocks)
-}
-
 func runMessagingTestCase(
 	tc messagingTestCase,
 	receiver common.Address,
@@ -207,7 +198,7 @@ func runMessagingTestCase(
 
 	// hack
 	if !tc.replayed {
-		sleepAndReplay(tc.t, tc.deployedEnv, tc.sourceChain, tc.destChain)
+		testsetups.SleepAndReplay(tc.t, tc.deployedEnv, tc.sourceChain, tc.destChain)
 		out.replayed = true
 	}
 

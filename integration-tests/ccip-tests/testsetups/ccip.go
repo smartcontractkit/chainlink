@@ -37,6 +37,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
+	ccipdeployment "github.com/smartcontractkit/chainlink/deployment/ccip"
 	integrationactions "github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/contracts"
@@ -1433,4 +1434,12 @@ func createEnvironmentConfig(t *testing.T, envName string, testConfig *CCIPTestC
 		}
 	}
 	return envConfig
+}
+
+func SleepAndReplay(t *testing.T, e ccipdeployment.DeployedEnv, sourceChain, destChain uint64) {
+	time.Sleep(30 * time.Second)
+	replayBlocks := make(map[uint64]uint64)
+	replayBlocks[sourceChain] = 1
+	replayBlocks[destChain] = 1
+	ccipdeployment.ReplayLogs(t, e.Env.Offchain, replayBlocks)
 }
