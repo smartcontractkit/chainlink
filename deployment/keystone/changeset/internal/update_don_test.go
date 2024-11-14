@@ -4,14 +4,14 @@ import (
 	"bytes"
 	"math/big"
 	"sort"
-	"strconv"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/environment/clo/models"
+	"github.com/smartcontractkit/chainlink/deployment/keystone"
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 	kscs "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
@@ -95,16 +95,17 @@ func TestUpdateDon(t *testing.T) {
 
 	t.Run("empty", func(t *testing.T) {
 		cfg := setupUpdateDonTestConfig{
-			dons: []kslib.DonCapabilities{
+			dons: []kslib.DonInfo{
 				{
-					Name: "don 1",
-					Nops: []*models.NodeOperator{
-						{
-							Name:  "nop 1",
-							Nodes: []*models.Node{node_1, node_2, node_3, node_4},
-						},
-					},
+					Name:         "don 1",
+					Nodes:        []keystone.Node{node_1, node_2, node_3, node_4},
 					Capabilities: []kcr.CapabilitiesRegistryCapability{cap_A},
+				},
+			},
+			nops: []keystone.NOP{
+				{
+					Name:  "nop 1",
+					Nodes: []string{node_1.ID, node_2.ID, node_3.ID, node_4.ID},
 				},
 			},
 		}
@@ -169,26 +170,24 @@ type minimalNodeCfg struct {
 	admin         common.Address
 }
 
-func newNode(t *testing.T, cfg minimalNodeCfg) *models.Node {
+func newNode(t *testing.T, cfg minimalNodeCfg) keystone.Node {
 	t.Helper()
 
-	return &models.Node{
+	return keystone.Node{
 		ID:        cfg.id,
 		PublicKey: &cfg.pubKey,
-		ChainConfigs: []*models.NodeChainConfig{
+		ChainConfigs: []*nodev1.ChainConfig{
 			{
-				ID: "test chain",
-				Network: &models.Network{
-					ID:        "test network 1",
-					ChainID:   strconv.FormatUint(cfg.registryChain.EvmChainID, 10),
-					ChainType: models.ChainTypeEvm,
+				Chain: &nodev1.Chain{
+					Id:   "test chain",
+					Type: nodev1.ChainType_CHAIN_TYPE_EVM,
 				},
 				AdminAddress: cfg.admin.String(),
-				Ocr2Config: &models.NodeOCR2Config{
-					P2pKeyBundle: &models.NodeOCR2ConfigP2PKeyBundle{
-						PeerID: cfg.p2p.PeerID().String(),
+				Ocr2Config: &nodev1.OCR2Config{
+					P2PKeyBundle: &nodev1.OCR2Config_P2PKeyBundle{
+						PeerId: cfg.p2p.PeerID().String(),
 					},
-					OcrKeyBundle: &models.NodeOCR2ConfigOCRKeyBundle{
+					OcrKeyBundle: &nodev1.OCR2Config_OCRKeyBundle{
 						OnchainSigningAddress: cfg.signingAddr,
 					},
 				},
@@ -198,7 +197,8 @@ func newNode(t *testing.T, cfg minimalNodeCfg) *models.Node {
 }
 
 type setupUpdateDonTestConfig struct {
-	dons []kslib.DonCapabilities
+	dons []kslib.DonInfo
+	nops []keystone.NOP
 }
 
 type setupUpdateDonTestResult struct {
@@ -208,28 +208,19 @@ type setupUpdateDonTestResult struct {
 
 func setupUpdateDonTest(t *testing.T, lggr logger.Logger, cfg setupUpdateDonTestConfig) *kstest.SetupTestRegistryResponse {
 	t.Helper()
-	req := newSetupTestRegistryRequest(t, cfg.dons)
+	req := newSetupTestRegistryRequest(t, cfg.dons, cfg.nops)
 	return kstest.SetupTestRegistry(t, lggr, req)
 }
 
-func newSetupTestRegistryRequest(t *testing.T, dons []kslib.DonCapabilities) *kstest.SetupTestRegistryRequest {
+func newSetupTestRegistryRequest(t *testing.T, dons []kslib.DonInfo, nops []keystone.NOP) *kstest.SetupTestRegistryRequest {
 	t.Helper()
-	allNops := make(map[string]*models.NodeOperator)
+	nodes := make(map[string]keystone.Node)
 	for _, don := range dons {
-		for _, nop := range don.Nops {
-			nop := nop
-			n, exists := allNops[nop.ID]
-			if exists {
-				nop.Nodes = append(n.Nodes, nop.Nodes...)
-			}
-			allNops[nop.ID] = nop
+		for _, node := range don.Nodes {
+			nodes[node.ID] = node
 		}
 	}
-	var nops []*models.NodeOperator
-	for _, nop := range allNops {
-		nops = append(nops, nop)
-	}
-	nopsToNodes := makeNopToNodes(t, nops)
+	nopsToNodes := makeNopToNodes(t, nops, nodes)
 	testDons := makeTestDon(t, dons)
 	p2pToCapabilities := makeP2PToCapabilities(t, dons)
 	req := &kstest.SetupTestRegistryRequest{
@@ -240,46 +231,45 @@ func newSetupTestRegistryRequest(t *testing.T, dons []kslib.DonCapabilities) *ks
 	return req
 }
 
-func makeNopToNodes(t *testing.T, cloNops []*models.NodeOperator) map[kcr.CapabilitiesRegistryNodeOperator][]*internal.P2PSignerEnc {
+func makeNopToNodes(t *testing.T, nops []keystone.NOP, nodes map[string]keystone.Node) map[kcr.CapabilitiesRegistryNodeOperator][]*internal.P2PSignerEnc {
 	nopToNodes := make(map[kcr.CapabilitiesRegistryNodeOperator][]*internal.P2PSignerEnc)
 
-	for _, nop := range cloNops {
+	for _, nop := range nops {
 		// all chain configs are the same wrt admin address & node keys
 		// so we can just use the first one
 		crnop := kcr.CapabilitiesRegistryNodeOperator{
 			Name:  nop.Name,
-			Admin: common.HexToAddress(nop.Nodes[0].ChainConfigs[0].AdminAddress),
+			Admin: common.HexToAddress(nodes[nop.Nodes[0]].ChainConfigs[0].AdminAddress),
 		}
-		var nodes []*internal.P2PSignerEnc
-		for _, node := range nop.Nodes {
+		var signers []*internal.P2PSignerEnc
+		for _, nodeID := range nop.Nodes {
+			node := nodes[nodeID]
 			require.NotNil(t, node.PublicKey, "public key is nil %s", node.ID)
 			// all chain configs are the same wrt admin address & node keys
-			p, err := kscs.NewP2PSignerEncFromCLO(node.ChainConfigs[0], *node.PublicKey)
+			p, err := kscs.NewP2PSignerEncFromJD(node.ChainConfigs[0], *node.PublicKey)
 			require.NoError(t, err, "failed to make p2p signer enc from clo nod %s", node.ID)
-			nodes = append(nodes, p)
+			signers = append(signers, p)
 		}
-		nopToNodes[crnop] = nodes
+		nopToNodes[crnop] = signers
 	}
 	return nopToNodes
 }
 
-func makeP2PToCapabilities(t *testing.T, dons []kslib.DonCapabilities) map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability {
+func makeP2PToCapabilities(t *testing.T, dons []kslib.DonInfo) map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability {
 	p2pToCapabilities := make(map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability)
 	for _, don := range dons {
-		for _, nop := range don.Nops {
-			for _, node := range nop.Nodes {
-				for _, cap := range don.Capabilities {
-					p, err := kscs.NewP2PSignerEncFromCLO(node.ChainConfigs[0], *node.PublicKey)
-					require.NoError(t, err, "failed to make p2p signer enc from clo nod %s", node.ID)
-					p2pToCapabilities[p.P2PKey] = append(p2pToCapabilities[p.P2PKey], cap)
-				}
+		for _, node := range don.Nodes {
+			for _, cap := range don.Capabilities {
+				p, err := kscs.NewP2PSignerEncFromJD(node.ChainConfigs[0], *node.PublicKey)
+				require.NoError(t, err, "failed to make p2p signer enc from clo nod %s", node.ID)
+				p2pToCapabilities[p.P2PKey] = append(p2pToCapabilities[p.P2PKey], cap)
 			}
 		}
 	}
 	return p2pToCapabilities
 }
 
-func makeTestDon(t *testing.T, dons []kslib.DonCapabilities) []kstest.Don {
+func makeTestDon(t *testing.T, dons []kslib.DonInfo) []kstest.Don {
 	out := make([]kstest.Don, len(dons))
 	for i, don := range dons {
 		out[i] = testDon(t, don)
@@ -287,16 +277,14 @@ func makeTestDon(t *testing.T, dons []kslib.DonCapabilities) []kstest.Don {
 	return out
 }
 
-func testDon(t *testing.T, don kslib.DonCapabilities) kstest.Don {
+func testDon(t *testing.T, don kslib.DonInfo) kstest.Don {
 	var p2pids []p2pkey.PeerID
-	for _, nop := range don.Nops {
-		for _, node := range nop.Nodes {
-			// all chain configs are the same wrt admin address & node keys
-			// so we can just use the first one
-			p, err := kscs.NewP2PSignerEncFromCLO(node.ChainConfigs[0], *node.PublicKey)
-			require.NoError(t, err, "failed to make p2p signer enc from clo nod %s", node.ID)
-			p2pids = append(p2pids, p.P2PKey)
-		}
+	for _, node := range don.Nodes {
+		// all chain configs are the same wrt admin address & node keys
+		// so we can just use the first one
+		p, err := kscs.NewP2PSignerEncFromJD(node.ChainConfigs[0], *node.PublicKey)
+		require.NoError(t, err, "failed to make p2p signer enc from clo nod %s", node.ID)
+		p2pids = append(p2pids, p.P2PKey)
 	}
 
 	var capabilityConfigs []internal.CapabilityConfig

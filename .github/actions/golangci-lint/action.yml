@@ -1,10 +1,6 @@
 name: CI lint for Golang
 description: Runs CI lint for Golang
 inputs:
-  # general inputs
-  name:
-    description: Name of the lint action
-    required: true
   go-directory:
     description: Go directory to run commands from
     default: "."
@@ -25,10 +21,17 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: actions/checkout@v4.2.1
+    - name: Checkout repo (full)
+      uses: actions/checkout@v4.2.1
+      # Only do a full checkout on merge_groups
+      if: github.event_name == 'merge_group'
       with:
-        # We only need a full clone on merge_group events for golangci-lint.
-        fetch-depth: ${{ github.event_name == 'merge_group' && '0' || '1' }}"
+        fetch-depth: 0
+    - name: Checkout repo
+      uses: actions/checkout@v4.2.1
+      if: github.event_name != 'merge_group'
+      with:
+        fetch-depth: 1
     - name: Setup Go
       uses: ./.github/actions/setup-go
       with:
