@@ -1981,6 +1981,33 @@ func TestORM_FindTxesByIDs(t *testing.T) {
 	})
 }
 
+func TestORM_DeleteReceiptsByTxHash(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	txStore := cltest.NewTestTxStore(t, db)
+	ctx := tests.Context(t)
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
+
+	etx1 := mustInsertConfirmedEthTxWithReceipt(t, txStore, fromAddress, 0, 100)
+	etx2 := mustInsertConfirmedEthTxWithReceipt(t, txStore, fromAddress, 2, 100)
+
+	// Delete one transaction's receipt
+	err := txStore.DeleteReceiptByTxHash(ctx, etx1.TxAttempts[0].Hash)
+	require.NoError(t, err)
+
+	// receipt has been deleted
+	etx1, err = txStore.FindTxWithAttempts(ctx, etx1.ID)
+	require.NoError(t, err)
+	require.Empty(t, etx1.TxAttempts[0].Receipts)
+
+	// receipt still exists for other tx
+	etx2, err = txStore.FindTxWithAttempts(ctx, etx2.ID)
+	require.NoError(t, err)
+	require.Len(t, etx2.TxAttempts[0].Receipts, 1)
+}
+
 func mustInsertTerminallyStuckTxWithAttempt(t *testing.T, txStore txmgr.TestEvmTxStore, fromAddress common.Address, nonceInt int64, broadcastBeforeBlockNum int64) txmgr.Tx {
 	ctx := tests.Context(t)
 	broadcast := time.Now()

@@ -43,6 +43,7 @@ type EvmTxStore interface {
 	TxStoreWebApi
 
 	// methods used solely in EVM components
+	DeleteReceiptByTxHash(ctx context.Context, txHash common.Hash) error
 	FindAttemptsRequiringReceiptFetch(ctx context.Context, chainID *big.Int) (hashes []TxAttempt, err error)
 	FindConfirmedTxesReceipts(ctx context.Context, finalizedBlockNum int64, chainID *big.Int) (receipts []*evmtypes.Receipt, err error)
 	FindTxesPendingCallback(ctx context.Context, latest, finalized int64, chainID *big.Int) (receiptsPlus []ReceiptPlus, err error)
@@ -1089,6 +1090,14 @@ WHERE evm.receipts.tx_hash = evm.tx_attempts.hash
 AND evm.tx_attempts.eth_tx_id = ANY($1)
 	`, pq.Array(etxIDs))
 	return pkgerrors.Wrap(err, "deleteEthReceipts failed")
+}
+
+func (o *evmTxStore) DeleteReceiptByTxHash(ctx context.Context, txHash common.Hash) error {
+	var cancel context.CancelFunc
+	ctx, cancel = o.stopCh.Ctx(ctx)
+	defer cancel()
+	_, err := o.q.ExecContext(ctx, `DELETE FROM evm.receipts WHERE tx_hash = $1`, txHash)
+	return err
 }
 
 func (o *evmTxStore) UpdateTxsForRebroadcast(ctx context.Context, etxIDs []int64, attemptIDs []int64) error {

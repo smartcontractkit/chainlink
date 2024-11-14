@@ -61,6 +61,7 @@ var (
 const processHeadTimeout = 10 * time.Minute
 
 type finalizerTxStore interface {
+	DeleteReceiptByTxHash(ctx context.Context, txHash common.Hash) error
 	FindAttemptsRequiringReceiptFetch(ctx context.Context, chainID *big.Int) (hashes []TxAttempt, err error)
 	FindConfirmedTxesReceipts(ctx context.Context, finalizedBlockNum int64, chainID *big.Int) (receipts []*evmtypes.Receipt, err error)
 	FindTxesPendingCallback(ctx context.Context, latest, finalized int64, chainID *big.Int) (receiptsPlus []ReceiptPlus, err error)
@@ -267,8 +268,13 @@ func (f *evmFinalizer) processFinalizedHead(ctx context.Context, latestFinalized
 		// Receipt block hash does not match the block hash in chain. Transaction has been re-org'd out but DB state has not been updated yet
 		if blockHashInChain.String() != receipt.BlockHash.String() {
 			// Log error if a transaction is marked as confirmed with a receipt older than the finalized block
-			// This scenario could potentially point to a re-org'd transaction the Confirmer has lost track of
-			f.lggr.Errorw("found confirmed transaction with re-org'd receipt older than finalized block", "receipt", receipt, "onchainBlockHash", blockHashInChain.String())
+			// This scenario could potentially be caused by a stale receipt stored for a re-org'd transaction
+			f.lggr.Debugw("found confirmed transaction with re-org'd receipt", "receipt", receipt, "onchainBlockHash", blockHashInChain.String())
+			err = f.txStore.DeleteReceiptByTxHash(ctx, receipt.GetTxHash())
+			// Log error but allow process to continue so other transactions can still be marked as finalized
+			if err != nil {
+				f.lggr.Errorw("failed to delete receipt", "receipt", receipt)
+			}
 			continue
 		}
 		finalizedReceipts = append(finalizedReceipts, receipt)
@@ -353,8 +359,13 @@ func (f *evmFinalizer) batchCheckReceiptHashesOnchain(ctx context.Context, block
 					finalizedReceipts = append(finalizedReceipts, receipt)
 				} else {
 					// Log error if a transaction is marked as confirmed with a receipt older than the finalized block
-					// This scenario could potentially point to a re-org'd transaction the Confirmer has lost track of
-					f.lggr.Errorw("found confirmed transaction with re-org'd receipt older than finalized block", "receipt", receipt, "onchainBlockHash", head.BlockHash().String())
+					// This scenario could potentially be caused by a stale receipt stored for a re-org'd transaction
+					f.lggr.Debugw("found confirmed transaction with re-org'd receipt", "receipt", receipt, "onchainBlockHash", head.BlockHash().String())
+					err = f.txStore.DeleteReceiptByTxHash(ctx, receipt.GetTxHash())
+					// Log error but allow process to continue so other transactions can still be marked as finalized
+					if err != nil {
+						f.lggr.Errorw("failed to delete receipt", "receipt", receipt)
+					}
 				}
 			}
 		}

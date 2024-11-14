@@ -89,7 +89,7 @@ func TestFinalizer_MarkTxFinalized(t *testing.T) {
 		require.Equal(t, txmgrcommon.TxConfirmed, tx.State)
 	})
 
-	t.Run("returns not finalized for tx with receipt re-org'd out", func(t *testing.T) {
+	t.Run("returns not finalized for tx with receipt re-org'd out and deletes stale receipt", func(t *testing.T) {
 		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht)
 		servicetest.Run(t, finalizer)
 
@@ -117,6 +117,8 @@ func TestFinalizer_MarkTxFinalized(t *testing.T) {
 		tx, err = txStore.FindTxWithIdempotencyKey(ctx, idempotencyKey, testutils.FixtureChainID)
 		require.NoError(t, err)
 		require.Equal(t, txmgrcommon.TxConfirmed, tx.State)
+		require.Len(t, tx.TxAttempts, 1)
+		require.Empty(t, tx.TxAttempts[0].Receipts)
 	})
 
 	t.Run("returns finalized for tx with receipt in a finalized block", func(t *testing.T) {

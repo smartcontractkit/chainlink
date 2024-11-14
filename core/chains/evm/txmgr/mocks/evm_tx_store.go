@@ -446,6 +446,53 @@ func (_c *EvmTxStore_DeleteInProgressAttempt_Call) RunAndReturn(run func(context
 	return _c
 }
 
+// DeleteReceiptByTxHash provides a mock function with given fields: ctx, txHash
+func (_m *EvmTxStore) DeleteReceiptByTxHash(ctx context.Context, txHash common.Hash) error {
+	ret := _m.Called(ctx, txHash)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteReceiptByTxHash")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, common.Hash) error); ok {
+		r0 = rf(ctx, txHash)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// EvmTxStore_DeleteReceiptByTxHash_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteReceiptByTxHash'
+type EvmTxStore_DeleteReceiptByTxHash_Call struct {
+	*mock.Call
+}
+
+// DeleteReceiptByTxHash is a helper method to define mock.On call
+//   - ctx context.Context
+//   - txHash common.Hash
+func (_e *EvmTxStore_Expecter) DeleteReceiptByTxHash(ctx interface{}, txHash interface{}) *EvmTxStore_DeleteReceiptByTxHash_Call {
+	return &EvmTxStore_DeleteReceiptByTxHash_Call{Call: _e.mock.On("DeleteReceiptByTxHash", ctx, txHash)}
+}
+
+func (_c *EvmTxStore_DeleteReceiptByTxHash_Call) Run(run func(ctx context.Context, txHash common.Hash)) *EvmTxStore_DeleteReceiptByTxHash_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(common.Hash))
+	})
+	return _c
+}
+
+func (_c *EvmTxStore_DeleteReceiptByTxHash_Call) Return(_a0 error) *EvmTxStore_DeleteReceiptByTxHash_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *EvmTxStore_DeleteReceiptByTxHash_Call) RunAndReturn(run func(context.Context, common.Hash) error) *EvmTxStore_DeleteReceiptByTxHash_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // FindAttemptsRequiringReceiptFetch provides a mock function with given fields: ctx, chainID
 func (_m *EvmTxStore) FindAttemptsRequiringReceiptFetch(ctx context.Context, chainID *big.Int) ([]txmgr.TxAttempt, error) {
 	ret := _m.Called(ctx, chainID)
