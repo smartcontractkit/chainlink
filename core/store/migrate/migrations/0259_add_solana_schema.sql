@@ -14,21 +14,23 @@ CREATE TABLE solana.log_poller_filters (
     event_sig BYTEA NOT NULL,
     starting_block BIGINT NOT NULL,
     event_idl TEXT,
-    sub_key_paths json, -- A list of subkeys to be indexed, represented by their json paths in the event struct. Forced to use json's 2d array as text[][] requires all paths to have equal length.
+    subkey_paths json, -- A list of subkeys to be indexed, represented by their json paths in the event struct. Forced to use json's 2d array as text[][] requires all paths to have equal length.
     retention BIGINT NOT NULL DEFAULT 0, -- we don’t have to implement this initially, but good to include it in the schema
     max_logs_kept BIGINT NOT NULL DEFAULT 0 -- same as retention, no need to implement yet
 );
 
--- This generates a unique BIGINT for the log_poller_filters table from hashing (name, chain_id, address, event_sig, sub_key_paths).
+-- This generates a unique BIGINT for the log_poller_filters table from hashing (name, chain_id, address, event_sig, subkey_paths).
 -- Using an ordinary multi-column index on 5 columns would require a lot of extra storage space.
 -- Note for updating this if and when we drop support for postgresql 12 & 13: hashrecordextended() can be used directly in postgresql 14, avoiding the need for a helper function.
 -- The helper function is necessary only for the IMMUTABLE keyword.
-CREATE OR REPLACE FUNCTION solana.f_log_poller_filter_hash(name TEXT, chain_id TEXT, address BYTEA, event_sig BYTEA, sub_key_paths json)
+CREATE OR REPLACE FUNCTION solana.f_log_poller_filter_hash(name TEXT, chain_id TEXT, address BYTEA, event_sig BYTEA, subkey_paths json)
     RETURNS BIGINT
     LANGUAGE SQL IMMUTABLE COST 25 PARALLEL SAFE AS 'SELECT hashtextextended(textin(record_out(($1,$2,$3,$4,$5))), 0)';
 
 CREATE UNIQUE INDEX IF NOT EXISTS solana_log_poller_filters_hash_key
-    ON solana.log_poller_filters (solana.f_log_poller_filter_hash(name, chain_id, address, event_sig, sub_key_paths));
+    ON solana.log_poller_filters (solana.f_log_poller_filter_hash(name, chain_id, address, event_sig, subkey_paths));
+
+CREATE UNIQUE INDEX IF NOT EXISTS solana_log_poller_filter_name ON solana.log_poller_filters (name);
 
 CREATE TABLE solana.logs (
     id               BIGSERIAL PRIMARY KEY,
@@ -74,7 +76,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS solana_logs_idx_chain_filter_block_logindex ON
 DROP TABLE IF EXISTS solana.logs;
 DROP TABLE IF EXISTS solana.log_poller_filters;
 
-DROP FUNCTION IF EXISTS solana.f_log_poller_filter_hash(name TEXT, chain_id TEXT, address BYTEA, event_sig BYTEA, sub_key_paths json);
+DROP FUNCTION IF EXISTS solana.f_log_poller_filter_hash(name TEXT, chain_id TEXT, address BYTEA, event_sig BYTEA, subkey_paths json);
 
 DROP SCHEMA solana;
 
