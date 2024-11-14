@@ -664,7 +664,7 @@ func DeployChainContracts(
 					rmnRemoteContract.Address(),
 				)
 				return ContractDeploy[*rmn_proxy_contract.RMNProxyContract]{
-					rmnProxyAddr, rmnProxy, tx, deployment.NewTypeAndVersion(ARMProxy, deployment.Version1_6_0_dev), err2,
+					rmnProxyAddr, rmnProxy, tx, deployment.NewTypeAndVersion(ARMProxy, deployment.Version1_0_0), err2,
 				}
 			})
 		if err != nil {
