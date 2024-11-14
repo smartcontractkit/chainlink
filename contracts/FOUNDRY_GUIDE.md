@@ -1,5 +1,11 @@
 # Foundry Guide
 
+We lock Foundry to a specific version in the `GNUmakefile`.
+To ensure you have the correct local version run `make foundry`.
+When you see formatting or gas differences between local and CI, it often means there is a version mismatch.
+We use a locked version to avoid formatting or gas changes that suddenly pop up in CI when breaking changes are pushed to the nightly Foundry feed.
+
+
 ## How to start a new Foundry project
 
 There are several files to modify when starting a new Solidity project.
@@ -188,7 +194,7 @@ test_getFee - the base success case
 test_getFee_MultipleFeeTokens - another success case with a specific scenario
 test_getFee_RevertWhen_CursedByRMN - getFee reverts when it's cursed by the RMN. The error name should be used as condition when there is a single tests that checks for it
 testFuzz_getFee_OnlyFeeTokens - a fuzz test that asserts that only fee tokens are used
-testFork_getFee_UniswapV3MainnetFee - a fork test tha tuses Uniswap V3 on mainnet to get the fee
+testFork_getFee_UniswapV3MainnetFee - a fork test that uses Uniswap V3 on mainnet to get the fee
 ```
 
 
