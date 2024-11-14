@@ -10,9 +10,17 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 )
 
-type ErrRead struct {
+type readType string
+
+const (
+	batchReadType  readType = "BatchGetLatestValue"
+	singleReadType readType = "GetLatestValue"
+	eventReadType  readType = "QueryKey"
+)
+
+type ReadError struct {
 	Err    error
-	Batch  bool
+	Type   readType
 	Detail *readDetail
 	Result *string
 }
@@ -25,10 +33,10 @@ type readDetail struct {
 	Block          string
 }
 
-func newErrorFromCall(err error, call Call, block string, batch bool) ErrRead {
-	return ErrRead{
-		Err:   err,
-		Batch: batch,
+func newErrorFromCall(err error, call Call, block string, tp readType) ReadError {
+	return ReadError{
+		Err:  err,
+		Type: tp,
 		Detail: &readDetail{
 			Address:  call.ContractAddress.Hex(),
 			Contract: call.ContractName,
@@ -40,15 +48,12 @@ func newErrorFromCall(err error, call Call, block string, batch bool) ErrRead {
 	}
 }
 
-func (e ErrRead) Error() string {
+func (e ReadError) Error() string {
 	var builder strings.Builder
 
 	builder.WriteString("[read error]")
 	builder.WriteString(fmt.Sprintf(" err: %s;", e.Err.Error()))
-
-	if e.Batch {
-		builder.WriteString(" batch;")
-	}
+	builder.WriteString(fmt.Sprintf(" type: %s;", e.Type))
 
 	if e.Detail != nil {
 		builder.WriteString(fmt.Sprintf(" block: %s;", e.Detail.Block))
@@ -66,7 +71,7 @@ func (e ErrRead) Error() string {
 	return builder.String()
 }
 
-func (e ErrRead) Unwrap() error {
+func (e ReadError) Unwrap() error {
 	return e.Err
 }
 
