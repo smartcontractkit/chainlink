@@ -499,21 +499,21 @@ func Test_GetChainFeePriceUpdates(t *testing.T) {
 	// Notice that the reader chain is the same as the destination chain.
 	s := testSetup(ctx, t, chainD, chainD, nil, cfg, nil)
 
-	timestamp := uint32(time.Now().Unix())
+	timestamp := time.Now().Unix()
 	_, err := s.contract.SetDestinationChainGasPrice(
 		s.auth,
 		uint64(chainS1), // Setting chainS1's gas price
 		ccip_reader_tester.InternalTimestampedPackedUint224{
 			Value:     big.NewInt(100),
-			Timestamp: timestamp,
+			Timestamp: uint32(timestamp),
 		})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	s.sb.Commit()
 
 	updates := s.reader.GetChainFeePriceUpdate(ctx, []cciptypes.ChainSelector{chainS1})
 	assert.Len(t, updates, 1)
 	assert.Equal(t, big.NewInt(100), updates[chainS1].Value.Int)
-	assert.Equal(t, time.Unix(int64(timestamp), 0), updates[chainS1].Timestamp)
+	assert.Equal(t, time.Unix(timestamp, 0), updates[chainS1].Timestamp)
 }
 
 func testSetup(
