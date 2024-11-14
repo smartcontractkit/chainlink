@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/solkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/starkkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -45,6 +46,7 @@ type Master interface {
 	StarkNet() StarkNet
 	Aptos() Aptos
 	VRF() VRF
+	Workflow() Workflow
 	Unlock(ctx context.Context, password string) error
 	IsEmpty(ctx context.Context) (bool, error)
 }
@@ -61,6 +63,7 @@ type master struct {
 	starknet *starknet
 	aptos    *aptos
 	vrf      *vrf
+	workflow *workflow
 }
 
 func New(ds sqlutil.DataSource, scryptParams utils.ScryptParams, lggr logger.Logger) Master {
@@ -89,6 +92,7 @@ func newMaster(ds sqlutil.DataSource, scryptParams utils.ScryptParams, lggr logg
 		starknet:   newStarkNetKeyStore(km),
 		aptos:      newAptosKeyStore(km),
 		vrf:        newVRFKeyStore(km),
+		workflow:   newWorkflowKeyStore(km),
 	}
 }
 
@@ -130,6 +134,10 @@ func (ks *master) Aptos() Aptos {
 
 func (ks *master) VRF() VRF {
 	return ks.vrf
+}
+
+func (ks *master) Workflow() Workflow {
+	return ks.workflow
 }
 
 type ORM interface {
@@ -267,6 +275,8 @@ func GetFieldNameForKey(unknownKey Key) (string, error) {
 		return "Aptos", nil
 	case vrfkey.KeyV2:
 		return "VRF", nil
+	case workflowkey.Key:
+		return "Workflow", nil
 	}
 	return "", fmt.Errorf("unknown key type: %T", unknownKey)
 }

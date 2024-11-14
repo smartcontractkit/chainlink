@@ -226,6 +226,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"failed to forward tx to sequencer, please try again. Error message: 'insufficient funds for gas * price + value'", true, "Mantle"},
 			{"[Request ID: 9dd78806-58c8-4e6d-89a8-a60962abe705] Error invoking RPC: transaction 0.0.3041916@1717691931.680570179 failed precheck with status INSUFFICIENT_PAYER_BALANCE", true, "hedera"},
 			{"[Request ID: 6198d2a3-590f-4724-aae5-69fecead0c49] Insufficient funds for transfer", true, "hedera"},
+			{"insufficient funds for gas * price + value: balance 0, tx cost 9327080000000000, overshot 9327080000000000", true, "Geth"},
 		}
 		for _, test := range tests {
 			err = evmclient.NewSendErrorS(test.message)

@@ -36,7 +36,7 @@ type l1OracleClient interface {
 // DAClient is interface of client connections for additional chains layers
 type DAClient interface {
 	SuggestGasPrice(ctx context.Context) (*big.Int, error)
-	FeeHistory(ctx context.Context, blockCount uint64, rewardPercentiles []float64) (feeHistory *ethereum.FeeHistory, err error)
+	FeeHistory(ctx context.Context, blockCount uint64, lastBlock *big.Int, rewardPercentiles []float64) (feeHistory *ethereum.FeeHistory, err error)
 }
 
 type priceEntry struct {

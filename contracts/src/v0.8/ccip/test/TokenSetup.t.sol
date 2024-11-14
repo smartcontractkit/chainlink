@@ -2,13 +2,12 @@
 pragma solidity 0.8.24;
 
 import {BurnMintERC677} from "../../shared/token/ERC677/BurnMintERC677.sol";
-import {Client} from "../libraries/Client.sol";
 import {BurnMintTokenPool} from "../pools/BurnMintTokenPool.sol";
 import {LockReleaseTokenPool} from "../pools/LockReleaseTokenPool.sol";
 import {TokenPool} from "../pools/TokenPool.sol";
 import {TokenAdminRegistry} from "../tokenAdminRegistry/TokenAdminRegistry.sol";
 import {MaybeRevertingBurnMintTokenPool} from "./helpers/MaybeRevertingBurnMintTokenPool.sol";
-import {RouterSetup} from "./router/RouterSetup.t.sol";
+import {RouterSetup} from "./router/Router/RouterSetup.t.sol";
 
 import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
@@ -134,18 +133,6 @@ contract TokenSetup is RouterSetup {
         s_sourceTokens[i]
       );
     }
-  }
-
-  function _getCastedSourceEVMTokenAmountsWithZeroAmounts()
-    internal
-    view
-    returns (Client.EVMTokenAmount[] memory tokenAmounts)
-  {
-    tokenAmounts = new Client.EVMTokenAmount[](s_sourceTokens.length);
-    for (uint256 i = 0; i < tokenAmounts.length; ++i) {
-      tokenAmounts[i].token = s_sourceTokens[i];
-    }
-    return tokenAmounts;
   }
 
   function _setPool(

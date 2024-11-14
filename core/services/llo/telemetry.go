@@ -31,18 +31,19 @@ type TelemeterService interface {
 	services.Service
 }
 
-func NewTelemeterService(lggr logger.Logger, monitoringEndpoint commontypes.MonitoringEndpoint) TelemeterService {
+func NewTelemeterService(lggr logger.Logger, monitoringEndpoint commontypes.MonitoringEndpoint, donID uint32) TelemeterService {
 	if monitoringEndpoint == nil {
 		return NullTelemeter
 	}
-	return newTelemeter(lggr, monitoringEndpoint)
+	return newTelemeter(lggr, monitoringEndpoint, donID)
 }
 
-func newTelemeter(lggr logger.Logger, monitoringEndpoint commontypes.MonitoringEndpoint) *telemeter {
+func newTelemeter(lggr logger.Logger, monitoringEndpoint commontypes.MonitoringEndpoint, donID uint32) *telemeter {
 	chTelemetryObservation := make(chan TelemetryObservation, 100)
 	t := &telemeter{
 		chTelemetryObservation: chTelemetryObservation,
 		monitoringEndpoint:     monitoringEndpoint,
+		donID:                  donID,
 	}
 	t.Service, t.eng = services.Config{
 		Name:  "LLOTelemeterService",
@@ -58,9 +59,16 @@ type telemeter struct {
 
 	monitoringEndpoint     commontypes.MonitoringEndpoint
 	chTelemetryObservation chan TelemetryObservation
+	donID                  uint32
 }
 
 func (t *telemeter) EnqueueV3PremiumLegacy(run *pipeline.Run, trrs pipeline.TaskRunResults, streamID uint32, opts llo.DSOpts, val llo.StreamValue, err error) {
+	if t.Service.Ready() != nil {
+		// This should never happen, telemeter should always be started BEFORE
+		// the oracle and closed AFTER it
+		t.eng.SugaredLogger.Errorw("Telemeter not ready, dropping observation", "run", run, "streamID", streamID, "opts", opts, "val", val, "err", err)
+		return
+	}
 	var adapterError *eautils.AdapterError
 	var dpInvariantViolationDetected bool
 	if errors.As(err, &adapterError) && adapterError.Name == adapterLWBAErrorName {
@@ -134,6 +142,7 @@ func (t *telemeter) collectV3PremiumLegacyTelemetry(d TelemetryObservation) {
 			Epoch:                           int64(epoch),
 			AssetSymbol:                     eaTelem.AssetSymbol,
 			Version:                         uint32(1000 + mercuryutils.REPORT_V3), // add 1000 to distinguish between legacy feeds, this can be changed if necessary
+			DonId:                           t.donID,
 		}
 
 		bytes, err := proto.Marshal(tea)

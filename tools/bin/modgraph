@@ -24,49 +24,15 @@ flowchart LR
     chainlink-vrf
   end
 
-  subgraph tdh2
-    tdh2/go/tdh2
-    tdh2/go/ocr2/decryptionplugin
-  end
-
-  subgraph chainlink-protos
-    chainlink-protos/orchestrator
-    chainlink-protos/job-distributor
-  end
-
-  classDef outline stroke-dasharray:6,fill:none;
-  class chains,products,tdh2,chainlink-protos outline
+  classDef group stroke-dasharray:6,fill:none;
+  class chains,products group
 "
-go mod graph | \
-  # org only
-  grep smartcontractkit.*smartcontractkit | \
-  # drop prefix
-  sed s/"github\.com\/smartcontractkit\/"/""/g | \
-  # insert edges
-  sed s/" "/" --> "/ | \
-  # drop versions
-  sed s/"@[^ ]*"/""/g | \
-  # insert links
-  sed s/"\([^ ]*\)$"/"\1\nclick \1 href \"https:\/\/github.com\/smartcontractkit\/\1\""/ | \
-  # truncate links to repo
-  sed s/"\"https:\/\/github.com\/smartcontractkit\/\([^\"\/]*\)\/.*\""/"\"https:\/\/github.com\/smartcontractkit\/\1\""/ | \
-  # dedupe lines
-  awk '!x[$0]++' | \
-  # indent
-  sed 's/^/  /'
+go mod graph | modgraph -prefix github.com/smartcontractkit/
 echo "\`\`\`"
 
 echo "## All modules
 \`\`\`mermaid
 flowchart LR
-  subgraph chainlink
-    chainlink/v2
-    chainlink/deployment
-    chainlink/integration-tests
-    chainlink/load-tests
-    chainlink/core/scripts
-  end
-
   subgraph chains
     chainlink-cosmos
     chainlink-solana
@@ -83,42 +49,8 @@ flowchart LR
     chainlink-vrf
   end
 
-  subgraph tdh2
-    tdh2/go/tdh2
-    tdh2/go/ocr2/decryptionplugin
-  end
-
-  subgraph chainlink-testing-framework
-    chainlink-testing-framework/havoc
-    chainlink-testing-framework/lib
-    chainlink-testing-framework/lib/grafana
-    chainlink-testing-framework/seth
-    chainlink-testing-framework/wasp
-  end
-
-  subgraph chainlink-protos
-    chainlink-protos/orchestrator
-    chainlink-protos/job-distributor
-  end
-
-  classDef outline stroke-dasharray:6,fill:none;
-  class chainlink,chains,products,tdh2,chainlink-protos,chainlink-testing-framework outline
+  classDef group stroke-dasharray:6,fill:none;
+  class chains,products group
 "
-gomods graph | \
-  # org only
-  grep smartcontractkit.*smartcontractkit | \
-  # drop prefix
-  sed s/"github\.com\/smartcontractkit\/"/""/g | \
-  # insert edges
-  sed s/" "/" --> "/ | \
-  # drop versions
-  sed s/"@[^ ]*"/""/g | \
-  # insert links
-  sed s/"\([^ ]*\)$"/"\1\nclick \1 href \"https:\/\/github.com\/smartcontractkit\/\1\""/ | \
-  # truncate links to repo
-  sed s/"\"https:\/\/github.com\/smartcontractkit\/\([^\"\/]*\)\/.*\""/"\"https:\/\/github.com\/smartcontractkit\/\1\""/ | \
-  # dedupe lines
-  awk '!x[$0]++' | \
-  # indent
-  sed 's/^/  /'
+gomods graph | modgraph -prefix github.com/smartcontractkit/
 echo "\`\`\`"

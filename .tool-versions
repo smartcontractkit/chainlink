@@ -6,3 +6,4 @@ postgres 15.1
 helm 3.10.3
 golangci-lint 1.61.0
 protoc 25.1
+python 3.10.5
