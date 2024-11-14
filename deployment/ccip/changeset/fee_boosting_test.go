@@ -8,7 +8,6 @@ import (
 	"github.com/test-go/testify/require"
 	"golang.org/x/exp/maps"
 
-	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipdeployment "github.com/smartcontractkit/chainlink/deployment/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
@@ -130,6 +129,7 @@ func runFeeboostTestCase(tc feeboostTestCase) {
 	require.NoError(tc.t, ccipdeployment.AddLane(tc.deployedEnv.Env, tc.onchainState, tc.sourceChain, tc.destChain, tc.initialPrices))
 
 	startBlocks := make(map[uint64]*uint64)
+	expectedSeqNum := make(map[uint64]uint64)
 	seqNum := ccipdeployment.TestSendRequest(tc.t, tc.deployedEnv.Env, tc.onchainState, tc.sourceChain, tc.destChain, false, router.ClientEVM2AnyMessage{
 		Receiver:     common.LeftPadBytes(tc.onchainState.Chains[tc.destChain].Receiver.Address().Bytes(), 32),
 		Data:         []byte("message that needs fee boosting"),
@@ -137,29 +137,10 @@ func runFeeboostTestCase(tc feeboostTestCase) {
 		FeeToken:     common.HexToAddress("0x0"),
 		ExtraArgs:    nil,
 	})
+	expectedSeqNum[tc.destChain] = seqNum
 
 	sleepAndReplay(tc.t, tc.deployedEnv, tc.sourceChain, tc.destChain)
 
-	err := ccipdeployment.ConfirmCommitWithExpectedSeqNumRange(
-		tc.t,
-		tc.deployedEnv.Env.Chains[tc.sourceChain],
-		tc.deployedEnv.Env.Chains[tc.destChain],
-		tc.onchainState.Chains[tc.destChain].OffRamp,
-		startBlocks[tc.destChain],
-		ccipocr3.SeqNumRange{
-			ccipocr3.SeqNum(seqNum),
-			ccipocr3.SeqNum(seqNum),
-		},
-	)
-	require.NoError(tc.t, err)
-
-	err = ccipdeployment.ConfirmExecWithSeqNr(
-		tc.t,
-		tc.deployedEnv.Env.Chains[tc.sourceChain],
-		tc.deployedEnv.Env.Chains[tc.destChain],
-		tc.onchainState.Chains[tc.destChain].OffRamp,
-		startBlocks[tc.destChain],
-		seqNum,
-	)
-	require.NoError(tc.t, err)
+	ccipdeployment.ConfirmCommitForAllWithExpectedSeqNums(tc.t, tc.deployedEnv.Env, tc.onchainState, expectedSeqNum, startBlocks)
+	ccipdeployment.ConfirmExecWithSeqNrForAll(tc.t, tc.deployedEnv.Env, tc.onchainState, expectedSeqNum, startBlocks)
 }

@@ -186,7 +186,7 @@ func NewMemoryEnvironment(
 
 	ab := deployment.NewMemoryAddressBook()
 	crConfig := DeployTestContracts(t, lggr, ab, homeChainSel, feedSel, chains, linkPrice, wethPrice)
-	nodes := memory.NewNodes(t, zapcore.InfoLevel, evmChains, numNodes, 1, crConfig)
+	nodes := memory.NewNodes(t, zapcore.InfoLevel, chains, numNodes, 1, crConfig)
 	for _, node := range nodes {
 		require.NoError(t, node.App.Start(ctx))
 		t.Cleanup(func() {
