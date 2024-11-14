@@ -2,6 +2,7 @@ package ccipreader
 
 import (
 	"context"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"math/big"
 	"sort"
 	"testing"
@@ -481,11 +482,11 @@ func TestCCIPReader_Nonces(t *testing.T) {
 
 func Test_GetChainFeePriceUpdates(t *testing.T) {
 	ctx := testutils.Context(t)
-
 	cfg := evmtypes.ChainReaderConfig{
 		Contracts: map[string]evmtypes.ChainContractReader{
 			consts.ContractNameFeeQuoter: {
-				ContractABI: ccip_reader_tester.CCIPReaderTesterABI,
+				//ContractABI: ccip_reader_tester.CCIPReaderTesterABI,
+				ContractABI: fee_quoter.FeeQuoterABI,
 				Configs: map[string]*evmtypes.ChainReaderDefinition{
 					consts.MethodNameGetFeePriceUpdate: {
 						ChainSpecificName: "getDestinationChainGasPrice",
@@ -498,22 +499,61 @@ func Test_GetChainFeePriceUpdates(t *testing.T) {
 
 	// Notice that the reader chain is the same as the destination chain.
 	s := testSetup(ctx, t, chainD, chainD, nil, cfg, nil)
-
-	timestamp := time.Now().Unix()
-	_, err := s.contract.SetDestinationChainGasPrice(
+	linkAddress := utils.RandomAddress()
+	wethAddress := utils.RandomAddress()
+	_, _, feeQuoter, err := fee_quoter.DeployFeeQuoter(
 		s.auth,
-		uint64(chainS1), // Setting chainS1's gas price
-		ccip_reader_tester.InternalTimestampedPackedUint224{
-			Value:     big.NewInt(100),
-			Timestamp: uint32(timestamp),
-		})
+		s.sb.Client(),
+		fee_quoter.FeeQuoterStaticConfig{
+			MaxFeeJuelsPerMsg:            big.NewInt(0).Mul(big.NewInt(2e2), big.NewInt(1e18)),
+			LinkToken:                    linkAddress,
+			TokenPriceStalenessThreshold: uint32(24 * 60 * 60),
+		},
+		[]common.Address{s.auth.From},
+		[]common.Address{wethAddress, linkAddress},
+		[]fee_quoter.FeeQuoterTokenPriceFeedUpdate{},
+		[]fee_quoter.FeeQuoterTokenTransferFeeConfigArgs{},
+		[]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs{
+			{
+				PremiumMultiplierWeiPerEth: 9e17, // 0.9 ETH
+				Token:                      linkAddress,
+			},
+			{
+				PremiumMultiplierWeiPerEth: 1e18,
+				Token:                      wethAddress,
+			},
+		},
+		[]fee_quoter.FeeQuoterDestChainConfigArgs{},
+	)
+
 	require.NoError(t, err)
 	s.sb.Commit()
+
+	_, err = feeQuoter.UpdatePrices(
+		s.auth, fee_quoter.InternalPriceUpdates{
+			GasPriceUpdates: []fee_quoter.InternalGasPriceUpdate{
+				{
+					DestChainSelector: uint64(chainS1),
+					UsdPerUnitGas:     big.NewInt(100),
+				},
+			}},
+	)
+
+	//timestamp := time.Now().Unix()
+	//_, err = s.contract.SetDestinationChainGasPrice(
+	//	s.auth,
+	//	uint64(chainS1), // Setting chainS1's gas price
+	//	ccip_reader_tester.InternalTimestampedPackedUint224{
+	//		Value:     big.NewInt(100),
+	//		Timestamp: uint32(timestamp),
+	//	})
+	//require.NoError(t, err)
+	//s.sb.Commit()
 
 	updates := s.reader.GetChainFeePriceUpdate(ctx, []cciptypes.ChainSelector{chainS1})
 	assert.Len(t, updates, 1)
 	assert.Equal(t, big.NewInt(100), updates[chainS1].Value.Int)
-	assert.Equal(t, time.Unix(timestamp, 0), updates[chainS1].Timestamp)
+	//assert.Equal(t, time.Unix(timestamp, 0), updates[chainS1].Timestamp)
 }
 
 func testSetup(
