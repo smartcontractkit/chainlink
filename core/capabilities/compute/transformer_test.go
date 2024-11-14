@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
@@ -94,6 +95,9 @@ func Test_transformer(t *testing.T) {
 			"binary":       []byte{0x01, 0x02, 0x03},
 			"config":       []byte{0x04, 0x05, 0x06},
 		})
+		giveReq := capabilities.CapabilityRequest{
+			Config: giveMap,
+		}
 		require.NoError(t, err)
 
 		wantTO := 4 * time.Second
@@ -110,7 +114,7 @@ func Test_transformer(t *testing.T) {
 		}
 
 		tf := NewTransformer(lgger, emitter)
-		gotConfig, err := tf.Transform(giveMap)
+		_, gotConfig, err := tf.Transform(giveReq)
 
 		require.NoError(t, err)
 		assert.Equal(t, wantConfig, gotConfig)
@@ -121,6 +125,9 @@ func Test_transformer(t *testing.T) {
 			"binary": []byte{0x01, 0x02, 0x03},
 			"config": []byte{0x04, 0x05, 0x06},
 		})
+		giveReq := capabilities.CapabilityRequest{
+			Config: giveMap,
+		}
 		require.NoError(t, err)
 
 		wantConfig := &ParsedConfig{
@@ -133,7 +140,7 @@ func Test_transformer(t *testing.T) {
 		}
 
 		tf := NewTransformer(lgger, emitter)
-		gotConfig, err := tf.Transform(giveMap)
+		_, gotConfig, err := tf.Transform(giveReq)
 
 		require.NoError(t, err)
 		assert.Equal(t, wantConfig, gotConfig)
@@ -145,10 +152,13 @@ func Test_transformer(t *testing.T) {
 			"binary":  []byte{0x01, 0x02, 0x03},
 			"config":  []byte{0x04, 0x05, 0x06},
 		})
+		giveReq := capabilities.CapabilityRequest{
+			Config: giveMap,
+		}
 		require.NoError(t, err)
 
 		tf := NewTransformer(lgger, emitter)
-		_, err = tf.Transform(giveMap)
+		_, _, err = tf.Transform(giveReq)
 
 		require.Error(t, err)
 		require.ErrorContains(t, err, "invalid request")
@@ -160,10 +170,13 @@ func Test_transformer(t *testing.T) {
 			"binary":       []byte{0x01, 0x02, 0x03},
 			"config":       []byte{0x04, 0x05, 0x06},
 		})
+		giveReq := capabilities.CapabilityRequest{
+			Config: giveMap,
+		}
 		require.NoError(t, err)
 
 		tf := NewTransformer(lgger, emitter)
-		_, err = tf.Transform(giveMap)
+		_, _, err = tf.Transform(giveReq)
 
 		require.Error(t, err)
 		require.ErrorContains(t, err, "invalid request")

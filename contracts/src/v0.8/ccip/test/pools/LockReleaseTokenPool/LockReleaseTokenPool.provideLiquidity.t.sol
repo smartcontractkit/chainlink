@@ -7,7 +7,7 @@ import {TokenPool} from "../../../pools/TokenPool.sol";
 import {LockReleaseTokenPoolSetup} from "./LockReleaseTokenPoolSetup.t.sol";
 
 contract LockReleaseTokenPool_provideLiquidity is LockReleaseTokenPoolSetup {
-  function test_Fuzz_ProvideLiquidity_Success(
+  function testFuzz_ProvideLiquidity_Success(
     uint256 amount
   ) public {
     uint256 balancePre = s_token.balanceOf(OWNER);
@@ -28,7 +28,7 @@ contract LockReleaseTokenPool_provideLiquidity is LockReleaseTokenPoolSetup {
     s_lockReleaseTokenPool.provideLiquidity(1);
   }
 
-  function test_Fuzz_ExceedsAllowance(
+  function testFuzz_ExceedsAllowance(
     uint256 amount
   ) public {
     vm.assume(amount > 0);

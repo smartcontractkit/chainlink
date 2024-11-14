@@ -511,7 +511,7 @@ func testPeerID(t *testing.T, s string) p2pkey.PeerID {
 }
 
 func testChain(t *testing.T) deployment.Chain {
-	chains, _ := memory.NewMemoryChains(t, 1)
+	chains := memory.NewMemoryChains(t, 1)
 	var chain deployment.Chain
 	for _, c := range chains {
 		chain = c

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -19,6 +20,7 @@ import (
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	wasmpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/pb"
@@ -73,7 +75,8 @@ var (
 var _ capabilities.ActionCapability = (*Compute)(nil)
 
 type Compute struct {
-	log logger.Logger
+	stopCh services.StopChan
+	log    logger.Logger
 
 	// emitter is used to emit messages from the WASM module to a configured collector.
 	emitter  custmsg.MessageEmitter
@@ -82,9 +85,13 @@ type Compute struct {
 
 	// transformer is used to transform a values.Map into a ParsedConfig struct on each execution
 	// of a request.
-	transformer              ConfigTransformer
+	transformer              *transformer
 	outgoingConnectorHandler *webapi.OutgoingConnectorHandler
 	idGenerator              func() string
+
+	numWorkers int
+	queue      chan request
+	wg         sync.WaitGroup
 }
 
 func (c *Compute) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {
@@ -100,35 +107,76 @@ func generateID(binary []byte) string {
 	return fmt.Sprintf("%x", id)
 }
 
-func copyRequest(req capabilities.CapabilityRequest) capabilities.CapabilityRequest {
-	return capabilities.CapabilityRequest{
-		Metadata: req.Metadata,
-		Inputs:   req.Inputs.CopyMap(),
-		Config:   req.Config.CopyMap(),
+func (c *Compute) Execute(ctx context.Context, request capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
+	ch, err := c.enqueueRequest(ctx, request)
+	if err != nil {
+		return capabilities.CapabilityResponse{}, err
+	}
+
+	select {
+	case <-c.stopCh:
+		return capabilities.CapabilityResponse{}, errors.New("service shutting down, aborting request")
+	case <-ctx.Done():
+		return capabilities.CapabilityResponse{}, fmt.Errorf("request cancelled by upstream: %w", ctx.Err())
+	case resp := <-ch:
+		return resp.resp, resp.err
 	}
 }
 
-func (c *Compute) Execute(ctx context.Context, request capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
-	copied := copyRequest(request)
+type request struct {
+	ch  chan response
+	req capabilities.CapabilityRequest
+	ctx func() context.Context
+}
 
-	cfg, err := c.transformer.Transform(copied.Config)
+type response struct {
+	resp capabilities.CapabilityResponse
+	err  error
+}
+
+func (c *Compute) enqueueRequest(ctx context.Context, req capabilities.CapabilityRequest) (<-chan response, error) {
+	ch := make(chan response)
+	r := request{
+		ch:  ch,
+		req: req,
+		ctx: func() context.Context { return ctx },
+	}
+	select {
+	case <-c.stopCh:
+		return nil, errors.New("service shutting down, aborting request")
+	case <-ctx.Done():
+		return nil, fmt.Errorf("could not enqueue request: %w", ctx.Err())
+	case c.queue <- r:
+		return ch, nil
+	}
+}
+
+func (c *Compute) execute(ctx context.Context, respCh chan response, req capabilities.CapabilityRequest) {
+	copiedReq, cfg, err := c.transformer.Transform(req)
 	if err != nil {
-		return capabilities.CapabilityResponse{}, fmt.Errorf("invalid request: could not transform config: %w", err)
+		respCh <- response{err: fmt.Errorf("invalid request: could not transform config: %w", err)}
+		return
 	}
 
 	id := generateID(cfg.Binary)
 
 	m, ok := c.modules.get(id)
 	if !ok {
-		mod, err := c.initModule(id, cfg.ModuleConfig, cfg.Binary, request.Metadata)
-		if err != nil {
-			return capabilities.CapabilityResponse{}, err
+		mod, innerErr := c.initModule(id, cfg.ModuleConfig, cfg.Binary, copiedReq.Metadata)
+		if innerErr != nil {
+			respCh <- response{err: innerErr}
+			return
 		}
 
 		m = mod
 	}
 
-	return c.executeWithModule(ctx, m.module, cfg.Config, request)
+	resp, err := c.executeWithModule(ctx, m.module, cfg.Config, copiedReq)
+	select {
+	case <-c.stopCh:
+	case <-ctx.Done():
+	case respCh <- response{resp: resp, err: err}:
+	}
 }
 
 func (c *Compute) initModule(id string, cfg *host.ModuleConfig, binary []byte, requestMetadata capabilities.RequestMetadata) (*module, error) {
@@ -196,11 +244,35 @@ func (c *Compute) Info(ctx context.Context) (capabilities.CapabilityInfo, error)
 
 func (c *Compute) Start(ctx context.Context) error {
 	c.modules.start()
+
+	c.wg.Add(c.numWorkers)
+	for i := 0; i < c.numWorkers; i++ {
+		go func() {
+			innerCtx, cancel := c.stopCh.NewCtx()
+			defer cancel()
+
+			defer c.wg.Done()
+			c.worker(innerCtx)
+		}()
+	}
 	return c.registry.Add(ctx, c)
+}
+
+func (c *Compute) worker(ctx context.Context) {
+	for {
+		select {
+		case <-c.stopCh:
+			return
+		case req := <-c.queue:
+			c.execute(req.ctx(), req.ch, req.req)
+		}
+	}
 }
 
 func (c *Compute) Close() error {
 	c.modules.close()
+	close(c.stopCh)
+	c.wg.Wait()
 	return nil
 }
 
@@ -270,18 +342,31 @@ func (c *Compute) createFetcher() func(ctx context.Context, req *wasmpb.FetchReq
 	}
 }
 
+const (
+	defaultNumWorkers = 3
+)
+
+type Config struct {
+	webapi.ServiceConfig
+	NumWorkers int
+}
+
 func NewAction(
-	config webapi.ServiceConfig,
+	config Config,
 	log logger.Logger,
 	registry coretypes.CapabilitiesRegistry,
 	handler *webapi.OutgoingConnectorHandler,
 	idGenerator func() string,
 	opts ...func(*Compute),
 ) *Compute {
+	if config.NumWorkers == 0 {
+		config.NumWorkers = defaultNumWorkers
+	}
 	var (
 		lggr    = logger.Named(log, "CustomCompute")
 		labeler = custmsg.NewLabeler()
 		compute = &Compute{
+			stopCh:                   make(services.StopChan),
 			log:                      lggr,
 			emitter:                  labeler,
 			registry:                 registry,
@@ -289,6 +374,8 @@ func NewAction(
 			transformer:              NewTransformer(lggr, labeler),
 			outgoingConnectorHandler: handler,
 			idGenerator:              idGenerator,
+			queue:                    make(chan request),
+			numWorkers:               defaultNumWorkers,
 		}
 	)
 

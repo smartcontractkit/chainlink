@@ -6,23 +6,16 @@ import (
 	"fmt"
 
 	v1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
-	"github.com/smartcontractkit/chainlink/deployment/environment/clo"
-	"github.com/smartcontractkit/chainlink/deployment/environment/clo/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
-func NewP2PSignerEncFromCLO(cc *models.NodeChainConfig, pubkey string) (*P2PSignerEnc, error) {
-	ccfg := clo.NewChainConfig(cc)
-	var pubkeyB [32]byte
-	if _, err := hex.Decode(pubkeyB[:], []byte(pubkey)); err != nil {
-		return nil, fmt.Errorf("failed to decode pubkey %s: %w", pubkey, err)
-	}
-	return newP2PSignerEncFromJD(ccfg, pubkeyB)
-}
-
-func newP2PSignerEncFromJD(ccfg *v1.ChainConfig, pubkey [32]byte) (*P2PSignerEnc, error) {
+func NewP2PSignerEncFromJD(ccfg *v1.ChainConfig, pubkeyStr string) (*P2PSignerEnc, error) {
 	if ccfg == nil {
 		return nil, errors.New("nil ocr2config")
+	}
+	var pubkey [32]byte
+	if _, err := hex.Decode(pubkey[:], []byte(pubkeyStr)); err != nil {
+		return nil, fmt.Errorf("failed to decode pubkey %s: %w", pubkey, err)
 	}
 	ocfg := ccfg.Ocr2Config
 	p2p := p2pkey.PeerID{}

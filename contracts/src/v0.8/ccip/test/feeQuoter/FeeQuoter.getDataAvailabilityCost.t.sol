@@ -64,7 +64,7 @@ contract FeeQuoter_getDataAvailabilityCost is FeeQuoterSetup {
     assertEq(dataAvailabilityCostUSD, 0);
   }
 
-  function test_Fuzz_ZeroDataAvailabilityGasPriceAlwaysCalculatesZeroDataAvailabilityCost_Success(
+  function testFuzz_ZeroDataAvailabilityGasPriceAlwaysCalculatesZeroDataAvailabilityCost_Success(
     uint64 messageDataLength,
     uint32 numberOfTokens,
     uint32 tokenTransferBytesOverhead
@@ -76,7 +76,7 @@ contract FeeQuoter_getDataAvailabilityCost is FeeQuoterSetup {
     assertEq(0, dataAvailabilityCostUSD);
   }
 
-  function test_Fuzz_CalculateDataAvailabilityCost_Success(
+  function testFuzz_CalculateDataAvailabilityCost_Success(
     uint64 destChainSelector,
     uint32 destDataAvailabilityOverheadGas,
     uint16 destGasPerDataAvailabilityByte,

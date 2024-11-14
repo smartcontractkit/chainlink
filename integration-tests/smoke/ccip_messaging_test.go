@@ -1,4 +1,4 @@
-package changeset
+package smoke
 
 import (
 	"testing"
@@ -6,13 +6,18 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/require"
+	"golang.org/x/exp/maps"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink/deployment"
+	ccdeploy "github.com/smartcontractkit/chainlink/deployment/ccip"
 	ccipdeployment "github.com/smartcontractkit/chainlink/deployment/ccip"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/test-go/testify/require"
-	"golang.org/x/exp/maps"
 )
 
 type testCaseSetup struct {
@@ -34,12 +39,13 @@ type messagingTestCaseOutput struct {
 	nonce    uint64
 }
 
-func Test_Messaging(t *testing.T) {
-	t.Parallel()
-
+func Test_CCIPMessaging(t *testing.T) {
 	// Setup 2 chains and a single lane.
-	e := ccipdeployment.NewMemoryEnvironmentWithJobs(t, logger.TestLogger(t), 2, 4)
-	state, err := ccipdeployment.LoadOnchainState(e.Env)
+	lggr := logger.TestLogger(t)
+	ctx := ccdeploy.Context(t)
+	e, _, _ := testsetups.NewLocalDevEnvironment(t, lggr)
+
+	state, err := ccdeploy.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	allChainSelectors := maps.Keys(e.Env.Chains)
@@ -54,19 +60,36 @@ func Test_Messaging(t *testing.T) {
 	)
 
 	tokenConfig := ccipdeployment.NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
-	newAddresses := deployment.NewMemoryAddressBook()
-	err = ccipdeployment.DeployCCIPContracts(e.Env, newAddresses, ccipdeployment.DeployCCIPContractConfig{
+	// Apply migration
+	output, err := changeset.InitialDeploy(e.Env, ccdeploy.DeployCCIPContractConfig{
 		HomeChainSel:   e.HomeChainSel,
 		FeedChainSel:   e.FeedChainSel,
 		ChainsToDeploy: allChainSelectors,
 		TokenConfig:    tokenConfig,
-		MCMSConfig:     ccipdeployment.NewTestMCMSConfig(t, e.Env),
+		MCMSConfig:     ccdeploy.NewTestMCMSConfig(t, e.Env),
 		OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
 	})
 	require.NoError(t, err)
-	require.NoError(t, e.Env.ExistingAddresses.Merge(newAddresses))
-	state, err = ccipdeployment.LoadOnchainState(e.Env)
+	require.NoError(t, e.Env.ExistingAddresses.Merge(output.AddressBook))
+	// Get new state after migration.
+	state, err = ccdeploy.LoadOnchainState(e.Env)
 	require.NoError(t, err)
+
+	// Ensure capreg logs are up to date.
+	ccdeploy.ReplayLogs(t, e.Env.Offchain, e.ReplayBlocks)
+
+	// Apply the jobs.
+	for nodeID, jobs := range output.JobSpecs {
+		for _, job := range jobs {
+			// Note these auto-accept
+			_, err := e.Env.Offchain.ProposeJob(ctx,
+				&jobv1.ProposeJobRequest{
+					NodeId: nodeID,
+					Spec:   job,
+				})
+			require.NoError(t, err)
+		}
+	}
 
 	// connect a single lane, source to dest
 	require.NoError(t, ccipdeployment.AddLane(e.Env, state, sourceChain, destChain))
@@ -94,6 +117,8 @@ func Test_Messaging(t *testing.T) {
 		},
 			common.HexToAddress("0xdead"),
 			[]byte("hello eoa"),
+			nil,                                    // default extraArgs
+			ccipdeployment.EXECUTION_STATE_SUCCESS, // success because offRamp won't call an EOA
 		)
 	})
 
@@ -106,6 +131,8 @@ func Test_Messaging(t *testing.T) {
 			},
 			state.Chains[destChain].FeeQuoter.Address(),
 			[]byte("hello FeeQuoter"),
+			nil,                                    // default extraArgs
+			ccipdeployment.EXECUTION_STATE_SUCCESS, // success because offRamp won't call a contract not implementing CCIPReceiver
 		)
 	})
 
@@ -118,6 +145,8 @@ func Test_Messaging(t *testing.T) {
 			},
 			state.Chains[destChain].Receiver.Address(),
 			[]byte("hello CCIPReceiver"),
+			nil, // default extraArgs
+			ccipdeployment.EXECUTION_STATE_SUCCESS,
 			func(t *testing.T) {
 				iter, err := state.Chains[destChain].Receiver.FilterMessageReceived(nil)
 				require.NoError(t, err)
@@ -136,17 +165,8 @@ func Test_Messaging(t *testing.T) {
 			},
 			state.Chains[destChain].Receiver.Address(),
 			[]byte("hello CCIPReceiver with low exec gas"),
-			func(t *testing.T) {
-				// Message should not be emitted, not enough gas to emit log.
-				// TODO: this is still returning a log, probably the older one since FAILURE is the execution state.
-				// Not enough ctx in the message received log to confirm that it's from another test.
-				// Maybe check the log block number and assert that its < the header before block number from above?
-				// iter, err := ccipReceiver.FilterMessageReceived(&bind.FilterOpts{
-				// 	Start: headerBefore.Number.Uint64(),
-				// })
-				// require.NoError(t, err)
-				// require.False(t, iter.Next(), "MessageReceived should not be emitted in this test case since gas is too low")
-			},
+			ccipdeployment.MakeEVMExtraArgsV2(1, false), // 1 gas is too low.
+			ccipdeployment.EXECUTION_STATE_FAILURE,      // state would be failed onchain due to low gas
 		)
 	})
 }
@@ -163,6 +183,8 @@ func runMessagingTestCase(
 	tc messagingTestCase,
 	receiver common.Address,
 	msgData []byte,
+	extraArgs []byte,
+	expectedExecutionState int,
 	extraAssertions ...func(t *testing.T),
 ) (out messagingTestCaseOutput) {
 	// check latest nonce
@@ -178,7 +200,7 @@ func runMessagingTestCase(
 		Data:         msgData,
 		TokenAmounts: nil,
 		FeeToken:     common.HexToAddress("0x0"),
-		ExtraArgs:    nil,
+		ExtraArgs:    extraArgs,
 	})
 	expectedSeqNum := make(map[uint64]uint64)
 	expectedSeqNum[tc.destChain] = seqNum
@@ -190,7 +212,17 @@ func runMessagingTestCase(
 	}
 
 	ccipdeployment.ConfirmCommitForAllWithExpectedSeqNums(tc.t, tc.deployedEnv.Env, tc.onchainState, expectedSeqNum, startBlocks)
-	ccipdeployment.ConfirmExecWithSeqNrForAll(tc.t, tc.deployedEnv.Env, tc.onchainState, expectedSeqNum, startBlocks)
+	execStates := ccipdeployment.ConfirmExecWithSeqNrForAll(tc.t, tc.deployedEnv.Env, tc.onchainState, expectedSeqNum, startBlocks)
+
+	require.Equalf(
+		tc.t,
+		expectedExecutionState,
+		execStates[seqNum],
+		"wrong execution state for seq nr %d, expected %d, got %d",
+		seqNum,
+		expectedExecutionState,
+		execStates[seqNum],
+	)
 
 	// check the sender latestNonce on the dest, should be incremented
 	latestNonce, err = tc.onchainState.Chains[tc.destChain].NonceManager.GetInboundNonce(&bind.CallOpts{
