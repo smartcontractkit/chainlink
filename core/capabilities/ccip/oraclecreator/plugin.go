@@ -116,8 +116,6 @@ func (i *pluginOracleCreator) Type() cctypes.OracleType {
 // Create implements types.OracleCreator.
 func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config cctypes.OCR3ConfigWithMeta) (cctypes.CCIPOracle, error) {
 	pluginType := cctypes.PluginType(config.Config.PluginType)
-
-	// Assuming that the chain selector is referring to an evm chain for now.
 	chainSelector := uint64(config.Config.ChainSelector)
 	destChainFamily, err := chainsel.GetSelectorFamily(chainSelector)
 	if err != nil {
