@@ -34,8 +34,8 @@ jobs:
       pull-requests: read
     outputs:
       deployment-changes: ${{ steps.match-some.outputs.deployment == 'true' }}
-      should-run-ci-core: ${{ steps.match-every.outputs.non-ignored == 'true' || steps.match-some.outputs.core-ci == 'true' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' }}
-      should-run-golangci: ${{ steps.match-every.outputs.non-integration-tests == 'true' || github.event_name == 'workflow_dispatch' }}
+      should-run-ci-core: ${{ steps.match-some.outputs.core-ci == 'true' || steps.match-every.outputs.non-ignored == 'true' ||  github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' }}
+      should-run-golangci: ${{ steps.match-some.outputs.golang-ci == 'true' || steps.match-every.outputs.non-ignored == 'true' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
@@ -48,10 +48,16 @@ jobs:
           # "if any changed file matches one or more of the conditions" (https://github.com/dorny/paths-filter/issues/225)
           predicate-quantifier: some
           # deployment - any changes to files in `deployments/`
+          # core-ci - any changes that could affect this workflow definition
+          # golang-ci - any changes that could affect the linting result
           filters: |
             deployment:
               - 'deployment/**'
             core-ci:
+              - '.github/workflows/ci-core.yml'
+              - '.github/actions/**'
+            golang-ci:
+              - '.golangci.yml'
               - '.github/workflows/ci-core.yml'
               - '.github/actions/**'
       - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
@@ -60,7 +66,7 @@ jobs:
           # "if any changed file match all of the conditions" (https://github.com/dorny/paths-filter/issues/225)
           predicate-quantifier: every
           # non-integration-tests - only changes made outside of the `integration-tests` directory
-          # everything-except-ignored - only changes except for the negated ones
+          # non-ignored - only changes except for the negated ones
           #  - This is opt-in on purpose. To be safe, new files are assumed to have an affect on CI Core unless listed here specifically.
           filters: |
             non-integration-tests:
@@ -103,9 +109,6 @@ jobs:
       - name: Golang Lint
         uses: ./.github/actions/golangci-lint
         if: ${{ needs.filter.outputs.should-run-golangci == 'true' }}
-        with:
-          id: core
-          name: lint
       - name: Notify Slack
         if: ${{ failure() && needs.run-frequency.outputs.one-per-day-frequency == 'true' }}
         uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
