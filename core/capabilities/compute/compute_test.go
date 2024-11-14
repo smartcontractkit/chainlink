@@ -18,6 +18,7 @@ import (
 	cappkg "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+
 	corecapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -60,7 +61,8 @@ func setup(t *testing.T, config Config) testHarness {
 	connectorHandler, err := webapi.NewOutgoingConnectorHandler(connector, config.ServiceConfig, ghcapabilities.MethodComputeAction, log)
 	require.NoError(t, err)
 
-	compute := NewAction(config, log, registry, connectorHandler, idGeneratorFn)
+	compute, err := NewAction(config, log, registry, connectorHandler, idGeneratorFn)
+	require.NoError(t, err)
 	compute.modules.clock = clockwork.NewFakeClock()
 
 	return testHarness{
