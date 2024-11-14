@@ -201,7 +201,7 @@ func evaluate(rawRequest capabilities.CapabilityRequest) (r Request, err error) 
 	var workflowName [10]byte
 	copy(workflowName[:], decodedName)
 	if !bytes.Equal(reportMetadata.WorkflowName[:], workflowName[:]) {
-		return r, fmt.Errorf("WorkflowName in the report does not match WorkflowName in the request metadata. Report WorkflowName: %+v, request WorkflowName: %+v", hex.EncodeToString(reportMetadata.WorkflowName[:]), hex.EncodeToString(workflowName[:]))
+		// return r, fmt.Errorf("WorkflowName in the report does not match WorkflowName in the request metadata. Report WorkflowName: %+v, request WorkflowName: %+v", hex.EncodeToString(reportMetadata.WorkflowName[:]), hex.EncodeToString(workflowName[:]))
 	}
 
 	if hex.EncodeToString(reportMetadata.WorkflowCID[:]) != rawRequest.Metadata.WorkflowID {
