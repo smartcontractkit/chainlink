@@ -6,6 +6,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 
 def main():
     parser = argparse.ArgumentParser(
@@ -22,35 +23,51 @@ def main():
 
     # use float for remaining_seconds so we can represent infinity
     if args.seconds:
-        remaining_seconds = float(args.seconds)
+        total_time = float(args.seconds)
     else:
-        remaining_seconds = float("inf")
+        total_time = float("inf")
+    
+    start_time = time.time()    
+    remaining_seconds = total_time
 
     fuzzers = discover_fuzzers(args.go_module_root)
-    print(f"🐝 Discovered fuzzers:", file=sys.stderr)
+    num_fuzzers = len(fuzzers)
+    print(f"🐝 Discovered {num_fuzzers} fuzzers:", file=sys.stderr)
     for fuzzfn, path in fuzzers.items():
         print(f"{fuzzfn} in {path}", file=sys.stderr)
 
+    if num_fuzzers == 0:
+        print(f"No fuzzers found, this is likely an error. Exiting.")
+        exit(1)
+
+    # run forever or until --seconds, with increasingly longer durations per fuzz run
+    durations_seconds = itertools.chain([5, 10, 30, 90, 270], itertools.repeat(600))
     if args.ci:
-        # only run each fuzzer once for 60 seconds in CI
-        durations_seconds = [60]
-    else:
-        # run forever or until --seconds, with increasingly longer durations per fuzz run
-        durations_seconds = itertools.chain([5, 10, 30, 90, 270], itertools.repeat(600))
+        # In CI - default to 60s fuzzes for scheduled runs, and 45 seconds for everything else
+        durations_seconds = [60] if os.getenv('GITHUB_EVENT_NAME') == 'scheduled' else [45]
+        if args.seconds:
+            # However, if seconds was specified, evenly divide total time among all fuzzers
+            # leaving a 10 second buffer for processing/building time between fuzz runs
+            actual_fuzz_time = total_time - (num_fuzzers * 10)
+            if actual_fuzz_time <= 5 * num_fuzzers:
+                print(f"Seconds (--seconds {arg.seconds}) is too low to properly run fuzzers for 5sec each. Exiting.")
+                exit(1)
+            durations_seconds = [ actual_fuzz_time / num_fuzzers ]
 
     for duration_seconds in durations_seconds:
         print(f"🐝 Running each fuzzer for {duration_seconds}s before switching to next fuzzer", file=sys.stderr)
         for fuzzfn, path in fuzzers.items():
+            elapsed_time = time.time() - start_time
+            remaining_seconds = total_time - elapsed_time 
+            
             if remaining_seconds <= 0:
                 print(f"🐝 Time budget of {args.seconds}s is exhausted. Exiting.", file=sys.stderr)
                 return
 
             next_duration_seconds = min(remaining_seconds, duration_seconds)
-            remaining_seconds -= next_duration_seconds
-
-            print(f"🐝 Running {fuzzfn} in {path} for {next_duration_seconds}s before switching to next fuzzer", file=sys.stderr)
+            print(f"🐝 Running {fuzzfn} in {path} for {next_duration_seconds}s (Elapsed: {elapsed_time:.2f}s, Remaining: {remaining_seconds:.2f}s)", file=sys.stderr)
             run_fuzzer(fuzzfn, path, next_duration_seconds, args.go_module_root)
-            print(f"🐝 Completed running {fuzzfn} in {path} for {next_duration_seconds}s. Total remaining time is {remaining_seconds}s", file=sys.stderr)
+            print(f"🐝 Completed running {fuzzfn} in {path} for {next_duration_seconds}s.", file=sys.stderr)
 
 def discover_fuzzers(go_module_root):
     fuzzers = {}

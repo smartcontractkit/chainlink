@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -21,11 +22,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	wasmpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/pb"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/validation"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
+	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 )
 
@@ -83,7 +85,7 @@ type Compute struct {
 
 	// transformer is used to transform a values.Map into a ParsedConfig struct on each execution
 	// of a request.
-	transformer              ConfigTransformer
+	transformer              *transformer
 	outgoingConnectorHandler *webapi.OutgoingConnectorHandler
 	idGenerator              func() string
 
@@ -149,28 +151,8 @@ func (c *Compute) enqueueRequest(ctx context.Context, req capabilities.Capabilit
 	}
 }
 
-func shallowCopy(m *values.Map) *values.Map {
-	to := values.EmptyMap()
-
-	for k, v := range m.Underlying {
-		to.Underlying[k] = v
-	}
-
-	return to
-}
-
 func (c *Compute) execute(ctx context.Context, respCh chan response, req capabilities.CapabilityRequest) {
-	// Shallow copy the request.
-	// This is because we mutate its overall shape.
-	req = capabilities.CapabilityRequest{
-		Config: shallowCopy(req.Config),
-
-		// These aren't mutated so we ignore them.
-		Metadata: req.Metadata,
-		Inputs:   req.Inputs,
-	}
-
-	cfg, err := c.transformer.Transform(req.Config)
+	copiedReq, cfg, err := c.transformer.Transform(req)
 	if err != nil {
 		respCh <- response{err: fmt.Errorf("invalid request: could not transform config: %w", err)}
 		return
@@ -180,7 +162,7 @@ func (c *Compute) execute(ctx context.Context, respCh chan response, req capabil
 
 	m, ok := c.modules.get(id)
 	if !ok {
-		mod, innerErr := c.initModule(id, cfg.ModuleConfig, cfg.Binary, req.Metadata.WorkflowID, req.Metadata.WorkflowExecutionID, req.Metadata.ReferenceID)
+		mod, innerErr := c.initModule(id, cfg.ModuleConfig, cfg.Binary, copiedReq.Metadata)
 		if innerErr != nil {
 			respCh <- response{err: innerErr}
 			return
@@ -189,7 +171,7 @@ func (c *Compute) execute(ctx context.Context, respCh chan response, req capabil
 		m = mod
 	}
 
-	resp, err := c.executeWithModule(ctx, m.module, cfg.Config, req)
+	resp, err := c.executeWithModule(ctx, m.module, cfg.Config, copiedReq)
 	select {
 	case <-c.stopCh:
 	case <-ctx.Done():
@@ -197,10 +179,10 @@ func (c *Compute) execute(ctx context.Context, respCh chan response, req capabil
 	}
 }
 
-func (c *Compute) initModule(id string, cfg *host.ModuleConfig, binary []byte, workflowID, workflowExecutionID, referenceID string) (*module, error) {
+func (c *Compute) initModule(id string, cfg *host.ModuleConfig, binary []byte, requestMetadata capabilities.RequestMetadata) (*module, error) {
 	initStart := time.Now()
 
-	cfg.Fetch = c.createFetcher(workflowID, workflowExecutionID)
+	cfg.Fetch = c.createFetcher()
 	mod, err := host.NewModule(cfg, binary)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate WASM module: %w", err)
@@ -209,7 +191,7 @@ func (c *Compute) initModule(id string, cfg *host.ModuleConfig, binary []byte, w
 	mod.Start()
 
 	initDuration := time.Since(initStart)
-	computeWASMInit.WithLabelValues(workflowID, referenceID).Observe(float64(initDuration))
+	computeWASMInit.WithLabelValues(requestMetadata.WorkflowID, requestMetadata.ReferenceID).Observe(float64(initDuration))
 
 	m := &module{module: mod}
 	c.modules.add(id, m)
@@ -295,18 +277,26 @@ func (c *Compute) Close() error {
 	return nil
 }
 
-func (c *Compute) createFetcher(workflowID, workflowExecutionID string) func(ctx context.Context, req *wasmpb.FetchRequest) (*wasmpb.FetchResponse, error) {
+func (c *Compute) createFetcher() func(ctx context.Context, req *wasmpb.FetchRequest) (*wasmpb.FetchResponse, error) {
 	return func(ctx context.Context, req *wasmpb.FetchRequest) (*wasmpb.FetchResponse, error) {
-		if err := validation.ValidateWorkflowOrExecutionID(workflowID); err != nil {
-			return nil, fmt.Errorf("workflow ID %q is invalid: %w", workflowID, err)
+		if err := validation.ValidateWorkflowOrExecutionID(req.Metadata.WorkflowId); err != nil {
+			return nil, fmt.Errorf("workflow ID %q is invalid: %w", req.Metadata.WorkflowId, err)
 		}
-		if err := validation.ValidateWorkflowOrExecutionID(workflowExecutionID); err != nil {
-			return nil, fmt.Errorf("workflow execution ID %q is invalid: %w", workflowExecutionID, err)
+		if err := validation.ValidateWorkflowOrExecutionID(req.Metadata.WorkflowExecutionId); err != nil {
+			return nil, fmt.Errorf("workflow execution ID %q is invalid: %w", req.Metadata.WorkflowExecutionId, err)
 		}
 
+		cma := c.emitter.With(
+			platform.KeyWorkflowID, req.Metadata.WorkflowId,
+			platform.KeyWorkflowName, req.Metadata.WorkflowName,
+			platform.KeyWorkflowOwner, req.Metadata.WorkflowOwner,
+			platform.KeyWorkflowExecutionID, req.Metadata.WorkflowExecutionId,
+			timestampKey, time.Now().UTC().Format(time.RFC3339Nano),
+		)
+
 		messageID := strings.Join([]string{
-			workflowID,
-			workflowExecutionID,
+			req.Metadata.WorkflowId,
+			req.Metadata.WorkflowExecutionId,
 			ghcapabilities.MethodComputeAction,
 			c.idGenerator(),
 		}, "/")
@@ -339,6 +329,16 @@ func (c *Compute) createFetcher(workflowID, workflowExecutionID string) func(ctx
 		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal fetch response: %w", err)
 		}
+
+		// Only log if the response is not in the 200 range
+		if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
+			msg := fmt.Sprintf("compute fetch request failed with status code %d", response.StatusCode)
+			err = cma.Emit(ctx, msg)
+			if err != nil {
+				c.log.Errorf("failed to send custom message with msg: %s, err: %v", msg, err)
+			}
+		}
+
 		return &response, nil
 	}
 }

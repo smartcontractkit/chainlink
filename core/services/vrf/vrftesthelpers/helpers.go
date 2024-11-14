@@ -8,15 +8,15 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_consumer_interface"
@@ -148,7 +148,7 @@ type CoordinatorUniverse struct {
 	BHSContractAddress         common.Address
 
 	// Abstraction representation of the ethereum blockchain
-	Backend        *backends.SimulatedBackend
+	Backend        evmtypes.Backend
 	CoordinatorABI *abi.ABI
 	ConsumerABI    *abi.ABI
 	// Cast of participants
@@ -164,10 +164,10 @@ func NewVRFCoordinatorUniverseWithV08Consumer(t *testing.T, key ethkey.KeyV2) Co
 	cu := NewVRFCoordinatorUniverse(t, key)
 	consumerContractAddress, _, consumerContract, err :=
 		solidity_vrf_consumer_interface_v08.DeployVRFConsumer(
-			cu.Carol, cu.Backend, cu.RootContractAddress, cu.LinkContractAddress)
+			cu.Carol, cu.Backend.Client(), cu.RootContractAddress, cu.LinkContractAddress)
 	require.NoError(t, err, "failed to deploy v08 VRFConsumer contract to simulated ethereum blockchain")
 	_, _, requestIDBase, err :=
-		solidity_vrf_request_id_v08.DeployVRFRequestIDBaseTestHelper(cu.Neil, cu.Backend)
+		solidity_vrf_request_id_v08.DeployVRFRequestIDBaseTestHelper(cu.Neil, cu.Backend.Client())
 	require.NoError(t, err, "failed to deploy v08 VRFRequestIDBaseTestHelper contract to simulated ethereum blockchain")
 	cu.ConsumerContractAddressV08 = consumerContractAddress
 	cu.RequestIDBaseV08 = requestIDBase
@@ -194,7 +194,7 @@ func NewVRFCoordinatorUniverse(t *testing.T, keys ...ethkey.KeyV2) CoordinatorUn
 		ned    = testutils.MustNewSimTransactor(t)
 		carol  = testutils.MustNewSimTransactor(t)
 	)
-	genesisData := core.GenesisAlloc{
+	genesisData := gethtypes.GenesisAlloc{
 		sergey.From: {Balance: assets.Ether(1000).ToInt()},
 		neil.From:   {Balance: assets.Ether(1000).ToInt()},
 		ned.From:    {Balance: assets.Ether(1000).ToInt()},
@@ -202,33 +202,37 @@ func NewVRFCoordinatorUniverse(t *testing.T, keys ...ethkey.KeyV2) CoordinatorUn
 	}
 
 	for _, t := range oracleTransactors {
-		genesisData[t.From] = core.GenesisAccount{Balance: assets.Ether(1000).ToInt()}
+		genesisData[t.From] = gethtypes.Account{Balance: assets.Ether(1000).ToInt()}
 	}
 
-	gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil)
 	consumerABI, err := abi.JSON(strings.NewReader(
 		solidity_vrf_consumer_interface.VRFConsumerABI))
 	require.NoError(t, err)
 	coordinatorABI, err := abi.JSON(strings.NewReader(
 		solidity_vrf_coordinator_interface.VRFCoordinatorABI))
 	require.NoError(t, err)
-	backend := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
+	backend := cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
 	linkAddress, _, linkContract, err := link_token_interface.DeployLinkToken(
-		sergey, backend)
+		sergey, backend.Client())
 	require.NoError(t, err, "failed to deploy link contract to simulated ethereum blockchain")
-	bhsAddress, _, bhsContract, err := blockhash_store.DeployBlockhashStore(neil, backend)
+	backend.Commit()
+	bhsAddress, _, bhsContract, err := blockhash_store.DeployBlockhashStore(neil, backend.Client())
 	require.NoError(t, err, "failed to deploy BlockhashStore contract to simulated ethereum blockchain")
+	backend.Commit()
 	coordinatorAddress, _, coordinatorContract, err :=
 		solidity_vrf_coordinator_interface.DeployVRFCoordinator(
-			neil, backend, linkAddress, bhsAddress)
+			neil, backend.Client(), linkAddress, bhsAddress)
 	require.NoError(t, err, "failed to deploy VRFCoordinator contract to simulated ethereum blockchain")
+	backend.Commit()
 	consumerContractAddress, _, consumerContract, err :=
 		solidity_vrf_consumer_interface.DeployVRFConsumer(
-			carol, backend, coordinatorAddress, linkAddress)
+			carol, backend.Client(), coordinatorAddress, linkAddress)
 	require.NoError(t, err, "failed to deploy VRFConsumer contract to simulated ethereum blockchain")
+	backend.Commit()
 	_, _, requestIDBase, err :=
-		solidity_vrf_request_id.DeployVRFRequestIDBaseTestHelper(neil, backend)
+		solidity_vrf_request_id.DeployVRFRequestIDBaseTestHelper(neil, backend.Client())
 	require.NoError(t, err, "failed to deploy VRFRequestIDBaseTestHelper contract to simulated ethereum blockchain")
+	backend.Commit()
 	_, err = linkContract.Transfer(sergey, consumerContractAddress, oneEth) // Actually, LINK
 	require.NoError(t, err, "failed to send LINK to VRFConsumer contract on simulated ethereum blockchain")
 	backend.Commit()

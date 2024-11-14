@@ -45,15 +45,14 @@ type feeEstimatorClient interface {
 	CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
 	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
-	ConfiguredChainID() *big.Int
 	HeadByNumber(ctx context.Context, n *big.Int) (*evmtypes.Head, error)
 	EstimateGas(ctx context.Context, call ethereum.CallMsg) (uint64, error)
 	SuggestGasPrice(ctx context.Context) (*big.Int, error)
-	FeeHistory(ctx context.Context, blockCount uint64, rewardPercentiles []float64) (feeHistory *ethereum.FeeHistory, err error)
+	FeeHistory(ctx context.Context, blockCount uint64, lastBlock *big.Int, rewardPercentiles []float64) (feeHistory *ethereum.FeeHistory, err error)
 }
 
 // NewEstimator returns the estimator for a given config
-func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, chaintype chaintype.ChainType, geCfg evmconfig.GasEstimator, clientsByChainID map[string]rollups.DAClient) (EvmFeeEstimator, error) {
+func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, chaintype chaintype.ChainType, chainID *big.Int, geCfg evmconfig.GasEstimator, clientsByChainID map[string]rollups.DAClient) (EvmFeeEstimator, error) {
 	bh := geCfg.BlockHistory()
 	s := geCfg.Mode()
 	lggr.Infow(fmt.Sprintf("Initializing EVM gas estimator in mode: %s", s),
@@ -98,7 +97,7 @@ func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, chaintype ch
 		}
 	case "BlockHistory":
 		newEstimator = func(l logger.Logger) EvmEstimator {
-			return NewBlockHistoryEstimator(lggr, ethClient, chaintype, geCfg, bh, ethClient.ConfiguredChainID(), l1Oracle)
+			return NewBlockHistoryEstimator(lggr, ethClient, chaintype, geCfg, bh, chainID, l1Oracle)
 		}
 	case "FixedPrice":
 		newEstimator = func(l logger.Logger) EvmEstimator {
@@ -117,7 +116,7 @@ func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, chaintype ch
 				BlockHistorySize: uint64(geCfg.BlockHistory().BlockHistorySize()),
 				RewardPercentile: float64(geCfg.BlockHistory().TransactionPercentile()),
 			}
-			return NewFeeHistoryEstimator(lggr, ethClient, ccfg, ethClient.ConfiguredChainID(), l1Oracle)
+			return NewFeeHistoryEstimator(lggr, ethClient, ccfg, chainID, l1Oracle)
 		}
 
 	default:

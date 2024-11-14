@@ -14,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclientmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
@@ -139,7 +140,7 @@ func setupOffRampReaderTH(t *testing.T, version string) offRampReaderTH {
 	}
 
 	// Create the version-specific reader.
-	reader, err := factory.NewOffRampReader(log, factory.NewEvmVersionFinder(), ccipcalc.EvmAddrToGeneric(offRampAddress), bc, lp, nil, nil, true)
+	reader, err := factory.NewOffRampReader(ctx, log, factory.NewEvmVersionFinder(), ccipcalc.EvmAddrToGeneric(offRampAddress), bc, lp, nil, nil, true)
 	require.NoError(t, err)
 	addr, err := reader.Address(ctx)
 	require.NoError(t, err)
@@ -306,6 +307,7 @@ func TestNewOffRampReader(t *testing.T) {
 	}
 	for _, tc := range tt {
 		t.Run(tc.typeAndVersion, func(t *testing.T) {
+			ctx := tests.Context(t)
 			b, err := utils.ABIEncode(`[{"type":"string"}]`, tc.typeAndVersion)
 			require.NoError(t, err)
 			c := evmclientmocks.NewClient(t)
@@ -313,7 +315,7 @@ func TestNewOffRampReader(t *testing.T) {
 			addr := ccipcalc.EvmAddrToGeneric(utils.RandomAddress())
 			lp := lpmocks.NewLogPoller(t)
 			lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil).Maybe()
-			_, err = factory.NewOffRampReader(logger.Test(t), factory.NewEvmVersionFinder(), addr, c, lp, nil, nil, true)
+			_, err = factory.NewOffRampReader(ctx, logger.Test(t), factory.NewEvmVersionFinder(), addr, c, lp, nil, nil, true)
 			if tc.expectedErr != "" {
 				assert.EqualError(t, err, tc.expectedErr)
 			} else {

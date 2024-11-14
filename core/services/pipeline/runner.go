@@ -384,7 +384,7 @@ func (r *runner) run(ctx context.Context, pipeline *Pipeline, run *Run, vars Var
 
 	// This is "just in case" for cleaning up any stray reports.
 	// Normally the scheduler loop doesn't stop until all in progress runs report back
-	reportCtx, cancel := context.WithCancel(context.Background())
+	reportCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
 	defer cancel()
 
 	if pipelineTimeout := r.config.MaxRunDuration(); pipelineTimeout != 0 {

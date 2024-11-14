@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -228,8 +228,8 @@ func testSetup(ctx context.Context, t *testing.T, readerChain cciptypes.ChainSel
 	// Set up the genesis account with balance
 	blnc, ok := big.NewInt(0).SetString("999999999999999999999999999999999999", 10)
 	assert.True(t, ok)
-	alloc := map[common.Address]core.GenesisAccount{crypto.PubkeyToAddress(privateKey.PublicKey): {Balance: blnc}}
-	simulatedBackend := backends.NewSimulatedBackend(alloc, 0)
+	alloc := map[common.Address]gethtypes.Account{crypto.PubkeyToAddress(privateKey.PublicKey): {Balance: blnc}}
+	simulatedBackend := simulated.NewBackend(alloc, simulated.WithBlockGasLimit(0))
 	// Create a transactor
 
 	auth, err := bind.NewKeyedTransactorWithChainID(privateKey, big.NewInt(chainID))
@@ -238,12 +238,12 @@ func testSetup(ctx context.Context, t *testing.T, readerChain cciptypes.ChainSel
 
 	address, _, _, err := usdc_reader_tester.DeployUSDCReaderTester(
 		auth,
-		simulatedBackend,
+		simulatedBackend.Client(),
 	)
 	require.NoError(t, err)
 	simulatedBackend.Commit()
 
-	contract, err := usdc_reader_tester.NewUSDCReaderTester(address, simulatedBackend)
+	contract, err := usdc_reader_tester.NewUSDCReaderTester(address, simulatedBackend.Client())
 	require.NoError(t, err)
 
 	lggr := logger.TestLogger(t)
@@ -292,7 +292,7 @@ func testSetup(ctx context.Context, t *testing.T, readerChain cciptypes.ChainSel
 type testSetupData struct {
 	contractAddr common.Address
 	contract     *usdc_reader_tester.USDCReaderTester
-	sb           *backends.SimulatedBackend
+	sb           *simulated.Backend
 	auth         *bind.TransactOpts
 	cl           client.Client
 	reader       types.ContractReader

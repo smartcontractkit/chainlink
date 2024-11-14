@@ -9,17 +9,19 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/config"
-
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/registry_module_owner_custom"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/erc20"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/nonce_manager"
@@ -42,6 +44,7 @@ var (
 	Router                     deployment.ContractType = "Router"
 	CommitStore                deployment.ContractType = "CommitStore"
 	TokenAdminRegistry         deployment.ContractType = "TokenAdminRegistry"
+	RegistryModule             deployment.ContractType = "RegistryModuleOwnerCustom"
 	NonceManager               deployment.ContractType = "NonceManager"
 	FeeQuoter                  deployment.ContractType = "FeeQuoter"
 	AdminManyChainMultisig     deployment.ContractType = "AdminManyChainMultiSig"
@@ -57,8 +60,10 @@ var (
 	CapabilitiesRegistry       deployment.ContractType = "CapabilitiesRegistry"
 	PriceFeed                  deployment.ContractType = "PriceFeed"
 	// Note test router maps to a regular router contract.
-	TestRouter   deployment.ContractType = "TestRouter"
-	CCIPReceiver deployment.ContractType = "CCIPReceiver"
+	TestRouter        deployment.ContractType = "TestRouter"
+	CCIPReceiver      deployment.ContractType = "CCIPReceiver"
+	BurnMintToken     deployment.ContractType = "BurnMintToken"
+	BurnMintTokenPool deployment.ContractType = "BurnMintTokenPool"
 )
 
 type Contracts interface {
@@ -70,6 +75,7 @@ type Contracts interface {
 		*fee_quoter.FeeQuoter |
 		*router.Router |
 		*token_admin_registry.TokenAdminRegistry |
+		*registry_module_owner_custom.RegistryModuleOwnerCustom |
 		*weth9.WETH9 |
 		*rmn_remote.RMNRemote |
 		*owner_helpers.ManyChainMultiSig |
@@ -77,8 +83,10 @@ type Contracts interface {
 		*offramp.OffRamp |
 		*onramp.OnRamp |
 		*burn_mint_erc677.BurnMintERC677 |
+		*burn_mint_token_pool.BurnMintTokenPool |
 		*maybe_revert_message_receiver.MaybeRevertMessageReceiver |
-		*aggregator_v3_interface.AggregatorV3Interface
+		*aggregator_v3_interface.AggregatorV3Interface |
+		*erc20.ERC20
 }
 
 type ContractDeploy[C Contracts] struct {
@@ -180,15 +188,6 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 		return fmt.Errorf("ccip home address mismatch")
 	}
 
-	// Signal to CR that our nodes support CCIP capability.
-	if err := AddNodes(
-		e.Logger,
-		capReg,
-		e.Chains[c.HomeChainSel],
-		nodes.NonBootstraps().PeerIDs(),
-	); err != nil {
-		return err
-	}
 	rmnHome := existingState.Chains[c.HomeChainSel].RMNHome
 	if rmnHome == nil {
 		e.Logger.Errorw("Failed to get rmn home", "err", err)
@@ -233,7 +232,6 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 		if err != nil {
 			return err
 		}
-
 		// For each chain, we create a DON on the home chain (2 OCR instances)
 		if err := AddDON(
 			e.Logger,
@@ -555,6 +553,36 @@ func DeployChainContracts(
 		return err
 	}
 	e.Logger.Infow("deployed tokenAdminRegistry", "addr", tokenAdminRegistry)
+
+	customRegistryModule, err := deployContract(e.Logger, chain, ab,
+		func(chain deployment.Chain) ContractDeploy[*registry_module_owner_custom.RegistryModuleOwnerCustom] {
+			regModAddr, tx2, regMod, err2 := registry_module_owner_custom.DeployRegistryModuleOwnerCustom(
+				chain.DeployerKey,
+				chain.Client,
+				tokenAdminRegistry.Address)
+			return ContractDeploy[*registry_module_owner_custom.RegistryModuleOwnerCustom]{
+				regModAddr, regMod, tx2, deployment.NewTypeAndVersion(RegistryModule, deployment.Version1_5_0), err2,
+			}
+		})
+	if err != nil {
+		e.Logger.Errorw("Failed to deploy custom registry module", "err", err)
+		return err
+	}
+	e.Logger.Infow("deployed custom registry module", "addr", tokenAdminRegistry)
+
+	tx, err = tokenAdminRegistry.Contract.AddRegistryModule(chain.DeployerKey, customRegistryModule.Address)
+	if err != nil {
+		e.Logger.Errorw("Failed to assign registry module on token admin registry", "err", err)
+		return fmt.Errorf("failed to assign registry module on token admin registry: %w", err)
+	}
+
+	_, err = chain.Confirm(tx)
+	if err != nil {
+		e.Logger.Errorw("Failed to confirm assign registry module on token admin registry", "err", err)
+		return fmt.Errorf("failed to confirm assign registry module on token admin registry: %w", err)
+	}
+
+	e.Logger.Infow("assigned registry module on token admin registry")
 
 	nonceManager, err := deployContract(e.Logger, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*nonce_manager.NonceManager] {

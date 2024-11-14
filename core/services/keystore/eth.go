@@ -8,9 +8,11 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -35,6 +37,7 @@ type Eth interface {
 	SubscribeToKeyChanges(ctx context.Context) (ch chan struct{}, unsub func())
 
 	SignTx(ctx context.Context, fromAddress common.Address, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error)
+	SignMessage(ctx context.Context, address common.Address, message []byte) ([]byte, error)
 
 	EnabledKeysForChain(ctx context.Context, chainID *big.Int) (keys []ethkey.KeyV2, err error)
 	GetRoundRobinAddress(ctx context.Context, chainID *big.Int, addresses ...common.Address) (address common.Address, err error)
@@ -530,6 +533,25 @@ func (ks *eth) XXXTestingOnlyAdd(ctx context.Context, key ethkey.KeyV2) {
 	if err != nil {
 		panic(err.Error())
 	}
+}
+
+// SignMessage signs the provided message using the private key associated with the given address,
+// following the EIP-191 specific identifier (e.g., keccak256("\x19Ethereum Signed Message:\n"${message length}${message}))
+func (ks *eth) SignMessage(ctx context.Context, address common.Address, data []byte) ([]byte, error) {
+	ks.lock.RLock()
+	defer ks.lock.RUnlock()
+	if ks.isLocked() {
+		return nil, ErrLocked
+	}
+	key, err := ks.getByID(address.Hex())
+	if err != nil {
+		return nil, err
+	}
+	signature, err := crypto.Sign(accounts.TextHash(data), key.ToEcdsaPrivKey())
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to sign data")
+	}
+	return signature, nil
 }
 
 // caller must hold lock!

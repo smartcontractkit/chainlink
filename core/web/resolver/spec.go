@@ -1,6 +1,8 @@
 package resolver
 
 import (
+	"fmt"
+
 	"github.com/graph-gophers/graphql-go"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -131,6 +133,14 @@ func (r *SpecResolver) ToStandardCapabilitiesSpec() (*StandardCapabilitiesSpecRe
 	}
 
 	return &StandardCapabilitiesSpecResolver{spec: *r.j.StandardCapabilitiesSpec}, true
+}
+
+func (r *SpecResolver) ToStreamSpec() (*StreamSpecResolver, bool) {
+	if r.j.Type != job.Stream {
+		return nil, false
+	}
+
+	return &StreamSpecResolver{streamID: fmt.Sprintf("%d", r.j.StreamID)}, true
 }
 
 type CronSpecResolver struct {
@@ -1044,4 +1054,12 @@ func (r *StandardCapabilitiesSpecResolver) Command() string {
 
 func (r *StandardCapabilitiesSpecResolver) Config() *string {
 	return &r.spec.Config
+}
+
+type StreamSpecResolver struct {
+	streamID string
+}
+
+func (r *StreamSpecResolver) StreamID() string {
+	return r.streamID
 }

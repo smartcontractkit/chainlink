@@ -35,9 +35,9 @@ type delegate struct {
 	cfg          DelegateConfig
 	reportCodecs map[llotypes.ReportFormat]datastreamsllo.ReportCodec
 
-	src datastreamsllo.ShouldRetireCache
-	ds  datastreamsllo.DataSource
-	t   services.Service
+	src   datastreamsllo.ShouldRetireCache
+	ds    datastreamsllo.DataSource
+	telem services.Service
 
 	oracles []Closer
 }
@@ -57,6 +57,7 @@ type DelegateConfig struct {
 	RetirementReportCodec  datastreamsllo.RetirementReportCodec
 	ShouldRetireCache      datastreamsllo.ShouldRetireCache
 	EAMonitoringEndpoint   ocrcommontypes.MonitoringEndpoint
+	DonID                  uint32
 
 	// OCR3
 	TraceLogging                 bool
@@ -74,7 +75,7 @@ type DelegateConfig struct {
 }
 
 func NewDelegate(cfg DelegateConfig) (job.ServiceCtx, error) {
-	lggr := logger.Sugared(cfg.Logger).With("jobName", cfg.JobName.ValueOrZero())
+	lggr := logger.Sugared(cfg.Logger).With("jobName", cfg.JobName.ValueOrZero(), "donID", cfg.DonID)
 	if cfg.DataSource == nil {
 		return nil, errors.New("DataSource must not be nil")
 	}
@@ -94,7 +95,7 @@ func NewDelegate(cfg DelegateConfig) (job.ServiceCtx, error) {
 
 	var t TelemeterService
 	if cfg.CaptureEATelemetry {
-		t = NewTelemeterService(lggr, cfg.EAMonitoringEndpoint)
+		t = NewTelemeterService(lggr, cfg.EAMonitoringEndpoint, cfg.DonID)
 	} else {
 		t = NullTelemeter
 	}
@@ -109,7 +110,13 @@ func (d *delegate) Start(ctx context.Context) error {
 		if !(len(d.cfg.ContractConfigTrackers) == 1 || len(d.cfg.ContractConfigTrackers) == 2) {
 			return fmt.Errorf("expected either 1 or 2 ContractConfigTrackers, got: %d", len(d.cfg.ContractConfigTrackers))
 		}
+
+		d.cfg.Logger.Debugw("Starting LLO job", "instances", len(d.cfg.ContractConfigTrackers), "jobName", d.cfg.JobName.ValueOrZero(), "captureEATelemetry", d.cfg.CaptureEATelemetry, "donID", d.cfg.DonID)
+
 		var merr error
+
+		merr = errors.Join(merr, d.telem.Start(ctx))
+
 		psrrc := NewPluginScopedRetirementReportCache(d.cfg.RetirementReportCache, d.cfg.OnchainKeyring, d.cfg.RetirementReportCodec)
 		for i, configTracker := range d.cfg.ContractConfigTrackers {
 			lggr := logger.Named(d.cfg.Logger, fmt.Sprintf("%d", i))
@@ -156,10 +163,11 @@ func (d *delegate) Start(ctx context.Context) error {
 }
 
 func (d *delegate) Close() error {
-	return d.StopOnce("LLODelegate", func() (err error) {
+	return d.StopOnce("LLODelegate", func() (merr error) {
 		for _, oracle := range d.oracles {
-			err = errors.Join(err, oracle.Close())
+			merr = errors.Join(merr, oracle.Close())
 		}
-		return err
+		merr = errors.Join(merr, d.telem.Close())
+		return merr
 	})
 }

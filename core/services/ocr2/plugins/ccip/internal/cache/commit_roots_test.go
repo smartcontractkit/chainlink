@@ -52,7 +52,9 @@ func Test_RootsEligibleForExecution(t *testing.T) {
 		createReportAcceptedLog(t, chainID, commitStoreAddr, 2, 1, root1, block2),
 		createReportAcceptedLog(t, chainID, commitStoreAddr, 2, 2, root2, block2),
 	}
-	require.NoError(t, orm.InsertLogsWithBlock(ctx, inputLogs, logpoller.NewLogPollerBlock(utils.RandomBytes32(), 2, time.Now(), 1)))
+	require.NoError(t, orm.InsertLogsWithBlock(ctx, inputLogs, logpoller.LogPollerBlock{
+		BlockHash: utils.RandomBytes32(), BlockNumber: 2, BlockTimestamp: time.Now(), FinalizedBlockNumber: 1,
+	}))
 
 	commitStore, err := v1_2_0.NewCommitStore(logger.TestLogger(t), commitStoreAddr, nil, lp)
 	require.NoError(t, err)
@@ -95,7 +97,9 @@ func Test_RootsEligibleForExecution(t *testing.T) {
 		createReportAcceptedLog(t, chainID, commitStoreAddr, 4, 1, root4, block4),
 		createReportAcceptedLog(t, chainID, commitStoreAddr, 5, 1, root5, block5),
 	}
-	require.NoError(t, orm.InsertLogsWithBlock(ctx, inputLogs, logpoller.NewLogPollerBlock(utils.RandomBytes32(), 5, time.Now(), 3)))
+	require.NoError(t, orm.InsertLogsWithBlock(ctx, inputLogs, logpoller.LogPollerBlock{
+		BlockHash: utils.RandomBytes32(), BlockNumber: 5, BlockTimestamp: time.Now(), FinalizedBlockNumber: 3,
+	}))
 	roots, err = rootsCache.RootsEligibleForExecution(ctx)
 	require.NoError(t, err)
 	assertRoots(t, roots, root2, root3, root4, root5)
@@ -116,7 +120,9 @@ func Test_RootsEligibleForExecution(t *testing.T) {
 	inputLogs = []logpoller.Log{
 		createReportAcceptedLog(t, chainID, commitStoreAddr, 4, 1, root4, newBlock4),
 	}
-	require.NoError(t, orm.InsertLogsWithBlock(ctx, inputLogs, logpoller.NewLogPollerBlock(utils.RandomBytes32(), 5, time.Now(), 3)))
+	require.NoError(t, orm.InsertLogsWithBlock(ctx, inputLogs, logpoller.LogPollerBlock{
+		BlockHash: utils.RandomBytes32(), BlockNumber: 5, BlockTimestamp: time.Now(), FinalizedBlockNumber: 3,
+	}))
 	roots, err = rootsCache.RootsEligibleForExecution(ctx)
 	require.NoError(t, err)
 	assertRoots(t, roots, root2, root4)
@@ -160,7 +166,9 @@ func Test_RootsEligibleForExecutionWithReorgs(t *testing.T) {
 		createReportAcceptedLog(t, chainID, commitStoreAddr, 2, 2, root2, block2),
 		createReportAcceptedLog(t, chainID, commitStoreAddr, 3, 1, root3, block3),
 	}
-	require.NoError(t, orm.InsertLogsWithBlock(ctx, inputLogs, logpoller.NewLogPollerBlock(utils.RandomBytes32(), 3, time.Now(), 1)))
+	require.NoError(t, orm.InsertLogsWithBlock(ctx, inputLogs, logpoller.LogPollerBlock{
+		BlockHash: utils.RandomBytes32(), BlockNumber: 3, BlockTimestamp: time.Now(), FinalizedBlockNumber: 1,
+	}))
 
 	commitStore, err := v1_2_0.NewCommitStore(logger.TestLogger(t), commitStoreAddr, nil, lp)
 	require.NoError(t, err)
@@ -184,7 +192,9 @@ func Test_RootsEligibleForExecutionWithReorgs(t *testing.T) {
 		createReportAcceptedLog(t, chainID, commitStoreAddr, 4, 1, root2, block4),
 		createReportAcceptedLog(t, chainID, commitStoreAddr, 4, 2, root3, block4),
 	}
-	require.NoError(t, orm.InsertLogsWithBlock(ctx, inputLogs, logpoller.NewLogPollerBlock(utils.RandomBytes32(), 5, time.Now(), 3)))
+	require.NoError(t, orm.InsertLogsWithBlock(ctx, inputLogs, logpoller.LogPollerBlock{
+		BlockHash: utils.RandomBytes32(), BlockNumber: 5, BlockTimestamp: time.Now(), FinalizedBlockNumber: 3,
+	}))
 	roots, err = rootsCache.RootsEligibleForExecution(ctx)
 	require.NoError(t, err)
 	assertRoots(t, roots, root1, root2, root3)
@@ -219,7 +229,9 @@ func Test_BlocksWithTheSameTimestamps(t *testing.T) {
 	inputLogs := []logpoller.Log{
 		createReportAcceptedLog(t, chainID, commitStoreAddr, 2, 1, root1, block),
 	}
-	require.NoError(t, orm.InsertLogsWithBlock(ctx, inputLogs, logpoller.NewLogPollerBlock(utils.RandomBytes32(), 2, time.Now(), 2)))
+	require.NoError(t, orm.InsertLogsWithBlock(ctx, inputLogs, logpoller.LogPollerBlock{
+		BlockHash: utils.RandomBytes32(), BlockNumber: 2, BlockTimestamp: time.Now(), FinalizedBlockNumber: 2,
+	}))
 
 	commitStore, err := v1_2_0.NewCommitStore(logger.TestLogger(t), commitStoreAddr, nil, lp)
 	require.NoError(t, err)
@@ -232,7 +244,9 @@ func Test_BlocksWithTheSameTimestamps(t *testing.T) {
 	inputLogs = []logpoller.Log{
 		createReportAcceptedLog(t, chainID, commitStoreAddr, 3, 1, root2, block),
 	}
-	require.NoError(t, orm.InsertLogsWithBlock(ctx, inputLogs, logpoller.NewLogPollerBlock(utils.RandomBytes32(), 3, time.Now(), 3)))
+	require.NoError(t, orm.InsertLogsWithBlock(ctx, inputLogs, logpoller.LogPollerBlock{
+		BlockHash: utils.RandomBytes32(), BlockNumber: 3, BlockTimestamp: time.Now(), FinalizedBlockNumber: 3,
+	}))
 
 	roots, err = rootsCache.RootsEligibleForExecution(ctx)
 	require.NoError(t, err)

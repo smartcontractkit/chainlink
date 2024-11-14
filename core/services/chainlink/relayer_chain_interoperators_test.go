@@ -176,7 +176,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 
 	factory := chainlink.RelayerFactory{
 		Logger:               lggr,
-		LoopRegistry:         plugins.NewLoopRegistry(lggr, nil, nil),
+		LoopRegistry:         plugins.NewLoopRegistry(lggr, nil, nil, nil, ""),
 		GRPCOpts:             loop.GRPCOpts{},
 		CapabilitiesRegistry: capabilities.NewRegistry(lggr),
 	}
