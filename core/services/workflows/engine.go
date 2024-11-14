@@ -698,7 +698,7 @@ func (e *Engine) finishExecution(ctx context.Context, cma custmsg.MessageEmitter
 		l.Warnf("execution duration exceeded 15 minutes: %d", executionDuration)
 	}
 	logCustMsg(ctx, cma, fmt.Sprintf("execution duration: %d", executionDuration), l)
-	l.Info("execution duration: %d", executionDuration)
+	l.Infof("execution duration: %d", executionDuration)
 	e.onExecutionFinished(executionID)
 	return nil
 }
