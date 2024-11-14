@@ -20,6 +20,7 @@ import (
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
@@ -75,8 +76,9 @@ var (
 var _ capabilities.ActionCapability = (*Compute)(nil)
 
 type Compute struct {
-	stopCh services.StopChan
-	log    logger.Logger
+	stopCh  services.StopChan
+	log     logger.Logger
+	metrics computeMetricsLabeler
 
 	// emitter is used to emit messages from the WASM module to a configured collector.
 	emitter  custmsg.MessageEmitter
@@ -245,6 +247,11 @@ func (c *Compute) Info(ctx context.Context) (capabilities.CapabilityInfo, error)
 func (c *Compute) Start(ctx context.Context) error {
 	c.modules.start()
 
+	err := initMonitoringResources()
+	if err != nil {
+		return fmt.Errorf("failed to initialize monitoring resources: %w", err)
+	}
+
 	c.wg.Add(c.numWorkers)
 	for i := 0; i < c.numWorkers; i++ {
 		go func() {
@@ -329,6 +336,14 @@ func (c *Compute) createFetcher() func(ctx context.Context, req *wasmpb.FetchReq
 			return nil, fmt.Errorf("failed to unmarshal fetch response: %w", err)
 		}
 
+		c.metrics.with(
+			"status", fmt.Sprintf("%d", response.StatusCode),
+			platform.KeyWorkflowID, req.Metadata.WorkflowId,
+			platform.KeyWorkflowName, req.Metadata.WorkflowName,
+			platform.KeyWorkflowOwner, req.Metadata.WorkflowOwner,
+			platform.KeyWorkflowExecutionID, req.Metadata.WorkflowExecutionId,
+		).incrementHTTPRequestCounter(ctx)
+
 		// Only log if the response is not in the 200 range
 		if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
 			msg := fmt.Sprintf("compute fetch request failed with status code %d", response.StatusCode)
@@ -369,6 +384,7 @@ func NewAction(
 			stopCh:                   make(services.StopChan),
 			log:                      lggr,
 			emitter:                  labeler,
+			metrics:                  computeMetricsLabeler{metrics.NewLabeler().With("capability", CapabilityIDCompute)},
 			registry:                 registry,
 			modules:                  newModuleCache(clockwork.NewRealClock(), 1*time.Minute, 10*time.Minute, 3),
 			transformer:              NewTransformer(lggr, labeler),
