@@ -139,7 +139,7 @@ func TestAddressBook_Remove(t *testing.T) {
 		},
 	})
 
-	copyOfBaseAB := NewMemoryAddressBookFromMap(baseAB.cloneAddresses(baseAB.AddressesByChain))
+	copyOfBaseAB := NewMemoryAddressBookFromMap(baseAB.cloneAddresses(baseAB.addressesByChain))
 
 	// this address book shouldn't be removed (state of baseAB not changed, error thrown)
 	failAB := NewMemoryAddressBookFromMap(map[uint64]map[string]TypeAndVersion{

@@ -89,7 +89,7 @@ type AddressBook interface {
 }
 
 type AddressBookMap struct {
-	AddressesByChain map[uint64]map[string]TypeAndVersion
+	addressesByChain map[uint64]map[string]TypeAndVersion
 	mtx              sync.RWMutex
 }
 
@@ -112,14 +112,14 @@ func (m *AddressBookMap) save(chainSelector uint64, address string, typeAndVersi
 		return fmt.Errorf("type cannot be empty")
 	}
 
-	if _, exists := m.AddressesByChain[chainSelector]; !exists {
+	if _, exists := m.addressesByChain[chainSelector]; !exists {
 		// First time chain add, create map
-		m.AddressesByChain[chainSelector] = make(map[string]TypeAndVersion)
+		m.addressesByChain[chainSelector] = make(map[string]TypeAndVersion)
 	}
-	if _, exists := m.AddressesByChain[chainSelector][address]; exists {
+	if _, exists := m.addressesByChain[chainSelector][address]; exists {
 		return fmt.Errorf("address %s already exists for chain %d", address, chainSelector)
 	}
-	m.AddressesByChain[chainSelector][address] = typeAndVersion
+	m.addressesByChain[chainSelector][address] = typeAndVersion
 	return nil
 }
 
@@ -138,7 +138,7 @@ func (m *AddressBookMap) Addresses() (map[uint64]map[string]TypeAndVersion, erro
 	// maps are mutable and pass via a pointer
 	// creating a copy of the map to prevent concurrency
 	// read and changes outside object-bound
-	return m.cloneAddresses(m.AddressesByChain), nil
+	return m.cloneAddresses(m.addressesByChain), nil
 }
 
 func (m *AddressBookMap) AddressesForChain(chainSelector uint64) (map[string]TypeAndVersion, error) {
@@ -150,14 +150,14 @@ func (m *AddressBookMap) AddressesForChain(chainSelector uint64) (map[string]Typ
 	m.mtx.RLock()
 	defer m.mtx.RUnlock()
 
-	if _, exists := m.AddressesByChain[chainSelector]; !exists {
+	if _, exists := m.addressesByChain[chainSelector]; !exists {
 		return nil, errors.Wrapf(ErrChainNotFound, "chain selector %d", chainSelector)
 	}
 
 	// maps are mutable and pass via a pointer
 	// creating a copy of the map to prevent concurrency
 	// read and changes outside object-bound
-	return maps.Clone(m.AddressesByChain[chainSelector]), nil
+	return maps.Clone(m.addressesByChain[chainSelector]), nil
 }
 
 // Merge will merge the addresses from another address book into this one.
@@ -192,11 +192,11 @@ func (m *AddressBookMap) Remove(ab AddressBook) error {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
 
-	// State of m.AddressesByChain storage must not be changed in case of an error
+	// State of m.addressesByChain storage must not be changed in case of an error
 	// need to do double iteration over the address book. First validation, second actual deletion
 	for chainSelector, chainAddresses := range addresses {
 		for address, _ := range chainAddresses {
-			if _, exists := m.AddressesByChain[chainSelector][address]; !exists {
+			if _, exists := m.addressesByChain[chainSelector][address]; !exists {
 				return errors.New("AddressBookMap does not contain address from the given address book")
 			}
 		}
@@ -204,7 +204,7 @@ func (m *AddressBookMap) Remove(ab AddressBook) error {
 
 	for chainSelector, chainAddresses := range addresses {
 		for address, _ := range chainAddresses {
-			delete(m.AddressesByChain[chainSelector], address)
+			delete(m.addressesByChain[chainSelector], address)
 		}
 	}
 
@@ -225,13 +225,13 @@ func (m *AddressBookMap) cloneAddresses(input map[uint64]map[string]TypeAndVersi
 // for further safety?
 func NewMemoryAddressBook() *AddressBookMap {
 	return &AddressBookMap{
-		AddressesByChain: make(map[uint64]map[string]TypeAndVersion),
+		addressesByChain: make(map[uint64]map[string]TypeAndVersion),
 	}
 }
 
 func NewMemoryAddressBookFromMap(addressesByChain map[uint64]map[string]TypeAndVersion) *AddressBookMap {
 	return &AddressBookMap{
-		AddressesByChain: addressesByChain,
+		addressesByChain: addressesByChain,
 	}
 }
 
