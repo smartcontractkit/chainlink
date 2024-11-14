@@ -81,7 +81,7 @@ func NewSingletonPeerWrapper(keyStore keystore.Master, p2pCfg config.P2P, ocrCfg
 	}
 }
 
-func (p *SingletonPeerWrapper) IsStarted() bool { return p.Ready() == nil }
+func (p *SingletonPeerWrapper) IsStarted() bool { return false }
 
 // Start starts SingletonPeerWrapper.
 func (p *SingletonPeerWrapper) Start(context.Context) error {
