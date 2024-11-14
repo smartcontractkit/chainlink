@@ -8,48 +8,41 @@ import (
 	"github.com/test-go/testify/require"
 	"golang.org/x/exp/maps"
 
+	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipdeployment "github.com/smartcontractkit/chainlink/deployment/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
+type feeboostTestCase struct {
+	t                      *testing.T
+	sender                 []byte
+	deployedEnv            ccipdeployment.DeployedEnv
+	onchainState           ccipdeployment.CCIPOnChainState
+	initialPrices          ccipdeployment.InitialPrices
+	priceFeedPrices        priceFeedPrices
+	sourceChain, destChain uint64
+}
+
+type priceFeedPrices struct {
+	linkPrice *big.Int
+	wethPrice *big.Int
+}
+
 func Test_FeeBoosting(t *testing.T) {
 	t.Parallel()
 
-	type priceFeedPrices struct {
-		linkPrice *big.Int
-		wethPrice *big.Int
-	}
-
-	type scenario struct {
-		name            string
-		initialPrices   ccipdeployment.InitialPrices
-		priceFeedPrices priceFeedPrices
-	}
-
-	setupTest := func(t *testing.T, initialPrices ccipdeployment.InitialPrices, priceFeedPrices priceFeedPrices) (
-		ccipdeployment.DeployedEnv,
-		ccipdeployment.CCIPOnChainState,
-		uint64,
-		uint64,
-	) {
-		e := ccipdeployment.NewMemoryEnvironmentWithJobsAndPrices(t, logger.TestLogger(t), 2, 4,
-			priceFeedPrices.linkPrice, priceFeedPrices.wethPrice)
+	setupTestEnv := func(t *testing.T, numChains int) (ccipdeployment.DeployedEnv, ccipdeployment.CCIPOnChainState, []uint64) {
+		e := ccipdeployment.NewMemoryEnvironmentWithJobsAndPrices(
+			t, logger.TestLogger(t),
+			numChains, 4,
+			deployment.E18Mult(5), big.NewInt(9e8))
 		state, err := ccipdeployment.LoadOnchainState(e.Env)
 		require.NoError(t, err)
 
 		allChainSelectors := maps.Keys(e.Env.Chains)
-		require.Len(t, allChainSelectors, 2)
-		sourceChain := allChainSelectors[0]
-		destChain := allChainSelectors[1]
-
-		t.Log("All chain selectors:", allChainSelectors,
-			", home chain selector:", e.HomeChainSel,
-			", feed chain selector:", e.FeedChainSel,
-			", source chain selector:", sourceChain,
-			", dest chain selector:", destChain,
-		)
+		require.Len(t, allChainSelectors, numChains)
 
 		tokenConfig := ccipdeployment.NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
 		newAddresses := deployment.NewMemoryAddressBook()
@@ -66,36 +59,16 @@ func Test_FeeBoosting(t *testing.T) {
 		state, err = ccipdeployment.LoadOnchainState(e.Env)
 		require.NoError(t, err)
 
-		require.NoError(t, ccipdeployment.AddLane(e.Env, state, sourceChain, destChain, initialPrices))
-
-		return e, state, sourceChain, destChain
+		return e, state, allChainSelectors
 	}
 
-	runScenario := func(t *testing.T, s scenario) {
-		e, state, sourceChain, destChain := setupTest(t, s.initialPrices, s.priceFeedPrices)
-
-		// Send message that should initially be too costly
-		seqNum := ccipdeployment.TestSendRequest(t, e.Env, state, sourceChain, destChain, false, router.ClientEVM2AnyMessage{
-			Receiver:     common.LeftPadBytes(state.Chains[destChain].Receiver.Address().Bytes(), 32),
-			Data:         []byte("message that needs fee boosting"),
-			TokenAmounts: nil,
-			FeeToken:     common.HexToAddress("0x0"),
-			ExtraArgs:    nil,
-		})
-
-		sleepAndReplay(t, e, sourceChain, destChain)
-
-		expectedSeqNum := make(map[uint64]uint64)
-		expectedSeqNum[destChain] = seqNum
-		startBlocks := make(map[uint64]*uint64)
-
-		ccipdeployment.ConfirmCommitForAllWithExpectedSeqNums(t, e.Env, state, expectedSeqNum, startBlocks)
-		ccipdeployment.ConfirmExecWithSeqNrForAll(t, e.Env, state, expectedSeqNum, startBlocks)
-	}
-
-	scenarios := []scenario{
-		{
-			name: "boost needed due to WETH price increase",
+	t.Run("boost needed due to WETH price increase", func(t *testing.T) {
+		e, state, chains := setupTestEnv(t, 2)
+		runFeeboostTestCase(feeboostTestCase{
+			t:            t,
+			sender:       common.LeftPadBytes(e.Env.Chains[chains[0]].DeployerKey.From.Bytes(), 32),
+			deployedEnv:  e,
+			onchainState: state,
 			initialPrices: ccipdeployment.InitialPrices{
 				LinkPrice: deployment.E18Mult(5),
 				WethPrice: deployment.E18Mult(9),
@@ -103,40 +76,90 @@ func Test_FeeBoosting(t *testing.T) {
 			},
 			priceFeedPrices: priceFeedPrices{
 				linkPrice: deployment.E18Mult(5),
-				wethPrice: big.NewInt(9.1e8), // 9 USD per ETH vs 9.1 USD per ETH during execution
+				wethPrice: big.NewInt(9.9e8),
 			},
-		},
-		{
-			name: "boost needed due to LINK price decrease",
+			sourceChain: chains[0],
+			destChain:   chains[1],
+		})
+	})
+
+	t.Run("boost needed due to LINK price decrease", func(t *testing.T) {
+		e, state, chains := setupTestEnv(t, 2)
+		runFeeboostTestCase(feeboostTestCase{
+			t:            t,
+			sender:       common.LeftPadBytes(e.Env.Chains[chains[0]].DeployerKey.From.Bytes(), 32),
+			deployedEnv:  e,
+			onchainState: state,
 			initialPrices: ccipdeployment.InitialPrices{
 				LinkPrice: deployment.E18Mult(5),
 				WethPrice: deployment.E18Mult(9),
 				GasPrice:  ccipdeployment.ToPackedFee(big.NewInt(1.8e11), big.NewInt(0)),
 			},
 			priceFeedPrices: priceFeedPrices{
-				linkPrice: big.NewInt(4.9e18), // 5 USD per LINK vs 4.9 USD per LINK during execution
+				linkPrice: big.NewInt(4.5e18),
 				wethPrice: big.NewInt(9e8),
 			},
-		},
-		{
-			name: "boost needed due to gas price increase",
+			sourceChain: chains[0],
+			destChain:   chains[1],
+		})
+	})
+
+	t.Run("boost needed due to gas price increase", func(t *testing.T) {
+		e, state, chains := setupTestEnv(t, 2)
+		runFeeboostTestCase(feeboostTestCase{
+			t:            t,
+			sender:       common.LeftPadBytes(e.Env.Chains[chains[0]].DeployerKey.From.Bytes(), 32),
+			deployedEnv:  e,
+			onchainState: state,
 			initialPrices: ccipdeployment.InitialPrices{
 				LinkPrice: deployment.E18Mult(5),
 				WethPrice: deployment.E18Mult(9),
-				GasPrice:  ccipdeployment.ToPackedFee(big.NewInt(1.75e11), big.NewInt(0)), // 19 gwei vs 20 gwei during execution
+				GasPrice:  ccipdeployment.ToPackedFee(big.NewInt(1.75e11), big.NewInt(0)),
 			},
 			priceFeedPrices: priceFeedPrices{
 				linkPrice: deployment.E18Mult(5),
 				wethPrice: big.NewInt(9e8),
 			},
-		},
-	}
-
-	for _, s := range scenarios {
-		s := s // capture range variable
-		t.Run(s.name, func(t *testing.T) {
-			t.Parallel()
-			runScenario(t, s)
+			sourceChain: chains[0],
+			destChain:   chains[1],
 		})
-	}
+	})
+}
+
+func runFeeboostTestCase(tc feeboostTestCase) {
+	require.NoError(tc.t, ccipdeployment.AddLane(tc.deployedEnv.Env, tc.onchainState, tc.sourceChain, tc.destChain, tc.initialPrices))
+
+	startBlocks := make(map[uint64]*uint64)
+	seqNum := ccipdeployment.TestSendRequest(tc.t, tc.deployedEnv.Env, tc.onchainState, tc.sourceChain, tc.destChain, false, router.ClientEVM2AnyMessage{
+		Receiver:     common.LeftPadBytes(tc.onchainState.Chains[tc.destChain].Receiver.Address().Bytes(), 32),
+		Data:         []byte("message that needs fee boosting"),
+		TokenAmounts: nil,
+		FeeToken:     common.HexToAddress("0x0"),
+		ExtraArgs:    nil,
+	})
+
+	sleepAndReplay(tc.t, tc.deployedEnv, tc.sourceChain, tc.destChain)
+
+	err := ccipdeployment.ConfirmCommitWithExpectedSeqNumRange(
+		tc.t,
+		tc.deployedEnv.Env.Chains[tc.sourceChain],
+		tc.deployedEnv.Env.Chains[tc.destChain],
+		tc.onchainState.Chains[tc.destChain].OffRamp,
+		startBlocks[tc.destChain],
+		ccipocr3.SeqNumRange{
+			ccipocr3.SeqNum(seqNum),
+			ccipocr3.SeqNum(seqNum),
+		},
+	)
+	require.NoError(tc.t, err)
+
+	err = ccipdeployment.ConfirmExecWithSeqNr(
+		tc.t,
+		tc.deployedEnv.Env.Chains[tc.sourceChain],
+		tc.deployedEnv.Env.Chains[tc.destChain],
+		tc.onchainState.Chains[tc.destChain].OffRamp,
+		startBlocks[tc.destChain],
+		seqNum,
+	)
+	require.NoError(tc.t, err)
 }
