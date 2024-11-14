@@ -175,7 +175,7 @@ func Test_CCIPMessaging(t *testing.T) {
 			ccdeploy.EXECUTION_STATE_FAILURE,      // state would be failed onchain due to low gas
 		)
 
-		manuallyExecute(t, ctx, state, destChain, out, sourceChain, e, sender)
+		manuallyExecute(ctx, t, state, destChain, out, sourceChain, e, sender)
 
 		t.Logf("successfully manually executed message %x",
 			out.msgSentEvent.Message.Header.MessageId)
@@ -183,8 +183,8 @@ func Test_CCIPMessaging(t *testing.T) {
 }
 
 func manuallyExecute(
-	t *testing.T,
 	ctx context.Context,
+	t *testing.T,
 	state ccdeploy.CCIPOnChainState,
 	destChain uint64,
 	out messagingTestCaseOutput,
