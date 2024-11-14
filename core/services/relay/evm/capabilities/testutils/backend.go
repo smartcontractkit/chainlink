@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/stretchr/testify/require"
@@ -18,6 +17,7 @@ import (
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -33,7 +33,7 @@ type EVMBackendTH struct {
 	// Backend details
 	Lggr      logger.Logger
 	ChainID   *big.Int
-	Backend   *backends.SimulatedBackend
+	Backend   evmtypes.Backend
 	EVMClient evmclient.Client
 
 	ContractsOwner    *bind.TransactOpts
@@ -56,9 +56,11 @@ func NewEVMBackendTH(t *testing.T) *EVMBackendTH {
 		contractsOwner.From: {Balance: assets.Ether(100000).ToInt()},
 	}
 	chainID := testutils.SimulatedChainID
-	gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil) //nolint:gosec
-	backend := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
-	blockTime := time.UnixMilli(int64(backend.Blockchain().CurrentHeader().Time)) //nolint:gosec
+	backend := cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
+	h, err := backend.Client().HeaderByNumber(testutils.Context(t), nil)
+	require.NoError(t, err)
+	//nolint:gosec // G115
+	blockTime := time.UnixMilli(int64(h.Time))
 	err = backend.AdjustTime(time.Since(blockTime) - 24*time.Hour)
 	require.NoError(t, err)
 	backend.Commit()

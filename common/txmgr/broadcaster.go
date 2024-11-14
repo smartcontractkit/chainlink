@@ -603,7 +603,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 	case client.Unknown:
 		eb.SvcErrBuffer.Append(err)
 		lgr.Criticalw(`Unknown error occurred while handling tx queue in ProcessUnstartedTxs. This chain/RPC client may not be supported. `+
-			`Urgent resolution required, Chainlink is currently operating in a degraded state and may miss transactions`, "attempt", attempt)
+			`Urgent resolution required, Chainlink is currently operating in a degraded state and may miss transactions`, "attempt", attempt, "err", err)
 		nextSequence, e := eb.client.PendingSequenceAt(ctx, etx.FromAddress)
 		if e != nil {
 			err = multierr.Combine(e, err)

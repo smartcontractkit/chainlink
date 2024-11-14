@@ -70,7 +70,7 @@ contract ForwarderTest is Deployer {
     require(returnedSenders[0] == senders[0]);
   }
 
-  function test_Forward_Success(uint256 _value) public {
+  function testFuzz_Forward_Success(uint256 _value) public {
     _addSenders();
 
     vm.expectRevert("Not authorized sender");
@@ -98,7 +98,7 @@ contract ForwarderTest is Deployer {
     require(s_mockReceiver.getValue() == _value);
   }
 
-  function test_MultiForward_Success(uint256 _value1, uint256 _value2) public {
+  function testFuzz_MultiForward_Success(uint256 _value1, uint256 _value2) public {
     _addSenders();
 
     address[] memory tos;

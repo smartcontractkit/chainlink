@@ -1905,6 +1905,8 @@ Endpoint = 'example.com/collector' # Example
 CACertFile = 'cert-file' # Example
 InsecureConnection = false # Default
 TraceSampleRatio = 0.01 # Default
+EmitterBatchProcessor = true # Default
+EmitterExportTimeout = '1s' # Default
 ```
 Telemetry holds OTEL settings.
 This data includes open telemetry metrics, traces, & logs.
@@ -1941,6 +1943,18 @@ Only available in dev mode.
 TraceSampleRatio = 0.01 # Default
 ```
 TraceSampleRatio is the rate at which to sample traces. Must be between 0 and 1.
+
+### EmitterBatchProcessor
+```toml
+EmitterBatchProcessor = true # Default
+```
+EmitterBatchProcessor enables batching for telemetry events
+
+### EmitterExportTimeout
+```toml
+EmitterExportTimeout = '1s' # Default
+```
+EmitterExportTimeout sets timeout for exporting telemetry events
 
 ## Telemetry.ResourceAttributes
 ```toml
@@ -5247,8 +5261,8 @@ Enabled = true
 
 [GasEstimator]
 Mode = 'FixedPrice'
-PriceDefault = '20 gwei'
-PriceMax = '100 micro'
+PriceDefault = '1 gwei'
+PriceMax = '1 gwei'
 PriceMin = '0'
 LimitDefault = 500000
 LimitMax = 500000
@@ -5259,8 +5273,8 @@ BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 0
 EIP1559DynamicFees = false
-FeeCapDefault = '100 micro'
-TipCapDefault = '1 wei'
+FeeCapDefault = '1 gwei'
+TipCapDefault = '1 mwei'
 TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
@@ -10065,6 +10079,7 @@ OCR2CacheTTL = '1m' # Default
 TxTimeout = '1m' # Default
 TxRetryTimeout = '10s' # Default
 TxConfirmTimeout = '30s' # Default
+TxRetentionTimeout = '0s' # Default
 SkipPreflight = true # Default
 Commitment = 'confirmed' # Default
 MaxRetries = 0 # Default
@@ -10133,6 +10148,12 @@ TxRetryTimeout is the duration for tx manager to attempt rebroadcasting to RPC, 
 TxConfirmTimeout = '30s' # Default
 ```
 TxConfirmTimeout is the duration to wait when confirming a tx signature, before discarding as unconfirmed.
+
+### TxRetentionTimeout
+```toml
+TxRetentionTimeout = '0s' # Default
+```
+TxRetentionTimeout is the duration to retain transactions in storage after being marked as finalized or errored. Set to 0 to immediately drop transactions.
 
 ### SkipPreflight
 ```toml

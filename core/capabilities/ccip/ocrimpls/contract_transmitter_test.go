@@ -7,18 +7,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
-	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/require"
 
@@ -27,7 +20,12 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
+	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
@@ -182,7 +180,7 @@ func testTransmitter(
 
 type testUniverse[RI any] struct {
 	simClient              *client.SimulatedBackendClient
-	backend                *backends.SimulatedBackend
+	backend                *simulated.Backend
 	deployer               *bind.TransactOpts
 	transmitters           []common.Address
 	signers                []common.Address
@@ -217,19 +215,19 @@ func newTestUniverse[RI any](t *testing.T, ks *keyringsAndSigners[RI]) *testUniv
 		transmitters = append(transmitters, key.Address)
 	}
 
-	backend := backends.NewSimulatedBackend(core.GenesisAlloc{
-		owner.From: core.GenesisAccount{
+	backend := simulated.NewBackend(types.GenesisAlloc{
+		owner.From: types.Account{
 			Balance: assets.Ether(1000).ToInt(),
 		},
-		transmitters[0]: core.GenesisAccount{
+		transmitters[0]: types.Account{
 			Balance: assets.Ether(1000).ToInt(),
 		},
-	}, 30e6)
+	}, simulated.WithBlockGasLimit(30e6))
 
-	ocr3HelperAddr, _, _, err := multi_ocr3_helper.DeployMultiOCR3Helper(owner, backend)
+	ocr3HelperAddr, _, _, err := multi_ocr3_helper.DeployMultiOCR3Helper(owner, backend.Client())
 	require.NoError(t, err)
 	backend.Commit()
-	wrapper, err := multi_ocr3_helper.NewMultiOCR3Helper(ocr3HelperAddr, backend)
+	wrapper, err := multi_ocr3_helper.NewMultiOCR3Helper(ocr3HelperAddr, backend.Client())
 	require.NoError(t, err)
 
 	// create the oracle identities for setConfig
@@ -605,8 +603,8 @@ func (d *TestDAOracleConfig) OracleType() *toml.DAOracleType {
 	return &oracleType
 }
 
-func (d *TestDAOracleConfig) OracleAddress() *types.EIP55Address {
-	a, err := types.NewEIP55Address("0x420000000000000000000000000000000000000F")
+func (d *TestDAOracleConfig) OracleAddress() *evmtypes.EIP55Address {
+	a, err := evmtypes.NewEIP55Address("0x420000000000000000000000000000000000000F")
 	if err != nil {
 		panic(err)
 	}

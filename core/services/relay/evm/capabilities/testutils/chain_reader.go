@@ -38,9 +38,10 @@ func NewContractReaderTH(t *testing.T) *ContractReaderTH {
 
 	// Deploy a test contract LogEmitter for testing ContractReader
 	logEmitterAddress, _, _, err :=
-		log_emitter.DeployLogEmitter(backendTH.ContractsOwner, backendTH.Backend)
+		log_emitter.DeployLogEmitter(backendTH.ContractsOwner, backendTH.Backend.Client())
 	require.NoError(t, err)
-	logEmitter, err := log_emitter.NewLogEmitter(logEmitterAddress, backendTH.Backend)
+	backendTH.Backend.Commit()
+	logEmitter, err := log_emitter.NewLogEmitter(logEmitterAddress, backendTH.Backend.Client())
 	require.NoError(t, err)
 
 	// Create new contract reader

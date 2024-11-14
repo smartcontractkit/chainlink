@@ -112,10 +112,11 @@ func Test_Telemeter(t *testing.T) {
 
 	run := &pipeline.Run{ID: 42}
 	streamID := uint32(135)
+	donID := uint32(1)
 	opts := &mockOpts{}
 
 	t.Run("with error", func(t *testing.T) {
-		tm := newTelemeter(lggr, m)
+		tm := newTelemeter(lggr, m, donID)
 		servicetest.Run(t, tm)
 
 		t.Run("if error is some random failure returns immediately", func(t *testing.T) {
@@ -142,7 +143,7 @@ func Test_Telemeter(t *testing.T) {
 		})
 	})
 	t.Run("with decimal value, sets all values correctly", func(t *testing.T) {
-		tm := newTelemeter(lggr, m)
+		tm := newTelemeter(lggr, m, donID)
 		val := llo.ToDecimal(decimal.NewFromFloat32(102.12))
 		servicetest.Run(t, tm)
 		tm.EnqueueV3PremiumLegacy(run, trrs, streamID, opts, val, nil)
@@ -184,6 +185,7 @@ func Test_Telemeter(t *testing.T) {
 			assert.Equal(t, int64(18), decoded.Round)
 			assert.Equal(t, int64(4), decoded.Epoch)
 			assert.Equal(t, "eth/usd", decoded.AssetSymbol)
+			assert.Equal(t, uint32(1), decoded.DonId)
 			if i == 2 {
 				return
 			}
@@ -191,7 +193,7 @@ func Test_Telemeter(t *testing.T) {
 		}
 	})
 	t.Run("with quote value", func(t *testing.T) {
-		tm := newTelemeter(lggr, m)
+		tm := newTelemeter(lggr, m, donID)
 		val := &llo.Quote{Bid: decimal.NewFromFloat32(102.12), Benchmark: decimal.NewFromFloat32(103.32), Ask: decimal.NewFromFloat32(104.25)}
 		servicetest.Run(t, tm)
 		tm.EnqueueV3PremiumLegacy(run, trrs, streamID, opts, val, nil)

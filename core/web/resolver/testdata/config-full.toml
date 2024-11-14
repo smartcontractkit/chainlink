@@ -296,6 +296,8 @@ CACertFile = 'cert-file'
 Endpoint = 'example.com/collector'
 InsecureConnection = true
 TraceSampleRatio = 0.01
+EmitterBatchProcessor = true
+EmitterExportTimeout = '1s'
 
 [Telemetry.ResourceAttributes]
 Baz = 'test'
@@ -489,6 +491,7 @@ OCR2CacheTTL = '1h0m0s'
 TxTimeout = '1h0m0s'
 TxRetryTimeout = '1m0s'
 TxConfirmTimeout = '1s'
+TxRetentionTimeout = '0s'
 SkipPreflight = true
 Commitment = 'banana'
 MaxRetries = 7

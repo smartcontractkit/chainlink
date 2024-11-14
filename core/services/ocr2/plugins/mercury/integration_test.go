@@ -18,9 +18,8 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/shopspring/decimal"
@@ -39,6 +38,8 @@ import (
 	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
 	v4 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v4"
 	datastreamsmercury "github.com/smartcontractkit/chainlink-data-streams/mercury"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
@@ -89,40 +90,51 @@ func detectPanicLogs(t *testing.T, logObservers []*observer.ObservedLogs) {
 	}
 }
 
-func setupBlockchain(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBackend, *verifier.Verifier, common.Address) {
+func setupBlockchain(t *testing.T) (*bind.TransactOpts, evmtypes.Backend, *verifier.Verifier, common.Address, func() common.Hash) {
 	steve := testutils.MustNewSimTransactor(t) // config contract deployer and owner
-	genesisData := core.GenesisAlloc{steve.From: {Balance: assets.Ether(1000).ToInt()}}
-	backend := cltest.NewSimulatedBackend(t, genesisData, uint32(ethconfig.Defaults.Miner.GasCeil))
-	backend.Commit()                                  // ensure starting block number at least 1
-	stopMining := cltest.Mine(backend, 1*time.Second) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
+	genesisData := types.GenesisAlloc{steve.From: {Balance: assets.Ether(1000).ToInt()}}
+	backend := cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
+	backend.Commit()                                          // ensure starting block number at least 1
+	commit, stopMining := cltest.Mine(backend, 1*time.Second) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
 	t.Cleanup(stopMining)
 
 	// Deploy contracts
-	linkTokenAddress, _, linkToken, err := link_token_interface.DeployLinkToken(steve, backend)
+	linkTokenAddress, _, linkToken, err := link_token_interface.DeployLinkToken(steve, backend.Client())
 	require.NoError(t, err)
+	commit()
 	_, err = linkToken.Transfer(steve, steve.From, big.NewInt(1000))
 	require.NoError(t, err)
-	nativeTokenAddress, _, nativeToken, err := link_token_interface.DeployLinkToken(steve, backend)
+	commit()
+	nativeTokenAddress, _, nativeToken, err := link_token_interface.DeployLinkToken(steve, backend.Client())
 	require.NoError(t, err)
+	commit()
+
 	_, err = nativeToken.Transfer(steve, steve.From, big.NewInt(1000))
 	require.NoError(t, err)
-	verifierProxyAddr, _, verifierProxy, err := verifier_proxy.DeployVerifierProxy(steve, backend, common.Address{}) // zero address for access controller disables access control
+	commit()
+	verifierProxyAddr, _, verifierProxy, err := verifier_proxy.DeployVerifierProxy(steve, backend.Client(), common.Address{}) // zero address for access controller disables access control
 	require.NoError(t, err)
-	verifierAddress, _, verifier, err := verifier.DeployVerifier(steve, backend, verifierProxyAddr)
+	commit()
+	verifierAddress, _, verifier, err := verifier.DeployVerifier(steve, backend.Client(), verifierProxyAddr)
 	require.NoError(t, err)
+	commit()
 	_, err = verifierProxy.InitializeVerifier(steve, verifierAddress)
 	require.NoError(t, err)
-	rewardManagerAddr, _, rewardManager, err := reward_manager.DeployRewardManager(steve, backend, linkTokenAddress)
+	commit()
+	rewardManagerAddr, _, rewardManager, err := reward_manager.DeployRewardManager(steve, backend.Client(), linkTokenAddress)
 	require.NoError(t, err)
-	feeManagerAddr, _, _, err := fee_manager.DeployFeeManager(steve, backend, linkTokenAddress, nativeTokenAddress, verifierProxyAddr, rewardManagerAddr)
+	commit()
+	feeManagerAddr, _, _, err := fee_manager.DeployFeeManager(steve, backend.Client(), linkTokenAddress, nativeTokenAddress, verifierProxyAddr, rewardManagerAddr)
 	require.NoError(t, err)
+	commit()
 	_, err = verifierProxy.SetFeeManager(steve, feeManagerAddr)
 	require.NoError(t, err)
+	commit()
 	_, err = rewardManager.SetFeeManager(steve, feeManagerAddr)
 	require.NoError(t, err)
-	backend.Commit()
+	commit()
 
-	return steve, backend, verifier, verifierAddress
+	return steve, backend, verifier, verifierAddress, commit
 }
 
 func TestIntegration_MercuryV1(t *testing.T) {
@@ -176,7 +188,7 @@ func integration_MercuryV1(t *testing.T) {
 	serverURL := startMercuryServer(t, srv, clientPubKeys)
 	chainID := testutils.SimulatedChainID
 
-	steve, backend, verifier, verifierAddress := setupBlockchain(t)
+	steve, backend, verifier, verifierAddress, commit := setupBlockchain(t)
 
 	// Setup bootstrap + oracle nodes
 	bootstrapNodePort := freeport.GetOne(t)
@@ -191,7 +203,7 @@ func integration_MercuryV1(t *testing.T) {
 		require.NoError(t, err)
 		finalityDepth := ch.Config().EVM().FinalityDepth()
 		for i := 0; i < int(finalityDepth); i++ {
-			backend.Commit()
+			commit()
 		}
 		return int(finalityDepth)
 	}()
@@ -342,7 +354,7 @@ func integration_MercuryV1(t *testing.T) {
 			nil,
 		)
 		require.NoError(t, ferr)
-		backend.Commit()
+		commit()
 	}
 
 	t.Run("receives at least one report per feed from each oracle when EAs are at 100% reliability", func(t *testing.T) {
@@ -376,7 +388,7 @@ func integration_MercuryV1(t *testing.T) {
 
 			num, err := (&reportcodecv1.ReportCodec{}).CurrentBlockNumFromReport(ctx, ocr2types.Report(report.([]byte)))
 			require.NoError(t, err)
-			currentBlock, err := backend.BlockByNumber(ctx, nil)
+			currentBlock, err := backend.Client().BlockByNumber(ctx, nil)
 			require.NoError(t, err)
 
 			assert.GreaterOrEqual(t, currentBlock.Number().Int64(), num)
@@ -439,9 +451,9 @@ func integration_MercuryV1(t *testing.T) {
 				continue // already saw all oracles for this feed
 			}
 
-			num, err := (&reportcodecv1.ReportCodec{}).CurrentBlockNumFromReport(ctx, ocr2types.Report(report.([]byte)))
+			num, err := (&reportcodecv1.ReportCodec{}).CurrentBlockNumFromReport(ctx, report.([]byte))
 			require.NoError(t, err)
-			currentBlock, err := backend.BlockByNumber(testutils.Context(t), nil)
+			currentBlock, err := backend.Client().BlockByNumber(testutils.Context(t), nil)
 			require.NoError(t, err)
 
 			assert.GreaterOrEqual(t, currentBlock.Number().Int64(), num)
@@ -536,7 +548,7 @@ func integration_MercuryV2(t *testing.T) {
 	serverURL := startMercuryServer(t, srv, clientPubKeys)
 	chainID := testutils.SimulatedChainID
 
-	steve, backend, verifier, verifierAddress := setupBlockchain(t)
+	steve, backend, verifier, verifierAddress, commit := setupBlockchain(t)
 
 	// Setup bootstrap + oracle nodes
 	bootstrapNodePort := freeport.GetOne(t)
@@ -549,7 +561,7 @@ func integration_MercuryV2(t *testing.T) {
 	require.NoError(t, err)
 	finalityDepth := ch.Config().EVM().FinalityDepth()
 	for i := 0; i < int(finalityDepth); i++ {
-		backend.Commit()
+		commit()
 	}
 
 	// Set up n oracles
@@ -684,7 +696,7 @@ func integration_MercuryV2(t *testing.T) {
 			nil,
 		)
 		require.NoError(t, ferr)
-		backend.Commit()
+		commit()
 	}
 
 	runTestSetup := func() {
@@ -826,7 +838,7 @@ func integration_MercuryV3(t *testing.T) {
 	}
 	chainID := testutils.SimulatedChainID
 
-	steve, backend, verifier, verifierAddress := setupBlockchain(t)
+	steve, backend, verifier, verifierAddress, commit := setupBlockchain(t)
 
 	// Setup bootstrap + oracle nodes
 	bootstrapNodePort := freeport.GetOne(t)
@@ -839,7 +851,7 @@ func integration_MercuryV3(t *testing.T) {
 	require.NoError(t, err)
 	finalityDepth := ch.Config().EVM().FinalityDepth()
 	for i := 0; i < int(finalityDepth); i++ {
-		backend.Commit()
+		commit()
 	}
 
 	// Set up n oracles
@@ -977,7 +989,7 @@ func integration_MercuryV3(t *testing.T) {
 			nil,
 		)
 		require.NoError(t, ferr)
-		backend.Commit()
+		commit()
 	}
 
 	runTestSetup := func(reqs chan request) {
@@ -1122,7 +1134,7 @@ func integration_MercuryV4(t *testing.T) {
 	}
 	chainID := testutils.SimulatedChainID
 
-	steve, backend, verifier, verifierAddress := setupBlockchain(t)
+	steve, backend, verifier, verifierAddress, commit := setupBlockchain(t)
 
 	// Setup bootstrap + oracle nodes
 	bootstrapNodePort := freeport.GetOne(t)
@@ -1135,7 +1147,7 @@ func integration_MercuryV4(t *testing.T) {
 	require.NoError(t, err)
 	finalityDepth := ch.Config().EVM().FinalityDepth()
 	for i := 0; i < int(finalityDepth); i++ {
-		backend.Commit()
+		commit()
 	}
 
 	// Set up n oracles
@@ -1278,7 +1290,7 @@ func integration_MercuryV4(t *testing.T) {
 			nil,
 		)
 		require.NoError(t, ferr)
-		backend.Commit()
+		commit()
 	}
 
 	runTestSetup := func(reqs chan request) {

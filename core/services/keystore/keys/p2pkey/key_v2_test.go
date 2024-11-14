@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -22,15 +23,12 @@ func TestP2PKeys_Raw(t *testing.T) {
 }
 
 func TestP2PKeys_KeyV2(t *testing.T) {
-	_, pk, err := ed25519.GenerateKey(rand.Reader)
+	kv2, err := NewV2()
 	require.NoError(t, err)
-
-	k := Key{PrivKey: pk}
-	kv2 := k.ToV2()
 
 	pkv2 := kv2.PrivKey.Public().(ed25519.PublicKey)
 
 	assert.Equal(t, kv2.String(), kv2.GoString())
-	assert.Equal(t, ragep2ptypes.PeerID(k.PeerID()).String(), kv2.ID())
+	assert.Equal(t, ragep2ptypes.PeerID(kv2.PeerID()).String(), kv2.ID())
 	assert.Equal(t, hex.EncodeToString(pkv2), kv2.PublicKeyHex())
 }

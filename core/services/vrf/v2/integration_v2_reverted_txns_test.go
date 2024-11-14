@@ -278,7 +278,8 @@ func fulfillVRFReq(t *testing.T,
 	require.NoError(t, err)
 
 	ec := th.uni.backend
-	chainID := th.uni.backend.Blockchain().Config().ChainID
+	chainID, err := th.uni.backend.Client().ChainID(testutils.Context(t))
+	require.NoError(t, err)
 	chain, err := th.app.GetRelayers().LegacyEVMChains().Get(chainID.String())
 	require.NoError(t, err)
 
@@ -344,7 +345,8 @@ func fulfilBatchVRFReq(t *testing.T,
 	require.NoError(t, err)
 
 	ec := th.uni.backend
-	chainID := th.uni.backend.Blockchain().Config().ChainID
+	chainID, err := th.uni.backend.Client().ChainID(testutils.Context(t))
+	require.NoError(t, err)
 	chain, err := th.app.GetRelayers().LegacyEVMChains().Get(chainID.String())
 	require.NoError(t, err)
 
@@ -589,12 +591,12 @@ func newRevertTxnTH(t *testing.T,
 	}
 	coordinator := uni.rootContract
 	coordinatorAddress := uni.rootContractAddress
-	th.chainID = th.uni.backend.Blockchain().Config().ChainID
+	th.chainID = config.EVMConfigs()[0].ChainID.ToInt()
 	var err error
 
 	th.eoaConsumerAddr, _, th.eoaConsumer, err = vrf_external_sub_owner_example.DeployVRFExternalSubOwnerExample(
 		uni.neil,
-		uni.backend,
+		uni.backend.Client(),
 		coordinatorAddress,
 		uni.linkContractAddress,
 	)
