@@ -125,7 +125,11 @@ func deployContract[C Contracts](
 	return &contractDeploy, nil
 }
 
-func DeployPersistentContracts(e deployment.Environment, ab deployment.AddressBook, chain deployment.Chain) error {
+// DeployPrerequisiteContracts deploys the contracts that can be ported from previous CCIP version to the new one.
+// This is only required for staging and test environments where the contracts are not already deployed.
+// We are not deploying router and RMNProxy here as RMNProxy has dependency on RMNRemote which is a new contract and
+// router depends on RMNProxy.
+func DeployPrerequisiteContracts(e deployment.Environment, ab deployment.AddressBook, chain deployment.Chain) error {
 	state, err := LoadOnchainState(e)
 	if err != nil {
 		e.Logger.Errorw("Failed to load existing onchain state", "err")
@@ -135,17 +139,13 @@ func DeployPersistentContracts(e deployment.Environment, ab deployment.AddressBo
 	chainState, chainExists := state.Chains[chain.Selector]
 	var weth9Contract *weth9.WETH9
 	var linkTokenContract *burn_mint_erc677.BurnMintERC677
-	var r *router.Router
 	var tokenAdminReg *token_admin_registry.TokenAdminRegistry
 	var registryModule *registry_module_owner_custom.RegistryModuleOwnerCustom
-	var rmnProxy *rmn_proxy_contract.RMNProxyContract
 	if !chainExists {
 		weth9Contract = chainState.Weth9
 		linkTokenContract = chainState.LinkToken
-		r = chainState.Router
 		tokenAdminReg = chainState.TokenAdminRegistry
 		registryModule = chainState.RegistryModule
-		rmnProxy = chainState.RMNProxy
 	}
 	if tokenAdminReg == nil {
 		tokenAdminRegistry, err := deployContract(e.Logger, chain, ab,
@@ -249,28 +249,6 @@ func DeployPersistentContracts(e deployment.Environment, ab deployment.AddressBo
 	} else {
 		lggr.Infow("linkToken already deployed", "addr", linkTokenContract.Address)
 	}
-	if r == nil {
-		routerContract, err := deployContract(e.Logger, chain, ab,
-			func(chain deployment.Chain) ContractDeploy[*router.Router] {
-				routerAddr, tx2, routerC, err2 := router.DeployRouter(
-					chain.DeployerKey,
-					chain.Client,
-					weth9Contract.Address(),
-					rmnProxy.Address(),
-				)
-				return ContractDeploy[*router.Router]{
-					routerAddr, routerC, tx2, deployment.NewTypeAndVersion(Router, deployment.Version1_2_0), err2,
-				}
-			})
-		if err != nil {
-			e.Logger.Errorw("Failed to deploy router", "err", err)
-			return err
-		}
-		e.Logger.Infow("deployed router", "addr", routerContract.Address)
-		r = routerContract.Contract
-	} else {
-		e.Logger.Infow("router already deployed", "addr", r.Address)
-	}
 	return nil
 }
 
@@ -351,10 +329,16 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 		if existingState.Chains[chainSel].LinkToken == nil || existingState.Chains[chainSel].Weth9 == nil {
 			return fmt.Errorf("fee tokens not found for chain %d", chainSel)
 		}
-		err = DeployChainContracts(e, chain, ab, FeeTokenContracts{
-			LinkToken: existingState.Chains[chainSel].LinkToken,
-			Weth9:     existingState.Chains[chainSel].Weth9,
-		}, c.MCMSConfig, rmnHome)
+		newAddresses := deployment.NewMemoryAddressBook()
+		err = DeployPrerequisiteContracts(e, newAddresses, chain)
+		if err != nil {
+			return fmt.Errorf("failed to deploy prerequisite contracts: %w", err)
+		}
+		err = e.ExistingAddresses.Merge(newAddresses)
+		if err != nil {
+			return fmt.Errorf("failed to merge new addresses after deploying prerequisite contracts: %w", err)
+		}
+		err = DeployChainContracts(e, chain, ab, c.MCMSConfig, rmnHome)
 		if err != nil {
 			return err
 		}
@@ -573,7 +557,6 @@ func DeployChainContracts(
 	e deployment.Environment,
 	chain deployment.Chain,
 	ab deployment.AddressBook,
-	contractConfig FeeTokenContracts,
 	mcmsConfig MCMSConfig,
 	rmnHome *rmn_home.RMNHome,
 ) error {
@@ -581,41 +564,77 @@ func DeployChainContracts(
 	if err != nil {
 		return err
 	}
-	ccipReceiver, err := deployContract(e.Logger, chain, ab,
-		func(chain deployment.Chain) ContractDeploy[*maybe_revert_message_receiver.MaybeRevertMessageReceiver] {
-			receiverAddr, tx, receiver, err2 := maybe_revert_message_receiver.DeployMaybeRevertMessageReceiver(
-				chain.DeployerKey,
-				chain.Client,
-				false,
-			)
-			return ContractDeploy[*maybe_revert_message_receiver.MaybeRevertMessageReceiver]{
-				receiverAddr, receiver, tx, deployment.NewTypeAndVersion(CCIPReceiver, deployment.Version1_0_0), err2,
-			}
-		})
+	// check for existing contracts
+	state, err := LoadOnchainState(e)
 	if err != nil {
-		e.Logger.Errorw("Failed to deploy receiver", "err", err)
+		e.Logger.Errorw("Failed to load existing onchain state", "err")
 		return err
 	}
-	e.Logger.Infow("deployed receiver", "addr", ccipReceiver.Address)
-
-	// TODO: Correctly configure RMN remote.
-	rmnRemote, err := deployContract(e.Logger, chain, ab,
-		func(chain deployment.Chain) ContractDeploy[*rmn_remote.RMNRemote] {
-			rmnRemoteAddr, tx, rmnRemote, err2 := rmn_remote.DeployRMNRemote(
-				chain.DeployerKey,
-				chain.Client,
-				chain.Selector,
-			)
-			return ContractDeploy[*rmn_remote.RMNRemote]{
-				rmnRemoteAddr, rmnRemote, tx, deployment.NewTypeAndVersion(RMNRemote, deployment.Version1_6_0_dev), err2,
-			}
-		})
-	if err != nil {
-		e.Logger.Errorw("Failed to deploy RMNRemote", "err", err)
-		return err
+	chainState, chainExists := state.Chains[chain.Selector]
+	var weth9Contract *weth9.WETH9
+	var linkTokenContract *burn_mint_erc677.BurnMintERC677
+	var tokenAdminReg *token_admin_registry.TokenAdminRegistry
+	if !chainExists {
+		return fmt.Errorf("chain %d not found in existing state, deploy the prerequisites first", chain.Selector)
 	}
-	e.Logger.Infow("deployed RMNRemote", "addr", rmnRemote.Address)
-
+	if chainState.Weth9 == nil {
+		return fmt.Errorf("weth9 not found for chain %d, deploy the prerequisites first", chain.Selector)
+	}
+	weth9Contract = chainState.Weth9
+	if chainState.LinkToken == nil {
+		return fmt.Errorf("link token not found for chain %d, deploy the prerequisites first", chain.Selector)
+	}
+	linkTokenContract = chainState.LinkToken
+	if chainState.TokenAdminRegistry == nil {
+		return fmt.Errorf("token admin registry not found for chain %d, deploy the prerequisites first", chain.Selector)
+	}
+	tokenAdminReg = chainState.TokenAdminRegistry
+	if chainState.RegistryModule == nil {
+		return fmt.Errorf("registry module not found for chain %d, deploy the prerequisites first", chain.Selector)
+	}
+	if chainState.Receiver == nil {
+		ccipReceiver, err := deployContract(e.Logger, chain, ab,
+			func(chain deployment.Chain) ContractDeploy[*maybe_revert_message_receiver.MaybeRevertMessageReceiver] {
+				receiverAddr, tx, receiver, err2 := maybe_revert_message_receiver.DeployMaybeRevertMessageReceiver(
+					chain.DeployerKey,
+					chain.Client,
+					false,
+				)
+				return ContractDeploy[*maybe_revert_message_receiver.MaybeRevertMessageReceiver]{
+					receiverAddr, receiver, tx, deployment.NewTypeAndVersion(CCIPReceiver, deployment.Version1_0_0), err2,
+				}
+			})
+		if err != nil {
+			e.Logger.Errorw("Failed to deploy receiver", "err", err)
+			return err
+		}
+		e.Logger.Infow("deployed receiver", "addr", ccipReceiver.Address)
+	} else {
+		e.Logger.Infow("receiver already deployed", "addr", chainState.Receiver.Address)
+	}
+	rmnRemoteContract := chainState.RMNRemote
+	if chainState.RMNRemote == nil {
+		// TODO: Correctly configure RMN remote.
+		rmnRemote, err := deployContract(e.Logger, chain, ab,
+			func(chain deployment.Chain) ContractDeploy[*rmn_remote.RMNRemote] {
+				rmnRemoteAddr, tx, rmnRemote, err2 := rmn_remote.DeployRMNRemote(
+					chain.DeployerKey,
+					chain.Client,
+					chain.Selector,
+				)
+				return ContractDeploy[*rmn_remote.RMNRemote]{
+					rmnRemoteAddr, rmnRemote, tx, deployment.NewTypeAndVersion(RMNRemote, deployment.Version1_6_0_dev), err2,
+				}
+			})
+		if err != nil {
+			e.Logger.Errorw("Failed to deploy RMNRemote", "err", err)
+			return err
+		}
+		e.Logger.Infow("deployed RMNRemote", "addr", rmnRemote.Address)
+		rmnRemoteContract = rmnRemote.Contract
+	} else {
+		e.Logger.Infow("rmn remote already deployed", "addr", chainState.RMNRemote.Address)
+	}
 	activeDigest, err := rmnHome.GetActiveDigest(&bind.CallOpts{})
 	if err != nil {
 		e.Logger.Errorw("Failed to get active digest", "err", err)
@@ -623,7 +642,7 @@ func DeployChainContracts(
 	}
 	e.Logger.Infow("setting active home digest to rmn remote", "digest", activeDigest)
 
-	tx, err := rmnRemote.Contract.SetConfig(chain.DeployerKey, rmn_remote.RMNRemoteConfig{
+	tx, err := rmnRemoteContract.SetConfig(chain.DeployerKey, rmn_remote.RMNRemoteConfig{
 		RmnHomeContractConfigDigest: activeDigest,
 		Signers: []rmn_remote.RMNRemoteSigner{
 			{NodeIndex: 0, OnchainPublicKey: common.Address{1}},
@@ -634,146 +653,214 @@ func DeployChainContracts(
 		e.Logger.Errorw("Failed to confirm RMNRemote config", "err", err)
 		return err
 	}
-	var rmnProxy *rmn_proxy_contract.RMNProxyContract
-	testRouterContract, err := deployContract(e.Logger, chain, ab,
-		func(chain deployment.Chain) ContractDeploy[*router.Router] {
-			routerAddr, tx2, routerC, err2 := router.DeployRouter(
-				chain.DeployerKey,
-				chain.Client,
-				contractConfig.Weth9.Address(),
-				rmnProxy.Address(),
-			)
-			return ContractDeploy[*router.Router]{
-				routerAddr, routerC, tx2, deployment.NewTypeAndVersion(TestRouter, deployment.Version1_2_0), err2,
-			}
-		})
-	if err != nil {
-		e.Logger.Errorw("Failed to deploy test router", "err", err)
-		return err
+	rmnProxyContract := chainState.RMNProxy
+	if chainState.RMNProxy == nil {
+		// we deploy a new rmnproxy contract to test RMNRemote
+		rmnProxy, err := deployContract(e.Logger, chain, ab,
+			func(chain deployment.Chain) ContractDeploy[*rmn_proxy_contract.RMNProxyContract] {
+				rmnProxyAddr, tx, rmnProxy, err2 := rmn_proxy_contract.DeployRMNProxyContract(
+					chain.DeployerKey,
+					chain.Client,
+					rmnRemoteContract.Address(),
+				)
+				return ContractDeploy[*rmn_proxy_contract.RMNProxyContract]{
+					rmnProxyAddr, rmnProxy, tx, deployment.NewTypeAndVersion(ARMProxy, deployment.Version1_6_0_dev), err2,
+				}
+			})
+		if err != nil {
+			e.Logger.Errorw("Failed to deploy RMNProxy", "err", err)
+			return err
+		}
+		e.Logger.Infow("deployed new RMNProxy", "addr", rmnProxy.Address)
+		rmnProxyContract = rmnProxy.Contract
+	} else {
+		e.Logger.Infow("rmn proxy already deployed", "addr", chainState.RMNProxy.Address)
 	}
-	e.Logger.Infow("deployed test router", "addr", testRouterContract.Address)
-
-	nonceManager, err := deployContract(e.Logger, chain, ab,
-		func(chain deployment.Chain) ContractDeploy[*nonce_manager.NonceManager] {
-			nonceManagerAddr, tx2, nonceManager, err2 := nonce_manager.DeployNonceManager(
-				chain.DeployerKey,
-				chain.Client,
-				[]common.Address{}, // Need to add onRamp after
-			)
-			return ContractDeploy[*nonce_manager.NonceManager]{
-				nonceManagerAddr, nonceManager, tx2, deployment.NewTypeAndVersion(NonceManager, deployment.Version1_6_0_dev), err2,
-			}
-		})
-	if err != nil {
-		e.Logger.Errorw("Failed to deploy nonce manager", "err", err)
-		return err
+	if chainState.TestRouter == nil {
+		testRouterContract, err := deployContract(e.Logger, chain, ab,
+			func(chain deployment.Chain) ContractDeploy[*router.Router] {
+				routerAddr, tx2, routerC, err2 := router.DeployRouter(
+					chain.DeployerKey,
+					chain.Client,
+					weth9Contract.Address(),
+					rmnProxyContract.Address(),
+				)
+				return ContractDeploy[*router.Router]{
+					routerAddr, routerC, tx2, deployment.NewTypeAndVersion(TestRouter, deployment.Version1_2_0), err2,
+				}
+			})
+		if err != nil {
+			e.Logger.Errorw("Failed to deploy test router", "err", err)
+			return err
+		}
+		e.Logger.Infow("deployed test router", "addr", testRouterContract.Address)
+	} else {
+		e.Logger.Infow("test router already deployed", "addr", chainState.TestRouter.Address)
 	}
-	e.Logger.Infow("Deployed nonce manager", "addr", nonceManager.Address)
 
-	feeQuoter, err := deployContract(e.Logger, chain, ab,
-		func(chain deployment.Chain) ContractDeploy[*fee_quoter.FeeQuoter] {
-			prAddr, tx2, pr, err2 := fee_quoter.DeployFeeQuoter(
-				chain.DeployerKey,
-				chain.Client,
-				fee_quoter.FeeQuoterStaticConfig{
-					MaxFeeJuelsPerMsg:            big.NewInt(0).Mul(big.NewInt(2e2), big.NewInt(1e18)),
-					LinkToken:                    contractConfig.LinkToken.Address(),
-					TokenPriceStalenessThreshold: uint32(24 * 60 * 60),
-				},
-				[]common.Address{mcmsContracts.Timelock.Address},                                     // timelock should be able to update, ramps added after
-				[]common.Address{contractConfig.Weth9.Address(), contractConfig.LinkToken.Address()}, // fee tokens
-				[]fee_quoter.FeeQuoterTokenPriceFeedUpdate{},
-				[]fee_quoter.FeeQuoterTokenTransferFeeConfigArgs{}, // TODO: tokens
-				[]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs{
-					{
-						PremiumMultiplierWeiPerEth: 9e17, // 0.9 ETH
-						Token:                      contractConfig.LinkToken.Address(),
+	// if router is not already deployed, we deploy it
+	if chainState.Router == nil {
+		routerContract, err := deployContract(e.Logger, chain, ab,
+			func(chain deployment.Chain) ContractDeploy[*router.Router] {
+				routerAddr, tx2, routerC, err2 := router.DeployRouter(
+					chain.DeployerKey,
+					chain.Client,
+					weth9Contract.Address(),
+					rmnProxyContract.Address(),
+				)
+				return ContractDeploy[*router.Router]{
+					routerAddr, routerC, tx2, deployment.NewTypeAndVersion(Router, deployment.Version1_2_0), err2,
+				}
+			})
+		if err != nil {
+			e.Logger.Errorw("Failed to deploy router", "err", err)
+			return err
+		}
+		e.Logger.Infow("deployed router", "addr", routerContract.Address)
+	} else {
+		e.Logger.Infow("router already deployed", "addr", chainState.Router.Address)
+	}
+	nmContract := chainState.NonceManager
+	if chainState.NonceManager == nil {
+		nonceManager, err := deployContract(e.Logger, chain, ab,
+			func(chain deployment.Chain) ContractDeploy[*nonce_manager.NonceManager] {
+				nonceManagerAddr, tx2, nonceManager, err2 := nonce_manager.DeployNonceManager(
+					chain.DeployerKey,
+					chain.Client,
+					[]common.Address{}, // Need to add onRamp after
+				)
+				return ContractDeploy[*nonce_manager.NonceManager]{
+					nonceManagerAddr, nonceManager, tx2, deployment.NewTypeAndVersion(NonceManager, deployment.Version1_6_0_dev), err2,
+				}
+			})
+		if err != nil {
+			e.Logger.Errorw("Failed to deploy nonce manager", "err", err)
+			return err
+		}
+		e.Logger.Infow("Deployed nonce manager", "addr", nonceManager.Address)
+		nmContract = nonceManager.Contract
+	} else {
+		e.Logger.Infow("nonce manager already deployed", "addr", chainState.NonceManager.Address)
+	}
+	feeQuoterContract := chainState.FeeQuoter
+	if chainState.FeeQuoter == nil {
+		feeQuoter, err := deployContract(e.Logger, chain, ab,
+			func(chain deployment.Chain) ContractDeploy[*fee_quoter.FeeQuoter] {
+				prAddr, tx2, pr, err2 := fee_quoter.DeployFeeQuoter(
+					chain.DeployerKey,
+					chain.Client,
+					fee_quoter.FeeQuoterStaticConfig{
+						MaxFeeJuelsPerMsg:            big.NewInt(0).Mul(big.NewInt(2e2), big.NewInt(1e18)),
+						LinkToken:                    linkTokenContract.Address(),
+						TokenPriceStalenessThreshold: uint32(24 * 60 * 60),
 					},
-					{
-						PremiumMultiplierWeiPerEth: 1e18,
-						Token:                      contractConfig.Weth9.Address(),
+					[]common.Address{mcmsContracts.Timelock.Address},                       // timelock should be able to update, ramps added after
+					[]common.Address{weth9Contract.Address(), linkTokenContract.Address()}, // fee tokens
+					[]fee_quoter.FeeQuoterTokenPriceFeedUpdate{},
+					[]fee_quoter.FeeQuoterTokenTransferFeeConfigArgs{}, // TODO: tokens
+					[]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs{
+						{
+							PremiumMultiplierWeiPerEth: 9e17, // 0.9 ETH
+							Token:                      linkTokenContract.Address(),
+						},
+						{
+							PremiumMultiplierWeiPerEth: 1e18,
+							Token:                      weth9Contract.Address(),
+						},
 					},
-				},
-				[]fee_quoter.FeeQuoterDestChainConfigArgs{},
-			)
-			return ContractDeploy[*fee_quoter.FeeQuoter]{
-				prAddr, pr, tx2, deployment.NewTypeAndVersion(FeeQuoter, deployment.Version1_6_0_dev), err2,
-			}
-		})
-	if err != nil {
-		e.Logger.Errorw("Failed to deploy fee quoter", "err", err)
-		return err
+					[]fee_quoter.FeeQuoterDestChainConfigArgs{},
+				)
+				return ContractDeploy[*fee_quoter.FeeQuoter]{
+					prAddr, pr, tx2, deployment.NewTypeAndVersion(FeeQuoter, deployment.Version1_6_0_dev), err2,
+				}
+			})
+		if err != nil {
+			e.Logger.Errorw("Failed to deploy fee quoter", "err", err)
+			return err
+		}
+		e.Logger.Infow("Deployed fee quoter", "addr", feeQuoter.Address)
+		feeQuoterContract = feeQuoter.Contract
+	} else {
+		e.Logger.Infow("fee quoter already deployed", "addr", chainState.FeeQuoter.Address)
 	}
-	e.Logger.Infow("Deployed fee quoter", "addr", feeQuoter.Address)
-
-	onRamp, err := deployContract(e.Logger, chain, ab,
-		func(chain deployment.Chain) ContractDeploy[*onramp.OnRamp] {
-			onRampAddr, tx2, onRamp, err2 := onramp.DeployOnRamp(
-				chain.DeployerKey,
-				chain.Client,
-				onramp.OnRampStaticConfig{
-					ChainSelector:      chain.Selector,
-					RmnRemote:          rmnProxy.Address,
-					NonceManager:       nonceManager.Address,
-					TokenAdminRegistry: tokenAdminRegistry.Address,
-				},
-				onramp.OnRampDynamicConfig{
-					FeeQuoter:     feeQuoter.Address,
-					FeeAggregator: common.HexToAddress("0x1"), // TODO real fee aggregator
-				},
-				[]onramp.OnRampDestChainConfigArgs{},
-			)
-			return ContractDeploy[*onramp.OnRamp]{
-				onRampAddr, onRamp, tx2, deployment.NewTypeAndVersion(OnRamp, deployment.Version1_6_0_dev), err2,
-			}
-		})
-	if err != nil {
-		e.Logger.Errorw("Failed to deploy onramp", "err", err)
-		return err
+	onRampContract := chainState.OnRamp
+	if onRampContract == nil {
+		onRamp, err := deployContract(e.Logger, chain, ab,
+			func(chain deployment.Chain) ContractDeploy[*onramp.OnRamp] {
+				onRampAddr, tx2, onRamp, err2 := onramp.DeployOnRamp(
+					chain.DeployerKey,
+					chain.Client,
+					onramp.OnRampStaticConfig{
+						ChainSelector:      chain.Selector,
+						RmnRemote:          rmnProxyContract.Address(),
+						NonceManager:       nmContract.Address(),
+						TokenAdminRegistry: tokenAdminReg.Address(),
+					},
+					onramp.OnRampDynamicConfig{
+						FeeQuoter:     feeQuoterContract.Address(),
+						FeeAggregator: common.HexToAddress("0x1"), // TODO real fee aggregator
+					},
+					[]onramp.OnRampDestChainConfigArgs{},
+				)
+				return ContractDeploy[*onramp.OnRamp]{
+					onRampAddr, onRamp, tx2, deployment.NewTypeAndVersion(OnRamp, deployment.Version1_6_0_dev), err2,
+				}
+			})
+		if err != nil {
+			e.Logger.Errorw("Failed to deploy onramp", "err", err)
+			return err
+		}
+		e.Logger.Infow("Deployed onramp", "addr", onRamp.Address)
+		onRampContract = onRamp.Contract
+	} else {
+		e.Logger.Infow("onramp already deployed", "addr", chainState.OnRamp.Address)
 	}
-	e.Logger.Infow("Deployed onramp", "addr", onRamp.Address)
-
-	offRamp, err := deployContract(e.Logger, chain, ab,
-		func(chain deployment.Chain) ContractDeploy[*offramp.OffRamp] {
-			offRampAddr, tx2, offRamp, err2 := offramp.DeployOffRamp(
-				chain.DeployerKey,
-				chain.Client,
-				offramp.OffRampStaticConfig{
-					ChainSelector:      chain.Selector,
-					RmnRemote:          rmnProxy.Address,
-					NonceManager:       nonceManager.Address,
-					TokenAdminRegistry: tokenAdminRegistry.Address,
-				},
-				offramp.OffRampDynamicConfig{
-					FeeQuoter:                               feeQuoter.Address,
-					PermissionLessExecutionThresholdSeconds: uint32(86400),
-					IsRMNVerificationDisabled:               true,
-				},
-				[]offramp.OffRampSourceChainConfigArgs{},
-			)
-			return ContractDeploy[*offramp.OffRamp]{
-				offRampAddr, offRamp, tx2, deployment.NewTypeAndVersion(OffRamp, deployment.Version1_6_0_dev), err2,
-			}
-		})
-	if err != nil {
-		e.Logger.Errorw("Failed to deploy offramp", "err", err)
-		return err
+	offRampContract := chainState.OffRamp
+	if offRampContract == nil {
+		offRamp, err := deployContract(e.Logger, chain, ab,
+			func(chain deployment.Chain) ContractDeploy[*offramp.OffRamp] {
+				offRampAddr, tx2, offRamp, err2 := offramp.DeployOffRamp(
+					chain.DeployerKey,
+					chain.Client,
+					offramp.OffRampStaticConfig{
+						ChainSelector:      chain.Selector,
+						RmnRemote:          rmnProxyContract.Address(),
+						NonceManager:       nmContract.Address(),
+						TokenAdminRegistry: tokenAdminReg.Address(),
+					},
+					offramp.OffRampDynamicConfig{
+						FeeQuoter:                               feeQuoterContract.Address(),
+						PermissionLessExecutionThresholdSeconds: uint32(86400),
+						IsRMNVerificationDisabled:               true,
+					},
+					[]offramp.OffRampSourceChainConfigArgs{},
+				)
+				return ContractDeploy[*offramp.OffRamp]{
+					offRampAddr, offRamp, tx2, deployment.NewTypeAndVersion(OffRamp, deployment.Version1_6_0_dev), err2,
+				}
+			})
+		if err != nil {
+			e.Logger.Errorw("Failed to deploy offramp", "err", err)
+			return err
+		}
+		e.Logger.Infow("Deployed offramp", "addr", offRamp.Address)
+		offRampContract = offRamp.Contract
+	} else {
+		e.Logger.Infow("offramp already deployed", "addr", chainState.OffRamp.Address)
 	}
-	e.Logger.Infow("Deployed offramp", "addr", offRamp.Address)
-
 	// Basic wiring is always needed.
-	tx, err = feeQuoter.Contract.ApplyAuthorizedCallerUpdates(chain.DeployerKey, fee_quoter.AuthorizedCallersAuthorizedCallerArgs{
+	tx, err = feeQuoterContract.ApplyAuthorizedCallerUpdates(chain.DeployerKey, fee_quoter.AuthorizedCallersAuthorizedCallerArgs{
 		// TODO: We enable the deployer initially to set prices
 		// Should be removed after.
-		AddedCallers: []common.Address{offRamp.Contract.Address(), chain.DeployerKey.From},
+		AddedCallers: []common.Address{offRampContract.Address(), chain.DeployerKey.From},
 	})
 	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
 		e.Logger.Errorw("Failed to confirm fee quoter authorized caller update", "err", err)
 		return err
 	}
 
-	tx, err = nonceManager.Contract.ApplyAuthorizedCallerUpdates(chain.DeployerKey, nonce_manager.AuthorizedCallersAuthorizedCallerArgs{
-		AddedCallers: []common.Address{offRamp.Contract.Address(), onRamp.Contract.Address()},
+	tx, err = nmContract.ApplyAuthorizedCallerUpdates(chain.DeployerKey, nonce_manager.AuthorizedCallersAuthorizedCallerArgs{
+		AddedCallers: []common.Address{offRampContract.Address(), onRampContract.Address()},
 	})
 	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
 		e.Logger.Errorw("Failed to update nonce manager with ramps", "err", err)

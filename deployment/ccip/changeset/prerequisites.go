@@ -20,19 +20,34 @@ var (
 		ccipdeployment.TokenAdminRegistry: {},
 		ccipdeployment.RegistryModule:     {},
 		ccipdeployment.Router:             {},
-		ccipdeployment.ARMProxy:           {},
 	}
 )
 
+// InitializePrerequisites loads the existing contracts into the address book.
+// This is required for contracts which can be reused from previous versions of CCIP
+// If PrerequisiteConfig.Deploy is true, it will deploy the prerequisite contracts except Router
 func InitializePrerequisites(env deployment.Environment, cfg PrerequisiteConfig) (deployment.ChangesetOutput, error) {
 	err := cfg.Validate()
 	if err != nil {
 		return deployment.ChangesetOutput{}, errors.Wrapf(deployment.ErrInvalidConfig, "%v", err)
 	}
 	ab := deployment.NewMemoryAddressBook()
-	for _, ec := range cfg.ExistingContracts {
-		err = ab.Save(ec.ChainSelector, ec.Address.String(), ec.TypeAndVersion)
+	if cfg.Deploy {
+		err = ccipdeployment.DeployPrerequisiteContracts(env, ab, env.Chains[cfg.ChainSelector])
 		if err != nil {
+			env.Logger.Errorw("Failed to deploy prerequisite contracts", "err", err, "addressBook", ab)
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy prerequisite contracts: %w", err)
+		}
+		return deployment.ChangesetOutput{
+			Proposals:   []timelock.MCMSWithTimelockProposal{},
+			AddressBook: ab,
+			JobSpecs:    nil,
+		}, nil
+	}
+	for _, ec := range cfg.ExistingContracts {
+		err = ab.Save(cfg.ChainSelector, ec.Address.String(), ec.TypeAndVersion)
+		if err != nil {
+			env.Logger.Errorw("Failed to deploy prerequisite contracts", "err", err, "addressBook", ab)
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to save existing contract: %w", err)
 		}
 	}
@@ -44,19 +59,26 @@ func InitializePrerequisites(env deployment.Environment, cfg PrerequisiteConfig)
 }
 
 type ContractConfig struct {
-	ChainSelector  uint64
 	Address        common.Address
 	TypeAndVersion deployment.TypeAndVersion
 }
 
 type PrerequisiteConfig struct {
-	ExistingContracts   map[deployment.ContractType]ContractConfig
-	DeployPrerequisites bool
+	ChainSelector     uint64
+	ExistingContracts map[deployment.ContractType]ContractConfig
+	Deploy            bool
 }
 
 func (c PrerequisiteConfig) Validate() error {
-	if !c.DeployPrerequisites && len(c.ExistingContracts) == 0 {
-		return fmt.Errorf("either deploy prerequisites or provide existing contracts")
+	if c.ChainSelector == 0 {
+		return fmt.Errorf("chain selector must be set")
+	}
+	_, err := chain_selectors.ChainIdFromSelector(c.ChainSelector)
+	if err != nil {
+		return fmt.Errorf("invalid chain selector: %d - %w", c.ChainSelector, err)
+	}
+	if c.Deploy {
+		return nil
 	}
 	for ct := range mapPrerequisiteContracts {
 		if _, ok := c.ExistingContracts[ct]; !ok {
@@ -64,13 +86,6 @@ func (c PrerequisiteConfig) Validate() error {
 		}
 	}
 	for _, ec := range c.ExistingContracts {
-		if ec.ChainSelector == 0 {
-			return fmt.Errorf("chain selector must be set")
-		}
-		_, err := chain_selectors.ChainIdFromSelector(ec.ChainSelector)
-		if err != nil {
-			return fmt.Errorf("invalid chain selector: %d - %w", ec.ChainSelector, err)
-		}
 		if ec.Address == (common.Address{}) {
 			return fmt.Errorf("address must be set")
 		}
