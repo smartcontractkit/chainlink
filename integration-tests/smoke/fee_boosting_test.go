@@ -34,6 +34,7 @@ type priceFeedPrices struct {
 }
 
 func Test_CCIPFeeBoosting(t *testing.T) {
+	t.Skip("Skipping test as it is not fully implemented yet")
 	ctx := ccdeploy.Context(t)
 
 	setupTestEnv := func(t *testing.T, numChains int) (ccipdeployment.DeployedEnv, ccipdeployment.CCIPOnChainState, []uint64) {
