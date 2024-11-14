@@ -206,7 +206,7 @@ func (c *client) CreateJobDistributor(ctx context.Context, in JobDistributorInpu
 		msg := err.GetMessage()
 		return "", fmt.Errorf("failed to create feeds manager: %v", msg)
 	}
-	return "", fmt.Errorf("failed to create feeds manager")
+	return "", fmt.Errorf("failed to create feeds manager: %v", response.GetCreateFeedsManager().GetTypename())
 }
 
 func (c *client) UpdateJobDistributor(ctx context.Context, id string, in JobDistributorInput) error {
