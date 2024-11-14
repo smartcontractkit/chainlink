@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.24;
 
 import {WorkflowRegistry} from "../../dev/WorkflowRegistry.sol";
@@ -25,9 +25,6 @@ contract WorkflowRegistry_requestForceUpdateSecrets is WorkflowRegistrySetup {
     // Register a workflow first.
     _registerValidWorkflow();
 
-    // Start recording logs
-    vm.recordLogs();
-
     // Call the requestForceUpdateSecrets function now on a random URL
     vm.prank(s_authorizedAddress);
     vm.expectRevert(WorkflowRegistry.WorkflowDoesNotExist.selector);
@@ -44,7 +41,6 @@ contract WorkflowRegistry_requestForceUpdateSecrets is WorkflowRegistrySetup {
     // Start recording logs
     vm.recordLogs();
 
-    // Call the requestForceUpdateSecrets function now after the registry is locked.
     vm.prank(s_authorizedAddress);
     s_registry.requestForceUpdateSecrets(s_validSecretsURL);
 
@@ -103,29 +99,52 @@ contract WorkflowRegistry_requestForceUpdateSecrets is WorkflowRegistrySetup {
     // Register a workflow first.
     _registerValidWorkflow();
 
+    // Register another workflow with the same owner but different secrets URL.
+    vm.prank(s_authorizedAddress);
+    s_registry.registerWorkflow(
+      "ValidWorkflow2",
+      keccak256("validWorkflow2"),
+      s_allowedDonID,
+      WorkflowRegistry.WorkflowStatus.ACTIVE,
+      "https://example.com/valid-binary2",
+      s_validConfigURL,
+      s_validSecretsURL
+    );
+
     // Start recording logs
     vm.recordLogs();
 
-    // Call the requestForceUpdateSecrets function now after the registry is locked.
     vm.prank(s_authorizedAddress);
     s_registry.requestForceUpdateSecrets(s_validSecretsURL);
     // Verify the event emitted with correct details
     Vm.Log[] memory entries = vm.getRecordedLogs();
-    assertEq(entries.length, 1);
-    assertEq(entries[0].topics[0], keccak256("WorkflowForceUpdateSecretsRequestedV1(string,address,string)"));
+    assertEq(entries.length, 2);
 
-    // Compare the hash of the expected string with the topic
-    bytes32 expectedSecretsURLHash = keccak256(abi.encodePacked(s_validSecretsURL));
-    assertEq(entries[0].topics[1], expectedSecretsURLHash);
+    bytes32 eventSignature = keccak256("WorkflowForceUpdateSecretsRequestedV1(address,bytes32,string)");
 
-    // Decode the indexed address
-    address decodedOwner = abi.decode(abi.encodePacked(entries[0].topics[2]), (address));
-    assertEq(decodedOwner, s_authorizedAddress);
-
-    // Decode the non-indexed data
-    string memory decodedWorkflowName = abi.decode(entries[0].data, (string));
-
-    // Assert the values
+    // Check the first event
+    assertEq(entries[0].topics[0], eventSignature);
+    // Verify owner (indexed)
+    address decodedAddress = abi.decode(abi.encodePacked(entries[0].topics[1]), (address));
+    assertEq(decodedAddress, s_authorizedAddress);
+    // Decode non-indexed parameters (secretsURLHash and workflowName)
+    (bytes32 decodedSecretsURLHash, string memory decodedWorkflowName) = abi.decode(entries[0].data, (bytes32, string));
+    // Verify the decoded values
+    bytes32 expectedSecretsURLHash = keccak256(abi.encodePacked(s_authorizedAddress, s_validSecretsURL));
+    assertEq(decodedSecretsURLHash, expectedSecretsURLHash);
     assertEq(decodedWorkflowName, s_validWorkflowName);
+
+    // // Check the second event
+    assertEq(entries[1].topics[0], eventSignature);
+    // Verify owner (indexed)
+    address decodedAddress2 = abi.decode(abi.encodePacked(entries[1].topics[1]), (address));
+    assertEq(decodedAddress2, s_authorizedAddress);
+    // Decode non-indexed parameters (secretsURLHash and workflowName)
+    (bytes32 decodedSecretsURLHash2, string memory decodedWorkflowName2) =
+      abi.decode(entries[1].data, (bytes32, string));
+    // Verify the decoded values
+    bytes32 expectedSecretsURLHash2 = keccak256(abi.encodePacked(s_authorizedAddress, s_validSecretsURL));
+    assertEq(decodedSecretsURLHash2, expectedSecretsURLHash2);
+    assertEq(decodedWorkflowName2, "ValidWorkflow2");
   }
 }

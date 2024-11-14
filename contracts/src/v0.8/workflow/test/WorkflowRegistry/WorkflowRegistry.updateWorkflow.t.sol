@@ -195,7 +195,7 @@ contract WorkflowRegistry_updateWorkflow is WorkflowRegistrySetup {
     // It should add the url + key to s_secretsHashToWorkflows when the secretsURL is not empty
     vm.expectEmit(true, true, false, true);
     emit WorkflowRegistry.WorkflowForceUpdateSecretsRequestedV1(
-      s_newValidSecretsURL, s_authorizedAddress, s_validWorkflowName
+      s_authorizedAddress, keccak256(abi.encodePacked(s_authorizedAddress, s_newValidSecretsURL)), s_validWorkflowName
     );
 
     // Call the function that should emit the event.
