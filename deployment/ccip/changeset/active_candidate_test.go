@@ -84,14 +84,14 @@ func TestActiveCandidate(t *testing.T) {
 			require.NoError(t, err)
 			block := latesthdr.Number.Uint64()
 			startBlocks[dest] = &block
-			seqNum := ccdeploy.TestSendRequest(t, e, state, src, dest, false, router.ClientEVM2AnyMessage{
+			msgSentEvent := ccdeploy.TestSendRequest(t, e, state, src, dest, false, router.ClientEVM2AnyMessage{
 				Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
 				Data:         []byte("hello world"),
 				TokenAmounts: nil,
 				FeeToken:     common.HexToAddress("0x0"),
 				ExtraArgs:    nil,
 			})
-			expectedSeqNum[dest] = seqNum
+			expectedSeqNum[dest] = msgSentEvent.SequenceNumber
 		}
 	}
 
