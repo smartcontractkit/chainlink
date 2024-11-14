@@ -451,8 +451,8 @@ jobs:
       - name: Append Flaky Tests to GitHub Summary
         if: ${{ fromJson(steps.set_test_results.outputs.failed_tests_count) > 0 }}
         run: |
-          threshold_percentage=$(echo "${{ inputs.runThreshold }}" | awk '{printf "%.0f", $1 * 100}')
-          min_pass_ratio_percentage=$(echo "${{ env.MIN_PASS_RATIO }}" | awk '{printf "%.0f", $1 * 100}')
+          threshold_percentage=$(echo "${{ inputs.runThreshold }}" | awk '{printf "%.2f", $1 * 100}')
+          min_pass_ratio_percentage=$(echo "${{ env.MIN_PASS_RATIO }}" | awk '{printf "%.2f", $1 * 100}')
           echo "### Flaky Tests :x:" >> $GITHUB_STEP_SUMMARY
           echo "Ran ${{ steps.set_test_results.outputs.all_tests_count }} unique tests ${{ steps.calculate_test_repeat_count.outputs.test_repeat_count }} times. Below are the tests identified as flaky, with a pass ratio lower than the ${threshold_percentage}% threshold:" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
@@ -470,8 +470,8 @@ jobs:
         if: ${{ fromJson(steps.set_test_results.outputs.all_tests_count) > 0 }}
         run: |
           echo "### Settings" >> $GITHUB_STEP_SUMMARY
-          threshold_percentage=$(echo "${{ inputs.runThreshold }}" | awk '{printf "%.0f", $1 * 100}')
-          min_pass_ratio_percentage=$(echo "${{ env.MIN_PASS_RATIO }}" | awk '{printf "%.0f", $1 * 100}')
+          threshold_percentage=$(echo "${{ inputs.runThreshold }}" | awk '{printf "%.2f", $1 * 100}')
+          min_pass_ratio_percentage=$(echo "${{ env.MIN_PASS_RATIO }}" | awk '{printf "%.2f", $1 * 100}')
           echo "| **Setting**             | **Value**  |" >> $GITHUB_STEP_SUMMARY
           echo "|-------------------------|------------|" >> $GITHUB_STEP_SUMMARY
           echo "| Go Project              | ${{ steps.set_project_path_pretty.outputs.path }} |" >> $GITHUB_STEP_SUMMARY
