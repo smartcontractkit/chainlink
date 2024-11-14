@@ -141,6 +141,7 @@ func (e *Engine) Start(_ context.Context) error {
 		if err != nil {
 			return fmt.Errorf("could not initialize monitoring resources: %w", err)
 		}
+		e.metrics.incrementWorkflowInitializationCounter(ctx)
 
 		e.wg.Add(e.maxWorkerLimit)
 		for i := 0; i < e.maxWorkerLimit; i++ {
@@ -351,6 +352,7 @@ func (e *Engine) init(ctx context.Context) {
 
 	e.logger.Info("engine initialized")
 	logCustMsg(ctx, e.cma, "workflow registered", e.logger)
+	e.metrics.incrementWorkflowRegisteredCounter(ctx)
 	e.afterInit(true)
 }
 
@@ -687,6 +689,7 @@ func (e *Engine) finishExecution(ctx context.Context, executionID string, status
 	e.stepUpdatesChMap.remove(executionID)
 	metrics.updateTotalWorkflowsGauge(ctx, e.stepUpdatesChMap.len())
 	metrics.updateWorkflowExecutionLatencyGauge(ctx, executionDuration)
+	metrics.incrementWorkflowExecutionFinishedCounter(ctx)
 	e.onExecutionFinished(executionID)
 	return nil
 }
@@ -755,6 +758,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 
 	// TODO ks-462 inputs
 	logCustMsg(ctx, cma, "executing step", l)
+	e.metrics.with(platform.KeyStepRef, msg.stepRef).incrementWorkflowStepStartedCounter(ctx)
 
 	stepCtx, cancel := context.WithTimeout(ctx, e.stepTimeoutDuration)
 	defer cancel()
@@ -779,6 +783,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 		logCustMsg(ctx, cma, lmsg, l)
 		stepStatus = store.StatusCompleted
 	}
+	e.metrics.with(platform.KeyStepRef, msg.stepRef, "status", stepStatus).incrementWorkflowStepFinishedCounter(ctx)
 
 	stepState.Status = stepStatus
 	stepState.Outputs.Value = outputs
@@ -924,6 +929,7 @@ func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRe
 	e.metrics.incrementCapabilityInvocationCounter(ctx)
 	output, err := step.capability.Execute(ctx, tr)
 	if err != nil {
+		e.metrics.with(platform.KeyStepRef, msg.stepRef, platform.KeyCapabilityID, step.ID).incrementCapabilityFailureCounter(ctx)
 		return inputsMap, nil, err
 	}
 
@@ -1121,6 +1127,7 @@ func (e *Engine) Close() error {
 			return err
 		}
 		logCustMsg(ctx, e.cma, "workflow unregistered", e.logger)
+		e.metrics.incrementWorkflowUnregisteredCounter(ctx)
 		return nil
 	})
 }
