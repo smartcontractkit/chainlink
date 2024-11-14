@@ -61,14 +61,19 @@ contract DualAggregatorHarness is DualAggregatorHelper {
     });
   }
 
-  // helper function to inject transmissions
+  // helper function to inject transmissions, answer starts at 10 and increases by 1 every round,
+  // the observations timestamp starts at 1 and increases by 5 every round, the recorded timestamp
+  // starts at 5 and increases by 5 every round
   function injectTransmissions(
-    int192[] memory answers,
-    uint32[] memory observationsTimestamps,
-    uint32[] memory recordedTimestamps
+    uint32 amount
   ) public {
-    for (uint32 i = 0; i < answers.length; i++) {
-      setTransmission(i + 1, answers[i], observationsTimestamps[i], recordedTimestamps[i]);
+    for (uint32 i = 0; i < amount; i++) {
+      uint32 roundId = i + 1; // starts at one, increases by 1 every round [1, 2, 3, 4, 5, ...]
+      int192 answer = int32(i) + 10; // starts at 10, increases by 1 every round [10, 11, 12, 13, 14, ...]
+      uint32 observationsTimestamp = i * 5 + 1; // starts at 1, increases by 5 every round [1, 6, 11, 16, 21, ...]
+      uint32 recordedTimestamp = i * 5 + 5; // starts at 5, increases by 5 every round [5, 10, 15, 20, 25, ...]
+
+      setTransmission(roundId, answer, observationsTimestamp, recordedTimestamp);
     }
   }
 
@@ -166,22 +171,14 @@ contract ConfiguredDualAggregatorBaseTest is DualAggregatorBaseTest {
 }
 
 contract RoundDataDualAggregatorBaseTest is ConfiguredDualAggregatorBaseTest {
-  int192[] internal answers = [int192(10), int192(11), int192(12), int192(13), int192(14), int192(15)];
-  uint32[] internal observationsTimestamps = [uint32(1), uint32(6), uint32(11), uint32(16), uint32(21), uint32(26)];
-  uint32[] internal recordedTimestamps = [uint32(5), uint32(10), uint32(15), uint32(20), uint32(25), uint32(30)];
-
-  function setUp() public virtual override {
-    super.setUp();
-  }
-
   function setDualAggregatorBase(
     uint256 startingTime,
     uint32 cutoffTime,
     uint32 latestPrimaryRound,
     uint32 latestSecondaryRound,
     bool isLatestSecondary
-  ) public {
-    s_aggregator.injectTransmissions(answers, observationsTimestamps, recordedTimestamps);
+  ) internal {
+    s_aggregator.injectTransmissions(6);
     s_aggregator.setLatestRoundIds(latestPrimaryRound, latestSecondaryRound);
     s_aggregator.setCutoffTime(cutoffTime);
     s_aggregator.isLatestSecondary(isLatestSecondary);
@@ -495,7 +492,7 @@ contract ValidateAnswer is ConfiguredDualAggregatorBaseTest {
     vm.assertEq(currentAnswer, 0, "current answer not zero");
   }
 
-  function test_NotToRevert_ValidatorZeroAddress() public {
+  function test_ValidateWithZeroAddressContract() public {
     ReportGenerator.SignedReport memory signedReport1 =
       s_reportGenerator.generateSignedReport(1, uint32(block.timestamp));
     AggregatorValidatorInterface newValidator = AggregatorValidatorInterface(address(0));
@@ -509,7 +506,7 @@ contract ValidateAnswer is ConfiguredDualAggregatorBaseTest {
     );
   }
 
-  function test_Success_ValidateAnswer() public {
+  function test_ValidateWithContractAddress() public {
     ReportGenerator.SignedReport memory signedReport1 =
       s_reportGenerator.generateSignedReport(1, uint32(block.timestamp));
 
