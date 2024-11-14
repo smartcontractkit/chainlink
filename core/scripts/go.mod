@@ -26,7 +26,7 @@ require (
 	github.com/smartcontractkit/chainlink-automation v0.8.1
 	github.com/smartcontractkit/chainlink-common v0.3.1-0.20241113142256-8a7a997a0371
 	github.com/smartcontractkit/chainlink/deployment v0.0.0-00010101000000-000000000000
-	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
+	github.com/smartcontractkit/chainlink/v2 v2.14.0-mercury-20240807.0.20241106193309-5560cd76211a
 	github.com/smartcontractkit/libocr v0.0.0-20241007185508-adbe57025f12
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/viper v1.19.0
@@ -300,7 +300,7 @@ require (
 	github.com/smartcontractkit/chainlink-feeds v0.1.1 // indirect
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.4.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.3.0 // indirect
-	github.com/smartcontractkit/chainlink-solana v1.1.1-0.20241104202120-39cabce465f6 // indirect
+	github.com/smartcontractkit/chainlink-solana v1.1.1-0.20241112213949-65ae13752669 // indirect
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.1.1-0.20241017135645-176a23722fd8 // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20241009055228-33d0c0bf38de // indirect
