@@ -329,15 +329,6 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 		if existingState.Chains[chainSel].LinkToken == nil || existingState.Chains[chainSel].Weth9 == nil {
 			return fmt.Errorf("fee tokens not found for chain %d", chainSel)
 		}
-		newAddresses := deployment.NewMemoryAddressBook()
-		err = DeployPrerequisiteContracts(e, newAddresses, chain)
-		if err != nil {
-			return fmt.Errorf("failed to deploy prerequisite contracts: %w", err)
-		}
-		err = e.ExistingAddresses.Merge(newAddresses)
-		if err != nil {
-			return fmt.Errorf("failed to merge new addresses after deploying prerequisite contracts: %w", err)
-		}
 		err = DeployChainContracts(e, chain, ab, c.MCMSConfig, rmnHome)
 		if err != nil {
 			return err
@@ -494,65 +485,6 @@ func DeployMCMSContracts(
 	}, nil
 }
 
-func DeployFeeTokensToChains(lggr logger.Logger, ab deployment.AddressBook, chains map[uint64]deployment.Chain) error {
-	for _, chain := range chains {
-		_, err := DeployFeeTokens(lggr, chain, ab)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// DeployFeeTokens deploys link and weth9. This is _usually_ for test environments only,
-// real environments they tend to already exist, but sometimes we still have to deploy them to real chains.
-func DeployFeeTokens(lggr logger.Logger, chain deployment.Chain, ab deployment.AddressBook) (FeeTokenContracts, error) {
-	weth9, err := deployContract(lggr, chain, ab,
-		func(chain deployment.Chain) ContractDeploy[*weth9.WETH9] {
-			weth9Addr, tx2, weth9c, err2 := weth9.DeployWETH9(
-				chain.DeployerKey,
-				chain.Client,
-			)
-			return ContractDeploy[*weth9.WETH9]{
-				weth9Addr, weth9c, tx2, deployment.NewTypeAndVersion(WETH9, deployment.Version1_0_0), err2,
-			}
-		})
-	if err != nil {
-		lggr.Errorw("Failed to deploy weth9", "err", err)
-		return FeeTokenContracts{}, err
-	}
-	lggr.Infow("deployed weth9", "addr", weth9.Address)
-
-	linkToken, err := deployContract(lggr, chain, ab,
-		func(chain deployment.Chain) ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
-			linkTokenAddr, tx2, linkToken, err2 := burn_mint_erc677.DeployBurnMintERC677(
-				chain.DeployerKey,
-				chain.Client,
-				"Link Token",
-				"LINK",
-				uint8(18),
-				big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
-			)
-			return ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
-				linkTokenAddr, linkToken, tx2, deployment.NewTypeAndVersion(LinkToken, deployment.Version1_0_0), err2,
-			}
-		})
-	if err != nil {
-		lggr.Errorw("Failed to deploy linkToken", "err", err)
-		return FeeTokenContracts{}, err
-	}
-	lggr.Infow("deployed linkToken", "addr", linkToken.Address)
-	return FeeTokenContracts{
-		LinkToken: linkToken.Contract,
-		Weth9:     weth9.Contract,
-	}, nil
-}
-
-type FeeTokenContracts struct {
-	LinkToken *burn_mint_erc677.BurnMintERC677
-	Weth9     *weth9.WETH9
-}
-
 func DeployChainContracts(
 	e deployment.Environment,
 	chain deployment.Chain,
@@ -571,24 +503,21 @@ func DeployChainContracts(
 		return err
 	}
 	chainState, chainExists := state.Chains[chain.Selector]
-	var weth9Contract *weth9.WETH9
-	var linkTokenContract *burn_mint_erc677.BurnMintERC677
-	var tokenAdminReg *token_admin_registry.TokenAdminRegistry
 	if !chainExists {
 		return fmt.Errorf("chain %d not found in existing state, deploy the prerequisites first", chain.Selector)
 	}
 	if chainState.Weth9 == nil {
 		return fmt.Errorf("weth9 not found for chain %d, deploy the prerequisites first", chain.Selector)
 	}
-	weth9Contract = chainState.Weth9
+	weth9Contract := chainState.Weth9
 	if chainState.LinkToken == nil {
 		return fmt.Errorf("link token not found for chain %d, deploy the prerequisites first", chain.Selector)
 	}
-	linkTokenContract = chainState.LinkToken
+	linkTokenContract := chainState.LinkToken
 	if chainState.TokenAdminRegistry == nil {
 		return fmt.Errorf("token admin registry not found for chain %d, deploy the prerequisites first", chain.Selector)
 	}
-	tokenAdminReg = chainState.TokenAdminRegistry
+	tokenAdminReg := chainState.TokenAdminRegistry
 	if chainState.RegistryModule == nil {
 		return fmt.Errorf("registry module not found for chain %d, deploy the prerequisites first", chain.Selector)
 	}

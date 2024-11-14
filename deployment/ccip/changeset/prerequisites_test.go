@@ -39,7 +39,7 @@ func TestInitializePrerequisitesExisting(t *testing.T) {
 		Nodes:      4,
 	})
 	newChain := e.AllChainSelectors()[0]
-	cfg.ChainSelector = newChain
+	cfg.ChainSelectors = []uint64{newChain}
 	_, err := InitializePrerequisites(e, cfg)
 	require.Error(t, err)
 	cfg.ExistingContracts[ccipdeployment.RegistryModule] = ContractConfig{
@@ -97,7 +97,7 @@ func TestInitializePrerequisitesNewDeploy(t *testing.T) {
 		Nodes:      4,
 	})
 	newChain := e.AllChainSelectors()[0]
-	cfg.ChainSelector = newChain
+	cfg.ChainSelectors = []uint64{newChain}
 	output, err := InitializePrerequisites(e, cfg)
 	require.NoError(t, err)
 	err = e.ExistingAddresses.Merge(output.AddressBook)

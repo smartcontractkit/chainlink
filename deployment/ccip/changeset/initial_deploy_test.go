@@ -26,9 +26,14 @@ func TestInitialDeploy(t *testing.T) {
 
 	state, err := ccdeploy.LoadOnchainState(tenv.Env)
 	require.NoError(t, err)
-	require.NotNil(t, state.Chains[tenv.HomeChainSel].LinkToken)
+	output, err := InitializePrerequisites(e, PrerequisiteConfig{
+		ChainSelectors: tenv.Env.AllChainSelectors(),
+		Deploy:         true,
+	})
+	require.NoError(t, err)
+	require.NoError(t, tenv.Env.ExistingAddresses.Merge(output.AddressBook))
 
-	output, err := InitialDeploy(tenv.Env, ccdeploy.DeployCCIPContractConfig{
+	output, err = InitialDeploy(tenv.Env, ccdeploy.DeployCCIPContractConfig{
 		HomeChainSel:   tenv.HomeChainSel,
 		FeedChainSel:   tenv.FeedChainSel,
 		ChainsToDeploy: tenv.Env.AllChainSelectors(),
@@ -41,7 +46,7 @@ func TestInitialDeploy(t *testing.T) {
 	require.NoError(t, tenv.Env.ExistingAddresses.Merge(output.AddressBook))
 	state, err = ccdeploy.LoadOnchainState(e)
 	require.NoError(t, err)
-
+	require.NotNil(t, state.Chains[tenv.HomeChainSel].LinkToken)
 	// Ensure capreg logs are up to date.
 	ccdeploy.ReplayLogs(t, e.Offchain, tenv.ReplayBlocks)
 

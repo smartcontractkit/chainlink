@@ -7,8 +7,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
@@ -30,20 +28,19 @@ func TestInitialDeployOnLocal(t *testing.T) {
 	require.NoError(t, err)
 
 	feeds := state.Chains[tenv.FeedChainSel].USDFeeds
-	tokenConfig := ccdeploy.NewTokenConfig()
-	tokenConfig.UpsertTokenInfo(ccdeploy.LinkSymbol,
-		pluginconfig.TokenInfo{
-			AggregatorAddress: cciptypes.UnknownEncodedAddress(feeds[ccdeploy.LinkSymbol].Address().String()),
-			Decimals:          ccdeploy.LinkDecimals,
-			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
-		},
-	)
+	output, err := changeset.InitializePrerequisites(tenv.Env, changeset.PrerequisiteConfig{
+		ChainSelectors: tenv.Env.AllChainSelectors(),
+		Deploy:         true,
+	})
+	require.NoError(t, err)
+	require.NoError(t, tenv.Env.ExistingAddresses.Merge(output.AddressBook))
+
 	// Apply migration
-	output, err := changeset.InitialDeploy(tenv.Env, ccdeploy.DeployCCIPContractConfig{
+	output, err = changeset.InitialDeploy(tenv.Env, ccdeploy.DeployCCIPContractConfig{
 		HomeChainSel:   tenv.HomeChainSel,
 		FeedChainSel:   tenv.FeedChainSel,
 		ChainsToDeploy: tenv.Env.AllChainSelectors(),
-		TokenConfig:    tokenConfig,
+		TokenConfig:    ccdeploy.NewTestTokenConfig(feeds),
 		MCMSConfig:     ccdeploy.NewTestMCMSConfig(t, e),
 		OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
 	})
@@ -122,22 +119,19 @@ func TestTokenTransfer(t *testing.T) {
 	state, err := ccdeploy.LoadOnchainState(e)
 	require.NoError(t, err)
 
-	feeds := state.Chains[tenv.FeedChainSel].USDFeeds
-	tokenConfig := ccdeploy.NewTokenConfig()
-	tokenConfig.UpsertTokenInfo(ccdeploy.LinkSymbol,
-		pluginconfig.TokenInfo{
-			AggregatorAddress: cciptypes.UnknownEncodedAddress(feeds[ccdeploy.LinkSymbol].Address().String()),
-			Decimals:          ccdeploy.LinkDecimals,
-			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
-		},
-	)
+	output, err := changeset.InitializePrerequisites(e, changeset.PrerequisiteConfig{
+		ChainSelectors: e.AllChainSelectors(),
+		Deploy:         true,
+	})
+	require.NoError(t, err)
+	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook))
 
 	// Apply migration
-	output, err := changeset.InitialDeploy(e, ccdeploy.DeployCCIPContractConfig{
+	output, err = changeset.InitialDeploy(e, ccdeploy.DeployCCIPContractConfig{
 		HomeChainSel:   tenv.HomeChainSel,
 		FeedChainSel:   tenv.FeedChainSel,
 		ChainsToDeploy: e.AllChainSelectors(),
-		TokenConfig:    tokenConfig,
+		TokenConfig:    ccdeploy.NewTestTokenConfig(state.Chains[tenv.FeedChainSel].USDFeeds),
 		MCMSConfig:     ccdeploy.NewTestMCMSConfig(t, e),
 		OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
 	})

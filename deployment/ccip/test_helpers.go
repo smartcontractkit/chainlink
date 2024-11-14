@@ -127,8 +127,6 @@ func DeployTestContracts(t *testing.T,
 	require.NoError(t, err)
 	_, err = DeployFeeds(lggr, ab, chains[feedChainSel])
 	require.NoError(t, err)
-	err = DeployFeeTokensToChains(lggr, ab, chains)
-	require.NoError(t, err)
 	evmChainID, err := chainsel.ChainIdFromSelector(homeChainSel)
 	require.NoError(t, err)
 	return deployment.CapabilityRegistryConfig{

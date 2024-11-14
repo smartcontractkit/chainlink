@@ -33,25 +33,24 @@ func InitializePrerequisites(env deployment.Environment, cfg PrerequisiteConfig)
 		return deployment.ChangesetOutput{}, errors.Wrapf(deployment.ErrInvalidConfig, "%v", err)
 	}
 	ab := deployment.NewMemoryAddressBook()
-	if cfg.Deploy {
-		err = ccipdeployment.DeployPrerequisiteContracts(env, ab, env.Chains[cfg.ChainSelector])
-		if err != nil {
-			env.Logger.Errorw("Failed to deploy prerequisite contracts", "err", err, "addressBook", ab)
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy prerequisite contracts: %w", err)
+	for _, sel := range cfg.ChainSelectors {
+		if cfg.Deploy {
+			err = ccipdeployment.DeployPrerequisiteContracts(env, ab, env.Chains[sel])
+			if err != nil {
+				env.Logger.Errorw("Failed to deploy prerequisite contracts", "err", err, "addressBook", ab)
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy prerequisite contracts: %w", err)
+			}
+			continue
 		}
-		return deployment.ChangesetOutput{
-			Proposals:   []timelock.MCMSWithTimelockProposal{},
-			AddressBook: ab,
-			JobSpecs:    nil,
-		}, nil
-	}
-	for _, ec := range cfg.ExistingContracts {
-		err = ab.Save(cfg.ChainSelector, ec.Address.String(), ec.TypeAndVersion)
-		if err != nil {
-			env.Logger.Errorw("Failed to deploy prerequisite contracts", "err", err, "addressBook", ab)
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to save existing contract: %w", err)
+		for _, ec := range cfg.ExistingContracts {
+			err = ab.Save(sel, ec.Address.String(), ec.TypeAndVersion)
+			if err != nil {
+				env.Logger.Errorw("Failed to deploy prerequisite contracts", "err", err, "addressBook", ab)
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to save existing contract: %w", err)
+			}
 		}
 	}
+
 	return deployment.ChangesetOutput{
 		Proposals:   []timelock.MCMSWithTimelockProposal{},
 		AddressBook: ab,
@@ -65,18 +64,21 @@ type ContractConfig struct {
 }
 
 type PrerequisiteConfig struct {
-	ChainSelector     uint64
+	ChainSelectors    []uint64
 	ExistingContracts map[deployment.ContractType]ContractConfig
 	Deploy            bool
 }
 
 func (c PrerequisiteConfig) Validate() error {
-	if c.ChainSelector == 0 {
-		return fmt.Errorf("chain selector must be set")
-	}
-	_, err := chain_selectors.ChainIdFromSelector(c.ChainSelector)
-	if err != nil {
-		return fmt.Errorf("invalid chain selector: %d - %w", c.ChainSelector, err)
+	for _, cs := range c.ChainSelectors {
+		if cs == 0 {
+			return fmt.Errorf("chain selector must be set")
+		}
+		_, err := chain_selectors.ChainIdFromSelector(cs)
+		if err != nil {
+			return fmt.Errorf("invalid chain selector: %d - %w", cs, err)
+		}
+
 	}
 	if c.Deploy {
 		return nil
