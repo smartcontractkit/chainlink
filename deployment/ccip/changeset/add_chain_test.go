@@ -34,6 +34,12 @@ func TestAddChainInbound(t *testing.T) {
 	require.NoError(t, err)
 	// Take first non-home chain as the new chain.
 	newChain := e.Env.AllChainSelectorsExcluding([]uint64{e.HomeChainSel})[0]
+
+	newAddr := deployment.NewMemoryAddressBook()
+	err = ccipdeployment.DeployPrerequisiteContracts(e.Env, newAddr, e.Env.AllChainSelectors())
+	require.NoError(t, err)
+	require.NoError(t, e.Env.ExistingAddresses.Merge(newAddr))
+
 	// We deploy to the rest.
 	initialDeploy := e.Env.AllChainSelectorsExcluding([]uint64{newChain})
 
