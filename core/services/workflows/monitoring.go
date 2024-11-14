@@ -13,6 +13,7 @@ import (
 )
 
 var registerTriggerFailureCounter metric.Int64Counter
+var triggerWorkflowStarterErrorCounter metric.Int64Counter
 var workflowsRunningGauge metric.Int64Gauge
 var capabilityInvocationCounter metric.Int64Counter
 var capabilityFailureCounter metric.Int64Counter
@@ -30,6 +31,11 @@ func initMonitoringResources() (err error) {
 	registerTriggerFailureCounter, err = beholder.GetMeter().Int64Counter("platform_engine_registertrigger_failures")
 	if err != nil {
 		return fmt.Errorf("failed to register trigger failure counter: %w", err)
+	}
+
+	triggerWorkflowStarterErrorCounter, err = beholder.GetMeter().Int64Counter("platform_engine_triggerworkflow_starter_errors")
+	if err != nil {
+		return fmt.Errorf("failed to register trigger workflow starter error counter: %w", err)
 	}
 
 	workflowsRunningGauge, err = beholder.GetMeter().Int64Gauge("platform_engine_workflow_count")
@@ -108,6 +114,11 @@ func (c workflowsMetricLabeler) with(keyValues ...string) workflowsMetricLabeler
 func (c workflowsMetricLabeler) incrementRegisterTriggerFailureCounter(ctx context.Context) {
 	otelLabels := localMonitoring.KvMapToOtelAttributes(c.Labels)
 	registerTriggerFailureCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+func (c workflowsMetricLabeler) incrementTriggerWorkflowStarterErrorCounter(ctx context.Context) {
+	otelLabels := localMonitoring.KvMapToOtelAttributes(c.Labels)
+	triggerWorkflowStarterErrorCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
 func (c workflowsMetricLabeler) incrementCapabilityInvocationCounter(ctx context.Context) {

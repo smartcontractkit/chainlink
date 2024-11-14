@@ -689,7 +689,7 @@ func (e *Engine) finishExecution(ctx context.Context, executionID string, status
 	e.stepUpdatesChMap.remove(executionID)
 	metrics.updateTotalWorkflowsGauge(ctx, e.stepUpdatesChMap.len())
 	metrics.updateWorkflowExecutionLatencyGauge(ctx, executionDuration)
-	metrics.incrementWorkflowExecutionFinishedCounter(ctx)
+	metrics.incrementWorkflowExecutionFinishedCounter(ctx) // maybe just decide on `success` vs `failure` here based on status
 	e.onExecutionFinished(executionID)
 	return nil
 }
@@ -733,6 +733,7 @@ func (e *Engine) worker(ctx context.Context) {
 			if err != nil {
 				e.logger.With(platform.KeyWorkflowExecutionID, executionID).Errorf("failed to start execution: %v", err)
 				logCustMsg(ctx, cma, fmt.Sprintf("failed to start execution: %s", err), e.logger)
+				e.metrics.with(platform.KeyTriggerID, te.ID).incrementTriggerWorkflowStarterErrorCounter(ctx)
 			} else {
 				e.logger.With(platform.KeyWorkflowExecutionID, executionID).Debug("execution started")
 				logCustMsg(ctx, cma, "execution started", e.logger)
