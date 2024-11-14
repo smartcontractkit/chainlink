@@ -100,7 +100,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@dc3d5a0d4b345aaa0bba8a769615cda2aad77d2b
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@e8ce79ceb91b311f445b29a576fd40b124a2ad73
 
       - name: Find new or updated test packages
         if: ${{ inputs.runAllTests == false }}
@@ -258,7 +258,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@dc3d5a0d4b345aaa0bba8a769615cda2aad77d2b
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@e8ce79ceb91b311f445b29a576fd40b124a2ad73
 
       - name: Run tests with flakeguard
         shell: bash
@@ -300,7 +300,7 @@ jobs:
             
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@dc3d5a0d4b345aaa0bba8a769615cda2aad77d2b
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@e8ce79ceb91b311f445b29a576fd40b124a2ad73
                 
       - name: Set combined test results
         id: set_test_results
@@ -316,7 +316,7 @@ jobs:
             export PATH
 
             # Use flakeguard aggregate-all to aggregate test results
-            flakeguard aggregate-all --results-path . --output-json ../all_tests.json            
+            flakeguard aggregate-all --results-path . --output-results ../all_tests.json            
 
             # Count all tests
             ALL_TESTS_COUNT=$(jq 'length' ../all_tests.json)
@@ -324,7 +324,7 @@ jobs:
             echo "all_tests_count=$ALL_TESTS_COUNT" >> "$GITHUB_OUTPUT"
 
             # Use flakeguard aggregate-failed to filter and output failed tests based on PassRatio threshold
-            flakeguard aggregate-failed --threshold "${{ inputs.runThreshold }}" --min-pass-ratio=${{ env.MIN_PASS_RATIO }} --results-path . --output-json ../failed_tests.json
+            flakeguard aggregate-failed --threshold "${{ inputs.runThreshold }}" --min-pass-ratio=${{ env.MIN_PASS_RATIO }} --results-path . --output-results ../failed_tests.json --output-logs ../failed_test_logs.json
 
             # Count failed tests
             if [ -f "../failed_tests.json" ]; then
@@ -353,6 +353,14 @@ jobs:
           path: failed_tests.json
           name: failed-test-results.json
           retention-days: 7        
+
+      - name: Upload Failed Test Logs as Artifact
+        if: ${{ fromJson(steps.set_test_results.outputs.failed_tests_count) > 0 }}
+        uses: actions/upload-artifact@v4.4.3
+        with:
+          path: failed_test_logs.json
+          name: failed-test-logs.json
+          retention-days: 7             
 
       - name: Upload All Test Results as Artifact
         if: ${{ fromJson(steps.set_test_results.outputs.all_tests_count) > 0 && env.UPLOAD_ALL_TEST_RESULTS == 'true' }}
@@ -450,7 +458,7 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
           cat failed_tests_ascii.txt >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "For detailed logs of the failed tests, please refer to the failed-test-results.json file in the Artifacts section at the bottom of the page." >> $GITHUB_STEP_SUMMARY
+          echo "For detailed logs of the failed tests, please refer to the failed-test-results.json and failed-test-logs.json files in the Artifacts section at the bottom of the page. failed-test-logs.json contains all outputs from failed tests." >> $GITHUB_STEP_SUMMARY
 
       - name: Append Success Note if No Flaky Tests Found
         if: ${{ fromJson(steps.set_test_results.outputs.all_tests_count) > 0 && fromJson(steps.set_test_results.outputs.failed_tests_count) == 0 }}
