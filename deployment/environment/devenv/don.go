@@ -367,7 +367,8 @@ func (n *Node) CreateJobDistributor(ctx context.Context, jd JobDistributor) (str
 func (n *Node) SetUpAndLinkJobDistributor(ctx context.Context, jd JobDistributor) error {
 	// register the node in the job distributor
 	err := n.RegisterNodeToJobDistributor(ctx, jd)
-	if err != nil {
+	// TODO: check for rpc code = "AlreadyExists" instead
+	if err != nil && !strings.Contains(err.Error(), "AlreadyExists") {
 		return err
 	}
 	// now create the job distributor in the node
