@@ -1,11 +1,11 @@
 package smoke
 
 import (
-	"fmt"
 	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/stretchr/testify/require"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
@@ -15,9 +15,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccdeploy "github.com/smartcontractkit/chainlink/deployment/ccip"
+	ccipdeployment "github.com/smartcontractkit/chainlink/deployment/ccip"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -278,8 +280,89 @@ func TestTokenTransfer(t *testing.T) {
 	require.Equal(t, twoCoins, balance)
 }
 
+func setupTokens(t *testing.T, tenv ccipdeployment.DeployedEnv) (srcToken *burn_mint_erc677.BurnMintERC677, dstToken *burn_mint_erc677.BurnMintERC677) {
+	lggr := logger.TestLogger(t)
+
+	e := tenv.Env
+	state, err := ccdeploy.LoadOnchainState(e)
+	require.NoError(t, err)
+
+	twoCoins := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(2))
+
+	// Deploy the token to test transferring
+	srcToken, _, dstToken, _, err = ccdeploy.DeployTransferableToken(
+		lggr,
+		tenv.Env.Chains,
+		tenv.HomeChainSel,
+		tenv.FeedChainSel,
+		state,
+		e.ExistingAddresses,
+		"MY_TOKEN",
+	)
+
+	linkToken := state.Chains[tenv.HomeChainSel].LinkToken
+
+	require.NoError(t, err)
+
+	tx, err := srcToken.Mint(
+		e.Chains[tenv.HomeChainSel].DeployerKey,
+		e.Chains[tenv.HomeChainSel].DeployerKey.From,
+		new(big.Int).Mul(twoCoins, big.NewInt(10)),
+	)
+	require.NoError(t, err)
+
+	_, err = e.Chains[tenv.HomeChainSel].Confirm(tx)
+	require.NoError(t, err)
+
+	// Mint a destination token
+	tx, err = dstToken.Mint(
+		e.Chains[tenv.FeedChainSel].DeployerKey,
+		e.Chains[tenv.FeedChainSel].DeployerKey.From,
+		new(big.Int).Mul(twoCoins, big.NewInt(10)),
+	)
+
+	// Confirm the mint tx
+	require.NoError(t, err)
+	_, err = e.Chains[tenv.FeedChainSel].Confirm(tx)
+	require.NoError(t, err)
+
+	maxUint256 := math.MaxBig256
+
+	// Approve the router to spend the tokens and confirm the tx's
+	// To prevent having to approve the router for every transfer, we approve a sufficiently large amount
+	tx, err = srcToken.Approve(e.Chains[tenv.HomeChainSel].DeployerKey, state.Chains[tenv.HomeChainSel].Router.Address(), maxUint256)
+	require.NoError(t, err)
+	_, err = e.Chains[tenv.HomeChainSel].Confirm(tx)
+	require.NoError(t, err)
+
+	tx, err = dstToken.Approve(e.Chains[tenv.FeedChainSel].DeployerKey, state.Chains[tenv.FeedChainSel].Router.Address(), maxUint256)
+	require.NoError(t, err)
+	_, err = e.Chains[tenv.FeedChainSel].Confirm(tx)
+	require.NoError(t, err)
+
+	// Grant mint and burn roles to the deployer key for the newly deployed linkToken
+	// Since those roles are not granted automatically
+	tx, err = linkToken.GrantMintAndBurnRoles(e.Chains[tenv.HomeChainSel].DeployerKey, e.Chains[tenv.HomeChainSel].DeployerKey.From)
+	require.NoError(t, err)
+	_, err = e.Chains[tenv.HomeChainSel].Confirm(tx)
+	require.NoError(t, err)
+
+	// Mint link token and confirm the tx
+	tx, err = linkToken.Mint(
+		e.Chains[tenv.HomeChainSel].DeployerKey,
+		e.Chains[tenv.HomeChainSel].DeployerKey.From,
+		new(big.Int).Mul(twoCoins, big.NewInt(10)),
+	)
+	require.NoError(t, err)
+
+	_, err = e.Chains[tenv.HomeChainSel].Confirm(tx)
+	require.NoError(t, err)
+
+	return srcToken, dstToken
+}
+
 func Test_PricingForTokenTransfers(t *testing.T) {
-	// Deplot the environment
+	// Deploy the environment
 	lggr := logger.TestLogger(t)
 	ctx := ccdeploy.Context(t)
 	tenv, _, _ := testsetups.NewLocalDevEnvironment(t, lggr)
@@ -314,17 +397,7 @@ func Test_PricingForTokenTransfers(t *testing.T) {
 	state, err = ccdeploy.LoadOnchainState(e)
 	require.NoError(t, err)
 
-	// Deploy the token to test transferring
-	srcToken, _, dstToken, _, err := ccdeploy.DeployTransferableToken(
-		lggr,
-		tenv.Env.Chains,
-		tenv.HomeChainSel,
-		tenv.FeedChainSel,
-		state,
-		e.ExistingAddresses,
-		"MY_TOKEN",
-	)
-	require.NoError(t, err)
+	srcToken, dstToken := setupTokens(t, tenv)
 
 	// Ensure capreg logs are up to date.
 	ccdeploy.ReplayLogs(t, e.Offchain, tenv.ReplayBlocks)
@@ -351,65 +424,12 @@ func Test_PricingForTokenTransfers(t *testing.T) {
 
 	// Mint 2 tokens to be transferred
 	twoCoins := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(2))
-	tx, err := srcToken.Mint(
-		e.Chains[tenv.HomeChainSel].DeployerKey,
-		e.Chains[tenv.HomeChainSel].DeployerKey.From,
-		new(big.Int).Mul(twoCoins, big.NewInt(10)),
-	)
-
-	if err != nil {
-		fmt.Printf("Error minting token: %v\n", err)
-	}
-
-	// Confirm that mint tx
-	require.NoError(t, err)
-	_, err = e.Chains[tenv.HomeChainSel].Confirm(tx)
-	require.NoError(t, err)
-
-	// Mint a destination token
-	tx, err = dstToken.Mint(
-		e.Chains[tenv.FeedChainSel].DeployerKey,
-		e.Chains[tenv.FeedChainSel].DeployerKey.From,
-		new(big.Int).Mul(twoCoins, big.NewInt(10)),
-	)
-
-	// Confirm the mint tx
-	require.NoError(t, err)
-	_, err = e.Chains[tenv.FeedChainSel].Confirm(tx)
-	require.NoError(t, err)
 
 	linkToken := state.Chains[tenv.HomeChainSel].LinkToken
 
-	// Grant mint and burn roles to the deployer key for the newly deployed linkToken
-	// Since those roles are not granted automatically
-	tx, err = linkToken.GrantMintAndBurnRoles(e.Chains[tenv.HomeChainSel].DeployerKey, e.Chains[tenv.HomeChainSel].DeployerKey.From)
-	require.NoError(t, err)
-	_, err = e.Chains[tenv.HomeChainSel].Confirm(tx)
-	require.NoError(t, err)
-
-	// Mint link token and confirm the tx
-	tx, err = linkToken.Mint(
-		e.Chains[tenv.HomeChainSel].DeployerKey,
-		e.Chains[tenv.HomeChainSel].DeployerKey.From,
-		new(big.Int).Mul(twoCoins, big.NewInt(10)),
-	)
-	require.NoError(t, err)
-
-	_, err = e.Chains[tenv.HomeChainSel].Confirm(tx)
-	require.NoError(t, err)
-
 	t.Run("Send Token Pay with Link token home chain -> remote", func(t *testing.T) {
-		// Approve the router to spend the tokens and confirm the tx's
-		tx, err = srcToken.Approve(e.Chains[tenv.HomeChainSel].DeployerKey, state.Chains[tenv.HomeChainSel].Router.Address(), twoCoins)
-		require.NoError(t, err)
-		_, err = e.Chains[tenv.HomeChainSel].Confirm(tx)
-		require.NoError(t, err)
-		tx, err = dstToken.Approve(e.Chains[tenv.FeedChainSel].DeployerKey, state.Chains[tenv.FeedChainSel].Router.Address(), twoCoins)
-		require.NoError(t, err)
-		_, err = e.Chains[tenv.FeedChainSel].Confirm(tx)
-		require.NoError(t, err)
 		// Approve to spend link token
-		tx, err = linkToken.Approve(e.Chains[tenv.HomeChainSel].DeployerKey, state.Chains[tenv.HomeChainSel].Router.Address(), twoCoins)
+		tx, err := linkToken.Approve(e.Chains[tenv.HomeChainSel].DeployerKey, state.Chains[tenv.HomeChainSel].Router.Address(), twoCoins)
 		require.NoError(t, err)
 		_, err = e.Chains[tenv.HomeChainSel].Confirm(tx)
 		require.NoError(t, err)
@@ -452,7 +472,8 @@ func Test_PricingForTokenTransfers(t *testing.T) {
 		}
 
 		// Get the fee Token Balance Before
-		feeTokenBalanceBefore, _ := linkToken.BalanceOf(nil, e.Chains[tenv.HomeChainSel].DeployerKey.From)
+		feeTokenBalanceBefore, err := linkToken.BalanceOf(nil, e.Chains[tenv.HomeChainSel].DeployerKey.From)
+		require.NoError(t, err)
 
 		// Check the fee Amount
 		srcFee, err := state.Chains[src].Router.GetFee(nil, dest, ccipMessage)
@@ -462,7 +483,8 @@ func Test_PricingForTokenTransfers(t *testing.T) {
 		expectedSeqNum[dest] = seqNum
 
 		// Check the fee token balance after the request and ensure fee tokens were spent
-		feeTokenBalanceAfter, _ := linkToken.BalanceOf(nil, e.Chains[tenv.HomeChainSel].DeployerKey.From)
+		feeTokenBalanceAfter, err := linkToken.BalanceOf(nil, e.Chains[tenv.HomeChainSel].DeployerKey.From)
+		require.NoError(t, err)
 		require.Equal(t, feeTokenBalanceAfter, new(big.Int).Sub(feeTokenBalanceBefore, srcFee))
 
 		// Wait for all commit reports to land.
@@ -488,17 +510,6 @@ func Test_PricingForTokenTransfers(t *testing.T) {
 	})
 
 	t.Run("Send Token Pay with native remote chain -> home", func(t *testing.T) {
-		// Approve the router to spend the tokens and confirm the tx's
-		tx, err = srcToken.Approve(e.Chains[tenv.HomeChainSel].DeployerKey, state.Chains[tenv.HomeChainSel].Router.Address(), twoCoins)
-		require.NoError(t, err)
-		_, err = e.Chains[tenv.HomeChainSel].Confirm(tx)
-		require.NoError(t, err)
-
-		tx, err = dstToken.Approve(e.Chains[tenv.FeedChainSel].DeployerKey, state.Chains[tenv.FeedChainSel].Router.Address(), twoCoins)
-		require.NoError(t, err)
-		_, err = e.Chains[tenv.FeedChainSel].Confirm(tx)
-		require.NoError(t, err)
-
 		// Create two ClientEVMTokenAmount structs to be passed to the router
 		tokens := map[uint64][]router.ClientEVMTokenAmount{
 			tenv.HomeChainSel: {{
@@ -566,24 +577,12 @@ func Test_PricingForTokenTransfers(t *testing.T) {
 		// but deployerKey is a reference so we need to dereference it and then reassign it
 		depositOps := *e.Chains[tenv.HomeChainSel].DeployerKey
 		depositOps.Value = twoCoins
-		tx, err = WETH.Deposit(&depositOps)
+		tx, err := WETH.Deposit(&depositOps)
 		require.NoError(t, err)
 		_, err = e.Chains[tenv.HomeChainSel].Confirm(tx)
 		require.NoError(t, err)
 
-		// Approve the router to spend the tokens and confirm the tx's
-		tx, err = srcToken.Approve(e.Chains[tenv.HomeChainSel].DeployerKey, state.Chains[tenv.HomeChainSel].Router.Address(), twoCoins)
-		require.NoError(t, err)
-		_, err = e.Chains[tenv.HomeChainSel].Confirm(tx)
-		require.NoError(t, err)
-
-		print("APPROVED SRC TO ROUTER")
-
-		tx, err = dstToken.Approve(e.Chains[tenv.FeedChainSel].DeployerKey, state.Chains[tenv.FeedChainSel].Router.Address(), twoCoins)
-		require.NoError(t, err)
-		_, err = e.Chains[tenv.FeedChainSel].Confirm(tx)
-		require.NoError(t, err)
-		// Approve to spend WETH token as fee
+		// Approve to spend WETH token as feeToken
 		tx, err = WETH.Approve(e.Chains[tenv.HomeChainSel].DeployerKey, state.Chains[tenv.HomeChainSel].Router.Address(), twoCoins)
 		require.NoError(t, err)
 		_, err = e.Chains[tenv.HomeChainSel].Confirm(tx)
@@ -665,7 +664,7 @@ func Test_PricingForTokenTransfers(t *testing.T) {
 
 	t.Run("Send Token but revert not enough tokens", func(t *testing.T) {
 		// Approve the router to spend the tokens and confirm the tx's
-		tx, err = srcToken.Approve(e.Chains[tenv.HomeChainSel].DeployerKey, state.Chains[tenv.HomeChainSel].Router.Address(), twoCoins)
+		tx, err := srcToken.Approve(e.Chains[tenv.HomeChainSel].DeployerKey, state.Chains[tenv.HomeChainSel].Router.Address(), twoCoins)
 		require.NoError(t, err)
 		_, err = e.Chains[tenv.HomeChainSel].Confirm(tx)
 		require.NoError(t, err)
@@ -720,7 +719,7 @@ func Test_PricingForTokenTransfers(t *testing.T) {
 		}
 
 		// Send the CCP Request
-		tx, _, err := ccdeploy.CCIPSendRequest(
+		tx, _, err = ccdeploy.CCIPSendRequest(
 			e,
 			state,
 			src, dest,
