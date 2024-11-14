@@ -150,52 +150,64 @@ func (_c *Reader_Bind_Call) RunAndReturn(run func(context.Context, ...common.Add
 	return _c
 }
 
-// GetLatestValue provides a mock function with given fields: ctx, addr, confidence, params, returnVal
-func (_m *Reader) GetLatestValue(ctx context.Context, addr common.Address, confidence primitives.ConfidenceLevel, params any, returnVal any) error {
+// GetLatestValueWithHeadData provides a mock function with given fields: ctx, addr, confidence, params, returnVal
+func (_m *Reader) GetLatestValueWithHeadData(ctx context.Context, addr common.Address, confidence primitives.ConfidenceLevel, params any, returnVal any) (*types.Head, error) {
 	ret := _m.Called(ctx, addr, confidence, params, returnVal)
 
 	if len(ret) == 0 {
-		panic("no return value specified for GetLatestValue")
+		panic("no return value specified for GetLatestValueWithHeadData")
 	}
 
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, common.Address, primitives.ConfidenceLevel, any, any) error); ok {
+	var r0 *types.Head
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, primitives.ConfidenceLevel, any, any) (*types.Head, error)); ok {
+		return rf(ctx, addr, confidence, params, returnVal)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, primitives.ConfidenceLevel, any, any) *types.Head); ok {
 		r0 = rf(ctx, addr, confidence, params, returnVal)
 	} else {
-		r0 = ret.Error(0)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*types.Head)
+		}
 	}
 
-	return r0
+	if rf, ok := ret.Get(1).(func(context.Context, common.Address, primitives.ConfidenceLevel, any, any) error); ok {
+		r1 = rf(ctx, addr, confidence, params, returnVal)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
-// Reader_GetLatestValue_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetLatestValue'
-type Reader_GetLatestValue_Call struct {
+// Reader_GetLatestValueWithHeadData_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetLatestValueWithHeadData'
+type Reader_GetLatestValueWithHeadData_Call struct {
 	*mock.Call
 }
 
-// GetLatestValue is a helper method to define mock.On call
+// GetLatestValueWithHeadData is a helper method to define mock.On call
 //   - ctx context.Context
 //   - addr common.Address
 //   - confidence primitives.ConfidenceLevel
 //   - params any
 //   - returnVal any
-func (_e *Reader_Expecter) GetLatestValue(ctx interface{}, addr interface{}, confidence interface{}, params interface{}, returnVal interface{}) *Reader_GetLatestValue_Call {
-	return &Reader_GetLatestValue_Call{Call: _e.mock.On("GetLatestValue", ctx, addr, confidence, params, returnVal)}
+func (_e *Reader_Expecter) GetLatestValueWithHeadData(ctx interface{}, addr interface{}, confidence interface{}, params interface{}, returnVal interface{}) *Reader_GetLatestValueWithHeadData_Call {
+	return &Reader_GetLatestValueWithHeadData_Call{Call: _e.mock.On("GetLatestValueWithHeadData", ctx, addr, confidence, params, returnVal)}
 }
 
-func (_c *Reader_GetLatestValue_Call) Run(run func(ctx context.Context, addr common.Address, confidence primitives.ConfidenceLevel, params any, returnVal any)) *Reader_GetLatestValue_Call {
+func (_c *Reader_GetLatestValueWithHeadData_Call) Run(run func(ctx context.Context, addr common.Address, confidence primitives.ConfidenceLevel, params any, returnVal any)) *Reader_GetLatestValueWithHeadData_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context), args[1].(common.Address), args[2].(primitives.ConfidenceLevel), args[3].(any), args[4].(any))
 	})
 	return _c
 }
 
-func (_c *Reader_GetLatestValue_Call) Return(_a0 error) *Reader_GetLatestValue_Call {
-	_c.Call.Return(_a0)
+func (_c *Reader_GetLatestValueWithHeadData_Call) Return(_a0 *types.Head, _a1 error) *Reader_GetLatestValueWithHeadData_Call {
+	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *Reader_GetLatestValue_Call) RunAndReturn(run func(context.Context, common.Address, primitives.ConfidenceLevel, any, any) error) *Reader_GetLatestValue_Call {
+func (_c *Reader_GetLatestValueWithHeadData_Call) RunAndReturn(run func(context.Context, common.Address, primitives.ConfidenceLevel, any, any) (*types.Head, error)) *Reader_GetLatestValueWithHeadData_Call {
 	_c.Call.Return(run)
 	return _c
 }

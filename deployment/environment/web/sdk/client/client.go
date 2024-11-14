@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/AlekSi/pointer"
 	"github.com/Khan/genqlient/graphql"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/web/sdk/client/doer"
@@ -18,6 +17,7 @@ type Client interface {
 	FetchCSAPublicKey(ctx context.Context) (*string, error)
 	FetchP2PPeerID(ctx context.Context) (*string, error)
 	FetchAccountAddress(ctx context.Context, chainID string) (*string, error)
+	FetchKeys(ctx context.Context, chainType string) ([]string, error)
 	FetchOCR2KeyBundleID(ctx context.Context, chainType string) (string, error)
 	GetJob(ctx context.Context, id string) (*generated.GetJobResponse, error)
 	ListJobs(ctx context.Context, offset, limit int) (*generated.ListJobsResponse, error)
@@ -121,10 +121,36 @@ func (c *client) FetchAccountAddress(ctx context.Context, chainID string) (*stri
 	}
 	for _, keyDetail := range keys.EthKeys.GetResults() {
 		if keyDetail.GetChain().Enabled && keyDetail.GetChain().Id == chainID {
-			return pointer.ToString(keyDetail.Address), nil
+			return &keyDetail.Address, nil
 		}
 	}
 	return nil, fmt.Errorf("no account found for chain %s", chainID)
+}
+
+func (c *client) FetchKeys(ctx context.Context, chainType string) ([]string, error) {
+	keys, err := generated.FetchKeys(ctx, c.gqlClient)
+	if err != nil {
+		return nil, err
+	}
+	if keys == nil {
+		return nil, fmt.Errorf("no accounts found")
+	}
+	switch generated.OCR2ChainType(chainType) {
+	case generated.OCR2ChainTypeAptos:
+		var accounts []string
+		for _, key := range keys.AptosKeys.GetResults() {
+			accounts = append(accounts, key.Account)
+		}
+		return accounts, nil
+	case generated.OCR2ChainTypeSolana:
+		var accounts []string
+		for _, key := range keys.SolanaKeys.GetResults() {
+			accounts = append(accounts, key.Id)
+		}
+		return accounts, nil
+	default:
+		return nil, fmt.Errorf("unsupported chainType %v", chainType)
+	}
 }
 
 func (c *client) GetJob(ctx context.Context, id string) (*generated.GetJobResponse, error) {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"sync"
 	"testing"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -253,6 +255,26 @@ func ConfirmCommitWithExpectedSeqNumRange(
 			}
 			t.Logf("Waiting for commit report on chain selector %d from source selector %d expected seq nr range %s",
 				dest.Selector, src.Selector, expectedSeqNumRange.String())
+
+			// Need to do this because the subscription sometimes fails to get the event.
+			iter, err := offRamp.FilterCommitReportAccepted(&bind.FilterOpts{
+				Context: tests.Context(t),
+			})
+			require.NoError(t, err)
+			for iter.Next() {
+				event := iter.Event
+				if len(event.MerkleRoots) > 0 {
+					for _, mr := range event.MerkleRoots {
+						if mr.SourceChainSelector == src.Selector &&
+							uint64(expectedSeqNumRange.Start()) >= mr.MinSeqNr &&
+							uint64(expectedSeqNumRange.End()) <= mr.MaxSeqNr {
+							t.Logf("Received commit report for [%d, %d] on selector %d from source selector %d expected seq nr range %s, token prices: %v",
+								mr.MinSeqNr, mr.MaxSeqNr, dest.Selector, src.Selector, expectedSeqNumRange.String(), event.PriceUpdates.TokenPriceUpdates)
+							return nil
+						}
+					}
+				}
+			}
 		case subErr := <-subscription.Err():
 			return fmt.Errorf("subscription error: %w", subErr)
 		case <-timer.C:
@@ -277,6 +299,7 @@ func ConfirmCommitWithExpectedSeqNumRange(
 }
 
 // ConfirmExecWithSeqNrForAll waits for all chains in the environment to execute the given expectedSeqNums.
+// If successful, it returns a map that maps the expected sequence numbers to their respective execution state.
 // expectedSeqNums is a map of destination chain selector to expected sequence number
 // startBlocks is a map of destination chain selector to start block number to start watching from.
 // If startBlocks is nil, it will start watching from the latest block.
@@ -286,8 +309,12 @@ func ConfirmExecWithSeqNrForAll(
 	state CCIPOnChainState,
 	expectedSeqNums map[uint64]uint64,
 	startBlocks map[uint64]*uint64,
-) {
-	var wg errgroup.Group
+) (executionStates map[uint64]int) {
+	var (
+		wg errgroup.Group
+		mx sync.Mutex
+	)
+	executionStates = make(map[uint64]int)
 	for src, srcChain := range e.Chains {
 		for dest, dstChain := range e.Chains {
 			if src == dest {
@@ -305,7 +332,7 @@ func ConfirmExecWithSeqNrForAll(
 					return nil
 				}
 
-				return ConfirmExecWithSeqNr(
+				executionState, err := ConfirmExecWithSeqNr(
 					t,
 					srcChain,
 					dstChain,
@@ -313,10 +340,20 @@ func ConfirmExecWithSeqNrForAll(
 					startBlock,
 					expectedSeqNums[dstChain.Selector],
 				)
+				if err != nil {
+					return err
+				}
+
+				mx.Lock()
+				executionStates[expectedSeqNums[dstChain.Selector]] = executionState
+				mx.Unlock()
+
+				return nil
 			})
 		}
 	}
 	require.NoError(t, wg.Wait())
+	return executionStates
 }
 
 // ConfirmExecWithSeqNr waits for an execution state change on the destination chain with the expected sequence number.
@@ -328,7 +365,7 @@ func ConfirmExecWithSeqNr(
 	offRamp *offramp.OffRamp,
 	startBlock *uint64,
 	expectedSeqNr uint64,
-) error {
+) (executionState int, err error) {
 	timer := time.NewTimer(5 * time.Minute)
 	defer timer.Stop()
 	tick := time.NewTicker(5 * time.Second)
@@ -339,7 +376,7 @@ func ConfirmExecWithSeqNr(
 		Start:   startBlock,
 	}, sink, nil, nil, nil)
 	if err != nil {
-		return fmt.Errorf("error to subscribe ExecutionStateChanged : %w", err)
+		return -1, fmt.Errorf("error to subscribe ExecutionStateChanged : %w", err)
 	}
 	defer subscription.Unsubscribe()
 	for {
@@ -351,7 +388,7 @@ func ConfirmExecWithSeqNr(
 			if executionState == EXECUTION_STATE_SUCCESS || executionState == EXECUTION_STATE_FAILURE {
 				t.Logf("Observed %s execution state on chain %d (offramp %s) from chain %d with expected sequence number %d",
 					executionStateToString(executionState), dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr)
-				return nil
+				return int(executionState), nil
 			}
 		case execEvent := <-sink:
 			t.Logf("Received ExecutionStateChanged (state %s) for seqNum %d on chain %d (offramp %s) from chain %d",
@@ -359,13 +396,13 @@ func ConfirmExecWithSeqNr(
 			if execEvent.SequenceNumber == expectedSeqNr && execEvent.SourceChainSelector == source.Selector {
 				t.Logf("Received ExecutionStateChanged (state %s) on chain %d (offramp %s) from chain %d with expected sequence number %d",
 					executionStateToString(execEvent.State), dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr)
-				return nil
+				return int(execEvent.State), nil
 			}
 		case <-timer.C:
-			return fmt.Errorf("timed out waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence number %d",
+			return -1, fmt.Errorf("timed out waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence number %d",
 				dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr)
 		case subErr := <-subscription.Err():
-			return fmt.Errorf("subscription error: %w", subErr)
+			return -1, fmt.Errorf("subscription error: %w", subErr)
 		}
 	}
 }

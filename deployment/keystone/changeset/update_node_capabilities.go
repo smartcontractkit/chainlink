@@ -5,8 +5,9 @@ import (
 	"fmt"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/environment/clo/models"
+	"github.com/smartcontractkit/chainlink/deployment/keystone"
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 
@@ -14,11 +15,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
-var _ deployment.ChangeSet = UpdateNodeCapabilities
+var _ deployment.ChangeSet[*MutateNodeCapabilitiesRequest] = UpdateNodeCapabilities
 
 type P2PSignerEnc = internal.P2PSignerEnc
 
-func NewP2PSignerEnc(n *models.Node, registryChainSel uint64) (*P2PSignerEnc, error) {
+func NewP2PSignerEnc(n *keystone.Node, registryChainSel uint64) (*P2PSignerEnc, error) {
 	p2p, signer, enc, err := kslib.ExtractKeys(n, registryChainSel)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract keys: %w", err)
@@ -84,11 +85,7 @@ func (req *MutateNodeCapabilitiesRequest) updateNodeCapabilitiesImplRequest(e de
 }
 
 // UpdateNodeCapabilities updates the capabilities of nodes in the registry
-func UpdateNodeCapabilities(env deployment.Environment, config any) (deployment.ChangesetOutput, error) {
-	req, ok := config.(*MutateNodeCapabilitiesRequest)
-	if !ok {
-		return deployment.ChangesetOutput{}, fmt.Errorf("invalid config type. want %T, got %T", &MutateNodeCapabilitiesRequest{}, config)
-	}
+func UpdateNodeCapabilities(env deployment.Environment, req *MutateNodeCapabilitiesRequest) (deployment.ChangesetOutput, error) {
 	c, err := req.updateNodeCapabilitiesImplRequest(env)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to convert request: %w", err)

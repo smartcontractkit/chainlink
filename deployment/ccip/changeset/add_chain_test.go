@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
@@ -224,7 +225,7 @@ func TestAddChainInbound(t *testing.T) {
 			cciptypes.SeqNum(seqNr),
 		}))
 	require.NoError(t,
-		ccipdeployment.ConfirmExecWithSeqNr(t, e.Env.Chains[initialDeploy[0]], e.Env.Chains[newChain], state.Chains[newChain].OffRamp, &startBlock, seqNr))
+		commonutils.JustError(ccipdeployment.ConfirmExecWithSeqNr(t, e.Env.Chains[initialDeploy[0]], e.Env.Chains[newChain], state.Chains[newChain].OffRamp, &startBlock, seqNr)))
 
 	linkAddress := state.Chains[newChain].LinkToken.Address()
 	feeQuoter := state.Chains[newChain].FeeQuoter

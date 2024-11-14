@@ -32,12 +32,14 @@ const (
 	validRequestUUID    = "d2fe6db9-beb4-47c9-b2d6-d3065ace111e"
 )
 
-var defaultConfig = webapi.ServiceConfig{
-	RateLimiter: common.RateLimiterConfig{
-		GlobalRPS:      100.0,
-		GlobalBurst:    100,
-		PerSenderRPS:   100.0,
-		PerSenderBurst: 100,
+var defaultConfig = Config{
+	ServiceConfig: webapi.ServiceConfig{
+		RateLimiter: common.RateLimiterConfig{
+			GlobalRPS:      100.0,
+			GlobalBurst:    100,
+			PerSenderRPS:   100.0,
+			PerSenderBurst: 100,
+		},
 	},
 }
 
@@ -45,17 +47,17 @@ type testHarness struct {
 	registry         *corecapabilities.Registry
 	connector        *gcmocks.GatewayConnector
 	log              logger.Logger
-	config           webapi.ServiceConfig
+	config           Config
 	connectorHandler *webapi.OutgoingConnectorHandler
 	compute          *Compute
 }
 
-func setup(t *testing.T, config webapi.ServiceConfig) testHarness {
+func setup(t *testing.T, config Config) testHarness {
 	log := logger.TestLogger(t)
 	registry := capabilities.NewRegistry(log)
 	connector := gcmocks.NewGatewayConnector(t)
 	idGeneratorFn := func() string { return validRequestUUID }
-	connectorHandler, err := webapi.NewOutgoingConnectorHandler(connector, config, ghcapabilities.MethodComputeAction, log)
+	connectorHandler, err := webapi.NewOutgoingConnectorHandler(connector, config.ServiceConfig, ghcapabilities.MethodComputeAction, log)
 	require.NoError(t, err)
 
 	compute := NewAction(config, log, registry, connectorHandler, idGeneratorFn)
