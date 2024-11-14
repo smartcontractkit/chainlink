@@ -1,6 +1,7 @@
 package ocrcommon
 
 import (
+	"fmt"
 	"math/big"
 	"sync"
 	"testing"
@@ -1024,9 +1025,8 @@ func TestCollectMercuryEnhancedTelemetryV1(t *testing.T) {
 	}
 
 	wg.Wait()
-	require.Equal(t, 2, logs.Len())
-	require.Contains(t, logs.All()[0].Message, `cannot get bridge response from bridge task, id=ds1, name="test-mercury-bridge-1"`)
-	require.Contains(t, logs.All()[1].Message, "cannot parse EA telemetry")
+	require.Equal(t, 1, logs.Len())
+	require.Contains(t, logs.All()[0].Message, "cannot parse EA telemetry")
 	chDone <- struct{}{}
 }
 
@@ -1140,11 +1140,11 @@ func TestCollectMercuryEnhancedTelemetryV2(t *testing.T) {
 	}
 
 	wg.Wait()
-	require.Equal(t, 4, logs.Len())
+	require.Equal(t, 3, logs.Len())
+	fmt.Println(logs.All())
 	require.Contains(t, logs.All()[0].Message, "cannot parse enhanced EA telemetry bid price")
-	require.Contains(t, logs.All()[1].Message, "cannot get bridge response from bridge task")
-	require.Contains(t, logs.All()[2].Message, "cannot parse EA telemetry")
-	require.Contains(t, logs.All()[3].Message, "cannot parse enhanced EA telemetry bid price")
+	require.Contains(t, logs.All()[1].Message, "cannot parse EA telemetry")
+	require.Contains(t, logs.All()[2].Message, "cannot parse enhanced EA telemetry bid price")
 	chDone <- struct{}{}
 }
 
