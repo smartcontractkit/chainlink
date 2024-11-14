@@ -2,6 +2,7 @@ package resolver
 
 import (
 	"context"
+	"math/rand"
 	"testing"
 	"time"
 
@@ -26,6 +27,16 @@ import (
 
 // Specs are only embedded on the job and are not fetchable by it's own id, so
 // we test the spec resolvers by fetching a job by id.
+
+func TestRandomPassOrFail(t *testing.T) {
+	rand.Seed(time.Now().UnixNano()) // Seed the random number generator
+	if rand.Float32() < 0.5 {
+		t.Log("Test failed randomly")
+		t.Fail() // Fail the test
+	} else {
+		t.Log("Test passed randomly")
+	}
+}
 
 func TestResolver_CronSpec(t *testing.T) {
 	var (
