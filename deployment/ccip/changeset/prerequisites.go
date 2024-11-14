@@ -26,6 +26,7 @@ var (
 // InitializePrerequisites loads the existing contracts into the address book.
 // This is required for contracts which can be reused from previous versions of CCIP
 // If PrerequisiteConfig.Deploy is true, it will deploy the prerequisite contracts except Router
+// Router is deployed as part of DeployChainContracts Changeset due to its dependency on RMNProxy
 func InitializePrerequisites(env deployment.Environment, cfg PrerequisiteConfig) (deployment.ChangesetOutput, error) {
 	err := cfg.Validate()
 	if err != nil {
