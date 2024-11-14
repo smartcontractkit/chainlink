@@ -7,7 +7,7 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/environment/clo/models"
+	"github.com/smartcontractkit/chainlink/deployment/keystone"
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 
@@ -19,7 +19,7 @@ var _ deployment.ChangeSet[*MutateNodeCapabilitiesRequest] = UpdateNodeCapabilit
 
 type P2PSignerEnc = internal.P2PSignerEnc
 
-func NewP2PSignerEnc(n *models.Node, registryChainSel uint64) (*P2PSignerEnc, error) {
+func NewP2PSignerEnc(n *keystone.Node, registryChainSel uint64) (*P2PSignerEnc, error) {
 	p2p, signer, enc, err := kslib.ExtractKeys(n, registryChainSel)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract keys: %w", err)

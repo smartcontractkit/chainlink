@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/integration_tests/framework"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/feeds_consumer"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	reporttypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/types"
 )
@@ -31,7 +30,9 @@ func Test_OneAtATimeTransmissionSchedule(t *testing.T) {
 }
 
 func testTransmissionSchedule(t *testing.T, deltaStage string, schedule string) {
-	ctx := testutils.Context(t)
+	ctx, cancel := framework.Context(t)
+	defer cancel()
+
 	lggr := logger.TestLogger(t)
 	lggr.SetLogLevel(zapcore.InfoLevel)
 
@@ -107,7 +108,7 @@ func waitForConsumerReports(ctx context.Context, t *testing.T, consumer *feeds_c
 	for {
 		select {
 		case <-ctxWithTimeout.Done():
-			t.Fatalf("timed out waiting for feed reports, expected %d, received %d", len(triggerFeedReports), feedCount)
+			t.Fatalf("timed out waiting for feeds reports, expected %d, received %d", len(triggerFeedReports), feedCount)
 		case err := <-feedsSub.Err():
 			require.NoError(t, err)
 		case feed := <-feedsReceived:
