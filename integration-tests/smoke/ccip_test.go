@@ -314,7 +314,7 @@ func Test_PricingForTokenTransfers(t *testing.T) {
 	state, err = ccdeploy.LoadOnchainState(e)
 	require.NoError(t, err)
 
-	// Deploy the token to test transfering
+	// Deploy the token to test transferring
 	srcToken, _, dstToken, _, err := ccdeploy.DeployTransferableToken(
 		lggr,
 		tenv.Env.Chains,
@@ -349,7 +349,7 @@ func Test_PricingForTokenTransfers(t *testing.T) {
 	// Send a message from each chain to every other chain.
 	expectedSeqNum := make(map[uint64]uint64)
 
-	// Mint 2 tokens to be transfered
+	// Mint 2 tokens to be transferred
 	twoCoins := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(2))
 	tx, err := srcToken.Mint(
 		e.Chains[tenv.HomeChainSel].DeployerKey,
