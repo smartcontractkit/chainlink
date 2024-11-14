@@ -689,7 +689,7 @@ func (e *Engine) finishExecution(ctx context.Context, executionID string, status
 	e.stepUpdatesChMap.remove(executionID)
 	metrics.updateTotalWorkflowsGauge(ctx, e.stepUpdatesChMap.len())
 	metrics.updateWorkflowExecutionLatencyGauge(ctx, executionDuration)
-	metrics.incrementWorkflowExecutionFinishedCounter(ctx) // maybe just decide on `success` vs `failure` here based on status
+	metrics.incrementWorkflowExecutionFinishedCounter(ctx)
 	e.onExecutionFinished(executionID)
 	return nil
 }
