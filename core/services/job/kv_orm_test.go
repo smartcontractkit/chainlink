@@ -73,5 +73,5 @@ func TestJobKVStore(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, td2, fetchedBytes)
 
-	require.NoError(t, jobORM.DeleteJob(ctx, jobID))
+	require.NoError(t, jobORM.DeleteJob(ctx, jobID, jb.Type))
 }

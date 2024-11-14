@@ -71,7 +71,7 @@ func GenerateChainsWithIds(t *testing.T, chainIDs []uint64) map[uint64]EVMChain 
 		owner, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
 		require.NoError(t, err)
 		backend := simulated.NewBackend(types.GenesisAlloc{
-			owner.From: {Balance: big.NewInt(0).Mul(big.NewInt(100), big.NewInt(params.Ether))}},
+			owner.From: {Balance: big.NewInt(0).Mul(big.NewInt(700000), big.NewInt(params.Ether))}},
 			simulated.WithBlockGasLimit(10000000))
 		backend.Commit() // Note initializes block timestamp to now().
 		chains[chainID] = EVMChain{

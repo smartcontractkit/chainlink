@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	_ capabilities.ActionCapability = &mockTarget{}
+	_ capabilities.ActionCapability = &fakeTarget{}
 )
 
 type TargetSink struct {
@@ -18,7 +18,7 @@ type TargetSink struct {
 	targetName string
 	version    string
 
-	targets []mockTarget
+	targets []fakeTarget
 	Sink    chan capabilities.CapabilityRequest
 }
 
@@ -56,7 +56,7 @@ func (ts *TargetSink) Close() error {
 }
 
 func (ts *TargetSink) CreateNewTarget(t *testing.T) capabilities.TargetCapability {
-	target := mockTarget{
+	target := fakeTarget{
 		t:        t,
 		targetID: ts.targetID,
 		ch:       ts.Sink,
@@ -65,29 +65,29 @@ func (ts *TargetSink) CreateNewTarget(t *testing.T) capabilities.TargetCapabilit
 	return &target
 }
 
-type mockTarget struct {
+type fakeTarget struct {
 	t        *testing.T
 	targetID string
 	ch       chan capabilities.CapabilityRequest
 }
 
-func (mt *mockTarget) Execute(ctx context.Context, rawRequest capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
+func (mt *fakeTarget) Execute(ctx context.Context, rawRequest capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 	mt.ch <- rawRequest
 	return capabilities.CapabilityResponse{}, nil
 }
 
-func (mt *mockTarget) Info(ctx context.Context) (capabilities.CapabilityInfo, error) {
+func (mt *fakeTarget) Info(ctx context.Context) (capabilities.CapabilityInfo, error) {
 	return capabilities.MustNewCapabilityInfo(
 		mt.targetID,
 		capabilities.CapabilityTypeTarget,
-		"mock target for target ID "+mt.targetID,
+		"fake target for target ID "+mt.targetID,
 	), nil
 }
 
-func (mt *mockTarget) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {
+func (mt *fakeTarget) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {
 	return nil
 }
 
-func (mt *mockTarget) UnregisterFromWorkflow(ctx context.Context, request capabilities.UnregisterFromWorkflowRequest) error {
+func (mt *fakeTarget) UnregisterFromWorkflow(ctx context.Context, request capabilities.UnregisterFromWorkflowRequest) error {
 	return nil
 }

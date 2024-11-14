@@ -14,7 +14,7 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/target/request"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable/request"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
@@ -58,17 +58,17 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("Send duplicate message", func(t *testing.T) {
-		req := request.NewServerRequest(capability, "capabilityID", 2,
+		req := request.NewServerRequest(capability, types.MethodExecute, "capabilityID", 2,
 			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, lggr)
 
 		err := sendValidRequest(req, workflowPeers, capabilityPeerID, rawRequest)
 		require.NoError(t, err)
 		err = sendValidRequest(req, workflowPeers, capabilityPeerID, rawRequest)
-		assert.NotNil(t, err)
+		assert.Error(t, err)
 	})
 
 	t.Run("Send message with non calling don peer", func(t *testing.T) {
-		req := request.NewServerRequest(capability, "capabilityID", 2,
+		req := request.NewServerRequest(capability, types.MethodExecute, "capabilityID", 2,
 			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, lggr)
 
 		err := sendValidRequest(req, workflowPeers, capabilityPeerID, rawRequest)
@@ -87,11 +87,11 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 			Payload:         rawRequest,
 		})
 
-		assert.NotNil(t, err)
+		assert.Error(t, err)
 	})
 
 	t.Run("Send message invalid payload", func(t *testing.T) {
-		req := request.NewServerRequest(capability, "capabilityID", 2,
+		req := request.NewServerRequest(capability, types.MethodExecute, "capabilityID", 2,
 			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, lggr)
 
 		err := sendValidRequest(req, workflowPeers, capabilityPeerID, rawRequest)
@@ -108,15 +108,15 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 			Method:          types.MethodExecute,
 			Payload:         append(rawRequest, []byte("asdf")...),
 		})
-		assert.NoError(t, err)
-		assert.Equal(t, 2, len(dispatcher.msgs))
-		assert.Equal(t, dispatcher.msgs[0].Error, types.Error_INTERNAL_ERROR)
-		assert.Equal(t, dispatcher.msgs[1].Error, types.Error_INTERNAL_ERROR)
+		require.NoError(t, err)
+		assert.Len(t, dispatcher.msgs, 2)
+		assert.Equal(t, types.Error_INTERNAL_ERROR, dispatcher.msgs[0].Error)
+		assert.Equal(t, types.Error_INTERNAL_ERROR, dispatcher.msgs[1].Error)
 	})
 
 	t.Run("Send second valid request when capability errors", func(t *testing.T) {
 		dispatcher := &testDispatcher{}
-		req := request.NewServerRequest(TestErrorCapability{}, "capabilityID", 2,
+		req := request.NewServerRequest(TestErrorCapability{}, types.MethodExecute, "capabilityID", 2,
 			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, lggr)
 
 		err := sendValidRequest(req, workflowPeers, capabilityPeerID, rawRequest)
@@ -133,17 +133,17 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 			Method:          types.MethodExecute,
 			Payload:         rawRequest,
 		})
-		assert.NoError(t, err)
-		assert.Equal(t, 2, len(dispatcher.msgs))
-		assert.Equal(t, dispatcher.msgs[0].Error, types.Error_INTERNAL_ERROR)
-		assert.Equal(t, dispatcher.msgs[0].ErrorMsg, "failed to execute capability: an error")
-		assert.Equal(t, dispatcher.msgs[1].Error, types.Error_INTERNAL_ERROR)
-		assert.Equal(t, dispatcher.msgs[1].ErrorMsg, "failed to execute capability: an error")
+		require.NoError(t, err)
+		assert.Len(t, dispatcher.msgs, 2)
+		assert.Equal(t, types.Error_INTERNAL_ERROR, dispatcher.msgs[0].Error)
+		assert.Equal(t, "failed to execute capability: an error", dispatcher.msgs[0].ErrorMsg)
+		assert.Equal(t, types.Error_INTERNAL_ERROR, dispatcher.msgs[1].Error)
+		assert.Equal(t, "failed to execute capability: an error", dispatcher.msgs[1].ErrorMsg)
 	})
 
-	t.Run("Send second valid request", func(t *testing.T) {
+	t.Run("Execute capability", func(t *testing.T) {
 		dispatcher := &testDispatcher{}
-		request := request.NewServerRequest(capability, "capabilityID", 2,
+		request := request.NewServerRequest(capability, types.MethodExecute, "capabilityID", 2,
 			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, lggr)
 
 		err := sendValidRequest(request, workflowPeers, capabilityPeerID, rawRequest)
@@ -160,10 +160,111 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 			Method:          types.MethodExecute,
 			Payload:         rawRequest,
 		})
-		assert.NoError(t, err)
-		assert.Equal(t, 2, len(dispatcher.msgs))
-		assert.Equal(t, dispatcher.msgs[0].Error, types.Error_OK)
-		assert.Equal(t, dispatcher.msgs[1].Error, types.Error_OK)
+		require.NoError(t, err)
+		assert.Len(t, dispatcher.msgs, 2)
+		assert.Equal(t, types.Error_OK, dispatcher.msgs[0].Error)
+		assert.Equal(t, types.Error_OK, dispatcher.msgs[1].Error)
+	})
+	t.Run("Register to workflow request", func(t *testing.T) {
+		dispatcher := &testDispatcher{}
+		request := request.NewServerRequest(capability, types.MethodRegisterToWorkflow, "capabilityID", 2,
+			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, lggr)
+
+		err := sendValidRequest(request, workflowPeers, capabilityPeerID, rawRequest)
+		require.NoError(t, err)
+
+		err = request.OnMessage(context.Background(), &types.MessageBody{
+			Version:         0,
+			Sender:          workflowPeers[1][:],
+			Receiver:        capabilityPeerID[:],
+			MessageId:       []byte("workflowID" + "workflowExecutionID"),
+			CapabilityId:    "capabilityID",
+			CapabilityDonId: 2,
+			CallerDonId:     1,
+			Method:          types.MethodRegisterToWorkflow,
+			Payload:         rawRequest,
+		})
+		require.NoError(t, err)
+		assert.Len(t, dispatcher.msgs, 2)
+		assert.Equal(t, types.Error_OK, dispatcher.msgs[0].Error)
+		assert.Equal(t, types.Error_OK, dispatcher.msgs[1].Error)
+	})
+	t.Run("Register to workflow request errors", func(t *testing.T) {
+		dispatcher := &testDispatcher{}
+		req := request.NewServerRequest(TestErrorCapability{}, types.MethodRegisterToWorkflow, "capabilityID", 2,
+			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, lggr)
+
+		err := sendValidRequest(req, workflowPeers, capabilityPeerID, rawRequest)
+		require.NoError(t, err)
+
+		err = req.OnMessage(context.Background(), &types.MessageBody{
+			Version:         0,
+			Sender:          workflowPeers[1][:],
+			Receiver:        capabilityPeerID[:],
+			MessageId:       []byte("workflowID" + "workflowExecutionID"),
+			CapabilityId:    "capabilityID",
+			CapabilityDonId: 2,
+			CallerDonId:     1,
+			Method:          types.MethodRegisterToWorkflow,
+			Payload:         rawRequest,
+		})
+		require.NoError(t, err)
+		assert.Len(t, dispatcher.msgs, 2)
+		assert.Equal(t, types.Error_INTERNAL_ERROR, dispatcher.msgs[0].Error)
+		assert.Equal(t, "failed to register to workflow: an error", dispatcher.msgs[0].ErrorMsg)
+		assert.Equal(t, types.Error_INTERNAL_ERROR, dispatcher.msgs[1].Error)
+		assert.Equal(t, "failed to register to workflow: an error", dispatcher.msgs[1].ErrorMsg)
+	})
+	t.Run("Unregister from workflow request", func(t *testing.T) {
+		dispatcher := &testDispatcher{}
+		request := request.NewServerRequest(capability, types.MethodUnregisterFromWorkflow, "capabilityID", 2,
+			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, lggr)
+
+		err := sendValidRequest(request, workflowPeers, capabilityPeerID, rawRequest)
+		require.NoError(t, err)
+
+		err = request.OnMessage(context.Background(), &types.MessageBody{
+			Version:         0,
+			Sender:          workflowPeers[1][:],
+			Receiver:        capabilityPeerID[:],
+			MessageId:       []byte("workflowID" + "workflowExecutionID"),
+			CapabilityId:    "capabilityID",
+			CapabilityDonId: 2,
+			CallerDonId:     1,
+			Method:          types.MethodUnregisterFromWorkflow,
+			Payload:         rawRequest,
+		})
+		require.NoError(t, err)
+		assert.Len(t, dispatcher.msgs, 2)
+		assert.Equal(t, types.Error_OK, dispatcher.msgs[0].Error)
+		assert.Equal(t, types.Error_OK, dispatcher.msgs[1].Error)
+	})
+
+	t.Run("Unregister from workflow request errors", func(t *testing.T) {
+		dispatcher := &testDispatcher{}
+		req := request.NewServerRequest(TestErrorCapability{}, types.MethodUnregisterFromWorkflow, "capabilityID", 2,
+			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, lggr)
+
+		err := sendValidRequest(req, workflowPeers, capabilityPeerID, rawRequest)
+		require.NoError(t, err)
+
+		err = req.OnMessage(context.Background(), &types.MessageBody{
+			Version:         0,
+			Sender:          workflowPeers[1][:],
+			Receiver:        capabilityPeerID[:],
+			MessageId:       []byte("workflowID" + "workflowExecutionID"),
+			CapabilityId:    "capabilityID",
+			CapabilityDonId: 2,
+			CallerDonId:     1,
+			Method:          types.MethodUnregisterFromWorkflow,
+			Payload:         rawRequest,
+		})
+		require.NoError(t, err)
+		assert.Len(t, dispatcher.msgs, 2)
+		assert.Equal(t, types.Error_INTERNAL_ERROR, dispatcher.msgs[0].Error)
+		assert.Equal(t, "failed to unregister from workflow: an error", dispatcher.msgs[0].ErrorMsg)
+		assert.Equal(t, types.Error_INTERNAL_ERROR, dispatcher.msgs[1].Error)
+		assert.Equal(t, "failed to unregister from workflow: an error", dispatcher.msgs[1].ErrorMsg)
 	})
 }
 
@@ -259,6 +360,14 @@ type TestErrorCapability struct {
 
 func (t TestErrorCapability) Execute(ctx context.Context, request commoncap.CapabilityRequest) (commoncap.CapabilityResponse, error) {
 	return commoncap.CapabilityResponse{}, errors.New("an error")
+}
+
+func (t TestErrorCapability) RegisterToWorkflow(ctx context.Context, request commoncap.RegisterToWorkflowRequest) error {
+	return errors.New("an error")
+}
+
+func (t TestErrorCapability) UnregisterFromWorkflow(ctx context.Context, request commoncap.UnregisterFromWorkflowRequest) error {
+	return errors.New("an error")
 }
 
 func NewP2PPeerID(t *testing.T) p2ptypes.PeerID {

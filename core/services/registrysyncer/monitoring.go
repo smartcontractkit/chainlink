@@ -12,39 +12,38 @@ import (
 	localMonitoring "github.com/smartcontractkit/chainlink/v2/core/monitoring"
 )
 
-var remoteRegistrySyncFailureCounter metric.Int64Counter
-var launcherFailureCounter metric.Int64Counter
-
-func initMonitoringResources() (err error) {
-	remoteRegistrySyncFailureCounter, err = beholder.GetMeter().Int64Counter("platform_registrysyncer_sync_failures")
-	if err != nil {
-		return fmt.Errorf("failed to register sync failure counter: %w", err)
-	}
-
-	launcherFailureCounter, err = beholder.GetMeter().Int64Counter("platform_registrysyncer_launch_failures")
-	if err != nil {
-		return fmt.Errorf("failed to register launcher failure counter: %w", err)
-	}
-
-	return nil
-}
-
 // syncerMetricLabeler wraps monitoring.MetricsLabeler to provide workflow specific utilities
 // for monitoring resources
 type syncerMetricLabeler struct {
 	metrics.Labeler
+	remoteRegistrySyncFailureCounter metric.Int64Counter
+	launcherFailureCounter           metric.Int64Counter
 }
 
-func (c syncerMetricLabeler) with(keyValues ...string) syncerMetricLabeler {
-	return syncerMetricLabeler{c.With(keyValues...)}
+func newSyncerMetricLabeler() (*syncerMetricLabeler, error) {
+	remoteRegistrySyncFailureCounter, err := beholder.GetMeter().Int64Counter("platform_registrysyncer_sync_failures")
+	if err != nil {
+		return nil, fmt.Errorf("failed to register sync failure counter: %w", err)
+	}
+
+	launcherFailureCounter, err := beholder.GetMeter().Int64Counter("platform_registrysyncer_launch_failures")
+	if err != nil {
+		return nil, fmt.Errorf("failed to register launcher failure counter: %w", err)
+	}
+
+	return &syncerMetricLabeler{remoteRegistrySyncFailureCounter: remoteRegistrySyncFailureCounter, launcherFailureCounter: launcherFailureCounter}, nil
 }
 
-func (c syncerMetricLabeler) incrementRemoteRegistryFailureCounter(ctx context.Context) {
+func (c *syncerMetricLabeler) with(keyValues ...string) syncerMetricLabeler {
+	return syncerMetricLabeler{c.With(keyValues...), c.remoteRegistrySyncFailureCounter, c.launcherFailureCounter}
+}
+
+func (c *syncerMetricLabeler) incrementRemoteRegistryFailureCounter(ctx context.Context) {
 	otelLabels := localMonitoring.KvMapToOtelAttributes(c.Labels)
-	remoteRegistrySyncFailureCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+	c.remoteRegistrySyncFailureCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
-func (c syncerMetricLabeler) incrementLauncherFailureCounter(ctx context.Context) {
+func (c *syncerMetricLabeler) incrementLauncherFailureCounter(ctx context.Context) {
 	otelLabels := localMonitoring.KvMapToOtelAttributes(c.Labels)
-	launcherFailureCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+	c.launcherFailureCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
