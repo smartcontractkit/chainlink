@@ -1,8 +1,10 @@
 package smoke
 
 import (
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
@@ -304,6 +306,14 @@ func TestUSDCTokenTransfer(t *testing.T) {
 		TokenConfig:    tokenConfig,
 		MCMSConfig:     ccdeploy.NewTestMCMSConfig(t, e),
 		OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
+		USDCConfig: ccdeploy.USDCConfig{
+			Enabled: true,
+			USDCAttestationConfig: ccdeploy.USDCAttestationConfig{
+				API:         "https://google.com",
+				APITimeout:  commonconfig.MustNewDuration(time.Second),
+				APIInterval: commonconfig.MustNewDuration(500 * time.Millisecond),
+			},
+		},
 	})
 	require.NoError(t, err)
 	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook))
@@ -311,14 +321,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	state, err = ccdeploy.LoadOnchainState(e)
 	require.NoError(t, err)
 
-	srcUSDC, _, dstUSDC, _, err := ccdeploy.DeployUSDCToken(
-		lggr,
-		tenv.Env.Chains,
-		tenv.HomeChainSel,
-		tenv.FeedChainSel,
-		state,
-		e.ExistingAddresses,
-	)
+	srcUSDC, dstUSDC, err := ccdeploy.ConfigureUSDCTokenPools(lggr, e.Chains, tenv.HomeChainSel, tenv.FeedChainSel, state)
 	require.NoError(t, err)
 
 	// Ensure capreg logs are up to date.

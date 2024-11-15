@@ -234,6 +234,20 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 		if err != nil {
 			return err
 		}
+
+		if c.USDCConfig.Enabled {
+			token, pool, transmitter, messenger, err1 := deployUSDCTokenOneEnd(e.Logger, chain, ab)
+			if err1 != nil {
+				return err1
+			}
+			e.Logger.Infow("Deployed USDC contracts",
+				"token", token.Address(),
+				"pool", pool.Address(),
+				"transmitter", transmitter.Address(),
+				"messenger", messenger.Address(),
+			)
+		}
+
 		chainAddresses, err := ab.AddressesForChain(chain.Selector)
 		if err != nil {
 			e.Logger.Errorw("Failed to get chain addresses", "err", err)

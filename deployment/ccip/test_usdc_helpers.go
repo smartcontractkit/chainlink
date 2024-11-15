@@ -12,6 +12,52 @@ import (
 	"math/big"
 )
 
+func ConfigureUSDCTokenPools(lggr logger.Logger, chains map[uint64]deployment.Chain, src, dst uint64, state CCIPOnChainState) (*burn_mint_erc677.BurnMintERC677, *burn_mint_erc677.BurnMintERC677, error) {
+	srcToken := state.Chains[src].BurnMintTokens677[USDCSymbol]
+	dstToken := state.Chains[dst].BurnMintTokens677[USDCSymbol]
+	srcPool := state.Chains[src].USDCTokenPool
+	dstPool := state.Chains[dst].USDCTokenPool
+	srcTransmitter := state.Chains[src].MockUSDCTokenMessenger
+	dstTransmitter := state.Chains[dst].MockUSDCTokenMessenger
+
+	// Attach token pools to registry
+	if err := attachTokenToTheRegistry(chains[src], state.Chains[src], chains[src].DeployerKey, srcToken.Address(), srcPool.Address()); err != nil {
+		return nil, nil, err
+	}
+
+	if err := attachTokenToTheRegistry(chains[dst], state.Chains[dst], chains[dst].DeployerKey, dstToken.Address(), dstPool.Address()); err != nil {
+		return nil, nil, err
+	}
+
+	// Connect pool to each other
+	if err := setUSDCTokenPoolCounterPart(chains[src], srcPool, dst, dstToken.Address(), dstPool.Address()); err != nil {
+		return nil, nil, err
+	}
+
+	if err := setUSDCTokenPoolCounterPart(chains[dst], dstPool, src, srcToken.Address(), srcPool.Address()); err != nil {
+		return nil, nil, err
+	}
+
+	// Add burn/mint permissions
+	if err := grantMintBurnPermissions(lggr, chains[src], srcToken, srcPool.Address()); err != nil {
+		return nil, nil, err
+	}
+
+	if err := grantMintBurnPermissions(lggr, chains[dst], dstToken, dstPool.Address()); err != nil {
+		return nil, nil, err
+	}
+
+	if err := grantMintBurnPermissions(lggr, chains[src], srcToken, srcTransmitter.Address()); err != nil {
+		return nil, nil, err
+	}
+
+	if err := grantMintBurnPermissions(lggr, chains[dst], dstToken, dstTransmitter.Address()); err != nil {
+		return nil, nil, err
+	}
+
+	return srcToken, dstToken, nil
+}
+
 func DeployUSDCToken(
 	lggr logger.Logger,
 	chains map[uint64]deployment.Chain,
