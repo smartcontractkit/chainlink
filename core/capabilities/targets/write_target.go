@@ -235,8 +235,15 @@ func (cap *WriteTarget) Execute(ctx context.Context, rawRequest capabilities.Cap
 		return capabilities.CapabilityResponse{}, err
 	}
 
+	wtMetrics := cap.metrics.with(
+		platform.KeyWorkflowID, request.Metadata.WorkflowID,
+		platform.KeyWorkflowName, request.Metadata.WorkflowName,
+		platform.KeyWorkflowOwner, request.Metadata.WorkflowOwner,
+	)
+
 	rawExecutionID, err := hex.DecodeString(request.Metadata.WorkflowExecutionID)
 	if err != nil {
+		wtMetrics.incrementChainWriterFailureCount(ctx)
 		return capabilities.CapabilityResponse{}, err
 	}
 
@@ -252,6 +259,7 @@ func (cap *WriteTarget) Execute(ctx context.Context, rawRequest capabilities.Cap
 	}
 	var transmissionInfo TransmissionInfo
 	if err = cap.cr.GetLatestValue(ctx, cap.binding.ReadIdentifier("getTransmissionInfo"), primitives.Unconfirmed, queryInputs, &transmissionInfo); err != nil {
+		wtMetrics.incrementChainWriterFailureCount(ctx)
 		return capabilities.CapabilityResponse{}, fmt.Errorf("failed to getTransmissionInfo latest value: %w", err)
 	}
 
@@ -276,11 +284,13 @@ func (cap *WriteTarget) Execute(ctx context.Context, rawRequest capabilities.Cap
 			cap.lggr.Infow("non-empty report - retrying a failed transmission - attempting to push to txmgr", "request", request, "reportLen", len(request.Inputs.SignedReport.Report), "reportContextLen", len(request.Inputs.SignedReport.Context), "nSignatures", len(request.Inputs.SignedReport.Signatures), "executionID", request.Metadata.WorkflowExecutionID, "receiverGasMinimum", receiverGasMinimum, "transmissionGasLimit", transmissionInfo.GasLimit)
 		}
 	default:
+		wtMetrics.incrementChainWriterFailureCount(ctx)
 		return capabilities.CapabilityResponse{}, fmt.Errorf("unexpected transmission state: %v", transmissionInfo.State)
 	}
 
 	txID, err := uuid.NewUUID() // NOTE: CW expects us to generate an ID, rather than return one
 	if err != nil {
+		wtMetrics.incrementChainWriterFailureCount(ctx)
 		return capabilities.CapabilityResponse{}, err
 	}
 
@@ -315,10 +325,12 @@ func (cap *WriteTarget) Execute(ctx context.Context, rawRequest capabilities.Cap
 	value := big.NewInt(0)
 	if err := cap.cw.SubmitTransaction(ctx, "forwarder", "report", req, txID.String(), cap.forwarderAddress, &meta, value); err != nil {
 		if !commontypes.ErrSettingTransactionGasLimitNotSupported.Is(err) {
+			wtMetrics.incrementChainWriterFailureCount(ctx)
 			return capabilities.CapabilityResponse{}, fmt.Errorf("failed to submit transaction: %w", err)
 		}
 		meta.GasLimit = nil
 		if err := cap.cw.SubmitTransaction(ctx, "forwarder", "report", req, txID.String(), cap.forwarderAddress, &meta, value); err != nil {
+			wtMetrics.incrementChainWriterFailureCount(ctx)
 			return capabilities.CapabilityResponse{}, fmt.Errorf("failed to submit transaction: %w", err)
 		}
 	}
@@ -353,6 +365,7 @@ func (cap *WriteTarget) Execute(ctx context.Context, rawRequest capabilities.Cap
 				if err != nil {
 					cap.lggr.Errorf("failed to send custom message with msg: %s, err: %v", msg, err)
 				}
+				wtMetrics.incrementChainWriterFailureCount(ctx)
 				return capabilities.CapabilityResponse{}, fmt.Errorf("submitted transaction failed: %w", err)
 			default:
 				cap.lggr.Debugw("Unexpected transaction status", "request", request, "transaction", txID, "status", txStatus)
