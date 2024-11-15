@@ -2,6 +2,9 @@ package ccipreader
 
 import (
 	"context"
+
+	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"math/big"
 	"sort"
@@ -48,6 +51,10 @@ const (
 	chainD  = cciptypes.ChainSelector(4)
 )
 
+var (
+	defaultGasPrice = big.NewInt(1e9)
+)
+
 func TestCCIPReader_CommitReportsGTETimestamp(t *testing.T) {
 	ctx := testutils.Context(t)
 
@@ -76,7 +83,7 @@ func TestCCIPReader_CommitReportsGTETimestamp(t *testing.T) {
 				Name:    consts.ContractNameOnRamp,
 			},
 		},
-	})
+	}, true)
 
 	tokenA := common.HexToAddress("123")
 	const numReports = 5
@@ -190,7 +197,7 @@ func TestCCIPReader_ExecutedMessageRanges(t *testing.T) {
 		},
 	}
 
-	s := testSetup(ctx, t, chainD, chainD, nil, cfg, nil)
+	s := testSetup(ctx, t, chainD, chainD, nil, cfg, nil, true)
 
 	_, err := s.contract.EmitExecutionStateChanged(
 		s.auth,
@@ -275,7 +282,7 @@ func TestCCIPReader_MsgsBetweenSeqNums(t *testing.T) {
 		},
 	}
 
-	s := testSetup(ctx, t, chainS1, chainD, nil, cfg, nil)
+	s := testSetup(ctx, t, chainS1, chainD, nil, cfg, nil, true)
 
 	_, err := s.contract.EmitCCIPMessageSent(s.auth, uint64(chainD), ccip_reader_tester.InternalEVM2AnyRampMessage{
 		Header: ccip_reader_tester.InternalRampMessageHeader{
@@ -376,7 +383,7 @@ func TestCCIPReader_NextSeqNum(t *testing.T) {
 		},
 	}
 
-	s := testSetup(ctx, t, chainD, chainD, onChainSeqNums, cfg, nil)
+	s := testSetup(ctx, t, chainD, chainD, onChainSeqNums, cfg, nil, true)
 
 	seqNums, err := s.reader.NextSeqNum(ctx, []cciptypes.ChainSelector{chainS1, chainS2, chainS3})
 	assert.NoError(t, err)
@@ -403,7 +410,7 @@ func TestCCIPReader_GetExpectedNextSequenceNumber(t *testing.T) {
 		},
 	}
 
-	s := testSetup(ctx, t, chainS1, chainD, nil, cfg, nil)
+	s := testSetup(ctx, t, chainS1, chainD, nil, cfg, nil, true)
 
 	_, err := s.contract.SetDestChainSeqNr(s.auth, uint64(chainD), 10)
 	require.NoError(t, err)
@@ -453,7 +460,7 @@ func TestCCIPReader_Nonces(t *testing.T) {
 		},
 	}
 
-	s := testSetup(ctx, t, chainD, chainD, nil, cfg, nil)
+	s := testSetup(ctx, t, chainD, chainD, nil, cfg, nil, true)
 
 	// Add some nonces.
 	for chain, addrs := range nonces {
@@ -482,88 +489,20 @@ func TestCCIPReader_Nonces(t *testing.T) {
 
 func Test_GetChainFeePriceUpdates(t *testing.T) {
 	ctx := testutils.Context(t)
-
-	cfg := evmtypes.ChainReaderConfig{
-		Contracts: map[string]evmtypes.ChainContractReader{
-			consts.ContractNameFeeQuoter: {
-				//ContractABI: ccip_reader_tester.CCIPReaderTesterABI,
-				ContractABI: fee_quoter.FeeQuoterABI,
-				Configs: map[string]*evmtypes.ChainReaderDefinition{
-					consts.MethodNameGetFeePriceUpdate: {
-						ChainSpecificName: "getDestinationChainGasPrice",
-						ReadType:          evmtypes.Method,
-					},
-				},
-			},
+	s := testSetup(ctx, t, chainD, chainD, nil, evmconfig.DestReaderConfig, nil, false)
+	feeQuoter := deployFeeQuoterWithPrices(t, s.auth, s.sb)
+	// Bind FeeQuoter directly
+	err := s.extendedCR.Bind(ctx, []types.BoundContract{
+		{
+			Address: feeQuoter.Address().String(),
+			Name:    consts.ContractNameFeeQuoter,
 		},
-	}
-
-	// Notice that the reader chain is the same as the destination chain.
-	s := testSetup(ctx, t, chainD, chainD, nil, cfg, nil)
-
-	linkAddress := utils.RandomAddress()
-	wethAddress := utils.RandomAddress()
-	address, _, _, err := fee_quoter.DeployFeeQuoter(
-		s.auth,
-		s.sb.Client(),
-		fee_quoter.FeeQuoterStaticConfig{
-			MaxFeeJuelsPerMsg:            big.NewInt(0).Mul(big.NewInt(2e2), big.NewInt(1e18)),
-			LinkToken:                    linkAddress,
-			TokenPriceStalenessThreshold: uint32(24 * 60 * 60),
-		},
-		[]common.Address{s.auth.From},
-		[]common.Address{wethAddress, linkAddress},
-		[]fee_quoter.FeeQuoterTokenPriceFeedUpdate{},
-		[]fee_quoter.FeeQuoterTokenTransferFeeConfigArgs{},
-		[]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs{
-			{
-				PremiumMultiplierWeiPerEth: 9e17, // 0.9 ETH
-				Token:                      linkAddress,
-			},
-			{
-				PremiumMultiplierWeiPerEth: 1e18,
-				Token:                      wethAddress,
-			},
-		},
-		[]fee_quoter.FeeQuoterDestChainConfigArgs{},
-	)
-
+	})
 	require.NoError(t, err)
-	s.sb.Commit()
-
-	feeQuoter, err := fee_quoter.NewFeeQuoter(address, s.sb.Client())
-	require.NoError(t, err)
-
-	_, err = feeQuoter.UpdatePrices(
-		s.auth, fee_quoter.InternalPriceUpdates{
-			GasPriceUpdates: []fee_quoter.InternalGasPriceUpdate{
-				{
-					DestChainSelector: uint64(chainS1),
-					UsdPerUnitGas:     big.NewInt(10000000),
-				},
-			}},
-	)
-	require.NoError(t, err)
-	s.sb.Commit()
-
-	gas, err := feeQuoter.GetDestinationChainGasPrice(&bind.CallOpts{}, uint64(chainS1))
-	require.NoError(t, err)
-	require.Equal(t, big.NewInt(10000000), gas.Value)
-	//timestamp := time.Now().Unix()
-	//_, err := s.contract.SetDestinationChainGasPrice(
-	//	s.auth,
-	//	uint64(chainS1), // Setting chainS1's gas price
-	//	ccip_reader_tester.InternalTimestampedPackedUint224{
-	//		Value:     big.NewInt(100),
-	//		Timestamp: uint32(timestamp),
-	//	})
-	//require.NoError(t, err)
-	//s.sb.Commit()
 
 	updates := s.reader.GetChainFeePriceUpdate(ctx, []cciptypes.ChainSelector{chainS1})
 	require.Len(t, updates, 1)
-	require.Equal(t, big.NewInt(100), updates[chainS1].Value.Int)
-	//assert.Equal(t, time.Unix(timestamp, 0), updates[chainS1].Timestamp)
+	require.Equal(t, defaultGasPrice, updates[chainS1].Value.Int)
 }
 
 func deployFeeQuoterWithPrices(t *testing.T, auth *bind.TransactOpts, sb *simulated.Backend) *fee_quoter.FeeQuoter {
@@ -605,7 +544,7 @@ func deployFeeQuoterWithPrices(t *testing.T, auth *bind.TransactOpts, sb *simula
 			GasPriceUpdates: []fee_quoter.InternalGasPriceUpdate{
 				{
 					DestChainSelector: uint64(chainS1),
-					UsdPerUnitGas:     big.NewInt(10000000),
+					UsdPerUnitGas:     defaultGasPrice,
 				},
 			}},
 	)
@@ -614,14 +553,11 @@ func deployFeeQuoterWithPrices(t *testing.T, auth *bind.TransactOpts, sb *simula
 
 	gas, err := feeQuoter.GetDestinationChainGasPrice(&bind.CallOpts{}, uint64(chainS1))
 	require.NoError(t, err)
-	require.Equal(t, big.NewInt(10000000), gas.Value)
+	require.Equal(t, defaultGasPrice, gas.Value)
 
 	return feeQuoter
 }
 
-func bindTester(contractReader contractreader.Extended) {
-
-}
 func testSetup(
 	ctx context.Context,
 	t *testing.T,
@@ -629,8 +565,8 @@ func testSetup(
 	destChain cciptypes.ChainSelector,
 	onChainSeqNums map[cciptypes.ChainSelector]cciptypes.SeqNum,
 	cfg evmtypes.ChainReaderConfig,
-	//bindings map[cciptypes.ChainSelector][]types.BoundContract,
 	toMockBindings map[cciptypes.ChainSelector][]types.BoundContract,
+	bindTester bool,
 ) *testSetupData {
 	const chainID = 1337
 
@@ -691,25 +627,22 @@ func testSetup(
 	}
 
 	contractNames := maps.Keys(cfg.Contracts)
-	assert.Len(t, contractNames, 1, "test setup assumes there is only one contract")
 
 	cr, err := evm.NewChainReaderService(ctx, lggr, lp, headTracker, cl, cfg)
 	require.NoError(t, err)
 
-	feeQuoter := deployFeeQuoterWithPrices(t, auth, simulatedBackend)
-
 	extendedCr := contractreader.NewExtendedContractReader(cr)
-	err = extendedCr.Bind(ctx, []types.BoundContract{
-		//{
-		//	Address: address.String(),
-		//	Name:    contractNames[0],
-		//},
-		{
-			Address: feeQuoter.Address().String(),
-			Name:    consts.ContractNameFeeQuoter,
-		},
-	})
-	require.NoError(t, err)
+
+	if bindTester {
+		err = extendedCr.Bind(ctx, []types.BoundContract{
+			{
+				Address: address.String(),
+				Name:    contractNames[0],
+			},
+		})
+		require.NoError(t, err)
+	}
+
 	var otherCrs = make(map[cciptypes.ChainSelector]contractreader.Extended)
 	for chain, bindings := range toMockBindings {
 		m := readermocks.NewMockContractReaderFacade(t)
@@ -744,6 +677,7 @@ func testSetup(
 		lp:           lp,
 		cl:           cl,
 		reader:       reader,
+		extendedCR:   extendedCr,
 	}
 }
 
@@ -755,4 +689,5 @@ type testSetupData struct {
 	lp           logpoller.LogPoller
 	cl           client.Client
 	reader       ccipreaderpkg.CCIPReader
+	extendedCR   contractreader.Extended
 }
