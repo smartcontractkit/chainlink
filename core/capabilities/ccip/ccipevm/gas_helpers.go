@@ -27,6 +27,7 @@ const (
 	ExecutionStateProcessingOverheadGas = 2_100 + // COLD_SLOAD_COST for first reading the state
 		20_000 + // SSTORE_SET_GAS for writing from 0 (untouched) to non-zero (in-progress)
 		100 //# SLOAD_GAS = WARM_STORAGE_READ_COST for rewriting from non-zero (in-progress) to non-zero (success/failure)
+	// TODO: investigate the write overhead for v1.6
 	DestGasOverhead = 110_000 + 110_000 + 130_000 // 110K for commit, 110K for RMN, 130K for Exec
 )
 

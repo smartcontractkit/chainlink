@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
@@ -122,15 +123,15 @@ func DefaultFeeQuoterDestChainConfig() fee_quoter.FeeQuoterDestChainConfig {
 		MaxNumberOfTokensPerMsg:           10,
 		MaxDataBytes:                      256,
 		MaxPerMsgGasLimit:                 3_000_000,
-		DestGasOverhead:                   350_000,
+		DestGasOverhead:                   ccipevm.DestGasOverhead,
 		DefaultTokenFeeUSDCents:           1,
-		DestGasPerPayloadByte:             16,
+		DestGasPerPayloadByte:             ccipevm.CalldataGasPerByte,
 		DestDataAvailabilityOverheadGas:   100,
 		DestGasPerDataAvailabilityByte:    100,
 		DestDataAvailabilityMultiplierBps: 1,
 		DefaultTokenDestGasOverhead:       125_000,
 		DefaultTxGasLimit:                 200_000,
-		GasMultiplierWeiPerEth:            11e17,
+		GasMultiplierWeiPerEth:            11e17, // Gas multiplier in wei per eth is scaled by 1e18, so 11e17 is 1.1 = 110%
 		NetworkFeeUSDCents:                1,
 		ChainFamilySelector:               [4]byte(evmFamilySelector),
 	}

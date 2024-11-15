@@ -33,8 +33,8 @@ type priceFeedPrices struct {
 	wethPrice *big.Int
 }
 
+// TODO: find a way to reuse the same test setup for all tests
 func Test_CCIPFeeBoosting(t *testing.T) {
-	t.Skip("Skipping test as it is not fully implemented yet")
 	ctx := ccdeploy.Context(t)
 
 	setupTestEnv := func(t *testing.T, numChains int) (ccipdeployment.DeployedEnv, ccipdeployment.CCIPOnChainState, []uint64) {
@@ -161,7 +161,7 @@ func runFeeboostTestCase(tc feeboostTestCase) {
 	})
 	expectedSeqNum[tc.destChain] = seqNum
 
-	testsetups.SleepAndReplay(tc.t, tc.deployedEnv, tc.sourceChain, tc.destChain)
+	sleepAndReplay(tc.t, tc.deployedEnv, tc.sourceChain, tc.destChain)
 
 	ccipdeployment.ConfirmCommitForAllWithExpectedSeqNums(tc.t, tc.deployedEnv.Env, tc.onchainState, expectedSeqNum, startBlocks)
 	ccipdeployment.ConfirmExecWithSeqNrForAll(tc.t, tc.deployedEnv.Env, tc.onchainState, expectedSeqNum, startBlocks)
