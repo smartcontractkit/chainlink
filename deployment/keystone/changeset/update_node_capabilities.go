@@ -3,6 +3,7 @@ package changeset
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
@@ -19,14 +20,26 @@ var _ deployment.ChangeSet[*MutateNodeCapabilitiesRequest] = UpdateNodeCapabilit
 type P2PSignerEnc = internal.P2PSignerEnc
 
 func NewP2PSignerEnc(n *deployment.Node, registryChainSel uint64) (*P2PSignerEnc, error) {
-	p2p, signer, enc, err := kslib.ExtractKeys(n, registryChainSel)
+	// TODO: deduplicate everywhere
+	registryChainID, err := chainsel.ChainIdFromSelector(registryChainSel)
 	if err != nil {
-		return nil, fmt.Errorf("failed to extract keys: %w", err)
+		panic(err)
 	}
+	registryChainDetails, err := chainsel.GetChainDetailsByChainIDAndFamily(strconv.Itoa(int(registryChainID)), chainsel.FamilyEVM)
+	if err != nil {
+		panic(err)
+	}
+	evmCC := n.SelToOCRConfig[registryChainDetails]
+	var signer [32]byte
+	copy(signer[:], evmCC.OnchainPublicKey)
+	var csakey [32]byte
+	copy(csakey[:], evmCC.ConfigEncryptionPublicKey[:])
+
+	// TODO: return error return value
 	return &P2PSignerEnc{
 		Signer:              signer,
-		P2PKey:              p2p,
-		EncryptionPublicKey: enc,
+		P2PKey:              n.PeerID,
+		EncryptionPublicKey: csakey,
 	}, nil
 }
 

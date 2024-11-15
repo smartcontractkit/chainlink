@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -206,7 +207,7 @@ func ConfigureRegistry(ctx context.Context, lggr logger.Logger, req ConfigureCon
 
 	// all the subsequent calls to the registry are in terms of nodes
 	// compute the mapping of dons to their nodes for reuse in various registry calls
-	donToOcr2Nodes, err := mapDonsToNodes(donInfos, true, req.RegistryChainSel)
+	donToNodes, err := mapDonsToNodes(donInfos, true, req.RegistryChainSel)
 	if err != nil {
 		return nil, fmt.Errorf("failed to map dons to nodes: %w", err)
 	}
@@ -247,7 +248,7 @@ func ConfigureRegistry(ctx context.Context, lggr logger.Logger, req ConfigureCon
 		registry:          registry,
 		chain:             registryChain,
 		nopToNodeIDs:      nopsToNodeIDs,
-		donToOcr2Nodes:    donToOcr2Nodes,
+		donToNodes:        donToNodes,
 		donToCapabilities: capabilitiesResp.donToCapabilities,
 		nops:              nopsResp.Nops,
 	})
@@ -264,7 +265,7 @@ func ConfigureRegistry(ctx context.Context, lggr logger.Logger, req ConfigureCon
 		chain:             registryChain,
 		nodeIDToParams:    nodesResp.nodeIDToParams,
 		donToCapabilities: capabilitiesResp.donToCapabilities,
-		donToOcr2Nodes:    donToOcr2Nodes,
+		donToNodes:        donToNodes,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to register DONS: %w", err)
@@ -392,21 +393,16 @@ func ConfigureOCR3ContractFromJD(env *deployment.Environment, cfg ConfigureOCR3C
 	if err != nil {
 		return nil, err
 	}
-	var ocr2nodes []*ocr2Node
-	for _, node := range nodes {
-		n, err := newOcr2NodeFromJD(&node, cfg.ChainSel)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create ocr2 node from clo node %v: %w", node, err)
-		}
-		ocr2nodes = append(ocr2nodes, n)
-	}
 	r, err := configureOCR3contract(configureOCR3Request{
 		cfg:      cfg.OCR3Config,
 		chain:    registryChain,
 		contract: contract,
-		nodes:    ocr2nodes,
+		nodes:    nodes,
 		dryRun:   cfg.DryRun,
 	})
+	if err != nil {
+		return nil, err
+	}
 	return &ConfigureOCR3Resp{
 		OCR2OracleConfig: r.ocrConfig,
 	}, nil
@@ -608,7 +604,7 @@ type registerNodesRequest struct {
 	registry          *kcr.CapabilitiesRegistry
 	chain             deployment.Chain
 	nopToNodeIDs      map[kcr.CapabilitiesRegistryNodeOperator][]string
-	donToOcr2Nodes    map[string][]*ocr2Node
+	donToNodes        map[string][]deployment.Node
 	donToCapabilities map[string][]RegisteredCapability
 	nops              []*kcr.CapabilitiesRegistryNodeOperatorAdded
 }
@@ -640,8 +636,18 @@ func registerNodes(lggr logger.Logger, req *registerNodesRequest) (*registerNode
 		}
 	}
 
+	// TODO: deduplicate everywhere
+	registryChainID, err := chainsel.ChainIdFromSelector(req.chain.Selector)
+	if err != nil {
+		panic(err)
+	}
+	registryChainDetails, err := chainsel.GetChainDetailsByChainIDAndFamily(strconv.Itoa(int(registryChainID)), chainsel.FamilyEVM)
+	if err != nil {
+		panic(err)
+	}
+
 	nodeIDToParams := make(map[string]kcr.CapabilitiesRegistryNodeParams)
-	for don, ocr2nodes := range req.donToOcr2Nodes {
+	for don, nodes := range req.donToNodes {
 		caps, ok := req.donToCapabilities[don]
 		if !ok {
 			return nil, fmt.Errorf("capabilities not found for node operator %s", don)
@@ -652,23 +658,27 @@ func registerNodes(lggr logger.Logger, req *registerNodesRequest) (*registerNode
 		}
 		lggr.Debugw("hashed capability ids", "don", don, "ids", hashedCapabilityIds)
 
-		for _, n := range ocr2nodes {
-			if n.IsBoostrap { // bootstraps are part of the DON but don't host capabilities
+		for _, n := range nodes {
+			if n.IsBootstrap { // bootstraps are part of the DON but don't host capabilities
 				continue
 			}
-			fmt.Printf("nodeToRegisterNop %+v\n", nodeToRegisterNop)
-			nop, ok := nodeToRegisterNop[n.ID]
+			nop, ok := nodeToRegisterNop[n.NodeID]
 			if !ok {
-				return nil, fmt.Errorf("node operator not found for node %s", n.ID)
+				return nil, fmt.Errorf("node operator not found for node %s", n.NodeID)
 			}
-			params, ok := nodeIDToParams[n.ID]
+			params, ok := nodeIDToParams[n.NodeID]
 
 			if !ok {
+				evmCC := n.SelToOCRConfig[registryChainDetails]
+				var signer [32]byte
+				copy(signer[:], evmCC.OnchainPublicKey)
+				var csakey [32]byte
+				copy(csakey[:], evmCC.ConfigEncryptionPublicKey[:])
 				params = kcr.CapabilitiesRegistryNodeParams{
 					NodeOperatorId:      nop.NodeOperatorId,
-					Signer:              n.Signer,
-					P2pId:               n.P2PKey,
-					EncryptionPublicKey: n.EncryptionPublicKey,
+					Signer:              signer,
+					P2pId:               n.PeerID,
+					EncryptionPublicKey: csakey,
 					HashedCapabilityIds: hashedCapabilityIds,
 				}
 			} else {
@@ -688,7 +698,7 @@ func registerNodes(lggr logger.Logger, req *registerNodesRequest) (*registerNode
 				}
 				params.HashedCapabilityIds = append(params.HashedCapabilityIds, newCapIds...)
 			}
-			nodeIDToParams[n.ID] = params
+			nodeIDToParams[n.NodeID] = params
 		}
 	}
 
@@ -741,7 +751,7 @@ type registerDonsRequest struct {
 
 	nodeIDToParams    map[string]kcr.CapabilitiesRegistryNodeParams
 	donToCapabilities map[string][]RegisteredCapability
-	donToOcr2Nodes    map[string][]*ocr2Node
+	donToNodes        map[string][]deployment.Node
 }
 
 type registerDonsResponse struct {
@@ -760,7 +770,7 @@ func sortedHash(p2pids [][32]byte) string {
 }
 
 func registerDons(lggr logger.Logger, req registerDonsRequest) (*registerDonsResponse, error) {
-	lggr.Infow("registering DONs...", "len", len(req.donToOcr2Nodes))
+	lggr.Infow("registering DONs...", "len", len(req.donToNodes))
 	// track hash of sorted p2pids to don name because the registry return value does not include the don name
 	// and we need to map it back to the don name to access the other mapping data such as the don's capabilities & nodes
 	p2pIdsToDon := make(map[string]string)
@@ -777,15 +787,15 @@ func registerDons(lggr logger.Logger, req registerDonsRequest) (*registerDonsRes
 	}
 	lggr.Infow("fetched existing DONs...", "len", len(donInfos), "lenByNodesHash", len(existingDONs))
 
-	for don, ocr2nodes := range req.donToOcr2Nodes {
+	for don, nodes := range req.donToNodes {
 		var p2pIds [][32]byte
-		for _, n := range ocr2nodes {
-			if n.IsBoostrap {
+		for _, n := range nodes {
+			if n.IsBootstrap {
 				continue
 			}
-			params, ok := req.nodeIDToParams[n.ID]
+			params, ok := req.nodeIDToParams[n.NodeID]
 			if !ok {
-				return nil, fmt.Errorf("node params not found for non-bootstrap node %s", n.ID)
+				return nil, fmt.Errorf("node params not found for non-bootstrap node %s", n.NodeID)
 			}
 			p2pIds = append(p2pIds, params.P2pId)
 		}
@@ -895,7 +905,8 @@ func configureForwarder(lggr logger.Logger, chain deployment.Chain, fwdr *kf.Key
 			continue
 		}
 		ver := dn.Info.ConfigCount // note config count on the don info is the version on the forwarder
-		tx, err := fwdr.SetConfig(chain.DeployerKey, dn.Info.Id, ver, dn.Info.F, dn.signers())
+		signers := dn.signers(chain.Selector)
+		tx, err := fwdr.SetConfig(chain.DeployerKey, dn.Info.Id, ver, dn.Info.F, signers)
 		if err != nil {
 			err = DecodeErr(kf.KeystoneForwarderABI, err)
 			return fmt.Errorf("failed to call SetConfig for forwarder %s on chain %d: %w", fwdr.Address().String(), chain.Selector, err)
@@ -905,7 +916,7 @@ func configureForwarder(lggr logger.Logger, chain deployment.Chain, fwdr *kf.Key
 			err = DecodeErr(kf.KeystoneForwarderABI, err)
 			return fmt.Errorf("failed to confirm SetConfig for forwarder %s: %w", fwdr.Address().String(), err)
 		}
-		lggr.Debugw("configured forwarder", "forwarder", fwdr.Address().String(), "donId", dn.Info.Id, "version", ver, "f", dn.Info.F, "signers", dn.signers())
+		lggr.Debugw("configured forwarder", "forwarder", fwdr.Address().String(), "donId", dn.Info.Id, "version", ver, "f", dn.Info.F, "signers", signers)
 	}
 	return nil
 }
@@ -914,7 +925,7 @@ type configureOCR3Request struct {
 	cfg      *OracleConfigWithSecrets
 	chain    deployment.Chain
 	contract *kocr3.OCR3Capability
-	nodes    []*ocr2Node
+	nodes    []deployment.Node
 	dryRun   bool
 }
 type configureOCR3Response struct {
@@ -925,7 +936,7 @@ func configureOCR3contract(req configureOCR3Request) (*configureOCR3Response, er
 	if req.contract == nil {
 		return nil, fmt.Errorf("OCR3 contract is nil")
 	}
-	nks := makeNodeKeysSlice(req.nodes)
+	nks := makeNodeKeysSlice(req.nodes, req.chain.Selector)
 	ocrConfig, err := GenerateOCR3Config(*req.cfg, nks)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate OCR3 config: %w", err)

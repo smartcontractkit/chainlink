@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"math/big"
 	"sort"
+	"strconv"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -176,6 +177,15 @@ type minimalNodeCfg struct {
 func newNode(t *testing.T, cfg minimalNodeCfg) deployment.Node {
 	t.Helper()
 
+	registryChainID, err := chainsel.ChainIdFromSelector(registryChain.Selector)
+	if err != nil {
+		panic(err)
+	}
+	registryChainDetails, err := chainsel.GetChainDetailsByChainIDAndFamily(strconv.Itoa(int(registryChainID)), chainsel.FamilyEVM)
+	if err != nil {
+		panic(err)
+	}
+
 	signingAddr, err := hex.DecodeString(cfg.signingAddr)
 	require.NoError(t, err)
 
@@ -183,8 +193,8 @@ func newNode(t *testing.T, cfg minimalNodeCfg) deployment.Node {
 		NodeID:    cfg.id,
 		CSAKey:    cfg.pubKey,
 		AdminAddr: cfg.admin.String(),
-		SelToOCRConfig: map[uint64]deployment.OCRConfig{
-			registryChain.Selector: {
+		SelToOCRConfig: map[chainsel.ChainDetails]deployment.OCRConfig{
+			registryChainDetails: {
 				OnchainPublicKey: signingAddr,
 				PeerID:           cfg.p2p.PeerID(),
 			},

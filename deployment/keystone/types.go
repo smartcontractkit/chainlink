@@ -1,7 +1,6 @@
 package keystone
 
 import (
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"slices"
@@ -14,8 +13,6 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-
-	v1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
@@ -57,138 +54,62 @@ type Nop struct {
 // ocr2Node is a subset of the node configuration that is needed to register a node
 // with the capabilities registry. Signer and P2PKey are chain agnostic.
 // TODO: KS-466 when we migrate fully to the JD offchain client, we should be able remove this shim and use environment.Node directly
-type ocr2Node struct {
-	ID                  string
-	Signer              [32]byte // note that in capabilities registry we need a [32]byte, but in the forwarder we need a common.Address [20]byte
-	P2PKey              p2pkey.PeerID
-	EncryptionPublicKey [32]byte
-	IsBoostrap          bool
-	// useful when have to register the ocr3 contract config
-	ethOcr2KeyBundle   *v1.OCR2Config_OCRKeyBundle
-	aptosOcr2KeyBundle *v1.OCR2Config_OCRKeyBundle
-	csaKey             string // *v1.Node.PublicKey
-	accountAddress     string
-}
+// type ocr2Node struct {
+// 	ID                  string
+// 	Signer              [32]byte // note that in capabilities registry we need a [32]byte, but in the forwarder we need a common.Address [20]byte
+// 	P2PKey              p2pkey.PeerID
+// 	EncryptionPublicKey [32]byte
+// 	IsBoostrap          bool
+// 	// useful when have to register the ocr3 contract config
+// 	ethOcr2KeyBundle   *v1.OCR2Config_OCRKeyBundle
+// 	aptosOcr2KeyBundle *v1.OCR2Config_OCRKeyBundle
+// 	csaKey             string // *v1.Node.PublicKey
+// 	accountAddress     string
+// }
 
-func (o *ocr2Node) signerAddress() common.Address {
-	// eth address is the first 20 bytes of the Signer
-	return common.BytesToAddress(o.Signer[:20])
-}
-
-func (o *ocr2Node) toNodeKeys() NodeKeys {
+func toNodeKeys(o *deployment.Node, registryChainSel uint64) NodeKeys {
 	var aptosOcr2KeyBundleId string
 	var aptosOnchainPublicKey string
-	if o.aptosOcr2KeyBundle != nil {
-		aptosOcr2KeyBundleId = o.aptosOcr2KeyBundle.BundleId
-		aptosOnchainPublicKey = o.aptosOcr2KeyBundle.OnchainSigningAddress
+	var aptosCC *deployment.OCRConfig
+	for details, cfg := range o.SelToOCRConfig {
+		if family, err := chainsel.GetSelectorFamily(details.ChainSelector); err == nil && family == chainsel.FamilyAptos {
+			aptosCC = &cfg
+			break
+		}
 	}
+	if aptosCC != nil {
+		aptosOcr2KeyBundleId = aptosCC.KeyBundleID
+		aptosOnchainPublicKey = fmt.Sprintf("%x", aptosCC.OnchainPublicKey[:])
+	}
+	registryChainID, err := chainsel.ChainIdFromSelector(registryChainSel)
+	if err != nil {
+		panic(err)
+	}
+	registryChainDetails, err := chainsel.GetChainDetailsByChainIDAndFamily(strconv.Itoa(int(registryChainID)), chainsel.FamilyEVM)
+	if err != nil {
+		panic(err)
+	}
+	evmCC := o.SelToOCRConfig[registryChainDetails]
 	return NodeKeys{
-		EthAddress:            o.accountAddress,
-		P2PPeerID:             strings.TrimPrefix(o.P2PKey.String(), "p2p_"),
-		OCR2BundleID:          o.ethOcr2KeyBundle.BundleId,
-		OCR2OnchainPublicKey:  o.ethOcr2KeyBundle.OnchainSigningAddress,
-		OCR2OffchainPublicKey: o.ethOcr2KeyBundle.OffchainPublicKey,
-		OCR2ConfigPublicKey:   o.ethOcr2KeyBundle.ConfigPublicKey,
-		CSAPublicKey:          o.csaKey,
+		EthAddress:            string(evmCC.TransmitAccount),
+		P2PPeerID:             strings.TrimPrefix(o.PeerID.String(), "p2p_"),
+		OCR2BundleID:          evmCC.KeyBundleID,
+		OCR2OffchainPublicKey: fmt.Sprintf("%x", evmCC.OffchainPublicKey[:]),
+		OCR2OnchainPublicKey:  fmt.Sprintf("%x", evmCC.OnchainPublicKey[:]),
+		OCR2ConfigPublicKey:   fmt.Sprintf("%x", evmCC.ConfigEncryptionPublicKey[:]),
+		CSAPublicKey:          o.CSAKey,
 		// default value of encryption public key is the CSA public key
 		// TODO: DEVSVCS-760
-		EncryptionPublicKey: strings.TrimPrefix(o.csaKey, "csa_"),
+		EncryptionPublicKey: strings.TrimPrefix(o.CSAKey, "csa_"),
 		// TODO Aptos support. How will that be modeled in clo data?
 		AptosBundleID:         aptosOcr2KeyBundleId,
 		AptosOnchainPublicKey: aptosOnchainPublicKey,
 	}
 }
-func newOcr2NodeFromJD(n *deployment.Node, registryChainSel uint64) (*ocr2Node, error) {
-	return newOcr2Node(n, registryChainSel)
-}
-
-func ExtractKeys(n *deployment.Node, registerChainSel uint64) (p2p p2pkey.PeerID, signer [32]byte, encPubKey [32]byte, err error) {
-	orc2n, err := newOcr2NodeFromJD(n, registerChainSel)
-	if err != nil {
-		return p2p, signer, encPubKey, fmt.Errorf("failed to create ocr2 node for node %s: %w", n.NodeID, err)
-	}
-	return orc2n.P2PKey, orc2n.Signer, orc2n.EncryptionPublicKey, nil
-}
-
-func newOcr2Node(node *deployment.Node, registryChainSel uint64) (*ocr2Node, error) {
-	if node.CSAKey == "" {
-		return nil, errors.New("no public key")
-	}
-	// the chain configs are equivalent as far as the ocr2 config is concerned so take the first one
-	if len(node.SelToOCRConfig) == 0 {
-		return nil, errors.New("no chain configs")
-	}
-
-	registryChainID, err := chainsel.ChainIdFromSelector(registryChainSel)
-	if err != nil {
-		return nil, err
-	}
-	registryChainDetails, err := chainsel.GetChainDetailsByChainIDAndFamily(strconv.Itoa(int(registryChainID)), chainsel.FamilyEVM)
-	if err != nil {
-		return nil, err
-	}
-
-	evmCC, ok := node.SelToOCRConfig[registryChainDetails]
-	if !ok {
-		return nil, fmt.Errorf("failed to get registry chain config for sel %d", registryChainSel)
-	}
-	// parse csapublic key
-	csaKey, err := hex.DecodeString(node.CSAKey)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode csa public key %s: %w", node.CSAKey, err)
-	}
-	if len(csaKey) != 32 {
-		return nil, fmt.Errorf("invalid csa public key '%s'. expected len 32 got %d", node.CSAKey, len(csaKey))
-	}
-	var csaKeyb [32]byte
-	copy(csaKeyb[:], csaKey)
-
-	signer := evmCC.OnchainPublicKey
-	if len(signer) != 20 {
-		return nil, fmt.Errorf("invalid onchain signing address %s", signer)
-	}
-	var sigb [32]byte
-	copy(sigb[:], signer)
-
-	n := &ocr2Node{
-		ID:                  node.NodeID,
-		Signer:              sigb,
-		P2PKey:              evmCC.PeerID,
-		EncryptionPublicKey: csaKeyb,
-		IsBoostrap:          node.IsBootstrap,
-		ethOcr2KeyBundle: &v1.OCR2Config_OCRKeyBundle{
-			BundleId:              evmCC.KeyBundleID,
-			ConfigPublicKey:       fmt.Sprintf("%x", evmCC.ConfigEncryptionPublicKey[:]),
-			OffchainPublicKey:     fmt.Sprintf("%x", evmCC.OffchainPublicKey[:]),
-			OnchainSigningAddress: fmt.Sprintf("%x", evmCC.OnchainPublicKey[:]),
-		},
-		aptosOcr2KeyBundle: nil,
-		accountAddress:     string(evmCC.TransmitAccount),
-		csaKey:             node.CSAKey,
-	}
-
-	var aptosCC *deployment.OCRConfig
-	for sel, cfg := range node.SelToOCRConfig {
-		if family, err := chainsel.GetSelectorFamily(sel.ChainSelector); err == nil && family == chainsel.FamilyAptos {
-			aptosCC = &cfg
-			break
-		}
-	}
-	// aptos chain config is optional
-	if aptosCC != nil {
-		n.aptosOcr2KeyBundle = &v1.OCR2Config_OCRKeyBundle{
-			BundleId:              aptosCC.KeyBundleID,
-			OnchainSigningAddress: fmt.Sprintf("%x", evmCC.OnchainPublicKey[:]),
-		}
-	}
-
-	return n, nil
-}
-
-func makeNodeKeysSlice(nodes []*ocr2Node) []NodeKeys {
+func makeNodeKeysSlice(nodes []deployment.Node, registryChainSel uint64) []NodeKeys {
 	var out []NodeKeys
 	for _, n := range nodes {
-		out = append(out, n.toNodeKeys())
+		out = append(out, toNodeKeys(&n, registryChainSel))
 	}
 	return out
 }
@@ -263,7 +184,7 @@ func nopsToNodes(donInfos []DonInfo, dons []DonCapabilities, chainSelector uint6
 				return node.PeerID.String() == nop.Nodes[0]
 			})
 			if idx < 0 {
-				return nil, fmt.Errorf("couldn't find node with p2p_id %v", nop.Nodes[0])
+				return nil, fmt.Errorf("couldn't find node with p2p_id '%v'", nop.Nodes[0])
 			}
 			node := donInfo.Nodes[idx]
 			a := node.AdminAddr
@@ -273,7 +194,7 @@ func nopsToNodes(donInfos []DonInfo, dons []DonCapabilities, chainSelector uint6
 					return n.PeerID.String() == node
 				})
 				if idx < 0 {
-					return nil, fmt.Errorf("couldn't find node with p2p_id %v", node)
+					return nil, fmt.Errorf("couldn't find node with p2p_id '%v'", node)
 				}
 				out[nodeOperator] = append(out[nodeOperator], donInfo.Nodes[idx].NodeID)
 			}
@@ -294,47 +215,54 @@ func mapDonsToCaps(dons []DonInfo) map[string][]kcr.CapabilitiesRegistryCapabili
 
 // mapDonsToNodes returns a map of don name to simplified representation of their nodes
 // all nodes must have evm config and ocr3 capability nodes are must also have an aptos chain config
-func mapDonsToNodes(dons []DonInfo, excludeBootstraps bool, registryChainSel uint64) (map[string][]*ocr2Node, error) {
-	donToOcr2Nodes := make(map[string][]*ocr2Node)
+func mapDonsToNodes(dons []DonInfo, excludeBootstraps bool, registryChainSel uint64) (map[string][]deployment.Node, error) {
+	donToNodes := make(map[string][]deployment.Node)
 	// get the nodes for each don from the offchain client, get ocr2 config from one of the chain configs for the node b/c
-	// they are equivalent, and transform to ocr2node representation
+	// they are equivalent
 
 	for _, don := range dons {
 		for _, node := range don.Nodes {
-			ocr2n, err := newOcr2NodeFromJD(&node, registryChainSel)
-			if err != nil {
-				return nil, fmt.Errorf("failed to create ocr2 node for node %s: %w", node.NodeID, err)
-			}
-			if excludeBootstraps && ocr2n.IsBoostrap {
+			if excludeBootstraps && node.IsBootstrap {
 				continue
 			}
-			if _, ok := donToOcr2Nodes[don.Name]; !ok {
-				donToOcr2Nodes[don.Name] = make([]*ocr2Node, 0)
+			if _, ok := donToNodes[don.Name]; !ok {
+				donToNodes[don.Name] = make([]deployment.Node, 0)
 			}
-			donToOcr2Nodes[don.Name] = append(donToOcr2Nodes[don.Name], ocr2n)
+			donToNodes[don.Name] = append(donToNodes[don.Name], node)
 		}
 	}
 
-	return donToOcr2Nodes, nil
+	return donToNodes, nil
 }
 
 // RegisteredDon is a representation of a don that exists in the in the capabilities registry all with the enriched node data
 type RegisteredDon struct {
 	Name  string
 	Info  capabilities_registry.CapabilitiesRegistryDONInfo
-	Nodes []*ocr2Node
+	Nodes []deployment.Node
 }
 
-func (d RegisteredDon) signers() []common.Address {
+func (d RegisteredDon) signers(registryChainSel uint64) []common.Address {
 	sort.Slice(d.Nodes, func(i, j int) bool {
-		return d.Nodes[i].P2PKey.String() < d.Nodes[j].P2PKey.String()
+		return d.Nodes[i].PeerID.String() < d.Nodes[j].PeerID.String()
 	})
+	registryChainID, err := chainsel.ChainIdFromSelector(registryChainSel)
+	if err != nil {
+		panic(err)
+	}
+	registryChainDetails, err := chainsel.GetChainDetailsByChainIDAndFamily(strconv.Itoa(int(registryChainID)), chainsel.FamilyEVM)
+	if err != nil {
+		panic(err)
+	}
 	var out []common.Address
 	for _, n := range d.Nodes {
-		if n.IsBoostrap {
+		if n.IsBootstrap {
 			continue
 		}
-		out = append(out, n.signerAddress())
+		// eth address is the first 20 bytes of the Signer
+		signer := n.SelToOCRConfig[registryChainDetails].OnchainPublicKey
+		signerAddress := common.BytesToAddress(signer)
+		out = append(out, signerAddress)
 	}
 	return out
 }
