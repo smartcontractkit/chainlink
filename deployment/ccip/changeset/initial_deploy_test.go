@@ -4,11 +4,11 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink/deployment"
-
-	ccdeploy "github.com/smartcontractkit/chainlink/deployment/ccip"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
+
+	"github.com/smartcontractkit/chainlink/deployment"
+	ccdeploy "github.com/smartcontractkit/chainlink/deployment/ccip"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
@@ -26,9 +26,13 @@ func TestInitialDeploy(t *testing.T) {
 
 	state, err := ccdeploy.LoadOnchainState(tenv.Env)
 	require.NoError(t, err)
-	require.NotNil(t, state.Chains[tenv.HomeChainSel].LinkToken)
+	output, err := DeployPrerequisites(e, DeployPrerequisiteConfig{
+		ChainSelectors: tenv.Env.AllChainSelectors(),
+	})
+	require.NoError(t, err)
+	require.NoError(t, tenv.Env.ExistingAddresses.Merge(output.AddressBook))
 
-	output, err := InitialDeploy(tenv.Env, ccdeploy.DeployCCIPContractConfig{
+	output, err = InitialDeploy(tenv.Env, ccdeploy.DeployCCIPContractConfig{
 		HomeChainSel:   tenv.HomeChainSel,
 		FeedChainSel:   tenv.FeedChainSel,
 		ChainsToDeploy: tenv.Env.AllChainSelectors(),
@@ -41,7 +45,7 @@ func TestInitialDeploy(t *testing.T) {
 	require.NoError(t, tenv.Env.ExistingAddresses.Merge(output.AddressBook))
 	state, err = ccdeploy.LoadOnchainState(e)
 	require.NoError(t, err)
-
+	require.NotNil(t, state.Chains[tenv.HomeChainSel].LinkToken)
 	// Ensure capreg logs are up to date.
 	ccdeploy.ReplayLogs(t, e.Offchain, tenv.ReplayBlocks)
 

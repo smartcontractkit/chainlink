@@ -943,7 +943,7 @@ runner-test-matrix:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
-    test_cmd: cd integration-tests/ && go test smoke/ccip_test.go -timeout 12m -test.parallel=1 -count=1 -json
+    test_cmd: cd integration-tests/ && go test smoke/ccip_test.go -timeout 12m -test.parallel=2 -count=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2

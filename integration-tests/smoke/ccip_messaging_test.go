@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccdeploy "github.com/smartcontractkit/chainlink/deployment/ccip"
 	ccipdeployment "github.com/smartcontractkit/chainlink/deployment/ccip"
@@ -58,10 +59,15 @@ func Test_CCIPMessaging(t *testing.T) {
 		", source chain selector:", sourceChain,
 		", dest chain selector:", destChain,
 	)
+	output, err := changeset.DeployPrerequisites(e.Env, changeset.DeployPrerequisiteConfig{
+		ChainSelectors: e.Env.AllChainSelectors(),
+	})
+	require.NoError(t, err)
+	require.NoError(t, e.Env.ExistingAddresses.Merge(output.AddressBook))
 
 	tokenConfig := ccipdeployment.NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
 	// Apply migration
-	output, err := changeset.InitialDeploy(e.Env, ccdeploy.DeployCCIPContractConfig{
+	output, err = changeset.InitialDeploy(e.Env, ccdeploy.DeployCCIPContractConfig{
 		HomeChainSel:   e.HomeChainSel,
 		FeedChainSel:   e.FeedChainSel,
 		ChainsToDeploy: allChainSelectors,
