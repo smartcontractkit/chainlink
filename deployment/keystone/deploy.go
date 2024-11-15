@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -16,8 +15,6 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"golang.org/x/exp/maps"
 
-	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
-	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 	"github.com/smartcontractkit/chainlink/deployment"
 
 	"google.golang.org/protobuf/proto"
@@ -150,76 +147,8 @@ func DeployContracts(lggr logger.Logger, e *deployment.Environment, chainSel uin
 // DonInfo is DonCapabilities, but expanded to contain node information
 type DonInfo struct {
 	Name         string
-	Nodes        []Node
+	Nodes        []deployment.Node
 	Capabilities []kcr.CapabilitiesRegistryCapability // every capability is hosted on each node
-}
-
-// TODO: merge with deployment/environment.go Node
-type Node struct {
-	ID           string
-	P2PID        string
-	Name         string
-	PublicKey    *string
-	ChainConfigs []*nodev1.ChainConfig
-}
-
-// TODO: merge with deployment/environment.go NodeInfo, we currently lookup based on p2p_id, and chain-selectors needs non-EVM support
-func NodesFromJD(name string, nodeIDs []string, jd deployment.OffchainClient) ([]Node, error) {
-	// lookup nodes based on p2p_ids
-	var nodes []Node
-	selector := strings.Join(nodeIDs, ",")
-	nodesFromJD, err := jd.ListNodes(context.Background(), &nodev1.ListNodesRequest{
-		Filter: &nodev1.ListNodesRequest_Filter{
-			Enabled: 1,
-			Selectors: []*ptypes.Selector{
-				{
-					Key:   "p2p_id",
-					Op:    ptypes.SelectorOp_IN,
-					Value: &selector,
-				},
-			},
-		},
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to list nodes '%s': %w", name, err)
-	}
-
-	for _, id := range nodeIDs {
-		idx := slices.IndexFunc(nodesFromJD.GetNodes(), func(node *nodev1.Node) bool {
-			return slices.ContainsFunc(node.Labels, func(label *ptypes.Label) bool {
-				return label.Key == "p2p_id" && *label.Value == id
-			})
-		})
-		if idx < 0 {
-			var got []string
-			for _, node := range nodesFromJD.GetNodes() {
-				for _, label := range node.Labels {
-					if label.Key == "p2p_id" {
-						got = append(got, *label.Value)
-					}
-				}
-			}
-			return nil, fmt.Errorf("node id %s not found in list '%s'", id, strings.Join(got, ","))
-		}
-
-		jdNode := nodesFromJD.Nodes[idx]
-		// TODO: Filter should accept multiple nodes
-		nodeChainConfigs, err := jd.ListNodeChainConfigs(context.Background(), &nodev1.ListNodeChainConfigsRequest{Filter: &nodev1.ListNodeChainConfigsRequest_Filter{
-			NodeIds: []string{jdNode.Id}, // must use the jd-specific internal node id
-		}})
-		if err != nil {
-			return nil, err
-		}
-
-		nodes = append(nodes, Node{
-			ID:           jdNode.Id,
-			P2PID:        id,
-			Name:         name,
-			PublicKey:    &jdNode.PublicKey,
-			ChainConfigs: nodeChainConfigs.GetChainConfigs(),
-		})
-	}
-	return nodes, nil
 }
 
 func DonInfos(dons []DonCapabilities, jd deployment.OffchainClient) ([]DonInfo, error) {
@@ -229,7 +158,7 @@ func DonInfos(dons []DonCapabilities, jd deployment.OffchainClient) ([]DonInfo, 
 		for _, nop := range don.Nops {
 			nodeIDs = append(nodeIDs, nop.Nodes...)
 		}
-		nodes, err := NodesFromJD(don.Name, nodeIDs, jd)
+		nodes, err := deployment.NodeInfo(nodeIDs, jd)
 		if err != nil {
 			return nil, err
 		}
@@ -459,7 +388,7 @@ func ConfigureOCR3ContractFromJD(env *deployment.Environment, cfg ConfigureOCR3C
 	if contract == nil {
 		return nil, fmt.Errorf("no ocr3 contract found for chain %d", cfg.ChainSel)
 	}
-	nodes, err := NodesFromJD("nodes", cfg.NodeIDs, env.Offchain)
+	nodes, err := deployment.NodeInfo(cfg.NodeIDs, env.Offchain)
 	if err != nil {
 		return nil, err
 	}
@@ -727,6 +656,7 @@ func registerNodes(lggr logger.Logger, req *registerNodesRequest) (*registerNode
 			if n.IsBoostrap { // bootstraps are part of the DON but don't host capabilities
 				continue
 			}
+			fmt.Printf("nodeToRegisterNop %+v\n", nodeToRegisterNop)
 			nop, ok := nodeToRegisterNop[n.ID]
 			if !ok {
 				return nil, fmt.Errorf("node operator not found for node %s", n.ID)
