@@ -393,14 +393,16 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	err = ccdeploy.UpdateFeeQuoterForUSDC(e.Chains[tenv.FeedChainSel], state.Chains[tenv.FeedChainSel], tenv.HomeChainSel, dstUSDC)
 	require.NoError(t, err)
 
+	tinyOneCoin := new(big.Int).SetUint64(1)
+
 	tokens := map[uint64][]router.ClientEVMTokenAmount{
 		tenv.HomeChainSel: {{
 			Token:  srcUSDC.Address(),
-			Amount: twoCoins,
+			Amount: tinyOneCoin,
 		}},
 		tenv.FeedChainSel: {{
 			Token:  dstUSDC.Address(),
-			Amount: twoCoins,
+			Amount: tinyOneCoin,
 		}},
 	}
 
@@ -447,5 +449,5 @@ func TestUSDCTokenTransfer(t *testing.T) {
 
 	balance, err = dstUSDC.BalanceOf(nil, state.Chains[tenv.FeedChainSel].Receiver.Address())
 	require.NoError(t, err)
-	require.Equal(t, twoCoins, balance)
+	require.Equal(t, tinyOneCoin, balance)
 }

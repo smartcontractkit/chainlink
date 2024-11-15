@@ -1,9 +1,8 @@
 package ccipdeployment
 
 import (
-	"fmt"
 	"github.com/ethereum/go-ethereum/common"
-	sel "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
@@ -19,8 +18,6 @@ func ConfigureUSDCTokenPools(lggr logger.Logger, chains map[uint64]deployment.Ch
 	dstToken := state.Chains[dst].BurnMintTokens677[USDCSymbol]
 	srcPool := state.Chains[src].USDCTokenPool
 	dstPool := state.Chains[dst].USDCTokenPool
-	srcTransmitter := state.Chains[src].MockUSDCTokenMessenger
-	dstTransmitter := state.Chains[dst].MockUSDCTokenMessenger
 
 	// Attach token pools to registry
 	if err := attachTokenToTheRegistry(chains[src], state.Chains[src], chains[src].DeployerKey, srcToken.Address(), srcPool.Address()); err != nil {
@@ -49,11 +46,19 @@ func ConfigureUSDCTokenPools(lggr logger.Logger, chains map[uint64]deployment.Ch
 		return nil, nil, err
 	}
 
-	if err := grantMintBurnPermissions(lggr, chains[src], srcToken, srcTransmitter.Address()); err != nil {
+	if err := grantMintBurnPermissions(lggr, chains[src], srcToken, state.Chains[src].MockUSDCTokenMessenger.Address()); err != nil {
 		return nil, nil, err
 	}
 
-	if err := grantMintBurnPermissions(lggr, chains[dst], dstToken, dstTransmitter.Address()); err != nil {
+	if err := grantMintBurnPermissions(lggr, chains[dst], dstToken, state.Chains[dst].MockUSDCTokenMessenger.Address()); err != nil {
+		return nil, nil, err
+	}
+
+	if err := grantMintBurnPermissions(lggr, chains[src], srcToken, state.Chains[src].MockUSDCTransmitter.Address()); err != nil {
+		return nil, nil, err
+	}
+
+	if err := grantMintBurnPermissions(lggr, chains[dst], dstToken, state.Chains[dst].MockUSDCTransmitter.Address()); err != nil {
 		return nil, nil, err
 	}
 
@@ -196,15 +201,13 @@ func deployUSDCTokenOneEnd(
 		return nil, nil, nil, nil, err
 	}
 
-	chainId, _ := sel.ChainIdFromSelector(chain.Selector)
-
 	transmitter, err := deployContract(lggr, chain, addresses,
 		func(chain deployment.Chain) ContractDeploy[*mock_usdc_token_transmitter.MockE2EUSDCTransmitter] {
 			transmitterAddress, tx, mockTransmitterContract, err2 := mock_usdc_token_transmitter.DeployMockE2EUSDCTransmitter(
 				chain.DeployerKey,
 				chain.Client,
 				0,
-				uint32(chainId),
+				reader.AllAvailableDomains()[chain.Selector],
 				token.Address,
 			)
 			return ContractDeploy[*mock_usdc_token_transmitter.MockE2EUSDCTransmitter]{
@@ -274,9 +277,6 @@ func deployUSDCTokenOneEnd(
 		return nil, nil, nil, nil, err
 	}
 	lggr.Infow("deployed USDC token pool", "addr", tokenPool.Address)
-
-	domainIdentifier, err := tokenPool.Contract.ILocalDomainIdentifier(nil)
-	fmt.Println("LocalDomainIdentifier", domainIdentifier)
 
 	return token.Contract, tokenPool.Contract, messenger.Contract, transmitter.Contract, nil
 }
