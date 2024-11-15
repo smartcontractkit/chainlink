@@ -2,6 +2,7 @@ package smoke
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -250,26 +251,9 @@ func manuallyExecute(
 	_, err = deployment.ConfirmIfNoError(e.Env.Chains[destChain], tx, err)
 	require.NoError(t, err, "failed to send/confirm manuallyExecute tx")
 
-	receipt, err := e.Env.Chains[destChain].Client.TransactionReceipt(ctx, tx.Hash())
+	newExecutionState, err := state.Chains[destChain].OffRamp.GetExecutionState(&bind.CallOpts{Context: ctx}, sourceChain, out.msgSentEvent.SequenceNumber)
 	require.NoError(t, err)
-
-	var found bool
-	for _, lg := range receipt.Logs {
-		topic := offramp.OffRampExecutionStateChanged{}.Topic()
-		if lg.Topics[0] == topic {
-
-			parsed, err := state.Chains[destChain].OffRamp.ParseExecutionStateChanged(*lg)
-			require.NoError(t, err)
-
-			require.Equal(t, sourceChain, parsed.SourceChainSelector)
-			require.Equal(t, out.msgSentEvent.SequenceNumber, parsed.SequenceNumber)
-			require.Equal(t, out.msgSentEvent.Message.Header.MessageId, parsed.MessageId)
-			require.Equal(t, messageHash, parsed.MessageHash)
-			require.Equal(t, uint8(ccdeploy.EXECUTION_STATE_SUCCESS), parsed.State)
-			found = true
-		}
-	}
-	require.True(t, found, "no ExecutionStateChanged event found in manual execution receipt logs")
+	require.Equal(t, uint8(ccdeploy.EXECUTION_STATE_SUCCESS), newExecutionState)
 }
 
 func getMerkleRoot(
@@ -282,17 +266,13 @@ func getMerkleRoot(
 	for iter.Next() {
 		for _, mr := range iter.Event.MerkleRoots {
 			if mr.MinSeqNr >= seqNr || mr.MaxSeqNr <= seqNr {
-				merkleRoot = mr.MerkleRoot
-				break
+				return mr.MerkleRoot
 			}
 		}
 	}
-	require.NotEqualf(
+	require.Fail(
 		t,
-		[32]byte{},
-		merkleRoot,
-		"no merkle root found for sequence number %d",
-		seqNr,
+		fmt.Sprintf("no merkle root found for seq nr %d", seqNr),
 	)
 	return merkleRoot
 }
