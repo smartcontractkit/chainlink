@@ -1995,6 +1995,13 @@ contract SetLinkToken is ConfiguredDualAggregatorBaseTest {
 
     assertEq(balanceAfter, balanceBefore + amountDue, "did not pay the transmitter");
   }
+
+  function test_SetLinkTokenToSameToken() public {
+    _changePrank(s_aggregator.owner());
+    assertEq(address(s_aggregator.getLinkToken()), address(s_link), "did not return the right link token interface");
+    s_aggregator.setLinkToken(LinkTokenInterface(address(s_link)), s_aggregator.owner());
+    assertEq(address(s_aggregator.getLinkToken()), address(s_link), "did not return the right link token interface");
+  }
 }
 
 contract GetLinkToken is DualAggregatorBaseTest {
@@ -2266,23 +2273,34 @@ contract OracleObservationCount is ConfiguredDualAggregatorBaseTest {
 contract SetPayees is ConfiguredDualAggregatorBaseTest {
   event PayeeshipTransferred(address indexed transmitter, address indexed previous, address indexed current);
 
-  address[] internal payees;
-
-  function setUp() public override {
-    super.setUp();
-    payees = s_transmitters;
-  }
-
   function test_EmitsPayeeshipTransferred() public {
     vm.expectEmit();
     for (uint256 index = 0; index < s_transmitters.length; index++) {
       address transmitter = s_transmitters[0];
-      address payee = payees[0];
+      address payee = s_transmitters[0];
       address currentPayee = address(0);
       emit PayeeshipTransferred(transmitter, currentPayee, payee);
     }
 
-    s_aggregator.setPayees(s_transmitters, payees);
+    s_aggregator.setPayees(s_transmitters, s_transmitters);
+  }
+
+  function test_RevertIf_TransmittersSizeNotEqualPayeeSize() public {
+    vm.expectRevert(DualAggregator.TransmittersSizeNotEqualPayeeSize.selector);
+    s_aggregator.setPayees(s_transmitters, new address[](s_transmitters.length - 1));
+  }
+
+  function test_RevertIf_SetPayeesUsedToUpdateExistingPayees() public {
+    s_aggregator.setPayees(s_transmitters, s_transmitters);
+
+    // set different payees
+    address[] memory newPayees = new address[](s_transmitters.length);
+    for (uint256 index = 0; index < s_transmitters.length; index++) {
+      newPayees[index] = address(uint160(1000 + index));
+    }
+
+    vm.expectRevert(DualAggregator.PayeeAlreadySet.selector);
+    s_aggregator.setPayees(s_transmitters, newPayees);
   }
 }
 
@@ -2365,6 +2383,12 @@ contract AcceptPayeeship is ConfiguredDualAggregatorBaseTest {
 contract TypeAndVersion is DualAggregatorBaseTest {
   function test_IsCorrect() public view {
     assertEq(s_aggregator.typeAndVersion(), "DualAggregator 1.0.0", "did not return the right type and version");
+  }
+}
+
+contract Version is DualAggregatorBaseTest {
+  function test_ReturnsTheCorrectVersion() public view {
+    assertEq(s_aggregator.version(), 6, "did not return the right version");
   }
 }
 
