@@ -3,9 +3,6 @@ package ccipreader
 import (
 	"context"
 
-	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
-
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"math/big"
 	"sort"
 	"testing"
@@ -26,11 +23,14 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
+	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_reader_tester"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -52,7 +52,7 @@ const (
 )
 
 var (
-	defaultGasPrice = big.NewInt(1e9)
+	defaultGasPrice = assets.GWei(10)
 )
 
 func TestCCIPReader_CommitReportsGTETimestamp(t *testing.T) {
@@ -502,7 +502,7 @@ func Test_GetChainFeePriceUpdates(t *testing.T) {
 
 	updates := s.reader.GetChainFeePriceUpdate(ctx, []cciptypes.ChainSelector{chainS1})
 	require.Len(t, updates, 1)
-	require.Equal(t, defaultGasPrice, updates[chainS1].Value.Int)
+	require.Equal(t, defaultGasPrice.ToInt(), updates[chainS1].Value.Int)
 }
 
 func deployFeeQuoterWithPrices(t *testing.T, auth *bind.TransactOpts, sb *simulated.Backend) *fee_quoter.FeeQuoter {
@@ -520,16 +520,7 @@ func deployFeeQuoterWithPrices(t *testing.T, auth *bind.TransactOpts, sb *simula
 		[]common.Address{wethAddress, linkAddress},
 		[]fee_quoter.FeeQuoterTokenPriceFeedUpdate{},
 		[]fee_quoter.FeeQuoterTokenTransferFeeConfigArgs{},
-		[]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs{
-			{
-				PremiumMultiplierWeiPerEth: 9e17, // 0.9 ETH
-				Token:                      linkAddress,
-			},
-			{
-				PremiumMultiplierWeiPerEth: 1e18,
-				Token:                      wethAddress,
-			},
-		},
+		[]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs{},
 		[]fee_quoter.FeeQuoterDestChainConfigArgs{},
 	)
 
@@ -544,7 +535,7 @@ func deployFeeQuoterWithPrices(t *testing.T, auth *bind.TransactOpts, sb *simula
 			GasPriceUpdates: []fee_quoter.InternalGasPriceUpdate{
 				{
 					DestChainSelector: uint64(chainS1),
-					UsdPerUnitGas:     defaultGasPrice,
+					UsdPerUnitGas:     defaultGasPrice.ToInt(),
 				},
 			}},
 	)
@@ -553,7 +544,7 @@ func deployFeeQuoterWithPrices(t *testing.T, auth *bind.TransactOpts, sb *simula
 
 	gas, err := feeQuoter.GetDestinationChainGasPrice(&bind.CallOpts{}, uint64(chainS1))
 	require.NoError(t, err)
-	require.Equal(t, defaultGasPrice, gas.Value)
+	require.Equal(t, defaultGasPrice.ToInt(), gas.Value)
 
 	return feeQuoter
 }
