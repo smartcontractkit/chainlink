@@ -128,7 +128,7 @@ func NewLocalDevEnvironmentWithRMN(
 	lggr logger.Logger,
 	numRmnNodes int,
 ) (ccipdeployment.DeployedEnv, devenv.RMNCluster) {
-	tenv, dockerenv, _ := NewLocalDevEnvironment(t, lggr)
+	tenv, dockerenv, testCfg := NewLocalDevEnvironment(t, lggr)
 	state, err := ccipdeployment.LoadOnchainState(tenv.Env)
 	require.NoError(t, err)
 
@@ -147,14 +147,15 @@ func NewLocalDevEnvironmentWithRMN(
 
 	l := logging.GetTestLogger(t)
 	config := GenerateTestRMNConfig(t, numRmnNodes, tenv, MustNetworksToRPCMap(dockerenv.EVMNetworks))
+	require.NotNil(t, testCfg.CCIP)
 	rmnCluster, err := devenv.NewRMNCluster(
 		t, l,
 		[]string{dockerenv.DockerNetwork.ID},
 		config,
-		"rageproxy",
-		"latest",
-		"afn2proxy",
-		"latest",
+		testCfg.CCIP.RMNConfig.GetProxyImage(),
+		testCfg.CCIP.RMNConfig.GetProxyVersion(),
+		testCfg.CCIP.RMNConfig.GetAFNImage(),
+		testCfg.CCIP.RMNConfig.GetAFNVersion(),
 		dockerenv.LogStream,
 	)
 	require.NoError(t, err)
