@@ -81,7 +81,9 @@ contract WorkflowRegistryManager is Ownable2StepMsgSender, ITypeAndVersion {
   /// can be active at a time; activating a new version automatically deactivates the currently active one (if any).
   /// @param versionNumber The 1-based version number to activate (minimum value is 1).
   /// @custom:throws VersionNotRegistered if the `versionNumber` is not valid or not registered.
-  function activateVersion(uint32 versionNumber) external onlyOwner {
+  function activateVersion(
+    uint32 versionNumber
+  ) external onlyOwner {
     _activateVersion(versionNumber);
   }
 
@@ -127,7 +129,9 @@ contract WorkflowRegistryManager is Ownable2StepMsgSender, ITypeAndVersion {
   /// @param versionNumber The 1-based version number of the version to retrieve (minimum value is 1).
   /// @return A `Version` struct containing the details of the specified version.
   /// @custom:throws VersionNotRegistered if the `versionNumber` is not valid or not registered.
-  function getVersion(uint32 versionNumber) external view returns (Version memory) {
+  function getVersion(
+    uint32 versionNumber
+  ) external view returns (Version memory) {
     if (versionNumber == 0 || versionNumber > s_latestVersionNumber) {
       revert VersionNotRegistered(versionNumber);
     }
@@ -178,7 +182,9 @@ contract WorkflowRegistryManager is Ownable2StepMsgSender, ITypeAndVersion {
   /// emits events for both deactivation and activation.
   /// @param versionNumber The version number of the version to activate.
   /// @custom:throws IndexOutOfBounds if the version number does not exist.
-  function _activateVersion(uint32 versionNumber) private {
+  function _activateVersion(
+    uint32 versionNumber
+  ) private {
     // Cache the current active version number to reduce storage reads
     uint32 currentActiveVersionNumber = s_activeVersionNumber;
 
@@ -203,7 +209,9 @@ contract WorkflowRegistryManager is Ownable2StepMsgSender, ITypeAndVersion {
   /// @param contractAddress The address of the contract to validate.
   /// @custom:throws InvalidContractAddress if the address is zero or contains no code.
   /// @custom:throws InvalidContractType if the contract does not implement typeAndVersion().
-  function _getTypeAndVersionForContract(address contractAddress) internal view returns (string memory) {
+  function _getTypeAndVersionForContract(
+    address contractAddress
+  ) internal view returns (string memory) {
     if (!_isNonZeroWithCode(contractAddress)) {
       revert InvalidContractAddress(contractAddress);
     }
@@ -215,7 +223,9 @@ contract WorkflowRegistryManager is Ownable2StepMsgSender, ITypeAndVersion {
     }
   }
 
-  function _isNonZeroWithCode(address _addr) internal view returns (bool) {
+  function _isNonZeroWithCode(
+    address _addr
+  ) internal view returns (bool) {
     return _addr != address(0) && _addr.code.length > 0;
   }
 }
