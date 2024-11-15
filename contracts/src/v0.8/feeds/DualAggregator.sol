@@ -698,20 +698,21 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
     _verifySignatures(reportContext, report, rs, ss, rawVs);
 
     Report memory report_ = _decodeReport(report); // Decode the report
+    HotVars memory hotVars = s_hotVars; // Load hotVars into memory
 
     if (isSecondary) {
       (bool exist, uint32 roundId) = _doesReportExist(report_);
       // In case the report exists, copy the round id and pay the transmitter
       if (exist) {
         // In case the round has already been processed by the secondary feed
-        if (s_hotVars.latestSecondaryRoundId >= roundId) {
+        if (hotVars.latestSecondaryRoundId >= roundId) {
           revert StaleReport();
         }
 
         s_hotVars.latestSecondaryRoundId = roundId;
         emit SecondaryRoundIdUpdated(roundId);
 
-        _payTransmitter(s_hotVars, report_.juelsPerFeeCoin, uint32(initialGas));
+        _payTransmitter(hotVars, report_.juelsPerFeeCoin, uint32(initialGas));
         return;
       }
     }
@@ -721,19 +722,19 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
 
     // Only skip the report transmission in case the epochAndRound is equal to the latestEpochAndRound
     // and the latest sender was the secondary feed
-    if (epochAndRound != s_hotVars.latestEpochAndRound || !s_latestSecondary) {
+    if (epochAndRound != hotVars.latestEpochAndRound || !s_latestSecondary) {
       // In case the epochAndRound is lower or equal than the latestEpochAndRound, it's a stale report
       // because it's older or has already been transmitted
-      if (epochAndRound <= s_hotVars.latestEpochAndRound) {
+      if (epochAndRound <= hotVars.latestEpochAndRound) {
         revert StaleReport();
       }
 
-      _report(s_hotVars, reportContext[0], epochAndRound, report_, isSecondary);
+      _report(hotVars, reportContext[0], epochAndRound, report_, isSecondary);
     }
 
     // Store if the latest report was secondary or not
     s_latestSecondary = isSecondary;
-    _payTransmitter(s_hotVars, report_.juelsPerFeeCoin, uint32(initialGas));
+    _payTransmitter(hotVars, report_.juelsPerFeeCoin, uint32(initialGas));
   }
 
   // helper function to validate the report data
