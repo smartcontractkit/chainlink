@@ -56,6 +56,9 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
 
   bytes32 internal s_latestConfigDigest;
 
+  // Overhead incurred by accounting logic.
+  uint24 internal s_accountingGas;
+
   // Storing these fields used on the hot path in a HotVars variable reduces the
   // retrieval of all of them to two SLOADs.
   struct HotVars {
@@ -73,9 +76,6 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
     uint32 observationPaymentGjuels; //   │ Fixed LINK reward for each observer.
     uint32 transmissionPaymentGjuels; // ─╯ Fixed reward for transmitter.
   }
-
-  // Overhead incurred by accounting logic.
-  uint24 internal s_accountingGas;
 
   HotVars internal s_hotVars;
 
