@@ -96,6 +96,7 @@ func NewLocalDevEnvironment(t *testing.T, lggr logger.Logger) (ccipdeployment.De
 		testEnv, cfg)
 	require.NoError(t, err)
 	e, don, err := devenv.NewEnvironment(ctx, lggr, *envConfig)
+
 	require.NoError(t, err)
 	require.NotNil(t, e)
 	e.ExistingAddresses = ab

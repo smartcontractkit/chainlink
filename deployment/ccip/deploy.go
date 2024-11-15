@@ -2,6 +2,12 @@ package ccipdeployment
 
 import (
 	"fmt"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/config"
+	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -9,14 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_transmitter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/usdc_token_pool"
 	"math/big"
-	"strings"
-
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/config"
-	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -238,7 +236,7 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 		}
 
 		if c.USDCConfig.Enabled {
-			token, pool, transmitter, messenger, err1 := deployUSDCTokenOneEnd(e.Logger, chain, ab)
+			token, pool, messenger, transmitter, err1 := deployUSDCTokenOneEnd(e.Logger, chain, ab)
 			if err1 != nil {
 				return err1
 			}
@@ -251,8 +249,8 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 			)
 
 			usdcConfiguration[cciptypes.ChainSelector(chainSel)] = pluginconfig.USDCCCTPTokenConfig{
-				SourcePoolAddress:            strings.ToLower(pool.Address().Hex()),
-				SourceMessageTransmitterAddr: strings.ToLower(transmitter.Address().Hex()),
+				SourcePoolAddress:            pool.Address().Hex(),
+				SourceMessageTransmitterAddr: transmitter.Address().Hex(),
 			}
 		}
 	}

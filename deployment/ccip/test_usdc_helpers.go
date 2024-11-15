@@ -1,7 +1,9 @@
 package ccipdeployment
 
 import (
+	"fmt"
 	"github.com/ethereum/go-ethereum/common"
+	sel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
@@ -194,11 +196,7 @@ func deployUSDCTokenOneEnd(
 		return nil, nil, nil, nil, err
 	}
 
-	domainMapping := map[uint64]uint32{
-		1337: 100,
-		2337: 101,
-		3337: 103,
-	}
+	chainId, _ := sel.ChainIdFromSelector(chain.Selector)
 
 	transmitter, err := deployContract(lggr, chain, addresses,
 		func(chain deployment.Chain) ContractDeploy[*mock_usdc_token_transmitter.MockE2EUSDCTransmitter] {
@@ -206,8 +204,9 @@ func deployUSDCTokenOneEnd(
 				chain.DeployerKey,
 				chain.Client,
 				0,
-				domainMapping[1337],
-				token.Address)
+				uint32(chainId),
+				token.Address,
+			)
 			return ContractDeploy[*mock_usdc_token_transmitter.MockE2EUSDCTransmitter]{
 				transmitterAddress, mockTransmitterContract, tx, deployment.NewTypeAndVersion(USDCMockTransmitter, deployment.Version1_0_0), err2,
 			}
@@ -275,6 +274,9 @@ func deployUSDCTokenOneEnd(
 		return nil, nil, nil, nil, err
 	}
 	lggr.Infow("deployed USDC token pool", "addr", tokenPool.Address)
+
+	domainIdentifier, err := tokenPool.Contract.ILocalDomainIdentifier(nil)
+	fmt.Println("LocalDomainIdentifier", domainIdentifier)
 
 	return token.Contract, tokenPool.Contract, messenger.Contract, transmitter.Contract, nil
 }

@@ -1,8 +1,11 @@
 package smoke
 
 import (
+	"fmt"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"math/big"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -288,6 +291,19 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	state, err := ccdeploy.LoadOnchainState(e)
 	require.NoError(t, err)
 
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		response := `{
+			"status": "complete",
+			"attestation": "0x9049623e91719ef2aa63c55f357be2529b0e7122ae552c18aff8db58b4633c4d3920ff03d3a6d1ddf11f06bf64d7fd60d45447ac81f527ba628877dc5ca759651b08ffae25a6d3b1411749765244f0a1c131cbfe04430d687a2e12fd9d2e6dc08e118ad95d94ad832332cf3c4f7a4f3da0baa803b7be024b02db81951c0f0714de1b"
+		}`
+
+		_, err := w.Write([]byte(response))
+		if err != nil {
+			panic(err)
+		}
+	}))
+	defer server.Close()
+
 	feeds := state.Chains[tenv.FeedChainSel].USDFeeds
 	tokenConfig := ccdeploy.NewTokenConfig()
 	tokenConfig.UpsertTokenInfo(ccdeploy.LinkSymbol,
@@ -309,7 +325,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 		USDCConfig: ccdeploy.USDCConfig{
 			Enabled: true,
 			USDCAttestationConfig: ccdeploy.USDCAttestationConfig{
-				API:         "https://google.com",
+				API:         server.URL,
 				APITimeout:  commonconfig.MustNewDuration(time.Second),
 				APIInterval: commonconfig.MustNewDuration(500 * time.Millisecond),
 			},
@@ -420,9 +436,16 @@ func TestUSDCTokenTransfer(t *testing.T) {
 		}
 	}
 
+	balance, err := dstUSDC.BalanceOf(nil, state.Chains[tenv.FeedChainSel].Receiver.Address())
+	fmt.Println("Balance before transfer", balance)
+
 	// Wait for all commit reports to land.
 	ccdeploy.ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
 
 	// Wait for all exec reports to land
 	ccdeploy.ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
+
+	balance, err = dstUSDC.BalanceOf(nil, state.Chains[tenv.FeedChainSel].Receiver.Address())
+	require.NoError(t, err)
+	require.Equal(t, twoCoins, balance)
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	mapset "github.com/deckarep/golang-set/v2"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	"math/big"
 	"sort"
 	"testing"
@@ -567,10 +568,12 @@ func setUSDCTokenPoolCounterPart(
 	var fixedAddr [32]byte
 	copy(fixedAddr[:], allowedCaller[:32])
 
+	domain, _ := reader.AllAvailableDomains()[destChainSelector]
+
 	domains := []usdc_token_pool.USDCTokenPoolDomainUpdate{
 		{
 			AllowedCaller:     fixedAddr,
-			DomainIdentifier:  100,
+			DomainIdentifier:  domain,
 			DestChainSelector: destChainSelector,
 			Enabled:           true,
 		},
