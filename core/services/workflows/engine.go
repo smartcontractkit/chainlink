@@ -27,6 +27,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 )
 
+const fifteenMinutesMs = 15 * 60 * 1000
+
 type stepRequest struct {
 	stepRef string
 	state   store.WorkflowExecution
@@ -283,6 +285,7 @@ func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
 		Metadata: capabilities.RegistrationMetadata{
 			WorkflowID:    e.workflow.id,
 			WorkflowOwner: e.workflow.owner,
+			ReferenceID:   step.Vertex.Ref,
 		},
 		Config: stepConfig,
 	}
@@ -622,7 +625,7 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 			// the async nature of the workflow engine would provide no guarantees.
 		}
 		logCustMsg(ctx, cma, "execution status: "+status, l)
-		return e.finishExecution(ctx, state.ExecutionID, status)
+		return e.finishExecution(ctx, cma, state.ExecutionID, status)
 	}
 
 	// Finally, since the workflow hasn't timed out or completed, let's
@@ -669,9 +672,12 @@ func (e *Engine) queueIfReady(state store.WorkflowExecution, step *step) {
 	}
 }
 
-func (e *Engine) finishExecution(ctx context.Context, executionID string, status string) error {
-	e.logger.With(platform.KeyWorkflowExecutionID, executionID, "status", status).Info("finishing execution")
+func (e *Engine) finishExecution(ctx context.Context, cma custmsg.MessageEmitter, executionID string, status string) error {
+	l := e.logger.With(platform.KeyWorkflowExecutionID, executionID, "status", status)
 	metrics := e.metrics.with("status", status)
+
+	l.Info("finishing execution")
+
 	err := e.executionStates.UpdateStatus(ctx, executionID, status)
 	if err != nil {
 		return err
@@ -687,6 +693,13 @@ func (e *Engine) finishExecution(ctx context.Context, executionID string, status
 	e.stepUpdatesChMap.remove(executionID)
 	metrics.updateTotalWorkflowsGauge(ctx, e.stepUpdatesChMap.len())
 	metrics.updateWorkflowExecutionLatencyGauge(ctx, executionDuration)
+
+	if executionDuration > fifteenMinutesMs {
+		logCustMsg(ctx, cma, fmt.Sprintf("execution duration exceeded 15 minutes: %d", executionDuration), l)
+		l.Warnf("execution duration exceeded 15 minutes: %d", executionDuration)
+	}
+	logCustMsg(ctx, cma, fmt.Sprintf("execution duration: %d", executionDuration), l)
+	l.Infof("execution duration: %d", executionDuration)
 	e.onExecutionFinished(executionID)
 	return nil
 }
@@ -1100,6 +1113,7 @@ func (e *Engine) Close() error {
 				Metadata: capabilities.RegistrationMetadata{
 					WorkflowID:    e.workflow.id,
 					WorkflowOwner: e.workflow.owner,
+					ReferenceID:   s.Vertex.Ref,
 				},
 				Config: stepConfig,
 			}
@@ -1107,7 +1121,7 @@ func (e *Engine) Close() error {
 			innerErr := s.capability.UnregisterFromWorkflow(ctx, reg)
 			if innerErr != nil {
 				return &workflowError{err: innerErr,
-					reason: fmt.Sprintf("failed to unregister capability from workflow: %+v", reg),
+					reason: fmt.Sprintf("failed to unregister capability from  workflow: %+v", reg),
 					labels: map[string]string{
 						platform.KeyWorkflowID: e.workflow.id,
 						platform.KeyStepID:     s.ID,
