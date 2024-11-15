@@ -72,8 +72,10 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
     uint32 reasonableGasPriceGwei; //     │ If gas price is less (in gwei units), transmitter gets half the savings.
     uint32 observationPaymentGjuels; //   │ Fixed LINK reward for each observer.
     uint32 transmissionPaymentGjuels; // ─╯ Fixed reward for transmitter.
-    uint24 accountingGas; //                Overhead incurred by accounting logic.
   }
+
+  // Overhead incurred by accounting logic.
+  uint24 internal s_accountingGas;
 
   HotVars internal s_hotVars;
 
@@ -1157,7 +1159,7 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
     s_hotVars.reasonableGasPriceGwei = reasonableGasPriceGwei;
     s_hotVars.observationPaymentGjuels = observationPaymentGjuels;
     s_hotVars.transmissionPaymentGjuels = transmissionPaymentGjuels;
-    s_hotVars.accountingGas = accountingGas;
+    s_accountingGas = accountingGas;
 
     emit BillingSet(
       maximumGasPriceGwei, reasonableGasPriceGwei, observationPaymentGjuels, transmissionPaymentGjuels, accountingGas
@@ -1186,7 +1188,7 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
       s_hotVars.reasonableGasPriceGwei,
       s_hotVars.observationPaymentGjuels,
       s_hotVars.transmissionPaymentGjuels,
-      s_hotVars.accountingGas
+      s_accountingGas
     );
   }
 
@@ -1431,7 +1433,7 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
       uint256 callDataGasCost = 16 * msg.data.length;
       uint256 gasLeft = gasleft();
       uint256 gasCostEthWei =
-        _transmitterGasCostWei(uint256(initialGas), gasPriceGwei, callDataGasCost, hotVars.accountingGas, gasLeft);
+        _transmitterGasCostWei(uint256(initialGas), gasPriceGwei, callDataGasCost, s_accountingGas, gasLeft);
 
       // Even if we assume absurdly large values, this still does not overflow. With
       // - usedGas <= 1'000'000 gas <= 2**20 gas
