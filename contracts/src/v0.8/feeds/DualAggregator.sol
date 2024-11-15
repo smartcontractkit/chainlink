@@ -481,10 +481,8 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
         return round_;
       }
 
-      Transmission memory transmission = s_transmissions[round_];
-
       // check if this round does not accomplish the cutoff time condition
-      if (transmission.recordedTimestamp + s_cutoffTime < block.timestamp) {
+      if (s_transmissions[round_].recordedTimestamp + s_cutoffTime < block.timestamp) {
         return round_;
       }
     }
