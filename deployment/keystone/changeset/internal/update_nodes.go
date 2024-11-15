@@ -2,6 +2,7 @@ package internal
 
 import (
 	"bytes"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"sort"
@@ -16,15 +17,23 @@ import (
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 )
 
+type NodeUpdate struct {
+	EncryptionPublicKey string
+	NodeOperatorID      uint32
+	Signer              [32]byte
+
+	Capabilities []kcr.CapabilitiesRegistryCapability
+}
+
 type UpdateNodesRequest struct {
 	Chain    deployment.Chain
 	Registry *kcr.CapabilitiesRegistry
 
-	P2pToCapabilities map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability
+	P2pToUpdates map[p2pkey.PeerID]NodeUpdate
 }
 
 func (req *UpdateNodesRequest) NodeParams() ([]kcr.CapabilitiesRegistryNodeParams, error) {
-	return makeNodeParams(req.Registry, req.P2pToCapabilities)
+	return makeNodeParams(req.Registry, req.P2pToUpdates)
 }
 
 // P2PSignerEnc represent the key fields in kcr.CapabilitiesRegistryNodeParams
@@ -36,18 +45,29 @@ type P2PSignerEnc struct {
 }
 
 func (req *UpdateNodesRequest) Validate() error {
-	if len(req.P2pToCapabilities) == 0 {
+	if len(req.P2pToUpdates) == 0 {
 		return errors.New("p2pToCapabilities is empty")
 	}
 	// no duplicate capabilities
-	for peer, caps := range req.P2pToCapabilities {
+	for peer, updates := range req.P2pToUpdates {
 		seen := make(map[string]struct{})
-		for _, cap := range caps {
+		for _, cap := range updates.Capabilities {
 			id := kslib.CapabilityID(cap)
 			if _, exists := seen[id]; exists {
 				return fmt.Errorf("duplicate capability %s for %s", id, peer)
 			}
 			seen[id] = struct{}{}
+		}
+
+		if updates.EncryptionPublicKey != "" {
+			pk, err := hex.DecodeString(updates.EncryptionPublicKey)
+			if err != nil {
+				return fmt.Errorf("invalid public key: could not hex decode: %w", err)
+			}
+
+			if len(pk) != 32 {
+				return fmt.Errorf("invalid public key: got len %d, need 32", len(pk))
+			}
 		}
 	}
 
@@ -136,11 +156,11 @@ func AppendCapabilities(lggr logger.Logger, registry *kcr.CapabilitiesRegistry, 
 }
 
 func makeNodeParams(registry *kcr.CapabilitiesRegistry,
-	p2pToCapabilities map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability) ([]kcr.CapabilitiesRegistryNodeParams, error) {
+	p2pToUpdates map[p2pkey.PeerID]NodeUpdate) ([]kcr.CapabilitiesRegistryNodeParams, error) {
 
 	var out []kcr.CapabilitiesRegistryNodeParams
 	var p2pIds []p2pkey.PeerID
-	for p2pID := range p2pToCapabilities {
+	for p2pID := range p2pToUpdates {
 		p2pIds = append(p2pIds, p2pID)
 	}
 
@@ -150,20 +170,46 @@ func makeNodeParams(registry *kcr.CapabilitiesRegistry,
 		return nil, fmt.Errorf("failed to get nodes by p2p ids: %w", err)
 	}
 	for _, node := range nodes {
-		caps, ok := p2pToCapabilities[node.P2pId]
+		updates, ok := p2pToUpdates[node.P2pId]
 		if !ok {
 			return nil, fmt.Errorf("capabilities not found for node %s", node.P2pId)
 		}
-		ids, err := capabilityIds(registry, caps)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get capability ids: %w", err)
+
+		ids := node.HashedCapabilityIds
+		if len(updates.Capabilities) > 0 {
+			is, err := capabilityIds(registry, updates.Capabilities)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get capability ids: %w", err)
+			}
+			ids = is
 		}
+
+		encryptionKey := node.EncryptionPublicKey
+		if updates.EncryptionPublicKey != "" {
+			pk, err := hex.DecodeString(updates.EncryptionPublicKey)
+			if err != nil {
+				return nil, fmt.Errorf("failed to decode encryption public key: %w", err)
+			}
+			encryptionKey = [32]byte(pk)
+		}
+
+		signer := node.Signer
+		var zero [32]byte
+		if !bytes.Equal(updates.Signer[:], zero[:]) {
+			signer = updates.Signer
+		}
+
+		nodeOperatorID := node.NodeOperatorId
+		if updates.NodeOperatorID != 0 {
+			nodeOperatorID = updates.NodeOperatorID
+		}
+
 		out = append(out, kcr.CapabilitiesRegistryNodeParams{
-			NodeOperatorId:      node.NodeOperatorId,
+			NodeOperatorId:      nodeOperatorID,
 			P2pId:               node.P2pId,
 			HashedCapabilityIds: ids,
-			EncryptionPublicKey: node.EncryptionPublicKey,
-			Signer:              node.Signer,
+			EncryptionPublicKey: encryptionKey,
+			Signer:              signer,
 		})
 	}
 	sort.Slice(out, func(i, j int) bool {
