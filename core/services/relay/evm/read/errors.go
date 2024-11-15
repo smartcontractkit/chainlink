@@ -18,7 +18,7 @@ const (
 	eventReadType  readType = "QueryKey"
 )
 
-type ReadError struct {
+type Error struct {
 	Err    error
 	Type   readType
 	Detail *readDetail
@@ -33,8 +33,8 @@ type readDetail struct {
 	Block          string
 }
 
-func newErrorFromCall(err error, call Call, block string, tp readType) ReadError {
-	return ReadError{
+func newErrorFromCall(err error, call Call, block string, tp readType) Error {
+	return Error{
 		Err:  err,
 		Type: tp,
 		Detail: &readDetail{
@@ -48,7 +48,7 @@ func newErrorFromCall(err error, call Call, block string, tp readType) ReadError
 	}
 }
 
-func (e ReadError) Error() string {
+func (e Error) Error() string {
 	var builder strings.Builder
 
 	builder.WriteString("[read error]")
@@ -71,7 +71,7 @@ func (e ReadError) Error() string {
 	return builder.String()
 }
 
-func (e ReadError) Unwrap() error {
+func (e Error) Unwrap() error {
 	return e.Err
 }
 
