@@ -11,6 +11,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
+	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
@@ -37,6 +38,7 @@ type WriteTarget struct {
 	receiverGasMinimum uint64
 	capabilities.CapabilityInfo
 
+	metrics *writeTargetMetricsLabeler
 	emitter custmsg.MessageEmitter
 	lggr    logger.Logger
 
@@ -69,12 +71,16 @@ func NewWriteTarget(
 	cw commontypes.ChainWriter,
 	forwarderAddress string,
 	txGasLimit uint64,
-) *WriteTarget {
+) (*WriteTarget, error) {
 	info := capabilities.MustNewCapabilityInfo(
 		id,
 		capabilities.CapabilityTypeTarget,
 		"Write target.",
 	)
+	labeler, err := newWriteTargetMetricsLabeler(metrics.NewLabeler())
+	if err != nil {
+		return nil, fmt.Errorf("failed to create write target metrics labeler: %w", err)
+	}
 
 	return &WriteTarget{
 		cr,
@@ -86,10 +92,11 @@ func NewWriteTarget(
 		forwarderAddress,
 		txGasLimit - ForwarderContractLogicGasCost,
 		info,
+		labeler,
 		custmsg.NewLabeler(),
 		logger.Named(lggr, "WriteTarget"),
 		false,
-	}
+	}, nil
 }
 
 // Note: This should be a shared type that the OCR3 package validates as well

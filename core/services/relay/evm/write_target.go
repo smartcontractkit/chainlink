@@ -73,5 +73,10 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 		return nil, err
 	}
 
-	return targets.NewWriteTarget(logger.Named(lggr, "WriteTarget"), id, cr, cw, config.ForwarderAddress().String(), gasLimitDefault), nil
+	wt, err := targets.NewWriteTarget(logger.Named(lggr, "WriteTarget"), id, cr, cw, config.ForwarderAddress().String(), gasLimitDefault)
+	if err != nil {
+		return nil, err
+	}
+
+	return wt, nil
 }
