@@ -279,6 +279,8 @@ func TestTokenTransfer(t *testing.T) {
 	require.Equal(t, twoCoins, balance)
 }
 
+// setupTokens deploys transferable tokens on the source and dest, mints tokens for the source and dest, and
+// approves the router to spend the tokens
 func setupTokens(t *testing.T, tenv ccdeploy.DeployedEnv) (srcToken *burn_mint_erc677.BurnMintERC677, dstToken *burn_mint_erc677.BurnMintERC677) {
 	lggr := logger.TestLogger(t)
 
@@ -730,7 +732,4 @@ func Test_PricingForTokenTransfers(t *testing.T) {
 		require.Error(t, err)
 		require.Nil(t, tx)
 	})
-
 }
-
-
