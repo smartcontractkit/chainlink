@@ -282,7 +282,7 @@ func TestTokenTransfer(t *testing.T) {
 func TestUSDCTokenTransfer(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := ccdeploy.Context(t)
-	tenv := ccdeploy.NewMemoryEnvironment(t, lggr, 3, 4)
+	tenv := ccdeploy.NewMemoryEnvironment(t, lggr, 2, 4)
 
 	e := tenv.Env
 	state, err := ccdeploy.LoadOnchainState(e)
@@ -416,19 +416,13 @@ func TestUSDCTokenTransfer(t *testing.T) {
 					ExtraArgs:    nil,
 				})
 				expectedSeqNum[dest] = seqNum
-			} else {
-				seqNum := ccdeploy.TestSendRequest(t, e, state, src, dest, false, router.ClientEVM2AnyMessage{
-					Receiver:     receiver,
-					Data:         data,
-					TokenAmounts: nil,
-					FeeToken:     feeToken,
-					ExtraArgs:    nil,
-				})
-				expectedSeqNum[dest] = seqNum
 			}
 		}
 	}
 
 	// Wait for all commit reports to land.
 	ccdeploy.ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
+
+	// Wait for all exec reports to land
+	ccdeploy.ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
 }

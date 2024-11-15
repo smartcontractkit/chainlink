@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_transmitter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/usdc_token_pool"
 	"math/big"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -219,6 +220,7 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 		return fmt.Errorf("rmn home not found")
 	}
 
+	usdcConfiguration := make(map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig)
 	for _, chainSel := range c.ChainsToDeploy {
 		chain, ok := e.Chains[chainSel]
 		if !ok {
@@ -241,12 +243,22 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 				return err1
 			}
 			e.Logger.Infow("Deployed USDC contracts",
+				"chainSelector", chainSel,
 				"token", token.Address(),
 				"pool", pool.Address(),
 				"transmitter", transmitter.Address(),
 				"messenger", messenger.Address(),
 			)
+
+			usdcConfiguration[cciptypes.ChainSelector(chainSel)] = pluginconfig.USDCCCTPTokenConfig{
+				SourcePoolAddress:            strings.ToLower(pool.Address().Hex()),
+				SourceMessageTransmitterAddr: strings.ToLower(transmitter.Address().Hex()),
+			}
 		}
+	}
+
+	for _, chainSel := range c.ChainsToDeploy {
+		chain, _ := e.Chains[chainSel]
 
 		chainAddresses, err := ab.AddressesForChain(chain.Selector)
 		if err != nil {
@@ -277,12 +289,7 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 				Type:    pluginconfig.USDCCCTPHandlerType,
 				Version: "1.0",
 				USDCCCTPObserverConfig: &pluginconfig.USDCCCTPObserverConfig{
-					Tokens: map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig{
-						cciptypes.ChainSelector(chain.Selector): {
-							SourcePoolAddress:            chainState.USDCTokenPool.Address().Hex(),
-							SourceMessageTransmitterAddr: chainState.MockUSDCTransmitter.Address().Hex(),
-						},
-					},
+					Tokens:                 usdcConfiguration,
 					AttestationAPI:         c.USDCConfig.API,
 					AttestationAPITimeout:  c.USDCConfig.APITimeout,
 					AttestationAPIInterval: c.USDCConfig.APIInterval,
