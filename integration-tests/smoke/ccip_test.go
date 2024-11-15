@@ -15,7 +15,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccdeploy "github.com/smartcontractkit/chainlink/deployment/ccip"
-	ccipdeployment "github.com/smartcontractkit/chainlink/deployment/ccip"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
@@ -280,7 +279,7 @@ func TestTokenTransfer(t *testing.T) {
 	require.Equal(t, twoCoins, balance)
 }
 
-func setupTokens(t *testing.T, tenv ccipdeployment.DeployedEnv) (srcToken *burn_mint_erc677.BurnMintERC677, dstToken *burn_mint_erc677.BurnMintERC677) {
+func setupTokens(t *testing.T, tenv ccdeploy.DeployedEnv) (srcToken *burn_mint_erc677.BurnMintERC677, dstToken *burn_mint_erc677.BurnMintERC677) {
 	lggr := logger.TestLogger(t)
 
 	e := tenv.Env
