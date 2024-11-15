@@ -38,10 +38,10 @@ func Test_GetPeerIDToTransmissionDelay(t *testing.T) {
 			"100ms",
 			"15c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0",
 			map[string]time.Duration{
-				"one":   300 * time.Millisecond,
-				"two":   0 * time.Millisecond,
-				"three": 100 * time.Millisecond,
-				"four":  200 * time.Millisecond,
+				"one":   100 * time.Millisecond,
+				"two":   200 * time.Millisecond,
+				"three": 300 * time.Millisecond,
+				"four":  0 * time.Millisecond,
 			},
 		},
 
@@ -66,10 +66,10 @@ func Test_GetPeerIDToTransmissionDelay(t *testing.T) {
 			"100ms",
 			"16c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
 			map[string]time.Duration{
-				"one":   300 * time.Millisecond,
+				"one":   200 * time.Millisecond,
 				"two":   100 * time.Millisecond,
-				"three": 200 * time.Millisecond,
-				"four":  0 * time.Millisecond,
+				"three": 0 * time.Millisecond,
+				"four":  300 * time.Millisecond,
 			},
 		},
 	}
