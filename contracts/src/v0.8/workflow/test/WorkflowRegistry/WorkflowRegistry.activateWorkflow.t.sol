@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {WorkflowRegistry} from "../../dev/WorkflowRegistry.sol";
+import {WorkflowRegistry} from "../../src/WorkflowRegistry.sol";
 import {WorkflowRegistrySetup} from "./WorkflowRegistrySetup.t.sol";
 
 contract WorkflowRegistry_activateWorkflow is WorkflowRegistrySetup {
@@ -44,7 +44,7 @@ contract WorkflowRegistry_activateWorkflow is WorkflowRegistrySetup {
     s_registry.activateWorkflow(s_validWorkflowKey);
   }
 
-  // whenTheRegistryIsNotLocked whenTheCallerIsTheWorkflowOwner whenTheWorkflowIsActive
+  // whenTheRegistryIsNotLocked whenTheCallerIsTheWorkflowOwner whenTheWorkflowIsPaused
   function test_RevertWhen_TheDonIDIsNotAllowed() external {
     // Register a paused workflow first.
     vm.prank(s_authorizedAddress);
@@ -67,7 +67,7 @@ contract WorkflowRegistry_activateWorkflow is WorkflowRegistrySetup {
     s_registry.activateWorkflow(s_validWorkflowKey);
   }
 
-  // whenTheRegistryIsNotLocked whenTheCallerIsTheWorkflowOwner whenTheWorkflowIsActive whenTheDonIDIsAllowed
+  // whenTheRegistryIsNotLocked whenTheCallerIsTheWorkflowOwner whenTheWorkflowIsPaused whenTheDonIDIsAllowed
   function test_RevertWhen_TheCallerIsNotAnAuthorizedAddress() external {
     // Register a paused workflow first.
     vm.prank(s_authorizedAddress);
@@ -90,7 +90,7 @@ contract WorkflowRegistry_activateWorkflow is WorkflowRegistrySetup {
     s_registry.activateWorkflow(s_validWorkflowKey);
   }
 
-  // whenTheRegistryIsNotLocked whenTheCallerIsTheWorkflowOwner whenTheWorkflowIsActive whenTheDonIDIsAllowed
+  // whenTheRegistryIsNotLocked whenTheCallerIsTheWorkflowOwner whenTheWorkflowIsPaused whenTheDonIDIsAllowed
   function test_WhenTheCallerIsAnAuthorizedAddress() external {
     // Register a paused workflow first.
     vm.prank(s_authorizedAddress);

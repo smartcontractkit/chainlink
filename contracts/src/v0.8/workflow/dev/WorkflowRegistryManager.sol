@@ -213,7 +213,7 @@ contract WorkflowRegistryManager is Ownable2StepMsgSender, ITypeAndVersion {
   /// @custom:throws NoActiveVersionAvailable if s_activeVersionNumber is `type(uint32).max`.
   function getActiveVersionNumber() external view returns (uint32 activeVersionNumber) {
     activeVersionNumber = s_activeVersionNumber;
-    if (activeVersionNumber == type(uint32).max) revert NoActiveVersionAvailable();
+    if (activeVersionNumber == 0) revert NoActiveVersionAvailable();
     return activeVersionNumber;
   }
 
