@@ -190,28 +190,42 @@ func (j JobClient) ListNodeChainConfigs(ctx context.Context, in *nodev1.ListNode
 		if err != nil {
 			return nil, err
 		}
-		chainID, err := chainsel.ChainIdFromSelector(selector)
-		if err != nil {
-			return nil, err
-		}
-
 		if family == chainsel.FamilyEVM {
 			// already handled above
 			continue
 		}
 
+		var chainID string
+
 		var ocrtype chaintype.ChainType
 		switch family {
 		case chainsel.FamilyEVM:
 			ocrtype = chaintype.EVM
+			cid, err := chainsel.ChainIdFromSelector(selector)
+			if err != nil {
+				return nil, err
+			}
+			chainID = strconv.Itoa(int(cid))
 		case chainsel.FamilySolana:
 			ocrtype = chaintype.Solana
+			cid, err := chainsel.SolanaChainIdFromSelector(selector)
+			if err != nil {
+				return nil, err
+			}
+			chainID = cid
 		case chainsel.FamilyStarknet:
 			ocrtype = chaintype.StarkNet
+			// TODO: support cid
 		case chainsel.FamilyCosmos:
 			ocrtype = chaintype.Cosmos
+			// TODO: support cid
 		case chainsel.FamilyAptos:
 			ocrtype = chaintype.Aptos
+			cid, err := chainsel.AptosChainIdFromSelector(selector)
+			if err != nil {
+				return nil, err
+			}
+			chainID = strconv.Itoa(int(cid))
 		default:
 			panic(fmt.Sprintf("Unsupported chain family %v", family))
 		}
@@ -244,7 +258,7 @@ func (j JobClient) ListNodeChainConfigs(ctx context.Context, in *nodev1.ListNode
 
 		chainConfigs = append(chainConfigs, &nodev1.ChainConfig{
 			Chain: &nodev1.Chain{
-				Id:   strconv.Itoa(int(chainID)),
+				Id:   chainID,
 				Type: ctype,
 			},
 			AccountAddress: "", // TODO: support AccountAddress
