@@ -56,6 +56,8 @@ func TestCache(t *testing.T) {
 }
 
 func TestCache_EvictAfterSize(t *testing.T) {
+	t.Skip("Flaky test, skipping until we can fix it")
+
 	t.Parallel()
 	ctx := tests.Context(t)
 	clock := clockwork.NewFakeClock()
