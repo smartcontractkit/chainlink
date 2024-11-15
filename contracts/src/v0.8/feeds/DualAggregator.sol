@@ -1140,8 +1140,7 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
     uint32 transmissionPaymentGjuels,
     uint24 accountingGas
   ) external {
-    AccessControllerInterface access = s_billingAccessController;
-    if (msg.sender != owner() && !access.hasAccess(msg.sender, msg.data)) {
+    if (!(msg.sender == owner() || s_billingAccessController.hasAccess(msg.sender, msg.data))) {
       revert OnlyOwnerAndBillingAdminCanCall();
     }
     _payOracles();
