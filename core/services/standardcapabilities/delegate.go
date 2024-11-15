@@ -258,7 +258,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		if err != nil {
 			return nil, err
 		}
-		return []job.ServiceCtx{computeSrvc}, nil
+		return []job.ServiceCtx{handler, computeSrvc}, nil
 	}
 
 	standardCapability := newStandardCapabilities(log, spec.StandardCapabilitiesSpec, d.cfg, telemetryService, kvStore, d.registry, errorLog,
