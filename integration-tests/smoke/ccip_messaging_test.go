@@ -144,6 +144,8 @@ func Test_CCIPMessaging(t *testing.T) {
 	})
 
 	t.Run("message to contract implementing CCIPReceiver", func(t *testing.T) {
+		latestHead, err := e.Env.Chains[destChain].Client.HeaderByNumber(ctx, nil)
+		require.NoError(t, err)
 		out = runMessagingTestCase(
 			messagingTestCase{
 				testCaseSetup: setup,
@@ -155,7 +157,10 @@ func Test_CCIPMessaging(t *testing.T) {
 			nil, // default extraArgs
 			ccdeploy.EXECUTION_STATE_SUCCESS,
 			func(t *testing.T) {
-				iter, err := state.Chains[destChain].Receiver.FilterMessageReceived(nil)
+				iter, err := state.Chains[destChain].Receiver.FilterMessageReceived(&bind.FilterOpts{
+					Context: ctx,
+					Start:   latestHead.Number.Uint64(),
+				})
 				require.NoError(t, err)
 				require.True(t, iter.Next())
 				// MessageReceived doesn't emit the data unfortunately, so can't check that.
@@ -164,6 +169,8 @@ func Test_CCIPMessaging(t *testing.T) {
 	})
 
 	t.Run("message to contract implementing CCIPReceiver with low exec gas", func(t *testing.T) {
+		latestHead, err := e.Env.Chains[destChain].Client.HeaderByNumber(ctx, nil)
+		require.NoError(t, err)
 		out = runMessagingTestCase(
 			messagingTestCase{
 				testCaseSetup: setup,
@@ -176,7 +183,7 @@ func Test_CCIPMessaging(t *testing.T) {
 			ccdeploy.EXECUTION_STATE_FAILURE,      // state would be failed onchain due to low gas
 		)
 
-		manuallyExecute(ctx, t, state, destChain, out, sourceChain, e, sender)
+		manuallyExecute(ctx, t, latestHead.Number.Uint64(), state, destChain, out, sourceChain, e, sender)
 
 		t.Logf("successfully manually executed message %x",
 			out.msgSentEvent.Message.Header.MessageId)
@@ -186,6 +193,7 @@ func Test_CCIPMessaging(t *testing.T) {
 func manuallyExecute(
 	ctx context.Context,
 	t *testing.T,
+	startBlock uint64,
 	state ccdeploy.CCIPOnChainState,
 	destChain uint64,
 	out messagingTestCaseOutput,
@@ -194,16 +202,20 @@ func manuallyExecute(
 	sender []byte,
 ) {
 	merkleRoot := getMerkleRoot(
+		ctx,
 		t,
 		state.Chains[destChain].OffRamp,
 		out.msgSentEvent.SequenceNumber,
+		startBlock,
 	)
 	messageHash := getMessageHash(
+		ctx,
 		t,
 		state.Chains[destChain].OffRamp,
 		sourceChain,
 		out.msgSentEvent.SequenceNumber,
 		out.msgSentEvent.Message.Header.MessageId,
+		startBlock,
 	)
 	tree, err := merklemulti.NewTree(hashutil.NewKeccak(), [][32]byte{messageHash})
 	require.NoError(t, err)
@@ -257,11 +269,16 @@ func manuallyExecute(
 }
 
 func getMerkleRoot(
+	ctx context.Context,
 	t *testing.T,
 	offRamp *offramp.OffRamp,
-	seqNr uint64,
+	seqNr,
+	startBlock uint64,
 ) (merkleRoot [32]byte) {
-	iter, err := offRamp.FilterCommitReportAccepted(nil)
+	iter, err := offRamp.FilterCommitReportAccepted(&bind.FilterOpts{
+		Context: ctx,
+		Start:   startBlock,
+	})
 	require.NoError(t, err)
 	for iter.Next() {
 		for _, mr := range iter.Event.MerkleRoots {
@@ -278,13 +295,19 @@ func getMerkleRoot(
 }
 
 func getMessageHash(
+	ctx context.Context,
 	t *testing.T,
 	offRamp *offramp.OffRamp,
 	sourceChainSelector,
 	seqNr uint64,
 	msgID [32]byte,
+	startBlock uint64,
 ) (messageHash [32]byte) {
-	iter, err := offRamp.FilterExecutionStateChanged(nil,
+	iter, err := offRamp.FilterExecutionStateChanged(
+		&bind.FilterOpts{
+			Context: ctx,
+			Start:   startBlock,
+		},
 		[]uint64{sourceChainSelector},
 		[]uint64{seqNr},
 		[][32]byte{msgID},
