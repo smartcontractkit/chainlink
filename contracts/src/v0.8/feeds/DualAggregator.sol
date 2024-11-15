@@ -620,15 +620,11 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
   // transmitter could append an arbitrarily long (up to gas-block limit)
   // string of 0 bytes, which we would reimburse at a rate of 16 gas/byte, but
   // which would only cost the transmitter 4 gas/byte.
-  function _requireExpectedMsgDataLength(
-    bytes calldata report,
-    bytes32[] calldata rs,
-    bytes32[] calldata ss
-  ) private pure {
+  function _requireExpectedMsgDataLength(uint256 reportLength, uint256 rsLength, uint256 ssLength) private pure {
     // calldata will never be big enough to make this overflow
-    uint256 expected = TRANSMIT_MSGDATA_CONSTANT_LENGTH_COMPONENT + report.length // one byte per entry in report
-      + rs.length * 32 // 32 bytes per entry in rs
-      + ss.length * 32 // 32 bytes per entry in ss
+    uint256 expected = TRANSMIT_MSGDATA_CONSTANT_LENGTH_COMPONENT + reportLength // one byte per entry in report
+      + rsLength * 32 // 32 bytes per entry in rs
+      + ssLength * 32 // 32 bytes per entry in ss
       + 0; // placeholder
     if (msg.data.length != expected) {
       revert CalldataLengthMismatch();
@@ -696,7 +692,7 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
     uint256 initialGas = gasleft(); // This line must come first
 
     // Validate the report data
-    _validateReport(reportContext, report, rs, ss);
+    _validateReport(reportContext, report.length, rs.length, ss.length);
 
     // Verify signatures attached to report
     _verifySignatures(reportContext, report, rs, ss, rawVs);
@@ -743,9 +739,9 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
   // helper function to validate the report data
   function _validateReport(
     bytes32[3] calldata reportContext,
-    bytes calldata report,
-    bytes32[] calldata rs,
-    bytes32[] calldata ss
+    uint256 reportLength,
+    uint256 rsLength,
+    uint256 ssLength
   ) internal view {
     if (!s_transmitters[msg.sender].active) {
       revert UnauthorizedTransmitter();
@@ -755,12 +751,12 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
       revert ConfigDigestMismatch();
     }
 
-    _requireExpectedMsgDataLength(report, rs, ss);
+    _requireExpectedMsgDataLength(reportLength, rsLength, ssLength);
 
-    if (rs.length != s_hotVars.f + 1) {
+    if (rsLength != s_hotVars.f + 1) {
       revert WrongNumberOfSignatures();
     }
-    if (rs.length != ss.length) {
+    if (rsLength != ssLength) {
       revert SignaturesOutOfRegistration();
     }
   }
