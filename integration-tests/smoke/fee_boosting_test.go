@@ -3,6 +3,7 @@ package smoke
 import (
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/test-go/testify/require"
@@ -83,7 +84,7 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 		return e, state, allChainSelectors
 	}
 
-	t.Run("boost needed due to WETH price increase", func(t *testing.T) {
+	t.Run("boost needed due to WETH price increase (also covering gas price inscrease)", func(t *testing.T) {
 		e, state, chains := setupTestEnv(t, 2)
 		runFeeboostTestCase(feeboostTestCase{
 			t:            t,
@@ -124,27 +125,6 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 			destChain:   chains[1],
 		})
 	})
-
-	t.Run("boost needed due to gas price increase", func(t *testing.T) {
-		e, state, chains := setupTestEnv(t, 2)
-		runFeeboostTestCase(feeboostTestCase{
-			t:            t,
-			sender:       common.LeftPadBytes(e.Env.Chains[chains[0]].DeployerKey.From.Bytes(), 32),
-			deployedEnv:  e,
-			onchainState: state,
-			initialPrices: ccipdeployment.InitialPrices{
-				LinkPrice: deployment.E18Mult(5),
-				WethPrice: deployment.E18Mult(9),
-				GasPrice:  ccipdeployment.ToPackedFee(big.NewInt(1.75e11), big.NewInt(0)),
-			},
-			priceFeedPrices: priceFeedPrices{
-				linkPrice: deployment.E18Mult(5),
-				wethPrice: big.NewInt(9e8),
-			},
-			sourceChain: chains[0],
-			destChain:   chains[1],
-		})
-	})
 }
 
 func runFeeboostTestCase(tc feeboostTestCase) {
@@ -161,7 +141,12 @@ func runFeeboostTestCase(tc feeboostTestCase) {
 	})
 	expectedSeqNum[tc.destChain] = seqNum
 
-	sleepAndReplay(tc.t, tc.deployedEnv, tc.sourceChain, tc.destChain)
+	// hack
+	time.Sleep(30 * time.Second)
+	replayBlocks := make(map[uint64]uint64)
+	replayBlocks[tc.sourceChain] = 1
+	replayBlocks[tc.destChain] = 1
+	ccipdeployment.ReplayLogs(tc.t, tc.deployedEnv.Env.Offchain, replayBlocks)
 
 	ccipdeployment.ConfirmCommitForAllWithExpectedSeqNums(tc.t, tc.deployedEnv.Env, tc.onchainState, expectedSeqNum, startBlocks)
 	ccipdeployment.ConfirmExecWithSeqNrForAll(tc.t, tc.deployedEnv.Env, tc.onchainState, expectedSeqNum, startBlocks)
