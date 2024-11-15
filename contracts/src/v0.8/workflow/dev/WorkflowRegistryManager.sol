@@ -11,7 +11,7 @@ import {Ownable2StepMsgSender} from "../../shared/access/Ownable2StepMsgSender.s
 /// deployment information for each version, including deployment timestamp, chain ID, and active status. Only one
 /// version can be active at any given time.
 contract WorkflowRegistryManager is Ownable2StepMsgSender, ITypeAndVersion {
-  string public constant override typeAndVersion = "WorkflowRegistryManager 1.0.0";
+  string public constant override typeAndVersion = "WorkflowRegistryManager 1.0.0-dev";
   uint8 private constant MAX_PAGINATION_LIMIT = 100;
 
   struct Version {

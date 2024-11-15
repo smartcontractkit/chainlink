@@ -13,7 +13,7 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
   using EnumerableSet for EnumerableSet.AddressSet;
   using EnumerableSet for EnumerableSet.UintSet;
 
-  string public constant override typeAndVersion = "WorkflowRegistry 1.0.0";
+  string public constant override typeAndVersion = "WorkflowRegistry 1.0.0-dev";
   uint8 private constant MAX_WORKFLOW_NAME_LENGTH = 64;
   uint8 private constant MAX_URL_LENGTH = 200;
   uint8 private constant MAX_PAGINATION_LIMIT = 100;
