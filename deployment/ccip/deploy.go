@@ -12,15 +12,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/registry_module_owner_custom"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/erc20"
 
-	"github.com/smartcontractkit/chainlink/deployment"
-
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/nonce_manager"
@@ -31,7 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_admin_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/weth9"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 )
 
@@ -64,29 +59,6 @@ var (
 	BurnMintToken     deployment.ContractType = "BurnMintToken"
 	BurnMintTokenPool deployment.ContractType = "BurnMintTokenPool"
 )
-
-type Contracts interface {
-	*capabilities_registry.CapabilitiesRegistry |
-		*rmn_proxy_contract.RMNProxyContract |
-		*ccip_home.CCIPHome |
-		*rmn_home.RMNHome |
-		*nonce_manager.NonceManager |
-		*fee_quoter.FeeQuoter |
-		*router.Router |
-		*token_admin_registry.TokenAdminRegistry |
-		*registry_module_owner_custom.RegistryModuleOwnerCustom |
-		*weth9.WETH9 |
-		*rmn_remote.RMNRemote |
-		*owner_helpers.ManyChainMultiSig |
-		*owner_helpers.RBACTimelock |
-		*offramp.OffRamp |
-		*onramp.OnRamp |
-		*burn_mint_erc677.BurnMintERC677 |
-		*burn_mint_token_pool.BurnMintTokenPool |
-		*maybe_revert_message_receiver.MaybeRevertMessageReceiver |
-		*aggregator_v3_interface.AggregatorV3Interface |
-		*erc20.ERC20
-}
 
 type DeployCCIPContractConfig struct {
 	HomeChainSel   uint64
