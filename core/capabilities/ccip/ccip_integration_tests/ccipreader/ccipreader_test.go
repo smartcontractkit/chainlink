@@ -2,7 +2,6 @@ package ccipreader
 
 import (
 	"context"
-
 	"math/big"
 	"sort"
 	"testing"
