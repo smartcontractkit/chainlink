@@ -534,7 +534,7 @@ func Test_PricingForTokenTransfers(t *testing.T) {
 		// Send to the receiver on the destination chain paying with native token
 		var (
 			receiver = common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32)
-			data     = []byte("hello world")
+			data     = []byte("")
 			feeToken = common.HexToAddress("0x0")
 		)
 
@@ -732,3 +732,5 @@ func Test_PricingForTokenTransfers(t *testing.T) {
 	})
 
 }
+
+
