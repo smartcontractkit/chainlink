@@ -579,11 +579,7 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
   function _decodeReport(
     bytes memory rawReport
   ) internal pure returns (Report memory) {
-    uint32 observationsTimestamp;
-    bytes32 rawObservers;
-    int192[] memory observations;
-    int192 juelsPerFeeCoin;
-    (observationsTimestamp, rawObservers, observations, juelsPerFeeCoin) =
+    (uint32 observationsTimestamp, bytes32 rawObservers, int192[] memory observations, int192 juelsPerFeeCoin) =
       abi.decode(rawReport, (uint32, bytes32, int192[], int192));
 
     _requireExpectedReportLength(rawReport, observations);
