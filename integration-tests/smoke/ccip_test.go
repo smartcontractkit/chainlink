@@ -368,6 +368,12 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	_, err = e.Chains[tenv.FeedChainSel].Confirm(tx)
 	require.NoError(t, err)
 
+	err = ccdeploy.UpdateFeeQuoterForUSDC(e.Chains[tenv.HomeChainSel], state.Chains[tenv.HomeChainSel], tenv.FeedChainSel, srcUSDC)
+	require.NoError(t, err)
+
+	err = ccdeploy.UpdateFeeQuoterForUSDC(e.Chains[tenv.FeedChainSel], state.Chains[tenv.FeedChainSel], tenv.HomeChainSel, dstUSDC)
+	require.NoError(t, err)
+
 	tokens := map[uint64][]router.ClientEVMTokenAmount{
 		tenv.HomeChainSel: {{
 			Token:  srcUSDC.Address(),

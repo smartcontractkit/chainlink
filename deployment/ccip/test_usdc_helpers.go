@@ -4,6 +4,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_messenger"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_transmitter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/usdc_token_pool"
@@ -69,6 +70,44 @@ func DeployUSDCToken(
 	}
 
 	return srcToken, dstPool, dstToken, srcPool, nil
+}
+
+func UpdateFeeQuoterForUSDC(
+	chain deployment.Chain,
+	state CCIPChainState,
+	dstChain uint64,
+	usdcToken *burn_mint_erc677.BurnMintERC677,
+) error {
+	config := []fee_quoter.FeeQuoterTokenTransferFeeConfigArgs{
+		{
+			DestChainSelector: dstChain,
+			TokenTransferFeeConfigs: []fee_quoter.FeeQuoterTokenTransferFeeConfigSingleTokenArgs{
+				{
+					usdcToken.Address(),
+					fee_quoter.FeeQuoterTokenTransferFeeConfig{
+						MinFeeUSDCents:    50,
+						MaxFeeUSDCents:    50_000,
+						DeciBps:           0,
+						DestGasOverhead:   180_000,
+						DestBytesOverhead: 640,
+						IsEnabled:         true,
+					},
+				},
+			},
+		},
+	}
+
+	tx, err := state.FeeQuoter.ApplyTokenTransferFeeConfigUpdates(
+		chain.DeployerKey,
+		config,
+		[]fee_quoter.FeeQuoterTokenTransferFeeConfigRemoveArgs{},
+	)
+	if err != nil {
+		return err
+	}
+
+	_, err = chain.Confirm(tx)
+	return err
 }
 
 func deployUSDCTokenOneEnd(
