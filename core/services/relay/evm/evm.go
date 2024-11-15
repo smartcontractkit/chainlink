@@ -806,6 +806,7 @@ func generateTransmitterFrom(ctx context.Context, rargs commontypes.RelayArgs, e
 			checker,
 			configWatcher.chain.ID(),
 			ethKeystore,
+			relayConfig.DualTransmissionConfig,
 		)
 	case commontypes.CCIPExecution:
 		transmitter, err = cciptransmitter.NewTransmitterWithStatusChecker(

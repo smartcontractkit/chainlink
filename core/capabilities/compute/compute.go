@@ -294,7 +294,6 @@ func (c *Compute) createFetcher() func(ctx context.Context, req *wasmpb.FetchReq
 		)
 
 		messageID := strings.Join([]string{
-			req.Metadata.WorkflowId,
 			req.Metadata.WorkflowExecutionId,
 			ghcapabilities.MethodComputeAction,
 			c.idGenerator(),
