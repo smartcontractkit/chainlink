@@ -711,7 +711,7 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
         s_hotVars.latestSecondaryRoundId = roundId;
         emit SecondaryRoundIdUpdated(roundId);
 
-        _payTransmitter(s_hotVars, report_.juelsPerFeeCoin, uint32(initialGas), msg.sender);
+        _payTransmitter(s_hotVars, report_.juelsPerFeeCoin, uint32(initialGas));
         return;
       }
     }
@@ -733,7 +733,7 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
 
     // Store if the latest report was secondary or not
     s_latestSecondary = isSecondary;
-    _payTransmitter(s_hotVars, report_.juelsPerFeeCoin, uint32(initialGas), msg.sender);
+    _payTransmitter(s_hotVars, report_.juelsPerFeeCoin, uint32(initialGas));
   }
 
   // helper function to validate the report data
@@ -1398,12 +1398,7 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
     }
   }
 
-  function _payTransmitter(
-    HotVars memory hotVars,
-    int192 juelsPerFeeCoin,
-    uint32 initialGas,
-    address transmitter
-  ) internal virtual {
+  function _payTransmitter(HotVars memory hotVars, int192 juelsPerFeeCoin, uint32 initialGas) internal virtual {
     // this happens on the path for transmissions. we'd rather pay out
     // a wrong reward than risk a liveness failure due to a revert.
     unchecked {
@@ -1433,7 +1428,7 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
       // we still fit into 166 bits
       uint256 gasCostJuels = (gasCostEthWei * uint192(juelsPerFeeCoin)) / 1e18;
 
-      uint96 oldTransmitterPaymentJuels = s_transmitters[transmitter].paymentJuels;
+      uint96 oldTransmitterPaymentJuels = s_transmitters[msg.sender].paymentJuels;
       uint96 newTransmitterPaymentJuels = uint96(
         uint256(oldTransmitterPaymentJuels) + gasCostJuels + uint256(hotVars.transmissionPaymentGjuels) * (1 gwei)
       );
@@ -1442,7 +1437,7 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
       if (newTransmitterPaymentJuels < oldTransmitterPaymentJuels) {
         return;
       }
-      s_transmitters[transmitter].paymentJuels = newTransmitterPaymentJuels;
+      s_transmitters[msg.sender].paymentJuels = newTransmitterPaymentJuels;
     }
   }
 
