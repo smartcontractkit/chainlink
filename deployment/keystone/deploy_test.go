@@ -37,7 +37,8 @@ func TestDeploy(t *testing.T) {
 	require.NoError(t, err)
 	// sepoliaArbitrumChainSel, err := chainsel.SelectorFromChainId(sepoliaArbitrumChainId)
 	// require.NoError(t, err)
-	// aptosChainSel := uint64(999) // TODO:
+	// aptos-testnet
+	aptosChainSel := chainsel.AptosChainIdToChainSelector()[2]
 
 	crConfig := deployment.CapabilityRegistryConfig{
 		EVMChainID: sepoliaChainId,
@@ -45,11 +46,11 @@ func TestDeploy(t *testing.T) {
 	}
 
 	evmChains := memory.NewMemoryChainsWithChainIDs(t, []uint64{sepoliaChainId, sepoliaArbitrumChainId})
-	// aptosChain := memory.NewMemoryChain(t, aptosChainSel)
+	aptosChain := memory.NewMemoryChain(t, aptosChainSel)
 
 	wfChains := map[uint64]deployment.Chain{}
 	wfChains[sepoliaChainSel] = evmChains[sepoliaChainSel]
-	// wfChains[aptosChainSel] = aptosChain
+	wfChains[aptosChainSel] = aptosChain
 	wfNodes := memory.NewNodes(t, zapcore.InfoLevel, wfChains, 4, 0, crConfig)
 	require.Len(t, wfNodes, 4)
 
