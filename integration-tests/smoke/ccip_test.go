@@ -121,9 +121,8 @@ func TestTokenTransfer(t *testing.T) {
 	state, err := ccdeploy.LoadOnchainState(e)
 	require.NoError(t, err)
 
-	output, err := changeset.InitializePrerequisites(e, changeset.DeployPrerequisiteConfig{
+	output, err := changeset.DeployPrerequisites(e, changeset.DeployPrerequisiteConfig{
 		ChainSelectors: e.AllChainSelectors(),
-		Deploy:         true,
 	})
 	require.NoError(t, err)
 	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook))

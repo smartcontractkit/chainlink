@@ -59,9 +59,8 @@ func Test_CCIPMessaging(t *testing.T) {
 		", source chain selector:", sourceChain,
 		", dest chain selector:", destChain,
 	)
-	output, err := changeset.InitializePrerequisites(e.Env, changeset.DeployPrerequisiteConfig{
+	output, err := changeset.DeployPrerequisites(e.Env, changeset.DeployPrerequisiteConfig{
 		ChainSelectors: e.Env.AllChainSelectors(),
-		Deploy:         true,
 	})
 	require.NoError(t, err)
 	require.NoError(t, e.Env.ExistingAddresses.Merge(output.AddressBook))
