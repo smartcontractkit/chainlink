@@ -8,7 +8,6 @@ import {OnRamp} from "../../onRamp/OnRamp.sol";
 /// @dev test contract to test CCIPReader functionality, never deployed to real chains.
 contract CCIPReaderTester {
   mapping(uint64 sourceChainSelector => OffRamp.SourceChainConfig sourceChainConfig) internal s_sourceChainConfigs;
-  mapping(uint64 destChainSelector => Internal.TimestampedPackedUint224) internal s_destChainGasPrice;
   mapping(uint64 destChainSelector => uint64 sequenceNumber) internal s_destChainSeqNrs;
   mapping(uint64 sourceChainSelector => mapping(bytes sender => uint64 nonce)) internal s_senderNonce;
 
@@ -51,19 +50,6 @@ contract CCIPReaderTester {
     OffRamp.SourceChainConfig memory sourceChainConfig
   ) external {
     s_sourceChainConfigs[sourceChainSelector] = sourceChainConfig;
-  }
-
-  function getDestinationChainGasPrice(
-    uint64 destChainSelector
-  ) external view returns (Internal.TimestampedPackedUint224 memory) {
-    return s_destChainGasPrice[destChainSelector];
-  }
-
-  function setDestinationChainGasPrice(
-    uint64 destChainSelector,
-    Internal.TimestampedPackedUint224 memory gasPrice
-  ) external {
-    s_destChainGasPrice[destChainSelector] = gasPrice;
   }
 
   function emitCCIPMessageSent(uint64 destChainSelector, Internal.EVM2AnyRampMessage memory message) external {
