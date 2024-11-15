@@ -26,9 +26,8 @@ func TestInitialDeploy(t *testing.T) {
 
 	state, err := ccdeploy.LoadOnchainState(tenv.Env)
 	require.NoError(t, err)
-	output, err := InitializePrerequisites(e, PrerequisiteConfig{
+	output, err := DeployPrerequisites(e, DeployPrerequisiteConfig{
 		ChainSelectors: tenv.Env.AllChainSelectors(),
-		Deploy:         true,
 	})
 	require.NoError(t, err)
 	require.NoError(t, tenv.Env.ExistingAddresses.Merge(output.AddressBook))

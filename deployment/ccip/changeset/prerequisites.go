@@ -13,48 +13,22 @@ import (
 )
 
 var (
-	_                        deployment.ChangeSet[PrerequisiteConfig] = InitializePrerequisites
-	mapPrerequisiteContracts                                          = map[deployment.ContractType]struct{}{
-		ccipdeployment.LinkToken:          {},
-		ccipdeployment.WETH9:              {},
-		ccipdeployment.TokenAdminRegistry: {},
-		ccipdeployment.RegistryModule:     {},
-		ccipdeployment.Router:             {},
-	}
+	_ deployment.ChangeSet[DeployPrerequisiteConfig] = DeployPrerequisites
 )
 
-// InitializePrerequisites loads the existing contracts into the address book.
-// This is required for contracts which can be reused from previous versions of CCIP
-// If PrerequisiteConfig.Deploy is true, it will deploy the prerequisite contracts except Router
-// Router is deployed as part of DeployChainContracts Changeset due to its dependency on RMNProxy
-func InitializePrerequisites(env deployment.Environment, cfg PrerequisiteConfig) (deployment.ChangesetOutput, error) {
+// DeployPrerequisites deploys the pre-requisite contracts for CCIP
+// pre-requisite contracts are the contracts which can be reused from previous versions of CCIP
+func DeployPrerequisites(env deployment.Environment, cfg DeployPrerequisiteConfig) (deployment.ChangesetOutput, error) {
 	err := cfg.Validate()
 	if err != nil {
 		return deployment.ChangesetOutput{}, errors.Wrapf(deployment.ErrInvalidConfig, "%v", err)
 	}
 	ab := deployment.NewMemoryAddressBook()
-	if cfg.Deploy {
-		err = ccipdeployment.DeployPrerequisiteContracts(env, ab, cfg.ChainSelectors)
-		if err != nil {
-			env.Logger.Errorw("Failed to deploy prerequisite contracts", "err", err, "addressBook", ab)
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy prerequisite contracts: %w", err)
-		}
-		return deployment.ChangesetOutput{
-			Proposals:   []timelock.MCMSWithTimelockProposal{},
-			AddressBook: ab,
-			JobSpecs:    nil,
-		}, nil
+	err = ccipdeployment.DeployPrerequisiteChainContracts(env, ab, cfg.ChainSelectors)
+	if err != nil {
+		env.Logger.Errorw("Failed to deploy prerequisite contracts", "err", err, "addressBook", ab)
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy prerequisite contracts: %w", err)
 	}
-	for _, sel := range cfg.ChainSelectors {
-		for _, ec := range cfg.ExistingContracts {
-			err = ab.Save(sel, ec.Address.String(), ec.TypeAndVersion)
-			if err != nil {
-				env.Logger.Errorw("Failed to deploy prerequisite contracts", "err", err, "addressBook", ab)
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to save existing contract: %w", err)
-			}
-		}
-	}
-
 	return deployment.ChangesetOutput{
 		Proposals:   []timelock.MCMSWithTimelockProposal{},
 		AddressBook: ab,
@@ -62,22 +36,14 @@ func InitializePrerequisites(env deployment.Environment, cfg PrerequisiteConfig)
 	}, nil
 }
 
-type ContractConfig struct {
-	Address        common.Address
-	TypeAndVersion deployment.TypeAndVersion
-}
-
-type PrerequisiteConfig struct {
+type DeployPrerequisiteConfig struct {
 	ChainSelectors []uint64
-	Deploy         bool
-	// if Deploy is false, ExistingContracts must be set
-	ExistingContracts map[deployment.ContractType]ContractConfig
 	// TODO handle tokens and feeds in prerequisite config
 	Tokens map[ccipdeployment.TokenSymbol]common.Address
 	Feeds  map[ccipdeployment.TokenSymbol]common.Address
 }
 
-func (c PrerequisiteConfig) Validate() error {
+func (c DeployPrerequisiteConfig) Validate() error {
 	for _, cs := range c.ChainSelectors {
 		if cs == 0 {
 			return fmt.Errorf("chain selector must be set")
@@ -87,25 +53,6 @@ func (c PrerequisiteConfig) Validate() error {
 			return fmt.Errorf("invalid chain selector: %d - %w", cs, err)
 		}
 
-	}
-	if c.Deploy {
-		return nil
-	}
-	for ct := range mapPrerequisiteContracts {
-		if _, ok := c.ExistingContracts[ct]; !ok {
-			return fmt.Errorf("missing existing contract: %s", ct)
-		}
-	}
-	for _, ec := range c.ExistingContracts {
-		if ec.Address == (common.Address{}) {
-			return fmt.Errorf("address must be set")
-		}
-		if ec.TypeAndVersion.Type == "" {
-			return fmt.Errorf("type must be set")
-		}
-		if val, err := ec.TypeAndVersion.Version.Value(); err != nil || val == "" {
-			return fmt.Errorf("version must be set")
-		}
 	}
 	return nil
 }

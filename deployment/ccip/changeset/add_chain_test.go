@@ -36,13 +36,13 @@ func TestAddChainInbound(t *testing.T) {
 	newChain := e.Env.AllChainSelectorsExcluding([]uint64{e.HomeChainSel})[0]
 	// We deploy to the rest.
 	initialDeploy := e.Env.AllChainSelectorsExcluding([]uint64{newChain})
-	newAddr := deployment.NewMemoryAddressBook()
-	err = ccipdeployment.DeployPrerequisiteContracts(e.Env, newAddr, initialDeploy)
+	newAddresses := deployment.NewMemoryAddressBook()
+	err = ccipdeployment.DeployPrerequisiteChainContracts(e.Env, newAddresses, initialDeploy)
 	require.NoError(t, err)
-	require.NoError(t, e.Env.ExistingAddresses.Merge(newAddr))
+	require.NoError(t, e.Env.ExistingAddresses.Merge(newAddresses))
 
 	tokenConfig := ccipdeployment.NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
-	newAddresses := deployment.NewMemoryAddressBook()
+	newAddresses = deployment.NewMemoryAddressBook()
 	err = ccipdeployment.DeployCCIPContracts(e.Env, newAddresses, ccipdeployment.DeployCCIPContractConfig{
 		HomeChainSel:   e.HomeChainSel,
 		FeedChainSel:   e.FeedChainSel,
@@ -72,10 +72,10 @@ func TestAddChainInbound(t *testing.T) {
 	require.NoError(t, err)
 
 	//  Deploy contracts to new chain
-	newChainAddresses := deployment.NewMemoryAddressBook()
-	err = ccipdeployment.DeployPrerequisiteContracts(e.Env, newChainAddresses, []uint64{newChain})
+	newAddresses = deployment.NewMemoryAddressBook()
+	err = ccipdeployment.DeployPrerequisiteChainContracts(e.Env, newAddresses, []uint64{newChain})
 	require.NoError(t, err)
-	require.NoError(t, e.Env.ExistingAddresses.Merge(newChainAddresses))
+	require.NoError(t, e.Env.ExistingAddresses.Merge(newAddresses))
 	newAddresses = deployment.NewMemoryAddressBook()
 	err = ccipdeployment.DeployChainContracts(e.Env,
 		e.Env.Chains[newChain], newAddresses,

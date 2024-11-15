@@ -29,7 +29,7 @@ func TestInitialDeployOnLocal(t *testing.T) {
 	require.NoError(t, err)
 
 	feeds := state.Chains[tenv.FeedChainSel].USDFeeds
-	output, err := changeset.InitializePrerequisites(tenv.Env, changeset.PrerequisiteConfig{
+	output, err := changeset.InitializePrerequisites(tenv.Env, changeset.DeployPrerequisiteConfig{
 		ChainSelectors: tenv.Env.AllChainSelectors(),
 		Deploy:         true,
 	})
@@ -121,7 +121,7 @@ func TestTokenTransfer(t *testing.T) {
 	state, err := ccdeploy.LoadOnchainState(e)
 	require.NoError(t, err)
 
-	output, err := changeset.InitializePrerequisites(e, changeset.PrerequisiteConfig{
+	output, err := changeset.InitializePrerequisites(e, changeset.DeployPrerequisiteConfig{
 		ChainSelectors: e.AllChainSelectors(),
 		Deploy:         true,
 	})

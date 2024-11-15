@@ -59,7 +59,7 @@ func Test_CCIPMessaging(t *testing.T) {
 		", source chain selector:", sourceChain,
 		", dest chain selector:", destChain,
 	)
-	output, err := changeset.InitializePrerequisites(e.Env, changeset.PrerequisiteConfig{
+	output, err := changeset.InitializePrerequisites(e.Env, changeset.DeployPrerequisiteConfig{
 		ChainSelectors: e.Env.AllChainSelectors(),
 		Deploy:         true,
 	})
