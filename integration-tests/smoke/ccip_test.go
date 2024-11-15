@@ -29,9 +29,8 @@ func TestInitialDeployOnLocal(t *testing.T) {
 	require.NoError(t, err)
 
 	feeds := state.Chains[tenv.FeedChainSel].USDFeeds
-	output, err := changeset.InitializePrerequisites(tenv.Env, changeset.DeployPrerequisiteConfig{
+	output, err := changeset.DeployPrerequisites(tenv.Env, changeset.DeployPrerequisiteConfig{
 		ChainSelectors: tenv.Env.AllChainSelectors(),
-		Deploy:         true,
 	})
 	require.NoError(t, err)
 	require.NoError(t, tenv.Env.ExistingAddresses.Merge(output.AddressBook))
