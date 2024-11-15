@@ -224,6 +224,7 @@ func (m *CCIPMultiCallLoadGenerator) MergeCalls() ([]contracts.CCIPMsgData, map[
 	statDetails := make(map[string]MultiCallReturnValues)
 
 	for _, e2eLoad := range m.E2ELoads {
+		// NOTE: This does not support non-evm chains
 		destChainSelector, err := chain_selectors.SelectorFromChainId(e2eLoad.Lane.Source.DestinationChainId)
 		if err != nil {
 			return ccipMsgs, statDetails, err

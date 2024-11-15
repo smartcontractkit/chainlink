@@ -49,6 +49,7 @@ func (req *MutateNodeCapabilitiesRequest) Validate() error {
 	if len(req.P2pToCapabilities) == 0 {
 		return fmt.Errorf("p2pToCapabilities is empty")
 	}
+	// NOTE: This does not support non-evm chains
 	_, exists := chainsel.ChainBySelector(req.RegistryChainSel)
 	if !exists {
 		return fmt.Errorf("registry chain selector %d does not exist", req.RegistryChainSel)

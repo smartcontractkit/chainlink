@@ -59,10 +59,12 @@ func GenerateNopsView(nodeIds []string, oc deployment.OffchainClient) (map[strin
 			IsEnabled:    nodeDetails.Node.IsEnabled,
 		}
 		for sel, ocrConfig := range node.SelToOCRConfig {
+			// NOTE: This does not support non-evm chains
 			chainid, err := chainsel.ChainIdFromSelector(sel)
 			if err != nil {
 				return nv, err
 			}
+			// NOTE: This does not support non-evm chains
 			chainName, err := chainsel.NameFromChainId(chainid)
 			if err != nil {
 				return nv, err

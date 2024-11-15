@@ -56,6 +56,7 @@ type Node struct {
 
 func (n Node) ReplayLogs(chains map[uint64]uint64) error {
 	for sel, block := range chains {
+		// NOTE: This does not support non-evm chains
 		chainID, _ := chainsel.ChainIdFromSelector(sel)
 		if err := n.App.ReplayFromBlock(big.NewInt(int64(chainID)), block, false); err != nil {
 			return err

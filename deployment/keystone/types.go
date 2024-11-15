@@ -256,6 +256,7 @@ func NodeOperator(name string, adminAddress string) capabilities_registry.Capabi
 }
 
 func AdminAddress(n *Node, chainSel uint64) (string, error) {
+	// NOTE: This does not support non-evm chains
 	cid, err := chainsel.ChainIdFromSelector(chainSel)
 	if err != nil {
 		return "", fmt.Errorf("failed to get chain id from selector %d: %w", chainSel, err)
@@ -355,6 +356,7 @@ func firstChainConfigByType(ccfgs []*v1.ChainConfig, t v1.ChainType) (*v1.ChainC
 }
 
 func registryChainConfig(ccfgs []*v1.ChainConfig, t v1.ChainType, sel uint64) (*v1.ChainConfig, error) {
+	// NOTE: This does not support non-evm chains
 	chainId, err := chainsel.ChainIdFromSelector(sel)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chain id from selector %d: %w", sel, err)

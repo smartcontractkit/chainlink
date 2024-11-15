@@ -405,6 +405,7 @@ func (n *Node) ExportEVMKeysForChain(chainId string) ([]*clclient.ExportedEVMKey
 // ReplayLogs replays logs for the chains on the node for given block numbers for each chain
 func (n *Node) ReplayLogs(blockByChain map[uint64]uint64) error {
 	for sel, block := range blockByChain {
+		// NOTE: This does not support non-evm chains
 		chainID, err := chainsel.ChainIdFromSelector(sel)
 		if err != nil {
 			return err

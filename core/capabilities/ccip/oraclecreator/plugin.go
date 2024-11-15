@@ -120,6 +120,7 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 
 	// Assuming that the chain selector is referring to an evm chain for now.
 	// TODO: add an api that returns chain family.
+	// NOTE: This does not support non-evm chains
 	destChainID, err := chainsel.ChainIdFromSelector(uint64(config.Config.ChainSelector))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chain ID from selector %d: %w", config.Config.ChainSelector, err)
@@ -412,6 +413,7 @@ func decodeAndValidateOffchainConfig(
 }
 
 func (i *pluginOracleCreator) getChainSelector(chainID uint64) (cciptypes.ChainSelector, error) {
+	// NOTE: This does not support non-evm chains
 	chainSelector, ok := chainsel.EvmChainIdToChainSelector()[chainID]
 	if !ok {
 		return 0, fmt.Errorf("failed to get chain selector from chain ID %d", chainID)
@@ -420,6 +422,7 @@ func (i *pluginOracleCreator) getChainSelector(chainID uint64) (cciptypes.ChainS
 }
 
 func (i *pluginOracleCreator) getChainID(chainSelector cciptypes.ChainSelector) (uint64, error) {
+	// NOTE: This does not support non-evm chains
 	chainID, err := chainsel.ChainIdFromSelector(uint64(chainSelector))
 	if err != nil {
 		return 0, fmt.Errorf("failed to get chain ID from chain selector %d: %w", chainSelector, err)

@@ -90,8 +90,8 @@ type AddressBookMap struct {
 
 // Save will save an address for a given chain selector. It will error if there is a conflicting existing address.
 func (m *AddressBookMap) Save(chainSelector uint64, address string, typeAndVersion TypeAndVersion) error {
-	_, exists := chainsel.ChainBySelector(chainSelector)
-	if !exists {
+	_, err := chainsel.GetChainIDFromSelector(chainSelector)
+	if err != nil {
 		return errors.Wrapf(ErrInvalidChainSelector, "chain selector %d", chainSelector)
 	}
 	if address == "" || address == common.HexToAddress("0x0").Hex() {
@@ -122,8 +122,8 @@ func (m *AddressBookMap) Addresses() (map[uint64]map[string]TypeAndVersion, erro
 }
 
 func (m *AddressBookMap) AddressesForChain(chainSelector uint64) (map[string]TypeAndVersion, error) {
-	_, exists := chainsel.ChainBySelector(chainSelector)
-	if !exists {
+	_, err := chainsel.GetChainIDFromSelector(chainSelector)
+	if err != nil {
 		return nil, errors.Wrapf(ErrInvalidChainSelector, "chain selector %d", chainSelector)
 	}
 	if _, exists := m.AddressesByChain[chainSelector]; !exists {

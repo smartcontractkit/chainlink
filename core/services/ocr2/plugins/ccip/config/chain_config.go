@@ -20,6 +20,7 @@ func GetChainFromSpec(spec *job.OCR2OracleSpec, chainSet legacyevm.LegacyChainCo
 }
 
 func GetChainByChainSelector(chainSet legacyevm.LegacyChainContainer, chainSelector uint64) (legacyevm.Chain, int64, error) {
+	// NOTE: This does not support non-evm chains
 	chainID, err := chainselectors.ChainIdFromSelector(chainSelector)
 	if err != nil {
 		return nil, 0, err
@@ -36,10 +37,12 @@ func GetChainByChainID(chainSet legacyevm.LegacyChainContainer, chainID uint64) 
 }
 
 func ResolveChainNames(sourceChainId int64, destChainId int64) (string, string, error) {
+	// NOTE: This does not support non-evm chains
 	sourceChainName, err := chainselectors.NameFromChainId(uint64(sourceChainId))
 	if err != nil {
 		return "", "", err
 	}
+	// NOTE: This does not support non-evm chains
 	destChainName, err := chainselectors.NameFromChainId(uint64(destChainId))
 	if err != nil {
 		return "", "", err

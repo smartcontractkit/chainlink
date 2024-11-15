@@ -181,10 +181,12 @@ func (s CCIPOnChainState) View(chains []uint64) (map[string]view.ChainView, erro
 	m := make(map[string]view.ChainView)
 	for _, chainSelector := range chains {
 		// TODO: Need a utility for this
+		// NOTE: This does not support non-evm chains
 		chainid, err := chainsel.ChainIdFromSelector(chainSelector)
 		if err != nil {
 			return m, err
 		}
+		// NOTE: This does not support non-evm chains
 		chainName, err := chainsel.NameFromChainId(chainid)
 		if err != nil {
 			return m, err

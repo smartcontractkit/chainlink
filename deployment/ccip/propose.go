@@ -64,6 +64,7 @@ func NewTestMCMSConfig(t *testing.T, e deployment.Environment) MCMSConfig {
 func SignProposal(t *testing.T, env deployment.Environment, proposal *timelock.MCMSWithTimelockProposal) *mcms.Executor {
 	executorClients := make(map[mcms.ChainIdentifier]mcms.ContractDeployBackend)
 	for _, chain := range env.Chains {
+		// NOTE: This does not support non-evm chains
 		chainselc, exists := chainsel.ChainBySelector(chain.Selector)
 		require.True(t, exists)
 		chainSel := mcms.ChainIdentifier(chainselc.Selector)
@@ -141,6 +142,7 @@ func GenerateAcceptOwnershipProposal(
 	// TODO: Accept rest of contracts
 	var batches []timelock.BatchChainOperation
 	for _, sel := range chains {
+		// NOTE: This does not support non-evm chains
 		chain, _ := chainsel.ChainBySelector(sel)
 		acceptOnRamp, err := state.Chains[sel].OnRamp.AcceptOwnership(deployment.SimTransactOpts())
 		if err != nil {

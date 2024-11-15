@@ -463,6 +463,7 @@ func (ccipModule *CCIPCommon) WaitForPriceUpdates(
 	destChainId uint64,
 	allTokens []common.Address,
 ) error {
+	// NOTE: This does not support non-evm chains
 	destChainSelector, err := chainselectors.SelectorFromChainId(destChainId)
 	if err != nil {
 		return err
@@ -557,6 +558,7 @@ func (ccipModule *CCIPCommon) WatchForPriceUpdates(ctx context.Context, lggr *ze
 		return fmt.Errorf("no event subscription found")
 	}
 	processEvent := func(value, timestamp *big.Int, destChainSelector uint64, raw types.Log) error {
+		// NOTE: This does not support non-evm chains
 		destChain, err := chainselectors.ChainIdFromSelector(destChainSelector)
 		if err != nil {
 			return err
@@ -663,6 +665,7 @@ func (ccipModule *CCIPCommon) SyncUSDCDomain(destTransmitter *contracts.TokenTra
 	if destTransmitter == nil {
 		return fmt.Errorf("invalid address")
 	}
+	// NOTE: This does not support non-evm chains
 	destChainSelector, err := chainselectors.SelectorFromChainId(destChainID)
 	if err != nil {
 		return fmt.Errorf("invalid chain id %w", err)
@@ -1391,6 +1394,7 @@ func (sourceCCIP *SourceCCIPModule) DeployContracts(lane *laneconfig.LaneConfig)
 	log.Info().Msg("Deploying source chain specific contracts")
 
 	sourceCCIP.LoadContracts(lane)
+	// NOTE: This does not support non-evm chains
 	sourceChainSelector, err := chainselectors.SelectorFromChainId(sourceCCIP.Common.ChainClient.GetChainID().Uint64())
 	if err != nil {
 		return fmt.Errorf("getting chain selector shouldn't fail %w", err)
@@ -1827,6 +1831,7 @@ func (sourceCCIP *SourceCCIPModule) SendRequest(
 	gasLimit *big.Int,
 ) (common.Hash, time.Duration, *big.Int, error) {
 	var d time.Duration
+	// NOTE: This does not support non-evm chains
 	destChainSelector, err := chainselectors.SelectorFromChainId(sourceCCIP.DestinationChainId)
 	if err != nil {
 		return common.Hash{}, d, nil, fmt.Errorf("failed getting the chain selector: %w", err)
@@ -1896,6 +1901,7 @@ func DefaultSourceCCIPModule(
 		return nil, err
 	}
 
+	// NOTE: This does not support non-evm chains
 	destChainSelector, err := chainselectors.SelectorFromChainId(destChainId)
 	if err != nil {
 		return nil, fmt.Errorf("failed getting the chain selector: %w", err)
@@ -2061,6 +2067,7 @@ func (destCCIP *DestCCIPModule) DeployContracts(
 	contractDeployer := destCCIP.Common.Deployer
 	log.Info().Msg("Deploying destination chain specific contracts")
 	destCCIP.LoadContracts(lane)
+	// NOTE: This does not support non-evm chains
 	destChainSelector, err := chainselectors.SelectorFromChainId(destCCIP.Common.ChainClient.GetChainID().Uint64())
 	if err != nil {
 		return fmt.Errorf("failed to get chain selector for destination chain id %d: %w", destCCIP.Common.ChainClient.GetChainID().Uint64(), err)
@@ -2649,6 +2656,7 @@ func DefaultDestinationCCIPModule(
 		return nil, err
 	}
 
+	// NOTE: This does not support non-evm chains
 	sourceChainSelector, err := chainselectors.SelectorFromChainId(sourceChainId)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chain selector for source chain id %d: %w", sourceChainId, err)
@@ -2858,6 +2866,7 @@ func (lane *CCIPLane) Multicall(noOfRequests int, multiSendAddr common.Address) 
 	if err != nil {
 		return fmt.Errorf("failed to form the ccip message: %w", err)
 	}
+	// NOTE: This does not support non-evm chains
 	destChainSelector, err := chainselectors.SelectorFromChainId(lane.Source.DestinationChainId)
 	if err != nil {
 		return fmt.Errorf("failed getting the chain selector: %w", err)
@@ -3043,10 +3052,12 @@ func (lane *CCIPLane) ExecuteManually(options ...ManualExecutionOption) error {
 					}
 				}
 			}
+			// NOTE: This does not support non-evm chains
 			destChainSelector, err := chainselectors.SelectorFromChainId(lane.DestChain.GetChainID().Uint64())
 			if err != nil {
 				return err
 			}
+			// NOTE: This does not support non-evm chains
 			sourceChainSelector, err := chainselectors.SelectorFromChainId(lane.SourceChain.GetChainID().Uint64())
 			if err != nil {
 				return err
