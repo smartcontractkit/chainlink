@@ -2014,7 +2014,7 @@ func mustInsertPipelineRun(t *testing.T, orm pipeline.ORM, j job.Job) pipeline.R
 	return run
 }
 
-func TestORM_CreateJob_OCR2_With_AdaptiveSend(t *testing.T) {
+func TestORM_CreateJob_OCR2_With_DualTransmission(t *testing.T) {
 	ctx := testutils.Context(t)
 	customChainID := big.New(testutils.NewRandomEVMChainID())
 
@@ -2030,8 +2030,9 @@ func TestORM_CreateJob_OCR2_With_AdaptiveSend(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db)
 	require.NoError(t, keyStore.OCR2().Add(ctx, cltest.DefaultOCR2Key))
-
 	_, transmitterID := cltest.MustInsertRandomKey(t, keyStore.Eth())
+
+	baseJobSpec := fmt.Sprintf(testspecs.OCR2EVMDualTransmissionSpecMinimalTemplate, transmitterID.String())
 
 	lggr := logger.TestLogger(t)
 	pipelineORM := pipeline.NewORM(db, lggr, config.JobPipeline().MaxSuccessfulRuns())
@@ -2039,18 +2040,56 @@ func TestORM_CreateJob_OCR2_With_AdaptiveSend(t *testing.T) {
 
 	jobORM := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore)
 
-	adaptiveSendKey := cltest.MustGenerateRandomKey(t)
+	// Enabled but no config set
+	enabledDualTransmissionSpec := `
+		enableDualTransmission=true`
 
-	jb, err := ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), testspecs.GetOCR2EVMWithAdaptiveSendSpecMinimal(cltest.DefaultOCR2Key.ID(), transmitterID.String(), adaptiveSendKey.EIP55Address.String()), nil)
+	jb, err := ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), baseJobSpec+enabledDualTransmissionSpec, nil)
 	require.NoError(t, err)
-	require.Equal(t, "arbitrary-value", jb.AdaptiveSendSpec.Metadata["arbitraryParam"])
+	require.ErrorContains(t, jobORM.CreateJob(ctx, &jb), "dual transmission is enabled but no dual transmission config present")
 
-	t.Run("unknown transmitter address", func(t *testing.T) {
-		require.ErrorContains(t, jobORM.CreateJob(ctx, &jb), "failed to validate AdaptiveSendSpec.TransmitterAddress: no EVM key matching")
-	})
+	// ContractAddress not set
+	emptyContractAddress := `
+		enableDualTransmission=true
+		[relayConfig.dualTransmission]
+		contractAddress=""
+	`
+	jb, err = ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), baseJobSpec+emptyContractAddress, nil)
+	require.NoError(t, err)
+	require.ErrorContains(t, jobORM.CreateJob(ctx, &jb), "invalid contract address in dual transmission config")
 
-	t.Run("multiple jobs", func(t *testing.T) {
-		keyStore.Eth().XXXTestingOnlyAdd(ctx, adaptiveSendKey)
-		require.NoError(t, jobORM.CreateJob(ctx, &jb), "failed to validate AdaptiveSendSpec.TransmitterAddress: no EVM key matching")
-	})
+	// Transmitter address not set
+	emptyTransmitterAddress := `
+		enableDualTransmission=true
+		[relayConfig.dualTransmission]
+		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C' 
+		transmitterAddress = ''
+	`
+	jb, err = ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), baseJobSpec+emptyTransmitterAddress, nil)
+	require.NoError(t, err)
+	require.ErrorContains(t, jobORM.CreateJob(ctx, &jb), "invalid transmitter address in dual transmission config")
+
+	dtTransmitterAddress := cltest.MustGenerateRandomKey(t)
+	completeDualTransmissionSpec := fmt.Sprintf(`
+		enableDualTransmission=true
+		[relayConfig.dualTransmission]
+		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C' 
+		transmitterAddress = '%s'
+		[relayConfig.dualTransmission.meta]
+		key1 = 'val1'
+		key2 = ['val2','val3']
+		`,
+		dtTransmitterAddress.Address.String())
+
+	jb, err = ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), baseJobSpec+completeDualTransmissionSpec, nil)
+	require.NoError(t, err)
+
+	jb.OCR2OracleSpec.TransmitterID = null.StringFrom(transmitterID.String())
+
+	// Unknown transmitter address
+	require.ErrorContains(t, jobORM.CreateJob(ctx, &jb), "unknown dual transmission transmitterAddress: no EVM key matching:")
+
+	// Should not error
+	keyStore.Eth().XXXTestingOnlyAdd(ctx, dtTransmitterAddress)
+	require.NoError(t, jobORM.CreateJob(ctx, &jb))
 }
