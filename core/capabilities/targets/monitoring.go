@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"go.opentelemetry.io/otel/metric"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 
 	localMonitoring "github.com/smartcontractkit/chainlink/v2/core/monitoring"
