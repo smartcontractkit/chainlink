@@ -179,6 +179,10 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 					ChainSpecificName: mustGetMethodName("getReportDigestHeader", rmnRemoteABI),
 					ReadType:          evmrelaytypes.Method,
 				},
+				consts.MethodNameIsCursed: {
+					ChainSpecificName: mustGetMethodName("isCursed", rmnRemoteABI),
+					ReadType:          evmrelaytypes.Method,
+				},
 			},
 		},
 		consts.ContractNameRMNProxy: {
