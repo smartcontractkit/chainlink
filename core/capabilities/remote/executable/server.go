@@ -1,4 +1,4 @@
-package target
+package executable
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/target/request"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable/request"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/validation"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
@@ -20,9 +20,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-// server manages all external users of a local target capability.
+// server manages all external users of a local executable capability.
 // Its responsibilities are:
-//  1. Manage requests from external nodes executing the target capability once sufficient requests are received.
+//  1. Manage requests from external nodes executing the executable capability once sufficient requests are received.
 //  2. Send out responses produced by an underlying capability to all requesters.
 //
 // server communicates with corresponding client on remote nodes.
@@ -30,9 +30,9 @@ type server struct {
 	services.StateMachine
 	lggr logger.Logger
 
-	config       *commoncap.RemoteTargetConfig
+	config       *commoncap.RemoteExecutableConfig
 	peerID       p2ptypes.PeerID
-	underlying   commoncap.TargetCapability
+	underlying   commoncap.ExecutableCapability
 	capInfo      commoncap.CapabilityInfo
 	localDonInfo commoncap.DON
 	workflowDONs map[uint32]commoncap.DON
@@ -57,14 +57,15 @@ type requestAndMsgID struct {
 	messageID string
 }
 
-func NewServer(config *commoncap.RemoteTargetConfig, peerID p2ptypes.PeerID, underlying commoncap.TargetCapability, capInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON,
+func NewServer(remoteExecutableConfig *commoncap.RemoteExecutableConfig, peerID p2ptypes.PeerID, underlying commoncap.ExecutableCapability,
+	capInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON,
 	workflowDONs map[uint32]commoncap.DON, dispatcher types.Dispatcher, requestTimeout time.Duration, lggr logger.Logger) *server {
-	if config == nil {
-		lggr.Info("no config provided, using default values")
-		config = &commoncap.RemoteTargetConfig{}
+	if remoteExecutableConfig == nil {
+		lggr.Info("no remote config provided, using default values")
+		remoteExecutableConfig = &commoncap.RemoteExecutableConfig{}
 	}
 	return &server{
-		config:       config,
+		config:       remoteExecutableConfig,
 		underlying:   underlying,
 		peerID:       peerID,
 		capInfo:      capInfo,
@@ -76,7 +77,7 @@ func NewServer(config *commoncap.RemoteTargetConfig, peerID p2ptypes.PeerID, und
 		messageIDToRequestIDsCount: map[string]map[string]int{},
 		requestTimeout:             requestTimeout,
 
-		lggr:   lggr.Named("TargetServer"),
+		lggr:   lggr.Named("ExecutableCapabilityServer"),
 		stopCh: make(services.StopChan),
 	}
 }
@@ -88,7 +89,7 @@ func (r *server) Start(ctx context.Context) error {
 			defer r.wg.Done()
 			ticker := time.NewTicker(r.requestTimeout)
 			defer ticker.Stop()
-			r.lggr.Info("TargetServer started")
+			r.lggr.Info("executable capability server started")
 			for {
 				select {
 				case <-r.stopCh:
@@ -106,7 +107,7 @@ func (r *server) Close() error {
 	return r.StopOnce(r.Name(), func() error {
 		close(r.stopCh)
 		r.wg.Wait()
-		r.lggr.Info("TargetServer closed")
+		r.lggr.Info("executable capability server closed")
 		return nil
 	})
 }
@@ -131,9 +132,10 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 	r.receiveLock.Lock()
 	defer r.receiveLock.Unlock()
 
-	if msg.Method != types.MethodExecute {
+	switch msg.Method {
+	case types.MethodExecute, types.MethodRegisterToWorkflow, types.MethodUnregisterFromWorkflow:
+	default:
 		r.lggr.Errorw("received request for unsupported method type", "method", remote.SanitizeLogString(msg.Method))
-		return
 	}
 
 	messageId, err := GetMessageID(msg)
@@ -175,7 +177,7 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 		}
 
 		r.requestIDToRequest[requestID] = requestAndMsgID{
-			request: request.NewServerRequest(r.underlying, r.capInfo.ID, r.localDonInfo.ID, r.peerID,
+			request: request.NewServerRequest(r.underlying, msg.Method, r.capInfo.ID, r.localDonInfo.ID, r.peerID,
 				callingDon, messageId, r.dispatcher, r.requestTimeout, r.lggr),
 			messageID: messageId,
 		}
@@ -196,8 +198,8 @@ func (r *server) getMessageHash(msg *types.MessageBody) ([32]byte, error) {
 	}
 
 	for _, path := range r.config.RequestHashExcludedAttributes {
-		if !req.Inputs.DeleteAtPath(path) {
-			return [32]byte{}, fmt.Errorf("failed to delete attribute from map at path: %s", path)
+		if req.Inputs != nil {
+			req.Inputs.DeleteAtPath(path)
 		}
 	}
 
