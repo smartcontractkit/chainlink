@@ -287,6 +287,15 @@
         "status": "passing",
         "output": ""
       }
+    },
+    {
+      "type": "checks",
+      "id": "WorkflowDBStore",
+      "attributes": {
+        "name": "WorkflowDBStore",
+        "status": "passing",
+        "output": ""
+      }
     }
   ]
 }

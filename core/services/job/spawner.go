@@ -315,7 +315,7 @@ func (js *spawner) DeleteJob(ctx context.Context, ds sqlutil.DataSource, jobID i
 	lggr.Debugw("Callback: BeforeDeleteJob done")
 
 	err := sqlutil.Transact(ctx, js.orm.WithDataSource, ds, nil, func(tx ORM) error {
-		err := tx.DeleteJob(ctx, jobID)
+		err := tx.DeleteJob(ctx, jobID, aj.spec.Type)
 		if err != nil {
 			js.lggr.Errorw("Error deleting job", "jobID", jobID, "err", err)
 			return err

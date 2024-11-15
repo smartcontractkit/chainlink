@@ -463,7 +463,7 @@ jobs:
           SONAR_SCANNER_OPTS: "-Xms6g -Xmx8g"
 
   trigger-flaky-test-detection-for-root-project:
-    name: Find New Flaky Tests In Root Project
+    name: Find New Flaky Tests In Chainlink Project
     uses: ./.github/workflows/find-new-flaky-tests.yml
     if: ${{ github.event_name == 'pull_request' }}
     with:
@@ -471,12 +471,11 @@ jobs:
       projectPath: '.'
       baseRef: ${{ github.base_ref }}
       headRef: ${{ github.head_ref }}
-      runThreshold: '1'
-      runWithRace: true
+      runThreshold: '0.99'
       findByTestFilesDiff: true
       findByAffectedPackages: false
       slackNotificationAfterTestsChannelId: 'C07TRF65CNS' #flaky-test-detector-notifications
-      extraArgs: '{ "skipped_tests": "TestChainComponents" }'
+      extraArgs: '{ "skipped_tests": "TestChainComponents", "run_with_race": "true", "print_failed_tests": "true", "test_repeat_count": "3", "min_pass_ratio": "0.01" }'
     secrets:
       SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
 
@@ -490,12 +489,11 @@ jobs:
       projectPath: 'deployment'
       baseRef: ${{ github.base_ref }}
       headRef: ${{ github.head_ref }}
-      runThreshold: '1'
-      runWithRace: true
+      runThreshold: '0.99'
       findByTestFilesDiff: true
       findByAffectedPackages: false
       slackNotificationAfterTestsChannelId: 'C07TRF65CNS' #flaky-test-detector-notifications
-      extraArgs: '{ "skipped_tests": "TestAddLane" }'
+      extraArgs: '{ "skipped_tests": "TestAddLane", "run_with_race": "true", "print_failed_tests": "true", "test_repeat_count": "3", "min_pass_ratio": "0.01" }'
     secrets:
       SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
 
