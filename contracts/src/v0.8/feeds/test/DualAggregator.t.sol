@@ -1939,30 +1939,61 @@ contract LatestRoundData is RoundDataDualAggregatorBaseTest {
   }
 }
 
-contract SetLinkToken is DualAggregatorBaseTest {
+contract SetLinkToken is ConfiguredDualAggregatorBaseTest {
   event LinkTokenSet(LinkTokenInterface indexed oldLinkToken, LinkTokenInterface indexed newLinkToken);
 
-  LinkToken internal n_linkToken;
-  LinkTokenInterface internal newLinkToken;
+  LinkToken internal s_newLinkToken;
+  address internal s_transmitter;
 
   function setUp() public override {
     super.setUp();
-    n_linkToken = new LinkToken();
-    newLinkToken = LinkTokenInterface(address(n_linkToken));
+    s_newLinkToken = new LinkToken();
+
+    s_transmitter = s_aggregator.getTransmitters()[0];
+
+    s_aggregator.setPayees(s_transmitters, s_transmitters);
+
+    s_aggregator.setBilling(10, 1, 100, 100, 0);
+
+    _changePrank(s_transmitter);
+
+    ReportGenerator.SignedReport memory signedReport = s_reportGenerator.generateSignedReport(1, 1);
+    s_aggregator.transmit(
+      signedReport.reportContext, signedReport.report, signedReport.rs, signedReport.ss, signedReport.rawVs
+    );
   }
 
-  // TODO: determine the right way to make this `transfer` call fail
-  // function test_RevertIf_TransferFundsFailed() public {
-  //   vm.expectRevert("transfer remaining funds failed");
-  //   s_aggregator.setLinkToken(newLinkToken, address(43));
-  // }
+  function test_RevertIf_TransferFundsFailed() public {
+    uint256 totalDue = s_aggregator.totalLinkDue();
+    deal(address(s_link), address(s_aggregator), totalDue);
 
-  function test_EmitsLinkTokenSet() public {
-    deal(address(n_linkToken), address(s_aggregator), 1e5);
+    _changePrank(s_aggregator.owner());
+    // we want to owe nothing so we can fail at transferring the remaining funds
+    s_aggregator.setBilling(0, 0, 0, 0, 0);
+    vm.mockCall(address(s_link), abi.encodeWithSelector(LinkTokenInterface.transfer.selector), abi.encode(false));
+    vm.expectRevert(DualAggregator.TransferRemainingFundsFailed.selector);
+    s_aggregator.setLinkToken(LinkTokenInterface(address(s_newLinkToken)), address(43));
+  }
+
+  function test_PayOutOraclesBeforeSettingNewLinkToken() public {
+    // check the balance of the transmitter before the withdrawal
+    uint256 balanceBefore = s_link.balanceOf(s_transmitter);
+    uint256 amountDue = s_aggregator.owedPayment(s_transmitter);
+
+    // deal the amount due to the aggregator
+    uint256 totalDue = s_aggregator.totalLinkDue();
+    deal(address(s_link), address(s_aggregator), totalDue);
+
+    _changePrank(s_aggregator.owner());
+
     vm.expectEmit();
-    emit LinkTokenSet(LinkTokenInterface(address(s_link)), newLinkToken);
+    emit LinkTokenSet(LinkTokenInterface(address(s_link)), LinkTokenInterface(address(s_newLinkToken)));
+    s_aggregator.setLinkToken(LinkTokenInterface(address(s_newLinkToken)), s_aggregator.owner());
 
-    s_aggregator.setLinkToken(newLinkToken, address(43));
+    // check the balance of the transmitter after the withdrawal
+    uint256 balanceAfter = s_link.balanceOf(s_transmitter);
+
+    assertEq(balanceAfter, balanceBefore + amountDue, "did not pay the transmitter");
   }
 }
 
@@ -2047,31 +2078,93 @@ contract GetBilling is DualAggregatorBaseTest {
 }
 
 contract WithdrawPayment is ConfiguredDualAggregatorBaseTest {
-  function test_RevertIf_NotPayee() public {
-    vm.expectRevert(DualAggregator.OnlyPayeeCanWithdraw.selector);
+  address internal s_transmitter;
 
+  function setUp() public override {
+    super.setUp();
+
+    s_transmitter = s_aggregator.getTransmitters()[0];
+
+    s_aggregator.setPayees(s_transmitters, s_transmitters);
+
+    s_aggregator.setBilling(10, 1, 100, 100, 0);
+
+    _changePrank(s_transmitter);
+
+    ReportGenerator.SignedReport memory signedReport = s_reportGenerator.generateSignedReport(1, 1);
+    s_aggregator.transmit(
+      signedReport.reportContext, signedReport.report, signedReport.rs, signedReport.ss, signedReport.rawVs
+    );
+  }
+
+  function test_RevertIf_NotPayee() public {
+    _changePrank(address(42));
+
+    vm.expectRevert(DualAggregator.OnlyPayeeCanWithdraw.selector);
     s_aggregator.withdrawPayment(address(42));
   }
 
+  function test_RevertIf_InsufficientFunds() public {
+    vm.mockCall(
+      address(s_link), abi.encodeWithSelector(LinkTokenInterface.transfer.selector, s_transmitter), abi.encode(false)
+    );
+
+    _changePrank(s_transmitter);
+
+    vm.expectRevert(DualAggregator.InsufficientFunds.selector);
+    s_aggregator.withdrawPayment(s_transmitter);
+  }
+
   function test_PaysOracles() public {
-    // TODO: mock and except the call to the mock
+    // check the balance of the transmitter before the withdrawal
+    uint256 balanceBefore = s_link.balanceOf(s_transmitter);
+    uint256 amountDue = s_aggregator.owedPayment(s_transmitter);
+
+    // deal the amount due to the aggregator
+    deal(address(s_link), address(s_aggregator), amountDue);
+
+    // withdraw the payment
+    s_aggregator.withdrawPayment(s_transmitter);
+
+    // check the balance of the transmitter after the withdrawal
+    uint256 balanceAfter = s_link.balanceOf(s_transmitter);
+
+    assertEq(balanceAfter, balanceBefore + amountDue, "did not pay the transmitter");
   }
 }
 
 contract OwedPayment is ConfiguredDualAggregatorBaseTest {
-  // TODO: need to figure out a way to toggle the `active` bit on a transmitter
-  // right now this is just
+  address internal s_transmitter;
+
+  function setUp() public override {
+    super.setUp();
+
+    s_transmitter = s_aggregator.getTransmitters()[0];
+
+    s_aggregator.setPayees(s_transmitters, s_transmitters);
+
+    s_aggregator.setBilling(10, 1, 100, 100, 0);
+  }
+
   function test_ReturnZeroIfTransmitterNotActive() public view {
-    uint256 returnedValue = s_aggregator.owedPayment(s_transmitters[0]);
+    uint256 returnedValue = s_aggregator.owedPayment(address(42));
 
     assertEq(returnedValue, 0, "did not return 0 when transmitter inactive");
   }
 
-  function test_ReturnOwedAmount() public view {
-    // TODO: will need to run a transmit here to increase the amount the transmitter is owed
+  function test_ReturnOwedAmount() public {
     uint256 returnedValue = s_aggregator.owedPayment(s_transmitters[0]);
 
     assertEq(returnedValue, 0, "did not return the correct owed amount");
+
+    _changePrank(s_transmitter);
+
+    ReportGenerator.SignedReport memory signedReport = s_reportGenerator.generateSignedReport(1, 1);
+    s_aggregator.transmit(
+      signedReport.reportContext, signedReport.report, signedReport.rs, signedReport.ss, signedReport.rawVs
+    );
+
+    assertGt(s_aggregator.owedPayment(s_transmitter), 0, "did not return the correct owed amount");
   }
 }
 
@@ -2120,7 +2213,7 @@ contract WithdrawFunds is ConfiguredDualAggregatorBaseTest {
   }
 }
 
-contract LinkAvailableForPayment is DualAggregatorBaseTest {
+contract LinkAvailableForPayment is ConfiguredDualAggregatorBaseTest {
   uint256 internal LINK_AMOUNT = 1e9;
 
   function setUp() public override {
@@ -2133,9 +2226,21 @@ contract LinkAvailableForPayment is DualAggregatorBaseTest {
     assertEq(s_aggregator.linkAvailableForPayment(), int256(LINK_AMOUNT), "did not return the correct balance");
   }
 
-  function test_ReturnsRemainingBalanceWhenHasDues() public view {
-    // TODO: run a transmit so that there is an amount that is due
+  function test_ReturnsRemainingBalanceWhenHasDues() public {
+    _changePrank(s_aggregator.getTransmitters()[0]);
+
+    ReportGenerator.SignedReport memory signedReport = s_reportGenerator.generateSignedReport(1, 1);
+    s_aggregator.transmit(
+      signedReport.reportContext, signedReport.report, signedReport.rs, signedReport.ss, signedReport.rawVs
+    );
+
+    // get amount due
+    uint256 amountDue = s_aggregator.totalLinkDue();
+
     // then test that LINK_AMOUNT - AMOUNT_DUE is what gets returned
+    assertEq(
+      s_aggregator.linkAvailableForPayment(), int256(LINK_AMOUNT - amountDue), "did not return the correct balance"
+    );
   }
 }
 
@@ -2144,8 +2249,17 @@ contract OracleObservationCount is ConfiguredDualAggregatorBaseTest {
     assertEq(s_aggregator.oracleObservationCount(s_transmitters[0]), 0, "did not return 0 for observation count");
   }
 
-  function test_ReturnsCorrectObservationCount() public view {
-    // TODO: run a transmit then write this test
+  function test_ReturnsCorrectObservationCount() public {
+    address transmitter = s_aggregator.getTransmitters()[0];
+
+    _changePrank(transmitter);
+
+    ReportGenerator.SignedReport memory signedReport = s_reportGenerator.generateSignedReport(1, 1);
+    s_aggregator.transmit(
+      signedReport.reportContext, signedReport.report, signedReport.rs, signedReport.ss, signedReport.rawVs
+    );
+
+    assertEq(s_aggregator.oracleObservationCount(transmitter), 1, "did not return the correct observation count");
   }
 }
 
