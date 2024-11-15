@@ -5,6 +5,10 @@ go 1.22.8
 // Make sure we're working with the latest chainlink libs
 replace github.com/smartcontractkit/chainlink/v2 => ../
 
+// Using a separate inline `require` here to avoid surrounding line changes
+// creating potential merge conflicts.
+require github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
+
 require (
 	github.com/Khan/genqlient v0.7.0
 	github.com/Masterminds/semver/v3 v3.3.0
@@ -26,7 +30,6 @@ require (
 	github.com/smartcontractkit/chainlink-common v0.3.1-0.20241114134822-aadff98ef068
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.4.0
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.13
-	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20241007185508-adbe57025f12
 	github.com/stretchr/testify v1.9.0
 	github.com/test-go/testify v1.1.4
