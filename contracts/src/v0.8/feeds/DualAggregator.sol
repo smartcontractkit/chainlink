@@ -523,18 +523,15 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
 
   /// @notice Aggregator round (NOT OCR round) in which last valid report was transmitted
   function _getLatestRound() internal view returns (uint32) {
-    Transmission memory transmission;
-
     // get the latest round ids
     uint32 latestAggregatorRoundId = s_hotVars.latestAggregatorRoundId;
     uint32 latestSecondaryRoundId = s_hotVars.latestSecondaryRoundId;
 
     // check if the message sender is the secondary proxy
     if (msg.sender == i_secondaryProxy) {
-      transmission = s_transmissions[latestSecondaryRoundId];
       // in case the latest secondary round does not accomplish the cutoff time condition,
       // get the round id syncing with the primary rounds
-      if (transmission.recordedTimestamp + s_cutoffTime < block.timestamp) {
+      if (s_transmissions[latestSecondaryRoundId].recordedTimestamp + s_cutoffTime < block.timestamp) {
         return _getSyncPrimaryRound();
       }
 
@@ -543,10 +540,8 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
     }
     // in case the report was sent by the secondary proxy
     if (latestAggregatorRoundId == latestSecondaryRoundId) {
-      // get the transmission
-      transmission = s_transmissions[latestAggregatorRoundId];
       // in case the transmission was sent in this same block only by the secondary proxy, return the previous round id
-      if (s_latestSecondary && transmission.recordedTimestamp == block.timestamp) {
+      if (s_latestSecondary && s_transmissions[latestAggregatorRoundId].recordedTimestamp == block.timestamp) {
         return latestAggregatorRoundId - 1;
       }
     }
