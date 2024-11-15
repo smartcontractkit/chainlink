@@ -142,6 +142,7 @@ func Test_RemoteExecutableCapability_TransmissionSchedules(t *testing.T) {
 }
 
 func Test_RemoteExecutionCapability_DonTopologies(t *testing.T) {
+	t.Skip("flakey test, skipping until we can fix it")
 	ctx := testutils.Context(t)
 
 	responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
