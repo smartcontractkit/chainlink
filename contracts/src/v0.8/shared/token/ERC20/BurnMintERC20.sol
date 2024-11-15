@@ -13,6 +13,7 @@ import {IERC165} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/ut
 
 /// @notice A basic ERC20 compatible token contract with burn and minting roles.
 /// @dev The total supply can be limited during deployment.
+/// @dev This contract has not been audited and is not yet approved for production use.
 contract BurnMintERC20 is IBurnMintERC20, IGetCCIPAdmin, IERC165, ERC20Burnable, AccessControl {
   error MaxSupplyExceeded(uint256 supplyAfterMint);
   error InvalidRecipient(address recipient);
