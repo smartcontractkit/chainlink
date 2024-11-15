@@ -532,6 +532,9 @@ func DeployChainContracts(
 	if chainState.RegistryModule == nil {
 		return fmt.Errorf("registry module not found for chain %d, deploy the prerequisites first", chain.Selector)
 	}
+	if chainState.Router == nil {
+		return fmt.Errorf("router not found for chain %d, deploy the prerequisites first", chain.Selector)
+	}
 	if chainState.Receiver == nil {
 		ccipReceiver, err := deployment.DeployContract(e.Logger, chain, ab,
 			func(chain deployment.Chain) deployment.ContractDeploy[*maybe_revert_message_receiver.MaybeRevertMessageReceiver] {
