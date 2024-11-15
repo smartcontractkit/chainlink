@@ -52,7 +52,7 @@ type ORM interface {
 	FindJobIDByAddress(ctx context.Context, address evmtypes.EIP55Address, evmChainID *big.Big) (int32, error)
 	FindOCR2JobIDByAddress(ctx context.Context, contractID string, feedID *common.Hash) (int32, error)
 	FindJobIDsWithBridge(ctx context.Context, name string) ([]int32, error)
-	DeleteJob(ctx context.Context, id int32) error
+	DeleteJob(ctx context.Context, id int32, jobType Type) error
 	RecordError(ctx context.Context, jobID int32, description string) error
 	// TryRecordError is a helper which calls RecordError and logs the returned error if present.
 	TryRecordError(ctx context.Context, jobID int32, description string)
@@ -709,14 +709,35 @@ func (o *orm) InsertJob(ctx context.Context, job *Job) error {
 }
 
 // DeleteJob removes a job
-func (o *orm) DeleteJob(ctx context.Context, id int32) error {
+func (o *orm) DeleteJob(ctx context.Context, id int32, jobType Type) error {
 	o.lggr.Debugw("Deleting job", "jobID", id)
+	queries := map[Type]string{
+		DirectRequest:        `DELETE FROM direct_request_specs WHERE id IN (SELECT direct_request_spec_id FROM deleted_jobs)`,
+		FluxMonitor:          `DELETE FROM flux_monitor_specs WHERE id IN (SELECT flux_monitor_spec_id FROM deleted_jobs)`,
+		OffchainReporting:    `DELETE FROM ocr_oracle_specs WHERE id IN (SELECT ocr_oracle_spec_id FROM deleted_jobs)`,
+		OffchainReporting2:   `DELETE FROM ocr2_oracle_specs WHERE id IN (SELECT ocr2_oracle_spec_id FROM deleted_jobs)`,
+		Keeper:               `DELETE FROM keeper_specs WHERE id IN (SELECT keeper_spec_id FROM deleted_jobs)`,
+		Cron:                 `DELETE FROM cron_specs WHERE id IN (SELECT cron_spec_id FROM deleted_jobs)`,
+		VRF:                  `DELETE FROM vrf_specs WHERE id IN (SELECT vrf_spec_id FROM deleted_jobs)`,
+		Webhook:              `DELETE FROM webhook_specs WHERE id IN (SELECT webhook_spec_id FROM deleted_jobs)`,
+		BlockhashStore:       `DELETE FROM blockhash_store_specs WHERE id IN (SELECT blockhash_store_spec_id FROM deleted_jobs)`,
+		Bootstrap:            `DELETE FROM bootstrap_specs WHERE id IN (SELECT bootstrap_spec_id FROM deleted_jobs)`,
+		BlockHeaderFeeder:    `DELETE FROM block_header_feeder_specs WHERE id IN (SELECT block_header_feeder_spec_id FROM deleted_jobs)`,
+		Gateway:              `DELETE FROM gateway_specs WHERE id IN (SELECT gateway_spec_id FROM deleted_jobs)`,
+		Workflow:             `DELETE FROM workflow_specs WHERE id in (SELECT workflow_spec_id FROM deleted_jobs)`,
+		StandardCapabilities: `DELETE FROM standardcapabilities_specs WHERE id in (SELECT standard_capabilities_spec_id FROM deleted_jobs)`,
+		CCIP:                 `DELETE FROM ccip_specs WHERE id in (SELECT ccip_spec_id FROM deleted_jobs)`,
+	}
+	q, ok := queries[jobType]
+	if !ok {
+		return errors.Errorf("job type %s not supported", jobType)
+	}
 	// Added a 1-minute timeout to this query since this can take a long time as data increases.
 	// This was added specifically due to an issue with a database that had a million of pipeline_runs and pipeline_task_runs
 	// and this query was taking ~40secs.
 	ctx, cancel := context.WithTimeout(sqlutil.WithoutDefaultTimeout(ctx), time.Minute)
 	defer cancel()
-	query := `
+	query := fmt.Sprintf(`
 		WITH deleted_jobs AS (
 			DELETE FROM jobs WHERE id = $1 RETURNING
 				id,
@@ -736,55 +757,13 @@ func (o *orm) DeleteJob(ctx context.Context, id int32) error {
 				standard_capabilities_spec_id,
 				ccip_spec_id
 		),
-		deleted_oracle_specs AS (
-			DELETE FROM ocr_oracle_specs WHERE id IN (SELECT ocr_oracle_spec_id FROM deleted_jobs)
-		),
-		deleted_oracle2_specs AS (
-			DELETE FROM ocr2_oracle_specs WHERE id IN (SELECT ocr2_oracle_spec_id FROM deleted_jobs)
-		),
-		deleted_keeper_specs AS (
-			DELETE FROM keeper_specs WHERE id IN (SELECT keeper_spec_id FROM deleted_jobs)
-		),
-		deleted_cron_specs AS (
-			DELETE FROM cron_specs WHERE id IN (SELECT cron_spec_id FROM deleted_jobs)
-		),
-		deleted_fm_specs AS (
-			DELETE FROM flux_monitor_specs WHERE id IN (SELECT flux_monitor_spec_id FROM deleted_jobs)
-		),
-		deleted_vrf_specs AS (
-			DELETE FROM vrf_specs WHERE id IN (SELECT vrf_spec_id FROM deleted_jobs)
-		),
-		deleted_webhook_specs AS (
-			DELETE FROM webhook_specs WHERE id IN (SELECT webhook_spec_id FROM deleted_jobs)
-		),
-		deleted_dr_specs AS (
-			DELETE FROM direct_request_specs WHERE id IN (SELECT direct_request_spec_id FROM deleted_jobs)
-		),
-		deleted_blockhash_store_specs AS (
-			DELETE FROM blockhash_store_specs WHERE id IN (SELECT blockhash_store_spec_id FROM deleted_jobs)
-		),
-		deleted_bootstrap_specs AS (
-			DELETE FROM bootstrap_specs WHERE id IN (SELECT bootstrap_spec_id FROM deleted_jobs)
-		),
-		deleted_block_header_feeder_specs AS (
-			DELETE FROM block_header_feeder_specs WHERE id IN (SELECT block_header_feeder_spec_id FROM deleted_jobs)
-		),
-		deleted_gateway_specs AS (
-			DELETE FROM gateway_specs WHERE id IN (SELECT gateway_spec_id FROM deleted_jobs)
-		),
-		deleted_workflow_specs AS (
-			DELETE FROM workflow_specs WHERE id in (SELECT workflow_spec_id FROM deleted_jobs)
-		),
-		deleted_standardcapabilities_specs AS (
-			DELETE FROM standardcapabilities_specs WHERE id in (SELECT standard_capabilities_spec_id FROM deleted_jobs)
-		),
-		deleted_ccip_specs AS (
-			DELETE FROM ccip_specs WHERE id in (SELECT ccip_spec_id FROM deleted_jobs)
+		deleted_specific_specs AS (
+			%s
 		),
 		deleted_job_pipeline_specs AS (
 			DELETE FROM job_pipeline_specs WHERE job_id IN (SELECT id FROM deleted_jobs) RETURNING pipeline_spec_id
 		)
-		DELETE FROM pipeline_specs WHERE id IN (SELECT pipeline_spec_id FROM deleted_job_pipeline_specs)`
+		DELETE FROM pipeline_specs WHERE id IN (SELECT pipeline_spec_id FROM deleted_job_pipeline_specs)`, q)
 	res, err := o.ds.ExecContext(ctx, query, id)
 	if err != nil {
 		return errors.Wrap(err, "DeleteJob failed to delete job")

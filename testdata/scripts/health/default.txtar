@@ -41,6 +41,7 @@ ok PipelineRunner
 ok PipelineRunner.BridgeCache
 ok RetirementReportCache
 ok TelemetryManager
+ok WorkflowDBStore
 
 -- out.json --
 {
@@ -131,6 +132,15 @@ ok TelemetryManager
       "id": "TelemetryManager",
       "attributes": {
         "name": "TelemetryManager",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "WorkflowDBStore",
+      "attributes": {
+        "name": "WorkflowDBStore",
         "status": "passing",
         "output": ""
       }
