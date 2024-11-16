@@ -28,6 +28,7 @@ import (
 )
 
 func TestRMN_TwoMessagesOnTwoLanes(t *testing.T) {
+	t.Parallel()
 	runRmnTestCase(t, rmnTestCase{
 		name:        "messages on two lanes",
 		waitForExec: true,
@@ -51,6 +52,7 @@ func TestRMN_TwoMessagesOnTwoLanes(t *testing.T) {
 }
 
 func TestRMN_MultipleMessagesOnOneLaneNoWaitForExec(t *testing.T) {
+	t.Parallel()
 	runRmnTestCase(t, rmnTestCase{
 		name:        "multiple messages for rmn batching inspection and one rmn node down",
 		waitForExec: false, // do not wait for execution reports
@@ -73,6 +75,7 @@ func TestRMN_MultipleMessagesOnOneLaneNoWaitForExec(t *testing.T) {
 }
 
 func TestRMN_NotEnoughObservers(t *testing.T) {
+	t.Parallel()
 	runRmnTestCase(t, rmnTestCase{
 		name:                "one message but not enough observers, should not get a commit report",
 		passIfNoCommitAfter: time.Minute, // wait for a minute and assert that commit report was not delivered
@@ -95,6 +98,7 @@ func TestRMN_NotEnoughObservers(t *testing.T) {
 }
 
 func TestRMN_DifferentSigners(t *testing.T) {
+	t.Parallel()
 	runRmnTestCase(t, rmnTestCase{
 		name: "different signers and different observers",
 		homeChainConfig: homeChainConfig{
@@ -119,6 +123,7 @@ func TestRMN_DifferentSigners(t *testing.T) {
 }
 
 func TestRMN_NotEnoughSigners(t *testing.T) {
+	t.Parallel()
 	runRmnTestCase(t, rmnTestCase{
 		name:                "different signers and different observers",
 		passIfNoCommitAfter: time.Minute, // wait for a minute and assert that commit report was not delivered
@@ -144,6 +149,7 @@ func TestRMN_NotEnoughSigners(t *testing.T) {
 }
 
 func TestRMN_DifferentRmnNodesForDifferentChains(t *testing.T) {
+	t.Parallel()
 	runRmnTestCase(t, rmnTestCase{
 		name:        "different rmn nodes support different chains",
 		waitForExec: false,
@@ -175,7 +181,6 @@ const (
 )
 
 func runRmnTestCase(t *testing.T, tc rmnTestCase) {
-	t.Parallel()
 	require.NoError(t, os.Setenv("ENABLE_RMN", "true"))
 
 	envWithRMN, rmnCluster := testsetups.NewLocalDevEnvironmentWithRMN(t, logger.TestLogger(t), len(tc.rmnNodes))
