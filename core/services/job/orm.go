@@ -20,7 +20,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -304,10 +303,29 @@ func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
 				}
 			}
 
-			if jb.AdaptiveSendSpec != nil {
-				err = validateKeyStoreMatchForRelay(ctx, jb.OCR2OracleSpec.Relay, tx.keyStore, jb.AdaptiveSendSpec.TransmitterAddress.String())
-				if err != nil {
-					return fmt.Errorf("failed to validate AdaptiveSendSpec.TransmitterAddress: %w", err)
+			if enableDualTransmission, ok := jb.OCR2OracleSpec.RelayConfig["enableDualTransmission"]; ok && enableDualTransmission != nil {
+				rawDualTransmissionConfig, ok := jb.OCR2OracleSpec.RelayConfig["dualTransmission"]
+				if !ok {
+					return errors.New("dual transmission is enabled but no dual transmission config present")
+				}
+
+				dualTransmissionConfig, ok := rawDualTransmissionConfig.(map[string]interface{})
+				if !ok {
+					return errors.New("invalid dual transmission config")
+				}
+
+				dtContractAddress, ok := dualTransmissionConfig["contractAddress"].(string)
+				if !ok || !common.IsHexAddress(dtContractAddress) {
+					return errors.New("invalid contract address in dual transmission config")
+				}
+
+				dtTransmitterAddress, ok := dualTransmissionConfig["transmitterAddress"].(string)
+				if !ok || !common.IsHexAddress(dtTransmitterAddress) {
+					return errors.New("invalid transmitter address in dual transmission config")
+				}
+
+				if err = validateKeyStoreMatchForRelay(ctx, jb.OCR2OracleSpec.Relay, tx.keyStore, dtTransmitterAddress); err != nil {
+					return errors.Wrap(err, "unknown dual transmission transmitterAddress")
 				}
 			}
 

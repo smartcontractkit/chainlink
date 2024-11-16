@@ -389,7 +389,7 @@ UnixTS = false # Default
 ```toml
 Level = 'info' # Default
 ```
-Level determines both what is printed on the screen and what is written to the log file.
+Level determines only what is printed on the screen/console. This configuration does not apply to the logs that are recorded in a file (see [`Log.File`](#logfile) for more details).
 
 The available levels are:
 - "debug": Useful for forensic debugging of issues.
@@ -434,7 +434,7 @@ Dir sets the log directory. By default, Chainlink nodes write log data to `$ROOT
 ```toml
 MaxSize = '5120mb' # Default
 ```
-MaxSize determines the log file's max size in megabytes before file rotation. Having this not set will disable logging to disk. If your disk doesn't have enough disk space, the logging will pause and the application will log errors until space is available again.
+MaxSize determines the log file's max size before file rotation. Having this not set or set to a value smaller than 1Mb will disable logging to disk. If your disk doesn't have enough disk space, the logging will pause and the application will log errors until space is available again.
 
 Values must have suffixes with a unit like: `5120mb` (5,120 megabytes). If no unit suffix is provided, the value defaults to `b` (bytes). The list of valid unit suffixes are:
 
