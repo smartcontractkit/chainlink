@@ -12,7 +12,6 @@ import (
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccdeploy "github.com/smartcontractkit/chainlink/deployment/ccip"
-	ccipdeployment "github.com/smartcontractkit/chainlink/deployment/ccip"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
@@ -22,9 +21,9 @@ import (
 type feeboostTestCase struct {
 	t                      *testing.T
 	sender                 []byte
-	deployedEnv            ccipdeployment.DeployedEnv
-	onchainState           ccipdeployment.CCIPOnChainState
-	initialPrices          ccipdeployment.InitialPrices
+	deployedEnv            ccdeploy.DeployedEnv
+	onchainState           ccdeploy.CCIPOnChainState
+	initialPrices          ccdeploy.InitialPrices
 	priceFeedPrices        priceFeedPrices
 	sourceChain, destChain uint64
 }
@@ -38,31 +37,37 @@ type priceFeedPrices struct {
 func Test_CCIPFeeBoosting(t *testing.T) {
 	ctx := ccdeploy.Context(t)
 
-	setupTestEnv := func(t *testing.T, numChains int) (ccipdeployment.DeployedEnv, ccipdeployment.CCIPOnChainState, []uint64) {
+	setupTestEnv := func(t *testing.T, numChains int) (ccdeploy.DeployedEnv, ccdeploy.CCIPOnChainState, []uint64) {
 		e, _, _ := testsetups.NewLocalDevEnvironment(
 			t, logger.TestLogger(t),
 			deployment.E18Mult(5),
 			big.NewInt(9e8))
 
-		state, err := ccipdeployment.LoadOnchainState(e.Env)
+		state, err := ccdeploy.LoadOnchainState(e.Env)
 		require.NoError(t, err)
 
 		allChainSelectors := maps.Keys(e.Env.Chains)
 		require.Len(t, allChainSelectors, numChains)
 
-		tokenConfig := ccipdeployment.NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
+		output, err := changeset.DeployPrerequisites(e.Env, changeset.DeployPrerequisiteConfig{
+			ChainSelectors: e.Env.AllChainSelectors(),
+		})
+		require.NoError(t, err)
+		require.NoError(t, e.Env.ExistingAddresses.Merge(output.AddressBook))
+
+		tokenConfig := ccdeploy.NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
 		// Apply migration
-		output, err := changeset.InitialDeploy(e.Env, ccdeploy.DeployCCIPContractConfig{
+		output, err = changeset.InitialDeploy(e.Env, ccdeploy.DeployCCIPContractConfig{
 			HomeChainSel:   e.HomeChainSel,
 			FeedChainSel:   e.FeedChainSel,
 			ChainsToDeploy: allChainSelectors,
 			TokenConfig:    tokenConfig,
-			MCMSConfig:     ccipdeployment.NewTestMCMSConfig(t, e.Env),
+			MCMSConfig:     ccdeploy.NewTestMCMSConfig(t, e.Env),
 			OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
 		})
 		require.NoError(t, err)
 		require.NoError(t, e.Env.ExistingAddresses.Merge(output.AddressBook))
-		state, err = ccipdeployment.LoadOnchainState(e.Env)
+		state, err = ccdeploy.LoadOnchainState(e.Env)
 		require.NoError(t, err)
 
 		// Ensure capreg logs are up to date.
@@ -91,10 +96,10 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 			sender:       common.LeftPadBytes(e.Env.Chains[chains[0]].DeployerKey.From.Bytes(), 32),
 			deployedEnv:  e,
 			onchainState: state,
-			initialPrices: ccipdeployment.InitialPrices{
+			initialPrices: ccdeploy.InitialPrices{
 				LinkPrice: deployment.E18Mult(5),
 				WethPrice: deployment.E18Mult(9),
-				GasPrice:  ccipdeployment.ToPackedFee(big.NewInt(1.8e11), big.NewInt(0)),
+				GasPrice:  ccdeploy.ToPackedFee(big.NewInt(1.8e11), big.NewInt(0)),
 			},
 			priceFeedPrices: priceFeedPrices{
 				linkPrice: deployment.E18Mult(5),
@@ -112,10 +117,10 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 			sender:       common.LeftPadBytes(e.Env.Chains[chains[0]].DeployerKey.From.Bytes(), 32),
 			deployedEnv:  e,
 			onchainState: state,
-			initialPrices: ccipdeployment.InitialPrices{
+			initialPrices: ccdeploy.InitialPrices{
 				LinkPrice: deployment.E18Mult(5),
 				WethPrice: deployment.E18Mult(9),
-				GasPrice:  ccipdeployment.ToPackedFee(big.NewInt(1.8e11), big.NewInt(0)),
+				GasPrice:  ccdeploy.ToPackedFee(big.NewInt(1.8e11), big.NewInt(0)),
 			},
 			priceFeedPrices: priceFeedPrices{
 				linkPrice: big.NewInt(4.5e18), // decrease from 5e18 to 4.5e18
@@ -128,26 +133,26 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 }
 
 func runFeeboostTestCase(tc feeboostTestCase) {
-	require.NoError(tc.t, ccipdeployment.AddLane(tc.deployedEnv.Env, tc.onchainState, tc.sourceChain, tc.destChain, tc.initialPrices))
+	require.NoError(tc.t, ccdeploy.AddLane(tc.deployedEnv.Env, tc.onchainState, tc.sourceChain, tc.destChain, tc.initialPrices))
 
 	startBlocks := make(map[uint64]*uint64)
 	expectedSeqNum := make(map[uint64]uint64)
-	seqNum := ccipdeployment.TestSendRequest(tc.t, tc.deployedEnv.Env, tc.onchainState, tc.sourceChain, tc.destChain, false, router.ClientEVM2AnyMessage{
+	msgSentEvent := ccdeploy.TestSendRequest(tc.t, tc.deployedEnv.Env, tc.onchainState, tc.sourceChain, tc.destChain, false, router.ClientEVM2AnyMessage{
 		Receiver:     common.LeftPadBytes(tc.onchainState.Chains[tc.destChain].Receiver.Address().Bytes(), 32),
 		Data:         []byte("message that needs fee boosting"),
 		TokenAmounts: nil,
 		FeeToken:     common.HexToAddress("0x0"),
 		ExtraArgs:    nil,
 	})
-	expectedSeqNum[tc.destChain] = seqNum
+	expectedSeqNum[tc.destChain] = msgSentEvent.SequenceNumber
 
 	// hack
 	time.Sleep(30 * time.Second)
 	replayBlocks := make(map[uint64]uint64)
 	replayBlocks[tc.sourceChain] = 1
 	replayBlocks[tc.destChain] = 1
-	ccipdeployment.ReplayLogs(tc.t, tc.deployedEnv.Env.Offchain, replayBlocks)
+	ccdeploy.ReplayLogs(tc.t, tc.deployedEnv.Env.Offchain, replayBlocks)
 
-	ccipdeployment.ConfirmCommitForAllWithExpectedSeqNums(tc.t, tc.deployedEnv.Env, tc.onchainState, expectedSeqNum, startBlocks)
-	ccipdeployment.ConfirmExecWithSeqNrForAll(tc.t, tc.deployedEnv.Env, tc.onchainState, expectedSeqNum, startBlocks)
+	ccdeploy.ConfirmCommitForAllWithExpectedSeqNums(tc.t, tc.deployedEnv.Env, tc.onchainState, expectedSeqNum, startBlocks)
+	ccdeploy.ConfirmExecWithSeqNrForAll(tc.t, tc.deployedEnv.Env, tc.onchainState, expectedSeqNum, startBlocks)
 }

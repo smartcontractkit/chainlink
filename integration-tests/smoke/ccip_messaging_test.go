@@ -105,11 +105,7 @@ func Test_CCIPMessaging(t *testing.T) {
 	}
 
 	// connect a single lane, source to dest
-<<<<<<< HEAD
-	require.NoError(t, ccipdeployment.AddLaneWithDefaultPrices(e.Env, state, sourceChain, destChain))
-=======
-	require.NoError(t, ccdeploy.AddLane(e.Env, state, sourceChain, destChain))
->>>>>>> develop
+	require.NoError(t, ccdeploy.AddLaneWithDefaultPrices(e.Env, state, sourceChain, destChain))
 
 	var (
 		replayed bool
