@@ -98,7 +98,7 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 			},
 			priceFeedPrices: priceFeedPrices{
 				linkPrice: deployment.E18Mult(5),
-				wethPrice: big.NewInt(9.9e8),
+				wethPrice: big.NewInt(9.9e8), // increase from 9e8 to 9.9e8
 			},
 			sourceChain: chains[0],
 			destChain:   chains[1],
@@ -118,7 +118,7 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 				GasPrice:  ccipdeployment.ToPackedFee(big.NewInt(1.8e11), big.NewInt(0)),
 			},
 			priceFeedPrices: priceFeedPrices{
-				linkPrice: big.NewInt(4.5e18),
+				linkPrice: big.NewInt(4.5e18), // decrease from 5e18 to 4.5e18
 				wethPrice: big.NewInt(9e8),
 			},
 			sourceChain: chains[0],
