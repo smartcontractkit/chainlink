@@ -10,7 +10,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -25,6 +24,18 @@ func TestDeployCCIPContracts(t *testing.T) {
 	homeChainSel, feedChainSel := allocateCCIPChainSelectors(e.Chains)
 	_ = DeployTestContracts(t, lggr, e.ExistingAddresses, homeChainSel, feedChainSel, e.Chains)
 
+	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
+	require.NoError(t, err)
+
+	_, err = DeployHomeChain(lggr, e, e.ExistingAddresses, e.Chains[homeChainSel],
+		NewTestRMNStaticConfig(),
+		NewTestRMNDynamicConfig(),
+		NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
+		map[string][][32]byte{
+			"NodeOperator": nodes.NonBootstraps().PeerIDs(),
+		},
+	)
+	require.NoError(t, err)
 	// Load the state after deploying the cap reg and feeds.
 	s, err := LoadOnchainState(e)
 	require.NoError(t, err)
@@ -33,6 +44,11 @@ func TestDeployCCIPContracts(t *testing.T) {
 	require.NotNil(t, s.Chains[feedChainSel].USDFeeds)
 
 	newAddresses := deployment.NewMemoryAddressBook()
+	err = DeployPrerequisiteChainContracts(e, newAddresses, e.AllChainSelectors())
+	require.NoError(t, err)
+	require.NoError(t, e.ExistingAddresses.Merge(newAddresses))
+
+	newAddresses = deployment.NewMemoryAddressBook()
 	err = DeployCCIPContracts(e, newAddresses, DeployCCIPContractConfig{
 		HomeChainSel:   homeChainSel,
 		FeedChainSel:   feedChainSel,

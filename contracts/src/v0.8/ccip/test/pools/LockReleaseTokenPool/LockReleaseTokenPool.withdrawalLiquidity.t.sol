@@ -7,7 +7,7 @@ import {TokenPool} from "../../../pools/TokenPool.sol";
 import {LockReleaseTokenPoolSetup} from "./LockReleaseTokenPoolSetup.t.sol";
 
 contract LockReleaseTokenPool_withdrawalLiquidity is LockReleaseTokenPoolSetup {
-  function test_Fuzz_WithdrawalLiquidity_Success(
+  function testFuzz_WithdrawalLiquidity_Success(
     uint256 amount
   ) public {
     uint256 balancePre = s_token.balanceOf(OWNER);

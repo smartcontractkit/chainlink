@@ -7,15 +7,18 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/rpc"
+	"golang.org/x/exp/maps"
 
+	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
+	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/environment/clo/models"
 
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -49,8 +52,10 @@ func (r ConfigureContractsRequest) Validate() error {
 	if r.Env == nil {
 		return errors.New("environment is nil")
 	}
-	if len(r.Dons) == 0 {
-		return errors.New("no DONS")
+	for _, don := range r.Dons {
+		if err := don.Validate(); err != nil {
+			return fmt.Errorf("don validation failed for '%s': %w", don.Name, err)
+		}
 	}
 	_, ok := chainsel.ChainBySelector(r.RegistryChainSel)
 	if !ok {
@@ -90,8 +95,13 @@ func ConfigureContracts(ctx context.Context, lggr logger.Logger, req ConfigureCo
 		return nil, fmt.Errorf("failed to configure registry: %w", err)
 	}
 
+	donInfos, err := DonInfos(req.Dons, req.Env.Offchain)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get don infos: %w", err)
+	}
+
 	// now we have the capability registry set up we need to configure the forwarder contracts and the OCR3 contract
-	dons, err := joinInfoAndNodes(cfgRegistryResp.DonInfos, req.Dons, req.RegistryChainSel)
+	dons, err := joinInfoAndNodes(cfgRegistryResp.DonInfos, donInfos, req.RegistryChainSel)
 	if err != nil {
 		return nil, fmt.Errorf("failed to assimilate registry to Dons: %w", err)
 	}
@@ -137,6 +147,101 @@ func DeployContracts(lggr logger.Logger, e *deployment.Environment, chainSel uin
 	}, nil
 }
 
+// DonInfo is DonCapabilities, but expanded to contain node information
+type DonInfo struct {
+	Name         string
+	Nodes        []Node
+	Capabilities []kcr.CapabilitiesRegistryCapability // every capability is hosted on each node
+}
+
+// TODO: merge with deployment/environment.go Node
+type Node struct {
+	ID           string
+	P2PID        string
+	Name         string
+	PublicKey    *string
+	ChainConfigs []*nodev1.ChainConfig
+}
+
+// TODO: merge with deployment/environment.go NodeInfo, we currently lookup based on p2p_id, and chain-selectors needs non-EVM support
+func NodesFromJD(name string, nodeIDs []string, jd deployment.OffchainClient) ([]Node, error) {
+	// lookup nodes based on p2p_ids
+	var nodes []Node
+	selector := strings.Join(nodeIDs, ",")
+	nodesFromJD, err := jd.ListNodes(context.Background(), &nodev1.ListNodesRequest{
+		Filter: &nodev1.ListNodesRequest_Filter{
+			Enabled: 1,
+			Selectors: []*ptypes.Selector{
+				{
+					Key:   "p2p_id",
+					Op:    ptypes.SelectorOp_IN,
+					Value: &selector,
+				},
+			},
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list nodes '%s': %w", name, err)
+	}
+
+	for _, id := range nodeIDs {
+		idx := slices.IndexFunc(nodesFromJD.GetNodes(), func(node *nodev1.Node) bool {
+			return slices.ContainsFunc(node.Labels, func(label *ptypes.Label) bool {
+				return label.Key == "p2p_id" && *label.Value == id
+			})
+		})
+		if idx < 0 {
+			var got []string
+			for _, node := range nodesFromJD.GetNodes() {
+				for _, label := range node.Labels {
+					if label.Key == "p2p_id" {
+						got = append(got, *label.Value)
+					}
+				}
+			}
+			return nil, fmt.Errorf("node id %s not found in list '%s'", id, strings.Join(got, ","))
+		}
+
+		jdNode := nodesFromJD.Nodes[idx]
+		// TODO: Filter should accept multiple nodes
+		nodeChainConfigs, err := jd.ListNodeChainConfigs(context.Background(), &nodev1.ListNodeChainConfigsRequest{Filter: &nodev1.ListNodeChainConfigsRequest_Filter{
+			NodeIds: []string{jdNode.Id}, // must use the jd-specific internal node id
+		}})
+		if err != nil {
+			return nil, err
+		}
+
+		nodes = append(nodes, Node{
+			ID:           jdNode.Id,
+			P2PID:        id,
+			Name:         name,
+			PublicKey:    &jdNode.PublicKey,
+			ChainConfigs: nodeChainConfigs.GetChainConfigs(),
+		})
+	}
+	return nodes, nil
+}
+
+func DonInfos(dons []DonCapabilities, jd deployment.OffchainClient) ([]DonInfo, error) {
+	var donInfos []DonInfo
+	for _, don := range dons {
+		var nodeIDs []string
+		for _, nop := range don.Nops {
+			nodeIDs = append(nodeIDs, nop.Nodes...)
+		}
+		nodes, err := NodesFromJD(don.Name, nodeIDs, jd)
+		if err != nil {
+			return nil, err
+		}
+		donInfos = append(donInfos, DonInfo{
+			Name:         don.Name,
+			Nodes:        nodes,
+			Capabilities: don.Capabilities,
+		})
+	}
+	return donInfos, nil
+}
+
 // ConfigureRegistry configures the registry contract with the given DONS and their capabilities
 // the address book is required to contain the addresses of the deployed registry contract
 func ConfigureRegistry(ctx context.Context, lggr logger.Logger, req ConfigureContractsRequest, addrBook deployment.AddressBook) (*ConfigureContractsResponse, error) {
@@ -153,6 +258,11 @@ func ConfigureRegistry(ctx context.Context, lggr logger.Logger, req ConfigureCon
 		return nil, fmt.Errorf("failed to get contract sets: %w", err)
 	}
 
+	donInfos, err := DonInfos(req.Dons, req.Env.Offchain)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get don infos: %w", err)
+	}
+
 	// ensure registry is deployed and get the registry contract and chain
 	var registry *kcr.CapabilitiesRegistry
 	registryChainContracts, ok := contractSetsResp.ContractSets[req.RegistryChainSel]
@@ -167,17 +277,17 @@ func ConfigureRegistry(ctx context.Context, lggr logger.Logger, req ConfigureCon
 
 	// all the subsequent calls to the registry are in terms of nodes
 	// compute the mapping of dons to their nodes for reuse in various registry calls
-	donToOcr2Nodes, err := mapDonsToNodes(req.Dons, true, req.RegistryChainSel)
+	donToOcr2Nodes, err := mapDonsToNodes(donInfos, true, req.RegistryChainSel)
 	if err != nil {
 		return nil, fmt.Errorf("failed to map dons to nodes: %w", err)
 	}
 
-	// TODO: we can remove this abstractions and refactor the functions that accept them to accept []DonCapabilities
+	// TODO: we can remove this abstractions and refactor the functions that accept them to accept []DonInfos/DonCapabilities
 	// they are unnecessary indirection
-	donToCapabilities := mapDonsToCaps(req.Dons)
-	nodeIdToNop, err := nodesToNops(req.Dons, req.RegistryChainSel)
+	donToCapabilities := mapDonsToCaps(donInfos)
+	nopsToNodeIDs, err := nopsToNodes(donInfos, req.Dons, req.RegistryChainSel)
 	if err != nil {
-		return nil, fmt.Errorf("failed to map nodes to nops: %w", err)
+		return nil, fmt.Errorf("failed to map nops to nodes: %w", err)
 	}
 
 	// register capabilities
@@ -192,14 +302,11 @@ func ConfigureRegistry(ctx context.Context, lggr logger.Logger, req ConfigureCon
 	lggr.Infow("registered capabilities", "capabilities", capabilitiesResp.donToCapabilities)
 
 	// register node operators
-	var nops []kcr.CapabilitiesRegistryNodeOperator
-	for _, nop := range nodeIdToNop {
-		nops = append(nops, nop)
-	}
-	nopsResp, err := RegisterNOPS(ctx, RegisterNOPSRequest{
+	nopsList := maps.Keys(nopsToNodeIDs)
+	nopsResp, err := RegisterNOPS(ctx, lggr, RegisterNOPSRequest{
 		Chain:    registryChain,
 		Registry: registry,
-		Nops:     nops,
+		Nops:     nopsList,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to register node operators: %w", err)
@@ -210,7 +317,7 @@ func ConfigureRegistry(ctx context.Context, lggr logger.Logger, req ConfigureCon
 	nodesResp, err := registerNodes(lggr, &registerNodesRequest{
 		registry:          registry,
 		chain:             registryChain,
-		nodeIdToNop:       nodeIdToNop,
+		nopToNodeIDs:      nopsToNodeIDs,
 		donToOcr2Nodes:    donToOcr2Nodes,
 		donToCapabilities: capabilitiesResp.donToCapabilities,
 		nops:              nopsResp.Nops,
@@ -219,6 +326,8 @@ func ConfigureRegistry(ctx context.Context, lggr logger.Logger, req ConfigureCon
 		return nil, fmt.Errorf("failed to register nodes: %w", err)
 	}
 	lggr.Infow("registered nodes", "nodes", nodesResp.nodeIDToParams)
+
+	// TODO: annotate nodes with node_operator_id in JD?
 
 	// register DONS
 	donsResp, err := registerDons(lggr, registerDonsRequest{
@@ -231,7 +340,7 @@ func ConfigureRegistry(ctx context.Context, lggr logger.Logger, req ConfigureCon
 	if err != nil {
 		return nil, fmt.Errorf("failed to register DONS: %w", err)
 	}
-	lggr.Infow("registered DONS", "dons", len(donsResp.donInfos))
+	lggr.Infow("registered DONs", "dons", len(donsResp.donInfos))
 
 	return &ConfigureContractsResponse{
 		Changeset: &deployment.ChangesetOutput{
@@ -314,7 +423,7 @@ func ConfigureOCR3Contract(env *deployment.Environment, chainSel uint64, dons []
 	return nil
 }
 
-func ConfigureOCR3ContractFromCLO(env *deployment.Environment, chainSel uint64, nodes []*models.Node, addrBook deployment.AddressBook, cfg *OracleConfigWithSecrets) error {
+func ConfigureOCR3ContractFromJD(env *deployment.Environment, chainSel uint64, nodeIDs []string, addrBook deployment.AddressBook, cfg *OracleConfigWithSecrets) error {
 	registryChain, ok := env.Chains[chainSel]
 	if !ok {
 		return fmt.Errorf("chain %d not found in environment", chainSel)
@@ -334,9 +443,13 @@ func ConfigureOCR3ContractFromCLO(env *deployment.Environment, chainSel uint64, 
 	if contract == nil {
 		return fmt.Errorf("no ocr3 contract found for chain %d", chainSel)
 	}
+	nodes, err := NodesFromJD("nodes", nodeIDs, env.Offchain)
+	if err != nil {
+		return err
+	}
 	var ocr2nodes []*ocr2Node
 	for _, node := range nodes {
-		n, err := newOcr2NodeFromClo(node, chainSel)
+		n, err := newOcr2NodeFromJD(&node, chainSel)
 		if err != nil {
 			return fmt.Errorf("failed to create ocr2 node from clo node: %w", err)
 		}
@@ -371,6 +484,7 @@ func registerCapabilities(lggr logger.Logger, req registerCapabilitiesRequest) (
 	if len(req.donToCapabilities) == 0 {
 		return nil, fmt.Errorf("no capabilities to register")
 	}
+	lggr.Infow("registering capabilities...", "len", len(req.donToCapabilities))
 	resp := &registerCapabilitiesResponse{
 		donToCapabilities: make(map[string][]RegisteredCapability),
 	}
@@ -421,8 +535,37 @@ type RegisterNOPSResponse struct {
 	Nops []*kcr.CapabilitiesRegistryNodeOperatorAdded
 }
 
-func RegisterNOPS(ctx context.Context, req RegisterNOPSRequest) (*RegisterNOPSResponse, error) {
-	nops := req.Nops
+func RegisterNOPS(ctx context.Context, lggr logger.Logger, req RegisterNOPSRequest) (*RegisterNOPSResponse, error) {
+	lggr.Infow("registering node operators...", "len", len(req.Nops))
+	existingNops, err := req.Registry.GetNodeOperators(&bind.CallOpts{})
+	if err != nil {
+		return nil, err
+	}
+	existingNopsAddrToID := make(map[capabilities_registry.CapabilitiesRegistryNodeOperator]uint32)
+	for id, nop := range existingNops {
+		existingNopsAddrToID[nop] = uint32(id)
+	}
+	lggr.Infow("fetched existing node operators", "len", len(existingNopsAddrToID))
+	resp := &RegisterNOPSResponse{
+		Nops: []*kcr.CapabilitiesRegistryNodeOperatorAdded{},
+	}
+	nops := []kcr.CapabilitiesRegistryNodeOperator{}
+	for _, nop := range req.Nops {
+		if id, ok := existingNopsAddrToID[nop]; !ok {
+			nops = append(nops, nop)
+		} else {
+			lggr.Debugw("node operator already exists", "name", nop.Name, "admin", nop.Admin.String(), "id", id)
+			resp.Nops = append(resp.Nops, &kcr.CapabilitiesRegistryNodeOperatorAdded{
+				NodeOperatorId: id,
+				Name:           nop.Name,
+				Admin:          nop.Admin,
+			})
+		}
+	}
+	if len(nops) == 0 {
+		lggr.Debug("no new node operators to register")
+		return resp, nil
+	}
 	tx, err := req.Registry.AddNodeOperators(req.Chain.DeployerKey, nops)
 	if err != nil {
 		err = DecodeErr(kcr.CapabilitiesRegistryABI, err)
@@ -442,15 +585,12 @@ func RegisterNOPS(ctx context.Context, req RegisterNOPSRequest) (*RegisterNOPSRe
 	if len(receipt.Logs) != len(nops) {
 		return nil, fmt.Errorf("expected %d log entries for AddNodeOperators, got %d", len(nops), len(receipt.Logs))
 	}
-	resp := &RegisterNOPSResponse{
-		Nops: make([]*kcr.CapabilitiesRegistryNodeOperatorAdded, len(receipt.Logs)),
-	}
 	for i, log := range receipt.Logs {
 		o, err := req.Registry.ParseNodeOperatorAdded(*log)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse log %d for operator added: %w", i, err)
 		}
-		resp.Nops[i] = o
+		resp.Nops = append(resp.Nops, o)
 	}
 
 	return resp, nil
@@ -518,7 +658,7 @@ func DecodeErr(encodedABI string, err error) error {
 type registerNodesRequest struct {
 	registry          *kcr.CapabilitiesRegistry
 	chain             deployment.Chain
-	nodeIdToNop       map[string]kcr.CapabilitiesRegistryNodeOperator
+	nopToNodeIDs      map[kcr.CapabilitiesRegistryNodeOperator][]string
 	donToOcr2Nodes    map[string][]*ocr2Node
 	donToCapabilities map[string][]RegisteredCapability
 	nops              []*kcr.CapabilitiesRegistryNodeOperatorAdded
@@ -531,20 +671,18 @@ type registerNodesResponse struct {
 // can sign the transactions update the contract state
 // TODO: 467 refactor to support MCMS. Specifically need to separate the call data generation from the actual contract call
 func registerNodes(lggr logger.Logger, req *registerNodesRequest) (*registerNodesResponse, error) {
-	nopToNodeIDs := make(map[kcr.CapabilitiesRegistryNodeOperator][]string)
-	for nodeID, nop := range req.nodeIdToNop {
-		if _, ok := nopToNodeIDs[nop]; !ok {
-			nopToNodeIDs[nop] = make([]string, 0)
-		}
-		nopToNodeIDs[nop] = append(nopToNodeIDs[nop], nodeID)
+	var count int
+	for _, nodes := range req.nopToNodeIDs {
+		count += len(nodes)
 	}
+	lggr.Infow("registering nodes...", "len", count)
 	nodeToRegisterNop := make(map[string]*kcr.CapabilitiesRegistryNodeOperatorAdded)
 	for _, nop := range req.nops {
 		n := kcr.CapabilitiesRegistryNodeOperator{
 			Name:  nop.Name,
 			Admin: nop.Admin,
 		}
-		nodeIDs := nopToNodeIDs[n]
+		nodeIDs := req.nopToNodeIDs[n]
 		for _, nodeID := range nodeIDs {
 			_, exists := nodeToRegisterNop[nodeID]
 			if !exists {
@@ -623,7 +761,7 @@ func registerNodes(lggr logger.Logger, req *registerNodesRequest) (*registerNode
 			if err != nil {
 				err = DecodeErr(kcr.CapabilitiesRegistryABI, err)
 				if strings.Contains(err.Error(), "NodeAlreadyExists") {
-					lggr.Warnw("node already exists, skipping", "p2pid", singleNodeParams.P2pId)
+					lggr.Warnw("node already exists, skipping", "p2pid", hex.EncodeToString(singleNodeParams.P2pId[:]))
 					continue
 				}
 				return nil, fmt.Errorf("failed to call AddNode for node with p2pid %v: %w", singleNodeParams.P2pId, err)
@@ -672,13 +810,22 @@ func sortedHash(p2pids [][32]byte) string {
 }
 
 func registerDons(lggr logger.Logger, req registerDonsRequest) (*registerDonsResponse, error) {
-	resp := registerDonsResponse{
-		donInfos: make(map[string]kcr.CapabilitiesRegistryDONInfo),
-	}
+	lggr.Infow("registering DONs...", "len", len(req.donToOcr2Nodes))
 	// track hash of sorted p2pids to don name because the registry return value does not include the don name
 	// and we need to map it back to the don name to access the other mapping data such as the don's capabilities & nodes
 	p2pIdsToDon := make(map[string]string)
-	var registeredDons = 0
+	var addedDons = 0
+
+	donInfos, err := req.registry.GetDONs(&bind.CallOpts{})
+	if err != nil {
+		err = DecodeErr(kcr.CapabilitiesRegistryABI, err)
+		return nil, fmt.Errorf("failed to call GetDONs: %w", err)
+	}
+	existingDONs := make(map[string]struct{})
+	for _, donInfo := range donInfos {
+		existingDONs[sortedHash(donInfo.NodeP2PIds)] = struct{}{}
+	}
+	lggr.Infow("fetched existing DONs...", "len", len(donInfos), "lenByNodesHash", len(existingDONs))
 
 	for don, ocr2nodes := range req.donToOcr2Nodes {
 		var p2pIds [][32]byte
@@ -695,6 +842,12 @@ func registerDons(lggr logger.Logger, req registerDonsRequest) (*registerDonsRes
 
 		p2pSortedHash := sortedHash(p2pIds)
 		p2pIdsToDon[p2pSortedHash] = don
+
+		if _, ok := existingDONs[p2pSortedHash]; ok {
+			lggr.Debugw("don already exists, ignoring", "don", don, "p2p sorted hash", p2pSortedHash)
+			continue
+		}
+
 		caps, ok := req.donToCapabilities[don]
 		if !ok {
 			return nil, fmt.Errorf("capabilities not found for node operator %s", don)
@@ -728,21 +881,21 @@ func registerDons(lggr logger.Logger, req registerDonsRequest) (*registerDonsRes
 			return nil, fmt.Errorf("failed to confirm AddDON transaction %s for don %s: %w", tx.Hash().String(), don, err)
 		}
 		lggr.Debugw("registered DON", "don", don, "p2p sorted hash", p2pSortedHash, "cgs", cfgs, "wfSupported", wfSupported, "f", f)
-		registeredDons++
+		addedDons++
 	}
-	lggr.Debugf("Registered all DONS %d, waiting for registry to update", registeredDons)
+	lggr.Debugf("Registered all DONs (new=%d), waiting for registry to update", addedDons)
 
 	// occasionally the registry does not return the expected number of DONS immediately after the txns above
 	// so we retry a few times. while crude, it is effective
-	var donInfos []capabilities_registry.CapabilitiesRegistryDONInfo
-	var err error
+	foundAll := false
 	for i := 0; i < 10; i++ {
-		lggr.Debug("attempting to get DONS from registry", i)
+		lggr.Debugw("attempting to get DONs from registry", "attempt#", i)
 		donInfos, err = req.registry.GetDONs(&bind.CallOpts{})
-		if len(donInfos) != registeredDons {
-			lggr.Debugw("expected dons not registered", "expected", registeredDons, "got", len(donInfos))
+		if !containsAllDONs(donInfos, p2pIdsToDon) {
+			lggr.Debugw("some expected dons not registered yet, re-checking after a delay ...")
 			time.Sleep(2 * time.Second)
 		} else {
+			foundAll = true
 			break
 		}
 	}
@@ -750,20 +903,35 @@ func registerDons(lggr logger.Logger, req registerDonsRequest) (*registerDonsRes
 		err = DecodeErr(kcr.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to call GetDONs: %w", err)
 	}
+	if !foundAll {
+		return nil, fmt.Errorf("did not find all desired DONS")
+	}
 
+	resp := registerDonsResponse{
+		donInfos: make(map[string]kcr.CapabilitiesRegistryDONInfo),
+	}
 	for i, donInfo := range donInfos {
 		donName, ok := p2pIdsToDon[sortedHash(donInfo.NodeP2PIds)]
 		if !ok {
-			return nil, fmt.Errorf("don not found for p2pids %s in %v", sortedHash(donInfo.NodeP2PIds), p2pIdsToDon)
+			lggr.Debugw("irrelevant DON found in the registry, ignoring", "p2p sorted hash", sortedHash(donInfo.NodeP2PIds))
+			continue
 		}
-		lggr.Debugw("adding don info", "don", donName, "cnt", i)
+		lggr.Debugw("adding don info to the reponse (keyed by DON name)", "don", donName)
 		resp.donInfos[donName] = donInfos[i]
 	}
-	lggr.Debugw("found registered DONs", "count", len(resp.donInfos))
-	if len(resp.donInfos) != registeredDons {
-		return nil, fmt.Errorf("expected %d dons, got %d", registeredDons, len(resp.donInfos))
-	}
 	return &resp, nil
+}
+
+// are all DONs from p2pIdsToDon in donInfos
+func containsAllDONs(donInfos []kcr.CapabilitiesRegistryDONInfo, p2pIdsToDon map[string]string) bool {
+	found := make(map[string]struct{})
+	for _, donInfo := range donInfos {
+		hash := sortedHash(donInfo.NodeP2PIds)
+		if _, ok := p2pIdsToDon[hash]; ok {
+			found[hash] = struct{}{}
+		}
+	}
+	return len(found) == len(p2pIdsToDon)
 }
 
 // configureForwarder sets the config for the forwarder contract on the chain for all Dons that accept workflows

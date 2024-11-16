@@ -73,9 +73,9 @@ func TestBindingsRegistry(t *testing.T) {
 
 		mReg.EXPECT().HasFilter(mock.Anything).Return(false)
 		mReg.EXPECT().RegisterFilter(mock.Anything, mock.Anything).Return(nil)
-		mRdr0.EXPECT().GetLatestValue(mock.Anything, common.HexToAddress("0x25"), mock.Anything, mock.Anything, mock.Anything).Return(nil)
-		mRdr0.EXPECT().GetLatestValue(mock.Anything, common.HexToAddress("0x24"), mock.Anything, mock.Anything, mock.Anything).Return(nil)
-		mRdr1.EXPECT().GetLatestValue(mock.Anything, common.HexToAddress("0x26"), mock.Anything, mock.Anything, mock.Anything).Return(nil)
+		mRdr0.EXPECT().GetLatestValueWithHeadData(mock.Anything, common.HexToAddress("0x25"), mock.Anything, mock.Anything, mock.Anything).Return(nil, nil)
+		mRdr0.EXPECT().GetLatestValueWithHeadData(mock.Anything, common.HexToAddress("0x24"), mock.Anything, mock.Anything, mock.Anything).Return(nil, nil)
+		mRdr1.EXPECT().GetLatestValueWithHeadData(mock.Anything, common.HexToAddress("0x26"), mock.Anything, mock.Anything, mock.Anything).Return(nil, nil)
 
 		// part of the init phase of chain reader
 		require.NoError(t, named.AddReader(contractName1, methodName1, mRdr0))
@@ -100,9 +100,12 @@ func TestBindingsRegistry(t *testing.T) {
 		rdr2, _, err := named.GetReader(bindings[0].ReadIdentifier(methodName2))
 		require.NoError(t, err)
 
-		require.NoError(t, rdr1.GetLatestValue(context.Background(), common.HexToAddress("0x25"), primitives.Finalized, nil, nil))
-		require.NoError(t, rdr1.GetLatestValue(context.Background(), common.HexToAddress("0x24"), primitives.Finalized, nil, nil))
-		require.NoError(t, rdr2.GetLatestValue(context.Background(), common.HexToAddress("0x26"), primitives.Finalized, nil, nil))
+		_, err = rdr1.GetLatestValueWithHeadData(context.Background(), common.HexToAddress("0x25"), primitives.Finalized, nil, nil)
+		require.NoError(t, err)
+		_, err = rdr1.GetLatestValueWithHeadData(context.Background(), common.HexToAddress("0x24"), primitives.Finalized, nil, nil)
+		require.NoError(t, err)
+		_, err = rdr2.GetLatestValueWithHeadData(context.Background(), common.HexToAddress("0x26"), primitives.Finalized, nil, nil)
+		require.NoError(t, err)
 
 		mBatch.AssertExpectations(t)
 		mRdr0.AssertExpectations(t)

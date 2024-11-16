@@ -124,7 +124,7 @@ JsonWrapperKey = 'event' # Example
 Headers = ['Authorization: token', 'X-SomeOther-Header: value with spaces | and a bar+*'] # Example
 
 [Log]
-# Level determines both what is printed on the screen and what is written to the log file.
+# Level determines only what is printed on the screen/console. This configuration does not apply to the logs that are recorded in a file (see [`Log.File`](#logfile) for more details).
 #
 # The available levels are:
 #  - "debug": Useful for forensic debugging of issues.
@@ -145,7 +145,7 @@ UnixTS = false # Default
 [Log.File]
 # Dir sets the log directory. By default, Chainlink nodes write log data to `$ROOT/log.jsonl`.
 Dir = '/my/log/directory' # Example
-# MaxSize determines the log file's max size in megabytes before file rotation. Having this not set will disable logging to disk. If your disk doesn't have enough disk space, the logging will pause and the application will log errors until space is available again.
+# MaxSize determines the log file's max size before file rotation. Having this not set or set to a value smaller than 1Mb will disable logging to disk. If your disk doesn't have enough disk space, the logging will pause and the application will log errors until space is available again.
 #
 # Values must have suffixes with a unit like: `5120mb` (5,120 megabytes). If no unit suffix is provided, the value defaults to `b` (bytes). The list of valid unit suffixes are:
 #
@@ -706,6 +706,10 @@ CACertFile = 'cert-file' # Example
 InsecureConnection = false # Default
 # TraceSampleRatio is the rate at which to sample traces. Must be between 0 and 1.
 TraceSampleRatio = 0.01 # Default
+# EmitterBatchProcessor enables batching for telemetry events
+EmitterBatchProcessor = true # Default
+# EmitterExportTimeout sets timeout for exporting telemetry events
+EmitterExportTimeout = '1s' # Default
 
 # ResourceAttributes are global metadata to include with all telemetry.
 [Telemetry.ResourceAttributes]

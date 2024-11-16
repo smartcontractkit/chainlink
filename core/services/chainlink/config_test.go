@@ -556,12 +556,14 @@ func TestConfig_Marshal(t *testing.T) {
 		Release:     ptr("v1.2.3"),
 	}
 	full.Telemetry = toml.Telemetry{
-		Enabled:            ptr(true),
-		CACertFile:         ptr("cert-file"),
-		Endpoint:           ptr("example.com/collector"),
-		InsecureConnection: ptr(true),
-		ResourceAttributes: map[string]string{"Baz": "test", "Foo": "bar"},
-		TraceSampleRatio:   ptr(0.01),
+		Enabled:               ptr(true),
+		CACertFile:            ptr("cert-file"),
+		Endpoint:              ptr("example.com/collector"),
+		InsecureConnection:    ptr(true),
+		ResourceAttributes:    map[string]string{"Baz": "test", "Foo": "bar"},
+		TraceSampleRatio:      ptr(0.01),
+		EmitterBatchProcessor: ptr(true),
+		EmitterExportTimeout:  commoncfg.MustNewDuration(1 * time.Second),
 	}
 	full.EVM = []*evmcfg.EVMConfig{
 		{
@@ -743,6 +745,7 @@ func TestConfig_Marshal(t *testing.T) {
 				TxTimeout:                commoncfg.MustNewDuration(time.Hour),
 				TxRetryTimeout:           commoncfg.MustNewDuration(time.Minute),
 				TxConfirmTimeout:         commoncfg.MustNewDuration(time.Second),
+				TxRetentionTimeout:       commoncfg.MustNewDuration(0 * time.Second),
 				SkipPreflight:            ptr(true),
 				Commitment:               ptr("banana"),
 				MaxRetries:               ptr[int64](7),
@@ -1270,6 +1273,7 @@ OCR2CacheTTL = '1h0m0s'
 TxTimeout = '1h0m0s'
 TxRetryTimeout = '1m0s'
 TxConfirmTimeout = '1s'
+TxRetentionTimeout = '0s'
 SkipPreflight = true
 Commitment = 'banana'
 MaxRetries = 7

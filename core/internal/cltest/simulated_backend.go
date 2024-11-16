@@ -5,11 +5,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
-	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
@@ -17,22 +19,37 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
-func NewSimulatedBackend(t *testing.T, alloc core.GenesisAlloc, gasLimit uint32) *backends.SimulatedBackend {
-	backend := backends.NewSimulatedBackend(alloc, uint64(gasLimit))
+func NewSimulatedBackend(t *testing.T, alloc types.GenesisAlloc, gasLimit uint64) evmtypes.Backend {
+	backend := simulated.NewBackend(alloc, simulated.WithBlockGasLimit(gasLimit))
 	// NOTE: Make sure to finish closing any application/client before
 	// backend.Close or they can hang
 	t.Cleanup(func() {
 		logger.TestLogger(t).ErrorIfFn(backend.Close, "Error closing simulated backend")
 	})
-	return backend
+
+	return &syncBackend{Backend: backend}
 }
+
+type syncBackend struct {
+	evmtypes.Backend
+	mu sync.Mutex
+}
+
+func (s *syncBackend) Commit() common.Hash {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.Backend.Commit()
+}
+
 func NewApplicationWithConfigV2OnSimulatedBlockchain(
 	t testing.TB,
 	cfg chainlink.GeneralConfig,
-	backend *backends.SimulatedBackend,
+	backend evmtypes.Backend,
 	flagsAndDeps ...interface{},
 ) *TestApplication {
-	if bid := backend.Blockchain().Config().ChainID; bid.Cmp(testutils.SimulatedChainID) != 0 {
+	bid, err := backend.Client().ChainID(testutils.Context(t))
+	require.NoError(t, err)
+	if bid.Cmp(testutils.SimulatedChainID) != 0 {
 		t.Fatalf("expected backend chain ID to be %s but it was %s", testutils.SimulatedChainID.String(), bid.String())
 	}
 
@@ -53,10 +70,12 @@ func NewApplicationWithConfigV2OnSimulatedBlockchain(
 func NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(
 	t testing.TB,
 	cfg chainlink.GeneralConfig,
-	backend *backends.SimulatedBackend,
+	backend evmtypes.Backend,
 	flagsAndDeps ...interface{},
 ) *TestApplication {
-	if bid := backend.Blockchain().Config().ChainID; bid.Cmp(testutils.SimulatedChainID) != 0 {
+	bid, err := backend.Client().ChainID(testutils.Context(t))
+	require.NoError(t, err)
+	if bid.Cmp(testutils.SimulatedChainID) != 0 {
 		t.Fatalf("expected backend chain ID to be %s but it was %s", testutils.SimulatedChainID.String(), bid.String())
 	}
 
@@ -71,21 +90,37 @@ func NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(
 }
 
 // Mine forces the simulated backend to produce a new block every X seconds
-func Mine(backend *backends.SimulatedBackend, blockTime time.Duration) (stopMining func()) {
+// If you need to manually commit blocks, you must use the returned commit func, rather than calling Commit() directly,
+// which will race.
+func Mine(backend evmtypes.Backend, blockTime time.Duration) (commit func() common.Hash, stopMining func()) {
 	timer := time.NewTicker(blockTime)
 	chStop := make(chan struct{})
-	wg := sync.WaitGroup{}
-	wg.Add(1)
+	commitCh := make(chan chan common.Hash)
+	done := make(chan struct{})
 	go func() {
+		defer close(done)
 		for {
 			select {
 			case <-timer.C:
 				backend.Commit()
+			case hash := <-commitCh:
+				hash <- backend.Commit()
 			case <-chStop:
-				wg.Done()
 				return
 			}
 		}
 	}()
-	return func() { close(chStop); timer.Stop(); wg.Wait() }
+	return func() common.Hash {
+			hash := make(chan common.Hash)
+			select {
+			case <-chStop:
+				return common.Hash{}
+			case commitCh <- hash:
+				return <-hash
+			}
+		}, func() {
+			close(chStop)
+			timer.Stop()
+			<-done
+		}
 }
