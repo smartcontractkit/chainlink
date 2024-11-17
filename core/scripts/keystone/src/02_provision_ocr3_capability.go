@@ -28,16 +28,20 @@ func provisionOCR3(
 	ocrConfigFile string,
 	artefactsDir string,
 ) (onchainMeta *onchainMeta, cacheHit bool) {
+	nodeKeys := nodeSet.NodeKeys
+	nodes := nodeSet.Nodes
+
 	onchainMeta, cacheHit = deployOCR3Contract(
-		nodeSet,
+		nodeKeys,
 		env,
 		ocrConfigFile,
 		artefactsDir,
 	)
 
-	deployOCR3JobSpecsTo(
-		nodeSet,
+	deployOCR3JobSpecs(
+		nodes,
 		chainID,
+		nodeKeys,
 		p2pPort,
 		onchainMeta,
 	)
@@ -46,14 +50,14 @@ func provisionOCR3(
 }
 
 func deployOCR3Contract(
-	nodeSet NodeSet,
+	nodeKeys []NodeKeys,
 	env helpers.Environment,
 	configFile string,
 	artefacts string,
 ) (o *onchainMeta, cacheHit bool) {
 	o = LoadOnchainMeta(artefacts, env)
 	ocrConf := generateOCR3Config(
-		nodeSet,
+		nodeKeys,
 		configFile,
 	)
 
@@ -68,7 +72,7 @@ func deployOCR3Contract(
 		cc := ocrConfToContractConfig(ocrConf, latestConfigDigestBytes.ConfigCount)
 		digester := evm.OCR3CapabilityOffchainConfigDigester{
 			// ignore integer overflow
-			ChainID:         uint64(env.ChainID), // nolint:gosec
+			ChainID:         uint64(env.ChainID), //nolint:gosec
 			ContractAddress: o.OCR3.Address(),
 		}
 		digest, err := digester.ConfigDigest(context.Background(), cc)
@@ -94,11 +98,11 @@ func deployOCR3Contract(
 	return o, true
 }
 
-func generateOCR3Config(nodeSet NodeSet, configFile string) ksdeploy.Orc2drOracleConfig {
+func generateOCR3Config(nodeKeys []NodeKeys, configFile string) ksdeploy.Orc2drOracleConfig {
 	topLevelCfg := mustReadOCR3Config(configFile)
 	cfg := topLevelCfg.OracleConfig
 	cfg.OCRSecrets = deployment.XXXGenerateTestOCRSecrets()
-	c, err := ksdeploy.GenerateOCR3Config(cfg, nodeKeysToKsDeployNodeKeys(nodeSet.NodeKeys[1:])) // skip the bootstrap node
+	c, err := ksdeploy.GenerateOCR3Config(cfg, nodeKeysToKsDeployNodeKeys(nodeKeys[1:])) // skip the bootstrap node
 	helpers.PanicErr(err)
 	return c
 }
@@ -118,15 +122,15 @@ func setOCRConfig(o *onchainMeta, env helpers.Environment, ocrConf ksdeploy.Orc2
 	WriteOnchainMeta(o, artefacts)
 }
 
-func deployOCR3JobSpecsTo(
-	nodeSet NodeSet,
+func deployOCR3JobSpecs(
+	nodes []NodeWithCreds,
 	chainID int64,
+	nodeKeys []NodeKeys,
 	p2pPort int64,
 	onchainMeta *onchainMeta,
 ) {
 	ocrAddress := onchainMeta.OCR3.Address().Hex()
-	nodeKeys := nodeSet.NodeKeys
-	nodes := nodeSet.Nodes
+	bootstrapURI := fmt.Sprintf("%s@%s:%d", nodeKeys[0].P2PPeerID, nodes[0].ServiceName, p2pPort)
 
 	var specName string
 	for i, n := range nodes {
@@ -145,7 +149,7 @@ func deployOCR3JobSpecsTo(
 				JobSpecName:              "ocr3_oracle",
 				OCRConfigContractAddress: ocrAddress,
 				OCRKeyBundleID:           nodeKeys[i].OCR2BundleID,
-				BootstrapURI:             fmt.Sprintf("%s@%s:%d", nodeKeys[0].P2PPeerID, nodeSet.Nodes[0].ServiceName, p2pPort),
+				BootstrapURI:             bootstrapURI,
 				TransmitterID:            nodeKeys[i].EthAddress,
 				ChainID:                  chainID,
 				AptosKeyBundleID:         nodeKeys[i].AptosBundleID,

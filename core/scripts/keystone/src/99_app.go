@@ -31,7 +31,7 @@ var (
 	cacheMutex   = &sync.Mutex{}
 )
 
-func newApp(n NodeWthCreds, writer io.Writer) (*clcmd.Shell, *cli.App) {
+func newApp(n NodeWithCreds, writer io.Writer) (*clcmd.Shell, *cli.App) {
 	loggingCfg := logger.Config{
 		LogLevel:    zapcore.InfoLevel,
 		JsonConsole: true,
@@ -77,7 +77,7 @@ type nodeAPI struct {
 	logger       logger.Logger
 }
 
-func newNodeAPI(n NodeWthCreds) *nodeAPI {
+func newNodeAPI(n NodeWithCreds) *nodeAPI {
 	// Create a unique key for the cache
 	key := n.RemoteURL.String()
 

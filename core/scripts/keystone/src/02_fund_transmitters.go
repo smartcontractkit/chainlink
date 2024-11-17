@@ -11,13 +11,13 @@ import (
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 )
 
-func distributeFunds(nodeSet NodeSet, env helpers.Environment) {
+func distributeFunds(nodeKeys []NodeKeys, env helpers.Environment) {
 	fmt.Println("Funding transmitters...")
 	transmittersStr := []string{}
 	fundingAmount := big.NewInt(500000000000000000) // 0.5 ETH
 	minThreshold := big.NewInt(50000000000000000)   // 0.05 ETH
 
-	for _, n := range nodeSet.NodeKeys {
+	for _, n := range nodeKeys {
 		balance, err := getBalance(n.EthAddress, env)
 		if err != nil {
 			fmt.Printf("Error fetching balance for %s: %v\n", n.EthAddress, err)

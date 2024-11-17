@@ -206,7 +206,7 @@ func provisionWorkflowDON(
 		ocrConfigFile,
 		artefactsDir,
 	)
-	distributeFunds(nodeSet, env)
+	distributeFunds(nodeSet.NodeKeys, env)
 
 	// We don't technically need the capability registry as a dependency
 	// as we just use it for a sanity check

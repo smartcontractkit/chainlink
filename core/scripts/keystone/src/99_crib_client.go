@@ -23,7 +23,7 @@ func (s SimpleURL) String() string {
 	return fmt.Sprintf("%s://%s%s", s.Scheme, s.Host, s.Path)
 }
 
-type NodeWthCreds struct {
+type NodeWithCreds struct {
 	URL              SimpleURL
 	RemoteURL        SimpleURL
 	ServiceName      string
@@ -39,13 +39,13 @@ func NewCribClient() *CribClient {
 	}
 }
 
-func (m *CribClient) getCLNodes() ([]NodeWthCreds, error) {
+func (m *CribClient) getCLNodes() ([]NodeWithCreds, error) {
 	fmt.Println("Getting CL node deployments with config maps...")
 	deployments, err := m.k8sClient.GetDeploymentsWithConfigMap()
 	if err != nil {
 		return nil, err
 	}
-	nodes := []NodeWthCreds{}
+	nodes := []NodeWithCreds{}
 
 	for _, deployment := range deployments {
 		apiCredentials := deployment.ConfigMap.Data["apicredentials"]
@@ -59,7 +59,7 @@ func (m *CribClient) getCLNodes() ([]NodeWthCreds, error) {
 			Path:   "",
 		}
 
-		node := NodeWthCreds{
+		node := NodeWithCreds{
 			// We dont handle both in-cluster and out-of-cluster deployments
 			// Hence why both URL and RemoteURL are the same
 			URL:              url,

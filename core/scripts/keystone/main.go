@@ -17,6 +17,7 @@ func main() {
 	commands := []command{
 		src.NewProvisionKeystoneCommand(),
 		src.NewDeployAndInitializeCapabilitiesRegistryCommand(),
+		src.NewToolkit(),
 	}
 
 	commandsList := func(commands []command) string {

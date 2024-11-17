@@ -20,7 +20,7 @@ import (
 type NodeSet struct {
 	Name     string
 	Prefix   string
-	Nodes    []NodeWthCreds
+	Nodes    []NodeWithCreds
 	NodeKeys []NodeKeys
 }
 
@@ -104,7 +104,7 @@ type OCR2AptosKBTrimmed struct {
 	AptosOnchainPublicKey string `json:"AptosOnchainPublicKey"` // ocr2on_aptos_<key>
 }
 
-func mustFetchNodeKeys(chainID int64, nodes []NodeWthCreds, createAptosKeys bool) []NodeKeys {
+func mustFetchNodeKeys(chainID int64, nodes []NodeWithCreds, createAptosKeys bool) []NodeKeys {
 	nodeKeys := []NodeKeys{}
 
 	for _, n := range nodes {

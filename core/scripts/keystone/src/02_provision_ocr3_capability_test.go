@@ -12,7 +12,8 @@ import (
 func TestGenerateOCR3Config(t *testing.T) {
 	// Generate OCR3 config
 	nodeSet := downloadNodeSets(1337, "./testdata/node_sets.json", 4)
-	config := generateOCR3Config(nodeSet.Workflow, "./testdata/SampleConfig.json")
+	nodeKeys := nodeSet.Workflow.NodeKeys
+	config := generateOCR3Config(nodeKeys, "./testdata/SampleConfig.json")
 
 	matchOffchainConfig := match.Custom("OffchainConfig", func(s any) (any, error) {
 		// coerce the value to a string
