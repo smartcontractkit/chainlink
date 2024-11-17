@@ -11,7 +11,7 @@ import {Ownable2StepMsgSender} from "../../shared/access/Ownable2StepMsgSender.s
 /// deployment information for each version, including deployment timestamp, chain ID, and active status. Only one
 /// version can be active at any given time.
 contract WorkflowRegistryManager is Ownable2StepMsgSender, ITypeAndVersion {
-  string public constant override typeAndVersion = "WorkflowRegistryManager 1.0.0";
+  string public constant override typeAndVersion = "WorkflowRegistryManager 1.0.0-dev";
   uint8 private constant MAX_PAGINATION_LIMIT = 100;
 
   struct Version {
@@ -27,12 +27,16 @@ contract WorkflowRegistryManager is Ownable2StepMsgSender, ITypeAndVersion {
   mapping(uint32 versionNumber => Version versionInfo) private s_versions;
 
   /// @notice The version number of the currently active WorkflowRegistry.
-  /// @dev Initialized to `type(uint32).max` to indicate no active version. Updated when a version is activated.
-  uint32 private s_activeVersionNumber = type(uint32).max;
+  /// @dev Initialized to 0 to indicate no active version. Updated when a version is activated.
+  uint32 private s_activeVersionNumber = 0;
 
   /// @notice The latest version number registered in the contract.
   /// @dev Incremented each time a new version is added. Useful for iterating over all registered versions.
   uint32 private s_latestVersionNumber = 0;
+
+  /// @notice Maps a combination of address and chain ID to the version number.
+  /// @dev This mapping allows for lookup of the version number for a given address and chain ID.
+  mapping(bytes32 => uint32) private s_versionNumberByAddressAndChainID;
 
   // Errors
   error InvalidContractAddress(address invalidAddress);
@@ -42,13 +46,14 @@ contract WorkflowRegistryManager is Ownable2StepMsgSender, ITypeAndVersion {
   error VersionNotRegistered(uint32 versionNumber);
   // Events
 
-  event VersionAddedV1(address indexed contractAddress, uint64 chainID, uint32 deployedAt, uint32 version);
-  event VersionActivatedV1(address indexed contractAddress, uint64 chainID, uint32 indexed version);
-  event VersionDeactivatedV1(address indexed contractAddress, uint64 chainID, uint32 indexed version);
+  event VersionAdded(address indexed contractAddress, uint64 chainID, uint32 deployedAt, uint32 version);
+  event VersionActivated(address indexed contractAddress, uint64 chainID, uint32 indexed version);
+  event VersionDeactivated(address indexed contractAddress, uint64 chainID, uint32 indexed version);
 
   // ================================================================
-  // |                            ADMIN                             |
+  // |                      Manage Versions                         |
   // ================================================================
+
   /// @notice Adds a new WorkflowRegistry version to the version history and optionally activates it.
   /// @dev This function records the deployment details of a new registry version. It deactivates the currently active
   /// version (if any) and activates the newly added version if `autoActivate` is true.
@@ -56,10 +61,9 @@ contract WorkflowRegistryManager is Ownable2StepMsgSender, ITypeAndVersion {
   /// @param chainID The chain ID of the EVM chain where the WorkflowRegistry is deployed.
   /// @param autoActivate A boolean indicating whether the new version should be activated immediately.
   /// @custom:throws InvalidContractType if the provided contract address is zero or not a WorkflowRegistry.
-  function addVersion(address contractAddress, uint64 chainID, bool autoActivate) external onlyOwner {
+  function addVersion(address contractAddress, uint64 chainID, uint32 deployedAt, bool autoActivate) external onlyOwner {
     string memory typeVer = _getTypeAndVersionForContract(contractAddress);
     uint32 latestVersionNumber = ++s_latestVersionNumber;
-    uint32 deployedAt = uint32(block.timestamp);
 
     s_versions[latestVersionNumber] = Version({
       contractAddress: contractAddress,
@@ -68,11 +72,15 @@ contract WorkflowRegistryManager is Ownable2StepMsgSender, ITypeAndVersion {
       contractTypeAndVersion: typeVer
     });
 
+    // Store the version number associated with the hash of contract address and chainID
+    bytes32 key = keccak256(abi.encodePacked(contractAddress, chainID));
+    s_versionNumberByAddressAndChainID[key] = latestVersionNumber;
+
     if (autoActivate) {
       _activateVersion(latestVersionNumber);
     }
 
-    emit VersionAddedV1(contractAddress, chainID, deployedAt, latestVersionNumber);
+    emit VersionAdded(contractAddress, chainID, deployedAt, latestVersionNumber);
   }
 
   /// @notice Activates a specific WorkflowRegistry version by its version number.
@@ -87,9 +95,37 @@ contract WorkflowRegistryManager is Ownable2StepMsgSender, ITypeAndVersion {
     _activateVersion(versionNumber);
   }
 
+  /// @dev This private function deactivates the currently active version (if any) before activating the specified version. It
+  /// emits events for both deactivation and activation.
+  /// @param versionNumber The version number of the version to activate.
+  /// @custom:throws IndexOutOfBounds if the version number does not exist.
+  function _activateVersion(
+    uint32 versionNumber
+  ) private {
+    // Check that the provided version number is within a valid range
+    if (versionNumber == 0 || versionNumber > s_latestVersionNumber) {
+      revert VersionNotRegistered(versionNumber);
+    }
+
+    // Cache the current active version number to reduce storage reads
+    uint32 currentActiveVersionNumber = s_activeVersionNumber;
+
+    // Emit deactivation event if there is an active version
+    if (currentActiveVersionNumber != 0) {
+      Version memory currentActive = s_versions[currentActiveVersionNumber];
+      emit VersionDeactivated(currentActive.contractAddress, currentActive.chainID, currentActiveVersionNumber);
+    }
+
+    // Set the new active version (which deactivates the previous one)
+    s_activeVersionNumber = versionNumber;
+    Version memory newActive = s_versions[versionNumber];
+    emit VersionActivated(newActive.contractAddress, newActive.chainID, versionNumber);
+  }
+
   // ================================================================
-  // |                         GET VERSIONS                         |
+  // |                        Query Versions                        |
   // ================================================================
+
   /// @notice Returns a paginated list of all WorkflowRegistry versions.
   /// @dev This function retrieves a range of versions based on the provided `start` and `limit` parameters. The contract uses
   /// a 1-based index, so the `start` parameter must be at least 1, representing the first version. If `limit` is set to
@@ -138,14 +174,29 @@ contract WorkflowRegistryManager is Ownable2StepMsgSender, ITypeAndVersion {
     return s_versions[versionNumber];
   }
 
+  /// @notice Retrieves the version number for a specific WorkflowRegistry by its contract address and chain ID.
+  /// @param contractAddress The address of the WorkflowRegistry contract.
+  /// @param chainID The chain ID of the network where the WorkflowRegistry is deployed.
+  /// @return versionNumber The version number associated with the given contract address and chain ID.
+  function getVersionNumber(address contractAddress, uint64 chainID) external view returns (uint32 versionNumber) {
+    _validateContractAddress(contractAddress);
+
+    bytes32 key = keccak256(abi.encodePacked(contractAddress, chainID));
+    versionNumber = s_versionNumberByAddressAndChainID[key];
+    if (versionNumber == 0) {
+      revert NoVersionsRegistered();
+    }
+    return versionNumber;
+  }
+
   /// @notice Retrieves the details of the currently active WorkflowRegistry version.
   /// @dev Assumes there is only one active version. Throws if no version is currently active.
   /// @return A `Version` struct containing the details of the active version.
   /// @custom:throws NoActiveVersionAvailable if no version is currently active.
   function getActiveVersion() external view returns (Version memory) {
-    uint32 activateVersionNumber = s_activeVersionNumber;
-    if (activateVersionNumber == type(uint32).max) revert NoActiveVersionAvailable();
-    return s_versions[activateVersionNumber];
+    uint32 activeVersionNumber = s_activeVersionNumber;
+    if (activeVersionNumber == 0) revert NoActiveVersionAvailable();
+    return s_versions[activeVersionNumber];
   }
 
   /// @notice Retrieves the details of the latest registered WorkflowRegistry version.
@@ -162,7 +213,7 @@ contract WorkflowRegistryManager is Ownable2StepMsgSender, ITypeAndVersion {
   /// @custom:throws NoActiveVersionAvailable if s_activeVersionNumber is `type(uint32).max`.
   function getActiveVersionNumber() external view returns (uint32 activeVersionNumber) {
     activeVersionNumber = s_activeVersionNumber;
-    if (activeVersionNumber == type(uint32).max) revert NoActiveVersionAvailable();
+    if (activeVersionNumber == 0) revert NoActiveVersionAvailable();
     return activeVersionNumber;
   }
 
@@ -176,45 +227,17 @@ contract WorkflowRegistryManager is Ownable2StepMsgSender, ITypeAndVersion {
   }
 
   // ================================================================
-  // |                          PRIVATE                             |
+  // |                          Validation                          |
   // ================================================================
-  /// @dev This function deactivates the currently active version (if any) before activating the specified version. It
-  /// emits events for both deactivation and activation.
-  /// @param versionNumber The version number of the version to activate.
-  /// @custom:throws IndexOutOfBounds if the version number does not exist.
-  function _activateVersion(
-    uint32 versionNumber
-  ) private {
-    // Cache the current active version number to reduce storage reads
-    uint32 currentActiveVersionNumber = s_activeVersionNumber;
 
-    // Check that the provided version number is within a valid range
-    if (versionNumber == 0 || versionNumber > s_latestVersionNumber) {
-      revert VersionNotRegistered(versionNumber);
-    }
-
-    // Emit deactivation event if there is an active version
-    if (currentActiveVersionNumber != type(uint32).max) {
-      Version memory currentActive = s_versions[currentActiveVersionNumber];
-      emit VersionDeactivatedV1(currentActive.contractAddress, currentActive.chainID, currentActiveVersionNumber);
-    }
-
-    // Set the new active version (which deactivates the previous one)
-    s_activeVersionNumber = versionNumber;
-    Version memory newActive = s_versions[versionNumber];
-    emit VersionActivatedV1(newActive.contractAddress, newActive.chainID, versionNumber);
-  }
-
-  /// @dev Validates that a given contract address is non-zero, contains code, and supports the IWorkflowRegistry interface.
+  /// @dev Validates that a given contract address is non-zero, contains code, and implements typeAndVersion().
   /// @param contractAddress The address of the contract to validate.
   /// @custom:throws InvalidContractAddress if the address is zero or contains no code.
   /// @custom:throws InvalidContractType if the contract does not implement typeAndVersion().
   function _getTypeAndVersionForContract(
     address contractAddress
   ) internal view returns (string memory) {
-    if (!_isNonZeroWithCode(contractAddress)) {
-      revert InvalidContractAddress(contractAddress);
-    }
+    _validateContractAddress(contractAddress);
 
     try ITypeAndVersion(contractAddress).typeAndVersion() returns (string memory retrievedVersion) {
       return retrievedVersion;
@@ -223,9 +246,11 @@ contract WorkflowRegistryManager is Ownable2StepMsgSender, ITypeAndVersion {
     }
   }
 
-  function _isNonZeroWithCode(
+  function _validateContractAddress(
     address _addr
-  ) internal view returns (bool) {
-    return _addr != address(0) && _addr.code.length > 0;
+  ) internal view {
+    if (_addr == address(0) || _addr.code.length == 0) {
+      revert InvalidContractAddress(_addr);
+    }
   }
 }

@@ -49,7 +49,7 @@ contract LockReleaseTokenPool_releaseOrMint is LockReleaseTokenPoolSetup {
     );
   }
 
-  function test_Fuzz_ReleaseOrMint_Success(address recipient, uint256 amount) public {
+  function testFuzz_ReleaseOrMint_Success(address recipient, uint256 amount) public {
     // Since the owner already has tokens this would break the checks
     vm.assume(recipient != OWNER);
     vm.assume(recipient != address(0));
