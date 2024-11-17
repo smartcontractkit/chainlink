@@ -2,6 +2,7 @@ package syncer
 
 import (
 	"context"
+	"encoding/hex"
 	"strconv"
 	"testing"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 
 	"github.com/stretchr/testify/require"
@@ -29,16 +31,19 @@ func Test_Workflow_Registry_Syncer(t *testing.T) {
 			StartBlockNum:   0,
 			QueryCount:      20,
 		}
-		giveURL = "http://example.com"
+		giveURL       = "http://example.com"
+		giveHash, err = crypto.Keccak256([]byte(giveURL))
 
 		giveLog = types.Sequence{
 			Data: map[string]any{
-				"SecretsURL": giveURL,
-				"Owner":      "0xowneraddr",
+				"SecretsURLHash": giveHash,
+				"Owner":          "0xowneraddr",
 			},
 			Cursor: "cursor",
 		}
 	)
+
+	require.NoError(t, err)
 
 	var (
 		lggr        = logger.TestLogger(t)
@@ -60,7 +65,7 @@ func Test_Workflow_Registry_Syncer(t *testing.T) {
 	worker.ticker = ticker
 
 	// Seed the DB with an original entry
-	_, err := orm.Update(ctx, giveURL, giveContents)
+	_, err = orm.Create(ctx, giveURL, hex.EncodeToString(giveHash), giveContents)
 	require.NoError(t, err)
 
 	// Mock out the contract reader query

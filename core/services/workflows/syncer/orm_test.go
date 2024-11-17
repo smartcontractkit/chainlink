@@ -1,11 +1,13 @@
 package syncer
 
 import (
+	"encoding/hex"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -18,6 +20,9 @@ func TestWorkflowArtifactsORM_GetAndUpdate(t *testing.T) {
 	orm := &orm{ds: db, lggr: lggr}
 
 	giveURL := "https://example.com"
+	giveBytes, err := crypto.Keccak256([]byte(giveURL))
+	require.NoError(t, err)
+	giveHash := hex.EncodeToString(giveBytes)
 	giveContent := "some contents"
 
 	gotID, err := orm.Update(ctx, giveURL, giveContent)
@@ -31,10 +36,18 @@ func TestWorkflowArtifactsORM_GetAndUpdate(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "some contents", contents)
 
+	contents, err = orm.GetContentsByHash(ctx, giveHash)
+	require.NoError(t, err)
+	assert.Equal(t, "some contents", contents)
+
 	_, err = orm.Update(ctx, giveURL, "new contents")
 	require.NoError(t, err)
 
 	contents, err = orm.GetContents(ctx, giveURL)
+	require.NoError(t, err)
+	assert.Equal(t, "new contents", contents)
+
+	contents, err = orm.GetContentsByHash(ctx, giveHash)
 	require.NoError(t, err)
 	assert.Equal(t, "new contents", contents)
 }

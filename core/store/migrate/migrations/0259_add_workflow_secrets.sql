@@ -3,7 +3,8 @@
 -- Create the workflow_artifacts table
 CREATE TABLE workflow_secrets (
     id SERIAL PRIMARY KEY,
-    secrets_url TEXT UNIQUE,
+    secrets_url TEXT,
+    secrets_url_hash TEXT UNIQUE,
     contents TEXT
 );
 

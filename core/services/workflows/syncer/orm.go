@@ -5,17 +5,29 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 )
 
 type ORM interface {
 	// GetSecretsURLByID returns the secrets URL for the given ID.
 	GetSecretsURLByID(ctx context.Context, id int64) (string, error)
 
+	// GetSecretsURLByID returns the secrets URL for the given ID.
+	GetSecretsURLByHash(ctx context.Context, hash string) (string, error)
+
 	// GetContents returns the contents of the secret at the given plain URL.
 	GetContents(ctx context.Context, url string) (string, error)
 
+	// GetContentsByHash returns the contents of the secret at the given hashed URL.
+	GetContentsByHash(ctx context.Context, hash string) (string, error)
+
+	// GetSecretsURLHash returns the keccak256 hash of the owner and secrets URL.
+	GetSecretsURLHash(owner, secretsURL []byte) ([]byte, error)
+
 	// Update updates the contents of the secrets at the given plain URL or inserts a new record if not found.
 	Update(ctx context.Context, secretsURL, contents string) (int64, error)
+
+	Create(ctx context.Context, secretsURL, hash, contents string) (int64, error)
 }
 
 type WorkflowRegistryDS = ORM
@@ -44,6 +56,32 @@ func (orm *orm) GetSecretsURLByID(ctx context.Context, id int64) (string, error)
 	return secretsURL, err
 }
 
+func (orm *orm) GetSecretsURLByHash(ctx context.Context, hash string) (string, error) {
+	var secretsURL string
+	err := orm.ds.GetContext(ctx, &secretsURL,
+		`SELECT secrets_url FROM workflow_secrets WHERE workflow_secrets.secrets_url_hash = $1`,
+		hash,
+	)
+
+	return secretsURL, err
+}
+
+func (orm *orm) GetContentsByHash(ctx context.Context, hash string) (string, error) {
+	var contents string
+	err := orm.ds.GetContext(ctx, &contents,
+		`SELECT contents 
+         FROM workflow_secrets 
+         WHERE secrets_url_hash = $1`,
+		hash,
+	)
+
+	if err != nil {
+		return "", err // Return an empty Artifact struct and the error
+	}
+
+	return contents, nil // Return the populated Artifact struct
+}
+
 func (orm *orm) GetContents(ctx context.Context, url string) (string, error) {
 	var contents string
 	err := orm.ds.GetContext(ctx, &contents,
@@ -60,16 +98,16 @@ func (orm *orm) GetContents(ctx context.Context, url string) (string, error) {
 	return contents, nil // Return the populated Artifact struct
 }
 
-// Update updates the secrets content at the given URL hash or inserts a new record if not found.
-func (orm *orm) Update(ctx context.Context, secretsURL, contents string) (int64, error) {
+// Update updates the secrets content at the given hash or inserts a new record if not found.
+func (orm *orm) Update(ctx context.Context, hash, contents string) (int64, error) {
 	var id int64
 	err := orm.ds.QueryRowxContext(ctx,
-		`INSERT INTO workflow_secrets (secrets_url, contents)
+		`INSERT INTO workflow_secrets (secrets_url_hash, contents)
          VALUES ($1, $2)
-         ON CONFLICT (secrets_url) DO UPDATE
-         SET secrets_url = EXCLUDED.secrets_url, contents = EXCLUDED.contents
+         ON CONFLICT (secrets_url_hash) DO UPDATE
+         SET secrets_url_hash = EXCLUDED.secrets_url_hash, contents = EXCLUDED.contents
          RETURNING id`,
-		secretsURL, contents,
+		hash, contents,
 	).Scan(&id)
 
 	if err != nil {
@@ -77,4 +115,25 @@ func (orm *orm) Update(ctx context.Context, secretsURL, contents string) (int64,
 	}
 
 	return id, nil
+}
+
+// Update updates the secrets content at the given hash or inserts a new record if not found.
+func (orm *orm) Create(ctx context.Context, url, hash, contents string) (int64, error) {
+	var id int64
+	err := orm.ds.QueryRowxContext(ctx,
+		`INSERT INTO workflow_secrets (secrets_url, secrets_url_hash, contents)
+         VALUES ($1, $2, $3)
+         RETURNING id`,
+		url, hash, contents,
+	).Scan(&id)
+
+	if err != nil {
+		return 0, err
+	}
+
+	return id, nil
+}
+
+func (orm *orm) GetSecretsURLHash(owner, secretsURL []byte) ([]byte, error) {
+	return crypto.Keccak256(append(owner, secretsURL...))
 }

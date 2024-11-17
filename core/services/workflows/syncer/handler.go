@@ -2,23 +2,21 @@ package syncer
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-type handler interface {
-	Handle(ctx context.Context, event WorkflowRegistryEvent) error
-}
-
-// eventHandler is a map of event types to their respective handlers that implements Handler.
+// eventHandler is a handler for WorkflowRegistryEvent events.  Each event type has a corresponding
+// method that handles the event.
 type eventHandler struct {
 	lggr    logger.Logger
 	orm     ORM
 	fetcher FetcherFunc
 }
 
-// newEventHandler returns a new eventHandler with a map of event types to their respective handlers.
+// newEventHandler returns a new eventHandler instance.
 func newEventHandler(
 	lggr logger.Logger,
 	orm ORM,
@@ -40,16 +38,22 @@ func (h *eventHandler) Handle(ctx context.Context, event WorkflowRegistryEvent) 
 	}
 }
 
-// Handle processes the ForceUpdateSecretsEvent by fetching the secrets from the URL for a given event
-// and updating the local state.
+// forceUpdateSecretsEvent handles the ForceUpdateSecretsEvent event type.
 func (h *eventHandler) forceUpdateSecretsEvent(
 	ctx context.Context,
 	event WorkflowRegistryEvent,
 ) error {
 	// Get the URL of the secrets file from the event data
-	url, err := getSecretsURL(event)
+	data, ok := event.Data.(WorkflowRegistryForceUpdateSecretsRequestedV1)
+	if !ok {
+		return fmt.Errorf("invalid data type %T for event", event.Data)
+	}
+
+	hash := hex.EncodeToString(data.SecretsURLHash)
+
+	url, err := h.orm.GetSecretsURLByHash(ctx, hash)
 	if err != nil {
-		h.lggr.Errorf("failed to get URL hash", err)
+		h.lggr.Errorf("failed to get URL by hash %s : %w", hash, err)
 		return err
 	}
 
@@ -60,20 +64,9 @@ func (h *eventHandler) forceUpdateSecretsEvent(
 	}
 
 	// Update the secrets in the ORM
-	if _, err := h.orm.Update(ctx, url, string(secrets)); err != nil {
+	if _, err := h.orm.Update(ctx, hash, string(secrets)); err != nil {
 		return err
 	}
 
 	return nil
-}
-
-// getSecretsURL returns the URL of the secrets contents from the event data and fails
-// if the URL is not found or is not a string.
-func getSecretsURL(event WorkflowRegistryEvent) (string, error) {
-	data, ok := event.Data.(WorkflowRegistryForceUpdateSecretsRequestedV1)
-	if !ok {
-		return "", fmt.Errorf("invalid data type %T for event", event.Data)
-	}
-
-	return data.SecretsURL, nil
 }

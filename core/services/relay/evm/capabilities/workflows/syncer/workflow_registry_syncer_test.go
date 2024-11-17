@@ -3,6 +3,7 @@ package workflow_registry_syncer_test
 import (
 	"context"
 	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"testing"
 	"time"
@@ -18,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/signalers"
 
 	"github.com/stretchr/testify/require"
@@ -88,7 +90,11 @@ func Test_SecretsWorker(t *testing.T) {
 	require.NoError(t, err)
 
 	// Seed the DB
-	gotID, err := orm.Update(ctx, giveSecretsURL, giveContents)
+	hash, err := crypto.Keccak256(append(backendTH.ContractsOwner.From[:], []byte(giveSecretsURL)...))
+	require.NoError(t, err)
+	giveHash := hex.EncodeToString(hash)
+
+	gotID, err := orm.Create(ctx, giveSecretsURL, giveHash, giveContents)
 	require.NoError(t, err)
 
 	gotSecretsURL, err := orm.GetSecretsURLByID(ctx, gotID)
@@ -110,7 +116,7 @@ func Test_SecretsWorker(t *testing.T) {
 	)
 
 	// generate a log event
-	updateAuthorizedAddress(t, backendTH, wfRegistryC, donID, []common.Address{backendTH.ContractsOwner.From}, true)
+	updateAuthorizedAddress(t, backendTH, wfRegistryC, []common.Address{backendTH.ContractsOwner.From}, true)
 	updateAllowedDONs(t, backendTH, wfRegistryC, []uint32{1}, true)
 	registerWorkflow(t, backendTH, wfRegistryC, giveWorkflow)
 
@@ -137,12 +143,11 @@ func updateAuthorizedAddress(
 	t *testing.T,
 	th *testutils.EVMBackendTH,
 	wfRegC *workflow_registry_wrapper.WorkflowRegistry,
-	donID uint32,
 	addresses []common.Address,
 	allowed bool,
 ) {
 	t.Helper()
-	_, err := wfRegC.UpdateDONPermissions(th.ContractsOwner, donID, addresses, allowed)
+	_, err := wfRegC.UpdateAuthorizedAddresses(th.ContractsOwner, addresses, allowed)
 	require.NoError(t, err, "failed to update authorised addresses")
 	th.Backend.Commit()
 	th.Backend.Commit()

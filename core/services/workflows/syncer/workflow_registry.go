@@ -39,9 +39,9 @@ var (
 // WorkflowRegistryForceUpdateSecretsRequestedV1 is a chain agnostic definition of the WorkflowRegistry
 // ForceUpdateSecretsRequested event.
 type WorkflowRegistryForceUpdateSecretsRequestedV1 struct {
-	SecretsURL   string
-	Owner        string
-	WorkflowName string
+	SecretsURLHash []byte
+	Owner          []byte
+	WorkflowName   string
 }
 
 type Head struct {
@@ -130,7 +130,7 @@ type workflowRegistry struct {
 
 	// eventsCh is read by the handler and each event is handled once received.
 	eventsCh chan WorkflowRegistryEventResponse
-	handler  handler
+	handler  *eventHandler
 
 	// batchCh is a channel that receives batches of events from the contract query goroutines.
 	batchCh chan []WorkflowRegistryEventResponse
@@ -257,6 +257,7 @@ func (w *workflowRegistry) handlerLoop(ctx context.Context) {
 			}
 
 			event := resp.Event
+			w.lggr.Debugf("handling event: %+v", event)
 			if err := w.handler.Handle(ctx, *event); err != nil {
 				w.lggr.Errorf("failed to handle event: %+v", event)
 				continue
