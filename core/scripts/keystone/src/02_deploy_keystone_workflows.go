@@ -76,7 +76,7 @@ workflow = """
 name: "ccip_kiab1" 
 owner: '{{ .WorkflowOwnerAddress }}'
 triggers:
- - id: streams-trigger@1.0.0
+ - id: streams-trigger@1.1.0
    config:
      maxFrequencyMs: 10000
      feedIds:

@@ -377,7 +377,7 @@ func NewStreamsTriggerV1Capability() *TriggerCapability {
 		baseCapability{
 			capability: kcr.CapabilitiesRegistryCapability{
 				LabelledName:   "streams-trigger",
-				Version:        "1.0.0",
+				Version:        "1.1.0",
 				CapabilityType: CapabilityTypeTrigger,
 			},
 		},
