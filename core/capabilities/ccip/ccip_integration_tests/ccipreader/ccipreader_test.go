@@ -503,7 +503,7 @@ func TestCCIPReader_Nonces(t *testing.T) {
 func Test_GetChainFeePriceUpdates(t *testing.T) {
 	ctx := testutils.Context(t)
 	sb, auth := setupSimulatedBackendAndAuth(t)
-	feeQuoter := deployFeeQuoterWithPrices(t, auth, sb)
+	feeQuoter := deployFeeQuoterWithPrices(t, auth, sb, chainS1)
 
 	s := testSetup(ctx, t, chainD, chainD, nil, evmconfig.DestReaderConfig,
 		map[cciptypes.ChainSelector][]types.BoundContract{
@@ -528,7 +528,7 @@ func Test_GetChainFeePriceUpdates(t *testing.T) {
 func Test_LinkPriceUSD(t *testing.T) {
 	ctx := testutils.Context(t)
 	sb, auth := setupSimulatedBackendAndAuth(t)
-	feeQuoter := deployFeeQuoterWithPrices(t, auth, sb)
+	feeQuoter := deployFeeQuoterWithPrices(t, auth, sb, chainS1)
 
 	s := testSetup(ctx, t, chainD, chainD, nil, evmconfig.DestReaderConfig,
 		map[cciptypes.ChainSelector][]types.BoundContract{
@@ -556,16 +556,24 @@ func Test_GetMedianDataAvailabilityGasConfig(t *testing.T) {
 
 	sb, auth := setupSimulatedBackendAndAuth(t)
 
-	feeQuoter1 := deployFeeQuoterWithPrices(t, auth, sb)
-	feeQuoter2 := deployFeeQuoterWithPrices(t, auth, sb)
-	feeQuoter3 := deployFeeQuoterWithPrices(t, auth, sb)
+	// All fee quoters using same auth and simulated backend for simplicity
+	feeQuoter1 := deployFeeQuoterWithPrices(t, auth, sb, chainD)
+	feeQuoter2 := deployFeeQuoterWithPrices(t, auth, sb, chainD)
+	feeQuoter3 := deployFeeQuoterWithPrices(t, auth, sb, chainD)
+	feeQuoters := []*fee_quoter.FeeQuoter{feeQuoter1, feeQuoter2, feeQuoter3}
 
-	config, err := feeQuoter1.GetDestChainConfig(&bind.CallOpts{}, uint64(chainS1))
-	require.NoError(t, err)
-	require.Equal(t, DefaultFeeQuoterDestChainConfig(), config)
-	config2, err := feeQuoter2.GetDestChainConfig(&bind.CallOpts{}, uint64(chainS1))
-	require.NoError(t, err)
-	require.Equal(t, DefaultFeeQuoterDestChainConfig(), config2)
+	// Update the dest chain config for each fee quoter
+	for i, fq := range feeQuoters {
+		destChainCfg := DefaultFeeQuoterDestChainConfig()
+		destChainCfg.DestDataAvailabilityOverheadGas = uint32(100 + i)
+		destChainCfg.DestGasPerDataAvailabilityByte = uint16(200 + i)
+		destChainCfg.DestDataAvailabilityMultiplierBps = uint16(1 + i)
+		_, err := fq.ApplyDestChainConfigUpdates(auth, []fee_quoter.FeeQuoterDestChainConfigArgs{
+			{uint64(chainD), destChainCfg},
+		})
+		sb.Commit()
+		require.NoError(t, err)
+	}
 
 	s := testSetup(ctx, t, chainD, chainD, nil, evmconfig.DestReaderConfig, map[cciptypes.ChainSelector][]types.BoundContract{
 		chainS1: {
@@ -596,12 +604,12 @@ func Test_GetMedianDataAvailabilityGasConfig(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify the results
-	require.Equal(t, uint32(100), daConfig.DestDataAvailabilityOverheadGas)
-	require.Equal(t, uint16(100), daConfig.DestGasPerDataAvailabilityByte)
-	require.Equal(t, uint16(1), daConfig.DestDataAvailabilityMultiplierBps)
+	require.Equal(t, uint32(101), daConfig.DestDataAvailabilityOverheadGas)
+	require.Equal(t, uint16(201), daConfig.DestGasPerDataAvailabilityByte)
+	require.Equal(t, uint16(2), daConfig.DestDataAvailabilityMultiplierBps)
 }
 
-func deployFeeQuoterWithPrices(t *testing.T, auth *bind.TransactOpts, sb *simulated.Backend) *fee_quoter.FeeQuoter {
+func deployFeeQuoterWithPrices(t *testing.T, auth *bind.TransactOpts, sb *simulated.Backend, destChain cciptypes.ChainSelector) *fee_quoter.FeeQuoter {
 	linkAddress := utils.RandomAddress()
 	wethAddress := utils.RandomAddress()
 	address, _, _, err := fee_quoter.DeployFeeQuoter(
@@ -620,7 +628,7 @@ func deployFeeQuoterWithPrices(t *testing.T, auth *bind.TransactOpts, sb *simula
 		[]fee_quoter.FeeQuoterDestChainConfigArgs{
 			{
 
-				DestChainSelector: uint64(chainD),
+				DestChainSelector: uint64(destChain),
 				DestChainConfig:   DefaultFeeQuoterDestChainConfig(),
 			},
 		},
