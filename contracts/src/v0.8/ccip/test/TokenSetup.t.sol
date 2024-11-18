@@ -155,11 +155,10 @@ contract TokenSetup is RouterSetup {
       remoteChainSelector: remoteChainSelector,
       remotePoolAddress: abi.encode(remotePoolAddress),
       remoteTokenAddress: abi.encode(remoteToken),
-      allowed: true,
       outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
       inboundRateLimiterConfig: _getInboundRateLimiterConfig()
     });
 
-    TokenPool(pool).applyChainUpdates(chainUpdates);
+    TokenPool(pool).applyChainUpdates(new uint64[](0), chainUpdates);
   }
 }

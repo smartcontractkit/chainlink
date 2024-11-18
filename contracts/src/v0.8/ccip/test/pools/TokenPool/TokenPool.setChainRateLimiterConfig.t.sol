@@ -16,11 +16,10 @@ contract TokenPool_setChainRateLimiterConfig is TokenPoolSetup {
       remoteChainSelector: s_remoteChainSelector,
       remotePoolAddress: abi.encode(address(2)),
       remoteTokenAddress: abi.encode(address(3)),
-      allowed: true,
       outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
       inboundRateLimiterConfig: _getInboundRateLimiterConfig()
     });
-    s_tokenPool.applyChainUpdates(chainUpdates);
+    s_tokenPool.applyChainUpdates(new uint64[](0), chainUpdates);
   }
 
   function testFuzz_SetChainRateLimiterConfig_Success(uint128 capacity, uint128 rate, uint32 newTime) public {

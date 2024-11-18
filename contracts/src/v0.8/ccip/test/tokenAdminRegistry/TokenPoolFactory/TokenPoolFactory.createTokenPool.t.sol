@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
-import {Ownable2Step} from "../../../../shared/access/Ownable2Step.sol";
 import {IBurnMintERC20} from "../../../../shared/token/ERC20/IBurnMintERC20.sol";
-
-import {Create2} from "../../../../vendor/openzeppelin-solidity/v5.0.2/contracts/utils/Create2.sol";
 import {IOwner} from "../../../interfaces/IOwner.sol";
+
+import {Ownable2Step} from "../../../../shared/access/Ownable2Step.sol";
 import {RateLimiter} from "../../../libraries/RateLimiter.sol";
 import {BurnFromMintTokenPool} from "../../../pools/BurnFromMintTokenPool.sol";
 import {BurnMintTokenPool} from "../../../pools/BurnMintTokenPool.sol";
@@ -16,6 +15,8 @@ import {TokenAdminRegistry} from "../../../tokenAdminRegistry/TokenAdminRegistry
 import {FactoryBurnMintERC20} from "../../../tokenAdminRegistry/TokenPoolFactory/FactoryBurnMintERC20.sol";
 import {TokenPoolFactory} from "../../../tokenAdminRegistry/TokenPoolFactory/TokenPoolFactory.sol";
 import {TokenPoolFactorySetup} from "./TokenPoolFactorySetup.t.sol";
+
+import {Create2} from "../../../../vendor/openzeppelin-solidity/v5.0.2/contracts/utils/Create2.sol";
 
 contract TokenPoolFactory_createTokenPool is TokenPoolFactorySetup {
   using Create2 for bytes32;
@@ -126,7 +127,7 @@ contract TokenPoolFactory_createTokenPool is TokenPoolFactorySetup {
       // Assert that the address set for the remote pool is the same as the predicted address
       assertEq(
         abi.encode(predictedPoolAddress),
-        TokenPool(poolAddress).getRemotePool(DEST_CHAIN_SELECTOR),
+        TokenPool(poolAddress).getRemotePools(DEST_CHAIN_SELECTOR)[0],
         "Pool Address should have been predicted"
       );
     }
@@ -138,7 +139,7 @@ contract TokenPoolFactory_createTokenPool is TokenPoolFactorySetup {
     );
 
     assertEq(
-      TokenPool(poolAddress).getRemotePool(DEST_CHAIN_SELECTOR),
+      TokenPool(poolAddress).getRemotePools(DEST_CHAIN_SELECTOR)[0],
       abi.encode(newPoolAddress),
       "New Pool Address should have been deployed correctly"
     );
@@ -250,7 +251,7 @@ contract TokenPoolFactory_createTokenPool is TokenPoolFactorySetup {
     // Assert that the address set for the remote pool is the same as the predicted address
     assertEq(
       abi.encode(predictedPoolAddress),
-      TokenPool(poolAddress).getRemotePool(DEST_CHAIN_SELECTOR),
+      TokenPool(poolAddress).getRemotePools(DEST_CHAIN_SELECTOR)[0],
       "Pool Address should have been predicted"
     );
 
@@ -271,7 +272,7 @@ contract TokenPoolFactory_createTokenPool is TokenPoolFactorySetup {
     );
 
     assertEq(
-      TokenPool(poolAddress).getRemotePool(DEST_CHAIN_SELECTOR),
+      TokenPool(poolAddress).getRemotePools(DEST_CHAIN_SELECTOR)[0],
       abi.encode(newPoolAddress),
       "New Pool Address should have been deployed correctly"
     );
@@ -314,7 +315,7 @@ contract TokenPoolFactory_createTokenPool is TokenPoolFactorySetup {
     );
 
     assertEq(
-      TokenPool(poolAddress).getRemotePool(DEST_CHAIN_SELECTOR),
+      TokenPool(poolAddress).getRemotePools(DEST_CHAIN_SELECTOR)[0],
       RANDOM_POOL_ADDRESS,
       "Remote Pool Address should have been set"
     );
@@ -377,7 +378,7 @@ contract TokenPoolFactory_createTokenPool is TokenPoolFactorySetup {
 
     // Check that the pool was correctly deployed on the local chain first
 
-    // Accept the ownership which was transfered
+    // Accept the ownership which was transferred
     Ownable2Step(poolAddress).acceptOwnership();
 
     // Ensure that the remote Token was set to the one we predicted
@@ -400,7 +401,7 @@ contract TokenPoolFactory_createTokenPool is TokenPoolFactorySetup {
     );
 
     assertEq(
-      LockReleaseTokenPool(poolAddress).getRemotePool(DEST_CHAIN_SELECTOR),
+      LockReleaseTokenPool(poolAddress).getRemotePools(DEST_CHAIN_SELECTOR)[0],
       abi.encode(newPoolAddress),
       "New Pool Address should have been deployed correctly"
     );
@@ -455,7 +456,7 @@ contract TokenPoolFactory_createTokenPool is TokenPoolFactorySetup {
     );
 
     assertEq(
-      TokenPool(poolAddress).getRemotePool(DEST_CHAIN_SELECTOR),
+      TokenPool(poolAddress).getRemotePools(DEST_CHAIN_SELECTOR)[0],
       RANDOM_POOL_ADDRESS,
       "Remote Pool Address should have been set"
     );
