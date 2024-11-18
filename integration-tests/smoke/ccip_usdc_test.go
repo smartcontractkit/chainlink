@@ -1,12 +1,13 @@
 package smoke
 
 import (
-	"github.com/stretchr/testify/assert"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -195,7 +196,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 
 			for _, token := range tt.tokens {
 				destToken := srcDstTokenMapping[token.Token]
-				
+
 				assert.Eventually(t, func() bool {
 					balance, err := destToken.BalanceOf(&bind.CallOpts{Context: tests.Context(t)}, tt.receiver)
 					require.NoError(t, err)
