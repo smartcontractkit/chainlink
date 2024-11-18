@@ -21,6 +21,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipdeployment "github.com/smartcontractkit/chainlink/deployment/ccip"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	clclient "github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -141,6 +142,12 @@ func NewLocalDevEnvironmentWithRMN(
 	tenv, dockerenv, testCfg := NewLocalDevEnvironmentWithDefaultPrice(t, lggr)
 	state, err := ccipdeployment.LoadOnchainState(tenv.Env)
 	require.NoError(t, err)
+
+	output, err := changeset.DeployPrerequisites(tenv.Env, changeset.DeployPrerequisiteConfig{
+		ChainSelectors: tenv.Env.AllChainSelectors(),
+	})
+	require.NoError(t, err)
+	require.NoError(t, tenv.Env.ExistingAddresses.Merge(output.AddressBook))
 
 	// Deploy CCIP contracts.
 	newAddresses := deployment.NewMemoryAddressBook()
