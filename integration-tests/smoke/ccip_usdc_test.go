@@ -1,7 +1,10 @@
 package smoke
 
 import (
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"golang.org/x/exp/maps"
 	"math/big"
 	"net/http"
@@ -15,8 +18,6 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
-
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccdeploy "github.com/smartcontractkit/chainlink/deployment/ccip"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -141,56 +142,111 @@ func TestUSDCTokenTransfer(t *testing.T) {
 
 	tinyOneCoin := new(big.Int).SetUint64(1)
 
-	tokens := map[uint64][]router.ClientEVMTokenAmount{
-		sourceChain: {{
-			Token:  srcUSDC.Address(),
-			Amount: tinyOneCoin,
-		}},
-		destChain: {{
-			Token:  dstUSDC.Address(),
-			Amount: tinyOneCoin,
-		}},
-	}
+	//tokens := map[uint64][]router.ClientEVMTokenAmount{
+	//	sourceChain: {{
+	//		Token:  srcUSDC.Address(),
+	//		Amount: tinyOneCoin,
+	//	}},
+	//	destChain: {{
+	//		Token:  dstUSDC.Address(),
+	//		Amount: tinyOneCoin,
+	//	}},
+	//}
 
+	//t.Run("single USDC token transfer to EOA", func(t *testing.T) {
+	//	var (
+	//		receiver = common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32)
+	//		data     = []byte("hello world")
+	//		feeToken = common.HexToAddress("0x0")
+	//	)
+	//
+	//	latesthdr, err := dChain.Client.HeaderByNumber(testcontext.Get(t), nil)
+	//	require.NoError(t, err)
+	//	block := latesthdr.Number.Uint64()
+	//	startBlocks[dest] = &block
+	//
+	//	if src == sourceChain && dest == destChain {
+	//		seqNum := ccdeploy.TestSendRequest(t, e, state, src, dest, false, router.ClientEVM2AnyMessage{
+	//			Receiver:     receiver,
+	//			Data:         data,
+	//			TokenAmounts: tokens[src],
+	//			FeeToken:     feeToken,
+	//			ExtraArgs:    nil,
+	//		})
+	//		expectedSeqNum[dest] = seqNum
+	//	}
+	//
+	//	// Wait for all commit reports to land.
+	//	ccdeploy.ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
+	//
+	//	// Wait for all exec reports to land
+	//	ccdeploy.ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
+	//
+	//	balance, err := dstUSDC.BalanceOf(nil, state.Chains[destChain].Receiver.Address())
+	//	require.NoError(t, err)
+	//	require.Equal(t, tinyOneCoin, balance)
+	//})
+	//
+	//t.Run("USDC token transfer from different sources to the same destination", func(t *testing.T) {
+	//
+	//})
+	//
+	t.Run("programmable token transfer with USDC to contract", func(t *testing.T) {
+		transferAndWaitForSuccess(
+			t,
+			e,
+			state,
+			sourceChain,
+			destChain,
+			[]router.ClientEVMTokenAmount{
+				{
+					Token:  srcUSDC.Address(),
+					Amount: tinyOneCoin,
+				}},
+			state.Chains[destChain].Receiver.Address(),
+			[]byte("hello world"),
+		)
+
+		balance, err := dstUSDC.BalanceOf(&bind.CallOpts{Context: tests.Context(t)}, state.Chains[destChain].Receiver.Address())
+		require.NoError(t, err)
+		require.Equal(t, tinyOneCoin, balance)
+	})
+
+	//
+	//t.Run("USDC token together with other token transfer", func(t *testing.T) {
+	//
+	//})
+}
+
+func transferAndWaitForSuccess(
+	t *testing.T,
+	env deployment.Environment,
+	state ccdeploy.CCIPOnChainState,
+	sourceChain, destChain uint64,
+	tokens []router.ClientEVMTokenAmount,
+	receiver common.Address,
+	data []byte,
+) {
 	startBlocks := make(map[uint64]*uint64)
 	expectedSeqNum := make(map[uint64]uint64)
 
-	for src := range e.Chains {
-		for dest, dChain := range e.Chains {
-			if src == dest {
-				continue
-			}
-			var (
-				receiver = common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32)
-				data     = []byte("hello world")
-				feeToken = common.HexToAddress("0x0")
-			)
+	latesthdr, err := env.Chains[destChain].Client.HeaderByNumber(testcontext.Get(t), nil)
+	require.NoError(t, err)
+	block := latesthdr.Number.Uint64()
+	startBlocks[destChain] = &block
 
-			latesthdr, err := dChain.Client.HeaderByNumber(testcontext.Get(t), nil)
-			require.NoError(t, err)
-			block := latesthdr.Number.Uint64()
-			startBlocks[dest] = &block
-
-			if src == sourceChain && dest == destChain {
-				seqNum := ccdeploy.TestSendRequest(t, e, state, src, dest, false, router.ClientEVM2AnyMessage{
-					Receiver:     receiver,
-					Data:         data,
-					TokenAmounts: tokens[src],
-					FeeToken:     feeToken,
-					ExtraArgs:    nil,
-				})
-				expectedSeqNum[dest] = seqNum
-			}
-		}
-	}
+	seqNum := ccdeploy.TestSendRequest(t, env, state, sourceChain, destChain, false, router.ClientEVM2AnyMessage{
+		Receiver:     common.LeftPadBytes(receiver.Bytes(), 32),
+		Data:         data,
+		TokenAmounts: tokens,
+		FeeToken:     common.HexToAddress("0x0"),
+		ExtraArgs:    nil,
+	})
+	expectedSeqNum[destChain] = seqNum
 
 	// Wait for all commit reports to land.
-	ccdeploy.ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
+	ccdeploy.ConfirmCommitForAllWithExpectedSeqNums(t, env, state, expectedSeqNum, startBlocks)
 
 	// Wait for all exec reports to land
-	ccdeploy.ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
-
-	balance, err := dstUSDC.BalanceOf(nil, state.Chains[destChain].Receiver.Address())
-	require.NoError(t, err)
-	require.Equal(t, tinyOneCoin, balance)
+	ccdeploy.ConfirmExecWithSeqNrForAll(t, env, state, expectedSeqNum, startBlocks)
 }
