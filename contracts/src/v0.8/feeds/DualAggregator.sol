@@ -56,8 +56,11 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
 
   bytes32 internal s_latestConfigDigest;
 
+  // Overhead incurred by accounting logic.
+  uint24 internal s_accountingGas;
+
   // Storing these fields used on the hot path in a HotVars variable reduces the
-  // retrieval of all of them to two SLOADs.
+  // retrieval of all of them to one SLOAD.
   struct HotVars {
     uint8 f; //  ─────────────────────────╮ Maximum number of faulty oracles.
     //                                    │
@@ -71,8 +74,8 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
     uint32 maximumGasPriceGwei; //        │ Highest compensated gas price, in gwei uints.
     uint32 reasonableGasPriceGwei; //     │ If gas price is less (in gwei units), transmitter gets half the savings.
     uint32 observationPaymentGjuels; //   │ Fixed LINK reward for each observer.
-    uint32 transmissionPaymentGjuels; // ─╯ Fixed reward for transmitter.
-    uint24 accountingGas; //                Overhead incurred by accounting logic.
+    uint32 transmissionPaymentGjuels; //  │ Fixed reward for transmitter.
+    bool isLatestSecondary; // ───────────╯ Whether the latest report was secondary or not
   }
 
   HotVars internal s_hotVars;
@@ -425,9 +428,6 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
   // max iterations the secondary proxy will be able to loop to sync with the primary rounds
   uint32 internal s_maxSyncIterations;
 
-  // whether the latest report was secondary or not
-  bool internal s_latestSecondary;
-
   /// @notice indicates that a new report arrived from the secondary feed and the round id was updated
   /// @param secondaryRoundId the new secondary round id
   event SecondaryRoundIdUpdated(uint32 indexed secondaryRoundId);
@@ -449,7 +449,7 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
     uint32 _cutoffTime
   ) external onlyOwner {
     s_cutoffTime = _cutoffTime;
-    emit CutoffTimeSet(s_cutoffTime);
+    emit CutoffTimeSet(_cutoffTime);
   }
 
   /// @notice sets the max sync iterations
@@ -458,7 +458,7 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
     uint32 _maxSyncIterations
   ) external onlyOwner {
     s_maxSyncIterations = _maxSyncIterations;
-    emit MaxSyncIterationsSet(s_maxSyncIterations);
+    emit MaxSyncIterationsSet(_maxSyncIterations);
   }
 
   /// @notice sync data with the primary rounds, return the freshest valid round id
@@ -479,10 +479,8 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
         return round_;
       }
 
-      Transmission memory transmission = s_transmissions[round_];
-
       // check if this round does not accomplish the cutoff time condition
-      if (transmission.recordedTimestamp + s_cutoffTime < block.timestamp) {
+      if (s_transmissions[round_].recordedTimestamp + s_cutoffTime < block.timestamp) {
         return round_;
       }
     }
@@ -523,18 +521,16 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
 
   /// @notice Aggregator round (NOT OCR round) in which last valid report was transmitted
   function _getLatestRound() internal view returns (uint32) {
-    Transmission memory transmission;
-
     // get the latest round ids
     uint32 latestAggregatorRoundId = s_hotVars.latestAggregatorRoundId;
     uint32 latestSecondaryRoundId = s_hotVars.latestSecondaryRoundId;
+    bool isLatestSecondary = s_hotVars.isLatestSecondary;
 
     // check if the message sender is the secondary proxy
     if (msg.sender == i_secondaryProxy) {
-      transmission = s_transmissions[latestSecondaryRoundId];
       // in case the latest secondary round does not accomplish the cutoff time condition,
       // get the round id syncing with the primary rounds
-      if (transmission.recordedTimestamp + s_cutoffTime < block.timestamp) {
+      if (s_transmissions[latestSecondaryRoundId].recordedTimestamp + s_cutoffTime < block.timestamp) {
         return _getSyncPrimaryRound();
       }
 
@@ -543,10 +539,8 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
     }
     // in case the report was sent by the secondary proxy
     if (latestAggregatorRoundId == latestSecondaryRoundId) {
-      // get the transmission
-      transmission = s_transmissions[latestAggregatorRoundId];
       // in case the transmission was sent in this same block only by the secondary proxy, return the previous round id
-      if (s_latestSecondary && transmission.recordedTimestamp == block.timestamp) {
+      if (isLatestSecondary && s_transmissions[latestAggregatorRoundId].recordedTimestamp == block.timestamp) {
         return latestAggregatorRoundId - 1;
       }
     }
@@ -584,11 +578,7 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
   function _decodeReport(
     bytes memory rawReport
   ) internal pure returns (Report memory) {
-    uint32 observationsTimestamp;
-    bytes32 rawObservers;
-    int192[] memory observations;
-    int192 juelsPerFeeCoin;
-    (observationsTimestamp, rawObservers, observations, juelsPerFeeCoin) =
+    (uint32 observationsTimestamp, bytes32 rawObservers, int192[] memory observations, int192 juelsPerFeeCoin) =
       abi.decode(rawReport, (uint32, bytes32, int192[], int192));
 
     _requireExpectedReportLength(rawReport, observations);
@@ -629,15 +619,11 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
   // transmitter could append an arbitrarily long (up to gas-block limit)
   // string of 0 bytes, which we would reimburse at a rate of 16 gas/byte, but
   // which would only cost the transmitter 4 gas/byte.
-  function _requireExpectedMsgDataLength(
-    bytes calldata report,
-    bytes32[] calldata rs,
-    bytes32[] calldata ss
-  ) private pure {
+  function _requireExpectedMsgDataLength(uint256 reportLength, uint256 rsLength, uint256 ssLength) private pure {
     // calldata will never be big enough to make this overflow
-    uint256 expected = TRANSMIT_MSGDATA_CONSTANT_LENGTH_COMPONENT + report.length // one byte per entry in report
-      + rs.length * 32 // 32 bytes per entry in rs
-      + ss.length * 32 // 32 bytes per entry in ss
+    uint256 expected = TRANSMIT_MSGDATA_CONSTANT_LENGTH_COMPONENT + reportLength // one byte per entry in report
+      + rsLength * 32 // 32 bytes per entry in rs
+      + ssLength * 32 // 32 bytes per entry in ss
       + 0; // placeholder
     if (msg.data.length != expected) {
       revert CalldataLengthMismatch();
@@ -705,26 +691,24 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
     uint256 initialGas = gasleft(); // This line must come first
 
     // Validate the report data
-    _validateReport(reportContext, report, rs, ss);
-
-    // Verify signatures attached to report
-    _verifySignatures(reportContext, report, rs, ss, rawVs);
+    _validateReport(reportContext, report.length, rs.length, ss.length);
 
     Report memory report_ = _decodeReport(report); // Decode the report
+    HotVars memory hotVars = s_hotVars; // Load hotVars into memory
 
     if (isSecondary) {
       (bool exist, uint32 roundId) = _doesReportExist(report_);
       // In case the report exists, copy the round id and pay the transmitter
       if (exist) {
         // In case the round has already been processed by the secondary feed
-        if (s_hotVars.latestSecondaryRoundId >= roundId) {
+        if (hotVars.latestSecondaryRoundId >= roundId) {
           revert StaleReport();
         }
 
         s_hotVars.latestSecondaryRoundId = roundId;
         emit SecondaryRoundIdUpdated(roundId);
 
-        _payTransmitter(s_hotVars, report_.juelsPerFeeCoin, uint32(initialGas), msg.sender);
+        _payTransmitter(hotVars, report_.juelsPerFeeCoin, uint32(initialGas));
         return;
       }
     }
@@ -734,27 +718,30 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
 
     // Only skip the report transmission in case the epochAndRound is equal to the latestEpochAndRound
     // and the latest sender was the secondary feed
-    if (epochAndRound != s_hotVars.latestEpochAndRound || !s_latestSecondary) {
+    if (epochAndRound != hotVars.latestEpochAndRound || !hotVars.isLatestSecondary) {
       // In case the epochAndRound is lower or equal than the latestEpochAndRound, it's a stale report
       // because it's older or has already been transmitted
-      if (epochAndRound <= s_hotVars.latestEpochAndRound) {
+      if (epochAndRound <= hotVars.latestEpochAndRound) {
         revert StaleReport();
       }
 
-      _report(s_hotVars, reportContext[0], epochAndRound, report_, isSecondary);
+      // Verify signatures attached to report
+      _verifySignatures(reportContext, report, rs, ss, rawVs);
+
+      _report(hotVars, reportContext[0], epochAndRound, report_, isSecondary);
     }
 
     // Store if the latest report was secondary or not
-    s_latestSecondary = isSecondary;
-    _payTransmitter(s_hotVars, report_.juelsPerFeeCoin, uint32(initialGas), msg.sender);
+    s_hotVars.isLatestSecondary = isSecondary;
+    _payTransmitter(hotVars, report_.juelsPerFeeCoin, uint32(initialGas));
   }
 
   // helper function to validate the report data
   function _validateReport(
     bytes32[3] calldata reportContext,
-    bytes calldata report,
-    bytes32[] calldata rs,
-    bytes32[] calldata ss
+    uint256 reportLength,
+    uint256 rsLength,
+    uint256 ssLength
   ) internal view {
     if (!s_transmitters[msg.sender].active) {
       revert UnauthorizedTransmitter();
@@ -764,12 +751,12 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
       revert ConfigDigestMismatch();
     }
 
-    _requireExpectedMsgDataLength(report, rs, ss);
+    _requireExpectedMsgDataLength(reportLength, rsLength, ssLength);
 
-    if (rs.length != s_hotVars.f + 1) {
+    if (rsLength != s_hotVars.f + 1) {
       revert WrongNumberOfSignatures();
     }
-    if (rs.length != ss.length) {
+    if (rsLength != ssLength) {
       revert SignaturesOutOfRegistration();
     }
   }
@@ -1152,8 +1139,7 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
     uint32 transmissionPaymentGjuels,
     uint24 accountingGas
   ) external {
-    AccessControllerInterface access = s_billingAccessController;
-    if (msg.sender != owner() && !access.hasAccess(msg.sender, msg.data)) {
+    if (!(msg.sender == owner() || s_billingAccessController.hasAccess(msg.sender, msg.data))) {
       revert OnlyOwnerAndBillingAdminCanCall();
     }
     _payOracles();
@@ -1162,7 +1148,7 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
     s_hotVars.reasonableGasPriceGwei = reasonableGasPriceGwei;
     s_hotVars.observationPaymentGjuels = observationPaymentGjuels;
     s_hotVars.transmissionPaymentGjuels = transmissionPaymentGjuels;
-    s_hotVars.accountingGas = accountingGas;
+    s_accountingGas = accountingGas;
 
     emit BillingSet(
       maximumGasPriceGwei, reasonableGasPriceGwei, observationPaymentGjuels, transmissionPaymentGjuels, accountingGas
@@ -1191,7 +1177,7 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
       s_hotVars.reasonableGasPriceGwei,
       s_hotVars.observationPaymentGjuels,
       s_hotVars.transmissionPaymentGjuels,
-      s_hotVars.accountingGas
+      s_accountingGas
     );
   }
 
@@ -1411,12 +1397,7 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
     }
   }
 
-  function _payTransmitter(
-    HotVars memory hotVars,
-    int192 juelsPerFeeCoin,
-    uint32 initialGas,
-    address transmitter
-  ) internal virtual {
+  function _payTransmitter(HotVars memory hotVars, int192 juelsPerFeeCoin, uint32 initialGas) internal virtual {
     // this happens on the path for transmissions. we'd rather pay out
     // a wrong reward than risk a liveness failure due to a revert.
     unchecked {
@@ -1436,7 +1417,7 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
       uint256 callDataGasCost = 16 * msg.data.length;
       uint256 gasLeft = gasleft();
       uint256 gasCostEthWei =
-        _transmitterGasCostWei(uint256(initialGas), gasPriceGwei, callDataGasCost, hotVars.accountingGas, gasLeft);
+        _transmitterGasCostWei(uint256(initialGas), gasPriceGwei, callDataGasCost, s_accountingGas, gasLeft);
 
       // Even if we assume absurdly large values, this still does not overflow. With
       // - usedGas <= 1'000'000 gas <= 2**20 gas
@@ -1446,7 +1427,7 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
       // we still fit into 166 bits
       uint256 gasCostJuels = (gasCostEthWei * uint192(juelsPerFeeCoin)) / 1e18;
 
-      uint96 oldTransmitterPaymentJuels = s_transmitters[transmitter].paymentJuels;
+      uint96 oldTransmitterPaymentJuels = s_transmitters[msg.sender].paymentJuels;
       uint96 newTransmitterPaymentJuels = uint96(
         uint256(oldTransmitterPaymentJuels) + gasCostJuels + uint256(hotVars.transmissionPaymentGjuels) * (1 gwei)
       );
@@ -1455,7 +1436,7 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
       if (newTransmitterPaymentJuels < oldTransmitterPaymentJuels) {
         return;
       }
-      s_transmitters[transmitter].paymentJuels = newTransmitterPaymentJuels;
+      s_transmitters[msg.sender].paymentJuels = newTransmitterPaymentJuels;
     }
   }
 

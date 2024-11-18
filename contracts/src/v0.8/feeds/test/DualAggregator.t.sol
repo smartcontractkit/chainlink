@@ -81,7 +81,7 @@ contract DualAggregatorHarness is DualAggregatorHelper {
   function isLatestSecondary(
     bool isSecondary
   ) public {
-    s_latestSecondary = isSecondary;
+    s_hotVars.isLatestSecondary = isSecondary;
   }
 }
 
