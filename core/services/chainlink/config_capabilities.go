@@ -22,6 +22,12 @@ func (c *capabilitiesConfig) ExternalRegistry() config.CapabilitiesExternalRegis
 	}
 }
 
+func (c *capabilitiesConfig) WorkflowRegistry() config.CapabilitiesWorkflowRegistry {
+	return &capabilitiesWorkflowRegistry{
+		c: c.c.WorkflowRegistry,
+	}
+}
+
 func (c *capabilitiesConfig) Dispatcher() config.Dispatcher {
 	return &dispatcher{d: c.c.Dispatcher}
 }
@@ -85,6 +91,26 @@ func (c *capabilitiesExternalRegistry) ChainID() string {
 }
 
 func (c *capabilitiesExternalRegistry) Address() string {
+	return *c.c.Address
+}
+
+type capabilitiesWorkflowRegistry struct {
+	c toml.WorkflowRegistry
+}
+
+func (c *capabilitiesWorkflowRegistry) RelayID() types.RelayID {
+	return types.NewRelayID(c.NetworkID(), c.ChainID())
+}
+
+func (c *capabilitiesWorkflowRegistry) NetworkID() string {
+	return *c.c.NetworkID
+}
+
+func (c *capabilitiesWorkflowRegistry) ChainID() string {
+	return *c.c.ChainID
+}
+
+func (c *capabilitiesWorkflowRegistry) Address() string {
 	return *c.c.Address
 }
 
