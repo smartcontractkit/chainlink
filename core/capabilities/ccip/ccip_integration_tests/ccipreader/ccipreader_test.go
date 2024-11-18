@@ -567,10 +567,15 @@ func Test_GetMedianDataAvailabilityGasConfig(t *testing.T) {
 		destChainCfg := DefaultFeeQuoterDestChainConfig()
 		//nolint:gosec // disable G115
 		destChainCfg.DestDataAvailabilityOverheadGas = uint32(100 + i)
+		//nolint:gosec // disable G115
 		destChainCfg.DestGasPerDataAvailabilityByte = uint16(200 + i)
+		//nolint:gosec // disable G115
 		destChainCfg.DestDataAvailabilityMultiplierBps = uint16(1 + i)
 		_, err := fq.ApplyDestChainConfigUpdates(auth, []fee_quoter.FeeQuoterDestChainConfigArgs{
-			{uint64(chainD), destChainCfg},
+			{
+				DestChainSelector: uint64(chainD),
+				DestChainConfig:   destChainCfg,
+			},
 		})
 		sb.Commit()
 		require.NoError(t, err)
@@ -790,14 +795,14 @@ func testSetup(
 	var otherCrs = make(map[cciptypes.ChainSelector]contractreader.Extended)
 	for chain, bindings := range toBindContracts {
 		cl2 := client.NewSimulatedBackendClient(t, simulatedBackend, big.NewInt(0).SetUint64(uint64(chain)))
-		headTracker2 := headtracker.NewSimulatedHeadTracker(cl, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
+		headTracker2 := headtracker.NewSimulatedHeadTracker(cl2, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
 		lp2 := logpoller.NewLogPoller(logpoller.NewORM(big.NewInt(0).SetUint64(uint64(chain)), db, lggr),
 			cl2,
 			lggr,
 			headTracker2,
 			lpOpts,
 		)
-		assert.NoError(t, lp.Start(ctx))
+		require.NoError(t, lp2.Start(ctx))
 
 		cr2, err2 := evm.NewChainReaderService(ctx, lggr, lp2, headTracker2, cl2, cfg)
 		require.NoError(t, err2)
