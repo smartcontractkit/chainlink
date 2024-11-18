@@ -575,11 +575,11 @@ func DeployTransferableToken(
 	}
 
 	// Add burn/mint permissions
-	if err := grantMintBurnPermissions(nil, chains[src], srcToken, srcPool.Address()); err != nil {
+	if err := grantMintBurnPermissions(lggr, chains[src], srcToken, srcPool.Address()); err != nil {
 		return nil, nil, nil, nil, err
 	}
 
-	if err := grantMintBurnPermissions(nil, chains[dst], dstToken, dstPool.Address()); err != nil {
+	if err := grantMintBurnPermissions(lggr, chains[dst], dstToken, dstPool.Address()); err != nil {
 		return nil, nil, nil, nil, err
 	}
 

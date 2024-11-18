@@ -152,7 +152,16 @@ func TestActiveCandidate(t *testing.T) {
 	// this will construct ocr3 configurations for the
 	// commit and exec plugin we will be using
 	rmnHomeAddress := state.Chains[homeCS].RMNHome.Address()
-	ocr3ConfigMap, err := ccdeploy.BuildOCR3ConfigForCCIPHome(deployment.XXXGenerateTestOCRSecrets(), state.Chains[destCS].OffRamp, e.Chains[destCS], destCS, tokenConfig.GetTokenInfo(e.Logger, state.Chains[destCS].LinkToken, state.Chains[destCS].Weth9), nodes.NonBootstraps(), rmnHomeAddress, nil)
+	ocr3ConfigMap, err := ccdeploy.BuildOCR3ConfigForCCIPHome(
+		deployment.XXXGenerateTestOCRSecrets(),
+		state.Chains[destCS].OffRamp,
+		e.Chains[destCS],
+		destCS,
+		tokenConfig.GetTokenInfo(e.Logger, state.Chains[destCS].LinkToken, state.Chains[destCS].Weth9),
+		nodes.NonBootstraps(),
+		rmnHomeAddress,
+		nil,
+	)
 	require.NoError(t, err)
 
 	setCommitCandidateOp, err := ccdeploy.SetCandidateOnExistingDon(
