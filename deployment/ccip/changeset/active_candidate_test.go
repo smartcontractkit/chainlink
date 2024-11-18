@@ -19,7 +19,7 @@ import (
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 
 	ccdeploy "github.com/smartcontractkit/chainlink/deployment/ccip"
-	commondeploy "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -114,9 +114,9 @@ func TestActiveCandidate(t *testing.T) {
 	ccdeploy.TransferAllOwnership(t, state, homeCS, e)
 	acceptOwnershipProposal, err := ccdeploy.GenerateAcceptOwnershipProposal(state, homeCS, e.AllChainSelectors())
 	require.NoError(t, err)
-	acceptOwnershipExec := commondeploy.SignProposal(t, e, acceptOwnershipProposal)
+	acceptOwnershipExec := commonchangeset.SignProposal(t, e, acceptOwnershipProposal)
 	for _, sel := range e.AllChainSelectors() {
-		commondeploy.ExecuteProposal(t, e, acceptOwnershipExec, state.Chains[sel].Timelock, sel)
+		commonchangeset.ExecuteProposal(t, e, acceptOwnershipExec, state.Chains[sel].Timelock, sel)
 	}
 	// Apply the accept ownership proposal to all the chains.
 
@@ -176,8 +176,8 @@ func TestActiveCandidate(t *testing.T) {
 		Batch:           setCommitCandidateOp,
 	}}, "set new candidates on commit plugin", 0)
 	require.NoError(t, err)
-	setCommitCandidateSigned := commondeploy.SignProposal(t, e, setCommitCandidateProposal)
-	commondeploy.ExecuteProposal(t, e, setCommitCandidateSigned, state.Chains[homeCS].Timelock, homeCS)
+	setCommitCandidateSigned := commonchangeset.SignProposal(t, e, setCommitCandidateProposal)
+	commonchangeset.ExecuteProposal(t, e, setCommitCandidateSigned, state.Chains[homeCS].Timelock, homeCS)
 
 	// create the op for the commit plugin as well
 	setExecCandidateOp, err := ccdeploy.SetCandidateOnExistingDon(
@@ -194,8 +194,8 @@ func TestActiveCandidate(t *testing.T) {
 		Batch:           setExecCandidateOp,
 	}}, "set new candidates on commit and exec plugins", 0)
 	require.NoError(t, err)
-	setExecCandidateSigned := commondeploy.SignProposal(t, e, setExecCandidateProposal)
-	commondeploy.ExecuteProposal(t, e, setExecCandidateSigned, state.Chains[homeCS].Timelock, homeCS)
+	setExecCandidateSigned := commonchangeset.SignProposal(t, e, setExecCandidateProposal)
+	commonchangeset.ExecuteProposal(t, e, setExecCandidateSigned, state.Chains[homeCS].Timelock, homeCS)
 
 	// check setup was successful by confirming number of nodes from cap reg
 	donInfo, err = state.Chains[homeCS].CapabilityRegistry.GetDON(nil, donID)
@@ -221,8 +221,8 @@ func TestActiveCandidate(t *testing.T) {
 		Batch:           promoteOps,
 	}}, "promote candidates and revoke actives", 0)
 	require.NoError(t, err)
-	promoteSigned := commondeploy.SignProposal(t, e, promoteProposal)
-	commondeploy.ExecuteProposal(t, e, promoteSigned, state.Chains[homeCS].Timelock, homeCS)
+	promoteSigned := commonchangeset.SignProposal(t, e, promoteProposal)
+	commonchangeset.ExecuteProposal(t, e, promoteSigned, state.Chains[homeCS].Timelock, homeCS)
 	// [NEW ACTIVE, NO CANDIDATE] done promoting
 
 	// [NEW ACTIVE, NO CANDIDATE] check onchain state

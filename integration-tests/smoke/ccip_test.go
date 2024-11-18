@@ -9,7 +9,7 @@ import (
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
-	commondeployment "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -40,14 +40,14 @@ func TestInitialDeployOnLocal(t *testing.T) {
 	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 	for _, chain := range e.AllChainSelectors() {
 		cfg[chain] = commontypes.MCMSWithTimelockConfig{
-			Canceller:         commondeployment.SingleGroupMCMS(t),
-			Bypasser:          commondeployment.SingleGroupMCMS(t),
-			Proposer:          commondeployment.SingleGroupMCMS(t),
+			Canceller:         commonchangeset.SingleGroupMCMS(t),
+			Bypasser:          commonchangeset.SingleGroupMCMS(t),
+			Proposer:          commonchangeset.SingleGroupMCMS(t),
 			TimelockExecutors: e.AllDeployerKeys(),
 			TimelockMinDelay:  big.NewInt(0),
 		}
 	}
-	output, err = commondeployment.DeployMCMSWithTimelock(e, cfg)
+	output, err = commonchangeset.DeployMCMSWithTimelock(e, cfg)
 	require.NoError(t, err)
 	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook))
 
@@ -143,14 +143,14 @@ func TestTokenTransfer(t *testing.T) {
 	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 	for _, chain := range e.AllChainSelectors() {
 		cfg[chain] = commontypes.MCMSWithTimelockConfig{
-			Canceller:         commondeployment.SingleGroupMCMS(t),
-			Bypasser:          commondeployment.SingleGroupMCMS(t),
-			Proposer:          commondeployment.SingleGroupMCMS(t),
+			Canceller:         commonchangeset.SingleGroupMCMS(t),
+			Bypasser:          commonchangeset.SingleGroupMCMS(t),
+			Proposer:          commonchangeset.SingleGroupMCMS(t),
 			TimelockExecutors: e.AllDeployerKeys(),
 			TimelockMinDelay:  big.NewInt(0),
 		}
 	}
-	output, err = commondeployment.DeployMCMSWithTimelock(e, cfg)
+	output, err = commonchangeset.DeployMCMSWithTimelock(e, cfg)
 	require.NoError(t, err)
 	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook))
 	output, err = changeset.InitialDeploy(e, ccdeploy.DeployCCIPContractConfig{

@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccdeploy "github.com/smartcontractkit/chainlink/deployment/ccip"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	commondeployment "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
@@ -77,14 +77,14 @@ func Test_CCIPMessaging(t *testing.T) {
 	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 	for _, chain := range allChainSelectors {
 		cfg[chain] = commontypes.MCMSWithTimelockConfig{
-			Canceller:         commondeployment.SingleGroupMCMS(t),
-			Bypasser:          commondeployment.SingleGroupMCMS(t),
-			Proposer:          commondeployment.SingleGroupMCMS(t),
+			Canceller:         commonchangeset.SingleGroupMCMS(t),
+			Bypasser:          commonchangeset.SingleGroupMCMS(t),
+			Proposer:          commonchangeset.SingleGroupMCMS(t),
 			TimelockExecutors: e.Env.AllDeployerKeys(),
 			TimelockMinDelay:  big.NewInt(0),
 		}
 	}
-	output, err = commondeployment.DeployMCMSWithTimelock(e.Env, cfg)
+	output, err = commonchangeset.DeployMCMSWithTimelock(e.Env, cfg)
 	require.NoError(t, err)
 	require.NoError(t, e.Env.ExistingAddresses.Merge(output.AddressBook))
 	tokenConfig := ccdeploy.NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)

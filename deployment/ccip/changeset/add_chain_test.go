@@ -6,7 +6,7 @@ import (
 	"time"
 
 	ccipdeployment "github.com/smartcontractkit/chainlink/deployment/ccip"
-	commondeployment "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
@@ -44,13 +44,13 @@ func TestAddChainInbound(t *testing.T) {
 	require.NoError(t, e.Env.ExistingAddresses.Merge(newAddresses))
 
 	cfg := commontypes.MCMSWithTimelockConfig{
-		Canceller:         commondeployment.SingleGroupMCMS(t),
-		Bypasser:          commondeployment.SingleGroupMCMS(t),
-		Proposer:          commondeployment.SingleGroupMCMS(t),
+		Canceller:         commonchangeset.SingleGroupMCMS(t),
+		Bypasser:          commonchangeset.SingleGroupMCMS(t),
+		Proposer:          commonchangeset.SingleGroupMCMS(t),
 		TimelockExecutors: e.Env.AllDeployerKeys(),
 		TimelockMinDelay:  big.NewInt(0),
 	}
-	out, err := commondeployment.DeployMCMSWithTimelock(e.Env, map[uint64]commontypes.MCMSWithTimelockConfig{
+	out, err := commonchangeset.DeployMCMSWithTimelock(e.Env, map[uint64]commontypes.MCMSWithTimelockConfig{
 		initialDeploy[0]: cfg,
 		initialDeploy[1]: cfg,
 		initialDeploy[2]: cfg,
@@ -87,7 +87,7 @@ func TestAddChainInbound(t *testing.T) {
 	require.NoError(t, err)
 
 	//  Deploy contracts to new chain
-	out, err = commondeployment.DeployMCMSWithTimelock(e.Env, map[uint64]commontypes.MCMSWithTimelockConfig{
+	out, err = commonchangeset.DeployMCMSWithTimelock(e.Env, map[uint64]commontypes.MCMSWithTimelockConfig{
 		newChain: cfg,
 	})
 	require.NoError(t, err)
@@ -137,10 +137,10 @@ func TestAddChainInbound(t *testing.T) {
 
 	acceptOwnershipProposal, err := ccipdeployment.GenerateAcceptOwnershipProposal(state, e.HomeChainSel, initialDeploy)
 	require.NoError(t, err)
-	acceptOwnershipExec := commondeployment.SignProposal(t, e.Env, acceptOwnershipProposal)
+	acceptOwnershipExec := commonchangeset.SignProposal(t, e.Env, acceptOwnershipProposal)
 	// Apply the accept ownership proposal to all the chains.
 	for _, sel := range initialDeploy {
-		commondeployment.ExecuteProposal(t, e.Env, acceptOwnershipExec, state.Chains[sel].Timelock, sel)
+		commonchangeset.ExecuteProposal(t, e.Env, acceptOwnershipExec, state.Chains[sel].Timelock, sel)
 	}
 	for _, chain := range initialDeploy {
 		owner, err2 := state.Chains[chain].OnRamp.Owner(nil)
