@@ -236,7 +236,7 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 		}
 
 		if c.USDCConfig.Enabled {
-			token, pool, messenger, transmitter, err1 := deployUSDCTokenOneEnd(e.Logger, chain, ab)
+			token, pool, messenger, transmitter, err1 := DeployUSDC(e.Logger, chain, ab)
 			if err1 != nil {
 				return err1
 			}

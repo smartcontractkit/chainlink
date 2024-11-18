@@ -65,66 +65,6 @@ func ConfigureUSDCTokenPools(lggr logger.Logger, chains map[uint64]deployment.Ch
 	return srcToken, dstToken, nil
 }
 
-func DeployUSDCToken(
-	lggr logger.Logger,
-	chains map[uint64]deployment.Chain,
-	src, dst uint64,
-	state CCIPOnChainState,
-	addresses deployment.AddressBook,
-) (
-	*burn_mint_erc677.BurnMintERC677,
-	*usdc_token_pool.USDCTokenPool,
-	*burn_mint_erc677.BurnMintERC677,
-	*usdc_token_pool.USDCTokenPool,
-	error,
-) {
-	srcToken, srcPool, srcTransmitter, _, err := deployUSDCTokenOneEnd(lggr, chains[src], addresses)
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-	dstToken, dstPool, dstTransmitter, _, err := deployUSDCTokenOneEnd(lggr, chains[dst], addresses)
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-
-	// Attach token pools to registry
-	if err := attachTokenToTheRegistry(chains[src], state.Chains[src], chains[src].DeployerKey, srcToken.Address(), srcPool.Address()); err != nil {
-		return nil, nil, nil, nil, err
-	}
-
-	if err := attachTokenToTheRegistry(chains[dst], state.Chains[dst], chains[dst].DeployerKey, dstToken.Address(), dstPool.Address()); err != nil {
-		return nil, nil, nil, nil, err
-	}
-
-	// Connect pool to each other
-	if err := setUSDCTokenPoolCounterPart(chains[src], srcPool, dst, dstToken.Address(), dstPool.Address()); err != nil {
-		return nil, nil, nil, nil, err
-	}
-
-	if err := setUSDCTokenPoolCounterPart(chains[dst], dstPool, src, srcToken.Address(), srcPool.Address()); err != nil {
-		return nil, nil, nil, nil, err
-	}
-
-	// Add burn/mint permissions
-	if err := grantMintBurnPermissions(lggr, chains[src], srcToken, srcPool.Address()); err != nil {
-		return nil, nil, nil, nil, err
-	}
-
-	if err := grantMintBurnPermissions(lggr, chains[dst], dstToken, dstPool.Address()); err != nil {
-		return nil, nil, nil, nil, err
-	}
-
-	if err := grantMintBurnPermissions(lggr, chains[src], srcToken, srcTransmitter.Address()); err != nil {
-		return nil, nil, nil, nil, err
-	}
-
-	if err := grantMintBurnPermissions(lggr, chains[dst], dstToken, dstTransmitter.Address()); err != nil {
-		return nil, nil, nil, nil, err
-	}
-
-	return srcToken, dstPool, dstToken, srcPool, nil
-}
-
 func UpdateFeeQuoterForUSDC(
 	chain deployment.Chain,
 	state CCIPChainState,
@@ -163,7 +103,7 @@ func UpdateFeeQuoterForUSDC(
 	return err
 }
 
-func deployUSDCTokenOneEnd(
+func DeployUSDC(
 	lggr logger.Logger,
 	chain deployment.Chain,
 	addresses deployment.AddressBook,
@@ -176,7 +116,7 @@ func deployUSDCTokenOneEnd(
 ) {
 	token, err := deployContract(lggr, chain, addresses,
 		func(chain deployment.Chain) ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
-			USDCTokenAddr, tx, token, err2 := burn_mint_erc677.DeployBurnMintERC677(
+			tokenAddress, tx, tokenContract, err2 := burn_mint_erc677.DeployBurnMintERC677(
 				chain.DeployerKey,
 				chain.Client,
 				"USDC Token",
@@ -185,7 +125,7 @@ func deployUSDCTokenOneEnd(
 				big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
 			)
 			return ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
-				USDCTokenAddr, token, tx, deployment.NewTypeAndVersion(USDCToken, deployment.Version1_0_0), err2,
+				tokenAddress, tokenContract, tx, deployment.NewTypeAndVersion(USDCToken, deployment.Version1_0_0), err2,
 			}
 		})
 	if err != nil {
@@ -203,7 +143,7 @@ func deployUSDCTokenOneEnd(
 
 	transmitter, err := deployContract(lggr, chain, addresses,
 		func(chain deployment.Chain) ContractDeploy[*mock_usdc_token_transmitter.MockE2EUSDCTransmitter] {
-			transmitterAddress, tx, mockTransmitterContract, err2 := mock_usdc_token_transmitter.DeployMockE2EUSDCTransmitter(
+			transmitterAddress, tx, transmitterContract, err2 := mock_usdc_token_transmitter.DeployMockE2EUSDCTransmitter(
 				chain.DeployerKey,
 				chain.Client,
 				0,
@@ -211,7 +151,7 @@ func deployUSDCTokenOneEnd(
 				token.Address,
 			)
 			return ContractDeploy[*mock_usdc_token_transmitter.MockE2EUSDCTransmitter]{
-				transmitterAddress, mockTransmitterContract, tx, deployment.NewTypeAndVersion(USDCMockTransmitter, deployment.Version1_0_0), err2,
+				transmitterAddress, transmitterContract, tx, deployment.NewTypeAndVersion(USDCMockTransmitter, deployment.Version1_0_0), err2,
 			}
 		})
 	if err != nil {
@@ -223,14 +163,14 @@ func deployUSDCTokenOneEnd(
 
 	messenger, err := deployContract(lggr, chain, addresses,
 		func(chain deployment.Chain) ContractDeploy[*mock_usdc_token_messenger.MockE2EUSDCTokenMessenger] {
-			tokenMessengerAddress, tx, tokenMessengerContract, err2 := mock_usdc_token_messenger.DeployMockE2EUSDCTokenMessenger(
+			messengerAddress, tx, messengerContract, err2 := mock_usdc_token_messenger.DeployMockE2EUSDCTokenMessenger(
 				chain.DeployerKey,
 				chain.Client,
 				0,
 				transmitter.Address,
 			)
 			return ContractDeploy[*mock_usdc_token_messenger.MockE2EUSDCTokenMessenger]{
-				tokenMessengerAddress, tokenMessengerContract, tx, deployment.NewTypeAndVersion(USDCTokenMessenger, deployment.Version1_0_0), err2,
+				messengerAddress, messengerContract, tx, deployment.NewTypeAndVersion(USDCTokenMessenger, deployment.Version1_0_0), err2,
 			}
 		})
 	if err != nil {
