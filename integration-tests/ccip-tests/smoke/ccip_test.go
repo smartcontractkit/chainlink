@@ -2,6 +2,7 @@ package smoke
 
 import (
 	"fmt"
+	"math"
 	"math/big"
 	"testing"
 	"time"
@@ -874,8 +875,8 @@ func TestSmokeCCIPReorgBelowFinality(t *testing.T) {
 		require.NoError(t, err, "Send requests failed")
 		rs := SetupReorgSuite(t, &log, setUpOutput)
 		// run below finality reorg in both source and destination chain
-		blocksBackSrc := int(rs.Cfg.SrcFinalityDepth) - rs.Cfg.FinalityDelta
-		blocksBackDst := int(rs.Cfg.DstFinalityDepth) - rs.Cfg.FinalityDelta
+		blocksBackSrc := rs.Cfg.SrcFinalityDepth - rs.Cfg.FinalityDelta
+		blocksBackDst := rs.Cfg.DstFinalityDepth - rs.Cfg.FinalityDelta
 		rs.RunReorg(rs.DstClient, blocksBackSrc, "Source", 2*time.Second)
 		rs.RunReorg(rs.DstClient, blocksBackDst, "Destination", 2*time.Second)
 		time.Sleep(1 * time.Minute)
@@ -930,10 +931,10 @@ func performAboveFinalityReorgAndValidate(t *testing.T, network string) {
 	logPollerName := ""
 	if network == "Destination" {
 		logPollerName = fmt.Sprintf("EVM.%d.LogPoller", lane.DestChain.GetChainID())
-		rs.RunReorg(rs.DstClient, int(rs.Cfg.DstFinalityDepth)+rs.Cfg.FinalityDelta, network, 2*time.Second)
+		rs.RunReorg(rs.DstClient, rs.Cfg.DstFinalityDepth+rs.Cfg.FinalityDelta, network, 2*time.Second)
 	} else {
 		logPollerName = fmt.Sprintf("EVM.%d.LogPoller", lane.SourceChain.GetChainID())
-		rs.RunReorg(rs.SrcClient, int(rs.Cfg.SrcFinalityDepth)+rs.Cfg.FinalityDelta, network, 2*time.Second)
+		rs.RunReorg(rs.SrcClient, rs.Cfg.SrcFinalityDepth+rs.Cfg.FinalityDelta, network, 2*time.Second)
 	}
 	clNodes := setUpOutput.Env.CLNodes
 	// assert every node is detecting the reorg (LogPollInterval is set as 1s for faster detection)
@@ -1123,17 +1124,25 @@ func testOffRampRateLimits(t *testing.T, rateLimiterConfig contracts.RateLimiter
 
 // SetupReorgSuite defines the setup required to perform re-org step
 func SetupReorgSuite(t *testing.T, lggr *zerolog.Logger, setupOutput *testsetups.CCIPTestSetUpOutputs) *actions.ReorgSuite {
-	var finalitySrc uint64
-	var finalityDst uint64
+	var finalitySrc int
+	var finalityDst int
 	if setupOutput.Cfg.SelectedNetworks[0].FinalityTag {
 		finalitySrc = 10
 	} else {
-		finalitySrc = setupOutput.Cfg.SelectedNetworks[0].FinalityDepth
+		finalityDepth := setupOutput.Cfg.SelectedNetworks[0].FinalityDepth
+		if finalityDepth > math.MaxInt {
+			t.Fatalf("source finality depth overflows int: %d", finalityDepth)
+		}
+		finalitySrc = int(finalityDepth)
 	}
 	if setupOutput.Cfg.SelectedNetworks[1].FinalityTag {
 		finalityDst = 10
 	} else {
-		finalityDst = setupOutput.Cfg.SelectedNetworks[1].FinalityDepth
+		finalityDepth := setupOutput.Cfg.SelectedNetworks[1].FinalityDepth
+		if finalityDepth > math.MaxInt {
+			t.Fatalf("destination finality depth overflows int: %d", finalityDepth)
+		}
+		finalityDst = int(finalityDepth)
 	}
 	var srcGethHTTPURL, dstGethHTTPURL string
 	if setupOutput.Env.LocalCluster != nil {

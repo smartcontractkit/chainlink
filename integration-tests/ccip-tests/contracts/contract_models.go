@@ -2241,7 +2241,11 @@ func (a *MockAggregator) UpdateRoundData(answer *big.Int, minP, maxP *int) error
 
 	// if answer is nil, we calculate the answer with random percentage (within the provided range) of latest answer
 	if answer == nil {
-		rand.Seed(uint64(time.Now().UnixNano()))
+		now := time.Now().UnixNano()
+		if now < 0 {
+			return fmt.Errorf("negative timestamp: %d", now)
+		}
+		rand.Seed(uint64(now))
 		randomNumber := rand.Intn(pointer.GetInt(maxP)-pointer.GetInt(minP)+1) + pointer.GetInt(minP)
 		// answer = previous round answer + (previous round answer * random percentage)
 		answer = new(big.Int).Add(a.Answer, new(big.Int).Div(new(big.Int).Mul(a.Answer, big.NewInt(int64(randomNumber))), big.NewInt(100)))

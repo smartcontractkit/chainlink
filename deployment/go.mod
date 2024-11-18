@@ -2,8 +2,6 @@ module github.com/smartcontractkit/chainlink/deployment
 
 go 1.23
 
-toolchain go1.23.0
-
 // Make sure we're working with the latest chainlink libs
 replace github.com/smartcontractkit/chainlink/v2 => ../
 

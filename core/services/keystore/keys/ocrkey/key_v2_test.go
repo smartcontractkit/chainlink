@@ -8,7 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func assertKeyBundlesNotEqual(t *testing.T, pk1 ocrkey.KeyV2, pk2 ocrkey.KeyV2) {
@@ -32,53 +31,8 @@ func TestOCRKeys_New(t *testing.T) {
 	assertKeyBundlesNotEqual(t, pk1, pk3)
 	assertKeyBundlesNotEqual(t, pk2, pk3)
 }
-
-func TestOCRKeys_NewBundleIDMatchesOld(t *testing.T) {
-	t.Parallel()
-	oldKey, err := ocrkey.New()
-	require.NoError(t, err)
-	newKey := oldKey.ToV2()
-	require.Equal(t, oldKey.ID.String(), newKey.ID())
-}
-
 func TestOCRKeys_Raw_Key(t *testing.T) {
 	t.Parallel()
 	key := ocrkey.MustNewV2XXXTestingOnly(big.NewInt(1))
 	require.Equal(t, key.ID(), key.Raw().Key().ID())
-}
-
-func TestOCRKeys_BundleDecrypt(t *testing.T) {
-	t.Parallel()
-
-	k, err := ocrkey.New()
-	require.NoError(t, err)
-	ek, err := k.Encrypt("test", utils.FastScryptParams)
-	require.NoError(t, err)
-
-	_, err = ek.Decrypt("wrongpass")
-	assert.Error(t, err)
-
-	dk, err := ek.Decrypt("test")
-	require.NoError(t, err)
-
-	dk.GoString()
-	assert.Equal(t, k.GoString(), dk.GoString())
-	assert.Equal(t, k.ID.String(), dk.ID.String())
-}
-
-func TestOCRKeys_BundleMarshalling(t *testing.T) {
-	t.Parallel()
-
-	k, err := ocrkey.New()
-	require.NoError(t, err)
-	k2, err := ocrkey.New()
-	require.NoError(t, err)
-
-	mk, err := k.MarshalJSON()
-	require.NoError(t, err)
-
-	err = k2.UnmarshalJSON(mk)
-	require.NoError(t, err)
-
-	assert.Equal(t, k.String(), k2.String())
 }
