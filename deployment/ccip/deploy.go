@@ -334,6 +334,10 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 
 	usdcConfiguration := make(map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig)
 	for _, chainSel := range c.ChainsToDeploy {
+		chain, exists := e.Chains[chainSel]
+		if !exists {
+			return fmt.Errorf("chain %d not found", chainSel)
+		}
 		if c.USDCConfig.Enabled {
 			token, pool, messenger, transmitter, err1 := DeployUSDC(e.Logger, chain, ab, existingState.Chains[chainSel])
 			if err1 != nil {
@@ -353,14 +357,13 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 			}
 		}
 	}
-	err = DeployChainContractsForChains(e, ab, c)
+	err = DeployChainContractsForChains(e, ab, c.HomeChainSel, c.ChainsToDeploy, c.MCMSConfig)
 	if err != nil {
 		e.Logger.Errorw("Failed to deploy chain contracts", "err", err)
 		return err
 	}
 	for _, chainSel := range c.ChainsToDeploy {
 		chain, _ := e.Chains[chainSel]
-
 		chainAddresses, err := ab.AddressesForChain(chain.Selector)
 		if err != nil {
 			e.Logger.Errorw("Failed to get chain addresses", "err", err)
@@ -527,14 +530,14 @@ func DeployMCMSContracts(
 	}, nil
 }
 
-func DeployChainContractsForChains(e deployment.Environment, ab deployment.AddressBook, c DeployCCIPContractConfig) error {
+func DeployChainContractsForChains(e deployment.Environment, ab deployment.AddressBook, homeChainSel uint64, chainsToDeploy []uint64, mcmsConfig MCMSConfig) error {
 	existingState, err := LoadOnchainState(e)
 	if err != nil {
 		e.Logger.Errorw("Failed to load existing onchain state", "err")
 		return err
 	}
 
-	capReg := existingState.Chains[c.HomeChainSel].CapabilityRegistry
+	capReg := existingState.Chains[homeChainSel].CapabilityRegistry
 	if capReg == nil {
 		e.Logger.Errorw("Failed to get capability registry")
 		return fmt.Errorf("capability registry not found")
@@ -553,20 +556,20 @@ func DeployChainContractsForChains(e deployment.Environment, ab deployment.Addre
 		e.Logger.Errorw("Failed to get capability", "err", err)
 		return err
 	}
-	ccipHome, err := ccip_home.NewCCIPHome(capability.ConfigurationContract, e.Chains[c.HomeChainSel].Client)
+	ccipHome, err := ccip_home.NewCCIPHome(capability.ConfigurationContract, e.Chains[homeChainSel].Client)
 	if err != nil {
 		e.Logger.Errorw("Failed to get ccip config", "err", err)
 		return err
 	}
-	if ccipHome.Address() != existingState.Chains[c.HomeChainSel].CCIPHome.Address() {
+	if ccipHome.Address() != existingState.Chains[homeChainSel].CCIPHome.Address() {
 		return fmt.Errorf("ccip home address mismatch")
 	}
-	rmnHome := existingState.Chains[c.HomeChainSel].RMNHome
+	rmnHome := existingState.Chains[homeChainSel].RMNHome
 	if rmnHome == nil {
 		e.Logger.Errorw("Failed to get rmn home", "err", err)
 		return fmt.Errorf("rmn home not found")
 	}
-	for _, chainSel := range c.ChainsToDeploy {
+	for _, chainSel := range chainsToDeploy {
 		chain, ok := e.Chains[chainSel]
 		if !ok {
 			return fmt.Errorf("chain %d not found", chainSel)
@@ -574,7 +577,7 @@ func DeployChainContractsForChains(e deployment.Environment, ab deployment.Addre
 		if existingState.Chains[chainSel].LinkToken == nil || existingState.Chains[chainSel].Weth9 == nil {
 			return fmt.Errorf("fee tokens not found for chain %d", chainSel)
 		}
-		err := DeployChainContracts(e, chain, ab, c.MCMSConfig, rmnHome)
+		err := DeployChainContracts(e, chain, ab, mcmsConfig, rmnHome)
 		if err != nil {
 			e.Logger.Errorw("Failed to deploy chain contracts", "chain", chainSel, "err", err)
 			return fmt.Errorf("failed to deploy chain contracts for chain %d: %w", chainSel, err)
