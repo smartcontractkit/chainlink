@@ -260,27 +260,6 @@ func DeployHomeChain(
 	return capReg, nil
 }
 
-// getNodeOperatorIDMap returns a map of node operator names to their IDs
-// If maxNops is greater than the number of node operators, it will return all node operators
-func getNodeOperatorIDMap(capReg *capabilities_registry.CapabilitiesRegistry, maxNops uint32) (map[string]uint32, error) {
-	nopIdByName := make(map[string]uint32)
-	operators, err := capReg.GetNodeOperators(nil)
-	if err != nil {
-		return nil, err
-	}
-	if len(operators) < int(maxNops) {
-		maxNops = uint32(len(operators))
-	}
-	for i := uint32(1); i <= maxNops; i++ {
-		operator, err := capReg.GetNodeOperator(nil, i)
-		if err != nil {
-			return nil, err
-		}
-		nopIdByName[operator.Name] = i
-	}
-	return nopIdByName, nil
-}
-
 func isEqualCapabilitiesRegistryNodeParams(a, b capabilities_registry.CapabilitiesRegistryNodeParams) (bool, error) {
 	aBytes, err := json.Marshal(a)
 	if err != nil {

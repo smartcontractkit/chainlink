@@ -79,6 +79,7 @@ compileContract ccip/test/mocks/MockE2EUSDCTokenMessenger.sol
 compileContract ccip/test/mocks/MockE2EUSDCTransmitter.sol
 compileContract ccip/test/WETH9.sol
 compileContract ccip/test/helpers/CCIPReaderTester.sol
+compileContract ccip/test/helpers/Multicall3.sol
 
 # Encoding Utils
 compileContract ccip/interfaces/encodingutils/ICCIPEncodingUtils.sol

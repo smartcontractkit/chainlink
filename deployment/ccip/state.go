@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_rmn_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/multicall3"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/registry_module_owner_custom"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
 
@@ -82,6 +83,7 @@ type CCIPChainState struct {
 	// Test contracts
 	Receiver   *maybe_revert_message_receiver.MaybeRevertMessageReceiver
 	TestRouter *router.Router
+	Multicall3 *multicall3.Multicall3
 }
 
 func (c CCIPChainState) GenerateView() (view.ChainView, error) {
@@ -391,6 +393,12 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				return state, err
 			}
 			state.Receiver = mr
+		case deployment.NewTypeAndVersion(Multicall3, deployment.Version1_0_0).String():
+			mc, err := multicall3.NewMulticall3(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.Multicall3 = mc
 		case deployment.NewTypeAndVersion(PriceFeed, deployment.Version1_0_0).String():
 			feed, err := aggregator_v3_interface.NewAggregatorV3Interface(common.HexToAddress(address), chain.Client)
 			if err != nil {

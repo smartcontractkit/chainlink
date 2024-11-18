@@ -36,6 +36,7 @@ package ccip
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/MockE2EUSDCTokenMessenger/MockE2EUSDCTokenMessenger.abi ../../../contracts/solc/v0.8.24/MockE2EUSDCTokenMessenger/MockE2EUSDCTokenMessenger.bin MockE2EUSDCTokenMessenger mock_usdc_token_messenger
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/MockE2EUSDCTransmitter/MockE2EUSDCTransmitter.abi ../../../contracts/solc/v0.8.24/MockE2EUSDCTransmitter/MockE2EUSDCTransmitter.bin MockE2EUSDCTransmitter mock_usdc_token_transmitter
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/CCIPReaderTester/CCIPReaderTester.abi ../../../contracts/solc/v0.8.24/CCIPReaderTester/CCIPReaderTester.bin CCIPReaderTester ccip_reader_tester
+//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/Multicall3/Multicall3.abi ../../../contracts/solc/v0.8.24/Multicall3/Multicall3.bin Multicall3 multicall3
 
 // EncodingUtils
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/ICCIPEncodingUtils/ICCIPEncodingUtils.abi ../../../contracts/solc/v0.8.24/ICCIPEncodingUtils/ICCIPEncodingUtils.bin EncodingUtils ccip_encoding_utils
