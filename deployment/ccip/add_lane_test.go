@@ -43,7 +43,6 @@ func TestAddLane(t *testing.T) {
 		HomeChainSel:   e.HomeChainSel,
 		FeedChainSel:   e.FeedChainSel,
 		TokenConfig:    tokenConfig,
-		MCMSConfig:     NewTestMCMSConfig(t, e.Env),
 		ChainsToDeploy: []uint64{chain1, chain2},
 		OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
 	})

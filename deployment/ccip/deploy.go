@@ -277,7 +277,10 @@ type DeployCCIPContractConfig struct {
 // It then deploys the rest of the CCIP chain contracts to the selected chains
 // registers the nodes with the capability registry and creates a DON for
 // each new chain. TODO: Might be better to break this down a bit?
-func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c DeployCCIPContractConfig) error {
+func DeployCCIPContracts(
+	e deployment.Environment,
+	ab deployment.AddressBook,
+	c DeployCCIPContractConfig) error {
 	if c.OCRSecrets.IsEmpty() {
 		return fmt.Errorf("OCR secrets are empty")
 	}
@@ -400,6 +403,9 @@ func DeployChainContracts(
 	}
 	if chainState.Weth9 == nil {
 		return fmt.Errorf("weth9 not found for chain %d, deploy the prerequisites first", chain.Selector)
+	}
+	if chainState.Timelock == nil {
+		return fmt.Errorf("timelock not found for chain %d, deploy the mcms contracts first", chain.Selector)
 	}
 	weth9Contract := chainState.Weth9
 	if chainState.LinkToken == nil {
