@@ -5,6 +5,7 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 	"golang.org/x/exp/maps"
 	"math/big"
@@ -118,18 +119,42 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	err = ccdeploy.UpdateFeeQuoterForUSDC(e.Chains[destChain], state.Chains[destChain], sourceChain, dstUSDC)
 	require.NoError(t, err)
 
-	// MockE2EUSDCTransmitter always mint 1, please see MockE2EUSDCTransmitter.sol for more details
+	// MockE2EUSDCTransmitter always mint 1, see MockE2EUSDCTransmitter.sol for more details
 	tinyOneCoin := new(big.Int).SetUint64(1)
 
-	//t.Run("single USDC token transfer to EOA", func(t *testing.T) {
-	//
-	//})
+	t.Run("single USDC token transfer to EOA", func(t *testing.T) {
+		// DestChain -> SourceChain
+		eoaReceiver := utils.RandomAddress()
+
+		initialBalance, err := srcUSDC.BalanceOf(&bind.CallOpts{Context: tests.Context(t)}, eoaReceiver)
+		require.NoError(t, err)
+
+		transferAndWaitForSuccess(
+			t,
+			e,
+			state,
+			destChain,
+			sourceChain,
+			[]router.ClientEVMTokenAmount{
+				{
+					Token:  dstUSDC.Address(),
+					Amount: tinyOneCoin,
+				}},
+			eoaReceiver,
+			nil,
+		)
+
+		balance, err := srcUSDC.BalanceOf(&bind.CallOpts{Context: tests.Context(t)}, eoaReceiver)
+		require.NoError(t, err)
+		require.Equal(t, new(big.Int).Add(initialBalance, tinyOneCoin), balance)
+	})
 
 	//t.Run("USDC token transfer from different sources to the same destination", func(t *testing.T) {
 	//
 	//})
 
 	t.Run("programmable token transfer with USDC to contract", func(t *testing.T) {
+		// SourceChain -> DestChain
 		initialBalance, err := dstUSDC.BalanceOf(&bind.CallOpts{Context: tests.Context(t)}, state.Chains[destChain].Receiver.Address())
 		require.NoError(t, err)
 
