@@ -1072,12 +1072,12 @@ SELECT * FROM evm.txes WHERE from_address = $1 AND nonce = $2 AND state IN ('con
 	return
 }
 
-func updateEthTxAttemptUnbroadcast(ctx context.Context, orm *evmTxStore, attemptIDs []int64) error {
+func updateEthTxAttemptsUnbroadcast(ctx context.Context, orm *evmTxStore, attemptIDs []int64) error {
 	_, err := orm.q.ExecContext(ctx, `UPDATE evm.tx_attempts SET broadcast_before_block_num = NULL, state = 'in_progress' WHERE id = ANY($1)`, pq.Array(attemptIDs))
 	return err
 }
 
-func updateEthTxUnconfirm(ctx context.Context, orm *evmTxStore, etxIDs []int64) error {
+func updateEthTxsUnconfirm(ctx context.Context, orm *evmTxStore, etxIDs []int64) error {
 	_, err := orm.q.ExecContext(ctx, `UPDATE evm.txes SET state = 'unconfirmed', error = NULL WHERE id = ANY($1)`, pq.Array(etxIDs))
 	return err
 }
@@ -1108,10 +1108,10 @@ func (o *evmTxStore) UpdateTxsForRebroadcast(ctx context.Context, etxIDs []int64
 		if err := deleteEthReceipts(ctx, orm, etxIDs); err != nil {
 			return pkgerrors.Wrapf(err, "deleteEthReceipts failed for etx %v", etxIDs)
 		}
-		if err := updateEthTxUnconfirm(ctx, orm, etxIDs); err != nil {
+		if err := updateEthTxsUnconfirm(ctx, orm, etxIDs); err != nil {
 			return pkgerrors.Wrapf(err, "updateEthTxUnconfirm failed for etx %v", etxIDs)
 		}
-		return updateEthTxAttemptUnbroadcast(ctx, orm, attemptIDs)
+		return updateEthTxAttemptsUnbroadcast(ctx, orm, attemptIDs)
 	})
 }
 

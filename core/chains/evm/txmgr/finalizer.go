@@ -227,7 +227,7 @@ func (f *evmFinalizer) processFinalizedHead(ctx context.Context, latestFinalized
 		return nil
 	}
 	if latestFinalizedHead.BlockNumber() < f.lastProcessedFinalizedBlockNum {
-		f.lggr.Errorw("Received finalized block older than one already processed. This should never happen and could be an issue with RPCs.", "lastProcessedFinalizedBlockNum", f.lastProcessedFinalizedBlockNum, "retrievedFinalizedBlockNum", latestFinalizedHead.BlockNumber())
+		f.lggr.Errorw("Received finalized block older than one already processed. There could be an issue with one or more configured RPCs.", "lastProcessedFinalizedBlockNum", f.lastProcessedFinalizedBlockNum, "retrievedFinalizedBlockNum", latestFinalizedHead.BlockNumber())
 		return nil
 	}
 
@@ -297,6 +297,9 @@ func (f *evmFinalizer) processFinalizedHead(ctx context.Context, latestFinalized
 	if err != nil {
 		return fmt.Errorf("failed to update transactions as finalized: %w", err)
 	}
+	// Update lastProcessedFinalizedBlockNum after processing has completed to allow failed processing to retry on subsequent heads
+	// Does not need to be protected with mutex lock because the Finalizer only runs in a single loop
+	f.lastProcessedFinalizedBlockNum = latestFinalizedHead.BlockNumber()
 
 	// add newly finalized transactions to the prom metric
 	promNumFinalizedTxs.WithLabelValues(f.chainID.String()).Add(float64(len(txHashes)))
