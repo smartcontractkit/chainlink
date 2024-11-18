@@ -40,17 +40,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	sourceChain := allChainSelectors[0]
 	destChain := allChainSelectors[1]
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		response := `{
-			"status": "complete",
-			"attestation": "0x9049623e91719ef2aa63c55f357be2529b0e7122ae552c18aff8db58b4633c4d3920ff03d3a6d1ddf11f06bf64d7fd60d45447ac81f527ba628877dc5ca759651b08ffae25a6d3b1411749765244f0a1c131cbfe04430d687a2e12fd9d2e6dc08e118ad95d94ad832332cf3c4f7a4f3da0baa803b7be024b02db81951c0f0714de1b"
-		}`
-
-		_, err := w.Write([]byte(response))
-		if err != nil {
-			panic(err)
-		}
-	}))
+	server := mockAttestationResponse()
 	defer server.Close()
 
 	feeds := state.Chains[tenv.FeedChainSel].USDFeeds
@@ -88,7 +78,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook))
-	// Get new state after migration and mock USDC token deployment.
+
 	state, err = ccdeploy.LoadOnchainState(e)
 	require.NoError(t, err)
 
@@ -128,36 +118,63 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	// MockE2EUSDCTransmitter always mint 1, see MockE2EUSDCTransmitter.sol for more details
 	tinyOneCoin := new(big.Int).SetUint64(1)
 
-	t.Run("single USDC token transfer to EOA", func(t *testing.T) {
-		// DestChain -> SourceChain
-		eoaReceiver := utils.RandomAddress()
+	srcDstTokenMapping := map[common.Address]*burn_mint_erc677.BurnMintERC677{
+		srcUSDC.Address(): dstUSDC,
+		dstUSDC.Address(): srcUSDC,
+	}
 
-		initialBalance, err := srcUSDC.BalanceOf(&bind.CallOpts{Context: tests.Context(t)}, eoaReceiver)
-		require.NoError(t, err)
-
-		transferAndWaitForSuccess(
-			t,
-			e,
-			state,
-			destChain,
-			sourceChain,
-			[]router.ClientEVMTokenAmount{
+	tcs := []struct {
+		name        string
+		receiver    common.Address
+		sourceChain uint64
+		destChain   uint64
+		tokens      []router.ClientEVMTokenAmount
+	}{
+		{
+			name:        "single USDC token transfer to EOA",
+			receiver:    utils.RandomAddress(),
+			sourceChain: destChain,
+			destChain:   sourceChain,
+			tokens: []router.ClientEVMTokenAmount{
 				{
 					Token:  dstUSDC.Address(),
 					Amount: tinyOneCoin,
 				}},
-			eoaReceiver,
-			nil,
-		)
+		},
+	}
 
-		balance, err := srcUSDC.BalanceOf(&bind.CallOpts{Context: tests.Context(t)}, eoaReceiver)
-		require.NoError(t, err)
-		require.Equal(t, new(big.Int).Add(initialBalance, tinyOneCoin), balance)
-	})
+	for _, tt := range tcs {
+		t.Run(tt.name, func(t *testing.T) {
+			initialBalances := map[common.Address]*big.Int{}
+			for _, token := range tt.tokens {
+				destToken := srcDstTokenMapping[token.Token]
 
-	//t.Run("USDC token transfer from different sources to the same destination", func(t *testing.T) {
-	//
-	//})
+				initialBalance, err := destToken.BalanceOf(&bind.CallOpts{Context: tests.Context(t)}, tt.receiver)
+				require.NoError(t, err)
+				initialBalances[token.Token] = initialBalance
+			}
+
+			transferAndWaitForSuccess(
+				t,
+				e,
+				state,
+				tt.sourceChain,
+				tt.destChain,
+				tt.tokens,
+				tt.receiver,
+				nil,
+			)
+
+			for _, token := range tt.tokens {
+				destToken := srcDstTokenMapping[token.Token]
+
+				balance, err := destToken.BalanceOf(&bind.CallOpts{Context: tests.Context(t)}, tt.receiver)
+				require.NoError(t, err)
+				require.Equal(t, new(big.Int).Add(initialBalances[token.Token], tinyOneCoin), balance)
+			}
+		})
+
+	}
 
 	t.Run("programmable token transfer with USDC to contract", func(t *testing.T) {
 		// SourceChain -> DestChain
@@ -247,4 +264,23 @@ func transferAndWaitForSuccess(
 
 	// Wait for all exec reports to land
 	ccdeploy.ConfirmExecWithSeqNrForAll(t, env, state, expectedSeqNum, startBlocks)
+}
+
+// mockAttestationResponse mocks the USDC attestation server, it returns random Attestation.
+// We don't need to return exactly the same attestation, because our Mocked USDC contract doesn't rely on any specific
+// value, but instead of that it just checks if the attestation is present. Therefore, it makes the test a bit simpler
+// and doesn't require very detailed mocks. Please see tests in chainlink-ccip for detailed tests using real attestations
+func mockAttestationResponse() *httptest.Server {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		response := `{
+			"status": "complete",
+			"attestation": "0x9049623e91719ef2aa63c55f357be2529b0e7122ae552c18aff8db58b4633c4d3920ff03d3a6d1ddf11f06bf64d7fd60d45447ac81f527ba628877dc5ca759651b08ffae25a6d3b1411749765244f0a1c131cbfe04430d687a2e12fd9d2e6dc08e118ad95d94ad832332cf3c4f7a4f3da0baa803b7be024b02db81951c0f0714de1b"
+		}`
+
+		_, err := w.Write([]byte(response))
+		if err != nil {
+			panic(err)
+		}
+	}))
+	return server
 }
