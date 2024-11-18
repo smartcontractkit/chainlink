@@ -1,12 +1,6 @@
 package smoke
 
 import (
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 	"golang.org/x/exp/maps"
 	"math/big"
 	"net/http"
@@ -14,7 +8,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 	"github.com/stretchr/testify/require"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
@@ -109,10 +109,10 @@ func TestUSDCTokenTransfer(t *testing.T) {
 		destChain:   dstUSDC,
 	})
 
-	err = ccdeploy.UpdateFeeQuoterForUSDC(e.Chains[sourceChain], state.Chains[sourceChain], destChain, srcUSDC)
+	err = ccdeploy.UpdateFeeQuoterForUSDC(lggr, e.Chains[sourceChain], state.Chains[sourceChain], destChain, srcUSDC)
 	require.NoError(t, err)
 
-	err = ccdeploy.UpdateFeeQuoterForUSDC(e.Chains[destChain], state.Chains[destChain], sourceChain, dstUSDC)
+	err = ccdeploy.UpdateFeeQuoterForUSDC(lggr, e.Chains[destChain], state.Chains[destChain], sourceChain, dstUSDC)
 	require.NoError(t, err)
 
 	// MockE2EUSDCTransmitter always mint 1, see MockE2EUSDCTransmitter.sol for more details

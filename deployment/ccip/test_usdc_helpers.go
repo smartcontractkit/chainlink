@@ -13,7 +13,12 @@ import (
 	"math/big"
 )
 
-func ConfigureUSDCTokenPools(lggr logger.Logger, chains map[uint64]deployment.Chain, src, dst uint64, state CCIPOnChainState) (*burn_mint_erc677.BurnMintERC677, *burn_mint_erc677.BurnMintERC677, error) {
+func ConfigureUSDCTokenPools(
+	lggr logger.Logger,
+	chains map[uint64]deployment.Chain,
+	src, dst uint64,
+	state CCIPOnChainState,
+) (*burn_mint_erc677.BurnMintERC677, *burn_mint_erc677.BurnMintERC677, error) {
 	srcToken := state.Chains[src].BurnMintTokens677[USDCSymbol]
 	dstToken := state.Chains[dst].BurnMintTokens677[USDCSymbol]
 	srcPool := state.Chains[src].USDCTokenPool
@@ -21,51 +26,55 @@ func ConfigureUSDCTokenPools(lggr logger.Logger, chains map[uint64]deployment.Ch
 
 	// Attach token pools to registry
 	if err := attachTokenToTheRegistry(chains[src], state.Chains[src], chains[src].DeployerKey, srcToken.Address(), srcPool.Address()); err != nil {
+		lggr.Errorw("Failed to attach token to the registry", "err", err, "token", srcToken.Address(), "pool", srcPool.Address())
 		return nil, nil, err
 	}
 
 	if err := attachTokenToTheRegistry(chains[dst], state.Chains[dst], chains[dst].DeployerKey, dstToken.Address(), dstPool.Address()); err != nil {
+		lggr.Errorw("Failed to attach token to the registry", "err", err, "token", dstToken.Address(), "pool", dstPool.Address())
 		return nil, nil, err
 	}
 
 	// Connect pool to each other
 	if err := setUSDCTokenPoolCounterPart(chains[src], srcPool, dst, dstToken.Address(), dstPool.Address()); err != nil {
+		lggr.Errorw("Failed to set counter part", "err", err, "srcPool", srcPool.Address(), "dstPool", dstPool.Address())
 		return nil, nil, err
 	}
 
 	if err := setUSDCTokenPoolCounterPart(chains[dst], dstPool, src, srcToken.Address(), srcPool.Address()); err != nil {
+		lggr.Errorw("Failed to set counter part", "err", err, "srcPool", dstPool.Address(), "dstPool", srcPool.Address())
 		return nil, nil, err
 	}
 
-	// Add burn/mint permissions
-	if err := grantMintBurnPermissions(lggr, chains[src], srcToken, srcPool.Address()); err != nil {
-		return nil, nil, err
+	// Add burn/mint permissions for source
+	for _, addr := range []common.Address{
+		srcPool.Address(),
+		state.Chains[src].MockUSDCTokenMessenger.Address(),
+		state.Chains[src].MockUSDCTransmitter.Address(),
+	} {
+		if err := grantMintBurnPermissions(lggr, chains[src], srcToken, addr); err != nil {
+			lggr.Errorw("Failed to grant mint/burn permissions", "err", err, "token", srcToken.Address(), "minter", addr)
+			return nil, nil, err
+		}
 	}
 
-	if err := grantMintBurnPermissions(lggr, chains[dst], dstToken, dstPool.Address()); err != nil {
-		return nil, nil, err
-	}
-
-	if err := grantMintBurnPermissions(lggr, chains[src], srcToken, state.Chains[src].MockUSDCTokenMessenger.Address()); err != nil {
-		return nil, nil, err
-	}
-
-	if err := grantMintBurnPermissions(lggr, chains[dst], dstToken, state.Chains[dst].MockUSDCTokenMessenger.Address()); err != nil {
-		return nil, nil, err
-	}
-
-	if err := grantMintBurnPermissions(lggr, chains[src], srcToken, state.Chains[src].MockUSDCTransmitter.Address()); err != nil {
-		return nil, nil, err
-	}
-
-	if err := grantMintBurnPermissions(lggr, chains[dst], dstToken, state.Chains[dst].MockUSDCTransmitter.Address()); err != nil {
-		return nil, nil, err
+	// Add burn/mint permissions for dest
+	for _, addr := range []common.Address{
+		dstPool.Address(),
+		state.Chains[dst].MockUSDCTokenMessenger.Address(),
+		state.Chains[dst].MockUSDCTransmitter.Address(),
+	} {
+		if err := grantMintBurnPermissions(lggr, chains[dst], dstToken, addr); err != nil {
+			lggr.Errorw("Failed to grant mint/burn permissions", "err", err, "token", dstToken.Address(), "minter", addr)
+			return nil, nil, err
+		}
 	}
 
 	return srcToken, dstToken, nil
 }
 
 func UpdateFeeQuoterForUSDC(
+	lggr logger.Logger,
 	chain deployment.Chain,
 	state CCIPChainState,
 	dstChain uint64,
@@ -96,6 +105,7 @@ func UpdateFeeQuoterForUSDC(
 		[]fee_quoter.FeeQuoterTokenTransferFeeConfigRemoveArgs{},
 	)
 	if err != nil {
+		lggr.Errorw("Failed to apply token transfer fee config updates", "err", err, "config", config)
 		return err
 	}
 

@@ -1,10 +1,11 @@
 package smoke
 
 import (
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/stretchr/testify/require"
 	"math/big"
 	"testing"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/require"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
