@@ -160,6 +160,7 @@ func TestActiveCandidate(t *testing.T) {
 		tokenConfig.GetTokenInfo(e.Logger, state.Chains[destCS].LinkToken, state.Chains[destCS].Weth9),
 		nodes.NonBootstraps(),
 		rmnHomeAddress,
+		nil,
 	)
 	require.NoError(t, err)
 

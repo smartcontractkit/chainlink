@@ -963,6 +963,20 @@ runner-test-matrix:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       E2E_JD_VERSION: 0.4.0
 
+  - id: smoke/ccip_usdc_test.go:*
+    path: integration-tests/smoke/ccip_usdc_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    triggers:
+      - PR E2E Core Tests
+      - Merge Queue E2E Core Tests
+      - Nightly E2E Tests
+    test_cmd: cd integration-tests/ && go test smoke/ccip_usdc_test.go -timeout 12m -test.parallel=1 -count=1 -json
+    pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
+    test_env_vars:
+      E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
+      E2E_JD_VERSION: 0.4.0
+
   - id: smoke/fee_boosting_test.go:*
     path: integration-tests/smoke/fee_boosting_test.go
     test_env_type: docker
