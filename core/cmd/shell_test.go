@@ -355,7 +355,7 @@ func TestSetupSolanaRelayer(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	reg := plugins.NewLoopRegistry(lggr, nil, nil, nil, "")
 	ks := mocks.NewSolana(t)
-	ds := mocksqlutil.NewDataSource(t)
+	ds := mocksqlutil.NewDataSource()
 
 	// config 3 chains but only enable 2 => should only be 2 relayer
 	nEnabledChains := 2
