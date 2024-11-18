@@ -22,7 +22,7 @@ func TestInitialDeployOnLocal(t *testing.T) {
 	t.Parallel()
 	lggr := logger.TestLogger(t)
 	ctx := ccdeploy.Context(t)
-	tenv, _, _ := testsetups.NewLocalDevEnvironment(t, lggr)
+	tenv, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr)
 	e := tenv.Env
 
 	state, err := ccdeploy.LoadOnchainState(tenv.Env)
@@ -114,7 +114,7 @@ func TestTokenTransfer(t *testing.T) {
 	t.Parallel()
 	lggr := logger.TestLogger(t)
 	ctx := ccdeploy.Context(t)
-	tenv, _, _ := testsetups.NewLocalDevEnvironment(t, lggr)
+	tenv, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr)
 
 	e := tenv.Env
 	state, err := ccdeploy.LoadOnchainState(e)

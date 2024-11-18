@@ -51,7 +51,7 @@ func Test_CCIPMessaging(t *testing.T) {
 	// Setup 2 chains and a single lane.
 	lggr := logger.TestLogger(t)
 	ctx := ccdeploy.Context(t)
-	e, _, _ := testsetups.NewLocalDevEnvironment(t, lggr)
+	e, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr)
 
 	state, err := ccdeploy.LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -105,7 +105,7 @@ func Test_CCIPMessaging(t *testing.T) {
 	}
 
 	// connect a single lane, source to dest
-	require.NoError(t, ccdeploy.AddLane(e.Env, state, sourceChain, destChain))
+	require.NoError(t, ccdeploy.AddLaneWithDefaultPrices(e.Env, state, sourceChain, destChain))
 
 	var (
 		replayed bool

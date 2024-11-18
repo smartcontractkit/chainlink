@@ -9,43 +9,36 @@ import (
 	"time"
 
 	mapset "github.com/deckarep/golang-set/v2"
-
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
-
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
-
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
-
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
-
+	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_ethusd_aggregator_wrapper"
-
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
+	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/usdc_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_ethusd_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 )
 
 const (
@@ -120,6 +113,8 @@ func DeployTestContracts(t *testing.T,
 	homeChainSel,
 	feedChainSel uint64,
 	chains map[uint64]deployment.Chain,
+	linkPrice *big.Int,
+	wethPrice *big.Int,
 ) deployment.CapabilityRegistryConfig {
 	capReg, err := DeployCapReg(lggr,
 		// deploying cap reg for the first time on a blank chain state
@@ -127,7 +122,7 @@ func DeployTestContracts(t *testing.T,
 			Chains: make(map[uint64]CCIPChainState),
 		}, ab, chains[homeChainSel])
 	require.NoError(t, err)
-	_, err = DeployFeeds(lggr, ab, chains[feedChainSel])
+	_, err = DeployFeeds(lggr, ab, chains[feedChainSel], linkPrice, wethPrice)
 	require.NoError(t, err)
 	evmChainID, err := chainsel.ChainIdFromSelector(homeChainSel)
 	require.NoError(t, err)
@@ -166,7 +161,13 @@ func allocateCCIPChainSelectors(chains map[uint64]deployment.Chain) (homeChainSe
 
 // NewMemoryEnvironment creates a new CCIP environment
 // with capreg, fee tokens, feeds and nodes set up.
-func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, numChains int, numNodes int) DeployedEnv {
+func NewMemoryEnvironment(
+	t *testing.T,
+	lggr logger.Logger,
+	numChains int,
+	numNodes int,
+	linkPrice *big.Int,
+	wethPrice *big.Int) DeployedEnv {
 	require.GreaterOrEqual(t, numChains, 2, "numChains must be at least 2 for home and feed chains")
 	require.GreaterOrEqual(t, numNodes, 4, "numNodes must be at least 4")
 	ctx := testcontext.Get(t)
@@ -176,7 +177,7 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, numChains int, numNo
 	require.NoError(t, err)
 
 	ab := deployment.NewMemoryAddressBook()
-	crConfig := DeployTestContracts(t, lggr, ab, homeChainSel, feedSel, chains)
+	crConfig := DeployTestContracts(t, lggr, ab, homeChainSel, feedSel, chains, linkPrice, wethPrice)
 	nodes := memory.NewNodes(t, zapcore.InfoLevel, chains, numNodes, 1, crConfig)
 	for _, node := range nodes {
 		require.NoError(t, node.App.Start(ctx))
@@ -209,7 +210,19 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, numChains int, numNo
 // NewMemoryEnvironmentWithJobs creates a new CCIP environment
 // with capreg, fee tokens, feeds, nodes and jobs set up.
 func NewMemoryEnvironmentWithJobs(t *testing.T, lggr logger.Logger, numChains int, numNodes int) DeployedEnv {
-	e := NewMemoryEnvironment(t, lggr, numChains, numNodes)
+	e := NewMemoryEnvironment(t, lggr, numChains, numNodes, MockLinkPrice, MockWethPrice)
+	e.SetupJobs(t)
+	return e
+}
+
+func NewMemoryEnvironmentWithJobsAndPrices(
+	t *testing.T,
+	lggr logger.Logger,
+	numChains int,
+	numNodes int,
+	linkPrice *big.Int,
+	wethPrice *big.Int) DeployedEnv {
+	e := NewMemoryEnvironment(t, lggr, numChains, numNodes, linkPrice, wethPrice)
 	e.SetupJobs(t)
 	return e
 }
@@ -323,7 +336,7 @@ func AddLanesForAll(e deployment.Environment, state CCIPOnChainState) error {
 	for source := range e.Chains {
 		for dest := range e.Chains {
 			if source != dest {
-				err := AddLane(e, state, source, dest)
+				err := AddLaneWithDefaultPrices(e, state, source, dest)
 				if err != nil {
 					return err
 				}
@@ -331,6 +344,11 @@ func AddLanesForAll(e deployment.Environment, state CCIPOnChainState) error {
 		}
 	}
 	return nil
+}
+
+func ToPackedFee(execFee, daFee *big.Int) *big.Int {
+	daShifted := new(big.Int).Lsh(daFee, 112)
+	return new(big.Int).Or(daShifted, execFee)
 }
 
 const (
@@ -345,7 +363,7 @@ const (
 )
 
 var (
-	MockLinkPrice = big.NewInt(5e18)
+	MockLinkPrice = deployment.E18Mult(500)
 	MockWethPrice = big.NewInt(9e8)
 	// MockDescriptionToTokenSymbol maps a mock feed description to token descriptor
 	MockDescriptionToTokenSymbol = map[string]TokenSymbol{
@@ -362,14 +380,20 @@ var (
 	}
 )
 
-func DeployFeeds(lggr logger.Logger, ab deployment.AddressBook, chain deployment.Chain) (map[string]common.Address, error) {
+func DeployFeeds(
+	lggr logger.Logger,
+	ab deployment.AddressBook,
+	chain deployment.Chain,
+	linkPrice *big.Int,
+	wethPrice *big.Int,
+) (map[string]common.Address, error) {
 	linkTV := deployment.NewTypeAndVersion(PriceFeed, deployment.Version1_0_0)
 	mockLinkFeed := func(chain deployment.Chain) deployment.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface] {
 		linkFeed, tx, _, err1 := mock_v3_aggregator_contract.DeployMockV3Aggregator(
 			chain.DeployerKey,
 			chain.Client,
-			LinkDecimals,  // decimals
-			MockLinkPrice, // initialAnswer
+			LinkDecimals, // decimals
+			linkPrice,    // initialAnswer
 		)
 		aggregatorCr, err2 := aggregator_v3_interface.NewAggregatorV3Interface(linkFeed, chain.Client)
 
@@ -382,7 +406,7 @@ func DeployFeeds(lggr logger.Logger, ab deployment.AddressBook, chain deployment
 		wethFeed, tx, _, err1 := mock_ethusd_aggregator_wrapper.DeployMockETHUSDAggregator(
 			chain.DeployerKey,
 			chain.Client,
-			MockWethPrice, // initialAnswer
+			wethPrice, // initialAnswer
 		)
 		aggregatorCr, err2 := aggregator_v3_interface.NewAggregatorV3Interface(wethFeed, chain.Client)
 
@@ -543,18 +567,19 @@ func DeployTransferableToken(
 	}
 
 	// Add burn/mint permissions
-	if err := grantMintBurnPermissions(chains[src], srcToken, srcPool.Address()); err != nil {
+	if err := grantMintBurnPermissions(lggr, chains[src], srcToken, srcPool.Address()); err != nil {
 		return nil, nil, nil, nil, err
 	}
 
-	if err := grantMintBurnPermissions(chains[dst], dstToken, dstPool.Address()); err != nil {
+	if err := grantMintBurnPermissions(lggr, chains[dst], dstToken, dstPool.Address()); err != nil {
 		return nil, nil, nil, nil, err
 	}
 
 	return srcToken, srcPool, dstToken, dstPool, nil
 }
 
-func grantMintBurnPermissions(chain deployment.Chain, token *burn_mint_erc677.BurnMintERC677, address common.Address) error {
+func grantMintBurnPermissions(lggr logger.Logger, chain deployment.Chain, token *burn_mint_erc677.BurnMintERC677, address common.Address) error {
+	lggr.Infow("Granting burn permissions", "token", token.Address(), "burner", address)
 	tx, err := token.GrantBurnRole(chain.DeployerKey, address)
 	if err != nil {
 		return err
@@ -564,12 +589,52 @@ func grantMintBurnPermissions(chain deployment.Chain, token *burn_mint_erc677.Bu
 		return err
 	}
 
+	lggr.Infow("Granting mint permissions", "token", token.Address(), "minter", address)
 	tx, err = token.GrantMintRole(chain.DeployerKey, address)
 	if err != nil {
 		return err
 	}
 	_, err = chain.Confirm(tx)
 	return err
+}
+
+func setUSDCTokenPoolCounterPart(
+	chain deployment.Chain,
+	tokenPool *usdc_token_pool.USDCTokenPool,
+	destChainSelector uint64,
+	destTokenAddress common.Address,
+	destTokenPoolAddress common.Address,
+) error {
+	allowedCaller := common.LeftPadBytes(destTokenPoolAddress.Bytes(), 32)
+	var fixedAddr [32]byte
+	copy(fixedAddr[:], allowedCaller[:32])
+
+	domain, _ := reader.AllAvailableDomains()[destChainSelector]
+
+	domains := []usdc_token_pool.USDCTokenPoolDomainUpdate{
+		{
+			AllowedCaller:     fixedAddr,
+			DomainIdentifier:  domain,
+			DestChainSelector: destChainSelector,
+			Enabled:           true,
+		},
+	}
+	tx, err := tokenPool.SetDomains(chain.DeployerKey, domains)
+	if err != nil {
+		return err
+	}
+
+	_, err = chain.Confirm(tx)
+	if err != nil {
+		return err
+	}
+
+	pool, err := burn_mint_token_pool.NewBurnMintTokenPool(tokenPool.Address(), chain.Client)
+	if err != nil {
+		return err
+	}
+
+	return setTokenPoolCounterPart(chain, pool, destChainSelector, destTokenAddress, destTokenPoolAddress)
 }
 
 func setTokenPoolCounterPart(

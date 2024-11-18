@@ -64,7 +64,7 @@ func TestAddLane(t *testing.T) {
 	require.NoError(t, err)
 
 	// Add one lane from chain1 to chain 2 and send traffic.
-	require.NoError(t, AddLane(e.Env, state, chain1, chain2))
+	require.NoError(t, AddLaneWithDefaultPrices(e.Env, state, chain1, chain2))
 
 	ReplayLogs(t, e.Env.Offchain, replayBlocks)
 	time.Sleep(30 * time.Second)
@@ -110,7 +110,7 @@ func TestAddLane(t *testing.T) {
 	require.Equal(t, uint64(1), msgSentEvent1.SequenceNumber)
 
 	// Add another lane
-	require.NoError(t, AddLane(e.Env, state, chain2, chain1))
+	require.NoError(t, AddLaneWithDefaultPrices(e.Env, state, chain2, chain1))
 
 	// Send traffic on the second lane and it should succeed
 	latesthdr, err = e.Env.Chains[chain1].Client.HeaderByNumber(testcontext.Get(t), nil)

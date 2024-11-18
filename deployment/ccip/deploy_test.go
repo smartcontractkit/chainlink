@@ -22,7 +22,7 @@ func TestDeployCCIPContracts(t *testing.T) {
 	})
 	// Deploy all the CCIP contracts.
 	homeChainSel, feedChainSel := allocateCCIPChainSelectors(e.Chains)
-	_ = DeployTestContracts(t, lggr, e.ExistingAddresses, homeChainSel, feedChainSel, e.Chains)
+	_ = DeployTestContracts(t, lggr, e.ExistingAddresses, homeChainSel, feedChainSel, e.Chains, MockLinkPrice, MockWethPrice)
 
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)

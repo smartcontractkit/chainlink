@@ -21,7 +21,7 @@ import (
 func TestInitialDeploy(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := ccdeploy.Context(t)
-	tenv := ccdeploy.NewMemoryEnvironment(t, lggr, 3, 4)
+	tenv := ccdeploy.NewMemoryEnvironment(t, lggr, 3, 4, ccdeploy.MockLinkPrice, ccdeploy.MockWethPrice)
 	e := tenv.Env
 
 	state, err := ccdeploy.LoadOnchainState(tenv.Env)
@@ -93,7 +93,8 @@ func TestInitialDeploy(t *testing.T) {
 	ccdeploy.ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
 
 	// Confirm token and gas prices are updated
-	ccdeploy.ConfirmTokenPriceUpdatedForAll(t, e, state, startBlocks)
+	ccdeploy.ConfirmTokenPriceUpdatedForAll(t, e, state, startBlocks,
+		ccdeploy.DefaultInitialPrices.LinkPrice, ccdeploy.DefaultInitialPrices.WethPrice)
 	// TODO: Fix gas prices?
 	//ccdeploy.ConfirmGasPriceUpdatedForAll(t, e, state, startBlocks)
 	//

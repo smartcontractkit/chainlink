@@ -60,7 +60,7 @@ func TestAddChainInbound(t *testing.T) {
 	for _, source := range initialDeploy {
 		for _, dest := range initialDeploy {
 			if source != dest {
-				require.NoError(t, ccipdeployment.AddLane(e.Env, state, source, dest))
+				require.NoError(t, ccipdeployment.AddLaneWithDefaultPrices(e.Env, state, source, dest))
 			}
 		}
 	}
