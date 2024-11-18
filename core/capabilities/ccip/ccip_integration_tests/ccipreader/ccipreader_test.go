@@ -51,7 +51,9 @@ const (
 )
 
 var (
-	defaultGasPrice = assets.GWei(10)
+	defaultGasPrice  = assets.GWei(10)
+	InitialLinkPrice = E18Mult(20)
+	InitialWethPrice = E18Mult(4000)
 )
 
 func TestCCIPReader_CommitReportsGTETimestamp(t *testing.T) {
@@ -504,6 +506,25 @@ func Test_GetChainFeePriceUpdates(t *testing.T) {
 	require.Equal(t, defaultGasPrice.ToInt(), updates[chainS1].Value.Int)
 }
 
+func Test_LinkPriceUSD(t *testing.T) {
+	ctx := testutils.Context(t)
+	s := testSetup(ctx, t, chainD, chainD, nil, evmconfig.DestReaderConfig, nil, false)
+	feeQuoter := deployFeeQuoterWithPrices(t, s.auth, s.sb)
+	// Bind FeeQuoter directly
+	err := s.extendedCR.Bind(ctx, []types.BoundContract{
+		{
+			Address: feeQuoter.Address().String(),
+			Name:    consts.ContractNameFeeQuoter,
+		},
+	})
+	require.NoError(t, err)
+
+	linkPriceUSD, err := s.reader.LinkPriceUSD(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, linkPriceUSD.Int)
+	require.Equal(t, InitialLinkPrice, linkPriceUSD.Int)
+}
+
 func deployFeeQuoterWithPrices(t *testing.T, auth *bind.TransactOpts, sb *simulated.Backend) *fee_quoter.FeeQuoter {
 	linkAddress := utils.RandomAddress()
 	wethAddress := utils.RandomAddress()
@@ -536,7 +557,18 @@ func deployFeeQuoterWithPrices(t *testing.T, auth *bind.TransactOpts, sb *simula
 					DestChainSelector: uint64(chainS1),
 					UsdPerUnitGas:     defaultGasPrice.ToInt(),
 				},
-			}},
+			},
+			TokenPriceUpdates: []fee_quoter.InternalTokenPriceUpdate{
+				{
+					SourceToken: linkAddress,
+					UsdPerToken: InitialLinkPrice,
+				},
+				{
+					SourceToken: wethAddress,
+					UsdPerToken: InitialWethPrice,
+				},
+			},
+		},
 	)
 	require.NoError(t, err)
 	sb.Commit()
@@ -680,4 +712,12 @@ type testSetupData struct {
 	cl           client.Client
 	reader       ccipreaderpkg.CCIPReader
 	extendedCR   contractreader.Extended
+}
+
+func UBigInt(i uint64) *big.Int {
+	return new(big.Int).SetUint64(i)
+}
+
+func E18Mult(amount uint64) *big.Int {
+	return new(big.Int).Mul(UBigInt(amount), UBigInt(1e18))
 }
