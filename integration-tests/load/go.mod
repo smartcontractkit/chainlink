@@ -65,7 +65,7 @@ require (
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sagikazarmark/locafero v0.4.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241112095015-3e85d9f1898b // indirect
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241118091009-43c2b4804cec // indirect
 	github.com/smartcontractkit/chainlink-cosmos v0.5.2-0.20241017133723-5277829bd53f // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.2 // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
@@ -425,7 +425,7 @@ require (
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20241018134907-a00ba3729b5e // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.1 // indirect
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.3.0 // indirect
-	github.com/smartcontractkit/chainlink-solana v1.1.1-0.20241112213949-65ae13752669 // indirect
+	github.com/smartcontractkit/chainlink-solana v1.1.1-0.20241115191142-8b8369c1f44e // indirect
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.1.1-0.20241017135645-176a23722fd8 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.50.0 // indirect
 	github.com/smartcontractkit/libocr v0.0.0-20241007185508-adbe57025f12 // indirect

@@ -36,7 +36,7 @@ require (
 	github.com/slack-go/slack v0.15.0
 	github.com/smartcontractkit/chain-selectors v1.0.29
 	github.com/smartcontractkit/chainlink-automation v0.8.1
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241112095015-3e85d9f1898b
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241118091009-43c2b4804cec
 	github.com/smartcontractkit/chainlink-common v0.3.1-0.20241114134822-aadff98ef068
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.4.0
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.2
@@ -418,7 +418,7 @@ require (
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20241018134907-a00ba3729b5e // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.1 // indirect
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.3.0 // indirect
-	github.com/smartcontractkit/chainlink-solana v1.1.1-0.20241112213949-65ae13752669 // indirect
+	github.com/smartcontractkit/chainlink-solana v1.1.1-0.20241115191142-8b8369c1f44e // indirect
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.1.1-0.20241017135645-176a23722fd8 // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20241009055228-33d0c0bf38de // indirect
