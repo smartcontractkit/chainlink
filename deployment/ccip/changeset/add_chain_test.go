@@ -5,6 +5,7 @@ import (
 	"time"
 
 	ccipdeployment "github.com/smartcontractkit/chainlink/deployment/ccip"
+	commondeployment "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
@@ -44,7 +45,6 @@ func TestAddChainInbound(t *testing.T) {
 		FeedChainSel:   e.FeedChainSel,
 		ChainsToDeploy: initialDeploy,
 		TokenConfig:    tokenConfig,
-		MCMSConfig:     ccipdeployment.NewTestMCMSConfig(t, e.Env),
 		OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
 	})
 	require.NoError(t, err)
@@ -74,7 +74,7 @@ func TestAddChainInbound(t *testing.T) {
 		ccipdeployment.FeeTokenContracts{
 			LinkToken: state.Chains[newChain].LinkToken,
 			Weth9:     state.Chains[newChain].Weth9,
-		}, ccipdeployment.NewTestMCMSConfig(t, e.Env), rmnHome)
+		}, rmnHome)
 	require.NoError(t, err)
 	require.NoError(t, e.Env.ExistingAddresses.Merge(newChainAddresses))
 	state, err = ccipdeployment.LoadOnchainState(e.Env)
@@ -112,10 +112,10 @@ func TestAddChainInbound(t *testing.T) {
 
 	acceptOwnershipProposal, err := ccipdeployment.GenerateAcceptOwnershipProposal(state, e.HomeChainSel, initialDeploy)
 	require.NoError(t, err)
-	acceptOwnershipExec := ccipdeployment.SignProposal(t, e.Env, acceptOwnershipProposal)
+	acceptOwnershipExec := commondeployment.SignProposal(t, e.Env, acceptOwnershipProposal)
 	// Apply the accept ownership proposal to all the chains.
 	for _, sel := range initialDeploy {
-		ccipdeployment.ExecuteProposal(t, e.Env, acceptOwnershipExec, state, sel)
+		commondeployment.ExecuteProposal(t, e.Env, acceptOwnershipExec, state.Chains[sel].Timelock, sel)
 	}
 	for _, chain := range initialDeploy {
 		owner, err2 := state.Chains[chain].OnRamp.Owner(nil)

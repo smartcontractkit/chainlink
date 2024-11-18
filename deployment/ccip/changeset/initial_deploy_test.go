@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 
 	ccdeploy "github.com/smartcontractkit/chainlink/deployment/ccip"
@@ -33,7 +34,6 @@ func TestInitialDeploy(t *testing.T) {
 		FeedChainSel:   tenv.FeedChainSel,
 		ChainsToDeploy: tenv.Env.AllChainSelectors(),
 		TokenConfig:    ccdeploy.NewTestTokenConfig(state.Chains[tenv.FeedChainSel].USDFeeds),
-		MCMSConfig:     ccdeploy.NewTestMCMSConfig(t, e),
 		OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
 	})
 	require.NoError(t, err)

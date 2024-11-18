@@ -50,7 +50,6 @@ func TestDeployCCIPContracts(t *testing.T) {
 		FeedChainSel:   feedChainSel,
 		ChainsToDeploy: e.AllChainSelectors(),
 		TokenConfig:    NewTokenConfig(),
-		MCMSConfig:     NewTestMCMSConfig(t, e),
 		OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
 	})
 	require.NoError(t, err)

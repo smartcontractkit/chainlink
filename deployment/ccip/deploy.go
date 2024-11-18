@@ -7,11 +7,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/config"
-	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/registry_module_owner_custom"
@@ -65,9 +62,6 @@ type DeployCCIPContractConfig struct {
 	FeedChainSel   uint64
 	ChainsToDeploy []uint64
 	TokenConfig    TokenConfig
-	// I believe it makes sense to have the same signers across all chains
-	// since that's the point MCMS.
-	MCMSConfig MCMSConfig
 	// For setting OCR configuration
 	OCRSecrets deployment.OCRSecrets
 }
@@ -140,7 +134,7 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 		err = DeployChainContracts(e, chain, ab, FeeTokenContracts{
 			LinkToken: existingState.Chains[chainSel].LinkToken,
 			Weth9:     existingState.Chains[chainSel].Weth9,
-		}, c.MCMSConfig, rmnHome)
+		}, rmnHome)
 		if err != nil {
 			return err
 		}
@@ -187,113 +181,6 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 	}
 
 	return nil
-}
-
-type MCMSConfig struct {
-	Admin     config.Config
-	Canceller config.Config
-	Bypasser  config.Config
-	Proposer  config.Config
-	Executors []common.Address
-}
-
-func DeployMCMSWithConfig(
-	contractType deployment.ContractType,
-	lggr logger.Logger,
-	chain deployment.Chain,
-	ab deployment.AddressBook,
-	mcmConfig config.Config,
-) (*deployment.ContractDeploy[*owner_helpers.ManyChainMultiSig], error) {
-	groupQuorums, groupParents, signerAddresses, signerGroups := mcmConfig.ExtractSetConfigInputs()
-	mcm, err := deployment.DeployContract(lggr, chain, ab,
-		func(chain deployment.Chain) deployment.ContractDeploy[*owner_helpers.ManyChainMultiSig] {
-			mcmAddr, tx, mcm, err2 := owner_helpers.DeployManyChainMultiSig(
-				chain.DeployerKey,
-				chain.Client,
-			)
-			return deployment.ContractDeploy[*owner_helpers.ManyChainMultiSig]{
-				mcmAddr, mcm, tx, deployment.NewTypeAndVersion(contractType, deployment.Version1_0_0), err2,
-			}
-		})
-	if err != nil {
-		lggr.Errorw("Failed to deploy mcm", "err", err)
-		return mcm, err
-	}
-	mcmsTx, err := mcm.Contract.SetConfig(chain.DeployerKey,
-		signerAddresses,
-		signerGroups, // Signer 1 is int group 0 (root group) with quorum 1.
-		groupQuorums,
-		groupParents,
-		false,
-	)
-	if _, err := deployment.ConfirmIfNoError(chain, mcmsTx, err); err != nil {
-		lggr.Errorw("Failed to confirm mcm config", "err", err)
-		return mcm, err
-	}
-	return mcm, nil
-}
-
-type MCMSContracts struct {
-	Admin     *deployment.ContractDeploy[*owner_helpers.ManyChainMultiSig]
-	Canceller *deployment.ContractDeploy[*owner_helpers.ManyChainMultiSig]
-	Bypasser  *deployment.ContractDeploy[*owner_helpers.ManyChainMultiSig]
-	Proposer  *deployment.ContractDeploy[*owner_helpers.ManyChainMultiSig]
-	Timelock  *deployment.ContractDeploy[*owner_helpers.RBACTimelock]
-}
-
-// DeployMCMSContracts deploys the MCMS contracts for the given configuration
-// as well as the timelock.
-func DeployMCMSContracts(
-	lggr logger.Logger,
-	chain deployment.Chain,
-	ab deployment.AddressBook,
-	mcmConfig MCMSConfig,
-) (*MCMSContracts, error) {
-	adminMCM, err := DeployMCMSWithConfig(AdminManyChainMultisig, lggr, chain, ab, mcmConfig.Admin)
-	if err != nil {
-		return nil, err
-	}
-	bypasser, err := DeployMCMSWithConfig(BypasserManyChainMultisig, lggr, chain, ab, mcmConfig.Bypasser)
-	if err != nil {
-		return nil, err
-	}
-	canceller, err := DeployMCMSWithConfig(CancellerManyChainMultisig, lggr, chain, ab, mcmConfig.Canceller)
-	if err != nil {
-		return nil, err
-	}
-	proposer, err := DeployMCMSWithConfig(ProposerManyChainMultisig, lggr, chain, ab, mcmConfig.Proposer)
-	if err != nil {
-		return nil, err
-	}
-
-	timelock, err := deployment.DeployContract(lggr, chain, ab,
-		func(chain deployment.Chain) deployment.ContractDeploy[*owner_helpers.RBACTimelock] {
-			timelock, tx2, cc, err2 := owner_helpers.DeployRBACTimelock(
-				chain.DeployerKey,
-				chain.Client,
-				big.NewInt(0), // minDelay
-				adminMCM.Address,
-				[]common.Address{proposer.Address},  // proposers
-				mcmConfig.Executors,                 //executors
-				[]common.Address{canceller.Address}, // cancellers
-				[]common.Address{bypasser.Address},  // bypassers
-			)
-			return deployment.ContractDeploy[*owner_helpers.RBACTimelock]{
-				timelock, cc, tx2, deployment.NewTypeAndVersion(RBACTimelock, deployment.Version1_0_0), err2,
-			}
-		})
-	if err != nil {
-		lggr.Errorw("Failed to deploy timelock", "err", err)
-		return nil, err
-	}
-	lggr.Infow("deployed timelock", "addr", timelock.Address)
-	return &MCMSContracts{
-		Admin:     adminMCM,
-		Canceller: canceller,
-		Bypasser:  bypasser,
-		Proposer:  proposer,
-		Timelock:  timelock,
-	}, nil
 }
 
 func DeployFeeTokensToChains(lggr logger.Logger, ab deployment.AddressBook, chains map[uint64]deployment.Chain) error {
@@ -360,11 +247,16 @@ func DeployChainContracts(
 	chain deployment.Chain,
 	ab deployment.AddressBook,
 	contractConfig FeeTokenContracts,
-	mcmsConfig MCMSConfig,
 	rmnHome *rmn_home.RMNHome,
 ) error {
-	mcmsContracts, err := DeployMCMSContracts(e.Logger, chain, ab, mcmsConfig)
+	chainAddresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
 	if err != nil {
+		e.Logger.Errorw("Failed to get chain addresses", "err", err)
+		return err
+	}
+	state, err := LoadChainState(chain, chainAddresses)
+	if err != nil {
+		e.Logger.Errorw("Failed to load chain state", "err", err)
 		return err
 	}
 	ccipReceiver, err := deployment.DeployContract(e.Logger, chain, ab,
@@ -546,7 +438,7 @@ func DeployChainContracts(
 					LinkToken:                    contractConfig.LinkToken.Address(),
 					TokenPriceStalenessThreshold: uint32(24 * 60 * 60),
 				},
-				[]common.Address{mcmsContracts.Timelock.Address},                                     // timelock should be able to update, ramps added after
+				[]common.Address{state.Timelock.Address()},                                           // timelock should be able to update, ramps added after
 				[]common.Address{contractConfig.Weth9.Address(), contractConfig.LinkToken.Address()}, // fee tokens
 				[]fee_quoter.FeeQuoterTokenPriceFeedUpdate{},
 				[]fee_quoter.FeeQuoterTokenTransferFeeConfigArgs{}, // TODO: tokens
