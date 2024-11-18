@@ -167,15 +167,15 @@ func mustReadNodesList(path string) []NodeWithCreds {
 			helpers.PanicErr(errors.New("wrong nodes list format"))
 		}
 
-		u := SimpleURL{
+		r := SimpleURL{
 			Scheme: "http",
 			Host:   s[0],
 		}
-		r := SimpleURL{
+		u := SimpleURL{
 			Scheme: "http",
 			Host:   s[1],
 		}
-		remoteURL, err := url.Parse(r.Host)
+		remoteURL, err := url.Parse(u.Host)
 		PanicErr(err)
 		nodes = append(nodes, NodeWithCreds{
 			URL:       u,
@@ -187,6 +187,7 @@ func mustReadNodesList(path string) []NodeWithCreds {
 			KeystorePassword: "",
 		})
 	}
+
 	return nodes
 }
 
