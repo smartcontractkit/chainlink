@@ -3,12 +3,17 @@ package testsetups
 import (
 	"fmt"
 	"math/big"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"strconv"
 	"testing"
+	"time"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 	ctftestenv "github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
@@ -18,12 +23,16 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipdeployment "github.com/smartcontractkit/chainlink/deployment/ccip"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	clclient "github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	ccipactions "github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig"
@@ -73,6 +82,25 @@ func NewLocalDevEnvironmentWithDefaultPrice(
 	t *testing.T,
 	lggr logger.Logger) (ccipdeployment.DeployedEnv, *test_env.CLClusterTestEnv, testconfig.TestConfig) {
 	return NewLocalDevEnvironment(t, lggr, ccipdeployment.MockLinkPrice, ccipdeployment.MockWethPrice)
+}
+
+// mockAttestationResponse mocks the USDC attestation server, it returns random Attestation.
+// We don't need to return exactly the same attestation, because our Mocked USDC contract doesn't rely on any specific
+// value, but instead of that it just checks if the attestation is present. Therefore, it makes the test a bit simpler
+// and doesn't require very detailed mocks. Please see tests in chainlink-ccip for detailed tests using real attestations
+func mockAttestationResponse() *httptest.Server {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		response := `{
+			"status": "complete",
+			"attestation": "0x9049623e91719ef2aa63c55f357be2529b0e7122ae552c18aff8db58b4633c4d3920ff03d3a6d1ddf11f06bf64d7fd60d45447ac81f527ba628877dc5ca759651b08ffae25a6d3b1411749765244f0a1c131cbfe04430d687a2e12fd9d2e6dc08e118ad95d94ad832332cf3c4f7a4f3da0baa803b7be024b02db81951c0f0714de1b"
+		}`
+
+		_, err := w.Write([]byte(response))
+		if err != nil {
+			panic(err)
+		}
+	}))
+	return server
 }
 
 func NewLocalDevEnvironment(
@@ -125,6 +153,76 @@ func NewLocalDevEnvironment(
 	// fund the nodes
 	FundNodes(t, zeroLogLggr, testEnv, cfg, don.PluginNodes())
 
+	output, err := changeset.DeployPrerequisites(*e, changeset.DeployPrerequisiteConfig{
+		ChainSelectors: e.AllChainSelectors(),
+	})
+	require.NoError(t, err)
+	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook))
+	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
+	for _, chain := range e.AllChainSelectors() {
+		mcmsCfg[chain] = commontypes.MCMSWithTimelockConfig{
+			Canceller:         commonchangeset.SingleGroupMCMS(t),
+			Bypasser:          commonchangeset.SingleGroupMCMS(t),
+			Proposer:          commonchangeset.SingleGroupMCMS(t),
+			TimelockExecutors: e.AllDeployerKeys(),
+			TimelockMinDelay:  big.NewInt(0),
+		}
+	}
+	output, err = commonchangeset.DeployMCMSWithTimelock(*e, mcmsCfg)
+	require.NoError(t, err)
+	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook))
+
+	state, err := ccipdeployment.LoadOnchainState(*e)
+	require.NoError(t, err)
+
+	var endpoint string
+	// When inmemory env then spin up in memory mock server
+	if testEnv == nil {
+		server := mockAttestationResponse()
+		defer server.Close()
+		endpoint = server.URL
+	} else {
+		err := ccipactions.SetMockServerWithUSDCAttestation(e.MockAdapter, nil)
+		require.NoError(t, err)
+		endpoint = e.MockAdapter.InternalEndpoint
+	}
+
+	tokenConfig := ccipdeployment.NewTestTokenConfig(state.Chains[feedSel].USDFeeds)
+	// Apply migration
+	output, err = changeset.InitialDeploy(*e, ccipdeployment.DeployCCIPContractConfig{
+		HomeChainSel:   homeChainSel,
+		FeedChainSel:   feedSel,
+		ChainsToDeploy: e.AllChainSelectors(),
+		TokenConfig:    tokenConfig,
+		OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
+		USDCConfig: ccipdeployment.USDCConfig{
+			Enabled: true,
+			USDCAttestationConfig: ccipdeployment.USDCAttestationConfig{
+				API:         endpoint,
+				APITimeout:  commonconfig.MustNewDuration(time.Second),
+				APIInterval: commonconfig.MustNewDuration(500 * time.Millisecond),
+			},
+		},
+	})
+	require.NoError(t, err)
+	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook))
+
+	// Ensure capreg logs are up to date.
+	ccipdeployment.ReplayLogs(t, e.Offchain, replayBlocks)
+
+	// Apply the jobs.
+	for nodeID, jobs := range output.JobSpecs {
+		for _, job := range jobs {
+			// Note these auto-accept
+			_, err := e.Offchain.ProposeJob(ctx,
+				&jobv1.ProposeJobRequest{
+					NodeId: nodeID,
+					Spec:   job,
+				})
+			require.NoError(t, err)
+		}
+	}
+
 	return ccipdeployment.DeployedEnv{
 		Env:          *e,
 		HomeChainSel: homeChainSel,
@@ -139,22 +237,6 @@ func NewLocalDevEnvironmentWithRMN(
 	numRmnNodes int,
 ) (ccipdeployment.DeployedEnv, devenv.RMNCluster) {
 	tenv, dockerenv, _ := NewLocalDevEnvironmentWithDefaultPrice(t, lggr)
-	state, err := ccipdeployment.LoadOnchainState(tenv.Env)
-	require.NoError(t, err)
-
-	// Deploy CCIP contracts.
-	newAddresses := deployment.NewMemoryAddressBook()
-	err = ccipdeployment.DeployCCIPContracts(tenv.Env, newAddresses, ccipdeployment.DeployCCIPContractConfig{
-		HomeChainSel:   tenv.HomeChainSel,
-		FeedChainSel:   tenv.FeedChainSel,
-		ChainsToDeploy: tenv.Env.AllChainSelectors(),
-		TokenConfig:    ccipdeployment.NewTestTokenConfig(state.Chains[tenv.FeedChainSel].USDFeeds),
-		MCMSConfig:     ccipdeployment.NewTestMCMSConfig(t, tenv.Env),
-		OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
-	})
-	require.NoError(t, err)
-	require.NoError(t, tenv.Env.ExistingAddresses.Merge(newAddresses))
-
 	l := logging.GetTestLogger(t)
 	config := GenerateTestRMNConfig(t, numRmnNodes, tenv, MustNetworksToRPCMap(dockerenv.EVMNetworks))
 	rmnCluster, err := devenv.NewRMNCluster(
