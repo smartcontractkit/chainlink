@@ -1,6 +1,8 @@
 package smoke
 
 import (
+	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
 	"golang.org/x/exp/maps"
 	"math/big"
 	"net/http"
@@ -30,7 +32,19 @@ import (
 func TestUSDCTokenTransfer(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := ccdeploy.Context(t)
-	tenv := ccdeploy.NewMemoryEnvironment(t, lggr, 2, 4, ccdeploy.MockLinkPrice, ccdeploy.MockWethPrice)
+	tenv, cluster, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr)
+
+	var endpoint string
+	// When inmemory env then spin up in memory mock server
+	if cluster == nil {
+		server := mockAttestationResponse()
+		defer server.Close()
+		endpoint = server.URL
+	} else {
+		err := actions.SetMockServerWithUSDCAttestation(tenv.Env.MockAdapter, nil)
+		require.NoError(t, err)
+		endpoint = tenv.Env.MockAdapter.InternalEndpoint
+	}
 
 	e := tenv.Env
 	state, err := ccdeploy.LoadOnchainState(e)
@@ -39,9 +53,6 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	allChainSelectors := maps.Keys(e.Chains)
 	sourceChain := allChainSelectors[0]
 	destChain := allChainSelectors[1]
-
-	server := mockAttestationResponse()
-	defer server.Close()
 
 	feeds := state.Chains[tenv.FeedChainSel].USDFeeds
 	tokenConfig := ccdeploy.NewTokenConfig()
@@ -70,7 +81,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 		USDCConfig: ccdeploy.USDCConfig{
 			Enabled: true,
 			USDCAttestationConfig: ccdeploy.USDCAttestationConfig{
-				API:         server.URL,
+				API:         endpoint,
 				APITimeout:  commonconfig.MustNewDuration(time.Second),
 				APIInterval: commonconfig.MustNewDuration(500 * time.Millisecond),
 			},
@@ -216,7 +227,7 @@ func mintAndAllow(
 	}
 }
 
-// transferAndWaitForSuccess sends a message from sourceChain to destChain and waits for it to be executed (commited + executed)
+// transferAndWaitForSuccess sends a message from sourceChain to destChain and waits for it to be executed
 func transferAndWaitForSuccess(
 	t *testing.T,
 	env deployment.Environment,

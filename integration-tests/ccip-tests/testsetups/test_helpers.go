@@ -105,10 +105,10 @@ func NewLocalDevEnvironment(
 		testEnv, cfg)
 	require.NoError(t, err)
 	e, don, err := devenv.NewEnvironment(ctx, lggr, *envConfig)
-
 	require.NoError(t, err)
 	require.NotNil(t, e)
 	e.ExistingAddresses = ab
+	e.MockAdapter = testEnv.MockAdapter
 
 	envNodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
@@ -301,6 +301,7 @@ func CreateDockerEnv(t *testing.T) (
 	builder := test_env.NewCLTestEnvBuilder().
 		WithTestConfig(&cfg).
 		WithTestInstance(t).
+		WithMockAdapter().
 		WithJobDistributor(cfg.CCIP.JobDistributorConfig).
 		WithStandardCleanup()
 
