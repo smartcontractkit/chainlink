@@ -18,7 +18,7 @@ import (
 	"github.com/urfave/cli"
 
 	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
-	mocksqlutil "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/mocks"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil/sqltest"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
@@ -355,7 +355,7 @@ func TestSetupSolanaRelayer(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	reg := plugins.NewLoopRegistry(lggr, nil, nil, nil, "")
 	ks := mocks.NewSolana(t)
-	ds := mocksqlutil.NewDataSource()
+	ds := sqltest.NewNoOpDataSource()
 
 	// config 3 chains but only enable 2 => should only be 2 relayer
 	nEnabledChains := 2
