@@ -10,7 +10,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -23,7 +22,7 @@ func TestDeployCCIPContracts(t *testing.T) {
 	})
 	// Deploy all the CCIP contracts.
 	homeChainSel, feedChainSel := allocateCCIPChainSelectors(e.Chains)
-	_ = DeployTestContracts(t, lggr, e.ExistingAddresses, homeChainSel, feedChainSel, e.Chains)
+	_ = DeployTestContracts(t, lggr, e.ExistingAddresses, homeChainSel, feedChainSel, e.Chains, MockLinkPrice, MockWethPrice)
 
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
@@ -45,6 +44,11 @@ func TestDeployCCIPContracts(t *testing.T) {
 	require.NotNil(t, s.Chains[feedChainSel].USDFeeds)
 
 	newAddresses := deployment.NewMemoryAddressBook()
+	err = DeployPrerequisiteChainContracts(e, newAddresses, e.AllChainSelectors())
+	require.NoError(t, err)
+	require.NoError(t, e.ExistingAddresses.Merge(newAddresses))
+
+	newAddresses = deployment.NewMemoryAddressBook()
 	err = DeployCCIPContracts(e, newAddresses, DeployCCIPContractConfig{
 		HomeChainSel:   homeChainSel,
 		FeedChainSel:   feedChainSel,

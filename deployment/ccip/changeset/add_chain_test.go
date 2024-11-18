@@ -38,8 +38,11 @@ func TestAddChainInbound(t *testing.T) {
 	newChain := e.Env.AllChainSelectorsExcluding([]uint64{e.HomeChainSel})[0]
 	// We deploy to the rest.
 	initialDeploy := e.Env.AllChainSelectorsExcluding([]uint64{newChain})
+	newAddresses := deployment.NewMemoryAddressBook()
+	err = ccipdeployment.DeployPrerequisiteChainContracts(e.Env, newAddresses, initialDeploy)
+	require.NoError(t, err)
+	require.NoError(t, e.Env.ExistingAddresses.Merge(newAddresses))
 
-	tokenConfig := ccipdeployment.NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
 	cfg := commontypes.MCMSWithTimelockConfig{
 		Canceller:         commondeployment.SingleGroupMCMS(t),
 		Bypasser:          commondeployment.SingleGroupMCMS(t),
@@ -54,7 +57,8 @@ func TestAddChainInbound(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NoError(t, e.Env.ExistingAddresses.Merge(out.AddressBook))
-	newAddresses := deployment.NewMemoryAddressBook()
+	newAddresses = deployment.NewMemoryAddressBook()
+	tokenConfig := ccipdeployment.NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
 	err = ccipdeployment.DeployCCIPContracts(e.Env, newAddresses, ccipdeployment.DeployCCIPContractConfig{
 		HomeChainSel:   e.HomeChainSel,
 		FeedChainSel:   e.FeedChainSel,
@@ -71,7 +75,7 @@ func TestAddChainInbound(t *testing.T) {
 	for _, source := range initialDeploy {
 		for _, dest := range initialDeploy {
 			if source != dest {
-				require.NoError(t, ccipdeployment.AddLane(e.Env, state, source, dest))
+				require.NoError(t, ccipdeployment.AddLaneWithDefaultPrices(e.Env, state, source, dest))
 			}
 		}
 	}
@@ -89,15 +93,15 @@ func TestAddChainInbound(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, e.Env.ExistingAddresses.Merge(out.AddressBook))
 
-	newChainAddresses := deployment.NewMemoryAddressBook()
-	err = ccipdeployment.DeployChainContracts(e.Env,
-		e.Env.Chains[newChain], newChainAddresses,
-		ccipdeployment.FeeTokenContracts{
-			LinkToken: state.Chains[newChain].LinkToken,
-			Weth9:     state.Chains[newChain].Weth9,
-		}, rmnHome)
+	newAddresses = deployment.NewMemoryAddressBook()
+	err = ccipdeployment.DeployPrerequisiteChainContracts(e.Env, newAddresses, []uint64{newChain})
 	require.NoError(t, err)
-	require.NoError(t, e.Env.ExistingAddresses.Merge(newChainAddresses))
+	require.NoError(t, e.Env.ExistingAddresses.Merge(newAddresses))
+	newAddresses = deployment.NewMemoryAddressBook()
+	err = ccipdeployment.DeployChainContracts(e.Env,
+		e.Env.Chains[newChain], newAddresses, rmnHome)
+	require.NoError(t, err)
+	require.NoError(t, e.Env.ExistingAddresses.Merge(newAddresses))
 	state, err = ccipdeployment.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
@@ -233,7 +237,7 @@ func TestAddChainInbound(t *testing.T) {
 	latesthdr, err := e.Env.Chains[newChain].Client.HeaderByNumber(testcontext.Get(t), nil)
 	require.NoError(t, err)
 	startBlock := latesthdr.Number.Uint64()
-	seqNr := ccipdeployment.TestSendRequest(t, e.Env, state, initialDeploy[0], newChain, true, router.ClientEVM2AnyMessage{
+	msgSentEvent := ccipdeployment.TestSendRequest(t, e.Env, state, initialDeploy[0], newChain, true, router.ClientEVM2AnyMessage{
 		Receiver:     common.LeftPadBytes(state.Chains[newChain].Receiver.Address().Bytes(), 32),
 		Data:         []byte("hello world"),
 		TokenAmounts: nil,
@@ -243,10 +247,10 @@ func TestAddChainInbound(t *testing.T) {
 	require.NoError(t,
 		ccipdeployment.ConfirmCommitWithExpectedSeqNumRange(t, e.Env.Chains[initialDeploy[0]], e.Env.Chains[newChain], state.Chains[newChain].OffRamp, &startBlock, cciptypes.SeqNumRange{
 			cciptypes.SeqNum(1),
-			cciptypes.SeqNum(seqNr),
+			cciptypes.SeqNum(msgSentEvent.SequenceNumber),
 		}))
 	require.NoError(t,
-		commonutils.JustError(ccipdeployment.ConfirmExecWithSeqNr(t, e.Env.Chains[initialDeploy[0]], e.Env.Chains[newChain], state.Chains[newChain].OffRamp, &startBlock, seqNr)))
+		commonutils.JustError(ccipdeployment.ConfirmExecWithSeqNr(t, e.Env.Chains[initialDeploy[0]], e.Env.Chains[newChain], state.Chains[newChain].OffRamp, &startBlock, msgSentEvent.SequenceNumber)))
 
 	linkAddress := state.Chains[newChain].LinkToken.Address()
 	feeQuoter := state.Chains[newChain].FeeQuoter
