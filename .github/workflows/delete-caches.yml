@@ -24,10 +24,14 @@ jobs:
         uses: actions/checkout@v4.1.2
 
       - name: Setup gh-actions-cache extension
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh extension install actions/gh-actions-cache
 
       - name: Retrieve Trunk SHA
         id: get-sha
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           SHA=$(gh pr view -R $REPO $PR_NUMBER --json mergeCommit --jq .mergeCommit.oid)
           echo "sha=$SHA" >> $GITHUB_OUTPUT

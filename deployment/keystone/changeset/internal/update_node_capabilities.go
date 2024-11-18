@@ -42,10 +42,15 @@ func UpdateNodeCapabilitiesImpl(lggr logger.Logger, req *UpdateNodeCapabilitiesI
 		return nil, fmt.Errorf("failed to add capabilities: %w", err)
 	}
 
+	p2pToUpdates := map[p2pkey.PeerID]NodeUpdate{}
+	for id, caps := range req.P2pToCapabilities {
+		p2pToUpdates[id] = NodeUpdate{Capabilities: caps}
+	}
+
 	updateNodesReq := &UpdateNodesRequest{
-		Chain:             req.Chain,
-		Registry:          req.Registry,
-		P2pToCapabilities: req.P2pToCapabilities,
+		Chain:        req.Chain,
+		Registry:     req.Registry,
+		P2pToUpdates: p2pToUpdates,
 	}
 	resp, err := UpdateNodes(lggr, updateNodesReq)
 	if err != nil {
