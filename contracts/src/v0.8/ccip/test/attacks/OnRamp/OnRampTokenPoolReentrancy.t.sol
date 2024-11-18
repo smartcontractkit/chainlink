@@ -37,11 +37,10 @@ contract OnRampTokenPoolReentrancy is OnRampSetup {
       remoteChainSelector: DEST_CHAIN_SELECTOR,
       remotePoolAddress: abi.encode(s_destPoolBySourceToken[s_sourceTokens[0]]),
       remoteTokenAddress: abi.encode(s_destTokens[0]),
-      allowed: true,
       outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
       inboundRateLimiterConfig: _getInboundRateLimiterConfig()
     });
-    s_maliciousTokenPool.applyChainUpdates(chainUpdates);
+    s_maliciousTokenPool.applyChainUpdates(new uint64[](0), chainUpdates);
     s_sourcePoolByToken[address(s_sourceToken)] = address(s_maliciousTokenPool);
 
     s_tokenAdminRegistry.setPool(address(s_sourceToken), address(s_maliciousTokenPool));

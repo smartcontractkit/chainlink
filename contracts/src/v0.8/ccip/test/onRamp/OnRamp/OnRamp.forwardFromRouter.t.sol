@@ -430,11 +430,10 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
       remoteChainSelector: DEST_CHAIN_SELECTOR,
       remotePoolAddress: abi.encode(s_destTokenPool),
       remoteTokenAddress: abi.encode(s_destToken),
-      allowed: true,
       outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
       inboundRateLimiterConfig: _getInboundRateLimiterConfig()
     });
-    newPool.applyChainUpdates(chainUpdates);
+    newPool.applyChainUpdates(new uint64[](0), chainUpdates);
 
     Client.EVM2AnyMessage memory message = _generateSingleTokenMessage(address(sourceETH), 1000);
 

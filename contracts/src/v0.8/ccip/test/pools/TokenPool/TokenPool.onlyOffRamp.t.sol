@@ -16,11 +16,10 @@ contract TokenPool_onlyOffRamp is TokenPoolSetup {
       remoteChainSelector: chainSelector,
       remotePoolAddress: abi.encode(address(1)),
       remoteTokenAddress: abi.encode(address(2)),
-      allowed: true,
       outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
       inboundRateLimiterConfig: _getInboundRateLimiterConfig()
     });
-    s_tokenPool.applyChainUpdates(chainUpdate);
+    s_tokenPool.applyChainUpdates(new uint64[](0), chainUpdate);
 
     Router.OffRamp[] memory offRampUpdates = new Router.OffRamp[](1);
     offRampUpdates[0] = Router.OffRamp({sourceChainSelector: chainSelector, offRamp: offRamp});
@@ -47,11 +46,10 @@ contract TokenPool_onlyOffRamp is TokenPoolSetup {
       remoteChainSelector: chainSelector,
       remotePoolAddress: abi.encode(address(1)),
       remoteTokenAddress: abi.encode(address(2)),
-      allowed: true,
       outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
       inboundRateLimiterConfig: _getInboundRateLimiterConfig()
     });
-    s_tokenPool.applyChainUpdates(chainUpdate);
+    s_tokenPool.applyChainUpdates(new uint64[](0), chainUpdate);
 
     Router.OffRamp[] memory offRampUpdates = new Router.OffRamp[](1);
     offRampUpdates[0] = Router.OffRamp({sourceChainSelector: chainSelector, offRamp: offRamp});
@@ -61,17 +59,11 @@ contract TokenPool_onlyOffRamp is TokenPoolSetup {
     // Should succeed now that we've added the chain
     s_tokenPool.onlyOffRampModifier(chainSelector);
 
-    chainUpdate[0] = TokenPool.ChainUpdate({
-      remoteChainSelector: chainSelector,
-      remotePoolAddress: abi.encode(address(1)),
-      remoteTokenAddress: abi.encode(address(2)),
-      allowed: false,
-      outboundRateLimiterConfig: RateLimiter.Config({isEnabled: false, capacity: 0, rate: 0}),
-      inboundRateLimiterConfig: RateLimiter.Config({isEnabled: false, capacity: 0, rate: 0})
-    });
+    uint64[] memory chainsToRemove = new uint64[](1);
+    chainsToRemove[0] = chainSelector;
 
     vm.startPrank(OWNER);
-    s_tokenPool.applyChainUpdates(chainUpdate);
+    s_tokenPool.applyChainUpdates(chainsToRemove, new TokenPool.ChainUpdate[](0));
 
     vm.startPrank(offRamp);
 
@@ -88,11 +80,10 @@ contract TokenPool_onlyOffRamp is TokenPoolSetup {
       remoteChainSelector: chainSelector,
       remotePoolAddress: abi.encode(address(1)),
       remoteTokenAddress: abi.encode(address(2)),
-      allowed: true,
       outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
       inboundRateLimiterConfig: _getInboundRateLimiterConfig()
     });
-    s_tokenPool.applyChainUpdates(chainUpdate);
+    s_tokenPool.applyChainUpdates(new uint64[](0), chainUpdate);
 
     vm.startPrank(offRamp);
 

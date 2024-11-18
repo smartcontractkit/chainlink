@@ -205,7 +205,6 @@ contract TokenPoolFactory is ITypeAndVersion {
 
       chainUpdates[i] = TokenPool.ChainUpdate({
         remoteChainSelector: remoteTokenPool.remoteChainSelector,
-        allowed: true,
         remotePoolAddress: remoteTokenPool.remotePoolAddress,
         remoteTokenAddress: remoteTokenPool.remoteTokenAddress,
         outboundRateLimiterConfig: remoteTokenPool.rateLimiterConfig,
@@ -227,7 +226,7 @@ contract TokenPoolFactory is ITypeAndVersion {
     address poolAddress = Create2.deploy(0, salt, abi.encodePacked(tokenPoolInitCode, tokenPoolInitArgs));
 
     // Apply the chain updates to the token pool
-    TokenPool(poolAddress).applyChainUpdates(chainUpdates);
+    TokenPool(poolAddress).applyChainUpdates(new uint64[](0), chainUpdates);
 
     // Begin the 2 step ownership transfer of the token pool to the msg.sender.
     IOwnable(poolAddress).transferOwnership(address(msg.sender)); // 2 step ownership transfer
