@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"google.golang.org/protobuf/proto"
@@ -15,16 +16,30 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	valuespb "github.com/smartcontractkit/chainlink-common/pkg/values/pb"
 
+	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
+)
+
+const (
+	defaultPruneFrequencySec   = 20
+	defaultPruneTimeoutSec     = 60
+	defaultPruneRecordAgeHours = 3
+	defaultPruneBatchSize      = 3000
 )
 
 // `DBStore` is a postgres-backed
 // data store that persists workflow progress.
 type DBStore struct {
-	lggr  logger.Logger
-	db    sqlutil.DataSource
-	clock clockwork.Clock
+	commonservices.StateMachine
+	lggr              logger.Logger
+	db                sqlutil.DataSource
+	shutdownWaitGroup sync.WaitGroup
+	chStop            commonservices.StopChan
+	clock             clockwork.Clock
 }
+
+var _ services.ServiceCtx = (*DBStore)(nil)
 
 // `workflowExecutionRow` describes a row
 // of the `workflow_executions` table
@@ -68,6 +83,47 @@ type workflowExecutionWithStep struct {
 	WECreatedAt  *time.Time `db:"we_created_at"`
 	WEUpdatedAt  *time.Time `db:"we_updated_at"`
 	WEFinishedAt *time.Time `db:"we_finished_at"`
+}
+
+func (d *DBStore) Start(context.Context) error {
+	return d.StartOnce("DBStore", func() error {
+		d.shutdownWaitGroup.Add(1)
+		go d.pruneDBEntries()
+		return nil
+	})
+}
+
+func (d *DBStore) Close() error {
+	return d.StopOnce("DBStore", func() error {
+		close(d.chStop)
+		d.shutdownWaitGroup.Wait()
+		return nil
+	})
+}
+
+func (d *DBStore) pruneDBEntries() {
+	defer d.shutdownWaitGroup.Done()
+	ticker := time.NewTicker(defaultPruneFrequencySec * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-d.chStop:
+			return
+		case <-ticker.C:
+			ctx, cancel := d.chStop.CtxWithTimeout(defaultPruneTimeoutSec * time.Second)
+			err := sqlutil.TransactDataSource(ctx, d.db, nil, func(tx sqlutil.DataSource) error {
+				stmt := fmt.Sprintf("DELETE FROM workflow_executions WHERE (id) IN (SELECT id FROM workflow_executions WHERE (created_at < now() - interval '%d hours') LIMIT %d);", defaultPruneRecordAgeHours, defaultPruneBatchSize)
+				_, err := tx.ExecContext(ctx, stmt)
+				return err
+			})
+			if err != nil {
+				d.lggr.Errorw("Failed to prune workflow_executions", "err", err)
+			} else {
+				d.lggr.Infow("Pruned oldest workflow_executions", "batchSize", defaultPruneBatchSize, "ageLimitHours", defaultPruneRecordAgeHours)
+			}
+			cancel()
+		}
+	}
 }
 
 // `UpdateStatus` updates the status of the given workflow execution
@@ -407,5 +463,13 @@ func (d *DBStore) GetUnfinished(ctx context.Context, workflowID string, offset, 
 }
 
 func NewDBStore(ds sqlutil.DataSource, lggr logger.Logger, clock clockwork.Clock) *DBStore {
-	return &DBStore{db: ds, lggr: lggr.Named("WorkflowDBStore"), clock: clock}
+	return &DBStore{db: ds, lggr: lggr.Named("WorkflowDBStore"), clock: clock, chStop: make(chan struct{})}
+}
+
+func (d *DBStore) HealthReport() map[string]error {
+	return map[string]error{d.Name(): d.Healthy()}
+}
+
+func (d *DBStore) Name() string {
+	return d.lggr.Name()
 }

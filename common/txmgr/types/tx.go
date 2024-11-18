@@ -159,6 +159,10 @@ type TxMeta[ADDR types.Hashable, TX_HASH types.Hashable] struct {
 	MessageIDs []string `json:"MessageIDs,omitempty"`
 	// SeqNumbers is used by CCIP for tx to committed sequence numbers correlation in logs
 	SeqNumbers []uint64 `json:"SeqNumbers,omitempty"`
+
+	// Dual Broadcast
+	DualBroadcast       *bool   `json:"DualBroadcast,omitempty"`
+	DualBroadcastParams *string `json:"DualBroadcastParams,omitempty"`
 }
 
 type TxAttempt[

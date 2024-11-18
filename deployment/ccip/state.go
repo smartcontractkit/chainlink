@@ -2,6 +2,9 @@ package ccipdeployment
 
 import (
 	"fmt"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_messenger"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_transmitter"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/usdc_token_pool"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -17,6 +20,7 @@ import (
 	common_v1_0 "github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/registry_module_owner_custom"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
 
@@ -45,7 +49,8 @@ type CCIPChainState struct {
 	OnRamp             *onramp.OnRamp
 	OffRamp            *offramp.OffRamp
 	FeeQuoter          *fee_quoter.FeeQuoter
-	RMNProxy           *rmn_proxy_contract.RMNProxyContract
+	RMNProxyNew        *rmn_proxy_contract.RMNProxyContract
+	RMNProxyExisting   *rmn_proxy_contract.RMNProxyContract
 	NonceManager       *nonce_manager.NonceManager
 	TokenAdminRegistry *token_admin_registry.TokenAdminRegistry
 	RegistryModule     *registry_module_owner_custom.RegistryModuleOwnerCustom
@@ -53,6 +58,7 @@ type CCIPChainState struct {
 	CommitStore        *commit_store.CommitStore
 	Weth9              *weth9.WETH9
 	RMNRemote          *rmn_remote.RMNRemote
+	MockRMN            *mock_rmn_contract.MockRMNContract
 	// TODO: May need to support older link too
 	LinkToken *burn_mint_erc677.BurnMintERC677
 	// Map between token Descriptor (e.g. LinkSymbol, WethSymbol)
@@ -77,8 +83,11 @@ type CCIPChainState struct {
 	CCIPConfig *ccip_config.CCIPConfig
 
 	// Test contracts
-	Receiver   *maybe_revert_message_receiver.MaybeRevertMessageReceiver
-	TestRouter *router.Router
+	Receiver               *maybe_revert_message_receiver.MaybeRevertMessageReceiver
+	TestRouter             *router.Router
+	USDCTokenPool          *usdc_token_pool.USDCTokenPool
+	MockUSDCTransmitter    *mock_usdc_token_transmitter.MockE2EUSDCTransmitter
+	MockUSDCTokenMessenger *mock_usdc_token_messenger.MockE2EUSDCTokenMessenger
 }
 
 func (c CCIPChainState) GenerateView() (view.ChainView, error) {
@@ -150,12 +159,12 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 		chainView.CommitStore[c.CommitStore.Address().Hex()] = commitStoreView
 	}
 
-	if c.RMNProxy != nil {
-		rmnProxyView, err := v1_0.GenerateRMNProxyView(c.RMNProxy)
+	if c.RMNProxyNew != nil {
+		rmnProxyView, err := v1_0.GenerateRMNProxyView(c.RMNProxyNew)
 		if err != nil {
 			return chainView, err
 		}
-		chainView.RMNProxy[c.RMNProxy.Address().Hex()] = rmnProxyView
+		chainView.RMNProxy[c.RMNProxyNew.Address().Hex()] = rmnProxyView
 	}
 	if c.CapabilityRegistry != nil {
 		capRegView, err := common_v1_0.GenerateCapabilityRegistryView(c.CapabilityRegistry)
@@ -284,7 +293,25 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 			if err != nil {
 				return state, err
 			}
-			state.RMNProxy = armProxy
+			state.RMNProxyExisting = armProxy
+		case deployment.NewTypeAndVersion(ARMProxy, deployment.Version1_6_0_dev).String():
+			armProxy, err := rmn_proxy_contract.NewRMNProxyContract(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.RMNProxyNew = armProxy
+		case deployment.NewTypeAndVersion(ARMProxy, deployment.Version1_6_0_dev).String():
+			armProxy, err := rmn_proxy_contract.NewRMNProxyContract(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.RMNProxyNew = armProxy
+		case deployment.NewTypeAndVersion(MockRMN, deployment.Version1_0_0).String():
+			mockRMN, err := mock_rmn_contract.NewMockRMNContract(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.MockRMN = mockRMN
 		case deployment.NewTypeAndVersion(RMNRemote, deployment.Version1_6_0_dev).String():
 			rmnRemote, err := rmn_remote.NewRMNRemote(common.HexToAddress(address), chain.Client)
 			if err != nil {
@@ -351,6 +378,32 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				return state, err
 			}
 			state.LinkToken = lt
+		case deployment.NewTypeAndVersion(USDCToken, deployment.Version1_0_0).String():
+			ut, err := burn_mint_erc677.NewBurnMintERC677(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.BurnMintTokens677 = map[TokenSymbol]*burn_mint_erc677.BurnMintERC677{
+				USDCSymbol: ut,
+			}
+		case deployment.NewTypeAndVersion(USDCTokenPool, deployment.Version1_0_0).String():
+			utp, err := usdc_token_pool.NewUSDCTokenPool(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.USDCTokenPool = utp
+		case deployment.NewTypeAndVersion(USDCMockTransmitter, deployment.Version1_0_0).String():
+			umt, err := mock_usdc_token_transmitter.NewMockE2EUSDCTransmitter(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.MockUSDCTransmitter = umt
+		case deployment.NewTypeAndVersion(USDCTokenMessenger, deployment.Version1_0_0).String():
+			utm, err := mock_usdc_token_messenger.NewMockE2EUSDCTokenMessenger(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.MockUSDCTokenMessenger = utm
 		case deployment.NewTypeAndVersion(CCIPHome, deployment.Version1_6_0_dev).String():
 			ccipHome, err := ccip_home.NewCCIPHome(common.HexToAddress(address), chain.Client)
 			if err != nil {

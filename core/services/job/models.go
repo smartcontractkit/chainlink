@@ -185,7 +185,6 @@ type Job struct {
 	CCIPSpecID                    *int32
 	CCIPSpec                      *CCIPSpec
 	CCIPBootstrapSpecID           *int32
-	AdaptiveSendSpec              *AdaptiveSendSpec `toml:"adaptiveSend"`
 	JobSpecErrors                 []SpecError
 	Type                          Type          `toml:"type"`
 	SchemaVersion                 uint32        `toml:"schemaVersion"`
@@ -1060,27 +1059,4 @@ type CCIPSpec struct {
 	// PluginConfig contains plugin-specific config, like token price pipelines
 	// and RMN network info for offchain blessing.
 	PluginConfig JSONConfig `toml:"pluginConfig"`
-}
-
-type AdaptiveSendSpec struct {
-	TransmitterAddress *evmtypes.EIP55Address `toml:"transmitterAddress"`
-	ContractAddress    *evmtypes.EIP55Address `toml:"contractAddress"`
-	Delay              time.Duration          `toml:"delay"`
-	Metadata           JSONConfig             `toml:"metadata"`
-}
-
-func (o *AdaptiveSendSpec) Validate() error {
-	if o.TransmitterAddress == nil {
-		return errors.New("no AdaptiveSendSpec.TransmitterAddress found")
-	}
-
-	if o.ContractAddress == nil {
-		return errors.New("no AdaptiveSendSpec.ContractAddress found")
-	}
-
-	if o.Delay.Seconds() <= 1 {
-		return errors.New("AdaptiveSendSpec.Delay not set or smaller than 1s")
-	}
-
-	return nil
 }

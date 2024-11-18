@@ -99,6 +99,7 @@ core/scripts/gateway @smartcontractkit/dev-services
 # TODO: transmission folder, owner should be found
 /contracts/src/v0.8/vrf @smartcontractkit/dev-services
 /contracts/src/v0.8/keystone @smartcontractkit/keystone
+/contracts/src/v0.8/workflow @smartcontractkit/dev-services
 
 /core/gethwrappers/ccip @smartcontractkit/ccip-onchain
 /core/gethwrappers/functions @smartcontractkit/dev-services
@@ -107,6 +108,7 @@ core/scripts/gateway @smartcontractkit/dev-services
 /core/gethwrappers/llo-feeds @smartcontractkit/data-streams-engineers
 /core/gethwrappers/operatorforwarder @smartcontractkit/data-feeds-engineers
 /core/gethwrappers/shared @smartcontractkit/core-solidity
+/core/gethwrappers/workflow @smartcontractkit/dev-services
 
 # The following don't exist yet but should. They are already included here to allow the teams to
 # set these folders up and own them immediately.
