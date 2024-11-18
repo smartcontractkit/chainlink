@@ -5,6 +5,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/require"
+	"golang.org/x/exp/maps"
+
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccdeploy "github.com/smartcontractkit/chainlink/deployment/ccip"
@@ -13,8 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/multicall3"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/maps"
 )
 
 func Test_CCIPBatching(t *testing.T) {
