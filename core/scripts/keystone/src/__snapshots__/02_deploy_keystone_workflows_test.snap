@@ -8,7 +8,7 @@ workflow = """
 name: "ccip_kiab1" 
 owner: '0x1234567890abcdef1234567890abcdef12345678'
 triggers:
- - id: streams-trigger@1.0.0
+ - id: streams-trigger@1.1.0
    config:
      maxFrequencyMs: 10000
      feedIds:
