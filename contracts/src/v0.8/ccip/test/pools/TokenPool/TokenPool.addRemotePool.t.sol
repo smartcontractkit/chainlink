@@ -44,16 +44,6 @@ contract TokenPool_addRemotePool is TokenPoolSetup {
     uint64 chainSelector = DEST_CHAIN_SELECTOR;
     bytes memory remotePool = abi.encode(type(uint256).max);
 
-    // TokenPool.ChainUpdate[] memory chainUpdates = new TokenPool.ChainUpdate[](1);
-    // chainUpdates[0] = TokenPool.ChainUpdate({
-    //     remoteChainSelector: chainSelector,
-    //     remotePoolAddress: abi.encode(initialPool),
-    //     remoteTokenAddress: abi.encode(remoteToken),
-    //     outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
-    //     inboundRateLimiterConfig: _getInboundRateLimiterConfig()
-    // });
-    // s_tokenPool.applyChainUpdates(new uint64[](0), chainUpdates);
-
     vm.expectRevert(abi.encodeWithSelector(TokenPool.NonExistentChain.selector, chainSelector));
 
     s_tokenPool.addRemotePool(chainSelector, remotePool);
