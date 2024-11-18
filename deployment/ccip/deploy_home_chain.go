@@ -374,6 +374,7 @@ func BuildOCR3ConfigForCCIPHome(
 	tokenInfo map[ccipocr3.UnknownEncodedAddress]pluginconfig.TokenInfo,
 	nodes deployment.Nodes,
 	rmnHomeAddress common.Address,
+	configs []pluginconfig.TokenDataObserverConfig,
 ) (map[cctypes.PluginType]ccip_home.CCIPHomeOCR3Config, error) {
 	p2pIDs := nodes.PeerIDs()
 	// Get OCR3 Config from helper
@@ -417,7 +418,7 @@ func BuildOCR3ConfigForCCIPHome(
 				InflightCacheExpiry:       *commonconfig.MustNewDuration(InflightCacheExpiry),
 				RootSnoozeTime:            *commonconfig.MustNewDuration(RootSnoozeTime),
 				BatchingStrategyID:        BatchingStrategyID,
-				TokenDataObservers:        []pluginconfig.TokenDataObserverConfig{},
+				TokenDataObservers:        configs,
 			})
 		}
 		if err2 != nil {
@@ -948,8 +949,10 @@ func AddDON(
 	dest deployment.Chain,
 	home deployment.Chain,
 	nodes deployment.Nodes,
+	tokenConfigs []pluginconfig.TokenDataObserverConfig,
 ) error {
-	ocrConfigs, err := BuildOCR3ConfigForCCIPHome(ocrSecrets, offRamp, dest, feedChainSel, tokenInfo, nodes, rmnHomeAddress)
+	ocrConfigs, err := BuildOCR3ConfigForCCIPHome(
+		ocrSecrets, offRamp, dest, feedChainSel, tokenInfo, nodes, rmnHomeAddress, tokenConfigs)
 	if err != nil {
 		return err
 	}
