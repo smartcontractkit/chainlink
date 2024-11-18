@@ -17,80 +17,44 @@ import (
 
 type Toolkit struct{}
 
+func (t *Toolkit) Name() string {
+	return "toolkit"
+}
+
 func NewToolkit() *Toolkit {
 	return &Toolkit{}
 }
 
-func (t *Toolkit) DeployWorkflow(args []string) {
-	fs := flag.NewFlagSet("deploy-workflow", flag.ExitOnError)
-	workflowFile := fs.String("workflow", "", "Path to workflow file")
-	nodesList := fs.String("nodes", ".cache/NodesList.txt", "Path to file with list of nodes")
-
-	if err := fs.Parse(args); err != nil {
-		fs.Usage()
+func (t *Toolkit) Run(args []string) {
+	if len(args) < 1 {
+		fmt.Println("Available commands:")
+		fmt.Println("  deploy-workflows")
+		fmt.Println("  deploy-ocr3-contracts")
+		fmt.Println("  deploy-ocr3-jobspecs")
 		os.Exit(1)
 	}
 
-	if *workflowFile == "" {
-		fs.Usage()
+	command := args[0]
+	cmdArgs := args[1:]
+
+	switch command {
+	case "deploy-workflows":
+		t.DeployWorkflows(cmdArgs)
+	case "deploy-ocr3-contracts":
+		t.ProvisionOCR3Contracts(cmdArgs)
+	case "deploy-ocr3-jobspecs":
+		t.DeployOCR3JobSpecs(cmdArgs)
+	default:
+		fmt.Printf("Unknown command: %s\n", command)
 		os.Exit(1)
-	}
-	nodesWithCreds := mustReadNodesList(*nodesList)
-
-	for _, node := range nodesWithCreds {
-		api := newNodeAPI(node)
-		workflowContent, err := os.ReadFile(*workflowFile)
-		PanicErr(err)
-
-		upsertJob(api, "workflow", string(workflowContent))
-		fmt.Println("Workflow deployed successfully")
 	}
 }
 
-func (t *Toolkit) DeployOCR3JobSpecs(args []string) {
-	fs := flag.NewFlagSet("deploy-ocr3-jobspecs", flag.ExitOnError)
-	chainID := fs.Int64("chainid", 0, "Chain ID")
-	p2pPort := fs.Int64("p2pport", 6690, "P2P port")
-	nodesListPath := fs.String("nodes", ".cache/NodesList.txt", "Path to file with list of nodes")
-	artefactsDir := fs.String("artefacts", defaultArtefactsDir, "Custom artefacts directory location")
+func (t *Toolkit) ProvisionOCR3Contracts(args []string) {
+	fs := flag.NewFlagSet("deploy-ocr3-contracts", flag.ExitOnError)
 	ethURL := fs.String("ethurl", "", "URL of the Ethereum node")
 	accountKey := fs.String("accountkey", "", "Private key of the deployer account")
-
-	os.Setenv("ETH_URL", *ethURL)
-	os.Setenv("ETH_CHAIN_ID", strconv.FormatInt(*chainID, 10))
-	os.Setenv("ACCOUNT_KEY", *accountKey)
-	os.Setenv("INSECURE_SKIP_VERIFY", "true")
-
-	env := helpers.SetupEnv(false)
-
-	if err := fs.Parse(args); err != nil {
-		fs.Usage()
-		os.Exit(1)
-	}
-
-	if *chainID == 0 {
-		fs.Usage()
-		os.Exit(1)
-	}
-
-	nodes := mustReadNodesList(*nodesListPath)
-	nodeKeys := mustFetchNodeKeys(*chainID, nodes, true)
-	o := LoadOnchainMeta(*artefactsDir, env)
-
-	deployOCR3JobSpecs(
-		nodes,
-		*chainID,
-		nodeKeys,
-		*p2pPort,
-		o,
-	)
-}
-
-func (t *Toolkit) ProvisionOCR3andForwarder(args []string) {
-	fs := flag.NewFlagSet("deploy-ocr3-and-forwarder", flag.ExitOnError)
-	ethURL := fs.String("ethurl", "", "URL of the Ethereum node")
-	accountKey := fs.String("accountkey", "", "Private key of the deployer account")
-	chainID := fs.Int64("chainid", 0, "Chain ID")
+	chainID := fs.Int64("chainid", 1337, "Chain ID")
 	nodesListPath := fs.String("nodes", ".cache/NodesList.txt", "Path to file with list of nodes")
 	artefactsDir := fs.String("artefacts", defaultArtefactsDir, "Custom artefacts directory location")
 	ocrConfigFile := fs.String("ocrfile", "ocr_config.json", "Path to OCR config file")
@@ -116,39 +80,73 @@ func (t *Toolkit) ProvisionOCR3andForwarder(args []string) {
 	nodes := mustReadNodesList(*nodesListPath)
 	nodeKeys := mustFetchNodeKeys(*chainID, nodes, true)
 
-	deployForwarder(env, *artefactsDir)
 	deployOCR3Contract(nodeKeys, env, *ocrConfigFile, *artefactsDir)
-
-	distributeFunds(nodeKeys, env)
 }
 
-func (t *Toolkit) Run(args []string) {
-	if len(args) < 1 {
-		fmt.Println("Available commands:")
-		fmt.Println("  deploy-workflow")
-		fmt.Println("  deploy-ocr3-contracts")
-		fmt.Println("  deploy-ocr3-jobspecs")
+func (t *Toolkit) DeployOCR3JobSpecs(args []string) {
+	fs := flag.NewFlagSet("deploy-ocr3-jobspecs", flag.ExitOnError)
+
+	ethURL := fs.String("ethurl", "", "URL of the Ethereum node")
+	accountKey := fs.String("accountkey", "", "Private key of the deployer account")
+	chainID := fs.Int64("chainid", 1337, "Chain ID")
+	nodesListPath := fs.String("nodes", ".cache/NodesList.txt", "Path to file with list of nodes")
+	p2pPort := fs.Int64("p2pport", 6690, "P2P port")
+	artefactsDir := fs.String("artefacts", defaultArtefactsDir, "Custom artefacts directory location")
+
+	os.Setenv("ETH_URL", *ethURL)
+	os.Setenv("ETH_CHAIN_ID", strconv.FormatInt(*chainID, 10))
+	os.Setenv("ACCOUNT_KEY", *accountKey)
+	os.Setenv("INSECURE_SKIP_VERIFY", "true")
+
+	env := helpers.SetupEnv(false)
+
+	if err := fs.Parse(args); err != nil {
+		fs.Usage()
 		os.Exit(1)
 	}
 
-	command := args[0]
-	cmdArgs := args[1:]
-
-	switch command {
-	case "deploy-workflow":
-		t.DeployWorkflow(cmdArgs)
-	case "deploy-ocr3-contracts":
-		t.ProvisionOCR3andForwarder(cmdArgs)
-	case "deploy-ocr3-jobspecs":
-		t.DeployOCR3JobSpecs(cmdArgs)
-	default:
-		fmt.Printf("Unknown command: %s\n", command)
+	if *ethURL == "" || *accountKey == "" {
+		fs.Usage()
 		os.Exit(1)
 	}
+
+	nodes := mustReadNodesList(*nodesListPath)
+	nodeKeys := mustFetchNodeKeys(*chainID, nodes, true)
+	o := LoadOnchainMeta(*artefactsDir, env)
+
+	deployOCR3JobSpecs(
+		nodes,
+		*chainID,
+		nodeKeys,
+		*p2pPort,
+		o,
+	)
 }
 
-func (t *Toolkit) Name() string {
-	return "toolkit"
+func (t *Toolkit) DeployWorkflows(args []string) {
+	fs := flag.NewFlagSet("deploy-workflows", flag.ExitOnError)
+	workflowFile := fs.String("workflow", "", "Path to workflow file")
+	nodesList := fs.String("nodes", ".cache/NodesList.txt", "Path to file with list of nodes")
+
+	if err := fs.Parse(args); err != nil {
+		fs.Usage()
+		os.Exit(1)
+	}
+
+	if *workflowFile == "" {
+		fs.Usage()
+		os.Exit(1)
+	}
+	nodesWithCreds := mustReadNodesList(*nodesList)
+
+	for _, node := range nodesWithCreds {
+		api := newNodeAPI(node)
+		workflowContent, err := os.ReadFile(*workflowFile)
+		PanicErr(err)
+
+		upsertJob(api, "workflow", string(workflowContent))
+		fmt.Println("Workflow deployed successfully")
+	}
 }
 
 // Reads in a list of nodes from a file, where each line is in the format:
@@ -158,7 +156,7 @@ func mustReadNodesList(path string) []NodeWithCreds {
 	nodesList, err := readLines(path)
 	helpers.PanicErr(err)
 
-	var nodes []NodeWithCreds
+	nodes := make([]NodeWithCreds, 0, len(nodesList))
 	for _, r := range nodesList {
 		rr := strings.TrimSpace(r)
 		if len(rr) == 0 {
