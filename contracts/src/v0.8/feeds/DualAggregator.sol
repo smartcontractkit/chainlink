@@ -60,7 +60,7 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
   uint24 internal s_accountingGas;
 
   // Storing these fields used on the hot path in a HotVars variable reduces the
-  // retrieval of all of them to two SLOADs.
+  // retrieval of all of them to one SLOAD.
   struct HotVars {
     uint8 f; //  ─────────────────────────╮ Maximum number of faulty oracles.
     //                                    │
@@ -74,7 +74,8 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
     uint32 maximumGasPriceGwei; //        │ Highest compensated gas price, in gwei uints.
     uint32 reasonableGasPriceGwei; //     │ If gas price is less (in gwei units), transmitter gets half the savings.
     uint32 observationPaymentGjuels; //   │ Fixed LINK reward for each observer.
-    uint32 transmissionPaymentGjuels; // ─╯ Fixed reward for transmitter.
+    uint32 transmissionPaymentGjuels; //  │ Fixed reward for transmitter.
+    bool isLatestSecondary; // ───────────╯ Whether the latest report was secondary or not
   }
 
   HotVars internal s_hotVars;
@@ -427,9 +428,6 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
   // max iterations the secondary proxy will be able to loop to sync with the primary rounds
   uint32 internal s_maxSyncIterations;
 
-  // whether the latest report was secondary or not
-  bool internal s_latestSecondary;
-
   /// @notice indicates that a new report arrived from the secondary feed and the round id was updated
   /// @param secondaryRoundId the new secondary round id
   event SecondaryRoundIdUpdated(uint32 indexed secondaryRoundId);
@@ -526,6 +524,7 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
     // get the latest round ids
     uint32 latestAggregatorRoundId = s_hotVars.latestAggregatorRoundId;
     uint32 latestSecondaryRoundId = s_hotVars.latestSecondaryRoundId;
+    bool isLatestSecondary = s_hotVars.isLatestSecondary;
 
     // check if the message sender is the secondary proxy
     if (msg.sender == i_secondaryProxy) {
@@ -541,7 +540,7 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
     // in case the report was sent by the secondary proxy
     if (latestAggregatorRoundId == latestSecondaryRoundId) {
       // in case the transmission was sent in this same block only by the secondary proxy, return the previous round id
-      if (s_latestSecondary && s_transmissions[latestAggregatorRoundId].recordedTimestamp == block.timestamp) {
+      if (isLatestSecondary && s_transmissions[latestAggregatorRoundId].recordedTimestamp == block.timestamp) {
         return latestAggregatorRoundId - 1;
       }
     }
@@ -722,7 +721,7 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
 
     // Only skip the report transmission in case the epochAndRound is equal to the latestEpochAndRound
     // and the latest sender was the secondary feed
-    if (epochAndRound != hotVars.latestEpochAndRound || !s_latestSecondary) {
+    if (epochAndRound != hotVars.latestEpochAndRound || !hotVars.isLatestSecondary) {
       // In case the epochAndRound is lower or equal than the latestEpochAndRound, it's a stale report
       // because it's older or has already been transmitted
       if (epochAndRound <= hotVars.latestEpochAndRound) {
@@ -733,7 +732,7 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
     }
 
     // Store if the latest report was secondary or not
-    s_latestSecondary = isSecondary;
+    s_hotVars.isLatestSecondary = isSecondary;
     _payTransmitter(hotVars, report_.juelsPerFeeCoin, uint32(initialGas));
   }
 
