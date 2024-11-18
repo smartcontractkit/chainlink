@@ -7,14 +7,8 @@ import (
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
-)
-
-const (
-	BypasserManyChainMultisig  deployment.ContractType = "BypasserManyChainMultiSig"
-	CancellerManyChainMultisig deployment.ContractType = "CancellerManyChainMultiSig"
-	ProposerManyChainMultisig  deployment.ContractType = "ProposerManyChainMultiSig"
-	RBACTimelock               deployment.ContractType = "RBACTimelock"
 )
 
 // MCMSWithTimelockState holds the Go bindings
@@ -75,34 +69,31 @@ func LoadMCMSWithTimelockState(chain deployment.Chain, addresses map[string]depl
 	state := MCMSWithTimelockState{}
 	for address, tvStr := range addresses {
 		switch tvStr.String() {
-		case deployment.NewTypeAndVersion(RBACTimelock, deployment.Version1_0_0).String():
+		case deployment.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0).String():
 			tl, err := owner_helpers.NewRBACTimelock(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return nil, err
 			}
 			state.Timelock = tl
-		case deployment.NewTypeAndVersion(ProposerManyChainMultisig, deployment.Version1_0_0).String():
+		case deployment.NewTypeAndVersion(types.ProposerManyChainMultisig, deployment.Version1_0_0).String():
 			mcms, err := owner_helpers.NewManyChainMultiSig(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return nil, err
 			}
 			state.ProposerMcm = mcms
-		case deployment.NewTypeAndVersion(BypasserManyChainMultisig, deployment.Version1_0_0).String():
+		case deployment.NewTypeAndVersion(types.BypasserManyChainMultisig, deployment.Version1_0_0).String():
 			mcms, err := owner_helpers.NewManyChainMultiSig(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return nil, err
 			}
 			state.BypasserMcm = mcms
-		case deployment.NewTypeAndVersion(CancellerManyChainMultisig, deployment.Version1_0_0).String():
+		case deployment.NewTypeAndVersion(types.CancellerManyChainMultisig, deployment.Version1_0_0).String():
 			mcms, err := owner_helpers.NewManyChainMultiSig(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return nil, err
 			}
 			state.CancellerMcm = mcms
 		}
-	}
-	if err := state.Validate(); err != nil {
-		return nil, errors.New("missing contract")
 	}
 	return &state, nil
 }

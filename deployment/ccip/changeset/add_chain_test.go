@@ -1,12 +1,13 @@
 package changeset
 
 import (
+	"math/big"
 	"testing"
 	"time"
 
 	ccipdeployment "github.com/smartcontractkit/chainlink/deployment/ccip"
 	commondeployment "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-
+	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -39,6 +40,20 @@ func TestAddChainInbound(t *testing.T) {
 	initialDeploy := e.Env.AllChainSelectorsExcluding([]uint64{newChain})
 
 	tokenConfig := ccipdeployment.NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
+	cfg := commontypes.MCMSWithTimelockConfig{
+		Canceller:         commondeployment.SingleGroupMCMS(t),
+		Bypasser:          commondeployment.SingleGroupMCMS(t),
+		Proposer:          commondeployment.SingleGroupMCMS(t),
+		TimelockExecutors: e.Env.AllDeployerKeys(),
+		TimelockMinDelay:  big.NewInt(0),
+	}
+	out, err := commondeployment.DeployMCMSWithTimelock(e.Env, map[uint64]commontypes.MCMSWithTimelockConfig{
+		initialDeploy[0]: cfg,
+		initialDeploy[1]: cfg,
+		initialDeploy[2]: cfg,
+	})
+	require.NoError(t, err)
+	require.NoError(t, e.Env.ExistingAddresses.Merge(out.AddressBook))
 	newAddresses := deployment.NewMemoryAddressBook()
 	err = ccipdeployment.DeployCCIPContracts(e.Env, newAddresses, ccipdeployment.DeployCCIPContractConfig{
 		HomeChainSel:   e.HomeChainSel,
@@ -68,6 +83,12 @@ func TestAddChainInbound(t *testing.T) {
 	require.NoError(t, err)
 
 	//  Deploy contracts to new chain
+	out, err = commondeployment.DeployMCMSWithTimelock(e.Env, map[uint64]commontypes.MCMSWithTimelockConfig{
+		newChain: cfg,
+	})
+	require.NoError(t, err)
+	require.NoError(t, e.Env.ExistingAddresses.Merge(out.AddressBook))
+
 	newChainAddresses := deployment.NewMemoryAddressBook()
 	err = ccipdeployment.DeployChainContracts(e.Env,
 		e.Env.Chains[newChain], newChainAddresses,

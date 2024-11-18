@@ -7,7 +7,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
 )
@@ -61,7 +60,7 @@ func DeployMCMSWithTimelockContractsBatch(
 	lggr logger.Logger,
 	chains map[uint64]deployment.Chain,
 	ab deployment.AddressBook,
-	cfgByChain map[uint64]changeset.MCMSWithTimelockConfig,
+	cfgByChain map[uint64]types.MCMSWithTimelockConfig,
 ) error {
 	for chainSel, cfg := range cfgByChain {
 		_, err := DeployMCMSWithTimelockContracts(lggr, chains[chainSel], ab, cfg)
@@ -83,15 +82,15 @@ func DeployMCMSWithTimelockContracts(
 	ab deployment.AddressBook,
 	config types.MCMSWithTimelockConfig,
 ) (*MCMSWithTimelockDeploy, error) {
-	bypasser, err := DeployMCMSWithConfig(BypasserManyChainMultisig, lggr, chain, ab, config.Bypasser)
+	bypasser, err := DeployMCMSWithConfig(types.BypasserManyChainMultisig, lggr, chain, ab, config.Bypasser)
 	if err != nil {
 		return nil, err
 	}
-	canceller, err := DeployMCMSWithConfig(CancellerManyChainMultisig, lggr, chain, ab, config.Canceller)
+	canceller, err := DeployMCMSWithConfig(types.CancellerManyChainMultisig, lggr, chain, ab, config.Canceller)
 	if err != nil {
 		return nil, err
 	}
-	proposer, err := DeployMCMSWithConfig(ProposerManyChainMultisig, lggr, chain, ab, config.Proposer)
+	proposer, err := DeployMCMSWithConfig(types.ProposerManyChainMultisig, lggr, chain, ab, config.Proposer)
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +111,7 @@ func DeployMCMSWithTimelockContracts(
 				[]common.Address{bypasser.Address},  // bypassers
 			)
 			return deployment.ContractDeploy[*owner_helpers.RBACTimelock]{
-				timelock, cc, tx2, deployment.NewTypeAndVersion(RBACTimelock, deployment.Version1_0_0), err2,
+				timelock, cc, tx2, deployment.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0), err2,
 			}
 		})
 	if err != nil {

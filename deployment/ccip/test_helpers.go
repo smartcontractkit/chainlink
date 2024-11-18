@@ -19,6 +19,7 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 
@@ -489,9 +490,9 @@ func ProcessChangeset(t *testing.T, e deployment.Environment, c deployment.Chang
 				chains.Add(uint64(op.ChainIdentifier))
 			}
 
-			signed := SignProposal(t, e, &prop)
+			signed := commoncs.SignProposal(t, e, &prop)
 			for _, sel := range chains.ToSlice() {
-				ExecuteProposal(t, e, signed, state, sel)
+				commoncs.ExecuteProposal(t, e, signed, state.Chains[sel].Timelock, sel)
 			}
 		}
 	}
