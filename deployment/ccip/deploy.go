@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/config"
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -155,7 +156,7 @@ func DeployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 			e.Logger.Errorw("Failed to deploy token admin registry", "err", err)
 			return err
 		}
-		e.Logger.Infow("deployed tokenAdminRegistry", "addr", tokenAdminRegistry)
+		e.Logger.Infow("deployed tokenAdminRegistry", "addr", tokenAdminRegistry.Address)
 		tokenAdminReg = tokenAdminRegistry.Contract
 	} else {
 		e.Logger.Infow("tokenAdminRegistry already deployed", "addr", tokenAdminReg.Address)
@@ -175,7 +176,7 @@ func DeployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 			e.Logger.Errorw("Failed to deploy custom registry module", "err", err)
 			return err
 		}
-		e.Logger.Infow("deployed custom registry module", "addr", customRegistryModule)
+		e.Logger.Infow("deployed custom registry module", "addr", customRegistryModule.Address)
 		registryModule = customRegistryModule.Contract
 	} else {
 		e.Logger.Infow("custom registry module already deployed", "addr", registryModule.Address)

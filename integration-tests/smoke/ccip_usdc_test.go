@@ -1,6 +1,7 @@
 package smoke
 
 import (
+	"github.com/stretchr/testify/assert"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -194,10 +195,11 @@ func TestUSDCTokenTransfer(t *testing.T) {
 
 			for _, token := range tt.tokens {
 				destToken := srcDstTokenMapping[token.Token]
-
-				balance, err := destToken.BalanceOf(&bind.CallOpts{Context: tests.Context(t)}, tt.receiver)
-				require.NoError(t, err)
-				require.Equal(t, new(big.Int).Add(initialBalances[token.Token], tinyOneCoin), balance)
+				assert.Eventually(t, func() bool {
+					balance, err := destToken.BalanceOf(&bind.CallOpts{Context: tests.Context(t)}, tt.receiver)
+					require.NoError(t, err)
+					return new(big.Int).Add(initialBalances[token.Token], tinyOneCoin) == balance
+				}, 1*time.Minute, 5*time.Second, "balance not updated")
 			}
 		})
 	}
