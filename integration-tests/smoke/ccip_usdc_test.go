@@ -129,6 +129,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 		sourceChain uint64
 		destChain   uint64
 		tokens      []router.ClientEVMTokenAmount
+		data        []byte
 	}{
 		{
 			name:        "single USDC token transfer to EOA",
@@ -140,6 +141,19 @@ func TestUSDCTokenTransfer(t *testing.T) {
 					Token:  dstUSDC.Address(),
 					Amount: tinyOneCoin,
 				}},
+		},
+		{
+			name:        "programmable token transfer to valid contract receiver",
+			receiver:    state.Chains[destChain].Receiver.Address(),
+			sourceChain: sourceChain,
+			destChain:   destChain,
+			tokens: []router.ClientEVMTokenAmount{
+				{
+					Token:  srcUSDC.Address(),
+					Amount: tinyOneCoin,
+				},
+			},
+			data: []byte("hello world"),
 		},
 	}
 
@@ -162,7 +176,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 				tt.destChain,
 				tt.tokens,
 				tt.receiver,
-				nil,
+				tt.data,
 			)
 
 			for _, token := range tt.tokens {
@@ -173,37 +187,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 				require.Equal(t, new(big.Int).Add(initialBalances[token.Token], tinyOneCoin), balance)
 			}
 		})
-
 	}
-
-	t.Run("programmable token transfer with USDC to contract", func(t *testing.T) {
-		// SourceChain -> DestChain
-		initialBalance, err := dstUSDC.BalanceOf(&bind.CallOpts{Context: tests.Context(t)}, state.Chains[destChain].Receiver.Address())
-		require.NoError(t, err)
-
-		transferAndWaitForSuccess(
-			t,
-			e,
-			state,
-			sourceChain,
-			destChain,
-			[]router.ClientEVMTokenAmount{
-				{
-					Token:  srcUSDC.Address(),
-					Amount: tinyOneCoin,
-				}},
-			state.Chains[destChain].Receiver.Address(),
-			[]byte("hello world"),
-		)
-
-		balance, err := dstUSDC.BalanceOf(&bind.CallOpts{Context: tests.Context(t)}, state.Chains[destChain].Receiver.Address())
-		require.NoError(t, err)
-		require.Equal(t, new(big.Int).Add(initialBalance, tinyOneCoin), balance)
-	})
-
-	//t.Run("USDC token together with other token transfer", func(t *testing.T) {
-	//
-	//})
 }
 
 // mintAndAllow mints tokens for deployers and allow router to spend them
