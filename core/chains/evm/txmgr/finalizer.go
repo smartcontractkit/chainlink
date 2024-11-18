@@ -227,7 +227,7 @@ func (f *evmFinalizer) processFinalizedHead(ctx context.Context, latestFinalized
 		return nil
 	}
 	if latestFinalizedHead.BlockNumber() < f.lastProcessedFinalizedBlockNum {
-		f.lggr.Errorw("Received finalized block older than one already processed. There could be an issue with one or more configured RPCs.", "lastProcessedFinalizedBlockNum", f.lastProcessedFinalizedBlockNum, "retrievedFinalizedBlockNum", latestFinalizedHead.BlockNumber())
+		f.lggr.Errorw("Received finalized block older than one already processed", "lastProcessedFinalizedBlockNum", f.lastProcessedFinalizedBlockNum, "retrievedFinalizedBlockNum", latestFinalizedHead.BlockNumber())
 		return nil
 	}
 
