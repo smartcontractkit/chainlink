@@ -134,11 +134,13 @@ func DeployUSDC(
 			}
 		})
 	if err != nil {
+		lggr.Errorw("Failed to deploy USDC token", "err", err)
 		return nil, nil, nil, nil, err
 	}
 
 	tx, err := token.Contract.GrantMintRole(chain.DeployerKey, chain.DeployerKey.From)
 	if err != nil {
+		lggr.Errorw("Failed to grant mint role", "token", token.Contract.Address(), "err", err)
 		return nil, nil, nil, nil, err
 	}
 	_, err = chain.Confirm(tx)
