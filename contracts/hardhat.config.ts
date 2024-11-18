@@ -132,6 +132,19 @@ let config = {
         version: '0.8.19',
         settings: COMPILER_SETTINGS,
       },
+      'src/v0.8/workflow/dev/WorkflowRegistry.sol': {
+        version: '0.8.24',
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 1000000, // see native_solc_compile_all_workflow
+          },
+          viaIR: true,
+          metadata: {
+            bytecodeHash: 'none',
+          },
+        },
+      },
     },
   },
   mocha: {

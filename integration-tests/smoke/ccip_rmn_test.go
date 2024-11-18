@@ -361,15 +361,15 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 		toChain := chainSelectors[msg.toChainIdx]
 
 		for i := 0; i < msg.count; i++ {
-			seqNum := ccipdeployment.TestSendRequest(t, envWithRMN.Env, onChainState, fromChain, toChain, false, router.ClientEVM2AnyMessage{
+			msgSentEvent := ccipdeployment.TestSendRequest(t, envWithRMN.Env, onChainState, fromChain, toChain, false, router.ClientEVM2AnyMessage{
 				Receiver:     common.LeftPadBytes(onChainState.Chains[toChain].Receiver.Address().Bytes(), 32),
 				Data:         []byte("hello world"),
 				TokenAmounts: nil,
 				FeeToken:     common.HexToAddress("0x0"),
 				ExtraArgs:    nil,
 			})
-			expectedSeqNum[toChain] = seqNum
-			t.Logf("Sent message from chain %d to chain %d with seqNum %d", fromChain, toChain, seqNum)
+			expectedSeqNum[toChain] = msgSentEvent.SequenceNumber
+			t.Logf("Sent message from chain %d to chain %d with seqNum %d", fromChain, toChain, msgSentEvent.SequenceNumber)
 		}
 
 		zero := uint64(0)

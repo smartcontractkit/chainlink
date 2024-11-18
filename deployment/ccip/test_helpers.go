@@ -15,6 +15,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
+
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
@@ -42,6 +43,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_v3_aggregator_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
 )
@@ -118,6 +120,8 @@ func DeployTestContracts(t *testing.T,
 	homeChainSel,
 	feedChainSel uint64,
 	chains map[uint64]deployment.Chain,
+	linkPrice *big.Int,
+	wethPrice *big.Int,
 ) deployment.CapabilityRegistryConfig {
 	capReg, err := DeployCapReg(lggr,
 		// deploying cap reg for the first time on a blank chain state
@@ -125,9 +129,7 @@ func DeployTestContracts(t *testing.T,
 			Chains: make(map[uint64]CCIPChainState),
 		}, ab, chains[homeChainSel])
 	require.NoError(t, err)
-	_, err = DeployFeeds(lggr, ab, chains[feedChainSel])
-	require.NoError(t, err)
-	err = DeployFeeTokensToChains(lggr, ab, chains)
+	_, err = DeployFeeds(lggr, ab, chains[feedChainSel], linkPrice, wethPrice)
 	require.NoError(t, err)
 	evmChainID, err := chainsel.ChainIdFromSelector(homeChainSel)
 	require.NoError(t, err)
@@ -166,7 +168,13 @@ func allocateCCIPChainSelectors(chains map[uint64]deployment.Chain) (homeChainSe
 
 // NewMemoryEnvironment creates a new CCIP environment
 // with capreg, fee tokens, feeds and nodes set up.
-func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, numChains int, numNodes int) DeployedEnv {
+func NewMemoryEnvironment(
+	t *testing.T,
+	lggr logger.Logger,
+	numChains int,
+	numNodes int,
+	linkPrice *big.Int,
+	wethPrice *big.Int) DeployedEnv {
 	require.GreaterOrEqual(t, numChains, 2, "numChains must be at least 2 for home and feed chains")
 	require.GreaterOrEqual(t, numNodes, 4, "numNodes must be at least 4")
 	ctx := testcontext.Get(t)
@@ -176,7 +184,7 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, numChains int, numNo
 	require.NoError(t, err)
 
 	ab := deployment.NewMemoryAddressBook()
-	crConfig := DeployTestContracts(t, lggr, ab, homeChainSel, feedSel, chains)
+	crConfig := DeployTestContracts(t, lggr, ab, homeChainSel, feedSel, chains, linkPrice, wethPrice)
 	nodes := memory.NewNodes(t, zapcore.InfoLevel, chains, numNodes, 1, crConfig)
 	for _, node := range nodes {
 		require.NoError(t, node.App.Start(ctx))
@@ -209,7 +217,19 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, numChains int, numNo
 // NewMemoryEnvironmentWithJobs creates a new CCIP environment
 // with capreg, fee tokens, feeds, nodes and jobs set up.
 func NewMemoryEnvironmentWithJobs(t *testing.T, lggr logger.Logger, numChains int, numNodes int) DeployedEnv {
-	e := NewMemoryEnvironment(t, lggr, numChains, numNodes)
+	e := NewMemoryEnvironment(t, lggr, numChains, numNodes, MockLinkPrice, MockWethPrice)
+	e.SetupJobs(t)
+	return e
+}
+
+func NewMemoryEnvironmentWithJobsAndPrices(
+	t *testing.T,
+	lggr logger.Logger,
+	numChains int,
+	numNodes int,
+	linkPrice *big.Int,
+	wethPrice *big.Int) DeployedEnv {
+	e := NewMemoryEnvironment(t, lggr, numChains, numNodes, linkPrice, wethPrice)
 	e.SetupJobs(t)
 	return e
 }
@@ -262,7 +282,7 @@ func TestSendRequest(
 	src, dest uint64,
 	testRouter bool,
 	evm2AnyMessage router.ClientEVM2AnyMessage,
-) (seqNum uint64) {
+) (msgSentEvent *onramp.OnRampCCIPMessageSent) {
 	t.Logf("Sending CCIP request from chain selector %d to chain selector %d",
 		src, dest)
 	tx, blockNum, err := CCIPSendRequest(
@@ -280,12 +300,16 @@ func TestSendRequest(
 	}, []uint64{dest}, []uint64{})
 	require.NoError(t, err)
 	require.True(t, it.Next())
-	seqNum = it.Event.Message.Header.SequenceNumber
-	nonce := it.Event.Message.Header.Nonce
-	sender := it.Event.Message.Sender
-	t.Logf("CCIP message sent from chain selector %d to chain selector %d tx %s seqNum %d nonce %d sender %s",
-		src, dest, tx.Hash().String(), seqNum, nonce, sender.String())
-	return seqNum
+	t.Logf("CCIP message (id %x) sent from chain selector %d to chain selector %d tx %s seqNum %d nonce %d sender %s",
+		it.Event.Message.Header.MessageId[:],
+		src,
+		dest,
+		tx.Hash().String(),
+		it.Event.SequenceNumber,
+		it.Event.Message.Header.Nonce,
+		it.Event.Message.Sender.String(),
+	)
+	return it.Event
 }
 
 // MakeEVMExtraArgsV2 creates the extra args for the EVM2Any message that is destined
@@ -319,7 +343,7 @@ func AddLanesForAll(e deployment.Environment, state CCIPOnChainState) error {
 	for source := range e.Chains {
 		for dest := range e.Chains {
 			if source != dest {
-				err := AddLane(e, state, source, dest)
+				err := AddLaneWithDefaultPrices(e, state, source, dest)
 				if err != nil {
 					return err
 				}
@@ -327,6 +351,11 @@ func AddLanesForAll(e deployment.Environment, state CCIPOnChainState) error {
 		}
 	}
 	return nil
+}
+
+func ToPackedFee(execFee, daFee *big.Int) *big.Int {
+	daShifted := new(big.Int).Lsh(daFee, 112)
+	return new(big.Int).Or(daShifted, execFee)
 }
 
 const (
@@ -341,7 +370,7 @@ const (
 )
 
 var (
-	MockLinkPrice = big.NewInt(5e18)
+	MockLinkPrice = deployment.E18Mult(500)
 	MockWethPrice = big.NewInt(9e8)
 	// MockDescriptionToTokenSymbol maps a mock feed description to token descriptor
 	MockDescriptionToTokenSymbol = map[string]TokenSymbol{
@@ -358,31 +387,37 @@ var (
 	}
 )
 
-func DeployFeeds(lggr logger.Logger, ab deployment.AddressBook, chain deployment.Chain) (map[string]common.Address, error) {
+func DeployFeeds(
+	lggr logger.Logger,
+	ab deployment.AddressBook,
+	chain deployment.Chain,
+	linkPrice *big.Int,
+	wethPrice *big.Int,
+) (map[string]common.Address, error) {
 	linkTV := deployment.NewTypeAndVersion(PriceFeed, deployment.Version1_0_0)
-	mockLinkFeed := func(chain deployment.Chain) ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface] {
+	mockLinkFeed := func(chain deployment.Chain) deployment.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface] {
 		linkFeed, tx, _, err1 := mock_v3_aggregator_contract.DeployMockV3Aggregator(
 			chain.DeployerKey,
 			chain.Client,
-			LinkDecimals,  // decimals
-			MockLinkPrice, // initialAnswer
+			LinkDecimals, // decimals
+			linkPrice,    // initialAnswer
 		)
 		aggregatorCr, err2 := aggregator_v3_interface.NewAggregatorV3Interface(linkFeed, chain.Client)
 
-		return ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface]{
+		return deployment.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface]{
 			Address: linkFeed, Contract: aggregatorCr, Tv: linkTV, Tx: tx, Err: multierr.Append(err1, err2),
 		}
 	}
 
-	mockWethFeed := func(chain deployment.Chain) ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface] {
+	mockWethFeed := func(chain deployment.Chain) deployment.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface] {
 		wethFeed, tx, _, err1 := mock_ethusd_aggregator_wrapper.DeployMockETHUSDAggregator(
 			chain.DeployerKey,
 			chain.Client,
-			MockWethPrice, // initialAnswer
+			wethPrice, // initialAnswer
 		)
 		aggregatorCr, err2 := aggregator_v3_interface.NewAggregatorV3Interface(wethFeed, chain.Client)
 
-		return ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface]{
+		return deployment.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface]{
 			Address: wethFeed, Contract: aggregatorCr, Tv: linkTV, Tx: tx, Err: multierr.Append(err1, err2),
 		}
 	}
@@ -409,11 +444,11 @@ func deploySingleFeed(
 	lggr logger.Logger,
 	ab deployment.AddressBook,
 	chain deployment.Chain,
-	deployFunc func(deployment.Chain) ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface],
+	deployFunc func(deployment.Chain) deployment.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface],
 	symbol TokenSymbol,
 ) (common.Address, string, error) {
 	//tokenTV := deployment.NewTypeAndVersion(PriceFeed, deployment.Version1_0_0)
-	mockTokenFeed, err := deployContract(lggr, chain, ab, deployFunc)
+	mockTokenFeed, err := deployment.DeployContract(lggr, chain, ab, deployFunc)
 	if err != nil {
 		lggr.Errorw("Failed to deploy token feed", "err", err, "symbol", symbol)
 		return common.Address{}, "", err
@@ -440,23 +475,23 @@ func ConfirmRequestOnSourceAndDest(t *testing.T, env deployment.Environment, sta
 	require.NoError(t, err)
 	startBlock := latesthdr.Number.Uint64()
 	fmt.Printf("startblock %d", startBlock)
-	seqNum := TestSendRequest(t, env, state, sourceCS, destCS, false, router.ClientEVM2AnyMessage{
+	msgSentEvent := TestSendRequest(t, env, state, sourceCS, destCS, false, router.ClientEVM2AnyMessage{
 		Receiver:     common.LeftPadBytes(state.Chains[destCS].Receiver.Address().Bytes(), 32),
 		Data:         []byte("hello world"),
 		TokenAmounts: nil,
 		FeeToken:     common.HexToAddress("0x0"),
 		ExtraArgs:    nil,
 	})
-	require.Equal(t, expectedSeqNr, seqNum)
+	require.Equal(t, expectedSeqNr, msgSentEvent.SequenceNumber)
 
-	fmt.Printf("Request sent for seqnr %d", seqNum)
+	fmt.Printf("Request sent for seqnr %d", msgSentEvent.SequenceNumber)
 	require.NoError(t,
 		ConfirmCommitWithExpectedSeqNumRange(t, env.Chains[sourceCS], env.Chains[destCS], state.Chains[destCS].OffRamp, &startBlock, cciptypes.SeqNumRange{
-			cciptypes.SeqNum(seqNum),
-			cciptypes.SeqNum(seqNum),
+			cciptypes.SeqNum(msgSentEvent.SequenceNumber),
+			cciptypes.SeqNum(msgSentEvent.SequenceNumber),
 		}))
 
-	fmt.Printf("Commit confirmed for seqnr %d", seqNum)
+	fmt.Printf("Commit confirmed for seqnr %d", msgSentEvent.SequenceNumber)
 	require.NoError(
 		t,
 		commonutils.JustError(
@@ -466,7 +501,7 @@ func ConfirmRequestOnSourceAndDest(t *testing.T, env deployment.Environment, sta
 				env.Chains[destCS],
 				state.Chains[destCS].OffRamp,
 				&startBlock,
-				seqNum,
+				msgSentEvent.SequenceNumber,
 			),
 		),
 	)
@@ -677,8 +712,8 @@ func deployTransferTokenOneEnd(
 		}
 	}
 
-	tokenContract, err := deployContract(lggr, chain, addressBook,
-		func(chain deployment.Chain) ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
+	tokenContract, err := deployment.DeployContract(lggr, chain, addressBook,
+		func(chain deployment.Chain) deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
 			USDCTokenAddr, tx, token, err2 := burn_mint_erc677.DeployBurnMintERC677(
 				chain.DeployerKey,
 				chain.Client,
@@ -687,7 +722,7 @@ func deployTransferTokenOneEnd(
 				uint8(18),
 				big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
 			)
-			return ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
+			return deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
 				USDCTokenAddr, token, tx, deployment.NewTypeAndVersion(BurnMintToken, deployment.Version1_0_0), err2,
 			}
 		})
@@ -705,8 +740,8 @@ func deployTransferTokenOneEnd(
 		return nil, nil, err
 	}
 
-	tokenPool, err := deployContract(lggr, chain, addressBook,
-		func(chain deployment.Chain) ContractDeploy[*burn_mint_token_pool.BurnMintTokenPool] {
+	tokenPool, err := deployment.DeployContract(lggr, chain, addressBook,
+		func(chain deployment.Chain) deployment.ContractDeploy[*burn_mint_token_pool.BurnMintTokenPool] {
 			tokenPoolAddress, tx, tokenPoolContract, err2 := burn_mint_token_pool.DeployBurnMintTokenPool(
 				chain.DeployerKey,
 				chain.Client,
@@ -715,7 +750,7 @@ func deployTransferTokenOneEnd(
 				common.HexToAddress(rmnAddress),
 				common.HexToAddress(routerAddress),
 			)
-			return ContractDeploy[*burn_mint_token_pool.BurnMintTokenPool]{
+			return deployment.ContractDeploy[*burn_mint_token_pool.BurnMintTokenPool]{
 				tokenPoolAddress, tokenPoolContract, tx, deployment.NewTypeAndVersion(BurnMintTokenPool, deployment.Version1_0_0), err2,
 			}
 		})

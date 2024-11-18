@@ -4,11 +4,11 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink/deployment"
-
-	ccdeploy "github.com/smartcontractkit/chainlink/deployment/ccip"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
+
+	"github.com/smartcontractkit/chainlink/deployment"
+	ccdeploy "github.com/smartcontractkit/chainlink/deployment/ccip"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
@@ -21,14 +21,18 @@ import (
 func TestInitialDeploy(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := ccdeploy.Context(t)
-	tenv := ccdeploy.NewMemoryEnvironment(t, lggr, 3, 4)
+	tenv := ccdeploy.NewMemoryEnvironment(t, lggr, 3, 4, ccdeploy.MockLinkPrice, ccdeploy.MockWethPrice)
 	e := tenv.Env
 
 	state, err := ccdeploy.LoadOnchainState(tenv.Env)
 	require.NoError(t, err)
-	require.NotNil(t, state.Chains[tenv.HomeChainSel].LinkToken)
+	output, err := DeployPrerequisites(e, DeployPrerequisiteConfig{
+		ChainSelectors: tenv.Env.AllChainSelectors(),
+	})
+	require.NoError(t, err)
+	require.NoError(t, tenv.Env.ExistingAddresses.Merge(output.AddressBook))
 
-	output, err := InitialDeploy(tenv.Env, ccdeploy.DeployCCIPContractConfig{
+	output, err = InitialDeploy(tenv.Env, ccdeploy.DeployCCIPContractConfig{
 		HomeChainSel:   tenv.HomeChainSel,
 		FeedChainSel:   tenv.FeedChainSel,
 		ChainsToDeploy: tenv.Env.AllChainSelectors(),
@@ -41,7 +45,7 @@ func TestInitialDeploy(t *testing.T) {
 	require.NoError(t, tenv.Env.ExistingAddresses.Merge(output.AddressBook))
 	state, err = ccdeploy.LoadOnchainState(e)
 	require.NoError(t, err)
-
+	require.NotNil(t, state.Chains[tenv.HomeChainSel].LinkToken)
 	// Ensure capreg logs are up to date.
 	ccdeploy.ReplayLogs(t, e.Offchain, tenv.ReplayBlocks)
 
@@ -74,14 +78,14 @@ func TestInitialDeploy(t *testing.T) {
 			require.NoError(t, err)
 			block := latesthdr.Number.Uint64()
 			startBlocks[dest] = &block
-			seqNum := ccdeploy.TestSendRequest(t, e, state, src, dest, false, router.ClientEVM2AnyMessage{
+			msgSentEvent := ccdeploy.TestSendRequest(t, e, state, src, dest, false, router.ClientEVM2AnyMessage{
 				Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
 				Data:         []byte("hello"),
 				TokenAmounts: nil,
 				FeeToken:     common.HexToAddress("0x0"),
 				ExtraArgs:    nil,
 			})
-			expectedSeqNum[dest] = seqNum
+			expectedSeqNum[dest] = msgSentEvent.SequenceNumber
 		}
 	}
 
@@ -89,7 +93,8 @@ func TestInitialDeploy(t *testing.T) {
 	ccdeploy.ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
 
 	// Confirm token and gas prices are updated
-	ccdeploy.ConfirmTokenPriceUpdatedForAll(t, e, state, startBlocks)
+	ccdeploy.ConfirmTokenPriceUpdatedForAll(t, e, state, startBlocks,
+		ccdeploy.DefaultInitialPrices.LinkPrice, ccdeploy.DefaultInitialPrices.WethPrice)
 	// TODO: Fix gas prices?
 	//ccdeploy.ConfirmGasPriceUpdatedForAll(t, e, state, startBlocks)
 	//
