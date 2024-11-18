@@ -693,9 +693,6 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
     // Validate the report data
     _validateReport(reportContext, report.length, rs.length, ss.length);
 
-    // Verify signatures attached to report
-    _verifySignatures(reportContext, report, rs, ss, rawVs);
-
     Report memory report_ = _decodeReport(report); // Decode the report
     HotVars memory hotVars = s_hotVars; // Load hotVars into memory
 
@@ -727,6 +724,9 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
       if (epochAndRound <= hotVars.latestEpochAndRound) {
         revert StaleReport();
       }
+
+      // Verify signatures attached to report
+      _verifySignatures(reportContext, report, rs, ss, rawVs);
 
       _report(hotVars, reportContext[0], epochAndRound, report_, isSecondary);
     }
