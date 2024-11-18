@@ -31,6 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	ocr2 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
@@ -126,6 +127,7 @@ type service struct {
 	p2pKeyStore         keystore.P2P
 	ocr1KeyStore        keystore.OCR
 	ocr2KeyStore        keystore.OCR2
+	workflowKeyStore    keystore.Workflow
 	jobSpawner          job.Spawner
 	gCfg                GeneralConfig
 	featCfg             FeatureConfig
@@ -168,6 +170,7 @@ func NewService(
 		csaKeyStore:         keyStore.CSA(),
 		ocr1KeyStore:        keyStore.OCR(),
 		ocr2KeyStore:        keyStore.OCR2(),
+		workflowKeyStore:    keyStore.Workflow(),
 		gCfg:                gCfg,
 		featCfg:             fCfg,
 		insecureCfg:         insecureCfg,
@@ -275,9 +278,15 @@ func (s *service) SyncNodeInfo(ctx context.Context, id int64) error {
 		cfgMsgs = append(cfgMsgs, cfgMsg)
 	}
 
+	workflowKey, err := s.getWorkflowKey()
+	if err != nil {
+		return errors.Wrap(err, "could not fetch workflow key")
+	}
+
 	if _, err = fmsClient.UpdateNode(ctx, &pb.UpdateNodeRequest{
 		Version:      s.version,
 		ChainConfigs: cfgMsgs,
+		WorkflowKey:  workflowKey.PublicKeyString(),
 	}); err != nil {
 		return err
 	}
@@ -1141,6 +1150,19 @@ func (s *service) getCSAPrivateKey() (privkey []byte, err error) {
 		return privkey, errors.New("CSA key does not exist")
 	}
 	return keys[0].Raw(), nil
+}
+
+// getWorkflowKey gets the server's Workflow key
+// because we will have only one key, we can get the first key
+func (s *service) getWorkflowKey() (*workflowkey.Key, error) {
+	keys, err := s.workflowKeyStore.GetAll()
+	if err != nil {
+		return nil, err
+	}
+	if len(keys) < 1 {
+		return nil, errors.New("Workflow key does not exist")
+	}
+	return &keys[0], nil
 }
 
 // observeJobProposalCounts is a helper method that queries the repository for the count of
