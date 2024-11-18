@@ -9,7 +9,7 @@ import (
 	ccipdeployment "github.com/smartcontractkit/chainlink/deployment/ccip"
 )
 
-var _ deployment.ChangeSet[ccipdeployment.DeployCCIPContractConfig] = InitialDeploy
+var _ deployment.ChangeSet[DeployChainContractsConfig] = DeployChainContracts
 
 func DeployChainContracts(env deployment.Environment, c DeployChainContractsConfig) (deployment.ChangesetOutput, error) {
 	newAddresses := deployment.NewMemoryAddressBook()
