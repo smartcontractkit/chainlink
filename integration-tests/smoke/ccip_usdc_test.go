@@ -5,6 +5,7 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 	"golang.org/x/exp/maps"
 	"math/big"
 	"net/http"
@@ -106,33 +107,10 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	// Add all lanes
 	require.NoError(t, ccdeploy.AddLanesForAll(e, state))
 
-	twoCoins := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(2))
-	tx, err := srcUSDC.Mint(
-		e.Chains[sourceChain].DeployerKey,
-		e.Chains[sourceChain].DeployerKey.From,
-		new(big.Int).Mul(twoCoins, big.NewInt(10)),
-	)
-	require.NoError(t, err)
-	_, err = e.Chains[sourceChain].Confirm(tx)
-	require.NoError(t, err)
-
-	tx, err = dstUSDC.Mint(
-		e.Chains[destChain].DeployerKey,
-		e.Chains[destChain].DeployerKey.From,
-		new(big.Int).Mul(twoCoins, big.NewInt(10)),
-	)
-	require.NoError(t, err)
-	_, err = e.Chains[destChain].Confirm(tx)
-	require.NoError(t, err)
-
-	tx, err = srcUSDC.Approve(e.Chains[sourceChain].DeployerKey, state.Chains[sourceChain].Router.Address(), twoCoins)
-	require.NoError(t, err)
-	_, err = e.Chains[sourceChain].Confirm(tx)
-	require.NoError(t, err)
-	tx, err = dstUSDC.Approve(e.Chains[destChain].DeployerKey, state.Chains[destChain].Router.Address(), twoCoins)
-	require.NoError(t, err)
-	_, err = e.Chains[destChain].Confirm(tx)
-	require.NoError(t, err)
+	mintAndAllow(t, e, state, map[uint64]*burn_mint_erc677.BurnMintERC677{
+		sourceChain: srcUSDC,
+		destChain:   dstUSDC,
+	})
 
 	err = ccdeploy.UpdateFeeQuoterForUSDC(e.Chains[sourceChain], state.Chains[sourceChain], destChain, srcUSDC)
 	require.NoError(t, err)
@@ -140,58 +118,21 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	err = ccdeploy.UpdateFeeQuoterForUSDC(e.Chains[destChain], state.Chains[destChain], sourceChain, dstUSDC)
 	require.NoError(t, err)
 
+	// MockE2EUSDCTransmitter always mint 1, please see MockE2EUSDCTransmitter.sol for more details
 	tinyOneCoin := new(big.Int).SetUint64(1)
 
-	//tokens := map[uint64][]router.ClientEVMTokenAmount{
-	//	sourceChain: {{
-	//		Token:  srcUSDC.Address(),
-	//		Amount: tinyOneCoin,
-	//	}},
-	//	destChain: {{
-	//		Token:  dstUSDC.Address(),
-	//		Amount: tinyOneCoin,
-	//	}},
-	//}
-
 	//t.Run("single USDC token transfer to EOA", func(t *testing.T) {
-	//	var (
-	//		receiver = common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32)
-	//		data     = []byte("hello world")
-	//		feeToken = common.HexToAddress("0x0")
-	//	)
 	//
-	//	latesthdr, err := dChain.Client.HeaderByNumber(testcontext.Get(t), nil)
-	//	require.NoError(t, err)
-	//	block := latesthdr.Number.Uint64()
-	//	startBlocks[dest] = &block
-	//
-	//	if src == sourceChain && dest == destChain {
-	//		seqNum := ccdeploy.TestSendRequest(t, e, state, src, dest, false, router.ClientEVM2AnyMessage{
-	//			Receiver:     receiver,
-	//			Data:         data,
-	//			TokenAmounts: tokens[src],
-	//			FeeToken:     feeToken,
-	//			ExtraArgs:    nil,
-	//		})
-	//		expectedSeqNum[dest] = seqNum
-	//	}
-	//
-	//	// Wait for all commit reports to land.
-	//	ccdeploy.ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
-	//
-	//	// Wait for all exec reports to land
-	//	ccdeploy.ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
-	//
-	//	balance, err := dstUSDC.BalanceOf(nil, state.Chains[destChain].Receiver.Address())
-	//	require.NoError(t, err)
-	//	require.Equal(t, tinyOneCoin, balance)
 	//})
-	//
+
 	//t.Run("USDC token transfer from different sources to the same destination", func(t *testing.T) {
 	//
 	//})
-	//
+
 	t.Run("programmable token transfer with USDC to contract", func(t *testing.T) {
+		initialBalance, err := dstUSDC.BalanceOf(&bind.CallOpts{Context: tests.Context(t)}, state.Chains[destChain].Receiver.Address())
+		require.NoError(t, err)
+
 		transferAndWaitForSuccess(
 			t,
 			e,
@@ -209,15 +150,41 @@ func TestUSDCTokenTransfer(t *testing.T) {
 
 		balance, err := dstUSDC.BalanceOf(&bind.CallOpts{Context: tests.Context(t)}, state.Chains[destChain].Receiver.Address())
 		require.NoError(t, err)
-		require.Equal(t, tinyOneCoin, balance)
+		require.Equal(t, new(big.Int).Add(initialBalance, tinyOneCoin), balance)
 	})
 
-	//
 	//t.Run("USDC token together with other token transfer", func(t *testing.T) {
 	//
 	//})
 }
 
+// mintAndAllow mints tokens for deployers and allow router to spend them
+func mintAndAllow(
+	t *testing.T,
+	e deployment.Environment,
+	state ccdeploy.CCIPOnChainState,
+	tokens map[uint64]*burn_mint_erc677.BurnMintERC677,
+) {
+	for chain, token := range tokens {
+		twoCoins := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(2))
+
+		tx, err := token.Mint(
+			e.Chains[chain].DeployerKey,
+			e.Chains[chain].DeployerKey.From,
+			new(big.Int).Mul(twoCoins, big.NewInt(10)),
+		)
+		require.NoError(t, err)
+		_, err = e.Chains[chain].Confirm(tx)
+		require.NoError(t, err)
+
+		tx, err = token.Approve(e.Chains[chain].DeployerKey, state.Chains[chain].Router.Address(), twoCoins)
+		require.NoError(t, err)
+		_, err = e.Chains[chain].Confirm(tx)
+		require.NoError(t, err)
+	}
+}
+
+// transferAndWaitForSuccess sends a message from sourceChain to destChain and waits for it to be executed (commited + executed)
 func transferAndWaitForSuccess(
 	t *testing.T,
 	env deployment.Environment,
