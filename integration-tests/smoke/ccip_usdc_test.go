@@ -2,6 +2,7 @@ package smoke
 
 import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"golang.org/x/exp/maps"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -31,6 +32,10 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	e := tenv.Env
 	state, err := ccdeploy.LoadOnchainState(e)
 	require.NoError(t, err)
+
+	allChainSelectors := maps.Keys(e.Chains)
+	sourceChain := allChainSelectors[0]
+	destChain := allChainSelectors[1]
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		response := `{
@@ -78,7 +83,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	state, err = ccdeploy.LoadOnchainState(e)
 	require.NoError(t, err)
 
-	srcUSDC, dstUSDC, err := ccdeploy.ConfigureUSDCTokenPools(lggr, e.Chains, tenv.HomeChainSel, tenv.FeedChainSel, state)
+	srcUSDC, dstUSDC, err := ccdeploy.ConfigureUSDCTokenPools(lggr, e.Chains, sourceChain, destChain, state)
 	require.NoError(t, err)
 
 	// Ensure capreg logs are up to date.
@@ -102,46 +107,46 @@ func TestUSDCTokenTransfer(t *testing.T) {
 
 	twoCoins := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(2))
 	tx, err := srcUSDC.Mint(
-		e.Chains[tenv.HomeChainSel].DeployerKey,
-		e.Chains[tenv.HomeChainSel].DeployerKey.From,
+		e.Chains[sourceChain].DeployerKey,
+		e.Chains[sourceChain].DeployerKey.From,
 		new(big.Int).Mul(twoCoins, big.NewInt(10)),
 	)
 	require.NoError(t, err)
-	_, err = e.Chains[tenv.HomeChainSel].Confirm(tx)
+	_, err = e.Chains[sourceChain].Confirm(tx)
 	require.NoError(t, err)
 
 	tx, err = dstUSDC.Mint(
-		e.Chains[tenv.FeedChainSel].DeployerKey,
-		e.Chains[tenv.FeedChainSel].DeployerKey.From,
+		e.Chains[destChain].DeployerKey,
+		e.Chains[destChain].DeployerKey.From,
 		new(big.Int).Mul(twoCoins, big.NewInt(10)),
 	)
 	require.NoError(t, err)
-	_, err = e.Chains[tenv.FeedChainSel].Confirm(tx)
+	_, err = e.Chains[destChain].Confirm(tx)
 	require.NoError(t, err)
 
-	tx, err = srcUSDC.Approve(e.Chains[tenv.HomeChainSel].DeployerKey, state.Chains[tenv.HomeChainSel].Router.Address(), twoCoins)
+	tx, err = srcUSDC.Approve(e.Chains[sourceChain].DeployerKey, state.Chains[sourceChain].Router.Address(), twoCoins)
 	require.NoError(t, err)
-	_, err = e.Chains[tenv.HomeChainSel].Confirm(tx)
+	_, err = e.Chains[sourceChain].Confirm(tx)
 	require.NoError(t, err)
-	tx, err = dstUSDC.Approve(e.Chains[tenv.FeedChainSel].DeployerKey, state.Chains[tenv.FeedChainSel].Router.Address(), twoCoins)
+	tx, err = dstUSDC.Approve(e.Chains[destChain].DeployerKey, state.Chains[destChain].Router.Address(), twoCoins)
 	require.NoError(t, err)
-	_, err = e.Chains[tenv.FeedChainSel].Confirm(tx)
-	require.NoError(t, err)
-
-	err = ccdeploy.UpdateFeeQuoterForUSDC(e.Chains[tenv.HomeChainSel], state.Chains[tenv.HomeChainSel], tenv.FeedChainSel, srcUSDC)
+	_, err = e.Chains[destChain].Confirm(tx)
 	require.NoError(t, err)
 
-	err = ccdeploy.UpdateFeeQuoterForUSDC(e.Chains[tenv.FeedChainSel], state.Chains[tenv.FeedChainSel], tenv.HomeChainSel, dstUSDC)
+	err = ccdeploy.UpdateFeeQuoterForUSDC(e.Chains[sourceChain], state.Chains[sourceChain], destChain, srcUSDC)
+	require.NoError(t, err)
+
+	err = ccdeploy.UpdateFeeQuoterForUSDC(e.Chains[destChain], state.Chains[destChain], sourceChain, dstUSDC)
 	require.NoError(t, err)
 
 	tinyOneCoin := new(big.Int).SetUint64(1)
 
 	tokens := map[uint64][]router.ClientEVMTokenAmount{
-		tenv.HomeChainSel: {{
+		sourceChain: {{
 			Token:  srcUSDC.Address(),
 			Amount: tinyOneCoin,
 		}},
-		tenv.FeedChainSel: {{
+		destChain: {{
 			Token:  dstUSDC.Address(),
 			Amount: tinyOneCoin,
 		}},
@@ -151,7 +156,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	expectedSeqNum := make(map[uint64]uint64)
 
 	for src := range e.Chains {
-		for dest, destChain := range e.Chains {
+		for dest, dChain := range e.Chains {
 			if src == dest {
 				continue
 			}
@@ -161,12 +166,12 @@ func TestUSDCTokenTransfer(t *testing.T) {
 				feeToken = common.HexToAddress("0x0")
 			)
 
-			latesthdr, err := destChain.Client.HeaderByNumber(testcontext.Get(t), nil)
+			latesthdr, err := dChain.Client.HeaderByNumber(testcontext.Get(t), nil)
 			require.NoError(t, err)
 			block := latesthdr.Number.Uint64()
 			startBlocks[dest] = &block
 
-			if src == tenv.HomeChainSel && dest == tenv.FeedChainSel {
+			if src == sourceChain && dest == destChain {
 				seqNum := ccdeploy.TestSendRequest(t, e, state, src, dest, false, router.ClientEVM2AnyMessage{
 					Receiver:     receiver,
 					Data:         data,
@@ -185,7 +190,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	// Wait for all exec reports to land
 	ccdeploy.ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
 
-	balance, err := dstUSDC.BalanceOf(nil, state.Chains[tenv.FeedChainSel].Receiver.Address())
+	balance, err := dstUSDC.BalanceOf(nil, state.Chains[destChain].Receiver.Address())
 	require.NoError(t, err)
 	require.Equal(t, tinyOneCoin, balance)
 }
