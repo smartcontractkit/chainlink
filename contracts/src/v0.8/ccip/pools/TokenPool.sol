@@ -74,6 +74,8 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
     bytes[] remotePoolAddresses; // List of remote pool addresses, ABI encoded in the case of a remote EVM chain.
   }
 
+  bytes32 private constant EMPTY_ENCODED_ADDRESS_HASH = keccak256(abi.encode(address(0)));
+
   /// @dev The bridgeable token that is managed by this pool. Pools could support multiple tokens at the same time if
   /// required, but this implementation only supports one token.
   IERC20 internal immutable i_token;
@@ -241,7 +243,7 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
   function addRemotePool(uint64 remoteChainSelector, bytes calldata remotePoolAddress) external onlyOwner {
     if (!isSupportedChain(remoteChainSelector)) revert NonExistentChain(remoteChainSelector);
 
-    if (remotePoolAddress.length == 0 || remotePoolAddress.length == 0) {
+    if (keccak256(remotePoolAddress) == EMPTY_ENCODED_ADDRESS_HASH || remotePoolAddress.length == 0) {
       revert ZeroAddressNotAllowed();
     }
 
