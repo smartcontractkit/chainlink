@@ -107,6 +107,7 @@ func DeployUSDC(
 	lggr logger.Logger,
 	chain deployment.Chain,
 	addresses deployment.AddressBook,
+	state CCIPChainState,
 ) (
 	*burn_mint_erc677.BurnMintERC677,
 	*usdc_token_pool.USDCTokenPool,
@@ -114,8 +115,8 @@ func DeployUSDC(
 	*mock_usdc_token_transmitter.MockE2EUSDCTransmitter,
 	error,
 ) {
-	token, err := deployContract(lggr, chain, addresses,
-		func(chain deployment.Chain) ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
+	token, err := deployment.DeployContract(lggr, chain, addresses,
+		func(chain deployment.Chain) deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
 			tokenAddress, tx, tokenContract, err2 := burn_mint_erc677.DeployBurnMintERC677(
 				chain.DeployerKey,
 				chain.Client,
@@ -124,8 +125,12 @@ func DeployUSDC(
 				uint8(18),
 				big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
 			)
-			return ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
-				tokenAddress, tokenContract, tx, deployment.NewTypeAndVersion(USDCToken, deployment.Version1_0_0), err2,
+			return deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
+				Address:  tokenAddress,
+				Contract: tokenContract,
+				Tx:       tx,
+				Tv:       deployment.NewTypeAndVersion(USDCToken, deployment.Version1_0_0),
+				Err:      err2,
 			}
 		})
 	if err != nil {
@@ -141,8 +146,8 @@ func DeployUSDC(
 		return nil, nil, nil, nil, err
 	}
 
-	transmitter, err := deployContract(lggr, chain, addresses,
-		func(chain deployment.Chain) ContractDeploy[*mock_usdc_token_transmitter.MockE2EUSDCTransmitter] {
+	transmitter, err := deployment.DeployContract(lggr, chain, addresses,
+		func(chain deployment.Chain) deployment.ContractDeploy[*mock_usdc_token_transmitter.MockE2EUSDCTransmitter] {
 			transmitterAddress, tx, transmitterContract, err2 := mock_usdc_token_transmitter.DeployMockE2EUSDCTransmitter(
 				chain.DeployerKey,
 				chain.Client,
@@ -150,8 +155,12 @@ func DeployUSDC(
 				reader.AllAvailableDomains()[chain.Selector],
 				token.Address,
 			)
-			return ContractDeploy[*mock_usdc_token_transmitter.MockE2EUSDCTransmitter]{
-				transmitterAddress, transmitterContract, tx, deployment.NewTypeAndVersion(USDCMockTransmitter, deployment.Version1_0_0), err2,
+			return deployment.ContractDeploy[*mock_usdc_token_transmitter.MockE2EUSDCTransmitter]{
+				Address:  transmitterAddress,
+				Contract: transmitterContract,
+				Tx:       tx,
+				Tv:       deployment.NewTypeAndVersion(USDCMockTransmitter, deployment.Version1_0_0),
+				Err:      err2,
 			}
 		})
 	if err != nil {
@@ -161,16 +170,20 @@ func DeployUSDC(
 
 	lggr.Infow("deployed mock USDC transmitter", "addr", transmitter.Address)
 
-	messenger, err := deployContract(lggr, chain, addresses,
-		func(chain deployment.Chain) ContractDeploy[*mock_usdc_token_messenger.MockE2EUSDCTokenMessenger] {
+	messenger, err := deployment.DeployContract(lggr, chain, addresses,
+		func(chain deployment.Chain) deployment.ContractDeploy[*mock_usdc_token_messenger.MockE2EUSDCTokenMessenger] {
 			messengerAddress, tx, messengerContract, err2 := mock_usdc_token_messenger.DeployMockE2EUSDCTokenMessenger(
 				chain.DeployerKey,
 				chain.Client,
 				0,
 				transmitter.Address,
 			)
-			return ContractDeploy[*mock_usdc_token_messenger.MockE2EUSDCTokenMessenger]{
-				messengerAddress, messengerContract, tx, deployment.NewTypeAndVersion(USDCTokenMessenger, deployment.Version1_0_0), err2,
+			return deployment.ContractDeploy[*mock_usdc_token_messenger.MockE2EUSDCTokenMessenger]{
+				Address:  messengerAddress,
+				Contract: messengerContract,
+				Tx:       tx,
+				Tv:       deployment.NewTypeAndVersion(USDCTokenMessenger, deployment.Version1_0_0),
+				Err:      err2,
 			}
 		})
 	if err != nil {
@@ -178,38 +191,24 @@ func DeployUSDC(
 		return nil, nil, nil, nil, err
 	}
 	lggr.Infow("deployed mock USDC token messenger", "addr", messenger.Address)
-	chainAddr, err := addresses.AddressesForChain(chain.Selector)
-	if err != nil {
-		lggr.Errorw("Failed to get addresses of chain", "err", err)
-		return nil, nil, nil, nil, err
-	}
 
-	var rmnAddress, routerAddress string
-	for address, v := range chainAddr {
-		if deployment.NewTypeAndVersion(ARMProxy, deployment.Version1_0_0) == v {
-			rmnAddress = address
-		}
-		if deployment.NewTypeAndVersion(Router, deployment.Version1_2_0) == v {
-			routerAddress = address
-		}
-		if rmnAddress != "" && routerAddress != "" {
-			break
-		}
-	}
-
-	tokenPool, err := deployContract(lggr, chain, addresses,
-		func(chain deployment.Chain) ContractDeploy[*usdc_token_pool.USDCTokenPool] {
+	tokenPool, err := deployment.DeployContract(lggr, chain, addresses,
+		func(chain deployment.Chain) deployment.ContractDeploy[*usdc_token_pool.USDCTokenPool] {
 			tokenPoolAddress, tx, tokenPoolContract, err2 := usdc_token_pool.DeployUSDCTokenPool(
 				chain.DeployerKey,
 				chain.Client,
 				messenger.Address,
 				token.Address,
 				[]common.Address{},
-				common.HexToAddress(rmnAddress),
-				common.HexToAddress(routerAddress),
+				state.RMNProxyExisting.Address(),
+				state.Router.Address(),
 			)
-			return ContractDeploy[*usdc_token_pool.USDCTokenPool]{
-				tokenPoolAddress, tokenPoolContract, tx, deployment.NewTypeAndVersion(USDCTokenPool, deployment.Version1_0_0), err2,
+			return deployment.ContractDeploy[*usdc_token_pool.USDCTokenPool]{
+				Address:  tokenPoolAddress,
+				Contract: tokenPoolContract,
+				Tx:       tx,
+				Tv:       deployment.NewTypeAndVersion(USDCTokenPool, deployment.Version1_0_0),
+				Err:      err2,
 			}
 		})
 	if err != nil {

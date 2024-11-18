@@ -30,7 +30,7 @@ import (
 func TestUSDCTokenTransfer(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := ccdeploy.Context(t)
-	tenv := ccdeploy.NewMemoryEnvironment(t, lggr, 2, 4)
+	tenv := ccdeploy.NewMemoryEnvironment(t, lggr, 2, 4, ccdeploy.MockLinkPrice, ccdeploy.MockWethPrice)
 
 	e := tenv.Env
 	state, err := ccdeploy.LoadOnchainState(e)
@@ -63,8 +63,14 @@ func TestUSDCTokenTransfer(t *testing.T) {
 		},
 	)
 
+	output, err := changeset.DeployPrerequisites(e, changeset.DeployPrerequisiteConfig{
+		ChainSelectors: e.AllChainSelectors(),
+	})
+	require.NoError(t, err)
+	require.NoError(t, tenv.Env.ExistingAddresses.Merge(output.AddressBook))
+
 	// Apply migration
-	output, err := changeset.InitialDeploy(e, ccdeploy.DeployCCIPContractConfig{
+	output, err = changeset.InitialDeploy(e, ccdeploy.DeployCCIPContractConfig{
 		HomeChainSel:   tenv.HomeChainSel,
 		FeedChainSel:   tenv.FeedChainSel,
 		ChainsToDeploy: e.AllChainSelectors(),
@@ -227,14 +233,14 @@ func transferAndWaitForSuccess(
 	block := latesthdr.Number.Uint64()
 	startBlocks[destChain] = &block
 
-	seqNum := ccdeploy.TestSendRequest(t, env, state, sourceChain, destChain, false, router.ClientEVM2AnyMessage{
+	msgSentEvent := ccdeploy.TestSendRequest(t, env, state, sourceChain, destChain, false, router.ClientEVM2AnyMessage{
 		Receiver:     common.LeftPadBytes(receiver.Bytes(), 32),
 		Data:         data,
 		TokenAmounts: tokens,
 		FeeToken:     common.HexToAddress("0x0"),
 		ExtraArgs:    nil,
 	})
-	expectedSeqNum[destChain] = seqNum
+	expectedSeqNum[destChain] = msgSentEvent.SequenceNumber
 
 	// Wait for all commit reports to land.
 	ccdeploy.ConfirmCommitForAllWithExpectedSeqNums(t, env, state, expectedSeqNum, startBlocks)

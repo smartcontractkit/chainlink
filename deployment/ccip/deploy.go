@@ -2,6 +2,8 @@ package ccipdeployment
 
 import (
 	"fmt"
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -11,11 +13,6 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_messenger"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_transmitter"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/usdc_token_pool"
-	"math/big"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -368,7 +365,7 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 		}
 
 		if c.USDCConfig.Enabled {
-			token, pool, messenger, transmitter, err1 := DeployUSDC(e.Logger, chain, ab)
+			token, pool, messenger, transmitter, err1 := DeployUSDC(e.Logger, chain, ab, existingState.Chains[chainSel])
 			if err1 != nil {
 				return err1
 			}
