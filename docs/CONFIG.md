@@ -389,7 +389,7 @@ UnixTS = false # Default
 ```toml
 Level = 'info' # Default
 ```
-Level determines both what is printed on the screen and what is written to the log file.
+Level determines only what is printed on the screen/console. This configuration does not apply to the logs that are recorded in a file (see [`Log.File`](#logfile) for more details).
 
 The available levels are:
 - "debug": Useful for forensic debugging of issues.
@@ -434,7 +434,7 @@ Dir sets the log directory. By default, Chainlink nodes write log data to `$ROOT
 ```toml
 MaxSize = '5120mb' # Default
 ```
-MaxSize determines the log file's max size in megabytes before file rotation. Having this not set will disable logging to disk. If your disk doesn't have enough disk space, the logging will pause and the application will log errors until space is available again.
+MaxSize determines the log file's max size before file rotation. Having this not set or set to a value smaller than 1Mb will disable logging to disk. If your disk doesn't have enough disk space, the logging will pause and the application will log errors until space is available again.
 
 Values must have suffixes with a unit like: `5120mb` (5,120 megabytes). If no unit suffix is provided, the value defaults to `b` (bytes). The list of valid unit suffixes are:
 
@@ -5261,8 +5261,8 @@ Enabled = true
 
 [GasEstimator]
 Mode = 'FixedPrice'
-PriceDefault = '20 gwei'
-PriceMax = '100 micro'
+PriceDefault = '1 gwei'
+PriceMax = '1 gwei'
 PriceMin = '0'
 LimitDefault = 500000
 LimitMax = 500000
@@ -5273,8 +5273,8 @@ BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 0
 EIP1559DynamicFees = false
-FeeCapDefault = '100 micro'
-TipCapDefault = '1 wei'
+FeeCapDefault = '1 gwei'
+TipCapDefault = '1 mwei'
 TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
@@ -10079,6 +10079,7 @@ OCR2CacheTTL = '1m' # Default
 TxTimeout = '1m' # Default
 TxRetryTimeout = '10s' # Default
 TxConfirmTimeout = '30s' # Default
+TxRetentionTimeout = '0s' # Default
 SkipPreflight = true # Default
 Commitment = 'confirmed' # Default
 MaxRetries = 0 # Default
@@ -10147,6 +10148,12 @@ TxRetryTimeout is the duration for tx manager to attempt rebroadcasting to RPC, 
 TxConfirmTimeout = '30s' # Default
 ```
 TxConfirmTimeout is the duration to wait when confirming a tx signature, before discarding as unconfirmed.
+
+### TxRetentionTimeout
+```toml
+TxRetentionTimeout = '0s' # Default
+```
+TxRetentionTimeout is the duration to retain transactions in storage after being marked as finalized or errored. Set to 0 to immediately drop transactions.
 
 ### SkipPreflight
 ```toml

@@ -124,11 +124,9 @@ func emitLogTxnAndWaitForLog(t *testing.T,
 	log1Ch <-chan capabilities.TriggerResponse,
 	expectedLogVals []*big.Int) {
 	done := make(chan struct{})
-	var err error
 	go func() {
 		defer close(done)
-		_, err =
-			th.LogEmitterContract.EmitLog1(th.BackendTH.ContractsOwner, expectedLogVals)
+		_, err := th.LogEmitterContract.EmitLog1(th.BackendTH.ContractsOwner, expectedLogVals)
 		assert.NoError(t, err)
 		th.BackendTH.Backend.Commit()
 		th.BackendTH.Backend.Commit()

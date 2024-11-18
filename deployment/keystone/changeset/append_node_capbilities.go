@@ -8,19 +8,14 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
 
-var _ deployment.ChangeSet = AppendNodeCapabilities
+var _ deployment.ChangeSet[*AppendNodeCapabilitiesRequest] = AppendNodeCapabilities
 
 // AppendNodeCapabilitiesRequest is a request to add capabilities to the existing capabilities of nodes in the registry
 type AppendNodeCapabilitiesRequest = MutateNodeCapabilitiesRequest
 
 // AppendNodeCapabilities adds any new capabilities to the registry, merges the new capabilities with the existing capabilities
 // of the node, and updates the nodes in the registry host the union of the new and existing capabilities.
-func AppendNodeCapabilities(env deployment.Environment, config any) (deployment.ChangesetOutput, error) {
-	req, ok := config.(*AppendNodeCapabilitiesRequest)
-	if !ok {
-		return deployment.ChangesetOutput{}, fmt.Errorf("invalid config type")
-	}
-
+func AppendNodeCapabilities(env deployment.Environment, req *AppendNodeCapabilitiesRequest) (deployment.ChangesetOutput, error) {
 	cfg, err := req.convert(env)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err

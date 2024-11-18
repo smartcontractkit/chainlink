@@ -251,7 +251,7 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'merge_group' && ( needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@ca50645120f0f07ed8c0df08175a5d6b3e4ac454 #ctf-run-tests@0.1.2
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@47a3b0cf4e87a031049eef2d951982c94db04cae #ctf-run-tests@1.0.0
     with:
       workflow_name: Run Core E2E Tests For Merge Queue
       chainlink_version: ${{ inputs.evm-ref || github.sha }}

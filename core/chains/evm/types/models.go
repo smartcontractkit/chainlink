@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math/big"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -18,10 +19,12 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"github.com/ugorji/go/codec"
 
+	chainagnostictypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 
 	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types/internal/blocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
@@ -52,14 +55,23 @@ var _ commontypes.Head[common.Hash] = &Head{}
 var _ htrktypes.Head[common.Hash, *big.Int] = &Head{}
 
 // NewHead returns a Head instance.
-func NewHead(number *big.Int, blockHash common.Hash, parentHash common.Hash, timestamp uint64, chainID *ubig.Big) Head {
+func NewHead(number *big.Int, blockHash common.Hash, parentHash common.Hash, chainID *ubig.Big) Head {
 	return Head{
 		Number:     number.Int64(),
 		Hash:       blockHash,
 		ParentHash: parentHash,
-		Timestamp:  time.Unix(int64(timestamp), 0),
+		Timestamp:  time.Now(),
 		EVMChainID: chainID,
 	}
+}
+
+func (h *Head) SetFromHeader(header *types.Header) {
+	h.Hash = header.Hash()
+	h.Number = header.Number.Int64()
+	h.ParentHash = header.ParentHash
+	//nolint:gosec // G115
+	h.Timestamp = time.Unix(int64(header.Time), 0)
+	h.Difficulty = header.Difficulty
 }
 
 func (h *Head) BlockNumber() int64 {
@@ -189,6 +201,9 @@ func (h *Head) ChainString() string {
 
 // String returns a string representation of this head
 func (h *Head) String() string {
+	if h == nil {
+		return "<nil>"
+	}
 	return fmt.Sprintf("Head{Number: %d, Hash: %s, ParentHash: %s}", h.ToInt(), h.Hash.Hex(), h.ParentHash.Hex())
 }
 
@@ -316,6 +331,19 @@ func (h *Head) MarshalJSON() ([]byte, error) {
 	return json.Marshal(jsonHead)
 }
 
+func (h *Head) ToChainAgnosticHead() *chainagnostictypes.Head {
+	if h == nil {
+		return nil
+	}
+
+	return &chainagnostictypes.Head{
+		Height: strconv.FormatInt(h.Number, 10),
+		Hash:   h.Hash.Bytes(),
+		//nolint:gosec // G115
+		Timestamp: uint64(h.Timestamp.Unix()),
+	}
+}
+
 // Block represents an ethereum block
 // This type is only used for the block history estimator, and can be expensive to unmarshal. Don't add unnecessary fields here.
 type Block struct {
@@ -373,8 +401,9 @@ func (b *Block) UnmarshalJSON(data []byte) error {
 		Hash:          bi.Hash,
 		ParentHash:    bi.ParentHash,
 		BaseFeePerGas: (*assets.Wei)(bi.BaseFeePerGas),
-		Timestamp:     time.Unix((int64((uint64)(bi.Timestamp))), 0),
-		Transactions:  fromInternalTxnSlice(bi.Transactions),
+		//nolint:gosec // G115
+		Timestamp:    time.Unix(int64(bi.Timestamp), 0),
+		Transactions: fromInternalTxnSlice(bi.Transactions),
 	}
 	return nil
 }

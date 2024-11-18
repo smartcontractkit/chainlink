@@ -18,7 +18,7 @@ var (
 // Its recommended that changesets operate on a small number of chains (e.g. 1-3)
 // to reduce the risk of partial failures.
 // If the configuration is unexpected type or format, the changeset should return ErrInvalidConfig.
-type ChangeSet func(e Environment, config interface{}) (ChangesetOutput, error)
+type ChangeSet[C any] func(e Environment, config C) (ChangesetOutput, error)
 
 // ChangesetOutput is the output of a Changeset function.
 // Think of it like a state transition output.

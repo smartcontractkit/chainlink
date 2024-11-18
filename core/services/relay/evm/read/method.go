@@ -121,14 +121,19 @@ func (b *MethodBinding) BatchCall(address common.Address, params, retVal any) (C
 	}, nil
 }
 
-func (b *MethodBinding) GetLatestValue(ctx context.Context, addr common.Address, confidenceLevel primitives.ConfidenceLevel, params, returnVal any) error {
+func (b *MethodBinding) GetLatestValueWithHeadData(ctx context.Context, addr common.Address, confidenceLevel primitives.ConfidenceLevel, params, returnVal any) (*commontypes.Head, error) {
 	if !b.isBound(addr) {
-		return fmt.Errorf("%w: %w", commontypes.ErrInvalidConfig, newUnboundAddressErr(addr.Hex(), b.contractName, b.method))
+		return nil, fmt.Errorf("%w: %w", commontypes.ErrInvalidConfig, newUnboundAddressErr(addr.Hex(), b.contractName, b.method))
 	}
 
-	block, err := b.blockNumberFromConfidence(ctx, confidenceLevel)
+	block, confirmations, err := b.blockAndConfirmationsFromConfidence(ctx, confidenceLevel)
 	if err != nil {
-		return err
+		return nil, err
+	}
+
+	var blockNum *big.Int
+	if block != nil && confirmations != evmtypes.Unconfirmed {
+		blockNum = big.NewInt(block.Number)
 	}
 
 	data, err := b.codec.Encode(ctx, params, codec.WrapItemType(b.contractName, b.method, true))
@@ -141,9 +146,9 @@ func (b *MethodBinding) GetLatestValue(ctx context.Context, addr common.Address,
 				ReadName:        b.method,
 				Params:          params,
 				ReturnVal:       returnVal,
-			}, block.String(), false)
+			}, blockNum.String(), false)
 
-		return callErr
+		return nil, callErr
 	}
 
 	callMsg := ethereum.CallMsg{
@@ -152,7 +157,7 @@ func (b *MethodBinding) GetLatestValue(ctx context.Context, addr common.Address,
 		Data: data,
 	}
 
-	bytes, err := b.client.CallContract(ctx, callMsg, block)
+	bytes, err := b.client.CallContract(ctx, callMsg, blockNum)
 	if err != nil {
 		callErr := newErrorFromCall(
 			fmt.Errorf("%w: contract call: %s", commontypes.ErrInvalidType, err.Error()),
@@ -162,9 +167,9 @@ func (b *MethodBinding) GetLatestValue(ctx context.Context, addr common.Address,
 				ReadName:        b.method,
 				Params:          params,
 				ReturnVal:       returnVal,
-			}, block.String(), false)
+			}, blockNum.String(), false)
 
-		return callErr
+		return nil, callErr
 	}
 
 	if err = b.codec.Decode(ctx, bytes, returnVal, codec.WrapItemType(b.contractName, b.method, false)); err != nil {
@@ -176,15 +181,15 @@ func (b *MethodBinding) GetLatestValue(ctx context.Context, addr common.Address,
 				ReadName:        b.method,
 				Params:          params,
 				ReturnVal:       returnVal,
-			}, block.String(), false)
+			}, blockNum.String(), false)
 
 		strResult := hexutil.Encode(bytes)
 		callErr.Result = &strResult
 
-		return callErr
+		return nil, callErr
 	}
 
-	return nil
+	return block.ToChainAgnosticHead(), nil
 }
 
 func (b *MethodBinding) QueryKey(
@@ -200,31 +205,31 @@ func (b *MethodBinding) QueryKey(
 func (b *MethodBinding) Register(_ context.Context) error   { return nil }
 func (b *MethodBinding) Unregister(_ context.Context) error { return nil }
 
-func (b *MethodBinding) blockNumberFromConfidence(ctx context.Context, confidenceLevel primitives.ConfidenceLevel) (*big.Int, error) {
+func (b *MethodBinding) blockAndConfirmationsFromConfidence(ctx context.Context, confidenceLevel primitives.ConfidenceLevel) (*evmtypes.Head, evmtypes.Confirmations, error) {
 	confirmations, err := confidenceToConfirmations(b.confirmationsMapping, confidenceLevel)
 	if err != nil {
-		err = fmt.Errorf("%w: contract: %s; method: %s;", err, b.contractName, b.method)
+		err = fmt.Errorf("%w: contract: %s; method: %s", err, b.contractName, b.method)
 		if confidenceLevel == primitives.Unconfirmed {
 			b.lggr.Debugw("Falling back to default contract call behaviour that calls latest state", "contract", b.contractName, "method", b.method, "err", err)
 
-			return nil, nil
+			return nil, 0, err
 		}
 
-		return nil, err
+		return nil, 0, err
 	}
 
-	_, finalized, err := b.ht.LatestAndFinalizedBlock(ctx)
+	latest, finalized, err := b.ht.LatestAndFinalizedBlock(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("%w: head tracker: %w", commontypes.ErrInternal, err)
+		return nil, 0, fmt.Errorf("%w: head tracker: %w", commontypes.ErrInternal, err)
 	}
 
 	if confirmations == evmtypes.Finalized {
-		return big.NewInt(finalized.Number), nil
+		return finalized, confirmations, nil
 	} else if confirmations == evmtypes.Unconfirmed {
-		return nil, nil
+		return latest, confirmations, nil
 	}
 
-	return nil, fmt.Errorf("%w: [unknown evm confirmations]: %v; contract: %s; method: %s;", commontypes.ErrInvalidConfig, confirmations, b.contractName, b.method)
+	return nil, 0, fmt.Errorf("%w: [unknown evm confirmations]: %v; contract: %s; method: %s", commontypes.ErrInvalidConfig, confirmations, b.contractName, b.method)
 }
 
 func (b *MethodBinding) isBound(binding common.Address) bool {

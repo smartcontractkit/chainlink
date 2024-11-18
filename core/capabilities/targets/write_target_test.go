@@ -101,6 +101,7 @@ func TestWriteTarget(t *testing.T) {
 			Config:   config,
 			Inputs:   validInputs,
 		}
+		cw.On("GetTransactionStatus", mock.Anything, mock.Anything).Return(types.Finalized, nil).Once()
 
 		response, err2 := writeTarget.Execute(ctx, req)
 		require.NoError(t, err2)

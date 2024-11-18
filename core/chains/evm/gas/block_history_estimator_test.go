@@ -442,7 +442,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 			elems[1].Result = &b42
 		})
 
-		head := evmtypes.NewHead(big.NewInt(44), b44.Hash, b43.Hash, uint64(time.Now().Unix()), ubig.New(testutils.FixtureChainID))
+		head := evmtypes.NewHead(big.NewInt(44), b44.Hash, b43.Hash, ubig.New(testutils.FixtureChainID))
 		err = bhe.FetchBlocks(tests.Context(t), &head)
 		require.NoError(t, err)
 
@@ -507,8 +507,8 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 			elems[1].Result = &b2
 		})
 
-		head2 := evmtypes.NewHead(big.NewInt(2), b2.Hash, b1.Hash, uint64(time.Now().Unix()), ubig.New(testutils.FixtureChainID))
-		head3 := evmtypes.NewHead(big.NewInt(3), b3.Hash, b2.Hash, uint64(time.Now().Unix()), ubig.New(testutils.FixtureChainID))
+		head2 := evmtypes.NewHead(big.NewInt(2), b2.Hash, b1.Hash, ubig.New(testutils.FixtureChainID))
+		head3 := evmtypes.NewHead(big.NewInt(3), b3.Hash, b2.Hash, ubig.New(testutils.FixtureChainID))
 		head3.Parent.Store(&head2)
 		err := bhe.FetchBlocks(tests.Context(t), &head3)
 		require.NoError(t, err)
@@ -561,8 +561,8 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 		gas.SetRollingBlockHistory(bhe, blocks)
 
 		// RE-ORG, head2 and head3 have different hash than saved b2 and b3
-		head2 := evmtypes.NewHead(big.NewInt(2), utils.NewHash(), b1.Hash, uint64(time.Now().Unix()), ubig.New(testutils.FixtureChainID))
-		head3 := evmtypes.NewHead(big.NewInt(3), utils.NewHash(), head2.Hash, uint64(time.Now().Unix()), ubig.New(testutils.FixtureChainID))
+		head2 := evmtypes.NewHead(big.NewInt(2), utils.NewHash(), b1.Hash, ubig.New(testutils.FixtureChainID))
+		head3 := evmtypes.NewHead(big.NewInt(3), utils.NewHash(), head2.Hash, ubig.New(testutils.FixtureChainID))
 		head3.Parent.Store(&head2)
 
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
@@ -633,8 +633,8 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 		gas.SetRollingBlockHistory(bhe, blocks)
 
 		// head2 and head3 have identical hash to saved blocks
-		head2 := evmtypes.NewHead(big.NewInt(2), b2.Hash, b1.Hash, uint64(time.Now().Unix()), ubig.New(testutils.FixtureChainID))
-		head3 := evmtypes.NewHead(big.NewInt(3), b3.Hash, head2.Hash, uint64(time.Now().Unix()), ubig.New(testutils.FixtureChainID))
+		head2 := evmtypes.NewHead(big.NewInt(2), b2.Hash, b1.Hash, ubig.New(testutils.FixtureChainID))
+		head3 := evmtypes.NewHead(big.NewInt(3), b3.Hash, head2.Hash, ubig.New(testutils.FixtureChainID))
 		head3.Parent.Store(&head2)
 
 		err := bhe.FetchBlocks(tests.Context(t), &head3)

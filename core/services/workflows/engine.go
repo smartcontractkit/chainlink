@@ -27,6 +27,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 )
 
+const fifteenMinutesMs = 15 * 60 * 1000
+
 type stepRequest struct {
 	stepRef string
 	state   store.WorkflowExecution
@@ -113,6 +115,7 @@ type Engine struct {
 	newWorkerTimeout     time.Duration
 	maxExecutionDuration time.Duration
 	heartbeatCadence     time.Duration
+	stepTimeoutDuration  time.Duration
 
 	// testing lifecycle hook to signal when an execution is finished.
 	onExecutionFinished func(string)
@@ -282,6 +285,7 @@ func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
 		Metadata: capabilities.RegistrationMetadata{
 			WorkflowID:    e.workflow.id,
 			WorkflowOwner: e.workflow.owner,
+			ReferenceID:   step.Vertex.Ref,
 		},
 		Config: stepConfig,
 	}
@@ -621,7 +625,7 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 			// the async nature of the workflow engine would provide no guarantees.
 		}
 		logCustMsg(ctx, cma, "execution status: "+status, l)
-		return e.finishExecution(ctx, state.ExecutionID, status)
+		return e.finishExecution(ctx, cma, state.ExecutionID, status)
 	}
 
 	// Finally, since the workflow hasn't timed out or completed, let's
@@ -668,9 +672,12 @@ func (e *Engine) queueIfReady(state store.WorkflowExecution, step *step) {
 	}
 }
 
-func (e *Engine) finishExecution(ctx context.Context, executionID string, status string) error {
-	e.logger.With(platform.KeyWorkflowExecutionID, executionID, "status", status).Info("finishing execution")
+func (e *Engine) finishExecution(ctx context.Context, cma custmsg.MessageEmitter, executionID string, status string) error {
+	l := e.logger.With(platform.KeyWorkflowExecutionID, executionID, "status", status)
 	metrics := e.metrics.with("status", status)
+
+	l.Info("finishing execution")
+
 	err := e.executionStates.UpdateStatus(ctx, executionID, status)
 	if err != nil {
 		return err
@@ -686,6 +693,13 @@ func (e *Engine) finishExecution(ctx context.Context, executionID string, status
 	e.stepUpdatesChMap.remove(executionID)
 	metrics.updateTotalWorkflowsGauge(ctx, e.stepUpdatesChMap.len())
 	metrics.updateWorkflowExecutionLatencyGauge(ctx, executionDuration)
+
+	if executionDuration > fifteenMinutesMs {
+		logCustMsg(ctx, cma, fmt.Sprintf("execution duration exceeded 15 minutes: %d", executionDuration), l)
+		l.Warnf("execution duration exceeded 15 minutes: %d", executionDuration)
+	}
+	logCustMsg(ctx, cma, fmt.Sprintf("execution duration: %d", executionDuration), l)
+	l.Infof("execution duration: %d", executionDuration)
 	e.onExecutionFinished(executionID)
 	return nil
 }
@@ -755,7 +769,10 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	// TODO ks-462 inputs
 	logCustMsg(ctx, cma, "executing step", l)
 
-	inputs, outputs, err := e.executeStep(ctx, l, msg)
+	stepCtx, cancel := context.WithTimeout(ctx, e.stepTimeoutDuration)
+	defer cancel()
+
+	inputs, outputs, err := e.executeStep(stepCtx, l, msg)
 	var stepStatus string
 	switch {
 	case errors.Is(capabilities.ErrStopExecution, err):
@@ -1096,6 +1113,7 @@ func (e *Engine) Close() error {
 				Metadata: capabilities.RegistrationMetadata{
 					WorkflowID:    e.workflow.id,
 					WorkflowOwner: e.workflow.owner,
+					ReferenceID:   s.Vertex.Ref,
 				},
 				Config: stepConfig,
 			}
@@ -1103,7 +1121,7 @@ func (e *Engine) Close() error {
 			innerErr := s.capability.UnregisterFromWorkflow(ctx, reg)
 			if innerErr != nil {
 				return &workflowError{err: innerErr,
-					reason: fmt.Sprintf("failed to unregister capability from workflow: %+v", reg),
+					reason: fmt.Sprintf("failed to unregister capability from  workflow: %+v", reg),
 					labels: map[string]string{
 						platform.KeyWorkflowID: e.workflow.id,
 						platform.KeyStepID:     s.ID,
@@ -1137,6 +1155,7 @@ type Config struct {
 	Binary               []byte
 	SecretsFetcher       secretsFetcher
 	HeartbeatCadence     time.Duration
+	StepTimeout          time.Duration
 
 	// For testing purposes only
 	maxRetries          int
@@ -1152,6 +1171,7 @@ const (
 	defaultNewWorkerTimeout     = 2 * time.Second
 	defaultMaxExecutionDuration = 10 * time.Minute
 	defaultHeartbeatCadence     = 5 * time.Minute
+	defaultStepTimeout          = 2 * time.Minute
 )
 
 func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
@@ -1181,6 +1201,10 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 
 	if cfg.HeartbeatCadence == 0 {
 		cfg.HeartbeatCadence = defaultHeartbeatCadence
+	}
+
+	if cfg.StepTimeout == 0 {
+		cfg.StepTimeout = defaultStepTimeout
 	}
 
 	if cfg.retryMs == 0 {
@@ -1235,6 +1259,7 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		triggerEvents:        make(chan capabilities.TriggerResponse),
 		stopCh:               make(chan struct{}),
 		newWorkerTimeout:     cfg.NewWorkerTimeout,
+		stepTimeoutDuration:  cfg.StepTimeout,
 		maxExecutionDuration: cfg.MaxExecutionDuration,
 		heartbeatCadence:     cfg.HeartbeatCadence,
 		onExecutionFinished:  cfg.onExecutionFinished,

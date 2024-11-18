@@ -69,10 +69,10 @@ func TestBroadcaster_AwaitsInitialSubscribersOnStartup(t *testing.T) {
 func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 	testutils.SkipShortDB(t)
 	const (
-		numConfirmations            = 1
-		numContracts                = 3
-		blockHeight           int64 = 123
-		lastStoredBlockHeight       = blockHeight - 25
+		numConfirmations      = 1
+		numContracts          = 3
+		blockHeight           = 123
+		lastStoredBlockHeight = blockHeight - 25
 	)
 
 	backfillTimes := 2
@@ -137,7 +137,7 @@ func TestBroadcaster_BackfillOnNodeStartAndOnReplay(t *testing.T) {
 	testutils.SkipShortDB(t)
 	const (
 		lastStoredBlockHeight       = 100
-		blockHeight           int64 = 125
+		blockHeight                 = 125
 		replayFrom            int64 = 40
 	)
 
@@ -398,9 +398,9 @@ func (helper *broadcasterHelper) simulateHeads(t *testing.T, listener, listener2
 func TestBroadcaster_ShallowBackfillOnNodeStart(t *testing.T) {
 	testutils.SkipShortDB(t)
 	const (
-		lastStoredBlockHeight       = 100
-		blockHeight           int64 = 125
-		backfillDepth               = 15
+		lastStoredBlockHeight = 100
+		blockHeight           = 125
+		backfillDepth         = 15
 	)
 
 	backfillTimes := 1
@@ -447,7 +447,7 @@ func TestBroadcaster_BackfillInBatches(t *testing.T) {
 	testutils.SkipShortDB(t)
 	const (
 		numConfirmations            = 1
-		blockHeight           int64 = 120
+		blockHeight                 = 120
 		lastStoredBlockHeight       = blockHeight - 29
 		backfillTimes               = 1
 		batchSize             int64 = 5
@@ -505,10 +505,10 @@ func TestBroadcaster_BackfillALargeNumberOfLogs(t *testing.T) {
 	testutils.SkipShortDB(t)
 	g := gomega.NewWithT(t)
 	const (
-		lastStoredBlockHeight int64 = 10
+		lastStoredBlockHeight = 10
 
 		// a large number of blocks since lastStoredBlockHeight
-		blockHeight int64 = 3000
+		blockHeight = 3000
 
 		backfillTimes          = 1
 		batchSize       uint32 = 50

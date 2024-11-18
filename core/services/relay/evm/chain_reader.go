@@ -197,7 +197,8 @@ func (cr *chainReader) GetLatestValue(ctx context.Context, readName string, conf
 
 	ptrToValue, isValue := returnVal.(*values.Value)
 	if !isValue {
-		return binding.GetLatestValue(ctx, common.HexToAddress(address), confidenceLevel, params, returnVal)
+		_, err = binding.GetLatestValueWithHeadData(ctx, common.HexToAddress(address), confidenceLevel, params, returnVal)
+		return err
 	}
 
 	contractType, err := cr.CreateContractType(readName, false)
@@ -217,6 +218,37 @@ func (cr *chainReader) GetLatestValue(ctx context.Context, readName string, conf
 	*ptrToValue = value
 
 	return nil
+}
+
+func (cr *chainReader) GetLatestValueWithHeadData(ctx context.Context, readName string, confidenceLevel primitives.ConfidenceLevel, params any, returnVal any) (head *commontypes.Head, err error) {
+	binding, address, err := cr.bindings.GetReader(readName)
+	if err != nil {
+		return nil, err
+	}
+
+	ptrToValue, isValue := returnVal.(*values.Value)
+	if !isValue {
+		return binding.GetLatestValueWithHeadData(ctx, common.HexToAddress(address), confidenceLevel, params, returnVal)
+	}
+
+	contractType, err := cr.CreateContractType(readName, false)
+	if err != nil {
+		return nil, err
+	}
+
+	head, err = cr.GetLatestValueWithHeadData(ctx, readName, confidenceLevel, params, contractType)
+	if err != nil {
+		return nil, err
+	}
+
+	value, err := values.Wrap(contractType)
+	if err != nil {
+		return nil, err
+	}
+
+	*ptrToValue = value
+
+	return head, nil
 }
 
 func (cr *chainReader) BatchGetLatestValues(ctx context.Context, request commontypes.BatchGetLatestValuesRequest) (commontypes.BatchGetLatestValuesResult, error) {
