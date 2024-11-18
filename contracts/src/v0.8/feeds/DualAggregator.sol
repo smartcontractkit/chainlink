@@ -449,7 +449,7 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
     uint32 _cutoffTime
   ) external onlyOwner {
     s_cutoffTime = _cutoffTime;
-    emit CutoffTimeSet(s_cutoffTime);
+    emit CutoffTimeSet(_cutoffTime);
   }
 
   /// @notice sets the max sync iterations
@@ -458,7 +458,7 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
     uint32 _maxSyncIterations
   ) external onlyOwner {
     s_maxSyncIterations = _maxSyncIterations;
-    emit MaxSyncIterationsSet(s_maxSyncIterations);
+    emit MaxSyncIterationsSet(_maxSyncIterations);
   }
 
   /// @notice sync data with the primary rounds, return the freshest valid round id

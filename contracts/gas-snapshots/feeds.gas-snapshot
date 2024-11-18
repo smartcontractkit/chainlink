@@ -87,7 +87,7 @@ Transmit:test_BothFeedsStalledIncomingReportIsFromAfterCutoffTime() (gas: 416765
 Transmit:test_BothFeedsStalledIncomingSecondaryReportIsFromBeforeCutoffTime() (gas: 457955)
 Transmit:test_IncomingSecondaryReportHasNotBeenRecordedOlderThanLatestReportNewerThanCutoffTime() (gas: 490673)
 Transmit:test_IncomingSecondaryReportHasNotBeenRecordedOlderThanLatestReportOlderThanCutoffTime() (gas: 507994)
-Transmit:test_IncomingSecondaryReportRevertsDueToMaxIterations() (gas: 790842)
+Transmit:test_IncomingSecondaryReportRevertsDueToMaxIterations() (gas: 790831)
 Transmit:test_OutOfSyncFeedsPrimaryIsSourcedFromSecondaryWithLockDelay() (gas: 414120)
 Transmit:test_OutOfSyncFeedsSecondaryFeedFallbackToStandardFeed() (gas: 785444)
 Transmit:test_ReadExpectedInitialState() (gas: 146325)
