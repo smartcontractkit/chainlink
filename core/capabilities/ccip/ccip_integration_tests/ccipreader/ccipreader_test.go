@@ -565,6 +565,7 @@ func Test_GetMedianDataAvailabilityGasConfig(t *testing.T) {
 	// Update the dest chain config for each fee quoter
 	for i, fq := range feeQuoters {
 		destChainCfg := DefaultFeeQuoterDestChainConfig()
+		//nolint:gosec // disable G115
 		destChainCfg.DestDataAvailabilityOverheadGas = uint32(100 + i)
 		destChainCfg.DestGasPerDataAvailabilityByte = uint16(200 + i)
 		destChainCfg.DestDataAvailabilityMultiplierBps = uint16(1 + i)
@@ -788,23 +789,23 @@ func testSetup(
 
 	var otherCrs = make(map[cciptypes.ChainSelector]contractreader.Extended)
 	for chain, bindings := range toBindContracts {
-		cl := client.NewSimulatedBackendClient(t, simulatedBackend, big.NewInt(0).SetUint64(uint64(chain)))
-		headTracker := headtracker.NewSimulatedHeadTracker(cl, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
-		lp := logpoller.NewLogPoller(logpoller.NewORM(big.NewInt(0).SetUint64(uint64(chain)), db, lggr),
-			cl,
+		cl2 := client.NewSimulatedBackendClient(t, simulatedBackend, big.NewInt(0).SetUint64(uint64(chain)))
+		headTracker2 := headtracker.NewSimulatedHeadTracker(cl, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
+		lp2 := logpoller.NewLogPoller(logpoller.NewORM(big.NewInt(0).SetUint64(uint64(chain)), db, lggr),
+			cl2,
 			lggr,
-			headTracker,
+			headTracker2,
 			lpOpts,
 		)
 		assert.NoError(t, lp.Start(ctx))
 
-		cr, err := evm.NewChainReaderService(ctx, lggr, lp, headTracker, cl, cfg)
-		require.NoError(t, err)
+		cr2, err2 := evm.NewChainReaderService(ctx, lggr, lp2, headTracker2, cl2, cfg)
+		require.NoError(t, err2)
 
-		extendedCr := contractreader.NewExtendedContractReader(cr)
-		err = extendedCr.Bind(ctx, bindings)
-		require.NoError(t, err)
-		otherCrs[chain] = extendedCr
+		extendedCr2 := contractreader.NewExtendedContractReader(cr2)
+		err2 = extendedCr2.Bind(ctx, bindings)
+		require.NoError(t, err2)
+		otherCrs[chain] = extendedCr2
 	}
 
 	for chain, bindings := range toMockBindings {
