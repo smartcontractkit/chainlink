@@ -14,7 +14,7 @@ func DeployMCMSWithTimelock(e deployment.Environment, cfgByChain map[uint64]type
 		e.Logger, e.Chains, newAddresses, cfgByChain,
 	)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return deployment.ChangesetOutput{AddressBook: newAddresses}, err
 	}
 	return deployment.ChangesetOutput{AddressBook: newAddresses}, nil
 }
