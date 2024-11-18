@@ -432,6 +432,10 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
   /// @param secondaryRoundId the new secondary round id
   event SecondaryRoundIdUpdated(uint32 indexed secondaryRoundId);
 
+  /// @notice indicates that a new report arrived from the primary feed and the report had already been stored 
+  /// @param primaryRoundId the new primary round id (if we're at the next block since the report it should be the same)
+  event PrimaryFeedUnlocked(uint32 indexed primaryRoundId);
+
   /// @notice emitted when a new cutoff time is set
   /// @param cutoffTime the new defined cutoff time
   event CutoffTimeSet(uint32 cutoffTime);
@@ -729,6 +733,10 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
       _verifySignatures(reportContext, report, rs, ss, rawVs);
 
       _report(hotVars, reportContext[0], epochAndRound, report_, isSecondary);
+    } else {
+      // If the report is the same and the latest sender was the secondary feed,
+      // we're effectively unlocking the primary feed with this
+      emit PrimaryFeedUnlocked(s_hotVars.latestAggregatorRoundId);
     }
 
     // Store if the latest report was secondary or not
