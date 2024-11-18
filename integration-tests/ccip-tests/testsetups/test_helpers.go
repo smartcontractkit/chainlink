@@ -3,8 +3,6 @@ package testsetups
 import (
 	"fmt"
 	"math/big"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"strconv"
 	"testing"
@@ -84,25 +82,6 @@ func NewLocalDevEnvironmentWithDefaultPrice(
 	return NewLocalDevEnvironment(t, lggr, ccipdeployment.MockLinkPrice, ccipdeployment.MockWethPrice)
 }
 
-// mockAttestationResponse mocks the USDC attestation server, it returns random Attestation.
-// We don't need to return exactly the same attestation, because our Mocked USDC contract doesn't rely on any specific
-// value, but instead of that it just checks if the attestation is present. Therefore, it makes the test a bit simpler
-// and doesn't require very detailed mocks. Please see tests in chainlink-ccip for detailed tests using real attestations
-func mockAttestationResponse() *httptest.Server {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		response := `{
-			"status": "complete",
-			"attestation": "0x9049623e91719ef2aa63c55f357be2529b0e7122ae552c18aff8db58b4633c4d3920ff03d3a6d1ddf11f06bf64d7fd60d45447ac81f527ba628877dc5ca759651b08ffae25a6d3b1411749765244f0a1c131cbfe04430d687a2e12fd9d2e6dc08e118ad95d94ad832332cf3c4f7a4f3da0baa803b7be024b02db81951c0f0714de1b"
-		}`
-
-		_, err := w.Write([]byte(response))
-		if err != nil {
-			panic(err)
-		}
-	}))
-	return server
-}
-
 func NewLocalDevEnvironment(
 	t *testing.T,
 	lggr logger.Logger,
@@ -136,6 +115,7 @@ func NewLocalDevEnvironment(
 	require.NoError(t, err)
 	require.NotNil(t, e)
 	e.ExistingAddresses = ab
+	require.NotNil(t, testEnv.MockAdapter)
 	e.MockAdapter = testEnv.MockAdapter
 
 	envNodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
@@ -176,16 +156,9 @@ func NewLocalDevEnvironment(
 	require.NoError(t, err)
 
 	var endpoint string
-	// When inmemory env then spin up in memory mock server
-	if testEnv == nil {
-		server := mockAttestationResponse()
-		defer server.Close()
-		endpoint = server.URL
-	} else {
-		err := ccipactions.SetMockServerWithUSDCAttestation(e.MockAdapter, nil)
-		require.NoError(t, err)
-		endpoint = e.MockAdapter.InternalEndpoint
-	}
+	err = ccipactions.SetMockServerWithUSDCAttestation(e.MockAdapter, nil)
+	require.NoError(t, err)
+	endpoint = e.MockAdapter.InternalEndpoint
 
 	tokenConfig := ccipdeployment.NewTestTokenConfig(state.Chains[feedSel].USDFeeds)
 	// Apply migration
