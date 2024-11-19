@@ -98,6 +98,17 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	srcUSDC, dstUSDC, err := ccdeploy.ConfigureUSDCTokenPools(lggr, e.Chains, sourceChain, destChain, state)
 	require.NoError(t, err)
 
+	srcToken, _, dstToken, _, err := ccdeploy.DeployTransferableToken(
+		lggr,
+		tenv.Env.Chains,
+		sourceChain,
+		destChain,
+		state,
+		e.ExistingAddresses,
+		"MY_TOKEN",
+	)
+	require.NoError(t, err)
+
 	// Ensure capreg logs are up to date.
 	ccdeploy.ReplayLogs(t, e.Offchain, tenv.ReplayBlocks)
 
@@ -117,9 +128,9 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	// Add all lanes
 	require.NoError(t, ccdeploy.AddLanesForAll(e, state))
 
-	mintAndAllow(t, e, state, map[uint64]*burn_mint_erc677.BurnMintERC677{
-		sourceChain: srcUSDC,
-		destChain:   dstUSDC,
+	mintAndAllow(t, e, state, map[uint64][]*burn_mint_erc677.BurnMintERC677{
+		sourceChain: {srcUSDC, srcToken},
+		destChain:   {dstUSDC, dstToken},
 	})
 
 	err = ccdeploy.UpdateFeeQuoterForUSDC(lggr, e.Chains[sourceChain], state.Chains[sourceChain], destChain, srcUSDC)
@@ -175,6 +186,26 @@ func TestUSDCTokenTransfer(t *testing.T) {
 			},
 		},
 		{
+			name:        "USDC token together with another token transferred to EOA",
+			receiver:    utils.RandomAddress(),
+			sourceChain: sourceChain,
+			destChain:   destChain,
+			tokens: []router.ClientEVMTokenAmount{
+				{
+					Token:  srcUSDC.Address(),
+					Amount: tinyOneCoin,
+				},
+				{
+					Token:  srcToken.Address(),
+					Amount: new(big.Int).Mul(tinyOneCoin, big.NewInt(10)),
+				},
+			},
+			expectedTokenBalances: map[common.Address]*big.Int{
+				dstUSDC.Address():  tinyOneCoin,
+				dstToken.Address(): new(big.Int).Mul(tinyOneCoin, big.NewInt(10)),
+			},
+		},
+		{
 			name:        "programmable token transfer to valid contract receiver",
 			receiver:    state.Chains[destChain].Receiver.Address(),
 			sourceChain: sourceChain,
@@ -224,24 +255,26 @@ func mintAndAllow(
 	t *testing.T,
 	e deployment.Environment,
 	state ccdeploy.CCIPOnChainState,
-	tokens map[uint64]*burn_mint_erc677.BurnMintERC677,
+	tkMap map[uint64][]*burn_mint_erc677.BurnMintERC677,
 ) {
-	for chain, token := range tokens {
-		twoCoins := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(2))
+	for chain, tokens := range tkMap {
+		for _, token := range tokens {
+			twoCoins := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(2))
 
-		tx, err := token.Mint(
-			e.Chains[chain].DeployerKey,
-			e.Chains[chain].DeployerKey.From,
-			new(big.Int).Mul(twoCoins, big.NewInt(10)),
-		)
-		require.NoError(t, err)
-		_, err = e.Chains[chain].Confirm(tx)
-		require.NoError(t, err)
+			tx, err := token.Mint(
+				e.Chains[chain].DeployerKey,
+				e.Chains[chain].DeployerKey.From,
+				new(big.Int).Mul(twoCoins, big.NewInt(10)),
+			)
+			require.NoError(t, err)
+			_, err = e.Chains[chain].Confirm(tx)
+			require.NoError(t, err)
 
-		tx, err = token.Approve(e.Chains[chain].DeployerKey, state.Chains[chain].Router.Address(), twoCoins)
-		require.NoError(t, err)
-		_, err = e.Chains[chain].Confirm(tx)
-		require.NoError(t, err)
+			tx, err = token.Approve(e.Chains[chain].DeployerKey, state.Chains[chain].Router.Address(), twoCoins)
+			require.NoError(t, err)
+			_, err = e.Chains[chain].Confirm(tx)
+			require.NoError(t, err)
+		}
 	}
 }
 
