@@ -27,22 +27,6 @@ var (
 	ContractName        = "WorkflowRegistry"
 )
 
-// WorkflowRegistryrEventType is the type of event that is emitted by the WorkflowRegistry
-type WorkflowRegistryEventType string
-
-var (
-	// ForceUpdateSecretsEvent is emitted when a request to force update a workflows secrets is made
-	ForceUpdateSecretsEvent WorkflowRegistryEventType = "WorkflowForceUpdateSecretsRequestedV1"
-)
-
-// WorkflowRegistryForceUpdateSecretsRequestedV1 is a chain agnostic definition of the WorkflowRegistry
-// ForceUpdateSecretsRequested event.
-type WorkflowRegistryForceUpdateSecretsRequestedV1 struct {
-	SecretsURLHash []byte
-	Owner          []byte
-	WorkflowName   string
-}
-
 type Head struct {
 	Hash      string
 	Height    string
