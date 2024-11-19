@@ -526,10 +526,14 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				}
 
 				// test on-chain verification
-				{
+				t.Run("on-chain verification", func(t *testing.T) {
+					t.Skip("SKIP - MERC-6637")
+					// Disabled because it flakes, sometimes returns "execution reverted"
+					// No idea why
+					// https://smartcontract-it.atlassian.net/browse/MERC-6637
 					_, err = verifierProxy.Verify(steve, req.req.Payload, []byte{})
 					require.NoError(t, err)
-				}
+				})
 
 				t.Logf("oracle %x reported for 0x%x", req.pk[:], feedID[:])
 
