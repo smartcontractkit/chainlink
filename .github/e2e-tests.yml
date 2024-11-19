@@ -947,7 +947,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
-      E2E_JD_VERSION: 0.4.0
+      E2E_JD_VERSION: 0.6.0
   
   - id: smoke/ccip_messaging_test.go:*
     path: integration-tests/smoke/ccip_messaging_test.go
@@ -991,7 +991,7 @@ runner-test-matrix:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       E2E_JD_VERSION: 0.4.0
 
-  - id: smoke/ccip_rmn_test.go:^TestRMN_TwoMessagesOnTwoLanes$
+  - id: smoke/ccip_rmn_test.go:^TestRMN_TwoMessagesOnTwoLanesIncludingBatching$
     path: integration-tests/smoke/ccip_rmn_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -999,7 +999,7 @@ runner-test-matrix:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
-    test_cmd: cd integration-tests/smoke && go test -test.run ^TestRMN_TwoMessagesOnTwoLanes$ -timeout 12m -test.parallel=1 -count=1 -json
+    test_cmd: cd integration-tests/smoke && go test -test.run ^TestRMN_TwoMessagesOnTwoLanesIncludingBatching$ -timeout 12m -test.parallel=1 -count=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2

@@ -17,12 +17,18 @@ import (
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 )
 
 type JobClient struct {
 	Nodes map[string]Node
+}
+
+func (j JobClient) BatchProposeJob(ctx context.Context, in *jobv1.BatchProposeJobRequest, opts ...grpc.CallOption) (*jobv1.BatchProposeJobResponse, error) {
+	//TODO CCIP-3108  implement me
+	panic("implement me")
 }
 
 func (j JobClient) UpdateJob(ctx context.Context, in *jobv1.UpdateJobRequest, opts ...grpc.CallOption) (*jobv1.UpdateJobResponse, error) {
