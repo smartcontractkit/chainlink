@@ -98,7 +98,8 @@ jobs:
       - name: Check if Go solidity wrappers are updated
         if: ${{ needs.changes.outputs.changes == 'true' }}
         run: |
-          git add --all
+          # Add everything except for checked out repo for pretty printing
+          git add -- . ':!diff-so-fancy'
           git diff --minimal --color --cached --exit-code | diff-so-fancy
 
   # The if statements for steps after checkout repo is a workaround for
