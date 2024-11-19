@@ -1,6 +1,7 @@
 package llo
 
 import (
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
 
@@ -8,11 +9,11 @@ import (
 )
 
 // NOTE: All supported codecs must be specified here
-func NewReportCodecs() map[llotypes.ReportFormat]llo.ReportCodec {
+func NewReportCodecs(lggr logger.Logger) map[llotypes.ReportFormat]llo.ReportCodec {
 	codecs := make(map[llotypes.ReportFormat]llo.ReportCodec)
 
 	codecs[llotypes.ReportFormatJSON] = llo.JSONReportCodec{}
-	codecs[llotypes.ReportFormatEVMPremiumLegacy] = evm.ReportCodecPremiumLegacy{}
+	codecs[llotypes.ReportFormatEVMPremiumLegacy] = evm.NewReportCodecPremiumLegacy(lggr)
 
 	return codecs
 }

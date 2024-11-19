@@ -6,7 +6,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 )
@@ -27,11 +26,7 @@ type ExistingContractsConfig struct {
 
 func (cfg ExistingContractsConfig) Validate() error {
 	for _, ec := range cfg.ExistingContracts {
-		if ec.ChainSelector == 0 {
-			return fmt.Errorf("chain selectors must be set")
-		}
-		_, err := chain_selectors.ChainIdFromSelector(ec.ChainSelector)
-		if err != nil {
+		if err := deployment.IsValidChainSelector(ec.ChainSelector); err != nil {
 			return fmt.Errorf("invalid chain selector: %d - %w", ec.ChainSelector, err)
 		}
 		if ec.Address == (common.Address{}) {

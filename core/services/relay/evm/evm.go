@@ -39,6 +39,7 @@ import (
 	txm "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
+	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/bm"
@@ -149,7 +150,7 @@ type Relayer struct {
 
 	// Mercury
 	mercuryORM        mercury.ORM
-	transmitterCfg    mercury.TransmitterConfig
+	mercuryCfg        MercuryConfig
 	triggerCapability *triggers.MercuryTriggerService
 
 	// LLO/data streams
@@ -162,14 +163,19 @@ type CSAETHKeystore interface {
 	Eth() keystore.Eth
 }
 
+type MercuryConfig interface {
+	Transmitter() coreconfig.MercuryTransmitter
+	VerboseLogging() bool
+}
+
 type RelayerOpts struct {
 	DS sqlutil.DataSource
 	CSAETHKeystore
 	MercuryPool           wsrpc.Pool
 	RetirementReportCache llo.RetirementReportCache
-	TransmitterConfig     mercury.TransmitterConfig
-	CapabilitiesRegistry  coretypes.CapabilitiesRegistry
-	HTTPClient            *http.Client
+	MercuryConfig
+	CapabilitiesRegistry coretypes.CapabilitiesRegistry
+	HTTPClient           *http.Client
 }
 
 func (c RelayerOpts) Validate() error {
@@ -213,7 +219,7 @@ func NewRelayer(ctx context.Context, lggr logger.Logger, chain legacyevm.Chain, 
 		cdcFactory:            cdcFactory,
 		retirementReportCache: opts.RetirementReportCache,
 		mercuryORM:            mercuryORM,
-		transmitterCfg:        opts.TransmitterConfig,
+		mercuryCfg:            opts.MercuryConfig,
 		capabilitiesRegistry:  opts.CapabilitiesRegistry,
 	}
 
@@ -484,7 +490,7 @@ func (r *Relayer) NewMercuryProvider(ctx context.Context, rargs commontypes.Rela
 		return nil, err
 	}
 
-	transmitter := mercury.NewTransmitter(lggr, r.transmitterCfg, clients, privKey.PublicKey, rargs.JobID, *relayConfig.FeedID, r.mercuryORM, transmitterCodec, benchmarkPriceDecoder, r.triggerCapability)
+	transmitter := mercury.NewTransmitter(lggr, r.mercuryCfg.Transmitter(), clients, privKey.PublicKey, rargs.JobID, *relayConfig.FeedID, r.mercuryORM, transmitterCodec, benchmarkPriceDecoder, r.triggerCapability)
 
 	return NewMercuryProvider(cp, r.codec, NewMercuryChainReader(r.chain.HeadTracker()), transmitter, reportCodecV1, reportCodecV2, reportCodecV3, reportCodecV4, lggr), nil
 }
@@ -552,15 +558,17 @@ func (r *Relayer) NewLLOProvider(ctx context.Context, rargs commontypes.RelayArg
 			clients[server.URL] = client
 		}
 		transmitter = llo.NewTransmitter(llo.TransmitterOpts{
-			Lggr:        r.lggr,
-			FromAccount: fmt.Sprintf("%x", privKey.PublicKey), // NOTE: This may need to change if we support e.g. multiple tranmsmitters, to be a composite of all keys
+			Lggr:           r.lggr,
+			FromAccount:    fmt.Sprintf("%x", privKey.PublicKey), // NOTE: This may need to change if we support e.g. multiple tranmsmitters, to be a composite of all keys
+			VerboseLogging: r.mercuryCfg.VerboseLogging(),
 			MercuryTransmitterOpts: mercurytransmitter.Opts{
-				Lggr:        r.lggr,
-				Cfg:         r.transmitterCfg,
-				Clients:     clients,
-				FromAccount: privKey.PublicKey,
-				DonID:       relayConfig.LLODONID,
-				ORM:         mercurytransmitter.NewORM(r.ds, relayConfig.LLODONID),
+				Lggr:           r.lggr,
+				VerboseLogging: r.mercuryCfg.VerboseLogging(),
+				Cfg:            r.mercuryCfg.Transmitter(),
+				Clients:        clients,
+				FromAccount:    privKey.PublicKey,
+				DonID:          relayConfig.LLODONID,
+				ORM:            mercurytransmitter.NewORM(r.ds, relayConfig.LLODONID),
 			},
 			RetirementReportCache: r.retirementReportCache,
 		})

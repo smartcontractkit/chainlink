@@ -418,8 +418,8 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 			MailMon:   mailMon,
 			DS:        ds,
 		},
-		CSAETHKeystore:     keyStore,
-		MercuryTransmitter: cfg.Mercury().Transmitter(),
+		CSAETHKeystore: keyStore,
+		MercuryConfig:  cfg.Mercury(),
 	}
 
 	if cfg.EVMEnabled() {

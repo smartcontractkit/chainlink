@@ -689,6 +689,10 @@ TransmitQueueMaxSize = 10_000 # Default
 # when sending a message to the mercury server, before aborting and considering
 # the transmission to be failed.
 TransmitTimeout = "5s" # Default
+# TransmitConcurrency is the max number of concurrent transmits to each server.
+#
+# Only has effect with LLO jobs.
+TransmitConcurrency = 100 # Default
 
 # Telemetry holds OTEL settings.
 # This data includes open telemetry metrics, traces, & logs.
