@@ -44,6 +44,10 @@ func TestAddressBook_Save(t *testing.T) {
 	err = ab.Save(chainsel.TEST_90000001.Selector, common.HexToAddress("0x0").Hex(), onRamp100)
 	require.Error(t, err)
 
+	// Zero address but non evm chain
+	err = NewMemoryAddressBook().Save(chainsel.APTOS_MAINNET.Selector, common.HexToAddress("0x0").Hex(), onRamp100)
+	require.NoError(t, err)
+
 	// Distinct address same TV will not
 	err = ab.Save(chainsel.TEST_90000001.Selector, addr2, onRamp100)
 	require.NoError(t, err)

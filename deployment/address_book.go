@@ -94,7 +94,7 @@ type AddressBookMap struct {
 }
 
 // Save will save an address for a given chain selector. It will error if there is a conflicting existing address.
-func (m *AddressBookMap) Save(chainSelector uint64, address string, typeAndVersion TypeAndVersion) error {
+func (m *AddressBookMap) save(chainSelector uint64, address string, typeAndVersion TypeAndVersion) error {
 	family, err := chainsel.GetSelectorFamily(chainSelector)
 	if err != nil {
 		return errors.Wrapf(ErrInvalidChainSelector, "chain selector %d", chainSelector)
@@ -110,6 +110,9 @@ func (m *AddressBookMap) Save(chainSelector uint64, address string, typeAndVersi
 			return errors.Wrapf(ErrInvalidAddress, "address %s is not a valid Ethereum address, only Ethereum addresses supported for EVM chains", address)
 		}
 	}
+
+	// TODO NONEVM-960: Add validation for non-EVM chain addresses
+
 	if typeAndVersion.Type == "" {
 		return fmt.Errorf("type cannot be empty")
 	}
