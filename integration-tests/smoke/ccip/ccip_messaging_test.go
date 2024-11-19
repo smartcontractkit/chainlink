@@ -1,4 +1,4 @@
-package smoke
+package ccip
 
 import (
 	"context"
@@ -16,11 +16,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
+	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccdeploy "github.com/smartcontractkit/chainlink/deployment/ccip"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
@@ -110,9 +110,9 @@ func Test_CCIPMessaging(t *testing.T) {
 	var (
 		replayed bool
 		nonce    uint64
-		sender   = common.LeftPadBytes(e.Env.Chains[sourceChain].DeployerKey.From.Bytes(), 32)
-		out      messagingTestCaseOutput
-		setup    = testCaseSetup{
+		sender = common.LeftPadBytes(e.Env.Chains[sourceChain].DeployerKey.From.Bytes(), 32)
+		out    messagingTestCaseOutput
+		setup  = testCaseSetup{
 			t:            t,
 			sender:       sender,
 			deployedEnv:  e,

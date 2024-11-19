@@ -1,4 +1,4 @@
-package smoke
+package ccip
 
 import (
 	"math/big"
@@ -16,6 +16,7 @@ import (
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/osutil"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipdeployment "github.com/smartcontractkit/chainlink/deployment/ccip"
@@ -23,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_remote"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -446,9 +446,9 @@ type rmnTestCase struct {
 	// If set to 0, the test will wait for commit reports.
 	// If set to a positive value, the test will wait for that duration and will assert that commit report was not delivered.
 	passIfNoCommitAfter time.Duration
-	waitForExec         bool
-	homeChainConfig     homeChainConfig
-	remoteChainsConfig  []remoteChainConfig
-	rmnNodes            []rmnNode
-	messagesToSend      []messageToSend
+	waitForExec        bool
+	homeChainConfig    homeChainConfig
+	remoteChainsConfig []remoteChainConfig
+	rmnNodes           []rmnNode
+	messagesToSend     []messageToSend
 }

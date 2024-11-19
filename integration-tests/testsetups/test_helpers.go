@@ -1,6 +1,7 @@
 package testsetups
 
 import (
+	"bytes"
 	"fmt"
 	"math/big"
 	"os"
@@ -9,6 +10,7 @@ import (
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 	ctftestenv "github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
@@ -18,6 +20,9 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
+	integrationnodes "github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
+	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipdeployment "github.com/smartcontractkit/chainlink/deployment/ccip"
@@ -586,4 +591,41 @@ func CreateChainConfigFromNetworks(
 		})
 	}
 	return chains
+}
+
+func SetNodeConfig(nets []blockchain.EVMNetwork, nodeConfig, commonChain string, configByChain map[string]string) (*corechainlink.Config, string, error) {
+	var tomlCfg *corechainlink.Config
+	var err error
+	var commonChainConfig *evmcfg.Chain
+	if commonChain != "" {
+		err = config.DecodeTOML(bytes.NewReader([]byte(commonChain)), &commonChainConfig)
+		if err != nil {
+			return nil, "", err
+		}
+	}
+	configByChainMap := make(map[int64]evmcfg.Chain)
+	for k, v := range configByChain {
+		var chain evmcfg.Chain
+		err = config.DecodeTOML(bytes.NewReader([]byte(v)), &chain)
+		if err != nil {
+			return nil, "", err
+		}
+		chainId, err := strconv.ParseInt(k, 10, 64)
+		if err != nil {
+			return nil, "", err
+		}
+		configByChainMap[chainId] = chain
+	}
+	if nodeConfig == "" {
+		tomlCfg = integrationnodes.NewConfig(
+			integrationnodes.NewBaseConfig(),
+			integrationnodes.WithPrivateEVMs(nets, commonChainConfig, configByChainMap))
+	} else {
+		tomlCfg, err = integrationnodes.NewConfigFromToml([]byte(nodeConfig), integrationnodes.WithPrivateEVMs(nets, commonChainConfig, configByChainMap))
+		if err != nil {
+			return nil, "", err
+		}
+	}
+	tomlStr, err := tomlCfg.TOMLString()
+	return tomlCfg, tomlStr, err
 }
