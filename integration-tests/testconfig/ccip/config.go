@@ -65,7 +65,7 @@ func (r *RMNConfig) GetProxyVersion() string {
 	return version
 }
 
-func (r *RMNConfig) GetAFNImage() string {
+func (r *RMNConfig) GetAFN2ProxyImage() string {
 	image := pointer.GetString(r.AFNImage)
 	if image == "" {
 		return ctfconfig.MustReadEnvVar_String(E2E_RMN_AFN2PROXY_IMAGE)
@@ -73,7 +73,7 @@ func (r *RMNConfig) GetAFNImage() string {
 	return image
 }
 
-func (r *RMNConfig) GetAFNVersion() string {
+func (r *RMNConfig) GetAFN2ProxyVersion() string {
 	version := pointer.GetString(r.AFNVersion)
 	if version == "" {
 		return ctfconfig.MustReadEnvVar_String(E2E_RMN_AFN2PROXY_VERSION)

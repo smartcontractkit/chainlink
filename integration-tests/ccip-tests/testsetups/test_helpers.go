@@ -171,8 +171,8 @@ func NewLocalDevEnvironmentWithRMN(
 		config,
 		testCfg.CCIP.RMNConfig.GetProxyImage(),
 		testCfg.CCIP.RMNConfig.GetProxyVersion(),
-		testCfg.CCIP.RMNConfig.GetAFNImage(),
-		testCfg.CCIP.RMNConfig.GetAFNVersion(),
+		testCfg.CCIP.RMNConfig.GetAFN2ProxyImage(),
+		testCfg.CCIP.RMNConfig.GetAFN2ProxyVersion(),
 		dockerenv.LogStream,
 	)
 	require.NoError(t, err)
