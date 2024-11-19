@@ -951,42 +951,28 @@ targets:
     inputs: 
       consensus_output: $(a-consensus.outputs)
 `
-var OCR2EVMSpecMinimalWithAdaptiveSendTemplate = `
+var OCR2EVMDualTransmissionSpecMinimalTemplate = `
 type = "offchainreporting2"
 schemaVersion = 1
-name = "%s"
+name = "test-job"
+relay = "evm"
 contractID = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pv2Bootstrappers = []
-ocrKeyBundleID = "%s"
-relay = "evm"
-pluginType = "median"
 transmitterID = "%s"
-
+pluginType         = "median"
 observationSource = """
 	ds          [type=http method=GET url="https://chain.link/ETH-USD"];
 	ds_parse    [type=jsonparse path="data.price" separator="."];
 	ds_multiply [type=multiply times=100];
 	ds -> ds_parse -> ds_multiply;
 """
-
 [pluginConfig]
 juelsPerFeeCoinSource = """
-    ds1          [type=http method=GET url="https://chain.link/jules" allowunrestrictednetworkaccess="true"];
-    ds1_parse    [type=jsonparse path="answer"];
-    ds1_multiply [type=multiply times=1];
-    ds1 -> ds1_parse -> ds1_multiply;
+	ds          [type=http method=GET url="https://chain.link/ETH-USD"];
+	ds_parse    [type=jsonparse path="data.price" separator="."];
+	ds_multiply [type=multiply times=100];
+	ds -> ds_parse -> ds_multiply;
 """
 [relayConfig]
 chainID = 0
-
-[adaptiveSend]
-transmitterAddress = '%s'
-contractAddress = '0xF67D0290337bca0847005C7ffD1BC75BA9AAE6e4'
-delay = '30s'
-[adaptiveSend.metadata]
-arbitraryParam = 'arbitrary-value'
 `
-
-func GetOCR2EVMWithAdaptiveSendSpecMinimal(keyBundle, transmitterID, secondaryTransmitterAddress string) string {
-	return fmt.Sprintf(OCR2EVMSpecMinimalWithAdaptiveSendTemplate, uuid.New(), keyBundle, transmitterID, secondaryTransmitterAddress)
-}

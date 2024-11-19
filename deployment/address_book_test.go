@@ -2,6 +2,8 @@ package deployment
 
 import (
 	"errors"
+	"math/big"
+	"sync"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -117,4 +119,123 @@ func TestAddressBook_Merge(t *testing.T) {
 			addr1: onRamp110,
 		},
 	})
+}
+
+func TestAddressBook_Remove(t *testing.T) {
+	onRamp100 := NewTypeAndVersion("OnRamp", Version1_0_0)
+	onRamp110 := NewTypeAndVersion("OnRamp", Version1_1_0)
+	addr1 := common.HexToAddress("0x1").String()
+	addr2 := common.HexToAddress("0x2").String()
+	addr3 := common.HexToAddress("0x3").String()
+
+	baseAB := NewMemoryAddressBookFromMap(map[uint64]map[string]TypeAndVersion{
+		chainsel.TEST_90000001.Selector: {
+			addr1: onRamp100,
+			addr2: onRamp100,
+		},
+		chainsel.TEST_90000002.Selector: {
+			addr1: onRamp110,
+			addr3: onRamp110,
+		},
+	})
+
+	copyOfBaseAB := NewMemoryAddressBookFromMap(baseAB.cloneAddresses(baseAB.addressesByChain))
+
+	// this address book shouldn't be removed (state of baseAB not changed, error thrown)
+	failAB := NewMemoryAddressBookFromMap(map[uint64]map[string]TypeAndVersion{
+		chainsel.TEST_90000001.Selector: {
+			addr1: onRamp100,
+			addr3: onRamp100, // doesn't exist in TEST_90000001.Selector
+		},
+	})
+	require.Error(t, baseAB.Remove(failAB))
+	require.EqualValues(t, baseAB, copyOfBaseAB)
+
+	// this Address book should be removed without error
+	successAB := NewMemoryAddressBookFromMap(map[uint64]map[string]TypeAndVersion{
+		chainsel.TEST_90000002.Selector: {
+			addr3: onRamp100,
+		},
+		chainsel.TEST_90000001.Selector: {
+			addr2: onRamp100,
+		},
+	})
+
+	expectingAB := NewMemoryAddressBookFromMap(map[uint64]map[string]TypeAndVersion{
+		chainsel.TEST_90000001.Selector: {
+			addr1: onRamp100,
+		},
+		chainsel.TEST_90000002.Selector: {
+			addr1: onRamp110},
+	})
+
+	require.NoError(t, baseAB.Remove(successAB))
+	require.EqualValues(t, baseAB, expectingAB)
+}
+
+func TestAddressBook_ConcurrencyAndDeadlock(t *testing.T) {
+	onRamp100 := NewTypeAndVersion("OnRamp", Version1_0_0)
+	onRamp110 := NewTypeAndVersion("OnRamp", Version1_1_0)
+
+	baseAB := NewMemoryAddressBookFromMap(map[uint64]map[string]TypeAndVersion{
+		chainsel.TEST_90000001.Selector: {
+			common.BigToAddress(big.NewInt(1)).String(): onRamp100,
+		},
+	})
+
+	// concurrent writes
+	var i int64
+	wg := sync.WaitGroup{}
+	for i = 2; i < 1000; i++ {
+		wg.Add(1)
+		go func(input int64) {
+			require.NoError(t, baseAB.Save(
+				chainsel.TEST_90000001.Selector,
+				common.BigToAddress(big.NewInt(input)).String(),
+				onRamp100,
+			))
+			wg.Done()
+		}(i)
+	}
+
+	// concurrent reads
+	for i = 0; i < 100; i++ {
+		wg.Add(1)
+		go func(input int64) {
+			addresses, err := baseAB.Addresses()
+			require.NoError(t, err)
+			for chainSelector, chainAddresses := range addresses {
+				// concurrent read chainAddresses from Addresses() method
+				for address, _ := range chainAddresses {
+					addresses[chainSelector][address] = onRamp110
+				}
+
+				// concurrent read chainAddresses from AddressesForChain() method
+				chainAddresses, err = baseAB.AddressesForChain(chainSelector)
+				require.NoError(t, err)
+				for address, _ := range chainAddresses {
+					_ = addresses[chainSelector][address]
+				}
+			}
+			require.NoError(t, err)
+			wg.Done()
+		}(i)
+	}
+
+	// concurrent merges, starts from 1001 to avoid address conflicts
+	for i = 1001; i < 1100; i++ {
+		wg.Add(1)
+		go func(input int64) {
+			// concurrent merge
+			additionalAB := NewMemoryAddressBookFromMap(map[uint64]map[string]TypeAndVersion{
+				chainsel.TEST_90000002.Selector: {
+					common.BigToAddress(big.NewInt(input)).String(): onRamp100,
+				},
+			})
+			require.NoError(t, baseAB.Merge(additionalAB))
+			wg.Done()
+		}(i)
+	}
+
+	wg.Wait()
 }

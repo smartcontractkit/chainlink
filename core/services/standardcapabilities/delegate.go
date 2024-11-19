@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
@@ -253,8 +254,11 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 			return uuid.New().String()
 		}
 
-		computeSrvc := compute.NewAction(cfg, log, d.registry, handler, idGeneratorFn)
-		return []job.ServiceCtx{computeSrvc}, nil
+		computeSrvc, err := compute.NewAction(cfg, log, d.registry, handler, idGeneratorFn)
+		if err != nil {
+			return nil, err
+		}
+		return []job.ServiceCtx{handler, computeSrvc}, nil
 	}
 
 	standardCapability := newStandardCapabilities(log, spec.StandardCapabilitiesSpec, d.cfg, telemetryService, kvStore, d.registry, errorLog,

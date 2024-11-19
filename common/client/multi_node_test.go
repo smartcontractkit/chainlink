@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -76,7 +77,7 @@ func TestMultiNode_Dial(t *testing.T) {
 			chainID:       types.RandomID(),
 		})
 		err := mn.Start(tests.Context(t))
-		assert.EqualError(t, err, fmt.Sprintf("no available nodes for chain %s", mn.chainID.String()))
+		assert.ErrorContains(t, err, fmt.Sprintf("no available nodes for chain %s", mn.chainID))
 	})
 	t.Run("Fails with wrong node's chainID", func(t *testing.T) {
 		t.Parallel()
@@ -92,7 +93,7 @@ func TestMultiNode_Dial(t *testing.T) {
 			nodes:         []Node[types.ID, multiNodeRPCClient]{node},
 		})
 		err := mn.Start(tests.Context(t))
-		assert.EqualError(t, err, fmt.Sprintf("node %s has configured chain ID %s which does not match multinode configured chain ID of %s", nodeName, nodeChainID, mn.chainID))
+		assert.ErrorContains(t, err, fmt.Sprintf("node %s has configured chain ID %s which does not match multinode configured chain ID of %s", nodeName, nodeChainID, mn.chainID))
 	})
 	t.Run("Fails if node fails", func(t *testing.T) {
 		t.Parallel()
@@ -108,7 +109,7 @@ func TestMultiNode_Dial(t *testing.T) {
 			nodes:         []Node[types.ID, multiNodeRPCClient]{node},
 		})
 		err := mn.Start(tests.Context(t))
-		assert.EqualError(t, err, expectedError.Error())
+		assert.ErrorIs(t, err, expectedError)
 	})
 
 	t.Run("Closes started nodes on failure", func(t *testing.T) {
@@ -127,7 +128,7 @@ func TestMultiNode_Dial(t *testing.T) {
 			nodes:         []Node[types.ID, multiNodeRPCClient]{node1, node2},
 		})
 		err := mn.Start(tests.Context(t))
-		assert.EqualError(t, err, expectedError.Error())
+		assert.ErrorIs(t, err, expectedError)
 	})
 	t.Run("Fails with wrong send only node's chainID", func(t *testing.T) {
 		t.Parallel()
@@ -146,7 +147,7 @@ func TestMultiNode_Dial(t *testing.T) {
 			sendonlys:     []SendOnlyNode[types.ID, multiNodeRPCClient]{sendOnly},
 		})
 		err := mn.Start(tests.Context(t))
-		assert.EqualError(t, err, fmt.Sprintf("sendonly node %s has configured chain ID %s which does not match multinode configured chain ID of %s", sendOnlyName, sendOnlyChainID, mn.chainID))
+		assert.ErrorContains(t, err, fmt.Sprintf("sendonly node %s has configured chain ID %s which does not match multinode configured chain ID of %s", sendOnlyName, sendOnlyChainID, mn.chainID))
 	})
 
 	newHealthySendOnly := func(t *testing.T, chainID types.ID) *mockSendOnlyNode[types.ID, multiNodeRPCClient] {
@@ -173,7 +174,7 @@ func TestMultiNode_Dial(t *testing.T) {
 			sendonlys:     []SendOnlyNode[types.ID, multiNodeRPCClient]{sendOnly1, sendOnly2},
 		})
 		err := mn.Start(tests.Context(t))
-		assert.EqualError(t, err, expectedError.Error())
+		assert.ErrorIs(t, err, expectedError)
 	})
 	t.Run("Starts successfully with healthy nodes", func(t *testing.T) {
 		t.Parallel()
@@ -185,9 +186,7 @@ func TestMultiNode_Dial(t *testing.T) {
 			nodes:         []Node[types.ID, multiNodeRPCClient]{node},
 			sendonlys:     []SendOnlyNode[types.ID, multiNodeRPCClient]{newHealthySendOnly(t, chainID)},
 		})
-		defer func() { assert.NoError(t, mn.Close()) }()
-		err := mn.Start(tests.Context(t))
-		require.NoError(t, err)
+		servicetest.Run(t, mn)
 		selectedNode, err := mn.selectNode()
 		require.NoError(t, err)
 		assert.Equal(t, node, selectedNode)
@@ -210,9 +209,7 @@ func TestMultiNode_Report(t *testing.T) {
 		})
 		mn.reportInterval = tests.TestInterval
 		mn.deathDeclarationDelay = tests.TestInterval
-		defer func() { assert.NoError(t, mn.Close()) }()
-		err := mn.Start(tests.Context(t))
-		require.NoError(t, err)
+		servicetest.Run(t, mn)
 		tests.AssertLogCountEventually(t, observedLogs, "At least one primary node is dead: 1/2 nodes are alive", 2)
 	})
 	t.Run("Report critical error on all node failure", func(t *testing.T) {
@@ -228,11 +225,9 @@ func TestMultiNode_Report(t *testing.T) {
 		})
 		mn.reportInterval = tests.TestInterval
 		mn.deathDeclarationDelay = tests.TestInterval
-		defer func() { assert.NoError(t, mn.Close()) }()
-		err := mn.Start(tests.Context(t))
-		require.NoError(t, err)
+		servicetest.Run(t, mn)
 		tests.AssertLogCountEventually(t, observedLogs, "no primary nodes available: 0/1 nodes are alive", 2)
-		err = mn.Healthy()
+		err := mn.HealthReport()["MultiNode"]
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "no primary nodes available: 0/1 nodes are alive")
 	})
@@ -251,9 +246,7 @@ func TestMultiNode_CheckLease(t *testing.T) {
 			logger:        lggr,
 			nodes:         []Node[types.ID, multiNodeRPCClient]{node},
 		})
-		defer func() { assert.NoError(t, mn.Close()) }()
-		err := mn.Start(tests.Context(t))
-		require.NoError(t, err)
+		servicetest.Run(t, mn)
 		tests.RequireLogMessage(t, observedLogs, "Best node switching is disabled")
 	})
 	t.Run("Misconfigured lease check period won't start", func(t *testing.T) {
@@ -268,9 +261,7 @@ func TestMultiNode_CheckLease(t *testing.T) {
 			nodes:         []Node[types.ID, multiNodeRPCClient]{node},
 			leaseDuration: 0,
 		})
-		defer func() { assert.NoError(t, mn.Close()) }()
-		err := mn.Start(tests.Context(t))
-		require.NoError(t, err)
+		servicetest.Run(t, mn)
 		tests.RequireLogMessage(t, observedLogs, "Best node switching is disabled")
 	})
 	t.Run("Lease check updates active node", func(t *testing.T) {
@@ -289,10 +280,8 @@ func TestMultiNode_CheckLease(t *testing.T) {
 			nodes:         []Node[types.ID, multiNodeRPCClient]{node, bestNode},
 			leaseDuration: tests.TestInterval,
 		})
-		defer func() { assert.NoError(t, mn.Close()) }()
 		mn.nodeSelector = nodeSelector
-		err := mn.Start(tests.Context(t))
-		require.NoError(t, err)
+		servicetest.Run(t, mn)
 		tests.AssertLogEventually(t, observedLogs, fmt.Sprintf("Switching to best node from %q to %q", node.String(), bestNode.String()))
 		tests.AssertEventually(t, func() bool {
 			mn.activeMu.RLock()

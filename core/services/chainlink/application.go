@@ -400,6 +400,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		streamRegistry = streams.NewRegistry(globalLogger, pipelineRunner)
 		workflowORM    = workflowstore.NewDBStore(opts.DS, globalLogger, clockwork.NewRealClock())
 	)
+	srvcs = append(srvcs, workflowORM)
 
 	promReporter := headreporter.NewPrometheusReporter(opts.DS, legacyEVMChains)
 	chainIDs := make([]*big.Int, legacyEVMChains.Len())

@@ -29,9 +29,9 @@ import (
 // Set false to run the RMN tests
 const skipRmnTest = true
 
-func TestRMN_TwoMessagesOnTwoLanes(t *testing.T) {
+func TestRMN_TwoMessagesOnTwoLanesIncludingBatching(t *testing.T) {
 	runRmnTestCase(t, rmnTestCase{
-		name:        "messages on two lanes",
+		name:        "messages on two lanes including batching",
 		waitForExec: true,
 		homeChainConfig: homeChainConfig{
 			f: map[int]int{chain0: 1, chain1: 1},
@@ -47,7 +47,7 @@ func TestRMN_TwoMessagesOnTwoLanes(t *testing.T) {
 		},
 		messagesToSend: []messageToSend{
 			{fromChainIdx: chain0, toChainIdx: chain1, count: 1},
-			{fromChainIdx: chain1, toChainIdx: chain0, count: 1},
+			{fromChainIdx: chain1, toChainIdx: chain0, count: 5},
 		},
 	})
 }
@@ -205,8 +205,6 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	for _, rmnNodeInfo := range tc.rmnNodes {
 		rmn := rmnCluster.Nodes["rmn_"+strconv.Itoa(rmnNodeInfo.id)]
 
-		t.Log(rmnNodeInfo.id, rmn.Proxy.PeerID, rmn.RMN.OffchainPublicKey, rmn.RMN.EVMOnchainPublicKey)
-
 		var offchainPublicKey [32]byte
 		copy(offchainPublicKey[:], rmn.RMN.OffchainPublicKey)
 
@@ -215,10 +213,12 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 			OffchainPublicKey: offchainPublicKey,
 		})
 
-		rmnRemoteSigners = append(rmnRemoteSigners, rmn_remote.RMNRemoteSigner{
-			OnchainPublicKey: rmn.RMN.EVMOnchainPublicKey,
-			NodeIndex:        uint64(rmnNodeInfo.id),
-		})
+		if rmnNodeInfo.isSigner {
+			rmnRemoteSigners = append(rmnRemoteSigners, rmn_remote.RMNRemoteSigner{
+				OnchainPublicKey: rmn.RMN.EVMOnchainPublicKey,
+				NodeIndex:        uint64(rmnNodeInfo.id),
+			})
+		}
 	}
 
 	var rmnHomeSourceChains []rmn_home.RMNHomeSourceChain
@@ -361,15 +361,15 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 		toChain := chainSelectors[msg.toChainIdx]
 
 		for i := 0; i < msg.count; i++ {
-			seqNum := ccipdeployment.TestSendRequest(t, envWithRMN.Env, onChainState, fromChain, toChain, false, router.ClientEVM2AnyMessage{
+			msgSentEvent := ccipdeployment.TestSendRequest(t, envWithRMN.Env, onChainState, fromChain, toChain, false, router.ClientEVM2AnyMessage{
 				Receiver:     common.LeftPadBytes(onChainState.Chains[toChain].Receiver.Address().Bytes(), 32),
 				Data:         []byte("hello world"),
 				TokenAmounts: nil,
 				FeeToken:     common.HexToAddress("0x0"),
 				ExtraArgs:    nil,
 			})
-			expectedSeqNum[toChain] = seqNum
-			t.Logf("Sent message from chain %d to chain %d with seqNum %d", fromChain, toChain, seqNum)
+			expectedSeqNum[toChain] = msgSentEvent.SequenceNumber
+			t.Logf("Sent message from chain %d to chain %d with seqNum %d", fromChain, toChain, msgSentEvent.SequenceNumber)
 		}
 
 		zero := uint64(0)
