@@ -108,7 +108,6 @@ func NewLocalDevEnvironment(
 	require.NoError(t, err)
 	require.NotNil(t, e)
 	e.ExistingAddresses = ab
-	e.MockAdapter = testEnv.MockAdapter
 
 	envNodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)

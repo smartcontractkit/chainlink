@@ -43,9 +43,9 @@ func TestUSDCTokenTransfer(t *testing.T) {
 		defer server.Close()
 		endpoint = server.URL
 	} else {
-		err := actions.SetMockServerWithUSDCAttestation(tenv.Env.MockAdapter, nil)
+		err := actions.SetMockServerWithUSDCAttestation(cluster.MockAdapter, nil)
 		require.NoError(t, err)
-		endpoint = tenv.Env.MockAdapter.InternalEndpoint
+		endpoint = cluster.MockAdapter.InternalEndpoint
 	}
 
 	e := tenv.Env
