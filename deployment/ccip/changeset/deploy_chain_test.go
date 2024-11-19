@@ -49,7 +49,6 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 	output, err = DeployChainContracts(e, DeployChainContractsConfig{
 		ChainSelectors:    selectors,
 		HomeChainSelector: homeChainSel,
-		MCMSCfg:           ccdeploy.NewTestMCMSConfig(t, e),
 	})
 	require.NoError(t, err)
 	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook))
