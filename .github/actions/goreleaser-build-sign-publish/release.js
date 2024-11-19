@@ -168,6 +168,7 @@ function extractDockerImages(artifacts) {
 
 function constructGoreleaserCommand(releaseType, version, goreleaserConfig) {
   const flags = [];
+  const debugFlag = (process.env.DEBUG == 'true') ? '--verbose' : '';
 
   checkReleaseType(releaseType);
 
@@ -192,9 +193,9 @@ function constructGoreleaserCommand(releaseType, version, goreleaserConfig) {
 
   const flagsStr = flags.join(" ");
   if (releaseType === "merge") {
-    return `CHAINLINK_VERSION=${version} goreleaser ${subCmd} ${flagsStr}`;
+    return `CHAINLINK_VERSION=${version} goreleaser ${debugFlag} ${subCmd} ${flagsStr}`;
   } else {
-    return `CHAINLINK_VERSION=${version} goreleaser ${subCmd} --config ${goreleaserConfig} ${flagsStr}`;
+    return `CHAINLINK_VERSION=${version} goreleaser ${debugFlag} ${subCmd} --config ${goreleaserConfig} ${flagsStr}`;
   }
 }
 

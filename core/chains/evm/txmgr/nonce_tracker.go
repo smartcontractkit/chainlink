@@ -68,6 +68,7 @@ func (s *nonceTracker) getSequenceForAddr(ctx context.Context, address common.Ad
 	seq, err = s.txStore.FindLatestSequence(ctx, address, s.chainID)
 	if err == nil {
 		seq++
+		s.lggr.Debugw("found next nonce using stored transactions", "address", address.Hex(), "nonce", seq.String())
 		return seq, nil
 	}
 	// Look for nonce on-chain if no tx found for address in TxStore or if error occurred.
@@ -78,6 +79,7 @@ func (s *nonceTracker) getSequenceForAddr(ctx context.Context, address common.Ad
 	// If that occurs, there could be short term noise in the logs surfacing that a transaction expired without ever getting a receipt.
 	nonce, err := s.client.SequenceAt(ctx, address, nil)
 	if err == nil {
+		s.lggr.Debugw("found next nonce using RPC", "address", address.Hex(), "nonce", nonce.String())
 		return nonce, nil
 	}
 	s.lggr.Criticalw("failed to retrieve next sequence from on-chain for address: ", "address", address.String())

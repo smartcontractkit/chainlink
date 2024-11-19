@@ -28,7 +28,7 @@ func TestActiveCandidate(t *testing.T) {
 
 	lggr := logger.TestLogger(t)
 	ctx := ccdeploy.Context(t)
-	tenv := ccdeploy.NewMemoryEnvironment(t, lggr, 3, 5)
+	tenv := ccdeploy.NewMemoryEnvironment(t, lggr, 3, 5, ccdeploy.MockLinkPrice, ccdeploy.MockWethPrice)
 	e := tenv.Env
 
 	state, err := ccdeploy.LoadOnchainState(tenv.Env)
@@ -84,14 +84,14 @@ func TestActiveCandidate(t *testing.T) {
 			require.NoError(t, err)
 			block := latesthdr.Number.Uint64()
 			startBlocks[dest] = &block
-			seqNum := ccdeploy.TestSendRequest(t, e, state, src, dest, false, router.ClientEVM2AnyMessage{
+			msgSentEvent := ccdeploy.TestSendRequest(t, e, state, src, dest, false, router.ClientEVM2AnyMessage{
 				Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
 				Data:         []byte("hello world"),
 				TokenAmounts: nil,
 				FeeToken:     common.HexToAddress("0x0"),
 				ExtraArgs:    nil,
 			})
-			expectedSeqNum[dest] = seqNum
+			expectedSeqNum[dest] = msgSentEvent.SequenceNumber
 		}
 	}
 
@@ -160,6 +160,7 @@ func TestActiveCandidate(t *testing.T) {
 		tokenConfig.GetTokenInfo(e.Logger, state.Chains[destCS].LinkToken, state.Chains[destCS].Weth9),
 		nodes.NonBootstraps(),
 		rmnHomeAddress,
+		nil,
 	)
 	require.NoError(t, err)
 

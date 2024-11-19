@@ -1,9 +1,7 @@
-package vrfkey
+package secp256k1
 
 import (
 	"testing"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/cryptotest"
 
@@ -14,12 +12,12 @@ import (
 func TestValueScanIdentityPointSet(t *testing.T) {
 	randomStream := cryptotest.NewStream(t, 0)
 	for i := 0; i < 10; i++ {
-		p := suite.Point().Pick(randomStream)
-		var pk, nPk, nnPk secp256k1.PublicKey
+		p := NewBlakeKeccackSecp256k1().Point().Pick(randomStream)
+		var pk, nPk, nnPk PublicKey
 		marshaledKey, err := p.MarshalBinary()
 		require.NoError(t, err, "failed to marshal public key")
 		require.Equal(t, copy(pk[:], marshaledKey),
-			secp256k1.CompressedPublicKeyLength, "failed to copy marshaled key to pk")
+			CompressedPublicKeyLength, "failed to copy marshaled key to pk")
 		assert.NotEqual(t, pk, nPk, "equality test succeeds on different keys!")
 		np, err := pk.Point()
 		require.NoError(t, err, "failed to marshal public key")
@@ -37,7 +35,7 @@ func TestValueScanIdentityPointSet(t *testing.T) {
 
 // Tests that PublicKey.Hash gives the same result as the VRFCoordinator's
 func TestHash(t *testing.T) {
-	pk, err := secp256k1.NewPublicKeyFromHex("0x9dc09a0f898f3b5e8047204e7ce7e44b587920932f08431e29c9bf6923b8450a01")
+	pk, err := NewPublicKeyFromHex("0x9dc09a0f898f3b5e8047204e7ce7e44b587920932f08431e29c9bf6923b8450a01")
 	assert.NoError(t, err)
 	assert.Equal(t, "0xc4406d555db624837188b91514a5f47e34d825d935ab887a35c06a3e7c41de69", pk.MustHash().String())
 }

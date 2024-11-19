@@ -526,10 +526,14 @@ jobs:
           make rm-mocked
           make generate
       - name: Ensure clean after generate
-        run: git diff --stat --exit-code
+        run: |
+          git add --all
+          git diff --stat --cached --exit-code
       - run: make gomodtidy
       - name: Ensure clean after tidy
-        run: git diff --minimal --exit-code
+        run: |
+          git add --all
+          git diff --minimal --cached --exit-code
 
   run-frequency:
     name: Scheduled Run Frequency
