@@ -32,6 +32,15 @@ func TestConfig_Validate(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "update-org-modules bypasses module validation",
+			cfg: &Config{
+				UpdateOrgModules: true,
+				RepoRemote:      "origin",
+				BranchTrunk:     "main",
+			},
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range tests {

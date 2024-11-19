@@ -66,3 +66,24 @@ func (g *gitOperator) GetCommitDate(sha string) (time.Time, error) {
 	
 	return t, nil
 }
+
+func (g *gitOperator) GetRepoInfo(remote string) (org, repo string, err error) {
+    cmd := exec.Command("git", "config", "--get", fmt.Sprintf("remote.%s.url", remote))
+    output, err := cmd.Output()
+    if err != nil {
+        return "", "", fmt.Errorf("failed to get repo info for remote %s: %w", remote, err)
+    }
+    
+    // Handle different URL formats:
+    // https://github.com/org/repo.git
+    // git@github.com:org/repo.git
+    url := strings.TrimSpace(string(output))
+    parts := strings.Split(strings.TrimSuffix(url, ".git"), "/")
+    if len(parts) < 2 {
+        return "", "", fmt.Errorf("unexpected git URL format from remote %s: %s", remote, url)
+    }
+    
+    repo = parts[len(parts)-1]
+    org = parts[len(parts)-2]
+    return org, repo, nil
+}

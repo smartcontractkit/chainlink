@@ -5,6 +5,7 @@ import (
 	"log"
 	"path/filepath"
 	"regexp"
+	"strings"
 
 	"golang.org/x/mod/modfile"
 	"golang.org/x/mod/module"
@@ -26,6 +27,25 @@ func (u *Updater) Run() error {
 		return fmt.Errorf("failed to resolve root path: %w", err)
 	}
 
+	// If org modules update is enabled, collect all modules with local replaces
+	if u.config.UpdateOrgModules {
+		modulesToAdd, err := u.findLocalReplaceModules(absRoot)
+		if err != nil {
+			return fmt.Errorf("failed to find local replace modules: %w", err)
+		}
+		if len(modulesToAdd) > 0 {
+			log.Printf("Found %d modules with local replace directives", len(modulesToAdd))
+			u.config.ModulesToUpdate = append(u.config.ModulesToUpdate, modulesToAdd...)
+		}
+
+		rootMod, err := u.findRootModule()
+		if err != nil {
+			return fmt.Errorf("failed to find root module: %w", err)
+		}
+		u.config.ModulesToUpdate = append(u.config.ModulesToUpdate, rootMod)
+	}
+
+	// Get SHA after collecting modules
 	log.Printf("Fetching latest SHA from %s/%s", u.config.RepoRemote, u.config.BranchTrunk)
 	sha, err := u.git.GetSHA(u.config.RepoRemote, u.config.BranchTrunk)
 	if err != nil {
@@ -43,6 +63,20 @@ func (u *Updater) Run() error {
 		}
 		return nil
 	})
+}
+
+func (u *Updater) findRootModule() (string, error) {
+	content, err := u.system.ReadFile("go.mod")
+	if err != nil {
+		return "", fmt.Errorf("failed to read root go.mod: %w", err)
+	}
+
+	f, err := modfile.Parse("go.mod", content, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse root go.mod: %w", err)
+	}
+
+	return f.Module.Mod.Path, nil
 }
 
 func (u *Updater) updateGoMod(path, modulePath, sha string) error {
@@ -67,6 +101,17 @@ func (u *Updater) updateGoMod(path, modulePath, sha string) error {
             break
         }
     }
+
+	// Check for replace directive if updating org modules
+	if u.config.UpdateOrgModules {
+		for _, rep := range f.Replace {
+			if rep.Old.Path == modulePath && isLocalPath(rep.New.Path) {
+				log.Printf("Found local replace for %s => %s", modulePath, rep.New.Path)
+				moduleExists = true
+				break
+			}
+		}
+	}
 
     if !moduleExists {
         log.Printf("Skipping %s: module %s not found", path, modulePath)
@@ -128,6 +173,42 @@ func (u *Updater) updateGoMod(path, modulePath, sha string) error {
     return nil
 }
 
+func (u *Updater) findLocalReplaceModules(root string) ([]string, error) {
+    var modules []string
+    seen := make(map[string]bool)
+    orgPrefix := fmt.Sprintf("github.com/%s/%s", u.config.OrgName, u.config.RepoName)
+
+    err := u.system.Walk(root, func(path string, isDir bool) error {
+        if filepath.Base(path) != "go.mod" {
+            return nil
+        }
+
+        content, err := u.system.ReadFile(path)
+        if err != nil {
+            return err
+        }
+
+        f, err := modfile.Parse(path, content, nil)
+        if err != nil {
+            return err
+        }
+
+        for _, rep := range f.Replace {
+            // Only process modules from our org/repo that have local replaces
+            if strings.HasPrefix(rep.Old.Path, orgPrefix) && 
+               isLocalPath(rep.New.Path) && 
+               !seen[rep.Old.Path] {
+                log.Printf("Found local replace in %s: %s => %s", path, rep.Old.Path, rep.New.Path)
+                modules = append(modules, rep.Old.Path)
+                seen[rep.Old.Path] = true
+            }
+        }
+        return nil
+    })
+
+    return modules, err
+}
+
 func parseModuleVersion(modulePath string) string {
     ver := module.Version{Path: modulePath}
     re := regexp.MustCompile(`/v(\d+)$`)
@@ -135,4 +216,10 @@ func parseModuleVersion(modulePath string) string {
         return match[1]
     }
     return "0"
+}
+
+func isLocalPath(path string) bool {
+    return path == "." || path == ".." || 
+           strings.HasPrefix(path, "./") || 
+           strings.HasPrefix(path, "../")
 }

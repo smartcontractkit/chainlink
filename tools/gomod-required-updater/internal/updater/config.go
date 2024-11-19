@@ -21,11 +21,15 @@ type Config struct {
 	RootPath       string
 	ShowVersion    bool
 	modulesSource  string
+	UpdateOrgModules bool   // Update modules from same org/repo with local replaces
+	OrgName         string // GitHub organization name
+	RepoName        string // Repository name
 }
 
 func (c *Config) Validate() error {
     if !c.ShowVersion {
-        if len(c.ModulesToUpdate) == 0 {
+        // Skip module validation if using UpdateOrgModules
+        if !c.UpdateOrgModules && len(c.ModulesToUpdate) == 0 {
             return fmt.Errorf("%w: no modules specified to update (use -module flag or config file)", ErrInvalidConfig)
         }
         if c.RepoRemote == "" {
@@ -51,6 +55,7 @@ func ParseFlags(args []string, version string) (*Config, error) {
 	flags.StringVar(&cfg.RootPath, "root", ".", "Root path to start scanning for go.mod files")
 	flags.BoolVar(&cfg.ShowVersion, "version", false, "Show version information")
 	flags.Var(&cliModules, "module", "Module to update (can be specified multiple times)")
+	flags.BoolVar(&cfg.UpdateOrgModules, "update-org-modules", false, "Update modules from same org/repo that have local replace directives")
 
 	if err := flags.Parse(args); err != nil {
 		return nil, err
@@ -68,6 +73,16 @@ func ParseFlags(args []string, version string) (*Config, error) {
 		}
 		cfg.ModulesToUpdate = modules
 		cfg.modulesSource = "config file"
+	}
+
+	if cfg.UpdateOrgModules {
+		gitOp := NewGitOperator()
+		org, repo, err := gitOp.GetRepoInfo(cfg.RepoRemote)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get repo info: %w", err)
+		}
+		cfg.OrgName = org
+		cfg.RepoName = repo
 	}
 
 	if err := cfg.Validate(); err != nil {

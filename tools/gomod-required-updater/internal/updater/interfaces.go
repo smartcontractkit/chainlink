@@ -15,6 +15,7 @@ var (
 type GitOperator interface {
     GetSHA(remote, branch string) (string, error)
     GetCommitDate(sha string) (time.Time, error)
+    GetRepoInfo(remote string) (org, repo string, err error)
 }
 
 type SystemOperator interface {

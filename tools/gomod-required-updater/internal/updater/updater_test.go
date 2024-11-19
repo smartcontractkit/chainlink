@@ -10,6 +10,8 @@ import (
 type mockGitOperator struct {
 	sha        string
 	commitDate time.Time
+	org        string
+	repo       string
 	err        error
 }
 
@@ -27,9 +29,19 @@ func (m *mockGitOperator) GetCommitDate(sha string) (time.Time, error) {
 	return m.commitDate, nil
 }
 
+func (m *mockGitOperator) GetRepoInfo(remote string) (org, repo string, err error) {
+	if m.err != nil {
+		return "", "", m.err
+	}
+	if m.org == "" && m.repo == "" {
+		return "smartcontractkit", "chainlink", nil // Default values for tests
+	}
+	return m.org, m.repo, nil
+}
+
 type mockSystemOperator struct {
 	files    map[string][]byte
-	walkFn   func(path string, isDir bool) error
+	walkFn   func(root string, fn func(path string, isDir bool) error) error // Update signature
 	commands []string
 	err      error
 }
@@ -61,7 +73,7 @@ func (m *mockSystemOperator) WriteFile(path string, data []byte, perm uint32) er
 
 func (m *mockSystemOperator) Walk(root string, fn func(path string, isDir bool) error) error {
 	if m.walkFn != nil {
-		return m.walkFn(root, true)
+		return m.walkFn(root, fn) // Pass through the callback
 	}
 	return nil
 }
@@ -94,16 +106,15 @@ func TestUpdater_Run(t *testing.T) {
 				RootPath:       ".",
 			},
 			gitOp: &mockGitOperator{
-				sha:        "abc123def456",
+				sha:        "abc123def456", // 12 chars
 				commitDate: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
 			},
 			sysOp: func() *mockSystemOperator {
 				m := newMockSystemOperator()
 				m.files["go.mod"] = []byte(`module test
-require github.com/example/module v0.0.0-20230101000000-123456789abc
-`)
-				m.walkFn = func(path string, isDir bool) error {
-					return nil
+require github.com/example/module v0.0.0-20230101000000-123456789abc`)
+				m.walkFn = func(root string, fn func(path string, isDir bool) error) error {
+					return fn("go.mod", false)
 				}
 				return m
 			}(),
@@ -117,7 +128,7 @@ require github.com/example/module v0.0.0-20230101000000-123456789abc
 				BranchTrunk:    "main",
 			},
 			gitOp: &mockGitOperator{
-				sha:        "def456",
+				sha:        "def456789012", // 12 chars
 				commitDate: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
 			},
 			sysOp: func() *mockSystemOperator {
@@ -125,10 +136,12 @@ require github.com/example/module v0.0.0-20230101000000-123456789abc
 				m.files["dir1/go.mod"] = []byte(`require test.com/mod v1.0.0`)
 				m.files["dir2/go.mod"] = []byte(`require test.com/mod v1.0.0`)
 				paths := []string{"dir1/go.mod", "dir2/go.mod"}
-				i := 0
-				m.walkFn = func(path string, isDir bool) error {
-					if i < len(paths) {
-						return nil
+				var i int
+				m.walkFn = func(root string, fn func(path string, isDir bool) error) error {
+					for ; i < len(paths); i++ {
+						if err := fn(paths[i], false); err != nil {
+							return err
+						}
 					}
 					return nil
 				}
@@ -144,12 +157,70 @@ require github.com/example/module v0.0.0-20230101000000-123456789abc
 				BranchTrunk:    "main",
 			},
 			gitOp: &mockGitOperator{
-				sha:        "abc123",
+				sha:        "abc123def456", // 12 chars
 				commitDate: time.Now(),
 			},
 			sysOp: func() *mockSystemOperator {
 				m := newMockSystemOperator()
 				m.files["go.mod"] = []byte(`require test.com/mod/v2 v2.0.0`)
+				m.walkFn = func(root string, fn func(path string, isDir bool) error) error {
+					return fn("go.mod", false)
+				}
+				return m
+			}(),
+			wantErr: false,
+		},
+		{
+			name: "finds and updates org modules with local replaces",
+			config: &Config{
+				UpdateOrgModules: true,
+				RepoRemote:     "origin",
+				BranchTrunk:    "main",
+				OrgName:        "smartcontractkit",
+				RepoName:       "chainlink",
+			},
+			gitOp: &mockGitOperator{
+				sha:        "abc123def456", // 12 chars
+				commitDate: time.Now(),
+			},
+			sysOp: func() *mockSystemOperator {
+				m := newMockSystemOperator()
+				// Root go.mod for repo detection
+				m.files["go.mod"] = []byte(`module github.com/smartcontractkit/chainlink/v2`)
+				// Module with local replace
+				m.files["core/go.mod"] = []byte(`
+module test
+require (
+    github.com/smartcontractkit/chainlink/v2 v2.0.0
+)
+replace github.com/smartcontractkit/chainlink/v2 => ../
+`)
+				return m
+			}(),
+			wantErr: false,
+		},
+		{
+			name: "skips non-org modules with local replaces",
+			config: &Config{
+				UpdateOrgModules: true,
+				RepoRemote:     "origin",
+				BranchTrunk:    "main",
+				OrgName:        "smartcontractkit",
+				RepoName:       "chainlink",
+			},
+			gitOp: &mockGitOperator{
+				sha:        "abc123",
+				commitDate: time.Now(),
+			},
+			sysOp: func() *mockSystemOperator {
+				m := newMockSystemOperator()
+				m.files["go.mod"] = []byte(`
+module test
+require (
+    github.com/other/repo v1.0.0
+)
+replace github.com/other/repo => ../other
+`)
 				return m
 			}(),
 			wantErr: false,
@@ -175,9 +246,12 @@ require (
 	mod1.com v1.0.0
 	mod2.com v1.0.0
 )`)
+	sysOp.walkFn = func(root string, fn func(path string, isDir bool) error) error {
+		return fn("go.mod", false)
+	}
 
 	gitOp := &mockGitOperator{
-		sha:        "abc123",
+		sha:        "abc123def456", // 12 chars
 		commitDate: time.Now(),
 	}
 
@@ -191,4 +265,44 @@ require (
 	if err := u.Run(); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
+}
+
+func TestUpdater_FindLocalReplaceModules(t *testing.T) {
+    sysOp := newMockSystemOperator()
+    sysOp.files["go.mod"] = []byte(`
+module test
+require (
+    github.com/smartcontractkit/chainlink/v2 v2.0.0
+    github.com/other/repo v1.0.0
+)
+replace (
+    github.com/smartcontractkit/chainlink/v2 => ../
+    github.com/other/repo => ../other
+)`)
+
+    // Setup Walk to properly handle the callback
+    sysOp.walkFn = func(root string, fn func(path string, isDir bool) error) error {
+        return fn("go.mod", false) // Call the callback with our test file
+    }
+
+    cfg := &Config{
+        UpdateOrgModules: true,
+        OrgName:        "smartcontractkit",
+        RepoName:       "chainlink",
+    }
+
+    u := New(&mockGitOperator{}, sysOp, cfg)
+    modules, err := u.findLocalReplaceModules(".")
+    if err != nil {
+        t.Errorf("unexpected error: %v", err)
+        return
+    }
+
+    if len(modules) != 1 {
+        t.Errorf("expected 1 module, got %d", len(modules))
+        return
+    }
+    if modules[0] != "github.com/smartcontractkit/chainlink/v2" {
+        t.Errorf("expected chainlink module, got %s", modules[0])
+    }
 }
