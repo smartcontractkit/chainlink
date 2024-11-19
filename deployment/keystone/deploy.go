@@ -424,7 +424,7 @@ func ConfigureOCR3Contract(env *deployment.Environment, chainSel uint64, dons []
 }
 
 type ConfigureOCR3Resp struct {
-	Orc2drOracleConfig
+	ORC2OracleConfig
 }
 
 type ConfigureOCR3Config struct {
@@ -479,7 +479,7 @@ func ConfigureOCR3ContractFromJD(env *deployment.Environment, cfg ConfigureOCR3C
 		dryRun:   cfg.DryRun,
 	})
 	return &ConfigureOCR3Resp{
-		Orc2drOracleConfig: r.ocrConfig,
+		ORC2OracleConfig: r.ocrConfig,
 	}, nil
 
 }
@@ -988,7 +988,7 @@ type configureOCR3Request struct {
 	dryRun   bool
 }
 type configureOCR3Response struct {
-	ocrConfig Orc2drOracleConfig
+	ocrConfig ORC2OracleConfig
 }
 
 func configureOCR3contract(req configureOCR3Request) (*configureOCR3Response, error) {
