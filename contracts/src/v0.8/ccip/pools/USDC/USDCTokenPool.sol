@@ -78,7 +78,7 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
     address[] memory allowlist,
     address rmnProxy,
     address router
-  ) TokenPool(token, allowlist, rmnProxy, router) {
+  ) TokenPool(token, 6, allowlist, rmnProxy, router) {
     if (address(tokenMessenger) == address(0)) revert InvalidConfig();
     IMessageTransmitter transmitter = IMessageTransmitter(tokenMessenger.localMessageTransmitter());
     uint32 transmitterVersion = transmitter.version();

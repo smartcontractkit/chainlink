@@ -19,6 +19,8 @@ contract TokenPool_constructor is TokenPoolSetup {
   function test_ZeroAddressNotAllowed_Revert() public {
     vm.expectRevert(TokenPool.ZeroAddressNotAllowed.selector);
 
-    s_tokenPool = new TokenPoolHelper(IERC20(address(0)), new address[](0), address(s_mockRMN), address(s_sourceRouter));
+    s_tokenPool = new TokenPoolHelper(
+      IERC20(address(0)), DEFAULT_TOKEN_DECIMALS, new address[](0), address(s_mockRMN), address(s_sourceRouter)
+    );
   }
 }

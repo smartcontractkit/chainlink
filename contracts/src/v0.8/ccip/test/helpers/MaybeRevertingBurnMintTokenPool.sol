@@ -13,10 +13,11 @@ contract MaybeRevertingBurnMintTokenPool is BurnMintTokenPool {
 
   constructor(
     IBurnMintERC20 token,
+    uint8 localTokenDecimals,
     address[] memory allowlist,
     address rmnProxy,
     address router
-  ) BurnMintTokenPool(token, allowlist, rmnProxy, router) {}
+  ) BurnMintTokenPool(token, localTokenDecimals, allowlist, rmnProxy, router) {}
 
   function setShouldRevert(
     bytes calldata revertReason

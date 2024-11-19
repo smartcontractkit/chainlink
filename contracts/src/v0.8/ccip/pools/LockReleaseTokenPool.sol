@@ -35,11 +35,12 @@ contract LockReleaseTokenPool is TokenPool, ILiquidityContainer, ITypeAndVersion
 
   constructor(
     IERC20 token,
+    uint8 localTokenDecimals,
     address[] memory allowlist,
     address rmnProxy,
     bool acceptLiquidity,
     address router
-  ) TokenPool(token, allowlist, rmnProxy, router) {
+  ) TokenPool(token, localTokenDecimals, allowlist, rmnProxy, router) {
     i_acceptLiquidity = acceptLiquidity;
   }
 

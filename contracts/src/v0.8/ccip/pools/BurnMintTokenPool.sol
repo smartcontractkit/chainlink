@@ -18,10 +18,11 @@ contract BurnMintTokenPool is BurnMintTokenPoolAbstract, ITypeAndVersion {
 
   constructor(
     IBurnMintERC20 token,
+    uint8 localTokenDecimals,
     address[] memory allowlist,
     address rmnProxy,
     address router
-  ) TokenPool(token, allowlist, rmnProxy, router) {}
+  ) TokenPool(token, localTokenDecimals, allowlist, rmnProxy, router) {}
 
   /// @inheritdoc BurnMintTokenPoolAbstract
   function _burn(

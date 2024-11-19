@@ -30,7 +30,8 @@ contract TokenPoolFactory_createTokenPool is TokenPoolFactorySetup {
       Create2.computeAddress(dynamicSalt, keccak256(s_tokenInitCode), address(s_tokenPoolFactory));
 
     // Create the constructor params for the predicted pool
-    bytes memory poolCreationParams = abi.encode(predictedTokenAddress, new address[](0), s_rmnProxy, s_sourceRouter);
+    bytes memory poolCreationParams =
+      abi.encode(predictedTokenAddress, uint8(18), new address[](0), s_rmnProxy, s_sourceRouter);
 
     // Predict the address of the pool before we make the tx by using the init code and the params
     bytes memory predictedPoolInitCode = abi.encodePacked(s_poolInitCode, poolCreationParams);
@@ -115,7 +116,7 @@ contract TokenPoolFactory_createTokenPool is TokenPoolFactorySetup {
       // The predictedTokenAddress is NOT abi-encoded since the raw evm-address
       // is used in the constructor params
       bytes memory predictedPoolCreationParams =
-        abi.encode(predictedTokenAddress, new address[](0), s_rmnProxy, address(s_destRouter));
+        abi.encode(predictedTokenAddress, uint8(18), new address[](0), s_rmnProxy, address(s_destRouter));
 
       // Take the init code and concat the destination params to it, the initCode shouldn't change
       bytes memory predictedPoolInitCode = abi.encodePacked(s_poolInitCode, predictedPoolCreationParams);
@@ -239,7 +240,7 @@ contract TokenPoolFactory_createTokenPool is TokenPoolFactorySetup {
     // The predictedTokenAddress is NOT abi-encoded since the raw evm-address
     // is used in the constructor params
     bytes memory predictedPoolCreationParams =
-      abi.encode(address(newRemoteToken), new address[](0), s_rmnProxy, address(s_destRouter));
+      abi.encode(address(newRemoteToken), uint8(18), new address[](0), s_rmnProxy, address(s_destRouter));
 
     // Take the init code and concat the destination params to it, the initCode shouldn't change
     bytes memory predictedPoolInitCode = abi.encodePacked(s_poolInitCode, predictedPoolCreationParams);

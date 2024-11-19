@@ -215,11 +215,11 @@ contract TokenPoolFactory is ITypeAndVersion {
     // Construct the initArgs for the token pool using the immutable contracts for CCIP on the local chain
     bytes memory tokenPoolInitArgs;
     if (poolType == PoolType.BURN_MINT) {
-      tokenPoolInitArgs = abi.encode(token, new address[](0), i_rmnProxy, i_ccipRouter);
+      tokenPoolInitArgs = abi.encode(token, 18, new address[](0), i_rmnProxy, i_ccipRouter);
     } else if (poolType == PoolType.LOCK_RELEASE) {
       // Lock/Release pools have an additional boolean constructor parameter that must be accounted for, acceptLiquidity,
       // which is set to true by default in this case. Users wishing to set it to false must deploy the pool manually.
-      tokenPoolInitArgs = abi.encode(token, new address[](0), i_rmnProxy, true, i_ccipRouter);
+      tokenPoolInitArgs = abi.encode(token, 18, new address[](0), i_rmnProxy, true, i_ccipRouter);
     }
 
     // Construct the deployment code from the initCode and the initArgs and then deploy
@@ -255,7 +255,7 @@ contract TokenPoolFactory is ITypeAndVersion {
           initCode,
           // constructor(address token, address[] allowlist, address rmnProxy, address router)
           abi.encode(
-            remoteTokenAddress, new address[](0), remoteChainConfig.remoteRMNProxy, remoteChainConfig.remoteRouter
+            remoteTokenAddress, 18, new address[](0), remoteChainConfig.remoteRMNProxy, remoteChainConfig.remoteRouter
           )
         )
       );
@@ -266,7 +266,12 @@ contract TokenPoolFactory is ITypeAndVersion {
           initCode,
           // constructor(address token, address[] allowList, address rmnProxy, bool acceptLiquidity, address router)
           abi.encode(
-            remoteTokenAddress, new address[](0), remoteChainConfig.remoteRMNProxy, true, remoteChainConfig.remoteRouter
+            remoteTokenAddress,
+            18,
+            new address[](0),
+            remoteChainConfig.remoteRMNProxy,
+            true,
+            remoteChainConfig.remoteRouter
           )
         )
       );

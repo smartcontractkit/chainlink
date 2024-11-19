@@ -18,7 +18,7 @@ contract BurnMintWithLockReleaseFlagTokenPoolSetup is BurnMintSetup {
     BurnMintSetup.setUp();
 
     s_pool = new BurnMintWithLockReleaseFlagTokenPool(
-      s_burnMintERC677, new address[](0), address(s_mockRMN), address(s_sourceRouter)
+      s_burnMintERC677, DEFAULT_TOKEN_DECIMALS, new address[](0), address(s_mockRMN), address(s_sourceRouter)
     );
     s_burnMintERC677.grantMintAndBurnRoles(address(s_pool));
 
