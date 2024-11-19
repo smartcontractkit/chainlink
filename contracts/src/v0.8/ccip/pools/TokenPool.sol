@@ -52,7 +52,7 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
     RateLimiter.Config inboundRateLimiterConfig
   );
   event ChainRemoved(uint64 remoteChainSelector);
-  event RemotePoolSet(uint64 indexed remoteChainSelector, bytes remotePoolAddress, bytes32 remotePairHash);
+  event RemotePoolAdded(uint64 indexed remoteChainSelector, bytes remotePoolAddress, bytes32 remotePairHash);
   event RemotePoolRemoved(uint64 indexed remoteChainSelector, bytes remotePoolAddress, bytes32 remotePairHash);
   event AllowListAdd(address sender);
   event AllowListRemove(address sender);
@@ -73,8 +73,6 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
     bytes remoteTokenAddress; // Address of the remote token, ABI encoded in the case of a remote EVM chain.
     bytes[] remotePoolAddresses; // List of remote pool addresses, ABI encoded in the case of a remote EVM chain.
   }
-
-  bytes32 private constant EMPTY_ENCODED_ADDRESS_HASH = keccak256(abi.encode(address(0)));
 
   /// @dev The bridgeable token that is managed by this pool. Pools could support multiple tokens at the same time if
   /// required, but this implementation only supports one token.
@@ -243,7 +241,7 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
   function addRemotePool(uint64 remoteChainSelector, bytes calldata remotePoolAddress) external onlyOwner {
     if (!isSupportedChain(remoteChainSelector)) revert NonExistentChain(remoteChainSelector);
 
-    if (keccak256(remotePoolAddress) == EMPTY_ENCODED_ADDRESS_HASH || remotePoolAddress.length == 0) {
+    if (remotePoolAddress.length == 0) {
       revert ZeroAddressNotAllowed();
     }
 
@@ -258,7 +256,7 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
     // here without checking if it's already in the list.
     s_remoteChainConfigs[remoteChainSelector].remotePoolAddresses.push(remotePoolAddress);
 
-    emit RemotePoolSet(remoteChainSelector, remotePoolAddress, remotePairHash);
+    emit RemotePoolAdded(remoteChainSelector, remotePoolAddress, remotePairHash);
   }
 
   /// @notice Removes the remote pool address for a given chain selector.

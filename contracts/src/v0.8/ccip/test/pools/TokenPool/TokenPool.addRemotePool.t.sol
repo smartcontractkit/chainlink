@@ -16,7 +16,7 @@ contract TokenPool_addRemotePool is TokenPoolSetup {
     vm.startPrank(OWNER);
 
     vm.expectEmit();
-    emit TokenPool.RemotePoolSet(DEST_CHAIN_SELECTOR, remotePool, remotePairHash);
+    emit TokenPool.RemotePoolAdded(DEST_CHAIN_SELECTOR, remotePool, remotePairHash);
 
     s_tokenPool.addRemotePool(DEST_CHAIN_SELECTOR, remotePool);
 
@@ -113,14 +113,6 @@ contract TokenPool_addRemotePool is TokenPoolSetup {
     s_tokenPool.addRemotePool(chainSelector, remotePool);
   }
 
-  function test_ZeroAddressNotAllowed_Revert() public {
-    bytes memory remotePool = abi.encode(address(0));
-
-    vm.expectRevert(abi.encodeWithSelector(TokenPool.ZeroAddressNotAllowed.selector));
-
-    s_tokenPool.addRemotePool(DEST_CHAIN_SELECTOR, remotePool);
-  }
-
   function test_ZeroLengthAddressNotAllowed_Revert() public {
     bytes memory remotePool = "";
 
@@ -137,7 +129,7 @@ contract TokenPool_addRemotePool is TokenPoolSetup {
     bytes32 remotePairHash = keccak256(abi.encode(chainSelector, remotePool));
 
     vm.expectEmit();
-    emit TokenPool.RemotePoolSet(chainSelector, remotePool, remotePairHash);
+    emit TokenPool.RemotePoolAdded(chainSelector, remotePool, remotePairHash);
 
     s_tokenPool.addRemotePool(chainSelector, remotePool);
 

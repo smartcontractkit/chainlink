@@ -13,7 +13,7 @@ contract TokenPool_removeRemotePool is TokenPoolSetup {
     bytes32 remotePairHash = keccak256(abi.encode(chainSelector, remotePool));
 
     vm.expectEmit();
-    emit TokenPool.RemotePoolSet(chainSelector, remotePool, remotePairHash);
+    emit TokenPool.RemotePoolAdded(chainSelector, remotePool, remotePairHash);
 
     // Add the remote pool properly so that it can be removed
     s_tokenPool.addRemotePool(chainSelector, remotePool);
@@ -27,6 +27,18 @@ contract TokenPool_removeRemotePool is TokenPoolSetup {
     emit TokenPool.RemotePoolRemoved(chainSelector, remotePool, remotePairHash);
 
     s_tokenPool.removeRemotePool(chainSelector, remotePool);
+
+    remotePools = s_tokenPool.getRemotePools(chainSelector);
+    assertEq(remotePools.length, 1);
+    assertEq(remotePools[0], abi.encode(s_initialRemotePool));
+
+    // Assert that it can be added after it has been removed
+    s_tokenPool.addRemotePool(chainSelector, remotePool);
+
+    remotePools = s_tokenPool.getRemotePools(chainSelector);
+    assertEq(remotePools.length, 2);
+    assertEq(remotePools[0], abi.encode(s_initialRemotePool));
+    assertEq(remotePools[1], remotePool);
   }
 
   // Reverts
