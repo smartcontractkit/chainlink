@@ -68,8 +68,8 @@ type NodeKeys struct {
 	EncryptionPublicKey   string `json:"EncryptionPublicKey"`
 }
 
-// ORC2OracleConfig is the input configuration for an OCR2/3 contract.
-type ORC2OracleConfig struct {
+// OCR2OracleConfig is the input configuration for an OCR2/3 contract.
+type OCR2OracleConfig struct {
 	Signers               [][]byte
 	Transmitters          []common.Address
 	F                     uint8
@@ -78,7 +78,7 @@ type ORC2OracleConfig struct {
 	OffchainConfig        []byte
 }
 
-func (c ORC2OracleConfig) MarshalJSON() ([]byte, error) {
+func (c OCR2OracleConfig) MarshalJSON() ([]byte, error) {
 	alias := struct {
 		Signers               []string
 		Transmitters          []string
@@ -106,16 +106,16 @@ func (c ORC2OracleConfig) MarshalJSON() ([]byte, error) {
 	return json.Marshal(alias)
 }
 
-func GenerateOCR3Config(cfg OracleConfigWithSecrets, nca []NodeKeys) (ORC2OracleConfig, error) {
+func GenerateOCR3Config(cfg OracleConfigWithSecrets, nca []NodeKeys) (OCR2OracleConfig, error) {
 	onchainPubKeys := [][]byte{}
 	allPubKeys := map[string]any{}
 	if cfg.OCRSecrets.IsEmpty() {
-		return ORC2OracleConfig{}, errors.New("OCRSecrets is required")
+		return OCR2OracleConfig{}, errors.New("OCRSecrets is required")
 	}
 	for _, n := range nca {
 		// evm keys always required
 		if n.OCR2OnchainPublicKey == "" {
-			return ORC2OracleConfig{}, errors.New("OCR2OnchainPublicKey is required")
+			return OCR2OracleConfig{}, errors.New("OCR2OnchainPublicKey is required")
 		}
 		ethPubKey := common.HexToAddress(n.OCR2OnchainPublicKey)
 		pubKeys := map[string]types.OnchainPublicKey{
@@ -125,7 +125,7 @@ func GenerateOCR3Config(cfg OracleConfigWithSecrets, nca []NodeKeys) (ORC2Oracle
 		if n.AptosOnchainPublicKey != "" {
 			aptosPubKey, err := hex.DecodeString(n.AptosOnchainPublicKey)
 			if err != nil {
-				return ORC2OracleConfig{}, fmt.Errorf("failed to decode AptosOnchainPublicKey: %w", err)
+				return OCR2OracleConfig{}, fmt.Errorf("failed to decode AptosOnchainPublicKey: %w", err)
 			}
 			pubKeys[string(chaintype.Aptos)] = aptosPubKey
 		}
@@ -134,13 +134,13 @@ func GenerateOCR3Config(cfg OracleConfigWithSecrets, nca []NodeKeys) (ORC2Oracle
 			raw := hex.EncodeToString(key)
 			_, exists := allPubKeys[raw]
 			if exists {
-				return ORC2OracleConfig{}, fmt.Errorf("Duplicate onchain public key: '%s'", raw)
+				return OCR2OracleConfig{}, fmt.Errorf("Duplicate onchain public key: '%s'", raw)
 			}
 			allPubKeys[raw] = struct{}{}
 		}
 		pubKey, err := ocrcommon.MarshalMultichainPublicKey(pubKeys)
 		if err != nil {
-			return ORC2OracleConfig{}, fmt.Errorf("failed to marshal multichain public key: %w", err)
+			return OCR2OracleConfig{}, fmt.Errorf("failed to marshal multichain public key: %w", err)
 		}
 		onchainPubKeys = append(onchainPubKeys, pubKey)
 	}
@@ -149,13 +149,13 @@ func GenerateOCR3Config(cfg OracleConfigWithSecrets, nca []NodeKeys) (ORC2Oracle
 	for _, n := range nca {
 		pkBytes, err := hex.DecodeString(n.OCR2OffchainPublicKey)
 		if err != nil {
-			return ORC2OracleConfig{}, fmt.Errorf("failed to decode OCR2OffchainPublicKey: %w", err)
+			return OCR2OracleConfig{}, fmt.Errorf("failed to decode OCR2OffchainPublicKey: %w", err)
 		}
 
 		pkBytesFixed := [ed25519.PublicKeySize]byte{}
 		nCopied := copy(pkBytesFixed[:], pkBytes)
 		if nCopied != ed25519.PublicKeySize {
-			return ORC2OracleConfig{}, fmt.Errorf("wrong num elements copied from ocr2 offchain public key. expected %d but got %d", ed25519.PublicKeySize, nCopied)
+			return OCR2OracleConfig{}, fmt.Errorf("wrong num elements copied from ocr2 offchain public key. expected %d but got %d", ed25519.PublicKeySize, nCopied)
 		}
 
 		offchainPubKeysBytes = append(offchainPubKeysBytes, types.OffchainPublicKey(pkBytesFixed))
@@ -165,13 +165,13 @@ func GenerateOCR3Config(cfg OracleConfigWithSecrets, nca []NodeKeys) (ORC2Oracle
 	for _, n := range nca {
 		pkBytes, err := hex.DecodeString(n.OCR2ConfigPublicKey)
 		if err != nil {
-			return ORC2OracleConfig{}, fmt.Errorf("failed to decode OCR2ConfigPublicKey: %w", err)
+			return OCR2OracleConfig{}, fmt.Errorf("failed to decode OCR2ConfigPublicKey: %w", err)
 		}
 
 		pkBytesFixed := [ed25519.PublicKeySize]byte{}
 		n := copy(pkBytesFixed[:], pkBytes)
 		if n != ed25519.PublicKeySize {
-			return ORC2OracleConfig{}, fmt.Errorf("wrong num elements copied from ocr2 config public key. expected %d but got %d", ed25519.PublicKeySize, n)
+			return OCR2OracleConfig{}, fmt.Errorf("wrong num elements copied from ocr2 config public key. expected %d but got %d", ed25519.PublicKeySize, n)
 		}
 
 		configPubKeysBytes = append(configPubKeysBytes, types.ConfigEncryptionPublicKey(pkBytesFixed))
@@ -213,7 +213,7 @@ func GenerateOCR3Config(cfg OracleConfigWithSecrets, nca []NodeKeys) (ORC2Oracle
 		nil, // empty onChain config
 	)
 	if err != nil {
-		return ORC2OracleConfig{}, fmt.Errorf("failed to generate contract config args: %w", err)
+		return OCR2OracleConfig{}, fmt.Errorf("failed to generate contract config args: %w", err)
 	}
 
 	var configSigners [][]byte
@@ -223,10 +223,10 @@ func GenerateOCR3Config(cfg OracleConfigWithSecrets, nca []NodeKeys) (ORC2Oracle
 
 	transmitterAddresses, err := evm.AccountToAddress(transmitters)
 	if err != nil {
-		return ORC2OracleConfig{}, fmt.Errorf("failed to convert transmitters to addresses: %w", err)
+		return OCR2OracleConfig{}, fmt.Errorf("failed to convert transmitters to addresses: %w", err)
 	}
 
-	config := ORC2OracleConfig{
+	config := OCR2OracleConfig{
 		Signers:               configSigners,
 		Transmitters:          transmitterAddresses,
 		F:                     f,
