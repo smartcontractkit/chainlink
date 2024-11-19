@@ -35,6 +35,7 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
   error Unauthorized(address caller);
   error PoolAlreadyAdded(uint64 remoteChainSelector, bytes remotePoolAddress);
   error InvalidRemotePoolForChain(uint64 remoteChainSelector, bytes remotePoolAddress);
+  error InvalidRemoteChainDecimals(bytes sourcePoolData);
 
   event Locked(address indexed sender, uint256 amount);
   event Burned(address indexed sender, uint256 amount);
@@ -77,6 +78,8 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
   /// @dev The bridgeable token that is managed by this pool. Pools could support multiple tokens at the same time if
   /// required, but this implementation only supports one token.
   IERC20 internal immutable i_token;
+  /// @dev The number of decimals of the token managed by this pool.
+  uint8 internal immutable i_tokenDecimals;
   /// @dev The address of the RMN proxy
   address internal immutable i_rmnProxy;
   /// @dev The immutable flag that indicates if the pool is access-controlled.
@@ -105,6 +108,7 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
     if (address(token) == address(0) || router == address(0) || rmnProxy == address(0)) revert ZeroAddressNotAllowed();
     i_token = token;
     i_rmnProxy = rmnProxy;
+    i_tokenDecimals = 18;
     s_router = IRouter(router);
 
     // Pool can be set as permissioned or permissionless at deployment time only to save hot-path gas.
@@ -112,12 +116,6 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
     if (i_allowlistEnabled) {
       _applyAllowListUpdates(new address[](0), allowlist);
     }
-  }
-
-  /// @notice Get RMN proxy address
-  /// @return rmnProxy Address of RMN proxy
-  function getRmnProxy() public view returns (address rmnProxy) {
-    return i_rmnProxy;
   }
 
   /// @inheritdoc IPoolV1
@@ -131,6 +129,12 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
   /// @return token The IERC20 token representation.
   function getToken() public view returns (IERC20 token) {
     return i_token;
+  }
+
+  /// @notice Get RMN proxy address
+  /// @return rmnProxy Address of RMN proxy
+  function getRmnProxy() public view returns (address rmnProxy) {
+    return i_rmnProxy;
   }
 
   /// @notice Gets the pool's Router
@@ -209,6 +213,51 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
     }
 
     _consumeInboundRateLimit(releaseOrMintIn.remoteChainSelector, releaseOrMintIn.amount);
+  }
+
+  // ================================================================
+  // │                      Token decimals                          │
+  // ================================================================
+
+  /// @notice Gets the IERC20 token decimals on the local chain.
+  function getTokenDecimals() public view virtual returns (uint8 decimals) {
+    return i_tokenDecimals;
+  }
+
+  function _encodeLocalDecimals() internal view virtual returns (bytes memory) {
+    return abi.encode(i_tokenDecimals);
+  }
+
+  function _parseRemoteDecimals(
+    bytes memory sourcePoolData
+  ) internal view virtual returns (uint8) {
+    // Fallback to the local token decimals if the source pool data is empty. This allows for backwards compatibility.
+    if (sourcePoolData.length == 0) {
+      return i_tokenDecimals;
+    }
+    if (sourcePoolData.length != 32) {
+      revert InvalidRemoteChainDecimals(sourcePoolData);
+    }
+    uint256 remoteDecimals = abi.decode(sourcePoolData, (uint256));
+    if (remoteDecimals > type(uint8).max) {
+      revert InvalidRemoteChainDecimals(sourcePoolData);
+    }
+    return uint8(remoteDecimals);
+  }
+
+  /// @notice Calculates the local amount based on the remote amount and decimals.
+  /// @param remoteAmount The amount on the remote chain.
+  /// @param remoteDecimals The decimals of the token on the remote chain.
+  /// @return The local amount.
+  function _calculateLocalAmount(uint256 remoteAmount, uint8 remoteDecimals) internal view virtual returns (uint256) {
+    if (remoteDecimals == i_tokenDecimals) {
+      return remoteAmount;
+    }
+    if (remoteDecimals > i_tokenDecimals) {
+      // Solidity rounds down so there is no risk of minting more tokens than the remote chain sent.
+      return remoteAmount / (10 ** (remoteDecimals - i_tokenDecimals));
+    }
+    return remoteAmount * (10 ** (i_tokenDecimals - remoteDecimals));
   }
 
   // ================================================================

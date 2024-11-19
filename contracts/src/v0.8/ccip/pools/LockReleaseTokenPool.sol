@@ -23,7 +23,7 @@ contract LockReleaseTokenPool is TokenPool, ILiquidityContainer, ITypeAndVersion
 
   event LiquidityTransferred(address indexed from, uint256 amount);
 
-  string public constant override typeAndVersion = "LockReleaseTokenPool 1.5.0";
+  string public constant override typeAndVersion = "LockReleaseTokenPool 1.7.0-dev";
 
   /// @dev Whether or not the pool accepts liquidity.
   /// External liquidity is not required when there is one canonical token deployed to a chain,
@@ -52,7 +52,10 @@ contract LockReleaseTokenPool is TokenPool, ILiquidityContainer, ITypeAndVersion
 
     emit Locked(msg.sender, lockOrBurnIn.amount);
 
-    return Pool.LockOrBurnOutV1({destTokenAddress: getRemoteToken(lockOrBurnIn.remoteChainSelector), destPoolData: ""});
+    return Pool.LockOrBurnOutV1({
+      destTokenAddress: getRemoteToken(lockOrBurnIn.remoteChainSelector),
+      destPoolData: _encodeLocalDecimals()
+    });
   }
 
   /// @notice Release tokens from the pool to the recipient
@@ -62,12 +65,16 @@ contract LockReleaseTokenPool is TokenPool, ILiquidityContainer, ITypeAndVersion
   ) external virtual override returns (Pool.ReleaseOrMintOutV1 memory) {
     _validateReleaseOrMint(releaseOrMintIn);
 
+    // Calculate the local amount
+    uint256 localAmount =
+      _calculateLocalAmount(releaseOrMintIn.amount, _parseRemoteDecimals(releaseOrMintIn.sourcePoolData));
+
     // Release to the recipient
-    getToken().safeTransfer(releaseOrMintIn.receiver, releaseOrMintIn.amount);
+    getToken().safeTransfer(releaseOrMintIn.receiver, localAmount);
 
-    emit Released(msg.sender, releaseOrMintIn.receiver, releaseOrMintIn.amount);
+    emit Released(msg.sender, releaseOrMintIn.receiver, localAmount);
 
-    return Pool.ReleaseOrMintOutV1({destinationAmount: releaseOrMintIn.amount});
+    return Pool.ReleaseOrMintOutV1({destinationAmount: localAmount});
   }
 
   /// @inheritdoc IERC165
