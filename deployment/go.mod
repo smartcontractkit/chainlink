@@ -7,7 +7,7 @@ replace github.com/smartcontractkit/chainlink/v2 => ../
 
 // Using a separate inline `require` here to avoid surrounding line changes
 // creating potential merge conflicts.
-require github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
+require github.com/smartcontractkit/chainlink/v2 v2.0.0-20241119120536-03115e80382d
 
 require (
 	github.com/Khan/genqlient v0.7.0

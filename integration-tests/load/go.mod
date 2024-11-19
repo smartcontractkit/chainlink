@@ -9,9 +9,13 @@ replace github.com/smartcontractkit/chainlink/deployment => ../../deployment
 
 replace github.com/smartcontractkit/chainlink/integration-tests => ../
 
-// Using a separate inline `require` here to avoid surrounding line changes
+// Using a separate `require` here to avoid surrounding line changes
 // creating potential merge conflicts.
-require github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
+require (
+	github.com/smartcontractkit/chainlink/deployment v0.0.0-20241119120536-03115e80382d
+	github.com/smartcontractkit/chainlink/integration-tests v0.0.0-20241119120536-03115e80382d
+	github.com/smartcontractkit/chainlink/v2 v2.0.0-20241119120536-03115e80382d
+)
 
 require (
 	github.com/K-Phoen/grabana v0.22.2
@@ -25,8 +29,6 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.13
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.50.5
 	github.com/smartcontractkit/chainlink-testing-framework/wasp v1.50.2
-	github.com/smartcontractkit/chainlink/deployment v0.0.0-00010101000000-000000000000
-	github.com/smartcontractkit/chainlink/integration-tests v0.0.0-20241030133659-9ec788e78b4f
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20241009055228-33d0c0bf38de
 	github.com/stretchr/testify v1.9.0
 	github.com/wiremock/go-wiremock v1.9.0

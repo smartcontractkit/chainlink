@@ -7,9 +7,12 @@ replace github.com/smartcontractkit/chainlink/v2 => ../
 
 replace github.com/smartcontractkit/chainlink/deployment => ../deployment
 
-// Using a separate inline `require` here to avoid surrounding line changes
+// Using a separate `require` here to avoid surrounding line changes
 // creating potential merge conflicts.
-require github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
+require (
+	github.com/smartcontractkit/chainlink/deployment v0.0.0-20241119120536-03115e80382d
+	github.com/smartcontractkit/chainlink/v2 v2.0.0-20241119120536-03115e80382d
+)
 
 require (
 	dario.cat/mergo v1.0.1
@@ -48,7 +51,6 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.50.0
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.50.5
 	github.com/smartcontractkit/chainlink-testing-framework/wasp v1.50.2
-	github.com/smartcontractkit/chainlink/deployment v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20241007185508-adbe57025f12
 	github.com/spf13/cobra v1.8.1
 	github.com/stretchr/testify v1.9.0
