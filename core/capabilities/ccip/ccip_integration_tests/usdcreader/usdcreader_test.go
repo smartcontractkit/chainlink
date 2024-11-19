@@ -2,6 +2,8 @@ package usdcreader
 
 import (
 	"context"
+	"encoding/binary"
+	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -11,12 +13,14 @@ import (
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
 	sel "github.com/smartcontractkit/chain-selectors"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/contractreader"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
@@ -27,7 +31,6 @@ import (
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/usdc_reader_tester"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -36,6 +39,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
+
+const ChainID = 1337
 
 func Test_USDCReader_MessageHashes(t *testing.T) {
 	finalityDepth := 5
@@ -201,7 +206,117 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 		})
 	}
 }
+func Benchmark_MessageHashes(b *testing.B) {
+	finalityDepth := 5
 
+	ctx := testutils.Context(b)
+	sourceChain := cciptypes.ChainSelector(sel.ETHEREUM_MAINNET_OPTIMISM_1.Selector)
+	sourceDomainCCTP := reader.CCTPDestDomains[uint64(sourceChain)]
+	destChain := cciptypes.ChainSelector(sel.AVALANCHE_MAINNET.Selector)
+	destDomainCCTP := reader.CCTPDestDomains[uint64(destChain)]
+
+	ts := testSetup(ctx, b, sourceChain, evmconfig.USDCReaderConfig, finalityDepth)
+
+	usdcReader, err := reader.NewUSDCMessageReader(
+		ctx,
+		logger.TestLogger(b),
+		map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig{
+			sourceChain: {
+				SourceMessageTransmitterAddr: ts.contractAddr.String(),
+			},
+		},
+		map[cciptypes.ChainSelector]contractreader.ContractReaderFacade{
+			sourceChain: ts.reader,
+		})
+	require.NoError(b, err)
+
+	// add messages in log poller directly
+	populateDatabase(b, ts, sourceChain, sourceDomainCCTP, destDomainCCTP, 11)
+
+	tokens := map[reader.MessageTokenID]cciptypes.RampTokenAmount{}
+	tokens[reader.NewMessageTokenID(1, 1)] = cciptypes.RampTokenAmount{
+		ExtraData: reader.NewSourceTokenDataPayload(11, sourceDomainCCTP).ToBytes(),
+	}
+
+	hashes, err1 := usdcReader.MessageHashes(ctx, sourceChain, destChain, tokens)
+	require.NoError(b, err1)
+
+	fmt.Println("Hashes length: ", len(hashes))
+	require.Len(b, hashes, 1)
+}
+
+func populateDatabase(b *testing.B,
+	testEnv *testSetupData,
+	source cciptypes.ChainSelector,
+	sourceDomainCCTP uint32,
+	destDomainCCTP uint32,
+	startNonce uint64) {
+	ctx := testutils.Context(b)
+
+	abi, err := usdc_reader_tester.USDCReaderTesterMetaData.GetAbi()
+	require.NoError(b, err)
+
+	var logs []logpoller.Log
+	messageSentEventSig := abi.Events["MessageSent"].ID
+	require.NoError(b, err)
+	messageTransmitterAddress := testEnv.contractAddr
+
+	for i := 0; i < 10; i++ {
+		nonce := startNonce + uint64(i)
+
+		// Pack the message following exact CCTP format
+		var buf []byte
+		// _msgVersion (uint32)
+		buf = binary.BigEndian.AppendUint32(buf, reader.CCTPMessageVersion)
+		// _msgSourceDomain (uint32)
+		buf = binary.BigEndian.AppendUint32(buf, sourceDomainCCTP)
+		// _msgDestinationDomain (uint32)
+		buf = binary.BigEndian.AppendUint32(buf, destDomainCCTP)
+		// _msgNonce (uint64)
+		buf = binary.BigEndian.AppendUint64(buf, nonce)
+		// First 12 bytes of the sender address are always empty for EVM
+		senderBytes := [12]byte{}
+		buf = append(buf, senderBytes[:]...)
+
+		// Convert to 32 bytes
+		var message [32]byte
+		copy(message[:], buf)
+
+		// Encode the data following Solidity's encoding for bytes
+		data := make([]byte, 0)
+
+		// Add two 32-byte words of padding before our data
+		padding := make([]byte, 64)
+		data = append(data, padding...)
+
+		// Add message
+		data = append(data, message[:]...)
+
+		// Create topics array with just the event signature
+		topics := [][]byte{
+			messageSentEventSig[:], // Topic[0] is event signature
+		}
+
+		// Create log entry
+		logs = append(logs, logpoller.Log{
+			EvmChainId:     ubig.New(big.NewInt(int64(uint64(source)))),
+			LogIndex:       int64(i + 1),
+			BlockHash:      utils.NewHash(),
+			BlockNumber:    int64(i + 1),
+			BlockTimestamp: time.Now(),
+			EventSig:       messageSentEventSig,
+			Topics:         topics,
+			Address:        messageTransmitterAddress,
+			TxHash:         utils.NewHash(),
+			Data:           data,
+			CreatedAt:      time.Now(),
+		})
+	}
+
+	require.NoError(b, testEnv.orm.InsertLogs(ctx, logs))
+}
+
+// we might want to use batching (evm/batching or evm/batching) but might be slow
 func emitMessageSent(t *testing.T, testEnv *testSetupData, source, dest uint32, nonce uint64) {
 	payload := utils.RandomBytes32()
 	_, err := testEnv.contract.EmitMessageSent(
@@ -219,9 +334,7 @@ func emitMessageSent(t *testing.T, testEnv *testSetupData, source, dest uint32, 
 	testEnv.sb.Commit()
 }
 
-func testSetup(ctx context.Context, t *testing.T, readerChain cciptypes.ChainSelector, cfg evmtypes.ChainReaderConfig, depth int) *testSetupData {
-	const chainID = 1337
-
+func testSetup(ctx context.Context, t testing.TB, readerChain cciptypes.ChainSelector, cfg evmtypes.ChainReaderConfig, depth int) *testSetupData {
 	// Generate a new key pair for the simulated account
 	privateKey, err := crypto.GenerateKey()
 	assert.NoError(t, err)
@@ -232,7 +345,7 @@ func testSetup(ctx context.Context, t *testing.T, readerChain cciptypes.ChainSel
 	simulatedBackend := simulated.NewBackend(alloc, simulated.WithBlockGasLimit(0))
 	// Create a transactor
 
-	auth, err := bind.NewKeyedTransactorWithChainID(privateKey, big.NewInt(chainID))
+	auth, err := bind.NewKeyedTransactorWithChainID(privateKey, big.NewInt(ChainID))
 	assert.NoError(t, err)
 	auth.GasLimit = uint64(0)
 
@@ -258,7 +371,20 @@ func testSetup(ctx context.Context, t *testing.T, readerChain cciptypes.ChainSel
 	}
 	cl := client.NewSimulatedBackendClient(t, simulatedBackend, big.NewInt(0).SetUint64(uint64(readerChain)))
 	headTracker := headtracker.NewSimulatedHeadTracker(cl, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
-	lp := logpoller.NewLogPoller(logpoller.NewORM(big.NewInt(0).SetUint64(uint64(readerChain)), db, lggr),
+	orm := logpoller.NewORM(big.NewInt(0).SetUint64(uint64(readerChain)), db, lggr)
+
+	blockHash := common.HexToHash("0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef")
+	blockNumber := int64(42)
+	blockTimestamp := time.Now()
+	finalizedBlock := int64(41) // Assuming block 41 is the last finalized block
+
+	// Insert the dummy block
+	// @mateusz-sekara: this is not inserted in the database,
+	err = orm.InsertBlock(ctx, blockHash, blockNumber, blockTimestamp, finalizedBlock)
+	require.NoError(t, err)
+
+	lp := logpoller.NewLogPoller(
+		orm,
 		cl,
 		lggr,
 		headTracker,
@@ -285,6 +411,7 @@ func testSetup(ctx context.Context, t *testing.T, readerChain cciptypes.ChainSel
 		auth:         auth,
 		cl:           cl,
 		reader:       cr,
+		orm:          orm,
 		lp:           lp,
 	}
 }
@@ -296,5 +423,6 @@ type testSetupData struct {
 	auth         *bind.TransactOpts
 	cl           client.Client
 	reader       types.ContractReader
+	orm          logpoller.ORM
 	lp           logpoller.LogPoller
 }
