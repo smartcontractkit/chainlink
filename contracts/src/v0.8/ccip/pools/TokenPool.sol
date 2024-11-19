@@ -276,6 +276,7 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
     bytes32 remotePoolHash = keccak256(remotePoolAddress);
     for (uint256 i = 0; i < remotePoolAddresses.length; ++i) {
       if (keccak256(remotePoolAddresses[i]) == remotePoolHash) {
+        // Swap the last element with the element to remove and then pop the last element.
         s_remoteChainConfigs[remoteChainSelector].remotePoolAddresses[i] =
           remotePoolAddresses[remotePoolAddresses.length - 1];
         s_remoteChainConfigs[remoteChainSelector].remotePoolAddresses.pop();

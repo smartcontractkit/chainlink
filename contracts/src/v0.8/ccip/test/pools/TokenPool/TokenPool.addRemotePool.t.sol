@@ -44,6 +44,9 @@ contract TokenPool_addRemotePool is TokenPoolSetup {
     vm.expectRevert(abi.encodeWithSelector(TokenPool.InvalidSourcePoolAddress.selector, remotePools[0]));
     s_tokenPool.releaseOrMint(_getReleaseOrMintInV1(remotePools[0]));
 
+    // There's already one pool setup through the test setup
+    assertEq(s_tokenPool.getRemotePoolHashes().length, 1);
+
     vm.startPrank(OWNER);
     s_tokenPool.addRemotePool(DEST_CHAIN_SELECTOR, remotePools[0]);
 
@@ -55,6 +58,7 @@ contract TokenPool_addRemotePool is TokenPoolSetup {
     s_tokenPool.addRemotePool(DEST_CHAIN_SELECTOR, remotePools[1]);
 
     // Both should now work
+    assertEq(s_tokenPool.getRemotePoolHashes().length, 3);
     vm.startPrank(fakeOffRamp);
     s_tokenPool.releaseOrMint(_getReleaseOrMintInV1(remotePools[0]));
     s_tokenPool.releaseOrMint(_getReleaseOrMintInV1(remotePools[1]));
@@ -62,15 +66,25 @@ contract TokenPool_addRemotePool is TokenPoolSetup {
     // Adding a third pool, and removing the first one
     vm.startPrank(OWNER);
     s_tokenPool.addRemotePool(DEST_CHAIN_SELECTOR, remotePools[2]);
+    assertEq(s_tokenPool.getRemotePoolHashes().length, 4);
     s_tokenPool.removeRemotePool(DEST_CHAIN_SELECTOR, remotePools[0]);
+    assertEq(s_tokenPool.getRemotePoolHashes().length, 3);
 
     // Only the last two should work
     vm.startPrank(fakeOffRamp);
     vm.expectRevert(abi.encodeWithSelector(TokenPool.InvalidSourcePoolAddress.selector, remotePools[0]));
     s_tokenPool.releaseOrMint(_getReleaseOrMintInV1(remotePools[0]));
-
     s_tokenPool.releaseOrMint(_getReleaseOrMintInV1(remotePools[1]));
     s_tokenPool.releaseOrMint(_getReleaseOrMintInV1(remotePools[2]));
+
+    // Removing the chain removes all associated pool hashes
+    vm.startPrank(OWNER);
+
+    uint64[] memory chainSelectorsToRemove = new uint64[](1);
+    chainSelectorsToRemove[0] = DEST_CHAIN_SELECTOR;
+    s_tokenPool.applyChainUpdates(chainSelectorsToRemove, new TokenPool.ChainUpdate[](0));
+
+    assertEq(s_tokenPool.getRemotePoolHashes().length, 0);
   }
 
   function _getReleaseOrMintInV1(

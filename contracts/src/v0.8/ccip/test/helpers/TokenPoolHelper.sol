@@ -5,14 +5,21 @@ import {Pool} from "../../libraries/Pool.sol";
 import {TokenPool} from "../../pools/TokenPool.sol";
 
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v5.0.2/contracts/utils/structs/EnumerableSet.sol";
 
 contract TokenPoolHelper is TokenPool {
+  using EnumerableSet for EnumerableSet.Bytes32Set;
+
   constructor(
     IERC20 token,
     address[] memory allowlist,
     address rmnProxy,
     address router
   ) TokenPool(token, allowlist, rmnProxy, router) {}
+
+  function getRemotePoolHashes() external view returns (bytes32[] memory) {
+    return s_remotePoolHashes.values();
+  }
 
   function lockOrBurn(
     Pool.LockOrBurnInV1 calldata lockOrBurnIn
