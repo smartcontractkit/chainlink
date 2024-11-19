@@ -24,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
-
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
@@ -131,18 +130,14 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	// MockE2EUSDCTransmitter always mint 1, see MockE2EUSDCTransmitter.sol for more details
 	tinyOneCoin := new(big.Int).SetUint64(1)
 
-	srcDstTokenMapping := map[common.Address]*burn_mint_erc677.BurnMintERC677{
-		srcUSDC.Address(): dstUSDC,
-		dstUSDC.Address(): srcUSDC,
-	}
-
 	tcs := []struct {
-		name        string
-		receiver    common.Address
-		sourceChain uint64
-		destChain   uint64
-		tokens      []router.ClientEVMTokenAmount
-		data        []byte
+		name                  string
+		receiver              common.Address
+		sourceChain           uint64
+		destChain             uint64
+		tokens                []router.ClientEVMTokenAmount
+		data                  []byte
+		expectedTokenBalances map[common.Address]*big.Int
 	}{
 		{
 			name:        "single USDC token transfer to EOA",
@@ -154,7 +149,30 @@ func TestUSDCTokenTransfer(t *testing.T) {
 					Token:  dstUSDC.Address(),
 					Amount: tinyOneCoin,
 				}},
+			expectedTokenBalances: map[common.Address]*big.Int{
+				srcUSDC.Address(): tinyOneCoin,
+			},
 		},
+		//{
+		//	name:        "multiple USDC tokens within the same message",
+		//	receiver:    utils.RandomAddress(),
+		//	sourceChain: destChain,
+		//	destChain:   sourceChain,
+		//	tokens: []router.ClientEVMTokenAmount{
+		//		{
+		//			Token:  dstUSDC.Address(),
+		//			Amount: tinyOneCoin,
+		//		},
+		//		{
+		//			Token:  dstUSDC.Address(),
+		//			Amount: tinyOneCoin,
+		//		},
+		//	},
+		//	expectedTokenBalances: map[common.Address]*big.Int{
+		//		// 2 coins because of the same receiver
+		//		srcUSDC.Address(): new(big.Int).Add(tinyOneCoin, tinyOneCoin),
+		//	},
+		//},
 		{
 			name:        "programmable token transfer to valid contract receiver",
 			receiver:    state.Chains[destChain].Receiver.Address(),
@@ -167,18 +185,18 @@ func TestUSDCTokenTransfer(t *testing.T) {
 				},
 			},
 			data: []byte("hello world"),
+			expectedTokenBalances: map[common.Address]*big.Int{
+				dstUSDC.Address(): tinyOneCoin,
+			},
 		},
 	}
 
 	for _, tt := range tcs {
 		t.Run(tt.name, func(t *testing.T) {
 			initialBalances := map[common.Address]*big.Int{}
-			for _, token := range tt.tokens {
-				destToken := srcDstTokenMapping[token.Token]
-
-				initialBalance, err := destToken.BalanceOf(&bind.CallOpts{Context: tests.Context(t)}, tt.receiver)
-				require.NoError(t, err)
-				initialBalances[token.Token] = initialBalance
+			for token := range tt.expectedTokenBalances {
+				initialBalance := getTokenBalance(t, token, tt.receiver, e.Chains[tt.destChain])
+				initialBalances[token] = initialBalance
 			}
 
 			transferAndWaitForSuccess(
@@ -192,12 +210,9 @@ func TestUSDCTokenTransfer(t *testing.T) {
 				tt.data,
 			)
 
-			for _, token := range tt.tokens {
-				destToken := srcDstTokenMapping[token.Token]
-
-				balance, err := destToken.BalanceOf(&bind.CallOpts{Context: tests.Context(t)}, tt.receiver)
-				require.NoError(t, err)
-				require.Equal(t, new(big.Int).Add(initialBalances[token.Token], tinyOneCoin), balance)
+			for token, balance := range tt.expectedTokenBalances {
+				expected := new(big.Int).Add(initialBalances[token], balance)
+				waitForTheTokenBalance(t, token, tt.receiver, e.Chains[tt.destChain], expected)
 			}
 		})
 	}
@@ -280,4 +295,50 @@ func mockAttestationResponse() *httptest.Server {
 		}
 	}))
 	return server
+}
+
+func waitForTheTokenBalance(
+	t *testing.T,
+	token common.Address,
+	receiver common.Address,
+	chain deployment.Chain,
+	expected *big.Int,
+) {
+	tokenContract, err := burn_mint_erc677.NewBurnMintERC677(token, chain.Client)
+	require.NoError(t, err)
+
+	require.Eventually(t, func() bool {
+		actualBalance, err := tokenContract.BalanceOf(&bind.CallOpts{Context: tests.Context(t)}, receiver)
+		require.NoError(t, err)
+
+		t.Log("Waiting for the token balance",
+			"expected", expected,
+			"actual", actualBalance,
+			"token", token,
+			"receiver", receiver,
+		)
+
+		return actualBalance.Cmp(expected) == 0
+	}, tests.WaitTimeout(t), 100*time.Millisecond)
+}
+
+func getTokenBalance(
+	t *testing.T,
+	token common.Address,
+	receiver common.Address,
+	chain deployment.Chain,
+) *big.Int {
+	tokenContract, err := burn_mint_erc677.NewBurnMintERC677(token, chain.Client)
+	require.NoError(t, err)
+
+	balance, err := tokenContract.BalanceOf(&bind.CallOpts{Context: tests.Context(t)}, receiver)
+	require.NoError(t, err)
+
+	t.Log("Getting token balance",
+		"actual", balance,
+		"token", token,
+		"receiver", receiver,
+	)
+
+	return balance
 }
