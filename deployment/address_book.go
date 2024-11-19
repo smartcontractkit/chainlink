@@ -90,18 +90,20 @@ type AddressBookMap struct {
 
 // Save will save an address for a given chain selector. It will error if there is a conflicting existing address.
 func (m *AddressBookMap) Save(chainSelector uint64, address string, typeAndVersion TypeAndVersion) error {
-	_, err := chainsel.GetChainIDFromSelector(chainSelector)
+	family, err := chainsel.GetSelectorFamily(chainSelector)
 	if err != nil {
 		return errors.Wrapf(ErrInvalidChainSelector, "chain selector %d", chainSelector)
 	}
-	if address == "" || address == common.HexToAddress("0x0").Hex() {
-		return errors.Wrap(ErrInvalidAddress, "address cannot be empty")
-	}
-	if common.IsHexAddress(address) {
-		// IMPORTANT: WE ALWAYS STANDARDIZE ETHEREUM ADDRESS STRINGS TO EIP55
-		address = common.HexToAddress(address).Hex()
-	} else {
-		return errors.Wrapf(ErrInvalidAddress, "address %s is not a valid Ethereum address, only Ethereum addresses supported", address)
+	if family == chainsel.FamilyEVM {
+		if address == "" || address == common.HexToAddress("0x0").Hex() {
+			return errors.Wrap(ErrInvalidAddress, "address cannot be empty")
+		}
+		if common.IsHexAddress(address) {
+			// IMPORTANT: WE ALWAYS STANDARDIZE ETHEREUM ADDRESS STRINGS TO EIP55
+			address = common.HexToAddress(address).Hex()
+		} else {
+			return errors.Wrapf(ErrInvalidAddress, "address %s is not a valid Ethereum address, only Ethereum addresses supported for EVM chains", address)
+		}
 	}
 	if typeAndVersion.Type == "" {
 		return fmt.Errorf("type cannot be empty")
