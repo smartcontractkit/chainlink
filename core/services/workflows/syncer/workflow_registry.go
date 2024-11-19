@@ -274,7 +274,7 @@ func (w *workflowRegistry) syncEventsLoop(ctx context.Context) {
 
 		ticker = w.getTicker(ctx)
 
-		signal = make(chan struct{})
+		signals = make(map[WorkflowRegistryEventType]chan struct{}, 0)
 	)
 
 	// critical failure if there is no reader, the loop will exit and the parent context will be
@@ -287,6 +287,8 @@ func (w *workflowRegistry) syncEventsLoop(ctx context.Context) {
 
 	// fan out and query for each event type
 	for i := 0; i < len(w.eventTypes); i++ {
+		signal := make(chan struct{}, 1)
+		signals[w.eventTypes[i]] = signal
 		w.wg.Add(1)
 		go func() {
 			defer w.wg.Done()
@@ -312,6 +314,7 @@ func (w *workflowRegistry) syncEventsLoop(ctx context.Context) {
 			// for each event type, send a signal for it to execute a query and produce a new
 			// batch of event logs
 			for i := 0; i < len(w.eventTypes); i++ {
+				signal := signals[w.eventTypes[i]]
 				select {
 				case signal <- struct{}{}:
 				case <-ctx.Done():
