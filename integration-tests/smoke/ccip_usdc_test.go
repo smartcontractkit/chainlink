@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
@@ -153,26 +154,26 @@ func TestUSDCTokenTransfer(t *testing.T) {
 				srcUSDC.Address(): tinyOneCoin,
 			},
 		},
-		//{
-		//	name:        "multiple USDC tokens within the same message",
-		//	receiver:    utils.RandomAddress(),
-		//	sourceChain: destChain,
-		//	destChain:   sourceChain,
-		//	tokens: []router.ClientEVMTokenAmount{
-		//		{
-		//			Token:  dstUSDC.Address(),
-		//			Amount: tinyOneCoin,
-		//		},
-		//		{
-		//			Token:  dstUSDC.Address(),
-		//			Amount: tinyOneCoin,
-		//		},
-		//	},
-		//	expectedTokenBalances: map[common.Address]*big.Int{
-		//		// 2 coins because of the same receiver
-		//		srcUSDC.Address(): new(big.Int).Add(tinyOneCoin, tinyOneCoin),
-		//	},
-		//},
+		{
+			name:        "multiple USDC tokens within the same message",
+			receiver:    utils.RandomAddress(),
+			sourceChain: destChain,
+			destChain:   sourceChain,
+			tokens: []router.ClientEVMTokenAmount{
+				{
+					Token:  dstUSDC.Address(),
+					Amount: tinyOneCoin,
+				},
+				{
+					Token:  dstUSDC.Address(),
+					Amount: tinyOneCoin,
+				},
+			},
+			expectedTokenBalances: map[common.Address]*big.Int{
+				// 2 coins because of the same receiver
+				srcUSDC.Address(): new(big.Int).Add(tinyOneCoin, tinyOneCoin),
+			},
+		},
 		{
 			name:        "programmable token transfer to valid contract receiver",
 			receiver:    state.Chains[destChain].Receiver.Address(),
