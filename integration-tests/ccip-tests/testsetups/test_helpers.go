@@ -21,6 +21,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipdeployment "github.com/smartcontractkit/chainlink/deployment/ccip"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	clclient "github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -69,7 +70,16 @@ func (d DeployedLocalDevEnvironment) RestartChainlinkNodes(t *testing.T) error {
 	return errGrp.Wait()
 }
 
-func NewLocalDevEnvironment(t *testing.T, lggr logger.Logger) (ccipdeployment.DeployedEnv, *test_env.CLClusterTestEnv, testconfig.TestConfig) {
+func NewLocalDevEnvironmentWithDefaultPrice(
+	t *testing.T,
+	lggr logger.Logger) (ccipdeployment.DeployedEnv, *test_env.CLClusterTestEnv, testconfig.TestConfig) {
+	return NewLocalDevEnvironment(t, lggr, ccipdeployment.MockLinkPrice, ccipdeployment.MockWethPrice)
+}
+
+func NewLocalDevEnvironment(
+	t *testing.T,
+	lggr logger.Logger,
+	linkPrice, wethPrice *big.Int) (ccipdeployment.DeployedEnv, *test_env.CLClusterTestEnv, testconfig.TestConfig) {
 	ctx := testcontext.Get(t)
 	// create a local docker environment with simulated chains and job-distributor
 	// we cannot create the chainlink nodes yet as we need to deploy the capability registry first
@@ -88,7 +98,7 @@ func NewLocalDevEnvironment(t *testing.T, lggr logger.Logger) (ccipdeployment.De
 	require.NoError(t, err)
 
 	ab := deployment.NewMemoryAddressBook()
-	crConfig := ccipdeployment.DeployTestContracts(t, lggr, ab, homeChainSel, feedSel, chains)
+	crConfig := ccipdeployment.DeployTestContracts(t, lggr, ab, homeChainSel, feedSel, chains, linkPrice, wethPrice)
 
 	// start the chainlink nodes with the CR address
 	err = StartChainlinkNodes(t, envConfig,
@@ -99,6 +109,7 @@ func NewLocalDevEnvironment(t *testing.T, lggr logger.Logger) (ccipdeployment.De
 	require.NoError(t, err)
 	require.NotNil(t, e)
 	e.ExistingAddresses = ab
+	e.MockAdapter = testEnv.MockAdapter
 
 	envNodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
@@ -128,9 +139,15 @@ func NewLocalDevEnvironmentWithRMN(
 	lggr logger.Logger,
 	numRmnNodes int,
 ) (ccipdeployment.DeployedEnv, devenv.RMNCluster) {
-	tenv, dockerenv, _ := NewLocalDevEnvironment(t, lggr)
+	tenv, dockerenv, testCfg := NewLocalDevEnvironmentWithDefaultPrice(t, lggr)
 	state, err := ccipdeployment.LoadOnchainState(tenv.Env)
 	require.NoError(t, err)
+
+	output, err := changeset.DeployPrerequisites(tenv.Env, changeset.DeployPrerequisiteConfig{
+		ChainSelectors: tenv.Env.AllChainSelectors(),
+	})
+	require.NoError(t, err)
+	require.NoError(t, tenv.Env.ExistingAddresses.Merge(output.AddressBook))
 
 	// Deploy CCIP contracts.
 	newAddresses := deployment.NewMemoryAddressBook()
@@ -147,14 +164,15 @@ func NewLocalDevEnvironmentWithRMN(
 
 	l := logging.GetTestLogger(t)
 	config := GenerateTestRMNConfig(t, numRmnNodes, tenv, MustNetworksToRPCMap(dockerenv.EVMNetworks))
+	require.NotNil(t, testCfg.CCIP)
 	rmnCluster, err := devenv.NewRMNCluster(
 		t, l,
 		[]string{dockerenv.DockerNetwork.ID},
 		config,
-		"rageproxy",
-		"latest",
-		"afn2proxy",
-		"latest",
+		testCfg.CCIP.RMNConfig.GetProxyImage(),
+		testCfg.CCIP.RMNConfig.GetProxyVersion(),
+		testCfg.CCIP.RMNConfig.GetAFN2ProxyImage(),
+		testCfg.CCIP.RMNConfig.GetAFN2ProxyVersion(),
 		dockerenv.LogStream,
 	)
 	require.NoError(t, err)
@@ -291,6 +309,7 @@ func CreateDockerEnv(t *testing.T) (
 	builder := test_env.NewCLTestEnvBuilder().
 		WithTestConfig(&cfg).
 		WithTestInstance(t).
+		WithMockAdapter().
 		WithJobDistributor(cfg.CCIP.JobDistributorConfig).
 		WithStandardCleanup()
 

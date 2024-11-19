@@ -67,19 +67,19 @@ Nodes = []
 [MultiNode]
 Enabled = false
 PollFailureThreshold = 5
-PollInterval = '10s'
+PollInterval = '15s'
 SelectionMode = 'PriorityLevel'
-SyncThreshold = 5
+SyncThreshold = 10
 NodeIsSyncingEnabled = false
 LeaseDuration = '1m0s'
 FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
-DeathDeclarationDelay = '10s'
-NodeNoNewHeadsThreshold = '10s'
-NoNewFinalizedHeadsThreshold = '10s'
+DeathDeclarationDelay = '20s'
+NodeNoNewHeadsThreshold = '20s'
+NoNewFinalizedHeadsThreshold = '20s'
 FinalityDepth = 0
 FinalityTagEnabled = true
-FinalizedBlockOffset = 0
+FinalizedBlockOffset = 50
 `,
 				}
 			},

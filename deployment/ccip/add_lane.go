@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
@@ -14,13 +15,23 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 )
 
-var (
-	InitialLinkPrice = deployment.E18Mult(20)
-	InitialWethPrice = deployment.E18Mult(4000)
-	InitialGasPrice  = big.NewInt(2e12)
-)
+type InitialPrices struct {
+	LinkPrice *big.Int // USD to the power of 18 (e18) per LINK
+	WethPrice *big.Int // USD to the power of 18 (e18) per WETH
+	GasPrice  *big.Int // uint224 packed gas price in USD (112 for exec // 112 for da)
+}
 
-func AddLane(e deployment.Environment, state CCIPOnChainState, from, to uint64) error {
+var DefaultInitialPrices = InitialPrices{
+	LinkPrice: deployment.E18Mult(20),
+	WethPrice: deployment.E18Mult(4000),
+	GasPrice:  ToPackedFee(big.NewInt(8e14), big.NewInt(0)),
+}
+
+func AddLaneWithDefaultPrices(e deployment.Environment, state CCIPOnChainState, from, to uint64) error {
+	return AddLane(e, state, from, to, DefaultInitialPrices)
+}
+
+func AddLane(e deployment.Environment, state CCIPOnChainState, from, to uint64, initialPrices InitialPrices) error {
 	// TODO: Batch
 	tx, err := state.Chains[from].Router.ApplyRampUpdates(e.Chains[from].DeployerKey, []router.RouterOnRamp{
 		{
@@ -47,17 +58,17 @@ func AddLane(e deployment.Environment, state CCIPOnChainState, from, to uint64) 
 			TokenPriceUpdates: []fee_quoter.InternalTokenPriceUpdate{
 				{
 					SourceToken: state.Chains[from].LinkToken.Address(),
-					UsdPerToken: InitialLinkPrice,
+					UsdPerToken: initialPrices.LinkPrice,
 				},
 				{
 					SourceToken: state.Chains[from].Weth9.Address(),
-					UsdPerToken: InitialWethPrice,
+					UsdPerToken: initialPrices.WethPrice,
 				},
 			},
 			GasPriceUpdates: []fee_quoter.InternalGasPriceUpdate{
 				{
 					DestChainSelector: to,
-					UsdPerUnitGas:     InitialGasPrice,
+					UsdPerUnitGas:     initialPrices.GasPrice,
 				},
 			}})
 	if _, err := deployment.ConfirmIfNoError(e.Chains[from], tx, err); err != nil {
@@ -112,15 +123,15 @@ func DefaultFeeQuoterDestChainConfig() fee_quoter.FeeQuoterDestChainConfig {
 		MaxNumberOfTokensPerMsg:           10,
 		MaxDataBytes:                      256,
 		MaxPerMsgGasLimit:                 3_000_000,
-		DestGasOverhead:                   50_000,
+		DestGasOverhead:                   ccipevm.DestGasOverhead,
 		DefaultTokenFeeUSDCents:           1,
-		DestGasPerPayloadByte:             10,
+		DestGasPerPayloadByte:             ccipevm.CalldataGasPerByte,
 		DestDataAvailabilityOverheadGas:   100,
 		DestGasPerDataAvailabilityByte:    100,
 		DestDataAvailabilityMultiplierBps: 1,
 		DefaultTokenDestGasOverhead:       125_000,
 		DefaultTxGasLimit:                 200_000,
-		GasMultiplierWeiPerEth:            1,
+		GasMultiplierWeiPerEth:            11e17, // Gas multiplier in wei per eth is scaled by 1e18, so 11e17 is 1.1 = 110%
 		NetworkFeeUSDCents:                1,
 		ChainFamilySelector:               [4]byte(evmFamilySelector),
 	}

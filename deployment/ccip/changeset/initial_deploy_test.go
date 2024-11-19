@@ -21,7 +21,7 @@ import (
 func TestInitialDeploy(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := ccdeploy.Context(t)
-	tenv := ccdeploy.NewMemoryEnvironment(t, lggr, 3, 4)
+	tenv := ccdeploy.NewMemoryEnvironment(t, lggr, 3, 4, ccdeploy.MockLinkPrice, ccdeploy.MockWethPrice)
 	e := tenv.Env
 
 	state, err := ccdeploy.LoadOnchainState(tenv.Env)
@@ -78,14 +78,14 @@ func TestInitialDeploy(t *testing.T) {
 			require.NoError(t, err)
 			block := latesthdr.Number.Uint64()
 			startBlocks[dest] = &block
-			seqNum := ccdeploy.TestSendRequest(t, e, state, src, dest, false, router.ClientEVM2AnyMessage{
+			msgSentEvent := ccdeploy.TestSendRequest(t, e, state, src, dest, false, router.ClientEVM2AnyMessage{
 				Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
 				Data:         []byte("hello"),
 				TokenAmounts: nil,
 				FeeToken:     common.HexToAddress("0x0"),
 				ExtraArgs:    nil,
 			})
-			expectedSeqNum[dest] = seqNum
+			expectedSeqNum[dest] = msgSentEvent.SequenceNumber
 		}
 	}
 
@@ -93,7 +93,8 @@ func TestInitialDeploy(t *testing.T) {
 	ccdeploy.ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
 
 	// Confirm token and gas prices are updated
-	ccdeploy.ConfirmTokenPriceUpdatedForAll(t, e, state, startBlocks)
+	ccdeploy.ConfirmTokenPriceUpdatedForAll(t, e, state, startBlocks,
+		ccdeploy.DefaultInitialPrices.LinkPrice, ccdeploy.DefaultInitialPrices.WethPrice)
 	// TODO: Fix gas prices?
 	//ccdeploy.ConfirmGasPriceUpdatedForAll(t, e, state, startBlocks)
 	//

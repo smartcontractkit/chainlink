@@ -22,7 +22,7 @@ func TestDeployCCIPContracts(t *testing.T) {
 	})
 	// Deploy all the CCIP contracts.
 	homeChainSel, feedChainSel := allocateCCIPChainSelectors(e.Chains)
-	_ = DeployTestContracts(t, lggr, e.ExistingAddresses, homeChainSel, feedChainSel, e.Chains)
+	_ = DeployTestContracts(t, lggr, e.ExistingAddresses, homeChainSel, feedChainSel, e.Chains, MockLinkPrice, MockWethPrice)
 
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
@@ -69,18 +69,4 @@ func TestDeployCCIPContracts(t *testing.T) {
 	b, err := json.MarshalIndent(snap, "", "	")
 	require.NoError(t, err)
 	fmt.Println(string(b))
-}
-
-func TestJobSpecGeneration(t *testing.T) {
-	lggr := logger.TestLogger(t)
-	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-		Chains: 1,
-		Nodes:  1,
-	})
-	js, err := NewCCIPJobSpecs(e.NodeIDs, e.Offchain)
-	require.NoError(t, err)
-	for node, jb := range js {
-		fmt.Println(node, jb)
-	}
-	// TODO: Add job assertions
 }

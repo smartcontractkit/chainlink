@@ -118,6 +118,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RegisterRe
 	b.resumeCallback = fn
 	b.broadcaster.SetResumeCallback(fn)
 	b.confirmer.SetResumeCallback(fn)
+	b.finalizer.SetResumeCallback(fn)
 }
 
 // NewTxm creates a new Txm with the given configuration.

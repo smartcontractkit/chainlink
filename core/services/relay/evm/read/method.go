@@ -68,8 +68,9 @@ func (b *MethodBinding) Bind(ctx context.Context, bindings ...common.Address) er
 		// check for contract byte code at the latest block and provided address
 		byteCode, err := b.client.CodeAt(ctx, binding, nil)
 		if err != nil {
-			return ErrRead{
-				Err: fmt.Errorf("%w: code at call failure: %s", commontypes.ErrInternal, err.Error()),
+			return Error{
+				Err:  fmt.Errorf("%w: code at call failure: %s", commontypes.ErrInternal, err.Error()),
+				Type: singleReadType,
 				Detail: &readDetail{
 					Address:  binding.Hex(),
 					Contract: b.contractName,
@@ -146,7 +147,7 @@ func (b *MethodBinding) GetLatestValueWithHeadData(ctx context.Context, addr com
 				ReadName:        b.method,
 				Params:          params,
 				ReturnVal:       returnVal,
-			}, blockNum.String(), false)
+			}, blockNum.String(), singleReadType)
 
 		return nil, callErr
 	}
@@ -167,7 +168,7 @@ func (b *MethodBinding) GetLatestValueWithHeadData(ctx context.Context, addr com
 				ReadName:        b.method,
 				Params:          params,
 				ReturnVal:       returnVal,
-			}, blockNum.String(), false)
+			}, blockNum.String(), singleReadType)
 
 		return nil, callErr
 	}
@@ -181,7 +182,7 @@ func (b *MethodBinding) GetLatestValueWithHeadData(ctx context.Context, addr com
 				ReadName:        b.method,
 				Params:          params,
 				ReturnVal:       returnVal,
-			}, blockNum.String(), false)
+			}, blockNum.String(), singleReadType)
 
 		strResult := hexutil.Encode(bytes)
 		callErr.Result = &strResult
