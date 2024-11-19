@@ -180,7 +180,7 @@ func mustReadNodesList(path string) []NodeWithCreds {
 			Scheme: "http",
 			Host:   s[1],
 		}
-		remoteURL, err := url.Parse(u.Host)
+		remoteURL, err := url.Parse(u.String())
 		PanicErr(err)
 		nodes = append(nodes, NodeWithCreds{
 			URL:       u,
