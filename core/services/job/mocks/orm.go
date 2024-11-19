@@ -277,17 +277,17 @@ func (_c *ORM_DataSource_Call) RunAndReturn(run func() sqlutil.DataSource) *ORM_
 	return _c
 }
 
-// DeleteJob provides a mock function with given fields: ctx, id
-func (_m *ORM) DeleteJob(ctx context.Context, id int32) error {
-	ret := _m.Called(ctx, id)
+// DeleteJob provides a mock function with given fields: ctx, id, jobType
+func (_m *ORM) DeleteJob(ctx context.Context, id int32, jobType job.Type) error {
+	ret := _m.Called(ctx, id, jobType)
 
 	if len(ret) == 0 {
 		panic("no return value specified for DeleteJob")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, int32) error); ok {
-		r0 = rf(ctx, id)
+	if rf, ok := ret.Get(0).(func(context.Context, int32, job.Type) error); ok {
+		r0 = rf(ctx, id, jobType)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -303,13 +303,14 @@ type ORM_DeleteJob_Call struct {
 // DeleteJob is a helper method to define mock.On call
 //   - ctx context.Context
 //   - id int32
-func (_e *ORM_Expecter) DeleteJob(ctx interface{}, id interface{}) *ORM_DeleteJob_Call {
-	return &ORM_DeleteJob_Call{Call: _e.mock.On("DeleteJob", ctx, id)}
+//   - jobType job.Type
+func (_e *ORM_Expecter) DeleteJob(ctx interface{}, id interface{}, jobType interface{}) *ORM_DeleteJob_Call {
+	return &ORM_DeleteJob_Call{Call: _e.mock.On("DeleteJob", ctx, id, jobType)}
 }
 
-func (_c *ORM_DeleteJob_Call) Run(run func(ctx context.Context, id int32)) *ORM_DeleteJob_Call {
+func (_c *ORM_DeleteJob_Call) Run(run func(ctx context.Context, id int32, jobType job.Type)) *ORM_DeleteJob_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(int32))
+		run(args[0].(context.Context), args[1].(int32), args[2].(job.Type))
 	})
 	return _c
 }
@@ -319,7 +320,7 @@ func (_c *ORM_DeleteJob_Call) Return(_a0 error) *ORM_DeleteJob_Call {
 	return _c
 }
 
-func (_c *ORM_DeleteJob_Call) RunAndReturn(run func(context.Context, int32) error) *ORM_DeleteJob_Call {
+func (_c *ORM_DeleteJob_Call) RunAndReturn(run func(context.Context, int32, job.Type) error) *ORM_DeleteJob_Call {
 	_c.Call.Return(run)
 	return _c
 }

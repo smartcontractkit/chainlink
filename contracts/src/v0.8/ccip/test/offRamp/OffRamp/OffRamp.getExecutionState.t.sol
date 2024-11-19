@@ -10,7 +10,7 @@ contract OffRamp_getExecutionState is OffRampSetup {
 
   /// forge-config: default.fuzz.runs = 32
   /// forge-config: ccip.fuzz.runs = 32
-  function test_Fuzz_Differential_Success(
+  function testFuzz_Differential_Success(
     uint64 sourceChainSelector,
     uint16[500] memory seqNums,
     uint8[500] memory values

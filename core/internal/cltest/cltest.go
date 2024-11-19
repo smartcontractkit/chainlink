@@ -18,22 +18,21 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
+	"github.com/jmoiron/sqlx"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
-
-	"github.com/jmoiron/sqlx"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
@@ -55,7 +54,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
-	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -206,7 +204,7 @@ type TestApplication struct {
 	Logger             logger.Logger
 	Server             *httptest.Server
 	Started            bool
-	Backend            *backends.SimulatedBackend
+	Backend            *simulated.Backend
 	Keys               []ethkey.KeyV2
 	CapabilityRegistry *capabilities.Registry
 }
@@ -1059,29 +1057,14 @@ func AssertEthTxAttemptCountStays(t testing.TB, txStore txmgr.TestEvmTxStore, wa
 	return txaIds
 }
 
-// Head given the value convert it into a Head
-func Head(val interface{}) *evmtypes.Head {
-	var h evmtypes.Head
-	time := uint64(0)
-	switch t := val.(type) {
-	case int:
-		h = evmtypes.NewHead(big.NewInt(int64(t)), evmutils.NewHash(), evmutils.NewHash(), time, ubig.New(&FixtureChainID))
-	case uint64:
-		h = evmtypes.NewHead(big.NewInt(int64(t)), evmutils.NewHash(), evmutils.NewHash(), time, ubig.New(&FixtureChainID))
-	case int64:
-		h = evmtypes.NewHead(big.NewInt(t), evmutils.NewHash(), evmutils.NewHash(), time, ubig.New(&FixtureChainID))
-	case *big.Int:
-		h = evmtypes.NewHead(t, evmutils.NewHash(), evmutils.NewHash(), time, ubig.New(&FixtureChainID))
-	default:
-		panic(fmt.Sprintf("Could not convert %v of type %T to Head", val, val))
-	}
+// Head return a new head with the given number.
+func Head(num int64) *evmtypes.Head {
+	h := evmtypes.NewHead(big.NewInt(num), evmutils.NewHash(), evmutils.NewHash(), ubig.New(&FixtureChainID))
 	return &h
 }
 
 func HeadWithHash(n int64, hash common.Hash) *evmtypes.Head {
-	var h evmtypes.Head
-	time := uint64(0)
-	h = evmtypes.NewHead(big.NewInt(n), hash, evmutils.NewHash(), time, ubig.New(&FixtureChainID))
+	h := evmtypes.NewHead(big.NewInt(n), hash, evmutils.NewHash(), ubig.New(&FixtureChainID))
 	return &h
 }
 
@@ -1392,10 +1375,6 @@ func (b *Blocks) LogOnBlockNumWithTopics(i uint64, logIndex uint, addr common.Ad
 	return RawNewRoundLogWithTopics(b.t, addr, b.Hashes[i], i, logIndex, false, topics)
 }
 
-func (b *Blocks) HashesMap() map[int64]common.Hash {
-	return b.mHashes
-}
-
 func (b *Blocks) Head(number uint64) *evmtypes.Head {
 	return b.Heads[int64(number)]
 }
@@ -1462,11 +1441,17 @@ func (b *Blocks) slice(i, j int) (heads []*evmtypes.Head) {
 func NewBlocks(t *testing.T, numHashes int) *Blocks {
 	hashes := make([]common.Hash, 0)
 	heads := make(map[int64]*evmtypes.Head)
+	now := time.Now()
 	for i := int64(0); i < int64(numHashes); i++ {
 		hash := evmutils.NewHash()
 		hashes = append(hashes, hash)
 
-		heads[i] = &evmtypes.Head{Hash: hash, Number: i, Timestamp: time.Unix(i, 0), EVMChainID: ubig.New(&FixtureChainID)}
+		heads[i] = &evmtypes.Head{
+			Hash:       hash,
+			Number:     i,
+			Timestamp:  now.Add(time.Duration(i) * time.Second),
+			EVMChainID: ubig.New(&FixtureChainID),
+		}
 		if i > 0 {
 			parent := heads[i-1]
 			heads[i].Parent.Store(parent)
@@ -1566,11 +1551,6 @@ func MustWebURL(t *testing.T, s string) *models.WebURL {
 	uri, err := url.Parse(s)
 	require.NoError(t, err)
 	return (*models.WebURL)(uri)
-}
-
-func NewTestChainScopedConfig(t testing.TB) evmconfig.ChainScopedConfig {
-	cfg := configtest.NewGeneralConfig(t, nil)
-	return evmtest.NewChainScopedConfig(t, cfg)
 }
 
 func NewTestTxStore(t *testing.T, ds sqlutil.DataSource) txmgr.TestEvmTxStore {

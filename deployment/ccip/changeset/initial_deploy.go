@@ -8,13 +8,9 @@ import (
 	ccipdeployment "github.com/smartcontractkit/chainlink/deployment/ccip"
 )
 
-var _ deployment.ChangeSet = InitialDeploy
+var _ deployment.ChangeSet[ccipdeployment.DeployCCIPContractConfig] = InitialDeploy
 
-func InitialDeploy(env deployment.Environment, config interface{}) (deployment.ChangesetOutput, error) {
-	c, ok := config.(ccipdeployment.DeployCCIPContractConfig)
-	if !ok {
-		return deployment.ChangesetOutput{}, deployment.ErrInvalidConfig
-	}
+func InitialDeploy(env deployment.Environment, c ccipdeployment.DeployCCIPContractConfig) (deployment.ChangesetOutput, error) {
 	newAddresses := deployment.NewMemoryAddressBook()
 	err := ccipdeployment.DeployCCIPContracts(env, newAddresses, c)
 	if err != nil {
