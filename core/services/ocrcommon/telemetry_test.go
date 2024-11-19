@@ -707,7 +707,7 @@ func TestGetPricesFromBridgeTaskByOrder(t *testing.T) {
 	require.Equal(t, benchmarkPrice, float64(0))
 	require.Equal(t, bid, float64(0))
 	require.Equal(t, ask, float64(0))
-	require.Equal(t, logs.Len(), 3)
+	require.Equal(t, 3, logs.Len())
 	require.Contains(t, logs.All()[0].Message, "cannot parse EA telemetry price to float64, DOT id ds1_benchmark")
 	require.Contains(t, logs.All()[1].Message, "cannot parse EA telemetry price to float64, DOT id ds2_bid")
 	require.Contains(t, logs.All()[2].Message, "cannot parse EA telemetry price to float64, DOT id ds3_ask")
