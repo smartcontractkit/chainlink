@@ -97,7 +97,9 @@ jobs:
         run: ./tools/ci/check_solc_hashes
       - name: Check if Go solidity wrappers are updated
         if: ${{ needs.changes.outputs.changes == 'true' }}
-        run: git diff --minimal --color --exit-code | diff-so-fancy
+        run: |
+          git add --all
+          git diff --minimal --color --cached --exit-code | diff-so-fancy
 
   # The if statements for steps after checkout repo is a workaround for
   # passing required check for PRs that don't have filtered changes.

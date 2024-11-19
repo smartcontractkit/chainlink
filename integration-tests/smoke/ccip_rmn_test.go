@@ -29,9 +29,9 @@ import (
 // Set false to run the RMN tests
 const skipRmnTest = true
 
-func TestRMN_TwoMessagesOnTwoLanes(t *testing.T) {
+func TestRMN_TwoMessagesOnTwoLanesIncludingBatching(t *testing.T) {
 	runRmnTestCase(t, rmnTestCase{
-		name:        "messages on two lanes",
+		name:        "messages on two lanes including batching",
 		waitForExec: true,
 		homeChainConfig: homeChainConfig{
 			f: map[int]int{chain0: 1, chain1: 1},
@@ -47,7 +47,7 @@ func TestRMN_TwoMessagesOnTwoLanes(t *testing.T) {
 		},
 		messagesToSend: []messageToSend{
 			{fromChainIdx: chain0, toChainIdx: chain1, count: 1},
-			{fromChainIdx: chain1, toChainIdx: chain0, count: 1},
+			{fromChainIdx: chain1, toChainIdx: chain0, count: 5},
 		},
 	})
 }
@@ -205,8 +205,6 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	for _, rmnNodeInfo := range tc.rmnNodes {
 		rmn := rmnCluster.Nodes["rmn_"+strconv.Itoa(rmnNodeInfo.id)]
 
-		t.Log(rmnNodeInfo.id, rmn.Proxy.PeerID, rmn.RMN.OffchainPublicKey, rmn.RMN.EVMOnchainPublicKey)
-
 		var offchainPublicKey [32]byte
 		copy(offchainPublicKey[:], rmn.RMN.OffchainPublicKey)
 
@@ -215,10 +213,12 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 			OffchainPublicKey: offchainPublicKey,
 		})
 
-		rmnRemoteSigners = append(rmnRemoteSigners, rmn_remote.RMNRemoteSigner{
-			OnchainPublicKey: rmn.RMN.EVMOnchainPublicKey,
-			NodeIndex:        uint64(rmnNodeInfo.id),
-		})
+		if rmnNodeInfo.isSigner {
+			rmnRemoteSigners = append(rmnRemoteSigners, rmn_remote.RMNRemoteSigner{
+				OnchainPublicKey: rmn.RMN.EVMOnchainPublicKey,
+				NodeIndex:        uint64(rmnNodeInfo.id),
+			})
+		}
 	}
 
 	var rmnHomeSourceChains []rmn_home.RMNHomeSourceChain

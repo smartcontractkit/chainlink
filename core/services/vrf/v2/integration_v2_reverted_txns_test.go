@@ -11,7 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/google/uuid"
-	"github.com/onsi/gomega"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
@@ -199,14 +198,14 @@ func waitForForceFulfillment(t *testing.T,
 	requestID := req.requestID
 
 	// Wait for force-fulfillment to be queued.
-	gomega.NewGomegaWithT(t).Eventually(func() bool {
+	require.Eventually(t, func() bool {
 		uni.backend.Commit()
 		commitment, err := coordinator.GetCommitment(nil, requestID)
 		require.NoError(t, err)
 		t.Log("commitment is:", hexutil.Encode(commitment[:]), ", requestID: ", common.BigToHash(requestID).Hex())
 		checkForForceFulfilledEvent(t, th, req, sub, -1)
 		return utils.IsEmpty(commitment[:])
-	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), time.Second)
 
 	// Mine the fulfillment that was queued.
 	mineForceFulfilled(t, requestID, sub.subID, forceFulfilledCount, *uni, th.db)
