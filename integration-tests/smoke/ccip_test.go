@@ -1,21 +1,21 @@
 package smoke
 
 import (
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/stretchr/testify/require"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
-
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccdeploy "github.com/smartcontractkit/chainlink/deployment/ccip"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -339,7 +339,7 @@ func getDestinationToken(scenario struct {
 
 func setupEnvironment(t *testing.T) (ccdeploy.DeployedEnv, ccdeploy.CCIPOnChainState) {
 	lggr := logger.TestLogger(t)
-	tenv := ccdeploy.NewMemoryEnvironment(t, lggr, 2, 4, ccdeploy.MockLinkPrice, ccdeploy.MockWethPrice)
+	tenv, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr)
 	state, err := ccdeploy.LoadOnchainState(tenv.Env)
 	require.NoError(t, err)
 	return tenv, state
