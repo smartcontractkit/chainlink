@@ -435,7 +435,11 @@ type ConfigureOCR3Config struct {
 }
 
 func ConfigureOCR3ContractFromJD(env *deployment.Environment, cfg ConfigureOCR3Config) (*ConfigureOCR3Resp, error) {
-
+	prefix := ""
+	if cfg.DryRun {
+		prefix = "DRY RUN: "
+	}
+	env.Logger.Infof("%sconfiguring OCR3 contract for chain %d", cfg.ChainSel, prefix)
 	//func ConfigureOCR3ContractFromJD(env *deployment.Environment, chainSel uint64, nodeIDs []string, addrBook deployment.AddressBook, cfg *OracleConfigWithSecrets) (*ConfigureOCR3Resp, error) {
 	registryChain, ok := env.Chains[cfg.ChainSel]
 	if !ok {
