@@ -80,6 +80,45 @@ func TestParseFlags(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "module flag takes precedence over config file",
+			args: []string{
+				"-module", "cli.mod",
+				"-config", "testdata/modules.toml",
+			},
+			wantCfg: &Config{
+				ModulesToUpdate: []string{"cli.mod"}, // Only CLI module, config file ignored
+				RepoRemote:      "origin",
+				BranchTrunk:     "develop",
+			},
+			wantErr: false,
+		},
+		{
+			name: "update-org-modules works alone",
+			args: []string{"-update-org-modules"},
+			wantCfg: &Config{
+				UpdateOrgModules: true,
+				RepoRemote:       "origin",
+				BranchTrunk:      "develop",
+			},
+			wantErr: false,
+		},
+		{
+			name: "module flag disallowed with update-org-modules",
+			args: []string{
+				"-module", "cli.mod",
+				"-update-org-modules",
+			},
+			wantErr: true,
+		},
+		{
+			name: "config file disallowed with update-org-modules",
+			args: []string{
+				"-config", "testdata/modules.toml",
+				"-update-org-modules",
+			},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {

@@ -61,21 +61,15 @@ func ParseFlags(args []string, version string) (*Config, error) {
 		return nil, err
 	}
 
-	// CLI modules take precedence
-	if len(cliModules) > 0 {
-		cfg.ModulesToUpdate = cliModules
-		cfg.modulesSource = "command line"
-	} else if cfg.ConfigFile != "" {
-		// Only load config file if no CLI modules specified
-		modules, err := loadTOMLConfig(cfg.ConfigFile)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load config: %w", err)
-		}
-		cfg.ModulesToUpdate = modules
-		cfg.modulesSource = "config file"
-	}
-
+	// Validate flag combinations
 	if cfg.UpdateOrgModules {
+		if len(cliModules) > 0 {
+			return nil, fmt.Errorf("%w: -module flag cannot be used with -update-org-modules", ErrInvalidConfig)
+		}
+		if cfg.ConfigFile != "" {
+			return nil, fmt.Errorf("%w: -config flag cannot be used with -update-org-modules", ErrInvalidConfig)
+		}
+
 		gitOp := NewGitOperator()
 		org, repo, err := gitOp.GetRepoInfo(cfg.RepoRemote)
 		if err != nil {
@@ -83,6 +77,19 @@ func ParseFlags(args []string, version string) (*Config, error) {
 		}
 		cfg.OrgName = org
 		cfg.RepoName = repo
+	} else {
+		// Existing module source precedence logic
+		if len(cliModules) > 0 {
+			cfg.ModulesToUpdate = cliModules
+			cfg.modulesSource = "command line"
+		} else if cfg.ConfigFile != "" {
+			modules, err := loadTOMLConfig(cfg.ConfigFile)
+			if err != nil {
+				return nil, fmt.Errorf("failed to load config: %w", err)
+			}
+			cfg.ModulesToUpdate = modules
+			cfg.modulesSource = "config file"
+		}
 	}
 
 	if err := cfg.Validate(); err != nil {
