@@ -2,7 +2,6 @@ package client
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math/big"
 	"sync"
@@ -32,7 +31,9 @@ type MultiNode[
 	CHAIN_ID types.ID,
 	RPC any,
 ] struct {
-	services.StateMachine
+	services.Service
+	eng *services.Engine
+
 	primaryNodes          []Node[CHAIN_ID, RPC]
 	sendOnlyNodes         []SendOnlyNode[CHAIN_ID, RPC]
 	chainID               CHAIN_ID
@@ -47,9 +48,6 @@ type MultiNode[
 
 	activeMu   sync.RWMutex
 	activeNode Node[CHAIN_ID, RPC]
-
-	chStop services.StopChan
-	wg     sync.WaitGroup
 }
 
 func NewMultiNode[
@@ -73,15 +71,19 @@ func NewMultiNode[
 		primaryNodes:          primaryNodes,
 		sendOnlyNodes:         sendOnlyNodes,
 		chainID:               chainID,
-		lggr:                  logger.Sugared(lggr).Named("MultiNode").With("chainID", chainID.String()),
 		selectionMode:         selectionMode,
 		nodeSelector:          nodeSelector,
-		chStop:                make(services.StopChan),
 		leaseDuration:         leaseDuration,
 		chainFamily:           chainFamily,
 		reportInterval:        reportInterval,
 		deathDeclarationDelay: deathDeclarationDelay,
 	}
+	c.Service, c.eng = services.Config{
+		Name:  "MultiNode",
+		Start: c.start,
+		Close: c.close,
+	}.NewServiceEngine(logger.With(lggr, "chainID", chainID.String()))
+	c.lggr = c.eng.SugaredLogger
 
 	c.lggr.Debugf("The MultiNode is configured to use NodeSelectionMode: %s", selectionMode)
 
@@ -93,16 +95,12 @@ func (c *MultiNode[CHAIN_ID, RPC]) ChainID() CHAIN_ID {
 }
 
 func (c *MultiNode[CHAIN_ID, RPC]) DoAll(ctx context.Context, do func(ctx context.Context, rpc RPC, isSendOnly bool)) error {
-	var err error
-	ok := c.IfNotStopped(func() {
-		ctx, _ = c.chStop.Ctx(ctx)
-
+	return c.eng.IfNotStopped(func() error {
 		callsCompleted := 0
 		for _, n := range c.primaryNodes {
 			select {
 			case <-ctx.Done():
-				err = ctx.Err()
-				return
+				return ctx.Err()
 			default:
 				if n.State() != nodeStateAlive {
 					continue
@@ -111,15 +109,11 @@ func (c *MultiNode[CHAIN_ID, RPC]) DoAll(ctx context.Context, do func(ctx contex
 				callsCompleted++
 			}
 		}
-		if callsCompleted == 0 {
-			err = ErroringNodeError
-		}
 
 		for _, n := range c.sendOnlyNodes {
 			select {
 			case <-ctx.Done():
-				err = ctx.Err()
-				return
+				return ctx.Err()
 			default:
 				if n.State() != nodeStateAlive {
 					continue
@@ -127,11 +121,11 @@ func (c *MultiNode[CHAIN_ID, RPC]) DoAll(ctx context.Context, do func(ctx contex
 				do(ctx, n.RPC(), true)
 			}
 		}
+		if callsCompleted == 0 {
+			return ErroringNodeError
+		}
+		return nil
 	})
-	if !ok {
-		return errors.New("MultiNode is stopped")
-	}
-	return err
 }
 
 func (c *MultiNode[CHAIN_ID, RPC]) NodeStates() map[string]string {
@@ -149,53 +143,44 @@ func (c *MultiNode[CHAIN_ID, RPC]) NodeStates() map[string]string {
 //
 // Nodes handle their own redialing and runloops, so this function does not
 // return any error if the nodes aren't available
-func (c *MultiNode[CHAIN_ID, RPC]) Start(ctx context.Context) error {
-	return c.StartOnce("MultiNode", func() (merr error) {
-		if len(c.primaryNodes) == 0 {
-			return fmt.Errorf("no available nodes for chain %s", c.chainID.String())
+func (c *MultiNode[CHAIN_ID, RPC]) start(ctx context.Context) error {
+	if len(c.primaryNodes) == 0 {
+		return fmt.Errorf("no available nodes for chain %s", c.chainID.String())
+	}
+	var ms services.MultiStart
+	for _, n := range c.primaryNodes {
+		if n.ConfiguredChainID().String() != c.chainID.String() {
+			return ms.CloseBecause(fmt.Errorf("node %s has configured chain ID %s which does not match multinode configured chain ID of %s", n.String(), n.ConfiguredChainID().String(), c.chainID.String()))
 		}
-		var ms services.MultiStart
-		for _, n := range c.primaryNodes {
-			if n.ConfiguredChainID().String() != c.chainID.String() {
-				return ms.CloseBecause(fmt.Errorf("node %s has configured chain ID %s which does not match multinode configured chain ID of %s", n.String(), n.ConfiguredChainID().String(), c.chainID.String()))
-			}
-			n.SetPoolChainInfoProvider(c)
-			// node will handle its own redialing and automatic recovery
-			if err := ms.Start(ctx, n); err != nil {
-				return err
-			}
+		n.SetPoolChainInfoProvider(c)
+		// node will handle its own redialing and automatic recovery
+		if err := ms.Start(ctx, n); err != nil {
+			return err
 		}
-		for _, s := range c.sendOnlyNodes {
-			if s.ConfiguredChainID().String() != c.chainID.String() {
-				return ms.CloseBecause(fmt.Errorf("sendonly node %s has configured chain ID %s which does not match multinode configured chain ID of %s", s.String(), s.ConfiguredChainID().String(), c.chainID.String()))
-			}
-			if err := ms.Start(ctx, s); err != nil {
-				return err
-			}
+	}
+	for _, s := range c.sendOnlyNodes {
+		if s.ConfiguredChainID().String() != c.chainID.String() {
+			return ms.CloseBecause(fmt.Errorf("sendonly node %s has configured chain ID %s which does not match multinode configured chain ID of %s", s.String(), s.ConfiguredChainID().String(), c.chainID.String()))
 		}
-		c.wg.Add(1)
-		go c.runLoop()
+		if err := ms.Start(ctx, s); err != nil {
+			return err
+		}
+	}
+	c.eng.Go(c.runLoop)
 
-		if c.leaseDuration.Seconds() > 0 && c.selectionMode != NodeSelectionModeRoundRobin {
-			c.lggr.Infof("The MultiNode will switch to best node every %s", c.leaseDuration.String())
-			c.wg.Add(1)
-			go c.checkLeaseLoop()
-		} else {
-			c.lggr.Info("Best node switching is disabled")
-		}
+	if c.leaseDuration.Seconds() > 0 && c.selectionMode != NodeSelectionModeRoundRobin {
+		c.lggr.Infof("The MultiNode will switch to best node every %s", c.leaseDuration.String())
+		c.eng.Go(c.checkLeaseLoop)
+	} else {
+		c.lggr.Info("Best node switching is disabled")
+	}
 
-		return nil
-	})
+	return nil
 }
 
 // Close tears down the MultiNode and closes all nodes
-func (c *MultiNode[CHAIN_ID, RPC]) Close() error {
-	return c.StopOnce("MultiNode", func() error {
-		close(c.chStop)
-		c.wg.Wait()
-
-		return services.CloseAll(services.MultiCloser(c.primaryNodes), services.MultiCloser(c.sendOnlyNodes))
-	})
+func (c *MultiNode[CHAIN_ID, RPC]) close() error {
+	return services.CloseAll(services.MultiCloser(c.primaryNodes), services.MultiCloser(c.sendOnlyNodes))
 }
 
 // SelectRPC returns an RPC of an active node. If there are no active nodes it returns an error.
@@ -233,8 +218,7 @@ func (c *MultiNode[CHAIN_ID, RPC]) selectNode() (node Node[CHAIN_ID, RPC], err e
 	c.activeNode = c.nodeSelector.Select()
 	if c.activeNode == nil {
 		c.lggr.Criticalw("No live RPC nodes available", "NodeSelectionMode", c.nodeSelector.Name())
-		errmsg := fmt.Errorf("no live nodes available for chain %s", c.chainID.String())
-		c.SvcErrBuffer.Append(errmsg)
+		c.eng.EmitHealthErr(fmt.Errorf("no live nodes available for chain %s", c.chainID.String()))
 		return nil, ErroringNodeError
 	}
 
@@ -296,8 +280,7 @@ func (c *MultiNode[CHAIN_ID, RPC]) checkLease() {
 	}
 }
 
-func (c *MultiNode[CHAIN_ID, RPC]) checkLeaseLoop() {
-	defer c.wg.Done()
+func (c *MultiNode[CHAIN_ID, RPC]) checkLeaseLoop(ctx context.Context) {
 	c.leaseTicker = time.NewTicker(c.leaseDuration)
 	defer c.leaseTicker.Stop()
 
@@ -305,15 +288,13 @@ func (c *MultiNode[CHAIN_ID, RPC]) checkLeaseLoop() {
 		select {
 		case <-c.leaseTicker.C:
 			c.checkLease()
-		case <-c.chStop:
+		case <-ctx.Done():
 			return
 		}
 	}
 }
 
-func (c *MultiNode[CHAIN_ID, RPC]) runLoop() {
-	defer c.wg.Done()
-
+func (c *MultiNode[CHAIN_ID, RPC]) runLoop(ctx context.Context) {
 	nodeStates := make([]nodeWithState, len(c.primaryNodes))
 	for i, n := range c.primaryNodes {
 		nodeStates[i] = nodeWithState{
@@ -332,7 +313,7 @@ func (c *MultiNode[CHAIN_ID, RPC]) runLoop() {
 		select {
 		case <-monitor.C:
 			c.report(nodeStates)
-		case <-c.chStop:
+		case <-ctx.Done():
 			return
 		}
 	}
@@ -376,7 +357,7 @@ func (c *MultiNode[CHAIN_ID, RPC]) report(nodesStateInfo []nodeWithState) {
 	if total == dead {
 		rerr := fmt.Errorf("no primary nodes available: 0/%d nodes are alive", total)
 		c.lggr.Criticalw(rerr.Error(), "nodeStates", nodesStateInfo)
-		c.SvcErrBuffer.Append(rerr)
+		c.eng.EmitHealthErr(rerr)
 	} else if dead > 0 {
 		c.lggr.Errorw(fmt.Sprintf("At least one primary node is dead: %d/%d nodes are alive", live, total), "nodeStates", nodesStateInfo)
 	}

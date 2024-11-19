@@ -808,9 +808,12 @@ func mine(t *testing.T, requestID, subID *big.Int, backend evmtypes.Backend, db 
 
 	return assert.Eventually(t, func() bool {
 		backend.Commit()
-		txes, err := txstore.FindTxesByMetaFieldAndStates(testutils.Context(t), metaField, subID.String(), []txmgrtypes.TxState{txmgrcommon.TxConfirmed}, chainID)
+		txes, err := txstore.FindTxesByMetaFieldAndStates(testutils.Context(t), metaField, subID.String(), []txmgrtypes.TxState{txmgrcommon.TxConfirmed, txmgrcommon.TxFinalized}, chainID)
 		require.NoError(t, err)
 		for _, tx := range txes {
+			if !checkForReceipt(t, db, tx.ID) {
+				return false
+			}
 			meta, err := tx.GetMeta()
 			require.NoError(t, err)
 			if meta.RequestID.String() == common.BytesToHash(requestID.Bytes()).String() {
@@ -837,9 +840,12 @@ func mineBatch(t *testing.T, requestIDs []*big.Int, subID *big.Int, backend evmt
 	}
 	return assert.Eventually(t, func() bool {
 		backend.Commit()
-		txes, err := txstore.FindTxesByMetaFieldAndStates(testutils.Context(t), metaField, subID.String(), []txmgrtypes.TxState{txmgrcommon.TxConfirmed}, chainID)
+		txes, err := txstore.FindTxesByMetaFieldAndStates(testutils.Context(t), metaField, subID.String(), []txmgrtypes.TxState{txmgrcommon.TxConfirmed, txmgrcommon.TxFinalized}, chainID)
 		require.NoError(t, err)
 		for _, tx := range txes {
+			if !checkForReceipt(t, db, tx.ID) {
+				return false
+			}
 			meta, err := tx.GetMeta()
 			require.NoError(t, err)
 			for _, requestID := range meta.RequestIDs {
@@ -863,14 +869,38 @@ func mineForceFulfilled(t *testing.T, requestID *big.Int, subID uint64, forceFul
 		var txs []txmgr.DbEthTx
 		err := db.Select(&txs, `
 		SELECT * FROM evm.txes
-		WHERE evm.txes.state = 'confirmed'
+		WHERE evm.txes.state IN ('confirmed', 'finalized')
 			AND evm.txes.meta->>'RequestID' = $1
 			AND CAST(evm.txes.meta->>'SubId' AS NUMERIC) = $2 ORDER BY created_at DESC
 		`, common.BytesToHash(requestID.Bytes()).String(), subID)
 		require.NoError(t, err)
 		t.Log("num txs", len(txs))
-		return len(txs) == int(forceFulfilledCount)
+		for _, tx := range txs {
+			if !checkForReceipt(t, db, tx.ID) {
+				return false
+			}
+		}
+		return len(txs) >= int(forceFulfilledCount)
 	}, testutils.WaitTimeout(t), time.Second)
+}
+
+func checkForReceipt(t *testing.T, db *sqlx.DB, txID int64) bool {
+	// Confirm receipt is fetched and stored for transaction to consider it mined
+	var count uint32
+	sql := `
+	SELECT count(*) FROM evm.receipts
+	JOIN evm.tx_attempts ON evm.tx_attempts.hash = evm.receipts.tx_hash
+	JOIN evm.txes ON evm.txes.ID = evm.tx_attempts.eth_tx_id
+	WHERE evm.txes.ID = $1 AND evm.txes.state IN ('confirmed', 'finalized')`
+	if txID != -1 {
+		err := db.GetContext(testutils.Context(t), &count, sql, txID)
+		require.NoError(t, err)
+	} else {
+		sql = strings.Replace(sql, "evm.txes.ID = $1", "evm.txes.meta->>'ForceFulfilled' IS NOT NULL", 1)
+		err := db.GetContext(testutils.Context(t), &count, sql, txID)
+		require.NoError(t, err)
+	}
+	return count > 0
 }
 
 func TestVRFV2Integration_SingleConsumer_ForceFulfillment(t *testing.T) {
@@ -1825,13 +1855,16 @@ func TestIntegrationVRFV2(t *testing.T) {
 		linkWeiCharged.BigInt(),
 	})
 
-	// We should see the response count present
-	require.NoError(t, err)
-	var counts map[string]uint64
-	counts, err = listenerV2.GetStartingResponseCountsV2(ctx)
-	require.NoError(t, err)
-	t.Log(counts, rf[0].RequestID().String())
-	assert.Equal(t, uint64(1), counts[rf[0].RequestID().String()])
+	// We should see the response count present after receipt is fetched and stored for transaction
+	// Check periodically for receipt in case it is fetched and stored after more than 1 block
+	require.Eventually(t, func() bool {
+		uni.backend.Commit()
+		var counts map[string]uint64
+		counts, err = listenerV2.GetStartingResponseCountsV2(ctx)
+		require.NoError(t, err)
+		t.Log(counts, rf[0].RequestID().String())
+		return uint64(1) == counts[rf[0].RequestID().String()]
+	}, testutils.WaitTimeout(t), 1*time.Second)
 }
 
 func TestMaliciousConsumer(t *testing.T) {

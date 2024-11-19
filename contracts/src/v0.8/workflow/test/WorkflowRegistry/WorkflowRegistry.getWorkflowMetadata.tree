@@ -1,0 +1,5 @@
+WorkflowRegistry.getWorkflowMetadata
+├── when the workflow exists with the owner and name
+│   └── it returns the correct metadata
+└── when the workflow does not exist
+    └── it reverts with WorkflowDoesNotExist

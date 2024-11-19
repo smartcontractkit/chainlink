@@ -86,7 +86,7 @@ func TestRPCClient_SubscribeToHeads(t *testing.T) {
 
 	t.Run("WS and HTTP URL cannot be both empty", func(t *testing.T) {
 		// ws is optional when LogBroadcaster is disabled, however SubscribeFilterLogs will return error if ws is missing
-		observedLggr, _ := logger.TestObserved(t, zap.DebugLevel)
+		observedLggr := logger.Test(t)
 		rpcClient := client.NewRPCClient(nodePoolCfgHeadPolling, observedLggr, nil, nil, "rpc", 1, chainId, commonclient.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
 		require.Equal(t, errors.New("cannot dial rpc client when both ws and http info are missing"), rpcClient.Dial(ctx))
 	})
@@ -339,7 +339,7 @@ func TestRPCClient_SubscribeFilterLogs(t *testing.T) {
 	defer cancel()
 	t.Run("Failed SubscribeFilterLogs when WSURL is empty", func(t *testing.T) {
 		// ws is optional when LogBroadcaster is disabled, however SubscribeFilterLogs will return error if ws is missing
-		observedLggr, _ := logger.TestObserved(t, zap.DebugLevel)
+		observedLggr := logger.Test(t)
 		rpcClient := client.NewRPCClient(nodePoolCfg, observedLggr, nil, &url.URL{}, "rpc", 1, chainId, commonclient.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
 		require.Nil(t, rpcClient.Dial(ctx))
 

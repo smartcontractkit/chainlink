@@ -1,0 +1,13 @@
+WorkflowRegistry.updateAllowedDONs
+├── when the caller is not the owner
+│   └── it should revert
+└── when the caller is the owner
+    ├── when the registry is locked
+    │   └── it should revert
+    └── when the registry is not locked
+        ├── when the bool input is true 
+        │   ├── it should add the DON IDs to s_allowedDONs
+        │   └── it should emit {AllowedDONsUpdatedV1}
+        └── when the bool input is false
+            ├── it should remove the DON IDs from s_allowedDONs
+            └── it should emit {AllowedDONsUpdatedV1}
