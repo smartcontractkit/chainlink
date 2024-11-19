@@ -38,6 +38,20 @@ contract TokenPoolHelper is TokenPool {
     return Pool.ReleaseOrMintOutV1({destinationAmount: releaseOrMintIn.amount});
   }
 
+  function encodeLocalDecimals() external view returns (bytes memory) {
+    return _encodeLocalDecimals();
+  }
+
+  function parseRemoteDecimals(
+    bytes memory sourcePoolData
+  ) external view returns (uint256) {
+    return _parseRemoteDecimals(sourcePoolData);
+  }
+
+  function calculateLocalAmount(uint256 remoteAmount, uint8 remoteDecimals) external view returns (uint256) {
+    return _calculateLocalAmount(remoteAmount, remoteDecimals);
+  }
+
   function onlyOnRampModifier(
     uint64 remoteChainSelector
   ) external view {
