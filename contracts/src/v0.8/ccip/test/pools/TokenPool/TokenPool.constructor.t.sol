@@ -13,6 +13,7 @@ contract TokenPool_constructor is TokenPoolSetup {
     assertEq(address(s_mockRMN), s_tokenPool.getRmnProxy());
     assertEq(false, s_tokenPool.getAllowListEnabled());
     assertEq(address(s_sourceRouter), s_tokenPool.getRouter());
+    assertEq(DEFAULT_TOKEN_DECIMALS, s_tokenPool.getTokenDecimals());
   }
 
   // Reverts
