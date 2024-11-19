@@ -16,13 +16,17 @@ contract TokenPoolHelper is TokenPool {
 
   function lockOrBurn(
     Pool.LockOrBurnInV1 calldata lockOrBurnIn
-  ) external view override returns (Pool.LockOrBurnOutV1 memory) {
+  ) external override returns (Pool.LockOrBurnOutV1 memory) {
+    _validateLockOrBurn(lockOrBurnIn);
+
     return Pool.LockOrBurnOutV1({destTokenAddress: getRemoteToken(lockOrBurnIn.remoteChainSelector), destPoolData: ""});
   }
 
   function releaseOrMint(
     Pool.ReleaseOrMintInV1 calldata releaseOrMintIn
-  ) external pure override returns (Pool.ReleaseOrMintOutV1 memory) {
+  ) external override returns (Pool.ReleaseOrMintOutV1 memory) {
+    _validateReleaseOrMint(releaseOrMintIn);
+
     return Pool.ReleaseOrMintOutV1({destinationAmount: releaseOrMintIn.amount});
   }
 

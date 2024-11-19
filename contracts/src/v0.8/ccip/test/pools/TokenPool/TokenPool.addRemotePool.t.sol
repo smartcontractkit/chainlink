@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
+import {Router} from "../../../Router.sol";
+import {Pool} from "../../../libraries/Pool.sol";
 import {TokenPool} from "../../../pools/TokenPool.sol";
 import {TokenPoolSetup} from "./TokenPoolSetup.t.sol";
 
@@ -25,7 +27,66 @@ contract TokenPool_addRemotePool is TokenPoolSetup {
     assertEq(remotePools[1], remotePool);
   }
 
-  function test_addRemotePool_MultipleActive() public {}
+  function test_addRemotePool_MultipleActive() public {
+    bytes[] memory remotePools = new bytes[](3);
+    remotePools[0] = abi.encode(makeAddr("remotePool1"));
+    remotePools[1] = abi.encode(makeAddr("remotePool2"));
+    remotePools[2] = abi.encode(makeAddr("remotePool3"));
+
+    address fakeOffRamp = makeAddr("fakeOffRamp");
+
+    vm.mockCall(
+      address(s_sourceRouter), abi.encodeCall(Router.isOffRamp, (DEST_CHAIN_SELECTOR, fakeOffRamp)), abi.encode(true)
+    );
+
+    vm.startPrank(fakeOffRamp);
+
+    vm.expectRevert(abi.encodeWithSelector(TokenPool.InvalidSourcePoolAddress.selector, remotePools[0]));
+    s_tokenPool.releaseOrMint(_getReleaseOrMintInV1(remotePools[0]));
+
+    vm.startPrank(OWNER);
+    s_tokenPool.addRemotePool(DEST_CHAIN_SELECTOR, remotePools[0]);
+
+    vm.startPrank(fakeOffRamp);
+    s_tokenPool.releaseOrMint(_getReleaseOrMintInV1(remotePools[0]));
+
+    // Adding an additional pool does not remove the previous one
+    vm.startPrank(OWNER);
+    s_tokenPool.addRemotePool(DEST_CHAIN_SELECTOR, remotePools[1]);
+
+    // Both should now work
+    vm.startPrank(fakeOffRamp);
+    s_tokenPool.releaseOrMint(_getReleaseOrMintInV1(remotePools[0]));
+    s_tokenPool.releaseOrMint(_getReleaseOrMintInV1(remotePools[1]));
+
+    // Adding a third pool, and removing the first one
+    vm.startPrank(OWNER);
+    s_tokenPool.addRemotePool(DEST_CHAIN_SELECTOR, remotePools[2]);
+    s_tokenPool.removeRemotePool(DEST_CHAIN_SELECTOR, remotePools[0]);
+
+    // Only the last two should work
+    vm.startPrank(fakeOffRamp);
+    vm.expectRevert(abi.encodeWithSelector(TokenPool.InvalidSourcePoolAddress.selector, remotePools[0]));
+    s_tokenPool.releaseOrMint(_getReleaseOrMintInV1(remotePools[0]));
+
+    s_tokenPool.releaseOrMint(_getReleaseOrMintInV1(remotePools[1]));
+    s_tokenPool.releaseOrMint(_getReleaseOrMintInV1(remotePools[2]));
+  }
+
+  function _getReleaseOrMintInV1(
+    bytes memory sourcePoolAddress
+  ) internal view returns (Pool.ReleaseOrMintInV1 memory) {
+    return Pool.ReleaseOrMintInV1({
+      originalSender: abi.encode(OWNER),
+      remoteChainSelector: DEST_CHAIN_SELECTOR,
+      receiver: OWNER,
+      amount: 1000,
+      localToken: address(s_token),
+      sourcePoolAddress: sourcePoolAddress,
+      sourcePoolData: "",
+      offchainTokenData: ""
+    });
+  }
 
   // Reverts
 
