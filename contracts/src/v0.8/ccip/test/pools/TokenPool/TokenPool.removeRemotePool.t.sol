@@ -7,22 +7,10 @@ import {TokenPoolSetup} from "./TokenPoolSetup.t.sol";
 contract TokenPool_removeRemotePool is TokenPoolSetup {
   function test_removeRemotePool_Success() public {
     uint64 chainSelector = DEST_CHAIN_SELECTOR;
-
-    address initialPool = makeAddr("remotePool");
-    address remoteToken = makeAddr("remoteToken");
-    bytes memory remotePool = abi.encode(type(uint256).max);
+    // Use a longer data type to ensure it also works for non-evm
+    bytes memory remotePool = abi.encode(makeAddr("non-evm-1"), makeAddr("non-evm-2"));
 
     bytes32 remotePairHash = keccak256(abi.encode(chainSelector, remotePool));
-
-    TokenPool.ChainUpdate[] memory chainUpdates = new TokenPool.ChainUpdate[](1);
-    chainUpdates[0] = TokenPool.ChainUpdate({
-      remoteChainSelector: chainSelector,
-      remotePoolAddress: abi.encode(initialPool),
-      remoteTokenAddress: abi.encode(remoteToken),
-      outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
-      inboundRateLimiterConfig: _getInboundRateLimiterConfig()
-    });
-    s_tokenPool.applyChainUpdates(new uint64[](0), chainUpdates);
 
     vm.expectEmit();
     emit TokenPool.RemotePoolSet(chainSelector, remotePool, remotePairHash);
@@ -32,7 +20,7 @@ contract TokenPool_removeRemotePool is TokenPoolSetup {
 
     bytes[] memory remotePools = s_tokenPool.getRemotePools(chainSelector);
     assertEq(remotePools.length, 2);
-    assertEq(remotePools[0], abi.encode(initialPool));
+    assertEq(remotePools[0], abi.encode(s_initialRemotePool));
     assertEq(remotePools[1], remotePool);
 
     vm.expectEmit();
@@ -44,8 +32,7 @@ contract TokenPool_removeRemotePool is TokenPoolSetup {
   // Reverts
 
   function test_NonExistentChain_Revert() public {
-    uint64 chainSelector = DEST_CHAIN_SELECTOR;
-
+    uint64 chainSelector = DEST_CHAIN_SELECTOR + 1;
     bytes memory remotePool = abi.encode(type(uint256).max);
 
     vm.expectRevert(abi.encodeWithSelector(TokenPool.NonExistentChain.selector, chainSelector));
@@ -55,20 +42,7 @@ contract TokenPool_removeRemotePool is TokenPoolSetup {
 
   function test_InvalidRemotePoolForChain_Revert() public {
     uint64 chainSelector = DEST_CHAIN_SELECTOR;
-
-    address initialPool = makeAddr("remotePool");
-    address remoteToken = makeAddr("remoteToken");
     bytes memory remotePool = abi.encode(type(uint256).max);
-
-    TokenPool.ChainUpdate[] memory chainUpdates = new TokenPool.ChainUpdate[](1);
-    chainUpdates[0] = TokenPool.ChainUpdate({
-      remoteChainSelector: chainSelector,
-      remotePoolAddress: abi.encode(initialPool),
-      remoteTokenAddress: abi.encode(remoteToken),
-      outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
-      inboundRateLimiterConfig: _getInboundRateLimiterConfig()
-    });
-    s_tokenPool.applyChainUpdates(new uint64[](0), chainUpdates);
 
     vm.expectRevert(abi.encodeWithSelector(TokenPool.InvalidRemotePoolForChain.selector, chainSelector, remotePool));
 

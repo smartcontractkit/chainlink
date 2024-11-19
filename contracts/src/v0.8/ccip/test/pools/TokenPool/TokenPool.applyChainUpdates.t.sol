@@ -2,17 +2,33 @@
 pragma solidity 0.8.24;
 
 import {Ownable2Step} from "../../../../shared/access/Ownable2Step.sol";
+import {BurnMintERC677} from "../../../../shared/token/ERC677/BurnMintERC677.sol";
 import {RateLimiter} from "../../../libraries/RateLimiter.sol";
 import {TokenPool} from "../../../pools/TokenPool.sol";
-import {TokenPoolSetup} from "./TokenPoolSetup.t.sol";
 
-contract TokenPool_applyChainUpdates is TokenPoolSetup {
+import {TokenPoolHelper} from "../../helpers/TokenPoolHelper.sol";
+import {RouterSetup} from "../../router/Router/RouterSetup.t.sol";
+
+import {IERC20} from "../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+
+contract TokenPool_applyChainUpdates is RouterSetup {
+  IERC20 internal s_token;
+  TokenPoolHelper internal s_tokenPool;
+
+  function setUp() public virtual override {
+    RouterSetup.setUp();
+    s_token = new BurnMintERC677("LINK", "LNK", 18, 0);
+    deal(address(s_token), OWNER, type(uint256).max);
+
+    s_tokenPool = new TokenPoolHelper(s_token, new address[](0), address(s_mockRMN), address(s_sourceRouter));
+  }
+
   function assertState(
     TokenPool.ChainUpdate[] memory chainUpdates
   ) public view {
     uint64[] memory chainSelectors = s_tokenPool.getSupportedChains();
-    for (uint256 i = 0; i < chainUpdates.length; i++) {
-      assertEq(chainUpdates[i].remoteChainSelector, chainSelectors[i]);
+    for (uint256 i = 0; i < chainUpdates.length; ++i) {
+      assertEq(chainUpdates[i].remoteChainSelector, chainSelectors[i], "Chain selector mismatch");
     }
 
     for (uint256 i = 0; i < chainUpdates.length; ++i) {
@@ -37,7 +53,7 @@ contract TokenPool_applyChainUpdates is TokenPoolSetup {
     RateLimiter.Config memory inboundRateLimit2 = RateLimiter.Config({isEnabled: true, capacity: 100e27, rate: 1e17});
 
     // EVM chain, which uses the 160 bit evm address space
-    uint64 evmChainSelector = 1;
+    uint64 evmChainSelector = 1789142;
     bytes memory evmRemotePool = abi.encode(makeAddr("evm_remote_pool"));
     bytes memory evmRemoteToken = abi.encode(makeAddr("evm_remote_token"));
 
@@ -155,9 +171,11 @@ contract TokenPool_applyChainUpdates is TokenPoolSetup {
   }
 
   function test_applyChainUpdates_InvalidRateLimitRate_Revert() public {
+    uint64 unusedChainSelector = 2 ** 64 - 1;
+
     TokenPool.ChainUpdate[] memory chainUpdates = new TokenPool.ChainUpdate[](1);
     chainUpdates[0] = TokenPool.ChainUpdate({
-      remoteChainSelector: 1,
+      remoteChainSelector: unusedChainSelector,
       remotePoolAddress: abi.encode(address(1)),
       remoteTokenAddress: abi.encode(address(2)),
       outboundRateLimiterConfig: RateLimiter.Config({isEnabled: true, capacity: 0, rate: 0}),
@@ -190,7 +208,7 @@ contract TokenPool_applyChainUpdates is TokenPoolSetup {
     s_tokenPool.applyChainUpdates(new uint64[](0), chainUpdates);
 
     // Change the chain selector as adding the same one would revert
-    chainUpdates[0].remoteChainSelector = 2;
+    chainUpdates[0].remoteChainSelector = unusedChainSelector - 1;
 
     // Inbound
 
