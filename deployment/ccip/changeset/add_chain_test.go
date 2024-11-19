@@ -225,10 +225,10 @@ func TestAddChainInbound(t *testing.T) {
 		ExtraArgs:    nil,
 	})
 	require.NoError(t,
-		ccipdeployment.ConfirmCommitWithExpectedSeqNumRange(t, e.Env.Chains[initialDeploy[0]], e.Env.Chains[newChain], state.Chains[newChain].OffRamp, &startBlock, cciptypes.SeqNumRange{
+		commonutils.JustError(ccipdeployment.ConfirmCommitWithExpectedSeqNumRange(t, e.Env.Chains[initialDeploy[0]], e.Env.Chains[newChain], state.Chains[newChain].OffRamp, &startBlock, cciptypes.SeqNumRange{
 			cciptypes.SeqNum(1),
 			cciptypes.SeqNum(msgSentEvent.SequenceNumber),
-		}))
+		})))
 	require.NoError(t,
 		commonutils.JustError(ccipdeployment.ConfirmExecWithSeqNr(t, e.Env.Chains[initialDeploy[0]], e.Env.Chains[newChain], state.Chains[newChain].OffRamp, &startBlock, msgSentEvent.SequenceNumber)))
 

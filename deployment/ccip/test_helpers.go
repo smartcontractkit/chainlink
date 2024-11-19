@@ -523,10 +523,10 @@ func ConfirmRequestOnSourceAndDest(t *testing.T, env deployment.Environment, sta
 
 	fmt.Printf("Request sent for seqnr %d", msgSentEvent.SequenceNumber)
 	require.NoError(t,
-		ConfirmCommitWithExpectedSeqNumRange(t, env.Chains[sourceCS], env.Chains[destCS], state.Chains[destCS].OffRamp, &startBlock, cciptypes.SeqNumRange{
+		commonutils.JustError(ConfirmCommitWithExpectedSeqNumRange(t, env.Chains[sourceCS], env.Chains[destCS], state.Chains[destCS].OffRamp, &startBlock, cciptypes.SeqNumRange{
 			cciptypes.SeqNum(msgSentEvent.SequenceNumber),
 			cciptypes.SeqNum(msgSentEvent.SequenceNumber),
-		}))
+		})))
 
 	fmt.Printf("Commit confirmed for seqnr %d", msgSentEvent.SequenceNumber)
 	require.NoError(

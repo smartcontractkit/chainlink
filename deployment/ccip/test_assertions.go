@@ -14,6 +14,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 
@@ -176,7 +177,7 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 					return nil
 				}
 
-				return ConfirmCommitWithExpectedSeqNumRange(
+				return commonutils.JustError(ConfirmCommitWithExpectedSeqNumRange(
 					t,
 					srcChain,
 					dstChain,
@@ -185,7 +186,7 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 					ccipocr3.SeqNumRange{
 						ccipocr3.SeqNum(expectedSeqNums[dstChain.Selector]),
 						ccipocr3.SeqNum(expectedSeqNums[dstChain.Selector]),
-					})
+					}))
 			})
 		}
 	}
@@ -220,14 +221,14 @@ func ConfirmCommitWithExpectedSeqNumRange(
 	offRamp *offramp.OffRamp,
 	startBlock *uint64,
 	expectedSeqNumRange ccipocr3.SeqNumRange,
-) error {
+) (*offramp.OffRampCommitReportAccepted, error) {
 	sink := make(chan *offramp.OffRampCommitReportAccepted)
 	subscription, err := offRamp.WatchCommitReportAccepted(&bind.WatchOpts{
 		Context: context.Background(),
 		Start:   startBlock,
 	}, sink)
 	if err != nil {
-		return fmt.Errorf("error to subscribe CommitReportAccepted : %w", err)
+		return nil, fmt.Errorf("error to subscribe CommitReportAccepted : %w", err)
 	}
 
 	defer subscription.Unsubscribe()
@@ -268,17 +269,17 @@ func ConfirmCommitWithExpectedSeqNumRange(
 						if mr.SourceChainSelector == src.Selector &&
 							uint64(expectedSeqNumRange.Start()) >= mr.MinSeqNr &&
 							uint64(expectedSeqNumRange.End()) <= mr.MaxSeqNr {
-							t.Logf("Received commit report for [%d, %d] on selector %d from source selector %d expected seq nr range %s, token prices: %v",
-								mr.MinSeqNr, mr.MaxSeqNr, dest.Selector, src.Selector, expectedSeqNumRange.String(), event.PriceUpdates.TokenPriceUpdates)
-							return nil
+							t.Logf("Received commit report for [%d, %d] on selector %d from source selector %d expected seq nr range %s, token prices: %v, tx hash: %s",
+								mr.MinSeqNr, mr.MaxSeqNr, dest.Selector, src.Selector, expectedSeqNumRange.String(), event.PriceUpdates.TokenPriceUpdates, event.Raw.TxHash.String())
+							return event, nil
 						}
 					}
 				}
 			}
 		case subErr := <-subscription.Err():
-			return fmt.Errorf("subscription error: %w", subErr)
+			return nil, fmt.Errorf("subscription error: %w", subErr)
 		case <-timer.C:
-			return fmt.Errorf("timed out after waiting %s duration for commit report on chain selector %d from source selector %d expected seq nr range %s",
+			return nil, fmt.Errorf("timed out after waiting %s duration for commit report on chain selector %d from source selector %d expected seq nr range %s",
 				duration.String(), dest.Selector, src.Selector, expectedSeqNumRange.String())
 		case report := <-sink:
 			if len(report.MerkleRoots) > 0 {
@@ -290,7 +291,7 @@ func ConfirmCommitWithExpectedSeqNumRange(
 						uint64(expectedSeqNumRange.End()) <= mr.MaxSeqNr {
 						t.Logf("Received commit report for [%d, %d] on selector %d from source selector %d expected seq nr range %s, token prices: %v",
 							mr.MinSeqNr, mr.MaxSeqNr, dest.Selector, src.Selector, expectedSeqNumRange.String(), report.PriceUpdates.TokenPriceUpdates)
-						return nil
+						return report, nil
 					}
 				}
 			}
