@@ -1,0 +1,7 @@
+WorkflowRegistryManager.getAllVersions
+├── when requesting with invalid start index
+│   └── it should return an empty array
+├── when requesting with valid start index and limit within bounds
+│   └── it should return the correct versions based on pagination
+└── when limit exceeds maximum pagination limit
+    └── it should return results up to MAX_PAGINATION_LIMIT

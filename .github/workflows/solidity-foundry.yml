@@ -39,7 +39,8 @@ jobs:
             { "name": "operatorforwarder", "setup": { "run-coverage": true, "min-coverage": 55.7, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "shared", "setup": { "run-coverage": true, "extra-coverage-params": "--no-match-path='*CallWithExactGas*' --ir-minimum", "min-coverage": 32.6, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "transmission", "setup": { "run-coverage": true, "min-coverage": 61.5, "run-gas-snapshot": true, "run-forge-fmt": false }},
-            { "name": "vrf", "setup": { "run-coverage": false, "min-coverage": 98.5, "run-gas-snapshot": false, "run-forge-fmt": false }}
+            { "name": "vrf", "setup": { "run-coverage": false, "min-coverage": 98.5, "run-gas-snapshot": false, "run-forge-fmt": false }},
+            { "name": "workflow", "setup": { "run-coverage": true, "extra-coverage-params": "--ir-minimum", "min-coverage": 65.0, "run-gas-snapshot": false, "run-forge-fmt": true }}
           ]
           EOF
 
@@ -73,7 +74,7 @@ jobs:
         uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
         id: changes
         with:
-          list-files: 'shell'
+          list-files: "shell"
           filters: |
             non_src:
               - '.github/workflows/solidity-foundry.yml'
@@ -113,12 +114,14 @@ jobs:
               - 'contracts/src/v0.8/vendor/**/*.sol'
             transmission:
               - 'contracts/src/v0.8/transmission/**/*.sol'
+            workflow:
+              - 'contracts/src/v0.8/workflow/**/*.sol'
 
       - name: Detect non-test changes
         uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
         id: changes-non-test
         with:
-          list-files: 'shell'
+          list-files: "shell"
           # This is a valid input, see https://github.com/dorny/paths-filter/pull/226
           predicate-quantifier: every
           filters: |
@@ -148,7 +151,8 @@ jobs:
     # passing required check for PRs that don't have filtered changes.
     steps:
       - name: Checkout the repo
-        if: ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
+        if:
+          ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
           || contains(fromJson(needs.changes.outputs.all_changes), 'shared')
           || needs.changes.outputs.non_src_changes == 'true' }}
         uses: actions/checkout@v4.2.1
@@ -159,7 +163,8 @@ jobs:
       # and not native Foundry. This is to make sure the dependencies
       # stay in sync.
       - name: Setup NodeJS
-        if: ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
+        if:
+          ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
           || contains(fromJson(needs.changes.outputs.all_changes), 'shared')
           || needs.changes.outputs.non_src_changes == 'true' }}
         uses: ./.github/actions/setup-nodejs
@@ -167,7 +172,8 @@ jobs:
           prod: "true"
 
       - name: Install Foundry
-        if: ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
+        if:
+          ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
           || contains(fromJson(needs.changes.outputs.all_changes), 'shared')
           || needs.changes.outputs.non_src_changes == 'true' }}
         uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
@@ -179,7 +185,8 @@ jobs:
       # In order to avoid it, in such cases we will extract all required solc versions manually and install them sequentially.
       # More information: https://github.com/foundry-rs/foundry/issues/4736
       - name: Check if Solc version is set in foundry.toml
-        if: ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
+        if:
+          ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
           || contains(fromJson(needs.changes.outputs.all_changes), 'shared')
           || needs.changes.outputs.non_src_changes == 'true' }}
         shell: bash
@@ -228,7 +235,8 @@ jobs:
           fi
 
       - name: Run Forge build
-        if: ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
+        if:
+          ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
           || contains(fromJson(needs.changes.outputs.all_changes), 'shared')
           || needs.changes.outputs.non_src_changes == 'true' }}
         run: |
@@ -240,7 +248,8 @@ jobs:
           FOUNDRY_PROFILE: ${{ matrix.product.name }}
 
       - name: Run Forge tests
-        if: ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
+        if:
+          ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
           || contains(fromJson(needs.changes.outputs.all_changes), 'shared')
           || needs.changes.outputs.non_src_changes == 'true' }}
         run: |
@@ -251,7 +260,8 @@ jobs:
           FOUNDRY_PROFILE: ${{ matrix.product.name }}
 
       - name: Run Forge snapshot
-        if: ${{ (contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
+        if:
+          ${{ (contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
           || contains(fromJson(needs.changes.outputs.all_changes), 'shared')
           || needs.changes.outputs.non_src_changes == 'true')
           && matrix.product.setup.run-gas-snapshot }}
@@ -264,14 +274,16 @@ jobs:
 
       # required for code coverage report generation
       - name: Setup LCOV
-        if: ${{ (contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
+        if:
+          ${{ (contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
           || contains(fromJson(needs.changes.outputs.all_changes), 'shared')
           || needs.changes.outputs.non_src_changes == 'true')
           && matrix.product.setup.run-coverage }}
         uses: hrishikesh-kadam/setup-lcov@f5da1b26b0dcf5d893077a3c4f29cf78079c841d # v1.0.0
 
       - name: Run coverage for ${{ matrix.product.name }}
-        if: ${{ (contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
+        if:
+          ${{ (contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
           || contains(fromJson(needs.changes.outputs.all_changes), 'shared')
           || needs.changes.outputs.non_src_changes == 'true')
           && matrix.product.setup.run-coverage }}
@@ -287,7 +299,8 @@ jobs:
           FOUNDRY_PROFILE: ${{ matrix.product.name }}
 
       - name: Prune lcov report
-        if: ${{ (contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
+        if:
+          ${{ (contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
           || contains(fromJson(needs.changes.outputs.all_changes), 'shared')
           || needs.changes.outputs.non_src_changes == 'true')
           && matrix.product.setup.run-coverage }}
@@ -295,7 +308,8 @@ jobs:
           ./contracts/scripts/lcov_prune ${{ matrix.product.name }} ./contracts/lcov.info ./contracts/lcov.info.pruned
 
       - name: Report code coverage for ${{ matrix.product.name }}
-        if: ${{ (contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
+        if:
+          ${{ (contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
           || contains(fromJson(needs.changes.outputs.all_changes), 'shared')
           || needs.changes.outputs.non_src_changes == 'true')
           && matrix.product.setup.run-coverage }}
@@ -309,7 +323,7 @@ jobs:
 
   # runs only if non-test contracts were modified; scoped only to modified or added contracts
   analyze:
-    needs: [ changes, define-matrix ]
+    needs: [changes, define-matrix]
     name: Run static analysis
     if: needs.changes.outputs.not_test_sol_modified == 'true' && github.event_name != 'merge_group'
     runs-on: ubuntu-22.04
@@ -335,13 +349,13 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5.2.0
         with:
-          python-version: '3.8'
+          python-version: "3.8"
 
       - name: Install solc-select and solc
         uses: smartcontractkit/.github/actions/setup-solc-select@b6e37806737eef87e8c9137ceeb23ef0bff8b1db # validate-solidity-artifacts@0.1.0
         with:
-          to_install: '0.8.24'
-          to_use: '0.8.24'
+          to_install: "0.8.24"
+          to_use: "0.8.24"
 
       - name: Install Slither
         uses: smartcontractkit/.github/actions/setup-slither@b6e37806737eef87e8c9137ceeb23ef0bff8b1db # validate-solidity-artifacts@0.1.0
@@ -497,7 +511,6 @@ jobs:
             fi
           done
       # actions that execute only if any existing contracts were modified end here
-
       - name: Print Slither summary
         shell: bash
         run: |
@@ -511,9 +524,9 @@ jobs:
       - name: Validate if all Slither run for all contracts
         uses: smartcontractkit/.github/actions/validate-solidity-artifacts@094e8de69ca35d17f321cecc062cbeed12642ef5 # validate-solidity-artifacts@0.2.0
         with:
-          validate_slither_reports: 'true'
-          validate_uml_diagrams: 'false'
-          slither_reports_path: 'contracts/slither-reports-current'
+          validate_slither_reports: "true"
+          validate_uml_diagrams: "false"
+          slither_reports_path: "contracts/slither-reports-current"
           sol_files: ${{ needs.changes.outputs.not_test_sol_modified_files }}
 
       - name: Upload Slither reports
@@ -533,14 +546,14 @@ jobs:
         id: find-comment
         with:
           issue-number: ${{ github.event.pull_request.number }}
-          comment-author: 'github-actions[bot]'
-          body-includes: 'Static analysis results'
+          comment-author: "github-actions[bot]"
+          body-includes: "Static analysis results"
 
       - name: Extract job summary URL
         id: job-summary-url
         uses: pl-strflt/job-summary-url-action@df2d22c5351f73e0a187d20879854b8d98e6e001 # v1.0.0
         with:
-          job: 'Run static analysis'
+          job: "Run static analysis"
 
       - name: Build Slither reports artifacts URL
         id: build-slither-artifact-url
