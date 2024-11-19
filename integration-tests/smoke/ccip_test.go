@@ -158,7 +158,7 @@ func TestTokenTransfer(t *testing.T) {
 	srcToken1, dstToken1 := deployAndApproveTokens(t, tenv, state, "Token1")
 	srcToken2, dstToken2 := deployAndApproveTokens(t, tenv, state, "Token2")
 
-	// Define your scenarios.
+	// Test scenarios are defined here
 	scenarios := []struct {
 		name         string
 		srcChain     uint64
@@ -182,15 +182,15 @@ func TestTokenTransfer(t *testing.T) {
 		},
 		{
 			name:     "Send token to contract",
-			srcChain: tenv.HomeChainSel, // Will be set in the test
-			dstChain: tenv.FeedChainSel, // Will be set in the test
+			srcChain: tenv.HomeChainSel,
+			dstChain: tenv.FeedChainSel,
 			tokenAmounts: []router.ClientEVMTokenAmount{
 				{
-					Token:  srcToken1.Address(), // Will be set in the test
+					Token:  srcToken1.Address(),
 					Amount: big.NewInt(1e18),
 				},
 			},
-			receiver: state.Chains[tenv.FeedChainSel].Receiver.Address(), // Will be set in the test
+			receiver: state.Chains[tenv.FeedChainSel].Receiver.Address(),
 			data:     []byte(""),
 		},
 		{
@@ -234,10 +234,9 @@ func TestTokenTransfer(t *testing.T) {
 	}
 
 	for _, scenario := range scenarios {
-		scenario := scenario // Capture range variable
+		scenario := scenario
 		t.Run(scenario.name, func(t *testing.T) {
 
-			// Prepare for message sending
 			startBlocks := make(map[uint64]*uint64)
 			expectedSeqNum := make(map[uint64]uint64)
 
@@ -269,7 +268,6 @@ func TestTokenTransfer(t *testing.T) {
 				totalAmountsTransferred[dstToken.Address()].Add(totalAmountsTransferred[dstToken.Address()], tokenAmount.Amount)
 			}
 
-			// Prepare message
 			msg := router.ClientEVM2AnyMessage{
 				Receiver:     common.LeftPadBytes(scenario.receiver.Bytes(), 32),
 				Data:         scenario.data,
