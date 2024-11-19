@@ -12,10 +12,11 @@ contract TokenPoolHelper is TokenPool {
 
   constructor(
     IERC20 token,
+    uint8 localTokenDecimals,
     address[] memory allowlist,
     address rmnProxy,
     address router
-  ) TokenPool(token, allowlist, rmnProxy, router) {}
+  ) TokenPool(token, localTokenDecimals, allowlist, rmnProxy, router) {}
 
   function getRemotePoolHashes() external view returns (bytes32[] memory) {
     return new bytes32[](0); // s_remotePoolHashes.values();

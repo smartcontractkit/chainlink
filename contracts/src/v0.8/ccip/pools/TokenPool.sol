@@ -115,11 +115,11 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
   /// @dev Can be address(0) if none is configured.
   address internal s_rateLimitAdmin;
 
-  constructor(IERC20 token, address[] memory allowlist, address rmnProxy, address router) {
+  constructor(IERC20 token, uint8 localTokenDecimals, address[] memory allowlist, address rmnProxy, address router) {
     if (address(token) == address(0) || router == address(0) || rmnProxy == address(0)) revert ZeroAddressNotAllowed();
     i_token = token;
     i_rmnProxy = rmnProxy;
-    i_tokenDecimals = 18;
+    i_tokenDecimals = localTokenDecimals;
     s_router = IRouter(router);
 
     // Pool can be set as permissioned or permissionless at deployment time only to save hot-path gas.
