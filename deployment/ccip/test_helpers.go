@@ -296,22 +296,6 @@ func CCIPSendCalldata(
 	return calldata
 }
 
-// ApproveTokenCalldata packs the calldata for the ERC20's approve method.
-func ApproveTokenCalldata(
-	t *testing.T,
-	spender common.Address,
-	amount *big.Int,
-) []byte {
-	calldata, err := erc20ABI.Methods["approve"].Inputs.Pack(
-		spender,
-		amount,
-	)
-	require.NoError(t, err)
-
-	calldata = append(erc20ABI.Methods["approve"].ID, calldata...)
-	return calldata
-}
-
 func TestSendRequest(
 	t *testing.T,
 	e deployment.Environment,
