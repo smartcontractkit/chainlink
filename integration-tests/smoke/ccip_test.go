@@ -114,35 +114,35 @@ func TestInitialDeployOnLocal(t *testing.T) {
 func TestTokenTransfer(t *testing.T) {
 	t.Parallel()
 	tenv, state := setupEnvironment(t)
-
+	e := tenv.Env
 	output, err := changeset.DeployPrerequisites(tenv.Env, changeset.DeployPrerequisiteConfig{
-		ChainSelectors: tenv.Env.AllChainSelectors(),
+		ChainSelectors: e.AllChainSelectors(),
 	})
 
 	require.NoError(t, err)
-	require.NoError(t, tenv.Env.ExistingAddresses.Merge(output.AddressBook))
+	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook))
 
 	// Deploy CCIP contracts
-	output, err = changeset.InitialDeploy(tenv.Env, ccdeploy.DeployCCIPContractConfig{
+	output, err = changeset.InitialDeploy(e, ccdeploy.DeployCCIPContractConfig{
 		HomeChainSel:   tenv.HomeChainSel,
 		FeedChainSel:   tenv.FeedChainSel,
-		ChainsToDeploy: tenv.Env.AllChainSelectors(),
+		ChainsToDeploy: e.AllChainSelectors(),
 		TokenConfig:    ccdeploy.NewTestTokenConfig(state.Chains[tenv.FeedChainSel].USDFeeds),
-		MCMSConfig:     ccdeploy.NewTestMCMSConfig(t, tenv.Env),
+		MCMSConfig:     ccdeploy.NewTestMCMSConfig(t, e),
 		OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
 	})
 	require.NoError(t, err)
-	require.NoError(t, tenv.Env.ExistingAddresses.Merge(output.AddressBook))
-	state, err = ccdeploy.LoadOnchainState(tenv.Env)
+	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook))
+	state, err = ccdeploy.LoadOnchainState(e)
 	require.NoError(t, err)
 
-	// Replay logs
-	ccdeploy.ReplayLogs(t, tenv.Env.Offchain, tenv.ReplayBlocks)
+	// Ensure capreg logs are up to date.
+	ccdeploy.ReplayLogs(t, e.Offchain, tenv.ReplayBlocks)
 
-	// Apply the jobs
+	// Apply the jobs.
 	for nodeID, jobs := range output.JobSpecs {
 		for _, job := range jobs {
-			_, err := tenv.Env.Offchain.ProposeJob(ccdeploy.Context(t),
+			_, err := e.Offchain.ProposeJob(ccdeploy.Context(t),
 				&jobv1.ProposeJobRequest{
 					NodeId: nodeID,
 					Spec:   job,
@@ -151,14 +151,14 @@ func TestTokenTransfer(t *testing.T) {
 		}
 	}
 
-	// Add all lanes
-	require.NoError(t, ccdeploy.AddLanesForAll(tenv.Env, state))
+	// Add all lanes.
+	require.NoError(t, ccdeploy.AddLanesForAll(e, state))
 
-	// Deploy and approve tokens
+	// Deploy and approve tokens.
 	srcToken1, dstToken1 := deployAndApproveTokens(t, tenv, state, "Token1")
 	srcToken2, dstToken2 := deployAndApproveTokens(t, tenv, state, "Token2")
 
-	// Define your scenarios
+	// Define your scenarios.
 	scenarios := []struct {
 		name         string
 		srcChain     uint64
@@ -177,7 +177,7 @@ func TestTokenTransfer(t *testing.T) {
 					Amount: big.NewInt(1e18),
 				},
 			},
-			receiver: tenv.Env.Chains[tenv.FeedChainSel].DeployerKey.From,
+			receiver: e.Chains[tenv.FeedChainSel].DeployerKey.From,
 			data:     []byte(""),
 		},
 		{
@@ -207,7 +207,7 @@ func TestTokenTransfer(t *testing.T) {
 					Amount: big.NewInt(2e18),
 				},
 			},
-			receiver: tenv.Env.Chains[tenv.FeedChainSel].DeployerKey.From,
+			receiver: e.Chains[tenv.FeedChainSel].DeployerKey.From,
 			data:     []byte(""),
 		},
 		{
@@ -241,7 +241,7 @@ func TestTokenTransfer(t *testing.T) {
 			startBlocks := make(map[uint64]*uint64)
 			expectedSeqNum := make(map[uint64]uint64)
 
-			destChain := tenv.Env.Chains[scenario.dstChain]
+			destChain := e.Chains[scenario.dstChain]
 			latesthdr, err := destChain.Client.HeaderByNumber(testcontext.Get(t), nil)
 			require.NoError(t, err)
 			block := latesthdr.Number.Uint64()
@@ -279,12 +279,12 @@ func TestTokenTransfer(t *testing.T) {
 			}
 
 			// Send the message
-			msgSentEvent := ccdeploy.TestSendRequest(t, tenv.Env, state, scenario.srcChain, scenario.dstChain, false, msg)
+			msgSentEvent := ccdeploy.TestSendRequest(t, e, state, scenario.srcChain, scenario.dstChain, false, msg)
 			expectedSeqNum[scenario.dstChain] = msgSentEvent.SequenceNumber
 
 			// Wait for commit and execution
-			ccdeploy.ConfirmCommitForAllWithExpectedSeqNums(t, tenv.Env, state, expectedSeqNum, startBlocks)
-			ccdeploy.ConfirmExecWithSeqNrForAll(t, tenv.Env, state, expectedSeqNum, startBlocks)
+			ccdeploy.ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
+			ccdeploy.ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
 
 			// Fetch final balances and assert
 			for tokenAddress, totalAmount := range totalAmountsTransferred {
