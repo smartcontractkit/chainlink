@@ -21,12 +21,12 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipdeployment "github.com/smartcontractkit/chainlink/deployment/ccip"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	clclient "github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -209,17 +209,18 @@ func NewLocalDevEnvironmentWithRMN(
 	lggr logger.Logger,
 	numRmnNodes int,
 ) (ccipdeployment.DeployedEnv, devenv.RMNCluster) {
-	tenv, dockerenv, _ := NewLocalDevEnvironmentWithDefaultPrice(t, lggr)
+	tenv, dockerenv, testCfg := NewLocalDevEnvironmentWithDefaultPrice(t, lggr)
 	l := logging.GetTestLogger(t)
 	config := GenerateTestRMNConfig(t, numRmnNodes, tenv, MustNetworksToRPCMap(dockerenv.EVMNetworks))
+	require.NotNil(t, testCfg.CCIP)
 	rmnCluster, err := devenv.NewRMNCluster(
 		t, l,
 		[]string{dockerenv.DockerNetwork.ID},
 		config,
-		"rageproxy",
-		"latest",
-		"afn2proxy",
-		"latest",
+		testCfg.CCIP.RMNConfig.GetProxyImage(),
+		testCfg.CCIP.RMNConfig.GetProxyVersion(),
+		testCfg.CCIP.RMNConfig.GetAFN2ProxyImage(),
+		testCfg.CCIP.RMNConfig.GetAFN2ProxyVersion(),
 		dockerenv.LogStream,
 	)
 	require.NoError(t, err)
