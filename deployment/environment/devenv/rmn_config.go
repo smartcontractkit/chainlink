@@ -33,7 +33,7 @@ type SharedConfigNetworking struct {
 type HomeChain struct {
 	Name                 string `toml:"name"`
 	CapabilitiesRegistry string `toml:"capabilities_registry"`
-	CCIPConfig           string `toml:"ccip_config"`
+	CCIPHome             string `toml:"ccip_home"`
 	RMNHome              string `toml:"rmn_home"`
 }
 
