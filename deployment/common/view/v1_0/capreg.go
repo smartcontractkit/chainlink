@@ -10,8 +10,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
@@ -137,6 +139,163 @@ func (v CapabilityRegistryView) DonDenormalizedView() ([]DonDenormalizedView, er
 			Capabilities: capabilities,
 		})
 	}
+	return out, nil
+}
+
+type HydrateConfig struct {
+	lggr    logger.Logger
+	ChainID uint64
+}
+
+func (v CapabilityRegistryView) Hydrate(env deployment.Environment, cfg HydrateConfig) (*deployment.ContractDeploy[*capabilities_registry.CapabilitiesRegistry], error) {
+	chain, ok := env.Chains[cfg.ChainID]
+	if !ok {
+		return nil, fmt.Errorf("chain with id %d not found", cfg.ChainID)
+	}
+	deployedContract, err := deployment.DeployContract(
+		cfg.lggr, chain, env.ExistingAddresses,
+		func(chain deployment.Chain) deployment.ContractDeploy[*capabilities_registry.CapabilitiesRegistry] {
+			crAddr, tx, cr, err2 := capabilities_registry.DeployCapabilitiesRegistry(
+				chain.DeployerKey,
+				chain.Client,
+			)
+			return deployment.ContractDeploy[*capabilities_registry.CapabilitiesRegistry]{
+				Address: crAddr, Contract: cr, Tx: tx, Err: err2,
+				Tv: deployment.NewTypeAndVersion("CapabilitiesRegistry", deployment.Version1_0_0),
+			}
+		},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to deploy contract: %w", err)
+	}
+
+	nodesParams, err := v.nodesToNodesParams()
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert nodes to nodes params: %w", err)
+	}
+	tx, err := deployedContract.Contract.AddNodes(chain.DeployerKey, nodesParams)
+	if _, err = deployment.ConfirmIfNoError(chain, tx, err); err != nil {
+		return nil, fmt.Errorf("failed to add nodes: %w", err)
+	}
+
+	capabilitiesParams := v.capabilitiesToCapabilitiesParams()
+	tx, err = deployedContract.Contract.AddCapabilities(chain.DeployerKey, capabilitiesParams)
+	if _, err = deployment.ConfirmIfNoError(chain, tx, err); err != nil {
+		return nil, fmt.Errorf("failed to add capabilities: %w", err)
+	}
+
+	nopsParams := v.nopsToNopsParams()
+	for _, nop := range v.Nops {
+		nopsParams = append(nopsParams, capabilities_registry.CapabilitiesRegistryNodeOperator{
+			Admin: nop.Admin,
+			Name:  nop.Name,
+		})
+	}
+	tx, err = deployedContract.Contract.AddNodeOperators(chain.DeployerKey, nopsParams)
+	if _, err = deployment.ConfirmIfNoError(chain, tx, err); err != nil {
+		return nil, fmt.Errorf("failed to add node operators: %w", err)
+	}
+
+	for _, don := range v.Dons {
+		cfgs, err := v.capabilityConfigToCapabilityConfigParams(don)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert capability configurations to capability configuration params: %w", err)
+		}
+		var peerIds [][32]byte
+		for _, id := range don.NodeP2PIds {
+			peerIds = append(peerIds, id)
+		}
+		tx, err = deployedContract.Contract.AddDON(chain.DeployerKey, peerIds, cfgs, don.IsPublic, don.AcceptsWorkflows, don.F)
+		if _, err = deployment.ConfirmIfNoError(chain, tx, err); err != nil {
+			return nil, fmt.Errorf("failed to add don: %w", err)
+		}
+	}
+
+	return deployedContract, nil
+}
+
+func (v CapabilityRegistryView) nodesToNodesParams() ([]capabilities_registry.CapabilitiesRegistryNodeParams, error) {
+	var nodesParams []capabilities_registry.CapabilitiesRegistryNodeParams
+	for _, node := range v.Nodes {
+		signer, err := hexTo32Bytes(node.Signer)
+		if err != nil {
+			return nil, err
+		}
+		encryptionPubKey, err := hexTo32Bytes(node.EncryptionPublicKey)
+		if err != nil {
+			return nil, err
+		}
+		capIDs := make([][32]byte, len(node.CapabilityIDs))
+		for i, id := range node.CapabilityIDs {
+			cid, err := hexTo32Bytes(id)
+			if err != nil {
+				return nil, err
+			}
+			capIDs[i] = cid
+		}
+		nodesParams = append(nodesParams, capabilities_registry.CapabilitiesRegistryNodeParams{
+			Signer:              signer,
+			P2pId:               node.P2pId,
+			EncryptionPublicKey: encryptionPubKey,
+			NodeOperatorId:      node.NodeOperatorID,
+			HashedCapabilityIds: capIDs,
+		})
+	}
+
+	return nodesParams, nil
+}
+
+func (v CapabilityRegistryView) capabilitiesToCapabilitiesParams() []capabilities_registry.CapabilitiesRegistryCapability {
+	var capabilitiesParams []capabilities_registry.CapabilitiesRegistryCapability
+	for _, capability := range v.Capabilities {
+		capabilitiesParams = append(capabilitiesParams, capabilities_registry.CapabilitiesRegistryCapability{
+			LabelledName:          capability.LabelledName,
+			Version:               capability.Version,
+			CapabilityType:        capability.CapabilityType,
+			ResponseType:          capability.ResponseType,
+			ConfigurationContract: capability.ConfigurationContract,
+		})
+	}
+	return capabilitiesParams
+}
+
+func (v CapabilityRegistryView) nopsToNopsParams() []capabilities_registry.CapabilitiesRegistryNodeOperator {
+	var nopsParams []capabilities_registry.CapabilitiesRegistryNodeOperator
+	for _, nop := range v.Nops {
+		nopsParams = append(nopsParams, capabilities_registry.CapabilitiesRegistryNodeOperator{
+			Admin: nop.Admin,
+			Name:  nop.Name,
+		})
+	}
+	return nopsParams
+}
+
+func (v CapabilityRegistryView) capabilityConfigToCapabilityConfigParams(don DonView) ([]capabilities_registry.CapabilitiesRegistryCapabilityConfiguration, error) {
+	var cfgs []capabilities_registry.CapabilitiesRegistryCapabilityConfiguration
+	for _, cfg := range don.CapabilityConfigurations {
+		cid, err := hexTo32Bytes(cfg.ID)
+		if err != nil {
+			return nil, err
+		}
+		config, err := hex.DecodeString(cfg.Config)
+		if err != nil {
+			return nil, err
+		}
+		cfgs = append(cfgs, capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
+			CapabilityId: cid,
+			Config:       config,
+		})
+	}
+	return cfgs, nil
+}
+
+func hexTo32Bytes(val string) ([32]byte, error) {
+	var out [32]byte
+	b, err := hex.DecodeString(val)
+	if err != nil {
+		return out, err
+	}
+	copy(out[:], b)
 	return out, nil
 }
 
@@ -272,7 +431,7 @@ func NewNodeView(n capabilities_registry.INodeInfoProviderNodeInfo) NodeView {
 			ConfigCount:         n.ConfigCount,
 			WorkflowDONID:       n.WorkflowDONId,
 			Signer:              hex.EncodeToString(n.Signer[:]),
-			P2pId:               p2pkey.PeerID(n.P2pId),
+			P2pId:               n.P2pId,
 			EncryptionPublicKey: hex.EncodeToString(n.EncryptionPublicKey[:]),
 		},
 		NodeOperatorID:   n.NodeOperatorId,
