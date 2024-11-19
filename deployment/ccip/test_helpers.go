@@ -9,43 +9,36 @@ import (
 	"time"
 
 	mapset "github.com/deckarep/golang-set/v2"
-
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
-
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
-
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
-
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
-
+	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_ethusd_aggregator_wrapper"
-
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
+	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/usdc_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_ethusd_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 )
 
 const (
@@ -574,18 +567,19 @@ func DeployTransferableToken(
 	}
 
 	// Add burn/mint permissions
-	if err := grantMintBurnPermissions(chains[src], srcToken, srcPool.Address()); err != nil {
+	if err := grantMintBurnPermissions(lggr, chains[src], srcToken, srcPool.Address()); err != nil {
 		return nil, nil, nil, nil, err
 	}
 
-	if err := grantMintBurnPermissions(chains[dst], dstToken, dstPool.Address()); err != nil {
+	if err := grantMintBurnPermissions(lggr, chains[dst], dstToken, dstPool.Address()); err != nil {
 		return nil, nil, nil, nil, err
 	}
 
 	return srcToken, srcPool, dstToken, dstPool, nil
 }
 
-func grantMintBurnPermissions(chain deployment.Chain, token *burn_mint_erc677.BurnMintERC677, address common.Address) error {
+func grantMintBurnPermissions(lggr logger.Logger, chain deployment.Chain, token *burn_mint_erc677.BurnMintERC677, address common.Address) error {
+	lggr.Infow("Granting burn permissions", "token", token.Address(), "burner", address)
 	tx, err := token.GrantBurnRole(chain.DeployerKey, address)
 	if err != nil {
 		return err
@@ -595,12 +589,52 @@ func grantMintBurnPermissions(chain deployment.Chain, token *burn_mint_erc677.Bu
 		return err
 	}
 
+	lggr.Infow("Granting mint permissions", "token", token.Address(), "minter", address)
 	tx, err = token.GrantMintRole(chain.DeployerKey, address)
 	if err != nil {
 		return err
 	}
 	_, err = chain.Confirm(tx)
 	return err
+}
+
+func setUSDCTokenPoolCounterPart(
+	chain deployment.Chain,
+	tokenPool *usdc_token_pool.USDCTokenPool,
+	destChainSelector uint64,
+	destTokenAddress common.Address,
+	destTokenPoolAddress common.Address,
+) error {
+	allowedCaller := common.LeftPadBytes(destTokenPoolAddress.Bytes(), 32)
+	var fixedAddr [32]byte
+	copy(fixedAddr[:], allowedCaller[:32])
+
+	domain, _ := reader.AllAvailableDomains()[destChainSelector]
+
+	domains := []usdc_token_pool.USDCTokenPoolDomainUpdate{
+		{
+			AllowedCaller:     fixedAddr,
+			DomainIdentifier:  domain,
+			DestChainSelector: destChainSelector,
+			Enabled:           true,
+		},
+	}
+	tx, err := tokenPool.SetDomains(chain.DeployerKey, domains)
+	if err != nil {
+		return err
+	}
+
+	_, err = chain.Confirm(tx)
+	if err != nil {
+		return err
+	}
+
+	pool, err := burn_mint_token_pool.NewBurnMintTokenPool(tokenPool.Address(), chain.Client)
+	if err != nil {
+		return err
+	}
+
+	return setTokenPoolCounterPart(chain, pool, destChainSelector, destTokenAddress, destTokenPoolAddress)
 }
 
 func setTokenPoolCounterPart(

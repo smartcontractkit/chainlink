@@ -1875,6 +1875,7 @@ CertFile is the path to a PEM file of trusted root certificate authority certifi
 [Mercury.Transmitter]
 TransmitQueueMaxSize = 10_000 # Default
 TransmitTimeout = "5s" # Default
+TransmitConcurrency = 100 # Default
 ```
 Mercury.Transmitter controls settings for the mercury transmitter
 
@@ -1896,6 +1897,14 @@ TransmitTimeout = "5s" # Default
 TransmitTimeout controls how long the transmitter will wait for a response
 when sending a message to the mercury server, before aborting and considering
 the transmission to be failed.
+
+### TransmitConcurrency
+```toml
+TransmitConcurrency = 100 # Default
+```
+TransmitConcurrency is the max number of concurrent transmits to each server.
+
+Only has effect with LLO jobs.
 
 ## Telemetry
 ```toml

@@ -509,7 +509,8 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				assert.Equal(t, expectedBid.String(), reportElems["bid"].(*big.Int).String())
 				assert.Equal(t, expectedAsk.String(), reportElems["ask"].(*big.Int).String())
 
-				t.Run(fmt.Sprintf("emulate mercury server verifying report (local verification) - node %x", req.pk), func(t *testing.T) {
+				// emulate mercury server verifying report (local verification)
+				{
 					rv := mercuryverifier.NewVerifier()
 
 					reportSigners, err := rv.Verify(mercuryverifier.SignedReport{
@@ -522,14 +523,13 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 					require.NoError(t, err)
 					assert.GreaterOrEqual(t, len(reportSigners), int(fNodes+1))
 					assert.Subset(t, signerAddresses, reportSigners)
-				})
+				}
 
-				t.Run(fmt.Sprintf("test on-chain verification - node %x", req.pk), func(t *testing.T) {
-					t.Run("destination verifier", func(t *testing.T) {
-						_, err = verifierProxy.Verify(steve, req.req.Payload, []byte{})
-						require.NoError(t, err)
-					})
-				})
+				// test on-chain verification
+				{
+					_, err = verifierProxy.Verify(steve, req.req.Payload, []byte{})
+					require.NoError(t, err)
+				}
 
 				t.Logf("oracle %x reported for 0x%x", req.pk[:], feedID[:])
 
@@ -597,7 +597,8 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		var greenDigest ocr2types.ConfigDigest
 
 		allReports := make(map[types.ConfigDigest][]datastreamsllo.Report)
-		t.Run("start off with blue=production, green=staging (specimen reports)", func(t *testing.T) {
+		// start off with blue=production, green=staging (specimen reports)
+		{
 			// Set config on configurator
 			blueDigest = setProductionConfig(
 				t, donID, steve, backend, configurator, configuratorAddress, nodes, oracles,
@@ -617,8 +618,9 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				assert.Equal(t, "2976.39", r.Values[0].(*datastreamsllo.Decimal).String())
 				break
 			}
-		})
-		t.Run("setStagingConfig does not affect production", func(t *testing.T) {
+		}
+		// setStagingConfig does not affect production
+		{
 			greenDigest = setStagingConfig(
 				t, donID, steve, backend, configurator, configuratorAddress, nodes, oracles, blueDigest,
 			)
@@ -639,8 +641,9 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				}
 				assert.Equal(t, blueDigest, r.ConfigDigest)
 			}
-		})
-		t.Run("promoteStagingConfig flow has clean and gapless hand off from old production to newly promoted staging instance, leaving old production instance in 'retired' state", func(t *testing.T) {
+		}
+		// promoteStagingConfig flow has clean and gapless hand off from old production to newly promoted staging instance, leaving old production instance in 'retired' state
+		{
 			promoteStagingConfig(t, donID, steve, backend, configurator, configuratorAddress, false)
 
 			// NOTE: Wait for first non-specimen report for the newly promoted (green) instance
@@ -704,8 +707,9 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			assert.Less(t, finalBlueReport.ValidAfterSeconds, finalBlueReport.ObservationTimestampSeconds)
 			assert.Equal(t, finalBlueReport.ObservationTimestampSeconds, initialPromotedGreenReport.ValidAfterSeconds)
 			assert.Less(t, initialPromotedGreenReport.ValidAfterSeconds, initialPromotedGreenReport.ObservationTimestampSeconds)
-		})
-		t.Run("retired instance does not produce reports", func(t *testing.T) {
+		}
+		// retired instance does not produce reports
+		{
 			// NOTE: Wait for five "green" reports to be produced and assert no "blue" reports
 
 			i := 0
@@ -721,8 +725,9 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				assert.False(t, r.Specimen)
 				assert.Equal(t, greenDigest, r.ConfigDigest)
 			}
-		})
-		t.Run("setStagingConfig replaces 'retired' instance with new config and starts producing specimen reports again", func(t *testing.T) {
+		}
+		// setStagingConfig replaces 'retired' instance with new config and starts producing specimen reports again
+		{
 			blueDigest = setStagingConfig(
 				t, donID, steve, backend, configurator, configuratorAddress, nodes, oracles, greenDigest,
 			)
@@ -740,8 +745,9 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				}
 				assert.Equal(t, greenDigest, r.ConfigDigest)
 			}
-		})
-		t.Run("promoteStagingConfig swaps the instances again", func(t *testing.T) {
+		}
+		// promoteStagingConfig swaps the instances again
+		{
 			// TODO: Check that once an instance enters 'retired' state, it
 			// doesn't produce reports or bother making observations
 			promoteStagingConfig(t, donID, steve, backend, configurator, configuratorAddress, true)
@@ -766,8 +772,9 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			assert.Less(t, finalGreenReport.ValidAfterSeconds, finalGreenReport.ObservationTimestampSeconds)
 			assert.Equal(t, finalGreenReport.ObservationTimestampSeconds, initialPromotedBlueReport.ValidAfterSeconds)
 			assert.Less(t, initialPromotedBlueReport.ValidAfterSeconds, initialPromotedBlueReport.ObservationTimestampSeconds)
-		})
-		t.Run("adding a new channel definition is picked up on the fly", func(t *testing.T) {
+		}
+		// adding a new channel definition is picked up on the fly
+		{
 			channelDefinitions[2] = llotypes.ChannelDefinition{
 				ReportFormat: llotypes.ReportFormatJSON,
 				Streams: []llotypes.Stream{
@@ -805,7 +812,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				assert.Len(t, r.Values, 1)
 				assert.Equal(t, "2976.39", r.Values[0].(*datastreamsllo.Decimal).String())
 			}
-		})
+		}
 		t.Run("deleting the jobs turns off oracles and cleans up resources", func(t *testing.T) {
 			t.Skip("TODO - MERC-3524")
 		})
