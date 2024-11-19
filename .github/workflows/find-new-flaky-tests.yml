@@ -347,7 +347,7 @@ jobs:
           threshold_percentage=$(echo '${{ inputs.runThreshold }}' | awk '{printf "%.0f", $1 * 100}')
           echo "threshold_percentage=$threshold_percentage" >> $GITHUB_OUTPUT          
 
-      - name: Upload Failed Test Results as Artifact
+      - name: Upload All Test Results as Artifact
         if: ${{ fromJson(steps.set_test_results.outputs.all_tests_count) > 0 }}
         uses: actions/upload-artifact@v4.4.3
         with:
