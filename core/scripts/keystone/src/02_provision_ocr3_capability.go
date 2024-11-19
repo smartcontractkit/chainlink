@@ -107,6 +107,7 @@ func generateOCR3Config(nodeKeys []NodeKeys, configFile string) ksdeploy.Orc2drO
 }
 
 func setOCRConfig(o *onchainMeta, env helpers.Environment, ocrConf ksdeploy.Orc2drOracleConfig, artefacts string) {
+	fmt.Println("Setting OCR3 contract config...")
 	tx, err := o.OCR3.SetConfig(env.Owner,
 		ocrConf.Signers,
 		ocrConf.Transmitters,
