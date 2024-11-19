@@ -32,7 +32,7 @@ gomodtidy: gomods ## Run go mod tidy on all modules.
 
 .PHONY: gomodrequiredupdater
 gomodrequiredupdater: ## Update go.mod files containing certain required dependencies to use latest psuedo-versions from trunk.
-	cd tools/gomod-required-updater && go run cmd/gomod-required-updater/main.go -module github.com/smartcontractkit/chainlink/v2 -root ../..
+	cd tools/gomod-required-updater && go run cmd/gomod-required-updater/main.go -update-org-modules -root ../..
 
 .PHONY: docs
 docs: ## Install and run pkgsite to view Go docs
