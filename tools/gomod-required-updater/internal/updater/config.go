@@ -13,41 +13,41 @@ type TOMLConfig struct {
 }
 
 type Config struct {
-	ModulesToUpdate []string
-	RepoRemote     string
-	BranchTrunk    string
-	DryRun         bool
-	ConfigFile     string
-	RootPath       string
-	ShowVersion    bool
-	modulesSource  string
+	ModulesToUpdate  []string
+	RepoRemote       string
+	BranchTrunk      string
+	DryRun           bool
+	ConfigFile       string
+	RootPath         string
+	ShowVersion      bool
+	modulesSource    string
 	UpdateOrgModules bool   // Update modules from same org/repo with local replaces
-	OrgName         string // GitHub organization name
-	RepoName        string // Repository name
+	OrgName          string // GitHub organization name
+	RepoName         string // Repository name
 }
 
 func (c *Config) Validate() error {
-    if !c.ShowVersion {
-        // Skip module validation if using UpdateOrgModules
-        if !c.UpdateOrgModules && len(c.ModulesToUpdate) == 0 {
-            return fmt.Errorf("%w: no modules specified to update (use -module flag or config file)", ErrInvalidConfig)
-        }
-        if c.RepoRemote == "" {
-            return fmt.Errorf("%w: repo remote cannot be empty", ErrInvalidConfig)
-        }
-        if c.BranchTrunk == "" {
-            return fmt.Errorf("%w: branch trunk cannot be empty", ErrInvalidConfig)
-        }
-    }
-    return nil
+	if !c.ShowVersion {
+		// Skip module validation if using UpdateOrgModules
+		if !c.UpdateOrgModules && len(c.ModulesToUpdate) == 0 {
+			return fmt.Errorf("%w: no modules specified to update (use -module flag or config file)", ErrInvalidConfig)
+		}
+		if c.RepoRemote == "" {
+			return fmt.Errorf("%w: repo remote cannot be empty", ErrInvalidConfig)
+		}
+		if c.BranchTrunk == "" {
+			return fmt.Errorf("%w: branch trunk cannot be empty", ErrInvalidConfig)
+		}
+	}
+	return nil
 }
 
 func ParseFlags(args []string, version string) (*Config, error) {
 	flags := flag.NewFlagSet("gomod-required-updater", flag.ContinueOnError)
-	
+
 	cfg := &Config{}
 	var cliModules arrayFlags // Define custom flag type for multiple -module flags
-	
+
 	flags.StringVar(&cfg.RepoRemote, "repo-remote", "origin", "The name of the repo remote")
 	flags.StringVar(&cfg.BranchTrunk, "branch-trunk", "develop", "The name of the trunk branch")
 	flags.BoolVar(&cfg.DryRun, "dry-run", false, "Print what would be done without making changes")

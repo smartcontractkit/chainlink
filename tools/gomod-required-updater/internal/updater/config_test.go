@@ -12,8 +12,8 @@ func TestConfig_Validate(t *testing.T) {
 			name: "valid config",
 			cfg: &Config{
 				ModulesToUpdate: []string{"test.com/mod"},
-				RepoRemote:     "origin",
-				BranchTrunk:    "main",
+				RepoRemote:      "origin",
+				BranchTrunk:     "main",
 			},
 			wantErr: false,
 		},
@@ -36,8 +36,8 @@ func TestConfig_Validate(t *testing.T) {
 			name: "update-org-modules bypasses module validation",
 			cfg: &Config{
 				UpdateOrgModules: true,
-				RepoRemote:      "origin",
-				BranchTrunk:     "main",
+				RepoRemote:       "origin",
+				BranchTrunk:      "main",
 			},
 			wantErr: false,
 		},
@@ -65,8 +65,8 @@ func TestParseFlags(t *testing.T) {
 			args: []string{"-module", "mod1.com", "-module", "mod2.com"},
 			wantCfg: &Config{
 				ModulesToUpdate: []string{"mod1.com", "mod2.com"},
-				RepoRemote:     "origin",
-				BranchTrunk:    "develop",
+				RepoRemote:      "origin",
+				BranchTrunk:     "develop",
 			},
 			wantErr: false,
 		},
@@ -75,8 +75,8 @@ func TestParseFlags(t *testing.T) {
 			args: []string{"-version"},
 			wantCfg: &Config{
 				ShowVersion: true,
-				RepoRemote: "origin",    // Default value
-				BranchTrunk: "develop",  // Default value
+				RepoRemote:  "origin",  // Default value
+				BranchTrunk: "develop", // Default value
 			},
 			wantErr: false,
 		},
@@ -92,7 +92,7 @@ func TestParseFlags(t *testing.T) {
 			if err != nil {
 				return
 			}
-			
+
 			if got.RepoRemote != tt.wantCfg.RepoRemote {
 				t.Errorf("ParseFlags() RepoRemote = %v, want %v", got.RepoRemote, tt.wantCfg.RepoRemote)
 			}

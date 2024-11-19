@@ -101,9 +101,9 @@ func TestUpdater_Run(t *testing.T) {
 			name: "successful update",
 			config: &Config{
 				ModulesToUpdate: []string{"github.com/example/module"},
-				RepoRemote:     "origin",
-				BranchTrunk:    "main",
-				RootPath:       ".",
+				RepoRemote:      "origin",
+				BranchTrunk:     "main",
+				RootPath:        ".",
 			},
 			gitOp: &mockGitOperator{
 				sha:        "abc123def456", // 12 chars
@@ -124,8 +124,8 @@ require github.com/example/module v0.0.0-20230101000000-123456789abc`)
 			name: "handles multiple go.mod files",
 			config: &Config{
 				ModulesToUpdate: []string{"test.com/mod"},
-				RepoRemote:     "origin",
-				BranchTrunk:    "main",
+				RepoRemote:      "origin",
+				BranchTrunk:     "main",
 			},
 			gitOp: &mockGitOperator{
 				sha:        "def456789012", // 12 chars
@@ -153,8 +153,8 @@ require github.com/example/module v0.0.0-20230101000000-123456789abc`)
 			name: "handles module with version suffix",
 			config: &Config{
 				ModulesToUpdate: []string{"test.com/mod/v2"},
-				RepoRemote:     "origin",
-				BranchTrunk:    "main",
+				RepoRemote:      "origin",
+				BranchTrunk:     "main",
 			},
 			gitOp: &mockGitOperator{
 				sha:        "abc123def456", // 12 chars
@@ -174,10 +174,10 @@ require github.com/example/module v0.0.0-20230101000000-123456789abc`)
 			name: "finds and updates org modules with local replaces",
 			config: &Config{
 				UpdateOrgModules: true,
-				RepoRemote:     "origin",
-				BranchTrunk:    "main",
-				OrgName:        "smartcontractkit",
-				RepoName:       "chainlink",
+				RepoRemote:       "origin",
+				BranchTrunk:      "main",
+				OrgName:          "smartcontractkit",
+				RepoName:         "chainlink",
 			},
 			gitOp: &mockGitOperator{
 				sha:        "abc123def456", // 12 chars
@@ -203,10 +203,10 @@ replace github.com/smartcontractkit/chainlink/v2 => ../
 			name: "skips non-org modules with local replaces",
 			config: &Config{
 				UpdateOrgModules: true,
-				RepoRemote:     "origin",
-				BranchTrunk:    "main",
-				OrgName:        "smartcontractkit",
-				RepoName:       "chainlink",
+				RepoRemote:       "origin",
+				BranchTrunk:      "main",
+				OrgName:          "smartcontractkit",
+				RepoName:         "chainlink",
 			},
 			gitOp: &mockGitOperator{
 				sha:        "abc123",
@@ -257,8 +257,8 @@ require (
 
 	cfg := &Config{
 		ModulesToUpdate: []string{"mod1.com", "mod2.com"},
-		RepoRemote:     "origin",
-		BranchTrunk:    "main",
+		RepoRemote:      "origin",
+		BranchTrunk:     "main",
 	}
 
 	u := New(gitOp, sysOp, cfg)
@@ -268,8 +268,8 @@ require (
 }
 
 func TestUpdater_FindLocalReplaceModules(t *testing.T) {
-    sysOp := newMockSystemOperator()
-    sysOp.files["go.mod"] = []byte(`
+	sysOp := newMockSystemOperator()
+	sysOp.files["go.mod"] = []byte(`
 module test
 require (
     github.com/smartcontractkit/chainlink/v2 v2.0.0
@@ -280,29 +280,29 @@ replace (
     github.com/other/repo => ../other
 )`)
 
-    // Setup Walk to properly handle the callback
-    sysOp.walkFn = func(root string, fn func(path string, isDir bool) error) error {
-        return fn("go.mod", false) // Call the callback with our test file
-    }
+	// Setup Walk to properly handle the callback
+	sysOp.walkFn = func(root string, fn func(path string, isDir bool) error) error {
+		return fn("go.mod", false) // Call the callback with our test file
+	}
 
-    cfg := &Config{
-        UpdateOrgModules: true,
-        OrgName:        "smartcontractkit",
-        RepoName:       "chainlink",
-    }
+	cfg := &Config{
+		UpdateOrgModules: true,
+		OrgName:          "smartcontractkit",
+		RepoName:         "chainlink",
+	}
 
-    u := New(&mockGitOperator{}, sysOp, cfg)
-    modules, err := u.findLocalReplaceModules(".")
-    if err != nil {
-        t.Errorf("unexpected error: %v", err)
-        return
-    }
+	u := New(&mockGitOperator{}, sysOp, cfg)
+	modules, err := u.findLocalReplaceModules(".")
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+		return
+	}
 
-    if len(modules) != 1 {
-        t.Errorf("expected 1 module, got %d", len(modules))
-        return
-    }
-    if modules[0] != "github.com/smartcontractkit/chainlink/v2" {
-        t.Errorf("expected chainlink module, got %s", modules[0])
-    }
+	if len(modules) != 1 {
+		t.Errorf("expected 1 module, got %d", len(modules))
+		return
+	}
+	if modules[0] != "github.com/smartcontractkit/chainlink/v2" {
+		t.Errorf("expected chainlink module, got %s", modules[0])
+	}
 }

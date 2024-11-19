@@ -21,7 +21,7 @@ func New(git GitOperator, system SystemOperator, config *Config) *Updater {
 
 func (u *Updater) Run() error {
 	log.Printf("Starting update process with remote '%s' and branch '%s'", u.config.RepoRemote, u.config.BranchTrunk)
-	
+
 	absRoot, err := filepath.Abs(u.config.RootPath)
 	if err != nil {
 		return fmt.Errorf("failed to resolve root path: %w", err)
@@ -81,26 +81,26 @@ func (u *Updater) findRootModule() (string, error) {
 
 func (u *Updater) updateGoMod(path, modulePath, sha string) error {
 	log.Printf("Processing %s for module %s", path, modulePath)
-    
-    content, err := u.system.ReadFile(path)
-    if (err != nil) {
-        return err
-    }
 
-    f, err := modfile.Parse(path, content, nil)
-    if err != nil {
-        return err
-    }
+	content, err := u.system.ReadFile(path)
+	if err != nil {
+		return err
+	}
 
-    moduleExists := false
-    var currentVersion string
-    for _, req := range f.Require {
-        if req.Mod.Path == modulePath {
-            moduleExists = true
-            currentVersion = req.Mod.Version
-            break
-        }
-    }
+	f, err := modfile.Parse(path, content, nil)
+	if err != nil {
+		return err
+	}
+
+	moduleExists := false
+	var currentVersion string
+	for _, req := range f.Require {
+		if req.Mod.Path == modulePath {
+			moduleExists = true
+			currentVersion = req.Mod.Version
+			break
+		}
+	}
 
 	// Check for replace directive if updating org modules
 	if u.config.UpdateOrgModules {
@@ -113,113 +113,113 @@ func (u *Updater) updateGoMod(path, modulePath, sha string) error {
 		}
 	}
 
-    if !moduleExists {
-        log.Printf("Skipping %s: module %s not found", path, modulePath)
-        return nil
-    }
+	if !moduleExists {
+		log.Printf("Skipping %s: module %s not found", path, modulePath)
+		return nil
+	}
 
-    log.Printf("Current version: %s", currentVersion)
+	log.Printf("Current version: %s", currentVersion)
 
-    commitDate, err := u.git.GetCommitDate(sha)
-    if err != nil {
-        return fmt.Errorf("failed to get commit date: %w", err)
-    }
+	commitDate, err := u.git.GetCommitDate(sha)
+	if err != nil {
+		return fmt.Errorf("failed to get commit date: %w", err)
+	}
 
-    shortSHA := sha[:12]
-    versionPrefix := parseModuleVersion(modulePath)
-    pseudoVersion := module.PseudoVersion("v"+versionPrefix, "", commitDate, shortSHA)
-    
-    log.Printf("Updating to version: %s", pseudoVersion)
-    
-    if u.config.DryRun {
-        log.Printf("[DRY RUN] Would update %s: %s => %s", modulePath, currentVersion, pseudoVersion)
-        return nil
-    }
+	shortSHA := sha[:12]
+	versionPrefix := parseModuleVersion(modulePath)
+	pseudoVersion := module.PseudoVersion("v"+versionPrefix, "", commitDate, shortSHA)
 
-    if err := f.AddRequire(modulePath, pseudoVersion); err != nil {
-        return fmt.Errorf("failed to add requirement: %w", err)
-    }
+	log.Printf("Updating to version: %s", pseudoVersion)
 
-    newContent, err := f.Format()
-    if err != nil {
-        return fmt.Errorf("failed to format go.mod: %w", err)
-    }
+	if u.config.DryRun {
+		log.Printf("[DRY RUN] Would update %s: %s => %s", modulePath, currentVersion, pseudoVersion)
+		return nil
+	}
 
-    if err := u.system.WriteFile(path, newContent, 0644); err != nil {
-        return fmt.Errorf("failed to write go.mod: %w", err)
-    }
+	if err := f.AddRequire(modulePath, pseudoVersion); err != nil {
+		return fmt.Errorf("failed to add requirement: %w", err)
+	}
 
-    dir := filepath.Dir(path)
-    origDir, err := u.system.Getwd()
-    if err != nil {
-        return fmt.Errorf("failed to get current directory: %w", err)
-    }
-    
-    if err := u.system.Chdir(dir); err != nil {
-        return fmt.Errorf("failed to change to directory %s: %w", dir, err)
-    }
+	newContent, err := f.Format()
+	if err != nil {
+		return fmt.Errorf("failed to format go.mod: %w", err)
+	}
+
+	if err := u.system.WriteFile(path, newContent, 0644); err != nil {
+		return fmt.Errorf("failed to write go.mod: %w", err)
+	}
+
+	dir := filepath.Dir(path)
+	origDir, err := u.system.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get current directory: %w", err)
+	}
+
+	if err := u.system.Chdir(dir); err != nil {
+		return fmt.Errorf("failed to change to directory %s: %w", dir, err)
+	}
 	// Use defer to ensure we always return to the initial directory.
-    defer func() {
-        if err := u.system.Chdir(origDir); err != nil {
-            log.Printf("Warning: failed to return to original directory: %v", err)
-        }
-    }()
+	defer func() {
+		if err := u.system.Chdir(origDir); err != nil {
+			log.Printf("Warning: failed to return to original directory: %v", err)
+		}
+	}()
 
-    log.Printf("Running go mod tidy in %s", dir)
-    if err := u.system.RunCommand("go", "mod", "tidy"); err != nil {
-        return fmt.Errorf("go mod tidy failed: %w", err)
-    }
+	log.Printf("Running go mod tidy in %s", dir)
+	if err := u.system.RunCommand("go", "mod", "tidy"); err != nil {
+		return fmt.Errorf("go mod tidy failed: %w", err)
+	}
 
-    return nil
+	return nil
 }
 
 func (u *Updater) findLocalReplaceModules(root string) ([]string, error) {
-    var modules []string
-    seen := make(map[string]bool)
-    orgPrefix := fmt.Sprintf("github.com/%s/%s", u.config.OrgName, u.config.RepoName)
+	var modules []string
+	seen := make(map[string]bool)
+	orgPrefix := fmt.Sprintf("github.com/%s/%s", u.config.OrgName, u.config.RepoName)
 
-    err := u.system.Walk(root, func(path string, isDir bool) error {
-        if filepath.Base(path) != "go.mod" {
-            return nil
-        }
+	err := u.system.Walk(root, func(path string, isDir bool) error {
+		if filepath.Base(path) != "go.mod" {
+			return nil
+		}
 
-        content, err := u.system.ReadFile(path)
-        if err != nil {
-            return err
-        }
+		content, err := u.system.ReadFile(path)
+		if err != nil {
+			return err
+		}
 
-        f, err := modfile.Parse(path, content, nil)
-        if err != nil {
-            return err
-        }
+		f, err := modfile.Parse(path, content, nil)
+		if err != nil {
+			return err
+		}
 
-        for _, rep := range f.Replace {
-            // Only process modules from our org/repo that have local replaces
-            if strings.HasPrefix(rep.Old.Path, orgPrefix) && 
-               isLocalPath(rep.New.Path) && 
-               !seen[rep.Old.Path] {
-                log.Printf("Found local replace in %s: %s => %s", path, rep.Old.Path, rep.New.Path)
-                modules = append(modules, rep.Old.Path)
-                seen[rep.Old.Path] = true
-            }
-        }
-        return nil
-    })
+		for _, rep := range f.Replace {
+			// Only process modules from our org/repo that have local replaces
+			if strings.HasPrefix(rep.Old.Path, orgPrefix) &&
+				isLocalPath(rep.New.Path) &&
+				!seen[rep.Old.Path] {
+				log.Printf("Found local replace in %s: %s => %s", path, rep.Old.Path, rep.New.Path)
+				modules = append(modules, rep.Old.Path)
+				seen[rep.Old.Path] = true
+			}
+		}
+		return nil
+	})
 
-    return modules, err
+	return modules, err
 }
 
 func parseModuleVersion(modulePath string) string {
-    ver := module.Version{Path: modulePath}
-    re := regexp.MustCompile(`/v(\d+)$`)
-    if match := re.FindStringSubmatch(ver.Path); match != nil {
-        return match[1]
-    }
-    return "0"
+	ver := module.Version{Path: modulePath}
+	re := regexp.MustCompile(`/v(\d+)$`)
+	if match := re.FindStringSubmatch(ver.Path); match != nil {
+		return match[1]
+	}
+	return "0"
 }
 
 func isLocalPath(path string) bool {
-    return path == "." || path == ".." || 
-           strings.HasPrefix(path, "./") || 
-           strings.HasPrefix(path, "../")
+	return path == "." || path == ".." ||
+		strings.HasPrefix(path, "./") ||
+		strings.HasPrefix(path, "../")
 }
