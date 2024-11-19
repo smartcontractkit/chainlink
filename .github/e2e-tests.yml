@@ -961,7 +961,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
-      E2E_JD_VERSION: 0.4.0
+      E2E_JD_VERSION: 0.6.0
 
   - id: smoke/ccip_usdc_test.go:*
     path: integration-tests/smoke/ccip_usdc_test.go
@@ -975,7 +975,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
-      E2E_JD_VERSION: 0.4.0
+      E2E_JD_VERSION: 0.6.0
 
   - id: smoke/fee_boosting_test.go:*
     path: integration-tests/smoke/fee_boosting_test.go
@@ -989,7 +989,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
-      E2E_JD_VERSION: 0.4.0
+      E2E_JD_VERSION: 0.6.0
 
   - id: smoke/ccip_rmn_test.go:^TestRMN_TwoMessagesOnTwoLanesIncludingBatching$
     path: integration-tests/smoke/ccip_rmn_test.go
@@ -1003,7 +1003,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
-      E2E_JD_VERSION: 0.4.0
+      E2E_JD_VERSION: 0.6.0
       E2E_RMN_RAGEPROXY_VERSION: master-5208d09
       E2E_RMN_AFN2PROXY_VERSION: master-5208d09
 
@@ -1019,7 +1019,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
-      E2E_JD_VERSION: 0.4.0
+      E2E_JD_VERSION: 0.6.0
       E2E_RMN_RAGEPROXY_VERSION: master-5208d09
       E2E_RMN_AFN2PROXY_VERSION: master-5208d09
 
@@ -1036,7 +1036,7 @@ runner-test-matrix:
 #    pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
 #    test_env_vars:
 #      E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
-#      E2E_JD_VERSION: 0.4.0
+#      E2E_JD_VERSION: 0.6.0
 #      E2E_RMN_RAGEPROXY_VERSION: master-5208d09
 #      E2E_RMN_AFN2PROXY_VERSION: master-5208d09
 
@@ -1052,7 +1052,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
-      E2E_JD_VERSION: 0.4.0
+      E2E_JD_VERSION: 0.6.0
       E2E_RMN_RAGEPROXY_VERSION: master-5208d09
       E2E_RMN_AFN2PROXY_VERSION: master-5208d09
 
@@ -1069,7 +1069,7 @@ runner-test-matrix:
 #    pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
 #    test_env_vars:
 #      E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
-#      E2E_JD_VERSION: 0.4.0
+#      E2E_JD_VERSION: 0.6.0
 #      E2E_RMN_RAGEPROXY_VERSION: master-5208d09
 #      E2E_RMN_AFN2PROXY_VERSION: master-5208d09
 
@@ -1086,7 +1086,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
-      E2E_JD_VERSION: 0.4.0
+      E2E_JD_VERSION: 0.6.0
       E2E_RMN_RAGEPROXY_VERSION: master-5208d09
       E2E_RMN_AFN2PROXY_VERSION: master-5208d09
 
