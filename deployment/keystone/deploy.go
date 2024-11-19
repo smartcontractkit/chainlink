@@ -439,8 +439,7 @@ func ConfigureOCR3ContractFromJD(env *deployment.Environment, cfg ConfigureOCR3C
 	if cfg.DryRun {
 		prefix = "DRY RUN: "
 	}
-	env.Logger.Infof("%sconfiguring OCR3 contract for chain %d", cfg.ChainSel, prefix)
-	//func ConfigureOCR3ContractFromJD(env *deployment.Environment, chainSel uint64, nodeIDs []string, addrBook deployment.AddressBook, cfg *OracleConfigWithSecrets) (*ConfigureOCR3Resp, error) {
+	env.Logger.Infof("%sconfiguring OCR3 contract for chain %d", prefix, cfg.ChainSel)
 	registryChain, ok := env.Chains[cfg.ChainSel]
 	if !ok {
 		return nil, fmt.Errorf("chain %d not found in environment", cfg.ChainSel)
