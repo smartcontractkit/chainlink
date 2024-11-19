@@ -93,6 +93,44 @@ func Test_CCIPBatching(t *testing.T) {
 	const (
 		numMessages = 5
 	)
+	var (
+		startSeqNum map[uint64]ccipocr3.SeqNum = map[uint64]ccipocr3.SeqNum{
+			sourceChain1: 1,
+			sourceChain2: 1,
+		}
+		endSeqNum map[uint64]ccipocr3.SeqNum = map[uint64]ccipocr3.SeqNum{
+			sourceChain1: ccipocr3.SeqNum(numMessages),
+			sourceChain2: ccipocr3.SeqNum(numMessages),
+		}
+	)
+
+	t.Run("batch data only messages from single source", func(t *testing.T) {
+		sendMessages(
+			ctx,
+			t,
+			e.Env.Chains[sourceChain1],
+			e.Env.Chains[sourceChain1].DeployerKey,
+			state.Chains[sourceChain1].OnRamp,
+			state.Chains[sourceChain1].Router,
+			state.Chains[sourceChain1].Multicall3,
+			destChain,
+			numMessages,
+			common.LeftPadBytes(state.Chains[destChain].Receiver.Address().Bytes(), 32),
+		)
+
+		_, err := ccdeploy.ConfirmCommitWithExpectedSeqNumRange(
+			t,
+			e.Env.Chains[sourceChain1],
+			e.Env.Chains[destChain],
+			state.Chains[destChain].OffRamp,
+			nil,
+			ccipocr3.NewSeqNumRange(startSeqNum[sourceChain1], endSeqNum[sourceChain1]),
+		)
+		require.NoErrorf(t, err, "failed to confirm commit from chain %d", sourceChain1)
+
+		startSeqNum[sourceChain1] = endSeqNum[sourceChain1] + 1
+		endSeqNum[sourceChain1] = startSeqNum[sourceChain1] + ccipocr3.SeqNum(numMessages) - 1
+	})
 
 	t.Run("batch data only messages from multiple sources", func(t *testing.T) {
 		var wg sync.WaitGroup
@@ -147,7 +185,7 @@ func Test_CCIPBatching(t *testing.T) {
 				e.Env.Chains[destChain],
 				state.Chains[destChain].OffRamp,
 				nil,
-				ccipocr3.NewSeqNumRange(ccipocr3.SeqNum(1), ccipocr3.SeqNum(numMessages)),
+				ccipocr3.NewSeqNumRange(startSeqNum[sourceChain1], endSeqNum[sourceChain1]),
 			)
 			require.NoErrorf(t, err, "failed to confirm commit from chain %d", sourceChain1)
 		}()
@@ -161,7 +199,7 @@ func Test_CCIPBatching(t *testing.T) {
 				e.Env.Chains[destChain],
 				state.Chains[destChain].OffRamp,
 				nil,
-				ccipocr3.NewSeqNumRange(ccipocr3.SeqNum(1), ccipocr3.SeqNum(numMessages)),
+				ccipocr3.NewSeqNumRange(startSeqNum[sourceChain2], endSeqNum[sourceChain2]),
 			)
 			require.NoErrorf(t, err, "failed to confirm commit from chain %d", sourceChain2)
 		}()
@@ -172,12 +210,11 @@ func Test_CCIPBatching(t *testing.T) {
 		// the reports should be the same for both, since both roots should be batched within
 		// that one report.
 		require.Equal(t, sourceChain1Report, sourceChain2Report, "commit reports should be the same")
-	})
 
-	t.Run("batch mix of data only messages and token messages from multiple sources", func(t *testing.T) {
-		// Generate some messages, on each source.
-		// Send them from a multicall contract, i.e multiple ccip messages in the same tx.
-		// assert they are committed in the same batch.
+		startSeqNum[sourceChain1] = endSeqNum[sourceChain1] + 1
+		endSeqNum[sourceChain1] = startSeqNum[sourceChain1] + ccipocr3.SeqNum(numMessages) - 1
+		startSeqNum[sourceChain2] = endSeqNum[sourceChain2] + 1
+		endSeqNum[sourceChain2] = startSeqNum[sourceChain2] + ccipocr3.SeqNum(numMessages) - 1
 	})
 }
 
