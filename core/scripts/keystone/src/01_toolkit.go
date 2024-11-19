@@ -38,6 +38,8 @@ func (t *Toolkit) Run(args []string) {
 	cmdArgs := args[1:]
 
 	switch command {
+	case "get-aptos-keys":
+		t.GetAptosKeys(cmdArgs)
 	case "deploy-workflows":
 		t.DeployWorkflows(cmdArgs)
 	case "deploy-ocr3-contracts":
@@ -50,6 +52,23 @@ func (t *Toolkit) Run(args []string) {
 	}
 }
 
+func (t *Toolkit) GetAptosKeys(args []string) {
+	fs := flag.NewFlagSet("get-aptos-keys", flag.ExitOnError)
+	nodesListPath := fs.String("nodes", ".cache/NodesList.txt", "Path to file with list of nodes")
+	artefacts := fs.String("artefacts", defaultArtefactsDir, "Custom artefacts directory location")
+	chainID := fs.Int64("chainid", 1337, "Chain ID")
+
+	if err := fs.Parse(args); err != nil {
+		fs.Usage()
+		os.Exit(1)
+	}
+
+	nodes := mustReadNodesList(*nodesListPath)
+	keys := mustFetchNodeKeys(*chainID, nodes, true)
+
+	mustWriteJSON(*artefacts+"/pubnodekeys.json", keys)
+}
+
 func (t *Toolkit) ProvisionOCR3Contracts(args []string) {
 	fs := flag.NewFlagSet("deploy-ocr3-contracts", flag.ExitOnError)
 	ethURL := fs.String("ethurl", "", "URL of the Ethereum node")
@@ -59,12 +78,7 @@ func (t *Toolkit) ProvisionOCR3Contracts(args []string) {
 	artefactsDir := fs.String("artefacts", defaultArtefactsDir, "Custom artefacts directory location")
 	ocrConfigFile := fs.String("ocrfile", "ocr_config.json", "Path to OCR config file")
 
-	if err := fs.Parse(args); err != nil {
-		fs.Usage()
-		os.Exit(1)
-	}
-
-	if *ethURL == "" || *accountKey == "" || *chainID == 0 {
+	if err := fs.Parse(args); err != nil || *ethURL == "" || *accountKey == "" {
 		fs.Usage()
 		os.Exit(1)
 	}
@@ -93,22 +107,17 @@ func (t *Toolkit) DeployOCR3JobSpecs(args []string) {
 	p2pPort := fs.Int64("p2pport", 6690, "P2P port")
 	artefactsDir := fs.String("artefacts", defaultArtefactsDir, "Custom artefacts directory location")
 
+	if err := fs.Parse(args); err != nil || *ethURL == "" || *accountKey == "" {
+		fs.Usage()
+		os.Exit(1)
+	}
+
 	os.Setenv("ETH_URL", *ethURL)
 	os.Setenv("ETH_CHAIN_ID", strconv.FormatInt(*chainID, 10))
 	os.Setenv("ACCOUNT_KEY", *accountKey)
 	os.Setenv("INSECURE_SKIP_VERIFY", "true")
 
 	env := helpers.SetupEnv(false)
-
-	if err := fs.Parse(args); err != nil {
-		fs.Usage()
-		os.Exit(1)
-	}
-
-	if *ethURL == "" || *accountKey == "" {
-		fs.Usage()
-		os.Exit(1)
-	}
 
 	nodes := mustReadNodesList(*nodesListPath)
 	nodeKeys := mustFetchNodeKeys(*chainID, nodes, true)
@@ -128,15 +137,11 @@ func (t *Toolkit) DeployWorkflows(args []string) {
 	workflowFile := fs.String("workflow", "", "Path to workflow file")
 	nodesList := fs.String("nodes", ".cache/NodesList.txt", "Path to file with list of nodes")
 
-	if err := fs.Parse(args); err != nil {
+	if err := fs.Parse(args); err != nil || *workflowFile == "" {
 		fs.Usage()
 		os.Exit(1)
 	}
 
-	if *workflowFile == "" {
-		fs.Usage()
-		os.Exit(1)
-	}
 	nodesWithCreds := mustReadNodesList(*nodesList)
 
 	for _, node := range nodesWithCreds {
