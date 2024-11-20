@@ -1,6 +1,7 @@
 package changeset
 
 import (
+	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -8,6 +9,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccdeploy "github.com/smartcontractkit/chainlink/deployment/ccip"
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -45,11 +48,24 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, e.ExistingAddresses.Merge(prerequisites.AddressBook))
 
+	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
+	for _, chain := range e.AllChainSelectors() {
+		cfg[chain] = commontypes.MCMSWithTimelockConfig{
+			Canceller:         commonchangeset.SingleGroupMCMS(t),
+			Bypasser:          commonchangeset.SingleGroupMCMS(t),
+			Proposer:          commonchangeset.SingleGroupMCMS(t),
+			TimelockExecutors: e.AllDeployerKeys(),
+			TimelockMinDelay:  big.NewInt(0),
+		}
+	}
+	output, err = commonchangeset.DeployMCMSWithTimelock(e, cfg)
+	require.NoError(t, err)
+	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook))
+
 	// deploy ccip chain contracts
 	output, err = DeployChainContracts(e, DeployChainContractsConfig{
 		ChainSelectors:    selectors,
 		HomeChainSelector: homeChainSel,
-		MCMSCfg:           ccdeploy.NewTestMCMSConfig(t, e),
 	})
 	require.NoError(t, err)
 	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook))
