@@ -199,7 +199,7 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 					ccipocr3.SeqNumRange{
 						ccipocr3.SeqNum(expectedSeqNum),
 						ccipocr3.SeqNum(expectedSeqNum),
-					})
+					}))
 			})
 		}
 	}
