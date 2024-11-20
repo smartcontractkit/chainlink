@@ -1,4 +1,4 @@
-package changeset
+package internal
 
 import (
 	"testing"
@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
@@ -25,13 +26,13 @@ func TestActiveCandidate(t *testing.T) {
 	t.Skipf("to be enabled after latest cl-ccip is compatible")
 
 	lggr := logger.TestLogger(t)
-	tenv := NewMemoryEnvironmentWithJobsAndContracts(t, lggr, 3, 5)
+	tenv := changeset.NewMemoryEnvironmentWithJobsAndContracts(t, lggr, 3, 5)
 	e := tenv.Env
-	state, err := LoadOnchainState(tenv.Env)
+	state, err := changeset.LoadOnchainState(tenv.Env)
 	require.NoError(t, err)
 
 	// Add all lanes
-	require.NoError(t, AddLanesForAll(e, state))
+	require.NoError(t, changeset.AddLanesForAll(e, state))
 	// Need to keep track of the block number for each chain so that event subscription can be done from that block.
 	startBlocks := make(map[uint64]*uint64)
 	// Send a message from each chain to every other chain.
@@ -45,7 +46,7 @@ func TestActiveCandidate(t *testing.T) {
 			require.NoError(t, err)
 			block := latesthdr.Number.Uint64()
 			startBlocks[dest] = &block
-			msgSentEvent := TestSendRequest(t, e, state, src, dest, false, router.ClientEVM2AnyMessage{
+			msgSentEvent := changeset.TestSendRequest(t, e, state, src, dest, false, router.ClientEVM2AnyMessage{
 				Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
 				Data:         []byte("hello world"),
 				TokenAmounts: nil,
@@ -57,7 +58,7 @@ func TestActiveCandidate(t *testing.T) {
 	}
 
 	// Wait for all commit reports to land.
-	ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
+	changeset.ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
 
 	//After commit is reported on all chains, token prices should be updated in FeeQuoter.
 	for dest := range e.Chains {
@@ -65,15 +66,15 @@ func TestActiveCandidate(t *testing.T) {
 		feeQuoter := state.Chains[dest].FeeQuoter
 		timestampedPrice, err := feeQuoter.GetTokenPrice(nil, linkAddress)
 		require.NoError(t, err)
-		require.Equal(t, MockLinkPrice, timestampedPrice.Value)
+		require.Equal(t, changeset.MockLinkPrice, timestampedPrice.Value)
 	}
 
 	//Wait for all exec reports to land
-	ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
+	changeset.ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
 
 	// transfer ownership
 	TransferAllOwnership(t, state, tenv.HomeChainSel, e)
-	acceptOwnershipProposal, err := GenerateAcceptOwnershipProposal(state, tenv.HomeChainSel, e.AllChainSelectors())
+	acceptOwnershipProposal, err := changeset.GenerateAcceptOwnershipProposal(state, tenv.HomeChainSel, e.AllChainSelectors())
 	require.NoError(t, err)
 	acceptOwnershipExec := commonchangeset.SignProposal(t, e, acceptOwnershipProposal)
 	for _, sel := range e.AllChainSelectors() {
@@ -81,19 +82,19 @@ func TestActiveCandidate(t *testing.T) {
 	}
 	// Apply the accept ownership proposal to all the chains.
 
-	err = ConfirmRequestOnSourceAndDest(t, e, state, tenv.HomeChainSel, tenv.FeedChainSel, 2)
+	err = changeset.ConfirmRequestOnSourceAndDest(t, e, state, tenv.HomeChainSel, tenv.FeedChainSel, 2)
 	require.NoError(t, err)
 
 	// [ACTIVE, CANDIDATE] setup by setting candidate through cap reg
 	capReg, ccipHome := state.Chains[tenv.HomeChainSel].CapabilityRegistry, state.Chains[tenv.HomeChainSel].CCIPHome
-	donID, err := DonIDForChain(capReg, ccipHome, tenv.FeedChainSel)
+	donID, err := changeset.DonIDForChain(capReg, ccipHome, tenv.FeedChainSel)
 	require.NoError(t, err)
 	donInfo, err := state.Chains[tenv.HomeChainSel].CapabilityRegistry.GetDON(nil, donID)
 	require.NoError(t, err)
 	require.Equal(t, 5, len(donInfo.NodeP2PIds))
 	require.Equal(t, uint32(4), donInfo.ConfigCount)
 
-	state, err = LoadOnchainState(e)
+	state, err = changeset.LoadOnchainState(e)
 	require.NoError(t, err)
 
 	// delete a non-bootstrap node
@@ -113,8 +114,8 @@ func TestActiveCandidate(t *testing.T) {
 	// this will construct ocr3 configurations for the
 	// commit and exec plugin we will be using
 	rmnHomeAddress := state.Chains[tenv.HomeChainSel].RMNHome.Address()
-	tokenConfig := NewTestTokenConfig(state.Chains[tenv.FeedChainSel].USDFeeds)
-	ocr3ConfigMap, err := BuildOCR3ConfigForCCIPHome(
+	tokenConfig := changeset.NewTestTokenConfig(state.Chains[tenv.FeedChainSel].USDFeeds)
+	ocr3ConfigMap, err := changeset.BuildOCR3ConfigForCCIPHome(
 		deployment.XXXGenerateTestOCRSecrets(),
 		state.Chains[tenv.FeedChainSel].OffRamp,
 		e.Chains[tenv.FeedChainSel],
@@ -134,7 +135,7 @@ func TestActiveCandidate(t *testing.T) {
 		nodes.NonBootstraps(),
 	)
 	require.NoError(t, err)
-	setCommitCandidateProposal, err := BuildProposalFromBatches(state, []timelock.BatchChainOperation{{
+	setCommitCandidateProposal, err := changeset.BuildProposalFromBatches(state, []timelock.BatchChainOperation{{
 		ChainIdentifier: mcms.ChainIdentifier(tenv.HomeChainSel),
 		Batch:           setCommitCandidateOp,
 	}}, "set new candidates on commit plugin", 0)
@@ -152,7 +153,7 @@ func TestActiveCandidate(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	setExecCandidateProposal, err := BuildProposalFromBatches(state, []timelock.BatchChainOperation{{
+	setExecCandidateProposal, err := changeset.BuildProposalFromBatches(state, []timelock.BatchChainOperation{{
 		ChainIdentifier: mcms.ChainIdentifier(tenv.HomeChainSel),
 		Batch:           setExecCandidateOp,
 	}}, "set new candidates on commit and exec plugins", 0)
@@ -168,7 +169,7 @@ func TestActiveCandidate(t *testing.T) {
 	// [ACTIVE, CANDIDATE] done setup
 
 	// [ACTIVE, CANDIDATE] make sure we can still send successful transaction without updating job specs
-	err = ConfirmRequestOnSourceAndDest(t, e, state, tenv.HomeChainSel, tenv.FeedChainSel, 3)
+	err = changeset.ConfirmRequestOnSourceAndDest(t, e, state, tenv.HomeChainSel, tenv.FeedChainSel, 3)
 	require.NoError(t, err)
 	// [ACTIVE, CANDIDATE] done send successful transaction on active
 
@@ -179,7 +180,7 @@ func TestActiveCandidate(t *testing.T) {
 
 	promoteOps, err := PromoteAllCandidatesForChainOps(state.Chains[tenv.HomeChainSel].CapabilityRegistry, state.Chains[tenv.HomeChainSel].CCIPHome, tenv.FeedChainSel, nodes.NonBootstraps())
 	require.NoError(t, err)
-	promoteProposal, err := BuildProposalFromBatches(state, []timelock.BatchChainOperation{{
+	promoteProposal, err := changeset.BuildProposalFromBatches(state, []timelock.BatchChainOperation{{
 		ChainIdentifier: mcms.ChainIdentifier(tenv.HomeChainSel),
 		Batch:           promoteOps,
 	}}, "promote candidates and revoke actives", 0)
@@ -203,7 +204,7 @@ func TestActiveCandidate(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, uint32(8), donInfo.ConfigCount)
 
-	err = ConfirmRequestOnSourceAndDest(t, e, state, tenv.HomeChainSel, tenv.FeedChainSel, 4)
+	err = changeset.ConfirmRequestOnSourceAndDest(t, e, state, tenv.HomeChainSel, tenv.FeedChainSel, 4)
 	require.NoError(t, err)
 	// [NEW ACTIVE, NO CANDIDATE] done sending successful request
 }

@@ -21,12 +21,10 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
+	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
-
-	"github.com/smartcontractkit/chainlink/deployment"
-	ccipdeployment "github.com/smartcontractkit/chainlink/deployment/ccip"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	clclient "github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -120,12 +118,15 @@ func NewLocalDevEnvironment(
 
 	envNodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
-	_, err = changeset.DeployHomeChain(lggr, *e, e.ExistingAddresses, chains[homeChainSel],
-		changeset.NewTestRMNStaticConfig(),
-		changeset.NewTestRMNDynamicConfig(),
-		changeset.NewTestNodeOperator(chains[homeChainSel].DeployerKey.From),
-		map[string][][32]byte{
-			"NodeOperator": envNodes.NonBootstraps().PeerIDs(),
+	_, err = changeset.DeployHomeChain(*e,
+		changeset.DeployHomeChainConfig{
+			HomeChainSel:     homeChainSel,
+			RMNStaticConfig:  changeset.NewTestRMNStaticConfig(),
+			RMNDynamicConfig: changeset.NewTestRMNDynamicConfig(),
+			NodeOperators:    changeset.NewTestNodeOperator(chains[homeChainSel].DeployerKey.From),
+			NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
+				"NodeOperator": envNodes.NonBootstraps().PeerIDs(),
+			},
 		},
 	)
 	require.NoError(t, err)
@@ -152,7 +153,7 @@ func NewLocalDevEnvironment(
 	require.NoError(t, err)
 	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook))
 
-	state, err := ccipdeployment.LoadOnchainState(*e)
+	state, err := changeset.LoadOnchainState(*e)
 	require.NoError(t, err)
 
 	var endpoint string
@@ -162,15 +163,15 @@ func NewLocalDevEnvironment(
 
 	tokenConfig := changeset.NewTestTokenConfig(state.Chains[feedSel].USDFeeds)
 	// Apply migration
-	output, err = changeset.InitialDeploy(*e, ccipdeployment.DeployCCIPContractConfig{
+	output, err = changeset.InitialDeploy(*e, changeset.DeployCCIPContractConfig{
 		HomeChainSel:   homeChainSel,
 		FeedChainSel:   feedSel,
 		ChainsToDeploy: e.AllChainSelectors(),
 		TokenConfig:    tokenConfig,
 		OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
-		USDCConfig: ccipdeployment.USDCConfig{
+		USDCConfig: changeset.USDCConfig{
 			Enabled: true,
-			USDCAttestationConfig: ccipdeployment.USDCAttestationConfig{
+			USDCAttestationConfig: changeset.USDCAttestationConfig{
 				API:         endpoint,
 				APITimeout:  commonconfig.MustNewDuration(time.Second),
 				APIInterval: commonconfig.MustNewDuration(500 * time.Millisecond),
@@ -262,7 +263,7 @@ func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv changeset.DeployedE
 	bootstrappers := nodes.BootstrapLocators()
 
 	// Just set all RMN nodes to support all chains.
-	state, err := ccipdeployment.LoadOnchainState(tenv.Env)
+	state, err := changeset.LoadOnchainState(tenv.Env)
 	require.NoError(t, err)
 	var chainParams []devenv.ChainParam
 	var remoteChains []devenv.RemoteChains
