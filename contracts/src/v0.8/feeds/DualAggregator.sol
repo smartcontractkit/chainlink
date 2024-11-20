@@ -59,10 +59,10 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
     bool isLatestSecondary; // ───────────╯ Whether the latest report was secondary or not
   }
 
-  // Mapping containing the transmitter information of each transmitter address.
+  /// @notice mapping containing the transmitter information of each transmitter address.
   mapping(address transmitter => Transmitter) internal s_transmitters;
 
-  // Mapping containing the signer information of each signer address.
+  /// @notice mapping containing the signer information of each signer address.
   mapping(address signer => Signer) internal s_signers;
 
   /// @notice s_signersList contains the signing address of each oracle.
@@ -77,26 +77,31 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
   /// i.e. the oracle gets (latestAggregatorRoundId - rewardFromAggregatorRoundId) * reward.
   uint32[MAX_NUM_ORACLES] internal s_rewardFromAggregatorRoundId;
 
-  // Latest setted config.
+  /// @notice latest setted config.
   bytes32 internal s_latestConfigDigest;
 
-  // Overhead incurred by accounting logic.
+  /// @notice overhead incurred by accounting logic.
   uint24 internal s_accountingGas;
 
-  // Fields used on the hot path.
+  /// @notice most common fields used on the hot path.
   HotVars internal s_hotVars;
 
-  // Lowest answer the system is allowed to report in response to transmissions.
+  /// @notice lowest answer the system is allowed to report in response to transmissions.
   int192 public immutable i_minAnswer;
-  // Highest answer the system is allowed to report in response to transmissions.
+
+  /// @notice highest answer the system is allowed to report in response to transmissions.
   int192 public immutable i_maxAnswer;
 
   /// @param link address of the LINK contract.
   /// @param minAnswer_ lowest answer the median of a report is allowed to be.
   /// @param maxAnswer_ highest answer the median of a report is allowed to be.
+  /// @param billingAccessController access controller for managing the billing.
   /// @param requesterAccessController access controller for requesting new rounds.
   /// @param decimals_ answers are stored in fixed-point format, with this many digits of precision.
   /// @param description_ short human-readable description of observable this contract's answers pertain to.
+  /// @param secondaryProxy_ proxy address to manage the secondary reports.
+  /// @param cutoffTime_ timetamp to define the window in which a secondary report is valid.
+  /// @param maxSyncIterations_ max iterations the secondary proxy will be able to loop to sync with the primary rounds.
   constructor(
     LinkTokenInterface link,
     int192 minAnswer_,
@@ -130,6 +135,7 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
   // │                  OCR2Abstract Configuration                  │
   // ================================================================
 
+  // SetConfig information
   struct SetConfigArgs {
     uint64 offchainConfigVersion; // ─╮ OffchainConfig version.
     uint8 f; // ──────────────────────╯ Faulty Oracles amount.
@@ -140,7 +146,6 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
   }
 
   error FMustBePositive();
-
   error TooManyOracles();
   error OracleLengthMismatch();
   error FaultyOracleFTooHigh();
@@ -148,14 +153,16 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
   error RepeatedSignerAddress();
   error RepeatedTransmitterAddress();
 
-  // Incremented each time a new config is posted. This count is incorporated
-  // into the config digest to prevent replay attacks.
+  /// @notice incremented each time a new config is posted. This count is incorporated
+  /// into the config digest to prevent replay attacks.
   uint32 internal s_configCount;
 
-  // Makes it easier for offchain systems to extract config from logs.
+  /// @notice makes it easier for offchain systems to extract config from logs.
   uint32 internal s_latestConfigBlockNumber;
 
-  // Left as a function so this check can be disabled in derived contracts.
+  /// @notice check if `f` is a positive number.
+  /// @dev left as a function so this check can be disabled in derived contracts.
+  /// @param f amount of faulty oracles to check.
   function _requirePositiveF(
     uint256 f
   ) internal pure virtual {
@@ -268,8 +275,9 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
     return (s_configCount, s_latestConfigBlockNumber, s_latestConfigDigest);
   }
 
-  /// @return list of addresses permitted to transmit reports to this contract.
+  /// @notice get the transmitters list.
   /// @dev The list will match the order used to specify the transmitter during setConfig.
+  /// @return s_transmittersList list of addresses permitted to transmit reports to this contract.
   function getTransmitters() external view returns (address[] memory) {
     return s_transmittersList;
   }
@@ -298,12 +306,13 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
 
   error InsufficientGas();
 
+  /// @notice contstant exact gas cushion defined to do a call.
   uint16 private constant CALL_WITH_EXACT_GAS_CUSHION = 5_000;
 
-  // Validator configuration.
+  /// @notice validator configuration.
   ValidatorConfig private s_validatorConfig;
 
-  /// @notice validator configuration.
+  /// @notice get the validator configuration.
   /// @return validator validator contract.
   /// @return gasLimit gas limit for validate calls.
   function getValidatorConfig() external view returns (AggregatorValidatorInterface validator, uint32 gasLimit) {
@@ -311,10 +320,10 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
     return (vc.validator, vc.gasLimit);
   }
 
-  // @notice sets validator configuration.
-  // @dev set newValidator to 0x0 to disable validate calls.
-  // @param newValidator address of the new validator contract.
-  // @param newGasLimit new gas limit for validate calls.
+  /// @notice sets validator configuration.
+  /// @dev set newValidator to 0x0 to disable validate calls.
+  /// @param newValidator address of the new validator contract.
+  /// @param newGasLimit new gas limit for validate calls.
   function setValidatorConfig(AggregatorValidatorInterface newValidator, uint32 newGasLimit) public onlyOwner {
     ValidatorConfig memory previous = s_validatorConfig;
 
@@ -325,6 +334,9 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
     }
   }
 
+  /// @notice validate the answer against the validator configuration.
+  /// @param aggregatorRoundId report round id to validate.
+  /// @param answer report answer to validate.
   function _validateAnswer(uint32 aggregatorRoundId, int256 answer) private {
     ValidatorConfig memory vc = s_validatorConfig;
 
@@ -354,7 +366,7 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
   // │                       RequestNewRound                        │
   // ================================================================
 
-  // Contract address with AccessController Interface.
+  /// @notice contract address with AccessController Interface.
   AccessControllerInterface internal s_requesterAccessController;
 
   /// @notice emitted when a new requester access controller contract is set.
@@ -372,17 +384,18 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
   error OnlyOwnerAndRequesterCanCall();
 
   /// @notice address of the requester access controller contract.
-  /// @return requester access controller address.
+  /// @return s_requesterAccessController requester access controller address.
   function getRequesterAccessController() external view returns (AccessControllerInterface) {
     return s_requesterAccessController;
   }
 
-  /// @notice sets the requester access controller.
+  /// @notice sets the new requester access controller.
   /// @param requesterAccessController designates the address of the new requester access controller.
   function setRequesterAccessController(
     AccessControllerInterface requesterAccessController
   ) public onlyOwner {
     AccessControllerInterface oldController = s_requesterAccessController;
+
     if (requesterAccessController != oldController) {
       s_requesterAccessController = AccessControllerInterface(requesterAccessController);
       emit RequesterAccessControllerSet(oldController, requesterAccessController);
@@ -390,7 +403,8 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
   }
 
   /// @notice immediately requests a new round.
-  /// @return aggregatorRoundId of the next round. Note: The report for this round may have been
+  /// @dev access control provided by requesterAccessController.
+  /// @return aggregatorRoundId round id of the next round. Note: The report for this round may have been
   /// transmitted (but not yet mined) *before* requestNewRound() was even called. There is *no*
   /// guarantee of causality between the request and the report at aggregatorRoundId.
   function requestNewRound() external returns (uint80) {
@@ -440,16 +454,16 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
   /// @notice revert when the loop reaches the max sync iterations amount.
   error MaxSyncIterations();
 
-  // Mapping containing the Transmission records of each round id.
+  /// @notice mapping containing the Transmission records of each round id.
   mapping(uint32 aggregatorRoundId => Transmission) internal s_transmissions;
 
-  // Secondary proxy address, used to detect who's calling the contract methods.
+  /// @notice secondary proxy address, used to detect who's calling the contract methods.
   address internal immutable i_secondaryProxy;
 
-  // Cutoff time defines the time window in which a secondary report is valid.
+  /// @notice cutoff time defines the time window in which a secondary report is valid.
   uint32 internal s_cutoffTime;
 
-  // Max iterations the secondary proxy will be able to loop to sync with the primary rounds.
+  /// @notice max iterations the secondary proxy will be able to loop to sync with the primary rounds.
   uint32 internal s_maxSyncIterations;
 
   /// @notice sets the max time cutoff.
@@ -471,6 +485,7 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
   }
 
   /// @notice sync data with the primary rounds, return the freshest valid round id.
+  /// @return roundId synced round id with the primary feed.
   function _getSyncPrimaryRound() internal view returns (uint32 roundId) {
     // Get the latest round id and the max iterations.
     uint32 latestAggregatorRoundId = s_hotVars.latestAggregatorRoundId;
@@ -500,6 +515,8 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
 
   /// @notice check if a report has already been transmitted.
   /// @param report the report to check.
+  /// @return exist wether the report exist or not.
+  /// @return roundId the round id where the report was found.
   function _doesReportExist(
     Report memory report
   ) internal view returns (bool exist, uint32 roundId) {
@@ -528,7 +545,8 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
     return (false, 0);
   }
 
-  /// @notice Aggregator round (NOT OCR round) in which last valid report was transmitted.
+  /// @notice aggregator round in which the latest report was conceded depending on the caller.
+  /// @return roundId the latest valid round id.
   function _getLatestRound() internal view returns (uint32) {
     // Get the latest round ids.
     uint32 latestAggregatorRoundId = s_hotVars.latestAggregatorRoundId;
@@ -584,7 +602,6 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
   );
 
   error CalldataLengthMismatch();
-
   error StaleReport();
   error UnauthorizedTransmitter();
   error ConfigDigestMismatch();
@@ -592,16 +609,13 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
   error SignaturesOutOfRegistration();
   error SignatureError();
   error DuplicateSigner();
-
   error OnlyCallableByEOA();
-
   error ReportLengthMismatch();
-
   error NumObservationsOutOfBounds();
   error TooFewValuesToTrustMedian();
   error MedianIsOutOfMinMaxRange();
 
-  // The constant-length components of the msg.data sent to transmit.
+  /// @notice the constant-length components of the msg.data sent to transmit.
   // See the "If we wanted to call sam" example on for example reasoning
   // https://solidity.readthedocs.io/en/v0.7.2/abi-spec.html
   uint256 private constant TRANSMIT_MSGDATA_CONSTANT_LENGTH_COMPONENT = 4 // Function selector.
@@ -615,7 +629,9 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
     + 32 // Word containing length of ss.
     + 0; // Placeholder.
 
-  // Decodes a serialized report into a Report struct.
+  /// @notice decodes a serialized report into a Report struct.
+  /// @param rawReport serialized report in raw format.
+  /// @return report the decoded report in Report struct format.
   function _decodeReport(
     bytes memory rawReport
   ) internal pure returns (Report memory) {
@@ -640,10 +656,13 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
     });
   }
 
-  // Make sure the calldata length matches the inputs. Otherwise, the
-  // transmitter could append an arbitrarily long (up to gas-block limit)
-  // string of 0 bytes, which we would reimburse at a rate of 16 gas/byte, but
-  // which would only cost the transmitter 4 gas/byte.
+  /// @notice make sure the calldata length matches the inputs. Otherwise, the
+  /// transmitter could append an arbitrarily long (up to gas-block limit)
+  /// string of 0 bytes, which we would reimburse at a rate of 16 gas/byte, but
+  /// which would only cost the transmitter 4 gas/byte.
+  /// @param reportLength the length of the serialized report.
+  /// @param rsLength the length of the rs signatures.
+  /// @param ssLength the length of the ss signatures.
   function _requireExpectedMsgDataLength(uint256 reportLength, uint256 rsLength, uint256 ssLength) private pure {
     // Calldata will never be big enough to make this overflow.
     uint256 expected = TRANSMIT_MSGDATA_CONSTANT_LENGTH_COMPONENT + reportLength // One byte per entry in report.
@@ -672,7 +691,12 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
     _transmit(reportContext, report, rs, ss, rawVs, false);
   }
 
-  // Secondary proxy transmit entrypoint, call the internal transmit function with the isSecondary flag.
+  /// @notice secondary proxy transmit entrypoint, call the internal transmit function with the isSecondary flag.
+  /// @param reportContext serialized report context containing configDigest, epoch, round and extraHash.
+  /// @param report serialized report, which the signatures are signing.
+  /// @param rs i-th element is the R components of the i-th signature on report. Must have at most maxNumOracles entries.
+  /// @param ss i-th element is the S components of the i-th signature on report. Must have at most maxNumOracles entries.
+  /// @param rawVs i-th element is the the V component of the i-th signature.
   function transmitSecondary(
     // reportContext consists of:
     // reportContext[0]: ConfigDigest.
@@ -688,7 +712,13 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
     _transmit(reportContext, report, rs, ss, rawVs, true);
   }
 
-  // Internal transmit function with all the transmission logic.
+  /// @notice internal transmit function, is called to post a new report to the contract.
+  /// @param reportContext serialized report context containing configDigest, epoch, round and extraHash.
+  /// @param report serialized report, which the signatures are signing.
+  /// @param rs i-th element is the R components of the i-th signature on report. Must have at most maxNumOracles entries.
+  /// @param ss i-th element is the S components of the i-th signature on report. Must have at most maxNumOracles entries.
+  /// @param rawVs i-th element is the the V component of the i-th signature.
+  /// @param isSecondary wether the transmission was sent by the secondary proxy or not.
   function _transmit(
     // reportContext consists of:
     // reportContext[0]: ConfigDigest.
@@ -753,7 +783,11 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
     _payTransmitter(hotVars, report_.juelsPerFeeCoin, uint32(initialGas));
   }
 
-  // Helper function to validate the report data.
+  /// @notice helper function to validate the report data.
+  /// @param reportContext serialized report context containing configDigest, epoch, round and extraHash.
+  /// @param reportLength the length of the serialized report.
+  /// @param rsLength the length of the rs signatures.
+  /// @param ssLength the length of the ss signatures.
   function _validateReport(
     bytes32[3] calldata reportContext,
     uint256 reportLength,
@@ -778,7 +812,12 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
     }
   }
 
-  // Helper function to verify the report signatures.
+  /// @notice helper function to verify the report signatures.
+  /// @param reportContext serialized report context containing configDigest, epoch, round and extraHash.
+  /// @param report serialized report, which the signatures are signing.
+  /// @param rs i-th element is the R components of the i-th signature on report. Must have at most maxNumOracles entries.
+  /// @param ss i-th element is the S components of the i-th signature on report. Must have at most maxNumOracles entries.
+  /// @param rawVs i-th element is the the V component of the i-th signature.
   function _verifySignatures(
     bytes32[3] calldata reportContext,
     bytes calldata report,
@@ -842,6 +881,9 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
     return (false, s_latestConfigDigest, uint32(s_hotVars.latestEpochAndRound >> 8));
   }
 
+  /// @notice evaluate the serialized report length and compare it with the expected length.
+  /// @param report serialized report, which the signatures are signing.
+  /// @param observations decoded observations from the report.
   function _requireExpectedReportLength(bytes memory report, int192[] memory observations) private pure {
     uint256 expected = 32 // ObservationsTimestamp.
       + 32 // RawObservers.
@@ -853,6 +895,12 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
     if (report.length != expected) revert ReportLengthMismatch();
   }
 
+  /// @notice report a new transmission and emit the necessary events.
+  /// @param hotVars most common fields used in the hot path.
+  /// @param configDigest digested configuration.
+  /// @param epochAndRound report epoch and round.
+  /// @param report decoded report in Report struct format.
+  /// @param isSecondary wether the report was sent by the secondary proxy or not.
   function _report(
     HotVars memory hotVars,
     bytes32 configDigest,
@@ -916,22 +964,26 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
   // ================================================================
 
   /// @notice median from the most recent report.
+  /// @return answer the latest answer.
   function latestAnswer() public view virtual override returns (int256) {
     return s_transmissions[_getLatestRound()].answer;
   }
 
   /// @notice timestamp of block in which last report was transmitted.
+  /// @return recordedTimestamp the latest recorded timestamp.
   function latestTimestamp() public view virtual override returns (uint256) {
     return s_transmissions[_getLatestRound()].recordedTimestamp;
   }
 
   /// @notice Aggregator round (NOT OCR round) in which last report was transmitted.
+  /// @return roundId the latest round id.
   function latestRound() public view virtual override returns (uint256) {
     return _getLatestRound();
   }
 
   /// @notice median of report from given aggregator round (NOT OCR round).
   /// @param roundId the aggregator round of the target report.
+  /// @return answer the answer of the round id.
   function getAnswer(
     uint256 roundId
   ) public view virtual override returns (int256) {
@@ -941,6 +993,7 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
 
   /// @notice timestamp of block in which report from given aggregator round was transmitted.
   /// @param roundId aggregator round (NOT OCR round) of target report.
+  /// @return recordedTimestamp the recorded timestamp of the round id.
   function getTimestamp(
     uint256 roundId
   ) public view virtual override returns (uint256) {
@@ -954,30 +1007,35 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
 
   error RoundNotFound();
 
+  /// @notice amount of decimals.
   uint8 private immutable i_decimals;
 
   /// @notice aggregator contract version.
   uint256 public constant VERSION = 6;
 
-  // Human readable description.
+  /// @notice human readable description.
   string internal s_description;
 
-  /// @return answers are stored in fixed-point format, with this many digits of precision.
+  /// @notice get the amount of decimals.
+  /// @return i_decimals amount of decimals.
   function decimals() public view virtual override returns (uint8) {
     return i_decimals;
   }
 
+  /// @notice get the contract version.
+  /// @return VERSION the contract version.
   function version() public view virtual override returns (uint256) {
     return VERSION;
   }
 
   /// @notice human-readable description of observable this contract is reporting on.
+  /// @return s_description the contract description.
   function description() public view virtual override returns (string memory) {
     return s_description;
   }
 
   /// @notice details for the given aggregator round.
-  /// @param roundId target aggregator round (NOT OCR round). Must fit in uint32.
+  /// @param roundId target aggregator round, must fit in uint32.
   /// @return roundId_ roundId.
   /// @return answer median of report from given roundId.
   /// @return startedAt timestamp of when observations were made offchain.
@@ -1034,20 +1092,20 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
 
   error TransferRemainingFundsFailed();
 
-  // We assume that the token contract is correct. This contract is not written
-  // to handle misbehaving ERC20 tokens!
+  /// @notice we assume that the token contract is correct. This contract is not written
+  /// to handle misbehaving ERC20 tokens!
   LinkTokenInterface internal s_linkToken;
 
   /// @notice sets the LINK token contract used for paying oracles.
-  /// @param linkToken the address of the LINK token contract.
-  /// @param recipient remaining funds from the previous token contract are transferred
-  /// here.
   /// @dev this function will return early (without an error) without changing any state
   /// if linkToken equals getLinkToken().
   /// @dev this will trigger a payout so that a malicious owner cannot take from oracles
   /// what is already owed to them.
   /// @dev we assume that the token contract is correct. This contract is not written
   /// to handle misbehaving ERC20 tokens!
+  /// @param linkToken the address of the LINK token contract.
+  /// @param recipient remaining funds from the previous token contract are transferred
+  /// here.
   function setLinkToken(LinkTokenInterface linkToken, address recipient) external onlyOwner {
     LinkTokenInterface oldLinkToken = s_linkToken;
     if (linkToken == oldLinkToken) {
@@ -1082,14 +1140,16 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
   /// @param current the address of the new access-control contract.
   event BillingAccessControllerSet(AccessControllerInterface old, AccessControllerInterface current);
 
-  // Controls who can change billing parameters. A billingAdmin is not able to
-  // affect any OCR protocol settings and therefore cannot tamper with the
-  // liveness or integrity of a data feed. However, a billingAdmin can set
-  // faulty billing parameters causing oracles to be underpaid, or causing them
-  // to be paid so much that further calls to setConfig, setBilling,
-  // setLinkToken will always fail due to the contract being underfunded.
+  /// @notice controls who can change billing parameters. A billingAdmin is not able to
+  /// affect any OCR protocol settings and therefore cannot tamper with the
+  /// liveness or integrity of a data feed. However, a billingAdmin can set
+  /// faulty billing parameters causing oracles to be underpaid, or causing them
+  /// to be paid so much that further calls to setConfig, setBilling,
+  /// setLinkToken will always fail due to the contract being underfunded.
   AccessControllerInterface internal s_billingAccessController;
 
+  /// @notice internal function to set a new billingAccessController.
+  /// @param billingAccessController new billingAccessController contract address.
   function _setBillingAccessController(
     AccessControllerInterface billingAccessController
   ) internal {
@@ -1102,7 +1162,6 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
 
   /// @notice sets billingAccessController.
   /// @param _billingAccessController new billingAccessController contract address.
-  /// @dev only owner can call this.
   function setBillingAccessController(
     AccessControllerInterface _billingAccessController
   ) external onlyOwner {
@@ -1110,7 +1169,7 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
   }
 
   /// @notice gets billingAccessController.
-  /// @return address of billingAccessController contract.
+  /// @return s_billingAccessController address of billingAccessController contract.
   function getBillingAccessController() external view returns (AccessControllerInterface) {
     return s_billingAccessController;
   }
@@ -1136,12 +1195,12 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
   error OnlyOwnerAndBillingAdminCanCall();
 
   /// @notice sets billing parameters.
+  /// @dev access control provided by billingAccessController.
   /// @param maximumGasPriceGwei highest gas price for which transmitter will be compensated.
   /// @param reasonableGasPriceGwei transmitter will receive reward for gas prices under this value.
   /// @param observationPaymentGjuels reward to oracle for contributing an observation to a successfully transmitted report.
   /// @param transmissionPaymentGjuels reward to transmitter of a successful report.
   /// @param accountingGas gas overhead incurred by accounting logic.
-  /// @dev access control provided by billingAccessController.
   function setBilling(
     uint32 maximumGasPriceGwei,
     uint32 reasonableGasPriceGwei,
@@ -1205,9 +1264,7 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
   );
 
   error OnlyPayeeCanWithdraw();
-
   error InsufficientFunds();
-
   error InsufficientBalance();
 
   /// @notice withdraws an oracle's payment from the contract.
@@ -1238,7 +1295,8 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
     return juelsAmount;
   }
 
-  // Pays out transmitter's oracle balance to the corresponding payee, and zeros it out.
+  /// @notice pays out transmitter's oracle balance to the corresponding payee, and zeros it out.
+  /// @param transmitterAddress the transmitter address of the oracle.
   function _payOracle(
     address transmitterAddress
   ) internal {
@@ -1260,10 +1318,9 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
     }
   }
 
-  // Pays out all transmitters oracles, and zeros out their balances.
-  //
-  // It's much more gas-efficient to do this as a single operation, to avoid
-  // hitting storage too much.
+  /// @notice pays out all transmitters oracles, and zeros out their balances.
+  /// It's much more gas-efficient to do this as a single operation, to avoid
+  /// hitting storage too much.
   function _payOracles() internal {
     unchecked {
       LinkTokenInterface linkToken = s_linkToken;
@@ -1298,9 +1355,9 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
   }
 
   /// @notice withdraw any available funds left in the contract, up to amount, after accounting for the funds due to participants in past reports.
+  /// @dev access control provided by billingAccessController.
   /// @param recipient address to send funds to.
   /// @param amount maximum amount to withdraw, denominated in LINK-wei.
-  /// @dev access control provided by billingAccessController.
   function withdrawFunds(address recipient, uint256 amount) external {
     if (msg.sender != owner() && !s_billingAccessController.hasAccess(msg.sender, msg.data)) {
       revert OnlyOwnerAndBillingAdminCanCall();
@@ -1315,7 +1372,8 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
     }
   }
 
-  // Total LINK due to participants in past reports (denominated in Juels).
+  /// @notice total LINK due to participants in past reports (denominated in Juels).
+  /// @return linkDue total LINK due.
   function _totalLinkDue() internal view returns (uint256 linkDue) {
     // Argument for overflow safety: We do all computations in
     // uint256s. The inputs to linkDue are:
@@ -1344,7 +1402,7 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
   }
 
   /// @notice allows oracles to check that sufficient LINK balance is available.
-  /// @return availableBalance LINK available on this contract, after accounting for outstanding obligations. can become negative.
+  /// @return availableBalance LINK available on this contract, after accounting for outstanding obligations, can become negative.
   function linkAvailableForPayment() external view returns (int256 availableBalance) {
     // There are at most one billion LINK, so this cast is safe.
     int256 balance = int256(s_linkToken.balanceOf(address(this)));
@@ -1357,6 +1415,7 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
 
   /// @notice number of observations oracle is due to be reimbursed for.
   /// @param transmitterAddress address used by oracle for signing or transmitting reports.
+  /// @return observations difference between the latest oracle reimbursement round id and the latest hotVars round id.
   function oracleObservationCount(
     address transmitterAddress
   ) external view returns (uint32) {
@@ -1371,7 +1430,11 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
 
   error LeftGasCannotExceedInitialGas();
 
-  // Gas price at which the transmitter should be reimbursed, in gwei/gas.
+  /// @notice gas price at which the transmitter should be reimbursed, in gwei/gas.
+  /// @param txGasPriceGwei transaction gas price in ETH-gwei units.
+  /// @param reasonableGasPriceGwei reasonable gas price in ETH-gwei units.
+  /// @param maximumGasPriceGwei maximum gas price in ETH-gwei units.
+  /// @return gasPrice resulting gas price to reimburse.
   function _reimbursementGasPriceGwei(
     uint256 txGasPriceGwei,
     uint256 reasonableGasPriceGwei,
@@ -1392,7 +1455,13 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
     }
   }
 
-  // Gas reimbursement due the transmitter, in wei.
+  /// @notice gas reimbursement due the transmitter, in wei.
+  /// @param initialGas initial remaining gas.
+  /// @param gasPriceGwei gas price in ETH-gwei units.
+  /// @param callDataGas calldata gas cost.
+  /// @param accountingGas overhead incurred by accounting logic.
+  /// @param leftGas actual remaining gas.
+  /// @return fullGasCostWei final calculated gas cost in wei.
   function _transmitterGasCostWei(
     uint256 initialGas,
     uint256 gasPriceGwei,
@@ -1411,9 +1480,12 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
     }
   }
 
+  /// @notice internal function to pay the transmitter on the path for transmissions. Note: We'd rather pay out
+  /// a wrong reward than risk a liveness failure due to a revert.
+  /// @param hotVars most common fields used in the hot path.
+  /// @param juelsPerFeeCoin exchange rate between feeCoin (e.g. ETH on Ethereum) and LINK, denominated in juels.
+  /// @param initialGas initial remaining gas.
   function _payTransmitter(HotVars memory hotVars, int192 juelsPerFeeCoin, uint32 initialGas) internal virtual {
-    // This happens on the path for transmissions. We'd rather pay out
-    // a wrong reward than risk a liveness failure due to a revert.
     unchecked {
       // We can't deal with negative juelsPerFeeCoin, better to just not pay.
       if (juelsPerFeeCoin < 0) {
@@ -1466,28 +1538,26 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
 
   /// @notice emitted when a transfer of an oracle's payee address has been completed.
   /// @param transmitter address from which the oracle sends reports to the transmit method.
+  /// @param previous the previous payee address for the oracle.
   /// @param current the payee address for the oracle, prior to this setting.
   event PayeeshipTransferred(address indexed transmitter, address indexed previous, address indexed current);
 
   error TransmittersSizeNotEqualPayeeSize();
   error PayeeAlreadySent();
-
   error OnlyCurrentPayeeCanUpdate();
   error CannotTransferPayeeToSelf();
-
   error OnlyProposedPayeesCanAccept();
 
-  // Addresses at which oracles want to receive payments, by transmitter address.
+  /// @notice addresses at which oracles want to receive payments, by transmitter address.
   mapping(address transmitter => address paymentAddress) internal s_payees;
 
-  // Payee addresses which must be approved by the owner.
+  /// @notice payee addresses which must be approved by the owner.
   mapping(address transmitter => address paymentAddress) internal s_proposedPayees;
 
   /// @notice sets the payees for transmitting addresses.
+  /// @dev cannot be used to change payee addresses, only to initially populate them.
   /// @param transmitters addresses oracles use to transmit the reports.
   /// @param payees addresses of payees corresponding to list of transmitters.
-  /// @dev must be called by owner.
-  /// @dev cannot be used to change payee addresses, only to initially populate them.
   function setPayees(address[] calldata transmitters, address[] calldata payees) external onlyOwner {
     if (transmitters.length != payees.length) revert TransmittersSizeNotEqualPayeeSize();
 
@@ -1506,9 +1576,9 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
   }
 
   /// @notice first step of payeeship transfer (safe transfer pattern).
+  /// @dev can only be called by payee addresses.
   /// @param transmitter transmitter address of oracle whose payee is changing.
   /// @param proposed new payee address.
-  /// @dev can only be called by payee address.
   function transferPayeeship(address transmitter, address proposed) external {
     if (msg.sender != s_payees[transmitter]) {
       revert OnlyCurrentPayeeCanUpdate();
@@ -1524,8 +1594,8 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
   }
 
   /// @notice second step of payeeship transfer (safe transfer pattern).
-  /// @param transmitter transmitter address of oracle whose payee is changing.
   /// @dev can only be called by proposed new payee address.
+  /// @param transmitter transmitter address of oracle whose payee is changing.
   function acceptPayeeship(
     address transmitter
   ) external {
@@ -1542,6 +1612,10 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
   // │                       Helper Functions                       │
   // ================================================================
 
+  /// @notice helper function to compare two numbers and return the smallest number.
+  /// @param a first number.
+  /// @param b second number.
+  /// @return result smallest number.
   function _min(uint256 a, uint256 b) internal pure returns (uint256) {
     unchecked {
       if (a < b) return a;
