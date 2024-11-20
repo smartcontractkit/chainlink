@@ -2,6 +2,7 @@ package test_env
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"slices"
@@ -279,9 +280,15 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 
 					processFn := func(log logstream.LogContent, count *int) error {
 						countSoFar := count
+						if *countSoFar < 0 {
+							return fmt.Errorf("negative count: %d", *countSoFar)
+						}
 						newCount, err := testreporters.ScanLogLine(b.l, string(log.Content), b.chainlinkNodeLogScannerSettings.FailingLogLevel, uint(*countSoFar), b.chainlinkNodeLogScannerSettings.Threshold, b.chainlinkNodeLogScannerSettings.AllowedMessages)
 						if err != nil {
 							return err
+						}
+						if newCount > math.MaxInt {
+							return fmt.Errorf("new count overflows int: %d", newCount)
 						}
 						*count = int(newCount)
 						return nil
@@ -494,7 +501,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 	b.te.EVMNetworks = append(b.te.EVMNetworks, &networkConfig)
 
 	if b.isEVM {
-		if b.evmNetworkOption != nil && len(b.evmNetworkOption) > 0 {
+		if len(b.evmNetworkOption) > 0 {
 			for _, fn := range b.evmNetworkOption {
 				fn(&networkConfig)
 			}
