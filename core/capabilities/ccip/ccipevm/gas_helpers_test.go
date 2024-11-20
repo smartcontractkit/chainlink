@@ -26,17 +26,17 @@ func Test_calculateMessageMaxGas(t *testing.T) {
 		{
 			name: "base",
 			args: args{dataLen: 5, numTokens: 2, extraArgs: makeExtraArgsV1(200_000), tokenGasOverhead: 10},
-			want: 1_022_284,
+			want: 1_372_284,
 		},
 		{
 			name: "large",
 			args: args{dataLen: 1000, numTokens: 1000, extraArgs: makeExtraArgsV1(200_000), tokenGasOverhead: 1},
-			want: 346_678_520,
+			want: 347_028_520,
 		},
 		{
 			name: "overheadGas test 1",
 			args: args{dataLen: 0, numTokens: 0, extraArgs: makeExtraArgsV1(200_000), tokenGasOverhead: 100},
-			want: 319_920,
+			want: 669_920,
 		},
 		{
 			name: "overheadGas test 2",
@@ -46,7 +46,7 @@ func Test_calculateMessageMaxGas(t *testing.T) {
 				extraArgs:        makeExtraArgsV1(200_000),
 				tokenGasOverhead: 2,
 			},
-			want: 675_950,
+			want: 1_025_950,
 		},
 		{
 			name: "allowOOO set to true makes no difference to final gas estimate",
@@ -56,7 +56,7 @@ func Test_calculateMessageMaxGas(t *testing.T) {
 				extraArgs:        makeExtraArgsV2(200_000, true),
 				tokenGasOverhead: 100,
 			},
-			want: 1_022_464,
+			want: 1_372_464,
 		},
 		{
 			name: "allowOOO set to false makes no difference to final gas estimate",
@@ -66,7 +66,7 @@ func Test_calculateMessageMaxGas(t *testing.T) {
 				extraArgs:        makeExtraArgsV2(200_000, false),
 				tokenGasOverhead: 100,
 			},
-			want: 1_022_464,
+			want: 1_372_464,
 		},
 	}
 
@@ -104,7 +104,7 @@ func TestCalculateMaxGas(t *testing.T) {
 			numberOfTokens:   0,
 			extraArgs:        makeExtraArgsV1(200_000),
 			tokenGasOverhead: 10,
-			want:             322_992,
+			want:             672_992,
 		},
 		{
 			name:             "maxGasOverheadGas 2",
@@ -113,7 +113,7 @@ func TestCalculateMaxGas(t *testing.T) {
 			numberOfTokens:   1,
 			extraArgs:        makeExtraArgsV1(200_000),
 			tokenGasOverhead: 10,
-			want:             678_518,
+			want:             1_028_518,
 		},
 		{
 			name:             "v2 extra args",
@@ -122,7 +122,7 @@ func TestCalculateMaxGas(t *testing.T) {
 			numberOfTokens:   1,
 			extraArgs:        makeExtraArgsV2(200_000, true),
 			tokenGasOverhead: 10,
-			want:             678_518,
+			want:             1_028_518,
 		},
 	}
 

@@ -13,9 +13,9 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
-	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/osutil"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipdeployment "github.com/smartcontractkit/chainlink/deployment/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
@@ -26,12 +26,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-// Set false to run the RMN tests
-const skipRmnTest = true
-
-func TestRMN_TwoMessagesOnTwoLanes(t *testing.T) {
+func TestRMN_TwoMessagesOnTwoLanesIncludingBatching(t *testing.T) {
 	runRmnTestCase(t, rmnTestCase{
-		name:        "messages on two lanes",
+		name:        "messages on two lanes including batching",
 		waitForExec: true,
 		homeChainConfig: homeChainConfig{
 			f: map[int]int{chain0: 1, chain1: 1},
@@ -47,7 +44,7 @@ func TestRMN_TwoMessagesOnTwoLanes(t *testing.T) {
 		},
 		messagesToSend: []messageToSend{
 			{fromChainIdx: chain0, toChainIdx: chain1, count: 1},
-			{fromChainIdx: chain1, toChainIdx: chain0, count: 1},
+			{fromChainIdx: chain1, toChainIdx: chain0, count: 5},
 		},
 	})
 }
@@ -177,9 +174,6 @@ const (
 )
 
 func runRmnTestCase(t *testing.T, tc rmnTestCase) {
-	if skipRmnTest {
-		t.Skip("Local only")
-	}
 	require.NoError(t, os.Setenv("ENABLE_RMN", "true"))
 
 	envWithRMN, rmnCluster := testsetups.NewLocalDevEnvironmentWithRMN(t, logger.TestLogger(t), len(tc.rmnNodes))
@@ -205,8 +199,6 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	for _, rmnNodeInfo := range tc.rmnNodes {
 		rmn := rmnCluster.Nodes["rmn_"+strconv.Itoa(rmnNodeInfo.id)]
 
-		t.Log(rmnNodeInfo.id, rmn.Proxy.PeerID, rmn.RMN.OffchainPublicKey, rmn.RMN.EVMOnchainPublicKey)
-
 		var offchainPublicKey [32]byte
 		copy(offchainPublicKey[:], rmn.RMN.OffchainPublicKey)
 
@@ -215,14 +207,22 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 			OffchainPublicKey: offchainPublicKey,
 		})
 
-		rmnRemoteSigners = append(rmnRemoteSigners, rmn_remote.RMNRemoteSigner{
-			OnchainPublicKey: rmn.RMN.EVMOnchainPublicKey,
-			NodeIndex:        uint64(rmnNodeInfo.id),
-		})
+		if rmnNodeInfo.isSigner {
+			if rmnNodeInfo.id < 0 {
+				t.Fatalf("node id is negative: %d", rmnNodeInfo.id)
+			}
+			rmnRemoteSigners = append(rmnRemoteSigners, rmn_remote.RMNRemoteSigner{
+				OnchainPublicKey: rmn.RMN.EVMOnchainPublicKey,
+				NodeIndex:        uint64(rmnNodeInfo.id),
+			})
+		}
 	}
 
 	var rmnHomeSourceChains []rmn_home.RMNHomeSourceChain
 	for remoteChainIdx, remoteF := range tc.homeChainConfig.f {
+		if remoteF < 0 {
+			t.Fatalf("negative remote F: %d", remoteF)
+		}
 		// configure remote chain details on the home contract
 		rmnHomeSourceChains = append(rmnHomeSourceChains, rmn_home.RMNHomeSourceChain{
 			ChainSelector:       chainSelectors[remoteChainIdx],
@@ -294,6 +294,9 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 		remoteSel := chainSelectors[remoteCfg.chainIdx]
 		chState, ok := onChainState.Chains[remoteSel]
 		require.True(t, ok)
+		if remoteCfg.f < 0 {
+			t.Fatalf("negative F: %d", remoteCfg.f)
+		}
 		rmnRemoteConfig := rmn_remote.RMNRemoteConfig{
 			RmnHomeContractConfigDigest: activeDigest,
 			Signers:                     rmnRemoteSigners,
@@ -332,24 +335,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 		}
 	}
 
-	jobSpecs, err := ccipdeployment.NewCCIPJobSpecs(envWithRMN.Env.NodeIDs, envWithRMN.Env.Offchain)
-	require.NoError(t, err)
-
-	ctx := ccipdeployment.Context(t)
-
 	ccipdeployment.ReplayLogs(t, envWithRMN.Env.Offchain, envWithRMN.ReplayBlocks)
-
-	for nodeID, jobs := range jobSpecs {
-		for _, job := range jobs {
-			_, err := envWithRMN.Env.Offchain.ProposeJob(ctx,
-				&jobv1.ProposeJobRequest{
-					NodeId: nodeID,
-					Spec:   job,
-				})
-			require.NoError(t, err)
-		}
-	}
-
 	// Add all lanes
 	require.NoError(t, ccipdeployment.AddLanesForAll(envWithRMN.Env, onChainState))
 
@@ -361,15 +347,15 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 		toChain := chainSelectors[msg.toChainIdx]
 
 		for i := 0; i < msg.count; i++ {
-			seqNum := ccipdeployment.TestSendRequest(t, envWithRMN.Env, onChainState, fromChain, toChain, false, router.ClientEVM2AnyMessage{
+			msgSentEvent := ccipdeployment.TestSendRequest(t, envWithRMN.Env, onChainState, fromChain, toChain, false, router.ClientEVM2AnyMessage{
 				Receiver:     common.LeftPadBytes(onChainState.Chains[toChain].Receiver.Address().Bytes(), 32),
 				Data:         []byte("hello world"),
 				TokenAmounts: nil,
 				FeeToken:     common.HexToAddress("0x0"),
 				ExtraArgs:    nil,
 			})
-			expectedSeqNum[toChain] = seqNum
-			t.Logf("Sent message from chain %d to chain %d with seqNum %d", fromChain, toChain, seqNum)
+			expectedSeqNum[toChain] = msgSentEvent.SequenceNumber
+			t.Logf("Sent message from chain %d to chain %d with seqNum %d", fromChain, toChain, msgSentEvent.SequenceNumber)
 		}
 
 		zero := uint64(0)

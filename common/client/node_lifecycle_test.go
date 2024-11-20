@@ -395,7 +395,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		rpc.On("SubscribeToHeads", mock.Anything).Return(make(<-chan Head), sub, nil).Once()
 		expectedError := errors.New("failed to subscribe to finalized heads")
 		rpc.On("SubscribeToFinalizedHeads", mock.Anything).Return(nil, sub, expectedError).Once()
-		lggr, _ := logger.TestObserved(t, zap.DebugLevel)
+		lggr := logger.Test(t)
 		node := newDialedNode(t, testNodeOpts{
 			config: testNodeConfig{
 				finalizedBlockPollInterval: tests.TestInterval,

@@ -3,6 +3,7 @@ package smoke
 import (
 	"context"
 	"fmt"
+	"math"
 	"math/big"
 	"testing"
 	"time"
@@ -130,6 +131,9 @@ func executeBasicLogPollerTest(t *testing.T, logScannerSettings test_env.Chainli
 	// Save block number before starting to emit events, so that we can later use it when querying logs
 	sb, err := sethClient.Client.BlockNumber(testcontext.Get(t))
 	require.NoError(t, err, "Error getting latest block number")
+	if sb > math.MaxInt64 {
+		t.Fatalf("start block overflows int64: %d", sb)
+	}
 	startBlock := int64(sb)
 
 	l.Info().Int64("Starting Block", startBlock).Msg("STARTING EVENT EMISSION")
@@ -163,6 +167,9 @@ func executeBasicLogPollerTest(t *testing.T, logScannerSettings test_env.Chainli
 	chaosError := <-chaosDoneCh
 	require.NoError(t, chaosError, "Error encountered during chaos experiment")
 
+	if eb > math.MaxInt64 {
+		t.Fatalf("end block overflows int64: %d", eb)
+	}
 	// use ridciuously high end block so that we don't have to find out the block number of the last block in which logs were emitted
 	// as that's not trivial to do (i.e.  just because chain was at block X when log emission ended it doesn't mean all events made it to that block)
 	endBlock := int64(eb) + 10000
@@ -205,6 +212,9 @@ func executeLogPollerReplay(t *testing.T, consistencyTimeout string) {
 	// Save block number before starting to emit events, so that we can later use it when querying logs
 	sb, err := sethClient.Client.BlockNumber(testcontext.Get(t))
 	require.NoError(t, err, "Error getting latest block number")
+	if sb > math.MaxInt64 {
+		t.Fatalf("start block overflows int64: %d", sb)
+	}
 	startBlock := int64(sb)
 
 	l.Info().Int64("Starting Block", startBlock).Msg("STARTING EVENT EMISSION")
@@ -219,6 +229,9 @@ func executeLogPollerReplay(t *testing.T, consistencyTimeout string) {
 	eb, err := sethClient.Client.BlockNumber(testcontext.Get(t))
 	require.NoError(t, err, "Error getting latest block number")
 
+	if eb > math.MaxInt64 {
+		t.Fatalf("end block overflows int64: %d", eb)
+	}
 	endBlock, err := logpoller.GetEndBlockToWaitFor(int64(eb), *evmNetwork, cfg)
 	require.NoError(t, err, "Error getting end block to wait for")
 
@@ -282,7 +295,7 @@ type logPollerEnvironment struct {
 // deploying registry and log emitter contracts and registering log triggered upkeeps
 func prepareEnvironment(l zerolog.Logger, t *testing.T, testConfig *tc.TestConfig, logScannerSettings test_env.ChainlinkNodeLogScannerSettings) logPollerEnvironment {
 	cfg := testConfig.LogPoller
-	if cfg.General.EventsToEmit == nil || len(cfg.General.EventsToEmit) == 0 {
+	if len(cfg.General.EventsToEmit) == 0 {
 		l.Warn().Msg("No events to emit specified, using all events from log emitter contract")
 		for _, event := range logpoller.EmitterABI.Events {
 			cfg.General.EventsToEmit = append(cfg.General.EventsToEmit, event)

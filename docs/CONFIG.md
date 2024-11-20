@@ -389,7 +389,7 @@ UnixTS = false # Default
 ```toml
 Level = 'info' # Default
 ```
-Level determines both what is printed on the screen and what is written to the log file.
+Level determines only what is printed on the screen/console. This configuration does not apply to the logs that are recorded in a file (see [`Log.File`](#logfile) for more details).
 
 The available levels are:
 - "debug": Useful for forensic debugging of issues.
@@ -434,7 +434,7 @@ Dir sets the log directory. By default, Chainlink nodes write log data to `$ROOT
 ```toml
 MaxSize = '5120mb' # Default
 ```
-MaxSize determines the log file's max size in megabytes before file rotation. Having this not set will disable logging to disk. If your disk doesn't have enough disk space, the logging will pause and the application will log errors until space is available again.
+MaxSize determines the log file's max size before file rotation. Having this not set or set to a value smaller than 1Mb will disable logging to disk. If your disk doesn't have enough disk space, the logging will pause and the application will log errors until space is available again.
 
 Values must have suffixes with a unit like: `5120mb` (5,120 megabytes). If no unit suffix is provided, the value defaults to `b` (bytes). The list of valid unit suffixes are:
 
@@ -1213,6 +1213,33 @@ ListenAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 ListenAddresses is the addresses the peer will listen to on the network in `host:port` form as accepted by `net.Listen()`,
 but the host and port must be fully specified and cannot be empty. You can specify `0.0.0.0` (IPv4) or `::` (IPv6) to listen on all interfaces, but that is not recommended.
 
+## Capabilities.WorkflowRegistry
+```toml
+[Capabilities.WorkflowRegistry]
+Address = '0x0' # Example
+NetworkID = 'evm' # Default
+ChainID = '1' # Default
+```
+
+
+### Address
+```toml
+Address = '0x0' # Example
+```
+Address is the address for the workflow registry contract.
+
+### NetworkID
+```toml
+NetworkID = 'evm' # Default
+```
+NetworkID identifies the target network where the remote registry is located.
+
+### ChainID
+```toml
+ChainID = '1' # Default
+```
+ChainID identifies the target chain id where the remote registry is located.
+
 ## Capabilities.ExternalRegistry
 ```toml
 [Capabilities.ExternalRegistry]
@@ -1875,6 +1902,7 @@ CertFile is the path to a PEM file of trusted root certificate authority certifi
 [Mercury.Transmitter]
 TransmitQueueMaxSize = 10_000 # Default
 TransmitTimeout = "5s" # Default
+TransmitConcurrency = 100 # Default
 ```
 Mercury.Transmitter controls settings for the mercury transmitter
 
@@ -1896,6 +1924,14 @@ TransmitTimeout = "5s" # Default
 TransmitTimeout controls how long the transmitter will wait for a response
 when sending a message to the mercury server, before aborting and considering
 the transmission to be failed.
+
+### TransmitConcurrency
+```toml
+TransmitConcurrency = 100 # Default
+```
+TransmitConcurrency is the max number of concurrent transmits to each server.
+
+Only has effect with LLO jobs.
 
 ## Telemetry
 ```toml

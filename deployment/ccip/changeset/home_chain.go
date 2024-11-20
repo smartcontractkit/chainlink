@@ -17,7 +17,6 @@ var _ deployment.ChangeSet[DeployHomeChainConfig] = DeployHomeChain
 
 // DeployHomeChain is a separate changeset because it is a standalone deployment performed once in home chain for the entire CCIP deployment.
 func DeployHomeChain(env deployment.Environment, cfg DeployHomeChainConfig) (deployment.ChangesetOutput, error) {
-
 	err := cfg.Validate()
 	if err != nil {
 		return deployment.ChangesetOutput{}, errors.Wrapf(deployment.ErrInvalidConfig, "%v", err)
@@ -27,7 +26,9 @@ func DeployHomeChain(env deployment.Environment, cfg DeployHomeChainConfig) (dep
 	_, err = ccipdeployment.DeployHomeChain(env.Logger, env, ab, env.Chains[cfg.HomeChainSel], cfg.RMNStaticConfig, cfg.RMNDynamicConfig, cfg.NodeOperators, cfg.NodeP2PIDsPerNodeOpAdmin)
 	if err != nil {
 		env.Logger.Errorw("Failed to deploy cap reg", "err", err, "addresses", env.ExistingAddresses)
-		return deployment.ChangesetOutput{}, err
+		return deployment.ChangesetOutput{
+			AddressBook: ab,
+		}, err
 	}
 
 	return deployment.ChangesetOutput{

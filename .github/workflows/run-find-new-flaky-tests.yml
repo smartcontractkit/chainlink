@@ -1,4 +1,4 @@
-name: Find New Flaky Tests
+name: Find Flaky Tests
 
 on:
   workflow_dispatch:
@@ -22,16 +22,16 @@ on:
         required: false
         type: string
         description: 'The head reference or branch to compare changes for detecting flaky tests. Default is the current branch.'        
+      runAllTests:
+        required: false
+        type: boolean
+        description: 'Run all tests in the project.'
+        default: false      
       runThreshold:
         required: false
         type: string
         description: 'The threshold for the number of times a test can fail before being considered flaky.'
         default: '0.8'
-      runWithRace:
-        required: false
-        type: boolean
-        description: 'Run tests with -race flag.'
-        default: true
       findByTestFilesDiff:
         required: false
         type: boolean
@@ -54,7 +54,7 @@ on:
 
 jobs:
   trigger-flaky-test-detection:
-    name: Find New Flaky Tests
+    name: Find Flaky Tests
     uses: ./.github/workflows/find-new-flaky-tests.yml
     with:
       repoUrl: ${{ inputs.repoUrl }}
@@ -62,7 +62,7 @@ jobs:
       projectPath: ${{ inputs.projectPath }}
       headRef: ${{ inputs.headRef }}
       runThreshold: ${{ inputs.runThreshold }}
-      runWithRace: ${{ inputs.runWithRace }}
+      runAllTests: ${{ inputs.runAllTests }}
       findByTestFilesDiff: ${{ inputs.findByTestFilesDiff }}
       findByAffectedPackages: ${{ inputs.findByAffectedPackages }}
       slackNotificationAfterTestsChannelId: ${{ inputs.slack_notification_after_tests_channel_id }}

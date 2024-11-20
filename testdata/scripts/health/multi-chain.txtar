@@ -101,6 +101,7 @@ ok StarkNet.Baz.Chain
 ok StarkNet.Baz.Relayer
 ok StarkNet.Baz.Txm
 ok TelemetryManager
+ok WorkflowDBStore
 
 -- out-unhealthy.txt --
 !  EVM.1.HeadTracker.HeadListener
@@ -393,6 +394,15 @@ ok TelemetryManager
       "id": "TelemetryManager",
       "attributes": {
         "name": "TelemetryManager",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "WorkflowDBStore",
+      "attributes": {
+        "name": "WorkflowDBStore",
         "status": "passing",
         "output": ""
       }
