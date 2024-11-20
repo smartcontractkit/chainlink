@@ -15,11 +15,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/hashutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
-
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccdeploy "github.com/smartcontractkit/chainlink/deployment/ccip"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
@@ -66,44 +63,6 @@ func Test_CCIPMessaging(t *testing.T) {
 		", source chain selector:", sourceChain,
 		", dest chain selector:", destChain,
 	)
-	output, err := changeset.DeployPrerequisites(e.Env, changeset.DeployPrerequisiteConfig{
-		ChainSelectors: e.Env.AllChainSelectors(),
-	})
-	require.NoError(t, err)
-	require.NoError(t, e.Env.ExistingAddresses.Merge(output.AddressBook))
-
-	tokenConfig := ccdeploy.NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
-	// Apply migration
-	output, err = changeset.InitialDeploy(e.Env, ccdeploy.DeployCCIPContractConfig{
-		HomeChainSel:   e.HomeChainSel,
-		FeedChainSel:   e.FeedChainSel,
-		ChainsToDeploy: allChainSelectors,
-		TokenConfig:    tokenConfig,
-		MCMSConfig:     ccdeploy.NewTestMCMSConfig(t, e.Env),
-		OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
-	})
-	require.NoError(t, err)
-	require.NoError(t, e.Env.ExistingAddresses.Merge(output.AddressBook))
-	// Get new state after migration.
-	state, err = ccdeploy.LoadOnchainState(e.Env)
-	require.NoError(t, err)
-
-	// Ensure capreg logs are up to date.
-	ccdeploy.ReplayLogs(t, e.Env.Offchain, e.ReplayBlocks)
-
-	// Apply the jobs.
-	for nodeID, jobs := range output.JobSpecs {
-		for _, job := range jobs {
-			// Note these auto-accept
-			_, err := e.Env.Offchain.ProposeJob(ctx,
-				&jobv1.ProposeJobRequest{
-					NodeId: nodeID,
-					Spec:   job,
-				})
-			require.NoError(t, err)
-		}
-	}
-
 	// connect a single lane, source to dest
 	require.NoError(t, ccdeploy.AddLaneWithDefaultPrices(e.Env, state, sourceChain, destChain))
 

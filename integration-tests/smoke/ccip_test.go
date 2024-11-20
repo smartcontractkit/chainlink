@@ -7,12 +7,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
-
-	"github.com/smartcontractkit/chainlink/deployment"
 	ccdeploy "github.com/smartcontractkit/chainlink/deployment/ccip"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -21,50 +17,10 @@ import (
 func TestInitialDeployOnLocal(t *testing.T) {
 	t.Parallel()
 	lggr := logger.TestLogger(t)
-	ctx := ccdeploy.Context(t)
 	tenv, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr)
 	e := tenv.Env
-
-	state, err := ccdeploy.LoadOnchainState(tenv.Env)
+	state, err := ccdeploy.LoadOnchainState(e)
 	require.NoError(t, err)
-
-	feeds := state.Chains[tenv.FeedChainSel].USDFeeds
-	output, err := changeset.DeployPrerequisites(tenv.Env, changeset.DeployPrerequisiteConfig{
-		ChainSelectors: tenv.Env.AllChainSelectors(),
-	})
-	require.NoError(t, err)
-	require.NoError(t, tenv.Env.ExistingAddresses.Merge(output.AddressBook))
-
-	// Apply migration
-	output, err = changeset.InitialDeploy(tenv.Env, ccdeploy.DeployCCIPContractConfig{
-		HomeChainSel:   tenv.HomeChainSel,
-		FeedChainSel:   tenv.FeedChainSel,
-		ChainsToDeploy: tenv.Env.AllChainSelectors(),
-		TokenConfig:    ccdeploy.NewTestTokenConfig(feeds),
-		MCMSConfig:     ccdeploy.NewTestMCMSConfig(t, e),
-		OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
-	})
-	require.NoError(t, err)
-	require.NoError(t, tenv.Env.ExistingAddresses.Merge(output.AddressBook))
-	// Get new state after migration.
-	state, err = ccdeploy.LoadOnchainState(e)
-	require.NoError(t, err)
-
-	// Ensure capreg logs are up to date.
-	ccdeploy.ReplayLogs(t, e.Offchain, tenv.ReplayBlocks)
-
-	// Apply the jobs.
-	for nodeID, jobs := range output.JobSpecs {
-		for _, job := range jobs {
-			// Note these auto-accept
-			_, err := e.Offchain.ProposeJob(ctx,
-				&jobv1.ProposeJobRequest{
-					NodeId: nodeID,
-					Spec:   job,
-				})
-			require.NoError(t, err)
-		}
-	}
 
 	// Add all lanes
 	require.NoError(t, ccdeploy.AddLanesForAll(e, state))
@@ -113,32 +69,9 @@ func TestInitialDeployOnLocal(t *testing.T) {
 func TestTokenTransfer(t *testing.T) {
 	t.Parallel()
 	lggr := logger.TestLogger(t)
-	ctx := ccdeploy.Context(t)
 	tenv, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr)
-
 	e := tenv.Env
 	state, err := ccdeploy.LoadOnchainState(e)
-	require.NoError(t, err)
-
-	output, err := changeset.DeployPrerequisites(e, changeset.DeployPrerequisiteConfig{
-		ChainSelectors: e.AllChainSelectors(),
-	})
-	require.NoError(t, err)
-	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook))
-
-	// Apply migration
-	output, err = changeset.InitialDeploy(e, ccdeploy.DeployCCIPContractConfig{
-		HomeChainSel:   tenv.HomeChainSel,
-		FeedChainSel:   tenv.FeedChainSel,
-		ChainsToDeploy: e.AllChainSelectors(),
-		TokenConfig:    ccdeploy.NewTestTokenConfig(state.Chains[tenv.FeedChainSel].USDFeeds),
-		MCMSConfig:     ccdeploy.NewTestMCMSConfig(t, e),
-		OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
-	})
-	require.NoError(t, err)
-	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook))
-	// Get new state after migration and mock USDC token deployment.
-	state, err = ccdeploy.LoadOnchainState(e)
 	require.NoError(t, err)
 
 	srcToken, _, dstToken, _, err := ccdeploy.DeployTransferableToken(
@@ -151,22 +84,6 @@ func TestTokenTransfer(t *testing.T) {
 		"MY_TOKEN",
 	)
 	require.NoError(t, err)
-
-	// Ensure capreg logs are up to date.
-	ccdeploy.ReplayLogs(t, e.Offchain, tenv.ReplayBlocks)
-
-	// Apply the jobs.
-	for nodeID, jobs := range output.JobSpecs {
-		for _, job := range jobs {
-			// Note these auto-accept
-			_, err := e.Offchain.ProposeJob(ctx,
-				&jobv1.ProposeJobRequest{
-					NodeId: nodeID,
-					Spec:   job,
-				})
-			require.NoError(t, err)
-		}
-	}
 
 	// Add all lanes
 	require.NoError(t, ccdeploy.AddLanesForAll(e, state))

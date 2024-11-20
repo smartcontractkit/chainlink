@@ -128,6 +128,14 @@ func (e Environment) AllChainSelectorsExcluding(excluding []uint64) []uint64 {
 	return selectors
 }
 
+func (e Environment) AllDeployerKeys() []common.Address {
+	var deployerKeys []common.Address
+	for sel := range e.Chains {
+		deployerKeys = append(deployerKeys, e.Chains[sel].DeployerKey.From)
+	}
+	return deployerKeys
+}
+
 func ConfirmIfNoError(chain Chain, tx *types.Transaction, err error) (uint64, error) {
 	if err != nil {
 		//revive:disable
