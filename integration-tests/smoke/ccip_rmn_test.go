@@ -18,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	ccipdeployment "github.com/smartcontractkit/chainlink/deployment/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_remote"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
@@ -232,7 +231,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 		})
 	}
 
-	onChainState, err := ccipdeployment.LoadOnchainState(envWithRMN.Env)
+	onChainState, err := changeset.LoadOnchainState(envWithRMN.Env)
 	require.NoError(t, err)
 	t.Logf("onChainState: %#v", onChainState)
 

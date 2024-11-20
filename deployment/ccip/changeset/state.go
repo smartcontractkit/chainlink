@@ -1,9 +1,8 @@
-package ccipdeployment
+package changeset
 
 import (
 	"fmt"
 
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_messenger"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_transmitter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/usdc_token_pool"
@@ -68,10 +67,10 @@ type CCIPChainState struct {
 	// and the respective token contract
 	// This is more of an illustration of how we'll have tokens, and it might need some work later to work properly.
 	// Not all tokens will be burn and mint tokens.
-	BurnMintTokens677 map[changeset.TokenSymbol]*burn_mint_erc677.BurnMintERC677
+	BurnMintTokens677 map[TokenSymbol]*burn_mint_erc677.BurnMintERC677
 	// Map between token Symbol (e.g. LinkSymbol, WethSymbol)
 	// and the respective aggregator USD feed contract
-	USDFeeds map[changeset.TokenSymbol]*aggregator_v3_interface.AggregatorV3Interface
+	USDFeeds map[TokenSymbol]*aggregator_v3_interface.AggregatorV3Interface
 
 	// Note we only expect one of these (on the home chain)
 	CapabilityRegistry *capabilities_registry.CapabilitiesRegistry
@@ -367,8 +366,8 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 			if err != nil {
 				return state, err
 			}
-			state.BurnMintTokens677 = map[changeset.TokenSymbol]*burn_mint_erc677.BurnMintERC677{
-				changeset.USDCSymbol: ut,
+			state.BurnMintTokens677 = map[TokenSymbol]*burn_mint_erc677.BurnMintERC677{
+				USDCSymbol: ut,
 			}
 		case deployment.NewTypeAndVersion(USDCTokenPool, deployment.Version1_0_0).String():
 			utp, err := usdc_token_pool.NewUSDCTokenPool(common.HexToAddress(address), chain.Client)
@@ -413,13 +412,13 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				return state, err
 			}
 			if state.USDFeeds == nil {
-				state.USDFeeds = make(map[changeset.TokenSymbol]*aggregator_v3_interface.AggregatorV3Interface)
+				state.USDFeeds = make(map[TokenSymbol]*aggregator_v3_interface.AggregatorV3Interface)
 			}
 			desc, err := feed.Description(&bind.CallOpts{})
 			if err != nil {
 				return state, err
 			}
-			key, ok := changeset.MockDescriptionToTokenSymbol[desc]
+			key, ok := MockDescriptionToTokenSymbol[desc]
 			if !ok {
 				return state, fmt.Errorf("unknown feed description %s", desc)
 			}

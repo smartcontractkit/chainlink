@@ -8,7 +8,6 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	ccdeploy "github.com/smartcontractkit/chainlink/deployment/ccip"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
@@ -71,7 +70,7 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook))
 
 	// load onchain state
-	state, err := ccdeploy.LoadOnchainState(e)
+	state, err := LoadOnchainState(e)
 	require.NoError(t, err)
 
 	// verify all contracts populated

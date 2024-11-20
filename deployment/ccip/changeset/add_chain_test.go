@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	ccipdeployment "github.com/smartcontractkit/chainlink/deployment/ccip"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
@@ -32,14 +31,14 @@ import (
 func TestAddChainInbound(t *testing.T) {
 	// 4 chains where the 4th is added after initial deployment.
 	e := NewMemoryEnvironmentWithJobs(t, logger.TestLogger(t), 4, 4)
-	state, err := ccipdeployment.LoadOnchainState(e.Env)
+	state, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	// Take first non-home chain as the new chain.
 	newChain := e.Env.AllChainSelectorsExcluding([]uint64{e.HomeChainSel})[0]
 	// We deploy to the rest.
 	initialDeploy := e.Env.AllChainSelectorsExcluding([]uint64{newChain})
 	newAddresses := deployment.NewMemoryAddressBook()
-	err = ccipdeployment.DeployPrerequisiteChainContracts(e.Env, newAddresses, initialDeploy)
+	err = DeployPrerequisiteChainContracts(e.Env, newAddresses, initialDeploy)
 	require.NoError(t, err)
 	require.NoError(t, e.Env.ExistingAddresses.Merge(newAddresses))
 
@@ -59,7 +58,7 @@ func TestAddChainInbound(t *testing.T) {
 	require.NoError(t, e.Env.ExistingAddresses.Merge(out.AddressBook))
 	newAddresses = deployment.NewMemoryAddressBook()
 	tokenConfig := NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
-	err = ccipdeployment.DeployCCIPContracts(e.Env, newAddresses, ccipdeployment.DeployCCIPContractConfig{
+	err = DeployCCIPContracts(e.Env, newAddresses, DeployCCIPContractConfig{
 		HomeChainSel:   e.HomeChainSel,
 		FeedChainSel:   e.FeedChainSel,
 		ChainsToDeploy: initialDeploy,
@@ -68,7 +67,7 @@ func TestAddChainInbound(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NoError(t, e.Env.ExistingAddresses.Merge(newAddresses))
-	state, err = ccipdeployment.LoadOnchainState(e.Env)
+	state, err = LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	// Connect all the existing lanes.
@@ -80,7 +79,7 @@ func TestAddChainInbound(t *testing.T) {
 		}
 	}
 
-	rmnHomeAddress, err := deployment.SearchAddressBook(e.Env.ExistingAddresses, e.HomeChainSel, ccipdeployment.RMNHome)
+	rmnHomeAddress, err := deployment.SearchAddressBook(e.Env.ExistingAddresses, e.HomeChainSel, RMNHome)
 	require.NoError(t, err)
 	require.True(t, common.IsHexAddress(rmnHomeAddress))
 	rmnHome, err := rmn_home.NewRMNHome(common.HexToAddress(rmnHomeAddress), e.Env.Chains[e.HomeChainSel].Client)
@@ -94,15 +93,15 @@ func TestAddChainInbound(t *testing.T) {
 	require.NoError(t, e.Env.ExistingAddresses.Merge(out.AddressBook))
 
 	newAddresses = deployment.NewMemoryAddressBook()
-	err = ccipdeployment.DeployPrerequisiteChainContracts(e.Env, newAddresses, []uint64{newChain})
+	err = DeployPrerequisiteChainContracts(e.Env, newAddresses, []uint64{newChain})
 	require.NoError(t, err)
 	require.NoError(t, e.Env.ExistingAddresses.Merge(newAddresses))
 	newAddresses = deployment.NewMemoryAddressBook()
-	err = ccipdeployment.DeployChainContracts(e.Env,
+	err = deployChainContracts(e.Env,
 		e.Env.Chains[newChain], newAddresses, rmnHome)
 	require.NoError(t, err)
 	require.NoError(t, e.Env.ExistingAddresses.Merge(newAddresses))
-	state, err = ccipdeployment.LoadOnchainState(e.Env)
+	state, err = LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	// Transfer onramp/fq ownership to timelock.
@@ -135,7 +134,7 @@ func TestAddChainInbound(t *testing.T) {
 	_, err = deployment.ConfirmIfNoError(e.Env.Chains[e.HomeChainSel], tx, err)
 	require.NoError(t, err)
 
-	acceptOwnershipProposal, err := ccipdeployment.GenerateAcceptOwnershipProposal(state, e.HomeChainSel, initialDeploy)
+	acceptOwnershipProposal, err := GenerateAcceptOwnershipProposal(state, e.HomeChainSel, initialDeploy)
 	require.NoError(t, err)
 	acceptOwnershipExec := commonchangeset.SignProposal(t, e.Env, acceptOwnershipProposal)
 	// Apply the accept ownership proposal to all the chains.
@@ -215,7 +214,7 @@ func TestAddChainInbound(t *testing.T) {
 	require.NoError(t, err)
 
 	// Assert the inbound lanes to the new chain are wired correctly.
-	state, err = ccipdeployment.LoadOnchainState(e.Env)
+	state, err = LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	for _, chain := range initialDeploy {
 		cfg, err2 := state.Chains[chain].OnRamp.GetDestChainConfig(nil, newChain)

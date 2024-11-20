@@ -16,9 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment"
-	ccdeploy "github.com/smartcontractkit/chainlink/deployment/ccip"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
@@ -30,7 +28,7 @@ type testCaseSetup struct {
 	t                      *testing.T
 	sender                 []byte
 	deployedEnv            changeset.DeployedEnv
-	onchainState           ccdeploy.CCIPOnChainState
+	onchainState           changeset.CCIPOnChainState
 	sourceChain, destChain uint64
 }
 
@@ -52,7 +50,7 @@ func Test_CCIPMessaging(t *testing.T) {
 	ctx := changeset.Context(t)
 	e, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr)
 
-	state, err := ccdeploy.LoadOnchainState(e.Env)
+	state, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	allChainSelectors := maps.Keys(e.Env.Chains)
@@ -66,7 +64,7 @@ func Test_CCIPMessaging(t *testing.T) {
 		", dest chain selector:", destChain,
 	)
 	// connect a single lane, source to dest
-	require.NoError(t, internal.AddLaneWithDefaultPrices(e.Env, state, sourceChain, destChain))
+	require.NoError(t, changeset.AddLaneWithDefaultPrices(e.Env, state, sourceChain, destChain))
 
 	var (
 		replayed bool
@@ -161,7 +159,7 @@ func manuallyExecute(
 	ctx context.Context,
 	t *testing.T,
 	startBlock uint64,
-	state ccdeploy.CCIPOnChainState,
+	state changeset.CCIPOnChainState,
 	destChain uint64,
 	out messagingTestCaseOutput,
 	sourceChain uint64,

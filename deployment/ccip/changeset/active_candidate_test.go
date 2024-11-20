@@ -16,7 +16,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	ccdeploy "github.com/smartcontractkit/chainlink/deployment/ccip"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -28,7 +27,7 @@ func TestActiveCandidate(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	tenv := NewMemoryEnvironmentWithJobsAndContracts(t, lggr, 3, 5)
 	e := tenv.Env
-	state, err := ccdeploy.LoadOnchainState(tenv.Env)
+	state, err := LoadOnchainState(tenv.Env)
 	require.NoError(t, err)
 
 	// Add all lanes
@@ -73,8 +72,8 @@ func TestActiveCandidate(t *testing.T) {
 	ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
 
 	// transfer ownership
-	ccdeploy.TransferAllOwnership(t, state, tenv.HomeChainSel, e)
-	acceptOwnershipProposal, err := ccdeploy.GenerateAcceptOwnershipProposal(state, tenv.HomeChainSel, e.AllChainSelectors())
+	TransferAllOwnership(t, state, tenv.HomeChainSel, e)
+	acceptOwnershipProposal, err := GenerateAcceptOwnershipProposal(state, tenv.HomeChainSel, e.AllChainSelectors())
 	require.NoError(t, err)
 	acceptOwnershipExec := commonchangeset.SignProposal(t, e, acceptOwnershipProposal)
 	for _, sel := range e.AllChainSelectors() {
@@ -94,7 +93,7 @@ func TestActiveCandidate(t *testing.T) {
 	require.Equal(t, 5, len(donInfo.NodeP2PIds))
 	require.Equal(t, uint32(4), donInfo.ConfigCount)
 
-	state, err = ccdeploy.LoadOnchainState(e)
+	state, err = LoadOnchainState(e)
 	require.NoError(t, err)
 
 	// delete a non-bootstrap node
@@ -135,7 +134,7 @@ func TestActiveCandidate(t *testing.T) {
 		nodes.NonBootstraps(),
 	)
 	require.NoError(t, err)
-	setCommitCandidateProposal, err := ccdeploy.BuildProposalFromBatches(state, []timelock.BatchChainOperation{{
+	setCommitCandidateProposal, err := BuildProposalFromBatches(state, []timelock.BatchChainOperation{{
 		ChainIdentifier: mcms.ChainIdentifier(tenv.HomeChainSel),
 		Batch:           setCommitCandidateOp,
 	}}, "set new candidates on commit plugin", 0)
@@ -153,7 +152,7 @@ func TestActiveCandidate(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	setExecCandidateProposal, err := ccdeploy.BuildProposalFromBatches(state, []timelock.BatchChainOperation{{
+	setExecCandidateProposal, err := BuildProposalFromBatches(state, []timelock.BatchChainOperation{{
 		ChainIdentifier: mcms.ChainIdentifier(tenv.HomeChainSel),
 		Batch:           setExecCandidateOp,
 	}}, "set new candidates on commit and exec plugins", 0)
@@ -180,7 +179,7 @@ func TestActiveCandidate(t *testing.T) {
 
 	promoteOps, err := PromoteAllCandidatesForChainOps(state.Chains[tenv.HomeChainSel].CapabilityRegistry, state.Chains[tenv.HomeChainSel].CCIPHome, tenv.FeedChainSel, nodes.NonBootstraps())
 	require.NoError(t, err)
-	promoteProposal, err := ccdeploy.BuildProposalFromBatches(state, []timelock.BatchChainOperation{{
+	promoteProposal, err := BuildProposalFromBatches(state, []timelock.BatchChainOperation{{
 		ChainIdentifier: mcms.ChainIdentifier(tenv.HomeChainSel),
 		Batch:           promoteOps,
 	}}, "promote candidates and revoke actives", 0)

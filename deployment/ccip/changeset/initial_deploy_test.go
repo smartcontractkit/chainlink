@@ -10,10 +10,8 @@ import (
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 
-	"github.com/smartcontractkit/chainlink/deployment"
-	ccdeploy "github.com/smartcontractkit/chainlink/deployment/ccip"
-
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+	"github.com/smartcontractkit/chainlink/deployment"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -27,7 +25,7 @@ func TestInitialDeploy(t *testing.T) {
 	tenv := NewMemoryEnvironment(t, lggr, 3, 4, MockLinkPrice, MockWethPrice)
 	e := tenv.Env
 
-	state, err := ccdeploy.LoadOnchainState(tenv.Env)
+	state, err := LoadOnchainState(tenv.Env)
 	require.NoError(t, err)
 	output, err := DeployPrerequisites(e, DeployPrerequisiteConfig{
 		ChainSelectors: tenv.Env.AllChainSelectors(),
@@ -49,7 +47,7 @@ func TestInitialDeploy(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook))
 
-	output, err = InitialDeploy(tenv.Env, ccdeploy.DeployCCIPContractConfig{
+	output, err = InitialDeploy(tenv.Env, DeployCCIPContractConfig{
 		HomeChainSel:   tenv.HomeChainSel,
 		FeedChainSel:   tenv.FeedChainSel,
 		ChainsToDeploy: tenv.Env.AllChainSelectors(),
@@ -59,7 +57,7 @@ func TestInitialDeploy(t *testing.T) {
 	require.NoError(t, err)
 	// Get new state after migration.
 	require.NoError(t, tenv.Env.ExistingAddresses.Merge(output.AddressBook))
-	state, err = ccdeploy.LoadOnchainState(e)
+	state, err = LoadOnchainState(e)
 	require.NoError(t, err)
 	require.NotNil(t, state.Chains[tenv.HomeChainSel].LinkToken)
 	// Ensure capreg logs are up to date.

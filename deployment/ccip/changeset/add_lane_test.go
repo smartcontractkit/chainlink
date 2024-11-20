@@ -10,7 +10,6 @@ import (
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -23,7 +22,7 @@ func TestAddLane(t *testing.T) {
 	// We add more chains to the chainlink nodes than the number of chains where CCIP is deployed.
 	e := NewMemoryEnvironmentWithJobsAndContracts(t, logger.TestLogger(t), 2, 4)
 	// Here we have CR + nodes set up, but no CCIP contracts deployed.
-	state, err := ccipdeployment.LoadOnchainState(e.Env)
+	state, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	selectors := e.Env.AllChainSelectors()

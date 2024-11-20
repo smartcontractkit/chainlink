@@ -14,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/deployment"
-	ccdeploy "github.com/smartcontractkit/chainlink/deployment/ccip"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
 
@@ -29,7 +28,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	tenv, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr)
 
 	e := tenv.Env
-	state, err := ccdeploy.LoadOnchainState(e)
+	state, err := changeset.LoadOnchainState(e)
 	require.NoError(t, err)
 
 	allChainSelectors := maps.Keys(e.Chains)
@@ -179,7 +178,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 func mintAndAllow(
 	t *testing.T,
 	e deployment.Environment,
-	state ccdeploy.CCIPOnChainState,
+	state changeset.CCIPOnChainState,
 	tkMap map[uint64][]*burn_mint_erc677.BurnMintERC677,
 ) {
 	for chain, tokens := range tkMap {
@@ -207,7 +206,7 @@ func mintAndAllow(
 func transferAndWaitForSuccess(
 	t *testing.T,
 	env deployment.Environment,
-	state ccdeploy.CCIPOnChainState,
+	state changeset.CCIPOnChainState,
 	sourceChain, destChain uint64,
 	tokens []router.ClientEVMTokenAmount,
 	receiver common.Address,

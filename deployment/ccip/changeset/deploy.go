@@ -1,4 +1,4 @@
-package ccipdeployment
+package changeset
 
 import (
 	"fmt"
@@ -12,7 +12,6 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
@@ -283,7 +282,7 @@ type DeployCCIPContractConfig struct {
 	HomeChainSel   uint64
 	FeedChainSel   uint64
 	ChainsToDeploy []uint64
-	TokenConfig    changeset.TokenConfig
+	TokenConfig    TokenConfig
 	USDCConfig     USDCConfig
 	// For setting OCR configuration
 	OCRSecrets deployment.OCRSecrets
@@ -338,7 +337,7 @@ func DeployCCIPContracts(
 			return fmt.Errorf("chain %d not found", chainSel)
 		}
 		if c.USDCConfig.Enabled {
-			token, pool, messenger, transmitter, err1 := changeset.DeployUSDC(e.Logger, chain, ab, existingState.Chains[chainSel])
+			token, pool, messenger, transmitter, err1 := DeployUSDC(e.Logger, chain, ab, existingState.Chains[chainSel])
 			if err1 != nil {
 				return err1
 			}
@@ -377,7 +376,7 @@ func DeployCCIPContracts(
 		tokenInfo := c.TokenConfig.GetTokenInfo(e.Logger, existingState.Chains[chainSel].LinkToken, existingState.Chains[chainSel].Weth9)
 		// TODO: Do we want to extract this?
 		// Add chain config for each chain.
-		_, err = changeset.AddChainConfig(
+		_, err = AddChainConfig(
 			e.Logger,
 			e.Chains[c.HomeChainSel],
 			ccipHome,
@@ -400,7 +399,7 @@ func DeployCCIPContracts(
 			}}
 		}
 		// For each chain, we create a DON on the home chain (2 OCR instances)
-		if err := changeset.AddDON(
+		if err := AddDON(
 			e.Logger,
 			c.OCRSecrets,
 			capReg,
@@ -439,15 +438,15 @@ func DeployChainContractsForChains(
 		return fmt.Errorf("capability registry not found")
 	}
 	cr, err := capReg.GetHashedCapabilityId(
-		&bind.CallOpts{}, changeset.CapabilityLabelledName, changeset.CapabilityVersion)
+		&bind.CallOpts{}, CapabilityLabelledName, CapabilityVersion)
 	if err != nil {
 		e.Logger.Errorw("Failed to get hashed capability id", "err", err)
 		return err
 	}
-	if cr != changeset.CCIPCapabilityID {
-		return fmt.Errorf("capability registry does not support CCIP %s %s", hexutil.Encode(cr[:]), hexutil.Encode(changeset.CCIPCapabilityID[:]))
+	if cr != CCIPCapabilityID {
+		return fmt.Errorf("capability registry does not support CCIP %s %s", hexutil.Encode(cr[:]), hexutil.Encode(CCIPCapabilityID[:]))
 	}
-	capability, err := capReg.GetCapability(nil, changeset.CCIPCapabilityID)
+	capability, err := capReg.GetCapability(nil, CCIPCapabilityID)
 	if err != nil {
 		e.Logger.Errorw("Failed to get capability", "err", err)
 		return err
@@ -473,7 +472,7 @@ func DeployChainContractsForChains(
 		if existingState.Chains[chainSel].LinkToken == nil || existingState.Chains[chainSel].Weth9 == nil {
 			return fmt.Errorf("fee tokens not found for chain %d", chainSel)
 		}
-		err := DeployChainContracts(e, chain, ab, rmnHome)
+		err := deployChainContracts(e, chain, ab, rmnHome)
 		if err != nil {
 			e.Logger.Errorw("Failed to deploy chain contracts", "chain", chainSel, "err", err)
 			return fmt.Errorf("failed to deploy chain contracts for chain %d: %w", chainSel, err)
@@ -482,7 +481,7 @@ func DeployChainContractsForChains(
 	return nil
 }
 
-func DeployChainContracts(
+func deployChainContracts(
 	e deployment.Environment,
 	chain deployment.Chain,
 	ab deployment.AddressBook,
