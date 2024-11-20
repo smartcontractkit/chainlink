@@ -138,10 +138,11 @@ func TestAddChainInbound(t *testing.T) {
 
 	acceptOwnershipProposal, err := GenerateAcceptOwnershipProposal(state, e.HomeChainSel, initialDeploy)
 	require.NoError(t, err)
-	acceptOwnershipExec := commonchangeset.SignProposal(t, e.Env, acceptOwnershipProposal)
+	acceptOwnershipExec, err := commonchangeset.SignProposal(e.Env, acceptOwnershipProposal)
+	require.NoError(t, err)
 	// Apply the accept ownership proposal to all the chains.
 	for _, sel := range initialDeploy {
-		commonchangeset.ExecuteProposal(t, e.Env, acceptOwnershipExec, state.Chains[sel].Timelock, sel)
+		require.NoError(t, commonchangeset.ExecuteProposal(e.Env, acceptOwnershipExec, state.Chains[sel].Timelock, sel))
 	}
 	for _, chain := range initialDeploy {
 		owner, err2 := state.Chains[chain].OnRamp.Owner(nil)

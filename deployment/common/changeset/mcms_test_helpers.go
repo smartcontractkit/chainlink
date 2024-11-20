@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
+	"fmt"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -42,38 +43,51 @@ func SingleGroupMCMS(t *testing.T) config.Config {
 	return *c
 }
 
-func SignProposal(t *testing.T, env deployment.Environment, proposal *timelock.MCMSWithTimelockProposal) *mcms.Executor {
+func SignProposal(env deployment.Environment, proposal *timelock.MCMSWithTimelockProposal) (*mcms.Executor, error) {
 	executorClients := make(map[mcms.ChainIdentifier]mcms.ContractDeployBackend)
 	for _, chain := range env.Chains {
 		chainselc, exists := chainsel.ChainBySelector(chain.Selector)
-		require.True(t, exists)
+		if !exists {
+			return nil, fmt.Errorf("failed to find chain by selector: %d", chain.Selector)
+		}
 		chainSel := mcms.ChainIdentifier(chainselc.Selector)
 		executorClients[chainSel] = chain.Client
 	}
 	executor, err := proposal.ToExecutor(true)
-	require.NoError(t, err)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert proposal to executor: %w", err)
+	}
 	payload, err := executor.SigningHash()
-	require.NoError(t, err)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get signing hash: %w", err)
+	}
 	// Sign the payload
 	sig, err := crypto.Sign(payload.Bytes(), TestXXXMCMSSigner)
-	require.NoError(t, err)
+	if err != nil {
+		return nil, fmt.Errorf("failed to sign payload: %w", err)
+	}
 	mcmSig, err := mcms.NewSignatureFromBytes(sig)
-	require.NoError(t, err)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create signature from bytes: %w", err)
+	}
 	executor.Proposal.AddSignature(mcmSig)
-	require.NoError(t, executor.Proposal.Validate())
-	return executor
+	if err := executor.Proposal.Validate(); err != nil {
+		return nil, fmt.Errorf("failed to validate proposal: %w", err)
+	}
+	return executor, nil
 }
 
-func ExecuteProposal(t *testing.T, env deployment.Environment, executor *mcms.Executor,
-	timelock *owner_helpers.RBACTimelock, sel uint64) {
-	t.Log("Executing proposal on chain", sel)
+func ExecuteProposal(env deployment.Environment, executor *mcms.Executor, timelock *owner_helpers.RBACTimelock, sel uint64) error {
+	env.Logger.Infow("Executing proposal on chain", "selector", sel)
 	// Set the root.
 	tx, err2 := executor.SetRootOnChain(env.Chains[sel].Client, env.Chains[sel].DeployerKey, mcms.ChainIdentifier(sel))
 	if err2 != nil {
-		require.NoError(t, deployment.MaybeDataErr(err2))
+		return fmt.Errorf("failed to set root: %w", deployment.MaybeDataErr(err2))
 	}
 	_, err2 = env.Chains[sel].Confirm(tx)
-	require.NoError(t, err2)
+	if err2 != nil {
+		return fmt.Errorf("failed to confirm set-root: %w", err2)
+	}
 
 	// TODO: This sort of helper probably should move to the MCMS lib.
 	// Execute all the transactions in the proposal which are for this chain.
@@ -81,23 +95,29 @@ func ExecuteProposal(t *testing.T, env deployment.Environment, executor *mcms.Ex
 		for idx, op := range executor.ChainAgnosticOps {
 			if bytes.Equal(op.Data, chainOp.Data) && op.To == chainOp.To {
 				opTx, err3 := executor.ExecuteOnChain(env.Chains[sel].Client, env.Chains[sel].DeployerKey, idx)
-				require.NoError(t, err3)
+				if err3 != nil {
+					return fmt.Errorf("failed to execute operation: %w", deployment.MaybeDataErr(err3))
+				}
 				block, err3 := env.Chains[sel].Confirm(opTx)
-				require.NoError(t, err3)
-				t.Log("executed", chainOp)
+				if err3 != nil {
+					return fmt.Errorf("failed to confirm operation ExecuteOnChain: %w", err3)
+				}
+				env.Logger.Infow("executed", "chainOp", chainOp)
 				it, err3 := timelock.FilterCallScheduled(&bind.FilterOpts{
 					Start:   block,
 					End:     &block,
 					Context: context.Background(),
 				}, nil, nil)
-				require.NoError(t, err3)
+				if err3 != nil {
+					return fmt.Errorf("failed to filter call scheduled: %w", err3)
+				}
 				var calls []owner_helpers.RBACTimelockCall
 				var pred, salt [32]byte
 				for it.Next() {
 					// Note these are the same for the whole batch, can overwrite
 					pred = it.Event.Predecessor
 					salt = it.Event.Salt
-					t.Log("scheduled", it.Event)
+					env.Logger.Infow("scheduled", "Event", it.Event)
 					calls = append(calls, owner_helpers.RBACTimelockCall{
 						Target: it.Event.Target,
 						Data:   it.Event.Data,
@@ -106,10 +126,15 @@ func ExecuteProposal(t *testing.T, env deployment.Environment, executor *mcms.Ex
 				}
 				tx, err := timelock.ExecuteBatch(
 					env.Chains[sel].DeployerKey, calls, pred, salt)
-				require.NoError(t, err)
+				if err != nil {
+					return fmt.Errorf("failed to execute batch: %w", deployment.MaybeDataErr(err))
+				}
 				_, err = env.Chains[sel].Confirm(tx)
-				require.NoError(t, err)
+				if err != nil {
+					return fmt.Errorf("failed to confirm execute batch: %w", err)
+				}
 			}
 		}
 	}
+	return nil
 }

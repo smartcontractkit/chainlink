@@ -8,10 +8,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 	ctftestenv "github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
@@ -21,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -31,7 +34,6 @@ import (
 	ccipactions "github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
-	"github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -74,16 +76,16 @@ func (d DeployedLocalDevEnvironment) RestartChainlinkNodes(t *testing.T) error {
 	return errGrp.Wait()
 }
 
-func NewLocalDevEnvironmentWithDefaultPrice(
-	t *testing.T,
-	lggr logger.Logger) (changeset.DeployedEnv, *test_env.CLClusterTestEnv, testconfig.TestConfig) {
-	return NewLocalDevEnvironment(t, lggr, changeset.MockLinkPrice, changeset.MockWethPrice)
+func NewLocalDevEnvironmentWithDefaultPrice(t *testing.T, lggr logger.Logger, isUSDC bool) (changeset.DeployedEnv, *test_env.CLClusterTestEnv, tc.TestConfig) {
+	return NewLocalDevEnvironment(t, lggr, changeset.MockLinkPrice, changeset.MockWethPrice, false)
 }
 
 func NewLocalDevEnvironment(
 	t *testing.T,
 	lggr logger.Logger,
-	linkPrice, wethPrice *big.Int) (changeset.DeployedEnv, *test_env.CLClusterTestEnv, testconfig.TestConfig) {
+	linkPrice, wethPrice *big.Int,
+	isUSDC bool,
+) (changeset.DeployedEnv, *test_env.CLClusterTestEnv, tc.TestConfig) {
 	ctx := testcontext.Get(t)
 	// create a local docker environment with simulated chains and job-distributor
 	// we cannot create the chainlink nodes yet as we need to deploy the capability registry first
@@ -112,89 +114,123 @@ func NewLocalDevEnvironment(
 	e, don, err := devenv.NewEnvironment(ctx, lggr, *envConfig)
 	require.NoError(t, err)
 	require.NotNil(t, e)
-	e.ExistingAddresses = ab
-
-	envNodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
-	require.NoError(t, err)
-	out, err := changeset.DeployHomeChain(*e,
-		changeset.DeployHomeChainConfig{
-			HomeChainSel:     homeChainSel,
-			RMNStaticConfig:  changeset.NewTestRMNStaticConfig(),
-			RMNDynamicConfig: changeset.NewTestRMNDynamicConfig(),
-			NodeOperators:    changeset.NewTestNodeOperator(chains[homeChainSel].DeployerKey.From),
-			NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
-				"NodeOperator": envNodes.NonBootstraps().PeerIDs(),
-			},
-		},
-	)
-	require.NoError(t, err)
-	require.NoError(t, e.ExistingAddresses.Merge(out.AddressBook))
-	zeroLogLggr := logging.GetTestLogger(t)
 	// fund the nodes
+	zeroLogLggr := logging.GetTestLogger(t)
 	FundNodes(t, zeroLogLggr, testEnv, cfg, don.PluginNodes())
 
-	output, err := changeset.DeployPrerequisites(*e, changeset.DeployPrerequisiteConfig{
-		ChainSelectors: e.AllChainSelectors(),
-	})
+	env := *e
+
+	envNodes, err := deployment.NodeInfo(env.NodeIDs, env.Offchain)
 	require.NoError(t, err)
-	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook))
-	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
-	for _, chain := range e.AllChainSelectors() {
-		mcmsCfg[chain] = commontypes.MCMSWithTimelockConfig{
-			Canceller:         commonchangeset.SingleGroupMCMS(t),
-			Bypasser:          commonchangeset.SingleGroupMCMS(t),
-			Proposer:          commonchangeset.SingleGroupMCMS(t),
-			TimelockExecutors: e.AllDeployerKeys(),
-			TimelockMinDelay:  big.NewInt(0),
-		}
+	allChains := env.AllChainSelectors()
+	var usdcChains []uint64
+	if isUSDC {
+		usdcChains = allChains
 	}
-	output, err = commonchangeset.DeployMCMSWithTimelock(*e, mcmsCfg)
-	require.NoError(t, err)
-	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook))
-
-	state, err := changeset.LoadOnchainState(*e)
-	require.NoError(t, err)
-
-	var endpoint string
-	err = ccipactions.SetMockServerWithUSDCAttestation(testEnv.MockAdapter, nil)
-	require.NoError(t, err)
-	endpoint = testEnv.MockAdapter.InternalEndpoint
-
-	tokenConfig := changeset.NewTestTokenConfig(state.Chains[feedSel].USDFeeds)
-	// Apply migration
-	output, err = changeset.InitialDeploy(*e, changeset.DeployCCIPContractConfig{
-		HomeChainSel:   homeChainSel,
-		FeedChainSel:   feedSel,
-		ChainsToDeploy: e.AllChainSelectors(),
-		TokenConfig:    tokenConfig,
-		OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
-		USDCConfig: changeset.USDCConfig{
-			Enabled: true,
-			USDCAttestationConfig: changeset.USDCAttestationConfig{
-				API:         endpoint,
-				APITimeout:  commonconfig.MustNewDuration(time.Second),
-				APIInterval: commonconfig.MustNewDuration(500 * time.Millisecond),
+	mcmsCfgPerChain := commontypes.MCMSWithTimelockConfig{
+		Canceller:         commonchangeset.SingleGroupMCMS(t),
+		Bypasser:          commonchangeset.SingleGroupMCMS(t),
+		Proposer:          commonchangeset.SingleGroupMCMS(t),
+		TimelockExecutors: env.AllDeployerKeys(),
+		TimelockMinDelay:  big.NewInt(0),
+	}
+	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
+	for _, c := range env.AllChainSelectors() {
+		mcmsCfg[c] = mcmsCfgPerChain
+	}
+	// Need to deploy prerequisites first so that we can for the CCIP contracts.
+	cs01 := []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(changeset.DeployHomeChain),
+			Config: changeset.DeployHomeChainConfig{
+				HomeChainSel:     homeChainSel,
+				RMNStaticConfig:  changeset.NewTestRMNStaticConfig(),
+				RMNDynamicConfig: changeset.NewTestRMNDynamicConfig(),
+				NodeOperators:    changeset.NewTestNodeOperator(chains[homeChainSel].DeployerKey.From),
+				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
+					"NodeOperator": envNodes.NonBootstraps().PeerIDs(),
+				},
 			},
 		},
-	})
+		{
+			Changeset: commonchangeset.WrapChangeSet(changeset.DeployPrerequisites),
+			Config: changeset.DeployPrerequisiteConfig{
+				ChainSelectors:            allChains,
+				USDCEnabledChainSelectors: usdcChains,
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployMCMSWithTimelock),
+			Config:    mcmsCfg,
+		},
+	}
+	ctx = testcontext.Get(t)
+	// no proposals to be made, timelock can be passed as nil here
+	env, err = commonchangeset.ApplyChangesets(ctx, env, nil, cs01)
 	require.NoError(t, err)
-	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook))
+
+	state, err := changeset.LoadOnchainState(env)
+	require.NoError(t, err)
+	tokenConfig := changeset.NewTestTokenConfig(state.Chains[feedSel].USDFeeds)
+	USDCCCTPConfig := make(map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig)
+	timelocksPerChain := make(map[uint64]*gethwrappers.RBACTimelock)
+	for _, chain := range usdcChains {
+		require.NotNil(t, state.Chains[chain].MockUSDCTokenMessenger)
+		require.NotNil(t, state.Chains[chain].MockUSDCTransmitter)
+		require.NotNil(t, state.Chains[chain].USDCTokenPool)
+		USDCCCTPConfig[cciptypes.ChainSelector(chain)] = pluginconfig.USDCCCTPTokenConfig{
+			SourcePoolAddress:            state.Chains[chain].USDCTokenPool.Address().String(),
+			SourceMessageTransmitterAddr: state.Chains[chain].MockUSDCTransmitter.Address().String(),
+		}
+		timelocksPerChain[chain] = state.Chains[chain].Timelock
+	}
+	var usdcAttestationCfg changeset.USDCAttestationConfig
+	if len(usdcChains) > 0 {
+		var endpoint string
+		err = ccipactions.SetMockServerWithUSDCAttestation(testEnv.MockAdapter, nil)
+		require.NoError(t, err)
+		endpoint = testEnv.MockAdapter.InternalEndpoint
+		usdcAttestationCfg = changeset.USDCAttestationConfig{
+			API:         endpoint,
+			APITimeout:  commonconfig.MustNewDuration(time.Second),
+			APIInterval: commonconfig.MustNewDuration(500 * time.Millisecond),
+		}
+	}
+
+	// Deploy second set of changesets to deploy and configure the CCIP contracts.
+	cs02 := []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(changeset.DeployChainContracts),
+			Config: changeset.DeployChainContractsConfig{
+				ChainSelectors:    allChains,
+				HomeChainSelector: homeChainSel,
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(changeset.CCIPCapabilityJobspec),
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(changeset.InitialAddChain),
+			Config: changeset.DeployCCIPContractConfig{
+				HomeChainSel:   homeChainSel,
+				FeedChainSel:   feedSel,
+				ChainsToDeploy: allChains,
+				TokenConfig:    tokenConfig,
+				OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
+				USDCConfig: changeset.USDCConfig{
+					EnabledChains:         usdcChains,
+					USDCAttestationConfig: usdcAttestationCfg,
+					CCTPTokenConfig:       USDCCCTPConfig,
+				},
+			},
+		},
+	}
+
+	env, err = commonchangeset.ApplyChangesets(ctx, env, timelocksPerChain, cs02)
+	require.NoError(t, err)
 
 	// Ensure capreg logs are up to date.
 	changeset.ReplayLogs(t, e.Offchain, replayBlocks)
-
-	// Apply the jobs.
-	for nodeID, jobs := range output.JobSpecs {
-		for _, job := range jobs {
-			// Note these auto-accept
-			_, err := e.Offchain.ProposeJob(ctx,
-				&jobv1.ProposeJobRequest{
-					NodeId: nodeID,
-					Spec:   job,
-				})
-			require.NoError(t, err)
-		}
-	}
 
 	return changeset.DeployedEnv{
 		Env:          *e,
@@ -209,7 +245,7 @@ func NewLocalDevEnvironmentWithRMN(
 	lggr logger.Logger,
 	numRmnNodes int,
 ) (changeset.DeployedEnv, devenv.RMNCluster) {
-	tenv, dockerenv, testCfg := NewLocalDevEnvironmentWithDefaultPrice(t, lggr)
+	tenv, dockerenv, testCfg := NewLocalDevEnvironmentWithDefaultPrice(t, lggr, false)
 	l := logging.GetTestLogger(t)
 	config := GenerateTestRMNConfig(t, numRmnNodes, tenv, MustNetworksToRPCMap(dockerenv.EVMNetworks))
 	require.NotNil(t, testCfg.CCIP)
