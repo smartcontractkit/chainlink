@@ -55,8 +55,8 @@ const (
 
 var (
 	defaultGasPrice  = assets.GWei(10)
-	InitialLinkPrice = E18Mult(20)
-	InitialWethPrice = E18Mult(4000)
+	InitialLinkPrice = e18Mult(20)
+	InitialWethPrice = e18Mult(4000)
 	linkAddress      = utils.RandomAddress()
 	wethAddress      = utils.RandomAddress()
 )
@@ -568,7 +568,7 @@ func Test_GetMedianDataAvailabilityGasConfig(t *testing.T) {
 
 	// Update the dest chain config for each fee quoter
 	for i, fq := range feeQuoters {
-		destChainCfg := DefaultFeeQuoterDestChainConfig()
+		destChainCfg := defaultFeeQuoterDestChainConfig()
 		//nolint:gosec // disable G115
 		destChainCfg.DestDataAvailabilityOverheadGas = uint32(100 + i)
 		//nolint:gosec // disable G115
@@ -687,7 +687,7 @@ func deployFeeQuoterWithPrices(t *testing.T, auth *bind.TransactOpts, sb *simula
 			{
 
 				DestChainSelector: uint64(destChain),
-				DestChainConfig:   DefaultFeeQuoterDestChainConfig(),
+				DestChainConfig:   defaultFeeQuoterDestChainConfig(),
 			},
 		},
 	)
@@ -728,7 +728,7 @@ func deployFeeQuoterWithPrices(t *testing.T, auth *bind.TransactOpts, sb *simula
 	return feeQuoter
 }
 
-func DefaultFeeQuoterDestChainConfig() fee_quoter.FeeQuoterDestChainConfig {
+func defaultFeeQuoterDestChainConfig() fee_quoter.FeeQuoterDestChainConfig {
 	// https://github.com/smartcontractkit/ccip/blob/c4856b64bd766f1ddbaf5d13b42d3c4b12efde3a/contracts/src/v0.8/ccip/libraries/Internal.sol#L337-L337
 	/*
 		```Solidity
@@ -866,14 +866,14 @@ func testSetup(
 	}
 
 	for chain, bindings := range toMockBindings {
+		if _, ok := otherCrs[chain]; ok {
+			require.False(t, ok, "chain %d already exists", chain)
+		}
 		m := readermocks.NewMockContractReaderFacade(t)
 		m.EXPECT().Bind(ctx, bindings).Return(nil)
 		ecr := contractreader.NewExtendedContractReader(m)
 		err = ecr.Bind(ctx, bindings)
 		require.NoError(t, err)
-		if _, ok := otherCrs[chain]; ok {
-			t.Fatalf("chain %d already exists", chain)
-		}
 		otherCrs[chain] = ecr
 	}
 
@@ -916,10 +916,10 @@ type testSetupData struct {
 	extendedCR   contractreader.Extended
 }
 
-func UBigInt(i uint64) *big.Int {
+func uBigInt(i uint64) *big.Int {
 	return new(big.Int).SetUint64(i)
 }
 
-func E18Mult(amount uint64) *big.Int {
-	return new(big.Int).Mul(UBigInt(amount), UBigInt(1e18))
+func e18Mult(amount uint64) *big.Int {
+	return new(big.Int).Mul(uBigInt(amount), uBigInt(1e18))
 }
