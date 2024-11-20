@@ -317,8 +317,8 @@ func runMessagingTestCase(
 		FeeToken:     common.HexToAddress("0x0"),
 		ExtraArgs:    extraArgs,
 	})
-	expectedSeqNum := make(map[ccdeploy.SourceDestPair]uint64)
-	expectedSeqNum[ccdeploy.SourceDestPair{
+	expectedSeqNum := make(map[changeset.SourceDestPair]uint64)
+	expectedSeqNum[changeset.SourceDestPair{
 		SourceChainSelector: tc.sourceChain,
 		DestChainSelector:   tc.destChain,
 	}] = msgSentEvent.SequenceNumber

@@ -213,7 +213,7 @@ func transferAndWaitForSuccess(
 	data []byte,
 ) {
 	startBlocks := make(map[uint64]*uint64)
-	expectedSeqNum := make(map[ccdeploy.SourceDestPair]uint64)
+	expectedSeqNum := make(map[changeset.SourceDestPair]uint64)
 
 	latesthdr, err := env.Chains[destChain].Client.HeaderByNumber(testcontext.Get(t), nil)
 	require.NoError(t, err)
@@ -227,7 +227,7 @@ func transferAndWaitForSuccess(
 		FeeToken:     common.HexToAddress("0x0"),
 		ExtraArgs:    nil,
 	})
-	expectedSeqNum[ccdeploy.SourceDestPair{
+	expectedSeqNum[changeset.SourceDestPair{
 		SourceChainSelector: sourceChain,
 		DestChainSelector:   destChain,
 	}] = msgSentEvent.SequenceNumber
