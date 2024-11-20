@@ -20,8 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
-	"github.com/smartcontractkit/chainlink/deployment/ccip"
-
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
@@ -91,7 +89,7 @@ func MustABIEncode(abiString string, args ...interface{}) []byte {
 // and returns a deployment.ContractDeploy struct with the address and contract instance.
 func DeployCapReg(
 	lggr logger.Logger,
-	state ccipdeployment.CCIPOnChainState,
+	state CCIPOnChainState,
 	ab deployment.AddressBook,
 	chain deployment.Chain,
 ) (*deployment.ContractDeploy[*capabilities_registry.CapabilitiesRegistry], error) {
@@ -101,7 +99,7 @@ func DeployCapReg(
 		if cr != nil {
 			lggr.Infow("Found CapabilitiesRegistry in chain state", "address", cr.Address().String())
 			return &deployment.ContractDeploy[*capabilities_registry.CapabilitiesRegistry]{
-				Address: cr.Address(), Contract: cr, Tv: deployment.NewTypeAndVersion(ccipdeployment.CapabilitiesRegistry, deployment.Version1_0_0),
+				Address: cr.Address(), Contract: cr, Tv: deployment.NewTypeAndVersion(CapabilitiesRegistry, deployment.Version1_0_0),
 			}, nil
 		}
 	}
@@ -112,7 +110,7 @@ func DeployCapReg(
 				chain.Client,
 			)
 			return deployment.ContractDeploy[*capabilities_registry.CapabilitiesRegistry]{
-				Address: crAddr, Contract: cr, Tv: deployment.NewTypeAndVersion(ccipdeployment.CapabilitiesRegistry, deployment.Version1_0_0), Tx: tx, Err: err2,
+				Address: crAddr, Contract: cr, Tv: deployment.NewTypeAndVersion(CapabilitiesRegistry, deployment.Version1_0_0), Tx: tx, Err: err2,
 			}
 		})
 	if err != nil {
@@ -122,7 +120,7 @@ func DeployCapReg(
 	return capReg, nil
 }
 
-func DeployHomeChain(
+func deployHomeChain(
 	lggr logger.Logger,
 	e deployment.Environment,
 	ab deployment.AddressBook,
@@ -133,7 +131,7 @@ func DeployHomeChain(
 	nodeP2PIDsPerNodeOpAdmin map[string][][32]byte,
 ) (*deployment.ContractDeploy[*capabilities_registry.CapabilitiesRegistry], error) {
 	// load existing state
-	state, err := ccipdeployment.LoadOnchainState(e)
+	state, err := LoadOnchainState(e)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -153,7 +151,7 @@ func DeployHomeChain(
 				capReg.Address,
 			)
 			return deployment.ContractDeploy[*ccip_home.CCIPHome]{
-				Address: ccAddr, Tv: deployment.NewTypeAndVersion(ccipdeployment.CCIPHome, deployment.Version1_6_0_dev), Tx: tx, Err: err2, Contract: cc,
+				Address: ccAddr, Tv: deployment.NewTypeAndVersion(CCIPHome, deployment.Version1_6_0_dev), Tx: tx, Err: err2, Contract: cc,
 			}
 		})
 	if err != nil {
@@ -170,7 +168,7 @@ func DeployHomeChain(
 				chain.Client,
 			)
 			return deployment.ContractDeploy[*rmn_home.RMNHome]{
-				Address: rmnAddr, Tv: deployment.NewTypeAndVersion(ccipdeployment.RMNHome, deployment.Version1_6_0_dev), Tx: tx, Err: err2, Contract: rmn,
+				Address: rmnAddr, Tv: deployment.NewTypeAndVersion(RMNHome, deployment.Version1_6_0_dev), Tx: tx, Err: err2, Contract: rmn,
 			}
 		},
 	)
@@ -1047,7 +1045,7 @@ func AddDON(
 
 func ApplyChainConfigUpdatesOp(
 	e deployment.Environment,
-	state ccipdeployment.CCIPOnChainState,
+	state CCIPOnChainState,
 	homeChainSel uint64,
 	chains []uint64,
 ) (mcms.Operation, error) {

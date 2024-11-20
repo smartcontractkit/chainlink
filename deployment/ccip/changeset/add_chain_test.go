@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
@@ -172,12 +171,12 @@ func TestAddChainInbound(t *testing.T) {
 	ProcessChangeset(t, e.Env, addDonChangeset)
 
 	t.Logf("Executing promote candidate proposal for exec plugin on chain %d", newChain)
-	setCandidateForExecChangeset, err := internal.SetCandidatePluginChangeset(state, e.Env, nodes, deployment.XXXGenerateTestOCRSecrets(), e.HomeChainSel, e.FeedChainSel, newChain, tokenConfig, types.PluginTypeCCIPExec)
+	setCandidateForExecChangeset, err := SetCandidatePluginChangeset(state, e.Env, nodes, deployment.XXXGenerateTestOCRSecrets(), e.HomeChainSel, e.FeedChainSel, newChain, tokenConfig, types.PluginTypeCCIPExec)
 	require.NoError(t, err)
 	ProcessChangeset(t, e.Env, setCandidateForExecChangeset)
 
 	t.Logf("Executing promote candidate proposal for both commit and exec plugins on chain %d", newChain)
-	donPromoteChangeset, err := internal.PromoteAllCandidatesChangeset(state, e.HomeChainSel, newChain, nodes)
+	donPromoteChangeset, err := PromoteAllCandidatesChangeset(state, e.HomeChainSel, newChain, nodes)
 	require.NoError(t, err)
 	ProcessChangeset(t, e.Env, donPromoteChangeset)
 

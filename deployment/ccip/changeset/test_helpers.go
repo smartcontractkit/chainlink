@@ -17,8 +17,6 @@ import (
 	"github.com/pkg/errors"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink/deployment/ccip"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 
@@ -128,8 +126,8 @@ func DeployTestContracts(t *testing.T,
 ) deployment.CapabilityRegistryConfig {
 	capReg, err := DeployCapReg(lggr,
 		// deploying cap reg for the first time on a blank chain state
-		ccipdeployment.CCIPOnChainState{
-			Chains: make(map[uint64]ccipdeployment.CCIPChainState),
+		CCIPOnChainState{
+			Chains: make(map[uint64]CCIPChainState),
 		}, ab, chains[homeChainSel])
 	require.NoError(t, err)
 	_, err = DeployFeeds(lggr, ab, chains[feedChainSel], linkPrice, wethPrice)
@@ -199,7 +197,7 @@ func NewMemoryEnvironment(
 	envNodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
 	e.ExistingAddresses = ab
-	_, err = DeployHomeChain(lggr, e, e.ExistingAddresses, chains[homeChainSel],
+	_, err = deployHomeChain(lggr, e, e.ExistingAddresses, chains[homeChainSel],
 		NewTestRMNStaticConfig(),
 		NewTestRMNDynamicConfig(),
 		NewTestNodeOperator(chains[homeChainSel].DeployerKey.From),
@@ -249,7 +247,7 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 	e.SetupJobs(t)
 	// Take first non-home chain as the new chain.
 	newAddresses := deployment.NewMemoryAddressBook()
-	err := ccipdeployment.DeployPrerequisiteChainContracts(e.Env, newAddresses, e.Env.AllChainSelectors())
+	err := DeployPrerequisiteChainContracts(e.Env, newAddresses, e.Env.AllChainSelectors())
 	require.NoError(t, err)
 	require.NoError(t, e.Env.ExistingAddresses.Merge(newAddresses))
 
@@ -267,7 +265,7 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 	out, err := commonchangeset.DeployMCMSWithTimelock(e.Env, mcmsCfg)
 	require.NoError(t, err)
 	require.NoError(t, e.Env.ExistingAddresses.Merge(out.AddressBook))
-	state, err := ccipdeployment.LoadOnchainState(e.Env)
+	state, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	newAddresses = deployment.NewMemoryAddressBook()
@@ -275,15 +273,15 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 	server := mockAttestationResponse()
 	defer server.Close()
 	endpoint := server.URL
-	err = ccipdeployment.DeployCCIPContracts(e.Env, newAddresses, ccipdeployment.DeployCCIPContractConfig{
+	err = DeployCCIPContracts(e.Env, newAddresses, DeployCCIPContractConfig{
 		HomeChainSel:   e.HomeChainSel,
 		FeedChainSel:   e.FeedChainSel,
 		ChainsToDeploy: e.Env.AllChainSelectors(),
 		TokenConfig:    tokenConfig,
 		OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
-		USDCConfig: ccipdeployment.USDCConfig{
+		USDCConfig: USDCConfig{
 			Enabled: true,
-			USDCAttestationConfig: ccipdeployment.USDCAttestationConfig{
+			USDCAttestationConfig: USDCAttestationConfig{
 				API:         endpoint,
 				APITimeout:  commonconfig.MustNewDuration(time.Second),
 				APIInterval: commonconfig.MustNewDuration(500 * time.Millisecond),
@@ -292,7 +290,7 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 	})
 	require.NoError(t, err)
 	require.NoError(t, e.Env.ExistingAddresses.Merge(newAddresses))
-	state, err = ccipdeployment.LoadOnchainState(e.Env)
+	state, err = LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	return e
@@ -300,7 +298,7 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 
 func CCIPSendRequest(
 	e deployment.Environment,
-	state ccipdeployment.CCIPOnChainState,
+	state CCIPOnChainState,
 	src, dest uint64,
 	testRouter bool,
 	evm2AnyMessage router.ClientEVM2AnyMessage,
@@ -342,7 +340,7 @@ func CCIPSendRequest(
 func TestSendRequest(
 	t *testing.T,
 	e deployment.Environment,
-	state ccipdeployment.CCIPOnChainState,
+	state CCIPOnChainState,
 	src, dest uint64,
 	testRouter bool,
 	evm2AnyMessage router.ClientEVM2AnyMessage,
@@ -403,11 +401,11 @@ func MakeEVMExtraArgsV2(gasLimit uint64, allowOOO bool) []byte {
 
 // AddLanesForAll adds densely connected lanes for all chains in the environment so that each chain
 // is connected to every other chain except itself.
-func AddLanesForAll(e deployment.Environment, state ccipdeployment.CCIPOnChainState) error {
+func AddLanesForAll(e deployment.Environment, state CCIPOnChainState) error {
 	for source := range e.Chains {
 		for dest := range e.Chains {
 			if source != dest {
-				err := internal.AddLaneWithDefaultPrices(e, state, source, dest)
+				err := AddLaneWithDefaultPrices(e, state, source, dest)
 				if err != nil {
 					return err
 				}
@@ -458,7 +456,7 @@ func DeployFeeds(
 	linkPrice *big.Int,
 	wethPrice *big.Int,
 ) (map[string]common.Address, error) {
-	linkTV := deployment.NewTypeAndVersion(ccipdeployment.PriceFeed, deployment.Version1_0_0)
+	linkTV := deployment.NewTypeAndVersion(PriceFeed, deployment.Version1_0_0)
 	mockLinkFeed := func(chain deployment.Chain) deployment.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface] {
 		linkFeed, tx, _, err1 := mock_v3_aggregator_contract.DeployMockV3Aggregator(
 			chain.DeployerKey,
@@ -534,7 +532,7 @@ func deploySingleFeed(
 	return mockTokenFeed.Address, desc, nil
 }
 
-func ConfirmRequestOnSourceAndDest(t *testing.T, env deployment.Environment, state ccipdeployment.CCIPOnChainState, sourceCS, destCS, expectedSeqNr uint64) error {
+func ConfirmRequestOnSourceAndDest(t *testing.T, env deployment.Environment, state CCIPOnChainState, sourceCS, destCS, expectedSeqNr uint64) error {
 	latesthdr, err := env.Chains[destCS].Client.HeaderByNumber(testcontext.Get(t), nil)
 	require.NoError(t, err)
 	startBlock := latesthdr.Number.Uint64()
@@ -579,7 +577,7 @@ func ProcessChangeset(t *testing.T, e deployment.Environment, c deployment.Chang
 
 	// sign and execute all proposals provided
 	if len(c.Proposals) != 0 {
-		state, err := ccipdeployment.LoadOnchainState(e)
+		state, err := LoadOnchainState(e)
 		require.NoError(t, err)
 		for _, prop := range c.Proposals {
 			chains := mapset.NewSet[uint64]()
@@ -605,7 +603,7 @@ func DeployTransferableToken(
 	lggr logger.Logger,
 	chains map[uint64]deployment.Chain,
 	src, dst uint64,
-	state ccipdeployment.CCIPOnChainState,
+	state CCIPOnChainState,
 	addresses deployment.AddressBook,
 	token string,
 ) (*burn_mint_erc677.BurnMintERC677, *burn_mint_token_pool.BurnMintTokenPool, *burn_mint_erc677.BurnMintERC677, *burn_mint_token_pool.BurnMintTokenPool, error) {
@@ -760,7 +758,7 @@ func setTokenPoolCounterPart(
 
 func attachTokenToTheRegistry(
 	chain deployment.Chain,
-	state ccipdeployment.CCIPChainState,
+	state CCIPChainState,
 	owner *bind.TransactOpts,
 	token common.Address,
 	tokenPool common.Address,
@@ -806,10 +804,10 @@ func deployTransferTokenOneEnd(
 		return nil, nil, err
 	}
 	for address, v := range chainAddresses {
-		if deployment.NewTypeAndVersion(ccipdeployment.ARMProxy, deployment.Version1_0_0) == v {
+		if deployment.NewTypeAndVersion(ARMProxy, deployment.Version1_0_0) == v {
 			rmnAddress = address
 		}
-		if deployment.NewTypeAndVersion(ccipdeployment.Router, deployment.Version1_2_0) == v {
+		if deployment.NewTypeAndVersion(Router, deployment.Version1_2_0) == v {
 			routerAddress = address
 		}
 		if rmnAddress != "" && routerAddress != "" {
@@ -828,7 +826,7 @@ func deployTransferTokenOneEnd(
 				big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
 			)
 			return deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
-				USDCTokenAddr, token, tx, deployment.NewTypeAndVersion(ccipdeployment.BurnMintToken, deployment.Version1_0_0), err2,
+				USDCTokenAddr, token, tx, deployment.NewTypeAndVersion(BurnMintToken, deployment.Version1_0_0), err2,
 			}
 		})
 	if err != nil {
@@ -856,7 +854,7 @@ func deployTransferTokenOneEnd(
 				common.HexToAddress(routerAddress),
 			)
 			return deployment.ContractDeploy[*burn_mint_token_pool.BurnMintTokenPool]{
-				tokenPoolAddress, tokenPoolContract, tx, deployment.NewTypeAndVersion(ccipdeployment.BurnMintTokenPool, deployment.Version1_0_0), err2,
+				tokenPoolAddress, tokenPoolContract, tx, deployment.NewTypeAndVersion(BurnMintTokenPool, deployment.Version1_0_0), err2,
 			}
 		})
 	if err != nil {

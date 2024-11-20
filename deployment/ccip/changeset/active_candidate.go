@@ -1,4 +1,4 @@
-package internal
+package changeset
 
 import (
 	"fmt"
@@ -7,14 +7,13 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
 
 // PromoteAllCandidatesChangeset generates a proposal to call promoteCandidate on the CCIPHome through CapReg.
 // This needs to be called after SetCandidateProposal is executed.
 func PromoteAllCandidatesChangeset(
-	state changeset.CCIPOnChainState,
+	state CCIPOnChainState,
 	homeChainSel, newChainSel uint64,
 	nodes deployment.Nodes,
 ) (deployment.ChangesetOutput, error) {
@@ -28,7 +27,7 @@ func PromoteAllCandidatesChangeset(
 		return deployment.ChangesetOutput{}, err
 	}
 
-	prop, err := changeset.BuildProposalFromBatches(state, []timelock.BatchChainOperation{{
+	prop, err := BuildProposalFromBatches(state, []timelock.BatchChainOperation{{
 		ChainIdentifier: mcms.ChainIdentifier(homeChainSel),
 		Batch:           promoteCandidateOps,
 	}}, "promoteCandidate for commit and execution", 0)
@@ -44,15 +43,15 @@ func PromoteAllCandidatesChangeset(
 
 // SetCandidateExecPluginProposal calls setCandidate on the CCIPHome for setting up OCR3 exec Plugin config for the new chain.
 func SetCandidatePluginChangeset(
-	state changeset.CCIPOnChainState,
+	state CCIPOnChainState,
 	e deployment.Environment,
 	nodes deployment.Nodes,
 	ocrSecrets deployment.OCRSecrets,
 	homeChainSel, feedChainSel, newChainSel uint64,
-	tokenConfig changeset.TokenConfig,
+	tokenConfig TokenConfig,
 	pluginType cctypes.PluginType,
 ) (deployment.ChangesetOutput, error) {
-	newDONArgs, err := changeset.BuildOCR3ConfigForCCIPHome(
+	newDONArgs, err := BuildOCR3ConfigForCCIPHome(
 		ocrSecrets,
 		state.Chains[newChainSel].OffRamp,
 		e.Chains[newChainSel],
@@ -82,7 +81,7 @@ func SetCandidatePluginChangeset(
 		return deployment.ChangesetOutput{}, err
 	}
 
-	prop, err := changeset.BuildProposalFromBatches(state, []timelock.BatchChainOperation{{
+	prop, err := BuildProposalFromBatches(state, []timelock.BatchChainOperation{{
 		ChainIdentifier: mcms.ChainIdentifier(homeChainSel),
 		Batch:           setCandidateMCMSOps,
 	}}, "SetCandidate for execution", 0)

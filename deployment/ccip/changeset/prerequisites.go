@@ -8,7 +8,6 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	ccipdeployment "github.com/smartcontractkit/chainlink/deployment/ccip"
 )
 
 var (
@@ -23,7 +22,7 @@ func DeployPrerequisites(env deployment.Environment, cfg DeployPrerequisiteConfi
 		return deployment.ChangesetOutput{}, errors.Wrapf(deployment.ErrInvalidConfig, "%v", err)
 	}
 	ab := deployment.NewMemoryAddressBook()
-	err = ccipdeployment.DeployPrerequisiteChainContracts(env, ab, cfg.ChainSelectors)
+	err = DeployPrerequisiteChainContracts(env, ab, cfg.ChainSelectors)
 	if err != nil {
 		env.Logger.Errorw("Failed to deploy prerequisite contracts", "err", err, "addressBook", ab)
 		return deployment.ChangesetOutput{
