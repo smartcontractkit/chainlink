@@ -47,8 +47,9 @@ type TransmitterRetirementReportCacheWriter interface {
 
 type transmitter struct {
 	services.StateMachine
-	lggr        logger.Logger
-	fromAccount string
+	lggr           logger.Logger
+	verboseLogging bool
+	fromAccount    string
 
 	subTransmitters       []Transmitter
 	retirementReportCache TransmitterRetirementReportCacheWriter
@@ -56,6 +57,7 @@ type transmitter struct {
 
 type TransmitterOpts struct {
 	Lggr                   logger.Logger
+	VerboseLogging         bool
 	FromAccount            string
 	MercuryTransmitterOpts mercurytransmitter.Opts
 	RetirementReportCache  TransmitterRetirementReportCacheWriter
@@ -69,6 +71,7 @@ func NewTransmitter(opts TransmitterOpts) Transmitter {
 	return &transmitter{
 		services.StateMachine{},
 		opts.Lggr,
+		opts.VerboseLogging,
 		opts.FromAccount,
 		subTransmitters,
 		opts.RetirementReportCache,
@@ -114,6 +117,10 @@ func (t *transmitter) Transmit(
 	report ocr3types.ReportWithInfo[llotypes.ReportInfo],
 	sigs []types.AttributedOnchainSignature,
 ) (err error) {
+	if t.verboseLogging {
+		t.lggr.Debugw("Transmit report", "digest", digest, "seqNr", seqNr, "report", report, "sigs", sigs)
+	}
+
 	if report.Info.ReportFormat == llotypes.ReportFormatRetirement {
 		// Retirement reports don't get transmitted; rather, they are stored in
 		// the RetirementReportCache

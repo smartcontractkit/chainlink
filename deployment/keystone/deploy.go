@@ -423,45 +423,65 @@ func ConfigureOCR3Contract(env *deployment.Environment, chainSel uint64, dons []
 	return nil
 }
 
-func ConfigureOCR3ContractFromJD(env *deployment.Environment, chainSel uint64, nodeIDs []string, addrBook deployment.AddressBook, cfg *OracleConfigWithSecrets) error {
-	registryChain, ok := env.Chains[chainSel]
+type ConfigureOCR3Resp struct {
+	OCR2OracleConfig
+}
+
+type ConfigureOCR3Config struct {
+	ChainSel   uint64
+	NodeIDs    []string
+	OCR3Config *OracleConfigWithSecrets
+	DryRun     bool
+}
+
+func ConfigureOCR3ContractFromJD(env *deployment.Environment, cfg ConfigureOCR3Config) (*ConfigureOCR3Resp, error) {
+	prefix := ""
+	if cfg.DryRun {
+		prefix = "DRY RUN: "
+	}
+	env.Logger.Infof("%sconfiguring OCR3 contract for chain %d", prefix, cfg.ChainSel)
+	registryChain, ok := env.Chains[cfg.ChainSel]
 	if !ok {
-		return fmt.Errorf("chain %d not found in environment", chainSel)
+		return nil, fmt.Errorf("chain %d not found in environment", cfg.ChainSel)
 	}
 	contractSetsResp, err := GetContractSets(env.Logger, &GetContractSetsRequest{
 		Chains:      env.Chains,
-		AddressBook: addrBook,
+		AddressBook: env.ExistingAddresses,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to get contract sets: %w", err)
+		return nil, fmt.Errorf("failed to get contract sets: %w", err)
 	}
-	contracts, ok := contractSetsResp.ContractSets[chainSel]
+	contracts, ok := contractSetsResp.ContractSets[cfg.ChainSel]
 	if !ok {
-		return fmt.Errorf("failed to get contract set for chain %d", chainSel)
+		return nil, fmt.Errorf("failed to get contract set for chain %d", cfg.ChainSel)
 	}
 	contract := contracts.OCR3
 	if contract == nil {
-		return fmt.Errorf("no ocr3 contract found for chain %d", chainSel)
+		return nil, fmt.Errorf("no ocr3 contract found for chain %d", cfg.ChainSel)
 	}
-	nodes, err := NodesFromJD("nodes", nodeIDs, env.Offchain)
+	nodes, err := NodesFromJD("nodes", cfg.NodeIDs, env.Offchain)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	var ocr2nodes []*ocr2Node
 	for _, node := range nodes {
-		n, err := newOcr2NodeFromJD(&node, chainSel)
+		n, err := newOcr2NodeFromJD(&node, cfg.ChainSel)
 		if err != nil {
-			return fmt.Errorf("failed to create ocr2 node from clo node: %w", err)
+			return nil, fmt.Errorf("failed to create ocr2 node from clo node %v: %w", node, err)
 		}
 		ocr2nodes = append(ocr2nodes, n)
 	}
-	_, err = configureOCR3contract(configureOCR3Request{
-		cfg:      cfg,
+	r, err := configureOCR3contract(configureOCR3Request{
+		cfg:      cfg.OCR3Config,
 		chain:    registryChain,
 		contract: contract,
 		nodes:    ocr2nodes,
+		dryRun:   cfg.DryRun,
 	})
-	return err
+	return &ConfigureOCR3Resp{
+		OCR2OracleConfig: r.ocrConfig,
+	}, nil
+
 }
 
 type registerCapabilitiesRequest struct {
@@ -965,9 +985,10 @@ type configureOCR3Request struct {
 	chain    deployment.Chain
 	contract *kocr3.OCR3Capability
 	nodes    []*ocr2Node
+	dryRun   bool
 }
 type configureOCR3Response struct {
-	ocrConfig Orc2drOracleConfig
+	ocrConfig OCR2OracleConfig
 }
 
 func configureOCR3contract(req configureOCR3Request) (*configureOCR3Response, error) {
@@ -978,6 +999,9 @@ func configureOCR3contract(req configureOCR3Request) (*configureOCR3Response, er
 	ocrConfig, err := GenerateOCR3Config(*req.cfg, nks)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate OCR3 config: %w", err)
+	}
+	if req.dryRun {
+		return &configureOCR3Response{ocrConfig}, nil
 	}
 	tx, err := req.contract.SetConfig(req.chain.DeployerKey,
 		ocrConfig.Signers,

@@ -8,12 +8,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	io_prometheus_client "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
-
-	"github.com/prometheus/client_golang/prometheus/testutil"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -171,7 +169,7 @@ func generateRandomLogs(chainId, count int) []Log {
 }
 
 func createObservedORM(t *testing.T, chainId int64) *ObservedORM {
-	lggr, _ := logger.TestObserved(t, zapcore.ErrorLevel)
+	lggr := logger.Test(t)
 	db := pgtest.NewSqlxDB(t)
 	return NewObservedORM(big.NewInt(chainId), db, lggr)
 }
