@@ -33,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_reader_tester"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -56,6 +57,8 @@ var (
 	defaultGasPrice  = assets.GWei(10)
 	InitialLinkPrice = E18Mult(20)
 	InitialWethPrice = E18Mult(4000)
+	linkAddress      = utils.RandomAddress()
+	wethAddress      = utils.RandomAddress()
 )
 
 func TestCCIPReader_CommitReportsGTETimestamp(t *testing.T) {
@@ -520,7 +523,8 @@ func Test_GetChainFeePriceUpdates(t *testing.T) {
 		auth,
 	)
 
-	updates := s.reader.GetChainFeePriceUpdate(ctx, []cciptypes.ChainSelector{chainS1})
+	updates := s.reader.GetChainFeePriceUpdate(ctx, []cciptypes.ChainSelector{chainS1, chainS2})
+	// only chainS1 has a bound contract
 	require.Len(t, updates, 1)
 	require.Equal(t, defaultGasPrice.ToInt(), updates[chainS1].Value.Int)
 }
@@ -615,9 +619,57 @@ func Test_GetMedianDataAvailabilityGasConfig(t *testing.T) {
 	require.Equal(t, uint16(2), daConfig.DestDataAvailabilityMultiplierBps)
 }
 
+func Test_GetWrappedNativeTokenPriceUSD(t *testing.T) {
+	ctx := testutils.Context(t)
+	sb, auth := setupSimulatedBackendAndAuth(t)
+	feeQuoter := deployFeeQuoterWithPrices(t, auth, sb, chainS1)
+
+	// Mock the routerContract to return a native token address
+	routerContract := deployRouterWithNativeToken(t, auth, sb)
+
+	s := testSetup(ctx, t, chainD, chainD, nil, evmconfig.DestReaderConfig,
+		map[cciptypes.ChainSelector][]types.BoundContract{
+			chainD: {
+				{
+					Address: feeQuoter.Address().String(),
+					Name:    consts.ContractNameFeeQuoter,
+				},
+				{
+					Address: routerContract.Address().String(),
+					Name:    consts.ContractNameRouter,
+				},
+			},
+		},
+		nil,
+		false,
+		sb,
+		auth,
+	)
+
+	prices := s.reader.GetWrappedNativeTokenPriceUSD(ctx, []cciptypes.ChainSelector{chainD, chainS1})
+
+	// Only chainD has reader contracts bound
+	require.Len(t, prices, 1)
+	require.Equal(t, InitialWethPrice, prices[chainD].Int)
+}
+
+func deployRouterWithNativeToken(t *testing.T, auth *bind.TransactOpts, sb *simulated.Backend) *router.Router {
+	address, _, _, err := router.DeployRouter(
+		auth,
+		sb.Client(),
+		wethAddress,
+		utils.RandomAddress(), // armProxy address
+	)
+	require.NoError(t, err)
+	sb.Commit()
+
+	routerContract, err := router.NewRouter(address, sb.Client())
+	require.NoError(t, err)
+
+	return routerContract
+}
+
 func deployFeeQuoterWithPrices(t *testing.T, auth *bind.TransactOpts, sb *simulated.Backend, destChain cciptypes.ChainSelector) *fee_quoter.FeeQuoter {
-	linkAddress := utils.RandomAddress()
-	wethAddress := utils.RandomAddress()
 	address, _, _, err := fee_quoter.DeployFeeQuoter(
 		auth,
 		sb.Client(),
