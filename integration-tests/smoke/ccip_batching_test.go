@@ -66,7 +66,7 @@ func Test_CCIPBatching(t *testing.T) {
 	)
 
 	t.Run("batch data only messages from single source", func(t *testing.T) {
-		sendMessages(
+		err := sendMessages(
 			ctx,
 			t,
 			e.Env.Chains[sourceChain1],
@@ -78,8 +78,9 @@ func Test_CCIPBatching(t *testing.T) {
 			numMessages,
 			common.LeftPadBytes(state.Chains[destChain].Receiver.Address().Bytes(), 32),
 		)
+		require.NoError(t, err)
 
-		_, err := ccdeploy.ConfirmCommitWithExpectedSeqNumRange(
+		_, err = ccdeploy.ConfirmCommitWithExpectedSeqNumRange(
 			t,
 			e.Env.Chains[sourceChain1],
 			e.Env.Chains[destChain],
@@ -94,12 +95,16 @@ func Test_CCIPBatching(t *testing.T) {
 	})
 
 	t.Run("batch data only messages from multiple sources", func(t *testing.T) {
-		var wg sync.WaitGroup
+		var (
+			wg   sync.WaitGroup
+			mx   sync.Mutex
+			errs []error
+		)
 
 		wg.Add(1)
 		go func(sourceChainSelector uint64) {
 			defer wg.Done()
-			sendMessages(
+			err := sendMessages(
 				ctx,
 				t,
 				e.Env.Chains[sourceChainSelector],
@@ -111,12 +116,15 @@ func Test_CCIPBatching(t *testing.T) {
 				numMessages,
 				common.LeftPadBytes(state.Chains[destChain].Receiver.Address().Bytes(), 32),
 			)
+			mx.Lock()
+			errs = append(errs, err)
+			mx.Unlock()
 		}(sourceChain1)
 
 		wg.Add(1)
 		go func(sourceChainSelector uint64) {
 			defer wg.Done()
-			sendMessages(
+			err := sendMessages(
 				ctx,
 				t,
 				e.Env.Chains[sourceChainSelector],
@@ -128,15 +136,24 @@ func Test_CCIPBatching(t *testing.T) {
 				numMessages,
 				common.LeftPadBytes(state.Chains[destChain].Receiver.Address().Bytes(), 32),
 			)
+			mx.Lock()
+			errs = append(errs, err)
+			mx.Unlock()
 		}(sourceChain2)
 
 		wg.Wait()
+
+		for _, err := range errs {
+			require.NoError(t, err)
+		}
 
 		// confirm the commit reports
 		var (
 			sourceChain1Report *offramp.OffRampCommitReportAccepted
 			sourceChain2Report *offramp.OffRampCommitReportAccepted
 		)
+		errs = nil
+
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -148,7 +165,10 @@ func Test_CCIPBatching(t *testing.T) {
 				nil,
 				ccipocr3.NewSeqNumRange(startSeqNum[sourceChain1], endSeqNum[sourceChain1]),
 			)
-			require.NoErrorf(t, err, "failed to confirm commit from chain %d", sourceChain1)
+
+			mx.Lock()
+			errs = append(errs, err)
+			mx.Unlock()
 		}()
 
 		wg.Add(1)
@@ -162,11 +182,18 @@ func Test_CCIPBatching(t *testing.T) {
 				nil,
 				ccipocr3.NewSeqNumRange(startSeqNum[sourceChain2], endSeqNum[sourceChain2]),
 			)
-			require.NoErrorf(t, err, "failed to confirm commit from chain %d", sourceChain2)
+
+			mx.Lock()
+			errs = append(errs, err)
+			mx.Unlock()
 		}()
 
 		t.Log("waiting for commit report")
 		wg.Wait()
+
+		for _, err := range errs {
+			require.NoError(t, err)
+		}
 
 		// the reports should be the same for both, since both roots should be batched within
 		// that one report.
@@ -190,7 +217,7 @@ func sendMessages(
 	destChainSelector uint64,
 	numMessages int,
 	receiver []byte,
-) {
+) error {
 	calls, totalValue := genMessages(
 		ctx,
 		t,
@@ -210,19 +237,27 @@ func sendMessages(
 		calls,
 	)
 	_, err = deployment.ConfirmIfNoError(sourceChain, tx, err)
-	require.NoError(t, err, "failed to confirm tx")
+	if err != nil {
+		return err
+	}
 
 	// check that the message was emitted
 	iter, err := sourceOnRamp.FilterCCIPMessageSent(
 		nil, []uint64{destChainSelector}, nil,
 	)
-	require.NoError(t, err)
+	if err != nil {
+		return err
+	}
 
 	// there should be numMessages messages emitted
 	for i := 0; i < numMessages; i++ {
-		require.Truef(t, iter.Next(), "expected %d messages, got %d", numMessages, i+1)
+		if !iter.Next() {
+			return fmt.Errorf("expected %d messages, got %d", numMessages, i)
+		}
 		t.Logf("Message id of msg %d: %x", i, iter.Event.Message.Header.MessageId[:])
 	}
+
+	return nil
 }
 
 func genMessages(
