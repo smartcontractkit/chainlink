@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
@@ -114,6 +115,8 @@ func NewLocalDevEnvironment(
 	e, don, err := devenv.NewEnvironment(ctx, lggr, *envConfig)
 	require.NoError(t, err)
 	require.NotNil(t, e)
+	e.ExistingAddresses = ab
+
 	// fund the nodes
 	zeroLogLggr := logging.GetTestLogger(t)
 	FundNodes(t, zeroLogLggr, testEnv, cfg, don.PluginNodes())
