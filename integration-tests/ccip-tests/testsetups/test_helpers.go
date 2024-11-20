@@ -118,7 +118,7 @@ func NewLocalDevEnvironment(
 
 	envNodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
-	_, err = changeset.DeployHomeChain(*e,
+	out, err := changeset.DeployHomeChain(*e,
 		changeset.DeployHomeChainConfig{
 			HomeChainSel:     homeChainSel,
 			RMNStaticConfig:  changeset.NewTestRMNStaticConfig(),
@@ -130,6 +130,7 @@ func NewLocalDevEnvironment(
 		},
 	)
 	require.NoError(t, err)
+	require.NoError(t, e.ExistingAddresses.Merge(out.AddressBook))
 	zeroLogLggr := logging.GetTestLogger(t)
 	// fund the nodes
 	FundNodes(t, zeroLogLggr, testEnv, cfg, don.PluginNodes())
