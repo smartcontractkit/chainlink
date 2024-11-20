@@ -278,15 +278,10 @@ func (s *service) SyncNodeInfo(ctx context.Context, id int64) error {
 		cfgMsgs = append(cfgMsgs, cfgMsg)
 	}
 
-	workflowKey, err := s.getWorkflowKey()
-	if err != nil {
-		return errors.Wrap(err, "could not fetch workflow key")
-	}
-
 	if _, err = fmsClient.UpdateNode(ctx, &pb.UpdateNodeRequest{
 		Version:      s.version,
 		ChainConfigs: cfgMsgs,
-		WorkflowKey:  workflowKey.PublicKeyString(),
+		WorkflowKey:  s.getWorkflowKey().PublicKeyString(),
 	}); err != nil {
 		return err
 	}
@@ -1152,17 +1147,18 @@ func (s *service) getCSAPrivateKey() (privkey []byte, err error) {
 	return keys[0].Raw(), nil
 }
 
-// getWorkflowKey gets the server's Workflow key
-// because we will have only one key, we can get the first key
-func (s *service) getWorkflowKey() (*workflowkey.Key, error) {
+// getWorkflowKey retrieves the server's Workflow key.
+// Since there will be at most one key, it returns the first key found.
+// If an error occurs or no keys are found, it returns an empty key.
+func (s *service) getWorkflowKey() workflowkey.Key {
 	keys, err := s.workflowKeyStore.GetAll()
 	if err != nil {
-		return nil, err
+		return workflowkey.Key{}
 	}
 	if len(keys) < 1 {
-		return nil, errors.New("Workflow key does not exist")
+		return workflowkey.Key{}
 	}
-	return &keys[0], nil
+	return keys[0]
 }
 
 // observeJobProposalCounts is a helper method that queries the repository for the count of
