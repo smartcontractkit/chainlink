@@ -341,7 +341,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 
 	// Need to keep track of the block number for each chain so that event subscription can be done from that block.
 	startBlocks := make(map[uint64]*uint64)
-	expectedSeqNum := make(map[uint64]uint64)
+	expectedSeqNum := make(map[ccipdeployment.SourceDestPair]uint64)
 	for _, msg := range tc.messagesToSend {
 		fromChain := chainSelectors[msg.fromChainIdx]
 		toChain := chainSelectors[msg.toChainIdx]
@@ -354,7 +354,10 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 				FeeToken:     common.HexToAddress("0x0"),
 				ExtraArgs:    nil,
 			})
-			expectedSeqNum[toChain] = msgSentEvent.SequenceNumber
+			expectedSeqNum[ccipdeployment.SourceDestPair{
+				SourceChainSelector: fromChain,
+				DestChainSelector:   toChain,
+			}] = msgSentEvent.SequenceNumber
 			t.Logf("Sent message from chain %d to chain %d with seqNum %d", fromChain, toChain, msgSentEvent.SequenceNumber)
 		}
 
