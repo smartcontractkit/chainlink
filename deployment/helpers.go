@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
@@ -151,4 +152,15 @@ func DeployContract[C any](
 		return nil, err
 	}
 	return &contractDeploy, nil
+}
+
+func IsValidChainSelector(cs uint64) error {
+	if cs == 0 {
+		return fmt.Errorf("chain selector must be set")
+	}
+	_, err := chain_selectors.ChainIdFromSelector(cs)
+	if err != nil {
+		return fmt.Errorf("invalid chain selector: %d - %w", cs, err)
+	}
+	return nil
 }

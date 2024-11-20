@@ -10,10 +10,10 @@ import (
 func TestOCRKeys_OffChainPrivateKey(t *testing.T) {
 	t.Parallel()
 
-	k, err := New()
+	k, err := NewV2()
 	require.NoError(t, err)
 
-	sig, err := k.offChainSigning.Sign([]byte("hello world"))
+	sig, err := k.OffChainSigning.Sign([]byte("hello world"))
 
 	assert.NoError(t, err)
 	assert.NotEmpty(t, sig)

@@ -33,6 +33,10 @@ func (m mockCfg) TransmitTimeout() commonconfig.Duration {
 	return *commonconfig.MustNewDuration(1 * time.Hour)
 }
 
+func (m mockCfg) TransmitConcurrency() uint32 {
+	return 5
+}
+
 func Test_Transmitter_Transmit(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
@@ -135,7 +139,7 @@ func Test_Transmitter_runQueueLoop(t *testing.T) {
 	orm := NewORM(db, donID)
 	cfg := mockCfg{}
 
-	s := newServer(lggr, cfg, c, orm, sURL)
+	s := newServer(lggr, true, cfg, c, orm, sURL)
 
 	t.Run("pulls from queue and transmits successfully", func(t *testing.T) {
 		transmit := make(chan *pb.TransmitRequest, 1)

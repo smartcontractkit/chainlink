@@ -111,15 +111,23 @@ func (d *DBStore) pruneDBEntries() {
 			return
 		case <-ticker.C:
 			ctx, cancel := d.chStop.CtxWithTimeout(defaultPruneTimeoutSec * time.Second)
+			nPruned := int64(0)
 			err := sqlutil.TransactDataSource(ctx, d.db, nil, func(tx sqlutil.DataSource) error {
 				stmt := fmt.Sprintf("DELETE FROM workflow_executions WHERE (id) IN (SELECT id FROM workflow_executions WHERE (created_at < now() - interval '%d hours') LIMIT %d);", defaultPruneRecordAgeHours, defaultPruneBatchSize)
-				_, err := tx.ExecContext(ctx, stmt)
-				return err
+				res, err := tx.ExecContext(ctx, stmt)
+				if err != nil {
+					return err
+				}
+				nPruned, err = res.RowsAffected()
+				if err != nil {
+					d.lggr.Warnw("Failed to get number of pruned workflow_executions", "err", err)
+				}
+				return nil
 			})
 			if err != nil {
 				d.lggr.Errorw("Failed to prune workflow_executions", "err", err)
-			} else {
-				d.lggr.Infow("Pruned oldest workflow_executions", "batchSize", defaultPruneBatchSize, "ageLimitHours", defaultPruneRecordAgeHours)
+			} else if nPruned > 0 {
+				d.lggr.Debugw("Pruned oldest workflow_executions", "nPruned", nPruned, "batchSize", defaultPruneBatchSize, "ageLimitHours", defaultPruneRecordAgeHours)
 			}
 			cancel()
 		}

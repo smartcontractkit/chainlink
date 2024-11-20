@@ -1,11 +1,13 @@
 package changeset
 
 import (
+	"math/big"
 	"testing"
 	"time"
 
 	ccipdeployment "github.com/smartcontractkit/chainlink/deployment/ccip"
-
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -41,14 +43,27 @@ func TestAddChainInbound(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, e.Env.ExistingAddresses.Merge(newAddresses))
 
-	tokenConfig := ccipdeployment.NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
+	cfg := commontypes.MCMSWithTimelockConfig{
+		Canceller:         commonchangeset.SingleGroupMCMS(t),
+		Bypasser:          commonchangeset.SingleGroupMCMS(t),
+		Proposer:          commonchangeset.SingleGroupMCMS(t),
+		TimelockExecutors: e.Env.AllDeployerKeys(),
+		TimelockMinDelay:  big.NewInt(0),
+	}
+	out, err := commonchangeset.DeployMCMSWithTimelock(e.Env, map[uint64]commontypes.MCMSWithTimelockConfig{
+		initialDeploy[0]: cfg,
+		initialDeploy[1]: cfg,
+		initialDeploy[2]: cfg,
+	})
+	require.NoError(t, err)
+	require.NoError(t, e.Env.ExistingAddresses.Merge(out.AddressBook))
 	newAddresses = deployment.NewMemoryAddressBook()
+	tokenConfig := ccipdeployment.NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
 	err = ccipdeployment.DeployCCIPContracts(e.Env, newAddresses, ccipdeployment.DeployCCIPContractConfig{
 		HomeChainSel:   e.HomeChainSel,
 		FeedChainSel:   e.FeedChainSel,
 		ChainsToDeploy: initialDeploy,
 		TokenConfig:    tokenConfig,
-		MCMSConfig:     ccipdeployment.NewTestMCMSConfig(t, e.Env),
 		OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
 	})
 	require.NoError(t, err)
@@ -72,14 +87,19 @@ func TestAddChainInbound(t *testing.T) {
 	require.NoError(t, err)
 
 	//  Deploy contracts to new chain
+	out, err = commonchangeset.DeployMCMSWithTimelock(e.Env, map[uint64]commontypes.MCMSWithTimelockConfig{
+		newChain: cfg,
+	})
+	require.NoError(t, err)
+	require.NoError(t, e.Env.ExistingAddresses.Merge(out.AddressBook))
+
 	newAddresses = deployment.NewMemoryAddressBook()
 	err = ccipdeployment.DeployPrerequisiteChainContracts(e.Env, newAddresses, []uint64{newChain})
 	require.NoError(t, err)
 	require.NoError(t, e.Env.ExistingAddresses.Merge(newAddresses))
 	newAddresses = deployment.NewMemoryAddressBook()
 	err = ccipdeployment.DeployChainContracts(e.Env,
-		e.Env.Chains[newChain], newAddresses,
-		ccipdeployment.NewTestMCMSConfig(t, e.Env), rmnHome)
+		e.Env.Chains[newChain], newAddresses, rmnHome)
 	require.NoError(t, err)
 	require.NoError(t, e.Env.ExistingAddresses.Merge(newAddresses))
 	state, err = ccipdeployment.LoadOnchainState(e.Env)
@@ -117,10 +137,10 @@ func TestAddChainInbound(t *testing.T) {
 
 	acceptOwnershipProposal, err := ccipdeployment.GenerateAcceptOwnershipProposal(state, e.HomeChainSel, initialDeploy)
 	require.NoError(t, err)
-	acceptOwnershipExec := ccipdeployment.SignProposal(t, e.Env, acceptOwnershipProposal)
+	acceptOwnershipExec := commonchangeset.SignProposal(t, e.Env, acceptOwnershipProposal)
 	// Apply the accept ownership proposal to all the chains.
 	for _, sel := range initialDeploy {
-		ccipdeployment.ExecuteProposal(t, e.Env, acceptOwnershipExec, state, sel)
+		commonchangeset.ExecuteProposal(t, e.Env, acceptOwnershipExec, state.Chains[sel].Timelock, sel)
 	}
 	for _, chain := range initialDeploy {
 		owner, err2 := state.Chains[chain].OnRamp.Owner(nil)
