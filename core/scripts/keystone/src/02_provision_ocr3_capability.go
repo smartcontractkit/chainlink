@@ -71,7 +71,7 @@ func deployOCR3Contract(
 
 		cc := ocrConfToContractConfig(ocrConf, latestConfigDigestBytes.ConfigCount)
 		digester := evm.OCR3CapabilityOffchainConfigDigester{
-			ChainID:         uint64(env.ChainID),
+			ChainID:         uint64(env.ChainID), //nolint:gosec // this won't overflow
 			ContractAddress: o.OCR3.Address(),
 		}
 		digest, err := digester.ConfigDigest(context.Background(), cc)

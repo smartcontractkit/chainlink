@@ -39,7 +39,7 @@ func (t *Toolkit) Run(args []string) {
 
 	switch command {
 	case "get-aptos-keys":
-		t.GetAptosKeys(cmdArgs)
+		t.AptosKeys(cmdArgs)
 	case "deploy-workflows":
 		t.DeployWorkflows(cmdArgs)
 	case "deploy-ocr3-contracts":
@@ -52,7 +52,7 @@ func (t *Toolkit) Run(args []string) {
 	}
 }
 
-func (t *Toolkit) GetAptosKeys(args []string) {
+func (t *Toolkit) AptosKeys(args []string) {
 	fs := flag.NewFlagSet("get-aptos-keys", flag.ExitOnError)
 	nodesListPath := fs.String("nodes", ".cache/NodesList.txt", "Path to file with list of nodes")
 	artefacts := fs.String("artefacts", defaultArtefactsDir, "Custom artefacts directory location")
