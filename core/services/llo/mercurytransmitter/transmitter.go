@@ -107,8 +107,9 @@ type transmitter struct {
 	verboseLogging bool
 	cfg            Config
 
-	orm     ORM
-	servers map[string]*server
+	orm        ORM
+	servers    map[string]*server
+	collectors []prometheus.Collector
 
 	donID       uint32
 	fromAccount string
@@ -145,6 +146,7 @@ func newTransmitter(opts Opts) *transmitter {
 		opts.Cfg,
 		opts.ORM,
 		servers,
+		nil,
 		opts.DonID,
 		fmt.Sprintf("%x", opts.FromAccount),
 		make(services.StopChan),
@@ -183,6 +185,27 @@ func (mt *transmitter) Start(ctx context.Context) (err error) {
 					go s.runDeleteQueueLoop(mt.stopCh, mt.wg)
 					go s.runQueueLoop(mt.stopCh, mt.wg, donIDStr)
 				}
+				mt.collectors = append(mt.collectors, prometheus.NewGaugeFunc(
+					prometheus.GaugeOpts{
+						Name:        "llo_mercury_concurrent_transmit_gauge",
+						Help:        "Gauge that measures the number of transmit threads currently waiting on a remote transmit call. You may wish to alert if this exceeds some number for a given period of time, or if it ever reaches its max.",
+						ConstLabels: prometheus.Labels{"donID": donIDStr, "serverURL": s.url, "maxConcurrentTransmits": strconv.FormatInt(int64(nThreads), 10)},
+					}, func() float64 {
+						return float64(s.transmitThreadBusyCount.Load())
+					}))
+				mt.collectors = append(mt.collectors, prometheus.NewGaugeFunc(
+					prometheus.GaugeOpts{
+						Name:        "llo_mercury_concurrent_delete_gauge",
+						Help:        "Gauge that measures the number of delete threads currently waiting on a delete call to the DB. You may wish to alert if this exceeds some number for a given period of time, or if it ever reaches its max.",
+						ConstLabels: prometheus.Labels{"donID": donIDStr, "serverURL": s.url, "maxConcurrentDeletes": strconv.FormatInt(int64(nThreads), 10)},
+					}, func() float64 {
+						return float64(s.deleteThreadBusyCount.Load())
+					}))
+				for _, c := range mt.collectors {
+					if err := prometheus.DefaultRegisterer.Register(c); err != nil {
+						return err
+					}
+				}
 			}
 			if err := (&services.MultiStart{}).Start(ctx, startClosers...); err != nil {
 				return err
@@ -214,7 +237,14 @@ func (mt *transmitter) Close() error {
 			closers = append(closers, s.pm)
 			closers = append(closers, s.c)
 		}
-		return services.CloseAll(closers...)
+		if err := services.CloseAll(closers...); err != nil {
+			return err
+		}
+		// Unregister all the gauge funcs
+		for _, c := range mt.collectors {
+			prometheus.DefaultRegisterer.Unregister(c)
+		}
+		return nil
 	})
 }
 

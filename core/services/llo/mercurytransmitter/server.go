@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/jpillora/backoff"
@@ -83,6 +84,9 @@ type server struct {
 	transmitQueueDeleteErrorCount prometheus.Counter
 	transmitQueueInsertErrorCount prometheus.Counter
 	transmitQueuePushErrorCount   prometheus.Counter
+
+	transmitThreadBusyCount atomic.Int32
+	deleteThreadBusyCount   atomic.Int32
 }
 
 type QueueConfig interface {
@@ -100,7 +104,7 @@ func newServer(lggr logger.Logger, verboseLogging bool, cfg QueueConfig, client 
 		codecLggr = corelogger.NullLogger
 	}
 
-	return &server{
+	s := &server{
 		logger.Sugared(lggr),
 		verboseLogging,
 		cfg.TransmitTimeout().Duration(),
@@ -117,7 +121,11 @@ func newServer(lggr logger.Logger, verboseLogging bool, cfg QueueConfig, client 
 		transmitQueueDeleteErrorCount.WithLabelValues(donIDStr, serverURL),
 		transmitQueueInsertErrorCount.WithLabelValues(donIDStr, serverURL),
 		transmitQueuePushErrorCount.WithLabelValues(donIDStr, serverURL),
+		atomic.Int32{},
+		atomic.Int32{},
 	}
+
+	return s
 }
 
 func (s *server) HealthReport() map[string]error {
@@ -144,6 +152,7 @@ func (s *server) runDeleteQueueLoop(stopCh services.StopChan, wg *sync.WaitGroup
 		select {
 		case hash := <-s.deleteQueue:
 			for {
+				s.deleteThreadBusyCount.Add(1)
 				if err := s.pm.orm.Delete(ctx, [][32]byte{hash}); err != nil {
 					s.lggr.Errorw("Failed to delete transmission record", "err", err, "transmissionHash", hash)
 					s.transmitQueueDeleteErrorCount.Inc()
@@ -152,6 +161,7 @@ func (s *server) runDeleteQueueLoop(stopCh services.StopChan, wg *sync.WaitGroup
 						// Wait a backoff duration before trying to delete again
 						continue
 					case <-stopCh:
+						s.deleteThreadBusyCount.Add(-1)
 						// abort and return immediately on stop even if items remain in queue
 						return
 					}
@@ -160,6 +170,7 @@ func (s *server) runDeleteQueueLoop(stopCh services.StopChan, wg *sync.WaitGroup
 			}
 			// success
 			b.Reset()
+			s.deleteThreadBusyCount.Add(-1)
 		case <-stopCh:
 			// abort and return immediately on stop even if items remain in queue
 			return
@@ -179,61 +190,69 @@ func (s *server) runQueueLoop(stopCh services.StopChan, wg *sync.WaitGroup, donI
 	}
 	ctx, cancel := stopCh.NewCtx()
 	defer cancel()
-	for {
-		t := s.q.BlockingPop()
-		if t == nil {
-			// queue was closed
-			return
-		}
-		req, res, err := func(ctx context.Context) (*pb.TransmitRequest, *pb.TransmitResponse, error) {
-			ctx, cancelFn := context.WithTimeout(ctx, utils.WithJitter(s.transmitTimeout))
-			defer cancelFn()
-			return s.transmit(ctx, t)
-		}(ctx)
-		if ctx.Err() != nil {
-			// only canceled on transmitter close so we can exit
-			return
-		} else if err != nil {
-			s.transmitConnectionErrorCount.Inc()
-			s.lggr.Errorw("Transmit report failed", "err", err, "req.Payload", req.Payload, "req.ReportFormat", req.ReportFormat, "transmission", t)
-			if ok := s.q.Push(t); !ok {
-				s.lggr.Error("Failed to push report to transmit queue; queue is closed")
-				return
+	cont := true
+	for cont {
+		cont = func() bool {
+			t := s.q.BlockingPop()
+			if t == nil {
+				// queue was closed
+				return false
 			}
-			// Wait a backoff duration before pulling the most recent transmission
-			// the heap
-			select {
-			case <-time.After(b.Duration()):
-				continue
-			case <-stopCh:
-				return
-			}
-		}
 
-		b.Reset()
-		if res.Error == "" {
-			s.transmitSuccessCount.Inc()
-			s.lggr.Debugw("Transmit report success", "req.ReportFormat", req.ReportFormat, "req.Payload", req.Payload, "transmission", t, "response", res)
-		} else {
-			// We don't need to retry here because the mercury server
-			// has confirmed it received the report. We only need to retry
-			// on networking/unknown errors
-			switch res.Code {
-			case DuplicateReport:
+			s.transmitThreadBusyCount.Add(1)
+			defer s.transmitThreadBusyCount.Add(-1)
+
+			req, res, err := func(ctx context.Context) (*pb.TransmitRequest, *pb.TransmitResponse, error) {
+				ctx, cancelFn := context.WithTimeout(ctx, utils.WithJitter(s.transmitTimeout))
+				defer cancelFn()
+				return s.transmit(ctx, t)
+			}(ctx)
+			if ctx.Err() != nil {
+				// only canceled on transmitter close so we can exit
+				return false
+			} else if err != nil {
+				s.transmitConnectionErrorCount.Inc()
+				s.lggr.Errorw("Transmit report failed", "err", err, "req.Payload", req.Payload, "req.ReportFormat", req.ReportFormat, "transmission", t)
+				if ok := s.q.Push(t); !ok {
+					s.lggr.Error("Failed to push report to transmit queue; queue is closed")
+					return false
+				}
+				// Wait a backoff duration before pulling the most recent transmission
+				// the heap
+				select {
+				case <-time.After(b.Duration()):
+					return true
+				case <-stopCh:
+					return false
+				}
+			}
+
+			b.Reset()
+			if res.Error == "" {
 				s.transmitSuccessCount.Inc()
-				s.transmitDuplicateCount.Inc()
-				s.lggr.Debugw("Transmit report success; duplicate report", "req.ReportFormat", req.ReportFormat, "req.Payload", req.Payload, "transmission", t, "response", res)
-			default:
-				transmitServerErrorCount.WithLabelValues(donIDStr, s.url, fmt.Sprintf("%d", res.Code)).Inc()
-				s.lggr.Errorw("Transmit report failed; mercury server returned error", "req.ReportFormat", req.ReportFormat, "req.Payload", req.Payload, "response", res, "transmission", t, "err", res.Error, "code", res.Code)
+				s.lggr.Debugw("Transmit report success", "req.ReportFormat", req.ReportFormat, "req.Payload", req.Payload, "transmission", t, "response", res)
+			} else {
+				// We don't need to retry here because the mercury server
+				// has confirmed it received the report. We only need to retry
+				// on networking/unknown errors
+				switch res.Code {
+				case DuplicateReport:
+					s.transmitSuccessCount.Inc()
+					s.transmitDuplicateCount.Inc()
+					s.lggr.Debugw("Transmit report success; duplicate report", "req.ReportFormat", req.ReportFormat, "req.Payload", req.Payload, "transmission", t, "response", res)
+				default:
+					transmitServerErrorCount.WithLabelValues(donIDStr, s.url, fmt.Sprintf("%d", res.Code)).Inc()
+					s.lggr.Errorw("Transmit report failed; mercury server returned error", "req.ReportFormat", req.ReportFormat, "req.Payload", req.Payload, "response", res, "transmission", t, "err", res.Error, "code", res.Code)
+				}
 			}
-		}
 
-		select {
-		case s.deleteQueue <- t.Hash():
-		default:
-			s.lggr.Criticalw("Delete queue is full", "transmission", t, "transmissionHash", fmt.Sprintf("%x", t.Hash()))
-		}
+			select {
+			case s.deleteQueue <- t.Hash():
+			default:
+				s.lggr.Criticalw("Delete queue is full", "transmission", t, "transmissionHash", fmt.Sprintf("%x", t.Hash()))
+			}
+			return true
+		}()
 	}
 }
 
