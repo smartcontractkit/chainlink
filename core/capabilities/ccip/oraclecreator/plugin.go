@@ -116,16 +116,10 @@ func (i *pluginOracleCreator) Type() cctypes.OracleType {
 // Create implements types.OracleCreator.
 func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config cctypes.OCR3ConfigWithMeta) (cctypes.CCIPOracle, error) {
 	pluginType := cctypes.PluginType(config.Config.PluginType)
-<<<<<<< HEAD
-
-	// Assuming that the chain selector is referring to an evm chain for now.
-	// TODO: add an api that returns chain family.
-	// NOTE: This does not support non-evm chains
-	destChainID, err := chainsel.ChainIdFromSelector(uint64(config.Config.ChainSelector))
-=======
 	chainSelector := uint64(config.Config.ChainSelector)
+
+	// NOTE: This does not support non-evm chains
 	destChainFamily, err := chainsel.GetSelectorFamily(chainSelector)
->>>>>>> 789d02195d5f20a7e198402860916182cbfc598f
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chain family from selector %d: %w", config.Config.ChainSelector, err)
 	}
