@@ -18,17 +18,31 @@ import (
 )
 
 const (
+	// Compute Fetch Workflow
 	workflowID    = "924eef66516e5387b6e8ab8cc544685dfe50dfc837886f22beecebced5063968"
 	workflowOwner = "00000000000000000000000000000000000000ab"
 	workflowName  = "trueusdpor"
+
+	// Chain Read Workflow
+	workflow2ID    = "00000066516e5387b6e8ab8cc544685dfe50dfc837886f22beecebced5063968"
+	workflow2Owner = "00000000000000000000000000000000000000ab"
+	workflow2Name  = "ethwltpor"
 )
 
 var (
+	// Compute Fetch Workflow
 	//go:embed config.yaml
 	config []byte
 
 	//go:embed workflow.wasm.br
 	workflow []byte
+
+	// Chain Read Workflow
+	//go:embed config.yaml
+	config2 []byte
+
+	//go:embed por-read-chain.wasm.br
+	workflow2 []byte
 )
 
 type WorkflowRegistry struct {
@@ -52,8 +66,9 @@ func (w *WorkflowRegistry) Start(ctx context.Context) error {
 				w.Logger.Info("timed out setting up hardcoded workflow")
 				return
 			case <-ticker.C:
-				success := w.trySetup()
-				if success {
+				success1 := w.trySetup(workflowID, workflowName, workflowOwner, workflow, config)
+				success2 := w.trySetup(workflow2ID, workflow2Name, workflow2Owner, workflow2, config2)
+				if success1 && success2 {
 					return
 				}
 			}
@@ -62,7 +77,7 @@ func (w *WorkflowRegistry) Start(ctx context.Context) error {
 	return nil
 }
 
-func (w *WorkflowRegistry) trySetup() bool {
+func (w *WorkflowRegistry) trySetup(id, name, owner string, binary, config []byte) bool {
 	ctx := context.Background()
 	w.Logger.Info("starting hardcoded workflow...")
 
@@ -76,9 +91,9 @@ func (w *WorkflowRegistry) trySetup() bool {
 	jb := job.WorkflowSpec{
 		Workflow:      "a string",
 		Config:        "a config",
-		WorkflowID:    workflowID,
-		WorkflowName:  workflowName,
-		WorkflowOwner: workflowOwner,
+		WorkflowID:    id,
+		WorkflowName:  name,
+		WorkflowOwner: owner,
 	}
 	sql := `INSERT INTO workflow_specs (workflow, workflow_id, workflow_owner, workflow_name, created_at, updated_at, spec_type, config)
 	VALUES (:workflow, :workflow_id, :workflow_owner, :workflow_name, NOW(), NOW(), :spec_type, :config)
@@ -89,7 +104,7 @@ func (w *WorkflowRegistry) trySetup() bool {
 	}
 
 	moduleConfig := &host.ModuleConfig{Logger: logger.NullLogger}
-	spec, err := host.GetWorkflowSpec(ctx, moduleConfig, workflow, config)
+	spec, err := host.GetWorkflowSpec(ctx, moduleConfig, binary, config)
 	if err != nil {
 		w.Logger.Errorf("failed to get workflow spec", err)
 		return false
@@ -98,13 +113,13 @@ func (w *WorkflowRegistry) trySetup() bool {
 	cfg := workflows.Config{
 		Lggr:           w.Logger,
 		Workflow:       *spec,
-		WorkflowID:     workflowID,
-		WorkflowOwner:  workflowOwner,
-		WorkflowName:   workflowName,
+		WorkflowID:     id,
+		WorkflowOwner:  owner,
+		WorkflowName:   name,
 		Registry:       w.Registry,
 		Store:          w.Store,
 		Config:         config,
-		Binary:         workflow,
+		Binary:         binary,
 		SecretsFetcher: w,
 	}
 	engine, err := workflows.NewEngine(ctx, cfg)
