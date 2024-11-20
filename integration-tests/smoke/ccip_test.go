@@ -1,6 +1,7 @@
 package smoke
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -284,7 +285,7 @@ func setupTokens(t *testing.T, tenv ccdeploy.DeployedEnv) (srcToken *burn_mint_e
 	state, err := ccdeploy.LoadOnchainState(e)
 	require.NoError(t, err)
 
-	twoCoins := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(2))
+	tenCoins := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(10))
 
 	// Deploy the token to test transferring
 	srcToken, _, dstToken, _, err = ccdeploy.DeployTransferableToken(
@@ -304,7 +305,7 @@ func setupTokens(t *testing.T, tenv ccdeploy.DeployedEnv) (srcToken *burn_mint_e
 	tx, err := srcToken.Mint(
 		e.Chains[tenv.HomeChainSel].DeployerKey,
 		e.Chains[tenv.HomeChainSel].DeployerKey.From,
-		new(big.Int).Mul(twoCoins, big.NewInt(10)),
+		new(big.Int).Mul(tenCoins, big.NewInt(10)),
 	)
 	require.NoError(t, err)
 
@@ -315,7 +316,7 @@ func setupTokens(t *testing.T, tenv ccdeploy.DeployedEnv) (srcToken *burn_mint_e
 	tx, err = dstToken.Mint(
 		e.Chains[tenv.FeedChainSel].DeployerKey,
 		e.Chains[tenv.FeedChainSel].DeployerKey.From,
-		new(big.Int).Mul(twoCoins, big.NewInt(10)),
+		new(big.Int).Mul(tenCoins, big.NewInt(10)),
 	)
 
 	// Confirm the mint tx
@@ -348,7 +349,7 @@ func setupTokens(t *testing.T, tenv ccdeploy.DeployedEnv) (srcToken *burn_mint_e
 	tx, err = linkToken.Mint(
 		e.Chains[tenv.HomeChainSel].DeployerKey,
 		e.Chains[tenv.HomeChainSel].DeployerKey.From,
-		new(big.Int).Mul(twoCoins, big.NewInt(10)),
+		new(big.Int).Mul(tenCoins, big.NewInt(10)),
 	)
 	require.NoError(t, err)
 
@@ -359,38 +360,34 @@ func setupTokens(t *testing.T, tenv ccdeploy.DeployedEnv) (srcToken *burn_mint_e
 }
 
 func Test_PricingForTokenTransfers(t *testing.T) {
-	// Deploy the environment
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	ctx := ccdeploy.Context(t)
 	tenv, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr)
-
-	// Load the test state
 	e := tenv.Env
-	state, err := ccdeploy.LoadOnchainState(e)
+
+	state, err := ccdeploy.LoadOnchainState(tenv.Env)
 	require.NoError(t, err)
 
 	feeds := state.Chains[tenv.FeedChainSel].USDFeeds
-	tokenConfig := ccdeploy.NewTokenConfig()
-	tokenConfig.UpsertTokenInfo(ccdeploy.LinkSymbol,
-		pluginconfig.TokenInfo{
-			AggregatorAddress: cciptypes.UnknownEncodedAddress(feeds[ccdeploy.LinkSymbol].Address().String()),
-			Decimals:          ccdeploy.LinkDecimals,
-			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
-		},
-	)
+	output, err := changeset.DeployPrerequisites(tenv.Env, changeset.DeployPrerequisiteConfig{
+		ChainSelectors: tenv.Env.AllChainSelectors(),
+	})
+	require.NoError(t, err)
+	require.NoError(t, tenv.Env.ExistingAddresses.Merge(output.AddressBook))
 
 	// Apply migration
-	output, err := changeset.InitialDeploy(e, ccdeploy.DeployCCIPContractConfig{
+	output, err = changeset.InitialDeploy(tenv.Env, ccdeploy.DeployCCIPContractConfig{
 		HomeChainSel:   tenv.HomeChainSel,
 		FeedChainSel:   tenv.FeedChainSel,
-		ChainsToDeploy: e.AllChainSelectors(),
-		TokenConfig:    tokenConfig,
+		ChainsToDeploy: tenv.Env.AllChainSelectors(),
+		TokenConfig:    ccdeploy.NewTestTokenConfig(feeds),
 		MCMSConfig:     ccdeploy.NewTestMCMSConfig(t, e),
 		OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
 	})
 	require.NoError(t, err)
-	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook))
-	// Get new state after migration and mock USDC token deployment.
+	require.NoError(t, tenv.Env.ExistingAddresses.Merge(output.AddressBook))
+	// Get new state after migration.
 	state, err = ccdeploy.LoadOnchainState(e)
 	require.NoError(t, err)
 
@@ -423,13 +420,22 @@ func Test_PricingForTokenTransfers(t *testing.T) {
 	twoCoins := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(2))
 
 	linkToken := state.Chains[tenv.HomeChainSel].LinkToken
+	maxUint256 := math.MaxBig256
 
 	t.Run("Send Token Pay with Link token home chain -> remote", func(t *testing.T) {
+		src := tenv.HomeChainSel
+		dest, destChain := tenv.FeedChainSel, e.Chains[tenv.FeedChainSel]
+
 		// Approve to spend link token
-		tx, err := linkToken.Approve(e.Chains[tenv.HomeChainSel].DeployerKey, state.Chains[tenv.HomeChainSel].Router.Address(), twoCoins)
+		tx, err := linkToken.Approve(e.Chains[src].DeployerKey, state.Chains[src].Router.Address(), maxUint256)
 		require.NoError(t, err)
-		_, err = e.Chains[tenv.HomeChainSel].Confirm(tx)
+		_, err = e.Chains[src].Confirm(tx)
 		require.NoError(t, err)
+
+		// Get the fee Token Balance Before
+		srctokenBalance, err := srcToken.BalanceOf(nil, e.Chains[src].DeployerKey.From)
+		require.NoError(t, err)
+		require.GreaterOrEqual(t, srctokenBalance.Int64(), twoCoins.Int64())
 
 		// Create two ClientEVMTokenAmount structs to be passed to the router
 		tokens := map[uint64][]router.ClientEVMTokenAmount{
@@ -444,8 +450,6 @@ func Test_PricingForTokenTransfers(t *testing.T) {
 		}
 
 		// Assign Src to the Home Chain Selector and destChain to the Feed Chain Selector
-		src := tenv.HomeChainSel
-		dest, destChain := tenv.FeedChainSel, e.Chains[tenv.FeedChainSel]
 
 		// get the header for the destination chain and the relevant block number
 		latesthdr, err := destChain.Client.HeaderByNumber(testcontext.Get(t), nil)
@@ -469,7 +473,7 @@ func Test_PricingForTokenTransfers(t *testing.T) {
 		}
 
 		// Get the fee Token Balance Before
-		feeTokenBalanceBefore, err := linkToken.BalanceOf(nil, e.Chains[tenv.HomeChainSel].DeployerKey.From)
+		feeTokenBalanceBefore, err := linkToken.BalanceOf(nil, e.Chains[src].DeployerKey.From)
 		require.NoError(t, err)
 
 		// Check the fee Amount
@@ -568,22 +572,33 @@ func Test_PricingForTokenTransfers(t *testing.T) {
 	})
 
 	t.Run("Send Token pay with wrapped native home chain -> remote", func(t *testing.T) {
-		WETH := state.Chains[tenv.HomeChainSel].Weth9
+		// Assign Src to the Home Chain Selector and destChain to the Feed Chain Selector
+		src := tenv.HomeChainSel
+		dest, destChain := tenv.FeedChainSel, e.Chains[tenv.FeedChainSel]
+
+		WETH := state.Chains[src].Weth9
 
 		// We need to acquire some WETH to send with the tx so we deposit some ETH into the WETH contract
 		// but deployerKey is a reference so we need to dereference it and then reassign it
 		depositOps := *e.Chains[tenv.HomeChainSel].DeployerKey
-		depositOps.Value = twoCoins
+		depositOps.Value = new(big.Int).Mul(twoCoins, big.NewInt(2))
 		tx, err := WETH.Deposit(&depositOps)
 		require.NoError(t, err)
 		_, err = e.Chains[tenv.HomeChainSel].Confirm(tx)
 		require.NoError(t, err)
 
 		// Approve to spend WETH token as feeToken
+		fmt.Printf("--- APPROVING ROUTER TO SPEND---")
 		tx, err = WETH.Approve(e.Chains[tenv.HomeChainSel].DeployerKey, state.Chains[tenv.HomeChainSel].Router.Address(), twoCoins)
 		require.NoError(t, err)
+		fmt.Printf("tx: %v\n", tx)
 		_, err = e.Chains[tenv.HomeChainSel].Confirm(tx)
 		require.NoError(t, err)
+		fmt.Printf("--- APPROVED ---")
+
+		allowance, err := WETH.Allowance(nil, e.Chains[src].DeployerKey.From, state.Chains[src].Router.Address())
+		require.NoError(t, err)
+		require.GreaterOrEqual(t, allowance.Int64(), twoCoins.Int64())
 
 		// Create two ClientEVMTokenAmount structs to be passed to the router
 		tokens := map[uint64][]router.ClientEVMTokenAmount{
@@ -597,9 +612,9 @@ func Test_PricingForTokenTransfers(t *testing.T) {
 			}},
 		}
 
-		// Assign Src to the Home Chain Selector and destChain to the Feed Chain Selector
-		src := tenv.HomeChainSel
-		dest, destChain := tenv.FeedChainSel, e.Chains[tenv.FeedChainSel]
+		srcTokenBal, err := srcToken.BalanceOf(nil, e.Chains[src].DeployerKey.From)
+		require.NoError(t, err)
+		require.GreaterOrEqual(t, srcTokenBal.Int64(), twoCoins.Int64())
 
 		// get the header for the destination chain and the relevant block number
 		latesthdr, err := destChain.Client.HeaderByNumber(testcontext.Get(t), nil)
@@ -629,6 +644,11 @@ func Test_PricingForTokenTransfers(t *testing.T) {
 		// Check the fee Amount
 		srcFee, err := state.Chains[src].Router.GetFee(nil, dest, ccipMessage)
 		require.NoError(t, err)
+
+		// Check that we have enough WETH to pay the fee
+		require.GreaterOrEqual(t, feeTokenBalanceBefore.Int64(), srcFee.Int64())
+		fmt.Printf("srcFee: %v\n", srcFee)
+		fmt.Printf("feeTokenBalanceBefore: %v\n", feeTokenBalanceBefore)
 
 		seqNum := ccdeploy.TestSendRequest(t, e, state, src, dest, false, ccipMessage).SequenceNumber
 		expectedSeqNum[dest] = seqNum
@@ -914,14 +934,14 @@ func Test_PricingForMessages(t *testing.T) {
 		// We need to acquire some WETH to send with the tx so we deposit some ETH into the WETH contract
 		// but deployerKey is a reference so we need to dereference it and then reassign it
 		depositOps := *e.Chains[tenv.HomeChainSel].DeployerKey
-		depositOps.Value = twoCoins
+		depositOps.Value = new(big.Int).Mul(twoCoins, big.NewInt(2))
 		tx, err := WETH.Deposit(&depositOps)
 		require.NoError(t, err)
 		_, err = e.Chains[tenv.HomeChainSel].Confirm(tx)
 		require.NoError(t, err)
 
 		// Approve to spend WETH token as feeToken
-		tx, err = WETH.Approve(e.Chains[tenv.HomeChainSel].DeployerKey, state.Chains[tenv.HomeChainSel].Router.Address(), twoCoins)
+		tx, err = WETH.Approve(e.Chains[tenv.HomeChainSel].DeployerKey, state.Chains[tenv.HomeChainSel].Router.Address(), new(big.Int).Mul(twoCoins, big.NewInt(2)))
 		require.NoError(t, err)
 		_, err = e.Chains[tenv.HomeChainSel].Confirm(tx)
 		require.NoError(t, err)
