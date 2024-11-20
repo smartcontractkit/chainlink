@@ -646,10 +646,10 @@ func setTokenPoolCounterPart(
 ) error {
 	tx, err := tokenPool.ApplyChainUpdates(
 		chain.DeployerKey,
+		[]uint64{},
 		[]burn_mint_token_pool.TokenPoolChainUpdate{
 			{
 				RemoteChainSelector: destChainSelector,
-				Allowed:             true,
 				RemotePoolAddress:   common.LeftPadBytes(destTokenPoolAddress.Bytes(), 32),
 				RemoteTokenAddress:  common.LeftPadBytes(destTokenAddress.Bytes(), 32),
 				OutboundRateLimiterConfig: burn_mint_token_pool.RateLimiterConfig{
@@ -674,7 +674,7 @@ func setTokenPoolCounterPart(
 		return err
 	}
 
-	tx, err = tokenPool.SetRemotePool(
+	tx, err = tokenPool.AddRemotePool(
 		chain.DeployerKey,
 		destChainSelector,
 		destTokenPoolAddress.Bytes(),

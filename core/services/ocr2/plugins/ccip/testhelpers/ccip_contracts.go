@@ -892,11 +892,11 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	require.NoError(t, err)
 	_, err = sourceLinkPool.ApplyChainUpdates(
 		sourceUser,
+		[]uint64{},
 		[]lock_release_token_pool.TokenPoolChainUpdate{{
 			RemoteChainSelector: DestChainSelector,
 			RemotePoolAddress:   abiEncodedDestLinkPool,
 			RemoteTokenAddress:  abiEncodedDestLinkTokenAddress,
-			Allowed:             true,
 			OutboundRateLimiterConfig: lock_release_token_pool.RateLimiterConfig{
 				IsEnabled: true,
 				Capacity:  HundredLink,
@@ -917,11 +917,11 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	require.NoError(t, err)
 	_, err = sourceWeth9Pool.ApplyChainUpdates(
 		sourceUser,
+		[]uint64{},
 		[]lock_release_token_pool.TokenPoolChainUpdate{{
 			RemoteChainSelector: DestChainSelector,
 			RemotePoolAddress:   abiEncodedDestWrappedPool,
 			RemoteTokenAddress:  abiEncodedDestWrappedTokenAddr,
-			Allowed:             true,
 			OutboundRateLimiterConfig: lock_release_token_pool.RateLimiterConfig{
 				IsEnabled: true,
 				Capacity:  HundredLink,
@@ -943,11 +943,11 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	require.NoError(t, err)
 	_, err = destLinkPool.ApplyChainUpdates(
 		destUser,
+		[]uint64{},
 		[]lock_release_token_pool.TokenPoolChainUpdate{{
 			RemoteChainSelector: SourceChainSelector,
 			RemotePoolAddress:   abiEncodedSourceLinkPool,
 			RemoteTokenAddress:  abiEncodedSourceLinkTokenAddr,
-			Allowed:             true,
 			OutboundRateLimiterConfig: lock_release_token_pool.RateLimiterConfig{
 				IsEnabled: true,
 				Capacity:  HundredLink,
@@ -968,11 +968,11 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	require.NoError(t, err)
 	_, err = destWrappedPool.ApplyChainUpdates(
 		destUser,
+		[]uint64{},
 		[]lock_release_token_pool.TokenPoolChainUpdate{{
 			RemoteChainSelector: SourceChainSelector,
 			RemotePoolAddress:   abiEncodedSourceWrappedPool,
 			RemoteTokenAddress:  abiEncodedSourceWrappedTokenAddr,
-			Allowed:             true,
 			OutboundRateLimiterConfig: lock_release_token_pool.RateLimiterConfig{
 				IsEnabled: true,
 				Capacity:  HundredLink,
