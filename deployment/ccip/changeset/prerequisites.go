@@ -22,7 +22,7 @@ func DeployPrerequisites(env deployment.Environment, cfg DeployPrerequisiteConfi
 		return deployment.ChangesetOutput{}, errors.Wrapf(deployment.ErrInvalidConfig, "%v", err)
 	}
 	ab := deployment.NewMemoryAddressBook()
-	err = DeployPrerequisiteChainContracts(env, ab, cfg.ChainSelectors)
+	err = DeployPrerequisiteChainContracts(env, ab, cfg.ChainSelectors, nil)
 	if err != nil {
 		env.Logger.Errorw("Failed to deploy prerequisite contracts", "err", err, "addressBook", ab)
 		return deployment.ChangesetOutput{

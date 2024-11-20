@@ -17,6 +17,7 @@ import (
 	"github.com/pkg/errors"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 
@@ -247,7 +248,7 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 	e.SetupJobs(t)
 	// Take first non-home chain as the new chain.
 	newAddresses := deployment.NewMemoryAddressBook()
-	err := DeployPrerequisiteChainContracts(e.Env, newAddresses, e.Env.AllChainSelectors())
+	err := DeployPrerequisiteChainContracts(e.Env, newAddresses, e.Env.AllChainSelectors(), nil)
 	require.NoError(t, err)
 	require.NoError(t, e.Env.ExistingAddresses.Merge(newAddresses))
 

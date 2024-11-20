@@ -8,10 +8,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
-
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -33,29 +34,24 @@ import (
 )
 
 var (
-	MockRMN                    deployment.ContractType = "MockRMN"
-	RMNRemote                  deployment.ContractType = "RMNRemote"
-	LinkToken                  deployment.ContractType = "LinkToken"
-	ARMProxy                   deployment.ContractType = "ARMProxy"
-	WETH9                      deployment.ContractType = "WETH9"
-	Router                     deployment.ContractType = "Router"
-	CommitStore                deployment.ContractType = "CommitStore"
-	TokenAdminRegistry         deployment.ContractType = "TokenAdminRegistry"
-	RegistryModule             deployment.ContractType = "RegistryModuleOwnerCustom"
-	NonceManager               deployment.ContractType = "NonceManager"
-	FeeQuoter                  deployment.ContractType = "FeeQuoter"
-	AdminManyChainMultisig     deployment.ContractType = "AdminManyChainMultiSig"
-	BypasserManyChainMultisig  deployment.ContractType = "BypasserManyChainMultiSig"
-	CancellerManyChainMultisig deployment.ContractType = "CancellerManyChainMultiSig"
-	ProposerManyChainMultisig  deployment.ContractType = "ProposerManyChainMultiSig"
-	CCIPHome                   deployment.ContractType = "CCIPHome"
-	CCIPConfig                 deployment.ContractType = "CCIPConfig"
-	RMNHome                    deployment.ContractType = "RMNHome"
-	RBACTimelock               deployment.ContractType = "RBACTimelock"
-	OnRamp                     deployment.ContractType = "OnRamp"
-	OffRamp                    deployment.ContractType = "OffRamp"
-	CapabilitiesRegistry       deployment.ContractType = "CapabilitiesRegistry"
-	PriceFeed                  deployment.ContractType = "PriceFeed"
+	MockRMN              deployment.ContractType = "MockRMN"
+	RMNRemote            deployment.ContractType = "RMNRemote"
+	LinkToken            deployment.ContractType = "LinkToken"
+	ARMProxy             deployment.ContractType = "ARMProxy"
+	WETH9                deployment.ContractType = "WETH9"
+	Router               deployment.ContractType = "Router"
+	CommitStore          deployment.ContractType = "CommitStore"
+	TokenAdminRegistry   deployment.ContractType = "TokenAdminRegistry"
+	RegistryModule       deployment.ContractType = "RegistryModuleOwnerCustom"
+	NonceManager         deployment.ContractType = "NonceManager"
+	FeeQuoter            deployment.ContractType = "FeeQuoter"
+	CCIPHome             deployment.ContractType = "CCIPHome"
+	CCIPConfig           deployment.ContractType = "CCIPConfig"
+	RMNHome              deployment.ContractType = "RMNHome"
+	OnRamp               deployment.ContractType = "OnRamp"
+	OffRamp              deployment.ContractType = "OffRamp"
+	CapabilitiesRegistry deployment.ContractType = "CapabilitiesRegistry"
+	PriceFeed            deployment.ContractType = "PriceFeed"
 	// Note test router maps to a regular router contract.
 	TestRouter          deployment.ContractType = "TestRouter"
 	CCIPReceiver        deployment.ContractType = "CCIPReceiver"
@@ -67,15 +63,20 @@ var (
 	USDCTokenPool       deployment.ContractType = "USDCTokenPool"
 )
 
-func DeployPrerequisiteChainContracts(e deployment.Environment, ab deployment.AddressBook, selectors []uint64) error {
+func DeployPrerequisiteChainContracts(e deployment.Environment, ab deployment.AddressBook, selectors []uint64, usdcEnabledChains []uint64) error {
 	state, err := LoadOnchainState(e)
 	if err != nil {
 		e.Logger.Errorw("Failed to load existing onchain state", "err")
 		return err
 	}
+	mapUSDCEnabledChains := make(map[uint64]bool)
+	for _, chain := range usdcEnabledChains {
+		mapUSDCEnabledChains[chain] = true
+	}
 	for _, sel := range selectors {
 		chain := e.Chains[sel]
-		err = DeployPrerequisiteContracts(e, ab, state, chain)
+		usdcEnabled := mapUSDCEnabledChains[sel]
+		err = DeployPrerequisiteContracts(e, ab, state, chain, usdcEnabled)
 		if err != nil {
 			return errors.Wrapf(err, "failed to deploy prerequisite contracts for chain %d", sel)
 		}
@@ -85,7 +86,7 @@ func DeployPrerequisiteChainContracts(e deployment.Environment, ab deployment.Ad
 
 // DeployPrerequisiteContracts deploys the contracts that can be ported from previous CCIP version to the new one.
 // This is only required for staging and test environments where the contracts are not already deployed.
-func DeployPrerequisiteContracts(e deployment.Environment, ab deployment.AddressBook, state CCIPOnChainState, chain deployment.Chain) error {
+func DeployPrerequisiteContracts(e deployment.Environment, ab deployment.AddressBook, state CCIPOnChainState, chain deployment.Chain, usdcEnabled bool) error {
 	lggr := e.Logger
 	chainState, chainExists := state.Chains[chain.Selector]
 	var weth9Contract *weth9.WETH9
@@ -265,43 +266,31 @@ func DeployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 	} else {
 		e.Logger.Infow("router already deployed", "addr", chainState.Router.Address)
 	}
+	if usdcEnabled {
+		token, pool, messenger, transmitter, err1 := DeployUSDC(e.Logger, chain, ab, rmnProxy.Address(), r.Address())
+		if err1 != nil {
+			return err1
+		}
+		e.Logger.Infow("Deployed USDC contracts",
+			"chainSelector", chain.Selector,
+			"token", token.Address(),
+			"pool", pool.Address(),
+			"transmitter", transmitter.Address(),
+			"messenger", messenger.Address(),
+		)
+	}
 	return nil
 }
 
-type USDCConfig struct {
-	Enabled bool
-	USDCAttestationConfig
-}
-
-type USDCAttestationConfig struct {
-	API         string
-	APITimeout  *commonconfig.Duration
-	APIInterval *commonconfig.Duration
-}
-
-type DeployCCIPContractConfig struct {
-	HomeChainSel   uint64
-	FeedChainSel   uint64
-	ChainsToDeploy []uint64
-	TokenConfig    TokenConfig
-	USDCConfig     USDCConfig
-	// For setting OCR configuration
-	OCRSecrets deployment.OCRSecrets
-}
-
-// DeployCCIPContracts assumes the following contracts are deployed:
-// - Capability registry
-// - CCIP home
-// - RMN home
-// - Fee tokens on all chains.
-// and present in ExistingAddressBook.
-// It then deploys the rest of the CCIP chain contracts to the selected chains
-// registers the nodes with the capability registry and creates a DON for
-// each new chain. TODO: Might be better to break this down a bit?
-func DeployCCIPContracts(
+// ConfigureChain assumes the all the Home chain contracts and CCIP contracts are deployed
+// It does -
+// 1. AddChainConfig for each chain in CCIPHome
+// 2. Registers the nodes with the capability registry
+// 3. SetOCR3Config on the remote chain
+func ConfigureChain(
 	e deployment.Environment,
-	ab deployment.AddressBook,
-	c DeployCCIPContractConfig) error {
+	c DeployCCIPContractConfig,
+) error {
 	if c.OCRSecrets.IsEmpty() {
 		return fmt.Errorf("OCR secrets are empty")
 	}
@@ -331,52 +320,16 @@ func DeployCCIPContracts(
 		return fmt.Errorf("rmn home not found")
 	}
 
-	usdcConfiguration := make(map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig)
-	for _, chainSel := range c.ChainsToDeploy {
-		chain, exists := e.Chains[chainSel]
-		if !exists {
-			return fmt.Errorf("chain %d not found", chainSel)
-		}
-		if c.USDCConfig.Enabled {
-			token, pool, messenger, transmitter, err1 := DeployUSDC(e.Logger, chain, ab, existingState.Chains[chainSel])
-			if err1 != nil {
-				return err1
-			}
-			e.Logger.Infow("Deployed USDC contracts",
-				"chainSelector", chainSel,
-				"token", token.Address(),
-				"pool", pool.Address(),
-				"transmitter", transmitter.Address(),
-				"messenger", messenger.Address(),
-			)
-
-			usdcConfiguration[cciptypes.ChainSelector(chainSel)] = pluginconfig.USDCCCTPTokenConfig{
-				SourcePoolAddress:            pool.Address().Hex(),
-				SourceMessageTransmitterAddr: transmitter.Address().Hex(),
-			}
-		}
-	}
-	err = DeployChainContractsForChains(e, ab, c.HomeChainSel, c.ChainsToDeploy)
-	if err != nil {
-		e.Logger.Errorw("Failed to deploy chain contracts", "err", err)
-		return err
-	}
 	for _, chainSel := range c.ChainsToDeploy {
 		chain, _ := e.Chains[chainSel]
-		chainAddresses, err := ab.AddressesForChain(chain.Selector)
-		if err != nil {
-			e.Logger.Errorw("Failed to get chain addresses", "err", err)
-			return err
+		chainState, ok := existingState.Chains[chain.Selector]
+		if !ok {
+			return fmt.Errorf("chain state not found for chain %d", chain.Selector)
 		}
-		chainState, err := LoadChainState(chain, chainAddresses)
-		if err != nil {
-			e.Logger.Errorw("Failed to load chain state", "err", err)
-			return err
+		if chainState.OffRamp == nil {
+			return fmt.Errorf("off ramp not found for chain %d", chain.Selector)
 		}
-
 		tokenInfo := c.TokenConfig.GetTokenInfo(e.Logger, existingState.Chains[chainSel].LinkToken, existingState.Chains[chainSel].Weth9)
-		// TODO: Do we want to extract this?
-		// Add chain config for each chain.
 		_, err = AddChainConfig(
 			e.Logger,
 			e.Chains[c.HomeChainSel],
@@ -387,12 +340,12 @@ func DeployCCIPContracts(
 			return err
 		}
 		var tokenDataObserversConf []pluginconfig.TokenDataObserverConfig
-		if c.USDCConfig.Enabled {
+		if enabled, ok := c.USDCConfig.EnabledChainMap()[chainSel]; ok && enabled {
 			tokenDataObserversConf = []pluginconfig.TokenDataObserverConfig{{
 				Type:    pluginconfig.USDCCCTPHandlerType,
 				Version: "1.0",
 				USDCCCTPObserverConfig: &pluginconfig.USDCCCTPObserverConfig{
-					Tokens:                 usdcConfiguration,
+					Tokens:                 c.USDCConfig.CCTPTokenConfig,
 					AttestationAPI:         c.USDCConfig.API,
 					AttestationAPITimeout:  c.USDCConfig.APITimeout,
 					AttestationAPIInterval: c.USDCConfig.APIInterval,
@@ -417,6 +370,108 @@ func DeployCCIPContracts(
 			e.Logger.Errorw("Failed to add DON", "err", err)
 			return err
 		}
+	}
+
+	return nil
+}
+
+type USDCConfig struct {
+	EnabledChains []uint64
+	USDCAttestationConfig
+	CCTPTokenConfig map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig
+}
+
+func (cfg USDCConfig) EnabledChainMap() map[uint64]bool {
+	m := make(map[uint64]bool)
+	for _, chain := range cfg.EnabledChains {
+		m[chain] = true
+	}
+	return m
+}
+
+type USDCAttestationConfig struct {
+	API         string
+	APITimeout  *commonconfig.Duration
+	APIInterval *commonconfig.Duration
+}
+
+type DeployCCIPContractConfig struct {
+	HomeChainSel   uint64
+	FeedChainSel   uint64
+	ChainsToDeploy []uint64
+	TokenConfig    TokenConfig
+	USDCConfig     USDCConfig
+	// For setting OCR configuration
+	OCRSecrets deployment.OCRSecrets
+}
+
+func (c DeployCCIPContractConfig) Validate() error {
+	if err := deployment.IsValidChainSelector(c.HomeChainSel); err != nil {
+		return fmt.Errorf("invalid home chain selector: %d - %w", c.HomeChainSel, err)
+	}
+	if err := deployment.IsValidChainSelector(c.FeedChainSel); err != nil {
+		return fmt.Errorf("invalid feed chain selector: %d - %w", c.FeedChainSel, err)
+	}
+	mapChainsToDeploy := make(map[uint64]bool)
+	for _, cs := range c.ChainsToDeploy {
+		mapChainsToDeploy[cs] = true
+		if err := deployment.IsValidChainSelector(cs); err != nil {
+			return fmt.Errorf("invalid chain selector: %d - %w", cs, err)
+		}
+	}
+	for token := range c.TokenConfig.TokenSymbolToInfo {
+		if err := c.TokenConfig.TokenSymbolToInfo[token].Validate(); err != nil {
+			return fmt.Errorf("invalid token config for token %s: %w", token, err)
+		}
+	}
+	if c.OCRSecrets.IsEmpty() {
+		return fmt.Errorf("no OCR secrets provided")
+	}
+	usdcEnabledChainMap := c.USDCConfig.EnabledChainMap()
+	for chain := range usdcEnabledChainMap {
+		if _, exists := mapChainsToDeploy[chain]; !exists {
+			return fmt.Errorf("chain %d is not in chains to deploy", chain)
+		}
+		if err := deployment.IsValidChainSelector(chain); err != nil {
+			return fmt.Errorf("invalid chain selector: %d - %w", chain, err)
+		}
+	}
+	for chain := range c.USDCConfig.CCTPTokenConfig {
+		if _, exists := mapChainsToDeploy[uint64(chain)]; !exists {
+			return fmt.Errorf("chain %d is not in chains to deploy", chain)
+		}
+		if _, exists := usdcEnabledChainMap[uint64(chain)]; !exists {
+			return fmt.Errorf("chain %d is not enabled in USDC config", chain)
+		}
+		if err := deployment.IsValidChainSelector(uint64(chain)); err != nil {
+			return fmt.Errorf("invalid chain selector: %d - %w", chain, err)
+		}
+	}
+	return nil
+}
+
+// DeployCCIPContracts assumes the following contracts are deployed:
+// - Capability registry
+// - CCIP home
+// - RMN home
+// - Fee tokens on all chains.
+// and present in ExistingAddressBook.
+// It then deploys the rest of the CCIP chain contracts to the selected chains
+// registers the nodes with the capability registry and creates a DON for
+// each new chain.
+func DeployCCIPContracts(
+	e deployment.Environment,
+	ab deployment.AddressBook,
+	c DeployCCIPContractConfig) error {
+	err := DeployChainContractsForChains(e, ab, c.HomeChainSel, c.ChainsToDeploy)
+	if err != nil {
+		e.Logger.Errorw("Failed to deploy chain contracts", "err", err)
+		return err
+	}
+	err = ConfigureChain(e, c)
+	if err != nil {
+		e.Logger.Errorw("Failed to add chain", "err", err)
+		return err
 	}
 
 	return nil

@@ -39,7 +39,7 @@ func TestAddChainInbound(t *testing.T) {
 	// We deploy to the rest.
 	initialDeploy := e.Env.AllChainSelectorsExcluding([]uint64{newChain})
 	newAddresses := deployment.NewMemoryAddressBook()
-	err = DeployPrerequisiteChainContracts(e.Env, newAddresses, initialDeploy)
+	err = DeployPrerequisiteChainContracts(e.Env, newAddresses, initialDeploy, nil)
 	require.NoError(t, err)
 	require.NoError(t, e.Env.ExistingAddresses.Merge(newAddresses))
 
@@ -94,7 +94,7 @@ func TestAddChainInbound(t *testing.T) {
 	require.NoError(t, e.Env.ExistingAddresses.Merge(out.AddressBook))
 
 	newAddresses = deployment.NewMemoryAddressBook()
-	err = DeployPrerequisiteChainContracts(e.Env, newAddresses, []uint64{newChain})
+	err = DeployPrerequisiteChainContracts(e.Env, newAddresses, []uint64{newChain}, nil)
 	require.NoError(t, err)
 	require.NoError(t, e.Env.ExistingAddresses.Merge(newAddresses))
 	newAddresses = deployment.NewMemoryAddressBook()
