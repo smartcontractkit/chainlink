@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 

@@ -94,6 +94,7 @@ func TestAddChainInbound(t *testing.T) {
 	require.NoError(t, e.Env.ExistingAddresses.Merge(out.AddressBook))
 
 	newAddresses = deployment.NewMemoryAddressBook()
+
 	err = DeployPrerequisiteChainContracts(e.Env, newAddresses, []uint64{newChain}, nil)
 	require.NoError(t, err)
 	require.NoError(t, e.Env.ExistingAddresses.Merge(newAddresses))
