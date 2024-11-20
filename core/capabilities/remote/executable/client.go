@@ -208,7 +208,8 @@ func (c *client) sendRequest(req *request.ClientRequest) error {
 	c.lggr.Debugw("executing remote execute capability", "requestID", req.ID())
 
 	if _, ok := c.requestIDToCallerRequest[req.ID()]; ok {
-		return fmt.Errorf("request for ID %s already exists", req.ID())
+		c.lggr.Debugw("request for ID already exists", "requestID", req.ID())
+		return nil
 	}
 
 	c.requestIDToCallerRequest[req.ID()] = req
