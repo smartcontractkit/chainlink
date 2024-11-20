@@ -13,8 +13,8 @@ CREATE INDEX idx_secrets_url ON workflow_secrets(secrets_url);
 
 -- Alter the workflow_specs table
 ALTER TABLE workflow_specs
-ADD COLUMN binary_url TEXT,
-ADD COLUMN config_url TEXT,
+ADD COLUMN binary_url TEXT DEFAULT '',
+ADD COLUMN config_url TEXT DEFAULT '',
 ADD COLUMN secrets_id INT UNIQUE REFERENCES workflow_secrets(id) ON DELETE CASCADE;
 
 -- Alter the config column type

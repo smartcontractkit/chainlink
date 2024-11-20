@@ -2,6 +2,7 @@ package job
 
 import (
 	"context"
+	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
@@ -879,7 +880,7 @@ type WorkflowSpec struct {
 	WorkflowName  string           `toml:"-" db:"workflow_name"`  // Derived. Do not modify. the name of the workflow.
 	BinaryURL     string           `db:"binary_url"`
 	ConfigURL     string           `db:"config_url"`
-	SecretsID     string           `db:"secrets_id"`
+	SecretsID     sql.NullInt64    `db:"secrets_id"`
 	CreatedAt     time.Time        `toml:"-"`
 	UpdatedAt     time.Time        `toml:"-"`
 	SpecType      WorkflowSpecType `toml:"spec_type" db:"spec_type"`
