@@ -1543,7 +1543,7 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
   event PayeeshipTransferred(address indexed transmitter, address indexed previous, address indexed current);
 
   error TransmittersSizeNotEqualPayeeSize();
-  error PayeeAlreadySent();
+  error PayeeAlreadySet();
   error OnlyCurrentPayeeCanUpdate();
   error CannotTransferPayeeToSelf();
   error OnlyProposedPayeesCanAccept();
@@ -1566,7 +1566,7 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
       address payee = payees[i];
       address currentPayee = s_payees[transmitter];
       bool zeroedOut = currentPayee == address(0);
-      if (!zeroedOut && currentPayee != payee) revert PayeeAlreadySent();
+      if (!zeroedOut && currentPayee != payee) revert PayeeAlreadySet();
       s_payees[transmitter] = payee;
 
       if (currentPayee != payee) {
