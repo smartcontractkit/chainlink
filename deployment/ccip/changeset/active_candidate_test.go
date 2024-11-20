@@ -26,7 +26,7 @@ func TestActiveCandidate(t *testing.T) {
 	t.Skipf("to be enabled after latest cl-ccip is compatible")
 
 	lggr := logger.TestLogger(t)
-	tenv := NewMemoryEnvironmentWithJobsAndContracts(t, lggr, 3, 5)
+	tenv := NewMemoryEnvironmentWithJobsAndContracts(t, lggr, 3, 5, false)
 	e := tenv.Env
 	state, err := LoadOnchainState(tenv.Env)
 	require.NoError(t, err)

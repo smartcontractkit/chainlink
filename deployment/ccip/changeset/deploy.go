@@ -12,7 +12,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 
@@ -469,6 +468,11 @@ func DeployCCIPContracts(
 		e.Logger.Errorw("Failed to deploy chain contracts", "err", err)
 		return err
 	}
+	err = e.ExistingAddresses.Merge(ab)
+	if err != nil {
+		e.Logger.Errorw("Failed to merge address book", "err", err)
+		return err
+	}
 	err = ConfigureChain(e, c)
 	if err != nil {
 		e.Logger.Errorw("Failed to add chain", "err", err)
@@ -501,7 +505,9 @@ func DeployChainContractsForChains(
 		return err
 	}
 	if cr != internal.CCIPCapabilityID {
-		return fmt.Errorf("capability registry does not support CCIP %s %s", hexutil.Encode(cr[:]), hexutil.Encode(internal.CCIPCapabilityID[:]))
+		return fmt.Errorf("unexpected mismatch between calculated ccip capability id (%s) and expected ccip capability id constant (%s)",
+			hexutil.Encode(cr[:]),
+			hexutil.Encode(internal.CCIPCapabilityID[:]))
 	}
 	capability, err := capReg.GetCapability(nil, internal.CCIPCapabilityID)
 	if err != nil {

@@ -18,11 +18,16 @@ type ChangesetApplication struct {
 
 func WrapChangeSet[C any](fn deployment.ChangeSet[C]) func(e deployment.Environment, config any) (deployment.ChangesetOutput, error) {
 	return func(e deployment.Environment, config any) (deployment.ChangesetOutput, error) {
-		c, ok := config.(C)
-		if !ok {
-			return deployment.ChangesetOutput{}, fmt.Errorf("invalid config type, expected %T", c)
+		var zeroC C
+		if config != nil {
+			c, ok := config.(C)
+			if !ok {
+				return deployment.ChangesetOutput{}, fmt.Errorf("invalid config type, expected %T", c)
+			}
+			return fn(e, config.(C))
 		}
-		return fn(e, c)
+
+		return fn(e, zeroC)
 	}
 }
 
@@ -47,7 +52,7 @@ func ApplyChangesets(ctx context.Context, e deployment.Environment, timelocksPer
 			for nodeID, jobs := range out.JobSpecs {
 				for _, job := range jobs {
 					// Note these auto-accept
-					_, err := e.Offchain.ProposeJob(ctx,
+					_, err := currentEnv.Offchain.ProposeJob(ctx,
 						&jobv1.ProposeJobRequest{
 							NodeId: nodeID,
 							Spec:   job,

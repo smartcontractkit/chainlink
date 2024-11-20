@@ -244,10 +244,9 @@ func mockAttestationResponse() *httptest.Server {
 	return server
 }
 
-func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, numChains int, numNodes int) DeployedEnv {
+func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, numChains int, numNodes int, isUSDC bool) DeployedEnv {
 	var err error
 	e := NewMemoryEnvironment(t, lggr, numChains, numNodes, MockLinkPrice, MockWethPrice)
-	e.SetupJobs(t)
 	allChains := e.Env.AllChainSelectors()
 	cfg := commontypes.MCMSWithTimelockConfig{
 		Canceller:         commonchangeset.SingleGroupMCMS(t),
@@ -260,13 +259,17 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 	for _, c := range e.Env.AllChainSelectors() {
 		mcmsCfg[c] = cfg
 	}
+	var usdcChains []uint64
+	if isUSDC {
+		usdcChains = allChains
+	}
 	// Need to deploy prerequisites first so that we can for the CCIP contracts.
 	cs01 := []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(DeployPrerequisites),
 			Config: DeployPrerequisiteConfig{
 				ChainSelectors:            allChains,
-				USDCEnabledChainSelectors: allChains,
+				USDCEnabledChainSelectors: usdcChains,
 			},
 		},
 		{
@@ -283,7 +286,7 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 	tokenConfig := NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
 	USDCCCTPConfig := make(map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig)
 	timelocksPerChain := make(map[uint64]*gethwrappers.RBACTimelock)
-	for _, chain := range allChains {
+	for _, chain := range usdcChains {
 		require.NotNil(t, state.Chains[chain].MockUSDCTokenMessenger)
 		require.NotNil(t, state.Chains[chain].MockUSDCTransmitter)
 		require.NotNil(t, state.Chains[chain].USDCTokenPool)
@@ -293,10 +296,17 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 		}
 		timelocksPerChain[chain] = state.Chains[chain].Timelock
 	}
-
-	server := mockAttestationResponse()
-	defer server.Close()
-	endpoint := server.URL
+	var usdcCfg USDCAttestationConfig
+	if isUSDC {
+		server := mockAttestationResponse()
+		defer server.Close()
+		endpoint := server.URL
+		usdcCfg = USDCAttestationConfig{
+			API:         endpoint,
+			APITimeout:  commonconfig.MustNewDuration(time.Second),
+			APIInterval: commonconfig.MustNewDuration(500 * time.Millisecond),
+		}
+	}
 
 	// Deploy second set of changesets to deploy and configure the CCIP contracts.
 	cs02 := []commonchangeset.ChangesetApplication{
@@ -312,24 +322,42 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 			Config: DeployCCIPContractConfig{
 				HomeChainSel:   e.HomeChainSel,
 				FeedChainSel:   e.FeedChainSel,
-				ChainsToDeploy: e.Env.AllChainSelectors(),
+				ChainsToDeploy: allChains,
 				TokenConfig:    tokenConfig,
 				OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
 				USDCConfig: USDCConfig{
-					EnabledChains: allChains,
-					USDCAttestationConfig: USDCAttestationConfig{
-						API:         endpoint,
-						APITimeout:  commonconfig.MustNewDuration(time.Second),
-						APIInterval: commonconfig.MustNewDuration(500 * time.Millisecond),
-					},
-					CCTPTokenConfig: USDCCCTPConfig,
+					EnabledChains:         usdcChains,
+					USDCAttestationConfig: usdcCfg,
+					CCTPTokenConfig:       USDCCCTPConfig,
 				},
 			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(CCIPCapabilityJobspec),
 		},
 	}
 
 	e.Env, err = commonchangeset.ApplyChangesets(context.Background(), e.Env, timelocksPerChain, cs02)
 	require.NoError(t, err)
+
+	state, err = LoadOnchainState(e.Env)
+	require.NoError(t, err)
+	require.NotNil(t, state.Chains[e.HomeChainSel].CapabilityRegistry)
+	require.NotNil(t, state.Chains[e.HomeChainSel].CCIPHome)
+	require.NotNil(t, state.Chains[e.HomeChainSel].RMNHome)
+	for _, chain := range allChains {
+		require.NotNil(t, state.Chains[chain].LinkToken)
+		require.NotNil(t, state.Chains[chain].Weth9)
+		require.NotNil(t, state.Chains[chain].TokenAdminRegistry)
+		require.NotNil(t, state.Chains[chain].RegistryModule)
+		require.NotNil(t, state.Chains[chain].Router)
+		require.NotNil(t, state.Chains[chain].RMNRemote)
+		require.NotNil(t, state.Chains[chain].TestRouter)
+		require.NotNil(t, state.Chains[chain].NonceManager)
+		require.NotNil(t, state.Chains[chain].FeeQuoter)
+		require.NotNil(t, state.Chains[chain].OffRamp)
+		require.NotNil(t, state.Chains[chain].OnRamp)
+	}
 	return e
 }
 
