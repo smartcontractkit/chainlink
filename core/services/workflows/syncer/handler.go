@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 )
 
 var ErrNotImplemented = errors.New("not implemented")
@@ -88,21 +90,30 @@ type WorkflowRegistryWorkflowDeletedV1 struct {
 // eventHandler is a handler for WorkflowRegistryEvent events.  Each event type has a corresponding
 // method that handles the event.
 type eventHandler struct {
-	lggr    logger.Logger
-	orm     ORM
-	fetcher FetcherFunc
+	lggr           logger.Logger
+	orm            WorkflowSecretsDS
+	fetcher        FetcherFunc
+	workflowStore  store.Store
+	capRegistry    core.CapabilitiesRegistry
+	engineRegistry *engineRegistry
 }
 
 // newEventHandler returns a new eventHandler instance.
 func newEventHandler(
 	lggr logger.Logger,
-	orm ORM,
+	orm WorkflowSecretsDS,
 	gateway FetcherFunc,
+	workflowStore store.Store,
+	capRegistry core.CapabilitiesRegistry,
+	engineRegistry *engineRegistry,
 ) *eventHandler {
 	return &eventHandler{
-		lggr:    lggr,
-		orm:     orm,
-		fetcher: gateway,
+		lggr:           lggr,
+		orm:            orm,
+		fetcher:        gateway,
+		workflowStore:  workflowStore,
+		capRegistry:    capRegistry,
+		engineRegistry: engineRegistry,
 	}
 }
 
