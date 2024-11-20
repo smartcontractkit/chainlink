@@ -239,14 +239,6 @@ func testIntegration_OCR2(t *testing.T) {
 				})
 			}
 
-			tick := time.NewTicker(1 * time.Second)
-			defer tick.Stop()
-			go func() {
-				for range tick.C {
-					b.Commit()
-				}
-			}()
-
 			blockBeforeConfig := initOCR2(t, lggr, b, ocrContract, owner, bootstrapNode, oracles, transmitters, transmitters, func(blockNum int64) string {
 				return fmt.Sprintf(`
 type				= "bootstrap"
@@ -259,6 +251,14 @@ chainID 			= 1337
 fromBlock = %d
 `, ocrContractAddress, blockNum)
 			})
+
+			tick := time.NewTicker(1 * time.Second)
+			defer tick.Stop()
+			go func() {
+				for range tick.C {
+					b.Commit()
+				}
+			}()
 
 			var jids []int32
 			var servers, slowServers = make([]*httptest.Server, 4), make([]*httptest.Server, 4)

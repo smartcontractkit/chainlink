@@ -6,7 +6,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	ccipdeployment "github.com/smartcontractkit/chainlink/deployment/ccip"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -27,7 +26,7 @@ func TestDeployPrerequisites(t *testing.T) {
 	require.NoError(t, err)
 	err = e.ExistingAddresses.Merge(output.AddressBook)
 	require.NoError(t, err)
-	state, err := ccipdeployment.LoadOnchainState(e)
+	state, err := LoadOnchainState(e)
 	require.NoError(t, err)
 	require.NotNil(t, state.Chains[newChain].LinkToken)
 	require.NotNil(t, state.Chains[newChain].Weth9)

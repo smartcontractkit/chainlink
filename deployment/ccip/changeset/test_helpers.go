@@ -1,4 +1,4 @@
-package ccipdeployment
+package changeset
 
 import (
 	"context"
@@ -197,7 +197,7 @@ func NewMemoryEnvironment(
 	envNodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
 	e.ExistingAddresses = ab
-	_, err = DeployHomeChain(lggr, e, e.ExistingAddresses, chains[homeChainSel],
+	_, err = deployHomeChain(lggr, e, e.ExistingAddresses, chains[homeChainSel],
 		NewTestRMNStaticConfig(),
 		NewTestRMNDynamicConfig(),
 		NewTestNodeOperator(chains[homeChainSel].DeployerKey.From),
@@ -293,18 +293,6 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 	state, err = LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
-	return e
-}
-
-func NewMemoryEnvironmentWithJobsAndPrices(
-	t *testing.T,
-	lggr logger.Logger,
-	numChains int,
-	numNodes int,
-	linkPrice *big.Int,
-	wethPrice *big.Int) DeployedEnv {
-	e := NewMemoryEnvironment(t, lggr, numChains, numNodes, linkPrice, wethPrice)
-	e.SetupJobs(t)
 	return e
 }
 
