@@ -7,6 +7,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
+	"github.com/smartcontractkit/chainlink/deployment/keystone"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 )
 
@@ -41,21 +42,6 @@ func HydrateCapabilityRegistry(v v1_0.CapabilityRegistryView, env deployment.Env
 		return nil, fmt.Errorf("failed to deploy contract: %w", err)
 	}
 
-	nodesParams, err := v.NodesToNodesParams()
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert nodes to nodes params: %w", err)
-	}
-	tx, err := deployedContract.Contract.AddNodes(chain.DeployerKey, nodesParams)
-	if _, err = deployment.ConfirmIfNoError(chain, tx, err); err != nil {
-		return nil, fmt.Errorf("failed to add nodes: %w", err)
-	}
-
-	capabilitiesParams := v.CapabilitiesToCapabilitiesParams()
-	tx, err = deployedContract.Contract.AddCapabilities(chain.DeployerKey, capabilitiesParams)
-	if _, err = deployment.ConfirmIfNoError(chain, tx, err); err != nil {
-		return nil, fmt.Errorf("failed to add capabilities: %w", err)
-	}
-
 	nopsParams := v.NopsToNopsParams()
 	for _, nop := range v.Nops {
 		nopsParams = append(nopsParams, capabilities_registry.CapabilitiesRegistryNodeOperator{
@@ -63,9 +49,24 @@ func HydrateCapabilityRegistry(v v1_0.CapabilityRegistryView, env deployment.Env
 			Name:  nop.Name,
 		})
 	}
-	tx, err = deployedContract.Contract.AddNodeOperators(chain.DeployerKey, nopsParams)
-	if _, err = deployment.ConfirmIfNoError(chain, tx, err); err != nil {
+	tx, err := deployedContract.Contract.AddNodeOperators(chain.DeployerKey, nopsParams)
+	if _, err = deployment.ConfirmIfNoError(chain, tx, keystone.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)); err != nil {
 		return nil, fmt.Errorf("failed to add node operators: %w", err)
+	}
+
+	capabilitiesParams := v.CapabilitiesToCapabilitiesParams()
+	tx, err = deployedContract.Contract.AddCapabilities(chain.DeployerKey, capabilitiesParams)
+	if _, err = deployment.ConfirmIfNoError(chain, tx, keystone.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)); err != nil {
+		return nil, fmt.Errorf("failed to add capabilities: %w", err)
+	}
+
+	nodesParams, err := v.NodesToNodesParams()
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert nodes to nodes params: %w", err)
+	}
+	tx, err = deployedContract.Contract.AddNodes(chain.DeployerKey, nodesParams)
+	if _, err = deployment.ConfirmIfNoError(chain, tx, keystone.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)); err != nil {
+		return nil, fmt.Errorf("failed to add nodes: %w", err)
 	}
 
 	for _, don := range v.Dons {
@@ -78,7 +79,7 @@ func HydrateCapabilityRegistry(v v1_0.CapabilityRegistryView, env deployment.Env
 			peerIds = append(peerIds, id)
 		}
 		tx, err = deployedContract.Contract.AddDON(chain.DeployerKey, peerIds, cfgs, don.IsPublic, don.AcceptsWorkflows, don.F)
-		if _, err = deployment.ConfirmIfNoError(chain, tx, err); err != nil {
+		if _, err = deployment.ConfirmIfNoError(chain, tx, keystone.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)); err != nil {
 			return nil, fmt.Errorf("failed to add don: %w", err)
 		}
 	}
