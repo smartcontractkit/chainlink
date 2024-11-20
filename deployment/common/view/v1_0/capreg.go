@@ -26,7 +26,7 @@ type CapabilityRegistryView struct {
 
 // MarshalJSON marshals the CapabilityRegistryView to JSON. It includes the Capabilities, Nodes, Nops, and Dons
 // and a denormalized summary of the Dons with their associated Nodes and Capabilities, which is useful for a high-level view
-func (v CapabilityRegistryView) MarshalJSON() ([]byte, error) {
+func (v *CapabilityRegistryView) MarshalJSON() ([]byte, error) {
 	// Alias to avoid recursive calls
 	type Alias struct {
 		types.ContractMetaData
@@ -49,6 +49,36 @@ func (v CapabilityRegistryView) MarshalJSON() ([]byte, error) {
 	}
 	a.DonCapabilities = dc
 	return json.MarshalIndent(&a, "", " ")
+}
+
+// UnmarshalJSON unmarshals the CapabilityRegistryView from JSON. Since the CapabilityRegistryView doesn't hold a DonCapabilities field,
+// it is not unmarshaled.
+func (v *CapabilityRegistryView) UnmarshalJSON(data []byte) error {
+	// Alias to avoid recursive calls
+	type Alias struct {
+		types.ContractMetaData
+		Capabilities    []CapabilityView      `json:"capabilities,omitempty"`
+		Nodes           []NodeView            `json:"nodes,omitempty"`
+		Nops            []NopView             `json:"nops,omitempty"`
+		Dons            []DonView             `json:"dons,omitempty"`
+		DonCapabilities []DonDenormalizedView `json:"don_capabilities_summary,omitempty"`
+	}
+	a := Alias{
+		ContractMetaData: v.ContractMetaData,
+		Capabilities:     v.Capabilities,
+		Nodes:            v.Nodes,
+		Nops:             v.Nops,
+		Dons:             v.Dons,
+	}
+	if err := json.Unmarshal(data, &a); err != nil {
+		return err
+	}
+	v.ContractMetaData = a.ContractMetaData
+	v.Capabilities = a.Capabilities
+	v.Nodes = a.Nodes
+	v.Nops = a.Nops
+	v.Dons = a.Dons
+	return nil
 }
 
 // GenerateCapabilityRegistryView generates a CapRegView from a CapabilitiesRegistry contract.
@@ -112,7 +142,7 @@ type DonDenormalizedView struct {
 // Nodes and Capabilities. This is a useful form of the CapabilityRegistryView, but it is not definitive.
 // The full CapRegView should be used for the most accurate information as it can contain
 // Capabilities and Nodes the are not associated with any Don.
-func (v CapabilityRegistryView) DonDenormalizedView() ([]DonDenormalizedView, error) {
+func (v *CapabilityRegistryView) DonDenormalizedView() ([]DonDenormalizedView, error) {
 	var out []DonDenormalizedView
 	for _, don := range v.Dons {
 		var nodes []NodeDenormalizedView
@@ -140,7 +170,7 @@ func (v CapabilityRegistryView) DonDenormalizedView() ([]DonDenormalizedView, er
 	return out, nil
 }
 
-func (v CapabilityRegistryView) NodesToNodesParams() ([]capabilities_registry.CapabilitiesRegistryNodeParams, error) {
+func (v *CapabilityRegistryView) NodesToNodesParams() ([]capabilities_registry.CapabilitiesRegistryNodeParams, error) {
 	var nodesParams []capabilities_registry.CapabilitiesRegistryNodeParams
 	for _, node := range v.Nodes {
 		signer, err := hexTo32Bytes(node.Signer)
@@ -171,7 +201,7 @@ func (v CapabilityRegistryView) NodesToNodesParams() ([]capabilities_registry.Ca
 	return nodesParams, nil
 }
 
-func (v CapabilityRegistryView) CapabilitiesToCapabilitiesParams() []capabilities_registry.CapabilitiesRegistryCapability {
+func (v *CapabilityRegistryView) CapabilitiesToCapabilitiesParams() []capabilities_registry.CapabilitiesRegistryCapability {
 	var capabilitiesParams []capabilities_registry.CapabilitiesRegistryCapability
 	for _, capability := range v.Capabilities {
 		capabilitiesParams = append(capabilitiesParams, capabilities_registry.CapabilitiesRegistryCapability{
@@ -185,7 +215,7 @@ func (v CapabilityRegistryView) CapabilitiesToCapabilitiesParams() []capabilitie
 	return capabilitiesParams
 }
 
-func (v CapabilityRegistryView) NopsToNopsParams() []capabilities_registry.CapabilitiesRegistryNodeOperator {
+func (v *CapabilityRegistryView) NopsToNopsParams() []capabilities_registry.CapabilitiesRegistryNodeOperator {
 	var nopsParams []capabilities_registry.CapabilitiesRegistryNodeOperator
 	for _, nop := range v.Nops {
 		nopsParams = append(nopsParams, capabilities_registry.CapabilitiesRegistryNodeOperator{
@@ -196,7 +226,7 @@ func (v CapabilityRegistryView) NopsToNopsParams() []capabilities_registry.Capab
 	return nopsParams
 }
 
-func (v CapabilityRegistryView) CapabilityConfigToCapabilityConfigParams(don DonView) ([]capabilities_registry.CapabilitiesRegistryCapabilityConfiguration, error) {
+func (v *CapabilityRegistryView) CapabilityConfigToCapabilityConfigParams(don DonView) ([]capabilities_registry.CapabilitiesRegistryCapabilityConfiguration, error) {
 	var cfgs []capabilities_registry.CapabilitiesRegistryCapabilityConfiguration
 	for _, cfg := range don.CapabilityConfigurations {
 		cid, err := hexTo32Bytes(cfg.ID)
@@ -413,7 +443,7 @@ func NewNopView(nop capabilities_registry.CapabilitiesRegistryNodeOperator) NopV
 	}
 }
 
-func (v CapabilityRegistryView) nodeDenormalizedView(n NodeView) (NodeDenormalizedView, error) {
+func (v *CapabilityRegistryView) nodeDenormalizedView(n NodeView) (NodeDenormalizedView, error) {
 	nop, err := nodeNop(n, v.Nops)
 	if err != nil {
 		return NodeDenormalizedView{}, err

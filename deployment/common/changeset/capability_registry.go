@@ -3,25 +3,29 @@ package changeset
 import (
 	"fmt"
 
+	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type HydrateConfig struct {
-	lggr    logger.Logger
 	ChainID uint64
 }
 
 // HydrateCapabilityRegistry deploys a new capabilities registry contract and hydrates it with the provided data.
 func HydrateCapabilityRegistry(v v1_0.CapabilityRegistryView, env deployment.Environment, cfg HydrateConfig) (*deployment.ContractDeploy[*capabilities_registry.CapabilitiesRegistry], error) {
-	chain, ok := env.Chains[cfg.ChainID]
+	chainSelector, err := chainsel.SelectorFromChainId(cfg.ChainID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get chain selector from chain id: %w", err)
+	}
+	chain, ok := env.Chains[chainSelector]
 	if !ok {
 		return nil, fmt.Errorf("chain with id %d not found", cfg.ChainID)
 	}
 	deployedContract, err := deployment.DeployContract(
-		cfg.lggr, chain, env.ExistingAddresses,
+		env.Logger, chain, env.ExistingAddresses,
 		func(chain deployment.Chain) deployment.ContractDeploy[*capabilities_registry.CapabilitiesRegistry] {
 			crAddr, tx, cr, err2 := capabilities_registry.DeployCapabilitiesRegistry(
 				chain.DeployerKey,

@@ -4,9 +4,10 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
 	cr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestCapRegView_Denormalize(t *testing.T) {
