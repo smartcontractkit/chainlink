@@ -1,4 +1,4 @@
-package ccipdeployment
+package changeset
 
 import (
 	"context"
@@ -15,6 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink/deployment/ccip"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -25,7 +26,7 @@ import (
 func ConfirmGasPriceUpdatedForAll(
 	t *testing.T,
 	e deployment.Environment,
-	state CCIPOnChainState,
+	state ccipdeployment.CCIPOnChainState,
 	startBlocks map[uint64]*uint64,
 	gasPrice *big.Int,
 ) {
@@ -78,7 +79,7 @@ func ConfirmGasPriceUpdated(
 func ConfirmTokenPriceUpdatedForAll(
 	t *testing.T,
 	e deployment.Environment,
-	state CCIPOnChainState,
+	state ccipdeployment.CCIPOnChainState,
 	startBlocks map[uint64]*uint64,
 	linkPrice *big.Int,
 	wethPrice *big.Int,
@@ -154,7 +155,7 @@ func ConfirmTokenPriceUpdated(
 func ConfirmCommitForAllWithExpectedSeqNums(
 	t *testing.T,
 	e deployment.Environment,
-	state CCIPOnChainState,
+	state ccipdeployment.CCIPOnChainState,
 	expectedSeqNums map[uint64]uint64,
 	startBlocks map[uint64]*uint64,
 ) {
@@ -306,7 +307,7 @@ func ConfirmCommitWithExpectedSeqNumRange(
 func ConfirmExecWithSeqNrForAll(
 	t *testing.T,
 	e deployment.Environment,
-	state CCIPOnChainState,
+	state ccipdeployment.CCIPOnChainState,
 	expectedSeqNums map[uint64]uint64,
 	startBlocks map[uint64]*uint64,
 ) (executionStates map[uint64]int) {

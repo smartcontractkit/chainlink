@@ -5,7 +5,6 @@ import (
 	"math/big"
 
 	ccipdeployment "github.com/smartcontractkit/chainlink/deployment/ccip"
-
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
@@ -42,7 +41,7 @@ func NewChainInboundChangeset(
 			[]fee_quoter.FeeQuoterDestChainConfigArgs{
 				{
 					DestChainSelector: newChainSel,
-					DestChainConfig:   ccipdeployment.DefaultFeeQuoterDestChainConfig(),
+					DestChainConfig:   DefaultFeeQuoterDestChainConfig(),
 				},
 			})
 		if err != nil {
@@ -66,7 +65,7 @@ func NewChainInboundChangeset(
 		})
 	}
 
-	addChainOp, err := ccipdeployment.ApplyChainConfigUpdatesOp(e, state, homeChainSel, []uint64{newChainSel})
+	addChainOp, err := ApplyChainConfigUpdatesOp(e, state, homeChainSel, []uint64{newChainSel})
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -96,10 +95,10 @@ func AddDonAndSetCandidateChangeset(
 	nodes deployment.Nodes,
 	ocrSecrets deployment.OCRSecrets,
 	homeChainSel, feedChainSel, newChainSel uint64,
-	tokenConfig ccipdeployment.TokenConfig,
+	tokenConfig TokenConfig,
 	pluginType types.PluginType,
 ) (deployment.ChangesetOutput, error) {
-	newDONArgs, err := ccipdeployment.BuildOCR3ConfigForCCIPHome(
+	newDONArgs, err := BuildOCR3ConfigForCCIPHome(
 		ocrSecrets,
 		state.Chains[newChainSel].OffRamp,
 		e.Chains[newChainSel],
@@ -112,7 +111,7 @@ func AddDonAndSetCandidateChangeset(
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	latestDon, err := ccipdeployment.LatestCCIPDON(state.Chains[homeChainSel].CapabilityRegistry)
+	latestDon, err := LatestCCIPDON(state.Chains[homeChainSel].CapabilityRegistry)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -121,7 +120,7 @@ func AddDonAndSetCandidateChangeset(
 		return deployment.ChangesetOutput{}, fmt.Errorf("missing commit plugin in ocr3Configs")
 	}
 	donID := latestDon.Id + 1
-	addDonOp, err := ccipdeployment.NewDonWithCandidateOp(
+	addDonOp, err := NewDonWithCandidateOp(
 		donID, commitConfig,
 		state.Chains[homeChainSel].CapabilityRegistry,
 		nodes.NonBootstraps(),

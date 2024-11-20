@@ -12,6 +12,7 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
@@ -282,7 +283,7 @@ type DeployCCIPContractConfig struct {
 	HomeChainSel   uint64
 	FeedChainSel   uint64
 	ChainsToDeploy []uint64
-	TokenConfig    TokenConfig
+	TokenConfig    changeset.TokenConfig
 	USDCConfig     USDCConfig
 	// For setting OCR configuration
 	OCRSecrets deployment.OCRSecrets
@@ -337,7 +338,7 @@ func DeployCCIPContracts(
 			return fmt.Errorf("chain %d not found", chainSel)
 		}
 		if c.USDCConfig.Enabled {
-			token, pool, messenger, transmitter, err1 := DeployUSDC(e.Logger, chain, ab, existingState.Chains[chainSel])
+			token, pool, messenger, transmitter, err1 := changeset.DeployUSDC(e.Logger, chain, ab, existingState.Chains[chainSel])
 			if err1 != nil {
 				return err1
 			}
@@ -376,7 +377,7 @@ func DeployCCIPContracts(
 		tokenInfo := c.TokenConfig.GetTokenInfo(e.Logger, existingState.Chains[chainSel].LinkToken, existingState.Chains[chainSel].Weth9)
 		// TODO: Do we want to extract this?
 		// Add chain config for each chain.
-		_, err = AddChainConfig(
+		_, err = changeset.AddChainConfig(
 			e.Logger,
 			e.Chains[c.HomeChainSel],
 			ccipHome,
@@ -399,7 +400,7 @@ func DeployCCIPContracts(
 			}}
 		}
 		// For each chain, we create a DON on the home chain (2 OCR instances)
-		if err := AddDON(
+		if err := changeset.AddDON(
 			e.Logger,
 			c.OCRSecrets,
 			capReg,
@@ -438,15 +439,15 @@ func DeployChainContractsForChains(
 		return fmt.Errorf("capability registry not found")
 	}
 	cr, err := capReg.GetHashedCapabilityId(
-		&bind.CallOpts{}, CapabilityLabelledName, CapabilityVersion)
+		&bind.CallOpts{}, changeset.CapabilityLabelledName, changeset.CapabilityVersion)
 	if err != nil {
 		e.Logger.Errorw("Failed to get hashed capability id", "err", err)
 		return err
 	}
-	if cr != CCIPCapabilityID {
-		return fmt.Errorf("capability registry does not support CCIP %s %s", hexutil.Encode(cr[:]), hexutil.Encode(CCIPCapabilityID[:]))
+	if cr != changeset.CCIPCapabilityID {
+		return fmt.Errorf("capability registry does not support CCIP %s %s", hexutil.Encode(cr[:]), hexutil.Encode(changeset.CCIPCapabilityID[:]))
 	}
-	capability, err := capReg.GetCapability(nil, CCIPCapabilityID)
+	capability, err := capReg.GetCapability(nil, changeset.CCIPCapabilityID)
 	if err != nil {
 		e.Logger.Errorw("Failed to get capability", "err", err)
 		return err

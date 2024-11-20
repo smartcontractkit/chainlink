@@ -15,6 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/osutil"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipdeployment "github.com/smartcontractkit/chainlink/deployment/ccip"
@@ -335,9 +336,9 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 		}
 	}
 
-	ccipdeployment.ReplayLogs(t, envWithRMN.Env.Offchain, envWithRMN.ReplayBlocks)
+	changeset.ReplayLogs(t, envWithRMN.Env.Offchain, envWithRMN.ReplayBlocks)
 	// Add all lanes
-	require.NoError(t, ccipdeployment.AddLanesForAll(envWithRMN.Env, onChainState))
+	require.NoError(t, changeset.AddLanesForAll(envWithRMN.Env, onChainState))
 
 	// Need to keep track of the block number for each chain so that event subscription can be done from that block.
 	startBlocks := make(map[uint64]*uint64)
@@ -347,7 +348,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 		toChain := chainSelectors[msg.toChainIdx]
 
 		for i := 0; i < msg.count; i++ {
-			msgSentEvent := ccipdeployment.TestSendRequest(t, envWithRMN.Env, onChainState, fromChain, toChain, false, router.ClientEVM2AnyMessage{
+			msgSentEvent := changeset.TestSendRequest(t, envWithRMN.Env, onChainState, fromChain, toChain, false, router.ClientEVM2AnyMessage{
 				Receiver:     common.LeftPadBytes(onChainState.Chains[toChain].Receiver.Address().Bytes(), 32),
 				Data:         []byte("hello world"),
 				TokenAmounts: nil,
@@ -365,7 +366,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 
 	commitReportReceived := make(chan struct{})
 	go func() {
-		ccipdeployment.ConfirmCommitForAllWithExpectedSeqNums(t, envWithRMN.Env, onChainState, expectedSeqNum, startBlocks)
+		changeset.ConfirmCommitForAllWithExpectedSeqNums(t, envWithRMN.Env, onChainState, expectedSeqNum, startBlocks)
 		commitReportReceived <- struct{}{}
 	}()
 
@@ -387,7 +388,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 
 	if tc.waitForExec {
 		t.Logf("⌛ Waiting for exec reports...")
-		ccipdeployment.ConfirmExecWithSeqNrForAll(t, envWithRMN.Env, onChainState, expectedSeqNum, startBlocks)
+		changeset.ConfirmExecWithSeqNrForAll(t, envWithRMN.Env, onChainState, expectedSeqNum, startBlocks)
 		t.Logf("✅ Exec report")
 	}
 }

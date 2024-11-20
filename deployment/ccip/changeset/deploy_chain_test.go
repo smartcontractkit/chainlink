@@ -30,9 +30,9 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 	// deploy home chain
 	homeChainCfg := DeployHomeChainConfig{
 		HomeChainSel:     homeChainSel,
-		RMNStaticConfig:  ccdeploy.NewTestRMNStaticConfig(),
-		RMNDynamicConfig: ccdeploy.NewTestRMNDynamicConfig(),
-		NodeOperators:    ccdeploy.NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
+		RMNStaticConfig:  NewTestRMNStaticConfig(),
+		RMNDynamicConfig: NewTestRMNDynamicConfig(),
+		NodeOperators:    NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
 		NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
 			"NodeOperator": p2pIds,
 		},

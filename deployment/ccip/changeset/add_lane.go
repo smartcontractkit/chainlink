@@ -1,4 +1,4 @@
-package ccipdeployment
+package changeset
 
 import (
 	"encoding/hex"
@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 
@@ -27,11 +28,11 @@ var DefaultInitialPrices = InitialPrices{
 	GasPrice:  ToPackedFee(big.NewInt(8e14), big.NewInt(0)),
 }
 
-func AddLaneWithDefaultPrices(e deployment.Environment, state CCIPOnChainState, from, to uint64) error {
+func AddLaneWithDefaultPrices(e deployment.Environment, state ccipdeployment.CCIPOnChainState, from, to uint64) error {
 	return AddLane(e, state, from, to, DefaultInitialPrices)
 }
 
-func AddLane(e deployment.Environment, state CCIPOnChainState, from, to uint64, initialPrices InitialPrices) error {
+func AddLane(e deployment.Environment, state ccipdeployment.CCIPOnChainState, from, to uint64, initialPrices InitialPrices) error {
 	// TODO: Batch
 	tx, err := state.Chains[from].Router.ApplyRampUpdates(e.Chains[from].DeployerKey, []router.RouterOnRamp{
 		{

@@ -52,7 +52,7 @@ import (
 
 // DeployedLocalDevEnvironment is a helper struct for setting up a local dev environment with docker
 type DeployedLocalDevEnvironment struct {
-	ccipdeployment.DeployedEnv
+	changeset.DeployedEnv
 	testEnv *test_env.CLClusterTestEnv
 	DON     *devenv.DON
 }
@@ -78,14 +78,14 @@ func (d DeployedLocalDevEnvironment) RestartChainlinkNodes(t *testing.T) error {
 
 func NewLocalDevEnvironmentWithDefaultPrice(
 	t *testing.T,
-	lggr logger.Logger) (ccipdeployment.DeployedEnv, *test_env.CLClusterTestEnv, testconfig.TestConfig) {
-	return NewLocalDevEnvironment(t, lggr, ccipdeployment.MockLinkPrice, ccipdeployment.MockWethPrice)
+	lggr logger.Logger) (changeset.DeployedEnv, *test_env.CLClusterTestEnv, testconfig.TestConfig) {
+	return NewLocalDevEnvironment(t, lggr, changeset.MockLinkPrice, changeset.MockWethPrice)
 }
 
 func NewLocalDevEnvironment(
 	t *testing.T,
 	lggr logger.Logger,
-	linkPrice, wethPrice *big.Int) (ccipdeployment.DeployedEnv, *test_env.CLClusterTestEnv, testconfig.TestConfig) {
+	linkPrice, wethPrice *big.Int) (changeset.DeployedEnv, *test_env.CLClusterTestEnv, testconfig.TestConfig) {
 	ctx := testcontext.Get(t)
 	// create a local docker environment with simulated chains and job-distributor
 	// we cannot create the chainlink nodes yet as we need to deploy the capability registry first
@@ -100,11 +100,11 @@ func NewLocalDevEnvironment(
 	require.NotEmpty(t, homeChainSel, "homeChainSel should not be empty")
 	feedSel := envConfig.FeedChainSelector
 	require.NotEmpty(t, feedSel, "feedSel should not be empty")
-	replayBlocks, err := ccipdeployment.LatestBlocksByChain(ctx, chains)
+	replayBlocks, err := changeset.LatestBlocksByChain(ctx, chains)
 	require.NoError(t, err)
 
 	ab := deployment.NewMemoryAddressBook()
-	crConfig := ccipdeployment.DeployTestContracts(t, lggr, ab, homeChainSel, feedSel, chains, linkPrice, wethPrice)
+	crConfig := changeset.DeployTestContracts(t, lggr, ab, homeChainSel, feedSel, chains, linkPrice, wethPrice)
 
 	// start the chainlink nodes with the CR address
 	err = StartChainlinkNodes(t, envConfig,
@@ -120,10 +120,10 @@ func NewLocalDevEnvironment(
 
 	envNodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
-	_, err = ccipdeployment.DeployHomeChain(lggr, *e, e.ExistingAddresses, chains[homeChainSel],
-		ccipdeployment.NewTestRMNStaticConfig(),
-		ccipdeployment.NewTestRMNDynamicConfig(),
-		ccipdeployment.NewTestNodeOperator(chains[homeChainSel].DeployerKey.From),
+	_, err = changeset.DeployHomeChain(lggr, *e, e.ExistingAddresses, chains[homeChainSel],
+		changeset.NewTestRMNStaticConfig(),
+		changeset.NewTestRMNDynamicConfig(),
+		changeset.NewTestNodeOperator(chains[homeChainSel].DeployerKey.From),
 		map[string][][32]byte{
 			"NodeOperator": envNodes.NonBootstraps().PeerIDs(),
 		},
@@ -160,7 +160,7 @@ func NewLocalDevEnvironment(
 	require.NoError(t, err)
 	endpoint = e.MockAdapter.InternalEndpoint
 
-	tokenConfig := ccipdeployment.NewTestTokenConfig(state.Chains[feedSel].USDFeeds)
+	tokenConfig := changeset.NewTestTokenConfig(state.Chains[feedSel].USDFeeds)
 	// Apply migration
 	output, err = changeset.InitialDeploy(*e, ccipdeployment.DeployCCIPContractConfig{
 		HomeChainSel:   homeChainSel,
@@ -181,7 +181,7 @@ func NewLocalDevEnvironment(
 	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook))
 
 	// Ensure capreg logs are up to date.
-	ccipdeployment.ReplayLogs(t, e.Offchain, replayBlocks)
+	changeset.ReplayLogs(t, e.Offchain, replayBlocks)
 
 	// Apply the jobs.
 	for nodeID, jobs := range output.JobSpecs {
@@ -196,7 +196,7 @@ func NewLocalDevEnvironment(
 		}
 	}
 
-	return ccipdeployment.DeployedEnv{
+	return changeset.DeployedEnv{
 		Env:          *e,
 		HomeChainSel: homeChainSel,
 		FeedChainSel: feedSel,
@@ -208,7 +208,7 @@ func NewLocalDevEnvironmentWithRMN(
 	t *testing.T,
 	lggr logger.Logger,
 	numRmnNodes int,
-) (ccipdeployment.DeployedEnv, devenv.RMNCluster) {
+) (changeset.DeployedEnv, devenv.RMNCluster) {
 	tenv, dockerenv, testCfg := NewLocalDevEnvironmentWithDefaultPrice(t, lggr)
 	l := logging.GetTestLogger(t)
 	config := GenerateTestRMNConfig(t, numRmnNodes, tenv, MustNetworksToRPCMap(dockerenv.EVMNetworks))
@@ -255,7 +255,7 @@ func MustCCIPNameToRMNName(a string) string {
 	return v
 }
 
-func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv ccipdeployment.DeployedEnv, rpcMap map[uint64]string) map[string]devenv.RMNConfig {
+func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv changeset.DeployedEnv, rpcMap map[uint64]string) map[string]devenv.RMNConfig {
 	// Find the bootstrappers.
 	nodes, err := deployment.NodeInfo(tenv.Env.NodeIDs, tenv.Env.Offchain)
 	require.NoError(t, err)

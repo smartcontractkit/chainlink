@@ -7,12 +7,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestDeployCCIPContracts(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	e := NewMemoryEnvironmentWithJobsAndContracts(t, lggr,
+	e := changeset.NewMemoryEnvironmentWithJobsAndContracts(t, lggr,
 		2,
 		4,
 	)

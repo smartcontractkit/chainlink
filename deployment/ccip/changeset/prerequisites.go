@@ -40,8 +40,8 @@ func DeployPrerequisites(env deployment.Environment, cfg DeployPrerequisiteConfi
 type DeployPrerequisiteConfig struct {
 	ChainSelectors []uint64
 	// TODO handle tokens and feeds in prerequisite config
-	Tokens map[ccipdeployment.TokenSymbol]common.Address
-	Feeds  map[ccipdeployment.TokenSymbol]common.Address
+	Tokens map[TokenSymbol]common.Address
+	Feeds  map[TokenSymbol]common.Address
 }
 
 func (c DeployPrerequisiteConfig) Validate() error {

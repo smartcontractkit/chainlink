@@ -2,6 +2,7 @@ package changeset
 
 import (
 	"fmt"
+
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 
@@ -17,7 +18,7 @@ func PromoteAllCandidatesChangeset(
 	homeChainSel, newChainSel uint64,
 	nodes deployment.Nodes,
 ) (deployment.ChangesetOutput, error) {
-	promoteCandidateOps, err := ccdeploy.PromoteAllCandidatesForChainOps(
+	promoteCandidateOps, err := PromoteAllCandidatesForChainOps(
 		state.Chains[homeChainSel].CapabilityRegistry,
 		state.Chains[homeChainSel].CCIPHome,
 		newChainSel,
@@ -48,10 +49,10 @@ func SetCandidatePluginChangeset(
 	nodes deployment.Nodes,
 	ocrSecrets deployment.OCRSecrets,
 	homeChainSel, feedChainSel, newChainSel uint64,
-	tokenConfig ccdeploy.TokenConfig,
+	tokenConfig TokenConfig,
 	pluginType cctypes.PluginType,
 ) (deployment.ChangesetOutput, error) {
-	newDONArgs, err := ccdeploy.BuildOCR3ConfigForCCIPHome(
+	newDONArgs, err := BuildOCR3ConfigForCCIPHome(
 		ocrSecrets,
 		state.Chains[newChainSel].OffRamp,
 		e.Chains[newChainSel],
@@ -70,7 +71,7 @@ func SetCandidatePluginChangeset(
 		return deployment.ChangesetOutput{}, fmt.Errorf("missing exec plugin in ocr3Configs")
 	}
 
-	setCandidateMCMSOps, err := ccdeploy.SetCandidateOnExistingDon(
+	setCandidateMCMSOps, err := SetCandidateOnExistingDon(
 		execConfig,
 		state.Chains[homeChainSel].CapabilityRegistry,
 		state.Chains[homeChainSel].CCIPHome,

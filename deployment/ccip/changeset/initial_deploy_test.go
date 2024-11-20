@@ -7,7 +7,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
-
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 
@@ -24,8 +23,8 @@ import (
 
 func TestInitialDeploy(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	ctx := ccdeploy.Context(t)
-	tenv := ccdeploy.NewMemoryEnvironment(t, lggr, 3, 4, ccdeploy.MockLinkPrice, ccdeploy.MockWethPrice)
+	ctx := Context(t)
+	tenv := NewMemoryEnvironment(t, lggr, 3, 4, MockLinkPrice, MockWethPrice)
 	e := tenv.Env
 
 	state, err := ccdeploy.LoadOnchainState(tenv.Env)
@@ -54,7 +53,7 @@ func TestInitialDeploy(t *testing.T) {
 		HomeChainSel:   tenv.HomeChainSel,
 		FeedChainSel:   tenv.FeedChainSel,
 		ChainsToDeploy: tenv.Env.AllChainSelectors(),
-		TokenConfig:    ccdeploy.NewTestTokenConfig(state.Chains[tenv.FeedChainSel].USDFeeds),
+		TokenConfig:    NewTestTokenConfig(state.Chains[tenv.FeedChainSel].USDFeeds),
 		OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
 	})
 	require.NoError(t, err)
@@ -64,7 +63,7 @@ func TestInitialDeploy(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, state.Chains[tenv.HomeChainSel].LinkToken)
 	// Ensure capreg logs are up to date.
-	ccdeploy.ReplayLogs(t, e.Offchain, tenv.ReplayBlocks)
+	ReplayLogs(t, e.Offchain, tenv.ReplayBlocks)
 
 	// Apply the jobs.
 	for nodeID, jobs := range output.JobSpecs {
@@ -80,7 +79,7 @@ func TestInitialDeploy(t *testing.T) {
 	}
 
 	// Add all lanes
-	require.NoError(t, ccdeploy.AddLanesForAll(e, state))
+	require.NoError(t, AddLanesForAll(e, state))
 	// Need to keep track of the block number for each chain so that event subscription can be done from that block.
 	startBlocks := make(map[uint64]*uint64)
 	// Send a message from each chain to every other chain.
@@ -95,7 +94,7 @@ func TestInitialDeploy(t *testing.T) {
 			require.NoError(t, err)
 			block := latesthdr.Number.Uint64()
 			startBlocks[dest] = &block
-			msgSentEvent := ccdeploy.TestSendRequest(t, e, state, src, dest, false, router.ClientEVM2AnyMessage{
+			msgSentEvent := TestSendRequest(t, e, state, src, dest, false, router.ClientEVM2AnyMessage{
 				Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
 				Data:         []byte("hello"),
 				TokenAmounts: nil,
@@ -107,14 +106,14 @@ func TestInitialDeploy(t *testing.T) {
 	}
 
 	// Wait for all commit reports to land.
-	ccdeploy.ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
+	ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
 
 	// Confirm token and gas prices are updated
-	ccdeploy.ConfirmTokenPriceUpdatedForAll(t, e, state, startBlocks,
-		ccdeploy.DefaultInitialPrices.LinkPrice, ccdeploy.DefaultInitialPrices.WethPrice)
+	ConfirmTokenPriceUpdatedForAll(t, e, state, startBlocks,
+		DefaultInitialPrices.LinkPrice, DefaultInitialPrices.WethPrice)
 	// TODO: Fix gas prices?
 	//ccdeploy.ConfirmGasPriceUpdatedForAll(t, e, state, startBlocks)
 	//
 	//// Wait for all exec reports to land
-	ccdeploy.ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
+	ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
 }

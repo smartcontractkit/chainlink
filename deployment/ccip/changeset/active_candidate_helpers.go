@@ -1,13 +1,15 @@
-package ccipdeployment
+package changeset
 
 import (
 	"fmt"
+	"math/big"
+
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
-	"math/big"
 )
 
 // SetCandidateExecPluginOps calls setCandidate on CCIPHome contract through the UpdateDON call on CapReg contract

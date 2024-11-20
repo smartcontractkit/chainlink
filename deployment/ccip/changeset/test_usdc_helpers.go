@@ -1,23 +1,26 @@
-package ccipdeployment
+package changeset
 
 import (
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_messenger"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_transmitter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/usdc_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
-	"math/big"
 )
 
 func ConfigureUSDCTokenPools(
 	lggr logger.Logger,
 	chains map[uint64]deployment.Chain,
 	src, dst uint64,
-	state CCIPOnChainState,
+	state ccipdeployment.CCIPOnChainState,
 ) (*burn_mint_erc677.BurnMintERC677, *burn_mint_erc677.BurnMintERC677, error) {
 	srcToken := state.Chains[src].BurnMintTokens677[USDCSymbol]
 	dstToken := state.Chains[dst].BurnMintTokens677[USDCSymbol]
@@ -76,7 +79,7 @@ func ConfigureUSDCTokenPools(
 func UpdateFeeQuoterForUSDC(
 	lggr logger.Logger,
 	chain deployment.Chain,
-	state CCIPChainState,
+	state ccipdeployment.CCIPChainState,
 	dstChain uint64,
 	usdcToken *burn_mint_erc677.BurnMintERC677,
 ) error {
@@ -117,7 +120,7 @@ func DeployUSDC(
 	lggr logger.Logger,
 	chain deployment.Chain,
 	addresses deployment.AddressBook,
-	state CCIPChainState,
+	state ccipdeployment.CCIPChainState,
 ) (
 	*burn_mint_erc677.BurnMintERC677,
 	*usdc_token_pool.USDCTokenPool,
@@ -139,7 +142,7 @@ func DeployUSDC(
 				Address:  tokenAddress,
 				Contract: tokenContract,
 				Tx:       tx,
-				Tv:       deployment.NewTypeAndVersion(USDCToken, deployment.Version1_0_0),
+				Tv:       deployment.NewTypeAndVersion(ccipdeployment.USDCToken, deployment.Version1_0_0),
 				Err:      err2,
 			}
 		})
@@ -171,7 +174,7 @@ func DeployUSDC(
 				Address:  transmitterAddress,
 				Contract: transmitterContract,
 				Tx:       tx,
-				Tv:       deployment.NewTypeAndVersion(USDCMockTransmitter, deployment.Version1_0_0),
+				Tv:       deployment.NewTypeAndVersion(ccipdeployment.USDCMockTransmitter, deployment.Version1_0_0),
 				Err:      err2,
 			}
 		})
@@ -194,7 +197,7 @@ func DeployUSDC(
 				Address:  messengerAddress,
 				Contract: messengerContract,
 				Tx:       tx,
-				Tv:       deployment.NewTypeAndVersion(USDCTokenMessenger, deployment.Version1_0_0),
+				Tv:       deployment.NewTypeAndVersion(ccipdeployment.USDCTokenMessenger, deployment.Version1_0_0),
 				Err:      err2,
 			}
 		})
@@ -219,7 +222,7 @@ func DeployUSDC(
 				Address:  tokenPoolAddress,
 				Contract: tokenPoolContract,
 				Tx:       tx,
-				Tv:       deployment.NewTypeAndVersion(USDCTokenPool, deployment.Version1_0_0),
+				Tv:       deployment.NewTypeAndVersion(ccipdeployment.USDCTokenPool, deployment.Version1_0_0),
 				Err:      err2,
 			}
 		})
