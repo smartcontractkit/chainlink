@@ -15,12 +15,16 @@ import (
 )
 
 const (
-	E2E_JD_IMAGE       = "E2E_JD_IMAGE"
-	E2E_JD_VERSION     = "E2E_JD_VERSION"
-	E2E_JD_GRPC        = "E2E_JD_GRPC"
-	E2E_JD_WSRPC       = "E2E_JD_WSRPC"
-	DEFAULT_DB_NAME    = "JD_DB"
-	DEFAULT_DB_VERSION = "14.1"
+	E2E_JD_IMAGE              = "E2E_JD_IMAGE"
+	E2E_JD_VERSION            = "E2E_JD_VERSION"
+	E2E_JD_GRPC               = "E2E_JD_GRPC"
+	E2E_JD_WSRPC              = "E2E_JD_WSRPC"
+	DEFAULT_DB_NAME           = "JD_DB"
+	DEFAULT_DB_VERSION        = "14.1"
+	E2E_RMN_RAGEPROXY_IMAGE   = "E2E_RMN_RAGEPROXY_IMAGE"
+	E2E_RMN_RAGEPROXY_VERSION = "E2E_RMN_RAGEPROXY_VERSION"
+	E2E_RMN_AFN2PROXY_IMAGE   = "E2E_RMN_AFN2PROXY_IMAGE"
+	E2E_RMN_AFN2PROXY_VERSION = "E2E_RMN_AFN2PROXY_VERSION"
 )
 
 var (
@@ -43,6 +47,38 @@ type RMNConfig struct {
 	ProxyVersion *string `toml:",omitempty"`
 	AFNImage     *string `toml:",omitempty"`
 	AFNVersion   *string `toml:",omitempty"`
+}
+
+func (r *RMNConfig) GetProxyImage() string {
+	image := pointer.GetString(r.ProxyImage)
+	if image == "" {
+		return ctfconfig.MustReadEnvVar_String(E2E_RMN_RAGEPROXY_IMAGE)
+	}
+	return image
+}
+
+func (r *RMNConfig) GetProxyVersion() string {
+	version := pointer.GetString(r.ProxyVersion)
+	if version == "" {
+		return ctfconfig.MustReadEnvVar_String(E2E_RMN_RAGEPROXY_VERSION)
+	}
+	return version
+}
+
+func (r *RMNConfig) GetAFN2ProxyImage() string {
+	image := pointer.GetString(r.AFNImage)
+	if image == "" {
+		return ctfconfig.MustReadEnvVar_String(E2E_RMN_AFN2PROXY_IMAGE)
+	}
+	return image
+}
+
+func (r *RMNConfig) GetAFN2ProxyVersion() string {
+	version := pointer.GetString(r.AFNVersion)
+	if version == "" {
+		return ctfconfig.MustReadEnvVar_String(E2E_RMN_AFN2PROXY_VERSION)
+	}
+	return version
 }
 
 type NodeConfig struct {

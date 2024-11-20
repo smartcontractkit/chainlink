@@ -97,7 +97,7 @@ func deployOCR3Contract(
 	return o, true
 }
 
-func generateOCR3Config(nodeKeys []NodeKeys, configFile string) ksdeploy.Orc2drOracleConfig {
+func generateOCR3Config(nodeKeys []NodeKeys, configFile string) ksdeploy.OCR2OracleConfig {
 	topLevelCfg := mustReadOCR3Config(configFile)
 	cfg := topLevelCfg.OracleConfig
 	cfg.OCRSecrets = deployment.XXXGenerateTestOCRSecrets()
@@ -106,7 +106,7 @@ func generateOCR3Config(nodeKeys []NodeKeys, configFile string) ksdeploy.Orc2drO
 	return c
 }
 
-func setOCRConfig(o *onchainMeta, env helpers.Environment, ocrConf ksdeploy.Orc2drOracleConfig, artefacts string) {
+func setOCRConfig(o *onchainMeta, env helpers.Environment, ocrConf ksdeploy.OCR2OracleConfig, artefacts string) {
 	fmt.Println("Setting OCR3 contract config...")
 	tx, err := o.OCR3.SetConfig(env.Owner,
 		ocrConf.Signers,

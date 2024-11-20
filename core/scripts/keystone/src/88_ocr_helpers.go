@@ -9,7 +9,7 @@ import (
 	ksdeploy "github.com/smartcontractkit/chainlink/deployment/keystone"
 )
 
-func ocrConfToContractConfig(ocrConf ksdeploy.Orc2drOracleConfig, configCount uint32) types.ContractConfig {
+func ocrConfToContractConfig(ocrConf ksdeploy.OCR2OracleConfig, configCount uint32) types.ContractConfig {
 	cc := types.ContractConfig{
 		Signers:               convertByteSliceToOnchainPublicKeys(ocrConf.Signers),
 		Transmitters:          convertAddressesToAccounts(ocrConf.Transmitters),

@@ -17,8 +17,8 @@ import (
 	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	reportcodecv3 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
 	reporttypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/types"
@@ -28,10 +28,12 @@ var (
 	_ llo.ReportCodec = ReportCodecPremiumLegacy{}
 )
 
-type ReportCodecPremiumLegacy struct{ logger.Logger }
+type ReportCodecPremiumLegacy struct {
+	logger.Logger
+}
 
-func NewReportCodecPremiumLegacy(lggr logger.Logger) llo.ReportCodec {
-	return ReportCodecPremiumLegacy{lggr.Named("ReportCodecPremiumLegacy")}
+func NewReportCodecPremiumLegacy(lggr logger.Logger) ReportCodecPremiumLegacy {
+	return ReportCodecPremiumLegacy{logger.Sugared(lggr).Named("ReportCodecPremiumLegacy")}
 }
 
 type ReportFormatEVMPremiumLegacyOpts struct {
@@ -92,6 +94,9 @@ func (r ReportCodecPremiumLegacy) Encode(ctx context.Context, report llo.Report,
 		Bid:                quote.Bid.Mul(multiplier).BigInt(),
 		Ask:                quote.Ask.Mul(multiplier).BigInt(),
 	}
+
+	r.Logger.Debugw("Encoding report", "report", report, "opts", opts, "nativePrice", nativePrice, "linkPrice", linkPrice, "quote", quote, "multiplier", multiplier, "rf", rf)
+
 	return codec.BuildReport(ctx, rf)
 }
 

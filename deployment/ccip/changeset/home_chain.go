@@ -26,7 +26,9 @@ func DeployHomeChain(env deployment.Environment, cfg DeployHomeChainConfig) (dep
 	_, err = ccipdeployment.DeployHomeChain(env.Logger, env, ab, env.Chains[cfg.HomeChainSel], cfg.RMNStaticConfig, cfg.RMNDynamicConfig, cfg.NodeOperators, cfg.NodeP2PIDsPerNodeOpAdmin)
 	if err != nil {
 		env.Logger.Errorw("Failed to deploy cap reg", "err", err, "addresses", env.ExistingAddresses)
-		return deployment.ChangesetOutput{}, err
+		return deployment.ChangesetOutput{
+			AddressBook: ab,
+		}, err
 	}
 
 	return deployment.ChangesetOutput{

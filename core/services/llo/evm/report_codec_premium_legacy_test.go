@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	reporttypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/types"
 
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
@@ -32,7 +33,7 @@ func newValidPremiumLegacyReport() llo.Report {
 }
 
 func Test_ReportCodecPremiumLegacy(t *testing.T) {
-	rc := ReportCodecPremiumLegacy{}
+	rc := ReportCodecPremiumLegacy{logger.TestLogger(t)}
 
 	feedID := [32]uint8{0x1, 0x2, 0x3, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}
 	cd := llotypes.ChannelDefinition{Opts: llotypes.ChannelOpts(fmt.Sprintf(`{"baseUSDFee":"10.50","expirationWindow":60,"feedId":"0x%x","multiplier":10}`, feedID))}

@@ -6,9 +6,12 @@ import (
 	"os"
 	"strconv"
 	"testing"
+	"time"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 	ctftestenv "github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
@@ -18,12 +21,16 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipdeployment "github.com/smartcontractkit/chainlink/deployment/ccip"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	clclient "github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	ccipactions "github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig"
@@ -108,6 +115,7 @@ func NewLocalDevEnvironment(
 	require.NoError(t, err)
 	require.NotNil(t, e)
 	e.ExistingAddresses = ab
+	require.NotNil(t, testEnv.MockAdapter)
 	e.MockAdapter = testEnv.MockAdapter
 
 	envNodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
@@ -125,6 +133,69 @@ func NewLocalDevEnvironment(
 	// fund the nodes
 	FundNodes(t, zeroLogLggr, testEnv, cfg, don.PluginNodes())
 
+	output, err := changeset.DeployPrerequisites(*e, changeset.DeployPrerequisiteConfig{
+		ChainSelectors: e.AllChainSelectors(),
+	})
+	require.NoError(t, err)
+	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook))
+	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
+	for _, chain := range e.AllChainSelectors() {
+		mcmsCfg[chain] = commontypes.MCMSWithTimelockConfig{
+			Canceller:         commonchangeset.SingleGroupMCMS(t),
+			Bypasser:          commonchangeset.SingleGroupMCMS(t),
+			Proposer:          commonchangeset.SingleGroupMCMS(t),
+			TimelockExecutors: e.AllDeployerKeys(),
+			TimelockMinDelay:  big.NewInt(0),
+		}
+	}
+	output, err = commonchangeset.DeployMCMSWithTimelock(*e, mcmsCfg)
+	require.NoError(t, err)
+	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook))
+
+	state, err := ccipdeployment.LoadOnchainState(*e)
+	require.NoError(t, err)
+
+	var endpoint string
+	err = ccipactions.SetMockServerWithUSDCAttestation(e.MockAdapter, nil)
+	require.NoError(t, err)
+	endpoint = e.MockAdapter.InternalEndpoint
+
+	tokenConfig := ccipdeployment.NewTestTokenConfig(state.Chains[feedSel].USDFeeds)
+	// Apply migration
+	output, err = changeset.InitialDeploy(*e, ccipdeployment.DeployCCIPContractConfig{
+		HomeChainSel:   homeChainSel,
+		FeedChainSel:   feedSel,
+		ChainsToDeploy: e.AllChainSelectors(),
+		TokenConfig:    tokenConfig,
+		OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
+		USDCConfig: ccipdeployment.USDCConfig{
+			Enabled: true,
+			USDCAttestationConfig: ccipdeployment.USDCAttestationConfig{
+				API:         endpoint,
+				APITimeout:  commonconfig.MustNewDuration(time.Second),
+				APIInterval: commonconfig.MustNewDuration(500 * time.Millisecond),
+			},
+		},
+	})
+	require.NoError(t, err)
+	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook))
+
+	// Ensure capreg logs are up to date.
+	ccipdeployment.ReplayLogs(t, e.Offchain, replayBlocks)
+
+	// Apply the jobs.
+	for nodeID, jobs := range output.JobSpecs {
+		for _, job := range jobs {
+			// Note these auto-accept
+			_, err := e.Offchain.ProposeJob(ctx,
+				&jobv1.ProposeJobRequest{
+					NodeId: nodeID,
+					Spec:   job,
+				})
+			require.NoError(t, err)
+		}
+	}
+
 	return ccipdeployment.DeployedEnv{
 		Env:          *e,
 		HomeChainSel: homeChainSel,
@@ -138,33 +209,18 @@ func NewLocalDevEnvironmentWithRMN(
 	lggr logger.Logger,
 	numRmnNodes int,
 ) (ccipdeployment.DeployedEnv, devenv.RMNCluster) {
-	tenv, dockerenv, _ := NewLocalDevEnvironmentWithDefaultPrice(t, lggr)
-	state, err := ccipdeployment.LoadOnchainState(tenv.Env)
-	require.NoError(t, err)
-
-	// Deploy CCIP contracts.
-	newAddresses := deployment.NewMemoryAddressBook()
-	err = ccipdeployment.DeployCCIPContracts(tenv.Env, newAddresses, ccipdeployment.DeployCCIPContractConfig{
-		HomeChainSel:   tenv.HomeChainSel,
-		FeedChainSel:   tenv.FeedChainSel,
-		ChainsToDeploy: tenv.Env.AllChainSelectors(),
-		TokenConfig:    ccipdeployment.NewTestTokenConfig(state.Chains[tenv.FeedChainSel].USDFeeds),
-		MCMSConfig:     ccipdeployment.NewTestMCMSConfig(t, tenv.Env),
-		OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
-	})
-	require.NoError(t, err)
-	require.NoError(t, tenv.Env.ExistingAddresses.Merge(newAddresses))
-
+	tenv, dockerenv, testCfg := NewLocalDevEnvironmentWithDefaultPrice(t, lggr)
 	l := logging.GetTestLogger(t)
 	config := GenerateTestRMNConfig(t, numRmnNodes, tenv, MustNetworksToRPCMap(dockerenv.EVMNetworks))
+	require.NotNil(t, testCfg.CCIP)
 	rmnCluster, err := devenv.NewRMNCluster(
 		t, l,
 		[]string{dockerenv.DockerNetwork.ID},
 		config,
-		"rageproxy",
-		"latest",
-		"afn2proxy",
-		"latest",
+		testCfg.CCIP.RMNConfig.GetProxyImage(),
+		testCfg.CCIP.RMNConfig.GetProxyVersion(),
+		testCfg.CCIP.RMNConfig.GetAFN2ProxyImage(),
+		testCfg.CCIP.RMNConfig.GetAFN2ProxyVersion(),
 		dockerenv.LogStream,
 	)
 	require.NoError(t, err)

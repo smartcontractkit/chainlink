@@ -272,6 +272,7 @@ CertFile = ''
 [Mercury.Transmitter]
 TransmitQueueMaxSize = 10000
 TransmitTimeout = '5s'
+TransmitConcurrency = 100
 
 [Capabilities]
 [Capabilities.Peering]

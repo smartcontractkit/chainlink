@@ -4,22 +4,30 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"net/http"
+	"net/http/httptest"
 	"sort"
 	"testing"
 	"time"
 
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
+
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
+
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -212,6 +220,79 @@ func NewMemoryEnvironment(
 func NewMemoryEnvironmentWithJobs(t *testing.T, lggr logger.Logger, numChains int, numNodes int) DeployedEnv {
 	e := NewMemoryEnvironment(t, lggr, numChains, numNodes, MockLinkPrice, MockWethPrice)
 	e.SetupJobs(t)
+	return e
+}
+
+// mockAttestationResponse mocks the USDC attestation server, it returns random Attestation.
+// We don't need to return exactly the same attestation, because our Mocked USDC contract doesn't rely on any specific
+// value, but instead of that it just checks if the attestation is present. Therefore, it makes the test a bit simpler
+// and doesn't require very detailed mocks. Please see tests in chainlink-ccip for detailed tests using real attestations
+func mockAttestationResponse() *httptest.Server {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		response := `{
+			"status": "complete",
+			"attestation": "0x9049623e91719ef2aa63c55f357be2529b0e7122ae552c18aff8db58b4633c4d3920ff03d3a6d1ddf11f06bf64d7fd60d45447ac81f527ba628877dc5ca759651b08ffae25a6d3b1411749765244f0a1c131cbfe04430d687a2e12fd9d2e6dc08e118ad95d94ad832332cf3c4f7a4f3da0baa803b7be024b02db81951c0f0714de1b"
+		}`
+
+		_, err := w.Write([]byte(response))
+		if err != nil {
+			panic(err)
+		}
+	}))
+	return server
+}
+
+func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, numChains int, numNodes int) DeployedEnv {
+	e := NewMemoryEnvironment(t, lggr, numChains, numNodes, MockLinkPrice, MockWethPrice)
+	e.SetupJobs(t)
+	// Take first non-home chain as the new chain.
+	newAddresses := deployment.NewMemoryAddressBook()
+	err := DeployPrerequisiteChainContracts(e.Env, newAddresses, e.Env.AllChainSelectors())
+	require.NoError(t, err)
+	require.NoError(t, e.Env.ExistingAddresses.Merge(newAddresses))
+
+	cfg := commontypes.MCMSWithTimelockConfig{
+		Canceller:         commonchangeset.SingleGroupMCMS(t),
+		Bypasser:          commonchangeset.SingleGroupMCMS(t),
+		Proposer:          commonchangeset.SingleGroupMCMS(t),
+		TimelockExecutors: e.Env.AllDeployerKeys(),
+		TimelockMinDelay:  big.NewInt(0),
+	}
+	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
+	for _, c := range e.Env.AllChainSelectors() {
+		mcmsCfg[c] = cfg
+	}
+	out, err := commonchangeset.DeployMCMSWithTimelock(e.Env, mcmsCfg)
+	require.NoError(t, err)
+	require.NoError(t, e.Env.ExistingAddresses.Merge(out.AddressBook))
+	state, err := LoadOnchainState(e.Env)
+	require.NoError(t, err)
+
+	newAddresses = deployment.NewMemoryAddressBook()
+	tokenConfig := NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
+	server := mockAttestationResponse()
+	defer server.Close()
+	endpoint := server.URL
+	err = DeployCCIPContracts(e.Env, newAddresses, DeployCCIPContractConfig{
+		HomeChainSel:   e.HomeChainSel,
+		FeedChainSel:   e.FeedChainSel,
+		ChainsToDeploy: e.Env.AllChainSelectors(),
+		TokenConfig:    tokenConfig,
+		OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
+		USDCConfig: USDCConfig{
+			Enabled: true,
+			USDCAttestationConfig: USDCAttestationConfig{
+				API:         endpoint,
+				APITimeout:  commonconfig.MustNewDuration(time.Second),
+				APIInterval: commonconfig.MustNewDuration(500 * time.Millisecond),
+			},
+		},
+	})
+	require.NoError(t, err)
+	require.NoError(t, e.Env.ExistingAddresses.Merge(newAddresses))
+	state, err = LoadOnchainState(e.Env)
+	require.NoError(t, err)
+
 	return e
 }
 
@@ -516,9 +597,9 @@ func ProcessChangeset(t *testing.T, e deployment.Environment, c deployment.Chang
 				chains.Add(uint64(op.ChainIdentifier))
 			}
 
-			signed := SignProposal(t, e, &prop)
+			signed := commonchangeset.SignProposal(t, e, &prop)
 			for _, sel := range chains.ToSlice() {
-				ExecuteProposal(t, e, signed, state, sel)
+				commonchangeset.ExecuteProposal(t, e, signed, state.Chains[sel].Timelock, sel)
 			}
 		}
 	}

@@ -17,6 +17,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_2"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_5"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_6"
+	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	common_v1_0 "github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
@@ -29,8 +31,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
-
-	owner_wrappers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/nonce_manager"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
@@ -46,6 +46,7 @@ import (
 // CCIPChainState holds a Go binding for all the currently deployed CCIP contracts
 // on a chain. If a binding is nil, it means here is no such contract on the chain.
 type CCIPChainState struct {
+	commoncs.MCMSWithTimelockState
 	OnRamp             *onramp.OnRamp
 	OffRamp            *offramp.OffRamp
 	FeeQuoter          *fee_quoter.FeeQuoter
@@ -74,11 +75,6 @@ type CCIPChainState struct {
 	CapabilityRegistry *capabilities_registry.CapabilitiesRegistry
 	CCIPHome           *ccip_home.CCIPHome
 	RMNHome            *rmn_home.RMNHome
-	AdminMcm           *owner_wrappers.ManyChainMultiSig
-	BypasserMcm        *owner_wrappers.ManyChainMultiSig
-	CancellerMcm       *owner_wrappers.ManyChainMultiSig
-	ProposerMcm        *owner_wrappers.ManyChainMultiSig
-	Timelock           *owner_wrappers.RBACTimelock
 	// TODO remove once staging upgraded.
 	CCIPConfig *ccip_config.CCIPConfig
 
@@ -173,6 +169,13 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 		}
 		chainView.CapabilityRegistry[c.CapabilityRegistry.Address().Hex()] = capRegView
 	}
+	if c.MCMSWithTimelockState.Timelock != nil {
+		mcmsView, err := c.MCMSWithTimelockState.GenerateMCMSWithTimelockView()
+		if err != nil {
+			return chainView, err
+		}
+		chainView.MCMSWithTimelock = mcmsView
+	}
 	return chainView, nil
 }
 
@@ -235,41 +238,20 @@ func LoadOnchainState(e deployment.Environment) (CCIPOnChainState, error) {
 }
 
 // LoadChainState Loads all state for a chain into state
-// Modifies map in place
 func LoadChainState(chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (CCIPChainState, error) {
 	var state CCIPChainState
+	mcmsWithTimelock, err := commoncs.LoadMCMSWithTimelockState(chain, addresses)
+	if err != nil {
+		return state, err
+	}
+	state.MCMSWithTimelockState = *mcmsWithTimelock
 	for address, tvStr := range addresses {
 		switch tvStr.String() {
-		case deployment.NewTypeAndVersion(RBACTimelock, deployment.Version1_0_0).String():
-			tl, err := owner_wrappers.NewRBACTimelock(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			state.Timelock = tl
-		case deployment.NewTypeAndVersion(AdminManyChainMultisig, deployment.Version1_0_0).String():
-			mcms, err := owner_wrappers.NewManyChainMultiSig(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			state.AdminMcm = mcms
-		case deployment.NewTypeAndVersion(ProposerManyChainMultisig, deployment.Version1_0_0).String():
-			mcms, err := owner_wrappers.NewManyChainMultiSig(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			state.ProposerMcm = mcms
-		case deployment.NewTypeAndVersion(BypasserManyChainMultisig, deployment.Version1_0_0).String():
-			mcms, err := owner_wrappers.NewManyChainMultiSig(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			state.BypasserMcm = mcms
-		case deployment.NewTypeAndVersion(CancellerManyChainMultisig, deployment.Version1_0_0).String():
-			mcms, err := owner_wrappers.NewManyChainMultiSig(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			state.CancellerMcm = mcms
+		case deployment.NewTypeAndVersion(commontypes.RBACTimelock, deployment.Version1_0_0).String(),
+			deployment.NewTypeAndVersion(commontypes.ProposerManyChainMultisig, deployment.Version1_0_0).String(),
+			deployment.NewTypeAndVersion(commontypes.CancellerManyChainMultisig, deployment.Version1_0_0).String(),
+			deployment.NewTypeAndVersion(commontypes.BypasserManyChainMultisig, deployment.Version1_0_0).String():
+			continue
 		case deployment.NewTypeAndVersion(CapabilitiesRegistry, deployment.Version1_0_0).String():
 			cr, err := capabilities_registry.NewCapabilitiesRegistry(common.HexToAddress(address), chain.Client)
 			if err != nil {
