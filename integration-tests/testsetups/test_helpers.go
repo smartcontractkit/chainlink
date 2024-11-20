@@ -119,8 +119,6 @@ func NewLocalDevEnvironment(
 	require.NoError(t, err)
 	require.NotNil(t, e)
 	e.ExistingAddresses = ab
-	require.NotNil(t, testEnv.MockAdapter)
-	e.MockAdapter = testEnv.MockAdapter
 
 	envNodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
@@ -160,9 +158,9 @@ func NewLocalDevEnvironment(
 	require.NoError(t, err)
 
 	var endpoint string
-	err = ccipactions.SetMockServerWithUSDCAttestation(e.MockAdapter, nil)
+	err = ccipactions.SetMockServerWithUSDCAttestation(testEnv.MockAdapter, nil)
 	require.NoError(t, err)
-	endpoint = e.MockAdapter.InternalEndpoint
+	endpoint = testEnv.MockAdapter.InternalEndpoint
 
 	tokenConfig := ccipdeployment.NewTestTokenConfig(state.Chains[feedSel].USDFeeds)
 	// Apply migration
