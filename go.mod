@@ -69,7 +69,7 @@ require (
 	github.com/prometheus/common v0.59.1
 	github.com/prometheus/prometheus v0.54.1
 	github.com/robfig/cron/v3 v3.0.1
-	github.com/rogpeppe/go-internal v1.12.0
+	github.com/rogpeppe/go-internal v1.13.1
 	github.com/rs/zerolog v1.33.0
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/shirou/gopsutil/v3 v3.24.3
