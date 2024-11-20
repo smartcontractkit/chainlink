@@ -1,13 +1,13 @@
 ChainID = '60808'
 # OP stack https://docs.gobob.xyz/learn/introduction/stack-overview#rollup-layer
 ChainType = 'optimismBedrock'
-# finality_depth was: ~850
-FinalityDepth = 900
+# FinalityDepth in mainnet showed more than 3k
+FinalityDepth = 3150
 # block_time was:  2s, adding 1 second buffer 
 LogPollInterval = '3s'
 
-# finality_depth * block_time / 60 secs = ~30  min (finality time)
-NoNewFinalizedHeadsThreshold = '35m'
+# finality_depth * block_time / 60 secs = ~105  min (finality time)
+NoNewFinalizedHeadsThreshold = '110m'
 
 FinalityTagEnabled = true
 
