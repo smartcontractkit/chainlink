@@ -147,15 +147,24 @@ func ConfirmTokenPriceUpdated(
 	return nil
 }
 
+// SourceDestPair is represents a pair of source and destination chain selectors.
+// Use this as a key in maps that need to identify sequence numbers, nonces, or
+// other things that require identification.
+type SourceDestPair struct {
+	SourceChainSelector uint64
+	DestChainSelector   uint64
+}
+
 // ConfirmCommitForAllWithExpectedSeqNums waits for all chains in the environment to commit the given expectedSeqNums.
-// expectedSeqNums is a map of destinationchain selector to expected sequence number
+// expectedSeqNums is a map that maps a (source, dest) selector pair to the expected sequence number
+// to confirm the commit for.
 // startBlocks is a map of destination chain selector to start block number to start watching from.
 // If startBlocks is nil, it will start watching from the latest block.
 func ConfirmCommitForAllWithExpectedSeqNums(
 	t *testing.T,
 	e deployment.Environment,
 	state CCIPOnChainState,
-	expectedSeqNums map[uint64]uint64,
+	expectedSeqNums map[SourceDestPair]uint64,
 	startBlocks map[uint64]*uint64,
 ) {
 	var wg errgroup.Group
@@ -172,7 +181,11 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 					startBlock = startBlocks[dstChain.Selector]
 				}
 
-				if expectedSeqNums[dstChain.Selector] == 0 {
+				expectedSeqNum, ok := expectedSeqNums[SourceDestPair{
+					SourceChainSelector: srcChain.Selector,
+					DestChainSelector:   dstChain.Selector,
+				}]
+				if !ok || expectedSeqNum == 0 {
 					return nil
 				}
 
@@ -183,8 +196,8 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 					state.Chains[dstChain.Selector].OffRamp,
 					startBlock,
 					ccipocr3.SeqNumRange{
-						ccipocr3.SeqNum(expectedSeqNums[dstChain.Selector]),
-						ccipocr3.SeqNum(expectedSeqNums[dstChain.Selector]),
+						ccipocr3.SeqNum(expectedSeqNum),
+						ccipocr3.SeqNum(expectedSeqNum),
 					})
 			})
 		}
@@ -307,7 +320,7 @@ func ConfirmExecWithSeqNrForAll(
 	t *testing.T,
 	e deployment.Environment,
 	state CCIPOnChainState,
-	expectedSeqNums map[uint64]uint64,
+	expectedSeqNums map[SourceDestPair]uint64,
 	startBlocks map[uint64]*uint64,
 ) (executionStates map[uint64]int) {
 	var (
@@ -328,7 +341,11 @@ func ConfirmExecWithSeqNrForAll(
 					startBlock = startBlocks[dstChain.Selector]
 				}
 
-				if expectedSeqNums[dstChain.Selector] == 0 {
+				expectedSeqNum, ok := expectedSeqNums[SourceDestPair{
+					SourceChainSelector: srcChain.Selector,
+					DestChainSelector:   dstChain.Selector,
+				}]
+				if !ok || expectedSeqNum == 0 {
 					return nil
 				}
 
@@ -338,14 +355,14 @@ func ConfirmExecWithSeqNrForAll(
 					dstChain,
 					state.Chains[dstChain.Selector].OffRamp,
 					startBlock,
-					expectedSeqNums[dstChain.Selector],
+					expectedSeqNum,
 				)
 				if err != nil {
 					return err
 				}
 
 				mx.Lock()
-				executionStates[expectedSeqNums[dstChain.Selector]] = executionState
+				executionStates[expectedSeqNum] = executionState
 				mx.Unlock()
 
 				return nil

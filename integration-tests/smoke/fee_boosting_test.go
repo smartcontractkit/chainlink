@@ -94,7 +94,7 @@ func runFeeboostTestCase(tc feeboostTestCase) {
 	require.NoError(tc.t, ccdeploy.AddLane(tc.deployedEnv.Env, tc.onchainState, tc.sourceChain, tc.destChain, tc.initialPrices))
 
 	startBlocks := make(map[uint64]*uint64)
-	expectedSeqNum := make(map[uint64]uint64)
+	expectedSeqNum := make(map[ccdeploy.SourceDestPair]uint64)
 	msgSentEvent := ccdeploy.TestSendRequest(tc.t, tc.deployedEnv.Env, tc.onchainState, tc.sourceChain, tc.destChain, false, router.ClientEVM2AnyMessage{
 		Receiver:     common.LeftPadBytes(tc.onchainState.Chains[tc.destChain].Receiver.Address().Bytes(), 32),
 		Data:         []byte("message that needs fee boosting"),
@@ -102,7 +102,10 @@ func runFeeboostTestCase(tc feeboostTestCase) {
 		FeeToken:     common.HexToAddress("0x0"),
 		ExtraArgs:    nil,
 	})
-	expectedSeqNum[tc.destChain] = msgSentEvent.SequenceNumber
+	expectedSeqNum[ccdeploy.SourceDestPair{
+		SourceChainSelector: tc.sourceChain,
+		DestChainSelector:   tc.destChain,
+	}] = msgSentEvent.SequenceNumber
 
 	// hack
 	time.Sleep(30 * time.Second)
