@@ -54,7 +54,7 @@ func (r *RelayerFactory) NewDummy(config DummyFactoryConfig) (loop.Relayer, erro
 type EVMFactoryConfig struct {
 	legacyevm.ChainOpts
 	evmrelay.CSAETHKeystore
-	coreconfig.MercuryTransmitter
+	MercuryConfig coreconfig.Mercury
 }
 
 func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (map[types.RelayID]evmrelay.LOOPRelayAdapter, error) {
@@ -83,7 +83,7 @@ func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (m
 			DS:                    ccOpts.DS,
 			CSAETHKeystore:        config.CSAETHKeystore,
 			MercuryPool:           r.MercuryPool,
-			TransmitterConfig:     config.MercuryTransmitter,
+			MercuryConfig:         config.MercuryConfig,
 			CapabilitiesRegistry:  r.CapabilitiesRegistry,
 			HTTPClient:            r.HTTPClient,
 			RetirementReportCache: r.RetirementReportCache,

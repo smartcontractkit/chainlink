@@ -39,7 +39,11 @@ func NewTelemeterService(lggr logger.Logger, monitoringEndpoint commontypes.Moni
 }
 
 func newTelemeter(lggr logger.Logger, monitoringEndpoint commontypes.MonitoringEndpoint, donID uint32) *telemeter {
-	chTelemetryObservation := make(chan TelemetryObservation, 100)
+	// NOTE: This channel must take multiple telemetry packets per round (1 per
+	// feed) so we need to make sure the buffer is large enough.
+	//
+	// 2000 feeds * 5s/250ms = 40_000 should hold ~5s of buffer in the worst case.
+	chTelemetryObservation := make(chan TelemetryObservation, 40_000)
 	t := &telemeter{
 		chTelemetryObservation: chTelemetryObservation,
 		monitoringEndpoint:     monitoringEndpoint,

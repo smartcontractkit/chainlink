@@ -7,74 +7,27 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
-	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
-
-	"github.com/smartcontractkit/chainlink/deployment"
 	ccdeploy "github.com/smartcontractkit/chainlink/deployment/ccip"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestInitialDeployOnLocal(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
-	ctx := ccdeploy.Context(t)
-	tenv, _, _ := testsetups.NewLocalDevEnvironment(t, lggr)
+	tenv, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr)
 	e := tenv.Env
-
-	state, err := ccdeploy.LoadOnchainState(tenv.Env)
+	state, err := ccdeploy.LoadOnchainState(e)
 	require.NoError(t, err)
-
-	feeds := state.Chains[tenv.FeedChainSel].USDFeeds
-	tokenConfig := ccdeploy.NewTokenConfig()
-	tokenConfig.UpsertTokenInfo(ccdeploy.LinkSymbol,
-		pluginconfig.TokenInfo{
-			AggregatorAddress: cciptypes.UnknownEncodedAddress(feeds[ccdeploy.LinkSymbol].Address().String()),
-			Decimals:          ccdeploy.LinkDecimals,
-			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
-		},
-	)
-	// Apply migration
-	output, err := changeset.InitialDeploy(tenv.Env, ccdeploy.DeployCCIPContractConfig{
-		HomeChainSel:   tenv.HomeChainSel,
-		FeedChainSel:   tenv.FeedChainSel,
-		ChainsToDeploy: tenv.Env.AllChainSelectors(),
-		TokenConfig:    tokenConfig,
-		MCMSConfig:     ccdeploy.NewTestMCMSConfig(t, e),
-		OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
-	})
-	require.NoError(t, err)
-	require.NoError(t, tenv.Env.ExistingAddresses.Merge(output.AddressBook))
-	// Get new state after migration.
-	state, err = ccdeploy.LoadOnchainState(e)
-	require.NoError(t, err)
-
-	// Ensure capreg logs are up to date.
-	ccdeploy.ReplayLogs(t, e.Offchain, tenv.ReplayBlocks)
-
-	// Apply the jobs.
-	for nodeID, jobs := range output.JobSpecs {
-		for _, job := range jobs {
-			// Note these auto-accept
-			_, err := e.Offchain.ProposeJob(ctx,
-				&jobv1.ProposeJobRequest{
-					NodeId: nodeID,
-					Spec:   job,
-				})
-			require.NoError(t, err)
-		}
-	}
 
 	// Add all lanes
 	require.NoError(t, ccdeploy.AddLanesForAll(e, state))
 	// Need to keep track of the block number for each chain so that event subscription can be done from that block.
 	startBlocks := make(map[uint64]*uint64)
 	// Send a message from each chain to every other chain.
-	expectedSeqNum := make(map[uint64]uint64)
+	expectedSeqNum := make(map[ccdeploy.SourceDestPair]uint64)
 	for src := range e.Chains {
 		for dest, destChain := range e.Chains {
 			if src == dest {
@@ -84,14 +37,17 @@ func TestInitialDeployOnLocal(t *testing.T) {
 			require.NoError(t, err)
 			block := latesthdr.Number.Uint64()
 			startBlocks[dest] = &block
-			seqNum := ccdeploy.TestSendRequest(t, e, state, src, dest, false, router.ClientEVM2AnyMessage{
+			msgSentEvent := ccdeploy.TestSendRequest(t, e, state, src, dest, false, router.ClientEVM2AnyMessage{
 				Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
 				Data:         []byte("hello world"),
 				TokenAmounts: nil,
 				FeeToken:     common.HexToAddress("0x0"),
 				ExtraArgs:    nil,
 			})
-			expectedSeqNum[dest] = seqNum
+			expectedSeqNum[ccdeploy.SourceDestPair{
+				SourceChainSelector: src,
+				DestChainSelector:   dest,
+			}] = msgSentEvent.SequenceNumber
 		}
 	}
 
@@ -114,37 +70,11 @@ func TestInitialDeployOnLocal(t *testing.T) {
 }
 
 func TestTokenTransfer(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
-	ctx := ccdeploy.Context(t)
-	tenv, _, _ := testsetups.NewLocalDevEnvironment(t, lggr)
-
+	tenv, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr)
 	e := tenv.Env
 	state, err := ccdeploy.LoadOnchainState(e)
-	require.NoError(t, err)
-
-	feeds := state.Chains[tenv.FeedChainSel].USDFeeds
-	tokenConfig := ccdeploy.NewTokenConfig()
-	tokenConfig.UpsertTokenInfo(ccdeploy.LinkSymbol,
-		pluginconfig.TokenInfo{
-			AggregatorAddress: cciptypes.UnknownEncodedAddress(feeds[ccdeploy.LinkSymbol].Address().String()),
-			Decimals:          ccdeploy.LinkDecimals,
-			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
-		},
-	)
-
-	// Apply migration
-	output, err := changeset.InitialDeploy(e, ccdeploy.DeployCCIPContractConfig{
-		HomeChainSel:   tenv.HomeChainSel,
-		FeedChainSel:   tenv.FeedChainSel,
-		ChainsToDeploy: e.AllChainSelectors(),
-		TokenConfig:    tokenConfig,
-		MCMSConfig:     ccdeploy.NewTestMCMSConfig(t, e),
-		OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
-	})
-	require.NoError(t, err)
-	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook))
-	// Get new state after migration and mock USDC token deployment.
-	state, err = ccdeploy.LoadOnchainState(e)
 	require.NoError(t, err)
 
 	srcToken, _, dstToken, _, err := ccdeploy.DeployTransferableToken(
@@ -158,28 +88,12 @@ func TestTokenTransfer(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	// Ensure capreg logs are up to date.
-	ccdeploy.ReplayLogs(t, e.Offchain, tenv.ReplayBlocks)
-
-	// Apply the jobs.
-	for nodeID, jobs := range output.JobSpecs {
-		for _, job := range jobs {
-			// Note these auto-accept
-			_, err := e.Offchain.ProposeJob(ctx,
-				&jobv1.ProposeJobRequest{
-					NodeId: nodeID,
-					Spec:   job,
-				})
-			require.NoError(t, err)
-		}
-	}
-
 	// Add all lanes
 	require.NoError(t, ccdeploy.AddLanesForAll(e, state))
 	// Need to keep track of the block number for each chain so that event subscription can be done from that block.
 	startBlocks := make(map[uint64]*uint64)
 	// Send a message from each chain to every other chain.
-	expectedSeqNum := make(map[uint64]uint64)
+	expectedSeqNum := make(map[ccdeploy.SourceDestPair]uint64)
 
 	twoCoins := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(2))
 	tx, err := srcToken.Mint(
@@ -236,23 +150,29 @@ func TestTokenTransfer(t *testing.T) {
 				feeToken = common.HexToAddress("0x0")
 			)
 			if src == tenv.HomeChainSel && dest == tenv.FeedChainSel {
-				seqNum := ccdeploy.TestSendRequest(t, e, state, src, dest, false, router.ClientEVM2AnyMessage{
+				msgSentEvent := ccdeploy.TestSendRequest(t, e, state, src, dest, false, router.ClientEVM2AnyMessage{
 					Receiver:     receiver,
 					Data:         data,
 					TokenAmounts: tokens[src],
 					FeeToken:     feeToken,
 					ExtraArgs:    nil,
 				})
-				expectedSeqNum[dest] = seqNum
+				expectedSeqNum[ccdeploy.SourceDestPair{
+					SourceChainSelector: src,
+					DestChainSelector:   dest,
+				}] = msgSentEvent.SequenceNumber
 			} else {
-				seqNum := ccdeploy.TestSendRequest(t, e, state, src, dest, false, router.ClientEVM2AnyMessage{
+				msgSentEvent := ccdeploy.TestSendRequest(t, e, state, src, dest, false, router.ClientEVM2AnyMessage{
 					Receiver:     receiver,
 					Data:         data,
 					TokenAmounts: nil,
 					FeeToken:     feeToken,
 					ExtraArgs:    nil,
 				})
-				expectedSeqNum[dest] = seqNum
+				expectedSeqNum[ccdeploy.SourceDestPair{
+					SourceChainSelector: src,
+					DestChainSelector:   dest,
+				}] = msgSentEvent.SequenceNumber
 			}
 		}
 	}

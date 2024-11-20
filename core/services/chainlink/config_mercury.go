@@ -50,6 +50,10 @@ func (m *mercuryTransmitterConfig) TransmitTimeout() commonconfig.Duration {
 	return *m.c.TransmitTimeout
 }
 
+func (m *mercuryTransmitterConfig) TransmitConcurrency() uint32 {
+	return *m.c.TransmitConcurrency
+}
+
 type mercuryConfig struct {
 	c toml.Mercury
 	s toml.MercurySecrets

@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 
+	corelogger "github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 )
@@ -91,7 +92,13 @@ func NewDelegate(cfg DelegateConfig) (job.ServiceCtx, error) {
 	if cfg.ShouldRetireCache == nil {
 		return nil, errors.New("ShouldRetireCache must not be nil")
 	}
-	reportCodecs := NewReportCodecs()
+	var codecLggr logger.Logger
+	if cfg.ReportingPluginConfig.VerboseLogging {
+		codecLggr = logger.Named(lggr, "ReportCodecs")
+	} else {
+		codecLggr = corelogger.NullLogger
+	}
+	reportCodecs := NewReportCodecs(codecLggr)
 
 	var t TelemeterService
 	if cfg.CaptureEATelemetry {
@@ -126,7 +133,7 @@ func (d *delegate) Start(ctx context.Context) error {
 			case 1:
 				lggr = logger.With(lggr, "instanceType", "Green")
 			}
-			ocrLogger := logger.NewOCRWrapper(lggr, d.cfg.TraceLogging, func(msg string) {
+			ocrLogger := logger.NewOCRWrapper(NewSuppressedLogger(lggr, d.cfg.ReportingPluginConfig.VerboseLogging), d.cfg.TraceLogging, func(msg string) {
 				// TODO: do we actually need to DB-persist errors?
 				// MERC-3524
 			})
@@ -144,7 +151,7 @@ func (d *delegate) Start(ctx context.Context) error {
 				OffchainKeyring:              d.cfg.OffchainKeyring,
 				OnchainKeyring:               d.cfg.OnchainKeyring,
 				ReportingPluginFactory: datastreamsllo.NewPluginFactory(
-					d.cfg.ReportingPluginConfig, psrrc, d.src, d.cfg.RetirementReportCodec, d.cfg.ChannelDefinitionCache, d.ds, logger.Named(lggr, "LLOReportingPlugin"), llo.EVMOnchainConfigCodec{}, d.reportCodecs,
+					d.cfg.ReportingPluginConfig, psrrc, d.src, d.cfg.RetirementReportCodec, d.cfg.ChannelDefinitionCache, d.ds, logger.Named(lggr, "ReportingPlugin"), llo.EVMOnchainConfigCodec{}, d.reportCodecs,
 				),
 				MetricsRegisterer: prometheus.WrapRegistererWith(map[string]string{"job_name": d.cfg.JobName.ValueOrZero()}, prometheus.DefaultRegisterer),
 			})
