@@ -1,0 +1,159 @@
+name: Core Unit Tests
+
+# Run on key branches to make sure integration is good, otherwise run on all PR's
+on:
+  push:
+    branches:
+      - develop
+      - main
+      - "release/*"
+  merge_group:
+  pull_request:
+
+jobs:
+  run-unit-tests:
+    name: Tests (${{ matrix.type.test-suite }})
+    runs-on: ubuntu22.04-32cores-128GB
+    permissions:
+      id-token: write
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        type:
+          - test-suite: "core"
+            tag-filter: ""
+            module-directory: "./"
+          - test-suite: "integration"
+            tag-filter: "integration"
+            module-directory: "./"
+          - test-suite: "ccip-deployment"
+            tag-filter: ""
+            module-directory: "./deployment"
+    env:
+      # We explicitly have this env var not be "CL_DATABASE_URL" to avoid having it be used by core related tests
+      # when they should not be using it, while still allowing us to DRY up the setup
+      DB_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v4.2.1
+
+      - name: Change Modtime of Files (cache optimization)
+        shell: bash
+        run: |
+          find . -type f,d -exec touch -r {} -d '1970-01-01T00:00:01' {} \; || true
+
+      - name: Setup CI Core Environment
+        uses: ./.github/actions/setup-ci-core-tests
+        with:
+          test-suite: ${{ matrix.type.cmd }}
+          db-url: ${{ env.DB_URL }}
+
+      - name: Run Tests
+        uses: smartcontractkit/.github/apps/go-test-caching@feat/go-test-binary-comparison
+        env:
+          CL_DATABASE_URL: ${{ env.DB_URL }}
+        with:
+          test-suite: ${{ matrix.type.test-suite }}
+          module-directory: ${{ matrix.type.module-directory }}
+          tag-filter: ${{ matrix.type.tag-filter }}
+          update-index: "true"
+          force-update-index: "true"
+          build-concurrency: "32"
+          run-concurrency: "32"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Print postgres logs
+        if: ${{ always() }}
+        run: docker compose logs postgres | tee ../../../postgres_logs.txt
+        working-directory: ./.github/actions/setup-postgres
+  
+
+  run-fuzz-tests:
+    name: Tests (fuzz)
+    if: ${{ github.ref == 'refs/heads/dont-run' }}
+    runs-on: ubuntu22.04-32cores-128GB
+    env:
+      DB_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v4.2.1
+
+      - name: Change Modtime of Files (cache optimization)
+        shell: bash
+        run: |
+          find . -type f,d -exec touch -r {} -d '1970-01-01T00:00:01' {} \; || true
+
+      - name: Setup CI Core Environment
+        uses: ./.github/actions/setup-ci-core-tests
+        with:
+          test-suite: "fuzz"
+          db-url: ${{ env.DB_URL }}
+
+      - name: Increase Timeouts
+        if: ${{ github.event.schedule != ''}}
+        run: |
+          echo "FUZZ_TIMEOUT_MINUTES=10">> $GITHUB_ENV
+
+      - name: Run Fuzz Tests
+        env:
+          OUTPUT_FILE: ./output.txt
+          CL_DATABASE_URL: ${{ env.DB_URL }}
+        run: ./tools/bin/go_core_fuzz ./...
+
+      - name: Print postgres logs
+        if: ${{ always() }}
+        run: docker compose logs postgres | tee ../../../postgres_logs.txt
+        working-directory: ./.github/actions/setup-postgres
+
+  run-race-tests:
+    name: Tests (race)
+    if: ${{ github.ref == 'refs/heads/dont-run' }}
+    runs-on: ubuntu22.04-32cores-128GB
+    env:
+      DB_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v4.2.1
+
+      - name: Change Modtime of Files (cache optimization)
+        shell: bash
+        run: |
+          find . -type f,d -exec touch -r {} -d '1970-01-01T00:00:01' {} \; || true
+
+      - name: Setup CI Core Environment
+        uses: ./.github/actions/setup-ci-core-tests
+        with:
+          test-suite: "race"
+          db-url: ${{ env.DB_URL }}
+
+      - name: Increase Timeouts
+        if: ${{ github.event.schedule != ''}}
+        run: |
+          echo "TIMEOUT=10m" >> $GITHUB_ENV
+          echo "COUNT=50" >> $GITHUB_ENV
+
+      - name: Run Race Tests
+        env:
+          OUTPUT_FILE: ./output.txt
+          CL_DATABASE_URL: ${{ env.DB_URL }}
+        run: ./tools/bin/go_core_race_tests ./...
+
+      - name: Print Races
+        id: print-races
+        if: ${{ failure() }}
+        run: |
+          find race.* | xargs cat > race.txt
+          if [[ -s race.txt ]]; then
+            cat race.txt
+            echo "post_to_slack=true" >> $GITHUB_OUTPUT
+          else
+            echo "post_to_slack=false" >> $GITHUB_OUTPUT
+          fi
+          echo "github.event_name: ${{ github.event_name }}"
+          echo "github.ref: ${{ github.ref }}"
+
+      - name: Print postgres logs
+        if: ${{ always() }}
+        run: docker compose logs postgres | tee ../../../postgres_logs.txt
+        working-directory: ./.github/actions/setup-postgres
