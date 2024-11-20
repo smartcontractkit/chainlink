@@ -23,7 +23,6 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/onsi/gomega"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -47,6 +46,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
