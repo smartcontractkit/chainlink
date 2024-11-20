@@ -110,9 +110,9 @@ func Test_CCIPMessaging(t *testing.T) {
 	var (
 		replayed bool
 		nonce    uint64
-		sender = common.LeftPadBytes(e.Env.Chains[sourceChain].DeployerKey.From.Bytes(), 32)
-		out    messagingTestCaseOutput
-		setup  = testCaseSetup{
+		sender   = common.LeftPadBytes(e.Env.Chains[sourceChain].DeployerKey.From.Bytes(), 32)
+		out      messagingTestCaseOutput
+		setup    = testCaseSetup{
 			t:            t,
 			sender:       sender,
 			deployedEnv:  e,

@@ -446,9 +446,9 @@ type rmnTestCase struct {
 	// If set to 0, the test will wait for commit reports.
 	// If set to a positive value, the test will wait for that duration and will assert that commit report was not delivered.
 	passIfNoCommitAfter time.Duration
-	waitForExec        bool
-	homeChainConfig    homeChainConfig
-	remoteChainsConfig []remoteChainConfig
-	rmnNodes           []rmnNode
-	messagesToSend     []messageToSend
+	waitForExec         bool
+	homeChainConfig     homeChainConfig
+	remoteChainsConfig  []remoteChainConfig
+	rmnNodes            []rmnNode
+	messagesToSend      []messageToSend
 }

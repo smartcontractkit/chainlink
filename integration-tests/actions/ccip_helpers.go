@@ -2,8 +2,9 @@ package actions
 
 import (
 	"fmt"
-	"github.com/rs/zerolog/log"
 	"net/http"
+
+	"github.com/rs/zerolog/log"
 
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/lib/client"
 	ctftestenv "github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
