@@ -6,7 +6,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipdeployment "github.com/smartcontractkit/chainlink/deployment/ccip"
@@ -27,7 +26,9 @@ func DeployPrerequisites(env deployment.Environment, cfg DeployPrerequisiteConfi
 	err = ccipdeployment.DeployPrerequisiteChainContracts(env, ab, cfg.ChainSelectors)
 	if err != nil {
 		env.Logger.Errorw("Failed to deploy prerequisite contracts", "err", err, "addressBook", ab)
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy prerequisite contracts: %w", err)
+		return deployment.ChangesetOutput{
+			AddressBook: ab,
+		}, fmt.Errorf("failed to deploy prerequisite contracts: %w", err)
 	}
 	return deployment.ChangesetOutput{
 		Proposals:   []timelock.MCMSWithTimelockProposal{},
@@ -45,14 +46,9 @@ type DeployPrerequisiteConfig struct {
 
 func (c DeployPrerequisiteConfig) Validate() error {
 	for _, cs := range c.ChainSelectors {
-		if cs == 0 {
-			return fmt.Errorf("chain selector must be set")
-		}
-		_, err := chain_selectors.ChainIdFromSelector(cs)
-		if err != nil {
+		if err := deployment.IsValidChainSelector(cs); err != nil {
 			return fmt.Errorf("invalid chain selector: %d - %w", cs, err)
 		}
-
 	}
 	return nil
 }

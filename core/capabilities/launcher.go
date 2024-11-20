@@ -459,7 +459,8 @@ func (w *launcher) exposeCapabilities(ctx context.Context, myPeerID p2ptypes.Pee
 
 			err = w.addReceiver(ctx, capability, don, newActionServer)
 			if err != nil {
-				return fmt.Errorf("failed to add action server-side receiver: %w", err)
+				w.lggr.Errorw("failed to add action server-side receiver - it won't be exposed remotely", "id", cid, "error", err)
+				// continue attempting other capabilities
 			}
 		case capabilities.CapabilityTypeConsensus:
 			w.lggr.Warn("no remote client configured for capability type consensus, skipping configuration")

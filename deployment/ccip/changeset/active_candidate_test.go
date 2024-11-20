@@ -16,9 +16,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
-
 	ccdeploy "github.com/smartcontractkit/chainlink/deployment/ccip"
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -27,47 +26,10 @@ func TestActiveCandidate(t *testing.T) {
 	t.Skipf("to be enabled after latest cl-ccip is compatible")
 
 	lggr := logger.TestLogger(t)
-	ctx := ccdeploy.Context(t)
-	tenv := ccdeploy.NewMemoryEnvironment(t, lggr, 3, 5, ccdeploy.MockLinkPrice, ccdeploy.MockWethPrice)
+	tenv := ccdeploy.NewMemoryEnvironmentWithJobsAndContracts(t, lggr, 3, 5)
 	e := tenv.Env
-
 	state, err := ccdeploy.LoadOnchainState(tenv.Env)
 	require.NoError(t, err)
-	require.NotNil(t, state.Chains[tenv.HomeChainSel].LinkToken)
-
-	feeds := state.Chains[tenv.FeedChainSel].USDFeeds
-	tokenConfig := ccdeploy.NewTestTokenConfig(feeds)
-
-	output, err := InitialDeploy(tenv.Env, ccdeploy.DeployCCIPContractConfig{
-		HomeChainSel:   tenv.HomeChainSel,
-		FeedChainSel:   tenv.FeedChainSel,
-		ChainsToDeploy: tenv.Env.AllChainSelectors(),
-		TokenConfig:    tokenConfig,
-		MCMSConfig:     ccdeploy.NewTestMCMSConfig(t, e),
-		OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
-	})
-	require.NoError(t, err)
-	// Get new state after migration.
-	require.NoError(t, tenv.Env.ExistingAddresses.Merge(output.AddressBook))
-	state, err = ccdeploy.LoadOnchainState(tenv.Env)
-	require.NoError(t, err)
-	homeCS, destCS := tenv.HomeChainSel, tenv.FeedChainSel
-
-	// Ensure capreg logs are up to date.
-	ccdeploy.ReplayLogs(t, e.Offchain, tenv.ReplayBlocks)
-
-	// Apply the jobs.
-	for nodeID, jobs := range output.JobSpecs {
-		for _, job := range jobs {
-			// Note these auto-accept
-			_, err := e.Offchain.ProposeJob(ctx,
-				&jobv1.ProposeJobRequest{
-					NodeId: nodeID,
-					Spec:   job,
-				})
-			require.NoError(t, err)
-		}
-	}
 
 	// Add all lanes
 	require.NoError(t, ccdeploy.AddLanesForAll(e, state))
@@ -111,23 +73,23 @@ func TestActiveCandidate(t *testing.T) {
 	ccdeploy.ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
 
 	// transfer ownership
-	ccdeploy.TransferAllOwnership(t, state, homeCS, e)
-	acceptOwnershipProposal, err := ccdeploy.GenerateAcceptOwnershipProposal(state, homeCS, e.AllChainSelectors())
+	ccdeploy.TransferAllOwnership(t, state, tenv.HomeChainSel, e)
+	acceptOwnershipProposal, err := ccdeploy.GenerateAcceptOwnershipProposal(state, tenv.HomeChainSel, e.AllChainSelectors())
 	require.NoError(t, err)
-	acceptOwnershipExec := ccdeploy.SignProposal(t, e, acceptOwnershipProposal)
+	acceptOwnershipExec := commonchangeset.SignProposal(t, e, acceptOwnershipProposal)
 	for _, sel := range e.AllChainSelectors() {
-		ccdeploy.ExecuteProposal(t, e, acceptOwnershipExec, state, sel)
+		commonchangeset.ExecuteProposal(t, e, acceptOwnershipExec, state.Chains[sel].Timelock, sel)
 	}
 	// Apply the accept ownership proposal to all the chains.
 
-	err = ccdeploy.ConfirmRequestOnSourceAndDest(t, e, state, homeCS, destCS, 2)
+	err = ccdeploy.ConfirmRequestOnSourceAndDest(t, e, state, tenv.HomeChainSel, tenv.FeedChainSel, 2)
 	require.NoError(t, err)
 
 	// [ACTIVE, CANDIDATE] setup by setting candidate through cap reg
-	capReg, ccipHome := state.Chains[homeCS].CapabilityRegistry, state.Chains[homeCS].CCIPHome
-	donID, err := ccdeploy.DonIDForChain(capReg, ccipHome, destCS)
+	capReg, ccipHome := state.Chains[tenv.HomeChainSel].CapabilityRegistry, state.Chains[tenv.HomeChainSel].CCIPHome
+	donID, err := ccdeploy.DonIDForChain(capReg, ccipHome, tenv.FeedChainSel)
 	require.NoError(t, err)
-	donInfo, err := state.Chains[homeCS].CapabilityRegistry.GetDON(nil, donID)
+	donInfo, err := state.Chains[tenv.HomeChainSel].CapabilityRegistry.GetDON(nil, donID)
 	require.NoError(t, err)
 	require.Equal(t, 5, len(donInfo.NodeP2PIds))
 	require.Equal(t, uint32(4), donInfo.ConfigCount)
@@ -151,13 +113,14 @@ func TestActiveCandidate(t *testing.T) {
 
 	// this will construct ocr3 configurations for the
 	// commit and exec plugin we will be using
-	rmnHomeAddress := state.Chains[homeCS].RMNHome.Address()
+	rmnHomeAddress := state.Chains[tenv.HomeChainSel].RMNHome.Address()
+	tokenConfig := ccdeploy.NewTestTokenConfig(state.Chains[tenv.FeedChainSel].USDFeeds)
 	ocr3ConfigMap, err := ccdeploy.BuildOCR3ConfigForCCIPHome(
 		deployment.XXXGenerateTestOCRSecrets(),
-		state.Chains[destCS].OffRamp,
-		e.Chains[destCS],
-		destCS,
-		tokenConfig.GetTokenInfo(e.Logger, state.Chains[destCS].LinkToken, state.Chains[destCS].Weth9),
+		state.Chains[tenv.FeedChainSel].OffRamp,
+		e.Chains[tenv.FeedChainSel],
+		tenv.FeedChainSel,
+		tokenConfig.GetTokenInfo(e.Logger, state.Chains[tenv.FeedChainSel].LinkToken, state.Chains[tenv.FeedChainSel].Weth9),
 		nodes.NonBootstraps(),
 		rmnHomeAddress,
 		nil,
@@ -166,82 +129,82 @@ func TestActiveCandidate(t *testing.T) {
 
 	setCommitCandidateOp, err := ccdeploy.SetCandidateOnExistingDon(
 		ocr3ConfigMap[cctypes.PluginTypeCCIPCommit],
-		state.Chains[homeCS].CapabilityRegistry,
-		state.Chains[homeCS].CCIPHome,
-		destCS,
+		state.Chains[tenv.HomeChainSel].CapabilityRegistry,
+		state.Chains[tenv.HomeChainSel].CCIPHome,
+		tenv.FeedChainSel,
 		nodes.NonBootstraps(),
 	)
 	require.NoError(t, err)
 	setCommitCandidateProposal, err := ccdeploy.BuildProposalFromBatches(state, []timelock.BatchChainOperation{{
-		ChainIdentifier: mcms.ChainIdentifier(homeCS),
+		ChainIdentifier: mcms.ChainIdentifier(tenv.HomeChainSel),
 		Batch:           setCommitCandidateOp,
 	}}, "set new candidates on commit plugin", 0)
 	require.NoError(t, err)
-	setCommitCandidateSigned := ccdeploy.SignProposal(t, e, setCommitCandidateProposal)
-	ccdeploy.ExecuteProposal(t, e, setCommitCandidateSigned, state, homeCS)
+	setCommitCandidateSigned := commonchangeset.SignProposal(t, e, setCommitCandidateProposal)
+	commonchangeset.ExecuteProposal(t, e, setCommitCandidateSigned, state.Chains[tenv.HomeChainSel].Timelock, tenv.HomeChainSel)
 
 	// create the op for the commit plugin as well
 	setExecCandidateOp, err := ccdeploy.SetCandidateOnExistingDon(
 		ocr3ConfigMap[cctypes.PluginTypeCCIPExec],
-		state.Chains[homeCS].CapabilityRegistry,
-		state.Chains[homeCS].CCIPHome,
-		destCS,
+		state.Chains[tenv.HomeChainSel].CapabilityRegistry,
+		state.Chains[tenv.HomeChainSel].CCIPHome,
+		tenv.FeedChainSel,
 		nodes.NonBootstraps(),
 	)
 	require.NoError(t, err)
 
 	setExecCandidateProposal, err := ccdeploy.BuildProposalFromBatches(state, []timelock.BatchChainOperation{{
-		ChainIdentifier: mcms.ChainIdentifier(homeCS),
+		ChainIdentifier: mcms.ChainIdentifier(tenv.HomeChainSel),
 		Batch:           setExecCandidateOp,
 	}}, "set new candidates on commit and exec plugins", 0)
 	require.NoError(t, err)
-	setExecCandidateSigned := ccdeploy.SignProposal(t, e, setExecCandidateProposal)
-	ccdeploy.ExecuteProposal(t, e, setExecCandidateSigned, state, homeCS)
+	setExecCandidateSigned := commonchangeset.SignProposal(t, e, setExecCandidateProposal)
+	commonchangeset.ExecuteProposal(t, e, setExecCandidateSigned, state.Chains[tenv.HomeChainSel].Timelock, tenv.HomeChainSel)
 
 	// check setup was successful by confirming number of nodes from cap reg
-	donInfo, err = state.Chains[homeCS].CapabilityRegistry.GetDON(nil, donID)
+	donInfo, err = state.Chains[tenv.HomeChainSel].CapabilityRegistry.GetDON(nil, donID)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(donInfo.NodeP2PIds))
 	require.Equal(t, uint32(6), donInfo.ConfigCount)
 	// [ACTIVE, CANDIDATE] done setup
 
 	// [ACTIVE, CANDIDATE] make sure we can still send successful transaction without updating job specs
-	err = ccdeploy.ConfirmRequestOnSourceAndDest(t, e, state, homeCS, destCS, 3)
+	err = ccdeploy.ConfirmRequestOnSourceAndDest(t, e, state, tenv.HomeChainSel, tenv.FeedChainSel, 3)
 	require.NoError(t, err)
 	// [ACTIVE, CANDIDATE] done send successful transaction on active
 
 	// [NEW ACTIVE, NO CANDIDATE] promote to active
 	// confirm by getting old candidate digest and making sure new active matches
-	oldCandidateDigest, err := state.Chains[homeCS].CCIPHome.GetCandidateDigest(nil, donID, uint8(cctypes.PluginTypeCCIPExec))
+	oldCandidateDigest, err := state.Chains[tenv.HomeChainSel].CCIPHome.GetCandidateDigest(nil, donID, uint8(cctypes.PluginTypeCCIPExec))
 	require.NoError(t, err)
 
-	promoteOps, err := ccdeploy.PromoteAllCandidatesForChainOps(state.Chains[homeCS].CapabilityRegistry, state.Chains[homeCS].CCIPHome, destCS, nodes.NonBootstraps())
+	promoteOps, err := ccdeploy.PromoteAllCandidatesForChainOps(state.Chains[tenv.HomeChainSel].CapabilityRegistry, state.Chains[tenv.HomeChainSel].CCIPHome, tenv.FeedChainSel, nodes.NonBootstraps())
 	require.NoError(t, err)
 	promoteProposal, err := ccdeploy.BuildProposalFromBatches(state, []timelock.BatchChainOperation{{
-		ChainIdentifier: mcms.ChainIdentifier(homeCS),
+		ChainIdentifier: mcms.ChainIdentifier(tenv.HomeChainSel),
 		Batch:           promoteOps,
 	}}, "promote candidates and revoke actives", 0)
 	require.NoError(t, err)
-	promoteSigned := ccdeploy.SignProposal(t, e, promoteProposal)
-	ccdeploy.ExecuteProposal(t, e, promoteSigned, state, homeCS)
+	promoteSigned := commonchangeset.SignProposal(t, e, promoteProposal)
+	commonchangeset.ExecuteProposal(t, e, promoteSigned, state.Chains[tenv.HomeChainSel].Timelock, tenv.HomeChainSel)
 	// [NEW ACTIVE, NO CANDIDATE] done promoting
 
 	// [NEW ACTIVE, NO CANDIDATE] check onchain state
-	newActiveDigest, err := state.Chains[homeCS].CCIPHome.GetActiveDigest(nil, donID, uint8(cctypes.PluginTypeCCIPExec))
+	newActiveDigest, err := state.Chains[tenv.HomeChainSel].CCIPHome.GetActiveDigest(nil, donID, uint8(cctypes.PluginTypeCCIPExec))
 	require.NoError(t, err)
 	require.Equal(t, oldCandidateDigest, newActiveDigest)
 
-	newCandidateDigest, err := state.Chains[homeCS].CCIPHome.GetCandidateDigest(nil, donID, uint8(cctypes.PluginTypeCCIPCommit))
+	newCandidateDigest, err := state.Chains[tenv.HomeChainSel].CCIPHome.GetCandidateDigest(nil, donID, uint8(cctypes.PluginTypeCCIPCommit))
 	require.NoError(t, err)
 	require.Equal(t, newCandidateDigest, [32]byte{})
 	// [NEW ACTIVE, NO CANDIDATE] done checking on chain state
 
 	// [NEW ACTIVE, NO CANDIDATE] send successful request on new active
-	donInfo, err = state.Chains[homeCS].CapabilityRegistry.GetDON(nil, donID)
+	donInfo, err = state.Chains[tenv.HomeChainSel].CapabilityRegistry.GetDON(nil, donID)
 	require.NoError(t, err)
 	require.Equal(t, uint32(8), donInfo.ConfigCount)
 
-	err = ccdeploy.ConfirmRequestOnSourceAndDest(t, e, state, homeCS, destCS, 4)
+	err = ccdeploy.ConfirmRequestOnSourceAndDest(t, e, state, tenv.HomeChainSel, tenv.FeedChainSel, 4)
 	require.NoError(t, err)
 	// [NEW ACTIVE, NO CANDIDATE] done sending successful request
 }

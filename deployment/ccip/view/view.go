@@ -26,6 +26,7 @@ type ChainView struct {
 	OnRamp             map[string]v1_6.OnRampView                    `json:"onRamp,omitempty"`
 	OffRamp            map[string]v1_6.OffRampView                   `json:"offRamp,omitempty"`
 	CapabilityRegistry map[string]common_v1_0.CapabilityRegistryView `json:"capabilityRegistry,omitempty"`
+	MCMSWithTimelock   common_v1_0.MCMSWithTimelockView              `json:"mcmsWithTimelock,omitempty"`
 }
 
 func NewChain() ChainView {
@@ -44,6 +45,7 @@ func NewChain() ChainView {
 		OnRamp:             make(map[string]v1_6.OnRampView),
 		OffRamp:            make(map[string]v1_6.OffRampView),
 		CapabilityRegistry: make(map[string]common_v1_0.CapabilityRegistryView),
+		MCMSWithTimelock:   common_v1_0.MCMSWithTimelockView{},
 	}
 }
 
