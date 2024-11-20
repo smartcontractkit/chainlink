@@ -43,12 +43,6 @@ func HydrateCapabilityRegistry(v v1_0.CapabilityRegistryView, env deployment.Env
 	}
 
 	nopsParams := v.NopsToNopsParams()
-	for _, nop := range v.Nops {
-		nopsParams = append(nopsParams, capabilities_registry.CapabilitiesRegistryNodeOperator{
-			Admin: nop.Admin,
-			Name:  nop.Name,
-		})
-	}
 	tx, err := deployedContract.Contract.AddNodeOperators(chain.DeployerKey, nopsParams)
 	if _, err = deployment.ConfirmIfNoError(chain, tx, keystone.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)); err != nil {
 		return nil, fmt.Errorf("failed to add node operators: %w", err)
