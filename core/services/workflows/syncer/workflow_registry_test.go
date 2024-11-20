@@ -54,15 +54,12 @@ func Test_Workflow_Registry_Syncer(t *testing.T) {
 		gateway     = func(_ context.Context, _ string) ([]byte, error) {
 			return []byte(wantContents), nil
 		}
-		ticker = make(chan struct{})
-		worker = NewWorkflowRegistry(lggr, orm, reader, gateway, giveCfg.ContractAddress)
+		ticker = make(chan time.Time)
+		worker = NewWorkflowRegistry(lggr, orm, reader, gateway, giveCfg.ContractAddress, WithTicker(ticker))
 	)
 
 	// Cleanup the worker
 	defer cancel()
-
-	// Override the ticker
-	worker.ticker = ticker
 
 	// Seed the DB with an original entry
 	_, err = orm.Create(ctx, giveURL, hex.EncodeToString(giveHash), giveContents)
@@ -93,7 +90,7 @@ func Test_Workflow_Registry_Syncer(t *testing.T) {
 	servicetest.Run(t, worker)
 
 	// Send a tick to start a query
-	ticker <- struct{}{}
+	ticker <- time.Now()
 
 	// Require the secrets contents to eventually be updated
 	require.Eventually(t, func() bool {

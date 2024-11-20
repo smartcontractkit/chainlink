@@ -18,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/workflow/generated/workflow_registry_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/utils/signalers"
 )
 
 const name = "WorkflowRegistrySyncer"
@@ -107,7 +106,7 @@ type workflowRegistry struct {
 	wg sync.WaitGroup
 
 	// ticker is the interval at which the workflowRegistry will poll the contract for events.
-	ticker <-chan struct{}
+	ticker <-chan time.Time
 
 	lggr    logger.Logger
 	orm     WorkflowRegistryDS
@@ -136,7 +135,7 @@ type workflowRegistry struct {
 
 // WithTicker allows external callers to provide a ticker to the workflowRegistry.  This is useful
 // for overriding the default tick interval.
-func WithTicker(ticker <-chan struct{}) func(*workflowRegistry) {
+func WithTicker(ticker <-chan time.Time) func(*workflowRegistry) {
 	return func(wr *workflowRegistry) {
 		wr.ticker = ticker
 	}
@@ -272,7 +271,7 @@ func (w *workflowRegistry) syncEventsLoop(ctx context.Context) {
 			}
 		}
 
-		ticker = w.getTicker(ctx)
+		ticker = w.getTicker()
 
 		signals = make(map[WorkflowRegistryEventType]chan struct{}, 0)
 	)
@@ -364,9 +363,9 @@ func (w *workflowRegistry) orderAndSend(
 
 // getTicker returns the ticker that the workflowRegistry will use to poll for events.  If the ticker
 // is nil, then a default ticker is returned.
-func (w *workflowRegistry) getTicker(ctx context.Context) <-chan struct{} {
+func (w *workflowRegistry) getTicker() <-chan time.Time {
 	if w.ticker == nil {
-		return signalers.MakeTicker(ctx.Done(), defaultTickInterval)
+		return time.NewTicker(defaultTickInterval).C
 	}
 
 	return w.ticker

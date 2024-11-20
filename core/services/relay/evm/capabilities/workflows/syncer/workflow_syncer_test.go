@@ -21,7 +21,6 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
-	"github.com/smartcontractkit/chainlink/v2/core/utils/signalers"
 
 	"github.com/stretchr/testify/require"
 )
@@ -34,7 +33,7 @@ func Test_SecretsWorker(t *testing.T) {
 		db        = pgtest.NewSqlxDB(t)
 		orm       = syncer.NewWorkflowRegistryDS(db, lggr)
 
-		giveTicker     = signalers.MakeTicker(ctx.Done(), 500*time.Millisecond)
+		giveTicker     = time.NewTicker(500 * time.Millisecond)
 		giveSecretsURL = "https://original-url.com"
 		donID          = uint32(1)
 		giveWorkflow   = RegisterWorkflowCMD{
@@ -51,6 +50,8 @@ func Test_SecretsWorker(t *testing.T) {
 		contractName            = syncer.ContractName
 		forceUpdateSecretsEvent = string(syncer.ForceUpdateSecretsEvent)
 	)
+
+	defer giveTicker.Stop()
 
 	// fill ID with randomd data
 	var giveID [32]byte
@@ -116,7 +117,7 @@ func Test_SecretsWorker(t *testing.T) {
 		contractReader,
 		fetcherFn,
 		wfRegistryAddr.Hex(),
-		syncer.WithTicker(giveTicker),
+		syncer.WithTicker(giveTicker.C),
 	)
 
 	servicetest.Run(t, worker)
