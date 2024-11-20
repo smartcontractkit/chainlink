@@ -37,24 +37,15 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
     Role role;
   }
 
-  struct Config {
-    // Fault tolerance
-    uint8 f;
-    // Marks whether or not a configuration is active
-    bool isActive;
-    // Map of signer addresses to oracles
-    mapping(address => Signer) oracles;
-  }
-
   struct VerifierState {
-    // The number of configs for this DON
-    uint32 configCount;
     // The block number of the block the last time the configuration was updated.
     uint32 latestConfigBlockNumber;
     // Whether the config is deactivated
     bool isActive;
     // Fault tolerance
     uint8 f;
+    // Number of signers
+    uint8 oracleCount;
     // Map of signer addresses to oracles
     mapping(address => Signer) oracles;
   }
@@ -65,16 +56,16 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
 
   /// @notice This event is emitted whenever a new DON configuration is set.
   event ConfigSet(
-    bytes32 indexed configId,
-    uint32 previousConfigBlockNumber,
-    bytes32 configDigest,
-    uint64 configCount,
+    bytes32 indexed configDigest,
     address[] signers,
-    bytes32[] offchainTransmitters,
-    uint8 f,
-    bytes onchainConfig,
-    uint64 offchainConfigVersion,
-    bytes offchainConfig
+    uint8 f
+  );
+
+  /// @notice This event is
+  event ConfigUpdated(
+    bytes32 indexed configDigest,
+    address[] prevSigners,
+    address[] newSigners
   );
 
   /// @notice This event is emitted whenever a configuration is deactivated
@@ -138,6 +129,9 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
 
   /// @notice This error is thrown whenever a report fails to verify due to bad or duplicate signatures
   error BadVerification();
+
+  /// @notice This error is thrown whenever a config digest is already set when setting the configuration
+  error ConfigDigestAlreadySet();
 
   /// @notice The address of the verifier proxy
   address private immutable i_verifierProxyAddr;
@@ -255,78 +249,64 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
   }
 
   /// @inheritdoc IVerifier
-  function setConfigFromSource(
-    bytes32 configId,
-    uint256 sourceChainId,
-    address sourceAddress,
-    uint32 configCount,
-    address[] memory signers,
-    bytes32[] memory offchainTransmitters,
-    uint8 f,
-    bytes memory onchainConfig,
-    uint64 offchainConfigVersion,
-    bytes memory offchainConfig,
-    Common.AddressAndWeight[] memory recipientAddressesAndWeights
-  ) external override checkConfigValid(signers.length, f) onlyOwner {
-    _setConfig(
-      configId,
-      sourceChainId,
-      sourceAddress,
-      configCount,
-      signers,
-      offchainTransmitters,
-      f,
-      onchainConfig,
-      offchainConfigVersion,
-      offchainConfig,
-      recipientAddressesAndWeights
-    );
+  function updateConfig(
+    bytes32 configDigest,
+    address[] calldata prevSigners,
+    address[] calldata newSigners,
+    uint8 f
+  ) external override checkConfigValid(newSigners.length, f) onlyOwner {
+    VerifierState storage config = s_verifierStates[configDigest];
+
+    if (config.f == 0) revert DigestNotSet(configDigest);
+
+    // We must be removing the number of signers that were originally set
+    if(config.oracleCount != prevSigners.length){
+      revert NonUniqueSignatures();
+    }
+
+    for (uint256 i; i < prevSigners.length; ++i) {
+      // Check the signers being removed are not zero address or duplicates
+      if(config.oracles[prevSigners[i]].role == Role.Unset){
+        revert NonUniqueSignatures();
+      }
+
+      delete config.oracles[prevSigners[i]];
+    }
+
+    // Once signers have been cleared we can set the new signers
+    _setConfig(configDigest, newSigners, f, new Common.AddressAndWeight[](0), true);
+
+
+    emit ConfigUpdated(configDigest, prevSigners, newSigners);
   }
 
-  /// @notice Sets config based on the given arguments
-  /// @param configId Config ID to set config for
-  /// @param sourceChainId Chain ID of source config
-  /// @param sourceAddress Address of source config Verifier
-  /// @param configCount The number of times a new configuration has been set
-  /// @param signers addresses with which oracles sign the reports
-  /// @param offchainTransmitters CSA key for the ith Oracle
-  /// @param f number of faulty oracles the system can tolerate
-  /// @param onchainConfig serialized configuration used by the contract (and possibly oracles)
-  /// @param offchainConfigVersion version number for offchainEncoding schema
-  /// @param offchainConfig serialized configuration used by the oracles exclusively and only passed through the contract
-  /// @param recipientAddressesAndWeights the addresses and weights of all the recipients to receive rewards
-  function _setConfig(
-    bytes32 configId,
-    uint256 sourceChainId,
-    address sourceAddress,
-    uint32 configCount,
-    address[] memory signers,
-    bytes32[] memory offchainTransmitters,
+  /// @inheritdoc IVerifier
+  function setConfig(
+    bytes32 configDigest,
+    address[] calldata signers,
     uint8 f,
-    bytes memory onchainConfig,
-    uint64 offchainConfigVersion,
-    bytes memory offchainConfig,
     Common.AddressAndWeight[] memory recipientAddressesAndWeights
-  ) internal {
-    bytes32 configDigest = _configDigestFromConfigData(
-      configId,
-      sourceChainId,
-      sourceAddress,
-      configCount,
-      signers,
-      offchainTransmitters,
-      f,
-      onchainConfig,
-      offchainConfigVersion,
-      offchainConfig
-    );
+  ) external override checkConfigValid(signers.length, f) onlyOwner {
+    _setConfig(configDigest, signers, f, recipientAddressesAndWeights, false);
+  }
 
+  function _setConfig(
+    bytes32 configDigest,
+    address[] calldata signers,
+    uint8 f,
+    Common.AddressAndWeight[] memory recipientAddressesAndWeights,
+    bool updateConfig
+  ) internal {
     VerifierState storage verifierState = s_verifierStates[configDigest];
 
+    if(verifierState.f > 0 && !updateConfig) {
+      revert ConfigDigestAlreadySet();
+    }
+
     verifierState.latestConfigBlockNumber = uint32(block.number);
-    verifierState.configCount = configCount;
     verifierState.f = f;
     verifierState.isActive = true;
+    verifierState.oracleCount = uint8(signers.length);
 
     for (uint8 i; i < signers.length; ++i) {
       address signerAddr = signers[i];
@@ -345,77 +325,19 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
       });
     }
 
-    IVerifierProxy(i_verifierProxyAddr).setVerifier(
-      bytes32(0),
-      configDigest,
-      recipientAddressesAndWeights
-    );
-
-    emit ConfigSet(
-      configId,
-      0,
-      configDigest,
-      configCount,
-      signers,
-      offchainTransmitters,
-      f,
-      onchainConfig,
-      offchainConfigVersion,
-      offchainConfig
-    );
-  }
-
-  /// @notice Generates the config digest from config data
-  /// @param configId to set config for
-  /// @param sourceChainId Chain ID of source config
-  /// @param sourceAddress Address of source config Verifier
-  /// @param configCount ordinal number of this config setting among all config settings over the life of this contract
-  /// @param signers ith element is address ith oracle uses to sign a report
-  /// @param offchainTransmitters ith element is address ith oracle used to transmit reports (in this case used for flexible additional field, such as CSA pub keys)
-  /// @param f maximum number of faulty/dishonest oracles the protocol can tolerate while still working correctly
-  /// @param onchainConfig serialized configuration used by the contract (and possibly oracles)
-  /// @param offchainConfigVersion version of the serialization format used for "offchainConfig" parameter
-  /// @param offchainConfig serialized configuration used by the oracles exclusively and only passed through the contract
-  /// @dev This function is a modified version of the method from OCR2Abstract
-  function _configDigestFromConfigData(
-    bytes32 configId,
-    uint256 sourceChainId,
-    address sourceAddress,
-    uint64 configCount,
-    address[] memory signers,
-    bytes32[] memory offchainTransmitters,
-    uint8 f,
-    bytes memory onchainConfig,
-    uint64 offchainConfigVersion,
-    bytes memory offchainConfig
-  ) internal pure returns (bytes32) {
-
-    bytes[] memory signersAsBytes = new bytes[](signers.length);
-    for (uint i; i < signers.length; ++i){
-      signersAsBytes[i] = abi.encodePacked(signers[i]);
-    }
-
-    uint256 h = uint256(
-        keccak256(
-          abi.encode(
-            configId,
-            sourceChainId,
-            sourceAddress,
-            configCount,
-            signersAsBytes,
-            offchainTransmitters,
-            f,
-            onchainConfig,
-            offchainConfigVersion,
-            offchainConfig
-          )
-        )
+    if(!updateConfig) {
+      IVerifierProxy(i_verifierProxyAddr).setVerifier(
+        bytes32(0),
+        configDigest,
+        recipientAddressesAndWeights
       );
 
-    uint256 prefixMask = type(uint256).max << (256 - 16); // 0xFFFF00..00
-    // 0x0009 corresponds to ConfigDigestPrefixMercuryV02 in libocr
-    uint256 prefix = 0x0009 << (256 - 16); // 0x000900..00
-    return bytes32((prefix & prefixMask) | (h & ~prefixMask));
+      emit ConfigSet(
+        configDigest,
+        signers,
+        f
+      );
+    }
   }
 
   /// @inheritdoc IVerifier
@@ -441,10 +363,9 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
   /// @inheritdoc IVerifier
   function latestConfigDetails(
     bytes32 configDigest
-  ) external view override returns (uint32 configCount, uint32 blockNumber) {
+  ) external view override returns (uint32 blockNumber) {
     VerifierState storage verifierState = s_verifierStates[configDigest];
     return (
-      verifierState.configCount,
       verifierState.latestConfigBlockNumber
     );
   }

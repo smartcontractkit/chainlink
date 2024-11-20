@@ -234,19 +234,7 @@ contract VerifierVerifyMultipleConfigDigestTest is VerifierVerifyTest {
   function setUp() public override {
     VerifierVerifyTest.setUp();
     s_oldConfigDigest = v1ConfigDigest;
-    s_verifier.setConfigFromSource(
-      FEED_ID,
-      SOURCE_CHAIN_ID,
-      SOURCE_ADDRESS,
-      2,
-      _getSignerAddresses(_getSigners(20)),
-      s_offchaintransmitters,
-      FAULT_TOLERANCE_TWO,
-      bytes(""),
-      VERIFIER_VERSION,
-      bytes(""),
-      new Common.AddressAndWeight[](0)
-    );
+
     s_newConfigDigest = _configDigestFromConfigData(
       FEED_ID,
       SOURCE_CHAIN_ID,
@@ -258,6 +246,13 @@ contract VerifierVerifyMultipleConfigDigestTest is VerifierVerifyTest {
       bytes(""),
       VERIFIER_VERSION,
       bytes("")
+    );
+
+    s_verifier.setConfig(
+      s_newConfigDigest,
+      _getSignerAddresses(_getSigners(20)),
+      FAULT_TOLERANCE_TWO,
+      new Common.AddressAndWeight[](0)
     );
   }
 
@@ -310,5 +305,73 @@ contract VerifierVerifyMultipleConfigDigestTest is VerifierVerifyTest {
     );
     changePrank(address(s_verifierProxy));
     s_verifier.verify(signedReport, msg.sender);
+  }
+
+  function test_verifyAfterConfigUpdate() public {
+    // Get initial signers and set initial config
+    address[] memory initialSigners = _getSignerAddresses(_getSigners(15));
+    bytes32 configDigest = keccak256("test");
+
+    s_verifier.setConfig(
+      configDigest,
+      initialSigners,
+      4,
+      new Common.AddressAndWeight[](0)
+    );
+
+    // Get new signers and update config
+    address[] memory newSigners = _getSignerAddresses(_getSigners(20));
+    s_verifier.updateConfig(configDigest, initialSigners, newSigners, 6);
+
+    // Verify report with new signers should pass
+    s_reportContext[0] = configDigest;
+    bytes memory signedReportNewSigners = _generateV1EncodedBlob(
+      s_testReportOne,
+      s_reportContext,
+      _getSigners(7) // More than f=6 signers
+    );
+
+    bytes memory response = s_verifierProxy.verify(signedReportNewSigners, bytes(""));
+    assertReportsEqual(response, s_testReportOne);
+
+    // Verify report with old signers should fail
+    bytes memory signedReportOldSigners = _generateV1EncodedBlob(
+      s_testReportOne,
+      s_reportContext,
+      _getSigners(5) // Old number of signers
+    );
+    vm.expectRevert(
+      abi.encodeWithSelector(Verifier.IncorrectSignatureCount.selector, 5, 7)
+    );
+
+    s_verifierProxy.verify(signedReportOldSigners, bytes(""));
+  }
+
+  function test_verifyAfterConfigUpdateWithExistingSigners() public {
+    // Get initial signers and set initial config
+    address[] memory signers = _getSignerAddresses(_getSigners(15));
+    bytes32 configDigest = keccak256("test");
+
+    s_verifier.setConfig(
+      configDigest,
+      signers,
+      4,
+      new Common.AddressAndWeight[](0)
+    );
+
+    // Update config with same signers and f
+    s_verifier.updateConfig(configDigest, signers, signers, 4);
+
+    // Verify report should pass
+    s_reportContext[0] = configDigest;
+    bytes memory signedReport = _generateV1EncodedBlob(
+      s_testReportOne,
+      s_reportContext,
+      _getSigners(5) // More than f=4 signers
+    );
+
+    bytes memory response = s_verifierProxy.verify(signedReport, bytes(""));
+    assertReportsEqual(response, s_testReportOne);
+
   }
 }

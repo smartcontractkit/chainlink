@@ -19,31 +19,31 @@ interface IVerifier is IERC165 {
   function verify(bytes calldata signedReport, address sender) external returns (bytes memory verifierResponse);
 
   /**
-   * @notice identical to `setConfig` except with args for sourceChainId and sourceAddress
-   * @param configId Config ID to set config for
-   * @param sourceChainId Chain ID of source config
-   * @param sourceAddress Address of source config Verifier
-   * @param configCount The config count for the configuration
+   * @notice sets a configuration and its associated keys and f
+   * @param configDigest The digest of the configuration we're setting
    * @param signers addresses with which oracles sign the reports
-   * @param offchainTransmitters CSA key for the ith Oracle
    * @param f number of faulty oracles the system can tolerate
-   * @param onchainConfig serialized configuration used by the contract (and possibly oracles)
-   * @param offchainConfigVersion version number for offchainEncoding schema
-   * @param offchainConfig serialized configuration used by the oracles exclusively and only passed through the contract
    * @param recipientAddressesAndWeights the addresses and weights of all the recipients to receive rewards
    */
-  function setConfigFromSource(
-    bytes32 configId,
-    uint256 sourceChainId,
-    address sourceAddress,
-    uint32 configCount,
-    address[] memory signers,
-    bytes32[] memory offchainTransmitters,
+  function setConfig(
+    bytes32 configDigest,
+    address[] calldata signers,
     uint8 f,
-    bytes memory onchainConfig,
-    uint64 offchainConfigVersion,
-    bytes memory offchainConfig,
     Common.AddressAndWeight[] memory recipientAddressesAndWeights
+  ) external;
+
+  /**
+   * @notice updates a configuration that has been set
+   * @param configDigest The digest of the configuration we're updating
+   * @param prevSigners the existing signers that need to be removed
+   * @param newSigners the signers to be added
+   * @param f the newnumber of faulty oracles the system can tolerate
+   */
+  function updateConfig(
+    bytes32 configDigest,
+    address[] calldata prevSigners,
+    address[] calldata newSigners,
+    uint8 f
   ) external;
 
   /**
@@ -63,10 +63,9 @@ interface IVerifier is IERC165 {
   /**
    * @notice information about current offchain reporting protocol configuration
    * @param configDigest Config Digest to fetch data for
-   * @return configCount ordinal number of current config, out of all configs applied to this contract so far
    * @return blockNumber block at which this config was set
    */
   function latestConfigDetails(
     bytes32 configDigest
-  ) external view returns (uint32 configCount, uint32 blockNumber);
+  ) external view returns (uint32 blockNumber);
 }

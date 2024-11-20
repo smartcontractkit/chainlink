@@ -14,8 +14,7 @@ contract VerifierConstructorTest is BaseTest {
     Verifier v = new Verifier(address(s_verifierProxy));
     assertEq(v.owner(), ADMIN);
 
-    (uint32 configCount, uint32 blockNumber) = v.latestConfigDetails(FEED_ID);
-    assertEq(configCount, 0);
+    (uint32 blockNumber) = v.latestConfigDetails(FEED_ID);
     assertEq(blockNumber, 0);
 
     string memory typeAndVersion = s_verifier.typeAndVersion();

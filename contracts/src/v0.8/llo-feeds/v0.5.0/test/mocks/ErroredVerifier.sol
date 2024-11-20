@@ -13,6 +13,7 @@ contract ErroredVerifier is IVerifier {
 
   error FailedToVerify();
   error FailedToSetConfig();
+  error FailedToUnsetConfig();
   error FailedToActivateConfig();
   error FailedToDeactivateConfig();
   error FailedToActivateFeed();
@@ -40,19 +41,15 @@ contract ErroredVerifier is IVerifier {
     revert FailedToVerify();
   }
 
+  function updateConfig(bytes32, address[] calldata, address[] calldata, uint8) external pure {
+    revert FailedToUnsetConfig();
+  }
 
-  function setConfigFromSource(
+  function setConfig(
     bytes32,
-    uint256,
-    address,
-    uint32,
-    address[] memory,
-    bytes32[] memory,
+    address[] calldata,
     uint8,
-    bytes memory,
-    uint64,
-    bytes memory,
-    Common.AddressAndWeight[] memory
+    Common.AddressAndWeight[] calldata
   ) external pure override {
     revert FailedToSetConfig();
   }
@@ -65,7 +62,7 @@ contract ErroredVerifier is IVerifier {
     revert FailedToDeactivateConfig();
   }
 
-  function latestConfigDetails(bytes32) external pure override returns (uint32, uint32) {
+  function latestConfigDetails(bytes32) external pure override returns (uint32) {
     revert FailedToGetLatestConfigDetails();
   }
 }

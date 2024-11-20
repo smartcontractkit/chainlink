@@ -17,7 +17,7 @@ contract Verifier_setConfig is BaseTest {
   }
 
   function testSetConfigSuccess_gas() public {
-    s_verifier.setConfigFromSource(
+    bytes32 configDigest = _configDigestFromConfigData(
       FEED_ID,
       SOURCE_CHAIN_ID,
       SOURCE_ADDRESS,
@@ -27,7 +27,13 @@ contract Verifier_setConfig is BaseTest {
       FAULT_TOLERANCE,
       bytes(""),
       1,
-      bytes(""),
+      bytes("")
+    );
+
+    s_verifier.setConfig(
+      configDigest,
+      s_signerAddrs,
+      FAULT_TOLERANCE,
       new Common.AddressAndWeight[](0)
     );
   }
