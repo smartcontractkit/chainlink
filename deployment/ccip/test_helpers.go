@@ -277,10 +277,6 @@ func CCIPSendRequest(
 // CCIPSendCalldata packs the calldata for the Router's ccipSend method.
 // This is expected to be used in Multicall scenarios (i.e multiple ccipSend calls
 // in a single transaction).
-// Multicalls can't be made with fee token 0x0 due to the Multicall itself not
-// being payable. So the appropriate fee token amount must be approved before
-// doing the CCIP send (either in a separate transaction or a separate call in
-// the multicall).
 func CCIPSendCalldata(
 	t *testing.T,
 	destChainSelector uint64,
