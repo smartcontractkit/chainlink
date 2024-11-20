@@ -125,7 +125,7 @@ func TestOCRv2JobReplacement(t *testing.T) {
 	err = actions.DeleteBridges(nodeClients)
 	require.NoError(t, err)
 
-	err = actions.CreateOCRv2JobsLocal(aggregatorContracts, bootstrapNode, workerNodes, testEnv.MockAdapter, "ocr2", 15, uint64(sethClient.ChainID), false, false)
+	err = actions.CreateOCRv2JobsLocal(aggregatorContracts, bootstrapNode, workerNodes, testEnv.MockAdapter, "ocr2", 15, uint64(sethClient.ChainID), false, false) //nolint:gosec // G115 false positive
 	require.NoError(t, err, "Error creating OCRv2 jobs")
 
 	err = actions.WatchNewOCRRound(l, sethClient, 3, contracts.V2OffChainAgrregatorToOffChainAggregatorWithRounds(aggregatorContracts), time.Minute*3)
@@ -195,7 +195,10 @@ func prepareORCv2SmokeTestEnv(t *testing.T, testData ocr2test, l zerolog.Logger,
 	aggregatorContracts, err := actions.SetupOCRv2Contracts(l, sethClient, config.OCR2, common.HexToAddress(linkContract.Address()), transmitters, ocrOffChainOptions)
 	require.NoError(t, err, "Error deploying OCRv2 aggregator contracts")
 
-	err = actions.CreateOCRv2JobsLocal(aggregatorContracts, bootstrapNode, workerNodes, testEnv.MockAdapter, "ocr2", 5, uint64(sethClient.ChainID), false, testData.chainReaderAndCodec)
+	if sethClient.ChainID < 0 {
+		t.Errorf("negative chain ID: %d", sethClient.ChainID)
+	}
+	err = actions.CreateOCRv2JobsLocal(aggregatorContracts, bootstrapNode, workerNodes, testEnv.MockAdapter, "ocr2", 5, uint64(sethClient.ChainID), false, testData.chainReaderAndCodec) //nolint:gosec // G115 false positive
 	require.NoError(t, err, "Error creating OCRv2 jobs")
 
 	if !config.OCR2.UseExistingOffChainAggregatorsContracts() || (config.OCR2.UseExistingOffChainAggregatorsContracts() && config.OCR2.ConfigureExistingOffChainAggregatorsContracts()) {

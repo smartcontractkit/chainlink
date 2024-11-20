@@ -26,11 +26,12 @@ func DeployOCR3(env deployment.Environment, config interface{}) (deployment.Chan
 	return deployment.ChangesetOutput{AddressBook: ab}, nil
 }
 
-func ConfigureOCR3Contract(lggr logger.Logger, env deployment.Environment, ab deployment.AddressBook, registryChainSel uint64, nodes []string, cfg kslib.OracleConfigWithSecrets) (deployment.ChangesetOutput, error) {
-	err := kslib.ConfigureOCR3ContractFromJD(&env, registryChainSel, nodes, ab, &cfg)
+func ConfigureOCR3Contract(lggr logger.Logger, env deployment.Environment, cfg kslib.ConfigureOCR3Config) (deployment.ChangesetOutput, error) {
+
+	_, err := kslib.ConfigureOCR3ContractFromJD(&env, cfg)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to configure OCR3Capability: %w", err)
 	}
-
-	return deployment.ChangesetOutput{AddressBook: ab}, nil
+	// does not create any new addresses
+	return deployment.ChangesetOutput{}, nil
 }

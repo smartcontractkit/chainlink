@@ -350,12 +350,13 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPa
 		return nil, err
 	}
 
-	var gasLimit int64
-	gasLimitRaw, err := client.EstimateGasLimitForFundTransfer(fromAddress, payload.ToAddress, payload.Amount)
+	gasLimit, err := client.EstimateGasLimitForFundTransfer(fromAddress, payload.ToAddress, payload.Amount)
 	if err != nil {
-		gasLimit = client.Cfg.Network.TransferGasFee
-	} else {
-		gasLimit = int64(gasLimitRaw)
+		transferGasFee := client.Cfg.Network.TransferGasFee
+		if transferGasFee < 0 {
+			return nil, fmt.Errorf("negative transfer gas fee: %d", transferGasFee)
+		}
+		gasLimit = uint64(transferGasFee)
 	}
 
 	gasPrice := big.NewInt(0)
@@ -363,14 +364,17 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPa
 	gasTipCap := big.NewInt(0)
 
 	if payload.GasLimit != nil {
-		gasLimit = *payload.GasLimit
+		if *payload.GasLimit < 0 {
+			return nil, fmt.Errorf("negative gas limit: %d", *payload.GasLimit)
+		}
+		gasLimit = uint64(*payload.GasLimit)
 	}
 
 	if client.Cfg.Network.EIP1559DynamicFees {
 		// if any of the dynamic fees are not set, we need to either estimate them or read them from config
 		if payload.GasFeeCap == nil || payload.GasTipCap == nil {
 			// estimation or config reading happens here
-			txOptions := client.NewTXOpts(seth.WithGasLimit(uint64(gasLimit)))
+			txOptions := client.NewTXOpts(seth.WithGasLimit(gasLimit))
 			gasFeeCap = txOptions.GasFeeCap
 			gasTipCap = txOptions.GasTipCap
 		}
@@ -385,7 +389,7 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPa
 		}
 	} else {
 		if payload.GasPrice == nil {
-			txOptions := client.NewTXOpts(seth.WithGasLimit(uint64(gasLimit)))
+			txOptions := client.NewTXOpts(seth.WithGasLimit(gasLimit))
 			gasPrice = txOptions.GasPrice
 		} else {
 			gasPrice = payload.GasPrice
@@ -399,7 +403,7 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPa
 			Nonce:     nonce,
 			To:        &payload.ToAddress,
 			Value:     payload.Amount,
-			Gas:       uint64(gasLimit),
+			Gas:       gasLimit,
 			GasFeeCap: gasFeeCap,
 			GasTipCap: gasTipCap,
 		}
@@ -408,7 +412,7 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPa
 			Nonce:    nonce,
 			To:       &payload.ToAddress,
 			Value:    payload.Amount,
-			Gas:      uint64(gasLimit),
+			Gas:      gasLimit,
 			GasPrice: gasPrice,
 		}
 	}
@@ -429,7 +433,7 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPa
 		Str("To", payload.ToAddress.Hex()).
 		Str("Amount (wei/ether)", fmt.Sprintf("%s/%s", payload.Amount, conversions.WeiToEther(payload.Amount).Text('f', -1))).
 		Uint64("Nonce", nonce).
-		Int64("Gas Limit", gasLimit).
+		Uint64("Gas Limit", gasLimit).
 		Str("Gas Price", gasPrice.String()).
 		Str("Gas Fee Cap", gasFeeCap.String()).
 		Str("Gas Tip Cap", gasTipCap.String()).
@@ -449,7 +453,7 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPa
 		Str("TxHash", signedTx.Hash().String()).
 		Str("Amount (wei/ether)", fmt.Sprintf("%s/%s", payload.Amount, conversions.WeiToEther(payload.Amount).Text('f', -1))).
 		Uint64("Nonce", nonce).
-		Int64("Gas Limit", gasLimit).
+		Uint64("Gas Limit", gasLimit).
 		Str("Gas Price", gasPrice.String()).
 		Str("Gas Fee Cap", gasFeeCap.String()).
 		Str("Gas Tip Cap", gasTipCap.String()).
@@ -1038,7 +1042,7 @@ func GetLatestFinalizedBlockHeader(ctx context.Context, client *seth.Client, net
 	}
 	latestBlockNumber := header.Number.Uint64()
 	finalizedBlockNumber := latestBlockNumber - network.FinalityDepth
-	return client.Client.HeaderByNumber(ctx, big.NewInt(int64(finalizedBlockNumber)))
+	return client.Client.HeaderByNumber(ctx, new(big.Int).SetUint64(finalizedBlockNumber))
 }
 
 // SendLinkFundsToDeploymentAddresses sends LINK token to all addresses, but the root one, from the root address. It uses
@@ -1241,7 +1245,7 @@ func GetStalenessReportCleanupFn(t *testing.T, logger zerolog.Logger, chainClien
 			endBlock, err := chainClient.Client.BlockNumber(context.Background())
 			require.NoError(t, err, "Failed to get end block")
 
-			total, ok, reverted, stale, err := GenerateUpkeepReport(t, chainClient, big.NewInt(int64(startBlock)), big.NewInt(int64(endBlock)), registry, registryVersion)
+			total, ok, reverted, stale, err := GenerateUpkeepReport(t, chainClient, new(big.Int).SetUint64(startBlock), new(big.Int).SetUint64(endBlock), registry, registryVersion)
 			require.NoError(t, err, "Failed to get staleness data")
 			if stale > 0 || reverted > 0 {
 				logger.Warn().Int("Total upkeeps", total).Int("Successful upkeeps", ok).Int("Reverted Upkeeps", reverted).Int("Stale Upkeeps", stale).Msg("Staleness data")

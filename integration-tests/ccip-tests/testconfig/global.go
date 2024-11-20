@@ -584,7 +584,7 @@ func (c *ChainlinkDeployment) Validate() error {
 	if c.NoOfNodes == nil {
 		return errors.New("chainlink config is invalid, NoOfNodes should be specified")
 	}
-	if c.Nodes != nil && len(c.Nodes) > 0 {
+	if len(c.Nodes) > 0 {
 		noOfNodes := pointer.GetInt(c.NoOfNodes)
 		if noOfNodes != len(c.Nodes) {
 			return errors.New("chainlink config is invalid, NoOfNodes and Nodes length mismatch")

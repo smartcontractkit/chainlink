@@ -9,10 +9,8 @@ import (
 	"github.com/test-go/testify/require"
 	"golang.org/x/exp/maps"
 
-	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccdeploy "github.com/smartcontractkit/chainlink/deployment/ccip"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -35,8 +33,6 @@ type priceFeedPrices struct {
 
 // TODO: find a way to reuse the same test setup for all tests
 func Test_CCIPFeeBoosting(t *testing.T) {
-	ctx := ccdeploy.Context(t)
-
 	setupTestEnv := func(t *testing.T, numChains int) (ccdeploy.DeployedEnv, ccdeploy.CCIPOnChainState, []uint64) {
 		e, _, _ := testsetups.NewLocalDevEnvironment(
 			t, logger.TestLogger(t),
@@ -48,44 +44,6 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 
 		allChainSelectors := maps.Keys(e.Env.Chains)
 		require.Len(t, allChainSelectors, numChains)
-
-		output, err := changeset.DeployPrerequisites(e.Env, changeset.DeployPrerequisiteConfig{
-			ChainSelectors: e.Env.AllChainSelectors(),
-		})
-		require.NoError(t, err)
-		require.NoError(t, e.Env.ExistingAddresses.Merge(output.AddressBook))
-
-		tokenConfig := ccdeploy.NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
-		// Apply migration
-		output, err = changeset.InitialDeploy(e.Env, ccdeploy.DeployCCIPContractConfig{
-			HomeChainSel:   e.HomeChainSel,
-			FeedChainSel:   e.FeedChainSel,
-			ChainsToDeploy: allChainSelectors,
-			TokenConfig:    tokenConfig,
-			MCMSConfig:     ccdeploy.NewTestMCMSConfig(t, e.Env),
-			OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
-		})
-		require.NoError(t, err)
-		require.NoError(t, e.Env.ExistingAddresses.Merge(output.AddressBook))
-		state, err = ccdeploy.LoadOnchainState(e.Env)
-		require.NoError(t, err)
-
-		// Ensure capreg logs are up to date.
-		ccdeploy.ReplayLogs(t, e.Env.Offchain, e.ReplayBlocks)
-
-		// Apply the jobs.
-		for nodeID, jobs := range output.JobSpecs {
-			for _, job := range jobs {
-				// Note these auto-accept
-				_, err := e.Env.Offchain.ProposeJob(ctx,
-					&jobv1.ProposeJobRequest{
-						NodeId: nodeID,
-						Spec:   job,
-					})
-				require.NoError(t, err)
-			}
-		}
-
 		return e, state, allChainSelectors
 	}
 

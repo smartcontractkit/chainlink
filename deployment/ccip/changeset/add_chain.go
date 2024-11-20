@@ -107,6 +107,7 @@ func AddDonAndSetCandidateChangeset(
 		tokenConfig.GetTokenInfo(e.Logger, state.Chains[newChainSel].LinkToken, state.Chains[newChainSel].Weth9),
 		nodes.NonBootstraps(),
 		state.Chains[homeChainSel].RMNHome.Address(),
+		nil,
 	)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err

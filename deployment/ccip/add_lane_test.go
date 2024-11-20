@@ -21,38 +21,15 @@ import (
 func TestAddLane(t *testing.T) {
 	t.Parallel()
 	// We add more chains to the chainlink nodes than the number of chains where CCIP is deployed.
-	e := NewMemoryEnvironmentWithJobs(t, logger.TestLogger(t), 4, 4)
+	e := NewMemoryEnvironmentWithJobsAndContracts(t, logger.TestLogger(t), 2, 4)
 	// Here we have CR + nodes set up, but no CCIP contracts deployed.
 	state, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	selectors := e.Env.AllChainSelectors()
-	// deploy CCIP contracts on two chains
 	chain1, chain2 := selectors[0], selectors[1]
 
-	feeds := state.Chains[e.FeedChainSel].USDFeeds
-	tokenConfig := NewTestTokenConfig(feeds)
-	newAddresses := deployment.NewMemoryAddressBook()
-	err = DeployPrerequisiteChainContracts(e.Env, newAddresses, e.Env.AllChainSelectors())
-	require.NoError(t, err)
-	require.NoError(t, e.Env.ExistingAddresses.Merge(newAddresses))
-
-	// Set up CCIP contracts and a DON per chain.
-	newAddresses = deployment.NewMemoryAddressBook()
-	err = DeployCCIPContracts(e.Env, newAddresses, DeployCCIPContractConfig{
-		HomeChainSel:   e.HomeChainSel,
-		FeedChainSel:   e.FeedChainSel,
-		TokenConfig:    tokenConfig,
-		MCMSConfig:     NewTestMCMSConfig(t, e.Env),
-		ChainsToDeploy: []uint64{chain1, chain2},
-		OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
-	})
-	require.NoError(t, err)
-	require.NoError(t, e.Env.ExistingAddresses.Merge(newAddresses))
-
 	// We expect no lanes available on any chain.
-	state, err = LoadOnchainState(e.Env)
-	require.NoError(t, err)
 	for _, sel := range []uint64{chain1, chain2} {
 		chain := state.Chains[sel]
 		offRamps, err := chain.Router.GetOffRamps(nil)

@@ -2,6 +2,7 @@ package smoke
 
 import (
 	"fmt"
+	"math"
 	"math/big"
 	"os"
 	"strconv"
@@ -167,7 +168,7 @@ func TestVRFv2Basic(t *testing.T) {
 		require.True(t, status.Fulfilled)
 		l.Info().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
 
-		require.Equal(t, *configCopy.VRFv2.General.NumberOfWords, uint32(len(status.RandomWords)))
+		require.Equal(t, int(*configCopy.VRFv2.General.NumberOfWords), len(status.RandomWords))
 		for _, w := range status.RandomWords {
 			l.Info().Str("Output", w.String()).Msg("Randomness fulfilled")
 			require.Equal(t, 1, w.Cmp(big.NewInt(0)), "Expected the VRF job give an answer bigger than 0")
@@ -322,7 +323,7 @@ func TestVRFv2Basic(t *testing.T) {
 		require.Equal(t, expectedWrapperConsumerJuelsBalance, wrapperConsumerJuelsBalanceAfterRequest)
 
 		// Check random word count
-		require.Equal(t, *configCopy.VRFv2.General.NumberOfWords, uint32(len(consumerStatus.RandomWords)))
+		require.Equal(t, int(*configCopy.VRFv2.General.NumberOfWords), len(consumerStatus.RandomWords))
 		for _, w := range consumerStatus.RandomWords {
 			l.Info().Str("Output", w.String()).Msg("Randomness fulfilled")
 			require.Equal(t, 1, w.Cmp(big.NewInt(0)), "Expected the VRF job give an answer bigger than 0")
@@ -773,7 +774,7 @@ func TestVRFOwner(t *testing.T) {
 		require.True(t, status.Fulfilled)
 		l.Info().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
 
-		require.Equal(t, *configCopy.VRFv2.General.NumberOfWords, uint32(len(status.RandomWords)))
+		require.Equal(t, int(*configCopy.VRFv2.General.NumberOfWords), len(status.RandomWords))
 		for _, w := range status.RandomWords {
 			l.Info().Str("Output", w.String()).Msg("Randomness fulfilled")
 			require.Equal(t, 1, w.Cmp(big.NewInt(0)), "Expected the VRF job give an answer bigger than 0")
@@ -943,14 +944,18 @@ func TestVRFV2WithBHS(t *testing.T) {
 		)
 		require.NoError(t, err, "error requesting randomness")
 		randRequestBlockNumber := randomWordsRequestedEvent.Raw.BlockNumber
-		_, err = vrfContracts.BHS.GetBlockHash(testcontext.Get(t), big.NewInt(int64(randRequestBlockNumber)))
+		_, err = vrfContracts.BHS.GetBlockHash(testcontext.Get(t), new(big.Int).SetUint64(randRequestBlockNumber))
 		require.Error(t, err, "error not occurred when getting blockhash for a blocknumber which was not stored in BHS contract")
 
+		blocks := *configCopy.VRFv2.General.BHSJobWaitBlocks
+		if blocks < 0 {
+			t.Fatalf("negative blocks: %d", blocks)
+		}
 		var wg sync.WaitGroup
 		wg.Add(1)
 		_, err = actions.WaitForBlockNumberToBe(
 			testcontext.Get(t),
-			randRequestBlockNumber+uint64(*configCopy.VRFv2.General.BHSJobWaitBlocks),
+			randRequestBlockNumber+uint64(blocks),
 			sethClient,
 			&wg,
 			nil,
@@ -996,7 +1001,7 @@ func TestVRFV2WithBHS(t *testing.T) {
 		}
 		var randRequestBlockHash [32]byte
 		gom.Eventually(func(g gomega.Gomega) {
-			randRequestBlockHash, err = vrfContracts.BHS.GetBlockHash(testcontext.Get(t), big.NewInt(int64(randRequestBlockNumber)))
+			randRequestBlockHash, err = vrfContracts.BHS.GetBlockHash(testcontext.Get(t), new(big.Int).SetUint64(randRequestBlockNumber))
 			g.Expect(err).ShouldNot(gomega.HaveOccurred(), "error getting blockhash for a blocknumber which was stored in BHS contract")
 		}, "2m", "1s").Should(gomega.Succeed())
 		l.Info().
@@ -1268,6 +1273,9 @@ func TestVRFv2BatchFulfillmentEnabledDisabled(t *testing.T) {
 		vrfcommon.LogSubDetails(l, subscription, strconv.FormatUint(subID, 10), vrfContracts.CoordinatorV2)
 		subIDsForCancellingAfterTest = append(subIDsForCancellingAfterTest, subIDs...)
 
+		if randRequestCount > math.MaxUint16 {
+			t.Fatalf("rand request count overflows uint16: %d", randRequestCount)
+		}
 		configCopy.VRFv2.General.RandomnessRequestCountPerRequest = ptr.Ptr(uint16(randRequestCount))
 
 		// test and assert
@@ -1389,7 +1397,10 @@ func TestVRFv2BatchFulfillmentEnabledDisabled(t *testing.T) {
 		vrfcommon.LogSubDetails(l, subscription, strconv.FormatUint(subID, 10), vrfContracts.CoordinatorV2)
 		subIDsForCancellingAfterTest = append(subIDsForCancellingAfterTest, subIDs...)
 
-		configCopy.VRFv2.General.RandomnessRequestCountPerRequest = ptr.Ptr(uint16(randRequestCount))
+		if randRequestCount > math.MaxUint16 {
+			t.Fatalf("rand request count overflows uint16: %d", randRequestCount)
+		}
+		configCopy.VRFv2.General.RandomnessRequestCountPerRequest = ptr.Ptr(uint16(randRequestCount)) //nolint:gosec // G115 false positive
 
 		// test and assert
 		_, randomWordsFulfilledEvent, err := vrfv2.RequestRandomnessAndWaitForFulfillment(

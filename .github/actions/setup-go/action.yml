@@ -34,6 +34,7 @@ runs:
       with:
         go-version-file: ${{ inputs.go-version-file }}
         cache: false
+        check-latest: true
 
     - name: Get branch name
       if: ${{ inputs.only-modules == 'false' }}

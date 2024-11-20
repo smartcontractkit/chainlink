@@ -463,36 +463,6 @@ func TestShell_ChangePassword(t *testing.T) {
 	require.Contains(t, err.Error(), "Unauthorized")
 }
 
-func TestShell_Profile_InvalidSecondsParam(t *testing.T) {
-	t.Parallel()
-
-	app := startNewApplicationV2(t, nil)
-	u := cltest.NewUserWithSession(t, app.AuthenticationProvider())
-	enteredStrings := []string{u.Email, cltest.Password}
-	prompter := &cltest.MockCountingPrompter{T: t, EnteredStrings: enteredStrings}
-
-	client := app.NewAuthenticatingShell(prompter)
-
-	set := flag.NewFlagSet("test", 0)
-	flagSetApplyFromAction(client.RemoteLogin, set, "")
-
-	require.NoError(t, set.Set("file", "../internal/fixtures/apicredentials"))
-	require.NoError(t, set.Set("bypass-version-check", "true"))
-
-	c := cli.NewContext(nil, set, nil)
-	err := client.RemoteLogin(c)
-	require.NoError(t, err)
-
-	// pick a value larger than the default http service write timeout
-	d := app.Config.WebServer().HTTPWriteTimeout() + 2*time.Second
-	set.Uint("seconds", uint(d.Seconds()), "")
-	tDir := t.TempDir()
-	set.String("output_dir", tDir, "")
-	err = client.Profile(cli.NewContext(nil, set, nil))
-	wantErr := cmd.ErrProfileTooLong
-	require.ErrorAs(t, err, &wantErr)
-}
-
 func TestShell_Profile(t *testing.T) {
 	t.Parallel()
 

@@ -510,15 +510,23 @@ func (r *runner) run(ctx context.Context, pipeline *Pipeline, run *Run, vars Var
 		)
 	}
 	l = l.With("run.State", run.State, "fatal", run.HasFatalErrors(), "runTime", runTime)
-	if run.HasFatalErrors() {
-		// This will also log at error level in OCR if it fails Observe so the
-		// level is appropriate
-		l = l.With("run.FatalErrors", run.FatalErrors)
-		l.Debugw("Completed pipeline run with fatal errors")
-	} else if run.HasErrors() {
-		l = l.With("run.AllErrors", run.AllErrors)
-		l.Debugw("Completed pipeline run with errors")
-	} else {
+	if run.HasFatalErrors() || run.HasErrors() {
+		var errorsWithID []string
+		for _, taskRun := range run.PipelineTaskRuns {
+			if taskRun.Error.Valid {
+				err := fmt.Sprintf("%s(%s); %s", taskRun.DotID, taskRun.Type, taskRun.Error.ValueOrZero())
+				errorsWithID = append(errorsWithID, err)
+			}
+		}
+		l = l.With("run.Errors", errorsWithID)
+		if run.HasFatalErrors() {
+			l = l.With("run.FatalErrors", run.FatalErrors)
+			l.Debugw("Completed pipeline run with fatal errors")
+		} else if run.HasErrors() {
+			l = l.With("run.AllErrors", run.AllErrors)
+			l.Debugw("Completed pipeline run with errors")
+		}
+	} else if r.config.VerboseLogging() {
 		l.Debugw("Completed pipeline run successfully")
 	}
 

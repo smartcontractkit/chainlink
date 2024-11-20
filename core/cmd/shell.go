@@ -246,9 +246,9 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 	}
 
 	evmFactoryCfg := chainlink.EVMFactoryConfig{
-		CSAETHKeystore:     keyStore,
-		ChainOpts:          legacyevm.ChainOpts{AppConfig: cfg, MailMon: mailMon, DS: ds},
-		MercuryTransmitter: cfg.Mercury().Transmitter(),
+		CSAETHKeystore: keyStore,
+		ChainOpts:      legacyevm.ChainOpts{AppConfig: cfg, MailMon: mailMon, DS: ds},
+		MercuryConfig:  cfg.Mercury(),
 	}
 	// evm always enabled for backward compatibility
 	// TODO BCF-2510 this needs to change in order to clear the path for EVM extraction
