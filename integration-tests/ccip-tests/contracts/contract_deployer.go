@@ -21,8 +21,9 @@ import (
 	ocrconfighelper2 "github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -56,7 +57,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers/testhelpers_1_4_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
@@ -1413,16 +1413,6 @@ func NewCommitOffchainConfig(
 			InflightCacheExpiry,
 			priceReportingDisabled,
 		), nil
-	case V1_2_0:
-		return testhelpers_1_4_0.NewCommitOffchainConfig(
-			GasPriceHeartBeat,
-			DAGasPriceDeviationPPB,
-			ExecGasPriceDeviationPPB,
-			TokenPriceHeartBeat,
-			TokenPriceDeviationPPB,
-			InflightCacheExpiry,
-			priceReportingDisabled,
-		), nil
 	default:
 		return nil, fmt.Errorf("version not supported: %s", VersionMap[CommitStoreContract])
 	}
@@ -1434,33 +1424,15 @@ func NewCommitOnchainConfig(
 	switch VersionMap[CommitStoreContract] {
 	case Latest:
 		return testhelpers.NewCommitOnchainConfig(PriceRegistry), nil
-	case V1_2_0:
-		return testhelpers_1_4_0.NewCommitOnchainConfig(PriceRegistry), nil
 	default:
 		return nil, fmt.Errorf("version not supported: %s", VersionMap[CommitStoreContract])
 	}
 }
 
-func NewExecOnchainConfig(
-	PermissionLessExecutionThresholdSeconds uint32,
-	Router common.Address,
-	PriceRegistry common.Address,
-	MaxNumberOfTokensPerMsg uint16,
-	MaxDataBytes uint32,
-	MaxPoolReleaseOrMintGas uint32,
-) (abihelpers.AbiDefined, error) {
+func NewExecOnchainConfig(PermissionLessExecutionThresholdSeconds uint32, Router common.Address, PriceRegistry common.Address, MaxNumberOfTokensPerMsg uint16, MaxDataBytes uint32) (abihelpers.AbiDefined, error) {
 	switch VersionMap[OffRampContract] {
 	case Latest:
 		return testhelpers.NewExecOnchainConfig(PermissionLessExecutionThresholdSeconds, Router, PriceRegistry, MaxNumberOfTokensPerMsg, MaxDataBytes), nil
-	case V1_2_0:
-		return testhelpers_1_4_0.NewExecOnchainConfig(
-			PermissionLessExecutionThresholdSeconds,
-			Router,
-			PriceRegistry,
-			MaxNumberOfTokensPerMsg,
-			MaxDataBytes,
-			MaxPoolReleaseOrMintGas,
-		), nil
 	default:
 		return nil, fmt.Errorf("version not supported: %s", VersionMap[OffRampContract])
 	}
@@ -1478,15 +1450,6 @@ func NewExecOffchainConfig(
 	switch VersionMap[OffRampContract] {
 	case Latest:
 		return testhelpers.NewExecOffchainConfig(
-			destOptimisticConfirmations,
-			batchGasLimit,
-			relativeBoostPerWaitHour,
-			inflightCacheExpiry,
-			rootSnoozeTime,
-			batchingStrategyID,
-		), nil
-	case V1_2_0:
-		return testhelpers_1_4_0.NewExecOffchainConfig(
 			destOptimisticConfirmations,
 			batchGasLimit,
 			relativeBoostPerWaitHour,

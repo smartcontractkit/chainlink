@@ -122,11 +122,6 @@ func NewExecServices(ctx context.Context, lggr logger.Logger, jb job.Job, srcPro
 	offRampReader = observability.NewObservedOffRampReader(offRampReader, dstChainID, ccip.ExecPluginLabel)
 	metricsCollector := ccip.NewPluginMetricsCollector(ccip.ExecPluginLabel, srcChainID, dstChainID)
 
-	tokenPoolBatchedReader, err := dstProvider.NewTokenPoolBatchedReader(ctx, offRampAddress, srcChainSelector)
-	if err != nil {
-		return nil, fmt.Errorf("new token pool batched reader: %w", err)
-	}
-
 	chainHealthcheck := cache.NewObservedChainHealthCheck(
 		cache.NewChainHealthcheck(
 			// Adding more details to Logger to make healthcheck logs more informative
@@ -161,7 +156,6 @@ func NewExecServices(ctx context.Context, lggr logger.Logger, jb job.Job, srcPro
 		sourceWrappedNativeToken:      sourceWrappedNative,
 		destChainSelector:             dstChainSelector,
 		priceRegistryProvider:         ccip.NewChainAgnosticPriceRegistry(dstProvider),
-		tokenPoolBatchedReader:        tokenPoolBatchedReader,
 		tokenDataWorker:               tokenBackgroundWorker,
 		metricsCollector:              metricsCollector,
 		chainHealthcheck:              chainHealthcheck,

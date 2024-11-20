@@ -138,7 +138,6 @@ func (rf *ExecutionReportingPluginFactory) NewReportingPluginFn(ctx context.Cont
 			destWrappedNative:           destWrappedNative,
 			onchainConfig:               onchainConfig,
 			offRampReader:               rf.config.offRampReader,
-			tokenPoolBatchedReader:      rf.config.tokenPoolBatchedReader,
 			inflightReports:             newInflightExecReportsContainer(offchainConfig.InflightCacheExpiry.Duration()),
 			commitRootsCache:            cache.NewCommitRootsCache(lggr, rf.config.commitStoreReader, msgVisibilityInterval, offchainConfig.RootSnoozeTime.Duration()),
 			metricsCollector:            rf.config.metricsCollector,

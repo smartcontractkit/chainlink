@@ -3871,14 +3871,7 @@ func SetOCR2Config(
 		if err != nil {
 			return fmt.Errorf("failed to create exec offchain config: %w", err)
 		}
-		execOnchainCfg, err := contracts.NewExecOnchainConfig(
-			uint32(DefaultPermissionlessExecThreshold.Seconds()),
-			destCCIP.Common.Router.EthAddress,
-			destCCIP.Common.PriceRegistry.EthAddress,
-			DefaultMaxNoOfTokensInMsg,
-			MaxDataBytes,
-			200_000,
-		)
+		execOnchainCfg, err := contracts.NewExecOnchainConfig(uint32(DefaultPermissionlessExecThreshold.Seconds()), destCCIP.Common.Router.EthAddress, destCCIP.Common.PriceRegistry.EthAddress, DefaultMaxNoOfTokensInMsg, MaxDataBytes)
 		if err != nil {
 			return fmt.Errorf("failed to create exec onchain config: %w", err)
 		}

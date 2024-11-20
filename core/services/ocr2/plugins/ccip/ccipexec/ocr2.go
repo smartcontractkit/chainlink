@@ -15,18 +15,18 @@ import (
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/hashutil"
-	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/batchreader"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/ccipdataprovider"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/prices"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/statuschecker"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/hashutil"
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 )
 
 const (
@@ -59,7 +59,6 @@ type ExecutionPluginStaticConfig struct {
 	tokenDataWorker               tokendata.Worker
 	destChainSelector             uint64
 	priceRegistryProvider         ccipdataprovider.PriceRegistry // destination price registry provider.
-	tokenPoolBatchedReader        batchreader.TokenPoolBatchedReader
 	metricsCollector              ccip.PluginMetricsCollector
 	chainHealthcheck              cache.ChainHealthcheck
 	newReportingPluginRetryConfig ccipdata.RetryConfig
@@ -84,12 +83,11 @@ type ExecutionReportingPlugin struct {
 	onRampReader                ccipdata.OnRampReader
 
 	// Dest
-	commitStoreReader      ccipdata.CommitStoreReader
-	destPriceRegistry      ccipdata.PriceRegistryReader
-	destWrappedNative      cciptypes.Address
-	onchainConfig          cciptypes.ExecOnchainConfig
-	offRampReader          ccipdata.OffRampReader
-	tokenPoolBatchedReader batchreader.TokenPoolBatchedReader
+	commitStoreReader ccipdata.CommitStoreReader
+	destPriceRegistry ccipdata.PriceRegistryReader
+	destWrappedNative cciptypes.Address
+	onchainConfig     cciptypes.ExecOnchainConfig
+	offRampReader     ccipdata.OffRampReader
 
 	// State
 	inflightReports  *inflightExecReportsContainer

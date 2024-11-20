@@ -246,6 +246,11 @@ type DstExecProvider struct {
 	seenCommitStoreAddr *cciptypes.Address
 }
 
+func (d *DstExecProvider) NewTokenPoolBatchedReader(ctx context.Context, offRampAddress cciptypes.Address, sourceSelector uint64) (cciptypes.TokenPoolBatchedReader, error) {
+	//TODO remove after chainlink-common update
+	panic("implement me")
+}
+
 func NewDstExecProvider(
 	lggr logger.Logger,
 	versionFinder ccip.VersionFinder,
@@ -371,22 +376,6 @@ func (d *DstExecProvider) NewPriceRegistryReader(ctx context.Context, addr ccipt
 
 func (d *DstExecProvider) NewTokenDataReader(ctx context.Context, tokenAddress cciptypes.Address) (cciptypes.TokenDataReader, error) {
 	return nil, fmt.Errorf("invalid: NewTokenDataReader called on DstExecProvider. It should only be called on SrcExecProvider")
-}
-
-func (d *DstExecProvider) NewTokenPoolBatchedReader(ctx context.Context, offRampAddress cciptypes.Address, sourceChainSelector uint64) (tokenPoolBatchedReader cciptypes.TokenPoolBatchedReader, err error) {
-	batchCaller := ccip.NewDynamicLimitedBatchCaller(
-		d.lggr,
-		d.client,
-		uint(ccip.DefaultRpcBatchSizeLimit),
-		uint(ccip.DefaultRpcBatchBackOffMultiplier),
-		uint(ccip.DefaultMaxParallelRpcCalls),
-	)
-
-	tokenPoolBatchedReader, err = ccip.NewEVMTokenPoolBatchedReader(d.lggr, sourceChainSelector, offRampAddress, batchCaller)
-	if err != nil {
-		return nil, fmt.Errorf("new token pool batched reader: %w", err)
-	}
-	return
 }
 
 func (d *DstExecProvider) SourceNativeToken(ctx context.Context, addr cciptypes.Address) (cciptypes.Address, error) {
