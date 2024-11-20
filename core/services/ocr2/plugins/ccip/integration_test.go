@@ -29,7 +29,7 @@ import (
 )
 
 func TestIntegration_CCIP(t *testing.T) {
-	// Run tke batches of tests for both pipeline and dynamic price getter setups.
+	// Run the batches of tests for both pipeline and dynamic price getter setups.
 	// We will remove the pipeline batch once the feature is deleted from the code.
 	tests := []struct {
 		name                     string
@@ -316,7 +316,7 @@ func TestIntegration_CCIP(t *testing.T) {
 				currentSeqNum += n
 			})
 
-			// Deploy new on ramp,Commit store,off ramp
+			// Deploy new onRamp, commitStore, offRamp
 			// Delete v1 jobs
 			// Send a number of requests
 			// Upgrade the router with new contracts
