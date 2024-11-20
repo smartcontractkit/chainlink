@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 
@@ -85,7 +86,7 @@ func TestActiveCandidate(t *testing.T) {
 
 	// [ACTIVE, CANDIDATE] setup by setting candidate through cap reg
 	capReg, ccipHome := state.Chains[tenv.HomeChainSel].CapabilityRegistry, state.Chains[tenv.HomeChainSel].CCIPHome
-	donID, err := DonIDForChain(capReg, ccipHome, tenv.FeedChainSel)
+	donID, err := internal.DonIDForChain(capReg, ccipHome, tenv.FeedChainSel)
 	require.NoError(t, err)
 	donInfo, err := state.Chains[tenv.HomeChainSel].CapabilityRegistry.GetDON(nil, donID)
 	require.NoError(t, err)
@@ -113,7 +114,7 @@ func TestActiveCandidate(t *testing.T) {
 	// commit and exec plugin we will be using
 	rmnHomeAddress := state.Chains[tenv.HomeChainSel].RMNHome.Address()
 	tokenConfig := NewTestTokenConfig(state.Chains[tenv.FeedChainSel].USDFeeds)
-	ocr3ConfigMap, err := BuildOCR3ConfigForCCIPHome(
+	ocr3ConfigMap, err := internal.BuildOCR3ConfigForCCIPHome(
 		deployment.XXXGenerateTestOCRSecrets(),
 		state.Chains[tenv.FeedChainSel].OffRamp,
 		e.Chains[tenv.FeedChainSel],

@@ -7,6 +7,7 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
 
@@ -51,7 +52,7 @@ func SetCandidatePluginChangeset(
 	tokenConfig TokenConfig,
 	pluginType cctypes.PluginType,
 ) (deployment.ChangesetOutput, error) {
-	newDONArgs, err := BuildOCR3ConfigForCCIPHome(
+	newDONArgs, err := internal.BuildOCR3ConfigForCCIPHome(
 		ocrSecrets,
 		state.Chains[newChainSel].OffRamp,
 		e.Chains[newChainSel],

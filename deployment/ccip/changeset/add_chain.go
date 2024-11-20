@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
@@ -97,7 +98,7 @@ func AddDonAndSetCandidateChangeset(
 	tokenConfig TokenConfig,
 	pluginType types.PluginType,
 ) (deployment.ChangesetOutput, error) {
-	newDONArgs, err := BuildOCR3ConfigForCCIPHome(
+	newDONArgs, err := internal.BuildOCR3ConfigForCCIPHome(
 		ocrSecrets,
 		state.Chains[newChainSel].OffRamp,
 		e.Chains[newChainSel],
@@ -110,7 +111,7 @@ func AddDonAndSetCandidateChangeset(
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	latestDon, err := LatestCCIPDON(state.Chains[homeChainSel].CapabilityRegistry)
+	latestDon, err := internal.LatestCCIPDON(state.Chains[homeChainSel].CapabilityRegistry)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
