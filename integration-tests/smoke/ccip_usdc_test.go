@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/deployment"
-	ccdeploy "github.com/smartcontractkit/chainlink/deployment/ccip"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
@@ -28,17 +28,17 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	tenv, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr)
 
 	e := tenv.Env
-	state, err := ccdeploy.LoadOnchainState(e)
+	state, err := changeset.LoadOnchainState(e)
 	require.NoError(t, err)
 
 	allChainSelectors := maps.Keys(e.Chains)
 	sourceChain := allChainSelectors[0]
 	destChain := allChainSelectors[1]
 
-	srcUSDC, dstUSDC, err := ccdeploy.ConfigureUSDCTokenPools(lggr, e.Chains, sourceChain, destChain, state)
+	srcUSDC, dstUSDC, err := changeset.ConfigureUSDCTokenPools(lggr, e.Chains, sourceChain, destChain, state)
 	require.NoError(t, err)
 
-	srcToken, _, dstToken, _, err := ccdeploy.DeployTransferableToken(
+	srcToken, _, dstToken, _, err := changeset.DeployTransferableToken(
 		lggr,
 		tenv.Env.Chains,
 		sourceChain,
@@ -50,17 +50,17 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	require.NoError(t, err)
 
 	// Add all lanes
-	require.NoError(t, ccdeploy.AddLanesForAll(e, state))
+	require.NoError(t, changeset.AddLanesForAll(e, state))
 
 	mintAndAllow(t, e, state, map[uint64][]*burn_mint_erc677.BurnMintERC677{
 		sourceChain: {srcUSDC, srcToken},
 		destChain:   {dstUSDC, dstToken},
 	})
 
-	err = ccdeploy.UpdateFeeQuoterForUSDC(lggr, e.Chains[sourceChain], state.Chains[sourceChain], destChain, srcUSDC)
+	err = changeset.UpdateFeeQuoterForUSDC(lggr, e.Chains[sourceChain], state.Chains[sourceChain], destChain, srcUSDC)
 	require.NoError(t, err)
 
-	err = ccdeploy.UpdateFeeQuoterForUSDC(lggr, e.Chains[destChain], state.Chains[destChain], sourceChain, dstUSDC)
+	err = changeset.UpdateFeeQuoterForUSDC(lggr, e.Chains[destChain], state.Chains[destChain], sourceChain, dstUSDC)
 	require.NoError(t, err)
 
 	// MockE2EUSDCTransmitter always mint 1, see MockE2EUSDCTransmitter.sol for more details
@@ -178,7 +178,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 func mintAndAllow(
 	t *testing.T,
 	e deployment.Environment,
-	state ccdeploy.CCIPOnChainState,
+	state changeset.CCIPOnChainState,
 	tkMap map[uint64][]*burn_mint_erc677.BurnMintERC677,
 ) {
 	for chain, tokens := range tkMap {
@@ -206,37 +206,37 @@ func mintAndAllow(
 func transferAndWaitForSuccess(
 	t *testing.T,
 	env deployment.Environment,
-	state ccdeploy.CCIPOnChainState,
+	state changeset.CCIPOnChainState,
 	sourceChain, destChain uint64,
 	tokens []router.ClientEVMTokenAmount,
 	receiver common.Address,
 	data []byte,
 ) {
 	startBlocks := make(map[uint64]*uint64)
-	expectedSeqNum := make(map[ccdeploy.SourceDestPair]uint64)
+	expectedSeqNum := make(map[changeset.SourceDestPair]uint64)
 
 	latesthdr, err := env.Chains[destChain].Client.HeaderByNumber(testcontext.Get(t), nil)
 	require.NoError(t, err)
 	block := latesthdr.Number.Uint64()
 	startBlocks[destChain] = &block
 
-	msgSentEvent := ccdeploy.TestSendRequest(t, env, state, sourceChain, destChain, false, router.ClientEVM2AnyMessage{
+	msgSentEvent := changeset.TestSendRequest(t, env, state, sourceChain, destChain, false, router.ClientEVM2AnyMessage{
 		Receiver:     common.LeftPadBytes(receiver.Bytes(), 32),
 		Data:         data,
 		TokenAmounts: tokens,
 		FeeToken:     common.HexToAddress("0x0"),
 		ExtraArgs:    nil,
 	})
-	expectedSeqNum[ccdeploy.SourceDestPair{
+	expectedSeqNum[changeset.SourceDestPair{
 		SourceChainSelector: sourceChain,
 		DestChainSelector:   destChain,
 	}] = msgSentEvent.SequenceNumber
 
 	// Wait for all commit reports to land.
-	ccdeploy.ConfirmCommitForAllWithExpectedSeqNums(t, env, state, expectedSeqNum, startBlocks)
+	changeset.ConfirmCommitForAllWithExpectedSeqNums(t, env, state, expectedSeqNum, startBlocks)
 
 	// Wait for all exec reports to land
-	ccdeploy.ConfirmExecWithSeqNrForAll(t, env, state, expectedSeqNum, startBlocks)
+	changeset.ConfirmExecWithSeqNrForAll(t, env, state, expectedSeqNum, startBlocks)
 }
 
 func waitForTheTokenBalance(

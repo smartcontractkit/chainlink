@@ -15,9 +15,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/osutil"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	ccipdeployment "github.com/smartcontractkit/chainlink/deployment/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_remote"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
@@ -231,7 +231,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 		})
 	}
 
-	onChainState, err := ccipdeployment.LoadOnchainState(envWithRMN.Env)
+	onChainState, err := changeset.LoadOnchainState(envWithRMN.Env)
 	require.NoError(t, err)
 	t.Logf("onChainState: %#v", onChainState)
 
@@ -335,26 +335,26 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 		}
 	}
 
-	ccipdeployment.ReplayLogs(t, envWithRMN.Env.Offchain, envWithRMN.ReplayBlocks)
+	changeset.ReplayLogs(t, envWithRMN.Env.Offchain, envWithRMN.ReplayBlocks)
 	// Add all lanes
-	require.NoError(t, ccipdeployment.AddLanesForAll(envWithRMN.Env, onChainState))
+	require.NoError(t, changeset.AddLanesForAll(envWithRMN.Env, onChainState))
 
 	// Need to keep track of the block number for each chain so that event subscription can be done from that block.
 	startBlocks := make(map[uint64]*uint64)
-	expectedSeqNum := make(map[ccipdeployment.SourceDestPair]uint64)
+	expectedSeqNum := make(map[changeset.SourceDestPair]uint64)
 	for _, msg := range tc.messagesToSend {
 		fromChain := chainSelectors[msg.fromChainIdx]
 		toChain := chainSelectors[msg.toChainIdx]
 
 		for i := 0; i < msg.count; i++ {
-			msgSentEvent := ccipdeployment.TestSendRequest(t, envWithRMN.Env, onChainState, fromChain, toChain, false, router.ClientEVM2AnyMessage{
+			msgSentEvent := changeset.TestSendRequest(t, envWithRMN.Env, onChainState, fromChain, toChain, false, router.ClientEVM2AnyMessage{
 				Receiver:     common.LeftPadBytes(onChainState.Chains[toChain].Receiver.Address().Bytes(), 32),
 				Data:         []byte("hello world"),
 				TokenAmounts: nil,
 				FeeToken:     common.HexToAddress("0x0"),
 				ExtraArgs:    nil,
 			})
-			expectedSeqNum[ccipdeployment.SourceDestPair{
+			expectedSeqNum[changeset.SourceDestPair{
 				SourceChainSelector: fromChain,
 				DestChainSelector:   toChain,
 			}] = msgSentEvent.SequenceNumber
@@ -368,7 +368,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 
 	commitReportReceived := make(chan struct{})
 	go func() {
-		ccipdeployment.ConfirmCommitForAllWithExpectedSeqNums(t, envWithRMN.Env, onChainState, expectedSeqNum, startBlocks)
+		changeset.ConfirmCommitForAllWithExpectedSeqNums(t, envWithRMN.Env, onChainState, expectedSeqNum, startBlocks)
 		commitReportReceived <- struct{}{}
 	}()
 
@@ -390,7 +390,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 
 	if tc.waitForExec {
 		t.Logf("⌛ Waiting for exec reports...")
-		ccipdeployment.ConfirmExecWithSeqNrForAll(t, envWithRMN.Env, onChainState, expectedSeqNum, startBlocks)
+		changeset.ConfirmExecWithSeqNrForAll(t, envWithRMN.Env, onChainState, expectedSeqNum, startBlocks)
 		t.Logf("✅ Exec report")
 	}
 }

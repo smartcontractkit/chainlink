@@ -1,13 +1,16 @@
-package ccipdeployment
+package changeset
 
 import (
 	"fmt"
+	"math/big"
+
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
+
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
-	"math/big"
 )
 
 // SetCandidateExecPluginOps calls setCandidate on CCIPHome contract through the UpdateDON call on CapReg contract
@@ -20,12 +23,12 @@ func SetCandidateOnExistingDon(
 	nodes deployment.Nodes,
 ) ([]mcms.Operation, error) {
 	// fetch DON ID for the chain
-	donID, err := DonIDForChain(capReg, ccipHome, chainSelector)
+	donID, err := internal.DonIDForChain(capReg, ccipHome, chainSelector)
 	if err != nil {
 		return nil, fmt.Errorf("fetch don id for chain: %w", err)
 	}
 	fmt.Printf("donID: %d", donID)
-	encodedSetCandidateCall, err := CCIPHomeABI.Pack(
+	encodedSetCandidateCall, err := internal.CCIPHomeABI.Pack(
 		"setCandidate",
 		donID,
 		pluginConfig.PluginType,
@@ -43,7 +46,7 @@ func SetCandidateOnExistingDon(
 		nodes.PeerIDs(),
 		[]capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
 			{
-				CapabilityId: CCIPCapabilityID,
+				CapabilityId: internal.CCIPCapabilityID,
 				Config:       encodedSetCandidateCall,
 			},
 		},
@@ -75,7 +78,7 @@ func PromoteCandidateOp(donID uint32, pluginType uint8, capReg *capabilities_reg
 	}
 	fmt.Printf("commit candidate digest after setCandidate: %x\n", allConfigs.CandidateConfig.ConfigDigest)
 
-	encodedPromotionCall, err := CCIPHomeABI.Pack(
+	encodedPromotionCall, err := internal.CCIPHomeABI.Pack(
 		"promoteCandidateAndRevokeActive",
 		donID,
 		pluginType,
@@ -92,7 +95,7 @@ func PromoteCandidateOp(donID uint32, pluginType uint8, capReg *capabilities_reg
 		nodes.PeerIDs(),
 		[]capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
 			{
-				CapabilityId: CCIPCapabilityID,
+				CapabilityId: internal.CCIPCapabilityID,
 				Config:       encodedPromotionCall,
 			},
 		},
@@ -117,7 +120,7 @@ func PromoteAllCandidatesForChainOps(
 	nodes deployment.Nodes,
 ) ([]mcms.Operation, error) {
 	// fetch DON ID for the chain
-	donID, err := DonIDForChain(capReg, ccipHome, chainSelector)
+	donID, err := internal.DonIDForChain(capReg, ccipHome, chainSelector)
 	if err != nil {
 		return nil, fmt.Errorf("fetch don id for chain: %w", err)
 	}

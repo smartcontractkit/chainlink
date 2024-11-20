@@ -4,8 +4,7 @@ import (
 	"fmt"
 	"math/big"
 
-	ccipdeployment "github.com/smartcontractkit/chainlink/deployment/ccip"
-
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
@@ -20,7 +19,7 @@ import (
 // to connect the new chain to the existing chains.
 func NewChainInboundChangeset(
 	e deployment.Environment,
-	state ccipdeployment.CCIPOnChainState,
+	state CCIPOnChainState,
 	homeChainSel uint64,
 	newChainSel uint64,
 	sources []uint64,
@@ -42,7 +41,7 @@ func NewChainInboundChangeset(
 			[]fee_quoter.FeeQuoterDestChainConfigArgs{
 				{
 					DestChainSelector: newChainSel,
-					DestChainConfig:   ccipdeployment.DefaultFeeQuoterDestChainConfig(),
+					DestChainConfig:   DefaultFeeQuoterDestChainConfig(),
 				},
 			})
 		if err != nil {
@@ -66,7 +65,7 @@ func NewChainInboundChangeset(
 		})
 	}
 
-	addChainOp, err := ccipdeployment.ApplyChainConfigUpdatesOp(e, state, homeChainSel, []uint64{newChainSel})
+	addChainOp, err := ApplyChainConfigUpdatesOp(e, state, homeChainSel, []uint64{newChainSel})
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -78,7 +77,7 @@ func NewChainInboundChangeset(
 		},
 	})
 
-	prop, err := ccipdeployment.BuildProposalFromBatches(state, batches, "proposal to set new chains", 0)
+	prop, err := BuildProposalFromBatches(state, batches, "proposal to set new chains", 0)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -91,15 +90,15 @@ func NewChainInboundChangeset(
 // AddDonAndSetCandidateChangeset adds new DON for destination to home chain
 // and sets the commit plugin config as candidateConfig for the don.
 func AddDonAndSetCandidateChangeset(
-	state ccipdeployment.CCIPOnChainState,
+	state CCIPOnChainState,
 	e deployment.Environment,
 	nodes deployment.Nodes,
 	ocrSecrets deployment.OCRSecrets,
 	homeChainSel, feedChainSel, newChainSel uint64,
-	tokenConfig ccipdeployment.TokenConfig,
+	tokenConfig TokenConfig,
 	pluginType types.PluginType,
 ) (deployment.ChangesetOutput, error) {
-	newDONArgs, err := ccipdeployment.BuildOCR3ConfigForCCIPHome(
+	newDONArgs, err := internal.BuildOCR3ConfigForCCIPHome(
 		ocrSecrets,
 		state.Chains[newChainSel].OffRamp,
 		e.Chains[newChainSel],
@@ -112,7 +111,7 @@ func AddDonAndSetCandidateChangeset(
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	latestDon, err := ccipdeployment.LatestCCIPDON(state.Chains[homeChainSel].CapabilityRegistry)
+	latestDon, err := internal.LatestCCIPDON(state.Chains[homeChainSel].CapabilityRegistry)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -121,7 +120,7 @@ func AddDonAndSetCandidateChangeset(
 		return deployment.ChangesetOutput{}, fmt.Errorf("missing commit plugin in ocr3Configs")
 	}
 	donID := latestDon.Id + 1
-	addDonOp, err := ccipdeployment.NewDonWithCandidateOp(
+	addDonOp, err := NewDonWithCandidateOp(
 		donID, commitConfig,
 		state.Chains[homeChainSel].CapabilityRegistry,
 		nodes.NonBootstraps(),
@@ -130,7 +129,7 @@ func AddDonAndSetCandidateChangeset(
 		return deployment.ChangesetOutput{}, err
 	}
 
-	prop, err := ccipdeployment.BuildProposalFromBatches(state, []timelock.BatchChainOperation{{
+	prop, err := BuildProposalFromBatches(state, []timelock.BatchChainOperation{{
 		ChainIdentifier: mcms.ChainIdentifier(homeChainSel),
 		Batch:           []mcms.Operation{addDonOp},
 	}}, "setCandidate for commit and AddDon on new Chain", 0)

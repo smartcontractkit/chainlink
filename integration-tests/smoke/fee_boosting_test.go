@@ -10,7 +10,7 @@ import (
 	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	ccdeploy "github.com/smartcontractkit/chainlink/deployment/ccip"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -19,9 +19,9 @@ import (
 type feeboostTestCase struct {
 	t                      *testing.T
 	sender                 []byte
-	deployedEnv            ccdeploy.DeployedEnv
-	onchainState           ccdeploy.CCIPOnChainState
-	initialPrices          ccdeploy.InitialPrices
+	deployedEnv            changeset.DeployedEnv
+	onchainState           changeset.CCIPOnChainState
+	initialPrices          changeset.InitialPrices
 	priceFeedPrices        priceFeedPrices
 	sourceChain, destChain uint64
 }
@@ -33,13 +33,13 @@ type priceFeedPrices struct {
 
 // TODO: find a way to reuse the same test setup for all tests
 func Test_CCIPFeeBoosting(t *testing.T) {
-	setupTestEnv := func(t *testing.T, numChains int) (ccdeploy.DeployedEnv, ccdeploy.CCIPOnChainState, []uint64) {
+	setupTestEnv := func(t *testing.T, numChains int) (changeset.DeployedEnv, changeset.CCIPOnChainState, []uint64) {
 		e, _, _ := testsetups.NewLocalDevEnvironment(
 			t, logger.TestLogger(t),
 			deployment.E18Mult(5),
 			big.NewInt(9e8))
 
-		state, err := ccdeploy.LoadOnchainState(e.Env)
+		state, err := changeset.LoadOnchainState(e.Env)
 		require.NoError(t, err)
 
 		allChainSelectors := maps.Keys(e.Env.Chains)
@@ -54,10 +54,10 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 			sender:       common.LeftPadBytes(e.Env.Chains[chains[0]].DeployerKey.From.Bytes(), 32),
 			deployedEnv:  e,
 			onchainState: state,
-			initialPrices: ccdeploy.InitialPrices{
+			initialPrices: changeset.InitialPrices{
 				LinkPrice: deployment.E18Mult(5),
 				WethPrice: deployment.E18Mult(9),
-				GasPrice:  ccdeploy.ToPackedFee(big.NewInt(1.8e11), big.NewInt(0)),
+				GasPrice:  changeset.ToPackedFee(big.NewInt(1.8e11), big.NewInt(0)),
 			},
 			priceFeedPrices: priceFeedPrices{
 				linkPrice: deployment.E18Mult(5),
@@ -75,10 +75,10 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 			sender:       common.LeftPadBytes(e.Env.Chains[chains[0]].DeployerKey.From.Bytes(), 32),
 			deployedEnv:  e,
 			onchainState: state,
-			initialPrices: ccdeploy.InitialPrices{
+			initialPrices: changeset.InitialPrices{
 				LinkPrice: deployment.E18Mult(5),
 				WethPrice: deployment.E18Mult(9),
-				GasPrice:  ccdeploy.ToPackedFee(big.NewInt(1.8e11), big.NewInt(0)),
+				GasPrice:  changeset.ToPackedFee(big.NewInt(1.8e11), big.NewInt(0)),
 			},
 			priceFeedPrices: priceFeedPrices{
 				linkPrice: big.NewInt(4.5e18), // decrease from 5e18 to 4.5e18
@@ -91,18 +91,18 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 }
 
 func runFeeboostTestCase(tc feeboostTestCase) {
-	require.NoError(tc.t, ccdeploy.AddLane(tc.deployedEnv.Env, tc.onchainState, tc.sourceChain, tc.destChain, tc.initialPrices))
+	require.NoError(tc.t, changeset.AddLane(tc.deployedEnv.Env, tc.onchainState, tc.sourceChain, tc.destChain, tc.initialPrices))
 
 	startBlocks := make(map[uint64]*uint64)
-	expectedSeqNum := make(map[ccdeploy.SourceDestPair]uint64)
-	msgSentEvent := ccdeploy.TestSendRequest(tc.t, tc.deployedEnv.Env, tc.onchainState, tc.sourceChain, tc.destChain, false, router.ClientEVM2AnyMessage{
+	expectedSeqNum := make(map[changeset.SourceDestPair]uint64)
+	msgSentEvent := changeset.TestSendRequest(tc.t, tc.deployedEnv.Env, tc.onchainState, tc.sourceChain, tc.destChain, false, router.ClientEVM2AnyMessage{
 		Receiver:     common.LeftPadBytes(tc.onchainState.Chains[tc.destChain].Receiver.Address().Bytes(), 32),
 		Data:         []byte("message that needs fee boosting"),
 		TokenAmounts: nil,
 		FeeToken:     common.HexToAddress("0x0"),
 		ExtraArgs:    nil,
 	})
-	expectedSeqNum[ccdeploy.SourceDestPair{
+	expectedSeqNum[changeset.SourceDestPair{
 		SourceChainSelector: tc.sourceChain,
 		DestChainSelector:   tc.destChain,
 	}] = msgSentEvent.SequenceNumber
@@ -112,8 +112,8 @@ func runFeeboostTestCase(tc feeboostTestCase) {
 	replayBlocks := make(map[uint64]uint64)
 	replayBlocks[tc.sourceChain] = 1
 	replayBlocks[tc.destChain] = 1
-	ccdeploy.ReplayLogs(tc.t, tc.deployedEnv.Env.Offchain, replayBlocks)
+	changeset.ReplayLogs(tc.t, tc.deployedEnv.Env.Offchain, replayBlocks)
 
-	ccdeploy.ConfirmCommitForAllWithExpectedSeqNums(tc.t, tc.deployedEnv.Env, tc.onchainState, expectedSeqNum, startBlocks)
-	ccdeploy.ConfirmExecWithSeqNrForAll(tc.t, tc.deployedEnv.Env, tc.onchainState, expectedSeqNum, startBlocks)
+	changeset.ConfirmCommitForAllWithExpectedSeqNums(tc.t, tc.deployedEnv.Env, tc.onchainState, expectedSeqNum, startBlocks)
+	changeset.ConfirmExecWithSeqNrForAll(tc.t, tc.deployedEnv.Env, tc.onchainState, expectedSeqNum, startBlocks)
 }
