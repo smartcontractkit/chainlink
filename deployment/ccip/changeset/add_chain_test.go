@@ -67,7 +67,7 @@ func TestAddChainInbound(t *testing.T) {
 		OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
 	})
 	require.NoError(t, err)
-	require.NoError(t, e.Env.ExistingAddresses.Merge(newAddresses))
+
 	state, err = LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
