@@ -234,7 +234,7 @@ contract VerifierVerifyMultipleConfigDigestTest is VerifierVerifyTest {
   function setUp() public override {
     VerifierVerifyTest.setUp();
     s_oldConfigDigest = v1ConfigDigest;
-    s_verifier.setConfig(
+    s_verifier.setConfigFromSource(
       FEED_ID,
       SOURCE_CHAIN_ID,
       SOURCE_ADDRESS,

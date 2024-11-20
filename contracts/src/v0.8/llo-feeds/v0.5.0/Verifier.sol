@@ -255,7 +255,7 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
   }
 
   /// @inheritdoc IVerifier
-  function setConfig(
+  function setConfigFromSource(
     bytes32 configId,
     uint256 sourceChainId,
     address sourceAddress,

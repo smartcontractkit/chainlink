@@ -17,7 +17,7 @@ contract Verifier_setConfig is BaseTest {
   }
 
   function testSetConfigSuccess_gas() public {
-    s_verifier.setConfig(
+    s_verifier.setConfigFromSource(
       FEED_ID,
       SOURCE_CHAIN_ID,
       SOURCE_ADDRESS,

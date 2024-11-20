@@ -296,7 +296,7 @@ contract BaseTestWithConfiguredVerifierAndFeeManager is BaseTest {
     Signer[] memory signers = _getSigners(MAX_ORACLES);
 
     s_verifierProxy.initializeVerifier(address(s_verifier));
-    s_verifier.setConfig(
+    s_verifier.setConfigFromSource(
       FEED_ID,
       SOURCE_CHAIN_ID,
       SOURCE_ADDRESS,
@@ -323,7 +323,7 @@ contract BaseTestWithConfiguredVerifierAndFeeManager is BaseTest {
       bytes("")
     );
 
-    s_verifier.setConfig(
+    s_verifier.setConfigFromSource(
       FEED_ID_V3,
       SOURCE_CHAIN_ID,
       SOURCE_ADDRESS,
@@ -486,7 +486,7 @@ contract BaseTestWithMultipleConfiguredDigests is BaseTestWithConfiguredVerifier
 
     // Verifier 1, Feed 1, Config 2
     Signer[] memory secondSetOfSigners = _getSigners(8);
-    s_verifier.setConfig(
+    s_verifier.setConfigFromSource(
       FEED_ID,
       SOURCE_CHAIN_ID,
       SOURCE_ADDRESS,
@@ -515,7 +515,7 @@ contract BaseTestWithMultipleConfiguredDigests is BaseTestWithConfiguredVerifier
 
     // Verifier 1, Feed 1, Config 3
     Signer[] memory thirdSetOfSigners = _getSigners(5);
-    s_verifier.setConfig(
+    s_verifier.setConfigFromSource(
       FEED_ID,
       SOURCE_CHAIN_ID,
       SOURCE_ADDRESS,
@@ -542,7 +542,7 @@ contract BaseTestWithMultipleConfiguredDigests is BaseTestWithConfiguredVerifier
     );
 
     // Verifier 1, Feed 2, Config 1
-    s_verifier.setConfig(
+    s_verifier.setConfigFromSource(
       FEED_ID_2,
       SOURCE_CHAIN_ID,
       SOURCE_ADDRESS,
@@ -570,7 +570,7 @@ contract BaseTestWithMultipleConfiguredDigests is BaseTestWithConfiguredVerifier
 
     // Verifier 2, Feed 3, Config 1
     s_verifierProxy.initializeVerifier(address(s_verifier_2));
-    s_verifier_2.setConfig(
+    s_verifier_2.setConfigFromSource(
       FEED_ID_3,
       SOURCE_CHAIN_ID,
       SOURCE_ADDRESS,

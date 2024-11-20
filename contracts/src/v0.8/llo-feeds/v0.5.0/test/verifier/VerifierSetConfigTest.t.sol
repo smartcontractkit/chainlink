@@ -16,7 +16,7 @@ contract VerifierSetConfigTest is BaseTest {
     Signer[] memory signers = _getSigners(MAX_ORACLES);
 
     changePrank(USER);
-    s_verifier.setConfig(
+    s_verifier.setConfigFromSource(
       FEED_ID,
       SOURCE_CHAIN_ID,
       SOURCE_ADDRESS,
@@ -34,7 +34,7 @@ contract VerifierSetConfigTest is BaseTest {
   function test_revertsIfSetWithTooManySigners() public {
     address[] memory signers = new address[](MAX_ORACLES + 1);
     vm.expectRevert(abi.encodeWithSelector(Verifier.ExcessSigners.selector, signers.length, MAX_ORACLES));
-    s_verifier.setConfig(
+    s_verifier.setConfigFromSource(
       FEED_ID,
       SOURCE_CHAIN_ID,
       SOURCE_ADDRESS,
@@ -52,7 +52,7 @@ contract VerifierSetConfigTest is BaseTest {
   function test_revertsIfFaultToleranceIsZero() public {
     vm.expectRevert(abi.encodeWithSelector(Verifier.FaultToleranceMustBePositive.selector));
     Signer[] memory signers = _getSigners(MAX_ORACLES);
-    s_verifier.setConfig(
+    s_verifier.setConfigFromSource(
       FEED_ID,
       SOURCE_CHAIN_ID,
       SOURCE_ADDRESS,
@@ -75,7 +75,7 @@ contract VerifierSetConfigTest is BaseTest {
     vm.expectRevert(
       abi.encodeWithSelector(Verifier.InsufficientSigners.selector, signers.length, FAULT_TOLERANCE * 3 + 1)
     );
-    s_verifier.setConfig(
+    s_verifier.setConfigFromSource(
       FEED_ID,
       SOURCE_CHAIN_ID,
       SOURCE_ADDRESS,
@@ -95,7 +95,7 @@ contract VerifierSetConfigTest is BaseTest {
     address[] memory signerAddrs = _getSignerAddresses(signers);
     signerAddrs[0] = signerAddrs[1];
     vm.expectRevert(abi.encodeWithSelector(Verifier.NonUniqueSignatures.selector));
-    s_verifier.setConfig(
+    s_verifier.setConfigFromSource(
       FEED_ID,
       SOURCE_CHAIN_ID,
       SOURCE_ADDRESS,
@@ -115,7 +115,7 @@ contract VerifierSetConfigTest is BaseTest {
     address[] memory signerAddrs = _getSignerAddresses(signers);
     signerAddrs[0] = address(0);
     vm.expectRevert(abi.encodeWithSelector(Verifier.ZeroAddress.selector));
-    s_verifier.setConfig(
+    s_verifier.setConfigFromSource(
       FEED_ID,
       SOURCE_CHAIN_ID,
       SOURCE_ADDRESS,
@@ -134,7 +134,7 @@ contract VerifierSetConfigTest is BaseTest {
     Signer[] memory signers = _getSigners(MAX_ORACLES);
 
     s_verifierProxy.initializeVerifier(address(s_verifier));
-    s_verifier.setConfig(
+    s_verifier.setConfigFromSource(
       FEED_ID,
       SOURCE_CHAIN_ID,
       SOURCE_ADDRESS,
@@ -171,7 +171,7 @@ contract VerifierSetConfigWhenThereAreMultipleDigestsTest is BaseTestWithMultipl
   function test_correctlyUpdatesTheDigestInTheProxy() public {
     Signer[] memory newSigners = _getSigners(15);
 
-    s_verifier.setConfig(
+    s_verifier.setConfigFromSource(
       FEED_ID,
       SOURCE_CHAIN_ID,
       SOURCE_ADDRESS,
@@ -205,7 +205,7 @@ contract VerifierSetConfigWhenThereAreMultipleDigestsTest is BaseTestWithMultipl
   function test_correctlyUpdatesDigestsOnMultipleVerifiersInTheProxy() public {
     Signer[] memory newSigners = _getSigners(15);
 
-    s_verifier.setConfig(
+    s_verifier.setConfigFromSource(
       FEED_ID_2,
       SOURCE_CHAIN_ID,
       SOURCE_ADDRESS,
@@ -235,7 +235,7 @@ contract VerifierSetConfigWhenThereAreMultipleDigestsTest is BaseTestWithMultipl
     address verifierAddr = s_verifierProxy.getVerifier(configDigest);
     assertEq(verifierAddr, address(s_verifier));
 
-    s_verifier_2.setConfig(
+    s_verifier_2.setConfigFromSource(
       FEED_ID_3,
       SOURCE_CHAIN_ID,
       SOURCE_ADDRESS,
@@ -271,7 +271,7 @@ contract VerifierSetConfigWhenThereAreMultipleDigestsTest is BaseTestWithMultipl
 
     Signer[] memory newSigners = _getSigners(15);
 
-    s_verifier.setConfig(
+    s_verifier.setConfigFromSource(
       FEED_ID,
       SOURCE_CHAIN_ID,
       SOURCE_ADDRESS,
@@ -320,7 +320,7 @@ contract VerifierSetConfigWhenThereAreMultipleDigestsTest is BaseTestWithMultipl
 
   function test_revertsIfDuplicateConfigIsSet() public {
     // Set initial config
-    s_verifier.setConfig(
+    s_verifier.setConfigFromSource(
       FEED_ID,
       SOURCE_CHAIN_ID, 
       SOURCE_ADDRESS,
@@ -336,7 +336,7 @@ contract VerifierSetConfigWhenThereAreMultipleDigestsTest is BaseTestWithMultipl
 
     // Try to set same config again
     vm.expectRevert(abi.encodeWithSelector(Verifier.NonUniqueSignatures.selector));
-    s_verifier.setConfig(
+    s_verifier.setConfigFromSource(
       FEED_ID,
       SOURCE_CHAIN_ID,
       SOURCE_ADDRESS, 
@@ -353,7 +353,7 @@ contract VerifierSetConfigWhenThereAreMultipleDigestsTest is BaseTestWithMultipl
 
   function test_incrementalConfigUpdates() public {
     // Set initial config
-    s_verifier.setConfig(
+    s_verifier.setConfigFromSource(
       FEED_ID,
       SOURCE_CHAIN_ID, 
       SOURCE_ADDRESS,
@@ -368,7 +368,7 @@ contract VerifierSetConfigWhenThereAreMultipleDigestsTest is BaseTestWithMultipl
     );
 
     // Try to set same config again
-    s_verifier.setConfig(
+    s_verifier.setConfigFromSource(
       FEED_ID,
       SOURCE_CHAIN_ID,
       SOURCE_ADDRESS, 
@@ -382,7 +382,7 @@ contract VerifierSetConfigWhenThereAreMultipleDigestsTest is BaseTestWithMultipl
       new Common.AddressAndWeight[](0)
     );
 
-      s_verifier.setConfig(
+      s_verifier.setConfigFromSource(
       FEED_ID,
       SOURCE_CHAIN_ID,
       SOURCE_ADDRESS, 

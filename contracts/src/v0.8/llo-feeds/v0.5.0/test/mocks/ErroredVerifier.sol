@@ -41,7 +41,7 @@ contract ErroredVerifier is IVerifier {
   }
 
 
-  function setConfig(
+  function setConfigFromSource(
     bytes32,
     uint256,
     address,
