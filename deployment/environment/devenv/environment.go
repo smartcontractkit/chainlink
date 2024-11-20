@@ -34,15 +34,17 @@ func NewEnvironment(ctx context.Context, lggr logger.Logger, config EnvironmentC
 	if !ok {
 		return nil, nil, fmt.Errorf("offchain client does not implement JobDistributor")
 	}
-	if jd == nil || jd.don == nil {
-		return nil, nil, fmt.Errorf("offchain client does not have a DON")
+	if jd == nil {
+		return nil, nil, fmt.Errorf("offchain client is not set up")
 	}
-
-	err = jd.don.CreateSupportedChains(ctx, config.Chains, *jd)
-	if err != nil {
-		return nil, nil, err
+	var nodeIDs []string
+	if jd.don != nil {
+		err = jd.don.CreateSupportedChains(ctx, config.Chains, *jd)
+		if err != nil {
+			return nil, nil, err
+		}
+		nodeIDs = jd.don.NodeIds()
 	}
-	nodeIDs := jd.don.NodeIds()
 
 	return deployment.NewEnvironment(
 		DevEnv,
@@ -52,4 +54,32 @@ func NewEnvironment(ctx context.Context, lggr logger.Logger, config EnvironmentC
 		nodeIDs,
 		offChain,
 	), jd.don, nil
+}
+
+func AddDonToEnvironment(ctx context.Context, config EnvironmentConfig, e *deployment.Environment) error {
+	if e.Offchain == nil {
+		return fmt.Errorf("offchain client not set up")
+	}
+	jd, ok := e.Offchain.(*JobDistributor)
+	if !ok {
+		return fmt.Errorf("offchain client does not implement JobDistributor")
+	}
+	if jd == nil {
+		return fmt.Errorf("offchain client is not set up")
+	}
+	if len(config.JDConfig.NodeInfo) == 0 {
+		return fmt.Errorf("no node info provided")
+	}
+	var err error
+
+	jd.don, err = NewRegisteredDON(ctx, config.JDConfig.NodeInfo, *jd)
+	if err != nil {
+		return fmt.Errorf("failed to create registered DON: %w", err)
+	}
+	err = jd.don.CreateSupportedChains(ctx, config.Chains, *jd)
+	if err != nil {
+		return fmt.Errorf("failed to create supported chains: %w", err)
+	}
+	e.NodeIDs = jd.don.NodeIds()
+	return nil
 }
