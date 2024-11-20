@@ -17,7 +17,7 @@ func InitialDeploy(env deployment.Environment, c ccipdeployment.DeployCCIPContra
 		env.Logger.Errorw("Failed to deploy CCIP contracts", "err", err, "newAddresses", newAddresses)
 		return deployment.ChangesetOutput{AddressBook: newAddresses}, deployment.MaybeDataErr(err)
 	}
-	js, err := ccipdeployment.NewCCIPJobSpecs(env.NodeIDs, env.Offchain)
+	js, err := NewCCIPJobSpecs(env.NodeIDs, env.Offchain)
 	if err != nil {
 		return deployment.ChangesetOutput{AddressBook: newAddresses}, err
 	}

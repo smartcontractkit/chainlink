@@ -87,7 +87,7 @@ type DeployedEnv struct {
 
 func (e *DeployedEnv) SetupJobs(t *testing.T) {
 	ctx := testcontext.Get(t)
-	jbs, err := ccipdeployment.NewCCIPJobSpecs(e.Env.NodeIDs, e.Env.Offchain)
+	jbs, err := NewCCIPJobSpecs(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
 	for nodeID, jobs := range jbs {
 		for _, job := range jobs {
