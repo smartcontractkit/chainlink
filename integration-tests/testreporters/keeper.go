@@ -4,7 +4,6 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
-	"math"
 	"os"
 	"path/filepath"
 	"sync"
@@ -65,7 +64,7 @@ func (k *KeeperBlockTimeTestReporter) WriteReport(folderLocation string) error {
 	}
 	var totalExpected, totalSuccessful, totalMissed, worstMiss int64
 	for contractIndex, report := range k.Reports {
-		avg, max := int64AvgMax(report.AllMissedUpkeeps)
+		avg, maxVal := int64AvgMax(report.AllMissedUpkeeps)
 		err = keeperReportWriter.Write([]string{
 			fmt.Sprint(contractIndex),
 			report.ContractAddress,
@@ -73,13 +72,13 @@ func (k *KeeperBlockTimeTestReporter) WriteReport(folderLocation string) error {
 			fmt.Sprint(report.TotalSuccessfulUpkeeps),
 			fmt.Sprint(len(report.AllMissedUpkeeps)),
 			fmt.Sprint(avg),
-			fmt.Sprint(max),
+			fmt.Sprint(maxVal),
 			fmt.Sprintf("%.2f%%", (float64(report.TotalSuccessfulUpkeeps)/float64(report.TotalExpectedUpkeeps))*100),
 		})
 		totalExpected += report.TotalExpectedUpkeeps
 		totalSuccessful += report.TotalSuccessfulUpkeeps
 		totalMissed += int64(len(report.AllMissedUpkeeps))
-		worstMiss = int64(math.Max(float64(max), float64(worstMiss)))
+		worstMiss = max(maxVal, worstMiss)
 		if err != nil {
 			return err
 		}
@@ -160,13 +159,13 @@ func (k *KeeperBlockTimeTestReporter) SendSlackNotification(t *testing.T, slackC
 // int64AvgMax helper calculates the avg and the max values in a list
 func int64AvgMax(in []int64) (float64, int64) {
 	var sum int64
-	var max int64
+	var val int64 // max
 	if len(in) == 0 {
 		return 0, 0
 	}
 	for _, num := range in {
 		sum += num
-		max = int64(math.Max(float64(max), float64(num)))
+		val = max(val, num)
 	}
-	return float64(sum) / float64(len(in)), max
+	return float64(sum) / float64(len(in)), val
 }

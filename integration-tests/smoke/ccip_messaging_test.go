@@ -317,8 +317,11 @@ func runMessagingTestCase(
 		FeeToken:     common.HexToAddress("0x0"),
 		ExtraArgs:    extraArgs,
 	})
-	expectedSeqNum := make(map[uint64]uint64)
-	expectedSeqNum[tc.destChain] = msgSentEvent.SequenceNumber
+	expectedSeqNum := make(map[ccdeploy.SourceDestPair]uint64)
+	expectedSeqNum[ccdeploy.SourceDestPair{
+		SourceChainSelector: tc.sourceChain,
+		DestChainSelector:   tc.destChain,
+	}] = msgSentEvent.SequenceNumber
 	out.msgSentEvent = msgSentEvent
 
 	// hack

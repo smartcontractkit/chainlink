@@ -36,7 +36,7 @@ func TestActiveCandidate(t *testing.T) {
 	// Need to keep track of the block number for each chain so that event subscription can be done from that block.
 	startBlocks := make(map[uint64]*uint64)
 	// Send a message from each chain to every other chain.
-	expectedSeqNum := make(map[uint64]uint64)
+	expectedSeqNum := make(map[ccdeploy.SourceDestPair]uint64)
 	for src := range e.Chains {
 		for dest, destChain := range e.Chains {
 			if src == dest {
@@ -53,7 +53,10 @@ func TestActiveCandidate(t *testing.T) {
 				FeeToken:     common.HexToAddress("0x0"),
 				ExtraArgs:    nil,
 			})
-			expectedSeqNum[dest] = msgSentEvent.SequenceNumber
+			expectedSeqNum[ccdeploy.SourceDestPair{
+				SourceChainSelector: src,
+				DestChainSelector:   dest,
+			}] = msgSentEvent.SequenceNumber
 		}
 	}
 

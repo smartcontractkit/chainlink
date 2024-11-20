@@ -230,6 +230,9 @@ func NewLocalDevEnvironmentWithRMN(
 func MustNetworksToRPCMap(evmNetworks []*blockchain.EVMNetwork) map[uint64]string {
 	rpcs := make(map[uint64]string)
 	for _, network := range evmNetworks {
+		if network.ChainID < 0 {
+			panic(fmt.Errorf("negative chain ID: %d", network.ChainID))
+		}
 		sel, err := chainsel.SelectorFromChainId(uint64(network.ChainID))
 		if err != nil {
 			panic(err)
@@ -543,6 +546,9 @@ func FundNodes(t *testing.T, lggr zerolog.Logger, env *test_env.CLClusterTestEnv
 		require.NoError(t, err, "Error getting seth client for network %s", evmNetwork.Name)
 		require.Greater(t, len(sethClient.PrivateKeys), 0, seth.ErrNoKeyLoaded)
 		privateKey := sethClient.PrivateKeys[0]
+		if evmNetwork.ChainID < 0 {
+			t.Fatalf("negative chain ID: %d", evmNetwork.ChainID)
+		}
 		for _, node := range nodes {
 			nodeAddr, ok := node.AccountAddr[uint64(evmNetwork.ChainID)]
 			require.True(t, ok, "Account address not found for chain %d", evmNetwork.ChainID)
@@ -592,6 +598,9 @@ func CreateChainConfigFromNetworks(
 	if len(privateEthereumNetworks) == 0 {
 		for _, net := range evmNetworks {
 			chainId := net.ChainID
+			if chainId < 0 {
+				t.Fatalf("negative chain ID: %d", chainId)
+			}
 			chainName, err := chainsel.NameFromChainId(uint64(chainId))
 			require.NoError(t, err, "Error getting chain name")
 			pvtKeyStr, exists := networkPvtKeys[chainId]
@@ -624,6 +633,9 @@ func CreateChainConfigFromNetworks(
 		require.NoError(t, err)
 		deployer, err := bind.NewKeyedTransactorWithChainID(pvtKey, big.NewInt(int64(chainId)))
 		require.NoError(t, err)
+		if chainId < 0 {
+			t.Fatalf("negative chain ID: %d", chainId)
+		}
 		chains = append(chains, devenv.ChainConfig{
 			ChainID:     uint64(chainId),
 			ChainName:   chainName,
