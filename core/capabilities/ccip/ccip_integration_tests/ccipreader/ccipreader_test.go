@@ -20,6 +20,7 @@ import (
 
 	readermocks "github.com/smartcontractkit/chainlink-ccip/mocks/pkg/contractreader"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -797,6 +798,7 @@ func testSetup(
 	lggr := logger.TestLogger(t)
 	lggr.SetLogLevel(zapcore.ErrorLevel)
 	db := pgtest.NewSqlxDB(t)
+	t.Cleanup(func() { assert.NoError(t, db.Close()) })
 	lpOpts := logpoller.Opts{
 		PollPeriod:               time.Millisecond,
 		FinalityDepth:            0,
@@ -812,7 +814,7 @@ func testSetup(
 		headTracker,
 		lpOpts,
 	)
-	assert.NoError(t, lp.Start(ctx))
+	servicetest.Run(t, lp)
 
 	for sourceChain, seqNum := range onChainSeqNums {
 		_, err1 := contract.SetSourceChainConfig(auth, uint64(sourceChain), ccip_reader_tester.OffRampSourceChainConfig{
@@ -854,7 +856,7 @@ func testSetup(
 			headTracker2,
 			lpOpts,
 		)
-		require.NoError(t, lp2.Start(ctx))
+		servicetest.Run(t, lp2)
 
 		cr2, err2 := evm.NewChainReaderService(ctx, lggr, lp2, headTracker2, cl2, cfg)
 		require.NoError(t, err2)
@@ -877,8 +879,7 @@ func testSetup(
 		otherCrs[chain] = ecr
 	}
 
-	err = cr.Start(ctx)
-	require.NoError(t, err)
+	servicetest.Run(t, cr)
 
 	contractReaders := map[cciptypes.ChainSelector]contractreader.Extended{readerChain: extendedCr}
 	for chain, cr := range otherCrs {
@@ -886,12 +887,6 @@ func testSetup(
 	}
 	contractWriters := make(map[cciptypes.ChainSelector]types.ChainWriter)
 	reader := ccipreaderpkg.NewCCIPReaderWithExtendedContractReaders(ctx, lggr, contractReaders, contractWriters, destChain, nil)
-
-	t.Cleanup(func() {
-		require.NoError(t, cr.Close())
-		require.NoError(t, lp.Close())
-		require.NoError(t, db.Close())
-	})
 
 	return &testSetupData{
 		contractAddr: address,

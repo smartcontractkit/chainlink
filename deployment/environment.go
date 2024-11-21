@@ -14,7 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
 	types2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	types3 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"google.golang.org/grpc"
@@ -76,7 +75,6 @@ type Environment struct {
 	Chains            map[uint64]Chain
 	NodeIDs           []string
 	Offchain          OffchainClient
-	MockAdapter       *test_env.Killgrave
 }
 
 func NewEnvironment(

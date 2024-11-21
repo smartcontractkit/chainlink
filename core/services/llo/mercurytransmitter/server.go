@@ -195,7 +195,7 @@ func (s *server) runQueueLoop(stopCh services.StopChan, wg *sync.WaitGroup, donI
 			return
 		} else if err != nil {
 			s.transmitConnectionErrorCount.Inc()
-			s.lggr.Errorw("Transmit report failed", "err", err, "req", req, "transmission", t)
+			s.lggr.Errorw("Transmit report failed", "err", err, "req.Payload", req.Payload, "req.ReportFormat", req.ReportFormat, "transmission", t)
 			if ok := s.q.Push(t); !ok {
 				s.lggr.Error("Failed to push report to transmit queue; queue is closed")
 				return
