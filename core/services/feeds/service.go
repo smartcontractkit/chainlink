@@ -362,8 +362,8 @@ func (s *service) ListManagersByIDs(ctx context.Context, ids []int64) ([]FeedsMa
 		return nil, errors.Wrap(err, "failed to list managers by IDs")
 	}
 
-	for _, manager := range managers {
-		manager.IsConnectionActive = s.connMgr.IsConnected(manager.ID)
+	for i, manager := range managers {
+		managers[i].IsConnectionActive = s.connMgr.IsConnected(manager.ID)
 	}
 
 	return managers, nil

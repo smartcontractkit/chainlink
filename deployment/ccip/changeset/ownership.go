@@ -1,4 +1,4 @@
-package ccipdeployment
+package changeset
 
 import (
 	"testing"
