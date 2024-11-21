@@ -112,7 +112,7 @@ func setupNode(
 	mercury mercury.MercuryEndpointMock,
 ) (chainlink.Application, string, common.Address, ocr2key.KeyBundle) {
 	ctx := testutils.Context(t)
-	p2pKey := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1))
+	p2pKey := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(int64(port)))
 	p2paddresses := []string{fmt.Sprintf("127.0.0.1:%d", port)}
 	cfg, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Feature.LogPoller = ptr(true)

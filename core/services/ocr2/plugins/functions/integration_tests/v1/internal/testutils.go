@@ -321,7 +321,7 @@ func StartNewNode(
 	thresholdKeyShare string,
 ) *Node {
 	ctx := testutils.Context(t)
-	p2pKey := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1))
+	p2pKey := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(int64(port)))
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Insecure.OCRDevelopmentMode = ptr(true)
 

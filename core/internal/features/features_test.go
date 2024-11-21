@@ -693,7 +693,7 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, portV2 int,
 	b evmtypes.Backend, overrides func(c *chainlink.Config, s *chainlink.Secrets),
 ) (*cltest.TestApplication, string, common.Address, ocrkey.KeyV2) {
 	ctx := testutils.Context(t)
-	p2pKey := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1))
+	p2pKey := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(int64(portV2)))
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Insecure.OCRDevelopmentMode = ptr(true) // Disables ocr spec validation so we can have fast polling for the test.
 
@@ -738,7 +738,7 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, portV2 int,
 
 func setupForwarderEnabledNode(t *testing.T, owner *bind.TransactOpts, portV2 int, b evmtypes.Backend, overrides func(c *chainlink.Config, s *chainlink.Secrets)) (*cltest.TestApplication, string, common.Address, common.Address, ocrkey.KeyV2) {
 	ctx := testutils.Context(t)
-	p2pKey := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1))
+	p2pKey := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(int64(portV2)))
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Insecure.OCRDevelopmentMode = ptr(true) // Disables ocr spec validation so we can have fast polling for the test.
 
