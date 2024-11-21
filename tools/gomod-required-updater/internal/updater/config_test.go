@@ -11,33 +11,15 @@ func TestConfig_Validate(t *testing.T) {
 		{
 			name: "valid config",
 			cfg: &Config{
-				ModulesToUpdate: []string{"test.com/mod"},
-				RepoRemote:      "origin",
-				BranchTrunk:     "main",
-			},
-			wantErr: false,
-		},
-		{
-			name: "missing modules",
-			cfg: &Config{
 				RepoRemote:  "origin",
 				BranchTrunk: "main",
 			},
-			wantErr: true,
+			wantErr: false,
 		},
 		{
 			name: "version flag bypasses validation",
 			cfg: &Config{
 				ShowVersion: true,
-			},
-			wantErr: false,
-		},
-		{
-			name: "update-org-modules bypasses module validation",
-			cfg: &Config{
-				UpdateOrgModules: true,
-				RepoRemote:       "origin",
-				BranchTrunk:      "main",
 			},
 			wantErr: false,
 		},
@@ -61,12 +43,11 @@ func TestParseFlags(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "multiple modules via CLI",
-			args: []string{"-module", "mod1.com", "-module", "mod2.com"},
+			name: "default flags",
+			args: []string{},
 			wantCfg: &Config{
-				ModulesToUpdate: []string{"mod1.com", "mod2.com"},
-				RepoRemote:      "origin",
-				BranchTrunk:     "develop",
+				RepoRemote:  "origin",
+				BranchTrunk: "develop",
 			},
 			wantErr: false,
 		},
@@ -75,49 +56,19 @@ func TestParseFlags(t *testing.T) {
 			args: []string{"-version"},
 			wantCfg: &Config{
 				ShowVersion: true,
-				RepoRemote:  "origin",  // Default value
-				BranchTrunk: "develop", // Default value
+				RepoRemote:  "origin",
+				BranchTrunk: "develop",
 			},
 			wantErr: false,
 		},
 		{
-			name: "module flag takes precedence over config file",
-			args: []string{
-				"-module", "cli.mod",
-				"-config", "testdata/modules.toml",
-			},
+			name: "custom remote and branch",
+			args: []string{"-repo-remote", "upstream", "-branch-trunk", "main"},
 			wantCfg: &Config{
-				ModulesToUpdate: []string{"cli.mod"}, // Only CLI module, config file ignored
-				RepoRemote:      "origin",
-				BranchTrunk:     "develop",
+				RepoRemote:  "upstream",
+				BranchTrunk: "main",
 			},
 			wantErr: false,
-		},
-		{
-			name: "update-org-modules works alone",
-			args: []string{"-update-org-modules"},
-			wantCfg: &Config{
-				UpdateOrgModules: true,
-				RepoRemote:       "origin",
-				BranchTrunk:      "develop",
-			},
-			wantErr: false,
-		},
-		{
-			name: "module flag disallowed with update-org-modules",
-			args: []string{
-				"-module", "cli.mod",
-				"-update-org-modules",
-			},
-			wantErr: true,
-		},
-		{
-			name: "config file disallowed with update-org-modules",
-			args: []string{
-				"-config", "testdata/modules.toml",
-				"-update-org-modules",
-			},
-			wantErr: true,
 		},
 	}
 
@@ -140,14 +91,6 @@ func TestParseFlags(t *testing.T) {
 			}
 			if got.ShowVersion != tt.wantCfg.ShowVersion {
 				t.Errorf("ParseFlags() ShowVersion = %v, want %v", got.ShowVersion, tt.wantCfg.ShowVersion)
-			}
-			if len(got.ModulesToUpdate) != len(tt.wantCfg.ModulesToUpdate) {
-				t.Errorf("ParseFlags() ModulesToUpdate length = %v, want %v", len(got.ModulesToUpdate), len(tt.wantCfg.ModulesToUpdate))
-			}
-			for i, module := range got.ModulesToUpdate {
-				if module != tt.wantCfg.ModulesToUpdate[i] {
-					t.Errorf("ParseFlags() ModulesToUpdate[%d] = %v, want %v", i, module, tt.wantCfg.ModulesToUpdate[i])
-				}
 			}
 		})
 	}

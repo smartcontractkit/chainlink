@@ -5,24 +5,15 @@ import (
 	"log"
 	"os"
 
-	"github.com/smartcontractkit/chainlink/tools/gomod-required-updater/internal/updater"
+	"github.com/smartcontractkit/chainlink/v2/tools/gomod-required-updater/internal/updater"
 )
 
 var version = "dev"
 var usage = `gomod-required-updater version %s
 
 Usage:
+  cd /path/to/go/module
   gomod-required-updater [flags]
-
-Examples:
-  # Update modules specified in config file
-  gomod-required-updater -config modules.toml
-
-  # Update specific modules
-  gomod-required-updater -module github.com/org/repo1 -module github.com/org/repo2
-
-  # Dry run with specific modules
-  gomod-required-updater -dry-run -module github.com/org/repo1
 `
 
 func main() {

@@ -4,11 +4,8 @@ Updates required module versions in go.mod files to match the latest git SHA fro
 
 ## Features
 
-- Update modules to latest SHA from specified branch
 - Auto-detect and update modules with local replace directives
-- Update multiple modules at once
 - Preview changes with dry run mode
-- Configure via TOML or command line flags
 
 ## Configuration
 
@@ -24,16 +21,10 @@ modules = [
 Command Line Flags:
 
 ```shell
-Required (one of):
-  -module             Module to update (can be specified multiple times)
-  -config            Path to TOML config file
-  -update-org-modules Auto-detect and update modules with local replaces
-
 Optional:
   -repo-remote      Git remote to use (default: origin)
   -branch-trunk     Branch to get SHA from (default: develop)
-  -root            Root path for searching go.mod files
-  -dry-run         Preview changes without applying them
+  -dry-run         Preview changes without applying them (default: false)
 ```
 
 ## Installation

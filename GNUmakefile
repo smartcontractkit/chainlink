@@ -30,10 +30,6 @@ gomod: ## Ensure chainlink's go dependencies are installed.
 gomodtidy: gomods ## Run go mod tidy on all modules.
 	gomods tidy
 
-.PHONY: gomodrequiredupdater
-gomodrequiredupdater: ## Update go.mod files containing certain required dependencies to use latest psuedo-versions from trunk.
-	cd tools/gomod-required-updater && go run cmd/gomod-required-updater/main.go -update-org-modules -root ../..
-
 .PHONY: docs
 docs: ## Install and run pkgsite to view Go docs
 	go install golang.org/x/pkgsite/cmd/pkgsite@latest
@@ -147,6 +143,12 @@ presubmit: ## Format go files and imports.
 .PHONY: gomods
 gomods: ## Install gomods
 	go install github.com/jmank88/gomods@v0.1.4
+
+.PHONY: gomodrequiredupdater
+gomodrequiredupdater: ## Install and run gomod-required-updater
+	go install ./tools/gomod-required-updater/cmd/gomod-required-updater
+	# TODO: -u is the ideal flag for this with gomods but seg faults.
+	gomods -w gomod-required-updater
 
 .PHONY: mockery
 mockery: $(mockery) ## Install mockery.
