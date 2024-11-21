@@ -39,3 +39,16 @@ jobs:
         shell: bash
         working-directory: tools/gomod-required-updater
         run: go test ./...
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4.2.1
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+        with:
+          go-version-file: tools/gomod-required-updater/go.mod
+          go-module-file: tools/gomod-required-updater/go.sum
+      - name: Build
+        working-directory: tools/gomod-required-updater
+        run: go build -o gomod-required-updater
