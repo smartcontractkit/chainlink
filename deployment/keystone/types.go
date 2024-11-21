@@ -242,25 +242,33 @@ type RegisteredDon struct {
 	Nodes []deployment.Node
 }
 
-func (d RegisteredDon) signers(registryChainSel uint64) []common.Address {
+func (d RegisteredDon) signers(chainFamily string) []common.Address {
 	sort.Slice(d.Nodes, func(i, j int) bool {
 		return d.Nodes[i].PeerID.String() < d.Nodes[j].PeerID.String()
 	})
-	registryChainID, err := chainsel.ChainIdFromSelector(registryChainSel)
-	if err != nil {
-		panic(err)
-	}
-	registryChainDetails, err := chainsel.GetChainDetailsByChainIDAndFamily(strconv.Itoa(int(registryChainID)), chainsel.FamilyEVM)
-	if err != nil {
-		panic(err)
-	}
 	var out []common.Address
 	for _, n := range d.Nodes {
 		if n.IsBootstrap {
 			continue
 		}
+		var found bool
+		var registryChainDetails chainsel.ChainDetails
+		for details, _ := range n.SelToOCRConfig {
+			if family, err := chainsel.GetSelectorFamily(details.ChainSelector); err == nil && family == chainFamily {
+				found = true
+				registryChainDetails = details
+
+			}
+		}
+		if !found {
+			panic(fmt.Sprintf("chainType not found: %v", chainFamily))
+		}
 		// eth address is the first 20 bytes of the Signer
-		signer := n.SelToOCRConfig[registryChainDetails].OnchainPublicKey
+		config, exists := n.SelToOCRConfig[registryChainDetails]
+		if !exists {
+			panic(fmt.Sprintf("chainID not found: %v", registryChainDetails))
+		}
+		signer := config.OnchainPublicKey
 		signerAddress := common.BytesToAddress(signer)
 		out = append(out, signerAddress)
 	}
