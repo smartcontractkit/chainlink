@@ -14,6 +14,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -35,22 +36,8 @@ func (m *mockLogPoller) RegisterFilter(ctx context.Context, filter logpoller.Fil
 func (m *mockLogPoller) Replay(ctx context.Context, fromBlock int64) error {
 	return nil
 }
-func (m *mockLogPoller) LogsWithSigs(ctx context.Context, start, end int64, eventSigs []common.Hash, address common.Address) ([]logpoller.Log, error) {
-	logs := make([]logpoller.Log, 0)
-	for _, log := range m.logs {
-		if log.BlockNumber >= start && log.BlockNumber <= end && log.Address == address {
-			for _, sig := range eventSigs {
-				if log.EventSig == sig {
-					logs = append(logs, log)
-				}
-			}
-		}
-	}
-
-	return logs, nil
-}
-func (m *mockLogPoller) IndexedLogsByBlockRange(ctx context.Context, start, end int64, eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash) ([]logpoller.Log, error) {
-	return m.LogsWithSigs(ctx, start, end, []common.Hash{eventSig}, address)
+func (m *mockLogPoller) FilteredLogs(ctx context.Context, filter []query.Expression, limitAndSort query.LimitAndSort, queryName string) ([]logpoller.Log, error) {
+	return m.logs, nil
 }
 
 type cfg struct {
