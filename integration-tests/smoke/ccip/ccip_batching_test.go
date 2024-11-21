@@ -133,15 +133,11 @@ func Test_CCIPBatching(t *testing.T) {
 		wg.Wait()
 
 		var i int
-	outer:
-		for {
+		for i < len(sourceChains) {
 			select {
 			case err := <-errs:
 				require.NoError(t, err)
 				i++
-				if i == len(sourceChains) {
-					break outer
-				}
 			case <-ctx.Done():
 				require.FailNow(t, "didn't get all errors before test context was done")
 			}
@@ -169,16 +165,12 @@ func Test_CCIPBatching(t *testing.T) {
 
 		i = 0
 		var reports []*offramp.OffRampCommitReportAccepted
-	outer2:
-		for {
+		for i < len(sourceChains) {
 			select {
 			case outputErr := <-outputErrs:
 				require.NoError(t, outputErr.err)
 				reports = append(reports, outputErr.output)
 				i++
-				if i == len(sourceChains) {
-					break outer2
-				}
 			case <-ctx.Done():
 				require.FailNow(t, "didn't get all commit reports before test context was done")
 			}
@@ -212,16 +204,12 @@ func Test_CCIPBatching(t *testing.T) {
 
 		i = 0
 		var execStates []map[uint64]int
-	outer3:
-		for {
+		for i < len(sourceChains) {
 			select {
 			case outputErr := <-execErrs:
 				require.NoError(t, outputErr.err)
 				execStates = append(execStates, outputErr.output)
 				i++
-				if i == len(sourceChains) {
-					break outer3
-				}
 			case <-ctx.Done():
 				require.FailNow(t, "didn't get all exec reports before test context was done")
 			}
