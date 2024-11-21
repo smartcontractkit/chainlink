@@ -22,14 +22,6 @@ func NewSystemOperator() SystemOperator {
 	}
 }
 
-// For testing
-func NewSystemOperatorWithIO(stdout, stderr io.Writer) SystemOperator {
-	return &systemOperator{
-		stdout: stdout,
-		stderr: stderr,
-	}
-}
-
 func (so *systemOperator) ReadFile(path string) ([]byte, error) {
 	return os.ReadFile(path)
 }
