@@ -58,7 +58,7 @@ contract WorkflowRegistry_deleteWorkflow is WorkflowRegistrySetup {
     assertEq(workflow.workflowName, s_validWorkflowName);
 
     // It should emit {WorkflowDeletedV1} when the workflow is deleted.
-    vm.expectEmit(true, true, true, true);
+    vm.expectEmit();
     emit WorkflowRegistry.WorkflowDeletedV1(s_validWorkflowID, s_authorizedAddress, s_allowedDonID, s_validWorkflowName);
 
     // Delete the workflow.
@@ -84,7 +84,7 @@ contract WorkflowRegistry_deleteWorkflow is WorkflowRegistrySetup {
     _removeDONFromAllowedDONs(s_allowedDonID);
 
     // It should emit {WorkflowDeletedV1} when the workflow is deleted.
-    vm.expectEmit(true, true, true, true);
+    vm.expectEmit();
     emit WorkflowRegistry.WorkflowDeletedV1(s_validWorkflowID, s_authorizedAddress, s_allowedDonID, s_validWorkflowName);
 
     // Delete the workflow.

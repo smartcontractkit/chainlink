@@ -173,7 +173,7 @@ contract WorkflowRegistry_registerWorkflow is WorkflowRegistrySetup {
     vm.startPrank(s_authorizedAddress);
 
     // it should emit {WorkflowRegisteredV1}
-    vm.expectEmit(true, true, true, true);
+    vm.expectEmit();
     emit WorkflowRegistry.WorkflowRegisteredV1(
       s_validWorkflowID,
       s_authorizedAddress,

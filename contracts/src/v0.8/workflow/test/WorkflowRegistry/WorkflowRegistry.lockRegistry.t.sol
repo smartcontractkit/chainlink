@@ -5,7 +5,7 @@ import {Ownable2Step} from "../../../shared/access/Ownable2Step.sol";
 import {WorkflowRegistry} from "../../dev/WorkflowRegistry.sol";
 import {WorkflowRegistrySetup} from "./WorkflowRegistrySetup.t.sol";
 
-contract WorkflowRegistrylockRegistry is WorkflowRegistrySetup {
+contract WorkflowRegistry_lockRegistry is WorkflowRegistrySetup {
   function test_RevertWhen_TheCallerIsNotTheContractOwner() external {
     vm.expectRevert(Ownable2Step.OnlyCallableByOwner.selector);
     s_registry.lockRegistry();
@@ -18,6 +18,6 @@ contract WorkflowRegistrylockRegistry is WorkflowRegistrySetup {
     vm.prank(s_owner);
     s_registry.lockRegistry();
 
-    assertEq(s_registry.isRegistryLocked(), true);
+    assertTrue(s_registry.isRegistryLocked());
   }
 }

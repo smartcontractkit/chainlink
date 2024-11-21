@@ -6,8 +6,7 @@ import {WorkflowRegistryWithFixture} from "./WorkflowRegistryWithFixture.t.sol";
 
 contract WorkflowRegistry_getWorkflowMetadataListByDON is WorkflowRegistryWithFixture {
   function test_WhenStartIs0() external view {
-    WorkflowRegistry.WorkflowMetadata[] memory workflows =
-      s_registry.getWorkflowMetadataListByDON(s_allowedDonID, 0, 10);
+    WorkflowRegistry.WorkflowMetadata[] memory workflows = s_registry.getWorkflowMetadataListByDON(s_allowedDonID, 0, 0);
 
     assertEq(workflows.length, 3);
     assertEq(workflows[0].workflowName, s_workflowName1);
@@ -130,6 +129,7 @@ contract WorkflowRegistry_getWorkflowMetadataListByDON is WorkflowRegistryWithFi
     s_registry.lockRegistry();
 
     // It should behave the same as when the registry is not locked
+    vm.prank(s_stranger);
     WorkflowRegistry.WorkflowMetadata[] memory workflows =
       s_registry.getWorkflowMetadataListByDON(s_allowedDonID, 0, 10);
 

@@ -41,7 +41,7 @@ contract WorkflowRegistryManager_getAllVersions is WorkflowRegistryManagerSetup 
 
   function test_WhenLimitExceedsMaximumPaginationLimit() external view {
     // it should return results up to MAX_PAGINATION_LIMIT
-    WorkflowRegistryManager.Version[] memory versions = s_registryManager.getAllVersions(1, 3);
+    WorkflowRegistryManager.Version[] memory versions = s_registryManager.getAllVersions(1, 200);
     assertEq(versions.length, 3);
     assertEq(versions[0].contractAddress, address(s_mockContract1));
     assertEq(versions[1].contractAddress, address(s_mockContract2));

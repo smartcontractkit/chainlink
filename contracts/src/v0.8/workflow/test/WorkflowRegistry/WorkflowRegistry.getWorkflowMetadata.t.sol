@@ -32,6 +32,7 @@ contract WorkflowRegistry_getWorkflowMetadata is WorkflowRegistrySetup {
     s_registry.lockRegistry();
 
     // It should behave the same as when the registry is not locked
+    vm.prank(s_stranger);
     WorkflowRegistry.WorkflowMetadata memory metadata =
       s_registry.getWorkflowMetadata(s_authorizedAddress, s_validWorkflowName);
 

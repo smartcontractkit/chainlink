@@ -38,6 +38,7 @@ contract WorkflowRegistry_getAllAllowedDONs is WorkflowRegistrySetup {
     s_registry.lockRegistry();
 
     // It should behave the same as when the registry is not locked
+    vm.prank(s_stranger);
     uint32[] memory allowedDONs = s_registry.getAllAllowedDONs();
     assertEq(allowedDONs.length, 1);
     assertEq(allowedDONs[0], s_allowedDonID);
