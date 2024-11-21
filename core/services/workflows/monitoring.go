@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 
-	localMonitoring "github.com/smartcontractkit/chainlink/v2/core/monitoring"
+	monutils "github.com/smartcontractkit/chainlink/v2/core/monitoring"
 )
 
 var registerTriggerFailureCounter metric.Int64Counter
@@ -19,13 +19,14 @@ var capabilityInvocationCounter metric.Int64Counter
 var capabilityFailureCounter metric.Int64Counter
 var workflowRegisteredCounter metric.Int64Counter
 var workflowUnregisteredCounter metric.Int64Counter
-var workflowExecutionFinishedCounter metric.Int64Counter
 var workflowExecutionLatencyGauge metric.Int64Gauge // ms
 var workflowStepErrorCounter metric.Int64Counter
-var workflowStepStartedCounter metric.Int64Counter
-var workflowStepFinishedCounter metric.Int64Counter
 var workflowInitializationCounter metric.Int64Counter
-var engineHeartbeatCounter metric.Int64UpDownCounter
+var engineHeartbeatCounter metric.Int64Counter
+var workflowCompletedDurationSeconds metric.Int64Histogram
+var workflowEarlyExitDurationSeconds metric.Int64Histogram
+var workflowErrorDurationSeconds metric.Int64Histogram
+var workflowTimeoutDurationSeconds metric.Int64Histogram
 
 func initMonitoringResources() (err error) {
 	registerTriggerFailureCounter, err = beholder.GetMeter().Int64Counter("platform_engine_registertrigger_failures")
@@ -63,24 +64,9 @@ func initMonitoringResources() (err error) {
 		return fmt.Errorf("failed to register workflow unregistered counter: %w", err)
 	}
 
-	workflowExecutionFinishedCounter, err = beholder.GetMeter().Int64Counter("platform_engine_execution_finished_count")
-	if err != nil {
-		return fmt.Errorf("failed to register workflow execution finished counter: %w", err)
-	}
-
 	workflowExecutionLatencyGauge, err = beholder.GetMeter().Int64Gauge("platform_engine_workflow_time")
 	if err != nil {
 		return fmt.Errorf("failed to register workflow execution latency gauge: %w", err)
-	}
-
-	workflowStepStartedCounter, err = beholder.GetMeter().Int64Counter("platform_engine_workflow_steps_started")
-	if err != nil {
-		return fmt.Errorf("failed to register workflow step started counter: %w", err)
-	}
-
-	workflowStepFinishedCounter, err = beholder.GetMeter().Int64Counter("platform_engine_workflow_steps_finished")
-	if err != nil {
-		return fmt.Errorf("failed to register workflow step finished counter: %w", err)
 	}
 
 	workflowInitializationCounter, err = beholder.GetMeter().Int64Counter("platform_engine_workflow_initializations")
@@ -93,9 +79,41 @@ func initMonitoringResources() (err error) {
 		return fmt.Errorf("failed to register workflow step error counter: %w", err)
 	}
 
-	engineHeartbeatCounter, err = beholder.GetMeter().Int64UpDownCounter("platform_engine_heartbeat")
+	engineHeartbeatCounter, err = beholder.GetMeter().Int64Counter("platform_engine_heartbeat")
 	if err != nil {
 		return fmt.Errorf("failed to register engine heartbeat counter: %w", err)
+	}
+
+	workflowCompletedDurationSeconds, err = beholder.GetMeter().Int64Histogram(
+		"platform_engine_workflow_completed_time_seconds",
+		metric.WithDescription("Distribution of completed execution latencies"),
+		metric.WithUnit("seconds"))
+	if err != nil {
+		return fmt.Errorf("failed to register completed duration histogram: %w", err)
+	}
+
+	workflowEarlyExitDurationSeconds, err = beholder.GetMeter().Int64Histogram(
+		"platform_engine_workflow_earlyexit_time_seconds",
+		metric.WithDescription("Distribution of earlyexit execution latencies"),
+		metric.WithUnit("seconds"))
+	if err != nil {
+		return fmt.Errorf("failed to register early exit duration histogram: %w", err)
+	}
+
+	workflowErrorDurationSeconds, err = beholder.GetMeter().Int64Histogram(
+		"platform_engine_workflow_error_time_seconds",
+		metric.WithDescription("Distribution of error execution latencies"),
+		metric.WithUnit("seconds"))
+	if err != nil {
+		return fmt.Errorf("failed to register error duration histogram: %w", err)
+	}
+
+	workflowTimeoutDurationSeconds, err = beholder.GetMeter().Int64Histogram(
+		"platform_engine_workflow_timeout_time_seconds",
+		metric.WithDescription("Distribution of timeout execution latencies"),
+		metric.WithUnit("seconds"))
+	if err != nil {
+		return fmt.Errorf("failed to register timeout duration histogram: %w", err)
 	}
 
 	return nil
@@ -112,71 +130,76 @@ func (c workflowsMetricLabeler) with(keyValues ...string) workflowsMetricLabeler
 }
 
 func (c workflowsMetricLabeler) incrementRegisterTriggerFailureCounter(ctx context.Context) {
-	otelLabels := localMonitoring.KvMapToOtelAttributes(c.Labels)
+	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
 	registerTriggerFailureCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
 func (c workflowsMetricLabeler) incrementTriggerWorkflowStarterErrorCounter(ctx context.Context) {
-	otelLabels := localMonitoring.KvMapToOtelAttributes(c.Labels)
+	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
 	triggerWorkflowStarterErrorCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
 func (c workflowsMetricLabeler) incrementCapabilityInvocationCounter(ctx context.Context) {
-	otelLabels := localMonitoring.KvMapToOtelAttributes(c.Labels)
+	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
 	capabilityInvocationCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
 func (c workflowsMetricLabeler) updateWorkflowExecutionLatencyGauge(ctx context.Context, val int64) {
-	otelLabels := localMonitoring.KvMapToOtelAttributes(c.Labels)
+	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
 	workflowExecutionLatencyGauge.Record(ctx, val, metric.WithAttributes(otelLabels...))
 }
 
 func (c workflowsMetricLabeler) incrementTotalWorkflowStepErrorsCounter(ctx context.Context) {
-	otelLabels := localMonitoring.KvMapToOtelAttributes(c.Labels)
+	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
 	workflowStepErrorCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
 func (c workflowsMetricLabeler) updateTotalWorkflowsGauge(ctx context.Context, val int64) {
-	otelLabels := localMonitoring.KvMapToOtelAttributes(c.Labels)
+	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
 	workflowsRunningGauge.Record(ctx, val, metric.WithAttributes(otelLabels...))
 }
 
 func (c workflowsMetricLabeler) incrementEngineHeartbeatCounter(ctx context.Context) {
-	otelLabels := localMonitoring.KvMapToOtelAttributes(c.Labels)
+	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
 	engineHeartbeatCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
 func (c workflowsMetricLabeler) incrementCapabilityFailureCounter(ctx context.Context) {
-	otelLabels := localMonitoring.KvMapToOtelAttributes(c.Labels)
+	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
 	capabilityFailureCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
 func (c workflowsMetricLabeler) incrementWorkflowRegisteredCounter(ctx context.Context) {
-	otelLabels := localMonitoring.KvMapToOtelAttributes(c.Labels)
+	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
 	workflowRegisteredCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
 func (c workflowsMetricLabeler) incrementWorkflowUnregisteredCounter(ctx context.Context) {
-	otelLabels := localMonitoring.KvMapToOtelAttributes(c.Labels)
+	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
 	workflowUnregisteredCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
-func (c workflowsMetricLabeler) incrementWorkflowExecutionFinishedCounter(ctx context.Context) {
-	otelLabels := localMonitoring.KvMapToOtelAttributes(c.Labels)
-	workflowExecutionFinishedCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
-}
-
-func (c workflowsMetricLabeler) incrementWorkflowStepStartedCounter(ctx context.Context) {
-	otelLabels := localMonitoring.KvMapToOtelAttributes(c.Labels)
-	workflowStepStartedCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
-}
-
-func (c workflowsMetricLabeler) incrementWorkflowStepFinishedCounter(ctx context.Context) {
-	otelLabels := localMonitoring.KvMapToOtelAttributes(c.Labels)
-	workflowStepFinishedCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
-}
-
 func (c workflowsMetricLabeler) incrementWorkflowInitializationCounter(ctx context.Context) {
-	otelLabels := localMonitoring.KvMapToOtelAttributes(c.Labels)
+	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
 	workflowInitializationCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+func (c workflowsMetricLabeler) updateWorkflowCompletedDurationHistogram(ctx context.Context, duration int64) {
+	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
+	workflowCompletedDurationSeconds.Record(ctx, duration, metric.WithAttributes(otelLabels...))
+}
+
+func (c workflowsMetricLabeler) updateWorkflowEarlyExitDurationHistogram(ctx context.Context, duration int64) {
+	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
+	workflowEarlyExitDurationSeconds.Record(ctx, duration, metric.WithAttributes(otelLabels...))
+}
+
+func (c workflowsMetricLabeler) updateWorkflowErrorDurationHistogram(ctx context.Context, duration int64) {
+	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
+	workflowErrorDurationSeconds.Record(ctx, duration, metric.WithAttributes(otelLabels...))
+}
+
+func (c workflowsMetricLabeler) updateWorkflowTimeoutDurationHistogram(ctx context.Context, duration int64) {
+	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
+	workflowTimeoutDurationSeconds.Record(ctx, duration, metric.WithAttributes(otelLabels...))
 }

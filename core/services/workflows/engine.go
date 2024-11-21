@@ -675,7 +675,6 @@ func (e *Engine) queueIfReady(state store.WorkflowExecution, step *step) {
 
 func (e *Engine) finishExecution(ctx context.Context, cma custmsg.MessageEmitter, executionID string, status string) error {
 	l := e.logger.With(platform.KeyWorkflowExecutionID, executionID, "status", status)
-	metrics := e.metrics.with("status", status)
 
 	l.Info("finishing execution")
 
@@ -689,19 +688,28 @@ func (e *Engine) finishExecution(ctx context.Context, cma custmsg.MessageEmitter
 		return err
 	}
 
-	executionDuration := execState.FinishedAt.Sub(*execState.CreatedAt).Milliseconds()
-
 	e.stepUpdatesChMap.remove(executionID)
-	metrics.updateTotalWorkflowsGauge(ctx, e.stepUpdatesChMap.len())
-	metrics.updateWorkflowExecutionLatencyGauge(ctx, executionDuration)
-	metrics.incrementWorkflowExecutionFinishedCounter(ctx)
+
+	executionDuration := int64(execState.FinishedAt.Sub(*execState.CreatedAt).Seconds())
+	switch status {
+	case store.StatusCompleted:
+		e.metrics.updateWorkflowCompletedDurationHistogram(ctx, executionDuration)
+	case store.StatusCompletedEarlyExit:
+		e.metrics.updateWorkflowEarlyExitDurationHistogram(ctx, executionDuration)
+	case store.StatusErrored:
+		e.metrics.updateWorkflowErrorDurationHistogram(ctx, executionDuration)
+	case store.StatusTimeout:
+		// should expect the same values unless the timeout is adjusted.
+		// using histogram as it gives count of executions for free
+		e.metrics.updateWorkflowTimeoutDurationHistogram(ctx, executionDuration)
+	}
 
 	if executionDuration > fifteenMinutesMs {
-		logCustMsg(ctx, cma, fmt.Sprintf("execution duration exceeded 15 minutes: %d", executionDuration), l)
-		l.Warnf("execution duration exceeded 15 minutes: %d", executionDuration)
+		logCustMsg(ctx, cma, fmt.Sprintf("execution duration exceeded 15 minutes: %d (seconds)", executionDuration), l)
+		l.Warnf("execution duration exceeded 15 minutes: %d (seconds)", executionDuration)
 	}
-	logCustMsg(ctx, cma, fmt.Sprintf("execution duration: %d", executionDuration), l)
-	l.Infof("execution duration: %d", executionDuration)
+	logCustMsg(ctx, cma, fmt.Sprintf("execution duration: %d (seconds)", executionDuration), l)
+	l.Infof("execution duration: %d (seconds)", executionDuration)
 	e.onExecutionFinished(executionID)
 	return nil
 }
@@ -771,7 +779,6 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 
 	// TODO ks-462 inputs
 	logCustMsg(ctx, cma, "executing step", l)
-	e.metrics.with(platform.KeyStepRef, msg.stepRef).incrementWorkflowStepStartedCounter(ctx)
 
 	stepCtx, cancel := context.WithTimeout(ctx, e.stepTimeoutDuration)
 	defer cancel()
@@ -796,7 +803,6 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 		logCustMsg(ctx, cma, lmsg, l)
 		stepStatus = store.StatusCompleted
 	}
-	e.metrics.with(platform.KeyStepRef, msg.stepRef, "status", stepStatus).incrementWorkflowStepFinishedCounter(ctx)
 
 	stepState.Status = stepStatus
 	stepState.Outputs.Value = outputs
@@ -1062,6 +1068,7 @@ func (e *Engine) isWorkflowFullyProcessed(ctx context.Context, state store.Workf
 	return workflowProcessed, store.StatusCompleted, nil
 }
 
+// heartbeat runs by default every defaultHeartbeatCadence minutes
 func (e *Engine) heartbeat(ctx context.Context) {
 	defer e.wg.Done()
 
@@ -1075,6 +1082,7 @@ func (e *Engine) heartbeat(ctx context.Context) {
 			return
 		case <-ticker.C:
 			e.metrics.incrementEngineHeartbeatCounter(ctx)
+			e.metrics.updateTotalWorkflowsGauge(ctx, e.stepUpdatesChMap.len())
 			logCustMsg(ctx, e.cma, "engine heartbeat at: "+e.clock.Now().Format(time.RFC3339), e.logger)
 		}
 	}
