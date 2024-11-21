@@ -223,11 +223,35 @@ func (n Nodes) BootstrapLocators() []string {
 
 type Node struct {
 	NodeID         string
-	SelToOCRConfig map[uint64]OCRConfig
+	SelToOCRConfig map[chain_selectors.ChainDetails]OCRConfig
 	PeerID         p2pkey.PeerID
 	IsBootstrap    bool
 	MultiAddr      string
 	AdminAddr      string
+}
+
+func (n Node) OCRConfigForChainDetails(details chain_selectors.ChainDetails) (OCRConfig, bool) {
+	c, ok := n.SelToOCRConfig[details]
+	return c, ok
+}
+
+func (n Node) OCRConfigForChainSelector(chainSel uint64) (OCRConfig, bool) {
+	fam, err := chain_selectors.GetSelectorFamily(chainSel)
+	if err != nil {
+		return OCRConfig{}, false
+	}
+
+	id, err := chain_selectors.GetChainIDFromSelector(chainSel)
+	if err != nil {
+		return OCRConfig{}, false
+	}
+
+	want, err := chain_selectors.GetChainDetailsByChainIDAndFamily(id, fam)
+	if err != nil {
+		return OCRConfig{}, false
+	}
+	c, ok := n.SelToOCRConfig[want]
+	return c, ok
 }
 
 func (n Node) FirstOCRKeybundle() OCRConfig {
@@ -261,16 +285,12 @@ func NodeInfo(nodeIDs []string, oc NodeChainConfigsLister) (Nodes, error) {
 		if err != nil {
 			return nil, err
 		}
-		selToOCRConfig := make(map[uint64]OCRConfig)
+		selToOCRConfig := make(map[chain_selectors.ChainDetails]OCRConfig)
 		bootstrap := false
 		var peerID p2pkey.PeerID
 		var multiAddr string
 		var adminAddr string
 		for _, chainConfig := range nodeChainConfigs.ChainConfigs {
-			if chainConfig.Chain.Type == nodev1.ChainType_CHAIN_TYPE_SOLANA {
-				// Note supported for CCIP yet.
-				continue
-			}
 			// NOTE: Assume same peerID/multiAddr for all chains.
 			// Might make sense to change proto as peerID/multiAddr is 1-1 with nodeID?
 			peerID = MustPeerIDFromString(chainConfig.Ocr2Config.P2PKeyBundle.PeerId)
@@ -282,14 +302,6 @@ func NodeInfo(nodeIDs []string, oc NodeChainConfigsLister) (Nodes, error) {
 				bootstrap = true
 				break
 			}
-			evmChainID, err := strconv.Atoi(chainConfig.Chain.Id)
-			if err != nil {
-				return nil, err
-			}
-			sel, err := chain_selectors.SelectorFromChainId(uint64(evmChainID))
-			if err != nil {
-				return nil, err
-			}
 			b := common.Hex2Bytes(chainConfig.Ocr2Config.OcrKeyBundle.OffchainPublicKey)
 			var opk types2.OffchainPublicKey
 			copy(opk[:], b)
@@ -298,7 +310,7 @@ func NodeInfo(nodeIDs []string, oc NodeChainConfigsLister) (Nodes, error) {
 			var cpk types3.ConfigEncryptionPublicKey
 			copy(cpk[:], b)
 
-			selToOCRConfig[sel] = OCRConfig{
+			ocrConfig := OCRConfig{
 				OffchainPublicKey:         opk,
 				OnchainPublicKey:          common.HexToAddress(chainConfig.Ocr2Config.OcrKeyBundle.OnchainSigningAddress).Bytes(),
 				PeerID:                    MustPeerIDFromString(chainConfig.Ocr2Config.P2PKeyBundle.PeerId),
@@ -306,6 +318,41 @@ func NodeInfo(nodeIDs []string, oc NodeChainConfigsLister) (Nodes, error) {
 				ConfigEncryptionPublicKey: cpk,
 				KeyBundleID:               chainConfig.Ocr2Config.OcrKeyBundle.BundleId,
 			}
+
+			var details chain_selectors.ChainDetails
+			switch chainConfig.Chain.Type {
+			case nodev1.ChainType_CHAIN_TYPE_APTOS:
+				cid, err := strconv.Atoi(chainConfig.Chain.Id)
+				if err != nil {
+					return nil, err
+				}
+				var exists bool
+				_, exists = chain_selectors.AptosChainIdToChainSelector()[uint64(cid)]
+				if !exists {
+					return nil, fmt.Errorf("aptos chain id %d not found", cid)
+				}
+				details, err = chain_selectors.GetChainDetailsByChainIDAndFamily(chainConfig.Chain.Id, chain_selectors.FamilyAptos)
+				if err != nil {
+					return nil, err
+				}
+			case nodev1.ChainType_CHAIN_TYPE_EVM:
+				evmChainID, err := strconv.Atoi(chainConfig.Chain.Id)
+				if err != nil {
+					return nil, err
+				}
+				_, err = chain_selectors.SelectorFromChainId(uint64(evmChainID))
+				if err != nil {
+					return nil, err
+				}
+				details, err = chain_selectors.GetChainDetailsByChainIDAndFamily(chainConfig.Chain.Id, chain_selectors.FamilyEVM)
+				if err != nil {
+					return nil, err
+				}
+			default:
+				return nil, fmt.Errorf("unsupported chain type %s", chainConfig.Chain.Type)
+			}
+
+			selToOCRConfig[details] = ocrConfig
 		}
 		nodes = append(nodes, Node{
 			NodeID:         nodeID,
