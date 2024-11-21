@@ -106,7 +106,9 @@ func deployPrerequisiteChainContracts(e deployment.Environment, ab deployment.Ad
 func deployPrerequisiteContracts(e deployment.Environment, ab deployment.AddressBook, state CCIPOnChainState, chain deployment.Chain, opts ...PrerequisiteOpt) error {
 	deployOpts := &DeployPrerequisiteContractsOpts{}
 	for _, opt := range opts {
-		opt(deployOpts)
+		if opt != nil {
+			opt(deployOpts)
+		}
 	}
 	var isUSDC bool
 	for _, sel := range deployOpts.USDCEnabledChains {
