@@ -112,6 +112,7 @@ func NewLocalDevEnvironment(
 		crConfig,
 		testEnv, cfg)
 	require.NoError(t, err)
+
 	e, don, err := devenv.NewEnvironment(ctx, lggr, *envConfig)
 	require.NoError(t, err)
 	require.NotNil(t, e)
@@ -122,7 +123,6 @@ func NewLocalDevEnvironment(
 	FundNodes(t, zeroLogLggr, testEnv, cfg, don.PluginNodes())
 
 	env := *e
-
 	envNodes, err := deployment.NodeInfo(env.NodeIDs, env.Offchain)
 	require.NoError(t, err)
 	allChains := env.AllChainSelectors()
@@ -166,6 +166,13 @@ func NewLocalDevEnvironment(
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployMCMSWithTimelock),
 			Config:    mcmsCfg,
 		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(changeset.DeployChainContracts),
+			Config: changeset.DeployChainContractsConfig{
+				ChainSelectors:    allChains,
+				HomeChainSelector: homeChainSel,
+			},
+		},
 	}
 	ctx = testcontext.Get(t)
 	// no proposals to be made, timelock can be passed as nil here
@@ -203,16 +210,6 @@ func NewLocalDevEnvironment(
 	// Deploy second set of changesets to deploy and configure the CCIP contracts.
 	cs02 := []commonchangeset.ChangesetApplication{
 		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.DeployChainContracts),
-			Config: changeset.DeployChainContractsConfig{
-				ChainSelectors:    allChains,
-				HomeChainSelector: homeChainSel,
-			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.CCIPCapabilityJobspec),
-		},
-		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.InitialAddChain),
 			Config: changeset.DeployCCIPContractConfig{
 				HomeChainSel:   homeChainSel,
@@ -227,6 +224,9 @@ func NewLocalDevEnvironment(
 				},
 			},
 		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(changeset.CCIPCapabilityJobspec),
+		},
 	}
 
 	env, err = commonchangeset.ApplyChangesets(ctx, env, timelocksPerChain, cs02)
@@ -236,7 +236,7 @@ func NewLocalDevEnvironment(
 	changeset.ReplayLogs(t, e.Offchain, replayBlocks)
 
 	return changeset.DeployedEnv{
-		Env:          *e,
+		Env:          env,
 		HomeChainSel: homeChainSel,
 		FeedChainSel: feedSel,
 		ReplayBlocks: replayBlocks,
@@ -579,41 +579,58 @@ func FundNodes(t *testing.T, lggr zerolog.Logger, env *test_env.CLClusterTestEnv
 			}
 		}
 	})
+	fundGrp := errgroup.Group{}
 	for i := range evmNetworks {
-		evmNetwork := evmNetworks[i]
-		sethClient, err := utils.TestAwareSethClient(t, cfg, &evmNetwork)
-		require.NoError(t, err, "Error getting seth client for network %s", evmNetwork.Name)
-		require.Greater(t, len(sethClient.PrivateKeys), 0, seth.ErrNoKeyLoaded)
-		privateKey := sethClient.PrivateKeys[0]
-		if evmNetwork.ChainID < 0 {
-			t.Fatalf("negative chain ID: %d", evmNetwork.ChainID)
-		}
-		for _, node := range nodes {
-			nodeAddr, ok := node.AccountAddr[uint64(evmNetwork.ChainID)]
-			require.True(t, ok, "Account address not found for chain %d", evmNetwork.ChainID)
-			fromAddress, err := actions.PrivateKeyToAddress(privateKey)
-			require.NoError(t, err, "Error getting address from private key")
-			amount := big.NewFloat(pointer.GetFloat64(cfg.Common.ChainlinkNodeFunding))
-			toAddr := common.HexToAddress(nodeAddr)
-			receipt, err := actions.SendFunds(lggr, sethClient, actions.FundsToSendPayload{
-				ToAddress:  toAddr,
-				Amount:     conversions.EtherToWei(amount),
-				PrivateKey: privateKey,
-			})
-			require.NoError(t, err, "Error sending funds to node %s", node.Name)
-			require.NotNil(t, receipt, "Receipt is nil")
-			txHash := "(none)"
-			if receipt != nil {
-				txHash = receipt.TxHash.String()
+		fundGrp.Go(func() error {
+			evmNetwork := evmNetworks[i]
+			sethClient, err := utils.TestAwareSethClient(t, cfg, &evmNetwork)
+			if err != nil {
+				return fmt.Errorf("error getting seth client for network %s: %w", evmNetwork.Name, err)
 			}
-			lggr.Info().
-				Str("From", fromAddress.Hex()).
-				Str("To", toAddr.String()).
-				Str("TxHash", txHash).
-				Str("Amount", amount.String()).
-				Msg("Funded Chainlink node")
-		}
+			if len(sethClient.PrivateKeys) == 0 {
+				return fmt.Errorf(seth.ErrNoKeyLoaded)
+			}
+			privateKey := sethClient.PrivateKeys[0]
+			if evmNetwork.ChainID < 0 {
+				return fmt.Errorf("negative chain ID: %d", evmNetwork.ChainID)
+			}
+			for _, node := range nodes {
+				nodeAddr, ok := node.AccountAddr[uint64(evmNetwork.ChainID)]
+				if !ok {
+					return fmt.Errorf("account address not found for chain %d", evmNetwork.ChainID)
+				}
+				fromAddress, err := actions.PrivateKeyToAddress(privateKey)
+				if err != nil {
+					return fmt.Errorf("error getting address from private key: %w", err)
+				}
+				amount := big.NewFloat(pointer.GetFloat64(cfg.Common.ChainlinkNodeFunding))
+				toAddr := common.HexToAddress(nodeAddr)
+				receipt, err := actions.SendFunds(lggr, sethClient, actions.FundsToSendPayload{
+					ToAddress:  toAddr,
+					Amount:     conversions.EtherToWei(amount),
+					PrivateKey: privateKey,
+				})
+				if err != nil {
+					return fmt.Errorf("error sending funds to node %s: %w", node.Name, err)
+				}
+				if receipt == nil {
+					return fmt.Errorf("receipt is nil")
+				}
+				txHash := "(none)"
+				if receipt != nil {
+					txHash = receipt.TxHash.String()
+				}
+				lggr.Info().
+					Str("From", fromAddress.Hex()).
+					Str("To", toAddr.String()).
+					Str("TxHash", txHash).
+					Str("Amount", amount.String()).
+					Msg("Funded Chainlink node")
+			}
+			return nil
+		})
 	}
+	require.NoError(t, fundGrp.Wait(), "Error funding chainlink nodes")
 }
 
 // CreateChainConfigFromNetworks creates a list of ChainConfig from the network config provided in test config.

@@ -7,8 +7,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/pkg/errors"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -73,15 +73,20 @@ func DeployPrerequisiteChainContracts(e deployment.Environment, ab deployment.Ad
 	for _, chain := range usdcEnabledChains {
 		mapUSDCEnabledChains[chain] = true
 	}
+	deployGrp := errgroup.Group{}
 	for _, sel := range selectors {
 		chain := e.Chains[sel]
 		usdcEnabled := mapUSDCEnabledChains[sel]
-		err = DeployPrerequisiteContracts(e, ab, state, chain, usdcEnabled)
-		if err != nil {
-			return errors.Wrapf(err, "failed to deploy prerequisite contracts for chain %d", sel)
-		}
+		deployGrp.Go(func() error {
+			err := DeployPrerequisiteContracts(e, ab, state, chain, usdcEnabled)
+			if err != nil {
+				e.Logger.Errorw("Failed to deploy prerequisite contracts", "chain", sel, "err", err)
+				return err
+			}
+			return nil
+		})
 	}
-	return nil
+	return deployGrp.Wait()
 }
 
 // DeployPrerequisiteContracts deploys the contracts that can be ported from previous CCIP version to the new one.
@@ -527,6 +532,7 @@ func DeployChainContractsForChains(
 		e.Logger.Errorw("Failed to get rmn home", "err", err)
 		return fmt.Errorf("rmn home not found")
 	}
+	deployGrp := errgroup.Group{}
 	for _, chainSel := range chainsToDeploy {
 		chain, ok := e.Chains[chainSel]
 		if !ok {
@@ -535,11 +541,19 @@ func DeployChainContractsForChains(
 		if existingState.Chains[chainSel].LinkToken == nil || existingState.Chains[chainSel].Weth9 == nil {
 			return fmt.Errorf("fee tokens not found for chain %d", chainSel)
 		}
-		err := deployChainContracts(e, chain, ab, rmnHome)
-		if err != nil {
-			e.Logger.Errorw("Failed to deploy chain contracts", "chain", chainSel, "err", err)
-			return fmt.Errorf("failed to deploy chain contracts for chain %d: %w", chainSel, err)
-		}
+		deployGrp.Go(
+			func() error {
+				err := deployChainContracts(e, chain, ab, rmnHome)
+				if err != nil {
+					e.Logger.Errorw("Failed to deploy chain contracts", "chain", chainSel, "err", err)
+					return fmt.Errorf("failed to deploy chain contracts for chain %d: %w", chainSel, err)
+				}
+				return nil
+			})
+	}
+	if err := deployGrp.Wait(); err != nil {
+		e.Logger.Errorw("Failed to deploy chain contracts", "err", err)
+		return err
 	}
 	return nil
 }
