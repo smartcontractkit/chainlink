@@ -2,15 +2,13 @@ package syncer
 
 import (
 	"context"
-	"errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 )
 
-type WorkflowSecretsDS interface {
+type ORM interface {
 	// GetSecretsURLByID returns the secrets URL for the given ID.
 	GetSecretsURLByID(ctx context.Context, id int64) (string, error)
 
@@ -32,15 +30,6 @@ type WorkflowSecretsDS interface {
 	Create(ctx context.Context, secretsURL, hash, contents string) (int64, error)
 }
 
-type WorkflowSpecsDS interface {
-	CreateWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) (int64, error)
-}
-
-type ORM interface {
-	WorkflowSecretsDS
-	WorkflowSpecsDS
-}
-
 type WorkflowRegistryDS = ORM
 
 type orm struct {
@@ -48,7 +37,7 @@ type orm struct {
 	lggr logger.Logger
 }
 
-var _ WorkflowRegistryDS = (*orm)(nil)
+var _ ORM = (*orm)(nil)
 
 func NewWorkflowRegistryDS(ds sqlutil.DataSource, lggr logger.Logger) *orm {
 	return &orm{
@@ -147,8 +136,4 @@ func (orm *orm) Create(ctx context.Context, url, hash, contents string) (int64, 
 
 func (orm *orm) GetSecretsURLHash(owner, secretsURL []byte) ([]byte, error) {
 	return crypto.Keccak256(append(owner, secretsURL...))
-}
-
-func (orm *orm) CreateWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) (int64, error) {
-	return 0, errors.New("not implemented")
 }
