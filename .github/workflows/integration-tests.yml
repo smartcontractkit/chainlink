@@ -592,6 +592,7 @@ jobs:
       ]
     env:
       CONTRACT_ARTIFACTS_PATH: contracts/target/deploy
+      GOTOOLCHAIN: auto
     steps:
       - name: Checkout the repo
         if: (needs.changes.outputs.core_changes == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'
@@ -611,8 +612,6 @@ jobs:
         with:
           repository: chainlink-solana-tests
           tag: ${{ needs.get_solana_sha.outputs.sha }}
-          env:
-            GOTOOLCHAIN: auto
           suites: smoke
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
