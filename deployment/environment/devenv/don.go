@@ -335,8 +335,30 @@ func (n *Node) RegisterNodeToJobDistributor(ctx context.Context, jd JobDistribut
 		Labels:    n.labels,
 		Name:      n.Name,
 	})
-
-	if err != nil {
+	// node already registered, fetch it's id
+	// TODO: check for rpc code = "AlreadyExists" instead
+	if err != nil && strings.Contains(err.Error(), "AlreadyExists") {
+		nodesResponse, err := jd.ListNodes(ctx, &nodev1.ListNodesRequest{
+			Filter: &nodev1.ListNodesRequest_Filter{
+				Selectors: []*ptypes.Selector{
+					{
+						Key:   "p2p_id",
+						Op:    ptypes.SelectorOp_EQ,
+						Value: peerID,
+					},
+				},
+			},
+		})
+		if err != nil {
+			return err
+		}
+		nodes := nodesResponse.GetNodes()
+		if len(nodes) == 0 {
+			return fmt.Errorf("failed to find node: %v", n.Name)
+		}
+		n.NodeId = nodes[0].Id
+		return nil
+	} else if err != nil {
 		return fmt.Errorf("failed to register node %s: %w", n.Name, err)
 	}
 	if registerResponse.GetNode().GetId() == "" {
@@ -372,7 +394,7 @@ func (n *Node) SetUpAndLinkJobDistributor(ctx context.Context, jd JobDistributor
 	}
 	// now create the job distributor in the node
 	id, err := n.CreateJobDistributor(ctx, jd)
-	if err != nil {
+	if err != nil && !strings.Contains(err.Error(), "DuplicateFeedsManagerError") {
 		return err
 	}
 	// wait for the node to connect to the job distributor
@@ -381,7 +403,7 @@ func (n *Node) SetUpAndLinkJobDistributor(ctx context.Context, jd JobDistributor
 			Id: n.NodeId,
 		})
 		if err != nil {
-			return fmt.Errorf("failed to get node %s: %w", n.Name, err)
+			return retry.RetryableError(fmt.Errorf("failed to get node %s: %w", n.Name, err))
 		}
 		if getRes.GetNode() == nil {
 			return fmt.Errorf("no node found for node id %s", n.NodeId)

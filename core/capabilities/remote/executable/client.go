@@ -140,40 +140,10 @@ func (c *client) Info(ctx context.Context) (commoncap.CapabilityInfo, error) {
 }
 
 func (c *client) RegisterToWorkflow(ctx context.Context, registerRequest commoncap.RegisterToWorkflowRequest) error {
-	req, err := request.NewClientRegisterToWorkflowRequest(ctx, c.lggr, registerRequest, c.remoteCapabilityInfo, c.localDONInfo, c.dispatcher,
-		c.requestTimeout)
-
-	if err != nil {
-		return fmt.Errorf("failed to create client request: %w", err)
-	}
-
-	if err = c.sendRequest(req); err != nil {
-		return fmt.Errorf("failed to send request: %w", err)
-	}
-
-	resp := <-req.ResponseChan()
-	if resp.Err != nil {
-		return fmt.Errorf("error executing request: %w", resp.Err)
-	}
 	return nil
 }
 
 func (c *client) UnregisterFromWorkflow(ctx context.Context, unregisterRequest commoncap.UnregisterFromWorkflowRequest) error {
-	req, err := request.NewClientUnregisterFromWorkflowRequest(ctx, c.lggr, unregisterRequest, c.remoteCapabilityInfo,
-		c.localDONInfo, c.dispatcher, c.requestTimeout)
-
-	if err != nil {
-		return fmt.Errorf("failed to create client request: %w", err)
-	}
-
-	if err = c.sendRequest(req); err != nil {
-		return fmt.Errorf("failed to send request: %w", err)
-	}
-
-	resp := <-req.ResponseChan()
-	if resp.Err != nil {
-		return fmt.Errorf("error executing request: %w", resp.Err)
-	}
 	return nil
 }
 

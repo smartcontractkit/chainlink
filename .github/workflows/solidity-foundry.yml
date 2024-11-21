@@ -30,7 +30,7 @@ jobs:
           cat <<EOF > matrix.json
           [
             { "name": "automation", "setup": { "run-coverage": false, "min-coverage": 98.5, "run-gas-snapshot": false, "run-forge-fmt": false }},
-            { "name": "ccip", "setup": { "run-coverage": true, "min-coverage": 98.8, "run-gas-snapshot": true, "run-forge-fmt": true }},
+            { "name": "ccip", "setup": { "run-coverage": true, "min-coverage": 98.8, "extra-coverage-params": "--no-match-path='*End2End*'", "run-gas-snapshot": true, "run-forge-fmt": true }},
             { "name": "functions", "setup": { "run-coverage": false, "min-coverage": 98.5, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "keystone", "setup": { "run-coverage": true, "min-coverage": 72.8, "run-gas-snapshot": false, "run-forge-fmt": false }},
             { "name": "l2ep", "setup": { "run-coverage": true, "min-coverage": 61.0, "run-gas-snapshot": true, "run-forge-fmt": false }},

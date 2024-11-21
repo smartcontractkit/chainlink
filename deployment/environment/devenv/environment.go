@@ -34,15 +34,17 @@ func NewEnvironment(ctx context.Context, lggr logger.Logger, config EnvironmentC
 	if !ok {
 		return nil, nil, fmt.Errorf("offchain client does not implement JobDistributor")
 	}
-	if jd == nil || jd.don == nil {
-		return nil, nil, fmt.Errorf("offchain client does not have a DON")
+	if jd == nil {
+		return nil, nil, fmt.Errorf("offchain client is not set up")
 	}
-
-	err = jd.don.CreateSupportedChains(ctx, config.Chains, *jd)
-	if err != nil {
-		return nil, nil, err
+	var nodeIDs []string
+	if jd.don != nil {
+		err = jd.don.CreateSupportedChains(ctx, config.Chains, *jd)
+		if err != nil {
+			return nil, nil, err
+		}
+		nodeIDs = jd.don.NodeIds()
 	}
-	nodeIDs := jd.don.NodeIds()
 
 	return deployment.NewEnvironment(
 		DevEnv,

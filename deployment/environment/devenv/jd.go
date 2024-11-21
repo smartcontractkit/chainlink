@@ -45,8 +45,9 @@ func authTokenInterceptor(source oauth2.TokenSource) grpc.UnaryClientInterceptor
 }
 
 func NewJDConnection(cfg JDConfig) (*grpc.ClientConn, error) {
-	opts := []grpc.DialOption{
-		grpc.WithTransportCredentials(cfg.Creds),
+	opts := []grpc.DialOption{}
+	if cfg.Creds != nil {
+		opts = append(opts, grpc.WithTransportCredentials(cfg.Creds))
 	}
 	if cfg.Auth != nil {
 		opts = append(opts, grpc.WithUnaryInterceptor(authTokenInterceptor(cfg.Auth)))
