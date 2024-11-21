@@ -115,6 +115,7 @@ type transmitter struct {
 
 	orm        ORM
 	servers    map[string]*server
+	registerer prometheus.Registerer
 	collectors []prometheus.Collector
 
 	donID       uint32
@@ -126,6 +127,7 @@ type transmitter struct {
 
 type Opts struct {
 	Lggr           logger.Logger
+	Registerer     prometheus.Registerer
 	VerboseLogging bool
 	Cfg            Config
 	Clients        map[string]wsrpc.Client
@@ -152,6 +154,7 @@ func newTransmitter(opts Opts) *transmitter {
 		opts.Cfg,
 		opts.ORM,
 		servers,
+		opts.Registerer,
 		nil,
 		opts.DonID,
 		fmt.Sprintf("%x", opts.FromAccount),
@@ -212,7 +215,7 @@ func (mt *transmitter) Start(ctx context.Context) (err error) {
 						return float64(s.deleteThreadBusyCount.Load())
 					}))
 				for _, c := range mt.collectors {
-					if err := prometheus.DefaultRegisterer.Register(c); err != nil {
+					if err := mt.registerer.Register(c); err != nil {
 						return err
 					}
 				}
@@ -252,7 +255,7 @@ func (mt *transmitter) Close() error {
 		}
 		// Unregister all the gauge funcs
 		for _, c := range mt.collectors {
-			prometheus.DefaultRegisterer.Unregister(c)
+			mt.registerer.Unregister(c)
 		}
 		return nil
 	})
