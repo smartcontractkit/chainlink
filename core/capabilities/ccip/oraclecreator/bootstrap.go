@@ -145,7 +145,6 @@ func (i *bootstrapOracleCreator) Create(ctx context.Context, _ uint32, config cc
 	// TODO: add an api that returns chain family.
 	// NOTE: this doesn't really matter for the bootstrap node, it doesn't do anything on-chain.
 	// Its for the monitoring endpoint generation below.
-
 	chainID, err := chainsel.ChainIdFromSelector(uint64(config.Config.ChainSelector))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chain ID from selector: %w", err)

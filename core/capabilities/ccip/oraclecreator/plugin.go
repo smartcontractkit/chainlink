@@ -43,6 +43,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
@@ -116,18 +117,15 @@ func (i *pluginOracleCreator) Type() cctypes.OracleType {
 // Create implements types.OracleCreator.
 func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config cctypes.OCR3ConfigWithMeta) (cctypes.CCIPOracle, error) {
 	pluginType := cctypes.PluginType(config.Config.PluginType)
-	chainSelector := uint64(config.Config.ChainSelector)
 
-	destChainFamily, err := chainsel.GetSelectorFamily(chainSelector)
+	// Assuming that the chain selector is referring to an evm chain for now.
+	// TODO: add an api that returns chain family.
+	destChainID, err := chainsel.ChainIdFromSelector(uint64(config.Config.ChainSelector))
 	if err != nil {
-		return nil, fmt.Errorf("failed to get chain family from selector %d: %w", config.Config.ChainSelector, err)
+		return nil, fmt.Errorf("failed to get chain ID from selector %d: %w", config.Config.ChainSelector, err)
 	}
-
-	destChainID, err := chainsel.GetChainIDFromSelector(chainSelector)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get chain ID from selector %d: %w", chainSelector, err)
-	}
-	destRelayID := types.NewRelayID(destChainFamily, destChainID)
+	destChainFamily := relay.NetworkEVM
+	destRelayID := types.NewRelayID(destChainFamily, fmt.Sprintf("%d", destChainID))
 
 	configTracker := ocrimpls.NewConfigTracker(config)
 	publicConfig, err := configTracker.PublicConfig()
@@ -141,7 +139,6 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 		pluginType,
 		config,
 		publicConfig,
-		destChainFamily,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create readers and writers: %w", err)
@@ -296,11 +293,10 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 
 func (i *pluginOracleCreator) createReadersAndWriters(
 	ctx context.Context,
-	destChainID string,
+	destChainID uint64,
 	pluginType cctypes.PluginType,
 	config cctypes.OCR3ConfigWithMeta,
 	publicCfg ocr3confighelper.PublicConfig,
-	chainFamily string,
 ) (
 	map[cciptypes.ChainSelector]types.ContractReader,
 	map[cciptypes.ChainSelector]types.ChainWriter,
@@ -328,14 +324,17 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 	contractReaders := make(map[cciptypes.ChainSelector]types.ContractReader)
 	chainWriters := make(map[cciptypes.ChainSelector]types.ChainWriter)
 	for relayID, relayer := range i.relayers {
-		chainID := relayID.ChainID
-
-		chainSelector, err1 := i.getChainSelector(chainID, chainFamily)
-		if err1 != nil {
-			return nil, nil, fmt.Errorf("failed to get chain selector from chain ID %s: %w", chainID, err1)
+		chainID, ok := new(big.Int).SetString(relayID.ChainID, 10)
+		if !ok {
+			return nil, nil, fmt.Errorf("error parsing chain ID, expected big int: %s", relayID.ChainID)
 		}
 
-		chainReaderConfig, err1 := getChainReaderConfig(i.lggr, chainID, destChainID, homeChainID, ofc, chainSelector)
+		chainSelector, err1 := i.getChainSelector(chainID.Uint64())
+		if err1 != nil {
+			return nil, nil, fmt.Errorf("failed to get chain selector from chain ID %s: %w", chainID.String(), err1)
+		}
+
+		chainReaderConfig, err1 := getChainReaderConfig(i.lggr, chainID.Uint64(), destChainID, homeChainID, ofc, chainSelector)
 		if err1 != nil {
 			return nil, nil, fmt.Errorf("failed to get chain reader config: %w", err1)
 		}
@@ -345,7 +344,7 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 			return nil, nil, err1
 		}
 
-		if chainID == destChainID {
+		if chainID.Uint64() == destChainID {
 			offrampAddressHex := common.BytesToAddress(config.Config.OfframpAddress).Hex()
 			err2 := cr.Bind(ctx, []types.BoundContract{
 				{
@@ -354,12 +353,12 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 				},
 			})
 			if err2 != nil {
-				return nil, nil, fmt.Errorf("failed to bind chain reader for dest chain %s's offramp at %s: %w", chainID, offrampAddressHex, err)
+				return nil, nil, fmt.Errorf("failed to bind chain reader for dest chain %s's offramp at %s: %w", chainID.String(), offrampAddressHex, err)
 			}
 		}
 
 		if err2 := cr.Start(ctx); err2 != nil {
-			return nil, nil, fmt.Errorf("failed to start contract reader for chain %s: %w", chainID, err2)
+			return nil, nil, fmt.Errorf("failed to start contract reader for chain %s: %w", chainID.String(), err2)
 		}
 
 		cw, err1 := createChainWriter(
@@ -367,14 +366,13 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 			chainID,
 			relayer,
 			i.transmitters,
-			execBatchGasLimit,
-			chainFamily)
+			execBatchGasLimit)
 		if err1 != nil {
 			return nil, nil, err1
 		}
 
 		if err4 := cw.Start(ctx); err4 != nil {
-			return nil, nil, fmt.Errorf("failed to start chain writer for chain %s: %w", chainID, err4)
+			return nil, nil, fmt.Errorf("failed to start chain writer for chain %s: %w", chainID.String(), err4)
 		}
 
 		contractReaders[chainSelector] = cr
@@ -413,27 +411,27 @@ func decodeAndValidateOffchainConfig(
 	return ofc, nil
 }
 
-func (i *pluginOracleCreator) getChainSelector(chainID string, chainFamily string) (cciptypes.ChainSelector, error) {
-	chainDetails, err := chainsel.GetChainDetailsByChainIDAndFamily(chainID, chainFamily)
-	if err != nil {
-		return 0, fmt.Errorf("failed to get chain selector from chain ID %s and family %s", chainID, chainFamily)
+func (i *pluginOracleCreator) getChainSelector(chainID uint64) (cciptypes.ChainSelector, error) {
+	chainSelector, ok := chainsel.EvmChainIdToChainSelector()[chainID]
+	if !ok {
+		return 0, fmt.Errorf("failed to get chain selector from chain ID %d", chainID)
 	}
-	return cciptypes.ChainSelector(chainDetails.ChainSelector), nil
+	return cciptypes.ChainSelector(chainSelector), nil
 }
 
-func (i *pluginOracleCreator) getChainID(chainSelector cciptypes.ChainSelector) (string, error) {
-	chainID, err := chainsel.GetChainIDFromSelector(uint64(chainSelector))
+func (i *pluginOracleCreator) getChainID(chainSelector cciptypes.ChainSelector) (uint64, error) {
+	chainID, err := chainsel.ChainIdFromSelector(uint64(chainSelector))
 	if err != nil {
-		return "", fmt.Errorf("failed to get chain ID from chain selector %d: %w", chainSelector, err)
+		return 0, fmt.Errorf("failed to get chain ID from chain selector %d: %w", chainSelector, err)
 	}
 	return chainID, nil
 }
 
 func getChainReaderConfig(
 	lggr logger.Logger,
-	chainID string,
-	destChainID string,
-	homeChainID string,
+	chainID uint64,
+	destChainID uint64,
+	homeChainID uint64,
 	ofc offChainConfig,
 	chainSelector cciptypes.ChainSelector,
 ) ([]byte, error) {
@@ -477,14 +475,13 @@ func isUSDCEnabled(ofc offChainConfig) bool {
 
 func createChainWriter(
 	ctx context.Context,
-	chainID string,
+	chainID *big.Int,
 	relayer loop.Relayer,
 	transmitters map[types.RelayID][]string,
 	execBatchGasLimit uint64,
-	chainFamily string,
 ) (types.ChainWriter, error) {
 	var fromAddress common.Address
-	transmitter, ok := transmitters[types.NewRelayID(chainFamily, chainID)]
+	transmitter, ok := transmitters[types.NewRelayID(relay.NetworkEVM, chainID.String())]
 	if ok {
 		// TODO: remove EVM-specific stuff
 		fromAddress = common.HexToAddress(transmitter[0])
@@ -506,7 +503,7 @@ func createChainWriter(
 
 	cw, err := relayer.NewChainWriter(ctx, chainWriterConfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create chain writer for chain %s: %w", chainID, err)
+		return nil, fmt.Errorf("failed to create chain writer for chain %s: %w", chainID.String(), err)
 	}
 
 	return cw, nil
