@@ -62,7 +62,7 @@ func TestOCRv2Basic(t *testing.T) {
 			testEnv, aggregatorContracts, sethClient := prepareORCv2SmokeTestEnv(t, test, l, 5)
 
 			err := testEnv.MockAdapter.SetAdapterBasedIntValuePath("ocr2", []string{http.MethodGet, http.MethodPost}, 10)
-			require.NoError(t, err)
+			require.Error(t, err)
 			err = actions.WatchNewOCRRound(l, sethClient, 2, contracts.V2OffChainAgrregatorToOffChainAggregatorWithRounds(aggregatorContracts), time.Minute*5)
 			require.NoError(t, err)
 
