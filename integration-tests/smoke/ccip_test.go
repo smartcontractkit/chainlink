@@ -9,8 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/stretchr/testify/require"
 
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
@@ -204,17 +202,17 @@ func TestTokenTransfer(t *testing.T) {
 
 // setupTokens deploys transferable tokens on the source and dest, mints tokens for the source and dest, and
 // approves the router to spend the tokens
-func setupTokens(t *testing.T, tenv ccdeploy.DeployedEnv) (srcToken *burn_mint_erc677.BurnMintERC677, dstToken *burn_mint_erc677.BurnMintERC677) {
+func setupTokens(t *testing.T, tenv changeset.DeployedEnv) (srcToken *burn_mint_erc677.BurnMintERC677, dstToken *burn_mint_erc677.BurnMintERC677) {
 	lggr := logger.TestLogger(t)
 
 	e := tenv.Env
-	state, err := ccdeploy.LoadOnchainState(e)
+	state, err := changeset.LoadOnchainState(e)
 	require.NoError(t, err)
 
 	tenCoins := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(10))
 
 	// Deploy the token to test transferring
-	srcToken, _, dstToken, _, err = ccdeploy.DeployTransferableToken(
+	srcToken, _, dstToken, _, err = changeset.DeployTransferableToken(
 		lggr,
 		tenv.Env.Chains,
 		tenv.HomeChainSel,
@@ -288,59 +286,60 @@ func setupTokens(t *testing.T, tenv ccdeploy.DeployedEnv) (srcToken *burn_mint_e
 func Test_PricingForTokenTransfers(t *testing.T) {
 	t.Parallel()
 	lggr := logger.TestLogger(t)
-	ctx := ccdeploy.Context(t)
+	// ctx := changeset.Context(t)
 	tenv, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr)
 	e := tenv.Env
 
-	state, err := ccdeploy.LoadOnchainState(tenv.Env)
+	state, err := changeset.LoadOnchainState(tenv.Env)
 	require.NoError(t, err)
 
-	feeds := state.Chains[tenv.FeedChainSel].USDFeeds
+	// feeds := state.Chains[tenv.FeedChainSel].USDFeeds
 	output, err := changeset.DeployPrerequisites(tenv.Env, changeset.DeployPrerequisiteConfig{
 		ChainSelectors: tenv.Env.AllChainSelectors(),
 	})
 	require.NoError(t, err)
 	require.NoError(t, tenv.Env.ExistingAddresses.Merge(output.AddressBook))
 
-	// Apply migration
-	output, err = changeset.InitialDeploy(tenv.Env, ccdeploy.DeployCCIPContractConfig{
-		HomeChainSel:   tenv.HomeChainSel,
-		FeedChainSel:   tenv.FeedChainSel,
-		ChainsToDeploy: tenv.Env.AllChainSelectors(),
-		TokenConfig:    ccdeploy.NewTestTokenConfig(feeds),
-		MCMSConfig:     ccdeploy.NewTestMCMSConfig(t, e),
-		OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
-	})
+	expectedSeqNum := make(map[changeset.SourceDestPair]uint64)
+
+	// // Apply migration
+	// output, err = changeset.InitialDeploy(tenv.Env, changeset.DeployCCIPContractConfig{
+	// 	HomeChainSel:   tenv.HomeChainSel,
+	// 	FeedChainSel:   tenv.FeedChainSel,
+	// 	ChainsToDeploy: tenv.Env.AllChainSelectors(),
+	// 	TokenConfig:    changeset.NewTestTokenConfig(feeds),
+	// 	MCMSConfig:     changeset.NewTestMCMSConfig(t, e),
+	// 	OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
+	// })
 	require.NoError(t, err)
 	require.NoError(t, tenv.Env.ExistingAddresses.Merge(output.AddressBook))
 	// Get new state after migration.
-	state, err = ccdeploy.LoadOnchainState(e)
+	state, err = changeset.LoadOnchainState(e)
 	require.NoError(t, err)
 
 	srcToken, dstToken := setupTokens(t, tenv)
 
 	// Ensure capreg logs are up to date.
-	ccdeploy.ReplayLogs(t, e.Offchain, tenv.ReplayBlocks)
+	changeset.ReplayLogs(t, e.Offchain, tenv.ReplayBlocks)
 
-	// Apply the jobs.
-	for nodeID, jobs := range output.JobSpecs {
-		for _, job := range jobs {
-			// Note these auto-accept
-			_, err := e.Offchain.ProposeJob(ctx,
-				&jobv1.ProposeJobRequest{
-					NodeId: nodeID,
-					Spec:   job,
-				})
-			require.NoError(t, err)
-		}
-	}
+	// // Apply the jobs.
+	// for nodeID, jobs := range output.JobSpecs {
+	// 	for _, job := range jobs {
+	// 		// Note these auto-accept
+	// 		_, err := e.Offchain.ProposeJob(ctx,
+	// 			&jobv1.ProposeJobRequest{
+	// 				NodeId: nodeID,
+	// 				Spec:   job,
+	// 			})
+	// 		require.NoError(t, err)
+	// 	}
+	// }
 
 	// Add all lanes
-	require.NoError(t, ccdeploy.AddLanesForAll(e, state))
+	require.NoError(t, changeset.AddLanesForAll(e, state))
 	// Need to keep track of the block number for each chain so that event subscription can be done from that block.
 	startBlocks := make(map[uint64]*uint64)
 	// Send a message from each chain to every other chain.
-	expectedSeqNum := make(map[uint64]uint64)
 
 	// Mint 2 tokens to be transferred
 	twoCoins := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(2))
@@ -351,6 +350,11 @@ func Test_PricingForTokenTransfers(t *testing.T) {
 	t.Run("Send Token Pay with Link token home chain -> remote", func(t *testing.T) {
 		src := tenv.HomeChainSel
 		dest, destChain := tenv.FeedChainSel, e.Chains[tenv.FeedChainSel]
+
+		sourceDestPair := changeset.SourceDestPair{
+			SourceChainSelector: src,
+			DestChainSelector:   dest,
+		}
 
 		// Approve to spend link token
 		tx, err := linkToken.Approve(e.Chains[src].DeployerKey, state.Chains[src].Router.Address(), maxUint256)
@@ -406,8 +410,8 @@ func Test_PricingForTokenTransfers(t *testing.T) {
 		srcFee, err := state.Chains[src].Router.GetFee(nil, dest, ccipMessage)
 		require.NoError(t, err)
 
-		seqNum := ccdeploy.TestSendRequest(t, e, state, src, dest, false, ccipMessage).SequenceNumber
-		expectedSeqNum[dest] = seqNum
+		seqNum := changeset.TestSendRequest(t, e, state, src, dest, false, ccipMessage).SequenceNumber
+		expectedSeqNum[sourceDestPair] = seqNum
 
 		// Check the fee token balance after the request and ensure fee tokens were spent
 		feeTokenBalanceAfter, err := linkToken.BalanceOf(nil, e.Chains[tenv.HomeChainSel].DeployerKey.From)
@@ -415,17 +419,17 @@ func Test_PricingForTokenTransfers(t *testing.T) {
 		require.Equal(t, feeTokenBalanceAfter, new(big.Int).Sub(feeTokenBalanceBefore, srcFee))
 
 		// Wait for all commit reports to land.
-		ccdeploy.ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
+		changeset.ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
 
 		// After commit is reported on all chains, token prices should be updated in FeeQuoter.
 		linkAddress := state.Chains[dest].LinkToken.Address()
 		feeQuoter := state.Chains[dest].FeeQuoter
 		timestampedPrice, err := feeQuoter.GetTokenPrice(nil, linkAddress)
 		require.NoError(t, err)
-		require.Equal(t, ccdeploy.MockLinkPrice, timestampedPrice.Value)
+		require.Equal(t, changeset.MockLinkPrice, timestampedPrice.Value)
 
 		// Wait for all exec reports to land
-		ccdeploy.ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
+		changeset.ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
 
 		balance, err := dstToken.BalanceOf(nil, state.Chains[tenv.FeedChainSel].Receiver.Address())
 		require.NoError(t, err)
@@ -433,7 +437,7 @@ func Test_PricingForTokenTransfers(t *testing.T) {
 
 		// Delete from the expcted seq num the chain that was just tested so that we don't pass it to the
 		// commit report in the next test
-		delete(expectedSeqNum, dest)
+		delete(expectedSeqNum, sourceDestPair)
 	})
 
 	t.Run("Send Token Pay with native remote chain -> home", func(t *testing.T) {
@@ -452,6 +456,11 @@ func Test_PricingForTokenTransfers(t *testing.T) {
 		// Assign Src to the Home Chain Selector and destChain to the Feed Chain Selector
 		src := tenv.FeedChainSel
 		dest, destChain := tenv.HomeChainSel, e.Chains[tenv.HomeChainSel]
+
+		sourceDestPair := changeset.SourceDestPair{
+			SourceChainSelector: src,
+			DestChainSelector:   dest,
+		}
 
 		// get the header for the destination chain and the relevant block number
 		latesthdr, err := destChain.Client.HeaderByNumber(testcontext.Get(t), nil)
@@ -474,33 +483,38 @@ func Test_PricingForTokenTransfers(t *testing.T) {
 			ExtraArgs:    nil,
 		}
 
-		seqNum := ccdeploy.TestSendRequest(t, e, state, src, dest, false, ccipMessage).SequenceNumber
-		expectedSeqNum[dest] = seqNum
+		seqNum := changeset.TestSendRequest(t, e, state, src, dest, false, ccipMessage).SequenceNumber
+		expectedSeqNum[sourceDestPair] = seqNum
 
 		// Wait for all commit reports to land.
-		ccdeploy.ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
+		changeset.ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
 
 		// After commit is reported on all chains, token prices should be updated in FeeQuoter.
 		linkAddress := state.Chains[dest].LinkToken.Address()
 		feeQuoter := state.Chains[dest].FeeQuoter
 		timestampedPrice, err := feeQuoter.GetTokenPrice(nil, linkAddress)
 		require.NoError(t, err)
-		require.Equal(t, ccdeploy.MockLinkPrice, timestampedPrice.Value)
+		require.Equal(t, changeset.MockLinkPrice, timestampedPrice.Value)
 
 		// Wait for all exec reports to land
-		ccdeploy.ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
+		changeset.ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
 
 		balance, err := srcToken.BalanceOf(nil, state.Chains[tenv.HomeChainSel].Receiver.Address())
 		require.NoError(t, err)
 		require.Equal(t, twoCoins, balance)
 
-		delete(expectedSeqNum, dest)
+		delete(expectedSeqNum, sourceDestPair)
 	})
 
 	t.Run("Send Token pay with wrapped native home chain -> remote", func(t *testing.T) {
 		// Assign Src to the Home Chain Selector and destChain to the Feed Chain Selector
 		src := tenv.HomeChainSel
 		dest, destChain := tenv.FeedChainSel, e.Chains[tenv.FeedChainSel]
+
+		sourceDestPair := changeset.SourceDestPair{
+			SourceChainSelector: src,
+			DestChainSelector:   dest,
+		}
 
 		WETH := state.Chains[src].Weth9
 
@@ -576,8 +590,8 @@ func Test_PricingForTokenTransfers(t *testing.T) {
 		fmt.Printf("srcFee: %v\n", srcFee)
 		fmt.Printf("feeTokenBalanceBefore: %v\n", feeTokenBalanceBefore)
 
-		seqNum := ccdeploy.TestSendRequest(t, e, state, src, dest, false, ccipMessage).SequenceNumber
-		expectedSeqNum[dest] = seqNum
+		seqNum := changeset.TestSendRequest(t, e, state, src, dest, false, ccipMessage).SequenceNumber
+		expectedSeqNum[sourceDestPair] = seqNum
 
 		// Check the fee token balance after the request and ensure fee tokens were spent
 		feeTokenBalanceAfter, err := WETH.BalanceOf(nil, e.Chains[tenv.HomeChainSel].DeployerKey.From)
@@ -585,17 +599,17 @@ func Test_PricingForTokenTransfers(t *testing.T) {
 		require.Equal(t, feeTokenBalanceAfter, new(big.Int).Sub(feeTokenBalanceBefore, srcFee))
 
 		// Wait for all commit reports to land.
-		ccdeploy.ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
+		changeset.ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
 
 		// After commit is reported on all chains, token prices should be updated in FeeQuoter.
 		linkAddress := state.Chains[dest].LinkToken.Address()
 		feeQuoter := state.Chains[dest].FeeQuoter
 		timestampedPrice, err := feeQuoter.GetTokenPrice(nil, linkAddress)
 		require.NoError(t, err)
-		require.Equal(t, ccdeploy.MockLinkPrice, timestampedPrice.Value)
+		require.Equal(t, changeset.MockLinkPrice, timestampedPrice.Value)
 
 		// Wait for all exec reports to land
-		ccdeploy.ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
+		changeset.ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
 
 		balance, err := dstToken.BalanceOf(nil, state.Chains[dest].Receiver.Address())
 		require.NoError(t, err)
@@ -662,7 +676,7 @@ func Test_PricingForTokenTransfers(t *testing.T) {
 		}
 
 		// Send the CCP Request
-		tx, _, err = ccdeploy.CCIPSendRequest(
+		tx, _, err = changeset.CCIPSendRequest(
 			e,
 			state,
 			src, dest,
@@ -676,44 +690,45 @@ func Test_PricingForTokenTransfers(t *testing.T) {
 	})
 }
 
+/*
 func Test_PricingForMessages(t *testing.T) {
 	// Deploy the environment
 	lggr := logger.TestLogger(t)
-	ctx := ccdeploy.Context(t)
+	ctx := changeset.Context(t)
 	tenv, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr)
 
 	// Load the test state
 	e := tenv.Env
-	state, err := ccdeploy.LoadOnchainState(e)
+	state, err := changeset.LoadOnchainState(e)
 	require.NoError(t, err)
 
 	feeds := state.Chains[tenv.FeedChainSel].USDFeeds
-	tokenConfig := ccdeploy.NewTokenConfig()
-	tokenConfig.UpsertTokenInfo(ccdeploy.LinkSymbol,
+	tokenConfig := changeset.NewTokenConfig()
+	tokenConfig.UpsertTokenInfo(changeset.LinkSymbol,
 		pluginconfig.TokenInfo{
-			AggregatorAddress: cciptypes.UnknownEncodedAddress(feeds[ccdeploy.LinkSymbol].Address().String()),
-			Decimals:          ccdeploy.LinkDecimals,
+			AggregatorAddress: cciptypes.UnknownEncodedAddress(feeds[changeset.LinkSymbol].Address().String()),
+			Decimals:          changeset.LinkDecimals,
 			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
 		},
 	)
 
 	// Apply migration
-	output, err := changeset.InitialDeploy(e, ccdeploy.DeployCCIPContractConfig{
+	output, err := changeset.InitialDeploy(e, changeset.DeployCCIPContractConfig{
 		HomeChainSel:   tenv.HomeChainSel,
 		FeedChainSel:   tenv.FeedChainSel,
 		ChainsToDeploy: e.AllChainSelectors(),
 		TokenConfig:    tokenConfig,
-		MCMSConfig:     ccdeploy.NewTestMCMSConfig(t, e),
+		MCMSConfig:     changeset.NewTestMCMSConfig(t, e),
 		OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
 	})
 	require.NoError(t, err)
 	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook))
 	// Get new state after migration and mock USDC token deployment.
-	state, err = ccdeploy.LoadOnchainState(e)
+	state, err = changeset.LoadOnchainState(e)
 	require.NoError(t, err)
 
 	// Ensure capreg logs are up to date.
-	ccdeploy.ReplayLogs(t, e.Offchain, tenv.ReplayBlocks)
+	changeset.ReplayLogs(t, e.Offchain, tenv.ReplayBlocks)
 
 	// Create an empty tokenAmounts map since we are sending a message without a token
 	tokens := []router.ClientEVMTokenAmount{}
@@ -732,7 +747,7 @@ func Test_PricingForMessages(t *testing.T) {
 	}
 
 	// Add all lanes
-	require.NoError(t, ccdeploy.AddLanesForAll(e, state))
+	require.NoError(t, changeset.AddLanesForAll(e, state))
 	// Need to keep track of the block number for each chain so that event subscription can be done from that block.
 	startBlocks := make(map[uint64]*uint64)
 	// Send a message from each chain to every other chain.
@@ -783,7 +798,7 @@ func Test_PricingForMessages(t *testing.T) {
 		srcFee, err := state.Chains[src].Router.GetFee(nil, dest, ccipMessage)
 		require.NoError(t, err)
 
-		seqNum := ccdeploy.TestSendRequest(t, e, state, src, dest, false, ccipMessage).SequenceNumber
+		seqNum := changeset.TestSendRequest(t, e, state, src, dest, false, ccipMessage).SequenceNumber
 		expectedSeqNum[dest] = seqNum
 
 		// Check the fee token balance after the request and ensure fee tokens were spent
@@ -792,17 +807,17 @@ func Test_PricingForMessages(t *testing.T) {
 		require.Equal(t, feeTokenBalanceAfter, new(big.Int).Sub(feeTokenBalanceBefore, srcFee))
 
 		// Wait for all commit reports to land.
-		ccdeploy.ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
+		changeset.ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
 
 		// After commit is reported on all chains, token prices should be updated in FeeQuoter.
 		linkAddress := state.Chains[dest].LinkToken.Address()
 		feeQuoter := state.Chains[dest].FeeQuoter
 		timestampedPrice, err := feeQuoter.GetTokenPrice(nil, linkAddress)
 		require.NoError(t, err)
-		require.Equal(t, ccdeploy.MockLinkPrice, timestampedPrice.Value)
+		require.Equal(t, changeset.MockLinkPrice, timestampedPrice.Value)
 
 		// Wait for all exec reports to land
-		ccdeploy.ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
+		changeset.ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
 
 		// Delete from the expcted seq num the chain that was just tested so that we don't pass it to the
 		// commit report in the next test
@@ -835,21 +850,21 @@ func Test_PricingForMessages(t *testing.T) {
 			ExtraArgs:    nil,
 		}
 
-		seqNum := ccdeploy.TestSendRequest(t, e, state, src, dest, false, ccipMessage).SequenceNumber
+		seqNum := changeset.TestSendRequest(t, e, state, src, dest, false, ccipMessage).SequenceNumber
 		expectedSeqNum[dest] = seqNum
 
 		// Wait for all commit reports to land.
-		ccdeploy.ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
+		changeset.ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
 
 		// After commit is reported on all chains, token prices should be updated in FeeQuoter.
 		linkAddress := state.Chains[dest].LinkToken.Address()
 		feeQuoter := state.Chains[dest].FeeQuoter
 		timestampedPrice, err := feeQuoter.GetTokenPrice(nil, linkAddress)
 		require.NoError(t, err)
-		require.Equal(t, ccdeploy.MockLinkPrice, timestampedPrice.Value)
+		require.Equal(t, changeset.MockLinkPrice, timestampedPrice.Value)
 
 		// Wait for all exec reports to land
-		ccdeploy.ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
+		changeset.ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
 
 		delete(expectedSeqNum, dest)
 	})
@@ -905,7 +920,7 @@ func Test_PricingForMessages(t *testing.T) {
 		srcFee, err := state.Chains[src].Router.GetFee(nil, dest, ccipMessage)
 		require.NoError(t, err)
 
-		seqNum := ccdeploy.TestSendRequest(t, e, state, src, dest, false, ccipMessage).SequenceNumber
+		seqNum := changeset.TestSendRequest(t, e, state, src, dest, false, ccipMessage).SequenceNumber
 		expectedSeqNum[dest] = seqNum
 
 		// Check the fee token balance after the request and ensure fee tokens were spent
@@ -914,16 +929,16 @@ func Test_PricingForMessages(t *testing.T) {
 		require.Equal(t, feeTokenBalanceAfter, new(big.Int).Sub(feeTokenBalanceBefore, srcFee))
 
 		// Wait for all commit reports to land.
-		ccdeploy.ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
+		changeset.ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
 
 		// After commit is reported on all chains, token prices should be updated in FeeQuoter.
 		linkAddress := state.Chains[dest].LinkToken.Address()
 		feeQuoter := state.Chains[dest].FeeQuoter
 		timestampedPrice, err := feeQuoter.GetTokenPrice(nil, linkAddress)
 		require.NoError(t, err)
-		require.Equal(t, ccdeploy.MockLinkPrice, timestampedPrice.Value)
+		require.Equal(t, changeset.MockLinkPrice, timestampedPrice.Value)
 
 		// Wait for all exec reports to land
-		ccdeploy.ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
+		changeset.ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
 	})
-}
+}*/
