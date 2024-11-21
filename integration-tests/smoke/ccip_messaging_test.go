@@ -49,7 +49,7 @@ func Test_CCIPMessaging(t *testing.T) {
 	// Setup 2 chains and a single lane.
 	lggr := logger.TestLogger(t)
 	ctx := changeset.Context(t)
-	e, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr, false)
+	e, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr, nil)
 
 	state, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)

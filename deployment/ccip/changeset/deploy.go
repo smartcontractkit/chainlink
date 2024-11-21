@@ -7,11 +7,9 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 
@@ -63,22 +61,36 @@ var (
 	USDCTokenPool       deployment.ContractType = "USDCTokenPool"
 )
 
-func DeployPrerequisiteChainContracts(e deployment.Environment, ab deployment.AddressBook, selectors []uint64, usdcEnabledChains []uint64) error {
+type DeployPrerequisiteContractsOpts struct {
+	USDCEnabledChains []uint64
+	Multicall3Enabled bool
+}
+
+type PrerequisiteOpt func(o *DeployPrerequisiteContractsOpts)
+
+func WithUSDCChains(chains []uint64) PrerequisiteOpt {
+	return func(o *DeployPrerequisiteContractsOpts) {
+		o.USDCEnabledChains = chains
+	}
+}
+
+func WithMulticall3(enabled bool) PrerequisiteOpt {
+	return func(o *DeployPrerequisiteContractsOpts) {
+		o.Multicall3Enabled = enabled
+	}
+}
+
+func deployPrerequisiteChainContracts(e deployment.Environment, ab deployment.AddressBook, selectors []uint64, opts ...PrerequisiteOpt) error {
 	state, err := LoadOnchainState(e)
 	if err != nil {
 		e.Logger.Errorw("Failed to load existing onchain state", "err")
 		return err
 	}
-	mapUSDCEnabledChains := make(map[uint64]bool)
-	for _, chain := range usdcEnabledChains {
-		mapUSDCEnabledChains[chain] = true
-	}
 	deployGrp := errgroup.Group{}
 	for _, sel := range selectors {
 		chain := e.Chains[sel]
-		usdcEnabled := mapUSDCEnabledChains[sel]
 		deployGrp.Go(func() error {
-			err := DeployPrerequisiteContracts(e, ab, state, chain, usdcEnabled)
+			err := deployPrerequisiteContracts(e, ab, state, chain, opts...)
 			if err != nil {
 				e.Logger.Errorw("Failed to deploy prerequisite contracts", "chain", sel, "err", err)
 				return err
@@ -89,9 +101,20 @@ func DeployPrerequisiteChainContracts(e deployment.Environment, ab deployment.Ad
 	return deployGrp.Wait()
 }
 
-// DeployPrerequisiteContracts deploys the contracts that can be ported from previous CCIP version to the new one.
+// deployPrerequisiteContracts deploys the contracts that can be ported from previous CCIP version to the new one.
 // This is only required for staging and test environments where the contracts are not already deployed.
-func DeployPrerequisiteContracts(e deployment.Environment, ab deployment.AddressBook, state CCIPOnChainState, chain deployment.Chain, usdcEnabled bool) error {
+func deployPrerequisiteContracts(e deployment.Environment, ab deployment.AddressBook, state CCIPOnChainState, chain deployment.Chain, opts ...PrerequisiteOpt) error {
+	deployOpts := &DeployPrerequisiteContractsOpts{}
+	for _, opt := range opts {
+		opt(deployOpts)
+	}
+	var isUSDC bool
+	for _, sel := range deployOpts.USDCEnabledChains {
+		if sel == chain.Selector {
+			isUSDC = true
+			break
+		}
+	}
 	lggr := e.Logger
 	chainState, chainExists := state.Chains[chain.Selector]
 	var weth9Contract *weth9.WETH9
@@ -271,7 +294,7 @@ func DeployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 	} else {
 		e.Logger.Infow("router already deployed", "addr", chainState.Router.Address)
 	}
-	if usdcEnabled {
+	if isUSDC {
 		token, pool, messenger, transmitter, err1 := DeployUSDC(e.Logger, chain, ab, rmnProxy.Address(), r.Address())
 		if err1 != nil {
 			return err1
@@ -287,14 +310,14 @@ func DeployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 	return nil
 }
 
-// ConfigureChain assumes the all the Home chain contracts and CCIP contracts are deployed
+// configureChain assumes the all the Home chain contracts and CCIP contracts are deployed
 // It does -
 // 1. AddChainConfig for each chain in CCIPHome
 // 2. Registers the nodes with the capability registry
 // 3. SetOCR3Config on the remote chain
-func ConfigureChain(
+func configureChain(
 	e deployment.Environment,
-	c DeployCCIPContractConfig,
+	c NewChainConfig,
 ) error {
 	if c.OCRSecrets.IsEmpty() {
 		return fmt.Errorf("OCR secrets are empty")
@@ -380,81 +403,6 @@ func ConfigureChain(
 	return nil
 }
 
-type USDCConfig struct {
-	EnabledChains []uint64
-	USDCAttestationConfig
-	CCTPTokenConfig map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig
-}
-
-func (cfg USDCConfig) EnabledChainMap() map[uint64]bool {
-	m := make(map[uint64]bool)
-	for _, chain := range cfg.EnabledChains {
-		m[chain] = true
-	}
-	return m
-}
-
-type USDCAttestationConfig struct {
-	API         string
-	APITimeout  *commonconfig.Duration
-	APIInterval *commonconfig.Duration
-}
-
-type DeployCCIPContractConfig struct {
-	HomeChainSel   uint64
-	FeedChainSel   uint64
-	ChainsToDeploy []uint64
-	TokenConfig    TokenConfig
-	USDCConfig     USDCConfig
-	// For setting OCR configuration
-	OCRSecrets deployment.OCRSecrets
-}
-
-func (c DeployCCIPContractConfig) Validate() error {
-	if err := deployment.IsValidChainSelector(c.HomeChainSel); err != nil {
-		return fmt.Errorf("invalid home chain selector: %d - %w", c.HomeChainSel, err)
-	}
-	if err := deployment.IsValidChainSelector(c.FeedChainSel); err != nil {
-		return fmt.Errorf("invalid feed chain selector: %d - %w", c.FeedChainSel, err)
-	}
-	mapChainsToDeploy := make(map[uint64]bool)
-	for _, cs := range c.ChainsToDeploy {
-		mapChainsToDeploy[cs] = true
-		if err := deployment.IsValidChainSelector(cs); err != nil {
-			return fmt.Errorf("invalid chain selector: %d - %w", cs, err)
-		}
-	}
-	for token := range c.TokenConfig.TokenSymbolToInfo {
-		if err := c.TokenConfig.TokenSymbolToInfo[token].Validate(); err != nil {
-			return fmt.Errorf("invalid token config for token %s: %w", token, err)
-		}
-	}
-	if c.OCRSecrets.IsEmpty() {
-		return fmt.Errorf("no OCR secrets provided")
-	}
-	usdcEnabledChainMap := c.USDCConfig.EnabledChainMap()
-	for chain := range usdcEnabledChainMap {
-		if _, exists := mapChainsToDeploy[chain]; !exists {
-			return fmt.Errorf("chain %d is not in chains to deploy", chain)
-		}
-		if err := deployment.IsValidChainSelector(chain); err != nil {
-			return fmt.Errorf("invalid chain selector: %d - %w", chain, err)
-		}
-	}
-	for chain := range c.USDCConfig.CCTPTokenConfig {
-		if _, exists := mapChainsToDeploy[uint64(chain)]; !exists {
-			return fmt.Errorf("chain %d is not in chains to deploy", chain)
-		}
-		if _, exists := usdcEnabledChainMap[uint64(chain)]; !exists {
-			return fmt.Errorf("chain %d is not enabled in USDC config", chain)
-		}
-		if err := deployment.IsValidChainSelector(uint64(chain)); err != nil {
-			return fmt.Errorf("invalid chain selector: %d - %w", chain, err)
-		}
-	}
-	return nil
-}
-
 // DeployCCIPContracts assumes the following contracts are deployed:
 // - Capability registry
 // - CCIP home
@@ -467,7 +415,7 @@ func (c DeployCCIPContractConfig) Validate() error {
 func DeployCCIPContracts(
 	e deployment.Environment,
 	ab deployment.AddressBook,
-	c DeployCCIPContractConfig) error {
+	c NewChainConfig) error {
 	err := DeployChainContractsForChains(e, ab, c.HomeChainSel, c.ChainsToDeploy)
 	if err != nil {
 		e.Logger.Errorw("Failed to deploy chain contracts", "err", err)
@@ -478,7 +426,7 @@ func DeployCCIPContracts(
 		e.Logger.Errorw("Failed to merge address book", "err", err)
 		return err
 	}
-	err = ConfigureChain(e, c)
+	err = configureChain(e, c)
 	if err != nil {
 		e.Logger.Errorw("Failed to add chain", "err", err)
 		return err

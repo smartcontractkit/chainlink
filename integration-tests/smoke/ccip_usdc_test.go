@@ -26,7 +26,9 @@ import (
 
 func TestUSDCTokenTransfer(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	tenv, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr, true)
+	tenv, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr, &changeset.TestConfigs{
+		IsUSDC: true,
+	})
 
 	e := tenv.Env
 	state, err := changeset.LoadOnchainState(e)

@@ -1,18 +1,19 @@
 package changeset
 
 import (
-	"context"
 	"fmt"
+	"testing"
 
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
 type ChangesetApplication struct {
-	Changeset func(e deployment.Environment, config any) (deployment.ChangesetOutput, error)
+	Changeset deployment.ChangeSet[any]
 	Config    any
 }
 
@@ -32,7 +33,7 @@ func WrapChangeSet[C any](fn deployment.ChangeSet[C]) func(e deployment.Environm
 }
 
 // ApplyChangesets applies the changeset applications to the environment and returns the updated environment.
-func ApplyChangesets(ctx context.Context, e deployment.Environment, timelocksPerChain map[uint64]*gethwrappers.RBACTimelock, changesetApplications []ChangesetApplication) (deployment.Environment, error) {
+func ApplyChangesets(t *testing.T, e deployment.Environment, timelocksPerChain map[uint64]*gethwrappers.RBACTimelock, changesetApplications []ChangesetApplication) (deployment.Environment, error) {
 	currentEnv, err := e.Copy()
 	if err != nil {
 		return e, fmt.Errorf("failed to copy environment: %w", err)
@@ -49,6 +50,7 @@ func ApplyChangesets(ctx context.Context, e deployment.Environment, timelocksPer
 			}
 		}
 		if out.JobSpecs != nil {
+			ctx := testcontext.Get(t)
 			for nodeID, jobs := range out.JobSpecs {
 				for _, job := range jobs {
 					// Note these auto-accept
@@ -70,19 +72,13 @@ func ApplyChangesets(ctx context.Context, e deployment.Environment, timelocksPer
 					chains.Add(uint64(op.ChainIdentifier))
 				}
 
-				signed, err := SignProposal(e, &prop)
-				if err != nil {
-					return deployment.Environment{}, fmt.Errorf("failed to sign proposal: %w", err)
-				}
+				signed := SignProposal(t, e, &prop)
 				for _, sel := range chains.ToSlice() {
 					timelock, ok := timelocksPerChain[sel]
 					if !ok || timelock == nil {
 						return deployment.Environment{}, fmt.Errorf("timelock not found for chain %d", sel)
 					}
-					err := ExecuteProposal(e, signed, timelock, sel)
-					if err != nil {
-						return deployment.Environment{}, fmt.Errorf("failed to execute proposal: %w", err)
-					}
+					ExecuteProposal(t, e, signed, timelock, sel)
 				}
 			}
 		}

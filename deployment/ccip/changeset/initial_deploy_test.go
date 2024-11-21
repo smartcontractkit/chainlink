@@ -15,7 +15,7 @@ import (
 
 func TestInitialDeploy(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	tenv := NewMemoryEnvironmentWithJobsAndContracts(t, lggr, 3, 4, false)
+	tenv := NewMemoryEnvironmentWithJobsAndContracts(t, lggr, 3, 4, nil)
 	e := tenv.Env
 
 	state, err := LoadOnchainState(e)

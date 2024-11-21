@@ -39,7 +39,7 @@ func TestAddChainInbound(t *testing.T) {
 	// We deploy to the rest.
 	initialDeploy := e.Env.AllChainSelectorsExcluding([]uint64{newChain})
 	newAddresses := deployment.NewMemoryAddressBook()
-	err = DeployPrerequisiteChainContracts(e.Env, newAddresses, initialDeploy, nil)
+	err = deployPrerequisiteChainContracts(e.Env, newAddresses, initialDeploy, nil)
 	require.NoError(t, err)
 	require.NoError(t, e.Env.ExistingAddresses.Merge(newAddresses))
 
@@ -59,7 +59,7 @@ func TestAddChainInbound(t *testing.T) {
 	require.NoError(t, e.Env.ExistingAddresses.Merge(out.AddressBook))
 	newAddresses = deployment.NewMemoryAddressBook()
 	tokenConfig := NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
-	err = DeployCCIPContracts(e.Env, newAddresses, DeployCCIPContractConfig{
+	err = DeployCCIPContracts(e.Env, newAddresses, NewChainConfig{
 		HomeChainSel:   e.HomeChainSel,
 		FeedChainSel:   e.FeedChainSel,
 		ChainsToDeploy: initialDeploy,
@@ -95,7 +95,7 @@ func TestAddChainInbound(t *testing.T) {
 
 	newAddresses = deployment.NewMemoryAddressBook()
 
-	err = DeployPrerequisiteChainContracts(e.Env, newAddresses, []uint64{newChain}, nil)
+	err = deployPrerequisiteChainContracts(e.Env, newAddresses, []uint64{newChain}, nil)
 	require.NoError(t, err)
 	require.NoError(t, e.Env.ExistingAddresses.Merge(newAddresses))
 	newAddresses = deployment.NewMemoryAddressBook()
@@ -138,11 +138,10 @@ func TestAddChainInbound(t *testing.T) {
 
 	acceptOwnershipProposal, err := GenerateAcceptOwnershipProposal(state, e.HomeChainSel, initialDeploy)
 	require.NoError(t, err)
-	acceptOwnershipExec, err := commonchangeset.SignProposal(e.Env, acceptOwnershipProposal)
-	require.NoError(t, err)
+	acceptOwnershipExec := commonchangeset.SignProposal(t, e.Env, acceptOwnershipProposal)
 	// Apply the accept ownership proposal to all the chains.
 	for _, sel := range initialDeploy {
-		require.NoError(t, commonchangeset.ExecuteProposal(e.Env, acceptOwnershipExec, state.Chains[sel].Timelock, sel))
+		commonchangeset.ExecuteProposal(t, e.Env, acceptOwnershipExec, state.Chains[sel].Timelock, sel)
 	}
 	for _, chain := range initialDeploy {
 		owner, err2 := state.Chains[chain].OnRamp.Owner(nil)

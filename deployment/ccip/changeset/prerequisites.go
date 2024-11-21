@@ -24,7 +24,7 @@ func DeployPrerequisites(env deployment.Environment, cfg DeployPrerequisiteConfi
 		return deployment.ChangesetOutput{}, errors.Wrapf(deployment.ErrInvalidConfig, "%v", err)
 	}
 	ab := deployment.NewMemoryAddressBook()
-	err = DeployPrerequisiteChainContracts(env, ab, cfg.ChainSelectors, cfg.USDCEnabledChainSelectors)
+	err = deployPrerequisiteChainContracts(env, ab, cfg.ChainSelectors, cfg.Opts...)
 	if err != nil {
 		env.Logger.Errorw("Failed to deploy prerequisite contracts", "err", err, "addressBook", ab)
 		return deployment.ChangesetOutput{
@@ -39,8 +39,8 @@ func DeployPrerequisites(env deployment.Environment, cfg DeployPrerequisiteConfi
 }
 
 type DeployPrerequisiteConfig struct {
-	ChainSelectors            []uint64
-	USDCEnabledChainSelectors []uint64
+	ChainSelectors []uint64
+	Opts           []PrerequisiteOpt
 	// TODO handle tokens and feeds in prerequisite config
 	Tokens map[TokenSymbol]common.Address
 	Feeds  map[TokenSymbol]common.Address
@@ -50,14 +50,6 @@ func (c DeployPrerequisiteConfig) Validate() error {
 	mapAllChainSelectors := make(map[uint64]struct{})
 	for _, cs := range c.ChainSelectors {
 		mapAllChainSelectors[cs] = struct{}{}
-		if err := deployment.IsValidChainSelector(cs); err != nil {
-			return fmt.Errorf("invalid chain selector: %d - %w", cs, err)
-		}
-	}
-	for _, cs := range c.USDCEnabledChainSelectors {
-		if _, ok := mapAllChainSelectors[cs]; !ok {
-			return fmt.Errorf("chain selector %d is not present in ChainSelectors", cs)
-		}
 		if err := deployment.IsValidChainSelector(cs); err != nil {
 			return fmt.Errorf("invalid chain selector: %d - %w", cs, err)
 		}

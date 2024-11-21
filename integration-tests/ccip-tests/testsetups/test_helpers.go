@@ -77,15 +77,15 @@ func (d DeployedLocalDevEnvironment) RestartChainlinkNodes(t *testing.T) error {
 	return errGrp.Wait()
 }
 
-func NewLocalDevEnvironmentWithDefaultPrice(t *testing.T, lggr logger.Logger, isUSDC bool) (changeset.DeployedEnv, *test_env.CLClusterTestEnv, tc.TestConfig) {
-	return NewLocalDevEnvironment(t, lggr, changeset.MockLinkPrice, changeset.MockWethPrice, isUSDC)
+func NewLocalDevEnvironmentWithDefaultPrice(t *testing.T, lggr logger.Logger, tCfg *changeset.TestConfigs) (changeset.DeployedEnv, *test_env.CLClusterTestEnv, tc.TestConfig) {
+	return NewLocalDevEnvironment(t, lggr, changeset.MockLinkPrice, changeset.MockWethPrice, tCfg)
 }
 
 func NewLocalDevEnvironment(
 	t *testing.T,
 	lggr logger.Logger,
 	linkPrice, wethPrice *big.Int,
-	isUSDC bool,
+	tCfg *changeset.TestConfigs,
 ) (changeset.DeployedEnv, *test_env.CLClusterTestEnv, tc.TestConfig) {
 	ctx := testcontext.Get(t)
 	// create a local docker environment with simulated chains and job-distributor
@@ -127,7 +127,7 @@ func NewLocalDevEnvironment(
 	require.NoError(t, err)
 	allChains := env.AllChainSelectors()
 	var usdcChains []uint64
-	if isUSDC {
+	if tCfg != nil && tCfg.IsUSDC {
 		usdcChains = allChains
 	}
 	mcmsCfgPerChain := commontypes.MCMSWithTimelockConfig{
@@ -141,8 +141,9 @@ func NewLocalDevEnvironment(
 	for _, c := range env.AllChainSelectors() {
 		mcmsCfg[c] = mcmsCfgPerChain
 	}
-	// Need to deploy prerequisites first so that we can for the CCIP contracts.
-	cs01 := []commonchangeset.ChangesetApplication{
+	// Need to deploy prerequisites first so that we can form the USDC config
+	// no proposals to be made, timelock can be passed as nil here
+	env, err = commonchangeset.ApplyChangesets(t, env, nil, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.DeployHomeChain),
 			Config: changeset.DeployHomeChainConfig{
@@ -158,8 +159,10 @@ func NewLocalDevEnvironment(
 		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.DeployPrerequisites),
 			Config: changeset.DeployPrerequisiteConfig{
-				ChainSelectors:            allChains,
-				USDCEnabledChainSelectors: usdcChains,
+				ChainSelectors: allChains,
+				Opts: []changeset.PrerequisiteOpt{
+					changeset.WithUSDCChains(usdcChains),
+				},
 			},
 		},
 		{
@@ -173,22 +176,19 @@ func NewLocalDevEnvironment(
 				HomeChainSelector: homeChainSel,
 			},
 		},
-	}
-	ctx = testcontext.Get(t)
-	// no proposals to be made, timelock can be passed as nil here
-	env, err = commonchangeset.ApplyChangesets(ctx, env, nil, cs01)
+	})
 	require.NoError(t, err)
 
 	state, err := changeset.LoadOnchainState(env)
 	require.NoError(t, err)
 	tokenConfig := changeset.NewTestTokenConfig(state.Chains[feedSel].USDFeeds)
-	USDCCCTPConfig := make(map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig)
+	usdcCCTPConfig := make(map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig)
 	timelocksPerChain := make(map[uint64]*gethwrappers.RBACTimelock)
 	for _, chain := range usdcChains {
 		require.NotNil(t, state.Chains[chain].MockUSDCTokenMessenger)
 		require.NotNil(t, state.Chains[chain].MockUSDCTransmitter)
 		require.NotNil(t, state.Chains[chain].USDCTokenPool)
-		USDCCCTPConfig[cciptypes.ChainSelector(chain)] = pluginconfig.USDCCCTPTokenConfig{
+		usdcCCTPConfig[cciptypes.ChainSelector(chain)] = pluginconfig.USDCCCTPTokenConfig{
 			SourcePoolAddress:            state.Chains[chain].USDCTokenPool.Address().String(),
 			SourceMessageTransmitterAddr: state.Chains[chain].MockUSDCTransmitter.Address().String(),
 		}
@@ -208,10 +208,10 @@ func NewLocalDevEnvironment(
 	}
 
 	// Deploy second set of changesets to deploy and configure the CCIP contracts.
-	cs02 := []commonchangeset.ChangesetApplication{
+	env, err = commonchangeset.ApplyChangesets(t, env, timelocksPerChain, []commonchangeset.ChangesetApplication{
 		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.InitialAddChain),
-			Config: changeset.DeployCCIPContractConfig{
+			Changeset: commonchangeset.WrapChangeSet(changeset.ConfigureNewChains),
+			Config: changeset.NewChainConfig{
 				HomeChainSel:   homeChainSel,
 				FeedChainSel:   feedSel,
 				ChainsToDeploy: allChains,
@@ -220,16 +220,14 @@ func NewLocalDevEnvironment(
 				USDCConfig: changeset.USDCConfig{
 					EnabledChains:         usdcChains,
 					USDCAttestationConfig: usdcAttestationCfg,
-					CCTPTokenConfig:       USDCCCTPConfig,
+					CCTPTokenConfig:       usdcCCTPConfig,
 				},
 			},
 		},
 		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.CCIPCapabilityJobspec),
 		},
-	}
-
-	env, err = commonchangeset.ApplyChangesets(ctx, env, timelocksPerChain, cs02)
+	})
 	require.NoError(t, err)
 
 	// Ensure capreg logs are up to date.
@@ -248,7 +246,7 @@ func NewLocalDevEnvironmentWithRMN(
 	lggr logger.Logger,
 	numRmnNodes int,
 ) (changeset.DeployedEnv, devenv.RMNCluster) {
-	tenv, dockerenv, testCfg := NewLocalDevEnvironmentWithDefaultPrice(t, lggr, false)
+	tenv, dockerenv, testCfg := NewLocalDevEnvironmentWithDefaultPrice(t, lggr, nil)
 	l := logging.GetTestLogger(t)
 	config := GenerateTestRMNConfig(t, numRmnNodes, tenv, MustNetworksToRPCMap(dockerenv.EVMNetworks))
 	require.NotNil(t, testCfg.CCIP)

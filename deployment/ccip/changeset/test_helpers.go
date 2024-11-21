@@ -244,7 +244,12 @@ func mockAttestationResponse() *httptest.Server {
 	return server
 }
 
-func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, numChains int, numNodes int, isUSDC bool) DeployedEnv {
+type TestConfigs struct {
+	IsUSDC       bool
+	IsMultiCall3 bool
+}
+
+func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, numChains int, numNodes int, tCfg *TestConfigs) DeployedEnv {
 	var err error
 	e := NewMemoryEnvironment(t, lggr, numChains, numNodes, MockLinkPrice, MockWethPrice)
 	allChains := e.Env.AllChainSelectors()
@@ -260,44 +265,45 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 		mcmsCfg[c] = cfg
 	}
 	var usdcChains []uint64
-	if isUSDC {
+	if tCfg != nil && tCfg.IsUSDC {
 		usdcChains = allChains
 	}
-	// Need to deploy prerequisites first so that we can for the CCIP contracts.
-	cs01 := []commonchangeset.ChangesetApplication{
+	// Need to deploy prerequisites first so that we can form the USDC config
+	// no proposals to be made, timelock can be passed as nil here
+	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(DeployPrerequisites),
 			Config: DeployPrerequisiteConfig{
-				ChainSelectors:            allChains,
-				USDCEnabledChainSelectors: usdcChains,
+				ChainSelectors: allChains,
+				Opts: []PrerequisiteOpt{
+					WithUSDCChains(usdcChains),
+				},
 			},
 		},
 		{
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployMCMSWithTimelock),
 			Config:    mcmsCfg,
 		},
-	}
-	// no proposals to be made, timelock can be passed as nil here
-	e.Env, err = commonchangeset.ApplyChangesets(context.Background(), e.Env, nil, cs01)
+	})
 	require.NoError(t, err)
 
 	state, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	tokenConfig := NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
-	USDCCCTPConfig := make(map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig)
+	usdcCCTPConfig := make(map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig)
 	timelocksPerChain := make(map[uint64]*gethwrappers.RBACTimelock)
 	for _, chain := range usdcChains {
 		require.NotNil(t, state.Chains[chain].MockUSDCTokenMessenger)
 		require.NotNil(t, state.Chains[chain].MockUSDCTransmitter)
 		require.NotNil(t, state.Chains[chain].USDCTokenPool)
-		USDCCCTPConfig[cciptypes.ChainSelector(chain)] = pluginconfig.USDCCCTPTokenConfig{
+		usdcCCTPConfig[cciptypes.ChainSelector(chain)] = pluginconfig.USDCCCTPTokenConfig{
 			SourcePoolAddress:            state.Chains[chain].USDCTokenPool.Address().String(),
 			SourceMessageTransmitterAddr: state.Chains[chain].MockUSDCTransmitter.Address().String(),
 		}
 		timelocksPerChain[chain] = state.Chains[chain].Timelock
 	}
 	var usdcCfg USDCAttestationConfig
-	if isUSDC {
+	if len(usdcChains) > 0 {
 		server := mockAttestationResponse()
 		defer server.Close()
 		endpoint := server.URL
@@ -309,7 +315,7 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 	}
 
 	// Deploy second set of changesets to deploy and configure the CCIP contracts.
-	cs02 := []commonchangeset.ChangesetApplication{
+	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(DeployChainContracts),
 			Config: DeployChainContractsConfig{
@@ -318,8 +324,8 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 			},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(InitialAddChain),
-			Config: DeployCCIPContractConfig{
+			Changeset: commonchangeset.WrapChangeSet(ConfigureNewChains),
+			Config: NewChainConfig{
 				HomeChainSel:   e.HomeChainSel,
 				FeedChainSel:   e.FeedChainSel,
 				ChainsToDeploy: allChains,
@@ -328,16 +334,14 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 				USDCConfig: USDCConfig{
 					EnabledChains:         usdcChains,
 					USDCAttestationConfig: usdcCfg,
-					CCTPTokenConfig:       USDCCCTPConfig,
+					CCTPTokenConfig:       usdcCCTPConfig,
 				},
 			},
 		},
 		{
 			Changeset: commonchangeset.WrapChangeSet(CCIPCapabilityJobspec),
 		},
-	}
-
-	e.Env, err = commonchangeset.ApplyChangesets(context.Background(), e.Env, timelocksPerChain, cs02)
+	})
 	require.NoError(t, err)
 
 	state, err = LoadOnchainState(e.Env)
@@ -651,10 +655,9 @@ func ProcessChangeset(t *testing.T, e deployment.Environment, c deployment.Chang
 				chains.Add(uint64(op.ChainIdentifier))
 			}
 
-			signed, err := commonchangeset.SignProposal(e, &prop)
-			require.NoError(t, err)
+			signed := commonchangeset.SignProposal(t, e, &prop)
 			for _, sel := range chains.ToSlice() {
-				require.NoError(t, commonchangeset.ExecuteProposal(e, signed, state.Chains[sel].Timelock, sel))
+				commonchangeset.ExecuteProposal(t, e, signed, state.Chains[sel].Timelock, sel)
 			}
 		}
 	}

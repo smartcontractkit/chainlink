@@ -26,7 +26,7 @@ func TestActiveCandidate(t *testing.T) {
 	t.Skipf("to be enabled after latest cl-ccip is compatible")
 
 	lggr := logger.TestLogger(t)
-	tenv := NewMemoryEnvironmentWithJobsAndContracts(t, lggr, 3, 5, false)
+	tenv := NewMemoryEnvironmentWithJobsAndContracts(t, lggr, 3, 5, nil)
 	e := tenv.Env
 	state, err := LoadOnchainState(tenv.Env)
 	require.NoError(t, err)
@@ -79,10 +79,9 @@ func TestActiveCandidate(t *testing.T) {
 	TransferAllOwnership(t, state, tenv.HomeChainSel, e)
 	acceptOwnershipProposal, err := GenerateAcceptOwnershipProposal(state, tenv.HomeChainSel, e.AllChainSelectors())
 	require.NoError(t, err)
-	acceptOwnershipExec, err := commonchangeset.SignProposal(e, acceptOwnershipProposal)
-	require.NoError(t, err)
+	acceptOwnershipExec := commonchangeset.SignProposal(t, e, acceptOwnershipProposal)
 	for _, sel := range e.AllChainSelectors() {
-		require.NoError(t, commonchangeset.ExecuteProposal(e, acceptOwnershipExec, state.Chains[sel].Timelock, sel))
+		commonchangeset.ExecuteProposal(t, e, acceptOwnershipExec, state.Chains[sel].Timelock, sel)
 	}
 	// Apply the accept ownership proposal to all the chains.
 
@@ -144,9 +143,8 @@ func TestActiveCandidate(t *testing.T) {
 		Batch:           setCommitCandidateOp,
 	}}, "set new candidates on commit plugin", 0)
 	require.NoError(t, err)
-	setCommitCandidateSigned, err := commonchangeset.SignProposal(e, setCommitCandidateProposal)
-	require.NoError(t, err)
-	require.NoError(t, commonchangeset.ExecuteProposal(e, setCommitCandidateSigned, state.Chains[tenv.HomeChainSel].Timelock, tenv.HomeChainSel))
+	setCommitCandidateSigned := commonchangeset.SignProposal(t, e, setCommitCandidateProposal)
+	commonchangeset.ExecuteProposal(t, e, setCommitCandidateSigned, state.Chains[tenv.HomeChainSel].Timelock, tenv.HomeChainSel)
 
 	// create the op for the commit plugin as well
 	setExecCandidateOp, err := SetCandidateOnExistingDon(
@@ -163,9 +161,8 @@ func TestActiveCandidate(t *testing.T) {
 		Batch:           setExecCandidateOp,
 	}}, "set new candidates on commit and exec plugins", 0)
 	require.NoError(t, err)
-	setExecCandidateSigned, err := commonchangeset.SignProposal(e, setExecCandidateProposal)
-	require.NoError(t, err)
-	require.NoError(t, commonchangeset.ExecuteProposal(e, setExecCandidateSigned, state.Chains[tenv.HomeChainSel].Timelock, tenv.HomeChainSel))
+	setExecCandidateSigned := commonchangeset.SignProposal(t, e, setExecCandidateProposal)
+	commonchangeset.ExecuteProposal(t, e, setExecCandidateSigned, state.Chains[tenv.HomeChainSel].Timelock, tenv.HomeChainSel)
 
 	// check setup was successful by confirming number of nodes from cap reg
 	donInfo, err = state.Chains[tenv.HomeChainSel].CapabilityRegistry.GetDON(nil, donID)
@@ -191,9 +188,8 @@ func TestActiveCandidate(t *testing.T) {
 		Batch:           promoteOps,
 	}}, "promote candidates and revoke actives", 0)
 	require.NoError(t, err)
-	promoteSigned, err := commonchangeset.SignProposal(e, promoteProposal)
-	require.NoError(t, err)
-	require.NoError(t, commonchangeset.ExecuteProposal(e, promoteSigned, state.Chains[tenv.HomeChainSel].Timelock, tenv.HomeChainSel))
+	promoteSigned := commonchangeset.SignProposal(t, e, promoteProposal)
+	commonchangeset.ExecuteProposal(t, e, promoteSigned, state.Chains[tenv.HomeChainSel].Timelock, tenv.HomeChainSel)
 	// [NEW ACTIVE, NO CANDIDATE] done promoting
 
 	// [NEW ACTIVE, NO CANDIDATE] check onchain state
