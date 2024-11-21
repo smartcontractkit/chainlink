@@ -869,11 +869,12 @@ const (
 	DefaultSpecType                  = ""
 )
 
-type WorkflowSpecStatus uint8
+type WorkflowSpecStatus string
 
 const (
-	WorkflowSpecStatusActive WorkflowSpecStatus = iota
-	WorkflowSpecStatusPaused
+	WorkflowSpecStatusActive  WorkflowSpecStatus = "active"
+	WorkflowSpecStatusPaused  WorkflowSpecStatus = "paused"
+	WorkflowSpecStatusDefault WorkflowSpecStatus = ""
 )
 
 type WorkflowSpec struct {
