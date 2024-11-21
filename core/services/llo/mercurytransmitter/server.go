@@ -3,6 +3,7 @@ package mercurytransmitter
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -29,27 +30,35 @@ import (
 )
 
 var (
-	transmitQueueDeleteErrorCount = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "llo_mercury_transmit_queue_delete_error_count",
-		Help: "Running count of DB errors when trying to delete an item from the queue DB",
+	promTransmitQueueDeleteErrorCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "llo",
+		Subsystem: "mercurytransmitter",
+		Name:      "transmit_queue_delete_error_count",
+		Help:      "Running count of DB errors when trying to delete an item from the queue DB",
 	},
 		[]string{"donID", "serverURL"},
 	)
-	transmitQueueInsertErrorCount = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "llo_mercury_transmit_queue_insert_error_count",
-		Help: "Running count of DB errors when trying to insert an item into the queue DB",
+	promTransmitQueueInsertErrorCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "llo",
+		Subsystem: "mercurytransmitter",
+		Name:      "transmit_queue_insert_error_count",
+		Help:      "Running count of DB errors when trying to insert an item into the queue DB",
 	},
 		[]string{"donID", "serverURL"},
 	)
-	transmitQueuePushErrorCount = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "llo_mercury_transmit_queue_push_error_count",
-		Help: "Running count of DB errors when trying to push an item onto the queue",
+	promTransmitQueuePushErrorCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "llo",
+		Subsystem: "mercurytransmitter",
+		Name:      "transmit_queue_push_error_count",
+		Help:      "Running count of DB errors when trying to push an item onto the queue",
 	},
 		[]string{"donID", "serverURL"},
 	)
-	transmitServerErrorCount = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "llo_mercury_transmit_server_error_count",
-		Help: "Number of errored transmissions that failed due to an error returned by the mercury server",
+	promTransmitServerErrorCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "llo",
+		Subsystem: "mercurytransmitter",
+		Name:      "transmit_server_error_count",
+		Help:      "Number of errored transmissions that failed due to an error returned by the mercury server",
 	},
 		[]string{"donID", "serverURL", "code"},
 	)
@@ -115,12 +124,12 @@ func newServer(lggr logger.Logger, verboseLogging bool, cfg QueueConfig, client 
 		serverURL,
 		evm.NewReportCodecPremiumLegacy(codecLggr),
 		llo.JSONReportCodec{},
-		transmitSuccessCount.WithLabelValues(donIDStr, serverURL),
-		transmitDuplicateCount.WithLabelValues(donIDStr, serverURL),
-		transmitConnectionErrorCount.WithLabelValues(donIDStr, serverURL),
-		transmitQueueDeleteErrorCount.WithLabelValues(donIDStr, serverURL),
-		transmitQueueInsertErrorCount.WithLabelValues(donIDStr, serverURL),
-		transmitQueuePushErrorCount.WithLabelValues(donIDStr, serverURL),
+		promTransmitSuccessCount.WithLabelValues(donIDStr, serverURL),
+		promTransmitDuplicateCount.WithLabelValues(donIDStr, serverURL),
+		promTransmitConnectionErrorCount.WithLabelValues(donIDStr, serverURL),
+		promTransmitQueueDeleteErrorCount.WithLabelValues(donIDStr, serverURL),
+		promTransmitQueueInsertErrorCount.WithLabelValues(donIDStr, serverURL),
+		promTransmitQueuePushErrorCount.WithLabelValues(donIDStr, serverURL),
 		atomic.Int32{},
 		atomic.Int32{},
 	}
@@ -241,7 +250,7 @@ func (s *server) runQueueLoop(stopCh services.StopChan, wg *sync.WaitGroup, donI
 					s.transmitDuplicateCount.Inc()
 					s.lggr.Debugw("Transmit report success; duplicate report", "req.ReportFormat", req.ReportFormat, "req.Payload", req.Payload, "transmission", t, "response", res)
 				default:
-					transmitServerErrorCount.WithLabelValues(donIDStr, s.url, fmt.Sprintf("%d", res.Code)).Inc()
+					promTransmitServerErrorCount.WithLabelValues(donIDStr, s.url, strconv.FormatInt(int64(res.Code), 10)).Inc()
 					s.lggr.Errorw("Transmit report failed; mercury server returned error", "req.ReportFormat", req.ReportFormat, "req.Payload", req.Payload, "response", res, "transmission", t, "err", res.Error, "code", res.Code)
 				}
 			}

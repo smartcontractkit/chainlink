@@ -33,21 +33,27 @@ const (
 )
 
 var (
-	transmitSuccessCount = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "llo_mercury_transmit_success_count",
-		Help: "Number of successful transmissions (duplicates are counted as success)",
+	promTransmitSuccessCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "llo",
+		Subsystem: "mercurytransmitter",
+		Name:      "transmit_success_count",
+		Help:      "Number of successful transmissions (duplicates are counted as success)",
 	},
 		[]string{"donID", "serverURL"},
 	)
-	transmitDuplicateCount = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "llo_mercury_transmit_duplicate_count",
-		Help: "Number of transmissions where the server told us it was a duplicate",
+	promTransmitDuplicateCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "llo",
+		Subsystem: "mercurytransmitter",
+		Name:      "transmit_duplicate_count",
+		Help:      "Number of transmissions where the server told us it was a duplicate",
 	},
 		[]string{"donID", "serverURL"},
 	)
-	transmitConnectionErrorCount = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "llo_mercury_transmit_connection_error_count",
-		Help: "Number of errored transmissions that failed due to problem with the connection",
+	promTransmitConnectionErrorCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "llo",
+		Subsystem: "mercurytransmitter",
+		Name:      "transmit_connection_error_count",
+		Help:      "Number of errored transmissions that failed due to problem with the connection",
 	},
 		[]string{"donID", "serverURL"},
 	)
@@ -187,7 +193,9 @@ func (mt *transmitter) Start(ctx context.Context) (err error) {
 				}
 				mt.collectors = append(mt.collectors, prometheus.NewGaugeFunc(
 					prometheus.GaugeOpts{
-						Name:        "llo_mercury_concurrent_transmit_gauge",
+						Namespace:   "llo",
+						Subsystem:   "mercurytransmitter",
+						Name:        "concurrent_transmit_gauge",
 						Help:        "Gauge that measures the number of transmit threads currently waiting on a remote transmit call. You may wish to alert if this exceeds some number for a given period of time, or if it ever reaches its max.",
 						ConstLabels: prometheus.Labels{"donID": donIDStr, "serverURL": s.url, "maxConcurrentTransmits": strconv.FormatInt(int64(nThreads), 10)},
 					}, func() float64 {
@@ -195,7 +203,9 @@ func (mt *transmitter) Start(ctx context.Context) (err error) {
 					}))
 				mt.collectors = append(mt.collectors, prometheus.NewGaugeFunc(
 					prometheus.GaugeOpts{
-						Name:        "llo_mercury_concurrent_delete_gauge",
+						Namespace:   "llo",
+						Subsystem:   "mercurytransmitter",
+						Name:        "concurrent_delete_gauge",
 						Help:        "Gauge that measures the number of delete threads currently waiting on a delete call to the DB. You may wish to alert if this exceeds some number for a given period of time, or if it ever reaches its max.",
 						ConstLabels: prometheus.Labels{"donID": donIDStr, "serverURL": s.url, "maxConcurrentDeletes": strconv.FormatInt(int64(nThreads), 10)},
 					}, func() float64 {
