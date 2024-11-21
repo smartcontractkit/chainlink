@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"math/big"
 	"sort"
-	"strconv"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -322,28 +321,11 @@ func NodeInfo(nodeIDs []string, oc NodeChainConfigsLister) (Nodes, error) {
 			var details chain_selectors.ChainDetails
 			switch chainConfig.Chain.Type {
 			case nodev1.ChainType_CHAIN_TYPE_APTOS:
-				cid, err := strconv.Atoi(chainConfig.Chain.Id)
-				if err != nil {
-					return nil, err
-				}
-				var exists bool
-				_, exists = chain_selectors.AptosChainIdToChainSelector()[uint64(cid)]
-				if !exists {
-					return nil, fmt.Errorf("aptos chain id %d not found", cid)
-				}
 				details, err = chain_selectors.GetChainDetailsByChainIDAndFamily(chainConfig.Chain.Id, chain_selectors.FamilyAptos)
 				if err != nil {
 					return nil, err
 				}
 			case nodev1.ChainType_CHAIN_TYPE_EVM:
-				evmChainID, err := strconv.Atoi(chainConfig.Chain.Id)
-				if err != nil {
-					return nil, err
-				}
-				_, err = chain_selectors.SelectorFromChainId(uint64(evmChainID))
-				if err != nil {
-					return nil, err
-				}
 				details, err = chain_selectors.GetChainDetailsByChainIDAndFamily(chainConfig.Chain.Id, chain_selectors.FamilyEVM)
 				if err != nil {
 					return nil, err
