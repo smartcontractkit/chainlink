@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
-	ccdeploy "github.com/smartcontractkit/chainlink/deployment/ccip"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
@@ -20,16 +20,16 @@ func TestInitialDeployOnLocal(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	tenv, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr)
 	e := tenv.Env
-	state, err := ccdeploy.LoadOnchainState(e)
+	state, err := changeset.LoadOnchainState(e)
 	require.NoError(t, err)
 
 	// Add all lanes
-	require.NoError(t, ccdeploy.AddLanesForAll(e, state))
+	require.NoError(t, changeset.AddLanesForAll(e, state))
 	// Need to keep track of the block number for each chain so that event subscription can be done from that block.
 	startBlocks := make(map[uint64]*uint64)
 	// Send a message from each chain to every other chain.
-	expectedSeqNum := make(map[ccdeploy.SourceDestPair]uint64)
-	expectedSeqNumExec := make(map[ccdeploy.SourceDestPair][]uint64)
+	expectedSeqNum := make(map[changeset.SourceDestPair]uint64)
+	expectedSeqNumExec := make(map[changeset.SourceDestPair][]uint64)
 	for src := range e.Chains {
 		for dest, destChain := range e.Chains {
 			if src == dest {
@@ -39,18 +39,18 @@ func TestInitialDeployOnLocal(t *testing.T) {
 			require.NoError(t, err)
 			block := latesthdr.Number.Uint64()
 			startBlocks[dest] = &block
-			msgSentEvent := ccdeploy.TestSendRequest(t, e, state, src, dest, false, router.ClientEVM2AnyMessage{
+			msgSentEvent := changeset.TestSendRequest(t, e, state, src, dest, false, router.ClientEVM2AnyMessage{
 				Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
 				Data:         []byte("hello world"),
 				TokenAmounts: nil,
 				FeeToken:     common.HexToAddress("0x0"),
 				ExtraArgs:    nil,
 			})
-			expectedSeqNum[ccdeploy.SourceDestPair{
+			expectedSeqNum[changeset.SourceDestPair{
 				SourceChainSelector: src,
 				DestChainSelector:   dest,
 			}] = msgSentEvent.SequenceNumber
-			expectedSeqNumExec[ccdeploy.SourceDestPair{
+			expectedSeqNumExec[changeset.SourceDestPair{
 				SourceChainSelector: src,
 				DestChainSelector:   dest,
 			}] = []uint64{msgSentEvent.SequenceNumber}
@@ -58,7 +58,7 @@ func TestInitialDeployOnLocal(t *testing.T) {
 	}
 
 	// Wait for all commit reports to land.
-	ccdeploy.ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
+	changeset.ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
 
 	// After commit is reported on all chains, token prices should be updated in FeeQuoter.
 	for dest := range e.Chains {
@@ -66,11 +66,11 @@ func TestInitialDeployOnLocal(t *testing.T) {
 		feeQuoter := state.Chains[dest].FeeQuoter
 		timestampedPrice, err := feeQuoter.GetTokenPrice(nil, linkAddress)
 		require.NoError(t, err)
-		require.Equal(t, ccdeploy.MockLinkPrice, timestampedPrice.Value)
+		require.Equal(t, changeset.MockLinkPrice, timestampedPrice.Value)
 	}
 
 	// Wait for all exec reports to land
-	ccdeploy.ConfirmExecWithSeqNrsForAll(t, e, state, expectedSeqNumExec, startBlocks)
+	changeset.ConfirmExecWithSeqNrsForAll(t, e, state, expectedSeqNumExec, startBlocks)
 
 	// TODO: Apply the proposal.
 }
@@ -80,10 +80,10 @@ func TestTokenTransfer(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	tenv, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr)
 	e := tenv.Env
-	state, err := ccdeploy.LoadOnchainState(e)
+	state, err := changeset.LoadOnchainState(e)
 	require.NoError(t, err)
 
-	srcToken, _, dstToken, _, err := ccdeploy.DeployTransferableToken(
+	srcToken, _, dstToken, _, err := changeset.DeployTransferableToken(
 		lggr,
 		tenv.Env.Chains,
 		tenv.HomeChainSel,
@@ -95,12 +95,12 @@ func TestTokenTransfer(t *testing.T) {
 	require.NoError(t, err)
 
 	// Add all lanes
-	require.NoError(t, ccdeploy.AddLanesForAll(e, state))
+	require.NoError(t, changeset.AddLanesForAll(e, state))
 	// Need to keep track of the block number for each chain so that event subscription can be done from that block.
 	startBlocks := make(map[uint64]*uint64)
 	// Send a message from each chain to every other chain.
-	expectedSeqNum := make(map[ccdeploy.SourceDestPair]uint64)
-	expectedSeqNumExec := make(map[ccdeploy.SourceDestPair][]uint64)
+	expectedSeqNum := make(map[changeset.SourceDestPair]uint64)
+	expectedSeqNumExec := make(map[changeset.SourceDestPair][]uint64)
 
 	twoCoins := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(2))
 	tx, err := srcToken.Mint(
@@ -158,7 +158,7 @@ func TestTokenTransfer(t *testing.T) {
 				msgSentEvent *onramp.OnRampCCIPMessageSent
 			)
 			if src == tenv.HomeChainSel && dest == tenv.FeedChainSel {
-				msgSentEvent = ccdeploy.TestSendRequest(t, e, state, src, dest, false, router.ClientEVM2AnyMessage{
+				msgSentEvent = changeset.TestSendRequest(t, e, state, src, dest, false, router.ClientEVM2AnyMessage{
 					Receiver:     receiver,
 					Data:         data,
 					TokenAmounts: tokens[src],
@@ -166,7 +166,7 @@ func TestTokenTransfer(t *testing.T) {
 					ExtraArgs:    nil,
 				})
 			} else {
-				msgSentEvent = ccdeploy.TestSendRequest(t, e, state, src, dest, false, router.ClientEVM2AnyMessage{
+				msgSentEvent = changeset.TestSendRequest(t, e, state, src, dest, false, router.ClientEVM2AnyMessage{
 					Receiver:     receiver,
 					Data:         data,
 					TokenAmounts: nil,
@@ -175,11 +175,11 @@ func TestTokenTransfer(t *testing.T) {
 				})
 			}
 
-			expectedSeqNum[ccdeploy.SourceDestPair{
+			expectedSeqNum[changeset.SourceDestPair{
 				SourceChainSelector: src,
 				DestChainSelector:   dest,
 			}] = msgSentEvent.SequenceNumber
-			expectedSeqNumExec[ccdeploy.SourceDestPair{
+			expectedSeqNumExec[changeset.SourceDestPair{
 				SourceChainSelector: src,
 				DestChainSelector:   dest,
 			}] = []uint64{msgSentEvent.SequenceNumber}
@@ -187,7 +187,7 @@ func TestTokenTransfer(t *testing.T) {
 	}
 
 	// Wait for all commit reports to land.
-	ccdeploy.ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
+	changeset.ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
 
 	// After commit is reported on all chains, token prices should be updated in FeeQuoter.
 	for dest := range e.Chains {
@@ -195,11 +195,11 @@ func TestTokenTransfer(t *testing.T) {
 		feeQuoter := state.Chains[dest].FeeQuoter
 		timestampedPrice, err := feeQuoter.GetTokenPrice(nil, linkAddress)
 		require.NoError(t, err)
-		require.Equal(t, ccdeploy.MockLinkPrice, timestampedPrice.Value)
+		require.Equal(t, changeset.MockLinkPrice, timestampedPrice.Value)
 	}
 
 	// Wait for all exec reports to land
-	ccdeploy.ConfirmExecWithSeqNrsForAll(t, e, state, expectedSeqNumExec, startBlocks)
+	changeset.ConfirmExecWithSeqNrsForAll(t, e, state, expectedSeqNumExec, startBlocks)
 
 	balance, err := dstToken.BalanceOf(nil, state.Chains[tenv.FeedChainSel].Receiver.Address())
 	require.NoError(t, err)

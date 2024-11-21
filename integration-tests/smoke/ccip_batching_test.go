@@ -14,7 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink/deployment"
-	ccdeploy "github.com/smartcontractkit/chainlink/deployment/ccip"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/multicall3"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
@@ -26,12 +26,12 @@ import (
 func Test_CCIPBatching(t *testing.T) {
 	// Setup 3 chains, with 2 lanes going to the dest.
 	lggr := logger.TestLogger(t)
-	ctx := ccdeploy.Context(t)
+	ctx := changeset.Context(t)
 	// Will load 3 chains when specified by the overrides.toml or env vars (E2E_TEST_SELECTED_NETWORK).
 	// See e2e-tests.yml.
 	e, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr)
 
-	state, err := ccdeploy.LoadOnchainState(e.Env)
+	state, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	allChainSelectors := maps.Keys(e.Env.Chains)
@@ -48,8 +48,8 @@ func Test_CCIPBatching(t *testing.T) {
 	)
 
 	// connect sourceChain1 and sourceChain2 to destChain
-	require.NoError(t, ccdeploy.AddLaneWithDefaultPrices(e.Env, state, sourceChain1, destChain))
-	require.NoError(t, ccdeploy.AddLaneWithDefaultPrices(e.Env, state, sourceChain2, destChain))
+	require.NoError(t, changeset.AddLaneWithDefaultPrices(e.Env, state, sourceChain1, destChain))
+	require.NoError(t, changeset.AddLaneWithDefaultPrices(e.Env, state, sourceChain2, destChain))
 
 	const (
 		numMessages = 5
@@ -80,7 +80,7 @@ func Test_CCIPBatching(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		_, err = ccdeploy.ConfirmCommitWithExpectedSeqNumRange(
+		_, err = changeset.ConfirmCommitWithExpectedSeqNumRange(
 			t,
 			e.Env.Chains[sourceChain1],
 			e.Env.Chains[destChain],
@@ -189,8 +189,8 @@ type outputErr[T any] struct {
 
 func assertCommitReportsAsync(
 	t *testing.T,
-	e ccdeploy.DeployedEnv,
-	state ccdeploy.CCIPOnChainState,
+	e changeset.DeployedEnv,
+	state changeset.CCIPOnChainState,
 	sourceChainSelector,
 	destChainSelector uint64,
 	startSeqNum,
@@ -200,7 +200,7 @@ func assertCommitReportsAsync(
 ) {
 	defer wg.Done()
 	var err error
-	sourceChain1Report, err := ccdeploy.ConfirmCommitWithExpectedSeqNumRange(
+	sourceChain1Report, err := changeset.ConfirmCommitWithExpectedSeqNumRange(
 		t,
 		e.Env.Chains[sourceChainSelector],
 		e.Env.Chains[destChainSelector],
@@ -215,8 +215,8 @@ func assertCommitReportsAsync(
 func sendMessagesAsync(
 	ctx context.Context,
 	t *testing.T,
-	e ccdeploy.DeployedEnv,
-	state ccdeploy.CCIPOnChainState,
+	e changeset.DeployedEnv,
+	state changeset.CCIPOnChainState,
 	sourceChainSelector,
 	destChainSelector uint64,
 	numMessages int,
@@ -319,7 +319,7 @@ func genMessages(
 
 		totalValue.Add(totalValue, fee)
 
-		calldata, err := ccdeploy.CCIPSendCalldata(destChainSelector, msg)
+		calldata, err := changeset.CCIPSendCalldata(destChainSelector, msg)
 		if err != nil {
 			return nil, nil, fmt.Errorf("generate calldata: %w", err)
 		}
