@@ -78,7 +78,7 @@ func (d DeployedLocalDevEnvironment) RestartChainlinkNodes(t *testing.T) error {
 }
 
 func NewLocalDevEnvironmentWithDefaultPrice(t *testing.T, lggr logger.Logger, isUSDC bool) (changeset.DeployedEnv, *test_env.CLClusterTestEnv, tc.TestConfig) {
-	return NewLocalDevEnvironment(t, lggr, changeset.MockLinkPrice, changeset.MockWethPrice, false)
+	return NewLocalDevEnvironment(t, lggr, changeset.MockLinkPrice, changeset.MockWethPrice, isUSDC)
 }
 
 func NewLocalDevEnvironment(
