@@ -8,7 +8,6 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
-	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 )
@@ -35,26 +34,21 @@ func WrapChangeSet[C any](fn deployment.ChangeSet[C]) func(e deployment.Environm
 
 // ApplyChangesets applies the changeset applications to the environment and returns the updated environment.
 func ApplyChangesets(t *testing.T, e deployment.Environment, timelocksPerChain map[uint64]*gethwrappers.RBACTimelock, changesetApplications []ChangesetApplication) (deployment.Environment, error) {
-	addrBook := deployment.NewMemoryAddressBook()
-	require.NoError(t, addrBook.Merge(e.ExistingAddresses))
-	currentEnv := deployment.NewEnvironment(
-		e.Name,
-		e.Logger,
-		addrBook,
-		e.Chains,
-		e.NodeIDs,
-		e.Offchain,
-	)
+	currentEnv := e
 	for i, csa := range changesetApplications {
-		out, err := csa.Changeset(*currentEnv, csa.Config)
+		out, err := csa.Changeset(currentEnv, csa.Config)
 		if err != nil {
 			return e, fmt.Errorf("failed to apply changeset at index %d: %w", i, err)
 		}
+		var addresses deployment.AddressBook
 		if out.AddressBook != nil {
-			err := currentEnv.ExistingAddresses.Merge(out.AddressBook)
+			addresses = out.AddressBook
+			err := addresses.Merge(currentEnv.ExistingAddresses)
 			if err != nil {
 				return e, fmt.Errorf("failed to merge address book: %w", err)
 			}
+		} else {
+			addresses = currentEnv.ExistingAddresses
 		}
 		if out.JobSpecs != nil {
 			ctx := testcontext.Get(t)
@@ -89,6 +83,14 @@ func ApplyChangesets(t *testing.T, e deployment.Environment, timelocksPerChain m
 				}
 			}
 		}
+		currentEnv = deployment.Environment{
+			Name:              e.Name,
+			Logger:            e.Logger,
+			ExistingAddresses: addresses,
+			Chains:            e.Chains,
+			NodeIDs:           e.NodeIDs,
+			Offchain:          e.Offchain,
+		}
 	}
-	return *currentEnv, nil
+	return currentEnv, nil
 }
