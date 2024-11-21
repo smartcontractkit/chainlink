@@ -26,26 +26,26 @@ func (r *engineRegistry) Add(id string, engine *workflows.Engine) {
 }
 
 // Get retrieves an engine from the registry.
-func (r *engineRegistry) Get(id string) *workflows.Engine {
+func (r *engineRegistry) Get(id string) (*workflows.Engine, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.engines[id]
+	engine, found := r.engines[id]
+	if !found {
+		return nil, errors.New("engine not found")
+	}
+	return engine, nil
 }
 
-// Remove removes an engine from the registry.
-func (r *engineRegistry) Remove(id string) error {
+// Pop removes an engine from the registry and returns the engine if found.
+func (r *engineRegistry) Pop(id string) (*workflows.Engine, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	engine, ok := r.engines[id]
 	if !ok {
-		return errors.New("remove failed: engine not found")
-	}
-	err := engine.Close()
-	if err != nil {
-		return err
+		return nil, errors.New("remove failed: engine not found")
 	}
 	delete(r.engines, id)
-	return nil
+	return engine, nil
 }
 
 // Close closes all engines in the registry.
