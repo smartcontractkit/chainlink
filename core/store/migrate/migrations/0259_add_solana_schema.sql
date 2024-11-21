@@ -16,10 +16,11 @@ CREATE TABLE solana.log_poller_filters (
     event_idl TEXT,
     subkey_paths json, -- A list of subkeys to be indexed, represented by their json paths in the event struct. Forced to use json's 2d array as text[][] requires all paths to have equal length.
     retention BIGINT NOT NULL DEFAULT 0, -- we don’t have to implement this initially, but good to include it in the schema
-    max_logs_kept BIGINT NOT NULL DEFAULT 0 -- same as retention, no need to implement yet
+    max_logs_kept BIGINT NOT NULL DEFAULT 0, -- same as retention, no need to implement yet
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS solana_log_poller_filter_name ON solana.log_poller_filters (name);
+CREATE UNIQUE INDEX IF NOT EXISTS solana_log_poller_filter_name ON solana.log_poller_filters (name) WHERE NOT is_deleted;
 
 CREATE TABLE solana.logs (
     id               BIGSERIAL PRIMARY KEY,
