@@ -423,6 +423,9 @@ func ConfirmExecWithSeqNrs(
 						executionStateToString(executionState), dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr)
 					executionStates[expectedSeqNr] = int(executionState)
 					delete(seqNrsToWatch, expectedSeqNr)
+					if len(seqNrsToWatch) == 0 {
+						return executionStates, nil
+					}
 				}
 			}
 		case execEvent := <-sink:
@@ -437,6 +440,9 @@ func ConfirmExecWithSeqNrs(
 					executionStateToString(execEvent.State), dest.Selector, offRamp.Address().String(), source.Selector, execEvent.SequenceNumber)
 				executionStates[execEvent.SequenceNumber] = int(execEvent.State)
 				delete(seqNrsToWatch, execEvent.SequenceNumber)
+				if len(seqNrsToWatch) == 0 {
+					return executionStates, nil
+				}
 			}
 		case <-timer.C:
 			return nil, fmt.Errorf("timed out waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence numbers %+v",
