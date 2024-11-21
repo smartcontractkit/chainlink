@@ -6,7 +6,6 @@ import (
 	"math/big"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -56,11 +55,11 @@ func Test_CCIPBatching(t *testing.T) {
 		numMessages = 30
 	)
 	var (
-		startSeqNum map[uint64]ccipocr3.SeqNum = map[uint64]ccipocr3.SeqNum{
+		startSeqNum = map[uint64]ccipocr3.SeqNum{
 			sourceChain1: 1,
 			sourceChain2: 1,
 		}
-		endSeqNum map[uint64]ccipocr3.SeqNum = map[uint64]ccipocr3.SeqNum{
+		endSeqNum = map[uint64]ccipocr3.SeqNum{
 			sourceChain1: ccipocr3.SeqNum(numMessages),
 			sourceChain2: ccipocr3.SeqNum(numMessages),
 		}
@@ -123,8 +122,6 @@ func Test_CCIPBatching(t *testing.T) {
 	outer:
 		for {
 			select {
-			case <-time.NewTicker(5 * time.Second).C:
-				t.Log("waiting for send message errors")
 			case err := <-errs:
 				require.NoError(t, err)
 				i++
@@ -161,8 +158,6 @@ func Test_CCIPBatching(t *testing.T) {
 	outer2:
 		for {
 			select {
-			case <-time.NewTicker(5 * time.Second).C:
-				t.Log("waiting for errors")
 			case outputErr := <-outputErrs:
 				require.NoError(t, outputErr.err)
 				reports = append(reports, outputErr.output)
@@ -178,6 +173,8 @@ func Test_CCIPBatching(t *testing.T) {
 		// the reports should be the same for both, since both roots should be batched within
 		// that one report.
 		require.Lenf(t, reports, len(sourceChains), "expected %d commit reports", len(sourceChains))
+		require.NotNil(t, reports[0], "commit report should not be nil")
+		require.NotNil(t, reports[1], "commit report should not be nil")
 		require.Equal(t, reports[0], reports[1], "commit reports should be the same")
 
 		startSeqNum[sourceChain1] = endSeqNum[sourceChain1] + 1
@@ -289,6 +286,7 @@ func sendMessages(
 	if err != nil {
 		return fmt.Errorf("get message sent event: %w", err)
 	}
+	defer iter.Close()
 
 	// there should be numMessages messages emitted
 	for i := 0; i < numMessages; i++ {
