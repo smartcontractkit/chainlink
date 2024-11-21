@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
@@ -30,7 +31,7 @@ const (
 
 	FirstBlockAge                           = 8 * time.Hour
 	RemoteGasPriceBatchWriteFrequency       = 30 * time.Minute
-	TokenPriceBatchWriteFrequency           = 30 * time.Minute
+	TokenPriceBatchWriteFrequency           = 3 * time.Second
 	BatchGasLimit                           = 6_500_000
 	RelativeBoostPerWaitHour                = 1.5
 	InflightCacheExpiry                     = 10 * time.Minute

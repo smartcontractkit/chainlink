@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -13,6 +14,7 @@ import (
 func TestDeployCCIPContracts(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	e := NewMemoryEnvironmentWithJobsAndContracts(t, lggr, 2, 4, nil)
+
 	// Deploy all the CCIP contracts.
 	state, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -24,4 +26,12 @@ func TestDeployCCIPContracts(t *testing.T) {
 	b, err := json.MarshalIndent(snap, "", "	")
 	require.NoError(t, err)
 	fmt.Println(string(b))
+	startBlocks := make(map[uint64]*uint64)
+	for key, val := range e.ReplayBlocks {
+		startBlocks[key] = &val
+	}
+	// wait for jobs to start
+	time.Sleep(40 * time.Second)
+	ConfirmTokenPriceUpdatedForAll(t, e.Env, state, startBlocks,
+		DefaultInitialPrices.LinkPrice, DefaultInitialPrices.WethPrice)
 }
