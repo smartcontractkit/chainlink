@@ -28,4 +28,15 @@ contract WorkflowRegistrygetAllAuthorizedAddresses is WorkflowRegistrySetup {
     assertEq(authorizedAddresses[0], s_authorizedAddress);
     assertEq(authorizedAddresses[1], s_unauthorizedAddress);
   }
+
+  function test_WhenTheRegistryIsLocked() external {
+    // Lock the registry
+    vm.prank(s_owner);
+    s_registry.lockRegistry();
+
+    // It should behave the same as when the registry is not locked
+    address[] memory authorizedAddresses = s_registry.getAllAuthorizedAddresses();
+    assertEq(authorizedAddresses.length, 1);
+    assertEq(authorizedAddresses[0], s_authorizedAddress);
+  }
 }

@@ -7,7 +7,7 @@ import {WorkflowRegistrySetup} from "./WorkflowRegistrySetup.t.sol";
 
 contract WorkflowRegistry_updateAllowedDONs is WorkflowRegistrySetup {
   function test_RevertWhen_TheCallerIsNotTheOwner() external {
-    vm.prank(s_nonOwner);
+    vm.prank(s_stranger);
 
     vm.expectRevert(Ownable2Step.OnlyCallableByOwner.selector);
     s_registry.updateAllowedDONs(new uint32[](0), true);

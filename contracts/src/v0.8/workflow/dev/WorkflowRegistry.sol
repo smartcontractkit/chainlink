@@ -83,8 +83,8 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
     bytes32 indexed workflowID, address indexed workflowOwner, uint32 indexed donID, string workflowName
   );
   event WorkflowForceUpdateSecretsRequestedV1(address indexed owner, bytes32 secretsURLHash, string workflowName);
-  event RegistryLockedV1(address indexed lockedBy);
-  event RegistryUnlockedV1(address indexed unlockedBy);
+  event RegistryLockedV1(address lockedBy);
+  event RegistryUnlockedV1(address unlockedBy);
 
   error AddressNotAuthorized(address caller);
   error CallerIsNotWorkflowOwner(address caller);
@@ -401,11 +401,11 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
       s_secretsHashToWorkflows[secretsHash].remove(workflowKey);
     }
 
+    // Emit an event indicating the workflow has been deleted. We need to do this before deleting the workflow from storage.
+    emit WorkflowDeletedV1(workflow.workflowID, sender, donID, workflow.workflowName);
+
     // Delete the workflow metadata from storage
     delete s_workflows[workflowKey];
-
-    // Emit an event indicating the workflow has been deleted
-    emit WorkflowDeletedV1(workflow.workflowID, sender, donID, workflow.workflowName);
   }
 
   /// @notice Requests a force update for workflows that share the same secrets URL.

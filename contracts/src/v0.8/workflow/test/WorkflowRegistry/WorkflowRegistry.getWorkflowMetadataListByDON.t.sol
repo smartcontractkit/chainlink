@@ -123,4 +123,33 @@ contract WorkflowRegistry_getWorkflowMetadataListByDON is WorkflowRegistryWithFi
 
     assertEq(workflows.length, 0);
   }
+
+  function test_WhenTheRegistryIsLocked() external {
+    // Lock the registry
+    vm.prank(s_owner);
+    s_registry.lockRegistry();
+
+    // It should behave the same as when the registry is not locked
+    WorkflowRegistry.WorkflowMetadata[] memory workflows =
+      s_registry.getWorkflowMetadataListByDON(s_allowedDonID, 0, 10);
+
+    assertEq(workflows.length, 3);
+    assertEq(workflows[0].workflowName, s_workflowName1);
+    assertEq(workflows[0].workflowID, s_workflowID1);
+    assertEq(workflows[0].binaryURL, s_binaryURL1);
+    assertEq(workflows[0].configURL, s_configURL1);
+    assertEq(workflows[0].secretsURL, s_secretsURL1);
+
+    assertEq(workflows[1].workflowName, s_workflowName2);
+    assertEq(workflows[1].workflowID, s_workflowID2);
+    assertEq(workflows[1].binaryURL, s_binaryURL2);
+    assertEq(workflows[1].configURL, s_configURL2);
+    assertEq(workflows[1].secretsURL, s_secretsURL2);
+
+    assertEq(workflows[2].workflowName, s_workflowName3);
+    assertEq(workflows[2].workflowID, s_workflowID3);
+    assertEq(workflows[2].binaryURL, s_binaryURL3);
+    assertEq(workflows[2].configURL, s_configURL3);
+    assertEq(workflows[2].secretsURL, s_secretsURL3);
+  }
 }
