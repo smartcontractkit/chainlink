@@ -55,7 +55,7 @@ func Test_Workflow_Registry_Syncer(t *testing.T) {
 			return []byte(wantContents), nil
 		}
 		ticker = make(chan time.Time)
-		worker = NewWorkflowRegistry(lggr, orm, reader, gateway, giveCfg.ContractAddress, WithTicker(ticker))
+		worker = NewWorkflowRegistry(lggr, orm, reader, gateway, giveCfg.ContractAddress, nil, nil, WithTicker(ticker))
 	)
 
 	// Cleanup the worker

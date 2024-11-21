@@ -12,12 +12,14 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	types "github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	query "github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/workflow/generated/workflow_registry_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 )
 
 const name = "WorkflowRegistrySyncer"
@@ -115,6 +117,10 @@ type workflowRegistry struct {
 	// heap is a min heap that merges batches of events from the contract query goroutines.  The
 	// default min heap is sorted by block height.
 	heap Heap
+
+	workflowStore  store.Store
+	capRegistry    core.CapabilitiesRegistry
+	engineRegistry *engineRegistry
 }
 
 // WithTicker allows external callers to provide a ticker to the workflowRegistry.  This is useful
@@ -139,14 +145,19 @@ func NewWorkflowRegistry[T ContractReader](
 	reader T,
 	gateway FetcherFunc,
 	addr string,
+	workflowStore store.Store,
+	capRegistry core.CapabilitiesRegistry,
 	opts ...func(*workflowRegistry),
 ) *workflowRegistry {
 	ets := []WorkflowRegistryEventType{ForceUpdateSecretsEvent}
 	wr := &workflowRegistry{
-		lggr:    lggr.Named(name),
-		orm:     orm,
-		reader:  reader,
-		gateway: gateway,
+		lggr:           lggr.Named(name),
+		orm:            orm,
+		reader:         reader,
+		gateway:        gateway,
+		workflowStore:  workflowStore,
+		capRegistry:    capRegistry,
+		engineRegistry: newEngineRegistry(),
 		cfg: ContractEventPollerConfig{
 			ContractName:    ContractName,
 			ContractAddress: addr,
@@ -160,7 +171,9 @@ func NewWorkflowRegistry[T ContractReader](
 		eventsCh:   make(chan WorkflowRegistryEventResponse),
 		batchCh:    make(chan []WorkflowRegistryEventResponse, len(ets)),
 	}
-	wr.handler = newEventHandler(wr.lggr, wr.orm, wr.gateway)
+	wr.handler = newEventHandler(wr.lggr, wr.orm, wr.gateway, wr.workflowStore, wr.capRegistry,
+		wr.engineRegistry,
+	)
 	for _, opt := range opts {
 		opt(wr)
 	}
