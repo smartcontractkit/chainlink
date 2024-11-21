@@ -138,8 +138,25 @@ func (h *eventHandler) Handle(ctx context.Context, event WorkflowRegistryEvent) 
 // TODO: Implement this method
 func (h *eventHandler) workflowRegisteredEvent(
 	_ context.Context,
-	_ WorkflowRegistryEvent,
+	event WorkflowRegistryEvent,
 ) error {
+	payload, ok := event.Data.(WorkflowRegistryWorkflowRegisteredV1)
+	if !ok {
+		return fmt.Errorf("invalid data type %T for event", event.Data)
+	}
+
+	_ = payload
+
+	// Pre-check: verify that the workflowID matches; if it doesn’t abort and log an error via Beholder.
+
+	// Download the contents of binaryURL, configURL and secretsURL and cache them locally.
+
+	// Create a new entry in the workflow_spec table corresponding for the new workflow, with the contents of the binaryURL + configURL in the table
+
+	// If status == active, start a new WorkflowEngine instance, and add it to local map of instances.
+
+	// Spin off task to refresh the secretsURL periodically.
+
 	return ErrNotImplemented
 }
 

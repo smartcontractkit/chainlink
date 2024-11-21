@@ -2,7 +2,9 @@ package syncer
 
 import (
 	"context"
+	"database/sql"
 	"errors"
+	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -34,9 +36,14 @@ type WorkflowSecretsDS interface {
 
 type WorkflowSpecsDS interface {
 	CreateWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) (int64, error)
+	GetWorkflowSpec(ctx context.Context, owner, name string) (*job.WorkflowSpec, error)
+	DeleteWorkflowSpec(ctx context.Context, owner, name string) error
 }
 
-type WorkflowRegistryDS = WorkflowSecretsDS
+type WorkflowRegistryDS interface {
+	WorkflowSecretsDS
+	WorkflowSpecsDS
+}
 
 type orm struct {
 	ds   sqlutil.DataSource
@@ -145,5 +152,92 @@ func (orm *orm) GetSecretsURLHash(owner, secretsURL []byte) ([]byte, error) {
 }
 
 func (orm *orm) CreateWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) (int64, error) {
-	return 0, errors.New("not implemented")
+	var id int64
+
+	query := `
+		INSERT INTO workflow_specs (
+			workflow,
+			config,
+			workflow_id,
+			workflow_owner,
+			workflow_name,
+			status,
+			binary_url,
+			config_url,
+			secrets_id,
+			created_at,
+			updated_at,
+			spec_type
+		) VALUES (
+			:workflow,
+			:config,
+			:workflow_id,
+			:workflow_owner,
+			:workflow_name,
+			:status,
+			:binary_url,
+			:config_url,
+			:secrets_id,
+			:created_at,
+			:updated_at,
+			:spec_type
+		) RETURNING id
+	`
+
+	stmt, err := orm.ds.PrepareNamedContext(ctx, query)
+	if err != nil {
+		return 0, err
+	}
+	defer stmt.Close()
+
+	spec.UpdatedAt = time.Now()
+	err = stmt.QueryRowxContext(ctx, spec).Scan(&id)
+
+	if err != nil {
+		return 0, err
+	}
+
+	return id, nil
+}
+
+func (orm *orm) GetWorkflowSpec(ctx context.Context, owner, name string) (*job.WorkflowSpec, error) {
+	query := `
+		SELECT *
+		FROM workflow_specs
+		WHERE workflow_owner = $1 AND workflow_name = $2
+	`
+
+	var spec job.WorkflowSpec
+	err := orm.ds.GetContext(ctx, &spec, query, owner, name)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil // No spec found
+		}
+		return nil, err
+	}
+
+	return &spec, nil
+}
+
+func (orm *orm) DeleteWorkflowSpec(ctx context.Context, owner, name string) error {
+	query := `
+		DELETE FROM workflow_specs
+		WHERE workflow_owner = $1 AND workflow_name = $2
+	`
+
+	result, err := orm.ds.ExecContext(ctx, query, owner, name)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return sql.ErrNoRows // No spec deleted
+	}
+
+	return nil
 }
