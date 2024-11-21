@@ -59,7 +59,7 @@ func TestAddChainInbound(t *testing.T) {
 	require.NoError(t, e.Env.ExistingAddresses.Merge(out.AddressBook))
 	newAddresses = deployment.NewMemoryAddressBook()
 	tokenConfig := NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
-	err = DeployCCIPContracts(e.Env, newAddresses, NewChainsConfig{
+	err = deployCCIPContracts(e.Env, newAddresses, NewChainsConfig{
 		HomeChainSel:   e.HomeChainSel,
 		FeedChainSel:   e.FeedChainSel,
 		ChainsToDeploy: initialDeploy,
