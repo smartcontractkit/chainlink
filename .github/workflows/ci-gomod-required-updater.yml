@@ -5,50 +5,11 @@ on:
   pull_request:
 
 jobs:
-  lint:
-    # We don't directly merge dependabot PRs, so let's not waste the resources
-    if: ${{ (github.event_name == 'pull_request' ||  github.event_name == 'schedule') && github.actor != 'dependabot[bot]' }}
-    runs-on: ubuntu-latest
-    permissions:
-      # For golangci-lint-actions to annotate code in the PR.
-      checks: write
-      contents: read
-      # For golangci-lint-action's `only-new-issues` option.
-      pull-requests: read
-    steps:
-      - uses: actions/checkout@v4.2.1
-      - name: Golang Lint
-        uses: ./.github/actions/golangci-lint
-        with:
-          id: lint
-          name: lint
-          go-directory: tools/gomod-required-updater
-          go-version-file: tools/gomod-required-updater/go.mod
-          go-module-file: tools/gomod-required-updater/go.sum
-
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4.2.1
-      - name: Setup Go
-        uses: ./.github/actions/setup-go
-        with:
-          go-version-file: tools/gomod-required-updater/go.mod
-          go-module-file: tools/gomod-required-updater/go.sum
-      - name: Run Tests
-        shell: bash
-        working-directory: tools/gomod-required-updater
-        run: go test ./...
-
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4.2.1
       - name: Setup Go
         uses: ./.github/actions/setup-go
-        with:
-          go-version-file: tools/gomod-required-updater/go.mod
-          go-module-file: tools/gomod-required-updater/go.sum
-      - name: Build
-        working-directory: tools/gomod-required-updater
-        run: go build -o gomod-required-updater
+      - name: Build binary
+        run: go build ./tools/gomod-required-updater/cmd/gomod-required-updater
