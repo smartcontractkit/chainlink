@@ -76,27 +76,41 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v4.2.1
+        with:
+          path: chainlink
+
       - name: Checkout diff-so-fancy
         uses: actions/checkout@v4.2.1
         with:
           repository: so-fancy/diff-so-fancy
           ref: a673cb4d2707f64d92b86498a2f5f71c8e2643d5 # v1.4.3
           path: diff-so-fancy
+
       - name: Install diff-so-fancy
         run: echo "$GITHUB_WORKSPACE/diff-so-fancy" >> $GITHUB_PATH
+
       - name: Setup NodeJS
-        uses: ./.github/actions/setup-nodejs
+        uses: ./chainlink/.github/actions/setup-nodejs
         with:
+          base-path: "chainlink"
           prod: "true"
+
       - name: Setup Go
-        uses: ./.github/actions/setup-go
+        uses: ./chainlink/.github/actions/setup-go
+        with:
+          go-version-file: "chainlink/go.mod"
+
       - name: Run native compile and generate wrappers
+        working-directory: ./chainlink/contracts
         run: make wrappers-all
-        working-directory: ./contracts
+
       - name: Verify local solc binaries
+        working-directory: chainlink
         run: ./tools/ci/check_solc_hashes
+
       - name: Check if Go solidity wrappers are updated
         if: ${{ needs.changes.outputs.changes == 'true' }}
+        working-directory: chainlink
         run: |
           git add --all
           git diff --minimal --color --cached --exit-code | diff-so-fancy

@@ -941,7 +941,6 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     triggers:
       - PR E2E Core Tests
-      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/ && go test smoke/ccip_test.go -timeout 12m -test.parallel=2 -count=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
@@ -955,7 +954,6 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     triggers:
       - PR E2E Core Tests
-      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/ && go test smoke/ccip_messaging_test.go -timeout 12m -test.parallel=1 -count=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
@@ -969,7 +967,6 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     triggers:
       - PR E2E Core Tests
-      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/ && go test smoke/ccip_usdc_test.go -timeout 12m -test.parallel=1 -count=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
@@ -983,7 +980,6 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     triggers:
       - PR E2E Core Tests
-      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/ && go test smoke/fee_boosting_test.go -timeout 15m -test.parallel=1 -count=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
@@ -997,7 +993,6 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     triggers:
       - PR E2E Core Tests
-      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestRMN_TwoMessagesOnTwoLanesIncludingBatching$ -timeout 12m -test.parallel=1 -count=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
@@ -1013,7 +1008,6 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     triggers:
       - PR E2E Core Tests
-      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestRMN_MultipleMessagesOnOneLaneNoWaitForExec$ -timeout 12m -test.parallel=1 -count=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
@@ -1030,7 +1024,6 @@ runner-test-matrix:
 #    runs_on: ubuntu-latest
 #    triggers:
 #      - PR E2E Core Tests
-#      - Merge Queue E2E Core Tests
 #      - Nightly E2E Tests
 #    test_cmd: cd integration-tests/smoke && go test -test.run ^TestRMN_NotEnoughObservers$ -timeout 12m -test.parallel=1 -count=1 -json
 #    pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
@@ -1046,7 +1039,6 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     triggers:
       - PR E2E Core Tests
-      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestRMN_DifferentSigners$ -timeout 12m -test.parallel=1 -count=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
@@ -1063,7 +1055,6 @@ runner-test-matrix:
 #    runs_on: ubuntu-latest
 #    triggers:
 #      - PR E2E Core Tests
-#      - Merge Queue E2E Core Tests
 #      - Nightly E2E Tests
 #    test_cmd: cd integration-tests/smoke && go test -test.run ^TestRMN_NotEnoughSigners$ -timeout 12m -test.parallel=1 -count=1 -json
 #    pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
@@ -1080,7 +1071,6 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     triggers:
       - PR E2E Core Tests
-      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke/ && go test -test.run ^TestRMN_DifferentRmnNodesForDifferentChains$ -timeout 12m -test.parallel=1 -count=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated

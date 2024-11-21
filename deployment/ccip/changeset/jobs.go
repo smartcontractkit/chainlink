@@ -1,7 +1,8 @@
-package ccipdeployment
+package changeset
 
 import (
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
@@ -26,8 +27,8 @@ func NewCCIPJobSpecs(nodeIds []string, oc deployment.OffchainClient) (map[string
 		if !node.IsBootstrap {
 			spec, err = validate.NewCCIPSpecToml(validate.SpecArgs{
 				P2PV2Bootstrappers:     nodes.BootstrapLocators(),
-				CapabilityVersion:      CapabilityVersion,
-				CapabilityLabelledName: CapabilityLabelledName,
+				CapabilityVersion:      internal.CapabilityVersion,
+				CapabilityLabelledName: internal.CapabilityLabelledName,
 				OCRKeyBundleIDs: map[string]string{
 					// TODO: Validate that that all EVM chains are using the same keybundle.
 					relay.NetworkEVM: node.FirstOCRKeybundle().KeyBundleID,
@@ -39,8 +40,8 @@ func NewCCIPJobSpecs(nodeIds []string, oc deployment.OffchainClient) (map[string
 		} else {
 			spec, err = validate.NewCCIPSpecToml(validate.SpecArgs{
 				P2PV2Bootstrappers:     []string{}, // Intentionally empty for bootstraps.
-				CapabilityVersion:      CapabilityVersion,
-				CapabilityLabelledName: CapabilityLabelledName,
+				CapabilityVersion:      internal.CapabilityVersion,
+				CapabilityLabelledName: internal.CapabilityLabelledName,
 				OCRKeyBundleIDs:        map[string]string{},
 				// TODO: validate that all EVM chains are using the same keybundle
 				P2PKeyID:     node.PeerID.String(),

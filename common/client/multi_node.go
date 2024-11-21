@@ -131,10 +131,10 @@ func (c *MultiNode[CHAIN_ID, RPC]) DoAll(ctx context.Context, do func(ctx contex
 func (c *MultiNode[CHAIN_ID, RPC]) NodeStates() map[string]string {
 	states := map[string]string{}
 	for _, n := range c.primaryNodes {
-		states[n.String()] = n.State().String()
+		states[n.Name()] = n.State().String()
 	}
 	for _, n := range c.sendOnlyNodes {
-		states[n.String()] = n.State().String()
+		states[n.Name()] = n.State().String()
 	}
 	return states
 }

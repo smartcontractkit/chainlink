@@ -9,7 +9,6 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	ccipdeployment "github.com/smartcontractkit/chainlink/deployment/ccip"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -29,27 +28,27 @@ func TestSaveExisting(t *testing.T) {
 		ExistingContracts: []Contract{
 			{
 				Address:        common.BigToAddress(big.NewInt(1)),
-				TypeAndVersion: deployment.NewTypeAndVersion(ccipdeployment.LinkToken, deployment.Version1_0_0),
+				TypeAndVersion: deployment.NewTypeAndVersion(LinkToken, deployment.Version1_0_0),
 				ChainSelector:  chain1,
 			},
 			{
 				Address:        common.BigToAddress(big.NewInt(2)),
-				TypeAndVersion: deployment.NewTypeAndVersion(ccipdeployment.WETH9, deployment.Version1_0_0),
+				TypeAndVersion: deployment.NewTypeAndVersion(WETH9, deployment.Version1_0_0),
 				ChainSelector:  chain1,
 			},
 			{
 				Address:        common.BigToAddress(big.NewInt(3)),
-				TypeAndVersion: deployment.NewTypeAndVersion(ccipdeployment.TokenAdminRegistry, deployment.Version1_5_0),
+				TypeAndVersion: deployment.NewTypeAndVersion(TokenAdminRegistry, deployment.Version1_5_0),
 				ChainSelector:  chain1,
 			},
 			{
 				Address:        common.BigToAddress(big.NewInt(4)),
-				TypeAndVersion: deployment.NewTypeAndVersion(ccipdeployment.RegistryModule, deployment.Version1_5_0),
+				TypeAndVersion: deployment.NewTypeAndVersion(RegistryModule, deployment.Version1_5_0),
 				ChainSelector:  chain2,
 			},
 			{
 				Address:        common.BigToAddress(big.NewInt(5)),
-				TypeAndVersion: deployment.NewTypeAndVersion(ccipdeployment.Router, deployment.Version1_2_0),
+				TypeAndVersion: deployment.NewTypeAndVersion(Router, deployment.Version1_2_0),
 				ChainSelector:  chain2,
 			},
 		},
@@ -59,7 +58,7 @@ func TestSaveExisting(t *testing.T) {
 	require.NoError(t, err)
 	err = e.ExistingAddresses.Merge(output.AddressBook)
 	require.NoError(t, err)
-	state, err := ccipdeployment.LoadOnchainState(e)
+	state, err := LoadOnchainState(e)
 	require.NoError(t, err)
 	require.Equal(t, state.Chains[chain1].LinkToken.Address(), common.BigToAddress(big.NewInt(1)))
 	require.Equal(t, state.Chains[chain1].Weth9.Address(), common.BigToAddress(big.NewInt(2)))
