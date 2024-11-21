@@ -276,13 +276,14 @@ func (t *ocr2FeedsDualTransmission) CreateSecondaryEthTransaction(ctx context.Co
 	txMeta.DualBroadcastParams = &dualBroadcastParams
 
 	_, err := t.transmitter.txm.CreateTransaction(ctx, txmgr.TxRequest{
-		FromAddress:    t.secondaryFromAddress,
-		ToAddress:      t.secondaryContractAddress,
-		EncodedPayload: payload,
-		FeeLimit:       t.transmitter.gasLimit,
-		Strategy:       t.transmitter.strategy,
-		Checker:        t.transmitter.checker,
-		Meta:           txMeta,
+		FromAddress:      t.secondaryFromAddress,
+		ToAddress:        t.secondaryContractAddress,
+		EncodedPayload:   payload,
+		ForwarderAddress: t.secondaryFromAddress,
+		FeeLimit:         t.transmitter.gasLimit,
+		Strategy:         t.transmitter.strategy,
+		Checker:          t.transmitter.checker,
+		Meta:             txMeta,
 	})
 
 	return errors.Wrap(err, "skipped secondary transmission")
