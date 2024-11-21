@@ -3870,8 +3870,8 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
-EnforceRepeatableRead = false
-DeathDeclarationDelay = '10s'
+EnforceRepeatableRead = true
+DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 
 [OCR]
@@ -4828,8 +4828,8 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
-EnforceRepeatableRead = false
-DeathDeclarationDelay = '10s'
+EnforceRepeatableRead = true
+DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 
 [OCR]
@@ -5560,8 +5560,8 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
-EnforceRepeatableRead = false
-DeathDeclarationDelay = '10s'
+EnforceRepeatableRead = true
+DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 
 [OCR]
@@ -5668,8 +5668,8 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
-EnforceRepeatableRead = false
-DeathDeclarationDelay = '10s'
+EnforceRepeatableRead = true
+DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 
 [OCR]
@@ -6305,8 +6305,8 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
-EnforceRepeatableRead = false
-DeathDeclarationDelay = '10s'
+EnforceRepeatableRead = true
+DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 
 [OCR]
@@ -8107,8 +8107,8 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
-EnforceRepeatableRead = false
-DeathDeclarationDelay = '10s'
+EnforceRepeatableRead = true
+DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 
 [OCR]
@@ -8417,8 +8417,8 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
-EnforceRepeatableRead = false
-DeathDeclarationDelay = '10s'
+EnforceRepeatableRead = true
+DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 
 [OCR]
@@ -9282,8 +9282,8 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
-EnforceRepeatableRead = false
-DeathDeclarationDelay = '10s'
+EnforceRepeatableRead = true
+DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 
 [OCR]
