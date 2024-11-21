@@ -286,7 +286,6 @@ func NodeInfo(nodeIDs []string, oc NodeChainConfigsLister) (Nodes, error) {
 			if err != nil {
 				return nil, err
 			}
-			// NOTE: This does not support non-evm chains
 			sel, err := chain_selectors.SelectorFromChainId(uint64(evmChainID))
 			if err != nil {
 				return nil, err

@@ -374,7 +374,6 @@ func (d *Delegate) cleanupEVM(ctx context.Context, jb job.Job, relayID types.Rel
 			return err
 		}
 		var chainSelector uint64
-		// NOTE: This does not support non-evm chains
 		chainSelector, err = chainselectors.SelectorFromChainId(chain.ID().Uint64())
 		if err != nil {
 			return err
@@ -1729,7 +1728,6 @@ func (d *Delegate) ccipCommitGetSrcProvider(ctx context.Context, jb job.Job, plu
 		return nil, 0, fmt.Errorf("get offRamp static config: %w", err)
 	}
 
-	// NOTE: This does not support non-evm chains
 	srcChainID, err = chainselectors.ChainIdFromSelector(offRampConfig.SourceChainSelector)
 	if err != nil {
 		return nil, 0, err
@@ -1885,7 +1883,6 @@ func (d *Delegate) ccipExecGetSrcProvider(ctx context.Context, jb job.Job, plugi
 		return nil, 0, fmt.Errorf("get offRamp static config: %w", err)
 	}
 
-	// NOTE: This does not support non-evm chains
 	srcChainID, err = chainselectors.ChainIdFromSelector(offRampConfig.SourceChainSelector)
 	if err != nil {
 		return nil, 0, err

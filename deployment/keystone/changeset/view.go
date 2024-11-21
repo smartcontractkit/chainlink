@@ -23,12 +23,10 @@ func ViewKeystone(e deployment.Environment) (json.Marshaler, error) {
 	}
 	chainViews := make(map[string]view.KeystoneChainView)
 	for chainSel, contracts := range state.ContractSets {
-		// NOTE: This does not support non-evm chains
 		chainid, err := chainsel.ChainIdFromSelector(chainSel)
 		if err != nil {
 			return nil, err
 		}
-		// NOTE: This does not support non-evm chains
 		chainName, err := chainsel.NameFromChainId(chainid)
 		if err != nil {
 			return nil, err

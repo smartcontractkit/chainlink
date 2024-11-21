@@ -22,7 +22,6 @@ func GenerateAcceptOwnershipProposal(
 	// TODO: Accept rest of contracts
 	var batches []timelock.BatchChainOperation
 	for _, sel := range chains {
-		// NOTE: This does not support non-evm chains
 		chain, _ := chainsel.ChainBySelector(sel)
 		acceptOnRamp, err := state.Chains[sel].OnRamp.AcceptOwnership(deployment.SimTransactOpts())
 		if err != nil {

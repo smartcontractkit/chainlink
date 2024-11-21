@@ -57,7 +57,6 @@ func (r ConfigureContractsRequest) Validate() error {
 			return fmt.Errorf("don validation failed for '%s': %w", don.Name, err)
 		}
 	}
-	// NOTE: This does not support non-evm chains
 	_, ok := chainsel.ChainBySelector(r.RegistryChainSel)
 	if !ok {
 		return fmt.Errorf("chain %d not found in environment", r.RegistryChainSel)

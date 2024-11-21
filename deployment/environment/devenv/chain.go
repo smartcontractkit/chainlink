@@ -32,7 +32,6 @@ type ChainConfig struct {
 func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]deployment.Chain, error) {
 	chains := make(map[uint64]deployment.Chain)
 	for _, chainCfg := range configs {
-		// NOTE: This does not support non-evm chains
 		selector, err := chainselectors.SelectorFromChainId(chainCfg.ChainID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get selector from chain id %d: %w", chainCfg.ChainID, err)

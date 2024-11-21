@@ -57,7 +57,6 @@ func generateMemoryChain(t *testing.T, inputs map[uint64]EVMChain) map[uint64]de
 	chains := make(map[uint64]deployment.Chain)
 	for cid, chain := range inputs {
 		chain := chain
-		// NOTE: This does not support non-evm chains
 		sel, err := chainsel.SelectorFromChainId(cid)
 		require.NoError(t, err)
 		backend := NewBackend(chain.Backend)

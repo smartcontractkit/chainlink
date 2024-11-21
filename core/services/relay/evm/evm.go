@@ -203,7 +203,6 @@ func NewRelayer(ctx context.Context, lggr logger.Logger, chain legacyevm.Chain, 
 	sugared := logger.Sugared(lggr).Named("Relayer")
 	mercuryORM := mercury.NewORM(opts.DS)
 	cdcFactory := sync.OnceValues(func() (llo.ChannelDefinitionCacheFactory, error) {
-		// NOTE: This does not support non-evm chains
 		chainSelector, err := chainselectors.SelectorFromChainId(chain.ID().Uint64())
 		if err != nil {
 			return nil, fmt.Errorf("failed to get chain selector for chain id %s: %w", chain.ID(), err)

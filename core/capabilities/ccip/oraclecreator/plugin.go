@@ -118,7 +118,6 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 	pluginType := cctypes.PluginType(config.Config.PluginType)
 	chainSelector := uint64(config.Config.ChainSelector)
 
-	// NOTE: This does not support non-evm chains
 	destChainFamily, err := chainsel.GetSelectorFamily(chainSelector)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chain family from selector %d: %w", config.Config.ChainSelector, err)
@@ -415,7 +414,6 @@ func decodeAndValidateOffchainConfig(
 }
 
 func (i *pluginOracleCreator) getChainSelector(chainID string, chainFamily string) (cciptypes.ChainSelector, error) {
-	// NOTE: This does not support non-evm chains
 	chainDetails, err := chainsel.GetChainDetailsByChainIDAndFamily(chainID, chainFamily)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get chain selector from chain ID %s and family %s", chainID, chainFamily)
@@ -424,7 +422,6 @@ func (i *pluginOracleCreator) getChainSelector(chainID string, chainFamily strin
 }
 
 func (i *pluginOracleCreator) getChainID(chainSelector cciptypes.ChainSelector) (string, error) {
-	// NOTE: This does not support non-evm chains
 	chainID, err := chainsel.GetChainIDFromSelector(uint64(chainSelector))
 	if err != nil {
 		return "", fmt.Errorf("failed to get chain ID from chain selector %d: %w", chainSelector, err)

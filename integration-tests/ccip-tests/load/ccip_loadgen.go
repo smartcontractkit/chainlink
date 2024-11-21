@@ -269,7 +269,6 @@ func (c *CCIPE2ELoad) Call(_ *wasp.Generator) *wasp.Response {
 	lggr.Debug().Str("triggeredAt", time.Now().GoString()).Msg("triggering transfer")
 	var sendTx *types.Transaction
 
-	// NOTE: This does not support non-evm chains
 	destChainSelector, err := chain_selectors.SelectorFromChainId(sourceCCIP.DestinationChainId)
 	if err != nil {
 		res.Error = fmt.Sprintf("reqNo %d err %s - while getting selector from chainid", msgSerialNo, err.Error())

@@ -180,7 +180,6 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		return nil, fmt.Errorf("failed to parse chain ID %s: %w", d.capabilityConfig.ExternalRegistry().RelayID().ChainID, err)
 	}
 
-	// NOTE: This does not support non-evm chains
 	homeChainChainSelector, err := chainsel.SelectorFromChainId(homeChainChainID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chain selector from chain ID %d", homeChainChainID)

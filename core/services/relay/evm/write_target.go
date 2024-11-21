@@ -18,7 +18,6 @@ import (
 func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain, gasLimitDefault uint64, lggr logger.Logger) (*targets.WriteTarget, error) {
 	// generate ID based on chain selector
 	id := fmt.Sprintf("write_%v@1.0.0", chain.ID())
-	// NOTE: This does not support non-evm chains
 	chainName, err := chainselectors.NameFromChainId(chain.ID().Uint64())
 	if err == nil {
 		id = fmt.Sprintf("write_%v@1.0.0", chainName)
