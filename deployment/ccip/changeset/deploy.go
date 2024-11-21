@@ -319,7 +319,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 // 3. SetOCR3Config on the remote chain
 func configureChain(
 	e deployment.Environment,
-	c NewChainConfig,
+	c NewChainsConfig,
 ) error {
 	if c.OCRSecrets.IsEmpty() {
 		return fmt.Errorf("OCR secrets are empty")
@@ -417,7 +417,7 @@ func configureChain(
 func DeployCCIPContracts(
 	e deployment.Environment,
 	ab deployment.AddressBook,
-	c NewChainConfig) error {
+	c NewChainsConfig) error {
 	err := DeployChainContractsForChains(e, ab, c.HomeChainSel, c.ChainsToDeploy)
 	if err != nil {
 		e.Logger.Errorw("Failed to deploy chain contracts", "err", err)

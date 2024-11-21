@@ -11,16 +11,16 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
-var _ deployment.ChangeSet[NewChainConfig] = ConfigureNewChains
+var _ deployment.ChangeSet[NewChainsConfig] = ConfigureNewChains
 
 // ConfigureNewChains enables new chains as destination for CCIP
 // It performs the following steps:
 // - AddChainConfig + AddDON (candidate->primary promotion i.e. init) on the home chain
 // - SetOCR3Config on the remote chain
 // ConfigureNewChains assumes that the home chain is already enabled and all CCIP contracts are already deployed.
-func ConfigureNewChains(env deployment.Environment, c NewChainConfig) (deployment.ChangesetOutput, error) {
+func ConfigureNewChains(env deployment.Environment, c NewChainsConfig) (deployment.ChangesetOutput, error) {
 	if err := c.Validate(); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("invalid NewChainConfig: %w", err)
+		return deployment.ChangesetOutput{}, fmt.Errorf("invalid NewChainsConfig: %w", err)
 	}
 	err := configureChain(env, c)
 	if err != nil {
@@ -54,7 +54,7 @@ type USDCAttestationConfig struct {
 	APIInterval *config.Duration
 }
 
-type NewChainConfig struct {
+type NewChainsConfig struct {
 	HomeChainSel   uint64
 	FeedChainSel   uint64
 	ChainsToDeploy []uint64
@@ -64,7 +64,7 @@ type NewChainConfig struct {
 	OCRSecrets deployment.OCRSecrets
 }
 
-func (c NewChainConfig) Validate() error {
+func (c NewChainsConfig) Validate() error {
 	if err := deployment.IsValidChainSelector(c.HomeChainSel); err != nil {
 		return fmt.Errorf("invalid home chain selector: %d - %w", c.HomeChainSel, err)
 	}

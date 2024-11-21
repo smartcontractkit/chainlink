@@ -216,7 +216,7 @@ func NewLocalDevEnvironment(
 	env, err = commonchangeset.ApplyChangesets(t, env, timelocksPerChain, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.ConfigureNewChains),
-			Config: changeset.NewChainConfig{
+			Config: changeset.NewChainsConfig{
 				HomeChainSel:   homeChainSel,
 				FeedChainSel:   feedSel,
 				ChainsToDeploy: allChains,

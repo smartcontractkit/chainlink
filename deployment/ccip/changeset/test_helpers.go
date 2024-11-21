@@ -325,7 +325,7 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 		},
 		{
 			Changeset: commonchangeset.WrapChangeSet(ConfigureNewChains),
-			Config: NewChainConfig{
+			Config: NewChainsConfig{
 				HomeChainSel:   e.HomeChainSel,
 				FeedChainSel:   e.FeedChainSel,
 				ChainsToDeploy: allChains,
