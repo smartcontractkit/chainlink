@@ -250,14 +250,12 @@ func (mt *transmitter) Close() error {
 			closers = append(closers, s.pm)
 			closers = append(closers, s.c)
 		}
-		if err := services.CloseAll(closers...); err != nil {
-			return err
-		}
+		err := services.CloseAll(closers...)
 		// Unregister all the gauge funcs
 		for _, c := range mt.collectors {
 			mt.registerer.Unregister(c)
 		}
-		return nil
+		return err
 	})
 }
 
