@@ -265,6 +265,11 @@ func (t *ocr2FeedsDualTransmission) CreateEthTransaction(ctx context.Context, to
 	return errors.Wrap(err, "skipped OCR transmission: skipped primary transmission")
 }
 func (t *ocr2FeedsDualTransmission) CreateSecondaryEthTransaction(ctx context.Context, payload []byte, txMeta *txmgr.TxMeta) error {
+	forwarderAddress, err := t.transmitter.forwarderAddress(ctx, t.secondaryFromAddress, t.secondaryContractAddress)
+	if err != nil {
+		return err
+	}
+
 	if txMeta == nil {
 		txMeta = &txmgr.TxMeta{}
 	}
@@ -275,11 +280,11 @@ func (t *ocr2FeedsDualTransmission) CreateSecondaryEthTransaction(ctx context.Co
 	txMeta.DualBroadcast = &dualBroadcast
 	txMeta.DualBroadcastParams = &dualBroadcastParams
 
-	_, err := t.transmitter.txm.CreateTransaction(ctx, txmgr.TxRequest{
+	_, err = t.transmitter.txm.CreateTransaction(ctx, txmgr.TxRequest{
 		FromAddress:      t.secondaryFromAddress,
 		ToAddress:        t.secondaryContractAddress,
 		EncodedPayload:   payload,
-		ForwarderAddress: t.secondaryFromAddress,
+		ForwarderAddress: forwarderAddress,
 		FeeLimit:         t.transmitter.gasLimit,
 		Strategy:         t.transmitter.strategy,
 		Checker:          t.transmitter.checker,
