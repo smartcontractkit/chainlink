@@ -1,6 +1,7 @@
 package testsetups
 
 import (
+	"bytes"
 	"fmt"
 	"math/big"
 	"os"
@@ -25,6 +26,10 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
+	integrationnodes "github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
+	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	clclient "github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -646,4 +651,41 @@ func CreateChainConfigFromNetworks(
 		})
 	}
 	return chains
+}
+
+func SetNodeConfig(nets []blockchain.EVMNetwork, nodeConfig, commonChain string, configByChain map[string]string) (*corechainlink.Config, string, error) {
+	var tomlCfg *corechainlink.Config
+	var err error
+	var commonChainConfig *evmcfg.Chain
+	if commonChain != "" {
+		err = commonconfig.DecodeTOML(bytes.NewReader([]byte(commonChain)), &commonChainConfig)
+		if err != nil {
+			return nil, "", err
+		}
+	}
+	configByChainMap := make(map[int64]evmcfg.Chain)
+	for k, v := range configByChain {
+		var chain evmcfg.Chain
+		err = commonconfig.DecodeTOML(bytes.NewReader([]byte(v)), &chain)
+		if err != nil {
+			return nil, "", err
+		}
+		chainId, err := strconv.ParseInt(k, 10, 64)
+		if err != nil {
+			return nil, "", err
+		}
+		configByChainMap[chainId] = chain
+	}
+	if nodeConfig == "" {
+		tomlCfg = integrationnodes.NewConfig(
+			integrationnodes.NewBaseConfig(),
+			integrationnodes.WithPrivateEVMs(nets, commonChainConfig, configByChainMap))
+	} else {
+		tomlCfg, err = integrationnodes.NewConfigFromToml([]byte(nodeConfig), integrationnodes.WithPrivateEVMs(nets, commonChainConfig, configByChainMap))
+		if err != nil {
+			return nil, "", err
+		}
+	}
+	tomlStr, err := tomlCfg.TOMLString()
+	return tomlCfg, tomlStr, err
 }
