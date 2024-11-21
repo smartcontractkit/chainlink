@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/hex"
+	errors2 "errors"
 	"math/big"
 	"time"
 
@@ -34,6 +35,9 @@ var _ ContractTransmitter = &contractTransmitter{}
 type Transmitter interface {
 	CreateEthTransaction(ctx context.Context, toAddress gethcommon.Address, payload []byte, txMeta *txmgr.TxMeta) error
 	FromAddress(context.Context) gethcommon.Address
+
+	SendSecondaryTransaction() bool
+	CreateSecondaryEthTransaction(ctx context.Context, payload []byte, txMeta *txmgr.TxMeta) error
 }
 
 type ReportToEthMetadata func([]byte) (*txmgr.TxMeta, error)
@@ -162,7 +166,20 @@ func (oc *contractTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.
 		return errors.Wrap(err, "abi.Pack failed")
 	}
 
-	return errors.Wrap(oc.transmitter.CreateEthTransaction(ctx, oc.contractAddress, payload, txMeta), "failed to send Eth transaction")
+	err = errors.Wrap(oc.transmitter.CreateEthTransaction(ctx, oc.contractAddress, payload, txMeta), "failed to send Eth transaction")
+
+	if oc.transmitter.SendSecondaryTransaction() {
+		secondaryPayload, err2 := oc.contractABI.Pack("transmitSecondary", rawReportCtx, []byte(report), rs, ss, vs)
+		if err2 != nil {
+			return errors.Wrap(err2, "abi.Pack failed")
+		}
+
+		err3 := errors.Wrap(oc.transmitter.CreateSecondaryEthTransaction(ctx, secondaryPayload, txMeta), "failed to send secondary Eth transaction")
+		return errors2.Join(err, err3)
+	}
+
+	return err
+
 }
 
 type contractReader interface {

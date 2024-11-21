@@ -26,6 +26,9 @@ type txManager interface {
 type Transmitter interface {
 	CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte, txMeta *txmgr.TxMeta) error
 	FromAddress(context.Context) common.Address
+
+	SendSecondaryTransaction() bool
+	CreateSecondaryEthTransaction(ctx context.Context, payload []byte, txMeta *txmgr.TxMeta) error
 }
 
 type transmitter struct {
@@ -38,6 +41,14 @@ type transmitter struct {
 	chainID                     *big.Int
 	keystore                    roundRobinKeystore
 	statuschecker               statuschecker.CCIPTransactionStatusChecker // Used for CCIP's idempotency key generation
+}
+
+func (t *transmitter) SendSecondaryTransaction() bool {
+	return false
+}
+
+func (t *transmitter) CreateSecondaryEthTransaction(ctx context.Context, payload []byte, txMeta *txmgr.TxMeta) error {
+	return errors.New("secondary transmission attempted on a non-dual transmitter")
 }
 
 // NewTransmitter creates a new eth transmitter

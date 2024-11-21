@@ -2,8 +2,6 @@ package ocrcommon
 
 import (
 	"context"
-	errors2 "errors"
-	"fmt"
 	"math/big"
 	"net/url"
 	"slices"
@@ -28,6 +26,9 @@ type txManager interface {
 type Transmitter interface {
 	CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte, txMeta *txmgr.TxMeta) error
 	FromAddress(context.Context) common.Address
+
+	SendSecondaryTransaction() bool
+	CreateSecondaryEthTransaction(ctx context.Context, payload []byte, txMeta *txmgr.TxMeta) error
 }
 
 type transmitter struct {
@@ -157,6 +158,14 @@ func (t *transmitter) forwarderAddress() common.Address {
 	return t.effectiveTransmitterAddress
 }
 
+func (t *transmitter) SendSecondaryTransaction() bool {
+	return false
+}
+
+func (t *transmitter) CreateSecondaryEthTransaction(ctx context.Context, payload []byte, txMeta *txmgr.TxMeta) error {
+	return errors.New("secondary transmission attempted on a non-dual transmitter")
+}
+
 func (t *ocr2FeedsTransmitter) CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte, txMeta *txmgr.TxMeta) error {
 	roundRobinFromAddress, err := t.keystore.GetRoundRobinAddress(ctx, t.chainID, t.fromAddresses...)
 	if err != nil {
@@ -227,13 +236,35 @@ type ocr2FeedsDualTransmission struct {
 	secondaryMeta            map[string][]string
 }
 
+func (t *ocr2FeedsDualTransmission) SendSecondaryTransaction() bool {
+	return true
+}
+
 func (t *ocr2FeedsDualTransmission) CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte, txMeta *txmgr.TxMeta) error {
-	// Primary transmission
-	errPrimary := t.transmitter.CreateEthTransaction(ctx, toAddress, payload, txMeta)
-	if errPrimary != nil {
-		errPrimary = fmt.Errorf("skipped primary transmission: %w", errPrimary)
+	roundRobinFromAddress, err := t.transmitter.keystore.GetRoundRobinAddress(ctx, t.transmitter.chainID, t.transmitter.fromAddresses...)
+	if err != nil {
+		return errors.Wrap(err, "skipped OCR transmission, error getting round-robin address")
 	}
 
+	forwarderAddress, err := t.transmitter.forwarderAddress(ctx, roundRobinFromAddress, toAddress)
+	if err != nil {
+		return err
+	}
+
+	_, err = t.transmitter.txm.CreateTransaction(ctx, txmgr.TxRequest{
+		FromAddress:      roundRobinFromAddress,
+		ToAddress:        toAddress,
+		EncodedPayload:   payload,
+		FeeLimit:         t.transmitter.gasLimit,
+		ForwarderAddress: forwarderAddress,
+		Strategy:         t.transmitter.strategy,
+		Checker:          t.transmitter.checker,
+		Meta:             txMeta,
+	})
+
+	return errors.Wrap(err, "skipped OCR transmission: skipped primary transmission")
+}
+func (t *ocr2FeedsDualTransmission) CreateSecondaryEthTransaction(ctx context.Context, payload []byte, txMeta *txmgr.TxMeta) error {
 	if txMeta == nil {
 		txMeta = &txmgr.TxMeta{}
 	}
@@ -244,8 +275,7 @@ func (t *ocr2FeedsDualTransmission) CreateEthTransaction(ctx context.Context, to
 	txMeta.DualBroadcast = &dualBroadcast
 	txMeta.DualBroadcastParams = &dualBroadcastParams
 
-	// Secondary transmission
-	_, errSecondary := t.transmitter.txm.CreateTransaction(ctx, txmgr.TxRequest{
+	_, err := t.transmitter.txm.CreateTransaction(ctx, txmgr.TxRequest{
 		FromAddress:    t.secondaryFromAddress,
 		ToAddress:      t.secondaryContractAddress,
 		EncodedPayload: payload,
@@ -255,8 +285,7 @@ func (t *ocr2FeedsDualTransmission) CreateEthTransaction(ctx context.Context, to
 		Meta:           txMeta,
 	})
 
-	errSecondary = errors.Wrap(errSecondary, "skipped secondary transmission")
-	return errors2.Join(errPrimary, errSecondary)
+	return errors.Wrap(err, "skipped secondary transmission")
 }
 
 func (t *ocr2FeedsDualTransmission) FromAddress(ctx context.Context) common.Address {
