@@ -3,6 +3,7 @@ package syncer
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -37,6 +38,10 @@ type WorkflowSpecsDS interface {
 	// UpsertWorkflowSpec inserts or updates a workflow spec.  Updates on conflict of workflow name
 	// and owner
 	UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) (int64, error)
+
+	// UpsertWorkflowSpecWithSecrets inserts or updates a workflow spec with secrets in a transaction.
+	// Updates on conflict of workflow name and owner.
+	UpsertWorkflowSpecWithSecrets(ctx context.Context, spec *job.WorkflowSpec, url, hash, contents string) (int64, error)
 
 	// GetWorkflowSpec returns the workflow spec for the given owner and name.
 	GetWorkflowSpec(ctx context.Context, owner, name string) (*job.WorkflowSpec, error)
@@ -219,6 +224,81 @@ func (orm *orm) UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) 
 	}
 
 	return id, nil
+}
+
+func (orm *orm) UpsertWorkflowSpecWithSecrets(
+	ctx context.Context,
+	spec *job.WorkflowSpec, url, hash, contents string) (int64, error) {
+	var id int64
+	err := sqlutil.TransactDataSource(ctx, orm.ds, nil, func(tx sqlutil.DataSource) error {
+		var sid int64
+		txErr := tx.QueryRowxContext(ctx,
+			`INSERT INTO workflow_secrets (secrets_url, secrets_url_hash, contents)
+			 VALUES ($1, $2, $3)
+			 RETURNING id`,
+			url, hash, contents,
+		).Scan(&sid)
+
+		if txErr != nil {
+			return fmt.Errorf("failed to create workflow secrets: %w", txErr)
+		}
+
+		spec.SecretsID = sql.NullInt64{Int64: sid, Valid: true}
+
+		query := `
+			INSERT INTO workflow_specs (
+				workflow,
+				config,
+				workflow_id,
+				workflow_owner,
+				workflow_name,
+				status,
+				binary_url,
+				config_url,
+				secrets_id,
+				created_at,
+				updated_at,
+				spec_type
+			) VALUES (
+				:workflow,
+				:config,
+				:workflow_id,
+				:workflow_owner,
+				:workflow_name,
+				:status,
+				:binary_url,
+				:config_url,
+				:secrets_id,
+				:created_at,
+				:updated_at,
+				:spec_type
+			) ON CONFLICT (workflow_owner, workflow_name) DO UPDATE
+			SET
+				workflow = EXCLUDED.workflow,
+				config = EXCLUDED.config,
+				workflow_id = EXCLUDED.workflow_id,
+				workflow_owner = EXCLUDED.workflow_owner,
+				workflow_name = EXCLUDED.workflow_name,
+				status = EXCLUDED.status,
+				binary_url = EXCLUDED.binary_url,
+				config_url = EXCLUDED.config_url,
+				secrets_id = EXCLUDED.secrets_id,
+				created_at = EXCLUDED.created_at,
+				updated_at = EXCLUDED.updated_at,
+				spec_type = EXCLUDED.spec_type
+			RETURNING id
+		`
+
+		stmt, txErr := tx.PrepareNamedContext(ctx, query)
+		if txErr != nil {
+			return txErr
+		}
+		defer stmt.Close()
+
+		spec.UpdatedAt = time.Now()
+		return stmt.QueryRowxContext(ctx, spec).Scan(&id)
+	})
+	return id, err
 }
 
 func (orm *orm) GetWorkflowSpec(ctx context.Context, owner, name string) (*job.WorkflowSpec, error) {

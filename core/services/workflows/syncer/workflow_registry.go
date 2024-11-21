@@ -172,7 +172,7 @@ func NewWorkflowRegistry[T ContractReader](
 		batchCh:    make(chan []WorkflowRegistryEventResponse, len(ets)),
 	}
 	wr.handler = newEventHandler(wr.lggr, wr.orm, wr.gateway, wr.workflowStore, wr.capRegistry,
-		wr.engineRegistry,
+		wr.engineRegistry, nil, nil,
 	)
 	for _, opt := range opts {
 		opt(wr)
