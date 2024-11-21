@@ -14,7 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
 	types2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	types3 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"google.golang.org/grpc"
@@ -76,7 +75,6 @@ type Environment struct {
 	Chains            map[uint64]Chain
 	NodeIDs           []string
 	Offchain          OffchainClient
-	MockAdapter       *test_env.Killgrave
 }
 
 func NewEnvironment(
@@ -126,6 +124,14 @@ func (e Environment) AllChainSelectorsExcluding(excluding []uint64) []uint64 {
 		return selectors[i] < selectors[j]
 	})
 	return selectors
+}
+
+func (e Environment) AllDeployerKeys() []common.Address {
+	var deployerKeys []common.Address
+	for sel := range e.Chains {
+		deployerKeys = append(deployerKeys, e.Chains[sel].DeployerKey.From)
+	}
+	return deployerKeys
 }
 
 func ConfirmIfNoError(chain Chain, tx *types.Transaction, err error) (uint64, error) {

@@ -15,10 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/hashutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
-
 	"github.com/smartcontractkit/chainlink/deployment"
-	ccdeploy "github.com/smartcontractkit/chainlink/deployment/ccip"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
@@ -30,8 +27,8 @@ import (
 type testCaseSetup struct {
 	t                      *testing.T
 	sender                 []byte
-	deployedEnv            ccdeploy.DeployedEnv
-	onchainState           ccdeploy.CCIPOnChainState
+	deployedEnv            changeset.DeployedEnv
+	onchainState           changeset.CCIPOnChainState
 	sourceChain, destChain uint64
 }
 
@@ -50,10 +47,10 @@ type messagingTestCaseOutput struct {
 func Test_CCIPMessaging(t *testing.T) {
 	// Setup 2 chains and a single lane.
 	lggr := logger.TestLogger(t)
-	ctx := ccdeploy.Context(t)
+	ctx := changeset.Context(t)
 	e, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr)
 
-	state, err := ccdeploy.LoadOnchainState(e.Env)
+	state, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	allChainSelectors := maps.Keys(e.Env.Chains)
@@ -66,46 +63,8 @@ func Test_CCIPMessaging(t *testing.T) {
 		", source chain selector:", sourceChain,
 		", dest chain selector:", destChain,
 	)
-	output, err := changeset.DeployPrerequisites(e.Env, changeset.DeployPrerequisiteConfig{
-		ChainSelectors: e.Env.AllChainSelectors(),
-	})
-	require.NoError(t, err)
-	require.NoError(t, e.Env.ExistingAddresses.Merge(output.AddressBook))
-
-	tokenConfig := ccdeploy.NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
-	// Apply migration
-	output, err = changeset.InitialDeploy(e.Env, ccdeploy.DeployCCIPContractConfig{
-		HomeChainSel:   e.HomeChainSel,
-		FeedChainSel:   e.FeedChainSel,
-		ChainsToDeploy: allChainSelectors,
-		TokenConfig:    tokenConfig,
-		MCMSConfig:     ccdeploy.NewTestMCMSConfig(t, e.Env),
-		OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
-	})
-	require.NoError(t, err)
-	require.NoError(t, e.Env.ExistingAddresses.Merge(output.AddressBook))
-	// Get new state after migration.
-	state, err = ccdeploy.LoadOnchainState(e.Env)
-	require.NoError(t, err)
-
-	// Ensure capreg logs are up to date.
-	ccdeploy.ReplayLogs(t, e.Env.Offchain, e.ReplayBlocks)
-
-	// Apply the jobs.
-	for nodeID, jobs := range output.JobSpecs {
-		for _, job := range jobs {
-			// Note these auto-accept
-			_, err := e.Env.Offchain.ProposeJob(ctx,
-				&jobv1.ProposeJobRequest{
-					NodeId: nodeID,
-					Spec:   job,
-				})
-			require.NoError(t, err)
-		}
-	}
-
 	// connect a single lane, source to dest
-	require.NoError(t, ccdeploy.AddLaneWithDefaultPrices(e.Env, state, sourceChain, destChain))
+	require.NoError(t, changeset.AddLaneWithDefaultPrices(e.Env, state, sourceChain, destChain))
 
 	var (
 		replayed bool
@@ -130,8 +89,8 @@ func Test_CCIPMessaging(t *testing.T) {
 		},
 			common.HexToAddress("0xdead"),
 			[]byte("hello eoa"),
-			nil,                              // default extraArgs
-			ccdeploy.EXECUTION_STATE_SUCCESS, // success because offRamp won't call an EOA
+			nil,                               // default extraArgs
+			changeset.EXECUTION_STATE_SUCCESS, // success because offRamp won't call an EOA
 		)
 	})
 
@@ -144,8 +103,8 @@ func Test_CCIPMessaging(t *testing.T) {
 			},
 			state.Chains[destChain].FeeQuoter.Address(),
 			[]byte("hello FeeQuoter"),
-			nil,                              // default extraArgs
-			ccdeploy.EXECUTION_STATE_SUCCESS, // success because offRamp won't call a contract not implementing CCIPReceiver
+			nil,                               // default extraArgs
+			changeset.EXECUTION_STATE_SUCCESS, // success because offRamp won't call a contract not implementing CCIPReceiver
 		)
 	})
 
@@ -161,7 +120,7 @@ func Test_CCIPMessaging(t *testing.T) {
 			state.Chains[destChain].Receiver.Address(),
 			[]byte("hello CCIPReceiver"),
 			nil, // default extraArgs
-			ccdeploy.EXECUTION_STATE_SUCCESS,
+			changeset.EXECUTION_STATE_SUCCESS,
 			func(t *testing.T) {
 				iter, err := state.Chains[destChain].Receiver.FilterMessageReceived(&bind.FilterOpts{
 					Context: ctx,
@@ -185,8 +144,8 @@ func Test_CCIPMessaging(t *testing.T) {
 			},
 			state.Chains[destChain].Receiver.Address(),
 			[]byte("hello CCIPReceiver with low exec gas"),
-			ccdeploy.MakeEVMExtraArgsV2(1, false), // 1 gas is too low.
-			ccdeploy.EXECUTION_STATE_FAILURE,      // state would be failed onchain due to low gas
+			changeset.MakeEVMExtraArgsV2(1, false), // 1 gas is too low.
+			changeset.EXECUTION_STATE_FAILURE,      // state would be failed onchain due to low gas
 		)
 
 		manuallyExecute(ctx, t, latestHead.Number.Uint64(), state, destChain, out, sourceChain, e, sender)
@@ -200,11 +159,11 @@ func manuallyExecute(
 	ctx context.Context,
 	t *testing.T,
 	startBlock uint64,
-	state ccdeploy.CCIPOnChainState,
+	state changeset.CCIPOnChainState,
 	destChain uint64,
 	out messagingTestCaseOutput,
 	sourceChain uint64,
-	e ccdeploy.DeployedEnv,
+	e changeset.DeployedEnv,
 	sender []byte,
 ) {
 	merkleRoot := getMerkleRoot(
@@ -271,7 +230,7 @@ func manuallyExecute(
 
 	newExecutionState, err := state.Chains[destChain].OffRamp.GetExecutionState(&bind.CallOpts{Context: ctx}, sourceChain, out.msgSentEvent.SequenceNumber)
 	require.NoError(t, err)
-	require.Equal(t, uint8(ccdeploy.EXECUTION_STATE_SUCCESS), newExecutionState)
+	require.Equal(t, uint8(changeset.EXECUTION_STATE_SUCCESS), newExecutionState)
 }
 
 func getMerkleRoot(
@@ -327,12 +286,12 @@ func getMessageHash(
 	return iter.Event.MessageHash
 }
 
-func sleepAndReplay(t *testing.T, e ccdeploy.DeployedEnv, sourceChain, destChain uint64) {
+func sleepAndReplay(t *testing.T, e changeset.DeployedEnv, sourceChain, destChain uint64) {
 	time.Sleep(30 * time.Second)
 	replayBlocks := make(map[uint64]uint64)
 	replayBlocks[sourceChain] = 1
 	replayBlocks[destChain] = 1
-	ccdeploy.ReplayLogs(t, e.Env.Offchain, replayBlocks)
+	changeset.ReplayLogs(t, e.Env.Offchain, replayBlocks)
 }
 
 func runMessagingTestCase(
@@ -351,15 +310,18 @@ func runMessagingTestCase(
 	require.Equal(tc.t, tc.nonce, latestNonce)
 
 	startBlocks := make(map[uint64]*uint64)
-	msgSentEvent := ccdeploy.TestSendRequest(tc.t, tc.deployedEnv.Env, tc.onchainState, tc.sourceChain, tc.destChain, false, router.ClientEVM2AnyMessage{
+	msgSentEvent := changeset.TestSendRequest(tc.t, tc.deployedEnv.Env, tc.onchainState, tc.sourceChain, tc.destChain, false, router.ClientEVM2AnyMessage{
 		Receiver:     common.LeftPadBytes(receiver.Bytes(), 32),
 		Data:         msgData,
 		TokenAmounts: nil,
 		FeeToken:     common.HexToAddress("0x0"),
 		ExtraArgs:    extraArgs,
 	})
-	expectedSeqNum := make(map[uint64]uint64)
-	expectedSeqNum[tc.destChain] = msgSentEvent.SequenceNumber
+	expectedSeqNum := make(map[changeset.SourceDestPair]uint64)
+	expectedSeqNum[changeset.SourceDestPair{
+		SourceChainSelector: tc.sourceChain,
+		DestChainSelector:   tc.destChain,
+	}] = msgSentEvent.SequenceNumber
 	out.msgSentEvent = msgSentEvent
 
 	// hack
@@ -368,8 +330,8 @@ func runMessagingTestCase(
 		out.replayed = true
 	}
 
-	ccdeploy.ConfirmCommitForAllWithExpectedSeqNums(tc.t, tc.deployedEnv.Env, tc.onchainState, expectedSeqNum, startBlocks)
-	execStates := ccdeploy.ConfirmExecWithSeqNrForAll(tc.t, tc.deployedEnv.Env, tc.onchainState, expectedSeqNum, startBlocks)
+	changeset.ConfirmCommitForAllWithExpectedSeqNums(tc.t, tc.deployedEnv.Env, tc.onchainState, expectedSeqNum, startBlocks)
+	execStates := changeset.ConfirmExecWithSeqNrForAll(tc.t, tc.deployedEnv.Env, tc.onchainState, expectedSeqNum, startBlocks)
 
 	require.Equalf(
 		tc.t,

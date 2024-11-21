@@ -45,6 +45,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 )
@@ -1873,6 +1874,7 @@ func Test_ORM_FindJobByWorkflow(t *testing.T) {
 					c.ID = s.ID
 					c.Workflow = pkgworkflows.WFYamlSpec(t, "workflow99", addr1) // insert with mismatched name
 					c.SpecType = job.YamlSpec
+					c.SecretsID = s.SecretsID
 					return mustInsertWFJob(t, o, &c)
 				},
 			},
@@ -1892,6 +1894,7 @@ func Test_ORM_FindJobByWorkflow(t *testing.T) {
 					var c job.WorkflowSpec
 					c.ID = s.ID
 					c.Workflow = pkgworkflows.WFYamlSpec(t, "workflow03", addr2) // insert with mismatched owner
+					c.SecretsID = s.SecretsID
 					return mustInsertWFJob(t, o, &c)
 				},
 			},
@@ -1899,22 +1902,32 @@ func Test_ORM_FindJobByWorkflow(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
+	for i, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			ctx := testutils.Context(t)
 			ks := cltest.NewKeyStore(t, tt.fields.ds)
+
+			secretsORM := syncer.NewWorkflowRegistryDS(tt.fields.ds, logger.TestLogger(t))
+
+			sid, err := secretsORM.Create(ctx, "some-url.com", fmt.Sprintf("some-hash-%d", i), "some-contentz")
+			require.NoError(t, err)
+			tt.args.spec.SecretsID = sql.NullInt64{Int64: sid, Valid: true}
+
 			pipelineORM := pipeline.NewORM(tt.fields.ds, logger.TestLogger(t), configtest.NewTestGeneralConfig(t).JobPipeline().MaxSuccessfulRuns())
 			bridgesORM := bridges.NewORM(tt.fields.ds)
 			o := NewTestORM(t, tt.fields.ds, pipelineORM, bridgesORM, ks)
+
 			var wantJobID int32
 			if tt.args.before != nil {
 				wantJobID = tt.args.before(t, o, tt.args.spec)
 			}
-			ctx := testutils.Context(t)
+
 			gotJ, err := o.FindJobIDByWorkflow(ctx, *tt.args.spec)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("orm.FindJobByWorkflow() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
+
 			if err == nil {
 				assert.Equal(t, wantJobID, gotJ, "mismatch job id")
 			}
@@ -1936,25 +1949,36 @@ func Test_ORM_FindJobByWorkflow_Multiple(t *testing.T) {
 			bridges.NewORM(db),
 			cltest.NewKeyStore(t, db))
 		ctx := testutils.Context(t)
+		secretsORM := syncer.NewWorkflowRegistryDS(db, logger.TestLogger(t))
+
+		var sids []int64
+		for i := 0; i < 3; i++ {
+			sid, err := secretsORM.Create(ctx, "some-url.com", fmt.Sprintf("some-hash-%d", i), "some-contentz")
+			require.NoError(t, err)
+			sids = append(sids, sid)
+		}
 
 		wfYaml1 := pkgworkflows.WFYamlSpec(t, "workflow00", addr1)
 		s1 := job.WorkflowSpec{
-			Workflow: wfYaml1,
-			SpecType: job.YamlSpec,
+			Workflow:  wfYaml1,
+			SpecType:  job.YamlSpec,
+			SecretsID: sql.NullInt64{Int64: sids[0], Valid: true},
 		}
 		wantJobID1 := mustInsertWFJob(t, o, &s1)
 
 		wfYaml2 := pkgworkflows.WFYamlSpec(t, "workflow01", addr1)
 		s2 := job.WorkflowSpec{
-			Workflow: wfYaml2,
-			SpecType: job.YamlSpec,
+			Workflow:  wfYaml2,
+			SpecType:  job.YamlSpec,
+			SecretsID: sql.NullInt64{Int64: sids[1], Valid: true},
 		}
 		wantJobID2 := mustInsertWFJob(t, o, &s2)
 
 		wfYaml3 := pkgworkflows.WFYamlSpec(t, "workflow00", addr2)
 		s3 := job.WorkflowSpec{
-			Workflow: wfYaml3,
-			SpecType: job.YamlSpec,
+			Workflow:  wfYaml3,
+			SpecType:  job.YamlSpec,
+			SecretsID: sql.NullInt64{Int64: sids[2], Valid: true},
 		}
 		wantJobID3 := mustInsertWFJob(t, o, &s3)
 
@@ -1992,7 +2016,7 @@ func mustInsertWFJob(t *testing.T, orm job.ORM, s *job.WorkflowSpec) int32 {
 	}
 
 	err = orm.CreateJob(ctx, &j)
-	require.NoError(t, err, "failed to insert job with wf spec %v %s", s, s.Workflow)
+	require.NoError(t, err, "failed to insert job with wf spec %+v %s", s, err)
 	return j.ID
 }
 
