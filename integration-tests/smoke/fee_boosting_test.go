@@ -95,6 +95,7 @@ func runFeeboostTestCase(tc feeboostTestCase) {
 
 	startBlocks := make(map[uint64]*uint64)
 	expectedSeqNum := make(map[ccdeploy.SourceDestPair]uint64)
+	expectedSeqNumExec := make(map[ccdeploy.SourceDestPair][]uint64)
 	msgSentEvent := ccdeploy.TestSendRequest(tc.t, tc.deployedEnv.Env, tc.onchainState, tc.sourceChain, tc.destChain, false, router.ClientEVM2AnyMessage{
 		Receiver:     common.LeftPadBytes(tc.onchainState.Chains[tc.destChain].Receiver.Address().Bytes(), 32),
 		Data:         []byte("message that needs fee boosting"),
@@ -106,6 +107,10 @@ func runFeeboostTestCase(tc feeboostTestCase) {
 		SourceChainSelector: tc.sourceChain,
 		DestChainSelector:   tc.destChain,
 	}] = msgSentEvent.SequenceNumber
+	expectedSeqNumExec[ccdeploy.SourceDestPair{
+		SourceChainSelector: tc.sourceChain,
+		DestChainSelector:   tc.destChain,
+	}] = []uint64{msgSentEvent.SequenceNumber}
 
 	// hack
 	time.Sleep(30 * time.Second)
@@ -115,5 +120,5 @@ func runFeeboostTestCase(tc feeboostTestCase) {
 	ccdeploy.ReplayLogs(tc.t, tc.deployedEnv.Env.Offchain, replayBlocks)
 
 	ccdeploy.ConfirmCommitForAllWithExpectedSeqNums(tc.t, tc.deployedEnv.Env, tc.onchainState, expectedSeqNum, startBlocks)
-	ccdeploy.ConfirmExecWithSeqNrForAll(tc.t, tc.deployedEnv.Env, tc.onchainState, expectedSeqNum, startBlocks)
+	ccdeploy.ConfirmExecWithSeqNrsForAll(tc.t, tc.deployedEnv.Env, tc.onchainState, expectedSeqNumExec, startBlocks)
 }

@@ -72,8 +72,9 @@ func TestActiveCandidate(t *testing.T) {
 		require.Equal(t, ccdeploy.MockLinkPrice, timestampedPrice.Value)
 	}
 
-	//Wait for all exec reports to land
-	ccdeploy.ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
+	// Wait for all exec reports to land
+	// TODO: fix this when test is un-skipped.
+	// ccdeploy.ConfirmExecWithSeqNrsForAll(t, e, state, expectedSeqNum, startBlocks)
 
 	// transfer ownership
 	ccdeploy.TransferAllOwnership(t, state, tenv.HomeChainSel, e)

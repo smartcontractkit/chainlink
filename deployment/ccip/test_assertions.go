@@ -312,23 +312,24 @@ func ConfirmCommitWithExpectedSeqNumRange(
 	}
 }
 
-// ConfirmExecWithSeqNrForAll waits for all chains in the environment to execute the given expectedSeqNums.
-// If successful, it returns a map that maps the expected sequence numbers to their respective execution state.
-// expectedSeqNums is a map of destination chain selector to expected sequence number
+// ConfirmExecWithSeqNrsForAll waits for all chains in the environment to execute the given expectedSeqNums.
+// If successful, it returns a map that maps the source chain selector to the expected sequence number
+// to its execution state.
+// expectedSeqNums is a map of source chain selector to a slice of expected sequence numbers to be executed.
 // startBlocks is a map of destination chain selector to start block number to start watching from.
 // If startBlocks is nil, it will start watching from the latest block.
-func ConfirmExecWithSeqNrForAll(
+func ConfirmExecWithSeqNrsForAll(
 	t *testing.T,
 	e deployment.Environment,
 	state CCIPOnChainState,
-	expectedSeqNums map[SourceDestPair]uint64,
+	expectedSeqNums map[SourceDestPair][]uint64,
 	startBlocks map[uint64]*uint64,
-) (executionStates map[uint64]int) {
+) (executionStates map[SourceDestPair]map[uint64]int) {
 	var (
 		wg errgroup.Group
 		mx sync.Mutex
 	)
-	executionStates = make(map[uint64]int)
+	executionStates = make(map[SourceDestPair]map[uint64]int)
 	for src, srcChain := range e.Chains {
 		for dest, dstChain := range e.Chains {
 			if src == dest {
@@ -346,11 +347,11 @@ func ConfirmExecWithSeqNrForAll(
 					SourceChainSelector: srcChain.Selector,
 					DestChainSelector:   dstChain.Selector,
 				}]
-				if !ok || expectedSeqNum == 0 {
+				if !ok || len(expectedSeqNum) == 0 {
 					return nil
 				}
 
-				executionState, err := ConfirmExecWithSeqNr(
+				innerExecutionStates, err := ConfirmExecWithSeqNrs(
 					t,
 					srcChain,
 					dstChain,
@@ -363,27 +364,32 @@ func ConfirmExecWithSeqNrForAll(
 				}
 
 				mx.Lock()
-				executionStates[expectedSeqNum] = executionState
+				executionStates[SourceDestPair{
+					SourceChainSelector: srcChain.Selector,
+					DestChainSelector:   dstChain.Selector,
+				}] = innerExecutionStates
 				mx.Unlock()
 
 				return nil
 			})
 		}
 	}
+
 	require.NoError(t, wg.Wait())
 	return executionStates
 }
 
-// ConfirmExecWithSeqNr waits for an execution state change on the destination chain with the expected sequence number.
+// ConfirmExecWithSeqNrs waits for an execution state change on the destination chain with the expected sequence number.
 // startBlock is the block number to start watching from.
 // If startBlock is nil, it will start watching from the latest block.
-func ConfirmExecWithSeqNr(
+// Returns a map that maps the expected sequence number to its execution state.
+func ConfirmExecWithSeqNrs(
 	t *testing.T,
 	source, dest deployment.Chain,
 	offRamp *offramp.OffRamp,
 	startBlock *uint64,
-	expectedSeqNr uint64,
-) (executionState int, err error) {
+	expectedSeqNrs []uint64,
+) (executionStates map[uint64]int, err error) {
 	timer := time.NewTimer(5 * time.Minute)
 	defer timer.Stop()
 	tick := time.NewTicker(5 * time.Second)
@@ -394,33 +400,49 @@ func ConfirmExecWithSeqNr(
 		Start:   startBlock,
 	}, sink, nil, nil, nil)
 	if err != nil {
-		return -1, fmt.Errorf("error to subscribe ExecutionStateChanged : %w", err)
+		return nil, fmt.Errorf("error to subscribe ExecutionStateChanged : %w", err)
 	}
 	defer subscription.Unsubscribe()
+
+	// some state to efficiently track the execution states
+	// of all the expected sequence numbers.
+	executionStates = make(map[uint64]int)
+	seqNrsToWatch := make(map[uint64]struct{})
+	for _, seqNr := range expectedSeqNrs {
+		seqNrsToWatch[seqNr] = struct{}{}
+	}
 	for {
 		select {
 		case <-tick.C:
-			scc, executionState := GetExecutionState(t, source, dest, offRamp, expectedSeqNr)
-			t.Logf("Waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence number %d, current onchain minSeqNr: %d, execution state: %s",
-				dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr, scc.MinSeqNr, executionStateToString(executionState))
-			if executionState == EXECUTION_STATE_SUCCESS || executionState == EXECUTION_STATE_FAILURE {
-				t.Logf("Observed %s execution state on chain %d (offramp %s) from chain %d with expected sequence number %d",
-					executionStateToString(executionState), dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr)
-				return int(executionState), nil
+			for expectedSeqNr := range seqNrsToWatch {
+				scc, executionState := GetExecutionState(t, source, dest, offRamp, expectedSeqNr)
+				t.Logf("Waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence number %d, current onchain minSeqNr: %d, execution state: %s",
+					dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr, scc.MinSeqNr, executionStateToString(executionState))
+				if executionState == EXECUTION_STATE_SUCCESS || executionState == EXECUTION_STATE_FAILURE {
+					t.Logf("Observed %s execution state on chain %d (offramp %s) from chain %d with expected sequence number %d",
+						executionStateToString(executionState), dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr)
+					executionStates[expectedSeqNr] = int(executionState)
+					delete(seqNrsToWatch, expectedSeqNr)
+				}
 			}
 		case execEvent := <-sink:
 			t.Logf("Received ExecutionStateChanged (state %s) for seqNum %d on chain %d (offramp %s) from chain %d",
-				executionStateToString(execEvent.State), execEvent.SequenceNumber, dest.Selector, offRamp.Address().String(), source.Selector)
-			if execEvent.SequenceNumber == expectedSeqNr && execEvent.SourceChainSelector == source.Selector {
+				executionStateToString(execEvent.State), execEvent.SequenceNumber, dest.Selector, offRamp.Address().String(),
+				source.Selector,
+			)
+
+			_, found := seqNrsToWatch[execEvent.SequenceNumber]
+			if found && execEvent.SourceChainSelector == source.Selector {
 				t.Logf("Received ExecutionStateChanged (state %s) on chain %d (offramp %s) from chain %d with expected sequence number %d",
-					executionStateToString(execEvent.State), dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr)
-				return int(execEvent.State), nil
+					executionStateToString(execEvent.State), dest.Selector, offRamp.Address().String(), source.Selector, execEvent.SequenceNumber)
+				executionStates[execEvent.SequenceNumber] = int(execEvent.State)
+				delete(seqNrsToWatch, execEvent.SequenceNumber)
 			}
 		case <-timer.C:
-			return -1, fmt.Errorf("timed out waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence number %d",
-				dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr)
+			return nil, fmt.Errorf("timed out waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence numbers %+v",
+				dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNrs)
 		case subErr := <-subscription.Err():
-			return -1, fmt.Errorf("subscription error: %w", subErr)
+			return nil, fmt.Errorf("subscription error: %w", subErr)
 		}
 	}
 }

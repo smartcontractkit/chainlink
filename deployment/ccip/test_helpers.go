@@ -358,18 +358,19 @@ func CCIPSendRequest(
 // This is expected to be used in Multicall scenarios (i.e multiple ccipSend calls
 // in a single transaction).
 func CCIPSendCalldata(
-	t *testing.T,
 	destChainSelector uint64,
 	evm2AnyMessage router.ClientEVM2AnyMessage,
-) []byte {
+) ([]byte, error) {
 	calldata, err := routerABI.Methods["ccipSend"].Inputs.Pack(
 		destChainSelector,
 		evm2AnyMessage,
 	)
-	require.NoError(t, err)
+	if err != nil {
+		return nil, fmt.Errorf("pack ccipSend calldata: %w", err)
+	}
 
 	calldata = append(routerABI.Methods["ccipSend"].ID, calldata...)
-	return calldata
+	return calldata, nil
 }
 
 func TestSendRequest(
@@ -592,13 +593,13 @@ func ConfirmRequestOnSourceAndDest(t *testing.T, env deployment.Environment, sta
 	require.NoError(
 		t,
 		commonutils.JustError(
-			ConfirmExecWithSeqNr(
+			ConfirmExecWithSeqNrs(
 				t,
 				env.Chains[sourceCS],
 				env.Chains[destCS],
 				state.Chains[destCS].OffRamp,
 				&startBlock,
-				msgSentEvent.SequenceNumber,
+				[]uint64{msgSentEvent.SequenceNumber},
 			),
 		),
 	)

@@ -96,114 +96,147 @@ func Test_CCIPBatching(t *testing.T) {
 
 	t.Run("batch data only messages from multiple sources", func(t *testing.T) {
 		var (
-			wg   sync.WaitGroup
-			mx   sync.Mutex
-			errs []error
+			wg           sync.WaitGroup
+			errs         = make(chan error)
+			sourceChains = []uint64{sourceChain1, sourceChain2}
 		)
 
-		wg.Add(1)
-		go func(sourceChainSelector uint64) {
-			defer wg.Done()
-			err := sendMessages(
+		for _, srcChain := range sourceChains {
+			wg.Add(1)
+			go sendMessagesAsync(
 				ctx,
 				t,
-				e.Env.Chains[sourceChainSelector],
-				e.Env.Chains[sourceChainSelector].DeployerKey,
-				state.Chains[sourceChainSelector].OnRamp,
-				state.Chains[sourceChainSelector].Router,
-				state.Chains[sourceChainSelector].Multicall3,
+				e,
+				state,
+				srcChain,
 				destChain,
 				numMessages,
-				common.LeftPadBytes(state.Chains[destChain].Receiver.Address().Bytes(), 32),
+				&wg,
+				errs,
 			)
-			mx.Lock()
-			errs = append(errs, err)
-			mx.Unlock()
-		}(sourceChain1)
-
-		wg.Add(1)
-		go func(sourceChainSelector uint64) {
-			defer wg.Done()
-			err := sendMessages(
-				ctx,
-				t,
-				e.Env.Chains[sourceChainSelector],
-				e.Env.Chains[sourceChainSelector].DeployerKey,
-				state.Chains[sourceChainSelector].OnRamp,
-				state.Chains[sourceChainSelector].Router,
-				state.Chains[sourceChainSelector].Multicall3,
-				destChain,
-				numMessages,
-				common.LeftPadBytes(state.Chains[destChain].Receiver.Address().Bytes(), 32),
-			)
-			mx.Lock()
-			errs = append(errs, err)
-			mx.Unlock()
-		}(sourceChain2)
+		}
 
 		wg.Wait()
 
-		for _, err := range errs {
-			require.NoError(t, err)
+		var i int
+	outer:
+		for {
+			select {
+			case err := <-errs:
+				require.NoError(t, err)
+				i++
+				if i == len(sourceChains) {
+					break outer
+				}
+			case <-ctx.Done():
+				require.FailNow(t, "didn't get all errors before test context was done")
+			}
 		}
 
 		// confirm the commit reports
-		var (
-			sourceChain1Report *offramp.OffRampCommitReportAccepted
-			sourceChain2Report *offramp.OffRampCommitReportAccepted
-		)
-		errs = nil
-
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			var err error
-			sourceChain1Report, err = ccdeploy.ConfirmCommitWithExpectedSeqNumRange(t,
-				e.Env.Chains[sourceChain1],
-				e.Env.Chains[destChain],
-				state.Chains[destChain].OffRamp,
-				nil,
-				ccipocr3.NewSeqNumRange(startSeqNum[sourceChain1], endSeqNum[sourceChain1]),
+		outputErrs := make(chan outputErr[*offramp.OffRampCommitReportAccepted])
+		for _, srcChain := range sourceChains {
+			wg.Add(1)
+			go assertCommitReportsAsync(
+				t,
+				e,
+				state,
+				srcChain,
+				destChain,
+				startSeqNum[srcChain],
+				endSeqNum[srcChain],
+				&wg,
+				outputErrs,
 			)
-
-			mx.Lock()
-			errs = append(errs, err)
-			mx.Unlock()
-		}()
-
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			var err error
-			sourceChain2Report, err = ccdeploy.ConfirmCommitWithExpectedSeqNumRange(t,
-				e.Env.Chains[sourceChain2],
-				e.Env.Chains[destChain],
-				state.Chains[destChain].OffRamp,
-				nil,
-				ccipocr3.NewSeqNumRange(startSeqNum[sourceChain2], endSeqNum[sourceChain2]),
-			)
-
-			mx.Lock()
-			errs = append(errs, err)
-			mx.Unlock()
-		}()
+		}
 
 		t.Log("waiting for commit report")
 		wg.Wait()
 
-		for _, err := range errs {
-			require.NoError(t, err)
+		i = 0
+		var reports []*offramp.OffRampCommitReportAccepted
+	outer2:
+		for {
+			select {
+			case outputErr := <-outputErrs:
+				require.NoError(t, outputErr.err)
+				reports = append(reports, outputErr.output)
+				i++
+				if i == len(sourceChains) {
+					break outer2
+				}
+			case <-ctx.Done():
+				require.FailNow(t, "didn't get all commit reports before test context was done")
+			}
 		}
 
 		// the reports should be the same for both, since both roots should be batched within
 		// that one report.
-		require.Equal(t, sourceChain1Report, sourceChain2Report, "commit reports should be the same")
+		require.Lenf(t, reports, len(sourceChains), "expected %d commit reports", len(sourceChains))
+		require.Equal(t, reports[0], reports[1], "commit reports should be the same")
 
 		startSeqNum[sourceChain1] = endSeqNum[sourceChain1] + 1
 		endSeqNum[sourceChain1] = startSeqNum[sourceChain1] + ccipocr3.SeqNum(numMessages) - 1
 		startSeqNum[sourceChain2] = endSeqNum[sourceChain2] + 1
 		endSeqNum[sourceChain2] = startSeqNum[sourceChain2] + ccipocr3.SeqNum(numMessages) - 1
 	})
+}
+
+type outputErr[T any] struct {
+	output T
+	err    error
+}
+
+func assertCommitReportsAsync(
+	t *testing.T,
+	e ccdeploy.DeployedEnv,
+	state ccdeploy.CCIPOnChainState,
+	sourceChainSelector,
+	destChainSelector uint64,
+	startSeqNum,
+	endSeqNum ccipocr3.SeqNum,
+	wg *sync.WaitGroup,
+	errs chan<- outputErr[*offramp.OffRampCommitReportAccepted],
+) {
+	defer wg.Done()
+	var err error
+	sourceChain1Report, err := ccdeploy.ConfirmCommitWithExpectedSeqNumRange(
+		t,
+		e.Env.Chains[sourceChainSelector],
+		e.Env.Chains[destChainSelector],
+		state.Chains[destChainSelector].OffRamp,
+		nil,
+		ccipocr3.NewSeqNumRange(startSeqNum, endSeqNum),
+	)
+
+	errs <- outputErr[*offramp.OffRampCommitReportAccepted]{sourceChain1Report, err}
+}
+
+func sendMessagesAsync(
+	ctx context.Context,
+	t *testing.T,
+	e ccdeploy.DeployedEnv,
+	state ccdeploy.CCIPOnChainState,
+	sourceChainSelector,
+	destChainSelector uint64,
+	numMessages int,
+	wg *sync.WaitGroup,
+	out chan<- error,
+) {
+	defer wg.Done()
+	err := sendMessages(
+		ctx,
+		t,
+		e.Env.Chains[sourceChainSelector],
+		e.Env.Chains[sourceChainSelector].DeployerKey,
+		state.Chains[sourceChainSelector].OnRamp,
+		state.Chains[sourceChainSelector].Router,
+		state.Chains[sourceChainSelector].Multicall3,
+		destChainSelector,
+		numMessages,
+		common.LeftPadBytes(state.Chains[destChainSelector].Receiver.Address().Bytes(), 32),
+	)
+	out <- err
 }
 
 func sendMessages(
@@ -218,14 +251,16 @@ func sendMessages(
 	numMessages int,
 	receiver []byte,
 ) error {
-	calls, totalValue := genMessages(
+	calls, totalValue, err := genMessages(
 		ctx,
-		t,
 		sourceRouter,
 		destChainSelector,
 		numMessages,
 		receiver,
 	)
+	if err != nil {
+		return fmt.Errorf("generate messages: %w", err)
+	}
 
 	// Send the tx with the messages through the multicall
 	tx, err := sourceMulticall3.Aggregate3Value(
@@ -238,7 +273,7 @@ func sendMessages(
 	)
 	_, err = deployment.ConfirmIfNoError(sourceChain, tx, err)
 	if err != nil {
-		return err
+		return fmt.Errorf("send messages via multicall3: %w", err)
 	}
 
 	// check that the message was emitted
@@ -246,7 +281,7 @@ func sendMessages(
 		nil, []uint64{destChainSelector}, nil,
 	)
 	if err != nil {
-		return err
+		return fmt.Errorf("get message sent event: %w", err)
 	}
 
 	// there should be numMessages messages emitted
@@ -262,12 +297,11 @@ func sendMessages(
 
 func genMessages(
 	ctx context.Context,
-	t *testing.T,
 	sourceRouter *router.Router,
 	destChainSelector uint64,
 	count int,
 	receiver []byte,
-) (calls []multicall3.Multicall3Call3Value, totalValue *big.Int) {
+) (calls []multicall3.Multicall3Call3Value, totalValue *big.Int, err error) {
 	totalValue = big.NewInt(0)
 	for i := 0; i < count; i++ {
 		msg := router.ClientEVM2AnyMessage{
@@ -279,17 +313,24 @@ func genMessages(
 		}
 
 		fee, err := sourceRouter.GetFee(&bind.CallOpts{Context: ctx}, destChainSelector, msg)
-		require.NoError(t, err)
+		if err != nil {
+			return nil, nil, fmt.Errorf("router get fee: %w", err)
+		}
 
 		totalValue.Add(totalValue, fee)
+
+		calldata, err := ccdeploy.CCIPSendCalldata(destChainSelector, msg)
+		if err != nil {
+			return nil, nil, fmt.Errorf("generate calldata: %w", err)
+		}
 
 		calls = append(calls, multicall3.Multicall3Call3Value{
 			Target:       sourceRouter.Address(),
 			AllowFailure: false,
-			CallData:     ccdeploy.CCIPSendCalldata(t, destChainSelector, msg),
+			CallData:     calldata,
 			Value:        fee,
 		})
 	}
 
-	return calls, totalValue
+	return calls, totalValue, nil
 }

@@ -195,7 +195,7 @@ func (m *AddressBookMap) Remove(ab AddressBook) error {
 	// State of m.addressesByChain storage must not be changed in case of an error
 	// need to do double iteration over the address book. First validation, second actual deletion
 	for chainSelector, chainAddresses := range addresses {
-		for address, _ := range chainAddresses {
+		for address := range chainAddresses {
 			if _, exists := m.addressesByChain[chainSelector][address]; !exists {
 				return errors.New("AddressBookMap does not contain address from the given address book")
 			}
@@ -203,7 +203,7 @@ func (m *AddressBookMap) Remove(ab AddressBook) error {
 	}
 
 	for chainSelector, chainAddresses := range addresses {
-		for address, _ := range chainAddresses {
+		for address := range chainAddresses {
 			delete(m.addressesByChain[chainSelector], address)
 		}
 	}

@@ -317,11 +317,18 @@ func runMessagingTestCase(
 		FeeToken:     common.HexToAddress("0x0"),
 		ExtraArgs:    extraArgs,
 	})
-	expectedSeqNum := make(map[ccdeploy.SourceDestPair]uint64)
-	expectedSeqNum[ccdeploy.SourceDestPair{
-		SourceChainSelector: tc.sourceChain,
-		DestChainSelector:   tc.destChain,
-	}] = msgSentEvent.SequenceNumber
+	expectedSeqNum := map[ccdeploy.SourceDestPair]uint64{
+		{
+			SourceChainSelector: tc.sourceChain,
+			DestChainSelector:   tc.destChain,
+		}: msgSentEvent.SequenceNumber,
+	}
+	expectedSeqNumExec := map[ccdeploy.SourceDestPair][]uint64{
+		{
+			SourceChainSelector: tc.sourceChain,
+			DestChainSelector:   tc.destChain,
+		}: {msgSentEvent.SequenceNumber},
+	}
 	out.msgSentEvent = msgSentEvent
 
 	// hack
@@ -331,16 +338,22 @@ func runMessagingTestCase(
 	}
 
 	ccdeploy.ConfirmCommitForAllWithExpectedSeqNums(tc.t, tc.deployedEnv.Env, tc.onchainState, expectedSeqNum, startBlocks)
-	execStates := ccdeploy.ConfirmExecWithSeqNrForAll(tc.t, tc.deployedEnv.Env, tc.onchainState, expectedSeqNum, startBlocks)
+	execStates := ccdeploy.ConfirmExecWithSeqNrsForAll(tc.t, tc.deployedEnv.Env, tc.onchainState, expectedSeqNumExec, startBlocks)
 
 	require.Equalf(
 		tc.t,
 		expectedExecutionState,
-		execStates[msgSentEvent.SequenceNumber],
+		execStates[ccdeploy.SourceDestPair{
+			SourceChainSelector: tc.sourceChain,
+			DestChainSelector:   tc.destChain,
+		}][msgSentEvent.SequenceNumber],
 		"wrong execution state for seq nr %d, expected %d, got %d",
 		msgSentEvent.SequenceNumber,
 		expectedExecutionState,
-		execStates[msgSentEvent.SequenceNumber],
+		execStates[ccdeploy.SourceDestPair{
+			SourceChainSelector: tc.sourceChain,
+			DestChainSelector:   tc.destChain,
+		}][msgSentEvent.SequenceNumber],
 	)
 
 	// check the sender latestNonce on the dest, should be incremented

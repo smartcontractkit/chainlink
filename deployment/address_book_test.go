@@ -206,14 +206,14 @@ func TestAddressBook_ConcurrencyAndDeadlock(t *testing.T) {
 			require.NoError(t, err)
 			for chainSelector, chainAddresses := range addresses {
 				// concurrent read chainAddresses from Addresses() method
-				for address, _ := range chainAddresses {
+				for address := range chainAddresses {
 					addresses[chainSelector][address] = onRamp110
 				}
 
 				// concurrent read chainAddresses from AddressesForChain() method
 				chainAddresses, err = baseAB.AddressesForChain(chainSelector)
 				require.NoError(t, err)
-				for address, _ := range chainAddresses {
+				for address := range chainAddresses {
 					_ = addresses[chainSelector][address]
 				}
 			}

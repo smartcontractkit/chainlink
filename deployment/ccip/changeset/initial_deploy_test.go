@@ -85,6 +85,7 @@ func TestInitialDeploy(t *testing.T) {
 	startBlocks := make(map[uint64]*uint64)
 	// Send a message from each chain to every other chain.
 	expectedSeqNum := make(map[ccdeploy.SourceDestPair]uint64)
+	expectedSeqNumExec := make(map[ccdeploy.SourceDestPair][]uint64)
 
 	for src := range e.Chains {
 		for dest, destChain := range e.Chains {
@@ -106,6 +107,10 @@ func TestInitialDeploy(t *testing.T) {
 				SourceChainSelector: src,
 				DestChainSelector:   dest,
 			}] = msgSentEvent.SequenceNumber
+			expectedSeqNumExec[ccdeploy.SourceDestPair{
+				SourceChainSelector: src,
+				DestChainSelector:   dest,
+			}] = []uint64{msgSentEvent.SequenceNumber}
 		}
 	}
 
@@ -119,5 +124,5 @@ func TestInitialDeploy(t *testing.T) {
 	//ccdeploy.ConfirmGasPriceUpdatedForAll(t, e, state, startBlocks)
 	//
 	//// Wait for all exec reports to land
-	ccdeploy.ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
+	ccdeploy.ConfirmExecWithSeqNrsForAll(t, e, state, expectedSeqNumExec, startBlocks)
 }
