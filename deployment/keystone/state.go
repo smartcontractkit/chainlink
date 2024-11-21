@@ -5,7 +5,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/deployment"
+	common_v1_0 "github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
+	"github.com/smartcontractkit/chainlink/deployment/keystone/view"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability"
@@ -26,7 +29,19 @@ type ContractSet struct {
 	CapabilitiesRegistry *capabilities_registry.CapabilitiesRegistry
 }
 
-func GetContractSets(req *GetContractSetsRequest) (*GetContractSetsResponse, error) {
+func (cs ContractSet) View() (view.KeystoneChainView, error) {
+	out := view.NewKeystoneChainView()
+	if cs.CapabilitiesRegistry != nil {
+		capRegView, err := common_v1_0.GenerateCapabilityRegistryView(cs.CapabilitiesRegistry)
+		if err != nil {
+			return view.KeystoneChainView{}, err
+		}
+		out.CapabilityRegistry[cs.CapabilitiesRegistry.Address().String()] = capRegView
+	}
+	return out, nil
+}
+
+func GetContractSets(lggr logger.Logger, req *GetContractSetsRequest) (*GetContractSetsResponse, error) {
 	resp := &GetContractSetsResponse{
 		ContractSets: make(map[uint64]ContractSet),
 	}
@@ -35,7 +50,7 @@ func GetContractSets(req *GetContractSetsRequest) (*GetContractSetsResponse, err
 		if err != nil {
 			return nil, fmt.Errorf("failed to get addresses for chain %d: %w", id, err)
 		}
-		cs, err := loadContractSet(chain, addrs)
+		cs, err := loadContractSet(lggr, chain, addrs)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load contract set for chain %d: %w", id, err)
 		}
@@ -44,14 +59,11 @@ func GetContractSets(req *GetContractSetsRequest) (*GetContractSetsResponse, err
 	return resp, nil
 }
 
-func loadContractSet(chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (*ContractSet, error) {
+func loadContractSet(lggr logger.Logger, chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (*ContractSet, error) {
 	var out ContractSet
 
 	for addr, tv := range addresses {
 		// todo handle versions
-		if !tv.Version.Equal(&deployment.Version1_0_0) {
-			return nil, fmt.Errorf("unsupported version %s", tv.Version.String())
-		}
 		switch tv.Type {
 		case CapabilitiesRegistry:
 			c, err := capabilities_registry.NewCapabilitiesRegistry(common.HexToAddress(addr), chain.Client)
@@ -72,7 +84,8 @@ func loadContractSet(chain deployment.Chain, addresses map[string]deployment.Typ
 			}
 			out.OCR3 = c
 		default:
-			return nil, fmt.Errorf("unknown contract type %s", tv.Type)
+			lggr.Warnw("unknown contract type", "type", tv.Type)
+			// ignore unknown contract types
 		}
 	}
 	return &out, nil

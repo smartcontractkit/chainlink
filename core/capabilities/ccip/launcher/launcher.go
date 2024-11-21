@@ -2,12 +2,14 @@ package launcher
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 	"time"
 
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
@@ -29,16 +31,17 @@ var (
 	_ registrysyncer.Launcher = (*launcher)(nil)
 )
 
+// New creates a new instance of the CCIP launcher.
 func New(
 	capabilityID string,
-	p2pID ragep2ptypes.PeerID,
+	myP2PID ragep2ptypes.PeerID,
 	lggr logger.Logger,
 	homeChainReader ccipreader.HomeChain,
 	tickInterval time.Duration,
 	oracleCreator cctypes.OracleCreator,
 ) *launcher {
 	return &launcher{
-		p2pID:           p2pID,
+		myP2PID:         myP2PID,
 		capabilityID:    capabilityID,
 		lggr:            lggr,
 		homeChainReader: homeChainReader,
@@ -47,9 +50,9 @@ func New(
 			IDsToNodes:        make(map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo),
 			IDsToCapabilities: make(map[string]registrysyncer.Capability),
 		},
-		dons:          make(map[registrysyncer.DonID]*ccipDeployment),
 		tickInterval:  tickInterval,
 		oracleCreator: oracleCreator,
+		instances:     make(map[registrysyncer.DonID]pluginRegistry),
 	}
 }
 
@@ -57,11 +60,15 @@ func New(
 type launcher struct {
 	services.StateMachine
 
-	capabilityID    string
-	p2pID           ragep2ptypes.PeerID
+	// capabilityID is the fully qualified capability registry ID of the CCIP capability.
+	// this is <capability_name>@<capability-semver>, e.g "ccip@1.0.0".
+	capabilityID string
+
+	// myP2PID is the peer ID of the node running this launcher.
+	myP2PID         ragep2ptypes.PeerID
 	lggr            logger.Logger
 	homeChainReader ccipreader.HomeChain
-	stopChan        chan struct{}
+	stopChan        services.StopChan
 	// latestState is the latest capability registry state received from the syncer.
 	latestState registrysyncer.LocalRegistry
 	// regState is the latest capability registry state that we have successfully processed.
@@ -71,10 +78,10 @@ type launcher struct {
 	wg            sync.WaitGroup
 	tickInterval  time.Duration
 
-	// dons is a map of CCIP DON IDs to the OCR instances that are running on them.
-	// we can have up to two OCR instances per CCIP plugin, since we are running two plugins,
-	// thats four OCR instances per CCIP DON maximum.
-	dons map[registrysyncer.DonID]*ccipDeployment
+	// instances is a map of CCIP DON IDs to a map of the OCR instances that are running on them.
+	// This map uses the config digest as the key, and the instance as the value.
+	// We can have up to a maximum of 4 instances per CCIP DON (active/candidate) x (commit/exec)
+	instances map[registrysyncer.DonID]pluginRegistry
 }
 
 // Launch implements registrysyncer.Launcher.
@@ -96,7 +103,7 @@ func (l *launcher) runningDONIDs() []registrysyncer.DonID {
 	l.lock.RLock()
 	defer l.lock.RUnlock()
 	var runningDONs []registrysyncer.DonID
-	for id := range l.dons {
+	for id := range l.instances {
 		runningDONs = append(runningDONs, id)
 	}
 	return runningDONs
@@ -111,8 +118,8 @@ func (l *launcher) Close() error {
 
 		// shut down all running oracles.
 		var err error
-		for _, ceDep := range l.dons {
-			err = multierr.Append(err, ceDep.Close())
+		for _, ceDep := range l.instances {
+			err = multierr.Append(err, ceDep.CloseAll())
 		}
 
 		return err
@@ -129,22 +136,29 @@ func (l *launcher) Start(context.Context) error {
 	})
 }
 
+// monitor calls tick() at regular intervals to check for changes in the capability registry.
 func (l *launcher) monitor() {
 	defer l.wg.Done()
 	ticker := time.NewTicker(l.tickInterval)
+
+	ctx, cancel := l.stopChan.NewCtx()
+	defer cancel()
+
 	for {
 		select {
-		case <-l.stopChan:
+		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			if err := l.tick(); err != nil {
+			if err := l.tick(ctx); err != nil {
 				l.lggr.Errorw("Failed to tick", "err", err)
 			}
 		}
 	}
 }
 
-func (l *launcher) tick() error {
+// tick gets the latest registry state and processes the diff between the current and latest state.
+// This may lead to starting or stopping OCR instances.
+func (l *launcher) tick(ctx context.Context) error {
 	// Ensure that the home chain reader is healthy.
 	// For new jobs it may be possible that the home chain reader is not yet ready
 	// so we won't be able to fetch configs and start any OCR instances.
@@ -161,7 +175,7 @@ func (l *launcher) tick() error {
 		return fmt.Errorf("failed to diff capability registry states: %w", err)
 	}
 
-	err = l.processDiff(diffRes)
+	err = l.processDiff(ctx, diffRes)
 	if err != nil {
 		return fmt.Errorf("failed to process diff: %w", err)
 	}
@@ -173,248 +187,219 @@ func (l *launcher) tick() error {
 // for any added OCR instances, it will launch them.
 // for any removed OCR instances, it will shut them down.
 // for any updated OCR instances, it will restart them with the new configuration.
-func (l *launcher) processDiff(diff diffResult) error {
+func (l *launcher) processDiff(ctx context.Context, diff diffResult) error {
 	err := l.processRemoved(diff.removed)
-	err = multierr.Append(err, l.processAdded(diff.added))
-	err = multierr.Append(err, l.processUpdate(diff.updated))
+	err = multierr.Append(err, l.processAdded(ctx, diff.added))
+	err = multierr.Append(err, l.processUpdate(ctx, diff.updated))
 
 	return err
 }
 
-func (l *launcher) processUpdate(updated map[registrysyncer.DonID]registrysyncer.DON) error {
+// processUpdate will manage when configurations of an existing don are updated
+// If new oracles are needed, they are created and started. Old ones will be shut down
+func (l *launcher) processUpdate(ctx context.Context, updated map[registrysyncer.DonID]registrysyncer.DON) error {
 	l.lock.Lock()
 	defer l.lock.Unlock()
 
 	for donID, don := range updated {
-		prevDeployment, ok := l.dons[registrysyncer.DonID(don.ID)]
+		prevPlugins, ok := l.instances[donID]
 		if !ok {
 			return fmt.Errorf("invariant violation: expected to find CCIP DON %d in the map of running deployments", don.ID)
 		}
-		// we encounter this when a node is removed from the don
-		if prevDeployment == nil {
-			return errors.New("this node was closed")
-		}
 
-		futDeployment, err := updateDON(
-			l.lggr,
-			l.p2pID,
-			l.homeChainReader,
-			*prevDeployment,
-			don,
-			l.oracleCreator,
-		)
+		latestConfigs, err := getConfigsForDon(ctx, l.homeChainReader, don)
 		if err != nil {
 			return err
 		}
-		// When we remove a node from the don, this node does not have a future deployment
-		if futDeployment != nil {
-			if err := futDeployment.TransitionDeployment(prevDeployment); err != nil {
-				// TODO: how to handle a failed active-candidate deployment?
-				return fmt.Errorf("failed to handle active-candidate deployment for CCIP DON %d: %w", donID, err)
-			}
 
-			// update state.
-			l.dons[donID] = futDeployment
-			// update the state with the latest config.
-			// this way if one of the starts errors, we don't retry all of them.
-			l.regState.IDsToDONs[donID] = updated[donID]
+		newPlugins, err := updateDON(
+			ctx,
+			l.lggr,
+			l.myP2PID,
+			prevPlugins,
+			don,
+			l.oracleCreator,
+			latestConfigs)
+		if err != nil {
+			return err
 		}
+
+		err = newPlugins.TransitionFrom(prevPlugins)
+		if err != nil {
+			return fmt.Errorf("could not transition state %w", err)
+		}
+
+		l.instances[donID] = newPlugins
+		l.regState.IDsToDONs[donID] = updated[donID]
 	}
 
 	return nil
 }
 
-func (l *launcher) processAdded(added map[registrysyncer.DonID]registrysyncer.DON) error {
+// processAdded is for when a new don is created. We know that all oracles
+// must be created and started
+func (l *launcher) processAdded(ctx context.Context, added map[registrysyncer.DonID]registrysyncer.DON) error {
 	l.lock.Lock()
 	defer l.lock.Unlock()
 
 	for donID, don := range added {
-		dep, err := createDON(
+		configs, err := getConfigsForDon(ctx, l.homeChainReader, don)
+		if err != nil {
+			return fmt.Errorf("failed to get current configs for don %d: %w", donID, err)
+		}
+		newPlugins, err := createDON(
+			ctx,
 			l.lggr,
-			l.p2pID,
-			l.homeChainReader,
+			l.myP2PID,
 			don,
 			l.oracleCreator,
+			configs,
 		)
 		if err != nil {
-			return err
+			return fmt.Errorf("processAdded: call createDON %d: %w", donID, err)
 		}
-		if dep == nil {
+		if len(newPlugins) == 0 {
 			// not a member of this DON.
 			continue
 		}
 
-		if err := dep.StartActive(); err != nil {
-			if shutdownErr := dep.CloseActive(); shutdownErr != nil {
-				l.lggr.Errorw("Failed to shutdown active instance after failed start", "donId", donID, "err", shutdownErr)
+		// now that oracles are created, we need to start them. If there are issues with starting
+		// we should shut them down
+		if err := newPlugins.StartAll(); err != nil {
+			if shutdownErr := newPlugins.CloseAll(); shutdownErr != nil {
+				l.lggr.Errorw("Failed to shutdown don instances after a failed start", "donId", donID, "err", shutdownErr)
 			}
-			return fmt.Errorf("failed to start oracles for CCIP DON %d: %w", donID, err)
+			return fmt.Errorf("processAdded: start oracles for CCIP DON %d: %w", donID, err)
 		}
 
 		// update state.
-		l.dons[donID] = dep
-		// update the state with the latest config.
-		// this way if one of the starts errors, we don't retry all of them.
+		l.instances[donID] = newPlugins
 		l.regState.IDsToDONs[donID] = added[donID]
 	}
 
 	return nil
 }
 
+// processRemoved handles the situation when an entire DON is removed
 func (l *launcher) processRemoved(removed map[registrysyncer.DonID]registrysyncer.DON) error {
 	l.lock.Lock()
 	defer l.lock.Unlock()
 
 	for id := range removed {
-		ceDep, ok := l.dons[id]
+		p, ok := l.instances[id]
 		if !ok {
 			// not running this particular DON.
 			continue
 		}
 
-		if err := ceDep.Close(); err != nil {
+		if err := p.CloseAll(); err != nil {
 			return fmt.Errorf("failed to shutdown oracles for CCIP DON %d: %w", id, err)
+
 		}
 
 		// after a successful shutdown we can safely remove the DON deployment from the map.
-		delete(l.dons, id)
+		delete(l.instances, id)
 		delete(l.regState.IDsToDONs, id)
 	}
 
 	return nil
 }
 
-// updateDON is a pure function that handles the case where a DON in the capability registry
-// has received a new configuration.
-// It returns a new ccipDeployment that can then be used to perform the active-candidate deployment,
-// based on the previous deployment.
 func updateDON(
+	ctx context.Context,
 	lggr logger.Logger,
 	p2pID ragep2ptypes.PeerID,
-	homeChainReader ccipreader.HomeChain,
-	prevDeployment ccipDeployment,
+	prevPlugins pluginRegistry,
 	don registrysyncer.DON,
 	oracleCreator cctypes.OracleCreator,
-) (futDeployment *ccipDeployment, err error) {
+	latestConfigs []ccipreader.OCR3ConfigWithMeta,
+) (pluginRegistry, error) {
 	if !isMemberOfDON(don, p2pID) {
 		lggr.Infow("Not a member of this DON, skipping", "donId", don.ID, "p2pId", p2pID.String())
-		return nil, nil
 	}
 
-	// this should be a retryable error.
-	commitOCRConfigs, err := homeChainReader.GetOCRConfigs(context.Background(), don.ID, uint8(cctypes.PluginTypeCCIPCommit))
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch OCR configs for CCIP commit plugin (don id: %d) from home chain config contract: %w",
-			don.ID, err)
-	}
+	newP := make(pluginRegistry)
+	// If a config digest is not already in our list, we need to create an oracle
+	// If a config digest is already in our list, we just need to point to the old one
+	// newP.Transition will make sure we shut down the old oracles, and start the new ones
+	for _, c := range latestConfigs {
+		digest := c.ConfigDigest
+		if _, ok := prevPlugins[digest]; !ok {
+			oracle, err := oracleCreator.Create(ctx, don.ID, cctypes.OCR3ConfigWithMeta(c))
+			if err != nil {
+				return nil, fmt.Errorf("failed to create CCIP oracle: %w for digest %x", err, digest)
+			}
 
-	execOCRConfigs, err := homeChainReader.GetOCRConfigs(context.Background(), don.ID, uint8(cctypes.PluginTypeCCIPExec))
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch OCR configs for CCIP exec plugin (don id: %d) from home chain config contract: %w",
-			don.ID, err)
-	}
-
-	commitBgd, err := createFutureActiveCandidateDeployment(don.ID, prevDeployment, commitOCRConfigs, oracleCreator, cctypes.PluginTypeCCIPCommit)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create future active-candidate deployment for CCIP commit plugin: %w, don id: %d", err, don.ID)
-	}
-
-	execBgd, err := createFutureActiveCandidateDeployment(don.ID, prevDeployment, execOCRConfigs, oracleCreator, cctypes.PluginTypeCCIPExec)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create future active-candidate deployment for CCIP exec plugin: %w, don id: %d", err, don.ID)
-	}
-
-	return &ccipDeployment{
-		commit: commitBgd,
-		exec:   execBgd,
-	}, nil
-}
-
-// valid cases:
-// a) len(ocrConfigs) == 2 && !prevDeployment.HasCandidateInstance(pluginType): this is a new candidate instance.
-// b) len(ocrConfigs) == 1 && prevDeployment.HasCandidateInstance(): this is a promotion of candidate->active.
-// All other cases are invalid. This is enforced in the ccip config contract.
-func createFutureActiveCandidateDeployment(
-	donID uint32,
-	prevDeployment ccipDeployment,
-	ocrConfigs []ccipreader.OCR3ConfigWithMeta,
-	oracleCreator cctypes.OracleCreator,
-	pluginType cctypes.PluginType,
-) (activeCandidateDeployment, error) {
-	var deployment activeCandidateDeployment
-	if isNewCandidateInstance(pluginType, ocrConfigs, prevDeployment) {
-		// this is a new candidate instance.
-		greenOracle, err := oracleCreator.Create(donID, cctypes.OCR3ConfigWithMeta(ocrConfigs[1]))
-		if err != nil {
-			return activeCandidateDeployment{}, fmt.Errorf("failed to create CCIP commit oracle: %w", err)
+			newP[digest] = oracle
+		} else {
+			newP[digest] = prevPlugins[digest]
 		}
-
-		deployment.active = prevDeployment.commit.active
-		deployment.candidate = greenOracle
-	} else if isPromotion(pluginType, ocrConfigs, prevDeployment) {
-		// this is a promotion of candidate->active.
-		deployment.active = prevDeployment.commit.candidate
-	} else {
-		return activeCandidateDeployment{}, fmt.Errorf("invariant violation: expected 1 or 2 OCR configs for CCIP plugin (type: %d), got %d", pluginType, len(ocrConfigs))
 	}
 
-	return deployment, nil
+	return newP, nil
 }
 
 // createDON is a pure function that handles the case where a new DON is added to the capability registry.
-// It returns a new ccipDeployment that can then be used to start the active instance.
+// It returns up to 4 plugins that are later started.
 func createDON(
+	ctx context.Context,
 	lggr logger.Logger,
 	p2pID ragep2ptypes.PeerID,
-	homeChainReader ccipreader.HomeChain,
 	don registrysyncer.DON,
 	oracleCreator cctypes.OracleCreator,
-) (*ccipDeployment, error) {
-	// this should be a retryable error.
-	commitOCRConfigs, err := homeChainReader.GetOCRConfigs(context.Background(), don.ID, uint8(cctypes.PluginTypeCCIPCommit))
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch OCR configs for CCIP commit plugin (don id: %d) from home chain config contract: %w",
-			don.ID, err)
-	}
-
-	execOCRConfigs, err := homeChainReader.GetOCRConfigs(context.Background(), don.ID, uint8(cctypes.PluginTypeCCIPExec))
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch OCR configs for CCIP exec plugin (don id: %d) from home chain config contract: %w",
-			don.ID, err)
-	}
-
-	// upon creation we should only have one OCR config per plugin type.
-	if len(commitOCRConfigs) != 1 {
-		return nil, fmt.Errorf("expected exactly one OCR config for CCIP commit plugin (don id: %d), got %d", don.ID, len(commitOCRConfigs))
-	}
-
-	if len(execOCRConfigs) != 1 {
-		return nil, fmt.Errorf("expected exactly one OCR config for CCIP exec plugin (don id: %d), got %d", don.ID, len(execOCRConfigs))
-	}
-
+	configs []ccipreader.OCR3ConfigWithMeta,
+) (pluginRegistry, error) {
 	if !isMemberOfDON(don, p2pID) && oracleCreator.Type() == cctypes.OracleTypePlugin {
 		lggr.Infow("Not a member of this DON and not a bootstrap node either, skipping", "donId", don.ID, "p2pId", p2pID.String())
 		return nil, nil
 	}
+	p := make(pluginRegistry)
+	for _, config := range configs {
+		digest, err := ocrtypes.BytesToConfigDigest(config.ConfigDigest[:])
+		if err != nil {
+			return nil, fmt.Errorf("digest does not match type %w", err)
+		}
 
-	// at this point we know we are either a member of the DON or a bootstrap node.
-	// the injected oracleCreator will create the appropriate oracle.
-	commitOracle, err := oracleCreator.Create(don.ID, cctypes.OCR3ConfigWithMeta(commitOCRConfigs[0]))
+		oracle, err := oracleCreator.Create(ctx, don.ID, cctypes.OCR3ConfigWithMeta(config))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create CCIP oracle: %w for digest %x", err, digest)
+		}
+
+		p[digest] = oracle
+	}
+	return p, nil
+}
+
+func getConfigsForDon(
+	ctx context.Context,
+	homeChainReader ccipreader.HomeChain,
+	don registrysyncer.DON) ([]ccipreader.OCR3ConfigWithMeta, error) {
+	// this should be a retryable error.
+	commitOCRConfigs, err := homeChainReader.GetOCRConfigs(ctx, don.ID, uint8(cctypes.PluginTypeCCIPCommit))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create CCIP commit oracle: %w", err)
+		return nil, fmt.Errorf("failed to fetch OCR configs for CCIP commit plugin (don id: %d) from home chain config contract: %w",
+			don.ID, err)
 	}
 
-	execOracle, err := oracleCreator.Create(don.ID, cctypes.OCR3ConfigWithMeta(execOCRConfigs[0]))
+	execOCRConfigs, err := homeChainReader.GetOCRConfigs(ctx, don.ID, uint8(cctypes.PluginTypeCCIPExec))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create CCIP exec oracle: %w", err)
+		return nil, fmt.Errorf("failed to fetch OCR configs for CCIP exec plugin (don id: %d) from home chain config contract: %w",
+			don.ID, err)
 	}
 
-	return &ccipDeployment{
-		commit: activeCandidateDeployment{
-			active: commitOracle,
-		},
-		exec: activeCandidateDeployment{
-			active: execOracle,
-		},
-	}, nil
+	c := []ccipreader.OCR3ConfigWithMeta{
+		commitOCRConfigs.CandidateConfig,
+		commitOCRConfigs.ActiveConfig,
+		execOCRConfigs.CandidateConfig,
+		execOCRConfigs.ActiveConfig,
+	}
+
+	ret := make([]ccipreader.OCR3ConfigWithMeta, 0, 4)
+	for _, config := range c {
+		if config.ConfigDigest != [32]byte{} {
+			ret = append(ret, config)
+		}
+	}
+
+	return ret, nil
 }

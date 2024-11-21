@@ -6,12 +6,13 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
@@ -140,7 +141,7 @@ func buildSamplePayload(report []byte) []byte {
 type TestHarness struct {
 	configPoller     *ConfigPoller
 	user             *bind.TransactOpts
-	backend          *backends.SimulatedBackend
+	backend          *simulated.Backend
 	verifierAddress  common.Address
 	verifierContract *verifier.Verifier
 	logPoller        logpoller.LogPoller
@@ -151,14 +152,16 @@ func SetupTH(t *testing.T, feedID common.Hash) TestHarness {
 	require.NoError(t, err)
 	user, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
 	require.NoError(t, err)
-	b := backends.NewSimulatedBackend(core.GenesisAlloc{
+	b := simulated.NewBackend(types.GenesisAlloc{
 		user.From: {Balance: big.NewInt(1000000000000000000)}},
-		5*ethconfig.Defaults.Miner.GasCeil)
+		simulated.WithBlockGasLimit(5*ethconfig.Defaults.Miner.GasCeil))
 
-	proxyAddress, _, verifierProxy, err := verifier_proxy.DeployVerifierProxy(user, b, common.Address{})
+	proxyAddress, _, verifierProxy, err := verifier_proxy.DeployVerifierProxy(user, b.Client(), common.Address{})
 	require.NoError(t, err, "failed to deploy test mercury verifier proxy contract")
-	verifierAddress, _, verifierContract, err := verifier.DeployVerifier(user, b, proxyAddress)
+	b.Commit()
+	verifierAddress, _, verifierContract, err := verifier.DeployVerifier(user, b.Client(), proxyAddress)
 	require.NoError(t, err, "failed to deploy test mercury verifier contract")
+	b.Commit()
 	_, err = verifierProxy.InitializeVerifier(user, verifierAddress)
 	require.NoError(t, err)
 	b.Commit()
@@ -183,6 +186,9 @@ func SetupTH(t *testing.T, feedID common.Hash) TestHarness {
 	require.NoError(t, err)
 
 	configPoller.Start()
+	t.Cleanup(func() {
+		assert.NoError(t, configPoller.Close())
+	})
 
 	return TestHarness{
 		configPoller:     configPoller,

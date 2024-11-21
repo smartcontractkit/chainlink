@@ -11,7 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/google/uuid"
-	"github.com/onsi/gomega"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
@@ -199,14 +198,14 @@ func waitForForceFulfillment(t *testing.T,
 	requestID := req.requestID
 
 	// Wait for force-fulfillment to be queued.
-	gomega.NewGomegaWithT(t).Eventually(func() bool {
+	require.Eventually(t, func() bool {
 		uni.backend.Commit()
 		commitment, err := coordinator.GetCommitment(nil, requestID)
 		require.NoError(t, err)
 		t.Log("commitment is:", hexutil.Encode(commitment[:]), ", requestID: ", common.BigToHash(requestID).Hex())
 		checkForForceFulfilledEvent(t, th, req, sub, -1)
 		return utils.IsEmpty(commitment[:])
-	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), time.Second)
 
 	// Mine the fulfillment that was queued.
 	mineForceFulfilled(t, requestID, sub.subID, forceFulfilledCount, *uni, th.db)
@@ -279,7 +278,8 @@ func fulfillVRFReq(t *testing.T,
 	require.NoError(t, err)
 
 	ec := th.uni.backend
-	chainID := th.uni.backend.Blockchain().Config().ChainID
+	chainID, err := th.uni.backend.Client().ChainID(testutils.Context(t))
+	require.NoError(t, err)
 	chain, err := th.app.GetRelayers().LegacyEVMChains().Get(chainID.String())
 	require.NoError(t, err)
 
@@ -345,7 +345,8 @@ func fulfilBatchVRFReq(t *testing.T,
 	require.NoError(t, err)
 
 	ec := th.uni.backend
-	chainID := th.uni.backend.Blockchain().Config().ChainID
+	chainID, err := th.uni.backend.Client().ChainID(testutils.Context(t))
+	require.NoError(t, err)
 	chain, err := th.app.GetRelayers().LegacyEVMChains().Get(chainID.String())
 	require.NoError(t, err)
 
@@ -590,12 +591,12 @@ func newRevertTxnTH(t *testing.T,
 	}
 	coordinator := uni.rootContract
 	coordinatorAddress := uni.rootContractAddress
-	th.chainID = th.uni.backend.Blockchain().Config().ChainID
+	th.chainID = config.EVMConfigs()[0].ChainID.ToInt()
 	var err error
 
 	th.eoaConsumerAddr, _, th.eoaConsumer, err = vrf_external_sub_owner_example.DeployVRFExternalSubOwnerExample(
 		uni.neil,
-		uni.backend,
+		uni.backend.Client(),
 		coordinatorAddress,
 		uni.linkContractAddress,
 	)

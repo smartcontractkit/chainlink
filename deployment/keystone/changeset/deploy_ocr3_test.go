@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
@@ -17,7 +16,6 @@ import (
 func TestDeployOCR3(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
-	ab := deployment.NewMemoryAddressBook()
 	cfg := memory.MemoryEnvironmentConfig{
 		Nodes:  1, // nodes unused but required in config
 		Chains: 2,
@@ -26,7 +24,7 @@ func TestDeployOCR3(t *testing.T) {
 
 	registrySel := env.AllChainSelectors()[0]
 
-	resp, err := changeset.DeployOCR3(lggr, env, ab, registrySel)
+	resp, err := changeset.DeployOCR3(env, registrySel)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	// OCR3 should be deployed on chain 0

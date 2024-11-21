@@ -62,3 +62,9 @@ func AddCapabilities(lggr logger.Logger, registry *kcr.CapabilitiesRegistry, cha
 	}
 	return nil
 }
+
+// CapabilityID returns a unique id for the capability
+// TODO: mv to chainlink-common? ref https://github.com/smartcontractkit/chainlink/blob/4fb06b4525f03c169c121a68defa9b13677f5f20/contracts/src/v0.8/keystone/CapabilitiesRegistry.sol#L170
+func CapabilityID(c kcr.CapabilitiesRegistryCapability) string {
+	return fmt.Sprintf("%s@%s", c.LabelledName, c.Version)
+}

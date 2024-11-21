@@ -101,7 +101,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   /// @dev Per-chain source config (defining a lane from a Source Chain -> Dest OffRamp).
   struct SourceChainConfig {
     IRouter router; // ───╮ Local router to use for messages coming from this source chain.
-    bool isEnabled; //    | Flag whether the source chain is enabled or not.
+    bool isEnabled; //    │ Flag whether the source chain is enabled or not.
     uint64 minSeqNr; // ──╯ The min sequence number expected for future messages.
     bytes onRamp; // OnRamp address on the source chain.
   }
@@ -110,7 +110,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   /// can be passed in the constructor and the applySourceChainConfigUpdates function.
   struct SourceChainConfigArgs {
     IRouter router; // ────────────╮  Local router to use for messages coming from this source chain.
-    uint64 sourceChainSelector; // |  Source chain selector of the config to update.
+    uint64 sourceChainSelector; // │  Source chain selector of the config to update.
     bool isEnabled; // ────────────╯  Flag whether the source chain is enabled or not.
     bytes onRamp; // OnRamp address on the source chain.
   }
@@ -119,7 +119,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   /// @dev Since DynamicConfig is part of DynamicConfigSet event, if changing it, we should update the ABI on Atlas.
   struct DynamicConfig {
     address feeQuoter; // ─────────────────────────────╮ FeeQuoter address on the local chain.
-    uint32 permissionLessExecutionThresholdSeconds; // | Waiting time before manual execution is enabled.
+    uint32 permissionLessExecutionThresholdSeconds; // │ Waiting time before manual execution is enabled.
     bool isRMNVerificationDisabled; // ────────────────╯ Flag whether the RMN verification is disabled or not.
     address messageInterceptor; // Optional, validates incoming messages (zero address = no interceptor).
   }
@@ -789,21 +789,20 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
       }
     }
 
-    // Check if the report contains price updates
+    // Check if the report contains price updates.
     if (commitReport.priceUpdates.tokenPriceUpdates.length > 0 || commitReport.priceUpdates.gasPriceUpdates.length > 0)
     {
       uint64 ocrSequenceNumber = uint64(uint256(reportContext[1]));
 
-      // Check for price staleness based on the epoch and round
+      // Check for price staleness based on the epoch and round.
       if (s_latestPriceSequenceNumber < ocrSequenceNumber) {
-        // If prices are not stale, update the latest epoch and round
+        // If prices are not stale, update the latest epoch and round.
         s_latestPriceSequenceNumber = ocrSequenceNumber;
-        // And update the prices in the fee quoter
+        // And update the prices in the fee quoter.
         IFeeQuoter(dynamicConfig.feeQuoter).updatePrices(commitReport.priceUpdates);
       } else {
-        // If prices are stale and the report doesn't contain a root, this report
-        // does not have any valid information and we revert.
-        // If it does contain a merkle root, continue to the root checking section.
+        // If prices are stale and the report doesn't contain a root, this report does not have any valid information
+        // and we revert. If it does contain a merkle root, continue to the root checking section.
         if (commitReport.merkleRoots.length == 0) revert StaleCommitReport();
       }
     }
@@ -828,9 +827,8 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
 
       bytes32 merkleRoot = root.merkleRoot;
       if (merkleRoot == bytes32(0)) revert InvalidRoot();
-      // If we reached this section, the report should contain a valid root
-      // We disallow duplicate roots as that would reset the timestamp and
-      // delay potential manual execution.
+      // If we reached this section, the report should contain a valid root.
+      // We disallow duplicate roots as that would reset the timestamp and delay potential manual execution.
       if (s_roots[root.sourceChainSelector][merkleRoot] != 0) {
         revert RootAlreadyCommitted(root.sourceChainSelector, merkleRoot);
       }
@@ -854,8 +852,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   /// If the root was never committed 0 will be returned.
   /// @param sourceChainSelector The source chain selector.
   /// @param root The merkle root to check the commit status for.
-  /// @return timestamp The timestamp of the committed root or zero in the case that it was never
-  /// committed.
+  /// @return timestamp The timestamp of the committed root or zero in the case that it was never committed.
   function getMerkleRoot(uint64 sourceChainSelector, bytes32 root) external view returns (uint256) {
     return s_roots[sourceChainSelector][root];
   }
@@ -864,14 +861,14 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   /// @dev This method uses a merkle tree within a merkle tree, with the hashedLeaves,
   /// proofs and proofFlagBits being used to get the root of the inner tree.
   /// This root is then used as the singular leaf of the outer tree.
-  /// @return timestamp The commit timestamp of the root
+  /// @return timestamp The commit timestamp of the root.
   function _verify(
     uint64 sourceChainSelector,
     bytes32[] memory hashedLeaves,
     bytes32[] memory proofs,
     uint256 proofFlagBits
   ) internal view virtual returns (uint256 timestamp) {
-    bytes32 root = MerkleMultiProof.merkleRoot(hashedLeaves, proofs, proofFlagBits);
+    bytes32 root = MerkleMultiProof._merkleRoot(hashedLeaves, proofs, proofFlagBits);
     return s_roots[sourceChainSelector][root];
   }
 
@@ -882,17 +879,16 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     bool isSignatureVerificationEnabled = s_ocrConfigs[ocrPluginType].configInfo.isSignatureVerificationEnabled;
 
     if (ocrPluginType == uint8(Internal.OCRPluginType.Commit)) {
-      // Signature verification must be enabled for commit plugin
+      // Signature verification must be enabled for commit plugin.
       if (!isSignatureVerificationEnabled) {
         revert SignatureVerificationRequiredInCommitPlugin();
       }
-      // When the OCR config changes, we reset the sequence number
-      // since it is scoped per config digest.
-      // Note that s_minSeqNr/roots do not need to be reset as the roots persist
-      // across reconfigurations and are de-duplicated separately.
+      // When the OCR config changes, we reset the sequence number  since it is scoped per config digest.
+      // Note that s_minSeqNr/roots do not need to be reset as the roots persist across reconfigurations
+      // and are de-duplicated separately.
       s_latestPriceSequenceNumber = 0;
     } else if (ocrPluginType == uint8(Internal.OCRPluginType.Execution)) {
-      // Signature verification must be disabled for execution plugin
+      // Signature verification must be disabled for execution plugin.
       if (isSignatureVerificationEnabled) {
         revert SignatureVerificationNotAllowedInExecutionPlugin();
       }
@@ -922,17 +918,17 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     return s_dynamicConfig;
   }
 
-  /// @notice Returns the source chain config for the provided source chain selector
-  /// @param sourceChainSelector chain to retrieve configuration for
-  /// @return sourceChainConfig The config for the source chain
+  /// @notice Returns the source chain config for the provided source chain selector.
+  /// @param sourceChainSelector chain to retrieve configuration for.
+  /// @return sourceChainConfig The config for the source chain.
   function getSourceChainConfig(
     uint64 sourceChainSelector
   ) external view returns (SourceChainConfig memory) {
     return s_sourceChainConfigs[sourceChainSelector];
   }
 
-  /// @notice Returns all source chain configs
-  /// @return sourceChainConfigs The source chain configs corresponding to all the supported chain selectors
+  /// @notice Returns all source chain configs.
+  /// @return sourceChainConfigs The source chain configs corresponding to all the supported chain selectors.
   function getAllSourceChainConfigs() external view returns (uint64[] memory, SourceChainConfig[] memory) {
     SourceChainConfig[] memory sourceChainConfigs = new SourceChainConfig[](s_sourceChainSelectors.length());
     uint64[] memory sourceChainSelectors = new uint64[](s_sourceChainSelectors.length());
@@ -943,16 +939,16 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     return (sourceChainSelectors, sourceChainConfigs);
   }
 
-  /// @notice Updates source configs
-  /// @param sourceChainConfigUpdates Source chain configs
+  /// @notice Updates source configs.
+  /// @param sourceChainConfigUpdates Source chain configs.
   function applySourceChainConfigUpdates(
     SourceChainConfigArgs[] memory sourceChainConfigUpdates
   ) external onlyOwner {
     _applySourceChainConfigUpdates(sourceChainConfigUpdates);
   }
 
-  /// @notice Updates source configs
-  /// @param sourceChainConfigUpdates Source chain configs
+  /// @notice Updates source configs.
+  /// @param sourceChainConfigUpdates Source chain configs.
   function _applySourceChainConfigUpdates(
     SourceChainConfigArgs[] memory sourceChainConfigUpdates
   ) internal {
@@ -976,14 +972,14 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
         emit SourceChainSelectorAdded(sourceChainSelector);
       } else {
         if (currentConfig.minSeqNr != 1 && keccak256(currentConfig.onRamp) != keccak256(newOnRamp)) {
-          // OnRamp updates should only happens due to a misconfiguration
-          // If an OnRamp is misconfigured, no reports should have been committed and no messages should have been executed
-          // This is enforced by the onRamp address check in the commit function
+          // OnRamp updates should only happens due to a misconfiguration.
+          // If an OnRamp is misconfigured, no reports should have been committed and no messages should have been
+          // executed. This is enforced by the onRamp address check in the commit function.
           revert InvalidOnRampUpdate(sourceChainSelector);
         }
       }
 
-      // OnRamp can never be zero - if it is, then the source chain has been added for the first time
+      // OnRamp can never be zero - if it is, then the source chain has been added for the first time.
       if (newOnRamp.length == 0 || keccak256(newOnRamp) == EMPTY_ENCODED_ADDRESS_HASH) {
         revert ZeroAddressNotAllowed();
       }
@@ -1021,9 +1017,9 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     emit DynamicConfigSet(dynamicConfig);
   }
 
-  /// @notice Returns a source chain config with a check that the config is enabled
-  /// @param sourceChainSelector Source chain selector to check for cursing
-  /// @return sourceChainConfig The source chain config storage pointer
+  /// @notice Returns a source chain config with a check that the config is enabled.
+  /// @param sourceChainSelector Source chain selector to check for cursing.
+  /// @return sourceChainConfig The source chain config storage pointer.
   function _getEnabledSourceChainConfig(
     uint64 sourceChainSelector
   ) internal view returns (SourceChainConfig storage) {
@@ -1039,7 +1035,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   // │                            Access                            │
   // ================================================================
 
-  /// @notice Reverts as this contract should not be able to receive CCIP messages
+  /// @notice Reverts as this contract should not be able to receive CCIP messages.
   function ccipReceive(
     Client.Any2EVMMessage calldata
   ) external pure {

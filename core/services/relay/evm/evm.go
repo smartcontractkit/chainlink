@@ -39,6 +39,7 @@ import (
 	txm "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
+	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/bm"
@@ -149,7 +150,7 @@ type Relayer struct {
 
 	// Mercury
 	mercuryORM        mercury.ORM
-	transmitterCfg    mercury.TransmitterConfig
+	mercuryCfg        MercuryConfig
 	triggerCapability *triggers.MercuryTriggerService
 
 	// LLO/data streams
@@ -162,14 +163,19 @@ type CSAETHKeystore interface {
 	Eth() keystore.Eth
 }
 
+type MercuryConfig interface {
+	Transmitter() coreconfig.MercuryTransmitter
+	VerboseLogging() bool
+}
+
 type RelayerOpts struct {
 	DS sqlutil.DataSource
 	CSAETHKeystore
 	MercuryPool           wsrpc.Pool
 	RetirementReportCache llo.RetirementReportCache
-	TransmitterConfig     mercury.TransmitterConfig
-	CapabilitiesRegistry  coretypes.CapabilitiesRegistry
-	HTTPClient            *http.Client
+	MercuryConfig
+	CapabilitiesRegistry coretypes.CapabilitiesRegistry
+	HTTPClient           *http.Client
 }
 
 func (c RelayerOpts) Validate() error {
@@ -213,18 +219,18 @@ func NewRelayer(ctx context.Context, lggr logger.Logger, chain legacyevm.Chain, 
 		cdcFactory:            cdcFactory,
 		retirementReportCache: opts.RetirementReportCache,
 		mercuryORM:            mercuryORM,
-		transmitterCfg:        opts.TransmitterConfig,
+		mercuryCfg:            opts.MercuryConfig,
 		capabilitiesRegistry:  opts.CapabilitiesRegistry,
 	}
 
+	wCfg := chain.Config().EVM().Workflow()
 	// Initialize write target capability if configuration is defined
-	if chain.Config().EVM().Workflow().ForwarderAddress() != nil {
-		if chain.Config().EVM().Workflow().GasLimitDefault() == nil {
+	if wCfg.ForwarderAddress() != nil && wCfg.FromAddress() != nil {
+		if wCfg.GasLimitDefault() == nil {
 			return nil, fmt.Errorf("unable to instantiate write target as default gas limit is not set")
 		}
 
-		capability, err := NewWriteTarget(ctx, relayer, chain, *chain.Config().EVM().Workflow().GasLimitDefault(),
-			lggr)
+		capability, err := NewWriteTarget(ctx, relayer, chain, *wCfg.GasLimitDefault(), lggr)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize write target: %w", err)
 		}
@@ -431,12 +437,16 @@ func (r *Relayer) NewMercuryProvider(ctx context.Context, rargs commontypes.Rela
 		if r.capabilitiesRegistry == nil {
 			lggr.Errorw("trigger capability is enabled but capabilities registry is not set")
 		} else {
-			r.triggerCapability = triggers.NewMercuryTriggerService(0, lggr)
-			if err := r.triggerCapability.Start(ctx); err != nil {
-				return nil, err
+			var err2 error
+			r.triggerCapability, err2 = triggers.NewMercuryTriggerService(0, relayConfig.TriggerCapabilityName, relayConfig.TriggerCapabilityVersion, lggr)
+			if err2 != nil {
+				return nil, fmt.Errorf("failed to start required trigger service: %w", err2)
 			}
-			if err := r.capabilitiesRegistry.Add(ctx, r.triggerCapability); err != nil {
-				return nil, err
+			if err2 = r.triggerCapability.Start(ctx); err2 != nil {
+				return nil, err2
+			}
+			if err2 = r.capabilitiesRegistry.Add(ctx, r.triggerCapability); err2 != nil {
+				return nil, err2
 			}
 			lggr.Infow("successfully added trigger service to the Registry")
 		}
@@ -480,7 +490,7 @@ func (r *Relayer) NewMercuryProvider(ctx context.Context, rargs commontypes.Rela
 		return nil, err
 	}
 
-	transmitter := mercury.NewTransmitter(lggr, r.transmitterCfg, clients, privKey.PublicKey, rargs.JobID, *relayConfig.FeedID, r.mercuryORM, transmitterCodec, benchmarkPriceDecoder, r.triggerCapability)
+	transmitter := mercury.NewTransmitter(lggr, r.mercuryCfg.Transmitter(), clients, privKey.PublicKey, rargs.JobID, *relayConfig.FeedID, r.mercuryORM, transmitterCodec, benchmarkPriceDecoder, r.triggerCapability)
 
 	return NewMercuryProvider(cp, r.codec, NewMercuryChainReader(r.chain.HeadTracker()), transmitter, reportCodecV1, reportCodecV2, reportCodecV3, reportCodecV4, lggr), nil
 }
@@ -548,15 +558,17 @@ func (r *Relayer) NewLLOProvider(ctx context.Context, rargs commontypes.RelayArg
 			clients[server.URL] = client
 		}
 		transmitter = llo.NewTransmitter(llo.TransmitterOpts{
-			Lggr:        r.lggr,
-			FromAccount: fmt.Sprintf("%x", privKey.PublicKey), // NOTE: This may need to change if we support e.g. multiple tranmsmitters, to be a composite of all keys
+			Lggr:           r.lggr,
+			FromAccount:    fmt.Sprintf("%x", privKey.PublicKey), // NOTE: This may need to change if we support e.g. multiple tranmsmitters, to be a composite of all keys
+			VerboseLogging: r.mercuryCfg.VerboseLogging(),
 			MercuryTransmitterOpts: mercurytransmitter.Opts{
-				Lggr:        r.lggr,
-				Cfg:         r.transmitterCfg,
-				Clients:     clients,
-				FromAccount: privKey.PublicKey,
-				DonID:       relayConfig.LLODONID,
-				ORM:         mercurytransmitter.NewORM(r.ds, relayConfig.LLODONID),
+				Lggr:           r.lggr,
+				VerboseLogging: r.mercuryCfg.VerboseLogging(),
+				Cfg:            r.mercuryCfg.Transmitter(),
+				Clients:        clients,
+				FromAccount:    privKey.PublicKey,
+				DonID:          relayConfig.LLODONID,
+				ORM:            mercurytransmitter.NewORM(r.ds, relayConfig.LLODONID),
 			},
 			RetirementReportCache: r.retirementReportCache,
 		})
@@ -572,7 +584,7 @@ func (r *Relayer) NewLLOProvider(ctx context.Context, rargs commontypes.RelayArg
 	}
 
 	configuratorAddress := common.HexToAddress(relayOpts.ContractID)
-	return NewLLOProvider(context.Background(), transmitter, r.lggr, r.retirementReportCache, r.chain, configuratorAddress, cdc, relayConfig, relayOpts)
+	return NewLLOProvider(ctx, transmitter, r.lggr, r.retirementReportCache, r.chain, configuratorAddress, cdc, relayConfig, relayOpts)
 }
 
 func (r *Relayer) NewFunctionsProvider(ctx context.Context, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.FunctionsProvider, error) {
@@ -802,6 +814,7 @@ func generateTransmitterFrom(ctx context.Context, rargs commontypes.RelayArgs, e
 			checker,
 			configWatcher.chain.ID(),
 			ethKeystore,
+			relayConfig.DualTransmissionConfig,
 		)
 	case commontypes.CCIPExecution:
 		transmitter, err = cciptransmitter.NewTransmitterWithStatusChecker(
@@ -838,6 +851,7 @@ func (r *Relayer) NewChainWriter(_ context.Context, config []byte) (commontypes.
 		return nil, fmt.Errorf("failed to unmarshall chain writer config err: %s", err)
 	}
 
+	cfg.MaxGasPrice = r.chain.Config().EVM().GasEstimator().PriceMax()
 	return NewChainWriterService(r.lggr, r.chain.Client(), r.chain.TxManager(), r.chain.GasEstimator(), cfg)
 }
 
@@ -1022,6 +1036,7 @@ func (r *Relayer) NewCCIPExecProvider(ctx context.Context, rargs commontypes.Rel
 	// bail early.
 	if execPluginConfig.IsSourceProvider {
 		return NewSrcExecProvider(
+			ctx,
 			r.lggr,
 			versionFinder,
 			r.chain.Client(),

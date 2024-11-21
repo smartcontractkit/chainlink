@@ -15,33 +15,39 @@ import (
 var registerTriggerFailureCounter metric.Int64Counter
 var workflowsRunningGauge metric.Int64Gauge
 var capabilityInvocationCounter metric.Int64Counter
-var workflowExecutionLatencyGauge metric.Int64Gauge //ms
+var workflowExecutionLatencyGauge metric.Int64Gauge // ms
 var workflowStepErrorCounter metric.Int64Counter
+var engineHeartbeatCounter metric.Int64UpDownCounter
 
 func initMonitoringResources() (err error) {
-	registerTriggerFailureCounter, err = beholder.GetMeter().Int64Counter("RegisterTriggerFailure")
+	registerTriggerFailureCounter, err = beholder.GetMeter().Int64Counter("platform_engine_registertrigger_failures")
 	if err != nil {
 		return fmt.Errorf("failed to register trigger failure counter: %w", err)
 	}
 
-	workflowsRunningGauge, err = beholder.GetMeter().Int64Gauge("WorkflowsRunning")
+	workflowsRunningGauge, err = beholder.GetMeter().Int64Gauge("platform_engine_workflow_count")
 	if err != nil {
 		return fmt.Errorf("failed to register workflows running gauge: %w", err)
 	}
 
-	capabilityInvocationCounter, err = beholder.GetMeter().Int64Counter("CapabilityInvocation")
+	capabilityInvocationCounter, err = beholder.GetMeter().Int64Counter("platform_engine_capabilities_count")
 	if err != nil {
 		return fmt.Errorf("failed to register capability invocation counter: %w", err)
 	}
 
-	workflowExecutionLatencyGauge, err = beholder.GetMeter().Int64Gauge("WorkflowExecutionLatency")
+	workflowExecutionLatencyGauge, err = beholder.GetMeter().Int64Gauge("platform_engine_workflow_time")
 	if err != nil {
 		return fmt.Errorf("failed to register workflow execution latency gauge: %w", err)
 	}
 
-	workflowStepErrorCounter, err = beholder.GetMeter().Int64Counter("WorkflowStepError")
+	workflowStepErrorCounter, err = beholder.GetMeter().Int64Counter("platform_engine_workflow_errors")
 	if err != nil {
 		return fmt.Errorf("failed to register workflow step error counter: %w", err)
+	}
+
+	engineHeartbeatCounter, err = beholder.GetMeter().Int64UpDownCounter("platform_engine_heartbeat")
+	if err != nil {
+		return fmt.Errorf("failed to register engine heartbeat counter: %w", err)
 	}
 
 	return nil
@@ -82,16 +88,7 @@ func (c workflowsMetricLabeler) updateTotalWorkflowsGauge(ctx context.Context, v
 	workflowsRunningGauge.Record(ctx, val, metric.WithAttributes(otelLabels...))
 }
 
-// Observability keys
-const (
-	cIDKey  = "capabilityID"
-	tIDKey  = "triggerID"
-	wIDKey  = "workflowID"
-	eIDKey  = "workflowExecutionID"
-	wnKey   = "workflowName"
-	woIDKey = "workflowOwner"
-	sIDKey  = "stepID"
-	sRKey   = "stepRef"
-)
-
-var orderedLabelKeys = []string{sRKey, sIDKey, tIDKey, cIDKey, eIDKey, wIDKey}
+func (c workflowsMetricLabeler) incrementEngineHeartbeatCounter(ctx context.Context) {
+	otelLabels := localMonitoring.KvMapToOtelAttributes(c.Labels)
+	engineHeartbeatCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}

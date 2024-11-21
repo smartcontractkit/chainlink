@@ -4,27 +4,22 @@ set +e
 
 SCRIPT_PATH=`dirname "$0"`; SCRIPT_PATH=`eval "cd \"$SCRIPT_PATH\" && pwd"`
 OUTPUT_FILE=${OUTPUT_FILE:-"./output.txt"}
-USE_TEE="${USE_TEE:-true}"
+FUZZ_TIMEOUT_MINUTES=${FUZZ_TIMEOUT_MINUTES:-"3"}
 
-# To allow reuse in CI from other repositories
-FUZZ_TOOL_PATH=${FUZZ_TOOL_PATH:-"./fuzz"}
-GO_MODULE_ROOT_PATH=${GO_MODULE_ROOT_PATH:-"./"}
-FUZZ_TIMEOUT=${FUZZ_TIMEOUT:-10m}
+TOTAL_SECONDS=$((FUZZ_TIMEOUT_MINUTES * 60))
+if (( TOTAL_SECONDS >= 120 )); then
+    # Allow for a 30 second buffer between the timeout, and fuzz test runtime
+    FUZZ_SECONDS=$((TOTAL_SECONDS - 30))
+else
+    echo "Increase FUZZ_TIMEOUT_MINUTES to >=2, received $FUZZ_TIMEOUT_MINUTES"
+    exit 1
+fi
 
+echo "timeout minutes: $FUZZ_TIMEOUT_MINUTES"
+echo "fuzz seconds: $FUZZ_SECONDS"
 echo "Failed fuzz tests and panics: ---------------------"
 echo ""
-use_tee() {
-  if [ "$USE_TEE" = "true" ]; then
-    tee "$@"
-  else
-    cat > "$@"
-  fi
-}
-
-# the amount of --seconds here is subject to change based on how long the CI job takes in the future
-# as we add more fuzz tests, we should take into consideration increasing this timelapse, so we can have enough coverage.
-# We are timing out after ~10mins in case the tests hang. (Current CI duration is ~8m, modify if needed)
-timeout "${FUZZ_TIMEOUT}" "${FUZZ_TOOL_PATH}"/fuzz_all_native.py --ci --seconds 420 --go_module_root "${GO_MODULE_ROOT_PATH}" | use_tee $OUTPUT_FILE
+timeout "${FUZZ_TIMEOUT_MINUTES}"m ./fuzz/fuzz_all_native.py --ci --seconds "$FUZZ_SECONDS" --go_module_root ./ | tee $OUTPUT_FILE
 EXITCODE=${PIPESTATUS[0]}
 
 # Assert no known sensitive strings present in test logger output

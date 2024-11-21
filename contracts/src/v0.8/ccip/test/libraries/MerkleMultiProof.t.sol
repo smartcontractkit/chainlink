@@ -59,12 +59,12 @@ contract MerkleMultiProofTest is Test {
 
     uint256 flagsUint256 = 0x2f3c0000000;
 
-    bytes32 root = MerkleMultiProof.merkleRoot(leaves, proofs, flagsUint256);
+    bytes32 root = MerkleMultiProof._merkleRoot(leaves, proofs, flagsUint256);
 
     assertEq(expectedRoot, root);
   }
 
-  function test_Fuzz_MerkleRoot2(bytes32 left, bytes32 right) public pure {
+  function testFuzz_MerkleRoot2(bytes32 left, bytes32 right) public pure {
     bytes32[] memory leaves = new bytes32[](2);
     leaves[0] = left;
     leaves[1] = right;
@@ -72,7 +72,7 @@ contract MerkleMultiProofTest is Test {
 
     bytes32 expectedRoot = MerkleHelper.hashPair(left, right);
 
-    bytes32 root = MerkleMultiProof.merkleRoot(leaves, proofs, 2 ** 2 - 1);
+    bytes32 root = MerkleMultiProof._merkleRoot(leaves, proofs, 2 ** 2 - 1);
 
     assertEq(root, expectedRoot);
   }
@@ -86,12 +86,12 @@ contract MerkleMultiProofTest is Test {
 
     bytes32 expectedRoot = MerkleHelper.getMerkleRoot(leaves);
 
-    bytes32 root = MerkleMultiProof.merkleRoot(leaves, proofs, 2 ** 256 - 1);
+    bytes32 root = MerkleMultiProof._merkleRoot(leaves, proofs, 2 ** 256 - 1);
 
     assertEq(root, expectedRoot);
   }
 
-  function test_Fuzz_MerkleMulti1of4(bytes32 leaf1, bytes32 proof1, bytes32 proof2) public pure {
+  function testFuzz_MerkleMulti1of4(bytes32 leaf1, bytes32 proof1, bytes32 proof2) public pure {
     bytes32[] memory leaves = new bytes32[](1);
     leaves[0] = leaf1;
     bytes32[] memory proofs = new bytes32[](2);
@@ -103,10 +103,10 @@ contract MerkleMultiProofTest is Test {
     // Proof flag = false
     result = MerkleHelper.hashPair(result, proofs[1]);
 
-    assertEq(MerkleMultiProof.merkleRoot(leaves, proofs, 0), result);
+    assertEq(MerkleMultiProof._merkleRoot(leaves, proofs, 0), result);
   }
 
-  function test_Fuzz_MerkleMulti2of4(bytes32 leaf1, bytes32 leaf2, bytes32 proof1, bytes32 proof2) public pure {
+  function testFuzz_MerkleMulti2of4(bytes32 leaf1, bytes32 leaf2, bytes32 proof1, bytes32 proof2) public pure {
     bytes32[] memory leaves = new bytes32[](2);
     leaves[0] = leaf1;
     leaves[1] = leaf2;
@@ -121,10 +121,10 @@ contract MerkleMultiProofTest is Test {
     // Proof flag = true
     bytes32 finalResult = MerkleHelper.hashPair(result1, result2);
 
-    assertEq(MerkleMultiProof.merkleRoot(leaves, proofs, 4), finalResult);
+    assertEq(MerkleMultiProof._merkleRoot(leaves, proofs, 4), finalResult);
   }
 
-  function test_Fuzz_MerkleMulti3of4(bytes32 leaf1, bytes32 leaf2, bytes32 leaf3, bytes32 proof) public pure {
+  function testFuzz_MerkleMulti3of4(bytes32 leaf1, bytes32 leaf2, bytes32 leaf3, bytes32 proof) public pure {
     bytes32[] memory leaves = new bytes32[](3);
     leaves[0] = leaf1;
     leaves[1] = leaf2;
@@ -139,10 +139,10 @@ contract MerkleMultiProofTest is Test {
     // Proof flag = true
     bytes32 finalResult = MerkleHelper.hashPair(result1, result2);
 
-    assertEq(MerkleMultiProof.merkleRoot(leaves, proofs, 5), finalResult);
+    assertEq(MerkleMultiProof._merkleRoot(leaves, proofs, 5), finalResult);
   }
 
-  function test_Fuzz_MerkleMulti4of4(bytes32 leaf1, bytes32 leaf2, bytes32 leaf3, bytes32 leaf4) public pure {
+  function testFuzz_MerkleMulti4of4(bytes32 leaf1, bytes32 leaf2, bytes32 leaf3, bytes32 leaf4) public pure {
     bytes32[] memory leaves = new bytes32[](4);
     leaves[0] = leaf1;
     leaves[1] = leaf2;
@@ -157,14 +157,14 @@ contract MerkleMultiProofTest is Test {
     // Proof flag = true
     bytes32 finalResult = MerkleHelper.hashPair(result1, result2);
 
-    assertEq(MerkleMultiProof.merkleRoot(leaves, proofs, 7), finalResult);
+    assertEq(MerkleMultiProof._merkleRoot(leaves, proofs, 7), finalResult);
   }
 
   function test_MerkleRootSingleLeaf_Success() public pure {
     bytes32[] memory leaves = new bytes32[](1);
     leaves[0] = "root";
     bytes32[] memory proofs = new bytes32[](0);
-    assertEq(MerkleMultiProof.merkleRoot(leaves, proofs, 0), leaves[0]);
+    assertEq(MerkleMultiProof._merkleRoot(leaves, proofs, 0), leaves[0]);
   }
 
   function test_EmptyLeaf_Revert() public {
@@ -172,7 +172,7 @@ contract MerkleMultiProofTest is Test {
     bytes32[] memory proofs = new bytes32[](0);
 
     vm.expectRevert(abi.encodeWithSelector(MerkleMultiProof.LeavesCannotBeEmpty.selector));
-    MerkleMultiProof.merkleRoot(leaves, proofs, 0);
+    MerkleMultiProof._merkleRoot(leaves, proofs, 0);
   }
 
   function test_CVE_2023_34459() public {
@@ -189,7 +189,7 @@ contract MerkleMultiProofTest is Test {
     malicious[1] = "another malicious leaf";
 
     vm.expectRevert(abi.encodeWithSelector(MerkleMultiProof.InvalidProof.selector));
-    MerkleMultiProof.merkleRoot(malicious, proof, 3);
+    MerkleMultiProof._merkleRoot(malicious, proof, 3);
     // Note, that without the revert the above computed root
     // would equal MerkleHelper.hashPair(leaves[0], leaves[1]).
   }

@@ -682,7 +682,7 @@ func (d *Delegate) newServicesGenericPlugin(
 	if ok {
 		providerClientConn = providerConn.ClientConn()
 	} else {
-		//We chose to deal with the difference between a LOOP provider and an embedded provider here rather than
+		// We chose to deal with the difference between a LOOP provider and an embedded provider here rather than
 		//in NewServerAdapter because this has a smaller blast radius, as the scope of this workaround is to
 		//enable the medianpoc for EVM and not touch the other providers.
 		//TODO: remove this workaround when the EVM relayer is running inside of an LOOPP
@@ -754,7 +754,7 @@ func (d *Delegate) newServicesGenericPlugin(
 		srvs = append(srvs, job.NewServiceAdapter(oracle))
 
 	case 3:
-		//OCR3 with OCR2 OnchainKeyring and ContractTransmitter
+		// OCR3 with OCR2 OnchainKeyring and ContractTransmitter
 		plugin := ocr3.NewLOOPPService(
 			pluginLggr,
 			grpcOpts,
@@ -1034,6 +1034,8 @@ func (d *Delegate) newServicesLLO(
 	lggr.Infof("Using on-chain signing keys for LLO job %d (%s): %v", jb.ID, jb.Name.ValueOrZero(), kbm)
 	kr := llo.NewOnchainKeyring(lggr, kbm)
 
+	telemetryContractID := fmt.Sprintf("%s/%d", spec.ContractID, pluginCfg.DonID)
+
 	cfg := llo.DelegateConfig{
 		Logger:     lggr,
 		DataSource: d.ds,
@@ -1047,6 +1049,8 @@ func (d *Delegate) newServicesLLO(
 		RetirementReportCache:  d.retirementReportCache,
 		ShouldRetireCache:      provider.ShouldRetireCache(),
 		RetirementReportCodec:  datastreamsllo.StandardRetirementReportCodec{},
+		EAMonitoringEndpoint:   d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, telemetryContractID, synchronization.EnhancedEAMercury),
+		DonID:                  pluginCfg.DonID,
 
 		TraceLogging:                 d.cfg.OCR2().TraceLogging(),
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
@@ -1055,7 +1059,7 @@ func (d *Delegate) newServicesLLO(
 		ContractConfigTrackers:       provider.ContractConfigTrackers(),
 		Database:                     ocrDB,
 		LocalConfig:                  lc,
-		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, fmt.Sprintf("%d", pluginCfg.DonID), synchronization.EnhancedEAMercury),
+		OCR3MonitoringEndpoint:       d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, telemetryContractID, synchronization.OCR3Mercury),
 		OffchainConfigDigester:       provider.OffchainConfigDigester(),
 		OffchainKeyring:              kb,
 		OnchainKeyring:               kr,

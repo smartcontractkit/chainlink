@@ -494,6 +494,11 @@ func TestConfig_Marshal(t *testing.T) {
 			ChainID:   ptr("1"),
 			NetworkID: ptr("evm"),
 		},
+		WorkflowRegistry: toml.WorkflowRegistry{
+			Address:   ptr(""),
+			ChainID:   ptr("1"),
+			NetworkID: ptr("evm"),
+		},
 		Dispatcher: toml.Dispatcher{
 			SupportedVersion:   ptr(1),
 			ReceiverBufferSize: ptr(10000),
@@ -556,12 +561,14 @@ func TestConfig_Marshal(t *testing.T) {
 		Release:     ptr("v1.2.3"),
 	}
 	full.Telemetry = toml.Telemetry{
-		Enabled:            ptr(true),
-		CACertFile:         ptr("cert-file"),
-		Endpoint:           ptr("example.com/collector"),
-		InsecureConnection: ptr(true),
-		ResourceAttributes: map[string]string{"Baz": "test", "Foo": "bar"},
-		TraceSampleRatio:   ptr(0.01),
+		Enabled:               ptr(true),
+		CACertFile:            ptr("cert-file"),
+		Endpoint:              ptr("example.com/collector"),
+		InsecureConnection:    ptr(true),
+		ResourceAttributes:    map[string]string{"Baz": "test", "Foo": "bar"},
+		TraceSampleRatio:      ptr(0.01),
+		EmitterBatchProcessor: ptr(true),
+		EmitterExportTimeout:  commoncfg.MustNewDuration(1 * time.Second),
 	}
 	full.EVM = []*evmcfg.EVMConfig{
 		{
@@ -743,6 +750,7 @@ func TestConfig_Marshal(t *testing.T) {
 				TxTimeout:                commoncfg.MustNewDuration(time.Hour),
 				TxRetryTimeout:           commoncfg.MustNewDuration(time.Minute),
 				TxConfirmTimeout:         commoncfg.MustNewDuration(time.Second),
+				TxRetentionTimeout:       commoncfg.MustNewDuration(0 * time.Second),
 				SkipPreflight:            ptr(true),
 				Commitment:               ptr("banana"),
 				MaxRetries:               ptr[int64](7),
@@ -752,6 +760,7 @@ func TestConfig_Marshal(t *testing.T) {
 				ComputeUnitPriceDefault:  ptr[uint64](100),
 				FeeBumpPeriod:            commoncfg.MustNewDuration(time.Minute),
 				BlockHistoryPollPeriod:   commoncfg.MustNewDuration(time.Minute),
+				BlockHistorySize:         ptr[uint64](1),
 				ComputeUnitLimitDefault:  ptr[uint32](100_000),
 				EstimateComputeUnitLimit: ptr(false),
 			},
@@ -834,6 +843,7 @@ func TestConfig_Marshal(t *testing.T) {
 		Transmitter: toml.MercuryTransmitter{
 			TransmitQueueMaxSize: ptr(uint32(123)),
 			TransmitTimeout:      commoncfg.MustNewDuration(234 * time.Second),
+			TransmitConcurrency:  ptr(uint32(456)),
 		},
 		VerboseLogging: ptr(true),
 	}
@@ -1269,6 +1279,7 @@ OCR2CacheTTL = '1h0m0s'
 TxTimeout = '1h0m0s'
 TxRetryTimeout = '1m0s'
 TxConfirmTimeout = '1s'
+TxRetentionTimeout = '0s'
 SkipPreflight = true
 Commitment = 'banana'
 MaxRetries = 7
@@ -1278,6 +1289,7 @@ ComputeUnitPriceMin = 10
 ComputeUnitPriceDefault = 100
 FeeBumpPeriod = '1m0s'
 BlockHistoryPollPeriod = '1m0s'
+BlockHistorySize = 1
 ComputeUnitLimitDefault = 100000
 EstimateComputeUnitLimit = false
 
@@ -1342,6 +1354,7 @@ CertFile = '/path/to/cert.pem'
 [Mercury.Transmitter]
 TransmitQueueMaxSize = 123
 TransmitTimeout = '3m54s'
+TransmitConcurrency = 456
 `},
 		{"full", full, fullTOML},
 		{"multi-chain", multiChain, multiChainTOML},
@@ -1405,6 +1418,7 @@ func TestConfig_full(t *testing.T) {
 		if got.EVM[c].GasEstimator.DAOracle.OracleAddress == nil {
 			got.EVM[c].GasEstimator.DAOracle.OracleAddress = new(types.EIP55Address)
 		}
+
 		if got.EVM[c].GasEstimator.DAOracle.CustomGasPriceCalldata == nil {
 			got.EVM[c].GasEstimator.DAOracle.CustomGasPriceCalldata = new(string)
 		}
@@ -1517,7 +1531,11 @@ func TestConfig_Validate(t *testing.T) {
 		- 1: 2 errors:
 			- ChainID: missing: required for all chains
 			- Nodes: missing: must have at least one node
-	- Aptos.0.Enabled: invalid value (1): expected bool`},
+	- Aptos: 2 errors:
+		- 0.Nodes.1.Name: invalid value (primary): duplicate - must be unique
+		- 0: 2 errors:
+			- Enabled: invalid value (1): expected bool
+			- ChainID: missing: required for all chains`},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			var c Config

@@ -117,7 +117,7 @@ func TestHeadSaver_Load(t *testing.T) {
 	//           H2Uncle
 	//
 	newHead := func(num int, parent common.Hash) *evmtypes.Head {
-		h := evmtypes.NewHead(big.NewInt(int64(num)), utils.NewHash(), parent, uint64(time.Now().Unix()), ubig.NewI(0))
+		h := evmtypes.NewHead(big.NewInt(int64(num)), utils.NewHash(), parent, ubig.NewI(0))
 		return &h
 	}
 	h0 := newHead(0, utils.NewHash())
@@ -149,7 +149,7 @@ func TestHeadSaver_Load(t *testing.T) {
 	// verify latest head loaded from db
 	verifyLatestHead(latestHead)
 
-	//verify latest head loaded from memory store
+	// verify latest head loaded from memory store
 	latestHead = saver.LatestChain()
 	require.NotNil(t, latestHead)
 	verifyLatestHead(latestHead)

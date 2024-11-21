@@ -185,7 +185,7 @@ func TestRunner(t *testing.T) {
 		require.Equal(t, 1, len(jids))
 
 		// But if we delete the job, then we can.
-		require.NoError(t, jobORM.DeleteJob(ctx, jb.ID))
+		require.NoError(t, jobORM.DeleteJob(ctx, jb.ID, jb.Type))
 		jids, err = jobORM.FindJobIDsWithBridge(ctx, bridge.Name.String())
 		require.NoError(t, err)
 		require.Equal(t, 0, len(jids))
@@ -660,7 +660,7 @@ answer1      [type=median index=0];
 		}
 
 		// Ensure we can delete an errored
-		err = jobORM.DeleteJob(ctx, jb.ID)
+		err = jobORM.DeleteJob(ctx, jb.ID, jb.Type)
 		require.NoError(t, err)
 		se = []job.SpecError{}
 		err = db.Select(&se, `SELECT * FROM job_spec_errors`)
@@ -745,7 +745,7 @@ answer1      [type=median index=0];
 		assert.Equal(t, "4242", results.Values[0].(decimal.Decimal).String())
 
 		// Delete the job
-		err = jobORM.DeleteJob(ctx, jb.ID)
+		err = jobORM.DeleteJob(ctx, jb.ID, jb.Type)
 		require.NoError(t, err)
 
 		// Create another run, it should fail

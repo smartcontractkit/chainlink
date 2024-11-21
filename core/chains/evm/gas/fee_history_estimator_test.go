@@ -230,7 +230,7 @@ func TestFeeHistoryEstimatorGetDynamicFee(t *testing.T) {
 			BaseFee:      []*big.Int{baseFee, baseFee},
 			GasUsedRatio: nil,
 		}
-		client.On("FeeHistory", mock.Anything, mock.Anything, mock.Anything).Return(feeHistoryResult, nil).Once()
+		client.On("FeeHistory", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(feeHistoryResult, nil).Once()
 
 		blockHistoryLength := 2
 		cfg := gas.FeeHistoryEstimatorConfig{BlockHistorySize: uint64(blockHistoryLength)}
@@ -269,7 +269,7 @@ func TestFeeHistoryEstimatorGetDynamicFee(t *testing.T) {
 			BaseFee:      []*big.Int{baseFee},
 			GasUsedRatio: nil,
 		}
-		client.On("FeeHistory", mock.Anything, mock.Anything, mock.Anything).Return(feeHistoryResult, nil).Once()
+		client.On("FeeHistory", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(feeHistoryResult, nil).Once()
 
 		cfg := gas.FeeHistoryEstimatorConfig{BlockHistorySize: 1}
 
@@ -303,7 +303,7 @@ func TestFeeHistoryEstimatorBumpDynamicFee(t *testing.T) {
 			BaseFee:      []*big.Int{big.NewInt(5)},
 			GasUsedRatio: nil,
 		}
-		client.On("FeeHistory", mock.Anything, mock.Anything, mock.Anything).Return(feeHistoryResult, nil).Once()
+		client.On("FeeHistory", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(feeHistoryResult, nil).Once()
 
 		cfg := gas.FeeHistoryEstimatorConfig{
 			BlockHistorySize: 2,
@@ -366,7 +366,7 @@ func TestFeeHistoryEstimatorBumpDynamicFee(t *testing.T) {
 			BaseFee:      []*big.Int{baseFee},
 			GasUsedRatio: nil,
 		}
-		client.On("FeeHistory", mock.Anything, mock.Anything, mock.Anything).Return(feeHistoryResult, nil).Once()
+		client.On("FeeHistory", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(feeHistoryResult, nil).Once()
 
 		maxFee := (*assets.Wei)(baseFee).AddPercentage(gas.BaseFeeBufferPercentage).Add((*assets.Wei)(maxPriorityFeePerGas))
 
@@ -400,7 +400,7 @@ func TestFeeHistoryEstimatorBumpDynamicFee(t *testing.T) {
 			BaseFee:      []*big.Int{baseFee},
 			GasUsedRatio: nil,
 		}
-		client.On("FeeHistory", mock.Anything, mock.Anything, mock.Anything).Return(feeHistoryResult, nil).Once()
+		client.On("FeeHistory", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(feeHistoryResult, nil).Once()
 
 		cfg := gas.FeeHistoryEstimatorConfig{
 			BlockHistorySize: 1,
@@ -432,7 +432,7 @@ func TestFeeHistoryEstimatorBumpDynamicFee(t *testing.T) {
 			BaseFee:      []*big.Int{baseFee},
 			GasUsedRatio: nil,
 		}
-		client.On("FeeHistory", mock.Anything, mock.Anything, mock.Anything).Return(feeHistoryResult, nil).Once()
+		client.On("FeeHistory", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(feeHistoryResult, nil).Once()
 
 		cfg := gas.FeeHistoryEstimatorConfig{
 			BlockHistorySize: 1,
@@ -465,7 +465,7 @@ func TestFeeHistoryEstimatorBumpDynamicFee(t *testing.T) {
 			BaseFee:      []*big.Int{baseFee},
 			GasUsedRatio: nil,
 		}
-		client.On("FeeHistory", mock.Anything, mock.Anything, mock.Anything).Return(feeHistoryResult, nil).Once()
+		client.On("FeeHistory", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(feeHistoryResult, nil).Once()
 
 		cfg := gas.FeeHistoryEstimatorConfig{
 			BlockHistorySize: 1,
@@ -495,7 +495,7 @@ func TestFeeHistoryEstimatorBumpDynamicFee(t *testing.T) {
 			BaseFee:      []*big.Int{baseFee},
 			GasUsedRatio: nil,
 		}
-		client.On("FeeHistory", mock.Anything, mock.Anything, mock.Anything).Return(feeHistoryResult, nil)
+		client.On("FeeHistory", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(feeHistoryResult, nil)
 
 		cfg := gas.FeeHistoryEstimatorConfig{
 			BlockHistorySize: 0,

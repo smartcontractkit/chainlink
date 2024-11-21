@@ -23,7 +23,7 @@ contract OperatorTest is Deployer {
     s_callback = new Callback(address(s_operator));
   }
 
-  function test_SendRequest_Success(uint96 payment) public {
+  function testFuzz_SendRequest_Success(uint96 payment) public {
     vm.assume(payment > 0);
     deal(address(s_link), address(s_client), payment);
     // We're going to cancel one request and fulfill the other
@@ -47,7 +47,7 @@ contract OperatorTest is Deployer {
     assertEq(s_link.balanceOf(address(s_client)), payment);
   }
 
-  function test_SendRequestAndCancelRequest_Success(uint96 payment) public {
+  function testFuzz_SendRequestAndCancelRequest_Success(uint96 payment) public {
     vm.assume(payment > 1);
     payment /= payment;
 

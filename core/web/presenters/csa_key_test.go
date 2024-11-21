@@ -9,15 +9,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestCSAKeyResource(t *testing.T) {
-	key, err := csakey.New("passphrase", utils.FastScryptParams)
+	keyV2, err := csakey.NewV2()
 	require.NoError(t, err)
-	key.ID = 1
 
-	r := NewCSAKeyResource(key.ToV2())
+	r := NewCSAKeyResource(keyV2)
 	b, err := jsonapi.Marshal(r)
 	require.NoError(t, err)
 
@@ -25,13 +23,13 @@ func TestCSAKeyResource(t *testing.T) {
 	{
 		"data":{
 			"type":"csaKeys",
-			"id":"%s",
+			"id":"%[1]s",
 			"attributes":{
-				"publicKey": "csa_%s",
+				"publicKey": "csa_%[1]s",
 				"version": 1
 			}
 		}
-	}`, key.PublicKey.String(), key.PublicKey.String())
+	}`, keyV2.PublicKeyString())
 
 	assert.JSONEq(t, expected, string(b))
 }

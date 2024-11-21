@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/target"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -124,7 +124,7 @@ func (w *launcher) HealthReport() map[string]error {
 }
 
 func (w *launcher) Name() string {
-	return "CapabilitiesLauncher"
+	return w.lggr.Name()
 }
 
 func (w *launcher) Launch(ctx context.Context, state *registrysyncer.LocalRegistry) error {
@@ -191,8 +191,8 @@ func (w *launcher) Launch(ctx context.Context, state *registrysyncer.LocalRegist
 		}
 	}
 
-	// - remote capability DONs (with IsPublic = true) the current node is a part of.
-	// These need server-side shims.
+	// Capability DONs (with IsPublic = true) the current node is a part of.
+	// These need server-side shims to expose my own capabilities externally.
 	myCapabilityDONs := []registrysyncer.DON{}
 	remoteCapabilityDONs := []registrysyncer.DON{}
 	for _, d := range publicDONs {
@@ -223,11 +223,11 @@ func (w *launcher) Launch(ctx context.Context, state *registrysyncer.LocalRegist
 		}
 	}
 
-	// Finally, if I'm a capability DON, let's enable external access
+	// Finally, if I'm in a capability DON, let's enable external access
 	// to the capability.
 	if len(myCapabilityDONs) > 0 {
-		for _, mcd := range myCapabilityDONs {
-			err := w.exposeCapabilities(ctx, myID, mcd, state, remoteWorkflowDONs)
+		for _, myDON := range myCapabilityDONs {
+			err := w.exposeCapabilities(ctx, myID, myDON, state, remoteWorkflowDONs)
 			if err != nil {
 				return err
 			}
@@ -265,6 +265,7 @@ func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON registrysync
 						codec,
 						signers,
 						int(remoteDON.F+1),
+						info.ID,
 						w.lggr,
 					)
 				} else {
@@ -293,12 +294,26 @@ func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON registrysync
 				return fmt.Errorf("failed to add trigger shim: %w", err)
 			}
 		case capabilities.CapabilityTypeAction:
-			w.lggr.Warn("no remote client configured for capability type action, skipping configuration")
+			newActionFn := func(info capabilities.CapabilityInfo) (capabilityService, error) {
+				client := executable.NewClient(
+					info,
+					myDON.DON,
+					w.dispatcher,
+					defaultTargetRequestTimeout,
+					w.lggr,
+				)
+				return client, nil
+			}
+
+			err := w.addToRegistryAndSetDispatcher(ctx, capability, remoteDON, newActionFn)
+			if err != nil {
+				return fmt.Errorf("failed to add action shim: %w", err)
+			}
 		case capabilities.CapabilityTypeConsensus:
 			w.lggr.Warn("no remote client configured for capability type consensus, skipping configuration")
 		case capabilities.CapabilityTypeTarget:
 			newTargetFn := func(info capabilities.CapabilityInfo) (capabilityService, error) {
-				client := target.NewClient(
+				client := executable.NewClient(
 					info,
 					myDON.DON,
 					w.dispatcher,
@@ -394,10 +409,15 @@ func (w *launcher) exposeCapabilities(ctx context.Context, myPeerID p2ptypes.Pee
 
 		switch capability.CapabilityType {
 		case capabilities.CapabilityTypeTrigger:
-			newTriggerPublisher := func(capability capabilities.BaseCapability, info capabilities.CapabilityInfo) (remotetypes.ReceiverService, error) {
+			newTriggerPublisher := func(cap capabilities.BaseCapability, info capabilities.CapabilityInfo) (remotetypes.ReceiverService, error) {
+				triggerCapability, ok := (cap).(capabilities.TriggerCapability)
+				if !ok {
+					return nil, errors.New("capability does not implement TriggerCapability")
+				}
+
 				publisher := remote.NewTriggerPublisher(
 					capabilityConfig.RemoteTriggerConfig,
-					capability.(capabilities.TriggerCapability),
+					triggerCapability,
 					info,
 					don.DON,
 					idsToDONs,
@@ -409,18 +429,57 @@ func (w *launcher) exposeCapabilities(ctx context.Context, myPeerID p2ptypes.Pee
 
 			err := w.addReceiver(ctx, capability, don, newTriggerPublisher)
 			if err != nil {
-				return fmt.Errorf("failed to add server-side receiver: %w", err)
+				w.lggr.Errorw("failed to add server-side receiver for a trigger capability - it won't be exposed remotely", "id", cid, "error", err)
+				// continue attempting other capabilities
 			}
 		case capabilities.CapabilityTypeAction:
-			w.lggr.Warn("no remote client configured for capability type action, skipping configuration")
+			newActionServer := func(cap capabilities.BaseCapability, info capabilities.CapabilityInfo) (remotetypes.ReceiverService, error) {
+				actionCapability, ok := (cap).(capabilities.ActionCapability)
+				if !ok {
+					return nil, errors.New("capability does not implement ActionCapability")
+				}
+
+				remoteConfig := &capabilities.RemoteExecutableConfig{}
+				if capabilityConfig.RemoteTargetConfig != nil {
+					remoteConfig.RequestHashExcludedAttributes = capabilityConfig.RemoteTargetConfig.RequestHashExcludedAttributes
+				}
+
+				return executable.NewServer(
+					capabilityConfig.RemoteExecutableConfig,
+					myPeerID,
+					actionCapability,
+					info,
+					don.DON,
+					idsToDONs,
+					w.dispatcher,
+					defaultTargetRequestTimeout,
+					w.lggr,
+				), nil
+			}
+
+			err = w.addReceiver(ctx, capability, don, newActionServer)
+			if err != nil {
+				w.lggr.Errorw("failed to add action server-side receiver - it won't be exposed remotely", "id", cid, "error", err)
+				// continue attempting other capabilities
+			}
 		case capabilities.CapabilityTypeConsensus:
 			w.lggr.Warn("no remote client configured for capability type consensus, skipping configuration")
 		case capabilities.CapabilityTypeTarget:
-			newTargetServer := func(capability capabilities.BaseCapability, info capabilities.CapabilityInfo) (remotetypes.ReceiverService, error) {
-				return target.NewServer(
-					capabilityConfig.RemoteTargetConfig,
+			newTargetServer := func(cap capabilities.BaseCapability, info capabilities.CapabilityInfo) (remotetypes.ReceiverService, error) {
+				targetCapability, ok := (cap).(capabilities.TargetCapability)
+				if !ok {
+					return nil, errors.New("capability does not implement TargetCapability")
+				}
+
+				remoteConfig := &capabilities.RemoteExecutableConfig{}
+				if capabilityConfig.RemoteTargetConfig != nil {
+					remoteConfig.RequestHashExcludedAttributes = capabilityConfig.RemoteTargetConfig.RequestHashExcludedAttributes
+				}
+
+				return executable.NewServer(
+					remoteConfig,
 					myPeerID,
-					capability.(capabilities.TargetCapability),
+					targetCapability,
 					info,
 					don.DON,
 					idsToDONs,
@@ -432,7 +491,8 @@ func (w *launcher) exposeCapabilities(ctx context.Context, myPeerID p2ptypes.Pee
 
 			err := w.addReceiver(ctx, capability, don, newTargetServer)
 			if err != nil {
-				return fmt.Errorf("failed to add server-side receiver: %w", err)
+				w.lggr.Errorw("failed to add server-side receiver for a target capability - it won't be exposed remotely", "id", cid, "error", err)
+				// continue attempting other capabilities
 			}
 		default:
 			w.lggr.Warnf("unknown capability type, skipping configuration: %+v", capability)

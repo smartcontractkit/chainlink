@@ -157,7 +157,7 @@ func deploy(
 
 func setOCR3Config(
 	env helpers.Environment,
-	ocrConfig ksdeploy.Orc2drOracleConfig,
+	ocrConfig ksdeploy.OCR2OracleConfig,
 	artefacts string,
 ) {
 	loadedContracts, err := LoadDeployedContracts(artefacts)

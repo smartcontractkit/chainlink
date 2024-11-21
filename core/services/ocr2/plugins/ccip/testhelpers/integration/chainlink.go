@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"math"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -14,9 +15,9 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	types3 "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/google/uuid"
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/jmoiron/sqlx"
@@ -35,6 +36,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
@@ -342,7 +344,7 @@ func (node *Node) AddJob(t *testing.T, spec *OCR2TaskJobSpec) {
 		nil,
 	)
 	require.NoError(t, err)
-	err = node.App.AddJobV2(context.Background(), &ccipJob)
+	err = node.App.AddJobV2(tests.Context(t), &ccipJob)
 	require.NoError(t, err)
 }
 
@@ -351,7 +353,7 @@ func (node *Node) AddBootstrapJob(t *testing.T, spec *OCR2TaskJobSpec) {
 	require.NoError(t, err)
 	ccipJob, err := ocrbootstrap.ValidatedBootstrapSpecToml(specString)
 	require.NoError(t, err)
-	err = node.App.AddJobV2(context.Background(), &ccipJob)
+	err = node.App.AddJobV2(tests.Context(t), &ccipJob)
 	require.NoError(t, err)
 }
 
@@ -367,7 +369,7 @@ func setupNodeCCIP(
 	owner *bind.TransactOpts,
 	port int64,
 	dbName string,
-	sourceChain *backends.SimulatedBackend, destChain *backends.SimulatedBackend,
+	sourceChain *simulated.Backend, destChain *simulated.Backend,
 	sourceChainID *big.Int, destChainID *big.Int,
 	bootstrapPeerID string,
 	bootstrapPort int64,
@@ -459,7 +461,10 @@ func setupNodeCCIP(
 		},
 		CSAETHKeystore: simEthKeyStore,
 	}
-	loopRegistry := plugins.NewLoopRegistry(lggr.Named("LoopRegistry"), config.Tracing(), config.Telemetry())
+	beholderAuthHeaders, csaPubKeyHex, err := keystore.BuildBeholderAuth(keyStore)
+	require.NoError(t, err)
+
+	loopRegistry := plugins.NewLoopRegistry(lggr.Named("LoopRegistry"), config.Tracing(), config.Telemetry(), beholderAuthHeaders, csaPubKeyHex)
 	relayerFactory := chainlink.RelayerFactory{
 		Logger:               lggr,
 		LoopRegistry:         loopRegistry,
@@ -489,7 +494,7 @@ func setupNodeCCIP(
 		RestrictedHTTPClient:       &http.Client{},
 		AuditLogger:                audit.NoopLogger,
 		MailMon:                    mailMon,
-		LoopRegistry:               plugins.NewLoopRegistry(lggr, config.Tracing(), config.Telemetry()),
+		LoopRegistry:               plugins.NewLoopRegistry(lggr, config.Tracing(), config.Telemetry(), beholderAuthHeaders, csaPubKeyHex),
 	})
 	require.NoError(t, err)
 	require.NoError(t, app.GetKeyStore().Unlock(ctx, "password"))
@@ -512,13 +517,13 @@ func setupNodeCCIP(
 	lggr.Debug(fmt.Sprintf("Transmitter address %s chainID %s", transmitter, s.EVMChainID.String()))
 
 	// Fund the commitTransmitter address with some ETH
-	n, err := destChain.NonceAt(context.Background(), owner.From, nil)
+	n, err := destChain.Client().NonceAt(tests.Context(t), owner.From, nil)
 	require.NoError(t, err)
 
 	tx := types3.NewTransaction(n, transmitter, big.NewInt(1000000000000000000), 21000, big.NewInt(1000000000), nil)
 	signedTx, err := owner.Signer(owner.From, tx)
 	require.NoError(t, err)
-	err = destChain.SendTransaction(context.Background(), signedTx)
+	err = destChain.Client().SendTransaction(tests.Context(t), signedTx)
 	require.NoError(t, err)
 	destChain.Commit()
 
@@ -770,7 +775,7 @@ func (c *CCIPIntegrationTestHarness) EventuallyPriceRegistryUpdated(t *testing.T
 	var priceRegistry *price_registry_1_2_0.PriceRegistry
 	var err error
 	if len(priceRegistryOpts) > 0 {
-		priceRegistry, err = price_registry_1_2_0.NewPriceRegistry(priceRegistryOpts[0], c.Dest.Chain)
+		priceRegistry, err = price_registry_1_2_0.NewPriceRegistry(priceRegistryOpts[0], c.Dest.Chain.Client())
 		require.NoError(t, err)
 	} else {
 		require.NotNil(t, c.Dest.PriceRegistry, "no priceRegistry configured")
@@ -811,7 +816,7 @@ func (c *CCIPIntegrationTestHarness) EventuallyCommitReportAccepted(t *testing.T
 	var commitStore *commit_store.CommitStore
 	var err error
 	if len(commitStoreOpts) > 0 {
-		commitStore, err = commit_store.NewCommitStore(commitStoreOpts[0], c.Dest.Chain)
+		commitStore, err = commit_store.NewCommitStore(commitStoreOpts[0], c.Dest.Chain.Client())
 		require.NoError(t, err)
 	} else {
 		require.NotNil(t, c.Dest.CommitStore, "no commitStore configured")
@@ -837,7 +842,7 @@ func (c *CCIPIntegrationTestHarness) EventuallyExecutionStateChangedToSuccess(t 
 	var offRamp *evm_2_evm_offramp.EVM2EVMOffRamp
 	var err error
 	if len(offRampOpts) > 0 {
-		offRamp, err = evm_2_evm_offramp.NewEVM2EVMOffRamp(offRampOpts[0], c.Dest.Chain)
+		offRamp, err = evm_2_evm_offramp.NewEVM2EVMOffRamp(offRampOpts[0], c.Dest.Chain.Client())
 		require.NoError(t, err)
 	} else {
 		require.NotNil(t, c.Dest.OffRamp, "no offRamp configured")
@@ -864,7 +869,7 @@ func (c *CCIPIntegrationTestHarness) EventuallyReportCommitted(t *testing.T, max
 	var err error
 	var committedSeqNum uint64
 	if len(commitStoreOpts) > 0 {
-		commitStore, err = commit_store.NewCommitStore(commitStoreOpts[0], c.Dest.Chain)
+		commitStore, err = commit_store.NewCommitStore(commitStoreOpts[0], c.Dest.Chain.Client())
 		require.NoError(t, err)
 	} else {
 		require.NotNil(t, c.Dest.CommitStore, "no commitStore configured")
@@ -886,7 +891,7 @@ func (c *CCIPIntegrationTestHarness) EventuallySendRequested(t *testing.T, seqNu
 	var onRamp *evm_2_evm_onramp.EVM2EVMOnRamp
 	var err error
 	if len(onRampOpts) > 0 {
-		onRamp, err = evm_2_evm_onramp.NewEVM2EVMOnRamp(onRampOpts[0], c.Source.Chain)
+		onRamp, err = evm_2_evm_onramp.NewEVM2EVMOnRamp(onRampOpts[0], c.Source.Chain.Client())
 		require.NoError(t, err)
 	} else {
 		require.NotNil(t, c.Source.OnRamp, "no onRamp configured")
@@ -911,7 +916,7 @@ func (c *CCIPIntegrationTestHarness) ConsistentlyReportNotCommitted(t *testing.T
 	var commitStore *commit_store.CommitStore
 	var err error
 	if len(commitStoreOpts) > 0 {
-		commitStore, err = commit_store.NewCommitStore(commitStoreOpts[0], c.Dest.Chain)
+		commitStore, err = commit_store.NewCommitStore(commitStoreOpts[0], c.Dest.Chain.Client())
 		require.NoError(t, err)
 	} else {
 		require.NotNil(t, c.Dest.CommitStore, "no commitStore configured")
@@ -927,7 +932,7 @@ func (c *CCIPIntegrationTestHarness) ConsistentlyReportNotCommitted(t *testing.T
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeFalse(), "report has been committed")
 }
 
-func (c *CCIPIntegrationTestHarness) SetupAndStartNodes(ctx context.Context, t *testing.T, bootstrapNodePort int64) (Node, []Node, int64) {
+func (c *CCIPIntegrationTestHarness) SetupAndStartNodes(ctx context.Context, t *testing.T, bootstrapNodePort int64) (Node, []Node, uint64) {
 	appBootstrap, bootstrapPeerID, bootstrapTransmitter, bootstrapKb := setupNodeCCIP(t, c.Dest.User, bootstrapNodePort,
 		"bootstrap_ccip", c.Source.Chain, c.Dest.Chain, big.NewInt(0).SetUint64(c.Source.ChainID),
 		big.NewInt(0).SetUint64(c.Dest.ChainID), "", 0, c.Source.FinalityDepth,
@@ -993,12 +998,13 @@ func (c *CCIPIntegrationTestHarness) SetupAndStartNodes(ctx context.Context, t *
 	configBlock := c.SetupOnchainConfig(t, commitOnchainConfig, commitOffchainConfig, execOnchainConfig, execOffchainConfig)
 	c.Nodes = nodes
 	c.Bootstrap = bootstrapNode
-	return bootstrapNode, nodes, configBlock
+	//nolint:gosec // G115
+	return bootstrapNode, nodes, uint64(configBlock)
 }
 
 func (c *CCIPIntegrationTestHarness) SetUpNodesAndJobs(t *testing.T, pricePipeline string, priceGetterConfig string, usdcAttestationAPI string) CCIPJobSpecParams {
 	// setup Jobs
-	ctx := context.Background()
+	ctx := tests.Context(t)
 	// Starts nodes and configures them in the OCR contracts.
 	bootstrapNode, _, configBlock := c.SetupAndStartNodes(ctx, t, int64(freeport.GetOne(t)))
 
@@ -1011,7 +1017,8 @@ func (c *CCIPIntegrationTestHarness) SetUpNodesAndJobs(t *testing.T, pricePipeli
 	// Replay for bootstrap.
 	bc, err := bootstrapNode.App.GetRelayers().LegacyEVMChains().Get(strconv.FormatUint(c.Dest.ChainID, 10))
 	require.NoError(t, err)
-	require.NoError(t, bc.LogPoller().Replay(context.Background(), configBlock))
+	require.LessOrEqual(t, configBlock, uint64(math.MaxInt64))
+	require.NoError(t, bc.LogPoller().Replay(ctx, int64(configBlock))) //nolint:gosec // G115 false positive
 	c.Dest.Chain.Commit()
 
 	return jobParams

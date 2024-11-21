@@ -18,6 +18,7 @@ import (
 	cappkg "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+
 	corecapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -32,12 +33,14 @@ const (
 	validRequestUUID    = "d2fe6db9-beb4-47c9-b2d6-d3065ace111e"
 )
 
-var defaultConfig = webapi.ServiceConfig{
-	RateLimiter: common.RateLimiterConfig{
-		GlobalRPS:      100.0,
-		GlobalBurst:    100,
-		PerSenderRPS:   100.0,
-		PerSenderBurst: 100,
+var defaultConfig = Config{
+	ServiceConfig: webapi.ServiceConfig{
+		RateLimiter: common.RateLimiterConfig{
+			GlobalRPS:      100.0,
+			GlobalBurst:    100,
+			PerSenderRPS:   100.0,
+			PerSenderBurst: 100,
+		},
 	},
 }
 
@@ -45,20 +48,21 @@ type testHarness struct {
 	registry         *corecapabilities.Registry
 	connector        *gcmocks.GatewayConnector
 	log              logger.Logger
-	config           webapi.ServiceConfig
+	config           Config
 	connectorHandler *webapi.OutgoingConnectorHandler
 	compute          *Compute
 }
 
-func setup(t *testing.T, config webapi.ServiceConfig) testHarness {
+func setup(t *testing.T, config Config) testHarness {
 	log := logger.TestLogger(t)
 	registry := capabilities.NewRegistry(log)
 	connector := gcmocks.NewGatewayConnector(t)
 	idGeneratorFn := func() string { return validRequestUUID }
-	connectorHandler, err := webapi.NewOutgoingConnectorHandler(connector, config, ghcapabilities.MethodComputeAction, log)
+	connectorHandler, err := webapi.NewOutgoingConnectorHandler(connector, config.ServiceConfig, ghcapabilities.MethodComputeAction, log)
 	require.NoError(t, err)
 
-	compute := NewAction(config, log, registry, connectorHandler, idGeneratorFn)
+	compute, err := NewAction(config, log, registry, connectorHandler, idGeneratorFn)
+	require.NoError(t, err)
 	compute.modules.clock = clockwork.NewFakeClock()
 
 	return testHarness{
@@ -187,7 +191,6 @@ func TestComputeFetch(t *testing.T) {
 	th.connector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
 
 	msgID := strings.Join([]string{
-		workflowID,
 		workflowExecutionID,
 		ghcapabilities.MethodComputeAction,
 		validRequestUUID,

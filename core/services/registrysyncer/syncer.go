@@ -44,7 +44,7 @@ type RegistrySyncer interface {
 
 type registrySyncer struct {
 	services.StateMachine
-	metrics              syncerMetricLabeler
+	metrics              *syncerMetricLabeler
 	stopCh               services.StopChan
 	launchers            []Launcher
 	reader               types.ContractReader
@@ -76,7 +76,14 @@ func New(
 	registryAddress string,
 	orm ORM,
 ) (RegistrySyncer, error) {
+
+	metricLabeler, err := newSyncerMetricLabeler()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create syncer metric labeler: %w", err)
+	}
+
 	return &registrySyncer{
+		metrics:    metricLabeler,
 		stopCh:     make(services.StopChan),
 		updateChan: make(chan *LocalRegistry),
 		lggr:       lggr.Named("RegistrySyncer"),
@@ -131,11 +138,6 @@ func newReader(ctx context.Context, lggr logger.Logger, relayer ContractReaderFa
 
 func (s *registrySyncer) Start(ctx context.Context) error {
 	return s.StartOnce("RegistrySyncer", func() error {
-		err := initMonitoringResources()
-		if err != nil {
-			return err
-		}
-
 		s.wg.Add(1)
 		go func() {
 			defer s.wg.Done()
@@ -202,7 +204,7 @@ func (s *registrySyncer) updateStateLoop() {
 	}
 }
 
-func (s *registrySyncer) localRegistry(ctx context.Context) (*LocalRegistry, error) {
+func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*LocalRegistry, error) {
 	caps := []kcr.CapabilitiesRegistryCapabilityInfo{}
 
 	err := s.reader.GetLatestValue(ctx, s.capabilitiesContract.ReadIdentifier("getCapabilities"), primitives.Unconfirmed, nil, &caps)
@@ -288,33 +290,33 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 		s.reader = reader
 	}
 
-	var lr *LocalRegistry
+	var latestRegistry *LocalRegistry
 	var err error
 
 	if isInitialSync {
 		s.lggr.Debug("syncing with local registry")
-		lr, err = s.orm.LatestLocalRegistry(ctx)
+		latestRegistry, err = s.orm.LatestLocalRegistry(ctx)
 		if err != nil {
 			s.lggr.Warnw("failed to sync with local registry, using remote registry instead", "error", err)
 		} else {
-			lr.lggr = s.lggr
-			lr.getPeerID = s.getPeerID
+			latestRegistry.lggr = s.lggr
+			latestRegistry.getPeerID = s.getPeerID
 		}
 	}
 
-	if lr == nil {
+	if latestRegistry == nil {
 		s.lggr.Debug("syncing with remote registry")
-		localRegistry, err := s.localRegistry(ctx)
+		importedRegistry, err := s.importOnchainRegistry(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to sync with remote registry: %w", err)
 		}
-		lr = localRegistry
+		latestRegistry = importedRegistry
 		// Attempt to send local registry to the update channel without blocking
 		// This is to prevent the tests from hanging if they are not calling `Start()` on the syncer
 		select {
 		case <-s.stopCh:
 			s.lggr.Debug("sync cancelled, stopping")
-		case s.updateChan <- lr:
+		case s.updateChan <- latestRegistry:
 			// Successfully sent state
 			s.lggr.Debug("remote registry update triggered successfully")
 		default:
@@ -324,7 +326,7 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 	}
 
 	for _, h := range s.launchers {
-		lrCopy := deepCopyLocalRegistry(lr)
+		lrCopy := deepCopyLocalRegistry(latestRegistry)
 		if err := h.Launch(ctx, &lrCopy); err != nil {
 			s.lggr.Errorf("error calling launcher: %s", err)
 			s.metrics.incrementLauncherFailureCounter(ctx)
@@ -352,7 +354,7 @@ func deepCopyLocalRegistry(lr *LocalRegistry) LocalRegistry {
 		capCfgs := make(map[string]CapabilityConfiguration, len(don.CapabilityConfigurations))
 		for capID, capCfg := range don.CapabilityConfigurations {
 			capCfgs[capID] = CapabilityConfiguration{
-				Config: capCfg.Config[:],
+				Config: capCfg.Config,
 			}
 		}
 		lrCopy.IDsToDONs[id] = DON{
@@ -444,14 +446,10 @@ func (s *registrySyncer) Close() error {
 	})
 }
 
-func (s *registrySyncer) Ready() error {
-	return nil
-}
-
 func (s *registrySyncer) HealthReport() map[string]error {
-	return nil
+	return map[string]error{s.Name(): s.Healthy()}
 }
 
 func (s *registrySyncer) Name() string {
-	return "RegistrySyncer"
+	return s.lggr.Name()
 }

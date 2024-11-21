@@ -50,7 +50,7 @@ type PriceRegistry struct {
 	tokenDecimalsCache sync.Map
 }
 
-func NewPriceRegistry(lggr logger.Logger, priceRegistryAddr common.Address, lp logpoller.LogPoller, ec client.Client, registerFilters bool) (*PriceRegistry, error) {
+func NewPriceRegistry(ctx context.Context, lggr logger.Logger, priceRegistryAddr common.Address, lp logpoller.LogPoller, ec client.Client, registerFilters bool) (*PriceRegistry, error) {
 	priceRegistry, err := price_registry_1_2_0.NewPriceRegistry(priceRegistryAddr, ec)
 	if err != nil {
 		return nil, err
@@ -79,7 +79,7 @@ func NewPriceRegistry(lggr logger.Logger, priceRegistryAddr common.Address, lp l
 			Retention: ccipdata.CacheEvictionLogsRetention,
 		}}
 	if registerFilters {
-		err = logpollerutil.RegisterLpFilters(lp, filters)
+		err = logpollerutil.RegisterLpFilters(ctx, lp, filters)
 		if err != nil {
 			return nil, err
 		}
@@ -151,7 +151,7 @@ func (p *PriceRegistry) GetFeeTokens(ctx context.Context) ([]cciptypes.Address, 
 }
 
 func (p *PriceRegistry) Close() error {
-	return logpollerutil.UnregisterLpFilters(p.lp, p.filters)
+	return logpollerutil.UnregisterLpFilters(context.Background(), p.lp, p.filters)
 }
 
 func (p *PriceRegistry) GetTokenPriceUpdatesCreatedAfter(ctx context.Context, ts time.Time, confs int) ([]cciptypes.TokenPriceUpdateWithTxMeta, error) {

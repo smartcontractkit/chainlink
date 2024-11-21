@@ -3,13 +3,13 @@ package v1_6
 import (
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink/deployment/ccip/view/types"
+	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 )
 
 // CapRegView denotes a view of the capabilities registry contract.
 // Note that the contract itself is 1.0.0 versioned, but we're releasing it first
-// as part of 1.6.
+// as part of 1.6 for CCIP.
 type CapRegView struct {
 	types.ContractMetaData
 	Capabilities []CapabilityView `json:"capabilities,omitempty"`

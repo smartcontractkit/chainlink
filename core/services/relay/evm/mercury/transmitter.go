@@ -179,7 +179,7 @@ func (s *server) HealthReport() map[string]error {
 
 func (s *server) runDeleteQueueLoop(stopCh services.StopChan, wg *sync.WaitGroup) {
 	defer wg.Done()
-	runloopCtx, cancel := stopCh.Ctx(context.Background())
+	ctx, cancel := stopCh.NewCtx()
 	defer cancel()
 
 	// Exponential backoff for very rarely occurring errors (DB disconnect etc)
@@ -194,7 +194,7 @@ func (s *server) runDeleteQueueLoop(stopCh services.StopChan, wg *sync.WaitGroup
 		select {
 		case req := <-s.deleteQueue:
 			for {
-				if err := s.pm.Delete(runloopCtx, req); err != nil {
+				if err := s.pm.Delete(ctx, req); err != nil {
 					s.lggr.Errorw("Failed to delete transmit request record", "err", err, "req.Payload", req.Payload)
 					s.transmitQueueDeleteErrorCount.Inc()
 					select {
@@ -227,7 +227,7 @@ func (s *server) runQueueLoop(stopCh services.StopChan, wg *sync.WaitGroup, feed
 		Factor: 2,
 		Jitter: true,
 	}
-	runloopCtx, cancel := stopCh.Ctx(context.Background())
+	ctx, cancel := stopCh.NewCtx()
 	defer cancel()
 	for {
 		t := s.q.BlockingPop()
@@ -235,12 +235,13 @@ func (s *server) runQueueLoop(stopCh services.StopChan, wg *sync.WaitGroup, feed
 			// queue was closed
 			return
 		}
-		ctx, cancel := context.WithTimeout(runloopCtx, utils.WithJitter(s.transmitTimeout))
-		res, err := s.c.Transmit(ctx, t.Req)
-		cancel()
-		if runloopCtx.Err() != nil {
-			// runloop context is only canceled on transmitter close so we can
-			// exit the runloop here
+		res, err := func(ctx context.Context) (*pb.TransmitResponse, error) {
+			ctx, cancel := context.WithTimeout(ctx, utils.WithJitter(s.transmitTimeout))
+			cancel()
+			return s.c.Transmit(ctx, t.Req)
+		}(ctx)
+		if ctx.Err() != nil {
+			// only canceled on transmitter close so we can exit
 			return
 		} else if err != nil {
 			s.transmitConnectionErrorCount.Inc()
@@ -570,7 +571,7 @@ func (mt *mercuryTransmitter) latestReport(ctx context.Context, feedID [32]byte)
 			if resp.Report == nil {
 				s.lggr.Tracew("latestReport success: returned nil")
 			} else if !bytes.Equal(resp.Report.FeedId, feedID[:]) {
-				err = fmt.Errorf("latestReport failed; mismatched feed IDs, expected: 0x%x, got: 0x%x", mt.feedID[:], resp.Report.FeedId[:])
+				err = fmt.Errorf("latestReport failed; mismatched feed IDs, expected: 0x%x, got: 0x%x", mt.feedID[:], resp.Report.FeedId)
 				s.lggr.Errorw("latestReport failed", "err", err)
 				return err
 			} else {

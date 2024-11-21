@@ -12,13 +12,18 @@ ResendAfterThreshold = '0s'
 Mode = 'FixedPrice'
 PriceMin = '0'
 BumpThreshold = 0
-FeeCapDefault = '100 micro'
-PriceMax = '100 micro'
+FeeCapDefault = '1 gwei'
+TipCapDefault = '1 mwei'
+PriceDefault = '1 gwei'
+PriceMax = '1 gwei'
 
 [HeadTracker]
 HistoryDepth = 10
 MaxBufferSize = 100
 SamplingInterval = '0s'
+
+[NodePool]
+EnforceRepeatableRead = false # disable for simulation to prevent failure of tests with manual commit and reorgs
 
 [OCR]
 ContractConfirmations = 1

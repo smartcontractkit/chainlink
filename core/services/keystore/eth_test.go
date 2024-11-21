@@ -9,7 +9,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -181,13 +183,13 @@ func Test_EthKeyStore(t *testing.T) {
 		require.NoError(t, err)
 		assert.Len(t, keys, 2)
 
-		//get enabled addresses for FixtureChainID
+		// get enabled addresses for FixtureChainID
 		enabledAddresses, err := ethKeyStore.EnabledAddressesForChain(ctx, testutils.FixtureChainID)
 		require.NoError(t, err)
 		require.Len(t, enabledAddresses, 1)
 		require.Equal(t, key.Address, enabledAddresses[0])
 
-		//get enabled addresses for chain 1337
+		// get enabled addresses for chain 1337
 		enabledAddresses, err = ethKeyStore.EnabledAddressesForChain(ctx, big.NewInt(1337))
 		require.NoError(t, err)
 		require.Len(t, enabledAddresses, 1)
@@ -355,6 +357,31 @@ func Test_EthKeyStore_SignTx(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NotEqual(t, tx, signed)
+}
+
+func Test_EthKeyStore_SignMessage(t *testing.T) {
+	t.Parallel()
+
+	ctx := testutils.Context(t)
+
+	db := pgtest.NewSqlxDB(t)
+	keyStore := cltest.NewKeyStore(t, db)
+	ethKeyStore := keyStore.Eth()
+
+	k, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
+
+	pubKeyBytes := crypto.FromECDSAPub(&k.ToEcdsaPrivKey().PublicKey)
+
+	message := []byte("this is a message")
+
+	signedMessage, err := keyStore.Eth().SignMessage(ctx, k.Address, message)
+	require.NoError(t, err)
+	sigPublicKey, err := crypto.Ecrecover(accounts.TextHash(message), signedMessage)
+	require.NoError(t, err)
+	require.Equal(t, pubKeyBytes, sigPublicKey)
+
+	_, err = keyStore.Eth().SignMessage(ctx, utils.RandomAddress(), message)
+	require.ErrorContains(t, err, "Key not found")
 }
 
 func Test_EthKeyStore_E2E(t *testing.T) {

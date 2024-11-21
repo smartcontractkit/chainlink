@@ -74,11 +74,10 @@ func (c *client) DoRequest(ctx context.Context, streamsLookup *mercury.StreamsLo
 		c.multiFeedsRequest(ctx, ch, streamsLookup)
 	})
 
-	// TODO (AUTO 9090): Understand and fix the use of context.Background() here
-	reqTimeoutCtx, cancel := context.WithTimeout(context.Background(), mercury.RequestTimeout)
+	ctx, cancel := context.WithTimeout(ctx, mercury.RequestTimeout)
 	defer cancel()
 	select {
-	case <-reqTimeoutCtx.Done():
+	case <-ctx.Done():
 		// Request Timed out, return timeout error
 		c.lggr.Errorf("at timestamp %s upkeep %s, streams lookup v0.3 timed out", streamsLookup.Time.String(), streamsLookup.UpkeepId.String())
 		return encoding.NoPipelineError, nil, encoding.ErrCodeStreamsTimeout, false, 0 * time.Second, nil
@@ -108,7 +107,7 @@ func (c *client) DoRequest(ctx context.Context, streamsLookup *mercury.StreamsLo
 
 func (c *client) multiFeedsRequest(ctx context.Context, ch chan<- mercury.MercuryData, sl *mercury.StreamsLookup) {
 	// this won't work bc q.Encode() will encode commas as '%2C' but the server is strictly expecting a comma separated list
-	//q := url.Values{
+	// q := url.Values{
 	//	feedIDs:   {strings.Join(sl.Feeds, ",")},
 	//	timestamp: {sl.Time.String()},
 	//}

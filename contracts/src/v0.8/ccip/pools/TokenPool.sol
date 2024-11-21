@@ -5,7 +5,7 @@ import {IPoolV1} from "../interfaces/IPool.sol";
 import {IRMN} from "../interfaces/IRMN.sol";
 import {IRouter} from "../interfaces/IRouter.sol";
 
-import {OwnerIsCreator} from "../../shared/access/OwnerIsCreator.sol";
+import {Ownable2StepMsgSender} from "../../shared/access/Ownable2StepMsgSender.sol";
 import {Pool} from "../libraries/Pool.sol";
 import {RateLimiter} from "../libraries/RateLimiter.sol";
 
@@ -16,7 +16,7 @@ import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts
 /// @notice Base abstract class with common functions for all token pools.
 /// A token pool serves as isolated place for holding tokens and token specific logic
 /// that may execute as tokens move across the bridge.
-abstract contract TokenPool is IPoolV1, OwnerIsCreator {
+abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
   using EnumerableSet for EnumerableSet.AddressSet;
   using EnumerableSet for EnumerableSet.UintSet;
   using RateLimiter for RateLimiter.TokenBucket;
@@ -53,6 +53,7 @@ abstract contract TokenPool is IPoolV1, OwnerIsCreator {
   event AllowListAdd(address sender);
   event AllowListRemove(address sender);
   event RouterUpdated(address oldRouter, address newRouter);
+  event RateLimitAdminSet(address rateLimitAdmin);
 
   struct ChainUpdate {
     uint64 remoteChainSelector; // ──╮ Remote chain selector
@@ -326,6 +327,7 @@ abstract contract TokenPool is IPoolV1, OwnerIsCreator {
     address rateLimitAdmin
   ) external onlyOwner {
     s_rateLimitAdmin = rateLimitAdmin;
+    emit RateLimitAdminSet(rateLimitAdmin);
   }
 
   /// @notice Gets the rate limiter admin address.

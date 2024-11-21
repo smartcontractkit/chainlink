@@ -283,6 +283,6 @@ func genDistSecret(checkValidPublicKey bool) []*dkg.DistKeyShare {
 
 func randomBytes(n int) []byte {
 	var buff = make([]byte, n)
-	_, _ = rand.Read(buff[:])
+	_, _ = rand.Read(buff)
 	return buff
 }
