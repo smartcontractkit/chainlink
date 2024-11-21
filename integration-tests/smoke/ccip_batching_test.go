@@ -52,7 +52,7 @@ func Test_CCIPBatching(t *testing.T) {
 	require.NoError(t, changeset.AddLaneWithDefaultPrices(e.Env, state, sourceChain2, destChain))
 
 	const (
-		numMessages = 30
+		numMessages = 5
 	)
 	var (
 		startSeqNum = map[uint64]ccipocr3.SeqNum{
@@ -89,6 +89,20 @@ func Test_CCIPBatching(t *testing.T) {
 			ccipocr3.NewSeqNumRange(startSeqNum[sourceChain1], endSeqNum[sourceChain1]),
 		)
 		require.NoErrorf(t, err, "failed to confirm commit from chain %d", sourceChain1)
+
+		states, err := changeset.ConfirmExecWithSeqNrs(
+			t,
+			e.Env.Chains[sourceChain1],
+			e.Env.Chains[destChain],
+			state.Chains[destChain].OffRamp,
+			nil,
+			genSeqNrRange(startSeqNum[sourceChain1], endSeqNum[sourceChain1]),
+		)
+		require.NoError(t, err)
+		// assert that all states are successful
+		for _, state := range states {
+			require.Equal(t, changeset.EXECUTION_STATE_SUCCESS, state)
+		}
 
 		startSeqNum[sourceChain1] = endSeqNum[sourceChain1] + 1
 		endSeqNum[sourceChain1] = startSeqNum[sourceChain1] + ccipocr3.SeqNum(numMessages) - 1
@@ -177,6 +191,49 @@ func Test_CCIPBatching(t *testing.T) {
 		require.NotNil(t, reports[1], "commit report should not be nil")
 		require.Equal(t, reports[0], reports[1], "commit reports should be the same")
 
+		// confirm execution
+		execErrs := make(chan outputErr[map[uint64]int], len(sourceChains))
+		for _, srcChain := range sourceChains {
+			wg.Add(1)
+			go assertExecAsync(
+				t,
+				e,
+				state,
+				srcChain,
+				destChain,
+				genSeqNrRange(startSeqNum[srcChain], endSeqNum[srcChain]),
+				&wg,
+				execErrs,
+			)
+		}
+
+		t.Log("waiting for exec reports")
+		wg.Wait()
+
+		i = 0
+		var execStates []map[uint64]int
+	outer3:
+		for {
+			select {
+			case outputErr := <-execErrs:
+				require.NoError(t, outputErr.err)
+				execStates = append(execStates, outputErr.output)
+				i++
+				if i == len(sourceChains) {
+					break outer3
+				}
+			case <-ctx.Done():
+				require.FailNow(t, "didn't get all exec reports before test context was done")
+			}
+		}
+
+		// assert that all states are successful
+		for _, states := range execStates {
+			for _, state := range states {
+				require.Equal(t, changeset.EXECUTION_STATE_SUCCESS, state)
+			}
+		}
+
 		startSeqNum[sourceChain1] = endSeqNum[sourceChain1] + 1
 		endSeqNum[sourceChain1] = startSeqNum[sourceChain1] + ccipocr3.SeqNum(numMessages) - 1
 		startSeqNum[sourceChain2] = endSeqNum[sourceChain2] + 1
@@ -187,6 +244,29 @@ func Test_CCIPBatching(t *testing.T) {
 type outputErr[T any] struct {
 	output T
 	err    error
+}
+
+func assertExecAsync(
+	t *testing.T,
+	e changeset.DeployedEnv,
+	state changeset.CCIPOnChainState,
+	sourceChainSelector,
+	destChainSelector uint64,
+	seqNums []uint64,
+	wg *sync.WaitGroup,
+	errs chan<- outputErr[map[uint64]int],
+) {
+	defer wg.Done()
+	states, err := changeset.ConfirmExecWithSeqNrs(
+		t,
+		e.Env.Chains[sourceChainSelector],
+		e.Env.Chains[destChainSelector],
+		state.Chains[destChainSelector].OffRamp,
+		nil,
+		seqNums,
+	)
+
+	errs <- outputErr[map[uint64]int]{states, err}
 }
 
 func assertCommitReportsAsync(
@@ -201,8 +281,7 @@ func assertCommitReportsAsync(
 	errs chan<- outputErr[*offramp.OffRampCommitReportAccepted],
 ) {
 	defer wg.Done()
-	var err error
-	sourceChain1Report, err := changeset.ConfirmCommitWithExpectedSeqNumRange(
+	commitReport, err := changeset.ConfirmCommitWithExpectedSeqNumRange(
 		t,
 		e.Env.Chains[sourceChainSelector],
 		e.Env.Chains[destChainSelector],
@@ -211,7 +290,7 @@ func assertCommitReportsAsync(
 		ccipocr3.NewSeqNumRange(startSeqNum, endSeqNum),
 	)
 
-	errs <- outputErr[*offramp.OffRampCommitReportAccepted]{sourceChain1Report, err}
+	errs <- outputErr[*offramp.OffRampCommitReportAccepted]{commitReport, err}
 }
 
 func sendMessagesAsync(
@@ -337,4 +416,13 @@ func genMessages(
 	}
 
 	return calls, totalValue, nil
+}
+
+// creates an array of uint64 from start to end inclusive
+func genSeqNrRange(start, end ccipocr3.SeqNum) []uint64 {
+	var seqNrs []uint64
+	for i := start; i <= end; i++ {
+		seqNrs = append(seqNrs, uint64(i))
+	}
+	return seqNrs
 }

@@ -390,9 +390,13 @@ func ConfirmExecWithSeqNrs(
 	startBlock *uint64,
 	expectedSeqNrs []uint64,
 ) (executionStates map[uint64]int, err error) {
-	timer := time.NewTimer(5 * time.Minute)
+	if len(expectedSeqNrs) == 0 {
+		return nil, fmt.Errorf("no expected sequence numbers provided")
+	}
+
+	timer := time.NewTimer(3 * time.Minute)
 	defer timer.Stop()
-	tick := time.NewTicker(5 * time.Second)
+	tick := time.NewTicker(3 * time.Second)
 	defer tick.Stop()
 	sink := make(chan *offramp.OffRampExecutionStateChanged)
 	subscription, err := offRamp.WatchExecutionStateChanged(&bind.WatchOpts{
