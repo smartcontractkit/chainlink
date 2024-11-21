@@ -313,9 +313,9 @@ func ConfirmCommitWithExpectedSeqNumRange(
 }
 
 // ConfirmExecWithSeqNrsForAll waits for all chains in the environment to execute the given expectedSeqNums.
-// If successful, it returns a map that maps the source chain selector to the expected sequence number
+// If successful, it returns a map that maps the SourceDestPair to the expected sequence number
 // to its execution state.
-// expectedSeqNums is a map of source chain selector to a slice of expected sequence numbers to be executed.
+// expectedSeqNums is a map of SourceDestPair to a slice of expected sequence numbers to be executed.
 // startBlocks is a map of destination chain selector to start block number to start watching from.
 // If startBlocks is nil, it will start watching from the latest block.
 func ConfirmExecWithSeqNrsForAll(

@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -52,7 +53,7 @@ func Test_CCIPBatching(t *testing.T) {
 	require.NoError(t, changeset.AddLaneWithDefaultPrices(e.Env, state, sourceChain2, destChain))
 
 	const (
-		numMessages = 5
+		numMessages = 30
 	)
 	var (
 		startSeqNum map[uint64]ccipocr3.SeqNum = map[uint64]ccipocr3.SeqNum{
@@ -97,8 +98,8 @@ func Test_CCIPBatching(t *testing.T) {
 	t.Run("batch data only messages from multiple sources", func(t *testing.T) {
 		var (
 			wg           sync.WaitGroup
-			errs         = make(chan error)
 			sourceChains = []uint64{sourceChain1, sourceChain2}
+			errs         = make(chan error, len(sourceChains))
 		)
 
 		for _, srcChain := range sourceChains {
@@ -122,6 +123,8 @@ func Test_CCIPBatching(t *testing.T) {
 	outer:
 		for {
 			select {
+			case <-time.NewTicker(5 * time.Second).C:
+				t.Log("waiting for send message errors")
 			case err := <-errs:
 				require.NoError(t, err)
 				i++
@@ -134,7 +137,7 @@ func Test_CCIPBatching(t *testing.T) {
 		}
 
 		// confirm the commit reports
-		outputErrs := make(chan outputErr[*offramp.OffRampCommitReportAccepted])
+		outputErrs := make(chan outputErr[*offramp.OffRampCommitReportAccepted], len(sourceChains))
 		for _, srcChain := range sourceChains {
 			wg.Add(1)
 			go assertCommitReportsAsync(
@@ -158,6 +161,8 @@ func Test_CCIPBatching(t *testing.T) {
 	outer2:
 		for {
 			select {
+			case <-time.NewTicker(5 * time.Second).C:
+				t.Log("waiting for errors")
 			case outputErr := <-outputErrs:
 				require.NoError(t, outputErr.err)
 				reports = append(reports, outputErr.output)
@@ -236,6 +241,7 @@ func sendMessagesAsync(
 		numMessages,
 		common.LeftPadBytes(state.Chains[destChainSelector].Receiver.Address().Bytes(), 32),
 	)
+	t.Log("sendMessagesAsync error:", err, ", writing to channel")
 	out <- err
 }
 
