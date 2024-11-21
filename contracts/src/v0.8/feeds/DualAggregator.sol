@@ -6,7 +6,7 @@ import {AggregatorV2V3Interface} from "../shared/interfaces/AggregatorV2V3Interf
 import {AggregatorValidatorInterface} from "../shared/interfaces/AggregatorValidatorInterface.sol";
 import {LinkTokenInterface} from "../shared/interfaces/LinkTokenInterface.sol";
 
-import {Ownable2StepMsgSender} from "../shared/access/Ownable2StepMsgSender.sol";
+import {SimpleReadAccessController} from "../shared/access/SimpleReadAccessController.sol";
 import {CallWithExactGas} from "../shared/call/CallWithExactGas.sol";
 import {OCR2Abstract} from "../shared/ocr2/OCR2Abstract.sol";
 
@@ -14,7 +14,7 @@ import {OCR2Abstract} from "../shared/ocr2/OCR2Abstract.sol";
 // for a new feeds based project that is ongoing, there will be some modernization
 // that happens to this contract as the project progresses.
 // solhint-disable max-states-count
-contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3Interface {
+contract DualAggregator is OCR2Abstract, AggregatorV2V3Interface, SimpleReadAccessController {
   string public constant override typeAndVersion = "DualAggregator 1.0.0";
 
   // This contract is divided into sections. Each section defines a set of
