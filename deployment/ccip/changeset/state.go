@@ -48,10 +48,17 @@ import (
 // on a chain. If a binding is nil, it means here is no such contract on the chain.
 type CCIPChainState struct {
 	commoncs.MCMSWithTimelockState
-	OnRamp             *onramp.OnRamp
-	OffRamp            *offramp.OffRamp
-	FeeQuoter          *fee_quoter.FeeQuoter
-	RMNProxyNew        *rmn_proxy_contract.RMNProxyContract
+	OnRamp    *onramp.OnRamp
+	OffRamp   *offramp.OffRamp
+	FeeQuoter *fee_quoter.FeeQuoter
+	// We need 2 RMNProxy contracts because we are in the process of migrating to a new version.
+	// We will switch to the existing one once the migration is complete.
+	// This is the new RMNProxy contract that will be used for testing RMNRemote before migration.
+	// Initially RMNProxyNew will point to RMNRemote
+	RMNProxyNew *rmn_proxy_contract.RMNProxyContract
+	// Existing RMNProxy contract that is used in production, This already has existing 1.5 RMN set.
+	// once RMNRemote is tested with RMNProxyNew, as part of migration
+	// RMNProxyExisting will point to RMNRemote. This will switch over CCIP 1.5 to 1.6
 	RMNProxyExisting   *rmn_proxy_contract.RMNProxyContract
 	NonceManager       *nonce_manager.NonceManager
 	TokenAdminRegistry *token_admin_registry.TokenAdminRegistry

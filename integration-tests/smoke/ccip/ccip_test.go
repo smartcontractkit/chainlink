@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
@@ -17,7 +18,7 @@ import (
 func TestInitialDeployOnLocal(t *testing.T) {
 	t.Parallel()
 	lggr := logger.TestLogger(t)
-	tenv, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr)
+	tenv, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr, nil)
 	e := tenv.Env
 	state, err := changeset.LoadOnchainState(e)
 	require.NoError(t, err)
@@ -72,7 +73,7 @@ func TestInitialDeployOnLocal(t *testing.T) {
 func TestTokenTransfer(t *testing.T) {
 	t.Parallel()
 	lggr := logger.TestLogger(t)
-	tenv, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr)
+	tenv, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr, nil)
 	e := tenv.Env
 	state, err := changeset.LoadOnchainState(e)
 	require.NoError(t, err)
