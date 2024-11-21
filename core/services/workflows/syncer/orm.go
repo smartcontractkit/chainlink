@@ -36,14 +36,19 @@ type WorkflowSpecsDS interface {
 	CreateWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) (int64, error)
 }
 
-type WorkflowRegistryDS = WorkflowSecretsDS
+type ORM interface {
+	WorkflowSecretsDS
+	WorkflowSpecsDS
+}
+
+type WorkflowRegistryDS = ORM
 
 type orm struct {
 	ds   sqlutil.DataSource
 	lggr logger.Logger
 }
 
-var _ WorkflowSecretsDS = (*orm)(nil)
+var _ WorkflowRegistryDS = (*orm)(nil)
 
 func NewWorkflowRegistryDS(ds sqlutil.DataSource, lggr logger.Logger) *orm {
 	return &orm{

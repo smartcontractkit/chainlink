@@ -5,6 +5,7 @@ package mocks
 import (
 	context "context"
 
+	job "github.com/smartcontractkit/chainlink/v2/core/services/job"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -76,6 +77,63 @@ func (_c *ORM_Create_Call) Return(_a0 int64, _a1 error) *ORM_Create_Call {
 }
 
 func (_c *ORM_Create_Call) RunAndReturn(run func(context.Context, string, string, string) (int64, error)) *ORM_Create_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// CreateWorkflowSpec provides a mock function with given fields: ctx, spec
+func (_m *ORM) CreateWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) (int64, error) {
+	ret := _m.Called(ctx, spec)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateWorkflowSpec")
+	}
+
+	var r0 int64
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *job.WorkflowSpec) (int64, error)); ok {
+		return rf(ctx, spec)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *job.WorkflowSpec) int64); ok {
+		r0 = rf(ctx, spec)
+	} else {
+		r0 = ret.Get(0).(int64)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *job.WorkflowSpec) error); ok {
+		r1 = rf(ctx, spec)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ORM_CreateWorkflowSpec_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateWorkflowSpec'
+type ORM_CreateWorkflowSpec_Call struct {
+	*mock.Call
+}
+
+// CreateWorkflowSpec is a helper method to define mock.On call
+//   - ctx context.Context
+//   - spec *job.WorkflowSpec
+func (_e *ORM_Expecter) CreateWorkflowSpec(ctx interface{}, spec interface{}) *ORM_CreateWorkflowSpec_Call {
+	return &ORM_CreateWorkflowSpec_Call{Call: _e.mock.On("CreateWorkflowSpec", ctx, spec)}
+}
+
+func (_c *ORM_CreateWorkflowSpec_Call) Run(run func(ctx context.Context, spec *job.WorkflowSpec)) *ORM_CreateWorkflowSpec_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*job.WorkflowSpec))
+	})
+	return _c
+}
+
+func (_c *ORM_CreateWorkflowSpec_Call) Return(_a0 int64, _a1 error) *ORM_CreateWorkflowSpec_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ORM_CreateWorkflowSpec_Call) RunAndReturn(run func(context.Context, *job.WorkflowSpec) (int64, error)) *ORM_CreateWorkflowSpec_Call {
 	_c.Call.Return(run)
 	return _c
 }

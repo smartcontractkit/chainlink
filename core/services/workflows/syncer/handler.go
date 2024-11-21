@@ -101,7 +101,7 @@ type eventHandler struct {
 // newEventHandler returns a new eventHandler instance.
 func newEventHandler(
 	lggr logger.Logger,
-	orm WorkflowSecretsDS,
+	orm ORM,
 	gateway FetcherFunc,
 	workflowStore store.Store,
 	capRegistry core.CapabilitiesRegistry,
