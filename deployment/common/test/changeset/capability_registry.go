@@ -2,12 +2,14 @@ package changeset
 
 import (
 	"fmt"
+	"testing"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
 	"github.com/smartcontractkit/chainlink/deployment/keystone"
+	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 )
 
@@ -16,7 +18,8 @@ type HydrateConfig struct {
 }
 
 // HydrateCapabilityRegistry deploys a new capabilities registry contract and hydrates it with the provided data.
-func HydrateCapabilityRegistry(v v1_0.CapabilityRegistryView, env deployment.Environment, cfg HydrateConfig) (*deployment.ContractDeploy[*capabilities_registry.CapabilitiesRegistry], error) {
+func HydrateCapabilityRegistry(t *testing.T, v v1_0.CapabilityRegistryView, env deployment.Environment, cfg HydrateConfig) (*capabilities_registry.CapabilitiesRegistry, error) {
+	t.Helper()
 	chainSelector, err := chainsel.SelectorFromChainId(cfg.ChainID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chain selector from chain id: %w", err)
@@ -25,31 +28,19 @@ func HydrateCapabilityRegistry(v v1_0.CapabilityRegistryView, env deployment.Env
 	if !ok {
 		return nil, fmt.Errorf("chain with id %d not found", cfg.ChainID)
 	}
-	deployedContract, err := deployment.DeployContract(
-		env.Logger, chain, env.ExistingAddresses,
-		func(chain deployment.Chain) deployment.ContractDeploy[*capabilities_registry.CapabilitiesRegistry] {
-			crAddr, tx, cr, err2 := capabilities_registry.DeployCapabilitiesRegistry(
-				chain.DeployerKey,
-				chain.Client,
-			)
-			return deployment.ContractDeploy[*capabilities_registry.CapabilitiesRegistry]{
-				Address: crAddr, Contract: cr, Tx: tx, Err: err2,
-				Tv: deployment.NewTypeAndVersion("CapabilitiesRegistry", deployment.Version1_0_0),
-			}
-		},
-	)
+	_, deployedContract, err := changeset.DeployCapabilityRegistry(env, chainSelector)
 	if err != nil {
 		return nil, fmt.Errorf("failed to deploy contract: %w", err)
 	}
 
 	nopsParams := v.NopsToNopsParams()
-	tx, err := deployedContract.Contract.AddNodeOperators(chain.DeployerKey, nopsParams)
+	tx, err := deployedContract.AddNodeOperators(chain.DeployerKey, nopsParams)
 	if _, err = deployment.ConfirmIfNoError(chain, tx, keystone.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)); err != nil {
 		return nil, fmt.Errorf("failed to add node operators: %w", err)
 	}
 
 	capabilitiesParams := v.CapabilitiesToCapabilitiesParams()
-	tx, err = deployedContract.Contract.AddCapabilities(chain.DeployerKey, capabilitiesParams)
+	tx, err = deployedContract.AddCapabilities(chain.DeployerKey, capabilitiesParams)
 	if _, err = deployment.ConfirmIfNoError(chain, tx, keystone.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)); err != nil {
 		return nil, fmt.Errorf("failed to add capabilities: %w", err)
 	}
@@ -58,7 +49,7 @@ func HydrateCapabilityRegistry(v v1_0.CapabilityRegistryView, env deployment.Env
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert nodes to nodes params: %w", err)
 	}
-	tx, err = deployedContract.Contract.AddNodes(chain.DeployerKey, nodesParams)
+	tx, err = deployedContract.AddNodes(chain.DeployerKey, nodesParams)
 	if _, err = deployment.ConfirmIfNoError(chain, tx, keystone.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)); err != nil {
 		return nil, fmt.Errorf("failed to add nodes: %w", err)
 	}
@@ -72,7 +63,7 @@ func HydrateCapabilityRegistry(v v1_0.CapabilityRegistryView, env deployment.Env
 		for _, id := range don.NodeP2PIds {
 			peerIds = append(peerIds, id)
 		}
-		tx, err = deployedContract.Contract.AddDON(chain.DeployerKey, peerIds, cfgs, don.IsPublic, don.AcceptsWorkflows, don.F)
+		tx, err = deployedContract.AddDON(chain.DeployerKey, peerIds, cfgs, don.IsPublic, don.AcceptsWorkflows, don.F)
 		if _, err = deployment.ConfirmIfNoError(chain, tx, keystone.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)); err != nil {
 			return nil, fmt.Errorf("failed to add don: %w", err)
 		}

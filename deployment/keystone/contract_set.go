@@ -4,7 +4,9 @@ import (
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 )
 
 type deployContractsRequest struct {
@@ -28,7 +30,7 @@ func deployContractsToChain(lggr logger.Logger, req deployContractsRequest) (*de
 
 	// cap reg and ocr3 only deployed on registry chain
 	if req.isRegistryChain {
-		err := DeployCapabilitiesRegistry(lggr, req.chain, resp.AddressBook)
+		_, err := DeployCapabilitiesRegistry(lggr, req.chain, resp.AddressBook)
 		if err != nil {
 			return nil, fmt.Errorf("failed to deploy CapabilitiesRegistry: %w", err)
 		}
@@ -46,18 +48,18 @@ func deployContractsToChain(lggr logger.Logger, req deployContractsRequest) (*de
 
 // DeployCapabilitiesRegistry deploys the CapabilitiesRegistry contract to the chain
 // and saves the address in the address book. This mutates the address book.
-func DeployCapabilitiesRegistry(lggr logger.Logger, chain deployment.Chain, ab deployment.AddressBook) error {
+func DeployCapabilitiesRegistry(lggr logger.Logger, chain deployment.Chain, ab deployment.AddressBook) (*capabilities_registry.CapabilitiesRegistry, error) {
 	capabilitiesRegistryDeployer := CapabilitiesRegistryDeployer{lggr: lggr}
 	capabilitiesRegistryResp, err := capabilitiesRegistryDeployer.Deploy(DeployRequest{Chain: chain})
 	if err != nil {
-		return fmt.Errorf("failed to deploy CapabilitiesRegistry: %w", err)
+		return nil, fmt.Errorf("failed to deploy CapabilitiesRegistry: %w", err)
 	}
 	err = ab.Save(chain.Selector, capabilitiesRegistryResp.Address.String(), capabilitiesRegistryResp.Tv)
 	if err != nil {
-		return fmt.Errorf("failed to save CapabilitiesRegistry: %w", err)
+		return nil, fmt.Errorf("failed to save CapabilitiesRegistry: %w", err)
 	}
 	lggr.Infof("Deployed %s chain selector %d addr %s", capabilitiesRegistryResp.Tv.String(), chain.Selector, capabilitiesRegistryResp.Address.String())
-	return nil
+	return capabilitiesRegistryDeployer.Contract(), nil
 }
 
 // DeployOCR3 deploys the OCR3Capability contract to the chain

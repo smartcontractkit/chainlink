@@ -12,7 +12,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -30,26 +29,18 @@ func TestHydrateCapabilityRegistry(t *testing.T) {
 		Chains:     2,
 		Nodes:      4,
 	})
-	hydrated, err := HydrateCapabilityRegistry(capabilityRegistryView, env, cfg)
+	hydrated, err := HydrateCapabilityRegistry(t, capabilityRegistryView, env, cfg)
 	require.NoError(t, err)
 	require.NotNil(t, hydrated)
-
-	chainSelector, err := chainsel.SelectorFromChainId(chainID)
-	require.NoError(t, err)
-	chain, ok := env.Chains[chainSelector]
-	require.True(t, ok)
-	capabilityRegistry, err := capabilities_registry.NewCapabilitiesRegistry(hydrated.Address, chain.Client)
-	require.NoError(t, err)
-	require.NotNil(t, capabilityRegistry)
-	capView, err := v1_0.GenerateCapabilityRegistryView(capabilityRegistry)
+	hydratedCapView, err := v1_0.GenerateCapabilityRegistryView(hydrated)
 	require.NoError(t, err)
 
 	// Setting address/owner values to be the same in order to compare the views
-	capView.Address = capabilityRegistryView.Address
-	capView.Owner = capabilityRegistryView.Owner
+	hydratedCapView.Address = capabilityRegistryView.Address
+	hydratedCapView.Owner = capabilityRegistryView.Owner
 	b1, err := capabilityRegistryView.MarshalJSON()
 	require.NoError(t, err)
-	b2, err := capView.MarshalJSON()
+	b2, err := hydratedCapView.MarshalJSON()
 	require.NoError(t, err)
 	require.Equal(t, string(b1), string(b2))
 }

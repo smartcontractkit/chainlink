@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
@@ -22,7 +23,7 @@ func TestDeployCapabilityRegistry(t *testing.T) {
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 
 	registrySel := env.AllChainSelectors()[0]
-	resp, err := changeset.DeployCapabilityRegistry(env, registrySel)
+	resp, _, err := changeset.DeployCapabilityRegistry(env, registrySel)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	// capabilities registry should be deployed on chain 0
