@@ -332,7 +332,6 @@ func NodeInfo(nodeIDs []string, oc NodeChainConfigsLister) (Nodes, error) {
 			// Might make sense to change proto as peerID/multiAddr is 1-1 with nodeID?
 			peerID = MustPeerIDFromString(chainConfig.Ocr2Config.P2PKeyBundle.PeerId)
 			multiAddr = chainConfig.Ocr2Config.Multiaddr
-			adminAddr = chainConfig.AdminAddress
 			if chainConfig.Ocr2Config.IsBootstrap {
 				// NOTE: Assume same peerID for all chains.
 				// Might make sense to change proto as peerID is 1-1 with nodeID?
@@ -364,6 +363,8 @@ func NodeInfo(nodeIDs []string, oc NodeChainConfigsLister) (Nodes, error) {
 					return nil, err
 				}
 			case nodev1.ChainType_CHAIN_TYPE_EVM:
+				// NOTE: Assume same adminAddr for all chains. We always use EVM addr
+				adminAddr = chainConfig.AdminAddress
 				details, err = chain_selectors.GetChainDetailsByChainIDAndFamily(chainConfig.Chain.Id, chain_selectors.FamilyEVM)
 				if err != nil {
 					return nil, err

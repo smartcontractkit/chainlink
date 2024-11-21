@@ -639,11 +639,11 @@ func registerNodes(lggr logger.Logger, req *registerNodesRequest) (*registerNode
 	// TODO: deduplicate everywhere
 	registryChainID, err := chainsel.ChainIdFromSelector(req.chain.Selector)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	registryChainDetails, err := chainsel.GetChainDetailsByChainIDAndFamily(strconv.Itoa(int(registryChainID)), chainsel.FamilyEVM)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	nodeIDToParams := make(map[string]kcr.CapabilitiesRegistryNodeParams)
@@ -669,7 +669,10 @@ func registerNodes(lggr logger.Logger, req *registerNodesRequest) (*registerNode
 			params, ok := nodeIDToParams[n.NodeID]
 
 			if !ok {
-				evmCC := n.SelToOCRConfig[registryChainDetails]
+				evmCC, exists := n.SelToOCRConfig[registryChainDetails]
+				if !exists {
+					return nil, fmt.Errorf("config for selector not found on node: %v", req.chain.Selector)
+				}
 				var signer [32]byte
 				copy(signer[:], evmCC.OnchainPublicKey)
 				var csakey [32]byte
@@ -905,7 +908,7 @@ func configureForwarder(lggr logger.Logger, chain deployment.Chain, fwdr *kf.Key
 			continue
 		}
 		ver := dn.Info.ConfigCount // note config count on the don info is the version on the forwarder
-		signers := dn.signers(chain.Selector)
+		signers := dn.signers(chainsel.FamilyEVM)
 		tx, err := fwdr.SetConfig(chain.DeployerKey, dn.Info.Id, ver, dn.Info.F, signers)
 		if err != nil {
 			err = DecodeErr(kf.KeystoneForwarderABI, err)

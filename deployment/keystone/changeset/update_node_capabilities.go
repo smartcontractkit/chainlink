@@ -23,19 +23,21 @@ func NewP2PSignerEnc(n *deployment.Node, registryChainSel uint64) (*P2PSignerEnc
 	// TODO: deduplicate everywhere
 	registryChainID, err := chainsel.ChainIdFromSelector(registryChainSel)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	registryChainDetails, err := chainsel.GetChainDetailsByChainIDAndFamily(strconv.Itoa(int(registryChainID)), chainsel.FamilyEVM)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	evmCC := n.SelToOCRConfig[registryChainDetails]
+	evmCC, exists := n.SelToOCRConfig[registryChainDetails]
+	if !exists {
+		return nil, fmt.Errorf("NewP2PSignerEnc: registryChainSel not found on node: %v", registryChainSel)
+	}
 	var signer [32]byte
 	copy(signer[:], evmCC.OnchainPublicKey)
 	var csakey [32]byte
 	copy(csakey[:], evmCC.ConfigEncryptionPublicKey[:])
 
-	// TODO: return error return value
 	return &P2PSignerEnc{
 		Signer:              signer,
 		P2PKey:              n.PeerID,

@@ -3,6 +3,7 @@ package internal_test
 import (
 	"bytes"
 	"encoding/hex"
+	"fmt"
 	"math/big"
 	"sort"
 	"strconv"
@@ -189,14 +190,21 @@ func newNode(t *testing.T, cfg minimalNodeCfg) deployment.Node {
 	signingAddr, err := hex.DecodeString(cfg.signingAddr)
 	require.NoError(t, err)
 
+	var pubkey [32]byte
+	if _, err := hex.Decode(pubkey[:], []byte(cfg.pubKey)); err != nil {
+		panic(fmt.Sprintf("failed to decode pubkey %s: %v", pubkey, err))
+	}
+
 	return deployment.Node{
 		NodeID:    cfg.id,
+		PeerID:    cfg.p2p.PeerID(),
 		CSAKey:    cfg.pubKey,
 		AdminAddr: cfg.admin.String(),
 		SelToOCRConfig: map[chainsel.ChainDetails]deployment.OCRConfig{
 			registryChainDetails: {
-				OnchainPublicKey: signingAddr,
-				PeerID:           cfg.p2p.PeerID(),
+				OnchainPublicKey:          signingAddr,
+				PeerID:                    cfg.p2p.PeerID(),
+				ConfigEncryptionPublicKey: pubkey,
 			},
 		},
 	}
@@ -303,13 +311,5 @@ func testDon(t *testing.T, don kslib.DonInfo) kstest.Don {
 		Name:              don.Name,
 		P2PIDs:            p2pids,
 		CapabilityConfigs: capabilityConfigs,
-	}
-}
-
-func newP2PSignerEnc(signer [32]byte, p2pkey p2pkey.PeerID, encryptionPublicKey [32]byte) *internal.P2PSignerEnc {
-	return &internal.P2PSignerEnc{
-		Signer:              signer,
-		P2PKey:              p2pkey,
-		EncryptionPublicKey: encryptionPublicKey,
 	}
 }
