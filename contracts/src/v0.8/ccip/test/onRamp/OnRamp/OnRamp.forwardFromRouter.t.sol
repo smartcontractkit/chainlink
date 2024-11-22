@@ -425,10 +425,13 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
     s_tokenAdminRegistry.setPool(sourceETH, address(newPool));
 
     // Allow chain in TokenPool
+    bytes[] memory remotePoolAddresses = new bytes[](1);
+    remotePoolAddresses[0] = abi.encode(s_destTokenPool);
+
     TokenPool.ChainUpdate[] memory chainUpdates = new TokenPool.ChainUpdate[](1);
     chainUpdates[0] = TokenPool.ChainUpdate({
       remoteChainSelector: DEST_CHAIN_SELECTOR,
-      remotePoolAddress: abi.encode(s_destTokenPool),
+      remotePoolAddresses: remotePoolAddresses,
       remoteTokenAddress: abi.encode(s_destToken),
       outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
       inboundRateLimiterConfig: _getInboundRateLimiterConfig()

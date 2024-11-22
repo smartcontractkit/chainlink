@@ -203,9 +203,12 @@ contract TokenPoolFactory is ITypeAndVersion {
           abi.encode(salt.computeAddress(remotePoolInitcodeHash, remoteTokenPool.remoteChainConfig.remotePoolFactory));
       }
 
+      bytes[] memory remotePoolAddresses = new bytes[](1);
+      remotePoolAddresses[0] = remoteTokenPool.remotePoolAddress;
+
       chainUpdates[i] = TokenPool.ChainUpdate({
         remoteChainSelector: remoteTokenPool.remoteChainSelector,
-        remotePoolAddress: remoteTokenPool.remotePoolAddress,
+        remotePoolAddresses: remotePoolAddresses,
         remoteTokenAddress: remoteTokenPool.remoteTokenAddress,
         outboundRateLimiterConfig: remoteTokenPool.rateLimiterConfig,
         inboundRateLimiterConfig: remoteTokenPool.rateLimiterConfig

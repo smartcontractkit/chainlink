@@ -22,10 +22,13 @@ contract TokenPoolSetup is RouterSetup {
 
     s_tokenPool = new TokenPoolHelper(s_token, new address[](0), address(s_mockRMN), address(s_sourceRouter));
 
+    bytes[] memory remotePoolAddresses = new bytes[](1);
+    remotePoolAddresses[0] = abi.encode(s_initialRemotePool);
+
     TokenPool.ChainUpdate[] memory chainUpdate = new TokenPool.ChainUpdate[](1);
     chainUpdate[0] = TokenPool.ChainUpdate({
       remoteChainSelector: DEST_CHAIN_SELECTOR,
-      remotePoolAddress: abi.encode(s_initialRemotePool),
+      remotePoolAddresses: remotePoolAddresses,
       remoteTokenAddress: abi.encode(s_initialRemoteToken),
       outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
       inboundRateLimiterConfig: _getInboundRateLimiterConfig()

@@ -150,10 +150,13 @@ contract TokenSetup is RouterSetup {
 
     tokenAdminRegistry.setPool(token, pool);
 
+    bytes[] memory remotePoolAddresses = new bytes[](1);
+    remotePoolAddresses[0] = abi.encode(remotePoolAddress);
+
     TokenPool.ChainUpdate[] memory chainUpdates = new TokenPool.ChainUpdate[](1);
     chainUpdates[0] = TokenPool.ChainUpdate({
       remoteChainSelector: remoteChainSelector,
-      remotePoolAddress: abi.encode(remotePoolAddress),
+      remotePoolAddresses: remotePoolAddresses,
       remoteTokenAddress: abi.encode(remoteToken),
       outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
       inboundRateLimiterConfig: _getInboundRateLimiterConfig()

@@ -142,7 +142,7 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
     TokenPool.ChainUpdate[] memory chainUpdates = new TokenPool.ChainUpdate[](1);
     chainUpdates[0] = TokenPool.ChainUpdate({
       remoteChainSelector: wrongDomain,
-      remotePoolAddress: abi.encode(address(1)),
+      remotePoolAddresses: new bytes[](0),
       remoteTokenAddress: abi.encode(address(2)),
       outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
       inboundRateLimiterConfig: _getInboundRateLimiterConfig()

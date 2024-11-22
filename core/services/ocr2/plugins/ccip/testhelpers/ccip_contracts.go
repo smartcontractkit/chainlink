@@ -895,7 +895,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 		[]uint64{},
 		[]lock_release_token_pool.TokenPoolChainUpdate{{
 			RemoteChainSelector: DestChainSelector,
-			RemotePoolAddress:   abiEncodedDestLinkPool,
+			RemotePoolAddresses: [][]byte{abiEncodedDestLinkPool},
 			RemoteTokenAddress:  abiEncodedDestLinkTokenAddress,
 			OutboundRateLimiterConfig: lock_release_token_pool.RateLimiterConfig{
 				IsEnabled: true,
@@ -920,7 +920,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 		[]uint64{},
 		[]lock_release_token_pool.TokenPoolChainUpdate{{
 			RemoteChainSelector: DestChainSelector,
-			RemotePoolAddress:   abiEncodedDestWrappedPool,
+			RemotePoolAddresses: [][]byte{abiEncodedDestWrappedPool},
 			RemoteTokenAddress:  abiEncodedDestWrappedTokenAddr,
 			OutboundRateLimiterConfig: lock_release_token_pool.RateLimiterConfig{
 				IsEnabled: true,
@@ -946,7 +946,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 		[]uint64{},
 		[]lock_release_token_pool.TokenPoolChainUpdate{{
 			RemoteChainSelector: SourceChainSelector,
-			RemotePoolAddress:   abiEncodedSourceLinkPool,
+			RemotePoolAddresses: [][]byte{abiEncodedSourceLinkPool},
 			RemoteTokenAddress:  abiEncodedSourceLinkTokenAddr,
 			OutboundRateLimiterConfig: lock_release_token_pool.RateLimiterConfig{
 				IsEnabled: true,
@@ -971,7 +971,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 		[]uint64{},
 		[]lock_release_token_pool.TokenPoolChainUpdate{{
 			RemoteChainSelector: SourceChainSelector,
-			RemotePoolAddress:   abiEncodedSourceWrappedPool,
+			RemotePoolAddresses: [][]byte{abiEncodedSourceWrappedPool},
 			RemoteTokenAddress:  abiEncodedSourceWrappedTokenAddr,
 			OutboundRateLimiterConfig: lock_release_token_pool.RateLimiterConfig{
 				IsEnabled: true,

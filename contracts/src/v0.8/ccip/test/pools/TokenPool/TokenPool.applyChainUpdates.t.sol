@@ -62,17 +62,23 @@ contract TokenPool_applyChainUpdates is RouterSetup {
     bytes memory nonEvmRemotePool = abi.encode(keccak256("non_evm_remote_pool"));
     bytes memory nonEvmRemoteToken = abi.encode(keccak256("non_evm_remote_token"));
 
+    bytes[] memory evmRemotePools = new bytes[](1);
+    evmRemotePools[0] = evmRemotePool;
+
+    bytes[] memory nonEvmRemotePools = new bytes[](1);
+    nonEvmRemotePools[0] = nonEvmRemotePool;
+
     TokenPool.ChainUpdate[] memory chainUpdates = new TokenPool.ChainUpdate[](2);
     chainUpdates[0] = TokenPool.ChainUpdate({
       remoteChainSelector: evmChainSelector,
-      remotePoolAddress: evmRemotePool,
+      remotePoolAddresses: evmRemotePools,
       remoteTokenAddress: evmRemoteToken,
       outboundRateLimiterConfig: outboundRateLimit1,
       inboundRateLimiterConfig: inboundRateLimit1
     });
     chainUpdates[1] = TokenPool.ChainUpdate({
       remoteChainSelector: nonEvmChainSelector,
-      remotePoolAddress: nonEvmRemotePool,
+      remotePoolAddresses: nonEvmRemotePools,
       remoteTokenAddress: nonEvmRemoteToken,
       outboundRateLimiterConfig: outboundRateLimit2,
       inboundRateLimiterConfig: inboundRateLimit2
@@ -206,10 +212,13 @@ contract TokenPool_applyChainUpdates is RouterSetup {
   }
 
   function test_applyChainUpdates_ZeroAddressNotAllowed_Revert() public {
+    bytes[] memory remotePoolAddresses = new bytes[](1);
+    remotePoolAddresses[0] = "";
+
     TokenPool.ChainUpdate[] memory chainUpdates = new TokenPool.ChainUpdate[](1);
     chainUpdates[0] = TokenPool.ChainUpdate({
       remoteChainSelector: 1,
-      remotePoolAddress: "",
+      remotePoolAddresses: remotePoolAddresses,
       remoteTokenAddress: abi.encode(address(2)),
       outboundRateLimiterConfig: RateLimiter.Config({isEnabled: true, capacity: 100e28, rate: 1e18}),
       inboundRateLimiterConfig: RateLimiter.Config({isEnabled: true, capacity: 100e28, rate: 1e18})
@@ -221,7 +230,7 @@ contract TokenPool_applyChainUpdates is RouterSetup {
     chainUpdates = new TokenPool.ChainUpdate[](1);
     chainUpdates[0] = TokenPool.ChainUpdate({
       remoteChainSelector: 1,
-      remotePoolAddress: abi.encode(address(2)),
+      remotePoolAddresses: new bytes[](0),
       remoteTokenAddress: "",
       outboundRateLimiterConfig: RateLimiter.Config({isEnabled: true, capacity: 100e28, rate: 1e18}),
       inboundRateLimiterConfig: RateLimiter.Config({isEnabled: true, capacity: 100e28, rate: 1e18})
@@ -245,7 +254,7 @@ contract TokenPool_applyChainUpdates is RouterSetup {
     TokenPool.ChainUpdate[] memory chainUpdates = new TokenPool.ChainUpdate[](1);
     chainUpdates[0] = TokenPool.ChainUpdate({
       remoteChainSelector: unusedChainSelector,
-      remotePoolAddress: abi.encode(address(1)),
+      remotePoolAddresses: new bytes[](0),
       remoteTokenAddress: abi.encode(address(2)),
       outboundRateLimiterConfig: RateLimiter.Config({isEnabled: true, capacity: 0, rate: 0}),
       inboundRateLimiterConfig: RateLimiter.Config({isEnabled: true, capacity: 100e22, rate: 1e12})

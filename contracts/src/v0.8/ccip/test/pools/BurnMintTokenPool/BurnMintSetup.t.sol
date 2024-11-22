@@ -24,10 +24,13 @@ contract BurnMintSetup is RouterSetup {
   function _applyChainUpdates(
     address pool
   ) internal {
+    bytes[] memory remotePoolAddresses = new bytes[](1);
+    remotePoolAddresses[0] = abi.encode(s_remoteBurnMintPool);
+
     TokenPool.ChainUpdate[] memory chainsToAdd = new TokenPool.ChainUpdate[](1);
     chainsToAdd[0] = TokenPool.ChainUpdate({
       remoteChainSelector: DEST_CHAIN_SELECTOR,
-      remotePoolAddress: abi.encode(s_remoteBurnMintPool),
+      remotePoolAddresses: remotePoolAddresses,
       remoteTokenAddress: abi.encode(s_remoteToken),
       outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
       inboundRateLimiterConfig: _getInboundRateLimiterConfig()

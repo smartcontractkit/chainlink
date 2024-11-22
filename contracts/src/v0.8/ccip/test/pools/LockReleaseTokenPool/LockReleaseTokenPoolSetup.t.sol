@@ -33,10 +33,13 @@ contract LockReleaseTokenPoolSetup is RouterSetup {
     s_lockReleaseTokenPoolWithAllowList =
       new LockReleaseTokenPool(s_token, s_allowedList, address(s_mockRMN), true, address(s_sourceRouter));
 
+    bytes[] memory remotePoolAddresses = new bytes[](1);
+    remotePoolAddresses[0] = abi.encode(s_destPoolAddress);
+
     TokenPool.ChainUpdate[] memory chainUpdate = new TokenPool.ChainUpdate[](1);
     chainUpdate[0] = TokenPool.ChainUpdate({
       remoteChainSelector: DEST_CHAIN_SELECTOR,
-      remotePoolAddress: abi.encode(s_destPoolAddress),
+      remotePoolAddresses: remotePoolAddresses,
       remoteTokenAddress: abi.encode(address(2)),
       outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
       inboundRateLimiterConfig: _getInboundRateLimiterConfig()

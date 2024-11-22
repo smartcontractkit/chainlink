@@ -61,7 +61,7 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
 
   struct ChainUpdate {
     uint64 remoteChainSelector; // Remote chain selector
-    bytes remotePoolAddress; // Address of the remote pool, ABI encoded in the case of a remote EVM chain.
+    bytes[] remotePoolAddresses; // Address of the remote pool, ABI encoded in the case of a remote EVM chain.
     bytes remoteTokenAddress; // Address of the remote token, ABI encoded in the case of a remote EVM chain.
     RateLimiter.Config outboundRateLimiterConfig; // Outbound rate limited config, meaning the rate limits for all of the onRamps for the given chain
     RateLimiter.Config inboundRateLimiterConfig; // Inbound rate limited config, meaning the rate limits for all of the offRamps for the given chain
@@ -246,18 +246,7 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
   function addRemotePool(uint64 remoteChainSelector, bytes calldata remotePoolAddress) external onlyOwner {
     if (!isSupportedChain(remoteChainSelector)) revert NonExistentChain(remoteChainSelector);
 
-    if (remotePoolAddress.length == 0) {
-      revert ZeroAddressNotAllowed();
-    }
-
-    // Check if the pool already exists
-    if (!s_remoteChainConfigs[remoteChainSelector].remotePools.add(keccak256(remotePoolAddress))) {
-      revert PoolAlreadyAdded(remoteChainSelector, remotePoolAddress);
-    }
-
-    s_remotePoolAddresses[keccak256(remotePoolAddress)] = remotePoolAddress;
-
-    emit RemotePoolAdded(remoteChainSelector, remotePoolAddress);
+    _setRemotePool(remoteChainSelector, remotePoolAddress);
   }
 
   /// @notice Removes the remote pool address for a given chain selector.
@@ -325,13 +314,13 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
       RateLimiter._validateTokenBucketConfig(newChain.outboundRateLimiterConfig, false);
       RateLimiter._validateTokenBucketConfig(newChain.inboundRateLimiterConfig, false);
 
+      if (newChain.remoteTokenAddress.length == 0) {
+        revert ZeroAddressNotAllowed();
+      }
+
       // If the chain already exists, revert
       if (!s_remoteChainSelectors.add(newChain.remoteChainSelector)) {
         revert ChainAlreadyExists(newChain.remoteChainSelector);
-      }
-
-      if (newChain.remotePoolAddress.length == 0 || newChain.remoteTokenAddress.length == 0) {
-        revert ZeroAddressNotAllowed();
       }
 
       RemoteChainConfig storage remoteChainConfig = s_remoteChainConfigs[newChain.remoteChainSelector];
@@ -351,8 +340,10 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
         isEnabled: newChain.inboundRateLimiterConfig.isEnabled
       });
       remoteChainConfig.remoteTokenAddress = newChain.remoteTokenAddress;
-      remoteChainConfig.remotePools.add(keccak256(newChain.remotePoolAddress));
-      s_remotePoolAddresses[keccak256(newChain.remotePoolAddress)] = newChain.remotePoolAddress;
+
+      for (uint256 j = 0; j < newChain.remotePoolAddresses.length; ++j) {
+        _setRemotePool(newChain.remoteChainSelector, newChain.remotePoolAddresses[j]);
+      }
 
       emit ChainAdded(
         newChain.remoteChainSelector,
@@ -361,6 +352,24 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
         newChain.inboundRateLimiterConfig
       );
     }
+  }
+
+  function _setRemotePool(uint64 remoteChainSelector, bytes memory remotePoolAddress) internal {
+    if (remotePoolAddress.length == 0) {
+      revert ZeroAddressNotAllowed();
+    }
+
+    bytes32 poolHash = keccak256(remotePoolAddress);
+
+    // Check if the pool already exists.
+    if (!s_remoteChainConfigs[remoteChainSelector].remotePools.add(poolHash)) {
+      revert PoolAlreadyAdded(remoteChainSelector, remotePoolAddress);
+    }
+
+    // Add the pool to the mapping to be able to un-hash it later.
+    s_remotePoolAddresses[poolHash] = remotePoolAddress;
+
+    emit RemotePoolAdded(remoteChainSelector, remotePoolAddress);
   }
 
   // ================================================================

@@ -10,10 +10,14 @@ import {LockReleaseTokenPoolSetup} from "./LockReleaseTokenPoolSetup.t.sol";
 contract LockReleaseTokenPool_releaseOrMint is LockReleaseTokenPoolSetup {
   function setUp() public virtual override {
     LockReleaseTokenPoolSetup.setUp();
+
+    bytes[] memory remotePoolAddresses = new bytes[](1);
+    remotePoolAddresses[0] = abi.encode(s_sourcePoolAddress);
+
     TokenPool.ChainUpdate[] memory chainUpdate = new TokenPool.ChainUpdate[](1);
     chainUpdate[0] = TokenPool.ChainUpdate({
       remoteChainSelector: SOURCE_CHAIN_SELECTOR,
-      remotePoolAddress: abi.encode(s_sourcePoolAddress),
+      remotePoolAddresses: remotePoolAddresses,
       remoteTokenAddress: abi.encode(address(2)),
       outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
       inboundRateLimiterConfig: _getInboundRateLimiterConfig()
