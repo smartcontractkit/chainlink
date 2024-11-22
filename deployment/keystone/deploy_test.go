@@ -8,26 +8,24 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/stretchr/testify/assert"
-	"github.com/test-go/testify/require"
-	"go.uber.org/zap/zapcore"
-	"golang.org/x/exp/maps"
-
 	chainsel "github.com/smartcontractkit/chain-selectors"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/clo"
 	"github.com/smartcontractkit/chainlink/deployment/environment/clo/models"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/deployment/keystone"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/test-go/testify/require"
+	"go.uber.org/zap/zapcore"
+	"golang.org/x/exp/maps"
 )
 
 func TestDeploy(t *testing.T) {
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 
 	// sepolia; all nodes are on the this chain
 	sepoliaChainId := uint64(11155111)
@@ -226,7 +224,7 @@ func nodeOperatorsToIDs(t *testing.T, nops []*models.NodeOperator) (nodeIDs []ke
 }
 
 func TestDeployCLO(t *testing.T) {
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 
 	wfNops := loadTestNops(t, "testdata/workflow_nodes.json")
 	cwNops := loadTestNops(t, "testdata/chain_writer_nodes.json")
