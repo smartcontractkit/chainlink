@@ -63,8 +63,9 @@ contract TokenSetup is RouterSetup {
       router = address(s_destRouter);
     }
 
-    BurnMintTokenPool pool =
-      new MaybeRevertingBurnMintTokenPool(BurnMintERC20(token), DEFAULT_TOKEN_DECIMALS, new address[](0), address(s_mockRMN), router);
+    BurnMintTokenPool pool = new MaybeRevertingBurnMintTokenPool(
+      BurnMintERC20(token), DEFAULT_TOKEN_DECIMALS, new address[](0), address(s_mockRMN), router
+    );
     BurnMintERC20(token).grantMintAndBurnRoles(address(pool));
 
     if (isSourcePool) {

@@ -416,7 +416,11 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
     vm.startPrank(OWNER);
 
     MaybeRevertingBurnMintTokenPool newPool = new MaybeRevertingBurnMintTokenPool(
-      BurnMintERC20(sourceETH), DEFAULT_TOKEN_DECIMALS, new address[](0), address(s_mockRMNRemote), address(s_sourceRouter)
+      BurnMintERC20(sourceETH),
+      DEFAULT_TOKEN_DECIMALS,
+      new address[](0),
+      address(s_mockRMNRemote),
+      address(s_sourceRouter)
     );
     BurnMintERC20(sourceETH).grantMintAndBurnRoles(address(newPool));
     deal(address(sourceETH), address(newPool), type(uint256).max);

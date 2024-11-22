@@ -38,6 +38,6 @@ contract BurnWithFromMintTokenPool is BurnMintTokenPoolAbstract, ITypeAndVersion
   }
 
   function typeAndVersion() external pure virtual override returns (string memory) {
-    return "BurnWithFromMintTokenPool 1.7.0-dev";
+    return "BurnWithFromMintTokenPool 1.5.1";
   }
 }

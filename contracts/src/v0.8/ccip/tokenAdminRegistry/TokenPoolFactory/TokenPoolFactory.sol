@@ -52,7 +52,7 @@ contract TokenPoolFactory is ITypeAndVersion {
     address remoteRMNProxy; // The RMNProxy contract on the remote chain
   }
 
-  string public constant typeAndVersion = "TokenPoolFactory 1.7.0-dev";
+  string public constant typeAndVersion = "TokenPoolFactory 1.5.1";
 
   ITokenAdminRegistry private immutable i_tokenAdminRegistry;
   RegistryModuleOwnerCustom private immutable i_registryModuleOwnerCustom;
