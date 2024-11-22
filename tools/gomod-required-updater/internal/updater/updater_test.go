@@ -83,6 +83,9 @@ func (m *mockSystemOperator) WriteFile(path string, data []byte, perm uint32) er
 }
 
 func TestUpdater_Run(t *testing.T) {
+	testTime := time.Date(2024, 11, 22, 18, 21, 10, 0, time.UTC)
+	testSHA := "ac7a7395feed"
+
 	tests := []struct {
 		name     string
 		config   *Config
@@ -157,12 +160,12 @@ require github.com/example/mod v1.0.0
 			name: "updates v2 module with timestamp",
 			config: &Config{
 				ModulesToUpdate: []string{"github.com/smartcontractkit/chainlink/v2"},
+				RepoRemote: "origin",
+				BranchTrunk: "develop",
 			},
 			modOp: &mockModuleOperator{
-				version: module.Version{
-					Path:    "github.com/smartcontractkit/chainlink/v2",
-					Version: "v2.0.0-20241122182110-ac7a7395feed",
-				},
+				sha: "ac7a7395feed", // Set exact SHA
+				updateTime: time.Date(2024, 11, 22, 18, 21, 10, 0, time.UTC), // Set exact time
 			},
 			sysOp: func() *mockSystemOperator {
 				m := newMockSystemOperator()
@@ -181,12 +184,12 @@ require github.com/smartcontractkit/chainlink/v2 v2.0.0-20241122182110-ac7a7395f
 			name: "updates v0 module with timestamp",
 			config: &Config{
 				ModulesToUpdate: []string{"github.com/smartcontractkit/chainlink/deployment"},
+				RepoRemote:     "origin",
+				BranchTrunk:    "develop",
 			},
 			modOp: &mockModuleOperator{
-				version: module.Version{
-					Path:    "github.com/smartcontractkit/chainlink/deployment",
-					Version: "v2.0.0-20241122182110-ac7a7395feed",
-				},
+				sha:        testSHA,
+				updateTime: testTime,
 			},
 			sysOp: func() *mockSystemOperator {
 				m := newMockSystemOperator()
@@ -207,13 +210,13 @@ require github.com/smartcontractkit/chainlink/deployment v0.0.0-20241122182110-a
 				ModulesToUpdate: []string{
 					"github.com/smartcontractkit/chainlink/v2",
 					"github.com/smartcontractkit/chainlink/deployment",
-				},
+					},
+				RepoRemote:     "origin",
+				BranchTrunk:    "develop",
 			},
 			modOp: &mockModuleOperator{
-				version: module.Version{
-					Path:    "github.com/smartcontractkit/chainlink/v2",
-					Version: "v2.0.0-20241122182110-ac7a7395feed",
-				},
+				sha:        testSHA,
+				updateTime: testTime,
 			},
 			sysOp: func() *mockSystemOperator {
 				m := newMockSystemOperator()
@@ -238,12 +241,12 @@ require (
 			name: "updates v3 module with timestamp",
 			config: &Config{
 				ModulesToUpdate: []string{"github.com/smartcontractkit/chainlink/v3"},
+				RepoRemote:     "origin",
+				BranchTrunk:    "develop",
 			},
 			modOp: &mockModuleOperator{
-				version: module.Version{
-					Path:    "github.com/smartcontractkit/chainlink/v3",
-					Version: "v2.0.0-20241122182110-ac7a7395feed", // Version from main branch
-				},
+				sha:        testSHA,
+				updateTime: testTime,
 			},
 			sysOp: func() *mockSystemOperator {
 				m := newMockSystemOperator()

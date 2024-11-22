@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"golang.org/x/mod/modfile"
 	"golang.org/x/mod/module"
@@ -59,22 +60,21 @@ func (u *Updater) Run() error {
 		log.Printf("Found %d modules with local replace directives: %v", len(modulesToAdd), modulesToAdd)
 	}
 
-	// Get latest version once and apply to all modules
-	version, err := u.mod.GetLatestVersion(u.config.ModulesToUpdate[0])
+	// Get commit info once for all modules
+	sha, commitTime, err := u.mod.GetGitInfo(u.config.RepoRemote, u.config.BranchTrunk)
 	if err != nil {
-		return fmt.Errorf("failed to get latest version: %w", err)
+		return fmt.Errorf("failed to get git info: %w", err)
 	}
-	log.Printf("Using version: %s for all modules", version.Version)
 
-	if err := u.updateGoMod("go.mod", version); err != nil {
+	if err := u.updateGoMod("go.mod", sha, commitTime); err != nil {
 		return fmt.Errorf("error updating go.mod: %w", err)
 	}
 
 	return nil
 }
 
-// updateGoMod updates the go.mod file with the new module version
-func (u *Updater) updateGoMod(path string, newVersion module.Version) error {
+// updateGoMod updates the go.mod file with new pseudo-versions
+func (u *Updater) updateGoMod(path string, sha string, commitTime time.Time) error {
 	content, err := u.system.ReadFile(path)
 	if err != nil {
 		return err
@@ -88,42 +88,29 @@ func (u *Updater) updateGoMod(path string, newVersion module.Version) error {
 	for _, modulePath := range u.config.ModulesToUpdate {
 		moduleExists := false
 
-		 // Get major version from module path suffix (/v2, /v3, etc)
-        majorVersion := "v0"
-        if idx := strings.LastIndex(modulePath, "/v"); idx != -1 {
-            versionSuffix := modulePath[idx+1:] // get everything after the /v
-            if _, err := fmt.Sscanf(versionSuffix, "v%d", new(int)); err == nil {
-                majorVersion = versionSuffix
-            }
-        }
+		// Get major version from module path suffix (/v2, /v3, etc)
+		majorVersion := "v0"
+		if idx := strings.LastIndex(modulePath, "/v"); idx != -1 {
+			versionSuffix := modulePath[idx+1:] // get everything after the /v
+			if _, err := fmt.Sscanf(versionSuffix, "v%d", new(int)); err == nil {
+				majorVersion = versionSuffix
+			}
+		}
 
-        // Get timestamp and commit hash from version string
-        parts := strings.Split(newVersion.Version, "-")
-        var timestamp, commitHash string
-        if len(parts) >= 3 {
-            timestamp = parts[1]
-            commitHash = parts[2]
-        } else {
-            timestamp = "00000000000000"
-            commitHash = newVersion.Version // use full version as commit hash if can't parse
-        }
+		// Create proper pseudo-version using x/mod/module
+		// Note: older version parameter is empty since we're creating a new pseudo-version
+		pseudoVersion := module.PseudoVersion(majorVersion, "", commitTime, sha[:12])
 
-        // Format the version based on module's major version from path
-        targetVersion := fmt.Sprintf("%s.0.0-%s-%s", majorVersion, timestamp, commitHash)
-        if majorVersion == "v0" {
-            targetVersion = fmt.Sprintf("v0.0.0-%s-%s", timestamp, commitHash)
-        }
-
-		// Find current version
+		// Find and update version
 		for _, req := range f.Require {
 			if req.Mod.Path == modulePath {
 				moduleExists = true
 				if u.config.DryRun {
-					log.Printf("[DRY RUN] Would update %s: %s => %s", modulePath, req.Mod.Version, targetVersion)
+					log.Printf("[DRY RUN] Would update %s: %s => %s", modulePath, req.Mod.Version, pseudoVersion)
 					continue
 				}
 
-				if err := f.AddRequire(modulePath, targetVersion); err != nil {
+				if err := f.AddRequire(modulePath, pseudoVersion); err != nil {
 					return fmt.Errorf("failed to add requirement: %w", err)
 				}
 				break
