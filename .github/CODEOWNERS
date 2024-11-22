@@ -121,7 +121,7 @@ core/scripts/gateway @smartcontractkit/dev-services
 # Remove changeset files from the codeowners
 /contracts/.changeset
 # Gas snapshots are always checked by the CI so they don't need codeowners.
-/contracts/gas-snapshots 
+/contracts/gas-snapshots
 
 # At the end, match any files missed by the patterns above
 /contracts/scripts/native_solc_compile_all_events_mock @smartcontractkit/dev-services
@@ -139,10 +139,9 @@ core/scripts/gateway @smartcontractkit/dev-services
 /integration-tests/**/*ccip* @smartcontractkit/ccip-offchain @smartcontractkit/core
 
 # Deployment tooling
-# Initially the common structures owned by CCIP
-/deployment @smartcontractkit/ccip @smartcontractkit/keystone @smartcontractkit/core
+/deployment @smartcontractkit/ccip @smartcontractkit/keystone @smartcontractkit/deployment-automation @smartcontractkit/core
 /deployment/ccip @smartcontractkit/ccip @smartcontractkit/core
-/deployment/keystone @smartcontractkit/keystone @smartcontractkit/core
+/deployment/keystone @smartcontractkit/keystone @smartcontractkit/deployment-automation @smartcontractkit/core
 # TODO: As more products add their deployment logic here, add the team as an owner
 
 # CI/CD
