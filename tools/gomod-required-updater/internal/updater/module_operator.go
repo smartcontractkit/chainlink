@@ -80,14 +80,6 @@ func (m *moduleOperator) GetLatestVersion(modulePath string) (module.Version, er
 	}, nil
 }
 
-func (m *moduleOperator) validateVersion(modulePath, version string) error {
-	expectedMajor := getMajorVersion(modulePath)
-	if !strings.HasPrefix(version, expectedMajor) {
-		return fmt.Errorf("version %q invalid: should be %s, not v0", version, expectedMajor)
-	}
-	return nil
-}
-
 func (m *moduleOperator) UpdateRequiredVersions(modFile *modfile.File, newVersion string) error {
 	for _, req := range modFile.Require {
 		if strings.HasPrefix(req.Mod.Path, "github.com/smartcontractkit/chainlink") {
