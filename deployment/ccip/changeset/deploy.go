@@ -29,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_admin_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/weth9"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/multicall3"
 )
 
 var (
@@ -52,6 +53,7 @@ var (
 	PriceFeed            deployment.ContractType = "PriceFeed"
 	// Note test router maps to a regular router contract.
 	TestRouter          deployment.ContractType = "TestRouter"
+	Multicall3          deployment.ContractType = "Multicall3"
 	CCIPReceiver        deployment.ContractType = "CCIPReceiver"
 	BurnMintToken       deployment.ContractType = "BurnMintToken"
 	BurnMintTokenPool   deployment.ContractType = "BurnMintTokenPool"
@@ -125,6 +127,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 	var registryModule *registry_module_owner_custom.RegistryModuleOwnerCustom
 	var rmnProxy *rmn_proxy_contract.RMNProxyContract
 	var r *router.Router
+	var mc3 *multicall3.Multicall3
 	if chainExists {
 		weth9Contract = chainState.Weth9
 		linkTokenContract = chainState.LinkToken
@@ -132,6 +135,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 		registryModule = chainState.RegistryModule
 		rmnProxy = chainState.RMNProxyExisting
 		r = chainState.Router
+		mc3 = chainState.Multicall3
 	}
 	if rmnProxy == nil {
 		// we want to replicate the mainnet scenario where RMNProxy is already deployed with some existing RMN
@@ -269,7 +273,6 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 			return err
 		}
 		lggr.Infow("deployed linkToken", "addr", linkToken.Address)
-		linkTokenContract = linkToken.Contract
 	} else {
 		lggr.Infow("linkToken already deployed", "addr", linkTokenContract.Address)
 	}
@@ -295,6 +298,25 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 		r = routerContract.Contract
 	} else {
 		e.Logger.Infow("router already deployed", "addr", chainState.Router.Address)
+	}
+	if deployOpts.Multicall3Enabled && mc3 == nil {
+		multicall3Contract, err := deployment.DeployContract(e.Logger, chain, ab,
+			func(chain deployment.Chain) deployment.ContractDeploy[*multicall3.Multicall3] {
+				multicall3Addr, tx2, multicall3Wrapper, err2 := multicall3.DeployMulticall3(
+					chain.DeployerKey,
+					chain.Client,
+				)
+				return deployment.ContractDeploy[*multicall3.Multicall3]{
+					multicall3Addr, multicall3Wrapper, tx2, deployment.NewTypeAndVersion(Multicall3, deployment.Version1_0_0), err2,
+				}
+			})
+		if err != nil {
+			e.Logger.Errorw("Failed to deploy ccip multicall", "err", err)
+			return err
+		}
+		e.Logger.Infow("deployed ccip multicall", "addr", multicall3Contract.Address)
+	} else {
+		e.Logger.Info("ccip multicall already deployed", "addr", mc3.Address)
 	}
 	if isUSDC {
 		token, pool, messenger, transmitter, err1 := DeployUSDC(e.Logger, chain, ab, rmnProxy.Address(), r.Address())

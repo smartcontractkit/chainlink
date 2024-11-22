@@ -246,12 +246,22 @@ func TestAddChainInbound(t *testing.T) {
 		ExtraArgs:    nil,
 	})
 	require.NoError(t,
-		ConfirmCommitWithExpectedSeqNumRange(t, e.Env.Chains[initialDeploy[0]], e.Env.Chains[newChain], state.Chains[newChain].OffRamp, &startBlock, cciptypes.SeqNumRange{
+		commonutils.JustError(ConfirmCommitWithExpectedSeqNumRange(t, e.Env.Chains[initialDeploy[0]], e.Env.Chains[newChain], state.Chains[newChain].OffRamp, &startBlock, cciptypes.SeqNumRange{
 			cciptypes.SeqNum(1),
 			cciptypes.SeqNum(msgSentEvent.SequenceNumber),
-		}))
+		})))
 	require.NoError(t,
-		commonutils.JustError(ConfirmExecWithSeqNr(t, e.Env.Chains[initialDeploy[0]], e.Env.Chains[newChain], state.Chains[newChain].OffRamp, &startBlock, msgSentEvent.SequenceNumber)))
+		commonutils.JustError(
+			ConfirmExecWithSeqNrs(
+				t,
+				e.Env.Chains[initialDeploy[0]],
+				e.Env.Chains[newChain],
+				state.Chains[newChain].OffRamp,
+				&startBlock,
+				[]uint64{msgSentEvent.SequenceNumber},
+			),
+		),
+	)
 
 	linkAddress := state.Chains[newChain].LinkToken.Address()
 	feeQuoter := state.Chains[newChain].FeeQuoter

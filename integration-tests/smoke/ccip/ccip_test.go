@@ -13,8 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
-
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -34,6 +33,7 @@ func TestInitialDeployOnLocal(t *testing.T) {
 	startBlocks := make(map[uint64]*uint64)
 	// Send a message from each chain to every other chain.
 	expectedSeqNum := make(map[changeset.SourceDestPair]uint64)
+	expectedSeqNumExec := make(map[changeset.SourceDestPair][]uint64)
 	for src := range e.Chains {
 		for dest, destChain := range e.Chains {
 			if src == dest {
@@ -54,6 +54,10 @@ func TestInitialDeployOnLocal(t *testing.T) {
 				SourceChainSelector: src,
 				DestChainSelector:   dest,
 			}] = msgSentEvent.SequenceNumber
+			expectedSeqNumExec[changeset.SourceDestPair{
+				SourceChainSelector: src,
+				DestChainSelector:   dest,
+			}] = []uint64{msgSentEvent.SequenceNumber}
 		}
 	}
 
@@ -70,7 +74,7 @@ func TestInitialDeployOnLocal(t *testing.T) {
 	}
 
 	// Wait for all exec reports to land
-	changeset.ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
+	changeset.ConfirmExecWithSeqNrsForAll(t, e, state, expectedSeqNumExec, startBlocks)
 
 	// TODO: Apply the proposal.
 }
