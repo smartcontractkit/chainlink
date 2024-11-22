@@ -195,39 +195,26 @@ func (j JobClient) ListNodeChainConfigs(ctx context.Context, in *nodev1.ListNode
 			continue
 		}
 
-		var chainID string
+		// NOTE: this supports non-EVM too
+		chainID, err := chainsel.GetChainIDFromSelector(selector)
+		if err != nil {
+			return nil, err
+		}
 
 		var ocrtype chaintype.ChainType
 		switch family {
 		case chainsel.FamilyEVM:
 			ocrtype = chaintype.EVM
-			cid, err := chainsel.ChainIdFromSelector(selector)
-			if err != nil {
-				return nil, err
-			}
-			chainID = strconv.Itoa(int(cid))
 		case chainsel.FamilySolana:
 			ocrtype = chaintype.Solana
-			cid, err := chainsel.SolanaChainIdFromSelector(selector)
-			if err != nil {
-				return nil, err
-			}
-			chainID = cid
 		case chainsel.FamilyStarknet:
 			ocrtype = chaintype.StarkNet
-			// TODO: support cid
 		case chainsel.FamilyCosmos:
 			ocrtype = chaintype.Cosmos
-			// TODO: support cid
 		case chainsel.FamilyAptos:
 			ocrtype = chaintype.Aptos
-			cid, err := chainsel.AptosChainIdFromSelector(selector)
-			if err != nil {
-				return nil, err
-			}
-			chainID = strconv.Itoa(int(cid))
 		default:
-			panic(fmt.Sprintf("Unsupported chain family %v", family))
+			return nil, fmt.Errorf("Unsupported chain family %v", family)
 		}
 
 		bundle := n.Keys.OCRKeyBundles[ocrtype]

@@ -363,22 +363,28 @@ func NodeInfo(nodeIDs []string, oc NodeChainConfigsLister) (Nodes, error) {
 				KeyBundleID:               chainConfig.Ocr2Config.OcrKeyBundle.BundleId,
 			}
 
-			var details chain_selectors.ChainDetails
-			switch chainConfig.Chain.Type {
-			case nodev1.ChainType_CHAIN_TYPE_APTOS:
-				details, err = chain_selectors.GetChainDetailsByChainIDAndFamily(chainConfig.Chain.Id, chain_selectors.FamilyAptos)
-				if err != nil {
-					return nil, err
-				}
-			case nodev1.ChainType_CHAIN_TYPE_EVM:
+			if chainConfig.Chain.Type == nodev1.ChainType_CHAIN_TYPE_EVM {
 				// NOTE: Assume same adminAddr for all chains. We always use EVM addr
 				adminAddr = chainConfig.AdminAddress
-				details, err = chain_selectors.GetChainDetailsByChainIDAndFamily(chainConfig.Chain.Id, chain_selectors.FamilyEVM)
-				if err != nil {
-					return nil, err
-				}
+			}
+
+			var family string
+			switch chainConfig.Chain.Type {
+			case nodev1.ChainType_CHAIN_TYPE_EVM:
+				family = chain_selectors.FamilyEVM
+			case nodev1.ChainType_CHAIN_TYPE_APTOS:
+				family = chain_selectors.FamilyAptos
+			case nodev1.ChainType_CHAIN_TYPE_SOLANA:
+				family = chain_selectors.FamilySolana
+			case nodev1.ChainType_CHAIN_TYPE_STARKNET:
+				family = chain_selectors.FamilyStarknet
 			default:
 				return nil, fmt.Errorf("unsupported chain type %s", chainConfig.Chain.Type)
+			}
+
+			details, err := chain_selectors.GetChainDetailsByChainIDAndFamily(chainConfig.Chain.Id, family)
+			if err != nil {
+				return nil, err
 			}
 
 			selToOCRConfig[details] = ocrConfig
