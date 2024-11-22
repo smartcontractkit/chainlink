@@ -184,7 +184,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     );
 
     if (fee.amount == 0) {
-      _tryReturnChange(subscriber, msg.value);
+      _transfer(subscriber, msg.value);
       return;
     }
 
@@ -240,7 +240,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     if (numberOfLinkFees != 0 || numberOfNativeFees != 0) {
       _handleFeesAndRewards(subscriber, feesAndRewards, numberOfLinkFees, numberOfNativeFees);
     } else {
-      _tryReturnChange(subscriber, msg.value);
+      _transfer(subscriber, msg.value);
     }
   }
 
@@ -361,9 +361,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   function withdraw(address assetAddress, address recipient, uint192 quantity) external onlyOwner {
     //address 0 is used to withdraw native in the context of withdrawing
     if (assetAddress == address(0)) {
-      (bool success, ) = payable(recipient).call{value: quantity}("");
-
-      if (!success) revert InvalidReceivingAddress();
+      _transfer(recipient, quantity);
       return;
     }
 
@@ -498,12 +496,13 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     }
 
     // a refund may be needed if the payee has paid in excess of the fee
-    _tryReturnChange(subscriber, change);
+    _transfer(subscriber, change);
   }
 
-  function _tryReturnChange(address subscriber, uint256 quantity) internal {
+  function _transfer(address to, uint256 quantity) internal {
     if (quantity != 0) {
-      payable(subscriber).transfer(quantity);
+      (bool success, ) = payable(to).call{value: quantity}("");
+      if (!success) revert InvalidReceivingAddress();
     }
   }
 
