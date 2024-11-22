@@ -86,6 +86,7 @@ func toNodeKeys(o *deployment.Node, registryChainSel uint64) NodeKeys {
 		// TODO: DEVSVCS-760
 		EncryptionPublicKey: strings.TrimPrefix(o.CSAKey, "csa_"),
 		// TODO Aptos support. How will that be modeled in clo data?
+		// TODO: AptosAccount is unset but probably unused
 		AptosBundleID:         aptosOcr2KeyBundleId,
 		AptosOnchainPublicKey: aptosOnchainPublicKey,
 	}
