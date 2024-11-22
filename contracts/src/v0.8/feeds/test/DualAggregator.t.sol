@@ -602,6 +602,8 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
     uint32 timestamp;
   }
 
+  event PrimaryFeedUnlocked(uint32 indexed primaryRoundId);
+
   function setUp() public override {
     super.setUp();
 
@@ -1461,6 +1463,25 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
     );
   }
 
+  function test_EmitsPrimaryFeedUnlockedWhenPrimaryFeedIsUnlocked() public {
+    _changePrank(s_aggregator.getTransmitters()[0]);
+
+    Report memory report1 = Report({price: 1, timestamp: uint32(block.timestamp)});
+    ReportGenerator.SignedReport memory signedReport1 =
+      s_reportGenerator.generateSignedReport(report1.price, report1.timestamp);
+
+    // transmit to secondary
+    s_aggregator.transmitSecondary(
+      signedReport1.reportContext, signedReport1.report, signedReport1.rs, signedReport1.ss, signedReport1.rawVs
+    );
+
+    vm.expectEmit();
+    emit PrimaryFeedUnlocked(1);
+    s_aggregator.transmit(
+      signedReport1.reportContext, signedReport1.report, signedReport1.rs, signedReport1.ss, signedReport1.rawVs
+    );
+  }
+
   function _transmitAndCheck(
     ReportGenerator.SignedReport memory signedReport,
     int256 expectedStandardFeedAnswer,
@@ -1470,14 +1491,14 @@ contract Transmit is ConfiguredDualAggregatorBaseTest {
   ) internal {
     _changePrank(s_aggregator.getTransmitters()[0]);
 
-    if (transmitSecondary) {
-      s_aggregator.transmitSecondary(
+    if (transmitPrimary) {
+      s_aggregator.transmit(
         signedReport.reportContext, signedReport.report, signedReport.rs, signedReport.ss, signedReport.rawVs
       );
     }
 
-    if (transmitPrimary) {
-      s_aggregator.transmit(
+    if (transmitSecondary) {
+      s_aggregator.transmitSecondary(
         signedReport.reportContext, signedReport.report, signedReport.rs, signedReport.ss, signedReport.rawVs
       );
     }
