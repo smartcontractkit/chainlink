@@ -3,59 +3,78 @@ package updater
 import (
 	"fmt"
 	"log"
-	"regexp"
 	"strings"
 
 	"golang.org/x/mod/modfile"
 	"golang.org/x/mod/module"
 )
 
-func New(git GitOperator, system SystemOperator, config *Config) *Updater {
+// New creates a new Updater
+func New(mod ModuleOperator, system SystemOperator, config *Config) *Updater {
 	return &Updater{
-		git:    git,
+		mod:    mod,
 		system: system,
 		config: config,
 	}
 }
 
+// Run the update process
 func (u *Updater) Run() error {
-	log.Printf("Starting update process with remote '%s' and branch '%s'", u.config.RepoRemote, u.config.BranchTrunk)
+	if len(u.config.ModulesToUpdate) == 0 {
+		log.Printf("No modules specified, will auto-detect modules with local replace directives")
+	} else {
+		log.Printf("Starting update process for modules: %v", u.config.ModulesToUpdate)
+	}
 
-	// Get org and repo info for finding local modules
-	org, repo, err := u.git.GetRepoInfo(u.config.RepoRemote)
+	// Get org and repo info from current module first
+	content, err := u.system.ReadFile("go.mod")
 	if err != nil {
-		return fmt.Errorf("failed to get repo info: %w", err)
+		return fmt.Errorf("failed to read go.mod: %w", err)
+	}
+
+	f, err := modfile.Parse("go.mod", content, nil)
+	if err != nil {
+		return fmt.Errorf("failed to parse go.mod: %w", err)
+	}
+
+	// Get org/repo from the current module path
+	org, repo, err := u.mod.ParseModulePathParts(f.Module.Mod.Path)
+	if err != nil {
+		return fmt.Errorf("failed to get repo info from current module: %w", err)
 	}
 	u.config.OrgName = org
 	u.config.RepoName = repo
 
-	// Find modules to update
-	modulesToAdd, err := u.findLocalReplaceModules()
-	if err != nil {
-		return fmt.Errorf("failed to find local replace modules: %w", err)
-	}
-	if len(modulesToAdd) > 0 {
-		log.Printf("Found %d modules with local replace directives", len(modulesToAdd))
-		u.config.ModulesToUpdate = append(u.config.ModulesToUpdate, modulesToAdd...)
+	// Find modules to update first if none specified
+	if len(u.config.ModulesToUpdate) == 0 {
+		modulesToAdd, err := u.findLocalReplaceModules()
+		if err != nil {
+			return fmt.Errorf("failed to find local replace modules: %w", err)
+		}
+		if len(modulesToAdd) == 0 {
+			log.Printf("No modules found to update in %s", f.Module.Mod.Path)
+			return nil // This is now a non-error case
+		}
+		u.config.ModulesToUpdate = modulesToAdd
+		log.Printf("Found %d modules with local replace directives: %v", len(modulesToAdd), modulesToAdd)
 	}
 
-	// Get SHA after collecting modules
-	log.Printf("Fetching latest SHA from %s/%s", u.config.RepoRemote, u.config.BranchTrunk)
-	sha, err := u.git.GetSHA(u.config.RepoRemote, u.config.BranchTrunk)
+	// Get latest version once and apply to all modules
+	version, err := u.mod.GetLatestVersion(u.config.ModulesToUpdate[0])
 	if err != nil {
-		return fmt.Errorf("failed to get SHA: %w", err)
+		return fmt.Errorf("failed to get latest version: %w", err)
 	}
-	log.Printf("Using SHA: %s", sha)
+	log.Printf("Using version: %s for all modules", version.Version)
 
-	// Update go.mod in current directory
-	if err := u.updateGoMod("go.mod", sha); err != nil {
+	if err := u.updateGoMod("go.mod", version); err != nil {
 		return fmt.Errorf("error updating go.mod: %w", err)
 	}
 
 	return nil
 }
 
-func (u *Updater) updateGoMod(path string, sha string) error {
+// updateGoMod updates the go.mod file with the new module version
+func (u *Updater) updateGoMod(path string, newVersion module.Version) error {
 	content, err := u.system.ReadFile(path)
 	if err != nil {
 		return err
@@ -68,48 +87,51 @@ func (u *Updater) updateGoMod(path string, sha string) error {
 
 	for _, modulePath := range u.config.ModulesToUpdate {
 		moduleExists := false
-		var currentVersion string
+
+		 // Get major version from module path suffix (/v2, /v3, etc)
+        majorVersion := "v0"
+        if idx := strings.LastIndex(modulePath, "/v"); idx != -1 {
+            versionSuffix := modulePath[idx+1:] // get everything after the /v
+            if _, err := fmt.Sscanf(versionSuffix, "v%d", new(int)); err == nil {
+                majorVersion = versionSuffix
+            }
+        }
+
+        // Get timestamp and commit hash from version string
+        parts := strings.Split(newVersion.Version, "-")
+        var timestamp, commitHash string
+        if len(parts) >= 3 {
+            timestamp = parts[1]
+            commitHash = parts[2]
+        } else {
+            timestamp = "00000000000000"
+            commitHash = newVersion.Version // use full version as commit hash if can't parse
+        }
+
+        // Format the version based on module's major version from path
+        targetVersion := fmt.Sprintf("%s.0.0-%s-%s", majorVersion, timestamp, commitHash)
+        if majorVersion == "v0" {
+            targetVersion = fmt.Sprintf("v0.0.0-%s-%s", timestamp, commitHash)
+        }
+
+		// Find current version
 		for _, req := range f.Require {
 			if req.Mod.Path == modulePath {
 				moduleExists = true
-				currentVersion = req.Mod.Version
-				break
-			}
-		}
+				if u.config.DryRun {
+					log.Printf("[DRY RUN] Would update %s: %s => %s", modulePath, req.Mod.Version, targetVersion)
+					continue
+				}
 
-		// Check for replace directive
-		for _, rep := range f.Replace {
-			if rep.Old.Path == modulePath && isLocalPath(rep.New.Path) {
-				log.Printf("Found local replace for %s => %s", modulePath, rep.New.Path)
-				moduleExists = true
+				if err := f.AddRequire(modulePath, targetVersion); err != nil {
+					return fmt.Errorf("failed to add requirement: %w", err)
+				}
 				break
 			}
 		}
 
 		if !moduleExists {
 			continue
-		}
-
-		log.Printf("Current version: %s", currentVersion)
-
-		commitDate, err := u.git.GetCommitDate(sha)
-		if err != nil {
-			return fmt.Errorf("failed to get commit date: %w", err)
-		}
-
-		shortSHA := sha[:12]
-		versionPrefix := parseModuleVersion(modulePath)
-		pseudoVersion := module.PseudoVersion("v"+versionPrefix, "", commitDate, shortSHA)
-
-		log.Printf("Updating to version: %s", pseudoVersion)
-
-		if u.config.DryRun {
-			log.Printf("[DRY RUN] Would update %s: %s => %s", modulePath, currentVersion, pseudoVersion)
-			continue
-		}
-
-		if err := f.AddRequire(modulePath, pseudoVersion); err != nil {
-			return fmt.Errorf("failed to add requirement: %w", err)
 		}
 	}
 
@@ -125,6 +147,7 @@ func (u *Updater) updateGoMod(path string, sha string) error {
 	return nil
 }
 
+// findLocalReplaceModules finds modules with local replace directives
 func (u *Updater) findLocalReplaceModules() ([]string, error) {
 	var modules []string
 	seen := make(map[string]bool)
@@ -154,15 +177,7 @@ func (u *Updater) findLocalReplaceModules() ([]string, error) {
 	return modules, nil
 }
 
-func parseModuleVersion(modulePath string) string {
-	ver := module.Version{Path: modulePath}
-	re := regexp.MustCompile(`/v(\d+)$`)
-	if match := re.FindStringSubmatch(ver.Path); match != nil {
-		return match[1]
-	}
-	return "0"
-}
-
+// isLocalPath checks if the path is a local path
 func isLocalPath(path string) bool {
 	return path == "." || path == ".." ||
 		strings.HasPrefix(path, "./") ||

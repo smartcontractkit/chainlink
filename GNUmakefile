@@ -145,10 +145,10 @@ gomods: ## Install gomods
 	go install github.com/jmank88/gomods@v0.1.4
 
 .PHONY: gomodrequiredupdater
-gomodrequiredupdater: ## Install and run gomod-required-updater
+gomodrequiredupdater: ## Run gomod-required-updater
 	go install ./tools/gomod-required-updater/cmd/gomod-required-updater
-	# TODO: -u is the ideal flag for this with gomods but seg faults.
 	gomods -w gomod-required-updater
+	gomods tidy
 
 .PHONY: mockery
 mockery: $(mockery) ## Install mockery.

@@ -29,7 +29,7 @@ func main() {
 	}
 
 	u := updater.New(
-		updater.NewGitOperator(),
+		updater.NewModuleOperator(cfg),
 		updater.NewSystemOperator(),
 		cfg,
 	)

@@ -4,32 +4,35 @@ import (
 	"fmt"
 	"testing"
 	"time"
+
+	"golang.org/x/mod/module"
 )
 
 // Mock implementations
-type mockGitOperator struct {
-	sha        string
-	commitDate time.Time
+type mockModuleOperator struct {
+	version    module.Version
+	updateTime time.Time
 	org        string
 	repo       string
+	sha        string
 	err        error
 }
 
-func (m *mockGitOperator) GetSHA(remote, branch string) (string, error) {
+func (m *mockModuleOperator) GetLatestVersion(modulePath string) (module.Version, error) {
 	if m.err != nil {
-		return "", m.err
+		return module.Version{}, m.err
 	}
-	return m.sha, nil
+	return m.version, nil
 }
 
-func (m *mockGitOperator) GetCommitDate(sha string) (time.Time, error) {
+func (m *mockModuleOperator) GetModuleInfo(modulePath string) (module.Version, time.Time, error) {
 	if m.err != nil {
-		return time.Time{}, m.err
+		return module.Version{}, time.Time{}, m.err
 	}
-	return m.commitDate, nil
+	return m.version, m.updateTime, nil
 }
 
-func (m *mockGitOperator) GetRepoInfo(remote string) (org, repo string, err error) {
+func (m *mockModuleOperator) ParseModulePathParts(modulePath string) (org, repo string, err error) {
 	if m.err != nil {
 		return "", "", m.err
 	}
@@ -37,6 +40,16 @@ func (m *mockGitOperator) GetRepoInfo(remote string) (org, repo string, err erro
 		return "smartcontractkit", "chainlink", nil // Default values for tests
 	}
 	return m.org, m.repo, nil
+}
+
+func (m *mockModuleOperator) GetGitInfo(remote, branch string) (string, time.Time, error) {
+	if m.err != nil {
+		return "", time.Time{}, m.err
+	}
+	if m.sha == "" {
+		m.sha = "abcdef123456" // default test SHA
+	}
+	return m.sha, m.updateTime, nil
 }
 
 type mockSystemOperator struct {
@@ -73,7 +86,7 @@ func TestUpdater_Run(t *testing.T) {
 	tests := []struct {
 		name     string
 		config   *Config
-		gitOp    *mockGitOperator
+		modOp    *mockModuleOperator
 		sysOp    *mockSystemOperator
 		wantErr  bool
 		wantFile string
@@ -81,19 +94,19 @@ func TestUpdater_Run(t *testing.T) {
 		{
 			name: "successful update",
 			config: &Config{
-				RepoRemote:  "origin",
-				BranchTrunk: "main",
+				ModulesToUpdate: []string{"github.com/smartcontractkit/chainlink/v2"},
 			},
-			gitOp: &mockGitOperator{
-				sha:        "abc123def456",
-				commitDate: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
-				org:        "smartcontractkit",
-				repo:       "chainlink",
+			modOp: &mockModuleOperator{
+				version: module.Version{
+					Path:    "github.com/smartcontractkit/chainlink/v2",
+					Version: "v2.0.0",
+				},
+				updateTime: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
 			},
 			sysOp: func() *mockSystemOperator {
 				m := newMockSystemOperator()
-				m.files["go.mod"] = []byte(`module github.com/smartcontractkit/chainlink/v2
-require test.com/mod v1.0.0
+				m.files["go.mod"] = []byte(`module test
+require github.com/smartcontractkit/chainlink/v2 v2.0.0
 `)
 				return m
 			}(),
@@ -102,14 +115,13 @@ require test.com/mod v1.0.0
 		{
 			name: "handles module with local replace",
 			config: &Config{
-				RepoRemote:  "origin",
-				BranchTrunk: "main",
+				ModulesToUpdate: []string{"github.com/smartcontractkit/chainlink/v2"},
 			},
-			gitOp: &mockGitOperator{
-				sha:        "abc123def456",
-				commitDate: time.Now(),
-				org:        "smartcontractkit",
-				repo:       "chainlink",
+			modOp: &mockModuleOperator{
+				version: module.Version{
+					Path:    "github.com/smartcontractkit/chainlink/v2",
+					Version: "v2.0.0",
+				},
 			},
 			sysOp: func() *mockSystemOperator {
 				m := newMockSystemOperator()
@@ -121,14 +133,146 @@ replace github.com/smartcontractkit/chainlink/v2 => ../
 			}(),
 			wantErr: false,
 		},
+		{
+			name: "v1 module update",
+			config: &Config{
+				ModulesToUpdate: []string{"github.com/example/mod"},
+			},
+			modOp: &mockModuleOperator{
+				version: module.Version{
+					Path:    "github.com/example/mod",
+					Version: "v1.2.3",
+				},
+			},
+			sysOp: func() *mockSystemOperator {
+				m := newMockSystemOperator()
+				m.files["go.mod"] = []byte(`module test
+require github.com/example/mod v1.0.0
+`)
+				return m
+			}(),
+			wantErr: false,
+		},
+		{
+			name: "updates v2 module with timestamp",
+			config: &Config{
+				ModulesToUpdate: []string{"github.com/smartcontractkit/chainlink/v2"},
+			},
+			modOp: &mockModuleOperator{
+				version: module.Version{
+					Path:    "github.com/smartcontractkit/chainlink/v2",
+					Version: "v2.0.0-20241122182110-ac7a7395feed",
+				},
+			},
+			sysOp: func() *mockSystemOperator {
+				m := newMockSystemOperator()
+				m.files["go.mod"] = []byte(`module test
+require github.com/smartcontractkit/chainlink/v2 v2.0.0-20241119120536-03115e80382d
+`)
+				return m
+			}(),
+			wantErr: false,
+			wantFile: `module test
+
+require github.com/smartcontractkit/chainlink/v2 v2.0.0-20241122182110-ac7a7395feed
+`,
+		},
+		{
+			name: "updates v0 module with timestamp",
+			config: &Config{
+				ModulesToUpdate: []string{"github.com/smartcontractkit/chainlink/deployment"},
+			},
+			modOp: &mockModuleOperator{
+				version: module.Version{
+					Path:    "github.com/smartcontractkit/chainlink/deployment",
+					Version: "v2.0.0-20241122182110-ac7a7395feed",
+				},
+			},
+			sysOp: func() *mockSystemOperator {
+				m := newMockSystemOperator()
+				m.files["go.mod"] = []byte(`module test
+require github.com/smartcontractkit/chainlink/deployment v0.0.0-20241119120536-03115e80382d
+`)
+				return m
+			}(),
+			wantErr: false,
+			wantFile: `module test
+
+require github.com/smartcontractkit/chainlink/deployment v0.0.0-20241122182110-ac7a7395feed
+`,
+		},
+		{
+			name: "handles multiple modules with different versions",
+			config: &Config{
+				ModulesToUpdate: []string{
+					"github.com/smartcontractkit/chainlink/v2",
+					"github.com/smartcontractkit/chainlink/deployment",
+				},
+			},
+			modOp: &mockModuleOperator{
+				version: module.Version{
+					Path:    "github.com/smartcontractkit/chainlink/v2",
+					Version: "v2.0.0-20241122182110-ac7a7395feed",
+				},
+			},
+			sysOp: func() *mockSystemOperator {
+				m := newMockSystemOperator()
+				m.files["go.mod"] = []byte(`module test
+require (
+    github.com/smartcontractkit/chainlink/v2 v2.0.0-20241119120536-03115e80382d
+    github.com/smartcontractkit/chainlink/deployment v0.0.0-20241119120536-03115e80382d
+)
+`)
+				return m
+			}(),
+			wantErr: false,
+			wantFile: `module test
+
+require (
+	github.com/smartcontractkit/chainlink/v2 v2.0.0-20241122182110-ac7a7395feed
+	github.com/smartcontractkit/chainlink/deployment v0.0.0-20241122182110-ac7a7395feed
+)
+`,
+		},
+		{
+			name: "updates v3 module with timestamp",
+			config: &Config{
+				ModulesToUpdate: []string{"github.com/smartcontractkit/chainlink/v3"},
+			},
+			modOp: &mockModuleOperator{
+				version: module.Version{
+					Path:    "github.com/smartcontractkit/chainlink/v3",
+					Version: "v2.0.0-20241122182110-ac7a7395feed", // Version from main branch
+				},
+			},
+			sysOp: func() *mockSystemOperator {
+				m := newMockSystemOperator()
+				m.files["go.mod"] = []byte(`module test
+require github.com/smartcontractkit/chainlink/v3 v3.0.0-20241119120536-03115e80382d
+`)
+				return m
+			}(),
+			wantErr: false,
+			wantFile: `module test
+
+require github.com/smartcontractkit/chainlink/v3 v3.0.0-20241122182110-ac7a7395feed
+`,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			u := New(tt.gitOp, tt.sysOp, tt.config)
+			u := New(tt.modOp, tt.sysOp, tt.config)
 			err := u.Run()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Updater.Run() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if tt.wantFile != "" {
+				got := string(tt.sysOp.files["go.mod"])
+				if got != tt.wantFile {
+					t.Errorf("File content mismatch\nGot:\n%s\nWant:\n%s", got, tt.wantFile)
+				}
 			}
 		})
 	}
@@ -152,7 +296,7 @@ replace (
 		RepoName: "chainlink",
 	}
 
-	u := New(&mockGitOperator{}, sysOp, cfg)
+	u := New(&mockModuleOperator{}, sysOp, cfg)
 	modules, err := u.findLocalReplaceModules()
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
