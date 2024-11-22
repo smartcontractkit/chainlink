@@ -29,7 +29,16 @@ contract TokenPool_setChainRateLimiterConfig is TokenPoolSetup {
     vm.expectEmit();
     emit TokenPool.ChainConfigured(DEST_CHAIN_SELECTOR, newOutboundConfig, newInboundConfig);
 
-    s_tokenPool.setChainRateLimiterConfig(DEST_CHAIN_SELECTOR, newOutboundConfig, newInboundConfig);
+    uint64[] memory chainSelectors = new uint64[](1);
+    chainSelectors[0] = DEST_CHAIN_SELECTOR;
+
+    RateLimiter.Config[] memory newOutboundConfigs = new RateLimiter.Config[](1);
+    newOutboundConfigs[0] = newOutboundConfig;
+
+    RateLimiter.Config[] memory newInboundConfigs = new RateLimiter.Config[](1);
+    newInboundConfigs[0] = newInboundConfig;
+
+    s_tokenPool.setChainRateLimiterConfig(chainSelectors, newOutboundConfigs, newInboundConfigs);
 
     uint256 expectedTokens = RateLimiter._min(newOutboundConfig.capacity, oldOutboundTokens);
 
@@ -51,20 +60,34 @@ contract TokenPool_setChainRateLimiterConfig is TokenPoolSetup {
   // Reverts
 
   function test_OnlyOwnerOrRateLimitAdmin_Revert() public {
+    uint64[] memory chainSelectors = new uint64[](1);
+    chainSelectors[0] = DEST_CHAIN_SELECTOR;
+
+    RateLimiter.Config[] memory newOutboundConfigs = new RateLimiter.Config[](1);
+    newOutboundConfigs[0] = _getOutboundRateLimiterConfig();
+
+    RateLimiter.Config[] memory newInboundConfigs = new RateLimiter.Config[](1);
+    newInboundConfigs[0] = _getInboundRateLimiterConfig();
+
     vm.startPrank(STRANGER);
 
     vm.expectRevert(abi.encodeWithSelector(TokenPool.Unauthorized.selector, STRANGER));
-    s_tokenPool.setChainRateLimiterConfig(
-      DEST_CHAIN_SELECTOR, _getOutboundRateLimiterConfig(), _getInboundRateLimiterConfig()
-    );
+    s_tokenPool.setChainRateLimiterConfig(chainSelectors, newOutboundConfigs, newInboundConfigs);
   }
 
   function test_NonExistentChain_Revert() public {
     uint64 wrongChainSelector = 9084102894;
 
+    uint64[] memory chainSelectors = new uint64[](1);
+    chainSelectors[0] = wrongChainSelector;
+
+    RateLimiter.Config[] memory newOutboundConfigs = new RateLimiter.Config[](1);
+    newOutboundConfigs[0] = _getOutboundRateLimiterConfig();
+
+    RateLimiter.Config[] memory newInboundConfigs = new RateLimiter.Config[](1);
+    newInboundConfigs[0] = _getInboundRateLimiterConfig();
+
     vm.expectRevert(abi.encodeWithSelector(TokenPool.NonExistentChain.selector, wrongChainSelector));
-    s_tokenPool.setChainRateLimiterConfig(
-      wrongChainSelector, _getOutboundRateLimiterConfig(), _getInboundRateLimiterConfig()
-    );
+    s_tokenPool.setChainRateLimiterConfig(chainSelectors, newOutboundConfigs, newInboundConfigs);
   }
 }
