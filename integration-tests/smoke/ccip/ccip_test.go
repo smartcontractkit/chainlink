@@ -1,6 +1,7 @@
 package smoke
 
 import (
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"math/big"
 	"testing"
 
@@ -13,7 +14,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -81,7 +81,14 @@ func TestInitialDeployOnLocal(t *testing.T) {
 
 func TestTokenTransfer(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	tenv, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr, nil)
+	config := &changeset.TestConfigs{}
+	tenv, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr, config)
+
+	/*
+	* use this if you are testing locally in memory
+	* tenv := changeset.NewMemoryEnvironmentWithJobsAndContracts(t, lggr, 3, 4, config)
+	 */
+
 	e := tenv.Env
 	state, err := changeset.LoadOnchainState(e)
 	require.NoError(t, err)
@@ -124,13 +131,14 @@ func TestTokenTransfer(t *testing.T) {
 
 	// Test scenarios are defined here
 	scenarios := []struct {
-		name                  string
-		srcChain              uint64
-		dstChain              uint64
-		tokenAmounts          []router.ClientEVMTokenAmount
-		receiver              common.Address
-		data                  []byte
-		expectedTokenBalances map[common.Address]*big.Int
+		name                   string
+		srcChain               uint64
+		dstChain               uint64
+		tokenAmounts           []router.ClientEVMTokenAmount
+		receiver               common.Address
+		data                   []byte
+		expectedTokenBalances  map[common.Address]*big.Int
+		expectedExecutionState int
 	}{
 		{
 			name:     "Send token to EOA",
@@ -144,56 +152,71 @@ func TestTokenTransfer(t *testing.T) {
 			},
 			receiver: utils.RandomAddress(),
 			expectedTokenBalances: map[common.Address]*big.Int{
-				srcToken1.Address(): tinyOneCoin,
+				destToken1.Address(): tinyOneCoin,
 			},
+			expectedExecutionState: changeset.EXECUTION_STATE_SUCCESS,
 		},
 		{
 			name:     "Send token to contract",
-			srcChain: tenv.HomeChainSel,
-			dstChain: tenv.FeedChainSel,
+			srcChain: sourceChain,
+			dstChain: destChain,
 			tokenAmounts: []router.ClientEVMTokenAmount{
-				{
-					Token:  srcToken1.Address(),
-					Amount: tinyOneCoin,
-				},
-			},
-			receiver: state.Chains[tenv.FeedChainSel].Receiver.Address(),
-		},
-		{
-			name:     "Send 2 tokens to receiver",
-			srcChain: tenv.HomeChainSel,
-			dstChain: tenv.FeedChainSel,
-			tokenAmounts: []router.ClientEVMTokenAmount{
-				{
-					Token:  srcToken1.Address(),
-					Amount: tinyOneCoin,
-				},
-				{
-					Token:  srcToken2.Address(),
-					Amount: tinyOneCoin,
-				},
-			},
-			receiver: e.Chains[destChain].DeployerKey.From,
-		},
-		{
-			name:     "Send N tokens to contract",
-			srcChain: tenv.HomeChainSel,
-			dstChain: tenv.FeedChainSel,
-			tokenAmounts: []router.ClientEVMTokenAmount{
-				{
-					Token:  srcToken1.Address(),
-					Amount: tinyOneCoin,
-				},
-				{
-					Token:  srcToken2.Address(),
-					Amount: tinyOneCoin,
-				},
 				{
 					Token:  srcToken1.Address(),
 					Amount: tinyOneCoin,
 				},
 			},
 			receiver: state.Chains[destChain].Receiver.Address(),
+			expectedTokenBalances: map[common.Address]*big.Int{
+				destToken1.Address(): tinyOneCoin,
+			},
+			expectedExecutionState: changeset.EXECUTION_STATE_SUCCESS,
+		},
+		{
+			name:     "Send 2 tokens to receiver",
+			srcChain: destChain,
+			dstChain: sourceChain,
+			tokenAmounts: []router.ClientEVMTokenAmount{
+				{
+					Token:  destToken1.Address(),
+					Amount: tinyOneCoin,
+				},
+				{
+					Token:  destToken2.Address(),
+					Amount: tinyOneCoin,
+				},
+			},
+			receiver: e.Chains[sourceChain].DeployerKey.From,
+			expectedTokenBalances: map[common.Address]*big.Int{
+				srcToken1.Address(): tinyOneCoin,
+				srcToken2.Address(): tinyOneCoin,
+			},
+			expectedExecutionState: changeset.EXECUTION_STATE_SUCCESS,
+		},
+		{
+			name:     "Send N tokens to contract",
+			srcChain: destChain,
+			dstChain: sourceChain,
+			tokenAmounts: []router.ClientEVMTokenAmount{
+				{
+					Token:  destToken1.Address(),
+					Amount: tinyOneCoin,
+				},
+				{
+					Token:  destToken2.Address(),
+					Amount: tinyOneCoin,
+				},
+				{
+					Token:  destToken1.Address(),
+					Amount: tinyOneCoin,
+				},
+			},
+			receiver: state.Chains[sourceChain].Receiver.Address(),
+			expectedTokenBalances: map[common.Address]*big.Int{
+				srcToken1.Address(): new(big.Int).SetUint64(2),
+				srcToken2.Address(): tinyOneCoin,
+			},
+			expectedExecutionState: changeset.EXECUTION_STATE_SUCCESS,
 		},
 	}
 
@@ -216,6 +239,7 @@ func TestTokenTransfer(t *testing.T) {
 					scenario.tokenAmounts,
 					scenario.receiver,
 					scenario.data,
+					scenario.expectedExecutionState,
 				)
 
 				for token, balance := range scenario.expectedTokenBalances {
