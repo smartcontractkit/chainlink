@@ -39,8 +39,7 @@ func TestAddLanesWithTestRouter(t *testing.T) {
 	// Need to keep track of the block number for each chain so that event subscription can be done from that block.
 	startBlocks := make(map[uint64]*uint64)
 	// Send a message from each chain to every other chain.
-	expectedSeqNum := make(map[SourceDestPair]uint64)
-
+	expectedSeqNumExec := make(map[SourceDestPair][]uint64)
 	latesthdr, err := e.Env.Chains[chain2].Client.HeaderByNumber(testcontext.Get(t), nil)
 	require.NoError(t, err)
 	block := latesthdr.Number.Uint64()
@@ -52,11 +51,11 @@ func TestAddLanesWithTestRouter(t *testing.T) {
 		FeeToken:     common.HexToAddress("0x0"),
 		ExtraArgs:    nil,
 	})
-	expectedSeqNum[SourceDestPair{
+	expectedSeqNumExec[SourceDestPair{
 		SourceChainSelector: chain1,
 		DestChainSelector:   chain2,
-	}] = msgSentEvent.SequenceNumber
-	ConfirmExecWithSeqNrForAll(t, e.Env, state, expectedSeqNum, startBlocks)
+	}] = []uint64{msgSentEvent.SequenceNumber}
+	ConfirmExecWithSeqNrsForAll(t, e.Env, state, expectedSeqNumExec, startBlocks)
 }
 
 // TestAddLane covers the workflow of adding a lane between two chains and enabling it.
