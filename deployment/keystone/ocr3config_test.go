@@ -6,14 +6,17 @@ import (
 	"encoding/json"
 	"os"
 	"sort"
+	"strings"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/view"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	types2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	types3 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/test-go/testify/require"
 )
 
@@ -121,16 +124,33 @@ func loadTestData(t *testing.T, path string) []deployment.Node {
 			AdminAddr:      nv.PayeeAddress,
 		}
 		for chain, ocrKey := range nv.OCRKeys {
+			// TODO: this decoding could be shared with NodeInfo
 			p, err := p2pkey.MakePeerID(ocrKey.PeerID)
 			require.NoError(t, err)
 
+			b := common.Hex2Bytes(ocrKey.OffchainPublicKey)
+			var opk types2.OffchainPublicKey
+			copy(opk[:], b)
+
+			b = common.Hex2Bytes(ocrKey.ConfigEncryptionPublicKey)
+			var cpk types3.ConfigEncryptionPublicKey
+			copy(cpk[:], b)
+
+			var pubkey types3.OnchainPublicKey
+			if strings.HasPrefix(chain, "ethereum") {
+				// convert from pubkey to address
+				pubkey = common.HexToAddress(ocrKey.OnchainPublicKey).Bytes()
+			} else {
+				pubkey = common.Hex2Bytes(ocrKey.OnchainPublicKey)
+			}
+
 			ocrCfg := deployment.OCRConfig{
 				KeyBundleID:               ocrKey.KeyBundleID,
-				OffchainPublicKey:         types2.OffchainPublicKey([]byte(ocrKey.OffchainPublicKey)),
-				OnchainPublicKey:          types2.OnchainPublicKey(ocrKey.OnchainPublicKey),
+				OffchainPublicKey:         opk,
+				OnchainPublicKey:          pubkey,
 				PeerID:                    p,
 				TransmitAccount:           types.Account(ocrKey.TransmitAccount),
-				ConfigEncryptionPublicKey: types2.ConfigEncryptionPublicKey([]byte(ocrKey.ConfigEncryptionPublicKey)),
+				ConfigEncryptionPublicKey: cpk,
 			}
 			var k chain_selectors.ChainDetails
 			switch chain {
