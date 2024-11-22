@@ -295,6 +295,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 			return err
 		}
 		e.Logger.Infow("deployed router", "addr", routerContract.Address)
+		r = routerContract.Contract
 	} else {
 		e.Logger.Infow("router already deployed", "addr", chainState.Router.Address)
 	}
