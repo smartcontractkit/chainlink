@@ -56,6 +56,11 @@ func (c AddLanesConfig) Validate() error {
 	return nil
 }
 
+// AddLanesWithTestRouter adds lanes between chains using the test router.
+// AddLanesWithTestRouter is run while the contracts are still owned by the deployer.
+// This is useful to test the initial deployment to enable lanes between chains.
+// Once the testrouter is enabled, the lanes can be used to send messages between chains with testrouter.
+// On successful verification with testrouter, the lanes can be enabled with the main router with different AddLane ChangeSet.
 func AddLanesWithTestRouter(e deployment.Environment, cfg AddLanesConfig) (deployment.ChangesetOutput, error) {
 	if err := cfg.Validate(); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("invalid AddLanesConfig: %w", err)
