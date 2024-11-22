@@ -8,7 +8,6 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	ccdeploy "github.com/smartcontractkit/chainlink/deployment/ccip"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -27,9 +26,9 @@ func TestDeployHomeChain(t *testing.T) {
 	p2pIds := nodes.NonBootstraps().PeerIDs()
 	homeChainCfg := DeployHomeChainConfig{
 		HomeChainSel:     homeChainSel,
-		RMNStaticConfig:  ccdeploy.NewTestRMNStaticConfig(),
-		RMNDynamicConfig: ccdeploy.NewTestRMNDynamicConfig(),
-		NodeOperators:    ccdeploy.NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
+		RMNStaticConfig:  NewTestRMNStaticConfig(),
+		RMNDynamicConfig: NewTestRMNDynamicConfig(),
+		NodeOperators:    NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
 		NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
 			"NodeOperator": p2pIds,
 		},
@@ -37,7 +36,7 @@ func TestDeployHomeChain(t *testing.T) {
 	output, err := DeployHomeChain(e, homeChainCfg)
 	require.NoError(t, err)
 	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook))
-	state, err := ccdeploy.LoadOnchainState(e)
+	state, err := LoadOnchainState(e)
 	require.NoError(t, err)
 	require.NotNil(t, state.Chains[homeChainSel].CapabilityRegistry)
 	require.NotNil(t, state.Chains[homeChainSel].CCIPHome)

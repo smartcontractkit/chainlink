@@ -3,7 +3,7 @@ pragma solidity 0.8.24;
 
 import {IBurnMintERC20} from "../../../../../shared/token/ERC20/IBurnMintERC20.sol";
 
-import {BurnMintERC677} from "../../../../../shared/token/ERC677/BurnMintERC677.sol";
+import {BurnMintERC20} from "../../../../../shared/token/ERC20/BurnMintERC20.sol";
 import {Router} from "../../../../Router.sol";
 import {TokenPool} from "../../../../pools/TokenPool.sol";
 import {USDCTokenPool} from "../../../../pools/USDC/USDCTokenPool.sol";
@@ -47,7 +47,7 @@ contract USDCTokenPoolSetup is BaseTest {
 
   function setUp() public virtual override {
     BaseTest.setUp();
-    BurnMintERC677 usdcToken = new BurnMintERC677("LINK", "LNK", 18, 0);
+    BurnMintERC20 usdcToken = new BurnMintERC20("LINK", "LNK", 18, 0, 0);
     s_token = usdcToken;
     deal(address(s_token), OWNER, type(uint256).max);
     _setUpRamps();

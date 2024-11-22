@@ -27,16 +27,16 @@ type ReorgConfig struct {
 	// DstGethHTTPURL dest chain Geth HTTP URL
 	DstGethHTTPURL string
 	// SrcFinalityDepth source chain finality depth
-	SrcFinalityDepth uint64
+	SrcFinalityDepth int
 	// DstGethHTTPURL dest chain finality depth
-	DstFinalityDepth uint64
+	DstFinalityDepth int
 	// FinalityDelta blocks to rewind below or above finality
 	FinalityDelta int
 }
 
 // Validate validates ReorgConfig params
 func (rc *ReorgConfig) Validate() error {
-	if rc.FinalityDelta >= int(rc.SrcFinalityDepth) || rc.FinalityDelta >= int(rc.DstFinalityDepth) {
+	if rc.FinalityDelta >= rc.SrcFinalityDepth || rc.FinalityDelta >= rc.DstFinalityDepth {
 		return fmt.Errorf(
 			"finality delta can't be higher than source or dest chain finality, delta: %d, src: %d, dst: %d",
 			rc.FinalityDelta, rc.SrcFinalityDepth, rc.DstFinalityDepth,

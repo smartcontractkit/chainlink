@@ -100,7 +100,10 @@ func TestForwarderOCR2Basic(t *testing.T) {
 	err = actions.ConfigureOCRv2AggregatorContracts(ocrv2Config, ocrInstances)
 	require.NoError(t, err, "Error configuring OCRv2 aggregator contracts")
 
-	err = actions.CreateOCRv2JobsLocal(ocrInstances, bootstrapNode, workerNodes, env.MockAdapter, "ocr2", 5, uint64(sethClient.ChainID), true, false)
+	if sethClient.ChainID < 0 {
+		t.Errorf("negative chain ID: %d", sethClient.ChainID)
+	}
+	err = actions.CreateOCRv2JobsLocal(ocrInstances, bootstrapNode, workerNodes, env.MockAdapter, "ocr2", 5, uint64(sethClient.ChainID), true, false) //nolint:gosec // G115 false positive
 	require.NoError(t, err, "Error creating OCRv2 jobs with forwarders")
 
 	err = actions.WatchNewOCRRound(l, sethClient, 1, contracts.V2OffChainAgrregatorToOffChainAggregatorWithRounds(ocrInstances), time.Duration(10*time.Minute))

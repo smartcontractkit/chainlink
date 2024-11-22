@@ -44,7 +44,7 @@ import (
 
 const (
 	defaultChainlinkNodeLogin    = "notreal@fakeemail.ch"
-	defaultChainlinkNodePassword = "fj293fbBnlQ!f9vNs~#"
+	defaultChainlinkNodePassword = "fj293fbBnlQ!f9vNs"
 	ethKeysEndpoint              = "/v2/keys/eth"
 	ocr2KeysEndpoint             = "/v2/keys/ocr2"
 	p2pKeysEndpoint              = "/v2/keys/p2p"

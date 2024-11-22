@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
-import {BurnMintERC677} from "../../../../shared/token/ERC677/BurnMintERC677.sol";
+import {BurnMintERC20} from "../../../../shared/token/ERC20/BurnMintERC20.sol";
 import {Router} from "../../../Router.sol";
 import {BurnMintTokenPool} from "../../../pools/BurnMintTokenPool.sol";
 import {TokenPool} from "../../../pools/TokenPool.sol";
 import {RouterSetup} from "../../router/Router/RouterSetup.t.sol";
 
 contract BurnMintSetup is RouterSetup {
-  BurnMintERC677 internal s_burnMintERC677;
+  BurnMintERC20 internal s_burnMintERC20;
   address internal s_burnMintOffRamp = makeAddr("burn_mint_offRamp");
   address internal s_burnMintOnRamp = makeAddr("burn_mint_onRamp");
 
@@ -18,7 +18,7 @@ contract BurnMintSetup is RouterSetup {
   function setUp() public virtual override {
     RouterSetup.setUp();
 
-    s_burnMintERC677 = new BurnMintERC677("Chainlink Token", "LINK", 18, 0);
+    s_burnMintERC20 = new BurnMintERC20("Chainlink Token", "LINK", 18, 0, 0);
   }
 
   function _applyChainUpdates(

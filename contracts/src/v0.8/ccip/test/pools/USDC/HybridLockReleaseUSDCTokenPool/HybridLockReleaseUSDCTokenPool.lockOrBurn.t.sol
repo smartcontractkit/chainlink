@@ -3,6 +3,8 @@ pragma solidity 0.8.24;
 
 import {ITokenMessenger} from "../../../../pools/USDC/ITokenMessenger.sol";
 
+import {BurnMintERC20} from "../../../../../shared/token/ERC20/BurnMintERC20.sol";
+import {Router} from "../../../../Router.sol";
 import {Pool} from "../../../../libraries/Pool.sol";
 import {RateLimiter} from "../../../../libraries/RateLimiter.sol";
 import {TokenPool} from "../../../../pools/TokenPool.sol";

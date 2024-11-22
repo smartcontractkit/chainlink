@@ -769,7 +769,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) save
 			}
 		}
 	}
-	return eb.txStore.UpdateTxFatalError(ctx, etx)
+	return eb.txStore.UpdateTxFatalErrorAndDeleteAttempts(ctx, etx)
 }
 
 func observeTimeUntilBroadcast[CHAIN_ID types.ID](chainID CHAIN_ID, createdAt, broadcastAt time.Time) {

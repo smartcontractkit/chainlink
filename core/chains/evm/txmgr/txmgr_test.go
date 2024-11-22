@@ -899,19 +899,6 @@ func mustInsertConfirmedEthTxWithReceipt(t *testing.T, txStore txmgr.TestEvmTxSt
 	return etx
 }
 
-func mustInsertConfirmedEthTxBySaveFetchedReceipts(t *testing.T, txStore txmgr.TestEvmTxStore, fromAddress common.Address, nonce int64, blockNum int64, chainID big.Int) (etx txmgr.Tx) {
-	etx = cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, nonce, blockNum, fromAddress)
-	receipt := evmtypes.Receipt{
-		TxHash:           etx.TxAttempts[0].Hash,
-		BlockHash:        utils.NewHash(),
-		BlockNumber:      big.NewInt(nonce),
-		TransactionIndex: uint(1),
-	}
-	err := txStore.SaveFetchedReceipts(tests.Context(t), []*evmtypes.Receipt{&receipt}, txmgrcommon.TxConfirmed, nil, &chainID)
-	require.NoError(t, err)
-	return etx
-}
-
 func mustInsertFatalErrorEthTx(t *testing.T, txStore txmgr.TestEvmTxStore, fromAddress common.Address) txmgr.Tx {
 	etx := cltest.NewEthTx(fromAddress)
 	etx.Error = null.StringFrom("something exploded")

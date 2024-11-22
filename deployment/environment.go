@@ -7,14 +7,12 @@ import (
 	"fmt"
 	"math/big"
 	"sort"
-	"strconv"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
 	types2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	types3 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"google.golang.org/grpc"
@@ -76,7 +74,6 @@ type Environment struct {
 	Chains            map[uint64]Chain
 	NodeIDs           []string
 	Offchain          OffchainClient
-	MockAdapter       *test_env.Killgrave
 }
 
 func NewEnvironment(
@@ -126,6 +123,14 @@ func (e Environment) AllChainSelectorsExcluding(excluding []uint64) []uint64 {
 		return selectors[i] < selectors[j]
 	})
 	return selectors
+}
+
+func (e Environment) AllDeployerKeys() []common.Address {
+	var deployerKeys []common.Address
+	for sel := range e.Chains {
+		deployerKeys = append(deployerKeys, e.Chains[sel].DeployerKey.From)
+	}
+	return deployerKeys
 }
 
 func ConfirmIfNoError(chain Chain, tx *types.Transaction, err error) (uint64, error) {
@@ -217,11 +222,35 @@ func (n Nodes) BootstrapLocators() []string {
 
 type Node struct {
 	NodeID         string
-	SelToOCRConfig map[uint64]OCRConfig
+	SelToOCRConfig map[chain_selectors.ChainDetails]OCRConfig
 	PeerID         p2pkey.PeerID
 	IsBootstrap    bool
 	MultiAddr      string
 	AdminAddr      string
+}
+
+func (n Node) OCRConfigForChainDetails(details chain_selectors.ChainDetails) (OCRConfig, bool) {
+	c, ok := n.SelToOCRConfig[details]
+	return c, ok
+}
+
+func (n Node) OCRConfigForChainSelector(chainSel uint64) (OCRConfig, bool) {
+	fam, err := chain_selectors.GetSelectorFamily(chainSel)
+	if err != nil {
+		return OCRConfig{}, false
+	}
+
+	id, err := chain_selectors.GetChainIDFromSelector(chainSel)
+	if err != nil {
+		return OCRConfig{}, false
+	}
+
+	want, err := chain_selectors.GetChainDetailsByChainIDAndFamily(id, fam)
+	if err != nil {
+		return OCRConfig{}, false
+	}
+	c, ok := n.SelToOCRConfig[want]
+	return c, ok
 }
 
 func (n Node) FirstOCRKeybundle() OCRConfig {
@@ -255,16 +284,12 @@ func NodeInfo(nodeIDs []string, oc NodeChainConfigsLister) (Nodes, error) {
 		if err != nil {
 			return nil, err
 		}
-		selToOCRConfig := make(map[uint64]OCRConfig)
+		selToOCRConfig := make(map[chain_selectors.ChainDetails]OCRConfig)
 		bootstrap := false
 		var peerID p2pkey.PeerID
 		var multiAddr string
 		var adminAddr string
 		for _, chainConfig := range nodeChainConfigs.ChainConfigs {
-			if chainConfig.Chain.Type == nodev1.ChainType_CHAIN_TYPE_SOLANA {
-				// Note supported for CCIP yet.
-				continue
-			}
 			// NOTE: Assume same peerID/multiAddr for all chains.
 			// Might make sense to change proto as peerID/multiAddr is 1-1 with nodeID?
 			peerID = MustPeerIDFromString(chainConfig.Ocr2Config.P2PKeyBundle.PeerId)
@@ -276,14 +301,6 @@ func NodeInfo(nodeIDs []string, oc NodeChainConfigsLister) (Nodes, error) {
 				bootstrap = true
 				break
 			}
-			evmChainID, err := strconv.Atoi(chainConfig.Chain.Id)
-			if err != nil {
-				return nil, err
-			}
-			sel, err := chain_selectors.SelectorFromChainId(uint64(evmChainID))
-			if err != nil {
-				return nil, err
-			}
 			b := common.Hex2Bytes(chainConfig.Ocr2Config.OcrKeyBundle.OffchainPublicKey)
 			var opk types2.OffchainPublicKey
 			copy(opk[:], b)
@@ -292,7 +309,7 @@ func NodeInfo(nodeIDs []string, oc NodeChainConfigsLister) (Nodes, error) {
 			var cpk types3.ConfigEncryptionPublicKey
 			copy(cpk[:], b)
 
-			selToOCRConfig[sel] = OCRConfig{
+			ocrConfig := OCRConfig{
 				OffchainPublicKey:         opk,
 				OnchainPublicKey:          common.HexToAddress(chainConfig.Ocr2Config.OcrKeyBundle.OnchainSigningAddress).Bytes(),
 				PeerID:                    MustPeerIDFromString(chainConfig.Ocr2Config.P2PKeyBundle.PeerId),
@@ -300,6 +317,24 @@ func NodeInfo(nodeIDs []string, oc NodeChainConfigsLister) (Nodes, error) {
 				ConfigEncryptionPublicKey: cpk,
 				KeyBundleID:               chainConfig.Ocr2Config.OcrKeyBundle.BundleId,
 			}
+
+			var details chain_selectors.ChainDetails
+			switch chainConfig.Chain.Type {
+			case nodev1.ChainType_CHAIN_TYPE_APTOS:
+				details, err = chain_selectors.GetChainDetailsByChainIDAndFamily(chainConfig.Chain.Id, chain_selectors.FamilyAptos)
+				if err != nil {
+					return nil, err
+				}
+			case nodev1.ChainType_CHAIN_TYPE_EVM:
+				details, err = chain_selectors.GetChainDetailsByChainIDAndFamily(chainConfig.Chain.Id, chain_selectors.FamilyEVM)
+				if err != nil {
+					return nil, err
+				}
+			default:
+				return nil, fmt.Errorf("unsupported chain type %s", chainConfig.Chain.Type)
+			}
+
+			selToOCRConfig[details] = ocrConfig
 		}
 		nodes = append(nodes, Node{
 			NodeID:         nodeID,
