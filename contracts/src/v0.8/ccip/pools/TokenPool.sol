@@ -426,6 +426,22 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
     }
   }
 
+  /// @notice Sets multiple chain rate limiter configs.
+  /// @param remoteChainSelectors The remote chain selectors for which the rate limits apply.
+  /// @param outboundRateLimiterConfigs The new outbound rate limiter configs, meaning the onRamp rate limits for the given chain.
+  /// @param inboundRateLimiterConfigs The new inbound rate limiter configs, meaning the offRamp rate limits for the given chain.
+  function setChainRateLimiterConfigs(
+    uint64[] calldata remoteChainSelectors,
+    RateLimiter.Config[] calldata outboundRateLimiterConfigs,
+    RateLimiter.Config[] calldata inboundRateLimiterConfigs
+  ) external {
+    if (msg.sender != s_rateLimitAdmin && msg.sender != owner()) revert Unauthorized(msg.sender);
+
+    for (uint256 x = 0; x < remoteChainSelectors.length; x++) {
+      _setRateLimitConfig(remoteChainSelectors[x], outboundRateLimiterConfigs[x], inboundRateLimiterConfigs[x]);
+    }
+  }
+
   /// @notice Returns the hash for the chain selector and pool. Used for gas efficient lookups of pool & chain
   /// combinations.
   function _getRemotePairHash(
