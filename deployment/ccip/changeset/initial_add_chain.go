@@ -5,6 +5,7 @@ import (
 	"os"
 	"slices"
 	"sort"
+	"time"
 
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
@@ -201,6 +202,7 @@ func DefaultOCRParams(
 			NewMsgScanBatchSize:                merklemulti.MaxNumberTreeLeaves,
 			MaxReportTransmissionCheckAttempts: 5,
 			RMNEnabled:                         os.Getenv("ENABLE_RMN") == "true", // only enabled in manual test
+			RMNSignaturesTimeout:               30 * time.Minute,
 			MaxMerkleTreeSize:                  merklemulti.MaxNumberTreeLeaves,
 			SignObservationPrefix:              "chainlink ccip 1.6 rmn observation",
 		},
