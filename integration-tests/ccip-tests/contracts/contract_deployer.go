@@ -18,9 +18,10 @@ import (
 	"github.com/rs/zerolog/log"
 	"golang.org/x/crypto/curve25519"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 	ocrconfighelper2 "github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 

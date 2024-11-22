@@ -256,6 +256,9 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
   /// @param remoteAmount The amount on the remote chain.
   /// @param remoteDecimals The decimals of the token on the remote chain.
   /// @return The local amount.
+  /// @dev This function assumes the inputs don't overflow and does no checks to avoid this. For any normal inputs, this
+  /// should not be a problem. The only way to overflow is when the given arguments cannot be represented in the uint256
+  /// type, which means the inputs are invalid.
   function _calculateLocalAmount(uint256 remoteAmount, uint8 remoteDecimals) internal view virtual returns (uint256) {
     if (remoteDecimals == i_tokenDecimals) {
       return remoteAmount;
