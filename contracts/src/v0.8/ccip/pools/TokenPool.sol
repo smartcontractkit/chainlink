@@ -92,7 +92,8 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
   /// @dev The chain selectors are in uint256 format because of the EnumerableSet implementation.
   EnumerableSet.UintSet internal s_remoteChainSelectors;
   mapping(uint64 remoteChainSelector => RemoteChainConfig) internal s_remoteChainConfigs;
-
+  /// @notice A mapping of hashed pool addresses to their unhashed form. This is used to be able to find the actually
+  /// configured pools and not just their hashed versions.
   mapping(bytes32 poolAddressHash => bytes poolAddress) internal s_remotePoolAddresses;
   /// @notice The address of the rate limiter admin.
   /// @dev Can be address(0) if none is configured.
