@@ -305,13 +305,15 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 	var usdcCfg USDCAttestationConfig
 	if len(usdcChains) > 0 {
 		server := mockAttestationResponse()
-		defer server.Close()
 		endpoint := server.URL
 		usdcCfg = USDCAttestationConfig{
 			API:         endpoint,
 			APITimeout:  commonconfig.MustNewDuration(time.Second),
 			APIInterval: commonconfig.MustNewDuration(500 * time.Millisecond),
 		}
+		t.Cleanup(func() {
+			server.Close()
+		})
 	}
 
 	// Deploy second set of changesets to deploy and configure the CCIP contracts.
