@@ -506,11 +506,6 @@ packages:
       USDCReader:
         config:
           filename: usdc_reader_mock.go
-  github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/batchreader:
-    config:
-      filename: token_pool_batched_reader_mock.go
-    interfaces:
-      TokenPoolBatchedReader:
   github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/ccipdataprovider:
     config:
       filename: price_registry_mock.go
