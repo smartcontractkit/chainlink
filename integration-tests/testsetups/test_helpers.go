@@ -189,6 +189,7 @@ func NewLocalDevEnvironment(
 	tokenConfig := changeset.NewTestTokenConfig(state.Chains[feedSel].USDFeeds)
 	usdcCCTPConfig := make(map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig)
 	timelocksPerChain := make(map[uint64]*gethwrappers.RBACTimelock)
+	ocrParams := make(map[uint64]changeset.CCIPOCRParams)
 	for _, chain := range usdcChains {
 		require.NotNil(t, state.Chains[chain].MockUSDCTokenMessenger)
 		require.NotNil(t, state.Chains[chain].MockUSDCTransmitter)
@@ -197,7 +198,6 @@ func NewLocalDevEnvironment(
 			SourcePoolAddress:            state.Chains[chain].USDCTokenPool.Address().String(),
 			SourceMessageTransmitterAddr: state.Chains[chain].MockUSDCTransmitter.Address().String(),
 		}
-		timelocksPerChain[chain] = state.Chains[chain].Timelock
 	}
 	var usdcAttestationCfg changeset.USDCAttestationConfig
 	if len(usdcChains) > 0 {
@@ -211,7 +211,10 @@ func NewLocalDevEnvironment(
 			APIInterval: commonconfig.MustNewDuration(500 * time.Millisecond),
 		}
 	}
-
+	for _, chain := range allChains {
+		timelocksPerChain[chain] = state.Chains[chain].Timelock
+		ocrParams[chain] = changeset.DefaultOCRParams(feedSel, nil, nil)
+	}
 	// Deploy second set of changesets to deploy and configure the CCIP contracts.
 	env, err = commonchangeset.ApplyChangesets(t, env, timelocksPerChain, []commonchangeset.ChangesetApplication{
 		{
@@ -222,6 +225,7 @@ func NewLocalDevEnvironment(
 				ChainsToDeploy: allChains,
 				TokenConfig:    tokenConfig,
 				OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
+				OCRParams:      ocrParams,
 				USDCConfig: changeset.USDCConfig{
 					EnabledChains:         usdcChains,
 					USDCAttestationConfig: usdcAttestationCfg,
