@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"sync"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
@@ -116,8 +115,6 @@ type eventHandler struct {
 	engineRegistry *engineRegistry
 	emitter        custmsg.MessageEmitter
 	secretsFetcher secretsFetcher
-
-	wg sync.WaitGroup
 }
 
 // newEventHandler returns a new eventHandler instance.
@@ -230,7 +227,7 @@ func (h *eventHandler) workflowRegisteredEvent(
 		BinaryURL:     payload.BinaryURL,
 		ConfigURL:     payload.ConfigURL,
 	}
-	if _, err := h.orm.UpsertWorkflowSpecWithSecrets(ctx, entry, payload.SecretsURL, hex.EncodeToString(urlHash), string(secrets)); err != nil {
+	if _, err = h.orm.UpsertWorkflowSpecWithSecrets(ctx, entry, payload.SecretsURL, hex.EncodeToString(urlHash), string(secrets)); err != nil {
 		logCustMsg(ctx, cma, fmt.Sprintf("failed to upsert workflow spec with secrets: %v", err), h.lggr)
 		return fmt.Errorf("failed to upsert workflow spec with secrets: %w", err)
 	}
