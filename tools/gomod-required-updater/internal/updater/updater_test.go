@@ -2,20 +2,23 @@ package updater
 
 import (
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
+	"golang.org/x/mod/modfile"
 	"golang.org/x/mod/module"
 )
 
 // Mock implementations
 type mockModuleOperator struct {
-	version    module.Version
-	updateTime time.Time
-	org        string
-	repo       string
-	sha        string
-	err        error
+	version         module.Version
+	updateTime      time.Time
+	org             string
+	repo            string
+	sha             string
+	err             error
+	modulesToUpdate []string // Add this new field
 }
 
 func (m *mockModuleOperator) GetLatestVersion(modulePath string) (module.Version, error) {
@@ -52,6 +55,24 @@ func (m *mockModuleOperator) GetGitInfo(remote, branch string) (string, time.Tim
 	return m.sha, m.updateTime, nil
 }
 
+// Add the missing method
+func (m *mockModuleOperator) UpdateRequiredVersions(modFile *modfile.File, newVersion string) ([]string, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	if m.modulesToUpdate != nil {
+		return m.modulesToUpdate, nil
+	}
+	// Default behavior: return the modules that have local replace directives
+	var modules []string
+	for _, rep := range modFile.Replace {
+		if rep.New.Version == "" { // Local replace has empty version
+			modules = append(modules, rep.Old.Path)
+		}
+	}
+	return modules, nil
+}
+
 type mockSystemOperator struct {
 	files map[string][]byte
 	err   error
@@ -74,7 +95,7 @@ func (m *mockSystemOperator) ReadFile(path string) ([]byte, error) {
 	return content, nil
 }
 
-func (m *mockSystemOperator) WriteFile(path string, data []byte, perm uint32) error {
+func (m *mockSystemOperator) WriteFile(path string, data []byte, perm os.FileMode) error {
 	if m.err != nil {
 		return m.err
 	}
@@ -160,11 +181,11 @@ require github.com/example/mod v1.0.0
 			name: "updates v2 module with timestamp",
 			config: &Config{
 				ModulesToUpdate: []string{"github.com/smartcontractkit/chainlink/v2"},
-				RepoRemote: "origin",
-				BranchTrunk: "develop",
+				RepoRemote:      "origin",
+				BranchTrunk:     "develop",
 			},
 			modOp: &mockModuleOperator{
-				sha: "ac7a7395feed", // Set exact SHA
+				sha:        "ac7a7395feed",                                   // Set exact SHA
 				updateTime: time.Date(2024, 11, 22, 18, 21, 10, 0, time.UTC), // Set exact time
 			},
 			sysOp: func() *mockSystemOperator {
@@ -184,8 +205,8 @@ require github.com/smartcontractkit/chainlink/v2 v2.0.0-20241122182110-ac7a7395f
 			name: "updates v0 module with timestamp",
 			config: &Config{
 				ModulesToUpdate: []string{"github.com/smartcontractkit/chainlink/deployment"},
-				RepoRemote:     "origin",
-				BranchTrunk:    "develop",
+				RepoRemote:      "origin",
+				BranchTrunk:     "develop",
 			},
 			modOp: &mockModuleOperator{
 				sha:        testSHA,
@@ -210,9 +231,9 @@ require github.com/smartcontractkit/chainlink/deployment v0.0.0-20241122182110-a
 				ModulesToUpdate: []string{
 					"github.com/smartcontractkit/chainlink/v2",
 					"github.com/smartcontractkit/chainlink/deployment",
-					},
-				RepoRemote:     "origin",
-				BranchTrunk:    "develop",
+				},
+				RepoRemote:  "origin",
+				BranchTrunk: "develop",
 			},
 			modOp: &mockModuleOperator{
 				sha:        testSHA,
@@ -241,8 +262,8 @@ require (
 			name: "updates v3 module with timestamp",
 			config: &Config{
 				ModulesToUpdate: []string{"github.com/smartcontractkit/chainlink/v3"},
-				RepoRemote:     "origin",
-				BranchTrunk:    "develop",
+				RepoRemote:      "origin",
+				BranchTrunk:     "develop",
 			},
 			modOp: &mockModuleOperator{
 				sha:        testSHA,

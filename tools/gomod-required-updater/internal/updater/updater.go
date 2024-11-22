@@ -10,6 +10,17 @@ import (
 	"golang.org/x/mod/module"
 )
 
+const (
+    goModFile = "go.mod"
+)
+
+type Updater struct {
+	mod    ModuleOperator
+	system SystemOperator
+	config *Config
+}
+
+
 // New creates a new Updater
 func New(mod ModuleOperator, system SystemOperator, config *Config) *Updater {
 	return &Updater{
@@ -27,24 +38,11 @@ func (u *Updater) Run() error {
 		log.Printf("Starting update process for modules: %v", u.config.ModulesToUpdate)
 	}
 
-	// Get org and repo info from current module first
-	content, err := u.system.ReadFile("go.mod")
+	// Use helper method instead of direct file read
+	f, err := u.readModFile()
 	if err != nil {
-		return fmt.Errorf("failed to read go.mod: %w", err)
+		return err
 	}
-
-	f, err := modfile.Parse("go.mod", content, nil)
-	if err != nil {
-		return fmt.Errorf("failed to parse go.mod: %w", err)
-	}
-
-	// Get org/repo from the current module path
-	org, repo, err := u.mod.ParseModulePathParts(f.Module.Mod.Path)
-	if err != nil {
-		return fmt.Errorf("failed to get repo info from current module: %w", err)
-	}
-	u.config.OrgName = org
-	u.config.RepoName = repo
 
 	// Find modules to update first if none specified
 	if len(u.config.ModulesToUpdate) == 0 {
@@ -75,30 +73,15 @@ func (u *Updater) Run() error {
 
 // updateGoMod updates the go.mod file with new pseudo-versions
 func (u *Updater) updateGoMod(path string, sha string, commitTime time.Time) error {
-	content, err := u.system.ReadFile(path)
-	if err != nil {
-		return err
-	}
-
-	f, err := modfile.Parse(path, content, nil)
+	// Use helper method instead of direct file read
+	f, err := u.readModFile()
 	if err != nil {
 		return err
 	}
 
 	for _, modulePath := range u.config.ModulesToUpdate {
 		moduleExists := false
-
-		// Get major version from module path suffix (/v2, /v3, etc)
-		majorVersion := "v0"
-		if idx := strings.LastIndex(modulePath, "/v"); idx != -1 {
-			versionSuffix := modulePath[idx+1:] // get everything after the /v
-			if _, err := fmt.Sscanf(versionSuffix, "v%d", new(int)); err == nil {
-				majorVersion = versionSuffix
-			}
-		}
-
-		// Create proper pseudo-version using x/mod/module
-		// Note: older version parameter is empty since we're creating a new pseudo-version
+		majorVersion := getMajorVersion(modulePath)
 		pseudoVersion := module.PseudoVersion(majorVersion, "", commitTime, sha[:12])
 
 		// Find and update version
@@ -122,16 +105,7 @@ func (u *Updater) updateGoMod(path string, sha string, commitTime time.Time) err
 		}
 	}
 
-	newContent, err := f.Format()
-	if err != nil {
-		return fmt.Errorf("failed to format go.mod: %w", err)
-	}
-
-	if err := u.system.WriteFile(path, newContent, 0644); err != nil {
-		return fmt.Errorf("failed to write go.mod: %w", err)
-	}
-
-	return nil
+	return u.writeModFile(f)
 }
 
 // findLocalReplaceModules finds modules with local replace directives
@@ -140,12 +114,8 @@ func (u *Updater) findLocalReplaceModules() ([]string, error) {
 	seen := make(map[string]bool)
 	orgPrefix := fmt.Sprintf("github.com/%s/%s", u.config.OrgName, u.config.RepoName)
 
-	content, err := u.system.ReadFile("go.mod")
-	if err != nil {
-		return nil, err
-	}
-
-	f, err := modfile.Parse("go.mod", content, nil)
+	// Use helper method instead of direct file read
+	f, err := u.readModFile()
 	if err != nil {
 		return nil, err
 	}
@@ -169,4 +139,31 @@ func isLocalPath(path string) bool {
 	return path == "." || path == ".." ||
 		strings.HasPrefix(path, "./") ||
 		strings.HasPrefix(path, "../")
+}
+
+func (u *Updater) readModFile() (*modfile.File, error) {
+    content, err := u.system.ReadFile("go.mod")
+    if err != nil {
+        return nil, fmt.Errorf("failed to read go.mod: %w", err)
+    }
+
+    f, err := modfile.Parse("go.mod", content, nil)
+    if err != nil {
+        return nil, fmt.Errorf("failed to parse go.mod: %w", err)
+    }
+
+    return f, nil
+}
+
+func (u *Updater) writeModFile(f *modfile.File) error {
+    content, err := f.Format()
+    if err != nil {
+        return fmt.Errorf("failed to format go.mod: %w", err)
+    }
+
+    if err := u.system.WriteFile("go.mod", content, 0644); err != nil {
+        return fmt.Errorf("failed to write go.mod: %w", err)
+    }
+
+    return nil
 }

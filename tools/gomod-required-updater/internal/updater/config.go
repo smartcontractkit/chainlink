@@ -10,8 +10,8 @@ type Config struct {
 	BranchTrunk     string
 	DryRun          bool
 	ShowVersion     bool
-	OrgName         string // Set during runtime
-	RepoName        string // Set during runtime
+	OrgName         string
+	RepoName        string
 }
 
 func ParseFlags(args []string, version string) (*Config, error) {
@@ -25,6 +25,8 @@ func ParseFlags(args []string, version string) (*Config, error) {
 	flags.StringVar(&cfg.BranchTrunk, "branch-trunk", "develop", "Branch to get SHA from")
 	flags.BoolVar(&cfg.DryRun, "dry-run", false, "Preview changes without applying them")
 	flags.BoolVar(&cfg.ShowVersion, "version", false, "Show version information")
+	flags.StringVar(&cfg.OrgName, "org-name", "smartcontractkit", "GitHub organization name")
+	flags.StringVar(&cfg.RepoName, "repo-name", "chainlink", "GitHub repository name")
 
 	if err := flags.Parse(args); err != nil {
 		return nil, err

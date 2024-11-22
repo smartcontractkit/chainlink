@@ -1,18 +1,12 @@
 package updater
 
 import (
-	"io"
 	"os"
 )
 
-type SystemOperator interface {
-	ReadFile(path string) ([]byte, error)
-	WriteFile(filename string, data []byte, perm uint32) error
-}
-
 type systemOperator struct {
-	stdout io.Writer
-	stderr io.Writer
+	stdout *os.File
+	stderr *os.File
 }
 
 func NewSystemOperator() SystemOperator {
@@ -22,10 +16,10 @@ func NewSystemOperator() SystemOperator {
 	}
 }
 
-func (so *systemOperator) ReadFile(path string) ([]byte, error) {
+func (s *systemOperator) ReadFile(path string) ([]byte, error) {
 	return os.ReadFile(path)
 }
 
-func (so *systemOperator) WriteFile(filename string, data []byte, perm uint32) error {
-	return os.WriteFile(filename, data, os.FileMode(perm))
+func (s *systemOperator) WriteFile(path string, data []byte, perm os.FileMode) error {
+	return os.WriteFile(path, data, perm)
 }

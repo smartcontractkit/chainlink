@@ -2,31 +2,27 @@ package updater
 
 import (
 	"fmt"
+	"os"
 	"time"
 
+	"golang.org/x/mod/modfile"
 	"golang.org/x/mod/module"
 )
 
 // Errors
 var (
-	ErrInvalidConfig = fmt.Errorf("invalid configuration")
-	ErrModOperation  = fmt.Errorf("module operation failed")
-	ErrFileOperation = fmt.Errorf("file operation failed")
+	ErrModOperation = fmt.Errorf("module operation failed")
 )
 
+// ModuleOperator handles module-related operations
 type ModuleOperator interface {
-	// GetLatestVersion gets the latest pseudo-version based on current git state
+	GetGitInfo(remote, branch string) (string, time.Time, error)
 	GetLatestVersion(modulePath string) (module.Version, error)
-	// GetModuleInfo gets version info including timestamp
-	GetModuleInfo(modulePath string) (module.Version, time.Time, error)
-	// ParseModulePathParts extracts org and repo from module path
-	ParseModulePathParts(modulePath string) (org, repo string, err error)
-	// GetGitInfo gets the latest git SHA and commit time
-	GetGitInfo(remote, branch string) (sha string, commitTime time.Time, err error)
+	UpdateRequiredVersions(modFile *modfile.File, newVersion string) ([]string, error)
 }
 
-type Updater struct {
-	mod    ModuleOperator
-	system SystemOperator
-	config *Config
+// SystemOperator handles file system operations
+type SystemOperator interface {
+	ReadFile(path string) ([]byte, error)
+	WriteFile(path string, data []byte, perm os.FileMode) error
 }

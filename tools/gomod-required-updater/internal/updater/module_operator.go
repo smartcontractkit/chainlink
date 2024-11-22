@@ -1,7 +1,6 @@
 package updater
 
 import (
-	"encoding/json"
 	"fmt"
 	"os/exec"
 	"regexp"
@@ -17,11 +16,11 @@ const (
 )
 
 // getMajorVersion extracts the major version number from a module path
-// Returns "v2" for /v2, "v0" for no version suffix
+// Returns "v2" for /v2, "v1" for no version suffix
 func getMajorVersion(modulePath string) string {
 	re := regexp.MustCompile(majorVersionPattern)
 	if match := re.FindString(modulePath); match != "" {
-		return "v" + strings.TrimPrefix(match, "/v")
+		return strings.TrimPrefix(match, "/")
 	}
 	return "v0"
 }
@@ -80,63 +79,34 @@ func (m *moduleOperator) GetLatestVersion(modulePath string) (module.Version, er
 	}, nil
 }
 
-func (m *moduleOperator) UpdateRequiredVersions(modFile *modfile.File, newVersion string) error {
-	for _, req := range modFile.Require {
-		if strings.HasPrefix(req.Mod.Path, "github.com/smartcontractkit/chainlink") {
-			 // Check if this is a v2+ module path
-			modVersion := getMajorVersion(req.Mod.Path)
-			if modVersion != "v0" {
-				// If module path contains v2+, maintain that version
-				newVer := strings.Replace(newVersion, "v0", modVersion, 1)
-				req.Mod.Version = newVer
-			} else {
-				// For modules without version in path, use newVersion as-is
-				req.Mod.Version = newVersion
-			}
+// extractVersionParts splits a pseudo-version into its components
+func extractVersionParts(version string) (base, timestamp, sha string) {
+	parts := strings.Split(version, "-")
+	if len(parts) == 3 {
+		return parts[0], parts[1], parts[2]
+	}
+	return "", "", ""
+}
+
+// UpdateRequiredVersions identifies modules that need version updates
+func (m *moduleOperator) UpdateRequiredVersions(modFile *modfile.File, newVersion string) ([]string, error) {
+	_, _, sha := extractVersionParts(newVersion)
+	if sha == "" {
+		return nil, fmt.Errorf("%w: invalid version format: %s", ErrModOperation, newVersion)
+	}
+
+	var modulesToUpdate []string
+	localModules := make(map[string]bool)
+	for _, rep := range modFile.Replace {
+		if rep.New.Version == "" {
+			localModules[rep.Old.Path] = true
 		}
 	}
-	return nil
-}
 
-type moduleInfo struct {
-	Path    string    `json:"Path"`
-	Version string    `json:"Version"`
-	Time    time.Time `json:"Time"`
-}
-
-// GetModuleInfo gets version info including timestamp
-func (m *moduleOperator) GetModuleInfo(modulePath string) (module.Version, time.Time, error) {
-	cmd := exec.Command("go", "list", "-m", "-json", modulePath+"@latest")
-	out, err := cmd.Output()
-	if err != nil {
-		return module.Version{}, time.Time{}, fmt.Errorf("%w: %v", ErrModOperation, err)
+	for _, req := range modFile.Require {
+		if localModules[req.Mod.Path] {
+			modulesToUpdate = append(modulesToUpdate, req.Mod.Path)
+		}
 	}
-
-	var info moduleInfo
-	if err := json.Unmarshal(out, &info); err != nil {
-		return module.Version{}, time.Time{}, fmt.Errorf("%w: failed to decode response: %v", ErrModOperation, err)
-	}
-
-	return module.Version{
-		Path:    info.Path,
-		Version: info.Version,
-	}, info.Time, nil
-}
-
-// ParseModulePathParts extracts org and repo from module path
-func (m *moduleOperator) ParseModulePathParts(modulePath string) (org, repo string, err error) {
-	parts := strings.Split(modulePath, "/")
-	if len(parts) < 3 {
-		return "", "", fmt.Errorf("%w: invalid module path format: %s", ErrModOperation, modulePath)
-	}
-
-	org = parts[1]
-	repo = parts[2]
-
-	// Strip version suffix if present (e.g., "repo/v2" -> "repo")
-	if i := strings.Index(repo, "/v"); i != -1 {
-		repo = repo[:i]
-	}
-
-	return org, repo, nil
+	return modulesToUpdate, nil
 }
