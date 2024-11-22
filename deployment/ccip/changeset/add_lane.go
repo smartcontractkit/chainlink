@@ -25,32 +25,41 @@ type InitialPrices struct {
 	GasPrice  *big.Int // uint224 packed gas price in USD (112 for exec // 112 for da)
 }
 
-type Lane struct {
-	From uint64
-	To   uint64
+func (p InitialPrices) Validate() error {
+	if p.LinkPrice == nil {
+		return fmt.Errorf("missing link price")
+	}
+	if p.WethPrice == nil {
+		return fmt.Errorf("missing weth price")
+	}
+	if p.GasPrice == nil {
+		return fmt.Errorf("missing gas price")
+	}
+	return nil
+}
+
+type LaneConfig struct {
+	SourceSelector        uint64
+	DestSelector          uint64
+	InitialPricesBySource InitialPrices
+	FeeQuoterDestChain    fee_quoter.FeeQuoterDestChainConfig
 }
 
 type AddLanesConfig struct {
-	FeeQuoterDestChainConfigArgs map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig
-	InitialPricesByChain         map[uint64]InitialPrices
-	ChainPairs                   []Lane
+	LaneConfigs []LaneConfig
 }
 
 func (c AddLanesConfig) Validate() error {
-	for _, pair := range c.ChainPairs {
-		if pair.From == pair.To {
+	for _, pair := range c.LaneConfigs {
+		if pair.SourceSelector == pair.DestSelector {
 			return fmt.Errorf("cannot add lane to the same chain")
 		}
-		if _, ok := c.InitialPricesByChain[pair.From]; !ok {
-			return fmt.Errorf("missing initial prices for chain %d", pair.From)
+		if err := pair.InitialPricesBySource.Validate(); err != nil {
+			return fmt.Errorf("error in validating initial prices for chain %d : %w", pair.SourceSelector, err)
 		}
-		if _, ok := c.FeeQuoterDestChainConfigArgs[pair.From]; !ok {
-			// TODO: add more FeeQuoterDestChainConfigArgs validation
-			return fmt.Errorf("missing fee quoter dest chain config for chain %d", pair.To)
-		} else {
-			if _, ok := c.FeeQuoterDestChainConfigArgs[pair.From][pair.To]; !ok {
-				return fmt.Errorf("missing fee quoter dest chain config for lane %d->%d", pair.From, pair.To)
-			}
+		// TODO: add more FeeQuoterDestChainConfigArgs validation
+		if pair.FeeQuoterDestChain == (fee_quoter.FeeQuoterDestChainConfig{}) {
+			return fmt.Errorf("missing fee quoter dest chain config")
 		}
 	}
 	return nil
@@ -89,23 +98,33 @@ func addLanes(e deployment.Environment, cfg AddLanesConfig) error {
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
-	for _, pair := range cfg.ChainPairs {
-		e.Logger.Infow("Enabling lane with test router", "from", pair.From, "to", pair.To)
-		if err := AddLane(e, state, pair.From, pair.To, cfg.InitialPricesByChain[pair.From], true, cfg.FeeQuoterDestChainConfigArgs[pair.From][pair.To]); err != nil {
+	for _, laneCfg := range cfg.LaneConfigs {
+		e.Logger.Infow("Enabling lane with test router", "from", laneCfg.SourceSelector, "to", laneCfg.DestSelector)
+		if err := AddLane(e, state, laneCfg, true); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func AddLaneWithDefaultPrices(e deployment.Environment, state CCIPOnChainState, from, to uint64, isTestRouter bool) error {
-	return AddLane(e, state, from, to, DefaultInitialPrices, isTestRouter, DefaultFeeQuoterDestChainConfig())
+func AddLaneWithDefaultPricesAndFeeQuoterConfig(e deployment.Environment, state CCIPOnChainState, from, to uint64, isTestRouter bool) error {
+	cfg := LaneConfig{
+		SourceSelector:        from,
+		DestSelector:          to,
+		InitialPricesBySource: DefaultInitialPrices,
+		FeeQuoterDestChain:    DefaultFeeQuoterDestChainConfig(),
+	}
+	return AddLane(e, state, cfg, isTestRouter)
 }
 
-func AddLane(e deployment.Environment, state CCIPOnChainState, from, to uint64, initialPrices InitialPrices, isTestRouter bool, feeQuoterDestChainConfig fee_quoter.FeeQuoterDestChainConfig) error {
+func AddLane(e deployment.Environment, state CCIPOnChainState, config LaneConfig, isTestRouter bool) error {
 	// TODO: Batch
 	var fromRouter *router.Router
 	var toRouter *router.Router
+	from := config.SourceSelector
+	to := config.DestSelector
+	feeQuoterDestChainConfig := config.FeeQuoterDestChain
+	initialPrices := config.InitialPricesBySource
 	if isTestRouter {
 		fromRouter = state.Chains[from].TestRouter
 		toRouter = state.Chains[to].TestRouter

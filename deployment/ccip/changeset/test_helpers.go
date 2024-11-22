@@ -479,7 +479,7 @@ func AddLanesForAll(e deployment.Environment, state CCIPOnChainState) error {
 	for source := range e.Chains {
 		for dest := range e.Chains {
 			if source != dest {
-				err := AddLaneWithDefaultPrices(e, state, source, dest, false)
+				err := AddLaneWithDefaultPricesAndFeeQuoterConfig(e, state, source, dest, false)
 				if err != nil {
 					return err
 				}

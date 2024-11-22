@@ -451,7 +451,8 @@ func BuildOCR3ConfigForCCIPHome(
 				MaxReportTransmissionCheckAttempts: commitOffchainCfg.MaxReportTransmissionCheckAttempts,
 				MaxMerkleTreeSize:                  commitOffchainCfg.MaxMerkleTreeSize,
 				SignObservationPrefix:              commitOffchainCfg.SignObservationPrefix,
-				RMNEnabled:                         commitOffchainCfg.RMNEnabled, // only enabled in manual test
+				RMNEnabled:                         commitOffchainCfg.RMNEnabled,
+				RMNSignaturesTimeout:               commitOffchainCfg.RMNSignaturesTimeout,
 			})
 		} else {
 			encodedOffchainConfig, err2 = pluginconfig.EncodeExecuteOffchainConfig(pluginconfig.ExecuteOffchainConfig{

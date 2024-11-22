@@ -11,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -27,18 +26,12 @@ func TestAddLanesWithTestRouter(t *testing.T) {
 	chain1, chain2 := selectors[0], selectors[1]
 
 	_, err = AddLanesWithTestRouter(e.Env, AddLanesConfig{
-		FeeQuoterDestChainConfigArgs: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
-			chain1: {
-				chain2: DefaultFeeQuoterDestChainConfig(),
-			},
-		},
-		InitialPricesByChain: map[uint64]InitialPrices{
-			chain1: DefaultInitialPrices,
-		},
-		ChainPairs: []Lane{
+		LaneConfigs: []LaneConfig{
 			{
-				From: chain1,
-				To:   chain2,
+				SourceSelector:        chain1,
+				DestSelector:          chain2,
+				InitialPricesBySource: DefaultInitialPrices,
+				FeeQuoterDestChain:    DefaultFeeQuoterDestChainConfig(),
 			},
 		},
 	})
@@ -91,7 +84,7 @@ func TestAddLane(t *testing.T) {
 	require.NoError(t, err)
 
 	// Add one lane from chain1 to chain 2 and send traffic.
-	require.NoError(t, AddLaneWithDefaultPrices(e.Env, state, chain1, chain2, false))
+	require.NoError(t, AddLaneWithDefaultPricesAndFeeQuoterConfig(e.Env, state, chain1, chain2, false))
 
 	ReplayLogs(t, e.Env.Offchain, replayBlocks)
 	time.Sleep(30 * time.Second)
@@ -137,7 +130,7 @@ func TestAddLane(t *testing.T) {
 	require.Equal(t, uint64(1), msgSentEvent1.SequenceNumber)
 
 	// Add another lane
-	require.NoError(t, AddLaneWithDefaultPrices(e.Env, state, chain2, chain1, false))
+	require.NoError(t, AddLaneWithDefaultPricesAndFeeQuoterConfig(e.Env, state, chain2, chain1, false))
 
 	// Send traffic on the second lane and it should succeed
 	latesthdr, err = e.Env.Chains[chain1].Client.HeaderByNumber(testcontext.Get(t), nil)
