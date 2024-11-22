@@ -26,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/registry_module_owner_custom"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/multicall3"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
@@ -48,10 +49,17 @@ import (
 // on a chain. If a binding is nil, it means here is no such contract on the chain.
 type CCIPChainState struct {
 	commoncs.MCMSWithTimelockState
-	OnRamp             *onramp.OnRamp
-	OffRamp            *offramp.OffRamp
-	FeeQuoter          *fee_quoter.FeeQuoter
-	RMNProxyNew        *rmn_proxy_contract.RMNProxyContract
+	OnRamp    *onramp.OnRamp
+	OffRamp   *offramp.OffRamp
+	FeeQuoter *fee_quoter.FeeQuoter
+	// We need 2 RMNProxy contracts because we are in the process of migrating to a new version.
+	// We will switch to the existing one once the migration is complete.
+	// This is the new RMNProxy contract that will be used for testing RMNRemote before migration.
+	// Initially RMNProxyNew will point to RMNRemote
+	RMNProxyNew *rmn_proxy_contract.RMNProxyContract
+	// Existing RMNProxy contract that is used in production, This already has existing 1.5 RMN set.
+	// once RMNRemote is tested with RMNProxyNew, as part of migration
+	// RMNProxyExisting will point to RMNRemote. This will switch over CCIP 1.5 to 1.6
 	RMNProxyExisting   *rmn_proxy_contract.RMNProxyContract
 	NonceManager       *nonce_manager.NonceManager
 	TokenAdminRegistry *token_admin_registry.TokenAdminRegistry
@@ -85,6 +93,7 @@ type CCIPChainState struct {
 	USDCTokenPool          *usdc_token_pool.USDCTokenPool
 	MockUSDCTransmitter    *mock_usdc_token_transmitter.MockE2EUSDCTransmitter
 	MockUSDCTokenMessenger *mock_usdc_token_messenger.MockE2EUSDCTokenMessenger
+	Multicall3             *multicall3.Multicall3
 }
 
 func (c CCIPChainState) GenerateView() (view.ChainView, error) {
@@ -406,6 +415,12 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				return state, err
 			}
 			state.Receiver = mr
+		case deployment.NewTypeAndVersion(Multicall3, deployment.Version1_0_0).String():
+			mc, err := multicall3.NewMulticall3(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.Multicall3 = mc
 		case deployment.NewTypeAndVersion(PriceFeed, deployment.Version1_0_0).String():
 			feed, err := aggregator_v3_interface.NewAggregatorV3Interface(common.HexToAddress(address), chain.Client)
 			if err != nil {

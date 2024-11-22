@@ -34,10 +34,7 @@ type priceFeedPrices struct {
 // TODO: find a way to reuse the same test setup for all tests
 func Test_CCIPFeeBoosting(t *testing.T) {
 	setupTestEnv := func(t *testing.T, numChains int) (changeset.DeployedEnv, changeset.CCIPOnChainState, []uint64) {
-		e, _, _ := testsetups.NewLocalDevEnvironment(
-			t, logger.TestLogger(t),
-			deployment.E18Mult(5),
-			big.NewInt(9e8))
+		e, _, _ := testsetups.NewLocalDevEnvironment(t, logger.TestLogger(t), deployment.E18Mult(5), big.NewInt(9e8), nil)
 
 		state, err := changeset.LoadOnchainState(e.Env)
 		require.NoError(t, err)
@@ -95,6 +92,7 @@ func runFeeboostTestCase(tc feeboostTestCase) {
 
 	startBlocks := make(map[uint64]*uint64)
 	expectedSeqNum := make(map[changeset.SourceDestPair]uint64)
+	expectedSeqNumExec := make(map[changeset.SourceDestPair][]uint64)
 	msgSentEvent := changeset.TestSendRequest(tc.t, tc.deployedEnv.Env, tc.onchainState, tc.sourceChain, tc.destChain, false, router.ClientEVM2AnyMessage{
 		Receiver:     common.LeftPadBytes(tc.onchainState.Chains[tc.destChain].Receiver.Address().Bytes(), 32),
 		Data:         []byte("message that needs fee boosting"),
@@ -106,6 +104,10 @@ func runFeeboostTestCase(tc feeboostTestCase) {
 		SourceChainSelector: tc.sourceChain,
 		DestChainSelector:   tc.destChain,
 	}] = msgSentEvent.SequenceNumber
+	expectedSeqNumExec[changeset.SourceDestPair{
+		SourceChainSelector: tc.sourceChain,
+		DestChainSelector:   tc.destChain,
+	}] = []uint64{msgSentEvent.SequenceNumber}
 
 	// hack
 	time.Sleep(30 * time.Second)
@@ -115,5 +117,5 @@ func runFeeboostTestCase(tc feeboostTestCase) {
 	changeset.ReplayLogs(tc.t, tc.deployedEnv.Env.Offchain, replayBlocks)
 
 	changeset.ConfirmCommitForAllWithExpectedSeqNums(tc.t, tc.deployedEnv.Env, tc.onchainState, expectedSeqNum, startBlocks)
-	changeset.ConfirmExecWithSeqNrForAll(tc.t, tc.deployedEnv.Env, tc.onchainState, expectedSeqNum, startBlocks)
+	changeset.ConfirmExecWithSeqNrsForAll(tc.t, tc.deployedEnv.Env, tc.onchainState, expectedSeqNumExec, startBlocks)
 }

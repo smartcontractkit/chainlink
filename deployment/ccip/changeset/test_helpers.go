@@ -15,8 +15,10 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
-
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 
@@ -47,6 +49,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_ethusd_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 )
 
 const (
@@ -57,6 +60,8 @@ const (
 var (
 	// bytes4 public constant EVM_EXTRA_ARGS_V2_TAG = 0x181dcf10;
 	evmExtraArgsV2Tag = hexutil.MustDecode("0x181dcf10")
+
+	routerABI = abihelpers.MustParseABI(router.RouterABI)
 )
 
 // Context returns a context with the test's deadline, if available.
@@ -242,15 +247,15 @@ func mockAttestationResponse() *httptest.Server {
 	return server
 }
 
-func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, numChains int, numNodes int) DeployedEnv {
-	e := NewMemoryEnvironment(t, lggr, numChains, numNodes, MockLinkPrice, MockWethPrice)
-	e.SetupJobs(t)
-	// Take first non-home chain as the new chain.
-	newAddresses := deployment.NewMemoryAddressBook()
-	err := DeployPrerequisiteChainContracts(e.Env, newAddresses, e.Env.AllChainSelectors())
-	require.NoError(t, err)
-	require.NoError(t, e.Env.ExistingAddresses.Merge(newAddresses))
+type TestConfigs struct {
+	IsUSDC       bool
+	IsMultiCall3 bool
+}
 
+func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, numChains int, numNodes int, tCfg *TestConfigs) DeployedEnv {
+	var err error
+	e := NewMemoryEnvironment(t, lggr, numChains, numNodes, MockLinkPrice, MockWethPrice)
+	allChains := e.Env.AllChainSelectors()
 	cfg := commontypes.MCMSWithTimelockConfig{
 		Canceller:         commonchangeset.SingleGroupMCMS(t),
 		Bypasser:          commonchangeset.SingleGroupMCMS(t),
@@ -262,37 +267,106 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 	for _, c := range e.Env.AllChainSelectors() {
 		mcmsCfg[c] = cfg
 	}
-	out, err := commonchangeset.DeployMCMSWithTimelock(e.Env, mcmsCfg)
-	require.NoError(t, err)
-	require.NoError(t, e.Env.ExistingAddresses.Merge(out.AddressBook))
-	state, err := LoadOnchainState(e.Env)
-	require.NoError(t, err)
-
-	newAddresses = deployment.NewMemoryAddressBook()
-	tokenConfig := NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
-	server := mockAttestationResponse()
-	defer server.Close()
-	endpoint := server.URL
-	err = DeployCCIPContracts(e.Env, newAddresses, DeployCCIPContractConfig{
-		HomeChainSel:   e.HomeChainSel,
-		FeedChainSel:   e.FeedChainSel,
-		ChainsToDeploy: e.Env.AllChainSelectors(),
-		TokenConfig:    tokenConfig,
-		OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
-		USDCConfig: USDCConfig{
-			Enabled: true,
-			USDCAttestationConfig: USDCAttestationConfig{
-				API:         endpoint,
-				APITimeout:  commonconfig.MustNewDuration(time.Second),
-				APIInterval: commonconfig.MustNewDuration(500 * time.Millisecond),
+	var usdcChains []uint64
+	if tCfg != nil && tCfg.IsUSDC {
+		usdcChains = allChains
+	}
+	// Need to deploy prerequisites first so that we can form the USDC config
+	// no proposals to be made, timelock can be passed as nil here
+	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(DeployPrerequisites),
+			Config: DeployPrerequisiteConfig{
+				ChainSelectors: allChains,
+				Opts: []PrerequisiteOpt{
+					WithUSDCChains(usdcChains),
+				},
 			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployMCMSWithTimelock),
+			Config:    mcmsCfg,
 		},
 	})
 	require.NoError(t, err)
-	require.NoError(t, e.Env.ExistingAddresses.Merge(newAddresses))
-	state, err = LoadOnchainState(e.Env)
+
+	state, err := LoadOnchainState(e.Env)
+	require.NoError(t, err)
+	tokenConfig := NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
+	usdcCCTPConfig := make(map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig)
+	timelocksPerChain := make(map[uint64]*gethwrappers.RBACTimelock)
+	for _, chain := range usdcChains {
+		require.NotNil(t, state.Chains[chain].MockUSDCTokenMessenger)
+		require.NotNil(t, state.Chains[chain].MockUSDCTransmitter)
+		require.NotNil(t, state.Chains[chain].USDCTokenPool)
+		usdcCCTPConfig[cciptypes.ChainSelector(chain)] = pluginconfig.USDCCCTPTokenConfig{
+			SourcePoolAddress:            state.Chains[chain].USDCTokenPool.Address().String(),
+			SourceMessageTransmitterAddr: state.Chains[chain].MockUSDCTransmitter.Address().String(),
+		}
+		timelocksPerChain[chain] = state.Chains[chain].Timelock
+	}
+	var usdcCfg USDCAttestationConfig
+	if len(usdcChains) > 0 {
+		server := mockAttestationResponse()
+		endpoint := server.URL
+		usdcCfg = USDCAttestationConfig{
+			API:         endpoint,
+			APITimeout:  commonconfig.MustNewDuration(time.Second),
+			APIInterval: commonconfig.MustNewDuration(500 * time.Millisecond),
+		}
+		t.Cleanup(func() {
+			server.Close()
+		})
+	}
+
+	// Deploy second set of changesets to deploy and configure the CCIP contracts.
+	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(DeployChainContracts),
+			Config: DeployChainContractsConfig{
+				ChainSelectors:    allChains,
+				HomeChainSelector: e.HomeChainSel,
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(ConfigureNewChains),
+			Config: NewChainsConfig{
+				HomeChainSel:   e.HomeChainSel,
+				FeedChainSel:   e.FeedChainSel,
+				ChainsToDeploy: allChains,
+				TokenConfig:    tokenConfig,
+				OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
+				USDCConfig: USDCConfig{
+					EnabledChains:         usdcChains,
+					USDCAttestationConfig: usdcCfg,
+					CCTPTokenConfig:       usdcCCTPConfig,
+				},
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(CCIPCapabilityJobspec),
+		},
+	})
 	require.NoError(t, err)
 
+	state, err = LoadOnchainState(e.Env)
+	require.NoError(t, err)
+	require.NotNil(t, state.Chains[e.HomeChainSel].CapabilityRegistry)
+	require.NotNil(t, state.Chains[e.HomeChainSel].CCIPHome)
+	require.NotNil(t, state.Chains[e.HomeChainSel].RMNHome)
+	for _, chain := range allChains {
+		require.NotNil(t, state.Chains[chain].LinkToken)
+		require.NotNil(t, state.Chains[chain].Weth9)
+		require.NotNil(t, state.Chains[chain].TokenAdminRegistry)
+		require.NotNil(t, state.Chains[chain].RegistryModule)
+		require.NotNil(t, state.Chains[chain].Router)
+		require.NotNil(t, state.Chains[chain].RMNRemote)
+		require.NotNil(t, state.Chains[chain].TestRouter)
+		require.NotNil(t, state.Chains[chain].NonceManager)
+		require.NotNil(t, state.Chains[chain].FeeQuoter)
+		require.NotNil(t, state.Chains[chain].OffRamp)
+		require.NotNil(t, state.Chains[chain].OnRamp)
+	}
 	return e
 }
 
@@ -335,6 +409,25 @@ func CCIPSendRequest(
 		return tx, 0, errors.Wrap(err, "failed to confirm CCIP message")
 	}
 	return tx, blockNum, nil
+}
+
+// CCIPSendCalldata packs the calldata for the Router's ccipSend method.
+// This is expected to be used in Multicall scenarios (i.e multiple ccipSend calls
+// in a single transaction).
+func CCIPSendCalldata(
+	destChainSelector uint64,
+	evm2AnyMessage router.ClientEVM2AnyMessage,
+) ([]byte, error) {
+	calldata, err := routerABI.Methods["ccipSend"].Inputs.Pack(
+		destChainSelector,
+		evm2AnyMessage,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("pack ccipSend calldata: %w", err)
+	}
+
+	calldata = append(routerABI.Methods["ccipSend"].ID, calldata...)
+	return calldata, nil
 }
 
 func TestSendRequest(
@@ -548,22 +641,22 @@ func ConfirmRequestOnSourceAndDest(t *testing.T, env deployment.Environment, sta
 
 	fmt.Printf("Request sent for seqnr %d", msgSentEvent.SequenceNumber)
 	require.NoError(t,
-		ConfirmCommitWithExpectedSeqNumRange(t, env.Chains[sourceCS], env.Chains[destCS], state.Chains[destCS].OffRamp, &startBlock, cciptypes.SeqNumRange{
+		commonutils.JustError(ConfirmCommitWithExpectedSeqNumRange(t, env.Chains[sourceCS], env.Chains[destCS], state.Chains[destCS].OffRamp, &startBlock, cciptypes.SeqNumRange{
 			cciptypes.SeqNum(msgSentEvent.SequenceNumber),
 			cciptypes.SeqNum(msgSentEvent.SequenceNumber),
-		}))
+		})))
 
 	fmt.Printf("Commit confirmed for seqnr %d", msgSentEvent.SequenceNumber)
 	require.NoError(
 		t,
 		commonutils.JustError(
-			ConfirmExecWithSeqNr(
+			ConfirmExecWithSeqNrs(
 				t,
 				env.Chains[sourceCS],
 				env.Chains[destCS],
 				state.Chains[destCS].OffRamp,
 				&startBlock,
-				msgSentEvent.SequenceNumber,
+				[]uint64{msgSentEvent.SequenceNumber},
 			),
 		),
 	)
@@ -571,6 +664,7 @@ func ConfirmRequestOnSourceAndDest(t *testing.T, env deployment.Environment, sta
 	return nil
 }
 
+// TODO: Remove this to replace with ApplyChangeset
 func ProcessChangeset(t *testing.T, e deployment.Environment, c deployment.ChangesetOutput) {
 
 	// TODO: Add support for jobspecs as well
@@ -763,6 +857,15 @@ func attachTokenToTheRegistry(
 	token common.Address,
 	tokenPool common.Address,
 ) error {
+	pool, err := state.TokenAdminRegistry.GetPool(nil, token)
+	if err != nil {
+		return err
+	}
+	// Pool is already registered, don't reattach it, because it would cause revert
+	if pool != (common.Address{}) {
+		return nil
+	}
+
 	tx, err := state.RegistryModule.RegisterAdminViaOwner(owner, token)
 	if err != nil {
 		return err
