@@ -3,7 +3,6 @@ package syncer
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -232,9 +231,6 @@ func (orm *orm) GetWorkflowSpec(ctx context.Context, owner, name string) (*job.W
 	var spec job.WorkflowSpec
 	err := orm.ds.GetContext(ctx, &spec, query, owner, name)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil // No spec found
-		}
 		return nil, err
 	}
 

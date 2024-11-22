@@ -192,7 +192,7 @@ func Test_GetWorkflowSpec(t *testing.T) {
 
 	t.Run("fails if no workflow spec exists", func(t *testing.T) {
 		dbSpec, err := orm.GetWorkflowSpec(ctx, "owner-123", "Test Workflow")
-		require.NoError(t, err)
+		require.Error(t, err)
 		require.Nil(t, dbSpec)
 	})
 }
