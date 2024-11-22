@@ -3,6 +3,7 @@ package deployment
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
@@ -346,9 +347,17 @@ func NodeInfo(nodeIDs []string, oc NodeChainConfigsLister) (Nodes, error) {
 			var cpk types3.ConfigEncryptionPublicKey
 			copy(cpk[:], b)
 
+			var pubkey types3.OnchainPublicKey
+			if chainConfig.Chain.Type == nodev1.ChainType_CHAIN_TYPE_EVM {
+				// convert from pubkey to address
+				pubkey = common.HexToAddress(chainConfig.Ocr2Config.OcrKeyBundle.OnchainSigningAddress).Bytes()
+			} else {
+				pubkey = common.Hex2Bytes(chainConfig.Ocr2Config.OcrKeyBundle.OnchainSigningAddress)
+			}
+
 			ocrConfig := OCRConfig{
 				OffchainPublicKey:         opk,
-				OnchainPublicKey:          common.HexToAddress(chainConfig.Ocr2Config.OcrKeyBundle.OnchainSigningAddress).Bytes(),
+				OnchainPublicKey:          pubkey,
 				PeerID:                    MustPeerIDFromString(chainConfig.Ocr2Config.P2PKeyBundle.PeerId),
 				TransmitAccount:           types2.Account(chainConfig.AccountAddress),
 				ConfigEncryptionPublicKey: cpk,
