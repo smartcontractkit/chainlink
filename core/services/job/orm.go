@@ -433,8 +433,8 @@ func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
 		case Stream:
 			// 'stream' type has no associated spec, nothing to do here
 		case Workflow:
-			sql := `INSERT INTO workflow_specs (workflow, workflow_id, workflow_owner, workflow_name, created_at, updated_at, spec_type, config)
-			VALUES (:workflow, :workflow_id, :workflow_owner, :workflow_name, NOW(), NOW(), :spec_type, :config)
+			sql := `INSERT INTO workflow_specs (workflow, workflow_id, workflow_owner, workflow_name, binary_url, config_url, secrets_id, created_at, updated_at, spec_type, config)
+			VALUES (:workflow, :workflow_id, :workflow_owner, :workflow_name, :binary_url, :config_url, :secrets_id, NOW(), NOW(), :spec_type, :config)
 			RETURNING id;`
 			specID, err := tx.prepareQuerySpecID(ctx, sql, jb.WorkflowSpec)
 			if err != nil {

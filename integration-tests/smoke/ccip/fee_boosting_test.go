@@ -11,7 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
+	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -34,10 +34,7 @@ type priceFeedPrices struct {
 // TODO: find a way to reuse the same test setup for all tests
 func Test_CCIPFeeBoosting(t *testing.T) {
 	setupTestEnv := func(t *testing.T, numChains int) (changeset.DeployedEnv, changeset.CCIPOnChainState, []uint64) {
-		e, _, _ := testsetups.NewLocalDevEnvironment(
-			t, logger.TestLogger(t),
-			deployment.E18Mult(5),
-			big.NewInt(9e8))
+		e, _, _ := testsetups.NewLocalDevEnvironment(t, logger.TestLogger(t), deployment.E18Mult(5), big.NewInt(9e8), nil)
 
 		state, err := changeset.LoadOnchainState(e.Env)
 		require.NoError(t, err)
