@@ -1,4 +1,4 @@
-name: Flakeguard Pull Request
+name: Flakeguard
 
 on:
   workflow_call:
@@ -28,8 +28,8 @@ on:
       runThreshold:
         required: false
         type: string
-        description: 'The threshold for the number of times a test can fail before being considered flaky.'
-        default: '0.9'
+        description: 'Minimum pass ratio for considering a test as flaky.'
+        default: '1.0'
       findByTestFilesDiff:
         required: false
         type: boolean
