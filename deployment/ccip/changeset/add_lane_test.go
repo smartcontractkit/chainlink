@@ -11,10 +11,60 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
+
+func TestAddLanesWithTestRouter(t *testing.T) {
+	e := NewMemoryEnvironmentWithJobsAndContracts(t, logger.TestLogger(t), 2, 4, nil)
+	// Here we have CR + nodes set up, but no CCIP contracts deployed.
+	state, err := LoadOnchainState(e.Env)
+	require.NoError(t, err)
+
+	selectors := e.Env.AllChainSelectors()
+	chain1, chain2 := selectors[0], selectors[1]
+
+	_, err = AddLanesWithTestRouter(e.Env, AddLanesConfig{
+		FeeQuoterDestChainConfigArgs: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
+			chain1: {
+				chain2: DefaultFeeQuoterDestChainConfig(),
+			},
+		},
+		InitialPricesByChain: map[uint64]InitialPrices{
+			chain1: DefaultInitialPrices,
+		},
+		ChainPairs: []Lane{
+			{
+				From: chain1,
+				To:   chain2,
+			},
+		},
+	})
+	require.NoError(t, err)
+	// Need to keep track of the block number for each chain so that event subscription can be done from that block.
+	startBlocks := make(map[uint64]*uint64)
+	// Send a message from each chain to every other chain.
+	expectedSeqNum := make(map[SourceDestPair]uint64)
+
+	latesthdr, err := e.Env.Chains[chain2].Client.HeaderByNumber(testcontext.Get(t), nil)
+	require.NoError(t, err)
+	block := latesthdr.Number.Uint64()
+	startBlocks[chain2] = &block
+	msgSentEvent := TestSendRequest(t, e.Env, state, chain1, chain2, true, router.ClientEVM2AnyMessage{
+		Receiver:     common.LeftPadBytes(state.Chains[chain2].Receiver.Address().Bytes(), 32),
+		Data:         []byte("hello"),
+		TokenAmounts: nil,
+		FeeToken:     common.HexToAddress("0x0"),
+		ExtraArgs:    nil,
+	})
+	expectedSeqNum[SourceDestPair{
+		SourceChainSelector: chain1,
+		DestChainSelector:   chain2,
+	}] = msgSentEvent.SequenceNumber
+	ConfirmExecWithSeqNrForAll(t, e.Env, state, expectedSeqNum, startBlocks)
+}
 
 // TestAddLane covers the workflow of adding a lane between two chains and enabling it.
 // It also covers the case where the onRamp is disabled on the OffRamp contract initially and then enabled.
@@ -41,7 +91,7 @@ func TestAddLane(t *testing.T) {
 	require.NoError(t, err)
 
 	// Add one lane from chain1 to chain 2 and send traffic.
-	require.NoError(t, AddLaneWithDefaultPrices(e.Env, state, chain1, chain2))
+	require.NoError(t, AddLaneWithDefaultPrices(e.Env, state, chain1, chain2, false))
 
 	ReplayLogs(t, e.Env.Offchain, replayBlocks)
 	time.Sleep(30 * time.Second)
@@ -87,7 +137,7 @@ func TestAddLane(t *testing.T) {
 	require.Equal(t, uint64(1), msgSentEvent1.SequenceNumber)
 
 	// Add another lane
-	require.NoError(t, AddLaneWithDefaultPrices(e.Env, state, chain2, chain1))
+	require.NoError(t, AddLaneWithDefaultPrices(e.Env, state, chain2, chain1, false))
 
 	// Send traffic on the second lane and it should succeed
 	latesthdr, err = e.Env.Chains[chain1].Client.HeaderByNumber(testcontext.Get(t), nil)
