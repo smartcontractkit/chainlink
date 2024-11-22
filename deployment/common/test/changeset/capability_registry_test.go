@@ -5,10 +5,9 @@ import (
 	"os"
 	"testing"
 
+	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
-
-	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
@@ -22,11 +21,11 @@ func TestHydrateCapabilityRegistry(t *testing.T) {
 	var capabilityRegistryView v1_0.CapabilityRegistryView
 	require.NoError(t, json.Unmarshal(b, &capabilityRegistryView))
 
-	chainID := chainsel.TEST_90000001.EvmChainID + 1
+	chainID := chainsel.TEST_90000001.EvmChainID
 	cfg := HydrateConfig{ChainID: chainID}
 	env := memory.NewMemoryEnvironment(t, logger.TestLogger(t), zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		Bootstraps: 1,
-		Chains:     2,
+		Chains:     1,
 		Nodes:      4,
 	})
 	hydrated, err := HydrateCapabilityRegistry(t, capabilityRegistryView, env, cfg)

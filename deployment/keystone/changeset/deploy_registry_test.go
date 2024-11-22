@@ -23,7 +23,7 @@ func TestDeployCapabilityRegistry(t *testing.T) {
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 
 	registrySel := env.AllChainSelectors()[0]
-	resp, _, err := changeset.DeployCapabilityRegistry(env, registrySel)
+	resp, err := changeset.DeployCapabilityRegistry(env, registrySel)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	// capabilities registry should be deployed on chain 0

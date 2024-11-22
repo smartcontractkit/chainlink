@@ -18,7 +18,7 @@ func TestKeystoneView(t *testing.T) {
 		Chains: 2,
 	})
 	registryChain := env.AllChainSelectors()[0]
-	resp, _, err := DeployCapabilityRegistry(env, registryChain)
+	resp, err := DeployCapabilityRegistry(env, registryChain)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	require.NoError(t, env.ExistingAddresses.Merge(resp.AddressBook))

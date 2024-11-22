@@ -28,10 +28,24 @@ func HydrateCapabilityRegistry(t *testing.T, v v1_0.CapabilityRegistryView, env 
 	if !ok {
 		return nil, fmt.Errorf("chain with id %d not found", cfg.ChainID)
 	}
-	_, deployedContract, err := changeset.DeployCapabilityRegistry(env, chainSelector)
+	changesetOutput, err := changeset.DeployCapabilityRegistry(env, chainSelector)
 	if err != nil {
 		return nil, fmt.Errorf("failed to deploy contract: %w", err)
 	}
+
+	resp, err := keystone.GetContractSets(env.Logger, &keystone.GetContractSetsRequest{
+		Chains:      env.Chains,
+		AddressBook: changesetOutput.AddressBook,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get contract sets: %w", err)
+	}
+	cs, ok := resp.ContractSets[chainSelector]
+	if !ok {
+		return nil, fmt.Errorf("failed to get contract set for chain selector: %d, chain ID: %d", chainSelector, cfg.ChainID)
+	}
+
+	deployedContract := cs.CapabilitiesRegistry
 
 	nopsParams := v.NopsToNopsParams()
 	tx, err := deployedContract.AddNodeOperators(chain.DeployerKey, nopsParams)
