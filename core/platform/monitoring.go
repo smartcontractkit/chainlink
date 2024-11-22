@@ -1,5 +1,10 @@
 package platform
 
+import (
+	"iter"
+	"slices"
+)
+
 // Observability keys
 const (
 	KeyCapabilityID        = "capabilityID"
@@ -12,4 +17,13 @@ const (
 	KeyStepRef             = "stepRef"
 )
 
-var OrderedLabelKeys = []string{KeyStepRef, KeyStepID, KeyTriggerID, KeyCapabilityID, KeyWorkflowExecutionID, KeyWorkflowID}
+func LabelKeysSorted() iter.Seq[string] {
+	return slices.Values([]string{
+		KeyStepRef,
+		KeyStepID,
+		KeyTriggerID,
+		KeyCapabilityID,
+		KeyWorkflowExecutionID,
+		KeyWorkflowID,
+	})
+}

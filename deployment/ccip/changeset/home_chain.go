@@ -8,7 +8,6 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	ccipdeployment "github.com/smartcontractkit/chainlink/deployment/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 )
@@ -23,10 +22,12 @@ func DeployHomeChain(env deployment.Environment, cfg DeployHomeChainConfig) (dep
 	}
 	ab := deployment.NewMemoryAddressBook()
 	// Note we also deploy the cap reg.
-	_, err = ccipdeployment.DeployHomeChain(env.Logger, env, ab, env.Chains[cfg.HomeChainSel], cfg.RMNStaticConfig, cfg.RMNDynamicConfig, cfg.NodeOperators, cfg.NodeP2PIDsPerNodeOpAdmin)
+	_, err = deployHomeChain(env.Logger, env, ab, env.Chains[cfg.HomeChainSel], cfg.RMNStaticConfig, cfg.RMNDynamicConfig, cfg.NodeOperators, cfg.NodeP2PIDsPerNodeOpAdmin)
 	if err != nil {
 		env.Logger.Errorw("Failed to deploy cap reg", "err", err, "addresses", env.ExistingAddresses)
-		return deployment.ChangesetOutput{}, err
+		return deployment.ChangesetOutput{
+			AddressBook: ab,
+		}, err
 	}
 
 	return deployment.ChangesetOutput{

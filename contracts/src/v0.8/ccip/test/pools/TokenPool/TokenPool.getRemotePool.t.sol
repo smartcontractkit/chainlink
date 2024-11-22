@@ -13,10 +13,13 @@ contract TokenPool_getRemotePool is TokenPoolSetup {
     // Zero indicates nothing is set
     assertEq(0, s_tokenPool.getRemotePools(chainSelector).length);
 
+    bytes[] memory remotePoolAddresses = new bytes[](1);
+    remotePoolAddresses[0] = remotePool;
+
     TokenPool.ChainUpdate[] memory chainUpdates = new TokenPool.ChainUpdate[](1);
     chainUpdates[0] = TokenPool.ChainUpdate({
       remoteChainSelector: chainSelector,
-      remotePoolAddress: remotePool,
+      remotePoolAddresses: remotePoolAddresses,
       remoteTokenAddress: remoteToken,
       outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
       inboundRateLimiterConfig: _getInboundRateLimiterConfig()

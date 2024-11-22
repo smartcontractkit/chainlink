@@ -3,7 +3,6 @@ pragma solidity 0.8.24;
 
 import {TokenPool} from "../../../../pools/TokenPool.sol";
 import {HybridLockReleaseUSDCTokenPool} from "../../../../pools/USDC/HybridLockReleaseUSDCTokenPool.sol";
-
 import {USDCBridgeMigrator_BurnLockedUSDC} from "./USDCBridgeMigrator.burnLockedUSDC.t.sol";
 
 contract USDCBridgeMigrator_provideLiquidity is USDCBridgeMigrator_BurnLockedUSDC {

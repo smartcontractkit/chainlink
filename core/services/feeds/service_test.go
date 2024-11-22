@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"math/big"
 	"testing"
 	"time"
 
@@ -22,7 +23,7 @@ import (
 	proto "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	evmbig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -36,8 +37,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	jobmocks "github.com/smartcontractkit/chainlink/v2/core/services/job/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/keystest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/versioning"
@@ -1620,7 +1621,7 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p2pKey := keystest.NewP2PKeyV2(t)
+			p2pKey := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1))
 
 			ocrKey, err := ocrkey.NewV2()
 			require.NoError(t, err)
@@ -2046,7 +2047,7 @@ func Test_Service_ListSpecsByJobProposalIDs(t *testing.T) {
 }
 
 func Test_Service_ApproveSpec(t *testing.T) {
-	var evmChainID *big.Big
+	var evmChainID *evmbig.Big
 	address := types.EIP55AddressFromAddress(common.Address{})
 	externalJobID := uuid.New()
 

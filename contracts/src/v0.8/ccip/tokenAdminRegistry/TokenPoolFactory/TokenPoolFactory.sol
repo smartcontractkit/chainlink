@@ -53,7 +53,7 @@ contract TokenPoolFactory is ITypeAndVersion {
     uint8 remoteTokenDecimals; // The number of decimals for the token on the remote chain
   }
 
-  string public constant typeAndVersion = "TokenPoolFactory 1.7.0-dev";
+  string public constant typeAndVersion = "TokenPoolFactory 1.5.1";
 
   ITokenAdminRegistry private immutable i_tokenAdminRegistry;
   RegistryModuleOwnerCustom private immutable i_registryModuleOwnerCustom;
@@ -212,9 +212,12 @@ contract TokenPoolFactory is ITypeAndVersion {
           abi.encode(salt.computeAddress(remotePoolInitcodeHash, remoteTokenPool.remoteChainConfig.remotePoolFactory));
       }
 
+      bytes[] memory remotePoolAddresses = new bytes[](1);
+      remotePoolAddresses[0] = remoteTokenPool.remotePoolAddress;
+
       chainUpdates[i] = TokenPool.ChainUpdate({
         remoteChainSelector: remoteTokenPool.remoteChainSelector,
-        remotePoolAddress: remoteTokenPool.remotePoolAddress,
+        remotePoolAddresses: remotePoolAddresses,
         remoteTokenAddress: remoteTokenPool.remoteTokenAddress,
         outboundRateLimiterConfig: remoteTokenPool.rateLimiterConfig,
         inboundRateLimiterConfig: remoteTokenPool.rateLimiterConfig

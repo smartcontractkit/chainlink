@@ -33,7 +33,7 @@ contract TokenPool_onlyOffRamp is TokenPoolSetup {
     TokenPool.ChainUpdate[] memory chainUpdate = new TokenPool.ChainUpdate[](1);
     chainUpdate[0] = TokenPool.ChainUpdate({
       remoteChainSelector: chainSelector,
-      remotePoolAddress: abi.encode(address(1)),
+      remotePoolAddresses: new bytes[](0),
       remoteTokenAddress: abi.encode(address(2)),
       outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
       inboundRateLimiterConfig: _getInboundRateLimiterConfig()

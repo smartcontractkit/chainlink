@@ -95,8 +95,8 @@ func (tq *transmitQueue) Push(t *Transmission) (ok bool) {
 
 	if tq.maxlen != 0 && tq.pq.Len() == tq.maxlen {
 		// evict oldest entry to make room
-		tq.lggr.Criticalf("Transmit queue is full; dropping oldest transmission (reached max length of %d)", tq.maxlen)
 		removed := heap.PopMax(tq.pq)
+		tq.lggr.Criticalw(fmt.Sprintf("Transmit queue is full; dropping oldest transmission (reached max length of %d)", tq.maxlen), "transmission", removed)
 		if removed, ok := removed.(*Transmission); ok {
 			tq.asyncDeleter.AsyncDelete(removed.Hash())
 		}

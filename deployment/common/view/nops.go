@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	chainsel "github.com/smartcontractkit/chain-selectors"
-
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink/deployment"
 )
@@ -58,16 +56,8 @@ func GenerateNopsView(nodeIds []string, oc deployment.OffchainClient) (map[strin
 			IsConnected:  nodeDetails.Node.IsConnected,
 			IsEnabled:    nodeDetails.Node.IsEnabled,
 		}
-		for sel, ocrConfig := range node.SelToOCRConfig {
-			chainid, err := chainsel.ChainIdFromSelector(sel)
-			if err != nil {
-				return nv, err
-			}
-			chainName, err := chainsel.NameFromChainId(chainid)
-			if err != nil {
-				return nv, err
-			}
-			nop.OCRKeys[chainName] = OCRKeyView{
+		for details, ocrConfig := range node.SelToOCRConfig {
+			nop.OCRKeys[details.ChainName] = OCRKeyView{
 				OffchainPublicKey:         fmt.Sprintf("%x", ocrConfig.OffchainPublicKey[:]),
 				OnchainPublicKey:          fmt.Sprintf("%x", ocrConfig.OnchainPublicKey[:]),
 				PeerID:                    ocrConfig.PeerID.String(),

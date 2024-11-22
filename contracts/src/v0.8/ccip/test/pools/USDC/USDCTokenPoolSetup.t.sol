@@ -66,17 +66,23 @@ contract HybridLockReleaseUSDCTokenPoolSetup is BaseTest {
     usdcToken.grantMintAndBurnRoles(address(s_mockUSDC));
     usdcToken.grantMintAndBurnRoles(address(s_usdcTokenPool));
 
+    bytes[] memory sourcePoolAddresses = new bytes[](1);
+    sourcePoolAddresses[0] = abi.encode(SOURCE_CHAIN_USDC_POOL);
+
+    bytes[] memory destPoolAddresses = new bytes[](1);
+    destPoolAddresses[0] = abi.encode(DEST_CHAIN_USDC_POOL);
+
     TokenPool.ChainUpdate[] memory chainUpdates = new TokenPool.ChainUpdate[](2);
     chainUpdates[0] = TokenPool.ChainUpdate({
       remoteChainSelector: SOURCE_CHAIN_SELECTOR,
-      remotePoolAddress: abi.encode(SOURCE_CHAIN_USDC_POOL),
+      remotePoolAddresses: sourcePoolAddresses,
       remoteTokenAddress: abi.encode(address(s_token)),
       outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
       inboundRateLimiterConfig: _getInboundRateLimiterConfig()
     });
     chainUpdates[1] = TokenPool.ChainUpdate({
       remoteChainSelector: DEST_CHAIN_SELECTOR,
-      remotePoolAddress: abi.encode(DEST_CHAIN_USDC_POOL),
+      remotePoolAddresses: destPoolAddresses,
       remoteTokenAddress: abi.encode(DEST_CHAIN_USDC_TOKEN),
       outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
       inboundRateLimiterConfig: _getInboundRateLimiterConfig()

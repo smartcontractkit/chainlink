@@ -3,7 +3,6 @@ pragma solidity 0.8.24;
 
 import {Internal} from "../../../../libraries/Internal.sol";
 import {Pool} from "../../../../libraries/Pool.sol";
-
 import {TokenPool} from "../../../../pools/TokenPool.sol";
 import {LOCK_RELEASE_FLAG} from "../../../../pools/USDC/HybridLockReleaseUSDCTokenPool.sol";
 import {USDCBridgeMigrator} from "../../../../pools/USDC/USDCBridgeMigrator.sol";

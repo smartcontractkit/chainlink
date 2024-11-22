@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 	"sync"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -97,12 +98,14 @@ var _ Transmitter = (*transmitter)(nil)
 type Config interface {
 	TransmitQueueMaxSize() uint32
 	TransmitTimeout() commonconfig.Duration
+	TransmitConcurrency() uint32
 }
 
 type transmitter struct {
 	services.StateMachine
-	lggr logger.SugaredLogger
-	cfg  Config
+	lggr           logger.SugaredLogger
+	verboseLogging bool
+	cfg            Config
 
 	orm     ORM
 	servers map[string]*server
@@ -115,12 +118,13 @@ type transmitter struct {
 }
 
 type Opts struct {
-	Lggr        logger.Logger
-	Cfg         Config
-	Clients     map[string]wsrpc.Client
-	FromAccount ed25519.PublicKey
-	DonID       uint32
-	ORM         ORM
+	Lggr           logger.Logger
+	VerboseLogging bool
+	Cfg            Config
+	Clients        map[string]wsrpc.Client
+	FromAccount    ed25519.PublicKey
+	DonID          uint32
+	ORM            ORM
 }
 
 func New(opts Opts) Transmitter {
@@ -132,11 +136,12 @@ func newTransmitter(opts Opts) *transmitter {
 	servers := make(map[string]*server, len(opts.Clients))
 	for serverURL, client := range opts.Clients {
 		sLggr := sugared.Named(serverURL).With("serverURL", serverURL)
-		servers[serverURL] = newServer(sLggr, opts.Cfg, client, opts.ORM, serverURL)
+		servers[serverURL] = newServer(sLggr, opts.VerboseLogging, opts.Cfg, client, opts.ORM, serverURL)
 	}
 	return &transmitter{
 		services.StateMachine{},
 		sugared.Named("LLOMercuryTransmitter").With("donID", opts.ORM.DonID()),
+		opts.VerboseLogging,
 		opts.Cfg,
 		opts.ORM,
 		servers,
@@ -149,7 +154,9 @@ func newTransmitter(opts Opts) *transmitter {
 
 func (mt *transmitter) Start(ctx context.Context) (err error) {
 	return mt.StartOnce("LLOMercuryTransmitter", func() error {
-		mt.lggr.Debugw("Loading transmit requests from database")
+		if mt.verboseLogging {
+			mt.lggr.Debugw("Loading transmit requests from database")
+		}
 
 		{
 			var startClosers []services.StartClose
@@ -159,12 +166,23 @@ func (mt *transmitter) Start(ctx context.Context) (err error) {
 					return err
 				}
 				s.q.Init(transmissions)
-				// starting pm after loading from it is fine because it simply spawns some garbage collection/prune goroutines
+				// starting pm after loading from it is fine because it simply
+				// spawns some garbage collection/prune goroutines
 				startClosers = append(startClosers, s.c, s.q, s.pm)
 
-				mt.wg.Add(2)
-				go s.runDeleteQueueLoop(mt.stopCh, mt.wg)
-				go s.runQueueLoop(mt.stopCh, mt.wg, fmt.Sprintf("%d", mt.donID))
+				// Number of goroutines per server will be roughly
+				// 2*nServers*TransmitConcurrency because each server has a
+				// delete queue and a transmit queue.
+				//
+				// This could potentially be reduced by implementing transmit batching,
+				// see: https://smartcontract-it.atlassian.net/browse/MERC-6635
+				nThreads := int(mt.cfg.TransmitConcurrency())
+				mt.wg.Add(2 * nThreads)
+				donIDStr := strconv.FormatUint(uint64(mt.donID), 10)
+				for i := 0; i < nThreads; i++ {
+					go s.runDeleteQueueLoop(mt.stopCh, mt.wg)
+					go s.runQueueLoop(mt.stopCh, mt.wg, donIDStr)
+				}
 			}
 			if err := (&services.MultiStart{}).Start(ctx, startClosers...); err != nil {
 				return err
@@ -234,7 +252,9 @@ func (mt *transmitter) Transmit(
 	g := new(errgroup.Group)
 	for i := range transmissions {
 		t := transmissions[i]
-		mt.lggr.Debugw("LLOMercuryTransmit", "digest", digest.Hex(), "seqNr", seqNr, "reportFormat", report.Info.ReportFormat, "reportLifeCycleStage", report.Info.LifeCycleStage, "transmissionHash", fmt.Sprintf("%x", t.Hash()))
+		if mt.verboseLogging {
+			mt.lggr.Debugw("LLOMercuryTransmit", "digest", digest.Hex(), "seqNr", seqNr, "reportFormat", report.Info.ReportFormat, "reportLifeCycleStage", report.Info.LifeCycleStage, "transmissionHash", fmt.Sprintf("%x", t.Hash()))
+		}
 		g.Go(func() error {
 			s := mt.servers[t.ServerURL]
 			if ok := s.q.Push(t); !ok {
