@@ -5,7 +5,7 @@ import {RateLimiter} from "../../../libraries/RateLimiter.sol";
 import {TokenPool} from "../../../pools/TokenPool.sol";
 import {TokenPoolSetup} from "./TokenPoolSetup.t.sol";
 
-contract TokenPool_setChainRateLimiterConfig is TokenPoolSetup {
+contract TokenPool_setChainRateLimiterConfigs is TokenPoolSetup {
   uint64 internal s_remoteChainSelector;
 
   function setUp() public virtual override {
@@ -23,7 +23,7 @@ contract TokenPool_setChainRateLimiterConfig is TokenPoolSetup {
     s_tokenPool.applyChainUpdates(chainUpdates);
   }
 
-  function testFuzz_SetChainRateLimiterConfig_Success(uint128 capacity, uint128 rate, uint32 newTime) public {
+  function testFuzz_SetChainRateLimiterConfigs_Success(uint128 capacity, uint128 rate, uint32 newTime) public {
     // Cap the lower bound to 4 so 4/2 is still >= 2
     vm.assume(capacity >= 4);
     // Cap the lower bound to 2 so 2/2 is still >= 1
@@ -39,6 +39,15 @@ contract TokenPool_setChainRateLimiterConfig is TokenPoolSetup {
     RateLimiter.Config memory newInboundConfig =
       RateLimiter.Config({isEnabled: true, capacity: capacity / 2, rate: rate / 2});
 
+    uint64[] memory chainSelectors = new uint64[](1);
+    chainSelectors[0] = s_remoteChainSelector;
+
+    RateLimiter.Config[] memory newOutboundConfigs = new RateLimiter.Config[](1);
+    newOutboundConfigs[0] = newOutboundConfig;
+
+    RateLimiter.Config[] memory newInboundConfigs = new RateLimiter.Config[](1);
+    newInboundConfigs[0] = newInboundConfig;
+
     vm.expectEmit();
     emit RateLimiter.ConfigChanged(newOutboundConfig);
     vm.expectEmit();
@@ -46,7 +55,7 @@ contract TokenPool_setChainRateLimiterConfig is TokenPoolSetup {
     vm.expectEmit();
     emit TokenPool.ChainConfigured(s_remoteChainSelector, newOutboundConfig, newInboundConfig);
 
-    s_tokenPool.setChainRateLimiterConfig(s_remoteChainSelector, newOutboundConfig, newInboundConfig);
+    s_tokenPool.setChainRateLimiterConfigs(chainSelectors, newOutboundConfigs, newInboundConfigs);
 
     uint256 expectedTokens = RateLimiter._min(newOutboundConfig.capacity, oldOutboundTokens);
 
@@ -68,20 +77,34 @@ contract TokenPool_setChainRateLimiterConfig is TokenPoolSetup {
   // Reverts
 
   function test_OnlyOwnerOrRateLimitAdmin_Revert() public {
+    uint64[] memory chainSelectors = new uint64[](1);
+    chainSelectors[0] = DEST_CHAIN_SELECTOR;
+
+    RateLimiter.Config[] memory newOutboundConfigs = new RateLimiter.Config[](1);
+    newOutboundConfigs[0] = _getOutboundRateLimiterConfig();
+
+    RateLimiter.Config[] memory newInboundConfigs = new RateLimiter.Config[](1);
+    newInboundConfigs[0] = _getInboundRateLimiterConfig();
+
     vm.startPrank(STRANGER);
 
     vm.expectRevert(abi.encodeWithSelector(TokenPool.Unauthorized.selector, STRANGER));
-    s_tokenPool.setChainRateLimiterConfig(
-      s_remoteChainSelector, _getOutboundRateLimiterConfig(), _getInboundRateLimiterConfig()
-    );
+    s_tokenPool.setChainRateLimiterConfigs(chainSelectors, newOutboundConfigs, newInboundConfigs);
   }
 
   function test_NonExistentChain_Revert() public {
     uint64 wrongChainSelector = 9084102894;
 
+    uint64[] memory chainSelectors = new uint64[](1);
+    chainSelectors[0] = wrongChainSelector;
+
+    RateLimiter.Config[] memory newOutboundConfigs = new RateLimiter.Config[](1);
+    newOutboundConfigs[0] = _getOutboundRateLimiterConfig();
+
+    RateLimiter.Config[] memory newInboundConfigs = new RateLimiter.Config[](1);
+    newInboundConfigs[0] = _getInboundRateLimiterConfig();
+
     vm.expectRevert(abi.encodeWithSelector(TokenPool.NonExistentChain.selector, wrongChainSelector));
-    s_tokenPool.setChainRateLimiterConfig(
-      wrongChainSelector, _getOutboundRateLimiterConfig(), _getInboundRateLimiterConfig()
-    );
+    s_tokenPool.setChainRateLimiterConfigs(chainSelectors, newOutboundConfigs, newInboundConfigs);
   }
 }
