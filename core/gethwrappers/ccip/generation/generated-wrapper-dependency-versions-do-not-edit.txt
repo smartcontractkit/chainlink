@@ -15,7 +15,6 @@ mock_usdc_token_transmitter: ../../../contracts/solc/v0.8.24/MockE2EUSDCTransmit
 mock_v3_aggregator_contract: ../../../contracts/solc/v0.8.24/MockV3Aggregator/MockV3Aggregator.abi ../../../contracts/solc/v0.8.24/MockV3Aggregator/MockV3Aggregator.bin 518e19efa2ff52b0fefd8e597b05765317ee7638189bfe34ca43de2f6599faf4
 multi_aggregate_rate_limiter: ../../../contracts/solc/v0.8.24/MultiAggregateRateLimiter/MultiAggregateRateLimiter.abi ../../../contracts/solc/v0.8.24/MultiAggregateRateLimiter/MultiAggregateRateLimiter.bin c3cac2010c2815b484055bf981363a2bd04e7fbe7bb502dc8fd29a16165d221c
 multi_ocr3_helper: ../../../contracts/solc/v0.8.24/MultiOCR3Helper/MultiOCR3Helper.abi ../../../contracts/solc/v0.8.24/MultiOCR3Helper/MultiOCR3Helper.bin 79bfbd1f7d3c2aeee6301ae1275c39924a0b41f16b051d1c0046d3fc4265093d
-multicall3: ../../../contracts/solc/v0.8.24/Multicall3/Multicall3.abi ../../../contracts/solc/v0.8.24/Multicall3/Multicall3.bin e4e20dcf1c46cb5877ebf7cf02665d2d03faddf96de750cc005f37f1f8abb360
 nonce_manager: ../../../contracts/solc/v0.8.24/NonceManager/NonceManager.abi ../../../contracts/solc/v0.8.24/NonceManager/NonceManager.bin e6008490d916826cefd1903612db39621d51617300fc9bb42b68c6c117958198
 offramp: ../../../contracts/solc/v0.8.24/OffRamp/OffRamp.abi ../../../contracts/solc/v0.8.24/OffRamp/OffRamp.bin d20e6c0baf08926b341c31ed0018983e135a75b7d120591de49ca4ece3824d0b
 onramp: ../../../contracts/solc/v0.8.24/OnRamp/OnRamp.abi ../../../contracts/solc/v0.8.24/OnRamp/OnRamp.bin 2bf74188a997218502031f177cb2df505b272d66b25fd341a741289e77380c59
