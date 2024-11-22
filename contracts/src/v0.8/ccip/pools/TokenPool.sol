@@ -16,6 +16,19 @@ import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts
 /// @notice Base abstract class with common functions for all token pools.
 /// A token pool serves as isolated place for holding tokens and token specific logic
 /// that may execute as tokens move across the bridge.
+/// @dev This pool supports different decimals on different chains but using this feature could impact the total number
+/// of tokens in circulation. Since all of the tokens are burned on the source, and a rounded amount is minted on the
+/// destination, the number of tokens minted could be less than the number of tokens burned. This is because the source
+/// chain does not know about the destination token decimals. This is not a problem if the decimals are the same on both
+/// chains.
+///
+/// Example:
+/// Assume there is a token with 6 decimals on chain A and 3 decimals on chain B.
+/// - 1.123456 tokens are burned on chain A.
+/// - 1.234    tokens are minted on chain B.
+/// When sending the 1.234 tokens back to chain A, you will receive 1.234000 tokens on chain A, effectively losing
+/// 0.000456 tokens. In the case of a burnMint pool, these funds are burned. In the case of a lockRelease pool, these
+/// funds accumulate in the pool on chain A.
 abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
   using EnumerableSet for EnumerableSet.Bytes32Set;
   using EnumerableSet for EnumerableSet.AddressSet;
@@ -171,7 +184,7 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
   /// @dev This function should always be called before executing a lock or burn. Not doing so would allow
   /// for various exploits.
   function _validateLockOrBurn(
-    Pool.LockOrBurnInV1 memory lockOrBurnIn
+    Pool.LockOrBurnInV1 calldata lockOrBurnIn
   ) internal {
     if (!isSupportedToken(lockOrBurnIn.localToken)) revert InvalidToken(lockOrBurnIn.localToken);
     if (IRMN(i_rmnProxy).isCursed(bytes16(uint128(lockOrBurnIn.remoteChainSelector)))) revert CursedByRMN();
@@ -191,18 +204,14 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
   /// @dev This function should always be called before executing a release or mint. Not doing so would allow
   /// for various exploits.
   function _validateReleaseOrMint(
-    Pool.ReleaseOrMintInV1 memory releaseOrMintIn
+    Pool.ReleaseOrMintInV1 calldata releaseOrMintIn
   ) internal {
     if (!isSupportedToken(releaseOrMintIn.localToken)) revert InvalidToken(releaseOrMintIn.localToken);
     if (IRMN(i_rmnProxy).isCursed(bytes16(uint128(releaseOrMintIn.remoteChainSelector)))) revert CursedByRMN();
     _onlyOffRamp(releaseOrMintIn.remoteChainSelector);
 
     // Validates that the source pool address is configured on this pool.
-    if (
-      !s_remoteChainConfigs[releaseOrMintIn.remoteChainSelector].remotePools.contains(
-        keccak256(releaseOrMintIn.sourcePoolAddress)
-      )
-    ) {
+    if (!isRemotePool(releaseOrMintIn.remoteChainSelector, releaseOrMintIn.sourcePoolAddress)) {
       revert InvalidSourcePoolAddress(releaseOrMintIn.sourcePoolAddress);
     }
 
@@ -227,6 +236,13 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
     }
 
     return remotePools;
+  }
+
+  /// @notice Checks if the pool address is configured on the remote chain.
+  /// @param remoteChainSelector Remote chain selector.
+  /// @param remotePoolAddress The address of the remote pool.
+  function isRemotePool(uint64 remoteChainSelector, bytes calldata remotePoolAddress) public view returns (bool) {
+    return s_remoteChainConfigs[remoteChainSelector].remotePools.contains(keccak256(remotePoolAddress));
   }
 
   /// @notice Gets the token address on the remote chain.
@@ -354,6 +370,9 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
     }
   }
 
+  /// @notice Adds a pool address to the allowed remote token pools for a particular chain.
+  /// @param remoteChainSelector The remote chain selector for which the remote pool address is being added.
+  /// @param remotePoolAddress The address of the new remote pool.
   function _setRemotePool(uint64 remoteChainSelector, bytes memory remotePoolAddress) internal {
     if (remotePoolAddress.length == 0) {
       revert ZeroAddressNotAllowed();
