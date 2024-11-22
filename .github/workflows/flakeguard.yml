@@ -57,7 +57,6 @@ env:
   GIT_HEAD_REF: ${{ inputs.headRef || github.ref }}
   SKIPPED_TESTS: ${{ fromJson(inputs.extraArgs)['skipped_tests'] || '' }} # Comma separated list of test names to skip running in the flaky detector. Related issue: TT-1823
   DEFAULT_MAX_RUNNER_COUNT: ${{ fromJson(inputs.extraArgs)['default_max_runner_count'] || '8' }} # The default maximum number of GitHub runners to use for parallel test execution.
-  # TODO: This is throwing off run numbers for flakeguard
   ALL_TESTS_RUNNER_COUNT: ${{ fromJson(inputs.extraArgs)['all_tests_runner_count'] || '2' }} # The number of GitHub runners to use when running all tests `runAllTests=true`.
   TEST_REPEAT_COUNT: ${{ fromJson(inputs.extraArgs)['test_repeat_count'] || '5' }} # The number of times each runner should run a test to detect flaky tests.
   RUN_WITH_RACE: ${{ fromJson(inputs.extraArgs)['run_with_race'] || 'true' }} # Whether to run tests with -race flag.
@@ -99,7 +98,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@be06798af83ef6d9f7cf04e8b10a8484520c5061 # flakguard@0.0.1
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@56e19199194c3b72a3386974a613db2266625ff3 # flakguard@0.0.1
 
       - name: Find new or updated test packages
         if: ${{ inputs.runAllTests == false }}
@@ -258,7 +257,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@be06798af83ef6d9f7cf04e8b10a8484520c5061 # flakguard@0.0.1
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@56e19199194c3b72a3386974a613db2266625ff3 # flakguard@0.0.1
 
       - name: Run tests with flakeguard
         shell: bash
@@ -300,7 +299,7 @@ jobs:
             
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@be06798af83ef6d9f7cf04e8b10a8484520c5061 # flakguard@0.0.1
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@56e19199194c3b72a3386974a613db2266625ff3 # flakguard@0.0.1
                 
       - name: Set combined test results
         id: set_test_results
@@ -383,14 +382,14 @@ jobs:
         if: ${{ fromJson(steps.set_test_results.outputs.failed_tests_count) > 0 }}
         shell: bash
         run: |
-          jq -r '["TestPackage", "TestName", "PassRatio", "Skipped", "Runs", "Successes", "Failures", "Panics", "Races", "Skips"], ["---------", "---------", "---------", "---------", "---------", "---------", "---------", "---------", "---------", "---------",], (.[] | [.TestPackage, .TestName, .PassRatioPercentage, .Skipped, .Runs .Successes, .Failures, .Panics, .Races, .Skips]) | @tsv' failed_tests.json | column -t -s$'\t' > failed_tests_ascii.txt
+          jq -r '["TestPackage", "TestName", "PassRatio", "Skipped", "Runs", "Successes", "Failures", "Panics", "Races", "Skips"], ["---------", "---------", "---------", "---------", "---------", "---------", "---------", "---------", "---------", "---------",], (.[] | [.TestPackage, .TestName, .PassRatioPercentage, .Skipped, .Runs, .Successes, .Failures, .Panics, .Races, .Skips]) | @tsv' failed_tests.json | column -t -s$'\t' > failed_tests_ascii.txt
           cat failed_tests_ascii.txt
 
       - name: Create ASCII table with all test results
         if: ${{ fromJson(steps.set_test_results.outputs.all_tests_count) > 0 }}
         shell: bash
         run: |
-          jq -r '["TestPackage", "TestName", "PassRatio", "Skipped", "Runs", "Successes", "Failures", "Panics", "Races", "Skips"], ["---------", "---------", "---------", "---------", "---------", "---------", "---------", "---------", "---------", "---------",], (.[] | [.TestPackage, .TestName, .PassRatioPercentage, .Skipped, .Runs .Successes, .Failures, .Panics, .Races, .Skips]) | @tsv' failed_tests.json | column -t -s$'\t' > all_tests_ascii.txt
+          jq -r '["TestPackage", "TestName", "PassRatio", "Skipped", "Runs", "Successes", "Failures", "Panics", "Races", "Skips"], ["---------", "---------", "---------", "---------", "---------", "---------", "---------", "---------", "---------", "---------",], (.[] | [.TestPackage, .TestName, .PassRatioPercentage, .Skipped, .Runs, .Successes, .Failures, .Panics, .Races, .Skips]) | @tsv' failed_tests.json | column -t -s$'\t' > all_tests_ascii.txt
           cat all_tests_ascii.txt
 
       - name: Create GitHub Summary (General)
