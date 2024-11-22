@@ -29,7 +29,10 @@ func Test_CCIPBatching(t *testing.T) {
 	ctx := changeset.Context(t)
 	// Will load 3 chains when specified by the overrides.toml or env vars (E2E_TEST_SELECTED_NETWORK).
 	// See e2e-tests.yml.
-	e, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr)
+	e, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr, &changeset.TestConfigs{
+		IsUSDC:       false,
+		IsMultiCall3: true, // needed for this test
+	})
 
 	state, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)

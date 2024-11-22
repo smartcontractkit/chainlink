@@ -42,6 +42,8 @@ func (cfg ExistingContractsConfig) Validate() error {
 	return nil
 }
 
+// SaveExistingContracts saves the existing contracts to the address book.
+// Caller should update the environment's address book with the returned addresses.
 func SaveExistingContracts(env deployment.Environment, cfg ExistingContractsConfig) (deployment.ChangesetOutput, error) {
 	err := cfg.Validate()
 	if err != nil {
