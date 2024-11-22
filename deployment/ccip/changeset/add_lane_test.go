@@ -101,7 +101,18 @@ func TestAddLane(t *testing.T) {
 		ExtraArgs:    nil,
 	})
 	require.Equal(t, uint64(1), msgSentEvent2.SequenceNumber)
-	require.NoError(t, commonutils.JustError(ConfirmExecWithSeqNr(t, e.Env.Chains[chain2], e.Env.Chains[chain1], state.Chains[chain1].OffRamp, &startBlock2, msgSentEvent2.SequenceNumber)))
+	require.NoError(t,
+		commonutils.JustError(
+			ConfirmExecWithSeqNrs(
+				t,
+				e.Env.Chains[chain2],
+				e.Env.Chains[chain1],
+				state.Chains[chain1].OffRamp,
+				&startBlock2,
+				[]uint64{msgSentEvent2.SequenceNumber},
+			),
+		),
+	)
 
 	// now check for the previous message from chain 1 to chain 2 that it has not been executed till now as the onRamp was disabled
 	ConfirmNoExecConsistentlyWithSeqNr(t, e.Env.Chains[chain1], e.Env.Chains[chain2], state.Chains[chain2].OffRamp, msgSentEvent1.SequenceNumber, 30*time.Second)
@@ -127,5 +138,16 @@ func TestAddLane(t *testing.T) {
 	ReplayLogs(t, e.Env.Offchain, replayBlocks)
 	time.Sleep(30 * time.Second)
 	// Now that the onRamp is enabled, the request should be processed
-	require.NoError(t, commonutils.JustError(ConfirmExecWithSeqNr(t, e.Env.Chains[chain1], e.Env.Chains[chain2], state.Chains[chain2].OffRamp, &startBlock, msgSentEvent1.SequenceNumber)))
+	require.NoError(t,
+		commonutils.JustError(
+			ConfirmExecWithSeqNrs(
+				t,
+				e.Env.Chains[chain1],
+				e.Env.Chains[chain2],
+				state.Chains[chain2].OffRamp,
+				&startBlock,
+				[]uint64{msgSentEvent1.SequenceNumber},
+			),
+		),
+	)
 }

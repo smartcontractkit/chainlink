@@ -37,6 +37,7 @@ func TestActiveCandidate(t *testing.T) {
 	startBlocks := make(map[uint64]*uint64)
 	// Send a message from each chain to every other chain.
 	expectedSeqNum := make(map[SourceDestPair]uint64)
+	expectedSeqNumExec := make(map[SourceDestPair][]uint64)
 	for src := range e.Chains {
 		for dest, destChain := range e.Chains {
 			if src == dest {
@@ -57,6 +58,10 @@ func TestActiveCandidate(t *testing.T) {
 				SourceChainSelector: src,
 				DestChainSelector:   dest,
 			}] = msgSentEvent.SequenceNumber
+			expectedSeqNumExec[SourceDestPair{
+				SourceChainSelector: src,
+				DestChainSelector:   dest,
+			}] = []uint64{msgSentEvent.SequenceNumber}
 		}
 	}
 
@@ -73,7 +78,7 @@ func TestActiveCandidate(t *testing.T) {
 	}
 
 	//Wait for all exec reports to land
-	ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
+	ConfirmExecWithSeqNrsForAll(t, e, state, expectedSeqNumExec, startBlocks)
 
 	// transfer ownership
 	TransferAllOwnership(t, state, tenv.HomeChainSel, e)

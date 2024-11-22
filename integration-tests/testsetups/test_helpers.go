@@ -92,6 +92,11 @@ func NewLocalDevEnvironment(
 	linkPrice, wethPrice *big.Int,
 	tCfg *changeset.TestConfigs,
 ) (changeset.DeployedEnv, *test_env.CLClusterTestEnv, tc.TestConfig) {
+	if tCfg == nil {
+		// set to the default constructed value
+		tCfg = &changeset.TestConfigs{}
+	}
+
 	ctx := testcontext.Get(t)
 	// create a local docker environment with simulated chains and job-distributor
 	// we cannot create the chainlink nodes yet as we need to deploy the capability registry first
@@ -132,7 +137,7 @@ func NewLocalDevEnvironment(
 	require.NoError(t, err)
 	allChains := env.AllChainSelectors()
 	var usdcChains []uint64
-	if tCfg != nil && tCfg.IsUSDC {
+	if tCfg.IsUSDC {
 		usdcChains = allChains
 	}
 	mcmsCfgPerChain := commontypes.MCMSWithTimelockConfig{
@@ -167,6 +172,7 @@ func NewLocalDevEnvironment(
 				ChainSelectors: allChains,
 				Opts: []changeset.PrerequisiteOpt{
 					changeset.WithUSDCChains(usdcChains),
+					changeset.WithMulticall3(tCfg.IsMultiCall3),
 				},
 			},
 		},
