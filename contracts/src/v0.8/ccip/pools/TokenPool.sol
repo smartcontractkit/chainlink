@@ -96,7 +96,9 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
   /// the original sending pool on the source chain when doing a mint or release operation.
   /// @dev All entries are also included in the RemoteChainConfig mapping and can therefore always be traced back to the
   /// inputs of the hashes.
-  EnumerableSet.Bytes32Set internal s_remotePoolHashes;
+  //  EnumerableSet.Bytes32Set internal s_remotePoolHashes;
+
+  mapping(bytes32 remotePoolHash => bool) internal s_remotePoolHashes;
   /// @notice The address of the rate limiter admin.
   /// @dev Can be address(0) if none is configured.
   address internal s_rateLimitAdmin;
@@ -200,11 +202,8 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
     _onlyOffRamp(releaseOrMintIn.remoteChainSelector);
 
     // Validates that the source pool address is configured on this pool.
-    if (
-      !s_remotePoolHashes.contains(
-        _getRemotePairHash(releaseOrMintIn.remoteChainSelector, releaseOrMintIn.sourcePoolAddress)
-      )
-    ) {
+    if (!s_remotePoolHashes[_getRemotePairHash(releaseOrMintIn.remoteChainSelector, releaseOrMintIn.sourcePoolAddress)])
+    {
       revert InvalidSourcePoolAddress(releaseOrMintIn.sourcePoolAddress);
     }
 
@@ -247,10 +246,12 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
 
     bytes32 remotePairHash = _getRemotePairHash(remoteChainSelector, remotePoolAddress);
 
-    // EnumerableSet.add returns false if the element is already in the set.
-    if (!s_remotePoolHashes.add(remotePairHash)) {
+    // Check if the pool already exists
+    if (s_remotePoolHashes[remotePairHash]) {
       revert PoolAlreadyAdded(remoteChainSelector, remotePoolAddress);
     }
+
+    s_remotePoolHashes[remotePairHash] = true;
 
     // We already validated that the pool does not yet exist through the hash check. That means it's safe to push it
     // here without checking if it's already in the list.
@@ -266,9 +267,11 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
     if (!isSupportedChain(remoteChainSelector)) revert NonExistentChain(remoteChainSelector);
 
     bytes32 remotePairHash = _getRemotePairHash(remoteChainSelector, remotePoolAddress);
-    if (!s_remotePoolHashes.remove(remotePairHash)) {
+    if (!s_remotePoolHashes[remotePairHash]) {
       revert InvalidRemotePoolForChain(remoteChainSelector, remotePoolAddress);
     }
+
+    s_remotePoolHashes[remotePairHash] = false;
 
     bytes[] memory remotePoolAddresses = s_remoteChainConfigs[remoteChainSelector].remotePoolAddresses;
     bytes32 remotePoolHash = keccak256(remotePoolAddress);
@@ -324,7 +327,7 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
       // Remove all remote pool hashes for the chain
       bytes[] memory remotePools = s_remoteChainConfigs[remoteChainSelectorToRemove].remotePoolAddresses;
       for (uint256 j = 0; j < remotePools.length; ++j) {
-        s_remotePoolHashes.remove(_getRemotePairHash(remoteChainSelectorToRemove, remotePools[j]));
+        s_remotePoolHashes[_getRemotePairHash(remoteChainSelectorToRemove, remotePools[j])] = false;
       }
 
       delete s_remoteChainConfigs[remoteChainSelectorToRemove];
@@ -366,7 +369,7 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
       });
 
       s_remoteChainConfigs[newChain.remoteChainSelector].remotePoolAddresses.push(newChain.remotePoolAddress);
-      s_remotePoolHashes.add(_getRemotePairHash(newChain.remoteChainSelector, newChain.remotePoolAddress));
+      s_remotePoolHashes[(_getRemotePairHash(newChain.remoteChainSelector, newChain.remotePoolAddress))] = true;
 
       emit ChainAdded(
         newChain.remoteChainSelector,

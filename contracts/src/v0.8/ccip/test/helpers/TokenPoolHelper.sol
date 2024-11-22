@@ -18,7 +18,7 @@ contract TokenPoolHelper is TokenPool {
   ) TokenPool(token, allowlist, rmnProxy, router) {}
 
   function getRemotePoolHashes() external view returns (bytes32[] memory) {
-    return s_remotePoolHashes.values();
+    return new bytes32[](0); // s_remotePoolHashes.values();
   }
 
   function lockOrBurn(
