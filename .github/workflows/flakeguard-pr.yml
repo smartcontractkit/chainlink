@@ -1,4 +1,4 @@
-name: Find Flaky Tests
+name: Flakeguard Pull Request
 
 on:
   workflow_call:
@@ -99,7 +99,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@8b02ed1703ef40755a4c46ff454cf4ff2e89275d
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@b2892c5f452b12cae27b8a21c77aade774f2b844
 
       - name: Find new or updated test packages
         if: ${{ inputs.runAllTests == false }}
