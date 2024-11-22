@@ -2,6 +2,7 @@ package smoke
 
 import (
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
 	"math/big"
 	"testing"
 	"time"
@@ -25,11 +26,11 @@ import (
 
 /*
 * Chain topology for this test
-* 	sourceChain1 (USDC, MY_TOKEN)
+* 	chainA (USDC, MY_TOKEN)
 *			|
-*			| ------- destChain (USDC, MY_TOKEN)
+*			| ------- chainC (USDC, MY_TOKEN)
 *			|
-* 	sourceChain2 (USDC)
+* 	chainB (USDC)
  */
 func TestUSDCTokenTransfer(t *testing.T) {
 	lggr := logger.TestLogger(t)
@@ -44,21 +45,21 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	require.NoError(t, err)
 
 	allChainSelectors := maps.Keys(e.Chains)
-	sourceChain1 := allChainSelectors[0]
-	destChain := allChainSelectors[1]
-	sourceChain2 := allChainSelectors[2]
+	chainA := allChainSelectors[0]
+	chainC := allChainSelectors[1]
+	chainB := allChainSelectors[2]
 
-	sourceUSDC1, destUSDC, err := changeset.ConfigureUSDCTokenPools(lggr, e.Chains, sourceChain1, destChain, state)
+	aChainUSDC, cChainUSDC, err := changeset.ConfigureUSDCTokenPools(lggr, e.Chains, chainA, chainC, state)
 	require.NoError(t, err)
 
-	sourceUSDC2, _, err := changeset.ConfigureUSDCTokenPools(lggr, e.Chains, sourceChain2, destChain, state)
+	bChainUSDC, _, err := changeset.ConfigureUSDCTokenPools(lggr, e.Chains, chainB, chainC, state)
 	require.NoError(t, err)
 
-	sourceToken1, _, destToken, _, err := changeset.DeployTransferableToken(
+	aChainToken, _, cChainToken, _, err := changeset.DeployTransferableToken(
 		lggr,
 		tenv.Env.Chains,
-		sourceChain1,
-		destChain,
+		chainA,
+		chainC,
 		state,
 		e.ExistingAddresses,
 		"MY_TOKEN",
@@ -69,18 +70,18 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	require.NoError(t, changeset.AddLanesForAll(e, state))
 
 	mintAndAllow(t, e, state, map[uint64][]*burn_mint_erc677.BurnMintERC677{
-		sourceChain1: {sourceUSDC1, sourceToken1},
-		sourceChain2: {sourceUSDC2},
-		destChain:    {destUSDC, destToken},
+		chainA: {aChainUSDC, aChainToken},
+		chainB: {bChainUSDC},
+		chainC: {cChainUSDC, cChainToken},
 	})
 
-	err = changeset.UpdateFeeQuoterForUSDC(lggr, e.Chains[sourceChain1], state.Chains[sourceChain1], destChain, sourceUSDC1)
+	err = changeset.UpdateFeeQuoterForUSDC(lggr, e.Chains[chainA], state.Chains[chainA], chainC, aChainUSDC)
 	require.NoError(t, err)
 
-	err = changeset.UpdateFeeQuoterForUSDC(lggr, e.Chains[sourceChain2], state.Chains[sourceChain2], destChain, sourceUSDC2)
+	err = changeset.UpdateFeeQuoterForUSDC(lggr, e.Chains[chainB], state.Chains[chainB], chainC, bChainUSDC)
 	require.NoError(t, err)
 
-	err = changeset.UpdateFeeQuoterForUSDC(lggr, e.Chains[destChain], state.Chains[destChain], sourceChain1, destUSDC)
+	err = changeset.UpdateFeeQuoterForUSDC(lggr, e.Chains[chainC], state.Chains[chainC], chainA, cChainUSDC)
 	require.NoError(t, err)
 
 	// MockE2EUSDCTransmitter always mint 1, see MockE2EUSDCTransmitter.sol for more details
@@ -99,74 +100,74 @@ func TestUSDCTokenTransfer(t *testing.T) {
 		{
 			name:        "single USDC token transfer to EOA",
 			receiver:    utils.RandomAddress(),
-			sourceChain: destChain,
-			destChain:   sourceChain1,
+			sourceChain: chainC,
+			destChain:   chainA,
 			tokens: []router.ClientEVMTokenAmount{
 				{
-					Token:  destUSDC.Address(),
+					Token:  cChainUSDC.Address(),
 					Amount: tinyOneCoin,
 				}},
 			expectedTokenBalances: map[common.Address]*big.Int{
-				sourceUSDC1.Address(): tinyOneCoin,
+				aChainUSDC.Address(): tinyOneCoin,
 			},
 			expectedExecutionState: changeset.EXECUTION_STATE_SUCCESS,
 		},
 		{
 			name:        "multiple USDC tokens within the same message",
 			receiver:    utils.RandomAddress(),
-			sourceChain: destChain,
-			destChain:   sourceChain1,
+			sourceChain: chainC,
+			destChain:   chainA,
 			tokens: []router.ClientEVMTokenAmount{
 				{
-					Token:  destUSDC.Address(),
+					Token:  cChainUSDC.Address(),
 					Amount: tinyOneCoin,
 				},
 				{
-					Token:  destUSDC.Address(),
+					Token:  cChainUSDC.Address(),
 					Amount: tinyOneCoin,
 				},
 			},
 			expectedTokenBalances: map[common.Address]*big.Int{
 				// 2 coins because of the same receiver
-				sourceUSDC1.Address(): new(big.Int).Add(tinyOneCoin, tinyOneCoin),
+				aChainUSDC.Address(): new(big.Int).Add(tinyOneCoin, tinyOneCoin),
 			},
 			expectedExecutionState: changeset.EXECUTION_STATE_SUCCESS,
 		},
 		{
 			name:        "USDC token together with another token transferred to EOA",
 			receiver:    utils.RandomAddress(),
-			sourceChain: sourceChain1,
-			destChain:   destChain,
+			sourceChain: chainA,
+			destChain:   chainC,
 			tokens: []router.ClientEVMTokenAmount{
 				{
-					Token:  sourceUSDC1.Address(),
+					Token:  aChainUSDC.Address(),
 					Amount: tinyOneCoin,
 				},
 				{
-					Token:  sourceToken1.Address(),
+					Token:  aChainToken.Address(),
 					Amount: new(big.Int).Mul(tinyOneCoin, big.NewInt(10)),
 				},
 			},
 			expectedTokenBalances: map[common.Address]*big.Int{
-				destUSDC.Address():  tinyOneCoin,
-				destToken.Address(): new(big.Int).Mul(tinyOneCoin, big.NewInt(10)),
+				cChainUSDC.Address():  tinyOneCoin,
+				cChainToken.Address(): new(big.Int).Mul(tinyOneCoin, big.NewInt(10)),
 			},
 			expectedExecutionState: changeset.EXECUTION_STATE_SUCCESS,
 		},
 		{
 			name:        "programmable token transfer to valid contract receiver",
-			receiver:    state.Chains[destChain].Receiver.Address(),
-			sourceChain: sourceChain1,
-			destChain:   destChain,
+			receiver:    state.Chains[chainC].Receiver.Address(),
+			sourceChain: chainA,
+			destChain:   chainC,
 			tokens: []router.ClientEVMTokenAmount{
 				{
-					Token:  sourceUSDC1.Address(),
+					Token:  aChainUSDC.Address(),
 					Amount: tinyOneCoin,
 				},
 			},
 			data: []byte("hello world"),
 			expectedTokenBalances: map[common.Address]*big.Int{
-				destUSDC.Address(): tinyOneCoin,
+				cChainUSDC.Address(): tinyOneCoin,
 			},
 			expectedExecutionState: changeset.EXECUTION_STATE_SUCCESS,
 		},
@@ -200,42 +201,36 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	}
 
 	t.Run("multi-source USDC transfer targeting the same dest receiver", func(t *testing.T) {
+		sendSingleTokenTransfer := func(source, dest uint64, token common.Address, receiver common.Address) (*onramp.OnRampCCIPMessageSent, changeset.SourceDestPair) {
+			msg := changeset.TestSendRequest(t, e, state, source, dest, false, router.ClientEVM2AnyMessage{
+				Receiver:     common.LeftPadBytes(receiver.Bytes(), 32),
+				Data:         []byte{},
+				TokenAmounts: []router.ClientEVMTokenAmount{{Token: token, Amount: tinyOneCoin}},
+				FeeToken:     common.HexToAddress("0x0"),
+				ExtraArgs:    nil,
+			})
+			return msg, changeset.SourceDestPair{
+				SourceChainSelector: source,
+				DestChainSelector:   dest,
+			}
+		}
+
 		receiver := utils.RandomAddress()
 
 		startBlocks := make(map[uint64]*uint64)
 		expectedSeqNum := make(map[changeset.SourceDestPair]uint64)
 		expectedSeqNumExec := make(map[changeset.SourceDestPair][]uint64)
 
-		latesthdr, err := e.Chains[destChain].Client.HeaderByNumber(testcontext.Get(t), nil)
+		latesthdr, err := e.Chains[chainC].Client.HeaderByNumber(testcontext.Get(t), nil)
 		require.NoError(t, err)
 		block := latesthdr.Number.Uint64()
-		startBlocks[destChain] = &block
+		startBlocks[chainC] = &block
 
-		message1ID := changeset.SourceDestPair{
-			SourceChainSelector: sourceChain1,
-			DestChainSelector:   destChain,
-		}
-		message1 := changeset.TestSendRequest(t, e, state, sourceChain1, destChain, false, router.ClientEVM2AnyMessage{
-			Receiver:     common.LeftPadBytes(receiver.Bytes(), 32),
-			Data:         []byte{},
-			TokenAmounts: []router.ClientEVMTokenAmount{{Token: sourceUSDC1.Address(), Amount: tinyOneCoin}},
-			FeeToken:     common.HexToAddress("0x0"),
-			ExtraArgs:    nil,
-		})
+		message1, message1ID := sendSingleTokenTransfer(chainA, chainC, aChainUSDC.Address(), receiver)
 		expectedSeqNum[message1ID] = message1.SequenceNumber
 		expectedSeqNumExec[message1ID] = []uint64{message1.SequenceNumber}
 
-		message2 := changeset.TestSendRequest(t, e, state, sourceChain2, destChain, false, router.ClientEVM2AnyMessage{
-			Receiver:     common.LeftPadBytes(receiver.Bytes(), 32),
-			Data:         []byte{},
-			TokenAmounts: []router.ClientEVMTokenAmount{{Token: sourceUSDC2.Address(), Amount: tinyOneCoin}},
-			FeeToken:     common.HexToAddress("0x0"),
-			ExtraArgs:    nil,
-		})
-		message2ID := changeset.SourceDestPair{
-			SourceChainSelector: sourceChain2,
-			DestChainSelector:   destChain,
-		}
+		message2, message2ID := sendSingleTokenTransfer(chainB, chainC, bChainUSDC.Address(), receiver)
 		expectedSeqNum[message2ID] = message2.SequenceNumber
 		expectedSeqNumExec[message2ID] = []uint64{message2.SequenceNumber}
 
@@ -246,8 +241,9 @@ func TestUSDCTokenTransfer(t *testing.T) {
 		require.Equal(t, changeset.EXECUTION_STATE_SUCCESS, states[message2ID][message2.SequenceNumber])
 
 		// We sent 1 coin from each source chain, so we should have 2 coins on the destination chain
+		// Receiver is randomly generated so we don't need to get the initial balance first
 		expectedBalance := new(big.Int).Add(tinyOneCoin, tinyOneCoin)
-		waitForTheTokenBalance(t, destUSDC.Address(), receiver, e.Chains[destChain], expectedBalance)
+		waitForTheTokenBalance(t, cChainUSDC.Address(), receiver, e.Chains[chainC], expectedBalance)
 	})
 }
 
