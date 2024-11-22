@@ -789,10 +789,14 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	// │                        Deploy Pools                          │
 	// ================================================================
 
+	// All the tokens deployed above have 18 decimals
+	tokenDecimals := uint8(18)
+
 	sourcePoolLinkAddress, _, _, err := lock_release_token_pool.DeployLockReleaseTokenPool(
 		sourceUser,
 		sourceChain.Client(),
 		sourceLinkTokenAddress,
+		tokenDecimals,
 		[]common.Address{},
 		armProxySourceAddress,
 		true,
@@ -809,6 +813,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 		sourceUser,
 		sourceChain.Client(),
 		sourceWeth9addr,
+		tokenDecimals,
 		[]common.Address{},
 		armProxySourceAddress,
 		true,
@@ -827,6 +832,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 		destUser,
 		destChain.Client(),
 		destLinkTokenAddress,
+		tokenDecimals,
 		[]common.Address{},
 		armProxyDestAddress,
 		true,
@@ -858,6 +864,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 		destUser,
 		destChain.Client(),
 		destWeth9addr,
+		tokenDecimals,
 		[]common.Address{},
 		armProxyDestAddress,
 		true,

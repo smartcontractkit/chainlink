@@ -887,6 +887,8 @@ func deployTransferTokenOneEnd(
 		}
 	}
 
+	tokenDecimals := uint8(18)
+
 	tokenContract, err := deployment.DeployContract(lggr, chain, addressBook,
 		func(chain deployment.Chain) deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
 			USDCTokenAddr, tx, token, err2 := burn_mint_erc677.DeployBurnMintERC677(
@@ -894,7 +896,7 @@ func deployTransferTokenOneEnd(
 				chain.Client,
 				tokenSymbol,
 				tokenSymbol,
-				uint8(18),
+				tokenDecimals,
 				big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
 			)
 			return deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
@@ -921,6 +923,7 @@ func deployTransferTokenOneEnd(
 				chain.DeployerKey,
 				chain.Client,
 				tokenContract.Address,
+				tokenDecimals,
 				[]common.Address{},
 				common.HexToAddress(rmnAddress),
 				common.HexToAddress(routerAddress),

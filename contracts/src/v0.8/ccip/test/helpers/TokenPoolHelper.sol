@@ -12,10 +12,11 @@ contract TokenPoolHelper is TokenPool {
 
   constructor(
     IERC20 token,
+    uint8 localTokenDecimals,
     address[] memory allowlist,
     address rmnProxy,
     address router
-  ) TokenPool(token, allowlist, rmnProxy, router) {}
+  ) TokenPool(token, localTokenDecimals, allowlist, rmnProxy, router) {}
 
   function getRemotePoolHashes() external view returns (bytes32[] memory) {
     return new bytes32[](0); // s_remotePoolHashes.values();
@@ -35,6 +36,20 @@ contract TokenPoolHelper is TokenPool {
     _validateReleaseOrMint(releaseOrMintIn);
 
     return Pool.ReleaseOrMintOutV1({destinationAmount: releaseOrMintIn.amount});
+  }
+
+  function encodeLocalDecimals() external view returns (bytes memory) {
+    return _encodeLocalDecimals();
+  }
+
+  function parseRemoteDecimals(
+    bytes memory sourcePoolData
+  ) external view returns (uint256) {
+    return _parseRemoteDecimals(sourcePoolData);
+  }
+
+  function calculateLocalAmount(uint256 remoteAmount, uint8 remoteDecimals) external view returns (uint256) {
+    return _calculateLocalAmount(remoteAmount, remoteDecimals);
   }
 
   function onlyOnRampModifier(

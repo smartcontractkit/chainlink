@@ -20,7 +20,9 @@ contract TokenPoolSetup is RouterSetup {
     s_token = new BurnMintERC20("LINK", "LNK", 18, 0, 0);
     deal(address(s_token), OWNER, type(uint256).max);
 
-    s_tokenPool = new TokenPoolHelper(s_token, new address[](0), address(s_mockRMN), address(s_sourceRouter));
+    s_tokenPool = new TokenPoolHelper(
+      s_token, DEFAULT_TOKEN_DECIMALS, new address[](0), address(s_mockRMN), address(s_sourceRouter)
+    );
 
     bytes[] memory remotePoolAddresses = new bytes[](1);
     remotePoolAddresses[0] = abi.encode(s_initialRemotePool);
