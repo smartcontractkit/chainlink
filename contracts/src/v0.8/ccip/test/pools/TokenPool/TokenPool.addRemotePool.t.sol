@@ -11,8 +11,6 @@ contract TokenPool_addRemotePool is TokenPoolSetup {
     // Use a longer data type to ensure it also works for non-evm
     bytes memory remotePool = abi.encode(makeAddr("non-evm-1"), makeAddr("non-evm-2"));
 
-    bytes32 remotePairHash = keccak256(abi.encode(DEST_CHAIN_SELECTOR, remotePool));
-
     vm.startPrank(OWNER);
 
     vm.expectEmit();
