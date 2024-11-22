@@ -51,22 +51,6 @@ type Nop struct {
 	NodeIDs []string // nodes run by this operator
 }
 
-// ocr2Node is a subset of the node configuration that is needed to register a node
-// with the capabilities registry. Signer and P2PKey are chain agnostic.
-// TODO: KS-466 when we migrate fully to the JD offchain client, we should be able remove this shim and use environment.Node directly
-// type ocr2Node struct {
-// 	ID                  string
-// 	Signer              [32]byte // note that in capabilities registry we need a [32]byte, but in the forwarder we need a common.Address [20]byte
-// 	P2PKey              p2pkey.PeerID
-// 	EncryptionPublicKey [32]byte
-// 	IsBoostrap          bool
-// 	// useful when have to register the ocr3 contract config
-// 	ethOcr2KeyBundle   *v1.OCR2Config_OCRKeyBundle
-// 	aptosOcr2KeyBundle *v1.OCR2Config_OCRKeyBundle
-// 	csaKey             string // *v1.Node.PublicKey
-// 	accountAddress     string
-// }
-
 func toNodeKeys(o *deployment.Node, registryChainSel uint64) NodeKeys {
 	var aptosOcr2KeyBundleId string
 	var aptosOnchainPublicKey string

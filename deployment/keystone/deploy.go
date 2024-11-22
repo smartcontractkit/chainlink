@@ -28,7 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	kf "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder"
-	kocr3 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
@@ -922,47 +921,4 @@ func configureForwarder(lggr logger.Logger, chain deployment.Chain, fwdr *kf.Key
 		lggr.Debugw("configured forwarder", "forwarder", fwdr.Address().String(), "donId", dn.Info.Id, "version", ver, "f", dn.Info.F, "signers", signers)
 	}
 	return nil
-}
-
-type configureOCR3Request struct {
-	cfg      *OracleConfigWithSecrets
-	chain    deployment.Chain
-	contract *kocr3.OCR3Capability
-	nodes    []deployment.Node
-	dryRun   bool
-}
-type configureOCR3Response struct {
-	ocrConfig OCR2OracleConfig
-}
-
-func configureOCR3contract(req configureOCR3Request) (*configureOCR3Response, error) {
-	if req.contract == nil {
-		return nil, fmt.Errorf("OCR3 contract is nil")
-	}
-	nks := makeNodeKeysSlice(req.nodes, req.chain.Selector)
-	ocrConfig, err := GenerateOCR3Config(*req.cfg, nks)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate OCR3 config: %w", err)
-	}
-	if req.dryRun {
-		return &configureOCR3Response{ocrConfig}, nil
-	}
-	tx, err := req.contract.SetConfig(req.chain.DeployerKey,
-		ocrConfig.Signers,
-		ocrConfig.Transmitters,
-		ocrConfig.F,
-		ocrConfig.OnchainConfig,
-		ocrConfig.OffchainConfigVersion,
-		ocrConfig.OffchainConfig,
-	)
-	if err != nil {
-		err = DecodeErr(kocr3.OCR3CapabilityABI, err)
-		return nil, fmt.Errorf("failed to call SetConfig for OCR3 contract %s: %w", req.contract.Address().String(), err)
-	}
-	_, err = req.chain.Confirm(tx)
-	if err != nil {
-		err = DecodeErr(kocr3.OCR3CapabilityABI, err)
-		return nil, fmt.Errorf("failed to confirm SetConfig for OCR3 contract %s: %w", req.contract.Address().String(), err)
-	}
-	return &configureOCR3Response{ocrConfig}, nil
 }
