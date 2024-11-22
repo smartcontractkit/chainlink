@@ -342,6 +342,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	// Need to keep track of the block number for each chain so that event subscription can be done from that block.
 	startBlocks := make(map[uint64]*uint64)
 	expectedSeqNum := make(map[changeset.SourceDestPair]uint64)
+	expectedSeqNumExec := make(map[changeset.SourceDestPair][]uint64)
 	for _, msg := range tc.messagesToSend {
 		fromChain := chainSelectors[msg.fromChainIdx]
 		toChain := chainSelectors[msg.toChainIdx]
@@ -358,6 +359,10 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 				SourceChainSelector: fromChain,
 				DestChainSelector:   toChain,
 			}] = msgSentEvent.SequenceNumber
+			expectedSeqNumExec[changeset.SourceDestPair{
+				SourceChainSelector: fromChain,
+				DestChainSelector:   toChain,
+			}] = []uint64{msgSentEvent.SequenceNumber}
 			t.Logf("Sent message from chain %d to chain %d with seqNum %d", fromChain, toChain, msgSentEvent.SequenceNumber)
 		}
 
@@ -390,7 +395,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 
 	if tc.waitForExec {
 		t.Logf("⌛ Waiting for exec reports...")
-		changeset.ConfirmExecWithSeqNrForAll(t, envWithRMN.Env, onChainState, expectedSeqNum, startBlocks)
+		changeset.ConfirmExecWithSeqNrsForAll(t, envWithRMN.Env, onChainState, expectedSeqNumExec, startBlocks)
 		t.Logf("✅ Exec report")
 	}
 }
