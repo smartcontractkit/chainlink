@@ -26,7 +26,7 @@ const (
 	// Chain Read Workflow
 	workflow2ID    = "00000066516e5387b6e8ab8cc544685dfe50dfc837886f22beecebced5063968"
 	workflow2Owner = "00000000000000000000000000000000000000ab"
-	workflow2Name  = "ethseppor"
+	workflow2Name  = "ethsepopor"
 )
 
 var (
