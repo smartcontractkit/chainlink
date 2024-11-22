@@ -115,6 +115,12 @@ type eventHandler struct {
 	engineRegistry *engineRegistry
 	emitter        custmsg.MessageEmitter
 	secretsFetcher secretsFetcher
+	stats          workflowRegistryStats
+}
+
+type event interface {
+	GetEventType() WorkflowRegistryEventType
+	GetData() any
 }
 
 // newEventHandler returns a new eventHandler instance.
@@ -127,6 +133,7 @@ func newEventHandler(
 	engineRegistry *engineRegistry,
 	emitter custmsg.MessageEmitter,
 	secretsFetcher secretsFetcher,
+	stats workflowRegistryStats,
 ) *eventHandler {
 	return &eventHandler{
 		lggr:           lggr,
@@ -137,15 +144,16 @@ func newEventHandler(
 		engineRegistry: engineRegistry,
 		emitter:        emitter,
 		secretsFetcher: secretsFetcher,
+		stats:          stats,
 	}
 }
 
-func (h *eventHandler) Handle(ctx context.Context, event WorkflowRegistryEvent) error {
-	switch event.EventType {
+func (h *eventHandler) Handle(ctx context.Context, event event) error {
+	switch event.GetEventType() {
 	case ForceUpdateSecretsEvent:
-		payload, ok := event.Data.(WorkflowRegistryForceUpdateSecretsRequestedV1)
+		payload, ok := event.GetData().(WorkflowRegistryForceUpdateSecretsRequestedV1)
 		if !ok {
-			return newHandlerTypeError(event.Data)
+			return newHandlerTypeError(event.GetData())
 		}
 
 		cma := h.emitter.With(
@@ -160,9 +168,9 @@ func (h *eventHandler) Handle(ctx context.Context, event WorkflowRegistryEvent) 
 
 		return nil
 	case WorkflowRegisteredEvent:
-		payload, ok := event.Data.(WorkflowRegistryWorkflowRegisteredV1)
+		payload, ok := event.GetData().(WorkflowRegistryWorkflowRegisteredV1)
 		if !ok {
-			return newHandlerTypeError(event.Data)
+			return newHandlerTypeError(event.GetData())
 		}
 		wfID := hex.EncodeToString(payload.WorkflowID[:])
 
@@ -180,9 +188,9 @@ func (h *eventHandler) Handle(ctx context.Context, event WorkflowRegistryEvent) 
 		h.lggr.Debugf("workflow 0x%x registered and started", wfID)
 		return nil
 	case WorkflowUpdatedEvent:
-		payload, ok := event.Data.(WorkflowRegistryWorkflowUpdatedV1)
+		payload, ok := event.GetData().(WorkflowRegistryWorkflowUpdatedV1)
 		if !ok {
-			return fmt.Errorf("invalid data type %T for event", event.Data)
+			return fmt.Errorf("invalid data type %T for event", event.GetData())
 		}
 
 		newWorkflowID := hex.EncodeToString(payload.NewWorkflowID[:])
@@ -199,9 +207,9 @@ func (h *eventHandler) Handle(ctx context.Context, event WorkflowRegistryEvent) 
 
 		return nil
 	case WorkflowPausedEvent:
-		payload, ok := event.Data.(WorkflowRegistryWorkflowPausedV1)
+		payload, ok := event.GetData().(WorkflowRegistryWorkflowPausedV1)
 		if !ok {
-			return fmt.Errorf("invalid data type %T for event", event.Data)
+			return fmt.Errorf("invalid data type %T for event", event.GetData())
 		}
 
 		wfID := hex.EncodeToString(payload.WorkflowID[:])
@@ -218,9 +226,9 @@ func (h *eventHandler) Handle(ctx context.Context, event WorkflowRegistryEvent) 
 		}
 		return nil
 	case WorkflowActivatedEvent:
-		payload, ok := event.Data.(WorkflowRegistryWorkflowActivatedV1)
+		payload, ok := event.GetData().(WorkflowRegistryWorkflowActivatedV1)
 		if !ok {
-			return fmt.Errorf("invalid data type %T for event", event.Data)
+			return fmt.Errorf("invalid data type %T for event", event.GetData())
 		}
 
 		wfID := hex.EncodeToString(payload.WorkflowID[:])
@@ -237,9 +245,9 @@ func (h *eventHandler) Handle(ctx context.Context, event WorkflowRegistryEvent) 
 
 		return nil
 	case WorkflowDeletedEvent:
-		payload, ok := event.Data.(WorkflowRegistryWorkflowDeletedV1)
+		payload, ok := event.GetData().(WorkflowRegistryWorkflowDeletedV1)
 		if !ok {
-			return fmt.Errorf("invalid data type %T for event", event.Data)
+			return fmt.Errorf("invalid data type %T for event", event.GetData())
 		}
 
 		wfID := hex.EncodeToString(payload.WorkflowID[:])
@@ -257,7 +265,7 @@ func (h *eventHandler) Handle(ctx context.Context, event WorkflowRegistryEvent) 
 
 		return nil
 	default:
-		return fmt.Errorf("event type unsupported: %v", event.EventType)
+		return fmt.Errorf("event type unsupported: %v", event.GetEventType())
 	}
 }
 
@@ -266,6 +274,7 @@ func (h *eventHandler) workflowRegisteredEvent(
 	ctx context.Context,
 	payload WorkflowRegistryWorkflowRegisteredV1,
 ) error {
+
 	wfID := hex.EncodeToString(payload.WorkflowID[:])
 
 	// Download the contents of binaryURL, configURL and secretsURL and cache them locally.
@@ -352,6 +361,8 @@ func (h *eventHandler) workflowRegisteredEvent(
 	}
 
 	h.engineRegistry.Add(wfID, e)
+	h.stats.IncrementRegisteredWorkflowCount()
+
 	return nil
 }
 

@@ -5,11 +5,13 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
@@ -25,6 +27,99 @@ import (
 
 	"github.com/stretchr/testify/require"
 )
+
+type testStats struct {
+	RegisteredWorkflows int
+}
+
+func (ts *testStats) IncrementRegisteredWorkflowCount() {
+	ts.RegisteredWorkflows++
+}
+
+func (ts *testStats) DecrementRegisteredWorkflowCount() {
+	ts.RegisteredWorkflows--
+}
+
+func Test_InitialStateSync(t *testing.T) {
+	ctx := coretestutils.Context(t)
+	lggr := logger.TestLogger(t)
+	emitter := custmsg.NewLabeler()
+	backendTH := testutils.NewEVMBackendTH(t)
+	donID := uint32(1)
+
+	// Deploy a test workflow_registry
+	wfRegistryAddr, _, wfRegistryC, err := workflow_registry_wrapper.DeployWorkflowRegistry(backendTH.ContractsOwner, backendTH.Backend.Client())
+	backendTH.Backend.Commit()
+	require.NoError(t, err)
+
+	// Build the ContractReader config
+	contractReaderCfg := evmtypes.ChainReaderConfig{
+		Contracts: map[string]evmtypes.ChainContractReader{
+			syncer.WorkflowRegistryContractName: {
+				ContractABI: workflow_registry_wrapper.WorkflowRegistryABI,
+				Configs: map[string]*evmtypes.ChainReaderDefinition{
+					syncer.GetWorkflowMetadataListByDONMethodName: {
+						ChainSpecificName: syncer.GetWorkflowMetadataListByDONMethodName,
+					},
+				},
+			},
+		},
+	}
+
+	contractReaderCfgBytes, err := json.Marshal(contractReaderCfg)
+	require.NoError(t, err)
+
+	contractReader, err := backendTH.NewContractReader(ctx, t, contractReaderCfgBytes)
+	require.NoError(t, err)
+
+	err = contractReader.Bind(ctx, []types.BoundContract{{Name: syncer.WorkflowRegistryContractName, Address: wfRegistryAddr.Hex()}})
+	require.NoError(t, err)
+
+	// setup contract state to allow the secrets to be updated
+	updateAllowedDONs(t, backendTH, wfRegistryC, []uint32{donID}, true)
+	updateAuthorizedAddress(t, backendTH, wfRegistryC, []common.Address{backendTH.ContractsOwner.From}, true)
+
+	// The number of workflows should be greater than the workflow registry contracts pagination limit to ensure
+	// that the syncer will query the contract multiple times to get the full list of workflows
+	numberWorkflows := 250
+	for i := 0; i < numberWorkflows; i++ {
+		var workflowID [32]byte
+		_, err = rand.Read((workflowID)[:])
+		require.NoError(t, err)
+		workflow := RegisterWorkflowCMD{
+			Name:       fmt.Sprintf("test-wf-%d", i),
+			DonID:      donID,
+			Status:     uint8(1),
+			SecretsURL: "someurl",
+		}
+		workflow.ID = workflowID
+		registerWorkflow(t, backendTH, wfRegistryC, workflow)
+	}
+
+	testStats := &testStats{}
+
+	// Create the worker
+	worker := syncer.NewWorkflowRegistry(
+		lggr,
+		donID,
+		syncer.NewWorkflowRegistryDS(pgtest.NewSqlxDB(t), lggr),
+		contractReader,
+		nil,
+		wfRegistryAddr.Hex(),
+		nil,
+		nil,
+		emitter,
+		syncer.WorkflowEventPollerConfig{
+			QueryCount: 20,
+		},
+		testStats,
+		syncer.WithTicker(make(chan time.Time)),
+	)
+
+	servicetest.Run(t, worker)
+
+	assert.Equal(t, numberWorkflows, testStats.RegisteredWorkflows)
+}
 
 func Test_SecretsWorker(t *testing.T) {
 	var (
@@ -49,7 +144,7 @@ func Test_SecretsWorker(t *testing.T) {
 		fetcherFn    = func(_ context.Context, _ string) ([]byte, error) {
 			return []byte(wantContents), nil
 		}
-		contractName            = syncer.ContractName
+		contractName            = syncer.WorkflowRegistryContractName
 		forceUpdateSecretsEvent = string(syncer.ForceUpdateSecretsEvent)
 	)
 
@@ -80,6 +175,9 @@ func Test_SecretsWorker(t *testing.T) {
 					forceUpdateSecretsEvent: {
 						ChainSpecificName: forceUpdateSecretsEvent,
 						ReadType:          evmtypes.Event,
+					},
+					syncer.GetWorkflowMetadataListByDONMethodName: {
+						ChainSpecificName: syncer.GetWorkflowMetadataListByDONMethodName,
 					},
 				},
 			},
@@ -115,6 +213,7 @@ func Test_SecretsWorker(t *testing.T) {
 	// Create the worker
 	worker := syncer.NewWorkflowRegistry(
 		lggr,
+		donID,
 		orm,
 		contractReader,
 		fetcherFn,
@@ -122,15 +221,19 @@ func Test_SecretsWorker(t *testing.T) {
 		nil,
 		nil,
 		emitter,
+		syncer.WorkflowEventPollerConfig{
+			QueryCount: 20,
+		},
+		&testStats{},
 		syncer.WithTicker(giveTicker.C),
 	)
-
-	servicetest.Run(t, worker)
 
 	// setup contract state to allow the secrets to be updated
 	updateAllowedDONs(t, backendTH, wfRegistryC, []uint32{donID}, true)
 	updateAuthorizedAddress(t, backendTH, wfRegistryC, []common.Address{backendTH.ContractsOwner.From}, true)
 	registerWorkflow(t, backendTH, wfRegistryC, giveWorkflow)
+
+	servicetest.Run(t, worker)
 
 	// generate a log event
 	requestForceUpdateSecrets(t, backendTH, wfRegistryC, giveSecretsURL)

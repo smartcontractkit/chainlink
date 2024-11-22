@@ -294,7 +294,7 @@ func (_WorkflowRegistry *WorkflowRegistryCallerSession) GetWorkflowMetadataListB
 
 func (_WorkflowRegistry *WorkflowRegistryCaller) GetWorkflowMetadataListByOwner(opts *bind.CallOpts, workflowOwner common.Address, start *big.Int, limit *big.Int) ([]WorkflowRegistryWorkflowMetadata, error) {
 	var out []interface{}
-	err := _WorkflowRegistry.contract.Call(opts, &out, "getWorkflowMetadataListByOwner", workflowOwner, start, limit)
+	err := _WorkflowRegistry.contract.Call(opts, &out, "getWorkflowMetadataListByDON", workflowOwner, start, limit)
 
 	if err != nil {
 		return *new([]WorkflowRegistryWorkflowMetadata), err

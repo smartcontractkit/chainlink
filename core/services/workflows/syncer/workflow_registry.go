@@ -6,9 +6,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strconv"
 	"sync"
 	"time"
+
+	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -26,14 +27,49 @@ import (
 const name = "WorkflowRegistrySyncer"
 
 var (
-	defaultTickInterval = 12 * time.Second
-	ContractName        = "WorkflowRegistry"
+	defaultTickInterval                    = 12 * time.Second
+	WorkflowRegistryContractName           = "WorkflowRegistry"
+	GetWorkflowMetadataListByDONMethodName = "getWorkflowMetadataListByDON"
 )
 
 type Head struct {
 	Hash      string
 	Height    string
 	Timestamp uint64
+}
+
+type workflowAsEvent struct {
+	Data      WorkflowMetadata
+	EventType WorkflowRegistryEventType
+}
+
+func (r workflowAsEvent) GetEventType() WorkflowRegistryEventType {
+	return r.EventType
+}
+
+func (r workflowAsEvent) GetData() any {
+	return r.Data
+}
+
+type GetWorkflowMetadataListByDONParams struct {
+	DonID uint32
+	Start uint64
+	Limit uint64
+}
+
+type GetWorkflowMetadataListByDONReturnVal struct {
+	WorkflowMetadataList []WorkflowMetadata
+}
+
+type WorkflowMetadata struct {
+	WorkflowID   []byte
+	Owner        common.Address
+	DonID        uint32
+	Status       uint8
+	WorkflowName string
+	BinaryURL    string
+	ConfigURL    string
+	SecretsURL   string
 }
 
 // WorkflowRegistryEvent is an event emitted by the WorkflowRegistry.  Each event is typed
@@ -45,21 +81,28 @@ type WorkflowRegistryEvent struct {
 	Head      Head
 }
 
+func (we WorkflowRegistryEvent) GetEventType() WorkflowRegistryEventType {
+	return we.EventType
+}
+
+func (we WorkflowRegistryEvent) GetData() any {
+	return we.Data
+}
+
 // WorkflowRegistryEventResponse is a response to either parsing a queried event or handling the event.
 type WorkflowRegistryEventResponse struct {
 	Err   error
 	Event *WorkflowRegistryEvent
 }
 
-// ContractEventPollerConfig is the configuration needed to poll for events on a contract.  Currently
+// WorkflowEventPollerConfig is the configuration needed to poll for events on a contract.  Currently
 // requires the ContractEventName.
-//
-// TODO(mstreet3): Use LookbackBlocks instead of StartBlockNum
-type ContractEventPollerConfig struct {
-	ContractName    string
-	ContractAddress string
-	StartBlockNum   uint64
-	QueryCount      uint64
+type WorkflowEventPollerConfig struct {
+	QueryCount uint64
+}
+
+type WorkflowLoadConfig struct {
+	FetchBatchSize int
 }
 
 // FetcherFunc is an abstraction for fetching the contents stored at a URL.
@@ -73,6 +116,7 @@ type ContractReaderFactory interface {
 type ContractReader interface {
 	Bind(context.Context, []types.BoundContract) error
 	QueryKey(context.Context, types.BoundContract, query.KeyFilter, query.LimitAndSort, any) ([]types.Sequence, error)
+	GetLatestValueWithHeadData(ctx context.Context, readName string, confidenceLevel primitives.ConfidenceLevel, params any, returnVal any) (head *types.Head, err error)
 }
 
 // WorkflowRegistrySyncer is the public interface of the package.
@@ -81,6 +125,14 @@ type WorkflowRegistrySyncer interface {
 }
 
 var _ WorkflowRegistrySyncer = (*workflowRegistry)(nil)
+
+// WithTicker allows external callers to provide a ticker to the workflowRegistry.  This is useful
+// for overriding the default tick interval.
+func WithTicker(ticker <-chan time.Time) func(*workflowRegistry) {
+	return func(wr *workflowRegistry) {
+		wr.ticker = ticker
+	}
+}
 
 // workflowRegistry is the implementation of the WorkflowRegistrySyncer interface.
 type workflowRegistry struct {
@@ -95,19 +147,21 @@ type workflowRegistry struct {
 	// ticker is the interval at which the workflowRegistry will poll the contract for events.
 	ticker <-chan time.Time
 
-	lggr    logger.Logger
+	lggr                    logger.Logger
 	emitter custmsg.Labeler
-	orm     WorkflowRegistryDS
-	reader  ContractReader
-	gateway FetcherFunc
+	donID                   uint32
+	workflowRegistryAddress string
+	orm                     WorkflowRegistryDS
+	reader                  ContractReader
+	gateway                 FetcherFunc
 
 	// initReader allows the workflowRegistry to initialize a contract reader if one is not provided
 	// and separates the contract reader initialization from the workflowRegistry start up.
 	initReader func(context.Context, logger.Logger, ContractReaderFactory, types.BoundContract) (types.ContractReader, error)
 	relayer    ContractReaderFactory
 
-	cfg        ContractEventPollerConfig
-	eventTypes []WorkflowRegistryEventType
+	eventPollerCfg WorkflowEventPollerConfig
+	eventTypes     []WorkflowRegistryEventType
 
 	// eventsCh is read by the handler and each event is handled once received.
 	eventsCh chan WorkflowRegistryEventResponse
@@ -123,14 +177,8 @@ type workflowRegistry struct {
 	workflowStore  store.Store
 	capRegistry    core.CapabilitiesRegistry
 	engineRegistry *engineRegistry
-}
 
-// WithTicker allows external callers to provide a ticker to the workflowRegistry.  This is useful
-// for overriding the default tick interval.
-func WithTicker(ticker <-chan time.Time) func(*workflowRegistry) {
-	return func(wr *workflowRegistry) {
-		wr.ticker = ticker
-	}
+	stats workflowRegistryStats
 }
 
 func WithReader(reader types.ContractReader) func(*workflowRegistry) {
@@ -139,10 +187,17 @@ func WithReader(reader types.ContractReader) func(*workflowRegistry) {
 	}
 }
 
+// TODO Beholder implementation of this
+type workflowRegistryStats interface {
+	IncrementRegisteredWorkflowCount()
+	DecrementRegisteredWorkflowCount()
+}
+
 // NewWorkflowRegistry returns a new workflowRegistry.
 // Only queries for WorkflowRegistryForceUpdateSecretsRequestedV1 events.
 func NewWorkflowRegistry[T ContractReader](
 	lggr logger.Logger,
+	donID uint32,
 	orm WorkflowRegistryDS,
 	reader T,
 	gateway FetcherFunc,
@@ -150,33 +205,33 @@ func NewWorkflowRegistry[T ContractReader](
 	workflowStore store.Store,
 	capRegistry core.CapabilitiesRegistry,
 	emitter custmsg.Labeler,
+	eventPollerConfig WorkflowEventPollerConfig,
+	stats workflowRegistryStats,
 	opts ...func(*workflowRegistry),
 ) *workflowRegistry {
 	ets := []WorkflowRegistryEventType{ForceUpdateSecretsEvent}
 	wr := &workflowRegistry{
-		lggr:           lggr.Named(name),
+		lggr:                    lggr.Named(name),
 		emitter:        emitter,
-		orm:            orm,
-		reader:         reader,
-		gateway:        gateway,
-		workflowStore:  workflowStore,
-		capRegistry:    capRegistry,
-		engineRegistry: newEngineRegistry(),
-		cfg: ContractEventPollerConfig{
-			ContractName:    ContractName,
-			ContractAddress: addr,
-			QueryCount:      20,
-			StartBlockNum:   0,
-		},
-		initReader: newReader,
-		heap:       newBlockHeightHeap(),
-		stopCh:     make(services.StopChan),
-		eventTypes: ets,
-		eventsCh:   make(chan WorkflowRegistryEventResponse),
-		batchCh:    make(chan []WorkflowRegistryEventResponse, len(ets)),
+		donID:                   donID,
+		workflowRegistryAddress: addr,
+		orm:                     orm,
+		reader:                  reader,
+		gateway:                 gateway,
+		workflowStore:           workflowStore,
+		capRegistry:             capRegistry,
+		engineRegistry:          newEngineRegistry(),
+		eventPollerCfg:          eventPollerConfig,
+		initReader:              newReader,
+		heap:                    newBlockHeightHeap(),
+		stopCh:                  make(services.StopChan),
+		eventTypes:              ets,
+		eventsCh:                make(chan WorkflowRegistryEventResponse),
+		batchCh:                 make(chan []WorkflowRegistryEventResponse, len(ets)),
+		stats:                   stats,
 	}
 	wr.handler = newEventHandler(wr.lggr, wr.orm, wr.gateway, wr.workflowStore, wr.capRegistry,
-		wr.engineRegistry, wr.emitter, secretsFetcherFunc(wr.SecretsFor),
+		wr.engineRegistry, wr.emitter, secretsFetcherFunc(wr.SecretsFor), wr.stats,
 	)
 	for _, opt := range opts {
 		opt(wr)
@@ -184,10 +239,58 @@ func NewWorkflowRegistry[T ContractReader](
 	return wr
 }
 
+// loadWorkflows loads all the workflows for the given donID from the contract.  Returns the head of the chain as of the
+// point in time at which the load occurred.
+func (w *workflowRegistry) loadWorkflows(ctx context.Context) (*types.Head, error) {
+	contractBinding := types.BoundContract{
+		Address: w.workflowRegistryAddress,
+		Name:    WorkflowRegistryContractName,
+	}
+
+	readIdentifier := contractBinding.ReadIdentifier(GetWorkflowMetadataListByDONMethodName)
+	params := GetWorkflowMetadataListByDONParams{
+		DonID: w.donID,
+		Start: 0,
+		Limit: 0, // 0 tells the contract to return max pagination limit workflows on each call
+	}
+
+	var headAtLastRead *types.Head
+	for {
+		var err error
+		var workflows GetWorkflowMetadataListByDONReturnVal
+		headAtLastRead, err = w.reader.GetLatestValueWithHeadData(ctx, readIdentifier, primitives.Finalized, params, &workflows)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get workflow metadata for don %w", err)
+		}
+
+		for _, workflow := range workflows.WorkflowMetadataList {
+			if err = w.handler.Handle(ctx, workflowAsEvent{
+				Data:      workflow,
+				EventType: WorkflowRegisteredEvent,
+			}); err != nil {
+				return nil, fmt.Errorf("failed to handle workflow registration: %w", err)
+			}
+		}
+
+		if len(workflows.WorkflowMetadataList) == 0 {
+			break
+		}
+
+		params.Start += uint64(len(workflows.WorkflowMetadataList))
+	}
+
+	return headAtLastRead, nil
+}
+
 // Start starts the workflowRegistry.  It starts two goroutines, one for querying the contract
 // and one for handling the events.
-func (w *workflowRegistry) Start(_ context.Context) error {
+func (w *workflowRegistry) Start(ctx context.Context) error {
 	return w.StartOnce(w.Name(), func() error {
+		loadWorkflowsHead, err := w.loadWorkflows(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to load workflows: %w", err)
+		}
+
 		ctx, cancel := w.stopCh.NewCtx()
 
 		w.wg.Add(1)
@@ -195,7 +298,7 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 			defer w.wg.Done()
 			defer cancel()
 
-			w.syncEventsLoop(ctx)
+			w.syncEventsLoop(ctx, loadWorkflowsHead.Height)
 		}()
 
 		w.wg.Add(1)
@@ -261,7 +364,7 @@ func (w *workflowRegistry) handlerLoop(ctx context.Context) {
 }
 
 // syncEventsLoop polls the contract for events and passes them to a channel for handling.
-func (w *workflowRegistry) syncEventsLoop(ctx context.Context) {
+func (w *workflowRegistry) syncEventsLoop(ctx context.Context, lastReadBlockNumber string) {
 	var (
 		// sendLog is a helper that sends a WorkflowRegistryEventResponse to the eventsCh in a
 		// blocking way that will send the response or be canceled.
@@ -298,7 +401,12 @@ func (w *workflowRegistry) syncEventsLoop(ctx context.Context) {
 				signal,
 				w.lggr,
 				reader,
-				w.cfg,
+				lastReadBlockNumber,
+				queryEventConfig{
+					ContractName:              WorkflowRegistryContractName,
+					ContractAddress:           w.workflowRegistryAddress,
+					WorkflowEventPollerConfig: w.eventPollerCfg,
+				},
 				w.eventTypes[i],
 				w.batchCh,
 			)
@@ -376,8 +484,8 @@ func (w *workflowRegistry) getTicker() <-chan time.Time {
 // reader.
 func (w *workflowRegistry) getContractReader(ctx context.Context) (ContractReader, error) {
 	c := types.BoundContract{
-		Name:    w.cfg.ContractName,
-		Address: w.cfg.ContractAddress,
+		Name:    WorkflowRegistryContractName,
+		Address: w.workflowRegistryAddress,
 	}
 
 	if w.reader == nil {
@@ -392,6 +500,12 @@ func (w *workflowRegistry) getContractReader(ctx context.Context) (ContractReade
 	return w.reader, nil
 }
 
+type queryEventConfig struct {
+	ContractName    string
+	ContractAddress string
+	WorkflowEventPollerConfig
+}
+
 // queryEvent queries the contract for events of the given type on each tick from the ticker.
 // Sends a batch of event logs to the batch channel.  The batch represents all the
 // event logs read since the last query.  Loops until the context is canceled.
@@ -400,7 +514,8 @@ func queryEvent(
 	ticker <-chan struct{},
 	lggr logger.Logger,
 	reader ContractReader,
-	cfg ContractEventPollerConfig,
+	lastReadBlockNumber string,
+	cfg queryEventConfig,
 	et WorkflowRegistryEventType,
 	batchCh chan<- []WorkflowRegistryEventResponse,
 ) {
@@ -436,7 +551,7 @@ func queryEvent(
 					Key: string(et),
 					Expressions: []query.Expression{
 						query.Confidence(primitives.Finalized),
-						query.Block(strconv.FormatUint(cfg.StartBlockNum, 10), primitives.Gte),
+						query.Block(lastReadBlockNumber, primitives.Gt),
 					},
 				},
 				limitAndSort,
@@ -478,7 +593,7 @@ func newReader(
 ) (types.ContractReader, error) {
 	contractReaderCfg := evmtypes.ChainReaderConfig{
 		Contracts: map[string]evmtypes.ChainContractReader{
-			ContractName: {
+			WorkflowRegistryContractName: {
 				ContractPollingFilter: evmtypes.ContractPollingFilter{
 					GenericEventNames: []string{string(ForceUpdateSecretsEvent)},
 				},
