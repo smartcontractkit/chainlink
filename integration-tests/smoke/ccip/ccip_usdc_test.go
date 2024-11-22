@@ -72,13 +72,14 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	tinyOneCoin := new(big.Int).SetUint64(1)
 
 	tcs := []struct {
-		name                  string
-		receiver              common.Address
-		sourceChain           uint64
-		destChain             uint64
-		tokens                []router.ClientEVMTokenAmount
-		data                  []byte
-		expectedTokenBalances map[common.Address]*big.Int
+		name                   string
+		receiver               common.Address
+		sourceChain            uint64
+		destChain              uint64
+		tokens                 []router.ClientEVMTokenAmount
+		data                   []byte
+		expectedTokenBalances  map[common.Address]*big.Int
+		expectedExecutionState int
 	}{
 		{
 			name:        "single USDC token transfer to EOA",
@@ -93,6 +94,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 			expectedTokenBalances: map[common.Address]*big.Int{
 				srcUSDC.Address(): tinyOneCoin,
 			},
+			expectedExecutionState: changeset.EXECUTION_STATE_SUCCESS,
 		},
 		{
 			name:        "multiple USDC tokens within the same message",
@@ -113,6 +115,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 				// 2 coins because of the same receiver
 				srcUSDC.Address(): new(big.Int).Add(tinyOneCoin, tinyOneCoin),
 			},
+			expectedExecutionState: changeset.EXECUTION_STATE_SUCCESS,
 		},
 		{
 			name:        "USDC token together with another token transferred to EOA",
@@ -133,6 +136,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 				dstUSDC.Address():  tinyOneCoin,
 				dstToken.Address(): new(big.Int).Mul(tinyOneCoin, big.NewInt(10)),
 			},
+			expectedExecutionState: changeset.EXECUTION_STATE_SUCCESS,
 		},
 		{
 			name:        "programmable token transfer to valid contract receiver",
@@ -149,6 +153,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 			expectedTokenBalances: map[common.Address]*big.Int{
 				dstUSDC.Address(): tinyOneCoin,
 			},
+			expectedExecutionState: changeset.EXECUTION_STATE_SUCCESS,
 		},
 	}
 
@@ -169,6 +174,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 				tt.tokens,
 				tt.receiver,
 				tt.data,
+				tt.expectedExecutionState,
 			)
 
 			for token, balance := range tt.expectedTokenBalances {
@@ -229,6 +235,10 @@ func TestMultiSourceUSDCTransfer(t *testing.T) {
 	block := latesthdr.Number.Uint64()
 	startBlocks[destChain] = &block
 
+	message1ID := changeset.SourceDestPair{
+		SourceChainSelector: sourceChain1,
+		DestChainSelector:   destChain,
+	}
 	message1 := changeset.TestSendRequest(t, e, state, sourceChain1, destChain, false, router.ClientEVM2AnyMessage{
 		Receiver:     common.LeftPadBytes(receiver.Bytes(), 32),
 		Data:         []byte{},
@@ -236,14 +246,8 @@ func TestMultiSourceUSDCTransfer(t *testing.T) {
 		FeeToken:     common.HexToAddress("0x0"),
 		ExtraArgs:    nil,
 	})
-	expectedSeqNum[changeset.SourceDestPair{
-		SourceChainSelector: sourceChain1,
-		DestChainSelector:   destChain,
-	}] = message1.SequenceNumber
-	expectedSeqNumExec[changeset.SourceDestPair{
-		SourceChainSelector: sourceChain1,
-		DestChainSelector:   destChain,
-	}] = []uint64{message1.SequenceNumber}
+	expectedSeqNum[message1ID] = message1.SequenceNumber
+	expectedSeqNumExec[message1ID] = []uint64{message1.SequenceNumber}
 
 	message2 := changeset.TestSendRequest(t, e, state, sourceChain2, destChain, false, router.ClientEVM2AnyMessage{
 		Receiver:     common.LeftPadBytes(receiver.Bytes(), 32),
@@ -252,17 +256,18 @@ func TestMultiSourceUSDCTransfer(t *testing.T) {
 		FeeToken:     common.HexToAddress("0x0"),
 		ExtraArgs:    nil,
 	})
-	expectedSeqNum[changeset.SourceDestPair{
+	message2ID := changeset.SourceDestPair{
 		SourceChainSelector: sourceChain2,
 		DestChainSelector:   destChain,
-	}] = message2.SequenceNumber
-	expectedSeqNumExec[changeset.SourceDestPair{
-		SourceChainSelector: sourceChain2,
-		DestChainSelector:   destChain,
-	}] = []uint64{message2.SequenceNumber}
+	}
+	expectedSeqNum[message2ID] = message2.SequenceNumber
+	expectedSeqNumExec[message2ID] = []uint64{message2.SequenceNumber}
 
 	changeset.ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
-	changeset.ConfirmExecWithSeqNrsForAll(t, e, state, expectedSeqNumExec, startBlocks)
+	states := changeset.ConfirmExecWithSeqNrsForAll(t, e, state, expectedSeqNumExec, startBlocks)
+
+	require.Equal(t, changeset.EXECUTION_STATE_SUCCESS, states[message1ID][message1.SequenceNumber])
+	require.Equal(t, changeset.EXECUTION_STATE_SUCCESS, states[message2ID][message2.SequenceNumber])
 
 	// We sent 1 coin from each source chain, so we should have 2 coins on the destination chain
 	expectedBalance := new(big.Int).Add(tinyOneCoin, tinyOneCoin)
@@ -306,7 +311,13 @@ func transferAndWaitForSuccess(
 	tokens []router.ClientEVMTokenAmount,
 	receiver common.Address,
 	data []byte,
+	expectedStatus int,
 ) {
+	identifier := changeset.SourceDestPair{
+		SourceChainSelector: sourceChain,
+		DestChainSelector:   destChain,
+	}
+
 	startBlocks := make(map[uint64]*uint64)
 	expectedSeqNum := make(map[changeset.SourceDestPair]uint64)
 	expectedSeqNumExec := make(map[changeset.SourceDestPair][]uint64)
@@ -323,20 +334,15 @@ func transferAndWaitForSuccess(
 		FeeToken:     common.HexToAddress("0x0"),
 		ExtraArgs:    nil,
 	})
-	expectedSeqNum[changeset.SourceDestPair{
-		SourceChainSelector: sourceChain,
-		DestChainSelector:   destChain,
-	}] = msgSentEvent.SequenceNumber
-	expectedSeqNumExec[changeset.SourceDestPair{
-		SourceChainSelector: sourceChain,
-		DestChainSelector:   destChain,
-	}] = []uint64{msgSentEvent.SequenceNumber}
+	expectedSeqNum[identifier] = msgSentEvent.SequenceNumber
+	expectedSeqNumExec[identifier] = []uint64{msgSentEvent.SequenceNumber}
 
 	// Wait for all commit reports to land.
 	changeset.ConfirmCommitForAllWithExpectedSeqNums(t, env, state, expectedSeqNum, startBlocks)
 
 	// Wait for all exec reports to land
-	changeset.ConfirmExecWithSeqNrsForAll(t, env, state, expectedSeqNumExec, startBlocks)
+	states := changeset.ConfirmExecWithSeqNrsForAll(t, env, state, expectedSeqNumExec, startBlocks)
+	require.Equal(t, expectedStatus, states[identifier][msgSentEvent.SequenceNumber])
 }
 
 func waitForTheTokenBalance(
