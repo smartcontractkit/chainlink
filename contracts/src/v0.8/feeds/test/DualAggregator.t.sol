@@ -188,8 +188,8 @@ contract RoundDataDualAggregatorBaseTest is ConfiguredDualAggregatorBaseTest {
 
 contract Constructor is DualAggregatorBaseTest {
   function test_constructor() public view {
-    assertEq(s_aggregator.i_minAnswer(), MIN_ANSWER, "minAnswer not set correctly");
-    assertEq(s_aggregator.i_maxAnswer(), MAX_ANSWER, "maxAnswer not set correctly");
+    assertEq(s_aggregator.minAnswer(), MIN_ANSWER, "minAnswer not set correctly");
+    assertEq(s_aggregator.maxAnswer(), MAX_ANSWER, "maxAnswer not set correctly");
     assertEq(s_aggregator.decimals(), 18, "decimals not set correctly");
     assertEq(s_aggregator.description(), "TEST", "description not set correctly");
     assertEq(

@@ -6,7 +6,7 @@ import {AggregatorV2V3Interface} from "../shared/interfaces/AggregatorV2V3Interf
 import {AggregatorValidatorInterface} from "../shared/interfaces/AggregatorValidatorInterface.sol";
 import {LinkTokenInterface} from "../shared/interfaces/LinkTokenInterface.sol";
 
-import {Ownable2StepMsgSender} from "../shared/access/Ownable2StepMsgSender.sol";
+import {SimpleReadAccessController} from "../shared/access/SimpleReadAccessController.sol";
 import {CallWithExactGas} from "../shared/call/CallWithExactGas.sol";
 import {OCR2Abstract} from "../shared/ocr2/OCR2Abstract.sol";
 
@@ -14,7 +14,7 @@ import {OCR2Abstract} from "../shared/ocr2/OCR2Abstract.sol";
 // for a new feeds based project that is ongoing, there will be some modernization
 // that happens to this contract as the project progresses.
 // solhint-disable max-states-count
-contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3Interface {
+contract DualAggregator is OCR2Abstract, AggregatorV2V3Interface, SimpleReadAccessController {
   string public constant override typeAndVersion = "DualAggregator 1.0.0";
 
   // This contract is divided into sections. Each section defines a set of
@@ -87,10 +87,10 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
   HotVars internal s_hotVars;
 
   /// @notice lowest answer the system is allowed to report in response to transmissions.
-  int192 public immutable i_minAnswer;
+  int192 internal immutable i_minAnswer;
 
   /// @notice highest answer the system is allowed to report in response to transmissions.
-  int192 public immutable i_maxAnswer;
+  int192 internal immutable i_maxAnswer;
 
   /// @param link address of the LINK contract.
   /// @param minAnswer_ lowest answer the median of a report is allowed to be.
@@ -280,6 +280,18 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
   /// @return s_transmittersList list of addresses permitted to transmit reports to this contract.
   function getTransmitters() external view returns (address[] memory) {
     return s_transmittersList;
+  }
+
+  /// @notice Get the mininum answer value.
+  /// @return minAnswer the lowest answer the system is allowed to report in a transmission.
+  function minAnswer() public view returns (int256) {
+    return i_minAnswer;
+  }
+
+  /// @notice Get the maximum answer value.
+  /// @return maxAnswer the highest answer the system is allowed to report in a transmission.
+  function maxAnswer() public view returns (int256) {
+    return i_maxAnswer;
   }
 
   // ================================================================
@@ -1019,7 +1031,7 @@ contract DualAggregator is OCR2Abstract, Ownable2StepMsgSender, AggregatorV2V3In
   uint8 private immutable i_decimals;
 
   /// @notice aggregator contract version.
-  uint256 public constant VERSION = 6;
+  uint256 internal constant VERSION = 6;
 
   /// @notice human readable description.
   string internal s_description;
