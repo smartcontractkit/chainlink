@@ -30,10 +30,10 @@ on:
         type: boolean
         description: 'Run all tests in the project.'
         default: true      
-      runThreshold:
+      maxPassRatio:
         required: false
         type: string
-        description: 'Minimum pass ratio for considering a test as flaky.'
+        description: 'The maximum (non-inclusive) pass ratio threshold for a test to be considered a failure. Any tests below this pass rate will be considered flaky.'
         default: '1.0'
       findByTestFilesDiff:
         required: false
@@ -64,7 +64,7 @@ jobs:
       baseRef: ${{ inputs.baseRef }}
       projectPath: ${{ inputs.projectPath }}
       headRef: ${{ inputs.headRef }}
-      runThreshold: ${{ inputs.runThreshold }}
+      maxPassRatio: ${{ inputs.maxPassRatio }}
       runAllTests: ${{ inputs.runAllTests }}
       findByTestFilesDiff: ${{ inputs.findByTestFilesDiff }}
       findByAffectedPackages: ${{ inputs.findByAffectedPackages }}
