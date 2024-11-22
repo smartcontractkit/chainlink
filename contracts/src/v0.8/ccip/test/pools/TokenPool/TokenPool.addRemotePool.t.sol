@@ -16,7 +16,7 @@ contract TokenPool_addRemotePool is TokenPoolSetup {
     vm.startPrank(OWNER);
 
     vm.expectEmit();
-    emit TokenPool.RemotePoolAdded(DEST_CHAIN_SELECTOR, remotePool, remotePairHash);
+    emit TokenPool.RemotePoolAdded(DEST_CHAIN_SELECTOR, remotePool);
 
     s_tokenPool.addRemotePool(DEST_CHAIN_SELECTOR, remotePool);
 
@@ -126,10 +126,8 @@ contract TokenPool_addRemotePool is TokenPoolSetup {
 
     bytes memory remotePool = abi.encode(type(uint256).max);
 
-    bytes32 remotePairHash = keccak256(abi.encode(chainSelector, remotePool));
-
     vm.expectEmit();
-    emit TokenPool.RemotePoolAdded(chainSelector, remotePool, remotePairHash);
+    emit TokenPool.RemotePoolAdded(chainSelector, remotePool);
 
     s_tokenPool.addRemotePool(chainSelector, remotePool);
 

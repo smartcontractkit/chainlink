@@ -10,10 +10,8 @@ contract TokenPool_removeRemotePool is TokenPoolSetup {
     // Use a longer data type to ensure it also works for non-evm
     bytes memory remotePool = abi.encode(makeAddr("non-evm-1"), makeAddr("non-evm-2"));
 
-    bytes32 remotePairHash = keccak256(abi.encode(chainSelector, remotePool));
-
     vm.expectEmit();
-    emit TokenPool.RemotePoolAdded(chainSelector, remotePool, remotePairHash);
+    emit TokenPool.RemotePoolAdded(chainSelector, remotePool);
 
     // Add the remote pool properly so that it can be removed
     s_tokenPool.addRemotePool(chainSelector, remotePool);
@@ -24,7 +22,7 @@ contract TokenPool_removeRemotePool is TokenPoolSetup {
     assertEq(remotePools[1], remotePool);
 
     vm.expectEmit();
-    emit TokenPool.RemotePoolRemoved(chainSelector, remotePool, remotePairHash);
+    emit TokenPool.RemotePoolRemoved(chainSelector, remotePool);
 
     s_tokenPool.removeRemotePool(chainSelector, remotePool);
 

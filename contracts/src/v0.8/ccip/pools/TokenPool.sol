@@ -52,8 +52,8 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
     RateLimiter.Config inboundRateLimiterConfig
   );
   event ChainRemoved(uint64 remoteChainSelector);
-  event RemotePoolAdded(uint64 indexed remoteChainSelector, bytes remotePoolAddress, bytes32 remotePairHash);
-  event RemotePoolRemoved(uint64 indexed remoteChainSelector, bytes remotePoolAddress, bytes32 remotePairHash);
+  event RemotePoolAdded(uint64 indexed remoteChainSelector, bytes remotePoolAddress);
+  event RemotePoolRemoved(uint64 indexed remoteChainSelector, bytes remotePoolAddress);
   event AllowListAdd(address sender);
   event AllowListRemove(address sender);
   event RouterUpdated(address oldRouter, address newRouter);
@@ -72,6 +72,7 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
     RateLimiter.TokenBucket inboundRateLimiterConfig; // Inbound rate limited config, meaning the rate limits for all of the offRamps for the given chain
     bytes remoteTokenAddress; // Address of the remote token, ABI encoded in the case of a remote EVM chain.
     bytes[] remotePoolAddresses; // List of remote pool addresses, ABI encoded in the case of a remote EVM chain.
+    mapping(bytes remotePool => bool) remotePools;
   }
 
   /// @dev The bridgeable token that is managed by this pool. Pools could support multiple tokens at the same time if
@@ -92,13 +93,6 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
   /// @dev The chain selectors are in uint256 format because of the EnumerableSet implementation.
   EnumerableSet.UintSet internal s_remoteChainSelectors;
   mapping(uint64 remoteChainSelector => RemoteChainConfig) internal s_remoteChainConfigs;
-  /// @notice This set contains the hashes of abi.encode(remoteChainSelector, remotePoolAddress). This is used to check
-  /// the original sending pool on the source chain when doing a mint or release operation.
-  /// @dev All entries are also included in the RemoteChainConfig mapping and can therefore always be traced back to the
-  /// inputs of the hashes.
-  //  EnumerableSet.Bytes32Set internal s_remotePoolHashes;
-
-  mapping(bytes32 remotePoolHash => bool) internal s_remotePoolHashes;
   /// @notice The address of the rate limiter admin.
   /// @dev Can be address(0) if none is configured.
   address internal s_rateLimitAdmin;
@@ -202,8 +196,7 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
     _onlyOffRamp(releaseOrMintIn.remoteChainSelector);
 
     // Validates that the source pool address is configured on this pool.
-    if (!s_remotePoolHashes[_getRemotePairHash(releaseOrMintIn.remoteChainSelector, releaseOrMintIn.sourcePoolAddress)])
-    {
+    if (!s_remoteChainConfigs[releaseOrMintIn.remoteChainSelector].remotePools[releaseOrMintIn.sourcePoolAddress]) {
       revert InvalidSourcePoolAddress(releaseOrMintIn.sourcePoolAddress);
     }
 
@@ -244,20 +237,15 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
       revert ZeroAddressNotAllowed();
     }
 
-    bytes32 remotePairHash = _getRemotePairHash(remoteChainSelector, remotePoolAddress);
-
     // Check if the pool already exists
-    if (s_remotePoolHashes[remotePairHash]) {
+    if (s_remoteChainConfigs[remoteChainSelector].remotePools[remotePoolAddress]) {
       revert PoolAlreadyAdded(remoteChainSelector, remotePoolAddress);
     }
 
-    s_remotePoolHashes[remotePairHash] = true;
-
-    // We already validated that the pool does not yet exist through the hash check. That means it's safe to push it
-    // here without checking if it's already in the list.
+    s_remoteChainConfigs[remoteChainSelector].remotePools[remotePoolAddress] = true;
     s_remoteChainConfigs[remoteChainSelector].remotePoolAddresses.push(remotePoolAddress);
 
-    emit RemotePoolAdded(remoteChainSelector, remotePoolAddress, remotePairHash);
+    emit RemotePoolAdded(remoteChainSelector, remotePoolAddress);
   }
 
   /// @notice Removes the remote pool address for a given chain selector.
@@ -266,12 +254,11 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
   function removeRemotePool(uint64 remoteChainSelector, bytes calldata remotePoolAddress) external onlyOwner {
     if (!isSupportedChain(remoteChainSelector)) revert NonExistentChain(remoteChainSelector);
 
-    bytes32 remotePairHash = _getRemotePairHash(remoteChainSelector, remotePoolAddress);
-    if (!s_remotePoolHashes[remotePairHash]) {
+    if (!s_remoteChainConfigs[remoteChainSelector].remotePools[remotePoolAddress]) {
       revert InvalidRemotePoolForChain(remoteChainSelector, remotePoolAddress);
     }
 
-    s_remotePoolHashes[remotePairHash] = false;
+    s_remoteChainConfigs[remoteChainSelector].remotePools[remotePoolAddress] = false;
 
     bytes[] memory remotePoolAddresses = s_remoteChainConfigs[remoteChainSelector].remotePoolAddresses;
     bytes32 remotePoolHash = keccak256(remotePoolAddress);
@@ -285,7 +272,7 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
       }
     }
 
-    emit RemotePoolRemoved(remoteChainSelector, remotePoolAddress, remotePairHash);
+    emit RemotePoolRemoved(remoteChainSelector, remotePoolAddress);
   }
 
   /// @inheritdoc IPoolV1
@@ -327,7 +314,7 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
       // Remove all remote pool hashes for the chain
       bytes[] memory remotePools = s_remoteChainConfigs[remoteChainSelectorToRemove].remotePoolAddresses;
       for (uint256 j = 0; j < remotePools.length; ++j) {
-        s_remotePoolHashes[_getRemotePairHash(remoteChainSelectorToRemove, remotePools[j])] = false;
+        s_remoteChainConfigs[remoteChainSelectorToRemove].remotePools[remotePools[j]] = false;
       }
 
       delete s_remoteChainConfigs[remoteChainSelectorToRemove];
@@ -349,27 +336,25 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
         revert ZeroAddressNotAllowed();
       }
 
-      s_remoteChainConfigs[newChain.remoteChainSelector] = RemoteChainConfig({
-        outboundRateLimiterConfig: RateLimiter.TokenBucket({
-          rate: newChain.outboundRateLimiterConfig.rate,
-          capacity: newChain.outboundRateLimiterConfig.capacity,
-          tokens: newChain.outboundRateLimiterConfig.capacity,
-          lastUpdated: uint32(block.timestamp),
-          isEnabled: newChain.outboundRateLimiterConfig.isEnabled
-        }),
-        inboundRateLimiterConfig: RateLimiter.TokenBucket({
-          rate: newChain.inboundRateLimiterConfig.rate,
-          capacity: newChain.inboundRateLimiterConfig.capacity,
-          tokens: newChain.inboundRateLimiterConfig.capacity,
-          lastUpdated: uint32(block.timestamp),
-          isEnabled: newChain.inboundRateLimiterConfig.isEnabled
-        }),
-        remoteTokenAddress: newChain.remoteTokenAddress,
-        remotePoolAddresses: new bytes[](0)
-      });
+      RemoteChainConfig storage remoteChainConfig = s_remoteChainConfigs[newChain.remoteChainSelector];
 
-      s_remoteChainConfigs[newChain.remoteChainSelector].remotePoolAddresses.push(newChain.remotePoolAddress);
-      s_remotePoolHashes[(_getRemotePairHash(newChain.remoteChainSelector, newChain.remotePoolAddress))] = true;
+      remoteChainConfig.outboundRateLimiterConfig = RateLimiter.TokenBucket({
+        rate: newChain.outboundRateLimiterConfig.rate,
+        capacity: newChain.outboundRateLimiterConfig.capacity,
+        tokens: newChain.outboundRateLimiterConfig.capacity,
+        lastUpdated: uint32(block.timestamp),
+        isEnabled: newChain.outboundRateLimiterConfig.isEnabled
+      });
+      remoteChainConfig.inboundRateLimiterConfig = RateLimiter.TokenBucket({
+        rate: newChain.inboundRateLimiterConfig.rate,
+        capacity: newChain.inboundRateLimiterConfig.capacity,
+        tokens: newChain.inboundRateLimiterConfig.capacity,
+        lastUpdated: uint32(block.timestamp),
+        isEnabled: newChain.inboundRateLimiterConfig.isEnabled
+      });
+      remoteChainConfig.remoteTokenAddress = newChain.remoteTokenAddress;
+      remoteChainConfig.remotePoolAddresses.push(newChain.remotePoolAddress);
+      remoteChainConfig.remotePools[newChain.remotePoolAddress] = true;
 
       emit ChainAdded(
         newChain.remoteChainSelector,
@@ -378,15 +363,6 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
         newChain.inboundRateLimiterConfig
       );
     }
-  }
-
-  /// @notice Returns the hash for the chain selector and pool. Used for gas efficient lookups of pool & chain
-  /// combinations.
-  function _getRemotePairHash(
-    uint64 remoteChainSelector,
-    bytes memory remotePoolAddress
-  ) internal pure returns (bytes32) {
-    return keccak256(abi.encode(remoteChainSelector, remotePoolAddress));
   }
 
   // ================================================================
