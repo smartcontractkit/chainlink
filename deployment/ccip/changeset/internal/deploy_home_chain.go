@@ -424,7 +424,10 @@ func BuildOCR3ConfigForCCIPHome(
 	var oracles []confighelper.OracleIdentityExtra
 	for _, node := range nodes {
 		schedule = append(schedule, 1)
-		cfg := node.SelToOCRConfig[dest.Selector]
+		cfg, exists := node.OCRConfigForChainSelector(dest.Selector)
+		if !exists {
+			return nil, fmt.Errorf("no OCR config for chain %d", dest.Selector)
+		}
 		oracles = append(oracles, confighelper.OracleIdentityExtra{
 			OracleIdentity: confighelper.OracleIdentity{
 				OnchainPublicKey:  cfg.OnchainPublicKey,

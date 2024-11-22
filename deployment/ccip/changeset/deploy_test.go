@@ -12,10 +12,7 @@ import (
 
 func TestDeployCCIPContracts(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	e := NewMemoryEnvironmentWithJobsAndContracts(t, lggr,
-		2,
-		4,
-	)
+	e := NewMemoryEnvironmentWithJobsAndContracts(t, lggr, 2, 4, nil)
 	// Deploy all the CCIP contracts.
 	state, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
