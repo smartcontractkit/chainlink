@@ -207,6 +207,16 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 		})
 	}
 }
+
+// Benchmark Results:
+// Benchmark_MessageHashes/Small_Dataset-14       3723        272421 ns/op       126949 B/op      2508 allocs/op
+// Benchmark_MessageHashes/Medium_Dataset-14       196       6164706 ns/op      1501435 B/op     20274 allocs/op
+// Benchmark_MessageHashes/Large_Dataset-14          7     163930268 ns/op     37193160 B/op    463954 allocs/op
+//
+// Notes:
+// - Small dataset processes 3,723 iterations with 126KB memory usage per iteration.
+// - Medium dataset processes 196 iterations with 1.5MB memory usage per iteration.
+// - Large dataset processes only 7 iterations with ~37MB memory usage per iteration.
 func Benchmark_MessageHashes(b *testing.B) {
 	finalityDepth := 5
 
@@ -214,7 +224,7 @@ func Benchmark_MessageHashes(b *testing.B) {
 	testCases := []struct {
 		name       string
 		msgCount   int
-		startNonce uint64
+		startNonce int64
 		tokenCount int
 	}{
 		{"Small_Dataset", 100, 1, 5},
@@ -251,8 +261,9 @@ func Benchmark_MessageHashes(b *testing.B) {
 			// Create a map of tokens to query for, with the specified tokenCount
 			tokens := make(map[reader.MessageTokenID]cciptypes.RampTokenAmount)
 			for i := 1; i <= tc.tokenCount; i++ {
+				//nolint:gosec // disable G115
 				tokens[reader.NewMessageTokenID(cciptypes.SeqNum(i), 1)] = cciptypes.RampTokenAmount{
-					ExtraData: reader.NewSourceTokenDataPayload(tc.startNonce+uint64(i), sourceDomainCCTP).ToBytes(),
+					ExtraData: reader.NewSourceTokenDataPayload(uint64(tc.startNonce)+uint64(i), sourceDomainCCTP).ToBytes(),
 				}
 			}
 
@@ -272,7 +283,7 @@ func populateDatabase(b *testing.B,
 	source cciptypes.ChainSelector,
 	sourceDomainCCTP uint32,
 	destDomainCCTP uint32,
-	startNonce uint64,
+	startNonce int64,
 	numOfMessages int,
 	finalityDepth int) {
 	ctx := testutils.Context(b)
@@ -286,42 +297,6 @@ func populateDatabase(b *testing.B,
 	messageTransmitterAddress := testEnv.contractAddr
 
 	for i := 0; i < numOfMessages; i++ {
-		nonce := startNonce + uint64(i)
-
-		// Pack the message following exact CCTP format
-		var buf []byte
-		// _msgVersion (uint32)
-		buf = binary.BigEndian.AppendUint32(buf, reader.CCTPMessageVersion)
-		// _msgSourceDomain (uint32)
-		buf = binary.BigEndian.AppendUint32(buf, sourceDomainCCTP)
-		// _msgDestinationDomain (uint32)
-		buf = binary.BigEndian.AppendUint32(buf, destDomainCCTP)
-		// _msgNonce (uint64)
-		buf = binary.BigEndian.AppendUint64(buf, nonce)
-		// First 12 bytes of the sender address are always empty for EVM
-		senderBytes := [12]byte{}
-		buf = append(buf, senderBytes[:]...)
-
-		// Convert to 32 bytes
-		var message [32]byte
-		copy(message[:], buf)
-
-		// Encode the data following Solidity's encoding for bytes
-		data := make([]byte, 0)
-
-		// This says "actual data starts 32 bytes from the beginning"
-		offsetBytes := make([]byte, 32)
-		binary.BigEndian.PutUint64(offsetBytes[24:], 32)
-		data = append(data, offsetBytes...)
-
-		// This is the length of our message
-		lengthBytes := make([]byte, 32)
-		binary.BigEndian.PutUint64(lengthBytes[24:], uint64(len(message)))
-		data = append(data, lengthBytes...)
-
-		// Add message
-		data = append(data, message[:]...)
-
 		// Create topics array with just the event signature
 		topics := [][]byte{
 			messageSentEventSig[:], // Topic[0] is event signature
@@ -329,7 +304,7 @@ func populateDatabase(b *testing.B,
 
 		// Create log entry
 		logs = append(logs, logpoller.Log{
-			EvmChainId:     ubig.New(big.NewInt(int64(uint64(source)))),
+			EvmChainId:     ubig.New(new(big.Int).SetUint64(uint64(source))),
 			LogIndex:       int64(i + 1),
 			BlockHash:      utils.NewHash(),
 			BlockNumber:    int64(i + 1),
@@ -338,13 +313,46 @@ func populateDatabase(b *testing.B,
 			Topics:         topics,
 			Address:        messageTransmitterAddress,
 			TxHash:         utils.NewHash(),
-			Data:           data,
+			Data:           createMessageSentLogPollerData(startNonce, i, sourceDomainCCTP, destDomainCCTP),
 			CreatedAt:      time.Now(),
 		})
 	}
 
 	require.NoError(b, testEnv.orm.InsertLogs(ctx, logs))
 	require.NoError(b, testEnv.orm.InsertBlock(ctx, utils.RandomHash(), int64(numOfMessages+finalityDepth), time.Now(), int64(numOfMessages+finalityDepth)))
+}
+
+func createMessageSentLogPollerData(startNonce int64, i int, sourceDomainCCTP uint32, destDomainCCTP uint32) []byte {
+	nonce := int(startNonce) + i
+
+	var buf []byte
+
+	buf = binary.BigEndian.AppendUint32(buf, reader.CCTPMessageVersion)
+
+	buf = binary.BigEndian.AppendUint32(buf, sourceDomainCCTP)
+
+	buf = binary.BigEndian.AppendUint32(buf, destDomainCCTP)
+
+	buf = binary.BigEndian.AppendUint64(buf, uint64(nonce))
+
+	senderBytes := [12]byte{}
+	buf = append(buf, senderBytes[:]...)
+
+	var message [32]byte
+	copy(message[:], buf)
+
+	data := make([]byte, 0)
+
+	offsetBytes := make([]byte, 32)
+	binary.BigEndian.PutUint64(offsetBytes[24:], 32)
+	data = append(data, offsetBytes...)
+
+	lengthBytes := make([]byte, 32)
+	binary.BigEndian.PutUint64(lengthBytes[24:], uint64(len(message)))
+	data = append(data, lengthBytes...)
+
+	data = append(data, message[:]...)
+	return data
 }
 
 // we might want to use batching (evm/batching or evm/batching) but might be slow
@@ -368,16 +376,15 @@ func emitMessageSent(t *testing.T, testEnv *testSetupData, source, dest uint32, 
 func testSetup(ctx context.Context, t testing.TB, readerChain cciptypes.ChainSelector, cfg evmtypes.ChainReaderConfig, depth int, useHeavyDB bool) *testSetupData {
 	// Generate a new key pair for the simulated account
 	privateKey, err := crypto.GenerateKey()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	// Set up the genesis account with balance
 	blnc, ok := big.NewInt(0).SetString("999999999999999999999999999999999999", 10)
 	assert.True(t, ok)
 	alloc := map[common.Address]gethtypes.Account{crypto.PubkeyToAddress(privateKey.PublicKey): {Balance: blnc}}
 	simulatedBackend := simulated.NewBackend(alloc, simulated.WithBlockGasLimit(0))
 	// Create a transactor
-
 	auth, err := bind.NewKeyedTransactorWithChainID(privateKey, big.NewInt(ChainID))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	auth.GasLimit = uint64(0)
 
 	address, _, _, err := usdc_reader_tester.DeployUSDCReaderTester(
