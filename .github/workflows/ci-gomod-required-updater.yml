@@ -12,4 +12,6 @@ jobs:
       - name: Setup Go
         uses: ./.github/actions/setup-go
       - name: Build binary
-        run: go build ./tools/gomod-required-updater/cmd/gomod-required-updater
+        run: |
+          go build -o dist/gomod-required-updater \
+            ./tools/gomod-required-updater/cmd/gomod-required-updater
