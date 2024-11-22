@@ -827,7 +827,7 @@ func (pool *TokenPool) SetRemoteChainOnPool(remoteChainSelector uint64, remotePo
 
 	selectorsToUpdate = append(selectorsToUpdate, token_pool.TokenPoolChainUpdate{
 		RemoteChainSelector: remoteChainSelector,
-		RemotePoolAddress:   encodedPoolAddress,
+		RemotePoolAddresses: [][]byte{encodedPoolAddress},
 		RemoteTokenAddress:  encodedTokenAddress,
 		InboundRateLimiterConfig: token_pool.RateLimiterConfig{
 			IsEnabled: true,
