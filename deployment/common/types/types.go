@@ -14,6 +14,7 @@ const (
 	CancellerManyChainMultisig deployment.ContractType = "CancellerManyChainMultiSig"
 	ProposerManyChainMultisig  deployment.ContractType = "ProposerManyChainMultiSig"
 	RBACTimelock               deployment.ContractType = "RBACTimelock"
+	LinkToken                  deployment.ContractType = "LinkToken"
 )
 
 type MCMSWithTimelockConfig struct {
