@@ -857,6 +857,15 @@ func attachTokenToTheRegistry(
 	token common.Address,
 	tokenPool common.Address,
 ) error {
+	pool, err := state.TokenAdminRegistry.GetPool(nil, token)
+	if err != nil {
+		return err
+	}
+	// Pool is already registered, don't reattach it, because it would cause revert
+	if pool != (common.Address{}) {
+		return nil
+	}
+
 	tx, err := state.RegistryModule.RegisterAdminViaOwner(owner, token)
 	if err != nil {
 		return err

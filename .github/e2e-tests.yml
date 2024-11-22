@@ -984,7 +984,7 @@ runner-test-matrix:
     test_cmd: cd integration-tests/smoke/ccip && go test ccip_usdc_test.go -timeout 18m -test.parallel=1 -count=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
-      E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
+      E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2,SIMULATED_3
       E2E_JD_VERSION: 0.6.0
 
   - id: smoke/ccip/fee_boosting_test.go:*

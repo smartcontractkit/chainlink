@@ -179,6 +179,96 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	}
 }
 
+func TestMultiSourceUSDCTransfer(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	tenv, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr, &changeset.TestConfigs{
+		IsUSDC: true,
+	})
+
+	e := tenv.Env
+	allChainSelectors := maps.Keys(e.Chains)
+	sourceChain1 := allChainSelectors[0]
+	sourceChain2 := allChainSelectors[1]
+	destChain := allChainSelectors[2]
+
+	state, err := changeset.LoadOnchainState(e)
+	require.NoError(t, err)
+
+	sourceUSDC1, dstUSDC, err := changeset.ConfigureUSDCTokenPools(lggr, e.Chains, sourceChain1, destChain, state)
+	require.NoError(t, err)
+
+	sourceUSDC2, _, err := changeset.ConfigureUSDCTokenPools(lggr, e.Chains, sourceChain2, destChain, state)
+	require.NoError(t, err)
+
+	// Add all lanes
+	require.NoError(t, changeset.AddLanesForAll(e, state))
+
+	mintAndAllow(t, e, state, map[uint64][]*burn_mint_erc677.BurnMintERC677{
+		sourceChain1: {sourceUSDC1},
+		sourceChain2: {sourceUSDC2},
+		destChain:    {dstUSDC},
+	})
+
+	err = changeset.UpdateFeeQuoterForUSDC(lggr, e.Chains[sourceChain1], state.Chains[sourceChain1], destChain, sourceUSDC1)
+	require.NoError(t, err)
+
+	err = changeset.UpdateFeeQuoterForUSDC(lggr, e.Chains[sourceChain2], state.Chains[sourceChain2], destChain, sourceUSDC2)
+	require.NoError(t, err)
+
+	// MockE2EUSDCTransmitter always mint 1, see MockE2EUSDCTransmitter.sol for more details
+	tinyOneCoin := new(big.Int).SetUint64(1)
+
+	receiver := utils.RandomAddress()
+
+	startBlocks := make(map[uint64]*uint64)
+	expectedSeqNum := make(map[changeset.SourceDestPair]uint64)
+	expectedSeqNumExec := make(map[changeset.SourceDestPair][]uint64)
+
+	latesthdr, err := e.Chains[destChain].Client.HeaderByNumber(testcontext.Get(t), nil)
+	require.NoError(t, err)
+	block := latesthdr.Number.Uint64()
+	startBlocks[destChain] = &block
+
+	message1 := changeset.TestSendRequest(t, e, state, sourceChain1, destChain, false, router.ClientEVM2AnyMessage{
+		Receiver:     common.LeftPadBytes(receiver.Bytes(), 32),
+		Data:         []byte{},
+		TokenAmounts: []router.ClientEVMTokenAmount{{Token: sourceUSDC1.Address(), Amount: tinyOneCoin}},
+		FeeToken:     common.HexToAddress("0x0"),
+		ExtraArgs:    nil,
+	})
+	expectedSeqNum[changeset.SourceDestPair{
+		SourceChainSelector: sourceChain1,
+		DestChainSelector:   destChain,
+	}] = message1.SequenceNumber
+	expectedSeqNumExec[changeset.SourceDestPair{
+		SourceChainSelector: sourceChain1,
+		DestChainSelector:   destChain,
+	}] = []uint64{message1.SequenceNumber}
+
+	message2 := changeset.TestSendRequest(t, e, state, sourceChain2, destChain, false, router.ClientEVM2AnyMessage{
+		Receiver:     common.LeftPadBytes(receiver.Bytes(), 32),
+		Data:         []byte{},
+		TokenAmounts: []router.ClientEVMTokenAmount{{Token: sourceUSDC2.Address(), Amount: tinyOneCoin}},
+		FeeToken:     common.HexToAddress("0x0"),
+		ExtraArgs:    nil,
+	})
+	expectedSeqNum[changeset.SourceDestPair{
+		SourceChainSelector: sourceChain2,
+		DestChainSelector:   destChain,
+	}] = message2.SequenceNumber
+	expectedSeqNumExec[changeset.SourceDestPair{
+		SourceChainSelector: sourceChain2,
+		DestChainSelector:   destChain,
+	}] = []uint64{message2.SequenceNumber}
+
+	changeset.ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
+	changeset.ConfirmExecWithSeqNrsForAll(t, e, state, expectedSeqNumExec, startBlocks)
+
+	// We sent 1 coin from each source chain, so we should have 2 coins on the destination chain
+	expectedBalance := new(big.Int).Add(tinyOneCoin, tinyOneCoin)
+	waitForTheTokenBalance(t, dstUSDC.Address(), receiver, e.Chains[destChain], expectedBalance)
+}
+
 // mintAndAllow mints tokens for deployers and allow router to spend them
 func mintAndAllow(
 	t *testing.T,
