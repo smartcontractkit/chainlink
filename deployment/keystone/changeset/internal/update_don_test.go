@@ -2,14 +2,16 @@ package internal_test
 
 import (
 	"bytes"
+	"encoding/hex"
+	"fmt"
 	"math/big"
 	"sort"
+	"strconv"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/keystone"
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
@@ -22,9 +24,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var (
+	registryChain = chainsel.TEST_90000001
+)
+
 func TestUpdateDon(t *testing.T) {
 	var (
-		registryChain = chainsel.TEST_90000001
 		// nodes
 		p2p_1     = p2pkey.MustNewV2XXXTestingOnly(big.NewInt(100))
 		pubKey_1  = "11114981a6119ca3f932cdb8c402d71a72d672adae7849f581ecff8b8e1098e7" // valid csa key
@@ -98,14 +103,14 @@ func TestUpdateDon(t *testing.T) {
 			dons: []kslib.DonInfo{
 				{
 					Name:         "don 1",
-					Nodes:        []keystone.Node{node_1, node_2, node_3, node_4},
+					Nodes:        []deployment.Node{node_1, node_2, node_3, node_4},
 					Capabilities: []kcr.CapabilitiesRegistryCapability{cap_A},
 				},
 			},
 			nops: []keystone.NOP{
 				{
 					Name:  "nop 1",
-					Nodes: []string{node_1.ID, node_2.ID, node_3.ID, node_4.ID},
+					Nodes: []string{node_1.NodeID, node_2.NodeID, node_3.NodeID, node_4.NodeID},
 				},
 			},
 		}
@@ -170,27 +175,36 @@ type minimalNodeCfg struct {
 	admin         common.Address
 }
 
-func newNode(t *testing.T, cfg minimalNodeCfg) keystone.Node {
+func newNode(t *testing.T, cfg minimalNodeCfg) deployment.Node {
 	t.Helper()
 
-	return keystone.Node{
-		ID:        cfg.id,
-		PublicKey: &cfg.pubKey,
-		ChainConfigs: []*nodev1.ChainConfig{
-			{
-				Chain: &nodev1.Chain{
-					Id:   "test chain",
-					Type: nodev1.ChainType_CHAIN_TYPE_EVM,
-				},
-				AdminAddress: cfg.admin.String(),
-				Ocr2Config: &nodev1.OCR2Config{
-					P2PKeyBundle: &nodev1.OCR2Config_P2PKeyBundle{
-						PeerId: cfg.p2p.PeerID().String(),
-					},
-					OcrKeyBundle: &nodev1.OCR2Config_OCRKeyBundle{
-						OnchainSigningAddress: cfg.signingAddr,
-					},
-				},
+	registryChainID, err := chainsel.ChainIdFromSelector(registryChain.Selector)
+	if err != nil {
+		panic(err)
+	}
+	registryChainDetails, err := chainsel.GetChainDetailsByChainIDAndFamily(strconv.Itoa(int(registryChainID)), chainsel.FamilyEVM)
+	if err != nil {
+		panic(err)
+	}
+
+	signingAddr, err := hex.DecodeString(cfg.signingAddr)
+	require.NoError(t, err)
+
+	var pubkey [32]byte
+	if _, err := hex.Decode(pubkey[:], []byte(cfg.pubKey)); err != nil {
+		panic(fmt.Sprintf("failed to decode pubkey %s: %v", pubkey, err))
+	}
+
+	return deployment.Node{
+		NodeID:    cfg.id,
+		PeerID:    cfg.p2p.PeerID(),
+		CSAKey:    cfg.pubKey,
+		AdminAddr: cfg.admin.String(),
+		SelToOCRConfig: map[chainsel.ChainDetails]deployment.OCRConfig{
+			registryChainDetails: {
+				OnchainPublicKey:          signingAddr,
+				PeerID:                    cfg.p2p.PeerID(),
+				ConfigEncryptionPublicKey: pubkey,
 			},
 		},
 	}
@@ -214,10 +228,10 @@ func setupUpdateDonTest(t *testing.T, lggr logger.Logger, cfg setupUpdateDonTest
 
 func newSetupTestRegistryRequest(t *testing.T, dons []kslib.DonInfo, nops []keystone.NOP) *kstest.SetupTestRegistryRequest {
 	t.Helper()
-	nodes := make(map[string]keystone.Node)
+	nodes := make(map[string]deployment.Node)
 	for _, don := range dons {
 		for _, node := range don.Nodes {
-			nodes[node.ID] = node
+			nodes[node.NodeID] = node
 		}
 	}
 	nopsToNodes := makeNopToNodes(t, nops, nodes)
@@ -231,7 +245,7 @@ func newSetupTestRegistryRequest(t *testing.T, dons []kslib.DonInfo, nops []keys
 	return req
 }
 
-func makeNopToNodes(t *testing.T, nops []keystone.NOP, nodes map[string]keystone.Node) map[kcr.CapabilitiesRegistryNodeOperator][]*internal.P2PSignerEnc {
+func makeNopToNodes(t *testing.T, nops []keystone.NOP, nodes map[string]deployment.Node) map[kcr.CapabilitiesRegistryNodeOperator][]*internal.P2PSignerEnc {
 	nopToNodes := make(map[kcr.CapabilitiesRegistryNodeOperator][]*internal.P2PSignerEnc)
 
 	for _, nop := range nops {
@@ -239,15 +253,15 @@ func makeNopToNodes(t *testing.T, nops []keystone.NOP, nodes map[string]keystone
 		// so we can just use the first one
 		crnop := kcr.CapabilitiesRegistryNodeOperator{
 			Name:  nop.Name,
-			Admin: common.HexToAddress(nodes[nop.Nodes[0]].ChainConfigs[0].AdminAddress),
+			Admin: common.HexToAddress(nodes[nop.Nodes[0]].AdminAddr),
 		}
 		var signers []*internal.P2PSignerEnc
 		for _, nodeID := range nop.Nodes {
 			node := nodes[nodeID]
-			require.NotNil(t, node.PublicKey, "public key is nil %s", node.ID)
+			require.NotNil(t, node.CSAKey, "public key is nil %s", node.NodeID)
 			// all chain configs are the same wrt admin address & node keys
-			p, err := kscs.NewP2PSignerEncFromJD(node.ChainConfigs[0], *node.PublicKey)
-			require.NoError(t, err, "failed to make p2p signer enc from clo nod %s", node.ID)
+			p, err := kscs.NewP2PSignerEnc(&node, registryChain.Selector)
+			require.NoError(t, err, "failed to make p2p signer enc from clo nod %s", node.NodeID)
 			signers = append(signers, p)
 		}
 		nopToNodes[crnop] = signers
@@ -260,8 +274,8 @@ func makeP2PToCapabilities(t *testing.T, dons []kslib.DonInfo) map[p2pkey.PeerID
 	for _, don := range dons {
 		for _, node := range don.Nodes {
 			for _, cap := range don.Capabilities {
-				p, err := kscs.NewP2PSignerEncFromJD(node.ChainConfigs[0], *node.PublicKey)
-				require.NoError(t, err, "failed to make p2p signer enc from clo nod %s", node.ID)
+				p, err := kscs.NewP2PSignerEnc(&node, registryChain.Selector)
+				require.NoError(t, err, "failed to make p2p signer enc from clo nod %s", node.NodeID)
 				p2pToCapabilities[p.P2PKey] = append(p2pToCapabilities[p.P2PKey], cap)
 			}
 		}
@@ -282,8 +296,8 @@ func testDon(t *testing.T, don kslib.DonInfo) kstest.Don {
 	for _, node := range don.Nodes {
 		// all chain configs are the same wrt admin address & node keys
 		// so we can just use the first one
-		p, err := kscs.NewP2PSignerEncFromJD(node.ChainConfigs[0], *node.PublicKey)
-		require.NoError(t, err, "failed to make p2p signer enc from clo nod %s", node.ID)
+		p, err := kscs.NewP2PSignerEnc(&node, registryChain.Selector)
+		require.NoError(t, err, "failed to make p2p signer enc from clo nod %s", node.NodeID)
 		p2pids = append(p2pids, p.P2PKey)
 	}
 
@@ -297,13 +311,5 @@ func testDon(t *testing.T, don kslib.DonInfo) kstest.Don {
 		Name:              don.Name,
 		P2PIDs:            p2pids,
 		CapabilityConfigs: capabilityConfigs,
-	}
-}
-
-func newP2PSignerEnc(signer [32]byte, p2pkey p2pkey.PeerID, encryptionPublicKey [32]byte) *internal.P2PSignerEnc {
-	return &internal.P2PSignerEnc{
-		Signer:              signer,
-		P2PKey:              p2pkey,
-		EncryptionPublicKey: encryptionPublicKey,
 	}
 }

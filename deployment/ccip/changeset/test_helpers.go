@@ -295,6 +295,7 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 	state, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	tokenConfig := NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
+	ocrParams := make(map[uint64]CCIPOCRParams)
 	usdcCCTPConfig := make(map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig)
 	timelocksPerChain := make(map[uint64]*gethwrappers.RBACTimelock)
 	for _, chain := range usdcChains {
@@ -305,7 +306,10 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 			SourcePoolAddress:            state.Chains[chain].USDCTokenPool.Address().String(),
 			SourceMessageTransmitterAddr: state.Chains[chain].MockUSDCTransmitter.Address().String(),
 		}
+	}
+	for _, chain := range allChains {
 		timelocksPerChain[chain] = state.Chains[chain].Timelock
+		ocrParams[chain] = DefaultOCRParams(e.FeedChainSel, nil, nil)
 	}
 	var usdcCfg USDCAttestationConfig
 	if len(usdcChains) > 0 {
@@ -343,6 +347,7 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 					USDCAttestationConfig: usdcCfg,
 					CCTPTokenConfig:       usdcCCTPConfig,
 				},
+				OCRParams: ocrParams,
 			},
 		},
 		{
@@ -500,7 +505,7 @@ func AddLanesForAll(e deployment.Environment, state CCIPOnChainState) error {
 	for source := range e.Chains {
 		for dest := range e.Chains {
 			if source != dest {
-				err := AddLaneWithDefaultPrices(e, state, source, dest)
+				err := AddLaneWithDefaultPricesAndFeeQuoterConfig(e, state, source, dest, false)
 				if err != nil {
 					return err
 				}
