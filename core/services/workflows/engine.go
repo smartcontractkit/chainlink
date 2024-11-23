@@ -142,11 +142,6 @@ func (e *Engine) Start(_ context.Context) error {
 		// create a new context, since the one passed in via Start is short-lived.
 		ctx, _ := e.stopCh.NewCtx()
 
-		// spin up monitoring resources
-		err := initMonitoringResources()
-		if err != nil {
-			return fmt.Errorf("could not initialize monitoring resources: %w", err)
-		}
 		e.metrics.incrementWorkflowInitializationCounter(ctx)
 
 		e.wg.Add(e.maxWorkerLimit)
@@ -787,7 +782,13 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	stepExecutionStartTime := time.Now()
 	inputs, outputs, err := e.executeStep(ctx, l, msg)
 	stepExecutionDuration := time.Since(stepExecutionStartTime).Seconds()
-	e.metrics.updateWorkflowStepDurationHistogram(ctx, int64(stepExecutionDuration))
+
+	step, err := e.workflow.Vertex(msg.stepRef)
+	if err != nil {
+		l.Errorf("failed to resolve step in workflow; error %v", err)
+		return
+	}
+	e.metrics.with(platform.KeyCapabilityID, step.ID).updateWorkflowStepDurationHistogram(ctx, int64(stepExecutionDuration))
 
 	var stepStatus string
 	switch {
@@ -967,7 +968,7 @@ func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRe
 	stepCtx, cancel := context.WithTimeout(ctx, stepTimeoutDuration)
 	defer cancel()
 
-	e.metrics.incrementCapabilityInvocationCounter(stepCtx)
+	e.metrics.with(platform.KeyCapabilityID, step.ID).incrementCapabilityInvocationCounter(ctx)
 	output, err := step.capability.Execute(stepCtx, tr)
 	if err != nil {
 		e.metrics.with(platform.KeyStepRef, msg.stepRef, platform.KeyCapabilityID, step.ID).incrementCapabilityFailureCounter(ctx)
@@ -1268,6 +1269,12 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 	// - that the resulting graph is strongly connected (i.e. no disjointed subgraphs exist)
 	// - etc.
 
+	// spin up monitoring resources
+	em, err := initMonitoringResources()
+	if err != nil {
+		return nil, fmt.Errorf("could not initialize monitoring resources: %w", err)
+	}
+
 	cma := custmsg.NewLabeler().With(platform.KeyWorkflowID, cfg.WorkflowID, platform.KeyWorkflowOwner, cfg.WorkflowOwner, platform.KeyWorkflowName, cfg.WorkflowName)
 	workflow, err := Parse(cfg.Workflow)
 	if err != nil {
@@ -1282,7 +1289,7 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 	engine = &Engine{
 		cma:            cma,
 		logger:         cfg.Lggr.Named("WorkflowEngine").With("workflowID", cfg.WorkflowID),
-		metrics:        workflowsMetricLabeler{metrics.NewLabeler().With(platform.KeyWorkflowID, cfg.WorkflowID, platform.KeyWorkflowOwner, cfg.WorkflowOwner, platform.KeyWorkflowName, workflow.name)},
+		metrics:        workflowsMetricLabeler{metrics.NewLabeler().With(platform.KeyWorkflowID, cfg.WorkflowID, platform.KeyWorkflowOwner, cfg.WorkflowOwner, platform.KeyWorkflowName, workflow.name), *em},
 		registry:       cfg.Registry,
 		workflow:       workflow,
 		secretsFetcher: cfg.SecretsFetcher,
