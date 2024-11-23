@@ -8,26 +8,24 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/stretchr/testify/assert"
-	"github.com/test-go/testify/require"
-	"go.uber.org/zap/zapcore"
-	"golang.org/x/exp/maps"
-
 	chainsel "github.com/smartcontractkit/chain-selectors"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/clo"
 	"github.com/smartcontractkit/chainlink/deployment/environment/clo/models"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/deployment/keystone"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/test-go/testify/require"
+	"go.uber.org/zap/zapcore"
+	"golang.org/x/exp/maps"
 )
 
 func TestDeploy(t *testing.T) {
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 
 	// sepolia; all nodes are on the this chain
 	sepoliaChainId := uint64(11155111)
@@ -37,7 +35,8 @@ func TestDeploy(t *testing.T) {
 	require.NoError(t, err)
 	// sepoliaArbitrumChainSel, err := chainsel.SelectorFromChainId(sepoliaArbitrumChainId)
 	// require.NoError(t, err)
-	// aptosChainSel := uint64(999) // TODO:
+	// aptos-testnet
+	aptosChainSel := chainsel.AptosChainIdToChainSelector()[2]
 
 	crConfig := deployment.CapabilityRegistryConfig{
 		EVMChainID: sepoliaChainId,
@@ -45,11 +44,11 @@ func TestDeploy(t *testing.T) {
 	}
 
 	evmChains := memory.NewMemoryChainsWithChainIDs(t, []uint64{sepoliaChainId, sepoliaArbitrumChainId})
-	// aptosChain := memory.NewMemoryChain(t, aptosChainSel)
+	aptosChain := memory.NewMemoryChain(t, aptosChainSel)
 
 	wfChains := map[uint64]deployment.Chain{}
 	wfChains[sepoliaChainSel] = evmChains[sepoliaChainSel]
-	// wfChains[aptosChainSel] = aptosChain
+	wfChains[aptosChainSel] = aptosChain
 	wfNodes := memory.NewNodes(t, zapcore.InfoLevel, wfChains, 4, 0, crConfig)
 	require.Len(t, wfNodes, 4)
 
@@ -225,7 +224,7 @@ func nodeOperatorsToIDs(t *testing.T, nops []*models.NodeOperator) (nodeIDs []ke
 }
 
 func TestDeployCLO(t *testing.T) {
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 
 	wfNops := loadTestNops(t, "testdata/workflow_nodes.json")
 	cwNops := loadTestNops(t, "testdata/chain_writer_nodes.json")
