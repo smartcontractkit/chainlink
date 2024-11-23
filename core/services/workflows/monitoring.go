@@ -27,6 +27,7 @@ var workflowCompletedDurationSeconds metric.Int64Histogram
 var workflowEarlyExitDurationSeconds metric.Int64Histogram
 var workflowErrorDurationSeconds metric.Int64Histogram
 var workflowTimeoutDurationSeconds metric.Int64Histogram
+var workflowStepDurationSeconds metric.Int64Histogram
 
 func initMonitoringResources() (err error) {
 	registerTriggerFailureCounter, err = beholder.GetMeter().Int64Counter("platform_engine_registertrigger_failures")
@@ -116,6 +117,14 @@ func initMonitoringResources() (err error) {
 		return fmt.Errorf("failed to register timeout duration histogram: %w", err)
 	}
 
+	workflowStepDurationSeconds, err = beholder.GetMeter().Int64Histogram(
+		"platform_engine_workflow_step_time_seconds",
+		metric.WithDescription("Distribution of step execution times"),
+		metric.WithUnit("seconds"))
+	if err != nil {
+		return fmt.Errorf("failed to register step execution time histogram: %w", err)
+	}
+
 	return nil
 }
 
@@ -202,4 +211,9 @@ func (c workflowsMetricLabeler) updateWorkflowErrorDurationHistogram(ctx context
 func (c workflowsMetricLabeler) updateWorkflowTimeoutDurationHistogram(ctx context.Context, duration int64) {
 	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
 	workflowTimeoutDurationSeconds.Record(ctx, duration, metric.WithAttributes(otelLabels...))
+}
+
+func (c workflowsMetricLabeler) updateWorkflowStepDurationHistogram(ctx context.Context, duration int64) {
+	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
+	workflowStepDurationSeconds.Record(ctx, duration, metric.WithAttributes(otelLabels...))
 }

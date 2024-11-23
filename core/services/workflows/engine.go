@@ -777,13 +777,16 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 		Ref:         msg.stepRef,
 	}
 
-	// TODO ks-462 inputs
 	logCustMsg(ctx, cma, "executing step", l)
 
 	stepCtx, cancel := context.WithTimeout(ctx, e.stepTimeoutDuration)
 	defer cancel()
 
+	stepExecutionStartTime := time.Now()
 	inputs, outputs, err := e.executeStep(stepCtx, l, msg)
+	stepExecutionDuration := time.Since(stepExecutionStartTime).Seconds()
+	e.metrics.updateWorkflowStepDurationHistogram(ctx, int64(stepExecutionDuration))
+
 	var stepStatus string
 	switch {
 	case errors.Is(capabilities.ErrStopExecution, err):
