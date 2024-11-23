@@ -5,29 +5,67 @@ import "testing"
 func TestConfig_Validate(t *testing.T) {
 	tests := []struct {
 		name    string
-		cfg     *Config
+		config  *Config
 		wantErr bool
 	}{
 		{
 			name: "valid config",
-			cfg: &Config{
-				RepoRemote:  "origin",
-				BranchTrunk: "main",
+			config: &Config{
+				RepoRemote:  DefaultRepoRemote,
+				BranchTrunk: DefaultBranchTrunk,
+				OrgName:     DefaultOrgName,
+				RepoName:    DefaultRepoName,
 			},
 			wantErr: false,
 		},
 		{
 			name: "version flag bypasses validation",
-			cfg: &Config{
+			config: &Config{
 				ShowVersion: true,
 			},
 			wantErr: false,
+		},
+		{
+			name: "missing repo remote",
+			config: &Config{
+				BranchTrunk: DefaultBranchTrunk,
+				OrgName:     DefaultOrgName,
+				RepoName:    DefaultRepoName,
+			},
+			wantErr: true,
+		},
+		{
+			name: "missing branch trunk",
+			config: &Config{
+				RepoRemote: DefaultRepoRemote,
+				OrgName:    DefaultOrgName,
+				RepoName:   DefaultRepoName,
+			},
+			wantErr: true,
+		},
+		{
+			name: "missing org name",
+			config: &Config{
+				RepoRemote:  DefaultRepoRemote,
+				BranchTrunk: DefaultBranchTrunk,
+				RepoName:    DefaultRepoName,
+			},
+			wantErr: true,
+		},
+		{
+			name: "missing repo name",
+			config: &Config{
+				RepoRemote:  DefaultRepoRemote,
+				BranchTrunk: DefaultBranchTrunk,
+				OrgName:     DefaultOrgName,
+			},
+			wantErr: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := tt.cfg.Validate()
+			err := tt.config.Validate()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Validate() error = %v, wantErr %v", err, tt.wantErr)
 			}

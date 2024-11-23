@@ -2,24 +2,29 @@ package updater
 
 import (
 	"os"
+	"path/filepath"
 )
 
-type systemOperator struct {
-	stdout *os.File
-	stderr *os.File
-}
+const (
+    defaultFileMode = 0644
+)
+
+type systemOperator struct{}
 
 func NewSystemOperator() SystemOperator {
-	return &systemOperator{
-		stdout: os.Stdout,
-		stderr: os.Stderr,
-	}
+    return &systemOperator{}
 }
 
 func (s *systemOperator) ReadFile(path string) ([]byte, error) {
-	return os.ReadFile(path)
+    path = filepath.Clean(path)
+    return os.ReadFile(path)
 }
 
 func (s *systemOperator) WriteFile(path string, data []byte, perm os.FileMode) error {
-	return os.WriteFile(path, data, perm)
+    path = filepath.Clean(path)
+    dir := filepath.Dir(path)
+    if err := os.MkdirAll(dir, 0755); err != nil {
+        return err
+    }
+    return os.WriteFile(path, data, perm)
 }

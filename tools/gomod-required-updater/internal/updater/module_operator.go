@@ -1,6 +1,7 @@
 package updater
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"regexp"
@@ -13,6 +14,10 @@ import (
 
 const (
 	majorVersionPattern = `/v\d+$`
+	gitTimeout       	= 30 * time.Second
+	gitTimeFormat     	= time.RFC3339
+	gitRemotePattern  	= `^[a-zA-Z0-9][-a-zA-Z0-9_.]*$`
+	gitBranchPattern  	= `^[a-zA-Z0-9][-a-zA-Z0-9/_]*$`
 )
 
 // getMajorVersion extracts the major version number from a module path
@@ -29,6 +34,7 @@ type moduleOperator struct {
 	config *Config
 }
 
+// NewModuleOperator creates a new ModuleOperator
 func NewModuleOperator(config *Config) ModuleOperator {
 	if config.RepoRemote == "" {
 		config.RepoRemote = "origin"
@@ -41,29 +47,62 @@ func NewModuleOperator(config *Config) ModuleOperator {
 	}
 }
 
+// validateGitInput checks if the remote and branch are in the correct format
+func validateGitInput(remote, branch string) error {
+	remoteRE := regexp.MustCompile(gitRemotePattern)
+	if !remoteRE.MatchString(remote) {
+		return fmt.Errorf("%w: invalid git remote format", ErrModOperation)
+	}
+
+	branchRE := regexp.MustCompile(gitBranchPattern)
+	if !branchRE.MatchString(branch) {
+		return fmt.Errorf("%w: invalid git branch format", ErrModOperation)
+	}
+	return nil
+}
+
+// GetGitInfo retrieves the latest commit SHA and timestamp from a Git repository
 func (m *moduleOperator) GetGitInfo(remote, branch string) (string, time.Time, error) {
+	if err := validateGitInput(remote, branch); err != nil {
+		return "", time.Time{}, err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), gitTimeout)
+	defer cancel()
+
 	// Get latest SHA
-	cmd := exec.Command("git", "ls-remote", remote, "refs/heads/"+branch)
+	cmd := exec.CommandContext(ctx, "git", "ls-remote", remote, "refs/heads/"+branch)
 	out, err := cmd.Output()
 	if err != nil {
 		return "", time.Time{}, fmt.Errorf("%w: failed to get SHA: %v", ErrModOperation, err)
 	}
+	if len(out) == 0 {
+		return "", time.Time{}, fmt.Errorf("%w: no output from git ls-remote", ErrModOperation)
+	}
 	sha := strings.Split(string(out), "\t")[0]
+	if len(sha) == 0 {
+		return "", time.Time{}, fmt.Errorf("%w: empty SHA from git ls-remote", ErrModOperation)
+	}
 
 	// Get commit timestamp
-	cmd = exec.Command("git", "show", "-s", "--format=%cI", sha)
+	cmd = exec.CommandContext(ctx, "git", "show", "-s", "--format=%cI", sha)
 	out, err = cmd.Output()
 	if err != nil {
 		return "", time.Time{}, fmt.Errorf("%w: failed to get commit time: %v", ErrModOperation, err)
 	}
-	commitTime, err := time.Parse(time.RFC3339, strings.TrimSpace(string(out)))
+	if len(out) == 0 {
+		return "", time.Time{}, fmt.Errorf("%w: no output from git show", ErrModOperation)
+	}
+
+	commitTime, err := time.Parse(gitTimeFormat, strings.TrimSpace(string(out)))
 	if err != nil {
 		return "", time.Time{}, fmt.Errorf("%w: failed to parse commit time: %v", ErrModOperation, err)
 	}
 
-	return sha[:12], commitTime, nil
+	return sha[:gitSHALength], commitTime, nil
 }
 
+// GetLatestVersion retrieves the latest pseudo-version for a module
 func (m *moduleOperator) GetLatestVersion(modulePath string) (module.Version, error) {
 	sha, commitTime, err := m.GetGitInfo(m.config.RepoRemote, m.config.BranchTrunk)
 	if err != nil {
