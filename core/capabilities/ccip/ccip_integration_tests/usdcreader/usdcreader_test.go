@@ -332,7 +332,7 @@ func createMessageSentLogPollerData(startNonce int64, i int, sourceDomainCCTP ui
 	buf = binary.BigEndian.AppendUint32(buf, sourceDomainCCTP)
 
 	buf = binary.BigEndian.AppendUint32(buf, destDomainCCTP)
-
+	// #nosec G115
 	buf = binary.BigEndian.AppendUint64(buf, uint64(nonce))
 
 	senderBytes := [12]byte{}
