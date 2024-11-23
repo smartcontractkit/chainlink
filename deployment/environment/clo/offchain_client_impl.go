@@ -14,6 +14,7 @@ import (
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
+
 	"github.com/smartcontractkit/chainlink/deployment/environment/clo/models"
 )
 
@@ -21,6 +22,11 @@ type JobClient struct {
 	NodeOperators []*models.NodeOperator `json:"nodeOperators"`
 	nodesByID     map[string]*models.Node
 	lggr          logger.Logger
+}
+
+func (j JobClient) BatchProposeJob(ctx context.Context, in *jobv1.BatchProposeJobRequest, opts ...grpc.CallOption) (*jobv1.BatchProposeJobResponse, error) {
+	//TODO implement me
+	panic("implement me")
 }
 
 func (j JobClient) UpdateJob(ctx context.Context, in *jobv1.UpdateJobRequest, opts ...grpc.CallOption) (*jobv1.UpdateJobResponse, error) {

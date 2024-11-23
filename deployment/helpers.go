@@ -15,6 +15,9 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 // OCRSecrets are used to disseminate a shared secret to OCR nodes
@@ -107,4 +110,57 @@ func ParseErrorFromABI(errorString string, contractABI string) (string, error) {
 		}
 	}
 	return "", errors.New("error not found in ABI")
+}
+
+// ContractDeploy represents the result of an EVM contract deployment
+// via an abigen Go binding. It contains all the return values
+// as they are useful in different ways.
+type ContractDeploy[C any] struct {
+	Address  common.Address     // We leave this incase a Go binding doesn't have Address()
+	Contract C                  // Expected to be a Go binding
+	Tx       *types.Transaction // Incase the caller needs for example tx hash info for
+	Tv       TypeAndVersion
+	Err      error
+}
+
+// DeployContract deploys an EVM contract and
+// records the address in the provided address book
+// if the deployment was confirmed onchain.
+// Deploying and saving the address is a very common pattern
+// so this helps to reduce boilerplate.
+// It returns an error if the deployment failed, the tx was not
+// confirmed or the address could not be saved.
+func DeployContract[C any](
+	lggr logger.Logger,
+	chain Chain,
+	addressBook AddressBook,
+	deploy func(chain Chain) ContractDeploy[C],
+) (*ContractDeploy[C], error) {
+	contractDeploy := deploy(chain)
+	if contractDeploy.Err != nil {
+		lggr.Errorw("Failed to deploy contract", "err", contractDeploy.Err)
+		return nil, contractDeploy.Err
+	}
+	_, err := chain.Confirm(contractDeploy.Tx)
+	if err != nil {
+		lggr.Errorw("Failed to confirm deployment", "err", err)
+		return nil, err
+	}
+	err = addressBook.Save(chain.Selector, contractDeploy.Address.String(), contractDeploy.Tv)
+	if err != nil {
+		lggr.Errorw("Failed to save contract address", "err", err)
+		return nil, err
+	}
+	return &contractDeploy, nil
+}
+
+func IsValidChainSelector(cs uint64) error {
+	if cs == 0 {
+		return fmt.Errorf("chain selector must be set")
+	}
+	_, err := chain_selectors.ChainIdFromSelector(cs)
+	if err != nil {
+		return fmt.Errorf("invalid chain selector: %d - %w", cs, err)
+	}
+	return nil
 }

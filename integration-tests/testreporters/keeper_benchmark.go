@@ -129,7 +129,7 @@ func (k *KeeperBenchmarkTestReporter) WriteReport(folderLocation string) error {
 	if err != nil {
 		return err
 	}
-	avg, median, ninetyPct, ninetyNinePct, max := IntListStats(allDelays)
+	avg, median, ninetyPct, ninetyNinePct, maxVal := IntListStats(allDelays)
 	err = keeperReportWriter.Write([]string{
 		fmt.Sprint(totalEligibleCount),
 		fmt.Sprint(totalPerformed),
@@ -139,7 +139,7 @@ func (k *KeeperBenchmarkTestReporter) WriteReport(folderLocation string) error {
 		fmt.Sprint(median),
 		fmt.Sprint(ninetyPct),
 		fmt.Sprint(ninetyNinePct),
-		fmt.Sprint(max),
+		fmt.Sprint(maxVal),
 		fmt.Sprintf("%.2f%%", pctWithinSLA),
 		fmt.Sprintf("%.2f%%", pctReverted),
 		fmt.Sprintf("%.2f%%", pctStale),
@@ -156,7 +156,7 @@ func (k *KeeperBenchmarkTestReporter) WriteReport(folderLocation string) error {
 		Int64("Median Perform Delay", median).
 		Int64("90th pct Perform Delay", ninetyPct).
 		Int64("99th pct Perform Delay", ninetyNinePct).
-		Int64("Max Perform Delay", max).
+		Int64("Max Perform Delay", maxVal).
 		Float64("Percent Within SLA", pctWithinSLA).
 		Float64("Percent Reverted", pctReverted).
 		Msg("Calculated Aggregate Results")
@@ -179,7 +179,7 @@ func (k *KeeperBenchmarkTestReporter) WriteReport(folderLocation string) error {
 	}
 
 	for contractIndex, report := range k.Reports {
-		avg, median, ninetyPct, ninetyNinePct, max = IntListStats(report.AllCheckDelays)
+		avg, median, ninetyPct, ninetyNinePct, maxVal = IntListStats(report.AllCheckDelays)
 		err = keeperReportWriter.Write([]string{
 			fmt.Sprint(contractIndex),
 			report.RegistryAddress,
@@ -190,7 +190,7 @@ func (k *KeeperBenchmarkTestReporter) WriteReport(folderLocation string) error {
 			fmt.Sprint(median),
 			fmt.Sprint(ninetyPct),
 			fmt.Sprint(ninetyNinePct),
-			fmt.Sprint(max),
+			fmt.Sprint(maxVal),
 			fmt.Sprintf("%.2f%%", (1.0-float64(report.TotalSLAMissedUpkeeps)/float64(report.TotalEligibleCount))*100),
 		})
 		if err != nil {
@@ -215,7 +215,7 @@ func (k *KeeperBenchmarkTestReporter) WriteReport(folderLocation string) error {
 		"median": median,
 		"90p":    ninetyPct,
 		"99p":    ninetyNinePct,
-		"max":    max,
+		"max":    maxVal,
 	}
 	k.Summary.Metrics.PercentWithinSLA = pctWithinSLA
 	k.Summary.Metrics.PercentRevert = pctReverted

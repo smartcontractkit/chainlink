@@ -27,7 +27,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 )
 
-const fifteenMinutesMs = 15 * 60 * 1000
+const (
+	fifteenMinutesMs             = 15 * 60 * 1000
+	reservedFieldNameStepTimeout = "cre_step_timeout"
+	maxStepTimeoutOverrideSec    = 10 * 60 // 10 minutes
+)
 
 type stepRequest struct {
 	stepRef string
@@ -92,7 +96,7 @@ func (sucm *stepUpdateManager) len() int64 {
 }
 
 type secretsFetcher interface {
-	SecretsFor(workflowOwner, workflowName string) (map[string]string, error)
+	SecretsFor(ctx context.Context, workflowOwner, workflowName string) (map[string]string, error)
 }
 
 // Engine handles the lifecycle of a single workflow and its executions.
@@ -286,6 +290,7 @@ func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
 		Metadata: capabilities.RegistrationMetadata{
 			WorkflowID:    e.workflow.id,
 			WorkflowOwner: e.workflow.owner,
+			ReferenceID:   step.Vertex.Ref,
 		},
 		Config: stepConfig,
 	}
@@ -779,11 +784,8 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 
 	logCustMsg(ctx, cma, "executing step", l)
 
-	stepCtx, cancel := context.WithTimeout(ctx, e.stepTimeoutDuration)
-	defer cancel()
-
 	stepExecutionStartTime := time.Now()
-	inputs, outputs, err := e.executeStep(stepCtx, l, msg)
+	inputs, outputs, err := e.executeStep(ctx, l, msg)
 	stepExecutionDuration := time.Since(stepExecutionStartTime).Seconds()
 	e.metrics.updateWorkflowStepDurationHistogram(ctx, int64(stepExecutionDuration))
 
@@ -863,7 +865,7 @@ func (e *Engine) interpolateEnvVars(config map[string]any, env exec.Env) (*value
 // registry (for capability-level configuration). It doesn't perform any caching of the config values, since
 // the two registries perform their own caching.
 func (e *Engine) configForStep(ctx context.Context, lggr logger.Logger, step *step) (*values.Map, error) {
-	secrets, err := e.secretsFetcher.SecretsFor(e.workflow.owner, e.workflow.name)
+	secrets, err := e.secretsFetcher.SecretsFor(ctx, e.workflow.owner, e.workflow.name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch secrets: %w", err)
 	}
@@ -933,6 +935,20 @@ func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRe
 	if err != nil {
 		return nil, nil, err
 	}
+	stepTimeoutDuration := e.stepTimeoutDuration
+	if timeoutOverride, ok := config.Underlying[reservedFieldNameStepTimeout]; ok {
+		var desiredTimeout int64
+		err2 := timeoutOverride.UnwrapTo(&desiredTimeout)
+		if err2 != nil {
+			e.logger.Warnw("couldn't decode step timeout override, using default", "error", err2, "default", stepTimeoutDuration)
+		} else {
+			if desiredTimeout > maxStepTimeoutOverrideSec {
+				e.logger.Warnw("desired step timeout is too large, limiting to max value", "maxValue", maxStepTimeoutOverrideSec)
+				desiredTimeout = maxStepTimeoutOverrideSec
+			}
+			stepTimeoutDuration = time.Duration(desiredTimeout) * time.Second
+		}
+	}
 
 	tr := capabilities.CapabilityRequest{
 		Inputs: inputsMap,
@@ -948,8 +964,11 @@ func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRe
 		},
 	}
 
-	e.metrics.incrementCapabilityInvocationCounter(ctx)
-	output, err := step.capability.Execute(ctx, tr)
+	stepCtx, cancel := context.WithTimeout(ctx, stepTimeoutDuration)
+	defer cancel()
+
+	e.metrics.incrementCapabilityInvocationCounter(stepCtx)
+	output, err := step.capability.Execute(stepCtx, tr)
 	if err != nil {
 		e.metrics.with(platform.KeyStepRef, msg.stepRef, platform.KeyCapabilityID, step.ID).incrementCapabilityFailureCounter(ctx)
 		return inputsMap, nil, err
@@ -1130,6 +1149,7 @@ func (e *Engine) Close() error {
 				Metadata: capabilities.RegistrationMetadata{
 					WorkflowID:    e.workflow.id,
 					WorkflowOwner: e.workflow.owner,
+					ReferenceID:   s.Vertex.Ref,
 				},
 				Config: stepConfig,
 			}
@@ -1137,7 +1157,7 @@ func (e *Engine) Close() error {
 			innerErr := s.capability.UnregisterFromWorkflow(ctx, reg)
 			if innerErr != nil {
 				return &workflowError{err: innerErr,
-					reason: fmt.Sprintf("failed to unregister capability from workflow: %+v", reg),
+					reason: fmt.Sprintf("failed to unregister capability from  workflow: %+v", reg),
 					labels: map[string]string{
 						platform.KeyWorkflowID: e.workflow.id,
 						platform.KeyStepID:     s.ID,
@@ -1311,7 +1331,7 @@ func (e *workflowError) Error() string {
 	}
 
 	// prefix the error with the labels
-	for _, label := range platform.OrderedLabelKeys {
+	for label := range platform.LabelKeysSorted() {
 		// This will silently ignore any labels that are not present in the map
 		// are we ok with this?
 		if value, ok := e.labels[label]; ok {

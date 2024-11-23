@@ -18,6 +18,7 @@ on:
           - "shared"
           - "transmission"
           - "vrf"
+          - "workflow"
       commit_to_use:
         type: string
         description: 'commit SHA to use for artifact generation; if empty HEAD will be used'

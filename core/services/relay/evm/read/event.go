@@ -247,7 +247,7 @@ func (b *EventBinding) GetLatestValueWithHeadData(ctx context.Context, address c
 				ReadName:        b.eventName,
 				Params:          params,
 				ReturnVal:       into,
-			}, strconv.Itoa(int(confs)), false)
+			}, strconv.Itoa(int(confs)), eventReadType)
 
 			callErr.Result = result
 
@@ -315,7 +315,7 @@ func (b *EventBinding) QueryKey(ctx context.Context, address common.Address, fil
 				ContractName:    b.contractName,
 				ReadName:        b.eventName,
 				ReturnVal:       sequenceDataType,
-			}, "", false)
+			}, "", eventReadType)
 		}
 	}()
 

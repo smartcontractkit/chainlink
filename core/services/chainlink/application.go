@@ -215,7 +215,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	// TODO: wire this up to config so we only instantiate it
 	// if a workflow registry address is provided.
-	workflowRegistrySyncer := syncer.NewWorkflowRegistry()
+	workflowRegistrySyncer := syncer.NewNullWorkflowRegistrySyncer()
 	srvcs = append(srvcs, workflowRegistrySyncer)
 
 	var externalPeerWrapper p2ptypes.PeerWrapper
@@ -400,6 +400,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		streamRegistry = streams.NewRegistry(globalLogger, pipelineRunner)
 		workflowORM    = workflowstore.NewDBStore(opts.DS, globalLogger, clockwork.NewRealClock())
 	)
+	srvcs = append(srvcs, workflowORM)
 
 	promReporter := headreporter.NewPrometheusReporter(opts.DS, legacyEVMChains)
 	chainIDs := make([]*big.Int, legacyEVMChains.Len())

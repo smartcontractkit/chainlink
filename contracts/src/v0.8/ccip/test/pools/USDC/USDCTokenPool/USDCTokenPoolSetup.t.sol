@@ -3,7 +3,7 @@ pragma solidity 0.8.24;
 
 import {IBurnMintERC20} from "../../../../../shared/token/ERC20/IBurnMintERC20.sol";
 
-import {BurnMintERC677} from "../../../../../shared/token/ERC677/BurnMintERC677.sol";
+import {BurnMintERC20} from "../../../../../shared/token/ERC20/BurnMintERC20.sol";
 import {Router} from "../../../../Router.sol";
 import {TokenPool} from "../../../../pools/TokenPool.sol";
 import {USDCTokenPool} from "../../../../pools/USDC/USDCTokenPool.sol";
@@ -47,7 +47,7 @@ contract USDCTokenPoolSetup is BaseTest {
 
   function setUp() public virtual override {
     BaseTest.setUp();
-    BurnMintERC677 usdcToken = new BurnMintERC677("LINK", "LNK", 18, 0);
+    BurnMintERC20 usdcToken = new BurnMintERC20("LINK", "LNK", 18, 0, 0);
     s_token = usdcToken;
     deal(address(s_token), OWNER, type(uint256).max);
     _setUpRamps();
@@ -65,26 +65,30 @@ contract USDCTokenPoolSetup is BaseTest {
     s_usdcTokenPoolWithAllowList =
       new USDCTokenPoolHelper(s_mockUSDC, s_token, s_allowedList, address(s_mockRMN), address(s_router));
 
+    bytes[] memory sourcePoolAddresses = new bytes[](1);
+    sourcePoolAddresses[0] = abi.encode(SOURCE_CHAIN_USDC_POOL);
+
+    bytes[] memory destPoolAddresses = new bytes[](1);
+    destPoolAddresses[0] = abi.encode(DEST_CHAIN_USDC_POOL);
+
     TokenPool.ChainUpdate[] memory chainUpdates = new TokenPool.ChainUpdate[](2);
     chainUpdates[0] = TokenPool.ChainUpdate({
       remoteChainSelector: SOURCE_CHAIN_SELECTOR,
-      remotePoolAddress: abi.encode(SOURCE_CHAIN_USDC_POOL),
+      remotePoolAddresses: sourcePoolAddresses,
       remoteTokenAddress: abi.encode(address(s_token)),
-      allowed: true,
       outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
       inboundRateLimiterConfig: _getInboundRateLimiterConfig()
     });
     chainUpdates[1] = TokenPool.ChainUpdate({
       remoteChainSelector: DEST_CHAIN_SELECTOR,
-      remotePoolAddress: abi.encode(DEST_CHAIN_USDC_POOL),
+      remotePoolAddresses: destPoolAddresses,
       remoteTokenAddress: abi.encode(DEST_CHAIN_USDC_TOKEN),
-      allowed: true,
       outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
       inboundRateLimiterConfig: _getInboundRateLimiterConfig()
     });
 
-    s_usdcTokenPool.applyChainUpdates(chainUpdates);
-    s_usdcTokenPoolWithAllowList.applyChainUpdates(chainUpdates);
+    s_usdcTokenPool.applyChainUpdates(new uint64[](0), chainUpdates);
+    s_usdcTokenPoolWithAllowList.applyChainUpdates(new uint64[](0), chainUpdates);
 
     USDCTokenPool.DomainUpdate[] memory domains = new USDCTokenPool.DomainUpdate[](1);
     domains[0] = USDCTokenPool.DomainUpdate({

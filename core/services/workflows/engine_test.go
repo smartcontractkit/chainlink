@@ -86,6 +86,7 @@ targets:
       address: "0x54e220867af6683aE6DcBF535B4f952cB5116510"
       params: ["$(report)"]
       abi: "receive(report bytes)"
+      cre_step_timeout: 610
 `
 
 type testHooks struct {
@@ -152,7 +153,7 @@ func newTestEngineWithYAMLSpec(t *testing.T, reg *coreCap.Registry, spec string,
 
 type mockSecretsFetcher struct{}
 
-func (s mockSecretsFetcher) SecretsFor(workflowOwner, workflowName string) (map[string]string, error) {
+func (s mockSecretsFetcher) SecretsFor(ctx context.Context, workflowOwner, workflowName string) (map[string]string, error) {
 	return map[string]string{}, nil
 }
 
@@ -1127,8 +1128,8 @@ triggers:
         - "0x3333333333333333333300000000000000000000000000000000000000000000" # BTCUSD
 
 actions:
-  - id: custom_compute@1.0.0
-    ref: custom_compute
+  - id: custom-compute@1.0.0
+    ref: custom-compute
     config:
       maxMemoryMBs: 128
       tickInterval: 100ms
@@ -1173,7 +1174,7 @@ targets:
 func TestEngine_MergesWorkflowConfigAndCRConfig_CRConfigPrecedence(t *testing.T) {
 	var (
 		ctx              = testutils.Context(t)
-		actionID         = "custom_compute@1.0.0"
+		actionID         = "custom-compute@1.0.0"
 		giveTimeout      = 300 * time.Millisecond
 		giveTickInterval = 100 * time.Millisecond
 		registryConfig   = map[string]any{
@@ -1448,7 +1449,8 @@ func TestEngine_WithCustomComputeStep(t *testing.T) {
 	require.NoError(t, err)
 
 	idGeneratorFn := func() string { return "validRequestID" }
-	compute := compute.NewAction(cfg, log, reg, handler, idGeneratorFn)
+	compute, err := compute.NewAction(cfg, log, reg, handler, idGeneratorFn)
+	require.NoError(t, err)
 	require.NoError(t, compute.Start(ctx))
 	defer compute.Close()
 
@@ -1513,7 +1515,8 @@ func TestEngine_CustomComputePropagatesBreaks(t *testing.T) {
 	require.NoError(t, err)
 
 	idGeneratorFn := func() string { return "validRequestID" }
-	compute := compute.NewAction(cfg, log, reg, handler, idGeneratorFn)
+	compute, err := compute.NewAction(cfg, log, reg, handler, idGeneratorFn)
+	require.NoError(t, err)
 	require.NoError(t, compute.Start(ctx))
 	defer compute.Close()
 
@@ -1560,8 +1563,8 @@ triggers:
         - "0x3333333333333333333300000000000000000000000000000000000000000000" # BTCUSD
 
 actions:
-  - id: custom_compute@1.0.0
-    ref: custom_compute
+  - id: custom-compute@1.0.0
+    ref: custom-compute
     config:
       fidelityToken: $(ENV.secrets.fidelity)
     inputs:
@@ -1603,7 +1606,7 @@ type mockFetcher struct {
 	retval map[string]string
 }
 
-func (m *mockFetcher) SecretsFor(workflowOwner, workflowName string) (map[string]string, error) {
+func (m *mockFetcher) SecretsFor(ctx context.Context, workflowOwner, workflowName string) (map[string]string, error) {
 	return m.retval, nil
 }
 
@@ -1623,7 +1626,7 @@ func TestEngine_FetchesSecrets(t *testing.T) {
 	action := newMockCapability(
 		// Create a remote capability so we don't use the local transmission protocol.
 		capabilities.MustNewRemoteCapabilityInfo(
-			"custom_compute@1.0.0",
+			"custom-compute@1.0.0",
 			capabilities.CapabilityTypeAction,
 			"a custom compute action with custom config",
 			&capabilities.DON{ID: 1},

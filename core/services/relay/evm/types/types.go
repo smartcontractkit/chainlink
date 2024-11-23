@@ -192,6 +192,12 @@ func (c LLOConfigMode) String() string {
 	return string(c)
 }
 
+type DualTransmissionConfig struct {
+	ContractAddress    common.Address      `json:"contractAddress" toml:"contractAddress"`
+	TransmitterAddress common.Address      `json:"transmitterAddress" toml:"transmitterAddress"`
+	Meta               map[string][]string `json:"meta" toml:"meta"`
+}
+
 type RelayConfig struct {
 	ChainID                *big.Big           `json:"chainID"`
 	FromBlock              uint64             `json:"fromBlock"`
@@ -215,6 +221,10 @@ type RelayConfig struct {
 	// LLO-specific
 	LLODONID      uint32        `json:"lloDonID" toml:"lloDonID"`
 	LLOConfigMode LLOConfigMode `json:"lloConfigMode" toml:"lloConfigMode"`
+
+	// DualTransmission specific
+	EnableDualTransmission bool                    `json:"enableDualTransmission" toml:"enableDualTransmission"`
+	DualTransmissionConfig *DualTransmissionConfig `json:"dualTransmission" toml:"dualTransmission"`
 }
 
 var ErrBadRelayConfig = errors.New("bad relay config")

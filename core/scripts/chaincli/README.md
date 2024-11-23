@@ -101,7 +101,7 @@ You can also combine the `bootstrap` and `launch-and-test` commands into a singl
 ```shell
 ./chaincli keeper launch-and-test --bootstrap
 ```
-In the output of this command, you will see the http address of the nodes, e.g. `http://localhost:6688`. This is the Chainlink Operator GUI. You can use the default username `notreal@fakeemail.ch` and password `fj293fbBnlQ!f9vNs~#` to log in.
+In the output of this command, you will see the http address of the nodes, e.g. `http://localhost:6688`. This is the Chainlink Operator GUI. You can use the default username `notreal@fakeemail.ch` and password `fj293fbBnlQ!f9vNs` to log in.
 
 ### Logs
 Now that the nodes are running, you can use the `logs` subcommand to stream the output of the containers to your local terminal:
