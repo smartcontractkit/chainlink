@@ -805,12 +805,6 @@ func setupSimulatedBackendAndAuth(t testing.TB) (*simulated.Backend, *bind.Trans
 // Benchmark_CCIPReader_CommitReportsGTETimestamp/FirstLogs_1_MatchLogs_10-14            1000000000          0.001074 ns/op        0 B/op          0 allocs/op
 // Benchmark_CCIPReader_CommitReportsGTETimestamp/FirstLogs_10_MatchLogs_100-14          1000000000          0.006228 ns/op        0 B/op          0 allocs/op
 // Benchmark_CCIPReader_CommitReportsGTETimestamp/FirstLogs_100_MatchLogs_10000-14       1000000000          0.5138 ns/op          0 B/op          0 allocs/op
-//
-// Notes:
-// - Case `FirstLogs_0_MatchLogs_0`: No logs match the query, yielding near-zero overhead.
-// - Case `FirstLogs_1_MatchLogs_10`: Small dataset with 1 initial log and 10 matches, minimal processing time observed.
-// - Case `FirstLogs_10_MatchLogs_100`: Medium dataset with 10 initial logs and 100 matches, showing a slight increase in time.
-// - Case `FirstLogs_100_MatchLogs_10000`: Large dataset with 100 initial logs and 10,000 matches, demonstrating efficient scaling with marginal increase in processing time.
 func Benchmark_CCIPReader_CommitReportsGTETimestamp(b *testing.B) {
 	tests := []struct {
 		logsInsertedFirst        int
@@ -970,13 +964,6 @@ func populateDatabaseForCommitReportAccepted(
 // Benchmark_CCIPReader_ExecutedMessageRanges/LogsInserted_10_StartSeq_0_EndSeq_9-14               1000000000          0.0009501 ns/op        0 B/op          0 allocs/op
 // Benchmark_CCIPReader_ExecutedMessageRanges/LogsInserted_100_StartSeq_0_EndSeq_100-14            1000000000          0.004103 ns/op         0 B/op          0 allocs/op
 // Benchmark_CCIPReader_ExecutedMessageRanges/LogsInserted_100000_StartSeq_99744_EndSeq_100000-14  1000000000          0.04908 ns/op          0 B/op          0 allocs/op
-//
-// Notes:
-// - LogsInserted_0_StartSeq_0_EndSeq_10: No logs inserted, performance is optimal with negligible overhead.
-// - LogsInserted_10_StartSeq_10_EndSeq_20: Querying the next sequence, minimal latency observed.
-// - LogsInserted_10_StartSeq_0_EndSeq_9: Queries a smaller range of 10 logs, overhead is slightly higher due to range filter.
-// - LogsInserted_100_StartSeq_0_EndSeq_100: Dataset of 100 logs shows a linear scaling in overhead, consistent with expectations.
-// - LogsInserted_100000_StartSeq_99744_EndSeq_100000: Queries for the last ~256 logs in a large dataset of 100,000. Performance remains efficient, but with a slight increase in latency due to the dataset size.
 func Benchmark_CCIPReader_ExecutedMessageRanges(b *testing.B) {
 	tests := []struct {
 		logsInserted int
@@ -1389,6 +1376,9 @@ func testSetup(
 		})
 		require.NoError(t, err1)
 		simulatedBackend.Commit()
+		scc, err1 := contract.GetSourceChainConfig(&bind.CallOpts{Context: ctx}, uint64(sourceChain))
+		require.NoError(t, err1)
+		require.Equal(t, seqNum, cciptypes.SeqNum(scc.MinSeqNr))
 	}
 
 	// Initialize chain reader service
@@ -1407,7 +1397,9 @@ func testSetup(
 	}
 
 	// Handle additional contract readers
-	otherCrs := setupAdditionalContractReaders(ctx, t, toBindContracts, toMockBindings, simulatedBackend, db, lggr, lpOpts)
+	otherCrs := setupAdditionalContractReaders(ctx, t, toBindContracts, toMockBindings, simulatedBackend, db, lggr, lpOpts, cfg)
+
+	servicetest.Run(t, cr)
 
 	// Combine all contract readers
 	contractReaders := map[cciptypes.ChainSelector]contractreader.Extended{readerChain: extendedCr}
@@ -1441,6 +1433,7 @@ func setupAdditionalContractReaders(
 	db *sqlx.DB,
 	lggr logger.Logger,
 	lpOpts logpoller.Opts,
+	cfg evmtypes.ChainReaderConfig,
 ) map[cciptypes.ChainSelector]contractreader.Extended {
 	otherCrs := make(map[cciptypes.ChainSelector]contractreader.Extended)
 
@@ -1450,7 +1443,7 @@ func setupAdditionalContractReaders(
 		lp := logpoller.NewLogPoller(logpoller.NewORM(big.NewInt(0).SetUint64(uint64(chain)), db, lggr), cl, lggr, headTracker, lpOpts)
 		servicetest.Run(t, lp)
 
-		cr, err := evm.NewChainReaderService(ctx, lggr, lp, headTracker, cl, evmtypes.ChainReaderConfig{})
+		cr, err := evm.NewChainReaderService(ctx, lggr, lp, headTracker, cl, cfg)
 		require.NoError(t, err)
 
 		extendedCr := contractreader.NewExtendedContractReader(cr)
