@@ -142,10 +142,6 @@ type workflowsMetricLabeler struct {
 	em engineMetrics
 }
 
-func newLabeler(em engineMetrics) workflowsMetricLabeler {
-	return workflowsMetricLabeler{em: em}
-}
-
 func (c workflowsMetricLabeler) with(keyValues ...string) workflowsMetricLabeler {
 	return workflowsMetricLabeler{c.With(keyValues...), c.em}
 }
