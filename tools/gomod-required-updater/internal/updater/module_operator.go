@@ -63,6 +63,7 @@ func validateGitInput(remote, branch string) error {
 
 // GetGitInfo retrieves the latest commit SHA and timestamp from a Git repository
 func (m *moduleOperator) GetGitInfo(remote, branch string) (string, time.Time, error) {
+	// Validate remote and branch against strict regex patterns before using in exec
 	if err := validateGitInput(remote, branch); err != nil {
 		return "", time.Time{}, err
 	}
@@ -74,7 +75,7 @@ func (m *moduleOperator) GetGitInfo(remote, branch string) (string, time.Time, e
 	cmd := exec.CommandContext(ctx, "git", "ls-remote", remote, "refs/heads/"+branch)
 	out, err := cmd.Output()
 	if err != nil {
-		return "", time.Time{}, fmt.Errorf("%w: failed to get SHA: %v", ErrModOperation, err)
+		return "", time.Time{}, fmt.Errorf("%w: failed to get SHA: %w", ErrModOperation, err)
 	}
 	if len(out) == 0 {
 		return "", time.Time{}, fmt.Errorf("%w: no output from git ls-remote", ErrModOperation)

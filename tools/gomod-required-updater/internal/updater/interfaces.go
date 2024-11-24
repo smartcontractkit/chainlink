@@ -4,7 +4,7 @@
 package updater
 
 import (
-	"fmt"
+	"errors"
 	"os"
 	"time"
 
@@ -19,9 +19,9 @@ const (
 // Errors that can be returned by the updater package
 var (
 	// ErrModOperation indicates a failure in a module-related operation
-	ErrModOperation = fmt.Errorf("module operation failed")
+	ErrModOperation = errors.New("module operation failed")
 	// ErrInvalidConfig indicates invalid configuration parameters
-	ErrInvalidConfig = fmt.Errorf("invalid configuration")
+	ErrInvalidConfig = errors.New("invalid configuration")
 )
 
 // ModuleOperator handles Git repository operations and module version management.

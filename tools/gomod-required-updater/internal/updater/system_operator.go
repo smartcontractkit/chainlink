@@ -5,10 +5,6 @@ import (
 	"path/filepath"
 )
 
-const (
-	defaultFileMode = 0644
-)
-
 type systemOperator struct{}
 
 func NewSystemOperator() SystemOperator {
