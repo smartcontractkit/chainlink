@@ -71,7 +71,10 @@ func (m *moduleOperator) GetGitInfo(remote, branch string) (string, time.Time, e
 	ctx, cancel := context.WithTimeout(context.Background(), gitTimeout)
 	defer cancel()
 
-	// Get latest SHA
+	// Safe to use remote/branch after validateGitInput ensures they match:
+	// - remote: ^[a-zA-Z0-9][-a-zA-Z0-9_.]*$
+	// - branch: ^[a-zA-Z0-9][-a-zA-Z0-9/_]*$
+	//nolint:gosec // Inputs are validated by regex patterns above
 	cmd := exec.CommandContext(ctx, "git", "ls-remote", remote, "refs/heads/"+branch)
 	out, err := cmd.Output()
 	if err != nil {
@@ -85,7 +88,7 @@ func (m *moduleOperator) GetGitInfo(remote, branch string) (string, time.Time, e
 		return "", time.Time{}, fmt.Errorf("%w: empty SHA from git ls-remote", ErrModOperation)
 	}
 
-	// Get commit timestamp
+	//nolint:gosec // SHA is obtained from git ls-remote output above
 	cmd = exec.CommandContext(ctx, "git", "show", "-s", "--format=%cI", sha)
 	out, err = cmd.Output()
 	if err != nil {
