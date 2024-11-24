@@ -18,7 +18,7 @@ type mockModuleOperator struct {
 	repo            string
 	sha             string
 	err             error
-	modulesToUpdate []string // Add this new field
+	modulesToUpdate []string
 }
 
 func (m *mockModuleOperator) GetLatestVersion(modulePath string) (module.Version, error) {
@@ -185,8 +185,8 @@ require github.com/example/mod v1.0.0
 				BranchTrunk:     "develop",
 			},
 			modOp: &mockModuleOperator{
-				sha:        "ac7a7395feed",                                   // Set exact SHA
-				updateTime: time.Date(2024, 11, 22, 18, 21, 10, 0, time.UTC), // Set exact time
+				sha:        "ac7a7395feed",
+				updateTime: time.Date(2024, 11, 22, 18, 21, 10, 0, time.UTC),
 			},
 			sysOp: func() *mockSystemOperator {
 				m := newMockSystemOperator()

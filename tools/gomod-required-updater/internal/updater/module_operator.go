@@ -14,10 +14,10 @@ import (
 
 const (
 	majorVersionPattern = `/v\d+$`
-	gitTimeout       	= 30 * time.Second
-	gitTimeFormat     	= time.RFC3339
-	gitRemotePattern  	= `^[a-zA-Z0-9][-a-zA-Z0-9_.]*$`
-	gitBranchPattern  	= `^[a-zA-Z0-9][-a-zA-Z0-9/_]*$`
+	gitTimeout          = 30 * time.Second
+	gitTimeFormat       = time.RFC3339
+	gitRemotePattern    = `^[a-zA-Z0-9][-a-zA-Z0-9_.]*$`
+	gitBranchPattern    = `^[a-zA-Z0-9][-a-zA-Z0-9/_]*$`
 )
 
 // getMajorVersion extracts the major version number from a module path
@@ -88,7 +88,7 @@ func (m *moduleOperator) GetGitInfo(remote, branch string) (string, time.Time, e
 	cmd = exec.CommandContext(ctx, "git", "show", "-s", "--format=%cI", sha)
 	out, err = cmd.Output()
 	if err != nil {
-		return "", time.Time{}, fmt.Errorf("%w: failed to get commit time: %v", ErrModOperation, err)
+		return "", time.Time{}, fmt.Errorf("failed to get commit time: %w", err)
 	}
 	if len(out) == 0 {
 		return "", time.Time{}, fmt.Errorf("%w: no output from git show", ErrModOperation)
@@ -96,7 +96,7 @@ func (m *moduleOperator) GetGitInfo(remote, branch string) (string, time.Time, e
 
 	commitTime, err := time.Parse(gitTimeFormat, strings.TrimSpace(string(out)))
 	if err != nil {
-		return "", time.Time{}, fmt.Errorf("%w: failed to parse commit time: %v", ErrModOperation, err)
+		return "", time.Time{}, fmt.Errorf("failed to parse commit time: %w", err)
 	}
 
 	return sha[:gitSHALength], commitTime, nil
