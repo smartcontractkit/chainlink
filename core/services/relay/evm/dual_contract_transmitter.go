@@ -135,7 +135,6 @@ func (oc *dualContractTransmitter) Transmit(ctx context.Context, reportCtx ocrty
 	err = errors.Wrap(oc.transmitter.CreateSecondaryEthTransaction(ctx, secondaryPayload, txMeta), "failed to send secondary Eth transaction")
 
 	return errors2.Join(transactionErr, err)
-
 }
 
 // LatestConfigDigestAndEpoch retrieves the latest config digest and epoch from the OCR2 contract.

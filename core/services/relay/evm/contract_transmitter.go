@@ -35,7 +35,7 @@ type Transmitter interface {
 	CreateEthTransaction(ctx context.Context, toAddress gethcommon.Address, payload []byte, txMeta *txmgr.TxMeta) error
 	FromAddress(context.Context) gethcommon.Address
 
-	CreateSecondaryEthTransaction(context.Context, []byte, *txmgr.TxMeta) error
+	CreateSecondaryEthTransaction(ctx context.Context, payload []byte, txMeta *txmgr.TxMeta) error
 }
 
 type ReportToEthMetadata func([]byte) (*txmgr.TxMeta, error)
