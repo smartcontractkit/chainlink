@@ -74,42 +74,42 @@ func Test_NewAcceptOwnershipChangeset(t *testing.T) {
 
 		// OnRamp
 		tx, err := state.Chains[chain].OnRamp.TransferOwnership(
-			e.Env.Chains[source].DeployerKey,
-			state.Chains[source].Timelock.Address(),
+			e.Env.Chains[chain].DeployerKey,
+			state.Chains[chain].Timelock.Address(),
 		)
-		_, err = deployment.ConfirmIfNoError(e.Env.Chains[source], tx, err)
+		_, err = deployment.ConfirmIfNoError(e.Env.Chains[chain], tx, err)
 		require.NoError(t, err)
 
 		// OffRamp
 		tx, err = state.Chains[chain].OffRamp.TransferOwnership(
-			e.Env.Chains[source].DeployerKey,
-			state.Chains[source].Timelock.Address(),
+			e.Env.Chains[chain].DeployerKey,
+			state.Chains[chain].Timelock.Address(),
 		)
-		_, err = deployment.ConfirmIfNoError(e.Env.Chains[source], tx, err)
+		_, err = deployment.ConfirmIfNoError(e.Env.Chains[chain], tx, err)
 		require.NoError(t, err)
 
 		// FeeQuoter
 		tx, err = state.Chains[chain].FeeQuoter.TransferOwnership(
-			e.Env.Chains[source].DeployerKey,
-			state.Chains[source].Timelock.Address(),
+			e.Env.Chains[chain].DeployerKey,
+			state.Chains[chain].Timelock.Address(),
 		)
-		_, err = deployment.ConfirmIfNoError(e.Env.Chains[source], tx, err)
+		_, err = deployment.ConfirmIfNoError(e.Env.Chains[chain], tx, err)
 		require.NoError(t, err)
 
 		// NonceManager
 		tx, err = state.Chains[chain].NonceManager.TransferOwnership(
-			e.Env.Chains[source].DeployerKey,
-			state.Chains[source].Timelock.Address(),
+			e.Env.Chains[chain].DeployerKey,
+			state.Chains[chain].Timelock.Address(),
 		)
-		_, err = deployment.ConfirmIfNoError(e.Env.Chains[source], tx, err)
+		_, err = deployment.ConfirmIfNoError(e.Env.Chains[chain], tx, err)
 		require.NoError(t, err)
 
 		// RMNRemote
 		tx, err = state.Chains[chain].RMNRemote.TransferOwnership(
-			e.Env.Chains[source].DeployerKey,
-			state.Chains[source].Timelock.Address(),
+			e.Env.Chains[chain].DeployerKey,
+			state.Chains[chain].Timelock.Address(),
 		)
-		_, err = deployment.ConfirmIfNoError(e.Env.Chains[source], tx, err)
+		_, err = deployment.ConfirmIfNoError(e.Env.Chains[chain], tx, err)
 		require.NoError(t, err)
 	}
 
@@ -120,11 +120,7 @@ func Test_NewAcceptOwnershipChangeset(t *testing.T) {
 	}, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(NewAcceptOwnershipChangeset),
-			Config:    AcceptOwnershipConfig{State: state, ChainSelector: source},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(NewAcceptOwnershipChangeset),
-			Config:    AcceptOwnershipConfig{State: state, ChainSelector: dest},
+			Config:    AcceptOwnershipConfig{State: state, ChainSelectors: allChains},
 		},
 	})
 	require.NoError(t, err)
