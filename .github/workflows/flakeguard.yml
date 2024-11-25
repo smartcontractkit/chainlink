@@ -306,6 +306,7 @@ jobs:
         shell: bash
         run: |
           set -e  # Exit immediately if a command exits with a non-zero status.
+          
           if [ -d "test_results" ]; then
             cd test_results
             ls -R .
@@ -322,10 +323,21 @@ jobs:
             echo "All tests count: $ALL_TESTS_COUNT"
             echo "all_tests_count=$ALL_TESTS_COUNT" >> "$GITHUB_OUTPUT"
 
-            # Use flakeguard to filter and output failed tests based on PassRatio threshold
-            flakeguard aggregate-results --filter-failed=true --threshold "${{ inputs.runThreshold }}" --min-pass-ratio=${{ env.MIN_PASS_RATIO }} --results-path . --output-results ../failed_tests.json --output-logs ../failed_test_logs.json
+            # Use flakeguard to filter and output flaky tests based on PassRatio threshold
+            flakeguard aggregate-results --filter-flaky=true --threshold "${{ inputs.runThreshold }}" --min-pass-ratio=${{ env.MIN_PASS_RATIO }} --results-path . --output-results ../flaky_tests.json --output-logs ../flaky_test_logs.json
+
+            # Count flaky tests
+            if [ -f "../flaky_tests.json" ]; then
+              FLAKY_TESTS_COUNT=$(jq 'length' ../flaky_tests.json)
+            else
+              FLAKY_TESTS_COUNT=0
+            fi
+            echo "Flaky tests count: $FLAKY_TESTS_COUNT"
+            echo "flaky_tests_count=$FLAKY_TESTS_COUNT" >> "$GITHUB_OUTPUT"
 
             # Count failed tests
+            flakeguard aggregate-results --filter-failed=true --threshold "${{ inputs.runThreshold }}" --min-pass-ratio=${{ env.MIN_PASS_RATIO }} --results-path . --output-results ../failed_tests.json --output-logs ../failed_test_logs.json
+
             if [ -f "../failed_tests.json" ]; then
               FAILED_TESTS_COUNT=$(jq 'length' ../failed_tests.json)
             else
@@ -333,10 +345,23 @@ jobs:
             fi
             echo "Failed tests count: $FAILED_TESTS_COUNT"
             echo "failed_tests_count=$FAILED_TESTS_COUNT" >> "$GITHUB_OUTPUT"
+
+            # Calculate flaky ratio (flaky / non-flaky tests ratio in %)
+            if [ "$ALL_TESTS_COUNT" -gt 0 ]; then
+              NON_FLAKY_COUNT=$((ALL_TESTS_COUNT - FLAKY_TESTS_COUNT - FAILED_TESTS_COUNT))
+              FLAKY_RATIO=$(awk "BEGIN {printf \"%.2f\", ($FLAKY_TESTS_COUNT / $ALL_TESTS_COUNT) * 100}")
+            else
+              NON_FLAKY_COUNT=0
+              FLAKY_RATIO=0
+            fi
+            echo "Flaky ratio: $FLAKY_RATIO%"
+            echo "flaky_ratio=$FLAKY_RATIO" >> "$GITHUB_OUTPUT"
           else
             echo "No test results directory found."
             echo "all_tests_count=0" >> "$GITHUB_OUTPUT"
+            echo "flaky_tests_count=0" >> "$GITHUB_OUTPUT"
             echo "failed_tests_count=0" >> "$GITHUB_OUTPUT"
+            echo "flaky_ratio=0" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Calculate Flakiness Threshold Percentage
@@ -556,8 +581,21 @@ jobs:
                       "type": "section",
                       "text": {
                         "type": "mrkdwn",
-                        "text": "Ran changed tests between `${{ inputs.baseRef }}` and `${{ needs.get-tests.outputs.git_head_short_sha }}` (`${{ env.GIT_HEAD_REF }}`)."
+                        "text": "${{ inputs.runAllTests == 'true' && format('Ran all tests for `${{ inputs.headRef }}` branch.', '') || format('Ran changed tests between `${{ inputs.baseRef }}` and `${{ needs.get-tests.outputs.git_head_short_sha }}` (`${{ env.GIT_HEAD_REF }}`).', '') }}"
                       }
+                    },
+                    {
+                      "type": "section",
+                      "fields": [
+                        {
+                          "type": "mrkdwn",
+                          "text": "*Total Flaky Tests:* ${{ steps.set_test_results.outputs.flaky_tests_count }}"
+                        },
+                        {
+                          "type": "mrkdwn",
+                          "text": "*Flaky to Non-Flaky Ratio:* ${{ steps.set_test_results.outputs.flaky_ratio }}%"
+                        }
+                      ]
                     },
                     {
                       "type": "section",
