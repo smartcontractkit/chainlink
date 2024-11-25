@@ -1,4 +1,4 @@
-# gomod-required-updater
+# gomod-local-update
 
 Updates required module versions in go.mod files to match the latest git SHA from a remote branch.
 
@@ -21,7 +21,7 @@ Optional:
 The installed binary will be placed in your `$GOPATH/bin` directory. Make sure this directory is in your system's PATH to run the command from anywhere. From the root of this repository, run:
 
 ```shell
-go install ./tools/gomod-required-updater/cmd/gomod-required-updater
+go install ./tools/gomod-local-update/cmd/gomod-local-update
 ```
 
 ## Usage Examples

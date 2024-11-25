@@ -5,16 +5,19 @@ import (
 	"log"
 	"os"
 
-	"github.com/smartcontractkit/chainlink/v2/tools/gomod-required-updater/internal/updater"
+	"github.com/smartcontractkit/chainlink/v2/tools/gomod-local-update/internal/updater"
 )
 
+const (
+	goBinaryName = "gomod-local-update"
+)
 var version = "dev"
-var usage = `gomod-required-updater version %s
+var usage = fmt.Sprintf(`%s version %%s
 
 Usage:
   cd /path/to/go/module
-  gomod-required-updater [flags]
-`
+  %s [flags]
+`, goBinaryName, goBinaryName)
 
 func main() {
 	cfg, err := updater.ParseFlags(os.Args[1:], version)
@@ -24,7 +27,7 @@ func main() {
 	}
 
 	if cfg.ShowVersion {
-		fmt.Printf("gomod-required-updater version %s\n", version)
+		fmt.Printf("%s version %s\n", goBinaryName, version)
 		os.Exit(0)
 	}
 

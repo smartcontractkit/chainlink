@@ -23,7 +23,7 @@ type Config struct {
 }
 
 func ParseFlags(args []string, version string) (*Config, error) {
-	flags := flag.NewFlagSet("gomod-required-updater", flag.ContinueOnError)
+	flags := flag.NewFlagSet("default", flag.ContinueOnError)
 
 	cfg := &Config{
 		ModulesToUpdate: make([]string, 0),
