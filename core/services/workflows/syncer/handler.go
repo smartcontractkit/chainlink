@@ -145,7 +145,25 @@ func (h *eventHandler) Handle(ctx context.Context, event WorkflowRegistryEvent) 
 	case ForceUpdateSecretsEvent:
 		return h.forceUpdateSecretsEvent(ctx, event)
 	case WorkflowRegisteredEvent:
-		return h.workflowRegisteredEvent(ctx, event)
+		payload, ok := event.Data.(WorkflowRegistryWorkflowRegisteredV1)
+		if !ok {
+			return fmt.Errorf("invalid data type %T for event", event.Data)
+		}
+		wfID := hex.EncodeToString(payload.WorkflowID[:])
+
+		cma := h.emitter.With(
+			platform.KeyWorkflowID, wfID,
+			platform.KeyWorkflowName, payload.WorkflowName,
+			platform.KeyWorkflowOwner, hex.EncodeToString(payload.WorkflowOwner),
+		)
+
+		if err := h.workflowRegisteredEvent(ctx, payload); err != nil {
+			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow registered event: %v", err), h.lggr)
+			return err
+		}
+
+		h.lggr.Debugf("workflow 0x%x registered and started", wfID)
+		return nil
 	case WorkflowUpdatedEvent:
 		return h.workflowUpdatedEvent(ctx, event)
 	case WorkflowPausedEvent:
@@ -160,38 +178,24 @@ func (h *eventHandler) Handle(ctx context.Context, event WorkflowRegistryEvent) 
 // workflowRegisteredEvent handles the WorkflowRegisteredEvent event type.
 func (h *eventHandler) workflowRegisteredEvent(
 	ctx context.Context,
-	event WorkflowRegistryEvent,
+	payload WorkflowRegistryWorkflowRegisteredV1,
 ) error {
-	payload, ok := event.Data.(WorkflowRegistryWorkflowRegisteredV1)
-	if !ok {
-		return fmt.Errorf("invalid data type %T for event", event.Data)
-	}
-
 	wfID := hex.EncodeToString(payload.WorkflowID[:])
-
-	cma := h.emitter.With(
-		platform.KeyWorkflowID, wfID,
-		platform.KeyWorkflowName, payload.WorkflowName,
-		platform.KeyWorkflowOwner, hex.EncodeToString(payload.WorkflowOwner),
-	)
 
 	// Download the contents of binaryURL, configURL and secretsURL and cache them locally.
 	binary, err := h.fetcher(ctx, payload.BinaryURL)
 	if err != nil {
-		logCustMsg(ctx, cma, fmt.Sprintf("failed to fetch binary: %v", err), h.lggr)
-		return err
+		return fmt.Errorf("failed to fetch binary from %s : %w", payload.BinaryURL, err)
 	}
 
 	config, err := h.fetcher(ctx, payload.ConfigURL)
 	if err != nil {
-		logCustMsg(ctx, cma, fmt.Sprintf("failed to fetch config: %v", err), h.lggr)
-		return err
+		return fmt.Errorf("failed to fetch config from %s : %w", payload.ConfigURL, err)
 	}
 
 	secrets, err := h.fetcher(ctx, payload.SecretsURL)
 	if err != nil {
-		logCustMsg(ctx, cma, fmt.Sprintf("failed to fetch secrets: %v", err), h.lggr)
-		return err
+		return fmt.Errorf("failed to fetch secrets from %s : %w", payload.SecretsURL, err)
 	}
 
 	// Calculate the hash of the binary and config files
@@ -199,14 +203,12 @@ func (h *eventHandler) workflowRegisteredEvent(
 
 	// Pre-check: verify that the workflowID matches; if it doesn’t abort and log an error via Beholder.
 	if hash != wfID {
-		logCustMsg(ctx, cma, fmt.Sprintf("workflowID mismatch: %s != %s", hash, wfID), h.lggr)
 		return fmt.Errorf("workflowID mismatch: %s != %s", hash, wfID)
 	}
 
 	// Save the workflow secrets
 	urlHash, err := h.orm.GetSecretsURLHash(payload.WorkflowOwner, []byte(payload.SecretsURL))
 	if err != nil {
-		logCustMsg(ctx, cma, fmt.Sprintf("failed to get secrets URL hash: %v", err), h.lggr)
 		return fmt.Errorf("failed to get secrets URL hash: %w", err)
 	}
 
@@ -228,7 +230,6 @@ func (h *eventHandler) workflowRegisteredEvent(
 		ConfigURL:     payload.ConfigURL,
 	}
 	if _, err = h.orm.UpsertWorkflowSpecWithSecrets(ctx, entry, payload.SecretsURL, hex.EncodeToString(urlHash), string(secrets)); err != nil {
-		logCustMsg(ctx, cma, fmt.Sprintf("failed to upsert workflow spec with secrets: %v", err), h.lggr)
 		return fmt.Errorf("failed to upsert workflow spec with secrets: %w", err)
 	}
 
@@ -240,7 +241,6 @@ func (h *eventHandler) workflowRegisteredEvent(
 	moduleConfig := &host.ModuleConfig{Logger: h.lggr, Labeler: h.emitter}
 	sdkSpec, err := host.GetWorkflowSpec(ctx, moduleConfig, binary, config)
 	if err != nil {
-		logCustMsg(ctx, cma, fmt.Sprintf("failed to start workflow engine: failed to get workflow sdk spec: %v", err), h.lggr)
 		return fmt.Errorf("failed to get workflow sdk spec: %w", err)
 	}
 
@@ -258,18 +258,14 @@ func (h *eventHandler) workflowRegisteredEvent(
 	}
 	e, err := workflows.NewEngine(ctx, cfg)
 	if err != nil {
-		logCustMsg(ctx, cma, fmt.Sprintf("failed to create workflow engine: %v", err), h.lggr)
 		return fmt.Errorf("failed to create workflow engine: %w", err)
 	}
 
-	err = e.Start(ctx)
-	if err != nil {
-		logCustMsg(ctx, cma, fmt.Sprintf("failed to start workflow engine: %v", err), h.lggr)
+	if err := e.Start(ctx); err != nil {
 		return fmt.Errorf("failed to start workflow engine: %w", err)
 	}
 
 	h.engineRegistry.Add(wfID, e)
-	logCustMsg(ctx, cma, fmt.Sprintf("workflow engine started: %x", wfID), h.lggr)
 	return nil
 }
 

@@ -194,16 +194,14 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 		wfID := make([]byte, 32)
 		copy(wfID, b)
 
-		paused := WorkflowRegistryEvent{
-			Data: WorkflowRegistryWorkflowRegisteredV1{
-				Status:        uint8(1),
-				WorkflowID:    [32]byte(wfID),
-				WorkflowOwner: wfOwner,
-				WorkflowName:  "workflow-name",
-				BinaryURL:     binaryURL,
-				ConfigURL:     configURL,
-				SecretsURL:    secretsURL,
-			},
+		paused := WorkflowRegistryWorkflowRegisteredV1{
+			Status:        uint8(1),
+			WorkflowID:    [32]byte(wfID),
+			WorkflowOwner: wfOwner,
+			WorkflowName:  "workflow-name",
+			BinaryURL:     binaryURL,
+			ConfigURL:     configURL,
+			SecretsURL:    secretsURL,
 		}
 
 		h := &eventHandler{
@@ -252,16 +250,14 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 		wfID := make([]byte, 32)
 		copy(wfID, b)
 
-		active := WorkflowRegistryEvent{
-			Data: WorkflowRegistryWorkflowRegisteredV1{
-				Status:        uint8(0),
-				WorkflowID:    [32]byte(wfID),
-				WorkflowOwner: wfOwner,
-				WorkflowName:  "workflow-name",
-				BinaryURL:     binaryURL,
-				ConfigURL:     configURL,
-				SecretsURL:    secretsURL,
-			},
+		active := WorkflowRegistryWorkflowRegisteredV1{
+			Status:        uint8(0),
+			WorkflowID:    [32]byte(wfID),
+			WorkflowOwner: wfOwner,
+			WorkflowName:  "workflow-name",
+			BinaryURL:     binaryURL,
+			ConfigURL:     configURL,
+			SecretsURL:    secretsURL,
 		}
 
 		er := newEngineRegistry()
