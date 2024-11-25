@@ -53,9 +53,6 @@ func TestUserGenerateAuthToken(t *testing.T) {
 	var user sessions.User
 	token, err := user.GenerateAuthToken()
 
-	//TODO fail on purpose
-	require.True(t, false, "on purpose")
-
 	require.NoError(t, err)
 	assert.Equal(t, null.StringFrom(token.AccessKey), user.TokenKey)
 	assert.NotEqual(t, null.StringFrom(token.Secret), user.TokenHashedSecret)

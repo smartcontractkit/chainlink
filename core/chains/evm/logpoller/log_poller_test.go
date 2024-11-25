@@ -411,9 +411,6 @@ func TestLogPoller_BackupPollAndSaveLogsWithPollerNotWorking(t *testing.T) {
 	}
 	th := SetupTH(t, lpOpts)
 
-	//TODO on purpose
-	panic("on purpose")
-
 	// Emit some logs in blocks
 	for i := 0; i < emittedLogs; i++ {
 		if i == 30 {
