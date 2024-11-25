@@ -143,7 +143,22 @@ func newEventHandler(
 func (h *eventHandler) Handle(ctx context.Context, event WorkflowRegistryEvent) error {
 	switch event.EventType {
 	case ForceUpdateSecretsEvent:
-		return h.forceUpdateSecretsEvent(ctx, event)
+		payload, ok := event.Data.(WorkflowRegistryForceUpdateSecretsRequestedV1)
+		if !ok {
+			return fmt.Errorf("invalid data type %T for event", event.Data)
+		}
+
+		cma := h.emitter.With(
+			platform.KeyWorkflowName, payload.WorkflowName,
+			platform.KeyWorkflowOwner, hex.EncodeToString(payload.Owner),
+		)
+
+		if err := h.forceUpdateSecretsEvent(ctx, payload); err != nil {
+			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle force update secrets event: %v", err), h.lggr)
+			return err
+		}
+
+		return nil
 	case WorkflowRegisteredEvent:
 		payload, ok := event.Data.(WorkflowRegistryWorkflowRegisteredV1)
 		if !ok {
@@ -296,31 +311,25 @@ func (h *eventHandler) workflowActivatedEvent(
 // forceUpdateSecretsEvent handles the ForceUpdateSecretsEvent event type.
 func (h *eventHandler) forceUpdateSecretsEvent(
 	ctx context.Context,
-	event WorkflowRegistryEvent,
+	payload WorkflowRegistryForceUpdateSecretsRequestedV1,
 ) error {
 	// Get the URL of the secrets file from the event data
-	data, ok := event.Data.(WorkflowRegistryForceUpdateSecretsRequestedV1)
-	if !ok {
-		return fmt.Errorf("invalid data type %T for event", event.Data)
-	}
-
-	hash := hex.EncodeToString(data.SecretsURLHash)
+	hash := hex.EncodeToString(payload.SecretsURLHash)
 
 	url, err := h.orm.GetSecretsURLByHash(ctx, hash)
 	if err != nil {
-		h.lggr.Errorf("failed to get URL by hash %s : %s", hash, err)
-		return err
+		return fmt.Errorf("failed to get URL by hash %s : %w", hash, err)
 	}
 
 	// Fetch the contents of the secrets file from the url via the fetcher
 	secrets, err := h.fetcher(ctx, url)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to fetch secrets from url %s : %w", url, err)
 	}
 
 	// Update the secrets in the ORM
 	if _, err := h.orm.Update(ctx, hash, string(secrets)); err != nil {
-		return err
+		return fmt.Errorf("failed to update secrets: %w", err)
 	}
 
 	return nil
