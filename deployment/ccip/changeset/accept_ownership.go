@@ -19,6 +19,14 @@ type ownershipAcceptor interface {
 	Address() common.Address
 }
 
+type AcceptOwnershipConfig struct {
+	State         CCIPOnChainState
+	ChainSelector uint64
+}
+
+// type assertion - comply with deployment.ChangeSet interface
+var _ deployment.ChangeSet[AcceptOwnershipConfig] = NewAcceptOwnershipChangeset
+
 // NewAcceptOwnershipChangeset creates a changeset that accepts ownership of all the
 // chain contracts on the given chainSelector.
 // New chain contracts are:
@@ -29,12 +37,11 @@ type ownershipAcceptor interface {
 // * RMNRemote
 func NewAcceptOwnershipChangeset(
 	e deployment.Environment,
-	state CCIPOnChainState,
-	chainSelector uint64,
+	cfg AcceptOwnershipConfig,
 ) (deployment.ChangesetOutput, error) {
-	chainState, ok := state.Chains[chainSelector]
+	chainState, ok := cfg.State.Chains[cfg.ChainSelector]
 	if !ok {
-		return deployment.ChangesetOutput{}, fmt.Errorf("desired chain selector %d not found in onchain state", chainSelector)
+		return deployment.ChangesetOutput{}, fmt.Errorf("desired chain selector %d not found in onchain state", cfg.ChainSelector)
 	}
 
 	var batch timelock.BatchChainOperation
@@ -58,7 +65,7 @@ func NewAcceptOwnershipChangeset(
 	}
 
 	proposal, err := BuildProposalFromBatches(
-		state,
+		cfg.State,
 		[]timelock.BatchChainOperation{batch},
 		"Accept ownership of all CCIP chain contracts",
 		time.Duration(0), // minDelay
