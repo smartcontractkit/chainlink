@@ -233,7 +233,7 @@ jobs:
 
       - name: Install gotestloghelper
         if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/gotestloghelper@v1.50.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/gotestloghelper@tt-1806-gotestloghelper-bump-deps
 
       - name: Run tests
         if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
