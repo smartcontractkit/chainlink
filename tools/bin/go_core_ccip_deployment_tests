@@ -11,14 +11,14 @@ go mod download
 echo "Failed tests and panics: ---------------------"
 echo ""
 if [[ $GITHUB_EVENT_NAME == "schedule" ]]; then
-  if [[ $DEBUG == "true" ]]; then 
-    go test -json ./... -covermode=atomic -coverpkg=./... -coverprofile=coverage.txt | tee $OUTPUT_FILE
+  if [[ $USE_TEE == "true" ]]; then
+    go test ./... -covermode=atomic -coverpkg=./... -coverprofile=coverage.txt | tee $OUTPUT_FILE | grep -Ev '\[no test files\]|\[no tests to run\]'
   else
-    go test -json ./... -covermode=atomic -coverpkg=./... -coverprofile=coverage.txt | cat > $OUTPUT_FILE
+    go test ./... -covermode=atomic -coverpkg=./... -coverprofile=coverage.txt | cat > $OUTPUT_FILE
   fi
 else
-  if [[ $DEBUG == "true" ]]; then 
-    go test ./... | tee $OUTPUT_FILE
+  if [[ $USE_TEE == "true" ]]; then
+    go test ./... | tee $OUTPUT_FILE | grep -Ev '\[no test files\]|\[no tests to run\]'
   else
     go test ./... | cat > $OUTPUT_FILE
   fi
