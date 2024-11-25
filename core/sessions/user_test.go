@@ -52,7 +52,6 @@ func TestNewUser(t *testing.T) {
 func TestUserGenerateAuthToken(t *testing.T) {
 	var user sessions.User
 	token, err := user.GenerateAuthToken()
-
 	require.NoError(t, err)
 	assert.Equal(t, null.StringFrom(token.AccessKey), user.TokenKey)
 	assert.NotEqual(t, null.StringFrom(token.Secret), user.TokenHashedSecret)

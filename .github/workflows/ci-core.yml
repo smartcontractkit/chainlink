@@ -235,6 +235,7 @@ jobs:
         if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
         id: run-tests
         env:
+          OUTPUT_FILE: ./output.txt
           CL_DATABASE_URL: ${{ env.DB_URL }}
         run: ./tools/bin/${{ matrix.type.cmd }} ./...
 
