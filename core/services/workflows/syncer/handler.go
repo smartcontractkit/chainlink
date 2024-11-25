@@ -214,7 +214,7 @@ func (h *eventHandler) workflowRegisteredEvent(
 	}
 
 	// Calculate the hash of the binary and config files
-	hash := sha(binary, config, []byte(payload.SecretsURL))
+	hash := workflowID(binary, config, []byte(payload.SecretsURL))
 
 	// Pre-check: verify that the workflowID matches; if it doesn’t abort and log an error via Beholder.
 	if hash != wfID {
@@ -335,8 +335,8 @@ func (h *eventHandler) forceUpdateSecretsEvent(
 	return nil
 }
 
-// sha calculates the sha256 hash of the wasm, config and secretsURL to determine the workflow ID.
-func sha(wasm, config, secretsURL []byte) string {
+// workflowID returns a hex encoded sha256 hash of the wasm, config and secretsURL.
+func workflowID(wasm, config, secretsURL []byte) string {
 	sum := sha256.New()
 	sum.Write(wasm)
 	sum.Write(config)
@@ -348,7 +348,7 @@ func sha(wasm, config, secretsURL []byte) string {
 func logCustMsg(ctx context.Context, cma custmsg.MessageEmitter, msg string, log logger.Logger) {
 	err := cma.Emit(ctx, msg)
 	if err != nil {
-		log.Errorf("failed to send custom message with msg: %s, err: %v", msg, err)
+		log.Helper(1).Errorf("failed to send custom message with msg: %s, err: %v", msg, err)
 	}
 }
 

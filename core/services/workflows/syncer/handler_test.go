@@ -188,7 +188,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			})
 		)
 
-		giveWFID := sha(binary, config, []byte(secretsURL))
+		giveWFID := workflowID(binary, config, []byte(secretsURL))
 
 		b, err := hex.DecodeString(giveWFID)
 		require.NoError(t, err)
@@ -244,7 +244,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			})
 		)
 
-		giveWFID := sha(binary, config, []byte(secretsURL))
+		giveWFID := workflowID(binary, config, []byte(secretsURL))
 
 		b, err := hex.DecodeString(giveWFID)
 		require.NoError(t, err)
