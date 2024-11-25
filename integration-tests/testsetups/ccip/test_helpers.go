@@ -2,6 +2,7 @@ package ccip
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"math/big"
 	"os"
@@ -123,7 +124,7 @@ func NewLocalDevEnvironment(
 		testEnv, cfg)
 	require.NoError(t, err)
 
-	e, don, err := devenv.NewEnvironment(ctx, lggr, *envConfig)
+	e, don, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, *envConfig)
 	require.NoError(t, err)
 	require.NotNil(t, e)
 	e.ExistingAddresses = ab
