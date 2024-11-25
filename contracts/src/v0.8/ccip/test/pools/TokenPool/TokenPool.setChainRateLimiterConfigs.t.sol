@@ -10,17 +10,20 @@ contract TokenPool_setChainRateLimiterConfigs is TokenPoolSetup {
 
   function setUp() public virtual override {
     TokenPoolSetup.setUp();
+
+    bytes[] memory remotePoolAddresses = new bytes[](1);
+    remotePoolAddresses[0] = abi.encode(address(2));
+
     TokenPool.ChainUpdate[] memory chainUpdates = new TokenPool.ChainUpdate[](1);
     s_remoteChainSelector = 123124;
     chainUpdates[0] = TokenPool.ChainUpdate({
       remoteChainSelector: s_remoteChainSelector,
-      remotePoolAddress: abi.encode(address(2)),
+      remotePoolAddresses: remotePoolAddresses,
       remoteTokenAddress: abi.encode(address(3)),
-      allowed: true,
       outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
       inboundRateLimiterConfig: _getInboundRateLimiterConfig()
     });
-    s_tokenPool.applyChainUpdates(chainUpdates);
+    s_tokenPool.applyChainUpdates(new uint64[](0), chainUpdates);
   }
 
   function testFuzz_SetChainRateLimiterConfigs_Success(uint128 capacity, uint128 rate, uint32 newTime) public {
@@ -40,7 +43,7 @@ contract TokenPool_setChainRateLimiterConfigs is TokenPoolSetup {
       RateLimiter.Config({isEnabled: true, capacity: capacity / 2, rate: rate / 2});
 
     uint64[] memory chainSelectors = new uint64[](1);
-    chainSelectors[0] = s_remoteChainSelector;
+    chainSelectors[0] = DEST_CHAIN_SELECTOR;
 
     RateLimiter.Config[] memory newOutboundConfigs = new RateLimiter.Config[](1);
     newOutboundConfigs[0] = newOutboundConfig;
