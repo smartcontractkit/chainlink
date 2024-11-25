@@ -145,7 +145,7 @@ func (h *eventHandler) Handle(ctx context.Context, event WorkflowRegistryEvent) 
 	case ForceUpdateSecretsEvent:
 		payload, ok := event.Data.(WorkflowRegistryForceUpdateSecretsRequestedV1)
 		if !ok {
-			return fmt.Errorf("invalid data type %T for event", event.Data)
+			return newHandlerTypeError(event.Data)
 		}
 
 		cma := h.emitter.With(
@@ -162,7 +162,7 @@ func (h *eventHandler) Handle(ctx context.Context, event WorkflowRegistryEvent) 
 	case WorkflowRegisteredEvent:
 		payload, ok := event.Data.(WorkflowRegistryWorkflowRegisteredV1)
 		if !ok {
-			return fmt.Errorf("invalid data type %T for event", event.Data)
+			return newHandlerTypeError(event.Data)
 		}
 		wfID := hex.EncodeToString(payload.WorkflowID[:])
 
@@ -350,4 +350,8 @@ func logCustMsg(ctx context.Context, cma custmsg.MessageEmitter, msg string, log
 	if err != nil {
 		log.Errorf("failed to send custom message with msg: %s, err: %v", msg, err)
 	}
+}
+
+func newHandlerTypeError(data any) error {
+	return fmt.Errorf("invalid data type %T for event", data)
 }
