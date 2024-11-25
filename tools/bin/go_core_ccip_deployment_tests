@@ -8,7 +8,7 @@ USE_TEE="${USE_TEE:-true}"
 
 cd ./deployment || exit
 go mod download
-echo "Failed tests and panics: ---------------------"
+echo "Test execution results: ---------------------"
 echo ""
 if [[ $GITHUB_EVENT_NAME == "schedule" ]]; then
   if [[ $USE_TEE == "true" ]]; then

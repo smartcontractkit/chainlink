@@ -15,7 +15,7 @@ fi
 INTEGRATION_TEST_DIRS=$(echo "$INTEGRATION_TAGGED_TEST_FILES" | xargs -n1 dirname | sort -u)
 INTEGRATION_TEST_DIRS_SPACE_DELIMITED=$(echo "$INTEGRATION_TEST_DIRS" | tr '\n' ' ')
 
-echo "Failed tests and panics: ---------------------"
+echo "Test execution results: ---------------------"
 echo ""
 if [[ $GITHUB_EVENT_NAME == "schedule" ]]; then
   # Experimental code to minimize size of this coverage report
