@@ -4,25 +4,17 @@ set +e
 
 SCRIPT_PATH=`dirname "$0"`; SCRIPT_PATH=`eval "cd \"$SCRIPT_PATH\" && pwd"`
 OUTPUT_FILE="../output.txt"
-USE_TEE="${USE_TEE:-true}"
+EXTRA_FLAGS = ""
 
 cd ./deployment || exit
 go mod download
 echo "Test execution results: ---------------------"
 echo ""
+
 if [[ $GITHUB_EVENT_NAME == "schedule" ]]; then
-  if [[ $USE_TEE == "true" ]]; then
-    go test ./... -covermode=atomic -coverpkg=./... -coverprofile=coverage.txt | tee $OUTPUT_FILE | grep -Ev '\[no test files\]|\[no tests to run\]'
-  else
-    go test ./... -covermode=atomic -coverpkg=./... -coverprofile=coverage.txt | cat > $OUTPUT_FILE
-  fi
-else
-  if [[ $USE_TEE == "true" ]]; then
-    go test ./... | tee $OUTPUT_FILE | grep -Ev '\[no test files\]|\[no tests to run\]'
-  else
-    go test ./... | cat > $OUTPUT_FILE
-  fi
+  EXTRA_FLAGS="-covermode=atomic -coverpkg=./... -coverprofile=coverage.txt"
 fi
+go test ./... "$EXTRA_FLAGS" | tee $OUTPUT_FILE | grep -Ev '\[no test files\]|\[no tests to run\]'
 EXITCODE=${PIPESTATUS[0]}
 
 # Assert no known sensitive strings present in test logger output
