@@ -783,12 +783,12 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	inputs, outputs, err := e.executeStep(ctx, l, msg)
 	stepExecutionDuration := time.Since(stepExecutionStartTime).Seconds()
 
-	step, err := e.workflow.Vertex(msg.stepRef)
-	if err != nil {
+	curStep, verr := e.workflow.Vertex(msg.stepRef)
+	if verr != nil {
 		l.Errorf("failed to resolve step in workflow; error %v", err)
 		return
 	}
-	e.metrics.with(platform.KeyCapabilityID, step.ID).updateWorkflowStepDurationHistogram(ctx, int64(stepExecutionDuration))
+	e.metrics.with(platform.KeyCapabilityID, curStep.ID).updateWorkflowStepDurationHistogram(ctx, int64(stepExecutionDuration))
 
 	var stepStatus string
 	switch {
@@ -910,16 +910,16 @@ func (e *Engine) configForStep(ctx context.Context, lggr logger.Logger, step *st
 
 // executeStep executes the referenced capability within a step and returns the result.
 func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRequest) (*values.Map, values.Value, error) {
-	step, err := e.workflow.Vertex(msg.stepRef)
+	curStep, err := e.workflow.Vertex(msg.stepRef)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	var inputs any
-	if step.Inputs.OutputRef != "" {
-		inputs = step.Inputs.OutputRef
+	if curStep.Inputs.OutputRef != "" {
+		inputs = curStep.Inputs.OutputRef
 	} else {
-		inputs = step.Inputs.Mapping
+		inputs = curStep.Inputs.Mapping
 	}
 
 	i, err := exec.FindAndInterpolateAllKeys(inputs, msg.state)
@@ -932,7 +932,7 @@ func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRe
 		return nil, nil, err
 	}
 
-	config, err := e.configForStep(ctx, lggr, step)
+	config, err := e.configForStep(ctx, lggr, curStep)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -968,10 +968,10 @@ func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRe
 	stepCtx, cancel := context.WithTimeout(ctx, stepTimeoutDuration)
 	defer cancel()
 
-	e.metrics.with(platform.KeyCapabilityID, step.ID).incrementCapabilityInvocationCounter(ctx)
-	output, err := step.capability.Execute(stepCtx, tr)
+	e.metrics.with(platform.KeyCapabilityID, curStep.ID).incrementCapabilityInvocationCounter(ctx)
+	output, err := curStep.capability.Execute(stepCtx, tr)
 	if err != nil {
-		e.metrics.with(platform.KeyStepRef, msg.stepRef, platform.KeyCapabilityID, step.ID).incrementCapabilityFailureCounter(ctx)
+		e.metrics.with(platform.KeyStepRef, msg.stepRef, platform.KeyCapabilityID, curStep.ID).incrementCapabilityFailureCounter(ctx)
 		return inputsMap, nil, err
 	}
 
