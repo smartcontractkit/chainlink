@@ -49,19 +49,39 @@ jobs:
           test-suite: ${{ matrix.type.cmd }}
           db-url: ${{ env.DB_URL }}
 
+      - name: Build Tests
+        uses: smartcontractkit/.github/apps/go-test-caching@feat/go-test-binary-comparison
+        with:
+          pipeline-step: "build"
+          test-suite: ${{ matrix.type.test-suite }}
+          module-directory: ${{ matrix.type.module-directory }}
+          tag-filter: ${{ matrix.type.tag-filter }}
+          build-concurrency: "32"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Run Tests
         uses: smartcontractkit/.github/apps/go-test-caching@feat/go-test-binary-comparison
         env:
           CL_DATABASE_URL: ${{ env.DB_URL }}
         with:
+          pipeline-step: "run"
           test-suite: ${{ matrix.type.test-suite }}
           module-directory: ${{ matrix.type.module-directory }}
           tag-filter: ${{ matrix.type.tag-filter }}
-          update-index: "true"
-          force-update-index: "true"
-          build-concurrency: "32"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-all-tests: "true"
+          run-concurrency: "32"
+
+      - name: Update Test Index
+        uses: smartcontractkit/.github/apps/go-test-caching@feat/go-test-binary-comparison
+        with:
+          pipeline-step: "update"
+          test-suite: ${{ matrix.type.test-suite }}
+          module-directory: ${{ matrix.type.module-directory }}
+          tag-filter: ${{ matrix.type.tag-filter }}
           run-concurrency: "32"
           github-token: ${{ secrets.GITHUB_TOKEN }}
+        
 
       - name: Print postgres logs
         if: ${{ always() }}
