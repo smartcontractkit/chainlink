@@ -6,11 +6,7 @@ COUNT="${COUNT:-5}"
 
 echo "Test execution results: ---------------------"
 echo ""
-if [[ $GITHUB_EVENT_NAME == "schedule" ]]; then
-  GORACE="log_path=$PWD/race" go test -race -shuffle on -timeout "$TIMEOUT" -count "$COUNT" $1 | cat > $OUTPUT_FILE
-else
-  GORACE="log_path=$PWD/race" go test -race -shuffle on -timeout "$TIMEOUT" -count "$COUNT" $1 | cat > $OUTPUT_FILE
-fi
+GORACE="log_path=$PWD/race" go test -race -shuffle on -timeout "$TIMEOUT" -count "$COUNT" $1 | cat > $OUTPUT_FILE
 EXITCODE=${PIPESTATUS[0]}
 
 
