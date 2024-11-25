@@ -512,6 +512,27 @@ func (s *service) DeleteJob(ctx context.Context, args *DeleteJobArgs) (int64, er
 		logger.Errorw("Failed to push metrics for job proposal deletion", "err", err)
 	}
 
+	// auto-cancellation for Workflow specs
+	if !proposal.ExternalJobID.Valid {
+		logger.Infow("ExternalJobID is null", "id", proposal.ID, "name", proposal.Name)
+		return proposal.ID, nil
+	}
+	job, err := s.jobORM.FindJobByExternalJobID(ctx, proposal.ExternalJobID.UUID)
+	if err != nil {
+		// NOTE: at this stage, we don't know if this job is of Workflow type
+		// so we don't want to return an error
+		logger.Infow("FindJobByExternalJobID failed", "id", proposal.ID, "externalJobID", proposal.ExternalJobID.UUID, "name", proposal.Name)
+		return proposal.ID, nil
+	}
+	if job.WorkflowSpecID != nil { // this is a Workflow job
+		specID := int64(*job.WorkflowSpecID)
+		if err := s.CancelSpec(ctx, proposal.ID); err != nil {
+			logger.Errorw("Failed to auto-cancel workflow spec", "id", specID, "err", err, "name", job.Name)
+			return 0, fmt.Errorf("failed to auto-cancel workflow spec %d: %w", specID, err)
+		}
+		logger.Infow("Successfully auto-cancelled a workflow spec", "id", specID)
+	}
+
 	return proposal.ID, nil
 }
 
