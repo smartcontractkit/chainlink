@@ -50,10 +50,18 @@ func New() (Key, error) {
 }
 
 func (k Key) PublicKey() [curve25519.PointSize]byte {
+	if k.publicKey == nil {
+		return [curve25519.PointSize]byte{}
+	}
+
 	return *k.publicKey
 }
 
 func (k Key) PublicKeyString() string {
+	if k.publicKey == nil {
+		return ""
+	}
+
 	return hex.EncodeToString(k.publicKey[:])
 }
 
