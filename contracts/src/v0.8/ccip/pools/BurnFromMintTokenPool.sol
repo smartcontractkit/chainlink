@@ -18,14 +18,15 @@ import {SafeERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/tok
 contract BurnFromMintTokenPool is BurnMintTokenPoolAbstract, ITypeAndVersion {
   using SafeERC20 for IBurnMintERC20;
 
-  string public constant override typeAndVersion = "BurnFromMintTokenPool 1.5.0";
+  string public constant override typeAndVersion = "BurnFromMintTokenPool 1.5.1";
 
   constructor(
     IBurnMintERC20 token,
+    uint8 localTokenDecimals,
     address[] memory allowlist,
     address rmnProxy,
     address router
-  ) TokenPool(token, allowlist, rmnProxy, router) {
+  ) TokenPool(token, localTokenDecimals, allowlist, rmnProxy, router) {
     // Some tokens allow burning from the sender without approval, but not all do.
     // To be safe, we approve the pool to burn from the pool.
     token.safeIncreaseAllowance(address(this), type(uint256).max);

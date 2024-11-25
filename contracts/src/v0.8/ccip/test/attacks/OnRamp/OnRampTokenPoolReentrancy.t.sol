@@ -32,16 +32,18 @@ contract OnRampTokenPoolReentrancy is OnRampSetup {
       address(s_facadeClient), s_sourceToken, address(s_mockRMN), address(s_sourceRouter)
     );
 
+    bytes[] memory remotePoolAddresses = new bytes[](1);
+    remotePoolAddresses[0] = abi.encode(s_destPoolBySourceToken[s_sourceTokens[0]]);
+
     TokenPool.ChainUpdate[] memory chainUpdates = new TokenPool.ChainUpdate[](1);
     chainUpdates[0] = TokenPool.ChainUpdate({
       remoteChainSelector: DEST_CHAIN_SELECTOR,
-      remotePoolAddress: abi.encode(s_destPoolBySourceToken[s_sourceTokens[0]]),
+      remotePoolAddresses: remotePoolAddresses,
       remoteTokenAddress: abi.encode(s_destTokens[0]),
-      allowed: true,
       outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
       inboundRateLimiterConfig: _getInboundRateLimiterConfig()
     });
-    s_maliciousTokenPool.applyChainUpdates(chainUpdates);
+    s_maliciousTokenPool.applyChainUpdates(new uint64[](0), chainUpdates);
     s_sourcePoolByToken[address(s_sourceToken)] = address(s_maliciousTokenPool);
 
     s_tokenAdminRegistry.setPool(address(s_sourceToken), address(s_maliciousTokenPool));

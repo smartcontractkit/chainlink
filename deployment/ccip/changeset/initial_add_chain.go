@@ -2,13 +2,20 @@ package changeset
 
 import (
 	"fmt"
+	"os"
+	"slices"
+	"sort"
+	"time"
 
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
+	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
 var _ deployment.ChangeSet[NewChainsConfig] = ConfigureNewChains
@@ -48,10 +55,42 @@ func (cfg USDCConfig) EnabledChainMap() map[uint64]bool {
 	return m
 }
 
+func (cfg USDCConfig) ToTokenDataObserverConfig() []pluginconfig.TokenDataObserverConfig {
+	return []pluginconfig.TokenDataObserverConfig{{
+		Type:    pluginconfig.USDCCCTPHandlerType,
+		Version: "1.0",
+		USDCCCTPObserverConfig: &pluginconfig.USDCCCTPObserverConfig{
+			Tokens:                 cfg.CCTPTokenConfig,
+			AttestationAPI:         cfg.API,
+			AttestationAPITimeout:  cfg.APITimeout,
+			AttestationAPIInterval: cfg.APIInterval,
+		},
+	}}
+}
+
 type USDCAttestationConfig struct {
 	API         string
 	APITimeout  *config.Duration
 	APIInterval *config.Duration
+}
+
+type CCIPOCRParams struct {
+	OCRParameters         types.OCRParameters
+	CommitOffChainConfig  pluginconfig.CommitOffchainConfig
+	ExecuteOffChainConfig pluginconfig.ExecuteOffchainConfig
+}
+
+func (p CCIPOCRParams) Validate() error {
+	if err := p.OCRParameters.Validate(); err != nil {
+		return fmt.Errorf("invalid OCR parameters: %w", err)
+	}
+	if err := p.CommitOffChainConfig.Validate(); err != nil {
+		return fmt.Errorf("invalid commit off-chain config: %w", err)
+	}
+	if err := p.ExecuteOffChainConfig.Validate(); err != nil {
+		return fmt.Errorf("invalid execute off-chain config: %w", err)
+	}
+	return nil
 }
 
 type NewChainsConfig struct {
@@ -62,6 +101,7 @@ type NewChainsConfig struct {
 	USDCConfig     USDCConfig
 	// For setting OCR configuration
 	OCRSecrets deployment.OCRSecrets
+	OCRParams  map[uint64]CCIPOCRParams
 }
 
 func (c NewChainsConfig) Validate() error {
@@ -106,5 +146,65 @@ func (c NewChainsConfig) Validate() error {
 			return fmt.Errorf("invalid chain selector: %d - %w", chain, err)
 		}
 	}
+	// Validate OCR params
+	var ocrChains []uint64
+	for chain, ocrParams := range c.OCRParams {
+		ocrChains = append(ocrChains, chain)
+		if _, exists := mapChainsToDeploy[chain]; !exists {
+			return fmt.Errorf("chain %d is not in chains to deploy", chain)
+		}
+		if err := ocrParams.Validate(); err != nil {
+			return fmt.Errorf("invalid OCR params for chain %d: %w", chain, err)
+		}
+	}
+	sort.Slice(ocrChains, func(i, j int) bool { return ocrChains[i] < ocrChains[j] })
+	sort.Slice(c.ChainsToDeploy, func(i, j int) bool { return c.ChainsToDeploy[i] < c.ChainsToDeploy[j] })
+	if !slices.Equal(ocrChains, c.ChainsToDeploy) {
+		return fmt.Errorf("mismatch in given OCR params and chains to deploy")
+	}
 	return nil
+}
+
+func DefaultOCRParams(
+	feedChainSel uint64,
+	tokenInfo map[ccipocr3.UnknownEncodedAddress]pluginconfig.TokenInfo,
+	dataObserverConfig []pluginconfig.TokenDataObserverConfig,
+) CCIPOCRParams {
+	return CCIPOCRParams{
+		OCRParameters: types.OCRParameters{
+			DeltaProgress:                           internal.DeltaProgress,
+			DeltaResend:                             internal.DeltaResend,
+			DeltaInitial:                            internal.DeltaInitial,
+			DeltaRound:                              internal.DeltaRound,
+			DeltaGrace:                              internal.DeltaGrace,
+			DeltaCertifiedCommitRequest:             internal.DeltaCertifiedCommitRequest,
+			DeltaStage:                              internal.DeltaStage,
+			Rmax:                                    internal.Rmax,
+			MaxDurationQuery:                        internal.MaxDurationQuery,
+			MaxDurationObservation:                  internal.MaxDurationObservation,
+			MaxDurationShouldAcceptAttestedReport:   internal.MaxDurationShouldAcceptAttestedReport,
+			MaxDurationShouldTransmitAcceptedReport: internal.MaxDurationShouldTransmitAcceptedReport,
+		},
+		ExecuteOffChainConfig: pluginconfig.ExecuteOffchainConfig{
+			BatchGasLimit:             internal.BatchGasLimit,
+			RelativeBoostPerWaitHour:  internal.RelativeBoostPerWaitHour,
+			InflightCacheExpiry:       *config.MustNewDuration(internal.InflightCacheExpiry),
+			RootSnoozeTime:            *config.MustNewDuration(internal.RootSnoozeTime),
+			MessageVisibilityInterval: *config.MustNewDuration(internal.FirstBlockAge),
+			BatchingStrategyID:        internal.BatchingStrategyID,
+			TokenDataObservers:        dataObserverConfig,
+		},
+		CommitOffChainConfig: pluginconfig.CommitOffchainConfig{
+			RemoteGasPriceBatchWriteFrequency:  *config.MustNewDuration(internal.RemoteGasPriceBatchWriteFrequency),
+			TokenPriceBatchWriteFrequency:      *config.MustNewDuration(internal.TokenPriceBatchWriteFrequency),
+			TokenInfo:                          tokenInfo,
+			PriceFeedChainSelector:             ccipocr3.ChainSelector(feedChainSel),
+			NewMsgScanBatchSize:                merklemulti.MaxNumberTreeLeaves,
+			MaxReportTransmissionCheckAttempts: 5,
+			RMNEnabled:                         os.Getenv("ENABLE_RMN") == "true", // only enabled in manual test
+			RMNSignaturesTimeout:               30 * time.Minute,
+			MaxMerkleTreeSize:                  merklemulti.MaxNumberTreeLeaves,
+			SignObservationPrefix:              "chainlink ccip 1.6 rmn observation",
+		},
+	}
 }

@@ -463,15 +463,15 @@ jobs:
           SONAR_SCANNER_OPTS: "-Xms6g -Xmx8g"
 
   trigger-flaky-test-detection-for-root-project:
-    name: Find New Flaky Tests In Chainlink Project
-    uses: ./.github/workflows/find-new-flaky-tests.yml
+    name: Flakeguard Root Project
+    uses: ./.github/workflows/flakeguard.yml
     if: ${{ github.event_name == 'pull_request' }}
     with:
       repoUrl: 'https://github.com/smartcontractkit/chainlink'
       projectPath: '.'
       baseRef: ${{ github.base_ref }}
       headRef: ${{ github.head_ref }}
-      runThreshold: '0.99'
+      maxPassRatio: '1.0'
       findByTestFilesDiff: true
       findByAffectedPackages: false
       slackNotificationAfterTestsChannelId: 'C07TRF65CNS' #flaky-test-detector-notifications
@@ -480,8 +480,8 @@ jobs:
       SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
 
   trigger-flaky-test-detection-for-deployment-project:
-    name: Find New Flaky Tests In Deployment Project
-    uses: ./.github/workflows/find-new-flaky-tests.yml
+    name: Flakeguard Deployment Project
+    uses: ./.github/workflows/flakeguard.yml
     needs: [filter]
     if: ${{ github.event_name == 'pull_request' && needs.filter.outputs.deployment-changes == 'true'}}
     with:
@@ -489,7 +489,7 @@ jobs:
       projectPath: 'deployment'
       baseRef: ${{ github.base_ref }}
       headRef: ${{ github.head_ref }}
-      runThreshold: '0.99'
+      maxPassRatio: '1.0'
       findByTestFilesDiff: true
       findByAffectedPackages: false
       slackNotificationAfterTestsChannelId: 'C07TRF65CNS' #flaky-test-detector-notifications
