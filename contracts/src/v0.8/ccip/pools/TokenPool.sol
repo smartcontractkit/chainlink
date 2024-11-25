@@ -517,8 +517,8 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
   ) external {
     if (msg.sender != s_rateLimitAdmin && msg.sender != owner()) revert Unauthorized(msg.sender);
 
-    for (uint256 x = 0; x < remoteChainSelectors.length; x++) {
-      _setRateLimitConfig(remoteChainSelectors[x], outboundConfigs[x], inboundConfigs[x]);
+    for (uint256 i = 0; i < remoteChainSelectors.length; ++i) {
+      _setRateLimitConfig(remoteChainSelectors[i], outboundConfigs[i], inboundConfigs[i]);
     }
   }
 
