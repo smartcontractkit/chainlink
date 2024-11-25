@@ -81,59 +81,50 @@ func (_c *ORM_Create_Call) RunAndReturn(run func(context.Context, string, string
 	return _c
 }
 
-// CreateWorkflowSpec provides a mock function with given fields: ctx, spec
-func (_m *ORM) CreateWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) (int64, error) {
-	ret := _m.Called(ctx, spec)
+// DeleteWorkflowSpec provides a mock function with given fields: ctx, owner, name
+func (_m *ORM) DeleteWorkflowSpec(ctx context.Context, owner string, name string) error {
+	ret := _m.Called(ctx, owner, name)
 
 	if len(ret) == 0 {
-		panic("no return value specified for CreateWorkflowSpec")
+		panic("no return value specified for DeleteWorkflowSpec")
 	}
 
-	var r0 int64
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, *job.WorkflowSpec) (int64, error)); ok {
-		return rf(ctx, spec)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, *job.WorkflowSpec) int64); ok {
-		r0 = rf(ctx, spec)
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
+		r0 = rf(ctx, owner, name)
 	} else {
-		r0 = ret.Get(0).(int64)
+		r0 = ret.Error(0)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, *job.WorkflowSpec) error); ok {
-		r1 = rf(ctx, spec)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
+	return r0
 }
 
-// ORM_CreateWorkflowSpec_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateWorkflowSpec'
-type ORM_CreateWorkflowSpec_Call struct {
+// ORM_DeleteWorkflowSpec_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteWorkflowSpec'
+type ORM_DeleteWorkflowSpec_Call struct {
 	*mock.Call
 }
 
-// CreateWorkflowSpec is a helper method to define mock.On call
+// DeleteWorkflowSpec is a helper method to define mock.On call
 //   - ctx context.Context
-//   - spec *job.WorkflowSpec
-func (_e *ORM_Expecter) CreateWorkflowSpec(ctx interface{}, spec interface{}) *ORM_CreateWorkflowSpec_Call {
-	return &ORM_CreateWorkflowSpec_Call{Call: _e.mock.On("CreateWorkflowSpec", ctx, spec)}
+//   - owner string
+//   - name string
+func (_e *ORM_Expecter) DeleteWorkflowSpec(ctx interface{}, owner interface{}, name interface{}) *ORM_DeleteWorkflowSpec_Call {
+	return &ORM_DeleteWorkflowSpec_Call{Call: _e.mock.On("DeleteWorkflowSpec", ctx, owner, name)}
 }
 
-func (_c *ORM_CreateWorkflowSpec_Call) Run(run func(ctx context.Context, spec *job.WorkflowSpec)) *ORM_CreateWorkflowSpec_Call {
+func (_c *ORM_DeleteWorkflowSpec_Call) Run(run func(ctx context.Context, owner string, name string)) *ORM_DeleteWorkflowSpec_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(*job.WorkflowSpec))
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
 	})
 	return _c
 }
 
-func (_c *ORM_CreateWorkflowSpec_Call) Return(_a0 int64, _a1 error) *ORM_CreateWorkflowSpec_Call {
-	_c.Call.Return(_a0, _a1)
+func (_c *ORM_DeleteWorkflowSpec_Call) Return(_a0 error) *ORM_DeleteWorkflowSpec_Call {
+	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *ORM_CreateWorkflowSpec_Call) RunAndReturn(run func(context.Context, *job.WorkflowSpec) (int64, error)) *ORM_CreateWorkflowSpec_Call {
+func (_c *ORM_DeleteWorkflowSpec_Call) RunAndReturn(run func(context.Context, string, string) error) *ORM_DeleteWorkflowSpec_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -425,6 +416,66 @@ func (_c *ORM_GetSecretsURLHash_Call) RunAndReturn(run func([]byte, []byte) ([]b
 	return _c
 }
 
+// GetWorkflowSpec provides a mock function with given fields: ctx, owner, name
+func (_m *ORM) GetWorkflowSpec(ctx context.Context, owner string, name string) (*job.WorkflowSpec, error) {
+	ret := _m.Called(ctx, owner, name)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetWorkflowSpec")
+	}
+
+	var r0 *job.WorkflowSpec
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*job.WorkflowSpec, error)); ok {
+		return rf(ctx, owner, name)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *job.WorkflowSpec); ok {
+		r0 = rf(ctx, owner, name)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*job.WorkflowSpec)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, owner, name)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ORM_GetWorkflowSpec_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetWorkflowSpec'
+type ORM_GetWorkflowSpec_Call struct {
+	*mock.Call
+}
+
+// GetWorkflowSpec is a helper method to define mock.On call
+//   - ctx context.Context
+//   - owner string
+//   - name string
+func (_e *ORM_Expecter) GetWorkflowSpec(ctx interface{}, owner interface{}, name interface{}) *ORM_GetWorkflowSpec_Call {
+	return &ORM_GetWorkflowSpec_Call{Call: _e.mock.On("GetWorkflowSpec", ctx, owner, name)}
+}
+
+func (_c *ORM_GetWorkflowSpec_Call) Run(run func(ctx context.Context, owner string, name string)) *ORM_GetWorkflowSpec_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *ORM_GetWorkflowSpec_Call) Return(_a0 *job.WorkflowSpec, _a1 error) *ORM_GetWorkflowSpec_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ORM_GetWorkflowSpec_Call) RunAndReturn(run func(context.Context, string, string) (*job.WorkflowSpec, error)) *ORM_GetWorkflowSpec_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Update provides a mock function with given fields: ctx, secretsURL, contents
 func (_m *ORM) Update(ctx context.Context, secretsURL string, contents string) (int64, error) {
 	ret := _m.Called(ctx, secretsURL, contents)
@@ -479,6 +530,63 @@ func (_c *ORM_Update_Call) Return(_a0 int64, _a1 error) *ORM_Update_Call {
 }
 
 func (_c *ORM_Update_Call) RunAndReturn(run func(context.Context, string, string) (int64, error)) *ORM_Update_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpsertWorkflowSpec provides a mock function with given fields: ctx, spec
+func (_m *ORM) UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) (int64, error) {
+	ret := _m.Called(ctx, spec)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpsertWorkflowSpec")
+	}
+
+	var r0 int64
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *job.WorkflowSpec) (int64, error)); ok {
+		return rf(ctx, spec)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *job.WorkflowSpec) int64); ok {
+		r0 = rf(ctx, spec)
+	} else {
+		r0 = ret.Get(0).(int64)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *job.WorkflowSpec) error); ok {
+		r1 = rf(ctx, spec)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ORM_UpsertWorkflowSpec_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpsertWorkflowSpec'
+type ORM_UpsertWorkflowSpec_Call struct {
+	*mock.Call
+}
+
+// UpsertWorkflowSpec is a helper method to define mock.On call
+//   - ctx context.Context
+//   - spec *job.WorkflowSpec
+func (_e *ORM_Expecter) UpsertWorkflowSpec(ctx interface{}, spec interface{}) *ORM_UpsertWorkflowSpec_Call {
+	return &ORM_UpsertWorkflowSpec_Call{Call: _e.mock.On("UpsertWorkflowSpec", ctx, spec)}
+}
+
+func (_c *ORM_UpsertWorkflowSpec_Call) Run(run func(ctx context.Context, spec *job.WorkflowSpec)) *ORM_UpsertWorkflowSpec_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*job.WorkflowSpec))
+	})
+	return _c
+}
+
+func (_c *ORM_UpsertWorkflowSpec_Call) Return(_a0 int64, _a1 error) *ORM_UpsertWorkflowSpec_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ORM_UpsertWorkflowSpec_Call) RunAndReturn(run func(context.Context, *job.WorkflowSpec) (int64, error)) *ORM_UpsertWorkflowSpec_Call {
 	_c.Call.Return(run)
 	return _c
 }

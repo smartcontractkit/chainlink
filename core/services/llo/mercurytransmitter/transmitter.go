@@ -33,21 +33,27 @@ const (
 )
 
 var (
-	transmitSuccessCount = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "llo_mercury_transmit_success_count",
-		Help: "Number of successful transmissions (duplicates are counted as success)",
+	promTransmitSuccessCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "llo",
+		Subsystem: "mercurytransmitter",
+		Name:      "transmit_success_count",
+		Help:      "Number of successful transmissions (duplicates are counted as success)",
 	},
 		[]string{"donID", "serverURL"},
 	)
-	transmitDuplicateCount = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "llo_mercury_transmit_duplicate_count",
-		Help: "Number of transmissions where the server told us it was a duplicate",
+	promTransmitDuplicateCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "llo",
+		Subsystem: "mercurytransmitter",
+		Name:      "transmit_duplicate_count",
+		Help:      "Number of transmissions where the server told us it was a duplicate",
 	},
 		[]string{"donID", "serverURL"},
 	)
-	transmitConnectionErrorCount = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "llo_mercury_transmit_connection_error_count",
-		Help: "Number of errored transmissions that failed due to problem with the connection",
+	promTransmitConnectionErrorCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "llo",
+		Subsystem: "mercurytransmitter",
+		Name:      "transmit_connection_error_count",
+		Help:      "Number of errored transmissions that failed due to problem with the connection",
 	},
 		[]string{"donID", "serverURL"},
 	)
@@ -107,8 +113,10 @@ type transmitter struct {
 	verboseLogging bool
 	cfg            Config
 
-	orm     ORM
-	servers map[string]*server
+	orm        ORM
+	servers    map[string]*server
+	registerer prometheus.Registerer
+	collectors []prometheus.Collector
 
 	donID       uint32
 	fromAccount string
@@ -119,6 +127,7 @@ type transmitter struct {
 
 type Opts struct {
 	Lggr           logger.Logger
+	Registerer     prometheus.Registerer
 	VerboseLogging bool
 	Cfg            Config
 	Clients        map[string]wsrpc.Client
@@ -145,6 +154,8 @@ func newTransmitter(opts Opts) *transmitter {
 		opts.Cfg,
 		opts.ORM,
 		servers,
+		opts.Registerer,
+		nil,
 		opts.DonID,
 		fmt.Sprintf("%x", opts.FromAccount),
 		make(services.StopChan),
@@ -183,6 +194,31 @@ func (mt *transmitter) Start(ctx context.Context) (err error) {
 					go s.runDeleteQueueLoop(mt.stopCh, mt.wg)
 					go s.runQueueLoop(mt.stopCh, mt.wg, donIDStr)
 				}
+				mt.collectors = append(mt.collectors, prometheus.NewGaugeFunc(
+					prometheus.GaugeOpts{
+						Namespace:   "llo",
+						Subsystem:   "mercurytransmitter",
+						Name:        "concurrent_transmit_gauge",
+						Help:        "Gauge that measures the number of transmit threads currently waiting on a remote transmit call. You may wish to alert if this exceeds some number for a given period of time, or if it ever reaches its max.",
+						ConstLabels: prometheus.Labels{"donID": donIDStr, "serverURL": s.url, "maxConcurrentTransmits": strconv.FormatInt(int64(nThreads), 10)},
+					}, func() float64 {
+						return float64(s.transmitThreadBusyCount.Load())
+					}))
+				mt.collectors = append(mt.collectors, prometheus.NewGaugeFunc(
+					prometheus.GaugeOpts{
+						Namespace:   "llo",
+						Subsystem:   "mercurytransmitter",
+						Name:        "concurrent_delete_gauge",
+						Help:        "Gauge that measures the number of delete threads currently waiting on a delete call to the DB. You may wish to alert if this exceeds some number for a given period of time, or if it ever reaches its max.",
+						ConstLabels: prometheus.Labels{"donID": donIDStr, "serverURL": s.url, "maxConcurrentDeletes": strconv.FormatInt(int64(nThreads), 10)},
+					}, func() float64 {
+						return float64(s.deleteThreadBusyCount.Load())
+					}))
+				for _, c := range mt.collectors {
+					if err := mt.registerer.Register(c); err != nil {
+						return err
+					}
+				}
 			}
 			if err := (&services.MultiStart{}).Start(ctx, startClosers...); err != nil {
 				return err
@@ -214,7 +250,12 @@ func (mt *transmitter) Close() error {
 			closers = append(closers, s.pm)
 			closers = append(closers, s.c)
 		}
-		return services.CloseAll(closers...)
+		err := services.CloseAll(closers...)
+		// Unregister all the gauge funcs
+		for _, c := range mt.collectors {
+			mt.registerer.Unregister(c)
+		}
+		return err
 	})
 }
 

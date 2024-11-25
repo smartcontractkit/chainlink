@@ -7,9 +7,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"golang.org/x/sync/errgroup"
-
-	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 
@@ -378,10 +377,15 @@ func configureChain(
 		if !ok {
 			return fmt.Errorf("chain state not found for chain %d", chain.Selector)
 		}
+		ocrParams, ok := c.OCRParams[chain.Selector]
+		if !ok {
+			return fmt.Errorf("OCR params not found for chain %d", chain.Selector)
+		}
 		if chainState.OffRamp == nil {
 			return fmt.Errorf("off ramp not found for chain %d", chain.Selector)
 		}
-		tokenInfo := c.TokenConfig.GetTokenInfo(e.Logger, existingState.Chains[chainSel].LinkToken, existingState.Chains[chainSel].Weth9)
+		// TODO : better handling - need to scale this for more tokens
+		ocrParams.CommitOffChainConfig.TokenInfo = c.TokenConfig.GetTokenInfo(e.Logger, existingState.Chains[chainSel].LinkToken, existingState.Chains[chainSel].Weth9)
 		_, err = AddChainConfig(
 			e.Logger,
 			e.Chains[c.HomeChainSel],
@@ -391,33 +395,22 @@ func configureChain(
 		if err != nil {
 			return err
 		}
-		var tokenDataObserversConf []pluginconfig.TokenDataObserverConfig
 		if enabled, ok := c.USDCConfig.EnabledChainMap()[chainSel]; ok && enabled {
-			tokenDataObserversConf = []pluginconfig.TokenDataObserverConfig{{
-				Type:    pluginconfig.USDCCCTPHandlerType,
-				Version: "1.0",
-				USDCCCTPObserverConfig: &pluginconfig.USDCCCTPObserverConfig{
-					Tokens:                 c.USDCConfig.CCTPTokenConfig,
-					AttestationAPI:         c.USDCConfig.API,
-					AttestationAPITimeout:  c.USDCConfig.APITimeout,
-					AttestationAPIInterval: c.USDCConfig.APIInterval,
-				},
-			}}
+			ocrParams.ExecuteOffChainConfig.TokenDataObservers = append(ocrParams.ExecuteOffChainConfig.TokenDataObservers, c.USDCConfig.ToTokenDataObserverConfig()...)
 		}
+		ocrParams.CommitOffChainConfig.PriceFeedChainSelector = cciptypes.ChainSelector(c.FeedChainSel)
 		// For each chain, we create a DON on the home chain (2 OCR instances)
-		if err := AddDON(
+		if err := addDON(
 			e.Logger,
 			c.OCRSecrets,
 			capReg,
 			ccipHome,
 			rmnHome.Address(),
 			chainState.OffRamp,
-			c.FeedChainSel,
-			tokenInfo,
 			chain,
 			e.Chains[c.HomeChainSel],
 			nodes.NonBootstraps(),
-			tokenDataObserversConf,
+			ocrParams,
 		); err != nil {
 			e.Logger.Errorw("Failed to add DON", "err", err)
 			return err

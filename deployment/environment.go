@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"sort"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -21,6 +22,7 @@ import (
 	csav1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/csa"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
+	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
@@ -222,11 +224,14 @@ func (n Nodes) BootstrapLocators() []string {
 
 type Node struct {
 	NodeID         string
+	Name           string
+	CSAKey         string
 	SelToOCRConfig map[chain_selectors.ChainDetails]OCRConfig
 	PeerID         p2pkey.PeerID
 	IsBootstrap    bool
 	MultiAddr      string
 	AdminAddr      string
+	Labels         []*ptypes.Label
 }
 
 func (n Node) OCRConfigForChainDetails(details chain_selectors.ChainDetails) (OCRConfig, bool) {
@@ -269,17 +274,50 @@ func MustPeerIDFromString(s string) p2pkey.PeerID {
 }
 
 type NodeChainConfigsLister interface {
+	ListNodes(ctx context.Context, in *nodev1.ListNodesRequest, opts ...grpc.CallOption) (*nodev1.ListNodesResponse, error)
 	ListNodeChainConfigs(ctx context.Context, in *nodev1.ListNodeChainConfigsRequest, opts ...grpc.CallOption) (*nodev1.ListNodeChainConfigsResponse, error)
 }
 
 // Gathers all the node info through JD required to be able to set
-// OCR config for example.
+// OCR config for example. nodeIDs can be JD IDs or PeerIDs
 func NodeInfo(nodeIDs []string, oc NodeChainConfigsLister) (Nodes, error) {
+	if len(nodeIDs) == 0 {
+		return nil, nil
+	}
+	// if nodeIDs starts with `p2p_` lookup by p2p_id instead
+	filterByPeerIDs := strings.HasPrefix(nodeIDs[0], "p2p_")
+	var filter *nodev1.ListNodesRequest_Filter
+	if filterByPeerIDs {
+		selector := strings.Join(nodeIDs, ",")
+		filter = &nodev1.ListNodesRequest_Filter{
+			Enabled: 1,
+			Selectors: []*ptypes.Selector{
+				{
+					Key:   "p2p_id",
+					Op:    ptypes.SelectorOp_IN,
+					Value: &selector,
+				},
+			},
+		}
+	} else {
+		filter = &nodev1.ListNodesRequest_Filter{
+			Enabled: 1,
+			Ids:     nodeIDs,
+		}
+
+	}
+	nodesFromJD, err := oc.ListNodes(context.Background(), &nodev1.ListNodesRequest{
+		Filter: filter,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list nodes: %w", err)
+	}
+
 	var nodes []Node
-	for _, nodeID := range nodeIDs {
+	for _, node := range nodesFromJD.GetNodes() {
 		// TODO: Filter should accept multiple nodes
 		nodeChainConfigs, err := oc.ListNodeChainConfigs(context.Background(), &nodev1.ListNodeChainConfigsRequest{Filter: &nodev1.ListNodeChainConfigsRequest_Filter{
-			NodeIds: []string{nodeID},
+			NodeIds: []string{node.Id},
 		}})
 		if err != nil {
 			return nil, err
@@ -294,7 +332,6 @@ func NodeInfo(nodeIDs []string, oc NodeChainConfigsLister) (Nodes, error) {
 			// Might make sense to change proto as peerID/multiAddr is 1-1 with nodeID?
 			peerID = MustPeerIDFromString(chainConfig.Ocr2Config.P2PKeyBundle.PeerId)
 			multiAddr = chainConfig.Ocr2Config.Multiaddr
-			adminAddr = chainConfig.AdminAddress
 			if chainConfig.Ocr2Config.IsBootstrap {
 				// NOTE: Assume same peerID for all chains.
 				// Might make sense to change proto as peerID is 1-1 with nodeID?
@@ -309,40 +346,59 @@ func NodeInfo(nodeIDs []string, oc NodeChainConfigsLister) (Nodes, error) {
 			var cpk types3.ConfigEncryptionPublicKey
 			copy(cpk[:], b)
 
+			var pubkey types3.OnchainPublicKey
+			if chainConfig.Chain.Type == nodev1.ChainType_CHAIN_TYPE_EVM {
+				// convert from pubkey to address
+				pubkey = common.HexToAddress(chainConfig.Ocr2Config.OcrKeyBundle.OnchainSigningAddress).Bytes()
+			} else {
+				pubkey = common.Hex2Bytes(chainConfig.Ocr2Config.OcrKeyBundle.OnchainSigningAddress)
+			}
+
 			ocrConfig := OCRConfig{
 				OffchainPublicKey:         opk,
-				OnchainPublicKey:          common.HexToAddress(chainConfig.Ocr2Config.OcrKeyBundle.OnchainSigningAddress).Bytes(),
+				OnchainPublicKey:          pubkey,
 				PeerID:                    MustPeerIDFromString(chainConfig.Ocr2Config.P2PKeyBundle.PeerId),
 				TransmitAccount:           types2.Account(chainConfig.AccountAddress),
 				ConfigEncryptionPublicKey: cpk,
 				KeyBundleID:               chainConfig.Ocr2Config.OcrKeyBundle.BundleId,
 			}
 
-			var details chain_selectors.ChainDetails
+			if chainConfig.Chain.Type == nodev1.ChainType_CHAIN_TYPE_EVM {
+				// NOTE: Assume same adminAddr for all chains. We always use EVM addr
+				adminAddr = chainConfig.AdminAddress
+			}
+
+			var family string
 			switch chainConfig.Chain.Type {
-			case nodev1.ChainType_CHAIN_TYPE_APTOS:
-				details, err = chain_selectors.GetChainDetailsByChainIDAndFamily(chainConfig.Chain.Id, chain_selectors.FamilyAptos)
-				if err != nil {
-					return nil, err
-				}
 			case nodev1.ChainType_CHAIN_TYPE_EVM:
-				details, err = chain_selectors.GetChainDetailsByChainIDAndFamily(chainConfig.Chain.Id, chain_selectors.FamilyEVM)
-				if err != nil {
-					return nil, err
-				}
+				family = chain_selectors.FamilyEVM
+			case nodev1.ChainType_CHAIN_TYPE_APTOS:
+				family = chain_selectors.FamilyAptos
+			case nodev1.ChainType_CHAIN_TYPE_SOLANA:
+				family = chain_selectors.FamilySolana
+			case nodev1.ChainType_CHAIN_TYPE_STARKNET:
+				family = chain_selectors.FamilyStarknet
 			default:
 				return nil, fmt.Errorf("unsupported chain type %s", chainConfig.Chain.Type)
+			}
+
+			details, err := chain_selectors.GetChainDetailsByChainIDAndFamily(chainConfig.Chain.Id, family)
+			if err != nil {
+				return nil, err
 			}
 
 			selToOCRConfig[details] = ocrConfig
 		}
 		nodes = append(nodes, Node{
-			NodeID:         nodeID,
+			NodeID:         node.Id,
+			Name:           node.Name,
+			CSAKey:         node.PublicKey,
 			SelToOCRConfig: selToOCRConfig,
 			IsBootstrap:    bootstrap,
 			PeerID:         peerID,
 			MultiAddr:      multiAddr,
 			AdminAddr:      adminAddr,
+			Labels:         node.Labels,
 		})
 	}
 
