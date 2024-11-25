@@ -23,11 +23,12 @@ sort_imports = true
 single_line_statement_blocks = "preserve"
 
 [profile.ccip]
-solc_version = '0.8.24'
+solc_version = '0.8.26'
 src = 'src/v0.8/ccip'
 test = 'src/v0.8/ccip/test'
-optimizer_runs = 500
 evm_version = 'paris'
+via-ir = true
+
 
 [profile.functions]
 solc_version = '0.8.19'
