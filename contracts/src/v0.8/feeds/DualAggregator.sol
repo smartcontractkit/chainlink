@@ -500,30 +500,6 @@ contract DualAggregator is OCR2Abstract, AggregatorV2V3Interface, SimpleReadAcce
     emit MaxSyncIterationsSet(_maxSyncIterations);
   }
 
-  /// @notice sync data with the primary rounds, return the freshest valid round id.
-  /// @return roundId synced round id with the primary feed.
-  function _getSyncPrimaryRound() internal view returns (uint32 roundId) {
-    // Get the latest round id and the max iterations.
-    uint32 latestAggregatorRoundId = s_hotVars.latestAggregatorRoundId;
-    uint32 maxIterations = s_maxSyncIterations;
-
-    // Decreasing loop from the latest primary round id.
-    for (uint32 round_ = latestAggregatorRoundId; round_ > 0; --round_) {
-      // In case the loop reached the maxIterations, break it.
-      if (latestAggregatorRoundId - round_ == maxIterations) {
-        break;
-      }
-
-      // Check if this round does not accomplish the cutoff time condition.
-      if (s_transmissions[round_].recordedTimestamp + s_cutoffTime < block.timestamp) {
-        return round_;
-      }
-    }
-
-    // If the loop couldn't find a match, return the latest secondary round id.
-    return s_hotVars.latestSecondaryRoundId;
-  }
-
   /// @notice check if a report has already been transmitted.
   /// @param report the report to check.
   /// @return exist wether the report exist or not.
@@ -554,6 +530,30 @@ contract DualAggregator is OCR2Abstract, AggregatorV2V3Interface, SimpleReadAcce
     }
 
     return (false, 0);
+  }
+
+  /// @notice sync data with the primary rounds, return the freshest valid round id.
+  /// @return roundId synced round id with the primary feed.
+  function _getSyncPrimaryRound() internal view returns (uint32 roundId) {
+    // Get the latest round id and the max iterations.
+    uint32 latestAggregatorRoundId = s_hotVars.latestAggregatorRoundId;
+    uint32 maxIterations = s_maxSyncIterations;
+
+    // Decreasing loop from the latest primary round id.
+    for (uint32 round_ = latestAggregatorRoundId; round_ > 0; --round_) {
+      // In case the loop reached the maxIterations, break it.
+      if (latestAggregatorRoundId - round_ == maxIterations) {
+        break;
+      }
+
+      // Check if this round does not accomplish the cutoff time condition.
+      if (s_transmissions[round_].recordedTimestamp + s_cutoffTime < block.timestamp) {
+        return round_;
+      }
+    }
+
+    // If the loop couldn't find a match, return the latest secondary round id.
+    return s_hotVars.latestSecondaryRoundId;
   }
 
   /// @notice aggregator round in which the latest report was conceded depending on the caller.
