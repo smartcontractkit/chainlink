@@ -2420,12 +2420,6 @@ contract GetSyncPrimaryRound is RoundDataDualAggregatorBaseTest {
     assertEq(s_aggregator.getSyncPrimaryRound(), 0);
   }
 
-  // test with cutoff time reaching the secondary round id
-  function test_returnSecondaryRoundId() public {
-    setDualAggregatorBase(30, 20, 6, 2, false);
-    assertEq(s_aggregator.getSyncPrimaryRound(), 2);
-  }
-
   // test with cutoff time condition matching in round id 4
   function test_returnSyncFourthRoundId() public {
     setDualAggregatorBase(30, 9, 6, 2, false);

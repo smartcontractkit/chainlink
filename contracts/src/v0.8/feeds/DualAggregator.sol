@@ -514,11 +514,6 @@ contract DualAggregator is OCR2Abstract, AggregatorV2V3Interface, SimpleReadAcce
         break;
       }
 
-      // In case it's the latest secondary round id, return it.
-      if (round_ == s_hotVars.latestSecondaryRoundId) {
-        return round_;
-      }
-
       // Check if this round does not accomplish the cutoff time condition.
       if (s_transmissions[round_].recordedTimestamp + s_cutoffTime < block.timestamp) {
         return round_;
