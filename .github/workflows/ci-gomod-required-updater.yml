@@ -1,7 +1,6 @@
 name: gomod-required-updater
 
 on:
-  merge_group:
   pull_request:
 
 jobs:
