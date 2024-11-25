@@ -10,6 +10,7 @@ import (
 	"slices"
 
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/urfave/cli"
 
 	"github.com/smartcontractkit/chainlink/v2/core/build"
@@ -85,6 +86,7 @@ func NewApp(s *Shell) *cli.App {
 		}
 
 		s.Logger = lggr
+		s.Registerer = prometheus.DefaultRegisterer // use the global DefaultRegisterer, should be safe since we only ever run one instance of the app per shell
 		s.CloseLogger = closeFn
 		s.Config = cfg
 

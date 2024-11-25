@@ -82,7 +82,9 @@ contract TokenPoolWithAllowList_applyAllowListUpdates is TokenPoolWithAllowListS
   }
 
   function test_AllowListNotEnabled_Revert() public {
-    s_tokenPool = new TokenPoolHelper(s_token, new address[](0), address(s_mockRMN), address(s_sourceRouter));
+    s_tokenPool = new TokenPoolHelper(
+      s_token, DEFAULT_TOKEN_DECIMALS, new address[](0), address(s_mockRMN), address(s_sourceRouter)
+    );
 
     vm.expectRevert(TokenPool.AllowListNotEnabled.selector);
 

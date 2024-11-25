@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"math/big"
 	"sync"
 	"time"
@@ -100,7 +101,7 @@ type chainClient struct {
 		*big.Int,
 		*RPCClient,
 	]
-	txSender     *commonclient.TransactionSender[*types.Transaction, *big.Int, *RPCClient]
+	txSender     *commonclient.TransactionSender[*types.Transaction, *SendTxResult, *big.Int, *RPCClient]
 	logger       logger.SugaredLogger
 	chainType    chaintype.ChainType
 	clientErrors evmconfig.ClientErrors
@@ -129,16 +130,12 @@ func NewChainClient(
 		deathDeclarationDelay,
 	)
 
-	classifySendError := func(tx *types.Transaction, err error) commonclient.SendTxReturnCode {
-		return ClassifySendError(err, clientErrors, logger.Sugared(logger.Nop()), tx, common.Address{}, chainType.IsL2())
-	}
-
-	txSender := commonclient.NewTransactionSender[*types.Transaction, *big.Int, *RPCClient](
+	txSender := commonclient.NewTransactionSender[*types.Transaction, *SendTxResult, *big.Int, *RPCClient](
 		lggr,
 		chainID,
 		chainFamily,
 		multiNode,
-		classifySendError,
+		NewSendTxResult,
 		0, // use the default value provided by the implementation
 	)
 
@@ -376,15 +373,20 @@ func (c *chainClient) PendingNonceAt(ctx context.Context, account common.Address
 }
 
 func (c *chainClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
+	var result *SendTxResult
 	if c.chainType == chaintype.ChainHedera {
 		activeRPC, err := c.multiNode.SelectRPC()
 		if err != nil {
 			return err
 		}
-		return activeRPC.SendTransaction(ctx, tx)
+		result = activeRPC.SendTransaction(ctx, tx)
+	} else {
+		result = c.txSender.SendTransaction(ctx, tx)
 	}
-	_, err := c.txSender.SendTransaction(ctx, tx)
-	return err
+	if result == nil {
+		return errors.New("SendTransaction failed: result is nil")
+	}
+	return result.Error()
 }
 
 func (c *chainClient) SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (commonclient.SendTxReturnCode, error) {
