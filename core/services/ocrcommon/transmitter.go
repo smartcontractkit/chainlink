@@ -100,7 +100,9 @@ func NewOCR2FeedsTransmitter(
 
 	if dualTransmissionConfig != nil {
 		return &ocr2FeedsDualTransmission{
+			ocr2Aggregator:                     ocr2Aggregator,
 			txm:                                txm,
+			txManagerOCR2:                      txm,
 			primaryFromAddresses:               fromAddresses,
 			gasLimit:                           gasLimit,
 			primaryEffectiveTransmitterAddress: effectiveTransmitterAddress,
