@@ -265,16 +265,7 @@ contract E2E is OnRampSetup, OffRampSetup {
 
     message.receiver = abi.encode(address(s_receiver));
     Internal.EVM2AnyRampMessage memory msgEvent = _messageToEvent(
-      message,
-      sourceChainSelector,
-      DEST_CHAIN_SELECTOR,
-      expectedSeqNum,
-      nonce,
-      feeAmount,
-      feeAmount,
-      OWNER,
-      metadataHash,
-      tokenAdminRegistry
+      message, sourceChainSelector, expectedSeqNum, nonce, feeAmount, feeAmount, OWNER, metadataHash, tokenAdminRegistry
     );
 
     vm.expectEmit();

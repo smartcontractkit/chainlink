@@ -145,7 +145,7 @@ contract MultiOCR3Base_transmit is MultiOCR3BaseSetup {
 
     s_multiOCR3.setTransmitOcrPluginType(0);
 
-    uint256 chain1 = block.chainid;
+    uint256 chain1 = uint200(block.chainid);
     uint256 chain2 = chain1 + 1;
     vm.chainId(chain2);
     vm.expectRevert(abi.encodeWithSelector(MultiOCR3Base.ForkedChain.selector, chain1, chain2));

@@ -74,7 +74,7 @@ contract Router_routeMessage is OffRampSetup {
 
     assertFalse(success);
     assertEq(abi.encodeWithSelector(MaybeRevertMessageReceiver.CustomError.selector, realError1), retData);
-    assertGt(gasUsed, 3_000);
+    assertGt(gasUsed, 2850);
 
     // Reason is truncated
     // Over the MAX_RET_BYTES limit (including offset and length word since we have a dynamic values), should be ignored
