@@ -27,5 +27,5 @@ go install ./tools/gomod-required-updater/cmd/gomod-required-updater
 ## Usage Examples
 
 ```shell
-make gomodrequiredupdater
+make gomodslocalupdate
 ```

@@ -144,8 +144,8 @@ presubmit: ## Format go files and imports.
 gomods: ## Install gomods
 	go install github.com/jmank88/gomods@v0.1.4
 
-.PHONY: gomodrequiredupdater
-gomodrequiredupdater: ## Run gomod-required-updater
+.PHONY: gomodslocalupdate
+gomodslocalupdate: ## Run gomod-required-updater
 	go install ./tools/gomod-required-updater/cmd/gomod-required-updater
 	gomods -w gomod-required-updater
 	gomods tidy
