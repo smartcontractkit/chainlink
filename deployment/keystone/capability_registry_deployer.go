@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 )
