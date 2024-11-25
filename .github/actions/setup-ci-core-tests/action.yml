@@ -16,21 +16,9 @@ inputs:
       The expected database URL
     required: true
 
-  build-only:
-    description: |
-      Only setup the necessary dependencies for building the binary
-    default: "false"
-
 runs:
   using: composite
   steps:
-    - name: Log Start
-      shell: bash
-      run: |
-        echo "===================================="
-        echo "Setting up CI Core Tests Environment"
-        echo "===================================="
-
     - name: Setup NodeJS
       uses: ./.github/actions/setup-nodejs
       with:
@@ -46,7 +34,7 @@ runs:
     - name: Replace chainlink-evm deps
       if: ${{ inputs.evm-ref-override != ''}}
       shell: bash
-      run: go get github.com/smartcontractkit/chainlink-integrations/evm/relayer@${{ inputs.evm-ref }}
+      run: go get github.com/smartcontractkit/chainlink-integrations/evm/relayer@${{ inputs.evm-ref-override }}
 
     - name: Setup Solana
       uses: ./.github/actions/setup-solana
@@ -55,11 +43,9 @@ runs:
       uses: ./.github/actions/setup-wasmd
 
     - name: Setup Postgres
-      if: ${{ inputs.build-only == 'false' }}
       uses: ./.github/actions/setup-postgres
 
     - name: Touching core/web/assets/index.html
-      if: ${{ inputs.build-only == 'false' }}
       shell: bash
       run: mkdir -p core/web/assets && touch core/web/assets/index.html
 
@@ -74,12 +60,10 @@ runs:
       run: go mod download
 
     - name: Build binary
-      if: ${{ inputs.build-only == 'false' }}
       shell: bash
       run: go build -o chainlink.test .
 
     - name: Setup DB
-      if: ${{ inputs.build-only == 'false' }}
       shell: bash
       run: ./chainlink.test local db preparetest
       env:
@@ -101,9 +85,3 @@ runs:
         go install ./pkg/chainlink/cmd/chainlink-starknet
         popd
 
-    - name: Log End
-      shell: bash
-      run: |
-        echo "============================================="
-        echo "Finished Setting up CI Core Tests Environment"
-        echo "============================================="
