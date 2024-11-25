@@ -17,4 +17,14 @@ contract TokenPoolWithAllowList_setRouter is TokenPoolWithAllowListSetup {
 
     assertEq(newRouter, s_tokenPool.getRouter());
   }
+
+  // Reverts
+
+  function test_ZeroAddressNotAllowed_Revert() public {
+    address newRouter = address(0);
+
+    vm.expectRevert(TokenPool.ZeroAddressNotAllowed.selector);
+
+    s_tokenPool.setRouter(newRouter);
+  }
 }

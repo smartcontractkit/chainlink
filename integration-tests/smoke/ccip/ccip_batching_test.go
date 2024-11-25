@@ -13,6 +13,7 @@ import (
 	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
@@ -51,8 +52,8 @@ func Test_CCIPBatching(t *testing.T) {
 	)
 
 	// connect sourceChain1 and sourceChain2 to destChain
-	require.NoError(t, changeset.AddLaneWithDefaultPrices(e.Env, state, sourceChain1, destChain))
-	require.NoError(t, changeset.AddLaneWithDefaultPrices(e.Env, state, sourceChain2, destChain))
+	require.NoError(t, changeset.AddLaneWithDefaultPricesAndFeeQuoterConfig(e.Env, state, sourceChain1, destChain, false))
+	require.NoError(t, changeset.AddLaneWithDefaultPricesAndFeeQuoterConfig(e.Env, state, sourceChain2, destChain, false))
 
 	const (
 		numMessages = 5

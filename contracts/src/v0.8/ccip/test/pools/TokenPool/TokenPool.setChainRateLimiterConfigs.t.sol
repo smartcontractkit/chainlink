@@ -32,8 +32,8 @@ contract TokenPool_setChainRateLimiterConfigs is TokenPoolSetup {
     newTime = uint32(bound(newTime, block.timestamp + 1, type(uint32).max));
     vm.warp(newTime);
 
-    uint256 oldOutboundTokens = s_tokenPool.getCurrentOutboundRateLimiterState(s_remoteChainSelector).tokens;
-    uint256 oldInboundTokens = s_tokenPool.getCurrentInboundRateLimiterState(s_remoteChainSelector).tokens;
+    uint256 oldOutboundTokens = s_tokenPool.getCurrentOutboundRateLimiterState(DEST_CHAIN_SELECTOR).tokens;
+    uint256 oldInboundTokens = s_tokenPool.getCurrentInboundRateLimiterState(DEST_CHAIN_SELECTOR).tokens;
 
     RateLimiter.Config memory newOutboundConfig = RateLimiter.Config({isEnabled: true, capacity: capacity, rate: rate});
     RateLimiter.Config memory newInboundConfig =
@@ -53,13 +53,13 @@ contract TokenPool_setChainRateLimiterConfigs is TokenPoolSetup {
     vm.expectEmit();
     emit RateLimiter.ConfigChanged(newInboundConfig);
     vm.expectEmit();
-    emit TokenPool.ChainConfigured(s_remoteChainSelector, newOutboundConfig, newInboundConfig);
+    emit TokenPool.ChainConfigured(DEST_CHAIN_SELECTOR, newOutboundConfig, newInboundConfig);
 
     s_tokenPool.setChainRateLimiterConfigs(chainSelectors, newOutboundConfigs, newInboundConfigs);
 
     uint256 expectedTokens = RateLimiter._min(newOutboundConfig.capacity, oldOutboundTokens);
 
-    RateLimiter.TokenBucket memory bucket = s_tokenPool.getCurrentOutboundRateLimiterState(s_remoteChainSelector);
+    RateLimiter.TokenBucket memory bucket = s_tokenPool.getCurrentOutboundRateLimiterState(DEST_CHAIN_SELECTOR);
     assertEq(bucket.capacity, newOutboundConfig.capacity);
     assertEq(bucket.rate, newOutboundConfig.rate);
     assertEq(bucket.tokens, expectedTokens);
@@ -67,7 +67,7 @@ contract TokenPool_setChainRateLimiterConfigs is TokenPoolSetup {
 
     expectedTokens = RateLimiter._min(newInboundConfig.capacity, oldInboundTokens);
 
-    bucket = s_tokenPool.getCurrentInboundRateLimiterState(s_remoteChainSelector);
+    bucket = s_tokenPool.getCurrentInboundRateLimiterState(DEST_CHAIN_SELECTOR);
     assertEq(bucket.capacity, newInboundConfig.capacity);
     assertEq(bucket.rate, newInboundConfig.rate);
     assertEq(bucket.tokens, expectedTokens);

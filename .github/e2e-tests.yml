@@ -1109,19 +1109,6 @@ runner-test-matrix:
     test_cmd: cd integration-tests/ccip-tests/smoke && go test ccip_test.go -test.run ^TestSmokeCCIPForBidirectionalLane$ -timeout 30m -count=1 -test.parallel=1 -json
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
-
-  - id: ccip-smoke-1.4-pools
-    path: integration-tests/ccip-tests/smoke/ccip_test.go
-    test_env_type: docker
-    runs_on: ubuntu-latest
-    triggers:
-      - PR E2E CCIP Tests
-      - Merge Queue E2E CCIP Tests
-      - Nightly E2E Tests
-    test_cmd: cd integration-tests/ccip-tests/smoke && go test ccip_test.go -test.run ^TestSmokeCCIPForBidirectionalLane$ -timeout 30m -count=1 -test.parallel=1 -json
-    test_env_vars:
-      E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
-    test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/contract-version1.4.toml
      
   - id: ccip-smoke-usdc
     path: integration-tests/ccip-tests/smoke/ccip_test.go

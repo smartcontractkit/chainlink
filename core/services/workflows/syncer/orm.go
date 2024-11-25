@@ -2,7 +2,8 @@ package syncer
 
 import (
 	"context"
-	"errors"
+	"database/sql"
+	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -33,7 +34,15 @@ type WorkflowSecretsDS interface {
 }
 
 type WorkflowSpecsDS interface {
-	CreateWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) (int64, error)
+	// UpsertWorkflowSpec inserts or updates a workflow spec.  Updates on conflict of workflow name
+	// and owner
+	UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) (int64, error)
+
+	// GetWorkflowSpec returns the workflow spec for the given owner and name.
+	GetWorkflowSpec(ctx context.Context, owner, name string) (*job.WorkflowSpec, error)
+
+	// DeleteWorkflowSpec deletes the workflow spec for the given owner and name.
+	DeleteWorkflowSpec(ctx context.Context, owner, name string) error
 }
 
 type ORM interface {
@@ -149,6 +158,104 @@ func (orm *orm) GetSecretsURLHash(owner, secretsURL []byte) ([]byte, error) {
 	return crypto.Keccak256(append(owner, secretsURL...))
 }
 
-func (orm *orm) CreateWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) (int64, error) {
-	return 0, errors.New("not implemented")
+func (orm *orm) UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) (int64, error) {
+	var id int64
+
+	query := `
+		INSERT INTO workflow_specs (
+			workflow,
+			config,
+			workflow_id,
+			workflow_owner,
+			workflow_name,
+			status,
+			binary_url,
+			config_url,
+			secrets_id,
+			created_at,
+			updated_at,
+			spec_type
+		) VALUES (
+			:workflow,
+			:config,
+			:workflow_id,
+			:workflow_owner,
+			:workflow_name,
+			:status,
+			:binary_url,
+			:config_url,
+			:secrets_id,
+			:created_at,
+			:updated_at,
+			:spec_type
+		) ON CONFLICT (workflow_owner, workflow_name) DO UPDATE
+		SET
+			workflow = EXCLUDED.workflow,
+			config = EXCLUDED.config,
+			workflow_id = EXCLUDED.workflow_id,
+			workflow_owner = EXCLUDED.workflow_owner,
+			workflow_name = EXCLUDED.workflow_name,
+			status = EXCLUDED.status,
+			binary_url = EXCLUDED.binary_url,
+			config_url = EXCLUDED.config_url,
+			secrets_id = EXCLUDED.secrets_id,
+			created_at = EXCLUDED.created_at,
+			updated_at = EXCLUDED.updated_at,
+			spec_type = EXCLUDED.spec_type
+		RETURNING id
+	`
+
+	stmt, err := orm.ds.PrepareNamedContext(ctx, query)
+	if err != nil {
+		return 0, err
+	}
+	defer stmt.Close()
+
+	spec.UpdatedAt = time.Now()
+	err = stmt.QueryRowxContext(ctx, spec).Scan(&id)
+
+	if err != nil {
+		return 0, err
+	}
+
+	return id, nil
+}
+
+func (orm *orm) GetWorkflowSpec(ctx context.Context, owner, name string) (*job.WorkflowSpec, error) {
+	query := `
+		SELECT *
+		FROM workflow_specs
+		WHERE workflow_owner = $1 AND workflow_name = $2
+	`
+
+	var spec job.WorkflowSpec
+	err := orm.ds.GetContext(ctx, &spec, query, owner, name)
+	if err != nil {
+		return nil, err
+	}
+
+	return &spec, nil
+}
+
+func (orm *orm) DeleteWorkflowSpec(ctx context.Context, owner, name string) error {
+	query := `
+		DELETE FROM workflow_specs
+		WHERE workflow_owner = $1 AND workflow_name = $2
+	`
+
+	result, err := orm.ds.ExecContext(ctx, query, owner, name)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return sql.ErrNoRows // No spec deleted
+	}
+
+	return nil
 }
