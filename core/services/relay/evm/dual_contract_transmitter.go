@@ -42,7 +42,7 @@ type dualContractTransmitter struct {
 func dualTransmissionABI() abi.ABI {
 	dualTransmissionABI, err := abi.JSON(strings.NewReader(dtABI))
 	if err != nil {
-		panic(fmt.Errorf("failed to parse dualTransmission ABI: %v", err))
+		panic(fmt.Errorf("failed to parse dualTransmission ABI: %w", err))
 	}
 	return dualTransmissionABI
 }

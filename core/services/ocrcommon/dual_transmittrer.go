@@ -80,31 +80,6 @@ func (t *ocr2FeedsDualTransmission) CreateEthTransaction(ctx context.Context, to
 	return errors.Wrap(err, "skipped OCR transmission: skipped primary transmission")
 }
 
-func (t *ocr2FeedsDualTransmission) CreatePrimaryEthTransaction(ctx context.Context, toAddress common.Address, payload []byte, txMeta *txmgr.TxMeta) error {
-	roundRobinFromAddress, err := t.keystore.GetRoundRobinAddress(ctx, t.chainID, t.primaryFromAddresses...)
-	if err != nil {
-		return errors.Wrap(err, "skipped OCR transmission, error getting round-robin address")
-	}
-
-	forwarderAddress, err := t.forwarderAddress(ctx, roundRobinFromAddress, toAddress)
-	if err != nil {
-		return err
-	}
-
-	_, err = t.txm.CreateTransaction(ctx, txmgr.TxRequest{
-		FromAddress:      roundRobinFromAddress,
-		ToAddress:        toAddress,
-		EncodedPayload:   payload,
-		FeeLimit:         t.gasLimit,
-		ForwarderAddress: forwarderAddress,
-		Strategy:         t.strategy,
-		Checker:          t.checker,
-		Meta:             txMeta,
-	})
-
-	return errors.Wrap(err, "skipped OCR transmission: skipped primary transmission")
-}
-
 func (t *ocr2FeedsDualTransmission) CreateSecondaryEthTransaction(ctx context.Context, payload []byte, txMeta *txmgr.TxMeta) error {
 	forwarderAddress, err := t.forwarderAddress(ctx, t.secondaryFromAddress, t.secondaryContractAddress)
 	if err != nil {
