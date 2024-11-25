@@ -188,7 +188,7 @@ const PluginVersion uint32 = 1 // the legacy mercury plugin is 0
 // Uniquely identifies this as LLO plugin, rather than the legacy plugin (which
 // uses all zeroes).
 //
-// This is a quite a hack but serves the purpose of uniquely identifying
+// This is quite a hack but serves the purpose of uniquely identifying
 // dons/plugin versions to the mercury server without having to modify any
 // existing tooling or breaking backwards compatibility. It should be safe
 // since the DonID is encoded into the config digest anyway so report context
