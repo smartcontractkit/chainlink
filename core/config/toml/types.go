@@ -1452,6 +1452,26 @@ func (r *ExternalRegistry) setFrom(f *ExternalRegistry) {
 	}
 }
 
+type WorkflowRegistry struct {
+	Address   *string
+	NetworkID *string
+	ChainID   *string
+}
+
+func (r *WorkflowRegistry) setFrom(f *WorkflowRegistry) {
+	if f.Address != nil {
+		r.Address = f.Address
+	}
+
+	if f.NetworkID != nil {
+		r.NetworkID = f.NetworkID
+	}
+
+	if f.ChainID != nil {
+		r.ChainID = f.ChainID
+	}
+}
+
 type Dispatcher struct {
 	SupportedVersion   *int
 	ReceiverBufferSize *int
@@ -1541,12 +1561,14 @@ type Capabilities struct {
 	Peering          P2P              `toml:",omitempty"`
 	Dispatcher       Dispatcher       `toml:",omitempty"`
 	ExternalRegistry ExternalRegistry `toml:",omitempty"`
+	WorkflowRegistry WorkflowRegistry `toml:",omitempty"`
 	GatewayConnector GatewayConnector `toml:",omitempty"`
 }
 
 func (c *Capabilities) setFrom(f *Capabilities) {
 	c.Peering.setFrom(&f.Peering)
 	c.ExternalRegistry.setFrom(&f.ExternalRegistry)
+	c.WorkflowRegistry.setFrom(&f.WorkflowRegistry)
 	c.Dispatcher.setFrom(&f.Dispatcher)
 	c.GatewayConnector.setFrom(&f.GatewayConnector)
 }

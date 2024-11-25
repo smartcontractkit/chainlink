@@ -325,6 +325,11 @@ Address = ''
 NetworkID = 'evm'
 ChainID = '1'
 
+[Capabilities.WorkflowRegistry]
+Address = ''
+NetworkID = 'evm'
+ChainID = '1'
+
 [Capabilities.GatewayConnector]
 ChainIDForNodeKey = ''
 NodeAddress = ''

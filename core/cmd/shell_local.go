@@ -469,7 +469,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 		}
 	}
 
-	if s.Config.Capabilities().Peering().Enabled() {
+	if s.Config.Capabilities().WorkflowRegistry().Address() != "" {
 		err2 := app.GetKeyStore().Workflow().EnsureKey(rootCtx)
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure workflow key")

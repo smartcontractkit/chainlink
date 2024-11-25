@@ -93,21 +93,26 @@ type AddressBookMap struct {
 	mtx              sync.RWMutex
 }
 
-// save will save an address for a given chain selector. It will error if there is a conflicting existing address.
+// Save will save an address for a given chain selector. It will error if there is a conflicting existing address.
 func (m *AddressBookMap) save(chainSelector uint64, address string, typeAndVersion TypeAndVersion) error {
-	_, exists := chainsel.ChainBySelector(chainSelector)
-	if !exists {
+	family, err := chainsel.GetSelectorFamily(chainSelector)
+	if err != nil {
 		return errors.Wrapf(ErrInvalidChainSelector, "chain selector %d", chainSelector)
 	}
-	if address == "" || address == common.HexToAddress("0x0").Hex() {
-		return errors.Wrap(ErrInvalidAddress, "address cannot be empty")
+	if family == chainsel.FamilyEVM {
+		if address == "" || address == common.HexToAddress("0x0").Hex() {
+			return errors.Wrap(ErrInvalidAddress, "address cannot be empty")
+		}
+		if common.IsHexAddress(address) {
+			// IMPORTANT: WE ALWAYS STANDARDIZE ETHEREUM ADDRESS STRINGS TO EIP55
+			address = common.HexToAddress(address).Hex()
+		} else {
+			return errors.Wrapf(ErrInvalidAddress, "address %s is not a valid Ethereum address, only Ethereum addresses supported for EVM chains", address)
+		}
 	}
-	if common.IsHexAddress(address) {
-		// IMPORTANT: WE ALWAYS STANDARDIZE ETHEREUM ADDRESS STRINGS TO EIP55
-		address = common.HexToAddress(address).Hex()
-	} else {
-		return errors.Wrapf(ErrInvalidAddress, "address %s is not a valid Ethereum address, only Ethereum addresses supported", address)
-	}
+
+	// TODO NONEVM-960: Add validation for non-EVM chain addresses
+
 	if typeAndVersion.Type == "" {
 		return fmt.Errorf("type cannot be empty")
 	}
@@ -142,8 +147,8 @@ func (m *AddressBookMap) Addresses() (map[uint64]map[string]TypeAndVersion, erro
 }
 
 func (m *AddressBookMap) AddressesForChain(chainSelector uint64) (map[string]TypeAndVersion, error) {
-	_, exists := chainsel.ChainBySelector(chainSelector)
-	if !exists {
+	_, err := chainsel.GetChainIDFromSelector(chainSelector)
+	if err != nil {
 		return nil, errors.Wrapf(ErrInvalidChainSelector, "chain selector %d", chainSelector)
 	}
 
@@ -195,7 +200,7 @@ func (m *AddressBookMap) Remove(ab AddressBook) error {
 	// State of m.addressesByChain storage must not be changed in case of an error
 	// need to do double iteration over the address book. First validation, second actual deletion
 	for chainSelector, chainAddresses := range addresses {
-		for address, _ := range chainAddresses {
+		for address := range chainAddresses {
 			if _, exists := m.addressesByChain[chainSelector][address]; !exists {
 				return errors.New("AddressBookMap does not contain address from the given address book")
 			}
@@ -203,7 +208,7 @@ func (m *AddressBookMap) Remove(ab AddressBook) error {
 	}
 
 	for chainSelector, chainAddresses := range addresses {
-		for address, _ := range chainAddresses {
+		for address := range chainAddresses {
 			delete(m.addressesByChain[chainSelector], address)
 		}
 	}

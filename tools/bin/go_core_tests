@@ -9,15 +9,15 @@ echo "Failed tests and panics: ---------------------"
 echo ""
 if [[ $GITHUB_EVENT_NAME == "schedule" ]]; then
   if [[ $DEBUG == "true" ]]; then 
-    go test -json -vet=off -covermode=atomic -coverpkg=./... -coverprofile=coverage.txt $1 | tee $OUTPUT_FILE
+    go test -json -covermode=atomic -coverpkg=./... -coverprofile=coverage.txt $1 | tee $OUTPUT_FILE
   else
-    go test -json -vet=off -covermode=atomic -coverpkg=./... -coverprofile=coverage.txt $1 | cat > $OUTPUT_FILE
+    go test -json -covermode=atomic -coverpkg=./... -coverprofile=coverage.txt $1 | cat > $OUTPUT_FILE
   fi
 else
   if [[ $DEBUG == "true" ]]; then 
-    go test -vet=off $1 | tee $OUTPUT_FILE
+    go test $1 | tee $OUTPUT_FILE
   else
-    go test -vet=off $1 | cat > $OUTPUT_FILE
+    go test $1 | cat > $OUTPUT_FILE
   fi
 fi
 EXITCODE=${PIPESTATUS[0]}

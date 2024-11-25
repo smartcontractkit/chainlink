@@ -2,6 +2,7 @@ package ccip
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 
 	"github.com/AlekSi/pointer"
@@ -184,8 +185,12 @@ func IsSelectorValid(selector uint64, evmNetworks []blockchain.EVMNetwork) (bool
 	if err != nil {
 		return false, err
 	}
+	if chainId >= math.MaxInt64 {
+		return false, fmt.Errorf("chain id overflows int64: %d", chainId)
+	}
+	id := int64(chainId)
 	for _, net := range evmNetworks {
-		if net.ChainID == int64(chainId) {
+		if net.ChainID == id {
 			return true, nil
 		}
 	}

@@ -215,7 +215,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	// TODO: wire this up to config so we only instantiate it
 	// if a workflow registry address is provided.
-	workflowRegistrySyncer := syncer.NewWorkflowRegistry()
+	workflowRegistrySyncer := syncer.NewNullWorkflowRegistrySyncer()
 	srvcs = append(srvcs, workflowRegistrySyncer)
 
 	var externalPeerWrapper p2ptypes.PeerWrapper

@@ -478,14 +478,13 @@ func (w TokenPoolWrapper) IsSupportedChain(opts *bind.CallOpts, remoteChainSelec
 
 func (w TokenPoolWrapper) ApplyChainUpdates(opts *bind.TransactOpts, update []token_pool.TokenPoolChainUpdate) (*types.Transaction, error) {
 	if w.Latest != nil && w.Latest.PoolInterface != nil {
-		return w.Latest.PoolInterface.ApplyChainUpdates(opts, update)
+		return w.Latest.PoolInterface.ApplyChainUpdates(opts, []uint64{}, update)
 	}
 	if w.V1_4_0 != nil && w.V1_4_0.PoolInterface != nil {
 		V1_4_0Updates := make([]token_pool_1_4_0.TokenPoolChainUpdate, len(update))
 		for i, u := range update {
 			V1_4_0Updates[i] = token_pool_1_4_0.TokenPoolChainUpdate{
 				RemoteChainSelector: u.RemoteChainSelector,
-				Allowed:             u.Allowed,
 				InboundRateLimiterConfig: token_pool_1_4_0.RateLimiterConfig{
 					IsEnabled: u.InboundRateLimiterConfig.IsEnabled,
 					Capacity:  u.InboundRateLimiterConfig.Capacity,
@@ -828,9 +827,8 @@ func (pool *TokenPool) SetRemoteChainOnPool(remoteChainSelector uint64, remotePo
 
 	selectorsToUpdate = append(selectorsToUpdate, token_pool.TokenPoolChainUpdate{
 		RemoteChainSelector: remoteChainSelector,
-		RemotePoolAddress:   encodedPoolAddress,
+		RemotePoolAddresses: [][]byte{encodedPoolAddress},
 		RemoteTokenAddress:  encodedTokenAddress,
-		Allowed:             true,
 		InboundRateLimiterConfig: token_pool.RateLimiterConfig{
 			IsEnabled: true,
 			Capacity:  new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1e9)),
@@ -2241,7 +2239,11 @@ func (a *MockAggregator) UpdateRoundData(answer *big.Int, minP, maxP *int) error
 
 	// if answer is nil, we calculate the answer with random percentage (within the provided range) of latest answer
 	if answer == nil {
-		rand.Seed(uint64(time.Now().UnixNano()))
+		now := time.Now().UnixNano()
+		if now < 0 {
+			return fmt.Errorf("negative timestamp: %d", now)
+		}
+		rand.Seed(uint64(now))
 		randomNumber := rand.Intn(pointer.GetInt(maxP)-pointer.GetInt(minP)+1) + pointer.GetInt(minP)
 		// answer = previous round answer + (previous round answer * random percentage)
 		answer = new(big.Int).Add(a.Answer, new(big.Int).Div(new(big.Int).Mul(a.Answer, big.NewInt(int64(randomNumber))), big.NewInt(100)))

@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	kocr3 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
@@ -236,4 +237,52 @@ func GenerateOCR3Config(cfg OracleConfigWithSecrets, nca []NodeKeys) (OCR2Oracle
 	}
 
 	return config, nil
+}
+
+type configureOCR3Request struct {
+	cfg      *OracleConfigWithSecrets
+	chain    deployment.Chain
+	contract *kocr3.OCR3Capability
+	nodes    []deployment.Node
+	dryRun   bool
+}
+
+func (r configureOCR3Request) generateOCR3Config() (OCR2OracleConfig, error) {
+	nks := makeNodeKeysSlice(r.nodes, r.chain.Selector)
+	return GenerateOCR3Config(*r.cfg, nks)
+}
+
+type configureOCR3Response struct {
+	ocrConfig OCR2OracleConfig
+}
+
+func configureOCR3contract(req configureOCR3Request) (*configureOCR3Response, error) {
+	if req.contract == nil {
+		return nil, fmt.Errorf("OCR3 contract is nil")
+	}
+	ocrConfig, err := req.generateOCR3Config()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate OCR3 config: %w", err)
+	}
+	if req.dryRun {
+		return &configureOCR3Response{ocrConfig}, nil
+	}
+	tx, err := req.contract.SetConfig(req.chain.DeployerKey,
+		ocrConfig.Signers,
+		ocrConfig.Transmitters,
+		ocrConfig.F,
+		ocrConfig.OnchainConfig,
+		ocrConfig.OffchainConfigVersion,
+		ocrConfig.OffchainConfig,
+	)
+	if err != nil {
+		err = DecodeErr(kocr3.OCR3CapabilityABI, err)
+		return nil, fmt.Errorf("failed to call SetConfig for OCR3 contract %s: %w", req.contract.Address().String(), err)
+	}
+	_, err = req.chain.Confirm(tx)
+	if err != nil {
+		err = DecodeErr(kocr3.OCR3CapabilityABI, err)
+		return nil, fmt.Errorf("failed to confirm SetConfig for OCR3 contract %s: %w", req.contract.Address().String(), err)
+	}
+	return &configureOCR3Response{ocrConfig}, nil
 }
