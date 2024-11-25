@@ -145,9 +145,9 @@ gomods: ## Install gomods
 	go install github.com/jmank88/gomods@v0.1.4
 
 .PHONY: gomodslocalupdate
-gomodslocalupdate: ## Run gomod-required-updater
-	go install ./tools/gomod-required-updater/cmd/gomod-required-updater
-	gomods -w gomod-required-updater
+gomodslocalupdate: ## Run gomod-local-update
+	go install ./tools/gomod-local-update/cmd/gomod-local-update
+	gomods -w gomod-local-update
 	gomods tidy
 
 .PHONY: mockery

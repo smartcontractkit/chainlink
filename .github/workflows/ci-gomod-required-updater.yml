@@ -1,4 +1,4 @@
-name: gomod-required-updater
+name: gomod-local-update
 
 on:
   pull_request:
@@ -12,5 +12,5 @@ jobs:
         uses: ./.github/actions/setup-go
       - name: Build binary
         run: |
-          go build -o dist/gomod-required-updater \
-            ./tools/gomod-required-updater/cmd/gomod-required-updater
+          go build -o dist/gomod-local-update \
+            ./tools/gomod-local-update/cmd/gomod-local-update
