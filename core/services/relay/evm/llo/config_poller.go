@@ -126,7 +126,9 @@ func (cp *configPoller) latestConfig(ctx context.Context, fromBlock, toBlock int
 	// Get all configset logs and run through them forwards
 	// NOTE: It's useful to get _all_ logs rather than just the latest since
 	// they are stored in the ConfigCache
-	exprs := append(cp.filterExprs,
+	exprs := make([]query.Expression, 0, len(cp.filterExprs)+2)
+	exprs = append(exprs, cp.filterExprs...)
+	exprs = append(exprs,
 		query.Block(strconv.FormatInt(fromBlock, 10), primitives.Gte),
 		query.Block(strconv.FormatInt(toBlock, 10), primitives.Lte),
 	)

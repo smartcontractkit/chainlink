@@ -98,7 +98,9 @@ func (s *shouldRetireCache) start(ctx context.Context) error {
 func (s *shouldRetireCache) checkShouldRetire(ctx context.Context) {
 	fromBlock := s.latestBlockNum + 1
 
-	exprs := append(s.filterExprs,
+	exprs := make([]query.Expression, 0, len(s.filterExprs)+1)
+	exprs = append(exprs, s.filterExprs...)
+	exprs = append(exprs,
 		query.Block(strconv.FormatInt(fromBlock, 10), primitives.Gte),
 	)
 

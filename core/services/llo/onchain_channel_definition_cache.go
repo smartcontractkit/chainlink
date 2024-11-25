@@ -236,7 +236,9 @@ func (c *channelDefinitionCache) readLogs(ctx context.Context) (err error) {
 		return nil
 	}
 
-	exprs := append(c.filterExprs,
+	exprs := make([]query.Expression, 0, len(c.filterExprs)+2)
+	exprs = append(exprs, c.filterExprs...)
+	exprs = append(exprs,
 		query.Block(strconv.FormatInt(fromBlock, 10), primitives.Gte),
 		query.Block(strconv.FormatInt(toBlock, 10), primitives.Lte),
 	)
