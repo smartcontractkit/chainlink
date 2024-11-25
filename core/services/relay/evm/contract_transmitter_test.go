@@ -34,11 +34,7 @@ type mockTransmitter struct {
 	lastPayload []byte
 }
 
-func (m *mockTransmitter) SendSecondaryTransaction() bool {
-	return false
-}
-
-func (m *mockTransmitter) CreateSecondaryEthTransaction(ctx context.Context, payload []byte, txMeta *txmgr.TxMeta) error {
+func (m *mockTransmitter) CreateSecondaryEthTransaction(ctx context.Context, bytes []byte, meta *txmgr.TxMeta) error {
 	return nil
 }
 

@@ -4,10 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/hex"
-	errors2 "errors"
-	"fmt"
 	"math/big"
-	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
@@ -27,9 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 )
 
-// TODO @george-dorin: Remove when new contracts are merged
-var dtABI = `[{"inputs":[{"internalType":"bytes32[3]","name":"reportContext","type":"bytes32[3]"},{"internalType":"bytes","name":"report","type":"bytes"},{"internalType":"bytes32[]","name":"rs","type":"bytes32[]"},{"internalType":"bytes32[]","name":"ss","type":"bytes32[]"},{"internalType":"bytes32","name":"rawVs","type":"bytes32"}],"name":"transmitSecondary","outputs":[],"stateMutability":"nonpayable","type":"function"}]`
-
 type ContractTransmitter interface {
 	services.ServiceCtx
 	ocrtypes.ContractTransmitter
@@ -41,8 +35,7 @@ type Transmitter interface {
 	CreateEthTransaction(ctx context.Context, toAddress gethcommon.Address, payload []byte, txMeta *txmgr.TxMeta) error
 	FromAddress(context.Context) gethcommon.Address
 
-	SendSecondaryTransaction() bool
-	CreateSecondaryEthTransaction(ctx context.Context, payload []byte, txMeta *txmgr.TxMeta) error
+	CreateSecondaryEthTransaction(context.Context, []byte, *txmgr.TxMeta) error
 }
 
 type ReportToEthMetadata func([]byte) (*txmgr.TxMeta, error)
@@ -51,28 +44,35 @@ func reportToEvmTxMetaNoop([]byte) (*txmgr.TxMeta, error) {
 	return nil, nil
 }
 
-type OCRTransmitterOption func(transmitter *contractTransmitter)
+type transmitterOps struct {
+	reportToEvmTxMeta ReportToEthMetadata
+	excludeSigs       bool
+	retention         time.Duration
+	maxLogsKept       uint64
+}
+
+type OCRTransmitterOption func(transmitter *transmitterOps)
 
 func WithExcludeSignatures() OCRTransmitterOption {
-	return func(ct *contractTransmitter) {
+	return func(ct *transmitterOps) {
 		ct.excludeSigs = true
 	}
 }
 
 func WithRetention(retention time.Duration) OCRTransmitterOption {
-	return func(ct *contractTransmitter) {
+	return func(ct *transmitterOps) {
 		ct.retention = retention
 	}
 }
 
 func WithMaxLogsKept(maxLogsKept uint64) OCRTransmitterOption {
-	return func(ct *contractTransmitter) {
+	return func(ct *transmitterOps) {
 		ct.maxLogsKept = maxLogsKept
 	}
 }
 
 func WithReportToEthMetadata(reportToEvmTxMeta ReportToEthMetadata) OCRTransmitterOption {
-	return func(ct *contractTransmitter) {
+	return func(ct *transmitterOps) {
 		if reportToEvmTxMeta != nil {
 			ct.reportToEvmTxMeta = reportToEvmTxMeta
 		}
@@ -82,30 +82,17 @@ func WithReportToEthMetadata(reportToEvmTxMeta ReportToEthMetadata) OCRTransmitt
 type contractTransmitter struct {
 	contractAddress     gethcommon.Address
 	contractABI         abi.ABI
-	dualTransmissionABI abi.ABI
 	transmitter         Transmitter
 	transmittedEventSig common.Hash
 	contractReader      contractReader
 	lp                  logpoller.LogPoller
 	lggr                logger.Logger
 	// Options
-	reportToEvmTxMeta ReportToEthMetadata
-	excludeSigs       bool
-	retention         time.Duration
-	maxLogsKept       uint64
+	transmitterOptions *transmitterOps
 }
 
 func transmitterFilterName(addr common.Address) string {
 	return logpoller.FilterName("OCR ContractTransmitter", addr.String())
-}
-
-// TODO @george-dorin: Remove when contracts are merged
-func initDualTransmissionABI() abi.ABI {
-	dualTransmissionABI, err := abi.JSON(strings.NewReader(dtABI))
-	if err != nil {
-		panic(fmt.Errorf("failed to parse dualTransmission ABI: %v", err))
-	}
-	return dualTransmissionABI
 }
 
 func NewOCRContractTransmitter(
@@ -126,23 +113,24 @@ func NewOCRContractTransmitter(
 	newContractTransmitter := &contractTransmitter{
 		contractAddress:     address,
 		contractABI:         contractABI,
-		dualTransmissionABI: initDualTransmissionABI(), //TODO @george-dorin: Remove when contracts are merged
 		transmitter:         transmitter,
 		transmittedEventSig: transmitted.ID,
 		lp:                  lp,
 		contractReader:      caller,
 		lggr:                logger.Named(lggr, "OCRContractTransmitter"),
-		reportToEvmTxMeta:   reportToEvmTxMetaNoop,
-		excludeSigs:         false,
-		retention:           0,
-		maxLogsKept:         0,
+		transmitterOptions: &transmitterOps{
+			reportToEvmTxMeta: reportToEvmTxMetaNoop,
+			excludeSigs:       false,
+			retention:         0,
+			maxLogsKept:       0,
+		},
 	}
 
 	for _, opt := range opts {
-		opt(newContractTransmitter)
+		opt(newContractTransmitter.transmitterOptions)
 	}
 
-	err := lp.RegisterFilter(ctx, logpoller.Filter{Name: transmitterFilterName(address), EventSigs: []common.Hash{transmitted.ID}, Addresses: []common.Address{address}, Retention: newContractTransmitter.retention, MaxLogsKept: newContractTransmitter.maxLogsKept})
+	err := lp.RegisterFilter(ctx, logpoller.Filter{Name: transmitterFilterName(address), EventSigs: []common.Hash{transmitted.ID}, Addresses: []common.Address{address}, Retention: newContractTransmitter.transmitterOptions.retention, MaxLogsKept: newContractTransmitter.transmitterOptions.maxLogsKept})
 	if err != nil {
 		return nil, err
 	}
@@ -162,7 +150,7 @@ func (oc *contractTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.
 		if err != nil {
 			panic("eventTransmit(ev): error in SplitSignature")
 		}
-		if !oc.excludeSigs {
+		if !oc.transmitterOptions.excludeSigs {
 			rs = append(rs, r)
 			ss = append(ss, s)
 			vs[i] = v
@@ -170,7 +158,7 @@ func (oc *contractTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.
 	}
 	rawReportCtx := evmutil.RawReportContext(reportCtx)
 
-	txMeta, err := oc.reportToEvmTxMeta(report)
+	txMeta, err := oc.transmitterOptions.reportToEvmTxMeta(report)
 	if err != nil {
 		oc.lggr.Warnw("failed to generate tx metadata for report", "err", err)
 	}
@@ -182,19 +170,7 @@ func (oc *contractTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.
 		return errors.Wrap(err, "abi.Pack failed")
 	}
 
-	transactionErr := errors.Wrap(oc.transmitter.CreateEthTransaction(ctx, oc.contractAddress, payload, txMeta), "failed to send Eth transaction")
-
-	if oc.transmitter.SendSecondaryTransaction() {
-		secondaryPayload, err := oc.dualTransmissionABI.Pack("transmitSecondary", rawReportCtx, []byte(report), rs, ss, vs)
-		if err != nil {
-			return errors.Wrap(err, "transmitSecondary abi.Pack failed")
-		}
-
-		err = errors.Wrap(oc.transmitter.CreateSecondaryEthTransaction(ctx, secondaryPayload, txMeta), "failed to send secondary Eth transaction")
-		return errors2.Join(transactionErr, err)
-	}
-
-	return transactionErr
+	return errors.Wrap(oc.transmitter.CreateEthTransaction(ctx, oc.contractAddress, payload, txMeta), "failed to send Eth transaction")
 
 }
 
