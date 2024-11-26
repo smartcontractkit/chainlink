@@ -31,7 +31,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	ocr2 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
@@ -281,7 +280,7 @@ func (s *service) SyncNodeInfo(ctx context.Context, id int64) error {
 	if _, err = fmsClient.UpdateNode(ctx, &pb.UpdateNodeRequest{
 		Version:      s.version,
 		ChainConfigs: cfgMsgs,
-		WorkflowKey:  s.getWorkflowKey().PublicKeyString(),
+		WorkflowKey:  s.getWorkflowPublicKey(),
 	}); err != nil {
 		return err
 	}
@@ -1147,18 +1146,18 @@ func (s *service) getCSAPrivateKey() (privkey []byte, err error) {
 	return keys[0].Raw(), nil
 }
 
-// getWorkflowKey retrieves the server's Workflow key.
+// getWorkflowPublicKey retrieves the server's Workflow public key.
 // Since there will be at most one key, it returns the first key found.
-// If an error occurs or no keys are found, it returns an empty key.
-func (s *service) getWorkflowKey() workflowkey.Key {
+// If an error occurs or no keys are found, it returns blank.
+func (s *service) getWorkflowPublicKey() string {
 	keys, err := s.workflowKeyStore.GetAll()
 	if err != nil {
-		return workflowkey.Key{}
+		return ""
 	}
 	if len(keys) < 1 {
-		return workflowkey.Key{}
+		return ""
 	}
-	return keys[0]
+	return keys[0].PublicKeyString()
 }
 
 // observeJobProposalCounts is a helper method that queries the repository for the count of

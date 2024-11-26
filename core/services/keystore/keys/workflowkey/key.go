@@ -49,12 +49,8 @@ func New() (Key, error) {
 	}, nil
 }
 
-func (k Key) PublicKey() [curve25519.PointSize]byte {
-	if k.publicKey == nil {
-		return [curve25519.PointSize]byte{}
-	}
-
-	return *k.publicKey
+func (k Key) PublicKey() *[curve25519.PointSize]byte {
+	return k.publicKey
 }
 
 func (k Key) PublicKeyString() string {
@@ -86,7 +82,11 @@ func (k Key) GoString() string {
 // Encrypt encrypts a message using the public key
 func (k Key) Encrypt(plaintext []byte) ([]byte, error) {
 	publicKey := k.PublicKey()
-	encrypted, err := box.SealAnonymous(nil, plaintext, &publicKey, cryptorand.Reader)
+	if publicKey == nil {
+		return nil, errors.New("public key is nil")
+	}
+
+	encrypted, err := box.SealAnonymous(nil, plaintext, publicKey, cryptorand.Reader)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +97,11 @@ func (k Key) Encrypt(plaintext []byte) ([]byte, error) {
 // Decrypt decrypts a message that was encrypted using the private key
 func (k Key) Decrypt(ciphertext []byte) (plaintext []byte, err error) {
 	publicKey := k.PublicKey()
-	decrypted, success := box.OpenAnonymous(nil, ciphertext, &publicKey, k.privateKey)
+	if publicKey == nil {
+		return nil, errors.New("public key is nil")
+	}
+
+	decrypted, success := box.OpenAnonymous(nil, ciphertext, publicKey, k.privateKey)
 	if !success {
 		return nil, errors.New("decryption failed")
 	}
