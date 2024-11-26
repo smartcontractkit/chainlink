@@ -869,21 +869,30 @@ const (
 	DefaultSpecType                  = ""
 )
 
+type WorkflowSpecStatus string
+
+const (
+	WorkflowSpecStatusActive  WorkflowSpecStatus = "active"
+	WorkflowSpecStatusPaused  WorkflowSpecStatus = "paused"
+	WorkflowSpecStatusDefault WorkflowSpecStatus = ""
+)
+
 type WorkflowSpec struct {
 	ID       int32  `toml:"-"`
 	Workflow string `toml:"workflow"`           // the raw representation of the workflow
 	Config   string `toml:"config" db:"config"` // the raw representation of the config
 	// fields derived from the yaml spec, used for indexing the database
 	// note: i tried to make these private, but translating them to the database seems to require them to be public
-	WorkflowID    string           `toml:"-" db:"workflow_id"`    // Derived. Do not modify. the CID of the workflow.
-	WorkflowOwner string           `toml:"-" db:"workflow_owner"` // Derived. Do not modify. the owner of the workflow.
-	WorkflowName  string           `toml:"-" db:"workflow_name"`  // Derived. Do not modify. the name of the workflow.
-	BinaryURL     string           `db:"binary_url"`
-	ConfigURL     string           `db:"config_url"`
-	SecretsID     sql.NullInt64    `db:"secrets_id"`
-	CreatedAt     time.Time        `toml:"-"`
-	UpdatedAt     time.Time        `toml:"-"`
-	SpecType      WorkflowSpecType `toml:"spec_type" db:"spec_type"`
+	WorkflowID    string             `toml:"-" db:"workflow_id"`    // Derived. Do not modify. the CID of the workflow.
+	WorkflowOwner string             `toml:"-" db:"workflow_owner"` // Derived. Do not modify. the owner of the workflow.
+	WorkflowName  string             `toml:"-" db:"workflow_name"`  // Derived. Do not modify. the name of the workflow.
+	Status        WorkflowSpecStatus `db:"status"`
+	BinaryURL     string             `db:"binary_url"`
+	ConfigURL     string             `db:"config_url"`
+	SecretsID     sql.NullInt64      `db:"secrets_id"`
+	CreatedAt     time.Time          `toml:"-"`
+	UpdatedAt     time.Time          `toml:"-"`
+	SpecType      WorkflowSpecType   `toml:"spec_type" db:"spec_type"`
 	sdkWorkflow   *sdk.WorkflowSpec
 	rawSpec       []byte
 	config        []byte

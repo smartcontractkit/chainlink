@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/pelletier/go-toml/v2"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -37,6 +38,7 @@ type RelayerFactory struct {
 	logger.Logger
 	*plugins.LoopRegistry
 	loop.GRPCOpts
+	Registerer            prometheus.Registerer
 	MercuryPool           wsrpc.Pool
 	CapabilitiesRegistry  coretypes.CapabilitiesRegistry
 	HTTPClient            *http.Client
@@ -81,6 +83,7 @@ func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (m
 
 		relayerOpts := evmrelay.RelayerOpts{
 			DS:                    ccOpts.DS,
+			Registerer:            r.Registerer,
 			CSAETHKeystore:        config.CSAETHKeystore,
 			MercuryPool:           r.MercuryPool,
 			MercuryConfig:         config.MercuryConfig,

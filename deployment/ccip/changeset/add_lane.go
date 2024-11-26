@@ -2,9 +2,11 @@ package changeset
 
 import (
 	"encoding/hex"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
@@ -15,10 +17,74 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 )
 
+var _ deployment.ChangeSet[AddLanesConfig] = AddLanesWithTestRouter
+
 type InitialPrices struct {
 	LinkPrice *big.Int // USD to the power of 18 (e18) per LINK
 	WethPrice *big.Int // USD to the power of 18 (e18) per WETH
 	GasPrice  *big.Int // uint224 packed gas price in USD (112 for exec // 112 for da)
+}
+
+func (p InitialPrices) Validate() error {
+	if p.LinkPrice == nil {
+		return fmt.Errorf("missing link price")
+	}
+	if p.WethPrice == nil {
+		return fmt.Errorf("missing weth price")
+	}
+	if p.GasPrice == nil {
+		return fmt.Errorf("missing gas price")
+	}
+	return nil
+}
+
+type LaneConfig struct {
+	SourceSelector        uint64
+	DestSelector          uint64
+	InitialPricesBySource InitialPrices
+	FeeQuoterDestChain    fee_quoter.FeeQuoterDestChainConfig
+}
+
+type AddLanesConfig struct {
+	LaneConfigs []LaneConfig
+}
+
+func (c AddLanesConfig) Validate() error {
+	for _, pair := range c.LaneConfigs {
+		if pair.SourceSelector == pair.DestSelector {
+			return fmt.Errorf("cannot add lane to the same chain")
+		}
+		if err := pair.InitialPricesBySource.Validate(); err != nil {
+			return fmt.Errorf("error in validating initial prices for chain %d : %w", pair.SourceSelector, err)
+		}
+		// TODO: add more FeeQuoterDestChainConfigArgs validation
+		if pair.FeeQuoterDestChain == (fee_quoter.FeeQuoterDestChainConfig{}) {
+			return fmt.Errorf("missing fee quoter dest chain config")
+		}
+	}
+	return nil
+}
+
+// AddLanesWithTestRouter adds lanes between chains using the test router.
+// AddLanesWithTestRouter is run while the contracts are still owned by the deployer.
+// This is useful to test the initial deployment to enable lanes between chains.
+// Once the testrouter is enabled, the lanes can be used to send messages between chains with testrouter.
+// On successful verification with testrouter, the lanes can be enabled with the main router with different AddLane ChangeSet.
+func AddLanesWithTestRouter(e deployment.Environment, cfg AddLanesConfig) (deployment.ChangesetOutput, error) {
+	if err := cfg.Validate(); err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("invalid AddLanesConfig: %w", err)
+	}
+	newAddresses := deployment.NewMemoryAddressBook()
+	err := addLanes(e, cfg)
+	if err != nil {
+		e.Logger.Errorw("Failed to add lanes", "err", err)
+		return deployment.ChangesetOutput{}, err
+	}
+	return deployment.ChangesetOutput{
+		Proposals:   []timelock.MCMSWithTimelockProposal{},
+		AddressBook: newAddresses,
+		JobSpecs:    nil,
+	}, nil
 }
 
 var DefaultInitialPrices = InitialPrices{
@@ -27,13 +93,46 @@ var DefaultInitialPrices = InitialPrices{
 	GasPrice:  ToPackedFee(big.NewInt(8e14), big.NewInt(0)),
 }
 
-func AddLaneWithDefaultPrices(e deployment.Environment, state CCIPOnChainState, from, to uint64) error {
-	return AddLane(e, state, from, to, DefaultInitialPrices)
+func addLanes(e deployment.Environment, cfg AddLanesConfig) error {
+	state, err := LoadOnchainState(e)
+	if err != nil {
+		return fmt.Errorf("failed to load onchain state: %w", err)
+	}
+	for _, laneCfg := range cfg.LaneConfigs {
+		e.Logger.Infow("Enabling lane with test router", "from", laneCfg.SourceSelector, "to", laneCfg.DestSelector)
+		if err := AddLane(e, state, laneCfg, true); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
-func AddLane(e deployment.Environment, state CCIPOnChainState, from, to uint64, initialPrices InitialPrices) error {
+func AddLaneWithDefaultPricesAndFeeQuoterConfig(e deployment.Environment, state CCIPOnChainState, from, to uint64, isTestRouter bool) error {
+	cfg := LaneConfig{
+		SourceSelector:        from,
+		DestSelector:          to,
+		InitialPricesBySource: DefaultInitialPrices,
+		FeeQuoterDestChain:    DefaultFeeQuoterDestChainConfig(),
+	}
+	return AddLane(e, state, cfg, isTestRouter)
+}
+
+func AddLane(e deployment.Environment, state CCIPOnChainState, config LaneConfig, isTestRouter bool) error {
 	// TODO: Batch
-	tx, err := state.Chains[from].Router.ApplyRampUpdates(e.Chains[from].DeployerKey, []router.RouterOnRamp{
+	var fromRouter *router.Router
+	var toRouter *router.Router
+	from := config.SourceSelector
+	to := config.DestSelector
+	feeQuoterDestChainConfig := config.FeeQuoterDestChain
+	initialPrices := config.InitialPricesBySource
+	if isTestRouter {
+		fromRouter = state.Chains[from].TestRouter
+		toRouter = state.Chains[to].TestRouter
+	} else {
+		fromRouter = state.Chains[from].Router
+		toRouter = state.Chains[to].Router
+	}
+	tx, err := fromRouter.ApplyRampUpdates(e.Chains[from].DeployerKey, []router.RouterOnRamp{
 		{
 			DestChainSelector: to,
 			OnRamp:            state.Chains[from].OnRamp.Address(),
@@ -46,7 +145,7 @@ func AddLane(e deployment.Environment, state CCIPOnChainState, from, to uint64, 
 		[]onramp.OnRampDestChainConfigArgs{
 			{
 				DestChainSelector: to,
-				Router:            state.Chains[from].Router.Address(),
+				Router:            fromRouter.Address(),
 			},
 		})
 	if _, err := deployment.ConfirmIfNoError(e.Chains[from], tx, err); err != nil {
@@ -80,7 +179,7 @@ func AddLane(e deployment.Environment, state CCIPOnChainState, from, to uint64, 
 		[]fee_quoter.FeeQuoterDestChainConfigArgs{
 			{
 				DestChainSelector: to,
-				DestChainConfig:   DefaultFeeQuoterDestChainConfig(),
+				DestChainConfig:   feeQuoterDestChainConfig,
 			},
 		})
 	if _, err := deployment.ConfirmIfNoError(e.Chains[from], tx, err); err != nil {
@@ -90,7 +189,7 @@ func AddLane(e deployment.Environment, state CCIPOnChainState, from, to uint64, 
 	tx, err = state.Chains[to].OffRamp.ApplySourceChainConfigUpdates(e.Chains[to].DeployerKey,
 		[]offramp.OffRampSourceChainConfigArgs{
 			{
-				Router:              state.Chains[to].Router.Address(),
+				Router:              toRouter.Address(),
 				SourceChainSelector: from,
 				IsEnabled:           true,
 				OnRamp:              common.LeftPadBytes(state.Chains[from].OnRamp.Address().Bytes(), 32),
@@ -99,7 +198,7 @@ func AddLane(e deployment.Environment, state CCIPOnChainState, from, to uint64, 
 	if _, err := deployment.ConfirmIfNoError(e.Chains[to], tx, err); err != nil {
 		return err
 	}
-	tx, err = state.Chains[to].Router.ApplyRampUpdates(e.Chains[to].DeployerKey, []router.RouterOnRamp{}, []router.RouterOffRamp{}, []router.RouterOffRamp{
+	tx, err = toRouter.ApplyRampUpdates(e.Chains[to].DeployerKey, []router.RouterOnRamp{}, []router.RouterOffRamp{}, []router.RouterOffRamp{
 		{
 			SourceChainSelector: from,
 			OffRamp:             state.Chains[to].OffRamp.Address(),

@@ -16,6 +16,9 @@ var _ deployment.ChangeSet[DeployChainContractsConfig] = DeployChainContracts
 // changeset again with the same input to retry the failed deployment.
 // Caller should update the environment's address book with the returned addresses.
 func DeployChainContracts(env deployment.Environment, c DeployChainContractsConfig) (deployment.ChangesetOutput, error) {
+	if err := c.Validate(); err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("invalid DeployChainContractsConfig: %w", err)
+	}
 	newAddresses := deployment.NewMemoryAddressBook()
 	err := deployChainContractsForChains(env, newAddresses, c.HomeChainSelector, c.ChainSelectors)
 	if err != nil {

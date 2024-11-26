@@ -883,10 +883,7 @@ func (d *Delegate) newServicesMercury(
 		return nil, errors.New("could not coerce PluginProvider to MercuryProvider")
 	}
 
-	// HACK: We need fast config switchovers because they create downtime. This
-	// won't be properly resolved until we implement blue-green deploys:
-	// https://smartcontract-it.atlassian.net/browse/MERC-3386
-	lc.ContractConfigTrackerPollInterval = 1 * time.Second // Mercury requires a fast poll interval, this is the fastest that libocr supports. See: https://github.com/smartcontractkit/offchain-reporting/pull/520
+	lc.ContractConfigTrackerPollInterval = 1 * time.Second // This is the fastest that libocr supports. See: https://github.com/smartcontractkit/offchain-reporting/pull/520
 
 	ocrLogger := ocrcommon.NewOCRWrapper(lggr, d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
 		lggr.ErrorIf(d.jobORM.RecordError(ctx, jb.ID, msg), "unable to record error")
@@ -1005,7 +1002,7 @@ func (d *Delegate) newServicesLLO(
 
 	// Use the default key bundle if not specified
 	// NOTE: Only JSON and EVMPremiumLegacy supported for now
-	// https://smartcontract-it.atlassian.net/browse/MERC-3722
+	// TODO: MERC-3594
 	//
 	// Also re-use EVM keys for signing the retirement report. This isn't
 	// required, just seems easiest since it's the only key type available for
@@ -1032,7 +1029,7 @@ func (d *Delegate) newServicesLLO(
 	// config on the job spec instead.
 	// https://smartcontract-it.atlassian.net/browse/MERC-3594
 	lggr.Infof("Using on-chain signing keys for LLO job %d (%s): %v", jb.ID, jb.Name.ValueOrZero(), kbm)
-	kr := llo.NewOnchainKeyring(lggr, kbm)
+	kr := llo.NewOnchainKeyring(lggr, kbm, pluginCfg.DonID)
 
 	telemetryContractID := fmt.Sprintf("%s/%d", spec.ContractID, pluginCfg.DonID)
 
