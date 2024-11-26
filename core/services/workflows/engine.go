@@ -783,11 +783,14 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	inputs, outputs, err := e.executeStep(ctx, l, msg)
 	stepExecutionDuration := time.Since(stepExecutionStartTime).Seconds()
 
+	curStepID := "UNSET"
 	curStep, verr := e.workflow.Vertex(msg.stepRef)
-	if verr != nil {
+	if verr == nil {
+		curStepID = curStep.ID
+	} else {
 		l.Errorf("failed to resolve step in workflow; error %v", err)
 	}
-	e.metrics.with(platform.KeyCapabilityID, curStep.ID).updateWorkflowStepDurationHistogram(ctx, int64(stepExecutionDuration))
+	e.metrics.with(platform.KeyCapabilityID, curStepID).updateWorkflowStepDurationHistogram(ctx, int64(stepExecutionDuration))
 
 	var stepStatus string
 	switch {
