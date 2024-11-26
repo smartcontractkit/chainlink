@@ -74,7 +74,7 @@ func TestRMN_MultipleMessagesOnOneLaneNoWaitForExec(t *testing.T) {
 func TestRMN_NotEnoughObservers(t *testing.T) {
 	runRmnTestCase(t, rmnTestCase{
 		name:                "one message but not enough observers, should not get a commit report",
-		passIfNoCommitAfter: time.Minute, // wait for a minute and assert that commit report was not delivered
+		passIfNoCommitAfter: 15 * time.Second,
 		homeChainConfig: homeChainConfig{
 			f: map[int]int{chain0: 1, chain1: 1},
 		},
@@ -120,7 +120,7 @@ func TestRMN_DifferentSigners(t *testing.T) {
 func TestRMN_NotEnoughSigners(t *testing.T) {
 	runRmnTestCase(t, rmnTestCase{
 		name:                "different signers and different observers",
-		passIfNoCommitAfter: time.Minute, // wait for a minute and assert that commit report was not delivered
+		passIfNoCommitAfter: 15 * time.Second,
 		homeChainConfig: homeChainConfig{
 			f: map[int]int{chain0: 1, chain1: 1},
 		},
@@ -175,6 +175,8 @@ const (
 
 func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	require.NoError(t, os.Setenv("ENABLE_RMN", "true"))
+
+	ctx := testcontext.Get(t)
 
 	envWithRMN, rmnCluster := testsetups.NewLocalDevEnvironmentWithRMN(t, logger.TestLogger(t), len(tc.rmnNodes))
 	t.Logf("envWithRmn: %#v", envWithRMN)
@@ -241,9 +243,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	homeChainState, ok := onChainState.Chains[envWithRMN.HomeChainSel]
 	require.True(t, ok)
 
-	allDigests, err := homeChainState.RMNHome.GetConfigDigests(&bind.CallOpts{
-		Context: testcontext.Get(t),
-	})
+	allDigests, err := homeChainState.RMNHome.GetConfigDigests(&bind.CallOpts{Context: ctx})
 	require.NoError(t, err)
 
 	t.Logf("RMNHome candidateDigest before setting new candidate: %x, activeDigest: %x",
@@ -265,9 +265,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	_, err = deployment.ConfirmIfNoError(homeChain, tx, err)
 	require.NoError(t, err)
 
-	candidateDigest, err := homeChainState.RMNHome.GetCandidateDigest(&bind.CallOpts{
-		Context: testcontext.Get(t),
-	})
+	candidateDigest, err := homeChainState.RMNHome.GetCandidateDigest(&bind.CallOpts{Context: ctx})
 	require.NoError(t, err)
 
 	t.Logf("RMNHome candidateDigest after setting new candidate: %x", candidateDigest[:])
@@ -281,9 +279,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	require.NoError(t, err)
 
 	// check the active digest is the same as the candidate digest
-	activeDigest, err := homeChainState.RMNHome.GetActiveDigest(&bind.CallOpts{
-		Context: testcontext.Get(t),
-	})
+	activeDigest, err := homeChainState.RMNHome.GetActiveDigest(&bind.CallOpts{Context: ctx})
 	require.NoError(t, err)
 	require.Equalf(t, candidateDigest, activeDigest,
 		"active digest should be the same as the previously candidate digest after promotion, previous candidate: %x, active: %x",
@@ -312,9 +308,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 		require.NoError(t, err2)
 
 		// confirm the config is set correctly
-		config, err2 := chState.RMNRemote.GetVersionedConfig(&bind.CallOpts{
-			Context: testcontext.Get(t),
-		})
+		config, err2 := chState.RMNRemote.GetVersionedConfig(&bind.CallOpts{Context: ctx})
 		require.NoError(t, err2)
 		require.Equalf(t,
 			activeDigest,
