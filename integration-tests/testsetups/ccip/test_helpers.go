@@ -1,4 +1,4 @@
-package testsetups
+package ccip
 
 import (
 	"bytes"
