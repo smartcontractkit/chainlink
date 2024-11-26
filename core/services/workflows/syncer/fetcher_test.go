@@ -34,17 +34,9 @@ func TestNewFetcherFunc(t *testing.T) {
 	och, err := webapi.NewOutgoingConnectorHandler(connector, config, ghcapabilities.MethodComputeAction, lggr)
 	require.NoError(t, err)
 
-	workflowID := "15c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0"
-	workflowExecutionID := "25c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1"
-	idGenerator := func() string { return "uniqueID" }
 	url := "http://example.com"
 
-	msgID := strings.Join([]string{
-		workflowID,
-		workflowExecutionID,
-		ghcapabilities.MethodWorkflowSyncer,
-		idGenerator(),
-	}, "/")
+	msgID := strings.Join([]string{ghcapabilities.MethodWorkflowSyncer, url}, "/")
 
 	t.Run("OK-valid_request", func(t *testing.T) {
 		gatewayResp := gatewayResponse(t, msgID)
@@ -54,31 +46,13 @@ func TestNewFetcherFunc(t *testing.T) {
 		connector.EXPECT().DonID().Return("don-id")
 		connector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
 
-		fetcher := NewFetcherFunc(ctx, lggr, och, workflowID, workflowExecutionID, idGenerator)
+		fetcher := NewFetcherFunc(ctx, lggr, och)
 
 		payload, err := fetcher(ctx, url)
 		require.NoError(t, err)
 
 		expectedPayload := []byte("response body")
 		require.Equal(t, expectedPayload, payload)
-	})
-
-	t.Run("NOK-invalid_workflow_id", func(t *testing.T) {
-		invalidWorkflowID := "invalidWorkflowID"
-		fetcher := NewFetcherFunc(ctx, lggr, och, invalidWorkflowID, workflowExecutionID, idGenerator)
-
-		_, err := fetcher(ctx, url)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "workflow ID")
-	})
-
-	t.Run("NOK-invalid_workflow_execution_id", func(t *testing.T) {
-		invalidWorkflowExecutionID := "invalidWorkflowExecutionID"
-		fetcher := NewFetcherFunc(ctx, lggr, och, workflowID, invalidWorkflowExecutionID, idGenerator)
-
-		_, err := fetcher(ctx, url)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "workflow execution ID")
 	})
 }
 
