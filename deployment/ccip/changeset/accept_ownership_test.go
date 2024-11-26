@@ -10,7 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/stretchr/testify/require"
@@ -66,95 +65,61 @@ func Test_NewAcceptOwnershipChangeset(t *testing.T) {
 	state, err = LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
-	for _, chain := range allChains {
-		deployerBalance, err := e.Env.Chains[chain].Client.BalanceAt(
-			ctx, e.Env.Chains[chain].DeployerKey.From, nil)
-		require.NoError(t, err)
-		t.Log("deployer balance is:", assets.NewWei(deployerBalance).String())
-
-		// OnRamp
-		tx, err := state.Chains[chain].OnRamp.TransferOwnership(
-			e.Env.Chains[chain].DeployerKey,
-			state.Chains[chain].Timelock.Address(),
-		)
-		_, err = deployment.ConfirmIfNoError(e.Env.Chains[chain], tx, err)
-		require.NoError(t, err)
-
-		// OffRamp
-		tx, err = state.Chains[chain].OffRamp.TransferOwnership(
-			e.Env.Chains[chain].DeployerKey,
-			state.Chains[chain].Timelock.Address(),
-		)
-		_, err = deployment.ConfirmIfNoError(e.Env.Chains[chain], tx, err)
-		require.NoError(t, err)
-
-		// FeeQuoter
-		tx, err = state.Chains[chain].FeeQuoter.TransferOwnership(
-			e.Env.Chains[chain].DeployerKey,
-			state.Chains[chain].Timelock.Address(),
-		)
-		_, err = deployment.ConfirmIfNoError(e.Env.Chains[chain], tx, err)
-		require.NoError(t, err)
-
-		// NonceManager
-		tx, err = state.Chains[chain].NonceManager.TransferOwnership(
-			e.Env.Chains[chain].DeployerKey,
-			state.Chains[chain].Timelock.Address(),
-		)
-		_, err = deployment.ConfirmIfNoError(e.Env.Chains[chain], tx, err)
-		require.NoError(t, err)
-
-		// RMNRemote
-		tx, err = state.Chains[chain].RMNRemote.TransferOwnership(
-			e.Env.Chains[chain].DeployerKey,
-			state.Chains[chain].Timelock.Address(),
-		)
-		_, err = deployment.ConfirmIfNoError(e.Env.Chains[chain], tx, err)
-		require.NoError(t, err)
-	}
-
-	// now we can accept ownership via the proposal.
+	// compose the transfer ownership and accept ownership changesets
 	_, err = commonchangeset.ApplyChangesets(t, e.Env, map[uint64]*gethwrappers.RBACTimelock{
 		source: state.Chains[source].Timelock,
 		dest:   state.Chains[dest].Timelock,
 	}, []commonchangeset.ChangesetApplication{
+		// note this doesn't have proposals.
+		{
+			Changeset: commonchangeset.WrapChangeSet(NewTransferOwnershipChangeset),
+			Config: TransferOwnershipConfig{
+				State:             state,
+				ChainSelectors:    allChains,
+				HomeChainSelector: e.HomeChainSel,
+			},
+		},
+		// this has proposals, ApplyChangesets will sign & execute them.
+		// in practice, signing and executing are separated processes.
 		{
 			Changeset: commonchangeset.WrapChangeSet(NewAcceptOwnershipChangeset),
-			Config:    AcceptOwnershipConfig{State: state, ChainSelectors: allChains},
+			Config: AcceptOwnershipConfig{
+				State:             state,
+				ChainSelectors:    allChains,
+				HomeChainSelector: e.HomeChainSel,
+			},
 		},
 	})
 	require.NoError(t, err)
 
 	// check that the ownership has been transferred correctly
 	for _, chain := range allChains {
-		onRampOwner, err := state.Chains[chain].OnRamp.Owner(&bind.CallOpts{
-			Context: ctx,
-		})
-		require.NoError(t, err)
-		require.Equal(t, state.Chains[source].Timelock.Address(), onRampOwner)
+		for _, contract := range []ownershipTransferrer{
+			state.Chains[chain].OnRamp,
+			state.Chains[chain].OffRamp,
+			state.Chains[chain].FeeQuoter,
+			state.Chains[chain].NonceManager,
+			state.Chains[chain].RMNRemote,
+		} {
+			owner, err := contract.Owner(&bind.CallOpts{
+				Context: ctx,
+			})
+			require.NoError(t, err)
+			require.Equal(t, state.Chains[chain].Timelock.Address(), owner)
+		}
+	}
 
-		offRampOwner, err := state.Chains[chain].OffRamp.Owner(&bind.CallOpts{
+	// check home chain contracts ownership
+	homeChainTimelockAddress := state.Chains[e.HomeChainSel].Timelock.Address()
+	for _, contract := range []ownershipTransferrer{
+		state.Chains[e.HomeChainSel].CapabilityRegistry,
+		state.Chains[e.HomeChainSel].CCIPHome,
+		state.Chains[e.HomeChainSel].RMNHome,
+	} {
+		owner, err := contract.Owner(&bind.CallOpts{
 			Context: ctx,
 		})
 		require.NoError(t, err)
-		require.Equal(t, state.Chains[source].Timelock.Address(), offRampOwner)
-
-		feeQuoterOwner, err := state.Chains[chain].FeeQuoter.Owner(&bind.CallOpts{
-			Context: ctx,
-		})
-		require.NoError(t, err)
-		require.Equal(t, state.Chains[source].Timelock.Address(), feeQuoterOwner)
-
-		nonceManagerOwner, err := state.Chains[chain].NonceManager.Owner(&bind.CallOpts{
-			Context: ctx,
-		})
-		require.NoError(t, err)
-		require.Equal(t, state.Chains[source].Timelock.Address(), nonceManagerOwner)
-
-		rmnRemoteOwner, err := state.Chains[chain].RMNRemote.Owner(&bind.CallOpts{
-			Context: ctx,
-		})
-		require.NoError(t, err)
-		require.Equal(t, state.Chains[source].Timelock.Address(), rmnRemoteOwner)
+		require.Equal(t, homeChainTimelockAddress, owner)
 	}
 }
