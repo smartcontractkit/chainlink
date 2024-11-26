@@ -100,10 +100,12 @@ TODO: Add various examples in deployment/example.
 contracts (like MCMS, LinkToken etc) which can be shared
 by products.
 
-/deployment/<product>
-- package name `<product>deployment`
+/deployment/<product>/internal
 - Internal building blocks for changesets  
-- TODO: can we make this `internal`?
+
+/deployment/<product>/view
+- Hold readonly mappings Go bindings to json marshallable objects. 
+- Used to generate a view of the system.
 
 /deployment/<product>/changeset
 - Think of this as the public API for deployment and configuration

@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
+	"math"
 	"math/big"
 	"regexp"
 	"strconv"
@@ -343,6 +344,9 @@ func returnAllFundsIfPossible(log zerolog.Logger, sethClient *seth.Client, fromP
 	if err != nil {
 		gasLimit = sethClient.Cfg.Network.TransferGasFee
 	} else {
+		if gasLimitRaw > math.MaxInt64 {
+			return fmt.Errorf("gas limit overflows int64: %d", gasLimitRaw)
+		}
 		gasLimit = int64(gasLimitRaw)
 	}
 

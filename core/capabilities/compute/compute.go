@@ -34,7 +34,7 @@ import (
 )
 
 const (
-	CapabilityIDCompute = "custom_compute@1.0.0"
+	CapabilityIDCompute = "custom-compute@1.0.0"
 
 	binaryKey       = "binary"
 	configKey       = "config"

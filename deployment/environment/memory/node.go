@@ -78,6 +78,10 @@ func NewNode(
 ) *Node {
 	evmchains := make(map[uint64]EVMChain)
 	for _, chain := range chains {
+		// we're only mapping evm chains here
+		if family, err := chainsel.GetSelectorFamily(chain.Selector); err != nil || family != chainsel.FamilyEVM {
+			continue
+		}
 		evmChainID, err := chainsel.ChainIdFromSelector(chain.Selector)
 		if err != nil {
 			t.Fatal(err)

@@ -2,25 +2,13 @@
 pragma solidity 0.8.24;
 
 import {Router} from "../../../Router.sol";
-import {RateLimiter} from "../../../libraries/RateLimiter.sol";
 import {TokenPool} from "../../../pools/TokenPool.sol";
 import {TokenPoolSetup} from "./TokenPoolSetup.t.sol";
 
 contract TokenPool_onlyOffRamp is TokenPoolSetup {
   function test_onlyOffRamp_Success() public {
-    uint64 chainSelector = 13377;
+    uint64 chainSelector = DEST_CHAIN_SELECTOR;
     address offRamp = makeAddr("onRamp");
-
-    TokenPool.ChainUpdate[] memory chainUpdate = new TokenPool.ChainUpdate[](1);
-    chainUpdate[0] = TokenPool.ChainUpdate({
-      remoteChainSelector: chainSelector,
-      remotePoolAddress: abi.encode(address(1)),
-      remoteTokenAddress: abi.encode(address(2)),
-      allowed: true,
-      outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
-      inboundRateLimiterConfig: _getInboundRateLimiterConfig()
-    });
-    s_tokenPool.applyChainUpdates(chainUpdate);
 
     Router.OffRamp[] memory offRampUpdates = new Router.OffRamp[](1);
     offRampUpdates[0] = Router.OffRamp({sourceChainSelector: chainSelector, offRamp: offRamp});
@@ -32,7 +20,7 @@ contract TokenPool_onlyOffRamp is TokenPoolSetup {
   }
 
   function test_ChainNotAllowed_Revert() public {
-    uint64 chainSelector = 13377;
+    uint64 chainSelector = DEST_CHAIN_SELECTOR + 1;
     address offRamp = makeAddr("onRamp");
 
     vm.startPrank(offRamp);
@@ -45,13 +33,12 @@ contract TokenPool_onlyOffRamp is TokenPoolSetup {
     TokenPool.ChainUpdate[] memory chainUpdate = new TokenPool.ChainUpdate[](1);
     chainUpdate[0] = TokenPool.ChainUpdate({
       remoteChainSelector: chainSelector,
-      remotePoolAddress: abi.encode(address(1)),
+      remotePoolAddresses: new bytes[](0),
       remoteTokenAddress: abi.encode(address(2)),
-      allowed: true,
       outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
       inboundRateLimiterConfig: _getInboundRateLimiterConfig()
     });
-    s_tokenPool.applyChainUpdates(chainUpdate);
+    s_tokenPool.applyChainUpdates(new uint64[](0), chainUpdate);
 
     Router.OffRamp[] memory offRampUpdates = new Router.OffRamp[](1);
     offRampUpdates[0] = Router.OffRamp({sourceChainSelector: chainSelector, offRamp: offRamp});
@@ -61,17 +48,11 @@ contract TokenPool_onlyOffRamp is TokenPoolSetup {
     // Should succeed now that we've added the chain
     s_tokenPool.onlyOffRampModifier(chainSelector);
 
-    chainUpdate[0] = TokenPool.ChainUpdate({
-      remoteChainSelector: chainSelector,
-      remotePoolAddress: abi.encode(address(1)),
-      remoteTokenAddress: abi.encode(address(2)),
-      allowed: false,
-      outboundRateLimiterConfig: RateLimiter.Config({isEnabled: false, capacity: 0, rate: 0}),
-      inboundRateLimiterConfig: RateLimiter.Config({isEnabled: false, capacity: 0, rate: 0})
-    });
+    uint64[] memory chainsToRemove = new uint64[](1);
+    chainsToRemove[0] = chainSelector;
 
     vm.startPrank(OWNER);
-    s_tokenPool.applyChainUpdates(chainUpdate);
+    s_tokenPool.applyChainUpdates(chainsToRemove, new TokenPool.ChainUpdate[](0));
 
     vm.startPrank(offRamp);
 
@@ -80,19 +61,8 @@ contract TokenPool_onlyOffRamp is TokenPoolSetup {
   }
 
   function test_CallerIsNotARampOnRouter_Revert() public {
-    uint64 chainSelector = 13377;
+    uint64 chainSelector = DEST_CHAIN_SELECTOR;
     address offRamp = makeAddr("offRamp");
-
-    TokenPool.ChainUpdate[] memory chainUpdate = new TokenPool.ChainUpdate[](1);
-    chainUpdate[0] = TokenPool.ChainUpdate({
-      remoteChainSelector: chainSelector,
-      remotePoolAddress: abi.encode(address(1)),
-      remoteTokenAddress: abi.encode(address(2)),
-      allowed: true,
-      outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
-      inboundRateLimiterConfig: _getInboundRateLimiterConfig()
-    });
-    s_tokenPool.applyChainUpdates(chainUpdate);
 
     vm.startPrank(offRamp);
 

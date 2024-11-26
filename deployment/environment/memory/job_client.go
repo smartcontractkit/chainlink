@@ -17,12 +17,18 @@ import (
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 )
 
 type JobClient struct {
 	Nodes map[string]Node
+}
+
+func (j JobClient) BatchProposeJob(ctx context.Context, in *jobv1.BatchProposeJobRequest, opts ...grpc.CallOption) (*jobv1.BatchProposeJobResponse, error) {
+	//TODO CCIP-3108  implement me
+	panic("implement me")
 }
 
 func (j JobClient) UpdateJob(ctx context.Context, in *jobv1.UpdateJobRequest, opts ...grpc.CallOption) (*jobv1.UpdateJobResponse, error) {
@@ -184,14 +190,15 @@ func (j JobClient) ListNodeChainConfigs(ctx context.Context, in *nodev1.ListNode
 		if err != nil {
 			return nil, err
 		}
-		chainID, err := chainsel.ChainIdFromSelector(selector)
-		if err != nil {
-			return nil, err
-		}
-
 		if family == chainsel.FamilyEVM {
 			// already handled above
 			continue
+		}
+
+		// NOTE: this supports non-EVM too
+		chainID, err := chainsel.GetChainIDFromSelector(selector)
+		if err != nil {
+			return nil, err
 		}
 
 		var ocrtype chaintype.ChainType
@@ -207,7 +214,7 @@ func (j JobClient) ListNodeChainConfigs(ctx context.Context, in *nodev1.ListNode
 		case chainsel.FamilyAptos:
 			ocrtype = chaintype.Aptos
 		default:
-			panic(fmt.Sprintf("Unsupported chain family %v", family))
+			return nil, fmt.Errorf("Unsupported chain family %v", family)
 		}
 
 		bundle := n.Keys.OCRKeyBundles[ocrtype]
@@ -238,7 +245,7 @@ func (j JobClient) ListNodeChainConfigs(ctx context.Context, in *nodev1.ListNode
 
 		chainConfigs = append(chainConfigs, &nodev1.ChainConfig{
 			Chain: &nodev1.Chain{
-				Id:   strconv.Itoa(int(chainID)),
+				Id:   chainID,
 				Type: ctype,
 			},
 			AccountAddress: "", // TODO: support AccountAddress
