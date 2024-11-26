@@ -338,13 +338,7 @@ jobs:
             echo "No test results directory found."
             echo "all_tests_count=0" >> "$GITHUB_OUTPUT"
             echo "failed_tests_count=0" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Calculate Max Pass Ratio Threshold
-        id: calculate_threshold
-        run: |
-          max_pass_ratio=$(echo '${{ inputs.maxPassRatio }}' | awk '{printf "%.0f", $1 * 100}')
-          echo "max_pass_ratio=$max_pass_ratio" >> $GITHUB_OUTPUT          
+          fi   
 
       - name: Upload All Test Results as Artifact
         if: ${{ fromJson(steps.set_test_results.outputs.all_tests_count) > 0 }}
@@ -381,32 +375,12 @@ jobs:
       - name: Post comment on PR if flaky tests found
         if: ${{ fromJson(steps.set_test_results.outputs.failed_tests_count) > 0 && github.event_name == 'pull_request' }}
         uses: actions/github-script@v7
-        env:
-          MESSAGE_BODY_1: '### Flaky Test Detector for `${{ steps.set_project_path_pretty.outputs.path }}` project has failed :x:'
-          MESSAGE_BODY_2: 'Ran new or updated tests between `${{ inputs.baseRef }}` and ${{ needs.get-tests.outputs.git_head_sha }} (`${{ env.GIT_HEAD_REF }}`).'
-          MESSAGE_BODY_3: ${{ format('[View Flaky Detector Details]({0}/{1}/actions/runs/{2}) | [Compare Changes]({3}/compare/{4}...{5}#files_bucket)', github.server_url, github.repository, github.run_id, inputs.repoUrl, github.base_ref, needs.get-tests.outputs.git_head_sha) }}
-          MESSAGE_BODY_4: '#### Flaky Tests'
-          MESSAGE_BODY_5: 'Ran ${{ steps.set_test_results.outputs.all_tests_count }} unique tests. Below are the tests identified as flaky, with a pass ratio lower than the ${{ steps.calculate_threshold.outputs.threshold_percentage }}% threshold:'
-          MESSAGE_BODY_6: '```'
-          MESSAGE_BODY_7: '${{ steps.read_failed_tests.outputs.failed_tests_content }}'
-          MESSAGE_BODY_8: '```'
+        continue-on-error: true
         with:
           script: |
+            const fs = require('fs');
             const prNumber = context.payload.pull_request.number;
-
-            const commentBody = `${process.env.MESSAGE_BODY_1}
-
-            ${process.env.MESSAGE_BODY_2}
-
-            ${process.env.MESSAGE_BODY_3}
-
-            ${process.env.MESSAGE_BODY_4}
-
-            ${process.env.MESSAGE_BODY_5}
-
-            ${process.env.MESSAGE_BODY_6}
-            ${process.env.MESSAGE_BODY_7}
-            ${process.env.MESSAGE_BODY_8}`;
+            const commentBody = fs.readFileSync('../all_tests.md', 'utf8');
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,
