@@ -217,9 +217,12 @@ func NewLocalDevEnvironment(
 			APIInterval: commonconfig.MustNewDuration(500 * time.Millisecond),
 		}
 	}
+	require.NotNil(t, state.Chains[feedSel].LinkToken)
+	require.NotNil(t, state.Chains[feedSel].Weth9)
+	tokenInfo := tokenConfig.GetTokenInfo(nil, state.Chains[feedSel].LinkToken, state.Chains[feedSel].Weth9)
 	for _, chain := range allChains {
 		timelocksPerChain[chain] = state.Chains[chain].Timelock
-		ocrParams[chain] = changeset.DefaultOCRParams(feedSel, nil, nil)
+		ocrParams[chain] = changeset.DefaultOCRParams(feedSel, tokenInfo)
 	}
 	// Deploy second set of changesets to deploy and configure the CCIP contracts.
 	env, err = commonchangeset.ApplyChangesets(t, env, timelocksPerChain, []commonchangeset.ChangesetApplication{
