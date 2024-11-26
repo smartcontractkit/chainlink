@@ -45,8 +45,9 @@ contract TokenSetup is RouterSetup {
       router = address(s_destRouter);
     }
 
-    LockReleaseTokenPool pool =
-      new LockReleaseTokenPool(IERC20(token), new address[](0), address(s_mockRMN), true, router);
+    LockReleaseTokenPool pool = new LockReleaseTokenPool(
+      IERC20(token), DEFAULT_TOKEN_DECIMALS, new address[](0), address(s_mockRMN), true, router
+    );
 
     if (isSourcePool) {
       s_sourcePoolByToken[address(token)] = address(pool);
@@ -62,8 +63,9 @@ contract TokenSetup is RouterSetup {
       router = address(s_destRouter);
     }
 
-    BurnMintTokenPool pool =
-      new MaybeRevertingBurnMintTokenPool(BurnMintERC20(token), new address[](0), address(s_mockRMN), router);
+    BurnMintTokenPool pool = new MaybeRevertingBurnMintTokenPool(
+      BurnMintERC20(token), DEFAULT_TOKEN_DECIMALS, new address[](0), address(s_mockRMN), router
+    );
     BurnMintERC20(token).grantMintAndBurnRoles(address(pool));
 
     if (isSourcePool) {
@@ -150,16 +152,18 @@ contract TokenSetup is RouterSetup {
 
     tokenAdminRegistry.setPool(token, pool);
 
+    bytes[] memory remotePoolAddresses = new bytes[](1);
+    remotePoolAddresses[0] = abi.encode(remotePoolAddress);
+
     TokenPool.ChainUpdate[] memory chainUpdates = new TokenPool.ChainUpdate[](1);
     chainUpdates[0] = TokenPool.ChainUpdate({
       remoteChainSelector: remoteChainSelector,
-      remotePoolAddress: abi.encode(remotePoolAddress),
+      remotePoolAddresses: remotePoolAddresses,
       remoteTokenAddress: abi.encode(remoteToken),
-      allowed: true,
       outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
       inboundRateLimiterConfig: _getInboundRateLimiterConfig()
     });
 
-    TokenPool(pool).applyChainUpdates(chainUpdates);
+    TokenPool(pool).applyChainUpdates(new uint64[](0), chainUpdates);
   }
 }

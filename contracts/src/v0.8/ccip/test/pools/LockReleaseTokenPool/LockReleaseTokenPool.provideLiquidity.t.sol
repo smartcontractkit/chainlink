@@ -37,8 +37,9 @@ contract LockReleaseTokenPool_provideLiquidity is LockReleaseTokenPoolSetup {
   }
 
   function test_LiquidityNotAccepted_Revert() public {
-    s_lockReleaseTokenPool =
-      new LockReleaseTokenPool(s_token, new address[](0), address(s_mockRMN), false, address(s_sourceRouter));
+    s_lockReleaseTokenPool = new LockReleaseTokenPool(
+      s_token, DEFAULT_TOKEN_DECIMALS, new address[](0), address(s_mockRMN), false, address(s_sourceRouter)
+    );
 
     vm.expectRevert(LockReleaseTokenPool.LiquidityNotAccepted.selector);
     s_lockReleaseTokenPool.provideLiquidity(1);

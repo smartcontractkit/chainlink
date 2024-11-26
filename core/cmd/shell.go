@@ -25,6 +25,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/urfave/cli"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -62,7 +63,7 @@ import (
 
 var (
 	initGlobalsOnce sync.Once
-	prometheus      *ginprom.Prometheus
+	ginPrometheus   *ginprom.Prometheus
 	grpcOpts        loop.GRPCOpts
 )
 
@@ -71,7 +72,7 @@ func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing, cfgTeleme
 	var err error
 	initGlobalsOnce.Do(func() {
 		err = func() error {
-			prometheus = ginprom.New(ginprom.Namespace("service"), ginprom.Token(cfgProm.AuthToken()))
+			ginPrometheus = ginprom.New(ginprom.Namespace("service"), ginprom.Token(cfgProm.AuthToken()))
 			grpcOpts = loop.NewGRPCOpts(nil) // default prometheus.Registerer
 
 			otel.SetErrorHandler(otel.ErrorHandlerFunc(func(err error) {
@@ -139,6 +140,7 @@ type Shell struct {
 	Renderer
 	Config                         chainlink.GeneralConfig // initialized in Before
 	Logger                         logger.Logger           // initialized in Before
+	Registerer                     prometheus.Registerer   // initialized in Before
 	CloseLogger                    func() error            // called in After
 	AppFactory                     AppFactory
 	KeyStoreAuthenticator          TerminalKeyStoreAuthenticator
@@ -178,14 +180,14 @@ func (s *Shell) configExitErr(validateFn func() error) cli.ExitCoder {
 
 // AppFactory implements the NewApplication method.
 type AppFactory interface {
-	NewApplication(ctx context.Context, cfg chainlink.GeneralConfig, appLggr logger.Logger, db *sqlx.DB, keyStoreAuthenticator TerminalKeyStoreAuthenticator) (chainlink.Application, error)
+	NewApplication(ctx context.Context, cfg chainlink.GeneralConfig, appLggr logger.Logger, appRegisterer prometheus.Registerer, db *sqlx.DB, keyStoreAuthenticator TerminalKeyStoreAuthenticator) (chainlink.Application, error)
 }
 
 // ChainlinkAppFactory is used to create a new Application.
 type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
-func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.GeneralConfig, appLggr logger.Logger, db *sqlx.DB, keyStoreAuthenticator TerminalKeyStoreAuthenticator) (app chainlink.Application, err error) {
+func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.GeneralConfig, appLggr logger.Logger, appRegisterer prometheus.Registerer, db *sqlx.DB, keyStoreAuthenticator TerminalKeyStoreAuthenticator) (app chainlink.Application, err error) {
 	err = migrate.SetMigrationENVVars(cfg)
 	if err != nil {
 		return nil, err
@@ -237,6 +239,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 	// create the relayer-chain interoperators from application configuration
 	relayerFactory := chainlink.RelayerFactory{
 		Logger:                appLggr,
+		Registerer:            appRegisterer,
 		LoopRegistry:          loopRegistry,
 		GRPCOpts:              grpcOpts,
 		MercuryPool:           mercuryPool,
@@ -425,7 +428,7 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 		return errors.New("You must specify at least one port to listen on")
 	}
 
-	handler, err := web.NewRouter(app, prometheus)
+	handler, err := web.NewRouter(app, ginPrometheus)
 	if err != nil {
 		return errors.Wrap(err, "failed to create web router")
 	}

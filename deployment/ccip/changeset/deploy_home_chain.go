@@ -16,11 +16,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
@@ -437,23 +436,20 @@ func ValidateCCIPHomeConfigSetUp(
 	return nil
 }
 
-func AddDON(
+func addDON(
 	lggr logger.Logger,
 	ocrSecrets deployment.OCRSecrets,
 	capReg *capabilities_registry.CapabilitiesRegistry,
 	ccipHome *ccip_home.CCIPHome,
 	rmnHomeAddress common.Address,
 	offRamp *offramp.OffRamp,
-	feedChainSel uint64,
-	// Token address on Dest chain to aggregate address on feed chain
-	tokenInfo map[ccipocr3.UnknownEncodedAddress]pluginconfig.TokenInfo,
 	dest deployment.Chain,
 	home deployment.Chain,
 	nodes deployment.Nodes,
-	tokenConfigs []pluginconfig.TokenDataObserverConfig,
+	ocrParams CCIPOCRParams,
 ) error {
 	ocrConfigs, err := internal.BuildOCR3ConfigForCCIPHome(
-		ocrSecrets, offRamp, dest, feedChainSel, tokenInfo, nodes, rmnHomeAddress, tokenConfigs)
+		ocrSecrets, offRamp, dest, nodes, rmnHomeAddress, ocrParams.OCRParameters, ocrParams.CommitOffChainConfig, ocrParams.ExecuteOffChainConfig)
 	if err != nil {
 		return err
 	}
