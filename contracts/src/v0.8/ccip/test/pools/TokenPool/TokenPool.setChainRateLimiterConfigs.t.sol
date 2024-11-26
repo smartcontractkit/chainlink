@@ -126,7 +126,6 @@ contract TokenPool_setChainRateLimiterConfigs is TokenPoolSetup {
     vm.expectRevert(abi.encodeWithSelector(TokenPool.MismatchedArrayLengths.selector));
     s_tokenPool.setChainRateLimiterConfigs(chainSelectors, newOutboundConfigs, newInboundConfigs);
 
-
     newInboundConfigs = new RateLimiter.Config[](1);
     newInboundConfigs[0] = _getInboundRateLimiterConfig();
 
