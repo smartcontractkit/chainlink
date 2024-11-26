@@ -362,16 +362,9 @@ func (h *eventHandler) workflowUpdatedEvent(
 	ctx context.Context,
 	payload WorkflowRegistryWorkflowUpdatedV1,
 ) error {
-	oldWorkflowID := hex.EncodeToString(payload.OldWorkflowID[:])
-
-	// stop the old workflow engine
-	e, err := h.engineRegistry.Pop(oldWorkflowID)
-	if err != nil {
-		return fmt.Errorf("failed to get old workflow engine: %w", err)
-	}
-
-	if err := e.Close(); err != nil {
-		return fmt.Errorf("failed to close old workflow engine: %w", err)
+	// Remove the old workflow engine from the local registry if it exists
+	if err := h.tryEngineCleanup(hex.EncodeToString(payload.OldWorkflowID[:])); err != nil {
+		return err
 	}
 
 	registeredEvent := WorkflowRegistryWorkflowRegisteredV1{
@@ -393,16 +386,9 @@ func (h *eventHandler) workflowPausedEvent(
 	ctx context.Context,
 	payload WorkflowRegistryWorkflowPausedV1,
 ) error {
-	wfID := hex.EncodeToString(payload.WorkflowID[:])
-
-	// Pop the workflow engine and close it
-	e, err := h.engineRegistry.Pop(wfID)
-	if err != nil {
-		return fmt.Errorf("failed to get workflow engine: %w", err)
-	}
-	err = e.Close()
-	if err != nil {
-		return fmt.Errorf("failed to close workflow engine: %w", err)
+	// Remove the workflow engine from the local registry if it exists
+	if err := h.tryEngineCleanup(hex.EncodeToString(payload.WorkflowID[:])); err != nil {
+		return err
 	}
 
 	// get existing workflow spec from DB
@@ -432,7 +418,7 @@ func (h *eventHandler) workflowActivatedEvent(
 	}
 
 	// Do nothing if the workflow is already active
-	if spec.Status == job.WorkflowSpecStatusActive {
+	if spec.Status == job.WorkflowSpecStatusActive && h.engineRegistry.IsRunning(hex.EncodeToString(payload.WorkflowID[:])) {
 		return nil
 	}
 
@@ -442,6 +428,7 @@ func (h *eventHandler) workflowActivatedEvent(
 		return fmt.Errorf("failed to get secrets URL by ID: %w", err)
 	}
 
+	// start a new workflow engine
 	registeredEvent := WorkflowRegistryWorkflowRegisteredV1{
 		WorkflowID:    payload.WorkflowID,
 		WorkflowOwner: payload.WorkflowOwner,
@@ -461,14 +448,8 @@ func (h *eventHandler) workflowDeletedEvent(
 	ctx context.Context,
 	payload WorkflowRegistryWorkflowDeletedV1,
 ) error {
-	wfID := hex.EncodeToString(payload.WorkflowID[:])
-
-	e, err := h.engineRegistry.Pop(wfID)
-	if err != nil {
-		return fmt.Errorf("failed to get workflow engine: %w", err)
-	}
-	if err := e.Close(); err != nil {
-		return fmt.Errorf("failed to close workflow engine: %w", err)
+	if err := h.tryEngineCleanup(hex.EncodeToString(payload.WorkflowID[:])); err != nil {
+		return err
 	}
 
 	if err := h.orm.DeleteWorkflowSpec(ctx, hex.EncodeToString(payload.WorkflowOwner), payload.WorkflowName); err != nil {
@@ -501,6 +482,24 @@ func (h *eventHandler) forceUpdateSecretsEvent(
 		return fmt.Errorf("failed to update secrets: %w", err)
 	}
 
+	return nil
+}
+
+// tryEngineCleanup attempts to stop the workflow engine for the given workflow ID.  Does nothing if the
+// workflow engine is not running.
+func (h *eventHandler) tryEngineCleanup(wfID string) error {
+	if h.engineRegistry.IsRunning(wfID) {
+		// Remove the engine from the registry
+		e, err := h.engineRegistry.Pop(wfID)
+		if err != nil {
+			return fmt.Errorf("failed to get workflow engine: %w", err)
+		}
+
+		// Stop the engine
+		if err := e.Close(); err != nil {
+			return fmt.Errorf("failed to close workflow engine: %w", err)
+		}
+	}
 	return nil
 }
 
