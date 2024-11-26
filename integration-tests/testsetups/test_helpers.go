@@ -219,7 +219,7 @@ func NewLocalDevEnvironment(
 	}
 	require.NotNil(t, state.Chains[feedSel].LinkToken)
 	require.NotNil(t, state.Chains[feedSel].Weth9)
-	tokenInfo := tokenConfig.GetTokenInfo(nil, state.Chains[feedSel].LinkToken, state.Chains[feedSel].Weth9)
+	tokenInfo := tokenConfig.GetTokenInfo(env.Logger, state.Chains[feedSel].LinkToken, state.Chains[feedSel].Weth9)
 	for _, chain := range allChains {
 		timelocksPerChain[chain] = state.Chains[chain].Timelock
 		ocrParams[chain] = changeset.DefaultOCRParams(feedSel, tokenInfo)

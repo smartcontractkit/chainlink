@@ -446,7 +446,7 @@ func deployCCIPContracts(
 		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
 		return err
 	}
-	tokenInfo := c.TokenConfig.GetTokenInfo(nil, state.Chains[c.FeedChainSel].LinkToken, state.Chains[c.FeedChainSel].Weth9)
+	tokenInfo := c.TokenConfig.GetTokenInfo(e.Logger, state.Chains[c.FeedChainSel].LinkToken, state.Chains[c.FeedChainSel].Weth9)
 	ocrParams := make(map[uint64]CCIPOCRParams)
 	for _, chain := range c.ChainsToDeploy {
 		ocrParams[chain] = DefaultOCRParams(c.FeedChainSel, tokenInfo)
