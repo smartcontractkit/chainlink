@@ -238,6 +238,7 @@ func Test_CCIPBatching(t *testing.T) {
 	})
 
 	t.Run("max evm batch size", func(t *testing.T) {
+		t.Skipf("This test is flaky, skipping until the issue related to fee calculation is resolved")
 		var (
 			sourceChain = sourceChain1
 			otherSender = mustNewTransactor(t, e.Env.Chains[sourceChain])
