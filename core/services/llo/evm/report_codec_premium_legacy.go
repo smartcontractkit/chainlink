@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/shopspring/decimal"
@@ -30,10 +31,11 @@ var (
 
 type ReportCodecPremiumLegacy struct {
 	logger.Logger
+	donID uint32
 }
 
-func NewReportCodecPremiumLegacy(lggr logger.Logger) ReportCodecPremiumLegacy {
-	return ReportCodecPremiumLegacy{logger.Sugared(lggr).Named("ReportCodecPremiumLegacy")}
+func NewReportCodecPremiumLegacy(lggr logger.Logger, donID uint32) ReportCodecPremiumLegacy {
+	return ReportCodecPremiumLegacy{logger.Sugared(lggr).Named("ReportCodecPremiumLegacy"), donID}
 }
 
 type ReportFormatEVMPremiumLegacyOpts struct {
@@ -119,7 +121,7 @@ func (r ReportCodecPremiumLegacy) Pack(digest types.ConfigDigest, seqNr uint64, 
 		ss = append(ss, s)
 		vs[i] = v
 	}
-	reportCtx := LegacyReportContext(digest, seqNr)
+	reportCtx := LegacyReportContext(digest, seqNr, r.donID)
 	rawReportCtx := evmutil.RawReportContext(reportCtx)
 
 	payload, err := mercury.PayloadTypes.Pack(rawReportCtx, []byte(report), rs, ss, vs)
@@ -181,9 +183,25 @@ func extractPrice(price llo.StreamValue) (decimal.Decimal, error) {
 	}
 }
 
-// TODO: Consider embedding the DON ID here?
-// MERC-3524
-var LLOExtraHash = common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000001")
+const PluginVersion uint32 = 1 // the legacy mercury plugin is 0
+
+// Uniquely identifies this as LLO plugin, rather than the legacy plugin (which
+// uses all zeroes).
+//
+// This is quite a hack but serves the purpose of uniquely identifying
+// dons/plugin versions to the mercury server without having to modify any
+// existing tooling or breaking backwards compatibility. It should be safe
+// since the DonID is encoded into the config digest anyway so report context
+// is already dependent on it, and all LLO jobs in the same don are expected to
+// have the same don ID set.
+//
+// Packs donID+pluginVersion as (uint32, uint32), for example donID=2,
+// PluginVersion=1 Yields:
+// 0x0000000000000000000000000000000000000000000000000000000200000001
+func LLOExtraHash(donID uint32) common.Hash {
+	combined := uint64(donID)<<32 | uint64(PluginVersion)
+	return common.BigToHash(new(big.Int).SetUint64(combined))
+}
 
 func SeqNrToEpochAndRound(seqNr uint64) (epoch uint32, round uint8) {
 	// Simulate 256 rounds/epoch
@@ -192,7 +210,7 @@ func SeqNrToEpochAndRound(seqNr uint64) (epoch uint32, round uint8) {
 	return
 }
 
-func LegacyReportContext(cd ocr2types.ConfigDigest, seqNr uint64) ocr2types.ReportContext {
+func LegacyReportContext(cd ocr2types.ConfigDigest, seqNr uint64, donID uint32) ocr2types.ReportContext {
 	epoch, round := SeqNrToEpochAndRound(seqNr)
 	return ocr2types.ReportContext{
 		ReportTimestamp: ocr2types.ReportTimestamp{
@@ -200,6 +218,6 @@ func LegacyReportContext(cd ocr2types.ConfigDigest, seqNr uint64) ocr2types.Repo
 			Epoch:        uint32(epoch),
 			Round:        uint8(round),
 		},
-		ExtraHash: LLOExtraHash, // ExtraHash is always zero for mercury, we use LLOExtraHash here to differentiate from the legacy plugin
+		ExtraHash: LLOExtraHash(donID), // ExtraHash is always zero for mercury, we use LLOExtraHash here to differentiate from the legacy plugin
 	}
 }

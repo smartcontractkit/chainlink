@@ -13,6 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -20,7 +21,7 @@ import (
 
 func Test_ShouldRetireCache(t *testing.T) {
 	lggr, observedLogs := logger.TestObserved(t, zapcore.DebugLevel)
-	lp := &mockLogPoller{make([]logpoller.Log, 0), 0}
+	lp := &mockLogPoller{make([]logpoller.Log, 0), 0, nil, query.LimitAndSort{}}
 	addr := common.Address{1}
 	donID := uint32(1)
 	donIDHash := DonIDToBytes32(donID)
