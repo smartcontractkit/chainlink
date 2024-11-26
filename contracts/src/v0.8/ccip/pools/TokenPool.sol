@@ -49,6 +49,7 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
   error PoolAlreadyAdded(uint64 remoteChainSelector, bytes remotePoolAddress);
   error InvalidRemotePoolForChain(uint64 remoteChainSelector, bytes remotePoolAddress);
   error InvalidRemoteChainDecimals(bytes sourcePoolData);
+  error MismatchedArrayLengths();
 
   event Locked(address indexed sender, uint256 amount);
   event Burned(address indexed sender, uint256 amount);
@@ -506,18 +507,23 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
     return s_remoteChainConfigs[remoteChainSelector].inboundRateLimiterConfig._currentTokenBucketState();
   }
 
-  /// @notice Sets the chain rate limiter config.
-  /// @param remoteChainSelector The remote chain selector for which the rate limits apply.
-  /// @param outboundConfig The new outbound rate limiter config, meaning the onRamp rate limits for the given chain.
-  /// @param inboundConfig The new inbound rate limiter config, meaning the offRamp rate limits for the given chain.
-  function setChainRateLimiterConfig(
-    uint64 remoteChainSelector,
-    RateLimiter.Config memory outboundConfig,
-    RateLimiter.Config memory inboundConfig
+  /// @notice Sets multiple chain rate limiter configs.
+  /// @param remoteChainSelectors The remote chain selector for which the rate limits apply.
+  /// @param outboundConfigs The new outbound rate limiter config, meaning the onRamp rate limits for the given chain.
+  /// @param inboundConfigs The new inbound rate limiter config, meaning the offRamp rate limits for the given chain.
+  function setChainRateLimiterConfigs(
+    uint64[] calldata remoteChainSelectors,
+    RateLimiter.Config[] calldata outboundConfigs,
+    RateLimiter.Config[] calldata inboundConfigs
   ) external {
     if (msg.sender != s_rateLimitAdmin && msg.sender != owner()) revert Unauthorized(msg.sender);
+    if (remoteChainSelectors.length != outboundConfigs.length || remoteChainSelectors.length != inboundConfigs.length) {
+      revert MismatchedArrayLengths();
+    }
 
-    _setRateLimitConfig(remoteChainSelector, outboundConfig, inboundConfig);
+    for (uint256 i = 0; i < remoteChainSelectors.length; ++i) {
+      _setRateLimitConfig(remoteChainSelectors[i], outboundConfigs[i], inboundConfigs[i]);
+    }
   }
 
   function _setRateLimitConfig(
