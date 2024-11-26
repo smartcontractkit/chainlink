@@ -786,7 +786,6 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	curStep, verr := e.workflow.Vertex(msg.stepRef)
 	if verr != nil {
 		l.Errorf("failed to resolve step in workflow; error %v", err)
-		return
 	}
 	e.metrics.with(platform.KeyCapabilityID, curStep.ID).updateWorkflowStepDurationHistogram(ctx, int64(stepExecutionDuration))
 
