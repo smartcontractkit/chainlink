@@ -49,6 +49,7 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
   error PoolAlreadyAdded(uint64 remoteChainSelector, bytes remotePoolAddress);
   error InvalidRemotePoolForChain(uint64 remoteChainSelector, bytes remotePoolAddress);
   error InvalidRemoteChainDecimals(bytes sourcePoolData);
+  error MismatchedArrayLengths();
 
   event Locked(address indexed sender, uint256 amount);
   event Burned(address indexed sender, uint256 amount);
@@ -516,6 +517,9 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
     RateLimiter.Config[] calldata inboundConfigs
   ) external {
     if (msg.sender != s_rateLimitAdmin && msg.sender != owner()) revert Unauthorized(msg.sender);
+    if (remoteChainSelectors.length != outboundConfigs.length || remoteChainSelectors.length != inboundConfigs.length) {
+      revert MismatchedArrayLengths();
+    }
 
     for (uint256 i = 0; i < remoteChainSelectors.length; ++i) {
       _setRateLimitConfig(remoteChainSelectors[i], outboundConfigs[i], inboundConfigs[i]);

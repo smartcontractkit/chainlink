@@ -110,4 +110,32 @@ contract TokenPool_setChainRateLimiterConfigs is TokenPoolSetup {
     vm.expectRevert(abi.encodeWithSelector(TokenPool.NonExistentChain.selector, wrongChainSelector));
     s_tokenPool.setChainRateLimiterConfigs(chainSelectors, newOutboundConfigs, newInboundConfigs);
   }
+
+  function test_MismatchedArrayLengths_Revert() public {
+    uint64[] memory chainSelectors = new uint64[](1);
+    chainSelectors[0] = DEST_CHAIN_SELECTOR;
+
+    RateLimiter.Config[] memory newOutboundConfigs = new RateLimiter.Config[](1);
+    newOutboundConfigs[0] = _getOutboundRateLimiterConfig();
+
+    RateLimiter.Config[] memory newInboundConfigs = new RateLimiter.Config[](2);
+    newInboundConfigs[0] = _getInboundRateLimiterConfig();
+    newInboundConfigs[1] = _getInboundRateLimiterConfig();
+
+    // test mismatched array lengths between rate limiters
+    vm.expectRevert(abi.encodeWithSelector(TokenPool.MismatchedArrayLengths.selector));
+    s_tokenPool.setChainRateLimiterConfigs(chainSelectors, newOutboundConfigs, newInboundConfigs);
+
+
+    newInboundConfigs = new RateLimiter.Config[](1);
+    newInboundConfigs[0] = _getInboundRateLimiterConfig();
+
+    uint64[] memory chainSelectors2 = new uint64[](2);
+    chainSelectors2[0] = DEST_CHAIN_SELECTOR;
+    chainSelectors2[1] = DEST_CHAIN_SELECTOR;
+
+    // test mismatched array lengths between chain selectors and rate limiters
+    vm.expectRevert(abi.encodeWithSelector(TokenPool.MismatchedArrayLengths.selector));
+    s_tokenPool.setChainRateLimiterConfigs(chainSelectors2, newOutboundConfigs, newInboundConfigs);
+  }
 }
