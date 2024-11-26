@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
-import {HybridLockReleaseUSDCTokenPool} from "../../../pools/USDC/HybridLockReleaseUSDCTokenPool.sol";
-import {USDCSetup} from "./USDCSetup.t.sol";
+import {HybridLockReleaseUSDCTokenPool} from "../../../../pools/USDC/HybridLockReleaseUSDCTokenPool.sol";
+import {USDCSetup} from "../USDCSetup.t.sol";
 
 contract HybridLockReleaseUSDCTokenPoolSetup is USDCSetup {
   HybridLockReleaseUSDCTokenPool internal s_usdcTokenPool;
   HybridLockReleaseUSDCTokenPool internal s_usdcTokenPoolTransferLiquidity;
-  address[] internal s_allowedList;
 
   function setUp() public virtual override {
     super.setUp();

@@ -8,20 +8,32 @@ import {TokenPoolSetup} from "./TokenPoolSetup.t.sol";
 import {IERC20} from "../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
 contract TokenPool_constructor is TokenPoolSetup {
-  function test_immutableFields_Success() public view {
+  function test_constructor() public view {
     assertEq(address(s_token), address(s_tokenPool.getToken()));
     assertEq(address(s_mockRMN), s_tokenPool.getRmnProxy());
-    assertEq(false, s_tokenPool.getAllowListEnabled());
+    assertFalse(s_tokenPool.getAllowListEnabled());
     assertEq(address(s_sourceRouter), s_tokenPool.getRouter());
     assertEq(DEFAULT_TOKEN_DECIMALS, s_tokenPool.getTokenDecimals());
   }
 
   // Reverts
-  function test_ZeroAddressNotAllowed_Revert() public {
+
+  function test_constructor_RevertWhen_ZeroAddressNotAllowed() public {
     vm.expectRevert(TokenPool.ZeroAddressNotAllowed.selector);
 
     s_tokenPool = new TokenPoolHelper(
       IERC20(address(0)), DEFAULT_TOKEN_DECIMALS, new address[](0), address(s_mockRMN), address(s_sourceRouter)
     );
+  }
+
+  function test_constructor_RevertWhen_InvalidDecimalArgs() public {
+    uint8 invalidDecimals = DEFAULT_TOKEN_DECIMALS + 1;
+
+    vm.expectRevert(
+      abi.encodeWithSelector(TokenPool.InvalidDecimalArgs.selector, invalidDecimals, DEFAULT_TOKEN_DECIMALS)
+    );
+
+    s_tokenPool =
+      new TokenPoolHelper(s_token, invalidDecimals, new address[](0), address(s_mockRMN), address(s_sourceRouter));
   }
 }

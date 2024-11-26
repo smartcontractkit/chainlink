@@ -51,7 +51,7 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
   error PoolAlreadyAdded(uint64 remoteChainSelector, bytes remotePoolAddress);
   error InvalidRemotePoolForChain(uint64 remoteChainSelector, bytes remotePoolAddress);
   error InvalidRemoteChainDecimals(bytes sourcePoolData);
-  error OverOrUnderflowDetected(uint8 sourceDecimals, uint8 localDecimals, uint256 localAmount);
+  error OverflowDetected(uint8 remoteDecimals, uint8 localDecimals, uint256 remoteAmount);
   error InvalidDecimalArgs(uint8 expected, uint8 actual);
 
   event Locked(address indexed sender, uint256 amount);
@@ -270,10 +270,10 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
   /// @param remoteAmount The amount on the remote chain.
   /// @param remoteDecimals The decimals of the token on the remote chain.
   /// @return The local amount.
-  /// @dev This function protects against overflows and underflows. If there is a transaction that hits the overflow
-  /// or underflow check, it is probably incorrect as that means the amount cannot be represented on this chain. If the
-  /// local decimals have been wrongly configured, the token issuer could redeploy the pool with the correct decimals
-  /// and manually re-execute the CCIP tx to fix the issue.
+  /// @dev This function protects against overflows. If there is a transaction that hits the overflow  check, it is
+  /// probably incorrect as that means the amount cannot be represented on this chain. If the local decimals have been
+  /// wrongly configured, the token issuer could redeploy the pool with the correct decimals and manually re-execute the
+  /// CCIP tx to fix the issue.
   function _calculateLocalAmount(uint256 remoteAmount, uint8 remoteDecimals) internal view virtual returns (uint256) {
     if (remoteDecimals == i_tokenDecimals) {
       return remoteAmount;
@@ -281,7 +281,7 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
     if (remoteDecimals > i_tokenDecimals) {
       if (remoteDecimals - i_tokenDecimals > 77) {
         // This is a safety check to prevent overflow in the next calculation.
-        revert OverOrUnderflowDetected(remoteDecimals, i_tokenDecimals, remoteAmount);
+        revert OverflowDetected(remoteDecimals, i_tokenDecimals, remoteAmount);
       }
       // Solidity rounds down so there is no risk of minting more tokens than the remote chain sent.
       return remoteAmount / (10 ** (remoteDecimals - i_tokenDecimals));
@@ -294,7 +294,7 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
       i_tokenDecimals - remoteDecimals > 77
         || remoteAmount > type(uint256).max / (10 ** (i_tokenDecimals - remoteDecimals))
     ) {
-      revert OverOrUnderflowDetected(remoteDecimals, i_tokenDecimals, remoteAmount);
+      revert OverflowDetected(remoteDecimals, i_tokenDecimals, remoteAmount);
     }
 
     return remoteAmount * (10 ** (i_tokenDecimals - remoteDecimals));
