@@ -32,7 +32,7 @@ var (
 // Parse all events from the simulated chains, send to Loki
 // step 4: teardown
 // Stop the chains, cleanup the environment
-func TestCCIP_Load(t *testing.T) {
+func TestCCIPLoad_RPS(t *testing.T) {
 	ctx := tests.Context(t)
 	l := logging.GetTestLogger(t)
 
