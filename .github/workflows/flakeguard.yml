@@ -316,15 +316,16 @@ jobs:
 
             # Use flakeguard to aggregate all test results
             flakeguard aggregate-results --results-path . --output-results ../all_tests.json
-            cat ../all_tests.md >> $GITHUB_STEP_SUMMARY
 
             # Count all tests
-            ALL_TESTS_COUNT=$(jq 'length' ../all_tests.json)
+            ALL_TESTS_COUNT=$(jq '.Results | length' ../all_tests.json)
             echo "All tests count: $ALL_TESTS_COUNT"
             echo "all_tests_count=$ALL_TESTS_COUNT" >> "$GITHUB_OUTPUT"
 
             # Use flakeguard to filter and output failed tests based on MaxPassRatio
             flakeguard aggregate-results --filter-failed=true --max-pass-ratio=${{ inputs.maxPassRatio }} --results-path . --output-results ../failed_tests.json --output-logs ../failed_test_logs.json
+            cat ../failed_tests.md
+            cat ../failed_tests.md >> $GITHUB_STEP_SUMMARY
 
             # Count failed tests
             if [ -f "../failed_tests.json" ]; then
@@ -340,12 +341,28 @@ jobs:
             echo "failed_tests_count=0" >> "$GITHUB_OUTPUT"
           fi   
 
+      - name: Upload All Tests Summary as Artifact
+        if: ${{ fromJson(steps.set_test_results.outputs.all_tests_count) > 0 }}
+        uses: actions/upload-artifact@v4.4.3
+        with:
+          path: all_tests.md
+          name: all-summary.md
+          retention-days: 7
+
       - name: Upload All Test Results as Artifact
         if: ${{ fromJson(steps.set_test_results.outputs.all_tests_count) > 0 }}
         uses: actions/upload-artifact@v4.4.3
         with:
           path: all_tests.json
           name: all-test-results.json
+          retention-days: 7
+      
+      - name: Upload Failed Tests Summary as Artifact
+        if: ${{ fromJson(steps.set_test_results.outputs.all_tests_count) > 0 }}
+        uses: actions/upload-artifact@v4.4.3
+        with:
+          path: failed_tests.md
+          name: failed-summary.md
           retention-days: 7
 
       - name: Upload Failed Test Results as Artifact
