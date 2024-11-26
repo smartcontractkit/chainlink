@@ -37,6 +37,7 @@ contract RMNRemote is Ownable2StepMsgSender, ITypeAndVersion, IRMNRemote, IRMN {
   error ThresholdNotMet();
   error UnexpectedSigner();
   error ZeroValueNotAllowed();
+  error IsBlessedNotAvailable();
 
   event ConfigSet(uint32 indexed version, Config config);
   event Cursed(bytes16[] subjects);
@@ -89,7 +90,6 @@ contract RMNRemote is Ownable2StepMsgSender, ITypeAndVersion, IRMNRemote, IRMN {
     if (localChainSelector == 0) revert ZeroValueNotAllowed();
     i_localChainSelector = localChainSelector;
 
-    if (address(legacyRMN) == address(0)) revert ZeroValueNotAllowed();
     i_legacyRMN = legacyRMN;
   }
 
@@ -284,6 +284,10 @@ contract RMNRemote is Ownable2StepMsgSender, ITypeAndVersion, IRMNRemote, IRMN {
   function isBlessed(
     TaggedRoot calldata taggedRoot
   ) external view returns (bool) {
+    if (i_legacyRMN == IRMN(address(0))) {
+      revert IsBlessedNotAvailable();
+    }
+
     return i_legacyRMN.isBlessed(taggedRoot);
   }
 }

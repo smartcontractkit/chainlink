@@ -23,4 +23,13 @@ contract RMNRemote_isBlessed is RMNRemoteSetup {
 
     assertFalse(s_rmnRemote.isBlessed(taggedRoot));
   }
+
+  function test_isBlessed_RevertWhen_IsBlessedNotAvailable() public {
+    IRMN.TaggedRoot memory taggedRoot = IRMN.TaggedRoot({root: keccak256("root"), commitStore: makeAddr("commitStore")});
+
+    s_rmnRemote = new RMNRemote(100, IRMN(address(0)));
+
+    vm.expectRevert(RMNRemote.IsBlessedNotAvailable.selector);
+    s_rmnRemote.isBlessed(taggedRoot);
+  }
 }

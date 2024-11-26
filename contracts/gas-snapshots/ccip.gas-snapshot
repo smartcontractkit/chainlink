@@ -578,7 +578,7 @@ RMNRemote_curse:test_curse_AlreadyCursed_duplicateSubject_reverts() (gas: 154501
 RMNRemote_curse:test_curse_calledByNonOwner_reverts() (gas: 18734)
 RMNRemote_curse:test_curse_success() (gas: 149475)
 RMNRemote_global_and_legacy_curses:test_global_and_legacy_curses_success() (gas: 133441)
-RMNRemote_isBlessed:test_isBlessed() (gas: 17502)
+RMNRemote_isBlessed:test_isBlessed() (gas: 17588)
 RMNRemote_setConfig:test_setConfig_ZeroValueNotAllowed_revert() (gas: 37971)
 RMNRemote_setConfig:test_setConfig_addSigner_removeSigner_success() (gas: 993448)
 RMNRemote_setConfig:test_setConfig_duplicateOnChainPublicKey_reverts() (gas: 323540)
