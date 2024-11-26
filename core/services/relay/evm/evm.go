@@ -17,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	pkgerrors "github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
@@ -143,6 +144,7 @@ type Relayer struct {
 	ds                   sqlutil.DataSource
 	chain                legacyevm.Chain
 	lggr                 logger.SugaredLogger
+	registerer           prometheus.Registerer
 	ks                   CSAETHKeystore
 	mercuryPool          wsrpc.Pool
 	codec                commontypes.Codec
@@ -169,7 +171,8 @@ type MercuryConfig interface {
 }
 
 type RelayerOpts struct {
-	DS sqlutil.DataSource
+	DS         sqlutil.DataSource
+	Registerer prometheus.Registerer
 	CSAETHKeystore
 	MercuryPool           wsrpc.Pool
 	RetirementReportCache llo.RetirementReportCache
@@ -214,6 +217,7 @@ func NewRelayer(ctx context.Context, lggr logger.Logger, chain legacyevm.Chain, 
 		ds:                    opts.DS,
 		chain:                 chain,
 		lggr:                  sugared,
+		registerer:            opts.Registerer,
 		ks:                    opts.CSAETHKeystore,
 		mercuryPool:           opts.MercuryPool,
 		cdcFactory:            cdcFactory,
@@ -563,6 +567,7 @@ func (r *Relayer) NewLLOProvider(ctx context.Context, rargs commontypes.RelayArg
 			VerboseLogging: r.mercuryCfg.VerboseLogging(),
 			MercuryTransmitterOpts: mercurytransmitter.Opts{
 				Lggr:           r.lggr,
+				Registerer:     r.registerer,
 				VerboseLogging: r.mercuryCfg.VerboseLogging(),
 				Cfg:            r.mercuryCfg.Transmitter(),
 				Clients:        clients,

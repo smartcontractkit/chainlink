@@ -17,6 +17,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
+
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -32,10 +33,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
@@ -293,6 +295,7 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 	state, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	tokenConfig := NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
+	ocrParams := make(map[uint64]CCIPOCRParams)
 	usdcCCTPConfig := make(map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig)
 	timelocksPerChain := make(map[uint64]*gethwrappers.RBACTimelock)
 	for _, chain := range usdcChains {
@@ -303,7 +306,10 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 			SourcePoolAddress:            state.Chains[chain].USDCTokenPool.Address().String(),
 			SourceMessageTransmitterAddr: state.Chains[chain].MockUSDCTransmitter.Address().String(),
 		}
+	}
+	for _, chain := range allChains {
 		timelocksPerChain[chain] = state.Chains[chain].Timelock
+		ocrParams[chain] = DefaultOCRParams(e.FeedChainSel, nil, nil)
 	}
 	var usdcCfg USDCAttestationConfig
 	if len(usdcChains) > 0 {
@@ -341,6 +347,7 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 					USDCAttestationConfig: usdcCfg,
 					CCTPTokenConfig:       usdcCCTPConfig,
 				},
+				OCRParams: ocrParams,
 			},
 		},
 		{
@@ -498,7 +505,7 @@ func AddLanesForAll(e deployment.Environment, state CCIPOnChainState) error {
 	for source := range e.Chains {
 		for dest := range e.Chains {
 			if source != dest {
-				err := AddLaneWithDefaultPrices(e, state, source, dest)
+				err := AddLaneWithDefaultPricesAndFeeQuoterConfig(e, state, source, dest, false)
 				if err != nil {
 					return err
 				}
@@ -809,11 +816,11 @@ func setTokenPoolCounterPart(
 ) error {
 	tx, err := tokenPool.ApplyChainUpdates(
 		chain.DeployerKey,
+		[]uint64{},
 		[]burn_mint_token_pool.TokenPoolChainUpdate{
 			{
 				RemoteChainSelector: destChainSelector,
-				Allowed:             true,
-				RemotePoolAddress:   common.LeftPadBytes(destTokenPoolAddress.Bytes(), 32),
+				RemotePoolAddresses: [][]byte{common.LeftPadBytes(destTokenPoolAddress.Bytes(), 32)},
 				RemoteTokenAddress:  common.LeftPadBytes(destTokenAddress.Bytes(), 32),
 				OutboundRateLimiterConfig: burn_mint_token_pool.RateLimiterConfig{
 					IsEnabled: false,
@@ -837,7 +844,7 @@ func setTokenPoolCounterPart(
 		return err
 	}
 
-	tx, err = tokenPool.SetRemotePool(
+	tx, err = tokenPool.AddRemotePool(
 		chain.DeployerKey,
 		destChainSelector,
 		destTokenPoolAddress.Bytes(),
@@ -918,6 +925,8 @@ func deployTransferTokenOneEnd(
 		}
 	}
 
+	tokenDecimals := uint8(18)
+
 	tokenContract, err := deployment.DeployContract(lggr, chain, addressBook,
 		func(chain deployment.Chain) deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
 			USDCTokenAddr, tx, token, err2 := burn_mint_erc677.DeployBurnMintERC677(
@@ -925,7 +934,7 @@ func deployTransferTokenOneEnd(
 				chain.Client,
 				tokenSymbol,
 				tokenSymbol,
-				uint8(18),
+				tokenDecimals,
 				big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
 			)
 			return deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
@@ -952,6 +961,7 @@ func deployTransferTokenOneEnd(
 				chain.DeployerKey,
 				chain.Client,
 				tokenContract.Address,
+				tokenDecimals,
 				[]common.Address{},
 				common.HexToAddress(rmnAddress),
 				common.HexToAddress(routerAddress),

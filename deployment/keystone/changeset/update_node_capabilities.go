@@ -3,11 +3,11 @@ package changeset
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/keystone"
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 
@@ -19,15 +19,29 @@ var _ deployment.ChangeSet[*MutateNodeCapabilitiesRequest] = UpdateNodeCapabilit
 
 type P2PSignerEnc = internal.P2PSignerEnc
 
-func NewP2PSignerEnc(n *keystone.Node, registryChainSel uint64) (*P2PSignerEnc, error) {
-	p2p, signer, enc, err := kslib.ExtractKeys(n, registryChainSel)
+func NewP2PSignerEnc(n *deployment.Node, registryChainSel uint64) (*P2PSignerEnc, error) {
+	// TODO: deduplicate everywhere
+	registryChainID, err := chainsel.ChainIdFromSelector(registryChainSel)
 	if err != nil {
-		return nil, fmt.Errorf("failed to extract keys: %w", err)
+		return nil, err
 	}
+	registryChainDetails, err := chainsel.GetChainDetailsByChainIDAndFamily(strconv.Itoa(int(registryChainID)), chainsel.FamilyEVM)
+	if err != nil {
+		return nil, err
+	}
+	evmCC, exists := n.SelToOCRConfig[registryChainDetails]
+	if !exists {
+		return nil, fmt.Errorf("NewP2PSignerEnc: registryChainSel not found on node: %v", registryChainSel)
+	}
+	var signer [32]byte
+	copy(signer[:], evmCC.OnchainPublicKey)
+	var csakey [32]byte
+	copy(csakey[:], evmCC.ConfigEncryptionPublicKey[:])
+
 	return &P2PSignerEnc{
 		Signer:              signer,
-		P2PKey:              p2p,
-		EncryptionPublicKey: enc,
+		P2PKey:              n.PeerID,
+		EncryptionPublicKey: csakey,
 	}, nil
 }
 

@@ -15,8 +15,9 @@ contract BurnWithFromMintTokenPoolSetup is BurnMintSetup {
   function setUp() public virtual override {
     BurnMintSetup.setUp();
 
-    s_pool =
-      new BurnWithFromMintTokenPool(s_burnMintERC20, new address[](0), address(s_mockRMN), address(s_sourceRouter));
+    s_pool = new BurnWithFromMintTokenPool(
+      s_burnMintERC20, DEFAULT_TOKEN_DECIMALS, new address[](0), address(s_mockRMN), address(s_sourceRouter)
+    );
     s_burnMintERC20.grantMintAndBurnRoles(address(s_pool));
 
     _applyChainUpdates(address(s_pool));
@@ -29,7 +30,7 @@ contract BurnWithFromMintTokenPool_lockOrBurn is BurnWithFromMintTokenPoolSetup 
     assertEq(address(s_mockRMN), s_pool.getRmnProxy());
     assertEq(false, s_pool.getAllowListEnabled());
     assertEq(type(uint256).max, s_burnMintERC20.allowance(address(s_pool), address(s_pool)));
-    assertEq("BurnWithFromMintTokenPool 1.5.0", s_pool.typeAndVersion());
+    assertEq("BurnWithFromMintTokenPool 1.5.1", s_pool.typeAndVersion());
   }
 
   function test_PoolBurn_Success() public {

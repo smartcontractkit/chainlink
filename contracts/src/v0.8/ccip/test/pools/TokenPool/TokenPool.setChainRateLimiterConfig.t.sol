@@ -6,23 +6,6 @@ import {TokenPool} from "../../../pools/TokenPool.sol";
 import {TokenPoolSetup} from "./TokenPoolSetup.t.sol";
 
 contract TokenPool_setChainRateLimiterConfig is TokenPoolSetup {
-  uint64 internal s_remoteChainSelector;
-
-  function setUp() public virtual override {
-    TokenPoolSetup.setUp();
-    TokenPool.ChainUpdate[] memory chainUpdates = new TokenPool.ChainUpdate[](1);
-    s_remoteChainSelector = 123124;
-    chainUpdates[0] = TokenPool.ChainUpdate({
-      remoteChainSelector: s_remoteChainSelector,
-      remotePoolAddress: abi.encode(address(2)),
-      remoteTokenAddress: abi.encode(address(3)),
-      allowed: true,
-      outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
-      inboundRateLimiterConfig: _getInboundRateLimiterConfig()
-    });
-    s_tokenPool.applyChainUpdates(chainUpdates);
-  }
-
   function testFuzz_SetChainRateLimiterConfig_Success(uint128 capacity, uint128 rate, uint32 newTime) public {
     // Cap the lower bound to 4 so 4/2 is still >= 2
     vm.assume(capacity >= 4);
@@ -32,8 +15,8 @@ contract TokenPool_setChainRateLimiterConfig is TokenPoolSetup {
     newTime = uint32(bound(newTime, block.timestamp + 1, type(uint32).max));
     vm.warp(newTime);
 
-    uint256 oldOutboundTokens = s_tokenPool.getCurrentOutboundRateLimiterState(s_remoteChainSelector).tokens;
-    uint256 oldInboundTokens = s_tokenPool.getCurrentInboundRateLimiterState(s_remoteChainSelector).tokens;
+    uint256 oldOutboundTokens = s_tokenPool.getCurrentOutboundRateLimiterState(DEST_CHAIN_SELECTOR).tokens;
+    uint256 oldInboundTokens = s_tokenPool.getCurrentInboundRateLimiterState(DEST_CHAIN_SELECTOR).tokens;
 
     RateLimiter.Config memory newOutboundConfig = RateLimiter.Config({isEnabled: true, capacity: capacity, rate: rate});
     RateLimiter.Config memory newInboundConfig =
@@ -44,13 +27,13 @@ contract TokenPool_setChainRateLimiterConfig is TokenPoolSetup {
     vm.expectEmit();
     emit RateLimiter.ConfigChanged(newInboundConfig);
     vm.expectEmit();
-    emit TokenPool.ChainConfigured(s_remoteChainSelector, newOutboundConfig, newInboundConfig);
+    emit TokenPool.ChainConfigured(DEST_CHAIN_SELECTOR, newOutboundConfig, newInboundConfig);
 
-    s_tokenPool.setChainRateLimiterConfig(s_remoteChainSelector, newOutboundConfig, newInboundConfig);
+    s_tokenPool.setChainRateLimiterConfig(DEST_CHAIN_SELECTOR, newOutboundConfig, newInboundConfig);
 
     uint256 expectedTokens = RateLimiter._min(newOutboundConfig.capacity, oldOutboundTokens);
 
-    RateLimiter.TokenBucket memory bucket = s_tokenPool.getCurrentOutboundRateLimiterState(s_remoteChainSelector);
+    RateLimiter.TokenBucket memory bucket = s_tokenPool.getCurrentOutboundRateLimiterState(DEST_CHAIN_SELECTOR);
     assertEq(bucket.capacity, newOutboundConfig.capacity);
     assertEq(bucket.rate, newOutboundConfig.rate);
     assertEq(bucket.tokens, expectedTokens);
@@ -58,7 +41,7 @@ contract TokenPool_setChainRateLimiterConfig is TokenPoolSetup {
 
     expectedTokens = RateLimiter._min(newInboundConfig.capacity, oldInboundTokens);
 
-    bucket = s_tokenPool.getCurrentInboundRateLimiterState(s_remoteChainSelector);
+    bucket = s_tokenPool.getCurrentInboundRateLimiterState(DEST_CHAIN_SELECTOR);
     assertEq(bucket.capacity, newInboundConfig.capacity);
     assertEq(bucket.rate, newInboundConfig.rate);
     assertEq(bucket.tokens, expectedTokens);
@@ -72,7 +55,7 @@ contract TokenPool_setChainRateLimiterConfig is TokenPoolSetup {
 
     vm.expectRevert(abi.encodeWithSelector(TokenPool.Unauthorized.selector, STRANGER));
     s_tokenPool.setChainRateLimiterConfig(
-      s_remoteChainSelector, _getOutboundRateLimiterConfig(), _getInboundRateLimiterConfig()
+      DEST_CHAIN_SELECTOR, _getOutboundRateLimiterConfig(), _getInboundRateLimiterConfig()
     );
   }
 

@@ -52,15 +52,20 @@ func SetCandidatePluginChangeset(
 	tokenConfig TokenConfig,
 	pluginType cctypes.PluginType,
 ) (deployment.ChangesetOutput, error) {
+	ccipOCRParams := DefaultOCRParams(
+		feedChainSel,
+		tokenConfig.GetTokenInfo(e.Logger, state.Chains[newChainSel].LinkToken, state.Chains[newChainSel].Weth9),
+		nil,
+	)
 	newDONArgs, err := internal.BuildOCR3ConfigForCCIPHome(
 		ocrSecrets,
 		state.Chains[newChainSel].OffRamp,
 		e.Chains[newChainSel],
-		feedChainSel,
-		tokenConfig.GetTokenInfo(e.Logger, state.Chains[newChainSel].LinkToken, state.Chains[newChainSel].Weth9),
 		nodes.NonBootstraps(),
 		state.Chains[homeChainSel].RMNHome.Address(),
-		nil,
+		ccipOCRParams.OCRParameters,
+		ccipOCRParams.CommitOffChainConfig,
+		ccipOCRParams.ExecuteOffChainConfig,
 	)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err

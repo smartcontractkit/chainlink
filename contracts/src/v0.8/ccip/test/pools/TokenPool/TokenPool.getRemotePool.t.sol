@@ -5,25 +5,29 @@ import {TokenPool} from "../../../pools/TokenPool.sol";
 import {TokenPoolSetup} from "./TokenPoolSetup.t.sol";
 
 contract TokenPool_getRemotePool is TokenPoolSetup {
-  function test_getRemotePool_Success() public {
-    uint64 chainSelector = 123124;
-    address remotePool = makeAddr("remotePool");
-    address remoteToken = makeAddr("remoteToken");
+  function test_getRemotePools() public {
+    uint64 chainSelector = DEST_CHAIN_SELECTOR + 1;
+    bytes memory remotePool = abi.encode(makeAddr("remotePool"));
+    bytes memory remoteToken = abi.encode(makeAddr("remoteToken"));
 
     // Zero indicates nothing is set
-    assertEq(0, s_tokenPool.getRemotePool(chainSelector).length);
+    assertEq(0, s_tokenPool.getRemotePools(chainSelector).length);
+
+    bytes[] memory remotePoolAddresses = new bytes[](1);
+    remotePoolAddresses[0] = remotePool;
 
     TokenPool.ChainUpdate[] memory chainUpdates = new TokenPool.ChainUpdate[](1);
     chainUpdates[0] = TokenPool.ChainUpdate({
       remoteChainSelector: chainSelector,
-      remotePoolAddress: abi.encode(remotePool),
-      remoteTokenAddress: abi.encode(remoteToken),
-      allowed: true,
+      remotePoolAddresses: remotePoolAddresses,
+      remoteTokenAddress: remoteToken,
       outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
       inboundRateLimiterConfig: _getInboundRateLimiterConfig()
     });
-    s_tokenPool.applyChainUpdates(chainUpdates);
+    s_tokenPool.applyChainUpdates(new uint64[](0), chainUpdates);
 
-    assertEq(remotePool, abi.decode(s_tokenPool.getRemotePool(chainSelector), (address)));
+    bytes[] memory remotePools = s_tokenPool.getRemotePools(chainSelector);
+    assertEq(1, remotePools.length);
+    assertEq(remotePool, remotePools[0]);
   }
 }

@@ -88,7 +88,7 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 }
 
 func runFeeboostTestCase(tc feeboostTestCase) {
-	require.NoError(tc.t, changeset.AddLane(tc.deployedEnv.Env, tc.onchainState, tc.sourceChain, tc.destChain, tc.initialPrices))
+	require.NoError(tc.t, changeset.AddLaneWithDefaultPricesAndFeeQuoterConfig(tc.deployedEnv.Env, tc.onchainState, tc.sourceChain, tc.destChain, false))
 
 	startBlocks := make(map[uint64]*uint64)
 	expectedSeqNum := make(map[changeset.SourceDestPair]uint64)
