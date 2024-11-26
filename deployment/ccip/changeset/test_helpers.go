@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -31,10 +32,11 @@ import (
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
-	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+
+	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
@@ -401,7 +403,7 @@ func CCIPSendRequest(
 		return nil, 0, errors.Wrap(deployment.MaybeDataErr(err), "failed to get fee")
 	}
 	if msg.FeeToken == common.HexToAddress("0x0") {
-		e.Chains[src].DeployerKey.Value = fee
+		e.Chains[src].DeployerKey.Value = fee.Mul(fee, big.NewInt(2)) // 2x fee to prevent flaky tests
 		defer func() { e.Chains[src].DeployerKey.Value = nil }()
 	}
 	tx, err := r.CcipSend(
