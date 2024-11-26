@@ -7,7 +7,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_transmitter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/usdc_token_pool"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	chainsel "github.com/smartcontractkit/chain-selectors"
@@ -421,7 +420,7 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				return state, err
 			}
 			state.Multicall3 = mc
-		case deployment.NewTypeAndVersion(PriceFeed, deployment.Version1_0_0).String():
+		case deployment.NewTypeAndVersion(PriceFeedLinkMock, deployment.Version1_0_0).String():
 			feed, err := aggregator_v3_interface.NewAggregatorV3Interface(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
@@ -429,13 +428,22 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 			if state.USDFeeds == nil {
 				state.USDFeeds = make(map[TokenSymbol]*aggregator_v3_interface.AggregatorV3Interface)
 			}
-			desc, err := feed.Description(&bind.CallOpts{})
+			key, ok := MockContractTypeToTokenSymbol[PriceFeedLinkMock]
+			if !ok {
+				return state, fmt.Errorf("unknown token %s", PriceFeedLinkMock)
+			}
+			state.USDFeeds[key] = feed
+		case deployment.NewTypeAndVersion(PriceFeedNativeMock, deployment.Version1_0_0).String():
+			feed, err := aggregator_v3_interface.NewAggregatorV3Interface(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
-			key, ok := MockDescriptionToTokenSymbol[desc]
+			if state.USDFeeds == nil {
+				state.USDFeeds = make(map[TokenSymbol]*aggregator_v3_interface.AggregatorV3Interface)
+			}
+			key, ok := MockContractTypeToTokenSymbol[PriceFeedNativeMock]
 			if !ok {
-				return state, fmt.Errorf("unknown feed description %s", desc)
+				return state, fmt.Errorf("unknown token %s", PriceFeedNativeMock)
 			}
 			state.USDFeeds[key] = feed
 		default:

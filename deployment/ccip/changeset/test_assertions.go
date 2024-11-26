@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
@@ -21,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_v3_aggregator_contract"
 )
 
 func ConfirmGasPriceUpdatedForAll(
@@ -475,6 +477,77 @@ func ConfirmNoExecConsistentlyWithSeqNr(
 			executionStateToString(executionState), dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr)
 		return false
 	}, timeout, 3*time.Second, "Expected no execution state change on chain %d (offramp %s) from chain %d with expected sequence number %d", dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr)
+}
+
+// ConfirmPriceUpdate waits for the price feed to update to the expected price.
+func ConfirmPriceUpdate(
+	t *testing.T,
+	chain deployment.Chain,
+	state CCIPOnChainState,
+	symbol TokenSymbol,
+	expectedPrice *big.Int,
+) error {
+	feed, exists := state.Chains[chain.Selector].USDFeeds[symbol]
+	if !exists {
+		return fmt.Errorf("feed not found for token symbol %s on chain %d", symbol, chain.Selector)
+	}
+
+	aggregator, err := mock_v3_aggregator_contract.NewMockV3AggregatorContract(
+		feed.Address(),
+		chain.Client,
+	)
+	if err != nil {
+		return errors.Wrap(err, "creating aggregator instance")
+	}
+
+	var duration time.Duration
+	deadline, ok := t.Deadline()
+	if ok {
+		duration = deadline.Sub(time.Now().Add(-1 * time.Minute))
+	} else {
+		duration = 5 * time.Minute
+	}
+	timer := time.NewTimer(duration)
+	defer timer.Stop()
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			// if it's simulated backend, commit to ensure mining
+			if backend, ok := chain.Client.(*memory.Backend); ok {
+				backend.Commit()
+			}
+
+			currentPrice, err := aggregator.LatestAnswer(&bind.CallOpts{
+				Context: context.Background(),
+			})
+			if err != nil {
+				t.Logf("Error getting current price: %v", err)
+				continue
+			}
+
+			if currentPrice.Cmp(expectedPrice) == 0 {
+				t.Logf("Price confirmed on chain %d for token %s: price=%s",
+					chain.Selector, symbol, currentPrice.String())
+				return nil
+			}
+
+			t.Logf("Waiting for price update on chain %d for token %s: current=%s, expected=%s",
+				chain.Selector, symbol, currentPrice.String(), expectedPrice.String())
+
+		case <-timer.C:
+			currentPrice, err := aggregator.LatestAnswer(&bind.CallOpts{
+				Context: context.Background(),
+			})
+			if err != nil {
+				return errors.Wrap(err, "getting final price check")
+			}
+			return fmt.Errorf("timed out after waiting %s duration for price update on chain selector %d for token %s: current=%s, expected=%s",
+				duration.String(), chain.Selector, symbol, currentPrice.String(), expectedPrice.String())
+		}
+	}
 }
 
 func GetExecutionState(t *testing.T, source, dest deployment.Chain, offRamp *offramp.OffRamp, expectedSeqNr uint64) (offramp.OffRampSourceChainConfig, uint8) {

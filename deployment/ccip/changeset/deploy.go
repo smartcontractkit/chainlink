@@ -7,8 +7,9 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"golang.org/x/sync/errgroup"
+
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 
@@ -49,7 +50,8 @@ var (
 	OnRamp               deployment.ContractType = "OnRamp"
 	OffRamp              deployment.ContractType = "OffRamp"
 	CapabilitiesRegistry deployment.ContractType = "CapabilitiesRegistry"
-	PriceFeed            deployment.ContractType = "PriceFeed"
+	PriceFeedNativeMock  deployment.ContractType = "PriceFeedNativeMock"
+	PriceFeedLinkMock    deployment.ContractType = "PriceFeedLinkMock"
 	// Note test router maps to a regular router contract.
 	TestRouter          deployment.ContractType = "TestRouter"
 	Multicall3          deployment.ContractType = "Multicall3"
