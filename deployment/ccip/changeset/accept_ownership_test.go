@@ -17,7 +17,6 @@ import (
 )
 
 func Test_NewAcceptOwnershipChangeset(t *testing.T) {
-	ctx := tests.Context(t)
 	e := NewMemoryEnvironmentWithJobs(t, logger.TestLogger(t), 2, 4)
 	state, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -92,8 +91,20 @@ func Test_NewAcceptOwnershipChangeset(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	assertTimelockOwnership(t, e, allChains, state)
+}
+
+// assertTimelockOwnership asserts that the ownership of the contracts has been transferred
+// to the appropriate timelock contract on each chain.
+func assertTimelockOwnership(
+	t *testing.T,
+	e DeployedEnv,
+	chains []uint64,
+	state CCIPOnChainState,
+) {
+	ctx := tests.Context(t)
 	// check that the ownership has been transferred correctly
-	for _, chain := range allChains {
+	for _, chain := range chains {
 		for _, contract := range []ownershipTransferrer{
 			state.Chains[chain].OnRamp,
 			state.Chains[chain].OffRamp,

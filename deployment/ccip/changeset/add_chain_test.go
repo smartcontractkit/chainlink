@@ -152,6 +152,8 @@ func TestAddChainInbound(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	assertTimelockOwnership(t, e, initialDeploy, state)
+
 	nodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
 
