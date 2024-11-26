@@ -324,8 +324,6 @@ jobs:
 
             # Use flakeguard to filter and output failed tests based on MaxPassRatio
             flakeguard aggregate-results --filter-failed=true --max-pass-ratio=${{ inputs.maxPassRatio }} --results-path . --output-results ../failed_tests.json --output-logs ../failed_test_logs.json
-            cat ../failed_tests.md
-            cat ../failed_tests.md >> $GITHUB_STEP_SUMMARY
 
             # Count failed tests
             if [ -f "../failed_tests.json" ]; then
@@ -340,6 +338,21 @@ jobs:
             echo "all_tests_count=0" >> "$GITHUB_OUTPUT"
             echo "failed_tests_count=0" >> "$GITHUB_OUTPUT"
           fi   
+
+      - name: Tests Summary
+        if: always()
+        run: |
+          FILE_SIZE=$(wc -c < all_tests.md)
+                    echo "File size: $FILE_SIZE bytes"
+          SIZE_LIMIT=$((1024 * 1024))
+
+          if [ "$FILE_SIZE" -le "$SIZE_LIMIT" ]; then
+            cat all_tests.md >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**We found flaky tests, so many flaky tests that the summary is too large for github actions step summaries!**" >> $GITHUB_STEP_SUMMARY
+            echo "**Please see logs, or the attached `all-summary.md` artifact**" >> $GITHUB_STEP_SUMMARY
+            cat all_tests.md
+          fi
 
       - name: Upload All Tests Summary as Artifact
         if: ${{ fromJson(steps.set_test_results.outputs.all_tests_count) > 0 }}
