@@ -380,6 +380,7 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 }
 
 func CCIPSendRequest(
+	t *testing.T,
 	e deployment.Environment,
 	state CCIPOnChainState,
 	src, dest uint64,
@@ -415,6 +416,10 @@ func CCIPSendRequest(
 	}
 	blockNum, err := e.Chains[src].Confirm(tx)
 	if err != nil {
+		currentFee, err := r.GetFee(&bind.CallOpts{Context: context.Background()}, dest, msg)
+		require.NoError(t, err)
+		t.Logf("failed to confirm ccip message with fee %s originalFee=%s currentFee=%s",
+			e.Chains[src].DeployerKey.Value, fee, currentFee)
 		return tx, 0, errors.Wrap(err, "failed to confirm CCIP message")
 	}
 	return tx, blockNum, nil
@@ -450,6 +455,7 @@ func TestSendRequest(
 	t.Logf("Sending CCIP request from chain selector %d to chain selector %d",
 		src, dest)
 	tx, blockNum, err := CCIPSendRequest(
+		t,
 		e,
 		state,
 		src, dest,
