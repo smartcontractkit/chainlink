@@ -24,14 +24,18 @@ import (
 
 var (
 	promMissingStreamCount = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "llo_stream_missing_count",
-		Help: "Number of times we tried to observe a stream, but it was missing",
+		Namespace: "llo",
+		Subsystem: "datasource",
+		Name:      "stream_missing_count",
+		Help:      "Number of times we tried to observe a stream, but it was missing",
 	},
 		[]string{"streamID"},
 	)
 	promObservationErrorCount = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "llo_stream_observation_error_count",
-		Help: "Number of times we tried to observe a stream, but it failed with an error",
+		Namespace: "llo",
+		Subsystem: "datasource",
+		Name:      "stream_observation_error_count",
+		Help:      "Number of times we tried to observe a stream, but it failed with an error",
 	},
 		[]string{"streamID"},
 	)

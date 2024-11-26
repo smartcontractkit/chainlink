@@ -29,6 +29,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/onsi/gomega"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -406,6 +407,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		Logger:                lggr,
 		LoopRegistry:          loopRegistry,
 		GRPCOpts:              loop.GRPCOpts{},
+		Registerer:            prometheus.NewRegistry(), // Don't use global registry here since otherwise multiple apps can create name conflicts. Could also potentially give a mock registry to test prometheus.
 		MercuryPool:           mercuryPool,
 		CapabilitiesRegistry:  capabilitiesRegistry,
 		HTTPClient:            c,

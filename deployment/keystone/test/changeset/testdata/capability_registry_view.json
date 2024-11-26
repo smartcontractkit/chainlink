@@ -1,0 +1,455 @@
+{
+ "typeAndVersion": "CapabilitiesRegistry 1.1.0",
+ "address": "0x65a097a74769fe1c415993f45d9b56ffffb65807",
+ "owner": "0x61050aeba13a5f7ba0b06cac4e1aee625fe4a640",
+ "capabilities": [
+  {
+   "id": "9f0f33d3737af0a2acae89e7f8c4638aeb886a67c1d84e13aee8532c70aa9483",
+   "labelled_name": "write_ethereum-testnet-sepolia",
+   "version": "1.0.0",
+   "capability_type": 3,
+   "response_type": 0,
+   "configuration_contract": "0x0000000000000000000000000000000000000000"
+  },
+  {
+   "id": "1ea6e85dfb8ebb08b7cd82b42ab4655429a8ae116d513be0d68a7d7661667a8a",
+   "labelled_name": "streams-trigger",
+   "version": "1.0.0",
+   "capability_type": 0,
+   "response_type": 0,
+   "configuration_contract": "0x0000000000000000000000000000000000000000"
+  },
+  {
+   "id": "578ebf7413c15e36dfd792396c5a4d75c43f0ee7bbabdb703f7c5acd0bb65a1b",
+   "labelled_name": "offchain_reporting",
+   "version": "1.0.0",
+   "capability_type": 2,
+   "response_type": 0,
+   "configuration_contract": "0x0000000000000000000000000000000000000000"
+  }
+ ],
+ "nodes": [
+  {
+   "config_count": 1,
+   "workflow_don_id": 1,
+   "signer": "f36818345fb18549bd24305c79f2f28d80d25710000000000000000000000000",
+   "p2p_id": "p2p_12D3KooWGVWpMrCZDotqSYWj8xqb1i5kNecpoarczpQoSAHdqwj8",
+   "encryption_public_key": "986707930499b85ab01705aa8d5cd99dca40926db3fa1728e6b58d25fddfe46b",
+   "node_operator_id": 1,
+   "capability_ids": [
+    "578ebf7413c15e36dfd792396c5a4d75c43f0ee7bbabdb703f7c5acd0bb65a1b"
+   ]
+  },
+  {
+   "config_count": 1,
+   "workflow_don_id": 0,
+   "signer": "a0e11229b4b5d40d299f7f4b3348a1b16f5f3dd3000000000000000000000000",
+   "p2p_id": "p2p_12D3KooWPsGKEe34m9X8qiWVpa6VEcjdvhbygJRLKXdVEr3r96PH",
+   "encryption_public_key": "10c77049880fe0924f463763789985a0f76e09f82fc6f39943684b2dd05b98bf",
+   "node_operator_id": 2,
+   "capability_ids": [
+    "9f0f33d3737af0a2acae89e7f8c4638aeb886a67c1d84e13aee8532c70aa9483"
+   ],
+   "capability_don_ids": [
+    2
+   ]
+  },
+  {
+   "config_count": 1,
+   "workflow_don_id": 0,
+   "signer": "3f871cd7c34e50320934b6ba9b90b249363fd378000000000000000000000000",
+   "p2p_id": "p2p_12D3KooWLjKKWLhYkr68PH9FaZZR93WbJuohWWcTfA9JeY1UPoJa",
+   "encryption_public_key": "5cf5abd0349b27cde43ad1a55aa3b02a5518aa6eed365bd65ca5e0e2cbfdaa5a",
+   "node_operator_id": 3,
+   "capability_ids": [
+    "1ea6e85dfb8ebb08b7cd82b42ab4655429a8ae116d513be0d68a7d7661667a8a"
+   ],
+   "capability_don_ids": [
+    3
+   ]
+  },
+  {
+   "config_count": 1,
+   "workflow_don_id": 0,
+   "signer": "d7a432ce8f23c410302e7577de9973ccbca29576000000000000000000000000",
+   "p2p_id": "p2p_12D3KooWRG3rsPdQyWCPsQukUF5JqFLdPqVVXvEfG2PAPBbqdRXp",
+   "encryption_public_key": "c10cead34374ba20704a05ca0369018b41778a0297adb85554cdd6e5955bf4b6",
+   "node_operator_id": 3,
+   "capability_ids": [
+    "1ea6e85dfb8ebb08b7cd82b42ab4655429a8ae116d513be0d68a7d7661667a8a"
+   ],
+   "capability_don_ids": [
+    3
+   ]
+  },
+  {
+   "config_count": 1,
+   "workflow_don_id": 0,
+   "signer": "f1d2b3d13c46b0c1ded96534aabd6bae61934e3f000000000000000000000000",
+   "p2p_id": "p2p_12D3KooWD1uj8Y9Phdr1yScfbBy1Q9ebedMVBjMUBLW4m4XnEzGF",
+   "encryption_public_key": "5fc3dae131da5b0ac5474ad029e3a6c547e17249a6266427d5eea1f529b6488b",
+   "node_operator_id": 3,
+   "capability_ids": [
+    "1ea6e85dfb8ebb08b7cd82b42ab4655429a8ae116d513be0d68a7d7661667a8a"
+   ],
+   "capability_don_ids": [
+    3
+   ]
+  },
+  {
+   "config_count": 1,
+   "workflow_don_id": 1,
+   "signer": "afabd7685010d619ee6614e732b15e898c293426000000000000000000000000",
+   "p2p_id": "p2p_12D3KooWE8ymezL2wxXcZdhznnBkVNcBRbtxVfNx1vppu7Z7zfnd",
+   "encryption_public_key": "8a2aef988ccc85d985d12270c5263032b9a7c71a86430e7b3c30a2f493462aee",
+   "node_operator_id": 1,
+   "capability_ids": [
+    "578ebf7413c15e36dfd792396c5a4d75c43f0ee7bbabdb703f7c5acd0bb65a1b"
+   ]
+  },
+  {
+   "config_count": 1,
+   "workflow_don_id": 1,
+   "signer": "4bad6c33b85ba3bbbada74c93a7a719962456af8000000000000000000000000",
+   "p2p_id": "p2p_12D3KooWSEF7cqkbMrS6uCo6xzCsfcPgquN652mZijmay8e3pn5R",
+   "encryption_public_key": "cf8e0e8c830f733dd5992076d0adaeb34c97410dd5d8d04afccad88070b07f20",
+   "node_operator_id": 1,
+   "capability_ids": [
+    "578ebf7413c15e36dfd792396c5a4d75c43f0ee7bbabdb703f7c5acd0bb65a1b"
+   ]
+  },
+  {
+   "config_count": 1,
+   "workflow_don_id": 1,
+   "signer": "078cb3bca763a11a0c79df636b018311d9e36954000000000000000000000000",
+   "p2p_id": "p2p_12D3KooWAumheDZJdc3in1qiYGAQESTUm1nAWGA59eQPb3wuFHJa",
+   "encryption_public_key": "c8f45b74982037dd52eeb3df5295c7769757c72cde9a930fc82cb72caf0085ad",
+   "node_operator_id": 1,
+   "capability_ids": [
+    "578ebf7413c15e36dfd792396c5a4d75c43f0ee7bbabdb703f7c5acd0bb65a1b"
+   ]
+  },
+  {
+   "config_count": 1,
+   "workflow_don_id": 0,
+   "signer": "7621630d4f33e02f659445974060df375c126e82000000000000000000000000",
+   "p2p_id": "p2p_12D3KooWF1XmgvoLx45H3iGc9jD4mK7X1mctYmhZCqw5h1S1sXtA",
+   "encryption_public_key": "f8d7485910b56c9521dea1beb3d50151917bae18e131ad311ef90300318b8110",
+   "node_operator_id": 2,
+   "capability_ids": [
+    "9f0f33d3737af0a2acae89e7f8c4638aeb886a67c1d84e13aee8532c70aa9483"
+   ],
+   "capability_don_ids": [
+    2
+   ]
+  },
+  {
+   "config_count": 1,
+   "workflow_don_id": 0,
+   "signer": "b5599a0a8aa99860997e42d650c3dc1ac767a4b1000000000000000000000000",
+   "p2p_id": "p2p_12D3KooWFBsQE8gCZndyefzCZG6KHyjoeii7o7ff171tQHsGYq1p",
+   "encryption_public_key": "4081aacba87f07ea54c32517a9b661963a5fed5fbfd2042ff0823293d8fbd523",
+   "node_operator_id": 2,
+   "capability_ids": [
+    "9f0f33d3737af0a2acae89e7f8c4638aeb886a67c1d84e13aee8532c70aa9483"
+   ],
+   "capability_don_ids": [
+    2
+   ]
+  },
+  {
+   "config_count": 1,
+   "workflow_don_id": 0,
+   "signer": "2067cc4ec71978974265e578eb9b5c62cccc0d33000000000000000000000000",
+   "p2p_id": "p2p_12D3KooWKYQ51iqiS99MWfE8gwy7P1sN8oL4WboWLPxHRo8duc28",
+   "encryption_public_key": "533bfbd913615823cbb93251f27f3cbdd035a732c0a68ad49081b37a702fe4a1",
+   "node_operator_id": 2,
+   "capability_ids": [
+    "9f0f33d3737af0a2acae89e7f8c4638aeb886a67c1d84e13aee8532c70aa9483"
+   ],
+   "capability_don_ids": [
+    2
+   ]
+  },
+  {
+   "config_count": 1,
+   "workflow_don_id": 0,
+   "signer": "cd08a4d5934c41a389c2bd7b6fadfb1dace5f110000000000000000000000000",
+   "p2p_id": "p2p_12D3KooWMQjP7pp8ecxMSMd3Y3NocDsHt7g64bd7iGJhCr35gkby",
+   "encryption_public_key": "9ee181448ef55e381217ec959375fb302eba62e61006e4c9467832836cc8640e",
+   "node_operator_id": 3,
+   "capability_ids": [
+    "1ea6e85dfb8ebb08b7cd82b42ab4655429a8ae116d513be0d68a7d7661667a8a"
+   ],
+   "capability_don_ids": [
+    3
+   ]
+  }
+ ],
+ "nops": [
+  {
+   "admin": "0x528fdfde37119b52010a4920b09ef828249a3434",
+   "name": "nop 1"
+  },
+  {
+   "admin": "0xe0967f1d0f36df4c53a34e491465c9d3f0095eb9",
+   "name": "nop 2"
+  },
+  {
+   "admin": "0xe676a607b6f5c0b6d4c21aa616d727d5b0a47f35",
+   "name": "nop 3"
+  }
+ ],
+ "dons": [
+  {
+   "id": 1,
+   "config_count": 1,
+   "f": 1,
+   "is_public": true,
+   "accepts_workflows": true,
+   "node_p2p_ids": [
+    "p2p_12D3KooWAumheDZJdc3in1qiYGAQESTUm1nAWGA59eQPb3wuFHJa",
+    "p2p_12D3KooWE8ymezL2wxXcZdhznnBkVNcBRbtxVfNx1vppu7Z7zfnd",
+    "p2p_12D3KooWGVWpMrCZDotqSYWj8xqb1i5kNecpoarczpQoSAHdqwj8",
+    "p2p_12D3KooWSEF7cqkbMrS6uCo6xzCsfcPgquN652mZijmay8e3pn5R"
+   ],
+   "capability_configurations": [
+    {
+     "id": "578ebf7413c15e36dfd792396c5a4d75c43f0ee7bbabdb703f7c5acd0bb65a1b",
+     "config": "0a00"
+    }
+   ]
+  },
+  {
+   "id": 2,
+   "config_count": 1,
+   "f": 1,
+   "is_public": true,
+   "node_p2p_ids": [
+    "p2p_12D3KooWF1XmgvoLx45H3iGc9jD4mK7X1mctYmhZCqw5h1S1sXtA",
+    "p2p_12D3KooWFBsQE8gCZndyefzCZG6KHyjoeii7o7ff171tQHsGYq1p",
+    "p2p_12D3KooWKYQ51iqiS99MWfE8gwy7P1sN8oL4WboWLPxHRo8duc28",
+    "p2p_12D3KooWPsGKEe34m9X8qiWVpa6VEcjdvhbygJRLKXdVEr3r96PH"
+   ],
+   "capability_configurations": [
+    {
+     "id": "9f0f33d3737af0a2acae89e7f8c4638aeb886a67c1d84e13aee8532c70aa9483",
+     "config": "0a001a1a0a187369676e65645f7265706f72742e5369676e617475726573"
+    }
+   ]
+  },
+  {
+   "id": 3,
+   "config_count": 1,
+   "f": 1,
+   "is_public": true,
+   "node_p2p_ids": [
+    "p2p_12D3KooWD1uj8Y9Phdr1yScfbBy1Q9ebedMVBjMUBLW4m4XnEzGF",
+    "p2p_12D3KooWLjKKWLhYkr68PH9FaZZR93WbJuohWWcTfA9JeY1UPoJa",
+    "p2p_12D3KooWMQjP7pp8ecxMSMd3Y3NocDsHt7g64bd7iGJhCr35gkby",
+    "p2p_12D3KooWRG3rsPdQyWCPsQukUF5JqFLdPqVVXvEfG2PAPBbqdRXp"
+   ],
+   "capability_configurations": [
+    {
+     "id": "1ea6e85dfb8ebb08b7cd82b42ab4655429a8ae116d513be0d68a7d7661667a8a",
+     "config": "0a00120a0a0208141202083c1802"
+    }
+   ]
+  }
+ ],
+ "don_capabilities_summary": [
+  {
+   "don": {
+    "id": 1,
+    "config_count": 1,
+    "f": 1,
+    "is_public": true,
+    "accepts_workflows": true
+   },
+   "nodes": [
+    {
+     "config_count": 1,
+     "workflow_don_id": 1,
+     "signer": "f36818345fb18549bd24305c79f2f28d80d25710000000000000000000000000",
+     "p2p_id": "p2p_12D3KooWGVWpMrCZDotqSYWj8xqb1i5kNecpoarczpQoSAHdqwj8",
+     "encryption_public_key": "986707930499b85ab01705aa8d5cd99dca40926db3fa1728e6b58d25fddfe46b",
+     "nop": {
+      "admin": "0x528fdfde37119b52010a4920b09ef828249a3434",
+      "name": "nop 1"
+     }
+    },
+    {
+     "config_count": 1,
+     "workflow_don_id": 1,
+     "signer": "afabd7685010d619ee6614e732b15e898c293426000000000000000000000000",
+     "p2p_id": "p2p_12D3KooWE8ymezL2wxXcZdhznnBkVNcBRbtxVfNx1vppu7Z7zfnd",
+     "encryption_public_key": "8a2aef988ccc85d985d12270c5263032b9a7c71a86430e7b3c30a2f493462aee",
+     "nop": {
+      "admin": "0x528fdfde37119b52010a4920b09ef828249a3434",
+      "name": "nop 1"
+     }
+    },
+    {
+     "config_count": 1,
+     "workflow_don_id": 1,
+     "signer": "4bad6c33b85ba3bbbada74c93a7a719962456af8000000000000000000000000",
+     "p2p_id": "p2p_12D3KooWSEF7cqkbMrS6uCo6xzCsfcPgquN652mZijmay8e3pn5R",
+     "encryption_public_key": "cf8e0e8c830f733dd5992076d0adaeb34c97410dd5d8d04afccad88070b07f20",
+     "nop": {
+      "admin": "0x528fdfde37119b52010a4920b09ef828249a3434",
+      "name": "nop 1"
+     }
+    },
+    {
+     "config_count": 1,
+     "workflow_don_id": 1,
+     "signer": "078cb3bca763a11a0c79df636b018311d9e36954000000000000000000000000",
+     "p2p_id": "p2p_12D3KooWAumheDZJdc3in1qiYGAQESTUm1nAWGA59eQPb3wuFHJa",
+     "encryption_public_key": "c8f45b74982037dd52eeb3df5295c7769757c72cde9a930fc82cb72caf0085ad",
+     "nop": {
+      "admin": "0x528fdfde37119b52010a4920b09ef828249a3434",
+      "name": "nop 1"
+     }
+    }
+   ],
+   "capabilities": [
+    {
+     "id": "578ebf7413c15e36dfd792396c5a4d75c43f0ee7bbabdb703f7c5acd0bb65a1b",
+     "labelled_name": "offchain_reporting",
+     "version": "1.0.0",
+     "capability_type": 2,
+     "response_type": 0,
+     "configuration_contract": "0x0000000000000000000000000000000000000000"
+    }
+   ]
+  },
+  {
+   "don": {
+    "id": 2,
+    "config_count": 1,
+    "f": 1,
+    "is_public": true
+   },
+   "nodes": [
+    {
+     "config_count": 1,
+     "workflow_don_id": 0,
+     "signer": "a0e11229b4b5d40d299f7f4b3348a1b16f5f3dd3000000000000000000000000",
+     "p2p_id": "p2p_12D3KooWPsGKEe34m9X8qiWVpa6VEcjdvhbygJRLKXdVEr3r96PH",
+     "encryption_public_key": "10c77049880fe0924f463763789985a0f76e09f82fc6f39943684b2dd05b98bf",
+     "nop": {
+      "admin": "0xe0967f1d0f36df4c53a34e491465c9d3f0095eb9",
+      "name": "nop 2"
+     }
+    },
+    {
+     "config_count": 1,
+     "workflow_don_id": 0,
+     "signer": "7621630d4f33e02f659445974060df375c126e82000000000000000000000000",
+     "p2p_id": "p2p_12D3KooWF1XmgvoLx45H3iGc9jD4mK7X1mctYmhZCqw5h1S1sXtA",
+     "encryption_public_key": "f8d7485910b56c9521dea1beb3d50151917bae18e131ad311ef90300318b8110",
+     "nop": {
+      "admin": "0xe0967f1d0f36df4c53a34e491465c9d3f0095eb9",
+      "name": "nop 2"
+     }
+    },
+    {
+     "config_count": 1,
+     "workflow_don_id": 0,
+     "signer": "b5599a0a8aa99860997e42d650c3dc1ac767a4b1000000000000000000000000",
+     "p2p_id": "p2p_12D3KooWFBsQE8gCZndyefzCZG6KHyjoeii7o7ff171tQHsGYq1p",
+     "encryption_public_key": "4081aacba87f07ea54c32517a9b661963a5fed5fbfd2042ff0823293d8fbd523",
+     "nop": {
+      "admin": "0xe0967f1d0f36df4c53a34e491465c9d3f0095eb9",
+      "name": "nop 2"
+     }
+    },
+    {
+     "config_count": 1,
+     "workflow_don_id": 0,
+     "signer": "2067cc4ec71978974265e578eb9b5c62cccc0d33000000000000000000000000",
+     "p2p_id": "p2p_12D3KooWKYQ51iqiS99MWfE8gwy7P1sN8oL4WboWLPxHRo8duc28",
+     "encryption_public_key": "533bfbd913615823cbb93251f27f3cbdd035a732c0a68ad49081b37a702fe4a1",
+     "nop": {
+      "admin": "0xe0967f1d0f36df4c53a34e491465c9d3f0095eb9",
+      "name": "nop 2"
+     }
+    }
+   ],
+   "capabilities": [
+    {
+     "id": "9f0f33d3737af0a2acae89e7f8c4638aeb886a67c1d84e13aee8532c70aa9483",
+     "labelled_name": "write_ethereum-testnet-sepolia",
+     "version": "1.0.0",
+     "capability_type": 3,
+     "response_type": 0,
+     "configuration_contract": "0x0000000000000000000000000000000000000000"
+    }
+   ]
+  },
+  {
+   "don": {
+    "id": 3,
+    "config_count": 1,
+    "f": 1,
+    "is_public": true
+   },
+   "nodes": [
+    {
+     "config_count": 1,
+     "workflow_don_id": 0,
+     "signer": "3f871cd7c34e50320934b6ba9b90b249363fd378000000000000000000000000",
+     "p2p_id": "p2p_12D3KooWLjKKWLhYkr68PH9FaZZR93WbJuohWWcTfA9JeY1UPoJa",
+     "encryption_public_key": "5cf5abd0349b27cde43ad1a55aa3b02a5518aa6eed365bd65ca5e0e2cbfdaa5a",
+     "nop": {
+      "admin": "0xe676a607b6f5c0b6d4c21aa616d727d5b0a47f35",
+      "name": "nop 3"
+     }
+    },
+    {
+     "config_count": 1,
+     "workflow_don_id": 0,
+     "signer": "d7a432ce8f23c410302e7577de9973ccbca29576000000000000000000000000",
+     "p2p_id": "p2p_12D3KooWRG3rsPdQyWCPsQukUF5JqFLdPqVVXvEfG2PAPBbqdRXp",
+     "encryption_public_key": "c10cead34374ba20704a05ca0369018b41778a0297adb85554cdd6e5955bf4b6",
+     "nop": {
+      "admin": "0xe676a607b6f5c0b6d4c21aa616d727d5b0a47f35",
+      "name": "nop 3"
+     }
+    },
+    {
+     "config_count": 1,
+     "workflow_don_id": 0,
+     "signer": "f1d2b3d13c46b0c1ded96534aabd6bae61934e3f000000000000000000000000",
+     "p2p_id": "p2p_12D3KooWD1uj8Y9Phdr1yScfbBy1Q9ebedMVBjMUBLW4m4XnEzGF",
+     "encryption_public_key": "5fc3dae131da5b0ac5474ad029e3a6c547e17249a6266427d5eea1f529b6488b",
+     "nop": {
+      "admin": "0xe676a607b6f5c0b6d4c21aa616d727d5b0a47f35",
+      "name": "nop 3"
+     }
+    },
+    {
+     "config_count": 1,
+     "workflow_don_id": 0,
+     "signer": "cd08a4d5934c41a389c2bd7b6fadfb1dace5f110000000000000000000000000",
+     "p2p_id": "p2p_12D3KooWMQjP7pp8ecxMSMd3Y3NocDsHt7g64bd7iGJhCr35gkby",
+     "encryption_public_key": "9ee181448ef55e381217ec959375fb302eba62e61006e4c9467832836cc8640e",
+     "nop": {
+      "admin": "0xe676a607b6f5c0b6d4c21aa616d727d5b0a47f35",
+      "name": "nop 3"
+     }
+    }
+   ],
+   "capabilities": [
+    {
+     "id": "1ea6e85dfb8ebb08b7cd82b42ab4655429a8ae116d513be0d68a7d7661667a8a",
+     "labelled_name": "streams-trigger",
+     "version": "1.0.0",
+     "capability_type": 0,
+     "response_type": 0,
+     "configuration_contract": "0x0000000000000000000000000000000000000000"
+    }
+   ]
+  }
+ ]
+}

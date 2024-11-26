@@ -7,7 +7,7 @@ import {WorkflowRegistrySetup} from "./WorkflowRegistrySetup.t.sol";
 
 contract WorkflowRegistry_updateAllowedDONs is WorkflowRegistrySetup {
   function test_RevertWhen_TheCallerIsNotTheOwner() external {
-    vm.prank(s_nonOwner);
+    vm.prank(s_stranger);
 
     vm.expectRevert(Ownable2Step.OnlyCallableByOwner.selector);
     s_registry.updateAllowedDONs(new uint32[](0), true);
@@ -36,7 +36,7 @@ contract WorkflowRegistry_updateAllowedDONs is WorkflowRegistrySetup {
     assertEq(allowedDONs.length, 1);
 
     // Expect the event to be emitted
-    vm.expectEmit(true, true, true, true);
+    vm.expectEmit();
     emit WorkflowRegistry.AllowedDONsUpdatedV1(donIDsToAdd, true);
 
     // Call the function as the owner
@@ -58,7 +58,7 @@ contract WorkflowRegistry_updateAllowedDONs is WorkflowRegistrySetup {
     assertEq(allowedDONs.length, 1);
 
     // Expect the event to be emitted
-    vm.expectEmit(true, true, true, true);
+    vm.expectEmit();
     emit WorkflowRegistry.AllowedDONsUpdatedV1(donIDsToRemove, false);
 
     // Call the function as the owner
