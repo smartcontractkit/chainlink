@@ -1,9 +1,9 @@
-# This file specifies the GitHub runner for each integration test and is utilized by all integration CI workflows.
+# This file specifies the GitHub runner for each in-memory integration test and is utilized by .github/workflows/integration-in-memory-tests.yml CI workflow.
 #
 # Each entry in this file includes the following:
 # - The GitHub runner (runs_on field) that will execute tests.
 # - The tests that will be run by the runner.
-# - The triggers (e.g., Run PR Integration Tests) that should trigger these tests.
+# - The triggers (e.g., PR Integration CCIP Tests) that should trigger these tests.
 #
 runner-test-matrix:
   # START: CCIPv1.6 tests

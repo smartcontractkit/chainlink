@@ -22,7 +22,7 @@ These workflows are designed to run on every commit in a PR, nightly or before r
 
 Tests triggered on every commit in a PR to ensure changes do not introduce regressions.
 
-**Workflow:** [e2e-tests.yml](https://github.com/smartcontractkit/chainlink/blob/develop/.github/workflows/e2e-tests.yml)
+**Workflow:** [integration-tests.yml](https://github.com/smartcontractkit/chainlink/blob/develop/.github/workflows/integration-tests.yml)
 
 ### Nightly E2E Tests
 
@@ -36,7 +36,7 @@ E2E tests triggered on a release tag.
 
 #### Integration (smoke) Tests
 
-**Workflow:** [e2e-tests.yml](https://github.com/smartcontractkit/chainlink/blob/develop/.github/workflows/e2e-tests.yml)
+**Workflow:** [integration-tests.yml](https://github.com/smartcontractkit/chainlink/blob/develop/.github/workflows/integration-tests.yml)
 
 #### Client Compatibility Tests
 
