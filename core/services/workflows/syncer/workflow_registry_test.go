@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	types "github.com/smartcontractkit/chainlink-common/pkg/types"
 	query "github.com/smartcontractkit/chainlink-common/pkg/types/query"
@@ -51,11 +52,12 @@ func Test_Workflow_Registry_Syncer(t *testing.T) {
 		orm         = &orm{ds: db, lggr: lggr}
 		ctx, cancel = context.WithCancel(testutils.Context(t))
 		reader      = NewMockContractReader(t)
+		emitter     = custmsg.NewLabeler()
 		gateway     = func(_ context.Context, _ string) ([]byte, error) {
 			return []byte(wantContents), nil
 		}
 		ticker = make(chan time.Time)
-		worker = NewWorkflowRegistry(lggr, orm, reader, gateway, giveCfg.ContractAddress, nil, nil, WithTicker(ticker))
+		worker = NewWorkflowRegistry(lggr, orm, reader, gateway, giveCfg.ContractAddress, nil, nil, emitter, WithTicker(ticker))
 	)
 
 	// Cleanup the worker
