@@ -9,14 +9,19 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
-	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	chainsel "github.com/smartcontractkit/chain-selectors"
 
+	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
@@ -63,21 +68,20 @@ func Test_CCIPBatching(t *testing.T) {
 			sourceChain1: 1,
 			sourceChain2: 1,
 		}
-		endSeqNum = map[uint64]ccipocr3.SeqNum{
-			sourceChain1: ccipocr3.SeqNum(numMessages),
-			sourceChain2: ccipocr3.SeqNum(numMessages),
-		}
 	)
 
 	t.Run("batch data only messages from single source", func(t *testing.T) {
+		var (
+			sourceChain = sourceChain1
+		)
 		err := sendMessages(
 			ctx,
 			t,
-			e.Env.Chains[sourceChain1],
-			e.Env.Chains[sourceChain1].DeployerKey,
-			state.Chains[sourceChain1].OnRamp,
-			state.Chains[sourceChain1].Router,
-			state.Chains[sourceChain1].Multicall3,
+			e.Env.Chains[sourceChain],
+			e.Env.Chains[sourceChain].DeployerKey,
+			state.Chains[sourceChain].OnRamp,
+			state.Chains[sourceChain].Router,
+			state.Chains[sourceChain].Multicall3,
 			destChain,
 			numMessages,
 			common.LeftPadBytes(state.Chains[destChain].Receiver.Address().Bytes(), 32),
@@ -86,21 +90,21 @@ func Test_CCIPBatching(t *testing.T) {
 
 		_, err = changeset.ConfirmCommitWithExpectedSeqNumRange(
 			t,
-			e.Env.Chains[sourceChain1],
+			e.Env.Chains[sourceChain],
 			e.Env.Chains[destChain],
 			state.Chains[destChain].OffRamp,
 			nil,
-			ccipocr3.NewSeqNumRange(startSeqNum[sourceChain1], endSeqNum[sourceChain1]),
+			ccipocr3.NewSeqNumRange(startSeqNum[sourceChain], startSeqNum[sourceChain]+numMessages-1),
 		)
-		require.NoErrorf(t, err, "failed to confirm commit from chain %d", sourceChain1)
+		require.NoErrorf(t, err, "failed to confirm commit from chain %d", sourceChain)
 
 		states, err := changeset.ConfirmExecWithSeqNrs(
 			t,
-			e.Env.Chains[sourceChain1],
+			e.Env.Chains[sourceChain],
 			e.Env.Chains[destChain],
 			state.Chains[destChain].OffRamp,
 			nil,
-			genSeqNrRange(startSeqNum[sourceChain1], endSeqNum[sourceChain1]),
+			genSeqNrRange(startSeqNum[sourceChain], startSeqNum[sourceChain]+numMessages-1),
 		)
 		require.NoError(t, err)
 		// assert that all states are successful
@@ -108,8 +112,7 @@ func Test_CCIPBatching(t *testing.T) {
 			require.Equal(t, changeset.EXECUTION_STATE_SUCCESS, state)
 		}
 
-		startSeqNum[sourceChain1] = endSeqNum[sourceChain1] + 1
-		endSeqNum[sourceChain1] = startSeqNum[sourceChain1] + ccipocr3.SeqNum(numMessages) - 1
+		startSeqNum[sourceChain] = startSeqNum[sourceChain] + numMessages
 	})
 
 	t.Run("batch data only messages from multiple sources", func(t *testing.T) {
@@ -158,7 +161,7 @@ func Test_CCIPBatching(t *testing.T) {
 				srcChain,
 				destChain,
 				startSeqNum[srcChain],
-				endSeqNum[srcChain],
+				startSeqNum[srcChain]+ccipocr3.SeqNum(numMessages)-1,
 				&wg,
 				outputErrs,
 			)
@@ -198,7 +201,7 @@ func Test_CCIPBatching(t *testing.T) {
 				state,
 				srcChain,
 				destChain,
-				genSeqNrRange(startSeqNum[srcChain], endSeqNum[srcChain]),
+				genSeqNrRange(startSeqNum[srcChain], startSeqNum[srcChain]+ccipocr3.SeqNum(numMessages)-1),
 				&wg,
 				execErrs,
 			)
@@ -226,6 +229,77 @@ func Test_CCIPBatching(t *testing.T) {
 				require.Equal(t, changeset.EXECUTION_STATE_SUCCESS, state)
 			}
 		}
+
+		// update the start and end seq nums
+		for _, srcChain := range sourceChains {
+			startSeqNum[srcChain] = startSeqNum[srcChain] + numMessages
+		}
+	})
+
+	t.Run("max evm batch size", func(t *testing.T) {
+		var (
+			sourceChain = sourceChain1
+			otherSender = mustNewTransactor(t, e.Env.Chains[sourceChain])
+			transactors = []*bind.TransactOpts{
+				e.Env.Chains[sourceChain].DeployerKey,
+				otherSender,
+			}
+			errs = make(chan error, len(transactors))
+		)
+
+		// transfer some eth to the other sender from the DeployerKey
+		sendEth(
+			ctx,
+			t,
+			e.Env.Chains[sourceChain],
+			e.Env.Chains[sourceChain].DeployerKey,
+			otherSender.From,
+			assets.Ether(20).ToInt(),
+		)
+
+		for _, transactor := range transactors {
+			go func() {
+				err := sendMessages(
+					ctx,
+					t,
+					e.Env.Chains[sourceChain],
+					transactor,
+					state.Chains[sourceChain].OnRamp,
+					state.Chains[sourceChain].Router,
+					state.Chains[sourceChain].Multicall3,
+					destChain,
+					merklemulti.MaxNumberTreeLeaves/2,
+					common.LeftPadBytes(state.Chains[destChain].Receiver.Address().Bytes(), 32),
+				)
+				t.Log("sendMessages error:", err, ", writing to channel")
+				errs <- err
+				t.Log("sent error to channel")
+			}()
+		}
+
+		var i = 0
+		for i < len(transactors) {
+			select {
+			case err := <-errs:
+				require.NoError(t, err)
+				i++
+			case <-ctx.Done():
+				require.FailNow(t, "didn't get all errors before test context was done")
+			}
+		}
+
+		_, err = changeset.ConfirmCommitWithExpectedSeqNumRange(
+			t,
+			e.Env.Chains[sourceChain],
+			e.Env.Chains[destChain],
+			state.Chains[destChain].OffRamp,
+			nil, // startBlock
+			ccipocr3.NewSeqNumRange(
+				startSeqNum[sourceChain],
+				startSeqNum[sourceChain]+ccipocr3.SeqNum(merklemulti.MaxNumberTreeLeaves)-1,
+			),
+		)
+		require.NoErrorf(t, err, "failed to confirm commit from chain %d", sourceChain)
 	})
 }
 
@@ -333,6 +407,7 @@ func sendMessages(
 	}
 
 	// Send the tx with the messages through the multicall
+	t.Logf("Sending %d messages with total value %s", numMessages, totalValue.String())
 	tx, err := sourceMulticall3.Aggregate3Value(
 		&bind.TransactOpts{
 			From:   sourceTransactOpts.From,
@@ -413,4 +488,52 @@ func genSeqNrRange(start, end ccipocr3.SeqNum) []uint64 {
 		seqNrs = append(seqNrs, uint64(i))
 	}
 	return seqNrs
+}
+
+func mustNewTransactor(t *testing.T, chain deployment.Chain) *bind.TransactOpts {
+	chainID, err := chainsel.GetChainIDFromSelector(chain.Selector)
+	require.NoError(t, err)
+	chainIDBig, ok := new(big.Int).SetString(chainID, 10)
+	require.True(t, ok, "evm chainID must be integral")
+	key, err := crypto.GenerateKey()
+	require.NoError(t, err)
+	transactor, err := bind.NewKeyedTransactorWithChainID(key, chainIDBig)
+	require.NoError(t, err)
+	return transactor
+}
+
+func sendEth(
+	ctx context.Context,
+	t *testing.T,
+	chain deployment.Chain,
+	from *bind.TransactOpts,
+	to common.Address,
+	value *big.Int,
+) {
+	balance, err := chain.Client.BalanceAt(ctx, from.From, nil)
+	require.NoError(t, err)
+	if balance.Cmp(value) < 0 {
+		t.Fatalf("insufficient balance: %s < %s", balance.String(), value.String())
+	}
+	t.Logf("balance of from account %s: %s", from.From.String(), balance.String())
+
+	nonce, err := chain.Client.PendingNonceAt(ctx, from.From)
+	require.NoError(t, err)
+	gp, err := chain.Client.SuggestGasPrice(ctx)
+	require.NoError(t, err)
+	tx := gethtypes.NewTx(&gethtypes.LegacyTx{
+		Nonce:    nonce,
+		GasPrice: gp,
+		Gas:      21_000,
+		To:       &to,
+		Value:    value,
+		Data:     nil,
+	})
+	signedTx, err := from.Signer(from.From, tx)
+	require.NoError(t, err)
+	err = chain.Client.SendTransaction(ctx, signedTx)
+	require.NoError(t, err)
+	t.Log("sent funding tx:", signedTx.Hash().Hex())
+	_, err = deployment.ConfirmIfNoError(chain, signedTx, err)
+	require.NoError(t, err)
 }
