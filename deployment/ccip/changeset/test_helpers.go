@@ -403,7 +403,7 @@ func CCIPSendRequest(
 		return nil, 0, errors.Wrap(deployment.MaybeDataErr(err), "failed to get fee")
 	}
 	if msg.FeeToken == common.HexToAddress("0x0") {
-		e.Chains[src].DeployerKey.Value = fee.Mul(fee, big.NewInt(2)) // 2x fee to prevent flaky tests
+		e.Chains[src].DeployerKey.Value = fee.Mul(fee, big.NewInt(10)) // 10x the fee to prevent flaky tests
 		defer func() { e.Chains[src].DeployerKey.Value = nil }()
 	}
 	tx, err := r.CcipSend(
