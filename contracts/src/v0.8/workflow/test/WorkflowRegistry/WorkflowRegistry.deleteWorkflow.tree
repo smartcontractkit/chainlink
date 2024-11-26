@@ -8,5 +8,5 @@ WorkflowRegistry.deleteWorkflow
         ├── when the caller is not an authorized address
         │   └── it should revert
         └── when the caller is an authorized address
-            ├── it should delete the workflow if the donID is not allowed
-            └── it should delete the workflow if the donID is allowed
+            ├── it should delete the workflow if the donID is not allowed and emit {WorkflowDeletedV1}
+            └── it should delete the workflow if the donID is allowed and emit {WorkflowDeletedV1}

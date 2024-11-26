@@ -40,7 +40,7 @@ jobs:
             { "name": "shared", "setup": { "run-coverage": true, "extra-coverage-params": "--no-match-path='*CallWithExactGas*' --ir-minimum", "min-coverage": 32.6, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "transmission", "setup": { "run-coverage": true, "min-coverage": 61.5, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "vrf", "setup": { "run-coverage": false, "min-coverage": 98.5, "run-gas-snapshot": false, "run-forge-fmt": false }},
-            { "name": "workflow", "setup": { "run-coverage": true, "extra-coverage-params": "--ir-minimum", "min-coverage": 65.0, "run-gas-snapshot": false, "run-forge-fmt": true }}
+            { "name": "workflow", "setup": { "run-coverage": true, "extra-coverage-params": "--ir-minimum", "min-coverage": 96.0, "run-gas-snapshot": true, "run-forge-fmt": true }}
           ]
           EOF
 

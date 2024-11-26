@@ -4,21 +4,9 @@ OUTPUT_FILE=${OUTPUT_FILE:-"./output.txt"}
 TIMEOUT="${TIMEOUT:-10s}"
 COUNT="${COUNT:-5}"
 
-echo "Failed tests and panics: ---------------------"
+echo "Test execution results: ---------------------"
 echo ""
-if [[ $GITHUB_EVENT_NAME == "schedule" ]]; then
-  if [[  $DEBUG == "true" ]]; then 
-    GORACE="log_path=$PWD/race" go test -json -race -shuffle on -timeout "$TIMEOUT" -count "$COUNT" $1 | tee $OUTPUT_FILE
-  else
-    GORACE="log_path=$PWD/race" go test -race -shuffle on -timeout "$TIMEOUT" -count "$COUNT" $1 | cat > $OUTPUT_FILE
-  fi
-else
-  if [[ $DEBUG == "true" ]]; then 
-        GORACE="log_path=$PWD/race" go test -json -race -shuffle on -timeout "$TIMEOUT" -count "$COUNT" $1 | tee $OUTPUT_FILE
-  else
-    GORACE="log_path=$PWD/race" go test -race -shuffle on -timeout "$TIMEOUT" -count "$COUNT" $1 | cat > $OUTPUT_FILE
-  fi
-fi
+GORACE="log_path=$PWD/race" go test -race -shuffle on -timeout "$TIMEOUT" -count "$COUNT" $1 | cat > $OUTPUT_FILE
 EXITCODE=${PIPESTATUS[0]}
 
 

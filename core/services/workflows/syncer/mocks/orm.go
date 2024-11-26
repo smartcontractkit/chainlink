@@ -591,6 +591,66 @@ func (_c *ORM_UpsertWorkflowSpec_Call) RunAndReturn(run func(context.Context, *j
 	return _c
 }
 
+// UpsertWorkflowSpecWithSecrets provides a mock function with given fields: ctx, spec, url, hash, contents
+func (_m *ORM) UpsertWorkflowSpecWithSecrets(ctx context.Context, spec *job.WorkflowSpec, url string, hash string, contents string) (int64, error) {
+	ret := _m.Called(ctx, spec, url, hash, contents)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpsertWorkflowSpecWithSecrets")
+	}
+
+	var r0 int64
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *job.WorkflowSpec, string, string, string) (int64, error)); ok {
+		return rf(ctx, spec, url, hash, contents)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *job.WorkflowSpec, string, string, string) int64); ok {
+		r0 = rf(ctx, spec, url, hash, contents)
+	} else {
+		r0 = ret.Get(0).(int64)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *job.WorkflowSpec, string, string, string) error); ok {
+		r1 = rf(ctx, spec, url, hash, contents)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ORM_UpsertWorkflowSpecWithSecrets_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpsertWorkflowSpecWithSecrets'
+type ORM_UpsertWorkflowSpecWithSecrets_Call struct {
+	*mock.Call
+}
+
+// UpsertWorkflowSpecWithSecrets is a helper method to define mock.On call
+//   - ctx context.Context
+//   - spec *job.WorkflowSpec
+//   - url string
+//   - hash string
+//   - contents string
+func (_e *ORM_Expecter) UpsertWorkflowSpecWithSecrets(ctx interface{}, spec interface{}, url interface{}, hash interface{}, contents interface{}) *ORM_UpsertWorkflowSpecWithSecrets_Call {
+	return &ORM_UpsertWorkflowSpecWithSecrets_Call{Call: _e.mock.On("UpsertWorkflowSpecWithSecrets", ctx, spec, url, hash, contents)}
+}
+
+func (_c *ORM_UpsertWorkflowSpecWithSecrets_Call) Run(run func(ctx context.Context, spec *job.WorkflowSpec, url string, hash string, contents string)) *ORM_UpsertWorkflowSpecWithSecrets_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*job.WorkflowSpec), args[2].(string), args[3].(string), args[4].(string))
+	})
+	return _c
+}
+
+func (_c *ORM_UpsertWorkflowSpecWithSecrets_Call) Return(_a0 int64, _a1 error) *ORM_UpsertWorkflowSpecWithSecrets_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ORM_UpsertWorkflowSpecWithSecrets_Call) RunAndReturn(run func(context.Context, *job.WorkflowSpec, string, string, string) (int64, error)) *ORM_UpsertWorkflowSpecWithSecrets_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // NewORM creates a new instance of ORM. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewORM(t interface {
