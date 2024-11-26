@@ -330,9 +330,9 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 		})
 	}
 
-	tokenInfo := tokenConfig.GetTokenInfo(e.Env.Logger, state.Chains[e.FeedChainSel].LinkToken, state.Chains[e.FeedChainSel].Weth9)
 	for _, chain := range allChains {
 		timelocksPerChain[chain] = state.Chains[chain].Timelock
+		tokenInfo := tokenConfig.GetTokenInfo(e.Env.Logger, state.Chains[chain].LinkToken, state.Chains[chain].Weth9)
 		ocrParams[chain] = DefaultOCRParams(e.FeedChainSel, tokenInfo)
 	}
 	// Deploy second set of changesets to deploy and configure the CCIP contracts.
