@@ -112,6 +112,18 @@ func TestAddChainInbound(t *testing.T) {
 	state, err = LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
+	// configure the testrouter appropriately on each chain
+	for _, source := range initialDeploy {
+		tx, err := state.Chains[source].TestRouter.ApplyRampUpdates(e.Env.Chains[source].DeployerKey, []router.RouterOnRamp{
+			{
+				DestChainSelector: newChain,
+				OnRamp:            state.Chains[source].OnRamp.Address(),
+			},
+		}, nil, nil)
+		_, err = deployment.ConfirmIfNoError(e.Env.Chains[source], tx, err)
+		require.NoError(t, err)
+	}
+
 	// transfer ownership to timelock
 	_, err = commonchangeset.ApplyChangesets(t, e.Env, map[uint64]*gethwrappers.RBACTimelock{
 		initialDeploy[0]: state.Chains[initialDeploy[0]].Timelock,

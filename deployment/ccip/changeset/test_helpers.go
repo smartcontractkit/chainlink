@@ -398,7 +398,7 @@ func CCIPSendRequest(
 	fee, err := r.GetFee(
 		&bind.CallOpts{Context: context.Background()}, dest, msg)
 	if err != nil {
-		return nil, 0, errors.Wrap(deployment.MaybeDataErr(err), "failed to get fee")
+		return nil, 0, fmt.Errorf("failed to get fee: %w", deployment.MaybeDataErr(err))
 	}
 	if msg.FeeToken == common.HexToAddress("0x0") {
 		e.Chains[src].DeployerKey.Value = fee
