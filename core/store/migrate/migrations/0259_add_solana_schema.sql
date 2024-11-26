@@ -20,7 +20,7 @@ CREATE TABLE solana.log_poller_filters (
     is_deleted BOOLEAN NOT NULL DEFAULT FALSE
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS solana_log_poller_filter_name ON solana.log_poller_filters (name) WHERE NOT is_deleted;
+CREATE UNIQUE INDEX IF NOT EXISTS solana_log_poller_filter_name ON solana.log_poller_filters (chain_id, name) WHERE NOT is_deleted;
 
 CREATE TABLE solana.logs (
     id               BIGSERIAL PRIMARY KEY,
