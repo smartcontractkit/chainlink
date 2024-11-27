@@ -889,7 +889,7 @@ func TestSmokeCCIPReorgBelowFinality(t *testing.T) {
 // doesn't go through and verifies f+1 nodes is able to detect reorg.
 // Note: LogPollInterval interval is set as 1s to detect the reorg immediately
 func TestSmokeCCIPReorgAboveFinalityAtDestination(t *testing.T) {
-	t.Skip("Skipping as it is flaying. Need to address this ticket CCIP-4401 to enable it.")
+	t.Skip("Skipping as it is flaking. Need to address this ticket CCIP-4401 to enable it.")
 	t.Parallel()
 	t.Run("Above finality reorg in destination chain", func(t *testing.T) {
 		performAboveFinalityReorgAndValidate(t, "Destination")
@@ -901,7 +901,7 @@ func TestSmokeCCIPReorgAboveFinalityAtDestination(t *testing.T) {
 // shouldn't even get initiated and verifies f+1 nodes is able to detect reorg.
 // Note: LogPollInterval interval is set as 1s to detect the reorg immediately
 func TestSmokeCCIPReorgAboveFinalityAtSource(t *testing.T) {
-	t.Skip("Skipping as it is flaying. Need to address this ticket CCIP-4401 to enable it.")
+	t.Skip("Skipping as it is flaking. Need to address this ticket CCIP-4401 to enable it.")
 	t.Parallel()
 	t.Run("Above finality reorg in source chain", func(t *testing.T) {
 		performAboveFinalityReorgAndValidate(t, "Source")
