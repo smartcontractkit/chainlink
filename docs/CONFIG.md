@@ -10974,6 +10974,7 @@ OCR2CacheTTL = '1m' # Default
 TxTimeout = '1m' # Default
 TxRetryTimeout = '10s' # Default
 TxConfirmTimeout = '30s' # Default
+TxExpirationRebroadcast = false # Default
 TxRetentionTimeout = '0s' # Default
 SkipPreflight = true # Default
 Commitment = 'confirmed' # Default
@@ -11043,6 +11044,13 @@ TxRetryTimeout is the duration for tx manager to attempt rebroadcasting to RPC, 
 TxConfirmTimeout = '30s' # Default
 ```
 TxConfirmTimeout is the duration to wait when confirming a tx signature, before discarding as unconfirmed.
+
+### TxExpirationRebroadcast
+```toml
+TxExpirationRebroadcast = false # Default
+```
+TxExpirationRebroadcast enables or disables transaction rebroadcast if expired. Expiration check is performed every `ConfirmPollPeriod`. 
+A transaction is considered expired if the blockhash it was sent with is 150 blocks older than the latest blockhash.
 
 ### TxRetentionTimeout
 ```toml
