@@ -169,6 +169,18 @@ func TestRMN_DifferentRmnNodesForDifferentChains(t *testing.T) {
 	})
 }
 
+/*
+
+	if some source chain is cursed then we don't expect messages from that chain
+	but we still expect messages from the others.
+
+	1. we curse some chains by calling the rmn remote.
+	2. we send msgs from multiple source chains
+	3. we wait for those from non-cursed source chains for both commit and exec
+	4. we wait to make sure messages from cursed chains are not received
+
+*/
+
 const (
 	chain0 = 0
 	chain1 = 1
