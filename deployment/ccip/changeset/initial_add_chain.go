@@ -168,7 +168,6 @@ func (c NewChainsConfig) Validate() error {
 func DefaultOCRParams(
 	feedChainSel uint64,
 	tokenInfo map[ccipocr3.UnknownEncodedAddress]pluginconfig.TokenInfo,
-	dataObserverConfig []pluginconfig.TokenDataObserverConfig,
 ) CCIPOCRParams {
 	return CCIPOCRParams{
 		OCRParameters: types.OCRParameters{
@@ -192,7 +191,6 @@ func DefaultOCRParams(
 			RootSnoozeTime:            *config.MustNewDuration(internal.RootSnoozeTime),
 			MessageVisibilityInterval: *config.MustNewDuration(internal.FirstBlockAge),
 			BatchingStrategyID:        internal.BatchingStrategyID,
-			TokenDataObservers:        dataObserverConfig,
 		},
 		CommitOffChainConfig: pluginconfig.CommitOffchainConfig{
 			RemoteGasPriceBatchWriteFrequency:  *config.MustNewDuration(internal.RemoteGasPriceBatchWriteFrequency),

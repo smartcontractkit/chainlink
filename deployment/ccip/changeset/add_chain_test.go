@@ -59,17 +59,13 @@ func TestAddChainInbound(t *testing.T) {
 	require.NoError(t, e.Env.ExistingAddresses.Merge(out.AddressBook))
 	newAddresses = deployment.NewMemoryAddressBook()
 	tokenConfig := NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
-	ocrParams := make(map[uint64]CCIPOCRParams)
-	for _, chain := range initialDeploy {
-		ocrParams[chain] = DefaultOCRParams(e.FeedChainSel, nil, nil)
-	}
+
 	err = deployCCIPContracts(e.Env, newAddresses, NewChainsConfig{
 		HomeChainSel:   e.HomeChainSel,
 		FeedChainSel:   e.FeedChainSel,
 		ChainsToDeploy: initialDeploy,
 		TokenConfig:    tokenConfig,
 		OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
-		OCRParams:      ocrParams,
 	})
 	require.NoError(t, err)
 
