@@ -3,6 +3,7 @@ package changeset
 import (
 	"context"
 	"fmt"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -776,6 +777,7 @@ func setUSDCTokenPoolCounterPart(
 	chain deployment.Chain,
 	tokenPool *usdc_token_pool.USDCTokenPool,
 	destChainSelector uint64,
+	actor *bind.TransactOpts,
 	destTokenAddress common.Address,
 	destTokenPoolAddress common.Address,
 ) error {
@@ -808,7 +810,7 @@ func setUSDCTokenPoolCounterPart(
 		return err
 	}
 
-	return setTokenPoolCounterPart(chain, pool, nil, destChainSelector, destTokenAddress, destTokenPoolAddress)
+	return setTokenPoolCounterPart(chain, pool, actor, destChainSelector, destTokenAddress, destTokenPoolAddress)
 }
 
 func setTokenPoolCounterPart(chain deployment.Chain, tokenPool *burn_mint_token_pool.BurnMintTokenPool, actor *bind.TransactOpts, destChainSelector uint64, destTokenAddress common.Address, destTokenPoolAddress common.Address) error {
@@ -975,4 +977,125 @@ func deployTransferTokenOneEnd(
 	}
 
 	return tokenContract.Contract, tokenPool.Contract, nil
+}
+
+// MintAndAllow mints tokens for deployers and allow router to spend them
+func MintAndAllow(
+	t *testing.T,
+	e deployment.Environment,
+	state CCIPOnChainState,
+	owners map[uint64]*bind.TransactOpts,
+	tkMap map[uint64][]*burn_mint_erc677.BurnMintERC677,
+) {
+	for chain, tokens := range tkMap {
+		for _, token := range tokens {
+			twoCoins := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(2))
+
+			owner, ok := owners[chain]
+			require.True(t, ok)
+
+			tx, err := token.Mint(
+				owner,
+				e.Chains[chain].DeployerKey.From,
+				new(big.Int).Mul(twoCoins, big.NewInt(10)),
+			)
+			require.NoError(t, err)
+			_, err = e.Chains[chain].Confirm(tx)
+			require.NoError(t, err)
+
+			tx, err = token.Approve(e.Chains[chain].DeployerKey, state.Chains[chain].Router.Address(), twoCoins)
+			require.NoError(t, err)
+			_, err = e.Chains[chain].Confirm(tx)
+			require.NoError(t, err)
+		}
+	}
+}
+
+// TransferAndWaitForSuccess sends a message from sourceChain to destChain and waits for it to be executed
+func TransferAndWaitForSuccess(
+	t *testing.T,
+	env deployment.Environment,
+	state CCIPOnChainState,
+	sourceChain, destChain uint64,
+	tokens []router.ClientEVMTokenAmount,
+	receiver common.Address,
+	data []byte,
+	expectedStatus int,
+) {
+	identifier := SourceDestPair{
+		SourceChainSelector: sourceChain,
+		DestChainSelector:   destChain,
+	}
+
+	startBlocks := make(map[uint64]*uint64)
+	expectedSeqNum := make(map[SourceDestPair]uint64)
+	expectedSeqNumExec := make(map[SourceDestPair][]uint64)
+
+	latesthdr, err := env.Chains[destChain].Client.HeaderByNumber(testcontext.Get(t), nil)
+	require.NoError(t, err)
+	block := latesthdr.Number.Uint64()
+	startBlocks[destChain] = &block
+
+	msgSentEvent := TestSendRequest(t, env, state, sourceChain, destChain, false, router.ClientEVM2AnyMessage{
+		Receiver:     common.LeftPadBytes(receiver.Bytes(), 32),
+		Data:         data,
+		TokenAmounts: tokens,
+		FeeToken:     common.HexToAddress("0x0"),
+		ExtraArgs:    nil,
+	})
+	expectedSeqNum[identifier] = msgSentEvent.SequenceNumber
+	expectedSeqNumExec[identifier] = []uint64{msgSentEvent.SequenceNumber}
+
+	// Wait for all commit reports to land.
+	ConfirmCommitForAllWithExpectedSeqNums(t, env, state, expectedSeqNum, startBlocks)
+
+	// Wait for all exec reports to land
+	states := ConfirmExecWithSeqNrsForAll(t, env, state, expectedSeqNumExec, startBlocks)
+	require.Equal(t, expectedStatus, states[identifier][msgSentEvent.SequenceNumber])
+}
+
+func WaitForTheTokenBalance(
+	t *testing.T,
+	token common.Address,
+	receiver common.Address,
+	chain deployment.Chain,
+	expected *big.Int,
+) {
+	tokenContract, err := burn_mint_erc677.NewBurnMintERC677(token, chain.Client)
+	require.NoError(t, err)
+
+	require.Eventually(t, func() bool {
+		actualBalance, err := tokenContract.BalanceOf(&bind.CallOpts{Context: tests.Context(t)}, receiver)
+		require.NoError(t, err)
+
+		t.Log("Waiting for the token balance",
+			"expected", expected,
+			"actual", actualBalance,
+			"token", token,
+			"receiver", receiver,
+		)
+
+		return actualBalance.Cmp(expected) == 0
+	}, tests.WaitTimeout(t), 100*time.Millisecond)
+}
+
+func GetTokenBalance(
+	t *testing.T,
+	token common.Address,
+	receiver common.Address,
+	chain deployment.Chain,
+) *big.Int {
+	tokenContract, err := burn_mint_erc677.NewBurnMintERC677(token, chain.Client)
+	require.NoError(t, err)
+
+	balance, err := tokenContract.BalanceOf(&bind.CallOpts{Context: tests.Context(t)}, receiver)
+	require.NoError(t, err)
+
+	t.Log("Getting token balance",
+		"actual", balance,
+		"token", token,
+		"receiver", receiver,
+	)
+
+	return balance
 }

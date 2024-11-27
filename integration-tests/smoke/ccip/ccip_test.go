@@ -89,61 +89,69 @@ func TestTokenTransfer(t *testing.T) {
 	config := &changeset.TestConfigs{}
 	//tenv, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr, config)
 
-	//* use this if you are testing locally in memory
+	// use this if you are testing locally in memory
 	tenv := changeset.NewMemoryEnvironmentWithJobsAndContracts(t, lggr, 2, 4, config)
 
 	e := tenv.Env
 	state, err := changeset.LoadOnchainState(e)
 	require.NoError(t, err)
 
+	// Chain and account setup
 	allChainSelectors := maps.Keys(e.Chains)
-	sourceChain := allChainSelectors[0]
-	destChain := allChainSelectors[1]
+	sourceChain, destChain := allChainSelectors[0], allChainSelectors[1]
+	ownerSourceChain := e.Chains[sourceChain].DeployerKey
+	ownerDestChain := e.Chains[destChain].DeployerKey
 
-	sourceActor := createAndFundSelfServeActor(t, e.Chains[sourceChain].DeployerKey, e.Chains[sourceChain])
-	destActor := createAndFundSelfServeActor(t, e.Chains[destChain].DeployerKey, e.Chains[destChain])
+	// Deploy and fund self-serve actors
+	selfServeSrcTokenPoolDeployer := createAndFundSelfServeActor(t, ownerSourceChain, e.Chains[sourceChain], big.NewInt(1e18))
+	selfServeDestTokenPoolDeployer := createAndFundSelfServeActor(t, ownerDestChain, e.Chains[destChain], big.NewInt(1e18))
 
-	srcToken1, _, destToken1, _, err := changeset.DeployTransferableToken(
+	// Deploy tokens and pool by CCIP Owner
+	srcToken, _, destToken, _, err := changeset.DeployTransferableToken(
 		lggr,
 		tenv.Env.Chains,
 		sourceChain,
 		destChain,
-		sourceActor,
-		destActor,
+		ownerSourceChain,
+		ownerDestChain,
 		state,
 		e.ExistingAddresses,
-		"MY_TOKEN_1",
+		"OWNER_TOKEN",
 	)
 	require.NoError(t, err)
 
-	srcToken2, _, destToken2, _, err := changeset.DeployTransferableToken(
+	// Deploy Self Serve tokens and pool
+	selfServeSrcToken, _, selfServeDestToken, _, err := changeset.DeployTransferableToken(
 		lggr,
 		tenv.Env.Chains,
 		sourceChain,
 		destChain,
-		sourceActor,
-		destActor,
+		selfServeSrcTokenPoolDeployer,
+		selfServeDestTokenPoolDeployer,
 		state,
 		e.ExistingAddresses,
-		"MY_TOKEN_2",
+		"SELF_SERVE_TOKEN",
 	)
 	require.NoError(t, err)
 
 	// Add all lanes.
 	require.NoError(t, changeset.AddLanesForAll(e, state))
 
-	mintAndAllow(
-		t,
-		e,
-		state,
-		map[uint64]*bind.TransactOpts{
-			sourceChain: sourceActor,
-			destChain:   destActor,
-		},
-		map[uint64][]*burn_mint_erc677.BurnMintERC677{
-			sourceChain: {srcToken1, srcToken2},
-			destChain:   {destToken1, destToken2},
-		})
+	// Mint and allow tokens for the router
+	changeset.MintAndAllow(t, e, state, map[uint64]*bind.TransactOpts{
+		sourceChain: ownerSourceChain,
+		destChain:   ownerDestChain,
+	}, map[uint64][]*burn_mint_erc677.BurnMintERC677{
+		sourceChain: {srcToken},
+		destChain:   {destToken},
+	})
+	changeset.MintAndAllow(t, e, state, map[uint64]*bind.TransactOpts{
+		sourceChain: selfServeSrcTokenPoolDeployer,
+		destChain:   selfServeDestTokenPoolDeployer,
+	}, map[uint64][]*burn_mint_erc677.BurnMintERC677{
+		sourceChain: {selfServeSrcToken},
+		destChain:   {selfServeDestToken},
+	})
 
 	tinyOneCoin := new(big.Int).SetUint64(1)
 
@@ -164,13 +172,13 @@ func TestTokenTransfer(t *testing.T) {
 			dstChain: destChain,
 			tokenAmounts: []router.ClientEVMTokenAmount{
 				{
-					Token:  srcToken1.Address(),
+					Token:  srcToken.Address(),
 					Amount: tinyOneCoin,
 				},
 			},
 			receiver: utils.RandomAddress(),
 			expectedTokenBalances: map[common.Address]*big.Int{
-				destToken1.Address(): tinyOneCoin,
+				destToken.Address(): tinyOneCoin,
 			},
 			expectedExecutionState: changeset.EXECUTION_STATE_SUCCESS,
 		},
@@ -180,13 +188,13 @@ func TestTokenTransfer(t *testing.T) {
 			dstChain: destChain,
 			tokenAmounts: []router.ClientEVMTokenAmount{
 				{
-					Token:  srcToken1.Address(),
+					Token:  srcToken.Address(),
 					Amount: tinyOneCoin,
 				},
 			},
 			receiver: state.Chains[destChain].Receiver.Address(),
 			expectedTokenBalances: map[common.Address]*big.Int{
-				destToken1.Address(): tinyOneCoin,
+				destToken.Address(): tinyOneCoin,
 			},
 			expectedExecutionState: changeset.EXECUTION_STATE_SUCCESS,
 		},
@@ -196,18 +204,18 @@ func TestTokenTransfer(t *testing.T) {
 			dstChain: sourceChain,
 			tokenAmounts: []router.ClientEVMTokenAmount{
 				{
-					Token:  destToken1.Address(),
+					Token:  destToken.Address(),
 					Amount: tinyOneCoin,
 				},
 				{
-					Token:  destToken2.Address(),
+					Token:  selfServeDestToken.Address(),
 					Amount: tinyOneCoin,
 				},
 			},
 			receiver: e.Chains[sourceChain].DeployerKey.From,
 			expectedTokenBalances: map[common.Address]*big.Int{
-				srcToken1.Address(): tinyOneCoin,
-				srcToken2.Address(): tinyOneCoin,
+				srcToken.Address():          tinyOneCoin,
+				selfServeSrcToken.Address(): tinyOneCoin,
 			},
 			expectedExecutionState: changeset.EXECUTION_STATE_SUCCESS,
 		},
@@ -217,22 +225,22 @@ func TestTokenTransfer(t *testing.T) {
 			dstChain: sourceChain,
 			tokenAmounts: []router.ClientEVMTokenAmount{
 				{
-					Token:  destToken1.Address(),
+					Token:  selfServeDestToken.Address(),
 					Amount: tinyOneCoin,
 				},
 				{
-					Token:  destToken2.Address(),
+					Token:  destToken.Address(),
 					Amount: tinyOneCoin,
 				},
 				{
-					Token:  destToken1.Address(),
+					Token:  selfServeDestToken.Address(),
 					Amount: tinyOneCoin,
 				},
 			},
 			receiver: state.Chains[sourceChain].Receiver.Address(),
 			expectedTokenBalances: map[common.Address]*big.Int{
-				srcToken1.Address(): new(big.Int).SetUint64(2),
-				srcToken2.Address(): tinyOneCoin,
+				selfServeSrcToken.Address(): new(big.Int).SetUint64(2),
+				srcToken.Address():          tinyOneCoin,
 			},
 			expectedExecutionState: changeset.EXECUTION_STATE_SUCCESS,
 		},
@@ -241,30 +249,28 @@ func TestTokenTransfer(t *testing.T) {
 	for _, scenario := range scenarios {
 		scenario := scenario
 		t.Run(scenario.name, func(t *testing.T) {
-			t.Run(scenario.name, func(t *testing.T) {
-				initialBalances := map[common.Address]*big.Int{}
-				for token := range scenario.expectedTokenBalances {
-					initialBalance := getTokenBalance(t, token, scenario.receiver, e.Chains[scenario.dstChain])
-					initialBalances[token] = initialBalance
-				}
+			initialBalances := map[common.Address]*big.Int{}
+			for token := range scenario.expectedTokenBalances {
+				initialBalance := changeset.GetTokenBalance(t, token, scenario.receiver, e.Chains[scenario.dstChain])
+				initialBalances[token] = initialBalance
+			}
 
-				transferAndWaitForSuccess(
-					t,
-					e,
-					state,
-					scenario.srcChain,
-					scenario.dstChain,
-					scenario.tokenAmounts,
-					scenario.receiver,
-					scenario.data,
-					scenario.expectedExecutionState,
-				)
+			changeset.TransferAndWaitForSuccess(
+				t,
+				e,
+				state,
+				scenario.srcChain,
+				scenario.dstChain,
+				scenario.tokenAmounts,
+				scenario.receiver,
+				scenario.data,
+				scenario.expectedExecutionState,
+			)
 
-				for token, balance := range scenario.expectedTokenBalances {
-					expected := new(big.Int).Add(initialBalances[token], balance)
-					waitForTheTokenBalance(t, token, scenario.receiver, e.Chains[scenario.dstChain], expected)
-				}
-			})
+			for token, balance := range scenario.expectedTokenBalances {
+				expected := new(big.Int).Add(initialBalances[token], balance)
+				changeset.WaitForTheTokenBalance(t, token, scenario.receiver, e.Chains[scenario.dstChain], expected)
+			}
 		})
 	}
 }
@@ -273,6 +279,7 @@ func createAndFundSelfServeActor(
 	t *testing.T,
 	deployer *bind.TransactOpts,
 	chain deployment.Chain,
+	amountToFund *big.Int,
 ) *bind.TransactOpts {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
@@ -288,7 +295,7 @@ func createAndFundSelfServeActor(
 	tx := types.NewTx(&types.LegacyTx{
 		Nonce:    nonce,
 		To:       &actor.From,
-		Value:    new(big.Int).SetUint64(1e18),
+		Value:    amountToFund,
 		Gas:      uint64(21000),
 		GasPrice: gasPrice,
 		Data:     nil,
