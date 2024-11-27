@@ -4,7 +4,9 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/networks"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"math/big"
 	"testing"
@@ -103,9 +105,11 @@ func TestTokenTransfer(t *testing.T) {
 	ownerSourceChain := e.Chains[sourceChain].DeployerKey
 	ownerDestChain := e.Chains[destChain].DeployerKey
 
-	// Deploy and fund self-serve actors
-	selfServeSrcTokenPoolDeployer := createAndFundSelfServeActor(t, ownerSourceChain, e.Chains[sourceChain], big.NewInt(1e18))
-	selfServeDestTokenPoolDeployer := createAndFundSelfServeActor(t, ownerDestChain, e.Chains[destChain], big.NewInt(1e18))
+	// Deploy and fund self-serve actors (when using memory)
+	//selfServeSrcTokenPoolDeployer := createAndFundSelfServeActor(t, ownerSourceChain, e.Chains[sourceChain], big.NewInt(1e18))
+	//selfServeSrcTokenPoolDeployer := createAndFundSelfServeActor(t, ownerDestChain, e.Chains[destChain], big.NewInt(1e18))
+	selfServeSrcTokenPoolDeployer := createDeployerKeyFromSimulatedPrivateKey(t, sourceChain)
+	selfServeDestTokenPoolDeployer := createDeployerKeyFromSimulatedPrivateKey(t, destChain)
 
 	// Deploy tokens and pool by CCIP Owner
 	srcToken, _, destToken, _, err := changeset.DeployTransferableToken(
@@ -285,7 +289,7 @@ func createAndFundSelfServeActor(
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
-	actor, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
+	actor, err := bind.NewKeyedTransactorWithChainID(key, getChainIdFromSelector(t, chain.Selector))
 
 	nonce, err := chain.Client.PendingNonceAt(tests.Context(t), deployer.From)
 	require.NoError(t, err)
@@ -312,4 +316,22 @@ func createAndFundSelfServeActor(
 	require.NoError(t, err)
 
 	return actor
+}
+
+func getChainIdFromSelector(t *testing.T, selector uint64) *big.Int {
+	chainId, err := chain_selectors.GetChainIDFromSelector(selector)
+	require.NoError(t, err)
+	//convert chainId from string to big.Int
+	chainIdBigInt := new(big.Int)
+	chainIdBigInt.SetString(chainId, 10)
+	return chainIdBigInt
+}
+
+func createDeployerKeyFromSimulatedPrivateKey(t *testing.T, selector uint64) *bind.TransactOpts {
+	key, err := crypto.HexToECDSA(networks.AdditionalSimulatedPvtKeys[0])
+	require.NoError(t, err)
+	chainId := getChainIdFromSelector(t, selector)
+	id, err := bind.NewKeyedTransactorWithChainID(key, chainId)
+	require.NoError(t, err)
+	return id
 }
