@@ -25,7 +25,6 @@ jobs:
             module-directory: "./"
             build-flags: "-tags=integration"
           - test-suite: "ccip-deployment"
-            tag-filter: ""
             module-directory: "./deployment"
     env:
       # We explicitly have this env var not be "CL_DATABASE_URL" to avoid having it be used by core related tests
@@ -38,8 +37,10 @@ jobs:
       - name: Setup CI Core Environment
         uses: ./.github/actions/setup-ci-core-tests
         with:
-          test-suite: ${{ matrix.type.cmd }}
+          build-cache-version: ${{ matrix.type.test-suite }}
+          restore-build-cache-only: "true"
           db-url: ${{ env.DB_URL }}
+          go-mod-download-directory: ${{ matrix.type.test-suite == 'ccip-deployment' && matrix.type.module-directory || '' }}
 
       - name: Build Tests
         uses: smartcontractkit/.github/apps/go-test-caching@feat/go-test-binary-comparison
@@ -66,6 +67,7 @@ jobs:
         uses: smartcontractkit/.github/apps/go-test-caching@feat/go-test-binary-comparison
         with:
           pipeline-step: "update"
+          force-update-index: "true"
           test-suite: ${{ matrix.type.test-suite }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -97,7 +99,7 @@ jobs:
           db-url: ${{ env.DB_URL }}
 
       - name: Increase Timeouts
-        if: ${{ github.event.schedule != ''}}
+        if: ${{ github.event_name == 'schedule'}}
         run: |
           echo "FUZZ_TIMEOUT_MINUTES=10">> $GITHUB_ENV
 
@@ -134,7 +136,7 @@ jobs:
           db-url: ${{ env.DB_URL }}
 
       - name: Increase Timeouts
-        if: ${{ github.event.schedule != ''}}
+        if: ${{ github.event_name == 'schedule'}}
         run: |
           echo "TIMEOUT=10m" >> $GITHUB_ENV
           echo "COUNT=50" >> $GITHUB_ENV

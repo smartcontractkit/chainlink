@@ -1,11 +1,13 @@
 name: Setup CI Core Tests
 description: Shared setup steps for ci-core
 inputs:
-  test-suite:
-    description: |
-      The test suite's name
-    required: true
 
+  go-mod-download-directory:
+    description: |
+      The directory to run go mod download in. If not provided, it will not run go mod download.
+    required: false
+    default: ""
+    
   evm-ref-override:
     description: |
       Overrides the evm/relayer dependency version
@@ -15,6 +17,17 @@ inputs:
     description: |
       The expected database URL
     required: true
+
+  build-cache-version:
+    description: |
+      The version of the build cache to use. Used for scoping build caches.
+    required: false
+
+  restore-build-cache-only:
+    description: |
+      Whether to create a build cache
+    required: false
+    default: "false"
 
 runs:
   using: composite
@@ -27,9 +40,8 @@ runs:
     - name: Setup Go
       uses: ./.github/actions/setup-go
       with:
-        # only restore for now
-        restore-build-cache-only: "true"
-        build-cache-version: ${{ inputs.test-suite }}
+        build-cache-version: ${{ inputs.build-cache-version }}
+        restore-build-cache-only: ${{ inputs.restore-build-cache-only }}
 
     - name: Replace chainlink-evm deps
       if: ${{ inputs.evm-ref-override != ''}}
@@ -53,10 +65,10 @@ runs:
       shell: bash
       run: go mod download
 
-    - name: Go Mod Download (deployment)
-      if: ${{ matrix.type.test-suite == 'ccip-deployment' }}
+    - name: Go Mod Download (optional)
+      if: ${{ inputs.go-mod-download-directory != '' }}
       shell: bash
-      working-directory: "./deployment"
+      working-directory: ${{ inputs.go-mod-download-directory }}
       run: go mod download
 
     - name: Build binary
