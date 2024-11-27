@@ -68,7 +68,7 @@ func Test_Keyring(t *testing.T) {
 		llotypes.ReportFormatJSON:             &mockKey{format: llotypes.ReportFormatJSON, maxSignatureLen: 2, sig: []byte("sig-2")},
 	}
 
-	kr := NewOnchainKeyring(lggr, ks)
+	kr := NewOnchainKeyring(lggr, ks, 2)
 
 	cases := []struct {
 		format llotypes.ReportFormat

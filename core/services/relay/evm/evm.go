@@ -456,9 +456,6 @@ func (r *Relayer) NewMercuryProvider(ctx context.Context, rargs commontypes.Rela
 		}
 	}
 
-	// FIXME: We actually know the version here since it's in the feed ID, can
-	// we use generics to avoid passing three of this?
-	// https://smartcontract-it.atlassian.net/browse/MERC-1414
 	reportCodecV1 := reportcodecv1.NewReportCodec(*relayConfig.FeedID, lggr.Named("ReportCodecV1"))
 	reportCodecV2 := reportcodecv2.NewReportCodec(*relayConfig.FeedID, lggr.Named("ReportCodecV2"))
 	reportCodecV3 := reportcodecv3.NewReportCodec(*relayConfig.FeedID, lggr.Named("ReportCodecV3"))
@@ -546,8 +543,6 @@ func (r *Relayer) NewLLOProvider(ctx context.Context, rargs commontypes.RelayArg
 		return nil, pkgerrors.Wrap(err, "failed to get CSA key for mercury connection")
 	}
 
-	// FIXME: Remove after benchmarking is done
-	// https://smartcontract-it.atlassian.net/browse/MERC-3487
 	var transmitter LLOTransmitter
 	if lloCfg.BenchmarkMode {
 		r.lggr.Info("Benchmark mode enabled, using dummy transmitter. NOTE: THIS WILL NOT TRANSMIT ANYTHING")

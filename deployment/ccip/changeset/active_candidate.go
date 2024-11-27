@@ -74,7 +74,6 @@ func SetCandidatePluginChangeset(
 	ccipOCRParams := DefaultOCRParams(
 		feedChainSel,
 		tokenConfig.GetTokenInfo(e.Logger, state.Chains[newChainSel].LinkToken, state.Chains[newChainSel].Weth9),
-		nil,
 	)
 	newDONArgs, err := internal.BuildOCR3ConfigForCCIPHome(
 		ocrSecrets,

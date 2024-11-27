@@ -231,26 +231,14 @@ jobs:
           echo "COUNT=50" >> $GITHUB_ENV
           echo "FUZZ_TIMEOUT_MINUTES=10">> $GITHUB_ENV
 
-      - name: Install gotestloghelper
-        if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/gotestloghelper@v1.50.0
-
       - name: Run tests
         if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
         id: run-tests
         env:
           OUTPUT_FILE: ./output.txt
-          USE_TEE: false
           CL_DATABASE_URL: ${{ env.DB_URL }}
         run: ./tools/bin/${{ matrix.type.cmd }} ./...
 
-      - name: Print Filtered Test Results
-        if: ${{ failure() && needs.filter.outputs.should-run-ci-core == 'true' && steps.run-tests.conclusion == 'failure' }}
-        run: |
-          if [[ "${{ matrix.type.printResults }}"  == "true" ]]; then
-            cat output.txt | gotestloghelper -ci
-          fi
-      
       - name: Print Races
         id: print-races
         if: ${{ failure() && matrix.type.cmd == 'go_core_race_tests' && needs.filter.outputs.should-run-ci-core == 'true' }}

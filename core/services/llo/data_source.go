@@ -193,9 +193,6 @@ func ExtractStreamValue(trrs pipeline.TaskRunResults) (llo.StreamValue, error) {
 	// by the pipeline executor
 	finaltrrs := trrs.Terminals()
 
-	// TODO: Special handling for missing native/link streams?
-	// https://smartcontract-it.atlassian.net/browse/MERC-5949
-
 	// HACK: Right now we rely on the number of outputs to determine whether
 	// its a Decimal or a Quote.
 	// This isn't very robust or future-proof but is sufficient to support v0.3

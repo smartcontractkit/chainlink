@@ -19,7 +19,7 @@ echo "timeout minutes: $FUZZ_TIMEOUT_MINUTES"
 echo "fuzz seconds: $FUZZ_SECONDS"
 echo "Failed fuzz tests and panics: ---------------------"
 echo ""
-timeout "${FUZZ_TIMEOUT_MINUTES}"m ./fuzz/fuzz_all_native.py --ci --seconds "$FUZZ_SECONDS" --go_module_root ./ | tee $OUTPUT_FILE
+timeout "${FUZZ_TIMEOUT_MINUTES}"m ./fuzz/fuzz_all_native.py --ci --seconds "$FUZZ_SECONDS" --go_module_root ./ | tee $OUTPUT_FILE | grep -Ev '\[no test files\]|\[no tests to run\]'
 EXITCODE=${PIPESTATUS[0]}
 
 # Assert no known sensitive strings present in test logger output
