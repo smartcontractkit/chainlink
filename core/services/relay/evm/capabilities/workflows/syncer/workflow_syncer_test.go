@@ -11,7 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/workflow/generated/workflow_registry_wrapper"
@@ -30,7 +29,6 @@ func Test_SecretsWorker(t *testing.T) {
 	var (
 		ctx       = coretestutils.Context(t)
 		lggr      = logger.TestLogger(t)
-		emitter   = custmsg.NewLabeler()
 		backendTH = testutils.NewEVMBackendTH(t)
 		db        = pgtest.NewSqlxDB(t)
 		orm       = syncer.NewWorkflowRegistryDS(db, lggr)
@@ -121,7 +119,6 @@ func Test_SecretsWorker(t *testing.T) {
 		wfRegistryAddr.Hex(),
 		nil,
 		nil,
-		emitter,
 		syncer.WithTicker(giveTicker.C),
 	)
 

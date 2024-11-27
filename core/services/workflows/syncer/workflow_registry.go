@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	types "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
@@ -96,7 +95,6 @@ type workflowRegistry struct {
 	ticker <-chan time.Time
 
 	lggr    logger.Logger
-	emitter custmsg.Labeler
 	orm     WorkflowRegistryDS
 	reader  ContractReader
 	gateway FetcherFunc
@@ -149,13 +147,11 @@ func NewWorkflowRegistry[T ContractReader](
 	addr string,
 	workflowStore store.Store,
 	capRegistry core.CapabilitiesRegistry,
-	emitter custmsg.Labeler,
 	opts ...func(*workflowRegistry),
 ) *workflowRegistry {
 	ets := []WorkflowRegistryEventType{ForceUpdateSecretsEvent}
 	wr := &workflowRegistry{
 		lggr:           lggr.Named(name),
-		emitter:        emitter,
 		orm:            orm,
 		reader:         reader,
 		gateway:        gateway,
@@ -176,7 +172,7 @@ func NewWorkflowRegistry[T ContractReader](
 		batchCh:    make(chan []WorkflowRegistryEventResponse, len(ets)),
 	}
 	wr.handler = newEventHandler(wr.lggr, wr.orm, wr.gateway, wr.workflowStore, wr.capRegistry,
-		wr.engineRegistry, wr.emitter, secretsFetcherFunc(wr.SecretsFor),
+		wr.engineRegistry,
 	)
 	for _, opt := range opts {
 		opt(wr)
