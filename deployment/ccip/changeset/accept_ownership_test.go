@@ -49,7 +49,7 @@ func Test_NewAcceptOwnershipChangeset(t *testing.T) {
 	tokenConfig := NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
 	ocrParams := make(map[uint64]CCIPOCRParams)
 	for _, chain := range allChains {
-		ocrParams[chain] = DefaultOCRParams(e.FeedChainSel, nil, nil)
+		ocrParams[chain] = DefaultOCRParams(e.FeedChainSel, nil)
 	}
 	err = deployCCIPContracts(e.Env, newAddresses, NewChainsConfig{
 		HomeChainSel:   e.HomeChainSel,
