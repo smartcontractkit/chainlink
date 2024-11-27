@@ -3,99 +3,17 @@ package syncer
 import (
 	"context"
 	"encoding/hex"
-	"errors"
 	"fmt"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 )
-
-var ErrNotImplemented = errors.New("not implemented")
-
-// WorkflowRegistryrEventType is the type of event that is emitted by the WorkflowRegistry
-type WorkflowRegistryEventType string
-
-var (
-	// ForceUpdateSecretsEvent is emitted when a request to force update a workflows secrets is made
-	ForceUpdateSecretsEvent WorkflowRegistryEventType = "WorkflowForceUpdateSecretsRequestedV1"
-
-	// WorkflowRegisteredEvent is emitted when a workflow is registered
-	WorkflowRegisteredEvent WorkflowRegistryEventType = "WorkflowRegisteredV1"
-
-	// WorkflowUpdatedEvent is emitted when a workflow is updated
-	WorkflowUpdatedEvent WorkflowRegistryEventType = "WorkflowUpdatedV1"
-
-	// WorkflowPausedEvent is emitted when a workflow is paused
-	WorkflowPausedEvent WorkflowRegistryEventType = "WorkflowPausedV1"
-
-	// WorkflowActivatedEvent is emitted when a workflow is activated
-	WorkflowActivatedEvent WorkflowRegistryEventType = "WorkflowActivatedV1"
-
-	// WorkflowDeletedEvent is emitted when a workflow is deleted
-	WorkflowDeletedEvent WorkflowRegistryEventType = "WorkflowDeletedV1"
-)
-
-// WorkflowRegistryForceUpdateSecretsRequestedV1 is a chain agnostic definition of the WorkflowRegistry
-// ForceUpdateSecretsRequested event.
-type WorkflowRegistryForceUpdateSecretsRequestedV1 struct {
-	SecretsURLHash []byte
-	Owner          []byte
-	WorkflowName   string
-}
-
-type WorkflowRegistryWorkflowRegisteredV1 struct {
-	WorkflowID    [32]byte
-	WorkflowOwner []byte
-	DonID         uint32
-	Status        uint8
-	WorkflowName  string
-	BinaryURL     string
-	ConfigURL     string
-	SecretsURL    string
-}
-
-type WorkflowRegistryWorkflowUpdatedV1 struct {
-	OldWorkflowID [32]byte
-	WorkflowOwner []byte
-	DonID         uint32
-	NewWorkflowID [32]byte
-	WorkflowName  string
-	BinaryURL     string
-	ConfigURL     string
-	SecretsURL    string
-}
-
-type WorkflowRegistryWorkflowPausedV1 struct {
-	WorkflowID    [32]byte
-	WorkflowOwner []byte
-	DonID         uint32
-	WorkflowName  string
-}
-
-type WorkflowRegistryWorkflowActivatedV1 struct {
-	WorkflowID    [32]byte
-	WorkflowOwner []byte
-	DonID         uint32
-	WorkflowName  string
-}
-
-type WorkflowRegistryWorkflowDeletedV1 struct {
-	WorkflowID    [32]byte
-	WorkflowOwner []byte
-	DonID         uint32
-	WorkflowName  string
-}
 
 // eventHandler is a handler for WorkflowRegistryEvent events.  Each event type has a corresponding
 // method that handles the event.
 type eventHandler struct {
-	lggr           logger.Logger
-	orm            WorkflowSecretsDS
-	fetcher        FetcherFunc
-	workflowStore  store.Store
-	capRegistry    core.CapabilitiesRegistry
-	engineRegistry *engineRegistry
+	lggr    logger.Logger
+	orm     ORM
+	fetcher FetcherFunc
 }
 
 // newEventHandler returns a new eventHandler instance.
@@ -103,17 +21,11 @@ func newEventHandler(
 	lggr logger.Logger,
 	orm ORM,
 	gateway FetcherFunc,
-	workflowStore store.Store,
-	capRegistry core.CapabilitiesRegistry,
-	engineRegistry *engineRegistry,
 ) *eventHandler {
 	return &eventHandler{
-		lggr:           lggr,
-		orm:            orm,
-		fetcher:        gateway,
-		workflowStore:  workflowStore,
-		capRegistry:    capRegistry,
-		engineRegistry: engineRegistry,
+		lggr:    lggr,
+		orm:     orm,
+		fetcher: gateway,
 	}
 }
 
@@ -121,50 +33,9 @@ func (h *eventHandler) Handle(ctx context.Context, event WorkflowRegistryEvent) 
 	switch event.EventType {
 	case ForceUpdateSecretsEvent:
 		return h.forceUpdateSecretsEvent(ctx, event)
-	case WorkflowRegisteredEvent:
-		return h.workflowRegisteredEvent(ctx, event)
-	case WorkflowUpdatedEvent:
-		return h.workflowUpdatedEvent(ctx, event)
-	case WorkflowPausedEvent:
-		return h.workflowPausedEvent(ctx, event)
-	case WorkflowActivatedEvent:
-		return h.workflowActivatedEvent(ctx, event)
 	default:
 		return fmt.Errorf("event type unsupported: %v", event.EventType)
 	}
-}
-
-// workflowRegisteredEvent handles the WorkflowRegisteredEvent event type.
-// TODO: Implement this method
-func (h *eventHandler) workflowRegisteredEvent(
-	_ context.Context,
-	_ WorkflowRegistryEvent,
-) error {
-	return ErrNotImplemented
-}
-
-// workflowUpdatedEvent handles the WorkflowUpdatedEvent event type.
-func (h *eventHandler) workflowUpdatedEvent(
-	_ context.Context,
-	_ WorkflowRegistryEvent,
-) error {
-	return ErrNotImplemented
-}
-
-// workflowPausedEvent handles the WorkflowPausedEvent event type.
-func (h *eventHandler) workflowPausedEvent(
-	_ context.Context,
-	_ WorkflowRegistryEvent,
-) error {
-	return ErrNotImplemented
-}
-
-// workflowActivatedEvent handles the WorkflowActivatedEvent event type.
-func (h *eventHandler) workflowActivatedEvent(
-	_ context.Context,
-	_ WorkflowRegistryEvent,
-) error {
-	return ErrNotImplemented
 }
 
 // forceUpdateSecretsEvent handles the ForceUpdateSecretsEvent event type.

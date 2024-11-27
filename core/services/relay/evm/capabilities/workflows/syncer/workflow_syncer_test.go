@@ -117,8 +117,6 @@ func Test_SecretsWorker(t *testing.T) {
 		contractReader,
 		fetcherFn,
 		wfRegistryAddr.Hex(),
-		nil,
-		nil,
 		syncer.WithTicker(giveTicker.C),
 	)
 
