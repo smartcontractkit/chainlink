@@ -1,4 +1,4 @@
-WorkflowRegistryManager.getVersionNumber
+WorkflowRegistryManager.getVersionNumberByContractAddressAndChainID
 ├── when the contractAddress is invalid
 │   └── it should revert with InvalidContractAddress
 └── when the contractAddress is valid

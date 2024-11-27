@@ -18,6 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/channel_config_store"
@@ -27,8 +28,8 @@ import (
 type mockLogPoller struct {
 	latestBlock     logpoller.LogPollerBlock
 	latestBlockErr  error
-	logsWithSigs    []logpoller.Log
-	logsWithSigsErr error
+	filteredLogs    []logpoller.Log
+	filteredLogsErr error
 
 	unregisteredFilterNames []string
 }
@@ -39,8 +40,8 @@ func (m *mockLogPoller) RegisterFilter(ctx context.Context, filter logpoller.Fil
 func (m *mockLogPoller) LatestBlock(ctx context.Context) (logpoller.LogPollerBlock, error) {
 	return m.latestBlock, m.latestBlockErr
 }
-func (m *mockLogPoller) LogsWithSigs(ctx context.Context, start, end int64, eventSigs []common.Hash, address common.Address) ([]logpoller.Log, error) {
-	return m.logsWithSigs, m.logsWithSigsErr
+func (m *mockLogPoller) FilteredLogs(ctx context.Context, filter []query.Expression, limitAndSort query.LimitAndSort, queryName string) ([]logpoller.Log, error) {
+	return m.filteredLogs, m.filteredLogsErr
 }
 func (m *mockLogPoller) UnregisterFilter(ctx context.Context, name string) error {
 	m.unregisteredFilterNames = append(m.unregisteredFilterNames, name)
@@ -88,7 +89,7 @@ func (m *mockCDCORM) CleanupChannelDefinitions(ctx context.Context, addr common.
 
 func makeLog(t *testing.T, donID, version uint32, url string, sha [32]byte) logpoller.Log {
 	data := makeLogData(t, donID, version, url, sha)
-	return logpoller.Log{EventSig: topicNewChannelDefinition, Topics: [][]byte{topicNewChannelDefinition[:], makeDonIDTopic(donID)}, Data: data}
+	return logpoller.Log{EventSig: NewChannelDefinition, Topics: [][]byte{NewChannelDefinition[:], makeDonIDTopic(donID)}, Data: data}
 }
 
 func makeLogData(t *testing.T, donID, version uint32, url string, sha [32]byte) []byte {
@@ -151,10 +152,10 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Nil(t, cdc.newLog)
 		})
-		t.Run("returns error if LogsWithSigs fails", func(t *testing.T) {
+		t.Run("returns error if FilteredLogs fails", func(t *testing.T) {
 			ctx := tests.Context(t)
 			cdc.definitionsBlockNum = 0
-			lp.logsWithSigsErr = errors.New("test error 2")
+			lp.filteredLogsErr = errors.New("test error 2")
 
 			err := cdc.readLogs(ctx)
 			assert.EqualError(t, err, "test error 2")
@@ -162,8 +163,8 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 		})
 		t.Run("ignores logs with different topic", func(t *testing.T) {
 			ctx := tests.Context(t)
-			lp.logsWithSigsErr = nil
-			lp.logsWithSigs = []logpoller.Log{{EventSig: common.Hash{1, 2, 3, 4}}}
+			lp.filteredLogsErr = nil
+			lp.filteredLogs = []logpoller.Log{{EventSig: common.Hash{1, 2, 3, 4}}}
 
 			err := cdc.readLogs(ctx)
 			assert.NoError(t, err)
@@ -171,17 +172,17 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 		})
 		t.Run("returns error if log is malformed", func(t *testing.T) {
 			ctx := tests.Context(t)
-			lp.logsWithSigsErr = nil
-			lp.logsWithSigs = []logpoller.Log{{EventSig: topicNewChannelDefinition}}
+			lp.filteredLogsErr = nil
+			lp.filteredLogs = []logpoller.Log{{EventSig: NewChannelDefinition}}
 
 			err := cdc.readLogs(ctx)
 			assert.EqualError(t, err, "failed to unpack log data: abi: attempting to unmarshal an empty string while arguments are expected")
 			assert.Nil(t, cdc.newLog)
 		})
-		t.Run("sets definitions and sends on channel if LogsWithSigs returns new event with a later version", func(t *testing.T) {
+		t.Run("sets definitions and sends on channel if FilteredLogs returns new event with a later version", func(t *testing.T) {
 			ctx := tests.Context(t)
-			lp.logsWithSigsErr = nil
-			lp.logsWithSigs = []logpoller.Log{makeLog(t, donID, uint32(43), "http://example.com/xxx.json", [32]byte{1, 2, 3, 4})}
+			lp.filteredLogsErr = nil
+			lp.filteredLogs = []logpoller.Log{makeLog(t, donID, uint32(43), "http://example.com/xxx.json", [32]byte{1, 2, 3, 4})}
 
 			err := cdc.readLogs(ctx)
 			require.NoError(t, err)
@@ -204,8 +205,8 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 		})
 		t.Run("does nothing if version older or the same as the one currently set", func(t *testing.T) {
 			ctx := tests.Context(t)
-			lp.logsWithSigsErr = nil
-			lp.logsWithSigs = []logpoller.Log{
+			lp.filteredLogsErr = nil
+			lp.filteredLogs = []logpoller.Log{
 				makeLog(t, donID, uint32(42), "http://example.com/xxx.json", [32]byte{1, 2, 3, 4}),
 				makeLog(t, donID, uint32(43), "http://example.com/xxx.json", [32]byte{1, 2, 3, 4}),
 			}
@@ -216,8 +217,8 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 		})
 		t.Run("in case of multiple logs, takes the latest", func(t *testing.T) {
 			ctx := tests.Context(t)
-			lp.logsWithSigsErr = nil
-			lp.logsWithSigs = []logpoller.Log{
+			lp.filteredLogsErr = nil
+			lp.filteredLogs = []logpoller.Log{
 				makeLog(t, donID, uint32(42), "http://example.com/xxx.json", [32]byte{1, 2, 3, 4}),
 				makeLog(t, donID, uint32(45), "http://example.com/xxx2.json", [32]byte{2, 2, 3, 4}),
 				makeLog(t, donID, uint32(44), "http://example.com/xxx3.json", [32]byte{3, 2, 3, 4}),
@@ -244,8 +245,8 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 		})
 		t.Run("ignores logs with incorrect don ID", func(t *testing.T) {
 			ctx := tests.Context(t)
-			lp.logsWithSigsErr = nil
-			lp.logsWithSigs = []logpoller.Log{
+			lp.filteredLogsErr = nil
+			lp.filteredLogs = []logpoller.Log{
 				makeLog(t, donID+1, uint32(42), "http://example.com/xxx.json", [32]byte{1, 2, 3, 4}),
 			}
 
@@ -266,10 +267,10 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 		})
 		t.Run("ignores logs with wrong number of topics", func(t *testing.T) {
 			ctx := tests.Context(t)
-			lp.logsWithSigsErr = nil
+			lp.filteredLogsErr = nil
 			lg := makeLog(t, donID, uint32(42), "http://example.com/xxx.json", [32]byte{1, 2, 3, 4})
 			lg.Topics = lg.Topics[:1]
-			lp.logsWithSigs = []logpoller.Log{lg}
+			lp.filteredLogs = []logpoller.Log{lg}
 
 			err := cdc.readLogs(ctx)
 			require.NoError(t, err)

@@ -382,7 +382,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 	// From now on, DB locks and DB connection will be released on every return.
 	// Keep watching on logger.Fatal* calls and os.Exit(), because defer will not be executed.
 
-	app, err := s.AppFactory.NewApplication(rootCtx, s.Config, s.Logger, ldb.DB(), s.KeyStoreAuthenticator)
+	app, err := s.AppFactory.NewApplication(rootCtx, s.Config, s.Logger, s.Registerer, ldb.DB(), s.KeyStoreAuthenticator)
 	if err != nil {
 		return s.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
@@ -629,7 +629,7 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 	}
 	defer lggr.ErrorIfFn(db.Close, "Error closing db")
 
-	app, err := s.AppFactory.NewApplication(ctx, s.Config, lggr, db, s.KeyStoreAuthenticator)
+	app, err := s.AppFactory.NewApplication(ctx, s.Config, lggr, s.Registerer, db, s.KeyStoreAuthenticator)
 	if err != nil {
 		return s.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
@@ -1275,7 +1275,7 @@ func (s *Shell) RemoveBlocks(c *cli.Context) error {
 	// From now on, DB locks and DB connection will be released on every return.
 	// Keep watching on logger.Fatal* calls and os.Exit(), because defer will not be executed.
 
-	app, err := s.AppFactory.NewApplication(ctx, s.Config, s.Logger, ldb.DB(), s.KeyStoreAuthenticator)
+	app, err := s.AppFactory.NewApplication(ctx, s.Config, s.Logger, s.Registerer, ldb.DB(), s.KeyStoreAuthenticator)
 	if err != nil {
 		return s.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}

@@ -11,6 +11,7 @@ import (
 	"maps"
 	"math/big"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -22,6 +23,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/channel_config_store"
@@ -43,10 +46,10 @@ const (
 )
 
 var (
-	channelConfigStoreABI     abi.ABI
-	topicNewChannelDefinition = (channel_config_store.ChannelConfigStoreNewChannelDefinition{}).Topic()
+	channelConfigStoreABI abi.ABI
+	NewChannelDefinition  = (channel_config_store.ChannelConfigStoreNewChannelDefinition{}).Topic()
 
-	allTopics = []common.Hash{topicNewChannelDefinition}
+	NoLimitSortAsc = query.NewLimitAndSort(query.Limit{}, query.NewSortBySequence(query.Asc))
 )
 
 func init() {
@@ -67,7 +70,7 @@ var _ llotypes.ChannelDefinitionCache = &channelDefinitionCache{}
 
 type LogPoller interface {
 	LatestBlock(ctx context.Context) (logpoller.LogPollerBlock, error)
-	LogsWithSigs(ctx context.Context, start, end int64, eventSigs []common.Hash, address common.Address) ([]logpoller.Log, error)
+	FilteredLogs(ctx context.Context, filter []query.Expression, limitAndSort query.LimitAndSort, queryName string) ([]logpoller.Log, error)
 	RegisterFilter(ctx context.Context, filter logpoller.Filter) error
 	UnregisterFilter(ctx context.Context, filterName string) error
 }
@@ -92,6 +95,8 @@ type channelDefinitionCache struct {
 	logPollInterval time.Duration
 	addr            common.Address
 	donID           uint32
+	donIDTopic      common.Hash
+	filterExprs     []query.Expression
 	lggr            logger.SugaredLogger
 	initialBlockNum int64
 
@@ -121,6 +126,20 @@ func filterName(addr common.Address, donID uint32) string {
 
 func NewChannelDefinitionCache(lggr logger.Logger, orm ChannelDefinitionCacheORM, client HTTPClient, lp logpoller.LogPoller, addr common.Address, donID uint32, fromBlock int64, options ...Option) llotypes.ChannelDefinitionCache {
 	filterName := logpoller.FilterName("OCR3 LLO ChannelDefinitionCachePoller", addr.String(), donID)
+	donIDTopic := common.BigToHash(big.NewInt(int64(donID)))
+
+	exprs := []query.Expression{
+		logpoller.NewAddressFilter(addr),
+		logpoller.NewEventSigFilter(NewChannelDefinition),
+		logpoller.NewEventByTopicFilter(1, []logpoller.HashedValueComparator{
+			{Value: donIDTopic, Operator: primitives.Eq},
+		}),
+		// NOTE: Optimize for fast pickup of new channel definitions. On
+		// Arbitrum, finalization can take tens of minutes
+		// (https://grafana.ops.prod.cldev.sh/d/e0453cc9-4b4a-41e1-9f01-7c21de805b39/blockchain-finality-and-gas?orgId=1&var-env=All&var-network_name=ethereum-testnet-sepolia-arbitrum-1&var-network_name=ethereum-mainnet-arbitrum-1&from=1732460992641&to=1732547392641)
+		query.Confidence(primitives.Unconfirmed),
+	}
+
 	cdc := &channelDefinitionCache{
 		orm:             orm,
 		client:          client,
@@ -130,6 +149,8 @@ func NewChannelDefinitionCache(lggr logger.Logger, orm ChannelDefinitionCacheORM
 		logPollInterval: defaultLogPollInterval,
 		addr:            addr,
 		donID:           donID,
+		donIDTopic:      donIDTopic,
+		filterExprs:     exprs,
 		lggr:            logger.Sugared(lggr).Named("ChannelDefinitionCache").With("addr", addr, "fromBlock", fromBlock),
 		newLogCh:        make(chan *channel_config_store.ChannelConfigStoreNewChannelDefinition, 1),
 		initialBlockNum: fromBlock,
@@ -144,8 +165,7 @@ func NewChannelDefinitionCache(lggr logger.Logger, orm ChannelDefinitionCacheORM
 func (c *channelDefinitionCache) Start(ctx context.Context) error {
 	// Initial load from DB, then async poll from chain thereafter
 	return c.StartOnce("ChannelDefinitionCache", func() (err error) {
-		donIDTopic := common.BigToHash(big.NewInt(int64(c.donID)))
-		err = c.lp.RegisterFilter(ctx, logpoller.Filter{Name: c.filterName, EventSigs: allTopics, Topic2: []common.Hash{donIDTopic}, Addresses: []common.Address{c.addr}})
+		err = c.lp.RegisterFilter(ctx, logpoller.Filter{Name: c.filterName, EventSigs: []common.Hash{NewChannelDefinition}, Topic2: []common.Hash{c.donIDTopic}, Addresses: []common.Address{c.addr}})
 		if err != nil {
 			return err
 		}
@@ -216,48 +236,50 @@ func (c *channelDefinitionCache) readLogs(ctx context.Context) (err error) {
 		return nil
 	}
 
-	// NOTE: We assume that log poller returns logs in order of block_num, log_index ASC
-	// TODO: Could improve performance a little bit here by adding a don ID topic filter
-	// MERC-3524
-	logs, err := c.lp.LogsWithSigs(ctx, fromBlock, toBlock, allTopics, c.addr)
+	exprs := make([]query.Expression, 0, len(c.filterExprs)+2)
+	exprs = append(exprs, c.filterExprs...)
+	exprs = append(exprs,
+		query.Block(strconv.FormatInt(fromBlock, 10), primitives.Gte),
+		query.Block(strconv.FormatInt(toBlock, 10), primitives.Lte),
+	)
+
+	logs, err := c.lp.FilteredLogs(ctx, exprs, NoLimitSortAsc, "ChannelDefinitionCachePoller - NewChannelDefinition")
 	if err != nil {
 		return err
 	}
 
 	for _, log := range logs {
-		switch log.EventSig {
-		case topicNewChannelDefinition:
-			unpacked := new(channel_config_store.ChannelConfigStoreNewChannelDefinition)
-
-			err := channelConfigStoreABI.UnpackIntoInterface(unpacked, newChannelDefinitionEventName, log.Data)
-			if err != nil {
-				return fmt.Errorf("failed to unpack log data: %w", err)
-			}
-			if len(log.Topics) < 2 {
-				// should never happen but must guard against unexpected panics
-				c.lggr.Warnw("Log missing expected topics", "log", log)
-				continue
-			}
-			unpacked.DonId = new(big.Int).SetBytes(log.Topics[1])
-
-			if unpacked.DonId.Cmp(big.NewInt(int64(c.donID))) != 0 {
-				// skip logs for other donIDs
-				continue
-			}
-
-			c.newLogMu.Lock()
-			if c.newLog == nil || unpacked.Version > c.newLog.Version {
-				// assume that donID is correct due to log poller filtering
-				c.lggr.Infow("Got new channel definitions from chain", "version", unpacked.Version, "blockNumber", log.BlockNumber, "sha", fmt.Sprintf("%x", unpacked.Sha), "url", unpacked.Url)
-				c.newLog = unpacked
-				c.newLogCh <- unpacked
-			}
-			c.newLogMu.Unlock()
-
-		default:
+		if log.EventSig != NewChannelDefinition {
 			// ignore unrecognized logs
 			continue
 		}
+		unpacked := new(channel_config_store.ChannelConfigStoreNewChannelDefinition)
+
+		err := channelConfigStoreABI.UnpackIntoInterface(unpacked, newChannelDefinitionEventName, log.Data)
+		if err != nil {
+			return fmt.Errorf("failed to unpack log data: %w", err)
+		}
+		if len(log.Topics) < 2 {
+			// should never happen but must guard against unexpected panics
+			c.lggr.Warnw("Log missing expected topics", "log", log)
+			continue
+		}
+		unpacked.DonId = new(big.Int).SetBytes(log.Topics[1])
+
+		if unpacked.DonId.Cmp(big.NewInt(int64(c.donID))) != 0 {
+			// skip logs for other donIDs, shouldn't happen given the
+			// FilterLogs call, but belts and braces
+			continue
+		}
+
+		c.newLogMu.Lock()
+		if c.newLog == nil || unpacked.Version > c.newLog.Version {
+			c.lggr.Infow("Got new channel definitions from chain", "version", unpacked.Version, "blockNumber", log.BlockNumber, "sha", fmt.Sprintf("%x", unpacked.Sha), "url", unpacked.Url)
+			c.newLog = unpacked
+			c.newLogCh <- unpacked
+		}
+		c.newLogMu.Unlock()
+
 	}
 
 	return nil
@@ -447,8 +469,10 @@ func (c *channelDefinitionCache) persist(ctx context.Context) (memoryVersion, pe
 		c.persistedVersion = persistedVersion
 	}
 
-	// TODO: we could delete the old logs from logpoller here actually
-	// https://smartcontract-it.atlassian.net/browse/MERC-3653
+	// NOTE: We could, in theory, delete the old logs from logpoller here since
+	// they are no longer needed. But logpoller does not currently support
+	// that, and in any case, the number is likely to be small so not worth
+	// worrying about.
 	return
 }
 
@@ -479,8 +503,6 @@ func (c *channelDefinitionCache) failedPersistLoop() {
 }
 
 func (c *channelDefinitionCache) Close() error {
-	// TODO: unregister filter (on job delete)?
-	// https://smartcontract-it.atlassian.net/browse/MERC-3653
 	return c.StopOnce("ChannelDefinitionCache", func() error {
 		// Cancel all contexts but try one final persist before closing
 		close(c.chStop)

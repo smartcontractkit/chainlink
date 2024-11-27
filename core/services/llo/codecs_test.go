@@ -10,7 +10,7 @@ import (
 )
 
 func Test_NewReportCodecs(t *testing.T) {
-	c := NewReportCodecs(logger.TestLogger(t))
+	c := NewReportCodecs(logger.TestLogger(t), 1)
 
 	assert.Contains(t, c, llotypes.ReportFormatJSON, "expected JSON to be supported")
 	assert.Contains(t, c, llotypes.ReportFormatEVMPremiumLegacy, "expected EVMPremiumLegacy to be supported")

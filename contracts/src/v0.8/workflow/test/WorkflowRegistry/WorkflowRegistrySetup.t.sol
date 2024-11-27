@@ -7,7 +7,7 @@ import {Test} from "forge-std/Test.sol";
 contract WorkflowRegistrySetup is Test {
   WorkflowRegistry internal s_registry;
   address internal s_owner;
-  address internal s_nonOwner;
+  address internal s_stranger;
   address internal s_authorizedAddress;
   address internal s_unauthorizedAddress;
   uint32 internal s_allowedDonID;
@@ -23,7 +23,7 @@ contract WorkflowRegistrySetup is Test {
 
   function setUp() public virtual {
     s_owner = makeAddr("owner");
-    s_nonOwner = makeAddr("nonOwner");
+    s_stranger = makeAddr("nonOwner");
     s_authorizedAddress = makeAddr("authorizedAddress");
     s_unauthorizedAddress = makeAddr("unauthorizedAddress");
     s_allowedDonID = 1;
