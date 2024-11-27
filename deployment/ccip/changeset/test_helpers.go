@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -399,19 +401,12 @@ func CCIPSendRequest(
 	if testRouter {
 		r = state.Chains[src].TestRouter
 	}
-	fee, err := r.GetFee(
-		&bind.CallOpts{Context: context.Background()}, dest, msg)
-	if err != nil {
-		return nil, 0, errors.Wrap(deployment.MaybeDataErr(err), "failed to get fee")
+
+	if msg.FeeToken == common.HexToAddress("0x0") { // fee is in native token
+		return retryCcipSendUntilNativeFeeIsSufficient(e, r, src, dest, msg)
 	}
-	if msg.FeeToken == common.HexToAddress("0x0") {
-		e.Chains[src].DeployerKey.Value = fee
-		defer func() { e.Chains[src].DeployerKey.Value = nil }()
-	}
-	tx, err := r.CcipSend(
-		e.Chains[src].DeployerKey,
-		dest,
-		msg)
+
+	tx, err := r.CcipSend(e.Chains[src].DeployerKey, dest, msg)
 	if err != nil {
 		return nil, 0, errors.Wrap(err, "failed to send CCIP message")
 	}
@@ -420,6 +415,44 @@ func CCIPSendRequest(
 		return tx, 0, errors.Wrap(err, "failed to confirm CCIP message")
 	}
 	return tx, blockNum, nil
+}
+
+// retryCcipSendUntilNativeFeeIsSufficient sends a CCIP message with a native fee,
+// and retries until the fee is sufficient. This is due to the fact that the fee is not known in advance,
+// and the message will be rejected if the fee is insufficient.
+func retryCcipSendUntilNativeFeeIsSufficient(
+	e deployment.Environment,
+	r *router.Router,
+	src,
+	dest uint64,
+	msg router.ClientEVM2AnyMessage,
+) (*types.Transaction, uint64, error) {
+	const errCodeInsufficientFee = "0x07da6ee6"
+	defer func() { e.Chains[src].DeployerKey.Value = nil }()
+
+	for {
+		fee, err := r.GetFee(&bind.CallOpts{Context: context.Background()}, dest, msg)
+		if err != nil {
+			return nil, 0, errors.Wrap(deployment.MaybeDataErr(err), "failed to get fee")
+		}
+
+		e.Chains[src].DeployerKey.Value = fee
+
+		tx, err := r.CcipSend(e.Chains[src].DeployerKey, dest, msg)
+		if err != nil {
+			return nil, 0, errors.Wrap(err, "failed to send CCIP message")
+		}
+
+		blockNum, err := e.Chains[src].Confirm(tx)
+		if err != nil {
+			if strings.Contains(err.Error(), errCodeInsufficientFee) {
+				continue
+			}
+			return nil, 0, errors.Wrap(err, "failed to confirm CCIP message")
+		}
+
+		return tx, blockNum, nil
+	}
 }
 
 // CCIPSendCalldata packs the calldata for the Router's ccipSend method.

@@ -15,7 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
-
+	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_pool"
@@ -889,6 +889,7 @@ func TestSmokeCCIPReorgBelowFinality(t *testing.T) {
 // doesn't go through and verifies f+1 nodes is able to detect reorg.
 // Note: LogPollInterval interval is set as 1s to detect the reorg immediately
 func TestSmokeCCIPReorgAboveFinalityAtDestination(t *testing.T) {
+	utils.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-4401")
 	t.Parallel()
 	t.Run("Above finality reorg in destination chain", func(t *testing.T) {
 		performAboveFinalityReorgAndValidate(t, "Destination")
@@ -900,6 +901,7 @@ func TestSmokeCCIPReorgAboveFinalityAtDestination(t *testing.T) {
 // shouldn't even get initiated and verifies f+1 nodes is able to detect reorg.
 // Note: LogPollInterval interval is set as 1s to detect the reorg immediately
 func TestSmokeCCIPReorgAboveFinalityAtSource(t *testing.T) {
+	utils.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-4401")
 	t.Parallel()
 	t.Run("Above finality reorg in source chain", func(t *testing.T) {
 		performAboveFinalityReorgAndValidate(t, "Source")
