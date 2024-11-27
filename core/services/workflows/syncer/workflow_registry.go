@@ -33,19 +33,6 @@ type Head struct {
 	Timestamp uint64
 }
 
-type workflowAsEvent struct {
-	Data      WorkflowRegistryWorkflowRegisteredV1
-	EventType WorkflowRegistryEventType
-}
-
-func (r workflowAsEvent) GetEventType() WorkflowRegistryEventType {
-	return r.EventType
-}
-
-func (r workflowAsEvent) GetData() any {
-	return r.Data
-}
-
 type GetWorkflowMetadataListByDONParams struct {
 	DonID uint32
 	Start uint64
@@ -547,6 +534,19 @@ func newReader(
 	}
 
 	return reader, nil
+}
+
+type workflowAsEvent struct {
+	Data      WorkflowRegistryWorkflowRegisteredV1
+	EventType WorkflowRegistryEventType
+}
+
+func (r workflowAsEvent) GetEventType() WorkflowRegistryEventType {
+	return r.EventType
+}
+
+func (r workflowAsEvent) GetData() any {
+	return r.Data
 }
 
 type workflowRegistryContractLoader struct {
