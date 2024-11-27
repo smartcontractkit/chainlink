@@ -11049,7 +11049,7 @@ TxConfirmTimeout is the duration to wait when confirming a tx signature, before 
 ```toml
 TxExpirationRebroadcast = false # Default
 ```
-TxExpirationRebroadcast enables or disables transaction rebroadcast if expired. Expiration check is performed every `ConfirmPollPeriod`. 
+TxExpirationRebroadcast enables or disables transaction rebroadcast if expired. Expiration check is performed every `ConfirmPollPeriod`
 A transaction is considered expired if the blockhash it was sent with is 150 blocks older than the latest blockhash.
 
 ### TxRetentionTimeout
