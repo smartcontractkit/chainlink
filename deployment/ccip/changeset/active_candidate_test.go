@@ -92,12 +92,8 @@ func TestActiveCandidate(t *testing.T) {
 	_, err = commonchangeset.ApplyChangesets(t, e, timelocks, []commonchangeset.ChangesetApplication{
 		// note this doesn't have proposals.
 		{
-			Changeset: commonchangeset.WrapChangeSet(NewTransferOwnershipChangeset),
-			Config: TransferOwnershipConfig{
-				State:             state,
-				ChainSelectors:    allChains,
-				HomeChainSelector: tenv.HomeChainSel,
-			},
+			Changeset: commonchangeset.WrapChangeSet(commonchangeset.NewTransferOwnershipChangeset),
+			Config:    genTestTransferOwnershipConfig(tenv, allChains, state),
 		},
 		// this has proposals, ApplyChangesets will sign & execute them.
 		// in practice, signing and executing are separated processes.

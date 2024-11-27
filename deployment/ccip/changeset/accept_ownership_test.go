@@ -73,12 +73,8 @@ func Test_NewAcceptOwnershipChangeset(t *testing.T) {
 	}, []commonchangeset.ChangesetApplication{
 		// note this doesn't have proposals.
 		{
-			Changeset: commonchangeset.WrapChangeSet(NewTransferOwnershipChangeset),
-			Config: TransferOwnershipConfig{
-				State:             state,
-				ChainSelectors:    allChains,
-				HomeChainSelector: e.HomeChainSel,
-			},
+			Changeset: commonchangeset.WrapChangeSet(commonchangeset.NewTransferOwnershipChangeset),
+			Config:    genTestTransferOwnershipConfig(e, allChains, state),
 		},
 		// this has proposals, ApplyChangesets will sign & execute them.
 		// in practice, signing and executing are separated processes.
@@ -90,6 +86,43 @@ func Test_NewAcceptOwnershipChangeset(t *testing.T) {
 	require.NoError(t, err)
 
 	assertTimelockOwnership(t, e, allChains, state)
+}
+
+func genTestTransferOwnershipConfig(
+	e DeployedEnv,
+	chains []uint64,
+	state CCIPOnChainState,
+) commonchangeset.TransferOwnershipConfig {
+	var (
+		timelocksPerChain = make(map[uint64]common.Address)
+		contracts         = make(map[uint64][]commonchangeset.OwnershipTransferrer)
+	)
+
+	// chain contracts
+	for _, chain := range chains {
+		timelocksPerChain[chain] = state.Chains[chain].Timelock.Address()
+		contracts[chain] = []commonchangeset.OwnershipTransferrer{
+			state.Chains[chain].OnRamp,
+			state.Chains[chain].OffRamp,
+			state.Chains[chain].FeeQuoter,
+			state.Chains[chain].NonceManager,
+			state.Chains[chain].RMNRemote,
+		}
+	}
+
+	// home chain
+	homeChainTimelockAddress := state.Chains[e.HomeChainSel].Timelock.Address()
+	timelocksPerChain[e.HomeChainSel] = homeChainTimelockAddress
+	contracts[e.HomeChainSel] = append(contracts[e.HomeChainSel],
+		state.Chains[e.HomeChainSel].CapabilityRegistry,
+		state.Chains[e.HomeChainSel].CCIPHome,
+		state.Chains[e.HomeChainSel].RMNHome,
+	)
+
+	return commonchangeset.TransferOwnershipConfig{
+		TimelocksPerChain: timelocksPerChain,
+		Contracts:         contracts,
+	}
 }
 
 func genTestAcceptOwnershipConfig(
@@ -143,7 +176,7 @@ func assertTimelockOwnership(
 	ctx := tests.Context(t)
 	// check that the ownership has been transferred correctly
 	for _, chain := range chains {
-		for _, contract := range []ownershipTransferrer{
+		for _, contract := range []commonchangeset.OwnershipTransferrer{
 			state.Chains[chain].OnRamp,
 			state.Chains[chain].OffRamp,
 			state.Chains[chain].FeeQuoter,
@@ -160,7 +193,7 @@ func assertTimelockOwnership(
 
 	// check home chain contracts ownership
 	homeChainTimelockAddress := state.Chains[e.HomeChainSel].Timelock.Address()
-	for _, contract := range []ownershipTransferrer{
+	for _, contract := range []commonchangeset.OwnershipTransferrer{
 		state.Chains[e.HomeChainSel].CapabilityRegistry,
 		state.Chains[e.HomeChainSel].CCIPHome,
 		state.Chains[e.HomeChainSel].RMNHome,

@@ -132,12 +132,8 @@ func TestAddChainInbound(t *testing.T) {
 	}, []commonchangeset.ChangesetApplication{
 		// note this doesn't have proposals.
 		{
-			Changeset: commonchangeset.WrapChangeSet(NewTransferOwnershipChangeset),
-			Config: TransferOwnershipConfig{
-				State:             state,
-				ChainSelectors:    initialDeploy,
-				HomeChainSelector: e.HomeChainSel,
-			},
+			Changeset: commonchangeset.WrapChangeSet(commonchangeset.NewTransferOwnershipChangeset),
+			Config:    genTestTransferOwnershipConfig(e, initialDeploy, state),
 		},
 		// this has proposals, ApplyChangesets will sign & execute them.
 		// in practice, signing and executing are separated processes.
