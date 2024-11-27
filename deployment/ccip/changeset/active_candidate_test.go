@@ -20,6 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -101,12 +102,8 @@ func TestActiveCandidate(t *testing.T) {
 		// this has proposals, ApplyChangesets will sign & execute them.
 		// in practice, signing and executing are separated processes.
 		{
-			Changeset: commonchangeset.WrapChangeSet(NewAcceptOwnershipChangeset),
-			Config: AcceptOwnershipConfig{
-				State:             state,
-				ChainSelectors:    allChains,
-				HomeChainSelector: tenv.HomeChainSel,
-			},
+			Changeset: commonchangeset.WrapChangeSet(commonchangeset.NewAcceptOwnershipChangeset),
+			Config:    genTestAcceptOwnershipConfig(tenv, allChains, state),
 		},
 	})
 	require.NoError(t, err)
@@ -162,6 +159,14 @@ func TestActiveCandidate(t *testing.T) {
 	)
 	require.NoError(t, err)
 
+	var (
+		timelocksPerChain = map[uint64]common.Address{
+			tenv.HomeChainSel: state.Chains[tenv.HomeChainSel].Timelock.Address(),
+		}
+		proposerMCMSes = map[uint64]*gethwrappers.ManyChainMultiSig{
+			tenv.HomeChainSel: state.Chains[tenv.HomeChainSel].ProposerMcm,
+		}
+	)
 	setCommitCandidateOp, err := SetCandidateOnExistingDon(
 		ocr3ConfigMap[cctypes.PluginTypeCCIPCommit],
 		state.Chains[tenv.HomeChainSel].CapabilityRegistry,
@@ -170,7 +175,7 @@ func TestActiveCandidate(t *testing.T) {
 		nodes.NonBootstraps(),
 	)
 	require.NoError(t, err)
-	setCommitCandidateProposal, err := BuildProposalFromBatches(state, []timelock.BatchChainOperation{{
+	setCommitCandidateProposal, err := proposalutils.BuildProposalFromBatches(timelocksPerChain, proposerMCMSes, []timelock.BatchChainOperation{{
 		ChainIdentifier: mcms.ChainIdentifier(tenv.HomeChainSel),
 		Batch:           setCommitCandidateOp,
 	}}, "set new candidates on commit plugin", 0)
@@ -188,7 +193,7 @@ func TestActiveCandidate(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	setExecCandidateProposal, err := BuildProposalFromBatches(state, []timelock.BatchChainOperation{{
+	setExecCandidateProposal, err := proposalutils.BuildProposalFromBatches(timelocksPerChain, proposerMCMSes, []timelock.BatchChainOperation{{
 		ChainIdentifier: mcms.ChainIdentifier(tenv.HomeChainSel),
 		Batch:           setExecCandidateOp,
 	}}, "set new candidates on commit and exec plugins", 0)
@@ -215,7 +220,7 @@ func TestActiveCandidate(t *testing.T) {
 
 	promoteOps, err := PromoteAllCandidatesForChainOps(state.Chains[tenv.HomeChainSel].CapabilityRegistry, state.Chains[tenv.HomeChainSel].CCIPHome, tenv.FeedChainSel, nodes.NonBootstraps())
 	require.NoError(t, err)
-	promoteProposal, err := BuildProposalFromBatches(state, []timelock.BatchChainOperation{{
+	promoteProposal, err := proposalutils.BuildProposalFromBatches(timelocksPerChain, proposerMCMSes, []timelock.BatchChainOperation{{
 		ChainIdentifier: mcms.ChainIdentifier(tenv.HomeChainSel),
 		Batch:           promoteOps,
 	}}, "promote candidates and revoke actives", 0)

@@ -3,8 +3,10 @@ package changeset
 import (
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -81,17 +83,53 @@ func Test_NewAcceptOwnershipChangeset(t *testing.T) {
 		// this has proposals, ApplyChangesets will sign & execute them.
 		// in practice, signing and executing are separated processes.
 		{
-			Changeset: commonchangeset.WrapChangeSet(NewAcceptOwnershipChangeset),
-			Config: AcceptOwnershipConfig{
-				State:             state,
-				ChainSelectors:    allChains,
-				HomeChainSelector: e.HomeChainSel,
-			},
+			Changeset: commonchangeset.WrapChangeSet(commonchangeset.NewAcceptOwnershipChangeset),
+			Config:    genTestAcceptOwnershipConfig(e, allChains, state),
 		},
 	})
 	require.NoError(t, err)
 
 	assertTimelockOwnership(t, e, allChains, state)
+}
+
+func genTestAcceptOwnershipConfig(
+	e DeployedEnv,
+	chains []uint64,
+	state CCIPOnChainState,
+) commonchangeset.AcceptOwnershipConfig {
+	var (
+		timelocksPerChain = make(map[uint64]common.Address)
+		proposerMCMses    = make(map[uint64]*gethwrappers.ManyChainMultiSig)
+		contracts         = make(map[uint64][]commonchangeset.OwnershipAcceptor)
+	)
+	for _, chain := range chains {
+		timelocksPerChain[chain] = state.Chains[chain].Timelock.Address()
+		proposerMCMses[chain] = state.Chains[chain].ProposerMcm
+		contracts[chain] = []commonchangeset.OwnershipAcceptor{
+			state.Chains[chain].OnRamp,
+			state.Chains[chain].OffRamp,
+			state.Chains[chain].FeeQuoter,
+			state.Chains[chain].NonceManager,
+			state.Chains[chain].RMNRemote,
+		}
+	}
+
+	// add home chain contracts.
+	// this overwrite should be fine.
+	timelocksPerChain[e.HomeChainSel] = state.Chains[e.HomeChainSel].Timelock.Address()
+	proposerMCMses[e.HomeChainSel] = state.Chains[e.HomeChainSel].ProposerMcm
+	contracts[e.HomeChainSel] = append(contracts[e.HomeChainSel],
+		state.Chains[e.HomeChainSel].CapabilityRegistry,
+		state.Chains[e.HomeChainSel].CCIPHome,
+		state.Chains[e.HomeChainSel].RMNHome,
+	)
+
+	return commonchangeset.AcceptOwnershipConfig{
+		TimelocksPerChain: timelocksPerChain,
+		ProposerMCMSes:    proposerMCMses,
+		Contracts:         contracts,
+		MinDelay:          time.Duration(0),
+	}
 }
 
 // assertTimelockOwnership asserts that the ownership of the contracts has been transferred
