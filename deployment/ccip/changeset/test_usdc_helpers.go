@@ -134,10 +134,10 @@ func DeployUSDC(
 			tokenAddress, tx, tokenContract, err2 := burn_mint_erc677.DeployBurnMintERC677(
 				chain.DeployerKey,
 				chain.Client,
-				"USDC Token",
-				"USDC",
-				uint8(18),
-				big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
+				USDCName,
+				string(USDCSymbol),
+				UsdcDecimals,
+				big.NewInt(0),
 			)
 			return deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
 				Address:  tokenAddress,
