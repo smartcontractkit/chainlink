@@ -11,6 +11,7 @@ import (
 const (
 	goBinaryName = "gomod-local-update"
 )
+
 var version = "dev"
 var usage = fmt.Sprintf(`%s version %%s
 
