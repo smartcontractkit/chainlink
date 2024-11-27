@@ -2,13 +2,6 @@ package contracts
 
 import (
 	"context"
-	"github.com/google/uuid"
-	"github.com/jmoiron/sqlx"
-	"github.com/scylladb/go-reflectx"
-	"github.com/smartcontractkit/chainlink-ccip/plugintypes"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 	"math/big"
 	"sort"
 	"testing"
@@ -23,6 +16,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/exp/maps"
+
+	"github.com/smartcontractkit/chainlink-ccip/plugintypes"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+	"github.com/smartcontractkit/chainlink/integration-tests/utils/pgtest"
 
 	readermocks "github.com/smartcontractkit/chainlink-ccip/mocks/pkg/contractreader"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
@@ -151,6 +149,7 @@ func emitCommitReports(t *testing.T, ctx context.Context, s *testSetupData, numR
 }
 
 func TestCCIPReader_CommitReportsGTETimestamp(t *testing.T) {
+	t.Parallel()
 	ctx := tests.Context(t)
 	s, _, onRampAddress := setupGetCommitGTETimestampTest(t, ctx, 0)
 
@@ -193,6 +192,7 @@ func TestCCIPReader_CommitReportsGTETimestamp(t *testing.T) {
 }
 
 func TestCCIPReader_CommitReportsGTETimestamp_RespectsFinality(t *testing.T) {
+	t.Parallel()
 	ctx := tests.Context(t)
 	var finalityDepth int64 = 10
 	s, _, onRampAddress := setupGetCommitGTETimestampTest(t, ctx, finalityDepth)
@@ -255,6 +255,7 @@ func TestCCIPReader_CommitReportsGTETimestamp_RespectsFinality(t *testing.T) {
 }
 
 func TestCCIPReader_GetLatestPriceSeqNr(t *testing.T) {
+	t.Parallel()
 	ctx := tests.Context(t)
 
 	cfg := evmtypes.ChainReaderConfig{
@@ -298,6 +299,7 @@ func TestCCIPReader_GetLatestPriceSeqNr(t *testing.T) {
 }
 
 func TestCCIPReader_ExecutedMessageRanges(t *testing.T) {
+	t.Parallel()
 	ctx := tests.Context(t)
 	cfg := evmtypes.ChainReaderConfig{
 		Contracts: map[string]evmtypes.ChainContractReader{
@@ -389,6 +391,7 @@ func TestCCIPReader_ExecutedMessageRanges(t *testing.T) {
 }
 
 func TestCCIPReader_MsgsBetweenSeqNums(t *testing.T) {
+	t.Parallel()
 	ctx := tests.Context(t)
 
 	cfg := evmtypes.ChainReaderConfig{
@@ -512,6 +515,7 @@ func TestCCIPReader_MsgsBetweenSeqNums(t *testing.T) {
 }
 
 func TestCCIPReader_NextSeqNum(t *testing.T) {
+	t.Parallel()
 	ctx := tests.Context(t)
 
 	onChainSeqNums := map[cciptypes.ChainSelector]cciptypes.SeqNum{
@@ -556,6 +560,7 @@ func TestCCIPReader_NextSeqNum(t *testing.T) {
 }
 
 func TestCCIPReader_GetExpectedNextSequenceNumber(t *testing.T) {
+	t.Parallel()
 	ctx := tests.Context(t)
 	//env := NewMemoryEnvironmentContractsOnly(t, logger.TestLogger(t), 2, 4, nil)
 	env := changeset.NewMemoryEnvironmentWithJobsAndContracts(t, logger.TestLogger(t), 2, 4, nil)
@@ -597,6 +602,7 @@ func TestCCIPReader_GetExpectedNextSequenceNumber(t *testing.T) {
 }
 
 func TestCCIPReader_Nonces(t *testing.T) {
+	t.Parallel()
 	ctx := tests.Context(t)
 	var nonces = map[cciptypes.ChainSelector]map[common.Address]uint64{
 		chainS1: {
@@ -663,6 +669,7 @@ func TestCCIPReader_Nonces(t *testing.T) {
 }
 
 func Test_GetChainFeePriceUpdates(t *testing.T) {
+	t.Parallel()
 	ctx := tests.Context(t)
 	env := changeset.NewMemoryEnvironmentWithJobsAndContracts(t, logger.TestLogger(t), 2, 4, nil)
 	state, err := changeset.LoadOnchainState(env.Env)
@@ -717,6 +724,7 @@ func Test_GetChainFeePriceUpdates(t *testing.T) {
 }
 
 func Test_LinkPriceUSD(t *testing.T) {
+	t.Parallel()
 	ctx := tests.Context(t)
 	env := changeset.NewMemoryEnvironmentWithJobsAndContracts(t, logger.TestLogger(t), 2, 4, nil)
 	state, err := changeset.LoadOnchainState(env.Env)
@@ -751,6 +759,7 @@ func Test_LinkPriceUSD(t *testing.T) {
 }
 
 func Test_GetMedianDataAvailabilityGasConfig(t *testing.T) {
+	t.Parallel()
 	ctx := tests.Context(t)
 	env := changeset.NewMemoryEnvironmentWithJobsAndContracts(t, logger.TestLogger(t), 4, 4, nil)
 	state, err := changeset.LoadOnchainState(env.Env)
@@ -809,6 +818,7 @@ func Test_GetMedianDataAvailabilityGasConfig(t *testing.T) {
 }
 
 func Test_GetWrappedNativeTokenPriceUSD(t *testing.T) {
+	t.Parallel()
 	ctx := tests.Context(t)
 	env := changeset.NewMemoryEnvironmentWithJobsAndContracts(t, logger.TestLogger(t), 2, 4, nil)
 	state, err := changeset.LoadOnchainState(env.Env)
@@ -872,7 +882,7 @@ func testSetupRealContracts(
 	toMockBindings map[cciptypes.ChainSelector][]types.BoundContract,
 	env changeset.DeployedEnv,
 ) ccipreaderpkg.CCIPReader {
-	db := NewSqlxDB(t)
+	db := pgtest.NewSqlxDB(t)
 	lpOpts := logpoller.Opts{
 		PollPeriod:               time.Millisecond,
 		FinalityDepth:            0,
@@ -957,7 +967,7 @@ func testSetup(
 
 	lggr := logger.TestLogger(t)
 	lggr.SetLogLevel(zapcore.ErrorLevel)
-	db := NewSqlxDB(t)
+	db := pgtest.NewSqlxDB(t)
 	lpOpts := logpoller.Opts{
 		PollPeriod:               time.Millisecond,
 		FinalityDepth:            params.FinalityDepth,
@@ -1092,12 +1102,4 @@ type testSetupData struct {
 
 func cs(i uint64) cciptypes.ChainSelector {
 	return cciptypes.ChainSelector(i)
-}
-
-func NewSqlxDB(t testing.TB) *sqlx.DB {
-	db, err := sqlx.Open(string(dialects.TransactionWrappedPostgres), uuid.New().String())
-	require.NoError(t, err)
-	t.Cleanup(func() { assert.NoError(t, db.Close()) })
-	db.MapperFunc(reflectx.CamelToSnakeASCII)
-	return db
 }
