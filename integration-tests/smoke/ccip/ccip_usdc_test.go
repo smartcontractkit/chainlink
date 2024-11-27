@@ -3,6 +3,7 @@ package smoke
 import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 	"github.com/stretchr/testify/require"
 	"math/big"
 	"testing"
@@ -32,8 +33,8 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	config := &changeset.TestConfigs{
 		IsUSDC: true,
 	}
-	//tenv, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr, config)
-	tenv := changeset.NewMemoryEnvironmentWithJobsAndContracts(t, lggr, 3, 4, config)
+	tenv, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr, config)
+	//tenv := changeset.NewMemoryEnvironmentWithJobsAndContracts(t, lggr, 3, 4, config)
 
 	e := tenv.Env
 	state, err := changeset.LoadOnchainState(e)

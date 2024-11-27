@@ -27,7 +27,8 @@ import (
 func TestInitialDeployOnLocal(t *testing.T) {
 	t.Parallel()
 	lggr := logger.TestLogger(t)
-	tenv, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr, nil)
+	config := &changeset.TestConfigs{}
+	tenv, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr, config)
 	e := tenv.Env
 	state, err := changeset.LoadOnchainState(e)
 	require.NoError(t, err)
@@ -87,10 +88,10 @@ func TestInitialDeployOnLocal(t *testing.T) {
 func TestTokenTransfer(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	config := &changeset.TestConfigs{}
-	//tenv, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr, config)
+	tenv, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr, config)
 
 	// use this if you are testing locally in memory
-	tenv := changeset.NewMemoryEnvironmentWithJobsAndContracts(t, lggr, 2, 4, config)
+	// tenv := changeset.NewMemoryEnvironmentWithJobsAndContracts(t, lggr, 2, 4, config)
 
 	e := tenv.Env
 	state, err := changeset.LoadOnchainState(e)
