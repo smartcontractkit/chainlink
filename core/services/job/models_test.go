@@ -345,8 +345,6 @@ func TestWorkflowSpec_Validate(t *testing.T) {
 
 		err := w.Validate(testutils.Context(t))
 		require.NoError(t, err)
-		assert.Equal(t, "owner", w.WorkflowOwner)
-		assert.Equal(t, "name", w.WorkflowName)
 		require.NotEmpty(t, w.WorkflowID)
 	})
 }

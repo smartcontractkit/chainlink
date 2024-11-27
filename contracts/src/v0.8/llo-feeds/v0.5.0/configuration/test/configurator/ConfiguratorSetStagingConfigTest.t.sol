@@ -115,6 +115,19 @@ contract ConfiguratorSetStagingConfigTest is BaseTest {
       OFFCHAIN_CONFIG_VERSION,
       offchainConfig
     );
+
+    onchainConfig = abi.encode(uint256(1), uint256(0));
+
+    vm.expectRevert(abi.encodeWithSelector(Configurator.InvalidPredecessorConfigDigest.selector, uint256(0)));
+    s_configurator.setStagingConfig(
+      CONFIG_ID_1,
+      signers,
+      offchainTransmitters,
+      f,
+      onchainConfig,
+      OFFCHAIN_CONFIG_VERSION,
+      offchainConfig
+    );
   }
 
   function test_correctlyUpdatesTheConfig() public {

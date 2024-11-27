@@ -57,6 +57,10 @@ contract WorkflowRegistry_pauseWorkflow is WorkflowRegistrySetup {
 
     _removeDONFromAllowedDONs(s_allowedDonID);
 
+    // It should emit {WorkflowPausedV1} when the workflow is paused.
+    vm.expectEmit();
+    emit WorkflowRegistry.WorkflowPausedV1(s_validWorkflowID, s_authorizedAddress, s_allowedDonID, s_validWorkflowName);
+
     // Pause the workflow.
     vm.prank(s_authorizedAddress);
     s_registry.pauseWorkflow(s_validWorkflowKey);
@@ -76,6 +80,10 @@ contract WorkflowRegistry_pauseWorkflow is WorkflowRegistrySetup {
     _removeAddressFromAuthorizedAddresses(s_authorizedAddress);
     _removeDONFromAllowedDONs(s_allowedDonID);
 
+    // It should emit {WorkflowPausedV1} when the workflow is paused.
+    vm.expectEmit();
+    emit WorkflowRegistry.WorkflowPausedV1(s_validWorkflowID, s_authorizedAddress, s_allowedDonID, s_validWorkflowName);
+
     // Pause the workflow.
     vm.prank(s_authorizedAddress);
     s_registry.pauseWorkflow(s_validWorkflowKey);
@@ -93,6 +101,10 @@ contract WorkflowRegistry_pauseWorkflow is WorkflowRegistrySetup {
 
     _removeAddressFromAuthorizedAddresses(s_authorizedAddress);
 
+    // It should emit {WorkflowPausedV1} when the workflow is paused.
+    vm.expectEmit();
+    emit WorkflowRegistry.WorkflowPausedV1(s_validWorkflowID, s_authorizedAddress, s_allowedDonID, s_validWorkflowName);
+
     // Pause the workflow.
     vm.prank(s_authorizedAddress);
     s_registry.pauseWorkflow(s_validWorkflowKey);
@@ -107,6 +119,10 @@ contract WorkflowRegistry_pauseWorkflow is WorkflowRegistrySetup {
   function test_WhenTheDonIDIsAllowed_AndTheCallerIsAnAuthorizedAddress() external {
     // Register a workflow first.
     _registerValidWorkflow();
+
+    // It should emit {WorkflowPausedV1} when the workflow is paused.
+    vm.expectEmit();
+    emit WorkflowRegistry.WorkflowPausedV1(s_validWorkflowID, s_authorizedAddress, s_allowedDonID, s_validWorkflowName);
 
     // Pause the workflow.
     vm.prank(s_authorizedAddress);

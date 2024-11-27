@@ -289,6 +289,13 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployMCMSWithTimelock),
 			Config:    mcmsCfg,
 		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(DeployChainContracts),
+			Config: DeployChainContractsConfig{
+				ChainSelectors:    allChains,
+				HomeChainSelector: e.HomeChainSel,
+			},
+		},
 	})
 	require.NoError(t, err)
 
@@ -307,10 +314,8 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 			SourceMessageTransmitterAddr: state.Chains[chain].MockUSDCTransmitter.Address().String(),
 		}
 	}
-	for _, chain := range allChains {
-		timelocksPerChain[chain] = state.Chains[chain].Timelock
-		ocrParams[chain] = DefaultOCRParams(e.FeedChainSel, nil, nil)
-	}
+	require.NotNil(t, state.Chains[e.FeedChainSel].LinkToken)
+	require.NotNil(t, state.Chains[e.FeedChainSel].Weth9)
 	var usdcCfg USDCAttestationConfig
 	if len(usdcChains) > 0 {
 		server := mockAttestationResponse()
@@ -325,15 +330,13 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 		})
 	}
 
+	for _, chain := range allChains {
+		timelocksPerChain[chain] = state.Chains[chain].Timelock
+		tokenInfo := tokenConfig.GetTokenInfo(e.Env.Logger, state.Chains[chain].LinkToken, state.Chains[chain].Weth9)
+		ocrParams[chain] = DefaultOCRParams(e.FeedChainSel, tokenInfo)
+	}
 	// Deploy second set of changesets to deploy and configure the CCIP contracts.
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(DeployChainContracts),
-			Config: DeployChainContractsConfig{
-				ChainSelectors:    allChains,
-				HomeChainSelector: e.HomeChainSel,
-			},
-		},
 		{
 			Changeset: commonchangeset.WrapChangeSet(ConfigureNewChains),
 			Config: NewChainsConfig{

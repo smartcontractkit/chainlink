@@ -7,11 +7,9 @@ import (
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 )
 
-func DeployCapabilityRegistry(env deployment.Environment, config interface{}) (deployment.ChangesetOutput, error) {
-	registrySelector, ok := config.(uint64)
-	if !ok {
-		return deployment.ChangesetOutput{}, deployment.ErrInvalidConfig
-	}
+var _ deployment.ChangeSet[uint64] = DeployCapabilityRegistry
+
+func DeployCapabilityRegistry(env deployment.Environment, registrySelector uint64) (deployment.ChangesetOutput, error) {
 	chain, ok := env.Chains[registrySelector]
 	if !ok {
 		return deployment.ChangesetOutput{}, fmt.Errorf("chain not found in environment")

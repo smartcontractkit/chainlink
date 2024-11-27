@@ -20,11 +20,19 @@ func NewKeystore() *DummyKeystore {
 	return &DummyKeystore{privateKeyMap: make(map[common.Address]*ecdsa.PrivateKey)}
 }
 
-func (k *DummyKeystore) Add(privateKeyString string, address common.Address) error {
+func (k *DummyKeystore) Add(privateKeyString string) error {
 	privateKey, err := crypto.HexToECDSA(privateKeyString)
 	if err != nil {
 		return err
 	}
+
+	publicKey := privateKey.Public()
+	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return fmt.Errorf("error casting public key: %v to ECDSA", publicKey)
+	}
+
+	address := crypto.PubkeyToAddress(*publicKeyECDSA)
 	k.privateKeyMap[address] = privateKey
 	return nil
 }
