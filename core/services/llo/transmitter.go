@@ -23,17 +23,9 @@ import (
 // If you need to "fan-out" transmits and send reports to a new destination,
 // add a new subTransmitter
 
-// TODO: prom metrics (common with mercury/transmitter.go?)
-// https://smartcontract-it.atlassian.net/browse/MERC-3659
-
 const (
 	// Mercury server error codes
 	DuplicateReport = 2
-	// TODO: revisit these values in light of parallel composition
-	// https://smartcontract-it.atlassian.net/browse/MERC-3659
-	// maxTransmitQueueSize = 10_000
-	// maxDeleteQueueSize   = 10_000
-	// transmitTimeout      = 5 * time.Second
 )
 
 type Transmitter interface {

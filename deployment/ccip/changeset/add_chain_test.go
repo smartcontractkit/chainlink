@@ -59,6 +59,7 @@ func TestAddChainInbound(t *testing.T) {
 	require.NoError(t, e.Env.ExistingAddresses.Merge(out.AddressBook))
 	newAddresses = deployment.NewMemoryAddressBook()
 	tokenConfig := NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
+
 	err = deployCCIPContracts(e.Env, newAddresses, NewChainsConfig{
 		HomeChainSel:   e.HomeChainSel,
 		FeedChainSel:   e.FeedChainSel,
@@ -75,7 +76,7 @@ func TestAddChainInbound(t *testing.T) {
 	for _, source := range initialDeploy {
 		for _, dest := range initialDeploy {
 			if source != dest {
-				require.NoError(t, AddLaneWithDefaultPrices(e.Env, state, source, dest))
+				require.NoError(t, AddLaneWithDefaultPricesAndFeeQuoterConfig(e.Env, state, source, dest, false))
 			}
 		}
 	}
@@ -246,12 +247,22 @@ func TestAddChainInbound(t *testing.T) {
 		ExtraArgs:    nil,
 	})
 	require.NoError(t,
-		ConfirmCommitWithExpectedSeqNumRange(t, e.Env.Chains[initialDeploy[0]], e.Env.Chains[newChain], state.Chains[newChain].OffRamp, &startBlock, cciptypes.SeqNumRange{
+		commonutils.JustError(ConfirmCommitWithExpectedSeqNumRange(t, e.Env.Chains[initialDeploy[0]], e.Env.Chains[newChain], state.Chains[newChain].OffRamp, &startBlock, cciptypes.SeqNumRange{
 			cciptypes.SeqNum(1),
 			cciptypes.SeqNum(msgSentEvent.SequenceNumber),
-		}))
+		})))
 	require.NoError(t,
-		commonutils.JustError(ConfirmExecWithSeqNr(t, e.Env.Chains[initialDeploy[0]], e.Env.Chains[newChain], state.Chains[newChain].OffRamp, &startBlock, msgSentEvent.SequenceNumber)))
+		commonutils.JustError(
+			ConfirmExecWithSeqNrs(
+				t,
+				e.Env.Chains[initialDeploy[0]],
+				e.Env.Chains[newChain],
+				state.Chains[newChain].OffRamp,
+				&startBlock,
+				[]uint64{msgSentEvent.SequenceNumber},
+			),
+		),
+	)
 
 	linkAddress := state.Chains[newChain].LinkToken.Address()
 	feeQuoter := state.Chains[newChain].FeeQuoter

@@ -1,4 +1,4 @@
-name: Find Flaky Tests
+name: Flakeguard
 
 on:
   workflow_call:
@@ -25,11 +25,11 @@ on:
         type: boolean
         description: 'Run all tests in the project.'
         default: false    
-      runThreshold:
+      maxPassRatio:
         required: false
         type: string
-        description: 'The threshold for the number of times a test can fail before being considered flaky.'
-        default: '0.9'
+        description: 'The maximum (non-inclusive) pass ratio threshold for a test to be considered a failure. Any tests below this pass rate will be considered flaky.'
+        default: '1.0'
       findByTestFilesDiff:
         required: false
         type: boolean
@@ -64,7 +64,6 @@ env:
   DEFAULT_RUNNER: 'ubuntu-latest' # The default runner to use for running tests.
   UPLOAD_ALL_TEST_RESULTS: ${{ fromJson(inputs.extraArgs)['upload_all_test_results'] || 'false' }} # Whether to upload all test results as artifacts.
   PRINT_FAILED_TESTS: ${{ fromJson(inputs.extraArgs)['print_failed_tests'] || 'false' }} # Whether to print failed tests in the GitHub console.
-  MIN_PASS_RATIO: ${{ fromJson(inputs.extraArgs)['min_pass_ratio'] || '0.001' }} # The minimum pass ratio for a test to be considered as flaky. Used to distinguish between tests that are truly flaky (with inconsistent results) and those that are consistently failing. Set to 0 if you want to consider all failed tests as flaky.
 
 jobs:
   get-tests:
@@ -99,7 +98,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@8b02ed1703ef40755a4c46ff454cf4ff2e89275d
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@be06798af83ef6d9f7cf04e8b10a8484520c5061 # flakguard@0.0.1
 
       - name: Find new or updated test packages
         if: ${{ inputs.runAllTests == false }}
@@ -258,11 +257,11 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@8b02ed1703ef40755a4c46ff454cf4ff2e89275d
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@be06798af83ef6d9f7cf04e8b10a8484520c5061 # flakguard@0.0.1
 
       - name: Run tests with flakeguard
         shell: bash
-        run: flakeguard run --project-path=${{ inputs.projectPath }} --test-packages=${{ matrix.testPackages }} --run-count=${{ env.TEST_REPEAT_COUNT }} --min-pass-ratio=${{ env.MIN_PASS_RATIO }} --threshold=${{ inputs.runThreshold }} --race=${{ env.RUN_WITH_RACE }} --skip-tests=${{ env.SKIPPED_TESTS }} --print-failed-tests=${{ env.PRINT_FAILED_TESTS }} --output-json=test-result.json
+        run: flakeguard run --project-path=${{ inputs.projectPath }} --test-packages=${{ matrix.testPackages }} --run-count=${{ env.TEST_REPEAT_COUNT }} --max-pass-ratio=${{ inputs.maxPassRatio }} --race=${{ env.RUN_WITH_RACE }} --skip-tests=${{ env.SKIPPED_TESTS }} --print-failed-tests=${{ env.PRINT_FAILED_TESTS }} --output-json=test-result.json
         env:
           CL_DATABASE_URL: ${{ env.DB_URL }}
 
@@ -300,7 +299,7 @@ jobs:
             
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@8b02ed1703ef40755a4c46ff454cf4ff2e89275d
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@be06798af83ef6d9f7cf04e8b10a8484520c5061 # flakguard@0.0.1
                 
       - name: Set combined test results
         id: set_test_results

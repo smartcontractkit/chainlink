@@ -7,9 +7,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"golang.org/x/sync/errgroup"
-
-	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 
@@ -29,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_admin_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/weth9"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/multicall3"
 )
 
 var (
@@ -52,6 +52,7 @@ var (
 	PriceFeed            deployment.ContractType = "PriceFeed"
 	// Note test router maps to a regular router contract.
 	TestRouter          deployment.ContractType = "TestRouter"
+	Multicall3          deployment.ContractType = "Multicall3"
 	CCIPReceiver        deployment.ContractType = "CCIPReceiver"
 	BurnMintToken       deployment.ContractType = "BurnMintToken"
 	BurnMintTokenPool   deployment.ContractType = "BurnMintTokenPool"
@@ -125,6 +126,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 	var registryModule *registry_module_owner_custom.RegistryModuleOwnerCustom
 	var rmnProxy *rmn_proxy_contract.RMNProxyContract
 	var r *router.Router
+	var mc3 *multicall3.Multicall3
 	if chainExists {
 		weth9Contract = chainState.Weth9
 		linkTokenContract = chainState.LinkToken
@@ -132,6 +134,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 		registryModule = chainState.RegistryModule
 		rmnProxy = chainState.RMNProxyExisting
 		r = chainState.Router
+		mc3 = chainState.Multicall3
 	}
 	if rmnProxy == nil {
 		// we want to replicate the mainnet scenario where RMNProxy is already deployed with some existing RMN
@@ -269,7 +272,6 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 			return err
 		}
 		lggr.Infow("deployed linkToken", "addr", linkToken.Address)
-		linkTokenContract = linkToken.Contract
 	} else {
 		lggr.Infow("linkToken already deployed", "addr", linkTokenContract.Address)
 	}
@@ -295,6 +297,25 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 		r = routerContract.Contract
 	} else {
 		e.Logger.Infow("router already deployed", "addr", chainState.Router.Address)
+	}
+	if deployOpts.Multicall3Enabled && mc3 == nil {
+		multicall3Contract, err := deployment.DeployContract(e.Logger, chain, ab,
+			func(chain deployment.Chain) deployment.ContractDeploy[*multicall3.Multicall3] {
+				multicall3Addr, tx2, multicall3Wrapper, err2 := multicall3.DeployMulticall3(
+					chain.DeployerKey,
+					chain.Client,
+				)
+				return deployment.ContractDeploy[*multicall3.Multicall3]{
+					multicall3Addr, multicall3Wrapper, tx2, deployment.NewTypeAndVersion(Multicall3, deployment.Version1_0_0), err2,
+				}
+			})
+		if err != nil {
+			e.Logger.Errorw("Failed to deploy ccip multicall", "err", err)
+			return err
+		}
+		e.Logger.Infow("deployed ccip multicall", "addr", multicall3Contract.Address)
+	} else {
+		e.Logger.Info("ccip multicall already deployed", "addr", mc3.Address)
 	}
 	if isUSDC {
 		token, pool, messenger, transmitter, err1 := DeployUSDC(e.Logger, chain, ab, rmnProxy.Address(), r.Address())
@@ -356,10 +377,13 @@ func configureChain(
 		if !ok {
 			return fmt.Errorf("chain state not found for chain %d", chain.Selector)
 		}
+		ocrParams, ok := c.OCRParams[chain.Selector]
+		if !ok {
+			return fmt.Errorf("OCR params not found for chain %d", chain.Selector)
+		}
 		if chainState.OffRamp == nil {
 			return fmt.Errorf("off ramp not found for chain %d", chain.Selector)
 		}
-		tokenInfo := c.TokenConfig.GetTokenInfo(e.Logger, existingState.Chains[chainSel].LinkToken, existingState.Chains[chainSel].Weth9)
 		_, err = AddChainConfig(
 			e.Logger,
 			e.Chains[c.HomeChainSel],
@@ -369,33 +393,22 @@ func configureChain(
 		if err != nil {
 			return err
 		}
-		var tokenDataObserversConf []pluginconfig.TokenDataObserverConfig
 		if enabled, ok := c.USDCConfig.EnabledChainMap()[chainSel]; ok && enabled {
-			tokenDataObserversConf = []pluginconfig.TokenDataObserverConfig{{
-				Type:    pluginconfig.USDCCCTPHandlerType,
-				Version: "1.0",
-				USDCCCTPObserverConfig: &pluginconfig.USDCCCTPObserverConfig{
-					Tokens:                 c.USDCConfig.CCTPTokenConfig,
-					AttestationAPI:         c.USDCConfig.API,
-					AttestationAPITimeout:  c.USDCConfig.APITimeout,
-					AttestationAPIInterval: c.USDCConfig.APIInterval,
-				},
-			}}
+			ocrParams.ExecuteOffChainConfig.TokenDataObservers = c.USDCConfig.ToTokenDataObserverConfig()
 		}
+		ocrParams.CommitOffChainConfig.PriceFeedChainSelector = cciptypes.ChainSelector(c.FeedChainSel)
 		// For each chain, we create a DON on the home chain (2 OCR instances)
-		if err := AddDON(
+		if err := addDON(
 			e.Logger,
 			c.OCRSecrets,
 			capReg,
 			ccipHome,
 			rmnHome.Address(),
 			chainState.OffRamp,
-			c.FeedChainSel,
-			tokenInfo,
 			chain,
 			e.Chains[c.HomeChainSel],
 			nodes.NonBootstraps(),
-			tokenDataObserversConf,
+			ocrParams,
 		); err != nil {
 			e.Logger.Errorw("Failed to add DON", "err", err)
 			return err
@@ -428,6 +441,18 @@ func deployCCIPContracts(
 		e.Logger.Errorw("Failed to merge address book", "err", err)
 		return err
 	}
+	state, err := LoadOnchainState(e)
+	if err != nil {
+		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
+		return err
+	}
+
+	ocrParams := make(map[uint64]CCIPOCRParams)
+	for _, chain := range c.ChainsToDeploy {
+		tokenInfo := c.TokenConfig.GetTokenInfo(e.Logger, state.Chains[chain].LinkToken, state.Chains[chain].Weth9)
+		ocrParams[chain] = DefaultOCRParams(c.FeedChainSel, tokenInfo)
+	}
+	c.OCRParams = ocrParams
 	err = configureChain(e, c)
 	if err != nil {
 		e.Logger.Errorw("Failed to add chain", "err", err)

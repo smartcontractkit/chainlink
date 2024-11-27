@@ -11,7 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
+	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -88,10 +88,11 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 }
 
 func runFeeboostTestCase(tc feeboostTestCase) {
-	require.NoError(tc.t, changeset.AddLane(tc.deployedEnv.Env, tc.onchainState, tc.sourceChain, tc.destChain, tc.initialPrices))
+	require.NoError(tc.t, changeset.AddLaneWithDefaultPricesAndFeeQuoterConfig(tc.deployedEnv.Env, tc.onchainState, tc.sourceChain, tc.destChain, false))
 
 	startBlocks := make(map[uint64]*uint64)
 	expectedSeqNum := make(map[changeset.SourceDestPair]uint64)
+	expectedSeqNumExec := make(map[changeset.SourceDestPair][]uint64)
 	msgSentEvent := changeset.TestSendRequest(tc.t, tc.deployedEnv.Env, tc.onchainState, tc.sourceChain, tc.destChain, false, router.ClientEVM2AnyMessage{
 		Receiver:     common.LeftPadBytes(tc.onchainState.Chains[tc.destChain].Receiver.Address().Bytes(), 32),
 		Data:         []byte("message that needs fee boosting"),
@@ -103,6 +104,10 @@ func runFeeboostTestCase(tc feeboostTestCase) {
 		SourceChainSelector: tc.sourceChain,
 		DestChainSelector:   tc.destChain,
 	}] = msgSentEvent.SequenceNumber
+	expectedSeqNumExec[changeset.SourceDestPair{
+		SourceChainSelector: tc.sourceChain,
+		DestChainSelector:   tc.destChain,
+	}] = []uint64{msgSentEvent.SequenceNumber}
 
 	// hack
 	time.Sleep(30 * time.Second)
@@ -112,5 +117,5 @@ func runFeeboostTestCase(tc feeboostTestCase) {
 	changeset.ReplayLogs(tc.t, tc.deployedEnv.Env.Offchain, replayBlocks)
 
 	changeset.ConfirmCommitForAllWithExpectedSeqNums(tc.t, tc.deployedEnv.Env, tc.onchainState, expectedSeqNum, startBlocks)
-	changeset.ConfirmExecWithSeqNrForAll(tc.t, tc.deployedEnv.Env, tc.onchainState, expectedSeqNum, startBlocks)
+	changeset.ConfirmExecWithSeqNrsForAll(tc.t, tc.deployedEnv.Env, tc.onchainState, expectedSeqNumExec, startBlocks)
 }

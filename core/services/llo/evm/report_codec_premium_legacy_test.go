@@ -33,7 +33,7 @@ func newValidPremiumLegacyReport() llo.Report {
 }
 
 func Test_ReportCodecPremiumLegacy(t *testing.T) {
-	rc := ReportCodecPremiumLegacy{logger.TestLogger(t)}
+	rc := ReportCodecPremiumLegacy{logger.TestLogger(t), 2}
 
 	feedID := [32]uint8{0x1, 0x2, 0x3, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}
 	cd := llotypes.ChannelDefinition{Opts: llotypes.ChannelOpts(fmt.Sprintf(`{"baseUSDFee":"10.50","expirationWindow":60,"feedId":"0x%x","multiplier":10}`, feedID))}
@@ -224,4 +224,10 @@ func Test_ExtractReportValues(t *testing.T) {
 		assert.Equal(t, decimal.Zero, linkPrice)
 		assert.Equal(t, &llo.Quote{Bid: decimal.NewFromInt(37), Benchmark: decimal.NewFromInt(38), Ask: decimal.NewFromInt(39)}, quote)
 	})
+}
+
+func Test_LLOExtraHash(t *testing.T) {
+	donID := uint32(8)
+	extraHash := LLOExtraHash(donID)
+	assert.Equal(t, "0x0000000000000000000000000000000000000000000000000000000800000001", extraHash.String())
 }

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -16,7 +17,9 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
+
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -32,10 +35,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
@@ -49,6 +53,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_ethusd_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 )
 
 const (
@@ -59,6 +64,8 @@ const (
 var (
 	// bytes4 public constant EVM_EXTRA_ARGS_V2_TAG = 0x181dcf10;
 	evmExtraArgsV2Tag = hexutil.MustDecode("0x181dcf10")
+
+	routerABI = abihelpers.MustParseABI(router.RouterABI)
 )
 
 // Context returns a context with the test's deadline, if available.
@@ -284,12 +291,20 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployMCMSWithTimelock),
 			Config:    mcmsCfg,
 		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(DeployChainContracts),
+			Config: DeployChainContractsConfig{
+				ChainSelectors:    allChains,
+				HomeChainSelector: e.HomeChainSel,
+			},
+		},
 	})
 	require.NoError(t, err)
 
 	state, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	tokenConfig := NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
+	ocrParams := make(map[uint64]CCIPOCRParams)
 	usdcCCTPConfig := make(map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig)
 	timelocksPerChain := make(map[uint64]*gethwrappers.RBACTimelock)
 	for _, chain := range usdcChains {
@@ -300,29 +315,30 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 			SourcePoolAddress:            state.Chains[chain].USDCTokenPool.Address().String(),
 			SourceMessageTransmitterAddr: state.Chains[chain].MockUSDCTransmitter.Address().String(),
 		}
-		timelocksPerChain[chain] = state.Chains[chain].Timelock
 	}
+	require.NotNil(t, state.Chains[e.FeedChainSel].LinkToken)
+	require.NotNil(t, state.Chains[e.FeedChainSel].Weth9)
 	var usdcCfg USDCAttestationConfig
 	if len(usdcChains) > 0 {
 		server := mockAttestationResponse()
-		defer server.Close()
 		endpoint := server.URL
 		usdcCfg = USDCAttestationConfig{
 			API:         endpoint,
 			APITimeout:  commonconfig.MustNewDuration(time.Second),
 			APIInterval: commonconfig.MustNewDuration(500 * time.Millisecond),
 		}
+		t.Cleanup(func() {
+			server.Close()
+		})
 	}
 
+	for _, chain := range allChains {
+		timelocksPerChain[chain] = state.Chains[chain].Timelock
+		tokenInfo := tokenConfig.GetTokenInfo(e.Env.Logger, state.Chains[chain].LinkToken, state.Chains[chain].Weth9)
+		ocrParams[chain] = DefaultOCRParams(e.FeedChainSel, tokenInfo)
+	}
 	// Deploy second set of changesets to deploy and configure the CCIP contracts.
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(DeployChainContracts),
-			Config: DeployChainContractsConfig{
-				ChainSelectors:    allChains,
-				HomeChainSelector: e.HomeChainSel,
-			},
-		},
 		{
 			Changeset: commonchangeset.WrapChangeSet(ConfigureNewChains),
 			Config: NewChainsConfig{
@@ -336,6 +352,7 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 					USDCAttestationConfig: usdcCfg,
 					CCTPTokenConfig:       usdcCCTPConfig,
 				},
+				OCRParams: ocrParams,
 			},
 		},
 		{
@@ -383,19 +400,12 @@ func CCIPSendRequest(
 	if testRouter {
 		r = state.Chains[src].TestRouter
 	}
-	fee, err := r.GetFee(
-		&bind.CallOpts{Context: context.Background()}, dest, msg)
-	if err != nil {
-		return nil, 0, errors.Wrap(deployment.MaybeDataErr(err), "failed to get fee")
+
+	if msg.FeeToken == common.HexToAddress("0x0") { // fee is in native token
+		return retryCcipSendUntilNativeFeeIsSufficient(e, r, src, dest, msg)
 	}
-	if msg.FeeToken == common.HexToAddress("0x0") {
-		e.Chains[src].DeployerKey.Value = fee
-		defer func() { e.Chains[src].DeployerKey.Value = nil }()
-	}
-	tx, err := r.CcipSend(
-		e.Chains[src].DeployerKey,
-		dest,
-		msg)
+
+	tx, err := r.CcipSend(e.Chains[src].DeployerKey, dest, msg)
 	if err != nil {
 		return nil, 0, errors.Wrap(err, "failed to send CCIP message")
 	}
@@ -404,6 +414,63 @@ func CCIPSendRequest(
 		return tx, 0, errors.Wrap(err, "failed to confirm CCIP message")
 	}
 	return tx, blockNum, nil
+}
+
+// retryCcipSendUntilNativeFeeIsSufficient sends a CCIP message with a native fee,
+// and retries until the fee is sufficient. This is due to the fact that the fee is not known in advance,
+// and the message will be rejected if the fee is insufficient.
+func retryCcipSendUntilNativeFeeIsSufficient(
+	e deployment.Environment,
+	r *router.Router,
+	src,
+	dest uint64,
+	msg router.ClientEVM2AnyMessage,
+) (*types.Transaction, uint64, error) {
+	const errCodeInsufficientFee = "0x07da6ee6"
+	defer func() { e.Chains[src].DeployerKey.Value = nil }()
+
+	for {
+		fee, err := r.GetFee(&bind.CallOpts{Context: context.Background()}, dest, msg)
+		if err != nil {
+			return nil, 0, errors.Wrap(deployment.MaybeDataErr(err), "failed to get fee")
+		}
+
+		e.Chains[src].DeployerKey.Value = fee
+
+		tx, err := r.CcipSend(e.Chains[src].DeployerKey, dest, msg)
+		if err != nil {
+			return nil, 0, errors.Wrap(err, "failed to send CCIP message")
+		}
+
+		blockNum, err := e.Chains[src].Confirm(tx)
+		if err != nil {
+			if strings.Contains(err.Error(), errCodeInsufficientFee) {
+				continue
+			}
+			return nil, 0, errors.Wrap(err, "failed to confirm CCIP message")
+		}
+
+		return tx, blockNum, nil
+	}
+}
+
+// CCIPSendCalldata packs the calldata for the Router's ccipSend method.
+// This is expected to be used in Multicall scenarios (i.e multiple ccipSend calls
+// in a single transaction).
+func CCIPSendCalldata(
+	destChainSelector uint64,
+	evm2AnyMessage router.ClientEVM2AnyMessage,
+) ([]byte, error) {
+	calldata, err := routerABI.Methods["ccipSend"].Inputs.Pack(
+		destChainSelector,
+		evm2AnyMessage,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("pack ccipSend calldata: %w", err)
+	}
+
+	calldata = append(routerABI.Methods["ccipSend"].ID, calldata...)
+	return calldata, nil
 }
 
 func TestSendRequest(
@@ -474,7 +541,7 @@ func AddLanesForAll(e deployment.Environment, state CCIPOnChainState) error {
 	for source := range e.Chains {
 		for dest := range e.Chains {
 			if source != dest {
-				err := AddLaneWithDefaultPrices(e, state, source, dest)
+				err := AddLaneWithDefaultPricesAndFeeQuoterConfig(e, state, source, dest, false)
 				if err != nil {
 					return err
 				}
@@ -617,22 +684,22 @@ func ConfirmRequestOnSourceAndDest(t *testing.T, env deployment.Environment, sta
 
 	fmt.Printf("Request sent for seqnr %d", msgSentEvent.SequenceNumber)
 	require.NoError(t,
-		ConfirmCommitWithExpectedSeqNumRange(t, env.Chains[sourceCS], env.Chains[destCS], state.Chains[destCS].OffRamp, &startBlock, cciptypes.SeqNumRange{
+		commonutils.JustError(ConfirmCommitWithExpectedSeqNumRange(t, env.Chains[sourceCS], env.Chains[destCS], state.Chains[destCS].OffRamp, &startBlock, cciptypes.SeqNumRange{
 			cciptypes.SeqNum(msgSentEvent.SequenceNumber),
 			cciptypes.SeqNum(msgSentEvent.SequenceNumber),
-		}))
+		})))
 
 	fmt.Printf("Commit confirmed for seqnr %d", msgSentEvent.SequenceNumber)
 	require.NoError(
 		t,
 		commonutils.JustError(
-			ConfirmExecWithSeqNr(
+			ConfirmExecWithSeqNrs(
 				t,
 				env.Chains[sourceCS],
 				env.Chains[destCS],
 				state.Chains[destCS].OffRamp,
 				&startBlock,
-				msgSentEvent.SequenceNumber,
+				[]uint64{msgSentEvent.SequenceNumber},
 			),
 		),
 	)
@@ -785,11 +852,11 @@ func setTokenPoolCounterPart(
 ) error {
 	tx, err := tokenPool.ApplyChainUpdates(
 		chain.DeployerKey,
+		[]uint64{},
 		[]burn_mint_token_pool.TokenPoolChainUpdate{
 			{
 				RemoteChainSelector: destChainSelector,
-				Allowed:             true,
-				RemotePoolAddress:   common.LeftPadBytes(destTokenPoolAddress.Bytes(), 32),
+				RemotePoolAddresses: [][]byte{common.LeftPadBytes(destTokenPoolAddress.Bytes(), 32)},
 				RemoteTokenAddress:  common.LeftPadBytes(destTokenAddress.Bytes(), 32),
 				OutboundRateLimiterConfig: burn_mint_token_pool.RateLimiterConfig{
 					IsEnabled: false,
@@ -813,7 +880,7 @@ func setTokenPoolCounterPart(
 		return err
 	}
 
-	tx, err = tokenPool.SetRemotePool(
+	tx, err = tokenPool.AddRemotePool(
 		chain.DeployerKey,
 		destChainSelector,
 		destTokenPoolAddress.Bytes(),
@@ -833,6 +900,15 @@ func attachTokenToTheRegistry(
 	token common.Address,
 	tokenPool common.Address,
 ) error {
+	pool, err := state.TokenAdminRegistry.GetPool(nil, token)
+	if err != nil {
+		return err
+	}
+	// Pool is already registered, don't reattach it, because it would cause revert
+	if pool != (common.Address{}) {
+		return nil
+	}
+
 	tx, err := state.RegistryModule.RegisterAdminViaOwner(owner, token)
 	if err != nil {
 		return err
@@ -885,6 +961,8 @@ func deployTransferTokenOneEnd(
 		}
 	}
 
+	tokenDecimals := uint8(18)
+
 	tokenContract, err := deployment.DeployContract(lggr, chain, addressBook,
 		func(chain deployment.Chain) deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
 			USDCTokenAddr, tx, token, err2 := burn_mint_erc677.DeployBurnMintERC677(
@@ -892,7 +970,7 @@ func deployTransferTokenOneEnd(
 				chain.Client,
 				tokenSymbol,
 				tokenSymbol,
-				uint8(18),
+				tokenDecimals,
 				big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
 			)
 			return deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
@@ -919,6 +997,7 @@ func deployTransferTokenOneEnd(
 				chain.DeployerKey,
 				chain.Client,
 				tokenContract.Address,
+				tokenDecimals,
 				[]common.Address{},
 				common.HexToAddress(rmnAddress),
 				common.HexToAddress(routerAddress),

@@ -362,7 +362,7 @@ contract FeeQuoterFeeSetup is FeeQuoterSetup {
     return Internal.EVM2AnyTokenTransfer({
       sourcePoolAddress: tokenAdminRegistry.getTokenConfig(tokenAmount.token).tokenPool,
       destTokenAddress: abi.encode(destToken),
-      extraData: "",
+      extraData: abi.encode(18),
       amount: tokenAmount.amount,
       destExecData: abi.encode(expectedDestGasAmount)
     });
