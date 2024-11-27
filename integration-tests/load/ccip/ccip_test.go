@@ -21,7 +21,9 @@ var (
 		"branch": "ccip_load_crib",
 		"commit": "ccip_load_crib",
 	}
-	wg sync.WaitGroup
+	wg          sync.WaitGroup
+	abPath      = "/Users/austin.wang/ccip-core/repos/chainlink/integration-tests/load/ccip/testfiles/ccip-v2-scripts-address-book.json"
+	nodeIdsPath = "/Users/austin.wang/ccip-core/repos/chainlink/integration-tests/load/ccip/testfiles/ccip-v2-scripts-node-details.json"
 )
 
 // step 1: setup
@@ -47,6 +49,8 @@ func TestCCIPLoad_RPS(t *testing.T) {
 		Int("Number of Nodes", *(config.CCIP.Load.NoOfNodes)).
 		Interface("config", config.CCIP.Load).
 		Msg("Test Config")
+
+	var env = generateEnvironment()
 
 	var env = deployment.Environment{}
 	// output, err := actions.SetupCCIPHomeChain(l, sethClient, config.CCIP, workerNodes)
@@ -167,4 +171,10 @@ func TestCCIPLoad_RPS(t *testing.T) {
 
 	// crib.StopChains(env)
 	// crib.StopNodes(env)
+}
+
+func generateEnvironment() {
+	ab := readAddressBook(abPath)
+	nIds := readNodeIds(nodeIdsPath)
+
 }

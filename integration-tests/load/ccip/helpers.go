@@ -1,11 +1,15 @@
 package ccip
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
+	"io"
+	"os"
 	"time"
 )
 
@@ -52,4 +56,70 @@ func setLokiLabels(src, dst uint64) map[string]string {
 		"destinationSelector": fmt.Sprintf("%d", dst),
 		"testType":            LokiLoadLabel,
 	}
+}
+
+func readFile(inputDir string, fileName string) []byte {
+	file, err := os.Open(fmt.Sprintf("%s/%s", inputDir, fileName))
+	if err != nil {
+		fmt.Println("Error opening file:", err)
+		panic(err)
+	}
+	defer file.Close()
+
+	// Read the file's content into a byte slice
+	byteValue, err := io.ReadAll(file)
+	if err != nil {
+		fmt.Println("Error reading file:", err)
+		panic(err)
+	}
+	return byteValue
+}
+
+func ReadAddressBook(inputDir string) *deployment.AddressBookMap {
+	byteValue := readFile(inputDir, AddressBookFileName)
+
+	var result map[uint64]map[string]deployment.TypeAndVersion
+
+	// Unmarshal the JSON into the map
+	err := json.Unmarshal(byteValue, &result)
+	if err != nil {
+		fmt.Println("Error unmarshalling JSON:", err)
+		panic(err)
+	}
+
+	// Print the deserialized map
+	fmt.Println(result)
+	return deployment.NewMemoryAddressBookFromMap(result)
+}
+
+func ReadNodesDetails(inputDir string) NodesDetails {
+	byteValue := readFile(inputDir, NodesDetailsFileName)
+
+	var result NodesDetails
+
+	// Unmarshal the JSON into the map
+	err := json.Unmarshal(byteValue, &result)
+	if err != nil {
+		fmt.Println("Error unmarshalling JSON:", err)
+		panic(err)
+	}
+
+	// Print the deserialized map
+	fmt.Println(result)
+	return result
+}
+
+func NewDeployEnvironmentFromCribOutput(lggr logger.Logger, ab deployment.AddressBook, nodeIDs []string) (*deployment.Environment, error) {
+	chains, err := devenv.NewChains(lggr, output.Chains)
+	if err != nil {
+		return nil, err
+	}
+	return deployment.NewEnvironment(
+		"Crib Environment",
+		lggr,
+		ab,
+		chains,
+		nodeIDs,
+		nil, // todo: populate the offchain client using output.DON
+	), nil
 }
