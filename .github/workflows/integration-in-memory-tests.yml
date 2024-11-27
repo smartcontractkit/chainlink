@@ -2,8 +2,8 @@
 # Workflow to run in-memory integration tests
 # Test matrix is defined in .github/integration-in-memory-tests.yml
 #
-name: Integration Tests
-run-name: Integration Tests
+name: Integration In-Memory Tests
+run-name: Integration In-Memory Tests
 on:
   merge_group:
   pull_request:
