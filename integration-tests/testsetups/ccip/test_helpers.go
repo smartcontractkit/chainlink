@@ -1,4 +1,4 @@
-package testsetups
+package ccip
 
 import (
 	"bytes"
@@ -217,9 +217,13 @@ func NewLocalDevEnvironment(
 			APIInterval: commonconfig.MustNewDuration(500 * time.Millisecond),
 		}
 	}
+	require.NotNil(t, state.Chains[feedSel].LinkToken)
+	require.NotNil(t, state.Chains[feedSel].Weth9)
+
 	for _, chain := range allChains {
 		timelocksPerChain[chain] = state.Chains[chain].Timelock
-		ocrParams[chain] = changeset.DefaultOCRParams(feedSel, nil, nil)
+		tokenInfo := tokenConfig.GetTokenInfo(env.Logger, state.Chains[chain].LinkToken, state.Chains[chain].Weth9)
+		ocrParams[chain] = changeset.DefaultOCRParams(feedSel, tokenInfo)
 	}
 	// Deploy second set of changesets to deploy and configure the CCIP contracts.
 	env, err = commonchangeset.ApplyChangesets(t, env, timelocksPerChain, []commonchangeset.ChangesetApplication{

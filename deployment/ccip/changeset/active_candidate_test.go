@@ -126,7 +126,6 @@ func TestActiveCandidate(t *testing.T) {
 	ccipOCRParams := DefaultOCRParams(
 		tenv.FeedChainSel,
 		tokenConfig.GetTokenInfo(e.Logger, state.Chains[tenv.FeedChainSel].LinkToken, state.Chains[tenv.FeedChainSel].Weth9),
-		nil,
 	)
 	ocr3ConfigMap, err := internal.BuildOCR3ConfigForCCIPHome(
 		deployment.XXXGenerateTestOCRSecrets(),

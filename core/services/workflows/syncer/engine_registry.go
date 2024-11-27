@@ -36,6 +36,18 @@ func (r *engineRegistry) Get(id string) (*workflows.Engine, error) {
 	return engine, nil
 }
 
+// IsRunning is true if the engine exists and is ready.
+func (r *engineRegistry) IsRunning(id string) bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	engine, found := r.engines[id]
+	if !found {
+		return false
+	}
+
+	return engine.Ready() == nil
+}
+
 // Pop removes an engine from the registry and returns the engine if found.
 func (r *engineRegistry) Pop(id string) (*workflows.Engine, error) {
 	r.mu.Lock()
