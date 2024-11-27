@@ -55,7 +55,7 @@ func ConfigureUSDCTokenPools(
 		state.Chains[src].MockUSDCTokenMessenger.Address(),
 		state.Chains[src].MockUSDCTransmitter.Address(),
 	} {
-		if err := grantMintBurnPermissions(lggr, chains[src], srcToken, addr); err != nil {
+		if err := grantMintBurnPermissions(lggr, chains[src], srcToken, nil, addr); err != nil {
 			lggr.Errorw("Failed to grant mint/burn permissions", "err", err, "token", srcToken.Address(), "minter", addr)
 			return nil, nil, err
 		}
@@ -67,7 +67,7 @@ func ConfigureUSDCTokenPools(
 		state.Chains[dst].MockUSDCTokenMessenger.Address(),
 		state.Chains[dst].MockUSDCTransmitter.Address(),
 	} {
-		if err := grantMintBurnPermissions(lggr, chains[dst], dstToken, addr); err != nil {
+		if err := grantMintBurnPermissions(lggr, chains[dst], dstToken, nil, addr); err != nil {
 			lggr.Errorw("Failed to grant mint/burn permissions", "err", err, "token", dstToken.Address(), "minter", addr)
 			return nil, nil, err
 		}

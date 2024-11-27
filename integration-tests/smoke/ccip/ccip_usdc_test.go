@@ -60,6 +60,8 @@ func TestUSDCTokenTransfer(t *testing.T) {
 		tenv.Env.Chains,
 		chainA,
 		chainC,
+		nil,
+		nil,
 		state,
 		e.ExistingAddresses,
 		"MY_TOKEN",
@@ -69,7 +71,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	// Add all lanes
 	require.NoError(t, changeset.AddLanesForAll(e, state))
 
-	mintAndAllow(t, e, state, map[uint64][]*burn_mint_erc677.BurnMintERC677{
+	mintAndAllow(t, e, state, nil, map[uint64][]*burn_mint_erc677.BurnMintERC677{
 		chainA: {aChainUSDC, aChainToken},
 		chainB: {bChainUSDC},
 		chainC: {cChainUSDC, cChainToken},
@@ -252,14 +254,18 @@ func mintAndAllow(
 	t *testing.T,
 	e deployment.Environment,
 	state changeset.CCIPOnChainState,
+	owners map[uint64]*bind.TransactOpts,
 	tkMap map[uint64][]*burn_mint_erc677.BurnMintERC677,
 ) {
 	for chain, tokens := range tkMap {
 		for _, token := range tokens {
 			twoCoins := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(2))
 
+			owner, ok := owners[chain]
+			require.True(t, ok)
+
 			tx, err := token.Mint(
-				e.Chains[chain].DeployerKey,
+				owner,
 				e.Chains[chain].DeployerKey.From,
 				new(big.Int).Mul(twoCoins, big.NewInt(10)),
 			)
