@@ -20,10 +20,9 @@ import (
 
 const (
 	// NOTE: more methods will go here. HTTP trigger/action/target; etc.
-	MethodWebAPITarget   = "web_api_target"
-	MethodWebAPITrigger  = "web_api_trigger"
-	MethodComputeAction  = "compute_action"
-	MethodWorkflowSyncer = "workflow_syncer"
+	MethodWebAPITarget  = "web_api_target"
+	MethodWebAPITrigger = "web_api_trigger"
+	MethodComputeAction = "compute_action"
 )
 
 type handler struct {
