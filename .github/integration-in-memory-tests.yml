@@ -22,5 +22,5 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     triggers:
       - PR Integration CCIP Tests
-    test_cmd: cd integration-tests/contracts && go test ccipreader_test.go -timeout 12m -test.parallel=12 -count=1 -json
+    test_cmd: cd integration-tests/contracts && go test ccipreader_test.go -timeout 12m -test.parallel=1 -count=1 -json
   # END: CCIP tests
