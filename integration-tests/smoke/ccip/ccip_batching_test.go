@@ -62,7 +62,7 @@ func Test_CCIPBatching(t *testing.T) {
 	require.NoError(t, changeset.AddLaneWithDefaultPricesAndFeeQuoterConfig(e.Env, state, sourceChain2, destChain, false))
 
 	const (
-		numMessages = 5
+		numMessages = 40
 	)
 	var (
 		startSeqNum = map[uint64]ccipocr3.SeqNum{
@@ -231,14 +231,13 @@ func Test_CCIPBatching(t *testing.T) {
 			}
 		}
 
-		// update the start and end seq nums
+		// update the start seq nums
 		for _, srcChain := range sourceChains {
 			startSeqNum[srcChain] = startSeqNum[srcChain] + numMessages
 		}
 	})
 
 	t.Run("max evm batch size", func(t *testing.T) {
-		t.Skipf("This test is flaky, skipping until the issue related to fee calculation is resolved")
 		var (
 			sourceChain = sourceChain1
 			otherSender = mustNewTransactor(t, e.Env.Chains[sourceChain])
@@ -256,7 +255,7 @@ func Test_CCIPBatching(t *testing.T) {
 			e.Env.Chains[sourceChain],
 			e.Env.Chains[sourceChain].DeployerKey,
 			otherSender.From,
-			assets.Ether(20).ToInt(),
+			assets.Ether(100).ToInt(),
 		)
 
 		for _, transactor := range transactors {
