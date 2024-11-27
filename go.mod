@@ -1,6 +1,6 @@
 module github.com/smartcontractkit/chainlink/v2
 
-go 1.23
+go 1.23.3
 
 require (
 	github.com/Depado/ginprom v1.8.0
@@ -77,7 +77,7 @@ require (
 	github.com/smartcontractkit/chain-selectors v1.0.31
 	github.com/smartcontractkit/chainlink-automation v0.8.1
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241125151847-c63f5f567fcd
-	github.com/smartcontractkit/chainlink-common v0.3.1-0.20241125150608-97ceadb2072d
+	github.com/smartcontractkit/chainlink-common v0.3.1-0.20241127172257-22dedc65c85f
 	github.com/smartcontractkit/chainlink-cosmos v0.5.2-0.20241017133723-5277829bd53f
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20241114154055-8d29ea018b57
 	github.com/smartcontractkit/chainlink-feeds v0.1.1
