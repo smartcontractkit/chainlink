@@ -57,8 +57,6 @@
 
 - [#15299](https://github.com/smartcontractkit/chainlink/pull/15299) [`a2c3da471c`](https://github.com/smartcontractkit/chainlink/commit/a2c3da471cc344a14003f53c2c2f09c937c204c1) - #updated Update few incorrect occurences of the password for notreal@fakeemail.ch.
 
-- [#13716](https://github.com/smartcontractkit/chainlink/pull/13716) [`53639fde79`](https://github.com/smartcontractkit/chainlink/commit/53639fde79f4297959e7880e3f6c60578263de7e) - Bump to start the next version
-
 ### Patch Changes
 
 - [#14896](https://github.com/smartcontractkit/chainlink/pull/14896) [`38ef1799dc`](https://github.com/smartcontractkit/chainlink/commit/38ef1799dc8dade6882acbafda3f49e942483f6f) - Ensure RPCClient with enabled polling respects health check flag #internal
