@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/workflow/generated/workflow_registry_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 )
 
 const name = "WorkflowRegistrySyncer"
@@ -102,14 +101,6 @@ type ContractReader interface {
 	Bind(context.Context, []types.BoundContract) error
 	QueryKey(context.Context, types.BoundContract, query.KeyFilter, query.LimitAndSort, any) ([]types.Sequence, error)
 	GetLatestValueWithHeadData(ctx context.Context, readName string, confidenceLevel primitives.ConfidenceLevel, params any, returnVal any) (head *types.Head, err error)
-}
-
-type workflowEngineRegistry interface {
-	Add(id string, engine *workflows.Engine)
-	Get(id string) (*workflows.Engine, error)
-	IsRunning(id string) bool
-	Pop(id string) (*workflows.Engine, error)
-	Close() error
 }
 
 // WorkflowRegistrySyncer is the public interface of the package.

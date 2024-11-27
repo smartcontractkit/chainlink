@@ -97,13 +97,6 @@ type secretsFetcher interface {
 	SecretsFor(ctx context.Context, workflowOwner, workflowName string) (map[string]string, error)
 }
 
-// secretsFetcherFunc implements the secretsFetcher interface for a function.
-type secretsFetcherFunc func(ctx context.Context, workflowOwner, workflowName string) (map[string]string, error)
-
-func (f secretsFetcherFunc) SecretsFor(ctx context.Context, workflowOwner, workflowName string) (map[string]string, error) {
-	return f(ctx, workflowOwner, workflowName)
-}
-
 // eventHandler is a handler for WorkflowRegistryEvent events.  Each event type has a corresponding
 // method that handles the event.
 type eventHandler struct {
@@ -270,7 +263,6 @@ func (h *eventHandler) workflowRegisteredEvent(
 	ctx context.Context,
 	payload WorkflowRegistryWorkflowRegisteredV1,
 ) error {
-
 	wfID := hex.EncodeToString(payload.WorkflowID[:])
 
 	// Download the contents of binaryURL, configURL and secretsURL and cache them locally.
