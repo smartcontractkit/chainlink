@@ -51,14 +51,14 @@ type WorkflowRegistryForceUpdateSecretsRequestedV1 struct {
 }
 
 type WorkflowRegistryWorkflowRegisteredV1 struct {
-	WorkflowID    [32]byte
-	WorkflowOwner []byte
-	DonID         uint32
-	Status        uint8
-	WorkflowName  string
-	BinaryURL     string
-	ConfigURL     string
-	SecretsURL    string
+	WorkflowID   [32]byte
+	Owner        []byte
+	DonID        uint32
+	Status       uint8
+	WorkflowName string
+	BinaryURL    string
+	ConfigURL    string
+	SecretsURL   string
 }
 
 type WorkflowRegistryWorkflowUpdatedV1 struct {
@@ -115,25 +115,22 @@ type eventHandler struct {
 	engineRegistry *engineRegistry
 	emitter        custmsg.MessageEmitter
 	secretsFetcher secretsFetcher
-	stats          workflowRegistryStats
 }
 
-type event interface {
+type Event interface {
 	GetEventType() WorkflowRegistryEventType
 	GetData() any
 }
 
-// newEventHandler returns a new eventHandler instance.
-func newEventHandler(
+// NewEventHandler returns a new eventHandler instance.
+func NewEventHandler(
 	lggr logger.Logger,
 	orm ORM,
 	gateway FetcherFunc,
 	workflowStore store.Store,
 	capRegistry core.CapabilitiesRegistry,
-	engineRegistry *engineRegistry,
 	emitter custmsg.MessageEmitter,
 	secretsFetcher secretsFetcher,
-	stats workflowRegistryStats,
 ) *eventHandler {
 	return &eventHandler{
 		lggr:           lggr,
@@ -141,14 +138,13 @@ func newEventHandler(
 		fetcher:        gateway,
 		workflowStore:  workflowStore,
 		capRegistry:    capRegistry,
-		engineRegistry: engineRegistry,
+		engineRegistry: newEngineRegistry(),
 		emitter:        emitter,
 		secretsFetcher: secretsFetcher,
-		stats:          stats,
 	}
 }
 
-func (h *eventHandler) Handle(ctx context.Context, event event) error {
+func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 	switch event.GetEventType() {
 	case ForceUpdateSecretsEvent:
 		payload, ok := event.GetData().(WorkflowRegistryForceUpdateSecretsRequestedV1)
@@ -177,7 +173,7 @@ func (h *eventHandler) Handle(ctx context.Context, event event) error {
 		cma := h.emitter.With(
 			platform.KeyWorkflowID, wfID,
 			platform.KeyWorkflowName, payload.WorkflowName,
-			platform.KeyWorkflowOwner, hex.EncodeToString(payload.WorkflowOwner),
+			platform.KeyWorkflowOwner, hex.EncodeToString(payload.Owner),
 		)
 
 		if err := h.workflowRegisteredEvent(ctx, payload); err != nil {
@@ -302,7 +298,7 @@ func (h *eventHandler) workflowRegisteredEvent(
 	}
 
 	// Save the workflow secrets
-	urlHash, err := h.orm.GetSecretsURLHash(payload.WorkflowOwner, []byte(payload.SecretsURL))
+	urlHash, err := h.orm.GetSecretsURLHash(payload.Owner, []byte(payload.SecretsURL))
 	if err != nil {
 		return fmt.Errorf("failed to get secrets URL hash: %w", err)
 	}
@@ -318,7 +314,7 @@ func (h *eventHandler) workflowRegisteredEvent(
 		Config:        string(config),
 		WorkflowID:    wfID,
 		Status:        status,
-		WorkflowOwner: hex.EncodeToString(payload.WorkflowOwner),
+		WorkflowOwner: hex.EncodeToString(payload.Owner),
 		WorkflowName:  payload.WorkflowName,
 		SpecType:      job.WASMFile,
 		BinaryURL:     payload.BinaryURL,
@@ -343,7 +339,7 @@ func (h *eventHandler) workflowRegisteredEvent(
 		Lggr:           h.lggr,
 		Workflow:       *sdkSpec,
 		WorkflowID:     wfID,
-		WorkflowOwner:  hex.EncodeToString(payload.WorkflowOwner),
+		WorkflowOwner:  hex.EncodeToString(payload.Owner),
 		WorkflowName:   payload.WorkflowName,
 		Registry:       h.capRegistry,
 		Store:          h.workflowStore,
@@ -361,7 +357,6 @@ func (h *eventHandler) workflowRegisteredEvent(
 	}
 
 	h.engineRegistry.Add(wfID, e)
-	h.stats.IncrementRegisteredWorkflowCount()
 
 	return nil
 }
@@ -379,14 +374,14 @@ func (h *eventHandler) workflowUpdatedEvent(
 	}
 
 	registeredEvent := WorkflowRegistryWorkflowRegisteredV1{
-		WorkflowID:    payload.NewWorkflowID,
-		WorkflowOwner: payload.WorkflowOwner,
-		DonID:         payload.DonID,
-		Status:        0,
-		WorkflowName:  payload.WorkflowName,
-		BinaryURL:     payload.BinaryURL,
-		ConfigURL:     payload.ConfigURL,
-		SecretsURL:    payload.SecretsURL,
+		WorkflowID:   payload.NewWorkflowID,
+		Owner:        payload.WorkflowOwner,
+		DonID:        payload.DonID,
+		Status:       0,
+		WorkflowName: payload.WorkflowName,
+		BinaryURL:    payload.BinaryURL,
+		ConfigURL:    payload.ConfigURL,
+		SecretsURL:   payload.SecretsURL,
 	}
 
 	return h.workflowRegisteredEvent(ctx, registeredEvent)
@@ -441,14 +436,14 @@ func (h *eventHandler) workflowActivatedEvent(
 
 	// start a new workflow engine
 	registeredEvent := WorkflowRegistryWorkflowRegisteredV1{
-		WorkflowID:    payload.WorkflowID,
-		WorkflowOwner: payload.WorkflowOwner,
-		DonID:         payload.DonID,
-		Status:        0,
-		WorkflowName:  payload.WorkflowName,
-		BinaryURL:     spec.BinaryURL,
-		ConfigURL:     spec.ConfigURL,
-		SecretsURL:    secretsURL,
+		WorkflowID:   payload.WorkflowID,
+		Owner:        payload.WorkflowOwner,
+		DonID:        payload.DonID,
+		Status:       0,
+		WorkflowName: payload.WorkflowName,
+		BinaryURL:    spec.BinaryURL,
+		ConfigURL:    spec.ConfigURL,
+		SecretsURL:   secretsURL,
 	}
 
 	return h.workflowRegisteredEvent(ctx, registeredEvent)

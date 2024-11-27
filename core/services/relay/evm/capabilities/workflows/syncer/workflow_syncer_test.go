@@ -28,22 +28,36 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type testStats struct {
-	RegisteredWorkflows int
+type testEvtHandler struct {
+	events []syncer.Event
 }
 
-func (ts *testStats) IncrementRegisteredWorkflowCount() {
-	ts.RegisteredWorkflows++
+func (m *testEvtHandler) Handle(ctx context.Context, event syncer.Event) error {
+	m.events = append(m.events, event)
+	return nil
 }
 
-func (ts *testStats) DecrementRegisteredWorkflowCount() {
-	ts.RegisteredWorkflows--
+func newTestEvtHandler() *testEvtHandler {
+	return &testEvtHandler{
+		events: make([]syncer.Event, 0),
+	}
+}
+
+type testWorkflowRegistryContractLoader struct {
+	contractAddress string
+}
+
+func (m *testWorkflowRegistryContractLoader) LoadWorkflows(ctx context.Context) (*types.Head, error) {
+	return &types.Head{
+		Height:    "0",
+		Hash:      nil,
+		Timestamp: 0,
+	}, nil
 }
 
 func Test_InitialStateSync(t *testing.T) {
 	ctx := coretestutils.Context(t)
 	lggr := logger.TestLogger(t)
-	emitter := custmsg.NewLabeler()
 	backendTH := testutils.NewEVMBackendTH(t)
 	donID := uint32(1)
 
@@ -96,29 +110,29 @@ func Test_InitialStateSync(t *testing.T) {
 		registerWorkflow(t, backendTH, wfRegistryC, workflow)
 	}
 
-	testStats := &testStats{}
+	testEventHandler := newTestEvtHandler()
+	loader := syncer.NewWorkflowRegistryContractLoader(wfRegistryAddr.Hex(), donID, contractReader, testEventHandler)
 
 	// Create the worker
 	worker := syncer.NewWorkflowRegistry(
 		lggr,
-		donID,
-		syncer.NewWorkflowRegistryDS(pgtest.NewSqlxDB(t), lggr),
 		contractReader,
-		nil,
 		wfRegistryAddr.Hex(),
-		nil,
-		nil,
-		emitter,
 		syncer.WorkflowEventPollerConfig{
 			QueryCount: 20,
 		},
-		testStats,
+		testEventHandler,
+		loader,
 		syncer.WithTicker(make(chan time.Time)),
 	)
 
 	servicetest.Run(t, worker)
 
-	assert.Equal(t, numberWorkflows, testStats.RegisteredWorkflows)
+	assert.Len(t, testEventHandler.events, numberWorkflows)
+	for _, event := range testEventHandler.events {
+		assert.Equal(t, syncer.WorkflowRegisteredEvent, event.GetEventType())
+	}
+
 }
 
 func Test_SecretsWorker(t *testing.T) {
@@ -210,23 +224,13 @@ func Test_SecretsWorker(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, contents, giveContents)
 
-	// Create the worker
-	worker := syncer.NewWorkflowRegistry(
-		lggr,
-		donID,
-		orm,
-		contractReader,
-		fetcherFn,
-		wfRegistryAddr.Hex(),
-		nil,
-		nil,
-		emitter,
+	handler := syncer.NewEventHandler(lggr, orm, fetcherFn, nil, nil,
+		emitter, nil)
+
+	worker := syncer.NewWorkflowRegistry(lggr, contractReader, wfRegistryAddr.Hex(),
 		syncer.WorkflowEventPollerConfig{
 			QueryCount: 20,
-		},
-		&testStats{},
-		syncer.WithTicker(giveTicker.C),
-	)
+		}, handler, &testWorkflowRegistryContractLoader{}, syncer.WithTicker(giveTicker.C))
 
 	// setup contract state to allow the secrets to be updated
 	updateAllowedDONs(t, backendTH, wfRegistryC, []uint32{donID}, true)

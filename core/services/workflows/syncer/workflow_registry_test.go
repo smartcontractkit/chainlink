@@ -23,15 +23,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type testStats struct {
-}
-
-func (ts *testStats) IncrementRegisteredWorkflowCount() {
-}
-
-func (ts *testStats) DecrementRegisteredWorkflowCount() {
-}
-
 func Test_Workflow_Registry_Syncer(t *testing.T) {
 	var (
 		giveContents    = "contents"
@@ -65,11 +56,15 @@ func Test_Workflow_Registry_Syncer(t *testing.T) {
 			return []byte(wantContents), nil
 		}
 		ticker = make(chan time.Time)
-		worker = NewWorkflowRegistry(lggr, 1, orm, reader, gateway, contractAddress, nil, nil,
-			emitter,
+
+		handler = NewEventHandler(lggr, orm, gateway, nil, nil,
+			emitter, nil)
+		loader = NewWorkflowRegistryContractLoader(contractAddress, 1, reader, handler)
+
+		worker = NewWorkflowRegistry(lggr, reader, contractAddress,
 			WorkflowEventPollerConfig{
 				QueryCount: 20,
-			}, &testStats{}, WithTicker(ticker))
+			}, handler, loader, WithTicker(ticker))
 	)
 
 	// Cleanup the worker
