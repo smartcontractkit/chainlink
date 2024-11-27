@@ -44,7 +44,6 @@ func newTestEvtHandler() *testEvtHandler {
 }
 
 type testWorkflowRegistryContractLoader struct {
-	contractAddress string
 }
 
 func (m *testWorkflowRegistryContractLoader) LoadWorkflows(ctx context.Context) (*types.Head, error) {
@@ -132,7 +131,6 @@ func Test_InitialStateSync(t *testing.T) {
 	for _, event := range testEventHandler.events {
 		assert.Equal(t, syncer.WorkflowRegisteredEvent, event.GetEventType())
 	}
-
 }
 
 func Test_SecretsWorker(t *testing.T) {
