@@ -15,7 +15,4 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
     test_cmd: cd integration-tests/smoke/ccip && go test ccip_messaging_test.go -timeout 12m -test.parallel=2 -count=1 -json
-    test_env_vars:
-      E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
-      E2E_JD_VERSION: 0.6.0
   # END: CCIP tests

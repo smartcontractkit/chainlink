@@ -41,7 +41,8 @@ jobs:
           filters: |
             github_ci_changes:
               - '.github/workflows/integration-tests.yml'
-              - '.github/integration-tests.yml'
+              - '.github/workflows/integration-in-memory-tests.yml'
+              - '.github/integration-in-memory-tests.yml'
             core_changes:
               - '**/*.go'
               - '**/*go.sum'
@@ -98,7 +99,7 @@ jobs:
     with:
       workflow_name: Run CCIP Integration Tests For Merge Queue
       test_path: .github/integration-in-memory-tests.yml
-      test_trigger: Merge Queue integration CCIP Tests
+      test_trigger: Merge Queue Integration CCIP Tests
       slack_notification_after_tests: on_failure
       slack_notification_after_tests_channel_id: "#ccip-testing"
       slack_notification_after_tests_name: CCIP integration Tests In Merge Queue
