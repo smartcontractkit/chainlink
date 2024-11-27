@@ -384,8 +384,6 @@ func configureChain(
 		if chainState.OffRamp == nil {
 			return fmt.Errorf("off ramp not found for chain %d", chain.Selector)
 		}
-		// TODO : better handling - need to scale this for more tokens
-		ocrParams.CommitOffChainConfig.TokenInfo = c.TokenConfig.GetTokenInfo(e.Logger, existingState.Chains[chainSel].LinkToken, existingState.Chains[chainSel].Weth9)
 		_, err = AddChainConfig(
 			e.Logger,
 			e.Chains[c.HomeChainSel],
@@ -396,7 +394,7 @@ func configureChain(
 			return err
 		}
 		if enabled, ok := c.USDCConfig.EnabledChainMap()[chainSel]; ok && enabled {
-			ocrParams.ExecuteOffChainConfig.TokenDataObservers = append(ocrParams.ExecuteOffChainConfig.TokenDataObservers, c.USDCConfig.ToTokenDataObserverConfig()...)
+			ocrParams.ExecuteOffChainConfig.TokenDataObservers = c.USDCConfig.ToTokenDataObserverConfig()
 		}
 		ocrParams.CommitOffChainConfig.PriceFeedChainSelector = cciptypes.ChainSelector(c.FeedChainSel)
 		// For each chain, we create a DON on the home chain (2 OCR instances)
@@ -443,6 +441,18 @@ func deployCCIPContracts(
 		e.Logger.Errorw("Failed to merge address book", "err", err)
 		return err
 	}
+	state, err := LoadOnchainState(e)
+	if err != nil {
+		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
+		return err
+	}
+
+	ocrParams := make(map[uint64]CCIPOCRParams)
+	for _, chain := range c.ChainsToDeploy {
+		tokenInfo := c.TokenConfig.GetTokenInfo(e.Logger, state.Chains[chain].LinkToken, state.Chains[chain].Weth9)
+		ocrParams[chain] = DefaultOCRParams(c.FeedChainSel, tokenInfo)
+	}
+	c.OCRParams = ocrParams
 	err = configureChain(e, c)
 	if err != nil {
 		e.Logger.Errorw("Failed to add chain", "err", err)
