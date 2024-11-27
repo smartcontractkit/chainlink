@@ -277,10 +277,11 @@ func (s *service) SyncNodeInfo(ctx context.Context, id int64) error {
 		cfgMsgs = append(cfgMsgs, cfgMsg)
 	}
 
+	workflowKey := s.getWorkflowPublicKey()
 	if _, err = fmsClient.UpdateNode(ctx, &pb.UpdateNodeRequest{
 		Version:      s.version,
 		ChainConfigs: cfgMsgs,
-		WorkflowKey:  s.getWorkflowPublicKey(),
+		WorkflowKey:  &workflowKey,
 	}); err != nil {
 		return err
 	}

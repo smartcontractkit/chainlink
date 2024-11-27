@@ -590,6 +590,7 @@ func Test_Service_CreateChainConfig(t *testing.T) {
 			svc.orm.On("GetManager", mock.Anything, mgr.ID).Return(&mgr, nil)
 			svc.connMgr.On("GetClient", mgr.ID).Return(svc.fmsClient, nil)
 			svc.orm.On("ListChainConfigsByManagerIDs", mock.Anything, []int64{mgr.ID}).Return([]feeds.ChainConfig{cfg}, nil)
+			wkID := workflowKey.ID()
 			svc.fmsClient.On("UpdateNode", mock.Anything, &proto.UpdateNodeRequest{
 				Version: nodeVersion.Version,
 				ChainConfigs: []*proto.ChainConfig{
@@ -606,7 +607,7 @@ func Test_Service_CreateChainConfig(t *testing.T) {
 						Ocr2Config:              &proto.OCR2Config{Enabled: false},
 					},
 				},
-				WorkflowKey: workflowKey.ID(),
+				WorkflowKey: &wkID,
 			}).Return(&proto.UpdateNodeResponse{}, nil)
 
 			actual, err := svc.CreateChainConfig(testutils.Context(t), cfg)
@@ -660,10 +661,11 @@ func Test_Service_DeleteChainConfig(t *testing.T) {
 	svc.orm.On("GetManager", mock.Anything, mgr.ID).Return(&mgr, nil)
 	svc.connMgr.On("GetClient", mgr.ID).Return(svc.fmsClient, nil)
 	svc.orm.On("ListChainConfigsByManagerIDs", mock.Anything, []int64{mgr.ID}).Return([]feeds.ChainConfig{}, nil)
+	wkID := workflowKey.ID()
 	svc.fmsClient.On("UpdateNode", mock.Anything, &proto.UpdateNodeRequest{
 		Version:      nodeVersion.Version,
 		ChainConfigs: []*proto.ChainConfig{},
-		WorkflowKey:  workflowKey.ID(),
+		WorkflowKey:  &wkID,
 	}).Return(&proto.UpdateNodeResponse{}, nil)
 
 	actual, err := svc.DeleteChainConfig(testutils.Context(t), cfg.ID)
@@ -749,6 +751,7 @@ func Test_Service_UpdateChainConfig(t *testing.T) {
 			svc.orm.On("GetChainConfig", mock.Anything, cfg.ID).Return(&cfg, nil)
 			svc.connMgr.On("GetClient", mgr.ID).Return(svc.fmsClient, nil)
 			svc.orm.On("ListChainConfigsByManagerIDs", mock.Anything, []int64{mgr.ID}).Return([]feeds.ChainConfig{cfg}, nil)
+			wkID := workflowKey.ID()
 			svc.fmsClient.On("UpdateNode", mock.Anything, &proto.UpdateNodeRequest{
 				Version: nodeVersion.Version,
 				ChainConfigs: []*proto.ChainConfig{
@@ -765,7 +768,7 @@ func Test_Service_UpdateChainConfig(t *testing.T) {
 						Ocr2Config:              &proto.OCR2Config{Enabled: false},
 					},
 				},
-				WorkflowKey: workflowKey.ID(),
+				WorkflowKey: &wkID,
 			}).Return(&proto.UpdateNodeResponse{}, nil)
 
 			actual, err := svc.UpdateChainConfig(testutils.Context(t), cfg)
@@ -1697,7 +1700,7 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 			svc.ocr1Keystore.On("Get", ocrKey.GetID()).Return(ocrKey, nil)
 
 			svc.workflowKeystore.On("GetAll").Return([]workflowkey.Key{workflowKey}, nil)
-
+			wkID := workflowKey.ID()
 			svc.fmsClient.On("UpdateNode", mock.Anything, &proto.UpdateNodeRequest{
 				Version: nodeVersion.Version,
 				ChainConfigs: []*proto.ChainConfig{
@@ -1738,7 +1741,7 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 						},
 					},
 				},
-				WorkflowKey: workflowKey.ID(),
+				WorkflowKey: &wkID,
 			}).Return(&proto.UpdateNodeResponse{}, nil)
 
 			err = svc.SyncNodeInfo(testutils.Context(t), mgr.ID)
