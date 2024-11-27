@@ -47,6 +47,7 @@ jobs:
         with:
           pipeline-step: "build"
           build-concurrency: "32"
+          collect-coverage: "true"
           test-suite: ${{ matrix.type.test-suite }}
           module-directory: ${{ matrix.type.module-directory }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -59,6 +60,7 @@ jobs:
         with:
           pipeline-step: "run"
           run-concurrency: "16"
+          collect-coverage: "true"
           test-suite: ${{ matrix.type.test-suite }}
           module-directory: ${{ matrix.type.module-directory }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -75,6 +77,64 @@ jobs:
         if: ${{ always() }}
         run: docker compose logs postgres | tee ../../../postgres_logs.txt
         working-directory: ./.github/actions/setup-postgres
+
+  scan:
+    name: SonarQube Scan
+    needs: run-unit-tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v4.2.1
+        with:
+          # fetches all history for all tags and branches to provide more metadata for sonar reports
+          fetch-depth: 0 
+
+      - name: Download all workflow run artifacts
+        uses: actions/download-artifact@v4.1.8
+        with:
+          path: coverage
+          pattern: coverage-*
+          merge-multiple: true
+
+      - name: Check and Set SonarQube Report Paths
+        shell: bash
+        run: |
+          ARGS=""
+          sonarqube_coverage_report_paths=$(find ./coverage -name '*.cover.out' | paste -sd "," -)
+
+          # TODO uncomment when linting in enabled
+          # Check and assign paths for lint reports
+          # if [ -d "golangci-lint-report" ]; then
+          #   sonarqube_lint_report_paths=$(find golangci-lint-report -name 'golangci-lint-report.xml' | paste -sd "," -)
+          # else
+          #   sonarqube_lint_report_paths=""
+          # fi
+          # if [[ -z "$sonarqube_lint_report_paths" ]]; then
+          #   echo "::warning::No lint report paths found, will not pass to sonarqube"
+          # else
+          #   echo "Found lint report paths: $sonarqube_lint_report_paths"
+          #   ARGS="$ARGS -Dsonar.go.golangci-lint.reportPaths=$sonarqube_lint_report_paths"
+          # fi
+
+          if [[ -z "$sonarqube_coverage_report_paths" ]]; then
+            echo "::warning::No coverage report paths found, will not pass to sonarqube"
+          else
+            echo "Found coverage report paths: $sonarqube_coverage_report_paths"
+            ARGS="$ARGS -Dsonar.go.coverage.reportPaths=$sonarqube_coverage_report_paths"
+          fi
+
+          echo "Final SONARQUBE_ARGS: $ARGS"
+          echo "SONARQUBE_ARGS=$ARGS" >> $GITHUB_ENV
+
+      - name: SonarQube Scan
+        if: ${{ env.SONARQUBE_ARGS != '' }}
+        uses: sonarsource/sonarqube-scan-action@aecaf43ae57e412bd97d70ef9ce6076e672fe0a9 # v2.3.0
+        with:
+          args: ${{ env.SONARQUBE_ARGS }}
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_SCANNER_OPTS: "-Xms6g -Xmx8g"
   
 
   run-fuzz-tests:
