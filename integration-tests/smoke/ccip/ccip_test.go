@@ -1,6 +1,11 @@
 package smoke
 
 import (
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink/deployment"
 	"math/big"
 	"testing"
 
@@ -82,12 +87,10 @@ func TestInitialDeployOnLocal(t *testing.T) {
 func TestTokenTransfer(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	config := &changeset.TestConfigs{}
-	tenv, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr, config)
+	//tenv, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr, config)
 
-	/*
-	* use this if you are testing locally in memory
-	* tenv := changeset.NewMemoryEnvironmentWithJobsAndContracts(t, lggr, 3, 4, config)
-	 */
+	//* use this if you are testing locally in memory
+	tenv := changeset.NewMemoryEnvironmentWithJobsAndContracts(t, lggr, 2, 4, config)
 
 	e := tenv.Env
 	state, err := changeset.LoadOnchainState(e)
@@ -97,11 +100,16 @@ func TestTokenTransfer(t *testing.T) {
 	sourceChain := allChainSelectors[0]
 	destChain := allChainSelectors[1]
 
+	sourceActor := createAndFundSelfServeActor(t, e.Chains[sourceChain].DeployerKey, e.Chains[sourceChain])
+	destActor := createAndFundSelfServeActor(t, e.Chains[destChain].DeployerKey, e.Chains[destChain])
+
 	srcToken1, _, destToken1, _, err := changeset.DeployTransferableToken(
 		lggr,
 		tenv.Env.Chains,
 		sourceChain,
 		destChain,
+		sourceActor,
+		destActor,
 		state,
 		e.ExistingAddresses,
 		"MY_TOKEN_1",
@@ -113,6 +121,8 @@ func TestTokenTransfer(t *testing.T) {
 		tenv.Env.Chains,
 		sourceChain,
 		destChain,
+		sourceActor,
+		destActor,
 		state,
 		e.ExistingAddresses,
 		"MY_TOKEN_2",
@@ -122,10 +132,18 @@ func TestTokenTransfer(t *testing.T) {
 	// Add all lanes.
 	require.NoError(t, changeset.AddLanesForAll(e, state))
 
-	mintAndAllow(t, e, state, map[uint64][]*burn_mint_erc677.BurnMintERC677{
-		sourceChain: {srcToken1, srcToken2},
-		destChain:   {destToken1, destToken2},
-	})
+	mintAndAllow(
+		t,
+		e,
+		state,
+		map[uint64]*bind.TransactOpts{
+			sourceChain: sourceActor,
+			destChain:   destActor,
+		},
+		map[uint64][]*burn_mint_erc677.BurnMintERC677{
+			sourceChain: {srcToken1, srcToken2},
+			destChain:   {destToken1, destToken2},
+		})
 
 	tinyOneCoin := new(big.Int).SetUint64(1)
 
@@ -249,4 +267,41 @@ func TestTokenTransfer(t *testing.T) {
 			})
 		})
 	}
+}
+
+func createAndFundSelfServeActor(
+	t *testing.T,
+	deployer *bind.TransactOpts,
+	chain deployment.Chain,
+) *bind.TransactOpts {
+	key, err := crypto.GenerateKey()
+	require.NoError(t, err)
+
+	actor, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
+
+	nonce, err := chain.Client.PendingNonceAt(tests.Context(t), deployer.From)
+	require.NoError(t, err)
+
+	gasPrice, err := chain.Client.SuggestGasPrice(tests.Context(t))
+	require.NoError(t, err)
+
+	tx := types.NewTx(&types.LegacyTx{
+		Nonce:    nonce,
+		To:       &actor.From,
+		Value:    new(big.Int).SetUint64(1e18),
+		Gas:      uint64(21000),
+		GasPrice: gasPrice,
+		Data:     nil,
+	})
+
+	signedTx, err := deployer.Signer(deployer.From, tx)
+	require.NoError(t, err)
+
+	err = chain.Client.SendTransaction(tests.Context(t), signedTx)
+	require.NoError(t, err)
+
+	_, err = chain.Confirm(signedTx)
+	require.NoError(t, err)
+
+	return actor
 }

@@ -697,53 +697,54 @@ func DeployTransferableToken(
 	lggr logger.Logger,
 	chains map[uint64]deployment.Chain,
 	src, dst uint64,
+	srcActor, dstActor *bind.TransactOpts,
 	state CCIPOnChainState,
 	addresses deployment.AddressBook,
 	token string,
 ) (*burn_mint_erc677.BurnMintERC677, *burn_mint_token_pool.BurnMintTokenPool, *burn_mint_erc677.BurnMintERC677, *burn_mint_token_pool.BurnMintTokenPool, error) {
 	// Deploy token and pools
-	srcToken, srcPool, err := deployTransferTokenOneEnd(lggr, chains[src], addresses, token)
+	srcToken, srcPool, err := deployTransferTokenOneEnd(lggr, chains[src], srcActor, addresses, token)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
-	dstToken, dstPool, err := deployTransferTokenOneEnd(lggr, chains[dst], addresses, token)
+	dstToken, dstPool, err := deployTransferTokenOneEnd(lggr, chains[dst], dstActor, addresses, token)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
 
 	// Attach token pools to registry
-	if err := attachTokenToTheRegistry(chains[src], state.Chains[src], chains[src].DeployerKey, srcToken.Address(), srcPool.Address()); err != nil {
+	if err := attachTokenToTheRegistry(chains[src], state.Chains[src], srcActor, srcToken.Address(), srcPool.Address()); err != nil {
 		return nil, nil, nil, nil, err
 	}
 
-	if err := attachTokenToTheRegistry(chains[dst], state.Chains[dst], chains[dst].DeployerKey, dstToken.Address(), dstPool.Address()); err != nil {
+	if err := attachTokenToTheRegistry(chains[dst], state.Chains[dst], dstActor, dstToken.Address(), dstPool.Address()); err != nil {
 		return nil, nil, nil, nil, err
 	}
 
 	// Connect pool to each other
-	if err := setTokenPoolCounterPart(chains[src], srcPool, dst, dstToken.Address(), dstPool.Address()); err != nil {
+	if err := setTokenPoolCounterPart(chains[src], srcPool, srcActor, dst, dstToken.Address(), dstPool.Address()); err != nil {
 		return nil, nil, nil, nil, err
 	}
 
-	if err := setTokenPoolCounterPart(chains[dst], dstPool, src, srcToken.Address(), srcPool.Address()); err != nil {
+	if err := setTokenPoolCounterPart(chains[dst], dstPool, dstActor, src, srcToken.Address(), srcPool.Address()); err != nil {
 		return nil, nil, nil, nil, err
 	}
 
 	// Add burn/mint permissions
-	if err := grantMintBurnPermissions(lggr, chains[src], srcToken, srcPool.Address()); err != nil {
+	if err := grantMintBurnPermissions(lggr, chains[src], srcToken, srcActor, srcPool.Address()); err != nil {
 		return nil, nil, nil, nil, err
 	}
 
-	if err := grantMintBurnPermissions(lggr, chains[dst], dstToken, dstPool.Address()); err != nil {
+	if err := grantMintBurnPermissions(lggr, chains[dst], dstToken, dstActor, dstPool.Address()); err != nil {
 		return nil, nil, nil, nil, err
 	}
 
 	return srcToken, srcPool, dstToken, dstPool, nil
 }
 
-func grantMintBurnPermissions(lggr logger.Logger, chain deployment.Chain, token *burn_mint_erc677.BurnMintERC677, address common.Address) error {
+func grantMintBurnPermissions(lggr logger.Logger, chain deployment.Chain, token *burn_mint_erc677.BurnMintERC677, actor *bind.TransactOpts, address common.Address) error {
 	lggr.Infow("Granting burn permissions", "token", token.Address(), "burner", address)
-	tx, err := token.GrantBurnRole(chain.DeployerKey, address)
+	tx, err := token.GrantBurnRole(actor, address)
 	if err != nil {
 		return err
 	}
@@ -753,7 +754,7 @@ func grantMintBurnPermissions(lggr logger.Logger, chain deployment.Chain, token 
 	}
 
 	lggr.Infow("Granting mint permissions", "token", token.Address(), "minter", address)
-	tx, err = token.GrantMintRole(chain.DeployerKey, address)
+	tx, err = token.GrantMintRole(actor, address)
 	if err != nil {
 		return err
 	}
@@ -797,18 +798,12 @@ func setUSDCTokenPoolCounterPart(
 		return err
 	}
 
-	return setTokenPoolCounterPart(chain, pool, destChainSelector, destTokenAddress, destTokenPoolAddress)
+	return setTokenPoolCounterPart(chain, pool, nil, destChainSelector, destTokenAddress, destTokenPoolAddress)
 }
 
-func setTokenPoolCounterPart(
-	chain deployment.Chain,
-	tokenPool *burn_mint_token_pool.BurnMintTokenPool,
-	destChainSelector uint64,
-	destTokenAddress common.Address,
-	destTokenPoolAddress common.Address,
-) error {
+func setTokenPoolCounterPart(chain deployment.Chain, tokenPool *burn_mint_token_pool.BurnMintTokenPool, actor *bind.TransactOpts, destChainSelector uint64, destTokenAddress common.Address, destTokenPoolAddress common.Address) error {
 	tx, err := tokenPool.ApplyChainUpdates(
-		chain.DeployerKey,
+		actor,
 		[]burn_mint_token_pool.TokenPoolChainUpdate{
 			{
 				RemoteChainSelector: destChainSelector,
@@ -838,7 +833,7 @@ func setTokenPoolCounterPart(
 	}
 
 	tx, err = tokenPool.SetRemotePool(
-		chain.DeployerKey,
+		actor,
 		destChainSelector,
 		destTokenPoolAddress.Bytes(),
 	)
@@ -898,6 +893,7 @@ func attachTokenToTheRegistry(
 func deployTransferTokenOneEnd(
 	lggr logger.Logger,
 	chain deployment.Chain,
+	deployer *bind.TransactOpts,
 	addressBook deployment.AddressBook,
 	tokenSymbol string,
 ) (*burn_mint_erc677.BurnMintERC677, *burn_mint_token_pool.BurnMintTokenPool, error) {
@@ -921,7 +917,7 @@ func deployTransferTokenOneEnd(
 	tokenContract, err := deployment.DeployContract(lggr, chain, addressBook,
 		func(chain deployment.Chain) deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
 			USDCTokenAddr, tx, token, err2 := burn_mint_erc677.DeployBurnMintERC677(
-				chain.DeployerKey,
+				deployer,
 				chain.Client,
 				tokenSymbol,
 				tokenSymbol,
@@ -937,7 +933,7 @@ func deployTransferTokenOneEnd(
 		return nil, nil, err
 	}
 
-	tx, err := tokenContract.Contract.GrantMintRole(chain.DeployerKey, chain.DeployerKey.From)
+	tx, err := tokenContract.Contract.GrantMintRole(deployer, deployer.From)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -949,7 +945,7 @@ func deployTransferTokenOneEnd(
 	tokenPool, err := deployment.DeployContract(lggr, chain, addressBook,
 		func(chain deployment.Chain) deployment.ContractDeploy[*burn_mint_token_pool.BurnMintTokenPool] {
 			tokenPoolAddress, tx, tokenPoolContract, err2 := burn_mint_token_pool.DeployBurnMintTokenPool(
-				chain.DeployerKey,
+				deployer,
 				chain.Client,
 				tokenContract.Address,
 				[]common.Address{},
