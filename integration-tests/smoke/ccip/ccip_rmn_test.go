@@ -177,7 +177,7 @@ const (
 func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	require.NoError(t, os.Setenv("ENABLE_RMN", "true"))
 
-	t.Logf("Running RMN test case: %s", tc.name)
+	t.Logf("running RMN test case: %s", tc.name)
 
 	envWithRMN, rmnCluster := testsetups.NewLocalDevEnvironmentWithRMN(t, logger.TestLogger(t), len(tc.rmnNodes))
 	t.Logf("envWithRmn: %#v", envWithRMN)
