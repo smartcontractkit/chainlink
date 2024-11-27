@@ -88,7 +88,6 @@ func (m *moduleOperator) GetGitInfo(remote, branch string) (string, time.Time, e
 		return "", time.Time{}, fmt.Errorf("%w: empty SHA from git ls-remote", ErrModOperation)
 	}
 
-	//nolint:gosec // SHA is obtained from git ls-remote output above
 	cmd = exec.CommandContext(ctx, "git", "show", "-s", "--format=%cI", sha)
 	out, err = cmd.Output()
 	if err != nil {
