@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -137,10 +139,13 @@ func DeployTestContracts(t *testing.T,
 			Chains: make(map[uint64]CCIPChainState),
 		}, ab, chains[homeChainSel])
 	require.NoError(t, err)
+
 	_, err = DeployFeeds(lggr, ab, chains[feedChainSel], linkPrice, wethPrice)
 	require.NoError(t, err)
+
 	evmChainID, err := chainsel.ChainIdFromSelector(homeChainSel)
 	require.NoError(t, err)
+
 	return deployment.CapabilityRegistryConfig{
 		EVMChainID: evmChainID,
 		Contract:   capReg.Address,
@@ -200,7 +205,7 @@ func NewMemoryEnvironment(
 			require.NoError(t, node.App.Stop())
 		})
 	}
-	e := memory.NewMemoryEnvironmentFromChainsNodes(t, lggr, chains, nodes)
+	e := memory.NewMemoryEnvironmentFromChainsNodes(func() context.Context { return ctx }, lggr, chains, nodes)
 	envNodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
 	e.ExistingAddresses = ab
@@ -289,6 +294,13 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployMCMSWithTimelock),
 			Config:    mcmsCfg,
 		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(DeployChainContracts),
+			Config: DeployChainContractsConfig{
+				ChainSelectors:    allChains,
+				HomeChainSelector: e.HomeChainSel,
+			},
+		},
 	})
 	require.NoError(t, err)
 
@@ -307,10 +319,8 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 			SourceMessageTransmitterAddr: state.Chains[chain].MockUSDCTransmitter.Address().String(),
 		}
 	}
-	for _, chain := range allChains {
-		timelocksPerChain[chain] = state.Chains[chain].Timelock
-		ocrParams[chain] = DefaultOCRParams(e.FeedChainSel, nil, nil)
-	}
+	require.NotNil(t, state.Chains[e.FeedChainSel].LinkToken)
+	require.NotNil(t, state.Chains[e.FeedChainSel].Weth9)
 	var usdcCfg USDCAttestationConfig
 	if len(usdcChains) > 0 {
 		server := mockAttestationResponse()
@@ -325,15 +335,13 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 		})
 	}
 
+	for _, chain := range allChains {
+		timelocksPerChain[chain] = state.Chains[chain].Timelock
+		tokenInfo := tokenConfig.GetTokenInfo(e.Env.Logger, state.Chains[chain].LinkToken, state.Chains[chain].Weth9)
+		ocrParams[chain] = DefaultOCRParams(e.FeedChainSel, tokenInfo)
+	}
 	// Deploy second set of changesets to deploy and configure the CCIP contracts.
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(DeployChainContracts),
-			Config: DeployChainContractsConfig{
-				ChainSelectors:    allChains,
-				HomeChainSelector: e.HomeChainSel,
-			},
-		},
 		{
 			Changeset: commonchangeset.WrapChangeSet(ConfigureNewChains),
 			Config: NewChainsConfig{
@@ -395,19 +403,12 @@ func CCIPSendRequest(
 	if testRouter {
 		r = state.Chains[src].TestRouter
 	}
-	fee, err := r.GetFee(
-		&bind.CallOpts{Context: context.Background()}, dest, msg)
-	if err != nil {
-		return nil, 0, errors.Wrap(deployment.MaybeDataErr(err), "failed to get fee")
+
+	if msg.FeeToken == common.HexToAddress("0x0") { // fee is in native token
+		return retryCcipSendUntilNativeFeeIsSufficient(e, r, src, dest, msg)
 	}
-	if msg.FeeToken == common.HexToAddress("0x0") {
-		e.Chains[src].DeployerKey.Value = fee
-		defer func() { e.Chains[src].DeployerKey.Value = nil }()
-	}
-	tx, err := r.CcipSend(
-		e.Chains[src].DeployerKey,
-		dest,
-		msg)
+
+	tx, err := r.CcipSend(e.Chains[src].DeployerKey, dest, msg)
 	if err != nil {
 		return nil, 0, errors.Wrap(err, "failed to send CCIP message")
 	}
@@ -416,6 +417,44 @@ func CCIPSendRequest(
 		return tx, 0, errors.Wrap(err, "failed to confirm CCIP message")
 	}
 	return tx, blockNum, nil
+}
+
+// retryCcipSendUntilNativeFeeIsSufficient sends a CCIP message with a native fee,
+// and retries until the fee is sufficient. This is due to the fact that the fee is not known in advance,
+// and the message will be rejected if the fee is insufficient.
+func retryCcipSendUntilNativeFeeIsSufficient(
+	e deployment.Environment,
+	r *router.Router,
+	src,
+	dest uint64,
+	msg router.ClientEVM2AnyMessage,
+) (*types.Transaction, uint64, error) {
+	const errCodeInsufficientFee = "0x07da6ee6"
+	defer func() { e.Chains[src].DeployerKey.Value = nil }()
+
+	for {
+		fee, err := r.GetFee(&bind.CallOpts{Context: context.Background()}, dest, msg)
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to get fee: %w", deployment.MaybeDataErr(err))
+		}
+
+		e.Chains[src].DeployerKey.Value = fee
+
+		tx, err := r.CcipSend(e.Chains[src].DeployerKey, dest, msg)
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to send CCIP message: %w", err)
+		}
+
+		blockNum, err := e.Chains[src].Confirm(tx)
+		if err != nil {
+			if strings.Contains(err.Error(), errCodeInsufficientFee) {
+				continue
+			}
+			return nil, 0, fmt.Errorf("failed to confirm CCIP message: %w", deployment.MaybeDataErr(err))
+		}
+
+		return tx, blockNum, nil
+	}
 }
 
 // CCIPSendCalldata packs the calldata for the Router's ccipSend method.
@@ -929,7 +968,7 @@ func deployTransferTokenOneEnd(
 
 	tokenContract, err := deployment.DeployContract(lggr, chain, addressBook,
 		func(chain deployment.Chain) deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
-			USDCTokenAddr, tx, token, err2 := burn_mint_erc677.DeployBurnMintERC677(
+			tokenAddress, tx, token, err2 := burn_mint_erc677.DeployBurnMintERC677(
 				chain.DeployerKey,
 				chain.Client,
 				tokenSymbol,
@@ -938,7 +977,7 @@ func deployTransferTokenOneEnd(
 				big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
 			)
 			return deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
-				USDCTokenAddr, token, tx, deployment.NewTypeAndVersion(BurnMintToken, deployment.Version1_0_0), err2,
+				tokenAddress, token, tx, deployment.NewTypeAndVersion(BurnMintToken, deployment.Version1_0_0), err2,
 			}
 		})
 	if err != nil {

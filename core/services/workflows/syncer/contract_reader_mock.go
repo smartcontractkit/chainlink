@@ -6,6 +6,7 @@ import (
 	context "context"
 
 	query "github.com/smartcontractkit/chainlink-common/pkg/types/query"
+	primitives "github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	mock "github.com/stretchr/testify/mock"
 
 	types "github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -67,6 +68,68 @@ func (_c *MockContractReader_Bind_Call) Return(_a0 error) *MockContractReader_Bi
 }
 
 func (_c *MockContractReader_Bind_Call) RunAndReturn(run func(context.Context, []types.BoundContract) error) *MockContractReader_Bind_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetLatestValueWithHeadData provides a mock function with given fields: ctx, readName, confidenceLevel, params, returnVal
+func (_m *MockContractReader) GetLatestValueWithHeadData(ctx context.Context, readName string, confidenceLevel primitives.ConfidenceLevel, params any, returnVal any) (*types.Head, error) {
+	ret := _m.Called(ctx, readName, confidenceLevel, params, returnVal)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetLatestValueWithHeadData")
+	}
+
+	var r0 *types.Head
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, primitives.ConfidenceLevel, any, any) (*types.Head, error)); ok {
+		return rf(ctx, readName, confidenceLevel, params, returnVal)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, primitives.ConfidenceLevel, any, any) *types.Head); ok {
+		r0 = rf(ctx, readName, confidenceLevel, params, returnVal)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*types.Head)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, primitives.ConfidenceLevel, any, any) error); ok {
+		r1 = rf(ctx, readName, confidenceLevel, params, returnVal)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockContractReader_GetLatestValueWithHeadData_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetLatestValueWithHeadData'
+type MockContractReader_GetLatestValueWithHeadData_Call struct {
+	*mock.Call
+}
+
+// GetLatestValueWithHeadData is a helper method to define mock.On call
+//   - ctx context.Context
+//   - readName string
+//   - confidenceLevel primitives.ConfidenceLevel
+//   - params any
+//   - returnVal any
+func (_e *MockContractReader_Expecter) GetLatestValueWithHeadData(ctx interface{}, readName interface{}, confidenceLevel interface{}, params interface{}, returnVal interface{}) *MockContractReader_GetLatestValueWithHeadData_Call {
+	return &MockContractReader_GetLatestValueWithHeadData_Call{Call: _e.mock.On("GetLatestValueWithHeadData", ctx, readName, confidenceLevel, params, returnVal)}
+}
+
+func (_c *MockContractReader_GetLatestValueWithHeadData_Call) Run(run func(ctx context.Context, readName string, confidenceLevel primitives.ConfidenceLevel, params any, returnVal any)) *MockContractReader_GetLatestValueWithHeadData_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(primitives.ConfidenceLevel), args[3].(any), args[4].(any))
+	})
+	return _c
+}
+
+func (_c *MockContractReader_GetLatestValueWithHeadData_Call) Return(head *types.Head, err error) *MockContractReader_GetLatestValueWithHeadData_Call {
+	_c.Call.Return(head, err)
+	return _c
+}
+
+func (_c *MockContractReader_GetLatestValueWithHeadData_Call) RunAndReturn(run func(context.Context, string, primitives.ConfidenceLevel, any, any) (*types.Head, error)) *MockContractReader_GetLatestValueWithHeadData_Call {
 	_c.Call.Return(run)
 	return _c
 }
