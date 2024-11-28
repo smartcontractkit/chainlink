@@ -18,22 +18,47 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
 )
 
+var _ deployment.ChangeSet[ChainInboundChangesetConfig] = NewChainInboundChangeset
+
+type ChainInboundChangesetConfig struct {
+	HomeChainSelector    uint64
+	NewChainSelector     uint64
+	SourceChainSelectors []uint64
+}
+
+func (c ChainInboundChangesetConfig) Validate() error {
+	if c.HomeChainSelector == 0 {
+		return fmt.Errorf("HomeChainSelector must be set")
+	}
+	if c.NewChainSelector == 0 {
+		return fmt.Errorf("NewChainSelector must be set")
+	}
+	if len(c.SourceChainSelectors) == 0 {
+		return fmt.Errorf("SourceChainSelectors must be set")
+	}
+	return nil
+}
+
 // NewChainInboundChangeset generates a proposal
 // to connect the new chain to the existing chains.
-// TODO: doesn't implement the ChangeSet interface.
 func NewChainInboundChangeset(
 	e deployment.Environment,
-	state CCIPOnChainState,
-	homeChainSel uint64,
-	newChainSel uint64,
-	sources []uint64,
+	cfg ChainInboundChangesetConfig,
 ) (deployment.ChangesetOutput, error) {
+	if err := cfg.Validate(); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	state, err := LoadOnchainState(e)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
 	// Generate proposal which enables new destination (from test router) on all source chains.
 	var batches []timelock.BatchChainOperation
-	for _, source := range sources {
+	for _, source := range cfg.SourceChainSelectors {
 		enableOnRampDest, err := state.Chains[source].OnRamp.ApplyDestChainConfigUpdates(deployment.SimTransactOpts(), []onramp.OnRampDestChainConfigArgs{
 			{
-				DestChainSelector: newChainSel,
+				DestChainSelector: cfg.NewChainSelector,
 				Router:            state.Chains[source].TestRouter.Address(),
 			},
 		})
@@ -44,7 +69,7 @@ func NewChainInboundChangeset(
 			deployment.SimTransactOpts(),
 			[]fee_quoter.FeeQuoterDestChainConfigArgs{
 				{
-					DestChainSelector: newChainSel,
+					DestChainSelector: cfg.NewChainSelector,
 					DestChainConfig:   DefaultFeeQuoterDestChainConfig(),
 				},
 			})
@@ -69,13 +94,13 @@ func NewChainInboundChangeset(
 		})
 	}
 
-	addChainOp, err := ApplyChainConfigUpdatesOp(e, state, homeChainSel, []uint64{newChainSel})
+	addChainOp, err := ApplyChainConfigUpdatesOp(e, state, cfg.HomeChainSelector, []uint64{cfg.NewChainSelector})
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
 
 	batches = append(batches, timelock.BatchChainOperation{
-		ChainIdentifier: mcms.ChainIdentifier(homeChainSel),
+		ChainIdentifier: mcms.ChainIdentifier(cfg.HomeChainSelector),
 		Batch: []mcms.Operation{
 			addChainOp,
 		},
@@ -85,7 +110,7 @@ func NewChainInboundChangeset(
 		timelocksPerChain = make(map[uint64]common.Address)
 		proposerMCMSes    = make(map[uint64]*gethwrappers.ManyChainMultiSig)
 	)
-	for _, chain := range append(sources, homeChainSel) {
+	for _, chain := range append(cfg.SourceChainSelectors, cfg.HomeChainSelector) {
 		timelocksPerChain[chain] = state.Chains[chain].Timelock.Address()
 		proposerMCMSes[chain] = state.Chains[chain].ProposerMcm
 	}
