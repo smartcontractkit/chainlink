@@ -17,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	pkgerrors "github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
@@ -143,6 +144,7 @@ type Relayer struct {
 	ds                   sqlutil.DataSource
 	chain                legacyevm.Chain
 	lggr                 logger.SugaredLogger
+	registerer           prometheus.Registerer
 	ks                   CSAETHKeystore
 	mercuryPool          wsrpc.Pool
 	codec                commontypes.Codec
@@ -169,7 +171,8 @@ type MercuryConfig interface {
 }
 
 type RelayerOpts struct {
-	DS sqlutil.DataSource
+	DS         sqlutil.DataSource
+	Registerer prometheus.Registerer
 	CSAETHKeystore
 	MercuryPool           wsrpc.Pool
 	RetirementReportCache llo.RetirementReportCache
@@ -214,6 +217,7 @@ func NewRelayer(ctx context.Context, lggr logger.Logger, chain legacyevm.Chain, 
 		ds:                    opts.DS,
 		chain:                 chain,
 		lggr:                  sugared,
+		registerer:            opts.Registerer,
 		ks:                    opts.CSAETHKeystore,
 		mercuryPool:           opts.MercuryPool,
 		cdcFactory:            cdcFactory,
@@ -452,9 +456,6 @@ func (r *Relayer) NewMercuryProvider(ctx context.Context, rargs commontypes.Rela
 		}
 	}
 
-	// FIXME: We actually know the version here since it's in the feed ID, can
-	// we use generics to avoid passing three of this?
-	// https://smartcontract-it.atlassian.net/browse/MERC-1414
 	reportCodecV1 := reportcodecv1.NewReportCodec(*relayConfig.FeedID, lggr.Named("ReportCodecV1"))
 	reportCodecV2 := reportcodecv2.NewReportCodec(*relayConfig.FeedID, lggr.Named("ReportCodecV2"))
 	reportCodecV3 := reportcodecv3.NewReportCodec(*relayConfig.FeedID, lggr.Named("ReportCodecV3"))
@@ -542,8 +543,6 @@ func (r *Relayer) NewLLOProvider(ctx context.Context, rargs commontypes.RelayArg
 		return nil, pkgerrors.Wrap(err, "failed to get CSA key for mercury connection")
 	}
 
-	// FIXME: Remove after benchmarking is done
-	// https://smartcontract-it.atlassian.net/browse/MERC-3487
 	var transmitter LLOTransmitter
 	if lloCfg.BenchmarkMode {
 		r.lggr.Info("Benchmark mode enabled, using dummy transmitter. NOTE: THIS WILL NOT TRANSMIT ANYTHING")
@@ -563,6 +562,7 @@ func (r *Relayer) NewLLOProvider(ctx context.Context, rargs commontypes.RelayArg
 			VerboseLogging: r.mercuryCfg.VerboseLogging(),
 			MercuryTransmitterOpts: mercurytransmitter.Opts{
 				Lggr:           r.lggr,
+				Registerer:     r.registerer,
 				VerboseLogging: r.mercuryCfg.VerboseLogging(),
 				Cfg:            r.mercuryCfg.Transmitter(),
 				Clients:        clients,

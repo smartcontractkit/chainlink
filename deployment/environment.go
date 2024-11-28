@@ -76,6 +76,7 @@ type Environment struct {
 	Chains            map[uint64]Chain
 	NodeIDs           []string
 	Offchain          OffchainClient
+	GetContext        func() context.Context
 }
 
 func NewEnvironment(
@@ -85,6 +86,7 @@ func NewEnvironment(
 	chains map[uint64]Chain,
 	nodeIDs []string,
 	offchain OffchainClient,
+	ctx func() context.Context,
 ) *Environment {
 	return &Environment{
 		Name:              name,
@@ -93,6 +95,7 @@ func NewEnvironment(
 		Chains:            chains,
 		NodeIDs:           nodeIDs,
 		Offchain:          offchain,
+		GetContext:        ctx,
 	}
 }
 

@@ -3,26 +3,18 @@ set -o pipefail
 set +e
 
 SCRIPT_PATH=`dirname "$0"`; SCRIPT_PATH=`eval "cd \"$SCRIPT_PATH\" && pwd"`
-OUTPUT_FILE="../output.txt"
-USE_TEE="${USE_TEE:-true}"
+OUTPUT_FILE=${OUTPUT_FILE:-"../output.txt"}
+EXTRA_FLAGS=""
 
 cd ./deployment || exit
 go mod download
-echo "Failed tests and panics: ---------------------"
+echo "Test execution results: ---------------------"
 echo ""
+
 if [[ $GITHUB_EVENT_NAME == "schedule" ]]; then
-  if [[ $DEBUG == "true" ]]; then 
-    go test -json ./... -covermode=atomic -coverpkg=./... -coverprofile=coverage.txt | tee $OUTPUT_FILE
-  else
-    go test -json ./... -covermode=atomic -coverpkg=./... -coverprofile=coverage.txt | cat > $OUTPUT_FILE
-  fi
-else
-  if [[ $DEBUG == "true" ]]; then 
-    go test ./... | tee $OUTPUT_FILE
-  else
-    go test ./... | cat > $OUTPUT_FILE
-  fi
+  EXTRA_FLAGS="-covermode=atomic -coverpkg=./... -coverprofile=coverage.txt"
 fi
+go test ./... "$EXTRA_FLAGS" | tee $OUTPUT_FILE | grep -Ev '\[no test files\]|\[no tests to run\]'
 EXITCODE=${PIPESTATUS[0]}
 
 # Assert no known sensitive strings present in test logger output

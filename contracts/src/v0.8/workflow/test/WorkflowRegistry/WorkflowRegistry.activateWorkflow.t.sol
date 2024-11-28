@@ -104,6 +104,12 @@ contract WorkflowRegistry_activateWorkflow is WorkflowRegistrySetup {
       s_validSecretsURL
     );
 
+    // It should emit {WorkflowActivatedV1} when the workflow is activated.
+    vm.expectEmit();
+    emit WorkflowRegistry.WorkflowActivatedV1(
+      s_validWorkflowID, s_authorizedAddress, s_allowedDonID, s_validWorkflowName
+    );
+
     // Activate the workflow.
     vm.prank(s_authorizedAddress);
     s_registry.activateWorkflow(s_validWorkflowKey);

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -14,6 +15,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/configurator"
@@ -26,15 +29,18 @@ const (
 	InstanceTypeGreen InstanceType = InstanceType("Green")
 )
 
+var (
+	NoLimitSortAsc = query.NewLimitAndSort(query.Limit{}, query.NewSortBySequence(query.Asc))
+)
+
 type ConfigPollerService interface {
 	services.Service
 	ocrtypes.ContractConfigTracker
 }
 
 type LogPoller interface {
-	IndexedLogsByBlockRange(ctx context.Context, start, end int64, eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash) ([]logpoller.Log, error)
 	LatestBlock(ctx context.Context) (logpoller.LogPollerBlock, error)
-	LogsWithSigs(ctx context.Context, start, end int64, eventSigs []common.Hash, address common.Address) ([]logpoller.Log, error)
+	FilteredLogs(ctx context.Context, filter []query.Expression, limitAndSort query.LimitAndSort, queryName string) ([]logpoller.Log, error)
 }
 
 // ConfigCache is most likely the global RetirementReportCache. Every config
@@ -47,11 +53,12 @@ type configPoller struct {
 	services.Service
 	eng *services.Engine
 
-	lp        LogPoller
-	cc        ConfigCache
-	addr      common.Address
-	donID     uint32
-	donIDHash [32]byte
+	lp          LogPoller
+	cc          ConfigCache
+	addr        common.Address
+	donID       uint32
+	donIDTopic  [32]byte
+	filterExprs []query.Expression
 
 	fromBlock uint64
 
@@ -70,12 +77,28 @@ func NewConfigPoller(lggr logger.Logger, lp LogPoller, cc ConfigCache, addr comm
 }
 
 func newConfigPoller(lggr logger.Logger, lp LogPoller, cc ConfigCache, addr common.Address, donID uint32, instanceType InstanceType, fromBlock uint64) *configPoller {
+	donIDTopic := DonIDToBytes32(donID)
+	exprs := []query.Expression{
+		logpoller.NewAddressFilter(addr),
+		query.Or(
+			logpoller.NewEventSigFilter(ProductionConfigSet),
+			logpoller.NewEventSigFilter(StagingConfigSet),
+		),
+		logpoller.NewEventByTopicFilter(1, []logpoller.HashedValueComparator{
+			{Value: donIDTopic, Operator: primitives.Eq},
+		}),
+		// NOTE: Optimize for fast config switches. On Arbitrum, finalization
+		// can take tens of minutes
+		// (https://grafana.ops.prod.cldev.sh/d/e0453cc9-4b4a-41e1-9f01-7c21de805b39/blockchain-finality-and-gas?orgId=1&var-env=All&var-network_name=ethereum-testnet-sepolia-arbitrum-1&var-network_name=ethereum-mainnet-arbitrum-1&from=1732460992641&to=1732547392641)
+		query.Confidence(primitives.Unconfirmed),
+	}
 	cp := &configPoller{
 		lp:           lp,
 		cc:           cc,
 		addr:         addr,
 		donID:        donID,
-		donIDHash:    DonIDToBytes32(donID),
+		donIDTopic:   DonIDToBytes32(donID),
+		filterExprs:  exprs,
 		instanceType: instanceType,
 		fromBlock:    fromBlock,
 	}
@@ -100,18 +123,23 @@ func (cp *configPoller) LatestConfigDetails(ctx context.Context) (changedInBlock
 }
 
 func (cp *configPoller) latestConfig(ctx context.Context, fromBlock, toBlock int64) (latestConfig FullConfigFromLog, latestLog logpoller.Log, err error) {
-	// Get all config set logs run through them forwards
-	// TODO: This could probably be optimized with a 'latestBlockNumber' cache or something to avoid reading from `fromBlock` on every call
-	// TODO: Actually we only care about the latest of each type here
-	// MERC-3524
-	logs, err := cp.lp.LogsWithSigs(ctx, fromBlock, toBlock, []common.Hash{ProductionConfigSet, StagingConfigSet}, cp.addr)
+	// Get all configset logs and run through them forwards
+	// NOTE: It's useful to get _all_ logs rather than just the latest since
+	// they are stored in the ConfigCache
+	exprs := make([]query.Expression, 0, len(cp.filterExprs)+2)
+	exprs = append(exprs, cp.filterExprs...)
+	exprs = append(exprs,
+		query.Block(strconv.FormatInt(fromBlock, 10), primitives.Gte),
+		query.Block(strconv.FormatInt(toBlock, 10), primitives.Lte),
+	)
+	logs, err := cp.lp.FilteredLogs(ctx, exprs, NoLimitSortAsc, "LLOConfigPoller - latestConfig")
 	if err != nil {
 		return latestConfig, latestLog, fmt.Errorf("failed to get logs: %w", err)
 	}
 	for _, log := range logs {
-		// TODO: This can be optimized probably by adding donIDHash to the logpoller lookup
-		// MERC-3524
-		if !bytes.Equal(log.Topics[1], cp.donIDHash[:]) {
+		if !bytes.Equal(log.Topics[1], cp.donIDTopic[:]) {
+			// skip logs for other donIDs, shouldn't happen given the
+			// FilterLogs call, but belts and braces
 			continue
 		}
 		switch log.EventSig {

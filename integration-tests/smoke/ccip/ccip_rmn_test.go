@@ -15,6 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/osutil"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -22,7 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_remote"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
+	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -175,6 +176,8 @@ const (
 
 func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	require.NoError(t, os.Setenv("ENABLE_RMN", "true"))
+
+	t.Logf("Running RMN test case: %s", tc.name)
 
 	envWithRMN, rmnCluster := testsetups.NewLocalDevEnvironmentWithRMN(t, logger.TestLogger(t), len(tc.rmnNodes))
 	t.Logf("envWithRmn: %#v", envWithRMN)

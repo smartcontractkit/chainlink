@@ -1,0 +1,18 @@
+# This file specifies the GitHub runner for each in-memory integration test and is utilized by .github/workflows/integration-in-memory-tests.yml CI workflow.
+#
+# Each entry in this file includes the following:
+# - The GitHub runner (runs_on field) that will execute tests.
+# - The tests that will be run by the runner.
+# - The triggers (e.g., PR Integration CCIP Tests) that should trigger these tests.
+#
+runner-test-matrix:
+  # START: CCIPv1.6 tests
+
+  - id: smoke/ccip/ccip_messaging_test.go:*
+    path: integration-tests/smoke/ccip/ccip_messaging_test.go
+    test_env_type: in-memory
+    runs_on: ubuntu-latest
+    triggers:
+      - PR Integration CCIP Tests
+    test_cmd: cd integration-tests/smoke/ccip && go test ccip_messaging_test.go -timeout 12m -test.parallel=2 -count=1 -json
+  # END: CCIP tests

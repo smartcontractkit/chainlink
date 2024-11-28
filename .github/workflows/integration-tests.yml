@@ -592,6 +592,7 @@ jobs:
       ]
     env:
       CONTRACT_ARTIFACTS_PATH: contracts/target/deploy
+      GOTOOLCHAIN: auto
     steps:
       - name: Checkout the repo
         if: (needs.changes.outputs.core_changes == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'

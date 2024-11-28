@@ -108,7 +108,7 @@ DBArgs = [
 [CCIP.Env.NewCLCluster.Common]
 Name = 'node1'       # name of the chainlink node, used as prefix for all the chainlink node names , used for k8s deployment
 DBImage = 'postgres' # postgresql database image to be used for k8s deployment
-DBTag = '13.12'      # postgresql database image tag to be used for k8s deployment
+DBTag = '12.0'      # postgresql database image tag to be used for k8s deployment
 # override config toml file for chainlink nodes
 BaseConfigTOML = """
 [Feature]
