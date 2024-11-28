@@ -288,7 +288,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 		"active digest should be the same as the previously candidate digest after promotion, previous candidate: %x, active: %x",
 		candidateDigest[:], activeDigest[:])
 
-	tc.setRmnRemoteConfig(t, ctx, onChainState, activeDigest, envWithRMN)
+	tc.setRmnRemoteConfig(ctx, t, onChainState, activeDigest, envWithRMN)
 
 	tc.killMarkedRmnNodes(t, rmnCluster)
 
@@ -299,9 +299,9 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	startBlocks, seqNumCommit, seqNumExec := tc.sendMessages(t, onChainState, envWithRMN)
 	t.Logf("Sent all messages, seqNumCommit: %v seqNumExec: %v", seqNumCommit, seqNumExec)
 
-	tc.callContractsToCurseChains(t, ctx, onChainState, envWithRMN)
+	tc.callContractsToCurseChains(ctx, t, onChainState, envWithRMN)
 
-	tc.enableOracles(t, ctx, envWithRMN, disabledNodes)
+	tc.enableOracles(ctx, t, envWithRMN, disabledNodes)
 
 	expectedSeqNum := make(map[changeset.SourceDestPair]uint64)
 	for k, v := range seqNumCommit {
@@ -497,8 +497,8 @@ func (tc rmnTestCase) validate() error {
 }
 
 func (tc rmnTestCase) setRmnRemoteConfig(
-	t *testing.T,
 	ctx context.Context,
+	t *testing.T,
 	onChainState changeset.CCIPOnChainState,
 	activeDigest [32]byte,
 	envWithRMN changeset.DeployedEnv) {
@@ -603,7 +603,7 @@ func (tc rmnTestCase) sendMessages(t *testing.T, onChainState changeset.CCIPOnCh
 	return startBlocks, seqNumCommit, seqNumExec
 }
 
-func (tc rmnTestCase) callContractsToCurseChains(t *testing.T, ctx context.Context, onChainState changeset.CCIPOnChainState, envWithRMN changeset.DeployedEnv) {
+func (tc rmnTestCase) callContractsToCurseChains(ctx context.Context, t *testing.T, onChainState changeset.CCIPOnChainState, envWithRMN changeset.DeployedEnv) {
 	for _, remoteCfg := range tc.remoteChainsConfig {
 		remoteSel := tc.pf.chainSelectors[remoteCfg.chainIdx]
 		chState, ok := onChainState.Chains[remoteSel]
@@ -628,7 +628,7 @@ func (tc rmnTestCase) callContractsToCurseChains(t *testing.T, ctx context.Conte
 	}
 }
 
-func (tc rmnTestCase) enableOracles(t *testing.T, ctx context.Context, envWithRMN changeset.DeployedEnv, nodeIDs []string) {
+func (tc rmnTestCase) enableOracles(ctx context.Context, t *testing.T, envWithRMN changeset.DeployedEnv, nodeIDs []string) {
 	for _, n := range nodeIDs {
 		_, err := envWithRMN.Env.Offchain.EnableNode(ctx, &node.EnableNodeRequest{Id: n})
 		require.NoError(t, err)
