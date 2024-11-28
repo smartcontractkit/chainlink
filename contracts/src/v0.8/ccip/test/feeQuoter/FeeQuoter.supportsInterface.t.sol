@@ -8,7 +8,7 @@ import {IERC165} from "../../../vendor/openzeppelin-solidity/v5.0.2/contracts/in
 import {IFeeQuoter} from "../../interfaces/IFeeQuoter.sol";
 import "./FeeQuoterSetup.t.sol";
 
-contract LockReleaseTokenPool_supportsInterface is FeeQuoterSetup {
+contract FeeQuoter_supportsInterface is FeeQuoterSetup {
   function test_SupportsInterface_Success() public view {
     assertTrue(s_feeQuoter.supportsInterface(type(IReceiver).interfaceId));
     assertTrue(s_feeQuoter.supportsInterface(type(ITypeAndVersion).interfaceId));
