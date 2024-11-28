@@ -25,6 +25,8 @@ import (
 // TODO: Remove when new dual transmitter contracts are merged
 var dtABI = `[{"inputs":[{"internalType":"bytes32[3]","name":"reportContext","type":"bytes32[3]"},{"internalType":"bytes","name":"report","type":"bytes"},{"internalType":"bytes32[]","name":"rs","type":"bytes32[]"},{"internalType":"bytes32[]","name":"ss","type":"bytes32[]"},{"internalType":"bytes32","name":"rawVs","type":"bytes32"}],"name":"transmitSecondary","outputs":[],"stateMutability":"nonpayable","type":"function"}]`
 
+var _ ContractTransmitter = (*dualContractTransmitter)(nil)
+
 type dualContractTransmitter struct {
 	contractAddress     gethcommon.Address
 	contractABI         abi.ABI
@@ -168,3 +170,13 @@ func (oc *dualContractTransmitter) LatestConfigDigestAndEpoch(ctx context.Contex
 func (oc *dualContractTransmitter) FromAccount(ctx context.Context) (ocrtypes.Account, error) {
 	return ocrtypes.Account(oc.transmitter.FromAddress(ctx).String()), nil
 }
+
+func (oc *dualContractTransmitter) Start(ctx context.Context) error { return nil }
+func (oc *dualContractTransmitter) Close() error                    { return nil }
+
+// Has no state/lifecycle so it's always healthy and ready
+func (oc *dualContractTransmitter) Ready() error { return nil }
+func (oc *dualContractTransmitter) HealthReport() map[string]error {
+	return map[string]error{oc.Name(): nil}
+}
+func (oc *dualContractTransmitter) Name() string { return oc.lggr.Name() }

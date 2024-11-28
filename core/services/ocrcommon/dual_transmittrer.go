@@ -32,10 +32,6 @@ type ocr2FeedsDualTransmission struct {
 	secondaryMeta            map[string][]string
 }
 
-func (t *ocr2FeedsDualTransmission) SendSecondaryTransaction() bool {
-	return true
-}
-
 func (t *ocr2FeedsDualTransmission) forwarderAddress(ctx context.Context, eoa, ocr2Aggregator common.Address) (common.Address, error) {
 	//	If effectiveTransmitterAddress is in fromAddresses, then forwarders aren't set.
 	if slices.Contains(t.primaryFromAddresses, t.primaryEffectiveTransmitterAddress) {
