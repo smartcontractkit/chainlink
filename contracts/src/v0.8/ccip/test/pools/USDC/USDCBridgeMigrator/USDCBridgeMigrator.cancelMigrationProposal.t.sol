@@ -2,7 +2,7 @@
 pragma solidity 0.8.24;
 
 import {USDCBridgeMigrator} from "../../../../pools/USDC/USDCBridgeMigrator.sol";
-import {HybridLockReleaseUSDCTokenPoolSetup} from "../USDCTokenPoolSetup.t.sol";
+import {HybridLockReleaseUSDCTokenPoolSetup} from "./USDCBridgeMigratorSetup.t.sol";
 
 contract USDCBridgeMigrator_cancelMigrationProposal is HybridLockReleaseUSDCTokenPoolSetup {
   function test_cancelExistingCCTPMigrationProposal_Success() public {
