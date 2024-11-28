@@ -202,7 +202,7 @@ func NewMemoryEnvironment(
 			require.NoError(t, node.App.Stop())
 		})
 	}
-	e := memory.NewMemoryEnvironmentFromChainsNodes(t, lggr, chains, nodes)
+	e := memory.NewMemoryEnvironmentFromChainsNodes(func() context.Context { return ctx }, lggr, chains, nodes)
 	envNodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
 	e.ExistingAddresses = ab
@@ -432,14 +432,14 @@ func retryCcipSendUntilNativeFeeIsSufficient(
 	for {
 		fee, err := r.GetFee(&bind.CallOpts{Context: context.Background()}, dest, msg)
 		if err != nil {
-			return nil, 0, errors.Wrap(deployment.MaybeDataErr(err), "failed to get fee")
+			return nil, 0, fmt.Errorf("failed to get fee: %w", deployment.MaybeDataErr(err))
 		}
 
 		e.Chains[src].DeployerKey.Value = fee
 
 		tx, err := r.CcipSend(e.Chains[src].DeployerKey, dest, msg)
 		if err != nil {
-			return nil, 0, errors.Wrap(err, "failed to send CCIP message")
+			return nil, 0, fmt.Errorf("failed to send CCIP message: %w", err)
 		}
 
 		blockNum, err := e.Chains[src].Confirm(tx)
@@ -447,7 +447,7 @@ func retryCcipSendUntilNativeFeeIsSufficient(
 			if strings.Contains(err.Error(), errCodeInsufficientFee) {
 				continue
 			}
-			return nil, 0, errors.Wrap(err, "failed to confirm CCIP message")
+			return nil, 0, fmt.Errorf("failed to confirm CCIP message: %w", deployment.MaybeDataErr(err))
 		}
 
 		return tx, blockNum, nil

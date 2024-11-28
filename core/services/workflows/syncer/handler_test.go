@@ -63,7 +63,7 @@ func Test_Handler(t *testing.T) {
 		}
 		mockORM.EXPECT().GetSecretsURLByHash(matches.AnyContext, giveHash).Return(giveURL, nil)
 		mockORM.EXPECT().Update(matches.AnyContext, giveHash, "contents").Return(int64(1), nil)
-		h := newEventHandler(lggr, mockORM, fetcher, nil, nil, nil, emitter, nil)
+		h := NewEventHandler(lggr, mockORM, fetcher, nil, nil, emitter, nil)
 		err = h.Handle(ctx, giveEvent)
 		require.NoError(t, err)
 	})
@@ -77,7 +77,7 @@ func Test_Handler(t *testing.T) {
 			return []byte("contents"), nil
 		}
 
-		h := newEventHandler(lggr, mockORM, fetcher, nil, nil, nil, emitter, nil)
+		h := NewEventHandler(lggr, mockORM, fetcher, nil, nil, emitter, nil)
 		err := h.Handle(ctx, giveEvent)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "event type unsupported")
@@ -86,7 +86,7 @@ func Test_Handler(t *testing.T) {
 	t.Run("fails to get secrets url", func(t *testing.T) {
 		mockORM := mocks.NewORM(t)
 		ctx := testutils.Context(t)
-		h := newEventHandler(lggr, mockORM, nil, nil, nil, nil, emitter, nil)
+		h := NewEventHandler(lggr, mockORM, nil, nil, nil, emitter, nil)
 		giveURL := "https://original-url.com"
 		giveBytes, err := crypto.Keccak256([]byte(giveURL))
 		require.NoError(t, err)
@@ -126,7 +126,7 @@ func Test_Handler(t *testing.T) {
 			return nil, assert.AnError
 		}
 		mockORM.EXPECT().GetSecretsURLByHash(matches.AnyContext, giveHash).Return(giveURL, nil)
-		h := newEventHandler(lggr, mockORM, fetcher, nil, nil, nil, emitter, nil)
+		h := NewEventHandler(lggr, mockORM, fetcher, nil, nil, emitter, nil)
 		err = h.Handle(ctx, giveEvent)
 		require.Error(t, err)
 		require.ErrorIs(t, err, assert.AnError)
@@ -153,7 +153,7 @@ func Test_Handler(t *testing.T) {
 		}
 		mockORM.EXPECT().GetSecretsURLByHash(matches.AnyContext, giveHash).Return(giveURL, nil)
 		mockORM.EXPECT().Update(matches.AnyContext, giveHash, "contents").Return(0, assert.AnError)
-		h := newEventHandler(lggr, mockORM, fetcher, nil, nil, nil, emitter, nil)
+		h := NewEventHandler(lggr, mockORM, fetcher, nil, nil, emitter, nil)
 		err = h.Handle(ctx, giveEvent)
 		require.Error(t, err)
 		require.ErrorIs(t, err, assert.AnError)
@@ -196,13 +196,13 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 		copy(wfID, b)
 
 		paused := WorkflowRegistryWorkflowRegisteredV1{
-			Status:        uint8(1),
-			WorkflowID:    [32]byte(wfID),
-			WorkflowOwner: wfOwner,
-			WorkflowName:  "workflow-name",
-			BinaryURL:     binaryURL,
-			ConfigURL:     configURL,
-			SecretsURL:    secretsURL,
+			Status:       uint8(1),
+			WorkflowID:   [32]byte(wfID),
+			Owner:        wfOwner,
+			WorkflowName: "workflow-name",
+			BinaryURL:    binaryURL,
+			ConfigURL:    configURL,
+			SecretsURL:   secretsURL,
 		}
 
 		h := &eventHandler{
@@ -252,13 +252,13 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 		copy(wfID, b)
 
 		active := WorkflowRegistryWorkflowRegisteredV1{
-			Status:        uint8(0),
-			WorkflowID:    [32]byte(wfID),
-			WorkflowOwner: wfOwner,
-			WorkflowName:  "workflow-name",
-			BinaryURL:     binaryURL,
-			ConfigURL:     configURL,
-			SecretsURL:    secretsURL,
+			Status:       uint8(0),
+			WorkflowID:   [32]byte(wfID),
+			Owner:        wfOwner,
+			WorkflowName: "workflow-name",
+			BinaryURL:    binaryURL,
+			ConfigURL:    configURL,
+			SecretsURL:   secretsURL,
 		}
 
 		er := newEngineRegistry()
@@ -323,13 +323,13 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		copy(wfID, b)
 
 		active := WorkflowRegistryWorkflowRegisteredV1{
-			Status:        uint8(0),
-			WorkflowID:    [32]byte(wfID),
-			WorkflowOwner: wfOwner,
-			WorkflowName:  "workflow-name",
-			BinaryURL:     binaryURL,
-			ConfigURL:     configURL,
-			SecretsURL:    secretsURL,
+			Status:       uint8(0),
+			WorkflowID:   [32]byte(wfID),
+			Owner:        wfOwner,
+			WorkflowName: "workflow-name",
+			BinaryURL:    binaryURL,
+			ConfigURL:    configURL,
+			SecretsURL:   secretsURL,
 		}
 
 		er := newEngineRegistry()
@@ -420,13 +420,13 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 		copy(newWFID, b)
 
 		active := WorkflowRegistryWorkflowRegisteredV1{
-			Status:        uint8(0),
-			WorkflowID:    [32]byte(wfID),
-			WorkflowOwner: wfOwner,
-			WorkflowName:  "workflow-name",
-			BinaryURL:     binaryURL,
-			ConfigURL:     configURL,
-			SecretsURL:    secretsURL,
+			Status:       uint8(0),
+			WorkflowID:   [32]byte(wfID),
+			Owner:        wfOwner,
+			WorkflowName: "workflow-name",
+			BinaryURL:    binaryURL,
+			ConfigURL:    configURL,
+			SecretsURL:   secretsURL,
 		}
 
 		er := newEngineRegistry()

@@ -15,10 +15,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/hashutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
@@ -47,9 +45,8 @@ type messagingTestCaseOutput struct {
 
 func Test_CCIPMessaging(t *testing.T) {
 	// Setup 2 chains and a single lane.
-	lggr := logger.TestLogger(t)
 	ctx := changeset.Context(t)
-	e, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr, nil)
+	e := changeset.NewMemoryEnvironmentWithJobsAndContracts(t, logger.TestLogger(t), 2, 4, nil)
 
 	state, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
