@@ -493,6 +493,16 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     }
   }
 
+  /// @notice Signals which version of the pool interface is supported
+  function supportsInterface(
+    bytes4 interfaceId
+  ) public pure virtual override returns (bool) {
+    return interfaceId == type(IReceiver).interfaceId ||
+           interfaceId == type(IFeeQuoter).interfaceId ||
+           interfaceId == type(ITypeAndVersion).interfaceId ||
+           interfaceId == type(IERC165).interfaceId;
+  }
+
   /// @inheritdoc IReceiver
   /// @notice Handles the report containing price feeds and updates the internal price storage.
   /// @dev This function is called to process incoming price feed data.
