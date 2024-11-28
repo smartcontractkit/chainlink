@@ -599,7 +599,7 @@ func Test_Handler_SecretsFor(t *testing.T) {
 	expectedSecrets := map[string]string{
 		"Foo": "Bar",
 	}
-	assert.Equal(t, gotSecrets, expectedSecrets)
+	assert.Equal(t, expectedSecrets, gotSecrets)
 }
 
 func Test_Handler_SecretsFor_RefreshesSecrets(t *testing.T) {
@@ -660,7 +660,7 @@ func Test_Handler_SecretsFor_RefreshesSecrets(t *testing.T) {
 	expectedSecrets := map[string]string{
 		"Baz": "Bar",
 	}
-	assert.Equal(t, gotSecrets, expectedSecrets)
+	assert.Equal(t, expectedSecrets, gotSecrets)
 }
 
 func Test_Handler_SecretsFor_RefreshLogic(t *testing.T) {
@@ -722,7 +722,7 @@ func Test_Handler_SecretsFor_RefreshLogic(t *testing.T) {
 	expectedSecrets := map[string]string{
 		"Foo": "Bar",
 	}
-	assert.Equal(t, gotSecrets, expectedSecrets)
+	assert.Equal(t, expectedSecrets, gotSecrets)
 
 	// Now stub out an unparseable response, since we already fetched it recently above, we shouldn't need to refetch
 	// SecretsFor should still succeed.
@@ -731,12 +731,12 @@ func Test_Handler_SecretsFor_RefreshLogic(t *testing.T) {
 	gotSecrets, err = h.SecretsFor(testutils.Context(t), workflowOwner, workflowName, workflowID)
 	require.NoError(t, err)
 
-	assert.Equal(t, gotSecrets, expectedSecrets)
+	assert.Equal(t, expectedSecrets, gotSecrets)
 
 	// Now advance so that we hit the freshness limit
 	clock.Advance(48 * time.Hour)
 
-	gotSecrets, err = h.SecretsFor(testutils.Context(t), workflowOwner, workflowName, workflowID)
+	_, err = h.SecretsFor(testutils.Context(t), workflowOwner, workflowName, workflowID)
 	assert.ErrorContains(t, err, "unexpected end of JSON input")
 }
 

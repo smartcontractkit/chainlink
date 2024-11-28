@@ -204,7 +204,7 @@ func (h *eventHandler) SecretsFor(ctx context.Context, workflowOwner, workflowNa
 	if err != nil {
 		// The workflow record was found, but secrets_id was empty.
 		// Let's just stub out the response.
-		if errors.Is(err, EmptySecrets) {
+		if errors.Is(err, ErrEmptySecrets) {
 			return map[string]string{}, nil
 		}
 
@@ -213,10 +213,20 @@ func (h *eventHandler) SecretsFor(ctx context.Context, workflowOwner, workflowNa
 
 	lastFetchedAt, ok := h.lastFetchedAtMap.Get(secretsURLHash)
 	if !ok || h.clock.Now().Sub(lastFetchedAt) > h.secretsFreshnessDuration {
-		updatedSecrets, err := h.refreshSecrets(ctx, workflowOwner, workflowName, workflowID, secretsURLHash)
-		if err != nil {
-			h.lggr.Errorf("could not refresh secrets: proceeding with stale secrets: %w", err)
-			// TODO: log custom message
+		updatedSecrets, innerErr := h.refreshSecrets(ctx, workflowOwner, workflowName, workflowID, secretsURLHash)
+		if innerErr != nil {
+			msg := fmt.Sprintf("could not refresh secrets: proceeding with stale secrets for workflowID %s: %s", workflowID, innerErr)
+			h.lggr.Error(msg)
+			logCustMsg(
+				ctx,
+				h.emitter.With(
+					platform.KeyWorkflowID, workflowID,
+					platform.KeyWorkflowName, workflowName,
+					platform.KeyWorkflowOwner, workflowOwner,
+				),
+				msg,
+				h.lggr,
+			)
 		} else {
 			secretsPayload = updatedSecrets
 		}

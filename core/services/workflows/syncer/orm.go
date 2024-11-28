@@ -137,7 +137,7 @@ type joinRecord struct {
 	Contents       sql.NullString `db:"wsec_contents"`
 }
 
-var EmptySecrets = errors.New("secrets field is empty")
+var ErrEmptySecrets = errors.New("secrets field is empty")
 
 // GetContentsByWorkflowID joins the workflow_secrets on the workflow_specs table and gets
 // the associated secrets contents.
@@ -158,7 +158,7 @@ func (orm *orm) GetContentsByWorkflowID(ctx context.Context, workflowID string) 
 	}
 
 	if !jr.SecretsID.Valid {
-		return "", "", EmptySecrets
+		return "", "", ErrEmptySecrets
 	}
 
 	return jr.SecretsURLHash.String, jr.Contents.String, nil

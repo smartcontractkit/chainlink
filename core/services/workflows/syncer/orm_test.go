@@ -205,7 +205,7 @@ func Test_GetContentsByWorkflowID(t *testing.T) {
 
 	// workflow_id is missing
 	_, _, err := orm.GetContentsByWorkflowID(ctx, "doesnt-exist")
-	assert.ErrorContains(t, err, "no rows in result set")
+	require.ErrorContains(t, err, "no rows in result set")
 
 	// secrets_id is nil; should return EmptySecrets
 	workflowID := "aWorkflowID"
@@ -223,7 +223,7 @@ func Test_GetContentsByWorkflowID(t *testing.T) {
 	require.NoError(t, err)
 
 	_, _, err = orm.GetContentsByWorkflowID(ctx, workflowID)
-	assert.ErrorIs(t, err, EmptySecrets)
+	require.ErrorIs(t, err, ErrEmptySecrets)
 
 	// retrieves the artifact if provided
 	giveURL := "https://example.com"
