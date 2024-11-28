@@ -15,6 +15,7 @@ import (
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
@@ -224,7 +225,18 @@ func NewLocalDevEnvironment(
 	for _, chain := range allChains {
 		timelocksPerChain[chain] = state.Chains[chain].Timelock
 		tokenInfo := tokenConfig.GetTokenInfo(env.Logger, state.Chains[chain].LinkToken, state.Chains[chain].Weth9)
-		ocrParams[chain] = changeset.DefaultOCRParams(feedSel, tokenInfo)
+
+		params := changeset.DefaultOCRParams(feedSel, tokenInfo)
+
+		if tCfg.IsFeeBoosting {
+			// Override specific parameters for fee boosting scenarios
+			params.ExecuteOffChainConfig.RelativeBoostPerWaitHour = 10
+			params.CommitOffChainConfig.TokenPriceBatchWriteFrequency = *config.MustNewDuration(1_000_000 * time.Hour)
+			params.CommitOffChainConfig.RemoteGasPriceBatchWriteFrequency = *config.MustNewDuration(1_000_000 * time.Hour)
+			params.CommitOffChainConfig.TokenInfo = nil
+		}
+
+		ocrParams[chain] = params
 	}
 	// Deploy second set of changesets to deploy and configure the CCIP contracts.
 	env, err = commonchangeset.ApplyChangesets(t, env, timelocksPerChain, []commonchangeset.ChangesetApplication{

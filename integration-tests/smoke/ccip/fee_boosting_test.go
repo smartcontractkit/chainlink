@@ -7,13 +7,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
-
 	"cosmossdk.io/errors"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/test-go/testify/require"
 	"golang.org/x/exp/maps"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -21,211 +24,172 @@ import (
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-type feeboostTestCase struct {
-	t                      *testing.T
-	sender                 []byte
-	deployedEnv            changeset.DeployedEnv
-	onchainState           changeset.CCIPOnChainState
-	priceFeedPrices        priceFeedPrices
-	sourceChain, destChain uint64
-}
-
-type priceFeedPrices struct {
-	linkPrice *big.Int
-	wethPrice *big.Int
-}
-
 var (
-	initialPrices = changeset.InitialPrices{
-		LinkPrice: deployment.E18Mult(5),
-		WethPrice: deployment.E18Mult(9),
-		GasPrice:  changeset.ToPackedFee(big.NewInt(1.8e11), big.NewInt(0)),
-	}
+	linkPrice = deployment.E18Mult(100)
+	wethPrice = deployment.E18Mult(4000)
 )
 
 func Test_CCIPFeeBoosting(t *testing.T) {
-	setupTestEnv := func(t *testing.T, numChains int) (changeset.DeployedEnv, changeset.CCIPOnChainState, []uint64) {
-		e, _, _ := testsetups.NewLocalDevEnvironment(t, logger.TestLogger(t), deployment.E18Mult(5), deployment.E18Mult(9), nil)
+	e, _, _ := testsetups.NewLocalDevEnvironment(t, logger.TestLogger(t), linkPrice, wethPrice, &changeset.TestConfigs{
+		IsFeeBoosting: true,
+	})
+	state, err := changeset.LoadOnchainState(e.Env)
+	require.NoError(t, err)
 
-		state, err := changeset.LoadOnchainState(e.Env)
-		require.NoError(t, err)
+	allChainSelectors := maps.Keys(e.Env.Chains)
+	require.Len(t, allChainSelectors, 2)
+	sourceChain := allChainSelectors[0]
+	destChain := allChainSelectors[1]
+	t.Log("All chain selectors:", allChainSelectors,
+		", home chain selector:", e.HomeChainSel,
+		", feed chain selector:", e.FeedChainSel,
+		", source chain selector:", sourceChain,
+		", dest chain selector:", destChain,
+	)
 
-		allChainSelectors := maps.Keys(e.Env.Chains)
-		require.Len(t, allChainSelectors, numChains)
-		sourceChain := allChainSelectors[0]
-		destChain := allChainSelectors[1]
-		t.Log("All chain selectors:", allChainSelectors,
-			", home chain selector:", e.HomeChainSel,
-			", feed chain selector:", e.FeedChainSel,
-			", source chain selector:", sourceChain,
-			", dest chain selector:", destChain,
+	fetchedGasPriceDest, err := e.Env.Chains[destChain].Client.SuggestGasPrice(tests.Context(t))
+	require.NoError(t, err)
+	originalGasPriceDestUSD := new(big.Int).Div(
+		new(big.Int).Mul(fetchedGasPriceDest, wethPrice),
+		big.NewInt(1e18),
+	)
+	t.Log("Gas price on dest chain (USD):", originalGasPriceDestUSD)
+
+	// Adjust destination gas price to 95% of the current value
+	adjustedGasPriceDest :=
+		new(big.Int).Div(
+			new(big.Int).Mul(originalGasPriceDestUSD, big.NewInt(95)),
+			big.NewInt(100),
 		)
+	t.Log("Adjusted gas price on dest chain:", adjustedGasPriceDest)
 
-		laneCfg := changeset.LaneConfig{
-			SourceSelector:        sourceChain,
-			DestSelector:          destChain,
-			InitialPricesBySource: initialPrices,
-			FeeQuoterDestChain:    changeset.DefaultFeeQuoterDestChainConfig(),
-		}
-
-		require.NoError(t, changeset.AddLane(e.Env, state, laneCfg, false))
-		return e, state, allChainSelectors
+	initialPrices := changeset.InitialPrices{
+		LinkPrice: linkPrice,
+		WethPrice: wethPrice,
+		GasPrice:  changeset.ToPackedFee(adjustedGasPriceDest, big.NewInt(0)),
 	}
 
-	e, state, chains := setupTestEnv(t, 2)
+	laneCfg := changeset.LaneConfig{
+		SourceSelector:        sourceChain,
+		DestSelector:          destChain,
+		InitialPricesBySource: initialPrices,
+		FeeQuoterDestChain:    changeset.DefaultFeeQuoterDestChainConfig(),
+	}
+	require.NoError(t, changeset.AddLane(e.Env, state, laneCfg, false))
 
-	t.Run("boost needed due to WETH price increase (also covering gas price increase)", func(t *testing.T) {
-		runFeeboostTestCase(feeboostTestCase{
-			t:            t,
-			sender:       common.LeftPadBytes(e.Env.Chains[chains[0]].DeployerKey.From.Bytes(), 32),
-			deployedEnv:  e,
-			onchainState: state,
-			priceFeedPrices: priceFeedPrices{
-				wethPrice: new(big.Int).Mul(
-					big.NewInt(99),
-					new(big.Int).Exp(big.NewInt(10), big.NewInt(17), nil),
-				), // increase from 9e18 to 9.9e18
-			},
-			sourceChain: chains[0],
-			destChain:   chains[1],
-		})
+	fmt.Printf("Changes prices in chain %d for token %s\n", sourceChain, state.Chains[destChain].LinkToken.Address())
+	err = updateTokensPrices(e, state, destChain, map[common.Address]*big.Int{
+		state.Chains[destChain].LinkToken.Address(): linkPrice,
+		state.Chains[destChain].Weth9.Address():     wethPrice,
 	})
-
-	// t.Run("boost needed due to LINK price decrease", func(t *testing.T) {
-	// 	runFeeboostTestCase(feeboostTestCase{
-	// 		t:            t,
-	// 		sender:       common.LeftPadBytes(e.Env.Chains[chains[0]].DeployerKey.From.Bytes(), 32),
-	// 		deployedEnv:  e,
-	// 		onchainState: state,
-	// 		priceFeedPrices: priceFeedPrices{
-	// 			linkPrice: big.NewInt(4.5e18), // decrease from 5e18 to 4.5e18
-	// 		},
-	// 		sourceChain: chains[0],
-	// 		destChain:   chains[1],
-	// 	})
-	// })
-}
-
-func runFeeboostTestCase(tc feeboostTestCase) {
-	// Set initial prices
-	// setPrices(tc, initialPrices.LinkPrice, initialPrices.WethPrice)
+	require.NoError(t, err)
 
 	startBlocks := make(map[uint64]*uint64)
 	expectedSeqNum := make(map[changeset.SourceDestPair]uint64)
 	expectedSeqNumExec := make(map[changeset.SourceDestPair][]uint64)
-	msgSentEvent := changeset.TestSendRequest(tc.t, tc.deployedEnv.Env, tc.onchainState, tc.sourceChain, tc.destChain, false, router.ClientEVM2AnyMessage{
-		Receiver:     common.LeftPadBytes(tc.onchainState.Chains[tc.destChain].Receiver.Address().Bytes(), 32),
+
+	latesthdr, err := e.Env.Chains[sourceChain].Client.HeaderByNumber(testcontext.Get(t), nil)
+	require.NoError(t, err)
+	block := latesthdr.Number.Uint64()
+	msgSentEvent := changeset.TestSendRequest(t, e.Env, state, sourceChain, destChain, false, router.ClientEVM2AnyMessage{
+		Receiver:     common.LeftPadBytes(state.Chains[destChain].Receiver.Address().Bytes(), 32),
 		Data:         []byte("message that needs fee boosting"),
 		TokenAmounts: nil,
 		FeeToken:     common.HexToAddress("0x0"),
 		ExtraArgs:    nil,
 	})
+	startBlocks[sourceChain] = &block
 	expectedSeqNum[changeset.SourceDestPair{
-		SourceChainSelector: tc.sourceChain,
-		DestChainSelector:   tc.destChain,
+		SourceChainSelector: sourceChain,
+		DestChainSelector:   destChain,
 	}] = msgSentEvent.SequenceNumber
 	expectedSeqNumExec[changeset.SourceDestPair{
-		SourceChainSelector: tc.sourceChain,
-		DestChainSelector:   tc.destChain,
+		SourceChainSelector: sourceChain,
+		DestChainSelector:   destChain,
 	}] = []uint64{msgSentEvent.SequenceNumber}
 
-	// Update prices
-	setPrices(tc, tc.priceFeedPrices.linkPrice, tc.priceFeedPrices.wethPrice)
+	err = updateGasPrice(e, state, sourceChain, destChain, originalGasPriceDestUSD)
+	require.NoError(t, err)
 
-	require.True(tc.t, willTriggerFeeBoosting(msgSentEvent, tc))
+	// Confirm gas prices are updated
+	srcFeeQuoter := state.Chains[sourceChain].FeeQuoter
+	err = changeset.ConfirmGasPriceUpdated(t, e.Env.Chains[destChain], srcFeeQuoter, 0, originalGasPriceDestUSD)
+	require.NoError(t, err)
+
+	// Confirm that fee boosting will be triggered
+	require.True(t, willTriggerFeeBoosting(t, msgSentEvent, state, sourceChain, destChain))
 
 	// hack
 	time.Sleep(30 * time.Second)
 	replayBlocks := make(map[uint64]uint64)
-	replayBlocks[tc.sourceChain] = 1
-	replayBlocks[tc.destChain] = 1
-	changeset.ReplayLogs(tc.t, tc.deployedEnv.Env.Offchain, replayBlocks)
+	replayBlocks[sourceChain] = 1
+	replayBlocks[destChain] = 1
+	changeset.ReplayLogs(t, e.Env.Offchain, replayBlocks)
 
-	changeset.ConfirmCommitForAllWithExpectedSeqNums(tc.t, tc.deployedEnv.Env, tc.onchainState, expectedSeqNum, startBlocks)
-	changeset.ConfirmExecWithSeqNrsForAll(tc.t, tc.deployedEnv.Env, tc.onchainState, expectedSeqNumExec, startBlocks)
+	// Confirm that the message is committed and executed
+	changeset.ConfirmCommitForAllWithExpectedSeqNums(t, e.Env, state, expectedSeqNum, startBlocks)
+	changeset.ConfirmExecWithSeqNrsForAll(t, e.Env, state, expectedSeqNumExec, startBlocks)
 }
 
-func setPrices(tc feeboostTestCase, linkPrice, wethPrice *big.Int) {
-	feedSelector := tc.deployedEnv.FeedChainSel
-
-	if linkPrice != nil {
-		require.NoError(tc.t, tc.updatePrice(changeset.LinkSymbol, linkPrice))
-		require.NoError(tc.t, changeset.ConfirmPriceUpdate(
-			tc.t,
-			tc.deployedEnv.Env.Chains[feedSelector],
-			tc.onchainState,
-			changeset.LinkSymbol,
-			linkPrice,
-		))
-	}
-
-	if wethPrice != nil {
-		require.NoError(tc.t, tc.updatePrice(changeset.WethSymbol, wethPrice))
-		require.NoError(tc.t, changeset.ConfirmPriceUpdate(
-			tc.t,
-			tc.deployedEnv.Env.Chains[feedSelector],
-			tc.onchainState,
-			changeset.WethSymbol,
-			wethPrice,
-		))
-	}
-}
-
-func willTriggerFeeBoosting(msgSentEvent *onramp.OnRampCCIPMessageSent, tc feeboostTestCase) bool {
-	msg := ConvertToMessage(msgSentEvent.Message)
-	fmt.Println("\n=== Fee Boosting Analysis ===")
-	fmt.Printf("Message ID: %x\n", msg.Header.MessageID)
+func willTriggerFeeBoosting(
+	t *testing.T,
+	msgSentEvent *onramp.OnRampCCIPMessageSent,
+	state changeset.CCIPOnChainState,
+	srcChain, destChain uint64) bool {
+	msg := convertToMessage(msgSentEvent.Message)
+	t.Log("\n=== Fee Boosting Analysis ===")
+	t.Logf("Src Chain: %d", msg.Header.SourceChainSelector)
+	t.Logf("Dest Chain: %d", msg.Header.DestChainSelector)
 
 	ep := ccipevm.NewGasEstimateProvider()
-	chainState, exists := tc.onchainState.Chains[tc.sourceChain]
-	require.True(tc.t, exists)
+	chainState, exists := state.Chains[srcChain]
+	require.True(t, exists)
 	feeQuoter := chainState.FeeQuoter
+
+	premium, err := feeQuoter.GetPremiumMultiplierWeiPerEth(&bind.CallOpts{Context: context.Background()}, chainState.Weth9.Address())
+	require.NoError(t, err)
+	t.Logf("Premium: %d", premium)
 
 	// Get LINK price
 	linkPrice, err := feeQuoter.GetTokenPrice(&bind.CallOpts{Context: context.Background()}, chainState.LinkToken.Address())
-	require.NoError(tc.t, err)
-	fmt.Printf("LINK Price: %s\n", linkPrice.Value.String())
+	require.NoError(t, err)
+	t.Logf("LINK Price: %s", linkPrice.Value.String())
+	t.Logf("Juels in message: %s", msg.FeeValueJuels.String())
 
-	// Calculate fee in native token terms
+	// Calculate fee in USD token
 	fee := new(big.Int).Div(
 		new(big.Int).Mul(linkPrice.Value, msg.FeeValueJuels.Int),
 		new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil),
 	)
-	fmt.Printf("Fee paid (in native token): %s\n", fee.String())
+	t.Logf("Fee paid (in USD token): %s", fee.String())
 
 	// Calculate message gas
 	messageGas := new(big.Int).SetUint64(ep.CalculateMessageMaxGas(msg))
-	fmt.Printf("Estimated message gas: %s\n", messageGas.String())
+	t.Logf("Estimated message gas: %s", messageGas.String())
 
 	// Get token and gas prices
 	nativeTokenAddress := chainState.Weth9.Address()
-	tokenAndGasPrice, err := feeQuoter.GetTokenAndGasPrices(&bind.CallOpts{Context: context.Background()}, nativeTokenAddress, tc.destChain)
-	require.NoError(tc.t, err)
-	fmt.Printf("Raw gas price (uint224): %s\n", tokenAndGasPrice.GasPriceValue.String())
+	tokenAndGasPrice, err := feeQuoter.GetTokenAndGasPrices(&bind.CallOpts{Context: context.Background()}, nativeTokenAddress, destChain)
+	require.NoError(t, err)
+	t.Logf("Raw gas price (uint224): %s for chain: %d", tokenAndGasPrice.GasPriceValue.String(), destChain)
 
 	// Extract uint112 gas price
-	gasPrice, err := ConvertGasPriceToUint112(tokenAndGasPrice.GasPriceValue)
-	require.NoError(tc.t, err)
-	fmt.Printf("Extracted gas price (uint112): %s\n", gasPrice.String())
-	fmt.Printf("Native token price: %s\n", tokenAndGasPrice.TokenPrice.String())
-
-	// Calculate execution fee
-	tmp := new(big.Int).Mul(gasPrice, tokenAndGasPrice.TokenPrice)
-	executionFee := tmp.Div(tmp, big.NewInt(1e18))
-	fmt.Printf("Execution fee per gas: %s\n", executionFee.String())
+	gasPrice, err := convertGasPriceToUint112(tokenAndGasPrice.GasPriceValue)
+	require.NoError(t, err)
+	t.Logf("Extracted gas price (uint112): %s", gasPrice.String())
+	t.Logf("Native token price: %s", tokenAndGasPrice.TokenPrice.String())
 
 	// Calculate total execution cost
-	execCost := new(big.Int).Mul(messageGas, executionFee)
-	fmt.Printf("Total execution cost: %s\n", execCost.String())
+	execCost := new(big.Int).Mul(messageGas, gasPrice)
+	t.Logf("Total execution cost: %s", execCost.String())
 
 	// Check if fee boosting will trigger
 	willBoost := execCost.Cmp(fee) > 0
-	fmt.Printf("\nWill fee boosting trigger? %v\n", willBoost)
-	fmt.Printf("Execution cost / Fee ratio: %.2f\n",
+	t.Logf("\nWill fee boosting trigger? %v", willBoost)
+	t.Logf("Execution cost / Fee ratio: %.2f",
 		new(big.Float).Quo(
 			new(big.Float).SetInt(execCost),
 			new(big.Float).SetInt(fee),
@@ -235,7 +199,7 @@ func willTriggerFeeBoosting(msgSentEvent *onramp.OnRampCCIPMessageSent, tc feebo
 	return execCost.Cmp(fee) > 0
 }
 
-func ConvertGasPriceToUint112(gasPrice *big.Int) (*big.Int, error) {
+func convertGasPriceToUint112(gasPrice *big.Int) (*big.Int, error) {
 	// Create a mask for uint112 (112 bits of 1s)
 	mask := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 112), big.NewInt(1))
 
@@ -245,7 +209,7 @@ func ConvertGasPriceToUint112(gasPrice *big.Int) (*big.Int, error) {
 	return result, nil
 }
 
-func ConvertToMessage(msg onramp.InternalEVM2AnyRampMessage) cciptypes.Message {
+func convertToMessage(msg onramp.InternalEVM2AnyRampMessage) cciptypes.Message {
 	// Convert header
 	header := cciptypes.RampMessageHeader{
 		MessageID:           cciptypes.Bytes32(msg.Header.MessageId),
@@ -282,31 +246,58 @@ func ConvertToMessage(msg onramp.InternalEVM2AnyRampMessage) cciptypes.Message {
 	}
 }
 
-func (tc *feeboostTestCase) updatePrice(symbol changeset.TokenSymbol, price *big.Int) error {
-	chainSelector := tc.deployedEnv.FeedChainSel
-	chainState, exists := tc.onchainState.Chains[chainSelector]
+func updateGasPrice(env changeset.DeployedEnv, state changeset.CCIPOnChainState, srcChain, destChain uint64, gasPrice *big.Int) error {
+	chainState, exists := state.Chains[srcChain]
 	if !exists {
-		return fmt.Errorf("chain state not found for selector: %d", chainSelector)
+		return fmt.Errorf("chain state not found for selector: %d", srcChain)
 	}
 
-	feed, exists := chainState.USDFeeds[symbol]
+	feeQuoter := chainState.FeeQuoter
+	// Update gas price
+	auth := env.Env.Chains[srcChain].DeployerKey
+	tx, err := feeQuoter.UpdatePrices(auth, fee_quoter.InternalPriceUpdates{
+		TokenPriceUpdates: nil,
+		GasPriceUpdates: []fee_quoter.InternalGasPriceUpdate{
+			{
+				DestChainSelector: destChain,
+				UsdPerUnitGas:     gasPrice,
+			},
+		},
+	})
+	if err != nil {
+		return errors.Wrapf(err, "updating gas price on chain %d", srcChain)
+	}
+	if _, err := deployment.ConfirmIfNoError(env.Env.Chains[srcChain], tx, err); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func updateTokensPrices(env changeset.DeployedEnv, state changeset.CCIPOnChainState, chain uint64, tokenPrices map[common.Address]*big.Int) error {
+	chainState, exists := state.Chains[chain]
 	if !exists {
-		return fmt.Errorf("feed not found for token symbol %s on chain %d", symbol, chainSelector)
+		return fmt.Errorf("chain state not found for selector: %d", chain)
 	}
 
-	// Create mock aggregator instance
-	aggr, err := mock_v3_aggregator_contract.NewMockV3AggregatorContract(feed.Address(), tc.deployedEnv.Env.Chains[chainSelector].Client)
-	if err != nil {
-		return errors.Wrapf(err, "creating aggregator instance for %s on chain %d", symbol, chainSelector)
+	feeQuoter := chainState.FeeQuoter
+	// Update token prices
+	auth := env.Env.Chains[chain].DeployerKey
+	tokenPricesUpdates := make([]fee_quoter.InternalTokenPriceUpdate, 0, len(tokenPrices))
+	for token, price := range tokenPrices {
+		tokenPricesUpdates = append(tokenPricesUpdates, fee_quoter.InternalTokenPriceUpdate{
+			SourceToken: token,
+			UsdPerToken: price,
+		})
 	}
-
-	// Update price
-	auth := tc.deployedEnv.Env.Chains[chainSelector].DeployerKey
-	tx, err := aggr.UpdateAnswer(auth, price)
+	tx, err := feeQuoter.UpdatePrices(auth, fee_quoter.InternalPriceUpdates{
+		TokenPriceUpdates: tokenPricesUpdates,
+		GasPriceUpdates:   nil,
+	})
 	if err != nil {
-		return errors.Wrapf(err, "updating %s price on chain %d", symbol, chainSelector)
+		return errors.Wrapf(err, "updating token prices on chain %d", chain)
 	}
-	if _, err := deployment.ConfirmIfNoError(tc.deployedEnv.Env.Chains[tc.sourceChain], tx, err); err != nil {
+	if _, err := deployment.ConfirmIfNoError(env.Env.Chains[chain], tx, err); err != nil {
 		return err
 	}
 
