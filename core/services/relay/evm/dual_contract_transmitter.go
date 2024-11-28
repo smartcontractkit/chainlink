@@ -71,7 +71,7 @@ func NewOCRDualContractTransmitter(
 		transmittedEventSig: transmitted.ID,
 		lp:                  lp,
 		contractReader:      caller,
-		lggr:                logger.Named(lggr, "OCRContractTransmitter"),
+		lggr:                logger.Named(lggr, "OCRDualContractTransmitter"),
 		transmitterOptions: &transmitterOps{
 			reportToEvmTxMeta: reportToEvmTxMetaNoop,
 			excludeSigs:       false,
@@ -125,7 +125,9 @@ func (oc *dualContractTransmitter) Transmit(ctx context.Context, reportCtx ocrty
 		return errors.Wrap(err, "abi.Pack failed")
 	}
 
-	transactionErr := errors.Wrap(oc.transmitter.CreateEthTransaction(ctx, oc.contractAddress, payload, txMeta), "failed to send Eth transaction")
+	transactionErr := errors.Wrap(oc.transmitter.CreateEthTransaction(ctx, oc.contractAddress, payload, txMeta), "failed to send primary Eth transaction")
+
+	oc.lggr.Debugw("Created primary transaction", "error", transactionErr)
 
 	// Secondary transmission
 	secondaryPayload, err := oc.dualTransmissionABI.Pack("transmitSecondary", rawReportCtx, []byte(report), rs, ss, vs)
@@ -134,7 +136,7 @@ func (oc *dualContractTransmitter) Transmit(ctx context.Context, reportCtx ocrty
 	}
 
 	err = errors.Wrap(oc.transmitter.CreateSecondaryEthTransaction(ctx, secondaryPayload, txMeta), "failed to send secondary Eth transaction")
-
+	oc.lggr.Debugw("Created secondary transaction", "error", err)
 	return errors2.Join(transactionErr, err)
 }
 
