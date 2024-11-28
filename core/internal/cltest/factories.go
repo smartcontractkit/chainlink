@@ -319,7 +319,7 @@ func MustGenerateRandomKeyState(_ testing.TB) ethkey.State {
 }
 
 func MustInsertHead(t *testing.T, ds sqlutil.DataSource, number int64) *evmtypes.Head {
-	h := evmtypes.NewHead(big.NewInt(number), evmutils.NewHash(), evmutils.NewHash(), 0, ubig.New(&FixtureChainID))
+	h := evmtypes.NewHead(big.NewInt(number), evmutils.NewHash(), evmutils.NewHash(), ubig.New(&FixtureChainID))
 	horm := headtracker.NewORM(FixtureChainID, ds)
 
 	err := horm.IdempotentInsertHead(testutils.Context(t), &h)

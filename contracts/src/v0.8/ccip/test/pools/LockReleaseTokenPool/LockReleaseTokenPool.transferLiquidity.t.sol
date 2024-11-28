@@ -11,8 +11,9 @@ contract LockReleaseTokenPool_transferLiquidity is LockReleaseTokenPoolSetup {
   function setUp() public virtual override {
     super.setUp();
 
-    s_oldLockReleaseTokenPool =
-      new LockReleaseTokenPool(s_token, new address[](0), address(s_mockRMN), true, address(s_sourceRouter));
+    s_oldLockReleaseTokenPool = new LockReleaseTokenPool(
+      s_token, DEFAULT_TOKEN_DECIMALS, new address[](0), address(s_mockRMN), true, address(s_sourceRouter)
+    );
 
     deal(address(s_token), address(s_oldLockReleaseTokenPool), s_amount);
   }

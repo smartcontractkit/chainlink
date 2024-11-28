@@ -1,0 +1,7 @@
+WorkflowRegistry.getWorkflowMetadata
+├── when the workflow exists with the owner and name
+│   └── it returns the correct metadata
+├── when the workflow does not exist
+│   └── it reverts with WorkflowDoesNotExist
+└── when the registry is locked
+    └── it should behave the same as when the registry is not locked

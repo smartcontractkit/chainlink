@@ -52,7 +52,7 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
     assertEq(s_mockUSDC.s_nonce() - 1, nonce);
   }
 
-  function test_Fuzz_LockOrBurn_Success(bytes32 destinationReceiver, uint256 amount) public {
+  function testFuzz_LockOrBurn_Success(bytes32 destinationReceiver, uint256 amount) public {
     vm.assume(destinationReceiver != bytes32(0));
     amount = bound(amount, 1, _getOutboundRateLimiterConfig().capacity);
     s_token.transfer(address(s_usdcTokenPool), amount);
@@ -93,7 +93,7 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
     assertEq(poolReturnDataV1.destTokenAddress, abi.encode(DEST_CHAIN_USDC_TOKEN));
   }
 
-  function test_Fuzz_LockOrBurnWithAllowList_Success(bytes32 destinationReceiver, uint256 amount) public {
+  function testFuzz_LockOrBurnWithAllowList_Success(bytes32 destinationReceiver, uint256 amount) public {
     vm.assume(destinationReceiver != bytes32(0));
     amount = bound(amount, 1, _getOutboundRateLimiterConfig().capacity);
     s_token.transfer(address(s_usdcTokenPoolWithAllowList), amount);
@@ -142,14 +142,13 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
     TokenPool.ChainUpdate[] memory chainUpdates = new TokenPool.ChainUpdate[](1);
     chainUpdates[0] = TokenPool.ChainUpdate({
       remoteChainSelector: wrongDomain,
-      remotePoolAddress: abi.encode(address(1)),
+      remotePoolAddresses: new bytes[](0),
       remoteTokenAddress: abi.encode(address(2)),
-      allowed: true,
       outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
       inboundRateLimiterConfig: _getInboundRateLimiterConfig()
     });
 
-    s_usdcTokenPool.applyChainUpdates(chainUpdates);
+    s_usdcTokenPool.applyChainUpdates(new uint64[](0), chainUpdates);
 
     uint256 amount = 1000;
     vm.startPrank(s_routerAllowedOnRamp);

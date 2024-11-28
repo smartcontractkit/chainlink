@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 

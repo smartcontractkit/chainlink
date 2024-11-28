@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -20,6 +21,7 @@ import (
 )
 
 func TestCommitStore(t *testing.T) {
+	ctx := tests.Context(t)
 	for _, versionStr := range []string{ccipdata.V1_2_0} {
 		lggr := logger.Test(t)
 		addr := cciptypes.Address(utils.RandomAddress().String())
@@ -27,12 +29,12 @@ func TestCommitStore(t *testing.T) {
 
 		lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 		versionFinder := newMockVersionFinder(ccipconfig.CommitStore, *semver.MustParse(versionStr), nil)
-		_, err := NewCommitStoreReader(lggr, versionFinder, addr, nil, lp)
+		_, err := NewCommitStoreReader(ctx, lggr, versionFinder, addr, nil, lp)
 		assert.NoError(t, err)
 
 		expFilterName := logpoller.FilterName(v1_2_0.ExecReportAccepts, addr)
 		lp.On("UnregisterFilter", mock.Anything, expFilterName).Return(nil)
-		err = CloseCommitStoreReader(lggr, versionFinder, addr, nil, lp)
+		err = CloseCommitStoreReader(ctx, lggr, versionFinder, addr, nil, lp)
 		assert.NoError(t, err)
 	}
 }

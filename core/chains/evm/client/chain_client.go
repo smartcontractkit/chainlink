@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"math/big"
 	"sync"
 	"time"
@@ -81,7 +82,7 @@ type Client interface {
 	SuggestGasPrice(ctx context.Context) (*big.Int, error)
 	SuggestGasTipCap(ctx context.Context) (*big.Int, error)
 	LatestBlockHeight(ctx context.Context) (*big.Int, error)
-	FeeHistory(ctx context.Context, blockCount uint64, rewardPercentiles []float64) (feeHistory *ethereum.FeeHistory, err error)
+	FeeHistory(ctx context.Context, blockCount uint64, lastBlock *big.Int, rewardPercentiles []float64) (feeHistory *ethereum.FeeHistory, err error)
 
 	HeaderByNumber(ctx context.Context, n *big.Int) (*types.Header, error)
 	HeaderByHash(ctx context.Context, h common.Hash) (*types.Header, error)
@@ -100,7 +101,7 @@ type chainClient struct {
 		*big.Int,
 		*RPCClient,
 	]
-	txSender     *commonclient.TransactionSender[*types.Transaction, *big.Int, *RPCClient]
+	txSender     *commonclient.TransactionSender[*types.Transaction, *SendTxResult, *big.Int, *RPCClient]
 	logger       logger.SugaredLogger
 	chainType    chaintype.ChainType
 	clientErrors evmconfig.ClientErrors
@@ -129,16 +130,12 @@ func NewChainClient(
 		deathDeclarationDelay,
 	)
 
-	classifySendError := func(tx *types.Transaction, err error) commonclient.SendTxReturnCode {
-		return ClassifySendError(err, clientErrors, logger.Sugared(logger.Nop()), tx, common.Address{}, chainType.IsL2())
-	}
-
-	txSender := commonclient.NewTransactionSender[*types.Transaction, *big.Int, *RPCClient](
+	txSender := commonclient.NewTransactionSender[*types.Transaction, *SendTxResult, *big.Int, *RPCClient](
 		lggr,
 		chainID,
 		chainFamily,
 		multiNode,
-		classifySendError,
+		NewSendTxResult,
 		0, // use the default value provided by the implementation
 	)
 
@@ -376,15 +373,20 @@ func (c *chainClient) PendingNonceAt(ctx context.Context, account common.Address
 }
 
 func (c *chainClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
+	var result *SendTxResult
 	if c.chainType == chaintype.ChainHedera {
 		activeRPC, err := c.multiNode.SelectRPC()
 		if err != nil {
 			return err
 		}
-		return activeRPC.SendTransaction(ctx, tx)
+		result = activeRPC.SendTransaction(ctx, tx)
+	} else {
+		result = c.txSender.SendTransaction(ctx, tx)
 	}
-	_, err := c.txSender.SendTransaction(ctx, tx)
-	return err
+	if result == nil {
+		return errors.New("SendTransaction failed: result is nil")
+	}
+	return result.Error()
 }
 
 func (c *chainClient) SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (commonclient.SendTxReturnCode, error) {
@@ -473,12 +475,12 @@ func (c *chainClient) LatestFinalizedBlock(ctx context.Context) (*evmtypes.Head,
 	return r.LatestFinalizedBlock(ctx)
 }
 
-func (c *chainClient) FeeHistory(ctx context.Context, blockCount uint64, rewardPercentiles []float64) (feeHistory *ethereum.FeeHistory, err error) {
+func (c *chainClient) FeeHistory(ctx context.Context, blockCount uint64, lastBlock *big.Int, rewardPercentiles []float64) (feeHistory *ethereum.FeeHistory, err error) {
 	r, err := c.multiNode.SelectRPC()
 	if err != nil {
 		return feeHistory, err
 	}
-	return r.FeeHistory(ctx, blockCount, rewardPercentiles)
+	return r.FeeHistory(ctx, blockCount, lastBlock, rewardPercentiles)
 }
 
 func (c *chainClient) CheckTxValidity(ctx context.Context, from common.Address, to common.Address, data []byte) *SendError {

@@ -2,23 +2,29 @@ package ccip
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 
 	"github.com/AlekSi/pointer"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 )
 
 const (
-	E2E_JD_IMAGE       = "E2E_JD_IMAGE"
-	E2E_JD_VERSION     = "E2E_JD_VERSION"
-	E2E_JD_GRPC        = "E2E_JD_GRPC"
-	E2E_JD_WSRPC       = "E2E_JD_WSRPC"
-	DEFAULT_DB_NAME    = "JD_DB"
-	DEFAULT_DB_VERSION = "14.1"
+	E2E_JD_IMAGE              = "E2E_JD_IMAGE"
+	E2E_JD_VERSION            = "E2E_JD_VERSION"
+	E2E_JD_GRPC               = "E2E_JD_GRPC"
+	E2E_JD_WSRPC              = "E2E_JD_WSRPC"
+	DEFAULT_DB_NAME           = "JD_DB"
+	DEFAULT_DB_VERSION        = "14.1"
+	E2E_RMN_RAGEPROXY_IMAGE   = "E2E_RMN_RAGEPROXY_IMAGE"
+	E2E_RMN_RAGEPROXY_VERSION = "E2E_RMN_RAGEPROXY_VERSION"
+	E2E_RMN_AFN2PROXY_IMAGE   = "E2E_RMN_AFN2PROXY_IMAGE"
+	E2E_RMN_AFN2PROXY_VERSION = "E2E_RMN_AFN2PROXY_VERSION"
 )
 
 var (
@@ -41,6 +47,38 @@ type RMNConfig struct {
 	ProxyVersion *string `toml:",omitempty"`
 	AFNImage     *string `toml:",omitempty"`
 	AFNVersion   *string `toml:",omitempty"`
+}
+
+func (r *RMNConfig) GetProxyImage() string {
+	image := pointer.GetString(r.ProxyImage)
+	if image == "" {
+		return ctfconfig.MustReadEnvVar_String(E2E_RMN_RAGEPROXY_IMAGE)
+	}
+	return image
+}
+
+func (r *RMNConfig) GetProxyVersion() string {
+	version := pointer.GetString(r.ProxyVersion)
+	if version == "" {
+		return ctfconfig.MustReadEnvVar_String(E2E_RMN_RAGEPROXY_VERSION)
+	}
+	return version
+}
+
+func (r *RMNConfig) GetAFN2ProxyImage() string {
+	image := pointer.GetString(r.AFNImage)
+	if image == "" {
+		return ctfconfig.MustReadEnvVar_String(E2E_RMN_AFN2PROXY_IMAGE)
+	}
+	return image
+}
+
+func (r *RMNConfig) GetAFN2ProxyVersion() string {
+	version := pointer.GetString(r.AFNVersion)
+	if version == "" {
+		return ctfconfig.MustReadEnvVar_String(E2E_RMN_AFN2PROXY_VERSION)
+	}
+	return version
 }
 
 type NodeConfig struct {
@@ -109,8 +147,11 @@ func (o *JDConfig) GetJDDBVersion() string {
 
 func (o *Config) Validate() error {
 	var chainIds []int64
+	var evmNetworks []blockchain.EVMNetwork
 	for _, net := range o.PrivateEthereumNetworks {
 		chainIds = append(chainIds, int64(net.EthereumChainConfig.ChainID))
+		// todo: fix it
+		evmNetworks = append()
 	}
 	homeChainSelector, err := strconv.ParseUint(pointer.GetString(o.HomeChainSelector), 10, 64)
 	if err != nil {
@@ -147,13 +188,17 @@ func (o *Config) GetFeedChainSelector() uint64 {
 	return selector
 }
 
-func IsSelectorValid(selector uint64, chainids []int64) (bool, error) {
+func IsSelectorValid(selector uint64, evmNetworks []blockchain.EVMNetwork) (bool, error) {
 	chainId, err := chainselectors.ChainIdFromSelector(selector)
 	if err != nil {
 		return false, err
 	}
-	for _, id := range chainids {
-		if id == int64(chainId) {
+	if chainId >= math.MaxInt64 {
+		return false, fmt.Errorf("chain id overflows int64: %d", chainId)
+	}
+	id := int64(chainId)
+	for _, net := range evmNetworks {
+		if net.ChainID == id {
 			return true, nil
 		}
 	}

@@ -40,7 +40,7 @@ import (
 )
 
 func newHead() evmtypes.Head {
-	return evmtypes.NewHead(big.NewInt(20), utils.NewHash(), utils.NewHash(), 1000, ubig.NewI(0))
+	return evmtypes.NewHead(big.NewInt(20), utils.NewHash(), utils.NewHash(), ubig.NewI(0))
 }
 
 func mockEstimator(t *testing.T) gas.EvmFeeEstimator {

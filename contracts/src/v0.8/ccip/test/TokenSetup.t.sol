@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
-import {BurnMintERC677} from "../../shared/token/ERC677/BurnMintERC677.sol";
-import {Client} from "../libraries/Client.sol";
+import {BurnMintERC20} from "../../shared/token/ERC20/BurnMintERC20.sol";
 import {BurnMintTokenPool} from "../pools/BurnMintTokenPool.sol";
 import {LockReleaseTokenPool} from "../pools/LockReleaseTokenPool.sol";
 import {TokenPool} from "../pools/TokenPool.sol";
 import {TokenAdminRegistry} from "../tokenAdminRegistry/TokenAdminRegistry.sol";
 import {MaybeRevertingBurnMintTokenPool} from "./helpers/MaybeRevertingBurnMintTokenPool.sol";
-import {RouterSetup} from "./router/RouterSetup.t.sol";
+import {RouterSetup} from "./router/Router/RouterSetup.t.sol";
 
 import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
@@ -27,14 +26,14 @@ contract TokenSetup is RouterSetup {
   mapping(address sourceToken => address destToken) internal s_destTokenBySourceToken;
 
   function _deploySourceToken(string memory tokenName, uint256 dealAmount, uint8 decimals) internal returns (address) {
-    BurnMintERC677 token = new BurnMintERC677(tokenName, tokenName, decimals, 0);
+    BurnMintERC20 token = new BurnMintERC20(tokenName, tokenName, decimals, 0, 0);
     s_sourceTokens.push(address(token));
     deal(address(token), OWNER, dealAmount);
     return address(token);
   }
 
   function _deployDestToken(string memory tokenName, uint256 dealAmount) internal returns (address) {
-    BurnMintERC677 token = new BurnMintERC677(tokenName, tokenName, 18, 0);
+    BurnMintERC20 token = new BurnMintERC20(tokenName, tokenName, 18, 0, 0);
     s_destTokens.push(address(token));
     deal(address(token), OWNER, dealAmount);
     return address(token);
@@ -46,8 +45,9 @@ contract TokenSetup is RouterSetup {
       router = address(s_destRouter);
     }
 
-    LockReleaseTokenPool pool =
-      new LockReleaseTokenPool(IERC20(token), new address[](0), address(s_mockRMN), true, router);
+    LockReleaseTokenPool pool = new LockReleaseTokenPool(
+      IERC20(token), DEFAULT_TOKEN_DECIMALS, new address[](0), address(s_mockRMN), true, router
+    );
 
     if (isSourcePool) {
       s_sourcePoolByToken[address(token)] = address(pool);
@@ -63,9 +63,10 @@ contract TokenSetup is RouterSetup {
       router = address(s_destRouter);
     }
 
-    BurnMintTokenPool pool =
-      new MaybeRevertingBurnMintTokenPool(BurnMintERC677(token), new address[](0), address(s_mockRMN), router);
-    BurnMintERC677(token).grantMintAndBurnRoles(address(pool));
+    BurnMintTokenPool pool = new MaybeRevertingBurnMintTokenPool(
+      BurnMintERC20(token), DEFAULT_TOKEN_DECIMALS, new address[](0), address(s_mockRMN), router
+    );
+    BurnMintERC20(token).grantMintAndBurnRoles(address(pool));
 
     if (isSourcePool) {
       s_sourcePoolByToken[address(token)] = address(pool);
@@ -136,18 +137,6 @@ contract TokenSetup is RouterSetup {
     }
   }
 
-  function _getCastedSourceEVMTokenAmountsWithZeroAmounts()
-    internal
-    view
-    returns (Client.EVMTokenAmount[] memory tokenAmounts)
-  {
-    tokenAmounts = new Client.EVMTokenAmount[](s_sourceTokens.length);
-    for (uint256 i = 0; i < tokenAmounts.length; ++i) {
-      tokenAmounts[i].token = s_sourceTokens[i];
-    }
-    return tokenAmounts;
-  }
-
   function _setPool(
     TokenAdminRegistry tokenAdminRegistry,
     address token,
@@ -163,16 +152,18 @@ contract TokenSetup is RouterSetup {
 
     tokenAdminRegistry.setPool(token, pool);
 
+    bytes[] memory remotePoolAddresses = new bytes[](1);
+    remotePoolAddresses[0] = abi.encode(remotePoolAddress);
+
     TokenPool.ChainUpdate[] memory chainUpdates = new TokenPool.ChainUpdate[](1);
     chainUpdates[0] = TokenPool.ChainUpdate({
       remoteChainSelector: remoteChainSelector,
-      remotePoolAddress: abi.encode(remotePoolAddress),
+      remotePoolAddresses: remotePoolAddresses,
       remoteTokenAddress: abi.encode(remoteToken),
-      allowed: true,
       outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
       inboundRateLimiterConfig: _getInboundRateLimiterConfig()
     });
 
-    TokenPool(pool).applyChainUpdates(chainUpdates);
+    TokenPool(pool).applyChainUpdates(new uint64[](0), chainUpdates);
   }
 }

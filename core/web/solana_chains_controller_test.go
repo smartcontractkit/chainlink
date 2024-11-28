@@ -49,6 +49,7 @@ OCR2CacheTTL = '1m0s'
 TxTimeout = '1h0m0s'
 TxRetryTimeout = '10s'
 TxConfirmTimeout = '30s'
+TxRetentionTimeout = '0s'
 SkipPreflight = false
 Commitment = 'confirmed'
 MaxRetries = 0
@@ -58,6 +59,7 @@ ComputeUnitPriceMin = 0
 ComputeUnitPriceDefault = 0
 FeeBumpPeriod = '3s'
 BlockHistoryPollPeriod = '5s'
+BlockHistorySize = 1
 ComputeUnitLimitDefault = 200000
 EstimateComputeUnitLimit = false
 Nodes = []
@@ -65,19 +67,19 @@ Nodes = []
 [MultiNode]
 Enabled = false
 PollFailureThreshold = 5
-PollInterval = '10s'
+PollInterval = '15s'
 SelectionMode = 'PriorityLevel'
-SyncThreshold = 5
+SyncThreshold = 10
 NodeIsSyncingEnabled = false
 LeaseDuration = '1m0s'
 FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
-DeathDeclarationDelay = '10s'
-NodeNoNewHeadsThreshold = '10s'
-NoNewFinalizedHeadsThreshold = '10s'
+DeathDeclarationDelay = '20s'
+NodeNoNewHeadsThreshold = '20s'
+NoNewFinalizedHeadsThreshold = '20s'
 FinalityDepth = 0
 FinalityTagEnabled = true
-FinalizedBlockOffset = 0
+FinalizedBlockOffset = 50
 `,
 				}
 			},

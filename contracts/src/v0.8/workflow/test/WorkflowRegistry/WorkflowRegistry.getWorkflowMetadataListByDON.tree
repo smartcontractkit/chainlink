@@ -1,0 +1,18 @@
+WorkflowRegistry.getWorkflowMetadataListByDON
+├── when the DON has workflows
+│   ├── when start is 0
+│   │   └── it returns the correct metadata list
+│   ├── when start is greater than 0
+│   │   └── it returns the correct metadata list
+│   ├── when limit is less than total workflows
+│   │   └── it returns the correct metadata list
+│   ├── when limit is equal to total workflows
+│   │   └── it returns the correct metadata list
+│   └── when limit exceeds total workflows
+│       └── it returns the correct metadata list
+├── when the DON has no workflows
+│   └── it returns an empty list
+├── when start is greater than or equal to total workflows
+│   └── it returns an empty list
+└── when the registry is locked
+    └── it should behave the same as when the registry is not locked

@@ -5,20 +5,12 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 )
-
-type Transformer[T any, U any] interface {
-	// Transform changes a struct of type T into a struct of type U.  Accepts a variadic list of options to modify the
-	// output struct.
-	Transform(T, ...func(*U)) (*U, error)
-}
-
-// ConfigTransformer is a Transformer that converts a values.Map into a ParsedConfig struct.
-type ConfigTransformer = Transformer[*values.Map, ParsedConfig]
 
 // ParsedConfig is a struct that contains the binary and config for a wasm module, as well as the module config.
 type ParsedConfig struct {
@@ -36,25 +28,41 @@ type transformer struct {
 	emitter custmsg.MessageEmitter
 }
 
+func shallowCopy(m *values.Map) *values.Map {
+	to := values.EmptyMap()
+
+	for k, v := range m.Underlying {
+		to.Underlying[k] = v
+	}
+
+	return to
+}
+
 // Transform attempts to read a valid ParsedConfig from an arbitrary values map.  The map must
 // contain the binary and config keys.  Optionally the map may specify wasm module specific
 // configuration values such as maxMemoryMBs, timeout, and tickInterval.  Default logger and
 // emitter for the module are taken from the transformer instance.  Override these values with
 // the functional options.
-func (t *transformer) Transform(in *values.Map, opts ...func(*ParsedConfig)) (*ParsedConfig, error) {
-	binary, err := popValue[[]byte](in, binaryKey)
-	if err != nil {
-		return nil, NewInvalidRequestError(err)
+func (t *transformer) Transform(req capabilities.CapabilityRequest, opts ...func(*ParsedConfig)) (capabilities.CapabilityRequest, *ParsedConfig, error) {
+	copiedReq := capabilities.CapabilityRequest{
+		Inputs:   req.Inputs,
+		Metadata: req.Metadata,
+		Config:   shallowCopy(req.Config),
 	}
 
-	config, err := popValue[[]byte](in, configKey)
+	binary, err := popValue[[]byte](copiedReq.Config, binaryKey)
 	if err != nil {
-		return nil, NewInvalidRequestError(err)
+		return capabilities.CapabilityRequest{}, nil, NewInvalidRequestError(err)
 	}
 
-	maxMemoryMBs, err := popOptionalValue[int64](in, maxMemoryMBsKey)
+	config, err := popValue[[]byte](copiedReq.Config, configKey)
 	if err != nil {
-		return nil, NewInvalidRequestError(err)
+		return capabilities.CapabilityRequest{}, nil, NewInvalidRequestError(err)
+	}
+
+	maxMemoryMBs, err := popOptionalValue[int64](copiedReq.Config, maxMemoryMBsKey)
+	if err != nil {
+		return capabilities.CapabilityRequest{}, nil, NewInvalidRequestError(err)
 	}
 
 	mc := &host.ModuleConfig{
@@ -63,30 +71,30 @@ func (t *transformer) Transform(in *values.Map, opts ...func(*ParsedConfig)) (*P
 		Labeler:      t.emitter,
 	}
 
-	timeout, err := popOptionalValue[string](in, timeoutKey)
+	timeout, err := popOptionalValue[string](copiedReq.Config, timeoutKey)
 	if err != nil {
-		return nil, NewInvalidRequestError(err)
+		return capabilities.CapabilityRequest{}, nil, NewInvalidRequestError(err)
 	}
 
 	var td time.Duration
 	if timeout != "" {
 		td, err = time.ParseDuration(timeout)
 		if err != nil {
-			return nil, NewInvalidRequestError(err)
+			return capabilities.CapabilityRequest{}, nil, NewInvalidRequestError(err)
 		}
 		mc.Timeout = &td
 	}
 
-	tickInterval, err := popOptionalValue[string](in, tickIntervalKey)
+	tickInterval, err := popOptionalValue[string](copiedReq.Config, tickIntervalKey)
 	if err != nil {
-		return nil, NewInvalidRequestError(err)
+		return capabilities.CapabilityRequest{}, nil, NewInvalidRequestError(err)
 	}
 
 	var ti time.Duration
 	if tickInterval != "" {
 		ti, err = time.ParseDuration(tickInterval)
 		if err != nil {
-			return nil, NewInvalidRequestError(err)
+			return capabilities.CapabilityRequest{}, nil, NewInvalidRequestError(err)
 		}
 		mc.TickInterval = ti
 	}
@@ -101,7 +109,7 @@ func (t *transformer) Transform(in *values.Map, opts ...func(*ParsedConfig)) (*P
 		opt(pc)
 	}
 
-	return pc, nil
+	return copiedReq, pc, nil
 }
 
 func NewTransformer(lggr logger.Logger, emitter custmsg.MessageEmitter) *transformer {

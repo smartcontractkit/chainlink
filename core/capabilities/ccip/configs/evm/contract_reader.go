@@ -6,6 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_proxy_contract"
 
@@ -95,6 +96,17 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 				consts.EventNameExecutionStateChanged: {
 					ChainSpecificName: mustGetEventName(consts.EventNameExecutionStateChanged, offrampABI),
 					ReadType:          evmrelaytypes.Event,
+					EventDefinitions: &evmrelaytypes.EventDefinitions{
+						GenericTopicNames: map[string]string{
+							"sourceChainSelector": consts.EventAttributeSourceChain,
+							"sequenceNumber":      consts.EventAttributeSequenceNumber,
+						},
+						GenericDataWordDetails: map[string]evmrelaytypes.DataWordDetail{
+							consts.EventAttributeState: {
+								Name: "state",
+							},
+						},
+					},
 				},
 			},
 		},
@@ -167,6 +179,10 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 					ChainSpecificName: mustGetMethodName("getReportDigestHeader", rmnRemoteABI),
 					ReadType:          evmrelaytypes.Method,
 				},
+				consts.MethodNameGetCursedSubjects: {
+					ChainSpecificName: mustGetMethodName("getCursedSubjects", rmnRemoteABI),
+					ReadType:          evmrelaytypes.Method,
+				},
 			},
 		},
 		consts.ContractNameRMNProxy: {
@@ -210,6 +226,20 @@ var SourceReaderConfig = evmrelaytypes.ChainReaderConfig{
 				consts.EventNameCCIPMessageSent: {
 					ChainSpecificName: mustGetEventName("CCIPMessageSent", onrampABI),
 					ReadType:          evmrelaytypes.Event,
+					EventDefinitions: &evmrelaytypes.EventDefinitions{
+						GenericDataWordDetails: map[string]evmrelaytypes.DataWordDetail{
+							consts.EventAttributeSourceChain:    {Name: "message.header.sourceChainSelector"},
+							consts.EventAttributeDestChain:      {Name: "message.header.destChainSelector"},
+							consts.EventAttributeSequenceNumber: {Name: "message.header.sequenceNumber"},
+						},
+					},
+					OutputModifications: codec.ModifiersConfig{
+						&codec.WrapperModifierConfig{Fields: map[string]string{
+							"Message.FeeTokenAmount":      "Int",
+							"Message.FeeValueJuels":       "Int",
+							"Message.TokenAmounts.Amount": "Int",
+						}},
+					},
 				},
 				consts.MethodNameOnRampGetStaticConfig: {
 					ChainSpecificName: mustGetMethodName("getStaticConfig", onrampABI),
@@ -256,6 +286,23 @@ var SourceReaderConfig = evmrelaytypes.ChainReaderConfig{
 				},
 				consts.MethodNameGetFeeTokens: {
 					ChainSpecificName: mustGetMethodName("getFeeTokens", feeQuoterABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+			},
+		},
+		consts.ContractNameRMNRemote: {
+			ContractABI: rmn_remote.RMNRemoteABI,
+			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
+				consts.MethodNameGetVersionedConfig: {
+					ChainSpecificName: mustGetMethodName("getVersionedConfig", rmnRemoteABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+				consts.MethodNameGetReportDigestHeader: {
+					ChainSpecificName: mustGetMethodName("getReportDigestHeader", rmnRemoteABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+				consts.MethodNameGetCursedSubjects: {
+					ChainSpecificName: mustGetMethodName("getCursedSubjects", rmnRemoteABI),
 					ReadType:          evmrelaytypes.Method,
 				},
 			},

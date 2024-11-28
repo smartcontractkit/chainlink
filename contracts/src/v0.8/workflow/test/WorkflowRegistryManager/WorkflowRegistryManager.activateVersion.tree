@@ -1,0 +1,15 @@
+WorkflowRegistryManager.activateVersion
+├── when the caller is not the owner
+│   └── it should revert
+└── when the caller is the owner
+    ├── when the versionNumber does not exist
+    │   └── it should revert
+    └── when the versionNumber exists
+        ├── when the versionNumber is already active
+        │   └── it should revert
+        └── when the versionNumber is not active
+            ├── it should deactivate the current active version (if any)
+            ├── it should activate the specified version and update s_activeVersionNumber
+            ├── it should add the version to s_versionNumberByAddressAndChainID
+            ├── it should emit VersionDeactivated (if a previous version was active)
+            └── it should emit VersionActivated

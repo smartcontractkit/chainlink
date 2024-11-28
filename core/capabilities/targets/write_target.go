@@ -7,20 +7,27 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
+
+	"github.com/smartcontractkit/chainlink/v2/core/platform"
 )
 
 var (
 	_ capabilities.TargetCapability = &WriteTarget{}
 )
+
+const transactionStatusCheckInterval = 2 * time.Second
 
 type WriteTarget struct {
 	cr               ContractValueGetter
@@ -31,7 +38,8 @@ type WriteTarget struct {
 	receiverGasMinimum uint64
 	capabilities.CapabilityInfo
 
-	lggr logger.Logger
+	emitter custmsg.MessageEmitter
+	lggr    logger.Logger
 
 	bound bool
 }
@@ -79,6 +87,7 @@ func NewWriteTarget(
 		forwarderAddress,
 		txGasLimit - ForwarderContractLogicGasCost,
 		info,
+		custmsg.NewLabeler(),
 		logger.Named(lggr, "WriteTarget"),
 		false,
 	}
@@ -178,15 +187,23 @@ func evaluate(rawRequest capabilities.CapabilityRequest) (r Request, err error) 
 	}
 
 	if hex.EncodeToString(reportMetadata.WorkflowExecutionID[:]) != rawRequest.Metadata.WorkflowExecutionID {
-		return r, fmt.Errorf("WorkflowExecutionID in the report does not match WorkflowExecutionID in the request metadata. Report WorkflowExecutionID: %+v, request WorkflowExecutionID: %+v", reportMetadata.WorkflowExecutionID, rawRequest.Metadata.WorkflowExecutionID)
+		return r, fmt.Errorf("WorkflowExecutionID in the report does not match WorkflowExecutionID in the request metadata. Report WorkflowExecutionID: %+v, request WorkflowExecutionID: %+v", hex.EncodeToString(reportMetadata.WorkflowExecutionID[:]), rawRequest.Metadata.WorkflowExecutionID)
 	}
 
-	if hex.EncodeToString(reportMetadata.WorkflowOwner[:]) != rawRequest.Metadata.WorkflowOwner {
-		return r, fmt.Errorf("WorkflowOwner in the report does not match WorkflowOwner in the request metadata. Report WorkflowOwner: %+v, request WorkflowOwner: %+v", reportMetadata.WorkflowOwner, rawRequest.Metadata.WorkflowOwner)
+	// case-insensitive verification of the owner address (so that a check-summed address matches its non-checksummed version).
+	if !strings.EqualFold(hex.EncodeToString(reportMetadata.WorkflowOwner[:]), rawRequest.Metadata.WorkflowOwner) {
+		return r, fmt.Errorf("WorkflowOwner in the report does not match WorkflowOwner in the request metadata. Report WorkflowOwner: %+v, request WorkflowOwner: %+v", hex.EncodeToString(reportMetadata.WorkflowOwner[:]), rawRequest.Metadata.WorkflowOwner)
 	}
 
-	if hex.EncodeToString(reportMetadata.WorkflowName[:]) != rawRequest.Metadata.WorkflowName {
-		return r, fmt.Errorf("WorkflowName in the report does not match WorkflowName in the request metadata. Report WorkflowName: %+v, request WorkflowName: %+v", reportMetadata.WorkflowName, rawRequest.Metadata.WorkflowName)
+	// workflowNames are padded to 10bytes
+	decodedName, err := hex.DecodeString(rawRequest.Metadata.WorkflowName)
+	if err != nil {
+		return r, err
+	}
+	var workflowName [10]byte
+	copy(workflowName[:], decodedName)
+	if !bytes.Equal(reportMetadata.WorkflowName[:], workflowName[:]) {
+		return r, fmt.Errorf("WorkflowName in the report does not match WorkflowName in the request metadata. Report WorkflowName: %+v, request WorkflowName: %+v", hex.EncodeToString(reportMetadata.WorkflowName[:]), hex.EncodeToString(workflowName[:]))
 	}
 
 	if hex.EncodeToString(reportMetadata.WorkflowCID[:]) != rawRequest.Metadata.WorkflowID {
@@ -309,7 +326,41 @@ func (cap *WriteTarget) Execute(ctx context.Context, rawRequest capabilities.Cap
 	}
 
 	cap.lggr.Debugw("Transaction submitted", "request", request, "transaction", txID)
-	return capabilities.CapabilityResponse{}, nil
+
+	tick := time.NewTicker(transactionStatusCheckInterval)
+	defer tick.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return capabilities.CapabilityResponse{}, nil
+		case <-tick.C:
+			txStatus, err := cap.cw.GetTransactionStatus(ctx, txID.String())
+			if err != nil {
+				cap.lggr.Errorw("Failed to get transaction status", "request", request, "transaction", txID, "err", err)
+				continue
+			}
+			switch txStatus {
+			case commontypes.Finalized:
+				cap.lggr.Debugw("Transaction finalized", "request", request, "transaction", txID)
+				return capabilities.CapabilityResponse{}, nil
+			case commontypes.Failed, commontypes.Fatal:
+				cap.lggr.Error("Transaction failed", "request", request, "transaction", txID)
+				msg := "failed to submit transaction with ID: " + txID.String()
+				err = cap.emitter.With(
+					platform.KeyWorkflowID, request.Metadata.WorkflowID,
+					platform.KeyWorkflowName, request.Metadata.WorkflowName,
+					platform.KeyWorkflowOwner, request.Metadata.WorkflowOwner,
+					platform.KeyWorkflowExecutionID, request.Metadata.WorkflowExecutionID,
+				).Emit(ctx, msg)
+				if err != nil {
+					cap.lggr.Errorf("failed to send custom message with msg: %s, err: %v", msg, err)
+				}
+				return capabilities.CapabilityResponse{}, fmt.Errorf("submitted transaction failed: %w", err)
+			default:
+				cap.lggr.Debugw("Unexpected transaction status", "request", request, "transaction", txID, "status", txStatus)
+			}
+		}
+	}
 }
 
 func (cap *WriteTarget) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {

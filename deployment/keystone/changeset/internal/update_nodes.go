@@ -1,8 +1,11 @@
 package internal
 
 import (
+	"bytes"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"sort"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 
@@ -14,16 +17,23 @@ import (
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 )
 
+type NodeUpdate struct {
+	EncryptionPublicKey string
+	NodeOperatorID      uint32
+	Signer              [32]byte
+
+	Capabilities []kcr.CapabilitiesRegistryCapability
+}
+
 type UpdateNodesRequest struct {
 	Chain    deployment.Chain
 	Registry *kcr.CapabilitiesRegistry
 
-	P2pToCapabilities map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability
-	NopToNodes        map[kcr.CapabilitiesRegistryNodeOperator][]*P2PSignerEnc
+	P2pToUpdates map[p2pkey.PeerID]NodeUpdate
 }
 
 func (req *UpdateNodesRequest) NodeParams() ([]kcr.CapabilitiesRegistryNodeParams, error) {
-	return makeNodeParams(req.Registry, req.NopToNodes, req.P2pToCapabilities)
+	return makeNodeParams(req.Registry, req.P2pToUpdates)
 }
 
 // P2PSignerEnc represent the key fields in kcr.CapabilitiesRegistryNodeParams
@@ -35,12 +45,32 @@ type P2PSignerEnc struct {
 }
 
 func (req *UpdateNodesRequest) Validate() error {
-	if len(req.P2pToCapabilities) == 0 {
+	if len(req.P2pToUpdates) == 0 {
 		return errors.New("p2pToCapabilities is empty")
 	}
-	if len(req.NopToNodes) == 0 {
-		return errors.New("nopToNodes is empty")
+	// no duplicate capabilities
+	for peer, updates := range req.P2pToUpdates {
+		seen := make(map[string]struct{})
+		for _, cap := range updates.Capabilities {
+			id := kslib.CapabilityID(cap)
+			if _, exists := seen[id]; exists {
+				return fmt.Errorf("duplicate capability %s for %s", id, peer)
+			}
+			seen[id] = struct{}{}
+		}
+
+		if updates.EncryptionPublicKey != "" {
+			pk, err := hex.DecodeString(updates.EncryptionPublicKey)
+			if err != nil {
+				return fmt.Errorf("invalid public key: could not hex decode: %w", err)
+			}
+
+			if len(pk) != 32 {
+				return fmt.Errorf("invalid public key: got len %d, need 32", len(pk))
+			}
+		}
 	}
+
 	if req.Registry == nil {
 		return errors.New("registry is nil")
 	}
@@ -61,6 +91,7 @@ func UpdateNodes(lggr logger.Logger, req *UpdateNodesRequest) (*UpdateNodesRespo
 
 	params, err := req.NodeParams()
 	if err != nil {
+		err = kslib.DecodeErr(kcr.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to make node params: %w", err)
 	}
 	tx, err := req.Registry.UpdateNodes(req.Chain.DeployerKey, params)
@@ -125,58 +156,71 @@ func AppendCapabilities(lggr logger.Logger, registry *kcr.CapabilitiesRegistry, 
 }
 
 func makeNodeParams(registry *kcr.CapabilitiesRegistry,
-	nopToNodes map[kcr.CapabilitiesRegistryNodeOperator][]*P2PSignerEnc,
-	p2pToCapabilities map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability) ([]kcr.CapabilitiesRegistryNodeParams, error) {
+	p2pToUpdates map[p2pkey.PeerID]NodeUpdate) ([]kcr.CapabilitiesRegistryNodeParams, error) {
 
-	out := make([]kcr.CapabilitiesRegistryNodeParams, 0)
-	// get all the node operators from chain
-	registeredNops, err := registry.GetNodeOperators(&bind.CallOpts{})
+	var out []kcr.CapabilitiesRegistryNodeParams
+	var p2pIds []p2pkey.PeerID
+	for p2pID := range p2pToUpdates {
+		p2pIds = append(p2pIds, p2pID)
+	}
+
+	nodes, err := registry.GetNodesByP2PIds(&bind.CallOpts{}, PeerIDsToBytes(p2pIds))
 	if err != nil {
-		return nil, fmt.Errorf("failed to get node operators: %w", err)
+		err = kslib.DecodeErr(kcr.CapabilitiesRegistryABI, err)
+		return nil, fmt.Errorf("failed to get nodes by p2p ids: %w", err)
 	}
-
-	// make a cache of capability from chain
-	var allCaps []kcr.CapabilitiesRegistryCapability
-	for _, caps := range p2pToCapabilities {
-		allCaps = append(allCaps, caps...)
-	}
-	capMap, err := fetchCapabilityIDs(registry, allCaps)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch capability ids: %w", err)
-	}
-
-	// flatten the onchain state to list of node params filtered by the input nops and nodes
-	for idx, rnop := range registeredNops {
-		// nop id is 1-indexed. no way to get value from chain. must infer from index
-		nopID := uint32(idx + 1)
-		nodes, ok := nopToNodes[rnop]
+	for _, node := range nodes {
+		updates, ok := p2pToUpdates[node.P2pId]
 		if !ok {
-			continue
+			return nil, fmt.Errorf("capabilities not found for node %s", node.P2pId)
 		}
-		for _, node := range nodes {
-			caps, ok := p2pToCapabilities[node.P2PKey]
-			if !ok {
-				return nil, fmt.Errorf("capabilities not found for node %s", node.P2PKey)
+
+		ids := node.HashedCapabilityIds
+		if len(updates.Capabilities) > 0 {
+			is, err := capabilityIds(registry, updates.Capabilities)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get capability ids: %w", err)
 			}
-			hashedCaps := make([][32]byte, len(caps))
-			for i, cap := range caps {
-				hashedCap, exists := capMap[kslib.CapabilityID(cap)]
-				if !exists {
-					return nil, fmt.Errorf("capability id not found for %s", kslib.CapabilityID(cap))
-				}
-				hashedCaps[i] = hashedCap
-			}
-			out = append(out, kcr.CapabilitiesRegistryNodeParams{
-				NodeOperatorId:      nopID,
-				P2pId:               node.P2PKey,
-				HashedCapabilityIds: hashedCaps,
-				EncryptionPublicKey: node.EncryptionPublicKey,
-				Signer:              node.Signer,
-			})
+			ids = is
 		}
+
+		encryptionKey := node.EncryptionPublicKey
+		if updates.EncryptionPublicKey != "" {
+			pk, err := hex.DecodeString(updates.EncryptionPublicKey)
+			if err != nil {
+				return nil, fmt.Errorf("failed to decode encryption public key: %w", err)
+			}
+			encryptionKey = [32]byte(pk)
+		}
+
+		signer := node.Signer
+		var zero [32]byte
+		if !bytes.Equal(updates.Signer[:], zero[:]) {
+			signer = updates.Signer
+		}
+
+		nodeOperatorID := node.NodeOperatorId
+		if updates.NodeOperatorID != 0 {
+			nodeOperatorID = updates.NodeOperatorID
+		}
+
+		out = append(out, kcr.CapabilitiesRegistryNodeParams{
+			NodeOperatorId:      nodeOperatorID,
+			P2pId:               node.P2pId,
+			HashedCapabilityIds: ids,
+			EncryptionPublicKey: encryptionKey,
+			Signer:              signer,
+		})
 	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].NodeOperatorId == out[j].NodeOperatorId {
+			return bytes.Compare(out[i].P2pId[:], out[j].P2pId[:]) < 0
+		}
+		return out[i].NodeOperatorId < out[j].NodeOperatorId
+	})
 
 	return out, nil
+
 }
 
 // fetchkslib.CapabilityIDs fetches the capability ids for the given capabilities
@@ -192,6 +236,18 @@ func fetchCapabilityIDs(registry *kcr.CapabilitiesRegistry, caps []kcr.Capabilit
 			return nil, fmt.Errorf("failed to get capability id for %s: %w", name, err)
 		}
 		out[name] = hashId
+	}
+	return out, nil
+}
+
+func capabilityIds(registry *kcr.CapabilitiesRegistry, caps []kcr.CapabilitiesRegistryCapability) ([][32]byte, error) {
+	out := make([][32]byte, len(caps))
+	for i, cap := range caps {
+		id, err := registry.GetHashedCapabilityId(&bind.CallOpts{}, cap.LabelledName, cap.Version)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get capability id: %w", err)
+		}
+		out[i] = id
 	}
 	return out, nil
 }

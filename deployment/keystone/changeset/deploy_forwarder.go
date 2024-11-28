@@ -7,13 +7,9 @@ import (
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 )
 
-var _ deployment.ChangeSet = DeployForwarder
+var _ deployment.ChangeSet[uint64] = DeployForwarder
 
-func DeployForwarder(env deployment.Environment, config interface{}) (deployment.ChangesetOutput, error) {
-	registryChainSel, ok := config.(uint64)
-	if !ok {
-		return deployment.ChangesetOutput{}, deployment.ErrInvalidConfig
-	}
+func DeployForwarder(env deployment.Environment, registryChainSel uint64) (deployment.ChangesetOutput, error) {
 	lggr := env.Logger
 	// expect OCR3 to be deployed & capabilities registry
 	regAddrs, err := env.ExistingAddresses.AddressesForChain(registryChainSel)

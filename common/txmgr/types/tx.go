@@ -159,6 +159,10 @@ type TxMeta[ADDR types.Hashable, TX_HASH types.Hashable] struct {
 	MessageIDs []string `json:"MessageIDs,omitempty"`
 	// SeqNumbers is used by CCIP for tx to committed sequence numbers correlation in logs
 	SeqNumbers []uint64 `json:"SeqNumbers,omitempty"`
+
+	// Dual Broadcast
+	DualBroadcast       *bool   `json:"DualBroadcast,omitempty"`
+	DualBroadcastParams *string `json:"DualBroadcastParams,omitempty"`
 }
 
 type TxAttempt[
@@ -336,6 +340,15 @@ func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetChecker() (Transm
 	}
 
 	return t, nil
+}
+
+func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) HasPurgeAttempt() bool {
+	for _, attempt := range e.TxAttempts {
+		if attempt.IsPurgeAttempt {
+			return true
+		}
+	}
+	return false
 }
 
 // Provides error classification to external components in a chain agnostic way

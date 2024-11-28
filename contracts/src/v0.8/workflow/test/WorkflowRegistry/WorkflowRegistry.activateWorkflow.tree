@@ -1,0 +1,17 @@
+WorkflowRegistry.activateWorkflow
+├── when the registry is locked
+│   └── it should revert
+└── when the registry is not locked
+    ├── when the caller is not the workflow owner
+    │   └── it should revert
+    └── when the caller is the workflow owner
+        ├── when the workflow is already active
+        │   └── it should revert
+        └── when the workflow is paused
+            ├── when the donID is not allowed
+            │   └── it should revert
+            └── when the donID is allowed
+                ├── when the caller is not an authorized address
+                │   └── it should revert
+                └── when the caller is an authorized address
+                    └── it should activate the workflow and emit {WorkflowActivatedV1}

@@ -65,4 +65,24 @@ contract MockRouterTest is TokenSetup {
 
     mockRouter.ccipSend(MOCK_CHAIN_SELECTOR, message);
   }
+
+  function test_ccipSendWithEVMExtraArgsV1_Success() public {
+    Client.EVMExtraArgsV1 memory extraArgs = Client.EVMExtraArgsV1({gasLimit: 500_000});
+    message.extraArgs = Client._argsToBytes(extraArgs);
+    mockRouter.ccipSend{value: 0.1 ether}(MOCK_CHAIN_SELECTOR, message);
+  }
+
+  function test_ccipSendWithEVMExtraArgsV2_Success() public {
+    Client.EVMExtraArgsV2 memory extraArgs = Client.EVMExtraArgsV2({gasLimit: 500_000, allowOutOfOrderExecution: true});
+    message.extraArgs = Client._argsToBytes(extraArgs);
+    mockRouter.ccipSend{value: 0.1 ether}(MOCK_CHAIN_SELECTOR, message);
+  }
+
+  function test_ccipSendWithInvalidEVMExtraArgs_Revert() public {
+    uint256 gasLimit = 500_000;
+    bytes4 invalidExtraArgsTag = bytes4(keccak256("CCIP EVMExtraArgsInvalid"));
+    message.extraArgs = abi.encodeWithSelector(invalidExtraArgsTag, gasLimit);
+    vm.expectRevert(MockCCIPRouter.InvalidExtraArgsTag.selector);
+    mockRouter.ccipSend{value: 0.1 ether}(MOCK_CHAIN_SELECTOR, message);
+  }
 }

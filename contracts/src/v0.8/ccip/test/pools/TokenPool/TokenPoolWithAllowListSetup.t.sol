@@ -11,8 +11,10 @@ contract TokenPoolWithAllowListSetup is TokenPoolSetup {
     TokenPoolSetup.setUp();
 
     s_allowedSenders.push(STRANGER);
-    s_allowedSenders.push(DUMMY_CONTRACT_ADDRESS);
+    s_allowedSenders.push(OWNER);
 
-    s_tokenPool = new TokenPoolHelper(s_token, s_allowedSenders, address(s_mockRMN), address(s_sourceRouter));
+    s_tokenPool = new TokenPoolHelper(
+      s_token, DEFAULT_TOKEN_DECIMALS, s_allowedSenders, address(s_mockRMN), address(s_sourceRouter)
+    );
   }
 }

@@ -2,6 +2,7 @@ package changeset
 
 import (
 	"encoding/json"
+	"fmt"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
@@ -25,22 +26,22 @@ func ViewKeystone(e deployment.Environment) (json.Marshaler, error) {
 	for chainSel, contracts := range state.ContractSets {
 		chainid, err := chainsel.ChainIdFromSelector(chainSel)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to resolve chain id for selector %d: %w", chainSel, err)
 		}
 		chainName, err := chainsel.NameFromChainId(chainid)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to get name for chainid %d selector %d:%w", chainid, chainSel, err)
 		}
 		v, err := contracts.View()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to view contract set: %w", err)
 		}
 		chainViews[chainName] = v
 
 	}
 	nopsView, err := commonview.GenerateNopsView(e.NodeIDs, e.Offchain)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to view nops: %w", err)
 	}
 	return &view.KeystoneView{
 		Chains: chainViews,

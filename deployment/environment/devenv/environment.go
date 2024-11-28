@@ -18,16 +18,17 @@ type EnvironmentConfig struct {
 	JDConfig JDConfig
 }
 
-func NewEnvironment(ctx context.Context, lggr logger.Logger, config EnvironmentConfig) (*deployment.Environment, *DON, error) {
+func NewEnvironment(ctx func() context.Context, lggr logger.Logger, config EnvironmentConfig) (*deployment.Environment, *DON, error) {
 	chains, err := NewChains(lggr, config.Chains)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create chains: %w", err)
 	}
+
 	var nodeIDs []string
 	var offChain deployment.OffchainClient
 	var don *DON
 	if !config.JDConfig.IsEmpty() {
-		offChain, err = NewJDClient(ctx, config.JDConfig)
+		offChain, err := NewJDClient(ctx(), config.JDConfig)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to create JD client: %w", err)
 		}
@@ -40,7 +41,7 @@ func NewEnvironment(ctx context.Context, lggr logger.Logger, config EnvironmentC
 			return nil, nil, fmt.Errorf("offchain client does not have a DON")
 		}
 		if jd.don != nil {
-			err = jd.don.CreateSupportedChains(ctx, config.Chains, *jd)
+			err = jd.don.CreateSupportedChains(ctx(), config.Chains, *jd)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -55,5 +56,6 @@ func NewEnvironment(ctx context.Context, lggr logger.Logger, config EnvironmentC
 		chains,
 		nodeIDs,
 		offChain,
+		ctx,
 	), don, nil
 }

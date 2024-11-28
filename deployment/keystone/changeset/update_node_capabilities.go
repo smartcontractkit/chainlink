@@ -3,10 +3,11 @@ package changeset
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/environment/clo/models"
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 
@@ -14,19 +15,33 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
-var _ deployment.ChangeSet = UpdateNodeCapabilities
+var _ deployment.ChangeSet[*MutateNodeCapabilitiesRequest] = UpdateNodeCapabilities
 
 type P2PSignerEnc = internal.P2PSignerEnc
 
-func NewP2PSignerEnc(n *models.Node, registryChainSel uint64) (*P2PSignerEnc, error) {
-	p2p, signer, enc, err := kslib.ExtractKeys(n, registryChainSel)
+func NewP2PSignerEnc(n *deployment.Node, registryChainSel uint64) (*P2PSignerEnc, error) {
+	// TODO: deduplicate everywhere
+	registryChainID, err := chainsel.ChainIdFromSelector(registryChainSel)
 	if err != nil {
-		return nil, fmt.Errorf("failed to extract keys: %w", err)
+		return nil, err
 	}
+	registryChainDetails, err := chainsel.GetChainDetailsByChainIDAndFamily(strconv.Itoa(int(registryChainID)), chainsel.FamilyEVM)
+	if err != nil {
+		return nil, err
+	}
+	evmCC, exists := n.SelToOCRConfig[registryChainDetails]
+	if !exists {
+		return nil, fmt.Errorf("NewP2PSignerEnc: registryChainSel not found on node: %v", registryChainSel)
+	}
+	var signer [32]byte
+	copy(signer[:], evmCC.OnchainPublicKey)
+	var csakey [32]byte
+	copy(csakey[:], evmCC.ConfigEncryptionPublicKey[:])
+
 	return &P2PSignerEnc{
 		Signer:              signer,
-		P2PKey:              p2p,
-		EncryptionPublicKey: enc,
+		P2PKey:              n.PeerID,
+		EncryptionPublicKey: csakey,
 	}, nil
 }
 
@@ -39,7 +54,6 @@ type MutateNodeCapabilitiesRequest struct {
 	RegistryChainSel uint64
 
 	P2pToCapabilities map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability
-	NopToNodes        map[kcr.CapabilitiesRegistryNodeOperator][]*P2PSignerEnc
 }
 
 func (req *MutateNodeCapabilitiesRequest) Validate() error {
@@ -48,9 +62,6 @@ func (req *MutateNodeCapabilitiesRequest) Validate() error {
 	}
 	if len(req.P2pToCapabilities) == 0 {
 		return fmt.Errorf("p2pToCapabilities is empty")
-	}
-	if len(req.NopToNodes) == 0 {
-		return fmt.Errorf("nopToNodes is empty")
 	}
 	_, exists := chainsel.ChainBySelector(req.RegistryChainSel)
 	if !exists {
@@ -84,16 +95,11 @@ func (req *MutateNodeCapabilitiesRequest) updateNodeCapabilitiesImplRequest(e de
 		Chain:             registryChain,
 		Registry:          registry,
 		P2pToCapabilities: req.P2pToCapabilities,
-		NopToNodes:        req.NopToNodes,
 	}, nil
 }
 
 // UpdateNodeCapabilities updates the capabilities of nodes in the registry
-func UpdateNodeCapabilities(env deployment.Environment, config any) (deployment.ChangesetOutput, error) {
-	req, ok := config.(*MutateNodeCapabilitiesRequest)
-	if !ok {
-		return deployment.ChangesetOutput{}, fmt.Errorf("invalid config type. want %T, got %T", &MutateNodeCapabilitiesRequest{}, config)
-	}
+func UpdateNodeCapabilities(env deployment.Environment, req *MutateNodeCapabilitiesRequest) (deployment.ChangesetOutput, error) {
 	c, err := req.updateNodeCapabilitiesImplRequest(env)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to convert request: %w", err)

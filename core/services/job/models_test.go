@@ -11,8 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
@@ -347,67 +345,6 @@ func TestWorkflowSpec_Validate(t *testing.T) {
 
 		err := w.Validate(testutils.Context(t))
 		require.NoError(t, err)
-		assert.Equal(t, "owner", w.WorkflowOwner)
-		assert.Equal(t, "name", w.WorkflowName)
 		require.NotEmpty(t, w.WorkflowID)
 	})
-}
-
-func TestAdaptiveSendConfig(t *testing.T) {
-	tests := []struct {
-		name                 string
-		shouldError          bool
-		expectedErrorMessage string
-		config               job.AdaptiveSendSpec
-	}{
-		{
-			name:                 "AdaptiveSendSpec.TransmitterAddress not set",
-			shouldError:          true,
-			expectedErrorMessage: "no AdaptiveSendSpec.TransmitterAddress found",
-			config: job.AdaptiveSendSpec{
-				TransmitterAddress: nil,
-				ContractAddress:    ptr(cltest.NewEIP55Address()),
-				Delay:              time.Second * 30,
-			},
-		},
-		{
-			name:                 "AdaptiveSendSpec.ContractAddress not set",
-			shouldError:          true,
-			expectedErrorMessage: "no AdaptiveSendSpec.ContractAddress found",
-			config: job.AdaptiveSendSpec{
-				TransmitterAddress: ptr(cltest.NewEIP55Address()),
-				ContractAddress:    nil,
-				Delay:              time.Second * 30,
-			},
-		},
-		{
-			name:                 "AdaptiveSendSpec.Delay not set",
-			shouldError:          true,
-			expectedErrorMessage: "AdaptiveSendSpec.Delay not set or smaller than 1s",
-			config: job.AdaptiveSendSpec{
-				TransmitterAddress: ptr(cltest.NewEIP55Address()),
-				ContractAddress:    ptr(cltest.NewEIP55Address()),
-			},
-		},
-		{
-			name:                 "AdaptiveSendSpec.Delay set to 50ms",
-			shouldError:          true,
-			expectedErrorMessage: "AdaptiveSendSpec.Delay not set or smaller than 1s",
-			config: job.AdaptiveSendSpec{
-				TransmitterAddress: ptr(cltest.NewEIP55Address()),
-				ContractAddress:    ptr(cltest.NewEIP55Address()),
-				Delay:              time.Millisecond * 50,
-			},
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			if test.shouldError {
-				require.ErrorContains(t, test.config.Validate(), test.expectedErrorMessage)
-			} else {
-				require.NoError(t, test.config.Validate())
-			}
-		})
-	}
 }
