@@ -16,6 +16,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-ccip/commit/merkleroot/rmn/types"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/osutil"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
@@ -197,15 +198,30 @@ func TestRMN_TwoMessagesOneSourceChainCursed(t *testing.T) {
 	})
 }
 
-/*
-
-	1. nodes are running
-	2. stop nodes
-	3. call ccipSend (must be called before curse)
-	4. curse
-	5. nodes start
-
-*/
+func TestRMN_GlobalCurseTwoMessagesOnTwoLanes(t *testing.T) {
+	runRmnTestCase(t, rmnTestCase{
+		name:        "global curse messages on two lanes",
+		waitForExec: false,
+		homeChainConfig: homeChainConfig{
+			f: map[int]int{chain0: 1, chain1: 1},
+		},
+		remoteChainsConfig: []remoteChainConfig{
+			{chainIdx: chain0, f: 1},
+			{chainIdx: chain1, f: 1},
+		},
+		rmnNodes: []rmnNode{
+			{id: 0, isSigner: true, observedChainIdxs: []int{chain0, chain1}},
+			{id: 1, isSigner: true, observedChainIdxs: []int{chain0, chain1}},
+			{id: 2, isSigner: true, observedChainIdxs: []int{chain0, chain1}},
+		},
+		messagesToSend: []messageToSend{
+			{fromChainIdx: chain0, toChainIdx: chain1, count: 1},
+			{fromChainIdx: chain1, toChainIdx: chain0, count: 5},
+		},
+		globalCurse:         true,
+		passIfNoCommitAfter: 15 * time.Second,
+	})
+}
 
 const (
 	chain0 = 0
@@ -381,7 +397,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 
 	// disable nodes
 	disabledNodes := make([]string, 0)
-	if len(tc.cursedSourceChainIdxs) > 0 {
+	if len(tc.cursedSourceChainIdxs) > 0 || tc.globalCurse {
 		listNodesResp, err := envWithRMN.Env.Offchain.ListNodes(ctx, &node.ListNodesRequest{})
 		require.NoError(t, err)
 
@@ -439,6 +455,12 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 		for _, chainSel := range cursedSourceChains.ToSlice() {
 			txCurse, errCurse := chState.RMNRemote.Curse(chain.DeployerKey, chainSelectorToBytes16(chainSel))
 			_, errConfirm := deployment.ConfirmIfNoError(chain, txCurse, errCurse)
+			require.NoError(t, errConfirm)
+		}
+
+		if tc.globalCurse {
+			txCurseGlobal, errCurseGlobal := chState.RMNRemote.Curse(chain.DeployerKey, types.GlobalCurseSubject)
+			_, errConfirm := deployment.ConfirmIfNoError(chain, txCurseGlobal, errCurseGlobal)
 			require.NoError(t, errConfirm)
 		}
 
@@ -559,11 +581,13 @@ type rmnTestCase struct {
 	// And then wait for passIfNoCommitAfter (must be set) to assert that msgs from cursed sources are not transmitted.
 	// At the moment, it does not support waitForExec=true since only commit plugin has cursing checks.
 	cursedSourceChainIdxs []int
-	waitForExec           bool
-	homeChainConfig       homeChainConfig
-	remoteChainsConfig    []remoteChainConfig
-	rmnNodes              []rmnNode
-	messagesToSend        []messageToSend
+	// globalCurse marks every chain as cursed by setting the global curse subject on each rmnRemote
+	globalCurse        bool
+	waitForExec        bool
+	homeChainConfig    homeChainConfig
+	remoteChainsConfig []remoteChainConfig
+	rmnNodes           []rmnNode
+	messagesToSend     []messageToSend
 }
 
 func (tc rmnTestCase) validate() error {
@@ -573,6 +597,15 @@ func (tc rmnTestCase) validate() error {
 		}
 		if tc.passIfNoCommitAfter == 0 {
 			return errors.New("cursedSourceChainIdxs is set but passIfNoCommitAfter is not set")
+		}
+	}
+
+	if tc.globalCurse {
+		if tc.passIfNoCommitAfter == 0 {
+			return errors.New("globalCurse is set but passIfNoCommitAfter is not set")
+		}
+		if len(tc.cursedSourceChainIdxs) > 0 {
+			return errors.New("globalCurse is set but cursedSourceChainIdxs is not empty, this is not supported")
 		}
 	}
 
