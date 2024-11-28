@@ -325,10 +325,11 @@ jobs:
             ALL_TESTS_COUNT=$(jq 'length' ../all_tests.json)
             echo "All tests count: $ALL_TESTS_COUNT"
             echo "all_tests_count=$ALL_TESTS_COUNT" >> "$GITHUB_OUTPUT"
-
-            # Count failed tests
+            
+            # Use flakeguard to filter and output failed tests based on PassRatio threshold
             flakeguard aggregate-results --filter-failed=true --threshold "${{ inputs.runThreshold }}" --min-pass-ratio=${{ env.MIN_PASS_RATIO }} --results-path . --output-results ../failed_tests.json --output-logs ../failed_test_logs.json
-
+            
+            # Count failed tests
             if [ -f "../failed_tests.json" ]; then
               FAILED_TESTS_COUNT=$(jq 'length' ../failed_tests.json)
             else
