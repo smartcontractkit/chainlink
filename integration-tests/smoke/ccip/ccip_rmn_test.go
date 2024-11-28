@@ -294,7 +294,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 
 	changeset.ReplayLogs(t, envWithRMN.Env.Offchain, envWithRMN.ReplayBlocks)
 	require.NoError(t, changeset.AddLanesForAll(envWithRMN.Env, onChainState))
-	disabledNodes := tc.disableOraclesIfThisIsACursingTestCase(t, ctx, envWithRMN)
+	disabledNodes := tc.disableOraclesIfThisIsACursingTestCase(ctx, t, envWithRMN)
 
 	startBlocks, seqNumCommit, seqNumExec := tc.sendMessages(t, onChainState, envWithRMN)
 	t.Logf("Sent all messages, seqNumCommit: %v seqNumExec: %v", seqNumCommit, seqNumExec)
@@ -547,7 +547,7 @@ func (tc rmnTestCase) killMarkedRmnNodes(t *testing.T, rmnCluster devenv.RMNClus
 	}
 }
 
-func (tc rmnTestCase) disableOraclesIfThisIsACursingTestCase(t *testing.T, ctx context.Context, envWithRMN changeset.DeployedEnv) []string {
+func (tc rmnTestCase) disableOraclesIfThisIsACursingTestCase(ctx context.Context, t *testing.T, envWithRMN changeset.DeployedEnv) []string {
 	disabledNodes := make([]string, 0)
 
 	if len(tc.cursedSourceChainIdxs) > 0 || tc.globalCurse {
