@@ -1,6 +1,7 @@
 package keystone_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -26,6 +28,7 @@ import (
 
 func TestDeploy(t *testing.T) {
 	lggr := logger.Test(t)
+	ctx := tests.Context(t)
 
 	// sepolia; all nodes are on the this chain
 	sepoliaChainId := uint64(11155111)
@@ -100,7 +103,7 @@ func TestDeploy(t *testing.T) {
 	maps.Copy(allNodes, wfNodes)
 	maps.Copy(allNodes, cwNodes)
 	maps.Copy(allNodes, assetNodes)
-	env := memory.NewMemoryEnvironmentFromChainsNodes(t, lggr, allChains, allNodes)
+	env := memory.NewMemoryEnvironmentFromChainsNodes(func() context.Context { return ctx }, lggr, allChains, allNodes)
 
 	var ocr3Config = keystone.OracleConfigWithSecrets{
 		OracleConfig: keystone.OracleConfig{
@@ -109,7 +112,6 @@ func TestDeploy(t *testing.T) {
 		OCRSecrets: deployment.XXXGenerateTestOCRSecrets(),
 	}
 
-	ctx := tests.Context(t)
 	// explicitly deploy the contracts
 	cs, err := keystone.DeployContracts(lggr, &env, sepoliaChainSel)
 	require.NoError(t, err)

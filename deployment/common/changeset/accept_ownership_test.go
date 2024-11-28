@@ -5,10 +5,9 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/stretchr/testify/assert"
-
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestAcceptOwnershipConfig_Validate(t *testing.T) {
@@ -20,7 +19,7 @@ func TestAcceptOwnershipConfig_Validate(t *testing.T) {
 		{
 			name: "valid config",
 			config: changeset.AcceptOwnershipConfig{
-				OwnersPerChain: map[uint64]common.Address{
+				TimelocksPerChain: map[uint64]common.Address{
 					1: common.HexToAddress("0x1"),
 				},
 				ProposerMCMSes: map[uint64]*gethwrappers.ManyChainMultiSig{
@@ -36,7 +35,7 @@ func TestAcceptOwnershipConfig_Validate(t *testing.T) {
 		{
 			name: "missing timelock",
 			config: changeset.AcceptOwnershipConfig{
-				OwnersPerChain: map[uint64]common.Address{},
+				TimelocksPerChain: map[uint64]common.Address{},
 				ProposerMCMSes: map[uint64]*gethwrappers.ManyChainMultiSig{
 					1: {},
 				},
@@ -50,7 +49,7 @@ func TestAcceptOwnershipConfig_Validate(t *testing.T) {
 		{
 			name: "missing proposer MCMS",
 			config: changeset.AcceptOwnershipConfig{
-				OwnersPerChain: map[uint64]common.Address{
+				TimelocksPerChain: map[uint64]common.Address{
 					1: common.HexToAddress("0x1"),
 				},
 				ProposerMCMSes: map[uint64]*gethwrappers.ManyChainMultiSig{},

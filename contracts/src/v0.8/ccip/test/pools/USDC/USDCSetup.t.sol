@@ -6,18 +6,12 @@ import {IBurnMintERC20} from "../../../../shared/token/ERC20/IBurnMintERC20.sol"
 import {BurnMintERC677} from "../../../../shared/token/ERC677/BurnMintERC677.sol";
 import {Router} from "../../../Router.sol";
 import {TokenPool} from "../../../pools/TokenPool.sol";
-import {HybridLockReleaseUSDCTokenPool} from "../../../pools/USDC/HybridLockReleaseUSDCTokenPool.sol";
-import {USDCTokenPool} from "../../../pools/USDC/USDCTokenPool.sol";
+
 import {BaseTest} from "../../BaseTest.t.sol";
 import {MockE2EUSDCTransmitter} from "../../mocks/MockE2EUSDCTransmitter.sol";
 import {MockUSDCTokenMessenger} from "../../mocks/MockUSDCTokenMessenger.sol";
 
-contract HybridLockReleaseUSDCTokenPoolSetup is BaseTest {
-  IBurnMintERC20 internal s_token;
-  MockUSDCTokenMessenger internal s_mockUSDC;
-  MockE2EUSDCTransmitter internal s_mockUSDCTransmitter;
-  uint32 internal constant USDC_DEST_TOKEN_GAS = 180_000;
-
+contract USDCSetup is BaseTest {
   struct USDCMessage {
     uint32 version;
     uint32 sourceDomain;
@@ -29,6 +23,7 @@ contract HybridLockReleaseUSDCTokenPoolSetup is BaseTest {
     bytes messageBody;
   }
 
+  uint32 internal constant USDC_DEST_TOKEN_GAS = 180_000;
   uint32 internal constant SOURCE_DOMAIN_IDENTIFIER = 0x02020202;
   uint32 internal constant DEST_DOMAIN_IDENTIFIER = 0;
 
@@ -37,18 +32,20 @@ contract HybridLockReleaseUSDCTokenPoolSetup is BaseTest {
   address internal constant DEST_CHAIN_USDC_POOL = address(0x987384873458734);
   address internal constant DEST_CHAIN_USDC_TOKEN = address(0x23598918358198766);
 
+  MockUSDCTokenMessenger internal s_mockUSDC;
+  MockE2EUSDCTransmitter internal s_mockUSDCTransmitter;
+
   address internal s_routerAllowedOnRamp = address(3456);
   address internal s_routerAllowedOffRamp = address(234);
   Router internal s_router;
 
-  HybridLockReleaseUSDCTokenPool internal s_usdcTokenPool;
-  HybridLockReleaseUSDCTokenPool internal s_usdcTokenPoolTransferLiquidity;
-  address[] internal s_allowedList;
+  IBurnMintERC20 internal s_token;
 
   function setUp() public virtual override {
-    BaseTest.setUp();
-    BurnMintERC677 usdcToken = new BurnMintERC677("LINK", "LNK", 18, 0);
+    super.setUp();
+    BurnMintERC677 usdcToken = new BurnMintERC677("USD Coin", "USDC", 6, 0);
     s_token = usdcToken;
+
     deal(address(s_token), OWNER, type(uint256).max);
     _setUpRamps();
 
@@ -56,16 +53,12 @@ contract HybridLockReleaseUSDCTokenPoolSetup is BaseTest {
     s_mockUSDC = new MockUSDCTokenMessenger(0, address(s_mockUSDCTransmitter));
 
     usdcToken.grantMintAndBurnRoles(address(s_mockUSDCTransmitter));
-
-    s_usdcTokenPool =
-      new HybridLockReleaseUSDCTokenPool(s_mockUSDC, s_token, new address[](0), address(s_mockRMN), address(s_router));
-
-    s_usdcTokenPoolTransferLiquidity =
-      new HybridLockReleaseUSDCTokenPool(s_mockUSDC, s_token, new address[](0), address(s_mockRMN), address(s_router));
-
     usdcToken.grantMintAndBurnRoles(address(s_mockUSDC));
-    usdcToken.grantMintAndBurnRoles(address(s_usdcTokenPool));
+  }
 
+  function _poolApplyChainUpdates(
+    address pool
+  ) internal {
     bytes[] memory sourcePoolAddresses = new bytes[](1);
     sourcePoolAddresses[0] = abi.encode(SOURCE_CHAIN_USDC_POOL);
 
@@ -88,23 +81,7 @@ contract HybridLockReleaseUSDCTokenPoolSetup is BaseTest {
       inboundRateLimiterConfig: _getInboundRateLimiterConfig()
     });
 
-    s_usdcTokenPool.applyChainUpdates(new uint64[](0), chainUpdates);
-
-    USDCTokenPool.DomainUpdate[] memory domains = new USDCTokenPool.DomainUpdate[](1);
-    domains[0] = USDCTokenPool.DomainUpdate({
-      destChainSelector: DEST_CHAIN_SELECTOR,
-      domainIdentifier: 9999,
-      allowedCaller: keccak256("allowedCaller"),
-      enabled: true
-    });
-
-    s_usdcTokenPool.setDomains(domains);
-
-    vm.expectEmit();
-    emit HybridLockReleaseUSDCTokenPool.LiquidityProviderSet(address(0), OWNER, DEST_CHAIN_SELECTOR);
-
-    s_usdcTokenPool.setLiquidityProvider(DEST_CHAIN_SELECTOR, OWNER);
-    s_usdcTokenPool.setLiquidityProvider(SOURCE_CHAIN_SELECTOR, OWNER);
+    TokenPool(pool).applyChainUpdates(new uint64[](0), chainUpdates);
   }
 
   function _setUpRamps() internal {
