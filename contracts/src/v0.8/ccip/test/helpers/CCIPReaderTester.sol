@@ -54,7 +54,9 @@ contract CCIPReaderTester {
   }
 
   /// @notice sets the sequence number of the last price update.
-  function setLatestPriceSequenceNumber(uint64 seqNr) external {
+  function setLatestPriceSequenceNumber(
+    uint64 seqNr
+  ) external {
     s_latestPriceSequenceNumber = seqNr;
   }
 

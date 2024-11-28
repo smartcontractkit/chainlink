@@ -57,7 +57,7 @@ var (
 	defaultGasPrice = assets.GWei(10)
 )
 
-func setupGetCommitGTETimestampTest(t *testing.T, ctx context.Context, finalityDepth int64) (*testSetupData, int64, common.Address) {
+func setupGetCommitGTETimestampTest(ctx context.Context, t *testing.T, finalityDepth int64) (*testSetupData, int64, common.Address) {
 	cfg := evmtypes.ChainReaderConfig{
 		Contracts: map[string]evmtypes.ChainContractReader{
 			consts.ContractNameOffRamp: {
@@ -99,7 +99,7 @@ func setupGetCommitGTETimestampTest(t *testing.T, ctx context.Context, finalityD
 	return s, finalityDepth, onRampAddress
 }
 
-func emitCommitReports(t *testing.T, ctx context.Context, s *testSetupData, numReports int, tokenA common.Address, onRampAddress common.Address) uint64 {
+func emitCommitReports(ctx context.Context, t *testing.T, s *testSetupData, numReports int, tokenA common.Address, onRampAddress common.Address) uint64 {
 	var firstReportTs uint64
 	for i := 0; i < numReports; i++ {
 		_, err := s.contract.EmitCommitReportAccepted(s.auth, ccip_reader_tester.OffRampCommitReport{
@@ -151,12 +151,12 @@ func emitCommitReports(t *testing.T, ctx context.Context, s *testSetupData, numR
 func TestCCIPReader_CommitReportsGTETimestamp(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
-	s, _, onRampAddress := setupGetCommitGTETimestampTest(t, ctx, 0)
+	s, _, onRampAddress := setupGetCommitGTETimestampTest(ctx, t, 0)
 
 	tokenA := common.HexToAddress("123")
 	const numReports = 5
 
-	firstReportTs := emitCommitReports(t, ctx, s, numReports, tokenA, onRampAddress)
+	firstReportTs := emitCommitReports(ctx, t, s, numReports, tokenA, onRampAddress)
 
 	// Need to replay as sometimes the logs are not picked up by the log poller (?)
 	// Maybe another situation where chain reader doesn't register filters as expected.
@@ -195,12 +195,12 @@ func TestCCIPReader_CommitReportsGTETimestamp_RespectsFinality(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
 	var finalityDepth int64 = 10
-	s, _, onRampAddress := setupGetCommitGTETimestampTest(t, ctx, finalityDepth)
+	s, _, onRampAddress := setupGetCommitGTETimestampTest(ctx, t, finalityDepth)
 
 	tokenA := common.HexToAddress("123")
 	const numReports = 5
 
-	firstReportTs := emitCommitReports(t, ctx, s, numReports, tokenA, onRampAddress)
+	firstReportTs := emitCommitReports(ctx, t, s, numReports, tokenA, onRampAddress)
 
 	// Need to replay as sometimes the logs are not picked up by the log poller (?)
 	// Maybe another situation where chain reader doesn't register filters as expected.
@@ -589,8 +589,9 @@ func TestCCIPReader_GetExpectedNextSequenceNumber(t *testing.T) {
 		env,
 	)
 
-	maxExpectedSeqNum := 10
-	for i := 1; i < maxExpectedSeqNum; i++ {
+	maxExpectedSeqNum := uint64(10)
+	var i uint64
+	for i = 1; i < maxExpectedSeqNum; i++ {
 		msg := changeset.DefaultRouterMessage(state.Chains[destChain].Receiver.Address())
 		msgSentEvent := changeset.TestSendRequest(t, env.Env, state, srcChain, destChain, false, msg)
 		require.Equal(t, uint64(i), msgSentEvent.SequenceNumber)
@@ -693,6 +694,7 @@ func Test_GetChainFeePriceUpdates(t *testing.T) {
 			},
 		},
 	)
+	require.NoError(t, err)
 	be := env.Env.Chains[chain1].Client.(*memory.Backend)
 	be.Commit()
 

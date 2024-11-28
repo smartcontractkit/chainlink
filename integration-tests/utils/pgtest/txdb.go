@@ -268,6 +268,7 @@ func (c *conn) Close() (err error) {
 	return
 }
 
+//nolint:revive
 func (c *conn) close() bool {
 	c.Lock()
 	defer c.Unlock()
