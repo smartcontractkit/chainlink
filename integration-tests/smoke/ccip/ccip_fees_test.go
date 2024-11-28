@@ -406,7 +406,7 @@ func runFeeTokenTestCase(tc feeTokenTestCase) {
 	if feeTokenWrapper == nil {
 		receipt, err := srcChain.Client.TransactionReceipt(ctx, msgSentEvent.Raw.TxHash)
 		require.NoError(tc.t, err)
-		txCostWei := new(big.Int).Mul(big.NewInt(int64(receipt.GasUsed)), receipt.EffectiveGasPrice)
+		txCostWei := new(big.Int).Mul(new(big.Int).SetUint64(receipt.GasUsed), receipt.EffectiveGasPrice)
 		feeTokenBalanceBefore.Sub(feeTokenBalanceBefore, txCostWei)
 	}
 	require.Equal(
