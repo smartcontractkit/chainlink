@@ -4,8 +4,10 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
@@ -18,6 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -30,6 +33,7 @@ func TestActiveCandidate(t *testing.T) {
 	e := tenv.Env
 	state, err := LoadOnchainState(tenv.Env)
 	require.NoError(t, err)
+	allChains := maps.Keys(e.Chains)
 
 	// Add all lanes
 	require.NoError(t, AddLanesForAll(e, state))
@@ -80,14 +84,25 @@ func TestActiveCandidate(t *testing.T) {
 	//Wait for all exec reports to land
 	ConfirmExecWithSeqNrsForAll(t, e, state, expectedSeqNumExec, startBlocks)
 
-	// transfer ownership
-	TransferAllOwnership(t, state, tenv.HomeChainSel, e)
-	acceptOwnershipProposal, err := GenerateAcceptOwnershipProposal(state, tenv.HomeChainSel, e.AllChainSelectors())
-	require.NoError(t, err)
-	acceptOwnershipExec := commonchangeset.SignProposal(t, e, acceptOwnershipProposal)
-	for _, sel := range e.AllChainSelectors() {
-		commonchangeset.ExecuteProposal(t, e, acceptOwnershipExec, state.Chains[sel].Timelock, sel)
+	// compose the transfer ownership and accept ownership changesets
+	timelocks := make(map[uint64]*gethwrappers.RBACTimelock)
+	for _, chain := range allChains {
+		timelocks[chain] = state.Chains[chain].Timelock
 	}
+	_, err = commonchangeset.ApplyChangesets(t, e, timelocks, []commonchangeset.ChangesetApplication{
+		// note this doesn't have proposals.
+		{
+			Changeset: commonchangeset.WrapChangeSet(commonchangeset.NewTransferOwnershipChangeset),
+			Config:    genTestTransferOwnershipConfig(tenv, allChains, state),
+		},
+		// this has proposals, ApplyChangesets will sign & execute them.
+		// in practice, signing and executing are separated processes.
+		{
+			Changeset: commonchangeset.WrapChangeSet(commonchangeset.NewAcceptOwnershipChangeset),
+			Config:    genTestAcceptOwnershipConfig(tenv, allChains, state),
+		},
+	})
+	require.NoError(t, err)
 	// Apply the accept ownership proposal to all the chains.
 
 	err = ConfirmRequestOnSourceAndDest(t, e, state, tenv.HomeChainSel, tenv.FeedChainSel, 2)
@@ -139,6 +154,14 @@ func TestActiveCandidate(t *testing.T) {
 	)
 	require.NoError(t, err)
 
+	var (
+		timelocksPerChain = map[uint64]common.Address{
+			tenv.HomeChainSel: state.Chains[tenv.HomeChainSel].Timelock.Address(),
+		}
+		proposerMCMSes = map[uint64]*gethwrappers.ManyChainMultiSig{
+			tenv.HomeChainSel: state.Chains[tenv.HomeChainSel].ProposerMcm,
+		}
+	)
 	setCommitCandidateOp, err := SetCandidateOnExistingDon(
 		ocr3ConfigMap[cctypes.PluginTypeCCIPCommit],
 		state.Chains[tenv.HomeChainSel].CapabilityRegistry,
@@ -147,7 +170,7 @@ func TestActiveCandidate(t *testing.T) {
 		nodes.NonBootstraps(),
 	)
 	require.NoError(t, err)
-	setCommitCandidateProposal, err := BuildProposalFromBatches(state, []timelock.BatchChainOperation{{
+	setCommitCandidateProposal, err := proposalutils.BuildProposalFromBatches(timelocksPerChain, proposerMCMSes, []timelock.BatchChainOperation{{
 		ChainIdentifier: mcms.ChainIdentifier(tenv.HomeChainSel),
 		Batch:           setCommitCandidateOp,
 	}}, "set new candidates on commit plugin", 0)
@@ -165,7 +188,7 @@ func TestActiveCandidate(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	setExecCandidateProposal, err := BuildProposalFromBatches(state, []timelock.BatchChainOperation{{
+	setExecCandidateProposal, err := proposalutils.BuildProposalFromBatches(timelocksPerChain, proposerMCMSes, []timelock.BatchChainOperation{{
 		ChainIdentifier: mcms.ChainIdentifier(tenv.HomeChainSel),
 		Batch:           setExecCandidateOp,
 	}}, "set new candidates on commit and exec plugins", 0)
@@ -192,7 +215,7 @@ func TestActiveCandidate(t *testing.T) {
 
 	promoteOps, err := PromoteAllCandidatesForChainOps(state.Chains[tenv.HomeChainSel].CapabilityRegistry, state.Chains[tenv.HomeChainSel].CCIPHome, tenv.FeedChainSel, nodes.NonBootstraps())
 	require.NoError(t, err)
-	promoteProposal, err := BuildProposalFromBatches(state, []timelock.BatchChainOperation{{
+	promoteProposal, err := proposalutils.BuildProposalFromBatches(timelocksPerChain, proposerMCMSes, []timelock.BatchChainOperation{{
 		ChainIdentifier: mcms.ChainIdentifier(tenv.HomeChainSel),
 		Batch:           promoteOps,
 	}}, "promote candidates and revoke actives", 0)

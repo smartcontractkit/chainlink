@@ -95,7 +95,7 @@ func DeployMCMSWithTimelockContracts(
 		return nil, err
 	}
 
-	timelock, err := deployment.DeployContract[*owner_helpers.RBACTimelock](lggr, chain, ab,
+	timelock, err := deployment.DeployContract(lggr, chain, ab,
 		func(chain deployment.Chain) deployment.ContractDeploy[*owner_helpers.RBACTimelock] {
 			timelock, tx2, cc, err2 := owner_helpers.DeployRBACTimelock(
 				chain.DeployerKey,
