@@ -270,7 +270,7 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
   /// @param remoteAmount The amount on the remote chain.
   /// @param remoteDecimals The decimals of the token on the remote chain.
   /// @return The local amount.
-  /// @dev This function protects against overflows. If there is a transaction that hits the overflow  check, it is
+  /// @dev This function protects against overflows. If there is a transaction that hits the overflow check, it is
   /// probably incorrect as that means the amount cannot be represented on this chain. If the local decimals have been
   /// wrongly configured, the token issuer could redeploy the pool with the correct decimals and manually re-execute the
   /// CCIP tx to fix the issue.
@@ -279,25 +279,24 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
       return remoteAmount;
     }
     if (remoteDecimals > i_tokenDecimals) {
-      if (remoteDecimals - i_tokenDecimals > 77) {
+      uint8 decimalsDiff = remoteDecimals - i_tokenDecimals;
+      if (decimalsDiff > 77) {
         // This is a safety check to prevent overflow in the next calculation.
         revert OverflowDetected(remoteDecimals, i_tokenDecimals, remoteAmount);
       }
       // Solidity rounds down so there is no risk of minting more tokens than the remote chain sent.
-      return remoteAmount / (10 ** (remoteDecimals - i_tokenDecimals));
+      return remoteAmount / (10 ** decimalsDiff);
     }
 
     // This is a safety check to prevent overflow in the next calculation.
     // More than 77 would never fit in a uint256 and would cause an overflow. We also check if the resulting amount
     // would overflow.
-    if (
-      i_tokenDecimals - remoteDecimals > 77
-        || remoteAmount > type(uint256).max / (10 ** (i_tokenDecimals - remoteDecimals))
-    ) {
+    uint8 diffDecimals = i_tokenDecimals - remoteDecimals;
+    if (diffDecimals > 77 || remoteAmount > type(uint256).max / (10 ** diffDecimals)) {
       revert OverflowDetected(remoteDecimals, i_tokenDecimals, remoteAmount);
     }
 
-    return remoteAmount * (10 ** (i_tokenDecimals - remoteDecimals));
+    return remoteAmount * (10 ** diffDecimals);
   }
 
   // ================================================================
