@@ -12,6 +12,7 @@ import (
 	"golang.org/x/exp/maps"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
