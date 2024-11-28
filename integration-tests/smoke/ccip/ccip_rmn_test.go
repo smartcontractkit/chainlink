@@ -1,6 +1,7 @@
 package smoke
 
 import (
+	"context"
 	"encoding/binary"
 	"errors"
 	"math/big"
@@ -20,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/osutil"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 
@@ -238,57 +240,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	envWithRMN, rmnCluster := testsetups.NewLocalDevEnvironmentWithRMN(t, logger.TestLogger(t), len(tc.rmnNodes))
 	t.Logf("envWithRmn: %#v", envWithRMN)
 
-	var chainSelectors []uint64
-	for _, chain := range envWithRMN.Env.Chains {
-		chainSelectors = append(chainSelectors, chain.Selector)
-	}
-	require.Greater(t, len(chainSelectors), 1, "There should be at least two chains")
-
-	remoteChainSelectors := make([]uint64, 0, len(envWithRMN.Env.Chains)-1)
-	for _, chain := range envWithRMN.Env.Chains {
-		remoteChainSelectors = append(remoteChainSelectors, chain.Selector)
-	}
-	require.Greater(t, len(remoteChainSelectors), 0, "There should be at least one remote chain")
-
-	var (
-		rmnHomeNodes     []rmn_home.RMNHomeNode
-		rmnRemoteSigners []rmn_remote.RMNRemoteSigner
-	)
-
-	for _, rmnNodeInfo := range tc.rmnNodes {
-		rmn := rmnCluster.Nodes["rmn_"+strconv.Itoa(rmnNodeInfo.id)]
-
-		var offchainPublicKey [32]byte
-		copy(offchainPublicKey[:], rmn.RMN.OffchainPublicKey)
-
-		rmnHomeNodes = append(rmnHomeNodes, rmn_home.RMNHomeNode{
-			PeerId:            rmn.Proxy.PeerID,
-			OffchainPublicKey: offchainPublicKey,
-		})
-
-		if rmnNodeInfo.isSigner {
-			if rmnNodeInfo.id < 0 {
-				t.Fatalf("node id is negative: %d", rmnNodeInfo.id)
-			}
-			rmnRemoteSigners = append(rmnRemoteSigners, rmn_remote.RMNRemoteSigner{
-				OnchainPublicKey: rmn.RMN.EVMOnchainPublicKey,
-				NodeIndex:        uint64(rmnNodeInfo.id),
-			})
-		}
-	}
-
-	var rmnHomeSourceChains []rmn_home.RMNHomeSourceChain
-	for remoteChainIdx, remoteF := range tc.homeChainConfig.f {
-		if remoteF < 0 {
-			t.Fatalf("negative remote F: %d", remoteF)
-		}
-		// configure remote chain details on the home contract
-		rmnHomeSourceChains = append(rmnHomeSourceChains, rmn_home.RMNHomeSourceChain{
-			ChainSelector:       chainSelectors[remoteChainIdx],
-			F:                   uint64(remoteF),
-			ObserverNodesBitmap: createObserverNodesBitmap(chainSelectors[remoteChainIdx], tc.rmnNodes, chainSelectors),
-		})
-	}
+	tc.populateFields(t, envWithRMN, rmnCluster)
 
 	onChainState, err := changeset.LoadOnchainState(envWithRMN.Env)
 	require.NoError(t, err)
@@ -306,14 +258,8 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	t.Logf("RMNHome candidateDigest before setting new candidate: %x, activeDigest: %x",
 		allDigests.CandidateConfigDigest[:], allDigests.ActiveConfigDigest[:])
 
-	staticConfig := rmn_home.RMNHomeStaticConfig{
-		Nodes:          rmnHomeNodes,
-		OffchainConfig: []byte{},
-	}
-	dynamicConfig := rmn_home.RMNHomeDynamicConfig{
-		SourceChains:   rmnHomeSourceChains,
-		OffchainConfig: []byte{},
-	}
+	staticConfig := rmn_home.RMNHomeStaticConfig{Nodes: tc.pf.rmnHomeNodes, OffchainConfig: []byte{}}
+	dynamicConfig := rmn_home.RMNHomeDynamicConfig{SourceChains: tc.pf.rmnHomeSourceChains, OffchainConfig: []byte{}}
 	t.Logf("Setting RMNHome candidate with staticConfig: %+v, dynamicConfig: %+v, current candidateDigest: %x",
 		staticConfig, dynamicConfig, allDigests.CandidateConfigDigest[:])
 	tx, err := homeChainState.RMNHome.SetCandidate(homeChain.DeployerKey, staticConfig, dynamicConfig, allDigests.CandidateConfigDigest)
@@ -342,143 +288,24 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 		"active digest should be the same as the previously candidate digest after promotion, previous candidate: %x, active: %x",
 		candidateDigest[:], activeDigest[:])
 
-	cursedSourceChains := mapset.NewSet[uint64]()
-	for _, chainIdx := range tc.cursedSourceChainIdxs {
-		cursedSourceChains.Add(chainSelectors[chainIdx])
-	}
+	tc.setRmnRemoteConfig(t, ctx, onChainState, activeDigest, envWithRMN)
 
-	// Set RMN remote config appropriately
-	for _, remoteCfg := range tc.remoteChainsConfig {
-		remoteSel := chainSelectors[remoteCfg.chainIdx]
-		chState, ok := onChainState.Chains[remoteSel]
-		require.True(t, ok)
-		if remoteCfg.f < 0 {
-			t.Fatalf("negative F: %d", remoteCfg.f)
-		}
-		rmnRemoteConfig := rmn_remote.RMNRemoteConfig{
-			RmnHomeContractConfigDigest: activeDigest,
-			Signers:                     rmnRemoteSigners,
-			F:                           uint64(remoteCfg.f),
-		}
-
-		chain := envWithRMN.Env.Chains[chainSelectors[remoteCfg.chainIdx]]
-
-		t.Logf("Setting RMNRemote config with RMNHome active digest: %x, cfg: %+v", activeDigest[:], rmnRemoteConfig)
-		tx2, err2 := chState.RMNRemote.SetConfig(chain.DeployerKey, rmnRemoteConfig)
-		require.NoError(t, err2)
-		_, err2 = deployment.ConfirmIfNoError(chain, tx2, err2)
-		require.NoError(t, err2)
-
-		// confirm the config is set correctly
-		config, err2 := chState.RMNRemote.GetVersionedConfig(&bind.CallOpts{Context: ctx})
-		require.NoError(t, err2)
-		require.Equalf(t,
-			activeDigest,
-			config.Config.RmnHomeContractConfigDigest,
-			"RMNRemote config digest should be the same as the active digest of RMNHome after setting, RMNHome active: %x, RMNRemote config: %x",
-			activeDigest[:], config.Config.RmnHomeContractConfigDigest[:])
-
-		t.Logf("RMNRemote config digest after setting: %x", config.Config.RmnHomeContractConfigDigest[:])
-	}
-
-	// Kill the RMN nodes that are marked for force exit
-	for _, n := range tc.rmnNodes {
-		if n.forceExit {
-			t.Logf("Pausing RMN node %d", n.id)
-			rmnN := rmnCluster.Nodes["rmn_"+strconv.Itoa(n.id)]
-			require.NoError(t, osutil.ExecCmd(zerolog.Nop(), "docker kill "+rmnN.Proxy.ContainerName))
-			t.Logf("Paused RMN node %d", n.id)
-		}
-	}
+	tc.killMarkedRmnNodes(t, rmnCluster)
 
 	changeset.ReplayLogs(t, envWithRMN.Env.Offchain, envWithRMN.ReplayBlocks)
-	// Add all lanes
 	require.NoError(t, changeset.AddLanesForAll(envWithRMN.Env, onChainState))
+	disabledNodes := tc.disableOraclesIfThisIsACursingTestCase(t, ctx, envWithRMN)
 
-	// disable nodes
-	disabledNodes := make([]string, 0)
-	if len(tc.cursedSourceChainIdxs) > 0 || tc.globalCurse {
-		listNodesResp, err := envWithRMN.Env.Offchain.ListNodes(ctx, &node.ListNodesRequest{})
-		require.NoError(t, err)
-
-		for _, n := range listNodesResp.Nodes {
-			if strings.HasPrefix(n.Name, "bootstrap") {
-				continue
-			}
-			_, err := envWithRMN.Env.Offchain.DisableNode(ctx, &node.DisableNodeRequest{Id: n.Id})
-			require.NoError(t, err)
-			disabledNodes = append(disabledNodes, n.Id)
-			t.Logf("node %s disabled", n.Id)
-		}
-	}
-
-	// Need to keep track of the block number for each chain so that event subscription can be done from that block.
-	// send msgs
-	startBlocks := make(map[uint64]*uint64)
-	seqNumCommit := make(map[changeset.SourceDestPair]uint64)
-	seqNumExec := make(map[changeset.SourceDestPair][]uint64)
-	for _, msg := range tc.messagesToSend {
-		fromChain := chainSelectors[msg.fromChainIdx]
-		toChain := chainSelectors[msg.toChainIdx]
-
-		for i := 0; i < msg.count; i++ {
-			msgSentEvent := changeset.TestSendRequest(t, envWithRMN.Env, onChainState, fromChain, toChain, false, router.ClientEVM2AnyMessage{
-				Receiver:     common.LeftPadBytes(onChainState.Chains[toChain].Receiver.Address().Bytes(), 32),
-				Data:         []byte("hello world"),
-				TokenAmounts: nil,
-				FeeToken:     common.HexToAddress("0x0"),
-				ExtraArgs:    nil,
-			})
-			seqNumCommit[changeset.SourceDestPair{
-				SourceChainSelector: fromChain,
-				DestChainSelector:   toChain,
-			}] = msgSentEvent.SequenceNumber
-			seqNumExec[changeset.SourceDestPair{
-				SourceChainSelector: fromChain,
-				DestChainSelector:   toChain,
-			}] = []uint64{msgSentEvent.SequenceNumber}
-			t.Logf("Sent message from chain %d to chain %d with seqNum %d", fromChain, toChain, msgSentEvent.SequenceNumber)
-		}
-
-		zero := uint64(0)
-		startBlocks[toChain] = &zero
-	}
+	startBlocks, seqNumCommit, seqNumExec := tc.sendMessages(t, onChainState, envWithRMN)
 	t.Logf("Sent all messages, seqNumCommit: %v seqNumExec: %v", seqNumCommit, seqNumExec)
 
-	// curse
-	for _, remoteCfg := range tc.remoteChainsConfig {
-		remoteSel := chainSelectors[remoteCfg.chainIdx]
-		chState, ok := onChainState.Chains[remoteSel]
-		require.True(t, ok)
-		chain, ok := envWithRMN.Env.Chains[remoteSel]
-		require.True(t, ok)
-		for _, chainSel := range cursedSourceChains.ToSlice() {
-			txCurse, errCurse := chState.RMNRemote.Curse(chain.DeployerKey, chainSelectorToBytes16(chainSel))
-			_, errConfirm := deployment.ConfirmIfNoError(chain, txCurse, errCurse)
-			require.NoError(t, errConfirm)
-		}
+	tc.callContractsToCurseChains(t, ctx, onChainState, envWithRMN)
 
-		if tc.globalCurse {
-			txCurseGlobal, errCurseGlobal := chState.RMNRemote.Curse(chain.DeployerKey, types.GlobalCurseSubject)
-			_, errConfirm := deployment.ConfirmIfNoError(chain, txCurseGlobal, errCurseGlobal)
-			require.NoError(t, errConfirm)
-		}
-
-		cs, err := chState.RMNRemote.GetCursedSubjects(&bind.CallOpts{Context: ctx})
-		require.NoError(t, err)
-		t.Logf("Cursed subjects: %v", cs)
-	}
-
-	// re-enable oracles
-	for _, n := range disabledNodes {
-		_, err := envWithRMN.Env.Offchain.EnableNode(ctx, &node.EnableNodeRequest{Id: n})
-		require.NoError(t, err)
-		t.Logf("node %s re-enabled", n)
-	}
+	tc.enableOracles(t, ctx, envWithRMN, disabledNodes)
 
 	expectedSeqNum := make(map[changeset.SourceDestPair]uint64)
 	for k, v := range seqNumCommit {
-		if !cursedSourceChains.Contains(k.SourceChainSelector) {
+		if !tc.pf.cursedSourceChains.Contains(k.SourceChainSelector) {
 			expectedSeqNum[k] = v
 		}
 	}
@@ -495,7 +322,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 		changeset.ConfirmCommitForAllWithExpectedSeqNums(t, envWithRMN.Env, onChainState, expectedSeqNum, startBlocks)
 		commitReportReceived <- struct{}{}
 
-		if cursedSourceChains.Cardinality() > 0 {
+		if tc.pf.cursedSourceChains.Cardinality() > 0 {
 			// wait for a duration and assert that commit reports were not delivered for cursed source chains
 			changeset.ConfirmCommitForAllWithExpectedSeqNums(t, envWithRMN.Env, onChainState, seqNumCommit, startBlocks)
 			commitReportReceived <- struct{}{}
@@ -588,6 +415,63 @@ type rmnTestCase struct {
 	remoteChainsConfig []remoteChainConfig
 	rmnNodes           []rmnNode
 	messagesToSend     []messageToSend
+
+	// populated fields after environment setup
+	pf testCasePopulatedFields
+}
+
+type testCasePopulatedFields struct {
+	chainSelectors      []uint64
+	rmnHomeNodes        []rmn_home.RMNHomeNode
+	rmnRemoteSigners    []rmn_remote.RMNRemoteSigner
+	rmnHomeSourceChains []rmn_home.RMNHomeSourceChain
+	cursedSourceChains  mapset.Set[uint64]
+}
+
+func (tc *rmnTestCase) populateFields(t *testing.T, envWithRMN changeset.DeployedEnv, rmnCluster devenv.RMNCluster) {
+	require.GreaterOrEqual(t, len(envWithRMN.Env.Chains), 2, "test assumes at least two chains")
+	for _, chain := range envWithRMN.Env.Chains {
+		tc.pf.chainSelectors = append(tc.pf.chainSelectors, chain.Selector)
+	}
+
+	for _, rmnNodeInfo := range tc.rmnNodes {
+		rmn := rmnCluster.Nodes["rmn_"+strconv.Itoa(rmnNodeInfo.id)]
+
+		var offchainPublicKey [32]byte
+		copy(offchainPublicKey[:], rmn.RMN.OffchainPublicKey)
+
+		tc.pf.rmnHomeNodes = append(tc.pf.rmnHomeNodes, rmn_home.RMNHomeNode{
+			PeerId:            rmn.Proxy.PeerID,
+			OffchainPublicKey: offchainPublicKey,
+		})
+
+		if rmnNodeInfo.isSigner {
+			if rmnNodeInfo.id < 0 {
+				t.Fatalf("node id is negative: %d", rmnNodeInfo.id)
+			}
+			tc.pf.rmnRemoteSigners = append(tc.pf.rmnRemoteSigners, rmn_remote.RMNRemoteSigner{
+				OnchainPublicKey: rmn.RMN.EVMOnchainPublicKey,
+				NodeIndex:        uint64(rmnNodeInfo.id),
+			})
+		}
+	}
+
+	for remoteChainIdx, remoteF := range tc.homeChainConfig.f {
+		if remoteF < 0 {
+			t.Fatalf("negative remote F: %d", remoteF)
+		}
+		// configure remote chain details on the home contract
+		tc.pf.rmnHomeSourceChains = append(tc.pf.rmnHomeSourceChains, rmn_home.RMNHomeSourceChain{
+			ChainSelector:       tc.pf.chainSelectors[remoteChainIdx],
+			F:                   uint64(remoteF),
+			ObserverNodesBitmap: createObserverNodesBitmap(tc.pf.chainSelectors[remoteChainIdx], tc.rmnNodes, tc.pf.chainSelectors),
+		})
+	}
+
+	tc.pf.cursedSourceChains = mapset.NewSet[uint64]()
+	for _, chainIdx := range tc.cursedSourceChainIdxs {
+		tc.pf.cursedSourceChains.Add(tc.pf.chainSelectors[chainIdx])
+	}
 }
 
 func (tc rmnTestCase) validate() error {
@@ -610,6 +494,146 @@ func (tc rmnTestCase) validate() error {
 	}
 
 	return nil
+}
+
+func (tc rmnTestCase) setRmnRemoteConfig(
+	t *testing.T,
+	ctx context.Context,
+	onChainState changeset.CCIPOnChainState,
+	activeDigest [32]byte,
+	envWithRMN changeset.DeployedEnv) {
+	for _, remoteCfg := range tc.remoteChainsConfig {
+		remoteSel := tc.pf.chainSelectors[remoteCfg.chainIdx]
+		chState, ok := onChainState.Chains[remoteSel]
+		require.True(t, ok)
+		if remoteCfg.f < 0 {
+			t.Fatalf("negative F: %d", remoteCfg.f)
+		}
+		rmnRemoteConfig := rmn_remote.RMNRemoteConfig{
+			RmnHomeContractConfigDigest: activeDigest,
+			Signers:                     tc.pf.rmnRemoteSigners,
+			F:                           uint64(remoteCfg.f),
+		}
+
+		chain := envWithRMN.Env.Chains[tc.pf.chainSelectors[remoteCfg.chainIdx]]
+
+		t.Logf("Setting RMNRemote config with RMNHome active digest: %x, cfg: %+v", activeDigest[:], rmnRemoteConfig)
+		tx2, err2 := chState.RMNRemote.SetConfig(chain.DeployerKey, rmnRemoteConfig)
+		require.NoError(t, err2)
+		_, err2 = deployment.ConfirmIfNoError(chain, tx2, err2)
+		require.NoError(t, err2)
+
+		// confirm the config is set correctly
+		config, err2 := chState.RMNRemote.GetVersionedConfig(&bind.CallOpts{Context: ctx})
+		require.NoError(t, err2)
+		require.Equalf(t,
+			activeDigest,
+			config.Config.RmnHomeContractConfigDigest,
+			"RMNRemote config digest should be the same as the active digest of RMNHome after setting, RMNHome active: %x, RMNRemote config: %x",
+			activeDigest[:], config.Config.RmnHomeContractConfigDigest[:])
+
+		t.Logf("RMNRemote config digest after setting: %x", config.Config.RmnHomeContractConfigDigest[:])
+	}
+}
+
+func (tc rmnTestCase) killMarkedRmnNodes(t *testing.T, rmnCluster devenv.RMNCluster) {
+	for _, n := range tc.rmnNodes {
+		if n.forceExit {
+			t.Logf("Pausing RMN node %d", n.id)
+			rmnN := rmnCluster.Nodes["rmn_"+strconv.Itoa(n.id)]
+			require.NoError(t, osutil.ExecCmd(zerolog.Nop(), "docker kill "+rmnN.Proxy.ContainerName))
+			t.Logf("Paused RMN node %d", n.id)
+		}
+	}
+}
+
+func (tc rmnTestCase) disableOraclesIfThisIsACursingTestCase(t *testing.T, ctx context.Context, envWithRMN changeset.DeployedEnv) []string {
+	disabledNodes := make([]string, 0)
+
+	if len(tc.cursedSourceChainIdxs) > 0 || tc.globalCurse {
+		listNodesResp, err := envWithRMN.Env.Offchain.ListNodes(ctx, &node.ListNodesRequest{})
+		require.NoError(t, err)
+
+		for _, n := range listNodesResp.Nodes {
+			if strings.HasPrefix(n.Name, "bootstrap") {
+				continue
+			}
+			_, err := envWithRMN.Env.Offchain.DisableNode(ctx, &node.DisableNodeRequest{Id: n.Id})
+			require.NoError(t, err)
+			disabledNodes = append(disabledNodes, n.Id)
+			t.Logf("node %s disabled", n.Id)
+		}
+	}
+
+	return disabledNodes
+}
+
+func (tc rmnTestCase) sendMessages(t *testing.T, onChainState changeset.CCIPOnChainState, envWithRMN changeset.DeployedEnv) (map[uint64]*uint64, map[changeset.SourceDestPair]uint64, map[changeset.SourceDestPair][]uint64) {
+	startBlocks := make(map[uint64]*uint64)
+	seqNumCommit := make(map[changeset.SourceDestPair]uint64)
+	seqNumExec := make(map[changeset.SourceDestPair][]uint64)
+
+	for _, msg := range tc.messagesToSend {
+		fromChain := tc.pf.chainSelectors[msg.fromChainIdx]
+		toChain := tc.pf.chainSelectors[msg.toChainIdx]
+
+		for i := 0; i < msg.count; i++ {
+			msgSentEvent := changeset.TestSendRequest(t, envWithRMN.Env, onChainState, fromChain, toChain, false, router.ClientEVM2AnyMessage{
+				Receiver:     common.LeftPadBytes(onChainState.Chains[toChain].Receiver.Address().Bytes(), 32),
+				Data:         []byte("hello world"),
+				TokenAmounts: nil,
+				FeeToken:     common.HexToAddress("0x0"),
+				ExtraArgs:    nil,
+			})
+			seqNumCommit[changeset.SourceDestPair{
+				SourceChainSelector: fromChain,
+				DestChainSelector:   toChain,
+			}] = msgSentEvent.SequenceNumber
+			seqNumExec[changeset.SourceDestPair{
+				SourceChainSelector: fromChain,
+				DestChainSelector:   toChain,
+			}] = []uint64{msgSentEvent.SequenceNumber}
+			t.Logf("Sent message from chain %d to chain %d with seqNum %d", fromChain, toChain, msgSentEvent.SequenceNumber)
+		}
+
+		zero := uint64(0)
+		startBlocks[toChain] = &zero
+	}
+
+	return startBlocks, seqNumCommit, seqNumExec
+}
+
+func (tc rmnTestCase) callContractsToCurseChains(t *testing.T, ctx context.Context, onChainState changeset.CCIPOnChainState, envWithRMN changeset.DeployedEnv) {
+	for _, remoteCfg := range tc.remoteChainsConfig {
+		remoteSel := tc.pf.chainSelectors[remoteCfg.chainIdx]
+		chState, ok := onChainState.Chains[remoteSel]
+		require.True(t, ok)
+		chain, ok := envWithRMN.Env.Chains[remoteSel]
+		require.True(t, ok)
+		for _, chainSel := range tc.pf.cursedSourceChains.ToSlice() {
+			txCurse, errCurse := chState.RMNRemote.Curse(chain.DeployerKey, chainSelectorToBytes16(chainSel))
+			_, errConfirm := deployment.ConfirmIfNoError(chain, txCurse, errCurse)
+			require.NoError(t, errConfirm)
+		}
+
+		if tc.globalCurse {
+			txCurseGlobal, errCurseGlobal := chState.RMNRemote.Curse(chain.DeployerKey, types.GlobalCurseSubject)
+			_, errConfirm := deployment.ConfirmIfNoError(chain, txCurseGlobal, errCurseGlobal)
+			require.NoError(t, errConfirm)
+		}
+
+		cs, err := chState.RMNRemote.GetCursedSubjects(&bind.CallOpts{Context: ctx})
+		require.NoError(t, err)
+		t.Logf("Cursed subjects: %v", cs)
+	}
+}
+
+func (tc rmnTestCase) enableOracles(t *testing.T, ctx context.Context, envWithRMN changeset.DeployedEnv, nodeIDs []string) {
+	for _, n := range nodeIDs {
+		_, err := envWithRMN.Env.Offchain.EnableNode(ctx, &node.EnableNodeRequest{Id: n})
+		require.NoError(t, err)
+		t.Logf("node %s enabled", n)
+	}
 }
 
 func chainSelectorToBytes16(chainSel uint64) [16]byte {
