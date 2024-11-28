@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
-import {AggregatorInterface} from "../../../shared/interfaces/AggregatorInterface.sol";
-import {AggregatorV3Interface} from "../../../shared/interfaces/AggregatorV3Interface.sol";
-import {AggregatorV2V3Interface} from "../../../shared/interfaces/AggregatorV2V3Interface.sol";
+import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
+import {AggregatorInterface} from "../../shared/interfaces/AggregatorInterface.sol";
+import {AggregatorV3Interface} from "../../shared/interfaces/AggregatorV3Interface.sol";
+import {AggregatorV2V3Interface} from "../../shared/interfaces/AggregatorV2V3Interface.sol";
 import {ISequencerUptimeFeed} from "./../interfaces/ISequencerUptimeFeed.sol";
 
-import {SimpleReadAccessController} from "../../../shared/access/SimpleReadAccessController.sol";
+import {SimpleReadAccessController} from "../../shared/access/SimpleReadAccessController.sol";
 
 /// @title L2 sequencer uptime status aggregator
 /// @notice L2 contract that receives status updates from a specific L1 address,

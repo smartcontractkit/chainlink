@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {ISequencerUptimeFeed} from "../../../dev/interfaces/ISequencerUptimeFeed.sol";
+import {ISequencerUptimeFeed} from "../../../interfaces/ISequencerUptimeFeed.sol";
 
 import {MockScrollL1CrossDomainMessenger} from "../../mocks/scroll/MockScrollL1CrossDomainMessenger.sol";
 import {MockScrollL2CrossDomainMessenger} from "../../mocks/scroll/MockScrollL2CrossDomainMessenger.sol";
 import {MockScrollL1MessageQueue} from "../../mocks/scroll/MockScrollL1MessageQueue.sol";
-import {ScrollSequencerUptimeFeed} from "../../../dev/scroll/ScrollSequencerUptimeFeed.sol";
-import {ScrollValidator} from "../../../dev/scroll/ScrollValidator.sol";
+import {ScrollSequencerUptimeFeed} from "../../../scroll/ScrollSequencerUptimeFeed.sol";
+import {ScrollValidator} from "../../../scroll/ScrollValidator.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
 
 contract ScrollValidatorTest is L2EPTest {
