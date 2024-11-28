@@ -1,18 +1,40 @@
 name: Core Unit Tests
 
-# Run on key branches to make sure integration is good, otherwise run on all PR's
 on:
   push:
     branches:
       - develop
-      - main
       - "release/*"
   merge_group:
   pull_request:
 
 jobs:
+  filter:
+    name: Detect Changes
+    permissions:
+      pull-requests: read
+    outputs:
+      should-run-all-tests: ${{ steps.match-some.outputs.test-data == 'true' }}
+      should-collect-coverage: ${{ github.event_name == 'schedule' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v4.2.1
+        with:
+          repository: smartcontractkit/chainlink
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: match-some
+        with:
+          # "if any changed file matches one or more of the conditions" (https://github.com/dorny/paths-filter/issues/225)
+          predicate-quantifier: some
+          # test-data - any changes to any testdata files/paths
+          filters: |
+            test-data:
+              - '**/testdata/**'
+
   run-unit-tests:
     name: Tests (${{ matrix.type.test-suite }})
+    needs: filter
     runs-on: ubuntu22.04-32cores-128GB
     permissions:
       id-token: write
@@ -43,33 +65,36 @@ jobs:
           go-mod-download-directory: ${{ matrix.type.test-suite == 'ccip-deployment' && matrix.type.module-directory || '' }}
 
       - name: Build Tests
-        uses: smartcontractkit/.github/apps/go-test-caching@feat/go-test-binary-comparison
+        uses: smartcontractkit/.github/apps/go-conditional-tests@feat/go-test-binary-comparison
+        timeout-minutes: 10
         with:
           pipeline-step: "build"
           build-concurrency: "32"
-          collect-coverage: "true"
+          collect-coverage: ${{ needs.filter.outputs.should-collect-coverage }}
           test-suite: ${{ matrix.type.test-suite }}
           module-directory: ${{ matrix.type.module-directory }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           build-flags: ${{ matrix.type.build-flags }}
 
       - name: Run Tests
-        uses: smartcontractkit/.github/apps/go-test-caching@feat/go-test-binary-comparison
+        uses: smartcontractkit/.github/apps/go-conditional-tests@feat/go-test-binary-comparison
+        timeout-minutes: 15
         env:
           CL_DATABASE_URL: ${{ env.DB_URL }}
         with:
           pipeline-step: "run"
-          run-concurrency: "16"
-          collect-coverage: "true"
+          run-concurrency: "24"
+          run-all-tests: ${{ needs.filter.outputs.should-run-all-tests }}
+          collect-coverage: ${{ needs.filter.outputs.should-collect-coverage }}
           test-suite: ${{ matrix.type.test-suite }}
           module-directory: ${{ matrix.type.module-directory }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Update Test Index
-        uses: smartcontractkit/.github/apps/go-test-caching@feat/go-test-binary-comparison
+        uses: smartcontractkit/.github/apps/go-conditional-tests@feat/go-test-binary-comparison
         with:
           pipeline-step: "update"
-          force-update-index: "true"
+          collect-coverage: ${{ needs.filter.outputs.should-collect-coverage }}
           test-suite: ${{ matrix.type.test-suite }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -80,7 +105,8 @@ jobs:
 
   scan:
     name: SonarQube Scan
-    needs: run-unit-tests
+    needs: [ run-unit-tests, filter ]
+    if: ${{ needs.filter.outputs.should-collect-coverage == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
@@ -139,7 +165,6 @@ jobs:
 
   run-fuzz-tests:
     name: Tests (fuzz)
-    if: ${{ github.ref == 'refs/heads/dont-run' }}
     runs-on: ubuntu22.04-32cores-128GB
     env:
       DB_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
@@ -155,7 +180,8 @@ jobs:
       - name: Setup CI Core Environment
         uses: ./.github/actions/setup-ci-core-tests
         with:
-          test-suite: "fuzz"
+          build-cache-version: "fuzz"
+          restore-build-cache-only: "true"
           db-url: ${{ env.DB_URL }}
 
       - name: Increase Timeouts
@@ -176,7 +202,6 @@ jobs:
 
   run-race-tests:
     name: Tests (race)
-    if: ${{ github.ref == 'refs/heads/dont-run' }}
     runs-on: ubuntu22.04-32cores-128GB
     env:
       DB_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
@@ -192,7 +217,8 @@ jobs:
       - name: Setup CI Core Environment
         uses: ./.github/actions/setup-ci-core-tests
         with:
-          test-suite: "race"
+          build-cache-version: "race"
+          restore-build-cache-only: "true"
           db-url: ${{ env.DB_URL }}
 
       - name: Increase Timeouts
