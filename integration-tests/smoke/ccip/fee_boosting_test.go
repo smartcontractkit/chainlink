@@ -217,8 +217,6 @@ func convertToMessage(msg onramp.InternalEVM2AnyRampMessage) cciptypes.Message {
 		DestChainSelector:   cciptypes.ChainSelector(msg.Header.DestChainSelector),
 		SequenceNumber:      cciptypes.SeqNum(msg.Header.SequenceNumber),
 		Nonce:               msg.Header.Nonce,
-		MsgHash:             cciptypes.Bytes32{},        // This will be populated by the plugin
-		OnRamp:              cciptypes.UnknownAddress{}, // This will be populated by the CCIP reader
 	}
 
 	// Convert token amounts
@@ -228,7 +226,7 @@ func convertToMessage(msg onramp.InternalEVM2AnyRampMessage) cciptypes.Message {
 			SourcePoolAddress: cciptypes.UnknownAddress(ta.SourcePoolAddress.Bytes()),
 			DestTokenAddress:  cciptypes.UnknownAddress(ta.DestTokenAddress),
 			ExtraData:         cciptypes.Bytes(ta.ExtraData),
-			Amount:            cciptypes.BigInt{ta.Amount},
+			Amount:            cciptypes.BigInt{Int: ta.Amount},
 			DestExecData:      cciptypes.Bytes(ta.DestExecData),
 		}
 	}
@@ -240,8 +238,8 @@ func convertToMessage(msg onramp.InternalEVM2AnyRampMessage) cciptypes.Message {
 		Receiver:       cciptypes.UnknownAddress(msg.Receiver),
 		ExtraArgs:      cciptypes.Bytes(msg.ExtraArgs),
 		FeeToken:       cciptypes.UnknownAddress(msg.FeeToken.Bytes()),
-		FeeTokenAmount: cciptypes.BigInt{msg.FeeTokenAmount},
-		FeeValueJuels:  cciptypes.BigInt{msg.FeeValueJuels},
+		FeeTokenAmount: cciptypes.BigInt{Int: msg.FeeTokenAmount},
+		FeeValueJuels:  cciptypes.BigInt{Int: msg.FeeValueJuels},
 		TokenAmounts:   tokenAmounts,
 	}
 }
