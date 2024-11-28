@@ -255,7 +255,7 @@ func Test_CCIPBatching(t *testing.T) {
 			e.Env.Chains[sourceChain],
 			e.Env.Chains[sourceChain].DeployerKey,
 			otherSender.From,
-			assets.Ether(100).ToInt(),
+			assets.Ether(100_000).ToInt(),
 		)
 
 		for _, transactor := range transactors {
@@ -407,8 +407,13 @@ func sendMessages(
 		return fmt.Errorf("generate messages: %w", err)
 	}
 
+	currBalance, err := sourceChain.Client.BalanceAt(ctx, sourceTransactOpts.From, nil)
+	if err != nil {
+		return fmt.Errorf("get balance: %w", err)
+	}
+
 	// Send the tx with the messages through the multicall
-	t.Logf("Sending %d messages with total value %s", numMessages, totalValue.String())
+	t.Logf("Sending %d messages with total value %s, current balance: %s", numMessages, totalValue.String(), currBalance.String())
 	tx, err := sourceMulticall3.Aggregate3Value(
 		&bind.TransactOpts{
 			From:   sourceTransactOpts.From,
