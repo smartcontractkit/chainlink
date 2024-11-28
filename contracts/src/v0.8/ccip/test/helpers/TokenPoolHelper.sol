@@ -18,10 +18,6 @@ contract TokenPoolHelper is TokenPool {
     address router
   ) TokenPool(token, localTokenDecimals, allowlist, rmnProxy, router) {}
 
-  function getRemotePoolHashes() external view returns (bytes32[] memory) {
-    return new bytes32[](0); // s_remotePoolHashes.values();
-  }
-
   function lockOrBurn(
     Pool.LockOrBurnInV1 calldata lockOrBurnIn
   ) external override returns (Pool.LockOrBurnOutV1 memory) {
