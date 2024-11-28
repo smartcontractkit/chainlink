@@ -3,9 +3,10 @@ package syncer
 import (
 	"context"
 	"encoding/hex"
-	"strconv"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/mock"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
@@ -24,13 +25,11 @@ import (
 
 func Test_Workflow_Registry_Syncer(t *testing.T) {
 	var (
-		giveContents = "contents"
-		wantContents = "updated contents"
-		giveCfg      = ContractEventPollerConfig{
-			ContractName:    ContractName,
-			ContractAddress: "0xdeadbeef",
-			StartBlockNum:   0,
-			QueryCount:      20,
+		giveContents    = "contents"
+		wantContents    = "updated contents"
+		contractAddress = "0xdeadbeef"
+		giveCfg         = WorkflowEventPollerConfig{
+			QueryCount: 20,
 		}
 		giveURL       = "http://example.com"
 		giveHash, err = crypto.Keccak256([]byte(giveURL))
@@ -57,7 +56,15 @@ func Test_Workflow_Registry_Syncer(t *testing.T) {
 			return []byte(wantContents), nil
 		}
 		ticker = make(chan time.Time)
-		worker = NewWorkflowRegistry(lggr, orm, reader, gateway, giveCfg.ContractAddress, nil, nil, emitter, WithTicker(ticker))
+
+		handler = NewEventHandler(lggr, orm, gateway, nil, nil,
+			emitter, nil)
+		loader = NewWorkflowRegistryContractLoader(contractAddress, 1, reader, handler)
+
+		worker = NewWorkflowRegistry(lggr, reader, contractAddress,
+			WorkflowEventPollerConfig{
+				QueryCount: 20,
+			}, handler, loader, WithTicker(ticker))
 	)
 
 	// Cleanup the worker
@@ -71,14 +78,14 @@ func Test_Workflow_Registry_Syncer(t *testing.T) {
 	reader.EXPECT().QueryKey(
 		matches.AnyContext,
 		types.BoundContract{
-			Name:    giveCfg.ContractName,
-			Address: giveCfg.ContractAddress,
+			Name:    WorkflowRegistryContractName,
+			Address: contractAddress,
 		},
 		query.KeyFilter{
 			Key: string(ForceUpdateSecretsEvent),
 			Expressions: []query.Expression{
 				query.Confidence(primitives.Finalized),
-				query.Block(strconv.FormatUint(giveCfg.StartBlockNum, 10), primitives.Gte),
+				query.Block("0", primitives.Gt),
 			},
 		},
 		query.LimitAndSort{
@@ -87,6 +94,9 @@ func Test_Workflow_Registry_Syncer(t *testing.T) {
 		},
 		new(values.Value),
 	).Return([]types.Sequence{giveLog}, nil)
+	reader.EXPECT().GetLatestValueWithHeadData(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(&types.Head{
+		Height: "0",
+	}, nil)
 
 	// Go run the worker
 	servicetest.Run(t, worker)
