@@ -3,6 +3,8 @@ pragma solidity 0.8.24;
 
 import {IReceiver} from "../keystone/interfaces/IReceiver.sol";
 import {ITypeAndVersion} from "../shared/interfaces/ITypeAndVersion.sol";
+
+import {IERC165} from "../vendor/openzeppelin-solidity/v5.0.2/contracts/interfaces/IERC165.sol";
 import {IFeeQuoter} from "./interfaces/IFeeQuoter.sol";
 import {IPriceRegistry} from "./interfaces/IPriceRegistry.sol";
 
@@ -491,6 +493,14 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       s_usdPriceFeedsPerToken[sourceToken] = tokenPriceFeedConfig;
       emit PriceFeedPerTokenUpdated(sourceToken, tokenPriceFeedConfig);
     }
+  }
+
+  /// @notice Signals which version of the pool interface is supported
+  function supportsInterface(
+    bytes4 interfaceId
+  ) public pure override returns (bool) {
+    return interfaceId == type(IReceiver).interfaceId || interfaceId == type(IFeeQuoter).interfaceId
+      || interfaceId == type(ITypeAndVersion).interfaceId || interfaceId == type(IERC165).interfaceId;
   }
 
   /// @inheritdoc IReceiver
