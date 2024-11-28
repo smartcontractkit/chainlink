@@ -71,6 +71,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	workflowstore "github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/ldapauth"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/localauth"
@@ -256,15 +257,28 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				return nil, fmt.Errorf("could not configure syncer: %w", err)
 			}
 
+			workflowDonNotifier := capabilities.NewDonNotifier()
+
 			wfLauncher := capabilities.NewLauncher(
 				globalLogger,
 				externalPeerWrapper,
 				dispatcher,
 				opts.CapabilitiesRegistry,
+				workflowDonNotifier,
 			)
 			registrySyncer.AddLauncher(wfLauncher)
 
-			srvcs = append(srvcs, wfLauncher, registrySyncer)
+			handler := syncer.NewEventHandler(globalLogger, orm, fetcherFn, nil, nil,
+				emitter, clockwork.NewFakeClock(), workflowkey.Key{})
+
+			workflowRegistryAddress := cfg.Capabilities().WorkflowRegistry().Address()
+			wfSyncer := syncer.NewWorkflowRegistry(globalLogger, relayer, workflowRegistryAddress,
+				syncer.WorkflowEventPollerConfig{
+					QueryCount: 100,
+				},
+			)
+
+			srvcs = append(srvcs, wfLauncher, registrySyncer, wfSyncer)
 		}
 	} else {
 		globalLogger.Debug("External registry not configured, skipping registry syncer and starting with an empty registry")

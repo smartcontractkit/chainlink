@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	types "github.com/smartcontractkit/chainlink-common/pkg/types"
 	query "github.com/smartcontractkit/chainlink-common/pkg/types/query"
@@ -111,12 +112,11 @@ type workflowRegistry struct {
 
 	lggr                    logger.Logger
 	workflowRegistryAddress string
-	reader                  ContractReader
 
 	// initReader allows the workflowRegistry to initialize a contract reader if one is not provided
 	// and separates the contract reader initialization from the workflowRegistry start up.
-	initReader func(context.Context, logger.Logger, ContractReaderFactory, types.BoundContract) (types.ContractReader, error)
-	relayer    ContractReaderFactory
+	initReader          func(context.Context, newContractReaderFn, types.BoundContract) (ContractReader, error)
+	newContractReaderFn newContractReaderFn
 
 	eventPollerCfg WorkflowEventPollerConfig
 	eventTypes     []WorkflowRegistryEventType
@@ -132,6 +132,10 @@ type workflowRegistry struct {
 	// heap is a min heap that merges batches of events from the contract query goroutines.  The
 	// default min heap is sorted by block height.
 	heap Heap
+
+	workflowDonNotifier donNotifier
+
+	reader ContractReader
 }
 
 // WithTicker allows external callers to provide a ticker to the workflowRegistry.  This is useful
@@ -142,12 +146,6 @@ func WithTicker(ticker <-chan time.Time) func(*workflowRegistry) {
 	}
 }
 
-func WithReader(reader types.ContractReader) func(*workflowRegistry) {
-	return func(wr *workflowRegistry) {
-		wr.reader = reader
-	}
-}
-
 type evtHandler interface {
 	Handle(ctx context.Context, event Event) error
 }
@@ -155,25 +153,32 @@ type evtHandler interface {
 type initialWorkflowsStateLoader interface {
 	// LoadWorkflows loads all the workflows for the given donID from the contract.  Returns the head of the chain as of the
 	// point in time at which the load occurred.
-	LoadWorkflows(ctx context.Context) (*types.Head, error)
+	LoadWorkflows(ctx context.Context, don capabilities.DON) (*types.Head, error)
 }
+
+type donNotifier interface {
+	WaitForDon(ctx context.Context) (capabilities.DON, error)
+}
+
+type newContractReaderFn func(context.Context, []byte) (ContractReader, error)
 
 // NewWorkflowRegistry returns a new workflowRegistry.
 // Only queries for WorkflowRegistryForceUpdateSecretsRequestedV1 events.
 func NewWorkflowRegistry(
 	lggr logger.Logger,
-	reader ContractReader,
+	newContractReaderFn newContractReaderFn,
 	addr string,
 	eventPollerConfig WorkflowEventPollerConfig,
 	handler evtHandler,
 	initialWorkflowsStateLoader initialWorkflowsStateLoader,
+	workflowDonNotifier donNotifier,
 	opts ...func(*workflowRegistry),
 ) *workflowRegistry {
 	ets := []WorkflowRegistryEventType{ForceUpdateSecretsEvent}
 	wr := &workflowRegistry{
 		lggr:                        lggr.Named(name),
+		newContractReaderFn:         newContractReaderFn,
 		workflowRegistryAddress:     addr,
-		reader:                      reader,
 		eventPollerCfg:              eventPollerConfig,
 		initReader:                  newReader,
 		heap:                        newBlockHeightHeap(),
@@ -183,6 +188,7 @@ func NewWorkflowRegistry(
 		batchCh:                     make(chan []WorkflowRegistryEventResponse, len(ets)),
 		handler:                     handler,
 		initialWorkflowsStateLoader: initialWorkflowsStateLoader,
+		workflowDonNotifier:         workflowDonNotifier,
 	}
 
 	for _, opt := range opts {
@@ -193,19 +199,26 @@ func NewWorkflowRegistry(
 
 // Start starts the workflowRegistry.  It starts two goroutines, one for querying the contract
 // and one for handling the events.
-func (w *workflowRegistry) Start(ctx context.Context) error {
+func (w *workflowRegistry) Start(_ context.Context) error {
 	return w.StartOnce(w.Name(), func() error {
-		loadWorkflowsHead, err := w.initialWorkflowsStateLoader.LoadWorkflows(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to load workflows: %w", err)
-		}
-
 		ctx, cancel := w.stopCh.NewCtx()
 
 		w.wg.Add(1)
 		go func() {
 			defer w.wg.Done()
 			defer cancel()
+
+			don, err := w.workflowDonNotifier.WaitForDon(ctx)
+			if err != nil {
+				w.lggr.Errorf("failed to wait for don: %v", err)
+				return
+			}
+
+			loadWorkflowsHead, err := w.initialWorkflowsStateLoader.LoadWorkflows(ctx, don)
+			if err != nil {
+				w.lggr.Errorf("failed to load workflows: %v", err)
+				return
+			}
 
 			w.syncEventsLoop(ctx, loadWorkflowsHead.Height)
 		}()
@@ -394,7 +407,7 @@ func (w *workflowRegistry) getContractReader(ctx context.Context) (ContractReade
 	}
 
 	if w.reader == nil {
-		reader, err := w.initReader(ctx, w.lggr, w.relayer, c)
+		reader, err := w.initReader(ctx, w.newContractReaderFn, c)
 		if err != nil {
 			return nil, err
 		}
@@ -492,10 +505,9 @@ func queryEvent(
 
 func newReader(
 	ctx context.Context,
-	lggr logger.Logger,
-	factory ContractReaderFactory,
+	newReaderFn newContractReaderFn,
 	bc types.BoundContract,
-) (types.ContractReader, error) {
+) (ContractReader, error) {
 	contractReaderCfg := evmtypes.ChainReaderConfig{
 		Contracts: map[string]evmtypes.ChainContractReader{
 			WorkflowRegistryContractName: {
@@ -518,7 +530,7 @@ func newReader(
 		return nil, err
 	}
 
-	reader, err := factory.NewContractReader(ctx, marshalledCfg)
+	reader, err := newReaderFn(ctx, marshalledCfg)
 	if err != nil {
 		return nil, err
 	}
@@ -553,19 +565,17 @@ type workflowRegistryContractLoader struct {
 
 func NewWorkflowRegistryContractLoader(
 	workflowRegistryAddress string,
-	donID uint32,
 	reader ContractReader,
 	handler evtHandler,
 ) *workflowRegistryContractLoader {
 	return &workflowRegistryContractLoader{
 		workflowRegistryAddress: workflowRegistryAddress,
-		donID:                   donID,
 		reader:                  reader,
 		handler:                 handler,
 	}
 }
 
-func (l *workflowRegistryContractLoader) LoadWorkflows(ctx context.Context) (*types.Head, error) {
+func (l *workflowRegistryContractLoader) LoadWorkflows(ctx context.Context, don capabilities.DON) (*types.Head, error) {
 	contractBinding := types.BoundContract{
 		Address: l.workflowRegistryAddress,
 		Name:    WorkflowRegistryContractName,
@@ -573,7 +583,7 @@ func (l *workflowRegistryContractLoader) LoadWorkflows(ctx context.Context) (*ty
 
 	readIdentifier := contractBinding.ReadIdentifier(GetWorkflowMetadataListByDONMethodName)
 	params := GetWorkflowMetadataListByDONParams{
-		DonID: l.donID,
+		DonID: don.ID,
 		Start: 0,
 		Limit: 0, // 0 tells the contract to return max pagination limit workflows on each call
 	}
