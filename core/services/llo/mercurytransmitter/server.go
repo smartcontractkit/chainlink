@@ -122,7 +122,7 @@ func newServer(lggr logger.Logger, verboseLogging bool, cfg QueueConfig, client 
 		NewTransmitQueue(lggr, serverURL, int(cfg.TransmitQueueMaxSize()), pm),
 		make(chan [32]byte, int(cfg.TransmitQueueMaxSize())),
 		serverURL,
-		evm.NewReportCodecPremiumLegacy(codecLggr),
+		evm.NewReportCodecPremiumLegacy(codecLggr, pm.DonID()),
 		llo.JSONReportCodec{},
 		promTransmitSuccessCount.WithLabelValues(donIDStr, serverURL),
 		promTransmitDuplicateCount.WithLabelValues(donIDStr, serverURL),
