@@ -391,10 +391,6 @@ func Test_PricingForTokenTransfers(t *testing.T) {
 		feeTokenBalanceBefore, err := linkToken.BalanceOf(nil, e.Chains[src].DeployerKey.From)
 		require.NoError(t, err)
 
-		// Check the fee Amount
-		srcFee, err := state.Chains[src].Router.GetFee(nil, dest, ccipMessage)
-		require.NoError(t, err)
-
 		msgSentEvent := changeset.TestSendRequest(t, e, state, src, dest, false, ccipMessage)
 
 		expectedSeqNum[changeset.SourceDestPair{
@@ -409,7 +405,7 @@ func Test_PricingForTokenTransfers(t *testing.T) {
 		// Check the fee token balance after the request and ensure fee tokens were spent
 		feeTokenBalanceAfter, err := linkToken.BalanceOf(nil, e.Chains[tenv.HomeChainSel].DeployerKey.From)
 		require.NoError(t, err)
-		require.Equal(t, feeTokenBalanceAfter, new(big.Int).Sub(feeTokenBalanceBefore, srcFee))
+		require.Equal(t, feeTokenBalanceAfter, new(big.Int).Sub(feeTokenBalanceBefore, msgSentEvent.Message.FeeTokenAmount))
 
 		// Wait for all commit reports to land.
 		changeset.ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
