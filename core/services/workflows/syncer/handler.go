@@ -51,14 +51,14 @@ type WorkflowRegistryForceUpdateSecretsRequestedV1 struct {
 }
 
 type WorkflowRegistryWorkflowRegisteredV1 struct {
-	WorkflowID    [32]byte
-	WorkflowOwner []byte
-	DonID         uint32
-	Status        uint8
-	WorkflowName  string
-	BinaryURL     string
-	ConfigURL     string
-	SecretsURL    string
+	WorkflowID   [32]byte
+	Owner        []byte
+	DonID        uint32
+	Status       uint8
+	WorkflowName string
+	BinaryURL    string
+	ConfigURL    string
+	SecretsURL   string
 }
 
 type WorkflowRegistryWorkflowUpdatedV1 struct {
@@ -97,13 +97,6 @@ type secretsFetcher interface {
 	SecretsFor(ctx context.Context, workflowOwner, workflowName string) (map[string]string, error)
 }
 
-// secretsFetcherFunc implements the secretsFetcher interface for a function.
-type secretsFetcherFunc func(ctx context.Context, workflowOwner, workflowName string) (map[string]string, error)
-
-func (f secretsFetcherFunc) SecretsFor(ctx context.Context, workflowOwner, workflowName string) (map[string]string, error) {
-	return f(ctx, workflowOwner, workflowName)
-}
-
 // eventHandler is a handler for WorkflowRegistryEvent events.  Each event type has a corresponding
 // method that handles the event.
 type eventHandler struct {
@@ -117,14 +110,18 @@ type eventHandler struct {
 	secretsFetcher secretsFetcher
 }
 
-// newEventHandler returns a new eventHandler instance.
-func newEventHandler(
+type Event interface {
+	GetEventType() WorkflowRegistryEventType
+	GetData() any
+}
+
+// NewEventHandler returns a new eventHandler instance.
+func NewEventHandler(
 	lggr logger.Logger,
 	orm ORM,
 	gateway FetcherFunc,
 	workflowStore store.Store,
 	capRegistry core.CapabilitiesRegistry,
-	engineRegistry *engineRegistry,
 	emitter custmsg.MessageEmitter,
 	secretsFetcher secretsFetcher,
 ) *eventHandler {
@@ -134,18 +131,18 @@ func newEventHandler(
 		fetcher:        gateway,
 		workflowStore:  workflowStore,
 		capRegistry:    capRegistry,
-		engineRegistry: engineRegistry,
+		engineRegistry: newEngineRegistry(),
 		emitter:        emitter,
 		secretsFetcher: secretsFetcher,
 	}
 }
 
-func (h *eventHandler) Handle(ctx context.Context, event WorkflowRegistryEvent) error {
-	switch event.EventType {
+func (h *eventHandler) Handle(ctx context.Context, event Event) error {
+	switch event.GetEventType() {
 	case ForceUpdateSecretsEvent:
-		payload, ok := event.Data.(WorkflowRegistryForceUpdateSecretsRequestedV1)
+		payload, ok := event.GetData().(WorkflowRegistryForceUpdateSecretsRequestedV1)
 		if !ok {
-			return newHandlerTypeError(event.Data)
+			return newHandlerTypeError(event.GetData())
 		}
 
 		cma := h.emitter.With(
@@ -160,16 +157,16 @@ func (h *eventHandler) Handle(ctx context.Context, event WorkflowRegistryEvent) 
 
 		return nil
 	case WorkflowRegisteredEvent:
-		payload, ok := event.Data.(WorkflowRegistryWorkflowRegisteredV1)
+		payload, ok := event.GetData().(WorkflowRegistryWorkflowRegisteredV1)
 		if !ok {
-			return newHandlerTypeError(event.Data)
+			return newHandlerTypeError(event.GetData())
 		}
 		wfID := hex.EncodeToString(payload.WorkflowID[:])
 
 		cma := h.emitter.With(
 			platform.KeyWorkflowID, wfID,
 			platform.KeyWorkflowName, payload.WorkflowName,
-			platform.KeyWorkflowOwner, hex.EncodeToString(payload.WorkflowOwner),
+			platform.KeyWorkflowOwner, hex.EncodeToString(payload.Owner),
 		)
 
 		if err := h.workflowRegisteredEvent(ctx, payload); err != nil {
@@ -180,13 +177,84 @@ func (h *eventHandler) Handle(ctx context.Context, event WorkflowRegistryEvent) 
 		h.lggr.Debugf("workflow 0x%x registered and started", wfID)
 		return nil
 	case WorkflowUpdatedEvent:
-		return h.workflowUpdatedEvent(ctx, event)
+		payload, ok := event.GetData().(WorkflowRegistryWorkflowUpdatedV1)
+		if !ok {
+			return fmt.Errorf("invalid data type %T for event", event.GetData())
+		}
+
+		newWorkflowID := hex.EncodeToString(payload.NewWorkflowID[:])
+		cma := h.emitter.With(
+			platform.KeyWorkflowID, newWorkflowID,
+			platform.KeyWorkflowName, payload.WorkflowName,
+			platform.KeyWorkflowOwner, hex.EncodeToString(payload.WorkflowOwner),
+		)
+
+		if err := h.workflowUpdatedEvent(ctx, payload); err != nil {
+			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow updated event: %v", err), h.lggr)
+			return err
+		}
+
+		return nil
 	case WorkflowPausedEvent:
-		return h.workflowPausedEvent(ctx, event)
+		payload, ok := event.GetData().(WorkflowRegistryWorkflowPausedV1)
+		if !ok {
+			return fmt.Errorf("invalid data type %T for event", event.GetData())
+		}
+
+		wfID := hex.EncodeToString(payload.WorkflowID[:])
+
+		cma := h.emitter.With(
+			platform.KeyWorkflowID, wfID,
+			platform.KeyWorkflowName, payload.WorkflowName,
+			platform.KeyWorkflowOwner, hex.EncodeToString(payload.WorkflowOwner),
+		)
+
+		if err := h.workflowPausedEvent(ctx, payload); err != nil {
+			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow paused event: %v", err), h.lggr)
+			return err
+		}
+		return nil
 	case WorkflowActivatedEvent:
-		return h.workflowActivatedEvent(ctx, event)
+		payload, ok := event.GetData().(WorkflowRegistryWorkflowActivatedV1)
+		if !ok {
+			return fmt.Errorf("invalid data type %T for event", event.GetData())
+		}
+
+		wfID := hex.EncodeToString(payload.WorkflowID[:])
+
+		cma := h.emitter.With(
+			platform.KeyWorkflowID, wfID,
+			platform.KeyWorkflowName, payload.WorkflowName,
+			platform.KeyWorkflowOwner, hex.EncodeToString(payload.WorkflowOwner),
+		)
+		if err := h.workflowActivatedEvent(ctx, payload); err != nil {
+			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow activated event: %v", err), h.lggr)
+			return err
+		}
+
+		return nil
+	case WorkflowDeletedEvent:
+		payload, ok := event.GetData().(WorkflowRegistryWorkflowDeletedV1)
+		if !ok {
+			return fmt.Errorf("invalid data type %T for event", event.GetData())
+		}
+
+		wfID := hex.EncodeToString(payload.WorkflowID[:])
+
+		cma := h.emitter.With(
+			platform.KeyWorkflowID, wfID,
+			platform.KeyWorkflowName, payload.WorkflowName,
+			platform.KeyWorkflowOwner, hex.EncodeToString(payload.WorkflowOwner),
+		)
+
+		if err := h.workflowDeletedEvent(ctx, payload); err != nil {
+			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow deleted event: %v", err), h.lggr)
+			return err
+		}
+
+		return nil
 	default:
-		return fmt.Errorf("event type unsupported: %v", event.EventType)
+		return fmt.Errorf("event type unsupported: %v", event.GetEventType())
 	}
 }
 
@@ -222,7 +290,7 @@ func (h *eventHandler) workflowRegisteredEvent(
 	}
 
 	// Save the workflow secrets
-	urlHash, err := h.orm.GetSecretsURLHash(payload.WorkflowOwner, []byte(payload.SecretsURL))
+	urlHash, err := h.orm.GetSecretsURLHash(payload.Owner, []byte(payload.SecretsURL))
 	if err != nil {
 		return fmt.Errorf("failed to get secrets URL hash: %w", err)
 	}
@@ -238,7 +306,7 @@ func (h *eventHandler) workflowRegisteredEvent(
 		Config:        string(config),
 		WorkflowID:    wfID,
 		Status:        status,
-		WorkflowOwner: hex.EncodeToString(payload.WorkflowOwner),
+		WorkflowOwner: hex.EncodeToString(payload.Owner),
 		WorkflowName:  payload.WorkflowName,
 		SpecType:      job.WASMFile,
 		BinaryURL:     payload.BinaryURL,
@@ -263,7 +331,7 @@ func (h *eventHandler) workflowRegisteredEvent(
 		Lggr:           h.lggr,
 		Workflow:       *sdkSpec,
 		WorkflowID:     wfID,
-		WorkflowOwner:  hex.EncodeToString(payload.WorkflowOwner),
+		WorkflowOwner:  hex.EncodeToString(payload.Owner),
 		WorkflowName:   payload.WorkflowName,
 		Registry:       h.capRegistry,
 		Store:          h.workflowStore,
@@ -281,31 +349,111 @@ func (h *eventHandler) workflowRegisteredEvent(
 	}
 
 	h.engineRegistry.Add(wfID, e)
+
 	return nil
 }
 
-// workflowUpdatedEvent handles the WorkflowUpdatedEvent event type.
+// workflowUpdatedEvent handles the WorkflowUpdatedEvent event type by first finding the
+// current workflow engine, stopping it, and then starting a new workflow engine with the
+// updated workflow spec.
 func (h *eventHandler) workflowUpdatedEvent(
-	_ context.Context,
-	_ WorkflowRegistryEvent,
+	ctx context.Context,
+	payload WorkflowRegistryWorkflowUpdatedV1,
 ) error {
-	return ErrNotImplemented
+	// Remove the old workflow engine from the local registry if it exists
+	if err := h.tryEngineCleanup(hex.EncodeToString(payload.OldWorkflowID[:])); err != nil {
+		return err
+	}
+
+	registeredEvent := WorkflowRegistryWorkflowRegisteredV1{
+		WorkflowID:   payload.NewWorkflowID,
+		Owner:        payload.WorkflowOwner,
+		DonID:        payload.DonID,
+		Status:       0,
+		WorkflowName: payload.WorkflowName,
+		BinaryURL:    payload.BinaryURL,
+		ConfigURL:    payload.ConfigURL,
+		SecretsURL:   payload.SecretsURL,
+	}
+
+	return h.workflowRegisteredEvent(ctx, registeredEvent)
 }
 
 // workflowPausedEvent handles the WorkflowPausedEvent event type.
 func (h *eventHandler) workflowPausedEvent(
-	_ context.Context,
-	_ WorkflowRegistryEvent,
+	ctx context.Context,
+	payload WorkflowRegistryWorkflowPausedV1,
 ) error {
-	return ErrNotImplemented
+	// Remove the workflow engine from the local registry if it exists
+	if err := h.tryEngineCleanup(hex.EncodeToString(payload.WorkflowID[:])); err != nil {
+		return err
+	}
+
+	// get existing workflow spec from DB
+	spec, err := h.orm.GetWorkflowSpec(ctx, hex.EncodeToString(payload.WorkflowOwner), payload.WorkflowName)
+	if err != nil {
+		return fmt.Errorf("failed to get workflow spec: %w", err)
+	}
+
+	// update the status of the workflow spec
+	spec.Status = job.WorkflowSpecStatusPaused
+	if _, err := h.orm.UpsertWorkflowSpec(ctx, spec); err != nil {
+		return fmt.Errorf("failed to update workflow spec: %w", err)
+	}
+
+	return nil
 }
 
 // workflowActivatedEvent handles the WorkflowActivatedEvent event type.
 func (h *eventHandler) workflowActivatedEvent(
-	_ context.Context,
-	_ WorkflowRegistryEvent,
+	ctx context.Context,
+	payload WorkflowRegistryWorkflowActivatedV1,
 ) error {
-	return ErrNotImplemented
+	// fetch the workflow spec from the DB
+	spec, err := h.orm.GetWorkflowSpec(ctx, hex.EncodeToString(payload.WorkflowOwner), payload.WorkflowName)
+	if err != nil {
+		return fmt.Errorf("failed to get workflow spec: %w", err)
+	}
+
+	// Do nothing if the workflow is already active
+	if spec.Status == job.WorkflowSpecStatusActive && h.engineRegistry.IsRunning(hex.EncodeToString(payload.WorkflowID[:])) {
+		return nil
+	}
+
+	// get the secrets url by the secrets id
+	secretsURL, err := h.orm.GetSecretsURLByID(ctx, spec.SecretsID.Int64)
+	if err != nil {
+		return fmt.Errorf("failed to get secrets URL by ID: %w", err)
+	}
+
+	// start a new workflow engine
+	registeredEvent := WorkflowRegistryWorkflowRegisteredV1{
+		WorkflowID:   payload.WorkflowID,
+		Owner:        payload.WorkflowOwner,
+		DonID:        payload.DonID,
+		Status:       0,
+		WorkflowName: payload.WorkflowName,
+		BinaryURL:    spec.BinaryURL,
+		ConfigURL:    spec.ConfigURL,
+		SecretsURL:   secretsURL,
+	}
+
+	return h.workflowRegisteredEvent(ctx, registeredEvent)
+}
+
+// workflowDeletedEvent handles the WorkflowDeletedEvent event type.
+func (h *eventHandler) workflowDeletedEvent(
+	ctx context.Context,
+	payload WorkflowRegistryWorkflowDeletedV1,
+) error {
+	if err := h.tryEngineCleanup(hex.EncodeToString(payload.WorkflowID[:])); err != nil {
+		return err
+	}
+
+	if err := h.orm.DeleteWorkflowSpec(ctx, hex.EncodeToString(payload.WorkflowOwner), payload.WorkflowName); err != nil {
+		return fmt.Errorf("failed to delete workflow spec: %w", err)
+	}
+	return nil
 }
 
 // forceUpdateSecretsEvent handles the ForceUpdateSecretsEvent event type.
@@ -332,6 +480,24 @@ func (h *eventHandler) forceUpdateSecretsEvent(
 		return fmt.Errorf("failed to update secrets: %w", err)
 	}
 
+	return nil
+}
+
+// tryEngineCleanup attempts to stop the workflow engine for the given workflow ID.  Does nothing if the
+// workflow engine is not running.
+func (h *eventHandler) tryEngineCleanup(wfID string) error {
+	if h.engineRegistry.IsRunning(wfID) {
+		// Remove the engine from the registry
+		e, err := h.engineRegistry.Pop(wfID)
+		if err != nil {
+			return fmt.Errorf("failed to get workflow engine: %w", err)
+		}
+
+		// Stop the engine
+		if err := e.Close(); err != nil {
+			return fmt.Errorf("failed to close workflow engine: %w", err)
+		}
+	}
 	return nil
 }
 

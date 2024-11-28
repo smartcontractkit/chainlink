@@ -235,6 +235,11 @@ func (orm *orm) UpsertWorkflowSpecWithSecrets(
 		txErr := tx.QueryRowxContext(ctx,
 			`INSERT INTO workflow_secrets (secrets_url, secrets_url_hash, contents)
 			 VALUES ($1, $2, $3)
+			 ON CONFLICT (secrets_url_hash) DO UPDATE
+         	 SET 
+			 	secrets_url_hash = EXCLUDED.secrets_url_hash, 
+				contents = EXCLUDED.contents,
+				secrets_url = EXCLUDED.secrets_url
 			 RETURNING id`,
 			url, hash, contents,
 		).Scan(&sid)

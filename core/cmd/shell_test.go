@@ -18,8 +18,10 @@ import (
 	"github.com/urfave/cli"
 
 	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil/sqltest"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
+
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -353,6 +355,7 @@ func TestSetupSolanaRelayer(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	reg := plugins.NewLoopRegistry(lggr, nil, nil, nil, "")
 	ks := mocks.NewSolana(t)
+	ds := sqltest.NewNoOpDataSource()
 
 	// config 3 chains but only enable 2 => should only be 2 relayer
 	nEnabledChains := 2
@@ -395,9 +398,14 @@ func TestSetupSolanaRelayer(t *testing.T) {
 		LoopRegistry: reg,
 	}
 
+	cfg := chainlink.SolanaFactoryConfig{
+		Keystore:    ks,
+		TOMLConfigs: tConfig.SolanaConfigs(),
+		DS:          ds}
+
 	// not parallel; shared state
 	t.Run("no plugin", func(t *testing.T) {
-		relayers, err := rf.NewSolana(ks, tConfig.SolanaConfigs())
+		relayers, err := rf.NewSolana(cfg)
 		require.NoError(t, err)
 		require.NotNil(t, relayers)
 		require.Len(t, relayers, nEnabledChains)
@@ -408,7 +416,7 @@ func TestSetupSolanaRelayer(t *testing.T) {
 	t.Run("plugin", func(t *testing.T) {
 		t.Setenv("CL_SOLANA_CMD", "phony_solana_cmd")
 
-		relayers, err := rf.NewSolana(ks, tConfig.SolanaConfigs())
+		relayers, err := rf.NewSolana(cfg)
 		require.NoError(t, err)
 		require.NotNil(t, relayers)
 		require.Len(t, relayers, nEnabledChains)
@@ -433,16 +441,21 @@ func TestSetupSolanaRelayer(t *testing.T) {
 			},
 		}
 	})
+	dupCfg := chainlink.SolanaFactoryConfig{
+		Keystore:    ks,
+		TOMLConfigs: duplicateConfig.SolanaConfigs(),
+		DS:          ds,
+	}
 
 	// not parallel; shared state
 	t.Run("no plugin, duplicate chains", func(t *testing.T) {
-		_, err := rf.NewSolana(ks, duplicateConfig.SolanaConfigs())
+		_, err := rf.NewSolana(dupCfg)
 		require.Error(t, err)
 	})
 
 	t.Run("plugin, duplicate chains", func(t *testing.T) {
 		t.Setenv("CL_SOLANA_CMD", "phony_solana_cmd")
-		_, err := rf.NewSolana(ks, duplicateConfig.SolanaConfigs())
+		_, err := rf.NewSolana(dupCfg)
 		require.Error(t, err)
 	})
 
@@ -450,7 +463,11 @@ func TestSetupSolanaRelayer(t *testing.T) {
 		t.Setenv("CL_SOLANA_CMD", "phony_solana_cmd")
 		t.Setenv("CL_SOLANA_ENV", "fake_path")
 
-		_, err := rf.NewSolana(ks, t2Config.SolanaConfigs())
+		_, err := rf.NewSolana(chainlink.SolanaFactoryConfig{
+			Keystore:    ks,
+			TOMLConfigs: t2Config.SolanaConfigs(),
+			DS:          ds,
+		})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to parse Solana env file")
 	})
@@ -458,7 +475,7 @@ func TestSetupSolanaRelayer(t *testing.T) {
 	t.Run("plugin already registered", func(t *testing.T) {
 		t.Setenv("CL_SOLANA_CMD", "phony_solana_cmd")
 
-		_, err := rf.NewSolana(ks, tConfig.SolanaConfigs())
+		_, err := rf.NewSolana(cfg)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to create Solana LOOP command")
 	})
