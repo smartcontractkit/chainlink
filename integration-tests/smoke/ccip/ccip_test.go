@@ -1,23 +1,21 @@
 package smoke
 
 import (
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/networks"
-	"github.com/smartcontractkit/chainlink/deployment"
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
-
 	"golang.org/x/exp/maps"
 
+	chainselectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
-
+	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
@@ -280,7 +278,9 @@ func TestTokenTransfer(t *testing.T) {
 	}
 }
 
-func createAndFundSelfServeActor(
+// _createAndFundSelfServeActor is currently unused but retained for potential local testing.
+// nolint:unused
+func _createAndFundSelfServeActor(
 	t *testing.T,
 	deployer *bind.TransactOpts,
 	chain deployment.Chain,
@@ -290,6 +290,7 @@ func createAndFundSelfServeActor(
 	require.NoError(t, err)
 
 	actor, err := bind.NewKeyedTransactorWithChainID(key, getChainIdFromSelector(t, chain.Selector))
+	require.NoError(t, err)
 
 	nonce, err := chain.Client.PendingNonceAt(tests.Context(t), deployer.From)
 	require.NoError(t, err)
@@ -319,7 +320,7 @@ func createAndFundSelfServeActor(
 }
 
 func getChainIdFromSelector(t *testing.T, selector uint64) *big.Int {
-	chainId, err := chain_selectors.GetChainIDFromSelector(selector)
+	chainId, err := chainselectors.GetChainIDFromSelector(selector)
 	require.NoError(t, err)
 	//convert chainId from string to big.Int
 	chainIdBigInt := new(big.Int)
