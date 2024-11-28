@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
@@ -15,18 +16,18 @@ type OwnershipTransferrer interface {
 }
 
 type TransferOwnershipConfig struct {
-	// TimelocksPerChain is a mapping from chain selector to the timelock contract address on that chain.
-	TimelocksPerChain map[uint64]common.Address
+	// OwnersPerChain is a mapping from chain selector to the address to which ownership will be transfered .
+	OwnersPerChain map[uint64]common.Address
 
 	// Contracts is a mapping from chain selector to the ownership transferrers on that chain.
 	Contracts map[uint64][]OwnershipTransferrer
 }
 
 func (t TransferOwnershipConfig) Validate() error {
-	// check that we have timelocks for the chains in the Contracts field.
+	// check that we have owners for the chains in the Contracts field.
 	for chainSelector := range t.Contracts {
-		if _, ok := t.TimelocksPerChain[chainSelector]; !ok {
-			return fmt.Errorf("missing timelock for chain %d", chainSelector)
+		if _, ok := t.OwnersPerChain[chainSelector]; !ok {
+			return fmt.Errorf("missing owner for chain %d", chainSelector)
 		}
 	}
 
@@ -36,8 +37,8 @@ func (t TransferOwnershipConfig) Validate() error {
 var _ deployment.ChangeSet[TransferOwnershipConfig] = NewTransferOwnershipChangeset
 
 // NewTransferOwnershipChangeset creates a changeset that transfers ownership of all the
-// contracts in the provided configuration to the the appropriate timelock on that chain.
-// If the owner is already the timelock contract, no transaction is sent.
+// contracts in the provided configuration to the correct owner on that chain.
+// If the owner is already the provided address, no transaction is sent.
 func NewTransferOwnershipChangeset(
 	e deployment.Environment,
 	cfg TransferOwnershipConfig,
@@ -47,7 +48,7 @@ func NewTransferOwnershipChangeset(
 	}
 
 	for chainSelector, contracts := range cfg.Contracts {
-		timelock := cfg.TimelocksPerChain[chainSelector]
+		timelock := cfg.OwnersPerChain[chainSelector]
 		for _, contract := range contracts {
 			owner, err := contract.Owner(nil)
 			if err != nil {
