@@ -127,7 +127,9 @@ func Test_InitialStateSync(t *testing.T) {
 	// Create the worker
 	worker := syncer.NewWorkflowRegistry(
 		lggr,
-		contractReader,
+		func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
+			return contractReader, nil
+		},
 		wfRegistryAddr.Hex(),
 		syncer.WorkflowEventPollerConfig{
 			QueryCount: 20,
@@ -246,7 +248,9 @@ func Test_SecretsWorker(t *testing.T) {
 	handler := syncer.NewEventHandler(lggr, orm, fetcherFn, nil, nil,
 		emitter, clockwork.NewFakeClock(), workflowkey.Key{})
 
-	worker := syncer.NewWorkflowRegistry(lggr, contractReader, wfRegistryAddr.Hex(),
+	worker := syncer.NewWorkflowRegistry(lggr, func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
+		return contractReader, nil
+	}, wfRegistryAddr.Hex(),
 		syncer.WorkflowEventPollerConfig{
 			QueryCount: 20,
 		}, handler, &testWorkflowRegistryContractLoader{}, &testDonNotifier{

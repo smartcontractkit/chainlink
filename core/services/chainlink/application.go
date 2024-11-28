@@ -268,15 +268,15 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			)
 			registrySyncer.AddLauncher(wfLauncher)
 
-			handler := syncer.NewEventHandler(globalLogger, orm, fetcherFn, nil, nil,
-				emitter, clockwork.NewFakeClock(), workflowkey.Key{})
+			// TODO create the handler and initialWorkflowsStateLoader and pass in below
 
 			workflowRegistryAddress := cfg.Capabilities().WorkflowRegistry().Address()
-			wfSyncer := syncer.NewWorkflowRegistry(globalLogger, relayer, workflowRegistryAddress,
+			wfSyncer := syncer.NewWorkflowRegistry(globalLogger, func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
+				return relayer.NewContractReader(ctx, bytes)
+			}, workflowRegistryAddress,
 				syncer.WorkflowEventPollerConfig{
 					QueryCount: 100,
-				},
-			)
+				}, nil, nil, workflowDonNotifier)
 
 			srvcs = append(srvcs, wfLauncher, registrySyncer, wfSyncer)
 		}
