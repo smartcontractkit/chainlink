@@ -11,7 +11,7 @@ echo ""
 if [[ $GITHUB_EVENT_NAME == "schedule" ]]; then
   EXTRA_FLAGS="-covermode=atomic -coverpkg=./... -coverprofile=coverage.txt"
 fi
-go test "$EXTRA_FLAGS" $1 | tee $OUTPUT_FILE | grep -Ev '\[no test files\]|\[no tests to run\]'
+go test $EXTRA_FLAGS $1 | tee $OUTPUT_FILE | grep -Ev '\[no test files\]|\[no tests to run\]'
 EXITCODE=${PIPESTATUS[0]}
 
 # Assert no known sensitive strings present in test logger output

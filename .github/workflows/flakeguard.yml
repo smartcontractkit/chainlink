@@ -101,7 +101,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@d2d8cf21c5c265d04ec7732ebda1125cbcd6d2c7 # flakguard@0.0.1
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@18318aa45ff3c54ff10a5fc154bcd8930b34c93c # flakguard@0.0.1
 
       - name: Find new or updated test packages
         if: ${{ inputs.runAllTests == false }}
@@ -260,7 +260,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@d2d8cf21c5c265d04ec7732ebda1125cbcd6d2c7 # flakguard@0.0.1
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@18318aa45ff3c54ff10a5fc154bcd8930b34c93c # flakguard@0.0.1
 
       - name: Run tests with flakeguard
         shell: bash
@@ -302,7 +302,7 @@ jobs:
             
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@d2d8cf21c5c265d04ec7732ebda1125cbcd6d2c7 # flakguard@0.0.1
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@18318aa45ff3c54ff10a5fc154bcd8930b34c93c # flakguard@0.0.1
                 
       - name: Set combined test results
         id: set_test_results
@@ -514,6 +514,10 @@ jobs:
           echo "| Flakiness Threshold     | ${threshold_percentage}%       |" >> $GITHUB_STEP_SUMMARY
           echo "| Test Run Count       | ${{ steps.calculate_test_repeat_count.outputs.test_repeat_count }}   |" >> $GITHUB_STEP_SUMMARY
           echo "| Race Detection          | ${{ env.RUN_WITH_RACE }}      |" >> $GITHUB_STEP_SUMMARY
+          echo "| Shuffle Flag Set       | ${{ env.RUN_WITH_SHUFFLE }}      |" >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ env.RUN_WITH_SHUFFLE }}" == "true" ]]; then
+            echo "| Shuffle Seed            | ${{ env.SHUFFLE_SEED }}      |" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "| Excluded Tests          | ${{ env.SKIPPED_TESTS }}      |" >> $GITHUB_STEP_SUMMARY
           
       - name: Append No Tests Found Message to GitHub Summary
