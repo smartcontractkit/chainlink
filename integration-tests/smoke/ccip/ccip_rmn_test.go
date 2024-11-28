@@ -1,9 +1,12 @@
 package smoke
 
 import (
+	"encoding/binary"
+	"errors"
 	"math/big"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -13,6 +16,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/osutil"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
@@ -169,15 +173,37 @@ func TestRMN_DifferentRmnNodesForDifferentChains(t *testing.T) {
 	})
 }
 
+func TestRMN_TwoMessagesOneSourceChainCursed(t *testing.T) {
+	runRmnTestCase(t, rmnTestCase{
+		name:                  "two messages, one source chain is cursed",
+		passIfNoCommitAfter:   15 * time.Second,
+		cursedSourceChainIdxs: []int{chain0}, // <---- chain0 is cursed (only as source)
+		homeChainConfig: homeChainConfig{
+			f: map[int]int{chain0: 1, chain1: 1},
+		},
+		remoteChainsConfig: []remoteChainConfig{
+			{chainIdx: chain0, f: 1},
+			{chainIdx: chain1, f: 1},
+		},
+		rmnNodes: []rmnNode{
+			{id: 0, isSigner: true, observedChainIdxs: []int{chain0, chain1}},
+			{id: 1, isSigner: true, observedChainIdxs: []int{chain0, chain1}},
+			{id: 2, isSigner: true, observedChainIdxs: []int{chain0, chain1}},
+		},
+		messagesToSend: []messageToSend{
+			{fromChainIdx: chain0, toChainIdx: chain1, count: 1}, // <----- this message should not be committed
+			{fromChainIdx: chain1, toChainIdx: chain0, count: 1},
+		},
+	})
+}
+
 /*
 
-	if some source chain is cursed then we don't expect messages from that chain
-	but we still expect messages from the others.
-
-	1. we curse some chains by calling the rmn remote.
-	2. we send msgs from multiple source chains
-	3. we wait for those from non-cursed source chains for both commit and exec
-	4. we wait to make sure messages from cursed chains are not received
+	1. nodes are running
+	2. stop nodes
+	3. call ccipSend (must be called before curse)
+	4. curse
+	5. nodes start
 
 */
 
@@ -188,6 +214,7 @@ const (
 
 func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	require.NoError(t, os.Setenv("ENABLE_RMN", "true"))
+	require.NoError(t, tc.validate())
 
 	ctx := testcontext.Get(t)
 	t.Logf("Running RMN test case: %s", tc.name)
@@ -299,6 +326,11 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 		"active digest should be the same as the previously candidate digest after promotion, previous candidate: %x, active: %x",
 		candidateDigest[:], activeDigest[:])
 
+	cursedSourceChains := mapset.NewSet[uint64]()
+	for _, chainIdx := range tc.cursedSourceChainIdxs {
+		cursedSourceChains.Add(chainSelectors[chainIdx])
+	}
+
 	// Set RMN remote config appropriately
 	for _, remoteCfg := range tc.remoteChainsConfig {
 		remoteSel := chainSelectors[remoteCfg.chainIdx]
@@ -347,10 +379,28 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	// Add all lanes
 	require.NoError(t, changeset.AddLanesForAll(envWithRMN.Env, onChainState))
 
+	// disable nodes
+	disabledNodes := make([]string, 0)
+	if len(tc.cursedSourceChainIdxs) > 0 {
+		listNodesResp, err := envWithRMN.Env.Offchain.ListNodes(ctx, &node.ListNodesRequest{})
+		require.NoError(t, err)
+
+		for _, n := range listNodesResp.Nodes {
+			if strings.HasPrefix(n.Name, "bootstrap") {
+				continue
+			}
+			_, err := envWithRMN.Env.Offchain.DisableNode(ctx, &node.DisableNodeRequest{Id: n.Id})
+			require.NoError(t, err)
+			disabledNodes = append(disabledNodes, n.Id)
+			t.Logf("node %s disabled", n.Id)
+		}
+	}
+
 	// Need to keep track of the block number for each chain so that event subscription can be done from that block.
+	// send msgs
 	startBlocks := make(map[uint64]*uint64)
-	expectedSeqNum := make(map[changeset.SourceDestPair]uint64)
-	expectedSeqNumExec := make(map[changeset.SourceDestPair][]uint64)
+	seqNumCommit := make(map[changeset.SourceDestPair]uint64)
+	seqNumExec := make(map[changeset.SourceDestPair][]uint64)
 	for _, msg := range tc.messagesToSend {
 		fromChain := chainSelectors[msg.fromChainIdx]
 		toChain := chainSelectors[msg.toChainIdx]
@@ -363,11 +413,11 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 				FeeToken:     common.HexToAddress("0x0"),
 				ExtraArgs:    nil,
 			})
-			expectedSeqNum[changeset.SourceDestPair{
+			seqNumCommit[changeset.SourceDestPair{
 				SourceChainSelector: fromChain,
 				DestChainSelector:   toChain,
 			}] = msgSentEvent.SequenceNumber
-			expectedSeqNumExec[changeset.SourceDestPair{
+			seqNumExec[changeset.SourceDestPair{
 				SourceChainSelector: fromChain,
 				DestChainSelector:   toChain,
 			}] = []uint64{msgSentEvent.SequenceNumber}
@@ -377,17 +427,69 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 		zero := uint64(0)
 		startBlocks[toChain] = &zero
 	}
-	t.Logf("Sent all messages, expectedSeqNum: %v", expectedSeqNum)
+	t.Logf("Sent all messages, seqNumCommit: %v seqNumExec: %v", seqNumCommit, seqNumExec)
+
+	// curse
+	for _, remoteCfg := range tc.remoteChainsConfig {
+		remoteSel := chainSelectors[remoteCfg.chainIdx]
+		chState, ok := onChainState.Chains[remoteSel]
+		require.True(t, ok)
+		chain, ok := envWithRMN.Env.Chains[remoteSel]
+		require.True(t, ok)
+		for _, chainSel := range cursedSourceChains.ToSlice() {
+			txCurse, errCurse := chState.RMNRemote.Curse(chain.DeployerKey, chainSelectorToBytes16(chainSel))
+			_, errConfirm := deployment.ConfirmIfNoError(chain, txCurse, errCurse)
+			require.NoError(t, errConfirm)
+		}
+
+		cs, err := chState.RMNRemote.GetCursedSubjects(&bind.CallOpts{Context: ctx})
+		require.NoError(t, err)
+		t.Logf("Cursed subjects: %v", cs)
+	}
+
+	// re-enable oracles
+	for _, n := range disabledNodes {
+		_, err := envWithRMN.Env.Offchain.EnableNode(ctx, &node.EnableNodeRequest{Id: n})
+		require.NoError(t, err)
+		t.Logf("node %s re-enabled", n)
+	}
+
+	expectedSeqNum := make(map[changeset.SourceDestPair]uint64)
+	for k, v := range seqNumCommit {
+		if !cursedSourceChains.Contains(k.SourceChainSelector) {
+			expectedSeqNum[k] = v
+		}
+	}
+
+	t.Logf("expectedSeqNums: %v", expectedSeqNum)
+	t.Logf("expectedSeqNums including cursed chains: %v", seqNumCommit)
+
+	if len(tc.cursedSourceChainIdxs) > 0 && len(seqNumCommit) == len(expectedSeqNum) {
+		t.Fatalf("test case is wrong: no message was sent to non-cursed chains")
+	}
 
 	commitReportReceived := make(chan struct{})
 	go func() {
 		changeset.ConfirmCommitForAllWithExpectedSeqNums(t, envWithRMN.Env, onChainState, expectedSeqNum, startBlocks)
 		commitReportReceived <- struct{}{}
+
+		if cursedSourceChains.Cardinality() > 0 {
+			// wait for a duration and assert that commit reports were not delivered for cursed source chains
+			changeset.ConfirmCommitForAllWithExpectedSeqNums(t, envWithRMN.Env, onChainState, seqNumCommit, startBlocks)
+			commitReportReceived <- struct{}{}
+		}
 	}()
 
 	if tc.passIfNoCommitAfter > 0 { // wait for a duration and assert that commit reports were not delivered
+		if len(tc.cursedSourceChainIdxs) > 0 && len(expectedSeqNum) > 0 {
+			t.Logf("⌛ Waiting for commit reports of non-cursed chains...")
+			<-commitReportReceived
+			t.Logf("✅ Commit reports of non-cursed chains received")
+		}
+
 		tim := time.NewTimer(tc.passIfNoCommitAfter)
 		t.Logf("waiting for %s before asserting that commit report was not received", tc.passIfNoCommitAfter)
+
 		select {
 		case <-commitReportReceived:
 			t.Errorf("Commit report was received while it was not expected")
@@ -403,7 +505,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 
 	if tc.waitForExec {
 		t.Logf("⌛ Waiting for exec reports...")
-		changeset.ConfirmExecWithSeqNrsForAll(t, envWithRMN.Env, onChainState, expectedSeqNumExec, startBlocks)
+		changeset.ConfirmExecWithSeqNrsForAll(t, envWithRMN.Env, onChainState, seqNumExec, startBlocks)
 		t.Logf("✅ Exec report")
 	}
 }
@@ -453,9 +555,33 @@ type rmnTestCase struct {
 	// If set to 0, the test will wait for commit reports.
 	// If set to a positive value, the test will wait for that duration and will assert that commit report was not delivered.
 	passIfNoCommitAfter time.Duration
-	waitForExec         bool
-	homeChainConfig     homeChainConfig
-	remoteChainsConfig  []remoteChainConfig
-	rmnNodes            []rmnNode
-	messagesToSend      []messageToSend
+	// If set to true, the test will only wait for non-cursed chain msgs.
+	// And then wait for passIfNoCommitAfter (must be set) to assert that msgs from cursed sources are not transmitted.
+	// At the moment, it does not support waitForExec=true since only commit plugin has cursing checks.
+	cursedSourceChainIdxs []int
+	waitForExec           bool
+	homeChainConfig       homeChainConfig
+	remoteChainsConfig    []remoteChainConfig
+	rmnNodes              []rmnNode
+	messagesToSend        []messageToSend
+}
+
+func (tc rmnTestCase) validate() error {
+	if len(tc.cursedSourceChainIdxs) > 0 {
+		if tc.waitForExec {
+			return errors.New("cursedSourceChainIdxs is set but waitForExec is true which is not supported")
+		}
+		if tc.passIfNoCommitAfter == 0 {
+			return errors.New("cursedSourceChainIdxs is set but passIfNoCommitAfter is not set")
+		}
+	}
+
+	return nil
+}
+
+func chainSelectorToBytes16(chainSel uint64) [16]byte {
+	var result [16]byte
+	// Convert the uint64 to bytes and place it in the last 8 bytes of the array
+	binary.BigEndian.PutUint64(result[8:], chainSel)
+	return result
 }
