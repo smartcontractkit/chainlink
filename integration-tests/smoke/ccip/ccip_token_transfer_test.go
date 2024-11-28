@@ -12,9 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 
-	chainselectors "github.com/smartcontractkit/chain-selectors"
+	sel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/networks"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
@@ -28,9 +27,11 @@ func TestTokenTransfer(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	config := &changeset.TestConfigs{}
 	tenv, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr, config)
+	inMemoryEnv := false
 
 	// use this if you are testing locally in memory
 	// tenv := changeset.NewMemoryEnvironmentWithJobsAndContracts(t, lggr, 2, 4, config)
+	// inMemoryEnv := true
 
 	e := tenv.Env
 	state, err := changeset.LoadOnchainState(e)
@@ -42,11 +43,9 @@ func TestTokenTransfer(t *testing.T) {
 	ownerSourceChain := e.Chains[sourceChain].DeployerKey
 	ownerDestChain := e.Chains[destChain].DeployerKey
 
-	// Deploy and fund self-serve actors (when using memory)
-	//selfServeSrcTokenPoolDeployer := createAndFundSelfServeActor(t, ownerSourceChain, e.Chains[sourceChain], big.NewInt(1e18))
-	//selfServeSrcTokenPoolDeployer := createAndFundSelfServeActor(t, ownerDestChain, e.Chains[destChain], big.NewInt(1e18))
-	selfServeSrcTokenPoolDeployer := createDeployerKeyFromSimulatedPrivateKey(t, sourceChain)
-	selfServeDestTokenPoolDeployer := createDeployerKeyFromSimulatedPrivateKey(t, destChain)
+	// Deploy and fund self-serve actors
+	selfServeSrcTokenPoolDeployer := createAndFundSelfServeActor(t, ownerSourceChain, e.Chains[sourceChain], big.NewInt(1e18), inMemoryEnv)
+	selfServeDestTokenPoolDeployer := createAndFundSelfServeActor(t, ownerDestChain, e.Chains[destChain], big.NewInt(1e18), inMemoryEnv)
 
 	// Deploy tokens and pool by CCIP Owner
 	srcToken, _, destToken, _, err := changeset.DeployTransferableToken(
@@ -216,18 +215,26 @@ func TestTokenTransfer(t *testing.T) {
 	}
 }
 
-// _createAndFundSelfServeActor is currently unused but retained for potential local testing.
-// nolint:unused
-func _createAndFundSelfServeActor(
+func createAndFundSelfServeActor(
 	t *testing.T,
 	deployer *bind.TransactOpts,
 	chain deployment.Chain,
 	amountToFund *big.Int,
+	isInMemory bool,
 ) *bind.TransactOpts {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
-	actor, err := bind.NewKeyedTransactorWithChainID(key, getChainIdFromSelector(t, chain.Selector))
+	// Simulated backend sets chainID to 1337 always
+	chainID := big.NewInt(1337)
+	if !isInMemory {
+		// Docker environment runs real geth so chainID has to be set accordingly
+		stringChainID, err1 := sel.GetChainIDFromSelector(chain.Selector)
+		require.NoError(t, err1)
+		chainID, _ = new(big.Int).SetString(stringChainID, 10)
+	}
+
+	actor, err := bind.NewKeyedTransactorWithChainID(key, chainID)
 	require.NoError(t, err)
 
 	nonce, err := chain.Client.PendingNonceAt(tests.Context(t), deployer.From)
@@ -255,22 +262,4 @@ func _createAndFundSelfServeActor(
 	require.NoError(t, err)
 
 	return actor
-}
-
-func getChainIdFromSelector(t *testing.T, selector uint64) *big.Int {
-	chainId, err := chainselectors.GetChainIDFromSelector(selector)
-	require.NoError(t, err)
-	//convert chainId from string to big.Int
-	chainIdBigInt := new(big.Int)
-	chainIdBigInt.SetString(chainId, 10)
-	return chainIdBigInt
-}
-
-func createDeployerKeyFromSimulatedPrivateKey(t *testing.T, selector uint64) *bind.TransactOpts {
-	key, err := crypto.HexToECDSA(networks.AdditionalSimulatedPvtKeys[0])
-	require.NoError(t, err)
-	chainId := getChainIdFromSelector(t, selector)
-	id, err := bind.NewKeyedTransactorWithChainID(key, chainId)
-	require.NoError(t, err)
-	return id
 }
