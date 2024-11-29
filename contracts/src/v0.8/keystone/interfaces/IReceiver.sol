@@ -4,9 +4,7 @@ pragma solidity ^0.8.0;
 import {IERC165} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts/utils/introspection/IERC165.sol";
 
 /// @title IReceiver - receives keystone reports
-/// @notice Implementations must support the IReceiver interface.
-///         The Keystone Forwarder verifies this; if the interface is not implemented,
-///         the report will not be sent.
+/// @notice Implementations must support the IReceiver interface through ERC165.
 interface IReceiver is IERC165 {
   /// @notice Handles incoming keystone reports.
   /// @dev If this function call reverts, it can be retried with a higher gas
