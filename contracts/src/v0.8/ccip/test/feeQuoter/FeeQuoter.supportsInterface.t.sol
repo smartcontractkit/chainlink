@@ -6,7 +6,7 @@ import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
 
 import {IERC165} from "../../../vendor/openzeppelin-solidity/v5.0.2/contracts/interfaces/IERC165.sol";
 import {IFeeQuoter} from "../../interfaces/IFeeQuoter.sol";
-import "./FeeQuoterSetup.t.sol";
+import {FeeQuoterSetup} from "./FeeQuoterSetup.t.sol";
 
 contract FeeQuoter_supportsInterface is FeeQuoterSetup {
   function test_SupportsInterface_Success() public view {
