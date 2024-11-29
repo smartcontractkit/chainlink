@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
@@ -29,6 +30,7 @@ import (
  */
 func TestUSDCTokenTransfer(t *testing.T) {
 	lggr := logger.TestLogger(t)
+	ctx := tests.Context(t)
 	config := &changeset.TestConfigs{
 		IsUSDC: true,
 	}
@@ -185,7 +187,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			initialBalances := map[common.Address]*big.Int{}
 			for token := range tt.expectedTokenBalances {
-				initialBalance := changeset.GetTokenBalance(t, token, tt.receiver, e.Chains[tt.destChain])
+				initialBalance := changeset.GetTokenBalance(ctx, t, token, tt.receiver, e.Chains[tt.destChain])
 				initialBalances[token] = initialBalance
 			}
 
@@ -203,7 +205,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 
 			for token, balance := range tt.expectedTokenBalances {
 				expected := new(big.Int).Add(initialBalances[token], balance)
-				changeset.WaitForTheTokenBalance(t, token, tt.receiver, e.Chains[tt.destChain], expected)
+				changeset.WaitForTheTokenBalance(ctx, t, token, tt.receiver, e.Chains[tt.destChain], expected)
 			}
 		})
 	}
@@ -251,6 +253,6 @@ func TestUSDCTokenTransfer(t *testing.T) {
 		// We sent 1 coin from each source chain, so we should have 2 coins on the destination chain
 		// Receiver is randomly generated so we don't need to get the initial balance first
 		expectedBalance := new(big.Int).Add(tinyOneCoin, tinyOneCoin)
-		changeset.WaitForTheTokenBalance(t, cChainUSDC.Address(), receiver, e.Chains[chainC], expectedBalance)
+		changeset.WaitForTheTokenBalance(ctx, t, cChainUSDC.Address(), receiver, e.Chains[chainC], expectedBalance)
 	})
 }

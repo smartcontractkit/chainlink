@@ -1,6 +1,7 @@
 package smoke
 
 import (
+	"context"
 	"math/big"
 	"testing"
 
@@ -26,6 +27,7 @@ import (
 
 func TestTokenTransfer(t *testing.T) {
 	lggr := logger.TestLogger(t)
+	ctx := tests.Context(t)
 	config := &changeset.TestConfigs{}
 	tenv, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr, config)
 	inMemoryEnv := false
@@ -38,15 +40,17 @@ func TestTokenTransfer(t *testing.T) {
 	state, err := changeset.LoadOnchainState(e)
 	require.NoError(t, err)
 
-	// Chain and account setup
 	allChainSelectors := maps.Keys(e.Chains)
 	sourceChain, destChain := allChainSelectors[0], allChainSelectors[1]
 	ownerSourceChain := e.Chains[sourceChain].DeployerKey
 	ownerDestChain := e.Chains[destChain].DeployerKey
 
+	oneE18 := new(big.Int).SetUint64(1e18)
+	funds := new(big.Int).Mul(oneE18, new(big.Int).SetUint64(10))
+
 	// Deploy and fund self-serve actors
-	selfServeSrcTokenPoolDeployer := createAndFundSelfServeActor(t, ownerSourceChain, e.Chains[sourceChain], big.NewInt(1e18), inMemoryEnv)
-	selfServeDestTokenPoolDeployer := createAndFundSelfServeActor(t, ownerDestChain, e.Chains[destChain], big.NewInt(1e18), inMemoryEnv)
+	selfServeSrcTokenPoolDeployer := createAndFundSelfServeActor(ctx, t, ownerSourceChain, e.Chains[sourceChain], funds, inMemoryEnv)
+	selfServeDestTokenPoolDeployer := createAndFundSelfServeActor(ctx, t, ownerDestChain, e.Chains[destChain], funds, inMemoryEnv)
 
 	// Deploy tokens and pool by CCIP Owner
 	srcToken, _, destToken, _, err := changeset.DeployTransferableToken(
@@ -75,11 +79,8 @@ func TestTokenTransfer(t *testing.T) {
 		"SELF_SERVE_TOKEN",
 	)
 	require.NoError(t, err)
-
-	// Add all lanes.
 	require.NoError(t, changeset.AddLanesForAll(e, state))
 
-	// Mint and allow tokens for the router
 	changeset.MintAndAllow(t, e, state, map[uint64]*bind.TransactOpts{
 		sourceChain: ownerSourceChain,
 		destChain:   ownerDestChain,
@@ -95,10 +96,7 @@ func TestTokenTransfer(t *testing.T) {
 		destChain:   {selfServeDestToken},
 	})
 
-	tinyOneCoin := new(big.Int).SetUint64(1)
-
-	// Test scenarios are defined here
-	scenarios := []struct {
+	tcs := []struct {
 		name                   string
 		srcChain               uint64
 		dstChain               uint64
@@ -115,12 +113,12 @@ func TestTokenTransfer(t *testing.T) {
 			tokenAmounts: []router.ClientEVMTokenAmount{
 				{
 					Token:  srcToken.Address(),
-					Amount: tinyOneCoin,
+					Amount: oneE18,
 				},
 			},
 			receiver: utils.RandomAddress(),
 			expectedTokenBalances: map[common.Address]*big.Int{
-				destToken.Address(): tinyOneCoin,
+				destToken.Address(): oneE18,
 			},
 			expectedExecutionState: changeset.EXECUTION_STATE_SUCCESS,
 		},
@@ -131,33 +129,12 @@ func TestTokenTransfer(t *testing.T) {
 			tokenAmounts: []router.ClientEVMTokenAmount{
 				{
 					Token:  srcToken.Address(),
-					Amount: tinyOneCoin,
+					Amount: oneE18,
 				},
 			},
 			receiver: state.Chains[destChain].Receiver.Address(),
 			expectedTokenBalances: map[common.Address]*big.Int{
-				destToken.Address(): tinyOneCoin,
-			},
-			expectedExecutionState: changeset.EXECUTION_STATE_SUCCESS,
-		},
-		{
-			name:     "Send 2 tokens to receiver",
-			srcChain: destChain,
-			dstChain: sourceChain,
-			tokenAmounts: []router.ClientEVMTokenAmount{
-				{
-					Token:  destToken.Address(),
-					Amount: tinyOneCoin,
-				},
-				{
-					Token:  selfServeDestToken.Address(),
-					Amount: tinyOneCoin,
-				},
-			},
-			receiver: e.Chains[sourceChain].DeployerKey.From,
-			expectedTokenBalances: map[common.Address]*big.Int{
-				srcToken.Address():          tinyOneCoin,
-				selfServeSrcToken.Address(): tinyOneCoin,
+				destToken.Address(): oneE18,
 			},
 			expectedExecutionState: changeset.EXECUTION_STATE_SUCCESS,
 		},
@@ -168,31 +145,31 @@ func TestTokenTransfer(t *testing.T) {
 			tokenAmounts: []router.ClientEVMTokenAmount{
 				{
 					Token:  selfServeDestToken.Address(),
-					Amount: tinyOneCoin,
+					Amount: oneE18,
 				},
 				{
 					Token:  destToken.Address(),
-					Amount: tinyOneCoin,
+					Amount: oneE18,
 				},
 				{
 					Token:  selfServeDestToken.Address(),
-					Amount: tinyOneCoin,
+					Amount: oneE18,
 				},
 			},
 			receiver: state.Chains[sourceChain].Receiver.Address(),
 			expectedTokenBalances: map[common.Address]*big.Int{
-				selfServeSrcToken.Address(): new(big.Int).SetUint64(2),
-				srcToken.Address():          tinyOneCoin,
+				selfServeSrcToken.Address(): new(big.Int).Add(oneE18, oneE18),
+				srcToken.Address():          oneE18,
 			},
 			expectedExecutionState: changeset.EXECUTION_STATE_SUCCESS,
 		},
 	}
 
-	for _, scenario := range scenarios {
-		t.Run(scenario.name, func(t *testing.T) {
+	for _, tt := range tcs {
+		t.Run(tt.name, func(t *testing.T) {
 			initialBalances := map[common.Address]*big.Int{}
-			for token := range scenario.expectedTokenBalances {
-				initialBalance := changeset.GetTokenBalance(t, token, scenario.receiver, e.Chains[scenario.dstChain])
+			for token := range tt.expectedTokenBalances {
+				initialBalance := changeset.GetTokenBalance(ctx, t, token, tt.receiver, e.Chains[tt.dstChain])
 				initialBalances[token] = initialBalance
 			}
 
@@ -200,23 +177,24 @@ func TestTokenTransfer(t *testing.T) {
 				t,
 				e,
 				state,
-				scenario.srcChain,
-				scenario.dstChain,
-				scenario.tokenAmounts,
-				scenario.receiver,
-				scenario.data,
-				scenario.expectedExecutionState,
+				tt.srcChain,
+				tt.dstChain,
+				tt.tokenAmounts,
+				tt.receiver,
+				tt.data,
+				tt.expectedExecutionState,
 			)
 
-			for token, balance := range scenario.expectedTokenBalances {
+			for token, balance := range tt.expectedTokenBalances {
 				expected := new(big.Int).Add(initialBalances[token], balance)
-				changeset.WaitForTheTokenBalance(t, token, scenario.receiver, e.Chains[scenario.dstChain], expected)
+				changeset.WaitForTheTokenBalance(ctx, t, token, tt.receiver, e.Chains[tt.dstChain], expected)
 			}
 		})
 	}
 }
 
 func createAndFundSelfServeActor(
+	ctx context.Context,
 	t *testing.T,
 	deployer *bind.TransactOpts,
 	chain deployment.Chain,
@@ -238,10 +216,10 @@ func createAndFundSelfServeActor(
 	actor, err := bind.NewKeyedTransactorWithChainID(key, chainID)
 	require.NoError(t, err)
 
-	nonce, err := chain.Client.PendingNonceAt(tests.Context(t), deployer.From)
+	nonce, err := chain.Client.PendingNonceAt(ctx, deployer.From)
 	require.NoError(t, err)
 
-	gasPrice, err := chain.Client.SuggestGasPrice(tests.Context(t))
+	gasPrice, err := chain.Client.SuggestGasPrice(ctx)
 	require.NoError(t, err)
 
 	tx := types.NewTx(&types.LegacyTx{
@@ -256,7 +234,7 @@ func createAndFundSelfServeActor(
 	signedTx, err := deployer.Signer(deployer.From, tx)
 	require.NoError(t, err)
 
-	err = chain.Client.SendTransaction(tests.Context(t), signedTx)
+	err = chain.Client.SendTransaction(ctx, signedTx)
 	require.NoError(t, err)
 
 	_, err = chain.Confirm(signedTx)

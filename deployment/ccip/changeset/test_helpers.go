@@ -1023,23 +1023,23 @@ func MintAndAllow(
 	owners map[uint64]*bind.TransactOpts,
 	tkMap map[uint64][]*burn_mint_erc677.BurnMintERC677,
 ) {
+	tenCoins := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(10))
+
 	for chain, tokens := range tkMap {
+		owner, ok := owners[chain]
+		require.True(t, ok)
+
 		for _, token := range tokens {
-			twoCoins := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(2))
-
-			owner, ok := owners[chain]
-			require.True(t, ok)
-
 			tx, err := token.Mint(
 				owner,
 				e.Chains[chain].DeployerKey.From,
-				new(big.Int).Mul(twoCoins, big.NewInt(10)),
+				new(big.Int).Mul(tenCoins, big.NewInt(10)),
 			)
 			require.NoError(t, err)
 			_, err = e.Chains[chain].Confirm(tx)
 			require.NoError(t, err)
 
-			tx, err = token.Approve(e.Chains[chain].DeployerKey, state.Chains[chain].Router.Address(), twoCoins)
+			tx, err = token.Approve(e.Chains[chain].DeployerKey, state.Chains[chain].Router.Address(), tenCoins)
 			require.NoError(t, err)
 			_, err = e.Chains[chain].Confirm(tx)
 			require.NoError(t, err)
@@ -1049,6 +1049,7 @@ func MintAndAllow(
 
 // TransferAndWaitForSuccess sends a message from sourceChain to destChain and waits for it to be executed
 func TransferAndWaitForSuccess(
+	ctx context.Context,
 	t *testing.T,
 	env deployment.Environment,
 	state CCIPOnChainState,
@@ -1067,7 +1068,7 @@ func TransferAndWaitForSuccess(
 	expectedSeqNum := make(map[SourceDestPair]uint64)
 	expectedSeqNumExec := make(map[SourceDestPair][]uint64)
 
-	latesthdr, err := env.Chains[destChain].Client.HeaderByNumber(testcontext.Get(t), nil)
+	latesthdr, err := env.Chains[destChain].Client.HeaderByNumber(ctx, nil)
 	require.NoError(t, err)
 	block := latesthdr.Number.Uint64()
 	startBlocks[destChain] = &block
@@ -1091,6 +1092,7 @@ func TransferAndWaitForSuccess(
 }
 
 func WaitForTheTokenBalance(
+	ctx context.Context,
 	t *testing.T,
 	token common.Address,
 	receiver common.Address,
@@ -1101,7 +1103,7 @@ func WaitForTheTokenBalance(
 	require.NoError(t, err)
 
 	require.Eventually(t, func() bool {
-		actualBalance, err := tokenContract.BalanceOf(&bind.CallOpts{Context: tests.Context(t)}, receiver)
+		actualBalance, err := tokenContract.BalanceOf(&bind.CallOpts{Context: ctx}, receiver)
 		require.NoError(t, err)
 
 		t.Log("Waiting for the token balance",
@@ -1116,6 +1118,7 @@ func WaitForTheTokenBalance(
 }
 
 func GetTokenBalance(
+	ctx context.Context,
 	t *testing.T,
 	token common.Address,
 	receiver common.Address,
@@ -1124,7 +1127,7 @@ func GetTokenBalance(
 	tokenContract, err := burn_mint_erc677.NewBurnMintERC677(token, chain.Client)
 	require.NoError(t, err)
 
-	balance, err := tokenContract.BalanceOf(&bind.CallOpts{Context: tests.Context(t)}, receiver)
+	balance, err := tokenContract.BalanceOf(&bind.CallOpts{Context: ctx}, receiver)
 	require.NoError(t, err)
 
 	t.Log("Getting token balance",
