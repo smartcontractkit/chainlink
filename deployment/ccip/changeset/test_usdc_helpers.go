@@ -29,59 +29,78 @@ func ConfigureUSDCTokenPools(
 	srcPool := state.Chains[src].USDCTokenPool
 	dstPool := state.Chains[dst].USDCTokenPool
 
-	configurePoolGrp := errgroup.Group{}
+	args := []struct {
+		sourceChain deployment.Chain
+		dstChainSel uint64
+		state       CCIPChainState
+		srcToken    *burn_mint_erc677.BurnMintERC677
+		srcPool     *usdc_token_pool.USDCTokenPool
+		dstToken    *burn_mint_erc677.BurnMintERC677
+		dstPool     *usdc_token_pool.USDCTokenPool
+	}{
+		{
+			chains[src],
+			dst,
+			state.Chains[src],
+			srcToken,
+			srcPool,
+			dstToken,
+			dstPool,
+		},
+		{
+			chains[dst],
+			src,
+			state.Chains[dst],
+			dstToken,
+			dstPool,
+			srcToken,
+			srcPool,
+		},
+	}
 
-	configurePoolGrp.Go(func() error {
-		if err := attachTokenToTheRegistry(chains[src], state.Chains[src], chains[src].DeployerKey, srcToken.Address(), srcPool.Address()); err != nil {
+	configurePoolGrp := errgroup.Group{}
+	for _, arg := range args {
+		configurePoolGrp.Go(configureSingleChain(lggr, arg.sourceChain, arg.dstChainSel, arg.state, arg.srcToken, arg.srcPool, arg.dstToken, arg.dstPool))
+	}
+	if err := configurePoolGrp.Wait(); err != nil {
+		return nil, nil, err
+	}
+	return srcToken, dstToken, nil
+}
+
+func configureSingleChain(
+	lggr logger.Logger,
+	sourceChain deployment.Chain,
+	dstChainSel uint64,
+	state CCIPChainState,
+	srcToken *burn_mint_erc677.BurnMintERC677,
+	srcPool *usdc_token_pool.USDCTokenPool,
+	dstToken *burn_mint_erc677.BurnMintERC677,
+	dstPool *usdc_token_pool.USDCTokenPool,
+) func() error {
+	return func() error {
+		if err := attachTokenToTheRegistry(sourceChain, state, sourceChain.DeployerKey, srcToken.Address(), srcPool.Address()); err != nil {
 			lggr.Errorw("Failed to attach token to the registry", "err", err, "token", srcToken.Address(), "pool", srcPool.Address())
 			return err
 		}
 
-		if err := setUSDCTokenPoolCounterPart(chains[src], srcPool, dst, chains[src].DeployerKey, dstToken.Address(), dstPool.Address()); err != nil {
+		if err := setUSDCTokenPoolCounterPart(sourceChain, srcPool, dstChainSel, sourceChain.DeployerKey, dstToken.Address(), dstPool.Address()); err != nil {
 			lggr.Errorw("Failed to set counter part", "err", err, "srcPool", srcPool.Address(), "dstPool", dstPool.Address())
 			return err
 		}
 
 		for _, addr := range []common.Address{
 			srcPool.Address(),
-			state.Chains[src].MockUSDCTokenMessenger.Address(),
-			state.Chains[src].MockUSDCTransmitter.Address(),
+			state.MockUSDCTokenMessenger.Address(),
+			state.MockUSDCTransmitter.Address(),
 		} {
-			if err := grantMintBurnPermissions(lggr, chains[src], srcToken, chains[src].DeployerKey, addr); err != nil {
+			if err := grantMintBurnPermissions(lggr, sourceChain, srcToken, sourceChain.DeployerKey, addr); err != nil {
 				lggr.Errorw("Failed to grant mint/burn permissions", "err", err, "token", srcToken.Address(), "address", addr)
 				return err
 			}
 		}
 		return nil
-	})
-
-	configurePoolGrp.Go(func() error {
-		if err := attachTokenToTheRegistry(chains[dst], state.Chains[dst], chains[dst].DeployerKey, dstToken.Address(), dstPool.Address()); err != nil {
-			lggr.Errorw("Failed to attach token to the registry", "err", err, "token", dstToken.Address(), "pool", dstPool.Address())
-			return err
-		}
-
-		if err := setUSDCTokenPoolCounterPart(chains[dst], dstPool, src, chains[dst].DeployerKey, srcToken.Address(), srcPool.Address()); err != nil {
-			lggr.Errorw("Failed to set counter part", "err", err, "srcPool", dstPool.Address(), "dstPool", srcPool.Address())
-			return err
-		}
-
-		for _, addr := range []common.Address{
-			dstPool.Address(),
-			state.Chains[dst].MockUSDCTokenMessenger.Address(),
-			state.Chains[dst].MockUSDCTransmitter.Address(),
-		} {
-			if err := grantMintBurnPermissions(lggr, chains[dst], dstToken, chains[dst].DeployerKey, addr); err != nil {
-				lggr.Errorw("Failed to grant mint/burn permissions", "err", err, "token", dstToken.Address(), "address", addr)
-				return err
-			}
-		}
-		return nil
-	})
-	if err := configurePoolGrp.Wait(); err != nil {
-		return nil, nil, err
 	}
-	return srcToken, dstToken, nil
 }
 
 func UpdateFeeQuoterForUSDC(

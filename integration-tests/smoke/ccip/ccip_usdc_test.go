@@ -6,13 +6,14 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/stretchr/testify/require"
+
 	"golang.org/x/exp/maps"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
