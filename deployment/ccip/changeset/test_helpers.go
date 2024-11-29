@@ -1070,6 +1070,7 @@ func MintAndAllow(
 		owner, ok := owners[chain]
 		require.True(t, ok)
 
+		tokens := tokens
 		configurePoolGrp.Go(func() error {
 			for _, token := range tokens {
 				tx, err := token.Mint(
