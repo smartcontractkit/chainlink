@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {AggregatorValidatorInterface} from "../../../shared/interfaces/AggregatorValidatorInterface.sol";
-import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
-import {AccessControllerInterface} from "../../../shared/interfaces/AccessControllerInterface.sol";
-import {SimpleWriteAccessController} from "../../../shared/access/SimpleWriteAccessController.sol";
+import {AggregatorValidatorInterface} from "../../shared/interfaces/AggregatorValidatorInterface.sol";
+import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
+import {AccessControllerInterface} from "../../shared/interfaces/AccessControllerInterface.sol";
+import {SimpleWriteAccessController} from "../../shared/access/SimpleWriteAccessController.sol";
 
 /* ./dev dependencies - to be moved from ./dev after audit */
 import {ISequencerUptimeFeed} from "../interfaces/ISequencerUptimeFeed.sol";
 import {IArbitrumDelayedInbox} from "../interfaces/IArbitrumDelayedInbox.sol";
-import {AddressAliasHelper} from "../../../vendor/arb-bridge-eth/v0.8.0-custom/contracts/libraries/AddressAliasHelper.sol";
-import {ArbSys} from "../../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
-import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
+import {AddressAliasHelper} from "../../vendor/arb-bridge-eth/v0.8.0-custom/contracts/libraries/AddressAliasHelper.sol";
+import {ArbSys} from "../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
+import {Address} from "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 
 /**
  * @title ArbitrumValidator - makes xDomain L2 Flags contract call (using L2 xDomain Forwarder contract)

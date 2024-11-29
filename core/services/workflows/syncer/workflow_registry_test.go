@@ -8,6 +8,9 @@ import (
 
 	"github.com/stretchr/testify/mock"
 
+	"github.com/jonboulle/clockwork"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	types "github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -17,11 +20,21 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 
 	"github.com/stretchr/testify/require"
 )
+
+type testDonNotifier struct {
+	don capabilities.DON
+	err error
+}
+
+func (t *testDonNotifier) WaitForDon(ctx context.Context) (capabilities.DON, error) {
+	return t.don, t.err
+}
 
 func Test_Workflow_Registry_Syncer(t *testing.T) {
 	var (
@@ -58,13 +71,24 @@ func Test_Workflow_Registry_Syncer(t *testing.T) {
 		ticker = make(chan time.Time)
 
 		handler = NewEventHandler(lggr, orm, gateway, nil, nil,
-			emitter, nil)
-		loader = NewWorkflowRegistryContractLoader(contractAddress, 1, reader, handler)
+			emitter, clockwork.NewFakeClock(), workflowkey.Key{})
+		loader = NewWorkflowRegistryContractLoader(contractAddress, func(ctx context.Context, bytes []byte) (ContractReader, error) {
+			return reader, nil
+		}, handler)
 
-		worker = NewWorkflowRegistry(lggr, reader, contractAddress,
+		worker = NewWorkflowRegistry(lggr, func(ctx context.Context, bytes []byte) (ContractReader, error) {
+			return reader, nil
+		}, contractAddress,
 			WorkflowEventPollerConfig{
 				QueryCount: 20,
-			}, handler, loader, WithTicker(ticker))
+			}, handler, loader,
+			&testDonNotifier{
+				don: capabilities.DON{
+					ID: 1,
+				},
+				err: nil,
+			},
+			WithTicker(ticker))
 	)
 
 	// Cleanup the worker
@@ -97,6 +121,7 @@ func Test_Workflow_Registry_Syncer(t *testing.T) {
 	reader.EXPECT().GetLatestValueWithHeadData(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(&types.Head{
 		Height: "0",
 	}, nil)
+	reader.EXPECT().Bind(mock.Anything, mock.Anything).Return(nil)
 
 	// Go run the worker
 	servicetest.Run(t, worker)

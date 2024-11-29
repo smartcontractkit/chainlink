@@ -4,9 +4,12 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 
@@ -17,6 +20,7 @@ import (
 
 // NewChainInboundChangeset generates a proposal
 // to connect the new chain to the existing chains.
+// TODO: doesn't implement the ChangeSet interface.
 func NewChainInboundChangeset(
 	e deployment.Environment,
 	state CCIPOnChainState,
@@ -77,7 +81,21 @@ func NewChainInboundChangeset(
 		},
 	})
 
-	prop, err := BuildProposalFromBatches(state, batches, "proposal to set new chains", 0)
+	var (
+		timelocksPerChain = make(map[uint64]common.Address)
+		proposerMCMSes    = make(map[uint64]*gethwrappers.ManyChainMultiSig)
+	)
+	for _, chain := range append(sources, homeChainSel) {
+		timelocksPerChain[chain] = state.Chains[chain].Timelock.Address()
+		proposerMCMSes[chain] = state.Chains[chain].ProposerMcm
+	}
+	prop, err := proposalutils.BuildProposalFromBatches(
+		timelocksPerChain,
+		proposerMCMSes,
+		batches,
+		"proposal to set new chains",
+		0,
+	)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -133,12 +151,26 @@ func AddDonAndSetCandidateChangeset(
 		return deployment.ChangesetOutput{}, err
 	}
 
-	prop, err := BuildProposalFromBatches(state, []timelock.BatchChainOperation{{
-		ChainIdentifier: mcms.ChainIdentifier(homeChainSel),
-		Batch:           []mcms.Operation{addDonOp},
-	}}, "setCandidate for commit and AddDon on new Chain", 0)
+	var (
+		timelocksPerChain = map[uint64]common.Address{
+			homeChainSel: state.Chains[homeChainSel].Timelock.Address(),
+		}
+		proposerMCMSes = map[uint64]*gethwrappers.ManyChainMultiSig{
+			homeChainSel: state.Chains[homeChainSel].ProposerMcm,
+		}
+	)
+	prop, err := proposalutils.BuildProposalFromBatches(
+		timelocksPerChain,
+		proposerMCMSes,
+		[]timelock.BatchChainOperation{{
+			ChainIdentifier: mcms.ChainIdentifier(homeChainSel),
+			Batch:           []mcms.Operation{addDonOp},
+		}},
+		"setCandidate for commit and AddDon on new Chain",
+		0, // minDelay
+	)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal from batch: %w", err)
 	}
 
 	return deployment.ChangesetOutput{

@@ -43,11 +43,12 @@ var defaultStreamConfig = p2ptypes.StreamConfig{
 
 type launcher struct {
 	services.StateMachine
-	lggr        logger.Logger
-	peerWrapper p2ptypes.PeerWrapper
-	dispatcher  remotetypes.Dispatcher
-	registry    *Registry
-	subServices []services.Service
+	lggr                logger.Logger
+	peerWrapper         p2ptypes.PeerWrapper
+	dispatcher          remotetypes.Dispatcher
+	registry            *Registry
+	subServices         []services.Service
+	workflowDonNotifier donNotifier
 }
 
 func unmarshalCapabilityConfig(data []byte) (capabilities.CapabilityConfiguration, error) {
@@ -86,18 +87,24 @@ func unmarshalCapabilityConfig(data []byte) (capabilities.CapabilityConfiguratio
 	}, nil
 }
 
+type donNotifier interface {
+	NotifyDonSet(don capabilities.DON)
+}
+
 func NewLauncher(
 	lggr logger.Logger,
 	peerWrapper p2ptypes.PeerWrapper,
 	dispatcher remotetypes.Dispatcher,
 	registry *Registry,
+	workflowDonNotifier donNotifier,
 ) *launcher {
 	return &launcher{
-		lggr:        lggr.Named("CapabilitiesLauncher"),
-		peerWrapper: peerWrapper,
-		dispatcher:  dispatcher,
-		registry:    registry,
-		subServices: []services.Service{},
+		lggr:                lggr.Named("CapabilitiesLauncher"),
+		peerWrapper:         peerWrapper,
+		dispatcher:          dispatcher,
+		registry:            registry,
+		subServices:         []services.Service{},
+		workflowDonNotifier: workflowDonNotifier,
 	}
 }
 
@@ -214,6 +221,8 @@ func (w *launcher) Launch(ctx context.Context, state *registrysyncer.LocalRegist
 		if len(myWorkflowDONs) > 1 {
 			return errors.New("invariant violation: node is part of more than one workflowDON")
 		}
+
+		w.workflowDonNotifier.NotifyDonSet(myDON.DON)
 
 		for _, rcd := range remoteCapabilityDONs {
 			err := w.addRemoteCapabilities(ctx, myDON, rcd, state)
