@@ -5,12 +5,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-
 	ccipowner "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/keystone"
-
 	capReg "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/feeds_consumer"
 	keystoneForwarder "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder"
@@ -21,37 +19,41 @@ import (
 // returning the contract instance and an error.
 type contractConstructor[T any] func(address common.Address, client bind.ContractBackend) (*T, error)
 
-// getContractFromAddrBook is a generic function to retrieve a single contract instance
-// of a specific type from the address book. It returns the first matching instance found
-// or an error if none are found.
-func getContractFromAddrBook[T any](
+// getContractsFromAddrBook retrieves a list of contract instances of a specified type from the address book.
+// It uses the provided constructor to initialize matching contracts for the given chain.
+func getContractsFromAddrBook[T any](
 	addrBook deployment.AddressBook,
 	chain deployment.Chain,
 	desiredType deployment.ContractType,
 	constructor contractConstructor[T],
-) (*T, error) {
+) ([]*T, error) {
 	chainAddresses, err := addrBook.AddressesForChain(chain.Selector)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get addresses for chain %d: %w", chain.Selector, err)
 	}
 
+	var contracts []*T
 	for addr, typeAndVersion := range chainAddresses {
 		if typeAndVersion.Type == desiredType {
 			address := common.HexToAddress(addr)
 			contractInstance, err := constructor(address, chain.Client)
 			if err != nil {
-				return nil, fmt.Errorf("failed to construct %s at address %s: %w", desiredType, addr, err)
+				return nil, fmt.Errorf("failed to construct %s at %s: %w", desiredType, addr, err)
 			}
-			return contractInstance, nil
+			contracts = append(contracts, contractInstance)
 		}
 	}
 
-	return nil, fmt.Errorf("no %s found for chain %d", desiredType, chain.Selector)
+	if len(contracts) == 0 {
+		return nil, fmt.Errorf("no %s found for chain %d", desiredType, chain.Selector)
+	}
+
+	return contracts, nil
 }
 
-// capRegistryFromAddrBook returns the CapabilitiesRegistry contract for the given chain and address book.
-func capRegistryFromAddrBook(addrBook deployment.AddressBook, chain deployment.Chain) (*capReg.CapabilitiesRegistry, error) {
-	return getContractFromAddrBook[capReg.CapabilitiesRegistry](
+// capRegistriesFromAddrBook retrieves CapabilitiesRegistry contracts for the given chain.
+func capRegistriesFromAddrBook(addrBook deployment.AddressBook, chain deployment.Chain) ([]*capReg.CapabilitiesRegistry, error) {
+	return getContractsFromAddrBook[capReg.CapabilitiesRegistry](
 		addrBook,
 		chain,
 		keystone.CapabilitiesRegistry,
@@ -59,9 +61,9 @@ func capRegistryFromAddrBook(addrBook deployment.AddressBook, chain deployment.C
 	)
 }
 
-// ocr3FromAddrBook returns the OCR3Capability contract for the given chain and address book.
-func ocr3FromAddrBook(addrBook deployment.AddressBook, chain deployment.Chain) (*ocr3Capability.OCR3Capability, error) {
-	return getContractFromAddrBook[ocr3Capability.OCR3Capability](
+// ocr3FromAddrBook retrieves OCR3Capability contracts for the given chain.
+func ocr3FromAddrBook(addrBook deployment.AddressBook, chain deployment.Chain) ([]*ocr3Capability.OCR3Capability, error) {
+	return getContractsFromAddrBook[ocr3Capability.OCR3Capability](
 		addrBook,
 		chain,
 		keystone.OCR3Capability,
@@ -69,9 +71,9 @@ func ocr3FromAddrBook(addrBook deployment.AddressBook, chain deployment.Chain) (
 	)
 }
 
-// forwarderFromAddrBook returns the KeystoneForwarder contract for the given chain and address book.
-func forwarderFromAddrBook(addrBook deployment.AddressBook, chain deployment.Chain) (*keystoneForwarder.KeystoneForwarder, error) {
-	return getContractFromAddrBook[keystoneForwarder.KeystoneForwarder](
+// forwardersFromAddrBook retrieves KeystoneForwarder contracts for the given chain.
+func forwardersFromAddrBook(addrBook deployment.AddressBook, chain deployment.Chain) ([]*keystoneForwarder.KeystoneForwarder, error) {
+	return getContractsFromAddrBook[keystoneForwarder.KeystoneForwarder](
 		addrBook,
 		chain,
 		keystone.KeystoneForwarder,
@@ -79,9 +81,9 @@ func forwarderFromAddrBook(addrBook deployment.AddressBook, chain deployment.Cha
 	)
 }
 
-// feedsConsumerFromAddrBook returns the FeedsConsumer contract for the given chain and address book.
-func feedsConsumerFromAddrBook(addrBook deployment.AddressBook, chain deployment.Chain) (*feeds_consumer.KeystoneFeedsConsumer, error) {
-	return getContractFromAddrBook[feeds_consumer.KeystoneFeedsConsumer](
+// feedsConsumersFromAddrBook retrieves FeedsConsumer contracts for the given chain.
+func feedsConsumersFromAddrBook(addrBook deployment.AddressBook, chain deployment.Chain) ([]*feeds_consumer.KeystoneFeedsConsumer, error) {
+	return getContractsFromAddrBook[feeds_consumer.KeystoneFeedsConsumer](
 		addrBook,
 		chain,
 		keystone.FeedConsumer,
@@ -89,9 +91,9 @@ func feedsConsumerFromAddrBook(addrBook deployment.AddressBook, chain deployment
 	)
 }
 
-// proposerFromAddrBook returns the ManyChainMultiSig proposer contract for the given chain and address book.
-func proposerFromAddrBook(addrBook deployment.AddressBook, chain deployment.Chain) (*ccipowner.ManyChainMultiSig, error) {
-	return getContractFromAddrBook[ccipowner.ManyChainMultiSig](
+// proposersFromAddrBook retrieves ManyChainMultiSig proposer contracts for the given chain.
+func proposersFromAddrBook(addrBook deployment.AddressBook, chain deployment.Chain) ([]*ccipowner.ManyChainMultiSig, error) {
+	return getContractsFromAddrBook[ccipowner.ManyChainMultiSig](
 		addrBook,
 		chain,
 		keystone.ProposerManyChainMultiSig,
@@ -99,9 +101,9 @@ func proposerFromAddrBook(addrBook deployment.AddressBook, chain deployment.Chai
 	)
 }
 
-// timelockFromAddrBook returns the RBACTimelock contract for the given chain and address book.
-func timelockFromAddrBook(addrBook deployment.AddressBook, chain deployment.Chain) (*ccipowner.RBACTimelock, error) {
-	return getContractFromAddrBook[ccipowner.RBACTimelock](
+// timelocksFromAddrBook retrieves RBACTimelock contracts for the given chain.
+func timelocksFromAddrBook(addrBook deployment.AddressBook, chain deployment.Chain) ([]*ccipowner.RBACTimelock, error) {
+	return getContractsFromAddrBook[ccipowner.RBACTimelock](
 		addrBook,
 		chain,
 		keystone.RBACTimelock,
