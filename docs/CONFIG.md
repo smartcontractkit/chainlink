@@ -1983,6 +1983,9 @@ RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '9m0s'
 
+[TxmV2]
+Enabled = false
+
 [Transactions]
 ForwardersEnabled = false
 MaxInFlight = 16
@@ -2086,6 +2089,9 @@ RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
+
+[TxmV2]
+Enabled = false
 
 [Transactions]
 ForwardersEnabled = false
@@ -2191,6 +2197,9 @@ RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
+[TxmV2]
+Enabled = false
+
 [Transactions]
 ForwardersEnabled = false
 MaxInFlight = 16
@@ -2294,6 +2303,9 @@ RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
+
+[TxmV2]
+Enabled = false
 
 [Transactions]
 ForwardersEnabled = false
@@ -2399,6 +2411,9 @@ RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '13m0s'
+
+[TxmV2]
+Enabled = false
 
 [Transactions]
 ForwardersEnabled = false
@@ -2508,6 +2523,9 @@ RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
+[TxmV2]
+Enabled = false
+
 [Transactions]
 ForwardersEnabled = false
 MaxInFlight = 16
@@ -2611,6 +2629,9 @@ RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
+
+[TxmV2]
+Enabled = false
 
 [Transactions]
 ForwardersEnabled = false
@@ -2717,6 +2738,9 @@ RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
+[TxmV2]
+Enabled = false
+
 [Transactions]
 ForwardersEnabled = false
 MaxInFlight = 16
@@ -2821,6 +2845,9 @@ RPCBlockQueryDelay = 2
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '45s'
 
+[TxmV2]
+Enabled = false
+
 [Transactions]
 ForwardersEnabled = false
 MaxInFlight = 16
@@ -2923,6 +2950,9 @@ RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
+
+[TxmV2]
+Enabled = false
 
 [Transactions]
 ForwardersEnabled = false
@@ -3027,6 +3057,9 @@ RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
+[TxmV2]
+Enabled = false
+
 [Transactions]
 ForwardersEnabled = false
 MaxInFlight = 16
@@ -3130,6 +3163,9 @@ RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 2
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '40s'
+
+[TxmV2]
+Enabled = false
 
 [Transactions]
 ForwardersEnabled = false
@@ -3236,6 +3272,9 @@ RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '2m0s'
 
+[TxmV2]
+Enabled = false
+
 [Transactions]
 ForwardersEnabled = false
 MaxInFlight = 16
@@ -3339,6 +3378,9 @@ RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 2
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
+
+[TxmV2]
+Enabled = false
 
 [Transactions]
 ForwardersEnabled = false
@@ -3444,6 +3486,9 @@ RPCBlockQueryDelay = 10
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '6m0s'
 
+[TxmV2]
+Enabled = false
+
 [Transactions]
 ForwardersEnabled = false
 MaxInFlight = 16
@@ -3547,6 +3592,9 @@ RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 15
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
+
+[TxmV2]
+Enabled = false
 
 [Transactions]
 ForwardersEnabled = false
@@ -3652,6 +3700,9 @@ RPCBlockQueryDelay = 15
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
+[TxmV2]
+Enabled = false
+
 [Transactions]
 ForwardersEnabled = false
 MaxInFlight = 16
@@ -3756,6 +3807,9 @@ RPCBlockQueryDelay = 2
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
+[TxmV2]
+Enabled = false
+
 [Transactions]
 ForwardersEnabled = false
 MaxInFlight = 16
@@ -3859,6 +3913,9 @@ RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
+
+[TxmV2]
+Enabled = false
 
 [Transactions]
 ForwardersEnabled = false
@@ -3968,6 +4025,9 @@ RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
+[TxmV2]
+Enabled = false
+
 [Transactions]
 ForwardersEnabled = false
 MaxInFlight = 16
@@ -4075,6 +4135,9 @@ RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
+[TxmV2]
+Enabled = false
+
 [Transactions]
 ForwardersEnabled = false
 MaxInFlight = 16
@@ -4179,6 +4242,9 @@ RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
+[TxmV2]
+Enabled = false
+
 [Transactions]
 ForwardersEnabled = false
 MaxInFlight = 16
@@ -4282,6 +4348,9 @@ RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
+
+[TxmV2]
+Enabled = false
 
 [Transactions]
 ForwardersEnabled = false
@@ -4389,6 +4458,9 @@ RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
+
+[TxmV2]
+Enabled = false
 
 [Transactions]
 ForwardersEnabled = false
@@ -4498,6 +4570,9 @@ RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
+[TxmV2]
+Enabled = false
+
 [Transactions]
 ForwardersEnabled = false
 MaxInFlight = 16
@@ -4606,6 +4681,9 @@ RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
+[TxmV2]
+Enabled = false
+
 [Transactions]
 ForwardersEnabled = false
 MaxInFlight = 16
@@ -4708,6 +4786,9 @@ RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
+
+[TxmV2]
+Enabled = false
 
 [Transactions]
 ForwardersEnabled = false
@@ -4813,6 +4894,9 @@ RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
+[TxmV2]
+Enabled = false
+
 [Transactions]
 ForwardersEnabled = false
 MaxInFlight = 16
@@ -4916,6 +5000,9 @@ RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 15
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
+
+[TxmV2]
+Enabled = false
 
 [Transactions]
 ForwardersEnabled = false
@@ -5021,6 +5108,9 @@ RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '40s'
 
+[TxmV2]
+Enabled = false
+
 [Transactions]
 ForwardersEnabled = false
 MaxInFlight = 16
@@ -5125,6 +5215,9 @@ RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '40s'
 
+[TxmV2]
+Enabled = false
+
 [Transactions]
 ForwardersEnabled = false
 MaxInFlight = 16
@@ -5227,6 +5320,9 @@ RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
+
+[TxmV2]
+Enabled = false
 
 [Transactions]
 ForwardersEnabled = false
@@ -5332,6 +5428,9 @@ RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '2h0m0s'
+
+[TxmV2]
+Enabled = false
 
 [Transactions]
 ForwardersEnabled = false
@@ -5441,6 +5540,9 @@ RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
+[TxmV2]
+Enabled = false
+
 [Transactions]
 ForwardersEnabled = false
 MaxInFlight = 16
@@ -5549,6 +5651,9 @@ RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
+[TxmV2]
+Enabled = false
+
 [Transactions]
 ForwardersEnabled = false
 MaxInFlight = 16
@@ -5653,6 +5758,9 @@ RPCBlockQueryDelay = 2
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
+[TxmV2]
+Enabled = false
+
 [Transactions]
 ForwardersEnabled = false
 MaxInFlight = 16
@@ -5755,6 +5863,9 @@ RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
+
+[TxmV2]
+Enabled = false
 
 [Transactions]
 ForwardersEnabled = false
@@ -5859,6 +5970,9 @@ RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '15m0s'
+
+[TxmV2]
+Enabled = false
 
 [Transactions]
 ForwardersEnabled = false
@@ -5968,6 +6082,9 @@ RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '2m0s'
 
+[TxmV2]
+Enabled = false
+
 [Transactions]
 ForwardersEnabled = false
 MaxInFlight = 16
@@ -6072,6 +6189,9 @@ RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
+
+[TxmV2]
+Enabled = false
 
 [Transactions]
 ForwardersEnabled = false
@@ -6181,6 +6301,9 @@ RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
+[TxmV2]
+Enabled = false
+
 [Transactions]
 ForwardersEnabled = false
 MaxInFlight = 16
@@ -6289,6 +6412,9 @@ RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
+[TxmV2]
+Enabled = false
+
 [Transactions]
 ForwardersEnabled = false
 MaxInFlight = 16
@@ -6396,6 +6522,9 @@ RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '1m0s'
 
+[TxmV2]
+Enabled = false
+
 [Transactions]
 ForwardersEnabled = false
 MaxInFlight = 16
@@ -6499,6 +6628,9 @@ RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 2
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '1m0s'
+
+[TxmV2]
+Enabled = false
 
 [Transactions]
 ForwardersEnabled = false
@@ -6604,6 +6736,9 @@ RPCBlockQueryDelay = 2
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '1m0s'
 
+[TxmV2]
+Enabled = false
+
 [Transactions]
 ForwardersEnabled = false
 MaxInFlight = 16
@@ -6707,6 +6842,9 @@ RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '1m0s'
+
+[TxmV2]
+Enabled = false
 
 [Transactions]
 ForwardersEnabled = false
@@ -6812,6 +6950,9 @@ RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '15m0s'
+
+[TxmV2]
+Enabled = false
 
 [Transactions]
 ForwardersEnabled = false
@@ -6924,6 +7065,9 @@ RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '15m0s'
 
+[TxmV2]
+Enabled = false
+
 [Transactions]
 ForwardersEnabled = false
 MaxInFlight = 16
@@ -7033,6 +7177,9 @@ RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
+[TxmV2]
+Enabled = false
+
 [Transactions]
 ForwardersEnabled = false
 MaxInFlight = 16
@@ -7136,6 +7283,9 @@ RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
+[TxmV2]
+Enabled = false
+
 [Transactions]
 ForwardersEnabled = false
 MaxInFlight = 16
@@ -7238,6 +7388,9 @@ RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
+
+[TxmV2]
+Enabled = false
 
 [Transactions]
 ForwardersEnabled = false
@@ -7343,6 +7496,9 @@ RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
+[TxmV2]
+Enabled = false
+
 [Transactions]
 ForwardersEnabled = false
 MaxInFlight = 16
@@ -7447,6 +7603,9 @@ RPCBlockQueryDelay = 10
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
+[TxmV2]
+Enabled = false
+
 [Transactions]
 ForwardersEnabled = false
 MaxInFlight = 16
@@ -7549,6 +7708,9 @@ RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 10
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '12m0s'
+
+[TxmV2]
+Enabled = false
 
 [Transactions]
 ForwardersEnabled = false
@@ -7653,6 +7815,9 @@ RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
+
+[TxmV2]
+Enabled = false
 
 [Transactions]
 ForwardersEnabled = false
@@ -7761,6 +7926,9 @@ RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '12m0s'
+
+[TxmV2]
+Enabled = false
 
 [Transactions]
 ForwardersEnabled = false
@@ -7871,6 +8039,9 @@ RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
+[TxmV2]
+Enabled = false
+
 [Transactions]
 ForwardersEnabled = false
 MaxInFlight = 16
@@ -7979,6 +8150,9 @@ RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
+[TxmV2]
+Enabled = false
+
 [Transactions]
 ForwardersEnabled = false
 MaxInFlight = 16
@@ -8086,6 +8260,9 @@ RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
+[TxmV2]
+Enabled = false
+
 [Transactions]
 ForwardersEnabled = false
 MaxInFlight = 16
@@ -8192,6 +8369,9 @@ RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
+
+[TxmV2]
+Enabled = false
 
 [Transactions]
 ForwardersEnabled = false
@@ -8301,6 +8481,9 @@ RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
+[TxmV2]
+Enabled = false
+
 [Transactions]
 ForwardersEnabled = false
 MaxInFlight = 16
@@ -8409,6 +8592,9 @@ RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
+[TxmV2]
+Enabled = false
+
 [Transactions]
 ForwardersEnabled = false
 MaxInFlight = 16
@@ -8512,6 +8698,9 @@ RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '15m0s'
+
+[TxmV2]
+Enabled = false
 
 [Transactions]
 ForwardersEnabled = false
@@ -8621,6 +8810,9 @@ RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
+[TxmV2]
+Enabled = false
+
 [Transactions]
 ForwardersEnabled = false
 MaxInFlight = 16
@@ -8724,6 +8916,9 @@ RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
+
+[TxmV2]
+Enabled = false
 
 [Transactions]
 ForwardersEnabled = false
@@ -9007,6 +9202,33 @@ NoNewFinalizedHeadsThreshold controls how long to wait for new finalized block b
 out-of-sync. Only applicable if `FinalityTagEnabled=true`
 
 Set to zero to disable.
+
+## EVM.TxmV2
+```toml
+[EVM.TxmV2]
+Enabled = false # Default
+BlockTime = '10s' # Example
+CustomURL = 'https://example.api.io' # Example
+```
+
+
+### Enabled
+```toml
+Enabled = false # Default
+```
+Enabled enables TxmV2.
+
+### BlockTime
+```toml
+BlockTime = '10s' # Example
+```
+BlockTime controls the frequency of the backfill loop of TxmV2.
+
+### CustomURL
+```toml
+CustomURL = 'https://example.api.io' # Example
+```
+CustomURL configures the base url of a custom endpoint used by the ChainDualBroadcast chain type.
 
 ## EVM.Transactions
 ```toml

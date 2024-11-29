@@ -55,6 +55,9 @@ ChainType = 'Foo'
 FinalityDepth = 32
 FinalizedBlockOffset = 64
 
+[EVM.TxmV2]
+Enabled = true
+
 [EVM.Transactions.AutoPurge]
 Enabled = true
 
@@ -107,6 +110,9 @@ WSURL = 'ws://dupe.com'
 [[EVM]]
 ChainID = '534352'
 ChainType = 'scroll'
+
+[EVM.TxmV2]
+Enabled = true
 
 [EVM.Transactions.AutoPurge]
 Enabled = true

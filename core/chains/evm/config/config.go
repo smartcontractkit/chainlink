@@ -18,6 +18,7 @@ import (
 type EVM interface {
 	HeadTracker() HeadTracker
 	BalanceMonitor() BalanceMonitor
+	TxmV2() TxmV2
 	Transactions() Transactions
 	GasEstimator() GasEstimator
 	OCR() OCR
@@ -100,6 +101,12 @@ type ClientErrors interface {
 	Fatal() string
 	ServiceUnavailable() string
 	TooManyResults() string
+}
+
+type TxmV2 interface {
+	Enabled() bool
+	BlockTime() *time.Duration
+	CustomURL() *url.URL
 }
 
 type Transactions interface {

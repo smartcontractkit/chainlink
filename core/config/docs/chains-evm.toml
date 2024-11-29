@@ -105,6 +105,14 @@ LogBroadcasterEnabled = true # Default
 # Set to zero to disable.
 NoNewFinalizedHeadsThreshold = '0' # Default
 
+[EVM.TxmV2]
+# Enabled enables TxmV2.
+Enabled = false # Default
+# BlockTime controls the frequency of the backfill loop of TxmV2. 
+BlockTime = '10s' # Example
+# CustomURL configures the base url of a custom endpoint used by the ChainDualBroadcast chain type.
+CustomURL = 'https://example.api.io' # Example
+
 [EVM.Transactions]
 # ForwardersEnabled enables or disables sending transactions through forwarder contracts.
 ForwardersEnabled = false # Default

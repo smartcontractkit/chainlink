@@ -478,7 +478,8 @@ func makeTestEvmTxm(
 		lp,
 		keyStore,
 		estimator,
-		ht)
+		ht,
+		nil)
 	require.NoError(t, err, "can't create tx manager")
 
 	_, unsub := broadcaster.Subscribe(txm)

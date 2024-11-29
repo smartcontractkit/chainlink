@@ -135,7 +135,8 @@ func newLegacyChainContainer(t *testing.T, db *sqlx.DB) legacyevm.LegacyChainCon
 		lp,
 		keyStore,
 		estimator,
-		ht)
+		ht,
+		nil)
 	require.NoError(t, err)
 
 	cfg := configtest.NewGeneralConfig(t, nil)
