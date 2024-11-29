@@ -67,7 +67,6 @@ func (m *testWorkflowRegistryContractLoader) LoadWorkflows(ctx context.Context, 
 }
 
 func Test_InitialStateSync(t *testing.T) {
-	ctx := coretestutils.Context(t)
 	lggr := logger.TestLogger(t)
 	backendTH := testutils.NewEVMBackendTH(t)
 	donID := uint32(1)
@@ -75,29 +74,6 @@ func Test_InitialStateSync(t *testing.T) {
 	// Deploy a test workflow_registry
 	wfRegistryAddr, _, wfRegistryC, err := workflow_registry_wrapper.DeployWorkflowRegistry(backendTH.ContractsOwner, backendTH.Backend.Client())
 	backendTH.Backend.Commit()
-	require.NoError(t, err)
-
-	// Build the ContractReader config
-	contractReaderCfg := evmtypes.ChainReaderConfig{
-		Contracts: map[string]evmtypes.ChainContractReader{
-			syncer.WorkflowRegistryContractName: {
-				ContractABI: workflow_registry_wrapper.WorkflowRegistryABI,
-				Configs: map[string]*evmtypes.ChainReaderDefinition{
-					syncer.GetWorkflowMetadataListByDONMethodName: {
-						ChainSpecificName: syncer.GetWorkflowMetadataListByDONMethodName,
-					},
-				},
-			},
-		},
-	}
-
-	contractReaderCfgBytes, err := json.Marshal(contractReaderCfg)
-	require.NoError(t, err)
-
-	contractReader, err := backendTH.NewContractReader(ctx, t, contractReaderCfgBytes)
-	require.NoError(t, err)
-
-	err = contractReader.Bind(ctx, []types.BoundContract{{Name: syncer.WorkflowRegistryContractName, Address: wfRegistryAddr.Hex()}})
 	require.NoError(t, err)
 
 	// setup contract state to allow the secrets to be updated
@@ -122,13 +98,15 @@ func Test_InitialStateSync(t *testing.T) {
 	}
 
 	testEventHandler := newTestEvtHandler()
-	loader := syncer.NewWorkflowRegistryContractLoader(wfRegistryAddr.Hex(), contractReader, testEventHandler)
+	loader := syncer.NewWorkflowRegistryContractLoader(wfRegistryAddr.Hex(), func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
+		return backendTH.NewContractReader(ctx, t, bytes)
+	}, testEventHandler)
 
 	// Create the worker
 	worker := syncer.NewWorkflowRegistry(
 		lggr,
 		func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
-			return contractReader, nil
+			return backendTH.NewContractReader(ctx, t, bytes)
 		},
 		wfRegistryAddr.Hex(),
 		syncer.WorkflowEventPollerConfig{

@@ -20,6 +20,7 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -33,6 +34,7 @@ import (
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -48,6 +50,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
+	capabilities2 "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
+	common2 "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/headreporter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
@@ -213,6 +217,17 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		opts.CapabilitiesRegistry = capabilities.NewRegistry(globalLogger)
 	}
 
+	var gatewayConnectorWrapper *gatewayconnector.ServiceWrapper
+	if cfg.Capabilities().GatewayConnector().DonID() != "" {
+		globalLogger.Debugw("Creating GatewayConnector wrapper", "donID", cfg.Capabilities().GatewayConnector().DonID())
+		gatewayConnectorWrapper = gatewayconnector.NewGatewayConnectorServiceWrapper(
+			cfg.Capabilities().GatewayConnector(),
+			keyStore.Eth(),
+			clockwork.NewRealClock(),
+			globalLogger)
+		srvcs = append(srvcs, gatewayConnectorWrapper)
+	}
+
 	var externalPeerWrapper p2ptypes.PeerWrapper
 	if cfg.Capabilities().Peering().Enabled() {
 		var dispatcher remotetypes.Dispatcher
@@ -268,32 +283,65 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			)
 			registrySyncer.AddLauncher(wfLauncher)
 
-			// TODO create the handler and initialWorkflowsStateLoader and pass in below
+			if cfg.Capabilities().WorkflowRegistry().Address() != "" {
+				if gatewayConnectorWrapper == nil {
+					return nil, fmt.Errorf("unable to create workflow registry syncer without gateway connector")
+				}
 
-			workflowRegistryAddress := cfg.Capabilities().WorkflowRegistry().Address()
-			wfSyncer := syncer.NewWorkflowRegistry(globalLogger, func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
-				return relayer.NewContractReader(ctx, bytes)
-			}, workflowRegistryAddress,
-				syncer.WorkflowEventPollerConfig{
-					QueryCount: 100,
-				}, nil, nil, workflowDonNotifier)
+				// TODO create the handler and initialWorkflowsStateLoader and pass in below
 
-			srvcs = append(srvcs, wfLauncher, registrySyncer, wfSyncer)
+				err = keyStore.Workflow().EnsureKey(context.Background())
+				if err != nil {
+					return nil, fmt.Errorf("failed to ensure workflow key: %w", err)
+				}
+
+				keys, err := keyStore.Workflow().GetAll()
+				if err != nil {
+					return nil, fmt.Errorf("failed to get all workflow keys: %w", err)
+				}
+				if len(keys) != 1 {
+					return nil, fmt.Errorf("expected 1 key, got %d", len(keys))
+				}
+
+				connector := gatewayConnectorWrapper.GetGatewayConnector()
+				webApiLggr := globalLogger.Named("WebAPITarget")
+
+				webApiConfig := webapi.ServiceConfig{
+					RateLimiter: common2.RateLimiterConfig{
+						GlobalRPS:      100.0,
+						GlobalBurst:    100,
+						PerSenderRPS:   100.0,
+						PerSenderBurst: 100,
+					},
+				}
+
+				outgoingConnectorHandler, err := webapi.NewOutgoingConnectorHandler(connector,
+					webApiConfig,
+					capabilities2.MethodWebAPITarget, webApiLggr)
+				if err != nil {
+					return nil, fmt.Errorf("could not create outgoing connector handler: %w", err)
+				}
+
+				eventHandler := syncer.NewEventHandler(globalLogger, syncer.NewWorkflowRegistryDS(opts.DS, globalLogger), syncer.NewFetcherFunc(globalLogger, outgoingConnectorHandler), workflowstore.NewDBStore(opts.DS, globalLogger, clockwork.NewFakeClock()), opts.CapabilitiesRegistry,
+					custmsg.NewLabeler(), clockwork.NewRealClock(), keys[0])
+
+				loader := syncer.NewWorkflowRegistryContractLoader(cfg.Capabilities().WorkflowRegistry().Address(), func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
+					return relayer.NewContractReader(ctx, bytes)
+				}, eventHandler)
+
+				wfSyncer := syncer.NewWorkflowRegistry(globalLogger, func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
+					return relayer.NewContractReader(ctx, bytes)
+				}, cfg.Capabilities().WorkflowRegistry().Address(),
+					syncer.WorkflowEventPollerConfig{
+						QueryCount: 100,
+					}, eventHandler, loader, workflowDonNotifier)
+
+				srvcs = append(srvcs, wfLauncher, registrySyncer, wfSyncer)
+			}
 		}
 	} else {
 		globalLogger.Debug("External registry not configured, skipping registry syncer and starting with an empty registry")
 		opts.CapabilitiesRegistry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
-	}
-
-	var gatewayConnectorWrapper *gatewayconnector.ServiceWrapper
-	if cfg.Capabilities().GatewayConnector().DonID() != "" {
-		globalLogger.Debugw("Creating GatewayConnector wrapper", "donID", cfg.Capabilities().GatewayConnector().DonID())
-		gatewayConnectorWrapper = gatewayconnector.NewGatewayConnectorServiceWrapper(
-			cfg.Capabilities().GatewayConnector(),
-			keyStore.Eth(),
-			clockwork.NewRealClock(),
-			globalLogger)
-		srvcs = append(srvcs, gatewayConnectorWrapper)
 	}
 
 	// LOOPs can be created as options, in the  case of LOOP relayers, or

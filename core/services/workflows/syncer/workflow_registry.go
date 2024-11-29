@@ -113,9 +113,6 @@ type workflowRegistry struct {
 	lggr                    logger.Logger
 	workflowRegistryAddress string
 
-	// initReader allows the workflowRegistry to initialize a contract reader if one is not provided
-	// and separates the contract reader initialization from the workflowRegistry start up.
-	initReader          func(context.Context, newContractReaderFn, types.BoundContract) (ContractReader, error)
 	newContractReaderFn newContractReaderFn
 
 	eventPollerCfg WorkflowEventPollerConfig
@@ -180,7 +177,6 @@ func NewWorkflowRegistry(
 		newContractReaderFn:         newContractReaderFn,
 		workflowRegistryAddress:     addr,
 		eventPollerCfg:              eventPollerConfig,
-		initReader:                  newReader,
 		heap:                        newBlockHeightHeap(),
 		stopCh:                      make(services.StopChan),
 		eventTypes:                  ets,
@@ -407,7 +403,7 @@ func (w *workflowRegistry) getContractReader(ctx context.Context) (ContractReade
 	}
 
 	if w.reader == nil {
-		reader, err := w.initReader(ctx, w.newContractReaderFn, c)
+		reader, err := getWorkflowRegistryEventReader(ctx, w.newContractReaderFn, c)
 		if err != nil {
 			return nil, err
 		}
@@ -503,7 +499,7 @@ func queryEvent(
 	}
 }
 
-func newReader(
+func getWorkflowRegistryEventReader(
 	ctx context.Context,
 	newReaderFn newContractReaderFn,
 	bc types.BoundContract,
@@ -558,24 +554,52 @@ func (r workflowAsEvent) GetData() any {
 
 type workflowRegistryContractLoader struct {
 	workflowRegistryAddress string
-	donID                   uint32
-	reader                  ContractReader
+	newContractReaderFn     newContractReaderFn
 	handler                 evtHandler
 }
 
 func NewWorkflowRegistryContractLoader(
 	workflowRegistryAddress string,
-	reader ContractReader,
+	newContractReaderFn newContractReaderFn,
 	handler evtHandler,
 ) *workflowRegistryContractLoader {
 	return &workflowRegistryContractLoader{
 		workflowRegistryAddress: workflowRegistryAddress,
-		reader:                  reader,
+		newContractReaderFn:     newContractReaderFn,
 		handler:                 handler,
 	}
 }
 
 func (l *workflowRegistryContractLoader) LoadWorkflows(ctx context.Context, don capabilities.DON) (*types.Head, error) {
+	// Build the ContractReader config
+	contractReaderCfg := evmtypes.ChainReaderConfig{
+		Contracts: map[string]evmtypes.ChainContractReader{
+			WorkflowRegistryContractName: {
+				ContractABI: workflow_registry_wrapper.WorkflowRegistryABI,
+				Configs: map[string]*evmtypes.ChainReaderDefinition{
+					GetWorkflowMetadataListByDONMethodName: {
+						ChainSpecificName: GetWorkflowMetadataListByDONMethodName,
+					},
+				},
+			},
+		},
+	}
+
+	contractReaderCfgBytes, err := json.Marshal(contractReaderCfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal contract reader config: %w", err)
+	}
+
+	contractReader, err := l.newContractReaderFn(ctx, contractReaderCfgBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create contract reader: %w", err)
+	}
+
+	err = contractReader.Bind(ctx, []types.BoundContract{{Name: WorkflowRegistryContractName, Address: l.workflowRegistryAddress}})
+	if err != nil {
+		return nil, fmt.Errorf("failed to bind contract reader: %w", err)
+	}
+
 	contractBinding := types.BoundContract{
 		Address: l.workflowRegistryAddress,
 		Name:    WorkflowRegistryContractName,
@@ -592,7 +616,7 @@ func (l *workflowRegistryContractLoader) LoadWorkflows(ctx context.Context, don 
 	for {
 		var err error
 		var workflows GetWorkflowMetadataListByDONReturnVal
-		headAtLastRead, err = l.reader.GetLatestValueWithHeadData(ctx, readIdentifier, primitives.Finalized, params, &workflows)
+		headAtLastRead, err = contractReader.GetLatestValueWithHeadData(ctx, readIdentifier, primitives.Finalized, params, &workflows)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get workflow metadata for don %w", err)
 		}
