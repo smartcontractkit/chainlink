@@ -100,7 +100,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@c362fc4b13c53eddf77970d3138e9bd33ce55342 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@04bfae2602c015036f366a8dd4e7a619096cc516 # flakguard@0.1.0
 
       - name: Find new or updated test packages
         if: ${{ inputs.runAllTests == false }}
@@ -259,7 +259,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@c362fc4b13c53eddf77970d3138e9bd33ce55342 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@04bfae2602c015036f366a8dd4e7a619096cc516 # flakguard@0.1.0
 
       - name: Run tests with flakeguard
         shell: bash
@@ -301,7 +301,7 @@ jobs:
             
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@c362fc4b13c53eddf77970d3138e9bd33ce55342 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@04bfae2602c015036f366a8dd4e7a619096cc516 # flakguard@0.1.0
                 
       - name: Set combined test results
         id: set_test_results
@@ -325,7 +325,7 @@ jobs:
             echo "all_tests_count=$ALL_TESTS_COUNT" >> "$GITHUB_OUTPUT"
 
             # Use flakeguard to filter and output failed tests based on MaxPassRatio
-            flakeguard aggregate-results --filter-failed=true --max-pass-ratio=${{ inputs.maxPassRatio }} --results-path . --output-results ../failed_tests.json --output-logs ../failed_test_logs.json --project-path=${{ inputs.projectPath }} --codeowners-path .github/CODEOWNERS
+            flakeguard aggregate-results --filter-failed=true --max-pass-ratio=${{ inputs.maxPassRatio }} --results-path . --output-results ../failed_tests.json --output-logs ../failed_test_logs.json --project-path=${{ inputs.projectPath }} --codeowners-path=.github/CODEOWNERS
 
             # Count failed tests
             if [ -f "../failed_tests.json" ]; then
