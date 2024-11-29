@@ -192,7 +192,7 @@ func (u *Updater) updateGoMod(modFile *modfile.File, modulesToUpdate []string, s
 }
 
 // getMajorVersion extracts the major version number from a module path
-// Returns "v2" for /v2, "v1" for no version suffix
+// Returns "v2" for /v2, "v0" for no version suffix
 func getMajorVersion(modulePath string) string {
 	re := regexp.MustCompile(majorVersionPattern)
 	if match := re.FindString(modulePath); match != "" {
