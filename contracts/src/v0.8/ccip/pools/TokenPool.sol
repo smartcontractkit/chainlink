@@ -26,7 +26,7 @@ import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts
 ///
 /// Example:
 /// Assume there is a token with 6 decimals on chain A and 3 decimals on chain B.
-/// - 1.23456 tokens are burned on chain A.
+/// - 1.234567 tokens are burned on chain A.
 /// - 1.234    tokens are minted on chain B.
 /// When sending the 1.234 tokens back to chain A, you will receive 1.234000 tokens on chain A, effectively losing
 /// 0.000567 tokens.

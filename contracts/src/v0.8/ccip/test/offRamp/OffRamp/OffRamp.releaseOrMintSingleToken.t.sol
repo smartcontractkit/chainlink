@@ -197,7 +197,7 @@ contract OffRamp_releaseOrMintSingleToken is OffRampSetup {
     s_offRamp.releaseOrMintSingleToken(tokenAmount, originalSender, OWNER, SOURCE_CHAIN_SELECTOR_1, offchainTokenData);
   }
 
-  function test__releaseOrMintSingleToken_RevertWhen_TokenHandlingError_transfer() public {
+  function test_releaseOrMintSingleToken_RevertWhen_TokenHandlingError_transfer() public {
     address receiver = makeAddr("receiver");
     uint256 amount = 123123;
     address token = s_sourceTokens[0];

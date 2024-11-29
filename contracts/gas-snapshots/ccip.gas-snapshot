@@ -486,7 +486,7 @@ OffRamp_releaseOrMintSingleToken:test_releaseOrMintToken_skip_ReleaseOrMintBalan
 OffRamp_releaseOrMintTokens:test_releaseOrMintTokens() (gas: 168762)
 OffRamp_releaseOrMintTokens:test_releaseOrMintTokens_RevertWhenInvalidDataLengthReturnData() (gas: 62844)
 OffRamp_releaseOrMintTokens:test_releaseOrMintTokens_RevertWhenPoolDoesNotSupportDest() (gas: 78448)
-OffRamp_releaseOrMintTokens:test_releaseOrMintTokens_WithGasOverride() (gas: 170654)
+OffRamp_releaseOrMintTokens:test_releaseOrMintTokens_WithGasOverride() (gas: 170632)
 OffRamp_releaseOrMintTokens:test_releaseOrMintTokens_destDenominatedDecimals() (gas: 181871)
 OffRamp_setDynamicConfig:test_FeeQuoterZeroAddress_Revert() (gas: 11509)
 OffRamp_setDynamicConfig:test_NonOwner_Revert() (gas: 14019)
