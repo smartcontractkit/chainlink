@@ -26,10 +26,10 @@ import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts
 ///
 /// Example:
 /// Assume there is a token with 6 decimals on chain A and 3 decimals on chain B.
-/// - 1.123456 tokens are burned on chain A.
+/// - 1.23456 tokens are burned on chain A.
 /// - 1.234    tokens are minted on chain B.
 /// When sending the 1.234 tokens back to chain A, you will receive 1.234000 tokens on chain A, effectively losing
-/// 0.000456 tokens.
+/// 0.000567 tokens.
 /// In the case of a burnMint pool on chain A, these funds are burned in the pool on chain A.
 /// In the case of a lockRelease pool on chain A, these funds accumulate in the pool on chain A.
 abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
