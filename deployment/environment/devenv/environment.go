@@ -20,12 +20,12 @@ type EnvironmentConfig struct {
 	JDConfig          JDConfig
 }
 
-func NewEnvironment(ctx context.Context, lggr logger.Logger, config EnvironmentConfig) (*deployment.Environment, *DON, error) {
+func NewEnvironment(ctx func() context.Context, lggr logger.Logger, config EnvironmentConfig) (*deployment.Environment, *DON, error) {
 	chains, err := NewChains(lggr, config.Chains)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create chains: %w", err)
 	}
-	offChain, err := NewJDClient(ctx, config.JDConfig)
+	offChain, err := NewJDClient(ctx(), config.JDConfig)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create JD client: %w", err)
 	}
@@ -39,7 +39,7 @@ func NewEnvironment(ctx context.Context, lggr logger.Logger, config EnvironmentC
 	}
 	var nodeIDs []string
 	if jd.don != nil {
-		err = jd.don.CreateSupportedChains(ctx, config.Chains, *jd)
+		err = jd.don.CreateSupportedChains(ctx(), config.Chains, *jd)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -53,5 +53,6 @@ func NewEnvironment(ctx context.Context, lggr logger.Logger, config EnvironmentC
 		chains,
 		nodeIDs,
 		offChain,
+		ctx,
 	), jd.don, nil
 }

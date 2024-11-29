@@ -33,6 +33,12 @@ import (
 
 var _ capabilities.TriggerCapability = (*mockTrigger)(nil)
 
+type mockDonNotifier struct {
+}
+
+func (m *mockDonNotifier) NotifyDonSet(don capabilities.DON) {
+}
+
 type mockTrigger struct {
 	capabilities.CapabilityInfo
 }
@@ -196,6 +202,7 @@ func TestLauncher(t *testing.T) {
 			wrapper,
 			dispatcher,
 			registry,
+			&mockDonNotifier{},
 		)
 
 		dispatcher.On("SetReceiver", fullTriggerCapID, dID, mock.AnythingOfType("*remote.triggerPublisher")).Return(nil)
@@ -305,6 +312,7 @@ func TestLauncher(t *testing.T) {
 			wrapper,
 			dispatcher,
 			registry,
+			&mockDonNotifier{},
 		)
 
 		err = launcher.Launch(ctx, state)
@@ -409,6 +417,7 @@ func TestLauncher(t *testing.T) {
 			wrapper,
 			dispatcher,
 			registry,
+			&mockDonNotifier{},
 		)
 
 		err = launcher.Launch(ctx, state)
@@ -600,6 +609,7 @@ func TestLauncher_RemoteTriggerModeAggregatorShim(t *testing.T) {
 		wrapper,
 		dispatcher,
 		registry,
+		&mockDonNotifier{},
 	)
 
 	dispatcher.On("SetReceiver", fullTriggerCapID, capDonID, mock.AnythingOfType("*remote.triggerSubscriber")).Return(nil)
@@ -752,6 +762,7 @@ func TestSyncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
 		wrapper,
 		dispatcher,
 		registry,
+		&mockDonNotifier{},
 	)
 
 	// If the DON were public, this would fail with two errors:
@@ -917,6 +928,7 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
 		wrapper,
 		dispatcher,
 		registry,
+		&mockDonNotifier{},
 	)
 
 	dispatcher.On("SetReceiver", fullTriggerCapID, capDonID, mock.AnythingOfType("*remote.triggerSubscriber")).Return(nil)
@@ -1082,6 +1094,7 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilitie
 		wrapper,
 		dispatcher,
 		registry,
+		&mockDonNotifier{},
 	)
 
 	dispatcher.On("SetReceiver", fullTriggerCapID, triggerCapDonID, mock.AnythingOfType("*remote.triggerSubscriber")).Return(nil)
@@ -1232,6 +1245,7 @@ func TestLauncher_SucceedsEvenIfDispatcherAlreadyHasReceiver(t *testing.T) {
 		wrapper,
 		dispatcher,
 		registry,
+		&mockDonNotifier{},
 	)
 
 	err = launcher.Launch(ctx, state)

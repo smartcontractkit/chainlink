@@ -11,8 +11,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/jonboulle/clockwork"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -20,6 +22,7 @@ import (
 	coretestutils "github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
@@ -46,7 +49,16 @@ func newTestEvtHandler() *testEvtHandler {
 type testWorkflowRegistryContractLoader struct {
 }
 
-func (m *testWorkflowRegistryContractLoader) LoadWorkflows(ctx context.Context) (*types.Head, error) {
+type testDonNotifier struct {
+	don capabilities.DON
+	err error
+}
+
+func (t *testDonNotifier) WaitForDon(ctx context.Context) (capabilities.DON, error) {
+	return t.don, t.err
+}
+
+func (m *testWorkflowRegistryContractLoader) LoadWorkflows(ctx context.Context, don capabilities.DON) (*types.Head, error) {
 	return &types.Head{
 		Height:    "0",
 		Hash:      nil,
@@ -55,7 +67,6 @@ func (m *testWorkflowRegistryContractLoader) LoadWorkflows(ctx context.Context) 
 }
 
 func Test_InitialStateSync(t *testing.T) {
-	ctx := coretestutils.Context(t)
 	lggr := logger.TestLogger(t)
 	backendTH := testutils.NewEVMBackendTH(t)
 	donID := uint32(1)
@@ -63,29 +74,6 @@ func Test_InitialStateSync(t *testing.T) {
 	// Deploy a test workflow_registry
 	wfRegistryAddr, _, wfRegistryC, err := workflow_registry_wrapper.DeployWorkflowRegistry(backendTH.ContractsOwner, backendTH.Backend.Client())
 	backendTH.Backend.Commit()
-	require.NoError(t, err)
-
-	// Build the ContractReader config
-	contractReaderCfg := evmtypes.ChainReaderConfig{
-		Contracts: map[string]evmtypes.ChainContractReader{
-			syncer.WorkflowRegistryContractName: {
-				ContractABI: workflow_registry_wrapper.WorkflowRegistryABI,
-				Configs: map[string]*evmtypes.ChainReaderDefinition{
-					syncer.GetWorkflowMetadataListByDONMethodName: {
-						ChainSpecificName: syncer.GetWorkflowMetadataListByDONMethodName,
-					},
-				},
-			},
-		},
-	}
-
-	contractReaderCfgBytes, err := json.Marshal(contractReaderCfg)
-	require.NoError(t, err)
-
-	contractReader, err := backendTH.NewContractReader(ctx, t, contractReaderCfgBytes)
-	require.NoError(t, err)
-
-	err = contractReader.Bind(ctx, []types.BoundContract{{Name: syncer.WorkflowRegistryContractName, Address: wfRegistryAddr.Hex()}})
 	require.NoError(t, err)
 
 	// setup contract state to allow the secrets to be updated
@@ -110,24 +98,37 @@ func Test_InitialStateSync(t *testing.T) {
 	}
 
 	testEventHandler := newTestEvtHandler()
-	loader := syncer.NewWorkflowRegistryContractLoader(wfRegistryAddr.Hex(), donID, contractReader, testEventHandler)
+	loader := syncer.NewWorkflowRegistryContractLoader(wfRegistryAddr.Hex(), func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
+		return backendTH.NewContractReader(ctx, t, bytes)
+	}, testEventHandler)
 
 	// Create the worker
 	worker := syncer.NewWorkflowRegistry(
 		lggr,
-		contractReader,
+		func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
+			return backendTH.NewContractReader(ctx, t, bytes)
+		},
 		wfRegistryAddr.Hex(),
 		syncer.WorkflowEventPollerConfig{
 			QueryCount: 20,
 		},
 		testEventHandler,
 		loader,
+		&testDonNotifier{
+			don: capabilities.DON{
+				ID: donID,
+			},
+			err: nil,
+		},
 		syncer.WithTicker(make(chan time.Time)),
 	)
 
 	servicetest.Run(t, worker)
 
-	assert.Len(t, testEventHandler.events, numberWorkflows)
+	require.Eventually(t, func() bool {
+		return len(testEventHandler.events) == numberWorkflows
+	}, 5*time.Second, time.Second)
+
 	for _, event := range testEventHandler.events {
 		assert.Equal(t, syncer.WorkflowRegisteredEvent, event.GetEventType())
 	}
@@ -223,12 +224,19 @@ func Test_SecretsWorker(t *testing.T) {
 	require.Equal(t, contents, giveContents)
 
 	handler := syncer.NewEventHandler(lggr, orm, fetcherFn, nil, nil,
-		emitter, nil)
+		emitter, clockwork.NewFakeClock(), workflowkey.Key{})
 
-	worker := syncer.NewWorkflowRegistry(lggr, contractReader, wfRegistryAddr.Hex(),
+	worker := syncer.NewWorkflowRegistry(lggr, func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
+		return contractReader, nil
+	}, wfRegistryAddr.Hex(),
 		syncer.WorkflowEventPollerConfig{
 			QueryCount: 20,
-		}, handler, &testWorkflowRegistryContractLoader{}, syncer.WithTicker(giveTicker.C))
+		}, handler, &testWorkflowRegistryContractLoader{}, &testDonNotifier{
+			don: capabilities.DON{
+				ID: donID,
+			},
+			err: nil,
+		}, syncer.WithTicker(giveTicker.C))
 
 	// setup contract state to allow the secrets to be updated
 	updateAllowedDONs(t, backendTH, wfRegistryC, []uint32{donID}, true)

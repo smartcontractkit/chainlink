@@ -78,6 +78,8 @@ type ORM interface {
 
 	FindJobIDByWorkflow(ctx context.Context, spec WorkflowSpec) (int32, error)
 	FindJobIDByCapabilityNameAndVersion(ctx context.Context, spec CCIPSpec) (int32, error)
+
+	FindJobIDByStreamID(ctx context.Context, streamID uint32) (int32, error)
 }
 
 type ORMConfig interface {
@@ -1332,6 +1334,20 @@ func (o *orm) FindJobsByPipelineSpecIDs(ctx context.Context, ids []int32) ([]Job
 	})
 
 	return jbs, errors.Wrap(err, "FindJobsByPipelineSpecIDs failed")
+}
+
+func (o *orm) FindJobIDByStreamID(ctx context.Context, streamID uint32) (jobID int32, err error) {
+	stmt := `SELECT id FROM jobs WHERE type = 'stream' AND stream_id = $1`
+	err = o.ds.GetContext(ctx, &jobID, stmt, streamID)
+	if err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			err = errors.Wrap(err, "error searching for job by stream id")
+		}
+		err = errors.Wrap(err, "FindJobIDByStreamID failed")
+		return
+	}
+
+	return
 }
 
 // PipelineRuns returns pipeline runs for a job, with spec and taskruns loaded, latest first

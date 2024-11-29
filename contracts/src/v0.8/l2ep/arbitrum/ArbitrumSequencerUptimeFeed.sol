@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {AddressAliasHelper} from "../../../vendor/arb-bridge-eth/v0.8.0-custom/contracts/libraries/AddressAliasHelper.sol";
-import {AggregatorInterface} from "../../../shared/interfaces/AggregatorInterface.sol";
-import {AggregatorV3Interface} from "../../../shared/interfaces/AggregatorV3Interface.sol";
-import {AggregatorV2V3Interface} from "../../../shared/interfaces/AggregatorV2V3Interface.sol";
-import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
+import {AddressAliasHelper} from "../../vendor/arb-bridge-eth/v0.8.0-custom/contracts/libraries/AddressAliasHelper.sol";
+import {AggregatorInterface} from "../../shared/interfaces/AggregatorInterface.sol";
+import {AggregatorV3Interface} from "../../shared/interfaces/AggregatorV3Interface.sol";
+import {AggregatorV2V3Interface} from "../../shared/interfaces/AggregatorV2V3Interface.sol";
+import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 import {IFlags} from "../interfaces/IFlags.sol";
 import {ISequencerUptimeFeed} from "../interfaces/ISequencerUptimeFeed.sol";
-import {SimpleReadAccessController} from "../../../shared/access/SimpleReadAccessController.sol";
+import {SimpleReadAccessController} from "../../shared/access/SimpleReadAccessController.sol";
 
 /**
  * @title ArbitrumSequencerUptimeFeed - L2 sequencer uptime status aggregator
