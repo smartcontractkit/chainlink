@@ -42,6 +42,8 @@ func setupTokens(
 		tenv.Env.Chains,
 		src,
 		dest,
+		tenv.Env.Chains[src].DeployerKey,
+		tenv.Env.Chains[dest].DeployerKey,
 		state,
 		tenv.Env.ExistingAddresses,
 		"MY_TOKEN",
