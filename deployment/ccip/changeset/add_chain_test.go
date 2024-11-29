@@ -158,40 +158,43 @@ func TestAddChainInbound(t *testing.T) {
 	// Send a new message and expect that this is delivered once the chain is completely set up as inbound
 	//TestSendRequest(t, e.Env, state, initialDeploy[0], newChain, true)
 
-	t.Logf("Executing add don and set candidate proposal for commit plugin on chain %d", newChain)
-	addDonChangeset, err := AddDonAndSetCandidateChangeset(e.Env, AddDonAndSetCandidateChangesetConfig{
-		HomeChainSelector: e.HomeChainSel,
-		FeedChainSelector: e.FeedChainSel,
-		NewChainSelector:  newChain,
-		TokenConfig:       tokenConfig,
-		PluginType:        types.PluginTypeCCIPCommit,
-		Nodes:             nodes,
-		OCRSecrets:        deployment.XXXGenerateTestOCRSecrets(),
+	_, err = commonchangeset.ApplyChangesets(t, e.Env, map[uint64]*gethwrappers.RBACTimelock{
+		e.HomeChainSel: state.Chains[e.HomeChainSel].Timelock,
+		newChain:       state.Chains[newChain].Timelock,
+	}, []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(AddDonAndSetCandidateChangeset),
+			Config: AddDonAndSetCandidateChangesetConfig{
+				HomeChainSelector: e.HomeChainSel,
+				FeedChainSelector: e.FeedChainSel,
+				NewChainSelector:  newChain,
+				TokenConfig:       tokenConfig,
+				PluginType:        types.PluginTypeCCIPCommit,
+				Nodes:             nodes,
+				OCRSecrets:        deployment.XXXGenerateTestOCRSecrets(),
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(SetCandidatePluginChangeset),
+			Config: AddDonAndSetCandidateChangesetConfig{
+				HomeChainSelector: e.HomeChainSel,
+				FeedChainSelector: e.FeedChainSel,
+				NewChainSelector:  newChain,
+				TokenConfig:       tokenConfig,
+				PluginType:        types.PluginTypeCCIPExec,
+				Nodes:             nodes,
+				OCRSecrets:        deployment.XXXGenerateTestOCRSecrets(),
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(PromoteAllCandidatesChangeset),
+			Config: PromoteAllCandidatesChangesetConfig{
+				HomeChainSelector: e.HomeChainSel,
+				NewChainSelector:  newChain,
+				Nodes:             nodes,
+			},
+		},
 	})
-	require.NoError(t, err)
-	ProcessChangeset(t, e.Env, addDonChangeset)
-
-	t.Logf("Executing promote candidate proposal for exec plugin on chain %d", newChain)
-	setCandidateForExecChangeset, err := SetCandidatePluginChangeset(e.Env, AddDonAndSetCandidateChangesetConfig{
-		HomeChainSelector: e.HomeChainSel,
-		FeedChainSelector: e.FeedChainSel,
-		NewChainSelector:  newChain,
-		TokenConfig:       tokenConfig,
-		PluginType:        types.PluginTypeCCIPExec,
-		Nodes:             nodes,
-		OCRSecrets:        deployment.XXXGenerateTestOCRSecrets(),
-	})
-	require.NoError(t, err)
-	ProcessChangeset(t, e.Env, setCandidateForExecChangeset)
-
-	t.Logf("Executing promote candidate proposal for both commit and exec plugins on chain %d", newChain)
-	donPromoteChangeset, err := PromoteAllCandidatesChangeset(e.Env, PromoteAllCandidatesChangesetConfig{
-		HomeChainSelector: e.HomeChainSel,
-		NewChainSelector:  newChain,
-		Nodes:             nodes,
-	})
-	require.NoError(t, err)
-	ProcessChangeset(t, e.Env, donPromoteChangeset)
 
 	// verify if the configs are updated
 	require.NoError(t, ValidateCCIPHomeConfigSetUp(
