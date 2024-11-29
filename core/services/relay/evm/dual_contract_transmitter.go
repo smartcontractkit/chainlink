@@ -4,10 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"encoding/hex"
-	"math/big"
-	"time"
+	errors2 "errors"
+	"fmt"
+	"strings"
+	"sync"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	gethcommon "github.com/ethereum/go-ethereum/common"
@@ -19,69 +20,17 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/services"
 )
 
-type ContractTransmitter interface {
-	services.ServiceCtx
-	ocrtypes.ContractTransmitter
-}
+// TODO: Remove when new dual transmitter contracts are merged
+var dtABI = `[{"inputs":[{"internalType":"bytes32[3]","name":"reportContext","type":"bytes32[3]"},{"internalType":"bytes","name":"report","type":"bytes"},{"internalType":"bytes32[]","name":"rs","type":"bytes32[]"},{"internalType":"bytes32[]","name":"ss","type":"bytes32[]"},{"internalType":"bytes32","name":"rawVs","type":"bytes32"}],"name":"transmitSecondary","outputs":[],"stateMutability":"nonpayable","type":"function"}]`
 
-var _ ContractTransmitter = &contractTransmitter{}
+var _ ContractTransmitter = (*dualContractTransmitter)(nil)
 
-type Transmitter interface {
-	CreateEthTransaction(ctx context.Context, toAddress gethcommon.Address, payload []byte, txMeta *txmgr.TxMeta) error
-	FromAddress(context.Context) gethcommon.Address
-
-	CreateSecondaryEthTransaction(ctx context.Context, payload []byte, txMeta *txmgr.TxMeta) error
-}
-
-type ReportToEthMetadata func([]byte) (*txmgr.TxMeta, error)
-
-func reportToEvmTxMetaNoop([]byte) (*txmgr.TxMeta, error) {
-	return nil, nil
-}
-
-type transmitterOps struct {
-	reportToEvmTxMeta ReportToEthMetadata
-	excludeSigs       bool
-	retention         time.Duration
-	maxLogsKept       uint64
-}
-
-type OCRTransmitterOption func(transmitter *transmitterOps)
-
-func WithExcludeSignatures() OCRTransmitterOption {
-	return func(ct *transmitterOps) {
-		ct.excludeSigs = true
-	}
-}
-
-func WithRetention(retention time.Duration) OCRTransmitterOption {
-	return func(ct *transmitterOps) {
-		ct.retention = retention
-	}
-}
-
-func WithMaxLogsKept(maxLogsKept uint64) OCRTransmitterOption {
-	return func(ct *transmitterOps) {
-		ct.maxLogsKept = maxLogsKept
-	}
-}
-
-func WithReportToEthMetadata(reportToEvmTxMeta ReportToEthMetadata) OCRTransmitterOption {
-	return func(ct *transmitterOps) {
-		if reportToEvmTxMeta != nil {
-			ct.reportToEvmTxMeta = reportToEvmTxMeta
-		}
-	}
-}
-
-type contractTransmitter struct {
+type dualContractTransmitter struct {
 	contractAddress     gethcommon.Address
 	contractABI         abi.ABI
+	dualTransmissionABI abi.ABI
 	transmitter         Transmitter
 	transmittedEventSig common.Hash
 	contractReader      contractReader
@@ -91,11 +40,15 @@ type contractTransmitter struct {
 	transmitterOptions *transmitterOps
 }
 
-func transmitterFilterName(addr common.Address) string {
-	return logpoller.FilterName("OCR ContractTransmitter", addr.String())
-}
+var dualTransmissionABI = sync.OnceValue(func() abi.ABI {
+	dualTransmissionABI, err := abi.JSON(strings.NewReader(dtABI))
+	if err != nil {
+		panic(fmt.Errorf("failed to parse dualTransmission ABI: %w", err))
+	}
+	return dualTransmissionABI
+})
 
-func NewOCRContractTransmitter(
+func NewOCRDualContractTransmitter(
 	ctx context.Context,
 	address gethcommon.Address,
 	caller contractReader,
@@ -104,20 +57,21 @@ func NewOCRContractTransmitter(
 	lp logpoller.LogPoller,
 	lggr logger.Logger,
 	opts ...OCRTransmitterOption,
-) (*contractTransmitter, error) {
+) (*dualContractTransmitter, error) {
 	transmitted, ok := contractABI.Events["Transmitted"]
 	if !ok {
 		return nil, errors.New("invalid ABI, missing transmitted")
 	}
 
-	newContractTransmitter := &contractTransmitter{
+	newContractTransmitter := &dualContractTransmitter{
 		contractAddress:     address,
 		contractABI:         contractABI,
+		dualTransmissionABI: dualTransmissionABI(),
 		transmitter:         transmitter,
 		transmittedEventSig: transmitted.ID,
 		lp:                  lp,
 		contractReader:      caller,
-		lggr:                logger.Named(lggr, "OCRContractTransmitter"),
+		lggr:                logger.Named(lggr, "OCRDualContractTransmitter"),
 		transmitterOptions: &transmitterOps{
 			reportToEvmTxMeta: reportToEvmTxMetaNoop,
 			excludeSigs:       false,
@@ -138,7 +92,7 @@ func NewOCRContractTransmitter(
 }
 
 // Transmit sends the report to the on-chain smart contract's Transmit method.
-func (oc *contractTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.ReportContext, report ocrtypes.Report, signatures []ocrtypes.AttributedOnchainSignature) error {
+func (oc *dualContractTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.ReportContext, report ocrtypes.Report, signatures []ocrtypes.AttributedOnchainSignature) error {
 	var rs [][32]byte
 	var ss [][32]byte
 	var vs [32]byte
@@ -165,58 +119,31 @@ func (oc *contractTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.
 
 	oc.lggr.Debugw("Transmitting report", "report", hex.EncodeToString(report), "rawReportCtx", rawReportCtx, "contractAddress", oc.contractAddress, "txMeta", txMeta)
 
+	// Primary transmission
 	payload, err := oc.contractABI.Pack("transmit", rawReportCtx, []byte(report), rs, ss, vs)
 	if err != nil {
 		return errors.Wrap(err, "abi.Pack failed")
 	}
 
-	return errors.Wrap(oc.transmitter.CreateEthTransaction(ctx, oc.contractAddress, payload, txMeta), "failed to send Eth transaction")
+	transactionErr := errors.Wrap(oc.transmitter.CreateEthTransaction(ctx, oc.contractAddress, payload, txMeta), "failed to send primary Eth transaction")
 
-}
+	oc.lggr.Debugw("Created primary transaction", "error", transactionErr)
 
-type contractReader interface {
-	CallContract(ctx context.Context, call ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
-}
-
-func parseTransmitted(log []byte) ([32]byte, uint32, error) {
-	var args abi.Arguments = []abi.Argument{
-		{
-			Name: "configDigest",
-			Type: utils.MustAbiType("bytes32", nil),
-		},
-		{
-			Name: "epoch",
-			Type: utils.MustAbiType("uint32", nil),
-		},
-	}
-	transmitted, err := args.Unpack(log)
+	// Secondary transmission
+	secondaryPayload, err := oc.dualTransmissionABI.Pack("transmitSecondary", rawReportCtx, []byte(report), rs, ss, vs)
 	if err != nil {
-		return [32]byte{}, 0, err
+		return errors.Wrap(err, "transmitSecondary abi.Pack failed")
 	}
-	if len(transmitted) < 2 {
-		return [32]byte{}, 0, errors.New("transmitted event log has too few arguments")
-	}
-	configDigest := *abi.ConvertType(transmitted[0], new([32]byte)).(*[32]byte)
-	epoch := *abi.ConvertType(transmitted[1], new(uint32)).(*uint32)
-	return configDigest, epoch, err
-}
 
-func callContract(ctx context.Context, addr common.Address, contractABI abi.ABI, method string, args []interface{}, caller contractReader) ([]interface{}, error) {
-	input, err := contractABI.Pack(method, args...)
-	if err != nil {
-		return nil, err
-	}
-	output, err := caller.CallContract(ctx, ethereum.CallMsg{To: &addr, Data: input}, nil)
-	if err != nil {
-		return nil, err
-	}
-	return contractABI.Unpack(method, output)
+	err = errors.Wrap(oc.transmitter.CreateSecondaryEthTransaction(ctx, secondaryPayload, txMeta), "failed to send secondary Eth transaction")
+	oc.lggr.Debugw("Created secondary transaction", "error", err)
+	return errors2.Join(transactionErr, err)
 }
 
 // LatestConfigDigestAndEpoch retrieves the latest config digest and epoch from the OCR2 contract.
 // It is plugin independent, in particular avoids use of the plugin specific generated evm wrappers
 // by using the evm client Call directly for functions/events that are part of OCR2Abstract.
-func (oc *contractTransmitter) LatestConfigDigestAndEpoch(ctx context.Context) (ocrtypes.ConfigDigest, uint32, error) {
+func (oc *dualContractTransmitter) LatestConfigDigestAndEpoch(ctx context.Context) (ocrtypes.ConfigDigest, uint32, error) {
 	latestConfigDigestAndEpoch, err := callContract(ctx, oc.contractAddress, oc.contractABI, "latestConfigDigestAndEpoch", nil, oc.contractReader)
 	if err != nil {
 		return ocrtypes.ConfigDigest{}, 0, err
@@ -242,16 +169,16 @@ func (oc *contractTransmitter) LatestConfigDigestAndEpoch(ctx context.Context) (
 }
 
 // FromAccount returns the account from which the transmitter invokes the contract
-func (oc *contractTransmitter) FromAccount(ctx context.Context) (ocrtypes.Account, error) {
+func (oc *dualContractTransmitter) FromAccount(ctx context.Context) (ocrtypes.Account, error) {
 	return ocrtypes.Account(oc.transmitter.FromAddress(ctx).String()), nil
 }
 
-func (oc *contractTransmitter) Start(ctx context.Context) error { return nil }
-func (oc *contractTransmitter) Close() error                    { return nil }
+func (oc *dualContractTransmitter) Start(ctx context.Context) error { return nil }
+func (oc *dualContractTransmitter) Close() error                    { return nil }
 
 // Has no state/lifecycle so it's always healthy and ready
-func (oc *contractTransmitter) Ready() error { return nil }
-func (oc *contractTransmitter) HealthReport() map[string]error {
+func (oc *dualContractTransmitter) Ready() error { return nil }
+func (oc *dualContractTransmitter) HealthReport() map[string]error {
 	return map[string]error{oc.Name(): nil}
 }
-func (oc *contractTransmitter) Name() string { return oc.lggr.Name() }
+func (oc *dualContractTransmitter) Name() string { return oc.lggr.Name() }

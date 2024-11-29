@@ -750,6 +750,33 @@ func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rarg
 	)
 }
 
+// newOnChainDualContractTransmitter creates a new dual contract transmitter.
+func newOnChainDualContractTransmitter(ctx context.Context, lggr logger.Logger, rargs commontypes.RelayArgs, ethKeystore keystore.Eth, configWatcher *configWatcher, opts configTransmitterOpts, transmissionContractABI abi.ABI, ocrTransmitterOpts ...OCRTransmitterOption) (*dualContractTransmitter, error) {
+	transmitter, err := generateTransmitterFrom(ctx, rargs, ethKeystore, configWatcher, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewOCRDualContractTransmitter(
+		ctx,
+		configWatcher.contractAddress,
+		configWatcher.chain.Client(),
+		transmissionContractABI,
+		transmitter,
+		configWatcher.chain.LogPoller(),
+		lggr,
+		ocrTransmitterOpts...,
+	)
+}
+
+func NewContractTransmitter(ctx context.Context, lggr logger.Logger, rargs commontypes.RelayArgs, ethKeystore keystore.Eth, configWatcher *configWatcher, opts configTransmitterOpts, transmissionContractABI abi.ABI, dualTransmission bool, ocrTransmitterOpts ...OCRTransmitterOption) (ContractTransmitter, error) {
+	if dualTransmission {
+		return newOnChainDualContractTransmitter(ctx, lggr, rargs, ethKeystore, configWatcher, opts, transmissionContractABI, ocrTransmitterOpts...)
+	}
+
+	return newOnChainContractTransmitter(ctx, lggr, rargs, ethKeystore, configWatcher, opts, transmissionContractABI, ocrTransmitterOpts...)
+}
+
 func generateTransmitterFrom(ctx context.Context, rargs commontypes.RelayArgs, ethKeystore keystore.Eth, configWatcher *configWatcher, opts configTransmitterOpts) (Transmitter, error) {
 	var relayConfig types.RelayConfig
 	if err := json.Unmarshal(rargs.RelayConfig, &relayConfig); err != nil {
@@ -887,7 +914,7 @@ func (r *Relayer) NewMedianProvider(ctx context.Context, rargs commontypes.Relay
 
 	reportCodec := evmreportcodec.ReportCodec{}
 
-	contractTransmitter, err := newOnChainContractTransmitter(ctx, lggr, rargs, r.ks.Eth(), configWatcher, configTransmitterOpts{}, OCR2AggregatorTransmissionContractABI)
+	ct, err := NewContractTransmitter(ctx, lggr, rargs, r.ks.Eth(), configWatcher, configTransmitterOpts{}, OCR2AggregatorTransmissionContractABI, relayConfig.EnableDualTransmission)
 	if err != nil {
 		return nil, err
 	}
@@ -901,7 +928,7 @@ func (r *Relayer) NewMedianProvider(ctx context.Context, rargs commontypes.Relay
 		lggr:                lggr.Named("MedianProvider"),
 		configWatcher:       configWatcher,
 		reportCodec:         reportCodec,
-		contractTransmitter: contractTransmitter,
+		contractTransmitter: ct,
 		medianContract:      medianContract,
 	}
 
