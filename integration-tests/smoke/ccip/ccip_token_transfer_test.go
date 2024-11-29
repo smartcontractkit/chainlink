@@ -174,6 +174,7 @@ func TestTokenTransfer(t *testing.T) {
 			}
 
 			changeset.TransferAndWaitForSuccess(
+				ctx,
 				t,
 				e,
 				state,
