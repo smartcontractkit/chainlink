@@ -20,6 +20,7 @@ type JDConfig struct {
 	WSRPC    string
 	Creds    credentials.TransportCredentials
 	Auth     oauth2.TokenSource
+	GAP      string
 	NodeInfo []NodeInfo
 }
 
@@ -44,6 +45,22 @@ func authTokenInterceptor(source oauth2.TokenSource) grpc.UnaryClientInterceptor
 	}
 }
 
+func gapTokenInterceptor(token string) grpc.UnaryClientInterceptor {
+	return func(
+		ctx context.Context,
+		method string,
+		req, reply any,
+		cc *grpc.ClientConn,
+		invoker grpc.UnaryInvoker,
+		opts ...grpc.CallOption,
+	) error {
+		return invoker(
+			metadata.AppendToOutgoingContext(ctx, "x-authorization-github-jwt", "Bearer "+token),
+			method, req, reply, cc, opts...,
+		)
+	}
+}
+
 func NewJDConnection(cfg JDConfig) (*grpc.ClientConn, error) {
 	opts := []grpc.DialOption{}
 	if cfg.Creds != nil {
@@ -52,6 +69,10 @@ func NewJDConnection(cfg JDConfig) (*grpc.ClientConn, error) {
 	if cfg.Auth != nil {
 		opts = append(opts, grpc.WithUnaryInterceptor(authTokenInterceptor(cfg.Auth)))
 	}
+	if cfg.GAP != "" {
+		opts = append(opts, grpc.WithUnaryInterceptor(gapTokenInterceptor(cfg.GAP)))
+	}
+	opts = append(opts, grpc.WithAuthority(cfg.GRPC))
 	conn, err := grpc.NewClient(cfg.GRPC, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect Job Distributor service. Err: %w", err)
