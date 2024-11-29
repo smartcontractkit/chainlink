@@ -1,6 +1,6 @@
 # gomod-local-update
 
-Updates required module versions in `go.mod` files to match the latest git SHA from a remote branch.
+Updates any module that is `replace`'d with a local path to have its required module version in `go.mod` to match the latest git SHA from a remote branch.
 
 ## Configuration
 
