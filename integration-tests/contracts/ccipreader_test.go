@@ -254,51 +254,6 @@ func TestCCIPReader_CommitReportsGTETimestamp_RespectsFinality(t *testing.T) {
 	assert.Equal(t, uint64(90), reports[0].Report.PriceUpdates.GasPriceUpdates[0].GasPrice.Uint64())
 }
 
-// Uncomment once merged https://github.com/smartcontractkit/chainlink-ccip/pull/331
-//func TestCCIPReader_GetLatestPriceSeqNr(t *testing.T) {
-//	t.Parallel()
-//	ctx := tests.Context(t)
-//
-//	cfg := evmtypes.ChainReaderConfig{
-//		Contracts: map[string]evmtypes.ChainContractReader{
-//			consts.ContractNameOffRamp: {
-//				ContractABI: ccip_reader_tester.CCIPReaderTesterABI,
-//				Configs: map[string]*evmtypes.ChainReaderDefinition{
-//					consts.MethodNameGetLatestPriceSequenceNumber: {
-//						ChainSpecificName: "getLatestPriceSequenceNumber",
-//						ReadType:          evmtypes.Method,
-//					},
-//				},
-//			},
-//		},
-//	}
-//
-//	sb, auth := setupSimulatedBackendAndAuth(t)
-//	s := testSetup(ctx, t, testSetupParams{
-//		ReaderChain:      chainD,
-//		DestChain:        chainD,
-//		OnChainSeqNums:   nil,
-//		Cfg:              cfg,
-//		ToBindContracts:  nil,
-//		ToMockBindings:   nil,
-//		BindTester:       true,
-//		SimulatedBackend: sb,
-//		Auth:             auth,
-//	})
-//
-//	seqNr, err := s.reader.GetLatestPriceSeqNr(ctx)
-//	require.NoError(t, err)
-//	require.Equal(t, uint64(0), seqNr)
-//
-//	_, err = s.contract.SetLatestPriceSequenceNumber(s.auth, 10)
-//	require.NoError(t, err)
-//	s.sb.Commit()
-//
-//	seqNr, err = s.reader.GetLatestPriceSeqNr(ctx)
-//	require.NoError(t, err)
-//	require.Equal(t, uint64(10), seqNr)
-//}
-
 func TestCCIPReader_ExecutedMessageRanges(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
