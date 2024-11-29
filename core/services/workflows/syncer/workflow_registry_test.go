@@ -27,9 +27,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type testWorkflowRegistryContractLoader struct {
-}
-
 type testDonNotifier struct {
 	don capabilities.DON
 	err error

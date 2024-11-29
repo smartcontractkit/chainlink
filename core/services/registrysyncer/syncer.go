@@ -68,10 +68,6 @@ var (
 	defaultTickInterval = 12 * time.Second
 )
 
-type donIDSetNotifier interface {
-	NotifyDonIDSet()
-}
-
 // New instantiates a new RegistrySyncer
 func New(
 	lggr logger.Logger,
