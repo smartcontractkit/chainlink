@@ -330,6 +330,9 @@ RPCBlockQueryDelay = 10
 FinalizedBlockOffset = 16
 NoNewFinalizedHeadsThreshold = '1h0m0s'
 
+[EVM.TxmV2]
+Enabled = false
+
 [EVM.Transactions]
 ForwardersEnabled = true
 MaxInFlight = 19

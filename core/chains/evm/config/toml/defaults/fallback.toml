@@ -18,6 +18,9 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0'
 LogBroadcasterEnabled = true
 
+[TxmV2]
+Enabled = false
+
 [Transactions]
 ForwardersEnabled = false
 MaxInFlight = 16
