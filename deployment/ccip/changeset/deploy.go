@@ -50,8 +50,7 @@ var (
 	OnRamp               deployment.ContractType = "OnRamp"
 	OffRamp              deployment.ContractType = "OffRamp"
 	CapabilitiesRegistry deployment.ContractType = "CapabilitiesRegistry"
-	PriceFeedNativeMock  deployment.ContractType = "PriceFeedNativeMock"
-	PriceFeedLinkMock    deployment.ContractType = "PriceFeedLinkMock"
+	PriceFeed            deployment.ContractType = "PriceFeed"
 	// Note test router maps to a regular router contract.
 	TestRouter          deployment.ContractType = "TestRouter"
 	Multicall3          deployment.ContractType = "Multicall3"

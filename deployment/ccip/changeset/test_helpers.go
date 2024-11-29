@@ -3,6 +3,7 @@ package changeset
 import (
 	"context"
 	"fmt"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_ethusd_aggregator_wrapper"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -556,16 +557,32 @@ func ToPackedFee(execFee, daFee *big.Int) *big.Int {
 	return new(big.Int).Or(daShifted, execFee)
 }
 
+const (
+	// MockLinkAggregatorDescription This is the description of the MockV3Aggregator.sol contract
+	// nolint:lll
+	// https://github.com/smartcontractkit/chainlink/blob/a348b98e90527520049c580000a86fb8ceff7fa7/contracts/src/v0.8/tests/MockV3Aggregator.sol#L76-L76
+	MockLinkAggregatorDescription = "v0.8/tests/MockV3Aggregator.sol"
+	// MockWETHAggregatorDescription WETH use description from MockETHUSDAggregator.sol
+	// nolint:lll
+	// https://github.com/smartcontractkit/chainlink/blob/a348b98e90527520049c580000a86fb8ceff7fa7/contracts/src/v0.8/automation/testhelpers/MockETHUSDAggregator.sol#L19-L19
+	MockWETHAggregatorDescription = "MockETHUSDAggregator"
+)
+
 var (
-	MockLinkPrice        = deployment.E18Mult(500)
-	MockWethPrice        = deployment.E18Mult(9)
+	MockLinkPrice = deployment.E18Mult(500)
+	MockWethPrice = big.NewInt(9e8)
+	// MockDescriptionToTokenSymbol maps a mock feed description to token descriptor
+	MockDescriptionToTokenSymbol = map[string]TokenSymbol{
+		MockLinkAggregatorDescription: LinkSymbol,
+		MockWETHAggregatorDescription: WethSymbol,
+	}
+	MockSymbolToDescription = map[TokenSymbol]string{
+		LinkSymbol: MockLinkAggregatorDescription,
+		WethSymbol: MockWETHAggregatorDescription,
+	}
 	MockSymbolToDecimals = map[TokenSymbol]uint8{
 		LinkSymbol: LinkDecimals,
 		WethSymbol: WethDecimals,
-	}
-	MockContractTypeToTokenSymbol = map[deployment.ContractType]TokenSymbol{
-		PriceFeedLinkMock:   LinkSymbol,
-		PriceFeedNativeMock: WethSymbol,
 	}
 )
 
@@ -575,8 +592,8 @@ func DeployFeeds(
 	chain deployment.Chain,
 	linkPrice *big.Int,
 	wethPrice *big.Int,
-) (map[TokenSymbol]common.Address, error) {
-	linkTV := deployment.NewTypeAndVersion(PriceFeedLinkMock, deployment.Version1_0_0)
+) (map[string]common.Address, error) {
+	linkTV := deployment.NewTypeAndVersion(PriceFeed, deployment.Version1_0_0)
 	mockLinkFeed := func(chain deployment.Chain) deployment.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface] {
 		linkFeed, tx, _, err1 := mock_v3_aggregator_contract.DeployMockV3Aggregator(
 			chain.DeployerKey,
@@ -591,37 +608,35 @@ func DeployFeeds(
 		}
 	}
 
-	wethTV := deployment.NewTypeAndVersion(PriceFeedNativeMock, deployment.Version1_0_0)
 	mockWethFeed := func(chain deployment.Chain) deployment.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface] {
-		wethFeed, tx, _, err1 := mock_v3_aggregator_contract.DeployMockV3Aggregator(
+		wethFeed, tx, _, err1 := mock_ethusd_aggregator_wrapper.DeployMockETHUSDAggregator(
 			chain.DeployerKey,
 			chain.Client,
-			WethDecimals, // decimals
-			wethPrice,    // initialAnswer
+			wethPrice, // initialAnswer
 		)
 		aggregatorCr, err2 := aggregator_v3_interface.NewAggregatorV3Interface(wethFeed, chain.Client)
 
 		return deployment.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface]{
-			Address: wethFeed, Contract: aggregatorCr, Tv: wethTV, Tx: tx, Err: multierr.Append(err1, err2),
+			Address: wethFeed, Contract: aggregatorCr, Tv: linkTV, Tx: tx, Err: multierr.Append(err1, err2),
 		}
 	}
 
-	linkFeedAddress, err := deploySingleFeed(lggr, ab, chain, mockLinkFeed, LinkSymbol)
+	linkFeedAddress, linkFeedDescription, err := deploySingleFeed(lggr, ab, chain, mockLinkFeed, LinkSymbol)
 	if err != nil {
 		return nil, err
 	}
 
-	wethFeedAddress, err := deploySingleFeed(lggr, ab, chain, mockWethFeed, WethSymbol)
+	wethFeedAddress, wethFeedDescription, err := deploySingleFeed(lggr, ab, chain, mockWethFeed, WethSymbol)
 	if err != nil {
 		return nil, err
 	}
 
-	symbolToAddress := map[TokenSymbol]common.Address{
-		LinkSymbol: linkFeedAddress,
-		WethSymbol: wethFeedAddress,
+	descriptionToAddress := map[string]common.Address{
+		linkFeedDescription: linkFeedAddress,
+		wethFeedDescription: wethFeedAddress,
 	}
 
-	return symbolToAddress, nil
+	return descriptionToAddress, nil
 }
 
 func deploySingleFeed(
@@ -630,16 +645,28 @@ func deploySingleFeed(
 	chain deployment.Chain,
 	deployFunc func(deployment.Chain) deployment.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface],
 	symbol TokenSymbol,
-) (common.Address, error) {
+) (common.Address, string, error) {
+	//tokenTV := deployment.NewTypeAndVersion(PriceFeed, deployment.Version1_0_0)
 	mockTokenFeed, err := deployment.DeployContract(lggr, chain, ab, deployFunc)
 	if err != nil {
 		lggr.Errorw("Failed to deploy token feed", "err", err, "symbol", symbol)
-		return common.Address{}, err
+		return common.Address{}, "", err
 	}
 
 	lggr.Infow("deployed mockTokenFeed", "addr", mockTokenFeed.Address)
 
-	return mockTokenFeed.Address, nil
+	desc, err := mockTokenFeed.Contract.Description(&bind.CallOpts{})
+	if err != nil {
+		lggr.Errorw("Failed to get description", "err", err, "symbol", symbol)
+		return common.Address{}, "", err
+	}
+
+	if desc != MockSymbolToDescription[symbol] {
+		lggr.Errorw("Unexpected description for token", "symbol", symbol, "desc", desc)
+		return common.Address{}, "", fmt.Errorf("unexpected description: %s", desc)
+	}
+
+	return mockTokenFeed.Address, desc, nil
 }
 
 func ConfirmRequestOnSourceAndDest(t *testing.T, env deployment.Environment, state CCIPOnChainState, sourceCS, destCS, expectedSeqNr uint64) error {
