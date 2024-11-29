@@ -33,9 +33,8 @@ func main() {
 	}
 
 	u := updater.New(
-		updater.NewModuleOperator(cfg),
-		updater.NewSystemOperator(),
 		cfg,
+		updater.NewSystemOperator(),
 	)
 
 	if err := u.Run(); err != nil {

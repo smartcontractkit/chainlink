@@ -1,76 +1,28 @@
 package updater
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"testing"
 	"time"
-
-	"golang.org/x/mod/modfile"
-	"golang.org/x/mod/module"
 )
 
-// Mock implementations
-type mockModuleOperator struct {
-	version         module.Version
-	updateTime      time.Time
-	org             string
-	repo            string
-	sha             string
-	err             error
-	modulesToUpdate []string
+// mockGitExecutor simulates git commands for testing
+type mockGitExecutor struct {
+	sha  string
+	time time.Time
 }
 
-func (m *mockModuleOperator) GetLatestVersion(modulePath string) (module.Version, error) {
-	if m.err != nil {
-		return module.Version{}, m.err
+func (m *mockGitExecutor) Command(ctx context.Context, args ...string) ([]byte, error) {
+	switch args[0] {
+	case "ls-remote":
+		return []byte(m.sha + "\trefs/heads/develop\n"), nil
+	case "show":
+		return []byte(m.time.Format(gitTimeFormat)), nil
+	default:
+		return nil, fmt.Errorf("unexpected git command: %v", args)
 	}
-	return m.version, nil
-}
-
-func (m *mockModuleOperator) GetModuleInfo(modulePath string) (module.Version, time.Time, error) {
-	if m.err != nil {
-		return module.Version{}, time.Time{}, m.err
-	}
-	return m.version, m.updateTime, nil
-}
-
-func (m *mockModuleOperator) ParseModulePathParts(modulePath string) (org, repo string, err error) {
-	if m.err != nil {
-		return "", "", m.err
-	}
-	if m.org == "" && m.repo == "" {
-		return "smartcontractkit", "chainlink", nil // Default values for tests
-	}
-	return m.org, m.repo, nil
-}
-
-func (m *mockModuleOperator) GetGitInfo(remote, branch string) (string, time.Time, error) {
-	if m.err != nil {
-		return "", time.Time{}, m.err
-	}
-	if m.sha == "" {
-		m.sha = "abcdef123456" // default test SHA
-	}
-	return m.sha, m.updateTime, nil
-}
-
-// Add the missing method
-func (m *mockModuleOperator) UpdateRequiredVersions(modFile *modfile.File, newVersion string) ([]string, error) {
-	if m.err != nil {
-		return nil, m.err
-	}
-	if m.modulesToUpdate != nil {
-		return m.modulesToUpdate, nil
-	}
-	// Default behavior: return the modules that have local replace directives
-	var modules []string
-	for _, rep := range modFile.Replace {
-		if rep.New.Version == "" { // Local replace has empty version
-			modules = append(modules, rep.Old.Path)
-		}
-	}
-	return modules, nil
 }
 
 type mockSystemOperator struct {
@@ -110,7 +62,6 @@ func TestUpdater_Run(t *testing.T) {
 	tests := []struct {
 		name     string
 		config   *Config
-		modOp    *mockModuleOperator
 		sysOp    *mockSystemOperator
 		wantErr  bool
 		wantFile string
@@ -119,13 +70,8 @@ func TestUpdater_Run(t *testing.T) {
 			name: "successful update",
 			config: &Config{
 				ModulesToUpdate: []string{"github.com/smartcontractkit/chainlink/v2"},
-			},
-			modOp: &mockModuleOperator{
-				version: module.Version{
-					Path:    "github.com/smartcontractkit/chainlink/v2",
-					Version: "v2.0.0",
-				},
-				updateTime: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
+				RepoRemote:      "origin",
+				BranchTrunk:     "develop",
 			},
 			sysOp: func() *mockSystemOperator {
 				m := newMockSystemOperator()
@@ -140,12 +86,8 @@ require github.com/smartcontractkit/chainlink/v2 v2.0.0
 			name: "handles module with local replace",
 			config: &Config{
 				ModulesToUpdate: []string{"github.com/smartcontractkit/chainlink/v2"},
-			},
-			modOp: &mockModuleOperator{
-				version: module.Version{
-					Path:    "github.com/smartcontractkit/chainlink/v2",
-					Version: "v2.0.0",
-				},
+				RepoRemote:      "origin",
+				BranchTrunk:     "develop",
 			},
 			sysOp: func() *mockSystemOperator {
 				m := newMockSystemOperator()
@@ -161,12 +103,8 @@ replace github.com/smartcontractkit/chainlink/v2 => ../
 			name: "v1 module update",
 			config: &Config{
 				ModulesToUpdate: []string{"github.com/example/mod"},
-			},
-			modOp: &mockModuleOperator{
-				version: module.Version{
-					Path:    "github.com/example/mod",
-					Version: "v1.2.3",
-				},
+				RepoRemote:      "origin",
+				BranchTrunk:     "develop",
 			},
 			sysOp: func() *mockSystemOperator {
 				m := newMockSystemOperator()
@@ -183,10 +121,6 @@ require github.com/example/mod v1.0.0
 				ModulesToUpdate: []string{"github.com/smartcontractkit/chainlink/v2"},
 				RepoRemote:      "origin",
 				BranchTrunk:     "develop",
-			},
-			modOp: &mockModuleOperator{
-				sha:        "ac7a7395feed",
-				updateTime: time.Date(2024, 11, 22, 18, 21, 10, 0, time.UTC),
 			},
 			sysOp: func() *mockSystemOperator {
 				m := newMockSystemOperator()
@@ -207,10 +141,6 @@ require github.com/smartcontractkit/chainlink/v2 v2.0.0-20241122182110-ac7a7395f
 				ModulesToUpdate: []string{"github.com/smartcontractkit/chainlink/deployment"},
 				RepoRemote:      "origin",
 				BranchTrunk:     "develop",
-			},
-			modOp: &mockModuleOperator{
-				sha:        testSHA,
-				updateTime: testTime,
 			},
 			sysOp: func() *mockSystemOperator {
 				m := newMockSystemOperator()
@@ -234,10 +164,6 @@ require github.com/smartcontractkit/chainlink/deployment v0.0.0-20241122182110-a
 				},
 				RepoRemote:  "origin",
 				BranchTrunk: "develop",
-			},
-			modOp: &mockModuleOperator{
-				sha:        testSHA,
-				updateTime: testTime,
 			},
 			sysOp: func() *mockSystemOperator {
 				m := newMockSystemOperator()
@@ -265,10 +191,6 @@ require (
 				RepoRemote:      "origin",
 				BranchTrunk:     "develop",
 			},
-			modOp: &mockModuleOperator{
-				sha:        testSHA,
-				updateTime: testTime,
-			},
 			sysOp: func() *mockSystemOperator {
 				m := newMockSystemOperator()
 				m.files["go.mod"] = []byte(`module test
@@ -286,7 +208,12 @@ require github.com/smartcontractkit/chainlink/v3 v3.0.0-20241122182110-ac7a7395f
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			u := New(tt.modOp, tt.sysOp, tt.config)
+			u := New(tt.config, tt.sysOp)
+			// Override the git executor with our mock
+			u.git = &mockGitExecutor{
+				sha:  testSHA,
+				time: testTime,
+			}
 			err := u.Run()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Updater.Run() error = %v, wantErr %v", err, tt.wantErr)
@@ -320,7 +247,7 @@ replace (
 		RepoName: "chainlink",
 	}
 
-	u := New(&mockModuleOperator{}, sysOp, cfg)
+	u := New(cfg, sysOp)
 	modules, err := u.findLocalReplaceModules()
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)

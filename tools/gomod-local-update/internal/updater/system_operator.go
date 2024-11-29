@@ -5,6 +5,14 @@ import (
 	"path/filepath"
 )
 
+// SystemOperator provides an interface for file system operations.
+type SystemOperator interface {
+	// ReadFile reads the entire contents of a file
+	ReadFile(path string) ([]byte, error)
+	// WriteFile writes data to a file with specific permissions
+	WriteFile(path string, data []byte, perm os.FileMode) error
+}
+
 type systemOperator struct{}
 
 func NewSystemOperator() SystemOperator {
