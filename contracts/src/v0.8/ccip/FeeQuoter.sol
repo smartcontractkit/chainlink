@@ -4,7 +4,6 @@ pragma solidity 0.8.24;
 import {IReceiver} from "../keystone/interfaces/IReceiver.sol";
 import {ITypeAndVersion} from "../shared/interfaces/ITypeAndVersion.sol";
 
-import {IERC165} from "../vendor/openzeppelin-solidity/v5.0.2/contracts/interfaces/IERC165.sol";
 import {IFeeQuoter} from "./interfaces/IFeeQuoter.sol";
 import {IPriceRegistry} from "./interfaces/IPriceRegistry.sol";
 
@@ -18,6 +17,7 @@ import {Pool} from "./libraries/Pool.sol";
 import {USDPriceWith18Decimals} from "./libraries/USDPriceWith18Decimals.sol";
 
 import {EnumerableSet} from "../vendor/openzeppelin-solidity/v5.0.2/contracts/utils/structs/EnumerableSet.sol";
+import {IERC165} from "../vendor/openzeppelin-solidity/v5.0.2/contracts/interfaces/IERC165.sol";
 
 /// @notice The FeeQuoter contract responsibility is to:
 ///   - Store the current gas price in USD for a given destination chain.
