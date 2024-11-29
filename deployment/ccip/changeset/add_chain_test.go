@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -158,17 +159,37 @@ func TestAddChainInbound(t *testing.T) {
 	//TestSendRequest(t, e.Env, state, initialDeploy[0], newChain, true)
 
 	t.Logf("Executing add don and set candidate proposal for commit plugin on chain %d", newChain)
-	addDonChangeset, err := AddDonAndSetCandidateChangeset(state, e.Env, nodes, deployment.XXXGenerateTestOCRSecrets(), e.HomeChainSel, e.FeedChainSel, newChain, tokenConfig, types.PluginTypeCCIPCommit)
+	addDonChangeset, err := AddDonAndSetCandidateChangeset(e.Env, AddDonAndSetCandidateChangesetConfig{
+		HomeChainSelector: e.HomeChainSel,
+		FeedChainSelector: e.FeedChainSel,
+		NewChainSelector:  newChain,
+		TokenConfig:       tokenConfig,
+		PluginType:        types.PluginTypeCCIPCommit,
+		Nodes:             nodes,
+		OCRSecrets:        deployment.XXXGenerateTestOCRSecrets(),
+	})
 	require.NoError(t, err)
 	ProcessChangeset(t, e.Env, addDonChangeset)
 
 	t.Logf("Executing promote candidate proposal for exec plugin on chain %d", newChain)
-	setCandidateForExecChangeset, err := SetCandidatePluginChangeset(state, e.Env, nodes, deployment.XXXGenerateTestOCRSecrets(), e.HomeChainSel, e.FeedChainSel, newChain, tokenConfig, types.PluginTypeCCIPExec)
+	setCandidateForExecChangeset, err := SetCandidatePluginChangeset(e.Env, AddDonAndSetCandidateChangesetConfig{
+		HomeChainSelector: e.HomeChainSel,
+		FeedChainSelector: e.FeedChainSel,
+		NewChainSelector:  newChain,
+		TokenConfig:       tokenConfig,
+		PluginType:        types.PluginTypeCCIPExec,
+		Nodes:             nodes,
+		OCRSecrets:        deployment.XXXGenerateTestOCRSecrets(),
+	})
 	require.NoError(t, err)
 	ProcessChangeset(t, e.Env, setCandidateForExecChangeset)
 
 	t.Logf("Executing promote candidate proposal for both commit and exec plugins on chain %d", newChain)
-	donPromoteChangeset, err := PromoteAllCandidatesChangeset(state, e.HomeChainSel, newChain, nodes)
+	donPromoteChangeset, err := PromoteAllCandidatesChangeset(e.Env, PromoteAllCandidatesChangesetConfig{
+		HomeChainSelector: e.HomeChainSel,
+		NewChainSelector:  newChain,
+		Nodes:             nodes,
+	})
 	require.NoError(t, err)
 	ProcessChangeset(t, e.Env, donPromoteChangeset)
 
