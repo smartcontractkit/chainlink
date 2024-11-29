@@ -7,10 +7,13 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
+
 	"golang.org/x/exp/maps"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
@@ -79,19 +82,15 @@ func TestUSDCTokenTransfer(t *testing.T) {
 		map[uint64]*bind.TransactOpts{
 			chainA: ownerChainA,
 			chainB: ownerChainB,
-			chainC: ownerChainC}, map[uint64][]*burn_mint_erc677.BurnMintERC677{
+			chainC: ownerChainC,
+		},
+		map[uint64][]*burn_mint_erc677.BurnMintERC677{
 			chainA: {aChainUSDC, aChainToken},
 			chainB: {bChainUSDC},
 			chainC: {cChainUSDC, cChainToken},
 		})
 
-	err = changeset.UpdateFeeQuoterForUSDC(lggr, e.Chains[chainA], state.Chains[chainA], chainC, aChainUSDC)
-	require.NoError(t, err)
-
-	err = changeset.UpdateFeeQuoterForUSDC(lggr, e.Chains[chainB], state.Chains[chainB], chainC, bChainUSDC)
-	require.NoError(t, err)
-
-	err = changeset.UpdateFeeQuoterForUSDC(lggr, e.Chains[chainC], state.Chains[chainC], chainA, cChainUSDC)
+	err = updateFeeQuoters(lggr, e, state, chainA, chainB, chainC, aChainUSDC, bChainUSDC, cChainUSDC)
 	require.NoError(t, err)
 
 	// MockE2EUSDCTransmitter always mint 1, see MockE2EUSDCTransmitter.sol for more details
@@ -256,4 +255,24 @@ func TestUSDCTokenTransfer(t *testing.T) {
 		expectedBalance := new(big.Int).Add(tinyOneCoin, tinyOneCoin)
 		changeset.WaitForTheTokenBalance(ctx, t, cChainUSDC.Address(), receiver, e.Chains[chainC], expectedBalance)
 	})
+}
+
+func updateFeeQuoters(
+	lggr logger.Logger,
+	e deployment.Environment,
+	state changeset.CCIPOnChainState,
+	chainA, chainB, chainC uint64,
+	aChainUSDC, bChainUSDC, cChainUSDC *burn_mint_erc677.BurnMintERC677,
+) error {
+	updateFeeQtrGrp := errgroup.Group{}
+	updateFeeQtrGrp.Go(func() error {
+		return changeset.UpdateFeeQuoterForUSDC(lggr, e.Chains[chainA], state.Chains[chainA], chainC, aChainUSDC)
+	})
+	updateFeeQtrGrp.Go(func() error {
+		return changeset.UpdateFeeQuoterForUSDC(lggr, e.Chains[chainB], state.Chains[chainB], chainC, bChainUSDC)
+	})
+	updateFeeQtrGrp.Go(func() error {
+		return changeset.UpdateFeeQuoterForUSDC(lggr, e.Chains[chainC], state.Chains[chainC], chainA, cChainUSDC)
+	})
+	return updateFeeQtrGrp.Wait()
 }
