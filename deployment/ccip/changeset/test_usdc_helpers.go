@@ -39,12 +39,12 @@ func ConfigureUSDCTokenPools(
 	}
 
 	// Connect pool to each other
-	if err := setUSDCTokenPoolCounterPart(chains[src], srcPool, dst, dstToken.Address(), dstPool.Address()); err != nil {
+	if err := setUSDCTokenPoolCounterPart(chains[src], srcPool, dst, chains[src].DeployerKey, dstToken.Address(), dstPool.Address()); err != nil {
 		lggr.Errorw("Failed to set counter part", "err", err, "srcPool", srcPool.Address(), "dstPool", dstPool.Address())
 		return nil, nil, err
 	}
 
-	if err := setUSDCTokenPoolCounterPart(chains[dst], dstPool, src, srcToken.Address(), srcPool.Address()); err != nil {
+	if err := setUSDCTokenPoolCounterPart(chains[dst], dstPool, src, chains[dst].DeployerKey, srcToken.Address(), srcPool.Address()); err != nil {
 		lggr.Errorw("Failed to set counter part", "err", err, "srcPool", dstPool.Address(), "dstPool", srcPool.Address())
 		return nil, nil, err
 	}
@@ -55,7 +55,7 @@ func ConfigureUSDCTokenPools(
 		state.Chains[src].MockUSDCTokenMessenger.Address(),
 		state.Chains[src].MockUSDCTransmitter.Address(),
 	} {
-		if err := grantMintBurnPermissions(lggr, chains[src], srcToken, addr); err != nil {
+		if err := grantMintBurnPermissions(lggr, chains[src], srcToken, chains[src].DeployerKey, addr); err != nil {
 			lggr.Errorw("Failed to grant mint/burn permissions", "err", err, "token", srcToken.Address(), "minter", addr)
 			return nil, nil, err
 		}
@@ -67,7 +67,7 @@ func ConfigureUSDCTokenPools(
 		state.Chains[dst].MockUSDCTokenMessenger.Address(),
 		state.Chains[dst].MockUSDCTransmitter.Address(),
 	} {
-		if err := grantMintBurnPermissions(lggr, chains[dst], dstToken, addr); err != nil {
+		if err := grantMintBurnPermissions(lggr, chains[dst], dstToken, chains[dst].DeployerKey, addr); err != nil {
 			lggr.Errorw("Failed to grant mint/burn permissions", "err", err, "token", dstToken.Address(), "minter", addr)
 			return nil, nil, err
 		}
@@ -134,10 +134,10 @@ func DeployUSDC(
 			tokenAddress, tx, tokenContract, err2 := burn_mint_erc677.DeployBurnMintERC677(
 				chain.DeployerKey,
 				chain.Client,
-				"USDC Token",
-				"USDC",
-				uint8(18),
-				big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
+				USDCName,
+				string(USDCSymbol),
+				UsdcDecimals,
+				big.NewInt(0),
 			)
 			return deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
 				Address:  tokenAddress,

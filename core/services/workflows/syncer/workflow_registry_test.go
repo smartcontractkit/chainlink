@@ -8,6 +8,8 @@ import (
 
 	"github.com/stretchr/testify/mock"
 
+	"github.com/jonboulle/clockwork"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	types "github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -17,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 
@@ -58,7 +61,7 @@ func Test_Workflow_Registry_Syncer(t *testing.T) {
 		ticker = make(chan time.Time)
 
 		handler = NewEventHandler(lggr, orm, gateway, nil, nil,
-			emitter, nil)
+			emitter, clockwork.NewFakeClock(), workflowkey.Key{})
 		loader = NewWorkflowRegistryContractLoader(contractAddress, 1, reader, handler)
 
 		worker = NewWorkflowRegistry(lggr, reader, contractAddress,

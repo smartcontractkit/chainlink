@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -97,14 +96,6 @@ type WorkflowRegistrySyncer interface {
 
 var _ WorkflowRegistrySyncer = (*workflowRegistry)(nil)
 
-// WithTicker allows external callers to provide a ticker to the workflowRegistry.  This is useful
-// for overriding the default tick interval.
-func WithTicker(ticker <-chan time.Time) func(*workflowRegistry) {
-	return func(wr *workflowRegistry) {
-		wr.ticker = ticker
-	}
-}
-
 // workflowRegistry is the implementation of the WorkflowRegistrySyncer interface.
 type workflowRegistry struct {
 	services.StateMachine
@@ -143,6 +134,14 @@ type workflowRegistry struct {
 	heap Heap
 }
 
+// WithTicker allows external callers to provide a ticker to the workflowRegistry.  This is useful
+// for overriding the default tick interval.
+func WithTicker(ticker <-chan time.Time) func(*workflowRegistry) {
+	return func(wr *workflowRegistry) {
+		wr.ticker = ticker
+	}
+}
+
 func WithReader(reader types.ContractReader) func(*workflowRegistry) {
 	return func(wr *workflowRegistry) {
 		wr.reader = reader
@@ -161,9 +160,9 @@ type initialWorkflowsStateLoader interface {
 
 // NewWorkflowRegistry returns a new workflowRegistry.
 // Only queries for WorkflowRegistryForceUpdateSecretsRequestedV1 events.
-func NewWorkflowRegistry[T ContractReader](
+func NewWorkflowRegistry(
 	lggr logger.Logger,
-	reader T,
+	reader ContractReader,
 	addr string,
 	eventPollerConfig WorkflowEventPollerConfig,
 	handler evtHandler,
@@ -241,10 +240,6 @@ func (w *workflowRegistry) HealthReport() map[string]error {
 
 func (w *workflowRegistry) Name() string {
 	return name
-}
-
-func (w *workflowRegistry) SecretsFor(ctx context.Context, workflowOwner, workflowName string) (map[string]string, error) {
-	return nil, errors.New("not implemented")
 }
 
 // handlerLoop handles the events that are emitted by the contract.
@@ -653,39 +648,4 @@ func toWorkflowRegistryEventResponse(
 	}
 
 	return resp
-}
-
-type nullWorkflowRegistrySyncer struct {
-	services.Service
-}
-
-func NewNullWorkflowRegistrySyncer() *nullWorkflowRegistrySyncer {
-	return &nullWorkflowRegistrySyncer{}
-}
-
-// Start
-func (u *nullWorkflowRegistrySyncer) Start(context.Context) error {
-	return nil
-}
-
-// Close
-func (u *nullWorkflowRegistrySyncer) Close() error {
-	return nil
-}
-
-// SecretsFor
-func (u *nullWorkflowRegistrySyncer) SecretsFor(context.Context, string, string) (map[string]string, error) {
-	return nil, nil
-}
-
-func (u *nullWorkflowRegistrySyncer) Ready() error {
-	return nil
-}
-
-func (u *nullWorkflowRegistrySyncer) HealthReport() map[string]error {
-	return nil
-}
-
-func (u *nullWorkflowRegistrySyncer) Name() string {
-	return "Null" + name
 }
