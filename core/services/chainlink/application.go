@@ -283,12 +283,12 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			)
 			registrySyncer.AddLauncher(wfLauncher)
 
+			srvcs = append(srvcs, wfLauncher, registrySyncer)
+
 			if cfg.Capabilities().WorkflowRegistry().Address() != "" {
 				if gatewayConnectorWrapper == nil {
-					return nil, fmt.Errorf("unable to create workflow registry syncer without gateway connector")
+					return nil, errors.New("unable to create workflow registry syncer without gateway connector")
 				}
-
-				// TODO create the handler and initialWorkflowsStateLoader and pass in below
 
 				err = keyStore.Workflow().EnsureKey(context.Background())
 				if err != nil {
@@ -304,9 +304,9 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				}
 
 				connector := gatewayConnectorWrapper.GetGatewayConnector()
-				webApiLggr := globalLogger.Named("WebAPITarget")
+				webAPILggr := globalLogger.Named("WebAPITarget")
 
-				webApiConfig := webapi.ServiceConfig{
+				webAPIConfig := webapi.ServiceConfig{
 					RateLimiter: common2.RateLimiterConfig{
 						GlobalRPS:      100.0,
 						GlobalBurst:    100,
@@ -316,8 +316,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				}
 
 				outgoingConnectorHandler, err := webapi.NewOutgoingConnectorHandler(connector,
-					webApiConfig,
-					capabilities2.MethodWebAPITarget, webApiLggr)
+					webAPIConfig,
+					capabilities2.MethodWebAPITarget, webAPILggr)
 				if err != nil {
 					return nil, fmt.Errorf("could not create outgoing connector handler: %w", err)
 				}
@@ -336,7 +336,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 						QueryCount: 100,
 					}, eventHandler, loader, workflowDonNotifier)
 
-				srvcs = append(srvcs, wfLauncher, registrySyncer, wfSyncer)
+				srvcs = append(srvcs, wfSyncer)
 			}
 		}
 	} else {
