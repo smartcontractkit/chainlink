@@ -313,6 +313,9 @@ RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 12
 NoNewFinalizedHeadsThreshold = '9m0s'
 
+[EVM.TxmV2]
+Enabled = false
+
 [EVM.Transactions]
 ForwardersEnabled = false
 MaxInFlight = 16
@@ -320,9 +323,6 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
-
-[EVM.TxmV2]
-Enabled = false
 
 [EVM.Transactions.AutoPurge]
 Enabled = false
@@ -533,6 +533,9 @@ RPCBlockQueryDelay = 10
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '6m0s'
 
+[EVM.TxmV2]
+Enabled = false
+
 [EVM.Transactions]
 ForwardersEnabled = false
 MaxInFlight = 16
@@ -540,9 +543,6 @@ MaxQueued = 5000
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
-
-[EVM.TxmV2]
-Enabled = false
 
 [EVM.Transactions.AutoPurge]
 Enabled = false
