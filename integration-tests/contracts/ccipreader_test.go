@@ -254,6 +254,7 @@ func TestCCIPReader_CommitReportsGTETimestamp_RespectsFinality(t *testing.T) {
 	assert.Equal(t, uint64(90), reports[0].Report.PriceUpdates.GasPriceUpdates[0].GasPrice.Uint64())
 }
 
+// Uncomment once merged https://github.com/smartcontractkit/chainlink-ccip/pull/331
 //func TestCCIPReader_GetLatestPriceSeqNr(t *testing.T) {
 //	t.Parallel()
 //	ctx := tests.Context(t)
