@@ -15,8 +15,6 @@ import (
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
-
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
@@ -227,13 +225,8 @@ func NewLocalDevEnvironment(
 		tokenInfo := tokenConfig.GetTokenInfo(env.Logger, state.Chains[chain].LinkToken, state.Chains[chain].Weth9)
 
 		params := changeset.DefaultOCRParams(feedSel, tokenInfo)
-
-		if tCfg.IsFeeBoosting {
-			// Override specific parameters for fee boosting scenarios
-			params.ExecuteOffChainConfig.RelativeBoostPerWaitHour = 10
-			params.CommitOffChainConfig.TokenPriceBatchWriteFrequency = *config.MustNewDuration(1_000_000 * time.Hour)
-			params.CommitOffChainConfig.RemoteGasPriceBatchWriteFrequency = *config.MustNewDuration(1_000_000 * time.Hour)
-			params.CommitOffChainConfig.TokenInfo = nil
+		if tCfg.OCRConfigOverride != nil {
+			params = tCfg.OCRConfigOverride(params)
 		}
 
 		ocrParams[chain] = params
