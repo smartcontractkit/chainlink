@@ -175,7 +175,7 @@ func TestCCIPReader_CommitReportsGTETimestamp(t *testing.T) {
 		)
 		require.NoError(t, err)
 		return len(reports) == numReports-1
-	}, tests.WaitTimeout(t), 50*time.Millisecond)
+	}, 30*time.Second, 50*time.Millisecond)
 
 	assert.Len(t, reports, numReports-1)
 	assert.Len(t, reports[0].Report.MerkleRoots, 1)
@@ -220,7 +220,7 @@ func TestCCIPReader_CommitReportsGTETimestamp_RespectsFinality(t *testing.T) {
 		)
 		require.NoError(t, err)
 		return len(reports) == numReports-1
-	}, tests.WaitTimeout(t)/2, 50*time.Millisecond)
+	}, 20*time.Second, 50*time.Millisecond)
 
 	// Commit finality depth number of blocks.
 	for i := 0; i < int(finalityDepth); i++ {
@@ -238,7 +238,7 @@ func TestCCIPReader_CommitReportsGTETimestamp_RespectsFinality(t *testing.T) {
 		)
 		require.NoError(t, err)
 		return len(reports) == numReports-1
-	}, tests.WaitTimeout(t)/2, 50*time.Millisecond)
+	}, 30*time.Second, 50*time.Millisecond)
 
 	assert.Len(t, reports, numReports-1)
 	assert.Len(t, reports[0].Report.MerkleRoots, 1)
