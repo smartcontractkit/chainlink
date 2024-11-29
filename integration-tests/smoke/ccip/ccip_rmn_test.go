@@ -620,10 +620,8 @@ func (tc rmnTestCase) callContractsToCurseChains(ctx context.Context, t *testing
 		}
 
 		for _, subjectDescription := range cursedSubjects {
-			subj := [16]byte{}
-			if subjectDescription == globalCurse {
-				subj = types.GlobalCurseSubject
-			} else {
+			subj := types.GlobalCurseSubject
+			if subjectDescription != globalCurse {
 				subj = chainSelectorToBytes16(tc.pf.chainSelectors[subjectDescription])
 			}
 			t.Logf("cursing subject %d (%d)", subj, subjectDescription)
