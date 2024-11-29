@@ -13,21 +13,18 @@ const (
 )
 
 type Config struct {
-	ModulesToUpdate []string
-	RepoRemote      string
-	BranchTrunk     string
-	DryRun          bool
-	ShowVersion     bool
-	OrgName         string
-	RepoName        string
+	RepoRemote  string
+	BranchTrunk string
+	DryRun      bool
+	ShowVersion bool
+	OrgName     string
+	RepoName    string
 }
 
 func ParseFlags(args []string, version string) (*Config, error) {
 	flags := flag.NewFlagSet("default", flag.ContinueOnError)
 
-	cfg := &Config{
-		ModulesToUpdate: make([]string, 0),
-	}
+	cfg := &Config{}
 
 	flags.StringVar(&cfg.RepoRemote, "repo-remote", DefaultRepoRemote, "Git remote to use")
 	flags.StringVar(&cfg.BranchTrunk, "branch-trunk", DefaultBranchTrunk, "Branch to get SHA from")
@@ -49,19 +46,19 @@ func (c *Config) Validate() error {
 	}
 
 	if c.RepoRemote == "" {
-		return fmt.Errorf("%w: repo-remote is required", ErrInvalidConfig)
+		return fmt.Errorf("%w: repo remote cannot be empty", ErrInvalidConfig)
 	}
 
 	if c.BranchTrunk == "" {
-		return fmt.Errorf("%w: branch-trunk is required", ErrInvalidConfig)
+		return fmt.Errorf("%w: branch trunk cannot be empty", ErrInvalidConfig)
 	}
 
 	if c.OrgName == "" {
-		return fmt.Errorf("%w: org-name is required", ErrInvalidConfig)
+		return fmt.Errorf("%w: organization name cannot be empty", ErrInvalidConfig)
 	}
 
 	if c.RepoName == "" {
-		return fmt.Errorf("%w: repo-name is required", ErrInvalidConfig)
+		return fmt.Errorf("%w: repository name cannot be empty", ErrInvalidConfig)
 	}
 
 	return nil

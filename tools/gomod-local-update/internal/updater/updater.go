@@ -2,6 +2,7 @@ package updater
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -35,6 +36,7 @@ const (
 	gitRemotePattern    = `^[a-zA-Z0-9][-a-zA-Z0-9_.]*$`
 	gitBranchPattern    = `^[a-zA-Z0-9][-a-zA-Z0-9/_]*$`
 	majorVersionPattern = `/v\d+$`
+	shaPattern          = `^[a-fA-F0-9]{40}$` // SHA-1 hashes are 40 hexadecimal characters
 )
 
 type Updater struct {
@@ -66,15 +68,25 @@ func (u *Updater) validateGitInput(remote, branch string) error {
 	return nil
 }
 
+// validateSHA checks if the SHA consists of exactly 40 hexadecimal digits
+func (u *Updater) validateSHA(sha string) error {
+	shaRE := regexp.MustCompile(shaPattern)
+	if !shaRE.MatchString(sha) {
+		return fmt.Errorf("%w: invalid git SHA '%s'", ErrInvalidConfig, sha)
+	}
+	return nil
+}
+
 // getGitInfo retrieves the latest commit SHA and timestamp from a Git repository
 func (u *Updater) getGitInfo(remote, branch string) (string, time.Time, error) {
 	if err := u.validateGitInput(remote, branch); err != nil {
-		return "", time.Time{}, fmt.Errorf("%w: %v", ErrInvalidConfig, err)
+		return "", time.Time{}, err
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), gitTimeout)
 	defer cancel()
 
+	// Use u.git.Command for ls-remote
 	out, err := u.git.Command(ctx, "ls-remote", remote, "refs/heads/"+branch)
 	if err != nil {
 		return "", time.Time{}, fmt.Errorf("%w: failed to fetch commit SHA from %s/%s: %v",
@@ -88,13 +100,15 @@ func (u *Updater) getGitInfo(remote, branch string) (string, time.Time, error) {
 		return "", time.Time{}, fmt.Errorf("%w: empty SHA from git ls-remote", ErrModOperation)
 	}
 
-	cmd := exec.CommandContext(ctx, "git", "show", "-s", "--format=%cI", sha)
-	out, err = cmd.Output()
+	// Validate the SHA
+	if err := u.validateSHA(sha); err != nil {
+		return "", time.Time{}, err
+	}
+
+	// Use u.git.Command for show
+	out, err = u.git.Command(ctx, "show", "-s", "--format=%cI", sha)
 	if err != nil {
 		return "", time.Time{}, fmt.Errorf("failed to get commit time: %w", err)
-	}
-	if len(out) == 0 {
-		return "", time.Time{}, fmt.Errorf("%w: no output from git show", ErrModOperation)
 	}
 
 	commitTime, err := time.Parse(gitTimeFormat, strings.TrimSpace(string(out)))
@@ -109,54 +123,51 @@ func (u *Updater) getGitInfo(remote, branch string) (string, time.Time, error) {
 func (u *Updater) Run() error {
 	logger := log.New(os.Stdout, "", log.LstdFlags)
 
-	if len(u.config.ModulesToUpdate) == 0 {
-		logger.Printf("info: auto-detecting modules with local replace directives")
-	} else {
-		logger.Printf("info: updating modules: %v", u.config.ModulesToUpdate)
-	}
+	logger.Printf("info: auto-detecting modules with local replace directives")
 
 	f, err := u.readModFile()
 	if err != nil {
-		return fmt.Errorf("%w: failed to read and parse go.mod file: %v", ErrModOperation, err)
+		return fmt.Errorf("%w: failed to read and parse go.mod file", ErrModOperation)
 	}
 
-	// Find modules to update first if none specified
-	if len(u.config.ModulesToUpdate) == 0 {
-		u.config.ModulesToUpdate, err = u.findLocalReplaceModules()
-		if err != nil {
-			return fmt.Errorf("%w: failed to detect local replace modules: %v", ErrModOperation, err)
-		}
-		if len(u.config.ModulesToUpdate) == 0 {
-			logger.Printf("info: no modules found to update in %s", f.Module.Mod.Path)
-			return nil
-		}
-		logger.Printf("info: found %d modules with local replace directives: %v",
-			len(u.config.ModulesToUpdate), u.config.ModulesToUpdate)
+	// Auto-detect modules to update
+	modulesToUpdate, err := u.findLocalReplaceModules()
+	if err != nil {
+		return fmt.Errorf("%w: failed to detect local replace modules", ErrModOperation)
 	}
+	if len(modulesToUpdate) == 0 {
+		logger.Printf("info: no modules found to update in %s", f.Module.Mod.Path)
+		return nil
+	}
+	logger.Printf("info: found %d modules with local replace directives: %v",
+		len(modulesToUpdate), modulesToUpdate)
 
 	// Get commit info once for all modules
 	sha, commitTime, err := u.getGitInfo(u.config.RepoRemote, u.config.BranchTrunk)
 	if err != nil {
-		return fmt.Errorf("%w: failed to get git commit info from remote: %v", ErrModOperation, err)
+		if errors.Is(err, ErrInvalidConfig) {
+			return err
+		}
+		return fmt.Errorf("%w: failed to get git commit info from remote", ErrModOperation)
 	}
 
 	// Update the modules in the same file handle
-	if err := u.updateGoMod(f, sha, commitTime); err != nil {
-		return fmt.Errorf("%w: failed to update module versions in go.mod: %v", ErrModOperation, err)
+	if err := u.updateGoMod(f, modulesToUpdate, sha, commitTime); err != nil {
+		return fmt.Errorf("%w: failed to update module versions in go.mod", ErrModOperation)
 	}
 
 	return u.writeModFile(f)
 }
 
 // updateGoMod updates the go.mod file with new pseudo-versions
-func (u *Updater) updateGoMod(f *modfile.File, sha string, commitTime time.Time) error {
-	for _, modulePath := range u.config.ModulesToUpdate {
+func (u *Updater) updateGoMod(modFile *modfile.File, modulesToUpdate []string, sha string, commitTime time.Time) error {
+	for _, modulePath := range modulesToUpdate {
 		moduleExists := false
 		majorVersion := getMajorVersion(modulePath)
 		pseudoVersion := module.PseudoVersion(majorVersion, "", commitTime, sha[:gitSHALength])
 
 		// Find and update version
-		for _, req := range f.Require {
+		for _, req := range modFile.Require {
 			if req.Mod.Path == modulePath {
 				moduleExists = true
 				if u.config.DryRun {
@@ -164,9 +175,9 @@ func (u *Updater) updateGoMod(f *modfile.File, sha string, commitTime time.Time)
 					continue
 				}
 
-				if err := f.AddRequire(modulePath, pseudoVersion); err != nil {
-					return fmt.Errorf("%w: failed to update version for module %s: %v",
-						ErrModOperation, modulePath, err)
+				if err := modFile.AddRequire(modulePath, pseudoVersion); err != nil {
+					return fmt.Errorf("%w: failed to update version for module %s",
+						ErrModOperation, modulePath)
 				}
 				break
 			}
@@ -192,7 +203,7 @@ func getMajorVersion(modulePath string) string {
 
 // findLocalReplaceModules finds modules with local replace directives
 func (u *Updater) findLocalReplaceModules() ([]string, error) {
-	f, err := u.readModFile()
+	modFile, err := u.readModFile()
 	if err != nil {
 		return nil, err
 	}
@@ -202,7 +213,7 @@ func (u *Updater) findLocalReplaceModules() ([]string, error) {
 	var modules []string
 
 	// First find all local replaces for our org
-	for _, rep := range f.Replace {
+	for _, rep := range modFile.Replace {
 		if strings.HasPrefix(rep.Old.Path, orgPrefix) &&
 			rep.New.Version == "" &&
 			isLocalPath(rep.New.Path) {
@@ -211,7 +222,7 @@ func (u *Updater) findLocalReplaceModules() ([]string, error) {
 	}
 
 	// Then check requires that match our replaces
-	for _, req := range f.Require {
+	for _, req := range modFile.Require {
 		if localModules[req.Mod.Path] {
 			modules = append(modules, req.Mod.Path)
 		}
@@ -234,23 +245,23 @@ func (u *Updater) readModFile() (*modfile.File, error) {
 		return nil, fmt.Errorf("%w: unable to read go.mod: %v", ErrModOperation, err)
 	}
 
-	f, err := modfile.Parse(goModFile, content, nil)
+	modFile, err := modfile.Parse(goModFile, content, nil)
 	if err != nil {
 		return nil, fmt.Errorf("%w: invalid go.mod format: %v", ErrModOperation, err)
 	}
 
-	return f, nil
+	return modFile, nil
 }
 
 // writeModFile writes the go.mod file
-func (u *Updater) writeModFile(f *modfile.File) error {
-	content, err := f.Format()
+func (u *Updater) writeModFile(modFile *modfile.File) error {
+	content, err := modFile.Format()
 	if err != nil {
-		return fmt.Errorf("%w: failed to format go.mod content: %v", ErrModOperation, err)
+		return fmt.Errorf("%w: failed to format go.mod content", ErrModOperation)
 	}
 
 	if err := u.system.WriteFile(goModFile, content, goModFileMode); err != nil {
-		return fmt.Errorf("%w: failed to write updated go.mod file: %v", ErrModOperation, err)
+		return fmt.Errorf("%w: failed to write updated go.mod file", ErrModOperation)
 	}
 
 	return nil

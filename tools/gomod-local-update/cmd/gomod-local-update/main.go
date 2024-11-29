@@ -32,6 +32,11 @@ func main() {
 		os.Exit(0)
 	}
 
+	if err := cfg.Validate(); err != nil {
+		fmt.Fprintf(os.Stderr, usage, version)
+		log.Fatal(err)
+	}
+
 	u := updater.New(
 		cfg,
 		updater.NewSystemOperator(),

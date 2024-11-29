@@ -1,6 +1,6 @@
 # gomod-local-update
 
-Updates required module versions in go.mod files to match the latest git SHA from a remote branch.
+Updates required module versions in `go.mod` files to match the latest git SHA from a remote branch.
 
 ## Configuration
 
@@ -8,12 +8,11 @@ Command Line Flags:
 
 ```shell
 Optional:
-  -org-name         Organization name to update modules for (default: smartcontractkit)
-  -repo-name        Repository name to update modules for (default: chainlink)
-  -repo-remote      Git remote to use (default: origin)
-  -branch-trunk     Branch to get SHA from (default: develop)
-  -dry-run         Preview changes without applying them (default: false)
-  -
+  -org-name       Organization name (default: smartcontractkit)
+  -repo-name      Repository name (default: chainlink)
+  -repo-remote    Git remote to use (default: origin)
+  -branch-trunk   Branch to get SHA from (default: develop)
+  -dry-run        Preview changes without applying them (default: false)
 ```
 
 ## Installation
@@ -27,5 +26,7 @@ go install ./tools/gomod-local-update/cmd/gomod-local-update
 ## Usage Examples
 
 ```shell
-make gomodslocalupdate
+gomod-local-update
 ```
+
+This command auto-detects modules with local replace directives and updates their versions.
