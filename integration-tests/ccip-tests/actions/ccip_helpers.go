@@ -631,7 +631,11 @@ func (ccipModule *CCIPCommon) UpdateTokenPricesAtRegularInterval(ctx context.Con
 		aggregators = append(aggregators, contract)
 	}
 	go func(aggregators []*contracts.MockAggregator) {
-		rand.NewSource(uint64(time.Now().UnixNano()))
+		now := time.Now().UnixNano()
+		if now < 0 {
+			panic(fmt.Errorf("negative timestamp: %d", now))
+		}
+		rand.NewSource(uint64(now))
 		ticker := time.NewTicker(interval)
 		for {
 			select {
@@ -1661,7 +1665,11 @@ func (sourceCCIP *SourceCCIPModule) IsPastRequestTriggeredWithinTimeframe(ctx co
 	if err != nil {
 		return nil, fmt.Errorf("error while getting average source block time. Error: %w", err)
 	}
-	filterFromBlock := latestBlock - uint64(timeframe.Duration()/avgBlockTime)
+	blocks := timeframe.Duration() / avgBlockTime
+	if blocks < 0 {
+		return nil, fmt.Errorf("negative blocks: %d", blocks)
+	}
+	filterFromBlock := latestBlock - uint64(blocks) //nolint:gosec // G115 false positive
 
 	onRampContract, err := evm_2_evm_onramp.NewEVM2EVMOnRamp(common.HexToAddress(sourceCCIP.OnRamp.EthAddress.Hex()),
 		sourceCCIP.Common.ChainClient.Backend())
@@ -1678,7 +1686,7 @@ func (sourceCCIP *SourceCCIPModule) IsPastRequestTriggeredWithinTimeframe(ctx co
 		_ = iterator.Close()
 	}()
 	if iterator.Next() {
-		hdr, err := sourceCCIP.Common.ChainClient.HeaderByNumber(context.Background(), big.NewInt(int64(iterator.Event.Raw.BlockNumber)))
+		hdr, err := sourceCCIP.Common.ChainClient.HeaderByNumber(context.Background(), new(big.Int).SetUint64(iterator.Event.Raw.BlockNumber))
 		if err != nil {
 			return nil, fmt.Errorf("error getting header for block: %d, Error: %w", iterator.Event.Raw.BlockNumber, err)
 		}
@@ -4157,7 +4165,7 @@ func (c *CCIPTestEnv) SetUpNodeKeysAndFund(
 	nodeFund *big.Float,
 	chains []blockchain.EVMClient,
 ) error {
-	if c.CLNodes == nil || len(c.CLNodes) == 0 {
+	if len(c.CLNodes) == 0 {
 		return fmt.Errorf("no chainlink nodes to setup")
 	}
 	var chainlinkNodes []*nodeclient.ChainlinkClient

@@ -300,8 +300,10 @@ func (c *EVMConfig) ValidateConfig() (err error) {
 		is := c.ChainType.ChainType()
 		if is != must {
 			if must == "" {
-				err = multierr.Append(err, commonconfig.ErrInvalid{Name: "ChainType", Value: c.ChainType.ChainType(),
-					Msg: "must not be set with this chain id"})
+				if c.ChainType.ChainType() != chaintype.ChainDualBroadcast {
+					err = multierr.Append(err, commonconfig.ErrInvalid{Name: "ChainType", Value: c.ChainType.ChainType(),
+						Msg: "must not be set with this chain id"})
+				}
 			} else {
 				err = multierr.Append(err, commonconfig.ErrInvalid{Name: "ChainType", Value: c.ChainType.ChainType(),
 					Msg: fmt.Sprintf("only %q can be used with this chain id", must)})
@@ -387,6 +389,7 @@ type Chain struct {
 	FinalizedBlockOffset         *uint32
 	NoNewFinalizedHeadsThreshold *commonconfig.Duration
 
+	TxmV2          TxmV2             `toml:",omitempty"`
 	Transactions   Transactions      `toml:",omitempty"`
 	BalanceMonitor BalanceMonitor    `toml:",omitempty"`
 	GasEstimator   GasEstimator      `toml:",omitempty"`
@@ -469,6 +472,26 @@ func (c *Chain) ValidateConfig() (err error) {
 	}
 
 	return
+}
+
+type TxmV2 struct {
+	Enabled   *bool                  `toml:",omitempty"`
+	BlockTime *commonconfig.Duration `toml:",omitempty"`
+	CustomURL *commonconfig.URL      `toml:",omitempty"`
+}
+
+func (t *TxmV2) setFrom(f *TxmV2) {
+	if v := f.Enabled; v != nil {
+		t.Enabled = f.Enabled
+	}
+
+	if v := f.BlockTime; v != nil {
+		t.BlockTime = f.BlockTime
+	}
+
+	if v := f.CustomURL; v != nil {
+		t.CustomURL = f.CustomURL
+	}
 }
 
 type Transactions struct {

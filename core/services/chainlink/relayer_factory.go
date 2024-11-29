@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/pelletier/go-toml/v2"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -37,6 +38,7 @@ type RelayerFactory struct {
 	logger.Logger
 	*plugins.LoopRegistry
 	loop.GRPCOpts
+	Registerer            prometheus.Registerer
 	MercuryPool           wsrpc.Pool
 	CapabilitiesRegistry  coretypes.CapabilitiesRegistry
 	HTTPClient            *http.Client
@@ -54,7 +56,7 @@ func (r *RelayerFactory) NewDummy(config DummyFactoryConfig) (loop.Relayer, erro
 type EVMFactoryConfig struct {
 	legacyevm.ChainOpts
 	evmrelay.CSAETHKeystore
-	coreconfig.MercuryTransmitter
+	MercuryConfig coreconfig.Mercury
 }
 
 func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (map[types.RelayID]evmrelay.LOOPRelayAdapter, error) {
@@ -81,9 +83,10 @@ func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (m
 
 		relayerOpts := evmrelay.RelayerOpts{
 			DS:                    ccOpts.DS,
+			Registerer:            r.Registerer,
 			CSAETHKeystore:        config.CSAETHKeystore,
 			MercuryPool:           r.MercuryPool,
-			TransmitterConfig:     config.MercuryTransmitter,
+			MercuryConfig:         config.MercuryConfig,
 			CapabilitiesRegistry:  r.CapabilitiesRegistry,
 			HTTPClient:            r.HTTPClient,
 			RetirementReportCache: r.RetirementReportCache,

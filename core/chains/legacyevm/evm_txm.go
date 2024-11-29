@@ -6,6 +6,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
@@ -55,6 +56,24 @@ func newEvmTxm(
 	}
 
 	if opts.GenTxManager == nil {
+		var txmv2 txmgr.TxManager
+		if cfg.TxmV2().Enabled() {
+			txmv2, err = txmgr.NewTxmV2(
+				ds,
+				cfg,
+				txmgr.NewEvmTxmFeeConfig(cfg.GasEstimator()),
+				cfg.Transactions(),
+				cfg.TxmV2(),
+				client,
+				lggr,
+				logPoller,
+				opts.KeyStore,
+				estimator,
+			)
+			if cfg.ChainType() != chaintype.ChainDualBroadcast {
+				return txmv2, estimator, err
+			}
+		}
 		txm, err = txmgr.NewTxm(
 			ds,
 			cfg,
@@ -68,7 +87,8 @@ func newEvmTxm(
 			logPoller,
 			opts.KeyStore,
 			estimator,
-			headTracker)
+			headTracker,
+			txmv2)
 	} else {
 		txm = opts.GenTxManager(chainID)
 	}
