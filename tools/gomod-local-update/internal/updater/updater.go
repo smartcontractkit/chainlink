@@ -16,24 +16,24 @@ import (
 
 // gitExecutor allows mocking git commands in tests
 type gitExecutor interface {
-    Command(ctx context.Context, args ...string) ([]byte, error)
+	Command(ctx context.Context, args ...string) ([]byte, error)
 }
 
 // realGitExecutor implements actual git command execution
 type realGitExecutor struct{}
 
 func (g *realGitExecutor) Command(ctx context.Context, args ...string) ([]byte, error) {
-    return exec.CommandContext(ctx, "git", args...).Output()
+	return exec.CommandContext(ctx, "git", args...).Output()
 }
 
 const (
-	goModFile          = "go.mod"
-	goModFileMode      = 0644
-	gitSHALength = 12
-	gitTimeout         = 30 * time.Second
-	gitTimeFormat      = time.RFC3339
-	gitRemotePattern   = `^[a-zA-Z0-9][-a-zA-Z0-9_.]*$`
-	gitBranchPattern   = `^[a-zA-Z0-9][-a-zA-Z0-9/_]*$`
+	goModFile           = "go.mod"
+	goModFileMode       = 0644
+	gitSHALength        = 12
+	gitTimeout          = 30 * time.Second
+	gitTimeFormat       = time.RFC3339
+	gitRemotePattern    = `^[a-zA-Z0-9][-a-zA-Z0-9_.]*$`
+	gitBranchPattern    = `^[a-zA-Z0-9][-a-zA-Z0-9/_]*$`
 	majorVersionPattern = `/v\d+$`
 )
 
@@ -45,11 +45,11 @@ type Updater struct {
 
 // New creates a new Updater
 func New(config *Config, system SystemOperator) *Updater {
-    return &Updater{
-        config: config,
-        system: system,
-        git:    &realGitExecutor{},
-    }
+	return &Updater{
+		config: config,
+		system: system,
+		git:    &realGitExecutor{},
+	}
 }
 
 // validateGitInput checks if the remote and branch are in the correct format
@@ -77,7 +77,7 @@ func (u *Updater) getGitInfo(remote, branch string) (string, time.Time, error) {
 
 	out, err := u.git.Command(ctx, "ls-remote", remote, "refs/heads/"+branch)
 	if err != nil {
-		return "", time.Time{}, fmt.Errorf("%w: failed to fetch commit SHA from %s/%s: %v", 
+		return "", time.Time{}, fmt.Errorf("%w: failed to fetch commit SHA from %s/%s: %v",
 			ErrModOperation, remote, branch, err)
 	}
 	if len(out) == 0 {
@@ -165,7 +165,7 @@ func (u *Updater) updateGoMod(f *modfile.File, sha string, commitTime time.Time)
 				}
 
 				if err := f.AddRequire(modulePath, pseudoVersion); err != nil {
-					return fmt.Errorf("%w: failed to update version for module %s: %v", 
+					return fmt.Errorf("%w: failed to update version for module %s: %v",
 						ErrModOperation, modulePath, err)
 				}
 				break
