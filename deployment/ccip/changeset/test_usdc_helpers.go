@@ -39,12 +39,12 @@ func ConfigureUSDCTokenPools(
 	}
 
 	// Connect pool to each other
-	if err := setUSDCTokenPoolCounterPart(chains[src], srcPool, dst, dstToken.Address(), dstPool.Address()); err != nil {
+	if err := setUSDCTokenPoolCounterPart(chains[src], srcPool, dst, chains[src].DeployerKey, dstToken.Address(), dstPool.Address()); err != nil {
 		lggr.Errorw("Failed to set counter part", "err", err, "srcPool", srcPool.Address(), "dstPool", dstPool.Address())
 		return nil, nil, err
 	}
 
-	if err := setUSDCTokenPoolCounterPart(chains[dst], dstPool, src, srcToken.Address(), srcPool.Address()); err != nil {
+	if err := setUSDCTokenPoolCounterPart(chains[dst], dstPool, src, chains[dst].DeployerKey, srcToken.Address(), srcPool.Address()); err != nil {
 		lggr.Errorw("Failed to set counter part", "err", err, "srcPool", dstPool.Address(), "dstPool", srcPool.Address())
 		return nil, nil, err
 	}
@@ -55,7 +55,7 @@ func ConfigureUSDCTokenPools(
 		state.Chains[src].MockUSDCTokenMessenger.Address(),
 		state.Chains[src].MockUSDCTransmitter.Address(),
 	} {
-		if err := grantMintBurnPermissions(lggr, chains[src], srcToken, addr); err != nil {
+		if err := grantMintBurnPermissions(lggr, chains[src], srcToken, chains[src].DeployerKey, addr); err != nil {
 			lggr.Errorw("Failed to grant mint/burn permissions", "err", err, "token", srcToken.Address(), "minter", addr)
 			return nil, nil, err
 		}
@@ -67,7 +67,7 @@ func ConfigureUSDCTokenPools(
 		state.Chains[dst].MockUSDCTokenMessenger.Address(),
 		state.Chains[dst].MockUSDCTransmitter.Address(),
 	} {
-		if err := grantMintBurnPermissions(lggr, chains[dst], dstToken, addr); err != nil {
+		if err := grantMintBurnPermissions(lggr, chains[dst], dstToken, chains[dst].DeployerKey, addr); err != nil {
 			lggr.Errorw("Failed to grant mint/burn permissions", "err", err, "token", dstToken.Address(), "minter", addr)
 			return nil, nil, err
 		}
