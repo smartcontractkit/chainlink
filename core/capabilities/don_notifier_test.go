@@ -31,6 +31,10 @@ func TestDonNotifier_WaitForDon(t *testing.T) {
 	result, err := notifier.WaitForDon(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, don, result)
+
+	result, err = notifier.WaitForDon(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, don, result)
 }
 
 func TestDonNotifier_WaitForDon_ContextTimeout(t *testing.T) {
