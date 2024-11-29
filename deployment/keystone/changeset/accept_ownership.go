@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	ccipowner "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
@@ -28,6 +29,12 @@ func AcceptAllOwnershipsProposal(e deployment.Environment, chainSelector uint64,
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
+
+	consumer, err := feedsConsumerFromAddrBook(e.ExistingAddresses, e.Chains[chainSelector])
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
 	mcmsProposer, err := proposerFromAddrBook(e.ExistingAddresses, e.Chains[chainSelector])
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
@@ -41,7 +48,7 @@ func AcceptAllOwnershipsProposal(e deployment.Environment, chainSelector uint64,
 			chainSelector: mcmsProposer,
 		},
 		Contracts: map[uint64][]changeset.OwnershipAcceptor{
-			chainSelector: {capReg, ocr3, forwarder},
+			chainSelector: {capReg, ocr3, forwarder, consumer},
 		},
 		MinDelay: minDelay,
 	}

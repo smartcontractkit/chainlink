@@ -25,13 +25,17 @@ func TransferAllOwnership(e deployment.Environment, chainSelector uint64) (deplo
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
+	consumer, err := feedsConsumerFromAddrBook(e.ExistingAddresses, e.Chains[chainSelector])
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
 
 	cfg := changeset.TransferOwnershipConfig{
 		OwnersPerChain: map[uint64]common.Address{
 			chainSelector: timelock.Address(),
 		},
 		Contracts: map[uint64][]changeset.OwnershipTransferrer{
-			chainSelector: {capReg, ocr3, forwarder},
+			chainSelector: {capReg, ocr3, forwarder, consumer},
 		},
 	}
 	return changeset.NewTransferOwnershipChangeset(e, cfg)

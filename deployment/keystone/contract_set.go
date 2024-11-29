@@ -92,3 +92,19 @@ func DeployForwarder(lggr logger.Logger, chain deployment.Chain, ab deployment.A
 	lggr.Infof("Deployed %s chain selector %d addr %s", forwarderResp.Tv.String(), chain.Selector, forwarderResp.Address.String())
 	return nil
 }
+
+// DeployFeedsConsumer deploys the KeystoneFeedsConsumer contract to the chain
+// and saves the address in the address book. This mutates the address book.
+func DeployFeedsConsumer(lggr logger.Logger, chain deployment.Chain, ab deployment.AddressBook) error {
+	consumerDeploy := KeystoneFeedsConsumerDeployer{lggr: lggr}
+	consumerResp, err := consumerDeploy.deploy(DeployRequest{Chain: chain})
+	if err != nil {
+		return fmt.Errorf("failed to deploy FeedsConsumer: %w", err)
+	}
+	err = ab.Save(chain.Selector, consumerResp.Address.String(), consumerResp.Tv)
+	if err != nil {
+		return fmt.Errorf("failed to save FeedsConsumer: %w", err)
+	}
+	lggr.Infof("Deployed %s chain selector %d addr %s", consumerResp.Tv.String(), chain.Selector, consumerResp.Address.String())
+	return nil
+}

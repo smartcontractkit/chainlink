@@ -7,10 +7,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	ccipowner "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/keystone"
 
 	capReg "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/feeds_consumer"
 	keystoneForwarder "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder"
 	ocr3Capability "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability"
 )
@@ -74,6 +76,16 @@ func forwarderFromAddrBook(addrBook deployment.AddressBook, chain deployment.Cha
 		chain,
 		keystone.KeystoneForwarder,
 		keystoneForwarder.NewKeystoneForwarder,
+	)
+}
+
+// feedsConsumerFromAddrBook returns the FeedsConsumer contract for the given chain and address book.
+func feedsConsumerFromAddrBook(addrBook deployment.AddressBook, chain deployment.Chain) (*feeds_consumer.KeystoneFeedsConsumer, error) {
+	return getContractFromAddrBook[feeds_consumer.KeystoneFeedsConsumer](
+		addrBook,
+		chain,
+		keystone.FeedConsumer,
+		feeds_consumer.NewKeystoneFeedsConsumer,
 	)
 }
 

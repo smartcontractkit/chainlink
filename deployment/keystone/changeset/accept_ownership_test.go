@@ -42,6 +42,12 @@ func TestAcceptAllOwnership(t *testing.T) {
 	err = env.ExistingAddresses.Merge(chForwarder.AddressBook)
 	require.NoError(t, err)
 
+	chConsumer, err := changeset.DeployFeedsConsumer(env, registrySel)
+	require.NoError(t, err)
+	require.NotNil(t, chConsumer)
+	err = env.ExistingAddresses.Merge(chConsumer.AddressBook)
+	require.NoError(t, err)
+
 	chMcms, err := commonchangeset.DeployMCMSWithTimelock(env, map[uint64]types.MCMSWithTimelockConfig{
 		registrySel: {
 			Canceller:         commonchangeset.SingleGroupMCMS(t),
@@ -69,5 +75,5 @@ func TestAcceptAllOwnership(t *testing.T) {
 	proposal := output.Proposals[0]
 	require.Len(t, proposal.Transactions, 1)
 	txs := proposal.Transactions[0]
-	require.Len(t, txs.Batch, 3)
+	require.Len(t, txs.Batch, 4)
 }
