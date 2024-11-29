@@ -282,6 +282,23 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pro
 		return err
 	}
 	ec.lggr.Debugw("Finished RebroadcastWhereNecessary", "headNum", head.BlockNumber(), "time", time.Since(mark), "id", "confirmer")
+	mark = time.Now()
+
+	if err := ec.EnsureConfirmedTransactionsInLongestChain(ctx, head); err != nil {
+		return fmt.Errorf("EnsureConfirmedTransactionsInLongestChain failed: %w", err)
+	}
+
+	ec.lggr.Debugw("Finished EnsureConfirmedTransactionsInLongestChain", "headNum", head.BlockNumber(), "time", time.Since(mark), "id", "confirmer")
+
+	if ec.resumeCallback != nil {
+		mark = time.Now()
+		if err := ec.ResumePendingTaskRuns(ctx, head.BlockNumber(), latestFinalizedHead.BlockNumber()); err != nil {
+			return fmt.Errorf("ResumePendingTaskRuns failed: %w", err)
+		}
+
+		ec.lggr.Debugw("Finished ResumePendingTaskRuns", "headNum", head.BlockNumber(), "time", time.Since(mark), "id", "confirmer")
+	}
+
 	ec.lggr.Debugw("processHead finish", "headNum", head.BlockNumber(), "id", "confirmer")
 
 	return nil
@@ -798,6 +815,139 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) han
 		// for the next head.
 		return fmt.Errorf("unexpected error sending tx %v with hash %s: %w", etx.ID, attempt.Hash.String(), sendError)
 	}
+}
+
+// EnsureConfirmedTransactionsInLongestChain finds all confirmed txes up to the earliest head
+// of the given chain and ensures that every one has a receipt with a block hash that is
+// in the given chain.
+//
+// If any of the confirmed transactions does not have a receipt in the chain, it has been
+// re-org'd out and will be rebroadcast.
+func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) EnsureConfirmedTransactionsInLongestChain(ctx context.Context, head types.Head[BLOCK_HASH]) error {
+	logArgs := []interface{}{
+		"chainLength", head.ChainLength(),
+	}
+
+	//Here, we rely on the finalized block provided in the chain instead of the one
+	//provided via a dedicated method to avoid the false warning of the chain being
+	//too short. When `FinalityTagBypass = true,` HeadTracker tracks `finality depth
+	//+ history depth` to prevent excessive CPU usage. Thus, the provided chain may
+	//be shorter than the chain from the latest to the latest finalized, marked with
+	//a tag. A proper fix of this issue and complete switch to finality tag support
+	//will be introduced in BCFR-620
+	latestFinalized := head.LatestFinalizedHead()
+	if latestFinalized == nil || !latestFinalized.IsValid() {
+		if ec.nConsecutiveBlocksChainTooShort > logAfterNConsecutiveBlocksChainTooShort {
+			warnMsg := "Chain length supplied for re-org detection was shorter than the depth from the latest head to the finalized head. Re-org protection is not working properly. This could indicate a problem with the remote RPC endpoint, a compatibility issue with a particular blockchain, a bug with this particular blockchain, heads table being truncated too early, remote node out of sync, or something else. If this happens a lot please raise a bug with the Chainlink team including a log output sample and details of the chain and RPC endpoint you are using."
+			ec.lggr.Warnw(warnMsg, append(logArgs, "nConsecutiveBlocksChainTooShort", ec.nConsecutiveBlocksChainTooShort)...)
+		} else {
+			logMsg := "Chain length supplied for re-org detection was shorter than the depth from the latest head to the finalized head"
+			ec.lggr.Debugw(logMsg, append(logArgs, "nConsecutiveBlocksChainTooShort", ec.nConsecutiveBlocksChainTooShort)...)
+		}
+		ec.nConsecutiveBlocksChainTooShort++
+	} else {
+		ec.nConsecutiveBlocksChainTooShort = 0
+	}
+	etxs, err := ec.txStore.FindTransactionsConfirmedInBlockRange(ctx, head.BlockNumber(), head.EarliestHeadInChain().BlockNumber(), ec.chainID)
+	if err != nil {
+		return fmt.Errorf("findTransactionsConfirmedInBlockRange failed: %w", err)
+	}
+
+	for _, etx := range etxs {
+		if !hasReceiptInLongestChain(*etx, head) {
+			if err := ec.markForRebroadcast(ctx, *etx, head); err != nil {
+				return fmt.Errorf("markForRebroadcast failed for etx %v: %w", etx.ID, err)
+			}
+		}
+	}
+
+	// It is safe to process separate keys concurrently
+	// NOTE: This design will block one key if another takes a really long time to execute
+	var wg sync.WaitGroup
+	errors := []error{}
+	var errMu sync.Mutex
+	wg.Add(len(ec.enabledAddresses))
+	for _, address := range ec.enabledAddresses {
+		go func(fromAddress ADDR) {
+			if err := ec.handleAnyInProgressAttempts(ctx, fromAddress, head.BlockNumber()); err != nil {
+				errMu.Lock()
+				errors = append(errors, err)
+				errMu.Unlock()
+				ec.lggr.Errorw("Error in handleAnyInProgressAttempts", "err", err, "fromAddress", fromAddress)
+			}
+
+			wg.Done()
+		}(address)
+	}
+
+	wg.Wait()
+
+	return multierr.Combine(errors...)
+}
+
+func hasReceiptInLongestChain[
+	CHAIN_ID types.ID,
+	ADDR types.Hashable,
+	TX_HASH, BLOCK_HASH types.Hashable,
+	SEQ types.Sequence,
+	FEE feetypes.Fee,
+](etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], head types.Head[BLOCK_HASH]) bool {
+	for {
+		for _, attempt := range etx.TxAttempts {
+			for _, receipt := range attempt.Receipts {
+				if receipt.GetBlockHash().String() == head.BlockHash().String() && receipt.GetBlockNumber().Int64() == head.BlockNumber() {
+					return true
+				}
+			}
+		}
+
+		head = head.GetParent()
+		if head == nil {
+			return false
+		}
+	}
+}
+
+func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) markForRebroadcast(ctx context.Context, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], head types.Head[BLOCK_HASH]) error {
+	if len(etx.TxAttempts) == 0 {
+		return fmt.Errorf("invariant violation: expected tx %v to have at least one attempt", etx.ID)
+	}
+
+	// Rebroadcast the one with the highest gas price
+	attempt := etx.TxAttempts[0]
+	var receipt txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH]
+	if len(attempt.Receipts) > 0 {
+		receipt = attempt.Receipts[0]
+	}
+
+	logValues := []interface{}{
+		"txhash", attempt.Hash.String(),
+		"currentBlockNum", head.BlockNumber(),
+		"currentBlockHash", head.BlockHash().String(),
+		"txID", etx.ID,
+		"attemptID", attempt.ID,
+		"nReceipts", len(attempt.Receipts),
+		"id", "confirmer",
+	}
+
+	// nil check on receipt interface
+	if receipt != nil {
+		logValues = append(logValues,
+			"replacementBlockHashAtConfirmedHeight", head.HashAtHeight(receipt.GetBlockNumber().Int64()),
+			"confirmedInBlockNum", receipt.GetBlockNumber(),
+			"confirmedInBlockHash", receipt.GetBlockHash(),
+			"confirmedInTxIndex", receipt.GetTransactionIndex(),
+		)
+	}
+
+	ec.lggr.Infow(fmt.Sprintf("Re-org detected. Rebroadcasting transaction %s which may have been re-org'd out of the main chain", attempt.Hash.String()), logValues...)
+
+	// Put it back in progress and delete all receipts (they do not apply to the new chain)
+	if err := ec.txStore.UpdateTxForRebroadcast(ctx, etx, attempt); err != nil {
+		return fmt.Errorf("markForRebroadcast failed: %w", err)
+	}
+
+	return nil
 }
 
 // ForceRebroadcast sends a transaction for every sequence in the given sequence range at the given gas price.

@@ -1594,6 +1594,180 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyStuckError(t *testing.
 	})
 }
 
+func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	txStore := cltest.NewTestTxStore(t, db)
+	ctx := tests.Context(t)
+
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
+
+	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+
+	gconfig, config := newTestChainScopedConfig(t)
+	ec := newEthConfirmer(t, txStore, ethClient, gconfig, config, ethKeyStore, nil)
+
+	h8 := &evmtypes.Head{
+		Number: 8,
+		Hash:   testutils.NewHash(),
+	}
+	h9 := &evmtypes.Head{
+		Hash:   testutils.NewHash(),
+		Number: 9,
+	}
+	h9.Parent.Store(h8)
+	head := &evmtypes.Head{
+		Hash:   testutils.NewHash(),
+		Number: 10,
+	}
+	head.Parent.Store(h9)
+	t.Run("does nothing if there aren't any transactions", func(t *testing.T) {
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), head))
+	})
+
+	t.Run("does nothing to unconfirmed transactions", func(t *testing.T) {
+		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 0, fromAddress)
+
+		// Do the thing
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), head))
+
+		etx, err := txStore.FindTxWithAttempts(ctx, etx.ID)
+		require.NoError(t, err)
+		assert.Equal(t, txmgrcommon.TxUnconfirmed, etx.State)
+	})
+
+	t.Run("does nothing to confirmed transactions with receipts within head height of the chain and included in the chain", func(t *testing.T) {
+		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 2, 1, fromAddress)
+		mustInsertEthReceipt(t, txStore, head.Number, head.Hash, etx.TxAttempts[0].Hash)
+
+		// Do the thing
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), head))
+
+		etx, err := txStore.FindTxWithAttempts(ctx, etx.ID)
+		require.NoError(t, err)
+		assert.Equal(t, txmgrcommon.TxConfirmed, etx.State)
+	})
+
+	t.Run("does nothing to confirmed transactions that only have receipts older than the start of the chain", func(t *testing.T) {
+		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 3, 1, fromAddress)
+		// Add receipt that is older than the lowest block of the chain
+		mustInsertEthReceipt(t, txStore, h8.Number-1, testutils.NewHash(), etx.TxAttempts[0].Hash)
+
+		// Do the thing
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), head))
+
+		etx, err := txStore.FindTxWithAttempts(ctx, etx.ID)
+		require.NoError(t, err)
+		assert.Equal(t, txmgrcommon.TxConfirmed, etx.State)
+	})
+
+	t.Run("unconfirms and rebroadcasts transactions that have receipts within head height of the chain but not included in the chain", func(t *testing.T) {
+		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 4, 1, fromAddress)
+		attempt := etx.TxAttempts[0]
+		// Include one within head height but a different block hash
+		mustInsertEthReceipt(t, txStore, head.Parent.Load().Number, testutils.NewHash(), attempt.Hash)
+
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
+			atx, err := txmgr.GetGethSignedTx(attempt.SignedRawTx)
+			require.NoError(t, err)
+			// Keeps gas price and nonce the same
+			return atx.GasPrice().Cmp(tx.GasPrice()) == 0 && atx.Nonce() == tx.Nonce()
+		}), fromAddress).Return(commonclient.Successful, nil).Once()
+
+		// Do the thing
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), head))
+
+		etx, err := txStore.FindTxWithAttempts(ctx, etx.ID)
+		require.NoError(t, err)
+		assert.Equal(t, txmgrcommon.TxUnconfirmed, etx.State)
+		require.Len(t, etx.TxAttempts, 1)
+		attempt = etx.TxAttempts[0]
+		assert.Equal(t, txmgrtypes.TxAttemptBroadcast, attempt.State)
+	})
+
+	t.Run("unconfirms and rebroadcasts transactions that have receipts within head height of chain but not included in the chain even if a receipt exists older than the start of the chain", func(t *testing.T) {
+		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 5, 1, fromAddress)
+		attempt := etx.TxAttempts[0]
+		attemptHash := attempt.Hash
+		// Add receipt that is older than the lowest block of the chain
+		mustInsertEthReceipt(t, txStore, h8.Number-1, testutils.NewHash(), attemptHash)
+		// Include one within head height but a different block hash
+		mustInsertEthReceipt(t, txStore, head.Parent.Load().Number, testutils.NewHash(), attemptHash)
+
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, fromAddress).Return(
+			commonclient.Successful, nil).Once()
+
+		// Do the thing
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), head))
+
+		etx, err := txStore.FindTxWithAttempts(ctx, etx.ID)
+		require.NoError(t, err)
+		assert.Equal(t, txmgrcommon.TxUnconfirmed, etx.State)
+		require.Len(t, etx.TxAttempts, 1)
+		attempt = etx.TxAttempts[0]
+		assert.Equal(t, txmgrtypes.TxAttemptBroadcast, attempt.State)
+	})
+
+	t.Run("if more than one attempt has a receipt (should not be possible but isn't prevented by database constraints) unconfirms and rebroadcasts only the attempt with the highest gas price", func(t *testing.T) {
+		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 6, 1, fromAddress)
+		require.Len(t, etx.TxAttempts, 1)
+		// Sanity check to assert the included attempt has the lowest gas price
+		require.Less(t, etx.TxAttempts[0].TxFee.GasPrice.ToInt().Int64(), int64(30000))
+
+		attempt2 := newBroadcastLegacyEthTxAttempt(t, etx.ID, 30000)
+		attempt2.SignedRawTx = hexutil.MustDecode("0xf88c8301f3a98503b9aca000832ab98094f5fff180082d6017036b771ba883025c654bc93580a4daa6d556000000000000000000000000000000000000000000000000000000000000000026a0f25601065ee369b6470c0399a2334afcfbeb0b5c8f3d9a9042e448ed29b5bcbda05b676e00248b85faf4dd889f0e2dcf91eb867e23ac9eeb14a73f9e4c14972cdf")
+		attempt3 := newBroadcastLegacyEthTxAttempt(t, etx.ID, 40000)
+		attempt3.SignedRawTx = hexutil.MustDecode("0xf88c8301f3a88503b9aca0008316e36094151445852b0cfdf6a4cc81440f2af99176e8ad0880a4daa6d556000000000000000000000000000000000000000000000000000000000000000026a0dcb5a7ad52b96a866257134429f944c505820716567f070e64abb74899803855a04c13eff2a22c218e68da80111e1bb6dc665d3dea7104ab40ff8a0275a99f630d")
+		require.NoError(t, txStore.InsertTxAttempt(ctx, &attempt2))
+		require.NoError(t, txStore.InsertTxAttempt(ctx, &attempt3))
+
+		// Receipt is within head height but a different block hash
+		mustInsertEthReceipt(t, txStore, head.Parent.Load().Number, testutils.NewHash(), attempt2.Hash)
+		// Receipt is within head height but a different block hash
+		mustInsertEthReceipt(t, txStore, head.Parent.Load().Number, testutils.NewHash(), attempt3.Hash)
+
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
+			s, err := txmgr.GetGethSignedTx(attempt3.SignedRawTx)
+			require.NoError(t, err)
+			return tx.Hash() == s.Hash()
+		}), fromAddress).Return(commonclient.Successful, nil).Once()
+
+		// Do the thing
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), head))
+
+		etx, err := txStore.FindTxWithAttempts(ctx, etx.ID)
+		require.NoError(t, err)
+		assert.Equal(t, txmgrcommon.TxUnconfirmed, etx.State)
+		require.Len(t, etx.TxAttempts, 3)
+		attempt1 := etx.TxAttempts[0]
+		assert.Equal(t, txmgrtypes.TxAttemptBroadcast, attempt1.State)
+		attempt2 = etx.TxAttempts[1]
+		assert.Equal(t, txmgrtypes.TxAttemptBroadcast, attempt2.State)
+		attempt3 = etx.TxAttempts[2]
+		assert.Equal(t, txmgrtypes.TxAttemptBroadcast, attempt3.State)
+	})
+
+	t.Run("if receipt has a block number that is in the future, does not mark for rebroadcast (the safe thing to do is simply wait until heads catches up)", func(t *testing.T) {
+		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 7, 1, fromAddress)
+		attempt := etx.TxAttempts[0]
+		// Add receipt that is higher than head
+		mustInsertEthReceipt(t, txStore, head.Number+1, testutils.NewHash(), attempt.Hash)
+
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), head))
+
+		etx, err := txStore.FindTxWithAttempts(ctx, etx.ID)
+		require.NoError(t, err)
+		assert.Equal(t, txmgrcommon.TxConfirmed, etx.State)
+		require.Len(t, etx.TxAttempts, 1)
+		attempt = etx.TxAttempts[0]
+		assert.Equal(t, txmgrtypes.TxAttemptBroadcast, attempt.State)
+		assert.Len(t, attempt.Receipts, 1)
+	})
+}
+
 func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 	t.Parallel()
 

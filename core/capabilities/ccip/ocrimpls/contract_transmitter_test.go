@@ -476,7 +476,8 @@ func makeTestEvmTxm(
 		lp,
 		keyStore,
 		estimator,
-		ht)
+		ht,
+		nil)
 	require.NoError(t, err, "can't create tx manager")
 
 	_, unsub := broadcaster.Subscribe(txm)
@@ -603,8 +604,8 @@ func (d *TestDAOracleConfig) OracleType() *toml.DAOracleType {
 	return &oracleType
 }
 
-func (d *TestDAOracleConfig) OracleAddress() *evmtypes.EIP55Address {
-	a, err := evmtypes.NewEIP55Address("0x420000000000000000000000000000000000000F")
+func (d *TestDAOracleConfig) OracleAddress() *types.EIP55Address {
+	a, err := types.NewEIP55Address("0x420000000000000000000000000000000000000F")
 	if err != nil {
 		panic(err)
 	}
