@@ -832,23 +832,6 @@ func Test_GetWrappedNativeTokenPriceUSD(t *testing.T) {
 	require.Equal(t, changeset.DefaultInitialPrices.WethPrice, prices[cciptypes.ChainSelector(chain1)].Int)
 }
 
-func setupSimulatedBackendAndAuth(t testing.TB) (*simulated.Backend, *bind.TransactOpts) {
-	privateKey, err := crypto.GenerateKey()
-	require.NoError(t, err)
-
-	blnc, ok := big.NewInt(0).SetString("999999999999999999999999999999999999", 10)
-	require.True(t, ok)
-
-	alloc := map[common.Address]ethtypes.Account{crypto.PubkeyToAddress(privateKey.PublicKey): {Balance: blnc}}
-	simulatedBackend := simulated.NewBackend(alloc, simulated.WithBlockGasLimit(8000000))
-
-	auth, err := bind.NewKeyedTransactorWithChainID(privateKey, big.NewInt(1337))
-	require.NoError(t, err)
-	auth.GasLimit = uint64(6000000)
-
-	return simulatedBackend, auth
-}
-
 // Benchmark Results:
 // Benchmark_CCIPReader_CommitReportsGTETimestamp/FirstLogs_0_MatchLogs_0-14             1000000000          0.001293 ns/op        0 B/op          0 allocs/op
 // Benchmark_CCIPReader_CommitReportsGTETimestamp/FirstLogs_1_MatchLogs_10-14            1000000000          0.002117 ns/op        0 B/op          0 allocs/op
@@ -1011,12 +994,39 @@ func benchmarkExecutedMessageRanges(b *testing.B, logsInsertedFirst int, startSe
 	// Initialize test setup
 	ctx := tests.Context(b)
 	sb, auth := setupSimulatedBackendAndAuth(b)
+	cfg := evmtypes.ChainReaderConfig{
+		Contracts: map[string]evmtypes.ChainContractReader{
+			consts.ContractNameOffRamp: {
+				ContractPollingFilter: evmtypes.ContractPollingFilter{
+					GenericEventNames: []string{consts.EventNameExecutionStateChanged},
+				},
+				ContractABI: ccip_reader_tester.CCIPReaderTesterABI,
+				Configs: map[string]*evmtypes.ChainReaderDefinition{
+					consts.EventNameExecutionStateChanged: {
+						ChainSpecificName: consts.EventNameExecutionStateChanged,
+						ReadType:          evmtypes.Event,
+						EventDefinitions: &evmtypes.EventDefinitions{
+							GenericTopicNames: map[string]string{
+								"sourceChainSelector": consts.EventAttributeSourceChain,
+								"sequenceNumber":      consts.EventAttributeSequenceNumber,
+							},
+							GenericDataWordDetails: map[string]evmtypes.DataWordDetail{
+								consts.EventAttributeState: {
+									Name: "state",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
 	expectedRangeLen := calculateExpectedRangeLen(logsInsertedFirst, startSeqNum, endSeqNum)
 	s := testSetup(ctx, &testing.B{}, testSetupParams{
 		ReaderChain:      chainD,
 		DestChain:        chainD,
 		OnChainSeqNums:   nil,
-		Cfg:              evmconfig.DestReaderConfig,
+		Cfg:              cfg,
 		ToBindContracts:  nil,
 		ToMockBindings:   nil,
 		BindTester:       true,
@@ -1111,31 +1121,6 @@ func populateDatabaseForExecutionStateChanged(
 	// Insert logs into the database
 	require.NoError(b, testEnv.orm.InsertLogs(ctx, logs))
 	require.NoError(b, testEnv.orm.InsertBlock(ctx, utils.RandomHash(), int64(offset+numOfEvents), time.Now(), int64(offset+numOfEvents)))
-}
-
-func calculateExpectedRangeLen(logsInserted int, startSeq, endSeq cciptypes.SeqNum) int {
-	// If no logs inserted, result should be 0
-	if logsInserted == 0 {
-		return 0
-	}
-
-	// Convert to int64 for safer arithmetic
-	start := uint64(startSeq)
-	end := uint64(endSeq)
-	logs := uint64(logsInserted)
-
-	// If start is beyond our available logs, return 0
-	if start >= logs {
-		return 0
-	}
-
-	// If end is beyond our available logs, cap it
-	if end >= logs {
-		end = logs - 1
-	}
-
-	// Calculate length of valid range
-	return int(end - start + 1)
 }
 
 // Benchmark Results:
@@ -1302,6 +1287,48 @@ func populateDatabaseForMessageSent(
 	require.NoError(b, testEnv.orm.InsertBlock(ctx, utils.RandomHash(), int64(offset+numOfEvents), time.Now(), int64(offset+numOfEvents)))
 }
 
+func calculateExpectedRangeLen(logsInserted int, startSeq, endSeq cciptypes.SeqNum) int {
+	// If no logs inserted, result should be 0
+	if logsInserted == 0 {
+		return 0
+	}
+
+	// Convert to int64 for safer arithmetic
+	start := uint64(startSeq)
+	end := uint64(endSeq)
+	logs := uint64(logsInserted)
+
+	// If start is beyond our available logs, return 0
+	if start >= logs {
+		return 0
+	}
+
+	// If end is beyond our available logs, cap it
+	if end >= logs {
+		end = logs - 1
+	}
+
+	// Calculate length of valid range
+	return int(end - start + 1)
+}
+
+func setupSimulatedBackendAndAuth(t testing.TB) (*simulated.Backend, *bind.TransactOpts) {
+	privateKey, err := crypto.GenerateKey()
+	require.NoError(t, err)
+
+	blnc, ok := big.NewInt(0).SetString("999999999999999999999999999999999999", 10)
+	require.True(t, ok)
+
+	alloc := map[common.Address]ethtypes.Account{crypto.PubkeyToAddress(privateKey.PublicKey): {Balance: blnc}}
+	simulatedBackend := simulated.NewBackend(alloc, simulated.WithBlockGasLimit(8000000))
+
+	auth, err := bind.NewKeyedTransactorWithChainID(privateKey, big.NewInt(1337))
+	require.NoError(t, err)
+	auth.GasLimit = uint64(6000000)
+
+	return simulatedBackend, auth
+}
+
 func testSetupRealContracts(
 	ctx context.Context,
 	t *testing.T,
@@ -1412,7 +1439,9 @@ func testSetup(
 	}
 	cl := client.NewSimulatedBackendClient(t, params.SimulatedBackend, big.NewInt(0).SetUint64(uint64(params.ReaderChain)))
 	headTracker := headtracker.NewSimulatedHeadTracker(cl, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
-	lp := logpoller.NewLogPoller(logpoller.NewORM(big.NewInt(0).SetUint64(uint64(params.ReaderChain)), db, lggr),
+	orm := logpoller.NewORM(big.NewInt(0).SetUint64(uint64(params.ReaderChain)), db, lggr)
+	lp := logpoller.NewLogPoller(
+		orm,
 		cl,
 		lggr,
 		headTracker,
@@ -1504,6 +1533,7 @@ func testSetup(
 		contract:     contract,
 		sb:           params.SimulatedBackend,
 		auth:         params.Auth,
+		orm:          orm,
 		lp:           lp,
 		cl:           cl,
 		reader:       reader,
@@ -1531,7 +1561,6 @@ type testSetupData struct {
 	sb           *simulated.Backend
 	auth         *bind.TransactOpts
 	orm          logpoller.ORM
-	db           *sqlx.DB
 	lp           logpoller.LogPoller
 	cl           client.Client
 	reader       ccipreaderpkg.CCIPReader
