@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -39,7 +40,7 @@ func TestAddChainInbound(t *testing.T) {
 	// We deploy to the rest.
 	initialDeploy := e.Env.AllChainSelectorsExcluding([]uint64{newChain})
 	newAddresses := deployment.NewMemoryAddressBook()
-	err = DeployPrerequisiteChainContracts(e.Env, newAddresses, initialDeploy)
+	err = deployPrerequisiteChainContracts(e.Env, newAddresses, initialDeploy, nil)
 	require.NoError(t, err)
 	require.NoError(t, e.Env.ExistingAddresses.Merge(newAddresses))
 
@@ -59,7 +60,8 @@ func TestAddChainInbound(t *testing.T) {
 	require.NoError(t, e.Env.ExistingAddresses.Merge(out.AddressBook))
 	newAddresses = deployment.NewMemoryAddressBook()
 	tokenConfig := NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
-	err = DeployCCIPContracts(e.Env, newAddresses, DeployCCIPContractConfig{
+
+	err = deployCCIPContracts(e.Env, newAddresses, NewChainsConfig{
 		HomeChainSel:   e.HomeChainSel,
 		FeedChainSel:   e.FeedChainSel,
 		ChainsToDeploy: initialDeploy,
@@ -67,7 +69,7 @@ func TestAddChainInbound(t *testing.T) {
 		OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
 	})
 	require.NoError(t, err)
-	require.NoError(t, e.Env.ExistingAddresses.Merge(newAddresses))
+
 	state, err = LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
@@ -75,7 +77,7 @@ func TestAddChainInbound(t *testing.T) {
 	for _, source := range initialDeploy {
 		for _, dest := range initialDeploy {
 			if source != dest {
-				require.NoError(t, AddLaneWithDefaultPrices(e.Env, state, source, dest))
+				require.NoError(t, AddLaneWithDefaultPricesAndFeeQuoterConfig(e.Env, state, source, dest, false))
 			}
 		}
 	}
@@ -94,7 +96,8 @@ func TestAddChainInbound(t *testing.T) {
 	require.NoError(t, e.Env.ExistingAddresses.Merge(out.AddressBook))
 
 	newAddresses = deployment.NewMemoryAddressBook()
-	err = DeployPrerequisiteChainContracts(e.Env, newAddresses, []uint64{newChain})
+
+	err = deployPrerequisiteChainContracts(e.Env, newAddresses, []uint64{newChain}, nil)
 	require.NoError(t, err)
 	require.NoError(t, e.Env.ExistingAddresses.Merge(newAddresses))
 	newAddresses = deployment.NewMemoryAddressBook()
@@ -105,18 +108,9 @@ func TestAddChainInbound(t *testing.T) {
 	state, err = LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
-	// Transfer onramp/fq ownership to timelock.
-	// Enable the new dest on the test router.
+	// configure the testrouter appropriately on each chain
 	for _, source := range initialDeploy {
-		tx, err := state.Chains[source].OnRamp.TransferOwnership(e.Env.Chains[source].DeployerKey, state.Chains[source].Timelock.Address())
-		require.NoError(t, err)
-		_, err = deployment.ConfirmIfNoError(e.Env.Chains[source], tx, err)
-		require.NoError(t, err)
-		tx, err = state.Chains[source].FeeQuoter.TransferOwnership(e.Env.Chains[source].DeployerKey, state.Chains[source].Timelock.Address())
-		require.NoError(t, err)
-		_, err = deployment.ConfirmIfNoError(e.Env.Chains[source], tx, err)
-		require.NoError(t, err)
-		tx, err = state.Chains[source].TestRouter.ApplyRampUpdates(e.Env.Chains[source].DeployerKey, []router.RouterOnRamp{
+		tx, err := state.Chains[source].TestRouter.ApplyRampUpdates(e.Env.Chains[source].DeployerKey, []router.RouterOnRamp{
 			{
 				DestChainSelector: newChain,
 				OnRamp:            state.Chains[source].OnRamp.Address(),
@@ -125,34 +119,28 @@ func TestAddChainInbound(t *testing.T) {
 		_, err = deployment.ConfirmIfNoError(e.Env.Chains[source], tx, err)
 		require.NoError(t, err)
 	}
-	// Transfer CR contract ownership
-	tx, err := state.Chains[e.HomeChainSel].CapabilityRegistry.TransferOwnership(e.Env.Chains[e.HomeChainSel].DeployerKey, state.Chains[e.HomeChainSel].Timelock.Address())
-	require.NoError(t, err)
-	_, err = deployment.ConfirmIfNoError(e.Env.Chains[e.HomeChainSel], tx, err)
-	require.NoError(t, err)
-	tx, err = state.Chains[e.HomeChainSel].CCIPHome.TransferOwnership(e.Env.Chains[e.HomeChainSel].DeployerKey, state.Chains[e.HomeChainSel].Timelock.Address())
-	require.NoError(t, err)
-	_, err = deployment.ConfirmIfNoError(e.Env.Chains[e.HomeChainSel], tx, err)
+
+	// transfer ownership to timelock
+	_, err = commonchangeset.ApplyChangesets(t, e.Env, map[uint64]*gethwrappers.RBACTimelock{
+		initialDeploy[0]: state.Chains[initialDeploy[0]].Timelock,
+		initialDeploy[1]: state.Chains[initialDeploy[1]].Timelock,
+		initialDeploy[2]: state.Chains[initialDeploy[2]].Timelock,
+	}, []commonchangeset.ChangesetApplication{
+		// note this doesn't have proposals.
+		{
+			Changeset: commonchangeset.WrapChangeSet(commonchangeset.NewTransferOwnershipChangeset),
+			Config:    genTestTransferOwnershipConfig(e, initialDeploy, state),
+		},
+		// this has proposals, ApplyChangesets will sign & execute them.
+		// in practice, signing and executing are separated processes.
+		{
+			Changeset: commonchangeset.WrapChangeSet(commonchangeset.NewAcceptOwnershipChangeset),
+			Config:    genTestAcceptOwnershipConfig(e, initialDeploy, state),
+		},
+	})
 	require.NoError(t, err)
 
-	acceptOwnershipProposal, err := GenerateAcceptOwnershipProposal(state, e.HomeChainSel, initialDeploy)
-	require.NoError(t, err)
-	acceptOwnershipExec := commonchangeset.SignProposal(t, e.Env, acceptOwnershipProposal)
-	// Apply the accept ownership proposal to all the chains.
-	for _, sel := range initialDeploy {
-		commonchangeset.ExecuteProposal(t, e.Env, acceptOwnershipExec, state.Chains[sel].Timelock, sel)
-	}
-	for _, chain := range initialDeploy {
-		owner, err2 := state.Chains[chain].OnRamp.Owner(nil)
-		require.NoError(t, err2)
-		require.Equal(t, state.Chains[chain].Timelock.Address(), owner)
-	}
-	cfgOwner, err := state.Chains[e.HomeChainSel].CCIPHome.Owner(nil)
-	require.NoError(t, err)
-	crOwner, err := state.Chains[e.HomeChainSel].CapabilityRegistry.Owner(nil)
-	require.NoError(t, err)
-	require.Equal(t, state.Chains[e.HomeChainSel].Timelock.Address(), cfgOwner)
-	require.Equal(t, state.Chains[e.HomeChainSel].Timelock.Address(), crOwner)
+	assertTimelockOwnership(t, e, initialDeploy, state)
 
 	nodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
@@ -200,7 +188,7 @@ func TestAddChainInbound(t *testing.T) {
 			OnRamp:              common.LeftPadBytes(state.Chains[source].OnRamp.Address().Bytes(), 32),
 		})
 	}
-	tx, err = state.Chains[newChain].OffRamp.ApplySourceChainConfigUpdates(e.Env.Chains[newChain].DeployerKey, offRampEnables)
+	tx, err := state.Chains[newChain].OffRamp.ApplySourceChainConfigUpdates(e.Env.Chains[newChain].DeployerKey, offRampEnables)
 	require.NoError(t, err)
 	_, err = deployment.ConfirmIfNoError(e.Env.Chains[newChain], tx, err)
 	require.NoError(t, err)
@@ -245,12 +233,22 @@ func TestAddChainInbound(t *testing.T) {
 		ExtraArgs:    nil,
 	})
 	require.NoError(t,
-		ConfirmCommitWithExpectedSeqNumRange(t, e.Env.Chains[initialDeploy[0]], e.Env.Chains[newChain], state.Chains[newChain].OffRamp, &startBlock, cciptypes.SeqNumRange{
+		commonutils.JustError(ConfirmCommitWithExpectedSeqNumRange(t, e.Env.Chains[initialDeploy[0]], e.Env.Chains[newChain], state.Chains[newChain].OffRamp, &startBlock, cciptypes.SeqNumRange{
 			cciptypes.SeqNum(1),
 			cciptypes.SeqNum(msgSentEvent.SequenceNumber),
-		}))
+		})))
 	require.NoError(t,
-		commonutils.JustError(ConfirmExecWithSeqNr(t, e.Env.Chains[initialDeploy[0]], e.Env.Chains[newChain], state.Chains[newChain].OffRamp, &startBlock, msgSentEvent.SequenceNumber)))
+		commonutils.JustError(
+			ConfirmExecWithSeqNrs(
+				t,
+				e.Env.Chains[initialDeploy[0]],
+				e.Env.Chains[newChain],
+				state.Chains[newChain].OffRamp,
+				&startBlock,
+				[]uint64{msgSentEvent.SequenceNumber},
+			),
+		),
+	)
 
 	linkAddress := state.Chains[newChain].LinkToken.Address()
 	feeQuoter := state.Chains[newChain].FeeQuoter

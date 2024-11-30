@@ -12,12 +12,7 @@ import (
 )
 
 func BuildWorkflow(config []byte) *sdk.WorkflowSpecFactory {
-	workflow := sdk.NewWorkflowSpecFactory(
-		sdk.NewWorkflowParams{
-			Name:  "tester",
-			Owner: "ryan",
-		},
-	)
+	workflow := sdk.NewWorkflowSpecFactory()
 
 	triggerCfg := basictrigger.TriggerConfig{Name: "trigger", Number: 100}
 	trigger := triggerCfg.New(workflow)

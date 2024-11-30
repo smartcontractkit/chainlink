@@ -11,7 +11,8 @@ Emergency Protocol (L2EP) contracts. It is organized as follows:
 
 ## The `/dev` Folder
 
-The `/dev` folder contains subfolders for each chain that
+The `/dev` folder contains contracts that has not yet been audited. 
+The root folder contains subfolders for each chain that
 has an L2EP solution implemented for it (e.g. `/scroll`, `/arbitrum`,
 `/optimism`). It also contains a subfolder named `/interfaces`,
 which stores shared interface types between all the supported

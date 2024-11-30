@@ -7,7 +7,7 @@ import {WorkflowRegistrySetup} from "./WorkflowRegistrySetup.t.sol";
 
 contract WorkflowRegistry_updateAuthorizedAddresses is WorkflowRegistrySetup {
   function test_RevertWhen_TheCallerIsNotTheOwner() external {
-    vm.prank(s_nonOwner);
+    vm.prank(s_stranger);
 
     vm.expectRevert(Ownable2Step.OnlyCallableByOwner.selector);
     s_registry.updateAuthorizedAddresses(new address[](0), true);
@@ -36,7 +36,7 @@ contract WorkflowRegistry_updateAuthorizedAddresses is WorkflowRegistrySetup {
     assertEq(authorizedAddresses.length, 1);
 
     // Expect the event to be emitted
-    vm.expectEmit(true, true, true, true);
+    vm.expectEmit();
     emit WorkflowRegistry.AuthorizedAddressesUpdatedV1(addressesToAdd, true);
 
     // Call the function as the owner
@@ -58,7 +58,7 @@ contract WorkflowRegistry_updateAuthorizedAddresses is WorkflowRegistrySetup {
     assertEq(authorizedAddresses.length, 1);
 
     // Expect the event to be emitted
-    vm.expectEmit(true, true, true, true);
+    vm.expectEmit();
     emit WorkflowRegistry.AuthorizedAddressesUpdatedV1(addressesToRemove, false);
 
     // Call the function as the owner

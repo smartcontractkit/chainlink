@@ -149,7 +149,6 @@ func NewClNode(networks []string, imageName, imageVersion string, nodeConfig *ch
 		PostgresDb:   pgDb,
 		l:            log.Logger,
 	}
-	n.SetDefaultHooks()
 	for _, opt := range opts {
 		opt(n)
 	}
@@ -493,7 +492,22 @@ func (n *ClNode) getContainerRequest(secrets string) (
 		},
 		LifecycleHooks: []tc.ContainerLifecycleHooks{
 			{
-				PostStarts:    n.PostStartsHooks,
+				PostStarts: []tc.ContainerHook{
+					func(ctx context.Context, c tc.Container) error {
+						if n.LogStream != nil {
+							return n.LogStream.ConnectContainer(ctx, c, "")
+						}
+						return nil
+					},
+				},
+				PreStops: []tc.ContainerHook{
+					func(ctx context.Context, c tc.Container) error {
+						if n.LogStream != nil {
+							return n.LogStream.DisconnectContainer(c)
+						}
+						return nil
+					},
+				},
 				PostStops:     n.PostStopsHooks,
 				PreTerminates: n.PreTerminatesHooks,
 			},

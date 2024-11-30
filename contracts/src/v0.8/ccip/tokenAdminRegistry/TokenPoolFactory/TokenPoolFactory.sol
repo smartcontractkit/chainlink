@@ -37,8 +37,8 @@ contract TokenPoolFactory is ITypeAndVersion {
     // will be predicted
     bytes remotePoolInitCode; // Remote pool creation code if it needs to be deployed, without constructor params
     // appended to the end.
-    RemoteChainConfig remoteChainConfig; // The addresses of the remote RMNProxy, Router, and factory for determining
-    // the remote address
+    RemoteChainConfig remoteChainConfig; // The addresses of the remote RMNProxy, Router, factory, and token
+    // decimals which are needed for determining the remote address
     PoolType poolType; // The type of pool to deploy, either Burn/Mint or Lock/Release
     bytes remoteTokenAddress; // EVM address for remote token. If empty, the address will be predicted
     bytes remoteTokenInitCode; // The init code to be deployed on the remote chain and includes constructor params
@@ -50,9 +50,10 @@ contract TokenPoolFactory is ITypeAndVersion {
     address remotePoolFactory; // The factory contract on the remote chain which will make the deployment
     address remoteRouter; // The router on the remote chain
     address remoteRMNProxy; // The RMNProxy contract on the remote chain
+    uint8 remoteTokenDecimals; // The number of decimals for the token on the remote chain
   }
 
-  string public constant typeAndVersion = "TokenPoolFactory 1.7.0-dev";
+  string public constant typeAndVersion = "TokenPoolFactory 1.5.1";
 
   ITokenAdminRegistry private immutable i_tokenAdminRegistry;
   RegistryModuleOwnerCustom private immutable i_registryModuleOwnerCustom;
@@ -92,6 +93,8 @@ contract TokenPoolFactory is ITypeAndVersion {
   /// to the msg.sender, but must be accepted in a separate transaction due to 2-step ownership transfer.
   /// @param remoteTokenPools An array of remote token pools info to be used in the pool's applyChainUpdates function
   /// or to be predicted if the pool has not been deployed yet on the remote chain
+  /// @param localTokenDecimals The amount of decimals to be used in the new token. Since decimals() is not part of the
+  /// the ERC20 standard, and thus cannot be certain to exist, the amount must be supplied via user input.
   /// @param tokenInitCode The creation code for the token, which includes the constructor parameters already appended
   /// @param tokenPoolInitCode The creation code for the token pool, without the constructor parameters appended
   /// @param salt The salt to be used in the create2 deployment of the token and token pool to ensure a unique address
@@ -99,6 +102,7 @@ contract TokenPoolFactory is ITypeAndVersion {
   /// @return pool The address of the token pool that was deployed
   function deployTokenAndTokenPool(
     RemoteTokenPoolInfo[] calldata remoteTokenPools,
+    uint8 localTokenDecimals,
     bytes memory tokenInitCode,
     bytes calldata tokenPoolInitCode,
     bytes32 salt
@@ -111,7 +115,8 @@ contract TokenPoolFactory is ITypeAndVersion {
     address token = Create2.deploy(0, salt, tokenInitCode);
 
     // Deploy the token pool
-    address pool = _createTokenPool(token, remoteTokenPools, tokenPoolInitCode, salt, PoolType.BURN_MINT);
+    address pool =
+      _createTokenPool(token, localTokenDecimals, remoteTokenPools, tokenPoolInitCode, salt, PoolType.BURN_MINT);
 
     // Grant the mint and burn roles to the pool for the token
     FactoryBurnMintERC20(token).grantMintAndBurnRoles(pool);
@@ -131,12 +136,15 @@ contract TokenPoolFactory is ITypeAndVersion {
   /// tokenAdminRegistry manually
   /// @dev since the token already exists, the owner must grant the mint and burn roles to the pool manually
   /// @param token The address of the existing token to be used in the token pool
+  /// @param localTokenDecimals The amount of decimals used in the existing token. Since decimals() is not part of the
+  /// the ERC20 standard, and thus cannot be certain to exist, the amount must be supplied via user input.
   /// @param remoteTokenPools An array of remote token pools info to be used in the pool's applyChainUpdates function
   /// @param tokenPoolInitCode The creation code for the token pool
   /// @param salt The salt to be used in the create2 deployment of the token pool
   /// @return poolAddress The address of the token pool that was deployed
   function deployTokenPoolWithExistingToken(
     address token,
+    uint8 localTokenDecimals,
     RemoteTokenPoolInfo[] calldata remoteTokenPools,
     bytes calldata tokenPoolInitCode,
     bytes32 salt,
@@ -147,7 +155,7 @@ contract TokenPoolFactory is ITypeAndVersion {
     salt = keccak256(abi.encodePacked(salt, msg.sender));
 
     // create the token pool and return the address
-    return _createTokenPool(token, remoteTokenPools, tokenPoolInitCode, salt, poolType);
+    return _createTokenPool(token, localTokenDecimals, remoteTokenPools, tokenPoolInitCode, salt, poolType);
   }
 
   // ================================================================
@@ -162,6 +170,7 @@ contract TokenPoolFactory is ITypeAndVersion {
   /// @return poolAddress The address of the token pool that was deployed
   function _createTokenPool(
     address token,
+    uint8 localTokenDecimals,
     RemoteTokenPoolInfo[] calldata remoteTokenPools,
     bytes calldata tokenPoolInitCode,
     bytes32 salt,
@@ -203,10 +212,12 @@ contract TokenPoolFactory is ITypeAndVersion {
           abi.encode(salt.computeAddress(remotePoolInitcodeHash, remoteTokenPool.remoteChainConfig.remotePoolFactory));
       }
 
+      bytes[] memory remotePoolAddresses = new bytes[](1);
+      remotePoolAddresses[0] = remoteTokenPool.remotePoolAddress;
+
       chainUpdates[i] = TokenPool.ChainUpdate({
         remoteChainSelector: remoteTokenPool.remoteChainSelector,
-        allowed: true,
-        remotePoolAddress: remoteTokenPool.remotePoolAddress,
+        remotePoolAddresses: remotePoolAddresses,
         remoteTokenAddress: remoteTokenPool.remoteTokenAddress,
         outboundRateLimiterConfig: remoteTokenPool.rateLimiterConfig,
         inboundRateLimiterConfig: remoteTokenPool.rateLimiterConfig
@@ -216,18 +227,18 @@ contract TokenPoolFactory is ITypeAndVersion {
     // Construct the initArgs for the token pool using the immutable contracts for CCIP on the local chain
     bytes memory tokenPoolInitArgs;
     if (poolType == PoolType.BURN_MINT) {
-      tokenPoolInitArgs = abi.encode(token, new address[](0), i_rmnProxy, i_ccipRouter);
+      tokenPoolInitArgs = abi.encode(token, localTokenDecimals, new address[](0), i_rmnProxy, i_ccipRouter);
     } else if (poolType == PoolType.LOCK_RELEASE) {
       // Lock/Release pools have an additional boolean constructor parameter that must be accounted for, acceptLiquidity,
       // which is set to true by default in this case. Users wishing to set it to false must deploy the pool manually.
-      tokenPoolInitArgs = abi.encode(token, new address[](0), i_rmnProxy, true, i_ccipRouter);
+      tokenPoolInitArgs = abi.encode(token, localTokenDecimals, new address[](0), i_rmnProxy, true, i_ccipRouter);
     }
 
     // Construct the deployment code from the initCode and the initArgs and then deploy
     address poolAddress = Create2.deploy(0, salt, abi.encodePacked(tokenPoolInitCode, tokenPoolInitArgs));
 
     // Apply the chain updates to the token pool
-    TokenPool(poolAddress).applyChainUpdates(chainUpdates);
+    TokenPool(poolAddress).applyChainUpdates(new uint64[](0), chainUpdates);
 
     // Begin the 2 step ownership transfer of the token pool to the msg.sender.
     IOwnable(poolAddress).transferOwnership(address(msg.sender)); // 2 step ownership transfer
@@ -254,9 +265,13 @@ contract TokenPoolFactory is ITypeAndVersion {
       return keccak256(
         abi.encodePacked(
           initCode,
-          // constructor(address token, address[] allowlist, address rmnProxy, address router)
+          // constructor(address token, uint8 localTokenDecimals, address[] allowlist, address rmnProxy, address router)
           abi.encode(
-            remoteTokenAddress, new address[](0), remoteChainConfig.remoteRMNProxy, remoteChainConfig.remoteRouter
+            remoteTokenAddress,
+            remoteChainConfig.remoteTokenDecimals,
+            new address[](0),
+            remoteChainConfig.remoteRMNProxy,
+            remoteChainConfig.remoteRouter
           )
         )
       );
@@ -265,9 +280,14 @@ contract TokenPoolFactory is ITypeAndVersion {
       return keccak256(
         abi.encodePacked(
           initCode,
-          // constructor(address token, address[] allowList, address rmnProxy, bool acceptLiquidity, address router)
+          // constructor(address token, uint8 localTokenDecimals, address[] allowList, address rmnProxy, bool acceptLiquidity, address router)
           abi.encode(
-            remoteTokenAddress, new address[](0), remoteChainConfig.remoteRMNProxy, true, remoteChainConfig.remoteRouter
+            remoteTokenAddress,
+            remoteChainConfig.remoteTokenDecimals,
+            new address[](0),
+            remoteChainConfig.remoteRMNProxy,
+            true,
+            remoteChainConfig.remoteRouter
           )
         )
       );

@@ -10,18 +10,21 @@ import {LockReleaseTokenPoolSetup} from "./LockReleaseTokenPoolSetup.t.sol";
 contract LockReleaseTokenPool_releaseOrMint is LockReleaseTokenPoolSetup {
   function setUp() public virtual override {
     LockReleaseTokenPoolSetup.setUp();
+
+    bytes[] memory remotePoolAddresses = new bytes[](1);
+    remotePoolAddresses[0] = abi.encode(s_sourcePoolAddress);
+
     TokenPool.ChainUpdate[] memory chainUpdate = new TokenPool.ChainUpdate[](1);
     chainUpdate[0] = TokenPool.ChainUpdate({
       remoteChainSelector: SOURCE_CHAIN_SELECTOR,
-      remotePoolAddress: abi.encode(s_sourcePoolAddress),
+      remotePoolAddresses: remotePoolAddresses,
       remoteTokenAddress: abi.encode(address(2)),
-      allowed: true,
       outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
       inboundRateLimiterConfig: _getInboundRateLimiterConfig()
     });
 
-    s_lockReleaseTokenPool.applyChainUpdates(chainUpdate);
-    s_lockReleaseTokenPoolWithAllowList.applyChainUpdates(chainUpdate);
+    s_lockReleaseTokenPool.applyChainUpdates(new uint64[](0), chainUpdate);
+    s_lockReleaseTokenPoolWithAllowList.applyChainUpdates(new uint64[](0), chainUpdate);
   }
 
   function test_ReleaseOrMint_Success() public {
@@ -91,19 +94,10 @@ contract LockReleaseTokenPool_releaseOrMint is LockReleaseTokenPoolSetup {
   }
 
   function test_ChainNotAllowed_Revert() public {
-    address notAllowedRemotePoolAddress = address(1);
+    uint64[] memory chainsToRemove = new uint64[](1);
+    chainsToRemove[0] = SOURCE_CHAIN_SELECTOR;
 
-    TokenPool.ChainUpdate[] memory chainUpdate = new TokenPool.ChainUpdate[](1);
-    chainUpdate[0] = TokenPool.ChainUpdate({
-      remoteChainSelector: SOURCE_CHAIN_SELECTOR,
-      remotePoolAddress: abi.encode(notAllowedRemotePoolAddress),
-      remoteTokenAddress: abi.encode(address(2)),
-      allowed: false,
-      outboundRateLimiterConfig: RateLimiter.Config({isEnabled: false, capacity: 0, rate: 0}),
-      inboundRateLimiterConfig: RateLimiter.Config({isEnabled: false, capacity: 0, rate: 0})
-    });
-
-    s_lockReleaseTokenPool.applyChainUpdates(chainUpdate);
+    s_lockReleaseTokenPool.applyChainUpdates(chainsToRemove, new TokenPool.ChainUpdate[](0));
 
     vm.startPrank(s_allowedOffRamp);
 

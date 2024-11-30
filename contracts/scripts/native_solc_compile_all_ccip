@@ -58,6 +58,7 @@ compileContract ccip/tokenAdminRegistry/RegistryModuleOwnerCustom.sol
 compileContract ccip/capability/CCIPHome.sol
 compileContract ccip/NonceManager.sol
 compileContract shared/token/ERC677/BurnMintERC677.sol
+compileContract shared/token/ERC20/BurnMintERC20.sol
 
 
 # Pools
