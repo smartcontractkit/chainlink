@@ -116,6 +116,97 @@ func setupGetCommitGTETimestampTest(ctx context.Context, t testing.TB, finalityD
 	return s, finalityDepth, onRampAddress
 }
 
+func setupExecutedMessageRangesTest(ctx context.Context, t testing.TB, useHeavyDB bool) *testSetupData {
+	cfg := evmtypes.ChainReaderConfig{
+		Contracts: map[string]evmtypes.ChainContractReader{
+			consts.ContractNameOffRamp: {
+				ContractPollingFilter: evmtypes.ContractPollingFilter{
+					GenericEventNames: []string{consts.EventNameExecutionStateChanged},
+				},
+				ContractABI: ccip_reader_tester.CCIPReaderTesterABI,
+				Configs: map[string]*evmtypes.ChainReaderDefinition{
+					consts.EventNameExecutionStateChanged: {
+						ChainSpecificName: consts.EventNameExecutionStateChanged,
+						ReadType:          evmtypes.Event,
+						EventDefinitions: &evmtypes.EventDefinitions{
+							GenericTopicNames: map[string]string{
+								"sourceChainSelector": consts.EventAttributeSourceChain,
+								"sequenceNumber":      consts.EventAttributeSequenceNumber,
+							},
+							GenericDataWordDetails: map[string]evmtypes.DataWordDetail{
+								consts.EventAttributeState: {
+									Name: "state",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	sb, auth := setupSimulatedBackendAndAuth(t)
+	return testSetup(ctx, t, testSetupParams{
+		ReaderChain:      chainD,
+		DestChain:        chainD,
+		OnChainSeqNums:   nil,
+		Cfg:              cfg,
+		ToBindContracts:  nil,
+		ToMockBindings:   nil,
+		BindTester:       true,
+		SimulatedBackend: sb,
+		Auth:             auth,
+		UseHeavyDB:       useHeavyDB,
+	})
+}
+
+func setupMsgsBetweenSeqNumsTest(ctx context.Context, t testing.TB, useHeavyDB bool) *testSetupData {
+	cfg := evmtypes.ChainReaderConfig{
+		Contracts: map[string]evmtypes.ChainContractReader{
+			consts.ContractNameOnRamp: {
+				ContractPollingFilter: evmtypes.ContractPollingFilter{
+					GenericEventNames: []string{consts.EventNameCCIPMessageSent},
+				},
+				ContractABI: ccip_reader_tester.CCIPReaderTesterABI,
+				Configs: map[string]*evmtypes.ChainReaderDefinition{
+					consts.EventNameCCIPMessageSent: {
+						ChainSpecificName: "CCIPMessageSent",
+						ReadType:          evmtypes.Event,
+						EventDefinitions: &evmtypes.EventDefinitions{
+							GenericDataWordDetails: map[string]evmtypes.DataWordDetail{
+								consts.EventAttributeSourceChain:    {Name: "message.header.sourceChainSelector"},
+								consts.EventAttributeDestChain:      {Name: "message.header.destChainSelector"},
+								consts.EventAttributeSequenceNumber: {Name: "message.header.sequenceNumber"},
+							},
+						},
+						OutputModifications: codec.ModifiersConfig{
+							&codec.WrapperModifierConfig{Fields: map[string]string{
+								"Message.FeeTokenAmount":      "Int",
+								"Message.FeeValueJuels":       "Int",
+								"Message.TokenAmounts.Amount": "Int",
+							}},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	sb, auth := setupSimulatedBackendAndAuth(t)
+	return testSetup(ctx, t, testSetupParams{
+		ReaderChain:      chainS1,
+		DestChain:        chainD,
+		OnChainSeqNums:   nil,
+		Cfg:              cfg,
+		ToBindContracts:  nil,
+		ToMockBindings:   nil,
+		BindTester:       true,
+		SimulatedBackend: sb,
+		Auth:             auth,
+		UseHeavyDB:       useHeavyDB,
+	})
+}
+
 func emitCommitReports(ctx context.Context, t *testing.T, s *testSetupData, numReports int, tokenA common.Address, onRampAddress common.Address) uint64 {
 	var firstReportTs uint64
 	for i := 0; i < numReports; i++ {
@@ -274,46 +365,7 @@ func TestCCIPReader_CommitReportsGTETimestamp_RespectsFinality(t *testing.T) {
 func TestCCIPReader_ExecutedMessageRanges(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
-	cfg := evmtypes.ChainReaderConfig{
-		Contracts: map[string]evmtypes.ChainContractReader{
-			consts.ContractNameOffRamp: {
-				ContractPollingFilter: evmtypes.ContractPollingFilter{
-					GenericEventNames: []string{consts.EventNameExecutionStateChanged},
-				},
-				ContractABI: ccip_reader_tester.CCIPReaderTesterABI,
-				Configs: map[string]*evmtypes.ChainReaderDefinition{
-					consts.EventNameExecutionStateChanged: {
-						ChainSpecificName: consts.EventNameExecutionStateChanged,
-						ReadType:          evmtypes.Event,
-						EventDefinitions: &evmtypes.EventDefinitions{
-							GenericTopicNames: map[string]string{
-								"sourceChainSelector": consts.EventAttributeSourceChain,
-								"sequenceNumber":      consts.EventAttributeSequenceNumber,
-							},
-							GenericDataWordDetails: map[string]evmtypes.DataWordDetail{
-								consts.EventAttributeState: {
-									Name: "state",
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	sb, auth := setupSimulatedBackendAndAuth(t)
-	s := testSetup(ctx, t, testSetupParams{
-		ReaderChain:      chainD,
-		DestChain:        chainD,
-		OnChainSeqNums:   nil,
-		Cfg:              cfg,
-		ToBindContracts:  nil,
-		ToMockBindings:   nil,
-		BindTester:       true,
-		SimulatedBackend: sb,
-		Auth:             auth,
-	})
+	s := setupExecutedMessageRangesTest(ctx, t, false)
 	_, err := s.contract.EmitExecutionStateChanged(
 		s.auth,
 		uint64(chainS1),
@@ -367,50 +419,7 @@ func TestCCIPReader_MsgsBetweenSeqNums(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
 
-	cfg := evmtypes.ChainReaderConfig{
-		Contracts: map[string]evmtypes.ChainContractReader{
-			consts.ContractNameOnRamp: {
-				ContractPollingFilter: evmtypes.ContractPollingFilter{
-					GenericEventNames: []string{consts.EventNameCCIPMessageSent},
-				},
-				ContractABI: ccip_reader_tester.CCIPReaderTesterABI,
-				Configs: map[string]*evmtypes.ChainReaderDefinition{
-					consts.EventNameCCIPMessageSent: {
-						ChainSpecificName: "CCIPMessageSent",
-						ReadType:          evmtypes.Event,
-						EventDefinitions: &evmtypes.EventDefinitions{
-							GenericDataWordDetails: map[string]evmtypes.DataWordDetail{
-								consts.EventAttributeSourceChain:    {Name: "message.header.sourceChainSelector"},
-								consts.EventAttributeDestChain:      {Name: "message.header.destChainSelector"},
-								consts.EventAttributeSequenceNumber: {Name: "message.header.sequenceNumber"},
-							},
-						},
-						OutputModifications: codec.ModifiersConfig{
-							&codec.WrapperModifierConfig{Fields: map[string]string{
-								"Message.FeeTokenAmount":      "Int",
-								"Message.FeeValueJuels":       "Int",
-								"Message.TokenAmounts.Amount": "Int",
-							}},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	sb, auth := setupSimulatedBackendAndAuth(t)
-	s := testSetup(ctx, t, testSetupParams{
-		ReaderChain:      chainS1,
-		DestChain:        chainD,
-		OnChainSeqNums:   nil,
-		Cfg:              cfg,
-		ToBindContracts:  nil,
-		ToMockBindings:   nil,
-		BindTester:       true,
-		SimulatedBackend: sb,
-		Auth:             auth,
-	})
-
+	s := setupMsgsBetweenSeqNumsTest(ctx, t, false)
 	_, err := s.contract.EmitCCIPMessageSent(s.auth, uint64(chainD), ccip_reader_tester.InternalEVM2AnyRampMessage{
 		Header: ccip_reader_tester.InternalRampMessageHeader{
 			MessageId:           [32]byte{1, 0, 0, 0, 0},
@@ -993,47 +1002,8 @@ func Benchmark_CCIPReader_ExecutedMessageRanges(b *testing.B) {
 func benchmarkExecutedMessageRanges(b *testing.B, logsInsertedFirst int, startSeqNum, endSeqNum cciptypes.SeqNum) {
 	// Initialize test setup
 	ctx := tests.Context(b)
-	sb, auth := setupSimulatedBackendAndAuth(b)
-	cfg := evmtypes.ChainReaderConfig{
-		Contracts: map[string]evmtypes.ChainContractReader{
-			consts.ContractNameOffRamp: {
-				ContractPollingFilter: evmtypes.ContractPollingFilter{
-					GenericEventNames: []string{consts.EventNameExecutionStateChanged},
-				},
-				ContractABI: ccip_reader_tester.CCIPReaderTesterABI,
-				Configs: map[string]*evmtypes.ChainReaderDefinition{
-					consts.EventNameExecutionStateChanged: {
-						ChainSpecificName: consts.EventNameExecutionStateChanged,
-						ReadType:          evmtypes.Event,
-						EventDefinitions: &evmtypes.EventDefinitions{
-							GenericTopicNames: map[string]string{
-								"sourceChainSelector": consts.EventAttributeSourceChain,
-								"sequenceNumber":      consts.EventAttributeSequenceNumber,
-							},
-							GenericDataWordDetails: map[string]evmtypes.DataWordDetail{
-								consts.EventAttributeState: {
-									Name: "state",
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
+	s := setupExecutedMessageRangesTest(ctx, b, true)
 	expectedRangeLen := calculateExpectedRangeLen(logsInsertedFirst, startSeqNum, endSeqNum)
-	s := testSetup(ctx, &testing.B{}, testSetupParams{
-		ReaderChain:      chainD,
-		DestChain:        chainD,
-		OnChainSeqNums:   nil,
-		Cfg:              cfg,
-		ToBindContracts:  nil,
-		ToMockBindings:   nil,
-		BindTester:       true,
-		SimulatedBackend: sb,
-		Auth:             auth,
-		UseHeavyDB:       true,
-	})
 
 	// Insert logs in two phases based on parameters
 	if logsInsertedFirst > 0 {
@@ -1150,19 +1120,8 @@ func Benchmark_CCIPReader_MessageSentRanges(b *testing.B) {
 func benchmarkMessageSentRanges(b *testing.B, logsInserted int, startSeqNum, endSeqNum cciptypes.SeqNum) {
 	// Initialize test setup
 	ctx := tests.Context(b)
-	sb, auth := setupSimulatedBackendAndAuth(b)
+	s := setupMsgsBetweenSeqNumsTest(ctx, b, true)
 	expectedRangeLen := calculateExpectedRangeLen(logsInserted, startSeqNum, endSeqNum)
-	s := testSetup(ctx, b, testSetupParams{
-		ReaderChain:      chainS1,
-		DestChain:        chainD,
-		OnChainSeqNums:   nil,
-		Cfg:              evmconfig.SourceReaderConfig,
-		ToBindContracts:  nil,
-		ToMockBindings:   nil,
-		BindTester:       true,
-		SimulatedBackend: sb,
-		Auth:             auth,
-	})
 
 	err := s.extendedCR.Bind(ctx, []types.BoundContract{
 		{
@@ -1288,27 +1247,23 @@ func populateDatabaseForMessageSent(
 }
 
 func calculateExpectedRangeLen(logsInserted int, startSeq, endSeq cciptypes.SeqNum) int {
-	// If no logs inserted, result should be 0
 	if logsInserted == 0 {
 		return 0
 	}
-
-	// Convert to int64 for safer arithmetic
 	start := uint64(startSeq)
 	end := uint64(endSeq)
+	// #nosec G115
 	logs := uint64(logsInserted)
 
-	// If start is beyond our available logs, return 0
 	if start >= logs {
 		return 0
 	}
 
-	// If end is beyond our available logs, cap it
 	if end >= logs {
 		end = logs - 1
 	}
 
-	// Calculate length of valid range
+	// #nosec G115
 	return int(end - start + 1)
 }
 
@@ -1429,7 +1384,6 @@ func testSetup(
 	} else {
 		db = pgtest.NewSqlxDB(t) // Simple in-memory DB for tests
 	}
-	t.Cleanup(func() { assert.NoError(t, db.Close()) })
 	lpOpts := logpoller.Opts{
 		PollPeriod:               time.Millisecond,
 		FinalityDepth:            params.FinalityDepth,
