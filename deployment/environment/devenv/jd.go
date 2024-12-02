@@ -72,14 +72,12 @@ func NewJDConnection(cfg JDConfig) (*grpc.ClientConn, error) {
 		interceptors = append(interceptors, authTokenInterceptor(cfg.Auth))
 	}
 	if cfg.GAP != "" {
-		fmt.Println("Using GAP token from JDConfig")
 		interceptors = append(interceptors, gapTokenInterceptor(cfg.GAP))
 	}
 
 	if len(interceptors) > 0 {
 		opts = append(opts, grpc.WithChainUnaryInterceptor(interceptors...))
 	}
-	// opts = append(opts, grpc.WithAuthority(cfg.GRPC))
 
 	conn, err := grpc.NewClient(cfg.GRPC, opts...)
 	if err != nil {
