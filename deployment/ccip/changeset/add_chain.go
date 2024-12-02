@@ -5,6 +5,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
@@ -119,6 +120,8 @@ func AddDonAndSetCandidateChangeset(
 	ccipOCRParams := DefaultOCRParams(
 		feedChainSel,
 		tokenConfig.GetTokenInfo(e.Logger, state.Chains[newChainSel].LinkToken, state.Chains[newChainSel].Weth9),
+		// TODO: Need USDC support.
+		nil,
 	)
 	newDONArgs, err := internal.BuildOCR3ConfigForCCIPHome(
 		ocrSecrets,

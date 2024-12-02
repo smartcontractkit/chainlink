@@ -288,7 +288,7 @@ func AddChainConfig(
 	chainSelector uint64,
 	p2pIDs [][32]byte,
 ) (ccip_home.CCIPHomeChainConfigArgs, error) {
-	// First Add ChainConfig that includes all p2pIDs as readers
+	// First Add CCIPOCRParams that includes all p2pIDs as readers
 	encodedExtraChainConfig, err := chainconfig.EncodeChainConfig(chainconfig.ChainConfig{
 		GasPriceDeviationPPB:    ccipocr3.NewBigIntFromInt64(1000),
 		DAGasPriceDeviationPPB:  ccipocr3.NewBigIntFromInt64(0),
