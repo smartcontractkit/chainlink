@@ -7,8 +7,15 @@ import (
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 )
 
+type DeployFeedsConsumerRequest struct {
+	ChainSelector uint64
+}
+
+var _ deployment.ChangeSet[*DeployFeedsConsumerRequest] = DeployFeedsConsumer
+
 // DeployFeedsConsumer deploys the FeedsConsumer contract to the chain with the given chainSelector.
-func DeployFeedsConsumer(env deployment.Environment, chainSelector uint64) (deployment.ChangesetOutput, error) {
+func DeployFeedsConsumer(env deployment.Environment, req *DeployFeedsConsumerRequest) (deployment.ChangesetOutput, error) {
+	chainSelector := req.ChainSelector
 	lggr := env.Logger
 	chain, ok := env.Chains[chainSelector]
 	if !ok {

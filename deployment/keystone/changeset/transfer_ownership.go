@@ -9,8 +9,23 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
 
+func toOwnershipTransferrer[T changeset.OwnershipTransferrer](items []T) []changeset.OwnershipTransferrer {
+	ownershipAcceptors := make([]changeset.OwnershipTransferrer, len(items))
+	for i, item := range items {
+		ownershipAcceptors[i] = item
+	}
+	return ownershipAcceptors
+}
+
+type TransferAllOwnershipRequest struct {
+	ChainSelector uint64
+}
+
+var _ deployment.ChangeSet[*TransferAllOwnershipRequest] = TransferAllOwnership
+
 // TransferAllOwnership transfers ownership of all Keystone contracts in the address book to the existing timelock.
-func TransferAllOwnership(e deployment.Environment, chainSelector uint64) (deployment.ChangesetOutput, error) {
+func TransferAllOwnership(e deployment.Environment, req *TransferAllOwnershipRequest) (deployment.ChangesetOutput, error) {
+	chainSelector := req.ChainSelector
 	chain := e.Chains[chainSelector]
 	addrBook := e.ExistingAddresses
 
@@ -47,25 +62,11 @@ func TransferAllOwnership(e deployment.Environment, chainSelector uint64) (deplo
 	// Initialize the Contracts slice
 	var ownershipTransferrers []changeset.OwnershipTransferrer
 
-	// Append CapabilitiesRegistry contracts
-	for _, capReg := range capRegs {
-		ownershipTransferrers = append(ownershipTransferrers, capReg)
-	}
-
-	// Append OCR3Capability contracts
-	for _, ocr := range ocr3s {
-		ownershipTransferrers = append(ownershipTransferrers, ocr)
-	}
-
-	// Append KeystoneForwarder contracts
-	for _, forwarder := range forwarders {
-		ownershipTransferrers = append(ownershipTransferrers, forwarder)
-	}
-
-	// Append FeedsConsumer contracts
-	for _, consumer := range consumers {
-		ownershipTransferrers = append(ownershipTransferrers, consumer)
-	}
+	// Append all contracts
+	ownershipTransferrers = append(ownershipTransferrers, toOwnershipTransferrer(capRegs)...)
+	ownershipTransferrers = append(ownershipTransferrers, toOwnershipTransferrer(ocr3s)...)
+	ownershipTransferrers = append(ownershipTransferrers, toOwnershipTransferrer(forwarders)...)
+	ownershipTransferrers = append(ownershipTransferrers, toOwnershipTransferrer(consumers)...)
 
 	// Construct the configuration
 	cfg := changeset.TransferOwnershipConfig{

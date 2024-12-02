@@ -42,7 +42,9 @@ func TestAcceptAllOwnership(t *testing.T) {
 	err = env.ExistingAddresses.Merge(chForwarder.AddressBook)
 	require.NoError(t, err)
 
-	chConsumer, err := changeset.DeployFeedsConsumer(env, registrySel)
+	chConsumer, err := changeset.DeployFeedsConsumer(env, &changeset.DeployFeedsConsumerRequest{
+		ChainSelector: registrySel,
+	})
 	require.NoError(t, err)
 	require.NotNil(t, chConsumer)
 	err = env.ExistingAddresses.Merge(chConsumer.AddressBook)
@@ -63,12 +65,17 @@ func TestAcceptAllOwnership(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, chMcms)
 
-	resp, err := changeset.TransferAllOwnership(env, registrySel)
+	resp, err := changeset.TransferAllOwnership(env, &changeset.TransferAllOwnershipRequest{
+		ChainSelector: registrySel,
+	})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 
 	// Test the changeset
-	output, err := changeset.AcceptAllOwnershipsProposal(env, registrySel, time.Duration(0))
+	output, err := changeset.AcceptAllOwnershipsProposal(env, &changeset.AcceptAllOwnershipRequest{
+		ChainSelector: registrySel,
+		MinDelay:      time.Duration(0),
+	})
 	require.NoError(t, err)
 	require.NotNil(t, output)
 	require.Len(t, output.Proposals, 1)

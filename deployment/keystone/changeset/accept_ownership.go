@@ -19,8 +19,17 @@ func toOwnershipAcceptors[T changeset.OwnershipAcceptor](items []T) []changeset.
 	return ownershipAcceptors
 }
 
+type AcceptAllOwnershipRequest struct {
+	ChainSelector uint64
+	MinDelay      time.Duration
+}
+
+var _ deployment.ChangeSet[*AcceptAllOwnershipRequest] = AcceptAllOwnershipsProposal
+
 // AcceptAllOwnershipsProposal creates a MCMS proposal to call accept ownership on all the Keystone contracts in the address book.
-func AcceptAllOwnershipsProposal(e deployment.Environment, chainSelector uint64, minDelay time.Duration) (deployment.ChangesetOutput, error) {
+func AcceptAllOwnershipsProposal(e deployment.Environment, req *AcceptAllOwnershipRequest) (deployment.ChangesetOutput, error) {
+	chainSelector := req.ChainSelector
+	minDelay := req.MinDelay
 	chain := e.Chains[chainSelector]
 	addrBook := e.ExistingAddresses
 

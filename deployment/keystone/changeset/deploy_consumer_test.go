@@ -23,7 +23,9 @@ func TestDeployFeedsConsumer(t *testing.T) {
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 
 	registrySel := env.AllChainSelectors()[0]
-	resp, err := changeset.DeployFeedsConsumer(env, registrySel)
+	resp, err := changeset.DeployFeedsConsumer(env, &changeset.DeployFeedsConsumerRequest{
+		ChainSelector: registrySel,
+	})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	// feeds consumer should be deployed on chain 0
