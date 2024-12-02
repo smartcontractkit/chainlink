@@ -36,6 +36,16 @@ jobs:
             echo "git-tag-type=core" | tee -a "$GITHUB_OUTPUT"
             echo "ecr-image-name=chainlink/chainlink" | tee -a "$GITHUB_OUTPUT"
           fi
+      - name: Fail if CCIP release has wrong version
+        if: ${{ steps.check-git-tag-type.outputs.git-tag-type == 'ccip' }}
+        run: |
+          version=$(jq -r '.version' ./package.json)
+          echo "Package version: $version"
+          echo "Git tag type: ${{ steps.check-git-tag-type.outputs.git-tag-type }}"
+          if [[ $version != *"-ccip"* ]]; then
+            echo "Error: Version '$version' does not match required CCIP format."
+            exit 1
+          fi
       - name: Check for VERSION file bump on tags
         # Avoids checking VERSION file bump on forks or from CCIP releases.
         if: ${{ github.repository == 'smartcontractkit/chainlink' && steps.check-git-tag-type.outputs.git-tag-type == 'core' }}
