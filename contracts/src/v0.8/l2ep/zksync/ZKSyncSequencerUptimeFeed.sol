@@ -3,7 +3,7 @@ pragma solidity ^0.8.19;
 
 import {BaseSequencerUptimeFeed} from "../shared/BaseSequencerUptimeFeed.sol";
 
-import {AddressAliasHelper} from "../../../vendor/arb-bridge-eth/v0.8.0-custom/contracts/libraries/AddressAliasHelper.sol";
+import {AddressAliasHelper} from "../../vendor/arb-bridge-eth/v0.8.0-custom/contracts/libraries/AddressAliasHelper.sol";
 
 /// @title ZKSyncSequencerUptimeFeed - L2 sequencer uptime status aggregator
 /// @notice L2 contract that receives status updates from a specific L1 address,

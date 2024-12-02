@@ -425,7 +425,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     );
   }
 
-  function test_InvalidSourcePoolAddress_Success() public {
+  function test_InvalidSourcePoolAddress() public {
     address fakePoolAddress = address(0x0000000000333333);
 
     Internal.Any2EVMRampMessage[] memory messages =
@@ -434,6 +434,8 @@ contract OffRamp_executeSingleReport is OffRampSetup {
 
     messages[0].header.messageId = _hashMessage(messages[0], ON_RAMP_ADDRESS_1);
     messages[1].header.messageId = _hashMessage(messages[1], ON_RAMP_ADDRESS_1);
+
+    address destPool = s_destPoolByToken[messages[0].tokenAmounts[0].destTokenAddress];
 
     vm.recordLogs();
 
@@ -448,6 +450,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
       Internal.MessageExecutionState.FAILURE,
       abi.encodeWithSelector(
         OffRamp.TokenHandlingError.selector,
+        destPool,
         abi.encodeWithSelector(TokenPool.InvalidSourcePoolAddress.selector, abi.encode(fakePoolAddress))
       )
     );

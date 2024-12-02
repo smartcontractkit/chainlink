@@ -46,7 +46,7 @@ func TestNewFetcherFunc(t *testing.T) {
 		connector.EXPECT().DonID().Return("don-id")
 		connector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
 
-		fetcher := NewFetcherFunc(ctx, lggr, och)
+		fetcher := NewFetcherFunc(lggr, och)
 
 		payload, err := fetcher(ctx, url)
 		require.NoError(t, err)
