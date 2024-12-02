@@ -11,6 +11,14 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
 
+func toOwnershipAcceptors[T changeset.OwnershipAcceptor](items []T) []changeset.OwnershipAcceptor {
+	ownershipAcceptors := make([]changeset.OwnershipAcceptor, len(items))
+	for i, item := range items {
+		ownershipAcceptors[i] = item
+	}
+	return ownershipAcceptors
+}
+
 // AcceptAllOwnershipsProposal creates a MCMS proposal to call accept ownership on all the Keystone contracts in the address book.
 func AcceptAllOwnershipsProposal(e deployment.Environment, chainSelector uint64, minDelay time.Duration) (deployment.ChangesetOutput, error) {
 	chain := e.Chains[chainSelector]
@@ -42,28 +50,14 @@ func AcceptAllOwnershipsProposal(e deployment.Environment, chainSelector uint64,
 		return deployment.ChangesetOutput{}, err
 	}
 
-	// Initialize the Contracts slice
+	// Initialize the OwnershipAcceptors slice
 	var ownershipAcceptors []changeset.OwnershipAcceptor
 
-	// Append CapabilitiesRegistry contracts
-	for _, capReg := range capRegs {
-		ownershipAcceptors = append(ownershipAcceptors, capReg)
-	}
-
-	// Append OCR3Capability contracts
-	for _, ocr := range ocr3 {
-		ownershipAcceptors = append(ownershipAcceptors, ocr)
-	}
-
-	// Append KeystoneForwarder contracts
-	for _, forwarder := range forwarders {
-		ownershipAcceptors = append(ownershipAcceptors, forwarder)
-	}
-
-	// Append FeedsConsumer contracts
-	for _, consumer := range consumers {
-		ownershipAcceptors = append(ownershipAcceptors, consumer)
-	}
+	// Append all contracts
+	ownershipAcceptors = append(ownershipAcceptors, toOwnershipAcceptors(capRegs)...)
+	ownershipAcceptors = append(ownershipAcceptors, toOwnershipAcceptors(ocr3)...)
+	ownershipAcceptors = append(ownershipAcceptors, toOwnershipAcceptors(forwarders)...)
+	ownershipAcceptors = append(ownershipAcceptors, toOwnershipAcceptors(consumers)...)
 
 	// Construct the configuration
 	cfg := changeset.AcceptOwnershipConfig{
