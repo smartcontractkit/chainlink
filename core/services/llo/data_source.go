@@ -24,14 +24,18 @@ import (
 
 var (
 	promMissingStreamCount = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "llo_stream_missing_count",
-		Help: "Number of times we tried to observe a stream, but it was missing",
+		Namespace: "llo",
+		Subsystem: "datasource",
+		Name:      "stream_missing_count",
+		Help:      "Number of times we tried to observe a stream, but it was missing",
 	},
 		[]string{"streamID"},
 	)
 	promObservationErrorCount = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "llo_stream_observation_error_count",
-		Help: "Number of times we tried to observe a stream, but it failed with an error",
+		Namespace: "llo",
+		Subsystem: "datasource",
+		Name:      "stream_observation_error_count",
+		Help:      "Number of times we tried to observe a stream, but it failed with an error",
 	},
 		[]string{"streamID"},
 	)
@@ -188,9 +192,6 @@ func ExtractStreamValue(trrs pipeline.TaskRunResults) (llo.StreamValue, error) {
 	// pipeline.TaskRunResults comes ordered asc by index, this is guaranteed
 	// by the pipeline executor
 	finaltrrs := trrs.Terminals()
-
-	// TODO: Special handling for missing native/link streams?
-	// https://smartcontract-it.atlassian.net/browse/MERC-5949
 
 	// HACK: Right now we rely on the number of outputs to determine whether
 	// its a Decimal or a Quote.

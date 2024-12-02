@@ -9,11 +9,11 @@ import (
 )
 
 // NOTE: All supported codecs must be specified here
-func NewReportCodecs(lggr logger.Logger) map[llotypes.ReportFormat]llo.ReportCodec {
+func NewReportCodecs(lggr logger.Logger, donID uint32) map[llotypes.ReportFormat]llo.ReportCodec {
 	codecs := make(map[llotypes.ReportFormat]llo.ReportCodec)
 
 	codecs[llotypes.ReportFormatJSON] = llo.JSONReportCodec{}
-	codecs[llotypes.ReportFormatEVMPremiumLegacy] = evm.NewReportCodecPremiumLegacy(lggr)
+	codecs[llotypes.ReportFormatEVMPremiumLegacy] = evm.NewReportCodecPremiumLegacy(lggr, donID)
 
 	return codecs
 }

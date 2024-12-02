@@ -18,7 +18,7 @@ func TestJobSpecChangeset(t *testing.T) {
 		Chains: 1,
 		Nodes:  4,
 	})
-	output, err := Jobspec(e, nil)
+	output, err := CCIPCapabilityJobspec(e, nil)
 	require.NoError(t, err)
 	require.NotNil(t, output.JobSpecs)
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)

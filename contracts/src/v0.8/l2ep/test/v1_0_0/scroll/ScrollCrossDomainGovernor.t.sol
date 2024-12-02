@@ -2,7 +2,7 @@
 pragma solidity 0.8.24;
 
 import {MockScrollCrossDomainMessenger} from "../../mocks/scroll/MockScrollCrossDomainMessenger.sol";
-import {ScrollCrossDomainGovernor} from "../../../dev/scroll/ScrollCrossDomainGovernor.sol";
+import {ScrollCrossDomainGovernor} from "../../../scroll/ScrollCrossDomainGovernor.sol";
 import {Greeter} from "../../../../tests/Greeter.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
 

@@ -738,14 +738,6 @@ func TestIntegration_OCR2_ForwarderFlow(t *testing.T) {
 		})
 	}
 
-	tick := time.NewTicker(1 * time.Second)
-	defer tick.Stop()
-	go func() {
-		for range tick.C {
-			b.Commit()
-		}
-	}()
-
 	blockBeforeConfig := initOCR2(t, lggr, b, ocrContract, owner, bootstrapNode, oracles, forwarderContracts, transmitters, func(int64) string {
 		return fmt.Sprintf(`
 type				= "bootstrap"
@@ -758,6 +750,14 @@ contractID			= "%s"
 chainID 			= 1337
 `, ocrContractAddress)
 	})
+
+	tick := time.NewTicker(1 * time.Second)
+	defer tick.Stop()
+	go func() {
+		for range tick.C {
+			b.Commit()
+		}
+	}()
 
 	var jids []int32
 	var servers, slowServers = make([]*httptest.Server, 4), make([]*httptest.Server, 4)

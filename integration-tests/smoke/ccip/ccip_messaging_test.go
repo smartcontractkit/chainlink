@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
@@ -46,9 +45,8 @@ type messagingTestCaseOutput struct {
 
 func Test_CCIPMessaging(t *testing.T) {
 	// Setup 2 chains and a single lane.
-	lggr := logger.TestLogger(t)
 	ctx := changeset.Context(t)
-	e, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr)
+	e := changeset.NewMemoryEnvironmentWithJobsAndContracts(t, logger.TestLogger(t), 2, 4, nil)
 
 	state, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -64,7 +62,7 @@ func Test_CCIPMessaging(t *testing.T) {
 		", dest chain selector:", destChain,
 	)
 	// connect a single lane, source to dest
-	require.NoError(t, changeset.AddLaneWithDefaultPrices(e.Env, state, sourceChain, destChain))
+	require.NoError(t, changeset.AddLaneWithDefaultPricesAndFeeQuoterConfig(e.Env, state, sourceChain, destChain, false))
 
 	var (
 		replayed bool
@@ -317,11 +315,18 @@ func runMessagingTestCase(
 		FeeToken:     common.HexToAddress("0x0"),
 		ExtraArgs:    extraArgs,
 	})
-	expectedSeqNum := make(map[changeset.SourceDestPair]uint64)
-	expectedSeqNum[changeset.SourceDestPair{
-		SourceChainSelector: tc.sourceChain,
-		DestChainSelector:   tc.destChain,
-	}] = msgSentEvent.SequenceNumber
+	expectedSeqNum := map[changeset.SourceDestPair]uint64{
+		{
+			SourceChainSelector: tc.sourceChain,
+			DestChainSelector:   tc.destChain,
+		}: msgSentEvent.SequenceNumber,
+	}
+	expectedSeqNumExec := map[changeset.SourceDestPair][]uint64{
+		{
+			SourceChainSelector: tc.sourceChain,
+			DestChainSelector:   tc.destChain,
+		}: {msgSentEvent.SequenceNumber},
+	}
 	out.msgSentEvent = msgSentEvent
 
 	// hack
@@ -331,16 +336,22 @@ func runMessagingTestCase(
 	}
 
 	changeset.ConfirmCommitForAllWithExpectedSeqNums(tc.t, tc.deployedEnv.Env, tc.onchainState, expectedSeqNum, startBlocks)
-	execStates := changeset.ConfirmExecWithSeqNrForAll(tc.t, tc.deployedEnv.Env, tc.onchainState, expectedSeqNum, startBlocks)
+	execStates := changeset.ConfirmExecWithSeqNrsForAll(tc.t, tc.deployedEnv.Env, tc.onchainState, expectedSeqNumExec, startBlocks)
 
 	require.Equalf(
 		tc.t,
 		expectedExecutionState,
-		execStates[msgSentEvent.SequenceNumber],
+		execStates[changeset.SourceDestPair{
+			SourceChainSelector: tc.sourceChain,
+			DestChainSelector:   tc.destChain,
+		}][msgSentEvent.SequenceNumber],
 		"wrong execution state for seq nr %d, expected %d, got %d",
 		msgSentEvent.SequenceNumber,
 		expectedExecutionState,
-		execStates[msgSentEvent.SequenceNumber],
+		execStates[changeset.SourceDestPair{
+			SourceChainSelector: tc.sourceChain,
+			DestChainSelector:   tc.destChain,
+		}][msgSentEvent.SequenceNumber],
 	)
 
 	// check the sender latestNonce on the dest, should be incremented

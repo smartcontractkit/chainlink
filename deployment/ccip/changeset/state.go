@@ -3,6 +3,9 @@ package changeset
 import (
 	"fmt"
 
+	burn_mint_token_pool "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/burn_mint_token_pool_1_4_0"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/erc20"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_messenger"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_transmitter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/usdc_token_pool"
@@ -26,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/registry_module_owner_custom"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/multicall3"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
@@ -48,10 +52,17 @@ import (
 // on a chain. If a binding is nil, it means here is no such contract on the chain.
 type CCIPChainState struct {
 	commoncs.MCMSWithTimelockState
-	OnRamp             *onramp.OnRamp
-	OffRamp            *offramp.OffRamp
-	FeeQuoter          *fee_quoter.FeeQuoter
-	RMNProxyNew        *rmn_proxy_contract.RMNProxyContract
+	OnRamp    *onramp.OnRamp
+	OffRamp   *offramp.OffRamp
+	FeeQuoter *fee_quoter.FeeQuoter
+	// We need 2 RMNProxy contracts because we are in the process of migrating to a new version.
+	// We will switch to the existing one once the migration is complete.
+	// This is the new RMNProxy contract that will be used for testing RMNRemote before migration.
+	// Initially RMNProxyNew will point to RMNRemote
+	RMNProxyNew *rmn_proxy_contract.RMNProxyContract
+	// Existing RMNProxy contract that is used in production, This already has existing 1.5 RMN set.
+	// once RMNRemote is tested with RMNProxyNew, as part of migration
+	// RMNProxyExisting will point to RMNRemote. This will switch over CCIP 1.5 to 1.6
 	RMNProxyExisting   *rmn_proxy_contract.RMNProxyContract
 	NonceManager       *nonce_manager.NonceManager
 	TokenAdminRegistry *token_admin_registry.TokenAdminRegistry
@@ -67,7 +78,8 @@ type CCIPChainState struct {
 	// and the respective token contract
 	// This is more of an illustration of how we'll have tokens, and it might need some work later to work properly.
 	// Not all tokens will be burn and mint tokens.
-	BurnMintTokens677 map[TokenSymbol]*burn_mint_erc677.BurnMintERC677
+	BurnMintTokens677  map[TokenSymbol]*burn_mint_erc677.BurnMintERC677
+	BurnMintTokenPools map[TokenSymbol]*burn_mint_token_pool.BurnMintTokenPool
 	// Map between token Symbol (e.g. LinkSymbol, WethSymbol)
 	// and the respective aggregator USD feed contract
 	USDFeeds map[TokenSymbol]*aggregator_v3_interface.AggregatorV3Interface
@@ -85,6 +97,7 @@ type CCIPChainState struct {
 	USDCTokenPool          *usdc_token_pool.USDCTokenPool
 	MockUSDCTransmitter    *mock_usdc_token_transmitter.MockE2EUSDCTransmitter
 	MockUSDCTokenMessenger *mock_usdc_token_messenger.MockE2EUSDCTokenMessenger
+	Multicall3             *multicall3.Multicall3
 }
 
 func (c CCIPChainState) GenerateView() (view.ChainView, error) {
@@ -406,6 +419,12 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				return state, err
 			}
 			state.Receiver = mr
+		case deployment.NewTypeAndVersion(Multicall3, deployment.Version1_0_0).String():
+			mc, err := multicall3.NewMulticall3(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.Multicall3 = mc
 		case deployment.NewTypeAndVersion(PriceFeed, deployment.Version1_0_0).String():
 			feed, err := aggregator_v3_interface.NewAggregatorV3Interface(common.HexToAddress(address), chain.Client)
 			if err != nil {
@@ -423,6 +442,40 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				return state, fmt.Errorf("unknown feed description %s", desc)
 			}
 			state.USDFeeds[key] = feed
+		case deployment.NewTypeAndVersion(BurnMintTokenPool, deployment.Version1_5_1).String():
+			pool, err := burn_mint_token_pool.NewBurnMintTokenPool(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			if state.BurnMintTokenPools == nil {
+				state.BurnMintTokenPools = make(map[TokenSymbol]*burn_mint_token_pool.BurnMintTokenPool)
+			}
+			tokAddress, err := pool.GetToken(nil)
+			if err != nil {
+				return state, err
+			}
+			tok, err := erc20.NewERC20(tokAddress, chain.Client)
+			if err != nil {
+				return state, err
+			}
+			symbol, err := tok.Symbol(nil)
+			if err != nil {
+				return state, err
+			}
+			state.BurnMintTokenPools[TokenSymbol(symbol)] = pool
+		case deployment.NewTypeAndVersion(BurnMintToken, deployment.Version1_0_0).String():
+			tok, err := burn_mint_erc677.NewBurnMintERC677(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			if state.BurnMintTokens677 == nil {
+				state.BurnMintTokens677 = make(map[TokenSymbol]*burn_mint_erc677.BurnMintERC677)
+			}
+			symbol, err := tok.Symbol(nil)
+			if err != nil {
+				return state, fmt.Errorf("failed to get token symbol of token at %s: %w", address, err)
+			}
+			state.BurnMintTokens677[TokenSymbol(symbol)] = tok
 		default:
 			return state, fmt.Errorf("unknown contract %s", tvStr)
 		}
