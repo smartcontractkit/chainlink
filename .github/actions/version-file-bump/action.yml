@@ -1,5 +1,7 @@
 name: version-file-bump
-description: "Ensure that the VERSION file has been bumped since the last release."
+# TODO: where does CCIP get its version from?
+# CCIP current: https://github.com/smartcontractkit/ccip/blob/ccip-develop/package.json
+description: "Ensure that the package.json version field has been bumped since the last release."
 inputs:
   github-token:
     description: "Github access token"
