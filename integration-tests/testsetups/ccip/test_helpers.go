@@ -191,17 +191,28 @@ func NewLocalDevEnvironment(
 	state, err := changeset.LoadOnchainState(env)
 	require.NoError(t, err)
 
-	var usdcCfg changeset.USDCAttestationConfig
+	var tokenDataProviders []pluginconfig.TokenDataObserverConfig
 	if len(usdcChains) > 0 {
 		var endpoint string
 		err = ccipactions.SetMockServerWithUSDCAttestation(testEnv.MockAdapter, nil)
 		require.NoError(t, err)
 		endpoint = testEnv.MockAdapter.InternalEndpoint
-		usdcCfg = changeset.USDCAttestationConfig{
-			API:         endpoint,
-			APITimeout:  commonconfig.MustNewDuration(time.Second),
-			APIInterval: commonconfig.MustNewDuration(500 * time.Millisecond),
+		cctpContracts := make(map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig)
+		for _, usdcChain := range usdcChains {
+			cctpContracts[cciptypes.ChainSelector(usdcChain)] = pluginconfig.USDCCCTPTokenConfig{
+				SourcePoolAddress:            state.Chains[usdcChain].USDCTokenPool.Address().String(),
+				SourceMessageTransmitterAddr: state.Chains[usdcChain].MockUSDCTransmitter.Address().String(),
+			}
 		}
+		tokenDataProviders = append(tokenDataProviders, pluginconfig.TokenDataObserverConfig{
+			Type:    pluginconfig.USDCCCTPHandlerType,
+			Version: "1.0",
+			USDCCCTPObserverConfig: &pluginconfig.USDCCCTPObserverConfig{
+				Tokens:                 cctpContracts,
+				AttestationAPI:         endpoint,
+				AttestationAPITimeout:  commonconfig.MustNewDuration(time.Second),
+				AttestationAPIInterval: commonconfig.MustNewDuration(500 * time.Millisecond),
+			}})
 	}
 
 	// Build the per chain config.
@@ -211,23 +222,6 @@ func NewLocalDevEnvironment(
 	for _, chain := range allChains {
 		timelocksPerChain[chain] = state.Chains[chain].Timelock
 		tokenInfo := tokenConfig.GetTokenInfo(e.Logger, state.Chains[chain].LinkToken, state.Chains[chain].Weth9)
-		var tokenDataProviders []pluginconfig.TokenDataObserverConfig
-		if len(usdcChains) > 0 {
-			tokenDataProviders = append(tokenDataProviders, pluginconfig.TokenDataObserverConfig{
-				Type:    pluginconfig.USDCCCTPHandlerType,
-				Version: "1.0",
-				USDCCCTPObserverConfig: &pluginconfig.USDCCCTPObserverConfig{
-					Tokens: map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig{
-						cciptypes.ChainSelector(chain): {
-							SourcePoolAddress:            state.Chains[chain].USDCTokenPool.Address().String(),
-							SourceMessageTransmitterAddr: state.Chains[chain].MockUSDCTransmitter.Address().String(),
-						},
-					},
-					AttestationAPI:         usdcCfg.API,
-					AttestationAPITimeout:  usdcCfg.APITimeout,
-					AttestationAPIInterval: usdcCfg.APIInterval,
-				}})
-		}
 		ocrParams := changeset.DefaultOCRParams(feedSel, tokenInfo, tokenDataProviders)
 		if tCfg.OCRConfigOverride != nil {
 			ocrParams = tCfg.OCRConfigOverride(ocrParams)

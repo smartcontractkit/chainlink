@@ -39,12 +39,6 @@ func ConfigureNewChains(env deployment.Environment, c NewChainsConfig) (deployme
 	}, nil
 }
 
-type USDCAttestationConfig struct {
-	API         string
-	APITimeout  *config.Duration
-	APIInterval *config.Duration
-}
-
 type CCIPOCRParams struct {
 	OCRParameters types.OCRParameters
 	// Note contains pointers to Arb feeds for prices

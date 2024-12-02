@@ -321,18 +321,29 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 	require.NotNil(t, state.Chains[e.FeedChainSel].Weth9)
 
 	tokenConfig := NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
-	var usdcCfg USDCAttestationConfig
+	var tokenDataProviders []pluginconfig.TokenDataObserverConfig
 	if len(usdcChains) > 0 {
 		server := mockAttestationResponse()
 		endpoint := server.URL
-		usdcCfg = USDCAttestationConfig{
-			API:         endpoint,
-			APITimeout:  commonconfig.MustNewDuration(time.Second),
-			APIInterval: commonconfig.MustNewDuration(500 * time.Millisecond),
-		}
 		t.Cleanup(func() {
 			server.Close()
 		})
+		cctpContracts := make(map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig)
+		for _, usdcChain := range usdcChains {
+			cctpContracts[cciptypes.ChainSelector(usdcChain)] = pluginconfig.USDCCCTPTokenConfig{
+				SourcePoolAddress:            state.Chains[usdcChain].USDCTokenPool.Address().String(),
+				SourceMessageTransmitterAddr: state.Chains[usdcChain].MockUSDCTransmitter.Address().String(),
+			}
+		}
+		tokenDataProviders = append(tokenDataProviders, pluginconfig.TokenDataObserverConfig{
+			Type:    pluginconfig.USDCCCTPHandlerType,
+			Version: "1.0",
+			USDCCCTPObserverConfig: &pluginconfig.USDCCCTPObserverConfig{
+				Tokens:                 cctpContracts,
+				AttestationAPI:         endpoint,
+				AttestationAPITimeout:  commonconfig.MustNewDuration(time.Second),
+				AttestationAPIInterval: commonconfig.MustNewDuration(500 * time.Millisecond),
+			}})
 	}
 	// Build the per chain config.
 	chainConfigs := make(map[uint64]CCIPOCRParams)
@@ -340,23 +351,6 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 	for _, chain := range allChains {
 		timelocksPerChain[chain] = state.Chains[chain].Timelock
 		tokenInfo := tokenConfig.GetTokenInfo(e.Env.Logger, state.Chains[chain].LinkToken, state.Chains[chain].Weth9)
-		var tokenDataProviders []pluginconfig.TokenDataObserverConfig
-		if len(usdcChains) > 0 {
-			tokenDataProviders = append(tokenDataProviders, pluginconfig.TokenDataObserverConfig{
-				Type:    pluginconfig.USDCCCTPHandlerType,
-				Version: "1.0",
-				USDCCCTPObserverConfig: &pluginconfig.USDCCCTPObserverConfig{
-					Tokens: map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig{
-						cciptypes.ChainSelector(chain): {
-							SourcePoolAddress:            state.Chains[chain].USDCTokenPool.Address().String(),
-							SourceMessageTransmitterAddr: state.Chains[chain].MockUSDCTransmitter.Address().String(),
-						},
-					},
-					AttestationAPI:         usdcCfg.API,
-					AttestationAPITimeout:  usdcCfg.APITimeout,
-					AttestationAPIInterval: usdcCfg.APIInterval,
-				}})
-		}
 		chainConfigs[chain] = DefaultOCRParams(e.FeedChainSel, tokenInfo, tokenDataProviders)
 	}
 	// Deploy second set of changesets to deploy and configure the CCIP contracts.
