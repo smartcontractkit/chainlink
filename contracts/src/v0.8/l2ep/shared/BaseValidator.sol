@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {AggregatorValidatorInterface} from "../../../shared/interfaces/AggregatorValidatorInterface.sol";
-import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
+import {AggregatorValidatorInterface} from "../../shared/interfaces/AggregatorValidatorInterface.sol";
+import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 
-import {SimpleWriteAccessController} from "../../../shared/access/SimpleWriteAccessController.sol";
+import {SimpleWriteAccessController} from "../../shared/access/SimpleWriteAccessController.sol";
 
 abstract contract BaseValidator is SimpleWriteAccessController, AggregatorValidatorInterface, ITypeAndVersion {
   /// @notice emitted when gas cost to spend on L2 is updated

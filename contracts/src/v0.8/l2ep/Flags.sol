@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {SimpleReadAccessController} from "../../shared/access/SimpleReadAccessController.sol";
-import {AccessControllerInterface} from "../../shared/interfaces/AccessControllerInterface.sol";
-import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
+import {SimpleReadAccessController} from "../shared/access/SimpleReadAccessController.sol";
+import {AccessControllerInterface} from "../shared/interfaces/AccessControllerInterface.sol";
+import {ITypeAndVersion} from "../shared/interfaces/ITypeAndVersion.sol";
 
 /* dev dependencies - to be re/moved after audit */
 import {IFlags} from "./interfaces/IFlags.sol";

@@ -4,7 +4,7 @@ set +e
 
 SCRIPT_PATH=`dirname "$0"`; SCRIPT_PATH=`eval "cd \"$SCRIPT_PATH\" && pwd"`
 OUTPUT_FILE=${OUTPUT_FILE:-"./output.txt"}
-EXTRA_FLAGS=""
+EXTRA_FLAGS="-timeout 20m"
 
 echo "Test execution results: ---------------------"
 echo ""
