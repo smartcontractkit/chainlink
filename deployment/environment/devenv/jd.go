@@ -55,7 +55,7 @@ func gapTokenInterceptor(token string) grpc.UnaryClientInterceptor {
 		opts ...grpc.CallOption,
 	) error {
 		return invoker(
-			metadata.AppendToOutgoingContext(ctx, "x-authorization-github-jwt", token),
+			metadata.AppendToOutgoingContext(ctx, "x-authorization-github-jwt", "Bearer "+token),
 			method, req, reply, cc, opts...,
 		)
 	}
@@ -63,16 +63,24 @@ func gapTokenInterceptor(token string) grpc.UnaryClientInterceptor {
 
 func NewJDConnection(cfg JDConfig) (*grpc.ClientConn, error) {
 	opts := []grpc.DialOption{}
+	interceptors := []grpc.UnaryClientInterceptor{}
+
 	if cfg.Creds != nil {
 		opts = append(opts, grpc.WithTransportCredentials(cfg.Creds))
 	}
 	if cfg.Auth != nil {
-		opts = append(opts, grpc.WithUnaryInterceptor(authTokenInterceptor(cfg.Auth)))
+		interceptors = append(interceptors, authTokenInterceptor(cfg.Auth))
 	}
 	if cfg.GAP != "" {
-		opts = append(opts, grpc.WithUnaryInterceptor(gapTokenInterceptor(cfg.GAP)))
+		fmt.Println("Using GAP token from JDConfig")
+		interceptors = append(interceptors, gapTokenInterceptor(cfg.GAP))
 	}
-	opts = append(opts, grpc.WithAuthority(cfg.GRPC))
+
+	if len(interceptors) > 0 {
+		opts = append(opts, grpc.WithChainUnaryInterceptor(interceptors...))
+	}
+	// opts = append(opts, grpc.WithAuthority(cfg.GRPC))
+
 	conn, err := grpc.NewClient(cfg.GRPC, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect Job Distributor service. Err: %w", err)
