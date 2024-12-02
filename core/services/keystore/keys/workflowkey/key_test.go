@@ -23,7 +23,7 @@ func TestPublicKey(t *testing.T) {
 	key, err := New()
 	require.NoError(t, err)
 
-	assert.Equal(t, key.publicKey, key.PublicKey())
+	assert.Equal(t, *key.publicKey, key.PublicKey())
 }
 
 func TestEncryptKeyRawPrivateKey(t *testing.T) {
