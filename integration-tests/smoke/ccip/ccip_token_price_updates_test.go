@@ -97,6 +97,7 @@ func Test_CCIPTokenPriceUpdates(t *testing.T) {
 	})
 	require.NoError(t, err)
 	_, err = deployment.ConfirmIfNoError(e.Env.Chains[sourceChain1], tx, err)
+	require.NoError(t, err)
 	t.Logf("manually editing token prices")
 
 	tokenPricesNow, err := feeQuoter1.GetTokenPrices(&bind.CallOpts{Context: ctx}, feeTokensChain1)
