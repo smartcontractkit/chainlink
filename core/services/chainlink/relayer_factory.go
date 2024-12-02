@@ -107,9 +107,11 @@ func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (m
 type SolanaFactoryConfig struct {
 	Keystore keystore.Solana
 	solcfg.TOMLConfigs
+	DS sqlutil.DataSource
 }
 
-func (r *RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solcfg.TOMLConfigs) (map[types.RelayID]loop.Relayer, error) {
+func (r *RelayerFactory) NewSolana(config SolanaFactoryConfig) (map[types.RelayID]loop.Relayer, error) {
+	chainCfgs, ds, ks := config.TOMLConfigs, config.DS, config.Keystore
 	solanaRelayers := make(map[types.RelayID]loop.Relayer)
 	var (
 		solLggr = r.Logger.Named("Solana")
@@ -162,6 +164,7 @@ func (r *RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solcfg.TOMLConf
 			opts := solana.ChainOpts{
 				Logger:   lggr,
 				KeyStore: signer,
+				DS:       ds,
 			}
 
 			chain, err := solana.NewChain(chainCfg, opts)

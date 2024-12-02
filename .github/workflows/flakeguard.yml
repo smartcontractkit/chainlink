@@ -60,6 +60,8 @@ env:
   ALL_TESTS_RUNNER_COUNT: ${{ fromJson(inputs.extraArgs)['all_tests_runner_count'] || '2' }} # The number of GitHub runners to use when running all tests `runAllTests=true`.
   TEST_REPEAT_COUNT: ${{ fromJson(inputs.extraArgs)['test_repeat_count'] || '5' }} # The number of times each runner should run a test to detect flaky tests.
   RUN_WITH_RACE: ${{ fromJson(inputs.extraArgs)['run_with_race'] || 'true' }} # Whether to run tests with -race flag.
+  RUN_WITH_SHUFFLE: ${{ fromJson(inputs.extraArgs)['run_with_shuffle'] || 'false' }} # Whether to run tests with -shuffle flag.
+  SHUFFLE_SEED: ${{ fromJson(inputs.extraArgs)['shuffle_seed'] || '999' }} # The seed to use when -shuffle flag is enabled. Requires RUN_WITH_SHUFFLE to be true.
   ALL_TESTS_RUNNER: ${{ fromJson(inputs.extraArgs)['all_tests_runner'] || 'ubuntu22.04-32cores-128GB' }} # The runner to use for running all tests.
   DEFAULT_RUNNER: 'ubuntu-latest' # The default runner to use for running tests.
   UPLOAD_ALL_TEST_RESULTS: ${{ fromJson(inputs.extraArgs)['upload_all_test_results'] || 'false' }} # Whether to upload all test results as artifacts.
@@ -98,7 +100,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@be06798af83ef6d9f7cf04e8b10a8484520c5061 # flakguard@0.0.1
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@18318aa45ff3c54ff10a5fc154bcd8930b34c93c # flakguard@0.0.1
 
       - name: Find new or updated test packages
         if: ${{ inputs.runAllTests == false }}
@@ -257,11 +259,11 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@be06798af83ef6d9f7cf04e8b10a8484520c5061 # flakguard@0.0.1
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@18318aa45ff3c54ff10a5fc154bcd8930b34c93c # flakguard@0.0.1
 
       - name: Run tests with flakeguard
         shell: bash
-        run: flakeguard run --project-path=${{ inputs.projectPath }} --test-packages=${{ matrix.testPackages }} --run-count=${{ env.TEST_REPEAT_COUNT }} --max-pass-ratio=${{ inputs.maxPassRatio }} --race=${{ env.RUN_WITH_RACE }} --skip-tests=${{ env.SKIPPED_TESTS }} --print-failed-tests=${{ env.PRINT_FAILED_TESTS }} --output-json=test-result.json
+        run: flakeguard run --project-path=${{ inputs.projectPath }} --test-packages=${{ matrix.testPackages }} --run-count=${{ env.TEST_REPEAT_COUNT }} --max-pass-ratio=${{ inputs.maxPassRatio }} --race=${{ env.RUN_WITH_RACE }} --shuffle=${{ env.RUN_WITH_SHUFFLE }} --shuffle-seed=${{ env.SHUFFLE_SEED }} --skip-tests=${{ env.SKIPPED_TESTS }} --print-failed-tests=${{ env.PRINT_FAILED_TESTS }} --output-json=test-result.json
         env:
           CL_DATABASE_URL: ${{ env.DB_URL }}
 
@@ -299,7 +301,7 @@ jobs:
             
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@be06798af83ef6d9f7cf04e8b10a8484520c5061 # flakguard@0.0.1
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@18318aa45ff3c54ff10a5fc154bcd8930b34c93c # flakguard@0.0.1
                 
       - name: Set combined test results
         id: set_test_results
@@ -486,6 +488,10 @@ jobs:
           echo "| Flakiness Threshold     | ${threshold_percentage}%       |" >> $GITHUB_STEP_SUMMARY
           echo "| Test Run Count       | ${{ steps.calculate_test_repeat_count.outputs.test_repeat_count }}   |" >> $GITHUB_STEP_SUMMARY
           echo "| Race Detection          | ${{ env.RUN_WITH_RACE }}      |" >> $GITHUB_STEP_SUMMARY
+          echo "| Shuffle Flag Set       | ${{ env.RUN_WITH_SHUFFLE }}      |" >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ env.RUN_WITH_SHUFFLE }}" == "true" ]]; then
+            echo "| Shuffle Seed            | ${{ env.SHUFFLE_SEED }}      |" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "| Excluded Tests          | ${{ env.SKIPPED_TESTS }}      |" >> $GITHUB_STEP_SUMMARY
           
       - name: Append No Tests Found Message to GitHub Summary

@@ -10,6 +10,8 @@ import {Pool} from "../libraries/Pool.sol";
 import {RateLimiter} from "../libraries/RateLimiter.sol";
 
 import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata} from
+  "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IERC165} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts/utils/introspection/IERC165.sol";
 import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts/utils/structs/EnumerableSet.sol";
 
@@ -17,18 +19,19 @@ import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts
 /// A token pool serves as isolated place for holding tokens and token specific logic
 /// that may execute as tokens move across the bridge.
 /// @dev This pool supports different decimals on different chains but using this feature could impact the total number
-/// of tokens in circulation. Since all of the tokens are burned on the source, and a rounded amount is minted on the
-/// destination, the number of tokens minted could be less than the number of tokens burned. This is because the source
-/// chain does not know about the destination token decimals. This is not a problem if the decimals are the same on both
-/// chains.
+/// of tokens in circulation. Since all of the tokens are locked/burned on the source, and a rounded amount is
+/// minted/released on the destination, the number of tokens minted/released could be less than the number of tokens
+/// burned/locked. This is because the source chain does not know about the destination token decimals. This is not a
+/// problem if the decimals are the same on both chains.
 ///
 /// Example:
 /// Assume there is a token with 6 decimals on chain A and 3 decimals on chain B.
-/// - 1.123456 tokens are burned on chain A.
+/// - 1.234567 tokens are burned on chain A.
 /// - 1.234    tokens are minted on chain B.
 /// When sending the 1.234 tokens back to chain A, you will receive 1.234000 tokens on chain A, effectively losing
-/// 0.000456 tokens. In the case of a burnMint pool, these funds are burned. In the case of a lockRelease pool, these
-/// funds accumulate in the pool on chain A.
+/// 0.000567 tokens.
+/// In the case of a burnMint pool on chain A, these funds are burned in the pool on chain A.
+/// In the case of a lockRelease pool on chain A, these funds accumulate in the pool on chain A.
 abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
   using EnumerableSet for EnumerableSet.Bytes32Set;
   using EnumerableSet for EnumerableSet.AddressSet;
@@ -50,6 +53,8 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
   error InvalidRemotePoolForChain(uint64 remoteChainSelector, bytes remotePoolAddress);
   error InvalidRemoteChainDecimals(bytes sourcePoolData);
   error MismatchedArrayLengths();
+  error OverflowDetected(uint8 remoteDecimals, uint8 localDecimals, uint256 remoteAmount);
+  error InvalidDecimalArgs(uint8 expected, uint8 actual);
 
   event Locked(address indexed sender, uint256 amount);
   event Burned(address indexed sender, uint256 amount);
@@ -120,7 +125,17 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
     if (address(token) == address(0) || router == address(0) || rmnProxy == address(0)) revert ZeroAddressNotAllowed();
     i_token = token;
     i_rmnProxy = rmnProxy;
+
+    try IERC20Metadata(address(token)).decimals() returns (uint8 actualTokenDecimals) {
+      if (localTokenDecimals != actualTokenDecimals) {
+        revert InvalidDecimalArgs(localTokenDecimals, actualTokenDecimals);
+      }
+    } catch {
+      // The decimals function doesn't exist, which is possible since it's optional in the ERC20 spec. We skip the check and
+      // assume the supplied token decimals are correct.
+    }
     i_tokenDecimals = localTokenDecimals;
+
     s_router = IRouter(router);
 
     // Pool can be set as permissioned or permissionless at deployment time only to save hot-path gas.
@@ -257,18 +272,33 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
   /// @param remoteAmount The amount on the remote chain.
   /// @param remoteDecimals The decimals of the token on the remote chain.
   /// @return The local amount.
-  /// @dev This function assumes the inputs don't overflow and does no checks to avoid this. For any normal inputs, this
-  /// should not be a problem. The only way to overflow is when the given arguments cannot be represented in the uint256
-  /// type, which means the inputs are invalid.
+  /// @dev This function protects against overflows. If there is a transaction that hits the overflow check, it is
+  /// probably incorrect as that means the amount cannot be represented on this chain. If the local decimals have been
+  /// wrongly configured, the token issuer could redeploy the pool with the correct decimals and manually re-execute the
+  /// CCIP tx to fix the issue.
   function _calculateLocalAmount(uint256 remoteAmount, uint8 remoteDecimals) internal view virtual returns (uint256) {
     if (remoteDecimals == i_tokenDecimals) {
       return remoteAmount;
     }
     if (remoteDecimals > i_tokenDecimals) {
+      uint8 decimalsDiff = remoteDecimals - i_tokenDecimals;
+      if (decimalsDiff > 77) {
+        // This is a safety check to prevent overflow in the next calculation.
+        revert OverflowDetected(remoteDecimals, i_tokenDecimals, remoteAmount);
+      }
       // Solidity rounds down so there is no risk of minting more tokens than the remote chain sent.
-      return remoteAmount / (10 ** (remoteDecimals - i_tokenDecimals));
+      return remoteAmount / (10 ** decimalsDiff);
     }
-    return remoteAmount * (10 ** (i_tokenDecimals - remoteDecimals));
+
+    // This is a safety check to prevent overflow in the next calculation.
+    // More than 77 would never fit in a uint256 and would cause an overflow. We also check if the resulting amount
+    // would overflow.
+    uint8 diffDecimals = i_tokenDecimals - remoteDecimals;
+    if (diffDecimals > 77 || remoteAmount > type(uint256).max / (10 ** diffDecimals)) {
+      revert OverflowDetected(remoteDecimals, i_tokenDecimals, remoteAmount);
+    }
+
+    return remoteAmount * (10 ** diffDecimals);
   }
 
   // ================================================================

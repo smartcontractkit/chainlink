@@ -3,10 +3,14 @@ package syncer
 import (
 	"context"
 	"encoding/hex"
-	"strconv"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/mock"
+
+	"github.com/jonboulle/clockwork"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	types "github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -16,21 +20,29 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 
 	"github.com/stretchr/testify/require"
 )
 
+type testDonNotifier struct {
+	don capabilities.DON
+	err error
+}
+
+func (t *testDonNotifier) WaitForDon(ctx context.Context) (capabilities.DON, error) {
+	return t.don, t.err
+}
+
 func Test_Workflow_Registry_Syncer(t *testing.T) {
 	var (
-		giveContents = "contents"
-		wantContents = "updated contents"
-		giveCfg      = ContractEventPollerConfig{
-			ContractName:    ContractName,
-			ContractAddress: "0xdeadbeef",
-			StartBlockNum:   0,
-			QueryCount:      20,
+		giveContents    = "contents"
+		wantContents    = "updated contents"
+		contractAddress = "0xdeadbeef"
+		giveCfg         = WorkflowEventPollerConfig{
+			QueryCount: 20,
 		}
 		giveURL       = "http://example.com"
 		giveHash, err = crypto.Keccak256([]byte(giveURL))
@@ -57,7 +69,26 @@ func Test_Workflow_Registry_Syncer(t *testing.T) {
 			return []byte(wantContents), nil
 		}
 		ticker = make(chan time.Time)
-		worker = NewWorkflowRegistry(lggr, orm, reader, gateway, giveCfg.ContractAddress, nil, nil, emitter, WithTicker(ticker))
+
+		handler = NewEventHandler(lggr, orm, gateway, nil, nil,
+			emitter, clockwork.NewFakeClock(), workflowkey.Key{})
+		loader = NewWorkflowRegistryContractLoader(contractAddress, func(ctx context.Context, bytes []byte) (ContractReader, error) {
+			return reader, nil
+		}, handler)
+
+		worker = NewWorkflowRegistry(lggr, func(ctx context.Context, bytes []byte) (ContractReader, error) {
+			return reader, nil
+		}, contractAddress,
+			WorkflowEventPollerConfig{
+				QueryCount: 20,
+			}, handler, loader,
+			&testDonNotifier{
+				don: capabilities.DON{
+					ID: 1,
+				},
+				err: nil,
+			},
+			WithTicker(ticker))
 	)
 
 	// Cleanup the worker
@@ -71,14 +102,14 @@ func Test_Workflow_Registry_Syncer(t *testing.T) {
 	reader.EXPECT().QueryKey(
 		matches.AnyContext,
 		types.BoundContract{
-			Name:    giveCfg.ContractName,
-			Address: giveCfg.ContractAddress,
+			Name:    WorkflowRegistryContractName,
+			Address: contractAddress,
 		},
 		query.KeyFilter{
 			Key: string(ForceUpdateSecretsEvent),
 			Expressions: []query.Expression{
 				query.Confidence(primitives.Finalized),
-				query.Block(strconv.FormatUint(giveCfg.StartBlockNum, 10), primitives.Gte),
+				query.Block("0", primitives.Gt),
 			},
 		},
 		query.LimitAndSort{
@@ -87,6 +118,10 @@ func Test_Workflow_Registry_Syncer(t *testing.T) {
 		},
 		new(values.Value),
 	).Return([]types.Sequence{giveLog}, nil)
+	reader.EXPECT().GetLatestValueWithHeadData(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(&types.Head{
+		Height: "0",
+	}, nil)
+	reader.EXPECT().Bind(mock.Anything, mock.Anything).Return(nil)
 
 	// Go run the worker
 	servicetest.Run(t, worker)
