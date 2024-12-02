@@ -276,7 +276,7 @@ func (c *Compute) Close() error {
 	c.modules.close()
 	close(c.stopCh)
 	c.wg.Wait()
-	return nil
+	return c.registry.Remove(context.TODO(), CapabilityIDCompute)
 }
 
 func (c *Compute) createFetcher() func(ctx context.Context, req *wasmpb.FetchRequest) (*wasmpb.FetchResponse, error) {

@@ -57,6 +57,10 @@ func (c *Capability) Start(ctx context.Context) error {
 }
 
 func (c *Capability) Close() error {
+	err := c.registry.Remove(context.TODO(), c.capabilityInfo.ID)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

@@ -256,6 +256,10 @@ func (h *triggerConnectorHandler) Start(ctx context.Context) error {
 }
 func (h *triggerConnectorHandler) Close() error {
 	return h.StopOnce("GatewayConnectorServiceWrapper", func() error {
+		err := h.registry.Remove(context.TODO(), h.ID)
+		if err != nil {
+			return err
+		}
 		return nil
 	})
 }

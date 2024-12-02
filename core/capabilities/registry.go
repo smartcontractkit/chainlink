@@ -193,6 +193,22 @@ func (r *Registry) Add(ctx context.Context, c capabilities.BaseCapability) error
 	return nil
 }
 
+// Add adds a capability to the registry.
+func (r *Registry) Remove(ctx context.Context, id string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	_, ok := r.m[id]
+	if !ok {
+		r.lggr.Debugw("unable to remove, capability not found", "id", id)
+		return nil
+	}
+
+	delete(r.m, id)
+	r.lggr.Infow("capability removed", "id", id)
+	return nil
+}
+
 // NewRegistry returns a new Registry.
 func NewRegistry(lggr logger.Logger) *Registry {
 	return &Registry{

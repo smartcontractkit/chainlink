@@ -259,6 +259,10 @@ func (r *Relayer) Close() error {
 	cs := make([]io.Closer, 0, 2)
 	if r.triggerCapability != nil {
 		cs = append(cs, r.triggerCapability)
+		err := r.capabilitiesRegistry.Remove(context.TODO(), r.triggerCapability.ID)
+		if err != nil {
+			return err
+		}
 	}
 	cs = append(cs, r.chain)
 	return services.MultiCloser(cs).Close()
