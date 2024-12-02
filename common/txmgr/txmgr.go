@@ -76,6 +76,7 @@ type TxmV2Wrapper[
 ] interface {
 	services.Service
 	CreateTransaction(ctx context.Context, txRequest txmgrtypes.TxRequest[ADDR, TX_HASH]) (etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error)
+	Reset(addr ADDR, abandon bool) error
 }
 
 type reset struct {
@@ -259,6 +260,11 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Reset(addr
 		f := func() {
 			if abandon {
 				err = b.abandon(addr)
+				if b.txmv2wrapper != nil {
+					if err2 := b.txmv2wrapper.Reset(addr, abandon); err2 != nil {
+						b.logger.Error("failed to abandon transactions for dual broadcast", "err", err2)
+					}
+				}
 			}
 		}
 
