@@ -55,7 +55,7 @@ func gapTokenInterceptor(token string) grpc.UnaryClientInterceptor {
 		opts ...grpc.CallOption,
 	) error {
 		return invoker(
-			metadata.AppendToOutgoingContext(ctx, "x-authorization-github-jwt", "Bearer "+token),
+			metadata.AppendToOutgoingContext(ctx, "x-authorization-github-jwt", token),
 			method, req, reply, cc, opts...,
 		)
 	}
