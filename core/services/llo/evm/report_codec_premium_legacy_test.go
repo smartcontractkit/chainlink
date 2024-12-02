@@ -39,7 +39,6 @@ func FuzzReportCodecPremiumLegacy_Decode(f *testing.F) {
 	f.Fuzz(func(t *testing.T, data []byte) {
 		// test that it doesn't panic, don't care about errors
 		codec.Decode(data) //nolint:errcheck
-		// codec.Unpack(data) //nolint:errcheck
 	})
 }
 
