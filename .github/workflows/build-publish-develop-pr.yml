@@ -105,7 +105,7 @@ jobs:
 
       - name: Build images for ${{ matrix.goarch }}
         uses: ./.github/actions/goreleaser-build-sign-publish
-        if: steps.cache.outputs.cache-hit != 'true'
+        if: github.event_name == 'workflow_dispatch' || steps.cache.outputs.cache-hit != 'true'
         with:
           docker-registry: ${{ secrets.AWS_SDLC_ECR_HOSTNAME }}
           docker-image-tag: ${{ needs.image-tag.outputs.image-tag }}
