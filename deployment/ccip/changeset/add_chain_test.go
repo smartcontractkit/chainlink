@@ -64,12 +64,7 @@ func TestAddChainInbound(t *testing.T) {
 
 	chainConfig := make(map[uint64]CCIPOCRParams)
 	for _, chain := range initialDeploy {
-		ocrParams := DefaultOCRParams(e.FeedChainSel, nil, nil)
-		chainConfig[chain] = CCIPOCRParams{
-			OCRParameters:         ocrParams.OCRParameters,
-			CommitOffChainConfig:  ocrParams.CommitOffChainConfig,
-			ExecuteOffChainConfig: ocrParams.ExecuteOffChainConfig,
-		}
+		chainConfig[chain] = DefaultOCRParams(e.FeedChainSel, nil, nil)
 	}
 	err = deployCCIPContracts(e.Env, newAddresses, NewChainsConfig{
 		HomeChainSel:       e.HomeChainSel,

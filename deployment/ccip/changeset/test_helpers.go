@@ -357,12 +357,7 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 					AttestationAPIInterval: usdcCfg.APIInterval,
 				}})
 		}
-		ocrParams := DefaultOCRParams(e.FeedChainSel, tokenInfo, tokenDataProviders)
-		chainConfigs[chain] = CCIPOCRParams{
-			OCRParameters:         ocrParams.OCRParameters,
-			CommitOffChainConfig:  ocrParams.CommitOffChainConfig,
-			ExecuteOffChainConfig: ocrParams.ExecuteOffChainConfig,
-		}
+		chainConfigs[chain] = DefaultOCRParams(e.FeedChainSel, tokenInfo, tokenDataProviders)
 	}
 	// Deploy second set of changesets to deploy and configure the CCIP contracts.
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{

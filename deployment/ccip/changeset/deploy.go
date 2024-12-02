@@ -400,11 +400,7 @@ func configureChain(
 			chain,
 			e.Chains[c.HomeChainSel],
 			nodes.NonBootstraps(),
-			CCIPOCRParams{
-				OCRParameters:         chainConfig.OCRParameters,
-				CommitOffChainConfig:  chainConfig.CommitOffChainConfig,
-				ExecuteOffChainConfig: chainConfig.ExecuteOffChainConfig,
-			},
+			chainConfig,
 		); err != nil {
 			e.Logger.Errorw("Failed to add DON", "err", err)
 			return err

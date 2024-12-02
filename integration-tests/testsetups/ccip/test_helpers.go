@@ -232,11 +232,7 @@ func NewLocalDevEnvironment(
 		if tCfg.OCRConfigOverride != nil {
 			ocrParams = tCfg.OCRConfigOverride(ocrParams)
 		}
-		chainConfigs[chain] = changeset.CCIPOCRParams{
-			OCRParameters:         ocrParams.OCRParameters,
-			CommitOffChainConfig:  ocrParams.CommitOffChainConfig,
-			ExecuteOffChainConfig: ocrParams.ExecuteOffChainConfig,
-		}
+		chainConfigs[chain] = ocrParams
 	}
 
 	// Deploy second set of changesets to deploy and configure the CCIP contracts.

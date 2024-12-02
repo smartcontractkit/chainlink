@@ -39,35 +39,6 @@ func ConfigureNewChains(env deployment.Environment, c NewChainsConfig) (deployme
 	}, nil
 }
 
-/*
-type USDCConfig struct {
-	EnabledChains []uint64
-	USDCAttestationConfig
-	CCTPTokenConfig map[ccipocr3.ChainSelector]pluginconfig.USDCCCTPTokenConfig
-}
-
-func (cfg USDCConfig) EnabledChainMap() map[uint64]bool {
-	m := make(map[uint64]bool)
-	for _, chain := range cfg.EnabledChains {
-		m[chain] = true
-	}
-	return m
-}
-
-func (cfg USDCConfig) ToTokenDataObserverConfig() []pluginconfig.TokenDataObserverConfig {
-	return []pluginconfig.TokenDataObserverConfig{{
-		Type:    pluginconfig.USDCCCTPHandlerType,
-		Version: "1.0",
-		USDCCCTPObserverConfig: &pluginconfig.USDCCCTPObserverConfig{
-			Tokens:                 cfg.CCTPTokenConfig,
-			AttestationAPI:         cfg.API,
-			AttestationAPITimeout:  cfg.APITimeout,
-			AttestationAPIInterval: cfg.APIInterval,
-		},
-	}}
-}
-*/
-
 type USDCAttestationConfig struct {
 	API         string
 	APITimeout  *config.Duration
