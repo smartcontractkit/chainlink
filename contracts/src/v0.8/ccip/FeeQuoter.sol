@@ -3,7 +3,6 @@ pragma solidity 0.8.24;
 
 import {IReceiver} from "../keystone/interfaces/IReceiver.sol";
 import {ITypeAndVersion} from "../shared/interfaces/ITypeAndVersion.sol";
-
 import {IFeeQuoter} from "./interfaces/IFeeQuoter.sol";
 import {IPriceRegistry} from "./interfaces/IPriceRegistry.sol";
 
