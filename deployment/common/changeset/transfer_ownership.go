@@ -16,7 +16,7 @@ type OwnershipTransferrer interface {
 }
 
 type TransferOwnershipConfig struct {
-	// OwnersPerChain is a mapping from chain selector to the timelock contract address on that chain.
+	// OwnersPerChain is a mapping from chain selector to the owner's contract address on that chain.
 	OwnersPerChain map[uint64]common.Address
 
 	// Contracts is a mapping from chain selector to the ownership transferrers on that chain.
