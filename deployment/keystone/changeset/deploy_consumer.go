@@ -9,14 +9,16 @@ import (
 
 // DeployFeedsConsumer deploys the FeedsConsumer contract to the chain with the given chainSelector.
 func DeployFeedsConsumer(env deployment.Environment, chainSelector uint64) (deployment.ChangesetOutput, error) {
+	lggr := env.Logger
 	chain, ok := env.Chains[chainSelector]
 	if !ok {
 		return deployment.ChangesetOutput{}, fmt.Errorf("chain not found in environment")
 	}
 	ab := deployment.NewMemoryAddressBook()
-	err := kslib.DeployFeedsConsumer(env.Logger, chain, ab)
+	deployResp, err := kslib.DeployFeedsConsumer(chain, ab)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy FeedsConsumer: %w", err)
 	}
+	lggr.Infof("Deployed %s chain selector %d addr %s", deployResp.Tv.String(), chain.Selector, deployResp.Address.String())
 	return deployment.ChangesetOutput{AddressBook: ab}, nil
 }

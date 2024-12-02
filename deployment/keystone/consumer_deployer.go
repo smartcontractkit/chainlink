@@ -14,6 +14,14 @@ type KeystoneFeedsConsumerDeployer struct {
 	contract *feeds_consumer.KeystoneFeedsConsumer
 }
 
+func NewKeystoneFeedsConsumerDeployer() (*KeystoneFeedsConsumerDeployer, error) {
+	lggr, err := logger.New()
+	if err != nil {
+		return nil, err
+	}
+	return &KeystoneFeedsConsumerDeployer{lggr: lggr}, nil
+}
+
 func (c *KeystoneFeedsConsumerDeployer) deploy(req DeployRequest) (*DeployResponse, error) {
 	est, err := estimateDeploymentGas(req.Chain.Client, feeds_consumer.KeystoneFeedsConsumerABI)
 	if err != nil {

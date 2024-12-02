@@ -22,10 +22,11 @@ func DeployForwarder(env deployment.Environment, registryChainSel uint64) (deplo
 	ab := deployment.NewMemoryAddressBook()
 	for _, chain := range env.Chains {
 		lggr.Infow("deploying forwarder", "chainSelector", chain.Selector)
-		err := kslib.DeployForwarder(lggr, chain, ab)
+		forwarderResp, err := kslib.DeployForwarder(chain, ab)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy KeystoneForwarder to chain selector %d: %w", chain.Selector, err)
 		}
+		lggr.Infof("Deployed %s chain selector %d addr %s", forwarderResp.Tv.String(), chain.Selector, forwarderResp.Address.String())
 	}
 
 	return deployment.ChangesetOutput{AddressBook: ab}, nil
