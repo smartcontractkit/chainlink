@@ -295,11 +295,11 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
     address[] calldata signers,
     uint8 f,
     Common.AddressAndWeight[] memory recipientAddressesAndWeights,
-    bool updateConfig
+    bool _updateConfig
   ) internal {
     VerifierState storage verifierState = s_verifierStates[configDigest];
 
-    if(verifierState.f > 0 && !updateConfig) {
+    if(verifierState.f > 0 && !_updateConfig) {
       revert ConfigDigestAlreadySet();
     }
 
@@ -325,7 +325,7 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
       });
     }
 
-    if(!updateConfig) {
+    if(!_updateConfig) {
       IVerifierProxy(i_verifierProxyAddr).setVerifier(
         bytes32(0),
         configDigest,
