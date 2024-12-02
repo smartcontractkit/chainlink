@@ -5,7 +5,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/pg"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 )
