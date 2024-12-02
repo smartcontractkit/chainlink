@@ -32,13 +32,13 @@ func FuzzReportCodecPremiumLegacy_Decode(f *testing.F) {
 	cd := llotypes.ChannelDefinition{Opts: llotypes.ChannelOpts(fmt.Sprintf(`{"baseUSDFee":"10.50","expirationWindow":60,"feedId":"0x%x","multiplier":10}`, feedID))}
 
 	codec := ReportCodecPremiumLegacy{logger.NullLogger, 100002}
-	validEncodedReport, err := codec.Encode(nil, validReport, cd)
+
+	validEncodedReport, err := codec.Encode(tests.Context(f), validReport, cd)
 	require.NoError(f, err)
 	f.Add(validEncodedReport)
 
 	f.Fuzz(func(t *testing.T, data []byte) {
-		// test that it doesn't panic, don't care about errors
-		codec.Decode(data) //nolint:errcheck
+		codec.Decode(data) //nolint:errcheck // test that it doesn't panic, don't care about errors
 	})
 }
 

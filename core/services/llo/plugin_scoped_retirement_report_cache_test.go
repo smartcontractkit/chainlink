@@ -31,8 +31,7 @@ func FuzzPluginScopedRetirementReportCache_CheckAttestedRetirementReport(f *test
 	exampleDigest := ocr2types.ConfigDigest{1}
 
 	f.Fuzz(func(t *testing.T, data []byte) {
-		// test that it doesn't panic, don't care about errors
-		psrrc.CheckAttestedRetirementReport(exampleDigest, data) //nolint:errcheck
+		psrrc.CheckAttestedRetirementReport(exampleDigest, data) //nolint:errcheck // test that it doesn't panic, don't care about errors
 	})
 }
 
