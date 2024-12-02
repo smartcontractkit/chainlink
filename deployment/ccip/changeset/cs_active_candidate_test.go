@@ -144,7 +144,7 @@ func TestActiveCandidate(t *testing.T) {
 		nil,
 	)
 	ocr3ConfigMap, err := internal.BuildOCR3ConfigForCCIPHome(
-		deployment.XXXGenerateTestOCRSecrets(),
+		e.OCRSecrets,
 		state.Chains[tenv.FeedChainSel].OffRamp,
 		e.Chains[tenv.FeedChainSel],
 		nodes.NonBootstraps(),

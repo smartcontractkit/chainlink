@@ -7,16 +7,19 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"sort"
-
-	"math"
 	"testing"
 
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+	"golang.org/x/exp/maps"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -26,9 +29,6 @@ import (
 	kschangeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
-	"golang.org/x/exp/maps"
 )
 
 func TestSetupTestEnv(t *testing.T) {
@@ -215,11 +215,8 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 	err = env.ExistingAddresses.Merge(e.ExistingAddresses)
 	require.NoError(t, err)
 
-	var ocr3Config = keystone.OracleConfigWithSecrets{
-		OracleConfig: keystone.OracleConfig{
-			MaxFaultyOracles: len(wfNodes) / 3,
-		},
-		OCRSecrets: deployment.XXXGenerateTestOCRSecrets(),
+	var ocr3Config = keystone.OracleConfig{
+		MaxFaultyOracles: len(wfNodes) / 3,
 	}
 	var allDons = []keystone.DonCapabilities{wfDon, cwDon, assetDon}
 

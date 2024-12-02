@@ -44,8 +44,8 @@ type ConfigureContractsRequest struct {
 	RegistryChainSel uint64
 	Env              *deployment.Environment
 
-	Dons       []DonCapabilities        // externally sourced based on the environment
-	OCR3Config *OracleConfigWithSecrets // TODO: probably should be a map of don to config; but currently we only have one wf don therefore one config
+	Dons       []DonCapabilities // externally sourced based on the environment
+	OCR3Config *OracleConfig     // TODO: probably should be a map of don to config; but currently we only have one wf don therefore one config
 
 	// TODO rm this option; unused
 	DoContractDeploy bool // if false, the contracts are assumed to be deployed and the address book is used
@@ -304,7 +304,7 @@ func ConfigureRegistry(ctx context.Context, lggr logger.Logger, req ConfigureCon
 
 // Depreciated: use changeset.ConfigureOCR3Contract instead
 // ocr3 contract on the registry chain for the wf dons
-func ConfigureOCR3Contract(env *deployment.Environment, chainSel uint64, dons []RegisteredDon, cfg *OracleConfigWithSecrets) error {
+func ConfigureOCR3Contract(env *deployment.Environment, chainSel uint64, dons []RegisteredDon, cfg *OracleConfig) error {
 	registryChain, ok := env.Chains[chainSel]
 	if !ok {
 		return fmt.Errorf("chain %d not found in environment", chainSel)
@@ -338,6 +338,7 @@ func ConfigureOCR3Contract(env *deployment.Environment, chainSel uint64, dons []
 			contract:    contract,
 			nodes:       don.Nodes,
 			contractSet: &contracts,
+			ocrSecrets:  env.OCRSecrets,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to configure OCR3 contract for don %s: %w", don.Name, err)
@@ -354,7 +355,7 @@ type ConfigureOCR3Resp struct {
 type ConfigureOCR3Config struct {
 	ChainSel   uint64
 	NodeIDs    []string
-	OCR3Config *OracleConfigWithSecrets
+	OCR3Config *OracleConfig
 	DryRun     bool
 
 	UseMCMS bool
@@ -398,6 +399,7 @@ func ConfigureOCR3ContractFromJD(env *deployment.Environment, cfg ConfigureOCR3C
 		dryRun:      cfg.DryRun,
 		contractSet: &contracts,
 		useMCMS:     cfg.UseMCMS,
+		ocrSecrets:  env.OCRSecrets,
 	})
 	if err != nil {
 		return nil, err
