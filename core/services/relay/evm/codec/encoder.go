@@ -21,7 +21,7 @@ func (e *encoder) Encode(_ context.Context, item any, itemType string) (res []by
 	defer func() {
 		if r := recover(); r != nil {
 			res = nil
-			err = fmt.Errorf("%w: cannot encode type", commontypes.ErrInvalidType)
+			err = fmt.Errorf("%w: cannot encode type; %v", commontypes.ErrInvalidType, r)
 		}
 	}()
 	info, ok := e.Definitions[itemType]

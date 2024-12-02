@@ -43,11 +43,7 @@ func (d *Delegate) BeforeJobDeleted(jb job.Job)                {}
 func (d *Delegate) OnDeleteJob(context.Context, job.Job) error { return nil }
 
 func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []job.ServiceCtx, err error) {
-	if jb.StreamID == nil {
-		return nil, errors.New("streamID is required to be present for stream specs")
-	}
-	id := *jb.StreamID
-	lggr := d.lggr.Named(fmt.Sprintf("%d", id)).With("streamID", id)
+	lggr := d.lggr.Named(fmt.Sprintf("Job.%d", jb.ID)).With("jobID", jb.ID)
 
 	rrs := ocrcommon.NewResultRunSaver(d.runner, lggr, d.cfg.MaxSuccessfulRuns(), d.cfg.ResultWriteQueueDepth())
 	services = append(services, rrs, &StreamService{
