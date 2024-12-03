@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
-
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -562,6 +561,16 @@ func MakeEVMExtraArgsV2(gasLimit uint64, allowOOO bool) []byte {
 	extraArgs = append(extraArgs, gasLimitBytes...)
 	extraArgs = append(extraArgs, allowOOOBytes...)
 	return extraArgs
+}
+
+func AddLaneWithDefaultPricesAndFeeQuoterConfig(e deployment.Environment, state CCIPOnChainState, from, to uint64, isTestRouter bool) error {
+	cfg := LaneConfig{
+		SourceSelector:        from,
+		DestSelector:          to,
+		InitialPricesBySource: DefaultInitialPrices,
+		FeeQuoterDestChain:    DefaultFeeQuoterDestChainConfig(),
+	}
+	return addLane(e, state, cfg, isTestRouter)
 }
 
 // AddLanesForAll adds densely connected lanes for all chains in the environment so that each chain

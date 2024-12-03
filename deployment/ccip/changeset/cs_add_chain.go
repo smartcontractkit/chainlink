@@ -74,7 +74,7 @@ func NewChainInboundChangeset(
 		})
 	}
 
-	addChainOp, err := ApplyChainConfigUpdatesOp(e, state, homeChainSel, []uint64{newChainSel})
+	addChainOp, err := applyChainConfigUpdatesOp(e, state, homeChainSel, []uint64{newChainSel})
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -149,7 +149,7 @@ func AddDonAndSetCandidateChangeset(
 		return deployment.ChangesetOutput{}, fmt.Errorf("missing commit plugin in ocr3Configs")
 	}
 	donID := latestDon.Id + 1
-	addDonOp, err := NewDonWithCandidateOp(
+	addDonOp, err := newDonWithCandidateOp(
 		donID, commitConfig,
 		state.Chains[homeChainSel].CapabilityRegistry,
 		nodes.NonBootstraps(),
@@ -185,7 +185,7 @@ func AddDonAndSetCandidateChangeset(
 	}, nil
 }
 
-func ApplyChainConfigUpdatesOp(
+func applyChainConfigUpdatesOp(
 	e deployment.Environment,
 	state CCIPOnChainState,
 	homeChainSel uint64,
@@ -225,10 +225,10 @@ func ApplyChainConfigUpdatesOp(
 	}, nil
 }
 
-// SetCandidateCommitPluginWithAddDonOps sets the candidate commit config by calling setCandidate on CCIPHome contract through the AddDON call on CapReg contract
+// newDonWithCandidateOp sets the candidate commit config by calling setCandidate on CCIPHome contract through the AddDON call on CapReg contract
 // This should be done first before calling any other UpdateDON calls
 // This proposes to set up OCR3 config for the commit plugin for the DON
-func NewDonWithCandidateOp(
+func newDonWithCandidateOp(
 	donID uint32,
 	pluginConfig ccip_home.CCIPHomeOCR3Config,
 	capReg *capabilities_registry.CapabilitiesRegistry,
