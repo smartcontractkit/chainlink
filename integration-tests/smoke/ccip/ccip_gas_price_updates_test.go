@@ -45,17 +45,6 @@ func Test_CCIPGasPriceUpdates(t *testing.T) {
 	feeQuoter1 := state.Chains[sourceChain1].FeeQuoter
 	feeQuoter2 := state.Chains[sourceChain2].FeeQuoter
 
-	// update the price of chain2
-	tx, err := feeQuoter1.UpdatePrices(e.Env.Chains[sourceChain1].DeployerKey, fee_quoter.InternalPriceUpdates{
-		TokenPriceUpdates: nil,
-		GasPriceUpdates: []fee_quoter.InternalGasPriceUpdate{
-			{DestChainSelector: sourceChain2, UsdPerUnitGas: big.NewInt(5123)},
-		},
-	})
-	require.NoError(t, err)
-	_, err = deployment.ConfirmIfNoError(e.Env.Chains[sourceChain1], tx, err)
-	require.NoError(t, err)
-
 	// get initial chain fees
 	chainFee2, err := feeQuoter1.GetDestinationChainGasPrice(&bind.CallOpts{Context: ctx}, sourceChain2)
 	require.NoError(t, err)
@@ -73,6 +62,17 @@ func Test_CCIPGasPriceUpdates(t *testing.T) {
 	require.NoError(t, err)
 	t.Logf("priceUpdatesSeqNumChain1: %v", priceUpdatesSeqNumChain1)
 	t.Logf("priceUpdatesSeqNumChain2: %v", priceUpdatesSeqNumChain2)
+
+	// update the price of chain2
+	tx, err := feeQuoter1.UpdatePrices(e.Env.Chains[sourceChain1].DeployerKey, fee_quoter.InternalPriceUpdates{
+		TokenPriceUpdates: nil,
+		GasPriceUpdates: []fee_quoter.InternalGasPriceUpdate{
+			{DestChainSelector: sourceChain2, UsdPerUnitGas: big.NewInt(5123)},
+		},
+	})
+	require.NoError(t, err)
+	_, err = deployment.ConfirmIfNoError(e.Env.Chains[sourceChain1], tx, err)
+	require.NoError(t, err)
 
 	// assert that the chain fees are updated by the commit plugin reports
 	priceDeviationChecked := false // flag to check if price deviation condition was met
