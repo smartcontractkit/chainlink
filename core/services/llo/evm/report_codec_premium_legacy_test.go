@@ -20,6 +20,28 @@ import (
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
 )
 
+func FuzzReportCodecPremiumLegacy_Decode(f *testing.F) {
+	f.Add([]byte("not a protobuf"))
+	f.Add([]byte{0x0a, 0x00})             // empty protobuf
+	f.Add([]byte{0x0a, 0x02, 0x08, 0x01}) // invalid protobuf
+	f.Add(([]byte)(nil))
+	f.Add([]byte{})
+
+	validReport := newValidPremiumLegacyReport()
+	feedID := [32]uint8{0x1, 0x2, 0x3, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}
+	cd := llotypes.ChannelDefinition{Opts: llotypes.ChannelOpts(fmt.Sprintf(`{"baseUSDFee":"10.50","expirationWindow":60,"feedId":"0x%x","multiplier":10}`, feedID))}
+
+	codec := ReportCodecPremiumLegacy{logger.NullLogger, 100002}
+
+	validEncodedReport, err := codec.Encode(tests.Context(f), validReport, cd)
+	require.NoError(f, err)
+	f.Add(validEncodedReport)
+
+	f.Fuzz(func(t *testing.T, data []byte) {
+		codec.Decode(data) //nolint:errcheck // test that it doesn't panic, don't care about errors
+	})
+}
+
 func newValidPremiumLegacyReport() llo.Report {
 	return llo.Report{
 		ConfigDigest:                types.ConfigDigest{1, 2, 3},

@@ -13,7 +13,6 @@ import (
 )
 
 func NewFetcherFunc(
-	ctx context.Context,
 	lggr logger.Logger,
 	och *webapi.OutgoingConnectorHandler) FetcherFunc {
 	return func(ctx context.Context, url string) ([]byte, error) {

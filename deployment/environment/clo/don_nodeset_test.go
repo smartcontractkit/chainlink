@@ -61,7 +61,7 @@ func TestGenerateNopNodesData(t *testing.T) {
 		require.NotEmpty(t, ksNops)
 		b, err := json.MarshalIndent(ksNops, "", "  ")
 		require.NoError(t, err)
-		require.NoError(t, os.WriteFile("testdata/keystone_nops.json", b, 0644)) // nolint: gosec
+		require.NoError(t, os.WriteFile("testdata/keystone_nops.json", b, 0644)) //nolint:gosec
 	}
 	keystoneNops := loadTestNops(t, "testdata/keystone_nops.json")
 

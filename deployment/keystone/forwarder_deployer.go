@@ -5,6 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder"
 )
@@ -14,6 +15,13 @@ type KeystoneForwarderDeployer struct {
 	contract *forwarder.KeystoneForwarder
 }
 
+func NewKeystoneForwarderDeployer() (*KeystoneForwarderDeployer, error) {
+	lggr, err := logger.New()
+	if err != nil {
+		return nil, err
+	}
+	return &KeystoneForwarderDeployer{lggr: lggr}, nil
+}
 func (c *KeystoneForwarderDeployer) deploy(req DeployRequest) (*DeployResponse, error) {
 	est, err := estimateDeploymentGas(req.Chain.Client, forwarder.KeystoneForwarderABI)
 	if err != nil {

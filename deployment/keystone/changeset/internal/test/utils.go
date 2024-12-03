@@ -13,6 +13,7 @@ import (
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 
@@ -43,7 +44,7 @@ type SetupTestRegistryResponse struct {
 func SetupTestRegistry(t *testing.T, lggr logger.Logger, req *SetupTestRegistryRequest) *SetupTestRegistryResponse {
 	chain := testChain(t)
 	// deploy the registry
-	registry := deployCapReg(t, lggr, chain)
+	registry := deployCapReg(t, chain)
 	// convert req to nodeoperators
 	nops := make([]kcr.CapabilitiesRegistryNodeOperator, 0)
 	for nop := range req.NopToNodes {
@@ -101,9 +102,10 @@ func SetupTestRegistry(t *testing.T, lggr logger.Logger, req *SetupTestRegistryR
 	}
 }
 
-func deployCapReg(t *testing.T, lggr logger.Logger, chain deployment.Chain) *kcr.CapabilitiesRegistry {
-	capabilitiesRegistryDeployer := kslib.NewCapabilitiesRegistryDeployer(lggr)
-	_, err := capabilitiesRegistryDeployer.Deploy(kslib.DeployRequest{Chain: chain})
+func deployCapReg(t *testing.T, chain deployment.Chain) *kcr.CapabilitiesRegistry {
+	capabilitiesRegistryDeployer, err := kslib.NewCapabilitiesRegistryDeployer()
+	require.NoError(t, err)
+	_, err = capabilitiesRegistryDeployer.Deploy(kslib.DeployRequest{Chain: chain})
 	require.NoError(t, err)
 	return capabilitiesRegistryDeployer.Contract()
 }

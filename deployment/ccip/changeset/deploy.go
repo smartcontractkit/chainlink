@@ -7,8 +7,9 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"golang.org/x/sync/errgroup"
+
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 
@@ -599,6 +600,8 @@ func deployChainContracts(
 					chain.DeployerKey,
 					chain.Client,
 					chain.Selector,
+					// Indicates no legacy RMN contract
+					common.HexToAddress("0x0"),
 				)
 				return deployment.ContractDeploy[*rmn_remote.RMNRemote]{
 					rmnRemoteAddr, rmnRemote, tx, deployment.NewTypeAndVersion(RMNRemote, deployment.Version1_6_0_dev), err2,

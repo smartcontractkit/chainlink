@@ -87,7 +87,7 @@ func init() {
 	}
 }
 
-var _ commontypes.Relayer = &Relayer{} //nolint:staticcheck
+var _ commontypes.Relayer = &Relayer{}
 
 // The current PluginProvider interface does not support an error return. This was fine up until CCIP.
 // CCIP is the first product to introduce the idea of incomplete implementations of a provider based on
