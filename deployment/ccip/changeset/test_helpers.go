@@ -490,6 +490,20 @@ func TestSendRequest(
 	testRouter bool,
 	evm2AnyMessage router.ClientEVM2AnyMessage,
 ) (msgSentEvent *onramp.OnRampCCIPMessageSent) {
+	msgSentEvent, err := DoSendRequest(t, e, state, src, dest, testRouter, evm2AnyMessage)
+	require.NoError(t, err)
+	return msgSentEvent
+}
+
+// DoSendRequest similar to TestSendRequest but returns an error.
+func DoSendRequest(
+	t *testing.T,
+	e deployment.Environment,
+	state CCIPOnChainState,
+	src, dest uint64,
+	testRouter bool,
+	evm2AnyMessage router.ClientEVM2AnyMessage,
+) (*onramp.OnRampCCIPMessageSent, error) {
 	t.Logf("Sending CCIP request from chain selector %d to chain selector %d",
 		src, dest)
 	tx, blockNum, err := CCIPSendRequest(
@@ -499,13 +513,19 @@ func TestSendRequest(
 		testRouter,
 		evm2AnyMessage,
 	)
-	require.NoError(t, err)
+	if err != nil {
+		return nil, err
+	}
+
 	it, err := state.Chains[src].OnRamp.FilterCCIPMessageSent(&bind.FilterOpts{
 		Start:   blockNum,
 		End:     &blockNum,
 		Context: context.Background(),
 	}, []uint64{dest}, []uint64{})
-	require.NoError(t, err)
+	if err != nil {
+		return nil, err
+	}
+
 	require.True(t, it.Next())
 	t.Logf("CCIP message (id %x) sent from chain selector %d to chain selector %d tx %s seqNum %d nonce %d sender %s",
 		it.Event.Message.Header.MessageId[:],
@@ -516,7 +536,7 @@ func TestSendRequest(
 		it.Event.Message.Header.Nonce,
 		it.Event.Message.Sender.String(),
 	)
-	return it.Event
+	return it.Event, nil
 }
 
 // MakeEVMExtraArgsV2 creates the extra args for the EVM2Any message that is destined
@@ -1108,6 +1128,7 @@ func TransferAndWaitForSuccess(
 	receiver common.Address,
 	data []byte,
 	expectedStatus int,
+	extraArgs []byte,
 ) {
 	identifier := SourceDestPair{
 		SourceChainSelector: sourceChain,
@@ -1128,7 +1149,7 @@ func TransferAndWaitForSuccess(
 		Data:         data,
 		TokenAmounts: tokens,
 		FeeToken:     common.HexToAddress("0x0"),
-		ExtraArgs:    nil,
+		ExtraArgs:    extraArgs,
 	})
 	expectedSeqNum[identifier] = msgSentEvent.SequenceNumber
 	expectedSeqNumExec[identifier] = []uint64{msgSentEvent.SequenceNumber}

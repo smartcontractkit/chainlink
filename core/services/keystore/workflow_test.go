@@ -175,4 +175,39 @@ func Test_EncryptionKeyStore_E2E(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, keys, 1)
 	})
+
+	t.Run("persists keys across restarts", func(t *testing.T) {
+		defer reset()
+		ctx := testutils.Context(t)
+
+		keys, err := ks.GetAll()
+		require.NoError(t, err)
+		assert.Empty(t, keys)
+
+		err = keyStore.Workflow().EnsureKey(ctx)
+		require.NoError(t, err)
+
+		keys, err = ks.GetAll()
+		require.NoError(t, err)
+
+		require.NoError(t, err)
+		require.Len(t, keys, 1)
+
+		// Now instantiate the keystore again, but with the same DB
+		// This should fetch the key directly from the DB.
+		keyStore := keystore.ExposedNewMaster(t, db)
+		require.NoError(t, keyStore.Unlock(testutils.Context(t), cltest.Password))
+
+		gotKeys, err := keyStore.Workflow().GetAll()
+		require.NoError(t, err)
+		require.Len(t, gotKeys, 1)
+
+		assert.Equal(t, keys[0].PublicKeyString(), gotKeys[0].PublicKeyString())
+
+		err = keyStore.Workflow().EnsureKey(testutils.Context(t))
+		require.NoError(t, err)
+		gotKeys, err = keyStore.Workflow().GetAll()
+		require.NoError(t, err)
+		require.Len(t, gotKeys, 1)
+	})
 }

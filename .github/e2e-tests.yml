@@ -987,6 +987,45 @@ runner-test-matrix:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2,SIMULATED_3
       E2E_JD_VERSION: 0.6.0
 
+  - id: smoke/ccip/ccip_message_limitations_test.go:*
+    path: integration-tests/smoke/ccip/ccip_message_limitations_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    triggers:
+      - PR E2E Core Tests
+      - Nightly E2E Tests
+    test_cmd: cd integration-tests/smoke/ccip && go test -run '^Test_CCIPMessageLimitations' -timeout 18m -test.parallel=1 -count=1 -json ./...
+    pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
+    test_env_vars:
+      E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
+      E2E_JD_VERSION: 0.6.0
+
+  - id: smoke/ccip/ccip_token_price_updates_test.go:*
+    path: integration-tests/smoke/ccip/ccip_token_price_updates_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    triggers:
+      - PR E2E Core Tests
+      - Nightly E2E Tests
+    test_cmd: cd integration-tests/smoke/ccip && go test ccip_token_price_updates_test.go -timeout 18m -test.parallel=1 -count=1 -json
+    pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
+    test_env_vars:
+      E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
+      E2E_JD_VERSION: 0.6.0
+
+  - id: smoke/ccip/ccip_gas_price_updates_test.go:*
+    path: integration-tests/smoke/ccip/ccip_gas_price_updates_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    triggers:
+      - PR E2E Core Tests
+      - Nightly E2E Tests
+    test_cmd: cd integration-tests/smoke/ccip && go test ccip_gas_price_updates_test.go -timeout 18m -test.parallel=1 -count=1 -json
+    pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
+    test_env_vars:
+      E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
+      E2E_JD_VERSION: 0.6.0
+
   - id: smoke/ccip/ccip_rmn_test.go:^TestRMN_TwoMessagesOnTwoLanesIncludingBatching$
     path: integration-tests/smoke/ccip/ccip_rmn_test.go
     test_env_type: docker
