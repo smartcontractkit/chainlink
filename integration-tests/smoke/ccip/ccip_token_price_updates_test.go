@@ -88,24 +88,34 @@ func Test_CCIPTokenPriceUpdates(t *testing.T) {
 		t.Logf("node %s disabled", n.Id)
 	}
 
-	// manually updated token prices by setting values to maxUint64 and 0
-	tx, err := feeQuoter1.UpdatePrices(e.Env.Chains[sourceChain1].DeployerKey, fee_quoter.InternalPriceUpdates{
-		TokenPriceUpdates: []fee_quoter.InternalTokenPriceUpdate{
-			{SourceToken: feeTokensChain1[0], UsdPerToken: big.NewInt(0).SetUint64(math.MaxUint64)},
-			{SourceToken: feeTokensChain1[1], UsdPerToken: big.NewInt(0)},
-		},
-	})
-	require.NoError(t, err)
-	_, err = deployment.ConfirmIfNoError(e.Env.Chains[sourceChain1], tx, err)
-	require.NoError(t, err)
-	t.Logf("manually editing token prices")
+	assert.Eventually(t, func() bool {
+		// manually update token prices by setting values to maxUint64 and 0
+		tx, err := feeQuoter1.UpdatePrices(e.Env.Chains[sourceChain1].DeployerKey, fee_quoter.InternalPriceUpdates{
+			TokenPriceUpdates: []fee_quoter.InternalTokenPriceUpdate{
+				{SourceToken: feeTokensChain1[0], UsdPerToken: big.NewInt(0).SetUint64(math.MaxUint64)},
+				{SourceToken: feeTokensChain1[1], UsdPerToken: big.NewInt(0)},
+			},
+		})
+		require.NoError(t, err)
 
-	tokenPricesNow, err := feeQuoter1.GetTokenPrices(&bind.CallOpts{Context: ctx}, feeTokensChain1)
-	require.NoError(t, err)
-	t.Logf("tokenPrices straight after: %v", tokenPricesNow)
+		_, err = deployment.ConfirmIfNoError(e.Env.Chains[sourceChain1], tx, err)
+		require.NoError(t, err)
+		t.Logf("manually editing token prices")
 
-	require.Equal(t, uint64(math.MaxUint64), tokenPricesNow[0].Value.Uint64())
-	require.Equal(t, big.NewInt(0).Uint64(), tokenPricesNow[1].Value.Uint64())
+		tokenPricesNow, err := feeQuoter1.GetTokenPrices(&bind.CallOpts{Context: ctx}, feeTokensChain1)
+		require.NoError(t, err)
+		t.Logf("tokenPrices straight after: %v", tokenPricesNow)
+
+		if uint64(math.MaxUint64) != tokenPricesNow[0].Value.Uint64() {
+			return false
+		}
+		if uint64(0) != tokenPricesNow[1].Value.Uint64() {
+			return false
+		}
+		return true
+
+		// retry because there might've been a commit report inflight
+	}, tests.WaitTimeout(t), 200*time.Millisecond)
 
 	// re-enable the oracles
 	for _, n := range disabledNodes {
