@@ -3,16 +3,14 @@ package changeset
 import (
 	"fmt"
 	"os"
-	"slices"
-	"sort"
 	"time"
 
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
-
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -20,8 +18,8 @@ import (
 
 var _ deployment.ChangeSet[NewChainsConfig] = ConfigureNewChains
 
-// ConfigureNewChains enables new chains as destination for CCIP
-// It performs the following steps:
+// ConfigureNewChains enables new chains as destination(s) for CCIP
+// It performs the following steps per chain:
 // - AddChainConfig + AddDON (candidate->primary promotion i.e. init) on the home chain
 // - SetOCR3Config on the remote chain
 // ConfigureNewChains assumes that the home chain is already enabled and all CCIP contracts are already deployed.
@@ -41,67 +39,42 @@ func ConfigureNewChains(env deployment.Environment, c NewChainsConfig) (deployme
 	}, nil
 }
 
-type USDCConfig struct {
-	EnabledChains []uint64
-	USDCAttestationConfig
-	CCTPTokenConfig map[ccipocr3.ChainSelector]pluginconfig.USDCCCTPTokenConfig
-}
-
-func (cfg USDCConfig) EnabledChainMap() map[uint64]bool {
-	m := make(map[uint64]bool)
-	for _, chain := range cfg.EnabledChains {
-		m[chain] = true
-	}
-	return m
-}
-
-func (cfg USDCConfig) ToTokenDataObserverConfig() []pluginconfig.TokenDataObserverConfig {
-	return []pluginconfig.TokenDataObserverConfig{{
-		Type:    pluginconfig.USDCCCTPHandlerType,
-		Version: "1.0",
-		USDCCCTPObserverConfig: &pluginconfig.USDCCCTPObserverConfig{
-			Tokens:                 cfg.CCTPTokenConfig,
-			AttestationAPI:         cfg.API,
-			AttestationAPITimeout:  cfg.APITimeout,
-			AttestationAPIInterval: cfg.APIInterval,
-		},
-	}}
-}
-
-type USDCAttestationConfig struct {
-	API         string
-	APITimeout  *config.Duration
-	APIInterval *config.Duration
-}
-
 type CCIPOCRParams struct {
-	OCRParameters         types.OCRParameters
-	CommitOffChainConfig  pluginconfig.CommitOffchainConfig
+	OCRParameters types.OCRParameters
+	// Note contains pointers to Arb feeds for prices
+	CommitOffChainConfig pluginconfig.CommitOffchainConfig
+	// Note ontains USDC config
 	ExecuteOffChainConfig pluginconfig.ExecuteOffchainConfig
 }
 
-func (p CCIPOCRParams) Validate() error {
-	if err := p.OCRParameters.Validate(); err != nil {
+func (c CCIPOCRParams) Validate() error {
+	if err := c.OCRParameters.Validate(); err != nil {
 		return fmt.Errorf("invalid OCR parameters: %w", err)
 	}
-	if err := p.CommitOffChainConfig.Validate(); err != nil {
+	if err := c.CommitOffChainConfig.Validate(); err != nil {
 		return fmt.Errorf("invalid commit off-chain config: %w", err)
 	}
-	if err := p.ExecuteOffChainConfig.Validate(); err != nil {
+	if err := c.ExecuteOffChainConfig.Validate(); err != nil {
 		return fmt.Errorf("invalid execute off-chain config: %w", err)
 	}
 	return nil
 }
 
 type NewChainsConfig struct {
-	HomeChainSel   uint64
-	FeedChainSel   uint64
-	ChainsToDeploy []uint64
-	TokenConfig    TokenConfig
-	USDCConfig     USDCConfig
-	// For setting OCR configuration
-	OCRSecrets deployment.OCRSecrets
-	OCRParams  map[uint64]CCIPOCRParams
+	// Common to all chains
+	HomeChainSel uint64
+	FeedChainSel uint64
+	OCRSecrets   deployment.OCRSecrets
+	// Per chain config
+	ChainConfigByChain map[uint64]CCIPOCRParams
+}
+
+func (c NewChainsConfig) Chains() []uint64 {
+	chains := make([]uint64, 0, len(c.ChainConfigByChain))
+	for chain := range c.ChainConfigByChain {
+		chains = append(chains, chain)
+	}
+	return chains
 }
 
 func (c NewChainsConfig) Validate() error {
@@ -111,63 +84,27 @@ func (c NewChainsConfig) Validate() error {
 	if err := deployment.IsValidChainSelector(c.FeedChainSel); err != nil {
 		return fmt.Errorf("invalid feed chain selector: %d - %w", c.FeedChainSel, err)
 	}
-	mapChainsToDeploy := make(map[uint64]bool)
-	for _, cs := range c.ChainsToDeploy {
-		mapChainsToDeploy[cs] = true
-		if err := deployment.IsValidChainSelector(cs); err != nil {
-			return fmt.Errorf("invalid chain selector: %d - %w", cs, err)
-		}
-	}
-	for token := range c.TokenConfig.TokenSymbolToInfo {
-		if err := c.TokenConfig.TokenSymbolToInfo[token].Validate(); err != nil {
-			return fmt.Errorf("invalid token config for token %s: %w", token, err)
-		}
-	}
 	if c.OCRSecrets.IsEmpty() {
 		return fmt.Errorf("no OCR secrets provided")
 	}
-	usdcEnabledChainMap := c.USDCConfig.EnabledChainMap()
-	for chain := range usdcEnabledChainMap {
-		if _, exists := mapChainsToDeploy[chain]; !exists {
-			return fmt.Errorf("chain %d is not in chains to deploy", chain)
-		}
-		if err := deployment.IsValidChainSelector(chain); err != nil {
-			return fmt.Errorf("invalid chain selector: %d - %w", chain, err)
-		}
-	}
-	for chain := range c.USDCConfig.CCTPTokenConfig {
-		if _, exists := mapChainsToDeploy[uint64(chain)]; !exists {
-			return fmt.Errorf("chain %d is not in chains to deploy", chain)
-		}
-		if _, exists := usdcEnabledChainMap[uint64(chain)]; !exists {
-			return fmt.Errorf("chain %d is not enabled in USDC config", chain)
-		}
-		if err := deployment.IsValidChainSelector(uint64(chain)); err != nil {
-			return fmt.Errorf("invalid chain selector: %d - %w", chain, err)
-		}
-	}
-	// Validate OCR params
-	var ocrChains []uint64
-	for chain, ocrParams := range c.OCRParams {
-		ocrChains = append(ocrChains, chain)
-		if _, exists := mapChainsToDeploy[chain]; !exists {
-			return fmt.Errorf("chain %d is not in chains to deploy", chain)
-		}
-		if err := ocrParams.Validate(); err != nil {
+	// Validate chain config
+	for chain, cfg := range c.ChainConfigByChain {
+		if err := cfg.Validate(); err != nil {
 			return fmt.Errorf("invalid OCR params for chain %d: %w", chain, err)
 		}
-	}
-	sort.Slice(ocrChains, func(i, j int) bool { return ocrChains[i] < ocrChains[j] })
-	sort.Slice(c.ChainsToDeploy, func(i, j int) bool { return c.ChainsToDeploy[i] < c.ChainsToDeploy[j] })
-	if !slices.Equal(ocrChains, c.ChainsToDeploy) {
-		return fmt.Errorf("mismatch in given OCR params and chains to deploy")
+		if cfg.CommitOffChainConfig.PriceFeedChainSelector != ccipocr3.ChainSelector(c.FeedChainSel) {
+			return fmt.Errorf("chain %d has invalid feed chain selector", chain)
+		}
 	}
 	return nil
 }
 
+// DefaultOCRParams returns the default OCR parameters for a chain,
+// except for a few values which must be parameterized (passed as arguments).
 func DefaultOCRParams(
 	feedChainSel uint64,
 	tokenInfo map[ccipocr3.UnknownEncodedAddress]pluginconfig.TokenInfo,
+	tokenDataObservers []pluginconfig.TokenDataObserverConfig,
 ) CCIPOCRParams {
 	return CCIPOCRParams{
 		OCRParameters: types.OCRParameters{
@@ -191,6 +128,7 @@ func DefaultOCRParams(
 			RootSnoozeTime:            *config.MustNewDuration(internal.RootSnoozeTime),
 			MessageVisibilityInterval: *config.MustNewDuration(internal.FirstBlockAge),
 			BatchingStrategyID:        internal.BatchingStrategyID,
+			TokenDataObservers:        tokenDataObservers,
 		},
 		CommitOffChainConfig: pluginconfig.CommitOffchainConfig{
 			RemoteGasPriceBatchWriteFrequency:  *config.MustNewDuration(internal.RemoteGasPriceBatchWriteFrequency),
