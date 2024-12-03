@@ -3,6 +3,9 @@ package changeset
 import (
 	"fmt"
 
+	burn_mint_token_pool "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/burn_mint_token_pool_1_4_0"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/erc20"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_messenger"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_transmitter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/usdc_token_pool"
@@ -75,7 +78,8 @@ type CCIPChainState struct {
 	// and the respective token contract
 	// This is more of an illustration of how we'll have tokens, and it might need some work later to work properly.
 	// Not all tokens will be burn and mint tokens.
-	BurnMintTokens677 map[TokenSymbol]*burn_mint_erc677.BurnMintERC677
+	BurnMintTokens677  map[TokenSymbol]*burn_mint_erc677.BurnMintERC677
+	BurnMintTokenPools map[TokenSymbol]*burn_mint_token_pool.BurnMintTokenPool
 	// Map between token Symbol (e.g. LinkSymbol, WethSymbol)
 	// and the respective aggregator USD feed contract
 	USDFeeds map[TokenSymbol]*aggregator_v3_interface.AggregatorV3Interface
@@ -438,6 +442,40 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				return state, fmt.Errorf("unknown feed description %s", desc)
 			}
 			state.USDFeeds[key] = feed
+		case deployment.NewTypeAndVersion(BurnMintTokenPool, deployment.Version1_5_1).String():
+			pool, err := burn_mint_token_pool.NewBurnMintTokenPool(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			if state.BurnMintTokenPools == nil {
+				state.BurnMintTokenPools = make(map[TokenSymbol]*burn_mint_token_pool.BurnMintTokenPool)
+			}
+			tokAddress, err := pool.GetToken(nil)
+			if err != nil {
+				return state, err
+			}
+			tok, err := erc20.NewERC20(tokAddress, chain.Client)
+			if err != nil {
+				return state, err
+			}
+			symbol, err := tok.Symbol(nil)
+			if err != nil {
+				return state, err
+			}
+			state.BurnMintTokenPools[TokenSymbol(symbol)] = pool
+		case deployment.NewTypeAndVersion(BurnMintToken, deployment.Version1_0_0).String():
+			tok, err := burn_mint_erc677.NewBurnMintERC677(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			if state.BurnMintTokens677 == nil {
+				state.BurnMintTokens677 = make(map[TokenSymbol]*burn_mint_erc677.BurnMintERC677)
+			}
+			symbol, err := tok.Symbol(nil)
+			if err != nil {
+				return state, fmt.Errorf("failed to get token symbol of token at %s: %w", address, err)
+			}
+			state.BurnMintTokens677[TokenSymbol(symbol)] = tok
 		default:
 			return state, fmt.Errorf("unknown contract %s", tvStr)
 		}

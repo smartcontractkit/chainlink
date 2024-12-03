@@ -13,6 +13,7 @@ import (
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -110,10 +111,12 @@ func NewNodes(t *testing.T, logLevel zapcore.Level, chains map[uint64]deployment
 	return nodesByPeerID
 }
 
-func NewMemoryEnvironmentFromChainsNodes(t *testing.T,
+func NewMemoryEnvironmentFromChainsNodes(
+	ctx func() context.Context,
 	lggr logger.Logger,
 	chains map[uint64]deployment.Chain,
-	nodes map[string]Node) deployment.Environment {
+	nodes map[string]Node,
+) deployment.Environment {
 	var nodeIDs []string
 	for id := range nodes {
 		nodeIDs = append(nodeIDs, id)
@@ -125,6 +128,7 @@ func NewMemoryEnvironmentFromChainsNodes(t *testing.T,
 		chains,
 		nodeIDs, // Note these have the p2p_ prefix.
 		NewMemoryJobClient(nodes),
+		ctx,
 	)
 }
 
@@ -143,5 +147,6 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Lev
 		chains,
 		nodeIDs,
 		NewMemoryJobClient(nodes),
+		func() context.Context { return tests.Context(t) },
 	)
 }
