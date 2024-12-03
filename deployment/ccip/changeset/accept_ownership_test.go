@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
+	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
@@ -21,7 +22,12 @@ import (
 )
 
 func Test_NewAcceptOwnershipChangeset(t *testing.T) {
-	e := NewMemoryEnvironmentWithJobs(t, logger.TestLogger(t), 2, 4)
+	e := NewMemoryEnvironmentWithJobs(t, logger.TestLogger(t), memory.MemoryEnvironmentConfig{
+		Chains:             2,
+		NumOfUsersPerChain: 1,
+		Nodes:              4,
+		Bootstraps:         1,
+	})
 	state, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
 

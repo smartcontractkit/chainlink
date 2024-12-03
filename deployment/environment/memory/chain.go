@@ -20,6 +20,7 @@ import (
 type EVMChain struct {
 	Backend     *simulated.Backend
 	DeployerKey *bind.TransactOpts
+	Users       []*bind.TransactOpts
 }
 
 func fundAddress(t *testing.T, from *bind.TransactOpts, to common.Address, amount *big.Int, backend *simulated.Backend) {
@@ -42,7 +43,7 @@ func fundAddress(t *testing.T, from *bind.TransactOpts, to common.Address, amoun
 	backend.Commit()
 }
 
-func GenerateChains(t *testing.T, numChains int) map[uint64]EVMChain {
+func GenerateChains(t *testing.T, numChains int, numUsers int) map[uint64]EVMChain {
 	chains := make(map[uint64]EVMChain)
 	for i := 0; i < numChains; i++ {
 		chainID := chainsel.TEST_90000001.EvmChainID + uint64(i)
@@ -50,14 +51,25 @@ func GenerateChains(t *testing.T, numChains int) map[uint64]EVMChain {
 		require.NoError(t, err)
 		owner, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
 		require.NoError(t, err)
+		genesis := types.GenesisAlloc{
+			owner.From: {Balance: big.NewInt(0).Mul(big.NewInt(7000), big.NewInt(params.Ether))}}
+		// create a set of user keys
+		var users []*bind.TransactOpts
+		for j := 0; j < numUsers; j++ {
+			key, err := crypto.GenerateKey()
+			require.NoError(t, err)
+			user, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
+			require.NoError(t, err)
+			users = append(users, user)
+			genesis[user.From] = types.Account{Balance: big.NewInt(0).Mul(big.NewInt(7000), big.NewInt(params.Ether))}
+		}
 		// there have to be enough initial funds on each chain to allocate for all the nodes that share the given chain in the test
-		backend := simulated.NewBackend(types.GenesisAlloc{
-			owner.From: {Balance: big.NewInt(0).Mul(big.NewInt(7000), big.NewInt(params.Ether))}},
-			simulated.WithBlockGasLimit(50000000))
+		backend := simulated.NewBackend(genesis, simulated.WithBlockGasLimit(50000000))
 		backend.Commit() // ts will be now.
 		chains[chainID] = EVMChain{
 			Backend:     backend,
 			DeployerKey: owner,
+			Users:       users,
 		}
 	}
 	return chains
