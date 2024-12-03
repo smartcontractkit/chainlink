@@ -1,6 +1,7 @@
 package smoke
 
 import (
+	"context"
 	"math"
 	"math/big"
 	"strings"
@@ -25,6 +26,7 @@ import (
 func Test_CCIPTokenPriceUpdates(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := changeset.Context(t)
+	callOpts := &bind.CallOpts{Context: ctx}
 
 	var tokenPriceExpiry = 5 * time.Second
 	e, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr, &changeset.TestConfigs{
@@ -41,21 +43,20 @@ func Test_CCIPTokenPriceUpdates(t *testing.T) {
 	assert.GreaterOrEqual(t, len(allChainSelectors), 2, "test requires at least 2 chains")
 
 	sourceChain1 := allChainSelectors[0]
-	//sourceChain2 := allChainSelectors[1]
 
 	feeQuoter1 := state.Chains[sourceChain1].FeeQuoter
 
-	feeTokensChain1, err := feeQuoter1.GetFeeTokens(&bind.CallOpts{Context: ctx})
+	feeTokensChain1, err := feeQuoter1.GetFeeTokens(callOpts)
 	require.NoError(t, err)
 	t.Logf("feeTokens: %v", feeTokensChain1)
 
-	tokenPricesBefore, err := feeQuoter1.GetTokenPrices(&bind.CallOpts{Context: ctx}, feeTokensChain1)
+	tokenPricesBefore, err := feeQuoter1.GetTokenPrices(callOpts, feeTokensChain1)
 	require.NoError(t, err)
 	t.Logf("tokenPrices: %v", tokenPricesBefore)
 
 	// assert token prices updated due to time expiration
 	assert.Eventually(t, func() bool {
-		tokenPricesNow, err := feeQuoter1.GetTokenPrices(&bind.CallOpts{Context: ctx}, feeTokensChain1)
+		tokenPricesNow, err := feeQuoter1.GetTokenPrices(callOpts, feeTokensChain1)
 		require.NoError(t, err)
 		t.Logf("tokenPrices: %v", tokenPricesNow)
 
@@ -75,18 +76,7 @@ func Test_CCIPTokenPriceUpdates(t *testing.T) {
 	}, tests.WaitTimeout(t), 500*time.Millisecond)
 
 	// disable oracles to prevent price updates while we manually edit token prices
-	var disabledNodes []string
-	listNodesResp, err := e.Env.Offchain.ListNodes(ctx, &node.ListNodesRequest{})
-	require.NoError(t, err)
-	for _, n := range listNodesResp.Nodes {
-		if strings.HasPrefix(n.Name, "bootstrap") {
-			continue
-		}
-		_, err := e.Env.Offchain.DisableNode(ctx, &node.DisableNodeRequest{Id: n.Id})
-		require.NoError(t, err)
-		disabledNodes = append(disabledNodes, n.Id)
-		t.Logf("node %s disabled", n.Id)
-	}
+	disabledOracleIDs := disableOracles(ctx, t, e.Env.Offchain)
 
 	assert.Eventually(t, func() bool {
 		// manually update token prices by setting values to maxUint64 and 0
@@ -102,7 +92,7 @@ func Test_CCIPTokenPriceUpdates(t *testing.T) {
 		require.NoError(t, err)
 		t.Logf("manually editing token prices")
 
-		tokenPricesNow, err := feeQuoter1.GetTokenPrices(&bind.CallOpts{Context: ctx}, feeTokensChain1)
+		tokenPricesNow, err := feeQuoter1.GetTokenPrices(callOpts, feeTokensChain1)
 		require.NoError(t, err)
 		t.Logf("tokenPrices straight after: %v", tokenPricesNow)
 
@@ -117,16 +107,11 @@ func Test_CCIPTokenPriceUpdates(t *testing.T) {
 		// retry because there might've been a commit report inflight
 	}, tests.WaitTimeout(t), 200*time.Millisecond)
 
-	// re-enable the oracles
-	for _, n := range disabledNodes {
-		_, err := e.Env.Offchain.EnableNode(ctx, &node.EnableNodeRequest{Id: n})
-		require.NoError(t, err)
-		t.Logf("node %s enabled", n)
-	}
+	enableOracles(ctx, t, e.Env.Offchain, disabledOracleIDs)
 
 	// wait until price goes back to the original
 	assert.Eventually(t, func() bool {
-		tokenPricesNow, err := feeQuoter1.GetTokenPrices(&bind.CallOpts{Context: ctx}, feeTokensChain1)
+		tokenPricesNow, err := feeQuoter1.GetTokenPrices(callOpts, feeTokensChain1)
 		require.NoError(t, err)
 		t.Logf("tokenPrices: %v tokenPricesBefore: %v", tokenPricesNow, tokenPricesBefore)
 
@@ -138,4 +123,30 @@ func Test_CCIPTokenPriceUpdates(t *testing.T) {
 		}
 		return true
 	}, tests.WaitTimeout(t), 500*time.Millisecond)
+}
+
+func disableOracles(ctx context.Context, t *testing.T, client deployment.OffchainClient) []string {
+	var disabledOracleIDs []string
+	listNodesResp, err := client.ListNodes(ctx, &node.ListNodesRequest{})
+	require.NoError(t, err)
+
+	for _, n := range listNodesResp.Nodes {
+		if strings.HasPrefix(n.Name, "bootstrap") {
+			continue
+		}
+		_, err := client.DisableNode(ctx, &node.DisableNodeRequest{Id: n.Id})
+		require.NoError(t, err)
+		disabledOracleIDs = append(disabledOracleIDs, n.Id)
+		t.Logf("node %s disabled", n.Id)
+	}
+
+	return disabledOracleIDs
+}
+
+func enableOracles(ctx context.Context, t *testing.T, client deployment.OffchainClient, oracleIDs []string) {
+	for _, n := range oracleIDs {
+		_, err := client.EnableNode(ctx, &node.EnableNodeRequest{Id: n})
+		require.NoError(t, err)
+		t.Logf("node %s enabled", n)
+	}
 }

@@ -86,7 +86,7 @@ func Test_CCIPMessageLimitations(t *testing.T) {
 				ExtraArgs: changeset.MakeEVMExtraArgsV2(uint64(chain0DestConfig.MaxPerMsgGasLimit), true),
 			},
 		},
-		//{ // TODO: exec plugin never executed this message.
+		//{ // TODO: exec plugin never executed this message. CCIP-4471
 		//	name:      "hit limit on maxDataBytes, tokens, gasLimit should succeed",
 		//	fromChain: chains[0],
 		//	toChain:   chains[1],

@@ -24,6 +24,7 @@ import (
 func Test_CCIPGasPriceUpdates(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := changeset.Context(t)
+	callOpts := &bind.CallOpts{Context: ctx}
 
 	var gasPriceExpiry = 5 * time.Second
 	e, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr, &changeset.TestConfigs{
@@ -46,19 +47,19 @@ func Test_CCIPGasPriceUpdates(t *testing.T) {
 	feeQuoter2 := state.Chains[sourceChain2].FeeQuoter
 
 	// get initial chain fees
-	chainFee2, err := feeQuoter1.GetDestinationChainGasPrice(&bind.CallOpts{Context: ctx}, sourceChain2)
+	initialChain2Fee, err := feeQuoter1.GetDestinationChainGasPrice(callOpts, sourceChain2)
 	require.NoError(t, err)
-	chainFee1, err := feeQuoter2.GetDestinationChainGasPrice(&bind.CallOpts{Context: ctx}, sourceChain1)
+	initialChain1Fee, err := feeQuoter2.GetDestinationChainGasPrice(callOpts, sourceChain1)
 	require.NoError(t, err)
-	t.Logf("initial chain1 fee (stored in chain2): %v", chainFee1)
-	t.Logf("initial chain2 fee (stored in chain1): %v", chainFee2)
+	t.Logf("initial chain1 fee (stored in chain2): %v", initialChain1Fee)
+	t.Logf("initial chain2 fee (stored in chain1): %v", initialChain2Fee)
 
 	// get latest price updates sequence number from the offRamps
 	offRampChain1 := state.Chains[sourceChain1].OffRamp
 	offRampChain2 := state.Chains[sourceChain2].OffRamp
-	priceUpdatesSeqNumChain1, err := offRampChain1.GetLatestPriceSequenceNumber(&bind.CallOpts{Context: ctx})
+	priceUpdatesSeqNumChain1, err := offRampChain1.GetLatestPriceSequenceNumber(callOpts)
 	require.NoError(t, err)
-	priceUpdatesSeqNumChain2, err := offRampChain2.GetLatestPriceSequenceNumber(&bind.CallOpts{Context: ctx})
+	priceUpdatesSeqNumChain2, err := offRampChain2.GetLatestPriceSequenceNumber(callOpts)
 	require.NoError(t, err)
 	t.Logf("priceUpdatesSeqNumChain1: %v", priceUpdatesSeqNumChain1)
 	t.Logf("priceUpdatesSeqNumChain2: %v", priceUpdatesSeqNumChain2)
@@ -78,9 +79,9 @@ func Test_CCIPGasPriceUpdates(t *testing.T) {
 	priceDeviationChecked := false // flag to check if price deviation condition was met
 	assert.Eventually(t, func() bool {
 		// offRamps should have updated the sequence number
-		priceUpdatesSeqNumChain1Now, err := offRampChain1.GetLatestPriceSequenceNumber(&bind.CallOpts{Context: ctx})
+		priceUpdatesSeqNumChain1Now, err := offRampChain1.GetLatestPriceSequenceNumber(callOpts)
 		require.NoError(t, err)
-		priceUpdatesSeqNumChain2Now, err := offRampChain2.GetLatestPriceSequenceNumber(&bind.CallOpts{Context: ctx})
+		priceUpdatesSeqNumChain2Now, err := offRampChain2.GetLatestPriceSequenceNumber(callOpts)
 		require.NoError(t, err)
 		t.Logf("priceUpdatesSeqNumChain1: %v", priceUpdatesSeqNumChain1Now)
 		t.Logf("priceUpdatesSeqNumChain2: %v", priceUpdatesSeqNumChain2Now)
@@ -91,32 +92,32 @@ func Test_CCIPGasPriceUpdates(t *testing.T) {
 			return false
 		}
 
-		chainFee2Now, err := feeQuoter1.GetDestinationChainGasPrice(&bind.CallOpts{Context: ctx}, sourceChain2)
+		chain2FeeNow, err := feeQuoter1.GetDestinationChainGasPrice(callOpts, sourceChain2)
 		require.NoError(t, err)
-		chainFee1Now, err := feeQuoter2.GetDestinationChainGasPrice(&bind.CallOpts{Context: ctx}, sourceChain1)
+		chain1FeeNow, err := feeQuoter2.GetDestinationChainGasPrice(callOpts, sourceChain1)
 		require.NoError(t, err)
-		t.Logf("chainFee1 (stored in chain2): %v", chainFee1Now)
-		t.Logf("chainFee2 (stored in chain1): %v", chainFee2Now)
+		t.Logf("chainFee1 (stored in chain2): %v", chain1FeeNow)
+		t.Logf("chainFee2 (stored in chain1): %v", chain2FeeNow)
 
 		if !priceDeviationChecked {
 			// make sure there was a price update for chain2 when price deviation was reached
-			if chainFee2Now.Value.Cmp(chainFee2.Value) == 0 {
-				t.Logf("chainFee2 not updated: %v original=%v", chainFee2Now, chainFee2.Value)
+			if chain2FeeNow.Value.Cmp(initialChain2Fee.Value) == 0 {
+				t.Logf("chainFee2 not updated: %v original=%v", chain2FeeNow, initialChain2Fee.Value)
 				return false
 			}
-			require.NotEqual(t, chainFee2Now.Timestamp, chainFee2.Timestamp)
+			require.NotEqual(t, chain2FeeNow.Timestamp, initialChain2Fee.Timestamp)
 			priceDeviationChecked = true
 		}
 
 		// make sure there was a price update for chain1 but with the same price - when expiration is reached
-		if chainFee1Now.Timestamp == chainFee1.Timestamp {
-			t.Logf("chainFee1 timestamp not updated: %v original=%v", chainFee1Now, chainFee1.Timestamp)
-			chainFee1 = chainFee1Now
+		if chain1FeeNow.Timestamp == initialChain1Fee.Timestamp {
+			t.Logf("chainFee1 timestamp not updated: %v original=%v", chain1FeeNow, initialChain1Fee.Timestamp)
+			initialChain1Fee = chain1FeeNow
 			return false
 		}
-		if chainFee1Now.Value.Cmp(chainFee1.Value) != 0 {
-			t.Logf("chainFee1 changed: %v prev:%v", chainFee1Now, chainFee1.Value)
-			chainFee1 = chainFee1Now
+		if chain1FeeNow.Value.Cmp(initialChain1Fee.Value) != 0 {
+			t.Logf("chainFee1 changed: %v prev:%v", chain1FeeNow, initialChain1Fee.Value)
+			initialChain1Fee = chain1FeeNow
 			return false
 		}
 
