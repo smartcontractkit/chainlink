@@ -136,6 +136,9 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 	if err != nil {
 		return nil, err
 	}
+	// if len(ethKeyBundles) > 1 {
+	// 	return nil, fmt.Errorf("expected exactly one ETH key bundle, but found: %d", len(ethKeyBundles))
+	// }
 
 	var ethKeyBundle ethkey.KeyV2
 	if len(ethKeyBundles) == 0 {
@@ -144,6 +147,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 			return nil, errors.Wrap(err, "failed to create ETH key bundle")
 		}
 	} else {
+		// ethKeyBundle = ethKeyBundles[len(ethKeyBundles)-1]
 		if len(ethKeyBundles) > 1 {
 			log.Infof("found %d ETH key bundles, which may cause unexpected behavior if using the OracleFactory", len(ethKeyBundles))
 		}
