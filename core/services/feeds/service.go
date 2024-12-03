@@ -19,9 +19,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
 	ccip "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/validate"
+	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 
 	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
@@ -510,6 +512,27 @@ func (s *service) DeleteJob(ctx context.Context, args *DeleteJobArgs) (int64, er
 		logger.Errorw("Failed to push metrics for job proposal deletion", "err", err)
 	}
 
+	// auto-cancellation for Workflow specs
+	if !proposal.ExternalJobID.Valid {
+		logger.Infow("ExternalJobID is null", "id", proposal.ID, "name", proposal.Name)
+		return proposal.ID, nil
+	}
+	job, err := s.jobORM.FindJobByExternalJobID(ctx, proposal.ExternalJobID.UUID)
+	if err != nil {
+		// NOTE: at this stage, we don't know if this job is of Workflow type
+		// so we don't want to return an error
+		logger.Infow("FindJobByExternalJobID failed", "id", proposal.ID, "externalJobID", proposal.ExternalJobID.UUID, "name", proposal.Name)
+		return proposal.ID, nil
+	}
+	if job.WorkflowSpecID != nil { // this is a Workflow job
+		specID := int64(*job.WorkflowSpecID)
+		if err := s.CancelSpec(ctx, proposal.ID); err != nil {
+			logger.Errorw("Failed to auto-cancel workflow spec", "id", specID, "err", err, "name", job.Name)
+			return 0, fmt.Errorf("failed to auto-cancel workflow spec %d: %w", specID, err)
+		}
+		logger.Infow("Successfully auto-cancelled a workflow spec", "id", specID)
+	}
+
 	return proposal.ID, nil
 }
 
@@ -858,6 +881,13 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 				// error we want to continue with approving the job.
 				if txerr != nil && !errors.Is(txerr, sql.ErrNoRows) {
 					return fmt.Errorf("failed while checking for existing ccip job: %w", txerr)
+				}
+			case job.Stream:
+				existingJobID, txerr = tx.jobORM.FindJobIDByStreamID(ctx, *j.StreamID)
+				// Return an error if the repository errors. If there is a not found
+				// error we want to continue with approving the job.
+				if txerr != nil && !errors.Is(txerr, sql.ErrNoRows) {
+					return fmt.Errorf("failed while checking for existing stream job: %w", txerr)
 				}
 			default:
 				return errors.Errorf("unsupported job type when approving job proposal specs: %s", j.Type)
@@ -1249,6 +1279,8 @@ func (s *service) generateJob(ctx context.Context, spec string) (*job.Job, error
 		js, err = workflows.ValidatedWorkflowJobSpec(ctx, spec)
 	case job.CCIP:
 		js, err = ccip.ValidatedCCIPSpec(spec)
+	case job.Stream:
+		js, err = streams.ValidatedStreamSpec(spec)
 	default:
 		return nil, errors.Errorf("unknown job type: %s", jobType)
 	}

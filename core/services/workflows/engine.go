@@ -96,7 +96,7 @@ func (sucm *stepUpdateManager) len() int64 {
 }
 
 type secretsFetcher interface {
-	SecretsFor(ctx context.Context, workflowOwner, workflowName string) (map[string]string, error)
+	SecretsFor(ctx context.Context, workflowOwner, workflowName, workflowID string) (map[string]string, error)
 }
 
 // Engine handles the lifecycle of a single workflow and its executions.
@@ -868,7 +868,7 @@ func (e *Engine) interpolateEnvVars(config map[string]any, env exec.Env) (*value
 // registry (for capability-level configuration). It doesn't perform any caching of the config values, since
 // the two registries perform their own caching.
 func (e *Engine) configForStep(ctx context.Context, lggr logger.Logger, step *step) (*values.Map, error) {
-	secrets, err := e.secretsFetcher.SecretsFor(ctx, e.workflow.owner, e.workflow.hexName)
+	secrets, err := e.secretsFetcher.SecretsFor(ctx, e.workflow.owner, e.workflow.hexName, e.workflow.id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch secrets: %w", err)
 	}

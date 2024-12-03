@@ -79,13 +79,22 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 	return []job.ServiceCtx{engine}, nil
 }
 
+type noopSecretsFetcher struct{}
+
+func (n *noopSecretsFetcher) SecretsFor(ctx context.Context, workflowOwner, workflowName, workflowID string) (map[string]string, error) {
+	return map[string]string{}, nil
+}
+
+func newNoopSecretsFetcher() *noopSecretsFetcher {
+	return &noopSecretsFetcher{}
+}
+
 func NewDelegate(
 	logger logger.Logger,
 	registry core.CapabilitiesRegistry,
-	secretsFetcher secretsFetcher,
 	store store.Store,
 ) *Delegate {
-	return &Delegate{logger: logger, registry: registry, secretsFetcher: secretsFetcher, store: store}
+	return &Delegate{logger: logger, registry: registry, secretsFetcher: newNoopSecretsFetcher(), store: store}
 }
 
 func ValidatedWorkflowJobSpec(ctx context.Context, tomlString string) (job.Job, error) {

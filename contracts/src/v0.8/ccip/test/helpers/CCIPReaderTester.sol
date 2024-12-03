@@ -10,6 +10,7 @@ contract CCIPReaderTester {
   mapping(uint64 sourceChainSelector => OffRamp.SourceChainConfig sourceChainConfig) internal s_sourceChainConfigs;
   mapping(uint64 destChainSelector => uint64 sequenceNumber) internal s_destChainSeqNrs;
   mapping(uint64 sourceChainSelector => mapping(bytes sender => uint64 nonce)) internal s_senderNonce;
+  uint64 private s_latestPriceSequenceNumber;
 
   /// @notice Gets the next sequence number to be used in the onRamp
   /// @param destChainSelector The destination chain selector
@@ -50,6 +51,19 @@ contract CCIPReaderTester {
     OffRamp.SourceChainConfig memory sourceChainConfig
   ) external {
     s_sourceChainConfigs[sourceChainSelector] = sourceChainConfig;
+  }
+
+  /// @notice sets the sequence number of the last price update.
+  function setLatestPriceSequenceNumber(
+    uint64 seqNr
+  ) external {
+    s_latestPriceSequenceNumber = seqNr;
+  }
+
+  /// @notice Returns the sequence number of the last price update.
+  /// @return sequenceNumber The latest price update sequence number.
+  function getLatestPriceSequenceNumber() external view returns (uint64) {
+    return s_latestPriceSequenceNumber;
   }
 
   function emitCCIPMessageSent(uint64 destChainSelector, Internal.EVM2AnyRampMessage memory message) external {

@@ -3,6 +3,7 @@ package syncer
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -24,6 +25,9 @@ type WorkflowSecretsDS interface {
 
 	// GetContentsByHash returns the contents of the secret at the given hashed URL.
 	GetContentsByHash(ctx context.Context, hash string) (string, error)
+
+	// GetContentsByWorkflowID returns the contents and secrets_url of the secret for the given workflow.
+	GetContentsByWorkflowID(ctx context.Context, workflowID string) (string, string, error)
 
 	// GetSecretsURLHash returns the keccak256 hash of the owner and secrets URL.
 	GetSecretsURLHash(owner, secretsURL []byte) ([]byte, error)
@@ -121,6 +125,43 @@ func (orm *orm) GetContents(ctx context.Context, url string) (string, error) {
 	}
 
 	return contents, nil // Return the populated Artifact struct
+}
+
+type Int struct {
+	sql.NullInt64
+}
+
+type joinRecord struct {
+	SecretsID      sql.NullString `db:"wspec_secrets_id"`
+	SecretsURLHash sql.NullString `db:"wsec_secrets_url_hash"`
+	Contents       sql.NullString `db:"wsec_contents"`
+}
+
+var ErrEmptySecrets = errors.New("secrets field is empty")
+
+// GetContentsByWorkflowID joins the workflow_secrets on the workflow_specs table and gets
+// the associated secrets contents.
+func (orm *orm) GetContentsByWorkflowID(ctx context.Context, workflowID string) (string, string, error) {
+	var jr joinRecord
+	err := orm.ds.GetContext(
+		ctx,
+		&jr,
+		`SELECT wsec.secrets_url_hash AS wsec_secrets_url_hash, wsec.contents AS wsec_contents, wspec.secrets_id AS wspec_secrets_id
+	FROM workflow_specs AS wspec
+	LEFT JOIN
+		workflow_secrets AS wsec ON wspec.secrets_id = wsec.id
+	WHERE wspec.workflow_id = $1`,
+		workflowID,
+	)
+	if err != nil {
+		return "", "", err
+	}
+
+	if !jr.SecretsID.Valid {
+		return "", "", ErrEmptySecrets
+	}
+
+	return jr.SecretsURLHash.String, jr.Contents.String, nil
 }
 
 // Update updates the secrets content at the given hash or inserts a new record if not found.

@@ -18,7 +18,7 @@ contract OffRamp_releaseOrMintTokens is OffRampSetup {
     _setupMultipleOffRamps();
   }
 
-  function test_releaseOrMintTokens_Success() public {
+  function test_releaseOrMintTokens() public {
     Client.EVMTokenAmount[] memory srcTokenAmounts = _getCastedSourceEVMTokenAmountsWithZeroAmounts();
     IERC20 dstToken1 = IERC20(s_destFeeToken);
     uint256 startingBalance = dstToken1.balanceOf(OWNER);
@@ -54,7 +54,7 @@ contract OffRamp_releaseOrMintTokens is OffRampSetup {
     assertEq(startingBalance + amount1, dstToken1.balanceOf(OWNER));
   }
 
-  function test_releaseOrMintTokens_WithGasOverride_Success() public {
+  function test_releaseOrMintTokens_WithGasOverride() public {
     Client.EVMTokenAmount[] memory srcTokenAmounts = _getCastedSourceEVMTokenAmountsWithZeroAmounts();
     IERC20 dstToken1 = IERC20(s_destFeeToken);
     uint256 startingBalance = dstToken1.balanceOf(OWNER);
@@ -94,7 +94,7 @@ contract OffRamp_releaseOrMintTokens is OffRampSetup {
     assertEq(startingBalance + amount1, dstToken1.balanceOf(OWNER));
   }
 
-  function test_releaseOrMintTokens_destDenominatedDecimals_Success() public {
+  function test_releaseOrMintTokens_destDenominatedDecimals() public {
     Client.EVMTokenAmount[] memory srcTokenAmounts = _getCastedSourceEVMTokenAmountsWithZeroAmounts();
     uint256 amount = 100;
     uint256 destinationDenominationMultiplier = 1000;
@@ -118,13 +118,15 @@ contract OffRamp_releaseOrMintTokens is OffRampSetup {
 
   // Revert
 
-  function test_TokenHandlingError_Reverts() public {
+  function test_releaseOrMintTokens_RevertWhen_TokenHandlingError() public {
     Client.EVMTokenAmount[] memory srcTokenAmounts = _getCastedSourceEVMTokenAmountsWithZeroAmounts();
 
     bytes memory unknownError = bytes("unknown error");
     s_maybeRevertingPool.setShouldRevert(unknownError);
 
-    vm.expectRevert(abi.encodeWithSelector(OffRamp.TokenHandlingError.selector, unknownError));
+    vm.expectRevert(
+      abi.encodeWithSelector(OffRamp.TokenHandlingError.selector, address(s_maybeRevertingPool), unknownError)
+    );
 
     s_offRamp.releaseOrMintTokens(
       _getDefaultSourceTokenData(srcTokenAmounts),
@@ -136,7 +138,7 @@ contract OffRamp_releaseOrMintTokens is OffRampSetup {
     );
   }
 
-  function test_releaseOrMintTokens_InvalidDataLengthReturnData_Revert() public {
+  function test_releaseOrMintTokens_RevertWhenInvalidDataLengthReturnData() public {
     uint256 amount = 100;
     Client.EVMTokenAmount[] memory srcTokenAmounts = _getCastedSourceEVMTokenAmountsWithZeroAmounts();
     srcTokenAmounts[0].amount = amount;
@@ -170,7 +172,7 @@ contract OffRamp_releaseOrMintTokens is OffRampSetup {
     );
   }
 
-  function test__releaseOrMintTokens_PoolIsNotAPool_Reverts() public {
+  function test_releaseOrMintTokens_RevertWhen_PoolIsNotAPool() public {
     // The offRamp is a contract, but not a pool
     address fakePoolAddress = address(s_offRamp);
 
@@ -189,7 +191,7 @@ contract OffRamp_releaseOrMintTokens is OffRampSetup {
     );
   }
 
-  function test_releaseOrMintTokens_PoolDoesNotSupportDest_Reverts() public {
+  function test_releaseOrMintTokens_RevertWhenPoolDoesNotSupportDest() public {
     Client.EVMTokenAmount[] memory srcTokenAmounts = _getCastedSourceEVMTokenAmountsWithZeroAmounts();
     uint256 amount1 = 100;
     srcTokenAmounts[0].amount = amount1;
@@ -224,7 +226,7 @@ contract OffRamp_releaseOrMintTokens is OffRampSetup {
   /// forge-config: default.fuzz.runs = 32
   /// forge-config: ccip.fuzz.runs = 1024
   // Uint256 gives a good range of values to test, both inside and outside of the eth address space.
-  function testFuzz__releaseOrMintTokens_AnyRevertIsCaught_Success(
+  function testFuzz_releaseOrMintTokens_AnyRevertIsCaught(
     address destPool
   ) public {
     // Input 447301751254033913445893214690834296930546521452, which is 0x4E59B44847B379578588920CA78FBF26C0B4956C

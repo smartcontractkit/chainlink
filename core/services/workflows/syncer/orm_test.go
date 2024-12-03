@@ -196,3 +196,63 @@ func Test_GetWorkflowSpec(t *testing.T) {
 		require.Nil(t, dbSpec)
 	})
 }
+
+func Test_GetContentsByWorkflowID(t *testing.T) {
+	db := pgtest.NewSqlxDB(t)
+	ctx := testutils.Context(t)
+	lggr := logger.TestLogger(t)
+	orm := &orm{ds: db, lggr: lggr}
+
+	// workflow_id is missing
+	_, _, err := orm.GetContentsByWorkflowID(ctx, "doesnt-exist")
+	require.ErrorContains(t, err, "no rows in result set")
+
+	// secrets_id is nil; should return EmptySecrets
+	workflowID := "aWorkflowID"
+	_, err = orm.UpsertWorkflowSpec(ctx, &job.WorkflowSpec{
+		Workflow:      "",
+		Config:        "",
+		WorkflowID:    workflowID,
+		WorkflowOwner: "aWorkflowOwner",
+		WorkflowName:  "aWorkflowName",
+		BinaryURL:     "",
+		ConfigURL:     "",
+		CreatedAt:     time.Now(),
+		SpecType:      job.DefaultSpecType,
+	})
+	require.NoError(t, err)
+
+	_, _, err = orm.GetContentsByWorkflowID(ctx, workflowID)
+	require.ErrorIs(t, err, ErrEmptySecrets)
+
+	// retrieves the artifact if provided
+	giveURL := "https://example.com"
+	giveBytes, err := crypto.Keccak256([]byte(giveURL))
+	require.NoError(t, err)
+	giveHash := hex.EncodeToString(giveBytes)
+	giveContent := "some contents"
+
+	secretsID, err := orm.Create(ctx, giveURL, giveHash, giveContent)
+	require.NoError(t, err)
+
+	_, err = orm.UpsertWorkflowSpec(ctx, &job.WorkflowSpec{
+		Workflow:      "",
+		Config:        "",
+		SecretsID:     sql.NullInt64{Int64: secretsID, Valid: true},
+		WorkflowID:    workflowID,
+		WorkflowOwner: "aWorkflowOwner",
+		WorkflowName:  "aWorkflowName",
+		BinaryURL:     "",
+		ConfigURL:     "",
+		CreatedAt:     time.Now(),
+		SpecType:      job.DefaultSpecType,
+	})
+	require.NoError(t, err)
+	_, err = orm.GetWorkflowSpec(ctx, "aWorkflowOwner", "aWorkflowName")
+	require.NoError(t, err)
+
+	gotHash, gotContent, err := orm.GetContentsByWorkflowID(ctx, workflowID)
+	require.NoError(t, err)
+	assert.Equal(t, giveHash, gotHash)
+	assert.Equal(t, giveContent, gotContent)
+}
