@@ -99,7 +99,7 @@ func Test_OutOfOrderExecution(t *testing.T) {
 	}
 
 	startBlocks := make(map[uint64]*uint64)
-	expectedStatuses := map[uint64]int{}
+	expectedStatuses := make(map[uint64]int)
 
 	latesthdr, err := e.Chains[destChain].Client.HeaderByNumber(ctx, nil)
 	require.NoError(t, err)
@@ -121,6 +121,7 @@ func Test_OutOfOrderExecution(t *testing.T) {
 		changeset.MakeEVMExtraArgsV2(0, true),
 	)
 	expectedStatuses[firstMessage.SequenceNumber] = changeset.EXECUTION_STATE_SUCCESS
+	t.Logf("Out of order messages sent from chain %d to chain %d with sequence number %d", sourceChain, destChain, firstMessage.SequenceNumber)
 
 	// Ordered execution should fail because of too little gasLimit, that should block following ordered messages
 	secondReceiver := utils.RandomAddress()
@@ -136,6 +137,7 @@ func Test_OutOfOrderExecution(t *testing.T) {
 		nil,
 		nil,
 	)
+	t.Logf("Ordered USDC transfer sent from chain %d to chain %d with sequence number %d", sourceChain, destChain, secondMsg.SequenceNumber)
 
 	// Ordered token transfer should fail, because previous message was
 	thirdReceiver := utils.RandomAddress()
@@ -151,6 +153,7 @@ func Test_OutOfOrderExecution(t *testing.T) {
 		nil,
 		changeset.MakeEVMExtraArgsV2(0, false),
 	)
+	t.Logf("Ordered token transfer from chain %d to chain %d with sequence number %d", sourceChain, destChain, secondMsg.SequenceNumber)
 
 	// Out of order programmable token transfer should pass
 	fourthReceiver := state.Chains[destChain].Receiver.Address()
@@ -167,6 +170,7 @@ func Test_OutOfOrderExecution(t *testing.T) {
 		changeset.MakeEVMExtraArgsV2(300_000, true),
 	)
 	expectedStatuses[fourthMessage.SequenceNumber] = changeset.EXECUTION_STATE_SUCCESS
+	t.Logf("Out of order programmable token transfer from chain %d to chain %d with sequence number %d", sourceChain, destChain, secondMsg.SequenceNumber)
 
 	// All messages are committed, even these which are going to be reverted during the exec
 	_, err = changeset.ConfirmCommitWithExpectedSeqNumRange(
