@@ -709,13 +709,13 @@ func CreateChainConfigFromNetworks(
 		var pvtKey *string
 		// if private keys are provided, use the first private key as deployer key
 		// otherwise it will try to load the private key from KMS
-		if len(networkPvtKeys[chainId]) > 0 {
-			pvtKey = ptr.Ptr(networkPvtKeys[chainId][0])
+		if len(networkPvtKeys[int64(chainId)]) > 0 {
+			pvtKey = ptr.Ptr(networkPvtKeys[int64(chainId)][0])
 		}
 		require.NoError(t, chainCfg.SetDeployerKey(pvtKey), "Error setting deployer key")
 		var additionalPvtKeys []string
-		if len(networkPvtKeys[chainId]) > 1 {
-			additionalPvtKeys = networkPvtKeys[chainId][1:]
+		if len(networkPvtKeys[int64(chainId)]) > 1 {
+			additionalPvtKeys = networkPvtKeys[int64(chainId)][1:]
 		}
 		// if no additional private keys are provided, this will set the users to default deployer key
 		require.NoError(t, chainCfg.SetUsers(additionalPvtKeys), "Error setting users")
