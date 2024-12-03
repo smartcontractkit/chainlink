@@ -33,6 +33,7 @@ func Test_OutOfOrderExecution(t *testing.T) {
 		IsUSDCAttestationMissing: true,
 	}
 	tenv, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr, config)
+	// Inmemory setup used for debugging and development, use instead of docker when needed
 	//tenv := changeset.NewMemoryEnvironmentWithJobsAndContracts(t, lggr, 2, 4, config)
 
 	e := tenv.Env
