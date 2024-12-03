@@ -148,7 +148,7 @@ func (c *OutgoingConnectorHandler) Name() string {
 
 func validMethod(method string) bool {
 	switch method {
-	case capabilities.MethodWebAPITarget, capabilities.MethodComputeAction:
+	case capabilities.MethodWebAPITarget, capabilities.MethodComputeAction, capabilities.MethodWorkflowSyncer:
 		return true
 	default:
 		return false
