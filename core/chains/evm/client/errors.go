@@ -64,6 +64,8 @@ const (
 	ServiceUnavailable
 	TerminallyStuck
 	TooManyResults
+	ServiceTimeout
+	ServiceTemporarilyUnavailable
 )
 
 type ClientErrors map[int]*regexp.Regexp
@@ -153,14 +155,16 @@ var arbitrumFatal = regexp.MustCompile(`(: |^)(invalid message format|forbidden 
 var arbitrum = ClientErrors{
 	// TODO: Arbitrum returns this in case of low or high nonce. Update this when Arbitrum fix it
 	// Archived ticket: story/16801/add-full-support-for-incorrect-nonce-on-arbitrum
-	NonceTooLow:           regexp.MustCompile(`(: |^)invalid transaction nonce$|(: |^)nonce too low(:|$)`),
-	NonceTooHigh:          regexp.MustCompile(`(: |^)nonce too high(:|$)`),
-	TerminallyUnderpriced: regexp.MustCompile(`(: |^)gas price too low$`),
-	InsufficientEth:       regexp.MustCompile(`(: |^)(not enough funds for gas|insufficient funds for gas \* price \+ value)`),
-	Fatal:                 arbitrumFatal,
-	L2FeeTooLow:           regexp.MustCompile(`(: |^)max fee per gas less than block base fee(:|$)`),
-	L2Full:                regexp.MustCompile(`(: |^)(queue full|sequencer pending tx pool full, please try again)(:|$)`),
-	ServiceUnavailable:    regexp.MustCompile(`(: |^)502 Bad Gateway: [\s\S]*$|network is unreachable|i/o timeout`),
+	NonceTooLow:                   regexp.MustCompile(`(: |^)invalid transaction nonce$|(: |^)nonce too low(:|$)`),
+	NonceTooHigh:                  regexp.MustCompile(`(: |^)nonce too high(:|$)`),
+	TerminallyUnderpriced:         regexp.MustCompile(`(: |^)gas price too low$`),
+	InsufficientEth:               regexp.MustCompile(`(: |^)(not enough funds for gas|insufficient funds for gas \* price \+ value)`),
+	Fatal:                         arbitrumFatal,
+	L2FeeTooLow:                   regexp.MustCompile(`(: |^)max fee per gas less than block base fee(:|$)`),
+	L2Full:                        regexp.MustCompile(`(: |^)(queue full|sequencer pending tx pool full, please try again)(:|$)`),
+	ServiceUnavailable:            regexp.MustCompile(`(: |^)502 Bad Gateway: [\s\S]*$|network is unreachable|i/o timeout`),
+	ServiceTemporarilyUnavailable: regexp.MustCompile(`(: |^)503 Service Temporarily Unavailable(:|$)`),
+	ServiceTimeout:                regexp.MustCompile(`(: |^)408 Request Timeout(:|$)`),
 }
 
 // Treasure
@@ -398,6 +402,16 @@ func (s *SendError) IsServiceUnavailable(configErrors *ClientErrors) bool {
 	return s.is(ServiceUnavailable, configErrors) || pkgerrors.Is(s.err, commonclient.ErroringNodeError)
 }
 
+// IsServiceTemporarilyUnavailable indicates if the error was caused by a service being temporarily unavailable
+func (s *SendError) IsServiceTemporarilyUnavailable(configErrors *ClientErrors) bool {
+	return s.is(ServiceTemporarilyUnavailable, configErrors)
+}
+
+// IsServiceTimeout indicates if the error was caused by a service timeout
+func (s *SendError) IsServiceTimeout(configErrors *ClientErrors) bool {
+	return s.is(ServiceTimeout, configErrors)
+}
+
 // IsTerminallyStuck indicates if a transaction was stuck without any chance of inclusion
 func (s *SendError) IsTerminallyStuckConfigError(configErrors *ClientErrors) bool {
 	return s.is(TerminallyStuck, configErrors)
@@ -617,6 +631,14 @@ func ClassifySendError(err error, clientErrors config.ClientErrors, lggr logger.
 	}
 	if sendError.IsServiceUnavailable(configErrors) {
 		lggr.Errorw(fmt.Sprintf("service unavailable while sending transaction %x", tx.Hash()), "err", sendError, "etx", tx)
+		return commonclient.Retryable
+	}
+	if sendError.IsServiceTemporarilyUnavailable(configErrors) {
+		lggr.Errorw(fmt.Sprintf("service temporarily unavailable while sending transaction %x", tx.Hash()), "err", sendError, "etx", tx)
+		return commonclient.Retryable
+	}
+	if sendError.IsServiceTimeout(configErrors) {
+		lggr.Errorw(fmt.Sprintf("service timed out while sending transaction %x", tx.Hash()), "err", sendError, "etx", tx)
 		return commonclient.Retryable
 	}
 	if sendError.IsTimeout() {

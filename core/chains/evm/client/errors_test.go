@@ -259,6 +259,33 @@ func Test_Eth_Errors(t *testing.T) {
 		}
 	})
 
+	t.Run("IsServiceTemporarilyUnavailable", func(t *testing.T) {
+		tests := []errorCase{
+			{"call failed: 503 Service Temporarily Unavailable: <html>\r\n<head><title>503 Service Temporarily Unavailable</title></head>\r\n<body>\r\n<center><h1>503 Service Temporarily Unavailable</h1></center>\r\n</body>\r\n</html>\r\n", true, "Arbitrum"},
+			{"client error service unavailable", false, "tomlConfig"},
+		}
+		for _, test := range tests {
+			err = evmclient.NewSendErrorS(test.message)
+			assert.Equal(t, err.IsServiceTemporarilyUnavailable(clientErrors), test.expect)
+			err = newSendErrorWrapped(test.message)
+			assert.Equal(t, err.IsServiceTemporarilyUnavailable(clientErrors), test.expect)
+		}
+	})
+
+	t.Run("IsServiceTimeout", func(t *testing.T) {
+		tests := []errorCase{
+			{"call failed: 408 Request Timeout: {", true, "Arbitrum"},
+			{"408 Request Timeout: {\"id\":303,\"jsonrpc\":\"2.0\",\"error\":{\"code\\\":-32009,\\\"message\\\":\\\"request timeout\\\"}}\",\"errVerbose\":\"408 Request Timeout:\n", true, "Arbitrum"},
+			{"request timeout", false, "tomlConfig"},
+		}
+		for _, test := range tests {
+			err = evmclient.NewSendErrorS(test.message)
+			assert.Equal(t, err.IsServiceTimeout(clientErrors), test.expect)
+			err = newSendErrorWrapped(test.message)
+			assert.Equal(t, err.IsServiceTimeout(clientErrors), test.expect)
+		}
+	})
+
 	t.Run("IsTxFeeExceedsCap", func(t *testing.T) {
 		tests := []errorCase{
 			{"tx fee (1.10 ether) exceeds the configured cap (1.00 ether)", true, "geth"},
