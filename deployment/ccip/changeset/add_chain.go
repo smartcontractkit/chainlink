@@ -6,9 +6,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
@@ -178,5 +182,80 @@ func AddDonAndSetCandidateChangeset(
 
 	return deployment.ChangesetOutput{
 		Proposals: []timelock.MCMSWithTimelockProposal{*prop},
+	}, nil
+}
+
+func ApplyChainConfigUpdatesOp(
+	e deployment.Environment,
+	state CCIPOnChainState,
+	homeChainSel uint64,
+	chains []uint64,
+) (mcms.Operation, error) {
+	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
+	if err != nil {
+		return mcms.Operation{}, err
+	}
+	encodedExtraChainConfig, err := chainconfig.EncodeChainConfig(chainconfig.ChainConfig{
+		GasPriceDeviationPPB:    ccipocr3.NewBigIntFromInt64(1000),
+		DAGasPriceDeviationPPB:  ccipocr3.NewBigIntFromInt64(0),
+		OptimisticConfirmations: 1,
+	})
+	if err != nil {
+		return mcms.Operation{}, err
+	}
+	var chainConfigUpdates []ccip_home.CCIPHomeChainConfigArgs
+	for _, chainSel := range chains {
+		chainConfig := SetupConfigInfo(chainSel, nodes.NonBootstraps().PeerIDs(),
+			nodes.DefaultF(), encodedExtraChainConfig)
+		chainConfigUpdates = append(chainConfigUpdates, chainConfig)
+	}
+
+	addChain, err := state.Chains[homeChainSel].CCIPHome.ApplyChainConfigUpdates(
+		deployment.SimTransactOpts(),
+		nil,
+		chainConfigUpdates,
+	)
+	if err != nil {
+		return mcms.Operation{}, err
+	}
+	return mcms.Operation{
+		To:    state.Chains[homeChainSel].CCIPHome.Address(),
+		Data:  addChain.Data(),
+		Value: big.NewInt(0),
+	}, nil
+}
+
+// SetCandidateCommitPluginWithAddDonOps sets the candidate commit config by calling setCandidate on CCIPHome contract through the AddDON call on CapReg contract
+// This should be done first before calling any other UpdateDON calls
+// This proposes to set up OCR3 config for the commit plugin for the DON
+func NewDonWithCandidateOp(
+	donID uint32,
+	pluginConfig ccip_home.CCIPHomeOCR3Config,
+	capReg *capabilities_registry.CapabilitiesRegistry,
+	nodes deployment.Nodes,
+) (mcms.Operation, error) {
+	encodedSetCandidateCall, err := internal.CCIPHomeABI.Pack(
+		"setCandidate",
+		donID,
+		pluginConfig.PluginType,
+		pluginConfig,
+		[32]byte{},
+	)
+	if err != nil {
+		return mcms.Operation{}, fmt.Errorf("pack set candidate call: %w", err)
+	}
+	addDonTx, err := capReg.AddDON(deployment.SimTransactOpts(), nodes.PeerIDs(), []capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
+		{
+			CapabilityId: internal.CCIPCapabilityID,
+			Config:       encodedSetCandidateCall,
+		},
+	}, false, false, nodes.DefaultF())
+	if err != nil {
+		return mcms.Operation{}, fmt.Errorf("could not generate add don tx w/ commit config: %w", err)
+	}
+	return mcms.Operation{
+		To:    capReg.Address(),
+		Data:  addDonTx.Data(),
+		Value: big.NewInt(0),
 	}, nil
 }

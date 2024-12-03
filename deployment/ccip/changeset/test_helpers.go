@@ -98,9 +98,9 @@ type DeployedEnv struct {
 
 func (e *DeployedEnv) SetupJobs(t *testing.T) {
 	ctx := testcontext.Get(t)
-	jbs, err := NewCCIPJobSpecs(e.Env.NodeIDs, e.Env.Offchain)
+	out, err := CCIPCapabilityJobspec(e.Env, struct{}{})
 	require.NoError(t, err)
-	for nodeID, jobs := range jbs {
+	for nodeID, jobs := range out.JobSpecs {
 		for _, job := range jobs {
 			// Note these auto-accept
 			_, err := e.Env.Offchain.ProposeJob(ctx,
@@ -137,7 +137,7 @@ func DeployTestContracts(t *testing.T,
 	linkPrice *big.Int,
 	wethPrice *big.Int,
 ) deployment.CapabilityRegistryConfig {
-	capReg, err := DeployCapReg(lggr,
+	capReg, err := deployCapReg(lggr,
 		// deploying cap reg for the first time on a blank chain state
 		CCIPOnChainState{
 			Chains: make(map[uint64]CCIPChainState),

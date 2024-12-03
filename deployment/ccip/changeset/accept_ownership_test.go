@@ -27,16 +27,18 @@ func Test_NewAcceptOwnershipChangeset(t *testing.T) {
 	source := allChains[0]
 	dest := allChains[1]
 
+	timelocks := map[uint64]*gethwrappers.RBACTimelock{
+		source: state.Chains[source].Timelock,
+		dest:   state.Chains[dest].Timelock,
+	}
+
 	// at this point we have the initial deploys done, now we need to transfer ownership
 	// to the timelock contract
 	state, err = LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	// compose the transfer ownership and accept ownership changesets
-	_, err = commonchangeset.ApplyChangesets(t, e.Env, map[uint64]*gethwrappers.RBACTimelock{
-		source: state.Chains[source].Timelock,
-		dest:   state.Chains[dest].Timelock,
-	}, []commonchangeset.ChangesetApplication{
+	_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocks, []commonchangeset.ChangesetApplication{
 		// note this doesn't have proposals.
 		{
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.NewTransferOwnershipChangeset),
