@@ -1,18 +1,16 @@
 package changeset
 
 import (
-	"math/big"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 
 	"github.com/stretchr/testify/require"
@@ -22,52 +20,18 @@ import (
 )
 
 func Test_NewAcceptOwnershipChangeset(t *testing.T) {
-	e := NewMemoryEnvironmentWithJobs(t, logger.TestLogger(t), memory.MemoryEnvironmentConfig{
+	e := NewMemoryEnvironmentWithJobsAndContracts(t, logger.TestLogger(t), memory.MemoryEnvironmentConfig{
 		Chains:             2,
 		NumOfUsersPerChain: 1,
 		Nodes:              4,
 		Bootstraps:         1,
-	})
+	}, &TestConfigs{})
 	state, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	allChains := maps.Keys(e.Env.Chains)
 	source := allChains[0]
 	dest := allChains[1]
-
-	newAddresses := deployment.NewMemoryAddressBook()
-	err = deployPrerequisiteChainContracts(e.Env, newAddresses, allChains, nil)
-	require.NoError(t, err)
-	require.NoError(t, e.Env.ExistingAddresses.Merge(newAddresses))
-
-	mcmConfig := commontypes.MCMSWithTimelockConfig{
-		Canceller:         commonchangeset.SingleGroupMCMS(t),
-		Bypasser:          commonchangeset.SingleGroupMCMS(t),
-		Proposer:          commonchangeset.SingleGroupMCMS(t),
-		TimelockExecutors: e.Env.AllDeployerKeys(),
-		TimelockMinDelay:  big.NewInt(0),
-	}
-	out, err := commonchangeset.DeployMCMSWithTimelock(e.Env, map[uint64]commontypes.MCMSWithTimelockConfig{
-		source: mcmConfig,
-		dest:   mcmConfig,
-	})
-	require.NoError(t, err)
-	require.NoError(t, e.Env.ExistingAddresses.Merge(out.AddressBook))
-	newAddresses = deployment.NewMemoryAddressBook()
-	tokenConfig := NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
-	ocrParams := make(map[uint64]CCIPOCRParams)
-	for _, chain := range allChains {
-		ocrParams[chain] = DefaultOCRParams(e.FeedChainSel, nil)
-	}
-	err = deployCCIPContracts(e.Env, newAddresses, NewChainsConfig{
-		HomeChainSel:   e.HomeChainSel,
-		FeedChainSel:   e.FeedChainSel,
-		ChainsToDeploy: allChains,
-		TokenConfig:    tokenConfig,
-		OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
-		OCRParams:      ocrParams,
-	})
-	require.NoError(t, err)
 
 	// at this point we have the initial deploys done, now we need to transfer ownership
 	// to the timelock contract
