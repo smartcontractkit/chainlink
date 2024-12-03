@@ -255,19 +255,7 @@ jobs:
 
       - name: Install LOOP Plugins
         if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
-        run: |
-          pushd $(go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-feeds)
-          go install ./cmd/chainlink-feeds
-          popd
-          pushd $(go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-data-streams)
-          go install ./mercury/cmd/chainlink-mercury
-          popd
-          pushd $(go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-solana)
-          go install ./pkg/solana/cmd/chainlink-solana
-          popd
-          pushd $(go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-starknet/relayer)
-          go install ./pkg/chainlink/cmd/chainlink-starknet
-          popd
+        run: make install-plugins
 
       - name: Increase Timeouts for Fuzz/Race
         # Increase timeouts for scheduled runs only
