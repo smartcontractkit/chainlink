@@ -659,7 +659,7 @@ func CreateChainConfigFromNetworks(
 	networkPvtKeys := make(map[uint64][]string)
 	for _, net := range evmNetworks {
 		require.Greater(t, len(net.PrivateKeys), 0, "No private keys found for network")
-		require.GreaterOrEqual(t, net.ChainID, 0, "Negative chain ID")
+		require.GreaterOrEqual(t, net.ChainID, int64(0), "Negative chain ID")
 		networkPvtKeys[uint64(net.ChainID)] = net.PrivateKeys
 	}
 	type chainDetails struct {
