@@ -279,11 +279,12 @@ func ConfirmCommitWithExpectedSeqNumRange(
 				event := iter.Event
 				if len(event.MerkleRoots) > 0 {
 					for _, mr := range event.MerkleRoots {
+						t.Logf("Received commit report for [%d, %d] on selector %d from source selector %d expected seq nr range %s, token prices: %v, tx hash: %s",
+							mr.MinSeqNr, mr.MaxSeqNr, dest.Selector, src.Selector, expectedSeqNumRange.String(), event.PriceUpdates.TokenPriceUpdates, event.Raw.TxHash.String())
+
 						if mr.SourceChainSelector == src.Selector &&
 							uint64(expectedSeqNumRange.Start()) >= mr.MinSeqNr &&
 							uint64(expectedSeqNumRange.End()) <= mr.MaxSeqNr {
-							t.Logf("Received commit report for [%d, %d] on selector %d from source selector %d expected seq nr range %s, token prices: %v, tx hash: %s",
-								mr.MinSeqNr, mr.MaxSeqNr, dest.Selector, src.Selector, expectedSeqNumRange.String(), event.PriceUpdates.TokenPriceUpdates, event.Raw.TxHash.String())
 							return event, nil
 						}
 					}
@@ -299,11 +300,12 @@ func ConfirmCommitWithExpectedSeqNumRange(
 				// Check the interval of sequence numbers and make sure it matches
 				// the expected range.
 				for _, mr := range report.MerkleRoots {
+					t.Logf("Received commit report for [%d, %d] on selector %d from source selector %d expected seq nr range %s, token prices: %v",
+						mr.MinSeqNr, mr.MaxSeqNr, dest.Selector, src.Selector, expectedSeqNumRange.String(), report.PriceUpdates.TokenPriceUpdates)
+
 					if mr.SourceChainSelector == src.Selector &&
 						uint64(expectedSeqNumRange.Start()) >= mr.MinSeqNr &&
 						uint64(expectedSeqNumRange.End()) <= mr.MaxSeqNr {
-						t.Logf("Received commit report for [%d, %d] on selector %d from source selector %d expected seq nr range %s, token prices: %v",
-							mr.MinSeqNr, mr.MaxSeqNr, dest.Selector, src.Selector, expectedSeqNumRange.String(), report.PriceUpdates.TokenPriceUpdates)
 						return report, nil
 					}
 				}
