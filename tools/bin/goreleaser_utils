@@ -10,9 +10,35 @@ before_hook() {
   # Copy over all platform versions of the wasmvm library
   cp -f "$(go list -json -m github.com/CosmWasm/wasmvm | jq -r '.Dir')"/internal/api/libwasmvm.* "$lib_path/libs"
 
+  cwd=$(pwd)
   install_local_plugins
   install_remote_plugins
   mkdir -p "$lib_path/plugins"
+
+  mkdir -p "$lib_path/linux_amd64/plugins"
+  # cp "$(go env GOPATH)"/bin/linux_amd64/chainlink* "$lib_path/linux_amd64/plugins"
+  # cp "$(go env GOPATH)"/bin/chainlink* "$lib_path/linux_amd64/plugins"
+  cp "$cwd"/plugins/amd64/* "$lib_path/linux_amd64/plugins"
+
+  mkdir -p "$lib_path/linux_arm64/plugins"
+  # cp "$(go env GOPATH)"/bin/linux_arm64/chainlink* "$lib_path/linux_arm64/plugins"
+  # cp "$(go env GOPATH)"/bin/chainlink* "$lib_path/linux_arm64/plugins"
+  # cp "$cwd"/plugins/arm64/* "$lib_path/linux_arm64/plugins"
+  
+  # hack
+  cp "$cwd"/plugins/amd64/* "$lib_path/plugins"
+  
+  # wasmvm plugins
+  cp "$cwd"/plugins/attest-account "$lib_path/plugins"
+  cp "$cwd"/plugins/batch-kv-read "$lib_path/plugins"
+  cp "$cwd"/plugins/batch-kv-write "$lib_path/plugins"
+  cp "$cwd"/plugins/create-account "$lib_path/plugins"
+  cp "$cwd"/plugins/detect-lock "$lib_path/plugins"
+  cp "$cwd"/plugins/detect-unlock "$lib_path/plugins"
+  cp "$cwd"/plugins/lock "$lib_path/plugins"
+  cp "$cwd"/plugins/unlock "$lib_path/plugins"
+  cp "$cwd"/plugins/detect-account-creation "$lib_path/plugins"
+  cp "$cwd"/plugins/detect-account-attestation "$lib_path/plugins"
 
   # Retrieve GOPATH
   GOPATH=$(go env GOPATH)
@@ -44,7 +70,6 @@ before_hook() {
       patchelf --set-interpreter /lib64/ld-linux-x86-64.so.2 "$plugin"
     done
   fi
-
 }
 
 install_local_plugins() {
@@ -82,7 +107,10 @@ install_remote_plugins() {
 # moves native libraries to binary libs directory
 build_post_hook() {
   local -r dist_path=$1
+  local -r platform=$2
+  local -r arch=$3
   local -r plugin_src_path=./tmp/plugins
+  local -r other_plugin_src_path=./tmp/${platform}_${arch}/plugins
   local -r wasmvm_lib_path=./tmp/libs
   local -r lib_dest_path=$dist_path/libs
   local -r plugin_dest_path=$dist_path/plugins
@@ -94,6 +122,10 @@ build_post_hook() {
   # COPY PLUGINS HERE
   mkdir -p "$plugin_dest_path"
   cp -r "$plugin_src_path/." "$plugin_dest_path"
+
+  # COPY OTHER PLUGINS HERE
+  mkdir -p "$plugin_dest_path"
+  cp -r "$other_plugin_src_path/." "$plugin_dest_path"
 }
 
 "$@"

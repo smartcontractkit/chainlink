@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"time"
 
 	"github.com/hashicorp/go-plugin"
 
@@ -21,10 +22,12 @@ func main() {
 	s := loop.MustNewStartedServer(loggerName)
 	defer s.Stop()
 
+	timeout := time.Minute * 5
 	c := ocr3.Config{
 		Logger:            s.Logger,
 		EncoderFactory:    capabilities.NewEncoder,
 		AggregatorFactory: capabilities.NewAggregator,
+		RequestTimeout:    &timeout,
 	}
 	p := ocr3.NewOCR3(c)
 	if err := p.Start(context.Background()); err != nil {
