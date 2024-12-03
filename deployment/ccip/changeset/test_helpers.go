@@ -1107,6 +1107,7 @@ func TransferAndWaitForSuccess(
 	receiver common.Address,
 	data []byte,
 	expectedStatus int,
+	extraArgs []byte,
 ) {
 	identifier := SourceDestPair{
 		SourceChainSelector: sourceChain,
@@ -1127,7 +1128,7 @@ func TransferAndWaitForSuccess(
 		Data:         data,
 		TokenAmounts: tokens,
 		FeeToken:     common.HexToAddress("0x0"),
-		ExtraArgs:    nil,
+		ExtraArgs:    extraArgs,
 	})
 	expectedSeqNum[identifier] = msgSentEvent.SequenceNumber
 	expectedSeqNumExec[identifier] = []uint64{msgSentEvent.SequenceNumber}

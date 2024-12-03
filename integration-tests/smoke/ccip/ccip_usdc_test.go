@@ -201,6 +201,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 				tt.receiver,
 				tt.data,
 				tt.expectedExecutionState,
+				nil,
 			)
 
 			for token, balance := range tt.expectedTokenBalances {
