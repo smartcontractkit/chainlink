@@ -366,7 +366,7 @@ jobs:
           fi   
 
       - name: Tests Summary
-        if: always()
+        if: ${{ fromJson(steps.set_test_results.outputs.all_tests_count) > 0 }}
         run: |
           FILE_SIZE=$(wc -c < all_tests.md)
                     echo "File size: $FILE_SIZE bytes"
