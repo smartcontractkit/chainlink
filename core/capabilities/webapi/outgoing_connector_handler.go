@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
@@ -19,6 +20,7 @@ import (
 var _ connector.GatewayConnectorHandler = &OutgoingConnectorHandler{}
 
 type OutgoingConnectorHandler struct {
+	services.StateMachine
 	gc            connector.GatewayConnector
 	method        string
 	lggr          logger.Logger
@@ -125,11 +127,23 @@ func (c *OutgoingConnectorHandler) HandleGatewayMessage(ctx context.Context, gat
 }
 
 func (c *OutgoingConnectorHandler) Start(ctx context.Context) error {
-	return c.gc.AddHandler([]string{c.method}, c)
+	return c.StartOnce("OutgoingConnectorHandler", func() error {
+		return c.gc.AddHandler([]string{c.method}, c)
+	})
 }
 
 func (c *OutgoingConnectorHandler) Close() error {
-	return nil
+	return c.StopOnce("OutgoingConnectorHandler", func() error {
+		return nil
+	})
+}
+
+func (c *OutgoingConnectorHandler) HealthReport() map[string]error {
+	return map[string]error{c.Name(): nil}
+}
+
+func (c *OutgoingConnectorHandler) Name() string {
+	return c.lggr.Name()
 }
 
 func validMethod(method string) bool {

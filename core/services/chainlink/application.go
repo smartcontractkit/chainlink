@@ -304,7 +304,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				}
 
 				connector := gatewayConnectorWrapper.GetGatewayConnector()
-				webAPILggr := globalLogger.Named("WebAPITarget")
+				outgoingConnectorLggr := globalLogger.Named("WorkflowSyncer")
 
 				webAPIConfig := webapi.ServiceConfig{
 					RateLimiter: common2.RateLimiterConfig{
@@ -317,7 +317,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 				outgoingConnectorHandler, err := webapi.NewOutgoingConnectorHandler(connector,
 					webAPIConfig,
-					capabilities2.MethodWebAPITarget, webAPILggr)
+					capabilities2.MethodWorkflowSyncer, outgoingConnectorLggr)
 				if err != nil {
 					return nil, fmt.Errorf("could not create outgoing connector handler: %w", err)
 				}
@@ -326,7 +326,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 					syncer.NewFetcherFunc(globalLogger, outgoingConnectorHandler), workflowstore.NewDBStore(opts.DS, globalLogger, clockwork.NewRealClock()), opts.CapabilitiesRegistry,
 					custmsg.NewLabeler(), clockwork.NewRealClock(), keys[0])
 
-				loader := syncer.NewWorkflowRegistryContractLoader(cfg.Capabilities().WorkflowRegistry().Address(), func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
+				loader := syncer.NewWorkflowRegistryContractLoader(globalLogger, cfg.Capabilities().WorkflowRegistry().Address(), func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
 					return relayer.NewContractReader(ctx, bytes)
 				}, eventHandler)
 
@@ -338,7 +338,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 						QueryCount: 100,
 					}, eventHandler, loader, workflowDonNotifier)
 
-				srvcs = append(srvcs, wfSyncer)
+				srvcs = append(srvcs, outgoingConnectorHandler, wfSyncer)
 			}
 		}
 	} else {
