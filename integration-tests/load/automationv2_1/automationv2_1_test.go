@@ -18,7 +18,6 @@ import (
 	geth "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/pelletier/go-toml/v2"
 	"github.com/slack-go/slack"
 	"github.com/stretchr/testify/require"
 
@@ -196,6 +195,12 @@ Load Config:
 	loadDuration := time.Duration(*loadedTestConfig.Automation.General.Duration) * time.Second
 	automationDefaultLinkFunds := big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(10000))) //10000 LINK
 
+	nsLabels, err := environment.GetRequiredChainLinkNamespaceLabels(string(tc.Automation), testType)
+	require.NoError(t, err, "Error creating required chain.link labels for namespace")
+
+	workloadPodLabels, err := environment.GetRequiredChainLinkWorkloadAndPodLabels(string(tc.Automation), testType)
+	require.NoError(t, err, "Error creating required chain.link labels for workloads and pods")
+
 	testEnvironment := environment.New(&environment.Config{
 		TTL: loadDuration.Round(time.Hour) + time.Hour,
 		NamespacePrefix: fmt.Sprintf(
@@ -203,6 +208,9 @@ Load Config:
 			testType,
 			strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-"),
 		),
+		Labels:             nsLabels,
+		WorkloadLabels:     workloadPodLabels,
+		PodLabels:          workloadPodLabels,
 		Test:               t,
 		PreventPodEviction: true,
 	})
