@@ -522,7 +522,7 @@ jobs:
                       "type": "section",
                       "text": {
                         "type": "mrkdwn",
-                        "text": "${{ inputs.runAllTests == 'true' && format('Ran all tests for `${{ inputs.headRef }}` branch.', '') || format('Ran changed tests between `${{ inputs.baseRef }}` and `${{ needs.get-tests.outputs.git_head_short_sha }}` (`${{ env.GIT_HEAD_REF }}`).', '') }}"
+                        "text": "${{ inputs.runAllTests == 'true' && format('Ran all tests for `{0}` branch.', inputs.headRef) || format('Ran changed tests between `{0}` and `{1}` (`{2}`).', inputs.baseRef, needs.get-tests.outputs.git_head_short_sha, env.GIT_HEAD_REF) }}"
                       }
                     },
                     {
