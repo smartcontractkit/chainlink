@@ -20,7 +20,7 @@ contract OffRamp_executeSingleMessage is OffRampSetup {
     vm.startPrank(address(s_offRamp));
   }
 
-  function test_executeSingleMessage_NoTokens_Success() public {
+  function test_executeSingleMessage_NoTokens() public {
     Internal.Any2EVMRampMessage memory message =
       _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1);
 
@@ -44,7 +44,7 @@ contract OffRamp_executeSingleMessage is OffRampSetup {
     s_offRamp.executeSingleMessage(message, new bytes[](message.tokenAmounts.length), new uint32[](0));
   }
 
-  function test_executeSingleMessage_WithTokens_Success() public {
+  function test_executeSingleMessage_WithTokens() public {
     Internal.Any2EVMRampMessage memory message =
       _generateMessagesWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1)[0];
     bytes[] memory offchainTokenData = new bytes[](message.tokenAmounts.length);
@@ -69,7 +69,7 @@ contract OffRamp_executeSingleMessage is OffRampSetup {
     s_offRamp.executeSingleMessage(message, offchainTokenData, new uint32[](0));
   }
 
-  function test_executeSingleMessage_WithVInterception_Success() public {
+  function test_executeSingleMessage_WithMessageInterceptor() public {
     vm.stopPrank();
     vm.startPrank(OWNER);
     _enableInboundMessageInterceptor();
@@ -79,46 +79,47 @@ contract OffRamp_executeSingleMessage is OffRampSetup {
     s_offRamp.executeSingleMessage(message, new bytes[](message.tokenAmounts.length), new uint32[](0));
   }
 
-  function test_NonContract_Success() public {
+  function test_executeSingleMessage_NonContract() public {
     Internal.Any2EVMRampMessage memory message =
       _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1);
     message.receiver = STRANGER;
     s_offRamp.executeSingleMessage(message, new bytes[](message.tokenAmounts.length), new uint32[](0));
   }
 
-  function test_NonContractWithTokens_Success() public {
+  function test_executeSingleMessage_NonContractWithTokens() public {
     uint256[] memory amounts = new uint256[](2);
     amounts[0] = 1000;
     amounts[1] = 50;
+
+    Internal.Any2EVMRampMessage memory message =
+      _generateAny2EVMMessageWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1, amounts);
+
+    message.receiver = STRANGER;
+
     vm.expectEmit();
     emit TokenPool.Released(address(s_offRamp), STRANGER, amounts[0]);
     vm.expectEmit();
     emit TokenPool.Minted(address(s_offRamp), STRANGER, amounts[1]);
-    Internal.Any2EVMRampMessage memory message =
-      _generateAny2EVMMessageWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1, amounts);
-    message.receiver = STRANGER;
+
     s_offRamp.executeSingleMessage(message, new bytes[](message.tokenAmounts.length), new uint32[](0));
   }
 
   // Reverts
 
-  function test_TokenHandlingError_Revert() public {
-    uint256[] memory amounts = new uint256[](2);
-    amounts[0] = 1000;
-    amounts[1] = 50;
+  function test_executeSingleMessage_RevertWhen_TokenHandlingError() public {
+    Internal.Any2EVMRampMessage memory message = _generateAny2EVMMessageWithMaybeRevertingSingleToken(1, 50);
+    address destPool = s_destPoolByToken[message.tokenAmounts[0].destTokenAddress];
 
     bytes memory errorMessage = "Random token pool issue";
 
-    Internal.Any2EVMRampMessage memory message =
-      _generateAny2EVMMessageWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1, amounts);
     s_maybeRevertingPool.setShouldRevert(errorMessage);
 
-    vm.expectRevert(abi.encodeWithSelector(OffRamp.TokenHandlingError.selector, errorMessage));
+    vm.expectRevert(abi.encodeWithSelector(OffRamp.TokenHandlingError.selector, destPool, errorMessage));
 
     s_offRamp.executeSingleMessage(message, new bytes[](message.tokenAmounts.length), new uint32[](0));
   }
 
-  function test_ZeroGasDONExecution_Revert() public {
+  function test_executeSingleMessage_RevertWhen_ZeroGasDONExecution() public {
     Internal.Any2EVMRampMessage memory message =
       _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1);
     message.gasLimit = 0;
@@ -128,7 +129,7 @@ contract OffRamp_executeSingleMessage is OffRampSetup {
     s_offRamp.executeSingleMessage(message, new bytes[](message.tokenAmounts.length), new uint32[](0));
   }
 
-  function test_MessageSender_Revert() public {
+  function test_executeSingleMessage_RevertWhen_MessageSender() public {
     vm.stopPrank();
     Internal.Any2EVMRampMessage memory message =
       _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1);
@@ -136,7 +137,7 @@ contract OffRamp_executeSingleMessage is OffRampSetup {
     s_offRamp.executeSingleMessage(message, new bytes[](message.tokenAmounts.length), new uint32[](0));
   }
 
-  function test_executeSingleMessage_WithFailingValidation_Revert() public {
+  function test_executeSingleMessage_RevertWhen_MessageValidationError() public {
     vm.stopPrank();
     vm.startPrank(OWNER);
     _enableInboundMessageInterceptor();
@@ -153,7 +154,7 @@ contract OffRamp_executeSingleMessage is OffRampSetup {
     s_offRamp.executeSingleMessage(message, new bytes[](message.tokenAmounts.length), new uint32[](0));
   }
 
-  function test_executeSingleMessage_WithFailingValidationNoRouterCall_Revert() public {
+  function test_executeSingleMessage_RevertWhen_WithFailingValidationNoRouterCall() public {
     vm.stopPrank();
     vm.startPrank(OWNER);
     _enableInboundMessageInterceptor();

@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
+import {IRMN} from "../../../interfaces/IRMN.sol";
 import {IRMNRemote} from "../../../interfaces/IRMNRemote.sol";
+
 import {Internal} from "../../../libraries/Internal.sol";
 import {RMNRemote} from "../../../rmn/RMNRemote.sol";
 import {BaseTest} from "../../BaseTest.t.sol";
@@ -21,9 +23,11 @@ contract RMNRemoteSetup is BaseTest {
   bytes16 internal constant CURSE_SUBJ_2 = bytes16(keccak256("subject 2"));
   bytes16[] internal s_curseSubjects;
 
+  IRMN internal s_legacyRMN = IRMN(makeAddr("legacyRMN"));
+
   function setUp() public virtual override {
     super.setUp();
-    s_rmnRemote = new RMNRemote(1);
+    s_rmnRemote = new RMNRemote(1, s_legacyRMN);
     OFF_RAMP_ADDRESS = makeAddr("OFF RAMP");
     s_curseSubjects = [CURSE_SUBJ_1, CURSE_SUBJ_2];
 

@@ -7,7 +7,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
@@ -371,15 +370,11 @@ func configureChain(
 		return fmt.Errorf("rmn home not found")
 	}
 
-	for _, chainSel := range c.ChainsToDeploy {
+	for chainSel, chainConfig := range c.ChainConfigByChain {
 		chain, _ := e.Chains[chainSel]
 		chainState, ok := existingState.Chains[chain.Selector]
 		if !ok {
 			return fmt.Errorf("chain state not found for chain %d", chain.Selector)
-		}
-		ocrParams, ok := c.OCRParams[chain.Selector]
-		if !ok {
-			return fmt.Errorf("OCR params not found for chain %d", chain.Selector)
 		}
 		if chainState.OffRamp == nil {
 			return fmt.Errorf("off ramp not found for chain %d", chain.Selector)
@@ -393,10 +388,6 @@ func configureChain(
 		if err != nil {
 			return err
 		}
-		if enabled, ok := c.USDCConfig.EnabledChainMap()[chainSel]; ok && enabled {
-			ocrParams.ExecuteOffChainConfig.TokenDataObservers = c.USDCConfig.ToTokenDataObserverConfig()
-		}
-		ocrParams.CommitOffChainConfig.PriceFeedChainSelector = cciptypes.ChainSelector(c.FeedChainSel)
 		// For each chain, we create a DON on the home chain (2 OCR instances)
 		if err := addDON(
 			e.Logger,
@@ -408,7 +399,7 @@ func configureChain(
 			chain,
 			e.Chains[c.HomeChainSel],
 			nodes.NonBootstraps(),
-			ocrParams,
+			chainConfig,
 		); err != nil {
 			e.Logger.Errorw("Failed to add DON", "err", err)
 			return err
@@ -431,7 +422,7 @@ func deployCCIPContracts(
 	e deployment.Environment,
 	ab deployment.AddressBook,
 	c NewChainsConfig) error {
-	err := deployChainContractsForChains(e, ab, c.HomeChainSel, c.ChainsToDeploy)
+	err := deployChainContractsForChains(e, ab, c.HomeChainSel, c.Chains())
 	if err != nil {
 		e.Logger.Errorw("Failed to deploy chain contracts", "err", err)
 		return err
@@ -441,18 +432,6 @@ func deployCCIPContracts(
 		e.Logger.Errorw("Failed to merge address book", "err", err)
 		return err
 	}
-	state, err := LoadOnchainState(e)
-	if err != nil {
-		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
-		return err
-	}
-
-	ocrParams := make(map[uint64]CCIPOCRParams)
-	for _, chain := range c.ChainsToDeploy {
-		tokenInfo := c.TokenConfig.GetTokenInfo(e.Logger, state.Chains[chain].LinkToken, state.Chains[chain].Weth9)
-		ocrParams[chain] = DefaultOCRParams(c.FeedChainSel, tokenInfo)
-	}
-	c.OCRParams = ocrParams
 	err = configureChain(e, c)
 	if err != nil {
 		e.Logger.Errorw("Failed to add chain", "err", err)
@@ -599,6 +578,8 @@ func deployChainContracts(
 					chain.DeployerKey,
 					chain.Client,
 					chain.Selector,
+					// Indicates no legacy RMN contract
+					common.HexToAddress("0x0"),
 				)
 				return deployment.ContractDeploy[*rmn_remote.RMNRemote]{
 					rmnRemoteAddr, rmnRemote, tx, deployment.NewTypeAndVersion(RMNRemote, deployment.Version1_6_0_dev), err2,

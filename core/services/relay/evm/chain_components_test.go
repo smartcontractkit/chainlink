@@ -35,8 +35,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	. "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/evmtesting" //nolint common practice to import test mods with .
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+
+	. "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/evmtesting" //nolint:revive // dot-imports
 )
 
 const commonGasLimitOnEvms = uint64(4712388)

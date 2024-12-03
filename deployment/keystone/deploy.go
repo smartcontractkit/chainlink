@@ -25,6 +25,7 @@ import (
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	kf "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder"
@@ -75,7 +76,7 @@ func ConfigureContracts(ctx context.Context, lggr logger.Logger, req ConfigureCo
 
 	addrBook := req.Env.ExistingAddresses
 	if req.DoContractDeploy {
-		contractDeployCS, err := DeployContracts(lggr, req.Env, req.RegistryChainSel)
+		contractDeployCS, err := DeployContracts(req.Env, req.RegistryChainSel)
 		if err != nil {
 			return nil, fmt.Errorf("failed to deploy contracts: %w", err)
 		}
@@ -121,12 +122,13 @@ func ConfigureContracts(ctx context.Context, lggr logger.Logger, req ConfigureCo
 }
 
 // DeployContracts deploys the all the keystone contracts on all chains and returns the address book in the changeset
-func DeployContracts(lggr logger.Logger, e *deployment.Environment, chainSel uint64) (*deployment.ChangesetOutput, error) {
+func DeployContracts(e *deployment.Environment, chainSel uint64) (*deployment.ChangesetOutput, error) {
+	lggr := e.Logger
 	adbook := deployment.NewMemoryAddressBook()
 	// deploy contracts on all chains and track the registry and ocr3 contracts
 	for _, chain := range e.Chains {
 		lggr.Infow("deploying contracts", "chain", chain.Selector)
-		deployResp, err := deployContractsToChain(lggr, deployContractsRequest{
+		deployResp, err := deployContractsToChain(deployContractsRequest{
 			chain:           chain,
 			isRegistryChain: chain.Selector == chainSel,
 		},

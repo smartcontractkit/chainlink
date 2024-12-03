@@ -278,7 +278,7 @@ func (d *db) PendingTransmissionsWithConfigDigest(ctx context.Context, cd ocrtyp
 	FROM ocr2_pending_transmissions
 	WHERE ocr2_oracle_spec_id = $1 AND config_digest = $2
 	`
-	rows, err := d.ds.QueryxContext(ctx, stmt, d.oracleSpecID, cd) //nolint sqlclosecheck false positive
+	rows, err := d.ds.QueryxContext(ctx, stmt, d.oracleSpecID, cd)
 	if err != nil {
 		return nil, errors.Wrap(err, "PendingTransmissionsWithConfigDigest failed to query rows")
 	}

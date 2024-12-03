@@ -140,16 +140,15 @@ func NewLocalDevEnvironment(
 	if tCfg.IsUSDC {
 		usdcChains = allChains
 	}
-	mcmsCfgPerChain := commontypes.MCMSWithTimelockConfig{
-		Canceller:         commonchangeset.SingleGroupMCMS(t),
-		Bypasser:          commonchangeset.SingleGroupMCMS(t),
-		Proposer:          commonchangeset.SingleGroupMCMS(t),
-		TimelockExecutors: env.AllDeployerKeys(),
-		TimelockMinDelay:  big.NewInt(0),
-	}
 	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 	for _, c := range env.AllChainSelectors() {
-		mcmsCfg[c] = mcmsCfgPerChain
+		mcmsCfg[c] = commontypes.MCMSWithTimelockConfig{
+			Canceller:         commonchangeset.SingleGroupMCMS(t),
+			Bypasser:          commonchangeset.SingleGroupMCMS(t),
+			Proposer:          commonchangeset.SingleGroupMCMS(t),
+			TimelockExecutors: env.AllDeployerKeys(),
+			TimelockMinDelay:  big.NewInt(0),
+		}
 	}
 	// Need to deploy prerequisites first so that we can form the USDC config
 	// no proposals to be made, timelock can be passed as nil here
@@ -189,64 +188,56 @@ func NewLocalDevEnvironment(
 		},
 	})
 	require.NoError(t, err)
-
 	state, err := changeset.LoadOnchainState(env)
 	require.NoError(t, err)
-	tokenConfig := changeset.NewTestTokenConfig(state.Chains[feedSel].USDFeeds)
-	usdcCCTPConfig := make(map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig)
-	timelocksPerChain := make(map[uint64]*gethwrappers.RBACTimelock)
-	ocrParams := make(map[uint64]changeset.CCIPOCRParams)
-	for _, chain := range usdcChains {
-		require.NotNil(t, state.Chains[chain].MockUSDCTokenMessenger)
-		require.NotNil(t, state.Chains[chain].MockUSDCTransmitter)
-		require.NotNil(t, state.Chains[chain].USDCTokenPool)
-		usdcCCTPConfig[cciptypes.ChainSelector(chain)] = pluginconfig.USDCCCTPTokenConfig{
-			SourcePoolAddress:            state.Chains[chain].USDCTokenPool.Address().String(),
-			SourceMessageTransmitterAddr: state.Chains[chain].MockUSDCTransmitter.Address().String(),
-		}
-	}
-	var usdcAttestationCfg changeset.USDCAttestationConfig
+
+	var tokenDataProviders []pluginconfig.TokenDataObserverConfig
 	if len(usdcChains) > 0 {
 		var endpoint string
 		err = ccipactions.SetMockServerWithUSDCAttestation(testEnv.MockAdapter, nil)
 		require.NoError(t, err)
 		endpoint = testEnv.MockAdapter.InternalEndpoint
-		usdcAttestationCfg = changeset.USDCAttestationConfig{
-			API:         endpoint,
-			APITimeout:  commonconfig.MustNewDuration(time.Second),
-			APIInterval: commonconfig.MustNewDuration(500 * time.Millisecond),
+		cctpContracts := make(map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig)
+		for _, usdcChain := range usdcChains {
+			cctpContracts[cciptypes.ChainSelector(usdcChain)] = pluginconfig.USDCCCTPTokenConfig{
+				SourcePoolAddress:            state.Chains[usdcChain].USDCTokenPool.Address().String(),
+				SourceMessageTransmitterAddr: state.Chains[usdcChain].MockUSDCTransmitter.Address().String(),
+			}
 		}
+		tokenDataProviders = append(tokenDataProviders, pluginconfig.TokenDataObserverConfig{
+			Type:    pluginconfig.USDCCCTPHandlerType,
+			Version: "1.0",
+			USDCCCTPObserverConfig: &pluginconfig.USDCCCTPObserverConfig{
+				Tokens:                 cctpContracts,
+				AttestationAPI:         endpoint,
+				AttestationAPITimeout:  commonconfig.MustNewDuration(time.Second),
+				AttestationAPIInterval: commonconfig.MustNewDuration(500 * time.Millisecond),
+			}})
 	}
-	require.NotNil(t, state.Chains[feedSel].LinkToken)
-	require.NotNil(t, state.Chains[feedSel].Weth9)
 
+	// Build the per chain config.
+	tokenConfig := changeset.NewTestTokenConfig(state.Chains[feedSel].USDFeeds)
+	chainConfigs := make(map[uint64]changeset.CCIPOCRParams)
+	timelocksPerChain := make(map[uint64]*gethwrappers.RBACTimelock)
 	for _, chain := range allChains {
 		timelocksPerChain[chain] = state.Chains[chain].Timelock
-		tokenInfo := tokenConfig.GetTokenInfo(env.Logger, state.Chains[chain].LinkToken, state.Chains[chain].Weth9)
-
-		params := changeset.DefaultOCRParams(feedSel, tokenInfo)
+		tokenInfo := tokenConfig.GetTokenInfo(e.Logger, state.Chains[chain].LinkToken, state.Chains[chain].Weth9)
+		ocrParams := changeset.DefaultOCRParams(feedSel, tokenInfo, tokenDataProviders)
 		if tCfg.OCRConfigOverride != nil {
-			params = tCfg.OCRConfigOverride(params)
+			ocrParams = tCfg.OCRConfigOverride(ocrParams)
 		}
-
-		ocrParams[chain] = params
+		chainConfigs[chain] = ocrParams
 	}
+
 	// Deploy second set of changesets to deploy and configure the CCIP contracts.
 	env, err = commonchangeset.ApplyChangesets(t, env, timelocksPerChain, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.ConfigureNewChains),
 			Config: changeset.NewChainsConfig{
-				HomeChainSel:   homeChainSel,
-				FeedChainSel:   feedSel,
-				ChainsToDeploy: allChains,
-				TokenConfig:    tokenConfig,
-				OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
-				OCRParams:      ocrParams,
-				USDCConfig: changeset.USDCConfig{
-					EnabledChains:         usdcChains,
-					USDCAttestationConfig: usdcAttestationCfg,
-					CCTPTokenConfig:       usdcCCTPConfig,
-				},
+				HomeChainSel:       homeChainSel,
+				FeedChainSel:       feedSel,
+				OCRSecrets:         deployment.XXXGenerateTestOCRSecrets(),
+				ChainConfigByChain: chainConfigs,
 			},
 		},
 		{
@@ -656,7 +647,7 @@ func FundNodes(t *testing.T, lggr zerolog.Logger, env *test_env.CLClusterTestEnv
 	require.NoError(t, fundGrp.Wait(), "Error funding chainlink nodes")
 }
 
-// CreateChainConfigFromNetworks creates a list of ChainConfig from the network config provided in test config.
+// CreateChainConfigFromNetworks creates a list of CCIPOCRParams from the network config provided in test config.
 // It either creates it from the private ethereum networks created by the test environment or from the
 // network URLs provided in the network config ( if the network is a live testnet).
 // It uses the private keys from the network config to create the deployer key for each chain.

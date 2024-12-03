@@ -19,7 +19,6 @@ type OCR3SignerVerifier interface {
 	Verify3(publicKey ocrtypes.OnchainPublicKey, cd ocrtypes.ConfigDigest, seqNr uint64, r ocrtypes.Report, signature []byte) bool
 }
 
-// nolint
 type KeyBundle interface {
 	// OnchainKeyring is used for signing reports (groups of observations, verified onchain)
 	ocrtypes.OnchainKeyring
@@ -108,7 +107,6 @@ func (kb keyBundleBase) GoString() string {
 	return kb.String()
 }
 
-// nolint
 type Raw []byte
 
 func (raw Raw) Key() (kb KeyBundle) {

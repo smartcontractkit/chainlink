@@ -11,6 +11,7 @@ import (
 type NopView struct {
 	// NodeID is the unique identifier of the node
 	NodeID       string                `json:"nodeID"`
+	PeerID       string                `json:"peerID"`
 	IsBootstrap  bool                  `json:"isBootstrap"`
 	OCRKeys      map[string]OCRKeyView `json:"ocrKeys"`
 	PayeeAddress string                `json:"payeeAddress"`
@@ -49,6 +50,7 @@ func GenerateNopsView(nodeIds []string, oc deployment.OffchainClient) (map[strin
 		}
 		nop := NopView{
 			NodeID:       node.NodeID,
+			PeerID:       node.PeerID.String(),
 			IsBootstrap:  node.IsBootstrap,
 			OCRKeys:      make(map[string]OCRKeyView),
 			PayeeAddress: node.AdminAddr,
