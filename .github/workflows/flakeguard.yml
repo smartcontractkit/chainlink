@@ -418,7 +418,7 @@ jobs:
           script: |
             const fs = require('fs');
             const prNumber = context.payload.pull_request.number;
-            const commentBody = fs.readFileSync('../all_tests.md', 'utf8');
+            const commentBody = fs.readFileSync('all_tests.md', 'utf8');
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,
