@@ -1,7 +1,6 @@
 name: Flakeguard Nightly
 
 on:
-  push:
   schedule:
     # Run every night at 3:00 AM UTC
     - cron: '0 3 * * *'
@@ -16,7 +15,7 @@ jobs:
       baseRef: 'origin/develop'
       projectPath: '.'
       maxPassRatio: '1.0'
-      runAllTests: 'true'
+      runAllTests: true
       extraArgs: '{ "skipped_tests": "TestChainComponents", "test_repeat_count": "5", "all_tests_runner": "ubuntu22.04-32cores-128GB", "all_tests_runner_count": "3", "run_with_race": "false" }'
     secrets:
       SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
