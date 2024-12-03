@@ -100,7 +100,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@04bfae2602c015036f366a8dd4e7a619096cc516 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@f03577def97a20a38c0e1de1cbe7fc98d416dd86 # flakguard@0.1.0
 
       - name: Find new or updated test packages
         if: ${{ inputs.runAllTests == false }}
@@ -259,7 +259,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@04bfae2602c015036f366a8dd4e7a619096cc516 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@f03577def97a20a38c0e1de1cbe7fc98d416dd86 # flakguard@0.1.0
 
       - name: Run tests with flakeguard
         shell: bash
@@ -283,6 +283,11 @@ jobs:
     outputs:
       test_results: ${{ steps.set_test_results.outputs.results }}
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          ref: ${{ env.GIT_HEAD_REF }}
+
       - name: Set Pretty Project Path
         id: set_project_path_pretty
         run: |
@@ -295,21 +300,22 @@ jobs:
       - name: Download all test result artifacts
         uses: actions/download-artifact@v4.1.8
         with:
-          path: test_results
+          path: ci_test_results
           pattern:
             test-result-${{ needs.get-tests.outputs.workflow_id }}-*
             
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@04bfae2602c015036f366a8dd4e7a619096cc516 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@f03577def97a20a38c0e1de1cbe7fc98d416dd86 # flakguard@0.1.0
                 
       - name: Set combined test results
         id: set_test_results
         shell: bash
         run: |
           set -e  # Exit immediately if a command exits with a non-zero status.
-          if [ -d "test_results" ]; then
-            cd test_results
+          
+          if [ -d "ci_test_results" ]; then
+            cd ci_test_results
             ls -R .
 
             # Fix flakeguard binary path
@@ -317,7 +323,7 @@ jobs:
             export PATH
 
             # Use flakeguard to aggregate all test results
-            flakeguard aggregate-results --results-path . --output-results ../all_tests.json
+            flakeguard aggregate-results --results-path . --output-results ../all_tests.json --project-path=${{ github.workspace }}/${{ inputs.projectPath }} --codeowners-path=${{ github.workspace }}/.github/CODEOWNERS
 
             # Count all tests
             ALL_TESTS_COUNT=$(jq '.Results | length' ../all_tests.json)
@@ -325,7 +331,7 @@ jobs:
             echo "all_tests_count=$ALL_TESTS_COUNT" >> "$GITHUB_OUTPUT"
 
             # Use flakeguard to filter and output failed tests based on MaxPassRatio
-            flakeguard aggregate-results --filter-failed=true --max-pass-ratio=${{ inputs.maxPassRatio }} --results-path . --output-results ../failed_tests.json --output-logs ../failed_test_logs.json --project-path=${{ inputs.projectPath }} --codeowners-path=.github/CODEOWNERS
+            flakeguard aggregate-results --filter-failed=true --max-pass-ratio=${{ inputs.maxPassRatio }} --results-path . --output-results ../failed_tests.json --output-logs ../failed_test_logs.json --project-path=${{ github.workspace }}/${{ inputs.projectPath }} --codeowners-path=${{ github.workspace }}/.github/CODEOWNERS
 
             # Count failed tests
             if [ -f "../failed_tests.json" ]; then
@@ -342,7 +348,7 @@ jobs:
           fi   
 
       - name: Tests Summary
-        if: always()
+        if: ${{ fromJson(steps.set_test_results.outputs.all_tests_count) > 0 }}
         run: |
           FILE_SIZE=$(wc -c < all_tests.md)
                     echo "File size: $FILE_SIZE bytes"
@@ -412,7 +418,7 @@ jobs:
           script: |
             const fs = require('fs');
             const prNumber = context.payload.pull_request.number;
-            const commentBody = fs.readFileSync('../all_tests.md', 'utf8');
+            const commentBody = fs.readFileSync('all_tests.md', 'utf8');
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,

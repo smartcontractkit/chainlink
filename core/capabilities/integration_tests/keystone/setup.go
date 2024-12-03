@@ -130,7 +130,7 @@ func newReport(t *testing.T, feedID [32]byte, price *big.Int, timestamp int64) [
 	v3Codec := reportcodec.NewReportCodec(feedID, logger.TestLogger(t))
 	raw, err := v3Codec.BuildReport(ctx, v3.ReportFields{
 		BenchmarkPrice: price,
-		//nolint:gosec // disable G115
+
 		Timestamp: uint32(timestamp),
 		Bid:       big.NewInt(0),
 		Ask:       big.NewInt(0),

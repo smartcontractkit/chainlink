@@ -204,12 +204,14 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 			defer w.wg.Done()
 			defer cancel()
 
+			w.lggr.Debugw("Waiting for DON...")
 			don, err := w.workflowDonNotifier.WaitForDon(ctx)
 			if err != nil {
 				w.lggr.Errorf("failed to wait for don: %v", err)
 				return
 			}
 
+			w.lggr.Debugw("Loading initial workflows for DON", "DON", don.ID)
 			loadWorkflowsHead, err := w.initialWorkflowsStateLoader.LoadWorkflows(ctx, don)
 			if err != nil {
 				w.lggr.Errorf("failed to load workflows: %v", err)
@@ -333,6 +335,7 @@ func (w *workflowRegistry) syncEventsLoop(ctx context.Context, lastReadBlockNumb
 		case <-ctx.Done():
 			return
 		case <-ticker:
+			w.lggr.Debugw("Syncing with WorkflowRegistry")
 			// for each event type, send a signal for it to execute a query and produce a new
 			// batch of event logs
 			for i := 0; i < len(w.eventTypes); i++ {
