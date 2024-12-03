@@ -25,7 +25,7 @@ import (
 // TODO 5. src -> dest - ordered token transfer, but using a different sender
 //
 // All messages should be properly committed, but only 1 and 4 are fully executed.
-func Test_OutOfExecution(t *testing.T) {
+func Test_OutOfOrderExecution(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := tests.Context(t)
 	config := &changeset.TestConfigs{
