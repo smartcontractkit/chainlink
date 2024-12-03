@@ -3,15 +3,13 @@ pragma solidity 0.8.24;
 
 import {KeystoneFeedsPermissionHandler} from "../../../keystone/KeystoneFeedsPermissionHandler.sol";
 
-import {BaseTest} from "../../../keystone/test/KeystoneForwarderBaseTest.t.sol";
+import {KeystoneForwarder} from "../../../keystone/KeystoneForwarder.sol";
 import {FeeQuoter} from "../../FeeQuoter.sol";
 import {FeeQuoterSetup} from "./FeeQuoterSetup.t.sol";
 
-contract FeeQuoter_onReport is BaseTest, FeeQuoterSetup {
-  uint8 internal constant VERSION = 1;
+contract FeeQuoter_onReport is FeeQuoterSetup {
   bytes32 internal constant EXECUTION_ID = hex"6d795f657865637574696f6e5f69640000000000000000000000000000000000";
-  bytes internal constant REPORT_CONTEXT = new bytes(96);
-  uint256 internal constant REQUIRED_SIGNATURE_NUM = 2;
+  address internal constant TRANSMITTER = address(50);
   bytes32 internal constant WORKFLOW_ID_1 = hex"6d795f6964000000000000000000000000000000000000000000000000000000";
   address internal constant WORKFLOW_OWNER_1 = address(51);
   bytes10 internal constant WORKFLOW_NAME_1 = hex"000000000000DEADBEEF";
@@ -19,14 +17,12 @@ contract FeeQuoter_onReport is BaseTest, FeeQuoterSetup {
   address internal s_onReportTestToken1;
   address internal s_onReportTestToken2;
   bytes public encodedPermissionsMetadata;
+  KeystoneForwarder internal s_forwarder;
 
-  function setUp() public virtual override(BaseTest, FeeQuoterSetup) {
-    BaseTest.setUp();
+  function setUp() public virtual override {
+    super.setUp();
 
-    s_forwarder.setConfig(DON_ID, CONFIG_VERSION, F, _getSignerAddresses());
-    s_router.addForwarder(address(s_forwarder));
-
-    FeeQuoterSetup.setUp();
+    s_forwarder = new KeystoneForwarder();
 
     s_onReportTestToken1 = s_sourceTokens[0];
     s_onReportTestToken2 = _deploySourceToken("onReportTestToken2", 0, 20);
@@ -55,7 +51,7 @@ contract FeeQuoter_onReport is BaseTest, FeeQuoterSetup {
     s_feeQuoter.updateTokenPriceFeeds(tokenPriceFeeds);
   }
 
-  function test_onReport_Success() public {
+  function test_onReport() public {
     FeeQuoter.ReceivedCCIPFeedReport[] memory report = new FeeQuoter.ReceivedCCIPFeedReport[](2);
     report[0] =
       FeeQuoter.ReceivedCCIPFeedReport({token: s_onReportTestToken1, price: 4e18, timestamp: uint32(block.timestamp)});
@@ -79,31 +75,25 @@ contract FeeQuoter_onReport is BaseTest, FeeQuoterSetup {
     vm.assertEq(s_feeQuoter.getTokenPrice(report[1].token).timestamp, report[1].timestamp);
   }
 
-  function test_onReportWithKeystoneForwarder_Success() public {
+  function test_onReport_withKeystoneForwarderContract() public {
     FeeQuoter.ReceivedCCIPFeedReport[] memory priceReportRaw = new FeeQuoter.ReceivedCCIPFeedReport[](2);
     priceReportRaw[0] =
       FeeQuoter.ReceivedCCIPFeedReport({token: s_onReportTestToken1, price: 4e18, timestamp: uint32(block.timestamp)});
     priceReportRaw[1] =
       FeeQuoter.ReceivedCCIPFeedReport({token: s_onReportTestToken2, price: 4e18, timestamp: uint32(block.timestamp)});
 
-    bytes memory rawReports = abi.encode(priceReportRaw);
-    bytes memory metadata = abi.encodePacked(WORKFLOW_ID_1, WORKFLOW_NAME_1, WORKFLOW_OWNER_1, REPORT_NAME_1);
-    bytes memory header = abi.encodePacked(VERSION, EXECUTION_ID, uint32(0), DON_ID, CONFIG_VERSION, metadata);
-    bytes memory report = abi.encodePacked(header, rawReports);
-
-    bytes[] memory signatures = _signReport(report, REPORT_CONTEXT, REQUIRED_SIGNATURE_NUM);
-
     uint224 expectedStoredToken1Price = s_feeQuoter.calculateRebasedValue(18, 18, priceReportRaw[0].price);
     uint224 expectedStoredToken2Price = s_feeQuoter.calculateRebasedValue(18, 20, priceReportRaw[1].price);
-
-    changePrank(TRANSMITTER);
 
     vm.expectEmit();
     emit FeeQuoter.UsdPerTokenUpdated(s_onReportTestToken1, expectedStoredToken1Price, block.timestamp);
     vm.expectEmit();
     emit FeeQuoter.UsdPerTokenUpdated(s_onReportTestToken2, expectedStoredToken2Price, block.timestamp);
 
-    s_forwarder.report(address(s_feeQuoter), report, REPORT_CONTEXT, signatures);
+    changePrank(address(s_forwarder));
+    s_forwarder.route(
+      EXECUTION_ID, TRANSMITTER, address(s_feeQuoter), encodedPermissionsMetadata, abi.encode(priceReportRaw)
+    );
 
     vm.assertEq(s_feeQuoter.getTokenPrice(priceReportRaw[0].token).value, expectedStoredToken1Price);
     vm.assertEq(s_feeQuoter.getTokenPrice(priceReportRaw[0].token).timestamp, priceReportRaw[0].timestamp);
