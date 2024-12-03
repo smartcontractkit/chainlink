@@ -477,11 +477,11 @@ jobs:
                       "fields": [
                         {
                           "type": "mrkdwn",
-                          "text": "*Total Failed Tests:* ${{ steps.set_test_results.outputs.failed_tests_count }}"
+                          "text": "Total Failed Tests: ${{ steps.set_test_results.outputs.failed_tests_count }}"
                         },
                         {
                           "type": "mrkdwn",
-                          "text": "*Failed to Non-Failed Ratio:* ${{ steps.set_test_results.outputs.failed_ratio }}%"
+                          "text": "Failed to Non-Failed Ratio: ${{ steps.set_test_results.outputs.failed_ratio }}%"
                         }
                       ]
                     },
