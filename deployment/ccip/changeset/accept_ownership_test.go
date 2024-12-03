@@ -9,13 +9,15 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
+
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func Test_NewAcceptOwnershipChangeset(t *testing.T) {
@@ -120,8 +122,8 @@ func genTestTransferOwnershipConfig(
 	)
 
 	return commonchangeset.TransferOwnershipConfig{
-		TimelocksPerChain: timelocksPerChain,
-		Contracts:         contracts,
+		OwnersPerChain: timelocksPerChain,
+		Contracts:      contracts,
 	}
 }
 
@@ -158,10 +160,10 @@ func genTestAcceptOwnershipConfig(
 	)
 
 	return commonchangeset.AcceptOwnershipConfig{
-		TimelocksPerChain: timelocksPerChain,
-		ProposerMCMSes:    proposerMCMses,
-		Contracts:         contracts,
-		MinDelay:          time.Duration(0),
+		OwnersPerChain: timelocksPerChain,
+		ProposerMCMSes: proposerMCMses,
+		Contracts:      contracts,
+		MinDelay:       time.Duration(0),
 	}
 }
 

@@ -19,8 +19,12 @@ type CapabilitiesRegistryDeployer struct {
 	contract *capabilities_registry.CapabilitiesRegistry
 }
 
-func NewCapabilitiesRegistryDeployer(lggr logger.Logger) *CapabilitiesRegistryDeployer {
-	return &CapabilitiesRegistryDeployer{lggr: lggr}
+func NewCapabilitiesRegistryDeployer() (*CapabilitiesRegistryDeployer, error) {
+	lggr, err := logger.New()
+	if err != nil {
+		return nil, err
+	}
+	return &CapabilitiesRegistryDeployer{lggr: lggr}, nil
 }
 
 func (c *CapabilitiesRegistryDeployer) Contract() *capabilities_registry.CapabilitiesRegistry {

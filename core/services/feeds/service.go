@@ -128,6 +128,7 @@ type service struct {
 	p2pKeyStore         keystore.P2P
 	ocr1KeyStore        keystore.OCR
 	ocr2KeyStore        keystore.OCR2
+	workflowKeyStore    keystore.Workflow
 	jobSpawner          job.Spawner
 	gCfg                GeneralConfig
 	featCfg             FeatureConfig
@@ -170,6 +171,7 @@ func NewService(
 		csaKeyStore:         keyStore.CSA(),
 		ocr1KeyStore:        keyStore.OCR(),
 		ocr2KeyStore:        keyStore.OCR2(),
+		workflowKeyStore:    keyStore.Workflow(),
 		gCfg:                gCfg,
 		featCfg:             fCfg,
 		insecureCfg:         insecureCfg,
@@ -277,9 +279,11 @@ func (s *service) SyncNodeInfo(ctx context.Context, id int64) error {
 		cfgMsgs = append(cfgMsgs, cfgMsg)
 	}
 
+	workflowKey := s.getWorkflowPublicKey()
 	if _, err = fmsClient.UpdateNode(ctx, &pb.UpdateNodeRequest{
 		Version:      s.version,
 		ChainConfigs: cfgMsgs,
+		WorkflowKey:  &workflowKey,
 	}); err != nil {
 		return err
 	}
@@ -1171,6 +1175,20 @@ func (s *service) getCSAPrivateKey() (privkey []byte, err error) {
 		return privkey, errors.New("CSA key does not exist")
 	}
 	return keys[0].Raw(), nil
+}
+
+// getWorkflowPublicKey retrieves the server's Workflow public key.
+// Since there will be at most one key, it returns the first key found.
+// If an error occurs or no keys are found, it returns blank.
+func (s *service) getWorkflowPublicKey() string {
+	keys, err := s.workflowKeyStore.GetAll()
+	if err != nil {
+		return ""
+	}
+	if len(keys) < 1 {
+		return ""
+	}
+	return keys[0].PublicKeyString()
 }
 
 // observeJobProposalCounts is a helper method that queries the repository for the count of
