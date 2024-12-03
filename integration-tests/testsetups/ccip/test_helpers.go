@@ -208,7 +208,7 @@ func NewLocalDevEnvironment(
 	var usdcAttestationCfg changeset.USDCAttestationConfig
 	if len(usdcChains) > 0 {
 		var endpoint string
-		err = ccipactions.SetMockServerWithUSDCAttestation(testEnv.MockAdapter, nil)
+		err = ccipactions.SetMockServerWithUSDCAttestation(testEnv.MockAdapter, nil, tCfg.IsUSDCAttestationMissing)
 		require.NoError(t, err)
 		endpoint = testEnv.MockAdapter.InternalEndpoint
 		usdcAttestationCfg = changeset.USDCAttestationConfig{

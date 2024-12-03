@@ -21,7 +21,6 @@ import (
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -81,20 +80,21 @@ func TestTokenTransfer(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, changeset.AddLanesForAll(e, state))
 
-	changeset.MintAndAllow(t, e, state, map[uint64]*bind.TransactOpts{
-		sourceChain: ownerSourceChain,
-		destChain:   ownerDestChain,
-	}, map[uint64][]*burn_mint_erc677.BurnMintERC677{
-		sourceChain: {srcToken},
-		destChain:   {destToken},
-	})
-	changeset.MintAndAllow(t, e, state, map[uint64]*bind.TransactOpts{
-		sourceChain: selfServeSrcTokenPoolDeployer,
-		destChain:   selfServeDestTokenPoolDeployer,
-	}, map[uint64][]*burn_mint_erc677.BurnMintERC677{
-		sourceChain: {selfServeSrcToken},
-		destChain:   {selfServeDestToken},
-	})
+	changeset.MintAndAllow(
+		t,
+		e,
+		state,
+		map[uint64][]changeset.MintTokenInfo{
+			sourceChain: {
+				changeset.NewMintTokenInfo(selfServeSrcTokenPoolDeployer, selfServeSrcToken),
+				changeset.NewMintTokenInfo(ownerSourceChain, srcToken),
+			},
+			destChain: {
+				changeset.NewMintTokenInfo(selfServeDestTokenPoolDeployer, selfServeDestToken),
+				changeset.NewMintTokenInfo(ownerDestChain, destToken),
+			},
+		},
+	)
 
 	tcs := []struct {
 		name                   string
