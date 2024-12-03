@@ -32,6 +32,7 @@ func TestAddLanesWithTestRouter(t *testing.T) {
 				DestSelector:          chain2,
 				InitialPricesBySource: DefaultInitialPrices,
 				FeeQuoterDestChain:    DefaultFeeQuoterDestChainConfig(),
+				TestRouter:            true,
 			},
 		},
 	})
