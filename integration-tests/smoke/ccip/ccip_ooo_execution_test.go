@@ -183,6 +183,8 @@ func Test_OutOfOrderExecution(t *testing.T) {
 			ccipocr3.SeqNum(firstMessage.SequenceNumber),
 			ccipocr3.SeqNum(fourthMessage.SequenceNumber),
 		),
+		// We don't verify batching here, so we don't need all messages to be in a single root
+		false,
 	)
 	require.NoError(t, err)
 
