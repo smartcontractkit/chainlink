@@ -49,6 +49,9 @@ type Master interface {
 	Workflow() Workflow
 	Unlock(ctx context.Context, password string) error
 	IsEmpty(ctx context.Context) (bool, error)
+
+	AddLOOPPManager(manager *Manager)
+	GetLOOPPManager() (*Manager, error)
 }
 
 type master struct {
@@ -64,6 +67,8 @@ type master struct {
 	aptos    *aptos
 	vrf      *vrf
 	workflow *workflow
+
+	looppManager *Manager
 }
 
 func New(ds sqlutil.DataSource, scryptParams utils.ScryptParams, lggr logger.Logger) Master {
@@ -94,6 +99,14 @@ func newMaster(ds sqlutil.DataSource, scryptParams utils.ScryptParams, lggr logg
 		vrf:        newVRFKeyStore(km),
 		workflow:   newWorkflowKeyStore(km),
 	}
+}
+
+func (m *master) GetLOOPPManager() (*Manager, error) {
+	return m.looppManager, nil
+}
+
+func (ks *master) AddLOOPPManager(manager *Manager) {
+	ks.looppManager = manager
 }
 
 func (ks master) CSA() CSA {
