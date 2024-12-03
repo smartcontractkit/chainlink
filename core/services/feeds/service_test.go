@@ -1306,10 +1306,23 @@ func Test_Service_DeleteJob(t *testing.T) {
 		}
 
 		approved = feeds.JobProposal{
-			ID:             1,
+			ID:             321,
 			FeedsManagerID: 1,
 			RemoteUUID:     remoteUUID,
+			ExternalJobID:  uuid.NullUUID{UUID: uuid.New(), Valid: true},
 			Status:         feeds.JobProposalStatusApproved,
+		}
+
+		wfSpecID    = int32(4321)
+		workflowJob = job.Job{
+			ID:             1,
+			WorkflowSpecID: &wfSpecID,
+		}
+		spec = &feeds.JobProposalSpec{
+			ID:            20,
+			Status:        feeds.SpecStatusApproved,
+			JobProposalID: approved.ID,
+			Version:       1,
 		}
 
 		httpTimeout = *commonconfig.MustNewDuration(1 * time.Second)
@@ -1328,6 +1341,7 @@ func Test_Service_DeleteJob(t *testing.T) {
 				svc.orm.On("GetJobProposalByRemoteUUID", mock.Anything, approved.RemoteUUID).Return(&approved, nil)
 				svc.orm.On("DeleteProposal", mock.Anything, approved.ID).Return(nil)
 				svc.orm.On("CountJobProposalsByStatus", mock.Anything).Return(&feeds.JobProposalCounts{}, nil)
+				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, approved.ExternalJobID.UUID).Return(job.Job{}, sql.ErrNoRows)
 			},
 			args:   args,
 			wantID: approved.ID,
@@ -1370,6 +1384,37 @@ func Test_Service_DeleteJob(t *testing.T) {
 			},
 			args:    args,
 			wantErr: "DeleteProposal failed",
+		},
+		{
+			name: "Delete workflow-spec with auto-cancellation",
+			before: func(svc *TestService) {
+				svc.orm.On("GetJobProposalByRemoteUUID", mock.Anything, approved.RemoteUUID).Return(&approved, nil)
+				svc.orm.On("DeleteProposal", mock.Anything, approved.ID).Return(nil)
+				svc.orm.On("CountJobProposalsByStatus", mock.Anything).Return(&feeds.JobProposalCounts{}, nil)
+				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, approved.ExternalJobID.UUID).Return(workflowJob, nil)
+
+				// mocks for CancelSpec()
+				svc.orm.On("GetSpec", mock.Anything, approved.ID).Return(spec, nil)
+				svc.orm.On("GetJobProposal", mock.Anything, approved.ID).Return(&approved, nil)
+				svc.connMgr.On("GetClient", mock.Anything).Return(svc.fmsClient, nil)
+
+				svc.orm.On("CancelSpec", mock.Anything, approved.ID).Return(nil)
+				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, approved.ExternalJobID.UUID).Return(workflowJob, nil)
+				svc.spawner.On("DeleteJob", mock.Anything, mock.Anything, workflowJob.ID).Return(nil)
+
+				svc.fmsClient.On("CancelledJob",
+					mock.MatchedBy(func(ctx context.Context) bool { return true }),
+					&proto.CancelledJobRequest{
+						Uuid:    approved.RemoteUUID.String(),
+						Version: int64(spec.Version),
+					},
+				).Return(&proto.CancelledJobResponse{}, nil)
+				svc.orm.On("CountJobProposalsByStatus", mock.Anything).Return(&feeds.JobProposalCounts{}, nil)
+				svc.orm.On("WithDataSource", mock.Anything).Return(feeds.ORM(svc.orm))
+				svc.jobORM.On("WithDataSource", mock.Anything).Return(job.ORM(svc.jobORM))
+			},
+			args:   args,
+			wantID: approved.ID,
 		},
 	}
 

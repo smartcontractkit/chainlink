@@ -100,7 +100,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@18318aa45ff3c54ff10a5fc154bcd8930b34c93c # flakguard@0.0.1
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@04bfae2602c015036f366a8dd4e7a619096cc516 # flakguard@0.1.0
 
       - name: Find new or updated test packages
         if: ${{ inputs.runAllTests == false }}
@@ -259,7 +259,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@18318aa45ff3c54ff10a5fc154bcd8930b34c93c # flakguard@0.0.1
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@04bfae2602c015036f366a8dd4e7a619096cc516 # flakguard@0.1.0
 
       - name: Run tests with flakeguard
         shell: bash
@@ -301,7 +301,7 @@ jobs:
             
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@18318aa45ff3c54ff10a5fc154bcd8930b34c93c # flakguard@0.0.1
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@04bfae2602c015036f366a8dd4e7a619096cc516 # flakguard@0.1.0
                 
       - name: Set combined test results
         id: set_test_results
@@ -317,19 +317,19 @@ jobs:
             export PATH
 
             # Use flakeguard to aggregate all test results
-            flakeguard aggregate-results --results-path . --output-results ../all_tests.json            
+            flakeguard aggregate-results --results-path . --output-results ../all_tests.json
 
             # Count all tests
-            ALL_TESTS_COUNT=$(jq 'length' ../all_tests.json)
+            ALL_TESTS_COUNT=$(jq '.Results | length' ../all_tests.json)
             echo "All tests count: $ALL_TESTS_COUNT"
             echo "all_tests_count=$ALL_TESTS_COUNT" >> "$GITHUB_OUTPUT"
 
-            # Use flakeguard to filter and output failed tests based on PassRatio threshold
-            flakeguard aggregate-results --filter-failed=true --threshold "${{ inputs.runThreshold }}" --min-pass-ratio=${{ env.MIN_PASS_RATIO }} --results-path . --output-results ../failed_tests.json --output-logs ../failed_test_logs.json
+            # Use flakeguard to filter and output failed tests based on MaxPassRatio
+            flakeguard aggregate-results --filter-failed=true --max-pass-ratio=${{ inputs.maxPassRatio }} --results-path . --output-results ../failed_tests.json --output-logs ../failed_test_logs.json --project-path=${{ inputs.projectPath }} --codeowners-path=.github/CODEOWNERS
 
             # Count failed tests
             if [ -f "../failed_tests.json" ]; then
-              FAILED_TESTS_COUNT=$(jq 'length' ../failed_tests.json)
+              FAILED_TESTS_COUNT=$(jq '.Results | length' ../failed_tests.json)
             else
               FAILED_TESTS_COUNT=0
             fi
@@ -339,13 +339,30 @@ jobs:
             echo "No test results directory found."
             echo "all_tests_count=0" >> "$GITHUB_OUTPUT"
             echo "failed_tests_count=0" >> "$GITHUB_OUTPUT"
+          fi   
+
+      - name: Tests Summary
+        if: always()
+        run: |
+          FILE_SIZE=$(wc -c < all_tests.md)
+                    echo "File size: $FILE_SIZE bytes"
+          SIZE_LIMIT=$((1024 * 1024))
+
+          if [ "$FILE_SIZE" -le "$SIZE_LIMIT" ]; then
+            cat all_tests.md >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**We found flaky tests, so many flaky tests that the summary is too large for github actions step summaries!**" >> $GITHUB_STEP_SUMMARY
+            echo "**Please see logs, or the attached `all-summary.md` artifact**" >> $GITHUB_STEP_SUMMARY
+            cat all_tests.md
           fi
 
-      - name: Calculate Flakiness Threshold Percentage
-        id: calculate_threshold
-        run: |
-          threshold_percentage=$(echo '${{ inputs.runThreshold }}' | awk '{printf "%.0f", $1 * 100}')
-          echo "threshold_percentage=$threshold_percentage" >> $GITHUB_OUTPUT          
+      - name: Upload All Tests Summary as Artifact
+        if: ${{ fromJson(steps.set_test_results.outputs.all_tests_count) > 0 }}
+        uses: actions/upload-artifact@v4.4.3
+        with:
+          path: all_tests.md
+          name: all-summary.md
+          retention-days: 7
 
       - name: Upload All Test Results as Artifact
         if: ${{ fromJson(steps.set_test_results.outputs.all_tests_count) > 0 }}
@@ -353,6 +370,14 @@ jobs:
         with:
           path: all_tests.json
           name: all-test-results.json
+          retention-days: 7
+      
+      - name: Upload Failed Tests Summary as Artifact
+        if: ${{ fromJson(steps.set_test_results.outputs.all_tests_count) > 0 }}
+        uses: actions/upload-artifact@v4.4.3
+        with:
+          path: failed_tests.md
+          name: failed-summary.md
           retention-days: 7
 
       - name: Upload Failed Test Results as Artifact
@@ -379,156 +404,15 @@ jobs:
           name: all-test-results.json
           retention-days: 7
 
-      - name: Create ASCII table with failed test results
-        if: ${{ fromJson(steps.set_test_results.outputs.failed_tests_count) > 0 }}
-        shell: bash
-        run: |
-          jq -r '["TestPackage", "TestName", "PassRatio", "RunCount", "Skipped"], ["---------", "---------", "---------", "---------", "---------"], (.[] | [.TestPackage, .TestName, .PassRatioPercentage, .Runs, .Skipped]) | @tsv' failed_tests.json | column -t -s$'\t' > failed_tests_ascii.txt
-          cat failed_tests_ascii.txt
-
-      - name: Create ASCII table with all test results
-        if: ${{ fromJson(steps.set_test_results.outputs.all_tests_count) > 0 }}
-        shell: bash
-        run: |
-          jq -r '["TestPackage", "TestName", "PassRatio", "RunCount", "Skipped"], ["---------", "---------", "---------", "---------", "---------"], (.[] | [.TestPackage, .TestName, .PassRatioPercentage, .Runs, .Skipped]) | @tsv' all_tests.json | column -t -s$'\t' > all_tests_ascii.txt
-          cat all_tests_ascii.txt
-
-      - name: Create GitHub Summary (General)
-        run: |
-          echo "## Flaky Test Detection Report for ${{ steps.set_project_path_pretty.outputs.path }} Project" >> $GITHUB_STEP_SUMMARY
-
-      - name: Create GitHub Summary (Comparative Test Analysis)
-        if: ${{ inputs.runAllTests == false }}
-        run: |
-          echo "### Comparative Test Analysis" >> $GITHUB_STEP_SUMMARY
-          echo "Checked changes between \`${{ inputs.baseRef }}\` and \`${{ env.GIT_HEAD_REF }}\`. See all changes [here](${{ inputs.repoUrl }}/compare/${{ inputs.baseRef }}...${{ needs.get-tests.outputs.git_head_sha }}#files_bucket)." >> $GITHUB_STEP_SUMMARY
-
-      - name: Create GitHub Summary (All Tests)
-        if: ${{ inputs.runAllTests == 'true' }}
-        run: |
-          echo "### Running All Tests" >> $GITHUB_STEP_SUMMARY
-          echo "All tests are being executed as \`runAllTests\` is set to true." >> $GITHUB_STEP_SUMMARY
-
-      - name: Append Changed Test Files to GitHub Summary
-        if: ${{ needs.get-tests.outputs.changed_test_files != '' && inputs.findByTestFilesDiff && !inputs.findByAffectedPackages }}
-        run: |
-          echo "### Changed Test Files" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          IFS=' ' read -ra ADDR <<< "${{ needs.get-tests.outputs.changed_test_files }}"
-          for file in "${ADDR[@]}"; do
-            echo "$file" >> $GITHUB_STEP_SUMMARY
-          done
-          echo '```' >> $GITHUB_STEP_SUMMARY
-
-      - name: Append Affected Test Packages to GitHub Summary
-        if: ${{ needs.get-tests.outputs.affected_test_packages != '' }}
-        run: |
-          echo "### Affected Test Packages" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          IFS=' ' read -ra ADDR <<< "${{ needs.get-tests.outputs.affected_test_packages }}"
-          for package in "${ADDR[@]}"; do
-            echo "$package" >> $GITHUB_STEP_SUMMARY
-          done
-          echo '```' >> $GITHUB_STEP_SUMMARY
-
-      - name: Read Failed Tests File
-        if: ${{ fromJson(steps.set_test_results.outputs.failed_tests_count) > 0 }}
-        id: read_failed_tests
-        run: |
-          file_content=$(cat failed_tests_ascii.txt)
-          echo "failed_tests_content<<EOF" >> $GITHUB_OUTPUT
-          echo "$file_content" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
-      - name: Calculate Test Repeat Count
-        id: calculate_test_repeat_count
-        shell: bash
-        run: |
-          # Convert environment variables to integers
-          ALL_TESTS_RUNNER_COUNT=${{ env.ALL_TESTS_RUNNER_COUNT }}
-          TEST_REPEAT_COUNT=${{ env.TEST_REPEAT_COUNT }}
-
-          # If runAllTests input is true, multiply the number of runners by the test repeat count as each runner runs all tests
-          # Otherwise, use the test repeat count as each runner runs unique tests
-          if [[ "${{ inputs.runAllTests }}" == "true" ]]; then
-            test_repeat_count=$(( ALL_TESTS_RUNNER_COUNT * TEST_REPEAT_COUNT ))
-          else
-            test_repeat_count=$TEST_REPEAT_COUNT
-          fi
-          echo "test_repeat_count=$test_repeat_count" >> $GITHUB_OUTPUT
-
-      - name: Append Flaky Tests to GitHub Summary
-        if: ${{ fromJson(steps.set_test_results.outputs.failed_tests_count) > 0 }}
-        run: |
-          threshold_percentage=$(echo "${{ inputs.runThreshold }}" | awk '{printf "%.2f", $1 * 100}')
-          min_pass_ratio_percentage=$(echo "${{ env.MIN_PASS_RATIO }}" | awk '{printf "%.2f", $1 * 100}')
-          echo "### Flaky Tests :x:" >> $GITHUB_STEP_SUMMARY
-          echo "Ran ${{ steps.set_test_results.outputs.all_tests_count }} unique tests ${{ steps.calculate_test_repeat_count.outputs.test_repeat_count }} times. Below are the tests identified as flaky, with a pass ratio lower than the ${threshold_percentage}% threshold:" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          cat failed_tests_ascii.txt >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "For detailed logs of the failed tests, please refer to the failed-test-results.json and failed-test-logs.json files in the Artifacts section at the bottom of the page. failed-test-logs.json contains all outputs from failed tests." >> $GITHUB_STEP_SUMMARY
-
-      - name: Append Success Note if No Flaky Tests Found
-        if: ${{ fromJson(steps.set_test_results.outputs.all_tests_count) > 0 && fromJson(steps.set_test_results.outputs.failed_tests_count) == 0 }}
-        run: |
-          echo "### No Flaky Tests Found! :white_check_mark:" >> $GITHUB_STEP_SUMMARY
-          echo "Ran \`${{ steps.set_test_results.outputs.all_tests_count }}\` unique tests ${{ steps.calculate_test_repeat_count.outputs.test_repeat_count }} times and found no flakes." >> $GITHUB_STEP_SUMMARY
-
-      - name: Append Additional Info to GitHub Summary
-        if: ${{ fromJson(steps.set_test_results.outputs.all_tests_count) > 0 }}
-        run: |
-          echo "### Settings" >> $GITHUB_STEP_SUMMARY
-          threshold_percentage=$(echo "${{ inputs.runThreshold }}" | awk '{printf "%.2f", $1 * 100}')
-          min_pass_ratio_percentage=$(echo "${{ env.MIN_PASS_RATIO }}" | awk '{printf "%.2f", $1 * 100}')
-          echo "| **Setting**             | **Value**  |" >> $GITHUB_STEP_SUMMARY
-          echo "|-------------------------|------------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Go Project              | ${{ steps.set_project_path_pretty.outputs.path }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Minimum Pass Ratio      | ${min_pass_ratio_percentage}% |" >> $GITHUB_STEP_SUMMARY
-          echo "| Flakiness Threshold     | ${threshold_percentage}%       |" >> $GITHUB_STEP_SUMMARY
-          echo "| Test Run Count       | ${{ steps.calculate_test_repeat_count.outputs.test_repeat_count }}   |" >> $GITHUB_STEP_SUMMARY
-          echo "| Race Detection          | ${{ env.RUN_WITH_RACE }}      |" >> $GITHUB_STEP_SUMMARY
-          echo "| Shuffle Flag Set       | ${{ env.RUN_WITH_SHUFFLE }}      |" >> $GITHUB_STEP_SUMMARY
-          if [[ "${{ env.RUN_WITH_SHUFFLE }}" == "true" ]]; then
-            echo "| Shuffle Seed            | ${{ env.SHUFFLE_SEED }}      |" >> $GITHUB_STEP_SUMMARY
-          fi
-          echo "| Excluded Tests          | ${{ env.SKIPPED_TESTS }}      |" >> $GITHUB_STEP_SUMMARY
-          
-      - name: Append No Tests Found Message to GitHub Summary
-        if: ${{ fromJson(steps.set_test_results.outputs.all_tests_count) == 0 }}
-        run: |
-          echo "### No Tests To Execute" >> $GITHUB_STEP_SUMMARY
-          echo "No updated or new Go tests found for ${{ steps.set_project_path_pretty.outputs.path }} project. The flaky detector will not run." >> $GITHUB_STEP_SUMMARY
-
       - name: Post comment on PR if flaky tests found
         if: ${{ fromJson(steps.set_test_results.outputs.failed_tests_count) > 0 && github.event_name == 'pull_request' }}
         uses: actions/github-script@v7
-        env:
-          MESSAGE_BODY_1: '### Flaky Test Detector for `${{ steps.set_project_path_pretty.outputs.path }}` project has failed :x:'
-          MESSAGE_BODY_2: 'Ran new or updated tests between `${{ inputs.baseRef }}` and ${{ needs.get-tests.outputs.git_head_sha }} (`${{ env.GIT_HEAD_REF }}`).'
-          MESSAGE_BODY_3: ${{ format('[View Flaky Detector Details]({0}/{1}/actions/runs/{2}) | [Compare Changes]({3}/compare/{4}...{5}#files_bucket)', github.server_url, github.repository, github.run_id, inputs.repoUrl, github.base_ref, needs.get-tests.outputs.git_head_sha) }}
-          MESSAGE_BODY_4: '#### Flaky Tests'
-          MESSAGE_BODY_5: 'Ran ${{ steps.set_test_results.outputs.all_tests_count }} unique tests. Below are the tests identified as flaky, with a pass ratio lower than the ${{ steps.calculate_threshold.outputs.threshold_percentage }}% threshold:'
-          MESSAGE_BODY_6: '```'
-          MESSAGE_BODY_7: '${{ steps.read_failed_tests.outputs.failed_tests_content }}'
-          MESSAGE_BODY_8: '```'
+        continue-on-error: true
         with:
           script: |
+            const fs = require('fs');
             const prNumber = context.payload.pull_request.number;
-
-            const commentBody = `${process.env.MESSAGE_BODY_1}
-
-            ${process.env.MESSAGE_BODY_2}
-
-            ${process.env.MESSAGE_BODY_3}
-
-            ${process.env.MESSAGE_BODY_4}
-
-            ${process.env.MESSAGE_BODY_5}
-
-            ${process.env.MESSAGE_BODY_6}
-            ${process.env.MESSAGE_BODY_7}
-            ${process.env.MESSAGE_BODY_8}`;
+            const commentBody = fs.readFileSync('../all_tests.md', 'utf8');
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,
