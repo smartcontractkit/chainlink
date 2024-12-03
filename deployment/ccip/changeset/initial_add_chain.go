@@ -31,7 +31,7 @@ var _ deployment.ChangeSet[NewChainsConfig] = ConfigureNewChains
 
 // ConfigureNewChains enables new chains as destination(s) for CCIP
 // It performs the following steps per chain:
-// - AddChainConfig + AddDON (candidate->primary promotion i.e. init) on the home chain
+// - addChainConfig + AddDON (candidate->primary promotion i.e. init) on the home chain
 // - SetOCR3Config on the remote chain
 // ConfigureNewChains assumes that the home chain is already enabled and all CCIP contracts are already deployed.
 func ConfigureNewChains(env deployment.Environment, c NewChainsConfig) (deployment.ChangesetOutput, error) {
@@ -158,7 +158,7 @@ func DefaultOCRParams(
 
 // configureChain assumes the all the Home chain contracts and CCIP contracts are deployed
 // It does -
-// 1. AddChainConfig for each chain in CCIPHome
+// 1. addChainConfig for each chain in CCIPHome
 // 2. Registers the nodes with the capability registry
 // 3. SetOCR3Config on the remote chain
 func configureChain(
@@ -203,7 +203,7 @@ func configureChain(
 		if chainState.OffRamp == nil {
 			return fmt.Errorf("off ramp not found for chain %d", chain.Selector)
 		}
-		_, err = AddChainConfig(
+		_, err = addChainConfig(
 			e.Logger,
 			e.Chains[c.HomeChainSel],
 			ccipHome,
@@ -233,7 +233,7 @@ func configureChain(
 	return nil
 }
 
-func SetupConfigInfo(chainSelector uint64, readers [][32]byte, fChain uint8, cfg []byte) ccip_home.CCIPHomeChainConfigArgs {
+func setupConfigInfo(chainSelector uint64, readers [][32]byte, fChain uint8, cfg []byte) ccip_home.CCIPHomeChainConfigArgs {
 	return ccip_home.CCIPHomeChainConfigArgs{
 		ChainSelector: chainSelector,
 		ChainConfig: ccip_home.CCIPHomeChainConfig{
@@ -244,7 +244,7 @@ func SetupConfigInfo(chainSelector uint64, readers [][32]byte, fChain uint8, cfg
 	}
 }
 
-func AddChainConfig(
+func addChainConfig(
 	lggr logger.Logger,
 	h deployment.Chain,
 	ccipConfig *ccip_home.CCIPHome,
@@ -260,7 +260,7 @@ func AddChainConfig(
 	if err != nil {
 		return ccip_home.CCIPHomeChainConfigArgs{}, err
 	}
-	chainConfig := SetupConfigInfo(chainSelector, p2pIDs, uint8(len(p2pIDs)/3), encodedExtraChainConfig)
+	chainConfig := setupConfigInfo(chainSelector, p2pIDs, uint8(len(p2pIDs)/3), encodedExtraChainConfig)
 	tx, err := ccipConfig.ApplyChainConfigUpdates(h.DeployerKey, nil, []ccip_home.CCIPHomeChainConfigArgs{
 		chainConfig,
 	})
@@ -271,11 +271,11 @@ func AddChainConfig(
 	return chainConfig, nil
 }
 
-// CreateDON creates one DON with 2 plugins (commit and exec)
+// createDON creates one DON with 2 plugins (commit and exec)
 // It first set a new candidate for the DON with the first plugin type and AddDON on capReg
 // Then for subsequent operations it uses UpdateDON to promote the first plugin to the active deployment
 // and to set candidate and promote it for the second plugin
-func CreateDON(
+func createDON(
 	lggr logger.Logger,
 	capReg *capabilities_registry.CapabilitiesRegistry,
 	ccipHome *ccip_home.CCIPHome,
@@ -331,7 +331,7 @@ func addDON(
 	if err != nil {
 		return err
 	}
-	err = CreateDON(lggr, capReg, ccipHome, ocrConfigs, home, dest.Selector, nodes)
+	err = createDON(lggr, capReg, ccipHome, ocrConfigs, home, dest.Selector, nodes)
 	if err != nil {
 		return err
 	}

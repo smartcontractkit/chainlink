@@ -205,7 +205,7 @@ func ApplyChainConfigUpdatesOp(
 	}
 	var chainConfigUpdates []ccip_home.CCIPHomeChainConfigArgs
 	for _, chainSel := range chains {
-		chainConfig := SetupConfigInfo(chainSel, nodes.NonBootstraps().PeerIDs(),
+		chainConfig := setupConfigInfo(chainSel, nodes.NonBootstraps().PeerIDs(),
 			nodes.DefaultF(), encodedExtraChainConfig)
 		chainConfigUpdates = append(chainConfigUpdates, chainConfig)
 	}
