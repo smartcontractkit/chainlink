@@ -324,7 +324,7 @@ jobs:
             export PATH
 
             # Use flakeguard to aggregate all test results
-            flakeguard aggregate-results --results-path . --output-results ../all_tests.json
+            flakeguard aggregate-results --results-path . --output-results ../all_tests.json --project-path=${{ github.workspace }}/${{ inputs.projectPath }} --codeowners-path=${{ github.workspace }}/.github/CODEOWNERS
 
             # Count all tests
             ALL_TESTS_COUNT=$(jq '.Results | length' ../all_tests.json)
