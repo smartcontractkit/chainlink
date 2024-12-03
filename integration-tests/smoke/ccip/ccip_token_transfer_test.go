@@ -103,6 +103,7 @@ func TestTokenTransfer(t *testing.T) {
 		tokenAmounts           []router.ClientEVMTokenAmount
 		receiver               common.Address
 		data                   []byte
+		extraData              []byte
 		expectedTokenBalances  map[common.Address]*big.Int
 		expectedExecutionState int
 	}{
@@ -156,12 +157,58 @@ func TestTokenTransfer(t *testing.T) {
 					Amount: oneE18,
 				},
 			},
-			receiver: state.Chains[sourceChain].Receiver.Address(),
+			receiver:  state.Chains[sourceChain].Receiver.Address(),
+			extraData: changeset.MakeEVMExtraArgsV2(300_000, false),
 			expectedTokenBalances: map[common.Address]*big.Int{
 				selfServeSrcToken.Address(): new(big.Int).Add(oneE18, oneE18),
 				srcToken.Address():          oneE18,
 			},
 			expectedExecutionState: changeset.EXECUTION_STATE_SUCCESS,
+		},
+		{
+			name:     "Sending token transfer with custom gasLimits to the EOA is successful",
+			srcChain: destChain,
+			dstChain: sourceChain,
+			tokenAmounts: []router.ClientEVMTokenAmount{
+				{
+					Token:  selfServeDestToken.Address(),
+					Amount: oneE18,
+				},
+				{
+					Token:  destToken.Address(),
+					Amount: new(big.Int).Add(oneE18, oneE18),
+				},
+			},
+			receiver:  utils.RandomAddress(),
+			extraData: changeset.MakeEVMExtraArgsV2(1, false),
+			expectedTokenBalances: map[common.Address]*big.Int{
+				selfServeSrcToken.Address(): oneE18,
+				srcToken.Address():          new(big.Int).Add(oneE18, oneE18),
+			},
+			expectedExecutionState: changeset.EXECUTION_STATE_SUCCESS,
+		},
+		{
+			name:     "Sending PTT with too low gas limit leads to the revert when receiver is a contract",
+			srcChain: destChain,
+			dstChain: sourceChain,
+			tokenAmounts: []router.ClientEVMTokenAmount{
+				{
+					Token:  selfServeDestToken.Address(),
+					Amount: oneE18,
+				},
+				{
+					Token:  destToken.Address(),
+					Amount: oneE18,
+				},
+			},
+			receiver:  state.Chains[sourceChain].Receiver.Address(),
+			data:      []byte("this should be reverted because gasLimit is too low, no tokens are transferred as well"),
+			extraData: changeset.MakeEVMExtraArgsV2(1, false),
+			expectedTokenBalances: map[common.Address]*big.Int{
+				selfServeSrcToken.Address(): big.NewInt(0),
+				srcToken.Address():          big.NewInt(0),
+			},
+			expectedExecutionState: changeset.EXECUTION_STATE_FAILURE,
 		},
 	}
 
@@ -184,6 +231,7 @@ func TestTokenTransfer(t *testing.T) {
 				tt.receiver,
 				tt.data,
 				tt.expectedExecutionState,
+				tt.extraData,
 			)
 
 			for token, balance := range tt.expectedTokenBalances {

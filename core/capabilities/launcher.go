@@ -135,6 +135,7 @@ func (w *launcher) Name() string {
 }
 
 func (w *launcher) Launch(ctx context.Context, state *registrysyncer.LocalRegistry) error {
+	w.lggr.Debug("CapabilitiesLauncher triggered...")
 	w.registry.SetLocalRegistry(state)
 
 	allDONIDs := []registrysyncer.DonID{}
@@ -222,6 +223,7 @@ func (w *launcher) Launch(ctx context.Context, state *registrysyncer.LocalRegist
 			return errors.New("invariant violation: node is part of more than one workflowDON")
 		}
 
+		w.lggr.Debug("Notifying DON set...")
 		w.workflowDonNotifier.NotifyDonSet(myDON.DON)
 
 		for _, rcd := range remoteCapabilityDONs {
