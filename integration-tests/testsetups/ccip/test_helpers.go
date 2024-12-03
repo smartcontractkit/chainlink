@@ -656,10 +656,11 @@ func CreateChainConfigFromNetworks(
 	networkConfig *ctfconfig.NetworkConfig,
 ) []devenv.ChainConfig {
 	evmNetworks := networks.MustGetSelectedNetworkConfig(networkConfig)
-	networkPvtKeys := make(map[int64][]string)
+	networkPvtKeys := make(map[uint64][]string)
 	for _, net := range evmNetworks {
 		require.Greater(t, len(net.PrivateKeys), 0, "No private keys found for network")
-		networkPvtKeys[net.ChainID] = net.PrivateKeys
+		require.GreaterOrEqual(t, net.ChainID, 0, "Negative chain ID")
+		networkPvtKeys[uint64(net.ChainID)] = net.PrivateKeys
 	}
 	type chainDetails struct {
 		chainId  uint64
@@ -709,13 +710,13 @@ func CreateChainConfigFromNetworks(
 		var pvtKey *string
 		// if private keys are provided, use the first private key as deployer key
 		// otherwise it will try to load the private key from KMS
-		if len(networkPvtKeys[int64(chainId)]) > 0 {
-			pvtKey = ptr.Ptr(networkPvtKeys[int64(chainId)][0])
+		if len(networkPvtKeys[chainId]) > 0 {
+			pvtKey = ptr.Ptr(networkPvtKeys[chainId][0])
 		}
 		require.NoError(t, chainCfg.SetDeployerKey(pvtKey), "Error setting deployer key")
 		var additionalPvtKeys []string
-		if len(networkPvtKeys[int64(chainId)]) > 1 {
-			additionalPvtKeys = networkPvtKeys[int64(chainId)][1:]
+		if len(networkPvtKeys[chainId]) > 1 {
+			additionalPvtKeys = networkPvtKeys[chainId][1:]
 		}
 		// if no additional private keys are provided, this will set the users to default deployer key
 		require.NoError(t, chainCfg.SetUsers(additionalPvtKeys), "Error setting users")
