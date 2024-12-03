@@ -102,7 +102,7 @@ contract FeeQuoter_onReport is FeeQuoterSetup {
     vm.assertEq(s_feeQuoter.getTokenPrice(priceReportRaw[1].token).timestamp, priceReportRaw[1].timestamp);
   }
 
-  function test_OnReport_StaleUpdate_SkipPriceUpdate_Success() public {
+  function test_OnReport_SkipPriceUpdateWhenStaleUpdateReceived() public {
     FeeQuoter.ReceivedCCIPFeedReport[] memory report = new FeeQuoter.ReceivedCCIPFeedReport[](1);
     report[0] =
       FeeQuoter.ReceivedCCIPFeedReport({token: s_onReportTestToken1, price: 4e18, timestamp: uint32(block.timestamp)});
@@ -132,7 +132,7 @@ contract FeeQuoter_onReport is FeeQuoterSetup {
     assertEq(vm.getRecordedLogs().length, 0);
   }
 
-  function test_onReport_TokenNotSupported_Revert() public {
+  function test_onReport_RevertWhen_TokenNotSupported() public {
     FeeQuoter.ReceivedCCIPFeedReport[] memory report = new FeeQuoter.ReceivedCCIPFeedReport[](1);
     report[0] =
       FeeQuoter.ReceivedCCIPFeedReport({token: s_sourceTokens[1], price: 4e18, timestamp: uint32(block.timestamp)});
@@ -143,7 +143,7 @@ contract FeeQuoter_onReport is FeeQuoterSetup {
     s_feeQuoter.onReport(encodedPermissionsMetadata, abi.encode(report));
   }
 
-  function test_onReport_InvalidForwarder_Reverts() public {
+  function test_onReport_RevertWhen_InvalidForwarder() public {
     FeeQuoter.ReceivedCCIPFeedReport[] memory report = new FeeQuoter.ReceivedCCIPFeedReport[](1);
     report[0] =
       FeeQuoter.ReceivedCCIPFeedReport({token: s_sourceTokens[0], price: 4e18, timestamp: uint32(block.timestamp)});
@@ -158,16 +158,6 @@ contract FeeQuoter_onReport is FeeQuoterSetup {
       )
     );
     changePrank(STRANGER);
-    s_feeQuoter.onReport(encodedPermissionsMetadata, abi.encode(report));
-  }
-
-  function test_onReport_UnsupportedToken_Reverts() public {
-    FeeQuoter.ReceivedCCIPFeedReport[] memory report = new FeeQuoter.ReceivedCCIPFeedReport[](1);
-    report[0] =
-      FeeQuoter.ReceivedCCIPFeedReport({token: s_sourceTokens[1], price: 4e18, timestamp: uint32(block.timestamp)});
-
-    vm.expectRevert(abi.encodeWithSelector(FeeQuoter.TokenNotSupported.selector, s_sourceTokens[1]));
-    changePrank(address(s_forwarder));
     s_feeQuoter.onReport(encodedPermissionsMetadata, abi.encode(report));
   }
 }
