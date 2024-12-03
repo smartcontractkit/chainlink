@@ -18,6 +18,8 @@ func NewEncoder(name string, config *values.Map, lggr logger.Logger) (types.Enco
 		return evm.NewEVMEncoder(config)
 	case ocr3cap.EncoderValueMap:
 		return ocr3.ValueMapEncoder{}, nil
+	case ocr3cap.EncoderPassthrough:
+		return ocr3.PassthroughEncoder{}, nil
 	// TODO: add a "no-op" encoder for users who only want to use dynamic ones?
 	// https://smartcontract-it.atlassian.net/browse/CAPPL-88
 	default:

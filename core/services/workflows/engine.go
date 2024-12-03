@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -662,6 +663,22 @@ func (e *Engine) queueIfReady(state store.WorkflowExecution, step *step) {
 	if !waitingOnDependencies {
 		e.logger.With(platform.KeyStepRef, step.Ref, platform.KeyWorkflowExecutionID, state.ExecutionID, "state", copyState(state)).
 			Debug("step request enqueued")
+		// wrapped, err := values.Wrap(state.Steps)
+		// if err != nil {
+		// 	e.logger.Errorf("failed to wrap state: %v", err)
+		// 	return
+		// }
+		// protoState := values.Proto(wrapped)
+		// marshalled, err := proto.Marshal(protoState)
+		// if err != nil {
+		// 	e.logger.Errorf("failed to marshal state: %v", err)
+		// 	return
+		// }
+		// err = os.WriteFile("state"+"_"+state.ExecutionID+".bin", marshalled, 0644)
+		// if err != nil {
+		// 	e.logger.Errorf("failed to write state: %v", err)
+		// 	return
+		// }
 		e.pendingStepRequests <- stepRequest{
 			state:   copyState(state),
 			stepRef: step.Ref,
@@ -919,6 +936,22 @@ func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRe
 			WorkflowDonConfigVersion: e.localNode.WorkflowDON.ConfigVersion,
 			ReferenceID:              msg.stepRef,
 		},
+	}
+
+	info, err := step.capability.Info(ctx)
+	if err != nil {
+		return inputsMap, nil, err
+	}
+	if strings.Contains(info.ID, "custom_compute") {
+		for i := 0; i < 10; i++ {
+			output, err := step.capability.Execute(ctx, tr)
+			if err == nil {
+				return inputsMap, output.Value, err
+			}
+			if i == 9 {
+				return inputsMap, nil, err
+			}
+		}
 	}
 
 	e.metrics.incrementCapabilityInvocationCounter(ctx)
