@@ -22,8 +22,9 @@ import (
 // 2. src -> dest - ordered USDC token transfer, but with faulty attestation, should be stuck forever
 // 3. src -> dest - ordered token transfer, should not be executed because previous message is stuck
 // 4. src -> dest - out of order message transfer, should be executed anyway
+// TODO 5. src -> dest - ordered token transfer, but using a different sender
 //
-// All 4 messages should be properly commited, but only 1 and 4 are fully executed.
+// All messages should be properly committed, but only 1 and 4 are fully executed.
 func Test_OutOfExecution(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := tests.Context(t)
@@ -166,7 +167,7 @@ func Test_OutOfExecution(t *testing.T) {
 	)
 	expectedStatuses[fourthMessage.SequenceNumber] = changeset.EXECUTION_STATE_SUCCESS
 
-	// All messages are commited, even these which are going to be reverted during the exec
+	// All messages are committed, even these which are going to be reverted during the exec
 	_, err = changeset.ConfirmCommitWithExpectedSeqNumRange(
 		t,
 		e.Chains[sourceChain],
