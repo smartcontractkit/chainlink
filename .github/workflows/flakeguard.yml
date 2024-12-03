@@ -323,7 +323,7 @@ jobs:
             export PATH
 
             # Use flakeguard to aggregate all test results
-            flakeguard aggregate-results --results-path . --output-results ../all_tests.json
+            flakeguard aggregate-results --results-path . --output-results ../all_tests.json --project-path=${{ github.workspace }}/${{ inputs.projectPath }} --codeowners-path=${{ github.workspace }}/.github/CODEOWNERS
 
             # Count all tests
             ALL_TESTS_COUNT=$(jq '.Results | length' ../all_tests.json)
@@ -331,7 +331,7 @@ jobs:
             echo "all_tests_count=$ALL_TESTS_COUNT" >> "$GITHUB_OUTPUT"
 
             # Use flakeguard to filter and output failed tests based on MaxPassRatio
-            flakeguard aggregate-results --filter-failed=true --max-pass-ratio=${{ inputs.maxPassRatio }} --results-path . --output-results ../failed_tests.json --output-logs ../failed_test_logs.json --project-path=${{ inputs.projectPath }} --codeowners-path=${{ github.workspace }}/.github/CODEOWNERS
+            flakeguard aggregate-results --filter-failed=true --max-pass-ratio=${{ inputs.maxPassRatio }} --results-path . --output-results ../failed_tests.json --output-logs ../failed_test_logs.json --project-path=${{ github.workspace }}/${{ inputs.projectPath }} --codeowners-path=${{ github.workspace }}/.github/CODEOWNERS
 
             # Count failed tests
             if [ -f "../failed_tests.json" ]; then
