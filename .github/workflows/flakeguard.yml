@@ -264,7 +264,7 @@ jobs:
 
       - name: Run tests with flakeguard
         shell: bash
-        run: flakeguard run --project-path=${{ inputs.projectPath }} --test-packages=${{ matrix.testPackages }} --run-count=1 --max-pass-ratio=${{ inputs.maxPassRatio }} --race=${{ env.RUN_WITH_RACE }} --shuffle=${{ env.RUN_WITH_SHUFFLE }} --shuffle-seed=${{ env.SHUFFLE_SEED }} --skip-tests=${{ env.SKIPPED_TESTS }} --print-failed-tests=${{ env.PRINT_FAILED_TESTS }} --output-json=test-result.json
+        run: flakeguard run --project-path=${{ inputs.projectPath }} --test-packages=${{ matrix.testPackages }} --run-count=${{ env.TEST_REPEAT_COUNT }} --max-pass-ratio=${{ inputs.maxPassRatio }} --race=${{ env.RUN_WITH_RACE }} --shuffle=${{ env.RUN_WITH_SHUFFLE }} --shuffle-seed=${{ env.SHUFFLE_SEED }} --skip-tests=${{ env.SKIPPED_TESTS }} --print-failed-tests=${{ env.PRINT_FAILED_TESTS }} --output-json=test-result.json
         env:
           CL_DATABASE_URL: ${{ env.DB_URL }}
 
