@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
-
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -100,9 +99,9 @@ type DeployedEnv struct {
 
 func (e *DeployedEnv) SetupJobs(t *testing.T) {
 	ctx := testcontext.Get(t)
-	jbs, err := NewCCIPJobSpecs(e.Env.NodeIDs, e.Env.Offchain)
+	out, err := CCIPCapabilityJobspec(e.Env, struct{}{})
 	require.NoError(t, err)
-	for nodeID, jobs := range jbs {
+	for nodeID, jobs := range out.JobSpecs {
 		for _, job := range jobs {
 			// Note these auto-accept
 			_, err := e.Env.Offchain.ProposeJob(ctx,
@@ -139,7 +138,7 @@ func DeployTestContracts(t *testing.T,
 	linkPrice *big.Int,
 	wethPrice *big.Int,
 ) deployment.CapabilityRegistryConfig {
-	capReg, err := DeployCapReg(lggr,
+	capReg, err := deployCapReg(lggr,
 		// deploying cap reg for the first time on a blank chain state
 		CCIPOnChainState{
 			Chains: make(map[uint64]CCIPChainState),
@@ -606,6 +605,16 @@ func MakeEVMExtraArgsV2(gasLimit uint64, allowOOO bool) []byte {
 	extraArgs = append(extraArgs, gasLimitBytes...)
 	extraArgs = append(extraArgs, allowOOOBytes...)
 	return extraArgs
+}
+
+func AddLaneWithDefaultPricesAndFeeQuoterConfig(e deployment.Environment, state CCIPOnChainState, from, to uint64, isTestRouter bool) error {
+	cfg := LaneConfig{
+		SourceSelector:        from,
+		DestSelector:          to,
+		InitialPricesBySource: DefaultInitialPrices,
+		FeeQuoterDestChain:    DefaultFeeQuoterDestChainConfig(),
+	}
+	return addLane(e, state, cfg, isTestRouter)
 }
 
 // AddLanesForAll adds densely connected lanes for all chains in the environment so that each chain

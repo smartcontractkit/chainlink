@@ -169,7 +169,7 @@ func TestActiveCandidate(t *testing.T) {
 			tenv.HomeChainSel: state.Chains[tenv.HomeChainSel].ProposerMcm,
 		}
 	)
-	setCommitCandidateOp, err := SetCandidateOnExistingDon(
+	setCommitCandidateOp, err := setCandidateOnExistingDon(
 		ocr3ConfigMap[cctypes.PluginTypeCCIPCommit],
 		state.Chains[tenv.HomeChainSel].CapabilityRegistry,
 		state.Chains[tenv.HomeChainSel].CCIPHome,
@@ -186,7 +186,7 @@ func TestActiveCandidate(t *testing.T) {
 	commonchangeset.ExecuteProposal(t, e, setCommitCandidateSigned, state.Chains[tenv.HomeChainSel].Timelock, tenv.HomeChainSel)
 
 	// create the op for the commit plugin as well
-	setExecCandidateOp, err := SetCandidateOnExistingDon(
+	setExecCandidateOp, err := setCandidateOnExistingDon(
 		ocr3ConfigMap[cctypes.PluginTypeCCIPExec],
 		state.Chains[tenv.HomeChainSel].CapabilityRegistry,
 		state.Chains[tenv.HomeChainSel].CCIPHome,
@@ -220,7 +220,7 @@ func TestActiveCandidate(t *testing.T) {
 	oldCandidateDigest, err := state.Chains[tenv.HomeChainSel].CCIPHome.GetCandidateDigest(nil, donID, uint8(cctypes.PluginTypeCCIPExec))
 	require.NoError(t, err)
 
-	promoteOps, err := PromoteAllCandidatesForChainOps(state.Chains[tenv.HomeChainSel].CapabilityRegistry, state.Chains[tenv.HomeChainSel].CCIPHome, tenv.FeedChainSel, nodes.NonBootstraps())
+	promoteOps, err := promoteAllCandidatesForChainOps(state.Chains[tenv.HomeChainSel].CapabilityRegistry, state.Chains[tenv.HomeChainSel].CCIPHome, tenv.FeedChainSel, nodes.NonBootstraps())
 	require.NoError(t, err)
 	promoteProposal, err := proposalutils.BuildProposalFromBatches(timelocksPerChain, proposerMCMSes, []timelock.BatchChainOperation{{
 		ChainIdentifier: mcms.ChainIdentifier(tenv.HomeChainSel),
