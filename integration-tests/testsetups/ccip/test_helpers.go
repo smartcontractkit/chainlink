@@ -662,7 +662,7 @@ func CreateChainConfigFromNetworks(
 		networkPvtKeys[net.ChainID] = net.PrivateKeys
 	}
 	type chainDetails struct {
-		chainId  int64
+		chainId  uint64
 		wsRPCs   []string
 		httpRPCs []string
 	}
@@ -675,7 +675,7 @@ func CreateChainConfigFromNetworks(
 				t.Fatalf("negative chain ID: %d", chainId)
 			}
 			chaindetails = append(chaindetails, chainDetails{
-				chainId:  chainId,
+				chainId:  uint64(chainId),
 				wsRPCs:   net.URLs,
 				httpRPCs: net.HTTPURLs,
 			})
@@ -689,7 +689,7 @@ func CreateChainConfigFromNetworks(
 			rpcProvider, err := env.GetRpcProvider(int64(chainId))
 			require.NoError(t, err, "Error getting rpc provider")
 			chaindetails = append(chaindetails, chainDetails{
-				chainId:  int64(chainId),
+				chainId:  uint64(chainId),
 				wsRPCs:   rpcProvider.PublicWsUrls(),
 				httpRPCs: rpcProvider.PublicHttpUrls(),
 			})
@@ -697,10 +697,10 @@ func CreateChainConfigFromNetworks(
 	}
 	for _, cd := range chaindetails {
 		chainId := cd.chainId
-		chainName, err := chainsel.NameFromChainId(uint64(chainId))
+		chainName, err := chainsel.NameFromChainId(chainId)
 		require.NoError(t, err, "Error getting chain name")
 		chainCfg := devenv.ChainConfig{
-			ChainID:   uint64(chainId),
+			ChainID:   chainId,
 			ChainName: chainName,
 			ChainType: "EVM",
 			WSRPCs:    cd.wsRPCs,
