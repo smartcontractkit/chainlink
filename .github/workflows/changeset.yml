@@ -162,3 +162,42 @@ jobs:
         run: |
           echo "Please include at least one tag in the core changeset file"
           exit 1
+
+  contracts-changeset:
+    name: Contracts Changeset Checker
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.2.1
+        with:
+          fetch-depth: 0
+
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: files-changed
+        with:
+          predicate-quantifier: every
+          list-files: shell
+          filters: |
+            contracts-changeset:
+              - added|modified: 'contracts/.changeset/*.md'
+
+      - name: Setup node
+        uses: ./.github/actions/setup-node
+        if: ${{ steps.files-changed.outputs.contracts-changeset == 'true' }}
+      
+      - name: Validate changeset files
+        if: ${{ steps.files-changed.outputs.contracts-changeset == 'true' }}
+        working-directory: contracts
+        run: |
+          pnpm changeset version
+
+      - name: Comment Failure
+        if: ${{ failure() && steps.files-changed.outputs.contracts-changeset == 'true' }}
+        uses: thollander/actions-comment-pull-request@fabd468d3a1a0b97feee5f6b9e499eab0dd903f6 # v2.5.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          message: |
+            It appears that the changeset file you've added or modified in `contracts/.changeset` is not valid.
+            Please delete the file and run `pnpm changeset` in the contracts directory.
+
