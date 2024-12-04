@@ -29,6 +29,7 @@ import (
 	"github.com/urfave/cli"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/sdk/metric"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
@@ -100,6 +101,35 @@ func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing, cfgTeleme
 				attributes = append(attributes, attribute.String(k, v))
 			}
 
+			// note: due to the OTEL specification, all histogram buckets
+			// must be defined when the beholder client is created
+			globalMetricViews := []metric.View{
+				metric.NewView(
+					metric.Instrument{Name: "platform_engine_workflow_earlyexit_time_seconds"},
+					metric.Stream{Aggregation: metric.AggregationExplicitBucketHistogram{
+						Boundaries: []float64{0, 1, 10, 100},
+					}},
+				),
+				metric.NewView(
+					metric.Instrument{Name: "platform_engine_workflow_completed_time_seconds"},
+					metric.Stream{Aggregation: metric.AggregationExplicitBucketHistogram{
+						Boundaries: []float64{0, 100, 1000, 10_000, 50_000, 100_0000, 500_000},
+					}},
+				),
+				metric.NewView(
+					metric.Instrument{Name: "platform_engine_workflow_error_time_seconds"},
+					metric.Stream{Aggregation: metric.AggregationExplicitBucketHistogram{
+						Boundaries: []float64{0, 20, 60, 120, 240},
+					}},
+				),
+				metric.NewView(
+					metric.Instrument{Name: "platform_engine_workflow_step_time_seconds"},
+					metric.Stream{Aggregation: metric.AggregationExplicitBucketHistogram{
+						Boundaries: []float64{0, 20, 60, 120, 240},
+					}},
+				),
+			}
+
 			clientCfg := beholder.Config{
 				InsecureConnection:       cfgTelemetry.InsecureConnection(),
 				CACertFile:               cfgTelemetry.CACertFile(),
@@ -108,6 +138,7 @@ func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing, cfgTeleme
 				TraceSampleRatio:         cfgTelemetry.TraceSampleRatio(),
 				EmitterBatchProcessor:    cfgTelemetry.EmitterBatchProcessor(),
 				EmitterExportTimeout:     cfgTelemetry.EmitterExportTimeout(),
+				MetricViews:              globalMetricViews,
 				AuthPublicKeyHex:         csaPubKeyHex,
 				AuthHeaders:              beholderAuthHeaders,
 			}
