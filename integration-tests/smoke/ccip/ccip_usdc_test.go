@@ -1,9 +1,8 @@
 package smoke
 
 import (
-	"fmt"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
+	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"math/big"
 	"testing"
 
@@ -38,13 +37,13 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	config := &changeset.TestConfigs{
 		IsUSDC: true,
 	}
-	tenv, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr, config)
-	//tenv := changeset.NewMemoryEnvironmentWithJobsAndContracts(t, lggr, memory.MemoryEnvironmentConfig{
-	//	Chains:             3,
-	//	NumOfUsersPerChain: 3,
-	//	Nodes:              5,
-	//	Bootstraps:         1,
-	//}, config)
+	//tenv, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr, config)
+	tenv := changeset.NewMemoryEnvironmentWithJobsAndContracts(t, lggr, memory.MemoryEnvironmentConfig{
+		Chains:             3,
+		NumOfUsersPerChain: 3,
+		Nodes:              5,
+		Bootstraps:         1,
+	}, config)
 
 	e := tenv.Env
 	state, err := changeset.LoadOnchainState(e)
@@ -112,7 +111,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 		tokens                 []router.ClientEVMTokenAmount
 		data                   []byte
 		expectedTokenBalances  map[common.Address]*big.Int
-		expectedExecutionState uint8
+		expectedExecutionState int
 	}{
 		{
 			name:        "single USDC token transfer to EOA",
@@ -191,46 +190,33 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	}
 
 	t.Run("USDC transfers from single source to single dest", func(t *testing.T) {
-		type tokenReceiverIdentifier struct {
-			token    common.Address
-			receiver common.Address
-		}
-
 		startBlocks := make(map[uint64]*uint64)
-		expectedTokenBalances := make(map[uint64]map[tokenReceiverIdentifier]*big.Int)
+		expectedTokenBalances := make(map[uint64]map[changeset.TokenReceiverIdentifier]*big.Int)
 		expectedSeqNums := make(map[changeset.SourceDestPair]ccipocr3.SeqNumRange)
-		expectedExecutionStates := make(map[uint64]map[uint64]uint8)
+		expectedExecutionStates := make(map[changeset.SourceDestPair]map[uint64]int)
 
 		for _, tt := range tcs {
 			t.Run(tt.name, func(t *testing.T) {
-				for token, balance := range tt.expectedTokenBalances {
-					tkIdentifier := tokenReceiverIdentifier{token, tt.receiver}
-
-					if _, ok := expectedTokenBalances[tt.destChain]; !ok {
-						expectedTokenBalances[tt.destChain] = make(map[tokenReceiverIdentifier]*big.Int)
-					}
-					actual, ok := expectedTokenBalances[tt.destChain][tkIdentifier]
-					if !ok {
-						actual = big.NewInt(0)
-					}
-					expectedTokenBalances[tt.destChain][tkIdentifier] = new(big.Int).Add(actual, balance)
-				}
-
-				msg, blocks := changeset.Transfer(
-					ctx, t, e, state, tt.sourceChain, tt.destChain, tt.tokens, tt.receiver, tt.data, nil)
-				if _, ok := expectedExecutionStates[tt.destChain]; !ok {
-					expectedExecutionStates[tt.destChain] = make(map[uint64]uint8)
-				}
-				expectedExecutionStates[tt.destChain][msg.SequenceNumber] = tt.expectedExecutionState
-
-				if _, ok := startBlocks[tt.destChain]; !ok {
-					startBlocks[tt.destChain] = blocks[tt.destChain]
-				}
+				expectedTokenBalances = changeset.AppendExpectedTokenBalances(
+					tt.destChain, tt.receiver, tt.expectedTokenBalances, expectedTokenBalances,
+				)
 
 				pairId := changeset.SourceDestPair{
 					SourceChainSelector: tt.sourceChain,
 					DestChainSelector:   tt.destChain,
 				}
+
+				msg, blocks := changeset.Transfer(
+					ctx, t, e, state, tt.sourceChain, tt.destChain, tt.tokens, tt.receiver, tt.data, nil)
+				if _, ok := expectedExecutionStates[pairId]; !ok {
+					expectedExecutionStates[pairId] = make(map[uint64]int)
+				}
+				expectedExecutionStates[pairId][msg.SequenceNumber] = tt.expectedExecutionState
+
+				if _, ok := startBlocks[tt.destChain]; !ok {
+					startBlocks[tt.destChain] = blocks[tt.destChain]
+				}
+
 				seqNr, ok := expectedSeqNums[pairId]
 				if ok {
 					expectedSeqNums[pairId] = ccipocr3.NewSeqNumRange(seqNr.Start(), ccipocr3.SeqNum(msg.SequenceNumber))
@@ -240,38 +226,26 @@ func TestUSDCTokenTransfer(t *testing.T) {
 			})
 		}
 
-		for sourceDest, seqRange := range expectedSeqNums {
-			_, err = changeset.ConfirmCommitWithExpectedSeqNumRange(
-				t,
-				e.Chains[sourceDest.SourceChainSelector],
-				e.Chains[sourceDest.DestChainSelector],
-				state.Chains[sourceDest.DestChainSelector].OffRamp,
-				startBlocks[sourceDest.DestChainSelector],
-				seqRange,
-				// We don't verify batching here, so we don't need all messages to be in a single root
-				false,
-			)
-		}
+		err := changeset.ConfirmCommit(
+			t,
+			e.Chains,
+			state.Chains,
+			startBlocks,
+			false,
+			expectedSeqNums,
+		)
 		require.NoError(t, err)
 
 		execStates := changeset.ConfirmExecWithSeqNrsForAll(
 			t,
 			e,
 			state,
-			map[changeset.SourceDestPair][]uint64{
-				changeset.SourceDestPair{SourceChainSelector: chainA, DestChainSelector: chainC}: {1, 2},
-				changeset.SourceDestPair{SourceChainSelector: chainC, DestChainSelector: chainA}: {1, 2},
-			},
+			changeset.SeqNumberRageToSlice(expectedSeqNums),
 			startBlocks,
 		)
-		fmt.Println(execStates)
-		//require.Equal(t, expectedExecutionStates, execStates)
+		require.Equal(t, expectedExecutionStates, execStates)
 
-		for chainID, tokens := range expectedTokenBalances {
-			for tkIdentifier, balance := range tokens {
-				changeset.WaitForTheTokenBalance(ctx, t, tkIdentifier.token, tkIdentifier.receiver, e.Chains[chainID], balance)
-			}
-		}
+		changeset.WaitForTokenBalances(ctx, t, e.Chains, expectedTokenBalances)
 	})
 
 	t.Run("multi-source USDC transfer targeting the same dest receiver", func(t *testing.T) {

@@ -259,6 +259,34 @@ func (c *commitReportTracker) allCommited(sourceChainSelector uint64) bool {
 	return true
 }
 
+func ConfirmCommit(
+	t *testing.T,
+	chains map[uint64]deployment.Chain,
+	state map[uint64]CCIPChainState,
+	startBlocks map[uint64]*uint64,
+	enforceSingleCommit bool,
+	expectedSeqNums map[SourceDestPair]ccipocr3.SeqNumRange,
+) error {
+	errGrp := &errgroup.Group{}
+
+	for sourceDest, seqRange := range expectedSeqNums {
+		errGrp.Go(func() error {
+			_, err := ConfirmCommitWithExpectedSeqNumRange(
+				t,
+				chains[sourceDest.SourceChainSelector],
+				chains[sourceDest.DestChainSelector],
+				state[sourceDest.DestChainSelector].OffRamp,
+				startBlocks[sourceDest.DestChainSelector],
+				seqRange,
+				enforceSingleCommit,
+			)
+			return err
+		})
+	}
+
+	return errGrp.Wait()
+}
+
 // ConfirmCommitWithExpectedSeqNumRange waits for a commit report on the destination chain with the expected sequence number range.
 // startBlock is the block number to start watching from.
 // If startBlock is nil, it will start watching from the latest block.
@@ -562,6 +590,22 @@ func RequireConsistently(t *testing.T, condition func() bool, duration time.Dura
 			return
 		}
 	}
+}
+
+func SeqNumberRageToSlice(seqRanges map[SourceDestPair]ccipocr3.SeqNumRange) map[SourceDestPair][]uint64 {
+	flatten := make(map[SourceDestPair][]uint64)
+
+	for srcDst, seqRange := range seqRanges {
+		if _, ok := flatten[srcDst]; !ok {
+			flatten[srcDst] = make([]uint64, 0, seqRange.End()-seqRange.Start()+1)
+		}
+
+		for i := seqRange.Start(); i <= seqRange.End(); i++ {
+			flatten[srcDst] = append(flatten[srcDst], uint64(i))
+		}
+	}
+
+	return flatten
 }
 
 const (

@@ -1254,6 +1254,50 @@ func TransferAndWaitForSuccess(
 	require.Equal(t, expectedStatus, states[identifier][msgSentEvent.SequenceNumber])
 }
 
+type TokenReceiverIdentifier struct {
+	token    common.Address
+	receiver common.Address
+}
+
+func AppendExpectedTokenBalances(
+	destChain uint64,
+	receiver common.Address,
+	expectedBalance map[common.Address]*big.Int,
+	acc map[uint64]map[TokenReceiverIdentifier]*big.Int,
+) map[uint64]map[TokenReceiverIdentifier]*big.Int {
+	for token, balance := range expectedBalance {
+		tkIdentifier := TokenReceiverIdentifier{token, receiver}
+
+		if _, ok := acc[destChain]; !ok {
+			acc[destChain] = make(map[TokenReceiverIdentifier]*big.Int)
+		}
+		actual, ok := acc[destChain][tkIdentifier]
+		if !ok {
+			actual = big.NewInt(0)
+		}
+		acc[destChain][tkIdentifier] = new(big.Int).Add(actual, balance)
+	}
+	return acc
+}
+
+func WaitForTokenBalances(
+	ctx context.Context,
+	t *testing.T,
+	chains map[uint64]deployment.Chain,
+	expectedBalances map[uint64]map[TokenReceiverIdentifier]*big.Int,
+) {
+	errGrp := &errgroup.Group{}
+	for chainID, tokens := range expectedBalances {
+		for id, balance := range tokens {
+			errGrp.Go(func() error {
+				WaitForTheTokenBalance(ctx, t, id.token, id.receiver, chains[chainID], balance)
+				return nil
+			})
+		}
+	}
+	require.NoError(t, errGrp.Wait())
+}
+
 func WaitForTheTokenBalance(
 	ctx context.Context,
 	t *testing.T,
