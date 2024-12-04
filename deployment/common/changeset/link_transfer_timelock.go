@@ -3,10 +3,8 @@ package changeset
 import (
 	"fmt"
 	"math/big"
-	"strings"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
@@ -33,18 +31,14 @@ type LinkTransferTimelockRequest struct {
 
 var _ deployment.ChangeSet[*LinkTransferTimelockRequest] = LinkTransferTimelock
 
-// packTransferFrom packs the transferFrom method call data
-func packTransferFrom(parsedABI abi.ABI, to common.Address, value *big.Int) ([]byte, error) {
-	data, err := parsedABI.Pack("transfer", to, value)
-	if err != nil {
-		return nil, fmt.Errorf("failed to pack transferFrom: %w", err)
-	}
-	return data, nil
-}
-
 // LinkTransferTimelock takes the given link transfers and creates an MCMS proposal for them.
 func LinkTransferTimelock(_ deployment.Environment, req *LinkTransferTimelockRequest) (deployment.ChangesetOutput, error) {
 	chainID := mcms.ChainIdentifier(req.ChainSelector)
+	linkContract, err := link_token.NewLinkToken(req.LinkTokenAddress, nil)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get link contract: %w", err)
+	}
+
 	chainMetadata := map[mcms.ChainIdentifier]mcms.ChainMetadata{
 		chainID: {MCMAddress: req.MCMSAddress, StartingOpCount: req.StartingOpCount},
 	}
@@ -55,19 +49,15 @@ func LinkTransferTimelock(_ deployment.Environment, req *LinkTransferTimelockReq
 		ChainIdentifier: chainID,
 		Batch:           []mcms.Operation{},
 	}
-	// Parse the ABI
-	parsedABI, err := abi.JSON(strings.NewReader(link_token.LinkTokenMetaData.ABI))
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to parse ABI: %w", err)
-	}
+
 	for _, transfer := range req.Transfers {
-		data, err := packTransferFrom(parsedABI, transfer.To, &transfer.Value)
+		tx, err := linkContract.Transfer(deployment.SimTransactOpts(), transfer.To, &transfer.Value)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("error packing transferFrom data: %w", err)
+			return deployment.ChangesetOutput{}, fmt.Errorf("error packing transfer tx data: %w", err)
 		}
 		op := mcms.Operation{
 			To:           req.LinkTokenAddress,
-			Data:         data,
+			Data:         tx.Data(),
 			Value:        big.NewInt(0),
 			ContractType: "LinkToken",
 		}

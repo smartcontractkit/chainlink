@@ -3,7 +3,6 @@ package changeset
 import (
 	"fmt"
 	"math/big"
-	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -45,6 +44,11 @@ func packApprove(parsedABI abi.ABI, spender common.Address, amount *big.Int) ([]
 // LinkApproveTimelock takes the given approvals for token transfers and creates an mcms proposal for them
 func LinkApproveTimelock(_ deployment.Environment, req *LinkApproveTimelockRequest) (deployment.ChangesetOutput, error) {
 	chainID := mcms.ChainIdentifier(req.ChainSelector)
+	linkContract, err := link_token.NewLinkToken(req.LinkTokenAddress, nil)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get link contract: %w", err)
+	}
+
 	chainMetadata := map[mcms.ChainIdentifier]mcms.ChainMetadata{
 		chainID: {MCMAddress: req.MCMSAddress, StartingOpCount: req.StartingOpCount},
 	}
@@ -55,19 +59,15 @@ func LinkApproveTimelock(_ deployment.Environment, req *LinkApproveTimelockReque
 		ChainIdentifier: chainID,
 		Batch:           []mcms.Operation{},
 	}
-	// Parse the ABI
-	parsedABI, err := abi.JSON(strings.NewReader(link_token.LinkTokenMetaData.ABI))
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to parse ABI: %w", err)
-	}
+
 	for _, transfer := range req.Allowances {
-		data, err := packApprove(parsedABI, transfer.Spender, &transfer.Allowance)
+		tx, err := linkContract.Approve(deployment.SimTransactOpts(), transfer.Spender, &transfer.Allowance)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("error packing transferFrom data: %w", err)
+			return deployment.ChangesetOutput{}, fmt.Errorf("error packing approve tx data: %w", err)
 		}
 		op := mcms.Operation{
 			To:           req.LinkTokenAddress,
-			Data:         data,
+			Data:         tx.Data(),
 			Value:        big.NewInt(0),
 			ContractType: "LinkToken",
 		}
