@@ -3,6 +3,7 @@ package changeset_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
@@ -27,9 +28,12 @@ func TestDeployLinkToken(t *testing.T) {
 	require.NoError(t, err)
 	addrs, err := e.ExistingAddresses.AddressesForChain(chain1)
 	require.NoError(t, err)
-	state, err := changeset.MaybeLoadLinkTokenState(e.Chains[chain1], addrs)
+	state, err := changeset.LoadLinkTokenState(e.Chains[chain1], addrs)
 	require.NoError(t, err)
-	// View itself already unit tested
-	_, err = state.GenerateLinkView()
+	view, err := state.GenerateLinkView()
 	require.NoError(t, err)
+	assert.Equal(t, view.Owner, e.Chains[chain1].DeployerKey.From)
+	assert.Equal(t, view.TypeAndVersion, "LinkToken 1.0.0")
+	// Initially nothing minted.
+	assert.Equal(t, view.Supply.String(), "0")
 }

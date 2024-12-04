@@ -82,7 +82,6 @@ var (
 type CCIPChainState struct {
 	commoncs.MCMSWithTimelockState
 	commoncs.LinkTokenState
-	commoncs.StaticLinkTokenState
 	OnRamp    *onramp.OnRamp
 	OffRamp   *offramp.OffRamp
 	FeeQuoter *fee_quoter.FeeQuoter
@@ -220,18 +219,11 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 		chainView.MCMSWithTimelock = mcmsView
 	}
 	if c.LinkToken != nil {
-		linkTokenView, err := c.GenerateLinkView()
-		if err != nil {
-			return chainView, errors.Wrapf(err, "failed to generate link token view for link token %s", c.LinkToken.Address().String())
-		}
-		chainView.LinkToken = linkTokenView
-	}
-	if c.StaticLinkToken != nil {
-		staticLinkTokenView, err := c.GenerateStaticLinkView()
+		linkTokenView, err := common_v1_0.GenerateLinkTokenView(c.LinkToken)
 		if err != nil {
 			return chainView, err
 		}
-		chainView.StaticLinkToken = staticLinkTokenView
+		chainView.LinkToken = linkTokenView
 	}
 	return chainView, nil
 }
@@ -298,25 +290,18 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 	}
 	state.MCMSWithTimelockState = *mcmsWithTimelock
 
-	linkState, err := commoncs.MaybeLoadLinkTokenState(chain, addresses)
+	linkState, err := commoncs.LoadLinkTokenState(chain, addresses)
 	if err != nil {
 		return state, err
 	}
 	state.LinkTokenState = *linkState
-	staticLinkState, err := commoncs.MaybeLoadStaticLinkTokenState(chain, addresses)
-	if err != nil {
-		return state, err
-	}
-	state.StaticLinkTokenState = *staticLinkState
 	for address, tvStr := range addresses {
 		switch tvStr.String() {
 		case deployment.NewTypeAndVersion(commontypes.RBACTimelock, deployment.Version1_0_0).String(),
 			deployment.NewTypeAndVersion(commontypes.ProposerManyChainMultisig, deployment.Version1_0_0).String(),
 			deployment.NewTypeAndVersion(commontypes.CancellerManyChainMultisig, deployment.Version1_0_0).String(),
 			deployment.NewTypeAndVersion(commontypes.BypasserManyChainMultisig, deployment.Version1_0_0).String(),
-			deployment.NewTypeAndVersion(commontypes.LinkToken, deployment.Version1_0_0).String(),
-			deployment.NewTypeAndVersion(commontypes.StaticLinkToken, deployment.Version1_0_0).String():
-			// Skip common contracts, they are already loaded.
+			deployment.NewTypeAndVersion(commontypes.LinkToken, deployment.Version1_0_0).String():
 			continue
 		case deployment.NewTypeAndVersion(CapabilitiesRegistry, deployment.Version1_0_0).String():
 			cr, err := capabilities_registry.NewCapabilitiesRegistry(common.HexToAddress(address), chain.Client)

@@ -66,7 +66,7 @@ func evmChain(t *testing.T, numUsers int) EVMChain {
 	owner, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
 	require.NoError(t, err)
 	genesis := types.GenesisAlloc{
-		owner.From: {Balance: assets.Ether(1_000_000).ToInt()}}
+		owner.From: {Balance: big.NewInt(0).Mul(big.NewInt(700000), big.NewInt(params.Ether))}}
 	// create a set of user keys
 	var users []*bind.TransactOpts
 	for j := 0; j < numUsers; j++ {
@@ -75,7 +75,7 @@ func evmChain(t *testing.T, numUsers int) EVMChain {
 		user, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
 		require.NoError(t, err)
 		users = append(users, user)
-		genesis[user.From] = types.Account{Balance: assets.Ether(1_000_000).ToInt()}
+		genesis[user.From] = types.Account{Balance: big.NewInt(0).Mul(big.NewInt(700000), big.NewInt(params.Ether))}
 	}
 	// there have to be enough initial funds on each chain to allocate for all the nodes that share the given chain in the test
 	backend := simulated.NewBackend(genesis, simulated.WithBlockGasLimit(50000000))

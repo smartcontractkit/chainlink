@@ -259,40 +259,6 @@ func (c *commitReportTracker) allCommited(sourceChainSelector uint64) bool {
 	return true
 }
 
-// ConfirmMultipleCommits waits for multiple ccipocr3.SeqNumRange to be committed by the Offramp.
-// Waiting is done in parallel per every sourceChain/destChain (lane) passed as argument.
-func ConfirmMultipleCommits(
-	t *testing.T,
-	chains map[uint64]deployment.Chain,
-	state map[uint64]CCIPChainState,
-	startBlocks map[uint64]*uint64,
-	enforceSingleCommit bool,
-	expectedSeqNums map[SourceDestPair]ccipocr3.SeqNumRange,
-) error {
-	errGrp := &errgroup.Group{}
-
-	for sourceDest, seqRange := range expectedSeqNums {
-		seqRange := seqRange
-		srcChain := sourceDest.SourceChainSelector
-		destChain := sourceDest.DestChainSelector
-
-		errGrp.Go(func() error {
-			_, err := ConfirmCommitWithExpectedSeqNumRange(
-				t,
-				chains[srcChain],
-				chains[destChain],
-				state[destChain].OffRamp,
-				startBlocks[destChain],
-				seqRange,
-				enforceSingleCommit,
-			)
-			return err
-		})
-	}
-
-	return errGrp.Wait()
-}
-
 // ConfirmCommitWithExpectedSeqNumRange waits for a commit report on the destination chain with the expected sequence number range.
 // startBlock is the block number to start watching from.
 // If startBlock is nil, it will start watching from the latest block.

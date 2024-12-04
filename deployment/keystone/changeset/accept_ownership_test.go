@@ -39,6 +39,10 @@ func TestAcceptAllOwnership(t *testing.T) {
 			Config:    registrySel,
 		},
 		{
+			Changeset: commonchangeset.WrapChangeSet(changeset.DeployFeedsConsumer),
+			Config:    &changeset.DeployFeedsConsumerRequest{ChainSelector: registrySel},
+		},
+		{
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployMCMSWithTimelock),
 			Config: map[uint64]types.MCMSWithTimelockConfig{
 				registrySel: {
@@ -54,7 +58,7 @@ func TestAcceptAllOwnership(t *testing.T) {
 	require.NoError(t, err)
 	addrs, err := env.ExistingAddresses.AddressesForChain(registrySel)
 	require.NoError(t, err)
-	timelock, err := commonchangeset.MaybeLoadMCMSWithTimelockState(env.Chains[registrySel], addrs)
+	timelock, err := commonchangeset.LoadMCMSWithTimelockState(env.Chains[registrySel], addrs)
 	require.NoError(t, err)
 
 	_, err = commonchangeset.ApplyChangesets(t, env, map[uint64]*owner_helpers.RBACTimelock{
