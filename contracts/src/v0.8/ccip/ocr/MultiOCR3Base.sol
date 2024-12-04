@@ -42,6 +42,7 @@ abstract contract MultiOCR3Base is ITypeAndVersion, Ownable2StepMsgSender {
   error NonUniqueSignatures();
   error OracleCannotBeZeroAddress();
   error StaticConfigCannotBeChanged(uint8 ocrPluginType);
+  error InsufficientGasForCallWithExact();
 
   /// @dev Packing these fields used on the hot path in a ConfigInfo variable reduces the retrieval of all
   /// of them to a minimum number of SLOADs.
@@ -115,8 +116,12 @@ abstract contract MultiOCR3Base is ITypeAndVersion, Ownable2StepMsgSender {
 
   uint256 internal immutable i_chainID;
 
+  /// @dev The address used to send calls for gas estimation.
+  address internal immutable i_gasEstimationSender;
+
   constructor() {
     i_chainID = block.chainid;
+    i_gasEstimationSender = address(1);
   }
 
   /// @notice Sets offchain reporting protocol configuration incl. participating oracles.
@@ -275,7 +280,9 @@ abstract contract MultiOCR3Base is ITypeAndVersion, Ownable2StepMsgSender {
             && msg.sender == s_ocrConfigs[ocrPluginType].transmitters[transmitter.index]
         )
       ) {
-        revert UnauthorizedTransmitter();
+        if (msg.sender != i_gasEstimationSender) {
+          revert UnauthorizedTransmitter();
+        }
       }
     }
 
