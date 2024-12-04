@@ -205,7 +205,7 @@ func TestTokenTransfer(t *testing.T) {
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances :=
 		changeset.TransferMultiple(ctx, t, e, state, tcs)
 
-	err = changeset.ConfirmCommit(
+	err = changeset.ConfirmMultipleCommits(
 		t,
 		e.Chains,
 		state.Chains,

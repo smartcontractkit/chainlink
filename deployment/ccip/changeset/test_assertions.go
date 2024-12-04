@@ -259,7 +259,7 @@ func (c *commitReportTracker) allCommited(sourceChainSelector uint64) bool {
 	return true
 }
 
-func ConfirmCommit(
+func ConfirmMultipleCommits(
 	t *testing.T,
 	chains map[uint64]deployment.Chain,
 	state map[uint64]CCIPChainState,

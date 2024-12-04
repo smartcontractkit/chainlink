@@ -195,7 +195,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 		},
 		{
 			Name:        "USDC token transfer from a different source chain",
-			Receiver:    state.Chains[chainC].Receiver.Address(),
+			Receiver:    utils.RandomAddress(),
 			SourceChain: chainB,
 			DestChain:   chainC,
 			Tokens: []router.ClientEVMTokenAmount{
@@ -215,7 +215,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances :=
 		changeset.TransferMultiple(ctx, t, e, state, tcs)
 
-	err = changeset.ConfirmCommit(
+	err = changeset.ConfirmMultipleCommits(
 		t,
 		e.Chains,
 		state.Chains,
