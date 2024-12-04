@@ -47,20 +47,26 @@ func SingleGroupMCMS() (config.Config, error) {
 	return *c, nil
 }
 
-func CreateMCMSConfig(t *testing.T, depKeys []common.Address) commontypes.MCMSWithTimelockConfig {
+func CreateMCMSConfig(depKeys []common.Address) (commontypes.MCMSWithTimelockConfig, error) {
 	c, err := SingleGroupMCMS()
-	require.NoError(t, err)
+	if err != nil {
+		return commontypes.MCMSWithTimelockConfig{}, err
+	}
 	b, err := SingleGroupMCMS()
-	require.NoError(t, err)
+	if err != nil {
+		return commontypes.MCMSWithTimelockConfig{}, err
+	}
 	p, err := SingleGroupMCMS()
-	require.NoError(t, err)
+	if err != nil {
+		return commontypes.MCMSWithTimelockConfig{}, err
+	}
 	return commontypes.MCMSWithTimelockConfig{
 		Canceller:         c,
 		Bypasser:          b,
 		Proposer:          p,
 		TimelockExecutors: depKeys,
 		TimelockMinDelay:  big.NewInt(0),
-	}
+	}, nil
 
 }
 func SignProposal(t *testing.T, env deployment.Environment, proposal *timelock.MCMSWithTimelockProposal) *mcms.Executor {

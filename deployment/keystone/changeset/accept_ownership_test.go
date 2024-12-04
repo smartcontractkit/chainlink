@@ -49,8 +49,10 @@ func TestAcceptAllOwnership(t *testing.T) {
 	err = env.ExistingAddresses.Merge(chConsumer.AddressBook)
 	require.NoError(t, err)
 
+	mcmsConfig, err := commonchangeset.CreateMCMSConfig(env.AllDeployerKeys())
+	require.NoError(t, err)
 	chMcms, err := commonchangeset.DeployMCMSWithTimelock(env, map[uint64]types.MCMSWithTimelockConfig{
-		registrySel: commonchangeset.CreateMCMSConfig(t, env.AllDeployerKeys()),
+		registrySel: mcmsConfig,
 	})
 	err = env.ExistingAddresses.Merge(chMcms.AddressBook)
 	require.NoError(t, err)

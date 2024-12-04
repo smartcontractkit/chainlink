@@ -89,8 +89,10 @@ type AddressBook interface {
 	Remove(ab AddressBook) error
 }
 
+type AddressesByChain map[uint64]map[string]TypeAndVersion
+
 type AddressBookMap struct {
-	addressesByChain map[uint64]map[string]TypeAndVersion
+	addressesByChain AddressesByChain
 	mtx              sync.RWMutex
 }
 

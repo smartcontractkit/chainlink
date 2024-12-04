@@ -50,7 +50,8 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 
 	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 	for _, chain := range e.AllChainSelectors() {
-		cfg[chain] = commonchangeset.CreateMCMSConfig(t, e.AllDeployerKeys())
+		cfg[chain], err = commonchangeset.CreateMCMSConfig(e.AllDeployerKeys())
+		require.NoError(t, err)
 	}
 	output, err = commonchangeset.DeployMCMSWithTimelock(e, cfg)
 	require.NoError(t, err)

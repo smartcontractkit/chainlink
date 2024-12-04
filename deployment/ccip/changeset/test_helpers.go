@@ -136,7 +136,7 @@ func DeployTestContracts(t *testing.T,
 	linkPrice *big.Int,
 	wethPrice *big.Int,
 ) deployment.CapabilityRegistryConfig {
-	capReg, err := deployCapReg(lggr,
+	capReg, err := DeployCapReg(lggr,
 		// deploying cap reg for the first time on a blank chain state
 		CCIPOnChainState{
 			Chains: make(map[uint64]CCIPChainState),
@@ -269,7 +269,8 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 	allChains := e.Env.AllChainSelectors()
 	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 	for _, c := range e.Env.AllChainSelectors() {
-		mcmsCfg[c] = commonchangeset.CreateMCMSConfig(t, e.Env.AllDeployerKeys())
+		mcmsCfg[c], err = commonchangeset.CreateMCMSConfig(e.Env.AllDeployerKeys())
+		require.NoError(t, err)
 	}
 	var usdcChains []uint64
 	if tCfg != nil && tCfg.IsUSDC {

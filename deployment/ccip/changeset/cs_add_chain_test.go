@@ -44,7 +44,8 @@ func TestAddChainInbound(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, e.Env.ExistingAddresses.Merge(newAddresses))
 
-	cfg := commonchangeset.CreateMCMSConfig(t, e.Env.AllDeployerKeys())
+	cfg, err := commonchangeset.CreateMCMSConfig(e.Env.AllDeployerKeys())
+	require.NoError(t, err)
 
 	out, err := commonchangeset.DeployMCMSWithTimelock(e.Env, map[uint64]commontypes.MCMSWithTimelockConfig{
 		initialDeploy[0]: cfg,
@@ -60,7 +61,7 @@ func TestAddChainInbound(t *testing.T) {
 	for _, chain := range initialDeploy {
 		chainConfig[chain] = DefaultOCRParams(e.FeedChainSel, nil, nil)
 	}
-	err = deployCCIPContracts(e.Env, newAddresses, NewChainsConfig{
+	err = DeployCCIPContracts(e.Env, newAddresses, NewChainsConfig{
 		HomeChainSel:       e.HomeChainSel,
 		FeedChainSel:       e.FeedChainSel,
 		ChainConfigByChain: chainConfig,

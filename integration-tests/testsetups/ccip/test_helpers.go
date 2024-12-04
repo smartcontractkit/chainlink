@@ -34,6 +34,11 @@ import (
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
+	"github.com/AlekSi/pointer"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	clclient "github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -43,13 +48,6 @@ import (
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
-
-	"github.com/AlekSi/pointer"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 	"github.com/subosito/gotenv"
 	"golang.org/x/sync/errgroup"
@@ -107,9 +105,9 @@ func NewLocalDevEnvironment(
 	chains, err := devenv.NewChains(lggr, envConfig.Chains)
 	require.NoError(t, err)
 	// locate the home chain
-	homeChainSel := envConfig.HomeChainSelector
+	homeChainSel, _ := strconv.ParseUint(pointer.GetString(cfg.CCIP.HomeChainSelector), 10, 64)
 	require.NotEmpty(t, homeChainSel, "homeChainSel should not be empty")
-	feedSel := envConfig.FeedChainSelector
+	feedSel, _ := strconv.ParseUint(pointer.GetString(cfg.CCIP.FeedChainSelector), 10, 64)
 	require.NotEmpty(t, feedSel, "feedSel should not be empty")
 	replayBlocks, err := changeset.LatestBlocksByChain(ctx, chains)
 	require.NoError(t, err)
@@ -142,7 +140,8 @@ func NewLocalDevEnvironment(
 	}
 	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 	for _, c := range env.AllChainSelectors() {
-		mcmsCfg[c] = commonchangeset.CreateMCMSConfig(t, env.AllDeployerKeys())
+		mcmsCfg[c], err = commonchangeset.CreateMCMSConfig(env.AllDeployerKeys())
+		require.NoError(t, err)
 	}
 	// Need to deploy prerequisites first so that we can form the USDC config
 	// no proposals to be made, timelock can be passed as nil here
@@ -454,16 +453,9 @@ func CreateDockerEnv(t *testing.T) (
 	}
 	require.NotEmpty(t, jdConfig, "JD config is empty")
 
-	homeChainSelector, err := cfg.CCIP.GetHomeChainSelector(evmNetworks)
-	require.NoError(t, err, "Error getting home chain selector")
-	feedChainSelector, err := cfg.CCIP.GetFeedChainSelector(evmNetworks)
-	require.NoError(t, err, "Error getting feed chain selector")
-
 	return &devenv.EnvironmentConfig{
-		Chains:            chains,
-		JDConfig:          jdConfig,
-		HomeChainSelector: homeChainSelector,
-		FeedChainSelector: feedChainSelector,
+		Chains:   chains,
+		JDConfig: jdConfig,
 	}, env, cfg
 }
 
@@ -509,7 +501,7 @@ func StartChainlinkNodes(
 			cfg.NodeConfig.ChainConfigTOMLByChainID,
 		)
 
-		toml.Capabilities.ExternalRegistry.NetworkID = ptr.Ptr(relay.NetworkEVM)
+		toml.Capabilities.ExternalRegistry.NetworkID = ptr.Ptr(registryConfig.NetworkType)
 		toml.Capabilities.ExternalRegistry.ChainID = ptr.Ptr(strconv.FormatUint(registryConfig.EVMChainID, 10))
 		toml.Capabilities.ExternalRegistry.Address = ptr.Ptr(registryConfig.Contract.String())
 
