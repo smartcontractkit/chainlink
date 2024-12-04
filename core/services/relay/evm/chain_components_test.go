@@ -310,7 +310,7 @@ func (h *helper) ChainReaderEVMClient(ctx context.Context, t *testing.T, ht logp
 	return cwh
 }
 
-func (h *helper) WrappedChainWriter(cw clcommontypes.ChainWriter, client client.Client) clcommontypes.ChainWriter {
+func (h *helper) WrappedChainWriter(cw clcommontypes.ContractWriter, client client.Client) clcommontypes.ContractWriter {
 	cwhw := evm.NewChainWriterHistoricalWrapper(cw, client.(*evm.ClientWithContractHistory))
 	return cwhw
 }
