@@ -34,13 +34,13 @@ func TestNewFetcherService(t *testing.T) {
 
 	url := "http://example.com"
 
-	msgID := strings.Join([]string{ghcapabilities.MethodWorkflowSyncer, url}, "/")
+	msgID := strings.Join([]string{ghcapabilities.MethodWorkflowSyncer, hash(url)}, "/")
 
 	t.Run("OK-valid_request", func(t *testing.T) {
 		connector.EXPECT().AddHandler([]string{capabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
 
 		fetcher := NewFetcherService(lggr, wrapper)
-		fetcher.Start(ctx)
+		require.NoError(t, fetcher.Start(ctx))
 		defer fetcher.Close()
 
 		gatewayResp := gatewayResponse(t, msgID)

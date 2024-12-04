@@ -3,6 +3,7 @@ package syncer
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -81,7 +82,7 @@ func (s *FetcherService) Name() string {
 func hash(url string) string {
 	h := sha256.New()
 	h.Write([]byte(url))
-	return fmt.Sprintf("%x", h.Sum(nil))
+	return hex.EncodeToString(h.Sum(nil))
 }
 
 func (s *FetcherService) Fetch(ctx context.Context, url string) ([]byte, error) {
