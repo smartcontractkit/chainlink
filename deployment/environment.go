@@ -409,6 +409,7 @@ func NodeInfo(nodeIDs []string, oc NodeChainConfigsLister) (Nodes, error) {
 }
 
 type CapabilityRegistryConfig struct {
-	EVMChainID uint64         // chain id of the chain the CR is deployed on
-	Contract   common.Address // address of the CR contract
+	EVMChainID  uint64         // chain id of the chain the CR is deployed on
+	Contract    common.Address // address of the CR contract
+	NetworkType string         // network type of the chain
 }

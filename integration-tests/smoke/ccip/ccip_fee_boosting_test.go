@@ -19,10 +19,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+
+	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
@@ -36,19 +39,24 @@ var (
 )
 
 func Test_CCIPFeeBoosting(t *testing.T) {
-	e := changeset.NewMemoryEnvironmentWithJobsAndContracts(t, logger.TestLogger(t), 2, 4, &changeset.TestConfigs{
-		OCRConfigOverride: func(params changeset.CCIPOCRParams) changeset.CCIPOCRParams {
-			// Only 1 boost (=OCR round) is enough to cover the fee
-			params.ExecuteOffChainConfig.RelativeBoostPerWaitHour = 10
-			// Disable token price updates
-			params.CommitOffChainConfig.TokenPriceBatchWriteFrequency = *config.MustNewDuration(1_000_000 * time.Hour)
-			// Disable gas price updates
-			params.CommitOffChainConfig.RemoteGasPriceBatchWriteFrequency = *config.MustNewDuration(1_000_000 * time.Hour)
-			// Disable token price updates
-			params.CommitOffChainConfig.TokenInfo = nil
-			return params
-		},
-	})
+	e := changeset.NewMemoryEnvironmentWithJobsAndContracts(t, logger.TestLogger(t),
+		memory.MemoryEnvironmentConfig{
+			Chains:     2,
+			Nodes:      4,
+			Bootstraps: 1,
+		}, &changeset.TestConfigs{
+			OCRConfigOverride: func(params changeset.CCIPOCRParams) changeset.CCIPOCRParams {
+				// Only 1 boost (=OCR round) is enough to cover the fee
+				params.ExecuteOffChainConfig.RelativeBoostPerWaitHour = 10
+				// Disable token price updates
+				params.CommitOffChainConfig.TokenPriceBatchWriteFrequency = *config.MustNewDuration(1_000_000 * time.Hour)
+				// Disable gas price updates
+				params.CommitOffChainConfig.RemoteGasPriceBatchWriteFrequency = *config.MustNewDuration(1_000_000 * time.Hour)
+				// Disable token price updates
+				params.CommitOffChainConfig.TokenInfo = nil
+				return params
+			},
+		})
 
 	state, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
