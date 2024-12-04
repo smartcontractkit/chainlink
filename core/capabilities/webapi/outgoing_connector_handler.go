@@ -139,7 +139,7 @@ func (c *OutgoingConnectorHandler) Close() error {
 }
 
 func (c *OutgoingConnectorHandler) HealthReport() map[string]error {
-	return map[string]error{c.Name(): nil}
+	return map[string]error{c.Name(): c.Healthy()}
 }
 
 func (c *OutgoingConnectorHandler) Name() string {

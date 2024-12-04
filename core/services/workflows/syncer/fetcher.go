@@ -68,11 +68,13 @@ func (s *FetcherService) Start(ctx context.Context) error {
 }
 
 func (s *FetcherService) Close() error {
-	return nil
+	return s.StopOnce("FetcherService", func() error {
+		return s.och.Close()
+	})
 }
 
 func (s *FetcherService) HealthReport() map[string]error {
-	return map[string]error{s.Name(): nil}
+	return map[string]error{s.Name(): s.Healthy()}
 }
 
 func (s *FetcherService) Name() string {
