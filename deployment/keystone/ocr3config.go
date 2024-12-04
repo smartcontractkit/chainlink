@@ -315,63 +315,54 @@ func configureOCR3contract(req configureOCR3Request) (*configureOCR3Response, er
 	if req.dryRun {
 		return &configureOCR3Response{ocrConfig, nil}, nil
 	}
+
+	txOpt := req.chain.DeployerKey
+	if req.useMCMS {
+		txOpt = deployment.SimTransactOpts()
+	}
+
+	tx, err := req.contract.SetConfig(txOpt,
+		ocrConfig.Signers,
+		ocrConfig.Transmitters,
+		ocrConfig.F,
+		ocrConfig.OnchainConfig,
+		ocrConfig.OffchainConfigVersion,
+		ocrConfig.OffchainConfig,
+	)
+	if err != nil {
+		err = DecodeErr(kocr3.OCR3CapabilityABI, err)
+		return nil, fmt.Errorf("failed to call SetConfig for OCR3 contract %s using mcms: %T: %w", req.contract.Address().String(), req.useMCMS, err)
+	}
+
 	var proposal *timelock.MCMSWithTimelockProposal
 	if !req.useMCMS {
-
-		tx, err := req.contract.SetConfig(req.chain.DeployerKey,
-			ocrConfig.Signers,
-			ocrConfig.Transmitters,
-			ocrConfig.F,
-			ocrConfig.OnchainConfig,
-			ocrConfig.OffchainConfigVersion,
-			ocrConfig.OffchainConfig,
-		)
-		if err != nil {
-			err = DecodeErr(kocr3.OCR3CapabilityABI, err)
-			return nil, fmt.Errorf("failed to call SetConfig for OCR3 contract %s: %w", req.contract.Address().String(), err)
-		}
 		_, err = req.chain.Confirm(tx)
 		if err != nil {
 			err = DecodeErr(kocr3.OCR3CapabilityABI, err)
 			return nil, fmt.Errorf("failed to confirm SetConfig for OCR3 contract %s: %w", req.contract.Address().String(), err)
 		}
 	} else {
-		// use MCMS
-		configRequest, err := req.contract.SetConfig(
-			deployment.SimTransactOpts(),
-			ocrConfig.Signers,
-			ocrConfig.Transmitters,
-			ocrConfig.F,
-			ocrConfig.OnchainConfig,
-			ocrConfig.OffchainConfigVersion,
-			ocrConfig.OffchainConfig)
-		if err != nil {
-			err = DecodeErr(kocr3.OCR3CapabilityABI, err)
-			return nil, fmt.Errorf("failed to simulate SetConfig for OCR3 contract %s: %w", req.contract.Address().String(), err)
-		}
-		o := timelock.BatchChainOperation{
+		ops := timelock.BatchChainOperation{
 			ChainIdentifier: mcms.ChainIdentifier(req.chain.Selector),
 			Batch: []mcms.Operation{
 				{
-					// Enable the source in on ramp
 					To:    req.contract.Address(),
-					Data:  configRequest.Data(),
+					Data:  tx.Data(),
 					Value: big.NewInt(0),
 				},
 			},
 		}
-		var (
-			timelocksPerChain = make(map[uint64]common.Address)
-			proposerMCMSes    = make(map[uint64]*gethwrappers.ManyChainMultiSig)
-		)
-
-		timelocksPerChain[req.chain.Selector] = req.contractSet.Timelock.Address()
-		proposerMCMSes[req.chain.Selector] = req.contractSet.ProposerMcm
+		timelocksPerChain := map[uint64]common.Address{
+			req.chain.Selector: req.contractSet.Timelock.Address(),
+		}
+		proposerMCMSes := map[uint64]*gethwrappers.ManyChainMultiSig{
+			req.chain.Selector: req.contractSet.ProposerMcm,
+		}
 
 		proposal, err = proposalutils.BuildProposalFromBatches(
 			timelocksPerChain,
 			proposerMCMSes,
-			[]timelock.BatchChainOperation{o},
+			[]timelock.BatchChainOperation{ops},
 			"proposal to set ocr3 config",
 			0,
 		)

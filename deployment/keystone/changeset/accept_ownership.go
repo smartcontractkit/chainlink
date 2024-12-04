@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	ccipowner "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -33,50 +34,24 @@ func AcceptAllOwnershipsProposal(e deployment.Environment, req *AcceptAllOwnersh
 	chain := e.Chains[chainSelector]
 	addrBook := e.ExistingAddresses
 
-	// Fetch contracts from the address book.
-	timelocks, err := timelocksFromAddrBook(addrBook, chain)
+	r, err := kslib.GetContractSets(e.Logger, &kslib.GetContractSetsRequest{
+		Chains: map[uint64]deployment.Chain{
+			req.ChainSelector: chain,
+		},
+		AddressBook: addrBook,
+	})
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	capRegs, err := capRegistriesFromAddrBook(addrBook, chain)
-	if err != nil {
-		return deployment.ChangesetOutput{}, err
-	}
-	ocr3, err := ocr3FromAddrBook(addrBook, chain)
-	if err != nil {
-		return deployment.ChangesetOutput{}, err
-	}
-	forwarders, err := forwardersFromAddrBook(addrBook, chain)
-	if err != nil {
-		return deployment.ChangesetOutput{}, err
-	}
-	consumers, err := feedsConsumersFromAddrBook(addrBook, chain)
-	if err != nil {
-		return deployment.ChangesetOutput{}, err
-	}
-	mcmsProposers, err := proposersFromAddrBook(addrBook, chain)
-	if err != nil {
-		return deployment.ChangesetOutput{}, err
-	}
-
-	// Initialize the OwnershipAcceptors slice
-	var ownershipAcceptors []changeset.OwnershipAcceptor
-
-	// Append all contracts
-	ownershipAcceptors = append(ownershipAcceptors, toOwnershipAcceptors(capRegs)...)
-	ownershipAcceptors = append(ownershipAcceptors, toOwnershipAcceptors(ocr3)...)
-	ownershipAcceptors = append(ownershipAcceptors, toOwnershipAcceptors(forwarders)...)
-	ownershipAcceptors = append(ownershipAcceptors, toOwnershipAcceptors(consumers)...)
-
+	contracts := r.ContractSets[chainSelector]
+	ownershipAcceptors := contracts.OwnershipAcceptors()
 	// Construct the configuration
 	cfg := changeset.AcceptOwnershipConfig{
 		OwnersPerChain: map[uint64]common.Address{
-			// Assuming there is only one timelock per chain.
-			chainSelector: timelocks[0].Address(),
+			chainSelector: contracts.Timelock.Address(),
 		},
 		ProposerMCMSes: map[uint64]*ccipowner.ManyChainMultiSig{
-			// Assuming there is only one MCMS proposer per chain.
-			chainSelector: mcmsProposers[0],
+			chainSelector: contracts.ProposerMcm,
 		},
 		Contracts: map[uint64][]changeset.OwnershipAcceptor{
 			chainSelector: ownershipAcceptors,

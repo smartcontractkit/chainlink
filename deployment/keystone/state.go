@@ -32,6 +32,22 @@ type ContractSet struct {
 	CapabilitiesRegistry *capabilities_registry.CapabilitiesRegistry
 }
 
+func (cs ContractSet) OwnershipAcceptors() []commonchangeset.OwnershipAcceptor {
+	return []commonchangeset.OwnershipAcceptor{
+		cs.OCR3,
+		cs.Forwarder,
+		cs.CapabilitiesRegistry,
+	}
+}
+
+func (cs ContractSet) OwnershipTransferrers() []commonchangeset.OwnershipTransferrer {
+	return []commonchangeset.OwnershipTransferrer{
+		cs.OCR3,
+		cs.Forwarder,
+		cs.CapabilitiesRegistry,
+	}
+}
+
 func (cs ContractSet) View() (view.KeystoneChainView, error) {
 	out := view.NewKeystoneChainView()
 	if cs.CapabilitiesRegistry != nil {

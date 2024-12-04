@@ -9,6 +9,7 @@ import (
 	"math"
 	"testing"
 
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
@@ -17,6 +18,7 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/deployment/keystone"
+	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 	kschangeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -229,6 +231,8 @@ func Setup(t *testing.T, c TestConfig) TestEnv {
 	// todo: add validation of the expected capabilities
 
 	if c.EnableMCMS {
+		// TODO: mcms on all the chains
+		t.Logf("Enabling MCMS registry chain %d", registryChainSel)
 		// deploy, configure and xfer ownership of MCMS
 		env, err = commonchangeset.ApplyChangesets(t, env, nil, []commonchangeset.ChangesetApplication{
 			{
@@ -243,10 +247,31 @@ func Setup(t *testing.T, c TestConfig) TestEnv {
 					},
 				},
 			},
+		})
+		require.NoError(t, err)
+		// extract the MCMS address
+		r, err := kslib.GetContractSets(lggr, &kslib.GetContractSetsRequest{
+			Chains: map[uint64]deployment.Chain{
+				registryChainSel: env.Chains[registryChainSel],
+			},
+			AddressBook: env.ExistingAddresses,
+		})
+		require.NoError(t, err)
+		mcms := r.ContractSets[registryChainSel].MCMSWithTimelockState
+		require.NotNil(t, mcms)
+		// transfer ownership of all contracts to the MCMS
+		env, err = commonchangeset.ApplyChangesets(t, env, map[uint64]*gethwrappers.RBACTimelock{registryChainSel: mcms.Timelock}, []commonchangeset.ChangesetApplication{
 			{
 				Changeset: commonchangeset.WrapChangeSet(kschangeset.TransferAllOwnership),
 				Config: &kschangeset.TransferAllOwnershipRequest{
 					ChainSelector: registryChainSel,
+				},
+			},
+			{
+				Changeset: commonchangeset.WrapChangeSet(kschangeset.AcceptAllOwnershipsProposal),
+				Config: &kschangeset.AcceptAllOwnershipRequest{
+					ChainSelector: registryChainSel,
+					MinDelay:      0,
 				},
 			},
 		})

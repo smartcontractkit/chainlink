@@ -37,7 +37,7 @@ type ConfigureOCR3Config struct {
 	NodeIDs              []string
 	OCR3Config           *kslib.OracleConfigWithSecrets
 	DryRun               bool
-	WriteGeneratedConfig io.Writer
+	WriteGeneratedConfig io.Writer // if not nil, write the generated config to this writer as JSON [OCR2OracleConfig]
 
 	UseMCMS bool
 }

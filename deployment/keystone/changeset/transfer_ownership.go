@@ -7,6 +7,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 )
 
 func toOwnershipTransferrer[T changeset.OwnershipTransferrer](items []T) []changeset.OwnershipTransferrer {
@@ -29,52 +30,30 @@ func TransferAllOwnership(e deployment.Environment, req *TransferAllOwnershipReq
 	chain := e.Chains[chainSelector]
 	addrBook := e.ExistingAddresses
 
-	// Fetch timelocks for the specified chain.
-	timelocks, err := timelocksFromAddrBook(addrBook, chain)
+	r, err := kslib.GetContractSets(e.Logger, &kslib.GetContractSetsRequest{
+		Chains: map[uint64]deployment.Chain{
+			req.ChainSelector: chain,
+		},
+		AddressBook: addrBook,
+	})
 	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get contract sets: %w", err)
+	}
+	contracts := r.ContractSets[chainSelector]
+	timelock := contracts.Timelock
+
+	if timelock == nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to fetch timelocks: %w", err)
-	}
-	if len(timelocks) == 0 {
-		return deployment.ChangesetOutput{}, fmt.Errorf("no timelocks found for chain %d", chainSelector)
-	}
-
-	// Fetch contracts from the address book.
-	capRegs, err := capRegistriesFromAddrBook(addrBook, chain)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to fetch capabilities registries: %w", err)
-	}
-
-	ocr3s, err := ocr3FromAddrBook(addrBook, chain)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to fetch OCR3 capabilities: %w", err)
-	}
-
-	forwarders, err := forwardersFromAddrBook(addrBook, chain)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to fetch forwarders: %w", err)
-	}
-
-	consumers, err := feedsConsumersFromAddrBook(addrBook, chain)
-	if err != nil {
-		//return deployment.ChangesetOutput{}, fmt.Errorf("failed to fetch feeds consumers: %w", err)
-		// Ignore error if no consumers are found
-		e.Logger.Warnw("failed to fetch feeds consumers", "err", err)
 	}
 
 	// Initialize the Contracts slice
-	var ownershipTransferrers []changeset.OwnershipTransferrer
-
-	// Append all contracts
-	ownershipTransferrers = append(ownershipTransferrers, toOwnershipTransferrer(capRegs)...)
-	ownershipTransferrers = append(ownershipTransferrers, toOwnershipTransferrer(ocr3s)...)
-	ownershipTransferrers = append(ownershipTransferrers, toOwnershipTransferrer(forwarders)...)
-	ownershipTransferrers = append(ownershipTransferrers, toOwnershipTransferrer(consumers)...)
+	ownershipTransferrers := contracts.OwnershipTransferrers()
 
 	// Construct the configuration
 	cfg := changeset.TransferOwnershipConfig{
 		OwnersPerChain: map[uint64]common.Address{
 			// Assuming there is only one timelock per chain.
-			chainSelector: timelocks[0].Address(),
+			chainSelector: timelock.Address(),
 		},
 		Contracts: map[uint64][]changeset.OwnershipTransferrer{
 			chainSelector: ownershipTransferrers,
