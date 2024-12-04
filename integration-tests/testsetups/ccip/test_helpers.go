@@ -142,13 +142,7 @@ func NewLocalDevEnvironment(
 	}
 	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 	for _, c := range env.AllChainSelectors() {
-		mcmsCfg[c] = commontypes.MCMSWithTimelockConfig{
-			Canceller:         commonchangeset.SingleGroupMCMS(t),
-			Bypasser:          commonchangeset.SingleGroupMCMS(t),
-			Proposer:          commonchangeset.SingleGroupMCMS(t),
-			TimelockExecutors: env.AllDeployerKeys(),
-			TimelockMinDelay:  big.NewInt(0),
-		}
+		mcmsCfg[c] = commonchangeset.CreateMCMSConfig(t, env.AllDeployerKeys())
 	}
 	// Need to deploy prerequisites first so that we can form the USDC config
 	// no proposals to be made, timelock can be passed as nil here

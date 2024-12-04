@@ -269,13 +269,7 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 	allChains := e.Env.AllChainSelectors()
 	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 	for _, c := range e.Env.AllChainSelectors() {
-		mcmsCfg[c] = commontypes.MCMSWithTimelockConfig{
-			Canceller:         commonchangeset.SingleGroupMCMS(t),
-			Bypasser:          commonchangeset.SingleGroupMCMS(t),
-			Proposer:          commonchangeset.SingleGroupMCMS(t),
-			TimelockExecutors: e.Env.AllDeployerKeys(),
-			TimelockMinDelay:  big.NewInt(0),
-		}
+		mcmsCfg[c] = commonchangeset.CreateMCMSConfig(t, e.Env.AllDeployerKeys())
 	}
 	var usdcChains []uint64
 	if tCfg != nil && tCfg.IsUSDC {

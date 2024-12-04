@@ -1,7 +1,6 @@
 package changeset
 
 import (
-	"math/big"
 	"testing"
 	"time"
 
@@ -45,13 +44,8 @@ func TestAddChainInbound(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, e.Env.ExistingAddresses.Merge(newAddresses))
 
-	cfg := commontypes.MCMSWithTimelockConfig{
-		Canceller:         commonchangeset.SingleGroupMCMS(t),
-		Bypasser:          commonchangeset.SingleGroupMCMS(t),
-		Proposer:          commonchangeset.SingleGroupMCMS(t),
-		TimelockExecutors: e.Env.AllDeployerKeys(),
-		TimelockMinDelay:  big.NewInt(0),
-	}
+	cfg := commonchangeset.CreateMCMSConfig(t, e.Env.AllDeployerKeys())
+
 	out, err := commonchangeset.DeployMCMSWithTimelock(e.Env, map[uint64]commontypes.MCMSWithTimelockConfig{
 		initialDeploy[0]: cfg,
 		initialDeploy[1]: cfg,

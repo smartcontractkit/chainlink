@@ -2,7 +2,6 @@ package internal_test
 
 import (
 	"encoding/json"
-	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -23,8 +22,10 @@ func TestDeployMCMSWithConfig(t *testing.T) {
 		chainsel.TEST_90000001.EvmChainID,
 	})
 	ab := deployment.NewMemoryAddressBook()
-	_, err := internal.DeployMCMSWithConfig(types.ProposerManyChainMultisig,
-		lggr, chains[chainsel.TEST_90000001.Selector], ab, changeset.SingleGroupMCMS(t))
+	m, err := changeset.SingleGroupMCMS()
+	require.NoError(t, err)
+	_, err = internal.DeployMCMSWithConfig(types.ProposerManyChainMultisig,
+		lggr, chains[chainsel.TEST_90000001.Selector], ab, m)
 	require.NoError(t, err)
 }
 
@@ -36,15 +37,10 @@ func TestDeployMCMSWithTimelockContracts(t *testing.T) {
 	ab := deployment.NewMemoryAddressBook()
 	_, err := internal.DeployMCMSWithTimelockContracts(lggr,
 		chains[chainsel.TEST_90000001.Selector],
-		ab, types.MCMSWithTimelockConfig{
-			Canceller: changeset.SingleGroupMCMS(t),
-			Bypasser:  changeset.SingleGroupMCMS(t),
-			Proposer:  changeset.SingleGroupMCMS(t),
-			TimelockExecutors: []common.Address{
-				chains[chainsel.TEST_90000001.Selector].DeployerKey.From,
-			},
-			TimelockMinDelay: big.NewInt(0),
-		})
+		ab,
+		changeset.CreateMCMSConfig(t, []common.Address{
+			chains[chainsel.TEST_90000001.Selector].DeployerKey.From,
+		}))
 	require.NoError(t, err)
 	addresses, err := ab.AddressesForChain(chainsel.TEST_90000001.Selector)
 	require.NoError(t, err)

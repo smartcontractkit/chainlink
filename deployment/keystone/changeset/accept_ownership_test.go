@@ -1,7 +1,6 @@
 package changeset_test
 
 import (
-	"math/big"
 	"testing"
 	"time"
 
@@ -51,13 +50,7 @@ func TestAcceptAllOwnership(t *testing.T) {
 	require.NoError(t, err)
 
 	chMcms, err := commonchangeset.DeployMCMSWithTimelock(env, map[uint64]types.MCMSWithTimelockConfig{
-		registrySel: {
-			Canceller:         commonchangeset.SingleGroupMCMS(t),
-			Bypasser:          commonchangeset.SingleGroupMCMS(t),
-			Proposer:          commonchangeset.SingleGroupMCMS(t),
-			TimelockExecutors: env.AllDeployerKeys(),
-			TimelockMinDelay:  big.NewInt(0),
-		},
+		registrySel: commonchangeset.CreateMCMSConfig(t, env.AllDeployerKeys()),
 	})
 	err = env.ExistingAddresses.Merge(chMcms.AddressBook)
 	require.NoError(t, err)

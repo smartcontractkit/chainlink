@@ -3,7 +3,6 @@ package changeset
 import (
 	"encoding/json"
 	"fmt"
-	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -51,13 +50,7 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 
 	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 	for _, chain := range e.AllChainSelectors() {
-		cfg[chain] = commontypes.MCMSWithTimelockConfig{
-			Canceller:         commonchangeset.SingleGroupMCMS(t),
-			Bypasser:          commonchangeset.SingleGroupMCMS(t),
-			Proposer:          commonchangeset.SingleGroupMCMS(t),
-			TimelockExecutors: e.AllDeployerKeys(),
-			TimelockMinDelay:  big.NewInt(0),
-		}
+		cfg[chain] = commonchangeset.CreateMCMSConfig(t, e.AllDeployerKeys())
 	}
 	output, err = commonchangeset.DeployMCMSWithTimelock(e, cfg)
 	require.NoError(t, err)
