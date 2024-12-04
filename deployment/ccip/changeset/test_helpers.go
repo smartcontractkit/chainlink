@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
-
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -98,9 +97,9 @@ type DeployedEnv struct {
 
 func (e *DeployedEnv) SetupJobs(t *testing.T) {
 	ctx := testcontext.Get(t)
-	jbs, err := NewCCIPJobSpecs(e.Env.NodeIDs, e.Env.Offchain)
+	out, err := CCIPCapabilityJobspec(e.Env, struct{}{})
 	require.NoError(t, err)
-	for nodeID, jobs := range jbs {
+	for nodeID, jobs := range out.JobSpecs {
 		for _, job := range jobs {
 			// Note these auto-accept
 			_, err := e.Env.Offchain.ProposeJob(ctx,
@@ -137,7 +136,7 @@ func DeployTestContracts(t *testing.T,
 	linkPrice *big.Int,
 	wethPrice *big.Int,
 ) deployment.CapabilityRegistryConfig {
-	capReg, err := DeployCapReg(lggr,
+	capReg, err := deployCapReg(lggr,
 		// deploying cap reg for the first time on a blank chain state
 		CCIPOnChainState{
 			Chains: make(map[uint64]CCIPChainState),
@@ -274,16 +273,15 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 	var err error
 	e := NewMemoryEnvironment(t, lggr, numChains, numNodes, MockLinkPrice, MockWethPrice)
 	allChains := e.Env.AllChainSelectors()
-	cfg := commontypes.MCMSWithTimelockConfig{
-		Canceller:         commonchangeset.SingleGroupMCMS(t),
-		Bypasser:          commonchangeset.SingleGroupMCMS(t),
-		Proposer:          commonchangeset.SingleGroupMCMS(t),
-		TimelockExecutors: e.Env.AllDeployerKeys(),
-		TimelockMinDelay:  big.NewInt(0),
-	}
 	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 	for _, c := range e.Env.AllChainSelectors() {
-		mcmsCfg[c] = cfg
+		mcmsCfg[c] = commontypes.MCMSWithTimelockConfig{
+			Canceller:         commonchangeset.SingleGroupMCMS(t),
+			Bypasser:          commonchangeset.SingleGroupMCMS(t),
+			Proposer:          commonchangeset.SingleGroupMCMS(t),
+			TimelockExecutors: e.Env.AllDeployerKeys(),
+			TimelockMinDelay:  big.NewInt(0),
+		}
 	}
 	var usdcChains []uint64
 	if tCfg != nil && tCfg.IsUSDC {
@@ -317,56 +315,58 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 
 	state, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
-	tokenConfig := NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
-	ocrParams := make(map[uint64]CCIPOCRParams)
-	usdcCCTPConfig := make(map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig)
-	timelocksPerChain := make(map[uint64]*gethwrappers.RBACTimelock)
+	// Assert USDC set up as expected.
 	for _, chain := range usdcChains {
 		require.NotNil(t, state.Chains[chain].MockUSDCTokenMessenger)
 		require.NotNil(t, state.Chains[chain].MockUSDCTransmitter)
 		require.NotNil(t, state.Chains[chain].USDCTokenPool)
-		usdcCCTPConfig[cciptypes.ChainSelector(chain)] = pluginconfig.USDCCCTPTokenConfig{
-			SourcePoolAddress:            state.Chains[chain].USDCTokenPool.Address().String(),
-			SourceMessageTransmitterAddr: state.Chains[chain].MockUSDCTransmitter.Address().String(),
-		}
 	}
+	// Assert link present
 	require.NotNil(t, state.Chains[e.FeedChainSel].LinkToken)
 	require.NotNil(t, state.Chains[e.FeedChainSel].Weth9)
-	var usdcCfg USDCAttestationConfig
+
+	tokenConfig := NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
+	var tokenDataProviders []pluginconfig.TokenDataObserverConfig
 	if len(usdcChains) > 0 {
 		server := mockAttestationResponse(tCfg.IsUSDCAttestationMissing)
 		endpoint := server.URL
-		usdcCfg = USDCAttestationConfig{
-			API:         endpoint,
-			APITimeout:  commonconfig.MustNewDuration(time.Second),
-			APIInterval: commonconfig.MustNewDuration(500 * time.Millisecond),
-		}
 		t.Cleanup(func() {
 			server.Close()
 		})
+		cctpContracts := make(map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig)
+		for _, usdcChain := range usdcChains {
+			cctpContracts[cciptypes.ChainSelector(usdcChain)] = pluginconfig.USDCCCTPTokenConfig{
+				SourcePoolAddress:            state.Chains[usdcChain].USDCTokenPool.Address().String(),
+				SourceMessageTransmitterAddr: state.Chains[usdcChain].MockUSDCTransmitter.Address().String(),
+			}
+		}
+		tokenDataProviders = append(tokenDataProviders, pluginconfig.TokenDataObserverConfig{
+			Type:    pluginconfig.USDCCCTPHandlerType,
+			Version: "1.0",
+			USDCCCTPObserverConfig: &pluginconfig.USDCCCTPObserverConfig{
+				Tokens:                 cctpContracts,
+				AttestationAPI:         endpoint,
+				AttestationAPITimeout:  commonconfig.MustNewDuration(time.Second),
+				AttestationAPIInterval: commonconfig.MustNewDuration(500 * time.Millisecond),
+			}})
 	}
-
+	// Build the per chain config.
+	chainConfigs := make(map[uint64]CCIPOCRParams)
+	timelocksPerChain := make(map[uint64]*gethwrappers.RBACTimelock)
 	for _, chain := range allChains {
 		timelocksPerChain[chain] = state.Chains[chain].Timelock
 		tokenInfo := tokenConfig.GetTokenInfo(e.Env.Logger, state.Chains[chain].LinkToken, state.Chains[chain].Weth9)
-		ocrParams[chain] = DefaultOCRParams(e.FeedChainSel, tokenInfo)
+		chainConfigs[chain] = DefaultOCRParams(e.FeedChainSel, tokenInfo, tokenDataProviders)
 	}
 	// Deploy second set of changesets to deploy and configure the CCIP contracts.
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(ConfigureNewChains),
 			Config: NewChainsConfig{
-				HomeChainSel:   e.HomeChainSel,
-				FeedChainSel:   e.FeedChainSel,
-				ChainsToDeploy: allChains,
-				TokenConfig:    tokenConfig,
-				OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
-				USDCConfig: USDCConfig{
-					EnabledChains:         usdcChains,
-					USDCAttestationConfig: usdcCfg,
-					CCTPTokenConfig:       usdcCCTPConfig,
-				},
-				OCRParams: ocrParams,
+				HomeChainSel:       e.HomeChainSel,
+				FeedChainSel:       e.FeedChainSel,
+				OCRSecrets:         deployment.XXXGenerateTestOCRSecrets(),
+				ChainConfigByChain: chainConfigs,
 			},
 		},
 		{
@@ -569,6 +569,16 @@ func MakeEVMExtraArgsV2(gasLimit uint64, allowOOO bool) []byte {
 	return extraArgs
 }
 
+func AddLaneWithDefaultPricesAndFeeQuoterConfig(e deployment.Environment, state CCIPOnChainState, from, to uint64, isTestRouter bool) error {
+	cfg := LaneConfig{
+		SourceSelector:        from,
+		DestSelector:          to,
+		InitialPricesBySource: DefaultInitialPrices,
+		FeeQuoterDestChain:    DefaultFeeQuoterDestChainConfig(),
+	}
+	return addLane(e, state, cfg, isTestRouter)
+}
+
 // AddLanesForAll adds densely connected lanes for all chains in the environment so that each chain
 // is connected to every other chain except itself.
 func AddLanesForAll(e deployment.Environment, state CCIPOnChainState) error {
@@ -592,11 +602,11 @@ func ToPackedFee(execFee, daFee *big.Int) *big.Int {
 
 const (
 	// MockLinkAggregatorDescription This is the description of the MockV3Aggregator.sol contract
-	// nolint:lll
+	//nolint:lll
 	// https://github.com/smartcontractkit/chainlink/blob/a348b98e90527520049c580000a86fb8ceff7fa7/contracts/src/v0.8/tests/MockV3Aggregator.sol#L76-L76
 	MockLinkAggregatorDescription = "v0.8/tests/MockV3Aggregator.sol"
 	// MockWETHAggregatorDescription WETH use description from MockETHUSDAggregator.sol
-	// nolint:lll
+	//nolint:lll
 	// https://github.com/smartcontractkit/chainlink/blob/a348b98e90527520049c580000a86fb8ceff7fa7/contracts/src/v0.8/automation/testhelpers/MockETHUSDAggregator.sol#L19-L19
 	MockWETHAggregatorDescription = "MockETHUSDAggregator"
 )

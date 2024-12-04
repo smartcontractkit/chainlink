@@ -101,7 +101,7 @@ func setupGetCommitGTETimestampTest(ctx context.Context, t *testing.T, finalityD
 
 func emitCommitReports(ctx context.Context, t *testing.T, s *testSetupData, numReports int, tokenA common.Address, onRampAddress common.Address) uint64 {
 	var firstReportTs uint64
-	for i := 0; i < numReports; i++ {
+	for i := uint8(0); int(i) < numReports; i++ {
 		_, err := s.contract.EmitCommitReportAccepted(s.auth, ccip_reader_tester.OffRampCommitReport{
 			PriceUpdates: ccip_reader_tester.InternalPriceUpdates{
 				TokenPriceUpdates: []ccip_reader_tester.InternalTokenPriceUpdate{
@@ -122,7 +122,7 @@ func emitCommitReports(ctx context.Context, t *testing.T, s *testSetupData, numR
 					SourceChainSelector: uint64(chainS1),
 					MinSeqNr:            10,
 					MaxSeqNr:            20,
-					MerkleRoot:          [32]byte{uint8(i) + 1}, //nolint:gosec // this won't overflow
+					MerkleRoot:          [32]byte{i + 1},
 					OnRampAddress:       common.LeftPadBytes(onRampAddress.Bytes(), 32),
 				},
 			},

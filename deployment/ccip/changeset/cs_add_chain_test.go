@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -61,12 +62,15 @@ func TestAddChainInbound(t *testing.T) {
 	newAddresses = deployment.NewMemoryAddressBook()
 	tokenConfig := NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
 
+	chainConfig := make(map[uint64]CCIPOCRParams)
+	for _, chain := range initialDeploy {
+		chainConfig[chain] = DefaultOCRParams(e.FeedChainSel, nil, nil)
+	}
 	err = deployCCIPContracts(e.Env, newAddresses, NewChainsConfig{
-		HomeChainSel:   e.HomeChainSel,
-		FeedChainSel:   e.FeedChainSel,
-		ChainsToDeploy: initialDeploy,
-		TokenConfig:    tokenConfig,
-		OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
+		HomeChainSel:       e.HomeChainSel,
+		FeedChainSel:       e.FeedChainSel,
+		ChainConfigByChain: chainConfig,
+		OCRSecrets:         deployment.XXXGenerateTestOCRSecrets(),
 	})
 	require.NoError(t, err)
 

@@ -25,13 +25,14 @@ func TestAddLanesWithTestRouter(t *testing.T) {
 	selectors := e.Env.AllChainSelectors()
 	chain1, chain2 := selectors[0], selectors[1]
 
-	_, err = AddLanesWithTestRouter(e.Env, AddLanesConfig{
+	_, err = AddLanes(e.Env, AddLanesConfig{
 		LaneConfigs: []LaneConfig{
 			{
 				SourceSelector:        chain1,
 				DestSelector:          chain2,
 				InitialPricesBySource: DefaultInitialPrices,
 				FeeQuoterDestChain:    DefaultFeeQuoterDestChainConfig(),
+				TestRouter:            true,
 			},
 		},
 	})

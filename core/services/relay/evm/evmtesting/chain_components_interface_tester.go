@@ -16,7 +16,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
-	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint common practice to import test mods with .
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -32,6 +31,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+
+	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint:revive // dot-imports
 )
 
 const (
