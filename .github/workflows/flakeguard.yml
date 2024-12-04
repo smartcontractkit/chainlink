@@ -386,7 +386,7 @@ jobs:
         with:
           path: all_tests.md
           name: all-summary.md
-          retention-days: 7
+          retention-days: 90
 
       - name: Upload All Test Results as Artifact
         if: ${{ fromJson(steps.set_test_results.outputs.all_tests_count) > 0 }}
@@ -394,7 +394,7 @@ jobs:
         with:
           path: all_tests.json
           name: all-test-results.json
-          retention-days: 7
+          retention-days: 90
       
       - name: Upload Failed Tests Summary as Artifact
         if: ${{ fromJson(steps.set_test_results.outputs.all_tests_count) > 0 }}
@@ -402,7 +402,7 @@ jobs:
         with:
           path: failed_tests.md
           name: failed-summary.md
-          retention-days: 7
+          retention-days: 90
 
       - name: Upload Failed Test Results as Artifact
         if: ${{ fromJson(steps.set_test_results.outputs.failed_tests_count) > 0 }}
@@ -410,7 +410,7 @@ jobs:
         with:
           path: failed_tests.json
           name: failed-test-results.json
-          retention-days: 7        
+          retention-days: 90        
 
       - name: Upload Failed Test Logs as Artifact
         if: ${{ fromJson(steps.set_test_results.outputs.failed_tests_count) > 0 }}
@@ -418,7 +418,7 @@ jobs:
         with:
           path: failed_test_logs.json
           name: failed-test-logs.json
-          retention-days: 7             
+          retention-days: 90             
 
       - name: Upload All Test Results as Artifact
         if: ${{ fromJson(steps.set_test_results.outputs.all_tests_count) > 0 && env.UPLOAD_ALL_TEST_RESULTS == 'true' }}
@@ -426,7 +426,7 @@ jobs:
         with:
           path: all_tests.json
           name: all-test-results.json
-          retention-days: 7
+          retention-days: 90
 
       - name: Post comment on PR if flaky tests found
         if: ${{ fromJson(steps.set_test_results.outputs.failed_tests_count) > 0 && github.event_name == 'pull_request' }}
