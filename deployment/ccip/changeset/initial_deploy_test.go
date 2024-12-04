@@ -7,6 +7,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
+	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
@@ -15,9 +16,13 @@ import (
 
 func TestInitialDeploy(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	tenv := NewMemoryEnvironmentWithJobsAndContracts(t, lggr, 3, 4, nil)
+	tenv := NewMemoryEnvironmentWithJobsAndContracts(t, lggr, memory.MemoryEnvironmentConfig{
+		Chains:             3,
+		Nodes:              4,
+		Bootstraps:         1,
+		NumOfUsersPerChain: 1,
+	}, nil)
 	e := tenv.Env
-
 	state, err := LoadOnchainState(e)
 	require.NoError(t, err)
 	// Add all lanes
@@ -37,13 +42,21 @@ func TestInitialDeploy(t *testing.T) {
 			require.NoError(t, err)
 			block := latesthdr.Number.Uint64()
 			startBlocks[dest] = &block
-			msgSentEvent := TestSendRequest(t, e, state, src, dest, false, router.ClientEVM2AnyMessage{
-				Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
-				Data:         []byte("hello"),
-				TokenAmounts: nil,
-				FeeToken:     common.HexToAddress("0x0"),
-				ExtraArgs:    nil,
-			})
+			require.GreaterOrEqual(t, len(tenv.Users[src]), 1)
+			msgSentEvent, err := DoSendRequest(t, e, state,
+				WithTestRouter(false),
+				WithSourceChain(src),
+				WithDestChain(dest),
+				WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
+					Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
+					Data:         []byte("hello"),
+					TokenAmounts: nil,
+					FeeToken:     common.HexToAddress("0x0"),
+					ExtraArgs:    nil,
+				}),
+				WithSender(tenv.Users[src][0]),
+			)
+			require.NoError(t, err)
 			expectedSeqNum[SourceDestPair{
 				SourceChainSelector: src,
 				DestChainSelector:   dest,

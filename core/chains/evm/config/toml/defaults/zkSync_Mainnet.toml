@@ -16,3 +16,6 @@ OracleType = 'zksync'
 
 [HeadTracker]
 HistoryDepth = 50
+
+[OCR2.Automation]
+GasLimit = 6_000_000

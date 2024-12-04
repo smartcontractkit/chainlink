@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
+	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 
@@ -29,7 +30,12 @@ func TestActiveCandidate(t *testing.T) {
 	t.Skipf("to be enabled after latest cl-ccip is compatible")
 
 	lggr := logger.TestLogger(t)
-	tenv := NewMemoryEnvironmentWithJobsAndContracts(t, lggr, 3, 5, nil)
+	tenv := NewMemoryEnvironmentWithJobsAndContracts(t, lggr, memory.MemoryEnvironmentConfig{
+		Chains:             3,
+		NumOfUsersPerChain: 1,
+		Nodes:              5,
+		Bootstraps:         1,
+	}, nil)
 	e := tenv.Env
 	state, err := LoadOnchainState(tenv.Env)
 	require.NoError(t, err)
@@ -141,6 +147,7 @@ func TestActiveCandidate(t *testing.T) {
 	ccipOCRParams := DefaultOCRParams(
 		tenv.FeedChainSel,
 		tokenConfig.GetTokenInfo(e.Logger, state.Chains[tenv.FeedChainSel].LinkToken, state.Chains[tenv.FeedChainSel].Weth9),
+		nil,
 	)
 	ocr3ConfigMap, err := internal.BuildOCR3ConfigForCCIPHome(
 		deployment.XXXGenerateTestOCRSecrets(),
@@ -162,7 +169,7 @@ func TestActiveCandidate(t *testing.T) {
 			tenv.HomeChainSel: state.Chains[tenv.HomeChainSel].ProposerMcm,
 		}
 	)
-	setCommitCandidateOp, err := SetCandidateOnExistingDon(
+	setCommitCandidateOp, err := setCandidateOnExistingDon(
 		ocr3ConfigMap[cctypes.PluginTypeCCIPCommit],
 		state.Chains[tenv.HomeChainSel].CapabilityRegistry,
 		state.Chains[tenv.HomeChainSel].CCIPHome,
@@ -179,7 +186,7 @@ func TestActiveCandidate(t *testing.T) {
 	commonchangeset.ExecuteProposal(t, e, setCommitCandidateSigned, state.Chains[tenv.HomeChainSel].Timelock, tenv.HomeChainSel)
 
 	// create the op for the commit plugin as well
-	setExecCandidateOp, err := SetCandidateOnExistingDon(
+	setExecCandidateOp, err := setCandidateOnExistingDon(
 		ocr3ConfigMap[cctypes.PluginTypeCCIPExec],
 		state.Chains[tenv.HomeChainSel].CapabilityRegistry,
 		state.Chains[tenv.HomeChainSel].CCIPHome,
@@ -213,7 +220,7 @@ func TestActiveCandidate(t *testing.T) {
 	oldCandidateDigest, err := state.Chains[tenv.HomeChainSel].CCIPHome.GetCandidateDigest(nil, donID, uint8(cctypes.PluginTypeCCIPExec))
 	require.NoError(t, err)
 
-	promoteOps, err := PromoteAllCandidatesForChainOps(state.Chains[tenv.HomeChainSel].CapabilityRegistry, state.Chains[tenv.HomeChainSel].CCIPHome, tenv.FeedChainSel, nodes.NonBootstraps())
+	promoteOps, err := promoteAllCandidatesForChainOps(state.Chains[tenv.HomeChainSel].CapabilityRegistry, state.Chains[tenv.HomeChainSel].CCIPHome, tenv.FeedChainSel, nodes.NonBootstraps())
 	require.NoError(t, err)
 	promoteProposal, err := proposalutils.BuildProposalFromBatches(timelocksPerChain, proposerMCMSes, []timelock.BatchChainOperation{{
 		ChainIdentifier: mcms.ChainIdentifier(tenv.HomeChainSel),

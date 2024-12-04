@@ -12,6 +12,7 @@ import (
 	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
@@ -153,7 +154,11 @@ func Test_CCIPMessageLimitations(t *testing.T) {
 		require.NotEqual(t, msg.fromChain, msg.toChain, "fromChain and toChain cannot be the same")
 		startBlocks[msg.toChain] = nil
 		msgSentEvent, err := changeset.DoSendRequest(
-			t, testEnv.Env, onChainState, msg.fromChain, msg.toChain, false, msg.msg)
+			t, testEnv.Env, onChainState,
+			changeset.WithSourceChain(msg.fromChain),
+			changeset.WithDestChain(msg.toChain),
+			changeset.WithTestRouter(false),
+			changeset.WithEvm2AnyMessage(msg.msg))
 
 		if msg.expRevert {
 			t.Logf("Message reverted as expected")
