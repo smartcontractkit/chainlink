@@ -117,7 +117,6 @@ func Test_CCIPBatching(t *testing.T) {
 	})
 
 	t.Run("batch data only messages from multiple sources", func(t *testing.T) {
-		t.Skipf("skipping - failing consistently in CI")
 		var (
 			wg           sync.WaitGroup
 			sourceChains = []uint64{sourceChain1, sourceChain2}
@@ -239,7 +238,6 @@ func Test_CCIPBatching(t *testing.T) {
 	})
 
 	t.Run("max evm batch size", func(t *testing.T) {
-		t.Skipf("This test is flaky, skipping until the issue related to fee calculation is resolved")
 		var (
 			sourceChain = sourceChain1
 			otherSender = mustNewTransactor(t, e.Env.Chains[sourceChain])
