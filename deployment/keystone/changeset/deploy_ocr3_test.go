@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability"
 )
 
 func TestDeployOCR3(t *testing.T) {
@@ -60,7 +59,7 @@ func TestConfigureOCR3(t *testing.T) {
 
 	t.Run("no mcms", func(t *testing.T) {
 
-		te := Setup(t, TestConfig{
+		te := SetupTestEnv(t, TestConfig{
 			WFDonConfig:     DonConfig{N: 4},
 			AssetDonConfig:  DonConfig{N: 4},
 			WriterDonConfig: DonConfig{N: 4},
@@ -92,7 +91,7 @@ func TestConfigureOCR3(t *testing.T) {
 	})
 
 	t.Run("mcms", func(t *testing.T) {
-		te := Setup(t, TestConfig{
+		te := SetupTestEnv(t, TestConfig{
 			WFDonConfig:     DonConfig{N: 4},
 			AssetDonConfig:  DonConfig{N: 4},
 			WriterDonConfig: DonConfig{N: 4},
@@ -141,11 +140,6 @@ func TestConfigureOCR3(t *testing.T) {
 				Config:    cfg,
 			},
 		})
-		if err != nil {
-			t.Logf("failed to apply changeset: %v", err)
-			require.NoError(t, kslib.DecodeErr(ocr3_capability.OCR3CapabilityABI, err))
-		}
-
 		require.NoError(t, err)
 	})
 
