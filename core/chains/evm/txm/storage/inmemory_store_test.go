@@ -192,7 +192,7 @@ func TestMarkTransactionsConfirmed(t *testing.T) {
 
 	t.Run("returns 0 if there are no transactions", func(t *testing.T) {
 		m := NewInMemoryStore(logger.Test(t), fromAddress, testutils.FixtureChainID)
-		un, cn, err := m.MarkTransactionsConfirmed(100)
+		un, cn, err := m.MarkConfirmedAndReorgedTransactions(100)
 		require.NoError(t, err)
 		assert.Empty(t, un)
 		assert.Empty(t, cn)
@@ -206,11 +206,27 @@ func TestMarkTransactionsConfirmed(t *testing.T) {
 		ctx2, err := insertUnconfirmedTransaction(m, 1)
 		require.NoError(t, err)
 
-		ctxs, utxs, err := m.MarkTransactionsConfirmed(1)
+		ctxs, utxs, err := m.MarkConfirmedAndReorgedTransactions(1)
 		require.NoError(t, err)
 		assert.Equal(t, types.TxConfirmed, ctx1.State)
 		assert.Equal(t, types.TxUnconfirmed, ctx2.State)
-		assert.Equal(t, ctxs[0], ctx1.ID)
+		assert.Equal(t, ctxs[0].ID, ctx1.ID) // Ensure order
+		assert.Empty(t, utxs)
+	})
+
+	t.Run("state remains the same if nonce didn't change", func(t *testing.T) {
+		m := NewInMemoryStore(logger.Test(t), fromAddress, testutils.FixtureChainID)
+		ctx1, err := insertConfirmedTransaction(m, 0)
+		require.NoError(t, err)
+
+		ctx2, err := insertUnconfirmedTransaction(m, 1)
+		require.NoError(t, err)
+
+		ctxs, utxs, err := m.MarkConfirmedAndReorgedTransactions(1)
+		require.NoError(t, err)
+		assert.Equal(t, types.TxConfirmed, ctx1.State)
+		assert.Equal(t, types.TxUnconfirmed, ctx2.State)
+		assert.Empty(t, ctxs)
 		assert.Empty(t, utxs)
 	})
 
@@ -222,7 +238,7 @@ func TestMarkTransactionsConfirmed(t *testing.T) {
 		ctx2, err := insertConfirmedTransaction(m, 1)
 		require.NoError(t, err)
 
-		ctxs, utxs, err := m.MarkTransactionsConfirmed(1)
+		ctxs, utxs, err := m.MarkConfirmedAndReorgedTransactions(1)
 		require.NoError(t, err)
 		assert.Equal(t, types.TxConfirmed, ctx1.State)
 		assert.Equal(t, types.TxUnconfirmed, ctx2.State)
@@ -237,7 +253,7 @@ func TestMarkTransactionsConfirmed(t *testing.T) {
 			require.NoError(t, err)
 		}
 		assert.Len(t, m.ConfirmedTransactions, maxQueuedTransactions)
-		_, _, err := m.MarkTransactionsConfirmed(maxQueuedTransactions)
+		_, _, err := m.MarkConfirmedAndReorgedTransactions(maxQueuedTransactions)
 		require.NoError(t, err)
 		assert.Len(t, m.ConfirmedTransactions, (maxQueuedTransactions - maxQueuedTransactions/pruneSubset))
 	})
@@ -294,6 +310,7 @@ func TestUpdateTransactionBroadcast(t *testing.T) {
 		require.NoError(t, m.UpdateTransactionBroadcast(0, nonce, hash))
 		assert.False(t, tx.LastBroadcastAt.IsZero())
 		assert.False(t, attempt.BroadcastAt.IsZero())
+		assert.False(t, tx.InitialBroadcastAt.IsZero())
 	})
 }
 
@@ -308,7 +325,7 @@ func TestUpdateUnstartedTransactionWithNonce(t *testing.T) {
 		assert.Nil(t, tx)
 	})
 
-	t.Run("fails if there is already another unstarted transaction with the same nonce", func(t *testing.T) {
+	t.Run("fails if there is already another unconfirmed transaction with the same nonce", func(t *testing.T) {
 		var nonce uint64
 		m := NewInMemoryStore(logger.Test(t), fromAddress, testutils.FixtureChainID)
 		insertUnstartedTransaction(m)
@@ -328,6 +345,7 @@ func TestUpdateUnstartedTransactionWithNonce(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, nonce, *tx.Nonce)
 		assert.Equal(t, types.TxUnconfirmed, tx.State)
+		assert.Empty(t, m.UnstartedTransactions)
 	})
 }
 

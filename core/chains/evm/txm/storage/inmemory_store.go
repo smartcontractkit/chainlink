@@ -15,8 +15,11 @@ import (
 )
 
 const (
+	// maxQueuedTransactions is the max limit of UnstartedTransactions and ConfirmedTransactions structures.
 	maxQueuedTransactions = 250
-	pruneSubset           = 3
+	// pruneSubset controls the subset of confirmed transactions to prune when the structure reaches its max limit.
+	// i.e. if the value is 3 and the limit is 90, 30 transactions will be pruned.
+	pruneSubset = 3
 )
 
 type InMemoryStore struct {
@@ -111,6 +114,10 @@ func (m *InMemoryStore) CreateEmptyUnconfirmedTransaction(nonce uint64, gasLimit
 		return nil, fmt.Errorf("an unconfirmed tx with the same nonce already exists: %v", m.UnconfirmedTransactions[nonce])
 	}
 
+	if _, exists := m.Transactions[nonce]; exists {
+		return nil, fmt.Errorf("a tx with the same nonce already exists: %v", m.Transactions[nonce])
+	}
+
 	m.UnconfirmedTransactions[nonce] = emptyTx
 	m.Transactions[emptyTx.ID] = emptyTx
 
@@ -165,18 +172,18 @@ func (m *InMemoryStore) FetchUnconfirmedTransactionAtNonceWithCount(latestNonce 
 	return
 }
 
-func (m *InMemoryStore) MarkTransactionsConfirmed(latestNonce uint64) ([]uint64, []uint64, error) {
+func (m *InMemoryStore) MarkConfirmedAndReorgedTransactions(latestNonce uint64) ([]*types.Transaction, []uint64, error) {
 	m.Lock()
 	defer m.Unlock()
 
-	var confirmedTransactionIDs []uint64
+	var confirmedTransactions []*types.Transaction
 	for _, tx := range m.UnconfirmedTransactions {
 		if tx.Nonce == nil {
 			return nil, nil, fmt.Errorf("nonce for txID: %v is empty", tx.ID)
 		}
 		if *tx.Nonce < latestNonce {
 			tx.State = types.TxConfirmed
-			confirmedTransactionIDs = append(confirmedTransactionIDs, tx.ID)
+			confirmedTransactions = append(confirmedTransactions, tx.DeepCopy())
 			m.ConfirmedTransactions[*tx.Nonce] = tx
 			delete(m.UnconfirmedTransactions, *tx.Nonce)
 		}
@@ -201,9 +208,9 @@ func (m *InMemoryStore) MarkTransactionsConfirmed(latestNonce uint64) ([]uint64,
 		m.lggr.Debugf("Confirmed transactions map for address: %v reached max limit of: %d. Pruned 1/3 of the oldest confirmed transactions. TxIDs: %v",
 			m.address, maxQueuedTransactions, prunedTxIDs)
 	}
-	sort.Slice(confirmedTransactionIDs, func(i, j int) bool { return confirmedTransactionIDs[i] < confirmedTransactionIDs[j] })
+	sort.Slice(confirmedTransactions, func(i, j int) bool { return confirmedTransactions[i].ID < confirmedTransactions[j].ID })
 	sort.Slice(unconfirmedTransactionIDs, func(i, j int) bool { return unconfirmedTransactionIDs[i] < unconfirmedTransactionIDs[j] })
-	return confirmedTransactionIDs, unconfirmedTransactionIDs, nil
+	return confirmedTransactions, unconfirmedTransactionIDs, nil
 }
 
 func (m *InMemoryStore) MarkUnconfirmedTransactionPurgeable(nonce uint64) error {
@@ -232,6 +239,9 @@ func (m *InMemoryStore) UpdateTransactionBroadcast(txID uint64, txNonce uint64, 
 	// Set the same time for both the tx and its attempt
 	now := time.Now()
 	unconfirmedTx.LastBroadcastAt = now
+	if unconfirmedTx.InitialBroadcastAt.IsZero() {
+		unconfirmedTx.InitialBroadcastAt = now
+	}
 	a, err := unconfirmedTx.FindAttemptByHash(attemptHash)
 	if err != nil {
 		return err
@@ -252,6 +262,10 @@ func (m *InMemoryStore) UpdateUnstartedTransactionWithNonce(nonce uint64) (*type
 
 	if _, exists := m.UnconfirmedTransactions[nonce]; exists {
 		return nil, fmt.Errorf("an unconfirmed tx with the same nonce already exists: %v", m.UnconfirmedTransactions[nonce])
+	}
+
+	if _, exists := m.Transactions[nonce]; exists {
+		return nil, fmt.Errorf("a tx with the same nonce already exists: %v", m.Transactions[nonce])
 	}
 
 	tx := m.UnstartedTransactions[0]
@@ -315,8 +329,8 @@ func (m *InMemoryStore) MarkTxFatal(*types.Transaction) error {
 
 // Orchestrator
 func (m *InMemoryStore) FindTxWithIdempotencyKey(idempotencyKey *string) *types.Transaction {
-	m.Lock()
-	defer m.Unlock()
+	m.RLock()
+	defer m.RUnlock()
 
 	if idempotencyKey != nil {
 		for _, tx := range m.Transactions {

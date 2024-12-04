@@ -218,10 +218,11 @@ func TestBackfillTransactions(t *testing.T) {
 		require.ErrorContains(t, err, "latest nonce fail")
 	})
 
-	t.Run("fails if MarkTransactionsConfirmed fails", func(t *testing.T) {
+	t.Run("fails if MarkConfirmedAndReorgedTransactions fails", func(t *testing.T) {
 		txm := NewTxm(logger.Test(t), testutils.FixtureChainID, client, ab, storage, nil, config, keystore)
 		client.On("NonceAt", mock.Anything, address, mock.Anything).Return(uint64(0), nil).Once()
-		storage.On("MarkTransactionsConfirmed", mock.Anything, mock.Anything, address).Return([]uint64{}, []uint64{}, errors.New("marking transactions confirmed failed")).Once()
+		storage.On("MarkConfirmedAndReorgedTransactions", mock.Anything, mock.Anything, address).
+			Return([]*types.Transaction{}, []uint64{}, errors.New("marking transactions confirmed failed")).Once()
 		bo, err := txm.backfillTransactions(ctx, address)
 		require.Error(t, err)
 		assert.False(t, bo)
