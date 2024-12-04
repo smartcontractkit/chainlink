@@ -235,7 +235,6 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	require.Equal(t, expectedExecutionStates, execStates)
 
 	changeset.WaitForTokenBalances(ctx, t, e.Chains, expectedTokenBalances)
-
 }
 
 func updateFeeQuoters(
