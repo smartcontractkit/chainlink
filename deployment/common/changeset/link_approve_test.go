@@ -19,8 +19,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/link_token"
 )
 
-// TestLinkTransferTimelock tests the LinkTransferTimelock changeset by
-func TestLinkTransferTimelock(t *testing.T) {
+// TestLinkApproveTimelock tests the LinkApproveTimelock changeset by approving some tokens and checking allowances.
+func TestLinkApproveTimelock(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	lggr := logger.Test(t)
@@ -73,8 +73,8 @@ func TestLinkTransferTimelock(t *testing.T) {
 	linkContract, err := link_token.NewLinkToken(common.HexToAddress(linkAddress), chain.Client)
 	require.NoError(t, err)
 
-	// Mint some funds
-	// grant minter permissions
+	// Transfer some funds
+	// Check if DeployerKey has minter permissions
 	tx, err := linkContract.GrantMintRole(chain.DeployerKey, chain.DeployerKey.From)
 	require.NoError(t, err)
 	_, err = deployment.ConfirmIfNoError(chain, tx, err)
@@ -85,12 +85,17 @@ func TestLinkTransferTimelock(t *testing.T) {
 	_, err = deployment.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
 
+	tx, err = linkContract.Mint(chain.DeployerKey, common.HexToAddress(mcmsAddress), big.NewInt(750))
+	require.NoError(t, err)
+	_, err = deployment.ConfirmIfNoError(chain, tx, err)
+	require.NoError(t, err)
+
 	timelockContract, err := gethwrappers.NewRBACTimelock(common.HexToAddress(timelockAddress), chain.Client)
 	require.NoError(t, err)
 	timelocks := map[uint64]*gethwrappers.RBACTimelock{
 		chainSelector: timelockContract,
 	}
-	// Apply the proposal for approving token transfers with 5k allowance
+	// Apply the changest
 	_, err = changeset.ApplyChangesets(t, env, timelocks, []changeset.ChangesetApplication{
 		// the changeset produces proposals, ApplyChangesets will sign & execute them.
 		// in practice, signing and executing are separated processes.
@@ -112,42 +117,10 @@ func TestLinkTransferTimelock(t *testing.T) {
 			},
 		},
 	})
-
-	// Apply the changeset
-	_, err = changeset.ApplyChangesets(t, env, timelocks, []changeset.ChangesetApplication{
-		// the changeset produces proposals, ApplyChangesets will sign & execute them.
-		// in practice, signing and executing are separated processes.
-		{
-			Changeset: changeset.WrapChangeSet(changeset.LinkTransferTimelock),
-			Config: &changeset.LinkTransferTimelockRequest{
-				Transfers: []changeset.LinkTransfer{
-					{
-						To:    chain.DeployerKey.From,
-						Value: *big.NewInt(500),
-					},
-				},
-				ChainSelector:    chainSelector,
-				LinkTokenAddress: common.HexToAddress(linkAddress),
-				TimelockAddress:  common.HexToAddress(timelockAddress),
-				MCMSAddress:      common.HexToAddress(mcmsAddress),
-				ValidUntil:       4131638958,
-				MinDelay:         0,
-				OverrideRoot:     true,
-				StartingOpCount:  1, // we need to set this to 1 to account for the previous mcsm proposal with 1 op.
-			},
-		},
-	})
 	require.NoError(t, err)
 
-	// Check new balances
-	endBalance, err := linkContract.BalanceOf(&bind.CallOpts{Context: ctx}, chain.DeployerKey.From)
+	// Check allowances
+	allowance, err := linkContract.Allowance(&bind.CallOpts{Context: ctx}, common.HexToAddress(timelockAddress), chain.DeployerKey.From)
 	require.NoError(t, err)
-	expectedBalance := big.NewInt(500)
-	require.Equal(t, expectedBalance, endBalance)
-
-	// check timelock balance
-	endBalance, err = linkContract.BalanceOf(&bind.CallOpts{Context: ctx}, common.HexToAddress(timelockAddress))
-	require.NoError(t, err)
-	expectedBalance = big.NewInt(250)
-	require.Equal(t, expectedBalance, endBalance)
+	require.Equal(t, big.NewInt(5000), allowance)
 }
