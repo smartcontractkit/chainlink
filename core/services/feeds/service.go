@@ -128,6 +128,7 @@ type service struct {
 	p2pKeyStore         keystore.P2P
 	ocr1KeyStore        keystore.OCR
 	ocr2KeyStore        keystore.OCR2
+	workflowKeyStore    keystore.Workflow
 	jobSpawner          job.Spawner
 	gCfg                GeneralConfig
 	featCfg             FeatureConfig
@@ -170,6 +171,7 @@ func NewService(
 		csaKeyStore:         keyStore.CSA(),
 		ocr1KeyStore:        keyStore.OCR(),
 		ocr2KeyStore:        keyStore.OCR2(),
+		workflowKeyStore:    keyStore.Workflow(),
 		gCfg:                gCfg,
 		featCfg:             fCfg,
 		insecureCfg:         insecureCfg,
@@ -277,9 +279,11 @@ func (s *service) SyncNodeInfo(ctx context.Context, id int64) error {
 		cfgMsgs = append(cfgMsgs, cfgMsg)
 	}
 
+	workflowKey := s.getWorkflowPublicKey()
 	if _, err = fmsClient.UpdateNode(ctx, &pb.UpdateNodeRequest{
 		Version:      s.version,
 		ChainConfigs: cfgMsgs,
+		WorkflowKey:  &workflowKey,
 	}); err != nil {
 		return err
 	}
@@ -525,12 +529,18 @@ func (s *service) DeleteJob(ctx context.Context, args *DeleteJobArgs) (int64, er
 		return proposal.ID, nil
 	}
 	if job.WorkflowSpecID != nil { // this is a Workflow job
-		specID := int64(*job.WorkflowSpecID)
-		if err := s.CancelSpec(ctx, proposal.ID); err != nil {
-			logger.Errorw("Failed to auto-cancel workflow spec", "id", specID, "err", err, "name", job.Name)
-			return 0, fmt.Errorf("failed to auto-cancel workflow spec %d: %w", specID, err)
+		jobSpecID := int64(*job.WorkflowSpecID)
+		jpSpec, err2 := s.orm.GetApprovedSpec(ctx, proposal.ID)
+		if err2 != nil {
+			logger.Errorw("GetApprovedSpec failed - no approved specs to cancel?", "id", proposal.ID, "err", err2, "name", job.Name)
+			// return success if there are no approved specs to cancel
+			return proposal.ID, nil
 		}
-		logger.Infow("Successfully auto-cancelled a workflow spec", "id", specID)
+		if err := s.CancelSpec(ctx, jpSpec.ID); err != nil {
+			logger.Errorw("Failed to auto-cancel workflow spec", "jobProposalID", proposal.ID, "jobProposalSpecID", jpSpec.ID, "jobSpecID", jobSpecID, "err", err, "name", job.Name)
+			return 0, fmt.Errorf("failed to auto-cancel workflow spec (job proposal spec ID: %d): %w", jpSpec.ID, err)
+		}
+		logger.Infow("Successfully auto-cancelled a workflow spec", "jobProposalID", proposal.ID, "jobProposalSpecID", jpSpec.ID, "jobSpecID", jobSpecID, "name", job.Name)
 	}
 
 	return proposal.ID, nil
@@ -1171,6 +1181,20 @@ func (s *service) getCSAPrivateKey() (privkey []byte, err error) {
 		return privkey, errors.New("CSA key does not exist")
 	}
 	return keys[0].Raw(), nil
+}
+
+// getWorkflowPublicKey retrieves the server's Workflow public key.
+// Since there will be at most one key, it returns the first key found.
+// If an error occurs or no keys are found, it returns blank.
+func (s *service) getWorkflowPublicKey() string {
+	keys, err := s.workflowKeyStore.GetAll()
+	if err != nil {
+		return ""
+	}
+	if len(keys) < 1 {
+		return ""
+	}
+	return keys[0].PublicKeyString()
 }
 
 // observeJobProposalCounts is a helper method that queries the repository for the count of

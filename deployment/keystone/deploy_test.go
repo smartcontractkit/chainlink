@@ -13,6 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/clo"
 	"github.com/smartcontractkit/chainlink/deployment/environment/clo/models"
@@ -113,7 +114,7 @@ func TestDeploy(t *testing.T) {
 	}
 
 	// explicitly deploy the contracts
-	cs, err := keystone.DeployContracts(lggr, &env, sepoliaChainSel)
+	cs, err := keystone.DeployContracts(&env, sepoliaChainSel)
 	require.NoError(t, err)
 	env.ExistingAddresses = cs.AddressBook
 	deployReq := keystone.ConfigureContractsRequest{
@@ -311,7 +312,7 @@ func TestDeployCLO(t *testing.T) {
 
 	ctx := tests.Context(t)
 	// explicitly deploy the contracts
-	cs, err := keystone.DeployContracts(lggr, env, registryChainSel)
+	cs, err := keystone.DeployContracts(env, registryChainSel)
 	require.NoError(t, err)
 	// Deploy successful these are now part of our env.
 	require.NoError(t, env.ExistingAddresses.Merge(cs.AddressBook))

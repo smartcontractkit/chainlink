@@ -119,7 +119,6 @@ func (t *telemeter) collectV3PremiumLegacyTelemetry(d TelemetryObservation) {
 			askPrice = v.Ask.IntPart()
 			ask = v.Ask.String()
 		}
-		epoch, round := evm.SeqNrToEpochAndRound(d.opts.OutCtx().SeqNr)
 		tea := &telem.EnhancedEAMercury{
 			DataSource:                      eaTelem.DataSource,
 			DpBenchmarkPrice:                eaTelem.DpBenchmarkPrice,
@@ -142,11 +141,16 @@ func (t *telemeter) collectV3PremiumLegacyTelemetry(d TelemetryObservation) {
 			IsLinkFeed:                      false,
 			IsNativeFeed:                    false,
 			ConfigDigest:                    d.opts.ConfigDigest().Hex(),
-			Round:                           int64(round),
-			Epoch:                           int64(epoch),
 			AssetSymbol:                     eaTelem.AssetSymbol,
 			Version:                         uint32(1000 + mercuryutils.REPORT_V3), // add 1000 to distinguish between legacy feeds, this can be changed if necessary
 			DonId:                           t.donID,
+		}
+		epoch, round, err := evm.SeqNrToEpochAndRound(d.opts.OutCtx().SeqNr)
+		if err != nil {
+			t.eng.SugaredLogger.Warnw("Failed to convert sequence number to epoch and round", "err", err)
+		} else {
+			tea.Round = int64(round)
+			tea.Epoch = int64(epoch)
 		}
 
 		bytes, err := proto.Marshal(tea)

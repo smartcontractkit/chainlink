@@ -146,23 +146,23 @@ func (b bindingClientTester) addDefaultBindings(t *testing.T) {
 		if chainReaderTester == nil {
 			chainReaderTester = &bindings.ChainReaderTester{
 				BoundContract: binding,
-				ChainWriter:   b.bindingsMapping.chainWriterProxy.ChainWriter,
+				ChainWriter:   b.bindingsMapping.chainWriterProxy.ContractWriter,
 			}
 			b.bindingsMapping.chainReaderTesters[binding.Address] = chainReaderTester
 		} else {
-			chainReaderTester.ChainWriter = b.bindingsMapping.chainWriterProxy.ChainWriter
+			chainReaderTester.ChainWriter = b.bindingsMapping.chainWriterProxy.ContractWriter
 		}
 	}
 }
 
-func (b bindingClientTester) GetChainWriter(t *testing.T) commontypes.ChainWriter {
-	chainWriter := b.ChainComponentsInterfaceTester.GetChainWriter(t)
-	if b.bindingsMapping.chainWriterProxy.ChainWriter == nil {
+func (b bindingClientTester) GetChainWriter(t *testing.T) commontypes.ContractWriter {
+	chainWriter := b.ChainComponentsInterfaceTester.GetContractWriter(t)
+	if b.bindingsMapping.chainWriterProxy.ContractWriter == nil {
 		b.addDefaultBindings(t)
 		for _, tester := range b.bindingsMapping.chainReaderTesters {
 			tester.ChainWriter = chainWriter
 		}
-		b.bindingsMapping.chainWriterProxy.ChainWriter = chainWriter
+		b.bindingsMapping.chainWriterProxy.ContractWriter = chainWriter
 	}
 	return b.bindingsMapping.chainWriterProxy
 }
@@ -182,7 +182,7 @@ type bindingContractReaderProxy struct {
 }
 
 type bindingChainWriterProxy struct {
-	commontypes.ChainWriter
+	commontypes.ContractWriter
 	bm *bindingsMapping
 }
 
@@ -192,7 +192,7 @@ func (b bindingContractReaderProxy) Bind(ctx context.Context, boundContracts []c
 		b.bm.chainReaderTesters[updatedBinding.Address] = &bindings.ChainReaderTester{
 			BoundContract:  updatedBinding,
 			ContractReader: b.ContractReader,
-			ChainWriter:    b.bm.chainWriterProxy.ChainWriter,
+			ChainWriter:    b.bm.chainWriterProxy.ContractWriter,
 		}
 	}
 	return b.ContractReader.Bind(ctx, updatedBindings)
@@ -258,7 +258,7 @@ func (b bindingChainWriterProxy) SubmitTransaction(ctx context.Context, contract
 }
 
 func (b *bindingChainWriterProxy) GetTransactionStatus(ctx context.Context, transactionID string) (commontypes.TransactionStatus, error) {
-	return b.ChainWriter.GetTransactionStatus(ctx, transactionID)
+	return b.ContractWriter.GetTransactionStatus(ctx, transactionID)
 }
 
 func removeAddressFromReadIdentifier(s string) string {

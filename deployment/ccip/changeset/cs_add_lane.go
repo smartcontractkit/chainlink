@@ -10,14 +10,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
-
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 )
 
-var _ deployment.ChangeSet[AddLanesConfig] = AddLanesWithTestRouter
+var _ deployment.ChangeSet[AddLanesConfig] = AddLanes
 
 type InitialPrices struct {
 	LinkPrice *big.Int // USD to the power of 18 (e18) per LINK
@@ -43,6 +42,7 @@ type LaneConfig struct {
 	DestSelector          uint64
 	InitialPricesBySource InitialPrices
 	FeeQuoterDestChain    fee_quoter.FeeQuoterDestChainConfig
+	TestRouter            bool
 }
 
 type AddLanesConfig struct {
@@ -65,12 +65,12 @@ func (c AddLanesConfig) Validate() error {
 	return nil
 }
 
-// AddLanesWithTestRouter adds lanes between chains using the test router.
-// AddLanesWithTestRouter is run while the contracts are still owned by the deployer.
+// AddLanes adds lanes between chains.
+// AddLanes is run while the contracts are still owned by the deployer.
 // This is useful to test the initial deployment to enable lanes between chains.
-// Once the testrouter is enabled, the lanes can be used to send messages between chains with testrouter.
-// On successful verification with testrouter, the lanes can be enabled with the main router with different AddLane ChangeSet.
-func AddLanesWithTestRouter(e deployment.Environment, cfg AddLanesConfig) (deployment.ChangesetOutput, error) {
+// If the testrouter is enabled, the lanes can be used to send messages between chains with testrouter.
+// On successful verification with testrouter, the lanes can be enabled with the main router with different addLane ChangeSet.
+func AddLanes(e deployment.Environment, cfg AddLanesConfig) (deployment.ChangesetOutput, error) {
 	if err := cfg.Validate(); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("invalid AddLanesConfig: %w", err)
 	}
@@ -100,24 +100,14 @@ func addLanes(e deployment.Environment, cfg AddLanesConfig) error {
 	}
 	for _, laneCfg := range cfg.LaneConfigs {
 		e.Logger.Infow("Enabling lane with test router", "from", laneCfg.SourceSelector, "to", laneCfg.DestSelector)
-		if err := AddLane(e, state, laneCfg, true); err != nil {
+		if err := addLane(e, state, laneCfg, laneCfg.TestRouter); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func AddLaneWithDefaultPricesAndFeeQuoterConfig(e deployment.Environment, state CCIPOnChainState, from, to uint64, isTestRouter bool) error {
-	cfg := LaneConfig{
-		SourceSelector:        from,
-		DestSelector:          to,
-		InitialPricesBySource: DefaultInitialPrices,
-		FeeQuoterDestChain:    DefaultFeeQuoterDestChainConfig(),
-	}
-	return AddLane(e, state, cfg, isTestRouter)
-}
-
-func AddLane(e deployment.Environment, state CCIPOnChainState, config LaneConfig, isTestRouter bool) error {
+func addLane(e deployment.Environment, state CCIPOnChainState, config LaneConfig, isTestRouter bool) error {
 	// TODO: Batch
 	var fromRouter *router.Router
 	var toRouter *router.Router
