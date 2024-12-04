@@ -1153,7 +1153,7 @@ func CCIPDefaultTestSetUp(
 			// if it's a new USDC deployment, set up mock server for attestation,
 			// we need to set it only once for all the lanes as the attestation path uses regex to match the path for
 			// all messages across all lanes
-			err = actions.SetMockServerWithUSDCAttestation(killgrave, setUpArgs.Env.MockServer)
+			err = actions.SetMockServerWithUSDCAttestation(killgrave, setUpArgs.Env.MockServer, false)
 			require.NoError(t, err, "failed to set up mock server for attestation")
 		}
 	}

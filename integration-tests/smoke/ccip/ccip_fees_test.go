@@ -11,8 +11,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/weth9_wrapper"
@@ -99,7 +101,11 @@ func setupTokens(
 
 func Test_CCIPFees(t *testing.T) {
 	t.Parallel()
-	tenv := changeset.NewMemoryEnvironmentWithJobsAndContracts(t, logger.TestLogger(t), 2, 4, nil)
+	tenv := changeset.NewMemoryEnvironmentWithJobsAndContracts(t, logger.TestLogger(t), memory.MemoryEnvironmentConfig{
+		Chains:     2,
+		Nodes:      4,
+		Bootstraps: 1,
+	}, nil)
 	e := tenv.Env
 
 	allChains := tenv.Env.AllChainSelectors()
@@ -220,9 +226,13 @@ func Test_CCIPFees(t *testing.T) {
 		_, _, err = changeset.CCIPSendRequest(
 			e,
 			state,
-			sourceChain, destChain,
-			true,
-			ccipMessage,
+			&changeset.CCIPSendReqConfig{
+				Sender:         e.Chains[sourceChain].DeployerKey,
+				IsTestRouter:   true,
+				SourceChain:    sourceChain,
+				DestChain:      destChain,
+				Evm2AnyMessage: ccipMessage,
+			},
 		)
 		require.Error(t, err)
 	})

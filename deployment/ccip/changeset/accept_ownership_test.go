@@ -1,25 +1,31 @@
 package changeset
 
 import (
-	"math/big"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	"github.com/smartcontractkit/chainlink/deployment"
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
+
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func Test_NewAcceptOwnershipChangeset(t *testing.T) {
-	e := NewMemoryEnvironmentWithJobs(t, logger.TestLogger(t), 2, 4)
+	e := NewMemoryEnvironmentWithJobsAndContracts(t, logger.TestLogger(t), memory.MemoryEnvironmentConfig{
+		Chains:             2,
+		NumOfUsersPerChain: 1,
+		Nodes:              4,
+		Bootstraps:         1,
+	}, &TestConfigs{})
 	state, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
@@ -27,39 +33,10 @@ func Test_NewAcceptOwnershipChangeset(t *testing.T) {
 	source := allChains[0]
 	dest := allChains[1]
 
-	newAddresses := deployment.NewMemoryAddressBook()
-	err = deployPrerequisiteChainContracts(e.Env, newAddresses, allChains, nil)
-	require.NoError(t, err)
-	require.NoError(t, e.Env.ExistingAddresses.Merge(newAddresses))
-
-	mcmConfig := commontypes.MCMSWithTimelockConfig{
-		Canceller:         commonchangeset.SingleGroupMCMS(t),
-		Bypasser:          commonchangeset.SingleGroupMCMS(t),
-		Proposer:          commonchangeset.SingleGroupMCMS(t),
-		TimelockExecutors: e.Env.AllDeployerKeys(),
-		TimelockMinDelay:  big.NewInt(0),
+	timelocks := map[uint64]*gethwrappers.RBACTimelock{
+		source: state.Chains[source].Timelock,
+		dest:   state.Chains[dest].Timelock,
 	}
-	out, err := commonchangeset.DeployMCMSWithTimelock(e.Env, map[uint64]commontypes.MCMSWithTimelockConfig{
-		source: mcmConfig,
-		dest:   mcmConfig,
-	})
-	require.NoError(t, err)
-	require.NoError(t, e.Env.ExistingAddresses.Merge(out.AddressBook))
-	newAddresses = deployment.NewMemoryAddressBook()
-	tokenConfig := NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
-	ocrParams := make(map[uint64]CCIPOCRParams)
-	for _, chain := range allChains {
-		ocrParams[chain] = DefaultOCRParams(e.FeedChainSel, nil)
-	}
-	err = deployCCIPContracts(e.Env, newAddresses, NewChainsConfig{
-		HomeChainSel:   e.HomeChainSel,
-		FeedChainSel:   e.FeedChainSel,
-		ChainsToDeploy: allChains,
-		TokenConfig:    tokenConfig,
-		OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
-		OCRParams:      ocrParams,
-	})
-	require.NoError(t, err)
 
 	// at this point we have the initial deploys done, now we need to transfer ownership
 	// to the timelock contract
@@ -67,10 +44,7 @@ func Test_NewAcceptOwnershipChangeset(t *testing.T) {
 	require.NoError(t, err)
 
 	// compose the transfer ownership and accept ownership changesets
-	_, err = commonchangeset.ApplyChangesets(t, e.Env, map[uint64]*gethwrappers.RBACTimelock{
-		source: state.Chains[source].Timelock,
-		dest:   state.Chains[dest].Timelock,
-	}, []commonchangeset.ChangesetApplication{
+	_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocks, []commonchangeset.ChangesetApplication{
 		// note this doesn't have proposals.
 		{
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.NewTransferOwnershipChangeset),
@@ -120,8 +94,8 @@ func genTestTransferOwnershipConfig(
 	)
 
 	return commonchangeset.TransferOwnershipConfig{
-		TimelocksPerChain: timelocksPerChain,
-		Contracts:         contracts,
+		OwnersPerChain: timelocksPerChain,
+		Contracts:      contracts,
 	}
 }
 
@@ -158,10 +132,10 @@ func genTestAcceptOwnershipConfig(
 	)
 
 	return commonchangeset.AcceptOwnershipConfig{
-		TimelocksPerChain: timelocksPerChain,
-		ProposerMCMSes:    proposerMCMses,
-		Contracts:         contracts,
-		MinDelay:          time.Duration(0),
+		OwnersPerChain: timelocksPerChain,
+		ProposerMCMSes: proposerMCMses,
+		Contracts:      contracts,
+		MinDelay:       time.Duration(0),
 	}
 }
 

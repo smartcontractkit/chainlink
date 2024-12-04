@@ -6,9 +6,11 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
+	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -32,7 +34,12 @@ import (
 
 func TestAddChainInbound(t *testing.T) {
 	// 4 chains where the 4th is added after initial deployment.
-	e := NewMemoryEnvironmentWithJobs(t, logger.TestLogger(t), 4, 4)
+	e := NewMemoryEnvironmentWithJobs(t, logger.TestLogger(t), memory.MemoryEnvironmentConfig{
+		Chains:             4,
+		NumOfUsersPerChain: 1,
+		Nodes:              4,
+		Bootstraps:         1,
+	})
 	state, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	// Take first non-home chain as the new chain.
@@ -61,12 +68,15 @@ func TestAddChainInbound(t *testing.T) {
 	newAddresses = deployment.NewMemoryAddressBook()
 	tokenConfig := NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
 
+	chainConfig := make(map[uint64]CCIPOCRParams)
+	for _, chain := range initialDeploy {
+		chainConfig[chain] = DefaultOCRParams(e.FeedChainSel, nil, nil)
+	}
 	err = deployCCIPContracts(e.Env, newAddresses, NewChainsConfig{
-		HomeChainSel:   e.HomeChainSel,
-		FeedChainSel:   e.FeedChainSel,
-		ChainsToDeploy: initialDeploy,
-		TokenConfig:    tokenConfig,
-		OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
+		HomeChainSel:       e.HomeChainSel,
+		FeedChainSel:       e.FeedChainSel,
+		ChainConfigByChain: chainConfig,
+		OCRSecrets:         deployment.XXXGenerateTestOCRSecrets(),
 	})
 	require.NoError(t, err)
 
@@ -236,7 +246,7 @@ func TestAddChainInbound(t *testing.T) {
 		commonutils.JustError(ConfirmCommitWithExpectedSeqNumRange(t, e.Env.Chains[initialDeploy[0]], e.Env.Chains[newChain], state.Chains[newChain].OffRamp, &startBlock, cciptypes.SeqNumRange{
 			cciptypes.SeqNum(1),
 			cciptypes.SeqNum(msgSentEvent.SequenceNumber),
-		})))
+		}, true)))
 	require.NoError(t,
 		commonutils.JustError(
 			ConfirmExecWithSeqNrs(

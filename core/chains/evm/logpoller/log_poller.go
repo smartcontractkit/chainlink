@@ -8,7 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"math/rand"
+	"math/rand/v2"
 	"sort"
 	"strings"
 	"sync"
@@ -687,7 +687,7 @@ func (lp *logPoller) backgroundWorkerRun() {
 
 	// Start initial prune of unmatched logs after 5-15 successful expired log prunes, so that not all chains start
 	// around the same time. After that, every 20 successful expired log prunes.
-	successfulExpiredLogPrunes := 5 + rand.Intn(10) //nolint:gosec
+	successfulExpiredLogPrunes := 5 + rand.IntN(10) //nolint:gosec // G404
 
 	for {
 		select {
