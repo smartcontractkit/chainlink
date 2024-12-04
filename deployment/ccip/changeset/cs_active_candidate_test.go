@@ -101,12 +101,6 @@ func TestActiveCandidate(t *testing.T) {
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.TransferToMCMSWithTimelock),
 			Config:    genTestTransferOwnershipConfig(tenv, allChains, state),
 		},
-		// this has proposals, ApplyChangesets will sign & execute them.
-		// in practice, signing and executing are separated processes.
-		{
-			Changeset: commonchangeset.WrapChangeSet(commonchangeset.NewAcceptOwnershipChangeset),
-			Config:    genTestAcceptOwnershipConfig(tenv, allChains, state),
-		},
 	})
 	require.NoError(t, err)
 	// Apply the accept ownership proposal to all the chains.

@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
+	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 
@@ -30,7 +31,7 @@ type Ownable interface {
 	Address() common.Address
 }
 
-func loadOwnableContract(addr common.Address, client bind.ContractBackend) (common.Address, Ownable, error) {
+func LoadOwnableContract(addr common.Address, client bind.ContractBackend) (common.Address, Ownable, error) {
 	// Just using the ownership interface from here.
 	c, err := burn_mint_erc677.NewBurnMintERC677(addr, client)
 	if err != nil {
@@ -51,7 +52,7 @@ func (t TransferToMCMSWithTimelockConfig) Validate(e deployment.Environment) err
 			if err := deployment.SearchAddressBookForAddress(e.ExistingAddresses, chainSelector, contract.String()); err != nil {
 				return err
 			}
-			owner, _, err := loadOwnableContract(contract, e.Chains[chainSelector].Client)
+			owner, _, err := LoadOwnableContract(contract, e.Chains[chainSelector].Client)
 			if err != nil {
 				return fmt.Errorf("failed to load ownable: %v", err)
 			}
@@ -88,19 +89,23 @@ func TransferToMCMSWithTimelock(
 	}
 	var batches []timelock.BatchChainOperation
 	timelocksByChain := make(map[uint64]common.Address)
-	proposersByChain := make(map[uint64]common.Address)
+	proposersByChain := make(map[uint64]*owner_helpers.ManyChainMultiSig)
 	for chainSelector, contracts := range cfg.TransfersByChain {
 		// Already validated that the timelock/proposer exists.
 		timelockAddr, _ := deployment.SearchAddressBook(e.ExistingAddresses, chainSelector, types.RBACTimelock)
 		proposerAddr, _ := deployment.SearchAddressBook(e.ExistingAddresses, chainSelector, types.ProposerManyChainMultisig)
 		timelocksByChain[chainSelector] = common.HexToAddress(timelockAddr)
-		proposersByChain[chainSelector] = common.HexToAddress(proposerAddr)
+		proposer, err := owner_helpers.NewManyChainMultiSig(common.HexToAddress(proposerAddr), e.Chains[chainSelector].Client)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to create proposer mcms: %v", err)
+		}
+		proposersByChain[chainSelector] = proposer
 
 		var ops []mcms.Operation
 		for _, contract := range contracts {
 			// Just using the ownership interface.
 			// Already validated is ownable.
-			owner, c, _ := loadOwnableContract(contract, e.Chains[chainSelector].Client)
+			owner, c, _ := LoadOwnableContract(contract, e.Chains[chainSelector].Client)
 			if owner.String() == timelockAddr {
 				// Already owned by timelock.
 				e.Logger.Infof("contract %s already owned by timelock", contract)
@@ -127,7 +132,7 @@ func TransferToMCMSWithTimelock(
 		})
 	}
 	proposal, err := proposalutils.BuildProposalFromBatches(
-		timelocksByChain, nil, batches, "Transfer ownership to timelock", cfg.MinDelay)
+		timelocksByChain, proposersByChain, batches, "Transfer ownership to timelock", cfg.MinDelay)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal from batch: %w, batches: %+v", err, batches)
 	}

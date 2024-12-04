@@ -2,7 +2,6 @@ package changeset
 
 import (
 	"fmt"
-	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -16,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_admin_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/weth9"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/multicall3"
 )
 
@@ -126,7 +124,6 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 	lggr := e.Logger
 	chainState, chainExists := state.Chains[chain.Selector]
 	var weth9Contract *weth9.WETH9
-	var linkTokenContract *burn_mint_erc677.BurnMintERC677
 	var tokenAdminReg *token_admin_registry.TokenAdminRegistry
 	var registryModule *registry_module_owner_custom.RegistryModuleOwnerCustom
 	var rmnProxy *rmn_proxy_contract.RMNProxyContract
@@ -134,7 +131,6 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 	var mc3 *multicall3.Multicall3
 	if chainExists {
 		weth9Contract = chainState.Weth9
-		linkTokenContract = chainState.LinkToken
 		tokenAdminReg = chainState.TokenAdminRegistry
 		registryModule = chainState.RegistryModule
 		rmnProxy = chainState.RMNProxyExisting
@@ -256,29 +252,6 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 		weth9Contract = weth.Contract
 	} else {
 		lggr.Infow("weth9 already deployed", "addr", weth9Contract.Address)
-	}
-	if linkTokenContract == nil {
-		linkToken, err := deployment.DeployContract(lggr, chain, ab,
-			func(chain deployment.Chain) deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
-				linkTokenAddr, tx2, linkToken, err2 := burn_mint_erc677.DeployBurnMintERC677(
-					chain.DeployerKey,
-					chain.Client,
-					"Link Token",
-					"LINK",
-					uint8(18),
-					big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
-				)
-				return deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
-					linkTokenAddr, linkToken, tx2, deployment.NewTypeAndVersion(LinkToken, deployment.Version1_0_0), err2,
-				}
-			})
-		if err != nil {
-			lggr.Errorw("Failed to deploy linkToken", "err", err)
-			return err
-		}
-		lggr.Infow("deployed linkToken", "addr", linkToken.Address)
-	} else {
-		lggr.Infow("linkToken already deployed", "addr", linkTokenContract.Address)
 	}
 	// if router is not already deployed, we deploy it
 	if r == nil {

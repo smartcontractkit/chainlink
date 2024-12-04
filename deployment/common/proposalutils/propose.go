@@ -34,7 +34,7 @@ func buildProposalMetadata(
 	return metaDataPerChain, nil
 }
 
-// Given batches of operations, we build the metadata and timelock addresses of those opartions
+// BuildProposalFromBatches Given batches of operations, we build the metadata and timelock addresses of those opartions
 // We then return a proposal that can be executed and signed
 func BuildProposalFromBatches(
 	timelocksPerChain map[uint64]common.Address,

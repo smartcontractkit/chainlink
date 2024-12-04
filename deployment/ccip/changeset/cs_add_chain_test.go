@@ -141,12 +141,6 @@ func TestAddChainInbound(t *testing.T) {
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.TransferToMCMSWithTimelock),
 			Config:    genTestTransferOwnershipConfig(e, initialDeploy, state),
 		},
-		// this has proposals, ApplyChangesets will sign & execute them.
-		// in practice, signing and executing are separated processes.
-		{
-			Changeset: commonchangeset.WrapChangeSet(commonchangeset.NewAcceptOwnershipChangeset),
-			Config:    genTestAcceptOwnershipConfig(e, initialDeploy, state),
-		},
 	})
 	require.NoError(t, err)
 
