@@ -94,6 +94,7 @@ func generateMemoryChain(t *testing.T, inputs map[uint64]EVMChain) map[uint64]de
 					return receipt.BlockNumber.Uint64(), nil
 				}
 			},
+			Users: chain.Users,
 		}
 	}
 	return chains

@@ -9,20 +9,15 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	gethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
-	chainsel "github.com/smartcontractkit/chain-selectors"
-
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
+	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
@@ -32,13 +27,14 @@ import (
 
 func Test_CCIPBatching(t *testing.T) {
 	// Setup 3 chains, with 2 lanes going to the dest.
-	lggr := logger.TestLogger(t)
 	ctx := changeset.Context(t)
-	// Will load 3 chains when specified by the overrides.toml or env vars (E2E_TEST_SELECTED_NETWORK).
-	// See e2e-tests.yml.
-	e, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr, &changeset.TestConfigs{
-		IsUSDC:       false,
-		IsMultiCall3: true, // needed for this test
+	e := changeset.NewMemoryEnvironmentWithJobsAndContracts(t, logger.TestLogger(t), memory.MemoryEnvironmentConfig{
+		Chains:             3,
+		Nodes:              4,
+		Bootstraps:         1,
+		NumOfUsersPerChain: 2,
+	}, &changeset.TestConfigs{
+		IsMultiCall3: true,
 	})
 
 	state, err := changeset.LoadOnchainState(e.Env)
@@ -117,7 +113,6 @@ func Test_CCIPBatching(t *testing.T) {
 	})
 
 	t.Run("batch data only messages from multiple sources", func(t *testing.T) {
-		t.Skipf("skipping - failing consistently in CI")
 		var (
 			wg           sync.WaitGroup
 			sourceChains = []uint64{sourceChain1, sourceChain2}
@@ -241,22 +236,11 @@ func Test_CCIPBatching(t *testing.T) {
 	t.Run("max evm batch size", func(t *testing.T) {
 		var (
 			sourceChain = sourceChain1
-			otherSender = mustNewTransactor(t, e.Env.Chains[sourceChain])
 			transactors = []*bind.TransactOpts{
 				e.Env.Chains[sourceChain].DeployerKey,
-				otherSender,
+				e.Env.Chains[sourceChain].Users[0],
 			}
 			errs = make(chan error, len(transactors))
-		)
-
-		// transfer some eth to the other sender from the DeployerKey
-		sendEth(
-			ctx,
-			t,
-			e.Env.Chains[sourceChain],
-			e.Env.Chains[sourceChain].DeployerKey,
-			otherSender.From,
-			assets.Ether(100_000).ToInt(),
 		)
 
 		for _, transactor := range transactors {
@@ -369,18 +353,26 @@ func sendMessagesAsync(
 	out chan<- error,
 ) {
 	defer wg.Done()
-	err := sendMessages(
-		ctx,
-		t,
-		e.Env.Chains[sourceChainSelector],
-		e.Env.Chains[sourceChainSelector].DeployerKey,
-		state.Chains[sourceChainSelector].OnRamp,
-		state.Chains[sourceChainSelector].Router,
-		state.Chains[sourceChainSelector].Multicall3,
-		destChainSelector,
-		numMessages,
-		common.LeftPadBytes(state.Chains[destChainSelector].Receiver.Address().Bytes(), 32),
-	)
+	var err error
+	for i := 0; i < 3; i++ {
+		err = sendMessages(
+			ctx,
+			t,
+			e.Env.Chains[sourceChainSelector],
+			e.Env.Chains[sourceChainSelector].DeployerKey,
+			state.Chains[sourceChainSelector].OnRamp,
+			state.Chains[sourceChainSelector].Router,
+			state.Chains[sourceChainSelector].Multicall3,
+			destChainSelector,
+			numMessages,
+			common.LeftPadBytes(state.Chains[destChainSelector].Receiver.Address().Bytes(), 32),
+		)
+		if err != nil {
+			t.Log("sendMessagesAsync error is non-nil:", err, ", retrying")
+			continue
+		}
+	}
+
 	t.Log("sendMessagesAsync error:", err, ", writing to channel")
 	out <- err
 }
@@ -462,7 +454,7 @@ func genMessages(
 			Data:         []byte(fmt.Sprintf("hello world %d", i)),
 			TokenAmounts: nil,
 			FeeToken:     common.HexToAddress("0x0"),
-			ExtraArgs:    nil,
+			ExtraArgs:    changeset.MakeEVMExtraArgsV2(50_000, false),
 		}
 
 		fee, err := sourceRouter.GetFee(&bind.CallOpts{Context: ctx}, destChainSelector, msg)
@@ -495,52 +487,4 @@ func genSeqNrRange(start, end ccipocr3.SeqNum) []uint64 {
 		seqNrs = append(seqNrs, uint64(i))
 	}
 	return seqNrs
-}
-
-func mustNewTransactor(t *testing.T, chain deployment.Chain) *bind.TransactOpts {
-	chainID, err := chainsel.GetChainIDFromSelector(chain.Selector)
-	require.NoError(t, err)
-	chainIDBig, ok := new(big.Int).SetString(chainID, 10)
-	require.True(t, ok, "evm chainID must be integral")
-	key, err := crypto.GenerateKey()
-	require.NoError(t, err)
-	transactor, err := bind.NewKeyedTransactorWithChainID(key, chainIDBig)
-	require.NoError(t, err)
-	return transactor
-}
-
-func sendEth(
-	ctx context.Context,
-	t *testing.T,
-	chain deployment.Chain,
-	from *bind.TransactOpts,
-	to common.Address,
-	value *big.Int,
-) {
-	balance, err := chain.Client.BalanceAt(ctx, from.From, nil)
-	require.NoError(t, err)
-	if balance.Cmp(value) < 0 {
-		t.Fatalf("insufficient balance: %s < %s", balance.String(), value.String())
-	}
-	t.Logf("balance of from account %s: %s", from.From.String(), balance.String())
-
-	nonce, err := chain.Client.PendingNonceAt(ctx, from.From)
-	require.NoError(t, err)
-	gp, err := chain.Client.SuggestGasPrice(ctx)
-	require.NoError(t, err)
-	tx := gethtypes.NewTx(&gethtypes.LegacyTx{
-		Nonce:    nonce,
-		GasPrice: gp,
-		Gas:      21_000,
-		To:       &to,
-		Value:    value,
-		Data:     nil,
-	})
-	signedTx, err := from.Signer(from.From, tx)
-	require.NoError(t, err)
-	err = chain.Client.SendTransaction(ctx, signedTx)
-	require.NoError(t, err)
-	t.Log("sent funding tx:", signedTx.Hash().Hex())
-	_, err = deployment.ConfirmIfNoError(chain, signedTx, err)
-	require.NoError(t, err)
 }
