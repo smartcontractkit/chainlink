@@ -147,14 +147,6 @@ func TestAddChainInbound(t *testing.T) {
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.NewAcceptOwnershipChangeset),
 			Config:    genTestAcceptOwnershipConfig(e, initialDeploy, state),
 		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(NewChainInboundChangeset),
-			Config: ChainInboundChangesetConfig{
-				HomeChainSelector:    e.HomeChainSel,
-				NewChainSelector:     newChain,
-				SourceChainSelectors: initialDeploy,
-			},
-		},
 	})
 	require.NoError(t, err)
 
@@ -162,6 +154,11 @@ func TestAddChainInbound(t *testing.T) {
 
 	nodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
+
+	// Generate and sign inbound proposal to new 4th chain.
+	chainInboundChangeset, err := NewChainInboundChangeset(e.Env, state, e.HomeChainSel, newChain, initialDeploy)
+	require.NoError(t, err)
+	ProcessChangeset(t, e.Env, chainInboundChangeset)
 
 	// TODO This currently is not working - Able to send the request here but request gets stuck in execution
 	// Send a new message and expect that this is delivered once the chain is completely set up as inbound
