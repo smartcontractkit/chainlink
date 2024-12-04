@@ -42,7 +42,7 @@ func ToCommitCalldata(rawReportCtx RawReportContext3, report []byte, rs, ss [][3
 	}
 }
 
-func toExecCalldata(rawReportCtx RawReportContext3, report []byte, _, _ [][32]byte, _ [32]byte) any {
+func ToExecCalldata(rawReportCtx RawReportContext3, report []byte, _, _ [][32]byte, _ [32]byte) any {
 	// Note that the name of the struct field is very important, since the encoder used
 	// by the chainwriter uses mapstructure, which will use the struct field name to map
 	// to the argument name in the function call.
@@ -112,7 +112,7 @@ func NewExecContractTransmitter[RI any](
 		contractName:   consts.ContractNameOffRamp,
 		method:         consts.MethodExecute,
 		offrampAddress: offrampAddress,
-		toCalldataFn:   toExecCalldata,
+		toCalldataFn:   ToExecCalldata,
 	}
 }
 
