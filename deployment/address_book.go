@@ -257,17 +257,17 @@ func SearchAddressBook(ab AddressBook, chain uint64, typ ContractType) (string, 
 	return "", fmt.Errorf("not found")
 }
 
-func SearchAddressBookForAddress(ab AddressBook, chain uint64, addrToFind string) error {
+func AddressBookContains(ab AddressBook, chain uint64, addrToFind string) (bool, error) {
 	addrs, err := ab.AddressesForChain(chain)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	for addr := range addrs {
 		if addr == addrToFind {
-			return nil
+			return true, nil
 		}
 	}
 
-	return fmt.Errorf("not found")
+	return false, nil
 }

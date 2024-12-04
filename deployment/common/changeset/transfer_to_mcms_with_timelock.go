@@ -49,8 +49,11 @@ func (t TransferToMCMSWithTimelockConfig) Validate(e deployment.Environment) err
 		for _, contract := range contracts {
 			// Cannot transfer an unknown address.
 			// Note this also assures non-zero addresses.
-			if err := deployment.SearchAddressBookForAddress(e.ExistingAddresses, chainSelector, contract.String()); err != nil {
-				return err
+			if exists, err := deployment.AddressBookContains(e.ExistingAddresses, chainSelector, contract.String()); err != nil || !exists {
+				if err != nil {
+					return fmt.Errorf("failed to check address book: %v", err)
+				}
+				return fmt.Errorf("contract %s not found in address book", contract)
 			}
 			owner, _, err := LoadOwnableContract(contract, e.Chains[chainSelector].Client)
 			if err != nil {
