@@ -185,7 +185,7 @@ func (o *Config) GetFeedChainSelector() uint64 {
 }
 
 func IsSelectorValid(selector uint64, chainIds []int64) (bool, error) {
-	chainId, err := chainselectors.GetChainIDFromSelector(selector)
+	chainId, err := chainselectors.ChainIdFromSelector(selector)
 	if err != nil {
 		return false, err
 	}

@@ -25,6 +25,7 @@ import (
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
@@ -93,6 +94,7 @@ type DeployedEnv struct {
 	HomeChainSel uint64
 	FeedChainSel uint64
 	ReplayBlocks map[uint64]uint64
+	Users        map[uint64][]*bind.TransactOpts
 }
 
 func (e *DeployedEnv) SetupJobs(t *testing.T) {
@@ -150,8 +152,9 @@ func DeployTestContracts(t *testing.T,
 	require.NoError(t, err)
 
 	return deployment.CapabilityRegistryConfig{
-		EVMChainID: evmChainID,
-		Contract:   capReg.Address,
+		EVMChainID:  evmChainID,
+		Contract:    capReg.Address,
+		NetworkType: relay.NetworkEVM,
 	}
 }
 
@@ -187,21 +190,20 @@ func allocateCCIPChainSelectors(chains map[uint64]deployment.Chain) (homeChainSe
 func NewMemoryEnvironment(
 	t *testing.T,
 	lggr logger.Logger,
-	numChains int,
-	numNodes int,
+	config memory.MemoryEnvironmentConfig,
 	linkPrice *big.Int,
 	wethPrice *big.Int) DeployedEnv {
-	require.GreaterOrEqual(t, numChains, 2, "numChains must be at least 2 for home and feed chains")
-	require.GreaterOrEqual(t, numNodes, 4, "numNodes must be at least 4")
+	require.GreaterOrEqual(t, config.Chains, 2, "numChains must be at least 2 for home and feed chains")
+	require.GreaterOrEqual(t, config.Nodes, 4, "numNodes must be at least 4")
 	ctx := testcontext.Get(t)
-	chains := memory.NewMemoryChains(t, numChains)
+	chains, users := memory.NewMemoryChains(t, config.Chains, config.NumOfUsersPerChain)
 	homeChainSel, feedSel := allocateCCIPChainSelectors(chains)
 	replayBlocks, err := LatestBlocksByChain(ctx, chains)
 	require.NoError(t, err)
 
 	ab := deployment.NewMemoryAddressBook()
 	crConfig := DeployTestContracts(t, lggr, ab, homeChainSel, feedSel, chains, linkPrice, wethPrice)
-	nodes := memory.NewNodes(t, zapcore.InfoLevel, chains, numNodes, 1, crConfig)
+	nodes := memory.NewNodes(t, zapcore.InfoLevel, chains, config.Nodes, config.Bootstraps, crConfig)
 	for _, node := range nodes {
 		require.NoError(t, node.App.Start(ctx))
 		t.Cleanup(func() {
@@ -227,13 +229,14 @@ func NewMemoryEnvironment(
 		HomeChainSel: homeChainSel,
 		FeedChainSel: feedSel,
 		ReplayBlocks: replayBlocks,
+		Users:        users,
 	}
 }
 
 // NewMemoryEnvironmentWithJobs creates a new CCIP environment
 // with capreg, fee tokens, feeds, nodes and jobs set up.
-func NewMemoryEnvironmentWithJobs(t *testing.T, lggr logger.Logger, numChains int, numNodes int) DeployedEnv {
-	e := NewMemoryEnvironment(t, lggr, numChains, numNodes, MockLinkPrice, MockWethPrice)
+func NewMemoryEnvironmentWithJobs(t *testing.T, lggr logger.Logger, config memory.MemoryEnvironmentConfig) DeployedEnv {
+	e := NewMemoryEnvironment(t, lggr, config, MockLinkPrice, MockWethPrice)
 	e.SetupJobs(t)
 	return e
 }
@@ -263,9 +266,9 @@ type TestConfigs struct {
 	OCRConfigOverride func(CCIPOCRParams) CCIPOCRParams
 }
 
-func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, numChains int, numNodes int, tCfg *TestConfigs) DeployedEnv {
+func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, config memory.MemoryEnvironmentConfig, tCfg *TestConfigs) DeployedEnv {
 	var err error
-	e := NewMemoryEnvironment(t, lggr, numChains, numNodes, MockLinkPrice, MockWethPrice)
+	e := NewMemoryEnvironment(t, lggr, config, MockLinkPrice, MockWethPrice)
 	allChains := e.Env.AllChainSelectors()
 	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 	for _, c := range e.Env.AllChainSelectors() {
@@ -388,31 +391,29 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 func CCIPSendRequest(
 	e deployment.Environment,
 	state CCIPOnChainState,
-	src, dest uint64,
-	testRouter bool,
-	evm2AnyMessage router.ClientEVM2AnyMessage,
+	cfg *CCIPSendReqConfig,
 ) (*types.Transaction, uint64, error) {
 	msg := router.ClientEVM2AnyMessage{
-		Receiver:     evm2AnyMessage.Receiver,
-		Data:         evm2AnyMessage.Data,
-		TokenAmounts: evm2AnyMessage.TokenAmounts,
-		FeeToken:     evm2AnyMessage.FeeToken,
-		ExtraArgs:    evm2AnyMessage.ExtraArgs,
+		Receiver:     cfg.Evm2AnyMessage.Receiver,
+		Data:         cfg.Evm2AnyMessage.Data,
+		TokenAmounts: cfg.Evm2AnyMessage.TokenAmounts,
+		FeeToken:     cfg.Evm2AnyMessage.FeeToken,
+		ExtraArgs:    cfg.Evm2AnyMessage.ExtraArgs,
 	}
-	r := state.Chains[src].Router
-	if testRouter {
-		r = state.Chains[src].TestRouter
+	r := state.Chains[cfg.SourceChain].Router
+	if cfg.IsTestRouter {
+		r = state.Chains[cfg.SourceChain].TestRouter
 	}
 
 	if msg.FeeToken == common.HexToAddress("0x0") { // fee is in native token
-		return retryCcipSendUntilNativeFeeIsSufficient(e, r, src, dest, msg)
+		return retryCcipSendUntilNativeFeeIsSufficient(e, r, cfg)
 	}
 
-	tx, err := r.CcipSend(e.Chains[src].DeployerKey, dest, msg)
+	tx, err := r.CcipSend(cfg.Sender, cfg.DestChain, msg)
 	if err != nil {
 		return nil, 0, errors.Wrap(err, "failed to send CCIP message")
 	}
-	blockNum, err := e.Chains[src].Confirm(tx)
+	blockNum, err := e.Chains[cfg.SourceChain].Confirm(tx)
 	if err != nil {
 		return tx, 0, errors.Wrap(err, "failed to confirm CCIP message")
 	}
@@ -425,27 +426,25 @@ func CCIPSendRequest(
 func retryCcipSendUntilNativeFeeIsSufficient(
 	e deployment.Environment,
 	r *router.Router,
-	src,
-	dest uint64,
-	msg router.ClientEVM2AnyMessage,
+	cfg *CCIPSendReqConfig,
 ) (*types.Transaction, uint64, error) {
 	const errCodeInsufficientFee = "0x07da6ee6"
-	defer func() { e.Chains[src].DeployerKey.Value = nil }()
+	defer func() { cfg.Sender.Value = nil }()
 
 	for {
-		fee, err := r.GetFee(&bind.CallOpts{Context: context.Background()}, dest, msg)
+		fee, err := r.GetFee(&bind.CallOpts{Context: context.Background()}, cfg.DestChain, cfg.Evm2AnyMessage)
 		if err != nil {
 			return nil, 0, fmt.Errorf("failed to get fee: %w", deployment.MaybeDataErr(err))
 		}
 
-		e.Chains[src].DeployerKey.Value = fee
+		cfg.Sender.Value = fee
 
-		tx, err := r.CcipSend(e.Chains[src].DeployerKey, dest, msg)
+		tx, err := r.CcipSend(cfg.Sender, cfg.DestChain, cfg.Evm2AnyMessage)
 		if err != nil {
 			return nil, 0, fmt.Errorf("failed to send CCIP message: %w", err)
 		}
 
-		blockNum, err := e.Chains[src].Confirm(tx)
+		blockNum, err := e.Chains[cfg.SourceChain].Confirm(tx)
 		if err != nil {
 			if strings.Contains(err.Error(), errCodeInsufficientFee) {
 				continue
@@ -484,9 +483,54 @@ func TestSendRequest(
 	testRouter bool,
 	evm2AnyMessage router.ClientEVM2AnyMessage,
 ) (msgSentEvent *onramp.OnRampCCIPMessageSent) {
-	msgSentEvent, err := DoSendRequest(t, e, state, src, dest, testRouter, evm2AnyMessage)
+	msgSentEvent, err := DoSendRequest(t, e, state,
+		WithSender(e.Chains[src].DeployerKey),
+		WithSourceChain(src),
+		WithDestChain(dest),
+		WithTestRouter(testRouter),
+		WithEvm2AnyMessage(evm2AnyMessage))
 	require.NoError(t, err)
 	return msgSentEvent
+}
+
+type CCIPSendReqConfig struct {
+	SourceChain    uint64
+	DestChain      uint64
+	IsTestRouter   bool
+	Sender         *bind.TransactOpts
+	Evm2AnyMessage router.ClientEVM2AnyMessage
+}
+
+type SendReqOpts func(*CCIPSendReqConfig)
+
+func WithSender(sender *bind.TransactOpts) SendReqOpts {
+	return func(c *CCIPSendReqConfig) {
+		c.Sender = sender
+	}
+}
+
+func WithEvm2AnyMessage(msg router.ClientEVM2AnyMessage) SendReqOpts {
+	return func(c *CCIPSendReqConfig) {
+		c.Evm2AnyMessage = msg
+	}
+}
+
+func WithTestRouter(isTestRouter bool) SendReqOpts {
+	return func(c *CCIPSendReqConfig) {
+		c.IsTestRouter = isTestRouter
+	}
+}
+
+func WithSourceChain(sourceChain uint64) SendReqOpts {
+	return func(c *CCIPSendReqConfig) {
+		c.SourceChain = sourceChain
+	}
+}
+
+func WithDestChain(destChain uint64) SendReqOpts {
+	return func(c *CCIPSendReqConfig) {
+		c.DestChain = destChain
+	}
 }
 
 // DoSendRequest similar to TestSendRequest but returns an error.
@@ -494,28 +538,28 @@ func DoSendRequest(
 	t *testing.T,
 	e deployment.Environment,
 	state CCIPOnChainState,
-	src, dest uint64,
-	testRouter bool,
-	evm2AnyMessage router.ClientEVM2AnyMessage,
+	opts ...SendReqOpts,
 ) (*onramp.OnRampCCIPMessageSent, error) {
-	t.Logf("Sending CCIP request from chain selector %d to chain selector %d",
-		src, dest)
-	tx, blockNum, err := CCIPSendRequest(
-		e,
-		state,
-		src, dest,
-		testRouter,
-		evm2AnyMessage,
-	)
+	cfg := &CCIPSendReqConfig{}
+	for _, opt := range opts {
+		opt(cfg)
+	}
+	// Set default sender if not provided
+	if cfg.Sender == nil {
+		cfg.Sender = e.Chains[cfg.SourceChain].DeployerKey
+	}
+	t.Logf("Sending CCIP request from chain selector %d to chain selector %d from sender %s",
+		cfg.SourceChain, cfg.DestChain, cfg.Sender.From.String())
+	tx, blockNum, err := CCIPSendRequest(e, state, cfg)
 	if err != nil {
 		return nil, err
 	}
 
-	it, err := state.Chains[src].OnRamp.FilterCCIPMessageSent(&bind.FilterOpts{
+	it, err := state.Chains[cfg.SourceChain].OnRamp.FilterCCIPMessageSent(&bind.FilterOpts{
 		Start:   blockNum,
 		End:     &blockNum,
 		Context: context.Background(),
-	}, []uint64{dest}, []uint64{})
+	}, []uint64{cfg.DestChain}, []uint64{})
 	if err != nil {
 		return nil, err
 	}
@@ -523,8 +567,8 @@ func DoSendRequest(
 	require.True(t, it.Next())
 	t.Logf("CCIP message (id %x) sent from chain selector %d to chain selector %d tx %s seqNum %d nonce %d sender %s",
 		it.Event.Message.Header.MessageId[:],
-		src,
-		dest,
+		cfg.SourceChain,
+		cfg.DestChain,
 		tx.Hash().String(),
 		it.Event.SequenceNumber,
 		it.Event.Message.Header.Nonce,
