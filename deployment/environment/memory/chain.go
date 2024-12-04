@@ -46,19 +46,7 @@ func GenerateChains(t *testing.T, numChains int) map[uint64]EVMChain {
 	chains := make(map[uint64]EVMChain)
 	for i := 0; i < numChains; i++ {
 		chainID := chainsel.TEST_90000001.EvmChainID + uint64(i)
-		key, err := crypto.GenerateKey()
-		require.NoError(t, err)
-		owner, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
-		require.NoError(t, err)
-		// there have to be enough initial funds on each chain to allocate for all the nodes that share the given chain in the test
-		backend := simulated.NewBackend(types.GenesisAlloc{
-			owner.From: {Balance: big.NewInt(0).Mul(big.NewInt(7000), big.NewInt(params.Ether))}},
-			simulated.WithBlockGasLimit(50000000))
-		backend.Commit() // ts will be now.
-		chains[chainID] = EVMChain{
-			Backend:     backend,
-			DeployerKey: owner,
-		}
+		chains[chainID] = evmChain(t)
 	}
 	return chains
 }
@@ -66,18 +54,23 @@ func GenerateChains(t *testing.T, numChains int) map[uint64]EVMChain {
 func GenerateChainsWithIds(t *testing.T, chainIDs []uint64) map[uint64]EVMChain {
 	chains := make(map[uint64]EVMChain)
 	for _, chainID := range chainIDs {
-		key, err := crypto.GenerateKey()
-		require.NoError(t, err)
-		owner, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
-		require.NoError(t, err)
-		backend := simulated.NewBackend(types.GenesisAlloc{
-			owner.From: {Balance: big.NewInt(0).Mul(big.NewInt(700000), big.NewInt(params.Ether))}},
-			simulated.WithBlockGasLimit(10000000))
-		backend.Commit() // Note initializes block timestamp to now().
-		chains[chainID] = EVMChain{
-			Backend:     backend,
-			DeployerKey: owner,
-		}
+		chains[chainID] = evmChain(t)
 	}
 	return chains
+}
+
+func evmChain(t *testing.T) EVMChain {
+	key, err := crypto.GenerateKey()
+	require.NoError(t, err)
+	owner, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
+	require.NoError(t, err)
+	// there have to be enough initial funds on each chain to allocate for all the nodes that share the given chain in the test
+	backend := simulated.NewBackend(types.GenesisAlloc{
+		owner.From: {Balance: big.NewInt(0).Mul(big.NewInt(700000), big.NewInt(params.Ether))}},
+		simulated.WithBlockGasLimit(50000000))
+	backend.Commit() // ts will be now.
+	return EVMChain{
+		Backend:     backend,
+		DeployerKey: owner,
+	}
 }

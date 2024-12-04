@@ -79,7 +79,9 @@ func ApplyChangesets(t *testing.T, e deployment.Environment, timelocksPerChain m
 					if !ok || timelock == nil {
 						return deployment.Environment{}, fmt.Errorf("timelock not found for chain %d", sel)
 					}
-					ExecuteProposal(t, e, signed, timelock, sel)
+					if err := ExecuteProposal(t, e, signed, timelock, sel); err != nil {
+						return deployment.Environment{}, fmt.Errorf("failed to execute proposal: %w", err)
+					}
 				}
 			}
 		}

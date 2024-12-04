@@ -8,6 +8,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -16,7 +18,11 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	kocr3 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
@@ -105,6 +111,44 @@ func (c OCR2OracleConfig) MarshalJSON() ([]byte, error) {
 	}
 
 	return json.Marshal(alias)
+}
+
+func (c *OCR2OracleConfig) UnmarshalJSON(data []byte) error {
+	type aliasT struct {
+		Signers               []string
+		Transmitters          []string
+		F                     uint8
+		OnchainConfig         string
+		OffchainConfigVersion uint64
+		OffchainConfig        string
+	}
+	var alias aliasT
+	err := json.Unmarshal(data, &alias)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal OCR2OracleConfig alias: %w", err)
+	}
+	c.F = alias.F
+	c.OffchainConfigVersion = alias.OffchainConfigVersion
+	c.Signers = make([][]byte, len(alias.Signers))
+	for i, signer := range alias.Signers {
+		c.Signers[i], err = hex.DecodeString(strings.TrimPrefix(signer, "0x"))
+		if err != nil {
+			return fmt.Errorf("failed to decode signer: %w", err)
+		}
+	}
+	c.Transmitters = make([]common.Address, len(alias.Transmitters))
+	for i, transmitter := range alias.Transmitters {
+		c.Transmitters[i] = common.HexToAddress(transmitter)
+	}
+	c.OnchainConfig, err = hex.DecodeString(strings.TrimPrefix(alias.OnchainConfig, "0x"))
+	if err != nil {
+		return fmt.Errorf("failed to decode onchain config: %w", err)
+	}
+	c.OffchainConfig, err = hex.DecodeString(strings.TrimPrefix(alias.OffchainConfig, "0x"))
+	if err != nil {
+		return fmt.Errorf("failed to decode offchain config: %w", err)
+	}
+	return nil
 }
 
 func GenerateOCR3Config(cfg OracleConfigWithSecrets, nca []NodeKeys) (OCR2OracleConfig, error) {
@@ -245,6 +289,9 @@ type configureOCR3Request struct {
 	contract *kocr3.OCR3Capability
 	nodes    []deployment.Node
 	dryRun   bool
+
+	useMCMS     bool
+	contractSet *ContractSet
 }
 
 func (r configureOCR3Request) generateOCR3Config() (OCR2OracleConfig, error) {
@@ -254,6 +301,7 @@ func (r configureOCR3Request) generateOCR3Config() (OCR2OracleConfig, error) {
 
 type configureOCR3Response struct {
 	ocrConfig OCR2OracleConfig
+	proposal  *timelock.MCMSWithTimelockProposal
 }
 
 func configureOCR3contract(req configureOCR3Request) (*configureOCR3Response, error) {
@@ -265,24 +313,72 @@ func configureOCR3contract(req configureOCR3Request) (*configureOCR3Response, er
 		return nil, fmt.Errorf("failed to generate OCR3 config: %w", err)
 	}
 	if req.dryRun {
-		return &configureOCR3Response{ocrConfig}, nil
+		return &configureOCR3Response{ocrConfig, nil}, nil
 	}
-	tx, err := req.contract.SetConfig(req.chain.DeployerKey,
-		ocrConfig.Signers,
-		ocrConfig.Transmitters,
-		ocrConfig.F,
-		ocrConfig.OnchainConfig,
-		ocrConfig.OffchainConfigVersion,
-		ocrConfig.OffchainConfig,
-	)
-	if err != nil {
-		err = DecodeErr(kocr3.OCR3CapabilityABI, err)
-		return nil, fmt.Errorf("failed to call SetConfig for OCR3 contract %s: %w", req.contract.Address().String(), err)
+	var proposal *timelock.MCMSWithTimelockProposal
+	if !req.useMCMS {
+
+		tx, err := req.contract.SetConfig(req.chain.DeployerKey,
+			ocrConfig.Signers,
+			ocrConfig.Transmitters,
+			ocrConfig.F,
+			ocrConfig.OnchainConfig,
+			ocrConfig.OffchainConfigVersion,
+			ocrConfig.OffchainConfig,
+		)
+		if err != nil {
+			err = DecodeErr(kocr3.OCR3CapabilityABI, err)
+			return nil, fmt.Errorf("failed to call SetConfig for OCR3 contract %s: %w", req.contract.Address().String(), err)
+		}
+		_, err = req.chain.Confirm(tx)
+		if err != nil {
+			err = DecodeErr(kocr3.OCR3CapabilityABI, err)
+			return nil, fmt.Errorf("failed to confirm SetConfig for OCR3 contract %s: %w", req.contract.Address().String(), err)
+		}
+	} else {
+		// use MCMS
+		configRequest, err := req.contract.SetConfig(
+			deployment.SimTransactOpts(),
+			ocrConfig.Signers,
+			ocrConfig.Transmitters,
+			ocrConfig.F,
+			ocrConfig.OnchainConfig,
+			ocrConfig.OffchainConfigVersion,
+			ocrConfig.OffchainConfig)
+		if err != nil {
+			err = DecodeErr(kocr3.OCR3CapabilityABI, err)
+			return nil, fmt.Errorf("failed to simulate SetConfig for OCR3 contract %s: %w", req.contract.Address().String(), err)
+		}
+		o := timelock.BatchChainOperation{
+			ChainIdentifier: mcms.ChainIdentifier(req.chain.Selector),
+			Batch: []mcms.Operation{
+				{
+					// Enable the source in on ramp
+					To:    req.contract.Address(),
+					Data:  configRequest.Data(),
+					Value: big.NewInt(0),
+				},
+			},
+		}
+		var (
+			timelocksPerChain = make(map[uint64]common.Address)
+			proposerMCMSes    = make(map[uint64]*gethwrappers.ManyChainMultiSig)
+		)
+
+		timelocksPerChain[req.chain.Selector] = req.contractSet.Timelock.Address()
+		proposerMCMSes[req.chain.Selector] = req.contractSet.ProposerMcm
+
+		proposal, err = proposalutils.BuildProposalFromBatches(
+			timelocksPerChain,
+			proposerMCMSes,
+			[]timelock.BatchChainOperation{o},
+			"proposal to set ocr3 config",
+			0,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to build proposal: %w", err)
+		}
 	}
-	_, err = req.chain.Confirm(tx)
-	if err != nil {
-		err = DecodeErr(kocr3.OCR3CapabilityABI, err)
-		return nil, fmt.Errorf("failed to confirm SetConfig for OCR3 contract %s: %w", req.contract.Address().String(), err)
-	}
-	return &configureOCR3Response{ocrConfig}, nil
+
+	return &configureOCR3Response{ocrConfig, proposal}, nil
 }

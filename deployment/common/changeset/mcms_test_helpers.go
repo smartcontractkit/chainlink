@@ -64,8 +64,12 @@ func SignProposal(t *testing.T, env deployment.Environment, proposal *timelock.M
 	return executor
 }
 
+type ExecuteProposalCfg struct {
+	Decoder func(err error) error
+}
+
 func ExecuteProposal(t *testing.T, env deployment.Environment, executor *mcms.Executor,
-	timelock *owner_helpers.RBACTimelock, sel uint64) {
+	timelock *owner_helpers.RBACTimelock, sel uint64) error {
 	t.Log("Executing proposal on chain", sel)
 	// Set the root.
 	tx, err2 := executor.SetRootOnChain(env.Chains[sel].Client, env.Chains[sel].DeployerKey, mcms.ChainIdentifier(sel))
@@ -106,10 +110,15 @@ func ExecuteProposal(t *testing.T, env deployment.Environment, executor *mcms.Ex
 				}
 				tx, err := timelock.ExecuteBatch(
 					env.Chains[sel].DeployerKey, calls, pred, salt)
-				require.NoError(t, err)
+				if err != nil {
+					return err
+				}
 				_, err = env.Chains[sel].Confirm(tx)
-				require.NoError(t, err)
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}
+	return nil
 }

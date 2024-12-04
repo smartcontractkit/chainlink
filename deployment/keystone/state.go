@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	common_v1_0 "github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/view"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
@@ -25,6 +26,7 @@ type GetContractSetsResponse struct {
 }
 
 type ContractSet struct {
+	commonchangeset.MCMSWithTimelockState
 	OCR3                 *ocr3_capability.OCR3Capability
 	Forwarder            *forwarder.KeystoneForwarder
 	CapabilitiesRegistry *capabilities_registry.CapabilitiesRegistry
@@ -62,6 +64,11 @@ func GetContractSets(lggr logger.Logger, req *GetContractSetsRequest) (*GetContr
 
 func loadContractSet(lggr logger.Logger, chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (*ContractSet, error) {
 	var out ContractSet
+	mcmsWithTimelock, err := commonchangeset.LoadMCMSWithTimelockState(chain, addresses)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load mcms contract: %w", err)
+	}
+	out.MCMSWithTimelockState = *mcmsWithTimelock
 
 	for addr, tv := range addresses {
 		// todo handle versions

@@ -56,7 +56,9 @@ func TransferAllOwnership(e deployment.Environment, req *TransferAllOwnershipReq
 
 	consumers, err := feedsConsumersFromAddrBook(addrBook, chain)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to fetch feeds consumers: %w", err)
+		//return deployment.ChangesetOutput{}, fmt.Errorf("failed to fetch feeds consumers: %w", err)
+		// Ignore error if no consumers are found
+		e.Logger.Warnw("failed to fetch feeds consumers", "err", err)
 	}
 
 	// Initialize the Contracts slice

@@ -68,6 +68,9 @@ func (n Node) ReplayLogs(chains map[uint64]uint64) error {
 // - Configured for OCR
 // - Configured for the chains specified
 // - Transmitter keys funded.
+// TODO: support functional options for more `func (c *chainlink.Config, s *chainlink.Secrets)` as
+// overrides for the default config. Allows for flexibility. Immediate use case is to set
+// workflow forwarder evm config; can refactor registry config to be a functional option.
 func NewNode(
 	t *testing.T,
 	port int, // Port for the P2P V2 listener.
@@ -75,6 +78,7 @@ func NewNode(
 	logLevel zapcore.Level,
 	bootstrap bool,
 	registryConfig deployment.CapabilityRegistryConfig,
+	customSetup ...func(c *chainlink.Config, s *chainlink.Secrets),
 ) *Node {
 	evmchains := make(map[uint64]EVMChain)
 	for _, chain := range chains {
@@ -125,6 +129,9 @@ func NewNode(
 			chainConfigs = append(chainConfigs, createConfigV2Chain(chainID))
 		}
 		c.EVM = chainConfigs
+		for _, setup := range customSetup {
+			setup(c, s)
+		}
 	})
 
 	// Set logging.
