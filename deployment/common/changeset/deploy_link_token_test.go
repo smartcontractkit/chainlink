@@ -34,4 +34,6 @@ func TestDeployLinkToken(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, view.Owner, e.Chains[chain1].DeployerKey.From)
 	assert.Equal(t, view.TypeAndVersion, "LinkToken 1.0.0")
+	// Initially nothing minted.
+	assert.Equal(t, view.Supply.String(), "0")
 }

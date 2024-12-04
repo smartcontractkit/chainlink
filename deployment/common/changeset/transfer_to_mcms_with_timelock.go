@@ -47,7 +47,7 @@ func LoadOwnableContract(addr common.Address, client bind.ContractBackend) (comm
 func (t TransferToMCMSWithTimelockConfig) Validate(e deployment.Environment) error {
 	for chainSelector, contracts := range t.ContractsByChain {
 		for _, contract := range contracts {
-			// Cannot transfer to an unknown address.
+			// Cannot transfer an unknown address.
 			// Note this also assures non-zero addresses.
 			if err := deployment.SearchAddressBookForAddress(e.ExistingAddresses, chainSelector, contract.String()); err != nil {
 				return err

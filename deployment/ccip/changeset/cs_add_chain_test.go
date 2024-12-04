@@ -58,13 +58,21 @@ func TestAddChainInbound(t *testing.T) {
 		TimelockExecutors: e.Env.AllDeployerKeys(),
 		TimelockMinDelay:  big.NewInt(0),
 	}
-	out, err := commonchangeset.DeployMCMSWithTimelock(e.Env, map[uint64]commontypes.MCMSWithTimelockConfig{
-		initialDeploy[0]: cfg,
-		initialDeploy[1]: cfg,
-		initialDeploy[2]: cfg,
+	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
+			Config:    initialDeploy,
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployMCMSWithTimelock),
+			Config: map[uint64]commontypes.MCMSWithTimelockConfig{
+				initialDeploy[0]: cfg,
+				initialDeploy[1]: cfg,
+				initialDeploy[2]: cfg,
+			},
+		},
 	})
 	require.NoError(t, err)
-	require.NoError(t, e.Env.ExistingAddresses.Merge(out.AddressBook))
 	newAddresses = deployment.NewMemoryAddressBook()
 	tokenConfig := NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
 
@@ -99,12 +107,19 @@ func TestAddChainInbound(t *testing.T) {
 	require.NoError(t, err)
 
 	//  Deploy contracts to new chain
-	out, err = commonchangeset.DeployMCMSWithTimelock(e.Env, map[uint64]commontypes.MCMSWithTimelockConfig{
-		newChain: cfg,
+	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
+			Config:    []uint64{newChain},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployMCMSWithTimelock),
+			Config: map[uint64]commontypes.MCMSWithTimelockConfig{
+				newChain: cfg,
+			},
+		},
 	})
 	require.NoError(t, err)
-	require.NoError(t, e.Env.ExistingAddresses.Merge(out.AddressBook))
-
 	newAddresses = deployment.NewMemoryAddressBook()
 
 	err = deployPrerequisiteChainContracts(e.Env, newAddresses, []uint64{newChain}, nil)
