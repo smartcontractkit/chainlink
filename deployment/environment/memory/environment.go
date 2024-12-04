@@ -14,6 +14,7 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -24,10 +25,11 @@ const (
 )
 
 type MemoryEnvironmentConfig struct {
-	Chains         int
-	Nodes          int
-	Bootstraps     int
-	RegistryConfig deployment.CapabilityRegistryConfig
+	Chains             int
+	NumOfUsersPerChain int
+	Nodes              int
+	Bootstraps         int
+	RegistryConfig     deployment.CapabilityRegistryConfig
 }
 
 // For placeholders like aptos
@@ -44,9 +46,15 @@ func NewMemoryChain(t *testing.T, selector uint64) deployment.Chain {
 
 // Needed for environment variables on the node which point to prexisitng addresses.
 // i.e. CapReg.
-func NewMemoryChains(t *testing.T, numChains int) map[uint64]deployment.Chain {
-	mchains := GenerateChains(t, numChains)
-	return generateMemoryChain(t, mchains)
+func NewMemoryChains(t *testing.T, numChains int, numUsers int) (map[uint64]deployment.Chain, map[uint64][]*bind.TransactOpts) {
+	mchains := GenerateChains(t, numChains, numUsers)
+	users := make(map[uint64][]*bind.TransactOpts)
+	for id, chain := range mchains {
+		sel, err := chainsel.SelectorFromChainId(id)
+		require.NoError(t, err)
+		users[sel] = chain.Users
+	}
+	return generateMemoryChain(t, mchains), users
 }
 
 func NewMemoryChainsWithChainIDs(t *testing.T, chainIDs []uint64) map[uint64]deployment.Chain {
@@ -134,7 +142,7 @@ func NewMemoryEnvironmentFromChainsNodes(
 
 // To be used by tests and any kind of deployment logic.
 func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Level, config MemoryEnvironmentConfig) deployment.Environment {
-	chains := NewMemoryChains(t, config.Chains)
+	chains, _ := NewMemoryChains(t, config.Chains, config.NumOfUsersPerChain)
 	nodes := NewNodes(t, logLevel, chains, config.Nodes, config.Bootstraps, config.RegistryConfig)
 	var nodeIDs []string
 	for id := range nodes {

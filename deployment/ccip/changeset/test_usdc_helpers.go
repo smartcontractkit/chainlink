@@ -3,6 +3,8 @@ package changeset
 import (
 	"math/big"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
@@ -27,53 +29,78 @@ func ConfigureUSDCTokenPools(
 	srcPool := state.Chains[src].USDCTokenPool
 	dstPool := state.Chains[dst].USDCTokenPool
 
-	// Attach token pools to registry
-	if err := attachTokenToTheRegistry(chains[src], state.Chains[src], chains[src].DeployerKey, srcToken.Address(), srcPool.Address()); err != nil {
-		lggr.Errorw("Failed to attach token to the registry", "err", err, "token", srcToken.Address(), "pool", srcPool.Address())
+	args := []struct {
+		sourceChain deployment.Chain
+		dstChainSel uint64
+		state       CCIPChainState
+		srcToken    *burn_mint_erc677.BurnMintERC677
+		srcPool     *usdc_token_pool.USDCTokenPool
+		dstToken    *burn_mint_erc677.BurnMintERC677
+		dstPool     *usdc_token_pool.USDCTokenPool
+	}{
+		{
+			chains[src],
+			dst,
+			state.Chains[src],
+			srcToken,
+			srcPool,
+			dstToken,
+			dstPool,
+		},
+		{
+			chains[dst],
+			src,
+			state.Chains[dst],
+			dstToken,
+			dstPool,
+			srcToken,
+			srcPool,
+		},
+	}
+
+	configurePoolGrp := errgroup.Group{}
+	for _, arg := range args {
+		configurePoolGrp.Go(configureSingleChain(lggr, arg.sourceChain, arg.dstChainSel, arg.state, arg.srcToken, arg.srcPool, arg.dstToken, arg.dstPool))
+	}
+	if err := configurePoolGrp.Wait(); err != nil {
 		return nil, nil, err
 	}
-
-	if err := attachTokenToTheRegistry(chains[dst], state.Chains[dst], chains[dst].DeployerKey, dstToken.Address(), dstPool.Address()); err != nil {
-		lggr.Errorw("Failed to attach token to the registry", "err", err, "token", dstToken.Address(), "pool", dstPool.Address())
-		return nil, nil, err
-	}
-
-	// Connect pool to each other
-	if err := setUSDCTokenPoolCounterPart(chains[src], srcPool, dst, chains[src].DeployerKey, dstToken.Address(), dstPool.Address()); err != nil {
-		lggr.Errorw("Failed to set counter part", "err", err, "srcPool", srcPool.Address(), "dstPool", dstPool.Address())
-		return nil, nil, err
-	}
-
-	if err := setUSDCTokenPoolCounterPart(chains[dst], dstPool, src, chains[dst].DeployerKey, srcToken.Address(), srcPool.Address()); err != nil {
-		lggr.Errorw("Failed to set counter part", "err", err, "srcPool", dstPool.Address(), "dstPool", srcPool.Address())
-		return nil, nil, err
-	}
-
-	// Add burn/mint permissions for source
-	for _, addr := range []common.Address{
-		srcPool.Address(),
-		state.Chains[src].MockUSDCTokenMessenger.Address(),
-		state.Chains[src].MockUSDCTransmitter.Address(),
-	} {
-		if err := grantMintBurnPermissions(lggr, chains[src], srcToken, chains[src].DeployerKey, addr); err != nil {
-			lggr.Errorw("Failed to grant mint/burn permissions", "err", err, "token", srcToken.Address(), "minter", addr)
-			return nil, nil, err
-		}
-	}
-
-	// Add burn/mint permissions for dest
-	for _, addr := range []common.Address{
-		dstPool.Address(),
-		state.Chains[dst].MockUSDCTokenMessenger.Address(),
-		state.Chains[dst].MockUSDCTransmitter.Address(),
-	} {
-		if err := grantMintBurnPermissions(lggr, chains[dst], dstToken, chains[dst].DeployerKey, addr); err != nil {
-			lggr.Errorw("Failed to grant mint/burn permissions", "err", err, "token", dstToken.Address(), "minter", addr)
-			return nil, nil, err
-		}
-	}
-
 	return srcToken, dstToken, nil
+}
+
+func configureSingleChain(
+	lggr logger.Logger,
+	sourceChain deployment.Chain,
+	dstChainSel uint64,
+	state CCIPChainState,
+	srcToken *burn_mint_erc677.BurnMintERC677,
+	srcPool *usdc_token_pool.USDCTokenPool,
+	dstToken *burn_mint_erc677.BurnMintERC677,
+	dstPool *usdc_token_pool.USDCTokenPool,
+) func() error {
+	return func() error {
+		if err := attachTokenToTheRegistry(sourceChain, state, sourceChain.DeployerKey, srcToken.Address(), srcPool.Address()); err != nil {
+			lggr.Errorw("Failed to attach token to the registry", "err", err, "token", srcToken.Address(), "pool", srcPool.Address())
+			return err
+		}
+
+		if err := setUSDCTokenPoolCounterPart(sourceChain, srcPool, dstChainSel, sourceChain.DeployerKey, dstToken.Address(), dstPool.Address()); err != nil {
+			lggr.Errorw("Failed to set counter part", "err", err, "srcPool", srcPool.Address(), "dstPool", dstPool.Address())
+			return err
+		}
+
+		for _, addr := range []common.Address{
+			srcPool.Address(),
+			state.MockUSDCTokenMessenger.Address(),
+			state.MockUSDCTransmitter.Address(),
+		} {
+			if err := grantMintBurnPermissions(lggr, sourceChain, srcToken, sourceChain.DeployerKey, addr); err != nil {
+				lggr.Errorw("Failed to grant mint/burn permissions", "err", err, "token", srcToken.Address(), "address", addr)
+				return err
+			}
+		}
+		return nil
+	}
 }
 
 func UpdateFeeQuoterForUSDC(

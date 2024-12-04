@@ -2,10 +2,10 @@
 pragma solidity 0.8.24;
 
 import {SimpleWriteAccessController} from "../../../../shared/access/SimpleWriteAccessController.sol";
-import {ArbitrumSequencerUptimeFeed} from "../../../dev/arbitrum/ArbitrumSequencerUptimeFeed.sol";
+import {ArbitrumSequencerUptimeFeed} from "../../../arbitrum/ArbitrumSequencerUptimeFeed.sol";
 import {MockAggregatorV2V3} from "../../mocks/MockAggregatorV2V3.sol";
 import {FeedConsumer} from "../../../../tests/FeedConsumer.sol";
-import {Flags} from "../../../dev/Flags.sol";
+import {Flags} from "../../../Flags.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
 
 contract ArbitrumSequencerUptimeFeedTest is L2EPTest {

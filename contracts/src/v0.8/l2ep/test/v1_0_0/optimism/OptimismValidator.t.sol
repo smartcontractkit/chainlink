@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {ISequencerUptimeFeed} from "../../../dev/interfaces/ISequencerUptimeFeed.sol";
+import {ISequencerUptimeFeed} from "../../../interfaces/ISequencerUptimeFeed.sol";
 
 import {MockOptimismL1CrossDomainMessenger} from "../../../../tests/MockOptimismL1CrossDomainMessenger.sol";
 import {MockOptimismL2CrossDomainMessenger} from "../../../../tests/MockOptimismL2CrossDomainMessenger.sol";
-import {OptimismSequencerUptimeFeed} from "../../../dev/optimism/OptimismSequencerUptimeFeed.sol";
-import {OptimismValidator} from "../../../dev/optimism/OptimismValidator.sol";
+import {OptimismSequencerUptimeFeed} from "../../../optimism/OptimismSequencerUptimeFeed.sol";
+import {OptimismValidator} from "../../../optimism/OptimismValidator.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
 
 contract OptimismValidatorTest is L2EPTest {

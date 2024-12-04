@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -19,11 +21,11 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
-
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
@@ -33,10 +35,11 @@ import (
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
-	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+
+	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
@@ -91,13 +94,14 @@ type DeployedEnv struct {
 	HomeChainSel uint64
 	FeedChainSel uint64
 	ReplayBlocks map[uint64]uint64
+	Users        map[uint64][]*bind.TransactOpts
 }
 
 func (e *DeployedEnv) SetupJobs(t *testing.T) {
 	ctx := testcontext.Get(t)
-	jbs, err := NewCCIPJobSpecs(e.Env.NodeIDs, e.Env.Offchain)
+	out, err := CCIPCapabilityJobspec(e.Env, struct{}{})
 	require.NoError(t, err)
-	for nodeID, jobs := range jbs {
+	for nodeID, jobs := range out.JobSpecs {
 		for _, job := range jobs {
 			// Note these auto-accept
 			_, err := e.Env.Offchain.ProposeJob(ctx,
@@ -134,7 +138,7 @@ func DeployTestContracts(t *testing.T,
 	linkPrice *big.Int,
 	wethPrice *big.Int,
 ) deployment.CapabilityRegistryConfig {
-	capReg, err := DeployCapReg(lggr,
+	capReg, err := deployCapReg(lggr,
 		// deploying cap reg for the first time on a blank chain state
 		CCIPOnChainState{
 			Chains: make(map[uint64]CCIPChainState),
@@ -148,8 +152,9 @@ func DeployTestContracts(t *testing.T,
 	require.NoError(t, err)
 
 	return deployment.CapabilityRegistryConfig{
-		EVMChainID: evmChainID,
-		Contract:   capReg.Address,
+		EVMChainID:  evmChainID,
+		Contract:    capReg.Address,
+		NetworkType: relay.NetworkEVM,
 	}
 }
 
@@ -185,21 +190,20 @@ func allocateCCIPChainSelectors(chains map[uint64]deployment.Chain) (homeChainSe
 func NewMemoryEnvironment(
 	t *testing.T,
 	lggr logger.Logger,
-	numChains int,
-	numNodes int,
+	config memory.MemoryEnvironmentConfig,
 	linkPrice *big.Int,
 	wethPrice *big.Int) DeployedEnv {
-	require.GreaterOrEqual(t, numChains, 2, "numChains must be at least 2 for home and feed chains")
-	require.GreaterOrEqual(t, numNodes, 4, "numNodes must be at least 4")
+	require.GreaterOrEqual(t, config.Chains, 2, "numChains must be at least 2 for home and feed chains")
+	require.GreaterOrEqual(t, config.Nodes, 4, "numNodes must be at least 4")
 	ctx := testcontext.Get(t)
-	chains := memory.NewMemoryChains(t, numChains)
+	chains, users := memory.NewMemoryChains(t, config.Chains, config.NumOfUsersPerChain)
 	homeChainSel, feedSel := allocateCCIPChainSelectors(chains)
 	replayBlocks, err := LatestBlocksByChain(ctx, chains)
 	require.NoError(t, err)
 
 	ab := deployment.NewMemoryAddressBook()
 	crConfig := DeployTestContracts(t, lggr, ab, homeChainSel, feedSel, chains, linkPrice, wethPrice)
-	nodes := memory.NewNodes(t, zapcore.InfoLevel, chains, numNodes, 1, crConfig)
+	nodes := memory.NewNodes(t, zapcore.InfoLevel, chains, config.Nodes, config.Bootstraps, crConfig)
 	for _, node := range nodes {
 		require.NoError(t, node.App.Start(ctx))
 		t.Cleanup(func() {
@@ -225,13 +229,14 @@ func NewMemoryEnvironment(
 		HomeChainSel: homeChainSel,
 		FeedChainSel: feedSel,
 		ReplayBlocks: replayBlocks,
+		Users:        users,
 	}
 }
 
 // NewMemoryEnvironmentWithJobs creates a new CCIP environment
 // with capreg, fee tokens, feeds, nodes and jobs set up.
-func NewMemoryEnvironmentWithJobs(t *testing.T, lggr logger.Logger, numChains int, numNodes int) DeployedEnv {
-	e := NewMemoryEnvironment(t, lggr, numChains, numNodes, MockLinkPrice, MockWethPrice)
+func NewMemoryEnvironmentWithJobs(t *testing.T, lggr logger.Logger, config memory.MemoryEnvironmentConfig) DeployedEnv {
+	e := NewMemoryEnvironment(t, lggr, config, MockLinkPrice, MockWethPrice)
 	e.SetupJobs(t)
 	return e
 }
@@ -256,24 +261,24 @@ func mockAttestationResponse() *httptest.Server {
 }
 
 type TestConfigs struct {
-	IsUSDC       bool
-	IsMultiCall3 bool
+	IsUSDC            bool
+	IsMultiCall3      bool
+	OCRConfigOverride func(CCIPOCRParams) CCIPOCRParams
 }
 
-func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, numChains int, numNodes int, tCfg *TestConfigs) DeployedEnv {
+func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, config memory.MemoryEnvironmentConfig, tCfg *TestConfigs) DeployedEnv {
 	var err error
-	e := NewMemoryEnvironment(t, lggr, numChains, numNodes, MockLinkPrice, MockWethPrice)
+	e := NewMemoryEnvironment(t, lggr, config, MockLinkPrice, MockWethPrice)
 	allChains := e.Env.AllChainSelectors()
-	cfg := commontypes.MCMSWithTimelockConfig{
-		Canceller:         commonchangeset.SingleGroupMCMS(t),
-		Bypasser:          commonchangeset.SingleGroupMCMS(t),
-		Proposer:          commonchangeset.SingleGroupMCMS(t),
-		TimelockExecutors: e.Env.AllDeployerKeys(),
-		TimelockMinDelay:  big.NewInt(0),
-	}
 	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 	for _, c := range e.Env.AllChainSelectors() {
-		mcmsCfg[c] = cfg
+		mcmsCfg[c] = commontypes.MCMSWithTimelockConfig{
+			Canceller:         commonchangeset.SingleGroupMCMS(t),
+			Bypasser:          commonchangeset.SingleGroupMCMS(t),
+			Proposer:          commonchangeset.SingleGroupMCMS(t),
+			TimelockExecutors: e.Env.AllDeployerKeys(),
+			TimelockMinDelay:  big.NewInt(0),
+		}
 	}
 	var usdcChains []uint64
 	if tCfg != nil && tCfg.IsUSDC {
@@ -307,56 +312,58 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 
 	state, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
-	tokenConfig := NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
-	ocrParams := make(map[uint64]CCIPOCRParams)
-	usdcCCTPConfig := make(map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig)
-	timelocksPerChain := make(map[uint64]*gethwrappers.RBACTimelock)
+	// Assert USDC set up as expected.
 	for _, chain := range usdcChains {
 		require.NotNil(t, state.Chains[chain].MockUSDCTokenMessenger)
 		require.NotNil(t, state.Chains[chain].MockUSDCTransmitter)
 		require.NotNil(t, state.Chains[chain].USDCTokenPool)
-		usdcCCTPConfig[cciptypes.ChainSelector(chain)] = pluginconfig.USDCCCTPTokenConfig{
-			SourcePoolAddress:            state.Chains[chain].USDCTokenPool.Address().String(),
-			SourceMessageTransmitterAddr: state.Chains[chain].MockUSDCTransmitter.Address().String(),
-		}
 	}
+	// Assert link present
 	require.NotNil(t, state.Chains[e.FeedChainSel].LinkToken)
 	require.NotNil(t, state.Chains[e.FeedChainSel].Weth9)
-	var usdcCfg USDCAttestationConfig
+
+	tokenConfig := NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
+	var tokenDataProviders []pluginconfig.TokenDataObserverConfig
 	if len(usdcChains) > 0 {
 		server := mockAttestationResponse()
 		endpoint := server.URL
-		usdcCfg = USDCAttestationConfig{
-			API:         endpoint,
-			APITimeout:  commonconfig.MustNewDuration(time.Second),
-			APIInterval: commonconfig.MustNewDuration(500 * time.Millisecond),
-		}
 		t.Cleanup(func() {
 			server.Close()
 		})
+		cctpContracts := make(map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig)
+		for _, usdcChain := range usdcChains {
+			cctpContracts[cciptypes.ChainSelector(usdcChain)] = pluginconfig.USDCCCTPTokenConfig{
+				SourcePoolAddress:            state.Chains[usdcChain].USDCTokenPool.Address().String(),
+				SourceMessageTransmitterAddr: state.Chains[usdcChain].MockUSDCTransmitter.Address().String(),
+			}
+		}
+		tokenDataProviders = append(tokenDataProviders, pluginconfig.TokenDataObserverConfig{
+			Type:    pluginconfig.USDCCCTPHandlerType,
+			Version: "1.0",
+			USDCCCTPObserverConfig: &pluginconfig.USDCCCTPObserverConfig{
+				Tokens:                 cctpContracts,
+				AttestationAPI:         endpoint,
+				AttestationAPITimeout:  commonconfig.MustNewDuration(time.Second),
+				AttestationAPIInterval: commonconfig.MustNewDuration(500 * time.Millisecond),
+			}})
 	}
-
+	// Build the per chain config.
+	chainConfigs := make(map[uint64]CCIPOCRParams)
+	timelocksPerChain := make(map[uint64]*gethwrappers.RBACTimelock)
 	for _, chain := range allChains {
 		timelocksPerChain[chain] = state.Chains[chain].Timelock
 		tokenInfo := tokenConfig.GetTokenInfo(e.Env.Logger, state.Chains[chain].LinkToken, state.Chains[chain].Weth9)
-		ocrParams[chain] = DefaultOCRParams(e.FeedChainSel, tokenInfo)
+		chainConfigs[chain] = DefaultOCRParams(e.FeedChainSel, tokenInfo, tokenDataProviders)
 	}
 	// Deploy second set of changesets to deploy and configure the CCIP contracts.
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(ConfigureNewChains),
 			Config: NewChainsConfig{
-				HomeChainSel:   e.HomeChainSel,
-				FeedChainSel:   e.FeedChainSel,
-				ChainsToDeploy: allChains,
-				TokenConfig:    tokenConfig,
-				OCRSecrets:     deployment.XXXGenerateTestOCRSecrets(),
-				USDCConfig: USDCConfig{
-					EnabledChains:         usdcChains,
-					USDCAttestationConfig: usdcCfg,
-					CCTPTokenConfig:       usdcCCTPConfig,
-				},
-				OCRParams: ocrParams,
+				HomeChainSel:       e.HomeChainSel,
+				FeedChainSel:       e.FeedChainSel,
+				OCRSecrets:         deployment.XXXGenerateTestOCRSecrets(),
+				ChainConfigByChain: chainConfigs,
 			},
 		},
 		{
@@ -389,31 +396,29 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 func CCIPSendRequest(
 	e deployment.Environment,
 	state CCIPOnChainState,
-	src, dest uint64,
-	testRouter bool,
-	evm2AnyMessage router.ClientEVM2AnyMessage,
+	cfg *CCIPSendReqConfig,
 ) (*types.Transaction, uint64, error) {
 	msg := router.ClientEVM2AnyMessage{
-		Receiver:     evm2AnyMessage.Receiver,
-		Data:         evm2AnyMessage.Data,
-		TokenAmounts: evm2AnyMessage.TokenAmounts,
-		FeeToken:     evm2AnyMessage.FeeToken,
-		ExtraArgs:    evm2AnyMessage.ExtraArgs,
+		Receiver:     cfg.Evm2AnyMessage.Receiver,
+		Data:         cfg.Evm2AnyMessage.Data,
+		TokenAmounts: cfg.Evm2AnyMessage.TokenAmounts,
+		FeeToken:     cfg.Evm2AnyMessage.FeeToken,
+		ExtraArgs:    cfg.Evm2AnyMessage.ExtraArgs,
 	}
-	r := state.Chains[src].Router
-	if testRouter {
-		r = state.Chains[src].TestRouter
+	r := state.Chains[cfg.SourceChain].Router
+	if cfg.IsTestRouter {
+		r = state.Chains[cfg.SourceChain].TestRouter
 	}
 
 	if msg.FeeToken == common.HexToAddress("0x0") { // fee is in native token
-		return retryCcipSendUntilNativeFeeIsSufficient(e, r, src, dest, msg)
+		return retryCcipSendUntilNativeFeeIsSufficient(e, r, cfg)
 	}
 
-	tx, err := r.CcipSend(e.Chains[src].DeployerKey, dest, msg)
+	tx, err := r.CcipSend(cfg.Sender, cfg.DestChain, msg)
 	if err != nil {
 		return nil, 0, errors.Wrap(err, "failed to send CCIP message")
 	}
-	blockNum, err := e.Chains[src].Confirm(tx)
+	blockNum, err := e.Chains[cfg.SourceChain].Confirm(tx)
 	if err != nil {
 		return tx, 0, errors.Wrap(err, "failed to confirm CCIP message")
 	}
@@ -426,27 +431,25 @@ func CCIPSendRequest(
 func retryCcipSendUntilNativeFeeIsSufficient(
 	e deployment.Environment,
 	r *router.Router,
-	src,
-	dest uint64,
-	msg router.ClientEVM2AnyMessage,
+	cfg *CCIPSendReqConfig,
 ) (*types.Transaction, uint64, error) {
 	const errCodeInsufficientFee = "0x07da6ee6"
-	defer func() { e.Chains[src].DeployerKey.Value = nil }()
+	defer func() { cfg.Sender.Value = nil }()
 
 	for {
-		fee, err := r.GetFee(&bind.CallOpts{Context: context.Background()}, dest, msg)
+		fee, err := r.GetFee(&bind.CallOpts{Context: context.Background()}, cfg.DestChain, cfg.Evm2AnyMessage)
 		if err != nil {
 			return nil, 0, fmt.Errorf("failed to get fee: %w", deployment.MaybeDataErr(err))
 		}
 
-		e.Chains[src].DeployerKey.Value = fee
+		cfg.Sender.Value = fee
 
-		tx, err := r.CcipSend(e.Chains[src].DeployerKey, dest, msg)
+		tx, err := r.CcipSend(cfg.Sender, cfg.DestChain, cfg.Evm2AnyMessage)
 		if err != nil {
 			return nil, 0, fmt.Errorf("failed to send CCIP message: %w", err)
 		}
 
-		blockNum, err := e.Chains[src].Confirm(tx)
+		blockNum, err := e.Chains[cfg.SourceChain].Confirm(tx)
 		if err != nil {
 			if strings.Contains(err.Error(), errCodeInsufficientFee) {
 				continue
@@ -485,33 +488,98 @@ func TestSendRequest(
 	testRouter bool,
 	evm2AnyMessage router.ClientEVM2AnyMessage,
 ) (msgSentEvent *onramp.OnRampCCIPMessageSent) {
-	t.Logf("Sending CCIP request from chain selector %d to chain selector %d",
-		src, dest)
-	tx, blockNum, err := CCIPSendRequest(
-		e,
-		state,
-		src, dest,
-		testRouter,
-		evm2AnyMessage,
-	)
+	msgSentEvent, err := DoSendRequest(t, e, state,
+		WithSender(e.Chains[src].DeployerKey),
+		WithSourceChain(src),
+		WithDestChain(dest),
+		WithTestRouter(testRouter),
+		WithEvm2AnyMessage(evm2AnyMessage))
 	require.NoError(t, err)
-	it, err := state.Chains[src].OnRamp.FilterCCIPMessageSent(&bind.FilterOpts{
+	return msgSentEvent
+}
+
+type CCIPSendReqConfig struct {
+	SourceChain    uint64
+	DestChain      uint64
+	IsTestRouter   bool
+	Sender         *bind.TransactOpts
+	Evm2AnyMessage router.ClientEVM2AnyMessage
+}
+
+type SendReqOpts func(*CCIPSendReqConfig)
+
+func WithSender(sender *bind.TransactOpts) SendReqOpts {
+	return func(c *CCIPSendReqConfig) {
+		c.Sender = sender
+	}
+}
+
+func WithEvm2AnyMessage(msg router.ClientEVM2AnyMessage) SendReqOpts {
+	return func(c *CCIPSendReqConfig) {
+		c.Evm2AnyMessage = msg
+	}
+}
+
+func WithTestRouter(isTestRouter bool) SendReqOpts {
+	return func(c *CCIPSendReqConfig) {
+		c.IsTestRouter = isTestRouter
+	}
+}
+
+func WithSourceChain(sourceChain uint64) SendReqOpts {
+	return func(c *CCIPSendReqConfig) {
+		c.SourceChain = sourceChain
+	}
+}
+
+func WithDestChain(destChain uint64) SendReqOpts {
+	return func(c *CCIPSendReqConfig) {
+		c.DestChain = destChain
+	}
+}
+
+// DoSendRequest similar to TestSendRequest but returns an error.
+func DoSendRequest(
+	t *testing.T,
+	e deployment.Environment,
+	state CCIPOnChainState,
+	opts ...SendReqOpts,
+) (*onramp.OnRampCCIPMessageSent, error) {
+	cfg := &CCIPSendReqConfig{}
+	for _, opt := range opts {
+		opt(cfg)
+	}
+	// Set default sender if not provided
+	if cfg.Sender == nil {
+		cfg.Sender = e.Chains[cfg.SourceChain].DeployerKey
+	}
+	t.Logf("Sending CCIP request from chain selector %d to chain selector %d from sender %s",
+		cfg.SourceChain, cfg.DestChain, cfg.Sender.From.String())
+	tx, blockNum, err := CCIPSendRequest(e, state, cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	it, err := state.Chains[cfg.SourceChain].OnRamp.FilterCCIPMessageSent(&bind.FilterOpts{
 		Start:   blockNum,
 		End:     &blockNum,
 		Context: context.Background(),
-	}, []uint64{dest}, []uint64{})
-	require.NoError(t, err)
+	}, []uint64{cfg.DestChain}, []uint64{})
+	if err != nil {
+		return nil, err
+	}
+
 	require.True(t, it.Next())
 	t.Logf("CCIP message (id %x) sent from chain selector %d to chain selector %d tx %s seqNum %d nonce %d sender %s",
 		it.Event.Message.Header.MessageId[:],
-		src,
-		dest,
+		cfg.SourceChain,
+		cfg.DestChain,
 		tx.Hash().String(),
 		it.Event.SequenceNumber,
 		it.Event.Message.Header.Nonce,
 		it.Event.Message.Sender.String(),
 	)
-	return it.Event
+	return it.Event, nil
 }
 
 // MakeEVMExtraArgsV2 creates the extra args for the EVM2Any message that is destined
@@ -539,6 +607,16 @@ func MakeEVMExtraArgsV2(gasLimit uint64, allowOOO bool) []byte {
 	return extraArgs
 }
 
+func AddLaneWithDefaultPricesAndFeeQuoterConfig(e deployment.Environment, state CCIPOnChainState, from, to uint64, isTestRouter bool) error {
+	cfg := LaneConfig{
+		SourceSelector:        from,
+		DestSelector:          to,
+		InitialPricesBySource: DefaultInitialPrices,
+		FeeQuoterDestChain:    DefaultFeeQuoterDestChainConfig(),
+	}
+	return addLane(e, state, cfg, isTestRouter)
+}
+
 // AddLanesForAll adds densely connected lanes for all chains in the environment so that each chain
 // is connected to every other chain except itself.
 func AddLanesForAll(e deployment.Environment, state CCIPOnChainState) error {
@@ -562,11 +640,11 @@ func ToPackedFee(execFee, daFee *big.Int) *big.Int {
 
 const (
 	// MockLinkAggregatorDescription This is the description of the MockV3Aggregator.sol contract
-	// nolint:lll
+	//nolint:lll
 	// https://github.com/smartcontractkit/chainlink/blob/a348b98e90527520049c580000a86fb8ceff7fa7/contracts/src/v0.8/tests/MockV3Aggregator.sol#L76-L76
 	MockLinkAggregatorDescription = "v0.8/tests/MockV3Aggregator.sol"
 	// MockWETHAggregatorDescription WETH use description from MockETHUSDAggregator.sol
-	// nolint:lll
+	//nolint:lll
 	// https://github.com/smartcontractkit/chainlink/blob/a348b98e90527520049c580000a86fb8ceff7fa7/contracts/src/v0.8/automation/testhelpers/MockETHUSDAggregator.sol#L19-L19
 	MockWETHAggregatorDescription = "MockETHUSDAggregator"
 )
@@ -750,58 +828,96 @@ func DeployTransferableToken(
 	token string,
 ) (*burn_mint_erc677.BurnMintERC677, *burn_mint_token_pool.BurnMintTokenPool, *burn_mint_erc677.BurnMintERC677, *burn_mint_token_pool.BurnMintTokenPool, error) {
 	// Deploy token and pools
-	srcToken, srcPool, err := deployTransferTokenOneEnd(lggr, chains[src], srcActor, addresses, token)
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-	dstToken, dstPool, err := deployTransferTokenOneEnd(lggr, chains[dst], dstActor, addresses, token)
+	srcToken, srcPool, dstToken, dstPool, err := deployTokenPoolsInParallel(lggr, chains, src, dst, srcActor, dstActor, state, addresses, token)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
 
-	// Attach token pools to registry
-	if err := attachTokenToTheRegistry(chains[src], state.Chains[src], srcActor, srcToken.Address(), srcPool.Address()); err != nil {
+	// Configure pools in parallel
+	configurePoolGrp := errgroup.Group{}
+	configurePoolGrp.Go(func() error {
+		err := setTokenPoolCounterPart(chains[src], srcPool, srcActor, dst, dstToken.Address(), dstPool.Address())
+		if err != nil {
+			return fmt.Errorf("failed to set token pool counter part chain %d: %w", src, err)
+		}
+		err = grantMintBurnPermissions(lggr, chains[src], srcToken, srcActor, srcPool.Address())
+		if err != nil {
+			return fmt.Errorf("failed to grant mint burn permissions chain %d: %w", src, err)
+		}
+		return nil
+	})
+	configurePoolGrp.Go(func() error {
+		err := setTokenPoolCounterPart(chains[dst], dstPool, dstActor, src, srcToken.Address(), srcPool.Address())
+		if err != nil {
+			return fmt.Errorf("failed to set token pool counter part chain %d: %w", dst, err)
+		}
+		if err := grantMintBurnPermissions(lggr, chains[dst], dstToken, dstActor, dstPool.Address()); err != nil {
+			return fmt.Errorf("failed to grant mint burn permissions chain %d: %w", dst, err)
+		}
+		return nil
+	})
+	if err := configurePoolGrp.Wait(); err != nil {
 		return nil, nil, nil, nil, err
 	}
+	return srcToken, srcPool, dstToken, dstPool, nil
+}
 
-	if err := attachTokenToTheRegistry(chains[dst], state.Chains[dst], dstActor, dstToken.Address(), dstPool.Address()); err != nil {
+func deployTokenPoolsInParallel(
+	lggr logger.Logger,
+	chains map[uint64]deployment.Chain,
+	src, dst uint64,
+	srcActor, dstActor *bind.TransactOpts,
+	state CCIPOnChainState,
+	addresses deployment.AddressBook,
+	token string,
+) (
+	*burn_mint_erc677.BurnMintERC677,
+	*burn_mint_token_pool.BurnMintTokenPool,
+	*burn_mint_erc677.BurnMintERC677,
+	*burn_mint_token_pool.BurnMintTokenPool,
+	error,
+) {
+	deployGrp := errgroup.Group{}
+	// Deploy token and pools
+	var srcToken *burn_mint_erc677.BurnMintERC677
+	var srcPool *burn_mint_token_pool.BurnMintTokenPool
+	var dstToken *burn_mint_erc677.BurnMintERC677
+	var dstPool *burn_mint_token_pool.BurnMintTokenPool
+
+	deployGrp.Go(func() error {
+		var err error
+		srcToken, srcPool, err = deployTransferTokenOneEnd(lggr, chains[src], srcActor, addresses, token)
+		if err != nil {
+			return err
+		}
+		if err := attachTokenToTheRegistry(chains[src], state.Chains[src], srcActor, srcToken.Address(), srcPool.Address()); err != nil {
+			return err
+		}
+		return nil
+	})
+	deployGrp.Go(func() error {
+		var err error
+		dstToken, dstPool, err = deployTransferTokenOneEnd(lggr, chains[dst], dstActor, addresses, token)
+		if err != nil {
+			return err
+		}
+		if err := attachTokenToTheRegistry(chains[dst], state.Chains[dst], dstActor, dstToken.Address(), dstPool.Address()); err != nil {
+			return err
+		}
+		return nil
+	})
+	if err := deployGrp.Wait(); err != nil {
 		return nil, nil, nil, nil, err
 	}
-
-	// Connect pool to each other
-	if err := setTokenPoolCounterPart(chains[src], srcPool, srcActor, dst, dstToken.Address(), dstPool.Address()); err != nil {
-		return nil, nil, nil, nil, err
+	if srcToken == nil || srcPool == nil || dstToken == nil || dstPool == nil {
+		return nil, nil, nil, nil, fmt.Errorf("failed to deploy token and pool")
 	}
-
-	if err := setTokenPoolCounterPart(chains[dst], dstPool, dstActor, src, srcToken.Address(), srcPool.Address()); err != nil {
-		return nil, nil, nil, nil, err
-	}
-
-	// Add burn/mint permissions
-	if err := grantMintBurnPermissions(lggr, chains[src], srcToken, srcActor, srcPool.Address()); err != nil {
-		return nil, nil, nil, nil, err
-	}
-
-	if err := grantMintBurnPermissions(lggr, chains[dst], dstToken, dstActor, dstPool.Address()); err != nil {
-		return nil, nil, nil, nil, err
-	}
-
 	return srcToken, srcPool, dstToken, dstPool, nil
 }
 
 func grantMintBurnPermissions(lggr logger.Logger, chain deployment.Chain, token *burn_mint_erc677.BurnMintERC677, actor *bind.TransactOpts, address common.Address) error {
-	lggr.Infow("Granting burn permissions", "token", token.Address(), "burner", address)
-	tx, err := token.GrantBurnRole(actor, address)
-	if err != nil {
-		return err
-	}
-	_, err = chain.Confirm(tx)
-	if err != nil {
-		return err
-	}
-
-	lggr.Infow("Granting mint permissions", "token", token.Address(), "minter", address)
-	tx, err = token.GrantMintRole(actor, address)
+	lggr.Infow("Granting burn/mint permissions", "token", token.Address(), "address", address)
+	tx, err := token.GrantMintAndBurnRoles(actor, address)
 	if err != nil {
 		return err
 	}
@@ -1023,28 +1139,35 @@ func MintAndAllow(
 	owners map[uint64]*bind.TransactOpts,
 	tkMap map[uint64][]*burn_mint_erc677.BurnMintERC677,
 ) {
+	configurePoolGrp := errgroup.Group{}
 	tenCoins := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(10))
 
 	for chain, tokens := range tkMap {
 		owner, ok := owners[chain]
 		require.True(t, ok)
 
-		for _, token := range tokens {
-			tx, err := token.Mint(
-				owner,
-				e.Chains[chain].DeployerKey.From,
-				new(big.Int).Mul(tenCoins, big.NewInt(10)),
-			)
-			require.NoError(t, err)
-			_, err = e.Chains[chain].Confirm(tx)
-			require.NoError(t, err)
+		tokens := tokens
+		configurePoolGrp.Go(func() error {
+			for _, token := range tokens {
+				tx, err := token.Mint(
+					owner,
+					e.Chains[chain].DeployerKey.From,
+					new(big.Int).Mul(tenCoins, big.NewInt(10)),
+				)
+				require.NoError(t, err)
+				_, err = e.Chains[chain].Confirm(tx)
+				require.NoError(t, err)
 
-			tx, err = token.Approve(e.Chains[chain].DeployerKey, state.Chains[chain].Router.Address(), tenCoins)
-			require.NoError(t, err)
-			_, err = e.Chains[chain].Confirm(tx)
-			require.NoError(t, err)
-		}
+				tx, err = token.Approve(e.Chains[chain].DeployerKey, state.Chains[chain].Router.Address(), tenCoins)
+				require.NoError(t, err)
+				_, err = e.Chains[chain].Confirm(tx)
+				require.NoError(t, err)
+			}
+			return nil
+		})
 	}
+
+	require.NoError(t, configurePoolGrp.Wait())
 }
 
 // TransferAndWaitForSuccess sends a message from sourceChain to destChain and waits for it to be executed
@@ -1058,6 +1181,7 @@ func TransferAndWaitForSuccess(
 	receiver common.Address,
 	data []byte,
 	expectedStatus int,
+	extraArgs []byte,
 ) {
 	identifier := SourceDestPair{
 		SourceChainSelector: sourceChain,
@@ -1078,7 +1202,7 @@ func TransferAndWaitForSuccess(
 		Data:         data,
 		TokenAmounts: tokens,
 		FeeToken:     common.HexToAddress("0x0"),
-		ExtraArgs:    nil,
+		ExtraArgs:    extraArgs,
 	})
 	expectedSeqNum[identifier] = msgSentEvent.SequenceNumber
 	expectedSeqNumExec[identifier] = []uint64{msgSentEvent.SequenceNumber}
@@ -1137,4 +1261,14 @@ func GetTokenBalance(
 	)
 
 	return balance
+}
+
+func DefaultRouterMessage(receiverAddress common.Address) router.ClientEVM2AnyMessage {
+	return router.ClientEVM2AnyMessage{
+		Receiver:     common.LeftPadBytes(receiverAddress.Bytes(), 32),
+		Data:         []byte("hello world"),
+		TokenAmounts: nil,
+		FeeToken:     common.HexToAddress("0x0"),
+		ExtraArgs:    nil,
+	}
 }
