@@ -17,7 +17,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
-	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 
@@ -32,7 +31,6 @@ import (
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
@@ -74,30 +72,13 @@ var (
 )
 
 func setupGetCommitGTETimestampTest(ctx context.Context, t testing.TB, finalityDepth int64, useHeavyDB bool) (*testSetupData, int64, common.Address) {
-	cfg := evmtypes.ChainReaderConfig{
-		Contracts: map[string]evmtypes.ChainContractReader{
-			consts.ContractNameOffRamp: {
-				ContractPollingFilter: evmtypes.ContractPollingFilter{
-					GenericEventNames: []string{consts.EventNameCommitReportAccepted},
-				},
-				ContractABI: ccip_reader_tester.CCIPReaderTesterABI,
-				Configs: map[string]*evmtypes.ChainReaderDefinition{
-					consts.EventNameCommitReportAccepted: {
-						ChainSpecificName: consts.EventNameCommitReportAccepted,
-						ReadType:          evmtypes.Event,
-					},
-				},
-			},
-		},
-	}
-
 	sb, auth := setupSimulatedBackendAndAuth(t)
 	onRampAddress := utils.RandomAddress()
 	s := testSetup(ctx, t, testSetupParams{
 		ReaderChain:    chainD,
 		DestChain:      chainD,
 		OnChainSeqNums: nil,
-		Cfg:            cfg,
+		Cfg:            evmconfig.DestReaderConfig,
 		ToMockBindings: map[cciptypes.ChainSelector][]types.BoundContract{
 			chainS1: {
 				{
@@ -106,104 +87,49 @@ func setupGetCommitGTETimestampTest(ctx context.Context, t testing.TB, finalityD
 				},
 			},
 		},
-		BindTester:       true,
-		SimulatedBackend: sb,
-		Auth:             auth,
-		FinalityDepth:    finalityDepth,
-		UseHeavyDB:       useHeavyDB,
+		BindTester:         true,
+		ContractNameToBind: consts.ContractNameOffRamp,
+		SimulatedBackend:   sb,
+		Auth:               auth,
+		FinalityDepth:      finalityDepth,
+		UseHeavyDB:         useHeavyDB,
 	})
 
 	return s, finalityDepth, onRampAddress
 }
 
 func setupExecutedMessageRangesTest(ctx context.Context, t testing.TB, useHeavyDB bool) *testSetupData {
-	cfg := evmtypes.ChainReaderConfig{
-		Contracts: map[string]evmtypes.ChainContractReader{
-			consts.ContractNameOffRamp: {
-				ContractPollingFilter: evmtypes.ContractPollingFilter{
-					GenericEventNames: []string{consts.EventNameExecutionStateChanged},
-				},
-				ContractABI: ccip_reader_tester.CCIPReaderTesterABI,
-				Configs: map[string]*evmtypes.ChainReaderDefinition{
-					consts.EventNameExecutionStateChanged: {
-						ChainSpecificName: consts.EventNameExecutionStateChanged,
-						ReadType:          evmtypes.Event,
-						EventDefinitions: &evmtypes.EventDefinitions{
-							GenericTopicNames: map[string]string{
-								"sourceChainSelector": consts.EventAttributeSourceChain,
-								"sequenceNumber":      consts.EventAttributeSequenceNumber,
-							},
-							GenericDataWordDetails: map[string]evmtypes.DataWordDetail{
-								consts.EventAttributeState: {
-									Name: "state",
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
 	sb, auth := setupSimulatedBackendAndAuth(t)
 	return testSetup(ctx, t, testSetupParams{
-		ReaderChain:      chainD,
-		DestChain:        chainD,
-		OnChainSeqNums:   nil,
-		Cfg:              cfg,
-		ToBindContracts:  nil,
-		ToMockBindings:   nil,
-		BindTester:       true,
-		SimulatedBackend: sb,
-		Auth:             auth,
-		UseHeavyDB:       useHeavyDB,
+		ReaderChain:    chainD,
+		DestChain:      chainD,
+		OnChainSeqNums: nil,
+		Cfg:            evmconfig.DestReaderConfig,
+		// Cfg:              cfg,
+		ToBindContracts:    nil,
+		ToMockBindings:     nil,
+		BindTester:         true,
+		ContractNameToBind: consts.ContractNameOffRamp,
+		SimulatedBackend:   sb,
+		Auth:               auth,
+		UseHeavyDB:         useHeavyDB,
 	})
 }
 
 func setupMsgsBetweenSeqNumsTest(ctx context.Context, t testing.TB, useHeavyDB bool) *testSetupData {
-	cfg := evmtypes.ChainReaderConfig{
-		Contracts: map[string]evmtypes.ChainContractReader{
-			consts.ContractNameOnRamp: {
-				ContractPollingFilter: evmtypes.ContractPollingFilter{
-					GenericEventNames: []string{consts.EventNameCCIPMessageSent},
-				},
-				ContractABI: ccip_reader_tester.CCIPReaderTesterABI,
-				Configs: map[string]*evmtypes.ChainReaderDefinition{
-					consts.EventNameCCIPMessageSent: {
-						ChainSpecificName: "CCIPMessageSent",
-						ReadType:          evmtypes.Event,
-						EventDefinitions: &evmtypes.EventDefinitions{
-							GenericDataWordDetails: map[string]evmtypes.DataWordDetail{
-								consts.EventAttributeSourceChain:    {Name: "message.header.sourceChainSelector"},
-								consts.EventAttributeDestChain:      {Name: "message.header.destChainSelector"},
-								consts.EventAttributeSequenceNumber: {Name: "message.header.sequenceNumber"},
-							},
-						},
-						OutputModifications: codec.ModifiersConfig{
-							&codec.WrapperModifierConfig{Fields: map[string]string{
-								"Message.FeeTokenAmount":      "Int",
-								"Message.FeeValueJuels":       "Int",
-								"Message.TokenAmounts.Amount": "Int",
-							}},
-						},
-					},
-				},
-			},
-		},
-	}
-
 	sb, auth := setupSimulatedBackendAndAuth(t)
 	return testSetup(ctx, t, testSetupParams{
-		ReaderChain:      chainS1,
-		DestChain:        chainD,
-		OnChainSeqNums:   nil,
-		Cfg:              cfg,
-		ToBindContracts:  nil,
-		ToMockBindings:   nil,
-		BindTester:       true,
-		SimulatedBackend: sb,
-		Auth:             auth,
-		UseHeavyDB:       useHeavyDB,
+		ReaderChain:        chainS1,
+		DestChain:          chainD,
+		OnChainSeqNums:     nil,
+		Cfg:                evmconfig.SourceReaderConfig,
+		ToBindContracts:    nil,
+		ToMockBindings:     nil,
+		BindTester:         true,
+		ContractNameToBind: consts.ContractNameOnRamp,
+		SimulatedBackend:   sb,
+		Auth:               auth,
+		UseHeavyDB:         useHeavyDB,
 	})
 }
 
@@ -842,10 +768,10 @@ func Test_GetWrappedNativeTokenPriceUSD(t *testing.T) {
 }
 
 // Benchmark Results:
-// Benchmark_CCIPReader_CommitReportsGTETimestamp/FirstLogs_0_MatchLogs_0-14             1000000000          0.001293 ns/op        0 B/op          0 allocs/op
-// Benchmark_CCIPReader_CommitReportsGTETimestamp/FirstLogs_1_MatchLogs_10-14            1000000000          0.002117 ns/op        0 B/op          0 allocs/op
-// Benchmark_CCIPReader_CommitReportsGTETimestamp/FirstLogs_10_MatchLogs_100-14          1000000000          0.007866 ns/op        0 B/op          0 allocs/op
-// Benchmark_CCIPReader_CommitReportsGTETimestamp/FirstLogs_100_MatchLogs_10000-14       1000000000          0.5481 ns/op          0 B/op          0 allocs/op
+// Benchmark_CCIPReader_CommitReportsGTETimestamp/FirstLogs_0_MatchLogs_0-14             16948      67728 ns/op        30387 B/op          417 allocs/op
+// Benchmark_CCIPReader_CommitReportsGTETimestamp/FirstLogs_1_MatchLogs_10-14            1650       741741 ns/op       528334 B/op         9929 allocs/op
+// Benchmark_CCIPReader_CommitReportsGTETimestamp/FirstLogs_10_MatchLogs_100-14          195        6096328 ns/op      4739856 B/op        92345 allocs/op
+// Benchmark_CCIPReader_CommitReportsGTETimestamp/FirstLogs_100_MatchLogs_10000-14       2          582712583 ns/op    454375304 B/op      8931990 allocs/op
 func Benchmark_CCIPReader_CommitReportsGTETimestamp(b *testing.B) {
 	tests := []struct {
 		logsInsertedFirst    int
@@ -882,9 +808,11 @@ func benchmarkCommitReports(b *testing.B, logsInsertedFirst int, logsInsertedMat
 	// Reset timer to measure only the query time
 	b.ResetTimer()
 
-	reports, err := s.reader.CommitReportsGTETimestamp(ctx, chainD, queryTimestamp, logsInsertedFirst)
-	require.NoError(b, err)
-	require.Len(b, reports, logsInsertedFirst)
+	for i := 0; i < b.N; i++ {
+		reports, err := s.reader.CommitReportsGTETimestamp(ctx, chainD, queryTimestamp, logsInsertedFirst)
+		require.NoError(b, err)
+		require.Len(b, reports, logsInsertedFirst)
+	}
 }
 
 func populateDatabaseForCommitReportAccepted(
@@ -974,11 +902,11 @@ func populateDatabaseForCommitReportAccepted(
 }
 
 // Benchmark Results:
-// Benchmark_CCIPReader_ExecutedMessageRanges/LogsInserted_0_StartSeq_0_EndSeq_10-14               1000000000          0.001348 ns/op         0 B/op          0 allocs/op
-// Benchmark_CCIPReader_ExecutedMessageRanges/LogsInserted_10_StartSeq_10_EndSeq_20-14             1000000000          0.0007784 ns/op        0 B/op          0 allocs/op
-// Benchmark_CCIPReader_ExecutedMessageRanges/LogsInserted_10_StartSeq_0_EndSeq_9-14               1000000000          0.001305 ns/op         0 B/op          0 allocs/op
-// Benchmark_CCIPReader_ExecutedMessageRanges/LogsInserted_100_StartSeq_0_EndSeq_100-14            1000000000          0.005580 ns/op         0 B/op          0 allocs/op
-// Benchmark_CCIPReader_ExecutedMessageRanges/LogsInserted_100000_StartSeq_99744_EndSeq_100000-14  1000000000          0.04583 ns/op          0 B/op          0 allocs/op
+// Benchmark_CCIPReader_ExecutedMessageRanges/LogsInserted_0_StartSeq_0_EndSeq_10-14               13599            93414 ns/op           43389 B/op        654 allocs/op
+// Benchmark_CCIPReader_ExecutedMessageRanges/LogsInserted_10_StartSeq_10_EndSeq_20-14             13471            88392 ns/op           43011 B/op        651 allocs/op
+// Benchmark_CCIPReader_ExecutedMessageRanges/LogsInserted_10_StartSeq_0_EndSeq_9-14                2799           473396 ns/op          303737 B/op       4535 allocs/op
+// Benchmark_CCIPReader_ExecutedMessageRanges/LogsInserted_100_StartSeq_0_EndSeq_100-14              438          2724414 ns/op         2477573 B/op      37468 allocs/op
+// Benchmark_CCIPReader_ExecutedMessageRanges/LogsInserted_100000_StartSeq_99744_EndSeq_100000-14     40         29118796 ns/op        12607995 B/op     179396 allocs/op
 func Benchmark_CCIPReader_ExecutedMessageRanges(b *testing.B) {
 	tests := []struct {
 		logsInserted int
@@ -1013,15 +941,16 @@ func benchmarkExecutedMessageRanges(b *testing.B, logsInsertedFirst int, startSe
 	// Reset timer to measure only the query time
 	b.ResetTimer()
 
-	executedRanges, err := s.reader.ExecutedMessageRanges(
-		ctx,
-		chainS1,
-		chainD,
-		cciptypes.NewSeqNumRange(startSeqNum, endSeqNum),
-	)
-	require.NoError(b, err)
-	require.Len(b, executedRanges, expectedRangeLen)
-	fmt.Println(len(executedRanges))
+	for i := 0; i < b.N; i++ {
+		executedRanges, err := s.reader.ExecutedMessageRanges(
+			ctx,
+			chainS1,
+			chainD,
+			cciptypes.NewSeqNumRange(startSeqNum, endSeqNum),
+		)
+		require.NoError(b, err)
+		require.Len(b, executedRanges, expectedRangeLen)
+	}
 }
 
 func populateDatabaseForExecutionStateChanged(
@@ -1094,10 +1023,10 @@ func populateDatabaseForExecutionStateChanged(
 }
 
 // Benchmark Results:
-// Benchmark_CCIPReader_MessageSentRanges/LogsInserted_0_StartSeq_0_EndSeq_10-14                     1000000000          0.001557 ns/op          0 B/op          0 allocs/op
-// Benchmark_CCIPReader_MessageSentRanges/LogsInserted_10_StartSeq_0_EndSeq_9-14                     1000000000          0.003141 ns/op          0 B/op          0 allocs/op
-// Benchmark_CCIPReader_MessageSentRanges/LogsInserted_100_StartSeq_0_EndSeq_100-14                  1000000000          0.01201 ns/op           0 B/op          0 allocs/op
-// Benchmark_CCIPReader_MessageSentRanges/LogsInserted_100000_StartSeq_99744_EndSeq_100000-14        1000000000          0.1976 ns/op            0 B/op          0 allocs/op
+// Benchmark_CCIPReader_MessageSentRanges/LogsInserted_0_StartSeq_0_EndSeq_10-14                     13729             85838 ns/op           43473 B/op        647 allocs/op
+// Benchmark_CCIPReader_MessageSentRanges/LogsInserted_10_StartSeq_0_EndSeq_9-14                      870           1405208 ns/op         1156315 B/op      21102 allocs/op
+// Benchmark_CCIPReader_MessageSentRanges/LogsInserted_100_StartSeq_0_EndSeq_100-14                    90          12129488 ns/op        10833395 B/op     201076 allocs/op
+// Benchmark_CCIPReader_MessageSentRanges/LogsInserted_100000_StartSeq_99744_EndSeq_100000-14          10         105741438 ns/op        49103282 B/op     796213 allocs/op
 func Benchmark_CCIPReader_MessageSentRanges(b *testing.B) {
 	tests := []struct {
 		logsInserted int
@@ -1139,13 +1068,15 @@ func benchmarkMessageSentRanges(b *testing.B, logsInserted int, startSeqNum, end
 	// Reset timer to measure only the query time
 	b.ResetTimer()
 
-	msgs, err := s.reader.MsgsBetweenSeqNums(
-		ctx,
-		chainS1,
-		cciptypes.NewSeqNumRange(startSeqNum, endSeqNum),
-	)
-	require.NoError(b, err)
-	require.Len(b, msgs, expectedRangeLen)
+	for i := 0; i < b.N; i++ {
+		msgs, err := s.reader.MsgsBetweenSeqNums(
+			ctx,
+			chainS1,
+			cciptypes.NewSeqNumRange(startSeqNum, endSeqNum),
+		)
+		require.NoError(b, err)
+		require.Len(b, msgs, expectedRangeLen)
+	}
 }
 
 func populateDatabaseForMessageSent(
@@ -1416,8 +1347,6 @@ func testSetup(
 		assert.Equal(t, seqNum, cciptypes.SeqNum(scc.MinSeqNr))
 	}
 
-	contractNames := maps.Keys(params.Cfg.Contracts)
-
 	cr, err := evm.NewChainReaderService(ctx, lggr, lp, headTracker, cl, params.Cfg)
 	require.NoError(t, err)
 
@@ -1427,7 +1356,7 @@ func testSetup(
 		err = extendedCr.Bind(ctx, []types.BoundContract{
 			{
 				Address: address.String(),
-				Name:    contractNames[0],
+				Name:    params.ContractNameToBind,
 			},
 		})
 		require.NoError(t, err)
@@ -1496,17 +1425,18 @@ func testSetup(
 }
 
 type testSetupParams struct {
-	ReaderChain      cciptypes.ChainSelector
-	DestChain        cciptypes.ChainSelector
-	OnChainSeqNums   map[cciptypes.ChainSelector]cciptypes.SeqNum
-	Cfg              evmtypes.ChainReaderConfig
-	ToBindContracts  map[cciptypes.ChainSelector][]types.BoundContract
-	ToMockBindings   map[cciptypes.ChainSelector][]types.BoundContract
-	BindTester       bool
-	SimulatedBackend *simulated.Backend
-	Auth             *bind.TransactOpts
-	FinalityDepth    int64
-	UseHeavyDB       bool
+	ReaderChain        cciptypes.ChainSelector
+	DestChain          cciptypes.ChainSelector
+	OnChainSeqNums     map[cciptypes.ChainSelector]cciptypes.SeqNum
+	Cfg                evmtypes.ChainReaderConfig
+	ToBindContracts    map[cciptypes.ChainSelector][]types.BoundContract
+	ToMockBindings     map[cciptypes.ChainSelector][]types.BoundContract
+	BindTester         bool
+	ContractNameToBind string
+	SimulatedBackend   *simulated.Backend
+	Auth               *bind.TransactOpts
+	FinalityDepth      int64
+	UseHeavyDB         bool
 }
 
 type testSetupData struct {
