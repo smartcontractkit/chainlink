@@ -362,7 +362,8 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   ) internal {
     uint64 sourceChainSelector = report.sourceChainSelector;
     bool manualExecution = manualExecGasExecOverrides.length != 0;
-    if (i_rmnRemote.isCursed(bytes16(uint128(sourceChainSelector)))) {
+    // The double call to the RMNRemote is to check for both chainwise and legacy cursing before proceeding
+    if (i_rmnRemote.isCursed(bytes16(uint128(sourceChainSelector))) || i_rmnRemote.isCursed()) {
       if (manualExecution) {
         // For manual execution we don't want to silently fail so we revert.
         revert CursedByRMN(sourceChainSelector);
@@ -811,7 +812,8 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
       Internal.MerkleRoot memory root = commitReport.merkleRoots[i];
       uint64 sourceChainSelector = root.sourceChainSelector;
 
-      if (i_rmnRemote.isCursed(bytes16(uint128(sourceChainSelector)))) {
+      // Check for both chainwise cursing or legacy cursing
+      if (i_rmnRemote.isCursed(bytes16(uint128(sourceChainSelector))) || i_rmnRemote.isCursed()) {
         revert CursedByRMN(sourceChainSelector);
       }
 
