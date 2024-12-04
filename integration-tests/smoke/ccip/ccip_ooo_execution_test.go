@@ -1,16 +1,18 @@
 package smoke
 
 import (
-	"github.com/ethereum/go-ethereum/common"
+	"fmt"
 	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
@@ -23,7 +25,7 @@ import (
 // 2. src -> dest - ordered USDC token transfer, but with faulty attestation, should be stuck forever
 // 3. src -> dest - ordered token transfer, should not be executed because previous message is stuck
 // 4. src -> dest - out of order message transfer, should be executed anyway
-// 5. src -> dest - ordered programmable token transfer, but using a different sender
+// 5. src -> dest - ordered token transfer, but from a different sender
 //
 // All messages should be properly committed, but only 1 and 4, 5 are fully executed.
 // Messages 2 and 3 are untouched, because ordering is enforced.
@@ -46,7 +48,9 @@ func Test_OutOfOrderExecution(t *testing.T) {
 	sourceChain, destChain := allChainSelectors[0], allChainSelectors[1]
 	ownerSourceChain := e.Chains[sourceChain].DeployerKey
 	ownerDestChain := e.Chains[destChain].DeployerKey
-	require.GreaterOrEqual(t, len(tenv.Users[sourceChain]), 1)
+
+	anotherSender, err := pickFirstAvailableUser(tenv, sourceChain, e)
+	require.NoError(t, err)
 
 	oneE18 := new(big.Int).SetUint64(1e18)
 
@@ -183,24 +187,23 @@ func Test_OutOfOrderExecution(t *testing.T) {
 		sourceChain, destChain, fourthMessage.SequenceNumber,
 	)
 
-	// Ordered programmable token transfer, but using different sender, should be executed
+	// Ordered token transfer, but using different sender, should be executed
 	fifthReceiver := utils.RandomAddress()
-	fifthSender := tenv.Users[sourceChain][0]
 	fifthMessage, err := changeset.DoSendRequest(t, e, state,
-		changeset.WithSender(fifthSender),
+		changeset.WithSender(anotherSender),
 		changeset.WithSourceChain(sourceChain),
 		changeset.WithDestChain(destChain),
 		changeset.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
 			Receiver:     common.LeftPadBytes(fifthReceiver.Bytes(), 32),
-			Data:         []byte("this should pass because sender is different"),
+			Data:         nil,
 			TokenAmounts: tokenTransfer,
 			FeeToken:     common.HexToAddress("0x0"),
-			ExtraArgs:    changeset.MakeEVMExtraArgsV2(300_000, false),
+			ExtraArgs:    changeset.MakeEVMExtraArgsV2(0, false),
 		}))
 	require.NoError(t, err)
 	expectedStatuses[fifthMessage.SequenceNumber] = changeset.EXECUTION_STATE_SUCCESS
 	t.Logf("Ordered message send by %v from chain %d to chain %d with sequence number %d",
-		fifthSender.From, sourceChain, destChain, fifthMessage.SequenceNumber,
+		anotherSender.From, sourceChain, destChain, fifthMessage.SequenceNumber,
 	)
 
 	// All messages are committed, even these which are going to be reverted during the exec
@@ -247,4 +250,20 @@ func Test_OutOfOrderExecution(t *testing.T) {
 	changeset.WaitForTheTokenBalance(ctx, t, destToken.Address(), thirdReceiver, e.Chains[destChain], big.NewInt(0))
 	changeset.WaitForTheTokenBalance(ctx, t, destToken.Address(), fourthReceiver, e.Chains[destChain], oneE18)
 	changeset.WaitForTheTokenBalance(ctx, t, destToken.Address(), fifthReceiver, e.Chains[destChain], oneE18)
+}
+
+func pickFirstAvailableUser(
+	tenv changeset.DeployedEnv,
+	sourceChain uint64,
+	e deployment.Environment,
+) (*bind.TransactOpts, error) {
+	for _, user := range tenv.Users[sourceChain] {
+		if user == nil {
+			continue
+		}
+		if user.From != e.Chains[sourceChain].DeployerKey.From {
+			return user, nil
+		}
+	}
+	return nil, fmt.Errorf("user not found")
 }
