@@ -123,7 +123,7 @@ func Test_OutOfOrderExecution(t *testing.T) {
 	expectedStatuses[firstMessage.SequenceNumber] = changeset.EXECUTION_STATE_SUCCESS
 	t.Logf("Out of order messages sent from chain %d to chain %d with sequence number %d", sourceChain, destChain, firstMessage.SequenceNumber)
 
-	// Ordered execution should fail because of too little gasLimit, that should block following ordered messages
+	// Ordered execution should fail because attestation is not present
 	secondReceiver := utils.RandomAddress()
 	secondMsg, _ := changeset.Transfer(
 		ctx,
@@ -139,7 +139,7 @@ func Test_OutOfOrderExecution(t *testing.T) {
 	)
 	t.Logf("Ordered USDC transfer sent from chain %d to chain %d with sequence number %d", sourceChain, destChain, secondMsg.SequenceNumber)
 
-	// Ordered token transfer should fail, because previous message was
+	// Ordered token transfer should fail, because previous message cannot be executed
 	thirdReceiver := utils.RandomAddress()
 	thirdMessage, _ := changeset.Transfer(
 		ctx,
@@ -153,7 +153,7 @@ func Test_OutOfOrderExecution(t *testing.T) {
 		nil,
 		changeset.MakeEVMExtraArgsV2(0, false),
 	)
-	t.Logf("Ordered token transfer from chain %d to chain %d with sequence number %d", sourceChain, destChain, secondMsg.SequenceNumber)
+	t.Logf("Ordered token transfer from chain %d to chain %d with sequence number %d", sourceChain, destChain, thirdMessage.SequenceNumber)
 
 	// Out of order programmable token transfer should pass
 	fourthReceiver := state.Chains[destChain].Receiver.Address()
@@ -170,7 +170,7 @@ func Test_OutOfOrderExecution(t *testing.T) {
 		changeset.MakeEVMExtraArgsV2(300_000, true),
 	)
 	expectedStatuses[fourthMessage.SequenceNumber] = changeset.EXECUTION_STATE_SUCCESS
-	t.Logf("Out of order programmable token transfer from chain %d to chain %d with sequence number %d", sourceChain, destChain, secondMsg.SequenceNumber)
+	t.Logf("Out of order programmable token transfer from chain %d to chain %d with sequence number %d", sourceChain, destChain, fourthMessage.SequenceNumber)
 
 	// All messages are committed, even these which are going to be reverted during the exec
 	_, err = changeset.ConfirmCommitWithExpectedSeqNumRange(

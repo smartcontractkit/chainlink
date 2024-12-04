@@ -240,14 +240,6 @@ func newCommitReportTracker(sourceChainSelector uint64, seqNrs ccipocr3.SeqNumRa
 	return commitReportTracker{seenMessages: seenMessages}
 }
 
-func (c *commitReportTracker) initChain(sourceChainSelector uint64, seqNrs ccipocr3.SeqNumRange) {
-	c.seenMessages[sourceChainSelector] = make(map[uint64]bool)
-
-	for i := seqNrs.Start(); i <= seqNrs.End(); i++ {
-		c.seenMessages[sourceChainSelector][uint64(i)] = false
-	}
-}
-
 func (c *commitReportTracker) visitCommitReport(sourceChainSelector uint64, minSeqNr uint64, maxSeqNr uint64) {
 	if _, ok := c.seenMessages[sourceChainSelector]; !ok {
 		return
