@@ -1221,6 +1221,73 @@ func Transfer(
 	return msgSentEvent, startBlocks
 }
 
+type TestTransferRequest struct {
+	Name                   string
+	SourceChain, DestChain uint64
+	Receiver               common.Address
+	ExpectedStatus         int
+	// optional
+	Tokens                []router.ClientEVMTokenAmount
+	Data                  []byte
+	ExtraArgs             []byte
+	ExpectedTokenBalances map[common.Address]*big.Int
+}
+
+func TransferMultiple(
+	ctx context.Context,
+	t *testing.T,
+	env deployment.Environment,
+	state CCIPOnChainState,
+	requests []TestTransferRequest,
+) (
+	map[uint64]*uint64,
+	map[SourceDestPair]cciptypes.SeqNumRange,
+	map[SourceDestPair]map[uint64]int,
+	map[uint64]map[TokenReceiverIdentifier]*big.Int,
+) {
+	startBlocks := make(map[uint64]*uint64)
+	expectedSeqNums := make(map[SourceDestPair]cciptypes.SeqNumRange)
+	expectedExecutionStates := make(map[SourceDestPair]map[uint64]int)
+	expectedTokenBalances := make(map[uint64]map[TokenReceiverIdentifier]*big.Int)
+
+	for _, tt := range requests {
+		t.Run(tt.Name, func(t *testing.T) {
+			expectedTokenBalances = AppendExpectedTokenBalances(
+				tt.DestChain, tt.Receiver, tt.ExpectedTokenBalances, expectedTokenBalances,
+			)
+
+			pairId := SourceDestPair{
+				SourceChainSelector: tt.SourceChain,
+				DestChainSelector:   tt.DestChain,
+			}
+
+			msg, blocks := Transfer(
+				ctx, t, env, state, tt.SourceChain, tt.DestChain, tt.Tokens, tt.Receiver, tt.Data, tt.ExtraArgs)
+			if _, ok := expectedExecutionStates[pairId]; !ok {
+				expectedExecutionStates[pairId] = make(map[uint64]int)
+			}
+			expectedExecutionStates[pairId][msg.SequenceNumber] = tt.ExpectedStatus
+
+			if _, ok := startBlocks[tt.DestChain]; !ok {
+				startBlocks[tt.DestChain] = blocks[tt.DestChain]
+			}
+
+			seqNr, ok := expectedSeqNums[pairId]
+			if ok {
+				expectedSeqNums[pairId] = cciptypes.NewSeqNumRange(
+					seqNr.Start(), cciptypes.SeqNum(msg.SequenceNumber),
+				)
+			} else {
+				expectedSeqNums[pairId] = cciptypes.NewSeqNumRange(
+					cciptypes.SeqNum(msg.SequenceNumber), cciptypes.SeqNum(msg.SequenceNumber),
+				)
+			}
+		})
+	}
+
+	return startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances
+}
+
 // TransferAndWaitForSuccess sends a message from sourceChain to destChain and waits for it to be executed
 func TransferAndWaitForSuccess(
 	ctx context.Context,
