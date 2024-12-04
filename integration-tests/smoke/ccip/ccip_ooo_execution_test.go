@@ -82,6 +82,7 @@ func Test_OutOfOrderExecution(t *testing.T) {
 		map[uint64][]changeset.MintTokenInfo{
 			sourceChain: {
 				changeset.NewMintTokenInfo(ownerSourceChain, srcToken, srcUSDC),
+				changeset.NewMintTokenWithCustomSender(ownerSourceChain, anotherSender, srcToken),
 			},
 		},
 	)

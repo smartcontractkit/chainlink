@@ -1139,11 +1139,16 @@ func deployTransferTokenOneEnd(
 
 type MintTokenInfo struct {
 	auth   *bind.TransactOpts
+	sender *bind.TransactOpts
 	tokens []*burn_mint_erc677.BurnMintERC677
 }
 
 func NewMintTokenInfo(auth *bind.TransactOpts, tokens ...*burn_mint_erc677.BurnMintERC677) MintTokenInfo {
 	return MintTokenInfo{auth: auth, tokens: tokens}
+}
+
+func NewMintTokenWithCustomSender(auth *bind.TransactOpts, sender *bind.TransactOpts, tokens ...*burn_mint_erc677.BurnMintERC677) MintTokenInfo {
+	return MintTokenInfo{auth: auth, sender: sender, tokens: tokens}
 }
 
 // MintAndAllow mints tokens for deployers and allow router to spend them
@@ -1161,17 +1166,22 @@ func MintAndAllow(
 
 		configurePoolGrp.Go(func() error {
 			for _, mintTokenInfo := range mintTokenInfos {
+				sender := mintTokenInfo.sender
+				if sender == nil {
+					sender = e.Chains[chain].DeployerKey
+				}
+
 				for _, token := range mintTokenInfo.tokens {
 					tx, err := token.Mint(
 						mintTokenInfo.auth,
-						e.Chains[chain].DeployerKey.From,
+						sender.From,
 						new(big.Int).Mul(tenCoins, big.NewInt(10)),
 					)
 					require.NoError(t, err)
 					_, err = e.Chains[chain].Confirm(tx)
 					require.NoError(t, err)
 
-					tx, err = token.Approve(e.Chains[chain].DeployerKey, state.Chains[chain].Router.Address(), tenCoins)
+					tx, err = token.Approve(sender, state.Chains[chain].Router.Address(), tenCoins)
 					require.NoError(t, err)
 					_, err = e.Chains[chain].Confirm(tx)
 					require.NoError(t, err)
