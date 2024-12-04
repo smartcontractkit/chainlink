@@ -28,6 +28,7 @@ src = 'src/v0.8/ccip'
 test = 'src/v0.8/ccip/test'
 evm_version = 'paris'
 via-ir = true
+optimizer_runs = 500
 
 
 [profile.functions]
