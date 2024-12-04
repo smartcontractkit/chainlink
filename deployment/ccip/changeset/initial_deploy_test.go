@@ -38,7 +38,7 @@ func TestInitialDeploy(t *testing.T) {
 			if src == dest {
 				continue
 			}
-			latesthdr, err := destChain.Client.HeaderByNumber(testcontext.Get(t), nil)
+			latesthdr, err := destChain.EVMChain.Client.HeaderByNumber(testcontext.Get(t), nil)
 			require.NoError(t, err)
 			block := latesthdr.Number.Uint64()
 			startBlocks[dest] = &block
@@ -48,7 +48,7 @@ func TestInitialDeploy(t *testing.T) {
 				WithSourceChain(src),
 				WithDestChain(dest),
 				WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
-					Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
+					Receiver:     common.LeftPadBytes(state.EVMState.Chains[dest].Receiver.Address().Bytes(), 32),
 					Data:         []byte("hello"),
 					TokenAmounts: nil,
 					FeeToken:     common.HexToAddress("0x0"),

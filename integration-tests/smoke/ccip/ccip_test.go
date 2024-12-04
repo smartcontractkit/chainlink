@@ -35,7 +35,7 @@ func TestInitialDeployOnLocal(t *testing.T) {
 			if src == dest {
 				continue
 			}
-			latesthdr, err := destChain.Client.HeaderByNumber(testcontext.Get(t), nil)
+			latesthdr, err := destChain.EVMChain.Client.HeaderByNumber(testcontext.Get(t), nil)
 			require.NoError(t, err)
 			block := latesthdr.Number.Uint64()
 			startBlocks[dest] = &block
@@ -46,7 +46,7 @@ func TestInitialDeployOnLocal(t *testing.T) {
 				changeset.WithDestChain(dest),
 				changeset.WithTestRouter(false),
 				changeset.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
-					Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
+					Receiver:     common.LeftPadBytes(state.EVMState.Chains[dest].Receiver.Address().Bytes(), 32),
 					Data:         []byte("hello world"),
 					TokenAmounts: nil,
 					FeeToken:     common.HexToAddress("0x0"),
@@ -69,8 +69,8 @@ func TestInitialDeployOnLocal(t *testing.T) {
 
 	// After commit is reported on all chains, token prices should be updated in FeeQuoter.
 	for dest := range e.Chains {
-		linkAddress := state.Chains[dest].LinkToken.Address()
-		feeQuoter := state.Chains[dest].FeeQuoter
+		linkAddress := state.EVMState.Chains[dest].LinkToken.Address()
+		feeQuoter := state.EVMState.Chains[dest].FeeQuoter
 		timestampedPrice, err := feeQuoter.GetTokenPrice(nil, linkAddress)
 		require.NoError(t, err)
 		require.Equal(t, changeset.MockLinkPrice, timestampedPrice.Value)

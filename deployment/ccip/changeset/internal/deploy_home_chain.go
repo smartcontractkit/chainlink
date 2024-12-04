@@ -193,7 +193,7 @@ func SetupExecDON(
 
 	// set candidate call
 	tx, err := capReg.UpdateDON(
-		home.DeployerKey,
+		home.EVMChain.DeployerKey,
 		donID,
 		nodes.PeerIDs(),
 		[]capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
@@ -235,7 +235,7 @@ func SetupExecDON(
 	}
 
 	tx, err = capReg.UpdateDON(
-		home.DeployerKey,
+		home.EVMChain.DeployerKey,
 		donID,
 		nodes.PeerIDs(),
 		[]capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
@@ -318,7 +318,7 @@ func SetupCommitDON(
 	if err != nil {
 		return fmt.Errorf("pack set candidate call: %w", err)
 	}
-	tx, err := capReg.AddDON(home.DeployerKey, nodes.PeerIDs(), []capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
+	tx, err := capReg.AddDON(home.EVMChain.DeployerKey, nodes.PeerIDs(), []capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
 		{
 			CapabilityId: CCIPCapabilityID,
 			Config:       encodedSetCandidateCall,
@@ -354,7 +354,7 @@ func SetupCommitDON(
 	}
 
 	tx, err = capReg.UpdateDON(
-		home.DeployerKey,
+		home.EVMChain.DeployerKey,
 		donID,
 		nodes.PeerIDs(),
 		[]capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{

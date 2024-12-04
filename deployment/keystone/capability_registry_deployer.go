@@ -32,20 +32,20 @@ func (c *CapabilitiesRegistryDeployer) Contract() *capabilities_registry.Capabil
 }
 
 func (c *CapabilitiesRegistryDeployer) Deploy(req DeployRequest) (*DeployResponse, error) {
-	est, err := estimateDeploymentGas(req.Chain.Client, capabilities_registry.CapabilitiesRegistryABI)
+	est, err := estimateDeploymentGas(req.Chain.EVMChain.Client, capabilities_registry.CapabilitiesRegistryABI)
 	if err != nil {
 		return nil, fmt.Errorf("failed to estimate gas: %w", err)
 	}
 	c.lggr.Debugf("Capability registry estimated gas: %d", est)
 
 	capabilitiesRegistryAddr, tx, capabilitiesRegistry, err := capabilities_registry.DeployCapabilitiesRegistry(
-		req.Chain.DeployerKey,
-		req.Chain.Client)
+		req.Chain.EVMChain.DeployerKey,
+		req.Chain.EVMChain.Client)
 	if err != nil {
 		return nil, fmt.Errorf("failed to deploy CapabilitiesRegistry: %w", err)
 	}
 
-	_, err = req.Chain.Confirm(tx)
+	_, err = req.Chain.EVMChain.Confirm(tx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to confirm and save CapabilitiesRegistry: %w", err)
 	}

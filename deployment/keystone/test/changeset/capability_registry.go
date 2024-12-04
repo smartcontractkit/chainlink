@@ -48,13 +48,13 @@ func HydrateCapabilityRegistry(t *testing.T, v v1_0.CapabilityRegistryView, env 
 	deployedContract := cs.CapabilitiesRegistry
 
 	nopsParams := v.NopsToNopsParams()
-	tx, err := deployedContract.AddNodeOperators(chain.DeployerKey, nopsParams)
+	tx, err := deployedContract.AddNodeOperators(chain.EVMChain.DeployerKey, nopsParams)
 	if _, err = deployment.ConfirmIfNoError(chain, tx, keystone.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)); err != nil {
 		return nil, fmt.Errorf("failed to add node operators: %w", err)
 	}
 
 	capabilitiesParams := v.CapabilitiesToCapabilitiesParams()
-	tx, err = deployedContract.AddCapabilities(chain.DeployerKey, capabilitiesParams)
+	tx, err = deployedContract.AddCapabilities(chain.EVMChain.DeployerKey, capabilitiesParams)
 	if _, err = deployment.ConfirmIfNoError(chain, tx, keystone.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)); err != nil {
 		return nil, fmt.Errorf("failed to add capabilities: %w", err)
 	}
@@ -63,7 +63,7 @@ func HydrateCapabilityRegistry(t *testing.T, v v1_0.CapabilityRegistryView, env 
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert nodes to nodes params: %w", err)
 	}
-	tx, err = deployedContract.AddNodes(chain.DeployerKey, nodesParams)
+	tx, err = deployedContract.AddNodes(chain.EVMChain.DeployerKey, nodesParams)
 	if _, err = deployment.ConfirmIfNoError(chain, tx, keystone.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)); err != nil {
 		return nil, fmt.Errorf("failed to add nodes: %w", err)
 	}
@@ -77,7 +77,7 @@ func HydrateCapabilityRegistry(t *testing.T, v v1_0.CapabilityRegistryView, env 
 		for _, id := range don.NodeP2PIds {
 			peerIds = append(peerIds, id)
 		}
-		tx, err = deployedContract.AddDON(chain.DeployerKey, peerIds, cfgs, don.IsPublic, don.AcceptsWorkflows, don.F)
+		tx, err = deployedContract.AddDON(chain.EVMChain.DeployerKey, peerIds, cfgs, don.IsPublic, don.AcceptsWorkflows, don.F)
 		if _, err = deployment.ConfirmIfNoError(chain, tx, keystone.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)); err != nil {
 			return nil, fmt.Errorf("failed to add don: %w", err)
 		}

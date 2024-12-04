@@ -40,8 +40,8 @@ func deployLinkTokenContract(
 	linkToken, err := deployment.DeployContract[*link_token.LinkToken](lggr, chain, ab,
 		func(chain deployment.Chain) deployment.ContractDeploy[*link_token.LinkToken] {
 			linkTokenAddr, tx, linkToken, err2 := link_token.DeployLinkToken(
-				chain.DeployerKey,
-				chain.Client,
+				chain.EVMChain.DeployerKey,
+				chain.EVMChain.Client,
 			)
 			return deployment.ContractDeploy[*link_token.LinkToken]{
 				Address:  linkTokenAddr,

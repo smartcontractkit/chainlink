@@ -163,7 +163,7 @@ func NewLocalDevEnvironment(
 				HomeChainSel:     homeChainSel,
 				RMNStaticConfig:  changeset.NewTestRMNStaticConfig(),
 				RMNDynamicConfig: changeset.NewTestRMNDynamicConfig(),
-				NodeOperators:    changeset.NewTestNodeOperator(chains[homeChainSel].DeployerKey.From),
+				NodeOperators:    changeset.NewTestNodeOperator(chains[homeChainSel].EVMChain.DeployerKey.From),
 				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
 					"NodeOperator": envNodes.NonBootstraps().PeerIDs(),
 				},
@@ -208,8 +208,8 @@ func NewLocalDevEnvironment(
 		cctpContracts := make(map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig)
 		for _, usdcChain := range usdcChains {
 			cctpContracts[cciptypes.ChainSelector(usdcChain)] = pluginconfig.USDCCCTPTokenConfig{
-				SourcePoolAddress:            state.Chains[usdcChain].USDCTokenPool.Address().String(),
-				SourceMessageTransmitterAddr: state.Chains[usdcChain].MockUSDCTransmitter.Address().String(),
+				SourcePoolAddress:            state.EVMState.Chains[usdcChain].USDCTokenPool.Address().String(),
+				SourceMessageTransmitterAddr: state.EVMState.Chains[usdcChain].MockUSDCTransmitter.Address().String(),
 			}
 		}
 		tokenDataProviders = append(tokenDataProviders, pluginconfig.TokenDataObserverConfig{
@@ -224,12 +224,12 @@ func NewLocalDevEnvironment(
 	}
 
 	// Build the per chain config.
-	tokenConfig := changeset.NewTestTokenConfig(state.Chains[feedSel].USDFeeds)
+	tokenConfig := changeset.NewTestTokenConfig(state.EVMState.Chains[feedSel].USDFeeds)
 	chainConfigs := make(map[uint64]changeset.CCIPOCRParams)
 	timelocksPerChain := make(map[uint64]*gethwrappers.RBACTimelock)
 	for _, chain := range allChains {
-		timelocksPerChain[chain] = state.Chains[chain].Timelock
-		tokenInfo := tokenConfig.GetTokenInfo(e.Logger, state.Chains[chain].LinkToken, state.Chains[chain].Weth9)
+		timelocksPerChain[chain] = state.EVMState.Chains[chain].Timelock
+		tokenInfo := tokenConfig.GetTokenInfo(e.Logger, state.EVMState.Chains[chain].LinkToken, state.EVMState.Chains[chain].Weth9)
 		ocrParams := changeset.DefaultOCRParams(feedSel, tokenInfo, tokenDataProviders)
 		if tCfg.OCRConfigOverride != nil {
 			ocrParams = tCfg.OCRConfigOverride(ocrParams)
@@ -330,7 +330,7 @@ func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv changeset.DeployedE
 	var remoteChains []devenv.RemoteChains
 
 	var rpcs []devenv.Chain
-	for chainSel, chain := range state.Chains {
+	for chainSel, chain := range state.EVMState.Chains {
 		c, _ := chainsel.ChainBySelector(chainSel)
 		rmnName := MustCCIPNameToRMNName(c.Name)
 		chainParams = append(chainParams, devenv.ChainParam{
@@ -360,9 +360,9 @@ func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv changeset.DeployedE
 		},
 		HomeChain: devenv.HomeChain{
 			Name:                 MustCCIPNameToRMNName(hc.Name),
-			CapabilitiesRegistry: state.Chains[tenv.HomeChainSel].CapabilityRegistry.Address().String(),
-			CCIPHome:             state.Chains[tenv.HomeChainSel].CCIPHome.Address().String(),
-			RMNHome:              state.Chains[tenv.HomeChainSel].RMNHome.Address().String(),
+			CapabilitiesRegistry: state.EVMState.Chains[tenv.HomeChainSel].CapabilityRegistry.Address().String(),
+			CCIPHome:             state.EVMState.Chains[tenv.HomeChainSel].CCIPHome.Address().String(),
+			RMNHome:              state.EVMState.Chains[tenv.HomeChainSel].RMNHome.Address().String(),
 		},
 		RemoteChains: remoteChains,
 		ChainParams:  chainParams,

@@ -79,13 +79,13 @@ func Test_CCIPBatching(t *testing.T) {
 			ctx,
 			t,
 			e.Env.Chains[sourceChain],
-			e.Env.Chains[sourceChain].DeployerKey,
-			state.Chains[sourceChain].OnRamp,
-			state.Chains[sourceChain].Router,
-			state.Chains[sourceChain].Multicall3,
+			e.Env.Chains[sourceChain].EVMChain.DeployerKey,
+			state.EVMState.Chains[sourceChain].OnRamp,
+			state.EVMState.Chains[sourceChain].Router,
+			state.EVMState.Chains[sourceChain].Multicall3,
 			destChain,
 			numMessages,
-			common.LeftPadBytes(state.Chains[destChain].Receiver.Address().Bytes(), 32),
+			common.LeftPadBytes(state.EVMState.Chains[destChain].Receiver.Address().Bytes(), 32),
 		)
 		require.NoError(t, err)
 
@@ -93,7 +93,7 @@ func Test_CCIPBatching(t *testing.T) {
 			t,
 			e.Env.Chains[sourceChain],
 			e.Env.Chains[destChain],
-			state.Chains[destChain].OffRamp,
+			state.EVMState.Chains[destChain].OffRamp,
 			nil,
 			ccipocr3.NewSeqNumRange(startSeqNum[sourceChain], startSeqNum[sourceChain]+numMessages-1),
 			true,
@@ -104,7 +104,7 @@ func Test_CCIPBatching(t *testing.T) {
 			t,
 			e.Env.Chains[sourceChain],
 			e.Env.Chains[destChain],
-			state.Chains[destChain].OffRamp,
+			state.EVMState.Chains[destChain].OffRamp,
 			nil,
 			genSeqNrRange(startSeqNum[sourceChain], startSeqNum[sourceChain]+numMessages-1),
 		)
@@ -245,7 +245,7 @@ func Test_CCIPBatching(t *testing.T) {
 			sourceChain = sourceChain1
 			otherSender = mustNewTransactor(t, e.Env.Chains[sourceChain])
 			transactors = []*bind.TransactOpts{
-				e.Env.Chains[sourceChain].DeployerKey,
+				e.Env.Chains[sourceChain].EVMChain.DeployerKey,
 				otherSender,
 			}
 			errs = make(chan error, len(transactors))
@@ -256,7 +256,7 @@ func Test_CCIPBatching(t *testing.T) {
 			ctx,
 			t,
 			e.Env.Chains[sourceChain],
-			e.Env.Chains[sourceChain].DeployerKey,
+			e.Env.Chains[sourceChain].EVMChain.DeployerKey,
 			otherSender.From,
 			assets.Ether(20).ToInt(),
 		)
@@ -268,12 +268,12 @@ func Test_CCIPBatching(t *testing.T) {
 					t,
 					e.Env.Chains[sourceChain],
 					transactor,
-					state.Chains[sourceChain].OnRamp,
-					state.Chains[sourceChain].Router,
-					state.Chains[sourceChain].Multicall3,
+					state.EVMState.Chains[sourceChain].OnRamp,
+					state.EVMState.Chains[sourceChain].Router,
+					state.EVMState.Chains[sourceChain].Multicall3,
 					destChain,
 					merklemulti.MaxNumberTreeLeaves/2,
-					common.LeftPadBytes(state.Chains[destChain].Receiver.Address().Bytes(), 32),
+					common.LeftPadBytes(state.EVMState.Chains[destChain].Receiver.Address().Bytes(), 32),
 				)
 				t.Log("sendMessages error:", err, ", writing to channel")
 				errs <- err
@@ -296,7 +296,7 @@ func Test_CCIPBatching(t *testing.T) {
 			t,
 			e.Env.Chains[sourceChain],
 			e.Env.Chains[destChain],
-			state.Chains[destChain].OffRamp,
+			state.EVMState.Chains[destChain].OffRamp,
 			nil, // startBlock
 			ccipocr3.NewSeqNumRange(
 				startSeqNum[sourceChain],
@@ -328,7 +328,7 @@ func assertExecAsync(
 		t,
 		e.Env.Chains[sourceChainSelector],
 		e.Env.Chains[destChainSelector],
-		state.Chains[destChainSelector].OffRamp,
+		state.EVMState.Chains[destChainSelector].OffRamp,
 		nil,
 		seqNums,
 	)
@@ -352,7 +352,7 @@ func assertCommitReportsAsync(
 		t,
 		e.Env.Chains[sourceChainSelector],
 		e.Env.Chains[destChainSelector],
-		state.Chains[destChainSelector].OffRamp,
+		state.EVMState.Chains[destChainSelector].OffRamp,
 		nil,
 		ccipocr3.NewSeqNumRange(startSeqNum, endSeqNum),
 		true,
@@ -377,13 +377,13 @@ func sendMessagesAsync(
 		ctx,
 		t,
 		e.Env.Chains[sourceChainSelector],
-		e.Env.Chains[sourceChainSelector].DeployerKey,
-		state.Chains[sourceChainSelector].OnRamp,
-		state.Chains[sourceChainSelector].Router,
-		state.Chains[sourceChainSelector].Multicall3,
+		e.Env.Chains[sourceChainSelector].EVMChain.DeployerKey,
+		state.EVMState.Chains[sourceChainSelector].OnRamp,
+		state.EVMState.Chains[sourceChainSelector].Router,
+		state.EVMState.Chains[sourceChainSelector].Multicall3,
 		destChainSelector,
 		numMessages,
-		common.LeftPadBytes(state.Chains[destChainSelector].Receiver.Address().Bytes(), 32),
+		common.LeftPadBytes(state.EVMState.Chains[destChainSelector].Receiver.Address().Bytes(), 32),
 	)
 	t.Log("sendMessagesAsync error:", err, ", writing to channel")
 	out <- err
@@ -516,16 +516,16 @@ func sendEth(
 	to common.Address,
 	value *big.Int,
 ) {
-	balance, err := chain.Client.BalanceAt(ctx, from.From, nil)
+	balance, err := chain.EVMChain.Client.BalanceAt(ctx, from.From, nil)
 	require.NoError(t, err)
 	if balance.Cmp(value) < 0 {
 		t.Fatalf("insufficient balance: %s < %s", balance.String(), value.String())
 	}
 	t.Logf("balance of from account %s: %s", from.From.String(), balance.String())
 
-	nonce, err := chain.Client.PendingNonceAt(ctx, from.From)
+	nonce, err := chain.EVMChain.Client.PendingNonceAt(ctx, from.From)
 	require.NoError(t, err)
-	gp, err := chain.Client.SuggestGasPrice(ctx)
+	gp, err := chain.EVMChain.Client.SuggestGasPrice(ctx)
 	require.NoError(t, err)
 	tx := gethtypes.NewTx(&gethtypes.LegacyTx{
 		Nonce:    nonce,
@@ -537,7 +537,7 @@ func sendEth(
 	})
 	signedTx, err := from.Signer(from.From, tx)
 	require.NoError(t, err)
-	err = chain.Client.SendTransaction(ctx, signedTx)
+	err = chain.EVMChain.Client.SendTransaction(ctx, signedTx)
 	require.NoError(t, err)
 	t.Log("sent funding tx:", signedTx.Hash().Hex())
 	_, err = deployment.ConfirmIfNoError(chain, signedTx, err)

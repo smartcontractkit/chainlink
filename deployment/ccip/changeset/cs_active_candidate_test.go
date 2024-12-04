@@ -53,12 +53,12 @@ func TestActiveCandidate(t *testing.T) {
 			if src == dest {
 				continue
 			}
-			latesthdr, err := destChain.Client.HeaderByNumber(testcontext.Get(t), nil)
+			latesthdr, err := destChain.EVMChain.Client.HeaderByNumber(testcontext.Get(t), nil)
 			require.NoError(t, err)
 			block := latesthdr.Number.Uint64()
 			startBlocks[dest] = &block
 			msgSentEvent := TestSendRequest(t, e, state, src, dest, false, router.ClientEVM2AnyMessage{
-				Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
+				Receiver:     common.LeftPadBytes(state.EVMState.Chains[dest].Receiver.Address().Bytes(), 32),
 				Data:         []byte("hello world"),
 				TokenAmounts: nil,
 				FeeToken:     common.HexToAddress("0x0"),
@@ -80,8 +80,8 @@ func TestActiveCandidate(t *testing.T) {
 
 	//After commit is reported on all chains, token prices should be updated in FeeQuoter.
 	for dest := range e.Chains {
-		linkAddress := state.Chains[dest].LinkToken.Address()
-		feeQuoter := state.Chains[dest].FeeQuoter
+		linkAddress := state.EVMState.Chains[dest].LinkToken.Address()
+		feeQuoter := state.EVMState.Chains[dest].FeeQuoter
 		timestampedPrice, err := feeQuoter.GetTokenPrice(nil, linkAddress)
 		require.NoError(t, err)
 		require.Equal(t, MockLinkPrice, timestampedPrice.Value)
@@ -93,7 +93,7 @@ func TestActiveCandidate(t *testing.T) {
 	// compose the transfer ownership and accept ownership changesets
 	timelocks := make(map[uint64]*gethwrappers.RBACTimelock)
 	for _, chain := range allChains {
-		timelocks[chain] = state.Chains[chain].Timelock
+		timelocks[chain] = state.EVMState.Chains[chain].Timelock
 	}
 	_, err = commonchangeset.ApplyChangesets(t, e, timelocks, []commonchangeset.ChangesetApplication{
 		// note this doesn't have proposals.
@@ -109,10 +109,10 @@ func TestActiveCandidate(t *testing.T) {
 	require.NoError(t, err)
 
 	// [ACTIVE, CANDIDATE] setup by setting candidate through cap reg
-	capReg, ccipHome := state.Chains[tenv.HomeChainSel].CapabilityRegistry, state.Chains[tenv.HomeChainSel].CCIPHome
+	capReg, ccipHome := state.EVMState.Chains[tenv.HomeChainSel].CapabilityRegistry, state.EVMState.Chains[tenv.HomeChainSel].CCIPHome
 	donID, err := internal.DonIDForChain(capReg, ccipHome, tenv.FeedChainSel)
 	require.NoError(t, err)
-	donInfo, err := state.Chains[tenv.HomeChainSel].CapabilityRegistry.GetDON(nil, donID)
+	donInfo, err := state.EVMState.Chains[tenv.HomeChainSel].CapabilityRegistry.GetDON(nil, donID)
 	require.NoError(t, err)
 	require.Equal(t, 5, len(donInfo.NodeP2PIds))
 	require.Equal(t, uint32(4), donInfo.ConfigCount)
@@ -136,16 +136,16 @@ func TestActiveCandidate(t *testing.T) {
 
 	// this will construct ocr3 configurations for the
 	// commit and exec plugin we will be using
-	rmnHomeAddress := state.Chains[tenv.HomeChainSel].RMNHome.Address()
-	tokenConfig := NewTestTokenConfig(state.Chains[tenv.FeedChainSel].USDFeeds)
+	rmnHomeAddress := state.EVMState.Chains[tenv.HomeChainSel].RMNHome.Address()
+	tokenConfig := NewTestTokenConfig(state.EVMState.Chains[tenv.FeedChainSel].USDFeeds)
 	ccipOCRParams := DefaultOCRParams(
 		tenv.FeedChainSel,
-		tokenConfig.GetTokenInfo(e.Logger, state.Chains[tenv.FeedChainSel].LinkToken, state.Chains[tenv.FeedChainSel].Weth9),
+		tokenConfig.GetTokenInfo(e.Logger, state.EVMState.Chains[tenv.FeedChainSel].LinkToken, state.EVMState.Chains[tenv.FeedChainSel].Weth9),
 		nil,
 	)
 	ocr3ConfigMap, err := internal.BuildOCR3ConfigForCCIPHome(
 		deployment.XXXGenerateTestOCRSecrets(),
-		state.Chains[tenv.FeedChainSel].OffRamp,
+		state.EVMState.Chains[tenv.FeedChainSel].OffRamp,
 		e.Chains[tenv.FeedChainSel],
 		nodes.NonBootstraps(),
 		rmnHomeAddress,
@@ -157,16 +157,16 @@ func TestActiveCandidate(t *testing.T) {
 
 	var (
 		timelocksPerChain = map[uint64]common.Address{
-			tenv.HomeChainSel: state.Chains[tenv.HomeChainSel].Timelock.Address(),
+			tenv.HomeChainSel: state.EVMState.Chains[tenv.HomeChainSel].Timelock.Address(),
 		}
 		proposerMCMSes = map[uint64]*gethwrappers.ManyChainMultiSig{
-			tenv.HomeChainSel: state.Chains[tenv.HomeChainSel].ProposerMcm,
+			tenv.HomeChainSel: state.EVMState.Chains[tenv.HomeChainSel].ProposerMcm,
 		}
 	)
 	setCommitCandidateOp, err := setCandidateOnExistingDon(
 		ocr3ConfigMap[cctypes.PluginTypeCCIPCommit],
-		state.Chains[tenv.HomeChainSel].CapabilityRegistry,
-		state.Chains[tenv.HomeChainSel].CCIPHome,
+		state.EVMState.Chains[tenv.HomeChainSel].CapabilityRegistry,
+		state.EVMState.Chains[tenv.HomeChainSel].CCIPHome,
 		tenv.FeedChainSel,
 		nodes.NonBootstraps(),
 	)
@@ -177,13 +177,13 @@ func TestActiveCandidate(t *testing.T) {
 	}}, "set new candidates on commit plugin", 0)
 	require.NoError(t, err)
 	setCommitCandidateSigned := commonchangeset.SignProposal(t, e, setCommitCandidateProposal)
-	commonchangeset.ExecuteProposal(t, e, setCommitCandidateSigned, state.Chains[tenv.HomeChainSel].Timelock, tenv.HomeChainSel)
+	commonchangeset.ExecuteProposal(t, e, setCommitCandidateSigned, state.EVMState.Chains[tenv.HomeChainSel].Timelock, tenv.HomeChainSel)
 
 	// create the op for the commit plugin as well
 	setExecCandidateOp, err := setCandidateOnExistingDon(
 		ocr3ConfigMap[cctypes.PluginTypeCCIPExec],
-		state.Chains[tenv.HomeChainSel].CapabilityRegistry,
-		state.Chains[tenv.HomeChainSel].CCIPHome,
+		state.EVMState.Chains[tenv.HomeChainSel].CapabilityRegistry,
+		state.EVMState.Chains[tenv.HomeChainSel].CCIPHome,
 		tenv.FeedChainSel,
 		nodes.NonBootstraps(),
 	)
@@ -195,10 +195,10 @@ func TestActiveCandidate(t *testing.T) {
 	}}, "set new candidates on commit and exec plugins", 0)
 	require.NoError(t, err)
 	setExecCandidateSigned := commonchangeset.SignProposal(t, e, setExecCandidateProposal)
-	commonchangeset.ExecuteProposal(t, e, setExecCandidateSigned, state.Chains[tenv.HomeChainSel].Timelock, tenv.HomeChainSel)
+	commonchangeset.ExecuteProposal(t, e, setExecCandidateSigned, state.EVMState.Chains[tenv.HomeChainSel].Timelock, tenv.HomeChainSel)
 
 	// check setup was successful by confirming number of nodes from cap reg
-	donInfo, err = state.Chains[tenv.HomeChainSel].CapabilityRegistry.GetDON(nil, donID)
+	donInfo, err = state.EVMState.Chains[tenv.HomeChainSel].CapabilityRegistry.GetDON(nil, donID)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(donInfo.NodeP2PIds))
 	require.Equal(t, uint32(6), donInfo.ConfigCount)
@@ -211,10 +211,10 @@ func TestActiveCandidate(t *testing.T) {
 
 	// [NEW ACTIVE, NO CANDIDATE] promote to active
 	// confirm by getting old candidate digest and making sure new active matches
-	oldCandidateDigest, err := state.Chains[tenv.HomeChainSel].CCIPHome.GetCandidateDigest(nil, donID, uint8(cctypes.PluginTypeCCIPExec))
+	oldCandidateDigest, err := state.EVMState.Chains[tenv.HomeChainSel].CCIPHome.GetCandidateDigest(nil, donID, uint8(cctypes.PluginTypeCCIPExec))
 	require.NoError(t, err)
 
-	promoteOps, err := promoteAllCandidatesForChainOps(state.Chains[tenv.HomeChainSel].CapabilityRegistry, state.Chains[tenv.HomeChainSel].CCIPHome, tenv.FeedChainSel, nodes.NonBootstraps())
+	promoteOps, err := promoteAllCandidatesForChainOps(state.EVMState.Chains[tenv.HomeChainSel].CapabilityRegistry, state.EVMState.Chains[tenv.HomeChainSel].CCIPHome, tenv.FeedChainSel, nodes.NonBootstraps())
 	require.NoError(t, err)
 	promoteProposal, err := proposalutils.BuildProposalFromBatches(timelocksPerChain, proposerMCMSes, []timelock.BatchChainOperation{{
 		ChainIdentifier: mcms.ChainIdentifier(tenv.HomeChainSel),
@@ -222,21 +222,21 @@ func TestActiveCandidate(t *testing.T) {
 	}}, "promote candidates and revoke actives", 0)
 	require.NoError(t, err)
 	promoteSigned := commonchangeset.SignProposal(t, e, promoteProposal)
-	commonchangeset.ExecuteProposal(t, e, promoteSigned, state.Chains[tenv.HomeChainSel].Timelock, tenv.HomeChainSel)
+	commonchangeset.ExecuteProposal(t, e, promoteSigned, state.EVMState.Chains[tenv.HomeChainSel].Timelock, tenv.HomeChainSel)
 	// [NEW ACTIVE, NO CANDIDATE] done promoting
 
 	// [NEW ACTIVE, NO CANDIDATE] check onchain state
-	newActiveDigest, err := state.Chains[tenv.HomeChainSel].CCIPHome.GetActiveDigest(nil, donID, uint8(cctypes.PluginTypeCCIPExec))
+	newActiveDigest, err := state.EVMState.Chains[tenv.HomeChainSel].CCIPHome.GetActiveDigest(nil, donID, uint8(cctypes.PluginTypeCCIPExec))
 	require.NoError(t, err)
 	require.Equal(t, oldCandidateDigest, newActiveDigest)
 
-	newCandidateDigest, err := state.Chains[tenv.HomeChainSel].CCIPHome.GetCandidateDigest(nil, donID, uint8(cctypes.PluginTypeCCIPCommit))
+	newCandidateDigest, err := state.EVMState.Chains[tenv.HomeChainSel].CCIPHome.GetCandidateDigest(nil, donID, uint8(cctypes.PluginTypeCCIPCommit))
 	require.NoError(t, err)
 	require.Equal(t, newCandidateDigest, [32]byte{})
 	// [NEW ACTIVE, NO CANDIDATE] done checking on chain state
 
 	// [NEW ACTIVE, NO CANDIDATE] send successful request on new active
-	donInfo, err = state.Chains[tenv.HomeChainSel].CapabilityRegistry.GetDON(nil, donID)
+	donInfo, err = state.EVMState.Chains[tenv.HomeChainSel].CapabilityRegistry.GetDON(nil, donID)
 	require.NoError(t, err)
 	require.Equal(t, uint32(8), donInfo.ConfigCount)
 

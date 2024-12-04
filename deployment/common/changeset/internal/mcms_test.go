@@ -41,7 +41,7 @@ func TestDeployMCMSWithTimelockContracts(t *testing.T) {
 			Bypasser:  changeset.SingleGroupMCMS(t),
 			Proposer:  changeset.SingleGroupMCMS(t),
 			TimelockExecutors: []common.Address{
-				chains[chainsel.TEST_90000001.Selector].DeployerKey.From,
+				chains[chainsel.TEST_90000001.Selector].EVMChain.DeployerKey.From,
 			},
 			TimelockMinDelay: big.NewInt(0),
 		})

@@ -48,7 +48,7 @@ func SignProposal(t *testing.T, env deployment.Environment, proposal *timelock.M
 		chainselc, exists := chainsel.ChainBySelector(chain.Selector)
 		require.True(t, exists)
 		chainSel := mcms.ChainIdentifier(chainselc.Selector)
-		executorClients[chainSel] = chain.Client
+		executorClients[chainSel] = chain.EVMChain.Client
 	}
 	executor, err := proposal.ToExecutor(true)
 	require.NoError(t, err)
@@ -68,11 +68,11 @@ func ExecuteProposal(t *testing.T, env deployment.Environment, executor *mcms.Ex
 	timelock *owner_helpers.RBACTimelock, sel uint64) {
 	t.Log("Executing proposal on chain", sel)
 	// Set the root.
-	tx, err2 := executor.SetRootOnChain(env.Chains[sel].Client, env.Chains[sel].DeployerKey, mcms.ChainIdentifier(sel))
+	tx, err2 := executor.SetRootOnChain(env.Chains[sel].EVMChain.Client, env.Chains[sel].EVMChain.DeployerKey, mcms.ChainIdentifier(sel))
 	if err2 != nil {
 		require.NoError(t, deployment.MaybeDataErr(err2))
 	}
-	_, err2 = env.Chains[sel].Confirm(tx)
+	_, err2 = env.Chains[sel].EVMChain.Confirm(tx)
 	require.NoError(t, err2)
 
 	// TODO: This sort of helper probably should move to the MCMS lib.
@@ -80,9 +80,9 @@ func ExecuteProposal(t *testing.T, env deployment.Environment, executor *mcms.Ex
 	for _, chainOp := range executor.Operations[mcms.ChainIdentifier(sel)] {
 		for idx, op := range executor.ChainAgnosticOps {
 			if bytes.Equal(op.Data, chainOp.Data) && op.To == chainOp.To {
-				opTx, err3 := executor.ExecuteOnChain(env.Chains[sel].Client, env.Chains[sel].DeployerKey, idx)
+				opTx, err3 := executor.ExecuteOnChain(env.Chains[sel].EVMChain.Client, env.Chains[sel].EVMChain.DeployerKey, idx)
 				require.NoError(t, err3)
-				block, err3 := env.Chains[sel].Confirm(opTx)
+				block, err3 := env.Chains[sel].EVMChain.Confirm(opTx)
 				require.NoError(t, err3)
 				t.Log("executed", chainOp)
 				it, err3 := timelock.FilterCallScheduled(&bind.FilterOpts{
@@ -105,9 +105,9 @@ func ExecuteProposal(t *testing.T, env deployment.Environment, executor *mcms.Ex
 					})
 				}
 				tx, err := timelock.ExecuteBatch(
-					env.Chains[sel].DeployerKey, calls, pred, salt)
+					env.Chains[sel].EVMChain.DeployerKey, calls, pred, salt)
 				require.NoError(t, err)
-				_, err = env.Chains[sel].Confirm(tx)
+				_, err = env.Chains[sel].EVMChain.Confirm(tx)
 				require.NoError(t, err)
 			}
 		}

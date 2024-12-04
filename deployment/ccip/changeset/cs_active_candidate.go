@@ -26,8 +26,8 @@ func PromoteAllCandidatesChangeset(
 	nodes deployment.Nodes,
 ) (deployment.ChangesetOutput, error) {
 	promoteCandidateOps, err := promoteAllCandidatesForChainOps(
-		state.Chains[homeChainSel].CapabilityRegistry,
-		state.Chains[homeChainSel].CCIPHome,
+		state.EVMState.Chains[homeChainSel].CapabilityRegistry,
+		state.EVMState.Chains[homeChainSel].CCIPHome,
 		newChainSel,
 		nodes.NonBootstraps(),
 	)
@@ -37,10 +37,10 @@ func PromoteAllCandidatesChangeset(
 
 	var (
 		timelocksPerChain = map[uint64]common.Address{
-			homeChainSel: state.Chains[homeChainSel].Timelock.Address(),
+			homeChainSel: state.EVMState.Chains[homeChainSel].Timelock.Address(),
 		}
 		proposerMCMSes = map[uint64]*gethwrappers.ManyChainMultiSig{
-			homeChainSel: state.Chains[homeChainSel].ProposerMcm,
+			homeChainSel: state.EVMState.Chains[homeChainSel].ProposerMcm,
 		}
 	)
 	prop, err := proposalutils.BuildProposalFromBatches(
@@ -76,15 +76,15 @@ func SetCandidatePluginChangeset(
 ) (deployment.ChangesetOutput, error) {
 	ccipOCRParams := DefaultOCRParams(
 		feedChainSel,
-		tokenConfig.GetTokenInfo(e.Logger, state.Chains[newChainSel].LinkToken, state.Chains[newChainSel].Weth9),
+		tokenConfig.GetTokenInfo(e.Logger, state.EVMState.Chains[newChainSel].LinkToken, state.EVMState.Chains[newChainSel].Weth9),
 		nil,
 	)
 	newDONArgs, err := internal.BuildOCR3ConfigForCCIPHome(
 		ocrSecrets,
-		state.Chains[newChainSel].OffRamp,
+		state.EVMState.Chains[newChainSel].OffRamp,
 		e.Chains[newChainSel],
 		nodes.NonBootstraps(),
-		state.Chains[homeChainSel].RMNHome.Address(),
+		state.EVMState.Chains[homeChainSel].RMNHome.Address(),
 		ccipOCRParams.OCRParameters,
 		ccipOCRParams.CommitOffChainConfig,
 		ccipOCRParams.ExecuteOffChainConfig,
@@ -100,8 +100,8 @@ func SetCandidatePluginChangeset(
 
 	setCandidateMCMSOps, err := setCandidateOnExistingDon(
 		execConfig,
-		state.Chains[homeChainSel].CapabilityRegistry,
-		state.Chains[homeChainSel].CCIPHome,
+		state.EVMState.Chains[homeChainSel].CapabilityRegistry,
+		state.EVMState.Chains[homeChainSel].CCIPHome,
 		newChainSel,
 		nodes.NonBootstraps(),
 	)
@@ -111,10 +111,10 @@ func SetCandidatePluginChangeset(
 
 	var (
 		timelocksPerChain = map[uint64]common.Address{
-			homeChainSel: state.Chains[homeChainSel].Timelock.Address(),
+			homeChainSel: state.EVMState.Chains[homeChainSel].Timelock.Address(),
 		}
 		proposerMCMSes = map[uint64]*gethwrappers.ManyChainMultiSig{
-			homeChainSel: state.Chains[homeChainSel].ProposerMcm,
+			homeChainSel: state.EVMState.Chains[homeChainSel].ProposerMcm,
 		}
 	)
 	prop, err := proposalutils.BuildProposalFromBatches(

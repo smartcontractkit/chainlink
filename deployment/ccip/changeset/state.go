@@ -233,10 +233,18 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 // Offchain state always derivable from a list of nodeIds.
 // Note can translate this into Go struct needed for MCMS/Docs/UI.
 type CCIPOnChainState struct {
+	SolanaState SolanaCCIPOnChainState
+	EVMState    EVMCCIPOnChainState
+}
+
+type EVMCCIPOnChainState struct {
 	// Populated go bindings for the appropriate version for all contracts.
 	// We would hold 2 versions of each contract here. Once we upgrade we can phase out the old one.
 	// When generating bindings, make sure the package name corresponds to the version.
 	Chains map[uint64]CCIPChainState
+}
+
+type SolanaCCIPOnChainState struct {
 }
 
 func (s CCIPOnChainState) View(chains []uint64) (map[string]view.ChainView, error) {
@@ -251,10 +259,10 @@ func (s CCIPOnChainState) View(chains []uint64) (map[string]view.ChainView, erro
 		if err != nil {
 			return m, err
 		}
-		if _, ok := s.Chains[chainSelector]; !ok {
+		if _, ok := s.EVMState.Chains[chainSelector]; !ok {
 			return m, fmt.Errorf("chain not supported %d", chainSelector)
 		}
-		chainState := s.Chains[chainSelector]
+		chainState := s.EVMState.Chains[chainSelector]
 		chainView, err := chainState.GenerateView()
 		if err != nil {
 			return m, err
@@ -266,7 +274,9 @@ func (s CCIPOnChainState) View(chains []uint64) (map[string]view.ChainView, erro
 
 func LoadOnchainState(e deployment.Environment) (CCIPOnChainState, error) {
 	state := CCIPOnChainState{
-		Chains: make(map[uint64]CCIPChainState),
+		EVMState: EVMCCIPOnChainState{
+			Chains: make(map[uint64]CCIPChainState),
+		},
 	}
 	for chainSelector, chain := range e.Chains {
 		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
@@ -282,7 +292,7 @@ func LoadOnchainState(e deployment.Environment) (CCIPOnChainState, error) {
 		if err != nil {
 			return state, err
 		}
-		state.Chains[chainSelector] = chainState
+		state.EVMState.Chains[chainSelector] = chainState
 	}
 	return state, nil
 }
@@ -310,109 +320,109 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 			deployment.NewTypeAndVersion(commontypes.LinkToken, deployment.Version1_0_0).String():
 			continue
 		case deployment.NewTypeAndVersion(CapabilitiesRegistry, deployment.Version1_0_0).String():
-			cr, err := capabilities_registry.NewCapabilitiesRegistry(common.HexToAddress(address), chain.Client)
+			cr, err := capabilities_registry.NewCapabilitiesRegistry(common.HexToAddress(address), chain.EVMChain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.CapabilityRegistry = cr
 		case deployment.NewTypeAndVersion(OnRamp, deployment.Version1_6_0_dev).String():
-			onRampC, err := onramp.NewOnRamp(common.HexToAddress(address), chain.Client)
+			onRampC, err := onramp.NewOnRamp(common.HexToAddress(address), chain.EVMChain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.OnRamp = onRampC
 		case deployment.NewTypeAndVersion(OffRamp, deployment.Version1_6_0_dev).String():
-			offRamp, err := offramp.NewOffRamp(common.HexToAddress(address), chain.Client)
+			offRamp, err := offramp.NewOffRamp(common.HexToAddress(address), chain.EVMChain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.OffRamp = offRamp
 		case deployment.NewTypeAndVersion(ARMProxy, deployment.Version1_0_0).String():
-			armProxy, err := rmn_proxy_contract.NewRMNProxyContract(common.HexToAddress(address), chain.Client)
+			armProxy, err := rmn_proxy_contract.NewRMNProxyContract(common.HexToAddress(address), chain.EVMChain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.RMNProxyExisting = armProxy
 		case deployment.NewTypeAndVersion(ARMProxy, deployment.Version1_6_0_dev).String():
-			armProxy, err := rmn_proxy_contract.NewRMNProxyContract(common.HexToAddress(address), chain.Client)
+			armProxy, err := rmn_proxy_contract.NewRMNProxyContract(common.HexToAddress(address), chain.EVMChain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.RMNProxyNew = armProxy
 		case deployment.NewTypeAndVersion(ARMProxy, deployment.Version1_6_0_dev).String():
-			armProxy, err := rmn_proxy_contract.NewRMNProxyContract(common.HexToAddress(address), chain.Client)
+			armProxy, err := rmn_proxy_contract.NewRMNProxyContract(common.HexToAddress(address), chain.EVMChain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.RMNProxyNew = armProxy
 		case deployment.NewTypeAndVersion(MockRMN, deployment.Version1_0_0).String():
-			mockRMN, err := mock_rmn_contract.NewMockRMNContract(common.HexToAddress(address), chain.Client)
+			mockRMN, err := mock_rmn_contract.NewMockRMNContract(common.HexToAddress(address), chain.EVMChain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.MockRMN = mockRMN
 		case deployment.NewTypeAndVersion(RMNRemote, deployment.Version1_6_0_dev).String():
-			rmnRemote, err := rmn_remote.NewRMNRemote(common.HexToAddress(address), chain.Client)
+			rmnRemote, err := rmn_remote.NewRMNRemote(common.HexToAddress(address), chain.EVMChain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.RMNRemote = rmnRemote
 		case deployment.NewTypeAndVersion(RMNHome, deployment.Version1_6_0_dev).String():
-			rmnHome, err := rmn_home.NewRMNHome(common.HexToAddress(address), chain.Client)
+			rmnHome, err := rmn_home.NewRMNHome(common.HexToAddress(address), chain.EVMChain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.RMNHome = rmnHome
 		case deployment.NewTypeAndVersion(WETH9, deployment.Version1_0_0).String():
-			weth9, err := weth9.NewWETH9(common.HexToAddress(address), chain.Client)
+			weth9, err := weth9.NewWETH9(common.HexToAddress(address), chain.EVMChain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.Weth9 = weth9
 		case deployment.NewTypeAndVersion(NonceManager, deployment.Version1_6_0_dev).String():
-			nm, err := nonce_manager.NewNonceManager(common.HexToAddress(address), chain.Client)
+			nm, err := nonce_manager.NewNonceManager(common.HexToAddress(address), chain.EVMChain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.NonceManager = nm
 		case deployment.NewTypeAndVersion(CommitStore, deployment.Version1_5_0).String():
-			cs, err := commit_store.NewCommitStore(common.HexToAddress(address), chain.Client)
+			cs, err := commit_store.NewCommitStore(common.HexToAddress(address), chain.EVMChain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.CommitStore = cs
 		case deployment.NewTypeAndVersion(TokenAdminRegistry, deployment.Version1_5_0).String():
-			tm, err := token_admin_registry.NewTokenAdminRegistry(common.HexToAddress(address), chain.Client)
+			tm, err := token_admin_registry.NewTokenAdminRegistry(common.HexToAddress(address), chain.EVMChain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.TokenAdminRegistry = tm
 		case deployment.NewTypeAndVersion(RegistryModule, deployment.Version1_5_0).String():
-			rm, err := registry_module_owner_custom.NewRegistryModuleOwnerCustom(common.HexToAddress(address), chain.Client)
+			rm, err := registry_module_owner_custom.NewRegistryModuleOwnerCustom(common.HexToAddress(address), chain.EVMChain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.RegistryModule = rm
 		case deployment.NewTypeAndVersion(Router, deployment.Version1_2_0).String():
-			r, err := router.NewRouter(common.HexToAddress(address), chain.Client)
+			r, err := router.NewRouter(common.HexToAddress(address), chain.EVMChain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.Router = r
 		case deployment.NewTypeAndVersion(TestRouter, deployment.Version1_2_0).String():
-			r, err := router.NewRouter(common.HexToAddress(address), chain.Client)
+			r, err := router.NewRouter(common.HexToAddress(address), chain.EVMChain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.TestRouter = r
 		case deployment.NewTypeAndVersion(FeeQuoter, deployment.Version1_6_0_dev).String():
-			fq, err := fee_quoter.NewFeeQuoter(common.HexToAddress(address), chain.Client)
+			fq, err := fee_quoter.NewFeeQuoter(common.HexToAddress(address), chain.EVMChain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.FeeQuoter = fq
 		case deployment.NewTypeAndVersion(USDCToken, deployment.Version1_0_0).String():
-			ut, err := burn_mint_erc677.NewBurnMintERC677(common.HexToAddress(address), chain.Client)
+			ut, err := burn_mint_erc677.NewBurnMintERC677(common.HexToAddress(address), chain.EVMChain.Client)
 			if err != nil {
 				return state, err
 			}
@@ -420,50 +430,50 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				USDCSymbol: ut,
 			}
 		case deployment.NewTypeAndVersion(USDCTokenPool, deployment.Version1_0_0).String():
-			utp, err := usdc_token_pool.NewUSDCTokenPool(common.HexToAddress(address), chain.Client)
+			utp, err := usdc_token_pool.NewUSDCTokenPool(common.HexToAddress(address), chain.EVMChain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.USDCTokenPool = utp
 		case deployment.NewTypeAndVersion(USDCMockTransmitter, deployment.Version1_0_0).String():
-			umt, err := mock_usdc_token_transmitter.NewMockE2EUSDCTransmitter(common.HexToAddress(address), chain.Client)
+			umt, err := mock_usdc_token_transmitter.NewMockE2EUSDCTransmitter(common.HexToAddress(address), chain.EVMChain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.MockUSDCTransmitter = umt
 		case deployment.NewTypeAndVersion(USDCTokenMessenger, deployment.Version1_0_0).String():
-			utm, err := mock_usdc_token_messenger.NewMockE2EUSDCTokenMessenger(common.HexToAddress(address), chain.Client)
+			utm, err := mock_usdc_token_messenger.NewMockE2EUSDCTokenMessenger(common.HexToAddress(address), chain.EVMChain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.MockUSDCTokenMessenger = utm
 		case deployment.NewTypeAndVersion(CCIPHome, deployment.Version1_6_0_dev).String():
-			ccipHome, err := ccip_home.NewCCIPHome(common.HexToAddress(address), chain.Client)
+			ccipHome, err := ccip_home.NewCCIPHome(common.HexToAddress(address), chain.EVMChain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.CCIPHome = ccipHome
 		case deployment.NewTypeAndVersion(CCIPConfig, deployment.Version1_0_0).String():
 			// TODO: Remove once staging upgraded.
-			ccipConfig, err := ccip_config.NewCCIPConfig(common.HexToAddress(address), chain.Client)
+			ccipConfig, err := ccip_config.NewCCIPConfig(common.HexToAddress(address), chain.EVMChain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.CCIPConfig = ccipConfig
 		case deployment.NewTypeAndVersion(CCIPReceiver, deployment.Version1_0_0).String():
-			mr, err := maybe_revert_message_receiver.NewMaybeRevertMessageReceiver(common.HexToAddress(address), chain.Client)
+			mr, err := maybe_revert_message_receiver.NewMaybeRevertMessageReceiver(common.HexToAddress(address), chain.EVMChain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.Receiver = mr
 		case deployment.NewTypeAndVersion(Multicall3, deployment.Version1_0_0).String():
-			mc, err := multicall3.NewMulticall3(common.HexToAddress(address), chain.Client)
+			mc, err := multicall3.NewMulticall3(common.HexToAddress(address), chain.EVMChain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.Multicall3 = mc
 		case deployment.NewTypeAndVersion(PriceFeed, deployment.Version1_0_0).String():
-			feed, err := aggregator_v3_interface.NewAggregatorV3Interface(common.HexToAddress(address), chain.Client)
+			feed, err := aggregator_v3_interface.NewAggregatorV3Interface(common.HexToAddress(address), chain.EVMChain.Client)
 			if err != nil {
 				return state, err
 			}
@@ -480,7 +490,7 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 			}
 			state.USDFeeds[key] = feed
 		case deployment.NewTypeAndVersion(BurnMintTokenPool, deployment.Version1_5_1).String():
-			pool, err := burn_mint_token_pool.NewBurnMintTokenPool(common.HexToAddress(address), chain.Client)
+			pool, err := burn_mint_token_pool.NewBurnMintTokenPool(common.HexToAddress(address), chain.EVMChain.Client)
 			if err != nil {
 				return state, err
 			}
@@ -491,7 +501,7 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 			if err != nil {
 				return state, err
 			}
-			tok, err := erc20.NewERC20(tokAddress, chain.Client)
+			tok, err := erc20.NewERC20(tokAddress, chain.EVMChain.Client)
 			if err != nil {
 				return state, err
 			}
@@ -501,7 +511,7 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 			}
 			state.BurnMintTokenPools[TokenSymbol(symbol)] = pool
 		case deployment.NewTypeAndVersion(BurnMintToken, deployment.Version1_0_0).String():
-			tok, err := burn_mint_erc677.NewBurnMintERC677(common.HexToAddress(address), chain.Client)
+			tok, err := burn_mint_erc677.NewBurnMintERC677(common.HexToAddress(address), chain.EVMChain.Client)
 			if err != nil {
 				return state, err
 			}

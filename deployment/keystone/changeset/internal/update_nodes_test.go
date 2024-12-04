@@ -567,12 +567,12 @@ func TestUpdateNodes(t *testing.T) {
 		// update the capabilities, there should be then be one capability
 		// first update registers the new capability
 		toRegister := p2pToCapabilitiesUpdated[testPeerID(t, "peerID_1")]
-		tx, err := registry.AddCapabilities(chain.DeployerKey, toRegister)
+		tx, err := registry.AddCapabilities(chain.EVMChain.DeployerKey, toRegister)
 		if err != nil {
 			err2 := kslib.DecodeErr(kcr.CapabilitiesRegistryABI, err)
 			require.Fail(t, fmt.Sprintf("failed to call AddCapabilities: %s:  %s", err, err2))
 		}
-		_, err = chain.Confirm(tx)
+		_, err = chain.EVMChain.Confirm(tx)
 		require.NoError(t, err)
 
 		var req = &internal.UpdateNodesRequest{

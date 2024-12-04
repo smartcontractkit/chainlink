@@ -141,7 +141,7 @@ func DeployContract[C any](
 		lggr.Errorw("Failed to deploy contract", "err", contractDeploy.Err)
 		return nil, contractDeploy.Err
 	}
-	_, err := chain.Confirm(contractDeploy.Tx)
+	_, err := chain.EVMChain.Confirm(contractDeploy.Tx)
 	if err != nil {
 		lggr.Errorw("Failed to confirm deployment", "err", err)
 		return nil, err

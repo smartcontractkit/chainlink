@@ -22,8 +22,8 @@ func DeployMCMSWithConfig(
 	mcm, err := deployment.DeployContract[*owner_helpers.ManyChainMultiSig](lggr, chain, ab,
 		func(chain deployment.Chain) deployment.ContractDeploy[*owner_helpers.ManyChainMultiSig] {
 			mcmAddr, tx, mcm, err2 := owner_helpers.DeployManyChainMultiSig(
-				chain.DeployerKey,
-				chain.Client,
+				chain.EVMChain.DeployerKey,
+				chain.EVMChain.Client,
 			)
 			return deployment.ContractDeploy[*owner_helpers.ManyChainMultiSig]{
 				mcmAddr, mcm, tx, deployment.NewTypeAndVersion(contractType, deployment.Version1_0_0), err2,
@@ -33,7 +33,7 @@ func DeployMCMSWithConfig(
 		lggr.Errorw("Failed to deploy mcm", "err", err)
 		return mcm, err
 	}
-	mcmsTx, err := mcm.Contract.SetConfig(chain.DeployerKey,
+	mcmsTx, err := mcm.Contract.SetConfig(chain.EVMChain.DeployerKey,
 		signerAddresses,
 		// Signer 1 is int group 0 (root group) with quorum 1.
 		signerGroups,
@@ -98,13 +98,13 @@ func DeployMCMSWithTimelockContracts(
 	timelock, err := deployment.DeployContract(lggr, chain, ab,
 		func(chain deployment.Chain) deployment.ContractDeploy[*owner_helpers.RBACTimelock] {
 			timelock, tx2, cc, err2 := owner_helpers.DeployRBACTimelock(
-				chain.DeployerKey,
-				chain.Client,
+				chain.EVMChain.DeployerKey,
+				chain.EVMChain.Client,
 				config.TimelockMinDelay,
 				// Deployer is the initial admin.
 				// TODO: Could expose this as config?
 				// Or keep this enforced to follow the same pattern?
-				chain.DeployerKey.From,
+				chain.EVMChain.DeployerKey.From,
 				[]common.Address{proposer.Address},  // proposers
 				config.TimelockExecutors,            //executors
 				[]common.Address{canceller.Address}, // cancellers
@@ -120,7 +120,7 @@ func DeployMCMSWithTimelockContracts(
 	}
 	lggr.Infow("deployed timelock", "addr", timelock.Address)
 	// We grant the timelock the admin role on the MCMS contracts.
-	tx, err := timelock.Contract.GrantRole(chain.DeployerKey,
+	tx, err := timelock.Contract.GrantRole(chain.EVMChain.DeployerKey,
 		v1_0.ADMIN_ROLE.ID, timelock.Address)
 	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
 		lggr.Errorw("Failed to grant timelock admin role", "err", err)

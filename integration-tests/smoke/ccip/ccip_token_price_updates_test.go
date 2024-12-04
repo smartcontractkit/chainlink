@@ -44,7 +44,7 @@ func Test_CCIPTokenPriceUpdates(t *testing.T) {
 
 	sourceChain1 := allChainSelectors[0]
 
-	feeQuoter1 := state.Chains[sourceChain1].FeeQuoter
+	feeQuoter1 := state.EVMState.Chains[sourceChain1].FeeQuoter
 
 	feeTokensChain1, err := feeQuoter1.GetFeeTokens(callOpts)
 	require.NoError(t, err)
@@ -80,7 +80,7 @@ func Test_CCIPTokenPriceUpdates(t *testing.T) {
 
 	assert.Eventually(t, func() bool {
 		// manually update token prices by setting values to maxUint64 and 0
-		tx, err := feeQuoter1.UpdatePrices(e.Env.Chains[sourceChain1].DeployerKey, fee_quoter.InternalPriceUpdates{
+		tx, err := feeQuoter1.UpdatePrices(e.Env.Chains[sourceChain1].EVMChain.DeployerKey, fee_quoter.InternalPriceUpdates{
 			TokenPriceUpdates: []fee_quoter.InternalTokenPriceUpdate{
 				{SourceToken: feeTokensChain1[0], UsdPerToken: big.NewInt(0).SetUint64(math.MaxUint64)},
 				{SourceToken: feeTokensChain1[1], UsdPerToken: big.NewInt(0)},

@@ -74,7 +74,7 @@ func TestAddChainInbound(t *testing.T) {
 	})
 	require.NoError(t, err)
 	newAddresses = deployment.NewMemoryAddressBook()
-	tokenConfig := NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
+	tokenConfig := NewTestTokenConfig(state.EVMState.Chains[e.FeedChainSel].USDFeeds)
 
 	chainConfig := make(map[uint64]CCIPOCRParams)
 	for _, chain := range initialDeploy {
@@ -103,7 +103,7 @@ func TestAddChainInbound(t *testing.T) {
 	rmnHomeAddress, err := deployment.SearchAddressBook(e.Env.ExistingAddresses, e.HomeChainSel, RMNHome)
 	require.NoError(t, err)
 	require.True(t, common.IsHexAddress(rmnHomeAddress))
-	rmnHome, err := rmn_home.NewRMNHome(common.HexToAddress(rmnHomeAddress), e.Env.Chains[e.HomeChainSel].Client)
+	rmnHome, err := rmn_home.NewRMNHome(common.HexToAddress(rmnHomeAddress), e.Env.Chains[e.HomeChainSel].EVMChain.Client)
 	require.NoError(t, err)
 
 	//  Deploy contracts to new chain
@@ -135,10 +135,10 @@ func TestAddChainInbound(t *testing.T) {
 
 	// configure the testrouter appropriately on each chain
 	for _, source := range initialDeploy {
-		tx, err := state.Chains[source].TestRouter.ApplyRampUpdates(e.Env.Chains[source].DeployerKey, []router.RouterOnRamp{
+		tx, err := state.EVMState.Chains[source].TestRouter.ApplyRampUpdates(e.Env.Chains[source].EVMChain.DeployerKey, []router.RouterOnRamp{
 			{
 				DestChainSelector: newChain,
-				OnRamp:            state.Chains[source].OnRamp.Address(),
+				OnRamp:            state.EVMState.Chains[source].OnRamp.Address(),
 			},
 		}, nil, nil)
 		_, err = deployment.ConfirmIfNoError(e.Env.Chains[source], tx, err)
@@ -147,9 +147,9 @@ func TestAddChainInbound(t *testing.T) {
 
 	// transfer ownership to timelock
 	_, err = commonchangeset.ApplyChangesets(t, e.Env, map[uint64]*gethwrappers.RBACTimelock{
-		initialDeploy[0]: state.Chains[initialDeploy[0]].Timelock,
-		initialDeploy[1]: state.Chains[initialDeploy[1]].Timelock,
-		initialDeploy[2]: state.Chains[initialDeploy[2]].Timelock,
+		initialDeploy[0]: state.EVMState.Chains[initialDeploy[0]].Timelock,
+		initialDeploy[1]: state.EVMState.Chains[initialDeploy[1]].Timelock,
+		initialDeploy[2]: state.EVMState.Chains[initialDeploy[2]].Timelock,
 	}, []commonchangeset.ChangesetApplication{
 		// note this doesn't have proposals.
 		{
@@ -190,8 +190,8 @@ func TestAddChainInbound(t *testing.T) {
 
 	// verify if the configs are updated
 	require.NoError(t, ValidateCCIPHomeConfigSetUp(
-		state.Chains[e.HomeChainSel].CapabilityRegistry,
-		state.Chains[e.HomeChainSel].CCIPHome,
+		state.EVMState.Chains[e.HomeChainSel].CapabilityRegistry,
+		state.EVMState.Chains[e.HomeChainSel].CCIPHome,
 		newChain,
 	))
 	replayBlocks, err := LatestBlocksByChain(testcontext.Get(t), e.Env.Chains)
@@ -201,22 +201,22 @@ func TestAddChainInbound(t *testing.T) {
 	var offRampEnables []offramp.OffRampSourceChainConfigArgs
 	for _, source := range initialDeploy {
 		offRampEnables = append(offRampEnables, offramp.OffRampSourceChainConfigArgs{
-			Router:              state.Chains[newChain].Router.Address(),
+			Router:              state.EVMState.Chains[newChain].Router.Address(),
 			SourceChainSelector: source,
 			IsEnabled:           true,
-			OnRamp:              common.LeftPadBytes(state.Chains[source].OnRamp.Address().Bytes(), 32),
+			OnRamp:              common.LeftPadBytes(state.EVMState.Chains[source].OnRamp.Address().Bytes(), 32),
 		})
 	}
-	tx, err := state.Chains[newChain].OffRamp.ApplySourceChainConfigUpdates(e.Env.Chains[newChain].DeployerKey, offRampEnables)
+	tx, err := state.EVMState.Chains[newChain].OffRamp.ApplySourceChainConfigUpdates(e.Env.Chains[newChain].EVMChain.DeployerKey, offRampEnables)
 	require.NoError(t, err)
 	_, err = deployment.ConfirmIfNoError(e.Env.Chains[newChain], tx, err)
 	require.NoError(t, err)
 	// Set the OCR3 config on new 4th chain to enable the plugin.
-	latestDON, err := internal.LatestCCIPDON(state.Chains[e.HomeChainSel].CapabilityRegistry)
+	latestDON, err := internal.LatestCCIPDON(state.EVMState.Chains[e.HomeChainSel].CapabilityRegistry)
 	require.NoError(t, err)
-	ocrConfigs, err := internal.BuildSetOCR3ConfigArgs(latestDON.Id, state.Chains[e.HomeChainSel].CCIPHome, newChain)
+	ocrConfigs, err := internal.BuildSetOCR3ConfigArgs(latestDON.Id, state.EVMState.Chains[e.HomeChainSel].CCIPHome, newChain)
 	require.NoError(t, err)
-	tx, err = state.Chains[newChain].OffRamp.SetOCR3Configs(e.Env.Chains[newChain].DeployerKey, ocrConfigs)
+	tx, err = state.EVMState.Chains[newChain].OffRamp.SetOCR3Configs(e.Env.Chains[newChain].EVMChain.DeployerKey, ocrConfigs)
 	require.NoError(t, err)
 	_, err = deployment.ConfirmIfNoError(e.Env.Chains[newChain], tx, err)
 	require.NoError(t, err)
@@ -225,15 +225,15 @@ func TestAddChainInbound(t *testing.T) {
 	state, err = LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	for _, chain := range initialDeploy {
-		cfg, err2 := state.Chains[chain].OnRamp.GetDestChainConfig(nil, newChain)
+		cfg, err2 := state.EVMState.Chains[chain].OnRamp.GetDestChainConfig(nil, newChain)
 		require.NoError(t, err2)
-		assert.Equal(t, cfg.Router, state.Chains[chain].TestRouter.Address())
-		fqCfg, err2 := state.Chains[chain].FeeQuoter.GetDestChainConfig(nil, newChain)
+		assert.Equal(t, cfg.Router, state.EVMState.Chains[chain].TestRouter.Address())
+		fqCfg, err2 := state.EVMState.Chains[chain].FeeQuoter.GetDestChainConfig(nil, newChain)
 		require.NoError(t, err2)
 		assert.True(t, fqCfg.IsEnabled)
-		s, err2 := state.Chains[newChain].OffRamp.GetSourceChainConfig(nil, chain)
+		s, err2 := state.EVMState.Chains[newChain].OffRamp.GetSourceChainConfig(nil, chain)
 		require.NoError(t, err2)
-		assert.Equal(t, common.LeftPadBytes(state.Chains[chain].OnRamp.Address().Bytes(), 32), s.OnRamp)
+		assert.Equal(t, common.LeftPadBytes(state.EVMState.Chains[chain].OnRamp.Address().Bytes(), 32), s.OnRamp)
 	}
 	// Ensure job related logs are up to date.
 	time.Sleep(30 * time.Second)
@@ -241,18 +241,18 @@ func TestAddChainInbound(t *testing.T) {
 
 	// TODO: Send via all inbound lanes and use parallel helper
 	// Now that the proposal has been executed we expect to be able to send traffic to this new 4th chain.
-	latesthdr, err := e.Env.Chains[newChain].Client.HeaderByNumber(testcontext.Get(t), nil)
+	latesthdr, err := e.Env.Chains[newChain].EVMChain.Client.HeaderByNumber(testcontext.Get(t), nil)
 	require.NoError(t, err)
 	startBlock := latesthdr.Number.Uint64()
 	msgSentEvent := TestSendRequest(t, e.Env, state, initialDeploy[0], newChain, true, router.ClientEVM2AnyMessage{
-		Receiver:     common.LeftPadBytes(state.Chains[newChain].Receiver.Address().Bytes(), 32),
+		Receiver:     common.LeftPadBytes(state.EVMState.Chains[newChain].Receiver.Address().Bytes(), 32),
 		Data:         []byte("hello world"),
 		TokenAmounts: nil,
 		FeeToken:     common.HexToAddress("0x0"),
 		ExtraArgs:    nil,
 	})
 	require.NoError(t,
-		commonutils.JustError(ConfirmCommitWithExpectedSeqNumRange(t, e.Env.Chains[initialDeploy[0]], e.Env.Chains[newChain], state.Chains[newChain].OffRamp, &startBlock, cciptypes.SeqNumRange{
+		commonutils.JustError(ConfirmCommitWithExpectedSeqNumRange(t, e.Env.Chains[initialDeploy[0]], e.Env.Chains[newChain], state.EVMState.Chains[newChain].OffRamp, &startBlock, cciptypes.SeqNumRange{
 			cciptypes.SeqNum(1),
 			cciptypes.SeqNum(msgSentEvent.SequenceNumber),
 		}, true)))
@@ -262,15 +262,15 @@ func TestAddChainInbound(t *testing.T) {
 				t,
 				e.Env.Chains[initialDeploy[0]],
 				e.Env.Chains[newChain],
-				state.Chains[newChain].OffRamp,
+				state.EVMState.Chains[newChain].OffRamp,
 				&startBlock,
 				[]uint64{msgSentEvent.SequenceNumber},
 			),
 		),
 	)
 
-	linkAddress := state.Chains[newChain].LinkToken.Address()
-	feeQuoter := state.Chains[newChain].FeeQuoter
+	linkAddress := state.EVMState.Chains[newChain].LinkToken.Address()
+	feeQuoter := state.EVMState.Chains[newChain].FeeQuoter
 	timestampedPrice, err := feeQuoter.GetTokenPrice(nil, linkAddress)
 	require.NoError(t, err)
 	require.Equal(t, MockLinkPrice, timestampedPrice.Value)

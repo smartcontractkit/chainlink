@@ -71,25 +71,25 @@ func LoadMCMSWithTimelockState(chain deployment.Chain, addresses map[string]depl
 	for address, tvStr := range addresses {
 		switch tvStr.String() {
 		case deployment.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0).String():
-			tl, err := owner_helpers.NewRBACTimelock(common.HexToAddress(address), chain.Client)
+			tl, err := owner_helpers.NewRBACTimelock(common.HexToAddress(address), chain.EVMChain.Client)
 			if err != nil {
 				return nil, err
 			}
 			state.Timelock = tl
 		case deployment.NewTypeAndVersion(types.ProposerManyChainMultisig, deployment.Version1_0_0).String():
-			mcms, err := owner_helpers.NewManyChainMultiSig(common.HexToAddress(address), chain.Client)
+			mcms, err := owner_helpers.NewManyChainMultiSig(common.HexToAddress(address), chain.EVMChain.Client)
 			if err != nil {
 				return nil, err
 			}
 			state.ProposerMcm = mcms
 		case deployment.NewTypeAndVersion(types.BypasserManyChainMultisig, deployment.Version1_0_0).String():
-			mcms, err := owner_helpers.NewManyChainMultiSig(common.HexToAddress(address), chain.Client)
+			mcms, err := owner_helpers.NewManyChainMultiSig(common.HexToAddress(address), chain.EVMChain.Client)
 			if err != nil {
 				return nil, err
 			}
 			state.BypasserMcm = mcms
 		case deployment.NewTypeAndVersion(types.CancellerManyChainMultisig, deployment.Version1_0_0).String():
-			mcms, err := owner_helpers.NewManyChainMultiSig(common.HexToAddress(address), chain.Client)
+			mcms, err := owner_helpers.NewManyChainMultiSig(common.HexToAddress(address), chain.EVMChain.Client)
 			if err != nil {
 				return nil, err
 			}
@@ -114,7 +114,7 @@ func LoadLinkTokenState(chain deployment.Chain, addresses map[string]deployment.
 	state := LinkTokenState{}
 	for address, tvStr := range addresses {
 		if tvStr.String() == deployment.NewTypeAndVersion(types.LinkToken, deployment.Version1_0_0).String() {
-			lt, err := link_token.NewLinkToken(common.HexToAddress(address), chain.Client)
+			lt, err := link_token.NewLinkToken(common.HexToAddress(address), chain.EVMChain.Client)
 			if err != nil {
 				return nil, err
 			}

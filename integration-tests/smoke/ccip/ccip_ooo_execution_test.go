@@ -46,8 +46,8 @@ func Test_OutOfOrderExecution(t *testing.T) {
 
 	allChainSelectors := maps.Keys(e.Chains)
 	sourceChain, destChain := allChainSelectors[0], allChainSelectors[1]
-	ownerSourceChain := e.Chains[sourceChain].DeployerKey
-	ownerDestChain := e.Chains[destChain].DeployerKey
+	ownerSourceChain := e.Chains[sourceChain].EVMChain.DeployerKey
+	ownerDestChain := e.Chains[destChain].EVMChain.DeployerKey
 
 	anotherSender, err := pickFirstAvailableUser(tenv, sourceChain, e)
 	require.NoError(t, err)
@@ -70,9 +70,9 @@ func Test_OutOfOrderExecution(t *testing.T) {
 	srcUSDC, destUSDC, err := changeset.ConfigureUSDCTokenPools(lggr, e.Chains, sourceChain, destChain, state)
 	require.NoError(t, err)
 
-	err = changeset.UpdateFeeQuoterForUSDC(lggr, e.Chains[sourceChain], state.Chains[sourceChain], destChain, srcUSDC)
+	err = changeset.UpdateFeeQuoterForUSDC(lggr, e.Chains[sourceChain], state.EVMState.Chains[sourceChain], destChain, srcUSDC)
 	require.NoError(t, err)
-	err = changeset.UpdateFeeQuoterForUSDC(lggr, e.Chains[destChain], state.Chains[destChain], sourceChain, destUSDC)
+	err = changeset.UpdateFeeQuoterForUSDC(lggr, e.Chains[destChain], state.EVMState.Chains[destChain], sourceChain, destUSDC)
 	require.NoError(t, err)
 
 	changeset.MintAndAllow(
@@ -109,7 +109,7 @@ func Test_OutOfOrderExecution(t *testing.T) {
 	startBlocks := make(map[uint64]*uint64)
 	expectedStatuses := make(map[uint64]int)
 
-	latesthdr, err := e.Chains[destChain].Client.HeaderByNumber(ctx, nil)
+	latesthdr, err := e.Chains[destChain].EVMChain.Client.HeaderByNumber(ctx, nil)
 	require.NoError(t, err)
 	block := latesthdr.Number.Uint64()
 	startBlocks[destChain] = &block
@@ -170,7 +170,7 @@ func Test_OutOfOrderExecution(t *testing.T) {
 	)
 
 	// Out of order programmable token transfer should be executed
-	fourthReceiver := state.Chains[destChain].Receiver.Address()
+	fourthReceiver := state.EVMState.Chains[destChain].Receiver.Address()
 	fourthMessage, _ := changeset.Transfer(
 		ctx,
 		t,
@@ -212,7 +212,7 @@ func Test_OutOfOrderExecution(t *testing.T) {
 		t,
 		e.Chains[sourceChain],
 		e.Chains[destChain],
-		state.Chains[destChain].OffRamp,
+		state.EVMState.Chains[destChain].OffRamp,
 		startBlocks[destChain],
 		ccipocr3.NewSeqNumRange(
 			ccipocr3.SeqNum(firstMessage.SequenceNumber),
@@ -238,11 +238,11 @@ func Test_OutOfOrderExecution(t *testing.T) {
 	)
 	require.Equal(t, expectedStatuses, execStates[identifier])
 
-	secondMsgState, err := state.Chains[destChain].OffRamp.GetExecutionState(&bind.CallOpts{Context: ctx}, sourceChain, secondMsg.SequenceNumber)
+	secondMsgState, err := state.EVMState.Chains[destChain].OffRamp.GetExecutionState(&bind.CallOpts{Context: ctx}, sourceChain, secondMsg.SequenceNumber)
 	require.NoError(t, err)
 	require.Equal(t, uint8(changeset.EXECUTION_STATE_UNTOUCHED), secondMsgState)
 
-	thirdMsgState, err := state.Chains[destChain].OffRamp.GetExecutionState(&bind.CallOpts{Context: ctx}, sourceChain, thirdMessage.SequenceNumber)
+	thirdMsgState, err := state.EVMState.Chains[destChain].OffRamp.GetExecutionState(&bind.CallOpts{Context: ctx}, sourceChain, thirdMessage.SequenceNumber)
 	require.NoError(t, err)
 	require.Equal(t, uint8(changeset.EXECUTION_STATE_UNTOUCHED), thirdMsgState)
 
@@ -262,7 +262,7 @@ func pickFirstAvailableUser(
 		if user == nil {
 			continue
 		}
-		if user.From != e.Chains[sourceChain].DeployerKey.From {
+		if user.From != e.Chains[sourceChain].EVMChain.DeployerKey.From {
 			return user, nil
 		}
 	}

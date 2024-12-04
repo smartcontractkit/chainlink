@@ -23,20 +23,20 @@ func NewKeystoneFeedsConsumerDeployer() (*KeystoneFeedsConsumerDeployer, error) 
 }
 
 func (c *KeystoneFeedsConsumerDeployer) deploy(req DeployRequest) (*DeployResponse, error) {
-	est, err := estimateDeploymentGas(req.Chain.Client, feeds_consumer.KeystoneFeedsConsumerABI)
+	est, err := estimateDeploymentGas(req.Chain.EVMChain.Client, feeds_consumer.KeystoneFeedsConsumerABI)
 	if err != nil {
 		return nil, fmt.Errorf("failed to estimate gas: %w", err)
 	}
 	c.lggr.Debugf("Feeds Consumer estimated gas: %d", est)
 
 	consumerAddr, tx, consumer, err := feeds_consumer.DeployKeystoneFeedsConsumer(
-		req.Chain.DeployerKey,
-		req.Chain.Client)
+		req.Chain.EVMChain.DeployerKey,
+		req.Chain.EVMChain.Client)
 	if err != nil {
 		return nil, fmt.Errorf("failed to deploy feeds consumer: %w", err)
 	}
 
-	_, err = req.Chain.Confirm(tx)
+	_, err = req.Chain.EVMChain.Confirm(tx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to confirm and save feeds consumer: %w", err)
 	}

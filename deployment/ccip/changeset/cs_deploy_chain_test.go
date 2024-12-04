@@ -45,7 +45,7 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 				HomeChainSel:     homeChainSel,
 				RMNStaticConfig:  NewTestRMNStaticConfig(),
 				RMNDynamicConfig: NewTestRMNDynamicConfig(),
-				NodeOperators:    NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
+				NodeOperators:    NewTestNodeOperator(e.Chains[homeChainSel].EVMChain.DeployerKey.From),
 				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
 					"NodeOperator": p2pIds,
 				},
@@ -80,21 +80,21 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 	require.NoError(t, err)
 
 	// verify all contracts populated
-	require.NotNil(t, state.Chains[homeChainSel].CapabilityRegistry)
-	require.NotNil(t, state.Chains[homeChainSel].CCIPHome)
-	require.NotNil(t, state.Chains[homeChainSel].RMNHome)
+	require.NotNil(t, state.EVMState.Chains[homeChainSel].CapabilityRegistry)
+	require.NotNil(t, state.EVMState.Chains[homeChainSel].CCIPHome)
+	require.NotNil(t, state.EVMState.Chains[homeChainSel].RMNHome)
 	for _, sel := range selectors {
-		require.NotNil(t, state.Chains[sel].LinkToken)
-		require.NotNil(t, state.Chains[sel].Weth9)
-		require.NotNil(t, state.Chains[sel].TokenAdminRegistry)
-		require.NotNil(t, state.Chains[sel].RegistryModule)
-		require.NotNil(t, state.Chains[sel].Router)
-		require.NotNil(t, state.Chains[sel].RMNRemote)
-		require.NotNil(t, state.Chains[sel].TestRouter)
-		require.NotNil(t, state.Chains[sel].NonceManager)
-		require.NotNil(t, state.Chains[sel].FeeQuoter)
-		require.NotNil(t, state.Chains[sel].OffRamp)
-		require.NotNil(t, state.Chains[sel].OnRamp)
+		require.NotNil(t, state.EVMState.Chains[sel].LinkToken)
+		require.NotNil(t, state.EVMState.Chains[sel].Weth9)
+		require.NotNil(t, state.EVMState.Chains[sel].TokenAdminRegistry)
+		require.NotNil(t, state.EVMState.Chains[sel].RegistryModule)
+		require.NotNil(t, state.EVMState.Chains[sel].Router)
+		require.NotNil(t, state.EVMState.Chains[sel].RMNRemote)
+		require.NotNil(t, state.EVMState.Chains[sel].TestRouter)
+		require.NotNil(t, state.EVMState.Chains[sel].NonceManager)
+		require.NotNil(t, state.EVMState.Chains[sel].FeeQuoter)
+		require.NotNil(t, state.EVMState.Chains[sel].OffRamp)
+		require.NotNil(t, state.EVMState.Chains[sel].OnRamp)
 	}
 }
 

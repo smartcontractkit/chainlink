@@ -23,20 +23,20 @@ func NewKeystoneForwarderDeployer() (*KeystoneForwarderDeployer, error) {
 	return &KeystoneForwarderDeployer{lggr: lggr}, nil
 }
 func (c *KeystoneForwarderDeployer) deploy(req DeployRequest) (*DeployResponse, error) {
-	est, err := estimateDeploymentGas(req.Chain.Client, forwarder.KeystoneForwarderABI)
+	est, err := estimateDeploymentGas(req.Chain.EVMChain.Client, forwarder.KeystoneForwarderABI)
 	if err != nil {
 		return nil, fmt.Errorf("failed to estimate gas: %w", err)
 	}
 	c.lggr.Debugf("Forwarder estimated gas: %d", est)
 
 	forwarderAddr, tx, forwarder, err := forwarder.DeployKeystoneForwarder(
-		req.Chain.DeployerKey,
-		req.Chain.Client)
+		req.Chain.EVMChain.DeployerKey,
+		req.Chain.EVMChain.Client)
 	if err != nil {
 		return nil, fmt.Errorf("failed to deploy KeystoneForwarder: %w", err)
 	}
 
-	_, err = req.Chain.Confirm(tx)
+	_, err = req.Chain.EVMChain.Confirm(tx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to confirm and save KeystoneForwarder: %w", err)
 	}

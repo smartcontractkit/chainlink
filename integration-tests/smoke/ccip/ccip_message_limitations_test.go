@@ -43,7 +43,7 @@ func Test_CCIPMessageLimitations(t *testing.T) {
 		deployment.E18Mult(10_000),
 	)
 
-	chain0DestConfig, err := onChainState.Chains[chains[0]].FeeQuoter.GetDestChainConfig(callOpts, chains[1])
+	chain0DestConfig, err := onChainState.EVMState.Chains[chains[0]].FeeQuoter.GetDestChainConfig(callOpts, chains[1])
 	require.NoError(t, err)
 	t.Logf("0->1 destination config: %+v", chain0DestConfig)
 
@@ -59,7 +59,7 @@ func Test_CCIPMessageLimitations(t *testing.T) {
 			fromChain: chains[0],
 			toChain:   chains[1],
 			msg: router.ClientEVM2AnyMessage{
-				Receiver: common.LeftPadBytes(onChainState.Chains[chains[1]].Receiver.Address().Bytes(), 32),
+				Receiver: common.LeftPadBytes(onChainState.EVMState.Chains[chains[1]].Receiver.Address().Bytes(), 32),
 				Data:     []byte(strings.Repeat("0", int(chain0DestConfig.MaxDataBytes))),
 				FeeToken: common.HexToAddress("0x0"),
 			},
@@ -69,7 +69,7 @@ func Test_CCIPMessageLimitations(t *testing.T) {
 			fromChain: chains[0],
 			toChain:   chains[1],
 			msg: router.ClientEVM2AnyMessage{
-				Receiver: common.LeftPadBytes(onChainState.Chains[chains[1]].Receiver.Address().Bytes(), 32),
+				Receiver: common.LeftPadBytes(onChainState.EVMState.Chains[chains[1]].Receiver.Address().Bytes(), 32),
 				TokenAmounts: slices.Repeat([]router.ClientEVMTokenAmount{
 					{Token: srcToken.Address(), Amount: big.NewInt(1)},
 				}, int(chain0DestConfig.MaxNumberOfTokensPerMsg)),
@@ -81,7 +81,7 @@ func Test_CCIPMessageLimitations(t *testing.T) {
 			fromChain: chains[0],
 			toChain:   chains[1],
 			msg: router.ClientEVM2AnyMessage{
-				Receiver:  common.LeftPadBytes(onChainState.Chains[chains[1]].Receiver.Address().Bytes(), 32),
+				Receiver:  common.LeftPadBytes(onChainState.EVMState.Chains[chains[1]].Receiver.Address().Bytes(), 32),
 				Data:      []byte(strings.Repeat("0", int(chain0DestConfig.MaxDataBytes))),
 				FeeToken:  common.HexToAddress("0x0"),
 				ExtraArgs: changeset.MakeEVMExtraArgsV2(uint64(chain0DestConfig.MaxPerMsgGasLimit), true),
@@ -106,7 +106,7 @@ func Test_CCIPMessageLimitations(t *testing.T) {
 			fromChain: chains[0],
 			toChain:   chains[1],
 			msg: router.ClientEVM2AnyMessage{
-				Receiver:     common.LeftPadBytes(onChainState.Chains[chains[1]].Receiver.Address().Bytes(), 32),
+				Receiver:     common.LeftPadBytes(onChainState.EVMState.Chains[chains[1]].Receiver.Address().Bytes(), 32),
 				Data:         []byte(strings.Repeat("0", int(chain0DestConfig.MaxDataBytes)+1)),
 				TokenAmounts: []router.ClientEVMTokenAmount{},
 				FeeToken:     common.HexToAddress("0x0"),
@@ -119,7 +119,7 @@ func Test_CCIPMessageLimitations(t *testing.T) {
 			fromChain: chains[0],
 			toChain:   chains[1],
 			msg: router.ClientEVM2AnyMessage{
-				Receiver: common.LeftPadBytes(onChainState.Chains[chains[1]].Receiver.Address().Bytes(), 32),
+				Receiver: common.LeftPadBytes(onChainState.EVMState.Chains[chains[1]].Receiver.Address().Bytes(), 32),
 				Data:     []byte("abc"),
 				TokenAmounts: slices.Repeat([]router.ClientEVMTokenAmount{
 					{Token: srcToken.Address(), Amount: big.NewInt(1)},
@@ -134,7 +134,7 @@ func Test_CCIPMessageLimitations(t *testing.T) {
 			fromChain: chains[0],
 			toChain:   chains[1],
 			msg: router.ClientEVM2AnyMessage{
-				Receiver:     common.LeftPadBytes(onChainState.Chains[chains[1]].Receiver.Address().Bytes(), 32),
+				Receiver:     common.LeftPadBytes(onChainState.EVMState.Chains[chains[1]].Receiver.Address().Bytes(), 32),
 				Data:         []byte("abc"),
 				TokenAmounts: []router.ClientEVMTokenAmount{},
 				FeeToken:     common.HexToAddress("0x0"),

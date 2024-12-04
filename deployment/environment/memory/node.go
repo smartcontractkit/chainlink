@@ -87,8 +87,8 @@ func NewNode(
 			t.Fatal(err)
 		}
 		evmchains[evmChainID] = EVMChain{
-			Backend:     chain.Client.(*Backend).Sim,
-			DeployerKey: chain.DeployerKey,
+			Backend:     chain.EVMChain.Client.(*Backend).Sim,
+			DeployerKey: chain.EVMChain.DeployerKey,
 		}
 	}
 
@@ -284,8 +284,8 @@ func CreateKeys(t *testing.T,
 			require.Len(t, sendingKeys, 1)
 			transmitters[evmChainID] = sendingKeys[0]
 		}
-		backend := chain.Client.(*Backend).Sim
-		fundAddress(t, chain.DeployerKey, transmitters[evmChainID], assets.Ether(1000).ToInt(), backend)
+		backend := chain.EVMChain.Client.(*Backend).Sim
+		fundAddress(t, chain.EVMChain.DeployerKey, transmitters[evmChainID], assets.Ether(1000).ToInt(), backend)
 	}
 
 	return Keys{
