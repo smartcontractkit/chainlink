@@ -11,13 +11,18 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestAddLanesWithTestRouter(t *testing.T) {
-	e := NewMemoryEnvironmentWithJobsAndContracts(t, logger.TestLogger(t), 2, 4, nil)
+	e := NewMemoryEnvironmentWithJobsAndContracts(t, logger.TestLogger(t), memory.MemoryEnvironmentConfig{
+		Chains:     2,
+		Nodes:      4,
+		Bootstraps: 1,
+	}, nil)
 	// Here we have CR + nodes set up, but no CCIP contracts deployed.
 	state, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -25,13 +30,14 @@ func TestAddLanesWithTestRouter(t *testing.T) {
 	selectors := e.Env.AllChainSelectors()
 	chain1, chain2 := selectors[0], selectors[1]
 
-	_, err = AddLanesWithTestRouter(e.Env, AddLanesConfig{
+	_, err = AddLanes(e.Env, AddLanesConfig{
 		LaneConfigs: []LaneConfig{
 			{
 				SourceSelector:        chain1,
 				DestSelector:          chain2,
 				InitialPricesBySource: DefaultInitialPrices,
 				FeeQuoterDestChain:    DefaultFeeQuoterDestChainConfig(),
+				TestRouter:            true,
 			},
 		},
 	})
@@ -66,7 +72,11 @@ func TestAddLane(t *testing.T) {
 
 	t.Parallel()
 	// We add more chains to the chainlink nodes than the number of chains where CCIP is deployed.
-	e := NewMemoryEnvironmentWithJobsAndContracts(t, logger.TestLogger(t), 2, 4, nil)
+	e := NewMemoryEnvironmentWithJobsAndContracts(t, logger.TestLogger(t), memory.MemoryEnvironmentConfig{
+		Chains:     2,
+		Nodes:      4,
+		Bootstraps: 1,
+	}, nil)
 	// Here we have CR + nodes set up, but no CCIP contracts deployed.
 	state, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
