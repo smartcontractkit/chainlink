@@ -330,6 +330,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 					return relayer.NewContractReader(ctx, bytes)
 				}, eventHandler)
 
+				globalLogger.Debugw("Creating WorkflowRegistrySyncer")
 				wfSyncer := syncer.NewWorkflowRegistry(globalLogger, func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
 					return relayer.NewContractReader(ctx, bytes)
 				}, cfg.Capabilities().WorkflowRegistry().Address(),

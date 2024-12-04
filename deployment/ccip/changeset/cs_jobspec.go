@@ -1,25 +1,28 @@
 package changeset
 
 import (
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
-// In our case, the only address needed is the cap registry which is actually an env var.
-// and will pre-exist for our deployment. So the job specs only depend on the environment operators.
-func NewCCIPJobSpecs(nodeIds []string, oc deployment.OffchainClient) (map[string][]string, error) {
-	nodes, err := deployment.NodeInfo(nodeIds, oc)
+var _ deployment.ChangeSet[any] = CCIPCapabilityJobspec
+
+// CCIPCapabilityJobspec returns the job specs for the CCIP capability.
+// The caller needs to propose these job specs to the offchain system.
+func CCIPCapabilityJobspec(env deployment.Environment, _ any) (deployment.ChangesetOutput, error) {
+	nodes, err := deployment.NodeInfo(env.NodeIDs, env.Offchain)
 	if err != nil {
-		return nil, err
+		return deployment.ChangesetOutput{}, err
 	}
 	// Generate a set of brand new job specs for CCIP for a specific environment
 	// (including NOPs) and new addresses.
 	// We want to assign one CCIP capability job to each node. And node with
 	// an addr we'll list as bootstrapper.
 	// Find the bootstrap nodes
-
 	nodesToJobSpecs := make(map[string][]string)
 	for _, node := range nodes {
 		var spec string
@@ -50,9 +53,13 @@ func NewCCIPJobSpecs(nodeIds []string, oc deployment.OffchainClient) (map[string
 			})
 		}
 		if err != nil {
-			return nil, err
+			return deployment.ChangesetOutput{}, err
 		}
 		nodesToJobSpecs[node.NodeID] = append(nodesToJobSpecs[node.NodeID], spec)
 	}
-	return nodesToJobSpecs, nil
+	return deployment.ChangesetOutput{
+		Proposals:   []timelock.MCMSWithTimelockProposal{},
+		AddressBook: nil,
+		JobSpecs:    nodesToJobSpecs,
+	}, nil
 }

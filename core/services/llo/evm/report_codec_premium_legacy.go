@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -14,11 +15,11 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	reportcodecv3 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
@@ -121,7 +122,10 @@ func (r ReportCodecPremiumLegacy) Pack(digest types.ConfigDigest, seqNr uint64, 
 		ss = append(ss, s)
 		vs[i] = v
 	}
-	reportCtx := LegacyReportContext(digest, seqNr, r.donID)
+	reportCtx, err := LegacyReportContext(digest, seqNr, r.donID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get legacy report context: %w", err)
+	}
 	rawReportCtx := evmutil.RawReportContext(reportCtx)
 
 	payload, err := mercury.PayloadTypes.Pack(rawReportCtx, []byte(report), rs, ss, vs)
@@ -203,21 +207,28 @@ func LLOExtraHash(donID uint32) common.Hash {
 	return common.BigToHash(new(big.Int).SetUint64(combined))
 }
 
-func SeqNrToEpochAndRound(seqNr uint64) (epoch uint32, round uint8) {
+func SeqNrToEpochAndRound(seqNr uint64) (epoch uint32, round uint8, err error) {
 	// Simulate 256 rounds/epoch
-	epoch = uint32(seqNr / 256) // nolint
-	round = uint8(seqNr % 256)  // nolint
+	if seqNr/256 > math.MaxUint32 {
+		err = fmt.Errorf("epoch overflows uint32: %d", seqNr)
+		return
+	}
+	epoch = uint32(seqNr / 256) //nolint:gosec // G115 false positive
+	round = uint8(seqNr % 256)  //nolint:gosec // G115 false positive
 	return
 }
 
-func LegacyReportContext(cd ocr2types.ConfigDigest, seqNr uint64, donID uint32) ocr2types.ReportContext {
-	epoch, round := SeqNrToEpochAndRound(seqNr)
+func LegacyReportContext(cd ocr2types.ConfigDigest, seqNr uint64, donID uint32) (ocr2types.ReportContext, error) {
+	epoch, round, err := SeqNrToEpochAndRound(seqNr)
+	if err != nil {
+		return ocr2types.ReportContext{}, err
+	}
 	return ocr2types.ReportContext{
 		ReportTimestamp: ocr2types.ReportTimestamp{
 			ConfigDigest: cd,
-			Epoch:        uint32(epoch),
-			Round:        uint8(round),
+			Epoch:        epoch,
+			Round:        round,
 		},
 		ExtraHash: LLOExtraHash(donID), // ExtraHash is always zero for mercury, we use LLOExtraHash here to differentiate from the legacy plugin
-	}
+	}, nil
 }

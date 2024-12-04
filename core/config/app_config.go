@@ -8,7 +8,6 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-// nolint
 var (
 	ErrEnvUnset = pkgerrors.New("env var unset")
 )

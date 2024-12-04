@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
@@ -22,8 +23,8 @@ type OwnershipAcceptor interface {
 }
 
 type AcceptOwnershipConfig struct {
-	// TimelocksPerChain is a mapping from chain selector to the timelock contract address on that chain.
-	TimelocksPerChain map[uint64]common.Address
+	// OwnersPerChain is a mapping from chain selector to the owner contract address on that chain.
+	OwnersPerChain map[uint64]common.Address
 
 	// ProposerMCMSes is a mapping from chain selector to the proposer MCMS contract on that chain.
 	ProposerMCMSes map[uint64]*gethwrappers.ManyChainMultiSig
@@ -39,11 +40,11 @@ type AcceptOwnershipConfig struct {
 }
 
 func (a AcceptOwnershipConfig) Validate() error {
-	// check that we have timelocks and proposer mcmses for the chains
+	// check that we have owners and proposer mcmses for the chains
 	// in the Contracts field.
 	for chainSelector := range a.Contracts {
-		if _, ok := a.TimelocksPerChain[chainSelector]; !ok {
-			return fmt.Errorf("missing timelock for chain %d", chainSelector)
+		if _, ok := a.OwnersPerChain[chainSelector]; !ok {
+			return fmt.Errorf("missing owner for chain %d", chainSelector)
 		}
 		if _, ok := a.ProposerMCMSes[chainSelector]; !ok {
 			return fmt.Errorf("missing proposer MCMS for chain %d", chainSelector)
@@ -88,7 +89,7 @@ func NewAcceptOwnershipChangeset(
 	}
 
 	proposal, err := proposalutils.BuildProposalFromBatches(
-		cfg.TimelocksPerChain,
+		cfg.OwnersPerChain,
 		cfg.ProposerMCMSes,
 		batches,
 		"Accept ownership of contracts",
