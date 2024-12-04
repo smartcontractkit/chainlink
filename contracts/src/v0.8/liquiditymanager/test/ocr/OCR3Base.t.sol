@@ -63,7 +63,7 @@ contract OCR3BaseSetup is OCR3Setup {
 
   function getTestReportDigest() internal view returns (bytes32) {
     bytes32 configDigest = getBasicConfigDigest(s_f, 0);
-    bytes32[2] memory reportContext = [configDigest, configDigest];
+    bytes32[3] memory reportContext = [configDigest, configDigest, configDigest];
     return keccak256(abi.encodePacked(keccak256(REPORT), reportContext));
   }
 
