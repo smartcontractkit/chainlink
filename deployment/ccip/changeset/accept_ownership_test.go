@@ -47,7 +47,7 @@ func Test_NewAcceptOwnershipChangeset(t *testing.T) {
 	_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocks, []commonchangeset.ChangesetApplication{
 		// note this doesn't have proposals.
 		{
-			Changeset: commonchangeset.WrapChangeSet(commonchangeset.NewTransferOwnershipChangeset),
+			Changeset: commonchangeset.WrapChangeSet(commonchangeset.TransferToMCMSWithTimelock),
 			Config:    genTestTransferOwnershipConfig(e, allChains, state),
 		},
 		// this has proposals, ApplyChangesets will sign & execute them.
@@ -66,7 +66,7 @@ func genTestTransferOwnershipConfig(
 	e DeployedEnv,
 	chains []uint64,
 	state CCIPOnChainState,
-) commonchangeset.TransferOwnershipConfig {
+) commonchangeset.TransferToMCMSWithTimelockConfig {
 	var (
 		timelocksPerChain = make(map[uint64]common.Address)
 		contracts         = make(map[uint64][]commonchangeset.OwnershipTransferrer)
@@ -93,7 +93,7 @@ func genTestTransferOwnershipConfig(
 		state.Chains[e.HomeChainSel].RMNHome,
 	)
 
-	return commonchangeset.TransferOwnershipConfig{
+	return commonchangeset.TransferToMCMSWithTimelockConfig{
 		OwnersPerChain: timelocksPerChain,
 		Contracts:      contracts,
 	}

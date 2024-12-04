@@ -138,7 +138,7 @@ func TestAddChainInbound(t *testing.T) {
 	}, []commonchangeset.ChangesetApplication{
 		// note this doesn't have proposals.
 		{
-			Changeset: commonchangeset.WrapChangeSet(commonchangeset.NewTransferOwnershipChangeset),
+			Changeset: commonchangeset.WrapChangeSet(commonchangeset.TransferToMCMSWithTimelock),
 			Config:    genTestTransferOwnershipConfig(e, initialDeploy, state),
 		},
 		// this has proposals, ApplyChangesets will sign & execute them.

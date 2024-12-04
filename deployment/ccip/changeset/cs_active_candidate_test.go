@@ -98,7 +98,7 @@ func TestActiveCandidate(t *testing.T) {
 	_, err = commonchangeset.ApplyChangesets(t, e, timelocks, []commonchangeset.ChangesetApplication{
 		// note this doesn't have proposals.
 		{
-			Changeset: commonchangeset.WrapChangeSet(commonchangeset.NewTransferOwnershipChangeset),
+			Changeset: commonchangeset.WrapChangeSet(commonchangeset.TransferToMCMSWithTimelock),
 			Config:    genTestTransferOwnershipConfig(tenv, allChains, state),
 		},
 		// this has proposals, ApplyChangesets will sign & execute them.

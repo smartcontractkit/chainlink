@@ -69,7 +69,7 @@ func TransferAllOwnership(e deployment.Environment, req *TransferAllOwnershipReq
 	ownershipTransferrers = append(ownershipTransferrers, toOwnershipTransferrer(consumers)...)
 
 	// Construct the configuration
-	cfg := changeset.TransferOwnershipConfig{
+	cfg := changeset.TransferToMCMSWithTimelockConfig{
 		OwnersPerChain: map[uint64]common.Address{
 			// Assuming there is only one timelock per chain.
 			chainSelector: timelocks[0].Address(),
@@ -80,5 +80,5 @@ func TransferAllOwnership(e deployment.Environment, req *TransferAllOwnershipReq
 	}
 
 	// Create and return the changeset
-	return changeset.NewTransferOwnershipChangeset(e, cfg)
+	return changeset.TransferToMCMSWithTimelock(e, cfg)
 }
