@@ -84,7 +84,7 @@ func genTestTransferOwnershipConfig(
 	)
 
 	return commonchangeset.TransferToMCMSWithTimelockConfig{
-		TransfersByChain: contracts,
+		ContractsByChain: contracts,
 	}
 }
 

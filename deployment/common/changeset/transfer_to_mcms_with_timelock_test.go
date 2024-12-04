@@ -24,7 +24,7 @@ func TestTransferToMCMSWithTimelock(t *testing.T) {
 	e, err := ApplyChangesets(t, e, nil, []ChangesetApplication{
 		{
 			Changeset: WrapChangeSet(DeployLinkToken),
-			Config:    chain1,
+			Config:    []uint64{chain1},
 		},
 		{
 			Changeset: WrapChangeSet(DeployMCMSWithTimelock),
@@ -52,7 +52,7 @@ func TestTransferToMCMSWithTimelock(t *testing.T) {
 		{
 			Changeset: WrapChangeSet(TransferToMCMSWithTimelock),
 			Config: TransferToMCMSWithTimelockConfig{
-				TransfersByChain: map[uint64][]common.Address{
+				ContractsByChain: map[uint64][]common.Address{
 					chain1: {link.LinkToken.Address()},
 				},
 				MinDelay: 0,
@@ -61,5 +61,9 @@ func TestTransferToMCMSWithTimelock(t *testing.T) {
 	})
 	require.NoError(t, err)
 	// We expect now that the link token is owned by the MCMS timelock.
-
+	link, err = LoadLinkTokenState(e.Chains[chain1], addrs)
+	require.NoError(t, err)
+	o, err := link.LinkToken.Owner(nil)
+	require.NoError(t, err)
+	require.Equal(t, state.Timelock.Address(), o)
 }

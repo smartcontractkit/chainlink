@@ -19,7 +19,7 @@ import (
 )
 
 type TransferToMCMSWithTimelockConfig struct {
-	TransfersByChain map[uint64][]common.Address
+	ContractsByChain map[uint64][]common.Address
 	// MinDelay is for the accept ownership proposal
 	MinDelay time.Duration
 }
@@ -45,7 +45,7 @@ func LoadOwnableContract(addr common.Address, client bind.ContractBackend) (comm
 }
 
 func (t TransferToMCMSWithTimelockConfig) Validate(e deployment.Environment) error {
-	for chainSelector, contracts := range t.TransfersByChain {
+	for chainSelector, contracts := range t.ContractsByChain {
 		for _, contract := range contracts {
 			// Cannot transfer to an unknown address.
 			// Note this also assures non-zero addresses.
@@ -90,7 +90,7 @@ func TransferToMCMSWithTimelock(
 	var batches []timelock.BatchChainOperation
 	timelocksByChain := make(map[uint64]common.Address)
 	proposersByChain := make(map[uint64]*owner_helpers.ManyChainMultiSig)
-	for chainSelector, contracts := range cfg.TransfersByChain {
+	for chainSelector, contracts := range cfg.ContractsByChain {
 		// Already validated that the timelock/proposer exists.
 		timelockAddr, _ := deployment.SearchAddressBook(e.ExistingAddresses, chainSelector, types.RBACTimelock)
 		proposerAddr, _ := deployment.SearchAddressBook(e.ExistingAddresses, chainSelector, types.ProposerManyChainMultisig)
