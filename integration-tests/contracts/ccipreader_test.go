@@ -448,15 +448,16 @@ func TestCCIPReader_NextSeqNum(t *testing.T) {
 
 	sb, auth := setupSimulatedBackendAndAuth(t)
 	s := testSetup(ctx, t, testSetupParams{
-		ReaderChain:      chainD,
-		DestChain:        chainD,
-		OnChainSeqNums:   onChainSeqNums,
-		Cfg:              cfg,
-		ToBindContracts:  nil,
-		ToMockBindings:   nil,
-		BindTester:       true,
-		SimulatedBackend: sb,
-		Auth:             auth,
+		ReaderChain:        chainD,
+		DestChain:          chainD,
+		OnChainSeqNums:     onChainSeqNums,
+		Cfg:                cfg,
+		ToBindContracts:    nil,
+		ToMockBindings:     nil,
+		BindTester:         true,
+		ContractNameToBind: consts.ContractNameOffRamp,
+		SimulatedBackend:   sb,
+		Auth:               auth,
 	})
 
 	seqNums, err := s.reader.NextSeqNum(ctx, []cciptypes.ChainSelector{chainS1, chainS2, chainS3})
@@ -544,12 +545,13 @@ func TestCCIPReader_Nonces(t *testing.T) {
 
 	sb, auth := setupSimulatedBackendAndAuth(t)
 	s := testSetup(ctx, t, testSetupParams{
-		ReaderChain:      chainD,
-		DestChain:        chainD,
-		Cfg:              cfg,
-		BindTester:       true,
-		SimulatedBackend: sb,
-		Auth:             auth,
+		ReaderChain:        chainD,
+		DestChain:          chainD,
+		Cfg:                cfg,
+		BindTester:         true,
+		ContractNameToBind: consts.ContractNameNonceManager,
+		SimulatedBackend:   sb,
+		Auth:               auth,
 	})
 
 	// Add some nonces.
