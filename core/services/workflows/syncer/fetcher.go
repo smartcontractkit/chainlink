@@ -2,6 +2,7 @@ package syncer
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -14,6 +15,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
+)
+
+const (
+	defaultFetchTimeoutMs = 20_000
 )
 
 type FetcherService struct {
@@ -73,22 +78,29 @@ func (s *FetcherService) Name() string {
 	return s.lggr.Name()
 }
 
+func hash(url string) string {
+	h := sha256.New()
+	h.Write([]byte(url))
+	return fmt.Sprintf("%x", h.Sum(nil))
+}
+
 func (s *FetcherService) Fetch(ctx context.Context, url string) ([]byte, error) {
 	payloadBytes, err := json.Marshal(ghcapabilities.Request{
-		URL:    url,
-		Method: http.MethodGet,
+		URL:       url,
+		Method:    http.MethodGet,
+		TimeoutMs: defaultFetchTimeoutMs,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal fetch request: %w", err)
 	}
 
-	messageID := strings.Join([]string{ghcapabilities.MethodWorkflowSyncer, url}, "/")
+	messageID := strings.Join([]string{ghcapabilities.MethodWorkflowSyncer, hash(url)}, "/")
 	resp, err := s.och.HandleSingleNodeRequest(ctx, messageID, payloadBytes)
 	if err != nil {
 		return nil, err
 	}
 
-	s.lggr.Debugw("received gateway response", "resp", resp)
+	s.lggr.Debugw("received gateway response")
 	var payload ghcapabilities.Response
 	err = json.Unmarshal(resp.Body.Payload, &payload)
 	if err != nil {
