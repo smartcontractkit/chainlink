@@ -2,7 +2,6 @@ package ccip
 
 import (
 	"fmt"
-	"math"
 	"strconv"
 
 	"github.com/AlekSi/pointer"
@@ -190,25 +189,11 @@ func IsSelectorValid(selector uint64, chainIds []int64) (bool, error) {
 		return false, err
 	}
 
-	id, err := convertToInt64(chainId)
-	if err != nil {
-		return false, fmt.Errorf("chain id overflows int64: %d", chainId)
-	}
+	id := int64(chainId)
 	for _, cID := range chainIds {
 		if cID == id {
 			return true, nil
 		}
 	}
 	return false, nil
-}
-
-func convertToInt64(s string) (int64, error) {
-	num, err := strconv.ParseInt(s, 10, 64)
-	if err != nil {
-		return 0, err
-	}
-	if num > math.MaxInt64 {
-		return 0, fmt.Errorf("value %d is greater than math.MaxInt64", num)
-	}
-	return num, nil
 }

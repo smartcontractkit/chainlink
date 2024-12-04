@@ -145,34 +145,3 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]deployme
 	}
 	return chains, nil
 }
-
-// SetDeployerKey sets the deployer key for the chain. If private key is not provided, it fetches the deployer key from KMS.
-func (c *ChainConfig) SetDeployerKey(pvtKeyStr *string) error {
-	if pvtKeyStr != nil && *pvtKeyStr != "" {
-		pvtKey, err := crypto.HexToECDSA(*pvtKeyStr)
-		if err != nil {
-			return fmt.Errorf("failed to convert private key to ECDSA: %w", err)
-		}
-		deployer, err := bind.NewKeyedTransactorWithChainID(pvtKey, new(big.Int).SetUint64(c.ChainID))
-		if err != nil {
-			return fmt.Errorf("failed to create transactor: %w", err)
-		}
-		fmt.Printf("Deployer Address: %s for chain id %d\n", deployer.From.Hex(), c.ChainID)
-		c.DeployerKey = deployer
-		return nil
-	}
-	kmsConfig, err := deployment.KMSConfigFromEnvVars()
-	if err != nil {
-		return fmt.Errorf("failed to get kms config from env vars: %w", err)
-	}
-	kmsClient, err := deployment.NewKMSClient(kmsConfig)
-	if err != nil {
-		return fmt.Errorf("failed to create KMS client: %w", err)
-	}
-	evmKMSClient := deployment.NewEVMKMSClient(kmsClient, kmsConfig.KmsDeployerKeyId)
-	c.DeployerKey, err = evmKMSClient.GetKMSTransactOpts(context.Background(), new(big.Int).SetUint64(c.ChainID))
-	if err != nil {
-		return fmt.Errorf("failed to get transactor from KMS client: %w", err)
-	}
-	return nil
-}
