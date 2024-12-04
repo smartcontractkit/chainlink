@@ -16,19 +16,20 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 )
 
-// RawReportContext3 is a reference to the return type of [evmutil.RawReportContext3] .
-type RawReportContext3 [2][32]byte
+type ToCalldataFunc func(rawReportCtx [2][32]byte, report []byte, rs, ss [][32]byte, vs [32]byte) any
 
-type ToCalldataFunc func(rawReportCtx RawReportContext3, report []byte, rs, ss [][32]byte, vs [32]byte) any
-
-func ToCommitCalldata(rawReportCtx RawReportContext3, report []byte, rs, ss [][32]byte, vs [32]byte) any {
+func ToCommitCalldata(rawReportCtx [2][32]byte, report []byte, rs, ss [][32]byte, vs [32]byte) any {
 	// Note that the name of the struct field is very important, since the encoder used
 	// by the chainwriter uses mapstructure, which will use the struct field name to map
 	// to the argument name in the function call.
 	// If, for whatever reason, we want to change the field name, make sure to add a `mapstructure:"<arg_name>"` tag
 	// for that field.
+
+	// WARNING: Be careful if you change the data types.
+	// Using a different type e.g. `type Foo [32]byte` instead of `[32]byte`
+	// will trigger undefined chainWriter behavior, e.g. transactions submitted with wrong arguments.
 	return struct {
-		ReportContext RawReportContext3
+		ReportContext [2][32]byte
 		Report        []byte
 		Rs            [][32]byte
 		Ss            [][32]byte
@@ -42,14 +43,18 @@ func ToCommitCalldata(rawReportCtx RawReportContext3, report []byte, rs, ss [][3
 	}
 }
 
-func ToExecCalldata(rawReportCtx RawReportContext3, report []byte, _, _ [][32]byte, _ [32]byte) any {
+func ToExecCalldata(rawReportCtx [2][32]byte, report []byte, _, _ [][32]byte, _ [32]byte) any {
 	// Note that the name of the struct field is very important, since the encoder used
 	// by the chainwriter uses mapstructure, which will use the struct field name to map
 	// to the argument name in the function call.
 	// If, for whatever reason, we want to change the field name, make sure to add a `mapstructure:"<arg_name>"` tag
 	// for that field.
+
+	// WARNING: Be careful if you change the data types.
+	// Using a different type e.g. `type Foo [32]byte` instead of `[32]byte`
+	// will trigger undefined chainWriter behavior, e.g. transactions submitted with wrong arguments.
 	return struct {
-		ReportContext RawReportContext3
+		ReportContext [2][32]byte
 		Report        []byte
 	}{
 		ReportContext: rawReportCtx,
