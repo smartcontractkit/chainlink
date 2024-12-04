@@ -1,6 +1,7 @@
 package smoke
 
 import (
+	"github.com/ethereum/go-ethereum/common"
 	"math/big"
 	"testing"
 
@@ -22,9 +23,10 @@ import (
 // 2. src -> dest - ordered USDC token transfer, but with faulty attestation, should be stuck forever
 // 3. src -> dest - ordered token transfer, should not be executed because previous message is stuck
 // 4. src -> dest - out of order message transfer, should be executed anyway
-// TODO 5. src -> dest - ordered token transfer, but using a different sender
+// 5. src -> dest - ordered programmable token transfer, but using a different sender
 //
-// All messages should be properly committed, but only 1 and 4 are fully executed.
+// All messages should be properly committed, but only 1 and 4, 5 are fully executed.
+// Messages 2 and 3 are untouched, because ordering is enforced.
 func Test_OutOfOrderExecution(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := tests.Context(t)
@@ -44,6 +46,7 @@ func Test_OutOfOrderExecution(t *testing.T) {
 	sourceChain, destChain := allChainSelectors[0], allChainSelectors[1]
 	ownerSourceChain := e.Chains[sourceChain].DeployerKey
 	ownerDestChain := e.Chains[destChain].DeployerKey
+	require.GreaterOrEqual(t, len(tenv.Users[sourceChain]), 1)
 
 	oneE18 := new(big.Int).SetUint64(1e18)
 
@@ -121,7 +124,9 @@ func Test_OutOfOrderExecution(t *testing.T) {
 		changeset.MakeEVMExtraArgsV2(0, true),
 	)
 	expectedStatuses[firstMessage.SequenceNumber] = changeset.EXECUTION_STATE_SUCCESS
-	t.Logf("Out of order messages sent from chain %d to chain %d with sequence number %d", sourceChain, destChain, firstMessage.SequenceNumber)
+	t.Logf("Out of order messages sent from chain %d to chain %d with sequence number %d",
+		sourceChain, destChain, firstMessage.SequenceNumber,
+	)
 
 	// Ordered execution should fail because attestation is not present
 	secondReceiver := utils.RandomAddress()
@@ -137,7 +142,9 @@ func Test_OutOfOrderExecution(t *testing.T) {
 		nil,
 		nil,
 	)
-	t.Logf("Ordered USDC transfer sent from chain %d to chain %d with sequence number %d", sourceChain, destChain, secondMsg.SequenceNumber)
+	t.Logf("Ordered USDC transfer sent from chain %d to chain %d with sequence number %d",
+		sourceChain, destChain, secondMsg.SequenceNumber,
+	)
 
 	// Ordered token transfer should fail, because previous message cannot be executed
 	thirdReceiver := utils.RandomAddress()
@@ -153,9 +160,11 @@ func Test_OutOfOrderExecution(t *testing.T) {
 		nil,
 		changeset.MakeEVMExtraArgsV2(0, false),
 	)
-	t.Logf("Ordered token transfer from chain %d to chain %d with sequence number %d", sourceChain, destChain, thirdMessage.SequenceNumber)
+	t.Logf("Ordered token transfer from chain %d to chain %d with sequence number %d",
+		sourceChain, destChain, thirdMessage.SequenceNumber,
+	)
 
-	// Out of order programmable token transfer should pass
+	// Out of order programmable token transfer should be executed
 	fourthReceiver := state.Chains[destChain].Receiver.Address()
 	fourthMessage, _ := changeset.Transfer(
 		ctx,
@@ -170,7 +179,29 @@ func Test_OutOfOrderExecution(t *testing.T) {
 		changeset.MakeEVMExtraArgsV2(300_000, true),
 	)
 	expectedStatuses[fourthMessage.SequenceNumber] = changeset.EXECUTION_STATE_SUCCESS
-	t.Logf("Out of order programmable token transfer from chain %d to chain %d with sequence number %d", sourceChain, destChain, fourthMessage.SequenceNumber)
+	t.Logf("Out of order programmable token transfer from chain %d to chain %d with sequence number %d",
+		sourceChain, destChain, fourthMessage.SequenceNumber,
+	)
+
+	// Ordered programmable token transfer, but using different sender, should be executed
+	fifthReceiver := utils.RandomAddress()
+	fifthSender := tenv.Users[sourceChain][0]
+	fifthMessage, err := changeset.DoSendRequest(t, e, state,
+		changeset.WithSender(fifthSender),
+		changeset.WithSourceChain(sourceChain),
+		changeset.WithDestChain(destChain),
+		changeset.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
+			Receiver:     common.LeftPadBytes(fifthReceiver.Bytes(), 32),
+			Data:         []byte("this should pass because sender is different"),
+			TokenAmounts: tokenTransfer,
+			FeeToken:     common.HexToAddress("0x0"),
+			ExtraArgs:    changeset.MakeEVMExtraArgsV2(300_000, false),
+		}))
+	require.NoError(t, err)
+	expectedStatuses[fifthMessage.SequenceNumber] = changeset.EXECUTION_STATE_SUCCESS
+	t.Logf("Ordered message send by %v from chain %d to chain %d with sequence number %d",
+		fifthSender.From, sourceChain, destChain, fifthMessage.SequenceNumber,
+	)
 
 	// All messages are committed, even these which are going to be reverted during the exec
 	_, err = changeset.ConfirmCommitWithExpectedSeqNumRange(
@@ -181,7 +212,7 @@ func Test_OutOfOrderExecution(t *testing.T) {
 		startBlocks[destChain],
 		ccipocr3.NewSeqNumRange(
 			ccipocr3.SeqNum(firstMessage.SequenceNumber),
-			ccipocr3.SeqNum(fourthMessage.SequenceNumber),
+			ccipocr3.SeqNum(fifthMessage.SequenceNumber),
 		),
 		// We don't verify batching here, so we don't need all messages to be in a single root
 		false,
@@ -193,7 +224,11 @@ func Test_OutOfOrderExecution(t *testing.T) {
 		e,
 		state,
 		map[changeset.SourceDestPair][]uint64{
-			identifier: {firstMessage.SequenceNumber, fourthMessage.SequenceNumber},
+			identifier: {
+				firstMessage.SequenceNumber,
+				fourthMessage.SequenceNumber,
+				fifthMessage.SequenceNumber,
+			},
 		},
 		startBlocks,
 	)
@@ -211,4 +246,5 @@ func Test_OutOfOrderExecution(t *testing.T) {
 	changeset.WaitForTheTokenBalance(ctx, t, destUSDC.Address(), secondReceiver, e.Chains[destChain], big.NewInt(0))
 	changeset.WaitForTheTokenBalance(ctx, t, destToken.Address(), thirdReceiver, e.Chains[destChain], big.NewInt(0))
 	changeset.WaitForTheTokenBalance(ctx, t, destToken.Address(), fourthReceiver, e.Chains[destChain], oneE18)
+	changeset.WaitForTheTokenBalance(ctx, t, destToken.Address(), fifthReceiver, e.Chains[destChain], oneE18)
 }
