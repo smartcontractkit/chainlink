@@ -105,8 +105,6 @@ func ensureMigrated(ctx context.Context, db *sql.DB, p *goose.Provider, provider
 	}
 
 	// insert records for existing migrations
-	//nolint
-
 	sql := fmt.Sprintf(`INSERT INTO %s (version_id, is_applied) VALUES ($1, true);`, providerTableName)
 	return sqlutil.TransactDataSource(ctx, sqlxDB, nil, func(tx sqlutil.DataSource) error {
 		for _, name := range names {

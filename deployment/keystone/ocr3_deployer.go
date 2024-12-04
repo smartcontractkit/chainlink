@@ -5,6 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability"
 )
@@ -12,6 +13,14 @@ import (
 type OCR3Deployer struct {
 	lggr     logger.Logger
 	contract *ocr3_capability.OCR3Capability
+}
+
+func NewOCR3Deployer() (*OCR3Deployer, error) {
+	lggr, err := logger.New()
+	if err != nil {
+		return nil, err
+	}
+	return &OCR3Deployer{lggr: lggr}, nil
 }
 
 func (c *OCR3Deployer) deploy(req DeployRequest) (*DeployResponse, error) {

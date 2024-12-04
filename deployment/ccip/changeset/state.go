@@ -48,6 +48,37 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
 )
 
+var (
+	MockRMN              deployment.ContractType = "MockRMN"
+	RMNRemote            deployment.ContractType = "RMNRemote"
+	LinkToken            deployment.ContractType = "LinkToken"
+	ARMProxy             deployment.ContractType = "ARMProxy"
+	WETH9                deployment.ContractType = "WETH9"
+	Router               deployment.ContractType = "Router"
+	CommitStore          deployment.ContractType = "CommitStore"
+	TokenAdminRegistry   deployment.ContractType = "TokenAdminRegistry"
+	RegistryModule       deployment.ContractType = "RegistryModuleOwnerCustom"
+	NonceManager         deployment.ContractType = "NonceManager"
+	FeeQuoter            deployment.ContractType = "FeeQuoter"
+	CCIPHome             deployment.ContractType = "CCIPHome"
+	CCIPConfig           deployment.ContractType = "CCIPConfig"
+	RMNHome              deployment.ContractType = "RMNHome"
+	OnRamp               deployment.ContractType = "OnRamp"
+	OffRamp              deployment.ContractType = "OffRamp"
+	CapabilitiesRegistry deployment.ContractType = "CapabilitiesRegistry"
+	PriceFeed            deployment.ContractType = "PriceFeed"
+	// Note test router maps to a regular router contract.
+	TestRouter          deployment.ContractType = "TestRouter"
+	Multicall3          deployment.ContractType = "Multicall3"
+	CCIPReceiver        deployment.ContractType = "CCIPReceiver"
+	BurnMintToken       deployment.ContractType = "BurnMintToken"
+	BurnMintTokenPool   deployment.ContractType = "BurnMintTokenPool"
+	USDCToken           deployment.ContractType = "USDCToken"
+	USDCMockTransmitter deployment.ContractType = "USDCMockTransmitter"
+	USDCTokenMessenger  deployment.ContractType = "USDCTokenMessenger"
+	USDCTokenPool       deployment.ContractType = "USDCTokenPool"
+)
+
 // CCIPChainState holds a Go binding for all the currently deployed CCIP contracts
 // on a chain. If a binding is nil, it means here is no such contract on the chain.
 type CCIPChainState struct {

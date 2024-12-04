@@ -52,7 +52,7 @@ require (
 	github.com/jonboulle/clockwork v0.4.0
 	github.com/jpillora/backoff v1.0.0
 	github.com/kylelemons/godebug v1.1.0
-	github.com/leanovate/gopter v0.2.10-0.20210127095200-9abe2343507a
+	github.com/leanovate/gopter v0.2.11
 	github.com/lib/pq v1.10.9
 	github.com/manyminds/api2go v0.0.0-20171030193247-e7b693844a6f
 	github.com/mitchellh/go-homedir v1.1.0
@@ -76,12 +76,12 @@ require (
 	github.com/shopspring/decimal v1.4.0
 	github.com/smartcontractkit/chain-selectors v1.0.31
 	github.com/smartcontractkit/chainlink-automation v0.8.1
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241125151847-c63f5f567fcd
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241128080738-06bef8620ac6
 	github.com/smartcontractkit/chainlink-common v0.3.1-0.20241125150608-97ceadb2072d
 	github.com/smartcontractkit/chainlink-cosmos v0.5.2-0.20241017133723-5277829bd53f
-	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20241114154055-8d29ea018b57
+	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20241202141438-a90db35252db
 	github.com/smartcontractkit/chainlink-feeds v0.1.1
-	github.com/smartcontractkit/chainlink-protos/orchestrator v0.3.0
+	github.com/smartcontractkit/chainlink-protos/orchestrator v0.3.2
 	github.com/smartcontractkit/chainlink-solana v1.1.1-0.20241127201057-3c9282e39749
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.1.1-0.20241017135645-176a23722fd8
 	github.com/smartcontractkit/libocr v0.0.0-20241007185508-adbe57025f12

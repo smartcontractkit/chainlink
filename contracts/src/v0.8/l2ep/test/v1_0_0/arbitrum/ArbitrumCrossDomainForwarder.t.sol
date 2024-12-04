@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {ArbitrumCrossDomainForwarder} from "../../../dev/arbitrum/ArbitrumCrossDomainForwarder.sol";
+import {ArbitrumCrossDomainForwarder} from "../../../arbitrum/ArbitrumCrossDomainForwarder.sol";
 import {Greeter} from "../../../../tests/Greeter.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
 

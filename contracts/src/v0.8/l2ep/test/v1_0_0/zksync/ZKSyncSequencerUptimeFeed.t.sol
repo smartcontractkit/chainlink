@@ -2,8 +2,8 @@
 pragma solidity ^0.8.24;
 
 import {AddressAliasHelper} from "../../../../vendor/arb-bridge-eth/v0.8.0-custom/contracts/libraries/AddressAliasHelper.sol";
-import {ZKSyncSequencerUptimeFeed} from "../../../dev/zksync/ZKSyncSequencerUptimeFeed.sol";
-import {BaseSequencerUptimeFeed} from "../../../dev/shared/BaseSequencerUptimeFeed.sol";
+import {ZKSyncSequencerUptimeFeed} from "../../../zksync/ZKSyncSequencerUptimeFeed.sol";
+import {BaseSequencerUptimeFeed} from "../../../shared/BaseSequencerUptimeFeed.sol";
 import {FeedConsumer} from "../../../../tests/FeedConsumer.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
 
