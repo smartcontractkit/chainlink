@@ -6,6 +6,7 @@ import (
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
@@ -30,7 +31,7 @@ func DeployMCMSWithConfig(
 			}
 		})
 	if err != nil {
-		lggr.Errorw("Failed to deploy mcm", "err", err)
+		lggr.Errorw("Failed to deploy mcm", "chain", chain.Name, "err", err)
 		return mcm, err
 	}
 	mcmsTx, err := mcm.Contract.SetConfig(chain.DeployerKey,
@@ -42,7 +43,7 @@ func DeployMCMSWithConfig(
 		false,
 	)
 	if _, err := deployment.ConfirmIfNoError(chain, mcmsTx, err); err != nil {
-		lggr.Errorw("Failed to confirm mcm config", "err", err)
+		lggr.Errorw("Failed to confirm mcm config", "chain", chain.Name, "err", err)
 		return mcm, err
 	}
 	return mcm, nil
@@ -115,7 +116,7 @@ func DeployMCMSWithTimelockContracts(
 			}
 		})
 	if err != nil {
-		lggr.Errorw("Failed to deploy timelock", "err", err)
+		lggr.Errorw("Failed to deploy timelock", "chain", chain.Name, "err", err)
 		return nil, err
 	}
 	lggr.Infow("deployed timelock", "addr", timelock.Address)

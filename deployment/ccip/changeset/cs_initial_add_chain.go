@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -178,19 +179,20 @@ func configureChain(
 		e.Logger.Errorw("Failed to load existing onchain state", "err")
 		return err
 	}
+	homeChain := e.Chains[c.HomeChainSel]
 	capReg := existingState.Chains[c.HomeChainSel].CapabilityRegistry
 	if capReg == nil {
-		e.Logger.Errorw("Failed to get capability registry")
+		e.Logger.Errorw("Failed to get capability registry", "chain", homeChain.Name)
 		return fmt.Errorf("capability registry not found")
 	}
 	ccipHome := existingState.Chains[c.HomeChainSel].CCIPHome
 	if ccipHome == nil {
-		e.Logger.Errorw("Failed to get ccip home", "err", err)
+		e.Logger.Errorw("Failed to get ccip home", "chain", homeChain.Name, "err", err)
 		return fmt.Errorf("ccip home not found")
 	}
 	rmnHome := existingState.Chains[c.HomeChainSel].RMNHome
 	if rmnHome == nil {
-		e.Logger.Errorw("Failed to get rmn home", "err", err)
+		e.Logger.Errorw("Failed to get rmn home", "chain", homeChain.Name, "err", err)
 		return fmt.Errorf("rmn home not found")
 	}
 
@@ -267,7 +269,7 @@ func addChainConfig(
 	if _, err := deployment.ConfirmIfNoError(h, tx, err); err != nil {
 		return ccip_home.CCIPHomeChainConfigArgs{}, err
 	}
-	lggr.Infow("Applied chain config updates", "chainConfig", chainConfig)
+	lggr.Infow("Applied chain config updates", "homeChain", h.Name, "addedChain", chainSelector, "chainConfig", chainConfig)
 	return chainConfig, nil
 }
 
