@@ -174,6 +174,10 @@ func TestAddChainInbound(t *testing.T) {
 	// TODO This currently is not working - Able to send the request here but request gets stuck in execution
 	// Send a new message and expect that this is delivered once the chain is completely set up as inbound
 	//TestSendRequest(t, e.Env, state, initialDeploy[0], newChain, true)
+	var nodeIDs []string
+	for _, node := range nodes {
+		nodeIDs = append(nodeIDs, node.NodeID)
+	}
 
 	_, err = commonchangeset.ApplyChangesets(t, e.Env, map[uint64]*gethwrappers.RBACTimelock{
 		e.HomeChainSel: state.Chains[e.HomeChainSel].Timelock,
@@ -187,8 +191,13 @@ func TestAddChainInbound(t *testing.T) {
 				NewChainSelector:  newChain,
 				TokenConfig:       tokenConfig,
 				PluginType:        types.PluginTypeCCIPCommit,
-				Nodes:             nodes,
+				NodeIDs:           nodeIDs,
 				OCRSecrets:        deployment.XXXGenerateTestOCRSecrets(),
+				CCIPOCRParams: DefaultOCRParams(
+					e.FeedChainSel,
+					tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[newChain].LinkToken, state.Chains[newChain].Weth9),
+					nil,
+				),
 			},
 		},
 		{
@@ -199,8 +208,13 @@ func TestAddChainInbound(t *testing.T) {
 				NewChainSelector:  newChain,
 				TokenConfig:       tokenConfig,
 				PluginType:        types.PluginTypeCCIPExec,
-				Nodes:             nodes,
+				NodeIDs:           nodeIDs,
 				OCRSecrets:        deployment.XXXGenerateTestOCRSecrets(),
+				CCIPOCRParams: DefaultOCRParams(
+					e.FeedChainSel,
+					tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[newChain].LinkToken, state.Chains[newChain].Weth9),
+					nil,
+				),
 			},
 		},
 		{
@@ -208,7 +222,7 @@ func TestAddChainInbound(t *testing.T) {
 			Config: PromoteAllCandidatesChangesetConfig{
 				HomeChainSelector: e.HomeChainSel,
 				NewChainSelector:  newChain,
-				Nodes:             nodes,
+				NodeIDs:           nodeIDs,
 			},
 		},
 	})

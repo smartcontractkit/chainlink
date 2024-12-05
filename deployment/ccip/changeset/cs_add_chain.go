@@ -141,29 +141,62 @@ type AddDonAndSetCandidateChangesetConfig struct {
 	NewChainSelector  uint64
 	PluginType        types.PluginType
 	TokenConfig       TokenConfig
-	Nodes             deployment.Nodes
+	NodeIDs           []string
+	CCIPOCRParams     CCIPOCRParams
 	OCRSecrets        deployment.OCRSecrets
 }
 
-func (a AddDonAndSetCandidateChangesetConfig) Validate() error {
+func (a AddDonAndSetCandidateChangesetConfig) Validate(e deployment.Environment, state CCIPOnChainState) (deployment.Nodes, error) {
 	if a.HomeChainSelector == 0 {
-		return fmt.Errorf("HomeChainSelector must be set")
+		return nil, fmt.Errorf("HomeChainSelector must be set")
 	}
 	if a.FeedChainSelector == 0 {
-		return fmt.Errorf("FeedChainSelector must be set")
+		return nil, fmt.Errorf("FeedChainSelector must be set")
 	}
 	if a.NewChainSelector == 0 {
-		return fmt.Errorf("NewChainSelector must be set")
+		return nil, fmt.Errorf("ocr config chain selector must be set")
 	}
 	if a.PluginType != types.PluginTypeCCIPCommit &&
 		a.PluginType != types.PluginTypeCCIPExec {
-		return fmt.Errorf("PluginType must be set to either CCIPCommit or CCIPExec")
+		return nil, fmt.Errorf("PluginType must be set to either CCIPCommit or CCIPExec")
 	}
 	// TODO: validate token config
-	if len(a.Nodes) == 0 {
-		return fmt.Errorf("Nodes must be set")
+	if len(a.NodeIDs) == 0 {
+		return nil, fmt.Errorf("nodeIDs must be set")
 	}
-	return nil
+	nodes, err := deployment.NodeInfo(a.NodeIDs, e.Offchain)
+	if err != nil {
+		return nil, fmt.Errorf("get node info: %w", err)
+	}
+
+	// check that chain config is set up for the new chain
+	// TODO: feels like we should just have a getter for a particular chain, this pagination
+	// logic seems a bit out of place here.
+	allConfigs, err := state.Chains[a.HomeChainSelector].CCIPHome.GetAllChainConfigs(nil, big.NewInt(0), big.NewInt(100))
+	if err != nil {
+		return nil, fmt.Errorf("get all chain configs: %w", err)
+	}
+	var found bool
+	for _, chainConfig := range allConfigs {
+		if chainConfig.ChainSelector == a.NewChainSelector {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return nil, fmt.Errorf("chain config not set for chain %d", a.NewChainSelector)
+	}
+
+	err = a.CCIPOCRParams.Validate()
+	if err != nil {
+		return nil, fmt.Errorf("invalid ccip ocr params: %w", err)
+	}
+
+	if a.OCRSecrets.IsEmpty() {
+		return nil, fmt.Errorf("OCR secrets must be set")
+	}
+
+	return nodes, nil
 }
 
 // AddDonAndSetCandidateChangeset adds new DON for destination to home chain
@@ -172,33 +205,25 @@ func AddDonAndSetCandidateChangeset(
 	e deployment.Environment,
 	cfg AddDonAndSetCandidateChangesetConfig,
 ) (deployment.ChangesetOutput, error) {
-	if err := cfg.Validate(); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("%w: %w", deployment.ErrInvalidConfig, err)
-	}
-
 	state, err := LoadOnchainState(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
 
-	ccipOCRParams := DefaultOCRParams(
-		cfg.FeedChainSelector,
-		cfg.TokenConfig.GetTokenInfo(e.Logger,
-			state.Chains[cfg.NewChainSelector].LinkToken,
-			state.Chains[cfg.NewChainSelector].Weth9,
-		),
-		// TODO: Need USDC support.
-		nil,
-	)
+	nodes, err := cfg.Validate(e, state)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("%w: %w", deployment.ErrInvalidConfig, err)
+	}
+
 	newDONArgs, err := internal.BuildOCR3ConfigForCCIPHome(
 		cfg.OCRSecrets,
 		state.Chains[cfg.NewChainSelector].OffRamp,
 		e.Chains[cfg.NewChainSelector],
-		cfg.Nodes.NonBootstraps(),
+		nodes.NonBootstraps(),
 		state.Chains[cfg.HomeChainSelector].RMNHome.Address(),
-		ccipOCRParams.OCRParameters,
-		ccipOCRParams.CommitOffChainConfig,
-		ccipOCRParams.ExecuteOffChainConfig,
+		cfg.CCIPOCRParams.OCRParameters,
+		cfg.CCIPOCRParams.CommitOffChainConfig,
+		cfg.CCIPOCRParams.ExecuteOffChainConfig,
 	)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
@@ -215,7 +240,7 @@ func AddDonAndSetCandidateChangeset(
 	addDonOp, err := newDonWithCandidateOp(
 		donID, commitConfig,
 		state.Chains[cfg.HomeChainSelector].CapabilityRegistry,
-		cfg.Nodes.NonBootstraps(),
+		nodes.NonBootstraps(),
 	)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
