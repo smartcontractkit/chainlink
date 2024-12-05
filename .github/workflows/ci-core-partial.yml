@@ -83,8 +83,8 @@ jobs:
           CL_DATABASE_URL: ${{ env.DB_URL }}
         with:
           pipeline-step: "run"
-          run-concurrency: "24"
-          run-all-tests: ${{ needs.filter.outputs.should-run-all-tests }}
+          run-all-tests: "true"
+          run-concurrency: "16"
           collect-coverage: ${{ needs.filter.outputs.should-collect-coverage }}
           test-suite: ${{ matrix.type.test-suite }}
           module-directory: ${{ matrix.type.module-directory }}
