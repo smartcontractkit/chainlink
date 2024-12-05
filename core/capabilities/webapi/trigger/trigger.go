@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	ethCommon "github.com/ethereum/go-ethereum/common"
 
@@ -256,7 +257,9 @@ func (h *triggerConnectorHandler) Start(ctx context.Context) error {
 }
 func (h *triggerConnectorHandler) Close() error {
 	return h.StopOnce("GatewayConnectorServiceWrapper", func() error {
-		err := h.registry.Remove(context.TODO(), h.ID)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		err := h.registry.Remove(ctx, h.ID)
 		if err != nil {
 			return err
 		}

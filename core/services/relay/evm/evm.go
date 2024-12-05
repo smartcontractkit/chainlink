@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -259,7 +260,11 @@ func (r *Relayer) Close() error {
 	cs := make([]io.Closer, 0, 2)
 	if r.triggerCapability != nil {
 		cs = append(cs, r.triggerCapability)
-		err := r.capabilitiesRegistry.Remove(context.TODO(), r.triggerCapability.ID)
+
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+
+		err := r.capabilitiesRegistry.Remove(ctx, r.triggerCapability.ID)
 		if err != nil {
 			return err
 		}
