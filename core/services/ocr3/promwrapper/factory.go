@@ -31,7 +31,7 @@ func (r ReportingPluginFactory[RI]) NewReportingPlugin(ctx context.Context, conf
 	if err != nil {
 		return nil, ocr3types.ReportingPluginInfo{}, err
 	}
-	wrapped := NewReportingPlugin(
+	wrapped := newReportingPlugin(
 		plugin,
 		r.chainID,
 		r.plugin,

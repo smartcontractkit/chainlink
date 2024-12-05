@@ -16,15 +16,15 @@ import (
 )
 
 func Test_ReportsGeneratedGauge(t *testing.T) {
-	plugin1 := NewReportingPlugin(
+	plugin1 := newReportingPlugin(
 		fakePlugin[uint]{reports: make([]ocr3types.ReportPlus[uint], 2)},
 		"123", "empty", promOCR3ReportsGenerated, promOCR3Durations,
 	)
-	plugin2 := NewReportingPlugin(
+	plugin2 := newReportingPlugin(
 		fakePlugin[bool]{reports: make([]ocr3types.ReportPlus[bool], 10)},
 		"solana", "different_plugin", promOCR3ReportsGenerated, promOCR3Durations,
 	)
-	plugin3 := NewReportingPlugin(
+	plugin3 := newReportingPlugin(
 		fakePlugin[string]{err: errors.New("error")},
 		"1234", "empty", promOCR3ReportsGenerated, promOCR3Durations,
 	)
@@ -59,20 +59,20 @@ func Test_ReportsGeneratedGauge(t *testing.T) {
 }
 
 func Test_DurationHistograms(t *testing.T) {
-	plugin1 := NewReportingPlugin(
+	plugin1 := newReportingPlugin(
 		fakePlugin[uint]{},
 		"123", "empty", promOCR3ReportsGenerated, promOCR3Durations,
 	)
-	plugin2 := NewReportingPlugin(
+	plugin2 := newReportingPlugin(
 		fakePlugin[uint]{err: errors.New("error")},
 		"123", "empty", promOCR3ReportsGenerated, promOCR3Durations,
 	)
-	plugin3 := NewReportingPlugin(
+	plugin3 := newReportingPlugin(
 		fakePlugin[uint]{},
 		"solana", "commit", promOCR3ReportsGenerated, promOCR3Durations,
 	)
 
-	for _, p := range []*ReportingPlugin[uint]{plugin1, plugin2, plugin3} {
+	for _, p := range []*reportingPlugin[uint]{plugin1, plugin2, plugin3} {
 		_, _ = p.Query(tests.Context(t), ocr3types.OutcomeContext{})
 		for i := 0; i < 2; i++ {
 			_, _ = p.Observation(tests.Context(t), ocr3types.OutcomeContext{}, nil)
@@ -165,6 +165,6 @@ func counterFromHistogramByLabels(t *testing.T, histogramVec *prometheus.Histogr
 	err = metric.Write(pb)
 	require.NoError(t, err)
 
-	// nolint:gosec
+	//nolint:gosec
 	return int(pb.GetHistogram().GetSampleCount())
 }

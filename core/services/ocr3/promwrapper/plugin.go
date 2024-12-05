@@ -10,9 +10,9 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
-var _ ocr3types.ReportingPlugin[any] = &ReportingPlugin[any]{}
+var _ ocr3types.ReportingPlugin[any] = &reportingPlugin[any]{}
 
-type ReportingPlugin[RI any] struct {
+type reportingPlugin[RI any] struct {
 	ocr3types.ReportingPlugin[RI]
 	chainID string
 	plugin  string
@@ -22,14 +22,14 @@ type ReportingPlugin[RI any] struct {
 	durations        *prometheus.HistogramVec
 }
 
-func NewReportingPlugin[RI any](
+func newReportingPlugin[RI any](
 	origin ocr3types.ReportingPlugin[RI],
 	chainID string,
 	plugin string,
 	reportsGenerated *prometheus.CounterVec,
 	durations *prometheus.HistogramVec,
-) *ReportingPlugin[RI] {
-	return &ReportingPlugin[RI]{
+) *reportingPlugin[RI] {
+	return &reportingPlugin[RI]{
 		ReportingPlugin:  origin,
 		chainID:          chainID,
 		plugin:           plugin,
@@ -38,19 +38,19 @@ func NewReportingPlugin[RI any](
 	}
 }
 
-func (p *ReportingPlugin[RI]) Query(ctx context.Context, outctx ocr3types.OutcomeContext) (ocrtypes.Query, error) {
+func (p *reportingPlugin[RI]) Query(ctx context.Context, outctx ocr3types.OutcomeContext) (ocrtypes.Query, error) {
 	return withObservedExecution(p, query, func() (ocrtypes.Query, error) {
 		return p.ReportingPlugin.Query(ctx, outctx)
 	})
 }
 
-func (p *ReportingPlugin[RI]) Observation(ctx context.Context, outctx ocr3types.OutcomeContext, query ocrtypes.Query) (ocrtypes.Observation, error) {
+func (p *reportingPlugin[RI]) Observation(ctx context.Context, outctx ocr3types.OutcomeContext, query ocrtypes.Query) (ocrtypes.Observation, error) {
 	return withObservedExecution(p, observation, func() (ocrtypes.Observation, error) {
 		return p.ReportingPlugin.Observation(ctx, outctx, query)
 	})
 }
 
-func (p *ReportingPlugin[RI]) ValidateObservation(ctx context.Context, outctx ocr3types.OutcomeContext, query ocrtypes.Query, ao ocrtypes.AttributedObservation) error {
+func (p *reportingPlugin[RI]) ValidateObservation(ctx context.Context, outctx ocr3types.OutcomeContext, query ocrtypes.Query, ao ocrtypes.AttributedObservation) error {
 	_, err := withObservedExecution(p, validateObservation, func() (any, error) {
 		err := p.ReportingPlugin.ValidateObservation(ctx, outctx, query, ao)
 		return nil, err
@@ -58,13 +58,13 @@ func (p *ReportingPlugin[RI]) ValidateObservation(ctx context.Context, outctx oc
 	return err
 }
 
-func (p *ReportingPlugin[RI]) Outcome(ctx context.Context, outctx ocr3types.OutcomeContext, query ocrtypes.Query, aos []ocrtypes.AttributedObservation) (ocr3types.Outcome, error) {
+func (p *reportingPlugin[RI]) Outcome(ctx context.Context, outctx ocr3types.OutcomeContext, query ocrtypes.Query, aos []ocrtypes.AttributedObservation) (ocr3types.Outcome, error) {
 	return withObservedExecution(p, outcome, func() (ocr3types.Outcome, error) {
 		return p.ReportingPlugin.Outcome(ctx, outctx, query, aos)
 	})
 }
 
-func (p *ReportingPlugin[RI]) Reports(ctx context.Context, seqNr uint64, outcome ocr3types.Outcome) ([]ocr3types.ReportPlus[RI], error) {
+func (p *reportingPlugin[RI]) Reports(ctx context.Context, seqNr uint64, outcome ocr3types.Outcome) ([]ocr3types.ReportPlus[RI], error) {
 	result, err := withObservedExecution(p, reports, func() ([]ocr3types.ReportPlus[RI], error) {
 		return p.ReportingPlugin.Reports(ctx, seqNr, outcome)
 	})
@@ -72,7 +72,7 @@ func (p *ReportingPlugin[RI]) Reports(ctx context.Context, seqNr uint64, outcome
 	return result, err
 }
 
-func (p *ReportingPlugin[RI]) ShouldAcceptAttestedReport(ctx context.Context, seqNr uint64, reportWithInfo ocr3types.ReportWithInfo[RI]) (bool, error) {
+func (p *reportingPlugin[RI]) ShouldAcceptAttestedReport(ctx context.Context, seqNr uint64, reportWithInfo ocr3types.ReportWithInfo[RI]) (bool, error) {
 	result, err := withObservedExecution(p, shouldAccept, func() (bool, error) {
 		return p.ReportingPlugin.ShouldAcceptAttestedReport(ctx, seqNr, reportWithInfo)
 	})
@@ -80,7 +80,7 @@ func (p *ReportingPlugin[RI]) ShouldAcceptAttestedReport(ctx context.Context, se
 	return result, err
 }
 
-func (p *ReportingPlugin[RI]) ShouldTransmitAcceptedReport(ctx context.Context, seqNr uint64, reportWithInfo ocr3types.ReportWithInfo[RI]) (bool, error) {
+func (p *reportingPlugin[RI]) ShouldTransmitAcceptedReport(ctx context.Context, seqNr uint64, reportWithInfo ocr3types.ReportWithInfo[RI]) (bool, error) {
 	result, err := withObservedExecution(p, shouldTransmit, func() (bool, error) {
 		return p.ReportingPlugin.ShouldTransmitAcceptedReport(ctx, seqNr, reportWithInfo)
 	})
@@ -88,11 +88,7 @@ func (p *ReportingPlugin[RI]) ShouldTransmitAcceptedReport(ctx context.Context, 
 	return result, err
 }
 
-func (p *ReportingPlugin[RI]) Close() error {
-	return p.ReportingPlugin.Close()
-}
-
-func (p *ReportingPlugin[RI]) trackReports(
+func (p *reportingPlugin[RI]) trackReports(
 	function functionType,
 	count int,
 ) {
@@ -109,7 +105,7 @@ func boolToInt(arg bool) int {
 }
 
 func withObservedExecution[RI, R any](
-	p *ReportingPlugin[RI],
+	p *reportingPlugin[RI],
 	function functionType,
 	exec func() (R, error),
 ) (R, error) {
