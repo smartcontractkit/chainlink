@@ -17,18 +17,76 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 )
 
+var (
+	_ deployment.ChangeSet[PromoteAllCandidatesChangesetConfig]  = PromoteAllCandidatesChangeset
+	_ deployment.ChangeSet[AddDonAndSetCandidateChangesetConfig] = SetCandidatePluginChangeset
+)
+
+type PromoteAllCandidatesChangesetConfig struct {
+	HomeChainSelector uint64
+	NewChainSelector  uint64
+	NodeIDs           []string
+}
+
+func (p PromoteAllCandidatesChangesetConfig) Validate(e deployment.Environment, state CCIPOnChainState) (deployment.Nodes, error) {
+	if p.HomeChainSelector == 0 {
+		return nil, fmt.Errorf("HomeChainSelector must be set")
+	}
+	if p.NewChainSelector == 0 {
+		return nil, fmt.Errorf("NewChainSelector must be set")
+	}
+	if len(p.NodeIDs) == 0 {
+		return nil, fmt.Errorf("NodeIDs must be set")
+	}
+
+	nodes, err := deployment.NodeInfo(p.NodeIDs, e.Offchain)
+	if err != nil {
+		return nil, fmt.Errorf("fetch node info: %w", err)
+	}
+
+	donID, err := internal.DonIDForChain(
+		state.Chains[p.HomeChainSelector].CapabilityRegistry,
+		state.Chains[p.HomeChainSelector].CCIPHome,
+		p.NewChainSelector,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("fetch don id for chain: %w", err)
+	}
+
+	// check if the DON ID has a candidate digest set that we can promote
+	for _, pluginType := range []cctypes.PluginType{cctypes.PluginTypeCCIPCommit, cctypes.PluginTypeCCIPExec} {
+		candidateDigest, err := state.Chains[p.HomeChainSelector].CCIPHome.GetCandidateDigest(nil, donID, uint8(pluginType))
+		if err != nil {
+			return nil, fmt.Errorf("error fetching candidate digest for pluginType(%s): %w", pluginType.String(), err)
+		}
+		if candidateDigest == [32]byte{} {
+			return nil, fmt.Errorf("candidate digest is zero, must be non-zero to promote")
+		}
+	}
+
+	return nodes, nil
+}
+
 // PromoteAllCandidatesChangeset generates a proposal to call promoteCandidate on the CCIPHome through CapReg.
 // This needs to be called after SetCandidateProposal is executed.
-// TODO: make it conform to the ChangeSet interface.
 func PromoteAllCandidatesChangeset(
-	state CCIPOnChainState,
-	homeChainSel, newChainSel uint64,
-	nodes deployment.Nodes,
+	e deployment.Environment,
+	cfg PromoteAllCandidatesChangesetConfig,
 ) (deployment.ChangesetOutput, error) {
+	state, err := LoadOnchainState(e)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	nodes, err := cfg.Validate(e, state)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("%w: %w", deployment.ErrInvalidConfig, err)
+	}
+
 	promoteCandidateOps, err := promoteAllCandidatesForChainOps(
-		state.Chains[homeChainSel].CapabilityRegistry,
-		state.Chains[homeChainSel].CCIPHome,
-		newChainSel,
+		state.Chains[cfg.HomeChainSelector].CapabilityRegistry,
+		state.Chains[cfg.HomeChainSelector].CCIPHome,
+		cfg.NewChainSelector,
 		nodes.NonBootstraps(),
 	)
 	if err != nil {
@@ -37,17 +95,17 @@ func PromoteAllCandidatesChangeset(
 
 	var (
 		timelocksPerChain = map[uint64]common.Address{
-			homeChainSel: state.Chains[homeChainSel].Timelock.Address(),
+			cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].Timelock.Address(),
 		}
 		proposerMCMSes = map[uint64]*gethwrappers.ManyChainMultiSig{
-			homeChainSel: state.Chains[homeChainSel].ProposerMcm,
+			cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].ProposerMcm,
 		}
 	)
 	prop, err := proposalutils.BuildProposalFromBatches(
 		timelocksPerChain,
 		proposerMCMSes,
 		[]timelock.BatchChainOperation{{
-			ChainIdentifier: mcms.ChainIdentifier(homeChainSel),
+			ChainIdentifier: mcms.ChainIdentifier(cfg.HomeChainSelector),
 			Batch:           promoteCandidateOps,
 		}},
 		"promoteCandidate for commit and execution",
@@ -63,46 +121,45 @@ func PromoteAllCandidatesChangeset(
 	}, nil
 }
 
-// SetCandidateExecPluginProposal calls setCandidate on the CCIPHome for setting up OCR3 exec Plugin config for the new chain.
-// TODO: make it conform to the ChangeSet interface.
+// SetCandidatePluginChangeset calls setCandidate on the CCIPHome for setting up OCR3 exec Plugin config for the new chain.
 func SetCandidatePluginChangeset(
-	state CCIPOnChainState,
 	e deployment.Environment,
-	nodes deployment.Nodes,
-	ocrSecrets deployment.OCRSecrets,
-	homeChainSel, feedChainSel, newChainSel uint64,
-	tokenConfig TokenConfig,
-	pluginType cctypes.PluginType,
+	cfg AddDonAndSetCandidateChangesetConfig,
 ) (deployment.ChangesetOutput, error) {
-	ccipOCRParams := DefaultOCRParams(
-		feedChainSel,
-		tokenConfig.GetTokenInfo(e.Logger, state.Chains[newChainSel].LinkToken, state.Chains[newChainSel].Weth9),
-		nil,
-	)
+	state, err := LoadOnchainState(e)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	nodes, err := cfg.Validate(e, state)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("%w: %w", deployment.ErrInvalidConfig, err)
+	}
+
 	newDONArgs, err := internal.BuildOCR3ConfigForCCIPHome(
-		ocrSecrets,
-		state.Chains[newChainSel].OffRamp,
-		e.Chains[newChainSel],
+		cfg.OCRSecrets,
+		state.Chains[cfg.NewChainSelector].OffRamp,
+		e.Chains[cfg.NewChainSelector],
 		nodes.NonBootstraps(),
-		state.Chains[homeChainSel].RMNHome.Address(),
-		ccipOCRParams.OCRParameters,
-		ccipOCRParams.CommitOffChainConfig,
-		ccipOCRParams.ExecuteOffChainConfig,
+		state.Chains[cfg.HomeChainSelector].RMNHome.Address(),
+		cfg.CCIPOCRParams.OCRParameters,
+		cfg.CCIPOCRParams.CommitOffChainConfig,
+		cfg.CCIPOCRParams.ExecuteOffChainConfig,
 	)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
 
-	execConfig, ok := newDONArgs[pluginType]
+	config, ok := newDONArgs[cfg.PluginType]
 	if !ok {
-		return deployment.ChangesetOutput{}, fmt.Errorf("missing exec plugin in ocr3Configs")
+		return deployment.ChangesetOutput{}, fmt.Errorf("missing %s plugin in ocr3Configs", cfg.PluginType.String())
 	}
 
 	setCandidateMCMSOps, err := setCandidateOnExistingDon(
-		execConfig,
-		state.Chains[homeChainSel].CapabilityRegistry,
-		state.Chains[homeChainSel].CCIPHome,
-		newChainSel,
+		config,
+		state.Chains[cfg.HomeChainSelector].CapabilityRegistry,
+		state.Chains[cfg.HomeChainSelector].CCIPHome,
+		cfg.NewChainSelector,
 		nodes.NonBootstraps(),
 	)
 	if err != nil {
@@ -111,20 +168,20 @@ func SetCandidatePluginChangeset(
 
 	var (
 		timelocksPerChain = map[uint64]common.Address{
-			homeChainSel: state.Chains[homeChainSel].Timelock.Address(),
+			cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].Timelock.Address(),
 		}
 		proposerMCMSes = map[uint64]*gethwrappers.ManyChainMultiSig{
-			homeChainSel: state.Chains[homeChainSel].ProposerMcm,
+			cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].ProposerMcm,
 		}
 	)
 	prop, err := proposalutils.BuildProposalFromBatches(
 		timelocksPerChain,
 		proposerMCMSes,
 		[]timelock.BatchChainOperation{{
-			ChainIdentifier: mcms.ChainIdentifier(homeChainSel),
+			ChainIdentifier: mcms.ChainIdentifier(cfg.HomeChainSelector),
 			Batch:           setCandidateMCMSOps,
 		}},
-		"SetCandidate for execution",
+		fmt.Sprintf("SetCandidate for %s plugin", cfg.PluginType.String()),
 		0, // minDelay
 	)
 	if err != nil {
@@ -135,7 +192,6 @@ func SetCandidatePluginChangeset(
 			*prop,
 		},
 	}, nil
-
 }
 
 // setCandidateOnExistingDon calls setCandidate on CCIPHome contract through the UpdateDON call on CapReg contract
