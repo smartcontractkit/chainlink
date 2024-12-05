@@ -122,7 +122,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 		}
 	}
 	lggr := e.Logger
-	chainState, chainExists := state.Chains[chain.Selector]
+	chainState, chainExists := state.EVMState.Chains[chain.Selector]
 	var weth9Contract *weth9.WETH9
 	var tokenAdminReg *token_admin_registry.TokenAdminRegistry
 	var registryModule *registry_module_owner_custom.RegistryModuleOwnerCustom
@@ -145,8 +145,8 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 		rmn, err := deployment.DeployContract(lggr, chain, ab,
 			func(chain deployment.Chain) deployment.ContractDeploy[*mock_rmn_contract.MockRMNContract] {
 				rmnAddr, tx2, rmn, err2 := mock_rmn_contract.DeployMockRMNContract(
-					chain.DeployerKey,
-					chain.Client,
+					chain.EVMChain.DeployerKey,
+					chain.EVMChain.Client,
 				)
 				return deployment.ContractDeploy[*mock_rmn_contract.MockRMNContract]{
 					rmnAddr, rmn, tx2, deployment.NewTypeAndVersion(MockRMN, deployment.Version1_0_0), err2,
@@ -160,8 +160,8 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 		rmnProxyContract, err := deployment.DeployContract(lggr, chain, ab,
 			func(chain deployment.Chain) deployment.ContractDeploy[*rmn_proxy_contract.RMNProxyContract] {
 				rmnProxyAddr, tx2, rmnProxy, err2 := rmn_proxy_contract.DeployRMNProxyContract(
-					chain.DeployerKey,
-					chain.Client,
+					chain.EVMChain.DeployerKey,
+					chain.EVMChain.Client,
 					rmn.Address,
 				)
 				return deployment.ContractDeploy[*rmn_proxy_contract.RMNProxyContract]{
@@ -179,8 +179,8 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 		tokenAdminRegistry, err := deployment.DeployContract(e.Logger, chain, ab,
 			func(chain deployment.Chain) deployment.ContractDeploy[*token_admin_registry.TokenAdminRegistry] {
 				tokenAdminRegistryAddr, tx2, tokenAdminRegistry, err2 := token_admin_registry.DeployTokenAdminRegistry(
-					chain.DeployerKey,
-					chain.Client)
+					chain.EVMChain.DeployerKey,
+					chain.EVMChain.Client)
 				return deployment.ContractDeploy[*token_admin_registry.TokenAdminRegistry]{
 					tokenAdminRegistryAddr, tokenAdminRegistry, tx2, deployment.NewTypeAndVersion(TokenAdminRegistry, deployment.Version1_5_0), err2,
 				}
@@ -198,8 +198,8 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 		customRegistryModule, err := deployment.DeployContract(e.Logger, chain, ab,
 			func(chain deployment.Chain) deployment.ContractDeploy[*registry_module_owner_custom.RegistryModuleOwnerCustom] {
 				regModAddr, tx2, regMod, err2 := registry_module_owner_custom.DeployRegistryModuleOwnerCustom(
-					chain.DeployerKey,
-					chain.Client,
+					chain.EVMChain.DeployerKey,
+					chain.EVMChain.Client,
 					tokenAdminReg.Address())
 				return deployment.ContractDeploy[*registry_module_owner_custom.RegistryModuleOwnerCustom]{
 					regModAddr, regMod, tx2, deployment.NewTypeAndVersion(RegistryModule, deployment.Version1_5_0), err2,
@@ -220,13 +220,13 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 		return fmt.Errorf("failed to check if registry module is added on token admin registry: %w", err)
 	}
 	if !isRegistryAdded {
-		tx, err := tokenAdminReg.AddRegistryModule(chain.DeployerKey, registryModule.Address())
+		tx, err := tokenAdminReg.AddRegistryModule(chain.EVMChain.DeployerKey, registryModule.Address())
 		if err != nil {
 			e.Logger.Errorw("Failed to assign registry module on token admin registry", "err", err)
 			return fmt.Errorf("failed to assign registry module on token admin registry: %w", err)
 		}
 
-		_, err = chain.Confirm(tx)
+		_, err = chain.EVMChain.Confirm(tx)
 		if err != nil {
 			e.Logger.Errorw("Failed to confirm assign registry module on token admin registry", "err", err)
 			return fmt.Errorf("failed to confirm assign registry module on token admin registry: %w", err)
@@ -237,8 +237,8 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 		weth, err := deployment.DeployContract(lggr, chain, ab,
 			func(chain deployment.Chain) deployment.ContractDeploy[*weth9.WETH9] {
 				weth9Addr, tx2, weth9c, err2 := weth9.DeployWETH9(
-					chain.DeployerKey,
-					chain.Client,
+					chain.EVMChain.DeployerKey,
+					chain.EVMChain.Client,
 				)
 				return deployment.ContractDeploy[*weth9.WETH9]{
 					weth9Addr, weth9c, tx2, deployment.NewTypeAndVersion(WETH9, deployment.Version1_0_0), err2,
@@ -258,8 +258,8 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 		routerContract, err := deployment.DeployContract(e.Logger, chain, ab,
 			func(chain deployment.Chain) deployment.ContractDeploy[*router.Router] {
 				routerAddr, tx2, routerC, err2 := router.DeployRouter(
-					chain.DeployerKey,
-					chain.Client,
+					chain.EVMChain.DeployerKey,
+					chain.EVMChain.Client,
 					weth9Contract.Address(),
 					rmnProxy.Address(),
 				)
@@ -280,8 +280,8 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 		multicall3Contract, err := deployment.DeployContract(e.Logger, chain, ab,
 			func(chain deployment.Chain) deployment.ContractDeploy[*multicall3.Multicall3] {
 				multicall3Addr, tx2, multicall3Wrapper, err2 := multicall3.DeployMulticall3(
-					chain.DeployerKey,
-					chain.Client,
+					chain.EVMChain.DeployerKey,
+					chain.EVMChain.Client,
 				)
 				return deployment.ContractDeploy[*multicall3.Multicall3]{
 					multicall3Addr, multicall3Wrapper, tx2, deployment.NewTypeAndVersion(Multicall3, deployment.Version1_0_0), err2,

@@ -94,13 +94,13 @@ func UpdateNodes(lggr logger.Logger, req *UpdateNodesRequest) (*UpdateNodesRespo
 		err = kslib.DecodeErr(kcr.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to make node params: %w", err)
 	}
-	tx, err := req.Registry.UpdateNodes(req.Chain.DeployerKey, params)
+	tx, err := req.Registry.UpdateNodes(req.Chain.EVMChain.DeployerKey, params)
 	if err != nil {
 		err = kslib.DecodeErr(kcr.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to call UpdateNodes: %w", err)
 	}
 
-	_, err = req.Chain.Confirm(tx)
+	_, err = req.Chain.EVMChain.Confirm(tx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to confirm UpdateNodes confirm transaction %s: %w", tx.Hash().String(), err)
 	}
@@ -114,7 +114,7 @@ func AppendCapabilities(lggr logger.Logger, registry *kcr.CapabilitiesRegistry, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to GetCapabilities from registry: %w", err)
 	}
-	var capMap = make(map[[32]byte]kcr.CapabilitiesRegistryCapability)
+	capMap := make(map[[32]byte]kcr.CapabilitiesRegistryCapability)
 	for _, cap := range allCapabilities {
 		capMap[cap.HashedId] = kcr.CapabilitiesRegistryCapability{
 			LabelledName:          cap.LabelledName,

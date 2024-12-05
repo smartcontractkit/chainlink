@@ -267,7 +267,7 @@ func configureOCR3contract(req configureOCR3Request) (*configureOCR3Response, er
 	if req.dryRun {
 		return &configureOCR3Response{ocrConfig}, nil
 	}
-	tx, err := req.contract.SetConfig(req.chain.DeployerKey,
+	tx, err := req.contract.SetConfig(req.chain.EVMChain.DeployerKey,
 		ocrConfig.Signers,
 		ocrConfig.Transmitters,
 		ocrConfig.F,
@@ -279,7 +279,7 @@ func configureOCR3contract(req configureOCR3Request) (*configureOCR3Response, er
 		err = DecodeErr(kocr3.OCR3CapabilityABI, err)
 		return nil, fmt.Errorf("failed to call SetConfig for OCR3 contract %s: %w", req.contract.Address().String(), err)
 	}
-	_, err = req.chain.Confirm(tx)
+	_, err = req.chain.EVMChain.Confirm(tx)
 	if err != nil {
 		err = DecodeErr(kocr3.OCR3CapabilityABI, err)
 		return nil, fmt.Errorf("failed to confirm SetConfig for OCR3 contract %s: %w", req.contract.Address().String(), err)

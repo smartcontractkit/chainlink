@@ -36,7 +36,7 @@ func getContractsFromAddrBook[T any](
 	for addr, typeAndVersion := range chainAddresses {
 		if typeAndVersion.Type == desiredType {
 			address := common.HexToAddress(addr)
-			contractInstance, err := constructor(address, chain.Client)
+			contractInstance, err := constructor(address, chain.EVMChain.Client)
 			if err != nil {
 				return nil, fmt.Errorf("failed to construct %s at %s: %w", desiredType, addr, err)
 			}

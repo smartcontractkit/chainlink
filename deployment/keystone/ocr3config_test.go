@@ -13,6 +13,7 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/view"
+	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	types2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -88,6 +89,7 @@ func Test_configureOCR3Request_generateOCR3Config(t *testing.T) {
 		cfg:   &OracleConfigWithSecrets{OracleConfig: cfg, OCRSecrets: deployment.XXXGenerateTestOCRSecrets()},
 		nodes: nodes,
 		chain: deployment.Chain{
+			Family:   strings.ToLower(devenv.EVMChainType),
 			Selector: chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector,
 		},
 	}

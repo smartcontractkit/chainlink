@@ -83,8 +83,8 @@ func DeployChannelConfigStore(e deployment.Environment, ab deployment.AddressBoo
 func deployChannelConfigStoreToChain(e deployment.Environment, chain deployment.Chain, ab deployment.AddressBook) (*ContractDeploy[*channel_config_store.ChannelConfigStore], error) {
 	return deployContract(e.Logger, chain, ab, func(chain deployment.Chain) ContractDeploy[*channel_config_store.ChannelConfigStore] {
 		ccsAddr, ccsTx, ccs, err := channel_config_store.DeployChannelConfigStore(
-			chain.DeployerKey,
-			chain.Client,
+			chain.EVMChain.DeployerKey,
+			chain.EVMChain.Client,
 		)
 		if err != nil {
 			return ContractDeploy[*channel_config_store.ChannelConfigStore]{
@@ -112,7 +112,7 @@ func deployContract[C LLOContract](
 		lggr.Errorw("Failed to deploy contract", "err", contractDeploy.Err)
 		return nil, contractDeploy.Err
 	}
-	_, err := chain.Confirm(contractDeploy.Tx)
+	_, err := chain.EVMChain.Confirm(contractDeploy.Tx)
 	if err != nil {
 		lggr.Errorw("Failed to confirm deployment", "err", err)
 		return nil, err

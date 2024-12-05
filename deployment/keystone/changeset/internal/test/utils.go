@@ -135,12 +135,12 @@ func addNops(t *testing.T, lggr logger.Logger, chain deployment.Chain, registry 
 }
 
 func addNodes(t *testing.T, lggr logger.Logger, chain deployment.Chain, registry *kcr.CapabilitiesRegistry, nodes []kcr.CapabilitiesRegistryNodeParams) {
-	tx, err := registry.AddNodes(chain.DeployerKey, nodes)
+	tx, err := registry.AddNodes(chain.EVMChain.DeployerKey, nodes)
 	if err != nil {
 		err2 := kslib.DecodeErr(kcr.CapabilitiesRegistryABI, err)
 		require.Fail(t, fmt.Sprintf("failed to call AddNodes: %s:  %s", err, err2))
 	}
-	_, err = chain.Confirm(tx)
+	_, err = chain.EVMChain.Confirm(tx)
 	require.NoError(t, err)
 }
 
@@ -169,12 +169,12 @@ func addDons(t *testing.T, lggr logger.Logger, chain deployment.Chain, registry 
 		// add the don
 		isPublic := true
 		f := len(don.P2PIDs)/3 + 1
-		tx, err := registry.AddDON(chain.DeployerKey, internal.PeerIDsToBytes(don.P2PIDs), capConfigs, isPublic, acceptsWorkflows, uint8(f))
+		tx, err := registry.AddDON(chain.EVMChain.DeployerKey, internal.PeerIDsToBytes(don.P2PIDs), capConfigs, isPublic, acceptsWorkflows, uint8(f))
 		if err != nil {
 			err2 := kslib.DecodeErr(kcr.CapabilitiesRegistryABI, err)
 			require.Fail(t, fmt.Sprintf("failed to call AddDON: %s:  %s", err, err2))
 		}
-		_, err = chain.Confirm(tx)
+		_, err = chain.EVMChain.Confirm(tx)
 		require.NoError(t, err)
 	}
 }
@@ -232,12 +232,12 @@ func (cc *CapabilityCache) AddCapabilities(lggr logger.Logger, chain deployment.
 	if len(toRegister) == 0 {
 		return out
 	}
-	tx, err := registry.AddCapabilities(chain.DeployerKey, toRegister)
+	tx, err := registry.AddCapabilities(chain.EVMChain.DeployerKey, toRegister)
 	if err != nil {
 		err2 := kslib.DecodeErr(kcr.CapabilitiesRegistryABI, err)
 		require.Fail(t, fmt.Sprintf("failed to call AddCapabilities: %s:  %s", err, err2))
 	}
-	_, err = chain.Confirm(tx)
+	_, err = chain.EVMChain.Confirm(tx)
 	require.NoError(t, err)
 
 	// get the registered capabilities

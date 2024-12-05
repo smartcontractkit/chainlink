@@ -28,7 +28,7 @@ func TestDeployHomeChain(t *testing.T) {
 		HomeChainSel:     homeChainSel,
 		RMNStaticConfig:  NewTestRMNStaticConfig(),
 		RMNDynamicConfig: NewTestRMNDynamicConfig(),
-		NodeOperators:    NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
+		NodeOperators:    NewTestNodeOperator(e.Chains[homeChainSel].EVMChain.DeployerKey.From),
 		NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
 			"NodeOperator": p2pIds,
 		},
@@ -38,9 +38,9 @@ func TestDeployHomeChain(t *testing.T) {
 	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook))
 	state, err := LoadOnchainState(e)
 	require.NoError(t, err)
-	require.NotNil(t, state.Chains[homeChainSel].CapabilityRegistry)
-	require.NotNil(t, state.Chains[homeChainSel].CCIPHome)
-	require.NotNil(t, state.Chains[homeChainSel].RMNHome)
+	require.NotNil(t, state.EVMState.Chains[homeChainSel].CapabilityRegistry)
+	require.NotNil(t, state.EVMState.Chains[homeChainSel].CCIPHome)
+	require.NotNil(t, state.EVMState.Chains[homeChainSel].RMNHome)
 	snap, err := state.View([]uint64{homeChainSel})
 	require.NoError(t, err)
 	chainid, err := chainsel.ChainIdFromSelector(homeChainSel)
@@ -49,12 +49,12 @@ func TestDeployHomeChain(t *testing.T) {
 	require.NoError(t, err)
 	_, ok := snap[chainName]
 	require.True(t, ok)
-	capRegSnap, ok := snap[chainName].CapabilityRegistry[state.Chains[homeChainSel].CapabilityRegistry.Address().String()]
+	capRegSnap, ok := snap[chainName].CapabilityRegistry[state.EVMState.Chains[homeChainSel].CapabilityRegistry.Address().String()]
 	require.True(t, ok)
 	require.NotNil(t, capRegSnap)
 	require.Equal(t, capRegSnap.Nops, []v1_0.NopView{
 		{
-			Admin: e.Chains[homeChainSel].DeployerKey.From,
+			Admin: e.Chains[homeChainSel].EVMChain.DeployerKey.From,
 			Name:  "NodeOperator",
 		},
 	})

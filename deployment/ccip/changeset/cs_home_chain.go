@@ -90,7 +90,7 @@ func deployCapReg(
 	ab deployment.AddressBook,
 	chain deployment.Chain,
 ) (*deployment.ContractDeploy[*capabilities_registry.CapabilitiesRegistry], error) {
-	homeChainState, exists := state.Chains[chain.Selector]
+	homeChainState, exists := state.EVMState.Chains[chain.Selector]
 	if exists {
 		cr := homeChainState.CapabilityRegistry
 		if cr != nil {
@@ -103,8 +103,8 @@ func deployCapReg(
 	capReg, err := deployment.DeployContract(lggr, chain, ab,
 		func(chain deployment.Chain) deployment.ContractDeploy[*capabilities_registry.CapabilitiesRegistry] {
 			crAddr, tx, cr, err2 := capabilities_registry.DeployCapabilitiesRegistry(
-				chain.DeployerKey,
-				chain.Client,
+				chain.EVMChain.DeployerKey,
+				chain.EVMChain.Client,
 			)
 			return deployment.ContractDeploy[*capabilities_registry.CapabilitiesRegistry]{
 				Address: crAddr, Contract: cr, Tv: deployment.NewTypeAndVersion(CapabilitiesRegistry, deployment.Version1_0_0), Tx: tx, Err: err2,
@@ -143,8 +143,8 @@ func deployHomeChain(
 		lggr, chain, ab,
 		func(chain deployment.Chain) deployment.ContractDeploy[*ccip_home.CCIPHome] {
 			ccAddr, tx, cc, err2 := ccip_home.DeployCCIPHome(
-				chain.DeployerKey,
-				chain.Client,
+				chain.EVMChain.DeployerKey,
+				chain.EVMChain.Client,
 				capReg.Address,
 			)
 			return deployment.ContractDeploy[*ccip_home.CCIPHome]{
@@ -161,8 +161,8 @@ func deployHomeChain(
 		lggr, chain, ab,
 		func(chain deployment.Chain) deployment.ContractDeploy[*rmn_home.RMNHome] {
 			rmnAddr, tx, rmn, err2 := rmn_home.DeployRMNHome(
-				chain.DeployerKey,
-				chain.Client,
+				chain.EVMChain.DeployerKey,
+				chain.EVMChain.Client,
 			)
 			return deployment.ContractDeploy[*rmn_home.RMNHome]{
 				Address: rmnAddr, Tv: deployment.NewTypeAndVersion(RMNHome, deployment.Version1_6_0_dev), Tx: tx, Err: err2, Contract: rmn,
@@ -176,7 +176,7 @@ func deployHomeChain(
 	lggr.Infow("deployed RMNHome", "addr", rmnHome.Address)
 
 	// considering the RMNHome is recently deployed, there is no digest to overwrite
-	tx, err := rmnHome.Contract.SetCandidate(chain.DeployerKey, rmnHomeStatic, rmnHomeDynamic, [32]byte{})
+	tx, err := rmnHome.Contract.SetCandidate(chain.EVMChain.DeployerKey, rmnHomeStatic, rmnHomeDynamic, [32]byte{})
 	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
 		lggr.Errorw("Failed to set candidate on RMNHome", "err", err)
 		return nil, err
@@ -188,7 +188,7 @@ func deployHomeChain(
 		return nil, err
 	}
 
-	tx, err = rmnHome.Contract.PromoteCandidateAndRevokeActive(chain.DeployerKey, rmnCandidateDigest, [32]byte{})
+	tx, err = rmnHome.Contract.PromoteCandidateAndRevokeActive(chain.EVMChain.DeployerKey, rmnCandidateDigest, [32]byte{})
 	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
 		lggr.Errorw("Failed to promote candidate and revoke active on RMNHome", "err", err)
 		return nil, err
@@ -207,7 +207,7 @@ func deployHomeChain(
 		return nil, errors.New("RMNHome active digest does not match candidate digest")
 	}
 
-	tx, err = capReg.Contract.AddCapabilities(chain.DeployerKey, []capabilities_registry.CapabilitiesRegistryCapability{
+	tx, err = capReg.Contract.AddCapabilities(chain.EVMChain.DeployerKey, []capabilities_registry.CapabilitiesRegistryCapability{
 		{
 			LabelledName:          internal.CapabilityLabelledName,
 			Version:               internal.CapabilityVersion,
@@ -221,7 +221,7 @@ func deployHomeChain(
 		return nil, err
 	}
 
-	tx, err = capReg.Contract.AddNodeOperators(chain.DeployerKey, nodeOps)
+	tx, err = capReg.Contract.AddNodeOperators(chain.EVMChain.DeployerKey, nodeOps)
 	txBlockNum, err := deployment.ConfirmIfNoError(chain, tx, err)
 	if err != nil {
 		lggr.Errorw("Failed to add node operators", "err", err)
@@ -315,11 +315,11 @@ func addNodes(
 		lggr.Infow("No new nodes to add")
 		return nil
 	}
-	tx, err := capReg.AddNodes(chain.DeployerKey, nodeParams)
+	tx, err := capReg.AddNodes(chain.EVMChain.DeployerKey, nodeParams)
 	if err != nil {
 		lggr.Errorw("Failed to add nodes", "err", deployment.MaybeDataErr(err))
 		return err
 	}
-	_, err = chain.Confirm(tx)
+	_, err = chain.EVMChain.Confirm(tx)
 	return err
 }

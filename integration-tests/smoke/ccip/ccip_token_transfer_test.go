@@ -41,8 +41,8 @@ func TestTokenTransfer(t *testing.T) {
 
 	allChainSelectors := maps.Keys(e.Chains)
 	sourceChain, destChain := allChainSelectors[0], allChainSelectors[1]
-	ownerSourceChain := e.Chains[sourceChain].DeployerKey
-	ownerDestChain := e.Chains[destChain].DeployerKey
+	ownerSourceChain := e.Chains[sourceChain].EVMChain.DeployerKey
+	ownerDestChain := e.Chains[destChain].EVMChain.DeployerKey
 
 	oneE18 := new(big.Int).SetUint64(1e18)
 	funds := new(big.Int).Mul(oneE18, new(big.Int).SetUint64(10))
@@ -133,7 +133,7 @@ func TestTokenTransfer(t *testing.T) {
 					Amount: oneE18,
 				},
 			},
-			receiver: state.Chains[destChain].Receiver.Address(),
+			receiver: state.EVMState.Chains[destChain].Receiver.Address(),
 			expectedTokenBalances: map[common.Address]*big.Int{
 				destToken.Address(): oneE18,
 			},
@@ -157,7 +157,7 @@ func TestTokenTransfer(t *testing.T) {
 					Amount: oneE18,
 				},
 			},
-			receiver:  state.Chains[sourceChain].Receiver.Address(),
+			receiver:  state.EVMState.Chains[sourceChain].Receiver.Address(),
 			extraData: changeset.MakeEVMExtraArgsV2(300_000, false),
 			expectedTokenBalances: map[common.Address]*big.Int{
 				selfServeSrcToken.Address(): new(big.Int).Add(oneE18, oneE18),
@@ -201,7 +201,7 @@ func TestTokenTransfer(t *testing.T) {
 					Amount: oneE18,
 				},
 			},
-			receiver:  state.Chains[sourceChain].Receiver.Address(),
+			receiver:  state.EVMState.Chains[sourceChain].Receiver.Address(),
 			data:      []byte("this should be reverted because gasLimit is too low, no tokens are transferred as well"),
 			extraData: changeset.MakeEVMExtraArgsV2(1, false),
 			expectedTokenBalances: map[common.Address]*big.Int{
@@ -265,10 +265,10 @@ func createAndFundSelfServeActor(
 	actor, err := bind.NewKeyedTransactorWithChainID(key, chainID)
 	require.NoError(t, err)
 
-	nonce, err := chain.Client.PendingNonceAt(ctx, deployer.From)
+	nonce, err := chain.EVMChain.Client.PendingNonceAt(ctx, deployer.From)
 	require.NoError(t, err)
 
-	gasPrice, err := chain.Client.SuggestGasPrice(ctx)
+	gasPrice, err := chain.EVMChain.Client.SuggestGasPrice(ctx)
 	require.NoError(t, err)
 
 	tx := types.NewTx(&types.LegacyTx{
@@ -283,10 +283,10 @@ func createAndFundSelfServeActor(
 	signedTx, err := deployer.Signer(deployer.From, tx)
 	require.NoError(t, err)
 
-	err = chain.Client.SendTransaction(ctx, signedTx)
+	err = chain.EVMChain.Client.SendTransaction(ctx, signedTx)
 	require.NoError(t, err)
 
-	_, err = chain.Confirm(signedTx)
+	_, err = chain.EVMChain.Confirm(signedTx)
 	require.NoError(t, err)
 
 	return actor

@@ -48,9 +48,9 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	chainC := allChainSelectors[1]
 	chainB := allChainSelectors[2]
 
-	ownerChainA := e.Chains[chainA].DeployerKey
-	ownerChainC := e.Chains[chainC].DeployerKey
-	ownerChainB := e.Chains[chainB].DeployerKey
+	ownerChainA := e.Chains[chainA].EVMChain.DeployerKey
+	ownerChainC := e.Chains[chainC].EVMChain.DeployerKey
+	ownerChainB := e.Chains[chainB].EVMChain.DeployerKey
 
 	aChainUSDC, cChainUSDC, err := changeset.ConfigureUSDCTokenPools(lggr, e.Chains, chainA, chainC, state)
 	require.NoError(t, err)
@@ -166,7 +166,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 		},
 		{
 			name:        "programmable token transfer to valid contract receiver",
-			receiver:    state.Chains[chainC].Receiver.Address(),
+			receiver:    state.EVMState.Chains[chainC].Receiver.Address(),
 			sourceChain: chainA,
 			destChain:   chainC,
 			tokens: []router.ClientEVMTokenAmount{
@@ -233,7 +233,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 		expectedSeqNum := make(map[changeset.SourceDestPair]uint64)
 		expectedSeqNumExec := make(map[changeset.SourceDestPair][]uint64)
 
-		latesthdr, err := e.Chains[chainC].Client.HeaderByNumber(testcontext.Get(t), nil)
+		latesthdr, err := e.Chains[chainC].EVMChain.Client.HeaderByNumber(testcontext.Get(t), nil)
 		require.NoError(t, err)
 		block := latesthdr.Number.Uint64()
 		startBlocks[chainC] = &block
@@ -268,13 +268,13 @@ func updateFeeQuoters(
 ) error {
 	updateFeeQtrGrp := errgroup.Group{}
 	updateFeeQtrGrp.Go(func() error {
-		return changeset.UpdateFeeQuoterForUSDC(lggr, e.Chains[chainA], state.Chains[chainA], chainC, aChainUSDC)
+		return changeset.UpdateFeeQuoterForUSDC(lggr, e.Chains[chainA], state.EVMState.Chains[chainA], chainC, aChainUSDC)
 	})
 	updateFeeQtrGrp.Go(func() error {
-		return changeset.UpdateFeeQuoterForUSDC(lggr, e.Chains[chainB], state.Chains[chainB], chainC, bChainUSDC)
+		return changeset.UpdateFeeQuoterForUSDC(lggr, e.Chains[chainB], state.EVMState.Chains[chainB], chainC, bChainUSDC)
 	})
 	updateFeeQtrGrp.Go(func() error {
-		return changeset.UpdateFeeQuoterForUSDC(lggr, e.Chains[chainC], state.Chains[chainC], chainA, cChainUSDC)
+		return changeset.UpdateFeeQuoterForUSDC(lggr, e.Chains[chainC], state.EVMState.Chains[chainC], chainA, cChainUSDC)
 	})
 	return updateFeeQtrGrp.Wait()
 }

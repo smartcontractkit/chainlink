@@ -67,19 +67,19 @@ func loadContractSet(lggr logger.Logger, chain deployment.Chain, addresses map[s
 		// todo handle versions
 		switch tv.Type {
 		case CapabilitiesRegistry:
-			c, err := capabilities_registry.NewCapabilitiesRegistry(common.HexToAddress(addr), chain.Client)
+			c, err := capabilities_registry.NewCapabilitiesRegistry(common.HexToAddress(addr), chain.EVMChain.Client)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create capability registry contract from address %s: %w", addr, err)
 			}
 			out.CapabilitiesRegistry = c
 		case KeystoneForwarder:
-			c, err := forwarder.NewKeystoneForwarder(common.HexToAddress(addr), chain.Client)
+			c, err := forwarder.NewKeystoneForwarder(common.HexToAddress(addr), chain.EVMChain.Client)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create forwarder contract from address %s: %w", addr, err)
 			}
 			out.Forwarder = c
 		case OCR3Capability:
-			c, err := ocr3_capability.NewOCR3Capability(common.HexToAddress(addr), chain.Client)
+			c, err := ocr3_capability.NewOCR3Capability(common.HexToAddress(addr), chain.EVMChain.Client)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create OCR3Capability contract from address %s: %w", addr, err)
 			}

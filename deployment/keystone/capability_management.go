@@ -25,7 +25,7 @@ func AddCapabilities(lggr logger.Logger, registry *kcr.CapabilitiesRegistry, cha
 		}
 	}
 
-	tx, err := registry.AddCapabilities(chain.DeployerKey, deduped)
+	tx, err := registry.AddCapabilities(chain.EVMChain.DeployerKey, deduped)
 	if err != nil {
 		err = DecodeErr(kcr.CapabilitiesRegistryABI, err)
 		// no typed errors in the abi, so we have to do string matching
@@ -35,7 +35,7 @@ func AddCapabilities(lggr logger.Logger, registry *kcr.CapabilitiesRegistry, cha
 		}
 		lggr.Warnw("capabilities already exist, falling back to 1-by-1", "capabilities", deduped)
 		for _, cap := range deduped {
-			tx, err = registry.AddCapabilities(chain.DeployerKey, []kcr.CapabilitiesRegistryCapability{cap})
+			tx, err = registry.AddCapabilities(chain.EVMChain.DeployerKey, []kcr.CapabilitiesRegistryCapability{cap})
 			if err != nil {
 				err = DecodeErr(kcr.CapabilitiesRegistryABI, err)
 				if strings.Contains(err.Error(), "CapabilityAlreadyExists") {
@@ -45,7 +45,7 @@ func AddCapabilities(lggr logger.Logger, registry *kcr.CapabilitiesRegistry, cha
 				return fmt.Errorf("failed to call AddCapabilities for capability %v: %w", cap, err)
 			}
 			// 1-by-1 tx is pending and we need to wait for it to be mined
-			_, err = chain.Confirm(tx)
+			_, err = chain.EVMChain.Confirm(tx)
 			if err != nil {
 				return fmt.Errorf("failed to confirm AddCapabilities confirm transaction %s: %w", tx.Hash().String(), err)
 			}
@@ -54,7 +54,7 @@ func AddCapabilities(lggr logger.Logger, registry *kcr.CapabilitiesRegistry, cha
 		}
 	} else {
 		// the bulk add tx is pending and we need to wait for it to be mined
-		_, err = chain.Confirm(tx)
+		_, err = chain.EVMChain.Confirm(tx)
 		if err != nil {
 			return fmt.Errorf("failed to confirm AddCapabilities confirm transaction %s: %w", tx.Hash().String(), err)
 		}

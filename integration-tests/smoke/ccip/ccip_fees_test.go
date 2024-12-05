@@ -44,19 +44,19 @@ func setupTokens(
 		tenv.Env.Chains,
 		src,
 		dest,
-		tenv.Env.Chains[src].DeployerKey,
-		tenv.Env.Chains[dest].DeployerKey,
+		tenv.Env.Chains[src].EVMChain.DeployerKey,
+		tenv.Env.Chains[dest].EVMChain.DeployerKey,
 		state,
 		tenv.Env.ExistingAddresses,
 		"MY_TOKEN",
 	)
 	require.NoError(t, err)
 
-	linkToken := state.Chains[src].LinkToken
+	linkToken := state.EVMState.Chains[src].LinkToken
 
 	tx, err := srcToken.Mint(
-		e.Chains[src].DeployerKey,
-		e.Chains[src].DeployerKey.From,
+		e.Chains[src].EVMChain.DeployerKey,
+		e.Chains[src].EVMChain.DeployerKey.From,
 		transferTokenMintAmount,
 	)
 	_, err = deployment.ConfirmIfNoError(e.Chains[src], tx, err)
@@ -64,8 +64,8 @@ func setupTokens(
 
 	// Mint a destination token
 	tx, err = dstToken.Mint(
-		e.Chains[dest].DeployerKey,
-		e.Chains[dest].DeployerKey.From,
+		e.Chains[dest].EVMChain.DeployerKey,
+		e.Chains[dest].EVMChain.DeployerKey.From,
 		transferTokenMintAmount,
 	)
 	_, err = deployment.ConfirmIfNoError(e.Chains[dest], tx, err)
@@ -73,24 +73,24 @@ func setupTokens(
 
 	// Approve the router to spend the tokens and confirm the tx's
 	// To prevent having to approve the router for every transfer, we approve a sufficiently large amount
-	tx, err = srcToken.Approve(e.Chains[src].DeployerKey, state.Chains[src].Router.Address(), math.MaxBig256)
+	tx, err = srcToken.Approve(e.Chains[src].EVMChain.DeployerKey, state.EVMState.Chains[src].Router.Address(), math.MaxBig256)
 	_, err = deployment.ConfirmIfNoError(e.Chains[src], tx, err)
 	require.NoError(t, err)
 
-	tx, err = dstToken.Approve(e.Chains[dest].DeployerKey, state.Chains[dest].Router.Address(), math.MaxBig256)
+	tx, err = dstToken.Approve(e.Chains[dest].EVMChain.DeployerKey, state.EVMState.Chains[dest].Router.Address(), math.MaxBig256)
 	_, err = deployment.ConfirmIfNoError(e.Chains[dest], tx, err)
 	require.NoError(t, err)
 
 	// Grant mint and burn roles to the deployer key for the newly deployed linkToken
 	// Since those roles are not granted automatically
-	tx, err = linkToken.GrantMintAndBurnRoles(e.Chains[src].DeployerKey, e.Chains[src].DeployerKey.From)
+	tx, err = linkToken.GrantMintAndBurnRoles(e.Chains[src].EVMChain.DeployerKey, e.Chains[src].EVMChain.DeployerKey.From)
 	_, err = deployment.ConfirmIfNoError(e.Chains[src], tx, err)
 	require.NoError(t, err)
 
 	// Mint link token and confirm the tx
 	tx, err = linkToken.Mint(
-		e.Chains[src].DeployerKey,
-		e.Chains[src].DeployerKey.From,
+		e.Chains[src].EVMChain.DeployerKey,
+		e.Chains[src].EVMChain.DeployerKey.From,
 		feeTokenMintAmount,
 	)
 	_, err = deployment.ConfirmIfNoError(e.Chains[src], tx, err)
@@ -145,9 +145,9 @@ func Test_CCIPFees(t *testing.T) {
 					Amount: deployment.E18Mult(2),
 				},
 			},
-			feeToken:           state.Chains[sourceChain].LinkToken.Address(),
+			feeToken:           state.EVMState.Chains[sourceChain].LinkToken.Address(),
 			data:               []byte("hello ptt world"),
-			receiver:           common.LeftPadBytes(state.Chains[destChain].Receiver.Address().Bytes(), 32),
+			receiver:           common.LeftPadBytes(state.EVMState.Chains[destChain].Receiver.Address().Bytes(), 32),
 			srcToken:           srcToken,
 			dstToken:           dstToken,
 			assertTokenBalance: true,
@@ -171,7 +171,7 @@ func Test_CCIPFees(t *testing.T) {
 			},
 			feeToken: common.HexToAddress("0x0"),
 			data:     []byte("hello ptt world"),
-			receiver: common.LeftPadBytes(state.Chains[sourceChain].Receiver.Address().Bytes(), 32),
+			receiver: common.LeftPadBytes(state.EVMState.Chains[sourceChain].Receiver.Address().Bytes(), 32),
 
 			// note the order of src and dest is reversed here
 			srcToken:           dstToken,
@@ -192,9 +192,9 @@ func Test_CCIPFees(t *testing.T) {
 					Amount: deployment.E18Mult(2),
 				},
 			},
-			feeToken:           state.Chains[sourceChain].Weth9.Address(),
+			feeToken:           state.EVMState.Chains[sourceChain].Weth9.Address(),
 			data:               []byte("hello ptt world"),
-			receiver:           common.LeftPadBytes(state.Chains[destChain].Receiver.Address().Bytes(), 32),
+			receiver:           common.LeftPadBytes(state.EVMState.Chains[destChain].Receiver.Address().Bytes(), 32),
 			srcToken:           srcToken,
 			dstToken:           dstToken,
 			assertTokenBalance: true,
@@ -204,9 +204,9 @@ func Test_CCIPFees(t *testing.T) {
 	t.Run("Send programmable token transfer but revert not enough tokens", func(t *testing.T) {
 		// Send to the receiver on the destination chain paying with LINK token
 		var (
-			receiver = common.LeftPadBytes(state.Chains[destChain].Receiver.Address().Bytes(), 32)
+			receiver = common.LeftPadBytes(state.EVMState.Chains[destChain].Receiver.Address().Bytes(), 32)
 			data     = []byte("")
-			feeToken = state.Chains[sourceChain].LinkToken.Address()
+			feeToken = state.EVMState.Chains[sourceChain].LinkToken.Address()
 		)
 
 		// Increase the token send amount to more than available to intentionally cause a revert
@@ -227,7 +227,7 @@ func Test_CCIPFees(t *testing.T) {
 			e,
 			state,
 			&changeset.CCIPSendReqConfig{
-				Sender:         e.Chains[sourceChain].DeployerKey,
+				Sender:         e.Chains[sourceChain].EVMChain.DeployerKey,
 				IsTestRouter:   true,
 				SourceChain:    sourceChain,
 				DestChain:      destChain,
@@ -245,9 +245,9 @@ func Test_CCIPFees(t *testing.T) {
 			env: tenv,
 			// no tokens, only data
 			tokenAmounts:       nil,
-			feeToken:           state.Chains[sourceChain].LinkToken.Address(),
+			feeToken:           state.EVMState.Chains[sourceChain].LinkToken.Address(),
 			data:               []byte("hello link world"),
-			receiver:           common.LeftPadBytes(state.Chains[destChain].Receiver.Address().Bytes(), 32),
+			receiver:           common.LeftPadBytes(state.EVMState.Chains[destChain].Receiver.Address().Bytes(), 32),
 			srcToken:           srcToken,
 			dstToken:           dstToken,
 			assertTokenBalance: false,
@@ -264,7 +264,7 @@ func Test_CCIPFees(t *testing.T) {
 			tokenAmounts:       nil,
 			feeToken:           common.HexToAddress("0x0"),
 			data:               []byte("hello native world"),
-			receiver:           common.LeftPadBytes(state.Chains[destChain].Receiver.Address().Bytes(), 32),
+			receiver:           common.LeftPadBytes(state.EVMState.Chains[destChain].Receiver.Address().Bytes(), 32),
 			srcToken:           srcToken,
 			dstToken:           dstToken,
 			assertTokenBalance: false,
@@ -279,9 +279,9 @@ func Test_CCIPFees(t *testing.T) {
 			env: tenv,
 			// no tokens, only data
 			tokenAmounts:       nil,
-			feeToken:           state.Chains[sourceChain].Weth9.Address(),
+			feeToken:           state.EVMState.Chains[sourceChain].Weth9.Address(),
 			data:               []byte("hello wrapped native world"),
-			receiver:           common.LeftPadBytes(state.Chains[destChain].Receiver.Address().Bytes(), 32),
+			receiver:           common.LeftPadBytes(state.EVMState.Chains[destChain].Receiver.Address().Bytes(), 32),
 			srcToken:           srcToken,
 			dstToken:           dstToken,
 			assertTokenBalance: false,
@@ -317,46 +317,46 @@ func runFeeTokenTestCase(tc feeTokenTestCase) {
 	var dstTokBalanceBefore *big.Int
 	if tc.assertTokenBalance {
 		var err error
-		dstTokBalanceBefore, err = tc.dstToken.BalanceOf(nil, state.Chains[tc.dst].Receiver.Address())
+		dstTokBalanceBefore, err = tc.dstToken.BalanceOf(nil, state.EVMState.Chains[tc.dst].Receiver.Address())
 		require.NoError(tc.t, err)
 		tc.t.Logf("destination token balance before of receiver %s: %s",
-			state.Chains[tc.dst].Receiver.Address(),
+			state.EVMState.Chains[tc.dst].Receiver.Address(),
 			dstTokBalanceBefore.String())
 	}
 
 	// if fee token is not native then approve the router to spend the fee token from the sender.
 	var feeTokenWrapper *burn_mint_erc677.BurnMintERC677
 	if tc.feeToken != common.HexToAddress("0x0") {
-		if tc.feeToken == state.Chains[tc.src].Weth9.Address() {
+		if tc.feeToken == state.EVMState.Chains[tc.src].Weth9.Address() {
 			// Deposit some ETH into the WETH contract
-			weth9, err := weth9_wrapper.NewWETH9(state.Chains[tc.src].Weth9.Address(), srcChain.Client)
+			weth9, err := weth9_wrapper.NewWETH9(state.EVMState.Chains[tc.src].Weth9.Address(), srcChain.EVMChain.Client)
 			require.NoError(tc.t, err)
 
-			balance, err := srcChain.Client.BalanceAt(ctx, srcChain.DeployerKey.From, nil)
+			balance, err := srcChain.EVMChain.Client.BalanceAt(ctx, srcChain.EVMChain.DeployerKey.From, nil)
 			require.NoError(tc.t, err)
 
 			tc.t.Logf("balance before deposit: %s", balance.String())
 
-			srcChain.DeployerKey.Value = assets.Ether(100).ToInt()
-			tx, err := weth9.Deposit(srcChain.DeployerKey)
+			srcChain.EVMChain.DeployerKey.Value = assets.Ether(100).ToInt()
+			tx, err := weth9.Deposit(srcChain.EVMChain.DeployerKey)
 			_, err = deployment.ConfirmIfNoError(srcChain, tx, err)
 			require.NoError(tc.t, err)
-			srcChain.DeployerKey.Value = big.NewInt(0)
+			srcChain.EVMChain.DeployerKey.Value = big.NewInt(0)
 		}
 
 		var err error
-		feeTokenWrapper, err = burn_mint_erc677.NewBurnMintERC677(tc.feeToken, srcChain.Client)
+		feeTokenWrapper, err = burn_mint_erc677.NewBurnMintERC677(tc.feeToken, srcChain.EVMChain.Client)
 		require.NoError(tc.t, err)
 
 		// Approve the router to spend fee token
-		tx, err := feeTokenWrapper.Approve(srcChain.DeployerKey, state.Chains[tc.src].Router.Address(), math.MaxBig256)
+		tx, err := feeTokenWrapper.Approve(srcChain.EVMChain.DeployerKey, state.EVMState.Chains[tc.src].Router.Address(), math.MaxBig256)
 
 		_, err = deployment.ConfirmIfNoError(srcChain, tx, err)
 		require.NoError(tc.t, err)
 	}
 
 	// get the header for the destination chain and the relevant block number
-	latesthdr, err := dstChain.Client.HeaderByNumber(testcontext.Get(tc.t), nil)
+	latesthdr, err := dstChain.EVMChain.Client.HeaderByNumber(testcontext.Get(tc.t), nil)
 	require.NoError(tc.t, err)
 	block := latesthdr.Number.Uint64()
 	startBlocks[tc.dst] = &block
@@ -366,10 +366,10 @@ func runFeeTokenTestCase(tc feeTokenTestCase) {
 	if feeTokenWrapper != nil {
 		feeTokenBalanceBefore, err = feeTokenWrapper.BalanceOf(&bind.CallOpts{
 			Context: ctx,
-		}, srcChain.DeployerKey.From)
+		}, srcChain.EVMChain.DeployerKey.From)
 		require.NoError(tc.t, err)
 	} else {
-		feeTokenBalanceBefore, err = srcChain.Client.BalanceAt(ctx, srcChain.DeployerKey.From, nil)
+		feeTokenBalanceBefore, err = srcChain.EVMChain.Client.BalanceAt(ctx, srcChain.EVMChain.DeployerKey.From, nil)
 		require.NoError(tc.t, err)
 	}
 	tc.t.Logf("fee token balance before: %s, fee token enabled: %s",
@@ -405,10 +405,10 @@ func runFeeTokenTestCase(tc feeTokenTestCase) {
 	if feeTokenWrapper != nil {
 		feeTokenBalanceAfter, err = feeTokenWrapper.BalanceOf(&bind.CallOpts{
 			Context: ctx,
-		}, srcChain.DeployerKey.From)
+		}, srcChain.EVMChain.DeployerKey.From)
 		require.NoError(tc.t, err)
 	} else {
-		feeTokenBalanceAfter, err = srcChain.Client.BalanceAt(ctx, srcChain.DeployerKey.From, nil)
+		feeTokenBalanceAfter, err = srcChain.EVMChain.Client.BalanceAt(ctx, srcChain.EVMChain.DeployerKey.From, nil)
 		require.NoError(tc.t, err)
 	}
 	tc.t.Logf("fee token balance after: %s, fee token: %s, fee paid: %s",
@@ -416,7 +416,7 @@ func runFeeTokenTestCase(tc feeTokenTestCase) {
 	// in the case we have no fee token, native is also used to pay for the tx,
 	// so we have to subtract that as well
 	if feeTokenWrapper == nil {
-		receipt, err := srcChain.Client.TransactionReceipt(ctx, msgSentEvent.Raw.TxHash)
+		receipt, err := srcChain.EVMChain.Client.TransactionReceipt(ctx, msgSentEvent.Raw.TxHash)
 		require.NoError(tc.t, err)
 		txCostWei := new(big.Int).Mul(new(big.Int).SetUint64(receipt.GasUsed), receipt.EffectiveGasPrice)
 		feeTokenBalanceBefore.Sub(feeTokenBalanceBefore, txCostWei)
@@ -431,8 +431,8 @@ func runFeeTokenTestCase(tc feeTokenTestCase) {
 	changeset.ConfirmCommitForAllWithExpectedSeqNums(tc.t, tc.env.Env, state, expectedSeqNum, startBlocks)
 
 	// After commit is reported on all chains, token prices should be updated in FeeQuoter.
-	linkAddress := state.Chains[tc.dst].LinkToken.Address()
-	feeQuoter := state.Chains[tc.dst].FeeQuoter
+	linkAddress := state.EVMState.Chains[tc.dst].LinkToken.Address()
+	feeQuoter := state.EVMState.Chains[tc.dst].FeeQuoter
 	timestampedPrice, err := feeQuoter.GetTokenPrice(&bind.CallOpts{
 		Context: ctx,
 	}, linkAddress)
@@ -448,7 +448,7 @@ func runFeeTokenTestCase(tc feeTokenTestCase) {
 
 		balanceAfter, err := tc.dstToken.BalanceOf(&bind.CallOpts{
 			Context: ctx,
-		}, state.Chains[tc.dst].Receiver.Address())
+		}, state.EVMState.Chains[tc.dst].Receiver.Address())
 		require.NoError(tc.t, err)
 		require.Equal(
 			tc.t,

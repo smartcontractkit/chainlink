@@ -55,11 +55,11 @@ func (t TransferToMCMSWithTimelockConfig) Validate(e deployment.Environment) err
 				}
 				return fmt.Errorf("contract %s not found in address book", contract)
 			}
-			owner, _, err := LoadOwnableContract(contract, e.Chains[chainSelector].Client)
+			owner, _, err := LoadOwnableContract(contract, e.Chains[chainSelector].EVMChain.Client)
 			if err != nil {
 				return fmt.Errorf("failed to load ownable: %v", err)
 			}
-			if owner != e.Chains[chainSelector].DeployerKey.From {
+			if owner != e.Chains[chainSelector].EVMChain.DeployerKey.From {
 				return fmt.Errorf("contract %s is not owned by the deployer key", contract)
 			}
 		}
@@ -98,7 +98,7 @@ func TransferToMCMSWithTimelock(
 		timelockAddr, _ := deployment.SearchAddressBook(e.ExistingAddresses, chainSelector, types.RBACTimelock)
 		proposerAddr, _ := deployment.SearchAddressBook(e.ExistingAddresses, chainSelector, types.ProposerManyChainMultisig)
 		timelocksByChain[chainSelector] = common.HexToAddress(timelockAddr)
-		proposer, err := owner_helpers.NewManyChainMultiSig(common.HexToAddress(proposerAddr), e.Chains[chainSelector].Client)
+		proposer, err := owner_helpers.NewManyChainMultiSig(common.HexToAddress(proposerAddr), e.Chains[chainSelector].EVMChain.Client)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to create proposer mcms: %v", err)
 		}
@@ -108,13 +108,13 @@ func TransferToMCMSWithTimelock(
 		for _, contract := range contracts {
 			// Just using the ownership interface.
 			// Already validated is ownable.
-			owner, c, _ := LoadOwnableContract(contract, e.Chains[chainSelector].Client)
+			owner, c, _ := LoadOwnableContract(contract, e.Chains[chainSelector].EVMChain.Client)
 			if owner.String() == timelockAddr {
 				// Already owned by timelock.
 				e.Logger.Infof("contract %s already owned by timelock", contract)
 				continue
 			}
-			tx, err := c.TransferOwnership(e.Chains[chainSelector].DeployerKey, common.HexToAddress(timelockAddr))
+			tx, err := c.TransferOwnership(e.Chains[chainSelector].EVMChain.DeployerKey, common.HexToAddress(timelockAddr))
 			_, err = deployment.ConfirmIfNoError(e.Chains[chainSelector], tx, err)
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership of contract %T: %v", contract, err)

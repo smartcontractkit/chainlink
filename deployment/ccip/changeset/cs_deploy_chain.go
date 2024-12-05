@@ -108,7 +108,7 @@ func deployChainContractsForChains(
 		return err
 	}
 
-	capReg := existingState.Chains[homeChainSel].CapabilityRegistry
+	capReg := existingState.EVMState.Chains[homeChainSel].CapabilityRegistry
 	if capReg == nil {
 		e.Logger.Errorw("Failed to get capability registry")
 		return fmt.Errorf("capability registry not found")
@@ -129,15 +129,15 @@ func deployChainContractsForChains(
 		e.Logger.Errorw("Failed to get capability", "err", err)
 		return err
 	}
-	ccipHome, err := ccip_home.NewCCIPHome(capability.ConfigurationContract, e.Chains[homeChainSel].Client)
+	ccipHome, err := ccip_home.NewCCIPHome(capability.ConfigurationContract, e.Chains[homeChainSel].EVMChain.Client)
 	if err != nil {
 		e.Logger.Errorw("Failed to get ccip config", "err", err)
 		return err
 	}
-	if ccipHome.Address() != existingState.Chains[homeChainSel].CCIPHome.Address() {
+	if ccipHome.Address() != existingState.EVMState.Chains[homeChainSel].CCIPHome.Address() {
 		return fmt.Errorf("ccip home address mismatch")
 	}
-	rmnHome := existingState.Chains[homeChainSel].RMNHome
+	rmnHome := existingState.EVMState.Chains[homeChainSel].RMNHome
 	if rmnHome == nil {
 		e.Logger.Errorw("Failed to get rmn home", "err", err)
 		return fmt.Errorf("rmn home not found")
@@ -148,7 +148,7 @@ func deployChainContractsForChains(
 		if !ok {
 			return fmt.Errorf("chain %d not found", chainSel)
 		}
-		if existingState.Chains[chainSel].LinkToken == nil || existingState.Chains[chainSel].Weth9 == nil {
+		if existingState.EVMState.Chains[chainSel].LinkToken == nil || existingState.EVMState.Chains[chainSel].Weth9 == nil {
 			return fmt.Errorf("fee tokens not found for chain %d", chainSel)
 		}
 		deployGrp.Go(
@@ -180,7 +180,7 @@ func deployChainContracts(
 		e.Logger.Errorw("Failed to load existing onchain state", "err")
 		return err
 	}
-	chainState, chainExists := state.Chains[chain.Selector]
+	chainState, chainExists := state.EVMState.Chains[chain.Selector]
 	if !chainExists {
 		return fmt.Errorf("chain %d not found in existing state, deploy the prerequisites first", chain.Selector)
 	}
@@ -209,8 +209,8 @@ func deployChainContracts(
 		ccipReceiver, err := deployment.DeployContract(e.Logger, chain, ab,
 			func(chain deployment.Chain) deployment.ContractDeploy[*maybe_revert_message_receiver.MaybeRevertMessageReceiver] {
 				receiverAddr, tx, receiver, err2 := maybe_revert_message_receiver.DeployMaybeRevertMessageReceiver(
-					chain.DeployerKey,
-					chain.Client,
+					chain.EVMChain.DeployerKey,
+					chain.EVMChain.Client,
 					false,
 				)
 				return deployment.ContractDeploy[*maybe_revert_message_receiver.MaybeRevertMessageReceiver]{
@@ -231,8 +231,8 @@ func deployChainContracts(
 		rmnRemote, err := deployment.DeployContract(e.Logger, chain, ab,
 			func(chain deployment.Chain) deployment.ContractDeploy[*rmn_remote.RMNRemote] {
 				rmnRemoteAddr, tx, rmnRemote, err2 := rmn_remote.DeployRMNRemote(
-					chain.DeployerKey,
-					chain.Client,
+					chain.EVMChain.DeployerKey,
+					chain.EVMChain.Client,
 					chain.Selector,
 					// Indicates no legacy RMN contract
 					common.HexToAddress("0x0"),
@@ -257,7 +257,7 @@ func deployChainContracts(
 	}
 	e.Logger.Infow("setting active home digest to rmn remote", "digest", activeDigest)
 
-	tx, err := rmnRemoteContract.SetConfig(chain.DeployerKey, rmn_remote.RMNRemoteConfig{
+	tx, err := rmnRemoteContract.SetConfig(chain.EVMChain.DeployerKey, rmn_remote.RMNRemoteConfig{
 		RmnHomeContractConfigDigest: activeDigest,
 		Signers: []rmn_remote.RMNRemoteSigner{
 			{NodeIndex: 0, OnchainPublicKey: common.Address{1}},
@@ -277,8 +277,8 @@ func deployChainContracts(
 		rmnProxy, err := deployment.DeployContract(e.Logger, chain, ab,
 			func(chain deployment.Chain) deployment.ContractDeploy[*rmn_proxy_contract.RMNProxyContract] {
 				rmnProxyAddr, tx, rmnProxy, err2 := rmn_proxy_contract.DeployRMNProxyContract(
-					chain.DeployerKey,
-					chain.Client,
+					chain.EVMChain.DeployerKey,
+					chain.EVMChain.Client,
 					rmnRemoteContract.Address(),
 				)
 				return deployment.ContractDeploy[*rmn_proxy_contract.RMNProxyContract]{
@@ -298,8 +298,8 @@ func deployChainContracts(
 		testRouterContract, err := deployment.DeployContract(e.Logger, chain, ab,
 			func(chain deployment.Chain) deployment.ContractDeploy[*router.Router] {
 				routerAddr, tx2, routerC, err2 := router.DeployRouter(
-					chain.DeployerKey,
-					chain.Client,
+					chain.EVMChain.DeployerKey,
+					chain.EVMChain.Client,
 					weth9Contract.Address(),
 					rmnProxyContract.Address(),
 				)
@@ -321,8 +321,8 @@ func deployChainContracts(
 		nonceManager, err := deployment.DeployContract(e.Logger, chain, ab,
 			func(chain deployment.Chain) deployment.ContractDeploy[*nonce_manager.NonceManager] {
 				nonceManagerAddr, tx2, nonceManager, err2 := nonce_manager.DeployNonceManager(
-					chain.DeployerKey,
-					chain.Client,
+					chain.EVMChain.DeployerKey,
+					chain.EVMChain.Client,
 					[]common.Address{}, // Need to add onRamp after
 				)
 				return deployment.ContractDeploy[*nonce_manager.NonceManager]{
@@ -343,15 +343,15 @@ func deployChainContracts(
 		feeQuoter, err := deployment.DeployContract(e.Logger, chain, ab,
 			func(chain deployment.Chain) deployment.ContractDeploy[*fee_quoter.FeeQuoter] {
 				prAddr, tx2, pr, err2 := fee_quoter.DeployFeeQuoter(
-					chain.DeployerKey,
-					chain.Client,
+					chain.EVMChain.DeployerKey,
+					chain.EVMChain.Client,
 					fee_quoter.FeeQuoterStaticConfig{
 						MaxFeeJuelsPerMsg:            big.NewInt(0).Mul(big.NewInt(2e2), big.NewInt(1e18)),
 						LinkToken:                    linkTokenContract.Address(),
 						TokenPriceStalenessThreshold: uint32(24 * 60 * 60),
 					},
-					[]common.Address{state.Chains[chain.Selector].Timelock.Address()},      // timelock should be able to update, ramps added after
-					[]common.Address{weth9Contract.Address(), linkTokenContract.Address()}, // fee tokens
+					[]common.Address{state.EVMState.Chains[chain.Selector].Timelock.Address()}, // timelock should be able to update, ramps added after
+					[]common.Address{weth9Contract.Address(), linkTokenContract.Address()},     // fee tokens
 					[]fee_quoter.FeeQuoterTokenPriceFeedUpdate{},
 					[]fee_quoter.FeeQuoterTokenTransferFeeConfigArgs{}, // TODO: tokens
 					[]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs{
@@ -384,8 +384,8 @@ func deployChainContracts(
 		onRamp, err := deployment.DeployContract(e.Logger, chain, ab,
 			func(chain deployment.Chain) deployment.ContractDeploy[*onramp.OnRamp] {
 				onRampAddr, tx2, onRamp, err2 := onramp.DeployOnRamp(
-					chain.DeployerKey,
-					chain.Client,
+					chain.EVMChain.DeployerKey,
+					chain.EVMChain.Client,
 					onramp.OnRampStaticConfig{
 						ChainSelector:      chain.Selector,
 						RmnRemote:          rmnProxyContract.Address(),
@@ -416,8 +416,8 @@ func deployChainContracts(
 		offRamp, err := deployment.DeployContract(e.Logger, chain, ab,
 			func(chain deployment.Chain) deployment.ContractDeploy[*offramp.OffRamp] {
 				offRampAddr, tx2, offRamp, err2 := offramp.DeployOffRamp(
-					chain.DeployerKey,
-					chain.Client,
+					chain.EVMChain.DeployerKey,
+					chain.EVMChain.Client,
 					offramp.OffRampStaticConfig{
 						ChainSelector:      chain.Selector,
 						RmnRemote:          rmnProxyContract.Address(),
@@ -445,17 +445,17 @@ func deployChainContracts(
 		e.Logger.Infow("offramp already deployed", "addr", chainState.OffRamp.Address)
 	}
 	// Basic wiring is always needed.
-	tx, err = feeQuoterContract.ApplyAuthorizedCallerUpdates(chain.DeployerKey, fee_quoter.AuthorizedCallersAuthorizedCallerArgs{
+	tx, err = feeQuoterContract.ApplyAuthorizedCallerUpdates(chain.EVMChain.DeployerKey, fee_quoter.AuthorizedCallersAuthorizedCallerArgs{
 		// TODO: We enable the deployer initially to set prices
 		// Should be removed after.
-		AddedCallers: []common.Address{offRampContract.Address(), chain.DeployerKey.From},
+		AddedCallers: []common.Address{offRampContract.Address(), chain.EVMChain.DeployerKey.From},
 	})
 	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
 		e.Logger.Errorw("Failed to confirm fee quoter authorized caller update", "err", err)
 		return err
 	}
 
-	tx, err = nmContract.ApplyAuthorizedCallerUpdates(chain.DeployerKey, nonce_manager.AuthorizedCallersAuthorizedCallerArgs{
+	tx, err = nmContract.ApplyAuthorizedCallerUpdates(chain.EVMChain.DeployerKey, nonce_manager.AuthorizedCallersAuthorizedCallerArgs{
 		AddedCallers: []common.Address{offRampContract.Address(), onRampContract.Address()},
 	})
 	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {

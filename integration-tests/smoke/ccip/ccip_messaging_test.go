@@ -73,7 +73,7 @@ func Test_CCIPMessaging(t *testing.T) {
 	var (
 		replayed bool
 		nonce    uint64
-		sender   = common.LeftPadBytes(e.Env.Chains[sourceChain].DeployerKey.From.Bytes(), 32)
+		sender   = common.LeftPadBytes(e.Env.Chains[sourceChain].EVMChain.DeployerKey.From.Bytes(), 32)
 		out      messagingTestCaseOutput
 		setup    = testCaseSetup{
 			t:            t,
@@ -105,7 +105,7 @@ func Test_CCIPMessaging(t *testing.T) {
 				replayed:      out.replayed,
 				nonce:         out.nonce,
 			},
-			state.Chains[destChain].FeeQuoter.Address(),
+			state.EVMState.Chains[destChain].FeeQuoter.Address(),
 			[]byte("hello FeeQuoter"),
 			nil,                               // default extraArgs
 			changeset.EXECUTION_STATE_SUCCESS, // success because offRamp won't call a contract not implementing CCIPReceiver
@@ -113,7 +113,7 @@ func Test_CCIPMessaging(t *testing.T) {
 	})
 
 	t.Run("message to contract implementing CCIPReceiver", func(t *testing.T) {
-		latestHead, err := e.Env.Chains[destChain].Client.HeaderByNumber(ctx, nil)
+		latestHead, err := e.Env.Chains[destChain].EVMChain.Client.HeaderByNumber(ctx, nil)
 		require.NoError(t, err)
 		out = runMessagingTestCase(
 			messagingTestCase{
@@ -121,12 +121,12 @@ func Test_CCIPMessaging(t *testing.T) {
 				replayed:      out.replayed,
 				nonce:         out.nonce,
 			},
-			state.Chains[destChain].Receiver.Address(),
+			state.EVMState.Chains[destChain].Receiver.Address(),
 			[]byte("hello CCIPReceiver"),
 			nil, // default extraArgs
 			changeset.EXECUTION_STATE_SUCCESS,
 			func(t *testing.T) {
-				iter, err := state.Chains[destChain].Receiver.FilterMessageReceived(&bind.FilterOpts{
+				iter, err := state.EVMState.Chains[destChain].Receiver.FilterMessageReceived(&bind.FilterOpts{
 					Context: ctx,
 					Start:   latestHead.Number.Uint64(),
 				})
@@ -138,7 +138,7 @@ func Test_CCIPMessaging(t *testing.T) {
 	})
 
 	t.Run("message to contract implementing CCIPReceiver with low exec gas", func(t *testing.T) {
-		latestHead, err := e.Env.Chains[destChain].Client.HeaderByNumber(ctx, nil)
+		latestHead, err := e.Env.Chains[destChain].EVMChain.Client.HeaderByNumber(ctx, nil)
 		require.NoError(t, err)
 		out = runMessagingTestCase(
 			messagingTestCase{
@@ -146,7 +146,7 @@ func Test_CCIPMessaging(t *testing.T) {
 				replayed:      out.replayed,
 				nonce:         out.nonce,
 			},
-			state.Chains[destChain].Receiver.Address(),
+			state.EVMState.Chains[destChain].Receiver.Address(),
 			[]byte("hello CCIPReceiver with low exec gas"),
 			changeset.MakeEVMExtraArgsV2(1, false), // 1 gas is too low.
 			changeset.EXECUTION_STATE_FAILURE,      // state would be failed onchain due to low gas
@@ -173,14 +173,14 @@ func manuallyExecute(
 	merkleRoot := getMerkleRoot(
 		ctx,
 		t,
-		state.Chains[destChain].OffRamp,
+		state.EVMState.Chains[destChain].OffRamp,
 		out.msgSentEvent.SequenceNumber,
 		startBlock,
 	)
 	messageHash := getMessageHash(
 		ctx,
 		t,
-		state.Chains[destChain].OffRamp,
+		state.EVMState.Chains[destChain].OffRamp,
 		sourceChain,
 		out.msgSentEvent.SequenceNumber,
 		out.msgSentEvent.Message.Header.MessageId,
@@ -192,8 +192,8 @@ func manuallyExecute(
 	require.NoError(t, err)
 	require.Equal(t, merkleRoot, tree.Root())
 
-	tx, err := state.Chains[destChain].OffRamp.ManuallyExecute(
-		e.Env.Chains[destChain].DeployerKey,
+	tx, err := state.EVMState.Chains[destChain].OffRamp.ManuallyExecute(
+		e.Env.Chains[destChain].EVMChain.DeployerKey,
 		[]offramp.InternalExecutionReport{
 			{
 				SourceChainSelector: sourceChain,
@@ -208,7 +208,7 @@ func manuallyExecute(
 						},
 						Sender:       sender,
 						Data:         []byte("hello CCIPReceiver with low exec gas"),
-						Receiver:     state.Chains[destChain].Receiver.Address(),
+						Receiver:     state.EVMState.Chains[destChain].Receiver.Address(),
 						GasLimit:     big.NewInt(1),
 						TokenAmounts: []offramp.InternalAny2EVMTokenTransfer{},
 					},
@@ -232,7 +232,7 @@ func manuallyExecute(
 	_, err = deployment.ConfirmIfNoError(e.Env.Chains[destChain], tx, err)
 	require.NoError(t, err, "failed to send/confirm manuallyExecute tx")
 
-	newExecutionState, err := state.Chains[destChain].OffRamp.GetExecutionState(&bind.CallOpts{Context: ctx}, sourceChain, out.msgSentEvent.SequenceNumber)
+	newExecutionState, err := state.EVMState.Chains[destChain].OffRamp.GetExecutionState(&bind.CallOpts{Context: ctx}, sourceChain, out.msgSentEvent.SequenceNumber)
 	require.NoError(t, err)
 	require.Equal(t, uint8(changeset.EXECUTION_STATE_SUCCESS), newExecutionState)
 }
@@ -307,7 +307,7 @@ func runMessagingTestCase(
 	extraAssertions ...func(t *testing.T),
 ) (out messagingTestCaseOutput) {
 	// check latest nonce
-	latestNonce, err := tc.onchainState.Chains[tc.destChain].NonceManager.GetInboundNonce(&bind.CallOpts{
+	latestNonce, err := tc.onchainState.EVMState.Chains[tc.destChain].NonceManager.GetInboundNonce(&bind.CallOpts{
 		Context: tests.Context(tc.t),
 	}, tc.sourceChain, tc.sender)
 	require.NoError(tc.t, err)
@@ -361,7 +361,7 @@ func runMessagingTestCase(
 	)
 
 	// check the sender latestNonce on the dest, should be incremented
-	latestNonce, err = tc.onchainState.Chains[tc.destChain].NonceManager.GetInboundNonce(&bind.CallOpts{
+	latestNonce, err = tc.onchainState.EVMState.Chains[tc.destChain].NonceManager.GetInboundNonce(&bind.CallOpts{
 		Context: tests.Context(tc.t),
 	}, tc.sourceChain, tc.sender)
 	require.NoError(tc.t, err)

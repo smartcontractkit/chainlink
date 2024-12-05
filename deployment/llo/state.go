@@ -21,7 +21,7 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 	for address, tvStr := range addresses {
 		switch tvStr.String() {
 		case deployment.NewTypeAndVersion(ChannelConfigStore, deployment.Version1_0_0).String():
-			ccs, err := channel_config_store.NewChannelConfigStore(common.HexToAddress(address), chain.Client)
+			ccs, err := channel_config_store.NewChannelConfigStore(common.HexToAddress(address), chain.EVMChain.Client)
 			if err != nil {
 				return state, err
 			}

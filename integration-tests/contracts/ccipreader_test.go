@@ -479,6 +479,7 @@ func TestCCIPReader_GetExpectedNextSequenceNumber(t *testing.T) {
 		Bootstraps: 1,
 	}, nil)
 	state, err := changeset.LoadOnchainState(env.Env)
+
 	require.NoError(t, err)
 
 	selectors := env.Env.AllChainSelectors()
@@ -494,7 +495,7 @@ func TestCCIPReader_GetExpectedNextSequenceNumber(t *testing.T) {
 		map[cciptypes.ChainSelector][]types.BoundContract{
 			cciptypes.ChainSelector(srcChain): {
 				{
-					Address: state.Chains[srcChain].OnRamp.Address().String(),
+					Address: state.EVMState.Chains[srcChain].OnRamp.Address().String(),
 					Name:    consts.ContractNameOnRamp,
 				},
 			},
@@ -506,7 +507,7 @@ func TestCCIPReader_GetExpectedNextSequenceNumber(t *testing.T) {
 	maxExpectedSeqNum := uint64(10)
 	var i uint64
 	for i = 1; i < maxExpectedSeqNum; i++ {
-		msg := changeset.DefaultRouterMessage(state.Chains[destChain].Receiver.Address())
+		msg := changeset.DefaultRouterMessage(state.EVMState.Chains[destChain].Receiver.Address())
 		msgSentEvent := changeset.TestSendRequest(t, env.Env, state, srcChain, destChain, false, msg)
 		require.Equal(t, uint64(i), msgSentEvent.SequenceNumber)
 		require.Equal(t, uint64(i), msgSentEvent.Message.Header.Nonce) // check outbound nonce incremented
@@ -602,9 +603,9 @@ func Test_GetChainFeePriceUpdates(t *testing.T) {
 	require.NoError(t, changeset.AddLaneWithDefaultPricesAndFeeQuoterConfig(env.Env, state, chain2, chain1, false))
 
 	// Change the gas price for chain2
-	feeQuoter := state.Chains[chain1].FeeQuoter
+	feeQuoter := state.EVMState.Chains[chain1].FeeQuoter
 	_, err = feeQuoter.UpdatePrices(
-		env.Env.Chains[chain1].DeployerKey, fee_quoter.InternalPriceUpdates{
+		env.Env.Chains[chain1].EVMChain.DeployerKey, fee_quoter.InternalPriceUpdates{
 			GasPriceUpdates: []fee_quoter.InternalGasPriceUpdate{
 				{
 					DestChainSelector: chain2,
@@ -614,7 +615,7 @@ func Test_GetChainFeePriceUpdates(t *testing.T) {
 		},
 	)
 	require.NoError(t, err)
-	be := env.Env.Chains[chain1].Client.(*memory.Backend)
+	be := env.Env.Chains[chain1].EVMChain.Client.(*memory.Backend)
 	be.Commit()
 
 	gas, err := feeQuoter.GetDestinationChainGasPrice(&bind.CallOpts{}, chain2)
@@ -629,7 +630,7 @@ func Test_GetChainFeePriceUpdates(t *testing.T) {
 		map[cciptypes.ChainSelector][]types.BoundContract{
 			cciptypes.ChainSelector(chain1): {
 				{
-					Address: state.Chains[chain1].FeeQuoter.Address().String(),
+					Address: state.EVMState.Chains[chain1].FeeQuoter.Address().String(),
 					Name:    consts.ContractNameFeeQuoter,
 				},
 			},
@@ -668,7 +669,7 @@ func Test_LinkPriceUSD(t *testing.T) {
 		map[cciptypes.ChainSelector][]types.BoundContract{
 			cciptypes.ChainSelector(chain1): {
 				{
-					Address: state.Chains[chain1].FeeQuoter.Address().String(),
+					Address: state.EVMState.Chains[chain1].FeeQuoter.Address().String(),
 					Name:    consts.ContractNameFeeQuoter,
 				},
 			},
@@ -703,7 +704,7 @@ func Test_GetMedianDataAvailabilityGasConfig(t *testing.T) {
 
 	boundContracts := map[cciptypes.ChainSelector][]types.BoundContract{}
 	for i, selector := range env.Env.AllChainSelectorsExcluding([]uint64{destChain}) {
-		feeQuoter := state.Chains[selector].FeeQuoter
+		feeQuoter := state.EVMState.Chains[selector].FeeQuoter
 		destChainCfg := changeset.DefaultFeeQuoterDestChainConfig()
 		//nolint:gosec // disable G115
 		destChainCfg.DestDataAvailabilityOverheadGas = uint32(100 + i)
@@ -711,14 +712,14 @@ func Test_GetMedianDataAvailabilityGasConfig(t *testing.T) {
 		destChainCfg.DestGasPerDataAvailabilityByte = uint16(200 + i)
 		//nolint:gosec // disable G115
 		destChainCfg.DestDataAvailabilityMultiplierBps = uint16(1 + i)
-		_, err2 := feeQuoter.ApplyDestChainConfigUpdates(env.Env.Chains[selector].DeployerKey, []fee_quoter.FeeQuoterDestChainConfigArgs{
+		_, err2 := feeQuoter.ApplyDestChainConfigUpdates(env.Env.Chains[selector].EVMChain.DeployerKey, []fee_quoter.FeeQuoterDestChainConfigArgs{
 			{
 				DestChainSelector: destChain,
 				DestChainConfig:   destChainCfg,
 			},
 		})
 		require.NoError(t, err2)
-		be := env.Env.Chains[selector].Client.(*memory.Backend)
+		be := env.Env.Chains[selector].EVMChain.Client.(*memory.Backend)
 		be.Commit()
 		boundContracts[cs(selector)] = []types.BoundContract{
 			{
@@ -770,11 +771,11 @@ func Test_GetWrappedNativeTokenPriceUSD(t *testing.T) {
 		map[cciptypes.ChainSelector][]types.BoundContract{
 			cciptypes.ChainSelector(chain1): {
 				{
-					Address: state.Chains[chain1].FeeQuoter.Address().String(),
+					Address: state.EVMState.Chains[chain1].FeeQuoter.Address().String(),
 					Name:    consts.ContractNameFeeQuoter,
 				},
 				{
-					Address: state.Chains[chain1].Router.Address().String(),
+					Address: state.EVMState.Chains[chain1].Router.Address().String(),
 					Name:    consts.ContractNameRouter,
 				},
 			},
@@ -1259,7 +1260,7 @@ func testSetupRealContracts(
 
 	var crs = make(map[cciptypes.ChainSelector]contractreader.Extended)
 	for chain, bindings := range toBindContracts {
-		be := env.Env.Chains[uint64(chain)].Client.(*memory.Backend)
+		be := env.Env.Chains[uint64(chain)].EVMChain.Client.(*memory.Backend)
 		cl := client.NewSimulatedBackendClient(t, be.Sim, big.NewInt(0).SetUint64(uint64(chain)))
 		headTracker := headtracker.NewSimulatedHeadTracker(cl, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
 		lp := logpoller.NewLogPoller(logpoller.NewORM(big.NewInt(0).SetUint64(uint64(chain)), db, lggr),

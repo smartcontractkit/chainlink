@@ -3,6 +3,7 @@ package memory
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -16,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
@@ -35,11 +37,14 @@ type MemoryEnvironmentConfig struct {
 // For placeholders like aptos
 func NewMemoryChain(t *testing.T, selector uint64) deployment.Chain {
 	return deployment.Chain{
-		Selector:    selector,
-		Client:      nil,
-		DeployerKey: &bind.TransactOpts{},
-		Confirm: func(tx *types.Transaction) (uint64, error) {
-			return 0, nil
+		Selector: selector,
+		Family:   strings.ToLower(devenv.EVMChainType),
+		EVMChain: deployment.EVMChain{
+			Client:      nil,
+			DeployerKey: &bind.TransactOpts{},
+			Confirm: func(tx *types.Transaction) (uint64, error) {
+				return 0, nil
+			},
 		},
 	}
 }
@@ -70,29 +75,32 @@ func generateMemoryChain(t *testing.T, inputs map[uint64]EVMChain) map[uint64]de
 		require.NoError(t, err)
 		backend := NewBackend(chain.Backend)
 		chains[sel] = deployment.Chain{
-			Selector:    sel,
-			Client:      backend,
-			DeployerKey: chain.DeployerKey,
-			Confirm: func(tx *types.Transaction) (uint64, error) {
-				if tx == nil {
-					return 0, fmt.Errorf("tx was nil, nothing to confirm")
-				}
-				for {
-					backend.Commit()
-					receipt, err := backend.TransactionReceipt(context.Background(), tx.Hash())
-					if err != nil {
-						t.Log("failed to get receipt", err)
-						continue
+			Selector: sel,
+			Family:   strings.ToLower(devenv.EVMChainType),
+			EVMChain: deployment.EVMChain{
+				Client:      backend,
+				DeployerKey: chain.DeployerKey,
+				Confirm: func(tx *types.Transaction) (uint64, error) {
+					if tx == nil {
+						return 0, fmt.Errorf("tx was nil, nothing to confirm")
 					}
-					if receipt.Status == 0 {
-						errReason, err := deployment.GetErrorReasonFromTx(chain.Backend.Client(), chain.DeployerKey.From, tx, receipt)
-						if err == nil && errReason != "" {
-							return 0, fmt.Errorf("tx %s reverted,error reason: %s", tx.Hash().Hex(), errReason)
+					for {
+						backend.Commit()
+						receipt, err := backend.TransactionReceipt(context.Background(), tx.Hash())
+						if err != nil {
+							t.Log("failed to get receipt", err)
+							continue
 						}
-						return 0, fmt.Errorf("tx %s reverted, could not decode error reason", tx.Hash().Hex())
+						if receipt.Status == 0 {
+							errReason, err := deployment.GetErrorReasonFromTx(chain.Backend.Client(), chain.DeployerKey.From, tx, receipt)
+							if err == nil && errReason != "" {
+								return 0, fmt.Errorf("tx %s reverted,error reason: %s", tx.Hash().Hex(), errReason)
+							}
+							return 0, fmt.Errorf("tx %s reverted, could not decode error reason", tx.Hash().Hex())
+						}
+						return receipt.BlockNumber.Uint64(), nil
 					}
-					return receipt.BlockNumber.Uint64(), nil
-				}
+				},
 			},
 		}
 	}

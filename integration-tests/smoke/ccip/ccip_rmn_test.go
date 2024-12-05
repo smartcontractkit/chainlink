@@ -256,7 +256,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	homeChain, ok := envWithRMN.Env.Chains[envWithRMN.HomeChainSel]
 	require.True(t, ok)
 
-	homeChainState, ok := onChainState.Chains[envWithRMN.HomeChainSel]
+	homeChainState, ok := onChainState.EVMState.Chains[envWithRMN.HomeChainSel]
 	require.True(t, ok)
 
 	allDigests, err := homeChainState.RMNHome.GetConfigDigests(&bind.CallOpts{Context: ctx})
@@ -269,7 +269,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	dynamicConfig := rmn_home.RMNHomeDynamicConfig{SourceChains: tc.pf.rmnHomeSourceChains, OffchainConfig: []byte{}}
 	t.Logf("Setting RMNHome candidate with staticConfig: %+v, dynamicConfig: %+v, current candidateDigest: %x",
 		staticConfig, dynamicConfig, allDigests.CandidateConfigDigest[:])
-	tx, err := homeChainState.RMNHome.SetCandidate(homeChain.DeployerKey, staticConfig, dynamicConfig, allDigests.CandidateConfigDigest)
+	tx, err := homeChainState.RMNHome.SetCandidate(homeChain.EVMChain.DeployerKey, staticConfig, dynamicConfig, allDigests.CandidateConfigDigest)
 	require.NoError(t, err)
 
 	_, err = deployment.ConfirmIfNoError(homeChain, tx, err)
@@ -282,7 +282,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	t.Logf("Promoting RMNHome candidate with candidateDigest: %x", candidateDigest[:])
 
 	tx, err = homeChainState.RMNHome.PromoteCandidateAndRevokeActive(
-		homeChain.DeployerKey, candidateDigest, allDigests.ActiveConfigDigest)
+		homeChain.EVMChain.DeployerKey, candidateDigest, allDigests.ActiveConfigDigest)
 	require.NoError(t, err)
 
 	_, err = deployment.ConfirmIfNoError(homeChain, tx, err)
@@ -507,7 +507,7 @@ func (tc rmnTestCase) setRmnRemoteConfig(
 	envWithRMN changeset.DeployedEnv) {
 	for _, remoteCfg := range tc.remoteChainsConfig {
 		remoteSel := tc.pf.chainSelectors[remoteCfg.chainIdx]
-		chState, ok := onChainState.Chains[remoteSel]
+		chState, ok := onChainState.EVMState.Chains[remoteSel]
 		require.True(t, ok)
 		if remoteCfg.f < 0 {
 			t.Fatalf("negative F: %d", remoteCfg.f)
@@ -521,7 +521,7 @@ func (tc rmnTestCase) setRmnRemoteConfig(
 		chain := envWithRMN.Env.Chains[tc.pf.chainSelectors[remoteCfg.chainIdx]]
 
 		t.Logf("Setting RMNRemote config with RMNHome active digest: %x, cfg: %+v", activeDigest[:], rmnRemoteConfig)
-		tx2, err2 := chState.RMNRemote.SetConfig(chain.DeployerKey, rmnRemoteConfig)
+		tx2, err2 := chState.RMNRemote.SetConfig(chain.EVMChain.DeployerKey, rmnRemoteConfig)
 		require.NoError(t, err2)
 		_, err2 = deployment.ConfirmIfNoError(chain, tx2, err2)
 		require.NoError(t, err2)
@@ -582,7 +582,7 @@ func (tc rmnTestCase) sendMessages(t *testing.T, onChainState changeset.CCIPOnCh
 
 		for i := 0; i < msg.count; i++ {
 			msgSentEvent := changeset.TestSendRequest(t, envWithRMN.Env, onChainState, fromChain, toChain, false, router.ClientEVM2AnyMessage{
-				Receiver:     common.LeftPadBytes(onChainState.Chains[toChain].Receiver.Address().Bytes(), 32),
+				Receiver:     common.LeftPadBytes(onChainState.EVMState.Chains[toChain].Receiver.Address().Bytes(), 32),
 				Data:         []byte("hello world"),
 				TokenAmounts: nil,
 				FeeToken:     common.HexToAddress("0x0"),
@@ -609,7 +609,7 @@ func (tc rmnTestCase) sendMessages(t *testing.T, onChainState changeset.CCIPOnCh
 func (tc rmnTestCase) callContractsToCurseChains(ctx context.Context, t *testing.T, onChainState changeset.CCIPOnChainState, envWithRMN changeset.DeployedEnv) {
 	for _, remoteCfg := range tc.remoteChainsConfig {
 		remoteSel := tc.pf.chainSelectors[remoteCfg.chainIdx]
-		chState, ok := onChainState.Chains[remoteSel]
+		chState, ok := onChainState.EVMState.Chains[remoteSel]
 		require.True(t, ok)
 		chain, ok := envWithRMN.Env.Chains[remoteSel]
 		require.True(t, ok)
@@ -625,7 +625,7 @@ func (tc rmnTestCase) callContractsToCurseChains(ctx context.Context, t *testing
 				subj = chainSelectorToBytes16(tc.pf.chainSelectors[subjectDescription])
 			}
 			t.Logf("cursing subject %d (%d)", subj, subjectDescription)
-			txCurse, errCurse := chState.RMNRemote.Curse(chain.DeployerKey, subj)
+			txCurse, errCurse := chState.RMNRemote.Curse(chain.EVMChain.DeployerKey, subj)
 			_, errConfirm := deployment.ConfirmIfNoError(chain, txCurse, errCurse)
 			require.NoError(t, errConfirm)
 		}

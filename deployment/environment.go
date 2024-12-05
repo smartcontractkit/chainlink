@@ -46,14 +46,22 @@ type OffchainClient interface {
 	csav1.CSAServiceClient
 }
 
-// Chain represents an EVM chain.
-type Chain struct {
-	// Selectors used as canonical chain identifier.
-	Selector uint64
-	Client   OnchainClient
+type EVMChain struct {
+	Client OnchainClient
 	// Note the Sign function can be abstract supporting a variety of key storage mechanisms (e.g. KMS etc).
 	DeployerKey *bind.TransactOpts
 	Confirm     func(tx *types.Transaction) (uint64, error)
+}
+
+type SolanaChain struct{}
+
+// Chain represents an EVM chain.
+type Chain struct {
+	// Selectors used as canonical chain identifier.
+	Family      string
+	Selector    uint64
+	EVMChain    EVMChain
+	SolanaChain SolanaChain
 }
 
 // Environment represents an instance of a deployed product
@@ -133,7 +141,7 @@ func (e Environment) AllChainSelectorsExcluding(excluding []uint64) []uint64 {
 func (e Environment) AllDeployerKeys() []common.Address {
 	var deployerKeys []common.Address
 	for sel := range e.Chains {
-		deployerKeys = append(deployerKeys, e.Chains[sel].DeployerKey.From)
+		deployerKeys = append(deployerKeys, e.Chains[sel].EVMChain.DeployerKey.From)
 	}
 	return deployerKeys
 }
@@ -148,7 +156,7 @@ func ConfirmIfNoError(chain Chain, tx *types.Transaction, err error) (uint64, er
 		}
 		return 0, err
 	}
-	return chain.Confirm(tx)
+	return chain.EVMChain.Confirm(tx)
 }
 
 func MaybeDataErr(err error) error {

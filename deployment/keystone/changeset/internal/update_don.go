@@ -88,13 +88,13 @@ func UpdateDon(lggr logger.Logger, req *UpdateDonRequest) (*UpdateDonResponse, e
 		return nil, fmt.Errorf("failed to append node capabilities: %w", err)
 	}
 
-	tx, err := req.Registry.UpdateDON(req.Chain.DeployerKey, don.Id, don.NodeP2PIds, cfgs, don.IsPublic, don.F)
+	tx, err := req.Registry.UpdateDON(req.Chain.EVMChain.DeployerKey, don.Id, don.NodeP2PIds, cfgs, don.IsPublic, don.F)
 	if err != nil {
 		err = kslib.DecodeErr(kcr.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to call UpdateDON: %w", err)
 	}
 
-	_, err = req.Chain.Confirm(tx)
+	_, err = req.Chain.EVMChain.Confirm(tx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to confirm UpdateDON transaction %s: %w", tx.Hash().String(), err)
 	}

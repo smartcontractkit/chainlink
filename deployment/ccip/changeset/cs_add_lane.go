@@ -116,22 +116,22 @@ func addLane(e deployment.Environment, state CCIPOnChainState, config LaneConfig
 	feeQuoterDestChainConfig := config.FeeQuoterDestChain
 	initialPrices := config.InitialPricesBySource
 	if isTestRouter {
-		fromRouter = state.Chains[from].TestRouter
-		toRouter = state.Chains[to].TestRouter
+		fromRouter = state.EVMState.Chains[from].TestRouter
+		toRouter = state.EVMState.Chains[to].TestRouter
 	} else {
-		fromRouter = state.Chains[from].Router
-		toRouter = state.Chains[to].Router
+		fromRouter = state.EVMState.Chains[from].Router
+		toRouter = state.EVMState.Chains[to].Router
 	}
-	tx, err := fromRouter.ApplyRampUpdates(e.Chains[from].DeployerKey, []router.RouterOnRamp{
+	tx, err := fromRouter.ApplyRampUpdates(e.Chains[from].EVMChain.DeployerKey, []router.RouterOnRamp{
 		{
 			DestChainSelector: to,
-			OnRamp:            state.Chains[from].OnRamp.Address(),
+			OnRamp:            state.EVMState.Chains[from].OnRamp.Address(),
 		},
 	}, []router.RouterOffRamp{}, []router.RouterOffRamp{})
 	if _, err := deployment.ConfirmIfNoError(e.Chains[from], tx, err); err != nil {
 		return err
 	}
-	tx, err = state.Chains[from].OnRamp.ApplyDestChainConfigUpdates(e.Chains[from].DeployerKey,
+	tx, err = state.EVMState.Chains[from].OnRamp.ApplyDestChainConfigUpdates(e.Chains[from].EVMChain.DeployerKey,
 		[]onramp.OnRampDestChainConfigArgs{
 			{
 				DestChainSelector: to,
@@ -142,15 +142,15 @@ func addLane(e deployment.Environment, state CCIPOnChainState, config LaneConfig
 		return err
 	}
 
-	_, err = state.Chains[from].FeeQuoter.UpdatePrices(
-		e.Chains[from].DeployerKey, fee_quoter.InternalPriceUpdates{
+	_, err = state.EVMState.Chains[from].FeeQuoter.UpdatePrices(
+		e.Chains[from].EVMChain.DeployerKey, fee_quoter.InternalPriceUpdates{
 			TokenPriceUpdates: []fee_quoter.InternalTokenPriceUpdate{
 				{
-					SourceToken: state.Chains[from].LinkToken.Address(),
+					SourceToken: state.EVMState.Chains[from].LinkToken.Address(),
 					UsdPerToken: initialPrices.LinkPrice,
 				},
 				{
-					SourceToken: state.Chains[from].Weth9.Address(),
+					SourceToken: state.EVMState.Chains[from].Weth9.Address(),
 					UsdPerToken: initialPrices.WethPrice,
 				},
 			},
@@ -159,13 +159,14 @@ func addLane(e deployment.Environment, state CCIPOnChainState, config LaneConfig
 					DestChainSelector: to,
 					UsdPerUnitGas:     initialPrices.GasPrice,
 				},
-			}})
+			},
+		})
 	if _, err := deployment.ConfirmIfNoError(e.Chains[from], tx, err); err != nil {
 		return err
 	}
 
 	// Enable dest in fee quoter
-	tx, err = state.Chains[from].FeeQuoter.ApplyDestChainConfigUpdates(e.Chains[from].DeployerKey,
+	tx, err = state.EVMState.Chains[from].FeeQuoter.ApplyDestChainConfigUpdates(e.Chains[from].EVMChain.DeployerKey,
 		[]fee_quoter.FeeQuoterDestChainConfigArgs{
 			{
 				DestChainSelector: to,
@@ -176,22 +177,22 @@ func addLane(e deployment.Environment, state CCIPOnChainState, config LaneConfig
 		return err
 	}
 
-	tx, err = state.Chains[to].OffRamp.ApplySourceChainConfigUpdates(e.Chains[to].DeployerKey,
+	tx, err = state.EVMState.Chains[to].OffRamp.ApplySourceChainConfigUpdates(e.Chains[to].EVMChain.DeployerKey,
 		[]offramp.OffRampSourceChainConfigArgs{
 			{
 				Router:              toRouter.Address(),
 				SourceChainSelector: from,
 				IsEnabled:           true,
-				OnRamp:              common.LeftPadBytes(state.Chains[from].OnRamp.Address().Bytes(), 32),
+				OnRamp:              common.LeftPadBytes(state.EVMState.Chains[from].OnRamp.Address().Bytes(), 32),
 			},
 		})
 	if _, err := deployment.ConfirmIfNoError(e.Chains[to], tx, err); err != nil {
 		return err
 	}
-	tx, err = toRouter.ApplyRampUpdates(e.Chains[to].DeployerKey, []router.RouterOnRamp{}, []router.RouterOffRamp{}, []router.RouterOffRamp{
+	tx, err = toRouter.ApplyRampUpdates(e.Chains[to].EVMChain.DeployerKey, []router.RouterOnRamp{}, []router.RouterOffRamp{}, []router.RouterOffRamp{
 		{
 			SourceChainSelector: from,
-			OffRamp:             state.Chains[to].OffRamp.Address(),
+			OffRamp:             state.EVMState.Chains[to].OffRamp.Address(),
 		},
 	})
 	_, err = deployment.ConfirmIfNoError(e.Chains[to], tx, err)

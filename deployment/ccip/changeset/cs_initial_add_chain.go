@@ -178,17 +178,17 @@ func configureChain(
 		e.Logger.Errorw("Failed to load existing onchain state", "err")
 		return err
 	}
-	capReg := existingState.Chains[c.HomeChainSel].CapabilityRegistry
+	capReg := existingState.EVMState.Chains[c.HomeChainSel].CapabilityRegistry
 	if capReg == nil {
 		e.Logger.Errorw("Failed to get capability registry")
 		return fmt.Errorf("capability registry not found")
 	}
-	ccipHome := existingState.Chains[c.HomeChainSel].CCIPHome
+	ccipHome := existingState.EVMState.Chains[c.HomeChainSel].CCIPHome
 	if ccipHome == nil {
 		e.Logger.Errorw("Failed to get ccip home", "err", err)
 		return fmt.Errorf("ccip home not found")
 	}
-	rmnHome := existingState.Chains[c.HomeChainSel].RMNHome
+	rmnHome := existingState.EVMState.Chains[c.HomeChainSel].RMNHome
 	if rmnHome == nil {
 		e.Logger.Errorw("Failed to get rmn home", "err", err)
 		return fmt.Errorf("rmn home not found")
@@ -196,7 +196,7 @@ func configureChain(
 
 	for chainSel, chainConfig := range c.ChainConfigByChain {
 		chain, _ := e.Chains[chainSel]
-		chainState, ok := existingState.Chains[chain.Selector]
+		chainState, ok := existingState.EVMState.Chains[chain.Selector]
 		if !ok {
 			return fmt.Errorf("chain state not found for chain %d", chain.Selector)
 		}
@@ -261,7 +261,7 @@ func addChainConfig(
 		return ccip_home.CCIPHomeChainConfigArgs{}, err
 	}
 	chainConfig := setupConfigInfo(chainSelector, p2pIDs, uint8(len(p2pIDs)/3), encodedExtraChainConfig)
-	tx, err := ccipConfig.ApplyChainConfigUpdates(h.DeployerKey, nil, []ccip_home.CCIPHomeChainConfigArgs{
+	tx, err := ccipConfig.ApplyChainConfigUpdates(h.EVMChain.DeployerKey, nil, []ccip_home.CCIPHomeChainConfigArgs{
 		chainConfig,
 	})
 	if _, err := deployment.ConfirmIfNoError(h, tx, err); err != nil {
@@ -352,7 +352,7 @@ func addDON(
 		"chainSelector", dest.Selector,
 	)
 
-	tx, err := offRamp.SetOCR3Configs(dest.DeployerKey, offrampOCR3Configs)
+	tx, err := offRamp.SetOCR3Configs(dest.EVMChain.DeployerKey, offrampOCR3Configs)
 	if _, err := deployment.ConfirmIfNoError(dest, tx, err); err != nil {
 		return err
 	}

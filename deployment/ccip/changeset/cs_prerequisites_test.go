@@ -28,8 +28,8 @@ func TestDeployPrerequisites(t *testing.T) {
 	require.NoError(t, err)
 	state, err := LoadOnchainState(e)
 	require.NoError(t, err)
-	require.NotNil(t, state.Chains[newChain].Weth9)
-	require.NotNil(t, state.Chains[newChain].TokenAdminRegistry)
-	require.NotNil(t, state.Chains[newChain].RegistryModule)
-	require.NotNil(t, state.Chains[newChain].Router)
+	require.NotNil(t, state.EVMState.Chains[newChain].Weth9)
+	require.NotNil(t, state.EVMState.Chains[newChain].TokenAdminRegistry)
+	require.NotNil(t, state.EVMState.Chains[newChain].RegistryModule)
+	require.NotNil(t, state.EVMState.Chains[newChain].Router)
 }

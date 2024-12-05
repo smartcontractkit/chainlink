@@ -36,16 +36,16 @@ func NewChainInboundChangeset(
 	// Generate proposal which enables new destination (from test router) on all source chains.
 	var batches []timelock.BatchChainOperation
 	for _, source := range sources {
-		enableOnRampDest, err := state.Chains[source].OnRamp.ApplyDestChainConfigUpdates(deployment.SimTransactOpts(), []onramp.OnRampDestChainConfigArgs{
+		enableOnRampDest, err := state.EVMState.Chains[source].OnRamp.ApplyDestChainConfigUpdates(deployment.SimTransactOpts(), []onramp.OnRampDestChainConfigArgs{
 			{
 				DestChainSelector: newChainSel,
-				Router:            state.Chains[source].TestRouter.Address(),
+				Router:            state.EVMState.Chains[source].TestRouter.Address(),
 			},
 		})
 		if err != nil {
 			return deployment.ChangesetOutput{}, err
 		}
-		enableFeeQuoterDest, err := state.Chains[source].FeeQuoter.ApplyDestChainConfigUpdates(
+		enableFeeQuoterDest, err := state.EVMState.Chains[source].FeeQuoter.ApplyDestChainConfigUpdates(
 			deployment.SimTransactOpts(),
 			[]fee_quoter.FeeQuoterDestChainConfigArgs{
 				{
@@ -61,12 +61,12 @@ func NewChainInboundChangeset(
 			Batch: []mcms.Operation{
 				{
 					// Enable the source in on ramp
-					To:    state.Chains[source].OnRamp.Address(),
+					To:    state.EVMState.Chains[source].OnRamp.Address(),
 					Data:  enableOnRampDest.Data(),
 					Value: big.NewInt(0),
 				},
 				{
-					To:    state.Chains[source].FeeQuoter.Address(),
+					To:    state.EVMState.Chains[source].FeeQuoter.Address(),
 					Data:  enableFeeQuoterDest.Data(),
 					Value: big.NewInt(0),
 				},
@@ -91,8 +91,8 @@ func NewChainInboundChangeset(
 		proposerMCMSes    = make(map[uint64]*gethwrappers.ManyChainMultiSig)
 	)
 	for _, chain := range append(sources, homeChainSel) {
-		timelocksPerChain[chain] = state.Chains[chain].Timelock.Address()
-		proposerMCMSes[chain] = state.Chains[chain].ProposerMcm
+		timelocksPerChain[chain] = state.EVMState.Chains[chain].Timelock.Address()
+		proposerMCMSes[chain] = state.EVMState.Chains[chain].ProposerMcm
 	}
 	prop, err := proposalutils.BuildProposalFromBatches(
 		timelocksPerChain,
@@ -123,16 +123,16 @@ func AddDonAndSetCandidateChangeset(
 ) (deployment.ChangesetOutput, error) {
 	ccipOCRParams := DefaultOCRParams(
 		feedChainSel,
-		tokenConfig.GetTokenInfo(e.Logger, state.Chains[newChainSel].LinkToken, state.Chains[newChainSel].Weth9),
+		tokenConfig.GetTokenInfo(e.Logger, state.EVMState.Chains[newChainSel].LinkToken, state.EVMState.Chains[newChainSel].Weth9),
 		// TODO: Need USDC support.
 		nil,
 	)
 	newDONArgs, err := internal.BuildOCR3ConfigForCCIPHome(
 		ocrSecrets,
-		state.Chains[newChainSel].OffRamp,
+		state.EVMState.Chains[newChainSel].OffRamp,
 		e.Chains[newChainSel],
 		nodes.NonBootstraps(),
-		state.Chains[homeChainSel].RMNHome.Address(),
+		state.EVMState.Chains[homeChainSel].RMNHome.Address(),
 		ccipOCRParams.OCRParameters,
 		ccipOCRParams.CommitOffChainConfig,
 		ccipOCRParams.ExecuteOffChainConfig,
@@ -140,7 +140,7 @@ func AddDonAndSetCandidateChangeset(
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	latestDon, err := internal.LatestCCIPDON(state.Chains[homeChainSel].CapabilityRegistry)
+	latestDon, err := internal.LatestCCIPDON(state.EVMState.Chains[homeChainSel].CapabilityRegistry)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -151,7 +151,7 @@ func AddDonAndSetCandidateChangeset(
 	donID := latestDon.Id + 1
 	addDonOp, err := newDonWithCandidateOp(
 		donID, commitConfig,
-		state.Chains[homeChainSel].CapabilityRegistry,
+		state.EVMState.Chains[homeChainSel].CapabilityRegistry,
 		nodes.NonBootstraps(),
 	)
 	if err != nil {
@@ -160,10 +160,10 @@ func AddDonAndSetCandidateChangeset(
 
 	var (
 		timelocksPerChain = map[uint64]common.Address{
-			homeChainSel: state.Chains[homeChainSel].Timelock.Address(),
+			homeChainSel: state.EVMState.Chains[homeChainSel].Timelock.Address(),
 		}
 		proposerMCMSes = map[uint64]*gethwrappers.ManyChainMultiSig{
-			homeChainSel: state.Chains[homeChainSel].ProposerMcm,
+			homeChainSel: state.EVMState.Chains[homeChainSel].ProposerMcm,
 		}
 	)
 	prop, err := proposalutils.BuildProposalFromBatches(
@@ -177,7 +177,7 @@ func AddDonAndSetCandidateChangeset(
 		0, // minDelay
 	)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal from batch: %w", err)
+		return deployment.ChangesetOutput{}, err
 	}
 
 	return deployment.ChangesetOutput{
@@ -210,7 +210,7 @@ func applyChainConfigUpdatesOp(
 		chainConfigUpdates = append(chainConfigUpdates, chainConfig)
 	}
 
-	addChain, err := state.Chains[homeChainSel].CCIPHome.ApplyChainConfigUpdates(
+	addChain, err := state.EVMState.Chains[homeChainSel].CCIPHome.ApplyChainConfigUpdates(
 		deployment.SimTransactOpts(),
 		nil,
 		chainConfigUpdates,
@@ -219,7 +219,7 @@ func applyChainConfigUpdatesOp(
 		return mcms.Operation{}, err
 	}
 	return mcms.Operation{
-		To:    state.Chains[homeChainSel].CCIPHome.Address(),
+		To:    state.EVMState.Chains[homeChainSel].CCIPHome.Address(),
 		Data:  addChain.Data(),
 		Value: big.NewInt(0),
 	}, nil

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -109,36 +110,39 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]deployme
 			return nil, fmt.Errorf("failed to connect to chain %s", chainCfg.ChainName)
 		}
 		chains[selector] = deployment.Chain{
-			Selector:    selector,
-			Client:      ec,
-			DeployerKey: chainCfg.DeployerKey,
-			Confirm: func(tx *types.Transaction) (uint64, error) {
-				var blockNumber uint64
-				if tx == nil {
-					return 0, fmt.Errorf("tx was nil, nothing to confirm")
-				}
-				ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
-				defer cancel()
-				chainId, err := ec.ChainID(ctx)
-				if err != nil {
-					return blockNumber, fmt.Errorf("failed to get chain id: %w", err)
-				}
-				receipt, err := bind.WaitMined(ctx, ec, tx)
-				if err != nil {
-					return blockNumber, fmt.Errorf("failed to get confirmed receipt for chain %d: %w", chainId, err)
-				}
-				if receipt == nil {
-					return blockNumber, fmt.Errorf("receipt was nil for tx %s", tx.Hash().Hex())
-				}
-				blockNumber = receipt.BlockNumber.Uint64()
-				if receipt.Status == 0 {
-					errReason, err := deployment.GetErrorReasonFromTx(ec, chainCfg.DeployerKey.From, tx, receipt)
-					if err == nil && errReason != "" {
-						return blockNumber, fmt.Errorf("tx %s reverted,error reason: %s", tx.Hash().Hex(), errReason)
+			Selector: selector,
+			Family:   strings.ToLower(chainCfg.ChainType),
+			EVMChain: deployment.EVMChain{
+				Client:      ec,
+				DeployerKey: chainCfg.DeployerKey,
+				Confirm: func(tx *types.Transaction) (uint64, error) {
+					var blockNumber uint64
+					if tx == nil {
+						return 0, fmt.Errorf("tx was nil, nothing to confirm")
 					}
-					return blockNumber, fmt.Errorf("tx %s reverted, could not decode error reason", tx.Hash().Hex())
-				}
-				return blockNumber, nil
+					ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+					defer cancel()
+					chainId, err := ec.ChainID(ctx)
+					if err != nil {
+						return blockNumber, fmt.Errorf("failed to get chain id: %w", err)
+					}
+					receipt, err := bind.WaitMined(ctx, ec, tx)
+					if err != nil {
+						return blockNumber, fmt.Errorf("failed to get confirmed receipt for chain %d: %w", chainId, err)
+					}
+					if receipt == nil {
+						return blockNumber, fmt.Errorf("receipt was nil for tx %s", tx.Hash().Hex())
+					}
+					blockNumber = receipt.BlockNumber.Uint64()
+					if receipt.Status == 0 {
+						errReason, err := deployment.GetErrorReasonFromTx(ec, chainCfg.DeployerKey.From, tx, receipt)
+						if err == nil && errReason != "" {
+							return blockNumber, fmt.Errorf("tx %s reverted,error reason: %s", tx.Hash().Hex(), errReason)
+						}
+						return blockNumber, fmt.Errorf("tx %s reverted, could not decode error reason", tx.Hash().Hex())
+					}
+					return blockNumber, nil
+				},
 			},
 		}
 	}

@@ -24,10 +24,10 @@ func ConfigureUSDCTokenPools(
 	src, dst uint64,
 	state CCIPOnChainState,
 ) (*burn_mint_erc677.BurnMintERC677, *burn_mint_erc677.BurnMintERC677, error) {
-	srcToken := state.Chains[src].BurnMintTokens677[USDCSymbol]
-	dstToken := state.Chains[dst].BurnMintTokens677[USDCSymbol]
-	srcPool := state.Chains[src].USDCTokenPool
-	dstPool := state.Chains[dst].USDCTokenPool
+	srcToken := state.EVMState.Chains[src].BurnMintTokens677[USDCSymbol]
+	dstToken := state.EVMState.Chains[dst].BurnMintTokens677[USDCSymbol]
+	srcPool := state.EVMState.Chains[src].USDCTokenPool
+	dstPool := state.EVMState.Chains[dst].USDCTokenPool
 
 	args := []struct {
 		sourceChain deployment.Chain
@@ -41,7 +41,7 @@ func ConfigureUSDCTokenPools(
 		{
 			chains[src],
 			dst,
-			state.Chains[src],
+			state.EVMState.Chains[src],
 			srcToken,
 			srcPool,
 			dstToken,
@@ -50,7 +50,7 @@ func ConfigureUSDCTokenPools(
 		{
 			chains[dst],
 			src,
-			state.Chains[dst],
+			state.EVMState.Chains[dst],
 			dstToken,
 			dstPool,
 			srcToken,
@@ -79,12 +79,12 @@ func configureSingleChain(
 	dstPool *usdc_token_pool.USDCTokenPool,
 ) func() error {
 	return func() error {
-		if err := attachTokenToTheRegistry(sourceChain, state, sourceChain.DeployerKey, srcToken.Address(), srcPool.Address()); err != nil {
+		if err := attachTokenToTheRegistry(sourceChain, state, sourceChain.EVMChain.DeployerKey, srcToken.Address(), srcPool.Address()); err != nil {
 			lggr.Errorw("Failed to attach token to the registry", "err", err, "token", srcToken.Address(), "pool", srcPool.Address())
 			return err
 		}
 
-		if err := setUSDCTokenPoolCounterPart(sourceChain, srcPool, dstChainSel, sourceChain.DeployerKey, dstToken.Address(), dstPool.Address()); err != nil {
+		if err := setUSDCTokenPoolCounterPart(sourceChain, srcPool, dstChainSel, sourceChain.EVMChain.DeployerKey, dstToken.Address(), dstPool.Address()); err != nil {
 			lggr.Errorw("Failed to set counter part", "err", err, "srcPool", srcPool.Address(), "dstPool", dstPool.Address())
 			return err
 		}
@@ -94,7 +94,7 @@ func configureSingleChain(
 			state.MockUSDCTokenMessenger.Address(),
 			state.MockUSDCTransmitter.Address(),
 		} {
-			if err := grantMintBurnPermissions(lggr, sourceChain, srcToken, sourceChain.DeployerKey, addr); err != nil {
+			if err := grantMintBurnPermissions(lggr, sourceChain, srcToken, sourceChain.EVMChain.DeployerKey, addr); err != nil {
 				lggr.Errorw("Failed to grant mint/burn permissions", "err", err, "token", srcToken.Address(), "address", addr)
 				return err
 			}
@@ -130,7 +130,7 @@ func UpdateFeeQuoterForUSDC(
 	}
 
 	tx, err := state.FeeQuoter.ApplyTokenTransferFeeConfigUpdates(
-		chain.DeployerKey,
+		chain.EVMChain.DeployerKey,
 		config,
 		[]fee_quoter.FeeQuoterTokenTransferFeeConfigRemoveArgs{},
 	)
@@ -139,7 +139,7 @@ func UpdateFeeQuoterForUSDC(
 		return err
 	}
 
-	_, err = chain.Confirm(tx)
+	_, err = chain.EVMChain.Confirm(tx)
 	return err
 }
 
@@ -159,8 +159,8 @@ func DeployUSDC(
 	token, err := deployment.DeployContract(lggr, chain, addresses,
 		func(chain deployment.Chain) deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
 			tokenAddress, tx, tokenContract, err2 := burn_mint_erc677.DeployBurnMintERC677(
-				chain.DeployerKey,
-				chain.Client,
+				chain.EVMChain.DeployerKey,
+				chain.EVMChain.Client,
 				USDCName,
 				string(USDCSymbol),
 				UsdcDecimals,
@@ -179,12 +179,12 @@ func DeployUSDC(
 		return nil, nil, nil, nil, err
 	}
 
-	tx, err := token.Contract.GrantMintRole(chain.DeployerKey, chain.DeployerKey.From)
+	tx, err := token.Contract.GrantMintRole(chain.EVMChain.DeployerKey, chain.EVMChain.DeployerKey.From)
 	if err != nil {
 		lggr.Errorw("Failed to grant mint role", "token", token.Contract.Address(), "err", err)
 		return nil, nil, nil, nil, err
 	}
-	_, err = chain.Confirm(tx)
+	_, err = chain.EVMChain.Confirm(tx)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
@@ -192,8 +192,8 @@ func DeployUSDC(
 	transmitter, err := deployment.DeployContract(lggr, chain, addresses,
 		func(chain deployment.Chain) deployment.ContractDeploy[*mock_usdc_token_transmitter.MockE2EUSDCTransmitter] {
 			transmitterAddress, tx, transmitterContract, err2 := mock_usdc_token_transmitter.DeployMockE2EUSDCTransmitter(
-				chain.DeployerKey,
-				chain.Client,
+				chain.EVMChain.DeployerKey,
+				chain.EVMChain.Client,
 				0,
 				reader.AllAvailableDomains()[chain.Selector],
 				token.Address,
@@ -216,8 +216,8 @@ func DeployUSDC(
 	messenger, err := deployment.DeployContract(lggr, chain, addresses,
 		func(chain deployment.Chain) deployment.ContractDeploy[*mock_usdc_token_messenger.MockE2EUSDCTokenMessenger] {
 			messengerAddress, tx, messengerContract, err2 := mock_usdc_token_messenger.DeployMockE2EUSDCTokenMessenger(
-				chain.DeployerKey,
-				chain.Client,
+				chain.EVMChain.DeployerKey,
+				chain.EVMChain.Client,
 				0,
 				transmitter.Address,
 			)
@@ -238,8 +238,8 @@ func DeployUSDC(
 	tokenPool, err := deployment.DeployContract(lggr, chain, addresses,
 		func(chain deployment.Chain) deployment.ContractDeploy[*usdc_token_pool.USDCTokenPool] {
 			tokenPoolAddress, tx, tokenPoolContract, err2 := usdc_token_pool.DeployUSDCTokenPool(
-				chain.DeployerKey,
-				chain.Client,
+				chain.EVMChain.DeployerKey,
+				chain.EVMChain.Client,
 				messenger.Address,
 				token.Address,
 				[]common.Address{},

@@ -528,19 +528,19 @@ func RegisterNOPS(ctx context.Context, lggr logger.Logger, req RegisterNOPSReque
 		lggr.Debug("no new node operators to register")
 		return resp, nil
 	}
-	tx, err := registry.AddNodeOperators(registryChain.DeployerKey, nops)
+	tx, err := registry.AddNodeOperators(registryChain.EVMChain.DeployerKey, nops)
 	if err != nil {
 		err = DecodeErr(kcr.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to call AddNodeOperators: %w", err)
 	}
 	// for some reason that i don't understand, the confirm must be called before the WaitMined or the latter will hang
 	// (at least for a simulated backend chain)
-	_, err = registryChain.Confirm(tx)
+	_, err = registryChain.EVMChain.Confirm(tx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to confirm AddNodeOperators confirm transaction %s: %w", tx.Hash().String(), err)
 	}
 
-	receipt, err := bind.WaitMined(ctx, registryChain.Client, tx)
+	receipt, err := bind.WaitMined(ctx, registryChain.EVMChain.Client, tx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to mine AddNodeOperators confirm transaction %s: %w", tx.Hash().String(), err)
 	}
@@ -727,7 +727,7 @@ func registerNodes(lggr logger.Logger, req *registerNodesRequest) (*registerNode
 		uniqueNodeParams = append(uniqueNodeParams, v)
 	}
 	lggr.Debugw("unique node params to add", "count", len(uniqueNodeParams))
-	tx, err := req.registry.AddNodes(req.chain.DeployerKey, uniqueNodeParams)
+	tx, err := req.registry.AddNodes(req.chain.EVMChain.DeployerKey, uniqueNodeParams)
 	if err != nil {
 		err = DecodeErr(kcr.CapabilitiesRegistryABI, err)
 		// no typed errors in the abi, so we have to do string matching
@@ -737,7 +737,7 @@ func registerNodes(lggr logger.Logger, req *registerNodesRequest) (*registerNode
 		}
 		lggr.Warn("nodes already exist, falling back to 1-by-1")
 		for _, singleNodeParams := range uniqueNodeParams {
-			tx, err = req.registry.AddNodes(req.chain.DeployerKey, []kcr.CapabilitiesRegistryNodeParams{singleNodeParams})
+			tx, err = req.registry.AddNodes(req.chain.EVMChain.DeployerKey, []kcr.CapabilitiesRegistryNodeParams{singleNodeParams})
 			if err != nil {
 				err = DecodeErr(kcr.CapabilitiesRegistryABI, err)
 				if strings.Contains(err.Error(), "NodeAlreadyExists") {
@@ -747,7 +747,7 @@ func registerNodes(lggr logger.Logger, req *registerNodesRequest) (*registerNode
 				return nil, fmt.Errorf("failed to call AddNode for node with p2pid %v: %w", singleNodeParams.P2pId, err)
 			}
 			// 1-by-1 tx is pending and we need to wait for it to be mined
-			_, err = req.chain.Confirm(tx)
+			_, err = req.chain.EVMChain.Confirm(tx)
 			if err != nil {
 				return nil, fmt.Errorf("failed to confirm AddNode of p2pid node %v transaction %s: %w", singleNodeParams.P2pId, tx.Hash().String(), err)
 			}
@@ -755,7 +755,7 @@ func registerNodes(lggr logger.Logger, req *registerNodesRequest) (*registerNode
 		}
 	} else {
 		// the bulk add tx is pending and we need to wait for it to be mined
-		_, err = req.chain.Confirm(tx)
+		_, err = req.chain.EVMChain.Confirm(tx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to confirm AddNode confirm transaction %s: %w", tx.Hash().String(), err)
 		}
@@ -851,12 +851,12 @@ func registerDons(lggr logger.Logger, req registerDonsRequest) (*registerDonsRes
 		}
 
 		f := len(p2pIds) / 3 // assuming n=3f+1. TODO should come for some config.
-		tx, err := req.registry.AddDON(req.chain.DeployerKey, p2pIds, cfgs, true, wfSupported, uint8(f))
+		tx, err := req.registry.AddDON(req.chain.EVMChain.DeployerKey, p2pIds, cfgs, true, wfSupported, uint8(f))
 		if err != nil {
 			err = DecodeErr(kcr.CapabilitiesRegistryABI, err)
 			return nil, fmt.Errorf("failed to call AddDON for don '%s' p2p2Id hash %s capability %v: %w", don, p2pSortedHash, cfgs, err)
 		}
-		_, err = req.chain.Confirm(tx)
+		_, err = req.chain.EVMChain.Confirm(tx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to confirm AddDON transaction %s for don %s: %w", tx.Hash().String(), don, err)
 		}
@@ -926,12 +926,12 @@ func configureForwarder(lggr logger.Logger, chain deployment.Chain, fwdr *kf.Key
 		}
 		ver := dn.Info.ConfigCount // note config count on the don info is the version on the forwarder
 		signers := dn.signers(chainsel.FamilyEVM)
-		tx, err := fwdr.SetConfig(chain.DeployerKey, dn.Info.Id, ver, dn.Info.F, signers)
+		tx, err := fwdr.SetConfig(chain.EVMChain.DeployerKey, dn.Info.Id, ver, dn.Info.F, signers)
 		if err != nil {
 			err = DecodeErr(kf.KeystoneForwarderABI, err)
 			return fmt.Errorf("failed to call SetConfig for forwarder %s on chain %d: %w", fwdr.Address().String(), chain.Selector, err)
 		}
-		_, err = chain.Confirm(tx)
+		_, err = chain.EVMChain.Confirm(tx)
 		if err != nil {
 			err = DecodeErr(kf.KeystoneForwarderABI, err)
 			return fmt.Errorf("failed to confirm SetConfig for forwarder %s: %w", fwdr.Address().String(), err)

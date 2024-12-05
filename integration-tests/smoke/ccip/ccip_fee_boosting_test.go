@@ -72,7 +72,7 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 		", dest chain selector:", destChain,
 	)
 
-	fetchedGasPriceDest, err := e.Env.Chains[destChain].Client.SuggestGasPrice(tests.Context(t))
+	fetchedGasPriceDest, err := e.Env.Chains[destChain].EVMChain.Client.SuggestGasPrice(tests.Context(t))
 	require.NoError(t, err)
 	originalGasPriceDestUSD := new(big.Int).Div(
 		new(big.Int).Mul(fetchedGasPriceDest, wethPrice),
@@ -112,8 +112,8 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 
 	// Update token prices in destination chain FeeQuoter
 	err = updateTokensPrices(e, state, destChain, map[common.Address]*big.Int{
-		state.Chains[destChain].LinkToken.Address(): linkPrice,
-		state.Chains[destChain].Weth9.Address():     wethPrice,
+		state.EVMState.Chains[destChain].LinkToken.Address(): linkPrice,
+		state.EVMState.Chains[destChain].Weth9.Address():     wethPrice,
 	})
 	require.NoError(t, err)
 
@@ -121,11 +121,11 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 	expectedSeqNum := make(map[changeset.SourceDestPair]uint64)
 	expectedSeqNumExec := make(map[changeset.SourceDestPair][]uint64)
 
-	latesthdr, err := e.Env.Chains[sourceChain].Client.HeaderByNumber(testcontext.Get(t), nil)
+	latesthdr, err := e.Env.Chains[sourceChain].EVMChain.Client.HeaderByNumber(testcontext.Get(t), nil)
 	require.NoError(t, err)
 	block := latesthdr.Number.Uint64()
 	msgSentEvent := changeset.TestSendRequest(t, e.Env, state, sourceChain, destChain, false, router.ClientEVM2AnyMessage{
-		Receiver:     common.LeftPadBytes(state.Chains[destChain].Receiver.Address().Bytes(), 32),
+		Receiver:     common.LeftPadBytes(state.EVMState.Chains[destChain].Receiver.Address().Bytes(), 32),
 		Data:         []byte("message that needs fee boosting"),
 		TokenAmounts: nil,
 		FeeToken:     common.HexToAddress("0x0"),
@@ -145,7 +145,7 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 	require.NoError(t, err)
 
 	// Confirm gas prices are updated
-	srcFeeQuoter := state.Chains[sourceChain].FeeQuoter
+	srcFeeQuoter := state.EVMState.Chains[sourceChain].FeeQuoter
 	err = changeset.ConfirmGasPriceUpdated(t, e.Env.Chains[destChain], srcFeeQuoter, 0, originalGasPriceDestUSD)
 	require.NoError(t, err)
 
@@ -176,7 +176,7 @@ func willTriggerFeeBoosting(
 	t.Logf("Dest Chain: %d", msg.Header.DestChainSelector)
 
 	ep := ccipevm.NewGasEstimateProvider()
-	chainState, exists := state.Chains[srcChain]
+	chainState, exists := state.EVMState.Chains[srcChain]
 	require.True(t, exists)
 	feeQuoter := chainState.FeeQuoter
 
@@ -276,14 +276,14 @@ func convertToMessage(msg onramp.InternalEVM2AnyRampMessage) cciptypes.Message {
 }
 
 func updateGasPrice(env changeset.DeployedEnv, state changeset.CCIPOnChainState, srcChain, destChain uint64, gasPrice *big.Int) error {
-	chainState, exists := state.Chains[srcChain]
+	chainState, exists := state.EVMState.Chains[srcChain]
 	if !exists {
 		return fmt.Errorf("chain state not found for selector: %d", srcChain)
 	}
 
 	feeQuoter := chainState.FeeQuoter
 	// Update gas price
-	auth := env.Env.Chains[srcChain].DeployerKey
+	auth := env.Env.Chains[srcChain].EVMChain.DeployerKey
 	tx, err := feeQuoter.UpdatePrices(auth, fee_quoter.InternalPriceUpdates{
 		TokenPriceUpdates: nil,
 		GasPriceUpdates: []fee_quoter.InternalGasPriceUpdate{
@@ -304,14 +304,14 @@ func updateGasPrice(env changeset.DeployedEnv, state changeset.CCIPOnChainState,
 }
 
 func updateTokensPrices(env changeset.DeployedEnv, state changeset.CCIPOnChainState, chain uint64, tokenPrices map[common.Address]*big.Int) error {
-	chainState, exists := state.Chains[chain]
+	chainState, exists := state.EVMState.Chains[chain]
 	if !exists {
 		return fmt.Errorf("chain state not found for selector: %d", chain)
 	}
 
 	feeQuoter := chainState.FeeQuoter
 	// Update token prices
-	auth := env.Env.Chains[chain].DeployerKey
+	auth := env.Env.Chains[chain].EVMChain.DeployerKey
 	tokenPricesUpdates := make([]fee_quoter.InternalTokenPriceUpdate, 0, len(tokenPrices))
 	for token, price := range tokenPrices {
 		tokenPricesUpdates = append(tokenPricesUpdates, fee_quoter.InternalTokenPriceUpdate{

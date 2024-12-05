@@ -46,7 +46,7 @@ func ConfirmGasPriceUpdatedForAll(
 				return ConfirmGasPriceUpdated(
 					t,
 					dstChain,
-					state.Chains[srcChain.Selector].FeeQuoter,
+					state.EVMState.Chains[srcChain.Selector].FeeQuoter,
 					*startBlock,
 					gasPrice,
 				)
@@ -92,15 +92,15 @@ func ConfirmTokenPriceUpdatedForAll(
 			if startBlocks != nil {
 				startBlock = startBlocks[chain.Selector]
 			}
-			linkAddress := state.Chains[chain.Selector].LinkToken.Address()
-			wethAddress := state.Chains[chain.Selector].Weth9.Address()
+			linkAddress := state.EVMState.Chains[chain.Selector].LinkToken.Address()
+			wethAddress := state.EVMState.Chains[chain.Selector].Weth9.Address()
 			tokenToPrice := make(map[common.Address]*big.Int)
 			tokenToPrice[linkAddress] = linkPrice
 			tokenToPrice[wethAddress] = wethPrice
 			return ConfirmTokenPriceUpdated(
 				t,
 				chain,
-				state.Chains[chain.Selector].FeeQuoter,
+				state.EVMState.Chains[chain.Selector].FeeQuoter,
 				*startBlock,
 				tokenToPrice,
 			)
@@ -194,7 +194,7 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 					t,
 					srcChain,
 					dstChain,
-					state.Chains[dstChain.Selector].OffRamp,
+					state.EVMState.Chains[dstChain.Selector].OffRamp,
 					startBlock,
 					ccipocr3.SeqNumRange{
 						ccipocr3.SeqNum(expectedSeqNum),
@@ -299,10 +299,10 @@ func ConfirmCommitWithExpectedSeqNumRange(
 		select {
 		case <-ticker.C:
 			// if it's simulated backend, commit to ensure mining
-			if backend, ok := src.Client.(*memory.Backend); ok {
+			if backend, ok := src.EVMChain.Client.(*memory.Backend); ok {
 				backend.Commit()
 			}
-			if backend, ok := dest.Client.(*memory.Backend); ok {
+			if backend, ok := dest.EVMChain.Client.(*memory.Backend); ok {
 				backend.Commit()
 			}
 			t.Logf("Waiting for commit report on chain selector %d from source selector %d expected seq nr range %s",
@@ -410,7 +410,7 @@ func ConfirmExecWithSeqNrsForAll(
 					t,
 					srcChain,
 					dstChain,
-					state.Chains[dstChain.Selector].OffRamp,
+					state.EVMState.Chains[dstChain.Selector].OffRamp,
 					startBlock,
 					expectedSeqNum,
 				)
@@ -534,10 +534,10 @@ func ConfirmNoExecConsistentlyWithSeqNr(
 
 func GetExecutionState(t *testing.T, source, dest deployment.Chain, offRamp *offramp.OffRamp, expectedSeqNr uint64) (offramp.OffRampSourceChainConfig, uint8) {
 	// if it's simulated backend, commit to ensure mining
-	if backend, ok := source.Client.(*memory.Backend); ok {
+	if backend, ok := source.EVMChain.Client.(*memory.Backend); ok {
 		backend.Commit()
 	}
-	if backend, ok := dest.Client.(*memory.Backend); ok {
+	if backend, ok := dest.EVMChain.Client.(*memory.Backend); ok {
 		backend.Commit()
 	}
 	scc, err := offRamp.GetSourceChainConfig(nil, source.Selector)
