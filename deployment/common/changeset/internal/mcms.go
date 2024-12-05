@@ -119,12 +119,11 @@ func DeployMCMSWithTimelockContracts(
 		lggr.Errorw("Failed to deploy timelock", "chain", chain.Name, "err", err)
 		return nil, err
 	}
-	lggr.Infow("deployed timelock", "addr", timelock.Address)
 	// We grant the timelock the admin role on the MCMS contracts.
 	tx, err := timelock.Contract.GrantRole(chain.DeployerKey,
 		v1_0.ADMIN_ROLE.ID, timelock.Address)
 	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
-		lggr.Errorw("Failed to grant timelock admin role", "err", err)
+		lggr.Errorw("Failed to grant timelock admin role", "chain", chain.Name, "err", err)
 		return nil, err
 	}
 	// After the proposer cycle is validated,
