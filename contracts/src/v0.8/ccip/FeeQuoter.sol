@@ -15,6 +15,7 @@ import {Internal} from "./libraries/Internal.sol";
 import {Pool} from "./libraries/Pool.sol";
 import {USDPriceWith18Decimals} from "./libraries/USDPriceWith18Decimals.sol";
 
+import {IERC165} from "../vendor/openzeppelin-solidity/v5.0.2/contracts/interfaces/IERC165.sol";
 import {EnumerableSet} from "../vendor/openzeppelin-solidity/v5.0.2/contracts/utils/structs/EnumerableSet.sol";
 
 /// @notice The FeeQuoter contract responsibility is to:
@@ -491,6 +492,14 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       s_usdPriceFeedsPerToken[sourceToken] = tokenPriceFeedConfig;
       emit PriceFeedPerTokenUpdated(sourceToken, tokenPriceFeedConfig);
     }
+  }
+
+  /// @notice Signals which version of the pool interface is supported
+  function supportsInterface(
+    bytes4 interfaceId
+  ) public pure override returns (bool) {
+    return interfaceId == type(IReceiver).interfaceId || interfaceId == type(IFeeQuoter).interfaceId
+      || interfaceId == type(ITypeAndVersion).interfaceId || interfaceId == type(IERC165).interfaceId;
   }
 
   /// @inheritdoc IReceiver

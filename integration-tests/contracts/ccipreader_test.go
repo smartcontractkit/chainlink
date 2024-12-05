@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 
 	"github.com/smartcontractkit/chainlink-ccip/plugintypes"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils/pgtest"
@@ -135,7 +136,7 @@ func setupMsgsBetweenSeqNumsTest(ctx context.Context, t testing.TB, useHeavyDB b
 
 func emitCommitReports(ctx context.Context, t *testing.T, s *testSetupData, numReports int, tokenA common.Address, onRampAddress common.Address) uint64 {
 	var firstReportTs uint64
-	for i := 0; i < numReports; i++ {
+	for i := uint8(0); int(i) < numReports; i++ {
 		_, err := s.contract.EmitCommitReportAccepted(s.auth, ccip_reader_tester.OffRampCommitReport{
 			PriceUpdates: ccip_reader_tester.InternalPriceUpdates{
 				TokenPriceUpdates: []ccip_reader_tester.InternalTokenPriceUpdate{
@@ -156,7 +157,7 @@ func emitCommitReports(ctx context.Context, t *testing.T, s *testSetupData, numR
 					SourceChainSelector: uint64(chainS1),
 					MinSeqNr:            10,
 					MaxSeqNr:            20,
-					MerkleRoot:          [32]byte{uint8(i) + 1}, //nolint:gosec // this won't overflow
+					MerkleRoot:          [32]byte{i + 1},
 					OnRampAddress:       common.LeftPadBytes(onRampAddress.Bytes(), 32),
 				},
 			},
@@ -472,7 +473,11 @@ func TestCCIPReader_GetExpectedNextSequenceNumber(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
 	//env := NewMemoryEnvironmentContractsOnly(t, logger.TestLogger(t), 2, 4, nil)
-	env := changeset.NewMemoryEnvironmentWithJobsAndContracts(t, logger.TestLogger(t), 2, 4, nil)
+	env := changeset.NewMemoryEnvironmentWithJobsAndContracts(t, logger.TestLogger(t), memory.MemoryEnvironmentConfig{
+		Chains:     2,
+		Nodes:      4,
+		Bootstraps: 1,
+	}, nil)
 	state, err := changeset.LoadOnchainState(env.Env)
 	require.NoError(t, err)
 
@@ -582,7 +587,11 @@ func TestCCIPReader_Nonces(t *testing.T) {
 func Test_GetChainFeePriceUpdates(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
-	env := changeset.NewMemoryEnvironmentWithJobsAndContracts(t, logger.TestLogger(t), 2, 4, nil)
+	env := changeset.NewMemoryEnvironmentWithJobsAndContracts(t, logger.TestLogger(t), memory.MemoryEnvironmentConfig{
+		Chains:     2,
+		Nodes:      4,
+		Bootstraps: 1,
+	}, nil)
 	state, err := changeset.LoadOnchainState(env.Env)
 	require.NoError(t, err)
 
@@ -638,7 +647,11 @@ func Test_GetChainFeePriceUpdates(t *testing.T) {
 func Test_LinkPriceUSD(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
-	env := changeset.NewMemoryEnvironmentWithJobsAndContracts(t, logger.TestLogger(t), 2, 4, nil)
+	env := changeset.NewMemoryEnvironmentWithJobsAndContracts(t, logger.TestLogger(t), memory.MemoryEnvironmentConfig{
+		Chains:     2,
+		Nodes:      4,
+		Bootstraps: 1,
+	}, nil)
 	state, err := changeset.LoadOnchainState(env.Env)
 	require.NoError(t, err)
 
@@ -673,7 +686,11 @@ func Test_LinkPriceUSD(t *testing.T) {
 func Test_GetMedianDataAvailabilityGasConfig(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
-	env := changeset.NewMemoryEnvironmentWithJobsAndContracts(t, logger.TestLogger(t), 4, 4, nil)
+	env := changeset.NewMemoryEnvironmentWithJobsAndContracts(t, logger.TestLogger(t), memory.MemoryEnvironmentConfig{
+		Chains:     4,
+		Nodes:      4,
+		Bootstraps: 1,
+	}, nil)
 	state, err := changeset.LoadOnchainState(env.Env)
 	require.NoError(t, err)
 
@@ -732,7 +749,11 @@ func Test_GetMedianDataAvailabilityGasConfig(t *testing.T) {
 func Test_GetWrappedNativeTokenPriceUSD(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
-	env := changeset.NewMemoryEnvironmentWithJobsAndContracts(t, logger.TestLogger(t), 2, 4, nil)
+	env := changeset.NewMemoryEnvironmentWithJobsAndContracts(t, logger.TestLogger(t), memory.MemoryEnvironmentConfig{
+		Chains:     2,
+		Nodes:      4,
+		Bootstraps: 1,
+	}, nil)
 	state, err := changeset.LoadOnchainState(env.Env)
 	require.NoError(t, err)
 
@@ -1289,7 +1310,7 @@ func testSetupRealContracts(
 	for chain, cr := range crs {
 		contractReaders[chain] = cr
 	}
-	contractWriters := make(map[cciptypes.ChainSelector]types.ChainWriter)
+	contractWriters := make(map[cciptypes.ChainSelector]types.ContractWriter)
 	reader := ccipreaderpkg.NewCCIPReaderWithExtendedContractReaders(ctx, lggr, contractReaders, contractWriters, cciptypes.ChainSelector(destChain), nil)
 
 	return reader
@@ -1404,7 +1425,7 @@ func testSetup(
 	for chain, cr := range otherCrs {
 		contractReaders[chain] = cr
 	}
-	contractWriters := make(map[cciptypes.ChainSelector]types.ChainWriter)
+	contractWriters := make(map[cciptypes.ChainSelector]types.ContractWriter)
 	reader := ccipreaderpkg.NewCCIPReaderWithExtendedContractReaders(ctx, lggr, contractReaders, contractWriters, params.DestChain, nil)
 
 	t.Cleanup(func() {

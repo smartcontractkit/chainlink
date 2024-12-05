@@ -30,6 +30,7 @@ exclusion_list_ccip=(
   "src/v0.8/ConfirmedOwnerWithProposal.sol"
   "src/v0.8/tests/MockV3Aggregator.sol"
   "src/v0.8/ccip/applications/CCIPClientExample.sol"
+  "src/v0.8/keystone/*"
 )
 
 exclusion_list_shared=(

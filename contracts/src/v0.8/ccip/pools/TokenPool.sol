@@ -19,18 +19,19 @@ import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts
 /// A token pool serves as isolated place for holding tokens and token specific logic
 /// that may execute as tokens move across the bridge.
 /// @dev This pool supports different decimals on different chains but using this feature could impact the total number
-/// of tokens in circulation. Since all of the tokens are burned on the source, and a rounded amount is minted on the
-/// destination, the number of tokens minted could be less than the number of tokens burned. This is because the source
-/// chain does not know about the destination token decimals. This is not a problem if the decimals are the same on both
-/// chains.
+/// of tokens in circulation. Since all of the tokens are locked/burned on the source, and a rounded amount is
+/// minted/released on the destination, the number of tokens minted/released could be less than the number of tokens
+/// burned/locked. This is because the source chain does not know about the destination token decimals. This is not a
+/// problem if the decimals are the same on both chains.
 ///
 /// Example:
 /// Assume there is a token with 6 decimals on chain A and 3 decimals on chain B.
-/// - 1.123456 tokens are burned on chain A.
+/// - 1.234567 tokens are burned on chain A.
 /// - 1.234    tokens are minted on chain B.
 /// When sending the 1.234 tokens back to chain A, you will receive 1.234000 tokens on chain A, effectively losing
-/// 0.000456 tokens. In the case of a burnMint pool, these funds are burned. In the case of a lockRelease pool, these
-/// funds accumulate in the pool on chain A.
+/// 0.000567 tokens.
+/// In the case of a burnMint pool on chain A, these funds are burned in the pool on chain A.
+/// In the case of a lockRelease pool on chain A, these funds accumulate in the pool on chain A.
 abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
   using EnumerableSet for EnumerableSet.Bytes32Set;
   using EnumerableSet for EnumerableSet.AddressSet;

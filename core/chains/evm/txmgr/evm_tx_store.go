@@ -1411,9 +1411,6 @@ func (o *evmTxStore) UpdateTxFatalErrorAndDeleteAttempts(ctx context.Context, et
 	var cancel context.CancelFunc
 	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
-	if etx.State != txmgr.TxInProgress && etx.State != txmgr.TxUnstarted && etx.State != txmgr.TxConfirmed {
-		return pkgerrors.Errorf("can only transition to fatal_error from in_progress, unstarted, or confirmed, transaction is currently %s", etx.State)
-	}
 	if !etx.Error.Valid {
 		return errors.New("expected error field to be set")
 	}

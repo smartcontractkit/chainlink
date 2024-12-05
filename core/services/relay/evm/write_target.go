@@ -68,7 +68,7 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 		return nil, fmt.Errorf("failed to marshal chainwriter config: %w", err)
 	}
 
-	cw, err := relayer.NewChainWriter(ctx, encodedWriterConfig)
+	cw, err := relayer.NewContractWriter(ctx, encodedWriterConfig)
 	if err != nil {
 		return nil, err
 	}
