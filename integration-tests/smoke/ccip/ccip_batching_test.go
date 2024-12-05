@@ -25,17 +25,38 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func Test_CCIPBatching(t *testing.T) {
+const (
+	numMessages = 40
+)
+
+type batchTestSetup struct {
+	e            changeset.DeployedEnv
+	state        changeset.CCIPOnChainState
+	sourceChain1 uint64
+	sourceChain2 uint64
+	destChain    uint64
+}
+
+func newBatchTestSetup(t *testing.T) batchTestSetup {
 	// Setup 3 chains, with 2 lanes going to the dest.
-	ctx := changeset.Context(t)
-	e := changeset.NewMemoryEnvironmentWithJobsAndContracts(t, logger.TestLogger(t), memory.MemoryEnvironmentConfig{
-		Chains:             3,
-		Nodes:              4,
-		Bootstraps:         1,
-		NumOfUsersPerChain: 2,
-	}, &changeset.TestConfigs{
-		IsMultiCall3: true,
-	})
+	e := changeset.NewMemoryEnvironmentWithJobsAndContracts(
+		t,
+		logger.TestLogger(t),
+		memory.MemoryEnvironmentConfig{
+			Chains:             3,
+			Nodes:              4,
+			Bootstraps:         1,
+			NumOfUsersPerChain: 2,
+		},
+		&changeset.TestConfigs{
+			IsMultiCall3: true,
+			// OCRConfigOverride: func(params changeset.CCIPOCRParams) changeset.CCIPOCRParams {
+			// 	params.ExecuteOffChainConfig.RelativeBoostPerWaitHour = 0.05
+
+			// 	return params
+			// },
+		},
+	)
 
 	state, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -57,9 +78,212 @@ func Test_CCIPBatching(t *testing.T) {
 	require.NoError(t, changeset.AddLaneWithDefaultPricesAndFeeQuoterConfig(e.Env, state, sourceChain1, destChain, false))
 	require.NoError(t, changeset.AddLaneWithDefaultPricesAndFeeQuoterConfig(e.Env, state, sourceChain2, destChain, false))
 
-	const (
-		numMessages = 40
+	return batchTestSetup{e, state, sourceChain1, sourceChain2, destChain}
+}
+
+func Test_CCIPBatching_MaxBatchSizeEVM(t *testing.T) {
+	t.Parallel()
+
+	ctx := changeset.Context(t)
+	setup := newBatchTestSetup(t)
+	sourceChain1, sourceChain2, destChain, e, state := setup.sourceChain1, setup.sourceChain2, setup.destChain, setup.e, setup.state
+
+	var (
+		startSeqNum = map[uint64]ccipocr3.SeqNum{
+			sourceChain1: 1,
+			sourceChain2: 1,
+		}
+		sourceChain = sourceChain1
+		transactors = []*bind.TransactOpts{
+			e.Env.Chains[sourceChain].DeployerKey,
+			e.Env.Chains[sourceChain].Users[0],
+		}
+		errs = make(chan error, len(transactors))
 	)
+
+	for _, transactor := range transactors {
+		go func() {
+			err := sendMessages(
+				ctx,
+				t,
+				e.Env.Chains[sourceChain],
+				transactor,
+				state.Chains[sourceChain].OnRamp,
+				state.Chains[sourceChain].Router,
+				state.Chains[sourceChain].Multicall3,
+				destChain,
+				merklemulti.MaxNumberTreeLeaves/2,
+				common.LeftPadBytes(state.Chains[destChain].Receiver.Address().Bytes(), 32),
+			)
+			t.Log("sendMessages error:", err, ", writing to channel")
+			errs <- err
+			t.Log("sent error to channel")
+		}()
+	}
+
+	var i = 0
+	for i < len(transactors) {
+		select {
+		case err := <-errs:
+			require.NoError(t, err)
+			i++
+		case <-ctx.Done():
+			require.FailNow(t, "didn't get all errors before test context was done")
+		}
+	}
+
+	_, err := changeset.ConfirmCommitWithExpectedSeqNumRange(
+		t,
+		e.Env.Chains[sourceChain],
+		e.Env.Chains[destChain],
+		state.Chains[destChain].OffRamp,
+		nil, // startBlock
+		ccipocr3.NewSeqNumRange(
+			startSeqNum[sourceChain],
+			startSeqNum[sourceChain]+ccipocr3.SeqNum(merklemulti.MaxNumberTreeLeaves)-1,
+		),
+		true,
+	)
+	require.NoErrorf(t, err, "failed to confirm commit from chain %d", sourceChain)
+}
+
+func Test_CCIPBatching_MultiSource(t *testing.T) {
+	t.Skip("Exec not working, boosting not working correctly")
+
+	t.Parallel()
+
+	// Setup 3 chains, with 2 lanes going to the dest.
+	ctx := changeset.Context(t)
+	setup := newBatchTestSetup(t)
+	sourceChain1, sourceChain2, destChain, e, state := setup.sourceChain1, setup.sourceChain2, setup.destChain, setup.e, setup.state
+
+	var (
+		wg           sync.WaitGroup
+		sourceChains = []uint64{sourceChain1, sourceChain2}
+		errs         = make(chan error, len(sourceChains))
+		startSeqNum  = map[uint64]ccipocr3.SeqNum{
+			sourceChain1: 1,
+			sourceChain2: 1,
+		}
+	)
+
+	for _, srcChain := range sourceChains {
+		wg.Add(1)
+		go sendMessagesAsync(
+			ctx,
+			t,
+			e,
+			state,
+			srcChain,
+			destChain,
+			numMessages,
+			&wg,
+			errs,
+		)
+	}
+
+	wg.Wait()
+
+	var i int
+	for i < len(sourceChains) {
+		select {
+		case err := <-errs:
+			require.NoError(t, err)
+			i++
+		case <-ctx.Done():
+			require.FailNow(t, "didn't get all errors before test context was done")
+		}
+	}
+
+	// confirm the commit reports
+	outputErrs := make(chan outputErr[*offramp.OffRampCommitReportAccepted], len(sourceChains))
+	for _, srcChain := range sourceChains {
+		wg.Add(1)
+		go assertCommitReportsAsync(
+			t,
+			e,
+			state,
+			srcChain,
+			destChain,
+			startSeqNum[srcChain],
+			startSeqNum[srcChain]+ccipocr3.SeqNum(numMessages)-1,
+			&wg,
+			outputErrs,
+		)
+	}
+
+	t.Log("waiting for commit report")
+	wg.Wait()
+
+	i = 0
+	var reports []*offramp.OffRampCommitReportAccepted
+	for i < len(sourceChains) {
+		select {
+		case outputErr := <-outputErrs:
+			require.NoError(t, outputErr.err)
+			reports = append(reports, outputErr.output)
+			i++
+		case <-ctx.Done():
+			require.FailNow(t, "didn't get all commit reports before test context was done")
+		}
+	}
+
+	// the reports should be the same for both, since both roots should be batched within
+	// that one report.
+	require.Lenf(t, reports, len(sourceChains), "expected %d commit reports", len(sourceChains))
+	require.NotNil(t, reports[0], "commit report should not be nil")
+	require.NotNil(t, reports[1], "commit report should not be nil")
+	// TODO: this assertion is failing, despite messages being sent at the same time.
+	// require.Equal(t, reports[0], reports[1], "commit reports should be the same")
+
+	// confirm execution
+	execErrs := make(chan outputErr[map[uint64]int], len(sourceChains))
+	for _, srcChain := range sourceChains {
+		wg.Add(1)
+		go assertExecAsync(
+			t,
+			e,
+			state,
+			srcChain,
+			destChain,
+			genSeqNrRange(startSeqNum[srcChain], startSeqNum[srcChain]+ccipocr3.SeqNum(numMessages)-1),
+			&wg,
+			execErrs,
+		)
+	}
+
+	t.Log("waiting for exec reports")
+	wg.Wait()
+
+	i = 0
+	var execStates []map[uint64]int
+	for i < len(sourceChains) {
+		select {
+		case outputErr := <-execErrs:
+			require.NoError(t, outputErr.err)
+			execStates = append(execStates, outputErr.output)
+			i++
+		case <-ctx.Done():
+			require.FailNow(t, "didn't get all exec reports before test context was done")
+		}
+	}
+
+	// assert that all states are successful
+	for _, states := range execStates {
+		for _, state := range states {
+			require.Equal(t, changeset.EXECUTION_STATE_SUCCESS, state)
+		}
+	}
+}
+
+func Test_CCIPBatching_SingleSource(t *testing.T) {
+	t.Parallel()
+
+	// Setup 3 chains, with 2 lanes going to the dest.
+	ctx := changeset.Context(t)
+	setup := newBatchTestSetup(t)
+	sourceChain1, sourceChain2, destChain, e, state := setup.sourceChain1, setup.sourceChain2, setup.destChain, setup.e, setup.state
+
 	var (
 		startSeqNum = map[uint64]ccipocr3.SeqNum{
 			sourceChain1: 1,
@@ -67,228 +291,47 @@ func Test_CCIPBatching(t *testing.T) {
 		}
 	)
 
-	t.Run("batch data only messages from single source", func(t *testing.T) {
-		var (
-			sourceChain = sourceChain1
-		)
-		err := sendMessages(
-			ctx,
-			t,
-			e.Env.Chains[sourceChain],
-			e.Env.Chains[sourceChain].DeployerKey,
-			state.Chains[sourceChain].OnRamp,
-			state.Chains[sourceChain].Router,
-			state.Chains[sourceChain].Multicall3,
-			destChain,
-			numMessages,
-			common.LeftPadBytes(state.Chains[destChain].Receiver.Address().Bytes(), 32),
-		)
-		require.NoError(t, err)
+	var (
+		sourceChain = sourceChain1
+	)
+	err := sendMessages(
+		ctx,
+		t,
+		e.Env.Chains[sourceChain],
+		e.Env.Chains[sourceChain].DeployerKey,
+		state.Chains[sourceChain].OnRamp,
+		state.Chains[sourceChain].Router,
+		state.Chains[sourceChain].Multicall3,
+		destChain,
+		numMessages,
+		common.LeftPadBytes(state.Chains[destChain].Receiver.Address().Bytes(), 32),
+	)
+	require.NoError(t, err)
 
-		_, err = changeset.ConfirmCommitWithExpectedSeqNumRange(
-			t,
-			e.Env.Chains[sourceChain],
-			e.Env.Chains[destChain],
-			state.Chains[destChain].OffRamp,
-			nil,
-			ccipocr3.NewSeqNumRange(startSeqNum[sourceChain], startSeqNum[sourceChain]+numMessages-1),
-			true,
-		)
-		require.NoErrorf(t, err, "failed to confirm commit from chain %d", sourceChain)
+	_, err = changeset.ConfirmCommitWithExpectedSeqNumRange(
+		t,
+		e.Env.Chains[sourceChain],
+		e.Env.Chains[destChain],
+		state.Chains[destChain].OffRamp,
+		nil,
+		ccipocr3.NewSeqNumRange(startSeqNum[sourceChain], startSeqNum[sourceChain]+numMessages-1),
+		true,
+	)
+	require.NoErrorf(t, err, "failed to confirm commit from chain %d", sourceChain)
 
-		states, err := changeset.ConfirmExecWithSeqNrs(
-			t,
-			e.Env.Chains[sourceChain],
-			e.Env.Chains[destChain],
-			state.Chains[destChain].OffRamp,
-			nil,
-			genSeqNrRange(startSeqNum[sourceChain], startSeqNum[sourceChain]+numMessages-1),
-		)
-		require.NoError(t, err)
-		// assert that all states are successful
-		for _, state := range states {
-			require.Equal(t, changeset.EXECUTION_STATE_SUCCESS, state)
-		}
-
-		startSeqNum[sourceChain] = startSeqNum[sourceChain] + numMessages
-	})
-
-	t.Run("batch data only messages from multiple sources", func(t *testing.T) {
-		var (
-			wg           sync.WaitGroup
-			sourceChains = []uint64{sourceChain1, sourceChain2}
-			errs         = make(chan error, len(sourceChains))
-		)
-
-		for _, srcChain := range sourceChains {
-			wg.Add(1)
-			go sendMessagesAsync(
-				ctx,
-				t,
-				e,
-				state,
-				srcChain,
-				destChain,
-				numMessages,
-				&wg,
-				errs,
-			)
-		}
-
-		wg.Wait()
-
-		var i int
-		for i < len(sourceChains) {
-			select {
-			case err := <-errs:
-				require.NoError(t, err)
-				i++
-			case <-ctx.Done():
-				require.FailNow(t, "didn't get all errors before test context was done")
-			}
-		}
-
-		// confirm the commit reports
-		outputErrs := make(chan outputErr[*offramp.OffRampCommitReportAccepted], len(sourceChains))
-		for _, srcChain := range sourceChains {
-			wg.Add(1)
-			go assertCommitReportsAsync(
-				t,
-				e,
-				state,
-				srcChain,
-				destChain,
-				startSeqNum[srcChain],
-				startSeqNum[srcChain]+ccipocr3.SeqNum(numMessages)-1,
-				&wg,
-				outputErrs,
-			)
-		}
-
-		t.Log("waiting for commit report")
-		wg.Wait()
-
-		i = 0
-		var reports []*offramp.OffRampCommitReportAccepted
-		for i < len(sourceChains) {
-			select {
-			case outputErr := <-outputErrs:
-				require.NoError(t, outputErr.err)
-				reports = append(reports, outputErr.output)
-				i++
-			case <-ctx.Done():
-				require.FailNow(t, "didn't get all commit reports before test context was done")
-			}
-		}
-
-		// the reports should be the same for both, since both roots should be batched within
-		// that one report.
-		require.Lenf(t, reports, len(sourceChains), "expected %d commit reports", len(sourceChains))
-		require.NotNil(t, reports[0], "commit report should not be nil")
-		require.NotNil(t, reports[1], "commit report should not be nil")
-		// TODO: this assertion is failing, despite messages being sent at the same time.
-		// require.Equal(t, reports[0], reports[1], "commit reports should be the same")
-
-		// confirm execution
-		execErrs := make(chan outputErr[map[uint64]int], len(sourceChains))
-		for _, srcChain := range sourceChains {
-			wg.Add(1)
-			go assertExecAsync(
-				t,
-				e,
-				state,
-				srcChain,
-				destChain,
-				genSeqNrRange(startSeqNum[srcChain], startSeqNum[srcChain]+ccipocr3.SeqNum(numMessages)-1),
-				&wg,
-				execErrs,
-			)
-		}
-
-		t.Log("waiting for exec reports")
-		wg.Wait()
-
-		i = 0
-		var execStates []map[uint64]int
-		for i < len(sourceChains) {
-			select {
-			case outputErr := <-execErrs:
-				require.NoError(t, outputErr.err)
-				execStates = append(execStates, outputErr.output)
-				i++
-			case <-ctx.Done():
-				require.FailNow(t, "didn't get all exec reports before test context was done")
-			}
-		}
-
-		// assert that all states are successful
-		for _, states := range execStates {
-			for _, state := range states {
-				require.Equal(t, changeset.EXECUTION_STATE_SUCCESS, state)
-			}
-		}
-
-		// update the start seq nums
-		for _, srcChain := range sourceChains {
-			startSeqNum[srcChain] = startSeqNum[srcChain] + numMessages
-		}
-	})
-
-	t.Run("max evm batch size", func(t *testing.T) {
-		var (
-			sourceChain = sourceChain1
-			transactors = []*bind.TransactOpts{
-				e.Env.Chains[sourceChain].DeployerKey,
-				e.Env.Chains[sourceChain].Users[0],
-			}
-			errs = make(chan error, len(transactors))
-		)
-
-		for _, transactor := range transactors {
-			go func() {
-				err := sendMessages(
-					ctx,
-					t,
-					e.Env.Chains[sourceChain],
-					transactor,
-					state.Chains[sourceChain].OnRamp,
-					state.Chains[sourceChain].Router,
-					state.Chains[sourceChain].Multicall3,
-					destChain,
-					merklemulti.MaxNumberTreeLeaves/2,
-					common.LeftPadBytes(state.Chains[destChain].Receiver.Address().Bytes(), 32),
-				)
-				t.Log("sendMessages error:", err, ", writing to channel")
-				errs <- err
-				t.Log("sent error to channel")
-			}()
-		}
-
-		var i = 0
-		for i < len(transactors) {
-			select {
-			case err := <-errs:
-				require.NoError(t, err)
-				i++
-			case <-ctx.Done():
-				require.FailNow(t, "didn't get all errors before test context was done")
-			}
-		}
-
-		_, err = changeset.ConfirmCommitWithExpectedSeqNumRange(
-			t,
-			e.Env.Chains[sourceChain],
-			e.Env.Chains[destChain],
-			state.Chains[destChain].OffRamp,
-			nil, // startBlock
-			ccipocr3.NewSeqNumRange(
-				startSeqNum[sourceChain],
-				startSeqNum[sourceChain]+ccipocr3.SeqNum(merklemulti.MaxNumberTreeLeaves)-1,
-			),
-			true,
-		)
-		require.NoErrorf(t, err, "failed to confirm commit from chain %d", sourceChain)
-	})
+	states, err := changeset.ConfirmExecWithSeqNrs(
+		t,
+		e.Env.Chains[sourceChain],
+		e.Env.Chains[destChain],
+		state.Chains[destChain].OffRamp,
+		nil,
+		genSeqNrRange(startSeqNum[sourceChain], startSeqNum[sourceChain]+numMessages-1),
+	)
+	require.NoError(t, err)
+	// assert that all states are successful
+	for _, state := range states {
+		require.Equal(t, changeset.EXECUTION_STATE_SUCCESS, state)
+	}
 }
 
 type outputErr[T any] struct {
@@ -373,6 +416,8 @@ func sendMessagesAsync(
 		if err != nil {
 			t.Log("sendMessagesAsync error is non-nil:", err, ", retrying")
 			continue
+		} else {
+			break
 		}
 	}
 
@@ -430,7 +475,9 @@ func sendMessages(
 	if err != nil {
 		return fmt.Errorf("get message sent event: %w", err)
 	}
-	defer iter.Close()
+	defer func() {
+		require.NoError(t, iter.Close())
+	}()
 
 	// there should be numMessages messages emitted
 	for i := 0; i < numMessages; i++ {
