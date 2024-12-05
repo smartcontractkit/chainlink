@@ -34,7 +34,6 @@ import (
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -50,8 +49,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
-	capabilities2 "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
-	common2 "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/headreporter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
@@ -303,30 +300,13 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 					return nil, fmt.Errorf("expected 1 key, got %d", len(keys))
 				}
 
-				connector := gatewayConnectorWrapper.GetGatewayConnector()
-				webAPILggr := globalLogger.Named("WebAPITarget")
-
-				webAPIConfig := webapi.ServiceConfig{
-					RateLimiter: common2.RateLimiterConfig{
-						GlobalRPS:      100.0,
-						GlobalBurst:    100,
-						PerSenderRPS:   100.0,
-						PerSenderBurst: 100,
-					},
-				}
-
-				outgoingConnectorHandler, err := webapi.NewOutgoingConnectorHandler(connector,
-					webAPIConfig,
-					capabilities2.MethodWebAPITarget, webAPILggr)
-				if err != nil {
-					return nil, fmt.Errorf("could not create outgoing connector handler: %w", err)
-				}
+				fetcher := syncer.NewFetcherService(globalLogger, gatewayConnectorWrapper)
 
 				eventHandler := syncer.NewEventHandler(globalLogger, syncer.NewWorkflowRegistryDS(opts.DS, globalLogger),
-					syncer.NewFetcherFunc(globalLogger, outgoingConnectorHandler), workflowstore.NewDBStore(opts.DS, globalLogger, clockwork.NewRealClock()), opts.CapabilitiesRegistry,
+					fetcher.Fetch, workflowstore.NewDBStore(opts.DS, globalLogger, clockwork.NewRealClock()), opts.CapabilitiesRegistry,
 					custmsg.NewLabeler(), clockwork.NewRealClock(), keys[0])
 
-				loader := syncer.NewWorkflowRegistryContractLoader(cfg.Capabilities().WorkflowRegistry().Address(), func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
+				loader := syncer.NewWorkflowRegistryContractLoader(globalLogger, cfg.Capabilities().WorkflowRegistry().Address(), func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
 					return relayer.NewContractReader(ctx, bytes)
 				}, eventHandler)
 
@@ -338,7 +318,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 						QueryCount: 100,
 					}, eventHandler, loader, workflowDonNotifier)
 
-				srvcs = append(srvcs, wfSyncer)
+				srvcs = append(srvcs, fetcher, wfSyncer)
 			}
 		}
 	} else {

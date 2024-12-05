@@ -31,7 +31,7 @@ const transactionStatusCheckInterval = 2 * time.Second
 
 type WriteTarget struct {
 	cr               ContractValueGetter
-	cw               commontypes.ChainWriter
+	cw               commontypes.ContractWriter
 	binding          commontypes.BoundContract
 	forwarderAddress string
 	// The minimum amount of gas that the receiver contract must get to process the forwarder report
@@ -67,7 +67,7 @@ func NewWriteTarget(
 	lggr logger.Logger,
 	id string,
 	cr ContractValueGetter,
-	cw commontypes.ChainWriter,
+	cw commontypes.ContractWriter,
 	forwarderAddress string,
 	txGasLimit uint64,
 ) *WriteTarget {

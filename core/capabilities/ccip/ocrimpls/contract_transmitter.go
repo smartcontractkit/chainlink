@@ -56,7 +56,7 @@ func ToExecCalldata(rawReportCtx [3][32]byte, report []byte, _, _ [][32]byte, _ 
 var _ ocr3types.ContractTransmitter[[]byte] = &commitTransmitter[[]byte]{}
 
 type commitTransmitter[RI any] struct {
-	cw             commontypes.ChainWriter
+	cw             commontypes.ContractWriter
 	fromAccount    ocrtypes.Account
 	contractName   string
 	method         string
@@ -65,7 +65,7 @@ type commitTransmitter[RI any] struct {
 }
 
 func XXXNewContractTransmitterTestsOnly[RI any](
-	cw commontypes.ChainWriter,
+	cw commontypes.ContractWriter,
 	fromAccount ocrtypes.Account,
 	contractName string,
 	method string,
@@ -83,7 +83,7 @@ func XXXNewContractTransmitterTestsOnly[RI any](
 }
 
 func NewCommitContractTransmitter[RI any](
-	cw commontypes.ChainWriter,
+	cw commontypes.ContractWriter,
 	fromAccount ocrtypes.Account,
 	offrampAddress string,
 ) ocr3types.ContractTransmitter[RI] {
@@ -98,7 +98,7 @@ func NewCommitContractTransmitter[RI any](
 }
 
 func NewExecContractTransmitter[RI any](
-	cw commontypes.ChainWriter,
+	cw commontypes.ContractWriter,
 	fromAccount ocrtypes.Account,
 	offrampAddress string,
 ) ocr3types.ContractTransmitter[RI] {

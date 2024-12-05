@@ -28,27 +28,6 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
 	p2pIds := nodes.NonBootstraps().PeerIDs()
-	// deploy home chain
-	homeChainCfg := DeployHomeChainConfig{
-		HomeChainSel:     homeChainSel,
-		RMNStaticConfig:  NewTestRMNStaticConfig(),
-		RMNDynamicConfig: NewTestRMNDynamicConfig(),
-		NodeOperators:    NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
-		NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
-			"NodeOperator": p2pIds,
-		},
-	}
-	output, err := DeployHomeChain(e, homeChainCfg)
-	require.NoError(t, err)
-	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook))
-
-	// deploy pre-requisites
-	prerequisites, err := DeployPrerequisites(e, DeployPrerequisiteConfig{
-		ChainSelectors: selectors,
-	})
-	require.NoError(t, err)
-	require.NoError(t, e.ExistingAddresses.Merge(prerequisites.AddressBook))
-
 	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 	for _, chain := range e.AllChainSelectors() {
 		cfg[chain] = commontypes.MCMSWithTimelockConfig{
@@ -59,17 +38,42 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 			TimelockMinDelay:  big.NewInt(0),
 		}
 	}
-	output, err = commonchangeset.DeployMCMSWithTimelock(e, cfg)
-	require.NoError(t, err)
-	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook))
-
-	// deploy ccip chain contracts
-	output, err = DeployChainContracts(e, DeployChainContractsConfig{
-		ChainSelectors:    selectors,
-		HomeChainSelector: homeChainSel,
+	e, err = commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(DeployHomeChain),
+			Config: DeployHomeChainConfig{
+				HomeChainSel:     homeChainSel,
+				RMNStaticConfig:  NewTestRMNStaticConfig(),
+				RMNDynamicConfig: NewTestRMNDynamicConfig(),
+				NodeOperators:    NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
+				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
+					"NodeOperator": p2pIds,
+				},
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
+			Config:    selectors,
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployMCMSWithTimelock),
+			Config:    cfg,
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(DeployPrerequisites),
+			Config: DeployPrerequisiteConfig{
+				ChainSelectors: selectors,
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(DeployChainContracts),
+			Config: DeployChainContractsConfig{
+				ChainSelectors:    selectors,
+				HomeChainSelector: homeChainSel,
+			},
+		},
 	})
 	require.NoError(t, err)
-	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook))
 
 	// load onchain state
 	state, err := LoadOnchainState(e)
