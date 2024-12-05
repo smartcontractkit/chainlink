@@ -3,6 +3,7 @@ package memory
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -69,7 +70,7 @@ func generateMemoryChain(t *testing.T, inputs map[uint64]EVMChain) map[uint64]de
 	chains := make(map[uint64]deployment.Chain)
 	for cid, chain := range inputs {
 		chain := chain
-		chainInfo, err := deployment.ChainInfo(cid)
+		chainInfo, err := chainsel.GetChainDetailsByChainIDAndFamily(strconv.FormatUint(cid, 10), chainsel.FamilyEVM)
 		require.NoError(t, err)
 		backend := NewBackend(chain.Backend)
 		chains[chainInfo.ChainSelector] = deployment.Chain{

@@ -13,7 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view"
@@ -242,12 +241,7 @@ type CCIPOnChainState struct {
 func (s CCIPOnChainState) View(chains []uint64) (map[string]view.ChainView, error) {
 	m := make(map[string]view.ChainView)
 	for _, chainSelector := range chains {
-		// TODO: Need a utility for this
-		chainid, err := chainsel.ChainIdFromSelector(chainSelector)
-		if err != nil {
-			return m, err
-		}
-		chainName, err := chainsel.NameFromChainId(chainid)
+		chainInfo, err := deployment.ChainInfo(chainSelector)
 		if err != nil {
 			return m, err
 		}
@@ -259,7 +253,7 @@ func (s CCIPOnChainState) View(chains []uint64) (map[string]view.ChainView, erro
 		if err != nil {
 			return m, err
 		}
-		m[chainName] = chainView
+		m[chainInfo.ChainName] = chainView
 	}
 	return m, nil
 }
