@@ -1,6 +1,7 @@
 package v1_0
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -18,15 +19,15 @@ type LinkTokenView struct {
 func GenerateLinkTokenView(lt *link_token.LinkToken) (LinkTokenView, error) {
 	owner, err := lt.Owner(nil)
 	if err != nil {
-		return LinkTokenView{}, err
+		return LinkTokenView{}, fmt.Errorf("view error to get link token owner addr %s: %w", lt.Address().String(), err)
 	}
 	decimals, err := lt.Decimals(nil)
 	if err != nil {
-		return LinkTokenView{}, err
+		return LinkTokenView{}, fmt.Errorf("view error to get link token decimals addr %s: %w", lt.Address().String(), err)
 	}
 	totalSupply, err := lt.TotalSupply(nil)
 	if err != nil {
-		return LinkTokenView{}, err
+		return LinkTokenView{}, fmt.Errorf("view error to get link token total supply addr %s: %w", lt.Address().String(), err)
 	}
 	return LinkTokenView{
 		ContractMetaData: types.ContractMetaData{

@@ -35,11 +35,8 @@ type MemoryEnvironmentConfig struct {
 
 // For placeholders like aptos
 func NewMemoryChain(t *testing.T, selector uint64) deployment.Chain {
-	chainInfo, err := deployment.ChainInfo(selector)
-	require.NoError(t, err)
 	return deployment.Chain{
 		Selector:    selector,
-		Name:        chainInfo.ChainName,
 		Client:      nil,
 		DeployerKey: &bind.TransactOpts{},
 		Confirm: func(tx *types.Transaction) (uint64, error) {
@@ -75,7 +72,6 @@ func generateMemoryChain(t *testing.T, inputs map[uint64]EVMChain) map[uint64]de
 		backend := NewBackend(chain.Backend)
 		chains[chainInfo.ChainSelector] = deployment.Chain{
 			Selector:    chainInfo.ChainSelector,
-			Name:        chainInfo.ChainName,
 			Client:      backend,
 			DeployerKey: chain.DeployerKey,
 			Confirm: func(tx *types.Transaction) (uint64, error) {

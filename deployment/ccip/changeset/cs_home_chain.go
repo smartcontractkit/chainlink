@@ -112,7 +112,7 @@ func deployCapReg(
 			}
 		})
 	if err != nil {
-		lggr.Errorw("Failed to deploy capreg", "chain", chain.Name, "err", err)
+		lggr.Errorw("Failed to deploy capreg", "chain", chain.Name(), "err", err)
 		return nil, err
 	}
 	return capReg, nil
@@ -153,7 +153,7 @@ func deployHomeChain(
 			}
 		})
 	if err != nil {
-		lggr.Errorw("Failed to deploy CCIPHome", "chain", chain.Name, "err", err)
+		lggr.Errorw("Failed to deploy CCIPHome", "chain", chain.Name(), "err", err)
 		return nil, err
 	}
 
@@ -170,7 +170,7 @@ func deployHomeChain(
 		},
 	)
 	if err != nil {
-		lggr.Errorw("Failed to deploy RMNHome", "chain", chain.Name, "err", err)
+		lggr.Errorw("Failed to deploy RMNHome", "chain", chain.Name(), "err", err)
 		return nil, err
 	}
 
@@ -183,19 +183,19 @@ func deployHomeChain(
 
 	rmnCandidateDigest, err := rmnHome.Contract.GetCandidateDigest(nil)
 	if err != nil {
-		lggr.Errorw("Failed to get RMNHome candidate digest", "chain", chain.Name, "err", err)
+		lggr.Errorw("Failed to get RMNHome candidate digest", "chain", chain.Name(), "err", err)
 		return nil, err
 	}
 
 	tx, err = rmnHome.Contract.PromoteCandidateAndRevokeActive(chain.DeployerKey, rmnCandidateDigest, [32]byte{})
 	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
-		lggr.Errorw("Failed to promote candidate and revoke active on RMNHome", "chain", chain.Name, "err", err)
+		lggr.Errorw("Failed to promote candidate and revoke active on RMNHome", "chain", chain.Name(), "err", err)
 		return nil, err
 	}
 
 	rmnActiveDigest, err := rmnHome.Contract.GetActiveDigest(nil)
 	if err != nil {
-		lggr.Errorw("Failed to get RMNHome active digest", "chain", chain.Name, "err", err)
+		lggr.Errorw("Failed to get RMNHome active digest", "chain", chain.Name(), "err", err)
 		return nil, err
 	}
 	lggr.Infow("Got rmn home active digest", "digest", rmnActiveDigest)
@@ -216,14 +216,14 @@ func deployHomeChain(
 		},
 	})
 	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
-		lggr.Errorw("Failed to add capabilities", "chain", chain.Name, "err", err)
+		lggr.Errorw("Failed to add capabilities", "chain", chain.Name(), "err", err)
 		return nil, err
 	}
 
 	tx, err = capReg.Contract.AddNodeOperators(chain.DeployerKey, nodeOps)
 	txBlockNum, err := deployment.ConfirmIfNoError(chain, tx, err)
 	if err != nil {
-		lggr.Errorw("Failed to add node operators", "chain", chain.Name, "err", err)
+		lggr.Errorw("Failed to add node operators", "chain", chain.Name(), "err", err)
 		return nil, err
 	}
 	addedEvent, err := capReg.Contract.FilterNodeOperatorAdded(&bind.FilterOpts{
@@ -231,7 +231,7 @@ func deployHomeChain(
 		Context: context.Background(),
 	}, nil, nil)
 	if err != nil {
-		lggr.Errorw("Failed to filter NodeOperatorAdded event", "chain", chain.Name, "err", err)
+		lggr.Errorw("Failed to filter NodeOperatorAdded event", "chain", chain.Name(), "err", err)
 		return capReg, err
 	}
 	// Need to fetch nodeoperators ids to be able to add nodes for corresponding node operators
@@ -245,7 +245,7 @@ func deployHomeChain(
 		}
 	}
 	if len(p2pIDsByNodeOpId) != len(nodeP2PIDsPerNodeOpAdmin) {
-		lggr.Errorw("Failed to add all node operators", "added", maps.Keys(p2pIDsByNodeOpId), "expected", maps.Keys(nodeP2PIDsPerNodeOpAdmin), "chain", chain.Name)
+		lggr.Errorw("Failed to add all node operators", "added", maps.Keys(p2pIDsByNodeOpId), "expected", maps.Keys(nodeP2PIDsPerNodeOpAdmin), "chain", chain.Name())
 		return capReg, errors.New("failed to add all node operators")
 	}
 	// Adds initial set of nodes to CR, who all have the CCIP capability
@@ -316,7 +316,7 @@ func addNodes(
 	}
 	tx, err := capReg.AddNodes(chain.DeployerKey, nodeParams)
 	if err != nil {
-		lggr.Errorw("Failed to add nodes", "chain", chain.Name, "err", deployment.MaybeDataErr(err))
+		lggr.Errorw("Failed to add nodes", "chain", chain.Name(), "err", deployment.MaybeDataErr(err))
 		return err
 	}
 	_, err = chain.Confirm(tx)

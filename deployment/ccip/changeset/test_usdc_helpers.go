@@ -175,13 +175,13 @@ func DeployUSDC(
 			}
 		})
 	if err != nil {
-		lggr.Errorw("Failed to deploy USDC token", "chain", chain.Name, "err", err)
+		lggr.Errorw("Failed to deploy USDC token", "chain", chain.Name(), "err", err)
 		return nil, nil, nil, nil, err
 	}
 
 	tx, err := token.Contract.GrantMintRole(chain.DeployerKey, chain.DeployerKey.From)
 	if err != nil {
-		lggr.Errorw("Failed to grant mint role", "chain", chain.Name, "token", token.Contract.Address(), "err", err)
+		lggr.Errorw("Failed to grant mint role", "chain", chain.Name(), "token", token.Contract.Address(), "err", err)
 		return nil, nil, nil, nil, err
 	}
 	_, err = chain.Confirm(tx)
@@ -207,7 +207,7 @@ func DeployUSDC(
 			}
 		})
 	if err != nil {
-		lggr.Errorw("Failed to deploy mock USDC transmitter", "chain", chain.Name, "err", err)
+		lggr.Errorw("Failed to deploy mock USDC transmitter", "chain", chain.Name(), "err", err)
 		return nil, nil, nil, nil, err
 	}
 
@@ -228,7 +228,7 @@ func DeployUSDC(
 			}
 		})
 	if err != nil {
-		lggr.Errorw("Failed to deploy USDC token messenger", "chain", chain.Name, "err", err)
+		lggr.Errorw("Failed to deploy USDC token messenger", "chain", chain.Name(), "err", err)
 		return nil, nil, nil, nil, err
 	}
 
@@ -252,7 +252,7 @@ func DeployUSDC(
 			}
 		})
 	if err != nil {
-		lggr.Errorw("Failed to deploy USDC token pool", "chain", chain.Name, "err", err)
+		lggr.Errorw("Failed to deploy USDC token pool", "chain", chain.Name(), "err", err)
 		return nil, nil, nil, nil, err
 	}
 

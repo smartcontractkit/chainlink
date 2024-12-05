@@ -50,11 +50,24 @@ type OffchainClient interface {
 type Chain struct {
 	// Selectors used as canonical chain identifier.
 	Selector uint64
-	Name     string
+	name     string
 	Client   OnchainClient
 	// Note the Sign function can be abstract supporting a variety of key storage mechanisms (e.g. KMS etc).
 	DeployerKey *bind.TransactOpts
 	Confirm     func(tx *types.Transaction) (uint64, error)
+}
+
+func (c Chain) Name() string {
+	return c.name
+}
+
+func (c Chain) mustSetName() {
+	chainInfo, err := ChainInfo(c.Selector)
+	if err != nil {
+		// we should never get here, if the selector is invalid it should not be in the environment
+		panic(err)
+	}
+	c.name = chainInfo.ChainName
 }
 
 // Environment represents an instance of a deployed product
@@ -89,6 +102,9 @@ func NewEnvironment(
 	offchain OffchainClient,
 	ctx func() context.Context,
 ) *Environment {
+	for i := range chains {
+		chains[i].mustSetName()
+	}
 	return &Environment{
 		Name:              name,
 		Logger:            logger,
@@ -145,7 +161,7 @@ func ConfirmIfNoError(chain Chain, tx *types.Transaction, err error) (uint64, er
 		var d rpc.DataError
 		ok := errors.As(err, &d)
 		if ok {
-			return 0, fmt.Errorf("transaction reverted on chain %s: Error %s ErrorData %v", chain.Name, d.Error(), d.ErrorData())
+			return 0, fmt.Errorf("transaction reverted on chain %s: Error %s ErrorData %v", chain.Name(), d.Error(), d.ErrorData())
 		}
 		return 0, err
 	}

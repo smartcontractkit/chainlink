@@ -110,11 +110,10 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]deployme
 		}
 		chainInfo, err := deployment.ChainInfo(selector)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get chain info for chain %d: %w", selector, err)
+			return nil, fmt.Errorf("failed to get chain info for chain %s: %w", chainCfg.ChainName, err)
 		}
 		chains[selector] = deployment.Chain{
-			Selector:    chainInfo.ChainSelector,
-			Name:        chainInfo.ChainName,
+			Selector:    selector,
 			Client:      ec,
 			DeployerKey: chainCfg.DeployerKey,
 			Confirm: func(tx *types.Transaction) (uint64, error) {
