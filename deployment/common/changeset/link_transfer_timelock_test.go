@@ -98,20 +98,29 @@ func TestLinkTransferTimelock(t *testing.T) {
 		{
 			Changeset: changeset.WrapChangeSet(changeset.LinkTransferTimelock),
 			Config: &changeset.LinkTransferTimelockRequest{
-				Transfers: []changeset.LinkTransfer{
-					{
-						To:    chain.DeployerKey.From,
-						Value: *big.NewInt(500),
+				Transfers: map[uint64][]changeset.LinkTransfer{
+					chainSelector: {
+						{
+							To:    chain.DeployerKey.From,
+							Value: *big.NewInt(500),
+						},
 					},
 				},
-				ChainSelector:    chainSelector,
-				LinkTokenAddress: common.HexToAddress(linkAddress),
-				TimelockAddress:  common.HexToAddress(timelockAddress),
-				MCMSAddress:      common.HexToAddress(mcmsAddress),
-				ValidUntil:       4131638958,
-				MinDelay:         0,
-				OverrideRoot:     true,
-				StartingOpCount:  0, // we need to set this to 1 to account for the previous mcsm proposal with 1 op.
+				LinkTokenAddress: map[uint64]common.Address{
+					chainSelector: common.HexToAddress(linkAddress),
+				},
+				TimelockAddress: map[uint64]common.Address{
+					chainSelector: common.HexToAddress(timelockAddress),
+				},
+				MCMSAddress: map[uint64]common.Address{
+					chainSelector: common.HexToAddress(mcmsAddress),
+				},
+				ValidUntil:   4131638958,
+				MinDelay:     0,
+				OverrideRoot: true,
+				StartingOpCount: map[uint64]uint64{
+					chainSelector: 0,
+				},
 			},
 		},
 	})

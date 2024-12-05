@@ -18,53 +18,66 @@ type LinkTransfer struct {
 	Value big.Int
 }
 type LinkTransferTimelockRequest struct {
-	Transfers        []LinkTransfer
-	ChainSelector    uint64
-	LinkTokenAddress common.Address
-	TimelockAddress  common.Address
-	MCMSAddress      common.Address
+	Transfers        map[uint64][]LinkTransfer
+	LinkTokenAddress map[uint64]common.Address
+	TimelockAddress  map[uint64]common.Address
+	MCMSAddress      map[uint64]common.Address
 	ValidUntil       uint32        // unix time until the proposal will be valid
 	MinDelay         time.Duration // delay for timelock worker to execute the transfers.
 	OverrideRoot     bool
-	StartingOpCount  uint64
+	StartingOpCount  map[uint64]uint64
 }
 
 var _ deployment.ChangeSet[*LinkTransferTimelockRequest] = LinkTransferTimelock
 
 // LinkTransferTimelock takes the given link transfers and creates an MCMS proposal for them.
 func LinkTransferTimelock(e deployment.Environment, req *LinkTransferTimelockRequest) (deployment.ChangesetOutput, error) {
-	chainID := mcms.ChainIdentifier(req.ChainSelector)
-	chain := e.Chains[req.ChainSelector]
-	linkContract, err := link_token.NewLinkToken(req.LinkTokenAddress, chain.Client)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get link contract: %w", err)
-	}
-
-	chainMetadata := map[mcms.ChainIdentifier]mcms.ChainMetadata{
-		chainID: {MCMAddress: req.MCMSAddress, StartingOpCount: req.StartingOpCount},
-	}
-	timelockAddresses := map[mcms.ChainIdentifier]common.Address{
-		chainID: req.TimelockAddress,
-	}
-	batch := timelock.BatchChainOperation{
-		ChainIdentifier: chainID,
-		Batch:           []mcms.Operation{},
-	}
-
-	for _, transfer := range req.Transfers {
-		tx, err := linkContract.Transfer(deployment.SimTransactOpts(), transfer.To, &transfer.Value)
+	chainMetadata := map[mcms.ChainIdentifier]mcms.ChainMetadata{}
+	timelockAddresses := map[mcms.ChainIdentifier]common.Address{}
+	allBatches := []timelock.BatchChainOperation{}
+	for chainSelector := range req.Transfers {
+		if _, ok := req.LinkTokenAddress[chainSelector]; !ok {
+			return deployment.ChangesetOutput{}, fmt.Errorf("missing link token address for chain %d", chainSelector)
+		}
+		if _, ok := req.TimelockAddress[chainSelector]; !ok {
+			return deployment.ChangesetOutput{}, fmt.Errorf("missing timelock address for chain %d", chainSelector)
+		}
+		if _, ok := req.MCMSAddress[chainSelector]; !ok {
+			return deployment.ChangesetOutput{}, fmt.Errorf("missing MCMS address for chain %d", chainSelector)
+		}
+		chainID := mcms.ChainIdentifier(chainSelector)
+		chain := e.Chains[chainSelector]
+		linkContract, err := link_token.NewLinkToken(req.LinkTokenAddress[chainSelector], chain.Client)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("error packing transfer tx data: %w", err)
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get link contract: %w", err)
 		}
-		op := mcms.Operation{
-			To:           req.LinkTokenAddress,
-			Data:         tx.Data(),
-			Value:        big.NewInt(0),
-			ContractType: "LinkToken",
+		chainMetadata[chainID] = mcms.ChainMetadata{
+			MCMAddress:      req.MCMSAddress[chainSelector],
+			StartingOpCount: req.StartingOpCount[chainSelector],
 		}
-		batch.Batch = append(batch.Batch, op)
+		timelockAddresses[chainID] = req.TimelockAddress[chainSelector]
+		batch := timelock.BatchChainOperation{
+			ChainIdentifier: chainID,
+			Batch:           []mcms.Operation{},
+		}
 
+		for _, transfer := range req.Transfers[chainSelector] {
+			tx, err := linkContract.Transfer(deployment.SimTransactOpts(), transfer.To, &transfer.Value)
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("error packing transfer tx data: %w", err)
+			}
+			op := mcms.Operation{
+				To:           req.LinkTokenAddress[chainSelector],
+				Data:         tx.Data(),
+				Value:        big.NewInt(0),
+				ContractType: "LinkToken",
+			}
+			batch.Batch = append(batch.Batch, op)
+
+		}
+		allBatches = append(allBatches, batch)
 	}
+
 	proposal, err := timelock.NewMCMSWithTimelockProposal(
 		"1",
 		req.ValidUntil,
@@ -73,7 +86,7 @@ func LinkTransferTimelock(e deployment.Environment, req *LinkTransferTimelockReq
 		chainMetadata,
 		timelockAddresses,
 		"Value transfer proposal",
-		[]timelock.BatchChainOperation{batch}, // 1 batch with all the transfers on the same batch
+		allBatches,
 		timelock.Schedule,
 		req.MinDelay.String(),
 	)
