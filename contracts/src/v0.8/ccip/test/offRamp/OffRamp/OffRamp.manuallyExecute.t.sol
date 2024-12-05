@@ -562,6 +562,26 @@ contract OffRamp_manuallyExecute is OffRampSetup {
     s_offRamp.manuallyExecute(reports, gasLimitOverrides);
   }
 
+  function test_manuallyExecute_CursedByRMNLegacySubject_Revert() public {
+    _setMockRMNGlobalCurse(true);
+
+    Internal.Any2EVMRampMessage[] memory messages1 = new Internal.Any2EVMRampMessage[](1);
+
+    messages1[0] = _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1);
+    messages1[0].receiver = address(s_reverting_receiver);
+    messages1[0].header.messageId = _hashMessage(messages1[0], ON_RAMP_ADDRESS_1);
+
+    Internal.ExecutionReport[] memory reports = new Internal.ExecutionReport[](1);
+    reports[0] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages1);
+
+    OffRamp.GasLimitOverride[][] memory gasLimitOverrides = new OffRamp.GasLimitOverride[][](1);
+    gasLimitOverrides[0] = _getGasLimitsFromMessages(messages1);
+
+    vm.expectRevert(abi.encodeWithSelector(OffRamp.CursedByRMN.selector, SOURCE_CHAIN_SELECTOR_1));
+
+    s_offRamp.manuallyExecute(reports, gasLimitOverrides);
+  }
+
   function test_manuallyExecute_SourceChainSelectorMismatch_Revert() public {
     Internal.Any2EVMRampMessage[] memory messages1 = new Internal.Any2EVMRampMessage[](1);
     Internal.Any2EVMRampMessage[] memory messages2 = new Internal.Any2EVMRampMessage[](1);
