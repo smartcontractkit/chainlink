@@ -157,7 +157,7 @@ func (r *ReportCodec) ValidFromBlockNumFromReport(report ocrtypes.Report) (int64
 	if n > math.MaxInt64 {
 		return 0, fmt.Errorf("ValidFromBlockNum=%d overflows max int64", n)
 	}
-	return int64(n), nil //nolint:gosec // G115
+	return int64(n), nil
 }
 
 func Test_ReportCodec_ValidFromBlockNumFromReport(t *testing.T) {

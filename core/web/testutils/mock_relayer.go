@@ -33,7 +33,7 @@ func (m MockRelayer) HealthReport() map[string]error {
 	panic("not implemented")
 }
 
-func (m MockRelayer) NewChainWriter(_ context.Context, _ []byte) (commontypes.ChainWriter, error) {
+func (m MockRelayer) NewContractWriter(_ context.Context, _ []byte) (commontypes.ContractWriter, error) {
 	panic("not implemented")
 }
 

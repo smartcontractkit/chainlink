@@ -5,20 +5,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	ccipowner "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
-
-func toOwnershipAcceptors[T changeset.OwnershipAcceptor](items []T) []changeset.OwnershipAcceptor {
-	ownershipAcceptors := make([]changeset.OwnershipAcceptor, len(items))
-	for i, item := range items {
-		ownershipAcceptors[i] = item
-	}
-	return ownershipAcceptors
-}
 
 type AcceptAllOwnershipRequest struct {
 	ChainSelector uint64
@@ -44,21 +35,15 @@ func AcceptAllOwnershipsProposal(e deployment.Environment, req *AcceptAllOwnersh
 		return deployment.ChangesetOutput{}, err
 	}
 	contracts := r.ContractSets[chainSelector]
-	ownershipAcceptors := contracts.OwnershipAcceptors()
+
 	// Construct the configuration
-	cfg := changeset.AcceptOwnershipConfig{
-		OwnersPerChain: map[uint64]common.Address{
-			chainSelector: contracts.Timelock.Address(),
-		},
-		ProposerMCMSes: map[uint64]*ccipowner.ManyChainMultiSig{
-			chainSelector: contracts.ProposerMcm,
-		},
-		Contracts: map[uint64][]changeset.OwnershipAcceptor{
-			chainSelector: ownershipAcceptors,
+	cfg := changeset.TransferToMCMSWithTimelockConfig{
+		ContractsByChain: map[uint64][]common.Address{
+			chainSelector: contracts.TransferableContracts(),
 		},
 		MinDelay: minDelay,
 	}
 
 	// Create and return the changeset
-	return changeset.NewAcceptOwnershipChangeset(e, cfg)
+	return changeset.TransferToMCMSWithTimelock(e, cfg)
 }

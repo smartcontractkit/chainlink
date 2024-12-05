@@ -47,7 +47,6 @@ func TestDeployOCR3(t *testing.T) {
 func TestConfigureOCR3(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
-	//ctx := tests.Context(t)
 
 	c := kslib.OracleConfigWithSecrets{
 		OracleConfig: kslib.OracleConfig{
@@ -96,7 +95,7 @@ func TestConfigureOCR3(t *testing.T) {
 			AssetDonConfig:  DonConfig{N: 4},
 			WriterDonConfig: DonConfig{N: 4},
 			NumChains:       1,
-			EnableMCMS:      true,
+			UseMCMS:         true,
 		})
 
 		var wfNodes []string

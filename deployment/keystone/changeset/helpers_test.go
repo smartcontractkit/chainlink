@@ -40,7 +40,7 @@ func TestSetupTestEnv(t *testing.T) {
 			AssetDonConfig:  DonConfig{N: 4},
 			WriterDonConfig: DonConfig{N: 4},
 			NumChains:       3,
-			EnableMCMS:      useMCMS,
+			UseMCMS:         useMCMS,
 		})
 		t.Run(fmt.Sprintf("set up test env using MCMS: %T", useMCMS), func(t *testing.T) {
 			require.NotNil(t, te.Env.ExistingAddresses)
@@ -76,7 +76,7 @@ type TestConfig struct {
 	WriterDonConfig
 	NumChains int
 
-	EnableMCMS bool
+	UseMCMS bool
 }
 
 func (c TestConfig) Validate() error {
@@ -109,7 +109,7 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 	require.NoError(t, c.Validate())
 	lggr := logger.Test(t)
 	ctx := tests.Context(t)
-	chains := memory.NewMemoryChains(t, c.NumChains)
+	chains, _ := memory.NewMemoryChains(t, c.NumChains, 1)
 	registryChainSel := registryChain(t, chains)
 	// note that all the nodes require TOML configuration of the cap registry address
 	// and writers need forwarder address as TOML config
@@ -248,7 +248,7 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 	validateDon(t, gotRegistry, cwNodes, cwDon)
 	validateDon(t, gotRegistry, assetNodes, assetDon)
 
-	if c.EnableMCMS {
+	if c.UseMCMS {
 		// TODO: mcms on all the chains, currently only on the registry chain. need to fix this for forwarders
 		t.Logf("Enabling MCMS registry chain %d", registryChainSel)
 		// deploy, configure and xfer ownership of MCMS
@@ -279,12 +279,6 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 		require.NotNil(t, mcms)
 		// transfer ownership of all contracts to the MCMS
 		env, err = commonchangeset.ApplyChangesets(t, env, map[uint64]*gethwrappers.RBACTimelock{registryChainSel: mcms.Timelock}, []commonchangeset.ChangesetApplication{
-			{
-				Changeset: commonchangeset.WrapChangeSet(kschangeset.TransferAllOwnership),
-				Config: &kschangeset.TransferAllOwnershipRequest{
-					ChainSelector: registryChainSel,
-				},
-			},
 			{
 				Changeset: commonchangeset.WrapChangeSet(kschangeset.AcceptAllOwnershipsProposal),
 				Config: &kschangeset.AcceptAllOwnershipRequest{

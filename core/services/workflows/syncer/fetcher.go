@@ -2,41 +2,113 @@ package syncer
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 )
 
-func NewFetcherFunc(
-	lggr logger.Logger,
-	och *webapi.OutgoingConnectorHandler) FetcherFunc {
-	return func(ctx context.Context, url string) ([]byte, error) {
-		payloadBytes, err := json.Marshal(ghcapabilities.Request{
-			URL:    url,
-			Method: http.MethodGet,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal fetch request: %w", err)
-		}
+const (
+	defaultFetchTimeoutMs = 20_000
+)
 
-		messageID := strings.Join([]string{ghcapabilities.MethodWorkflowSyncer, url}, "/")
-		resp, err := och.HandleSingleNodeRequest(ctx, messageID, payloadBytes)
-		if err != nil {
-			return nil, err
-		}
+type FetcherService struct {
+	services.StateMachine
+	lggr    logger.Logger
+	och     *webapi.OutgoingConnectorHandler
+	wrapper gatewayConnector
+}
 
-		lggr.Debugw("received gateway response", "resp", resp)
-		var payload ghcapabilities.Response
-		err = json.Unmarshal(resp.Body.Payload, &payload)
-		if err != nil {
-			return nil, err
-		}
+type gatewayConnector interface {
+	GetGatewayConnector() connector.GatewayConnector
+}
 
-		return payload.Body, nil
+func NewFetcherService(lggr logger.Logger, wrapper gatewayConnector) *FetcherService {
+	return &FetcherService{
+		lggr:    lggr.Named("FetcherService"),
+		wrapper: wrapper,
 	}
+}
+
+func (s *FetcherService) Start(ctx context.Context) error {
+	return s.StartOnce("FetcherService", func() error {
+		connector := s.wrapper.GetGatewayConnector()
+
+		outgoingConnectorLggr := s.lggr.Named("WorkflowSyncer")
+
+		webAPIConfig := webapi.ServiceConfig{
+			RateLimiter: common.RateLimiterConfig{
+				GlobalRPS:      100.0,
+				GlobalBurst:    100,
+				PerSenderRPS:   100.0,
+				PerSenderBurst: 100,
+			},
+		}
+
+		och, err := webapi.NewOutgoingConnectorHandler(connector,
+			webAPIConfig,
+			capabilities.MethodWorkflowSyncer, outgoingConnectorLggr)
+		if err != nil {
+			return fmt.Errorf("could not create outgoing connector handler: %w", err)
+		}
+
+		s.och = och
+		return och.Start(ctx)
+	})
+}
+
+func (s *FetcherService) Close() error {
+	return s.StopOnce("FetcherService", func() error {
+		return s.och.Close()
+	})
+}
+
+func (s *FetcherService) HealthReport() map[string]error {
+	return map[string]error{s.Name(): s.Healthy()}
+}
+
+func (s *FetcherService) Name() string {
+	return s.lggr.Name()
+}
+
+func hash(url string) string {
+	h := sha256.New()
+	h.Write([]byte(url))
+	return hex.EncodeToString(h.Sum(nil))
+}
+
+func (s *FetcherService) Fetch(ctx context.Context, url string) ([]byte, error) {
+	payloadBytes, err := json.Marshal(ghcapabilities.Request{
+		URL:       url,
+		Method:    http.MethodGet,
+		TimeoutMs: defaultFetchTimeoutMs,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal fetch request: %w", err)
+	}
+
+	messageID := strings.Join([]string{ghcapabilities.MethodWorkflowSyncer, hash(url)}, "/")
+	resp, err := s.och.HandleSingleNodeRequest(ctx, messageID, payloadBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	s.lggr.Debugw("received gateway response")
+	var payload ghcapabilities.Response
+	err = json.Unmarshal(resp.Body.Payload, &payload)
+	if err != nil {
+		return nil, err
+	}
+
+	return payload.Body, nil
 }
