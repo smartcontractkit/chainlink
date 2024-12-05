@@ -228,17 +228,35 @@ func TestChainReader_HealthReport(t *testing.T) {
 }
 
 func TestChainComponents(t *testing.T) {
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/BCFR-1083")
-	t.Parallel()
-	it := &EVMChainComponentsInterfaceTester[*testing.T]{Helper: &helper{}}
-	// TODO, generated binding tests are broken
-	it.DisableTests([]string{interfacetests.ContractReaderGetLatestValue})
-	it.Init(t)
-
 	// add new subtests here so that it can be run on real chains too
-	RunChainComponentsEvmTests(t, it)
-	RunChainComponentsInLoopEvmTests[*testing.T](t, commontestutils.WrapContractReaderTesterForLoop(it))
-	RunChainComponentsInLoopEvmTests(t, WrapContractReaderTesterWithBindings(t, it))
+	t.Run("RunChainComponentsEvmTests", func(t *testing.T) {
+		t.Parallel()
+		helper := &helper{}
+		// shared helper for separate parallel testers
+		it := &EVMChainComponentsInterfaceTester[*testing.T]{Helper: helper}
+		it.Init(t)
+		RunChainComponentsEvmTests(t, it)
+	})
+
+	t.Run("RunChainComponentsInLoopEvmTests", func(t *testing.T) {
+		t.Parallel()
+		helper := &helper{}
+		// shared helper for separate parallel testers
+		it := &EVMChainComponentsInterfaceTester[*testing.T]{Helper: helper}
+		it.Init(t)
+		RunChainComponentsInLoopEvmTests[*testing.T](t, commontestutils.WrapContractReaderTesterForLoop(it))
+	})
+
+	t.Run("RunChainComponentsInLoopEvmTestsWithBindings", func(t *testing.T) {
+		t.Parallel()
+		helper := &helper{}
+		// shared helper for separate parallel testers
+		helper.Init(t)
+		it := &EVMChainComponentsInterfaceTester[*testing.T]{Helper: helper}
+		// TODO, generated binding tests are broken
+		it.DisableTests([]string{interfacetests.ContractReaderGetLatestValue})
+		RunChainComponentsInLoopEvmTests(t, WrapContractReaderTesterWithBindings(t, it))
+	})
 }
 
 type helper struct {

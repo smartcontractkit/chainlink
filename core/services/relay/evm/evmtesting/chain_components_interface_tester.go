@@ -465,7 +465,6 @@ func (it *EVMChainComponentsInterfaceTester[T]) deployNewContract(t T) (string, 
 
 	address, tx, ts, err := chain_reader_tester.DeployChainReaderTester(it.GetAuthWithGasSet(t), it.Helper.Backend())
 	require.NoError(t, err)
-	it.Helper.Commit()
 
 	it.IncNonce()
 	it.AwaitTx(t, tx)
