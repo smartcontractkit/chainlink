@@ -147,6 +147,11 @@ func (r *Registry) List(_ context.Context) ([]capabilities.BaseCapability, error
 	return cl, nil
 }
 
+// Remove removes a capability from the registry
+func (r *Registry) Remove(_ context.Context, id string) error {
+	return errors.New("not implemented")
+}
+
 // Add adds a capability to the registry.
 func (r *Registry) Add(ctx context.Context, c capabilities.BaseCapability) error {
 	r.mu.Lock()
