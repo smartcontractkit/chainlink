@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"golang.org/x/exp/maps"
 
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	"github.com/smartcontractkit/chainlink/deployment"
 
 	"google.golang.org/protobuf/proto"
@@ -40,6 +41,7 @@ type ConfigureContractsRequest struct {
 	Dons       []DonCapabilities        // externally sourced based on the environment
 	OCR3Config *OracleConfigWithSecrets // TODO: probably should be a map of don to config; but currently we only have one wf don therefore one config
 
+	// TODO rm this option; unused
 	DoContractDeploy bool // if false, the contracts are assumed to be deployed and the address book is used
 }
 
@@ -75,6 +77,7 @@ func ConfigureContracts(ctx context.Context, lggr logger.Logger, req ConfigureCo
 	}
 
 	addrBook := req.Env.ExistingAddresses
+	// TODO: KS-rm_deploy_opt remove this option; it's not used
 	if req.DoContractDeploy {
 		contractDeployCS, err := DeployContracts(req.Env, req.RegistryChainSel)
 		if err != nil {
@@ -320,6 +323,7 @@ func ConfigureForwardContracts(env *deployment.Environment, dons []RegisteredDon
 	return nil
 }
 
+// Depreciated: use changeset.ConfigureOCR3Contract instead
 // ocr3 contract on the registry chain for the wf dons
 func ConfigureOCR3Contract(env *deployment.Environment, chainSel uint64, dons []RegisteredDon, addrBook deployment.AddressBook, cfg *OracleConfigWithSecrets) error {
 	registryChain, ok := env.Chains[chainSel]
@@ -350,10 +354,11 @@ func ConfigureOCR3Contract(env *deployment.Environment, chainSel uint64, dons []
 		}
 
 		_, err := configureOCR3contract(configureOCR3Request{
-			cfg:      cfg,
-			chain:    registryChain,
-			contract: contract,
-			nodes:    don.Nodes,
+			cfg:         cfg,
+			chain:       registryChain,
+			contract:    contract,
+			nodes:       don.Nodes,
+			contractSet: &contracts,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to configure OCR3 contract for don %s: %w", don.Name, err)
@@ -364,6 +369,7 @@ func ConfigureOCR3Contract(env *deployment.Environment, chainSel uint64, dons []
 
 type ConfigureOCR3Resp struct {
 	OCR2OracleConfig
+	Proposal *timelock.MCMSWithTimelockProposal
 }
 
 type ConfigureOCR3Config struct {
@@ -371,8 +377,11 @@ type ConfigureOCR3Config struct {
 	NodeIDs    []string
 	OCR3Config *OracleConfigWithSecrets
 	DryRun     bool
+
+	UseMCMS bool
 }
 
+// Depreciated: use changeset.ConfigureOCR3Contract instead
 func ConfigureOCR3ContractFromJD(env *deployment.Environment, cfg ConfigureOCR3Config) (*ConfigureOCR3Resp, error) {
 	prefix := ""
 	if cfg.DryRun {
@@ -403,17 +412,20 @@ func ConfigureOCR3ContractFromJD(env *deployment.Environment, cfg ConfigureOCR3C
 		return nil, err
 	}
 	r, err := configureOCR3contract(configureOCR3Request{
-		cfg:      cfg.OCR3Config,
-		chain:    registryChain,
-		contract: contract,
-		nodes:    nodes,
-		dryRun:   cfg.DryRun,
+		cfg:         cfg.OCR3Config,
+		chain:       registryChain,
+		contract:    contract,
+		nodes:       nodes,
+		dryRun:      cfg.DryRun,
+		contractSet: &contracts,
+		useMCMS:     cfg.UseMCMS,
 	})
 	if err != nil {
 		return nil, err
 	}
 	return &ConfigureOCR3Resp{
 		OCR2OracleConfig: r.ocrConfig,
+		Proposal:         r.proposal,
 	}, nil
 
 }
