@@ -2,6 +2,7 @@ package promwrapper
 
 import (
 	"context"
+
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 )
 
@@ -30,6 +31,12 @@ func (r ReportingPluginFactory[RI]) NewReportingPlugin(ctx context.Context, conf
 	if err != nil {
 		return nil, ocr3types.ReportingPluginInfo{}, err
 	}
-	wrapped := NewReportingPlugin(plugin, r.chainID, r.plugin, config.ConfigDigest)
+	wrapped := NewReportingPlugin(
+		plugin,
+		r.chainID,
+		r.plugin,
+		promOCR3ReportsGenerated,
+		promOCR3Durations,
+	)
 	return wrapped, info, err
 }

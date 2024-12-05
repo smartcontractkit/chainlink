@@ -6,77 +6,19 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
-
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
-type functionType string
-
-const (
-	query               functionType = "query"
-	observation         functionType = "observation"
-	validateObservation functionType = "validateObservation"
-	outcome             functionType = "outcome"
-	reports             functionType = "reports"
-	shouldAccept        functionType = "shouldAccept"
-	shouldTransmit      functionType = "shouldTransmit"
-)
-
-var (
-	buckets = []float64{
-		float64(1 * time.Millisecond),
-		float64(5 * time.Millisecond),
-		float64(10 * time.Millisecond),
-		float64(50 * time.Millisecond),
-		float64(100 * time.Millisecond),
-		float64(500 * time.Millisecond),
-		float64(time.Second),
-		float64(5 * time.Second),
-		float64(10 * time.Second),
-	}
-
-	reportsGenerated = promauto.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "ocr3_reports_generated",
-			Help: "Tracks number of reports generated withing a single OCR3's Reports step",
-		},
-		[]string{"chainID", "plugin"},
-	)
-	sequenceNumbers = promauto.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "ocr3_sequence_numbers",
-			Help: "Tracks OCR3 sequence numbers",
-		},
-		[]string{"chainID", "plugin"},
-	)
-	phaseDurationBucket = promauto.NewHistogramVec(
-		prometheus.HistogramOpts{
-			Name:    "ocr3_phase_duration",
-			Help:    "The amount of time elapsed during the OCR3 plugin's function",
-			Buckets: buckets,
-		},
-		[]string{"chainID", "plugin", "function"},
-	)
-)
-
-var (
-	_ ocr3types.ReportingPlugin[any] = &ReportingPlugin[any]{}
-)
+var _ ocr3types.ReportingPlugin[any] = &ReportingPlugin[any]{}
 
 type ReportingPlugin[RI any] struct {
 	ocr3types.ReportingPlugin[RI]
+	chainID string
+	plugin  string
 
-	// Mandatory labels
-	chainID      string
-	plugin       string
-	configDigest string
-
-	// Prom
+	// Prometheus components for tracking metrics
 	reportsGenerated *prometheus.GaugeVec
-	sequenceNumbers  *prometheus.GaugeVec
 	durations        *prometheus.HistogramVec
 }
 
@@ -84,18 +26,15 @@ func NewReportingPlugin[RI any](
 	origin ocr3types.ReportingPlugin[RI],
 	chainID string,
 	plugin string,
-	configDigest types.ConfigDigest,
+	reportsGenerated *prometheus.GaugeVec,
+	durations *prometheus.HistogramVec,
 ) *ReportingPlugin[RI] {
 	return &ReportingPlugin[RI]{
-		ReportingPlugin: origin,
-
-		chainID:      chainID,
-		plugin:       plugin,
-		configDigest: configDigest.Hex(),
-
+		ReportingPlugin:  origin,
+		chainID:          chainID,
+		plugin:           plugin,
 		reportsGenerated: reportsGenerated,
-		sequenceNumbers:  sequenceNumbers,
-		durations:        phaseDurationBucket,
+		durations:        durations,
 	}
 }
 
@@ -153,7 +92,7 @@ func (p *ReportingPlugin[RI]) trackReportSizes(
 	reports []ocr3types.ReportPlus[RI],
 ) {
 	p.reportsGenerated.
-		WithLabelValues(p.chainID, p.plugin, p.configDigest).
+		WithLabelValues(p.chainID, p.plugin).
 		Set(float64(len(reports)))
 }
 
@@ -168,7 +107,7 @@ func withObservedExecution[RI, R any](
 	success := err == nil
 
 	p.durations.
-		WithLabelValues(p.chainID, p.plugin, p.configDigest, string(function), strconv.FormatBool(success)).
+		WithLabelValues(p.chainID, p.plugin, string(function), strconv.FormatBool(success)).
 		Observe(float64(time.Since(start)))
 
 	return result, err

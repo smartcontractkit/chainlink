@@ -1,0 +1,156 @@
+package promwrapper
+
+import (
+	"context"
+	"fmt"
+	"testing"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/testutil"
+	io_prometheus_client "github.com/prometheus/client_model/go"
+	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+)
+
+func Test_ReportsGeneratedGauge(t *testing.T) {
+	plugin1 := NewReportingPlugin(
+		fakePlugin[uint]{reports: make([]ocr3types.ReportPlus[uint], 2)},
+		"123", "empty", promOCR3ReportsGenerated, promOCR3Durations,
+	)
+	plugin2 := NewReportingPlugin(
+		fakePlugin[bool]{reports: make([]ocr3types.ReportPlus[bool], 10)},
+		"solana", "different_plugin", promOCR3ReportsGenerated, promOCR3Durations,
+	)
+	plugin3 := NewReportingPlugin(
+		fakePlugin[string]{err: fmt.Errorf("error")},
+		"1234", "empty", promOCR3ReportsGenerated, promOCR3Durations,
+	)
+
+	r1, err := plugin1.Reports(nil, 1, nil)
+	require.NoError(t, err)
+	require.Len(t, r1, 2)
+
+	for i := 0; i < 10; i++ {
+		r2, err := plugin2.Reports(nil, 1, nil)
+		require.NoError(t, err)
+		require.Len(t, r2, 10)
+	}
+
+	_, err = plugin3.Reports(nil, 1, nil)
+	require.Error(t, err)
+
+	g1 := testutil.ToFloat64(promOCR3ReportsGenerated.WithLabelValues("123", "empty"))
+	require.Equal(t, float64(2), g1)
+
+	g2 := testutil.ToFloat64(promOCR3ReportsGenerated.WithLabelValues("solana", "different_plugin"))
+	require.Equal(t, float64(10), g2)
+
+	g3 := testutil.ToFloat64(promOCR3ReportsGenerated.WithLabelValues("1234", "empty"))
+	require.Equal(t, float64(0), g3)
+}
+
+func Test_DurationHistograms(t *testing.T) {
+	plugin1 := NewReportingPlugin(
+		fakePlugin[uint]{},
+		"123", "empty", promOCR3ReportsGenerated, promOCR3Durations,
+	)
+	plugin2 := NewReportingPlugin(
+		fakePlugin[uint]{err: fmt.Errorf("error")},
+		"123", "empty", promOCR3ReportsGenerated, promOCR3Durations,
+	)
+	plugin3 := NewReportingPlugin(
+		fakePlugin[uint]{},
+		"solana", "commit", promOCR3ReportsGenerated, promOCR3Durations,
+	)
+
+	for _, p := range []*ReportingPlugin[uint]{plugin1, plugin2, plugin3} {
+		_, _ = p.Query(nil, ocr3types.OutcomeContext{})
+		for i := 0; i < 2; i++ {
+			_, _ = p.Observation(nil, ocr3types.OutcomeContext{}, nil)
+		}
+		_ = p.ValidateObservation(nil, ocr3types.OutcomeContext{}, nil, ocrtypes.AttributedObservation{})
+		_, _ = p.Outcome(nil, ocr3types.OutcomeContext{}, nil, nil)
+		_, _ = p.Reports(nil, 0, nil)
+		_, _ = p.ShouldAcceptAttestedReport(nil, 0, ocr3types.ReportWithInfo[uint]{})
+		_, _ = p.ShouldTransmitAcceptedReport(nil, 0, ocr3types.ReportWithInfo[uint]{})
+	}
+
+	require.Equal(t, 1, counterFromHistogramByLabels(t, promOCR3Durations, "123", "empty", "query", "true"))
+	require.Equal(t, 1, counterFromHistogramByLabels(t, promOCR3Durations, "123", "empty", "query", "false"))
+	require.Equal(t, 1, counterFromHistogramByLabels(t, promOCR3Durations, "solana", "commit", "query", "true"))
+
+	require.Equal(t, 2, counterFromHistogramByLabels(t, promOCR3Durations, "123", "empty", "observation", "true"))
+	require.Equal(t, 2, counterFromHistogramByLabels(t, promOCR3Durations, "123", "empty", "observation", "false"))
+	require.Equal(t, 2, counterFromHistogramByLabels(t, promOCR3Durations, "solana", "commit", "observation", "true"))
+}
+
+type fakePlugin[RI any] struct {
+	reports []ocr3types.ReportPlus[RI]
+	err     error
+}
+
+func (f fakePlugin[RI]) Query(context.Context, ocr3types.OutcomeContext) (ocrtypes.Query, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	return ocrtypes.Query{}, nil
+}
+
+func (f fakePlugin[RI]) Observation(context.Context, ocr3types.OutcomeContext, ocrtypes.Query) (ocrtypes.Observation, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	return ocrtypes.Observation{}, nil
+}
+
+func (f fakePlugin[RI]) ValidateObservation(context.Context, ocr3types.OutcomeContext, ocrtypes.Query, ocrtypes.AttributedObservation) error {
+	return f.err
+}
+
+func (f fakePlugin[RI]) ObservationQuorum(context.Context, ocr3types.OutcomeContext, ocrtypes.Query, []ocrtypes.AttributedObservation) (quorumReached bool, err error) {
+	return false, f.err
+}
+
+func (f fakePlugin[RI]) Outcome(context.Context, ocr3types.OutcomeContext, ocrtypes.Query, []ocrtypes.AttributedObservation) (ocr3types.Outcome, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	return ocr3types.Outcome{}, nil
+}
+
+func (f fakePlugin[RI]) Reports(context.Context, uint64, ocr3types.Outcome) ([]ocr3types.ReportPlus[RI], error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	return f.reports, nil
+}
+
+func (f fakePlugin[RI]) ShouldAcceptAttestedReport(context.Context, uint64, ocr3types.ReportWithInfo[RI]) (bool, error) {
+	return false, f.err
+}
+
+func (f fakePlugin[RI]) ShouldTransmitAcceptedReport(context.Context, uint64, ocr3types.ReportWithInfo[RI]) (bool, error) {
+	return false, f.err
+}
+
+func (f fakePlugin[RI]) Close() error {
+	return f.err
+}
+
+func counterFromHistogramByLabels(t *testing.T, histogramVec *prometheus.HistogramVec, labels ...string) int {
+	observer, err := histogramVec.GetMetricWithLabelValues(labels...)
+	require.NoError(t, err)
+
+	metricCh := make(chan prometheus.Metric, 1)
+	observer.(prometheus.Histogram).Collect(metricCh)
+	close(metricCh)
+
+	metric := <-metricCh
+	pb := &io_prometheus_client.Metric{}
+	err = metric.Write(pb)
+	require.NoError(t, err)
+
+	return int(pb.GetHistogram().GetSampleCount())
+}
