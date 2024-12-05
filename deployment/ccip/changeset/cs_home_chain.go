@@ -82,9 +82,9 @@ func (c DeployHomeChainConfig) Validate() error {
 	return nil
 }
 
-// DeployCapReg deploys the CapabilitiesRegistry contract if it is not already deployed
+// deployCapReg deploys the CapabilitiesRegistry contract if it is not already deployed
 // and returns a deployment.ContractDeploy struct with the address and contract instance.
-func DeployCapReg(
+func deployCapReg(
 	lggr logger.Logger,
 	state CCIPOnChainState,
 	ab deployment.AddressBook,
@@ -133,7 +133,7 @@ func deployHomeChain(
 		return nil, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	// Deploy CapabilitiesRegistry, CCIPHome, RMNHome
-	capReg, err := DeployCapReg(lggr, state, ab, chain)
+	capReg, err := deployCapReg(lggr, state, ab, chain)
 	if err != nil {
 		return nil, err
 	}

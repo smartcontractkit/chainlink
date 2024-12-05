@@ -138,14 +138,14 @@ func DeployTestContracts(t *testing.T,
 	linkPrice *big.Int,
 	wethPrice *big.Int,
 ) deployment.CapabilityRegistryConfig {
-	capReg, err := DeployCapReg(lggr,
+	capReg, err := deployCapReg(lggr,
 		// deploying cap reg for the first time on a blank chain state
 		CCIPOnChainState{
 			Chains: make(map[uint64]CCIPChainState),
 		}, ab, chains[homeChainSel])
 	require.NoError(t, err)
 
-	_, err = DeployFeeds(lggr, ab, chains[feedChainSel], linkPrice, wethPrice)
+	_, err = deployFeeds(lggr, ab, chains[feedChainSel], linkPrice, wethPrice)
 	require.NoError(t, err)
 
 	evmChainID, err := chainsel.ChainIdFromSelector(homeChainSel)
@@ -662,7 +662,7 @@ var (
 	}
 )
 
-func DeployFeeds(
+func deployFeeds(
 	lggr logger.Logger,
 	ab deployment.AddressBook,
 	chain deployment.Chain,

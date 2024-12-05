@@ -65,7 +65,7 @@ func (c DeployChainContractsConfig) Validate() error {
 	return nil
 }
 
-// DeployCCIPContracts assumes the following contracts are deployed:
+// deployCCIPContracts assumes the following contracts are deployed:
 // - Capability registry
 // - CCIP home
 // - RMN home
@@ -74,7 +74,7 @@ func (c DeployChainContractsConfig) Validate() error {
 // It then deploys the rest of the CCIP chain contracts to the selected chains
 // registers the nodes with the capability registry and creates a DON for
 // each new chain.
-func DeployCCIPContracts(
+func deployCCIPContracts(
 	e deployment.Environment,
 	ab deployment.AddressBook,
 	c NewChainsConfig) error {

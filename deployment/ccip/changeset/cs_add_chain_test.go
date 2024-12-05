@@ -67,7 +67,7 @@ func TestAddChainInbound(t *testing.T) {
 	for _, chain := range initialDeploy {
 		chainConfig[chain] = DefaultOCRParams(e.FeedChainSel, nil, nil)
 	}
-	err = DeployCCIPContracts(e.Env, newAddresses, NewChainsConfig{
+	err = deployCCIPContracts(e.Env, newAddresses, NewChainsConfig{
 		HomeChainSel:       e.HomeChainSel,
 		FeedChainSel:       e.FeedChainSel,
 		ChainConfigByChain: chainConfig,
