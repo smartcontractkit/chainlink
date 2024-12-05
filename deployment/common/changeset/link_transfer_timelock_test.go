@@ -90,29 +90,6 @@ func TestLinkTransferTimelock(t *testing.T) {
 	timelocks := map[uint64]*gethwrappers.RBACTimelock{
 		chainSelector: timelockContract,
 	}
-	//Apply the proposal for approving token transfers with 5k allowance
-	_, err = changeset.ApplyChangesets(t, env, timelocks, []changeset.ChangesetApplication{
-		// the changeset produces proposals, ApplyChangesets will sign & execute them.
-		// in practice, signing and executing are separated processes.
-		{
-			Changeset: changeset.WrapChangeSet(changeset.LinkApproveTimelock),
-			Config: &changeset.LinkApproveTimelockRequest{
-				Allowances: []changeset.LinkAllowances{
-					{
-						Spender:   chain.DeployerKey.From,
-						Allowance: *big.NewInt(5000),
-					},
-				},
-				ChainSelector:    chainSelector,
-				LinkTokenAddress: common.HexToAddress(linkAddress),
-				TimelockAddress:  common.HexToAddress(timelockAddress),
-				MCMSAddress:      common.HexToAddress(mcmsAddress),
-				ValidUntil:       4131638958,
-				MinDelay:         0,
-			},
-		},
-	})
-	require.NoError(t, err)
 
 	// Apply the changeset
 	_, err = changeset.ApplyChangesets(t, env, timelocks, []changeset.ChangesetApplication{
@@ -134,7 +111,7 @@ func TestLinkTransferTimelock(t *testing.T) {
 				ValidUntil:       4131638958,
 				MinDelay:         0,
 				OverrideRoot:     true,
-				StartingOpCount:  1, // we need to set this to 1 to account for the previous mcsm proposal with 1 op.
+				StartingOpCount:  0, // we need to set this to 1 to account for the previous mcsm proposal with 1 op.
 			},
 		},
 	})
