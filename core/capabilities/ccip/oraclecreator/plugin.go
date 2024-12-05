@@ -308,7 +308,7 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 	pluginType cctypes.PluginType,
 	config cctypes.OCR3ConfigWithMeta,
 	publicCfg ocr3confighelper.PublicConfig,
-	chainFamily string,
+	destChainFamily string,
 ) (
 	map[cciptypes.ChainSelector]types.ContractReader,
 	map[cciptypes.ChainSelector]types.ContractWriter,
@@ -337,8 +337,8 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 	chainWriters := make(map[cciptypes.ChainSelector]types.ContractWriter)
 	for relayID, relayer := range i.relayers {
 		chainID := relayID.ChainID
-
-		chainSelector, err1 := i.getChainSelector(chainID, chainFamily)
+		relayChainFamily := relayID.Network
+		chainSelector, err1 := i.getChainSelector(chainID, relayChainFamily)
 		if err1 != nil {
 			return nil, nil, fmt.Errorf("failed to get chain selector from chain ID %s: %w", chainID, err1)
 		}
@@ -353,7 +353,7 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 			return nil, nil, err1
 		}
 
-		if chainID == destChainID {
+		if chainID == destChainID && destChainFamily == relayChainFamily {
 			offrampAddressHex := common.BytesToAddress(config.Config.OfframpAddress).Hex()
 			err2 := cr.Bind(ctx, []types.BoundContract{
 				{
@@ -376,7 +376,7 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 			relayer,
 			i.transmitters,
 			execBatchGasLimit,
-			chainFamily)
+			relayChainFamily)
 		if err1 != nil {
 			return nil, nil, err1
 		}
