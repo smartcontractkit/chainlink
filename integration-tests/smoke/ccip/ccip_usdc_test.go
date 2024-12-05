@@ -177,18 +177,18 @@ func TestUSDCTokenTransfer(t *testing.T) {
 		},
 		{
 			Name:        "USDC programmable token transfer with too little gas",
-			Receiver:    state.Chains[chainC].Receiver.Address(),
-			SourceChain: chainB,
-			DestChain:   chainC,
+			Receiver:    state.Chains[chainB].Receiver.Address(),
+			SourceChain: chainC,
+			DestChain:   chainB,
 			Tokens: []router.ClientEVMTokenAmount{
 				{
-					Token:  bChainUSDC.Address(),
+					Token:  cChainUSDC.Address(),
 					Amount: tinyOneCoin,
 				},
 			},
 			Data: []byte("gimme more gas to execute that!"),
 			ExpectedTokenBalances: map[common.Address]*big.Int{
-				cChainUSDC.Address(): new(big.Int).SetUint64(0),
+				bChainUSDC.Address(): new(big.Int).SetUint64(0),
 			},
 			ExtraArgs:      changeset.MakeEVMExtraArgsV2(1, false),
 			ExpectedStatus: changeset.EXECUTION_STATE_FAILURE,

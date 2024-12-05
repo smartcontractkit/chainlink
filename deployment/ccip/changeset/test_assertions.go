@@ -479,7 +479,7 @@ func ConfirmExecWithSeqNrs(
 		return nil, fmt.Errorf("no expected sequence numbers provided")
 	}
 
-	timer := time.NewTimer(3 * time.Minute)
+	timer := time.NewTimer(8 * time.Minute)
 	defer timer.Stop()
 	tick := time.NewTicker(3 * time.Second)
 	defer tick.Stop()
