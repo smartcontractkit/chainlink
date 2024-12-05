@@ -252,7 +252,11 @@ func updateFeeQuoters(
 		return changeset.UpdateFeeQuoterForUSDC(lggr, e.Chains[chainB], state.Chains[chainB], chainC, bChainUSDC)
 	})
 	updateFeeQtrGrp.Go(func() error {
-		return changeset.UpdateFeeQuoterForUSDC(lggr, e.Chains[chainC], state.Chains[chainC], chainA, cChainUSDC)
+		err1 := changeset.UpdateFeeQuoterForUSDC(lggr, e.Chains[chainC], state.Chains[chainC], chainA, cChainUSDC)
+		if err1 != nil {
+			return err1
+		}
+		return changeset.UpdateFeeQuoterForUSDC(lggr, e.Chains[chainC], state.Chains[chainC], chainB, cChainUSDC)
 	})
 	return updateFeeQtrGrp.Wait()
 }
