@@ -9,12 +9,10 @@ import (
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 )
 
-func DeployOCR3(env deployment.Environment, config interface{}) (deployment.ChangesetOutput, error) {
+var _ deployment.ChangeSet[uint64] = DeployOCR3
+
+func DeployOCR3(env deployment.Environment, registryChainSel uint64) (deployment.ChangesetOutput, error) {
 	lggr := env.Logger
-	registryChainSel, ok := config.(uint64)
-	if !ok {
-		return deployment.ChangesetOutput{}, deployment.ErrInvalidConfig
-	}
 	ab := deployment.NewMemoryAddressBook()
 	// ocr3 only deployed on registry chain
 	c, ok := env.Chains[registryChainSel]

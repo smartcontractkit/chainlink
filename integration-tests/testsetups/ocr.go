@@ -160,11 +160,21 @@ func (o *OCRSoakTest) DeployEnvironment(ocrTestConfig tt.OcrTestConfig) {
 	nsPre = fmt.Sprintf("%s%s", nsPre, strings.ReplaceAll(strings.ToLower(nodeNetwork.Name), " ", "-"))
 	nsPre = strings.ReplaceAll(nsPre, "_", "-")
 
+	productName := fmt.Sprintf("data-feedsv%s.0", o.OCRVersion)
+	nsLabels, err := environment.GetRequiredChainLinkNamespaceLabels(productName, "soak")
+	require.NoError(o.t, err, "Error creating required chain.link labels for namespace")
+
+	workloadPodLabels, err := environment.GetRequiredChainLinkWorkloadAndPodLabels(productName, "soak")
+	require.NoError(o.t, err, "Error creating required chain.link labels for workloads and pods")
+
 	baseEnvironmentConfig := &environment.Config{
 		TTL:                time.Hour * 720, // 30 days,
 		NamespacePrefix:    nsPre,
 		Test:               o.t,
 		PreventPodEviction: true,
+		Labels:             nsLabels,
+		WorkloadLabels:     workloadPodLabels,
+		PodLabels:          workloadPodLabels,
 	}
 
 	testEnv := environment.New(baseEnvironmentConfig).
