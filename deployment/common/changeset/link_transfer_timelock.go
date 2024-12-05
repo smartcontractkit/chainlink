@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 
@@ -18,14 +19,11 @@ type LinkTransfer struct {
 	Value big.Int
 }
 type LinkTransferTimelockRequest struct {
-	Transfers        map[uint64][]LinkTransfer
-	LinkTokenAddress map[uint64]common.Address
-	TimelockAddress  map[uint64]common.Address
-	MCMSAddress      map[uint64]common.Address
-	ValidUntil       uint32        // unix time until the proposal will be valid
-	MinDelay         time.Duration // delay for timelock worker to execute the transfers.
-	OverrideRoot     bool
-	StartingOpCount  map[uint64]uint64
+	Transfers       map[uint64][]LinkTransfer
+	ValidUntil      uint32        // unix time until the proposal will be valid
+	MinDelay        time.Duration // delay for timelock worker to execute the transfers.
+	OverrideRoot    bool
+	StartingOpCount map[uint64]uint64
 }
 
 var _ deployment.ChangeSet[*LinkTransferTimelockRequest] = LinkTransferTimelock
@@ -36,26 +34,30 @@ func LinkTransferTimelock(e deployment.Environment, req *LinkTransferTimelockReq
 	timelockAddresses := map[mcms.ChainIdentifier]common.Address{}
 	allBatches := []timelock.BatchChainOperation{}
 	for chainSelector := range req.Transfers {
-		if _, ok := req.LinkTokenAddress[chainSelector]; !ok {
-			return deployment.ChangesetOutput{}, fmt.Errorf("missing link token address for chain %d", chainSelector)
-		}
-		if _, ok := req.TimelockAddress[chainSelector]; !ok {
-			return deployment.ChangesetOutput{}, fmt.Errorf("missing timelock address for chain %d", chainSelector)
-		}
-		if _, ok := req.MCMSAddress[chainSelector]; !ok {
-			return deployment.ChangesetOutput{}, fmt.Errorf("missing MCMS address for chain %d", chainSelector)
-		}
 		chainID := mcms.ChainIdentifier(chainSelector)
 		chain := e.Chains[chainSelector]
-		linkContract, err := link_token.NewLinkToken(req.LinkTokenAddress[chainSelector], chain.Client)
+		addrs, err := e.ExistingAddresses.AddressesForChain(chainSelector)
+		linkState, err := LoadLinkTokenState(chain, addrs)
+		if err != nil {
+			return deployment.ChangesetOutput{}, err
+		}
+		linkAddress := linkState.LinkToken.Address()
+		mcmsState, err := LoadMCMSWithTimelockState(chain, addrs)
+		if err != nil {
+			return deployment.ChangesetOutput{}, err
+		}
+		mcmAddress := mcmsState.ProposerMcm.Address()
+		timelockAddress := mcmsState.Timelock.Address()
+
+		linkContract, err := link_token.NewLinkToken(linkAddress, chain.Client)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get link contract: %w", err)
 		}
 		chainMetadata[chainID] = mcms.ChainMetadata{
-			MCMAddress:      req.MCMSAddress[chainSelector],
+			MCMAddress:      mcmAddress,
 			StartingOpCount: req.StartingOpCount[chainSelector],
 		}
-		timelockAddresses[chainID] = req.TimelockAddress[chainSelector]
+		timelockAddresses[chainID] = timelockAddress
 		batch := timelock.BatchChainOperation{
 			ChainIdentifier: chainID,
 			Batch:           []mcms.Operation{},
@@ -67,7 +69,7 @@ func LinkTransferTimelock(e deployment.Environment, req *LinkTransferTimelockReq
 				return deployment.ChangesetOutput{}, fmt.Errorf("error packing transfer tx data: %w", err)
 			}
 			op := mcms.Operation{
-				To:           req.LinkTokenAddress[chainSelector],
+				To:           linkAddress,
 				Data:         tx.Data(),
 				Value:        big.NewInt(0),
 				ContractType: "LinkToken",

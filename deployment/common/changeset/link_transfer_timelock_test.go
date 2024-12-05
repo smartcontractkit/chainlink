@@ -7,10 +7,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -55,22 +56,14 @@ func TestLinkTransferTimelock(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, addrs, 5)
 
-	timelockAddress := ""
-	linkAddress := ""
-	mcmsAddress := ""
-	for key, typeAndVer := range addrs {
-		if typeAndVer.Type == types.LinkToken {
-			linkAddress = key
-		}
-		if typeAndVer.Type == types.RBACTimelock {
-			timelockAddress = key
-		}
-		if typeAndVer.Type == types.ProposerManyChainMultisig {
-			mcmsAddress = key
-		}
-	}
+	mcmsState, err := changeset.LoadMCMSWithTimelockState(chain, addrs)
+	require.NoError(t, err)
+	linkState, err := changeset.LoadLinkTokenState(chain, addrs)
+	require.NoError(t, err)
+	linkAddress := linkState.LinkToken.Address()
+	timelockAddress := mcmsState.Timelock.Address()
 
-	linkContract, err := link_token.NewLinkToken(common.HexToAddress(linkAddress), chain.Client)
+	linkContract, err := link_token.NewLinkToken(linkAddress, chain.Client)
 	require.NoError(t, err)
 
 	// Mint some funds
@@ -80,12 +73,12 @@ func TestLinkTransferTimelock(t *testing.T) {
 	_, err = deployment.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
 
-	tx, err = linkContract.Mint(chain.DeployerKey, common.HexToAddress(timelockAddress), big.NewInt(750))
+	tx, err = linkContract.Mint(chain.DeployerKey, timelockAddress, big.NewInt(750))
 	require.NoError(t, err)
 	_, err = deployment.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
 
-	timelockContract, err := gethwrappers.NewRBACTimelock(common.HexToAddress(timelockAddress), chain.Client)
+	timelockContract, err := gethwrappers.NewRBACTimelock(timelockAddress, chain.Client)
 	require.NoError(t, err)
 	timelocks := map[uint64]*gethwrappers.RBACTimelock{
 		chainSelector: timelockContract,
@@ -106,15 +99,6 @@ func TestLinkTransferTimelock(t *testing.T) {
 						},
 					},
 				},
-				LinkTokenAddress: map[uint64]common.Address{
-					chainSelector: common.HexToAddress(linkAddress),
-				},
-				TimelockAddress: map[uint64]common.Address{
-					chainSelector: common.HexToAddress(timelockAddress),
-				},
-				MCMSAddress: map[uint64]common.Address{
-					chainSelector: common.HexToAddress(mcmsAddress),
-				},
 				ValidUntil:   4131638958,
 				MinDelay:     0,
 				OverrideRoot: true,
@@ -133,7 +117,7 @@ func TestLinkTransferTimelock(t *testing.T) {
 	require.Equal(t, expectedBalance, endBalance)
 
 	// check timelock balance
-	endBalance, err = linkContract.BalanceOf(&bind.CallOpts{Context: ctx}, common.HexToAddress(timelockAddress))
+	endBalance, err = linkContract.BalanceOf(&bind.CallOpts{Context: ctx}, timelockAddress)
 	require.NoError(t, err)
 	expectedBalance = big.NewInt(250)
 	require.Equal(t, expectedBalance, endBalance)
