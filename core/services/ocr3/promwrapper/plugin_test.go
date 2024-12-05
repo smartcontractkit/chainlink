@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
@@ -165,6 +166,6 @@ func counterFromHistogramByLabels(t *testing.T, histogramVec *prometheus.Histogr
 	err = metric.Write(pb)
 	require.NoError(t, err)
 
-	//nolint:gosec
+	//nolint:gosec // we don't care about that in tests
 	return int(pb.GetHistogram().GetSampleCount())
 }
