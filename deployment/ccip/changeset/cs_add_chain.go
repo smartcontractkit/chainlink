@@ -140,7 +140,6 @@ type AddDonAndSetCandidateChangesetConfig struct {
 	FeedChainSelector uint64
 	NewChainSelector  uint64
 	PluginType        types.PluginType
-	TokenConfig       TokenConfig
 	NodeIDs           []string
 	CCIPOCRParams     CCIPOCRParams
 	OCRSecrets        deployment.OCRSecrets
