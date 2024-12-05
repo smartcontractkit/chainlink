@@ -20,10 +20,12 @@ import (
 )
 
 const (
-	broadcastInterval       time.Duration = 30 * time.Second
-	maxInFlightTransactions int           = 16
-	maxInFlightSubset       int           = 3
-	maxAllowedAttempts      uint16        = 10
+	broadcastInterval           time.Duration = 30 * time.Second
+	maxInFlightTransactions     int           = 16
+	maxInFlightSubset           int           = 3
+	maxAllowedAttempts          uint16        = 10
+	pendingNonceDefaultTimeout  time.Duration = 30 * time.Second
+	pendingNonceRecheckInterval time.Duration = 1 * time.Second
 )
 
 type Client interface {
@@ -72,7 +74,7 @@ var (
 	}, []string{"chainID"})
 	promNumConfirmedTxs = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "txm_num_confirmed_transactions",
-		Help: "Total number of confirmed transactions. Note that this can happen multiple times per transaction in the case of re-orgs.",
+		Help: "Total number of confirmed transactions. Note that this can happen multiple times per transaction in the case of re-orgs or when filling the nonce for untracked transactions.",
 	}, []string{"chainID"})
 	promNumNonceGaps = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "txm_num_nonce_gaps",
@@ -135,7 +137,7 @@ func (t *Txm) Start(ctx context.Context) error {
 			return err
 		}
 		for _, address := range addresses {
-			err := t.startAddress(address)
+			err := t.startAddress(ctx, address)
 			if err != nil {
 				return err
 			}
@@ -144,10 +146,10 @@ func (t *Txm) Start(ctx context.Context) error {
 	})
 }
 
-func (t *Txm) startAddress(address common.Address) error {
+func (t *Txm) startAddress(ctx context.Context, address common.Address) error {
 	triggerCh := make(chan struct{}, 1)
 	t.triggerCh[address] = triggerCh
-	pendingNonce, err := t.client.PendingNonceAt(context.TODO(), address)
+	pendingNonce, err := t.pollForPendingNonce(ctx, address)
 	if err != nil {
 		return err
 	}
@@ -157,6 +159,24 @@ func (t *Txm) startAddress(address common.Address) error {
 	go t.broadcastLoop(address, triggerCh)
 	go t.backfillLoop(address)
 	return nil
+}
+
+func (t *Txm) pollForPendingNonce(ctx context.Context, address common.Address) (pendingNonce uint64, err error) {
+	ctxWithTimeout, cancel := context.WithTimeout(ctx, pendingNonceDefaultTimeout)
+	defer cancel()
+	for {
+		pendingNonce, err = t.client.PendingNonceAt(ctxWithTimeout, address)
+		if err != nil {
+			t.lggr.Errorw("Error when fetching initial pending nonce", "address", address, "err", err)
+			select {
+			case <-time.After(pendingNonceRecheckInterval):
+			case <-ctx.Done():
+				return 0, context.Cause(ctx)
+			}
+			continue
+		}
+		return pendingNonce, nil
+	}
 }
 
 func (t *Txm) Close() error {
@@ -188,6 +208,7 @@ func (t *Txm) Trigger(address common.Address) {
 }
 
 func (t *Txm) Abandon(address common.Address) error {
+	t.lggr.Infof("Dropping unstarted and unconfirmed transactions for address: %v", address)
 	return t.txStore.AbandonPendingTransactions(context.TODO(), address)
 }
 
@@ -350,7 +371,7 @@ func (t *Txm) sendTransactionWithError(ctx context.Context, tx *types.Transactio
 			return err
 		}
 		if pendingNonce <= *tx.Nonce {
-			t.lggr.Debugf("Pending nonce for txID: %v didn't increase. PendingNonce: %d, TxNonce: %d", tx.ID, pendingNonce, tx.Nonce)
+			t.lggr.Debugf("Pending nonce for txID: %v didn't increase. PendingNonce: %d, TxNonce: %d", tx.ID, pendingNonce, *tx.Nonce)
 			return nil
 		}
 	}

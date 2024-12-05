@@ -69,7 +69,7 @@ func (t *Transaction) PrettyPrint() string {
 		nonce = strconv.FormatUint(*t.Nonce, 10)
 	}
 	return fmt.Sprintf(`{txID:%d, IdempotencyKey:%v, ChainID:%v, Nonce:%s, FromAddress:%v, ToAddress:%v, Value:%v, `+
-		`Data:%v, SpecifiedGasLimit:%d, CreatedAt:%v, InitialBroadcastAt:%v, LastBroadcastAt:%v, State:%v, IsPurgeable:%v, AttemptCount:%d, `+
+		`Data:%s, SpecifiedGasLimit:%d, CreatedAt:%v, InitialBroadcastAt:%v, LastBroadcastAt:%v, State:%v, IsPurgeable:%v, AttemptCount:%d, `+
 		`Meta:%v, Subject:%v}`,
 		t.ID, idk, t.ChainID, nonce, t.FromAddress, t.ToAddress, t.Value, t.Data, t.SpecifiedGasLimit, t.CreatedAt, t.InitialBroadcastAt,
 		t.LastBroadcastAt, t.State, t.IsPurgeable, t.AttemptCount, t.Meta, t.Subject)
