@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/avast/retry-go"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
@@ -301,30 +302,34 @@ func CreateOCRv2Jobs(
 	l.Info().Msg("Verify OCRv2 jobs have been created")
 	for chainlinkNode, ids := range jobIDs {
 		for _, jobID := range ids {
-			var retries = 4
-			var baseDelay = time.Second * 2
-			for i := 0; i < retries; i++ {
-				_, resp, err := chainlinkNode.ReadJob(jobID)
-				if err == nil && resp.StatusCode == http.StatusOK {
+			err := retry.Do(
+				func() error {
+					_, resp, err := chainlinkNode.ReadJob(jobID)
+					if err != nil {
+						return err
+					}
+					if resp.StatusCode != http.StatusOK {
+						return fmt.Errorf("unexpected response status: %d", resp.StatusCode)
+					}
 					l.Info().
 						Str("Node", chainlinkNode.PodName).
 						Str("Job ID", jobID).
 						Msg("OCRv2 job successfully created")
-					break
-				}
-				if i == retries-1 {
-					return fmt.Errorf("failed to verify job creation for node %s, jobID %s after %d retries", chainlinkNode.PodName, jobID, retries)
-				}
-
-				delay := baseDelay << i // Exponential delay: baseDelay * 2^i
-				l.Debug().
-					Str("Node", chainlinkNode.PodName).
-					Str("Job ID", jobID).
-					Int("Attempt", i+1).
-					Dur("Delay", delay).
-					Msg("Exponential backoff: Waiting for next retry")
-
-				time.Sleep(delay)
+					return nil
+				},
+				retry.Attempts(4),
+				retry.Delay(time.Second*2),
+				retry.OnRetry(func(n uint, err error) {
+					l.Debug().
+						Str("Node", chainlinkNode.PodName).
+						Str("Job ID", jobID).
+						Uint("Attempt", n+1).
+						Err(err).
+						Msg("Retrying job verification")
+				}),
+			)
+			if err != nil {
+				l.Error().Err(err).Str("Node", chainlinkNode.PodName).Str("JobID", jobID).Msg("Failed to verify OCRv2 job creation")
 			}
 		}
 	}
