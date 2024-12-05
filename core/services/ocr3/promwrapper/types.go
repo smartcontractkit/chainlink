@@ -41,7 +41,7 @@ var (
 			Name: "ocr3_reports_generated",
 			Help: "Tracks number of reports generated withing a single OCR3's Reports step",
 		},
-		[]string{"chainID", "plugin"},
+		[]string{"chainID", "plugin", "function"},
 	)
 	promOCR3Durations = promauto.NewHistogramVec(
 		prometheus.HistogramOpts{

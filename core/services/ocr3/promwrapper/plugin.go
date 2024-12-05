@@ -68,32 +68,44 @@ func (p *ReportingPlugin[RI]) Reports(ctx context.Context, seqNr uint64, outcome
 	result, err := withObservedExecution(p, reports, func() ([]ocr3types.ReportPlus[RI], error) {
 		return p.ReportingPlugin.Reports(ctx, seqNr, outcome)
 	})
-	p.trackReportSizes(result)
+	p.trackReports(reports, len(result))
 	return result, err
 }
 
 func (p *ReportingPlugin[RI]) ShouldAcceptAttestedReport(ctx context.Context, seqNr uint64, reportWithInfo ocr3types.ReportWithInfo[RI]) (bool, error) {
-	return withObservedExecution(p, shouldAccept, func() (bool, error) {
+	result, err := withObservedExecution(p, shouldAccept, func() (bool, error) {
 		return p.ReportingPlugin.ShouldAcceptAttestedReport(ctx, seqNr, reportWithInfo)
 	})
+	p.trackReports(shouldAccept, boolToInt(result))
+	return result, err
 }
 
 func (p *ReportingPlugin[RI]) ShouldTransmitAcceptedReport(ctx context.Context, seqNr uint64, reportWithInfo ocr3types.ReportWithInfo[RI]) (bool, error) {
-	return withObservedExecution(p, shouldTransmit, func() (bool, error) {
+	result, err := withObservedExecution(p, shouldTransmit, func() (bool, error) {
 		return p.ReportingPlugin.ShouldTransmitAcceptedReport(ctx, seqNr, reportWithInfo)
 	})
+	p.trackReports(shouldTransmit, boolToInt(result))
+	return result, err
 }
 
 func (p *ReportingPlugin[RI]) Close() error {
 	return p.ReportingPlugin.Close()
 }
 
-func (p *ReportingPlugin[RI]) trackReportSizes(
-	reports []ocr3types.ReportPlus[RI],
+func (p *ReportingPlugin[RI]) trackReports(
+	function functionType,
+	count int,
 ) {
 	p.reportsGenerated.
-		WithLabelValues(p.chainID, p.plugin).
-		Add(float64(len(reports)))
+		WithLabelValues(p.chainID, p.plugin, string(function)).
+		Add(float64(count))
+}
+
+func boolToInt(arg bool) int {
+	if arg {
+		return 1
+	}
+	return 0
 }
 
 func withObservedExecution[RI, R any](

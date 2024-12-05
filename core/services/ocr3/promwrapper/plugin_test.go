@@ -42,13 +42,13 @@ func Test_ReportsGeneratedGauge(t *testing.T) {
 	_, err = plugin3.Reports(tests.Context(t), 1, nil)
 	require.Error(t, err)
 
-	g1 := testutil.ToFloat64(promOCR3ReportsGenerated.WithLabelValues("123", "empty"))
+	g1 := testutil.ToFloat64(promOCR3ReportsGenerated.WithLabelValues("123", "empty", "reports"))
 	require.Equal(t, float64(2), g1)
 
-	g2 := testutil.ToFloat64(promOCR3ReportsGenerated.WithLabelValues("solana", "different_plugin"))
+	g2 := testutil.ToFloat64(promOCR3ReportsGenerated.WithLabelValues("solana", "different_plugin", "reports"))
 	require.Equal(t, float64(100), g2)
 
-	g3 := testutil.ToFloat64(promOCR3ReportsGenerated.WithLabelValues("1234", "empty"))
+	g3 := testutil.ToFloat64(promOCR3ReportsGenerated.WithLabelValues("1234", "empty", "reports"))
 	require.Equal(t, float64(0), g3)
 }
 
