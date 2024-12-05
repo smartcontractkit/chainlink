@@ -32,7 +32,7 @@ func TestLinkTransferTimelock(t *testing.T) {
 	chainSelector := env.AllChainSelectors()[0]
 	chain := env.Chains[chainSelector]
 	// Deploy Value Token
-	resp, err := changeset.DeployLinkToken(env, chainSelector)
+	resp, err := changeset.DeployLinkToken(env, []uint64{chainSelector})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	require.NoError(t, env.ExistingAddresses.Merge(resp.AddressBook))
