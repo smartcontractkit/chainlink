@@ -445,8 +445,8 @@ func RegisterCapabilities(lggr logger.Logger, req RegisterCapabilitiesRequest) (
 	for cap := range uniqueCaps {
 		capabilities = append(capabilities, cap)
 	}
-
-	err = AddCapabilities(lggr, registry, registryChain, capabilities)
+	// not using mcms; ignore proposals
+	_, err = AddCapabilities(lggr, registry, registryChain, capabilities, false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add capabilities: %w", err)
 	}
