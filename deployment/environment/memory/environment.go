@@ -101,6 +101,9 @@ func generateMemoryChain(t *testing.T, inputs map[uint64]EVMChain) map[uint64]de
 
 func NewNodes(t *testing.T, logLevel zapcore.Level, chains map[uint64]deployment.Chain, numNodes, numBootstraps int, registryConfig deployment.CapabilityRegistryConfig) map[string]Node {
 	nodesByPeerID := make(map[string]Node)
+	if numNodes+numBootstraps == 0 {
+		return nodesByPeerID
+	}
 	ports := freeport.GetN(t, numBootstraps+numNodes)
 	// bootstrap nodes must be separate nodes from plugin nodes,
 	// since we won't run a bootstrapper and a plugin oracle on the same

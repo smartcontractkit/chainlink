@@ -2,14 +2,14 @@ package changeset_test
 
 import (
 	"testing"
-	"time"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
@@ -23,59 +23,46 @@ func TestAcceptAllOwnership(t *testing.T) {
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 	registrySel := env.AllChainSelectors()[0]
-	chCapReg, err := changeset.DeployCapabilityRegistry(env, registrySel)
-	require.NoError(t, err)
-	require.NotNil(t, chCapReg)
-	err = env.ExistingAddresses.Merge(chCapReg.AddressBook)
-	require.NoError(t, err)
-
-	chOcr3, err := changeset.DeployOCR3(env, registrySel)
-	require.NoError(t, err)
-	require.NotNil(t, chOcr3)
-	err = env.ExistingAddresses.Merge(chOcr3.AddressBook)
-	require.NoError(t, err)
-
-	chForwarder, err := changeset.DeployForwarder(env, registrySel)
-	require.NoError(t, err)
-	require.NotNil(t, chForwarder)
-	err = env.ExistingAddresses.Merge(chForwarder.AddressBook)
-	require.NoError(t, err)
-
-	chConsumer, err := changeset.DeployFeedsConsumer(env, &changeset.DeployFeedsConsumerRequest{
-		ChainSelector: registrySel,
-	})
-	require.NoError(t, err)
-	require.NotNil(t, chConsumer)
-	err = env.ExistingAddresses.Merge(chConsumer.AddressBook)
-	require.NoError(t, err)
-
 	mcmsConfig, err := commonchangeset.CreateMCMSConfig(env.AllDeployerKeys())
 	require.NoError(t, err)
-	chMcms, err := commonchangeset.DeployMCMSWithTimelock(env, map[uint64]types.MCMSWithTimelockConfig{
-		registrySel: mcmsConfig,
+	env, err = commonchangeset.ApplyChangesets(t, env, nil, []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(changeset.DeployCapabilityRegistry),
+			Config:    registrySel,
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(changeset.DeployOCR3),
+			Config:    registrySel,
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(changeset.DeployForwarder),
+			Config:    registrySel,
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(changeset.DeployFeedsConsumer),
+			Config:    &changeset.DeployFeedsConsumerRequest{ChainSelector: registrySel},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployMCMSWithTimelock),
+			Config:    mcmsConfig,
+		},
 	})
-	err = env.ExistingAddresses.Merge(chMcms.AddressBook)
+	require.NoError(t, err)
+	addrs, err := env.ExistingAddresses.AddressesForChain(registrySel)
+	require.NoError(t, err)
+	timelock, err := commonchangeset.LoadMCMSWithTimelockState(env.Chains[registrySel], addrs)
 	require.NoError(t, err)
 
-	require.NoError(t, err)
-	require.NotNil(t, chMcms)
-
-	resp, err := changeset.TransferAllOwnership(env, &changeset.TransferAllOwnershipRequest{
-		ChainSelector: registrySel,
+	_, err = commonchangeset.ApplyChangesets(t, env, map[uint64]*owner_helpers.RBACTimelock{
+		registrySel: timelock.Timelock,
+	}, []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(changeset.AcceptAllOwnershipsProposal),
+			Config: &changeset.AcceptAllOwnershipRequest{
+				ChainSelector: registrySel,
+				MinDelay:      0,
+			},
+		},
 	})
 	require.NoError(t, err)
-	require.NotNil(t, resp)
-
-	// Test the changeset
-	output, err := changeset.AcceptAllOwnershipsProposal(env, &changeset.AcceptAllOwnershipRequest{
-		ChainSelector: registrySel,
-		MinDelay:      time.Duration(0),
-	})
-	require.NoError(t, err)
-	require.NotNil(t, output)
-	require.Len(t, output.Proposals, 1)
-	proposal := output.Proposals[0]
-	require.Len(t, proposal.Transactions, 1)
-	txs := proposal.Transactions[0]
-	require.Len(t, txs.Batch, 4)
 }

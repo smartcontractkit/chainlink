@@ -42,7 +42,6 @@ func (c *ChainConfig) SetUsers(pvtkeys []string) error {
 			return fmt.Errorf("no private keys provided for users, deployer key is also not set")
 		}
 	}
-	c.Users = make([]*bind.TransactOpts, len(pvtkeys))
 	for _, pvtKeyStr := range pvtkeys {
 		pvtKey, err := crypto.HexToECDSA(pvtKeyStr)
 		if err != nil {

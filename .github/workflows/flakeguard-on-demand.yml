@@ -65,7 +65,7 @@ jobs:
       runAllTests: ${{ inputs.runAllTests }}
       findByTestFilesDiff: ${{ inputs.findByTestFilesDiff }}
       findByAffectedPackages: ${{ inputs.findByAffectedPackages }}
-      slackNotificationAfterTestsChannelId: ${{ inputs.slack_notification_after_tests_channel_id }}
+      slackNotificationAfterTestsChannelId: ${{ inputs.slack_notification_after_tests_channel_id || 'C07TRF65CNS' }} #flaky-test-detector-notifications
       extraArgs: ${{ inputs.extraArgs }}
     secrets:
       SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
