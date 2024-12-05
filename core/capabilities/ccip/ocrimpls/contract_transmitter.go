@@ -13,18 +13,23 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 )
 
-type ToCalldataFunc func(rawReportCtx [3][32]byte, report []byte, rs, ss [][32]byte, vs [32]byte) any
+type ToCalldataFunc func(rawReportCtx [2][32]byte, report []byte, rs, ss [][32]byte, vs [32]byte) any
 
-func ToCommitCalldata(rawReportCtx [3][32]byte, report []byte, rs, ss [][32]byte, vs [32]byte) any {
+func ToCommitCalldata(rawReportCtx [2][32]byte, report []byte, rs, ss [][32]byte, vs [32]byte) any {
 	// Note that the name of the struct field is very important, since the encoder used
 	// by the chainwriter uses mapstructure, which will use the struct field name to map
 	// to the argument name in the function call.
 	// If, for whatever reason, we want to change the field name, make sure to add a `mapstructure:"<arg_name>"` tag
 	// for that field.
+
+	// WARNING: Be careful if you change the data types.
+	// Using a different type e.g. `type Foo [32]byte` instead of `[32]byte`
+	// will trigger undefined chainWriter behavior, e.g. transactions submitted with wrong arguments.
 	return struct {
-		ReportContext [3][32]byte
+		ReportContext [2][32]byte
 		Report        []byte
 		Rs            [][32]byte
 		Ss            [][32]byte
@@ -38,14 +43,18 @@ func ToCommitCalldata(rawReportCtx [3][32]byte, report []byte, rs, ss [][32]byte
 	}
 }
 
-func ToExecCalldata(rawReportCtx [3][32]byte, report []byte, _, _ [][32]byte, _ [32]byte) any {
+func ToExecCalldata(rawReportCtx [2][32]byte, report []byte, _, _ [][32]byte, _ [32]byte) any {
 	// Note that the name of the struct field is very important, since the encoder used
 	// by the chainwriter uses mapstructure, which will use the struct field name to map
 	// to the argument name in the function call.
 	// If, for whatever reason, we want to change the field name, make sure to add a `mapstructure:"<arg_name>"` tag
 	// for that field.
+
+	// WARNING: Be careful if you change the data types.
+	// Using a different type e.g. `type Foo [32]byte` instead of `[32]byte`
+	// will trigger undefined chainWriter behavior, e.g. transactions submitted with wrong arguments.
 	return struct {
-		ReportContext [3][32]byte
+		ReportContext [2][32]byte
 		Report        []byte
 	}{
 		ReportContext: rawReportCtx,
@@ -144,22 +153,7 @@ func (c *commitTransmitter[RI]) Transmit(
 	// report ctx for OCR3 consists of the following
 	// reportContext[0]: ConfigDigest
 	// reportContext[1]: 24 byte padding, 8 byte sequence number
-	// reportContext[2]: unused
-	// convert seqNum, which is a uint64, into a uint32 epoch and uint8 round
-	// while this does truncate the sequence number, it is not a problem because
-	// it still gives us 2^40 - 1 possible sequence numbers.
-	// assuming a sequence number is generated every second, this gives us
-	// 1099511627775 seconds, or approximately 34,865 years, before we run out
-	// of sequence numbers.
-	epoch, round := uint64ToUint32AndUint8(seqNr)
-	rawReportCtx := evmutil.RawReportContext(ocrtypes.ReportContext{
-		ReportTimestamp: ocrtypes.ReportTimestamp{
-			ConfigDigest: configDigest,
-			Epoch:        epoch,
-			Round:        round,
-		},
-		// ExtraData not used in OCR3
-	})
+	rawReportCtx := ocr2key.RawReportContext3(configDigest, seqNr)
 
 	if c.toCalldataFn == nil {
 		return errors.New("toCalldataFn is nil")
@@ -181,8 +175,4 @@ func (c *commitTransmitter[RI]) Transmit(
 	}
 
 	return nil
-}
-
-func uint64ToUint32AndUint8(x uint64) (uint32, uint8) {
-	return uint32(x >> 32), uint8(x)
 }
