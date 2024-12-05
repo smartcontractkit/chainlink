@@ -34,8 +34,8 @@ var (
 
 	promOCR3ReportsGenerated = promauto.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "ocr3_reports_generated",
-			Help: "Tracks number of reports generated within by different OCR3 functions",
+			Name: "ocr3_reports_processed",
+			Help: "Tracks number of reports processed/generated within by different OCR3 functions",
 		},
 		[]string{"chainID", "plugin", "function"},
 	)
