@@ -101,7 +101,7 @@ abstract contract MultiOCR3Base is ITypeAndVersion, Ownable2StepMsgSender {
   /// @notice Constant length component for transmit functions with no signatures.
   /// The signatures are expected to match transmitPlugin(reportContext, report).
   uint16 private constant TRANSMIT_MSGDATA_CONSTANT_LENGTH_COMPONENT_NO_SIGNATURES = 4 // function selector.
-    + 3 * 32 // 3 words containing reportContext.
+    + 2 * 32 // 2 words containing reportContext.
     + 32 // word containing start location of abiencoded report value.
     + 32; // word containing length of report.
 
@@ -230,7 +230,7 @@ abstract contract MultiOCR3Base is ITypeAndVersion, Ownable2StepMsgSender {
     uint8 ocrPluginType,
     // NOTE: If these parameters are changed, expectedMsgDataLength and/or TRANSMIT_MSGDATA_CONSTANT_LENGTH_COMPONENT
     // need to be changed accordingly.
-    bytes32[3] calldata reportContext,
+    bytes32[2] calldata reportContext,
     bytes calldata report,
     bytes32[] memory rs,
     bytes32[] memory ss,
@@ -239,7 +239,6 @@ abstract contract MultiOCR3Base is ITypeAndVersion, Ownable2StepMsgSender {
     // reportContext consists of:
     // reportContext[0]: ConfigDigest.
     // reportContext[1]: 24 byte padding, 8 byte sequence number.
-    // reportContext[2]: ExtraHash.
     ConfigInfo memory configInfo = s_ocrConfigs[ocrPluginType].configInfo;
     bytes32 configDigest = reportContext[0];
 

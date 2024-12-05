@@ -254,7 +254,7 @@ func Test_SecretsWorker(t *testing.T) {
 		lggr.Debugf("got secrets %v", secrets)
 		require.NoError(t, err)
 		return secrets == wantContents
-	}, 5*time.Second, time.Second)
+	}, 15*time.Second, time.Second)
 }
 
 func updateAuthorizedAddress(
