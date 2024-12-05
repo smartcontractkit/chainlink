@@ -270,6 +270,8 @@ func ConfirmMultipleCommits(
 	errGrp := &errgroup.Group{}
 
 	for sourceDest, seqRange := range expectedSeqNums {
+		sourceDest := sourceDest
+		seqRange := seqRange
 		errGrp.Go(func() error {
 			_, err := ConfirmCommitWithExpectedSeqNumRange(
 				t,

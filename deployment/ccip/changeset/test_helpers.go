@@ -1356,6 +1356,8 @@ func WaitForTokenBalances(
 	errGrp := &errgroup.Group{}
 	for chainID, tokens := range expectedBalances {
 		for id, balance := range tokens {
+			id := id
+			balance := balance
 			errGrp.Go(func() error {
 				WaitForTheTokenBalance(ctx, t, id.token, id.receiver, chains[chainID], balance)
 				return nil
