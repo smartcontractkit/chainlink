@@ -39,6 +39,9 @@ func Test_ReportsGeneratedGauge(t *testing.T) {
 		require.Len(t, r2, 10)
 	}
 
+	_, err = plugin2.ShouldAcceptAttestedReport(tests.Context(t), 1, ocr3types.ReportWithInfo[bool]{})
+	require.NoError(t, err)
+
 	_, err = plugin3.Reports(tests.Context(t), 1, nil)
 	require.Error(t, err)
 
@@ -48,8 +51,11 @@ func Test_ReportsGeneratedGauge(t *testing.T) {
 	g2 := testutil.ToFloat64(promOCR3ReportsGenerated.WithLabelValues("solana", "different_plugin", "reports"))
 	require.Equal(t, float64(100), g2)
 
-	g3 := testutil.ToFloat64(promOCR3ReportsGenerated.WithLabelValues("1234", "empty", "reports"))
-	require.Equal(t, float64(0), g3)
+	g3 := testutil.ToFloat64(promOCR3ReportsGenerated.WithLabelValues("solana", "different_plugin", "shouldAccept"))
+	require.Equal(t, float64(1), g3)
+
+	g4 := testutil.ToFloat64(promOCR3ReportsGenerated.WithLabelValues("1234", "empty", "reports"))
+	require.Equal(t, float64(0), g4)
 }
 
 func Test_DurationHistograms(t *testing.T) {
@@ -129,11 +135,17 @@ func (f fakePlugin[RI]) Reports(context.Context, uint64, ocr3types.Outcome) ([]o
 }
 
 func (f fakePlugin[RI]) ShouldAcceptAttestedReport(context.Context, uint64, ocr3types.ReportWithInfo[RI]) (bool, error) {
-	return false, f.err
+	if f.err != nil {
+		return false, f.err
+	}
+	return true, nil
 }
 
 func (f fakePlugin[RI]) ShouldTransmitAcceptedReport(context.Context, uint64, ocr3types.ReportWithInfo[RI]) (bool, error) {
-	return false, f.err
+	if f.err != nil {
+		return false, f.err
+	}
+	return true, nil
 }
 
 func (f fakePlugin[RI]) Close() error {
