@@ -50,11 +50,6 @@ func newBatchTestSetup(t *testing.T) batchTestSetup {
 		},
 		&changeset.TestConfigs{
 			IsMultiCall3: true,
-			// OCRConfigOverride: func(params changeset.CCIPOCRParams) changeset.CCIPOCRParams {
-			// 	params.ExecuteOffChainConfig.RelativeBoostPerWaitHour = 0.05
-
-			// 	return params
-			// },
 		},
 	)
 
