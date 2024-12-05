@@ -285,8 +285,7 @@ contract OffRamp_commit is OffRampSetup {
   function test_UnauthorizedTransmitter_Revert() public {
     OffRamp.CommitReport memory commitReport = _constructCommitReport();
 
-    bytes32[3] memory reportContext =
-      [s_configDigestCommit, bytes32(uint256(s_latestSequenceNumber)), s_configDigestCommit];
+    bytes32[2] memory reportContext = [s_configDigestCommit, bytes32(uint256(s_latestSequenceNumber))];
 
     (bytes32[] memory rs, bytes32[] memory ss,, bytes32 rawVs) =
       _getSignaturesForDigest(s_validSignerKeys, abi.encode(commitReport), reportContext, F + 1);
@@ -300,7 +299,7 @@ contract OffRamp_commit is OffRampSetup {
 
     OffRamp.CommitReport memory commitReport = _constructCommitReport();
 
-    bytes32[3] memory reportContext = [bytes32(""), s_configDigestCommit, s_configDigestCommit];
+    bytes32[2] memory reportContext = [bytes32(""), s_configDigestCommit];
     (bytes32[] memory rs, bytes32[] memory ss,, bytes32 rawVs) =
       _getSignaturesForDigest(s_validSignerKeys, abi.encode(commitReport), reportContext, F + 1);
 
@@ -325,7 +324,7 @@ contract OffRamp_commit is OffRampSetup {
 
     OffRamp.CommitReport memory commitReport = _constructCommitReport();
 
-    bytes32[3] memory reportContext = [bytes32(""), s_configDigestCommit, s_configDigestCommit];
+    bytes32[2] memory reportContext = [bytes32(""), s_configDigestCommit];
     (bytes32[] memory rs, bytes32[] memory ss,, bytes32 rawVs) =
       _getSignaturesForDigest(s_validSignerKeys, abi.encode(commitReport), reportContext, F + 1);
 

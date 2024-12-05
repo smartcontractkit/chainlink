@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
@@ -38,13 +39,20 @@ func TestInitialDeployOnLocal(t *testing.T) {
 			require.NoError(t, err)
 			block := latesthdr.Number.Uint64()
 			startBlocks[dest] = &block
-			msgSentEvent := changeset.TestSendRequest(t, e, state, src, dest, false, router.ClientEVM2AnyMessage{
-				Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
-				Data:         []byte("hello world"),
-				TokenAmounts: nil,
-				FeeToken:     common.HexToAddress("0x0"),
-				ExtraArgs:    nil,
-			})
+			require.GreaterOrEqual(t, len(tenv.Users[src]), 2)
+			msgSentEvent, err := changeset.DoSendRequest(t, e, state,
+				changeset.WithSender(tenv.Users[src][1]),
+				changeset.WithSourceChain(src),
+				changeset.WithDestChain(dest),
+				changeset.WithTestRouter(false),
+				changeset.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
+					Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
+					Data:         []byte("hello world"),
+					TokenAmounts: nil,
+					FeeToken:     common.HexToAddress("0x0"),
+					ExtraArgs:    nil,
+				}))
+			require.NoError(t, err)
 			expectedSeqNum[changeset.SourceDestPair{
 				SourceChainSelector: src,
 				DestChainSelector:   dest,

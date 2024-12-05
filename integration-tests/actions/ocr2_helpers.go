@@ -4,12 +4,15 @@ import (
 	"crypto/ed25519"
 	"encoding/hex"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
+	"github.com/avast/retry-go"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/guregu/null.v4"
@@ -192,6 +195,7 @@ func CreateOCRv2Jobs(
 	mockServerValue int, // Value to get from the mock server when querying the path
 	chainId int64, // EVM chain ID
 	forwardingAllowed bool,
+	l zerolog.Logger,
 ) error {
 	// Collect P2P ID
 	bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
@@ -217,6 +221,9 @@ func CreateOCRv2Jobs(
 			return fmt.Errorf("failed creating bridge %s on CL node : %w", juelsBridge.Name, err)
 		}
 	}
+
+	// Initialize map to store job IDs for each chainlink node
+	jobIDs := make(map[*nodeclient.ChainlinkK8sClient][]string)
 
 	for _, ocrInstance := range ocrInstances {
 		bootstrapSpec := &nodeclient.OCR2TaskJobSpec{
@@ -284,9 +291,45 @@ func CreateOCRv2Jobs(
 					P2PV2Bootstrappers:                pq.StringArray{p2pV2Bootstrapper},       // bootstrap node key and address <p2p-key>@bootstrap:6690
 				},
 			}
-			_, err = chainlinkNode.MustCreateJob(ocrSpec)
+			var ocrJob *nodeclient.Job
+			ocrJob, err = chainlinkNode.MustCreateJob(ocrSpec)
 			if err != nil {
 				return fmt.Errorf("creating OCR task job on OCR node have failed: %w", err)
+			}
+			jobIDs[chainlinkNode] = append(jobIDs[chainlinkNode], ocrJob.Data.ID) // Store each job ID per node
+		}
+	}
+	l.Info().Msg("Verify OCRv2 jobs have been created")
+	for chainlinkNode, ids := range jobIDs {
+		for _, jobID := range ids {
+			err := retry.Do(
+				func() error {
+					_, resp, err := chainlinkNode.ReadJob(jobID)
+					if err != nil {
+						return err
+					}
+					if resp.StatusCode != http.StatusOK {
+						return fmt.Errorf("unexpected response status: %d", resp.StatusCode)
+					}
+					l.Info().
+						Str("Node", chainlinkNode.PodName).
+						Str("Job ID", jobID).
+						Msg("OCRv2 job successfully created")
+					return nil
+				},
+				retry.Attempts(4),
+				retry.Delay(time.Second*2),
+				retry.OnRetry(func(n uint, err error) {
+					l.Debug().
+						Str("Node", chainlinkNode.PodName).
+						Str("Job ID", jobID).
+						Uint("Attempt", n+1).
+						Err(err).
+						Msg("Retrying job verification")
+				}),
+			)
+			if err != nil {
+				l.Error().Err(err).Str("Node", chainlinkNode.PodName).Str("JobID", jobID).Msg("Failed to verify OCRv2 job creation")
 			}
 		}
 	}

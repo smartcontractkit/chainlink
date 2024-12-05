@@ -72,7 +72,7 @@ func Test_Workflow_Registry_Syncer(t *testing.T) {
 
 		handler = NewEventHandler(lggr, orm, gateway, nil, nil,
 			emitter, clockwork.NewFakeClock(), workflowkey.Key{})
-		loader = NewWorkflowRegistryContractLoader(contractAddress, func(ctx context.Context, bytes []byte) (ContractReader, error) {
+		loader = NewWorkflowRegistryContractLoader(lggr, contractAddress, func(ctx context.Context, bytes []byte) (ContractReader, error) {
 			return reader, nil
 		}, handler)
 

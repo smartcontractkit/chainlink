@@ -1341,7 +1341,7 @@ func Test_Service_DeleteJob(t *testing.T) {
 			ID:             1,
 			WorkflowSpecID: &wfSpecID,
 		}
-		spec = &feeds.JobProposalSpec{
+		jobProposalSpec = &feeds.JobProposalSpec{
 			ID:            20,
 			Status:        feeds.SpecStatusApproved,
 			JobProposalID: approved.ID,
@@ -1415,13 +1415,14 @@ func Test_Service_DeleteJob(t *testing.T) {
 				svc.orm.On("DeleteProposal", mock.Anything, approved.ID).Return(nil)
 				svc.orm.On("CountJobProposalsByStatus", mock.Anything).Return(&feeds.JobProposalCounts{}, nil)
 				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, approved.ExternalJobID.UUID).Return(workflowJob, nil)
+				svc.orm.On("GetApprovedSpec", mock.Anything, approved.ID).Return(jobProposalSpec, nil)
 
 				// mocks for CancelSpec()
-				svc.orm.On("GetSpec", mock.Anything, approved.ID).Return(spec, nil)
+				svc.orm.On("GetSpec", mock.Anything, jobProposalSpec.ID).Return(jobProposalSpec, nil)
 				svc.orm.On("GetJobProposal", mock.Anything, approved.ID).Return(&approved, nil)
 				svc.connMgr.On("GetClient", mock.Anything).Return(svc.fmsClient, nil)
 
-				svc.orm.On("CancelSpec", mock.Anything, approved.ID).Return(nil)
+				svc.orm.On("CancelSpec", mock.Anything, jobProposalSpec.ID).Return(nil)
 				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, approved.ExternalJobID.UUID).Return(workflowJob, nil)
 				svc.spawner.On("DeleteJob", mock.Anything, mock.Anything, workflowJob.ID).Return(nil)
 
@@ -1429,7 +1430,7 @@ func Test_Service_DeleteJob(t *testing.T) {
 					mock.MatchedBy(func(ctx context.Context) bool { return true }),
 					&proto.CancelledJobRequest{
 						Uuid:    approved.RemoteUUID.String(),
-						Version: int64(spec.Version),
+						Version: int64(jobProposalSpec.Version),
 					},
 				).Return(&proto.CancelledJobResponse{}, nil)
 				svc.orm.On("CountJobProposalsByStatus", mock.Anything).Return(&feeds.JobProposalCounts{}, nil)

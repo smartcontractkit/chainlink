@@ -4,7 +4,6 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
@@ -79,16 +78,18 @@ func TestUSDCTokenTransfer(t *testing.T) {
 		t,
 		e,
 		state,
-		map[uint64]*bind.TransactOpts{
-			chainA: ownerChainA,
-			chainB: ownerChainB,
-			chainC: ownerChainC,
+		map[uint64][]changeset.MintTokenInfo{
+			chainA: {
+				changeset.NewMintTokenInfo(ownerChainA, aChainUSDC, aChainToken),
+			},
+			chainB: {
+				changeset.NewMintTokenInfo(ownerChainB, bChainUSDC),
+			},
+			chainC: {
+				changeset.NewMintTokenInfo(ownerChainC, cChainUSDC, cChainToken),
+			},
 		},
-		map[uint64][]*burn_mint_erc677.BurnMintERC677{
-			chainA: {aChainUSDC, aChainToken},
-			chainB: {bChainUSDC},
-			chainC: {cChainUSDC, cChainToken},
-		})
+	)
 
 	err = updateFeeQuoters(lggr, e, state, chainA, chainB, chainC, aChainUSDC, bChainUSDC, cChainUSDC)
 	require.NoError(t, err)
