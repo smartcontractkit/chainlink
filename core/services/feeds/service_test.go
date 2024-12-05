@@ -40,6 +40,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/versioning"
@@ -183,16 +184,17 @@ chainID 			= 1337
 
 type TestService struct {
 	feeds.Service
-	orm          *mocks.ORM
-	jobORM       *jobmocks.ORM
-	connMgr      *mocks.ConnectionsManager
-	spawner      *jobmocks.Spawner
-	fmsClient    *mocks.FeedsManagerClient
-	csaKeystore  *ksmocks.CSA
-	p2pKeystore  *ksmocks.P2P
-	ocr1Keystore *ksmocks.OCR
-	ocr2Keystore *ksmocks.OCR2
-	legacyChains legacyevm.LegacyChainContainer
+	orm              *mocks.ORM
+	jobORM           *jobmocks.ORM
+	connMgr          *mocks.ConnectionsManager
+	spawner          *jobmocks.Spawner
+	fmsClient        *mocks.FeedsManagerClient
+	csaKeystore      *ksmocks.CSA
+	p2pKeystore      *ksmocks.P2P
+	ocr1Keystore     *ksmocks.OCR
+	ocr2Keystore     *ksmocks.OCR2
+	workflowKeystore *ksmocks.Workflow
+	legacyChains     legacyevm.LegacyChainContainer
 }
 
 func setupTestService(t *testing.T) *TestService {
@@ -205,15 +207,16 @@ func setupTestServiceCfg(t *testing.T, overrideCfg func(c *chainlink.Config, s *
 	t.Helper()
 
 	var (
-		orm          = mocks.NewORM(t)
-		jobORM       = jobmocks.NewORM(t)
-		connMgr      = mocks.NewConnectionsManager(t)
-		spawner      = jobmocks.NewSpawner(t)
-		fmsClient    = mocks.NewFeedsManagerClient(t)
-		csaKeystore  = ksmocks.NewCSA(t)
-		p2pKeystore  = ksmocks.NewP2P(t)
-		ocr1Keystore = ksmocks.NewOCR(t)
-		ocr2Keystore = ksmocks.NewOCR2(t)
+		orm              = mocks.NewORM(t)
+		jobORM           = jobmocks.NewORM(t)
+		connMgr          = mocks.NewConnectionsManager(t)
+		spawner          = jobmocks.NewSpawner(t)
+		fmsClient        = mocks.NewFeedsManagerClient(t)
+		csaKeystore      = ksmocks.NewCSA(t)
+		p2pKeystore      = ksmocks.NewP2P(t)
+		ocr1Keystore     = ksmocks.NewOCR(t)
+		ocr2Keystore     = ksmocks.NewOCR2(t)
+		workflowKeystore = ksmocks.NewWorkflow(t)
 	)
 
 	lggr := logger.TestLogger(t)
@@ -229,21 +232,23 @@ func setupTestServiceCfg(t *testing.T, overrideCfg func(c *chainlink.Config, s *
 	keyStore.On("P2P").Return(p2pKeystore)
 	keyStore.On("OCR").Return(ocr1Keystore)
 	keyStore.On("OCR2").Return(ocr2Keystore)
+	keyStore.On("Workflow").Return(workflowKeystore)
 	svc := feeds.NewService(orm, jobORM, db, spawner, keyStore, gcfg, gcfg.Feature(), gcfg.Insecure(), gcfg.JobPipeline(), gcfg.OCR(), gcfg.OCR2(), legacyChains, lggr, "1.0.0", nil)
 	svc.SetConnectionsManager(connMgr)
 
 	return &TestService{
-		Service:      svc,
-		orm:          orm,
-		jobORM:       jobORM,
-		connMgr:      connMgr,
-		spawner:      spawner,
-		fmsClient:    fmsClient,
-		csaKeystore:  csaKeystore,
-		p2pKeystore:  p2pKeystore,
-		ocr1Keystore: ocr1Keystore,
-		ocr2Keystore: ocr2Keystore,
-		legacyChains: legacyChains,
+		Service:          svc,
+		orm:              orm,
+		jobORM:           jobORM,
+		connMgr:          connMgr,
+		spawner:          spawner,
+		fmsClient:        fmsClient,
+		csaKeystore:      csaKeystore,
+		p2pKeystore:      p2pKeystore,
+		ocr1Keystore:     ocr1Keystore,
+		ocr2Keystore:     ocr2Keystore,
+		workflowKeystore: workflowKeystore,
+		legacyChains:     legacyChains,
 	}
 }
 
@@ -613,10 +618,15 @@ func Test_Service_CreateChainConfig(t *testing.T) {
 				svc = setupTestService(t)
 			)
 
+			workflowKey, err := workflowkey.New()
+			require.NoError(t, err)
+			svc.workflowKeystore.On("GetAll").Return([]workflowkey.Key{workflowKey}, nil)
+
 			svc.orm.On("CreateChainConfig", mock.Anything, cfg).Return(int64(1), nil)
 			svc.orm.On("GetManager", mock.Anything, mgr.ID).Return(&mgr, nil)
 			svc.connMgr.On("GetClient", mgr.ID).Return(svc.fmsClient, nil)
 			svc.orm.On("ListChainConfigsByManagerIDs", mock.Anything, []int64{mgr.ID}).Return([]feeds.ChainConfig{cfg}, nil)
+			wkID := workflowKey.ID()
 			svc.fmsClient.On("UpdateNode", mock.Anything, &proto.UpdateNodeRequest{
 				Version: nodeVersion.Version,
 				ChainConfigs: []*proto.ChainConfig{
@@ -633,6 +643,7 @@ func Test_Service_CreateChainConfig(t *testing.T) {
 						Ocr2Config:              &proto.OCR2Config{Enabled: false},
 					},
 				},
+				WorkflowKey: &wkID,
 			}).Return(&proto.UpdateNodeResponse{}, nil)
 
 			actual, err := svc.CreateChainConfig(testutils.Context(t), cfg)
@@ -677,14 +688,20 @@ func Test_Service_DeleteChainConfig(t *testing.T) {
 		svc = setupTestService(t)
 	)
 
+	workflowKey, err := workflowkey.New()
+	require.NoError(t, err)
+	svc.workflowKeystore.On("GetAll").Return([]workflowkey.Key{workflowKey}, nil)
+
 	svc.orm.On("GetChainConfig", mock.Anything, cfg.ID).Return(&cfg, nil)
 	svc.orm.On("DeleteChainConfig", mock.Anything, cfg.ID).Return(cfg.ID, nil)
 	svc.orm.On("GetManager", mock.Anything, mgr.ID).Return(&mgr, nil)
 	svc.connMgr.On("GetClient", mgr.ID).Return(svc.fmsClient, nil)
 	svc.orm.On("ListChainConfigsByManagerIDs", mock.Anything, []int64{mgr.ID}).Return([]feeds.ChainConfig{}, nil)
+	wkID := workflowKey.ID()
 	svc.fmsClient.On("UpdateNode", mock.Anything, &proto.UpdateNodeRequest{
 		Version:      nodeVersion.Version,
 		ChainConfigs: []*proto.ChainConfig{},
+		WorkflowKey:  &wkID,
 	}).Return(&proto.UpdateNodeResponse{}, nil)
 
 	actual, err := svc.DeleteChainConfig(testutils.Context(t), cfg.ID)
@@ -762,10 +779,15 @@ func Test_Service_UpdateChainConfig(t *testing.T) {
 				svc = setupTestService(t)
 			)
 
+			workflowKey, err := workflowkey.New()
+			require.NoError(t, err)
+			svc.workflowKeystore.On("GetAll").Return([]workflowkey.Key{workflowKey}, nil)
+
 			svc.orm.On("UpdateChainConfig", mock.Anything, cfg).Return(int64(1), nil)
 			svc.orm.On("GetChainConfig", mock.Anything, cfg.ID).Return(&cfg, nil)
 			svc.connMgr.On("GetClient", mgr.ID).Return(svc.fmsClient, nil)
 			svc.orm.On("ListChainConfigsByManagerIDs", mock.Anything, []int64{mgr.ID}).Return([]feeds.ChainConfig{cfg}, nil)
+			wkID := workflowKey.ID()
 			svc.fmsClient.On("UpdateNode", mock.Anything, &proto.UpdateNodeRequest{
 				Version: nodeVersion.Version,
 				ChainConfigs: []*proto.ChainConfig{
@@ -782,6 +804,7 @@ func Test_Service_UpdateChainConfig(t *testing.T) {
 						Ocr2Config:              &proto.OCR2Config{Enabled: false},
 					},
 				},
+				WorkflowKey: &wkID,
 			}).Return(&proto.UpdateNodeResponse{}, nil)
 
 			actual, err := svc.UpdateChainConfig(testutils.Context(t), cfg)
@@ -1318,7 +1341,7 @@ func Test_Service_DeleteJob(t *testing.T) {
 			ID:             1,
 			WorkflowSpecID: &wfSpecID,
 		}
-		spec = &feeds.JobProposalSpec{
+		jobProposalSpec = &feeds.JobProposalSpec{
 			ID:            20,
 			Status:        feeds.SpecStatusApproved,
 			JobProposalID: approved.ID,
@@ -1392,13 +1415,14 @@ func Test_Service_DeleteJob(t *testing.T) {
 				svc.orm.On("DeleteProposal", mock.Anything, approved.ID).Return(nil)
 				svc.orm.On("CountJobProposalsByStatus", mock.Anything).Return(&feeds.JobProposalCounts{}, nil)
 				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, approved.ExternalJobID.UUID).Return(workflowJob, nil)
+				svc.orm.On("GetApprovedSpec", mock.Anything, approved.ID).Return(jobProposalSpec, nil)
 
 				// mocks for CancelSpec()
-				svc.orm.On("GetSpec", mock.Anything, approved.ID).Return(spec, nil)
+				svc.orm.On("GetSpec", mock.Anything, jobProposalSpec.ID).Return(jobProposalSpec, nil)
 				svc.orm.On("GetJobProposal", mock.Anything, approved.ID).Return(&approved, nil)
 				svc.connMgr.On("GetClient", mock.Anything).Return(svc.fmsClient, nil)
 
-				svc.orm.On("CancelSpec", mock.Anything, approved.ID).Return(nil)
+				svc.orm.On("CancelSpec", mock.Anything, jobProposalSpec.ID).Return(nil)
 				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, approved.ExternalJobID.UUID).Return(workflowJob, nil)
 				svc.spawner.On("DeleteJob", mock.Anything, mock.Anything, workflowJob.ID).Return(nil)
 
@@ -1406,7 +1430,7 @@ func Test_Service_DeleteJob(t *testing.T) {
 					mock.MatchedBy(func(ctx context.Context) bool { return true }),
 					&proto.CancelledJobRequest{
 						Uuid:    approved.RemoteUUID.String(),
-						Version: int64(spec.Version),
+						Version: int64(jobProposalSpec.Version),
 					},
 				).Return(&proto.CancelledJobResponse{}, nil)
 				svc.orm.On("CountJobProposalsByStatus", mock.Anything).Return(&feeds.JobProposalCounts{}, nil)
@@ -1707,6 +1731,9 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 			ocrKey, err := ocrkey.NewV2()
 			require.NoError(t, err)
 
+			workflowKey, err := workflowkey.New()
+			require.NoError(t, err)
+
 			var (
 				multiaddr     = "/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"
 				mgr           = &feeds.FeedsManager{ID: 1}
@@ -1754,6 +1781,8 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 			svc.p2pKeystore.On("Get", p2pKey.PeerID()).Return(p2pKey, nil)
 			svc.ocr1Keystore.On("Get", ocrKey.GetID()).Return(ocrKey, nil)
 
+			svc.workflowKeystore.On("GetAll").Return([]workflowkey.Key{workflowKey}, nil)
+			wkID := workflowKey.ID()
 			svc.fmsClient.On("UpdateNode", mock.Anything, &proto.UpdateNodeRequest{
 				Version: nodeVersion.Version,
 				ChainConfigs: []*proto.ChainConfig{
@@ -1794,6 +1823,7 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 						},
 					},
 				},
+				WorkflowKey: &wkID,
 			}).Return(&proto.UpdateNodeResponse{}, nil)
 
 			err = svc.SyncNodeInfo(testutils.Context(t), mgr.ID)

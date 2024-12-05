@@ -298,7 +298,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 		}
 
 		t.Run("nil ctx returns error", func(t *testing.T) {
-			_, err := cdc.fetchChannelDefinitions(nil, "notvalid://foos", [32]byte{}) //nolint
+			_, err := cdc.fetchChannelDefinitions(nil, "notvalid://foos", [32]byte{}) //nolint:staticcheck // SA1012 we pass nil intentionally here
 			assert.EqualError(t, err, "failed to create http.Request; net/http: nil Context")
 		})
 

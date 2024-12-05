@@ -10,20 +10,24 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/link_token"
 )
 
-var _ deployment.ChangeSet[uint64] = DeployLinkToken
+var _ deployment.ChangeSet[[]uint64] = DeployLinkToken
 
 // DeployLinkToken deploys a link token contract to the chain identified by the chainSelector.
-func DeployLinkToken(e deployment.Environment, chainSelector uint64) (deployment.ChangesetOutput, error) {
-	c, ok := e.Chains[chainSelector]
-	if !ok {
-		return deployment.ChangesetOutput{}, fmt.Errorf("chain not found in environment")
+func DeployLinkToken(e deployment.Environment, chains []uint64) (deployment.ChangesetOutput, error) {
+	for _, chain := range chains {
+		_, ok := e.Chains[chain]
+		if !ok {
+			return deployment.ChangesetOutput{}, fmt.Errorf("chain not found in environment")
+		}
 	}
 	newAddresses := deployment.NewMemoryAddressBook()
-	_, err := deployLinkTokenContract(
-		e.Logger, c, newAddresses,
-	)
-	if err != nil {
-		return deployment.ChangesetOutput{AddressBook: newAddresses}, err
+	for _, chain := range chains {
+		_, err := deployLinkTokenContract(
+			e.Logger, e.Chains[chain], newAddresses,
+		)
+		if err != nil {
+			return deployment.ChangesetOutput{AddressBook: newAddresses}, err
+		}
 	}
 	return deployment.ChangesetOutput{AddressBook: newAddresses}, nil
 }
