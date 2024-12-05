@@ -142,10 +142,7 @@ func TestDeployCLO(t *testing.T) {
 	}
 	deployResp, err := keystone.ConfigureContracts(ctx, lggr, deployReq)
 	require.NoError(t, err)
-	ad := deployResp.Changeset.AddressBook
-	addrs, err := ad.Addresses()
-	require.NoError(t, err)
-	lggr.Infow("Deployed Keystone contracts", "address book", addrs)
+	ad := env.ExistingAddresses
 
 	// all contracts on home chain
 	homeChainAddrs, err := ad.AddressesForChain(registryChainSel)
