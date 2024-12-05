@@ -182,7 +182,7 @@ jobs:
               - added|modified: 'contracts/.changeset/*.md'
 
       - name: Setup node
-        uses: ./.github/actions/setup-node
+        uses: ./.github/actions/setup-nodejs
         if: ${{ steps.files-changed.outputs.contracts-changeset == 'true' }}
       
       - name: Validate changeset files
