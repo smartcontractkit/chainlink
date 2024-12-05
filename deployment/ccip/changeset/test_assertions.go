@@ -270,15 +270,17 @@ func ConfirmMultipleCommits(
 	errGrp := &errgroup.Group{}
 
 	for sourceDest, seqRange := range expectedSeqNums {
-		sourceDest := sourceDest
 		seqRange := seqRange
+		srcChain := sourceDest.SourceChainSelector
+		destChain := sourceDest.DestChainSelector
+
 		errGrp.Go(func() error {
 			_, err := ConfirmCommitWithExpectedSeqNumRange(
 				t,
-				chains[sourceDest.SourceChainSelector],
-				chains[sourceDest.DestChainSelector],
-				state[sourceDest.DestChainSelector].OffRamp,
-				startBlocks[sourceDest.DestChainSelector],
+				chains[srcChain],
+				chains[destChain],
+				state[destChain].OffRamp,
+				startBlocks[destChain],
 				seqRange,
 				enforceSingleCommit,
 			)
