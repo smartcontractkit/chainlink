@@ -151,10 +151,17 @@ func TestAddChainInbound(t *testing.T) {
 		initialDeploy[1]: state.Chains[initialDeploy[1]].Timelock,
 		initialDeploy[2]: state.Chains[initialDeploy[2]].Timelock,
 	}, []commonchangeset.ChangesetApplication{
-		// note this doesn't have proposals.
 		{
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.TransferToMCMSWithTimelock),
 			Config:    genTestTransferOwnershipConfig(e, initialDeploy, state),
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(NewChainInboundChangeset),
+			Config: ChainInboundChangesetConfig{
+				HomeChainSelector:    e.HomeChainSel,
+				NewChainSelector:     newChain,
+				SourceChainSelectors: initialDeploy,
+			},
 		},
 	})
 	require.NoError(t, err)
@@ -164,29 +171,59 @@ func TestAddChainInbound(t *testing.T) {
 	nodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
 
-	// Generate and sign inbound proposal to new 4th chain.
-	chainInboundChangeset, err := NewChainInboundChangeset(e.Env, state, e.HomeChainSel, newChain, initialDeploy)
-	require.NoError(t, err)
-	ProcessChangeset(t, e.Env, chainInboundChangeset)
-
 	// TODO This currently is not working - Able to send the request here but request gets stuck in execution
 	// Send a new message and expect that this is delivered once the chain is completely set up as inbound
 	//TestSendRequest(t, e.Env, state, initialDeploy[0], newChain, true)
+	var nodeIDs []string
+	for _, node := range nodes {
+		nodeIDs = append(nodeIDs, node.NodeID)
+	}
 
-	t.Logf("Executing add don and set candidate proposal for commit plugin on chain %d", newChain)
-	addDonChangeset, err := AddDonAndSetCandidateChangeset(state, e.Env, nodes, deployment.XXXGenerateTestOCRSecrets(), e.HomeChainSel, e.FeedChainSel, newChain, tokenConfig, types.PluginTypeCCIPCommit)
-	require.NoError(t, err)
-	ProcessChangeset(t, e.Env, addDonChangeset)
-
-	t.Logf("Executing promote candidate proposal for exec plugin on chain %d", newChain)
-	setCandidateForExecChangeset, err := SetCandidatePluginChangeset(state, e.Env, nodes, deployment.XXXGenerateTestOCRSecrets(), e.HomeChainSel, e.FeedChainSel, newChain, tokenConfig, types.PluginTypeCCIPExec)
-	require.NoError(t, err)
-	ProcessChangeset(t, e.Env, setCandidateForExecChangeset)
-
-	t.Logf("Executing promote candidate proposal for both commit and exec plugins on chain %d", newChain)
-	donPromoteChangeset, err := PromoteAllCandidatesChangeset(state, e.HomeChainSel, newChain, nodes)
-	require.NoError(t, err)
-	ProcessChangeset(t, e.Env, donPromoteChangeset)
+	_, err = commonchangeset.ApplyChangesets(t, e.Env, map[uint64]*gethwrappers.RBACTimelock{
+		e.HomeChainSel: state.Chains[e.HomeChainSel].Timelock,
+		newChain:       state.Chains[newChain].Timelock,
+	}, []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(AddDonAndSetCandidateChangeset),
+			Config: AddDonAndSetCandidateChangesetConfig{
+				HomeChainSelector: e.HomeChainSel,
+				FeedChainSelector: e.FeedChainSel,
+				NewChainSelector:  newChain,
+				PluginType:        types.PluginTypeCCIPCommit,
+				NodeIDs:           nodeIDs,
+				OCRSecrets:        deployment.XXXGenerateTestOCRSecrets(),
+				CCIPOCRParams: DefaultOCRParams(
+					e.FeedChainSel,
+					tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[newChain].LinkToken, state.Chains[newChain].Weth9),
+					nil,
+				),
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(SetCandidatePluginChangeset),
+			Config: AddDonAndSetCandidateChangesetConfig{
+				HomeChainSelector: e.HomeChainSel,
+				FeedChainSelector: e.FeedChainSel,
+				NewChainSelector:  newChain,
+				PluginType:        types.PluginTypeCCIPExec,
+				NodeIDs:           nodeIDs,
+				OCRSecrets:        deployment.XXXGenerateTestOCRSecrets(),
+				CCIPOCRParams: DefaultOCRParams(
+					e.FeedChainSel,
+					tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[newChain].LinkToken, state.Chains[newChain].Weth9),
+					nil,
+				),
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(PromoteAllCandidatesChangeset),
+			Config: PromoteAllCandidatesChangesetConfig{
+				HomeChainSelector: e.HomeChainSel,
+				NewChainSelector:  newChain,
+				NodeIDs:           nodeIDs,
+			},
+		},
+	})
 
 	// verify if the configs are updated
 	require.NoError(t, ValidateCCIPHomeConfigSetUp(
