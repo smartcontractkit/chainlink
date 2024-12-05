@@ -148,7 +148,7 @@ func Test_CCIPBatching_MaxBatchSizeEVM(t *testing.T) {
 }
 
 func Test_CCIPBatching_MultiSource(t *testing.T) {
-	t.Skip("Exec not working, boosting not working correctly")
+	// t.Skip("Exec not working, boosting not working correctly")
 
 	t.Parallel()
 
@@ -413,12 +413,11 @@ func sendMessagesAsync(
 			numMessages,
 			common.LeftPadBytes(state.Chains[destChainSelector].Receiver.Address().Bytes(), 32),
 		)
-		if err != nil {
-			t.Log("sendMessagesAsync error is non-nil:", err, ", retrying")
-			continue
-		} else {
+		if err == nil {
 			break
 		}
+
+		t.Log("sendMessagesAsync error is non-nil:", err, ", retrying")
 	}
 
 	t.Log("sendMessagesAsync error:", err, ", writing to channel")
