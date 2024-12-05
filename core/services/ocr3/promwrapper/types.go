@@ -20,8 +20,6 @@ const (
 
 var (
 	buckets = []float64{
-		float64(1 * time.Millisecond),
-		float64(5 * time.Millisecond),
 		float64(10 * time.Millisecond),
 		float64(25 * time.Millisecond),
 		float64(50 * time.Millisecond),
@@ -39,7 +37,7 @@ var (
 	promOCR3ReportsGenerated = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "ocr3_reports_generated",
-			Help: "Tracks number of reports generated withing a single OCR3's Reports step",
+			Help: "Tracks number of reports generated within by different OCR3 functions",
 		},
 		[]string{"chainID", "plugin", "function"},
 	)
