@@ -1,7 +1,6 @@
 package keystone
 
 import (
-	"bytes"
 	"fmt"
 
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
@@ -54,26 +53,30 @@ func CapabilityID(c kcr.CapabilitiesRegistryCapability) string {
 // contract reverts on adding the same capability twice and that would cause the whole transaction to revert
 // which is very bad for us for mcms
 func dedupCapabilities(registry *kcr.CapabilitiesRegistry, capabilities []kcr.CapabilitiesRegistryCapability) ([]kcr.CapabilitiesRegistryCapability, error) {
-	var deduped []kcr.CapabilitiesRegistryCapability
+	var out []kcr.CapabilitiesRegistryCapability
 	existing, err := registry.GetCapabilities(nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to call GetCapabilities: %w", err)
 	}
+	existingByID := make(map[[32]byte]struct{})
+	for _, cap := range existing {
+		existingByID[cap.HashedId] = struct{}{}
+	}
+	seen := make(map[string]struct{})
 	for _, candidate := range capabilities {
-		isNew := true
 		h, err := registry.GetHashedCapabilityId(nil, candidate.LabelledName, candidate.Version)
 		if err != nil {
 			return nil, fmt.Errorf("failed to call GetHashedCapabilityId: %w", err)
 		}
-		for _, cap := range existing {
-			if bytes.Equal(h[:], cap.HashedId[:]) {
-				isNew = false
-				break
-			}
+		// dedup input capabilities
+		if _, exists := seen[CapabilityID(candidate)]; exists {
+			continue
 		}
-		if isNew {
-			deduped = append(deduped, candidate)
+		seen[CapabilityID(candidate)] = struct{}{}
+		// dedup with respect to the registry
+		if _, exists := existingByID[h]; !exists {
+			out = append(out, candidate)
 		}
 	}
-	return deduped, nil
+	return out, nil
 }

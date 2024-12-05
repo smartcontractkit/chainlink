@@ -31,7 +31,9 @@ type UpdateNodesRequest struct {
 	Registry *kcr.CapabilitiesRegistry
 
 	P2pToUpdates map[p2pkey.PeerID]NodeUpdate
-	UseMCMS      bool
+
+	ContractSet kslib.ContractSet // contract set for the given chain
+	UseMCMS     bool
 }
 
 func (req *UpdateNodesRequest) NodeParams() ([]kcr.CapabilitiesRegistryNodeParams, error) {
