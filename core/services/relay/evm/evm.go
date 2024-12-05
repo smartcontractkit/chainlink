@@ -87,7 +87,7 @@ func init() {
 	}
 }
 
-var _ commontypes.Relayer = &Relayer{} //nolint:staticcheck
+var _ commontypes.Relayer = &Relayer{}
 
 // The current PluginProvider interface does not support an error return. This was fine up until CCIP.
 // CCIP is the first product to introduce the idea of incomplete implementations of a provider based on
@@ -845,7 +845,7 @@ func generateTransmitterFrom(ctx context.Context, rargs commontypes.RelayArgs, e
 	return transmitter, nil
 }
 
-func (r *Relayer) NewChainWriter(_ context.Context, config []byte) (commontypes.ChainWriter, error) {
+func (r *Relayer) NewContractWriter(_ context.Context, config []byte) (commontypes.ContractWriter, error) {
 	var cfg types.ChainWriterConfig
 	if err := json.Unmarshal(config, &cfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshall chain writer config err: %s", err)

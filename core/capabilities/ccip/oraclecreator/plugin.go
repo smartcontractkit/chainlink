@@ -222,8 +222,8 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 	config cctypes.OCR3ConfigWithMeta,
 	destRelayID types.RelayID,
 	contractReaders map[cciptypes.ChainSelector]types.ContractReader,
-	chainWriters map[cciptypes.ChainSelector]types.ChainWriter,
-	destChainWriter types.ChainWriter,
+	chainWriters map[cciptypes.ChainSelector]types.ContractWriter,
+	destChainWriter types.ContractWriter,
 	destFromAccounts []string,
 	publicConfig ocr3confighelper.PublicConfig,
 ) (ocr3types.ReportingPluginFactory[[]byte], ocr3types.ContractTransmitter[[]byte], error) {
@@ -302,7 +302,7 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 	chainFamily string,
 ) (
 	map[cciptypes.ChainSelector]types.ContractReader,
-	map[cciptypes.ChainSelector]types.ChainWriter,
+	map[cciptypes.ChainSelector]types.ContractWriter,
 	error,
 ) {
 	ofc, err := decodeAndValidateOffchainConfig(pluginType, publicCfg)
@@ -325,7 +325,7 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 	}
 
 	contractReaders := make(map[cciptypes.ChainSelector]types.ContractReader)
-	chainWriters := make(map[cciptypes.ChainSelector]types.ChainWriter)
+	chainWriters := make(map[cciptypes.ChainSelector]types.ContractWriter)
 	for relayID, relayer := range i.relayers {
 		chainID := relayID.ChainID
 
@@ -481,7 +481,7 @@ func createChainWriter(
 	transmitters map[types.RelayID][]string,
 	execBatchGasLimit uint64,
 	chainFamily string,
-) (types.ChainWriter, error) {
+) (types.ContractWriter, error) {
 	var fromAddress common.Address
 	transmitter, ok := transmitters[types.NewRelayID(chainFamily, chainID)]
 	if ok {
@@ -503,7 +503,7 @@ func createChainWriter(
 		return nil, fmt.Errorf("failed to marshal chain writer config: %w", err)
 	}
 
-	cw, err := relayer.NewChainWriter(ctx, chainWriterConfig)
+	cw, err := relayer.NewContractWriter(ctx, chainWriterConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create chain writer for chain %s: %w", chainID, err)
 	}

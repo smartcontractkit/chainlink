@@ -146,7 +146,8 @@ func (h *handler) handleWebAPIOutgoingMessage(ctx context.Context, msg *api.Mess
 		newCtx := context.WithoutCancel(ctx)
 		newCtx, cancel := context.WithTimeout(newCtx, timeout)
 		defer cancel()
-		l := h.lggr.With("url", payload.URL, "messageId", msg.Body.MessageId, "method", payload.Method)
+		l := h.lggr.With("url", payload.URL, "messageId", msg.Body.MessageId, "method", payload.Method, "timeout", payload.TimeoutMs)
+		l.Debug("Sending request to client")
 		respMsg, err := h.sendHTTPMessageToClient(newCtx, req, msg)
 		if err != nil {
 			l.Errorw("error while sending HTTP request to external endpoint", "err", err)
@@ -187,7 +188,7 @@ func (h *handler) HandleNodeMessage(ctx context.Context, msg *api.Message, nodeA
 	switch msg.Body.Method {
 	case MethodWebAPITrigger:
 		return h.handleWebAPITriggerMessage(ctx, msg, nodeAddr)
-	case MethodWebAPITarget, MethodComputeAction:
+	case MethodWebAPITarget, MethodComputeAction, MethodWorkflowSyncer:
 		return h.handleWebAPIOutgoingMessage(ctx, msg, nodeAddr)
 	default:
 		return fmt.Errorf("unsupported method: %s", msg.Body.Method)

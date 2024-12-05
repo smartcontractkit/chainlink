@@ -300,7 +300,7 @@ func (c *CCIPE2ELoad) Call(_ *wasp.Generator) *wasp.Response {
 	}
 
 	// the msg is no longer needed, so we can clear it to avoid holding extra data during load
-	// nolint:ineffassign,staticcheck
+	//nolint:ineffassign,staticcheck
 	msg = router.ClientEVM2AnyMessage{}
 
 	txConfirmationTime := time.Now().UTC()

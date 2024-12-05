@@ -98,7 +98,7 @@ func Test_InitialStateSync(t *testing.T) {
 	}
 
 	testEventHandler := newTestEvtHandler()
-	loader := syncer.NewWorkflowRegistryContractLoader(wfRegistryAddr.Hex(), func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
+	loader := syncer.NewWorkflowRegistryContractLoader(lggr, wfRegistryAddr.Hex(), func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
 		return backendTH.NewContractReader(ctx, t, bytes)
 	}, testEventHandler)
 
@@ -254,7 +254,7 @@ func Test_SecretsWorker(t *testing.T) {
 		lggr.Debugf("got secrets %v", secrets)
 		require.NoError(t, err)
 		return secrets == wantContents
-	}, 5*time.Second, time.Second)
+	}, 15*time.Second, time.Second)
 }
 
 func updateAuthorizedAddress(

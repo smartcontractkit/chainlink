@@ -13,7 +13,7 @@ on:
         description: 'The path to the project to run the flaky test detection.'
         default: '.'  
       baseRef:
-        required: true
+        required: false
         type: string
         description: 'The base reference or branch to compare changes for detecting flaky tests.'
       headRef:
@@ -66,6 +66,7 @@ env:
   DEFAULT_RUNNER: 'ubuntu-latest' # The default runner to use for running tests.
   UPLOAD_ALL_TEST_RESULTS: ${{ fromJson(inputs.extraArgs)['upload_all_test_results'] || 'false' }} # Whether to upload all test results as artifacts.
   PRINT_FAILED_TESTS: ${{ fromJson(inputs.extraArgs)['print_failed_tests'] || 'false' }} # Whether to print failed tests in the GitHub console.
+  
 
 jobs:
   get-tests:
@@ -100,7 +101,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@04bfae2602c015036f366a8dd4e7a619096cc516 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@9e40f2765df01f20b3bf53f0fb3ead920e3a1f4a # flakguard@0.1.0
 
       - name: Find new or updated test packages
         if: ${{ inputs.runAllTests == false }}
@@ -259,7 +260,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@04bfae2602c015036f366a8dd4e7a619096cc516 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@9e40f2765df01f20b3bf53f0fb3ead920e3a1f4a # flakguard@0.1.0
 
       - name: Run tests with flakeguard
         shell: bash
@@ -283,6 +284,11 @@ jobs:
     outputs:
       test_results: ${{ steps.set_test_results.outputs.results }}
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          ref: ${{ env.GIT_HEAD_REF }}
+
       - name: Set Pretty Project Path
         id: set_project_path_pretty
         run: |
@@ -295,21 +301,22 @@ jobs:
       - name: Download all test result artifacts
         uses: actions/download-artifact@v4.1.8
         with:
-          path: test_results
+          path: ci_test_results
           pattern:
             test-result-${{ needs.get-tests.outputs.workflow_id }}-*
             
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@04bfae2602c015036f366a8dd4e7a619096cc516 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@9e40f2765df01f20b3bf53f0fb3ead920e3a1f4a # flakguard@0.1.0
                 
       - name: Set combined test results
         id: set_test_results
         shell: bash
         run: |
           set -e  # Exit immediately if a command exits with a non-zero status.
-          if [ -d "test_results" ]; then
-            cd test_results
+          
+          if [ -d "ci_test_results" ]; then
+            cd ci_test_results
             ls -R .
 
             # Fix flakeguard binary path
@@ -317,7 +324,7 @@ jobs:
             export PATH
 
             # Use flakeguard to aggregate all test results
-            flakeguard aggregate-results --results-path . --output-results ../all_tests.json
+            flakeguard aggregate-results --results-path . --output-results ../all_tests.json --project-path=${{ github.workspace }}/${{ inputs.projectPath }} --codeowners-path=${{ github.workspace }}/.github/CODEOWNERS
 
             # Count all tests
             ALL_TESTS_COUNT=$(jq '.Results | length' ../all_tests.json)
@@ -325,7 +332,7 @@ jobs:
             echo "all_tests_count=$ALL_TESTS_COUNT" >> "$GITHUB_OUTPUT"
 
             # Use flakeguard to filter and output failed tests based on MaxPassRatio
-            flakeguard aggregate-results --filter-failed=true --max-pass-ratio=${{ inputs.maxPassRatio }} --results-path . --output-results ../failed_tests.json --output-logs ../failed_test_logs.json --project-path=${{ inputs.projectPath }} --codeowners-path=.github/CODEOWNERS
+            flakeguard aggregate-results --filter-failed=true --max-pass-ratio=${{ inputs.maxPassRatio }} --results-path . --output-results ../failed_tests.json --output-logs ../failed_test_logs.json --project-path=${{ github.workspace }}/${{ inputs.projectPath }} --codeowners-path=${{ github.workspace }}/.github/CODEOWNERS
 
             # Count failed tests
             if [ -f "../failed_tests.json" ]; then
@@ -335,14 +342,31 @@ jobs:
             fi
             echo "Failed tests count: $FAILED_TESTS_COUNT"
             echo "failed_tests_count=$FAILED_TESTS_COUNT" >> "$GITHUB_OUTPUT"
+
+            # Calculate failed ratio (failed / non-failed tests ratio in %)
+            if [ "$ALL_TESTS_COUNT" -gt 0 ]; then
+              NON_FAILED_COUNT=$((ALL_TESTS_COUNT - FAILED_TESTS_COUNT))
+              
+              if [ "$NON_FAILED_COUNT" -gt 0 ]; then
+                FAILED_RATIO=$(awk "BEGIN {printf \"%.2f\", ($FAILED_TESTS_COUNT / $NON_FAILED_COUNT) * 100}")
+              else
+                FAILED_RATIO=0
+              fi
+            else
+              NON_FAILED_COUNT=0
+              FAILED_RATIO=0
+            fi
+            echo "Failed tests ratio: $FAILED_RATIO%"
+            echo "failed_ratio=$FAILED_RATIO" >> "$GITHUB_OUTPUT"
           else
             echo "No test results directory found."
             echo "all_tests_count=0" >> "$GITHUB_OUTPUT"
             echo "failed_tests_count=0" >> "$GITHUB_OUTPUT"
+            echo "failed_ratio=0" >> "$GITHUB_OUTPUT"
           fi   
 
       - name: Tests Summary
-        if: always()
+        if: ${{ fromJson(steps.set_test_results.outputs.all_tests_count) > 0 }}
         run: |
           FILE_SIZE=$(wc -c < all_tests.md)
                     echo "File size: $FILE_SIZE bytes"
@@ -362,7 +386,7 @@ jobs:
         with:
           path: all_tests.md
           name: all-summary.md
-          retention-days: 7
+          retention-days: 90
 
       - name: Upload All Test Results as Artifact
         if: ${{ fromJson(steps.set_test_results.outputs.all_tests_count) > 0 }}
@@ -370,7 +394,7 @@ jobs:
         with:
           path: all_tests.json
           name: all-test-results.json
-          retention-days: 7
+          retention-days: 90
       
       - name: Upload Failed Tests Summary as Artifact
         if: ${{ fromJson(steps.set_test_results.outputs.all_tests_count) > 0 }}
@@ -378,7 +402,7 @@ jobs:
         with:
           path: failed_tests.md
           name: failed-summary.md
-          retention-days: 7
+          retention-days: 90
 
       - name: Upload Failed Test Results as Artifact
         if: ${{ fromJson(steps.set_test_results.outputs.failed_tests_count) > 0 }}
@@ -386,7 +410,7 @@ jobs:
         with:
           path: failed_tests.json
           name: failed-test-results.json
-          retention-days: 7        
+          retention-days: 90        
 
       - name: Upload Failed Test Logs as Artifact
         if: ${{ fromJson(steps.set_test_results.outputs.failed_tests_count) > 0 }}
@@ -394,7 +418,7 @@ jobs:
         with:
           path: failed_test_logs.json
           name: failed-test-logs.json
-          retention-days: 7             
+          retention-days: 90             
 
       - name: Upload All Test Results as Artifact
         if: ${{ fromJson(steps.set_test_results.outputs.all_tests_count) > 0 && env.UPLOAD_ALL_TEST_RESULTS == 'true' }}
@@ -402,7 +426,7 @@ jobs:
         with:
           path: all_tests.json
           name: all-test-results.json
-          retention-days: 7
+          retention-days: 90
 
       - name: Post comment on PR if flaky tests found
         if: ${{ fromJson(steps.set_test_results.outputs.failed_tests_count) > 0 && github.event_name == 'pull_request' }}
@@ -412,7 +436,7 @@ jobs:
           script: |
             const fs = require('fs');
             const prNumber = context.payload.pull_request.number;
-            const commentBody = fs.readFileSync('../all_tests.md', 'utf8');
+            const commentBody = fs.readFileSync('all_tests.md', 'utf8');
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,
@@ -421,9 +445,61 @@ jobs:
               body: commentBody
             });
 
-      - name: Send Slack message
+      - name: Send Slack message for failed tests
+        if: ${{ inputs.slackNotificationAfterTestsChannelId != '' &&  fromJson(steps.set_test_results.outputs.failed_tests_count) > 0 }}
         uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
-        if: ${{ inputs.slackNotificationAfterTestsChannelId != '' && fromJson(steps.set_test_results.outputs.all_tests_count) > 0 }}
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        with:
+          channel-id: ${{ inputs.slackNotificationAfterTestsChannelId }}
+          payload: |
+            {
+              "attachments": [
+                {
+                  "color": "#C62828",
+                  "blocks": [
+                    {
+                      "type": "section",
+                      "text": {
+                        "type": "mrkdwn",
+                        "text": "Flaky Test Detector for `${{ steps.set_project_path_pretty.outputs.path }}` project - ${{ contains(join(needs.*.result, ','), 'failure') && 'Failed :x:' || contains(join(needs.*.result, ','), 'cancelled') && 'Was cancelled :warning:' || 'Passed :white_check_mark:' }}"
+                      }
+                    },
+                    {
+                      "type": "section",
+                      "text": {
+                        "type": "mrkdwn",
+                        "text": "${{ inputs.runAllTests == true && format('Ran all tests for `{0}` branch.', inputs.headRef) || format('Ran changed tests between `{0}` and `{1}` (`{2}`).', inputs.baseRef, needs.get-tests.outputs.git_head_short_sha, env.GIT_HEAD_REF) }}"
+                      }
+                    },
+                    {
+                      "type": "section",
+                      "fields": [
+                        {
+                          "type": "mrkdwn",
+                          "text": "Total Failed Tests: ${{ steps.set_test_results.outputs.failed_tests_count }}"
+                        },
+                        {
+                          "type": "mrkdwn",
+                          "text": "Failed to Non-Failed Ratio: ${{ steps.set_test_results.outputs.failed_ratio }}%"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "section",
+                      "text": {
+                        "type": "mrkdwn",
+                        "text": "${{ format('<{0}/{1}/actions/runs/{2}|View Flaky Detector Details> | <{3}/compare/{4}...{5}#files_bucket|Compare Changes>{6}', github.server_url, github.repository, github.run_id, inputs.repoUrl, inputs.baseRef, needs.get-tests.outputs.git_head_sha, github.event_name == 'pull_request' && format(' | <{0}|View PR>', github.event.pull_request.html_url) || '') }}"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }            
+
+      - name: Send general Slack message
+        uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
+        if: ${{ inputs.slackNotificationAfterTestsChannelId != '' && fromJson(steps.set_test_results.outputs.failed_tests_count) == 0 && fromJson(steps.set_test_results.outputs.all_tests_count) > 0 }}
         id: slack
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
@@ -446,14 +522,14 @@ jobs:
                       "type": "section",
                       "text": {
                         "type": "mrkdwn",
-                        "text": "Ran changed tests between `${{ inputs.baseRef }}` and `${{ needs.get-tests.outputs.git_head_short_sha }}` (`${{ env.GIT_HEAD_REF }}`)."
+                        "text": "${{ inputs.runAllTests == true && format('Ran all tests for `{0}` branch.', env.GIT_HEAD_REF) || format('Ran changed tests between `{0}` and `{1}` (`{2}`).', inputs.baseRef, needs.get-tests.outputs.git_head_short_sha, env.GIT_HEAD_REF) }}"
                       }
                     },
                     {
                       "type": "section",
                       "text": {
                         "type": "mrkdwn",
-                        "text": "${{ format('<{0}/{1}/actions/runs/{2}|View Flaky Detector Details> | <{3}/compare/{4}...{5}#files_bucket|Compare Changes>{6}', github.server_url, github.repository, github.run_id, inputs.repoUrl, inputs.baseRef, needs.get-tests.outputs.git_head_sha, github.event_name == 'pull_request' && format(' | <{0}|View PR>', github.event.pull_request.html_url) || '') }}"
+                        "text": "${{ inputs.runAllTests == true && format('<{0}/{1}/actions/runs/{2}|View Flaky Detector Details>', github.server_url, github.repository, github.run_id) || format('<{0}/{1}/actions/runs/{2}|View Flaky Detector Details> | <{3}/compare/{4}...{5}#files_bucket|Compare Changes>{6}', github.server_url, github.repository, github.run_id, inputs.repoUrl, inputs.baseRef, needs.get-tests.outputs.git_head_sha, github.event_name == 'pull_request' && format(' | <{0}|View PR>', github.event.pull_request.html_url) || '') }}"
                       }
                     }                 
                   ]
