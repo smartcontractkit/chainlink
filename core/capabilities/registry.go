@@ -200,8 +200,7 @@ func (r *Registry) Remove(ctx context.Context, id string) error {
 
 	_, ok := r.m[id]
 	if !ok {
-		r.lggr.Debugw("unable to remove, capability not found", "id", id)
-		return nil
+		return fmt.Errorf("unable to remove, capability not found: %s", id)
 	}
 
 	delete(r.m, id)
