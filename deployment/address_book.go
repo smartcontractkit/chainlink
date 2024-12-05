@@ -27,6 +27,7 @@ var (
 	Version1_1_0     = *semver.MustParse("1.1.0")
 	Version1_2_0     = *semver.MustParse("1.2.0")
 	Version1_5_0     = *semver.MustParse("1.5.0")
+	Version1_5_1     = *semver.MustParse("1.5.1")
 	Version1_6_0_dev = *semver.MustParse("1.6.0-dev")
 )
 
@@ -254,4 +255,19 @@ func SearchAddressBook(ab AddressBook, chain uint64, typ ContractType) (string, 
 	}
 
 	return "", fmt.Errorf("not found")
+}
+
+func AddressBookContains(ab AddressBook, chain uint64, addrToFind string) (bool, error) {
+	addrs, err := ab.AddressesForChain(chain)
+	if err != nil {
+		return false, err
+	}
+
+	for addr := range addrs {
+		if addr == addrToFind {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }

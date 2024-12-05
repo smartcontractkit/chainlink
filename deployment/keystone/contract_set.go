@@ -3,8 +3,6 @@ package keystone
 import (
 	"fmt"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
@@ -18,7 +16,7 @@ type deployContractSetResponse struct {
 	deployment.AddressBook
 }
 
-func deployContractsToChain(lggr logger.Logger, req deployContractsRequest) (*deployContractSetResponse, error) {
+func deployContractsToChain(req deployContractsRequest) (*deployContractSetResponse, error) {
 	if req.ad == nil {
 		req.ad = deployment.NewMemoryAddressBook()
 	}
@@ -29,16 +27,16 @@ func deployContractsToChain(lggr logger.Logger, req deployContractsRequest) (*de
 
 	// cap reg and ocr3 only deployed on registry chain
 	if req.isRegistryChain {
-		err := DeployCapabilitiesRegistry(lggr, req.chain, resp.AddressBook)
+		_, err := DeployCapabilitiesRegistry(req.chain, resp.AddressBook)
 		if err != nil {
 			return nil, fmt.Errorf("failed to deploy CapabilitiesRegistry: %w", err)
 		}
-		err = DeployOCR3(lggr, req.chain, resp.AddressBook)
+		_, err = DeployOCR3(req.chain, resp.AddressBook)
 		if err != nil {
 			return nil, fmt.Errorf("failed to deploy OCR3Capability: %w", err)
 		}
 	}
-	err := DeployForwarder(lggr, req.chain, resp.AddressBook)
+	_, err := DeployForwarder(req.chain, resp.AddressBook)
 	if err != nil {
 		return nil, fmt.Errorf("failed to deploy KeystoneForwarder: %w", err)
 	}
@@ -47,48 +45,71 @@ func deployContractsToChain(lggr logger.Logger, req deployContractsRequest) (*de
 
 // DeployCapabilitiesRegistry deploys the CapabilitiesRegistry contract to the chain
 // and saves the address in the address book. This mutates the address book.
-func DeployCapabilitiesRegistry(lggr logger.Logger, chain deployment.Chain, ab deployment.AddressBook) error {
-	capabilitiesRegistryDeployer := CapabilitiesRegistryDeployer{lggr: lggr}
+func DeployCapabilitiesRegistry(chain deployment.Chain, ab deployment.AddressBook) (*DeployResponse, error) {
+	capabilitiesRegistryDeployer, err := NewCapabilitiesRegistryDeployer()
 	capabilitiesRegistryResp, err := capabilitiesRegistryDeployer.Deploy(DeployRequest{Chain: chain})
 	if err != nil {
-		return fmt.Errorf("failed to deploy CapabilitiesRegistry: %w", err)
+		return nil, fmt.Errorf("failed to deploy CapabilitiesRegistry: %w", err)
 	}
 	err = ab.Save(chain.Selector, capabilitiesRegistryResp.Address.String(), capabilitiesRegistryResp.Tv)
 	if err != nil {
-		return fmt.Errorf("failed to save CapabilitiesRegistry: %w", err)
+		return nil, fmt.Errorf("failed to save CapabilitiesRegistry: %w", err)
 	}
-	lggr.Infof("Deployed %s chain selector %d addr %s", capabilitiesRegistryResp.Tv.String(), chain.Selector, capabilitiesRegistryResp.Address.String())
-	return nil
+	return capabilitiesRegistryResp, nil
 }
 
 // DeployOCR3 deploys the OCR3Capability contract to the chain
 // and saves the address in the address book. This mutates the address book.
-func DeployOCR3(lggr logger.Logger, chain deployment.Chain, ab deployment.AddressBook) error {
-	ocr3Deployer := OCR3Deployer{lggr: lggr}
+func DeployOCR3(chain deployment.Chain, ab deployment.AddressBook) (*DeployResponse, error) {
+	ocr3Deployer, err := NewOCR3Deployer()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create OCR3Deployer: %w", err)
+	}
 	ocr3Resp, err := ocr3Deployer.deploy(DeployRequest{Chain: chain})
 	if err != nil {
-		return fmt.Errorf("failed to deploy OCR3Capability: %w", err)
+		return nil, fmt.Errorf("failed to deploy OCR3Capability: %w", err)
 	}
 	err = ab.Save(chain.Selector, ocr3Resp.Address.String(), ocr3Resp.Tv)
 	if err != nil {
-		return fmt.Errorf("failed to save OCR3Capability: %w", err)
+		return nil, fmt.Errorf("failed to save OCR3Capability: %w", err)
 	}
-	lggr.Infof("Deployed %s chain selector %d addr %s", ocr3Resp.Tv.String(), chain.Selector, ocr3Resp.Address.String())
-	return nil
+
+	return ocr3Resp, nil
 }
 
 // DeployForwarder deploys the KeystoneForwarder contract to the chain
 // and saves the address in the address book. This mutates the address book.
-func DeployForwarder(lggr logger.Logger, chain deployment.Chain, ab deployment.AddressBook) error {
-	forwarderDeployer := KeystoneForwarderDeployer{lggr: lggr}
+func DeployForwarder(chain deployment.Chain, ab deployment.AddressBook) (*DeployResponse, error) {
+	forwarderDeployer, err := NewKeystoneForwarderDeployer()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create KeystoneForwarderDeployer: %w", err)
+	}
 	forwarderResp, err := forwarderDeployer.deploy(DeployRequest{Chain: chain})
 	if err != nil {
-		return fmt.Errorf("failed to deploy KeystoneForwarder: %w", err)
+		return nil, fmt.Errorf("failed to deploy KeystoneForwarder: %w", err)
 	}
 	err = ab.Save(chain.Selector, forwarderResp.Address.String(), forwarderResp.Tv)
 	if err != nil {
-		return fmt.Errorf("failed to save KeystoneForwarder: %w", err)
+		return nil, fmt.Errorf("failed to save KeystoneForwarder: %w", err)
 	}
-	lggr.Infof("Deployed %s chain selector %d addr %s", forwarderResp.Tv.String(), chain.Selector, forwarderResp.Address.String())
-	return nil
+	return forwarderResp, nil
+}
+
+// DeployFeedsConsumer deploys the KeystoneFeedsConsumer contract to the chain
+// and saves the address in the address book. This mutates the address book.
+func DeployFeedsConsumer(chain deployment.Chain, ab deployment.AddressBook) (*DeployResponse, error) {
+	consumerDeploy, err := NewKeystoneFeedsConsumerDeployer()
+	if err != nil {
+		return nil, err
+	}
+	consumerResp, err := consumerDeploy.deploy(DeployRequest{Chain: chain})
+	if err != nil {
+		return nil, fmt.Errorf("failed to deploy FeedsConsumer: %w", err)
+	}
+	err = ab.Save(chain.Selector, consumerResp.Address.String(), consumerResp.Tv)
+	if err != nil {
+
+		return nil, fmt.Errorf("failed to save FeedsConsumer: %w", err)
+	}
+	return consumerResp, nil
 }

@@ -16,7 +16,7 @@ func (raw Raw) Key() KeyV2 {
 	privKey := ed25519.PrivateKey(raw)
 	return KeyV2{
 		privateKey: &privKey,
-		PublicKey:  ed25519PubKeyFromPrivKey(privKey),
+		PublicKey:  privKey.Public().(ed25519.PublicKey),
 	}
 }
 
@@ -66,7 +66,7 @@ func MustNewV2XXXTestingOnly(k *big.Int) KeyV2 {
 	privKey := ed25519.NewKeyFromSeed(seed)
 	return KeyV2{
 		privateKey: &privKey,
-		PublicKey:  ed25519PubKeyFromPrivKey(privKey),
+		PublicKey:  privKey.Public().(ed25519.PublicKey),
 		Version:    2,
 	}
 }
@@ -89,10 +89,4 @@ func (k KeyV2) String() string {
 
 func (k KeyV2) GoString() string {
 	return k.String()
-}
-
-func ed25519PubKeyFromPrivKey(privKey ed25519.PrivateKey) ed25519.PublicKey {
-	publicKey := make([]byte, ed25519.PublicKeySize)
-	copy(publicKey, privKey[32:])
-	return publicKey
 }

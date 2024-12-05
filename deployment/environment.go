@@ -76,6 +76,7 @@ type Environment struct {
 	Chains            map[uint64]Chain
 	NodeIDs           []string
 	Offchain          OffchainClient
+	GetContext        func() context.Context
 }
 
 func NewEnvironment(
@@ -85,6 +86,7 @@ func NewEnvironment(
 	chains map[uint64]Chain,
 	nodeIDs []string,
 	offchain OffchainClient,
+	ctx func() context.Context,
 ) *Environment {
 	return &Environment{
 		Name:              name,
@@ -93,6 +95,7 @@ func NewEnvironment(
 		Chains:            chains,
 		NodeIDs:           nodeIDs,
 		Offchain:          offchain,
+		GetContext:        ctx,
 	}
 }
 
@@ -406,6 +409,7 @@ func NodeInfo(nodeIDs []string, oc NodeChainConfigsLister) (Nodes, error) {
 }
 
 type CapabilityRegistryConfig struct {
-	EVMChainID uint64         // chain id of the chain the CR is deployed on
-	Contract   common.Address // address of the CR contract
+	EVMChainID  uint64         // chain id of the chain the CR is deployed on
+	Contract    common.Address // address of the CR contract
+	NetworkType string         // network type of the chain
 }

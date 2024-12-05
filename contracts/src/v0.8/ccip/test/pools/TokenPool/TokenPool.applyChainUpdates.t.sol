@@ -136,74 +136,67 @@ contract TokenPool_applyChainUpdates is RouterSetup {
     s_tokenPool.applyChainUpdates(new uint64[](0), singleChainConfigured);
   }
 
-  //  function test_applyChainUpdates_UpdatesRemotePoolHashes() public {
-  //    assertEq(s_tokenPool.getRemotePoolHashes().length, 0);
-  //
-  //    uint64 selector1 = 789;
-  //    uint64 selector2 = 123;
-  //    uint64 selector3 = 456;
-  //
-  //    bytes memory pool1 = abi.encode(makeAddr("pool1"));
-  //    bytes memory pool2 = abi.encode(makeAddr("pool2"));
-  //    bytes memory pool3 = abi.encode(makeAddr("pool3"));
-  //
-  //    TokenPool.ChainUpdate[] memory chainUpdates = new TokenPool.ChainUpdate[](3);
-  //    chainUpdates[0] = TokenPool.ChainUpdate({
-  //      remoteChainSelector: selector1,
-  //      remotePoolAddress: pool1,
-  //      remoteTokenAddress: pool1,
-  //      outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
-  //      inboundRateLimiterConfig: _getInboundRateLimiterConfig()
-  //    });
-  //    chainUpdates[1] = TokenPool.ChainUpdate({
-  //      remoteChainSelector: selector2,
-  //      remotePoolAddress: pool2,
-  //      remoteTokenAddress: pool2,
-  //      outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
-  //      inboundRateLimiterConfig: _getInboundRateLimiterConfig()
-  //    });
-  //    chainUpdates[2] = TokenPool.ChainUpdate({
-  //      remoteChainSelector: selector3,
-  //      remotePoolAddress: pool3,
-  //      remoteTokenAddress: pool3,
-  //      outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
-  //      inboundRateLimiterConfig: _getInboundRateLimiterConfig()
-  //    });
-  //
-  //    s_tokenPool.applyChainUpdates(new uint64[](0), chainUpdates);
-  //
-  //    assertEq(s_tokenPool.getRemotePoolHashes().length, 3);
-  //
-  //    // This adds 3 for the first chain, 2 for the second, and 1 for the third for a total of 6.
-  //    // Since each chain already had one, the totals are 4 + 3 + 2
-  //    for (uint256 i = 0; i < chainUpdates.length; ++i) {
-  //      for (uint256 j = i; j < chainUpdates.length; ++j) {
-  //        s_tokenPool.addRemotePool(chainUpdates[i].remoteChainSelector, abi.encode(i, j));
-  //      }
-  //    }
-  //
-  //    assertEq(s_tokenPool.getRemotePoolHashes().length, 4 + 3 + 2);
-  //
-  //    // Removing a chain should remove all associated pool hashes
-  //    uint64[] memory chainRemoves = new uint64[](1);
-  //    chainRemoves[0] = selector1;
-  //
-  //    s_tokenPool.applyChainUpdates(chainRemoves, new TokenPool.ChainUpdate[](0));
-  //
-  //    assertEq(s_tokenPool.getRemotePoolHashes().length, 3 + 2);
-  //
-  //    chainRemoves[0] = selector2;
-  //
-  //    s_tokenPool.applyChainUpdates(chainRemoves, new TokenPool.ChainUpdate[](0));
-  //
-  //    assertEq(s_tokenPool.getRemotePoolHashes().length, 2);
-  //
-  //    chainRemoves[0] = selector3;
-  //
-  //    s_tokenPool.applyChainUpdates(chainRemoves, new TokenPool.ChainUpdate[](0));
-  //
-  //    assertEq(s_tokenPool.getRemotePoolHashes().length, 0);
-  //  }
+  function test_applyChainUpdates_UpdatesRemotePoolHashes() public {
+    assertEq(s_tokenPool.getRemotePools(DEST_CHAIN_SELECTOR).length, 0);
+
+    uint64 selector1 = 789;
+    uint64 selector2 = 123;
+    uint64 selector3 = 456;
+
+    bytes memory pool1 = abi.encode(makeAddr("pool1"));
+    bytes memory pool2 = abi.encode(makeAddr("pool2"));
+    bytes memory pool3 = abi.encode(makeAddr("pool3"));
+
+    TokenPool.ChainUpdate[] memory chainUpdates = new TokenPool.ChainUpdate[](3);
+    chainUpdates[0] = TokenPool.ChainUpdate({
+      remoteChainSelector: selector1,
+      remotePoolAddresses: new bytes[](0),
+      remoteTokenAddress: pool1,
+      outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
+      inboundRateLimiterConfig: _getInboundRateLimiterConfig()
+    });
+    chainUpdates[1] = TokenPool.ChainUpdate({
+      remoteChainSelector: selector2,
+      remotePoolAddresses: new bytes[](0),
+      remoteTokenAddress: pool2,
+      outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
+      inboundRateLimiterConfig: _getInboundRateLimiterConfig()
+    });
+    chainUpdates[2] = TokenPool.ChainUpdate({
+      remoteChainSelector: selector3,
+      remotePoolAddresses: new bytes[](0),
+      remoteTokenAddress: pool3,
+      outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
+      inboundRateLimiterConfig: _getInboundRateLimiterConfig()
+    });
+
+    s_tokenPool.applyChainUpdates(new uint64[](0), chainUpdates);
+
+    // This adds 3 for the first chain, 2 for the second, and 1 for the third for a total of 6.
+    for (uint256 i = 0; i < chainUpdates.length; ++i) {
+      for (uint256 j = i; j < chainUpdates.length; ++j) {
+        s_tokenPool.addRemotePool(chainUpdates[i].remoteChainSelector, abi.encode(i, j));
+      }
+      assertEq(s_tokenPool.getRemotePools(chainUpdates[i].remoteChainSelector).length, 3 - i);
+    }
+
+    // Removing a chain should remove all associated pool hashes
+    uint64[] memory chainRemoves = new uint64[](1);
+    chainRemoves[0] = selector1;
+
+    s_tokenPool.applyChainUpdates(chainRemoves, new TokenPool.ChainUpdate[](0));
+
+    assertEq(s_tokenPool.getRemotePools(selector1).length, 0);
+
+    chainRemoves[0] = selector2;
+
+    s_tokenPool.applyChainUpdates(chainRemoves, new TokenPool.ChainUpdate[](0));
+
+    assertEq(s_tokenPool.getRemotePools(selector2).length, 0);
+
+    // The above deletions should not have affected the third chain
+    assertEq(s_tokenPool.getRemotePools(selector3).length, 1);
+  }
 
   // Reverts
 

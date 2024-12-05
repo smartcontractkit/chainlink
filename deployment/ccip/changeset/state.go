@@ -3,6 +3,9 @@ package changeset
 import (
 	"fmt"
 
+	burn_mint_token_pool "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/burn_mint_token_pool_1_4_0"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/erc20"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_messenger"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_transmitter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/usdc_token_pool"
@@ -45,10 +48,41 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
 )
 
+var (
+	MockRMN              deployment.ContractType = "MockRMN"
+	RMNRemote            deployment.ContractType = "RMNRemote"
+	ARMProxy             deployment.ContractType = "ARMProxy"
+	WETH9                deployment.ContractType = "WETH9"
+	Router               deployment.ContractType = "Router"
+	CommitStore          deployment.ContractType = "CommitStore"
+	TokenAdminRegistry   deployment.ContractType = "TokenAdminRegistry"
+	RegistryModule       deployment.ContractType = "RegistryModuleOwnerCustom"
+	NonceManager         deployment.ContractType = "NonceManager"
+	FeeQuoter            deployment.ContractType = "FeeQuoter"
+	CCIPHome             deployment.ContractType = "CCIPHome"
+	CCIPConfig           deployment.ContractType = "CCIPConfig"
+	RMNHome              deployment.ContractType = "RMNHome"
+	OnRamp               deployment.ContractType = "OnRamp"
+	OffRamp              deployment.ContractType = "OffRamp"
+	CapabilitiesRegistry deployment.ContractType = "CapabilitiesRegistry"
+	PriceFeed            deployment.ContractType = "PriceFeed"
+	// Note test router maps to a regular router contract.
+	TestRouter          deployment.ContractType = "TestRouter"
+	Multicall3          deployment.ContractType = "Multicall3"
+	CCIPReceiver        deployment.ContractType = "CCIPReceiver"
+	BurnMintToken       deployment.ContractType = "BurnMintToken"
+	BurnMintTokenPool   deployment.ContractType = "BurnMintTokenPool"
+	USDCToken           deployment.ContractType = "USDCToken"
+	USDCMockTransmitter deployment.ContractType = "USDCMockTransmitter"
+	USDCTokenMessenger  deployment.ContractType = "USDCTokenMessenger"
+	USDCTokenPool       deployment.ContractType = "USDCTokenPool"
+)
+
 // CCIPChainState holds a Go binding for all the currently deployed CCIP contracts
 // on a chain. If a binding is nil, it means here is no such contract on the chain.
 type CCIPChainState struct {
 	commoncs.MCMSWithTimelockState
+	commoncs.LinkTokenState
 	OnRamp    *onramp.OnRamp
 	OffRamp   *offramp.OffRamp
 	FeeQuoter *fee_quoter.FeeQuoter
@@ -69,13 +103,12 @@ type CCIPChainState struct {
 	Weth9              *weth9.WETH9
 	RMNRemote          *rmn_remote.RMNRemote
 	MockRMN            *mock_rmn_contract.MockRMNContract
-	// TODO: May need to support older link too
-	LinkToken *burn_mint_erc677.BurnMintERC677
 	// Map between token Descriptor (e.g. LinkSymbol, WethSymbol)
 	// and the respective token contract
 	// This is more of an illustration of how we'll have tokens, and it might need some work later to work properly.
 	// Not all tokens will be burn and mint tokens.
-	BurnMintTokens677 map[TokenSymbol]*burn_mint_erc677.BurnMintERC677
+	BurnMintTokens677  map[TokenSymbol]*burn_mint_erc677.BurnMintERC677
+	BurnMintTokenPools map[TokenSymbol]*burn_mint_token_pool.BurnMintTokenPool
 	// Map between token Symbol (e.g. LinkSymbol, WethSymbol)
 	// and the respective aggregator USD feed contract
 	USDFeeds map[TokenSymbol]*aggregator_v3_interface.AggregatorV3Interface
@@ -186,6 +219,13 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 		}
 		chainView.MCMSWithTimelock = mcmsView
 	}
+	if c.LinkToken != nil {
+		linkTokenView, err := common_v1_0.GenerateLinkTokenView(c.LinkToken)
+		if err != nil {
+			return chainView, err
+		}
+		chainView.LinkToken = linkTokenView
+	}
 	return chainView, nil
 }
 
@@ -255,12 +295,19 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 		return state, err
 	}
 	state.MCMSWithTimelockState = *mcmsWithTimelock
+
+	linkState, err := commoncs.LoadLinkTokenState(chain, addresses)
+	if err != nil {
+		return state, err
+	}
+	state.LinkTokenState = *linkState
 	for address, tvStr := range addresses {
 		switch tvStr.String() {
 		case deployment.NewTypeAndVersion(commontypes.RBACTimelock, deployment.Version1_0_0).String(),
 			deployment.NewTypeAndVersion(commontypes.ProposerManyChainMultisig, deployment.Version1_0_0).String(),
 			deployment.NewTypeAndVersion(commontypes.CancellerManyChainMultisig, deployment.Version1_0_0).String(),
-			deployment.NewTypeAndVersion(commontypes.BypasserManyChainMultisig, deployment.Version1_0_0).String():
+			deployment.NewTypeAndVersion(commontypes.BypasserManyChainMultisig, deployment.Version1_0_0).String(),
+			deployment.NewTypeAndVersion(commontypes.LinkToken, deployment.Version1_0_0).String():
 			continue
 		case deployment.NewTypeAndVersion(CapabilitiesRegistry, deployment.Version1_0_0).String():
 			cr, err := capabilities_registry.NewCapabilitiesRegistry(common.HexToAddress(address), chain.Client)
@@ -364,12 +411,6 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				return state, err
 			}
 			state.FeeQuoter = fq
-		case deployment.NewTypeAndVersion(LinkToken, deployment.Version1_0_0).String():
-			lt, err := burn_mint_erc677.NewBurnMintERC677(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			state.LinkToken = lt
 		case deployment.NewTypeAndVersion(USDCToken, deployment.Version1_0_0).String():
 			ut, err := burn_mint_erc677.NewBurnMintERC677(common.HexToAddress(address), chain.Client)
 			if err != nil {
@@ -438,6 +479,40 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				return state, fmt.Errorf("unknown feed description %s", desc)
 			}
 			state.USDFeeds[key] = feed
+		case deployment.NewTypeAndVersion(BurnMintTokenPool, deployment.Version1_5_1).String():
+			pool, err := burn_mint_token_pool.NewBurnMintTokenPool(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			if state.BurnMintTokenPools == nil {
+				state.BurnMintTokenPools = make(map[TokenSymbol]*burn_mint_token_pool.BurnMintTokenPool)
+			}
+			tokAddress, err := pool.GetToken(nil)
+			if err != nil {
+				return state, err
+			}
+			tok, err := erc20.NewERC20(tokAddress, chain.Client)
+			if err != nil {
+				return state, err
+			}
+			symbol, err := tok.Symbol(nil)
+			if err != nil {
+				return state, err
+			}
+			state.BurnMintTokenPools[TokenSymbol(symbol)] = pool
+		case deployment.NewTypeAndVersion(BurnMintToken, deployment.Version1_0_0).String():
+			tok, err := burn_mint_erc677.NewBurnMintERC677(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			if state.BurnMintTokens677 == nil {
+				state.BurnMintTokens677 = make(map[TokenSymbol]*burn_mint_erc677.BurnMintERC677)
+			}
+			symbol, err := tok.Symbol(nil)
+			if err != nil {
+				return state, fmt.Errorf("failed to get token symbol of token at %s: %w", address, err)
+			}
+			state.BurnMintTokens677[TokenSymbol(symbol)] = tok
 		default:
 			return state, fmt.Errorf("unknown contract %s", tvStr)
 		}

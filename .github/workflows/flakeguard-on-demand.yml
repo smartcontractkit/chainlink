@@ -1,9 +1,6 @@
 name: Flakeguard On Demand
 
 on:
-  schedule:
-    # Run every night at 3:00 AM UTC
-    - cron: '0 3 * * *'
   workflow_dispatch:
     inputs:
       repoUrl:
@@ -52,7 +49,7 @@ on:
       extraArgs:
         required: false
         type: string
-        default: '{ "skipped_tests": "TestChainComponents", "test_repeat_count": "5", "all_tests_runner": "ubuntu22.04-32cores-128GB", "all_tests_runner_count": "3", "min_pass_ratio": "0", "run_with_race": "false" }'
+        default: '{ "skipped_tests": "TestChainComponents", "test_repeat_count": "5", "all_tests_runner": "ubuntu22.04-32cores-128GB", "all_tests_runner_count": "3", "run_with_race": "false" }'
         description: 'JSON of extra arguments for the workflow.'    
 
 jobs:
@@ -68,7 +65,7 @@ jobs:
       runAllTests: ${{ inputs.runAllTests }}
       findByTestFilesDiff: ${{ inputs.findByTestFilesDiff }}
       findByAffectedPackages: ${{ inputs.findByAffectedPackages }}
-      slackNotificationAfterTestsChannelId: ${{ inputs.slack_notification_after_tests_channel_id }}
+      slackNotificationAfterTestsChannelId: ${{ inputs.slack_notification_after_tests_channel_id || 'C07TRF65CNS' }} #flaky-test-detector-notifications
       extraArgs: ${{ inputs.extraArgs }}
     secrets:
       SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
