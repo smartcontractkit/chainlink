@@ -34,14 +34,14 @@ var (
 
 	promOCR3ReportsGenerated = promauto.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "ocr3_reports_processed",
+			Name: "ocr3_reporting_plugin_reports_processed",
 			Help: "Tracks number of reports processed/generated within by different OCR3 functions",
 		},
 		[]string{"chainID", "plugin", "function"},
 	)
 	promOCR3Durations = promauto.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Name:    "ocr3_function_duration",
+			Name:    "ocr3_reporting_plugin_duration",
 			Help:    "The amount of time elapsed during the OCR3 plugin's function",
 			Buckets: buckets,
 		},
