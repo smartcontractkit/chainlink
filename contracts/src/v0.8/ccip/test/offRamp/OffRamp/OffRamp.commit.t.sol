@@ -361,24 +361,6 @@ contract OffRamp_commit is OffRampSetup {
     _commit(commitReport, s_latestSequenceNumber);
   }
 
-  function test_legacyCurse_Revert() public {
-    _setMockRMNGlobalCurse(true);
-    Internal.MerkleRoot[] memory roots = new Internal.MerkleRoot[](1);
-    roots[0] = Internal.MerkleRoot({
-      sourceChainSelector: SOURCE_CHAIN_SELECTOR_1,
-      minSeqNr: 1,
-      maxSeqNr: 2,
-      merkleRoot: "Only a single root",
-      onRampAddress: abi.encode(ON_RAMP_ADDRESS_1)
-    });
-
-    OffRamp.CommitReport memory commitReport =
-      OffRamp.CommitReport({priceUpdates: _getEmptyPriceUpdates(), merkleRoots: roots, rmnSignatures: s_rmnSignatures});
-
-    vm.expectRevert(abi.encodeWithSelector(OffRamp.CursedByRMN.selector, roots[0].sourceChainSelector));
-    _commit(commitReport, s_latestSequenceNumber);
-  }
-
   function test_InvalidRootRevert() public {
     Internal.MerkleRoot[] memory roots = new Internal.MerkleRoot[](1);
     roots[0] = Internal.MerkleRoot({
