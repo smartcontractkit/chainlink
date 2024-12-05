@@ -529,12 +529,18 @@ func (s *service) DeleteJob(ctx context.Context, args *DeleteJobArgs) (int64, er
 		return proposal.ID, nil
 	}
 	if job.WorkflowSpecID != nil { // this is a Workflow job
-		specID := int64(*job.WorkflowSpecID)
-		if err := s.CancelSpec(ctx, proposal.ID); err != nil {
-			logger.Errorw("Failed to auto-cancel workflow spec", "id", specID, "err", err, "name", job.Name)
-			return 0, fmt.Errorf("failed to auto-cancel workflow spec %d: %w", specID, err)
+		jobSpecID := int64(*job.WorkflowSpecID)
+		jpSpec, err2 := s.orm.GetApprovedSpec(ctx, proposal.ID)
+		if err2 != nil {
+			logger.Errorw("GetApprovedSpec failed - no approved specs to cancel?", "id", proposal.ID, "err", err2, "name", job.Name)
+			// return success if there are no approved specs to cancel
+			return proposal.ID, nil
 		}
-		logger.Infow("Successfully auto-cancelled a workflow spec", "id", specID)
+		if err := s.CancelSpec(ctx, jpSpec.ID); err != nil {
+			logger.Errorw("Failed to auto-cancel workflow spec", "jobProposalID", proposal.ID, "jobProposalSpecID", jpSpec.ID, "jobSpecID", jobSpecID, "err", err, "name", job.Name)
+			return 0, fmt.Errorf("failed to auto-cancel workflow spec (job proposal spec ID: %d): %w", jpSpec.ID, err)
+		}
+		logger.Infow("Successfully auto-cancelled a workflow spec", "jobProposalID", proposal.ID, "jobProposalSpecID", jpSpec.ID, "jobSpecID", jobSpecID, "name", job.Name)
 	}
 
 	return proposal.ID, nil
