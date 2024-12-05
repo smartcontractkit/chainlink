@@ -64,7 +64,7 @@ type OCRSoakTest struct {
 	Config                *tc.TestConfig
 	TestReporter          testreporters.OCRSoakTestReporter
 	OperatorForwarderFlow bool
-	seth                  *seth.Client
+	sethClient            *seth.Client
 	OCRVersion            string
 
 	t                *testing.T
@@ -294,7 +294,7 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 func (o *OCRSoakTest) initializeClients() {
 	sethClient, err := seth_utils.GetChainClient(o.Config, o.rpcNetwork)
 	require.NoError(o.t, err, "Error creating seth client")
-	o.seth = sethClient
+	o.sethClient = sethClient
 
 	nodes, err := nodeclient.ConnectChainlinkNodes(o.testEnvironment)
 	require.NoError(o.t, err, "Connecting to chainlink nodes shouldn't fail")
@@ -305,7 +305,7 @@ func (o *OCRSoakTest) initializeClients() {
 }
 
 func (o *OCRSoakTest) deployLinkTokenContract(ocrTestConfig tt.OcrTestConfig) {
-	linkContract, err := actions.LinkTokenContract(o.log, o.seth, ocrTestConfig.GetActiveOCRConfig())
+	linkContract, err := actions.LinkTokenContract(o.log, o.sethClient, ocrTestConfig.GetActiveOCRConfig())
 	require.NoError(o.t, err, "Error loading/deploying link token contract")
 	o.linkContract = linkContract
 }
@@ -313,14 +313,14 @@ func (o *OCRSoakTest) deployLinkTokenContract(ocrTestConfig tt.OcrTestConfig) {
 // fundChainlinkNodes funds the Chainlink worker nodes.
 func (o *OCRSoakTest) fundChainlinkNodes() {
 	o.log.Info().Float64("ETH amount per node", *o.Config.Common.ChainlinkNodeFunding).Msg("Funding Chainlink nodes")
-	err := actions.FundChainlinkNodesFromRootAddress(o.log, o.seth, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(o.workerNodes), big.NewFloat(*o.Config.Common.ChainlinkNodeFunding))
+	err := actions.FundChainlinkNodesFromRootAddress(o.log, o.sethClient, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(o.workerNodes), big.NewFloat(*o.Config.Common.ChainlinkNodeFunding))
 	require.NoError(o.t, err, "Error funding Chainlink nodes")
 }
 
 // deployForwarderContracts deploys forwarder contracts if OperatorForwarderFlow is enabled.
 func (o *OCRSoakTest) deployForwarderContracts() (operators []common.Address, forwarders []common.Address) {
 	operators, forwarders, _ = actions.DeployForwarderContracts(
-		o.t, o.seth, common.HexToAddress(o.linkContract.Address()), len(o.workerNodes),
+		o.t, o.sethClient, common.HexToAddress(o.linkContract.Address()), len(o.workerNodes),
 	)
 	require.Equal(o.t, len(o.workerNodes), len(operators), "Number of operators should match number of nodes")
 	require.Equal(o.t, len(o.workerNodes), len(forwarders), "Number of authorized forwarders should match number of nodes")
@@ -328,9 +328,9 @@ func (o *OCRSoakTest) deployForwarderContracts() (operators []common.Address, fo
 	forwarderNodesAddresses, err := actions.ChainlinkNodeAddresses(o.workerNodes)
 	require.NoError(o.t, err, "Retrieving on-chain wallet addresses for chainlink nodes shouldn't fail")
 	for i := range o.workerNodes {
-		actions.AcceptAuthorizedReceiversOperator(o.t, o.log, o.seth, operators[i], forwarders[i], []common.Address{forwarderNodesAddresses[i]})
+		actions.AcceptAuthorizedReceiversOperator(o.t, o.log, o.sethClient, operators[i], forwarders[i], []common.Address{forwarderNodesAddresses[i]})
 		require.NoError(o.t, err, "Accepting Authorize Receivers on Operator shouldn't fail")
-		actions.TrackForwarder(o.t, o.seth, forwarders[i], o.workerNodes[i])
+		actions.TrackForwarder(o.t, o.sethClient, forwarders[i], o.workerNodes[i])
 	}
 	return operators, forwarders
 }
@@ -350,7 +350,7 @@ func (o *OCRSoakTest) setupOCRv1Contracts(forwarders []common.Address) {
 	if o.OperatorForwarderFlow {
 		o.ocrV1Instances, err = actions.DeployOCRContractsForwarderFlow(
 			o.log,
-			o.seth,
+			o.sethClient,
 			o.Config.GetActiveOCRConfig(),
 			common.HexToAddress(o.linkContract.Address()),
 			contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(o.workerNodes),
@@ -361,7 +361,7 @@ func (o *OCRSoakTest) setupOCRv1Contracts(forwarders []common.Address) {
 	} else {
 		o.ocrV1Instances, err = actions.SetupOCRv1Contracts(
 			o.log,
-			o.seth,
+			o.sethClient,
 			o.Config.GetActiveOCRConfig(),
 			common.HexToAddress(o.linkContract.Address()),
 			contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(o.workerNodes),
@@ -392,7 +392,7 @@ func (o *OCRSoakTest) setupOCRv2Contracts(ocrTestConfig tt.OcrTestConfig, forwar
 
 	ocrOffchainOptions := contracts.DefaultOffChainAggregatorOptions()
 	o.ocrV2Instances, err = actions.SetupOCRv2Contracts(
-		o.log, o.seth, ocrTestConfig.GetActiveOCRConfig(), common.HexToAddress(o.linkContract.Address()), transmitters, ocrOffchainOptions,
+		o.log, o.sethClient, ocrTestConfig.GetActiveOCRConfig(), common.HexToAddress(o.linkContract.Address()), transmitters, ocrOffchainOptions,
 	)
 	require.NoError(o.t, err, "Error deploying OCRv2 contracts")
 	err = o.createOCRv2Jobs()
@@ -426,7 +426,7 @@ func (o *OCRSoakTest) Run() {
 	require.NoError(o.t, err, "Error getting config")
 
 	ctx, cancel := context.WithTimeout(testcontext.Get(o.t), time.Second*5)
-	latestBlockNum, err := o.seth.Client.BlockNumber(ctx)
+	latestBlockNum, err := o.sethClient.Client.BlockNumber(ctx)
 	cancel()
 	require.NoError(o.t, err, "Error getting current block number")
 	o.startingBlockNum = latestBlockNum
@@ -443,7 +443,7 @@ func (o *OCRSoakTest) Run() {
 
 // createJobsWithForwarder creates OCR jobs with the forwarder setup.
 func (o *OCRSoakTest) createJobsWithForwarder() {
-	actions.CreateOCRJobsWithForwarder(o.t, o.ocrV1Instances, o.bootstrapNode, o.workerNodes, o.startingValue, o.mockServer, o.seth.ChainID)
+	actions.CreateOCRJobsWithForwarder(o.t, o.ocrV1Instances, o.bootstrapNode, o.workerNodes, o.startingValue, o.mockServer, o.sethClient.ChainID)
 }
 
 // createOCRv1Jobs creates OCRv1 jobs.
@@ -451,7 +451,7 @@ func (o *OCRSoakTest) createOCRv1Jobs() error {
 	ctx, cancel := context.WithTimeout(testcontext.Get(o.t), time.Second*5)
 	defer cancel()
 
-	chainId, err := o.seth.Client.ChainID(ctx)
+	chainId, err := o.sethClient.Client.ChainID(ctx)
 	if err != nil {
 		return fmt.Errorf("error getting chain ID: %w", err)
 	}
@@ -465,7 +465,7 @@ func (o *OCRSoakTest) createOCRv1Jobs() error {
 
 // createOCRv2Jobs creates OCRv2 jobs.
 func (o *OCRSoakTest) createOCRv2Jobs() error {
-	err := actions.CreateOCRv2Jobs(o.ocrV2Instances, o.bootstrapNode, o.workerNodes, o.mockServer, o.startingValue, o.seth.ChainID, o.OperatorForwarderFlow, o.log)
+	err := actions.CreateOCRv2Jobs(o.ocrV2Instances, o.bootstrapNode, o.workerNodes, o.mockServer, o.startingValue, o.sethClient.ChainID, o.OperatorForwarderFlow, o.log)
 	if err != nil {
 		return fmt.Errorf("error creating OCRv2 jobs: %w", err)
 	}
@@ -481,7 +481,7 @@ func (o *OCRSoakTest) TearDownVals(t *testing.T) (
 	reportModel.TestReporter,
 	reportModel.GrafanaURLProvider,
 ) {
-	return t, o.seth, o.namespace, append(o.workerNodes, o.bootstrapNode), &o.TestReporter, o.Config
+	return t, o.sethClient, o.namespace, append(o.workerNodes, o.bootstrapNode), &o.TestReporter, o.Config
 }
 
 // *********************
@@ -595,7 +595,7 @@ func (o *OCRSoakTest) LoadState() error {
 	if testState.OCRVersion == "1" {
 		o.ocrV1Instances = make([]contracts.OffchainAggregator, len(testState.OCRContractAddresses))
 		for i, addr := range testState.OCRContractAddresses {
-			instance, err := contracts.LoadOffChainAggregator(o.log, o.seth, common.HexToAddress(addr))
+			instance, err := contracts.LoadOffChainAggregator(o.log, o.sethClient, common.HexToAddress(addr))
 			if err != nil {
 				return fmt.Errorf("failed to instantiate OCR instance: %w", err)
 			}
@@ -604,7 +604,7 @@ func (o *OCRSoakTest) LoadState() error {
 	} else if testState.OCRVersion == "2" {
 		o.ocrV2Instances = make([]contracts.OffchainAggregatorV2, len(testState.OCRContractAddresses))
 		for i, addr := range testState.OCRContractAddresses {
-			instance, err := contracts.LoadOffchainAggregatorV2(o.log, o.seth, common.HexToAddress(addr))
+			instance, err := contracts.LoadOffchainAggregatorV2(o.log, o.sethClient, common.HexToAddress(addr))
 			if err != nil {
 				return err
 			}
@@ -843,7 +843,7 @@ func (o *OCRSoakTest) startAnvilGasSpikeSimulation(network blockchain.EVMNetwork
 
 func (o *OCRSoakTest) startAnvilGasLimitSimulation(network blockchain.EVMNetwork, conf ctf_config.GasLimitSimulationConfig) {
 	client := ctf_client.NewRPCClient(network.HTTPURLs[0], nil)
-	latestBlock, err := o.seth.Client.BlockByNumber(context.Background(), nil)
+	latestBlock, err := o.sethClient.Client.BlockByNumber(context.Background(), nil)
 	require.NoError(o.t, err)
 	newGasLimit := int64(math.Ceil(float64(latestBlock.GasUsed()) * conf.NextGasLimitPercentage))
 	o.log.Info().
@@ -969,7 +969,7 @@ func (o *OCRSoakTest) pollingOCREvents(ctx context.Context, wg *sync.WaitGroup, 
 
 // Helper function to poll events and update eventCounter
 func (o *OCRSoakTest) fetchAndProcessEvents(eventCounter *int, expectedEvents int, processedBlockNum *uint64) {
-	latestBlock, err := o.seth.Client.BlockNumber(context.Background())
+	latestBlock, err := o.sethClient.Client.BlockNumber(context.Background())
 	if err != nil {
 		o.log.Error().Err(err).Msg("Error getting latest block number")
 		return
@@ -1002,7 +1002,7 @@ func (o *OCRSoakTest) fetchAndProcessEvents(eventCounter *int, expectedEvents in
 		Uint64("To Block", latestBlock).
 		Msg("Fetching logs for the specified range")
 
-	logs, err := o.seth.Client.FilterLogs(context.Background(), o.filterQuery)
+	logs, err := o.sethClient.Client.FilterLogs(context.Background(), o.filterQuery)
 	if err != nil {
 		o.log.Error().Err(err).Msg("Error fetching logs")
 		return
@@ -1119,12 +1119,12 @@ func (o *OCRSoakTest) collectEvents() error {
 	o.log.Info().Interface("Filter Query", o.filterQuery).Str("Timeout", timeout.String()).Msg("Retrieving on-chain events")
 
 	ctx, cancel := context.WithTimeout(testcontext.Get(o.t), timeout)
-	contractEvents, err := o.seth.Client.FilterLogs(ctx, o.filterQuery)
+	contractEvents, err := o.sethClient.Client.FilterLogs(ctx, o.filterQuery)
 	cancel()
 	for err != nil {
 		o.log.Info().Interface("Filter Query", o.filterQuery).Str("Timeout", timeout.String()).Msg("Retrieving on-chain events")
 		ctx, cancel := context.WithTimeout(testcontext.Get(o.t), timeout)
-		contractEvents, err = o.seth.Client.FilterLogs(ctx, o.filterQuery)
+		contractEvents, err = o.sethClient.Client.FilterLogs(ctx, o.filterQuery)
 		cancel()
 		if err != nil {
 			o.log.Warn().Interface("Filter Query", o.filterQuery).Str("Timeout", timeout.String()).Msg("Error collecting on-chain events, trying again")
