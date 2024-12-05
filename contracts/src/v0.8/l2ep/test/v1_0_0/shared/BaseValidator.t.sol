@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {BaseValidator} from "../../../dev/base/BaseValidator.sol";
+import {BaseValidator} from "../../../base/BaseValidator.sol";
 import {MockBaseValidator} from "../../mocks/MockBaseValidator.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
 
-contract BaseValidatorTest is L2EPTest {
+contract BaseValidator_Setup is L2EPTest {
   address internal immutable L2_SEQ_STATUS_RECORDER_ADDRESS = makeAddr("L2_SEQ_STATUS_RECORDER_ADDRESS");
   address internal immutable DUMMY_L1_XDOMAIN_MSNGR_ADDR = makeAddr("DUMMY_L1_XDOMAIN_MSNGR_ADDR");
   address internal immutable DUMMY_L2_UPTIME_FEED_ADDR = makeAddr("DUMMY_L2_UPTIME_FEED_ADDR");
@@ -27,22 +27,23 @@ contract BaseValidatorTest is L2EPTest {
   }
 }
 
-contract BaseValidator_Constructor is BaseValidatorTest {
-  /// @notice it correctly validates that the L1 bridge address is not zero
-  function test_ConstructingRevertedWithZeroL1BridgeAddress() public {
+contract BaseValidator_Constructor is BaseValidator_Setup {
+  /// @notice Reverts when L1 bridge address is zero
+  function test_Constructor_RevertWhen_L1BridgeAddressIsZero() public {
     vm.expectRevert(BaseValidator.L1CrossDomainMessengerAddressZero.selector);
     new MockBaseValidator(address(0), DUMMY_L2_UPTIME_FEED_ADDR, INIT_GAS_LIMIT);
   }
 
-  /// @notice it correctly validates that the L2 Uptime feed address is not zero
-  function test_ConstructingRevertedWithZeroL2UpdateFeedAddress() public {
+  /// @notice Reverts when L2 Uptime feed address is zero
+  function test_Constructor_RevertWhen_L2UptimeFeedAddressIsZero() public {
     vm.expectRevert(BaseValidator.L2UptimeFeedAddrZero.selector);
     new MockBaseValidator(DUMMY_L1_XDOMAIN_MSNGR_ADDR, address(0), INIT_GAS_LIMIT);
   }
 }
 
-contract BaseValidator_GetAndSetGasLimit is BaseValidatorTest {
-  function test_CorrectlyGetsGasLimit() public {
+contract BaseValidator_GetAndSetGasLimit is BaseValidator_Setup {
+  /// @notice Verifies the correct retrieval and update of the gas limit
+  function test_GetAndSetGasLimit_CorrectlyHandlesGasLimit() public {
     assertEq(s_baseValidator.getGasLimit(), INIT_GAS_LIMIT);
 
     uint32 newGasLimit = INIT_GAS_LIMIT + 1;

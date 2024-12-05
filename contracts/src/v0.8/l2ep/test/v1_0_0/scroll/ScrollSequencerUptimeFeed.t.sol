@@ -4,8 +4,7 @@ pragma solidity 0.8.24;
 import {MockScrollL1CrossDomainMessenger} from "../../mocks/scroll/MockScrollL1CrossDomainMessenger.sol";
 import {MockScrollL2CrossDomainMessenger} from "../../mocks/scroll/MockScrollL2CrossDomainMessenger.sol";
 import {ScrollSequencerUptimeFeed} from "../../../scroll/ScrollSequencerUptimeFeed.sol";
-import {BaseSequencerUptimeFeed} from "../../../shared/BaseSequencerUptimeFeed.sol";
-import {FeedConsumer} from "../../../../tests/FeedConsumer.sol";
+import {BaseSequencerUptimeFeed} from "../../../base/BaseSequencerUptimeFeed.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
 
 contract ScrollSequencerUptimeFeedTestWrapper is ScrollSequencerUptimeFeed {
@@ -15,13 +14,13 @@ contract ScrollSequencerUptimeFeedTestWrapper is ScrollSequencerUptimeFeed {
     bool initialStatus
   ) ScrollSequencerUptimeFeed(l1SenderAddress, l2CrossDomainMessengerAddr, initialStatus) {}
 
-  /// @notice it exposes the internal _validateSender function for testing
+  /// @notice It exposes the internal _validateSender function for testing
   function validateSenderTestWrapper(address l1Sender) external view {
     super._validateSender(l1Sender);
   }
 }
 
-contract ScrollSequencerUptimeFeedTest is L2EPTest {
+contract ScrollSequencerUptimeFeed_Setup is L2EPTest {
   /// Constants
   uint256 internal constant GAS_USED_DEVIATION = 100;
 
@@ -51,9 +50,9 @@ contract ScrollSequencerUptimeFeedTest is L2EPTest {
   }
 }
 
-contract ScrollSequencerUptimeFeed_Constructor is ScrollSequencerUptimeFeedTest {
-  /// @notice it should have been deployed with the correct initial state
-  function test_InitialStateWithInvalidL2XDomainManager() public {
+contract ScrollSequencerUptimeFeed_Constructor is ScrollSequencerUptimeFeed_Setup {
+  /// @notice Reverts when L2 Cross Domain Messenger address is invalid
+  function test_Constructor_RevertWhen_InvalidL2XDomainMessenger() public {
     // L2 cross domain messenger address must not be the zero address
     vm.expectRevert(ScrollSequencerUptimeFeed.ZeroAddress.selector);
     new ScrollSequencerUptimeFeed(s_l1OwnerAddr, address(0), false);
@@ -70,7 +69,8 @@ contract ScrollSequencerUptimeFeed_Constructor is ScrollSequencerUptimeFeedTest 
     assertEq(answer, 0);
   }
 
-  function test_InitialStateWithValidL2XDomainManager() public {
+  /// @notice Tests initial state with valid L2 Cross Domain Messenger
+  function test_Constructor_InitialState_WhenValidL2XDomainMessenger() public {
     vm.startPrank(s_l1OwnerAddr, s_l1OwnerAddr);
     ScrollSequencerUptimeFeed scrollSequencerUptimeFeed = new ScrollSequencerUptimeFeed(
       s_l1OwnerAddr,
@@ -89,17 +89,17 @@ contract ScrollSequencerUptimeFeed_Constructor is ScrollSequencerUptimeFeedTest 
   }
 }
 
-contract ScrollSequencerUptimeFeed_ValidateSender is ScrollSequencerUptimeFeedTest {
-  /// @notice it should revert if called by an address that is not the L2 Cross Domain Messenger
-  function test_RevertIfSenderIsNotL2CrossDomainMessengerAddr() public {
+contract ScrollSequencerUptimeFeed_ValidateSender is ScrollSequencerUptimeFeed_Setup {
+  /// @notice Reverts when sender is not L2 Cross Domain Messenger address
+  function test_ValidateSender_RevertWhen_SenderIsNotL2CrossDomainMessengerAddr() public {
     vm.startPrank(s_strangerAddr);
 
     vm.expectRevert(BaseSequencerUptimeFeed.InvalidSender.selector);
     s_scrollSequencerUptimeFeed.validateSenderTestWrapper(s_l1OwnerAddr);
   }
 
-  /// @notice it should revert if the L1 sender address is not the L1 Cross Domain Messenger Sender
-  function test_RevertIfL1CrossDomainMessengerAddrIsNotL1SenderAddr() public {
+  /// @notice Reverts when L1 Cross Domain Messenger address is not L1 sender address
+  function test_ValidateSender_RevertWhen_L1CrossDomainMessengerAddrIsNotL1SenderAddr() public {
     address l2MessengerAddr = address(s_mockScrollL2CrossDomainMessenger);
     vm.startPrank(l2MessengerAddr);
 
@@ -107,8 +107,8 @@ contract ScrollSequencerUptimeFeed_ValidateSender is ScrollSequencerUptimeFeedTe
     s_scrollSequencerUptimeFeed.validateSenderTestWrapper(s_strangerAddr);
   }
 
-  /// @notice it should update status when status has changed and incoming timestamp is the same as latest
-  function test_UpdateStatusWhenStatusChangeAndNoTimeChange() public {
+  /// @notice Updates status when status changes and incoming timestamp is the same as latest
+  function test_ValidateSender_UpdateStatusWhen_StatusChangeAndNoTimeChange() public {
     address l2MessengerAddr = address(s_mockScrollL2CrossDomainMessenger);
     vm.startPrank(l2MessengerAddr);
 

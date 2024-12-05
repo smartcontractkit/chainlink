@@ -3,12 +3,12 @@ pragma solidity ^0.8.24;
 
 import {Vm} from "forge-std/Test.sol";
 import {AddressAliasHelper} from "../../../../vendor/arb-bridge-eth/v0.8.0-custom/contracts/libraries/AddressAliasHelper.sol";
-import {BaseSequencerUptimeFeed} from "../../../dev/base/BaseSequencerUptimeFeed.sol";
+import {BaseSequencerUptimeFeed} from "../../../base/BaseSequencerUptimeFeed.sol";
 import {MockBaseSequencerUptimeFeed} from "../../../test/mocks/MockBaseSequencerUptimeFeed.sol";
 import {FeedConsumer} from "../../../../tests/FeedConsumer.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
 
-contract BaseSequencerUptimeFeedTest is L2EPTest {
+contract BaseSequencerUptimeFeed_Setup is L2EPTest {
   /// Helper Variables
   address internal s_aliasedL1OwnerAddress = AddressAliasHelper.applyL1ToL2Alias(s_l1OwnerAddr);
 
@@ -28,9 +28,9 @@ contract BaseSequencerUptimeFeedTest is L2EPTest {
   }
 }
 
-contract BaseSequencerUptimeFeed_Constructor is BaseSequencerUptimeFeedTest {
-  /// @notice it should have been deployed with the correct initial state
-  function test_InitialState() public {
+contract BaseSequencerUptimeFeed_Constructor is BaseSequencerUptimeFeed_Setup {
+  /// @notice Tests initial state of the contract
+  function test_Constructor_InitialState() public {
     // Sets msg.sender and tx.origin to a valid address
     vm.startPrank(s_l1OwnerAddr, s_l1OwnerAddr);
 
@@ -45,9 +45,9 @@ contract BaseSequencerUptimeFeed_Constructor is BaseSequencerUptimeFeedTest {
   }
 }
 
-contract BaseSequencerUptimeFeed_transferL1Sender is BaseSequencerUptimeFeedTest {
-  /// @notice it should revert if called by an unauthorized account
-  function test_TransferL1Sender() public {
+contract BaseSequencerUptimeFeed_transferL1Sender is BaseSequencerUptimeFeed_Setup {
+  /// @notice Tests transferring L1 sender
+  function test_transferL1Sender_CorrectlyTransfersL1Sender() public {
     address initialSender = address(0);
     address newSender = makeAddr("newSender");
 
@@ -58,22 +58,33 @@ contract BaseSequencerUptimeFeed_transferL1Sender is BaseSequencerUptimeFeedTest
 
     assertEq(sequencerUptimeFeed.l1Sender(), initialSender);
 
-    // Tries to transfer the L1 sender from an unauthorized account
+    // Transfers the L1 sender
     vm.expectEmit();
     emit L1SenderTransferred(initialSender, newSender);
     sequencerUptimeFeed.transferL1Sender(newSender);
     assertEq(sequencerUptimeFeed.l1Sender(), newSender);
 
     vm.recordLogs();
-    // Tries to transfer to the same L1 sender should not emit an event
+    // Transfers to the same L1 sender should not emit an event
     sequencerUptimeFeed.transferL1Sender(newSender);
     assertEq(vm.getRecordedLogs().length, 0);
   }
+
+  /// @notice Reverts if called by an unauthorized account
+  function test_transferL1Sender_RevertWhen_CalledByUnauthorizedAccount() public {
+    address newSender = makeAddr("newSender");
+
+    // Sets msg.sender and tx.origin to an unauthorized address
+    vm.startPrank(s_strangerAddr, s_strangerAddr);
+
+    vm.expectRevert("Only callable by owner");
+    s_sequencerUptimeFeed.transferL1Sender(newSender);
+  }
 }
 
-contract BaseSequencerUptimeFeed_UpdateStatus is BaseSequencerUptimeFeedTest {
-  /// @notice it should revert if called by an unauthorized account
-  function test_RevertIfNotL2CrossDomainMessengerAddr() public {
+contract BaseSequencerUptimeFeed_UpdateStatus is BaseSequencerUptimeFeed_Setup {
+  /// @notice Reverts if called by an unauthorized account
+  function test_updateStatus_RevertWhen_NotL2CrossDomainMessengerAddr() public {
     // Sets msg.sender and tx.origin to an unauthorized address
     vm.startPrank(s_strangerAddr, s_strangerAddr);
 
@@ -88,8 +99,8 @@ contract BaseSequencerUptimeFeed_UpdateStatus is BaseSequencerUptimeFeedTest {
     s_sequencerUptimeFeedFailSenderCheck.updateStatus(true, uint64(1));
   }
 
-  /// @notice it should update status when status has not changed and incoming timestamp is the same as latest
-  function test_UpdateStatusWhenNoChange() public {
+  /// @notice Updates status when status has not changed and incoming timestamp is the same as latest
+  function test_updateStatus_UpdateWhen_NoStatusChangeSameTimestamp() public {
     // Sets msg.sender and tx.origin to a valid address
     vm.startPrank(s_aliasedL1OwnerAddress, s_aliasedL1OwnerAddress);
 
@@ -138,8 +149,8 @@ contract BaseSequencerUptimeFeed_UpdateStatus is BaseSequencerUptimeFeedTest {
     assertEq(updatedAtAfterUpdate, block.timestamp);
   }
 
-  /// @notice it should update status when status has changed and incoming timestamp is newer than the latest
-  function test_UpdateStatusWhenStatusChangeAndTimeChange() public {
+  /// @notice Updates status when status has changed and incoming timestamp is newer than the latest
+  function test_updateStatus_UpdateWhen_StatusChangeAndTimeChange() public {
     // Sets msg.sender and tx.origin to a valid address
     vm.startPrank(s_aliasedL1OwnerAddress, s_aliasedL1OwnerAddress);
 
@@ -162,8 +173,8 @@ contract BaseSequencerUptimeFeed_UpdateStatus is BaseSequencerUptimeFeedTest {
     assertEq(s_sequencerUptimeFeed.latestTimestamp(), uint64(timestamp));
   }
 
-  /// @notice it should update status when status has changed and incoming timestamp is the same as latest
-  function test_UpdateStatusWhenStatusChangeAndNoTimeChange() public {
+  /// @notice Updates status when status has changed and incoming timestamp is the same as latest
+  function test_updateStatus_UpdateWhen_StatusChangeAndNoTimeChange() public {
     // Sets msg.sender and tx.origin to a valid address
     vm.startPrank(s_aliasedL1OwnerAddress, s_aliasedL1OwnerAddress);
 
@@ -187,8 +198,8 @@ contract BaseSequencerUptimeFeed_UpdateStatus is BaseSequencerUptimeFeedTest {
     assertEq(s_sequencerUptimeFeed.latestTimestamp(), uint64(timestamp));
   }
 
-  /// @notice it should ignore out-of-order updates
-  function test_IgnoreOutOfOrderUpdates() public {
+  /// @notice Ignores out-of-order updates
+  function test_updateStatus_IgnoreOutOfOrderUpdates() public {
     // Sets msg.sender and tx.origin to a valid address
     vm.startPrank(s_aliasedL1OwnerAddress, s_aliasedL1OwnerAddress);
 
@@ -208,7 +219,7 @@ contract BaseSequencerUptimeFeed_UpdateStatus is BaseSequencerUptimeFeedTest {
 
     vm.recordLogs();
 
-    // Tries to transfer to the same L1 sender should not emit an updateRound event
+    // Tries to update with stale timestamp
     s_sequencerUptimeFeed.updateStatus(false, uint64(timestamp));
 
     Vm.Log[] memory entries = vm.getRecordedLogs();
@@ -218,9 +229,9 @@ contract BaseSequencerUptimeFeed_UpdateStatus is BaseSequencerUptimeFeedTest {
   }
 }
 
-contract BaseSequencerUptimeFeed_AggregatorV3Interface is BaseSequencerUptimeFeedTest {
-  /// @notice it should return valid answer from getRoundData and latestRoundData
-  function test_AggregatorV3Interface() public {
+contract BaseSequencerUptimeFeed_AggregatorV3Interface is BaseSequencerUptimeFeed_Setup {
+  /// @notice Returns valid answer from getRoundData and latestRoundData
+  function test_AggregatorV3Interface_ReturnsValidData() public {
     // Sets msg.sender and tx.origin to a valid address
     vm.startPrank(s_aliasedL1OwnerAddress, s_aliasedL1OwnerAddress);
 
@@ -271,8 +282,8 @@ contract BaseSequencerUptimeFeed_AggregatorV3Interface is BaseSequencerUptimeFee
     assertEq(answeredInRound2, answeredInRound);
   }
 
-  /// @notice it should revert from #getRoundData when round does not yet exist (future roundId)
-  function test_RevertGetRoundDataWhenRoundDoesNotExistYet() public {
+  /// @notice Reverts when getRoundData is called for a round that does not exist yet
+  function test_getRoundData_RevertWhen_RoundDoesNotExist() public {
     // Sets msg.sender and tx.origin to a valid address
     vm.startPrank(s_l1OwnerAddr, s_l1OwnerAddr);
 
@@ -281,8 +292,8 @@ contract BaseSequencerUptimeFeed_AggregatorV3Interface is BaseSequencerUptimeFee
     s_sequencerUptimeFeed.getRoundData(2);
   }
 
-  /// @notice it should return the #getAnswer for the latest round
-  function test_GetValidAnswer() public {
+  /// @notice Returns the getAnswer for the latest round
+  function test_getAnswer_ReturnsValidAnswer() public {
     // Sets msg.sender and tx.origin to a valid address
     vm.startPrank(s_aliasedL1OwnerAddress, s_aliasedL1OwnerAddress);
 
@@ -294,8 +305,8 @@ contract BaseSequencerUptimeFeed_AggregatorV3Interface is BaseSequencerUptimeFee
     assertEq(0, s_sequencerUptimeFeed.getAnswer(1));
   }
 
-  /// @notice it should revert from #getAnswer when round does not yet exist (future roundId)
-  function test_RevertGetAnswerWhenRoundDoesNotExistYet() public {
+  /// @notice Reverts when getAnswer is called for a round that does not exist yet
+  function test_getAnswer_RevertWhen_RoundDoesNotExist() public {
     // Sets msg.sender and tx.origin to a valid address
     vm.startPrank(s_l1OwnerAddr, s_l1OwnerAddr);
 
@@ -304,8 +315,8 @@ contract BaseSequencerUptimeFeed_AggregatorV3Interface is BaseSequencerUptimeFee
     s_sequencerUptimeFeed.getAnswer(2);
   }
 
-  /// @notice it should return the #getTimestamp for the latest round
-  function test_GetValidTimestamp() public {
+  /// @notice Returns the getTimestamp for the latest round
+  function test_getTimestamp_ReturnsValidTimestamp() public {
     // Sets msg.sender and tx.origin to a valid address
     vm.startPrank(s_aliasedL1OwnerAddress, s_aliasedL1OwnerAddress);
 
@@ -317,8 +328,8 @@ contract BaseSequencerUptimeFeed_AggregatorV3Interface is BaseSequencerUptimeFee
     assertEq(startedAt, s_sequencerUptimeFeed.getTimestamp(1));
   }
 
-  /// @notice it should revert from #getTimestamp when round does not yet exist (future roundId)
-  function test_RevertGetTimestampWhenRoundDoesNotExistYet() public {
+  /// @notice Reverts when getTimestamp is called for a round that does not exist yet
+  function test_getTimestamp_RevertWhen_RoundDoesNotExist() public {
     // Sets msg.sender and tx.origin to a valid address
     vm.startPrank(s_l1OwnerAddr, s_l1OwnerAddr);
 
@@ -328,9 +339,9 @@ contract BaseSequencerUptimeFeed_AggregatorV3Interface is BaseSequencerUptimeFee
   }
 }
 
-contract BaseSequencerUptimeFeed_ProtectReadsOnAggregatorV2V3InterfaceFunctions is BaseSequencerUptimeFeedTest {
-  /// @notice it should disallow reads on AggregatorV2V3Interface functions when consuming contract is not whitelisted
-  function test_AggregatorV2V3InterfaceDisallowReadsIfConsumingContractIsNotWhitelisted() public {
+contract BaseSequencerUptimeFeed_ProtectReadsOnAggregatorV2V3InterfaceFunctions is BaseSequencerUptimeFeed_Setup {
+  /// @notice Disallows reads on AggregatorV2V3Interface functions when consuming contract is not whitelisted
+  function test_ProtectReads_DisallowWhen_NotWhitelisted() public {
     // Deploys a FeedConsumer contract
     FeedConsumer feedConsumer = new FeedConsumer(address(s_sequencerUptimeFeed));
 
@@ -345,8 +356,8 @@ contract BaseSequencerUptimeFeed_ProtectReadsOnAggregatorV2V3InterfaceFunctions 
     feedConsumer.latestRoundData();
   }
 
-  /// @notice it should allow reads on AggregatorV2V3Interface functions when consuming contract is whitelisted
-  function test_AggregatorV2V3InterfaceAllowReadsIfConsumingContractIsWhitelisted() public {
+  /// @notice Allows reads on AggregatorV2V3Interface functions when consuming contract is whitelisted
+  function test_ProtectReads_AllowWhen_Whitelisted() public {
     // Deploys a FeedConsumer contract
     FeedConsumer feedConsumer = new FeedConsumer(address(s_sequencerUptimeFeed));
 

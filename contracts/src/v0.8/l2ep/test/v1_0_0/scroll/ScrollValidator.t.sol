@@ -10,7 +10,7 @@ import {ScrollSequencerUptimeFeed} from "../../../scroll/ScrollSequencerUptimeFe
 import {ScrollValidator} from "../../../scroll/ScrollValidator.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
 
-contract ScrollValidatorTest is L2EPTest {
+contract ScrollValidator_Setup is L2EPTest {
   /// Helper constants
   address internal immutable L2_SEQ_STATUS_RECORDER_ADDRESS = makeAddr("L2_SEQ_STATUS_RECORDER_ADDRESS");
   uint32 internal constant INIT_GAS_LIMIT = 1900000;
@@ -53,9 +53,9 @@ contract ScrollValidatorTest is L2EPTest {
   }
 }
 
-contract ScrollValidator_Constructor is ScrollValidatorTest {
-  /// @notice it should have been deployed with the correct initial state
-  function test_InitialState() public {
+contract ScrollValidator_Constructor is ScrollValidator_Setup {
+  /// @notice Reverts when L1 message queue address is invalid
+  function test_Constructor_RevertWhen_InvalidL1MessageQueueAddress() public {
     vm.startPrank(s_l1OwnerAddr);
 
     vm.expectRevert("Invalid L1 message queue address");
@@ -68,16 +68,16 @@ contract ScrollValidator_Constructor is ScrollValidatorTest {
   }
 }
 
-contract ScrollValidator_Validate is ScrollValidatorTest {
-  /// @notice it reverts if called by account with no access
-  function test_RevertsIfCalledByAnAccountWithNoAccess() public {
+contract ScrollValidator_Validate is ScrollValidator_Setup {
+  /// @notice Reverts if called by an account with no access
+  function test_Validate_RevertWhen_CalledByAccountWithNoAccess() public {
     vm.startPrank(s_strangerAddr);
     vm.expectRevert("No access");
     s_scrollValidator.validate(0, 0, 1, 1);
   }
 
-  /// @notice it posts sequencer status when there is not status change
-  function test_PostSequencerStatusWhenThereIsNotStatusChange() public {
+  /// @notice Posts sequencer status when there is no status change
+  function test_Validate_PostSequencerStatus_NoStatusChange() public {
     // Gives access to the s_eoaValidator
     s_scrollValidator.addAccess(s_eoaValidator);
 
@@ -101,8 +101,8 @@ contract ScrollValidator_Validate is ScrollValidatorTest {
     s_scrollValidator.validate(0, 0, 0, 0);
   }
 
-  /// @notice it post sequencer offline
-  function test_PostSequencerOffline() public {
+  /// @notice Posts sequencer offline status
+  function test_Validate_PostSequencerOffline() public {
     // Gives access to the s_eoaValidator
     s_scrollValidator.addAccess(s_eoaValidator);
 
