@@ -41,7 +41,7 @@ var (
 	)
 	promOCR3Durations = promauto.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Name:    "ocr3_phase_duration",
+			Name:    "ocr3_function_duration",
 			Help:    "The amount of time elapsed during the OCR3 plugin's function",
 			Buckets: buckets,
 		},
