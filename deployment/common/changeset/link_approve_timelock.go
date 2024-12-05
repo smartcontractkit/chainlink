@@ -42,9 +42,10 @@ func packApprove(parsedABI abi.ABI, spender common.Address, amount *big.Int) ([]
 }
 
 // LinkApproveTimelock takes the given approvals for token transfers and creates an mcms proposal for them
-func LinkApproveTimelock(_ deployment.Environment, req *LinkApproveTimelockRequest) (deployment.ChangesetOutput, error) {
+func LinkApproveTimelock(e deployment.Environment, req *LinkApproveTimelockRequest) (deployment.ChangesetOutput, error) {
 	chainID := mcms.ChainIdentifier(req.ChainSelector)
-	linkContract, err := link_token.NewLinkToken(req.LinkTokenAddress, nil)
+	chain := e.Chains[req.ChainSelector]
+	linkContract, err := link_token.NewLinkToken(req.LinkTokenAddress, chain.Client)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get link contract: %w", err)
 	}

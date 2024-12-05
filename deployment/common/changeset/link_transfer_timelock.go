@@ -32,9 +32,10 @@ type LinkTransferTimelockRequest struct {
 var _ deployment.ChangeSet[*LinkTransferTimelockRequest] = LinkTransferTimelock
 
 // LinkTransferTimelock takes the given link transfers and creates an MCMS proposal for them.
-func LinkTransferTimelock(_ deployment.Environment, req *LinkTransferTimelockRequest) (deployment.ChangesetOutput, error) {
+func LinkTransferTimelock(e deployment.Environment, req *LinkTransferTimelockRequest) (deployment.ChangesetOutput, error) {
 	chainID := mcms.ChainIdentifier(req.ChainSelector)
-	linkContract, err := link_token.NewLinkToken(req.LinkTokenAddress, nil)
+	chain := e.Chains[req.ChainSelector]
+	linkContract, err := link_token.NewLinkToken(req.LinkTokenAddress, chain.Client)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get link contract: %w", err)
 	}

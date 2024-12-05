@@ -90,7 +90,7 @@ func TestLinkTransferTimelock(t *testing.T) {
 	timelocks := map[uint64]*gethwrappers.RBACTimelock{
 		chainSelector: timelockContract,
 	}
-	// Apply the proposal for approving token transfers with 5k allowance
+	//Apply the proposal for approving token transfers with 5k allowance
 	_, err = changeset.ApplyChangesets(t, env, timelocks, []changeset.ChangesetApplication{
 		// the changeset produces proposals, ApplyChangesets will sign & execute them.
 		// in practice, signing and executing are separated processes.
@@ -112,6 +112,7 @@ func TestLinkTransferTimelock(t *testing.T) {
 			},
 		},
 	})
+	require.NoError(t, err)
 
 	// Apply the changeset
 	_, err = changeset.ApplyChangesets(t, env, timelocks, []changeset.ChangesetApplication{
