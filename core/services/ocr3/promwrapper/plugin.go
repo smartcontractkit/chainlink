@@ -18,7 +18,7 @@ type ReportingPlugin[RI any] struct {
 	plugin  string
 
 	// Prometheus components for tracking metrics
-	reportsGenerated *prometheus.GaugeVec
+	reportsGenerated *prometheus.CounterVec
 	durations        *prometheus.HistogramVec
 }
 
@@ -26,7 +26,7 @@ func NewReportingPlugin[RI any](
 	origin ocr3types.ReportingPlugin[RI],
 	chainID string,
 	plugin string,
-	reportsGenerated *prometheus.GaugeVec,
+	reportsGenerated *prometheus.CounterVec,
 	durations *prometheus.HistogramVec,
 ) *ReportingPlugin[RI] {
 	return &ReportingPlugin[RI]{
@@ -93,7 +93,7 @@ func (p *ReportingPlugin[RI]) trackReportSizes(
 ) {
 	p.reportsGenerated.
 		WithLabelValues(p.chainID, p.plugin).
-		Set(float64(len(reports)))
+		Add(float64(len(reports)))
 }
 
 func withObservedExecution[RI, R any](

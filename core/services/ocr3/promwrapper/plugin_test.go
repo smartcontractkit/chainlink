@@ -10,6 +10,7 @@ import (
 	io_prometheus_client "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
@@ -28,24 +29,24 @@ func Test_ReportsGeneratedGauge(t *testing.T) {
 		"1234", "empty", promOCR3ReportsGenerated, promOCR3Durations,
 	)
 
-	r1, err := plugin1.Reports(nil, 1, nil)
+	r1, err := plugin1.Reports(tests.Context(t), 1, nil)
 	require.NoError(t, err)
 	require.Len(t, r1, 2)
 
 	for i := 0; i < 10; i++ {
-		r2, err := plugin2.Reports(nil, 1, nil)
+		r2, err := plugin2.Reports(tests.Context(t), 1, nil)
 		require.NoError(t, err)
 		require.Len(t, r2, 10)
 	}
 
-	_, err = plugin3.Reports(nil, 1, nil)
+	_, err = plugin3.Reports(tests.Context(t), 1, nil)
 	require.Error(t, err)
 
 	g1 := testutil.ToFloat64(promOCR3ReportsGenerated.WithLabelValues("123", "empty"))
 	require.Equal(t, float64(2), g1)
 
 	g2 := testutil.ToFloat64(promOCR3ReportsGenerated.WithLabelValues("solana", "different_plugin"))
-	require.Equal(t, float64(10), g2)
+	require.Equal(t, float64(100), g2)
 
 	g3 := testutil.ToFloat64(promOCR3ReportsGenerated.WithLabelValues("1234", "empty"))
 	require.Equal(t, float64(0), g3)
@@ -66,15 +67,15 @@ func Test_DurationHistograms(t *testing.T) {
 	)
 
 	for _, p := range []*ReportingPlugin[uint]{plugin1, plugin2, plugin3} {
-		_, _ = p.Query(nil, ocr3types.OutcomeContext{})
+		_, _ = p.Query(tests.Context(t), ocr3types.OutcomeContext{})
 		for i := 0; i < 2; i++ {
-			_, _ = p.Observation(nil, ocr3types.OutcomeContext{}, nil)
+			_, _ = p.Observation(tests.Context(t), ocr3types.OutcomeContext{}, nil)
 		}
-		_ = p.ValidateObservation(nil, ocr3types.OutcomeContext{}, nil, ocrtypes.AttributedObservation{})
-		_, _ = p.Outcome(nil, ocr3types.OutcomeContext{}, nil, nil)
-		_, _ = p.Reports(nil, 0, nil)
-		_, _ = p.ShouldAcceptAttestedReport(nil, 0, ocr3types.ReportWithInfo[uint]{})
-		_, _ = p.ShouldTransmitAcceptedReport(nil, 0, ocr3types.ReportWithInfo[uint]{})
+		_ = p.ValidateObservation(tests.Context(t), ocr3types.OutcomeContext{}, nil, ocrtypes.AttributedObservation{})
+		_, _ = p.Outcome(tests.Context(t), ocr3types.OutcomeContext{}, nil, nil)
+		_, _ = p.Reports(tests.Context(t), 0, nil)
+		_, _ = p.ShouldAcceptAttestedReport(tests.Context(t), 0, ocr3types.ReportWithInfo[uint]{})
+		_, _ = p.ShouldTransmitAcceptedReport(tests.Context(t), 0, ocr3types.ReportWithInfo[uint]{})
 	}
 
 	require.Equal(t, 1, counterFromHistogramByLabels(t, promOCR3Durations, "123", "empty", "query", "true"))

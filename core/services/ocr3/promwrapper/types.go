@@ -36,8 +36,8 @@ var (
 		float64(10 * time.Second),
 	}
 
-	promOCR3ReportsGenerated = promauto.NewGaugeVec(
-		prometheus.GaugeOpts{
+	promOCR3ReportsGenerated = promauto.NewCounterVec(
+		prometheus.CounterOpts{
 			Name: "ocr3_reports_generated",
 			Help: "Tracks number of reports generated withing a single OCR3's Reports step",
 		},
