@@ -144,9 +144,9 @@ func (o *JDConfig) GetJDDBVersion() string {
 }
 
 func (o *Config) Validate() error {
-	var chainIds []int64
+	var chainIds []uint64
 	for _, net := range o.PrivateEthereumNetworks {
-		chainIds = append(chainIds, int64(net.EthereumChainConfig.ChainID))
+		chainIds = append(chainIds, uint64(net.EthereumChainConfig.ChainID))
 	}
 	homeChainSelector, err := strconv.ParseUint(pointer.GetString(o.HomeChainSelector), 10, 64)
 	if err != nil {
@@ -183,14 +183,14 @@ func (o *Config) GetFeedChainSelector() uint64 {
 	return selector
 }
 
-func IsSelectorValid(selector uint64, chainIds []int64) (bool, error) {
+func IsSelectorValid(selector uint64, chainIds []uint64) (bool, error) {
 	chainId, err := chainselectors.ChainIdFromSelector(selector)
 	if err != nil {
 		return false, err
 	}
 
 	for _, cID := range chainIds {
-		if uint64(cID) == chainId {
+		if cID == chainId {
 			return true, nil
 		}
 	}

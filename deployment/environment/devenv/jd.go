@@ -61,13 +61,6 @@ func gapTokenInterceptor(token string) grpc.UnaryClientInterceptor {
 	}
 }
 
-func (cfg JDConfig) IsEmpty() bool {
-	if cfg.GRPC == "" && cfg.WSRPC == "" {
-		return true
-	}
-	return false
-}
-
 func NewJDConnection(cfg JDConfig) (*grpc.ClientConn, error) {
 	opts := []grpc.DialOption{}
 	interceptors := []grpc.UnaryClientInterceptor{}
