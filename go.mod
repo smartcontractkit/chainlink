@@ -82,7 +82,7 @@ require (
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20241202141438-a90db35252db
 	github.com/smartcontractkit/chainlink-feeds v0.1.1
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.3.2
-	github.com/smartcontractkit/chainlink-solana v1.1.1-0.20241204153209-c3a71b0eef99
+	github.com/smartcontractkit/chainlink-solana v1.1.1-0.20241205173853-0e38174d35b6
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.1.1-0.20241202202529-2033490e77b8
 	github.com/smartcontractkit/libocr v0.0.0-20241007185508-adbe57025f12
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20241009055228-33d0c0bf38de
