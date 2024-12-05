@@ -233,7 +233,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 
 	chainID, err := chainsel.GetChainIDFromSelector(uint64(config.Config.ChainSelector))
 	if err != nil {
-		return nil, nil, fmt.Errorf("unsupported chain selector %d %v", config.Config.ChainSelector, err)
+		return nil, nil, fmt.Errorf("unsupported chain selector %d %w", config.Config.ChainSelector, err)
 	}
 
 	if config.Config.PluginType == uint8(cctypes.PluginTypeCCIPCommit) {

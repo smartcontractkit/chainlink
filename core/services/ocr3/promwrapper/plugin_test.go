@@ -2,7 +2,7 @@ package promwrapper
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -25,7 +25,7 @@ func Test_ReportsGeneratedGauge(t *testing.T) {
 		"solana", "different_plugin", promOCR3ReportsGenerated, promOCR3Durations,
 	)
 	plugin3 := NewReportingPlugin(
-		fakePlugin[string]{err: fmt.Errorf("error")},
+		fakePlugin[string]{err: errors.New("error")},
 		"1234", "empty", promOCR3ReportsGenerated, promOCR3Durations,
 	)
 
@@ -34,8 +34,8 @@ func Test_ReportsGeneratedGauge(t *testing.T) {
 	require.Len(t, r1, 2)
 
 	for i := 0; i < 10; i++ {
-		r2, err := plugin2.Reports(tests.Context(t), 1, nil)
-		require.NoError(t, err)
+		r2, err1 := plugin2.Reports(tests.Context(t), 1, nil)
+		require.NoError(t, err1)
 		require.Len(t, r2, 10)
 	}
 
@@ -46,16 +46,16 @@ func Test_ReportsGeneratedGauge(t *testing.T) {
 	require.Error(t, err)
 
 	g1 := testutil.ToFloat64(promOCR3ReportsGenerated.WithLabelValues("123", "empty", "reports"))
-	require.Equal(t, float64(2), g1)
+	require.Equal(t, 2, int(g1))
 
 	g2 := testutil.ToFloat64(promOCR3ReportsGenerated.WithLabelValues("solana", "different_plugin", "reports"))
-	require.Equal(t, float64(100), g2)
+	require.Equal(t, 100, int(g2))
 
 	g3 := testutil.ToFloat64(promOCR3ReportsGenerated.WithLabelValues("solana", "different_plugin", "shouldAccept"))
-	require.Equal(t, float64(1), g3)
+	require.Equal(t, 1, int(g3))
 
 	g4 := testutil.ToFloat64(promOCR3ReportsGenerated.WithLabelValues("1234", "empty", "reports"))
-	require.Equal(t, float64(0), g4)
+	require.Equal(t, 0, int(g4))
 }
 
 func Test_DurationHistograms(t *testing.T) {
@@ -64,7 +64,7 @@ func Test_DurationHistograms(t *testing.T) {
 		"123", "empty", promOCR3ReportsGenerated, promOCR3Durations,
 	)
 	plugin2 := NewReportingPlugin(
-		fakePlugin[uint]{err: fmt.Errorf("error")},
+		fakePlugin[uint]{err: errors.New("error")},
 		"123", "empty", promOCR3ReportsGenerated, promOCR3Durations,
 	)
 	plugin3 := NewReportingPlugin(
@@ -165,5 +165,6 @@ func counterFromHistogramByLabels(t *testing.T, histogramVec *prometheus.Histogr
 	err = metric.Write(pb)
 	require.NoError(t, err)
 
+	// nolint:gosec
 	return int(pb.GetHistogram().GetSampleCount())
 }

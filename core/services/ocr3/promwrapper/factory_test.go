@@ -2,7 +2,7 @@ package promwrapper
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -13,7 +13,7 @@ import (
 
 func Test_WrapperFactory(t *testing.T) {
 	validFactory := NewReportingPluginFactory(fakeFactory[uint]{}, "solana", "plugin")
-	failingFactory := NewReportingPluginFactory(fakeFactory[uint]{err: fmt.Errorf("error")}, "123", "plugin")
+	failingFactory := NewReportingPluginFactory(fakeFactory[uint]{err: errors.New("error")}, "123", "plugin")
 
 	plugin, _, err := validFactory.NewReportingPlugin(tests.Context(t), ocr3types.ReportingPluginConfig{})
 	require.NoError(t, err)
