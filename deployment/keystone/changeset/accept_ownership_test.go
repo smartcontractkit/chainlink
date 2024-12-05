@@ -39,10 +39,6 @@ func TestAcceptAllOwnership(t *testing.T) {
 			Config:    registrySel,
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.DeployFeedsConsumer),
-			Config:    &changeset.DeployFeedsConsumerRequest{ChainSelector: registrySel},
-		},
-		{
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployMCMSWithTimelock),
 			Config: map[uint64]types.MCMSWithTimelockConfig{
 				registrySel: {
