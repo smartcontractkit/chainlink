@@ -145,7 +145,7 @@ func DeployTestContracts(t *testing.T,
 		}, ab, chains[homeChainSel])
 	require.NoError(t, err)
 
-	_, err = deployFeeds(lggr, ab, chains[feedChainSel], linkPrice, wethPrice)
+	_, err = DeployFeeds(lggr, ab, chains[feedChainSel], linkPrice, wethPrice)
 	require.NoError(t, err)
 
 	evmChainID, err := chainsel.ChainIdFromSelector(homeChainSel)
@@ -672,7 +672,7 @@ var (
 	}
 )
 
-func deployFeeds(
+func DeployFeeds(
 	lggr logger.Logger,
 	ab deployment.AddressBook,
 	chain deployment.Chain,

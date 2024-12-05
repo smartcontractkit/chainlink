@@ -189,9 +189,8 @@ func IsSelectorValid(selector uint64, chainIds []int64) (bool, error) {
 		return false, err
 	}
 
-	id := int64(chainId)
 	for _, cID := range chainIds {
-		if cID == id {
+		if uint64(cID) == chainId {
 			return true, nil
 		}
 	}
