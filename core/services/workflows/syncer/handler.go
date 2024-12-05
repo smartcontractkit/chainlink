@@ -324,7 +324,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow paused event: %v", err), h.lggr)
 			return err
 		}
-		h.lggr.Debugf("handled workflow paused event for 0x%s", wfID)
+		h.lggr.Debugw("handled workflow paused event", "workflowID", wfID)
 		return nil
 	case WorkflowActivatedEvent:
 		payload, ok := event.GetData().(WorkflowRegistryWorkflowActivatedV1)
@@ -344,7 +344,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			return err
 		}
 
-		h.lggr.Debugf("handled workflow activated event", "workflowID", wfID)
+		h.lggr.Debugw("handled workflow activated event", "workflowID", wfID)
 		return nil
 	case WorkflowDeletedEvent:
 		payload, ok := event.GetData().(WorkflowRegistryWorkflowDeletedV1)
@@ -365,7 +365,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			return err
 		}
 
-		h.lggr.Debugf("handled workflow deleted event", "workflowID", wfID)
+		h.lggr.Debugw("handled workflow deleted event", "workflowID", wfID)
 		return nil
 	default:
 		return fmt.Errorf("event type unsupported: %v", event.GetEventType())
