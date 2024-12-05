@@ -95,7 +95,7 @@ func TestLinkTransferTimelock(t *testing.T) {
 					chainSelector: {
 						{
 							To:    chain.DeployerKey.From,
-							Value: *big.NewInt(500),
+							Value: big.NewInt(500),
 						},
 					},
 				},

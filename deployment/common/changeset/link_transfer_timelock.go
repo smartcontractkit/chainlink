@@ -16,7 +16,7 @@ import (
 
 type LinkTransfer struct {
 	To    common.Address
-	Value big.Int
+	Value *big.Int
 }
 type LinkTransferTimelockRequest struct {
 	Transfers       map[uint64][]LinkTransfer
@@ -64,7 +64,7 @@ func LinkTransferTimelock(e deployment.Environment, req *LinkTransferTimelockReq
 		}
 
 		for _, transfer := range req.Transfers[chainSelector] {
-			tx, err := linkContract.Transfer(deployment.SimTransactOpts(), transfer.To, &transfer.Value)
+			tx, err := linkContract.Transfer(deployment.SimTransactOpts(), transfer.To, transfer.Value)
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("error packing transfer tx data: %w", err)
 			}
