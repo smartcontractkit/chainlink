@@ -925,7 +925,7 @@ func testSetupRealContracts(
 	for chain, cr := range crs {
 		contractReaders[chain] = cr
 	}
-	contractWriters := make(map[cciptypes.ChainSelector]types.ChainWriter)
+	contractWriters := make(map[cciptypes.ChainSelector]types.ContractWriter)
 	reader := ccipreaderpkg.NewCCIPReaderWithExtendedContractReaders(ctx, lggr, contractReaders, contractWriters, cciptypes.ChainSelector(destChain), nil)
 
 	return reader
@@ -1034,7 +1034,7 @@ func testSetup(
 	for chain, cr := range otherCrs {
 		contractReaders[chain] = cr
 	}
-	contractWriters := make(map[cciptypes.ChainSelector]types.ChainWriter)
+	contractWriters := make(map[cciptypes.ChainSelector]types.ContractWriter)
 	reader := ccipreaderpkg.NewCCIPReaderWithExtendedContractReaders(ctx, lggr, contractReaders, contractWriters, params.DestChain, nil)
 
 	t.Cleanup(func() {

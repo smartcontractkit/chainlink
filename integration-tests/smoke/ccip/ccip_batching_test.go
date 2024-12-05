@@ -92,6 +92,7 @@ func Test_CCIPBatching(t *testing.T) {
 			state.Chains[destChain].OffRamp,
 			nil,
 			ccipocr3.NewSeqNumRange(startSeqNum[sourceChain], startSeqNum[sourceChain]+numMessages-1),
+			true,
 		)
 		require.NoErrorf(t, err, "failed to confirm commit from chain %d", sourceChain)
 
@@ -284,6 +285,7 @@ func Test_CCIPBatching(t *testing.T) {
 				startSeqNum[sourceChain],
 				startSeqNum[sourceChain]+ccipocr3.SeqNum(merklemulti.MaxNumberTreeLeaves)-1,
 			),
+			true,
 		)
 		require.NoErrorf(t, err, "failed to confirm commit from chain %d", sourceChain)
 	})
@@ -336,6 +338,7 @@ func assertCommitReportsAsync(
 		state.Chains[destChainSelector].OffRamp,
 		nil,
 		ccipocr3.NewSeqNumRange(startSeqNum, endSeqNum),
+		true,
 	)
 
 	errs <- outputErr[*offramp.OffRampCommitReportAccepted]{commitReport, err}

@@ -556,17 +556,20 @@ func (r workflowAsEvent) GetData() any {
 }
 
 type workflowRegistryContractLoader struct {
+	lggr                    logger.Logger
 	workflowRegistryAddress string
 	newContractReaderFn     newContractReaderFn
 	handler                 evtHandler
 }
 
 func NewWorkflowRegistryContractLoader(
+	lggr logger.Logger,
 	workflowRegistryAddress string,
 	newContractReaderFn newContractReaderFn,
 	handler evtHandler,
 ) *workflowRegistryContractLoader {
 	return &workflowRegistryContractLoader{
+		lggr:                    lggr.Named("WorkflowRegistryContractLoader"),
 		workflowRegistryAddress: workflowRegistryAddress,
 		newContractReaderFn:     newContractReaderFn,
 		handler:                 handler,
@@ -624,6 +627,7 @@ func (l *workflowRegistryContractLoader) LoadWorkflows(ctx context.Context, don 
 			return nil, fmt.Errorf("failed to get workflow metadata for don %w", err)
 		}
 
+		l.lggr.Debugw("Rehydrating existing workflows", "len", len(workflows.WorkflowMetadataList))
 		for _, workflow := range workflows.WorkflowMetadataList {
 			if err = l.handler.Handle(ctx, workflowAsEvent{
 				Data:      workflow,

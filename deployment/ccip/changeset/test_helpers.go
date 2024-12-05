@@ -245,13 +245,18 @@ func NewMemoryEnvironmentWithJobs(t *testing.T, lggr logger.Logger, config memor
 // We don't need to return exactly the same attestation, because our Mocked USDC contract doesn't rely on any specific
 // value, but instead of that it just checks if the attestation is present. Therefore, it makes the test a bit simpler
 // and doesn't require very detailed mocks. Please see tests in chainlink-ccip for detailed tests using real attestations
-func mockAttestationResponse() *httptest.Server {
+func mockAttestationResponse(isFaulty bool) *httptest.Server {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		response := `{
 			"status": "complete",
 			"attestation": "0x9049623e91719ef2aa63c55f357be2529b0e7122ae552c18aff8db58b4633c4d3920ff03d3a6d1ddf11f06bf64d7fd60d45447ac81f527ba628877dc5ca759651b08ffae25a6d3b1411749765244f0a1c131cbfe04430d687a2e12fd9d2e6dc08e118ad95d94ad832332cf3c4f7a4f3da0baa803b7be024b02db81951c0f0714de1b"
 		}`
-
+		if isFaulty {
+			response = `{
+				"status": "pending",
+				"error": "internal error"
+			}`
+		}
 		_, err := w.Write([]byte(response))
 		if err != nil {
 			panic(err)
@@ -261,9 +266,10 @@ func mockAttestationResponse() *httptest.Server {
 }
 
 type TestConfigs struct {
-	IsUSDC            bool
-	IsMultiCall3      bool
-	OCRConfigOverride func(CCIPOCRParams) CCIPOCRParams
+	IsUSDC                   bool
+	IsUSDCAttestationMissing bool
+	IsMultiCall3             bool
+	OCRConfigOverride        func(CCIPOCRParams) CCIPOCRParams
 }
 
 func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, config memory.MemoryEnvironmentConfig, tCfg *TestConfigs) DeployedEnv {
@@ -293,6 +299,10 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 	// Need to deploy prerequisites first so that we can form the USDC config
 	// no proposals to be made, timelock can be passed as nil here
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
+			Config:    allChains,
+		},
 		{
 			Changeset: commonchangeset.WrapChangeSet(DeployPrerequisites),
 			Config: DeployPrerequisiteConfig{
@@ -332,7 +342,7 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 	tokenConfig := NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
 	var tokenDataProviders []pluginconfig.TokenDataObserverConfig
 	if len(usdcChains) > 0 {
-		server := mockAttestationResponse()
+		server := mockAttestationResponse(tCfg.IsUSDCAttestationMissing)
 		endpoint := server.URL
 		t.Cleanup(func() {
 			server.Close()
@@ -776,7 +786,7 @@ func ConfirmRequestOnSourceAndDest(t *testing.T, env deployment.Environment, sta
 		commonutils.JustError(ConfirmCommitWithExpectedSeqNumRange(t, env.Chains[sourceCS], env.Chains[destCS], state.Chains[destCS].OffRamp, &startBlock, cciptypes.SeqNumRange{
 			cciptypes.SeqNum(msgSentEvent.SequenceNumber),
 			cciptypes.SeqNum(msgSentEvent.SequenceNumber),
-		})))
+		}, true)))
 
 	fmt.Printf("Commit confirmed for seqnr %d", msgSentEvent.SequenceNumber)
 	require.NoError(
@@ -1138,43 +1148,88 @@ func deployTransferTokenOneEnd(
 	return tokenContract.Contract, tokenPool.Contract, nil
 }
 
+type MintTokenInfo struct {
+	auth   *bind.TransactOpts
+	sender *bind.TransactOpts
+	tokens []*burn_mint_erc677.BurnMintERC677
+}
+
+func NewMintTokenInfo(auth *bind.TransactOpts, tokens ...*burn_mint_erc677.BurnMintERC677) MintTokenInfo {
+	return MintTokenInfo{auth: auth, tokens: tokens}
+}
+
+func NewMintTokenWithCustomSender(auth *bind.TransactOpts, sender *bind.TransactOpts, tokens ...*burn_mint_erc677.BurnMintERC677) MintTokenInfo {
+	return MintTokenInfo{auth: auth, sender: sender, tokens: tokens}
+}
+
 // MintAndAllow mints tokens for deployers and allow router to spend them
 func MintAndAllow(
 	t *testing.T,
 	e deployment.Environment,
 	state CCIPOnChainState,
-	owners map[uint64]*bind.TransactOpts,
-	tkMap map[uint64][]*burn_mint_erc677.BurnMintERC677,
+	tokenMap map[uint64][]MintTokenInfo,
 ) {
 	configurePoolGrp := errgroup.Group{}
 	tenCoins := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(10))
 
-	for chain, tokens := range tkMap {
-		owner, ok := owners[chain]
-		require.True(t, ok)
+	for chain, mintTokenInfos := range tokenMap {
+		mintTokenInfos := mintTokenInfos
 
-		tokens := tokens
 		configurePoolGrp.Go(func() error {
-			for _, token := range tokens {
-				tx, err := token.Mint(
-					owner,
-					e.Chains[chain].DeployerKey.From,
-					new(big.Int).Mul(tenCoins, big.NewInt(10)),
-				)
-				require.NoError(t, err)
-				_, err = e.Chains[chain].Confirm(tx)
-				require.NoError(t, err)
+			for _, mintTokenInfo := range mintTokenInfos {
+				sender := mintTokenInfo.sender
+				if sender == nil {
+					sender = e.Chains[chain].DeployerKey
+				}
 
-				tx, err = token.Approve(e.Chains[chain].DeployerKey, state.Chains[chain].Router.Address(), tenCoins)
-				require.NoError(t, err)
-				_, err = e.Chains[chain].Confirm(tx)
-				require.NoError(t, err)
+				for _, token := range mintTokenInfo.tokens {
+					tx, err := token.Mint(
+						mintTokenInfo.auth,
+						sender.From,
+						new(big.Int).Mul(tenCoins, big.NewInt(10)),
+					)
+					require.NoError(t, err)
+					_, err = e.Chains[chain].Confirm(tx)
+					require.NoError(t, err)
+
+					tx, err = token.Approve(sender, state.Chains[chain].Router.Address(), tenCoins)
+					require.NoError(t, err)
+					_, err = e.Chains[chain].Confirm(tx)
+					require.NoError(t, err)
+				}
 			}
 			return nil
 		})
 	}
 
 	require.NoError(t, configurePoolGrp.Wait())
+}
+
+func Transfer(
+	ctx context.Context,
+	t *testing.T,
+	env deployment.Environment,
+	state CCIPOnChainState,
+	sourceChain, destChain uint64,
+	tokens []router.ClientEVMTokenAmount,
+	receiver common.Address,
+	data, extraArgs []byte,
+) (*onramp.OnRampCCIPMessageSent, map[uint64]*uint64) {
+	startBlocks := make(map[uint64]*uint64)
+
+	latesthdr, err := env.Chains[destChain].Client.HeaderByNumber(ctx, nil)
+	require.NoError(t, err)
+	block := latesthdr.Number.Uint64()
+	startBlocks[destChain] = &block
+
+	msgSentEvent := TestSendRequest(t, env, state, sourceChain, destChain, false, router.ClientEVM2AnyMessage{
+		Receiver:     common.LeftPadBytes(receiver.Bytes(), 32),
+		Data:         data,
+		TokenAmounts: tokens,
+		FeeToken:     common.HexToAddress("0x0"),
+		ExtraArgs:    extraArgs,
+	})
+	return msgSentEvent, startBlocks
 }
 
 // TransferAndWaitForSuccess sends a message from sourceChain to destChain and waits for it to be executed
@@ -1195,22 +1250,10 @@ func TransferAndWaitForSuccess(
 		DestChainSelector:   destChain,
 	}
 
-	startBlocks := make(map[uint64]*uint64)
 	expectedSeqNum := make(map[SourceDestPair]uint64)
 	expectedSeqNumExec := make(map[SourceDestPair][]uint64)
 
-	latesthdr, err := env.Chains[destChain].Client.HeaderByNumber(ctx, nil)
-	require.NoError(t, err)
-	block := latesthdr.Number.Uint64()
-	startBlocks[destChain] = &block
-
-	msgSentEvent := TestSendRequest(t, env, state, sourceChain, destChain, false, router.ClientEVM2AnyMessage{
-		Receiver:     common.LeftPadBytes(receiver.Bytes(), 32),
-		Data:         data,
-		TokenAmounts: tokens,
-		FeeToken:     common.HexToAddress("0x0"),
-		ExtraArgs:    extraArgs,
-	})
+	msgSentEvent, startBlocks := Transfer(ctx, t, env, state, sourceChain, destChain, tokens, receiver, data, extraArgs)
 	expectedSeqNum[identifier] = msgSentEvent.SequenceNumber
 	expectedSeqNumExec[identifier] = []uint64{msgSentEvent.SequenceNumber}
 
