@@ -362,7 +362,6 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   ) internal {
     uint64 sourceChainSelector = report.sourceChainSelector;
     bool manualExecution = manualExecGasExecOverrides.length != 0;
-    // A double call to the RMNRemote is to check for both chainwise and legacy cursing before proceeding
     if (i_rmnRemote.isCursed(bytes16(uint128(sourceChainSelector)))) {
       if (manualExecution) {
         // For manual execution we don't want to silently fail so we revert.
