@@ -207,6 +207,7 @@ func TestContractReaderEventsInitValidation(t *testing.T) {
 }
 
 func TestChainComponents(t *testing.T) {
+	testutils.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/BCFR-1083")
 	t.Parallel()
 	it := &EVMChainComponentsInterfaceTester[*testing.T]{Helper: &helper{}}
 	// TODO, generated binding tests are broken
