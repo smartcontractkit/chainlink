@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/pg"
+	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 

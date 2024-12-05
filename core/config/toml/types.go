@@ -16,7 +16,7 @@ import (
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/pg"
+	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
 
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"

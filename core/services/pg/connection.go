@@ -19,7 +19,7 @@ import (
 	"go.opentelemetry.io/otel"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 
-	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/pg"
+	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
 )
 
 // NOTE: This is the default level in Postgres anyway, we just make it

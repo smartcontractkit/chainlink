@@ -35,7 +35,7 @@ import (
 
 	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 
-	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/pg"
+	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
 
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"

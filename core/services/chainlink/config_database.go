@@ -4,7 +4,7 @@ import (
 	"net/url"
 	"time"
 
-	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/pg"
+	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"

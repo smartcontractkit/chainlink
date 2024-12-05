@@ -4,7 +4,7 @@ import (
 	"net/url"
 	"time"
 
-	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/pg"
+	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
 )
 
 type Backup interface {

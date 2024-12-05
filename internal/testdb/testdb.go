@@ -7,7 +7,7 @@ import (
 	"net/url"
 	"strings"
 
-	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/pg"
+	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
 )
 
 const (
