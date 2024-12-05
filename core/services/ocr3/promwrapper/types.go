@@ -21,9 +21,7 @@ const (
 var (
 	buckets = []float64{
 		float64(10 * time.Millisecond),
-		float64(25 * time.Millisecond),
 		float64(50 * time.Millisecond),
-		float64(75 * time.Millisecond),
 		float64(100 * time.Millisecond),
 		float64(200 * time.Millisecond),
 		float64(500 * time.Millisecond),
