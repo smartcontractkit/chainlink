@@ -101,7 +101,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@d9043b4d20ecea135a17989eb0f11dcc7085fe2c # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@d3a8549a0e5d0ab7f2b3452fe31a7fdfb129ab00 # flakguard@0.1.0
 
       - name: Find new or updated test packages
         if: ${{ inputs.runAllTests == false }}
@@ -260,7 +260,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@d9043b4d20ecea135a17989eb0f11dcc7085fe2c # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@d3a8549a0e5d0ab7f2b3452fe31a7fdfb129ab00 # flakguard@0.1.0
 
       - name: Run tests with flakeguard
         shell: bash
@@ -307,27 +307,46 @@ jobs:
             
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@d9043b4d20ecea135a17989eb0f11dcc7085fe2c # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@d3a8549a0e5d0ab7f2b3452fe31a7fdfb129ab00 # flakguard@0.1.0
                 
-      - name: Set combined test results
+      - name: Generate Flakeguard Report
         id: results
         shell: bash
         run: |
           set -e  # Exit immediately if a command exits with a non-zero status.
-          
+      
           # Create test results folder if it doesn't exist
-          mkdir -p ci_test_results 
-
+          mkdir -p ci_test_results
+      
           # Fix flakeguard binary path
           PATH=$PATH:$(go env GOPATH)/bin
           export PATH
-
-          # Combine all test results in a report
-          flakeguard report --results-path ./ci_test_results --output-path ./flakeguard-report --repo-path=${{ github.workspace }} --codeowners-path=${{ github.workspace }}/.github/CODEOWNERS
-
+      
+          # Generate the Flakeguard report
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            flakeguard report \
+              --results-path ./ci_test_results \
+              --output-path ./flakeguard-report \
+              --repo-path "${{ github.workspace }}" \
+              --codeowners-path "${{ github.workspace }}/.github/CODEOWNERS" \
+              --generate-pr-comment \
+              --base-branch "${{ inputs.baseRef }}" \
+              --current-branch "${{ env.GIT_HEAD_REF }}" \
+              --current-commit-sha "${{ needs.get-tests.outputs.git_head_sha }}" \
+              --repo-url "${{ inputs.repoUrl }}" \
+              --action-run-id "${{ github.run_id }}"
+          else
+            flakeguard report \
+              --results-path ./ci_test_results \
+              --output-path ./flakeguard-report \
+              --repo-path "${{ github.workspace }}" \
+              --codeowners-path "${{ github.workspace }}/.github/CODEOWNERS"
+          fi
+      
+          # Read the summary from the generated report
           summary=$(jq -c '.' ./flakeguard-report/all-tests-summary.json)
           echo "summary=$summary" >> $GITHUB_OUTPUT
-
+      
       - name: Tests Summary
         if: ${{ fromJSON(steps.results.outputs.summary).total_tests > 0 }}
         run: |
@@ -383,7 +402,7 @@ jobs:
           script: |
             const fs = require('fs');
             const prNumber = context.payload.pull_request.number;
-            const commentBody = fs.readFileSync('./flakeguard-report/all-tests-summary.md', 'utf8');
+            const commentBody = fs.readFileSync('./flakeguard-report/all-tests-pr-comment.md', 'utf8');
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,
