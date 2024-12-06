@@ -2,6 +2,8 @@
 
 Updates any module that is `replace`'d with a local path to have its required module version in `go.mod` to match the latest git SHA from a remote branch.
 
+Is meant to run within each directory where a `go.mod` file is present.
+
 ## Configuration
 
 Command Line Flags:
@@ -25,8 +27,15 @@ go install ./tools/gomod-local-update/cmd/gomod-local-update
 
 ## Usage Examples
 
+Run from the root of a go module directory.
+
 ```shell
 gomod-local-update
 ```
 
-This command auto-detects modules with local replace directives and updates their versions.
+Was designed to be used with [gomods](https://github.com/jmank88/gomods) like:
+
+```shell
+gomods -w gomod-local-update
+gomods tidy
+```
