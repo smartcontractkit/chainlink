@@ -395,7 +395,14 @@ func sendMessagesAsync(
 ) {
 	defer wg.Done()
 	var err error
-	for i := 0; i < 3; i++ {
+
+	const (
+		numRetries = 3
+	)
+
+	// we retry a bunch of times just in case there is a race b/w the prices being
+	// posted and the messages being sent.
+	for i := 0; i < numRetries; i++ {
 		err = sendMessages(
 			ctx,
 			t,
