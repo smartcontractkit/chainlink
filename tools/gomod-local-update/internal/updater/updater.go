@@ -28,15 +28,26 @@ func (g *realGitExecutor) Command(ctx context.Context, args ...string) ([]byte, 
 }
 
 const (
-	goModFile           = "go.mod"
-	goModFileMode       = 0644
-	gitSHALength        = 12
-	gitTimeout          = 30 * time.Second
-	gitTimeFormat       = time.RFC3339
+	// File and mode constants
+	goModFile     = "go.mod"
+	goModFileMode = 0644
+	gitSHALength  = 12
+	gitTimeout    = 30 * time.Second
+	gitTimeFormat = time.RFC3339
+
+	// Regex pattern constants
 	gitRemotePattern    = `^[a-zA-Z0-9][-a-zA-Z0-9_.]*$`
 	gitBranchPattern    = `^[a-zA-Z0-9][-a-zA-Z0-9/_]*$`
 	majorVersionPattern = `/v\d+$`
 	shaPattern          = `^[a-fA-F0-9]{40}$` // SHA-1 hashes are 40 hexadecimal characters
+)
+
+var (
+	// Pre-compiled regular expressions
+	gitRemoteRE = regexp.MustCompile(gitRemotePattern)
+	gitBranchRE = regexp.MustCompile(gitBranchPattern)
+	gitShaRE    = regexp.MustCompile(shaPattern)
+	majorVersionRE  = regexp.MustCompile(majorVersionPattern)
 )
 
 type Updater struct {
@@ -56,13 +67,11 @@ func New(config *Config, system SystemOperator) *Updater {
 
 // validateGitInput checks if the remote and branch are in the correct format
 func (u *Updater) validateGitInput(remote, branch string) error {
-	remoteRE := regexp.MustCompile(gitRemotePattern)
-	if !remoteRE.MatchString(remote) {
+	if !gitRemoteRE.MatchString(remote) {
 		return fmt.Errorf("%w: git remote '%s' contains invalid characters", ErrInvalidConfig, remote)
 	}
 
-	branchRE := regexp.MustCompile(gitBranchPattern)
-	if !branchRE.MatchString(branch) {
+	if !gitBranchRE.MatchString(branch) {
 		return fmt.Errorf("%w: git branch '%s' contains invalid characters", ErrInvalidConfig, branch)
 	}
 	return nil
@@ -70,8 +79,7 @@ func (u *Updater) validateGitInput(remote, branch string) error {
 
 // validateSHA checks if the SHA consists of exactly 40 hexadecimal digits
 func (u *Updater) validateSHA(sha string) error {
-	shaRE := regexp.MustCompile(shaPattern)
-	if !shaRE.MatchString(sha) {
+	if !gitShaRE.MatchString(sha) {
 		return fmt.Errorf("%w: invalid git SHA '%s'", ErrInvalidConfig, sha)
 	}
 	return nil
@@ -194,8 +202,7 @@ func (u *Updater) updateGoMod(modFile *modfile.File, modulesToUpdate []string, s
 // getMajorVersion extracts the major version number from a module path
 // Returns "v2" for /v2, "v0" for no version suffix
 func getMajorVersion(modulePath string) string {
-	re := regexp.MustCompile(majorVersionPattern)
-	if match := re.FindString(modulePath); match != "" {
+	if match := majorVersionRE.FindString(modulePath); match != "" {
 		return strings.TrimPrefix(match, "/")
 	}
 	return "v0"
