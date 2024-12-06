@@ -3,6 +3,7 @@ package v1_0
 import (
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -24,7 +25,7 @@ func TestStaticLinkTokenView(t *testing.T) {
 	v, err := GenerateStaticLinkTokenView(lt)
 	require.NoError(t, err)
 
-	assert.Equal(t, v.Owner, chain.DeployerKey.From)
+	assert.Equal(t, v.Owner, common.HexToAddress("0x0")) // Ownerless
 	assert.Equal(t, v.TypeAndVersion, "StaticLinkToken 1.0.0")
 	assert.Equal(t, v.Decimals, uint8(18))
 	assert.Equal(t, v.Supply.String(), "1000000000000000000000000000")
