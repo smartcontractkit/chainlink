@@ -165,6 +165,7 @@ func (d *delegate) Start(ctx context.Context) error {
 						llo.EVMOnchainConfigCodec{},
 						d.reportCodecs,
 					),
+					lggr,
 					d.cfg.ChainID,
 					"llo",
 				),
