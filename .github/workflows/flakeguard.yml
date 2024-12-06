@@ -325,7 +325,7 @@ jobs:
           # Combine all test results in a report
           flakeguard report --results-path ./ci_test_results --output-path ./flakeguard-report --repo-path=${{ github.workspace }} --codeowners-path=${{ github.workspace }}/.github/CODEOWNERS
 
-          summary=$(cat ./flakeguard-report/all-tests-summary.json)
+          summary=$(jq -c '.' ./flakeguard-report/all-tests-summary.json)
           echo "summary=$summary" >> $GITHUB_OUTPUT
 
       - name: Tests Summary
