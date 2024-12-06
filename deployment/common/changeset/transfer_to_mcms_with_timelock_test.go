@@ -30,11 +30,10 @@ func TestTransferToMCMSWithTimelock(t *testing.T) {
 			Changeset: WrapChangeSet(DeployMCMSWithTimelock),
 			Config: map[uint64]types.MCMSWithTimelockConfig{
 				chain1: {
-					Canceller:         SingleGroupMCMS(t),
-					Bypasser:          SingleGroupMCMS(t),
-					Proposer:          SingleGroupMCMS(t),
-					TimelockExecutors: e.AllDeployerKeys(),
-					TimelockMinDelay:  big.NewInt(0),
+					Canceller:        SingleGroupMCMS(t),
+					Bypasser:         SingleGroupMCMS(t),
+					Proposer:         SingleGroupMCMS(t),
+					TimelockMinDelay: big.NewInt(0),
 				},
 			},
 		},

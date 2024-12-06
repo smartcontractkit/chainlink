@@ -265,11 +265,10 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 		for sel := range env.Chains {
 			t.Logf("Enabling MCMS on chain %d", sel)
 			timelockCfgs[sel] = commontypes.MCMSWithTimelockConfig{
-				Canceller:         commonchangeset.SingleGroupMCMS(t),
-				Bypasser:          commonchangeset.SingleGroupMCMS(t),
-				Proposer:          commonchangeset.SingleGroupMCMS(t),
-				TimelockExecutors: env.AllDeployerKeys(),
-				TimelockMinDelay:  big.NewInt(0),
+				Canceller:        commonchangeset.SingleGroupMCMS(t),
+				Bypasser:         commonchangeset.SingleGroupMCMS(t),
+				Proposer:         commonchangeset.SingleGroupMCMS(t),
+				TimelockMinDelay: big.NewInt(0),
 			}
 		}
 		env, err = commonchangeset.ApplyChangesets(t, env, nil, []commonchangeset.ChangesetApplication{

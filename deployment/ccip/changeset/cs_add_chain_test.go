@@ -52,11 +52,10 @@ func TestAddChainInbound(t *testing.T) {
 	require.NoError(t, e.Env.ExistingAddresses.Merge(newAddresses))
 
 	cfg := commontypes.MCMSWithTimelockConfig{
-		Canceller:         commonchangeset.SingleGroupMCMS(t),
-		Bypasser:          commonchangeset.SingleGroupMCMS(t),
-		Proposer:          commonchangeset.SingleGroupMCMS(t),
-		TimelockExecutors: e.Env.AllDeployerKeys(),
-		TimelockMinDelay:  big.NewInt(0),
+		Canceller:        commonchangeset.SingleGroupMCMS(t),
+		Bypasser:         commonchangeset.SingleGroupMCMS(t),
+		Proposer:         commonchangeset.SingleGroupMCMS(t),
+		TimelockMinDelay: big.NewInt(0),
 	}
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
 		{

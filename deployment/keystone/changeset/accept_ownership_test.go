@@ -42,11 +42,10 @@ func TestAcceptAllOwnership(t *testing.T) {
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployMCMSWithTimelock),
 			Config: map[uint64]types.MCMSWithTimelockConfig{
 				registrySel: {
-					Canceller:         commonchangeset.SingleGroupMCMS(t),
-					Bypasser:          commonchangeset.SingleGroupMCMS(t),
-					Proposer:          commonchangeset.SingleGroupMCMS(t),
-					TimelockExecutors: env.AllDeployerKeys(),
-					TimelockMinDelay:  big.NewInt(0),
+					Canceller:        commonchangeset.SingleGroupMCMS(t),
+					Bypasser:         commonchangeset.SingleGroupMCMS(t),
+					Proposer:         commonchangeset.SingleGroupMCMS(t),
+					TimelockMinDelay: big.NewInt(0),
 				},
 			},
 		},
