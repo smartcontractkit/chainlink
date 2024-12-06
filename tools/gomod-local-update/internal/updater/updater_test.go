@@ -256,7 +256,7 @@ replace github.com/smartcontractkit/chainlink/v3 => ../
 			if !strings.Contains(tt.name, "v1 module update") {
 				modContent := string(tt.sysOp.files["go.mod"])
 				for _, module := range []string{"v2", "v3", "deployment"} {
-					modulePath := fmt.Sprintf("github.com/%s/%s/%s", 
+					modulePath := fmt.Sprintf("github.com/%s/%s/%s",
 						tt.config.OrgName, tt.config.RepoName, module)
 					if strings.Contains(modContent, modulePath) &&
 						!strings.Contains(modContent, "replace "+modulePath) {

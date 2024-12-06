@@ -44,10 +44,10 @@ const (
 
 var (
 	// Pre-compiled regular expressions
-	gitRemoteRE = regexp.MustCompile(gitRemotePattern)
-	gitBranchRE = regexp.MustCompile(gitBranchPattern)
-	gitShaRE    = regexp.MustCompile(shaPattern)
-	majorVersionRE  = regexp.MustCompile(majorVersionPattern)
+	gitRemoteRE    = regexp.MustCompile(gitRemotePattern)
+	gitBranchRE    = regexp.MustCompile(gitBranchPattern)
+	gitShaRE       = regexp.MustCompile(shaPattern)
+	majorVersionRE = regexp.MustCompile(majorVersionPattern)
 )
 
 type Updater struct {
