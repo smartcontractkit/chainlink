@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/link_token"
 )
 
@@ -111,6 +112,31 @@ func (s LinkTokenState) GenerateLinkView() (v1_0.LinkTokenView, error) {
 }
 
 func LoadLinkTokenState(chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (*LinkTokenState, error) {
+	state := LinkTokenState{}
+	for address, tvStr := range addresses {
+		if tvStr.String() == deployment.NewTypeAndVersion(types.LinkToken, deployment.Version1_0_0).String() {
+			lt, err := link_token.NewLinkToken(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return nil, err
+			}
+			state.LinkToken = lt
+		}
+	}
+	return &state, nil
+}
+
+type StaticLinkTokenState struct {
+	StaticLinkToken *link_token_interface.LinkToken
+}
+
+func (s StaticLinkTokenState) GenerateStaticLinkView() (v1_0.StaticLinkTokenView, error) {
+	if s.StaticLinkToken == nil {
+		return v1_0.StaticLinkTokenView{}, errors.New("static link token not found")
+	}
+	return v1_0.GenerateStaticLinkTokenView(s.StaticLinkToken)
+}
+
+func LoadStaticLinkTokenState(chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (*LinkTokenState, error) {
 	state := LinkTokenState{}
 	for address, tvStr := range addresses {
 		if tvStr.String() == deployment.NewTypeAndVersion(types.LinkToken, deployment.Version1_0_0).String() {
