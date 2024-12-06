@@ -119,7 +119,7 @@ func (_m *TelemetryService) Name() string {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
-		panic("no return value specified for Name")
+		panic("no return value specified for String")
 	}
 
 	var r0 string
@@ -132,14 +132,14 @@ func (_m *TelemetryService) Name() string {
 	return r0
 }
 
-// TelemetryService_Name_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Name'
+// TelemetryService_Name_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'String'
 type TelemetryService_Name_Call struct {
 	*mock.Call
 }
 
 // Name is a helper method to define mock.On call
 func (_e *TelemetryService_Expecter) Name() *TelemetryService_Name_Call {
-	return &TelemetryService_Name_Call{Call: _e.mock.On("Name")}
+	return &TelemetryService_Name_Call{Call: _e.mock.On("String")}
 }
 
 func (_c *TelemetryService_Name_Call) Run(run func()) *TelemetryService_Name_Call {

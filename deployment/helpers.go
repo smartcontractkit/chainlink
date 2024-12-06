@@ -138,18 +138,18 @@ func DeployContract[C any](
 ) (*ContractDeploy[C], error) {
 	contractDeploy := deploy(chain)
 	if contractDeploy.Err != nil {
-		lggr.Errorw("Failed to deploy contract", "chain", chain.Name(), "err", contractDeploy.Err)
+		lggr.Errorw("Failed to deploy contract", "chain", chain.String(), "err", contractDeploy.Err)
 		return nil, contractDeploy.Err
 	}
 	_, err := chain.Confirm(contractDeploy.Tx)
 	if err != nil {
-		lggr.Errorw("Failed to confirm deployment", "chain", chain.Name(), "Contract", contractDeploy.Tv.String(), "err", err)
+		lggr.Errorw("Failed to confirm deployment", "chain", chain.String(), "Contract", contractDeploy.Tv.String(), "err", err)
 		return nil, err
 	}
 	lggr.Infow("Deployed contract", "Contract", contractDeploy.Tv.String(), "addr", contractDeploy.Address, "chain", chain.Selector)
 	err = addressBook.Save(chain.Selector, contractDeploy.Address.String(), contractDeploy.Tv)
 	if err != nil {
-		lggr.Errorw("Failed to save contract address", "Contract", contractDeploy.Tv.String(), "addr", contractDeploy.Address, "chain", chain.Name(), "err", err)
+		lggr.Errorw("Failed to save contract address", "Contract", contractDeploy.Tv.String(), "addr", contractDeploy.Address, "chain", chain.String(), "err", err)
 		return nil, err
 	}
 	return &contractDeploy, nil

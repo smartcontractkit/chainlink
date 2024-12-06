@@ -559,7 +559,7 @@ func (_m *LinkTokenInterface) Name(opts *bind.CallOpts) (string, error) {
 	ret := _m.Called(opts)
 
 	if len(ret) == 0 {
-		panic("no return value specified for Name")
+		panic("no return value specified for String")
 	}
 
 	var r0 string
@@ -582,7 +582,7 @@ func (_m *LinkTokenInterface) Name(opts *bind.CallOpts) (string, error) {
 	return r0, r1
 }
 
-// LinkTokenInterface_Name_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Name'
+// LinkTokenInterface_Name_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'String'
 type LinkTokenInterface_Name_Call struct {
 	*mock.Call
 }
@@ -590,7 +590,7 @@ type LinkTokenInterface_Name_Call struct {
 // Name is a helper method to define mock.On call
 //   - opts *bind.CallOpts
 func (_e *LinkTokenInterface_Expecter) Name(opts interface{}) *LinkTokenInterface_Name_Call {
-	return &LinkTokenInterface_Name_Call{Call: _e.mock.On("Name", opts)}
+	return &LinkTokenInterface_Name_Call{Call: _e.mock.On("String", opts)}
 }
 
 func (_c *LinkTokenInterface_Name_Call) Run(run func(opts *bind.CallOpts)) *LinkTokenInterface_Name_Call {

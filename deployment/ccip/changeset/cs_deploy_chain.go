@@ -182,28 +182,28 @@ func deployChainContracts(
 	}
 	chainState, chainExists := state.Chains[chain.Selector]
 	if !chainExists {
-		return fmt.Errorf("chain %s not found in existing state, deploy the prerequisites first", chain.Name())
+		return fmt.Errorf("chain %s not found in existing state, deploy the prerequisites first", chain.String())
 	}
 	if chainState.Weth9 == nil {
-		return fmt.Errorf("weth9 not found for chain %s, deploy the prerequisites first", chain.Name())
+		return fmt.Errorf("weth9 not found for chain %s, deploy the prerequisites first", chain.String())
 	}
 	if chainState.Timelock == nil {
-		return fmt.Errorf("timelock not found for chain %s, deploy the mcms contracts first", chain.Name())
+		return fmt.Errorf("timelock not found for chain %s, deploy the mcms contracts first", chain.String())
 	}
 	weth9Contract := chainState.Weth9
 	if chainState.LinkToken == nil {
-		return fmt.Errorf("link token not found for chain %s, deploy the prerequisites first", chain.Name())
+		return fmt.Errorf("link token not found for chain %s, deploy the prerequisites first", chain.String())
 	}
 	linkTokenContract := chainState.LinkToken
 	if chainState.TokenAdminRegistry == nil {
-		return fmt.Errorf("token admin registry not found for chain %s, deploy the prerequisites first", chain.Name())
+		return fmt.Errorf("token admin registry not found for chain %s, deploy the prerequisites first", chain.String())
 	}
 	tokenAdminReg := chainState.TokenAdminRegistry
 	if chainState.RegistryModule == nil {
-		return fmt.Errorf("registry module not found for chain %s, deploy the prerequisites first", chain.Name())
+		return fmt.Errorf("registry module not found for chain %s, deploy the prerequisites first", chain.String())
 	}
 	if chainState.Router == nil {
-		return fmt.Errorf("router not found for chain %s, deploy the prerequisites first", chain.Name())
+		return fmt.Errorf("router not found for chain %s, deploy the prerequisites first", chain.String())
 	}
 	if chainState.Receiver == nil {
 		_, err := deployment.DeployContract(e.Logger, chain, ab,
@@ -222,7 +222,7 @@ func deployChainContracts(
 			return err
 		}
 	} else {
-		e.Logger.Infow("receiver already deployed", "addr", chainState.Receiver.Address, "chain", chain.Name())
+		e.Logger.Infow("receiver already deployed", "addr", chainState.Receiver.Address, "chain", chain.String())
 	}
 	rmnRemoteContract := chainState.RMNRemote
 	if chainState.RMNRemote == nil {
@@ -241,19 +241,19 @@ func deployChainContracts(
 				}
 			})
 		if err != nil {
-			e.Logger.Errorw("Failed to deploy RMNRemote", "chain", chain.Name(), "err", err)
+			e.Logger.Errorw("Failed to deploy RMNRemote", "chain", chain.String(), "err", err)
 			return err
 		}
 		rmnRemoteContract = rmnRemote.Contract
 	} else {
-		e.Logger.Infow("rmn remote already deployed", "chain", chain.Name(), "addr", chainState.RMNRemote.Address)
+		e.Logger.Infow("rmn remote already deployed", "chain", chain.String(), "addr", chainState.RMNRemote.Address)
 	}
 	activeDigest, err := rmnHome.GetActiveDigest(&bind.CallOpts{})
 	if err != nil {
-		e.Logger.Errorw("Failed to get active digest", "chain", chain.Name(), "err", err)
+		e.Logger.Errorw("Failed to get active digest", "chain", chain.String(), "err", err)
 		return err
 	}
-	e.Logger.Infow("setting active home digest to rmn remote", "chain", chain.Name(), "digest", activeDigest)
+	e.Logger.Infow("setting active home digest to rmn remote", "chain", chain.String(), "digest", activeDigest)
 
 	tx, err := rmnRemoteContract.SetConfig(chain.DeployerKey, rmn_remote.RMNRemoteConfig{
 		RmnHomeContractConfigDigest: activeDigest,
@@ -263,7 +263,7 @@ func deployChainContracts(
 		F: 0, // TODO: update when we have signers
 	})
 	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
-		e.Logger.Errorw("Failed to confirm RMNRemote config", "chain", chain.Name(), "err", err)
+		e.Logger.Errorw("Failed to confirm RMNRemote config", "chain", chain.String(), "err", err)
 		return err
 	}
 
@@ -284,12 +284,12 @@ func deployChainContracts(
 				}
 			})
 		if err != nil {
-			e.Logger.Errorw("Failed to deploy RMNProxyNew", "chain", chain.Name(), "err", err)
+			e.Logger.Errorw("Failed to deploy RMNProxyNew", "chain", chain.String(), "err", err)
 			return err
 		}
 		rmnProxyContract = rmnProxy.Contract
 	} else {
-		e.Logger.Infow("rmn proxy already deployed", "chain", chain.Name(), "addr", chainState.RMNProxyNew.Address)
+		e.Logger.Infow("rmn proxy already deployed", "chain", chain.String(), "addr", chainState.RMNProxyNew.Address)
 	}
 	if chainState.TestRouter == nil {
 		_, err := deployment.DeployContract(e.Logger, chain, ab,
@@ -305,11 +305,11 @@ func deployChainContracts(
 				}
 			})
 		if err != nil {
-			e.Logger.Errorw("Failed to deploy test router", "chain", chain.Name(), "err", err)
+			e.Logger.Errorw("Failed to deploy test router", "chain", chain.String(), "err", err)
 			return err
 		}
 	} else {
-		e.Logger.Infow("test router already deployed", "chain", chain.Name(), "addr", chainState.TestRouter.Address)
+		e.Logger.Infow("test router already deployed", "chain", chain.String(), "addr", chainState.TestRouter.Address)
 	}
 
 	nmContract := chainState.NonceManager
@@ -326,12 +326,12 @@ func deployChainContracts(
 				}
 			})
 		if err != nil {
-			e.Logger.Errorw("Failed to deploy nonce manager", "chain", chain.Name(), "err", err)
+			e.Logger.Errorw("Failed to deploy nonce manager", "chain", chain.String(), "err", err)
 			return err
 		}
 		nmContract = nonceManager.Contract
 	} else {
-		e.Logger.Infow("nonce manager already deployed", "chain", chain.Name(), "addr", chainState.NonceManager.Address)
+		e.Logger.Infow("nonce manager already deployed", "chain", chain.String(), "addr", chainState.NonceManager.Address)
 	}
 	feeQuoterContract := chainState.FeeQuoter
 	if chainState.FeeQuoter == nil {
@@ -366,12 +366,12 @@ func deployChainContracts(
 				}
 			})
 		if err != nil {
-			e.Logger.Errorw("Failed to deploy fee quoter", "chain", chain.Name(), "err", err)
+			e.Logger.Errorw("Failed to deploy fee quoter", "chain", chain.String(), "err", err)
 			return err
 		}
 		feeQuoterContract = feeQuoter.Contract
 	} else {
-		e.Logger.Infow("fee quoter already deployed", "chain", chain.Name(), "addr", chainState.FeeQuoter.Address)
+		e.Logger.Infow("fee quoter already deployed", "chain", chain.String(), "addr", chainState.FeeQuoter.Address)
 	}
 	onRampContract := chainState.OnRamp
 	if onRampContract == nil {
@@ -397,12 +397,12 @@ func deployChainContracts(
 				}
 			})
 		if err != nil {
-			e.Logger.Errorw("Failed to deploy onramp", "chain", chain.Name(), "err", err)
+			e.Logger.Errorw("Failed to deploy onramp", "chain", chain.String(), "err", err)
 			return err
 		}
 		onRampContract = onRamp.Contract
 	} else {
-		e.Logger.Infow("onramp already deployed", "chain", chain.Name(), "addr", chainState.OnRamp.Address)
+		e.Logger.Infow("onramp already deployed", "chain", chain.String(), "addr", chainState.OnRamp.Address)
 	}
 	offRampContract := chainState.OffRamp
 	if offRampContract == nil {
@@ -429,12 +429,12 @@ func deployChainContracts(
 				}
 			})
 		if err != nil {
-			e.Logger.Errorw("Failed to deploy offramp", "chain", chain.Name(), "err", err)
+			e.Logger.Errorw("Failed to deploy offramp", "chain", chain.String(), "err", err)
 			return err
 		}
 		offRampContract = offRamp.Contract
 	} else {
-		e.Logger.Infow("offramp already deployed", "chain", chain.Name(), "addr", chainState.OffRamp.Address)
+		e.Logger.Infow("offramp already deployed", "chain", chain.String(), "addr", chainState.OffRamp.Address)
 	}
 	// Basic wiring is always needed.
 	tx, err = feeQuoterContract.ApplyAuthorizedCallerUpdates(chain.DeployerKey, fee_quoter.AuthorizedCallersAuthorizedCallerArgs{
@@ -443,17 +443,17 @@ func deployChainContracts(
 		AddedCallers: []common.Address{offRampContract.Address(), chain.DeployerKey.From},
 	})
 	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
-		e.Logger.Errorw("Failed to confirm fee quoter authorized caller update", "chain", chain.Name(), "err", err)
+		e.Logger.Errorw("Failed to confirm fee quoter authorized caller update", "chain", chain.String(), "err", err)
 		return err
 	}
-	e.Logger.Infow("Added fee quoter authorized callers", "chain", chain.Name(), "callers", []common.Address{offRampContract.Address(), chain.DeployerKey.From})
+	e.Logger.Infow("Added fee quoter authorized callers", "chain", chain.String(), "callers", []common.Address{offRampContract.Address(), chain.DeployerKey.From})
 	tx, err = nmContract.ApplyAuthorizedCallerUpdates(chain.DeployerKey, nonce_manager.AuthorizedCallersAuthorizedCallerArgs{
 		AddedCallers: []common.Address{offRampContract.Address(), onRampContract.Address()},
 	})
 	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
-		e.Logger.Errorw("Failed to update nonce manager with ramps", "chain", chain.Name(), "err", err)
+		e.Logger.Errorw("Failed to update nonce manager with ramps", "chain", chain.String(), "err", err)
 		return err
 	}
-	e.Logger.Infow("Added nonce manager authorized callers", "chain", chain.Name(), "callers", []common.Address{offRampContract.Address(), onRampContract.Address()})
+	e.Logger.Infow("Added nonce manager authorized callers", "chain", chain.String(), "callers", []common.Address{offRampContract.Address(), onRampContract.Address()})
 	return nil
 }

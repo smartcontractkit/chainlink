@@ -1169,7 +1169,7 @@ func (v *CreateFeedsManagerCreateFeedsManagerCreateFeedsManagerSuccessFeedsManag
 	return v.FeedsManagerParts.Id
 }
 
-// GetName returns CreateFeedsManagerCreateFeedsManagerCreateFeedsManagerSuccessFeedsManager.Name, and is useful for accessing the field via an interface.
+// GetName returns CreateFeedsManagerCreateFeedsManagerCreateFeedsManagerSuccessFeedsManager.String, and is useful for accessing the field via an interface.
 func (v *CreateFeedsManagerCreateFeedsManagerCreateFeedsManagerSuccessFeedsManager) GetName() string {
 	return v.FeedsManagerParts.Name
 }
@@ -2039,7 +2039,7 @@ func (v *GetBridgeBridge) GetTypename() string { return v.Typename }
 // GetId returns GetBridgeBridge.Id, and is useful for accessing the field via an interface.
 func (v *GetBridgeBridge) GetId() string { return v.BridgeParts.Id }
 
-// GetName returns GetBridgeBridge.Name, and is useful for accessing the field via an interface.
+// GetName returns GetBridgeBridge.String, and is useful for accessing the field via an interface.
 func (v *GetBridgeBridge) GetName() string { return v.BridgeParts.Name }
 
 // GetUrl returns GetBridgeBridge.Url, and is useful for accessing the field via an interface.
@@ -2298,7 +2298,7 @@ func (v *GetFeedsManagerFeedsManager) GetTypename() string { return v.Typename }
 // GetId returns GetFeedsManagerFeedsManager.Id, and is useful for accessing the field via an interface.
 func (v *GetFeedsManagerFeedsManager) GetId() string { return v.FeedsManagerParts.Id }
 
-// GetName returns GetFeedsManagerFeedsManager.Name, and is useful for accessing the field via an interface.
+// GetName returns GetFeedsManagerFeedsManager.String, and is useful for accessing the field via an interface.
 func (v *GetFeedsManagerFeedsManager) GetName() string { return v.FeedsManagerParts.Name }
 
 // GetUri returns GetFeedsManagerFeedsManager.Uri, and is useful for accessing the field via an interface.
@@ -2563,7 +2563,7 @@ func (v *GetJobJob) GetTypename() string { return v.Typename }
 // GetId returns GetJobJob.Id, and is useful for accessing the field via an interface.
 func (v *GetJobJob) GetId() string { return v.JobParts.Id }
 
-// GetName returns GetJobJob.Name, and is useful for accessing the field via an interface.
+// GetName returns GetJobJob.String, and is useful for accessing the field via an interface.
 func (v *GetJobJob) GetName() string { return v.JobParts.Name }
 
 // GetSchemaVersion returns GetJobJob.SchemaVersion, and is useful for accessing the field via an interface.
@@ -2838,7 +2838,7 @@ type GetJobProposalJobProposalFeedsManager struct {
 // GetId returns GetJobProposalJobProposalFeedsManager.Id, and is useful for accessing the field via an interface.
 func (v *GetJobProposalJobProposalFeedsManager) GetId() string { return v.FeedsManagerParts.Id }
 
-// GetName returns GetJobProposalJobProposalFeedsManager.Name, and is useful for accessing the field via an interface.
+// GetName returns GetJobProposalJobProposalFeedsManager.String, and is useful for accessing the field via an interface.
 func (v *GetJobProposalJobProposalFeedsManager) GetName() string { return v.FeedsManagerParts.Name }
 
 // GetUri returns GetJobProposalJobProposalFeedsManager.Uri, and is useful for accessing the field via an interface.
@@ -3911,7 +3911,7 @@ type ListBridgesBridgesBridgesPayloadResultsBridge struct {
 // GetId returns ListBridgesBridgesBridgesPayloadResultsBridge.Id, and is useful for accessing the field via an interface.
 func (v *ListBridgesBridgesBridgesPayloadResultsBridge) GetId() string { return v.BridgeParts.Id }
 
-// GetName returns ListBridgesBridgesBridgesPayloadResultsBridge.Name, and is useful for accessing the field via an interface.
+// GetName returns ListBridgesBridgesBridgesPayloadResultsBridge.String, and is useful for accessing the field via an interface.
 func (v *ListBridgesBridgesBridgesPayloadResultsBridge) GetName() string { return v.BridgeParts.Name }
 
 // GetUrl returns ListBridgesBridgesBridgesPayloadResultsBridge.Url, and is useful for accessing the field via an interface.
@@ -4027,7 +4027,7 @@ func (v *ListFeedsManagersFeedsManagersFeedsManagersPayloadResultsFeedsManager) 
 	return v.FeedsManagerParts.Id
 }
 
-// GetName returns ListFeedsManagersFeedsManagersFeedsManagersPayloadResultsFeedsManager.Name, and is useful for accessing the field via an interface.
+// GetName returns ListFeedsManagersFeedsManagersFeedsManagersPayloadResultsFeedsManager.String, and is useful for accessing the field via an interface.
 func (v *ListFeedsManagersFeedsManagersFeedsManagersPayloadResultsFeedsManager) GetName() string {
 	return v.FeedsManagerParts.Name
 }
@@ -4159,7 +4159,7 @@ type ListJobsJobsJobsPayloadResultsJob struct {
 // GetId returns ListJobsJobsJobsPayloadResultsJob.Id, and is useful for accessing the field via an interface.
 func (v *ListJobsJobsJobsPayloadResultsJob) GetId() string { return v.JobParts.Id }
 
-// GetName returns ListJobsJobsJobsPayloadResultsJob.Name, and is useful for accessing the field via an interface.
+// GetName returns ListJobsJobsJobsPayloadResultsJob.String, and is useful for accessing the field via an interface.
 func (v *ListJobsJobsJobsPayloadResultsJob) GetName() string { return v.JobParts.Name }
 
 // GetSchemaVersion returns ListJobsJobsJobsPayloadResultsJob.SchemaVersion, and is useful for accessing the field via an interface.
@@ -4854,7 +4854,7 @@ func (v *UpdateFeedsManagerUpdateFeedsManagerUpdateFeedsManagerSuccessFeedsManag
 	return v.FeedsManagerParts.Id
 }
 
-// GetName returns UpdateFeedsManagerUpdateFeedsManagerUpdateFeedsManagerSuccessFeedsManager.Name, and is useful for accessing the field via an interface.
+// GetName returns UpdateFeedsManagerUpdateFeedsManagerUpdateFeedsManagerSuccessFeedsManager.String, and is useful for accessing the field via an interface.
 func (v *UpdateFeedsManagerUpdateFeedsManagerUpdateFeedsManagerSuccessFeedsManager) GetName() string {
 	return v.FeedsManagerParts.Name
 }

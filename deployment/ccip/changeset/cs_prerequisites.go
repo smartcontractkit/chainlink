@@ -153,7 +153,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 				}
 			})
 		if err != nil {
-			lggr.Errorw("Failed to deploy mock RMN", "chain", chain.Name(), "err", err)
+			lggr.Errorw("Failed to deploy mock RMN", "chain", chain.String(), "err", err)
 			return err
 		}
 		rmnProxyContract, err := deployment.DeployContract(lggr, chain, ab,
@@ -168,7 +168,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 				}
 			})
 		if err != nil {
-			lggr.Errorw("Failed to deploy RMNProxyExisting", "chain", chain.Name(), "err", err)
+			lggr.Errorw("Failed to deploy RMNProxyExisting", "chain", chain.String(), "err", err)
 			return err
 		}
 		rmnProxy = rmnProxyContract.Contract
@@ -184,12 +184,12 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 				}
 			})
 		if err != nil {
-			e.Logger.Errorw("Failed to deploy token admin registry", "chain", chain.Name(), "err", err)
+			e.Logger.Errorw("Failed to deploy token admin registry", "chain", chain.String(), "err", err)
 			return err
 		}
 		tokenAdminReg = tokenAdminRegistry.Contract
 	} else {
-		e.Logger.Infow("tokenAdminRegistry already deployed", "chain", chain.Name(), "addr", tokenAdminReg.Address)
+		e.Logger.Infow("tokenAdminRegistry already deployed", "chain", chain.String(), "addr", tokenAdminReg.Address)
 	}
 	if registryModule == nil {
 		customRegistryModule, err := deployment.DeployContract(e.Logger, chain, ab,
@@ -203,28 +203,28 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 				}
 			})
 		if err != nil {
-			e.Logger.Errorw("Failed to deploy custom registry module", "chain", chain.Name(), "err", err)
+			e.Logger.Errorw("Failed to deploy custom registry module", "chain", chain.String(), "err", err)
 			return err
 		}
 		registryModule = customRegistryModule.Contract
 	} else {
-		e.Logger.Infow("custom registry module already deployed", "chain", chain.Name(), "addr", registryModule.Address)
+		e.Logger.Infow("custom registry module already deployed", "chain", chain.String(), "addr", registryModule.Address)
 	}
 	isRegistryAdded, err := tokenAdminReg.IsRegistryModule(nil, registryModule.Address())
 	if err != nil {
-		e.Logger.Errorw("Failed to check if registry module is added on token admin registry", "chain", chain.Name(), "err", err)
+		e.Logger.Errorw("Failed to check if registry module is added on token admin registry", "chain", chain.String(), "err", err)
 		return fmt.Errorf("failed to check if registry module is added on token admin registry: %w", err)
 	}
 	if !isRegistryAdded {
 		tx, err := tokenAdminReg.AddRegistryModule(chain.DeployerKey, registryModule.Address())
 		if err != nil {
-			e.Logger.Errorw("Failed to assign registry module on token admin registry", "chain", chain.Name(), "err", err)
+			e.Logger.Errorw("Failed to assign registry module on token admin registry", "chain", chain.String(), "err", err)
 			return fmt.Errorf("failed to assign registry module on token admin registry: %w", err)
 		}
 
 		_, err = chain.Confirm(tx)
 		if err != nil {
-			e.Logger.Errorw("Failed to confirm assign registry module on token admin registry", "chain", chain.Name(), "err", err)
+			e.Logger.Errorw("Failed to confirm assign registry module on token admin registry", "chain", chain.String(), "err", err)
 			return fmt.Errorf("failed to confirm assign registry module on token admin registry: %w", err)
 		}
 		e.Logger.Infow("assigned registry module on token admin registry")
@@ -241,7 +241,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 				}
 			})
 		if err != nil {
-			lggr.Errorw("Failed to deploy weth9", "chain", chain.Name(), "err", err)
+			lggr.Errorw("Failed to deploy weth9", "chain", chain.String(), "err", err)
 			return err
 		}
 		weth9Contract = weth.Contract
@@ -263,13 +263,13 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 				}
 			})
 		if err != nil {
-			e.Logger.Errorw("Failed to deploy router", "chain", chain.Name(), "err", err)
+			e.Logger.Errorw("Failed to deploy router", "chain", chain.String(), "err", err)
 			return err
 		}
 
 		r = routerContract.Contract
 	} else {
-		e.Logger.Infow("router already deployed", "chain", chain.Name(), "addr", chainState.Router.Address)
+		e.Logger.Infow("router already deployed", "chain", chain.String(), "addr", chainState.Router.Address)
 	}
 	if deployOpts.Multicall3Enabled && mc3 == nil {
 		_, err := deployment.DeployContract(e.Logger, chain, ab,
@@ -283,12 +283,12 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 				}
 			})
 		if err != nil {
-			e.Logger.Errorw("Failed to deploy ccip multicall", "chain", chain.Name(), "err", err)
+			e.Logger.Errorw("Failed to deploy ccip multicall", "chain", chain.String(), "err", err)
 			return err
 		}
 	} else {
 		if mc3 != nil {
-			e.Logger.Info("ccip multicall already deployed", "chain", chain.Name(), "addr", mc3.Address)
+			e.Logger.Info("ccip multicall already deployed", "chain", chain.String(), "addr", mc3.Address)
 		}
 	}
 	if isUSDC {
@@ -297,7 +297,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 			return err1
 		}
 		e.Logger.Infow("Deployed USDC contracts",
-			"chain", chain.Name(),
+			"chain", chain.String(),
 			"token", token.Address(),
 			"pool", pool.Address(),
 			"transmitter", transmitter.Address(),

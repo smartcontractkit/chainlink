@@ -214,7 +214,7 @@ func SetupExecDON(
 	if _, err := deployment.ConfirmIfNoError(home, tx, err); err != nil {
 		return fmt.Errorf("confirm update don w/ exec config: %w", err)
 	}
-	lggr.Infow("Updated DON with exec config", "chain", home.Name(), "donID", donID, "txHash", tx.Hash().Hex(), "setCandidateCall", encodedSetCandidateCall)
+	lggr.Infow("Updated DON with exec config", "chain", home.String(), "donID", donID, "txHash", tx.Hash().Hex(), "setCandidateCall", encodedSetCandidateCall)
 
 	execCandidateDigest, err := ccipHome.GetCandidateDigest(nil, donID, execConfig.PluginType)
 	if err != nil {
@@ -224,7 +224,7 @@ func SetupExecDON(
 	if execCandidateDigest == [32]byte{} {
 		return fmt.Errorf("candidate digest is empty, expected nonempty")
 	}
-	lggr.Infow("Got exec candidate digest", "chain", home.Name(), "donID", donID, "execCandidateDigest", execCandidateDigest)
+	lggr.Infow("Got exec candidate digest", "chain", home.String(), "donID", donID, "execCandidateDigest", execCandidateDigest)
 	// promote candidate call
 	encodedPromotionCall, err := CCIPHomeABI.Pack(
 		"promoteCandidateAndRevokeActive",
@@ -260,7 +260,7 @@ func SetupExecDON(
 	if bn == 0 {
 		return fmt.Errorf("UpdateDON tx not confirmed")
 	}
-	lggr.Infow("Promoted exec candidate", "chain", home.Name(), "donID", donID, "txHash", tx.Hash().Hex(), "promotionCall", encodedPromotionCall)
+	lggr.Infow("Promoted exec candidate", "chain", home.String(), "donID", donID, "txHash", tx.Hash().Hex(), "promotionCall", encodedPromotionCall)
 	// check if candidate digest is promoted
 	pEvent, err := ccipHome.FilterConfigPromoted(&bind.FilterOpts{
 		Context: context.Background(),
@@ -341,7 +341,7 @@ func SetupCommitDON(
 	if _, err := deployment.ConfirmIfNoError(home, tx, err); err != nil {
 		return fmt.Errorf("confirm add don w/ commit config: %w", err)
 	}
-	lggr.Debugw("Added DON with commit config", "chain", home.Name(), "donID", donID, "txHash", tx.Hash().Hex(), "setCandidateCall", encodedSetCandidateCall)
+	lggr.Debugw("Added DON with commit config", "chain", home.String(), "donID", donID, "txHash", tx.Hash().Hex(), "setCandidateCall", encodedSetCandidateCall)
 	commitCandidateDigest, err := ccipHome.GetCandidateDigest(nil, donID, commitConfig.PluginType)
 	if err != nil {
 		return fmt.Errorf("get commit candidate digest: %w", err)
@@ -350,7 +350,7 @@ func SetupCommitDON(
 	if commitCandidateDigest == [32]byte{} {
 		return fmt.Errorf("candidate digest is empty, expected nonempty")
 	}
-	lggr.Debugw("Got commit candidate digest", "chain", home.Name(), "donID", donID, "commitCandidateDigest", commitCandidateDigest)
+	lggr.Debugw("Got commit candidate digest", "chain", home.String(), "donID", donID, "commitCandidateDigest", commitCandidateDigest)
 
 	encodedPromotionCall, err := CCIPHomeABI.Pack(
 		"promoteCandidateAndRevokeActive",
@@ -383,7 +383,7 @@ func SetupCommitDON(
 	if _, err := deployment.ConfirmIfNoError(home, tx, err); err != nil {
 		return fmt.Errorf("confirm update don w/ commit config: %w", err)
 	}
-	lggr.Debugw("Promoted commit candidate", "chain", home.Name(), "donID", donID, "txHash", tx.Hash().Hex(), "promotionCall", encodedPromotionCall)
+	lggr.Debugw("Promoted commit candidate", "chain", home.String(), "donID", donID, "txHash", tx.Hash().Hex(), "promotionCall", encodedPromotionCall)
 
 	// check that candidate digest is empty.
 	commitCandidateDigest, err = ccipHome.GetCandidateDigest(nil, donID, commitConfig.PluginType)

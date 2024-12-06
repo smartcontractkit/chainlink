@@ -42,7 +42,7 @@ func TestDeployHomeChain(t *testing.T) {
 	require.NotNil(t, state.Chains[homeChainSel].RMNHome)
 	snap, err := state.View([]uint64{homeChainSel})
 	require.NoError(t, err)
-	chainName := e.Chains[homeChainSel].Name()
+	chainName := e.Chains[homeChainSel].String()
 	_, ok := snap[chainName]
 	require.True(t, ok)
 	capRegSnap, ok := snap[chainName].CapabilityRegistry[state.Chains[homeChainSel].CapabilityRegistry.Address().String()]

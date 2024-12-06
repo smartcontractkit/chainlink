@@ -125,7 +125,7 @@ func (_m *TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE])
 	ret := _m.Called()
 
 	if len(ret) == 0 {
-		panic("no return value specified for Name")
+		panic("no return value specified for String")
 	}
 
 	var r0 string
@@ -138,14 +138,14 @@ func (_m *TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE])
 	return r0
 }
 
-// TxAttemptBuilder_Name_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Name'
+// TxAttemptBuilder_Name_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'String'
 type TxAttemptBuilder_Name_Call[CHAIN_ID types.ID, HEAD types.Head[BLOCK_HASH], ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Hashable, SEQ types.Sequence, FEE feetypes.Fee] struct {
 	*mock.Call
 }
 
 // Name is a helper method to define mock.On call
 func (_e *TxAttemptBuilder_Expecter[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Name() *TxAttemptBuilder_Name_Call[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
-	return &TxAttemptBuilder_Name_Call[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{Call: _e.mock.On("Name")}
+	return &TxAttemptBuilder_Name_Call[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{Call: _e.mock.On("String")}
 }
 
 func (_c *TxAttemptBuilder_Name_Call[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Run(run func()) *TxAttemptBuilder_Name_Call[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {

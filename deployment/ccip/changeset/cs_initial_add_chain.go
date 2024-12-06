@@ -182,17 +182,17 @@ func configureChain(
 	homeChain := e.Chains[c.HomeChainSel]
 	capReg := existingState.Chains[c.HomeChainSel].CapabilityRegistry
 	if capReg == nil {
-		e.Logger.Errorw("Failed to get capability registry", "chain", homeChain.Name())
+		e.Logger.Errorw("Failed to get capability registry", "chain", homeChain.String())
 		return fmt.Errorf("capability registry not found")
 	}
 	ccipHome := existingState.Chains[c.HomeChainSel].CCIPHome
 	if ccipHome == nil {
-		e.Logger.Errorw("Failed to get ccip home", "chain", homeChain.Name(), "err", err)
+		e.Logger.Errorw("Failed to get ccip home", "chain", homeChain.String(), "err", err)
 		return fmt.Errorf("ccip home not found")
 	}
 	rmnHome := existingState.Chains[c.HomeChainSel].RMNHome
 	if rmnHome == nil {
-		e.Logger.Errorw("Failed to get rmn home", "chain", homeChain.Name(), "err", err)
+		e.Logger.Errorw("Failed to get rmn home", "chain", homeChain.String(), "err", err)
 		return fmt.Errorf("rmn home not found")
 	}
 
@@ -269,7 +269,7 @@ func addChainConfig(
 	if _, err := deployment.ConfirmIfNoError(h, tx, err); err != nil {
 		return ccip_home.CCIPHomeChainConfigArgs{}, err
 	}
-	lggr.Infow("Applied chain config updates", "homeChain", h.Name(), "addedChain", chainSelector, "chainConfig", chainConfig)
+	lggr.Infow("Applied chain config updates", "homeChain", h.String(), "addedChain", chainSelector, "chainConfig", chainConfig)
 	return chainConfig, nil
 }
 
@@ -378,7 +378,7 @@ func addDON(
 			"Signers", ocrConfig.Signers,
 			"Transmitters", ocrConfig.Transmitters,
 			"configDigest", hex.EncodeToString(ocrConfig.ConfigInfo.ConfigDigest[:]),
-			"chain", dest.Name(),
+			"chain", dest.String(),
 		)
 		// TODO: assertions to be done as part of full state
 		// resprentation validation CCIP-3047
