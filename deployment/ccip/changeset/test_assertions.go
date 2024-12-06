@@ -259,7 +259,7 @@ func (c *commitReportTracker) allCommited(sourceChainSelector uint64) bool {
 	return true
 }
 
-// ConfirmMultipleCommits waits for multiple ccipocr3.SeqNumRange to be published by the Offramp.
+// ConfirmMultipleCommits waits for multiple ccipocr3.SeqNumRange to be committed by the Offramp.
 // Waiting is done in parallel per every sourceChain/destChain (lane) passed as argument.
 func ConfirmMultipleCommits(
 	t *testing.T,
