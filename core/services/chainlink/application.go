@@ -300,18 +300,19 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 					return nil, fmt.Errorf("expected 1 key, got %d", len(keys))
 				}
 
-				fetcher := syncer.NewFetcherService(globalLogger, gatewayConnectorWrapper)
+				lggr := globalLogger.Named("WorkflowRegistrySyncer")
+				fetcher := syncer.NewFetcherService(lggr, gatewayConnectorWrapper)
 
-				eventHandler := syncer.NewEventHandler(globalLogger, syncer.NewWorkflowRegistryDS(opts.DS, globalLogger),
-					fetcher.Fetch, workflowstore.NewDBStore(opts.DS, globalLogger, clockwork.NewRealClock()), opts.CapabilitiesRegistry,
+				eventHandler := syncer.NewEventHandler(lggr, syncer.NewWorkflowRegistryDS(opts.DS, globalLogger),
+					fetcher.Fetch, workflowstore.NewDBStore(opts.DS, lggr, clockwork.NewRealClock()), opts.CapabilitiesRegistry,
 					custmsg.NewLabeler(), clockwork.NewRealClock(), keys[0])
 
-				loader := syncer.NewWorkflowRegistryContractLoader(globalLogger, cfg.Capabilities().WorkflowRegistry().Address(), func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
+				loader := syncer.NewWorkflowRegistryContractLoader(lggr, cfg.Capabilities().WorkflowRegistry().Address(), func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
 					return relayer.NewContractReader(ctx, bytes)
 				}, eventHandler)
 
 				globalLogger.Debugw("Creating WorkflowRegistrySyncer")
-				wfSyncer := syncer.NewWorkflowRegistry(globalLogger, func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
+				wfSyncer := syncer.NewWorkflowRegistry(lggr, func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
 					return relayer.NewContractReader(ctx, bytes)
 				}, cfg.Capabilities().WorkflowRegistry().Address(),
 					syncer.WorkflowEventPollerConfig{

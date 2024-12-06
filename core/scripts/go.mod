@@ -2,6 +2,8 @@ module github.com/smartcontractkit/chainlink/core/scripts
 
 go 1.23.3
 
+toolchain go1.23.4
+
 // Make sure we're working with the latest chainlink libs
 replace github.com/smartcontractkit/chainlink/v2 => ../../
 
@@ -24,7 +26,7 @@ require (
 	github.com/prometheus/client_golang v1.20.5
 	github.com/shopspring/decimal v1.4.0
 	github.com/smartcontractkit/chainlink-automation v0.8.1
-	github.com/smartcontractkit/chainlink-common v0.3.1-0.20241202172404-26d4a0b45b23
+	github.com/smartcontractkit/chainlink-common v0.3.1-0.20241206011233-b6684ee6508f
 	github.com/smartcontractkit/chainlink/deployment v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/chainlink/v2 v2.14.0-mercury-20240807.0.20241106193309-5560cd76211a
 	github.com/smartcontractkit/libocr v0.0.0-20241007185508-adbe57025f12

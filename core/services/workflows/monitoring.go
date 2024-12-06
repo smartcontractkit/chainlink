@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"go.opentelemetry.io/otel/metric"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
@@ -133,6 +134,37 @@ func initMonitoringResources() (em *engineMetrics, err error) {
 	}
 
 	return em, nil
+}
+
+// Note: due to the OTEL specification, all histogram buckets
+// Must be defined when the beholder client is created
+func MetricViews() []sdkmetric.View {
+	return []sdkmetric.View{
+		sdkmetric.NewView(
+			sdkmetric.Instrument{Name: "platform_engine_workflow_earlyexit_time_seconds"},
+			sdkmetric.Stream{Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
+				Boundaries: []float64{0, 1, 10, 100},
+			}},
+		),
+		sdkmetric.NewView(
+			sdkmetric.Instrument{Name: "platform_engine_workflow_completed_time_seconds"},
+			sdkmetric.Stream{Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
+				Boundaries: []float64{0, 100, 1000, 10_000, 50_000, 100_0000, 500_000},
+			}},
+		),
+		sdkmetric.NewView(
+			sdkmetric.Instrument{Name: "platform_engine_workflow_error_time_seconds"},
+			sdkmetric.Stream{Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
+				Boundaries: []float64{0, 20, 60, 120, 240},
+			}},
+		),
+		sdkmetric.NewView(
+			sdkmetric.Instrument{Name: "platform_engine_workflow_step_time_seconds"},
+			sdkmetric.Stream{Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
+				Boundaries: []float64{0, 20, 60, 120, 240},
+			}},
+		),
+	}
 }
 
 // workflowsMetricLabeler wraps monitoring.MetricsLabeler to provide workflow specific utilities
