@@ -1,11 +1,12 @@
 package v1_0
 
 import (
+	"math/big"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
-	"gotest.tools/assert"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/link_token"
@@ -31,4 +32,22 @@ func TestLinkTokenView(t *testing.T) {
 	assert.Equal(t, v.Supply.String(), "0")
 	require.Len(t, v.Minters, 0)
 	require.Len(t, v.Burners, 0)
+
+	// Add some minters
+	tx, err = lt.GrantMintAndBurnRoles(chain.DeployerKey, chain.DeployerKey.From)
+	require.NoError(t, err)
+	_, err = chain.Confirm(tx)
+	require.NoError(t, err)
+	tx, err = lt.Mint(chain.DeployerKey, chain.DeployerKey.From, big.NewInt(100))
+	_, err = chain.Confirm(tx)
+	require.NoError(t, err)
+
+	v, err = GenerateLinkTokenView(lt)
+	require.NoError(t, err)
+
+	assert.Equal(t, v.Supply.String(), "100")
+	require.Len(t, v.Minters, 1)
+	require.Equal(t, v.Minters[0].String(), chain.DeployerKey.From.String())
+	require.Len(t, v.Burners, 1)
+	require.Equal(t, v.Burners[0].String(), chain.DeployerKey.From.String())
 }

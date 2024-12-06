@@ -136,15 +136,15 @@ func (s StaticLinkTokenState) GenerateStaticLinkView() (v1_0.StaticLinkTokenView
 	return v1_0.GenerateStaticLinkTokenView(s.StaticLinkToken)
 }
 
-func LoadStaticLinkTokenState(chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (*LinkTokenState, error) {
-	state := LinkTokenState{}
+func LoadStaticLinkTokenState(chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (*StaticLinkTokenState, error) {
+	state := StaticLinkTokenState{}
 	for address, tvStr := range addresses {
-		if tvStr.String() == deployment.NewTypeAndVersion(types.LinkToken, deployment.Version1_0_0).String() {
-			lt, err := link_token.NewLinkToken(common.HexToAddress(address), chain.Client)
+		if tvStr.String() == deployment.NewTypeAndVersion(types.StaticLinkToken, deployment.Version1_0_0).String() {
+			lt, err := link_token_interface.NewLinkToken(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return nil, err
 			}
-			state.LinkToken = lt
+			state.StaticLinkToken = lt
 		}
 	}
 	return &state, nil

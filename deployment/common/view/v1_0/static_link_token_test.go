@@ -27,5 +27,5 @@ func TestStaticLinkTokenView(t *testing.T) {
 	assert.Equal(t, v.Owner, chain.DeployerKey.From)
 	assert.Equal(t, v.TypeAndVersion, "StaticLinkToken 1.0.0")
 	assert.Equal(t, v.Decimals, uint8(18))
-	assert.Equal(t, v.Supply.String(), "0")
+	assert.Equal(t, v.Supply.String(), "1000000000000000000000000000")
 }
