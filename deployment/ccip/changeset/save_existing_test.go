@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -29,7 +30,7 @@ func TestSaveExistingCCIP(t *testing.T) {
 		ExistingContracts: []commonchangeset.Contract{
 			{
 				Address:        common.BigToAddress(big.NewInt(1)),
-				TypeAndVersion: deployment.NewTypeAndVersion(LinkToken, deployment.Version1_0_0),
+				TypeAndVersion: deployment.NewTypeAndVersion(commontypes.LinkToken, deployment.Version1_0_0),
 				ChainSelector:  chain1,
 			},
 			{

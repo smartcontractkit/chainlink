@@ -18,7 +18,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-ccip/commit/merkleroot/rmn/types"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/osutil"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
@@ -620,7 +620,7 @@ func (tc rmnTestCase) callContractsToCurseChains(ctx context.Context, t *testing
 		}
 
 		for _, subjectDescription := range cursedSubjects {
-			subj := types.GlobalCurseSubject
+			subj := reader.GlobalCurseSubject
 			if subjectDescription != globalCurse {
 				subj = chainSelectorToBytes16(tc.pf.chainSelectors[subjectDescription])
 			}

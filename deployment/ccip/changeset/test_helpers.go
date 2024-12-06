@@ -294,6 +294,10 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 	// no proposals to be made, timelock can be passed as nil here
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
 		{
+			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
+			Config:    allChains,
+		},
+		{
 			Changeset: commonchangeset.WrapChangeSet(DeployPrerequisites),
 			Config: DeployPrerequisiteConfig{
 				ChainSelectors: allChains,
