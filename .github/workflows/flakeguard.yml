@@ -447,7 +447,7 @@ jobs:
                         },
                         {
                           "type": "mrkdwn",
-                          "text": "Flaky Tests Ratio: ${{ fromJSON(steps.results.outputs.summary).flaky_tests_ratio }}"
+                          "text": "Flaky Tests Ratio: ${{ fromJSON(steps.results.outputs.summary).flaky_test_ratio }}"
                         }
                       ]
                     },
