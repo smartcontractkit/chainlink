@@ -282,7 +282,7 @@ func AddressesContainBundle(addrs map[string]TypeAndVersion, wantTypes map[TypeA
 			if wantType == haveType {
 				counts[wantType]++
 				if counts[wantType] > 1 {
-					return false, fmt.Errorf("found more than one instance of a contract")
+					return false, fmt.Errorf("found more than one instance of contract %s", wantType)
 				}
 			}
 		}

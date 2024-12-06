@@ -2,6 +2,7 @@ package changeset
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
@@ -91,7 +92,7 @@ func MaybeLoadMCMSWithTimelockState(chain deployment.Chain, addresses map[string
 			timelock: {}, proposer: {}, canceller: {}, bypasser: {},
 		})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to check MCMS contracts on chain %s error: %w", chain.Name(), err)
 	}
 
 	for address, tvStr := range addresses {
@@ -142,7 +143,7 @@ func MaybeLoadLinkTokenState(chain deployment.Chain, addresses map[string]deploy
 	// Perhaps revisit if we have a use case for multiple.
 	_, err := deployment.AddressesContainBundle(addresses, map[deployment.TypeAndVersion]struct{}{linkToken: {}})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to check link token on chain %s error: %w", chain.Name(), err)
 	}
 	for address, tvStr := range addresses {
 		switch tvStr {
@@ -174,7 +175,7 @@ func MaybeLoadStaticLinkTokenState(chain deployment.Chain, addresses map[string]
 	// Perhaps revisit if we have a use case for multiple.
 	_, err := deployment.AddressesContainBundle(addresses, map[deployment.TypeAndVersion]struct{}{staticLinkToken: {}})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to check static link token on chain %s error: %w", chain.Name(), err)
 	}
 	for address, tvStr := range addresses {
 		switch tvStr {

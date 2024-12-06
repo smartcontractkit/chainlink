@@ -23,23 +23,23 @@ type LinkTokenView struct {
 func GenerateLinkTokenView(lt *link_token.LinkToken) (LinkTokenView, error) {
 	owner, err := lt.Owner(nil)
 	if err != nil {
-		return LinkTokenView{}, fmt.Errorf("failed to get owner: %w", err)
+		return LinkTokenView{}, fmt.Errorf("failed to get owner %s: %w", lt.Address(), err)
 	}
 	decimals, err := lt.Decimals(nil)
 	if err != nil {
-		return LinkTokenView{}, fmt.Errorf("failed to get decimals: %w", err)
+		return LinkTokenView{}, fmt.Errorf("failed to get decimals %s: %w", lt.Address(), err)
 	}
 	totalSupply, err := lt.TotalSupply(nil)
 	if err != nil {
-		return LinkTokenView{}, fmt.Errorf("failed to get total supply: %w", err)
+		return LinkTokenView{}, fmt.Errorf("failed to get total supply %s: %w", lt.Address(), err)
 	}
 	minters, err := lt.GetMinters(nil)
 	if err != nil {
-		return LinkTokenView{}, fmt.Errorf("failed to get minters: %w", err)
+		return LinkTokenView{}, fmt.Errorf("failed to get minters %s: %w", lt.Address(), err)
 	}
 	burners, err := lt.GetBurners(nil)
 	if err != nil {
-		return LinkTokenView{}, fmt.Errorf("failed to get burners: %w", err)
+		return LinkTokenView{}, fmt.Errorf("failed to get burners %s: %w", lt.Address(), err)
 	}
 	return LinkTokenView{
 		ContractMetaData: types.ContractMetaData{

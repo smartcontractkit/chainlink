@@ -19,11 +19,11 @@ type StaticLinkTokenView struct {
 func GenerateStaticLinkTokenView(lt *link_token_interface.LinkToken) (StaticLinkTokenView, error) {
 	decimals, err := lt.Decimals(nil)
 	if err != nil {
-		return StaticLinkTokenView{}, fmt.Errorf("failed to get decimals: %w", err)
+		return StaticLinkTokenView{}, fmt.Errorf("failed to get decimals %s: %w", lt.Address(), err)
 	}
 	totalSupply, err := lt.TotalSupply(nil)
 	if err != nil {
-		return StaticLinkTokenView{}, fmt.Errorf("failed to get total supply: %w", err)
+		return StaticLinkTokenView{}, fmt.Errorf("failed to get total supply %s: %w", lt.Address(), err)
 	}
 	return StaticLinkTokenView{
 		ContractMetaData: types.ContractMetaData{
