@@ -7,18 +7,48 @@ on:
 
 env:
   ECR_HOSTNAME: public.ecr.aws
-  ECR_IMAGE_NAME: chainlink/chainlink
 
 jobs:
   checks:
     name: "Checks"
     runs-on: ubuntu-20.04
+    outputs:
+      git-tag-type: ${{ steps.check-git-tag-type.outputs.git-tag-type }}
+      ecr-image-name: ${{ steps.check-git-tag-type.outputs.ecr-image-name }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4.2.1
+      - name: Check git tag type
+        id: check-git-tag-type
+        shell: bash
+        env:
+          GIT_TAG: ${{ github.ref_name}}
+        run: |
+          # Check if git tag is related to CCIP
+          # Should match:
+          #   v1.0.0-ccip1.0.0-beta.1
+          #   v1.0.0-ccip1.0.0-rc.0
+          #   v1.0.0-ccip1.0.0
+          if [[ $GIT_TAG =~ ^v[0-9]+\.[0-9]+\.[0-9]+-ccip[0-9]+\.[0-9]+\.[0-9]+(-((beta|rc)\.[0-9]+))?$ ]]; then
+            echo "git-tag-type=ccip" | tee -a "$GITHUB_OUTPUT"
+            echo "ecr-image-name=chainlink/ccip" | tee -a "$GITHUB_OUTPUT"
+          else
+            echo "git-tag-type=core" | tee -a "$GITHUB_OUTPUT"
+            echo "ecr-image-name=chainlink/chainlink" | tee -a "$GITHUB_OUTPUT"
+          fi
+      - name: Fail if CCIP release has wrong version
+        if: ${{ steps.check-git-tag-type.outputs.git-tag-type == 'ccip' }}
+        run: |
+          version=$(jq -r '.version' ./package.json)
+          echo "Package version: $version"
+          echo "Git tag type: ${{ steps.check-git-tag-type.outputs.git-tag-type }}"
+          if [[ $version != *"-ccip"* ]]; then
+            echo "Error: Version '$version' does not match required CCIP format."
+            exit 1
+          fi
       - name: Check for VERSION file bump on tags
-        # Avoids checking VERSION file bump on forks.
-        if: ${{ github.repository == 'smartcontractkit/chainlink' }}
+        # Avoids checking VERSION file bump on forks or from CCIP releases.
+        if: ${{ github.repository == 'smartcontractkit/chainlink' && steps.check-git-tag-type.outputs.git-tag-type == 'core' }}
         uses: ./.github/actions/version-file-bump
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -47,7 +77,7 @@ jobs:
           aws-role-duration-seconds: ${{ secrets.AWS_ROLE_DURATION_SECONDS }}
           aws-region: ${{ secrets.AWS_REGION }}
           ecr-hostname: ${{ env.ECR_HOSTNAME }}
-          ecr-image-name: ${{ env.ECR_IMAGE_NAME }}
+          ecr-image-name: ${{ needs.checks.outputs.ecr-image-name }}
           dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
           dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
           sign-images: true
@@ -57,13 +87,13 @@ jobs:
         uses: actions/attest-build-provenance@6149ea5740be74af77f260b9db67e633f6b0a9a1 # v1.4.2
         with:
           subject-digest: ${{ steps.build-sign-publish.outputs.docker-image-digest }}
-          subject-name: ${{ env.ECR_HOSTNAME }}/${{ env.ECR_IMAGE_NAME }}
+          subject-name: ${{ env.ECR_HOSTNAME }}/${{ needs.checks.outputs.ecr-image-name }}
           push-to-registry: true
 
   # Notify Slack channel for new git tags.
   slack-notify:
     if: github.ref_type == 'tag'
-    needs: [build-sign-publish-chainlink]
+    needs: [checks, build-sign-publish-chainlink]
     runs-on: ubuntu-24.04
     environment: build-publish
     steps:
@@ -91,7 +121,7 @@ jobs:
               format(
                 '{0}/{1}:{2}', 
                 env.ECR_HOSTNAME, 
-                env.ECR_IMAGE_NAME, 
+                needs.checks.outputs.ecr-image-name,
                 needs.build-sign-publish-chainlink.outputs.docker-image-tag
               ) || ''
             }}

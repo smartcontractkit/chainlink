@@ -13,11 +13,12 @@ import (
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
-	internal "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
+	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -43,7 +44,7 @@ type SetupTestRegistryResponse struct {
 func SetupTestRegistry(t *testing.T, lggr logger.Logger, req *SetupTestRegistryRequest) *SetupTestRegistryResponse {
 	chain := testChain(t)
 	// deploy the registry
-	registry := deployCapReg(t, lggr, chain)
+	registry := deployCapReg(t, chain)
 	// convert req to nodeoperators
 	nops := make([]kcr.CapabilitiesRegistryNodeOperator, 0)
 	for nop := range req.NopToNodes {
@@ -101,18 +102,33 @@ func SetupTestRegistry(t *testing.T, lggr logger.Logger, req *SetupTestRegistryR
 	}
 }
 
-func deployCapReg(t *testing.T, lggr logger.Logger, chain deployment.Chain) *kcr.CapabilitiesRegistry {
-	capabilitiesRegistryDeployer := kslib.NewCapabilitiesRegistryDeployer(lggr)
-	_, err := capabilitiesRegistryDeployer.Deploy(kslib.DeployRequest{Chain: chain})
+func deployCapReg(t *testing.T, chain deployment.Chain) *kcr.CapabilitiesRegistry {
+	capabilitiesRegistryDeployer, err := kslib.NewCapabilitiesRegistryDeployer()
+	require.NoError(t, err)
+	_, err = capabilitiesRegistryDeployer.Deploy(kslib.DeployRequest{Chain: chain})
 	require.NoError(t, err)
 	return capabilitiesRegistryDeployer.Contract()
 }
 
 func addNops(t *testing.T, lggr logger.Logger, chain deployment.Chain, registry *kcr.CapabilitiesRegistry, nops []kcr.CapabilitiesRegistryNodeOperator) *kslib.RegisterNOPSResponse {
+	env := &deployment.Environment{
+		Logger: lggr,
+		Chains: map[uint64]deployment.Chain{
+			chain.Selector: chain,
+		},
+		ExistingAddresses: deployment.NewMemoryAddressBookFromMap(map[uint64]map[string]deployment.TypeAndVersion{
+			chain.Selector: {
+				registry.Address().String(): deployment.TypeAndVersion{
+					Type:    kslib.CapabilitiesRegistry,
+					Version: deployment.Version1_0_0,
+				},
+			},
+		}),
+	}
 	resp, err := kslib.RegisterNOPS(context.TODO(), lggr, kslib.RegisterNOPSRequest{
-		Chain:    chain,
-		Registry: registry,
-		Nops:     nops,
+		Env:                   env,
+		RegistryChainSelector: chain.Selector,
+		Nops:                  nops,
 	})
 	require.NoError(t, err)
 	return resp
@@ -142,7 +158,6 @@ func addDons(t *testing.T, lggr logger.Logger, chain deployment.Chain, registry 
 				cc.Config = defaultCapConfig(t, ccfg.Capability)
 			}
 			var exists bool
-			//var cc kcr.CapabilitiesRegistryCapabilityConfiguration{}
 			cc.CapabilityId, exists = capCache.Get(ccfg.Capability)
 			require.True(t, exists, "capability not found in cache %v", ccfg.Capability)
 			capConfigs = append(capConfigs, cc)
@@ -240,7 +255,7 @@ func (cc *CapabilityCache) AddCapabilities(lggr logger.Logger, chain deployment.
 }
 
 func testChain(t *testing.T) deployment.Chain {
-	chains := memory.NewMemoryChains(t, 1)
+	chains, _ := memory.NewMemoryChains(t, 1, 5)
 	var chain deployment.Chain
 	for _, c := range chains {
 		chain = c

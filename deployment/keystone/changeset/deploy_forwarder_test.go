@@ -1,16 +1,18 @@
 package changeset_test
 
 import (
+	"fmt"
 	"testing"
 
 	"go.uber.org/zap/zapcore"
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/deployment"
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-	kslb "github.com/smartcontractkit/chainlink/deployment/keystone"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
 
@@ -24,43 +26,11 @@ func TestDeployForwarder(t *testing.T) {
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 
-	var (
-		ocrTV = deployment.NewTypeAndVersion(kslb.OCR3Capability, deployment.Version1_0_0)
-		crTV  = deployment.NewTypeAndVersion(kslb.CapabilitiesRegistry, deployment.Version1_0_0)
-	)
-
 	registrySel := env.AllChainSelectors()[0]
-	t.Run("err if no capabilities registry on registry chain", func(t *testing.T) {
-		m := make(map[uint64]map[string]deployment.TypeAndVersion)
-		m[registrySel] = map[string]deployment.TypeAndVersion{
-			"0x0000000000000000000000000000000000000002": ocrTV,
-		}
-		env.ExistingAddresses = deployment.NewMemoryAddressBookFromMap(m)
-		// capabilities registry and ocr3 must be deployed on registry chain
-		_, err := changeset.DeployForwarder(env, registrySel)
-		require.Error(t, err)
-	})
-
-	t.Run("err if no ocr3 on registry chain", func(t *testing.T) {
-		m := make(map[uint64]map[string]deployment.TypeAndVersion)
-		m[registrySel] = map[string]deployment.TypeAndVersion{
-			"0x0000000000000000000000000000000000000001": crTV,
-		}
-		env.ExistingAddresses = deployment.NewMemoryAddressBookFromMap(m)
-		// capabilities registry and ocr3 must be deployed on registry chain
-		_, err := changeset.DeployForwarder(env, registrySel)
-		require.Error(t, err)
-	})
 
 	t.Run("should deploy forwarder", func(t *testing.T) {
 		ab := deployment.NewMemoryAddressBook()
-		// fake capabilities registry
-		err := ab.Save(registrySel, "0x0000000000000000000000000000000000000001", crTV)
-		require.NoError(t, err)
 
-		// fake ocr3
-		err = ab.Save(registrySel, "0x0000000000000000000000000000000000000002", ocrTV)
-		require.NoError(t, err)
 		// deploy forwarder
 		env.ExistingAddresses = ab
 		resp, err := changeset.DeployForwarder(env, registrySel)
@@ -77,4 +47,91 @@ func TestDeployForwarder(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, oaddrs, 1)
 	})
+}
+
+func TestConfigureForwarders(t *testing.T) {
+	t.Parallel()
+
+	t.Run("no mcms ", func(t *testing.T) {
+		for _, nChains := range []int{1, 3} {
+			name := fmt.Sprintf("nChains=%d", nChains)
+			t.Run(name, func(t *testing.T) {
+				te := SetupTestEnv(t, TestConfig{
+					WFDonConfig:     DonConfig{N: 4},
+					AssetDonConfig:  DonConfig{N: 4},
+					WriterDonConfig: DonConfig{N: 4},
+					NumChains:       nChains,
+				})
+
+				var wfNodes []string
+				for id, _ := range te.WFNodes {
+					wfNodes = append(wfNodes, id)
+				}
+
+				cfg := changeset.ConfigureForwardContractsRequest{
+					WFDonName:        "test-wf-don",
+					WFNodeIDs:        wfNodes,
+					RegistryChainSel: te.RegistrySelector,
+				}
+				csOut, err := changeset.ConfigureForwardContracts(te.Env, cfg)
+				require.NoError(t, err)
+				require.Nil(t, csOut.AddressBook)
+				require.Len(t, csOut.Proposals, 0)
+				// check that forwarder
+				// TODO set up a listener to check that the forwarder is configured
+				contractSet := te.ContractSets()
+				for selector := range te.Env.Chains {
+					cs, ok := contractSet[selector]
+					require.True(t, ok)
+					require.NotNil(t, cs.Forwarder)
+				}
+			})
+		}
+	})
+
+	t.Run("with mcms", func(t *testing.T) {
+		for _, nChains := range []int{1, 3} {
+			name := fmt.Sprintf("nChains=%d", nChains)
+			t.Run(name, func(t *testing.T) {
+				te := SetupTestEnv(t, TestConfig{
+					WFDonConfig:     DonConfig{N: 4},
+					AssetDonConfig:  DonConfig{N: 4},
+					WriterDonConfig: DonConfig{N: 4},
+					NumChains:       nChains,
+					UseMCMS:         true,
+				})
+
+				var wfNodes []string
+				for id, _ := range te.WFNodes {
+					wfNodes = append(wfNodes, id)
+				}
+
+				cfg := changeset.ConfigureForwardContractsRequest{
+					WFDonName:        "test-wf-don",
+					WFNodeIDs:        wfNodes,
+					RegistryChainSel: te.RegistrySelector,
+					UseMCMS:          true,
+				}
+				csOut, err := changeset.ConfigureForwardContracts(te.Env, cfg)
+				require.NoError(t, err)
+				require.Len(t, csOut.Proposals, nChains)
+				require.Nil(t, csOut.AddressBook)
+
+				timelocks := make(map[uint64]*gethwrappers.RBACTimelock)
+				for selector, contractSet := range te.ContractSets() {
+					require.NotNil(t, contractSet.Timelock)
+					timelocks[selector] = contractSet.Timelock
+				}
+				_, err = commonchangeset.ApplyChangesets(t, te.Env, timelocks, []commonchangeset.ChangesetApplication{
+					{
+						Changeset: commonchangeset.WrapChangeSet(changeset.ConfigureForwardContracts),
+						Config:    cfg,
+					},
+				})
+				require.NoError(t, err)
+
+			})
+		}
+	})
+
 }

@@ -121,7 +121,7 @@ func (c *evmTxmClient) SequenceAt(ctx context.Context, addr common.Address, bloc
 	if nonce > math.MaxInt64 {
 		return 0, fmt.Errorf("overflow for nonce: %d", nonce)
 	}
-	//nolint:gosec // disable G115
+
 	return evmtypes.Nonce(nonce), err
 }
 

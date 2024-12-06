@@ -173,7 +173,7 @@ func NewWorkflowRegistry(
 ) *workflowRegistry {
 	ets := []WorkflowRegistryEventType{ForceUpdateSecretsEvent}
 	wr := &workflowRegistry{
-		lggr:                        lggr.Named(name),
+		lggr:                        lggr,
 		newContractReaderFn:         newContractReaderFn,
 		workflowRegistryAddress:     addr,
 		eventPollerCfg:              eventPollerConfig,
@@ -204,12 +204,14 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 			defer w.wg.Done()
 			defer cancel()
 
+			w.lggr.Debugw("Waiting for DON...")
 			don, err := w.workflowDonNotifier.WaitForDon(ctx)
 			if err != nil {
 				w.lggr.Errorf("failed to wait for don: %v", err)
 				return
 			}
 
+			w.lggr.Debugw("Loading initial workflows for DON", "DON", don.ID)
 			loadWorkflowsHead, err := w.initialWorkflowsStateLoader.LoadWorkflows(ctx, don)
 			if err != nil {
 				w.lggr.Errorf("failed to load workflows: %v", err)
@@ -333,6 +335,7 @@ func (w *workflowRegistry) syncEventsLoop(ctx context.Context, lastReadBlockNumb
 		case <-ctx.Done():
 			return
 		case <-ticker:
+			w.lggr.Debugw("Syncing with WorkflowRegistry")
 			// for each event type, send a signal for it to execute a query and produce a new
 			// batch of event logs
 			for i := 0; i < len(w.eventTypes); i++ {
@@ -553,17 +556,20 @@ func (r workflowAsEvent) GetData() any {
 }
 
 type workflowRegistryContractLoader struct {
+	lggr                    logger.Logger
 	workflowRegistryAddress string
 	newContractReaderFn     newContractReaderFn
 	handler                 evtHandler
 }
 
 func NewWorkflowRegistryContractLoader(
+	lggr logger.Logger,
 	workflowRegistryAddress string,
 	newContractReaderFn newContractReaderFn,
 	handler evtHandler,
 ) *workflowRegistryContractLoader {
 	return &workflowRegistryContractLoader{
+		lggr:                    lggr.Named("WorkflowRegistryContractLoader"),
 		workflowRegistryAddress: workflowRegistryAddress,
 		newContractReaderFn:     newContractReaderFn,
 		handler:                 handler,
@@ -621,12 +627,13 @@ func (l *workflowRegistryContractLoader) LoadWorkflows(ctx context.Context, don 
 			return nil, fmt.Errorf("failed to get workflow metadata for don %w", err)
 		}
 
+		l.lggr.Debugw("Rehydrating existing workflows", "len", len(workflows.WorkflowMetadataList))
 		for _, workflow := range workflows.WorkflowMetadataList {
 			if err = l.handler.Handle(ctx, workflowAsEvent{
 				Data:      workflow,
 				EventType: WorkflowRegisteredEvent,
 			}); err != nil {
-				return nil, fmt.Errorf("failed to handle workflow registration: %w", err)
+				l.lggr.Errorf("failed to handle workflow registration: %s", err)
 			}
 		}
 

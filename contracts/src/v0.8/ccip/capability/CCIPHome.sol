@@ -62,7 +62,7 @@ import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts
 ///       │    Active   │    revokeCandidate │  Candidate  │◄───────────┐
 ///       │    [1,0]    │◄───────────────────┤    [1,1]    │────────────┘
 ///       │             ├───────────────────►│             │
-///       └─────────────┘    setSecondary    └─────────────┘
+///       └─────────────┘    setCandidate    └─────────────┘
 ///
 contract CCIPHome is Ownable2StepMsgSender, ITypeAndVersion, ICapabilityConfiguration, IERC165 {
   using EnumerableSet for EnumerableSet.UintSet;

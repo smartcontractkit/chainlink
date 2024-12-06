@@ -38,7 +38,11 @@ on:
       with_existing_remote_runner_version:
         description: 'Tag of the existing remote runner version to use (Leave empty to build from head/ref)' 
         required: false
-        type: string                 
+        type: string
+      team:
+        description: Team to run the tests for (e.g. BIX, CCIP)
+        required: true
+        type: string
 
 jobs:
   # Set tests to run based on the workflow inputs
@@ -153,7 +157,7 @@ jobs:
   call-run-e2e-tests-workflow:
     name: Run E2E Tests
     needs: set-tests-to-run
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@5412507526722a7b1c5d719fa686eed5a1bc4035 # ctf-run-tests@0.2.0
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@0d4a2b2b009c87b5c366d0b97f7a8d7de2f60760
     with:
       test_path: .github/e2e-tests.yml
       test_list: ${{ needs.set-tests-to-run.outputs.test_list }}
@@ -161,6 +165,7 @@ jobs:
       with_existing_remote_runner_version: ${{ github.event.inputs.with_existing_remote_runner_version }}
       test_log_upload_on_failure: true
       test_log_upload_retention_days: 7
+      team: ${{ inputs.team }}
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}

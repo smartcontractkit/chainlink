@@ -3,6 +3,7 @@ package memory
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -14,6 +15,7 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -24,10 +26,11 @@ const (
 )
 
 type MemoryEnvironmentConfig struct {
-	Chains         int
-	Nodes          int
-	Bootstraps     int
-	RegistryConfig deployment.CapabilityRegistryConfig
+	Chains             int
+	NumOfUsersPerChain int
+	Nodes              int
+	Bootstraps         int
+	RegistryConfig     deployment.CapabilityRegistryConfig
 }
 
 // For placeholders like aptos
@@ -44,9 +47,15 @@ func NewMemoryChain(t *testing.T, selector uint64) deployment.Chain {
 
 // Needed for environment variables on the node which point to prexisitng addresses.
 // i.e. CapReg.
-func NewMemoryChains(t *testing.T, numChains int) map[uint64]deployment.Chain {
-	mchains := GenerateChains(t, numChains)
-	return generateMemoryChain(t, mchains)
+func NewMemoryChains(t *testing.T, numChains int, numUsers int) (map[uint64]deployment.Chain, map[uint64][]*bind.TransactOpts) {
+	mchains := GenerateChains(t, numChains, numUsers)
+	users := make(map[uint64][]*bind.TransactOpts)
+	for id, chain := range mchains {
+		sel, err := chainsel.SelectorFromChainId(id)
+		require.NoError(t, err)
+		users[sel] = chain.Users
+	}
+	return generateMemoryChain(t, mchains), users
 }
 
 func NewMemoryChainsWithChainIDs(t *testing.T, chainIDs []uint64) map[uint64]deployment.Chain {
@@ -58,34 +67,35 @@ func generateMemoryChain(t *testing.T, inputs map[uint64]EVMChain) map[uint64]de
 	chains := make(map[uint64]deployment.Chain)
 	for cid, chain := range inputs {
 		chain := chain
-		sel, err := chainsel.SelectorFromChainId(cid)
+		chainInfo, err := chainsel.GetChainDetailsByChainIDAndFamily(strconv.FormatUint(cid, 10), chainsel.FamilyEVM)
 		require.NoError(t, err)
 		backend := NewBackend(chain.Backend)
-		chains[sel] = deployment.Chain{
-			Selector:    sel,
+		chains[chainInfo.ChainSelector] = deployment.Chain{
+			Selector:    chainInfo.ChainSelector,
 			Client:      backend,
 			DeployerKey: chain.DeployerKey,
 			Confirm: func(tx *types.Transaction) (uint64, error) {
 				if tx == nil {
-					return 0, fmt.Errorf("tx was nil, nothing to confirm")
+					return 0, fmt.Errorf("tx was nil, nothing to confirm, chain %s", chainInfo.ChainName)
 				}
 				for {
 					backend.Commit()
 					receipt, err := backend.TransactionReceipt(context.Background(), tx.Hash())
 					if err != nil {
-						t.Log("failed to get receipt", err)
+						t.Log("failed to get receipt", "chain", chainInfo.ChainName, err)
 						continue
 					}
 					if receipt.Status == 0 {
 						errReason, err := deployment.GetErrorReasonFromTx(chain.Backend.Client(), chain.DeployerKey.From, tx, receipt)
 						if err == nil && errReason != "" {
-							return 0, fmt.Errorf("tx %s reverted,error reason: %s", tx.Hash().Hex(), errReason)
+							return 0, fmt.Errorf("tx %s reverted,error reason: %s chain %s", tx.Hash().Hex(), errReason, chainInfo.ChainName)
 						}
-						return 0, fmt.Errorf("tx %s reverted, could not decode error reason", tx.Hash().Hex())
+						return 0, fmt.Errorf("tx %s reverted, could not decode error reason chain %s", tx.Hash().Hex(), chainInfo.ChainName)
 					}
 					return receipt.BlockNumber.Uint64(), nil
 				}
 			},
+			Users: chain.Users,
 		}
 	}
 	return chains
@@ -93,6 +103,9 @@ func generateMemoryChain(t *testing.T, inputs map[uint64]EVMChain) map[uint64]de
 
 func NewNodes(t *testing.T, logLevel zapcore.Level, chains map[uint64]deployment.Chain, numNodes, numBootstraps int, registryConfig deployment.CapabilityRegistryConfig) map[string]Node {
 	nodesByPeerID := make(map[string]Node)
+	if numNodes+numBootstraps == 0 {
+		return nodesByPeerID
+	}
 	ports := freeport.GetN(t, numBootstraps+numNodes)
 	// bootstrap nodes must be separate nodes from plugin nodes,
 	// since we won't run a bootstrapper and a plugin oracle on the same
@@ -134,7 +147,7 @@ func NewMemoryEnvironmentFromChainsNodes(
 
 // To be used by tests and any kind of deployment logic.
 func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Level, config MemoryEnvironmentConfig) deployment.Environment {
-	chains := NewMemoryChains(t, config.Chains)
+	chains, _ := NewMemoryChains(t, config.Chains, config.NumOfUsersPerChain)
 	nodes := NewNodes(t, logLevel, chains, config.Nodes, config.Bootstraps, config.RegistryConfig)
 	var nodeIDs []string
 	for id := range nodes {
