@@ -394,7 +394,8 @@ func (n *Node) SetUpAndLinkJobDistributor(ctx context.Context, jd JobDistributor
 	}
 	// now create the job distributor in the node
 	id, err := n.CreateJobDistributor(ctx, jd)
-	if err != nil && !strings.Contains(err.Error(), "DuplicateFeedsManagerError") {
+	if err != nil &&
+		(!strings.Contains(err.Error(), "only a single feeds manager is supported") || !strings.Contains(err.Error(), "DuplicateFeedsManagerError")) {
 		return err
 	}
 	// wait for the node to connect to the job distributor
