@@ -114,8 +114,8 @@ func (m *InMemoryStore) CreateEmptyUnconfirmedTransaction(nonce uint64, gasLimit
 		return nil, fmt.Errorf("an unconfirmed tx with the same nonce already exists: %v", m.UnconfirmedTransactions[nonce])
 	}
 
-	if _, exists := m.Transactions[nonce]; exists {
-		return nil, fmt.Errorf("a tx with the same nonce already exists: %v", m.Transactions[nonce])
+	if _, exists := m.ConfirmedTransactions[nonce]; exists {
+		return nil, fmt.Errorf("a confirmed tx with the same nonce already exists: %v", m.ConfirmedTransactions[nonce])
 	}
 
 	m.UnconfirmedTransactions[nonce] = emptyTx
@@ -262,10 +262,6 @@ func (m *InMemoryStore) UpdateUnstartedTransactionWithNonce(nonce uint64) (*type
 
 	if _, exists := m.UnconfirmedTransactions[nonce]; exists {
 		return nil, fmt.Errorf("an unconfirmed tx with the same nonce already exists: %v", m.UnconfirmedTransactions[nonce])
-	}
-
-	if _, exists := m.Transactions[nonce]; exists {
-		return nil, fmt.Errorf("a tx with the same nonce already exists: %v", m.Transactions[nonce])
 	}
 
 	tx := m.UnstartedTransactions[0]

@@ -42,7 +42,7 @@ func (d *DualBroadcastClient) NonceAt(ctx context.Context, address common.Addres
 }
 
 func (d *DualBroadcastClient) PendingNonceAt(ctx context.Context, address common.Address) (uint64, error) {
-	body := []byte(fmt.Sprintf(`{"jsonrpc":"2.0","method":"eth_getTransactionCount","params":["%s","pending"]}`, address.String()))
+	body := []byte(fmt.Sprintf(`{"jsonrpc":"2.0","method":"eth_getTransactionCount","params":["%s","pending"], "id":1}`, address.String()))
 	response, err := d.signAndPostMessage(ctx, address, body, "")
 	if err != nil {
 		return 0, err
@@ -70,7 +70,7 @@ func (d *DualBroadcastClient) SendTransaction(ctx context.Context, tx *types.Tra
 		if meta.DualBroadcastParams != nil {
 			params = *meta.DualBroadcastParams
 		}
-		body := []byte(fmt.Sprintf(`{"jsonrpc":"2.0","method":"eth_sendRawTransaction","params":["%s"]}`, hexutil.Encode(data)))
+		body := []byte(fmt.Sprintf(`{"jsonrpc":"2.0","method":"eth_sendRawTransaction","params":["%s"], "id":1}`, hexutil.Encode(data)))
 		if _, err = d.signAndPostMessage(ctx, tx.FromAddress, body, params); err != nil {
 			return err
 		}
