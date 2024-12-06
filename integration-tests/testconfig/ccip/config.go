@@ -2,6 +2,7 @@ package ccip
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 
 	"github.com/AlekSi/pointer"
@@ -144,9 +145,12 @@ func (o *JDConfig) GetJDDBVersion() string {
 }
 
 func (o *Config) Validate() error {
-	var chainIds []uint64
+	var chainIds []int64
 	for _, net := range o.PrivateEthereumNetworks {
-		chainIds = append(chainIds, uint64(net.EthereumChainConfig.ChainID))
+		if net.EthereumChainConfig.ChainID < 0 {
+			return fmt.Errorf("negative chain ID found for network %s", net.EthereumChainConfig.ChainID)
+		}
+		chainIds = append(chainIds, int64(net.EthereumChainConfig.ChainID))
 	}
 	homeChainSelector, err := strconv.ParseUint(pointer.GetString(o.HomeChainSelector), 10, 64)
 	if err != nil {
@@ -183,16 +187,26 @@ func (o *Config) GetFeedChainSelector() uint64 {
 	return selector
 }
 
-func IsSelectorValid(selector uint64, chainIds []uint64) (bool, error) {
+func IsSelectorValid(selector uint64, chainIds []int64) (bool, error) {
 	chainId, err := chainselectors.ChainIdFromSelector(selector)
 	if err != nil {
 		return false, err
 	}
 
 	for _, cID := range chainIds {
-		if cID == chainId {
+		if isEqualUint64AndInt64(chainId, cID) {
 			return true, nil
 		}
 	}
 	return false, nil
+}
+
+func isEqualUint64AndInt64(u uint64, i int64) bool {
+	if i < 0 {
+		return false // uint64 cannot be equal to a negative int64
+	}
+	if u > math.MaxInt64 {
+		return false // uint64 cannot be equal to an int64 if it exceeds the maximum int64 value
+	}
+	return u == uint64(i)
 }

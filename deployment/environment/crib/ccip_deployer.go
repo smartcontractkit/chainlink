@@ -54,14 +54,23 @@ func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig
 		return deployment.CapabilityRegistryConfig{}, e.ExistingAddresses, fmt.Errorf("Failed to deploy home chain", err)
 	}
 	err = tenv.Env.ExistingAddresses.Merge(out.AddressBook)
-
-	capRegAddress, err := deployment.SearchAddressBook(e.ExistingAddresses, homeChainSel, "CapabilityRegistry")
 	if err != nil {
-		return deployment.CapabilityRegistryConfig{}, e.ExistingAddresses, fmt.Errorf("Cap Reg not found!", err)
+		return deployment.CapabilityRegistryConfig{}, e.ExistingAddresses, fmt.Errorf("Failed to merge addresses after deploying home chain", err)
+	}
+
+	fmt.Printf("Deployed home chain contracts\n")
+
+	state, err := changeset.LoadOnchainState(*e)
+	if err != nil {
+		return deployment.CapabilityRegistryConfig{}, e.ExistingAddresses, fmt.Errorf("Failed to load on chain state", err)
+	}
+	capRegAddr := state.Chains[homeChainSel].CapabilityRegistry.Address()
+	if capRegAddr == common.HexToAddress("0x") {
+		return deployment.CapabilityRegistryConfig{}, e.ExistingAddresses, fmt.Errorf("Cap Reg address not found")
 	}
 	capRegConfig := deployment.CapabilityRegistryConfig{
 		EVMChainID:  homeChainSel,
-		Contract:    common.HexToAddress(capRegAddress),
+		Contract:    state.Chains[homeChainSel].CapabilityRegistry.Address(),
 		NetworkType: relay.NetworkEVM,
 	}
 	return capRegConfig, e.ExistingAddresses, nil
