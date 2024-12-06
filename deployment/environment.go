@@ -50,7 +50,6 @@ type OffchainClient interface {
 type Chain struct {
 	// Selectors used as canonical chain identifier.
 	Selector uint64
-	name     string
 	Client   OnchainClient
 	// Note the Sign function can be abstract supporting a variety of key storage mechanisms (e.g. KMS etc).
 	DeployerKey *bind.TransactOpts
@@ -58,16 +57,12 @@ type Chain struct {
 }
 
 func (c Chain) Name() string {
-	return c.name
-}
-
-func (c Chain) mustSetName() {
 	chainInfo, err := ChainInfo(c.Selector)
 	if err != nil {
 		// we should never get here, if the selector is invalid it should not be in the environment
 		panic(err)
 	}
-	c.name = chainInfo.ChainName
+	return chainInfo.ChainName
 }
 
 // Environment represents an instance of a deployed product
@@ -102,9 +97,6 @@ func NewEnvironment(
 	offchain OffchainClient,
 	ctx func() context.Context,
 ) *Environment {
-	for i := range chains {
-		chains[i].mustSetName()
-	}
 	return &Environment{
 		Name:              name,
 		Logger:            logger,
