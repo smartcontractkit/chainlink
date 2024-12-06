@@ -5,6 +5,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
@@ -23,39 +25,21 @@ func AcceptAllOwnershipsProposal(e deployment.Environment, req *AcceptAllOwnersh
 	chain := e.Chains[chainSelector]
 	addrBook := e.ExistingAddresses
 
-	capRegs, err := capRegistriesFromAddrBook(addrBook, chain)
+	r, err := kslib.GetContractSets(e.Logger, &kslib.GetContractSetsRequest{
+		Chains: map[uint64]deployment.Chain{
+			req.ChainSelector: chain,
+		},
+		AddressBook: addrBook,
+	})
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	ocr3, err := ocr3FromAddrBook(addrBook, chain)
-	if err != nil {
-		return deployment.ChangesetOutput{}, err
-	}
-	forwarders, err := forwardersFromAddrBook(addrBook, chain)
-	if err != nil {
-		return deployment.ChangesetOutput{}, err
-	}
-	consumers, err := feedsConsumersFromAddrBook(addrBook, chain)
-	if err != nil {
-		return deployment.ChangesetOutput{}, err
-	}
-	var addrsToTransfer []common.Address
-	for _, consumer := range consumers {
-		addrsToTransfer = append(addrsToTransfer, consumer.Address())
-	}
-	for _, o := range ocr3 {
-		addrsToTransfer = append(addrsToTransfer, o.Address())
-	}
-	for _, f := range forwarders {
-		addrsToTransfer = append(addrsToTransfer, f.Address())
-	}
-	for _, c := range capRegs {
-		addrsToTransfer = append(addrsToTransfer, c.Address())
-	}
+	contracts := r.ContractSets[chainSelector]
+
 	// Construct the configuration
 	cfg := changeset.TransferToMCMSWithTimelockConfig{
 		ContractsByChain: map[uint64][]common.Address{
-			chainSelector: addrsToTransfer,
+			chainSelector: contracts.TransferableContracts(),
 		},
 		MinDelay: minDelay,
 	}
