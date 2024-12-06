@@ -65,18 +65,6 @@ func New(config *Config, system SystemOperator) *Updater {
 	}
 }
 
-// validateGitInput checks if the remote and branch are in the correct format
-func (u *Updater) validateGitInput(remote, branch string) error {
-	if !gitRemoteRE.MatchString(remote) {
-		return fmt.Errorf("%w: git remote '%s' contains invalid characters", ErrInvalidConfig, remote)
-	}
-
-	if !gitBranchRE.MatchString(branch) {
-		return fmt.Errorf("%w: git branch '%s' contains invalid characters", ErrInvalidConfig, branch)
-	}
-	return nil
-}
-
 // validateSHA checks if the SHA consists of exactly 40 hexadecimal digits
 func (u *Updater) validateSHA(sha string) error {
 	if !gitShaRE.MatchString(sha) {
@@ -87,10 +75,6 @@ func (u *Updater) validateSHA(sha string) error {
 
 // getGitInfo retrieves the latest commit SHA and timestamp from a Git repository
 func (u *Updater) getGitInfo(remote, branch string) (string, time.Time, error) {
-	if err := u.validateGitInput(remote, branch); err != nil {
-		return "", time.Time{}, err
-	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), gitTimeout)
 	defer cancel()
 

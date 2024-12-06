@@ -2,7 +2,6 @@ package updater
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -283,36 +282,6 @@ replace github.com/smartcontractkit/chainlink/v3 => ../
 				}
 			}
 		})
-	}
-}
-
-func TestUpdater_Run_InvalidGitInput(t *testing.T) {
-	cfg := &Config{
-		RepoRemote:  "invalid*remote",
-		BranchTrunk: "develop",
-		OrgName:     "smartcontractkit",
-		RepoName:    "chainlink",
-	}
-	sysOp := newMockSystemOperator()
-	sysOp.files["go.mod"] = []byte(`module test
-require github.com/smartcontractkit/chainlink/v2 v2.0.0
-replace github.com/smartcontractkit/chainlink/v2 => ../
-`)
-
-	u := New(cfg, sysOp)
-	u.git = &mockGitExecutor{
-		sha:  "ac7a7395feed" + strings.Repeat("0", 28),
-		time: time.Now(),
-	}
-	err := u.Run()
-	if err == nil {
-		t.Errorf("expected error due to invalid repo remote, got nil")
-		return
-	}
-
-	// Use errors.Is instead of errors.As since ErrInvalidConfig is a sentinel error
-	if !errors.Is(err, ErrInvalidConfig) {
-		t.Errorf("expected error to be ErrInvalidConfig, got: %v", err)
 	}
 }
 

@@ -45,20 +45,24 @@ func (c *Config) Validate() error {
 		return nil
 	}
 
-	if c.RepoRemote == "" {
-		return fmt.Errorf("%w: repo remote cannot be empty", ErrInvalidConfig)
-	}
-
-	if c.BranchTrunk == "" {
-		return fmt.Errorf("%w: branch trunk cannot be empty", ErrInvalidConfig)
-	}
-
 	if c.OrgName == "" {
-		return fmt.Errorf("%w: organization name cannot be empty", ErrInvalidConfig)
+		return fmt.Errorf("%w: org name must be provided", ErrInvalidConfig)
+	}
+	if c.RepoName == "" {
+		return fmt.Errorf("%w: repo name must be provided", ErrInvalidConfig)
+	}
+	if c.RepoRemote == "" {
+		return fmt.Errorf("%w: repo remote must be provided", ErrInvalidConfig)
+	}
+	if c.BranchTrunk == "" {
+		return fmt.Errorf("%w: trunk branch must be provided", ErrInvalidConfig)
 	}
 
-	if c.RepoName == "" {
-		return fmt.Errorf("%w: repository name cannot be empty", ErrInvalidConfig)
+	if !gitRemoteRE.MatchString(c.RepoRemote) {
+		return fmt.Errorf("%w: git remote '%s' contains invalid characters", ErrInvalidConfig, c.RepoRemote)
+	}
+	if !gitBranchRE.MatchString(c.BranchTrunk) {
+		return fmt.Errorf("%w: git branch '%s' contains invalid characters", ErrInvalidConfig, c.BranchTrunk)
 	}
 
 	return nil

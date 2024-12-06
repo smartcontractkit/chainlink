@@ -1,6 +1,9 @@
 package updater
 
-import "testing"
+import (
+	"errors"
+	"testing"
+)
 
 func TestConfig_Validate(t *testing.T) {
 	tests := []struct {
@@ -61,6 +64,26 @@ func TestConfig_Validate(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name: "invalid remote characters",
+			config: &Config{
+				OrgName:     "test",
+				RepoName:    "test",
+				RepoRemote:  "origin!@#",
+				BranchTrunk: "main",
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid branch characters",
+			config: &Config{
+				OrgName:     "test",
+				RepoName:    "test",
+				RepoRemote:  "origin",
+				BranchTrunk: "main!@#",
+			},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -70,6 +93,25 @@ func TestConfig_Validate(t *testing.T) {
 				t.Errorf("Validate() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func TestConfig_ValidateErrorType(t *testing.T) {
+	cfg := &Config{
+		RepoRemote:  "invalid*remote",
+		BranchTrunk: "develop",
+		OrgName:     "test",
+		RepoName:    "test",
+	}
+
+	err := cfg.Validate()
+	if err == nil {
+		t.Error("expected error due to invalid repo remote, got nil")
+		return
+	}
+
+	if !errors.Is(err, ErrInvalidConfig) {
+		t.Errorf("expected error to be ErrInvalidConfig, got: %v", err)
 	}
 }
 
