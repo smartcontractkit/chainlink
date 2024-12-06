@@ -133,14 +133,13 @@ core/scripts/gateway @smartcontractkit/dev-services
 
 # Tests
 /integration-tests/ @smartcontractkit/test-tooling-team @smartcontractkit/core
-/integration-tests/ccip-tests @smartcontractkit/ccip-offchain @smartcontractkit/core
+/integration-tests/ccip-tests @smartcontractkit/ccip-offchain @smartcontractkit/core @smartcontractkit/ccip
 /integration-tests/**/*keeper* @smartcontractkit/dev-services @smartcontractkit/core
 /integration-tests/**/*automation* @smartcontractkit/dev-services @smartcontractkit/core
-/integration-tests/**/*ccip* @smartcontractkit/ccip-offchain @smartcontractkit/core
+/integration-tests/**/*ccip* @smartcontractkit/ccip-offchain @smartcontractkit/core @smartcontractkit/ccip
 
 # Deployment tooling
-# Initially the common structures owned by CCIP
-/deployment @smartcontractkit/ccip @smartcontractkit/keystone @smartcontractkit/core
+/deployment @smartcontractkit/ccip @smartcontractkit/keystone @smartcontractkit/core @smartcontractkit/deployment-automation
 /deployment/ccip @smartcontractkit/ccip @smartcontractkit/core
 /deployment/keystone @smartcontractkit/keystone @smartcontractkit/core
 # TODO: As more products add their deployment logic here, add the team as an owner

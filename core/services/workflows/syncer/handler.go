@@ -1,8 +1,8 @@
 package syncer
 
 import (
+	"bytes"
 	"context"
-	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -14,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/secrets"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -263,6 +264,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			return err
 		}
 
+		h.lggr.Debugw("handled force update secrets events for URL hash", "urlHash", payload.SecretsURLHash)
 		return nil
 	case WorkflowRegisteredEvent:
 		payload, ok := event.GetData().(WorkflowRegistryWorkflowRegisteredV1)
@@ -282,7 +284,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			return err
 		}
 
-		h.lggr.Debugf("workflow 0x%x registered and started", wfID)
+		h.lggr.Debugw("handled workflow registration event", "workflowID", wfID)
 		return nil
 	case WorkflowUpdatedEvent:
 		payload, ok := event.GetData().(WorkflowRegistryWorkflowUpdatedV1)
@@ -302,6 +304,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			return err
 		}
 
+		h.lggr.Debugw("handled workflow updated event", "workflowID", newWorkflowID)
 		return nil
 	case WorkflowPausedEvent:
 		payload, ok := event.GetData().(WorkflowRegistryWorkflowPausedV1)
@@ -321,6 +324,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow paused event: %v", err), h.lggr)
 			return err
 		}
+		h.lggr.Debugw("handled workflow paused event", "workflowID", wfID)
 		return nil
 	case WorkflowActivatedEvent:
 		payload, ok := event.GetData().(WorkflowRegistryWorkflowActivatedV1)
@@ -340,6 +344,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			return err
 		}
 
+		h.lggr.Debugw("handled workflow activated event", "workflowID", wfID)
 		return nil
 	case WorkflowDeletedEvent:
 		payload, ok := event.GetData().(WorkflowRegistryWorkflowDeletedV1)
@@ -360,6 +365,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			return err
 		}
 
+		h.lggr.Debugw("handled workflow deleted event", "workflowID", wfID)
 		return nil
 	default:
 		return fmt.Errorf("event type unsupported: %v", event.GetEventType())
@@ -371,8 +377,6 @@ func (h *eventHandler) workflowRegisteredEvent(
 	ctx context.Context,
 	payload WorkflowRegistryWorkflowRegisteredV1,
 ) error {
-	wfID := hex.EncodeToString(payload.WorkflowID[:])
-
 	// Download the contents of binaryURL, configURL and secretsURL and cache them locally.
 	binary, err := h.fetcher(ctx, payload.BinaryURL)
 	if err != nil {
@@ -390,11 +394,14 @@ func (h *eventHandler) workflowRegisteredEvent(
 	}
 
 	// Calculate the hash of the binary and config files
-	hash := workflowID(binary, config, []byte(payload.SecretsURL))
+	hash, err := pkgworkflows.GenerateWorkflowID(payload.Owner, binary, config, payload.SecretsURL)
+	if err != nil {
+		return fmt.Errorf("failed to generate workflow id: %w", err)
+	}
 
 	// Pre-check: verify that the workflowID matches; if it doesn’t abort and log an error via Beholder.
-	if hash != wfID {
-		return fmt.Errorf("workflowID mismatch: %s != %s", hash, wfID)
+	if !bytes.Equal(hash[:], payload.WorkflowID[:]) {
+		return fmt.Errorf("workflowID mismatch: %x != %x", hash, payload.WorkflowID)
 	}
 
 	// Save the workflow secrets
@@ -409,6 +416,7 @@ func (h *eventHandler) workflowRegisteredEvent(
 		status = job.WorkflowSpecStatusPaused
 	}
 
+	wfID := hex.EncodeToString(payload.WorkflowID[:])
 	entry := &job.WorkflowSpec{
 		Workflow:      hex.EncodeToString(binary),
 		Config:        string(config),
@@ -425,6 +433,7 @@ func (h *eventHandler) workflowRegisteredEvent(
 	}
 
 	if status != job.WorkflowSpecStatusActive {
+		h.lggr.Debugw("workflow is marked as paused, so not starting it", "workflow", wfID)
 		return nil
 	}
 
@@ -609,15 +618,6 @@ func (h *eventHandler) tryEngineCleanup(wfID string) error {
 		}
 	}
 	return nil
-}
-
-// workflowID returns a hex encoded sha256 hash of the wasm, config and secretsURL.
-func workflowID(wasm, config, secretsURL []byte) string {
-	sum := sha256.New()
-	sum.Write(wasm)
-	sum.Write(config)
-	sum.Write(secretsURL)
-	return hex.EncodeToString(sum.Sum(nil))
 }
 
 // logCustMsg emits a custom message to the external sink and logs an error if that fails.

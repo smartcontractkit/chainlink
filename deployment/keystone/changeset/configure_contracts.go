@@ -9,6 +9,25 @@ import (
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 )
 
+var _ deployment.ChangeSet[InitialContractsCfg] = ConfigureInitialContractsChangeset
+
+type InitialContractsCfg struct {
+	RegistryChainSel uint64
+	Dons             []kslib.DonCapabilities
+	OCR3Config       *kslib.OracleConfigWithSecrets
+}
+
+func ConfigureInitialContractsChangeset(e deployment.Environment, cfg InitialContractsCfg) (deployment.ChangesetOutput, error) {
+	req := &kslib.ConfigureContractsRequest{
+		Env:              &e,
+		RegistryChainSel: cfg.RegistryChainSel,
+		Dons:             cfg.Dons,
+		OCR3Config:       cfg.OCR3Config,
+	}
+	return ConfigureInitialContracts(e.Logger, req)
+}
+
+// Deprecated: Use ConfigureInitialContractsChangeset instead.
 func ConfigureInitialContracts(lggr logger.Logger, req *kslib.ConfigureContractsRequest) (deployment.ChangesetOutput, error) {
 	if err := req.Validate(); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to validate request: %w", err)

@@ -13,7 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view"
@@ -51,7 +50,6 @@ import (
 var (
 	MockRMN              deployment.ContractType = "MockRMN"
 	RMNRemote            deployment.ContractType = "RMNRemote"
-	LinkToken            deployment.ContractType = "LinkToken"
 	ARMProxy             deployment.ContractType = "ARMProxy"
 	WETH9                deployment.ContractType = "WETH9"
 	Router               deployment.ContractType = "Router"
@@ -83,6 +81,7 @@ var (
 // on a chain. If a binding is nil, it means here is no such contract on the chain.
 type CCIPChainState struct {
 	commoncs.MCMSWithTimelockState
+	commoncs.LinkTokenState
 	OnRamp    *onramp.OnRamp
 	OffRamp   *offramp.OffRamp
 	FeeQuoter *fee_quoter.FeeQuoter
@@ -103,8 +102,6 @@ type CCIPChainState struct {
 	Weth9              *weth9.WETH9
 	RMNRemote          *rmn_remote.RMNRemote
 	MockRMN            *mock_rmn_contract.MockRMNContract
-	// TODO: May need to support older link too
-	LinkToken *burn_mint_erc677.BurnMintERC677
 	// Map between token Descriptor (e.g. LinkSymbol, WethSymbol)
 	// and the respective token contract
 	// This is more of an illustration of how we'll have tokens, and it might need some work later to work properly.
@@ -136,35 +133,35 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	if c.Router != nil {
 		routerView, err := v1_2.GenerateRouterView(c.Router)
 		if err != nil {
-			return chainView, err
+			return chainView, errors.Wrapf(err, "failed to generate router view for router %s", c.Router.Address().String())
 		}
 		chainView.Router[c.Router.Address().Hex()] = routerView
 	}
 	if c.TokenAdminRegistry != nil {
 		taView, err := v1_5.GenerateTokenAdminRegistryView(c.TokenAdminRegistry)
 		if err != nil {
-			return chainView, err
+			return chainView, errors.Wrapf(err, "failed to generate token admin registry view for token admin registry %s", c.TokenAdminRegistry.Address().String())
 		}
 		chainView.TokenAdminRegistry[c.TokenAdminRegistry.Address().Hex()] = taView
 	}
 	if c.NonceManager != nil {
 		nmView, err := v1_6.GenerateNonceManagerView(c.NonceManager)
 		if err != nil {
-			return chainView, err
+			return chainView, errors.Wrapf(err, "failed to generate nonce manager view for nonce manager %s", c.NonceManager.Address().String())
 		}
 		chainView.NonceManager[c.NonceManager.Address().Hex()] = nmView
 	}
 	if c.RMNRemote != nil {
 		rmnView, err := v1_6.GenerateRMNRemoteView(c.RMNRemote)
 		if err != nil {
-			return chainView, err
+			return chainView, errors.Wrapf(err, "failed to generate rmn remote view for rmn remote %s", c.RMNRemote.Address().String())
 		}
 		chainView.RMN[c.RMNRemote.Address().Hex()] = rmnView
 	}
 	if c.FeeQuoter != nil && c.Router != nil && c.TokenAdminRegistry != nil {
 		fqView, err := v1_6.GenerateFeeQuoterView(c.FeeQuoter, c.Router, c.TokenAdminRegistry)
 		if err != nil {
-			return chainView, err
+			return chainView, errors.Wrapf(err, "failed to generate fee quoter view for fee quoter %s", c.FeeQuoter.Address().String())
 		}
 		chainView.FeeQuoter[c.FeeQuoter.Address().Hex()] = fqView
 	}
@@ -176,7 +173,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 			c.TokenAdminRegistry,
 		)
 		if err != nil {
-			return chainView, err
+			return chainView, errors.Wrapf(err, "failed to generate on ramp view for on ramp %s", c.OnRamp.Address().String())
 		}
 		chainView.OnRamp[c.OnRamp.Address().Hex()] = onRampView
 	}
@@ -187,7 +184,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 			c.Router,
 		)
 		if err != nil {
-			return chainView, err
+			return chainView, errors.Wrapf(err, "failed to generate off ramp view for off ramp %s", c.OffRamp.Address().String())
 		}
 		chainView.OffRamp[c.OffRamp.Address().Hex()] = offRampView
 	}
@@ -195,7 +192,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	if c.CommitStore != nil {
 		commitStoreView, err := v1_5.GenerateCommitStoreView(c.CommitStore)
 		if err != nil {
-			return chainView, err
+			return chainView, errors.Wrapf(err, "failed to generate commit store view for commit store %s", c.CommitStore.Address().String())
 		}
 		chainView.CommitStore[c.CommitStore.Address().Hex()] = commitStoreView
 	}
@@ -203,23 +200,30 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	if c.RMNProxyNew != nil {
 		rmnProxyView, err := v1_0.GenerateRMNProxyView(c.RMNProxyNew)
 		if err != nil {
-			return chainView, err
+			return chainView, errors.Wrapf(err, "failed to generate rmn proxy view for rmn proxy %s", c.RMNProxyNew.Address().String())
 		}
 		chainView.RMNProxy[c.RMNProxyNew.Address().Hex()] = rmnProxyView
 	}
 	if c.CapabilityRegistry != nil {
 		capRegView, err := common_v1_0.GenerateCapabilityRegistryView(c.CapabilityRegistry)
 		if err != nil {
-			return chainView, err
+			return chainView, errors.Wrapf(err, "failed to generate capability registry view for capability registry %s", c.CapabilityRegistry.Address().String())
 		}
 		chainView.CapabilityRegistry[c.CapabilityRegistry.Address().Hex()] = capRegView
 	}
 	if c.MCMSWithTimelockState.Timelock != nil {
 		mcmsView, err := c.MCMSWithTimelockState.GenerateMCMSWithTimelockView()
 		if err != nil {
-			return chainView, err
+			return chainView, errors.Wrapf(err, "failed to generate MCMS with timelock view for MCMS with timelock %s", c.MCMSWithTimelockState.Timelock.Address().String())
 		}
 		chainView.MCMSWithTimelock = mcmsView
+	}
+	if c.LinkToken != nil {
+		linkTokenView, err := common_v1_0.GenerateLinkTokenView(c.LinkToken)
+		if err != nil {
+			return chainView, errors.Wrapf(err, "failed to generate link token view for link token %s", c.LinkToken.Address().String())
+		}
+		chainView.LinkToken = linkTokenView
 	}
 	return chainView, nil
 }
@@ -237,12 +241,7 @@ type CCIPOnChainState struct {
 func (s CCIPOnChainState) View(chains []uint64) (map[string]view.ChainView, error) {
 	m := make(map[string]view.ChainView)
 	for _, chainSelector := range chains {
-		// TODO: Need a utility for this
-		chainid, err := chainsel.ChainIdFromSelector(chainSelector)
-		if err != nil {
-			return m, err
-		}
-		chainName, err := chainsel.NameFromChainId(chainid)
+		chainInfo, err := deployment.ChainInfo(chainSelector)
 		if err != nil {
 			return m, err
 		}
@@ -254,7 +253,7 @@ func (s CCIPOnChainState) View(chains []uint64) (map[string]view.ChainView, erro
 		if err != nil {
 			return m, err
 		}
-		m[chainName] = chainView
+		m[chainInfo.ChainName] = chainView
 	}
 	return m, nil
 }
@@ -290,12 +289,19 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 		return state, err
 	}
 	state.MCMSWithTimelockState = *mcmsWithTimelock
+
+	linkState, err := commoncs.LoadLinkTokenState(chain, addresses)
+	if err != nil {
+		return state, err
+	}
+	state.LinkTokenState = *linkState
 	for address, tvStr := range addresses {
 		switch tvStr.String() {
 		case deployment.NewTypeAndVersion(commontypes.RBACTimelock, deployment.Version1_0_0).String(),
 			deployment.NewTypeAndVersion(commontypes.ProposerManyChainMultisig, deployment.Version1_0_0).String(),
 			deployment.NewTypeAndVersion(commontypes.CancellerManyChainMultisig, deployment.Version1_0_0).String(),
-			deployment.NewTypeAndVersion(commontypes.BypasserManyChainMultisig, deployment.Version1_0_0).String():
+			deployment.NewTypeAndVersion(commontypes.BypasserManyChainMultisig, deployment.Version1_0_0).String(),
+			deployment.NewTypeAndVersion(commontypes.LinkToken, deployment.Version1_0_0).String():
 			continue
 		case deployment.NewTypeAndVersion(CapabilitiesRegistry, deployment.Version1_0_0).String():
 			cr, err := capabilities_registry.NewCapabilitiesRegistry(common.HexToAddress(address), chain.Client)
@@ -399,12 +405,6 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				return state, err
 			}
 			state.FeeQuoter = fq
-		case deployment.NewTypeAndVersion(LinkToken, deployment.Version1_0_0).String():
-			lt, err := burn_mint_erc677.NewBurnMintERC677(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			state.LinkToken = lt
 		case deployment.NewTypeAndVersion(USDCToken, deployment.Version1_0_0).String():
 			ut, err := burn_mint_erc677.NewBurnMintERC677(common.HexToAddress(address), chain.Client)
 			if err != nil {

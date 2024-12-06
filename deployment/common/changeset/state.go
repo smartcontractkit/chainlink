@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/link_token"
 )
 
 // MCMSWithTimelockState holds the Go bindings
@@ -93,6 +94,31 @@ func LoadMCMSWithTimelockState(chain deployment.Chain, addresses map[string]depl
 				return nil, err
 			}
 			state.CancellerMcm = mcms
+		}
+	}
+	return &state, nil
+}
+
+type LinkTokenState struct {
+	LinkToken *link_token.LinkToken
+}
+
+func (s LinkTokenState) GenerateLinkView() (v1_0.LinkTokenView, error) {
+	if s.LinkToken == nil {
+		return v1_0.LinkTokenView{}, errors.New("link token not found")
+	}
+	return v1_0.GenerateLinkTokenView(s.LinkToken)
+}
+
+func LoadLinkTokenState(chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (*LinkTokenState, error) {
+	state := LinkTokenState{}
+	for address, tvStr := range addresses {
+		if tvStr.String() == deployment.NewTypeAndVersion(types.LinkToken, deployment.Version1_0_0).String() {
+			lt, err := link_token.NewLinkToken(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return nil, err
+			}
+			state.LinkToken = lt
 		}
 	}
 	return &state, nil

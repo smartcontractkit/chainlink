@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
@@ -46,6 +47,7 @@ type MultiClient struct {
 	Backups     []*ethclient.Client
 	RetryConfig RetryConfig
 	lggr        logger.Logger
+	chainName   string
 }
 
 func NewMultiClient(lggr logger.Logger, rpcs []RPC, opts ...func(client *MultiClient)) (*MultiClient, error) {
@@ -58,6 +60,17 @@ func NewMultiClient(lggr logger.Logger, rpcs []RPC, opts ...func(client *MultiCl
 		client, err := ethclient.Dial(rpc.WSURL)
 		if err != nil {
 			return nil, fmt.Errorf("failed to dial ws url '%s': %w", rpc.WSURL, err)
+		}
+		// fetch chain name if not set
+		if mc.chainName == "" {
+			id, err := client.ChainID(context.Background())
+			if err == nil {
+				details, err := chainselectors.GetChainDetailsByChainIDAndFamily(id.String(), chainselectors.FamilyEVM)
+				if err == nil {
+					return nil, err
+				}
+				mc.chainName = details.ChainName
+			}
 		}
 		clients = append(clients, client)
 	}
@@ -134,11 +147,12 @@ func (mc *MultiClient) WaitMined(ctx context.Context, tx *types.Transaction) (*t
 
 func (mc *MultiClient) retryWithBackups(opName string, op func(*ethclient.Client) error) error {
 	var err error
-	for _, client := range append([]*ethclient.Client{mc.Client}, mc.Backups...) {
+	for i, client := range append([]*ethclient.Client{mc.Client}, mc.Backups...) {
 		err2 := retry.Do(func() error {
+			mc.lggr.Debugf("Trying op %s with chain %s client index %d", opName, mc.chainName, i)
 			err = op(client)
 			if err != nil {
-				mc.lggr.Warnf("retryable error '%s' for op %s with client %v", err.Error(), opName, client)
+				mc.lggr.Warnf("retryable error '%s' for op %s with chain %s client index %d", err.Error(), opName, mc.chainName, i)
 				return err
 			}
 			return nil
@@ -146,7 +160,7 @@ func (mc *MultiClient) retryWithBackups(opName string, op func(*ethclient.Client
 		if err2 == nil {
 			return nil
 		}
-		mc.lggr.Infof("Client %v failed, trying next client", client)
+		mc.lggr.Infof("Client at index %d failed, trying next client chain %s", i, mc.chainName)
 	}
-	return errors.Wrapf(err, "All backup clients %v failed", mc.Backups)
+	return errors.Wrapf(err, "All backup clients %v failed for chain %s", mc.Backups, mc.chainName)
 }
