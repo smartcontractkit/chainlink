@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -178,7 +179,12 @@ func (cr *chainReader) Close() error {
 func (cr *chainReader) Ready() error { return nil }
 
 func (cr *chainReader) HealthReport() map[string]error {
-	return map[string]error{cr.Name(): nil}
+	report := map[string]error{
+		cr.Name(): cr.Healthy(),
+	}
+
+	commonservices.CopyHealth(report, cr.lp.HealthReport())
+	return report
 }
 
 func (cr *chainReader) Bind(ctx context.Context, bindings []commontypes.BoundContract) error {
