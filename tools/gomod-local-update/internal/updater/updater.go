@@ -170,14 +170,12 @@ func (u *Updater) Run() error {
 // updateGoMod updates the go.mod file with new pseudo-versions
 func (u *Updater) updateGoMod(modFile *modfile.File, modulesToUpdate []string, sha string, commitTime time.Time) error {
 	for _, modulePath := range modulesToUpdate {
-		moduleExists := false
 		majorVersion := getMajorVersion(modulePath)
 		pseudoVersion := module.PseudoVersion(majorVersion, "", commitTime, sha[:gitSHALength])
 
 		// Find and update version
 		for _, req := range modFile.Require {
 			if req.Mod.Path == modulePath {
-				moduleExists = true
 				if u.config.DryRun {
 					log.Printf("[DRY RUN] Would update %s: %s => %s", modulePath, req.Mod.Version, pseudoVersion)
 					continue
@@ -189,10 +187,6 @@ func (u *Updater) updateGoMod(modFile *modfile.File, modulesToUpdate []string, s
 				}
 				break
 			}
-		}
-
-		if !moduleExists {
-			continue
 		}
 	}
 
