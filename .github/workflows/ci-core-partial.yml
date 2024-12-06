@@ -4,9 +4,12 @@ on:
   push:
     branches:
       - develop
-      - "release/*"
-  merge_group:
+      # - "release/*"
+  # merge_group:
   pull_request:
+  schedule:
+    - cron: "0 0 * * *"
+
 
 jobs:
   filter:
@@ -65,7 +68,7 @@ jobs:
           go-mod-download-directory: ${{ matrix.type.test-suite == 'ccip-deployment' && matrix.type.module-directory || '' }}
 
       - name: Build Tests
-        uses: smartcontractkit/.github/apps/go-conditional-tests@feat/go-test-binary-comparison
+        uses: smartcontractkit/.github/apps/go-conditional-tests@37882e110590e636627a26371bdbd56ddfcce821 # go-conditional-tests@0.1.0
         timeout-minutes: 10
         with:
           pipeline-step: "build"
@@ -77,13 +80,13 @@ jobs:
           build-flags: ${{ matrix.type.build-flags }}
 
       - name: Run Tests
-        uses: smartcontractkit/.github/apps/go-conditional-tests@feat/go-test-binary-comparison
+        uses: smartcontractkit/.github/apps/go-conditional-tests@37882e110590e636627a26371bdbd56ddfcce821 # go-conditional-tests@0.1.0
         timeout-minutes: 15
         env:
           CL_DATABASE_URL: ${{ env.DB_URL }}
         with:
           pipeline-step: "run"
-          run-concurrency: "24"
+          run-concurrency: "16"
           run-all-tests: ${{ needs.filter.outputs.should-run-all-tests }}
           collect-coverage: ${{ needs.filter.outputs.should-collect-coverage }}
           test-suite: ${{ matrix.type.test-suite }}
@@ -91,7 +94,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Update Test Index
-        uses: smartcontractkit/.github/apps/go-conditional-tests@feat/go-test-binary-comparison
+        uses: smartcontractkit/.github/apps/go-conditional-tests@37882e110590e636627a26371bdbd56ddfcce821 # go-conditional-tests@0.1.0
         with:
           pipeline-step: "update"
           collect-coverage: ${{ needs.filter.outputs.should-collect-coverage }}
