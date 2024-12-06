@@ -6,9 +6,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	mcms "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_remote"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -24,11 +24,25 @@ func TestUpdateRMNHomeConfig(t *testing.T) {
 	state, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
+	contractsByChain := make(map[uint64][]common.Address)
+	rmnRemoteAddressesByChain := buildRMNRemoteAddressPerChain(e.Env, state)
+	for chainSelector, rmnRemoteAddress := range rmnRemoteAddressesByChain {
+		contractsByChain[chainSelector] = []common.Address{rmnRemoteAddress}
+	}
+
+	contractsByChain[e.HomeChainSel] = append(contractsByChain[e.HomeChainSel], state.Chains[e.HomeChainSel].RMNHome.Address())
+
 	// This is required because RMNHome is initially owner by the deployer
-	err = transferOwnershipToHomeChainTimelock(t, e, state)
-	require.NoError(t, err)
-	err = transferOwnershipForRMNRemote(t, e, state)
-	require.NoError(t, err)
+	timelocksPerChain := buildTimelockPerChain(e.Env, state)
+	_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(commonchangeset.TransferToMCMSWithTimelock),
+			Config: commonchangeset.TransferToMCMSWithTimelockConfig{
+				ContractsByChain: contractsByChain,
+				MinDelay:         0,
+			},
+		},
+	})
 
 	rmnHome := state.Chains[e.HomeChainSel].RMNHome
 
@@ -39,17 +53,24 @@ func TestUpdateRMNHomeConfig(t *testing.T) {
 
 	setRMNHomeCandidateConfig := SetRMNHomeCandidateConfig{
 		HomeChainSelector: e.HomeChainSel,
-		RMNStaticConfig:   NewTestRMNStaticConfig(),
-		RMNDynamicConfig:  NewTestRMNDynamicConfig(),
+		RMNStaticConfig: rmn_home.RMNHomeStaticConfig{
+			Nodes:          []rmn_home.RMNHomeNode{},
+			OffchainConfig: []byte(""),
+		},
+		RMNDynamicConfig: rmn_home.RMNHomeDynamicConfig{
+			SourceChains:   []rmn_home.RMNHomeSourceChain{},
+			OffchainConfig: []byte(""),
+		},
 	}
 
-	timelocksPerChain := buildTimelockPerChain(e.Env, state)
-	commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
+	_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(NewSetRMNHomeCandidateConfigChangeset),
 			Config:    setRMNHomeCandidateConfig,
 		},
 	})
+
+	require.NoError(t, err)
 
 	state, err = LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -64,6 +85,7 @@ func TestUpdateRMNHomeConfig(t *testing.T) {
 
 	promoteConfig := PromoteRMNHomeCandidateConfig{
 		HomeChainSelector: e.HomeChainSel,
+		DigestToPromote:   currentCandidateDigest,
 	}
 
 	_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
@@ -98,7 +120,7 @@ func TestUpdateRMNHomeConfig(t *testing.T) {
 	})
 
 	require.NoError(t, err)
-	rmnRemotePerChain := buildRemoteRemotePerChain(e.Env, state)
+	rmnRemotePerChain := buildRMNRemotePerChain(e.Env, state)
 	for _, rmnRemote := range rmnRemotePerChain {
 		remoteConfigSetEvents, err := rmnRemote.FilterConfigSet(nil, nil)
 		require.NoError(t, err)
@@ -109,75 +131,4 @@ func TestUpdateRMNHomeConfig(t *testing.T) {
 		require.NotNil(t, lastEvent)
 		require.Equal(t, lastEvent.Config.RmnHomeContractConfigDigest, currentActiveDigest)
 	}
-}
-
-func transferOwnershipToHomeChainTimelock(t *testing.T, e DeployedEnv, state CCIPOnChainState) error {
-	rmnHome := state.Chains[e.HomeChainSel].RMNHome
-	timelockAddress := state.Chains[e.HomeChainSel].Timelock.Address()
-	proposerMcm := state.Chains[e.HomeChainSel].ProposerMcm
-	_, err := commonchangeset.NewTransferOwnershipChangeset(e.Env, commonchangeset.TransferOwnershipConfig{
-		Contracts: map[uint64][]commonchangeset.OwnershipTransferrer{
-			e.HomeChainSel: {rmnHome},
-		},
-		OwnersPerChain: map[uint64]common.Address{
-			e.HomeChainSel: timelockAddress,
-		},
-	})
-
-	timelocksPerChain := buildTimelockPerChain(e.Env, state)
-
-	_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(commonchangeset.NewAcceptOwnershipChangeset),
-			Config: commonchangeset.AcceptOwnershipConfig{
-				Contracts: map[uint64][]commonchangeset.OwnershipAcceptor{
-					e.HomeChainSel: {rmnHome},
-				},
-				OwnersPerChain: map[uint64]common.Address{
-					e.HomeChainSel: timelockAddress,
-				},
-				ProposerMCMSes: map[uint64]*mcms.ManyChainMultiSig{
-					e.HomeChainSel: proposerMcm,
-				},
-			},
-		},
-	})
-
-	return err
-}
-
-func transferOwnershipForRMNRemote(t *testing.T, e DeployedEnv, state CCIPOnChainState) error {
-	rmnRemotePerChain := buildRemoteRemotePerChain(e.Env, state)
-	timelockAddressPerChain := buildTimelockAddressPerChain(e.Env, state)
-	timelocksPerChain := buildTimelockPerChain(e.Env, state)
-	proposers := buildProposerPerChain(e.Env, state)
-	for chain, rmnRemote := range rmnRemotePerChain {
-		_, err := commonchangeset.NewTransferOwnershipChangeset(e.Env, commonchangeset.TransferOwnershipConfig{
-			Contracts: map[uint64][]commonchangeset.OwnershipTransferrer{
-				chain: {rmnRemote},
-			},
-			OwnersPerChain: timelockAddressPerChain,
-		})
-		if err != nil {
-			return err
-		}
-
-		_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
-			{
-				Changeset: commonchangeset.WrapChangeSet(commonchangeset.NewAcceptOwnershipChangeset),
-				Config: commonchangeset.AcceptOwnershipConfig{
-					Contracts: map[uint64][]commonchangeset.OwnershipAcceptor{
-						chain: {rmnRemote},
-					},
-					OwnersPerChain: timelockAddressPerChain,
-					ProposerMCMSes: proposers,
-				},
-			},
-		})
-
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }
