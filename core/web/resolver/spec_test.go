@@ -42,7 +42,7 @@ func TestResolver_CronSpec(t *testing.T) {
 					Type: job.Cron,
 					CronSpec: &job.CronSpec{
 						CronSchedule: "CRON_TZ=UTC 0 0 1 1 *",
-						EVMChainID:   ubig.NewI(42),
+						EVMChainID:   ubig.NewI(45),
 						CreatedAt:    f.Timestamp(),
 					},
 				}, nil)
