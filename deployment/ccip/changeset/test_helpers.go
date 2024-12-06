@@ -1237,6 +1237,13 @@ type TestTransferRequest struct {
 	ExpectedTokenBalances map[common.Address]*big.Int
 }
 
+// TransferMultiple sends multiple CCIPMessages (represented as TestTransferRequest) sequentially.
+// It verifies whether message is not reverted on the source and proper event is emitted by OnRamp.
+// However, it doesn't wait for message to be committed or executed. Therefore, you can send multiple messages very fast,
+// but you need to make sure they are committed/executed on your own (if that's the intention).
+// It saves some time during test execution, because we let plugins batch instead of executing one by one
+// If you want to wait for execution in a "batch" manner you will need to pass maps returned by TransferMultiple to
+// either ConfirmMultipleCommits (for commit) or ConfirmExecWithSeqNrsForAll (for exec). Check example usage in the tests.
 func TransferMultiple(
 	ctx context.Context,
 	t *testing.T,
@@ -1252,13 +1259,11 @@ func TransferMultiple(
 	startBlocks := make(map[uint64]*uint64)
 	expectedSeqNums := make(map[SourceDestPair]cciptypes.SeqNumRange)
 	expectedExecutionStates := make(map[SourceDestPair]map[uint64]int)
-	expectedTokenBalances := make(map[uint64]map[TokenReceiverIdentifier]*big.Int)
+	expectedTokenBalances := make(TokenBalanceAccumulator)
 
 	for _, tt := range requests {
 		t.Run(tt.Name, func(t *testing.T) {
-			expectedTokenBalances = AppendExpectedTokenBalances(
-				tt.DestChain, tt.Receiver, tt.ExpectedTokenBalances, expectedTokenBalances,
-			)
+			expectedTokenBalances.add(tt.DestChain, tt.Receiver, tt.ExpectedTokenBalances)
 
 			pairId := SourceDestPair{
 				SourceChainSelector: tt.SourceChain,
@@ -1325,32 +1330,40 @@ func TransferAndWaitForSuccess(
 	require.Equal(t, expectedStatus, states[identifier][msgSentEvent.SequenceNumber])
 }
 
+// TokenBalanceAccumulator is a convenient accumulator to aggregate expected balances of different tokens
+// used across the tests. You can iterate over your test cases and build the final "expected" balances for tokens (per chain, per sender)
+// For instance, if your test runs multiple transfers for the same token, and you want to verify the balance of tokens at
+// the end of the execution, you can simply use that struct for aggregating expected tokens
+// Please also see WaitForTokenBalances to better understand how you can assert token balances
+type TokenBalanceAccumulator map[uint64]map[TokenReceiverIdentifier]*big.Int
+
+func (t TokenBalanceAccumulator) add(
+	destChain uint64,
+	receiver common.Address,
+	expectedBalance map[common.Address]*big.Int) {
+	for token, balance := range expectedBalance {
+		tkIdentifier := TokenReceiverIdentifier{token, receiver}
+
+		if _, ok := t[destChain]; !ok {
+			t[destChain] = make(map[TokenReceiverIdentifier]*big.Int)
+		}
+		actual, ok := t[destChain][tkIdentifier]
+		if !ok {
+			actual = big.NewInt(0)
+		}
+		t[destChain][tkIdentifier] = new(big.Int).Add(actual, balance)
+	}
+}
+
 type TokenReceiverIdentifier struct {
 	token    common.Address
 	receiver common.Address
 }
 
-func AppendExpectedTokenBalances(
-	destChain uint64,
-	receiver common.Address,
-	expectedBalance map[common.Address]*big.Int,
-	acc map[uint64]map[TokenReceiverIdentifier]*big.Int,
-) map[uint64]map[TokenReceiverIdentifier]*big.Int {
-	for token, balance := range expectedBalance {
-		tkIdentifier := TokenReceiverIdentifier{token, receiver}
-
-		if _, ok := acc[destChain]; !ok {
-			acc[destChain] = make(map[TokenReceiverIdentifier]*big.Int)
-		}
-		actual, ok := acc[destChain][tkIdentifier]
-		if !ok {
-			actual = big.NewInt(0)
-		}
-		acc[destChain][tkIdentifier] = new(big.Int).Add(actual, balance)
-	}
-	return acc
-}
-
+// WaitForTokenBalances waits for multiple ERC20 tokens to reach a particular balance
+// It works in a batch manner, so you can pass and exhaustive list of different tokens (per senders and chains)
+// and it would work concurrently for the balance to be met. Check WaitForTheTokenBalance to see how balance
+// checking is made for a token/receiver pair
 func WaitForTokenBalances(
 	ctx context.Context,
 	t *testing.T,
