@@ -96,54 +96,44 @@ func TestTokenTransfer(t *testing.T) {
 		},
 	)
 
-	tcs := []struct {
-		name                   string
-		srcChain               uint64
-		dstChain               uint64
-		tokenAmounts           []router.ClientEVMTokenAmount
-		receiver               common.Address
-		data                   []byte
-		extraData              []byte
-		expectedTokenBalances  map[common.Address]*big.Int
-		expectedExecutionState int
-	}{
+	tcs := []changeset.TestTransferRequest{
 		{
-			name:     "Send token to EOA",
-			srcChain: sourceChain,
-			dstChain: destChain,
-			tokenAmounts: []router.ClientEVMTokenAmount{
+			Name:        "Send token to EOA",
+			SourceChain: sourceChain,
+			DestChain:   destChain,
+			Tokens: []router.ClientEVMTokenAmount{
 				{
 					Token:  srcToken.Address(),
 					Amount: oneE18,
 				},
 			},
-			receiver: utils.RandomAddress(),
-			expectedTokenBalances: map[common.Address]*big.Int{
+			Receiver: utils.RandomAddress(),
+			ExpectedTokenBalances: map[common.Address]*big.Int{
 				destToken.Address(): oneE18,
 			},
-			expectedExecutionState: changeset.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: changeset.EXECUTION_STATE_SUCCESS,
 		},
 		{
-			name:     "Send token to contract",
-			srcChain: sourceChain,
-			dstChain: destChain,
-			tokenAmounts: []router.ClientEVMTokenAmount{
+			Name:        "Send token to contract",
+			SourceChain: sourceChain,
+			DestChain:   destChain,
+			Tokens: []router.ClientEVMTokenAmount{
 				{
 					Token:  srcToken.Address(),
 					Amount: oneE18,
 				},
 			},
-			receiver: state.Chains[destChain].Receiver.Address(),
-			expectedTokenBalances: map[common.Address]*big.Int{
+			Receiver: state.Chains[destChain].Receiver.Address(),
+			ExpectedTokenBalances: map[common.Address]*big.Int{
 				destToken.Address(): oneE18,
 			},
-			expectedExecutionState: changeset.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: changeset.EXECUTION_STATE_SUCCESS,
 		},
 		{
-			name:     "Send N tokens to contract",
-			srcChain: destChain,
-			dstChain: sourceChain,
-			tokenAmounts: []router.ClientEVMTokenAmount{
+			Name:        "Send N tokens to contract",
+			SourceChain: destChain,
+			DestChain:   sourceChain,
+			Tokens: []router.ClientEVMTokenAmount{
 				{
 					Token:  selfServeDestToken.Address(),
 					Amount: oneE18,
@@ -157,19 +147,19 @@ func TestTokenTransfer(t *testing.T) {
 					Amount: oneE18,
 				},
 			},
-			receiver:  state.Chains[sourceChain].Receiver.Address(),
-			extraData: changeset.MakeEVMExtraArgsV2(300_000, false),
-			expectedTokenBalances: map[common.Address]*big.Int{
+			Receiver:  state.Chains[sourceChain].Receiver.Address(),
+			ExtraArgs: changeset.MakeEVMExtraArgsV2(300_000, false),
+			ExpectedTokenBalances: map[common.Address]*big.Int{
 				selfServeSrcToken.Address(): new(big.Int).Add(oneE18, oneE18),
 				srcToken.Address():          oneE18,
 			},
-			expectedExecutionState: changeset.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: changeset.EXECUTION_STATE_SUCCESS,
 		},
 		{
-			name:     "Sending token transfer with custom gasLimits to the EOA is successful",
-			srcChain: destChain,
-			dstChain: sourceChain,
-			tokenAmounts: []router.ClientEVMTokenAmount{
+			Name:        "Sending token transfer with custom gasLimits to the EOA is successful",
+			SourceChain: destChain,
+			DestChain:   sourceChain,
+			Tokens: []router.ClientEVMTokenAmount{
 				{
 					Token:  selfServeDestToken.Address(),
 					Amount: oneE18,
@@ -179,19 +169,19 @@ func TestTokenTransfer(t *testing.T) {
 					Amount: new(big.Int).Add(oneE18, oneE18),
 				},
 			},
-			receiver:  utils.RandomAddress(),
-			extraData: changeset.MakeEVMExtraArgsV2(1, false),
-			expectedTokenBalances: map[common.Address]*big.Int{
+			Receiver:  utils.RandomAddress(),
+			ExtraArgs: changeset.MakeEVMExtraArgsV2(1, false),
+			ExpectedTokenBalances: map[common.Address]*big.Int{
 				selfServeSrcToken.Address(): oneE18,
 				srcToken.Address():          new(big.Int).Add(oneE18, oneE18),
 			},
-			expectedExecutionState: changeset.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: changeset.EXECUTION_STATE_SUCCESS,
 		},
 		{
-			name:     "Sending PTT with too low gas limit leads to the revert when receiver is a contract",
-			srcChain: destChain,
-			dstChain: sourceChain,
-			tokenAmounts: []router.ClientEVMTokenAmount{
+			Name:        "Sending PTT with too low gas limit leads to the revert when receiver is a contract",
+			SourceChain: destChain,
+			DestChain:   sourceChain,
+			Tokens: []router.ClientEVMTokenAmount{
 				{
 					Token:  selfServeDestToken.Address(),
 					Amount: oneE18,
@@ -201,45 +191,40 @@ func TestTokenTransfer(t *testing.T) {
 					Amount: oneE18,
 				},
 			},
-			receiver:  state.Chains[sourceChain].Receiver.Address(),
-			data:      []byte("this should be reverted because gasLimit is too low, no tokens are transferred as well"),
-			extraData: changeset.MakeEVMExtraArgsV2(1, false),
-			expectedTokenBalances: map[common.Address]*big.Int{
+			Receiver:  state.Chains[sourceChain].Receiver.Address(),
+			Data:      []byte("this should be reverted because gasLimit is too low, no tokens are transferred as well"),
+			ExtraArgs: changeset.MakeEVMExtraArgsV2(1, false),
+			ExpectedTokenBalances: map[common.Address]*big.Int{
 				selfServeSrcToken.Address(): big.NewInt(0),
 				srcToken.Address():          big.NewInt(0),
 			},
-			expectedExecutionState: changeset.EXECUTION_STATE_FAILURE,
+			ExpectedStatus: changeset.EXECUTION_STATE_FAILURE,
 		},
 	}
 
-	for _, tt := range tcs {
-		t.Run(tt.name, func(t *testing.T) {
-			initialBalances := map[common.Address]*big.Int{}
-			for token := range tt.expectedTokenBalances {
-				initialBalance := changeset.GetTokenBalance(ctx, t, token, tt.receiver, e.Chains[tt.dstChain])
-				initialBalances[token] = initialBalance
-			}
+	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances :=
+		changeset.TransferMultiple(ctx, t, e, state, tcs)
 
-			changeset.TransferAndWaitForSuccess(
-				ctx,
-				t,
-				e,
-				state,
-				tt.srcChain,
-				tt.dstChain,
-				tt.tokenAmounts,
-				tt.receiver,
-				tt.data,
-				tt.expectedExecutionState,
-				tt.extraData,
-			)
+	err = changeset.ConfirmMultipleCommits(
+		t,
+		e.Chains,
+		state.Chains,
+		startBlocks,
+		false,
+		expectedSeqNums,
+	)
+	require.NoError(t, err)
 
-			for token, balance := range tt.expectedTokenBalances {
-				expected := new(big.Int).Add(initialBalances[token], balance)
-				changeset.WaitForTheTokenBalance(ctx, t, token, tt.receiver, e.Chains[tt.dstChain], expected)
-			}
-		})
-	}
+	execStates := changeset.ConfirmExecWithSeqNrsForAll(
+		t,
+		e,
+		state,
+		changeset.SeqNumberRageToSlice(expectedSeqNums),
+		startBlocks,
+	)
+	require.Equal(t, expectedExecutionStates, execStates)
+
+	changeset.WaitForTokenBalances(ctx, t, e.Chains, expectedTokenBalances)
 }
 
 func createAndFundSelfServeActor(

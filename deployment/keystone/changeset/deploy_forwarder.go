@@ -9,16 +9,10 @@ import (
 
 var _ deployment.ChangeSet[uint64] = DeployForwarder
 
+// DeployForwarder deploys the KeystoneForwarder contract to all chains in the environment
+// callers must merge the output addressbook with the existing one
 func DeployForwarder(env deployment.Environment, registryChainSel uint64) (deployment.ChangesetOutput, error) {
 	lggr := env.Logger
-	// expect OCR3 to be deployed & capabilities registry
-	regAddrs, err := env.ExistingAddresses.AddressesForChain(registryChainSel)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("no addresses found for chain %d: %w", registryChainSel, err)
-	}
-	if len(regAddrs) != 2 {
-		return deployment.ChangesetOutput{}, fmt.Errorf("expected 2 addresses for chain %d, got %d", registryChainSel, len(regAddrs))
-	}
 	ab := deployment.NewMemoryAddressBook()
 	for _, chain := range env.Chains {
 		lggr.Infow("deploying forwarder", "chainSelector", chain.Selector)
