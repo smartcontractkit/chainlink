@@ -127,6 +127,7 @@ func (v NOP) Validate() error {
 // in is in a convenient form to handle the CLO representation of the nop data
 type DonCapabilities struct {
 	Name         string
+	F            uint8
 	Nops         []NOP
 	Capabilities []kcr.CapabilitiesRegistryCapability // every capability is hosted on each nop
 }
