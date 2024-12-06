@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -57,6 +58,12 @@ func (c *Capability) Start(ctx context.Context) error {
 }
 
 func (c *Capability) Close() error {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	err := c.registry.Remove(ctx, c.capabilityInfo.ID)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

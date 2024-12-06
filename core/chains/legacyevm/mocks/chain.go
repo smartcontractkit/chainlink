@@ -795,7 +795,7 @@ func (_m *Chain) Name() string {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
-		panic("no return value specified for String")
+		panic("no return value specified for Name")
 	}
 
 	var r0 string
@@ -808,14 +808,14 @@ func (_m *Chain) Name() string {
 	return r0
 }
 
-// Chain_Name_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'String'
+// Chain_Name_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Name'
 type Chain_Name_Call struct {
 	*mock.Call
 }
 
 // Name is a helper method to define mock.On call
 func (_e *Chain_Expecter) Name() *Chain_Name_Call {
-	return &Chain_Name_Call{Call: _e.mock.On("String")}
+	return &Chain_Name_Call{Call: _e.mock.On("Name")}
 }
 
 func (_c *Chain_Name_Call) Run(run func()) *Chain_Name_Call {

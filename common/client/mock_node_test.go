@@ -162,7 +162,7 @@ func (_m *mockNode[CHAIN_ID, RPC]) Name() string {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
-		panic("no return value specified for String")
+		panic("no return value specified for Name")
 	}
 
 	var r0 string
@@ -175,14 +175,14 @@ func (_m *mockNode[CHAIN_ID, RPC]) Name() string {
 	return r0
 }
 
-// mockNode_Name_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'String'
+// mockNode_Name_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Name'
 type mockNode_Name_Call[CHAIN_ID types.ID, RPC any] struct {
 	*mock.Call
 }
 
 // Name is a helper method to define mock.On call
 func (_e *mockNode_Expecter[CHAIN_ID, RPC]) Name() *mockNode_Name_Call[CHAIN_ID, RPC] {
-	return &mockNode_Name_Call[CHAIN_ID, RPC]{Call: _e.mock.On("String")}
+	return &mockNode_Name_Call[CHAIN_ID, RPC]{Call: _e.mock.On("Name")}
 }
 
 func (_c *mockNode_Name_Call[CHAIN_ID, RPC]) Run(run func()) *mockNode_Name_Call[CHAIN_ID, RPC] {

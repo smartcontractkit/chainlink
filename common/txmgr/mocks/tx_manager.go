@@ -773,7 +773,7 @@ func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Name()
 	ret := _m.Called()
 
 	if len(ret) == 0 {
-		panic("no return value specified for String")
+		panic("no return value specified for Name")
 	}
 
 	var r0 string
@@ -786,14 +786,14 @@ func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Name()
 	return r0
 }
 
-// TxManager_Name_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'String'
+// TxManager_Name_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Name'
 type TxManager_Name_Call[CHAIN_ID types.ID, HEAD types.Head[BLOCK_HASH], ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Hashable, SEQ types.Sequence, FEE feetypes.Fee] struct {
 	*mock.Call
 }
 
 // Name is a helper method to define mock.On call
 func (_e *TxManager_Expecter[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Name() *TxManager_Name_Call[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
-	return &TxManager_Name_Call[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{Call: _e.mock.On("String")}
+	return &TxManager_Name_Call[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{Call: _e.mock.On("Name")}
 }
 
 func (_c *TxManager_Name_Call[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Run(run func()) *TxManager_Name_Call[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
