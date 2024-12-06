@@ -37,7 +37,7 @@ func (req *AppendNodeCapabilitiesRequest) convert(e deployment.Environment) (*in
 	}
 	contracts, err := kslib.GetContractSets(e.Logger, &kslib.GetContractSetsRequest{
 		Chains:      map[uint64]deployment.Chain{req.RegistryChainSel: registryChain},
-		AddressBook: req.AddressBook,
+		AddressBook: e.ExistingAddresses,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get contract sets: %w", err)

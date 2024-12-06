@@ -433,10 +433,14 @@ func RegisterCapabilities(lggr logger.Logger, req RegisterCapabilitiesRequest) (
 	if len(req.DonToCapabilities) == 0 {
 		return nil, fmt.Errorf("no capabilities to register")
 	}
-	registry, registryChain, err := GetRegistryContract(req.Env, req.RegistryChainSelector, req.Env.ExistingAddresses)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get registry: %w", err)
-	}
+	cresp, err := GetContractSets(req.Env.Logger, &GetContractSetsRequest{
+		Chains:      req.Env.Chains,
+		AddressBook: req.Env.ExistingAddresses,
+	})
+	contracts := cresp.ContractSets[req.RegistryChainSelector]
+	registry := contracts.CapabilitiesRegistry
+	registryChain := req.Env.Chains[req.RegistryChainSelector]
+
 	lggr.Infow("registering capabilities...", "len", len(req.DonToCapabilities))
 	resp := &RegisterCapabilitiesResponse{
 		DonToCapabilities: make(map[string][]RegisteredCapability),
@@ -471,7 +475,7 @@ func RegisterCapabilities(lggr logger.Logger, req RegisterCapabilitiesRequest) (
 		capabilities = append(capabilities, cap)
 	}
 	// not using mcms; ignore proposals
-	_, err = AddCapabilities(lggr, registry, registryChain, capabilities, false)
+	_, err = AddCapabilities(lggr, &contracts, registryChain, capabilities, false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add capabilities: %w", err)
 	}

@@ -11,9 +11,9 @@ import (
 )
 
 type UpdateNodeCapabilitiesImplRequest struct {
-	Chain    deployment.Chain
-	Registry *kcr.CapabilitiesRegistry
-
+	Chain             deployment.Chain
+	Registry          *kcr.CapabilitiesRegistry
+	ContractSet       *kslib.ContractSet
 	P2pToCapabilities map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability
 
 	UseMCMS bool
@@ -39,7 +39,7 @@ func UpdateNodeCapabilitiesImpl(lggr logger.Logger, req *UpdateNodeCapabilitiesI
 	for _, cap := range req.P2pToCapabilities {
 		capabilities = append(capabilities, cap...)
 	}
-	proposals, err := kslib.AddCapabilities(lggr, req.Registry, req.Chain, capabilities, req.UseMCMS)
+	op, err := kslib.AddCapabilities(lggr, req.ContractSet, req.Chain, capabilities, req.UseMCMS)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add capabilities: %w", err)
 	}
@@ -53,12 +53,13 @@ func UpdateNodeCapabilitiesImpl(lggr logger.Logger, req *UpdateNodeCapabilitiesI
 		Chain:        req.Chain,
 		Registry:     req.Registry,
 		P2pToUpdates: p2pToUpdates,
+		ContractSet:  req.ContractSet,
+		Ops:          op,
 		UseMCMS:      req.UseMCMS,
 	}
 	resp, err := UpdateNodes(lggr, updateNodesReq)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update nodes: %w", err)
 	}
-	resp.Proposals = append(proposals, resp.Proposals...)
 	return resp, nil
 }

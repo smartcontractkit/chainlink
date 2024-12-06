@@ -9,9 +9,7 @@ import (
 	"sort"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -19,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 )
 
@@ -37,7 +34,8 @@ type UpdateNodesRequest struct {
 
 	P2pToUpdates map[p2pkey.PeerID]NodeUpdate
 
-	ContractSet kslib.ContractSet // contract set for the given chain
+	ContractSet *kslib.ContractSet // contract set for the given chain
+	Ops         *timelock.BatchChainOperation
 	UseMCMS     bool
 }
 
@@ -89,7 +87,8 @@ func (req *UpdateNodesRequest) Validate() error {
 
 type UpdateNodesResponse struct {
 	NodeParams []kcr.CapabilitiesRegistryNodeParams
-	Proposals  []timelock.MCMSWithTimelockProposal
+	//Proposals  []timelock.MCMSWithTimelockProposal
+	Ops *timelock.BatchChainOperation
 }
 
 // UpdateNodes updates the nodes in the registry
@@ -115,44 +114,32 @@ func UpdateNodes(lggr logger.Logger, req *UpdateNodesRequest) (*UpdateNodesRespo
 		return nil, fmt.Errorf("failed to call UpdateNodes: %w", err)
 	}
 
-	var proposals []timelock.MCMSWithTimelockProposal
+	ops := req.Ops
 	if !req.UseMCMS {
 		_, err = req.Chain.Confirm(tx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to confirm UpdateNodes confirm transaction %s: %w", tx.Hash().String(), err)
 		}
 	} else {
-		ops := timelock.BatchChainOperation{
-			ChainIdentifier: mcms.ChainIdentifier(req.Chain.Selector),
-			Batch: []mcms.Operation{
-				{
-					To:    req.Registry.Address(),
-					Data:  tx.Data(),
-					Value: big.NewInt(0),
-				},
-			},
-		}
-		timelocksPerChain := map[uint64]common.Address{
-			req.Chain.Selector: req.ContractSet.Timelock.Address(),
-		}
-		proposerMCMSes := map[uint64]*gethwrappers.ManyChainMultiSig{
-			req.Chain.Selector: req.ContractSet.ProposerMcm,
+		op := mcms.Operation{
+			To:    req.Registry.Address(),
+			Data:  tx.Data(),
+			Value: big.NewInt(0),
 		}
 
-		proposal, err := proposalutils.BuildProposalFromBatches(
-			timelocksPerChain,
-			proposerMCMSes,
-			[]timelock.BatchChainOperation{ops},
-			"proposal to set update nodes",
-			0,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to build proposal: %w", err)
+		if ops == nil {
+			ops = &timelock.BatchChainOperation{
+				ChainIdentifier: mcms.ChainIdentifier(req.Chain.Selector),
+				Batch: []mcms.Operation{
+					op,
+				},
+			}
+		} else {
+			ops.Batch = append(ops.Batch, op)
 		}
-		proposals = append(proposals, *proposal)
 	}
 
-	return &UpdateNodesResponse{NodeParams: params, Proposals: proposals}, nil
+	return &UpdateNodesResponse{NodeParams: params, Ops: ops}, nil
 }
 
 // AppendCapabilities appends the capabilities to the existing capabilities of the nodes listed in p2pIds in the registry
