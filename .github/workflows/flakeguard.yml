@@ -101,7 +101,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@1e6eecca8030d187b90e05175e310fcc8d37f9e4 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@6e82b1d547c5ae9c30cd972e88f512a7391404fc # flakguard@0.1.0
 
       - name: Find new or updated test packages
         if: ${{ inputs.runAllTests == false }}
@@ -260,7 +260,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@1e6eecca8030d187b90e05175e310fcc8d37f9e4 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@6e82b1d547c5ae9c30cd972e88f512a7391404fc # flakguard@0.1.0
 
       - name: Run tests with flakeguard
         shell: bash
@@ -307,7 +307,7 @@ jobs:
             
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@1e6eecca8030d187b90e05175e310fcc8d37f9e4 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@6e82b1d547c5ae9c30cd972e88f512a7391404fc # flakguard@0.1.0
                 
       - name: Generate Flakeguard Report
         id: results
@@ -344,55 +344,55 @@ jobs:
           fi
       
           # Read the summary from the generated report
-          summary=$(jq -c '.' ./flakeguard-report/all-tests-summary.json)
+          summary=$(jq -c '.' ./flakeguard-report/all-test-summary.json)
           echo "summary=$summary" >> $GITHUB_OUTPUT
       
       - name: Tests Summary
         if: ${{ fromJSON(steps.results.outputs.summary).total_tests > 0 }}
         run: |
-          FILE_SIZE=$(wc -c < ./flakeguard-report/all-tests-summary.md)
+          FILE_SIZE=$(wc -c < ./flakeguard-report/all-test-summary.md)
                     echo "File size: $FILE_SIZE bytes"
           SIZE_LIMIT=$((1024 * 1024))
 
           if [ "$FILE_SIZE" -le "$SIZE_LIMIT" ]; then
-            cat ./flakeguard-report/all-tests-summary.md >> $GITHUB_STEP_SUMMARY
+            cat ./flakeguard-report/all-test-summary.md >> $GITHUB_STEP_SUMMARY
           else
             echo "**We found flaky tests, so many flaky tests that the summary is too large for github actions step summaries!**" >> $GITHUB_STEP_SUMMARY
-            echo "**Please see logs, or the attached `all-tests-summary.md` artifact**" >> $GITHUB_STEP_SUMMARY
-            cat ./flakeguard-report/all-tests-summary.md
+            echo "**Please see logs, or the attached `all-test-summary.md` artifact**" >> $GITHUB_STEP_SUMMARY
+            cat ./flakeguard-report/all-test-summary.md
           fi
 
       - name: Upload All Tests Summary as Artifact
         if: ${{ fromJSON(steps.results.outputs.summary).total_tests > 0 }}
         uses: actions/upload-artifact@v4.4.3
         with:
-          path: ./flakeguard-report/all-tests-summary.md
-          name: all-tests-summary.md
+          path: ./flakeguard-report/all-test-summary.md
+          name: all-test-summary.md
           retention-days: 90
 
       - name: Upload All Test Results as Artifact
         if: ${{ fromJSON(steps.results.outputs.summary).total_tests > 0 }}
         uses: actions/upload-artifact@v4.4.3
         with:
-          path: ./flakeguard-report/all-tests-report.json
-          name: all-tests-report.json
+          path: ./flakeguard-report/all-test-results.json
+          name: all-test-results.json
           retention-days: 90
       
-      # - name: Upload Failed Tests Summary as Artifact
-      #   if: ${{ fromJSON(steps.results.outputs.summary).total_tests > 0 }}
-      #   uses: actions/upload-artifact@v4.4.3
-      #   with:
-      #     path: failed_tests.md
-      #     name: failed-summary.md
-      #     retention-days: 90
-
       - name: Upload Failed Test Results as Artifact
         if: ${{ fromJSON(steps.results.outputs.summary).failed_runs > 0 }}
         uses: actions/upload-artifact@v4.4.3
         with:
-          path: ./flakeguard-report/failed-tests-report.json
-          name: failed-test-report.json
-          retention-days: 90        
+          path: ./flakeguard-report/failed-test-results.json
+          name: failed-test-results.json
+          retention-days: 90 
+          
+      - name: Upload Failed Test Results With Logs as Artifact
+        if: ${{ fromJSON(steps.results.outputs.summary).failed_runs > 0 }}
+        uses: actions/upload-artifact@v4.4.3
+        with:
+          path: ./flakeguard-report/failed-test-results-with-logs.json
+          name: failed-test-results-with-logs.json
+          retention-days: 7
 
       - name: Post comment on PR if flaky tests found
         if: ${{ fromJSON(steps.results.outputs.summary).flaky_tests > 0 && github.event_name == 'pull_request' }}
@@ -402,7 +402,7 @@ jobs:
           script: |
             const fs = require('fs');
             const prNumber = context.payload.pull_request.number;
-            const commentBody = fs.readFileSync('./flakeguard-report/all-tests-pr-comment.md', 'utf8');
+            const commentBody = fs.readFileSync('./flakeguard-report/all-test-pr-comment.md', 'utf8');
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,
