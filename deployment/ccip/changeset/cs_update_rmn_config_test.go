@@ -9,6 +9,7 @@ import (
 	mcms "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_remote"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -26,6 +27,8 @@ func TestUpdateRMNHomeConfig(t *testing.T) {
 	// This is required because RMNHome is initially owner by the deployer
 	err = transferOwnershipToHomeChainTimelock(t, e, state)
 	require.NoError(t, err)
+	err = transferOwnershipForRMNRemote(t, e, state)
+	require.NoError(t, err)
 
 	rmnHome := state.Chains[e.HomeChainSel].RMNHome
 
@@ -34,17 +37,17 @@ func TestUpdateRMNHomeConfig(t *testing.T) {
 	previousActiveDigest, err := rmnHome.GetActiveDigest(nil)
 	require.NoError(t, err)
 
-	configInput := SetRMNHomeCandidateConfig{
+	setRMNHomeCandidateConfig := SetRMNHomeCandidateConfig{
 		HomeChainSelector: e.HomeChainSel,
 		RMNStaticConfig:   NewTestRMNStaticConfig(),
 		RMNDynamicConfig:  NewTestRMNDynamicConfig(),
 	}
 
-	timelocksPerChain := buildTimelockPerChain(e, state)
+	timelocksPerChain := buildTimelockPerChain(e.Env, state)
 	commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(NewSetRMNHomeCandidateConfigChangeset),
-			Config:    configInput,
+			Config:    setRMNHomeCandidateConfig,
 		},
 	})
 
@@ -59,14 +62,14 @@ func TestUpdateRMNHomeConfig(t *testing.T) {
 	require.NotEqual(t, previousCandidateDigest, currentCandidateDigest)
 	require.Equal(t, previousActiveDigest, currentActiveDigest)
 
-	promoteConfigInput := PromoteRMNHomeCandidateConfig{
+	promoteConfig := PromoteRMNHomeCandidateConfig{
 		HomeChainSelector: e.HomeChainSel,
 	}
 
-	commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
+	_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(NewPromoteCandidateConfigChangeset),
-			Config:    promoteConfigInput,
+			Config:    promoteConfig,
 		},
 	})
 
@@ -75,14 +78,37 @@ func TestUpdateRMNHomeConfig(t *testing.T) {
 
 	require.NoError(t, err)
 	require.NotEqual(t, previousActiveDigest, currentActiveDigest)
-}
 
-func buildTimelockPerChain(e DeployedEnv, state CCIPOnChainState) map[uint64]*mcms.RBACTimelock {
-	timelocksPerChain := make(map[uint64]*mcms.RBACTimelock)
-	for _, chain := range e.Env.Chains {
-		timelocksPerChain[chain.Selector] = state.Chains[chain.Selector].Timelock
+	setRemoteConfig := SetRMNRemoteConfig{
+		HomeChainSelector: e.HomeChainSel,
+		Signers: []rmn_remote.RMNRemoteSigner{
+			{
+				OnchainPublicKey: common.Address{},
+				NodeIndex:        0,
+			},
+		},
+		F: 0,
 	}
-	return timelocksPerChain
+
+	_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(NewSetRMNRemoteConfigChangeset),
+			Config:    setRemoteConfig,
+		},
+	})
+
+	require.NoError(t, err)
+	rmnRemotePerChain := buildRemoteRemotePerChain(e.Env, state)
+	for _, rmnRemote := range rmnRemotePerChain {
+		remoteConfigSetEvents, err := rmnRemote.FilterConfigSet(nil, nil)
+		require.NoError(t, err)
+		var lastEvent *rmn_remote.RMNRemoteConfigSet
+		for remoteConfigSetEvents.Next() {
+			lastEvent = remoteConfigSetEvents.Event
+		}
+		require.NotNil(t, lastEvent)
+		require.Equal(t, lastEvent.Config.RmnHomeContractConfigDigest, currentActiveDigest)
+	}
 }
 
 func transferOwnershipToHomeChainTimelock(t *testing.T, e DeployedEnv, state CCIPOnChainState) error {
@@ -98,7 +124,7 @@ func transferOwnershipToHomeChainTimelock(t *testing.T, e DeployedEnv, state CCI
 		},
 	})
 
-	timelocksPerChain := buildTimelockPerChain(e, state)
+	timelocksPerChain := buildTimelockPerChain(e.Env, state)
 
 	_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
 		{
@@ -118,4 +144,40 @@ func transferOwnershipToHomeChainTimelock(t *testing.T, e DeployedEnv, state CCI
 	})
 
 	return err
+}
+
+func transferOwnershipForRMNRemote(t *testing.T, e DeployedEnv, state CCIPOnChainState) error {
+	rmnRemotePerChain := buildRemoteRemotePerChain(e.Env, state)
+	timelockAddressPerChain := buildTimelockAddressPerChain(e.Env, state)
+	timelocksPerChain := buildTimelockPerChain(e.Env, state)
+	proposers := buildProposerPerChain(e.Env, state)
+	for chain, rmnRemote := range rmnRemotePerChain {
+		_, err := commonchangeset.NewTransferOwnershipChangeset(e.Env, commonchangeset.TransferOwnershipConfig{
+			Contracts: map[uint64][]commonchangeset.OwnershipTransferrer{
+				chain: {rmnRemote},
+			},
+			OwnersPerChain: timelockAddressPerChain,
+		})
+		if err != nil {
+			return err
+		}
+
+		_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
+			{
+				Changeset: commonchangeset.WrapChangeSet(commonchangeset.NewAcceptOwnershipChangeset),
+				Config: commonchangeset.AcceptOwnershipConfig{
+					Contracts: map[uint64][]commonchangeset.OwnershipAcceptor{
+						chain: {rmnRemote},
+					},
+					OwnersPerChain: timelockAddressPerChain,
+					ProposerMCMSes: proposers,
+				},
+			},
+		})
+
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
