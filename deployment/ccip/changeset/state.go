@@ -13,7 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view"
@@ -135,35 +134,35 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	if c.Router != nil {
 		routerView, err := v1_2.GenerateRouterView(c.Router)
 		if err != nil {
-			return chainView, err
+			return chainView, errors.Wrapf(err, "failed to generate router view for router %s", c.Router.Address().String())
 		}
 		chainView.Router[c.Router.Address().Hex()] = routerView
 	}
 	if c.TokenAdminRegistry != nil {
 		taView, err := v1_5.GenerateTokenAdminRegistryView(c.TokenAdminRegistry)
 		if err != nil {
-			return chainView, err
+			return chainView, errors.Wrapf(err, "failed to generate token admin registry view for token admin registry %s", c.TokenAdminRegistry.Address().String())
 		}
 		chainView.TokenAdminRegistry[c.TokenAdminRegistry.Address().Hex()] = taView
 	}
 	if c.NonceManager != nil {
 		nmView, err := v1_6.GenerateNonceManagerView(c.NonceManager)
 		if err != nil {
-			return chainView, err
+			return chainView, errors.Wrapf(err, "failed to generate nonce manager view for nonce manager %s", c.NonceManager.Address().String())
 		}
 		chainView.NonceManager[c.NonceManager.Address().Hex()] = nmView
 	}
 	if c.RMNRemote != nil {
 		rmnView, err := v1_6.GenerateRMNRemoteView(c.RMNRemote)
 		if err != nil {
-			return chainView, err
+			return chainView, errors.Wrapf(err, "failed to generate rmn remote view for rmn remote %s", c.RMNRemote.Address().String())
 		}
 		chainView.RMN[c.RMNRemote.Address().Hex()] = rmnView
 	}
 	if c.FeeQuoter != nil && c.Router != nil && c.TokenAdminRegistry != nil {
 		fqView, err := v1_6.GenerateFeeQuoterView(c.FeeQuoter, c.Router, c.TokenAdminRegistry)
 		if err != nil {
-			return chainView, err
+			return chainView, errors.Wrapf(err, "failed to generate fee quoter view for fee quoter %s", c.FeeQuoter.Address().String())
 		}
 		chainView.FeeQuoter[c.FeeQuoter.Address().Hex()] = fqView
 	}
@@ -175,7 +174,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 			c.TokenAdminRegistry,
 		)
 		if err != nil {
-			return chainView, err
+			return chainView, errors.Wrapf(err, "failed to generate on ramp view for on ramp %s", c.OnRamp.Address().String())
 		}
 		chainView.OnRamp[c.OnRamp.Address().Hex()] = onRampView
 	}
@@ -186,7 +185,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 			c.Router,
 		)
 		if err != nil {
-			return chainView, err
+			return chainView, errors.Wrapf(err, "failed to generate off ramp view for off ramp %s", c.OffRamp.Address().String())
 		}
 		chainView.OffRamp[c.OffRamp.Address().Hex()] = offRampView
 	}
@@ -194,7 +193,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	if c.CommitStore != nil {
 		commitStoreView, err := v1_5.GenerateCommitStoreView(c.CommitStore)
 		if err != nil {
-			return chainView, err
+			return chainView, errors.Wrapf(err, "failed to generate commit store view for commit store %s", c.CommitStore.Address().String())
 		}
 		chainView.CommitStore[c.CommitStore.Address().Hex()] = commitStoreView
 	}
@@ -202,28 +201,28 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	if c.RMNProxyNew != nil {
 		rmnProxyView, err := v1_0.GenerateRMNProxyView(c.RMNProxyNew)
 		if err != nil {
-			return chainView, err
+			return chainView, errors.Wrapf(err, "failed to generate rmn proxy view for rmn proxy %s", c.RMNProxyNew.Address().String())
 		}
 		chainView.RMNProxy[c.RMNProxyNew.Address().Hex()] = rmnProxyView
 	}
 	if c.CapabilityRegistry != nil {
 		capRegView, err := common_v1_0.GenerateCapabilityRegistryView(c.CapabilityRegistry)
 		if err != nil {
-			return chainView, err
+			return chainView, errors.Wrapf(err, "failed to generate capability registry view for capability registry %s", c.CapabilityRegistry.Address().String())
 		}
 		chainView.CapabilityRegistry[c.CapabilityRegistry.Address().Hex()] = capRegView
 	}
 	if c.MCMSWithTimelockState.Timelock != nil {
 		mcmsView, err := c.MCMSWithTimelockState.GenerateMCMSWithTimelockView()
 		if err != nil {
-			return chainView, err
+			return chainView, errors.Wrapf(err, "failed to generate MCMS with timelock view for MCMS with timelock %s", c.MCMSWithTimelockState.Timelock.Address().String())
 		}
 		chainView.MCMSWithTimelock = mcmsView
 	}
 	if c.LinkToken != nil {
 		linkTokenView, err := c.GenerateLinkView()
 		if err != nil {
-			return chainView, err
+			return chainView, errors.Wrapf(err, "failed to generate link token view for link token %s", c.LinkToken.Address().String())
 		}
 		chainView.LinkToken = linkTokenView
 	}
@@ -250,12 +249,7 @@ type CCIPOnChainState struct {
 func (s CCIPOnChainState) View(chains []uint64) (map[string]view.ChainView, error) {
 	m := make(map[string]view.ChainView)
 	for _, chainSelector := range chains {
-		// TODO: Need a utility for this
-		chainid, err := chainsel.ChainIdFromSelector(chainSelector)
-		if err != nil {
-			return m, err
-		}
-		chainName, err := chainsel.NameFromChainId(chainid)
+		chainInfo, err := deployment.ChainInfo(chainSelector)
 		if err != nil {
 			return m, err
 		}
@@ -267,7 +261,7 @@ func (s CCIPOnChainState) View(chains []uint64) (map[string]view.ChainView, erro
 		if err != nil {
 			return m, err
 		}
-		m[chainName] = chainView
+		m[chainInfo.ChainName] = chainView
 	}
 	return m, nil
 }
