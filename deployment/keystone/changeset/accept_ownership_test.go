@@ -1,6 +1,7 @@
 package changeset_test
 
 import (
+	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"testing"
 
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
@@ -44,7 +45,7 @@ func TestAcceptAllOwnership(t *testing.T) {
 		},
 		{
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployMCMSWithTimelock),
-			Config:    mcmsConfig,
+			Config:    map[uint64]types.MCMSWithTimelockConfig{registrySel: mcmsConfig},
 		},
 	})
 	require.NoError(t, err)
