@@ -3,6 +3,7 @@ package ocr2key
 import (
 	"bytes"
 	cryptorand "crypto/rand"
+	"math"
 	"math/rand"
 	"testing"
 
@@ -95,4 +96,67 @@ func TestEVMKeyring_Marshalling(t *testing.T) {
 
 	// Invalid seed size should error
 	assert.Error(t, kr2.Unmarshal([]byte{0x01}))
+}
+
+func TestRawReportContext3(t *testing.T) {
+	testCases := []struct {
+		name     string
+		digest   [32]byte
+		seqNr    uint64
+		expected [2][32]byte
+	}{
+		{
+			name:   "zero values",
+			digest: [32]byte{},
+			seqNr:  0,
+			expected: [2][32]byte{
+				{},
+				{},
+			},
+		},
+		{
+			name:   "some digest",
+			digest: [32]byte{1, 2, 3},
+			seqNr:  0,
+			expected: [2][32]byte{
+				{1, 2, 3},
+				{},
+			},
+		},
+		{
+			name:   "sequence number set to 1",
+			digest: [32]byte{},
+			seqNr:  1,
+			expected: [2][32]byte{
+				{},
+				{
+					0, 0, 0, 0, 0, 0, 0, 0,
+					0, 0, 0, 0, 0, 0, 0, 0,
+					0, 0, 0, 0, 0, 0, 0, 0,
+					0, 0, 0, 0, 0, 0, 0, 1,
+				},
+			},
+		},
+		{
+			name:   "sequence number set to max uint64",
+			digest: [32]byte{1, 2, 3},
+			seqNr:  math.MaxUint64,
+			expected: [2][32]byte{
+				{1, 2, 3},
+				{
+					0, 0, 0, 0, 0, 0, 0, 0,
+					0, 0, 0, 0, 0, 0, 0, 0,
+					0, 0, 0, 0, 0, 0, 0, 0,
+					0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			actual := RawReportContext3(tc.digest, tc.seqNr)
+			assert.Equal(t, tc.expected, actual, "unexpected result")
+		})
+	}
 }

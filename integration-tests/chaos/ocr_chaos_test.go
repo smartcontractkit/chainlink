@@ -141,15 +141,24 @@ func TestOCRChaos(t *testing.T) {
 		t.Run(fmt.Sprintf("OCR_%s", name), func(t *testing.T) {
 			t.Parallel()
 
+			nsLabels, err := environment.GetRequiredChainLinkNamespaceLabels("data-feedsv1.0", "chaos")
+			require.NoError(t, err, "Error creating required chain.link labels for namespace")
+
+			workloadPodLabels, err := environment.GetRequiredChainLinkWorkloadAndPodLabels("data-feedsv1.0", "chaos")
+			require.NoError(t, err, "Error creating required chain.link labels for workloads and pods")
+
 			testEnvironment := environment.New(&environment.Config{
 				NamespacePrefix: fmt.Sprintf("chaos-ocr-%s", name),
 				Test:            t,
+				Labels:          nsLabels,
+				WorkloadLabels:  workloadPodLabels,
+				PodLabels:       workloadPodLabels,
 			}).
 				AddHelm(mockservercfg.New(nil)).
 				AddHelm(mockserver.New(nil)).
 				AddHelm(testCase.networkChart).
 				AddHelm(testCase.clChart)
-			err := testEnvironment.Run()
+			err = testEnvironment.Run()
 			require.NoError(t, err)
 			if testEnvironment.WillUseRemoteRunner() {
 				return

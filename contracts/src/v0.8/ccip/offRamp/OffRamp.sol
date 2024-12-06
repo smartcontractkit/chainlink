@@ -322,7 +322,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   /// @notice Transmit function for execution reports. The function takes no signatures, and expects the exec plugin
   /// type to be configured with no signatures.
   /// @param report serialized execution report.
-  function execute(bytes32[3] calldata reportContext, bytes calldata report) external {
+  function execute(bytes32[2] calldata reportContext, bytes calldata report) external {
     _batchExecute(abi.decode(report, (Internal.ExecutionReport[])), new GasLimitOverride[][](0));
 
     bytes32[] memory emptySigs = new bytes32[](0);
@@ -773,7 +773,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   /// price updates is submitted, we are OK to revert to preserve the invariant that we always revert on invalid
   /// sequence number ranges. If that happens, prices will be updated in later rounds.
   function commit(
-    bytes32[3] calldata reportContext,
+    bytes32[2] calldata reportContext,
     bytes calldata report,
     bytes32[] calldata rs,
     bytes32[] calldata ss,

@@ -60,7 +60,7 @@ func (ekr *evmKeyring) reportToSigData3(digest types.ConfigDigest, seqNr uint64,
 
 func RawReportContext3(digest types.ConfigDigest, seqNr uint64) [2][32]byte {
 	seqNrBytes := [32]byte{}
-	binary.BigEndian.PutUint64(seqNrBytes[:], seqNr)
+	binary.BigEndian.PutUint64(seqNrBytes[24:], seqNr)
 	return [2][32]byte{
 		digest,
 		seqNrBytes,
