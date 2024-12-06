@@ -65,6 +65,15 @@ func (c Chain) String() string {
 	return fmt.Sprintf("%s (%d)", chainInfo.ChainName, chainInfo.ChainSelector)
 }
 
+func (c Chain) Name() string {
+	chainInfo, err := ChainInfo(c.Selector)
+	if err != nil {
+		// we should never get here, if the selector is invalid it should not be in the environment
+		panic(err)
+	}
+	return chainInfo.ChainName
+}
+
 // Environment represents an instance of a deployed product
 // including on and offchain components. It is intended to be
 // cross-family to enable a coherent view of a product deployed
