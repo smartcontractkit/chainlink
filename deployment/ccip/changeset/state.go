@@ -237,7 +237,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	return chainView, nil
 }
 
-// Onchain state always derivable from an address book.
+// CCIPOnChainState state always derivable from an address book.
 // Offchain state always derivable from a list of nodeIds.
 // Note can translate this into Go struct needed for MCMS/Docs/UI.
 type CCIPOnChainState struct {
@@ -298,18 +298,18 @@ func LoadOnchainState(e deployment.Environment) (CCIPOnChainState, error) {
 // LoadChainState Loads all state for a chain into state
 func LoadChainState(chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (CCIPChainState, error) {
 	var state CCIPChainState
-	mcmsWithTimelock, err := commoncs.LoadMCMSWithTimelockState(chain, addresses)
+	mcmsWithTimelock, err := commoncs.MaybeLoadMCMSWithTimelockState(chain, addresses)
 	if err != nil {
 		return state, err
 	}
 	state.MCMSWithTimelockState = *mcmsWithTimelock
 
-	linkState, err := commoncs.LoadLinkTokenState(chain, addresses)
+	linkState, err := commoncs.MaybeLoadLinkTokenState(chain, addresses)
 	if err != nil {
 		return state, err
 	}
 	state.LinkTokenState = *linkState
-	staticLinkState, err := commoncs.LoadStaticLinkTokenState(chain, addresses)
+	staticLinkState, err := commoncs.MaybeLoadStaticLinkTokenState(chain, addresses)
 	if err != nil {
 		return state, err
 	}
