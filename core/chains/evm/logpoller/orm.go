@@ -1136,6 +1136,7 @@ func (o *DSORM) FilteredLogs(ctx context.Context, filter []query.Expression, lim
 	}
 
 	var logs []Log
+	o.lggr.Debugw("FilteredLogs", "query", query)
 	if err = o.ds.SelectContext(ctx, &logs, query, sqlArgs...); err != nil {
 		return nil, err
 	}
