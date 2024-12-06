@@ -273,9 +273,19 @@ func (c *Compute) worker(ctx context.Context) {
 }
 
 func (c *Compute) Close() error {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
 	c.modules.close()
 	close(c.stopCh)
+
+	err := c.registry.Remove(ctx, CapabilityIDCompute)
+	if err != nil {
+		return err
+	}
+
 	c.wg.Wait()
+
 	return nil
 }
 
