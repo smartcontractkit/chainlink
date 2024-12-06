@@ -115,6 +115,7 @@ func (te TestEnv) ContractSets() map[uint64]kslib.ContractSet {
 }
 
 // SetupTestEnv sets up a keystone test environment with the given configuration
+// TODO: make more configurable; eg many tests don't need all the nodes (like when testing a registry change)
 func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 	require.NoError(t, c.Validate())
 	lggr := logger.Test(t)

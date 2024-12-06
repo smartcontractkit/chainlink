@@ -5,16 +5,21 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math/big"
 	"sort"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 )
 
@@ -88,7 +93,8 @@ type UpdateNodesResponse struct {
 }
 
 // UpdateNodes updates the nodes in the registry
-// the update sets the signer and capabilities for each node. it does not append capabilities to the existing ones
+// the update sets the signer and capabilities for each node.
+// The nodes and capabilities must already exist in the registry.
 func UpdateNodes(lggr logger.Logger, req *UpdateNodesRequest) (*UpdateNodesResponse, error) {
 	if err := req.Validate(); err != nil {
 		return nil, fmt.Errorf("failed to validate request: %w", err)
@@ -108,6 +114,7 @@ func UpdateNodes(lggr logger.Logger, req *UpdateNodesRequest) (*UpdateNodesRespo
 		err = kslib.DecodeErr(kcr.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to call UpdateNodes: %w", err)
 	}
+
 	var proposals []timelock.MCMSWithTimelockProposal
 	if !req.UseMCMS {
 		_, err = req.Chain.Confirm(tx)
@@ -115,7 +122,34 @@ func UpdateNodes(lggr logger.Logger, req *UpdateNodesRequest) (*UpdateNodesRespo
 			return nil, fmt.Errorf("failed to confirm UpdateNodes confirm transaction %s: %w", tx.Hash().String(), err)
 		}
 	} else {
-		// TODO
+		ops := timelock.BatchChainOperation{
+			ChainIdentifier: mcms.ChainIdentifier(req.Chain.Selector),
+			Batch: []mcms.Operation{
+				{
+					To:    req.Registry.Address(),
+					Data:  tx.Data(),
+					Value: big.NewInt(0),
+				},
+			},
+		}
+		timelocksPerChain := map[uint64]common.Address{
+			req.Chain.Selector: req.ContractSet.Timelock.Address(),
+		}
+		proposerMCMSes := map[uint64]*gethwrappers.ManyChainMultiSig{
+			req.Chain.Selector: req.ContractSet.ProposerMcm,
+		}
+
+		proposal, err := proposalutils.BuildProposalFromBatches(
+			timelocksPerChain,
+			proposerMCMSes,
+			[]timelock.BatchChainOperation{ops},
+			"proposal to set update nodes",
+			0,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to build proposal: %w", err)
+		}
+		proposals = append(proposals, *proposal)
 	}
 
 	return &UpdateNodesResponse{NodeParams: params, Proposals: proposals}, nil
