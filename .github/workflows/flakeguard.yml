@@ -101,7 +101,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@9e40f2765df01f20b3bf53f0fb3ead920e3a1f4a # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@d9043b4d20ecea135a17989eb0f11dcc7085fe2c # flakguard@0.1.0
 
       - name: Find new or updated test packages
         if: ${{ inputs.runAllTests == false }}
@@ -260,7 +260,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@9e40f2765df01f20b3bf53f0fb3ead920e3a1f4a # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@d9043b4d20ecea135a17989eb0f11dcc7085fe2c # flakguard@0.1.0
 
       - name: Run tests with flakeguard
         shell: bash
@@ -282,7 +282,7 @@ jobs:
     name: Report
     runs-on: ubuntu-latest
     outputs:
-      test_results: ${{ steps.set_test_results.outputs.results }}
+      test_results: ${{ steps.results.outputs.results }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
@@ -307,136 +307,83 @@ jobs:
             
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@9e40f2765df01f20b3bf53f0fb3ead920e3a1f4a # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@d9043b4d20ecea135a17989eb0f11dcc7085fe2c # flakguard@0.1.0
                 
       - name: Set combined test results
-        id: set_test_results
+        id: results
         shell: bash
         run: |
           set -e  # Exit immediately if a command exits with a non-zero status.
           
-          if [ -d "ci_test_results" ]; then
-            cd ci_test_results
-            ls -R .
+          # Create test results folder if it doesn't exist
+          mkdir -p ci_test_results 
 
-            # Fix flakeguard binary path
-            PATH=$PATH:$(go env GOPATH)/bin
-            export PATH
+          # Fix flakeguard binary path
+          PATH=$PATH:$(go env GOPATH)/bin
+          export PATH
 
-            # Use flakeguard to aggregate all test results
-            flakeguard aggregate-results --results-path . --output-results ../all_tests.json --project-path=${{ github.workspace }}/${{ inputs.projectPath }} --codeowners-path=${{ github.workspace }}/.github/CODEOWNERS
+          # Combine all test results in a report
+          flakeguard report --results-path ./ci_test_results --output-path ./flakeguard-report --repo-path=${{ github.workspace }} --codeowners-path=${{ github.workspace }}/.github/CODEOWNERS
 
-            # Count all tests
-            ALL_TESTS_COUNT=$(jq '.Results | length' ../all_tests.json)
-            echo "All tests count: $ALL_TESTS_COUNT"
-            echo "all_tests_count=$ALL_TESTS_COUNT" >> "$GITHUB_OUTPUT"
-
-            # Use flakeguard to filter and output failed tests based on MaxPassRatio
-            flakeguard aggregate-results --filter-failed=true --max-pass-ratio=${{ inputs.maxPassRatio }} --results-path . --output-results ../failed_tests.json --output-logs ../failed_test_logs.json --project-path=${{ github.workspace }}/${{ inputs.projectPath }} --codeowners-path=${{ github.workspace }}/.github/CODEOWNERS
-
-            # Count failed tests
-            if [ -f "../failed_tests.json" ]; then
-              FAILED_TESTS_COUNT=$(jq '.Results | length' ../failed_tests.json)
-            else
-              FAILED_TESTS_COUNT=0
-            fi
-            echo "Failed tests count: $FAILED_TESTS_COUNT"
-            echo "failed_tests_count=$FAILED_TESTS_COUNT" >> "$GITHUB_OUTPUT"
-
-            # Calculate failed ratio (failed / non-failed tests ratio in %)
-            if [ "$ALL_TESTS_COUNT" -gt 0 ]; then
-              NON_FAILED_COUNT=$((ALL_TESTS_COUNT - FAILED_TESTS_COUNT))
-              
-              if [ "$NON_FAILED_COUNT" -gt 0 ]; then
-                FAILED_RATIO=$(awk "BEGIN {printf \"%.2f\", ($FAILED_TESTS_COUNT / $NON_FAILED_COUNT) * 100}")
-              else
-                FAILED_RATIO=0
-              fi
-            else
-              NON_FAILED_COUNT=0
-              FAILED_RATIO=0
-            fi
-            echo "Failed tests ratio: $FAILED_RATIO%"
-            echo "failed_ratio=$FAILED_RATIO" >> "$GITHUB_OUTPUT"
-          else
-            echo "No test results directory found."
-            echo "all_tests_count=0" >> "$GITHUB_OUTPUT"
-            echo "failed_tests_count=0" >> "$GITHUB_OUTPUT"
-            echo "failed_ratio=0" >> "$GITHUB_OUTPUT"
-          fi   
+          summary=$(cat ./flakeguard-report/all-tests-summary.json)
+          echo "summary=$summary" >> $GITHUB_OUTPUT
 
       - name: Tests Summary
-        if: ${{ fromJson(steps.set_test_results.outputs.all_tests_count) > 0 }}
+        if: ${{ fromJSON(steps.results.outputs.summary).total_tests > 0 }}
         run: |
-          FILE_SIZE=$(wc -c < all_tests.md)
+          FILE_SIZE=$(wc -c < ./flakeguard-report/all-tests-summary.md)
                     echo "File size: $FILE_SIZE bytes"
           SIZE_LIMIT=$((1024 * 1024))
 
           if [ "$FILE_SIZE" -le "$SIZE_LIMIT" ]; then
-            cat all_tests.md >> $GITHUB_STEP_SUMMARY
+            cat ./flakeguard-report/all-tests-summary.md >> $GITHUB_STEP_SUMMARY
           else
             echo "**We found flaky tests, so many flaky tests that the summary is too large for github actions step summaries!**" >> $GITHUB_STEP_SUMMARY
-            echo "**Please see logs, or the attached `all-summary.md` artifact**" >> $GITHUB_STEP_SUMMARY
-            cat all_tests.md
+            echo "**Please see logs, or the attached `all-tests-summary.md` artifact**" >> $GITHUB_STEP_SUMMARY
+            cat ./flakeguard-report/all-tests-summary.md
           fi
 
       - name: Upload All Tests Summary as Artifact
-        if: ${{ fromJson(steps.set_test_results.outputs.all_tests_count) > 0 }}
+        if: ${{ fromJSON(steps.results.outputs.summary).total_tests > 0 }}
         uses: actions/upload-artifact@v4.4.3
         with:
-          path: all_tests.md
-          name: all-summary.md
+          path: ./flakeguard-report/all-tests-summary.md
+          name: all-tests-summary.md
           retention-days: 90
 
       - name: Upload All Test Results as Artifact
-        if: ${{ fromJson(steps.set_test_results.outputs.all_tests_count) > 0 }}
+        if: ${{ fromJSON(steps.results.outputs.summary).total_tests > 0 }}
         uses: actions/upload-artifact@v4.4.3
         with:
-          path: all_tests.json
-          name: all-test-results.json
+          path: ./flakeguard-report/all-tests-report.json
+          name: all-tests-report.json
           retention-days: 90
       
-      - name: Upload Failed Tests Summary as Artifact
-        if: ${{ fromJson(steps.set_test_results.outputs.all_tests_count) > 0 }}
-        uses: actions/upload-artifact@v4.4.3
-        with:
-          path: failed_tests.md
-          name: failed-summary.md
-          retention-days: 90
+      # - name: Upload Failed Tests Summary as Artifact
+      #   if: ${{ fromJSON(steps.results.outputs.summary).total_tests > 0 }}
+      #   uses: actions/upload-artifact@v4.4.3
+      #   with:
+      #     path: failed_tests.md
+      #     name: failed-summary.md
+      #     retention-days: 90
 
       - name: Upload Failed Test Results as Artifact
-        if: ${{ fromJson(steps.set_test_results.outputs.failed_tests_count) > 0 }}
+        if: ${{ fromJSON(steps.results.outputs.summary).failed_runs > 0 }}
         uses: actions/upload-artifact@v4.4.3
         with:
-          path: failed_tests.json
-          name: failed-test-results.json
+          path: ./flakeguard-report/failed-tests-report.json
+          name: failed-test-report.json
           retention-days: 90        
 
-      - name: Upload Failed Test Logs as Artifact
-        if: ${{ fromJson(steps.set_test_results.outputs.failed_tests_count) > 0 }}
-        uses: actions/upload-artifact@v4.4.3
-        with:
-          path: failed_test_logs.json
-          name: failed-test-logs.json
-          retention-days: 90             
-
-      - name: Upload All Test Results as Artifact
-        if: ${{ fromJson(steps.set_test_results.outputs.all_tests_count) > 0 && env.UPLOAD_ALL_TEST_RESULTS == 'true' }}
-        uses: actions/upload-artifact@v4.4.3
-        with:
-          path: all_tests.json
-          name: all-test-results.json
-          retention-days: 90
-
       - name: Post comment on PR if flaky tests found
-        if: ${{ fromJson(steps.set_test_results.outputs.failed_tests_count) > 0 && github.event_name == 'pull_request' }}
+        if: ${{ fromJSON(steps.results.outputs.summary).flaky_tests > 0 && github.event_name == 'pull_request' }}
         uses: actions/github-script@v7
         continue-on-error: true
         with:
           script: |
             const fs = require('fs');
             const prNumber = context.payload.pull_request.number;
-            const commentBody = fs.readFileSync('all_tests.md', 'utf8');
+            const commentBody = fs.readFileSync('./flakeguard-report/all-tests-summary.md', 'utf8');
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,
@@ -446,7 +393,7 @@ jobs:
             });
 
       - name: Send Slack message for failed tests
-        if: ${{ inputs.slackNotificationAfterTestsChannelId != '' &&  fromJson(steps.set_test_results.outputs.failed_tests_count) > 0 }}
+        if: ${{ inputs.slackNotificationAfterTestsChannelId != '' &&  fromJSON(steps.results.outputs.summary).flaky_tests > 0 }}
         uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
@@ -477,11 +424,11 @@ jobs:
                       "fields": [
                         {
                           "type": "mrkdwn",
-                          "text": "Total Failed Tests: ${{ steps.set_test_results.outputs.failed_tests_count }}"
+                          "text": "Total Flaky Tests: ${{ fromJSON(steps.results.outputs.summary).flaky_tests }}"
                         },
                         {
                           "type": "mrkdwn",
-                          "text": "Failed to Non-Failed Ratio: ${{ steps.set_test_results.outputs.failed_ratio }}%"
+                          "text": "Flaky Tests Ratio: ${{ fromJSON(steps.results.outputs.summary).flaky_tests_ratio }}"
                         }
                       ]
                     },
@@ -499,7 +446,7 @@ jobs:
 
       - name: Send general Slack message
         uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
-        if: ${{ inputs.slackNotificationAfterTestsChannelId != '' && fromJson(steps.set_test_results.outputs.failed_tests_count) == 0 && fromJson(steps.set_test_results.outputs.all_tests_count) > 0 }}
+        if: ${{ inputs.slackNotificationAfterTestsChannelId != '' && fromJson(steps.results.outputs.failed_tests_count) == 0 && fromJson(steps.results.outputs.all_tests_count) > 0 }}
         id: slack
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
