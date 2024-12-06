@@ -36,7 +36,7 @@ func (r ReportingPluginFactory[RI]) NewReportingPlugin(ctx context.Context, conf
 	if err != nil {
 		return nil, ocr3types.ReportingPluginInfo{}, err
 	}
-	r.lggr.Infow("Wrapping up ReportingPlugin with prometheus metrics reporter",
+	r.lggr.Infow("Wrapping ReportingPlugin with prometheus metrics reporter",
 		"configDigest", config.ConfigDigest,
 		"oracleID", config.OracleID,
 	)
