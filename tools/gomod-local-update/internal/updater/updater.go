@@ -81,7 +81,7 @@ func (u *Updater) getGitInfo(remote, branch string) (string, time.Time, error) {
 	// Use u.git.Command for ls-remote
 	out, err := u.git.Command(ctx, "ls-remote", remote, "refs/heads/"+branch)
 	if err != nil {
-		return "", time.Time{}, fmt.Errorf("%w: failed to fetch commit SHA from %s/%s: %v",
+		return "", time.Time{}, fmt.Errorf("%w: failed to fetch commit SHA from %s/%s: %w",
 			ErrModOperation, remote, branch, err)
 	}
 	if len(out) == 0 {
@@ -98,14 +98,14 @@ func (u *Updater) getGitInfo(remote, branch string) (string, time.Time, error) {
 	}
 
 	// Use u.git.Command for show
-	out, err = u.git.Command(ctx, "show", "-s", "--format=%cI", sha)
-	if err != nil {
-		return "", time.Time{}, fmt.Errorf("failed to get commit time: %w", err)
+	showOut, showErr := u.git.Command(ctx, "show", "-s", "--format=%cI", sha)
+	if showErr != nil {
+		return "", time.Time{}, fmt.Errorf("failed to get commit time: %w", showErr)
 	}
 
-	commitTime, err := time.Parse(gitTimeFormat, strings.TrimSpace(string(out)))
-	if err != nil {
-		return "", time.Time{}, fmt.Errorf("failed to parse commit time: %w", err)
+	commitTime, parseErr := time.Parse(gitTimeFormat, strings.TrimSpace(string(showOut)))
+	if parseErr != nil {
+		return "", time.Time{}, fmt.Errorf("failed to parse commit time: %w", parseErr)
 	}
 
 	return sha[:gitSHALength], commitTime, nil
@@ -227,12 +227,12 @@ func isLocalPath(path string) bool {
 func (u *Updater) readModFile() (*modfile.File, error) {
 	content, err := u.system.ReadFile(goModFile)
 	if err != nil {
-		return nil, fmt.Errorf("%w: unable to read go.mod: %v", ErrModOperation, err)
+		return nil, fmt.Errorf("unable to read go.mod: %w", err)
 	}
 
 	modFile, err := modfile.Parse(goModFile, content, nil)
 	if err != nil {
-		return nil, fmt.Errorf("%w: invalid go.mod format: %v", ErrModOperation, err)
+		return nil, fmt.Errorf("%w: invalid go.mod format: %w", ErrModOperation, err)  // Changed %v to %w
 	}
 
 	return modFile, nil

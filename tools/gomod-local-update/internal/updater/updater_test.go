@@ -24,7 +24,7 @@ func (m *mockGitExecutor) Command(ctx context.Context, args ...string) ([]byte, 
 		}
 		remote := args[1]
 		if remote == "invalid*remote" {
-			return nil, fmt.Errorf("%w: git remote '%s' contains invalid characters", ErrInvalidConfig, remote)
+			return nil, fmt.Errorf("%w: git remote '%s' contains invalid characters", ErrInvalidConfig, remote)  // Fixed: added %w
 		}
 		// Return a full 40-character SHA
 		fullSHA := fmt.Sprintf("%s%s", m.sha, strings.Repeat("0", 40-len(m.sha)))
