@@ -232,7 +232,7 @@ func (u *Updater) readModFile() (*modfile.File, error) {
 
 	modFile, err := modfile.Parse(goModFile, content, nil)
 	if err != nil {
-		return nil, fmt.Errorf("%w: invalid go.mod format: %w", ErrModOperation, err)  // Changed %v to %w
+		return nil, fmt.Errorf("%w: invalid go.mod format: %w", ErrModOperation, err)
 	}
 
 	return modFile, nil
