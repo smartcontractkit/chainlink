@@ -16,6 +16,7 @@ import (
 	sel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
@@ -219,7 +220,7 @@ func TestTokenTransfer(t *testing.T) {
 		t,
 		e,
 		state,
-		changeset.SeqNumberRageToSlice(expectedSeqNums),
+		changeset.SeqNumberRangeToSlice(expectedSeqNums),
 		startBlocks,
 	)
 	require.Equal(t, expectedExecutionStates, execStates)

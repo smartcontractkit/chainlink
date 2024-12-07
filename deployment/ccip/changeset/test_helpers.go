@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"golang.org/x/sync/errgroup"
 
 	mapset "github.com/deckarep/golang-set/v2"
@@ -35,7 +36,6 @@ import (
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
-	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
@@ -116,6 +116,14 @@ func (e *DeployedEnv) SetupJobs(t *testing.T) {
 	// TODO: Investigate how to avoid.
 	time.Sleep(30 * time.Second)
 	ReplayLogs(t, e.Env.Offchain, e.ReplayBlocks)
+}
+
+type MemoryEnvironment struct {
+	DeployedEnv
+}
+
+func (e *MemoryEnvironment) StartEnvironment(t *testing.T, tc *TestConfigs) deployment.Environment {
+
 }
 
 func ReplayLogs(t *testing.T, oc deployment.OffchainClient, replayBlocks map[uint64]uint64) {
@@ -263,13 +271,6 @@ func mockAttestationResponse(isFaulty bool) *httptest.Server {
 		}
 	}))
 	return server
-}
-
-type TestConfigs struct {
-	IsUSDC                   bool
-	IsUSDCAttestationMissing bool
-	IsMultiCall3             bool
-	OCRConfigOverride        func(CCIPOCRParams) CCIPOCRParams
 }
 
 func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, config memory.MemoryEnvironmentConfig, tCfg *TestConfigs) DeployedEnv {
