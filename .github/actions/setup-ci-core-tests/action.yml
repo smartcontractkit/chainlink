@@ -1,5 +1,8 @@
 name: Setup CI Core Tests
-description: Shared setup steps for ci-core
+description: |
+  Shared setup steps for ci-core.
+  Note: Other actions should not be called from this action. There is
+  weird behavior when nesting reusable actions.
 inputs:
 
   go-mod-download-directory:
@@ -7,56 +10,15 @@ inputs:
       The directory to run go mod download in. If not provided, it will not run go mod download.
     required: false
     default: ""
-    
-  evm-ref-override:
-    description: |
-      Overrides the evm/relayer dependency version
-    required: false
 
   db-url:
     description: |
       The expected database URL
     required: true
 
-  build-cache-version:
-    description: |
-      The version of the build cache to use. Used for scoping build caches.
-    required: false
-
-  restore-build-cache-only:
-    description: |
-      Whether to create a build cache
-    required: false
-    default: "false"
-
 runs:
   using: composite
   steps:
-    - name: Setup NodeJS
-      uses: ./.github/actions/setup-nodejs
-      with:
-        prod: "true"
-
-    - name: Setup Go
-      uses: ./.github/actions/setup-go
-      with:
-        build-cache-version: ${{ inputs.build-cache-version }}
-        restore-build-cache-only: ${{ inputs.restore-build-cache-only }}
-
-    - name: Replace chainlink-evm deps
-      if: ${{ inputs.evm-ref-override != ''}}
-      shell: bash
-      run: go get github.com/smartcontractkit/chainlink-integrations/evm/relayer@${{ inputs.evm-ref-override }}
-
-    - name: Setup Solana
-      uses: ./.github/actions/setup-solana
-
-    - name: Setup wasmd
-      uses: ./.github/actions/setup-wasmd
-
-    - name: Setup Postgres
-      uses: ./.github/actions/setup-postgres
-
     - name: Touching core/web/assets/index.html
       shell: bash
       run: mkdir -p core/web/assets && touch core/web/assets/index.html

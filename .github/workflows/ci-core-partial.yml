@@ -8,8 +8,12 @@ on:
   # merge_group:
   pull_request:
   schedule:
-    - cron: "0 0 * * *"
+    - cron: "0 1 * * *"
 
+env:
+  # We explicitly have this env var not be "CL_DATABASE_URL" to avoid having it be used by core related tests
+  # when they should not be using it, while still allowing us to DRY up the setup
+  DB_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
 
 jobs:
   filter:
@@ -51,19 +55,33 @@ jobs:
             build-flags: "-tags=integration"
           - test-suite: "ccip-deployment"
             module-directory: "./deployment"
-    env:
-      # We explicitly have this env var not be "CL_DATABASE_URL" to avoid having it be used by core related tests
-      # when they should not be using it, while still allowing us to DRY up the setup
-      DB_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v4.2.1
 
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+        with:
+          prod: "true"
+
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+        with:
+          build-cache-version: ${{ matrix.type.test-suite }}
+          restore-build-cache-only: "false"
+
+      - name: Setup Solana
+        uses: ./.github/actions/setup-solana
+
+      - name: Setup wasmd
+        uses: ./.github/actions/setup-wasmd
+
+      - name: Setup Postgres
+        uses: ./.github/actions/setup-postgres
+
       - name: Setup CI Core Environment
         uses: ./.github/actions/setup-ci-core-tests
         with:
-          build-cache-version: ${{ matrix.type.test-suite }}
-          restore-build-cache-only: "true"
           db-url: ${{ env.DB_URL }}
           go-mod-download-directory: ${{ matrix.type.test-suite == 'ccip-deployment' && matrix.type.module-directory || '' }}
 
@@ -108,7 +126,7 @@ jobs:
 
   scan:
     name: SonarQube Scan
-    needs: [ run-unit-tests, filter ]
+    needs: [run-unit-tests, filter]
     if: ${{ needs.filter.outputs.should-collect-coverage == 'true' }}
     runs-on: ubuntu-latest
     steps:
@@ -116,7 +134,7 @@ jobs:
         uses: actions/checkout@v4.2.1
         with:
           # fetches all history for all tags and branches to provide more metadata for sonar reports
-          fetch-depth: 0 
+          fetch-depth: 0
 
       - name: Download all workflow run artifacts
         uses: actions/download-artifact@v4.1.8
@@ -164,27 +182,33 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
           SONAR_SCANNER_OPTS: "-Xms6g -Xmx8g"
-  
 
   run-fuzz-tests:
     name: Tests (fuzz)
     runs-on: ubuntu22.04-32cores-128GB
-    env:
-      DB_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
+    if: ${{ github.event_name == 'schedule' }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v4.2.1
 
-      - name: Change Modtime of Files (cache optimization)
-        shell: bash
-        run: |
-          find . -type f,d -exec touch -r {} -d '1970-01-01T00:00:01' {} \; || true
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+        with:
+          build-cache-version: "fuzz"
+          restore-build-cache-only: "true"
+
+      - name: Setup Solana
+        uses: ./.github/actions/setup-solana
+
+      - name: Setup wasmd
+        uses: ./.github/actions/setup-wasmd
+
+      - name: Setup Postgres
+        uses: ./.github/actions/setup-postgres
 
       - name: Setup CI Core Environment
         uses: ./.github/actions/setup-ci-core-tests
         with:
-          build-cache-version: "fuzz"
-          restore-build-cache-only: "true"
           db-url: ${{ env.DB_URL }}
 
       - name: Increase Timeouts
@@ -206,22 +230,29 @@ jobs:
   run-race-tests:
     name: Tests (race)
     runs-on: ubuntu22.04-32cores-128GB
-    env:
-      DB_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
+    if: ${{ github.event_name == 'schedule' }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v4.2.1
 
-      - name: Change Modtime of Files (cache optimization)
-        shell: bash
-        run: |
-          find . -type f,d -exec touch -r {} -d '1970-01-01T00:00:01' {} \; || true
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+        with:
+          build-cache-version: "race"
+          restore-build-cache-only: "true"
+
+      - name: Setup Solana
+        uses: ./.github/actions/setup-solana
+
+      - name: Setup wasmd
+        uses: ./.github/actions/setup-wasmd
+
+      - name: Setup Postgres
+        uses: ./.github/actions/setup-postgres
 
       - name: Setup CI Core Environment
         uses: ./.github/actions/setup-ci-core-tests
         with:
-          build-cache-version: "race"
-          restore-build-cache-only: "true"
           db-url: ${{ env.DB_URL }}
 
       - name: Increase Timeouts
