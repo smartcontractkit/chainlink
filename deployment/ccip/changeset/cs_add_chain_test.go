@@ -52,12 +52,13 @@ func TestAddChainInbound(t *testing.T) {
 	require.NoError(t, e.Env.ExistingAddresses.Merge(newAddresses))
 
 	cfg := commontypes.MCMSWithTimelockConfig{
-		Canceller:        commonchangeset.SingleGroupMCMS(t),
-		Bypasser:         commonchangeset.SingleGroupMCMS(t),
-		Proposer:         commonchangeset.SingleGroupMCMS(t),
-		TimelockMinDelay: big.NewInt(0),
+		Canceller:         commonchangeset.SingleGroupMCMS(t),
+		Bypasser:          commonchangeset.SingleGroupMCMS(t),
+		Proposer:          commonchangeset.SingleGroupMCMS(t),
+		TimelockExecutors: e.Env.AllDeployerKeys(),
+		TimelockMinDelay:  big.NewInt(0),
 	}
-	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, nil, []commonchangeset.ChangesetApplication{
+	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
 			Config:    initialDeploy,
@@ -106,7 +107,7 @@ func TestAddChainInbound(t *testing.T) {
 	require.NoError(t, err)
 
 	//  Deploy contracts to new chain
-	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, nil, []commonchangeset.ChangesetApplication{
+	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
 			Config:    []uint64{newChain},
@@ -149,10 +150,6 @@ func TestAddChainInbound(t *testing.T) {
 		initialDeploy[0]: state.Chains[initialDeploy[0]].Timelock,
 		initialDeploy[1]: state.Chains[initialDeploy[1]].Timelock,
 		initialDeploy[2]: state.Chains[initialDeploy[2]].Timelock,
-	}, map[uint64]*gethwrappers.CallProxy{
-		initialDeploy[0]: state.Chains[initialDeploy[0]].CallProxy,
-		initialDeploy[1]: state.Chains[initialDeploy[1]].CallProxy,
-		initialDeploy[2]: state.Chains[initialDeploy[2]].CallProxy,
 	}, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.TransferToMCMSWithTimelock),
@@ -185,9 +182,6 @@ func TestAddChainInbound(t *testing.T) {
 	_, err = commonchangeset.ApplyChangesets(t, e.Env, map[uint64]*gethwrappers.RBACTimelock{
 		e.HomeChainSel: state.Chains[e.HomeChainSel].Timelock,
 		newChain:       state.Chains[newChain].Timelock,
-	}, map[uint64]*gethwrappers.CallProxy{
-		e.HomeChainSel: state.Chains[e.HomeChainSel].CallProxy,
-		newChain:       state.Chains[newChain].CallProxy,
 	}, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(AddDonAndSetCandidateChangeset),

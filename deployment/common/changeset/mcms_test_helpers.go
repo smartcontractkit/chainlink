@@ -65,7 +65,7 @@ func SignProposal(t *testing.T, env deployment.Environment, proposal *timelock.M
 }
 
 func ExecuteProposal(t *testing.T, env deployment.Environment, executor *mcms.Executor,
-	timelock *owner_helpers.RBACTimelock, callProxy *owner_helpers.CallProxy, sel uint64) {
+	timelock *owner_helpers.RBACTimelock, sel uint64) {
 	t.Log("Executing proposal on chain", sel)
 	// Set the root.
 	tx, err2 := executor.SetRootOnChain(env.Chains[sel].Client, env.Chains[sel].DeployerKey, mcms.ChainIdentifier(sel))
@@ -104,8 +104,7 @@ func ExecuteProposal(t *testing.T, env deployment.Environment, executor *mcms.Ex
 						Value:  it.Event.Value,
 					})
 				}
-				timelockExecutorProxy, err := owner_helpers.NewRBACTimelock(callProxy.Address(), env.Chains[sel].Client)
-				tx, err := timelockExecutorProxy.ExecuteBatch(
+				tx, err := timelock.ExecuteBatch(
 					env.Chains[sel].DeployerKey, calls, pred, salt)
 				require.NoError(t, err)
 				_, err = env.Chains[sel].Confirm(tx)

@@ -130,13 +130,10 @@ func TestConfigureOCR3(t *testing.T) {
 		var timelocks = map[uint64]*gethwrappers.RBACTimelock{
 			te.RegistrySelector: contractSetsResp.ContractSets[te.RegistrySelector].Timelock,
 		}
-		var callProxies = map[uint64]*gethwrappers.CallProxy{
-			te.RegistrySelector: contractSetsResp.ContractSets[te.RegistrySelector].CallProxy,
-		}
 		// now apply the changeset such that the proposal is signed and execed
 		w2 := &bytes.Buffer{}
 		cfg.WriteGeneratedConfig = w2
-		_, err = commonchangeset.ApplyChangesets(t, te.Env, timelocks, callProxies, []commonchangeset.ChangesetApplication{
+		_, err = commonchangeset.ApplyChangesets(t, te.Env, timelocks, []commonchangeset.ChangesetApplication{
 			{
 				Changeset: commonchangeset.WrapChangeSet(changeset.ConfigureOCR3Contract),
 				Config:    cfg,

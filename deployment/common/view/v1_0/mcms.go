@@ -107,24 +107,11 @@ func GenerateTimelockView(tl owner_helpers.RBACTimelock) (TimelockView, error) {
 	}, nil
 }
 
-type CallProxyView struct {
-	types.ContractMetaData
-}
-
-func GenerateCallProxyView(cp owner_helpers.CallProxy) (CallProxyView, error) {
-	return CallProxyView{
-		ContractMetaData: types.ContractMetaData{
-			Address: cp.Address(),
-		},
-	}, nil
-}
-
 type MCMSWithTimelockView struct {
-	Bypasser  MCMSView      `json:"bypasser"`
-	Canceller MCMSView      `json:"canceller"`
-	Proposer  MCMSView      `json:"proposer"`
-	Timelock  TimelockView  `json:"timelock"`
-	CallProxy CallProxyView `json:"callProxy"`
+	Bypasser  MCMSView     `json:"bypasser"`
+	Canceller MCMSView     `json:"canceller"`
+	Proposer  MCMSView     `json:"proposer"`
+	Timelock  TimelockView `json:"timelock"`
 }
 
 func GenerateMCMSWithTimelockView(
@@ -134,10 +121,6 @@ func GenerateMCMSWithTimelockView(
 	timelock owner_helpers.RBACTimelock,
 ) (MCMSWithTimelockView, error) {
 	timelockView, err := GenerateTimelockView(timelock)
-	if err != nil {
-		return MCMSWithTimelockView{}, nil
-	}
-	callProxyView, err := GenerateCallProxyView(owner_helpers.CallProxy{})
 	if err != nil {
 		return MCMSWithTimelockView{}, nil
 	}
@@ -159,6 +142,5 @@ func GenerateMCMSWithTimelockView(
 		Bypasser:  bypasserView,
 		Proposer:  proposerView,
 		Canceller: cancellerView,
-		CallProxy: callProxyView,
 	}, nil
 }

@@ -95,11 +95,7 @@ func TestActiveCandidate(t *testing.T) {
 	for _, chain := range allChains {
 		timelocks[chain] = state.Chains[chain].Timelock
 	}
-	callProxies := make(map[uint64]*gethwrappers.CallProxy)
-	for _, chain := range allChains {
-		callProxies[chain] = state.Chains[chain].CallProxy
-	}
-	_, err = commonchangeset.ApplyChangesets(t, e, timelocks, callProxies, []commonchangeset.ChangesetApplication{
+	_, err = commonchangeset.ApplyChangesets(t, e, timelocks, []commonchangeset.ChangesetApplication{
 		// note this doesn't have proposals.
 		{
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.TransferToMCMSWithTimelock),
@@ -181,7 +177,7 @@ func TestActiveCandidate(t *testing.T) {
 	}}, "set new candidates on commit plugin", 0)
 	require.NoError(t, err)
 	setCommitCandidateSigned := commonchangeset.SignProposal(t, e, setCommitCandidateProposal)
-	commonchangeset.ExecuteProposal(t, e, setCommitCandidateSigned, state.Chains[tenv.HomeChainSel].Timelock, state.Chains[tenv.HomeChainSel].CallProxy, tenv.HomeChainSel)
+	commonchangeset.ExecuteProposal(t, e, setCommitCandidateSigned, state.Chains[tenv.HomeChainSel].Timelock, tenv.HomeChainSel)
 
 	// create the op for the commit plugin as well
 	setExecCandidateOp, err := setCandidateOnExistingDon(
@@ -199,7 +195,7 @@ func TestActiveCandidate(t *testing.T) {
 	}}, "set new candidates on commit and exec plugins", 0)
 	require.NoError(t, err)
 	setExecCandidateSigned := commonchangeset.SignProposal(t, e, setExecCandidateProposal)
-	commonchangeset.ExecuteProposal(t, e, setExecCandidateSigned, state.Chains[tenv.HomeChainSel].Timelock, state.Chains[tenv.HomeChainSel].CallProxy, tenv.HomeChainSel)
+	commonchangeset.ExecuteProposal(t, e, setExecCandidateSigned, state.Chains[tenv.HomeChainSel].Timelock, tenv.HomeChainSel)
 
 	// check setup was successful by confirming number of nodes from cap reg
 	donInfo, err = state.Chains[tenv.HomeChainSel].CapabilityRegistry.GetDON(nil, donID)
@@ -226,7 +222,7 @@ func TestActiveCandidate(t *testing.T) {
 	}}, "promote candidates and revoke actives", 0)
 	require.NoError(t, err)
 	promoteSigned := commonchangeset.SignProposal(t, e, promoteProposal)
-	commonchangeset.ExecuteProposal(t, e, promoteSigned, state.Chains[tenv.HomeChainSel].Timelock, state.Chains[tenv.HomeChainSel].CallProxy, tenv.HomeChainSel)
+	commonchangeset.ExecuteProposal(t, e, promoteSigned, state.Chains[tenv.HomeChainSel].Timelock, tenv.HomeChainSel)
 	// [NEW ACTIVE, NO CANDIDATE] done promoting
 
 	// [NEW ACTIVE, NO CANDIDATE] check onchain state
