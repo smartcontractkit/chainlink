@@ -135,11 +135,10 @@ contract OffRamp_trialExecute is OffRampSetup {
       abi.encodeWithSelector(CallWithExactGas.NOT_ENOUGH_GAS_FOR_CALL_SIG, "")
     );
 
-    IERC20 dstToken0 = IERC20(s_destTokens[0]);
-
     (Internal.MessageExecutionState newState, bytes memory err) =
       s_offRamp.trialExecute(message, offchainTokenData, tokenGasOverrides);
     assertEq(uint256(Internal.MessageExecutionState.FAILURE), uint256(newState));
+    assertEq(CallWithExactGas.NotEnoughGasForCall.selector, bytes4(err));
   }
 
   function test_trialExecute_RevertsWhen_NoGasForCallExactCheckAndSenderIsGasEstimator() public {
@@ -158,12 +157,9 @@ contract OffRamp_trialExecute is OffRampSetup {
       abi.encodeWithSelector(CallWithExactGas.NO_GAS_FOR_CALL_EXACT_CHECK_SIG, "")
     );
 
-    IERC20 dstToken0 = IERC20(s_destTokens[0]);
-
     vm.expectRevert(MultiOCR3Base.InsufficientGasForCallWithExact.selector);
     changePrank(address(1));
-    (Internal.MessageExecutionState newState, bytes memory err) =
-      s_offRamp.trialExecute(message, offchainTokenData, tokenGasOverrides);
+    s_offRamp.trialExecute(message, offchainTokenData, tokenGasOverrides);
   }
 
   function test_trialExecute_RevertsWhen_NoEnoughGasForCallSigAndSenderIsGasEstimator() public {
@@ -182,11 +178,8 @@ contract OffRamp_trialExecute is OffRampSetup {
       abi.encodeWithSelector(CallWithExactGas.NOT_ENOUGH_GAS_FOR_CALL_SIG, "")
     );
 
-    IERC20 dstToken0 = IERC20(s_destTokens[0]);
-
     vm.expectRevert(MultiOCR3Base.InsufficientGasForCallWithExact.selector);
     changePrank(address(1));
-    (Internal.MessageExecutionState newState, bytes memory err) =
-      s_offRamp.trialExecute(message, offchainTokenData, tokenGasOverrides);
+    s_offRamp.trialExecute(message, offchainTokenData, tokenGasOverrides);
   }
 }
