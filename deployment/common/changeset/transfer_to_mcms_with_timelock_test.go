@@ -21,7 +21,7 @@ func TestTransferToMCMSWithTimelock(t *testing.T) {
 		Nodes:  1,
 	})
 	chain1 := e.AllChainSelectors()[0]
-	e, err := ApplyChangesets(t, e, nil, []ChangesetApplication{
+	e, err := ApplyChangesets(t, e, nil, nil, []ChangesetApplication{
 		{
 			Changeset: WrapChangeSet(DeployLinkToken),
 			Config:    []uint64{chain1},
@@ -47,6 +47,8 @@ func TestTransferToMCMSWithTimelock(t *testing.T) {
 	require.NoError(t, err)
 	e, err = ApplyChangesets(t, e, map[uint64]*owner_helpers.RBACTimelock{
 		chain1: state.Timelock,
+	}, map[uint64]*owner_helpers.CallProxy{
+		chain1: state.CallProxy,
 	}, []ChangesetApplication{
 		{
 			Changeset: WrapChangeSet(TransferToMCMSWithTimelock),

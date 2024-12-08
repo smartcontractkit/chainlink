@@ -130,7 +130,7 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 		Chains:            chains,
 		ExistingAddresses: deployment.NewMemoryAddressBook(),
 	}
-	e, err := commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ChangesetApplication{
+	e, err := commonchangeset.ApplyChangesets(t, e, nil, nil, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(kschangeset.DeployCapabilityRegistry),
 			Config:    registryChainSel,
@@ -271,7 +271,7 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 				TimelockMinDelay: big.NewInt(0),
 			}
 		}
-		env, err = commonchangeset.ApplyChangesets(t, env, nil, []commonchangeset.ChangesetApplication{
+		env, err = commonchangeset.ApplyChangesets(t, env, nil, nil, []commonchangeset.ChangesetApplication{
 			{
 				Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployMCMSWithTimelock),
 				Config:    timelockCfgs,
@@ -290,7 +290,7 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 			require.NoError(t, mcms.Validate())
 
 			// transfer ownership of all contracts to the MCMS
-			env, err = commonchangeset.ApplyChangesets(t, env, map[uint64]*gethwrappers.RBACTimelock{sel: mcms.Timelock}, []commonchangeset.ChangesetApplication{
+			env, err = commonchangeset.ApplyChangesets(t, env, map[uint64]*gethwrappers.RBACTimelock{sel: mcms.Timelock}, map[uint64]*gethwrappers.CallProxy{sel: mcms.CallProxy}, []commonchangeset.ChangesetApplication{
 				{
 					Changeset: commonchangeset.WrapChangeSet(kschangeset.AcceptAllOwnershipsProposal),
 					Config: &kschangeset.AcceptAllOwnershipRequest{

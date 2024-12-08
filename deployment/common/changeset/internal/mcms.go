@@ -55,6 +55,7 @@ type MCMSWithTimelockDeploy struct {
 	Bypasser  *deployment.ContractDeploy[*owner_helpers.ManyChainMultiSig]
 	Proposer  *deployment.ContractDeploy[*owner_helpers.ManyChainMultiSig]
 	Timelock  *deployment.ContractDeploy[*owner_helpers.RBACTimelock]
+	CallProxy *deployment.ContractDeploy[*owner_helpers.CallProxy]
 }
 
 func DeployMCMSWithTimelockContractsBatch(
@@ -164,5 +165,6 @@ func DeployMCMSWithTimelockContracts(
 		Bypasser:  bypasser,
 		Proposer:  proposer,
 		Timelock:  timelock,
+		CallProxy: callProxy,
 	}, nil
 }

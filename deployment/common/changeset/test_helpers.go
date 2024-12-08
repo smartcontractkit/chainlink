@@ -33,7 +33,7 @@ func WrapChangeSet[C any](fn deployment.ChangeSet[C]) func(e deployment.Environm
 }
 
 // ApplyChangesets applies the changeset applications to the environment and returns the updated environment.
-func ApplyChangesets(t *testing.T, e deployment.Environment, timelocksPerChain map[uint64]*gethwrappers.RBACTimelock, changesetApplications []ChangesetApplication) (deployment.Environment, error) {
+func ApplyChangesets(t *testing.T, e deployment.Environment, timelocksPerChain map[uint64]*gethwrappers.RBACTimelock, callProxiesPerChain map[uint64]*gethwrappers.CallProxy, changesetApplications []ChangesetApplication) (deployment.Environment, error) {
 	currentEnv := e
 	for i, csa := range changesetApplications {
 		out, err := csa.Changeset(currentEnv, csa.Config)
@@ -79,7 +79,12 @@ func ApplyChangesets(t *testing.T, e deployment.Environment, timelocksPerChain m
 					if !ok || timelock == nil {
 						return deployment.Environment{}, fmt.Errorf("timelock not found for chain %d", sel)
 					}
-					ExecuteProposal(t, e, signed, timelock, sel)
+
+					callProxy, ok := callProxiesPerChain[sel]
+					if !ok || callProxy == nil {
+						return deployment.Environment{}, fmt.Errorf("call proxy not found for chain %d", sel)
+					}
+					ExecuteProposal(t, e, signed, timelock, callProxy, sel)
 				}
 			}
 		}
