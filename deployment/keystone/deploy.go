@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
-
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
@@ -424,30 +423,19 @@ type RegisteredCapability struct {
 	ID [32]byte
 }
 
-func FromCapabilitiesRegistryCapability(cap *kcr.CapabilitiesRegistryCapability, e deployment.Environment, registryChainSelector uint64) (*RegisteredCapability, error) {
-	registry, _, err := GetRegistryContract(&e, registryChainSelector, e.ExistingAddresses)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get registry: %w", err)
-	}
-	id, err := registry.GetHashedCapabilityId(&bind.CallOpts{}, cap.LabelledName, cap.Version)
-	if err != nil {
-		return nil, fmt.Errorf("failed to call GetHashedCapabilityId for capability %v: %w", cap, err)
-	}
-	return &RegisteredCapability{
-		CapabilitiesRegistryCapability: *cap,
-		ID:                             id,
-	}, nil
-}
-
 // RegisterCapabilities add computes the capability id, adds it to the registry and associates the registered capabilities with appropriate don(s)
 func RegisterCapabilities(lggr logger.Logger, req RegisterCapabilitiesRequest) (*RegisterCapabilitiesResponse, error) {
 	if len(req.DonToCapabilities) == 0 {
 		return nil, fmt.Errorf("no capabilities to register")
 	}
-	registry, registryChain, err := GetRegistryContract(req.Env, req.RegistryChainSelector, req.Env.ExistingAddresses)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get registry: %w", err)
-	}
+	cresp, err := GetContractSets(req.Env.Logger, &GetContractSetsRequest{
+		Chains:      req.Env.Chains,
+		AddressBook: req.Env.ExistingAddresses,
+	})
+	contracts := cresp.ContractSets[req.RegistryChainSelector]
+	registry := contracts.CapabilitiesRegistry
+	registryChain := req.Env.Chains[req.RegistryChainSelector]
+
 	lggr.Infow("registering capabilities...", "len", len(req.DonToCapabilities))
 	resp := &RegisterCapabilitiesResponse{
 		DonToCapabilities: make(map[string][]RegisteredCapability),
@@ -481,8 +469,8 @@ func RegisterCapabilities(lggr logger.Logger, req RegisterCapabilitiesRequest) (
 	for cap := range uniqueCaps {
 		capabilities = append(capabilities, cap)
 	}
-
-	err = AddCapabilities(lggr, registry, registryChain, capabilities)
+	// not using mcms; ignore proposals
+	_, err = AddCapabilities(lggr, &contracts, registryChain, capabilities, false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add capabilities: %w", err)
 	}
