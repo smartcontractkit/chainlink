@@ -27,6 +27,8 @@ type ChainView struct {
 	OffRamp            map[string]v1_6.OffRampView                   `json:"offRamp,omitempty"`
 	CapabilityRegistry map[string]common_v1_0.CapabilityRegistryView `json:"capabilityRegistry,omitempty"`
 	MCMSWithTimelock   common_v1_0.MCMSWithTimelockView              `json:"mcmsWithTimelock,omitempty"`
+	LinkToken          common_v1_0.LinkTokenView                     `json:"linkToken,omitempty"`
+	StaticLinkToken    common_v1_0.StaticLinkTokenView               `json:"staticLinkToken,omitempty"`
 }
 
 func NewChain() ChainView {

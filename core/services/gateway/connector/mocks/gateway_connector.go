@@ -269,6 +269,98 @@ func (_c *GatewayConnector_GatewayIDs_Call) RunAndReturn(run func() []string) *G
 	return _c
 }
 
+// HealthReport provides a mock function with given fields:
+func (_m *GatewayConnector) HealthReport() map[string]error {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for HealthReport")
+	}
+
+	var r0 map[string]error
+	if rf, ok := ret.Get(0).(func() map[string]error); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(map[string]error)
+		}
+	}
+
+	return r0
+}
+
+// GatewayConnector_HealthReport_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'HealthReport'
+type GatewayConnector_HealthReport_Call struct {
+	*mock.Call
+}
+
+// HealthReport is a helper method to define mock.On call
+func (_e *GatewayConnector_Expecter) HealthReport() *GatewayConnector_HealthReport_Call {
+	return &GatewayConnector_HealthReport_Call{Call: _e.mock.On("HealthReport")}
+}
+
+func (_c *GatewayConnector_HealthReport_Call) Run(run func()) *GatewayConnector_HealthReport_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GatewayConnector_HealthReport_Call) Return(_a0 map[string]error) *GatewayConnector_HealthReport_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GatewayConnector_HealthReport_Call) RunAndReturn(run func() map[string]error) *GatewayConnector_HealthReport_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Name provides a mock function with given fields:
+func (_m *GatewayConnector) Name() string {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for Name")
+	}
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
+// GatewayConnector_Name_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Name'
+type GatewayConnector_Name_Call struct {
+	*mock.Call
+}
+
+// Name is a helper method to define mock.On call
+func (_e *GatewayConnector_Expecter) Name() *GatewayConnector_Name_Call {
+	return &GatewayConnector_Name_Call{Call: _e.mock.On("Name")}
+}
+
+func (_c *GatewayConnector_Name_Call) Run(run func()) *GatewayConnector_Name_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GatewayConnector_Name_Call) Return(_a0 string) *GatewayConnector_Name_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GatewayConnector_Name_Call) RunAndReturn(run func() string) *GatewayConnector_Name_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // NewAuthHeader provides a mock function with given fields: _a0
 func (_m *GatewayConnector) NewAuthHeader(_a0 *url.URL) ([]byte, error) {
 	ret := _m.Called(_a0)
@@ -323,6 +415,51 @@ func (_c *GatewayConnector_NewAuthHeader_Call) Return(_a0 []byte, _a1 error) *Ga
 }
 
 func (_c *GatewayConnector_NewAuthHeader_Call) RunAndReturn(run func(*url.URL) ([]byte, error)) *GatewayConnector_NewAuthHeader_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Ready provides a mock function with given fields:
+func (_m *GatewayConnector) Ready() error {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for Ready")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// GatewayConnector_Ready_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Ready'
+type GatewayConnector_Ready_Call struct {
+	*mock.Call
+}
+
+// Ready is a helper method to define mock.On call
+func (_e *GatewayConnector_Expecter) Ready() *GatewayConnector_Ready_Call {
+	return &GatewayConnector_Ready_Call{Call: _e.mock.On("Ready")}
+}
+
+func (_c *GatewayConnector_Ready_Call) Run(run func()) *GatewayConnector_Ready_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GatewayConnector_Ready_Call) Return(_a0 error) *GatewayConnector_Ready_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GatewayConnector_Ready_Call) RunAndReturn(run func() error) *GatewayConnector_Ready_Call {
 	_c.Call.Return(run)
 	return _c
 }

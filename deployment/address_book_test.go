@@ -243,3 +243,36 @@ func TestAddressBook_ConcurrencyAndDeadlock(t *testing.T) {
 
 	wg.Wait()
 }
+
+func TestAddressesContainsBundle(t *testing.T) {
+	onRamp100 := NewTypeAndVersion("OnRamp", Version1_0_0)
+	onRamp110 := NewTypeAndVersion("OnRamp", Version1_1_0)
+	onRamp120 := NewTypeAndVersion("OnRamp", Version1_2_0)
+	addr1 := common.HexToAddress("0x1").String()
+	addr2 := common.HexToAddress("0x2").String()
+	addr3 := common.HexToAddress("0x3").String()
+
+	// More than one instance should error
+	_, err := AddressesContainBundle(map[string]TypeAndVersion{
+		addr1: onRamp100,
+		addr2: onRamp100,
+	}, map[TypeAndVersion]struct{}{onRamp100: {}})
+	require.Error(t, err)
+
+	// No such instances should be false
+	exists, err := AddressesContainBundle(map[string]TypeAndVersion{
+		addr2: onRamp110,
+		addr1: onRamp110,
+	}, map[TypeAndVersion]struct{}{onRamp100: {}})
+	require.NoError(t, err)
+	assert.Equal(t, exists, false)
+
+	// 2 elements
+	exists, err = AddressesContainBundle(map[string]TypeAndVersion{
+		addr1: onRamp100,
+		addr2: onRamp110,
+		addr3: onRamp120,
+	}, map[TypeAndVersion]struct{}{onRamp100: {}, onRamp110: {}})
+	require.NoError(t, err)
+	assert.Equal(t, exists, true)
+}

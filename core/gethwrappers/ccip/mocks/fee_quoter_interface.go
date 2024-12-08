@@ -3416,6 +3416,63 @@ func (_c *FeeQuoterInterface_SetReportPermissions_Call) RunAndReturn(run func(*b
 	return _c
 }
 
+// SupportsInterface provides a mock function with given fields: opts, interfaceId
+func (_m *FeeQuoterInterface) SupportsInterface(opts *bind.CallOpts, interfaceId [4]byte) (bool, error) {
+	ret := _m.Called(opts, interfaceId)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SupportsInterface")
+	}
+
+	var r0 bool
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, [4]byte) (bool, error)); ok {
+		return rf(opts, interfaceId)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, [4]byte) bool); ok {
+		r0 = rf(opts, interfaceId)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.CallOpts, [4]byte) error); ok {
+		r1 = rf(opts, interfaceId)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// FeeQuoterInterface_SupportsInterface_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SupportsInterface'
+type FeeQuoterInterface_SupportsInterface_Call struct {
+	*mock.Call
+}
+
+// SupportsInterface is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+//   - interfaceId [4]byte
+func (_e *FeeQuoterInterface_Expecter) SupportsInterface(opts interface{}, interfaceId interface{}) *FeeQuoterInterface_SupportsInterface_Call {
+	return &FeeQuoterInterface_SupportsInterface_Call{Call: _e.mock.On("SupportsInterface", opts, interfaceId)}
+}
+
+func (_c *FeeQuoterInterface_SupportsInterface_Call) Run(run func(opts *bind.CallOpts, interfaceId [4]byte)) *FeeQuoterInterface_SupportsInterface_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts), args[1].([4]byte))
+	})
+	return _c
+}
+
+func (_c *FeeQuoterInterface_SupportsInterface_Call) Return(_a0 bool, _a1 error) *FeeQuoterInterface_SupportsInterface_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FeeQuoterInterface_SupportsInterface_Call) RunAndReturn(run func(*bind.CallOpts, [4]byte) (bool, error)) *FeeQuoterInterface_SupportsInterface_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // TransferOwnership provides a mock function with given fields: opts, to
 func (_m *FeeQuoterInterface) TransferOwnership(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error) {
 	ret := _m.Called(opts, to)

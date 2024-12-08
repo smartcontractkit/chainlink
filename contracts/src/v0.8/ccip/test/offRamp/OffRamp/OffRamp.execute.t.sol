@@ -198,7 +198,7 @@ contract OffRamp_execute is OffRampSetup {
   // Reverts
 
   function test_UnauthorizedTransmitter_Revert() public {
-    bytes32[3] memory reportContext = [s_configDigestExec, s_configDigestExec, s_configDigestExec];
+    bytes32[2] memory reportContext = [s_configDigestExec, s_configDigestExec];
 
     Internal.Any2EVMRampMessage[] memory messages =
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
@@ -216,7 +216,7 @@ contract OffRamp_execute is OffRampSetup {
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
     Internal.ExecutionReport[] memory reports = _generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages);
 
-    bytes32[3] memory reportContext = [bytes32(""), s_configDigestExec, s_configDigestExec];
+    bytes32[2] memory reportContext = [bytes32(""), s_configDigestExec];
 
     vm.startPrank(s_validTransmitters[0]);
     vm.expectRevert(MultiOCR3Base.UnauthorizedTransmitter.selector);
@@ -242,7 +242,7 @@ contract OffRamp_execute is OffRampSetup {
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
     Internal.ExecutionReport[] memory reports = _generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages);
 
-    bytes32[3] memory reportContext = [bytes32(""), s_configDigestExec, s_configDigestExec];
+    bytes32[2] memory reportContext = [bytes32(""), s_configDigestExec];
 
     vm.startPrank(s_validTransmitters[0]);
     vm.expectRevert(MultiOCR3Base.UnauthorizedTransmitter.selector);
@@ -277,7 +277,7 @@ contract OffRamp_execute is OffRampSetup {
   }
 
   function test_IncorrectArrayType_Revert() public {
-    bytes32[3] memory reportContext = [s_configDigestExec, s_configDigestExec, s_configDigestExec];
+    bytes32[2] memory reportContext = [s_configDigestExec, s_configDigestExec];
 
     uint256[] memory wrongData = new uint256[](2);
     wrongData[0] = 1;
@@ -288,7 +288,7 @@ contract OffRamp_execute is OffRampSetup {
   }
 
   function test_NonArray_Revert() public {
-    bytes32[3] memory reportContext = [s_configDigestExec, s_configDigestExec, s_configDigestExec];
+    bytes32[2] memory reportContext = [s_configDigestExec, s_configDigestExec];
 
     Internal.Any2EVMRampMessage[] memory messages =
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);

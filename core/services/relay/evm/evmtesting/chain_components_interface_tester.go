@@ -57,7 +57,7 @@ type EVMChainComponentsInterfaceTesterHelper[T TestingT[T]] interface {
 	TXM(T, client.Client) evmtxmgr.TxManager
 	// To enable the historical wrappers required for Simulated Backend tests.
 	ChainReaderEVMClient(ctx context.Context, t T, ht logpoller.HeadTracker, conf types.ChainReaderConfig) client.Client
-	WrappedChainWriter(cw clcommontypes.ChainWriter, client client.Client) clcommontypes.ChainWriter
+	WrappedChainWriter(cw clcommontypes.ContractWriter, client client.Client) clcommontypes.ContractWriter
 }
 
 type EVMChainComponentsInterfaceTester[T TestingT[T]] struct {
@@ -395,7 +395,7 @@ func (it *EVMChainComponentsInterfaceTester[T]) GetContractReader(t T) clcommont
 func (it *EVMChainComponentsInterfaceTester[T]) GenerateBlocksTillConfidenceLevel(t T, contractName, readName string, confidenceLevel primitives.ConfidenceLevel) {
 }
 
-func (it *EVMChainComponentsInterfaceTester[T]) GetChainWriter(t T) clcommontypes.ChainWriter {
+func (it *EVMChainComponentsInterfaceTester[T]) GetContractWriter(t T) clcommontypes.ContractWriter {
 	ctx := it.Helper.Context(t)
 	if it.cw != nil {
 		return it.cw
