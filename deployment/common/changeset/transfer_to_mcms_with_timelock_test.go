@@ -42,7 +42,7 @@ func TestTransferToMCMSWithTimelock(t *testing.T) {
 	require.NoError(t, err)
 	addrs, err := e.ExistingAddresses.AddressesForChain(chain1)
 	require.NoError(t, err)
-	state, err := LoadMCMSWithTimelockState(e.Chains[chain1], addrs)
+	state, err := MaybeLoadMCMSWithTimelockState(e.Chains[chain1], addrs)
 	require.NoError(t, err)
 	link, err := LoadLinkTokenState(e.Chains[chain1], addrs)
 	require.NoError(t, err)

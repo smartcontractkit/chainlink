@@ -23,22 +23,47 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
 )
 
+var _ deployment.ChangeSet[ChainInboundChangesetConfig] = NewChainInboundChangeset
+
+type ChainInboundChangesetConfig struct {
+	HomeChainSelector    uint64
+	NewChainSelector     uint64
+	SourceChainSelectors []uint64
+}
+
+func (c ChainInboundChangesetConfig) Validate() error {
+	if c.HomeChainSelector == 0 {
+		return fmt.Errorf("HomeChainSelector must be set")
+	}
+	if c.NewChainSelector == 0 {
+		return fmt.Errorf("NewChainSelector must be set")
+	}
+	if len(c.SourceChainSelectors) == 0 {
+		return fmt.Errorf("SourceChainSelectors must be set")
+	}
+	return nil
+}
+
 // NewChainInboundChangeset generates a proposal
 // to connect the new chain to the existing chains.
-// TODO: doesn't implement the ChangeSet interface.
 func NewChainInboundChangeset(
 	e deployment.Environment,
-	state CCIPOnChainState,
-	homeChainSel uint64,
-	newChainSel uint64,
-	sources []uint64,
+	cfg ChainInboundChangesetConfig,
 ) (deployment.ChangesetOutput, error) {
+	if err := cfg.Validate(); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	state, err := LoadOnchainState(e)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
 	// Generate proposal which enables new destination (from test router) on all source chains.
 	var batches []timelock.BatchChainOperation
-	for _, source := range sources {
+	for _, source := range cfg.SourceChainSelectors {
 		enableOnRampDest, err := state.Chains[source].OnRamp.ApplyDestChainConfigUpdates(deployment.SimTransactOpts(), []onramp.OnRampDestChainConfigArgs{
 			{
-				DestChainSelector: newChainSel,
+				DestChainSelector: cfg.NewChainSelector,
 				Router:            state.Chains[source].TestRouter.Address(),
 			},
 		})
@@ -49,7 +74,7 @@ func NewChainInboundChangeset(
 			deployment.SimTransactOpts(),
 			[]fee_quoter.FeeQuoterDestChainConfigArgs{
 				{
-					DestChainSelector: newChainSel,
+					DestChainSelector: cfg.NewChainSelector,
 					DestChainConfig:   DefaultFeeQuoterDestChainConfig(),
 				},
 			})
@@ -74,13 +99,13 @@ func NewChainInboundChangeset(
 		})
 	}
 
-	addChainOp, err := applyChainConfigUpdatesOp(e, state, homeChainSel, []uint64{newChainSel})
+	addChainOp, err := applyChainConfigUpdatesOp(e, state, cfg.HomeChainSelector, []uint64{cfg.NewChainSelector})
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
 
 	batches = append(batches, timelock.BatchChainOperation{
-		ChainIdentifier: mcms.ChainIdentifier(homeChainSel),
+		ChainIdentifier: mcms.ChainIdentifier(cfg.HomeChainSelector),
 		Batch: []mcms.Operation{
 			addChainOp,
 		},
@@ -90,7 +115,7 @@ func NewChainInboundChangeset(
 		timelocksPerChain = make(map[uint64]common.Address)
 		proposerMCMSes    = make(map[uint64]*gethwrappers.ManyChainMultiSig)
 	)
-	for _, chain := range append(sources, homeChainSel) {
+	for _, chain := range append(cfg.SourceChainSelectors, cfg.HomeChainSelector) {
 		timelocksPerChain[chain] = state.Chains[chain].Timelock.Address()
 		proposerMCMSes[chain] = state.Chains[chain].ProposerMcm
 	}
@@ -110,48 +135,110 @@ func NewChainInboundChangeset(
 	}, nil
 }
 
+type AddDonAndSetCandidateChangesetConfig struct {
+	HomeChainSelector uint64
+	FeedChainSelector uint64
+	NewChainSelector  uint64
+	PluginType        types.PluginType
+	NodeIDs           []string
+	CCIPOCRParams     CCIPOCRParams
+	OCRSecrets        deployment.OCRSecrets
+}
+
+func (a AddDonAndSetCandidateChangesetConfig) Validate(e deployment.Environment, state CCIPOnChainState) (deployment.Nodes, error) {
+	if a.HomeChainSelector == 0 {
+		return nil, fmt.Errorf("HomeChainSelector must be set")
+	}
+	if a.FeedChainSelector == 0 {
+		return nil, fmt.Errorf("FeedChainSelector must be set")
+	}
+	if a.NewChainSelector == 0 {
+		return nil, fmt.Errorf("ocr config chain selector must be set")
+	}
+	if a.PluginType != types.PluginTypeCCIPCommit &&
+		a.PluginType != types.PluginTypeCCIPExec {
+		return nil, fmt.Errorf("PluginType must be set to either CCIPCommit or CCIPExec")
+	}
+	// TODO: validate token config
+	if len(a.NodeIDs) == 0 {
+		return nil, fmt.Errorf("nodeIDs must be set")
+	}
+	nodes, err := deployment.NodeInfo(a.NodeIDs, e.Offchain)
+	if err != nil {
+		return nil, fmt.Errorf("get node info: %w", err)
+	}
+
+	// check that chain config is set up for the new chain
+	// TODO: feels like we should just have a getter for a particular chain, this pagination
+	// logic seems a bit out of place here.
+	allConfigs, err := state.Chains[a.HomeChainSelector].CCIPHome.GetAllChainConfigs(nil, big.NewInt(0), big.NewInt(100))
+	if err != nil {
+		return nil, fmt.Errorf("get all chain configs: %w", err)
+	}
+	var found bool
+	for _, chainConfig := range allConfigs {
+		if chainConfig.ChainSelector == a.NewChainSelector {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return nil, fmt.Errorf("chain config not set for chain %d", a.NewChainSelector)
+	}
+
+	err = a.CCIPOCRParams.Validate()
+	if err != nil {
+		return nil, fmt.Errorf("invalid ccip ocr params: %w", err)
+	}
+
+	if a.OCRSecrets.IsEmpty() {
+		return nil, fmt.Errorf("OCR secrets must be set")
+	}
+
+	return nodes, nil
+}
+
 // AddDonAndSetCandidateChangeset adds new DON for destination to home chain
 // and sets the commit plugin config as candidateConfig for the don.
 func AddDonAndSetCandidateChangeset(
-	state CCIPOnChainState,
 	e deployment.Environment,
-	nodes deployment.Nodes,
-	ocrSecrets deployment.OCRSecrets,
-	homeChainSel, feedChainSel, newChainSel uint64,
-	tokenConfig TokenConfig,
-	pluginType types.PluginType,
+	cfg AddDonAndSetCandidateChangesetConfig,
 ) (deployment.ChangesetOutput, error) {
-	ccipOCRParams := DefaultOCRParams(
-		feedChainSel,
-		tokenConfig.GetTokenInfo(e.Logger, state.Chains[newChainSel].LinkToken, state.Chains[newChainSel].Weth9),
-		// TODO: Need USDC support.
-		nil,
-	)
+	state, err := LoadOnchainState(e)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	nodes, err := cfg.Validate(e, state)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("%w: %w", deployment.ErrInvalidConfig, err)
+	}
+
 	newDONArgs, err := internal.BuildOCR3ConfigForCCIPHome(
-		ocrSecrets,
-		state.Chains[newChainSel].OffRamp,
-		e.Chains[newChainSel],
+		cfg.OCRSecrets,
+		state.Chains[cfg.NewChainSelector].OffRamp,
+		e.Chains[cfg.NewChainSelector],
 		nodes.NonBootstraps(),
-		state.Chains[homeChainSel].RMNHome.Address(),
-		ccipOCRParams.OCRParameters,
-		ccipOCRParams.CommitOffChainConfig,
-		ccipOCRParams.ExecuteOffChainConfig,
+		state.Chains[cfg.HomeChainSelector].RMNHome.Address(),
+		cfg.CCIPOCRParams.OCRParameters,
+		cfg.CCIPOCRParams.CommitOffChainConfig,
+		cfg.CCIPOCRParams.ExecuteOffChainConfig,
 	)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	latestDon, err := internal.LatestCCIPDON(state.Chains[homeChainSel].CapabilityRegistry)
+	latestDon, err := internal.LatestCCIPDON(state.Chains[cfg.HomeChainSelector].CapabilityRegistry)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	commitConfig, ok := newDONArgs[pluginType]
+	commitConfig, ok := newDONArgs[cfg.PluginType]
 	if !ok {
 		return deployment.ChangesetOutput{}, fmt.Errorf("missing commit plugin in ocr3Configs")
 	}
 	donID := latestDon.Id + 1
 	addDonOp, err := newDonWithCandidateOp(
 		donID, commitConfig,
-		state.Chains[homeChainSel].CapabilityRegistry,
+		state.Chains[cfg.HomeChainSelector].CapabilityRegistry,
 		nodes.NonBootstraps(),
 	)
 	if err != nil {
@@ -160,17 +247,17 @@ func AddDonAndSetCandidateChangeset(
 
 	var (
 		timelocksPerChain = map[uint64]common.Address{
-			homeChainSel: state.Chains[homeChainSel].Timelock.Address(),
+			cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].Timelock.Address(),
 		}
 		proposerMCMSes = map[uint64]*gethwrappers.ManyChainMultiSig{
-			homeChainSel: state.Chains[homeChainSel].ProposerMcm,
+			cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].ProposerMcm,
 		}
 	)
 	prop, err := proposalutils.BuildProposalFromBatches(
 		timelocksPerChain,
 		proposerMCMSes,
 		[]timelock.BatchChainOperation{{
-			ChainIdentifier: mcms.ChainIdentifier(homeChainSel),
+			ChainIdentifier: mcms.ChainIdentifier(cfg.HomeChainSelector),
 			Batch:           []mcms.Operation{addDonOp},
 		}},
 		"setCandidate for commit and AddDon on new Chain",

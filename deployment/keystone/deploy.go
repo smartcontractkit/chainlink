@@ -200,11 +200,6 @@ func GetRegistryContract(e *deployment.Environment, registryChainSel uint64, add
 // ConfigureRegistry configures the registry contract with the given DONS and their capabilities
 // the address book is required to contain the addresses of the deployed registry contract
 func ConfigureRegistry(ctx context.Context, lggr logger.Logger, req ConfigureContractsRequest, addrBook deployment.AddressBook) (*ConfigureContractsResponse, error) {
-	registry, registryChain, err := GetRegistryContract(req.Env, req.RegistryChainSel, addrBook)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get registry: %w", err)
-	}
-
 	donInfos, err := DonInfos(req.Dons, req.Env.Offchain)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get don infos: %w", err)
@@ -249,13 +244,13 @@ func ConfigureRegistry(ctx context.Context, lggr logger.Logger, req ConfigureCon
 	lggr.Infow("registered node operators", "nops", nopsResp.Nops)
 
 	// register nodes
-	nodesResp, err := registerNodes(lggr, &registerNodesRequest{
-		registry:          registry,
-		chain:             registryChain,
-		nopToNodeIDs:      nopsToNodeIDs,
-		donToNodes:        donToNodes,
-		donToCapabilities: capabilitiesResp.DonToCapabilities,
-		nops:              nopsResp.Nops,
+	nodesResp, err := RegisterNodes(lggr, &RegisterNodesRequest{
+		Env:                   req.Env,
+		RegistryChainSelector: req.RegistryChainSel,
+		NopToNodeIDs:          nopsToNodeIDs,
+		DonToNodes:            donToNodes,
+		DonToCapabilities:     capabilitiesResp.DonToCapabilities,
+		Nops:                  nopsResp.Nops,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to register nodes: %w", err)
@@ -288,12 +283,12 @@ func ConfigureRegistry(ctx context.Context, lggr logger.Logger, req ConfigureCon
 		nodeIdToP2PID[nodeID] = params.P2pId
 	}
 	// register DONS
-	donsResp, err := registerDons(lggr, registerDonsRequest{
-		registry:          registry,
-		chain:             registryChain,
-		nodeIDToParams:    nodesResp.nodeIDToParams,
-		donToCapabilities: capabilitiesResp.DonToCapabilities,
-		donToNodes:        donToNodes,
+	donsResp, err := RegisterDons(lggr, RegisterDonsRequest{
+		Env:                   req.Env,
+		RegistryChainSelector: req.RegistryChainSel,
+		NodeIDToP2PID:         nodeIdToP2PID,
+		DonToCapabilities:     capabilitiesResp.DonToCapabilities,
+		DonsToRegister:        donsToRegister,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to register DONS: %w", err)
@@ -302,7 +297,7 @@ func ConfigureRegistry(ctx context.Context, lggr logger.Logger, req ConfigureCon
 
 	return &ConfigureContractsResponse{
 		Changeset: &deployment.ChangesetOutput{}, // no new addresses, proposals etc
-		DonInfos:  donsResp.donInfos,
+		DonInfos:  donsResp.DonInfos,
 	}, nil
 }
 

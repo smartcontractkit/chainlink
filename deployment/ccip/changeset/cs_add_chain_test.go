@@ -155,6 +155,14 @@ func TestAddChainInbound(t *testing.T) {
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.TransferToMCMSWithTimelock),
 			Config:    genTestTransferOwnershipConfig(e, initialDeploy, state),
 		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(NewChainInboundChangeset),
+			Config: ChainInboundChangesetConfig{
+				HomeChainSelector:    e.HomeChainSel,
+				NewChainSelector:     newChain,
+				SourceChainSelectors: initialDeploy,
+			},
+		},
 	})
 	require.NoError(t, err)
 
