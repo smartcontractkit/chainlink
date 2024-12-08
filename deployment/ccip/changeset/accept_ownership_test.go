@@ -33,6 +33,10 @@ func Test_NewAcceptOwnershipChangeset(t *testing.T) {
 		source: state.Chains[source].Timelock,
 		dest:   state.Chains[dest].Timelock,
 	}
+	callProxies := map[uint64]*gethwrappers.CallProxy{
+		source: state.Chains[source].CallProxy,
+		dest:   state.Chains[dest].CallProxy,
+	}
 
 	// at this point we have the initial deploys done, now we need to transfer ownership
 	// to the timelock contract
@@ -40,7 +44,7 @@ func Test_NewAcceptOwnershipChangeset(t *testing.T) {
 	require.NoError(t, err)
 
 	// compose the transfer ownership and accept ownership changesets
-	_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocks, []commonchangeset.ChangesetApplication{
+	_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocks, callProxies, []commonchangeset.ChangesetApplication{
 		// note this doesn't have proposals.
 		{
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.TransferToMCMSWithTimelock),

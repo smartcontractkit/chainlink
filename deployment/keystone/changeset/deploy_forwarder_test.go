@@ -118,11 +118,14 @@ func TestConfigureForwarders(t *testing.T) {
 				require.Nil(t, csOut.AddressBook)
 
 				timelocks := make(map[uint64]*gethwrappers.RBACTimelock)
+				callProxies := make(map[uint64]*gethwrappers.CallProxy)
 				for selector, contractSet := range te.ContractSets() {
 					require.NotNil(t, contractSet.Timelock)
 					timelocks[selector] = contractSet.Timelock
+					require.NotNil(t, contractSet.CallProxy)
+					callProxies[selector] = contractSet.CallProxy
 				}
-				_, err = commonchangeset.ApplyChangesets(t, te.Env, timelocks, []commonchangeset.ChangesetApplication{
+				_, err = commonchangeset.ApplyChangesets(t, te.Env, timelocks, callProxies, []commonchangeset.ChangesetApplication{
 					{
 						Changeset: commonchangeset.WrapChangeSet(changeset.ConfigureForwardContracts),
 						Config:    cfg,

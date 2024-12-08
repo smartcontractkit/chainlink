@@ -279,11 +279,10 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 	for _, c := range e.Env.AllChainSelectors() {
 		mcmsCfg[c] = commontypes.MCMSWithTimelockConfig{
-			Canceller:         commonchangeset.SingleGroupMCMS(t),
-			Bypasser:          commonchangeset.SingleGroupMCMS(t),
-			Proposer:          commonchangeset.SingleGroupMCMS(t),
-			TimelockExecutors: e.Env.AllDeployerKeys(),
-			TimelockMinDelay:  big.NewInt(0),
+			Canceller:        commonchangeset.SingleGroupMCMS(t),
+			Bypasser:         commonchangeset.SingleGroupMCMS(t),
+			Proposer:         commonchangeset.SingleGroupMCMS(t),
+			TimelockMinDelay: big.NewInt(0),
 		}
 	}
 	var (
@@ -298,7 +297,7 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 	}
 	// Need to deploy prerequisites first so that we can form the USDC config
 	// no proposals to be made, timelock can be passed as nil here
-	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
+	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, nil, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
 			Config:    allChains,
@@ -367,13 +366,15 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 	// Build the per chain config.
 	chainConfigs := make(map[uint64]CCIPOCRParams)
 	timelocksPerChain := make(map[uint64]*gethwrappers.RBACTimelock)
+	callProxiesPerChain := make(map[uint64]*gethwrappers.CallProxy)
 	for _, chain := range allChains {
 		timelocksPerChain[chain] = state.Chains[chain].Timelock
+		callProxiesPerChain[chain] = state.Chains[chain].CallProxy
 		tokenInfo := tokenConfig.GetTokenInfo(e.Env.Logger, state.Chains[chain].LinkToken, state.Chains[chain].Weth9)
 		chainConfigs[chain] = DefaultOCRParams(e.FeedChainSel, tokenInfo, tokenDataProviders)
 	}
 	// Deploy second set of changesets to deploy and configure the CCIP contracts.
-	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
+	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, callProxiesPerChain, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(ConfigureNewChains),
 			Config: NewChainsConfig{
@@ -823,7 +824,7 @@ func ProcessChangeset(t *testing.T, e deployment.Environment, c deployment.Chang
 
 			signed := commonchangeset.SignProposal(t, e, &prop)
 			for _, sel := range chains.ToSlice() {
-				commonchangeset.ExecuteProposal(t, e, signed, state.Chains[sel].Timelock, sel)
+				commonchangeset.ExecuteProposal(t, e, signed, state.Chains[sel].Timelock, state.Chains[sel].CallProxy, sel)
 			}
 		}
 	}
