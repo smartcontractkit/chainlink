@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
+import {CallWithExactGas} from "../../../../shared/call/CallWithExactGas.sol";
+import {IERC20} from "../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 import {Internal} from "../../../libraries/Internal.sol";
 import {RateLimiter} from "../../../libraries/RateLimiter.sol";
+import {MultiOCR3Base} from "../../../ocr/MultiOCR3Base.sol";
 import {OffRamp} from "../../../offRamp/OffRamp.sol";
 import {OffRampSetup} from "./OffRampSetup.t.sol";
-
-import {IERC20} from "../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
 contract OffRamp_trialExecute is OffRampSetup {
   function setUp() public virtual override {
@@ -116,5 +117,76 @@ contract OffRamp_trialExecute is OffRampSetup {
 
     assertEq(uint256(Internal.MessageExecutionState.FAILURE), uint256(newState));
     assertEq(abi.encodeWithSelector(OffRamp.NotACompatiblePool.selector, address(0)), err);
+  }
+
+  function test_trialExecute_CallWithExactGasRevertsAndSenderIsNotGasEstimator() public {
+    uint256[] memory amounts = new uint256[](2);
+    amounts[0] = 1000;
+    amounts[1] = 50;
+    Internal.Any2EVMRampMessage memory message =
+      _generateAny2EVMMessageWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1, amounts);
+
+    bytes[] memory offchainTokenData = new bytes[](message.tokenAmounts.length);
+    uint32[] memory tokenGasOverrides = new uint32[](0);
+
+    vm.mockCallRevert(
+      address(s_offRamp),
+      abi.encodeWithSelector(s_offRamp.executeSingleMessage.selector, message, offchainTokenData, tokenGasOverrides),
+      abi.encodeWithSelector(CallWithExactGas.NOT_ENOUGH_GAS_FOR_CALL_SIG, "")
+    );
+
+    IERC20 dstToken0 = IERC20(s_destTokens[0]);
+
+    (Internal.MessageExecutionState newState, bytes memory err) =
+      s_offRamp.trialExecute(message, offchainTokenData, tokenGasOverrides);
+    assertEq(uint256(Internal.MessageExecutionState.FAILURE), uint256(newState));
+  }
+
+  function test_trialExecute_RevertsWhen_NoGasForCallExactCheckAndSenderIsGasEstimator() public {
+    uint256[] memory amounts = new uint256[](2);
+    amounts[0] = 1000;
+    amounts[1] = 50;
+    Internal.Any2EVMRampMessage memory message =
+      _generateAny2EVMMessageWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1, amounts);
+
+    bytes[] memory offchainTokenData = new bytes[](message.tokenAmounts.length);
+    uint32[] memory tokenGasOverrides = new uint32[](0);
+
+    vm.mockCallRevert(
+      address(s_offRamp),
+      abi.encodeWithSelector(s_offRamp.executeSingleMessage.selector, message, offchainTokenData, tokenGasOverrides),
+      abi.encodeWithSelector(CallWithExactGas.NO_GAS_FOR_CALL_EXACT_CHECK_SIG, "")
+    );
+
+    IERC20 dstToken0 = IERC20(s_destTokens[0]);
+
+    vm.expectRevert(MultiOCR3Base.InsufficientGasForCallWithExact.selector);
+    changePrank(address(1));
+    (Internal.MessageExecutionState newState, bytes memory err) =
+      s_offRamp.trialExecute(message, offchainTokenData, tokenGasOverrides);
+  }
+
+  function test_trialExecute_RevertsWhen_NoEnoughGasForCallSigAndSenderIsGasEstimator() public {
+    uint256[] memory amounts = new uint256[](2);
+    amounts[0] = 1000;
+    amounts[1] = 50;
+    Internal.Any2EVMRampMessage memory message =
+      _generateAny2EVMMessageWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1, amounts);
+
+    bytes[] memory offchainTokenData = new bytes[](message.tokenAmounts.length);
+    uint32[] memory tokenGasOverrides = new uint32[](0);
+
+    vm.mockCallRevert(
+      address(s_offRamp),
+      abi.encodeWithSelector(s_offRamp.executeSingleMessage.selector, message, offchainTokenData, tokenGasOverrides),
+      abi.encodeWithSelector(CallWithExactGas.NOT_ENOUGH_GAS_FOR_CALL_SIG, "")
+    );
+
+    IERC20 dstToken0 = IERC20(s_destTokens[0]);
+
+    vm.expectRevert(MultiOCR3Base.InsufficientGasForCallWithExact.selector);
+    changePrank(address(1));
+    (Internal.MessageExecutionState newState, bytes memory err) =
+      s_offRamp.trialExecute(message, offchainTokenData, tokenGasOverrides);
   }
 }

@@ -193,8 +193,8 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     i_rmnRemote = staticConfig.rmnRemote;
     i_tokenAdminRegistry = staticConfig.tokenAdminRegistry;
     i_nonceManager = staticConfig.nonceManager;
-
     emit StaticConfigSet(staticConfig);
+
     _setDynamicConfig(dynamicConfig);
     _applySourceChainConfigUpdates(sourceChainConfigs);
   }
