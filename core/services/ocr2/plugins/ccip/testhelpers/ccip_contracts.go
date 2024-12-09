@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"sync"
 	"testing"
 	"time"
 
@@ -168,11 +169,32 @@ type MaybeRevertReceiver struct {
 	Strict   bool
 }
 
+// Backend wraps a simulated backend with a mutex to make it safe for concurrent use
+// Commit() in particular has caused races.
+type Backend struct {
+	mu sync.Mutex
+	*simulated.Backend
+}
+
+func NewBackend(sim *simulated.Backend) *Backend {
+	return &Backend{
+		mu:      sync.Mutex{},
+		Backend: sim,
+	}
+}
+
+func (b *Backend) Commit() common.Hash {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	return b.Backend.Commit()
+}
+
 type Common struct {
 	ChainID            uint64
 	ChainSelector      uint64
 	User               *bind.TransactOpts
-	Chain              *simulated.Backend
+	Chain              *Backend
 	LinkToken          *link_token_interface.LinkToken
 	LinkTokenPool      *lock_release_token_pool.LockReleaseTokenPool
 	CustomToken        *link_token_interface.LinkToken
@@ -1194,7 +1216,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 			ChainID:            sourceChainID,
 			ChainSelector:      sourceChainSelector,
 			User:               sourceUser,
-			Chain:              sourceChain,
+			Chain:              NewBackend(sourceChain),
 			LinkToken:          sourceLinkToken,
 			LinkTokenPool:      sourceLinkPool,
 			CustomToken:        sourceCustomToken,
@@ -1214,7 +1236,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 			ChainID:            destChainID,
 			ChainSelector:      destChainSelector,
 			User:               destUser,
-			Chain:              destChain,
+			Chain:              NewBackend(destChain),
 			LinkToken:          destLinkToken,
 			LinkTokenPool:      destLinkPool,
 			CustomToken:        destCustomToken,

@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
-
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
@@ -483,8 +482,8 @@ func RegisterCapabilities(lggr logger.Logger, req RegisterCapabilitiesRequest) (
 	for cap := range uniqueCaps {
 		capabilities = append(capabilities, cap)
 	}
-
-	err = AddCapabilities(lggr, registry, registryChain, capabilities)
+	// not using mcms; ignore proposals
+	_, err = AddCapabilities(lggr, registry, registryChain, capabilities, false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add capabilities: %w", err)
 	}

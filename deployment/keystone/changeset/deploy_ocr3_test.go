@@ -45,7 +45,6 @@ func TestDeployOCR3(t *testing.T) {
 
 func TestConfigureOCR3(t *testing.T) {
 	t.Parallel()
-	lggr := logger.Test(t)
 
 	c := kslib.OracleConfig{
 		MaxFaultyOracles:    1,
@@ -118,17 +117,15 @@ func TestConfigureOCR3(t *testing.T) {
 		assert.NotNil(t, csOut.Proposals)
 		t.Logf("got: %v", csOut.Proposals[0])
 
-		contractSetsResp, err := kslib.GetContractSets(lggr, &kslib.GetContractSetsRequest{
-			Chains:      te.Env.Chains,
-			AddressBook: te.Env.ExistingAddresses,
-		})
+		contracts := te.ContractSets()[te.RegistrySelector]
 		require.NoError(t, err)
 		var timelockContracts = map[uint64]*commonchangeset.TimelockExecutionContracts{
 			te.RegistrySelector: {
-				Timelock:  contractSetsResp.ContractSets[te.RegistrySelector].Timelock,
-				CallProxy: contractSetsResp.ContractSets[te.RegistrySelector].CallProxy,
+				Timelock:  contracts.Timelock,
+				CallProxy: contracts.CallProxy,
 			},
 		}
+
 		// now apply the changeset such that the proposal is signed and execed
 		w2 := &bytes.Buffer{}
 		cfg.WriteGeneratedConfig = w2
