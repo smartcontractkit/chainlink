@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -178,19 +179,20 @@ func configureChain(
 		e.Logger.Errorw("Failed to load existing onchain state", "err")
 		return err
 	}
+	homeChain := e.Chains[c.HomeChainSel]
 	capReg := existingState.Chains[c.HomeChainSel].CapabilityRegistry
 	if capReg == nil {
-		e.Logger.Errorw("Failed to get capability registry")
+		e.Logger.Errorw("Failed to get capability registry", "chain", homeChain.String())
 		return fmt.Errorf("capability registry not found")
 	}
 	ccipHome := existingState.Chains[c.HomeChainSel].CCIPHome
 	if ccipHome == nil {
-		e.Logger.Errorw("Failed to get ccip home", "err", err)
+		e.Logger.Errorw("Failed to get ccip home", "chain", homeChain.String(), "err", err)
 		return fmt.Errorf("ccip home not found")
 	}
 	rmnHome := existingState.Chains[c.HomeChainSel].RMNHome
 	if rmnHome == nil {
-		e.Logger.Errorw("Failed to get rmn home", "err", err)
+		e.Logger.Errorw("Failed to get rmn home", "chain", homeChain.String(), "err", err)
 		return fmt.Errorf("rmn home not found")
 	}
 
@@ -267,7 +269,7 @@ func addChainConfig(
 	if _, err := deployment.ConfirmIfNoError(h, tx, err); err != nil {
 		return ccip_home.CCIPHomeChainConfigArgs{}, err
 	}
-	lggr.Infow("Applied chain config updates", "chainConfig", chainConfig)
+	lggr.Infow("Applied chain config updates", "homeChain", h.String(), "addedChain", chainSelector, "chainConfig", chainConfig)
 	return chainConfig, nil
 }
 
@@ -301,17 +303,17 @@ func createDON(
 
 	donID := latestDon.Id + 1
 
-	err = internal.SetupCommitDON(donID, commitConfig, capReg, home, nodes, ccipHome)
+	err = internal.SetupCommitDON(lggr, donID, commitConfig, capReg, home, nodes, ccipHome)
 	if err != nil {
 		return fmt.Errorf("setup commit don: %w", err)
 	}
 
 	// TODO: bug in contract causing this to not work as expected.
-	err = internal.SetupExecDON(donID, execConfig, capReg, home, nodes, ccipHome)
+	err = internal.SetupExecDON(lggr, donID, execConfig, capReg, home, nodes, ccipHome)
 	if err != nil {
 		return fmt.Errorf("setup exec don: %w", err)
 	}
-	return ValidateCCIPHomeConfigSetUp(capReg, ccipHome, newChainSel)
+	return ValidateCCIPHomeConfigSetUp(lggr, capReg, ccipHome, newChainSel)
 }
 
 func addDON(
@@ -369,6 +371,15 @@ func addDON(
 		if err != nil {
 			return err
 		}
+		lggr.Debugw("Fetched OCR3 Configs",
+			"MultiOCR3BaseOCRConfig.F", ocrConfig.ConfigInfo.F,
+			"MultiOCR3BaseOCRConfig.N", ocrConfig.ConfigInfo.N,
+			"MultiOCR3BaseOCRConfig.IsSignatureVerificationEnabled", ocrConfig.ConfigInfo.IsSignatureVerificationEnabled,
+			"Signers", ocrConfig.Signers,
+			"Transmitters", ocrConfig.Transmitters,
+			"configDigest", hex.EncodeToString(ocrConfig.ConfigInfo.ConfigDigest[:]),
+			"chain", dest.String(),
+		)
 		// TODO: assertions to be done as part of full state
 		// resprentation validation CCIP-3047
 		if mapOfframpOCR3Configs[pluginType].ConfigDigest != ocrConfig.ConfigInfo.ConfigDigest {
@@ -400,6 +411,7 @@ func addDON(
 
 // ValidateCCIPHomeConfigSetUp checks that the commit and exec active and candidate configs are set up correctly
 func ValidateCCIPHomeConfigSetUp(
+	lggr logger.Logger,
 	capReg *capabilities_registry.CapabilitiesRegistry,
 	ccipHome *ccip_home.CCIPHome,
 	chainSel uint64,
@@ -420,10 +432,12 @@ func ValidateCCIPHomeConfigSetUp(
 	if err != nil {
 		return fmt.Errorf("get active commit digest: %w", err)
 	}
+	lggr.Debugw("Fetched active commit digest", "commitActiveDigest", hex.EncodeToString(commitActiveDigest[:]))
 	commitCandidateDigest, err := ccipHome.GetCandidateDigest(nil, donID, uint8(cctypes.PluginTypeCCIPCommit))
 	if err != nil {
 		return fmt.Errorf("get commit candidate digest: %w", err)
 	}
+	lggr.Debugw("Fetched candidate commit digest", "commitCandidateDigest", hex.EncodeToString(commitCandidateDigest[:]))
 	if commitConfigs.ActiveConfig.ConfigDigest == [32]byte{} {
 		return fmt.Errorf(
 			"active config digest is empty for commit, expected nonempty, donID: %d, cfg: %+v, config digest from GetActiveDigest call: %x, config digest from GetCandidateDigest call: %x",
@@ -439,6 +453,10 @@ func ValidateCCIPHomeConfigSetUp(
 	if err != nil {
 		return fmt.Errorf("get all exec configs: %w", err)
 	}
+	lggr.Debugw("Fetched exec configs",
+		"ActiveConfig.ConfigDigest", hex.EncodeToString(execConfigs.ActiveConfig.ConfigDigest[:]),
+		"CandidateConfig.ConfigDigest", hex.EncodeToString(execConfigs.CandidateConfig.ConfigDigest[:]),
+	)
 	if execConfigs.ActiveConfig.ConfigDigest == [32]byte{} {
 		return fmt.Errorf("active config digest is empty for exec, expected nonempty, cfg: %v", execConfigs.ActiveConfig)
 	}

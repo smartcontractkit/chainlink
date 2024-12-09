@@ -147,16 +147,15 @@ func NewLocalDevEnvironment(
 	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 	for _, c := range env.AllChainSelectors() {
 		mcmsCfg[c] = commontypes.MCMSWithTimelockConfig{
-			Canceller:         commonchangeset.SingleGroupMCMS(t),
-			Bypasser:          commonchangeset.SingleGroupMCMS(t),
-			Proposer:          commonchangeset.SingleGroupMCMS(t),
-			TimelockExecutors: env.AllDeployerKeys(),
-			TimelockMinDelay:  big.NewInt(0),
+			Canceller:        commonchangeset.SingleGroupMCMS(t),
+			Bypasser:         commonchangeset.SingleGroupMCMS(t),
+			Proposer:         commonchangeset.SingleGroupMCMS(t),
+			TimelockMinDelay: big.NewInt(0),
 		}
 	}
 	// Need to deploy prerequisites first so that we can form the USDC config
 	// no proposals to be made, timelock can be passed as nil here
-	env, err = commonchangeset.ApplyChangesets(t, env, nil, []commonchangeset.ChangesetApplication{
+	env, err = commonchangeset.ApplyChangesets(t, env, nil, nil, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.DeployHomeChain),
 			Config: changeset.DeployHomeChainConfig{
@@ -227,8 +226,10 @@ func NewLocalDevEnvironment(
 	tokenConfig := changeset.NewTestTokenConfig(state.Chains[feedSel].USDFeeds)
 	chainConfigs := make(map[uint64]changeset.CCIPOCRParams)
 	timelocksPerChain := make(map[uint64]*gethwrappers.RBACTimelock)
+	callProxiesPerChain := make(map[uint64]*gethwrappers.CallProxy)
 	for _, chain := range allChains {
 		timelocksPerChain[chain] = state.Chains[chain].Timelock
+		callProxiesPerChain[chain] = state.Chains[chain].CallProxy
 		tokenInfo := tokenConfig.GetTokenInfo(e.Logger, state.Chains[chain].LinkToken, state.Chains[chain].Weth9)
 		ocrParams := changeset.DefaultOCRParams(feedSel, tokenInfo, tokenDataProviders)
 		if tCfg.OCRConfigOverride != nil {
@@ -238,7 +239,7 @@ func NewLocalDevEnvironment(
 	}
 
 	// Deploy second set of changesets to deploy and configure the CCIP contracts.
-	env, err = commonchangeset.ApplyChangesets(t, env, timelocksPerChain, []commonchangeset.ChangesetApplication{
+	env, err = commonchangeset.ApplyChangesets(t, env, timelocksPerChain, callProxiesPerChain, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.ConfigureNewChains),
 			Config: changeset.NewChainsConfig{

@@ -52,7 +52,7 @@ func deployLinkTokenContract(
 			}
 		})
 	if err != nil {
-		lggr.Errorw("Failed to deploy link token", "err", err)
+		lggr.Errorw("Failed to deploy link token", "chain", chain.String(), "err", err)
 		return linkToken, err
 	}
 	return linkToken, nil

@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/pkg/errors"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
@@ -39,7 +41,7 @@ func GenerateNopsView(nodeIds []string, oc deployment.OffchainClient) (map[strin
 		// get node info
 		nodeDetails, err := oc.GetNode(context.Background(), &nodev1.GetNodeRequest{Id: node.NodeID})
 		if err != nil {
-			return nv, err
+			return nv, errors.Wrapf(err, "failed to get node details from offchain client for node %s", node.NodeID)
 		}
 		if nodeDetails == nil || nodeDetails.Node == nil {
 			return nv, fmt.Errorf("failed to get node details from offchain client for node %s", node.NodeID)

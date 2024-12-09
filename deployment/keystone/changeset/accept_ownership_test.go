@@ -25,7 +25,7 @@ func TestAcceptAllOwnership(t *testing.T) {
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 	registrySel := env.AllChainSelectors()[0]
-	env, err := commonchangeset.ApplyChangesets(t, env, nil, []commonchangeset.ChangesetApplication{
+	env, err := commonchangeset.ApplyChangesets(t, env, nil, nil, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.DeployCapabilityRegistry),
 			Config:    registrySel,
@@ -39,18 +39,13 @@ func TestAcceptAllOwnership(t *testing.T) {
 			Config:    registrySel,
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.DeployFeedsConsumer),
-			Config:    &changeset.DeployFeedsConsumerRequest{ChainSelector: registrySel},
-		},
-		{
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployMCMSWithTimelock),
 			Config: map[uint64]types.MCMSWithTimelockConfig{
 				registrySel: {
-					Canceller:         commonchangeset.SingleGroupMCMS(t),
-					Bypasser:          commonchangeset.SingleGroupMCMS(t),
-					Proposer:          commonchangeset.SingleGroupMCMS(t),
-					TimelockExecutors: env.AllDeployerKeys(),
-					TimelockMinDelay:  big.NewInt(0),
+					Canceller:        commonchangeset.SingleGroupMCMS(t),
+					Bypasser:         commonchangeset.SingleGroupMCMS(t),
+					Proposer:         commonchangeset.SingleGroupMCMS(t),
+					TimelockMinDelay: big.NewInt(0),
 				},
 			},
 		},
@@ -58,11 +53,13 @@ func TestAcceptAllOwnership(t *testing.T) {
 	require.NoError(t, err)
 	addrs, err := env.ExistingAddresses.AddressesForChain(registrySel)
 	require.NoError(t, err)
-	timelock, err := commonchangeset.LoadMCMSWithTimelockState(env.Chains[registrySel], addrs)
+	timelock, err := commonchangeset.MaybeLoadMCMSWithTimelockState(env.Chains[registrySel], addrs)
 	require.NoError(t, err)
 
 	_, err = commonchangeset.ApplyChangesets(t, env, map[uint64]*owner_helpers.RBACTimelock{
 		registrySel: timelock.Timelock,
+	}, map[uint64]*owner_helpers.CallProxy{
+		registrySel: timelock.CallProxy,
 	}, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.AcceptAllOwnershipsProposal),

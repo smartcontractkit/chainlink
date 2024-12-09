@@ -271,3 +271,26 @@ func AddressBookContains(ab AddressBook, chain uint64, addrToFind string) (bool,
 
 	return false, nil
 }
+
+// AddressesContainBundle checks if the addresses
+// contains a single instance of all the addresses in the bundle.
+// It returns an error if there are more than one instance of a contract.
+func AddressesContainBundle(addrs map[string]TypeAndVersion, wantTypes map[TypeAndVersion]struct{}) (bool, error) {
+	counts := make(map[TypeAndVersion]int)
+	for wantType := range wantTypes {
+		for _, haveType := range addrs {
+			if wantType == haveType {
+				counts[wantType]++
+				if counts[wantType] > 1 {
+					return false, fmt.Errorf("found more than one instance of contract %s", wantType)
+				}
+			}
+		}
+	}
+	// Either 0 or 1, so we can just check the sum.
+	sum := 0
+	for _, count := range counts {
+		sum += count
+	}
+	return sum == len(wantTypes), nil
+}

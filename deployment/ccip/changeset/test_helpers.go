@@ -279,20 +279,25 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 	for _, c := range e.Env.AllChainSelectors() {
 		mcmsCfg[c] = commontypes.MCMSWithTimelockConfig{
-			Canceller:         commonchangeset.SingleGroupMCMS(t),
-			Bypasser:          commonchangeset.SingleGroupMCMS(t),
-			Proposer:          commonchangeset.SingleGroupMCMS(t),
-			TimelockExecutors: e.Env.AllDeployerKeys(),
-			TimelockMinDelay:  big.NewInt(0),
+			Canceller:        commonchangeset.SingleGroupMCMS(t),
+			Bypasser:         commonchangeset.SingleGroupMCMS(t),
+			Proposer:         commonchangeset.SingleGroupMCMS(t),
+			TimelockMinDelay: big.NewInt(0),
 		}
 	}
-	var usdcChains []uint64
-	if tCfg != nil && tCfg.IsUSDC {
-		usdcChains = allChains
+	var (
+		usdcChains   []uint64
+		isMulticall3 bool
+	)
+	if tCfg != nil {
+		if tCfg.IsUSDC {
+			usdcChains = allChains
+		}
+		isMulticall3 = tCfg.IsMultiCall3
 	}
 	// Need to deploy prerequisites first so that we can form the USDC config
 	// no proposals to be made, timelock can be passed as nil here
-	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
+	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, nil, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
 			Config:    allChains,
@@ -303,6 +308,7 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 				ChainSelectors: allChains,
 				Opts: []PrerequisiteOpt{
 					WithUSDCChains(usdcChains),
+					WithMulticall3(isMulticall3),
 				},
 			},
 		},
@@ -360,13 +366,15 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 	// Build the per chain config.
 	chainConfigs := make(map[uint64]CCIPOCRParams)
 	timelocksPerChain := make(map[uint64]*gethwrappers.RBACTimelock)
+	callProxiesPerChain := make(map[uint64]*gethwrappers.CallProxy)
 	for _, chain := range allChains {
 		timelocksPerChain[chain] = state.Chains[chain].Timelock
+		callProxiesPerChain[chain] = state.Chains[chain].CallProxy
 		tokenInfo := tokenConfig.GetTokenInfo(e.Env.Logger, state.Chains[chain].LinkToken, state.Chains[chain].Weth9)
 		chainConfigs[chain] = DefaultOCRParams(e.FeedChainSel, tokenInfo, tokenDataProviders)
 	}
 	// Deploy second set of changesets to deploy and configure the CCIP contracts.
-	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
+	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, callProxiesPerChain, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(ConfigureNewChains),
 			Config: NewChainsConfig{
@@ -816,7 +824,7 @@ func ProcessChangeset(t *testing.T, e deployment.Environment, c deployment.Chang
 
 			signed := commonchangeset.SignProposal(t, e, &prop)
 			for _, sel := range chains.ToSlice() {
-				commonchangeset.ExecuteProposal(t, e, signed, state.Chains[sel].Timelock, sel)
+				commonchangeset.ExecuteProposal(t, e, signed, state.Chains[sel].Timelock, state.Chains[sel].CallProxy, sel)
 			}
 		}
 	}
@@ -1225,6 +1233,78 @@ func Transfer(
 	return msgSentEvent, startBlocks
 }
 
+type TestTransferRequest struct {
+	Name                   string
+	SourceChain, DestChain uint64
+	Receiver               common.Address
+	ExpectedStatus         int
+	// optional
+	Tokens                []router.ClientEVMTokenAmount
+	Data                  []byte
+	ExtraArgs             []byte
+	ExpectedTokenBalances map[common.Address]*big.Int
+}
+
+// TransferMultiple sends multiple CCIPMessages (represented as TestTransferRequest) sequentially.
+// It verifies whether message is not reverted on the source and proper event is emitted by OnRamp.
+// However, it doesn't wait for message to be committed or executed. Therefore, you can send multiple messages very fast,
+// but you need to make sure they are committed/executed on your own (if that's the intention).
+// It saves some time during test execution, because we let plugins batch instead of executing one by one
+// If you want to wait for execution in a "batch" manner you will need to pass maps returned by TransferMultiple to
+// either ConfirmMultipleCommits (for commit) or ConfirmExecWithSeqNrsForAll (for exec). Check example usage in the tests.
+func TransferMultiple(
+	ctx context.Context,
+	t *testing.T,
+	env deployment.Environment,
+	state CCIPOnChainState,
+	requests []TestTransferRequest,
+) (
+	map[uint64]*uint64,
+	map[SourceDestPair]cciptypes.SeqNumRange,
+	map[SourceDestPair]map[uint64]int,
+	map[uint64]map[TokenReceiverIdentifier]*big.Int,
+) {
+	startBlocks := make(map[uint64]*uint64)
+	expectedSeqNums := make(map[SourceDestPair]cciptypes.SeqNumRange)
+	expectedExecutionStates := make(map[SourceDestPair]map[uint64]int)
+	expectedTokenBalances := make(TokenBalanceAccumulator)
+
+	for _, tt := range requests {
+		t.Run(tt.Name, func(t *testing.T) {
+			expectedTokenBalances.add(tt.DestChain, tt.Receiver, tt.ExpectedTokenBalances)
+
+			pairId := SourceDestPair{
+				SourceChainSelector: tt.SourceChain,
+				DestChainSelector:   tt.DestChain,
+			}
+
+			msg, blocks := Transfer(
+				ctx, t, env, state, tt.SourceChain, tt.DestChain, tt.Tokens, tt.Receiver, tt.Data, tt.ExtraArgs)
+			if _, ok := expectedExecutionStates[pairId]; !ok {
+				expectedExecutionStates[pairId] = make(map[uint64]int)
+			}
+			expectedExecutionStates[pairId][msg.SequenceNumber] = tt.ExpectedStatus
+
+			if _, ok := startBlocks[tt.DestChain]; !ok {
+				startBlocks[tt.DestChain] = blocks[tt.DestChain]
+			}
+
+			seqNr, ok := expectedSeqNums[pairId]
+			if ok {
+				expectedSeqNums[pairId] = cciptypes.NewSeqNumRange(
+					seqNr.Start(), cciptypes.SeqNum(msg.SequenceNumber),
+				)
+			} else {
+				expectedSeqNums[pairId] = cciptypes.NewSeqNumRange(
+					cciptypes.SeqNum(msg.SequenceNumber), cciptypes.SeqNum(msg.SequenceNumber),
+				)
+			}
+		})
+	}
+
+	return startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances
+}
+
 // TransferAndWaitForSuccess sends a message from sourceChain to destChain and waits for it to be executed
 func TransferAndWaitForSuccess(
 	ctx context.Context,
@@ -1256,6 +1336,60 @@ func TransferAndWaitForSuccess(
 	// Wait for all exec reports to land
 	states := ConfirmExecWithSeqNrsForAll(t, env, state, expectedSeqNumExec, startBlocks)
 	require.Equal(t, expectedStatus, states[identifier][msgSentEvent.SequenceNumber])
+}
+
+// TokenBalanceAccumulator is a convenient accumulator to aggregate expected balances of different tokens
+// used across the tests. You can iterate over your test cases and build the final "expected" balances for tokens (per chain, per sender)
+// For instance, if your test runs multiple transfers for the same token, and you want to verify the balance of tokens at
+// the end of the execution, you can simply use that struct for aggregating expected tokens
+// Please also see WaitForTokenBalances to better understand how you can assert token balances
+type TokenBalanceAccumulator map[uint64]map[TokenReceiverIdentifier]*big.Int
+
+func (t TokenBalanceAccumulator) add(
+	destChain uint64,
+	receiver common.Address,
+	expectedBalance map[common.Address]*big.Int) {
+	for token, balance := range expectedBalance {
+		tkIdentifier := TokenReceiverIdentifier{token, receiver}
+
+		if _, ok := t[destChain]; !ok {
+			t[destChain] = make(map[TokenReceiverIdentifier]*big.Int)
+		}
+		actual, ok := t[destChain][tkIdentifier]
+		if !ok {
+			actual = big.NewInt(0)
+		}
+		t[destChain][tkIdentifier] = new(big.Int).Add(actual, balance)
+	}
+}
+
+type TokenReceiverIdentifier struct {
+	token    common.Address
+	receiver common.Address
+}
+
+// WaitForTokenBalances waits for multiple ERC20 tokens to reach a particular balance
+// It works in a batch manner, so you can pass and exhaustive list of different tokens (per senders and chains)
+// and it would work concurrently for the balance to be met. Check WaitForTheTokenBalance to see how balance
+// checking is made for a token/receiver pair
+func WaitForTokenBalances(
+	ctx context.Context,
+	t *testing.T,
+	chains map[uint64]deployment.Chain,
+	expectedBalances map[uint64]map[TokenReceiverIdentifier]*big.Int,
+) {
+	errGrp := &errgroup.Group{}
+	for chainID, tokens := range expectedBalances {
+		for id, balance := range tokens {
+			id := id
+			balance := balance
+			errGrp.Go(func() error {
+				WaitForTheTokenBalance(ctx, t, id.token, id.receiver, chains[chainID], balance)
+				return nil
+			})
+		}
+	}
+	require.NoError(t, errGrp.Wait())
 }
 
 func WaitForTheTokenBalance(

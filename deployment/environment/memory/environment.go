@@ -3,6 +3,7 @@ package memory
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -66,34 +67,35 @@ func generateMemoryChain(t *testing.T, inputs map[uint64]EVMChain) map[uint64]de
 	chains := make(map[uint64]deployment.Chain)
 	for cid, chain := range inputs {
 		chain := chain
-		sel, err := chainsel.SelectorFromChainId(cid)
+		chainInfo, err := chainsel.GetChainDetailsByChainIDAndFamily(strconv.FormatUint(cid, 10), chainsel.FamilyEVM)
 		require.NoError(t, err)
 		backend := NewBackend(chain.Backend)
-		chains[sel] = deployment.Chain{
-			Selector:    sel,
+		chains[chainInfo.ChainSelector] = deployment.Chain{
+			Selector:    chainInfo.ChainSelector,
 			Client:      backend,
 			DeployerKey: chain.DeployerKey,
 			Confirm: func(tx *types.Transaction) (uint64, error) {
 				if tx == nil {
-					return 0, fmt.Errorf("tx was nil, nothing to confirm")
+					return 0, fmt.Errorf("tx was nil, nothing to confirm, chain %s", chainInfo.ChainName)
 				}
 				for {
 					backend.Commit()
 					receipt, err := backend.TransactionReceipt(context.Background(), tx.Hash())
 					if err != nil {
-						t.Log("failed to get receipt", err)
+						t.Log("failed to get receipt", "chain", chainInfo.ChainName, err)
 						continue
 					}
 					if receipt.Status == 0 {
 						errReason, err := deployment.GetErrorReasonFromTx(chain.Backend.Client(), chain.DeployerKey.From, tx, receipt)
 						if err == nil && errReason != "" {
-							return 0, fmt.Errorf("tx %s reverted,error reason: %s", tx.Hash().Hex(), errReason)
+							return 0, fmt.Errorf("tx %s reverted,error reason: %s chain %s", tx.Hash().Hex(), errReason, chainInfo.ChainName)
 						}
-						return 0, fmt.Errorf("tx %s reverted, could not decode error reason", tx.Hash().Hex())
+						return 0, fmt.Errorf("tx %s reverted, could not decode error reason chain %s", tx.Hash().Hex(), chainInfo.ChainName)
 					}
 					return receipt.BlockNumber.Uint64(), nil
 				}
 			},
+			Users: chain.Users,
 		}
 	}
 	return chains
