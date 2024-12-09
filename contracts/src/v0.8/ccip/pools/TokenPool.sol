@@ -556,6 +556,20 @@ abstract contract TokenPool is IPoolV1, Ownable2StepMsgSender {
     }
   }
 
+  /// @notice Sets the chain rate limiter config.
+  /// @param remoteChainSelector The remote chain selector for which the rate limits apply.
+  /// @param outboundConfig The new outbound rate limiter config, meaning the onRamp rate limits for the given chain.
+  /// @param inboundConfig The new inbound rate limiter config, meaning the offRamp rate limits for the given chain.
+  function setChainRateLimiterConfig(
+    uint64 remoteChainSelector,
+    RateLimiter.Config memory outboundConfig,
+    RateLimiter.Config memory inboundConfig
+  ) external {
+    if (msg.sender != s_rateLimitAdmin && msg.sender != owner()) revert Unauthorized(msg.sender);
+
+    _setRateLimitConfig(remoteChainSelector, outboundConfig, inboundConfig);
+  }
+
   function _setRateLimitConfig(
     uint64 remoteChainSelector,
     RateLimiter.Config memory outboundConfig,
