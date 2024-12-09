@@ -139,6 +139,7 @@ func validateEventQueries(eventQueries []EventQuery) error {
 			return errors.New("sequence data type is nil")
 		}
 
+		// TODO support queries with the same event signature but different filters
 		if _, exists := duplicateCheck[eq.EventBinding.hash]; exists {
 			return fmt.Errorf("duplicate event query for event signature %s, event name %s", eq.EventBinding.hash, eq.EventBinding.eventName)
 		}
