@@ -261,11 +261,10 @@ func NewEnvironment(t *testing.T, tc *TestConfigs, tEnv TestEnvironment) Deploye
 	dEnv := tEnv.DeployedEnvironment()
 	require.NotEmpty(t, dEnv.FeedChainSel)
 	require.NotEmpty(t, dEnv.HomeChainSel)
-	require.NotEmpty(t, dEnv.Env.Chains)
 	ab := deployment.NewMemoryAddressBook()
 	crConfig := DeployTestContracts(t, lggr, ab, dEnv.HomeChainSel, dEnv.FeedChainSel, dEnv.Env.Chains, tc.LinkPrice, tc.WethPrice)
 	tEnv.StartNodes(t, tc, crConfig)
-
+	require.NotEmpty(t, dEnv.Env.Chains)
 	envNodes, err := deployment.NodeInfo(dEnv.Env.NodeIDs, dEnv.Env.Offchain)
 	require.NoError(t, err)
 	dEnv.Env.ExistingAddresses = ab
