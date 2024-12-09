@@ -393,6 +393,23 @@ jobs:
           name: failed-test-results-with-logs.json
           retention-days: 7
 
+      - name: Get Failed Test Results Artifact URL
+        id: failed-test-results-url
+        run: |
+          ARTIFACT_NAME="failed-test-results-with-logs.json"
+          RUN_ID=${{ github.run_id }}
+          API_URL="https://api.github.com/repos/${{ github.repository }}/actions/runs/$RUN_ID/artifacts"
+          ARTIFACT_ID=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" $API_URL | jq -r ".artifacts[] | select(.name==\"$ARTIFACT_NAME\") | .id")
+          ARTIFACT_URL="https://github.com/${{ github.repository }}/suites/${{ github.run_id }}/artifacts/$ARTIFACT_ID"
+          echo "artifact-url=$ARTIFACT_URL" >> $GITHUB_OUTPUT
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Output Failed Test Results Artifact URL
+        run: |
+          echo "Artifact URL for failed-test-results-with-logs.json: ${{ steps.failed-test-results-url.outputs.artifact-url }}"
+      
+
       - name: Post comment on PR if flaky tests found
         if: ${{ fromJSON(steps.results.outputs.summary).flaky_tests > 0 && github.event_name == 'pull_request' }}
         uses: actions/github-script@v7
