@@ -102,7 +102,7 @@ func TestValidateEventQueries(t *testing.T) {
 					SequenceDataType: "dataType2",
 				},
 			},
-			expectedError: "duplicate event query for event signature 0x0000000000000000000000000000000000000000000000000000000000000001",
+			expectedError: "duplicate event query for event signature 0x0000000000000000000000000000000000000000000000000000000000000001, event name ",
 		},
 	}
 
