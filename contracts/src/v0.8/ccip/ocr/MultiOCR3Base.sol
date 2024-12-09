@@ -117,13 +117,14 @@ abstract contract MultiOCR3Base is ITypeAndVersion, Ownable2StepMsgSender {
   uint256 internal immutable i_chainID;
 
   /// @dev The address used to send calls for gas estimation.
+  /// You only need to use this address if the minimum gas limit specified by the user is not actually enough to execute the
+  /// given message and you're attempting to estimate the actual necessary gas limit
   address internal immutable i_gasEstimationSender;
 
   constructor() {
     i_chainID = block.chainid;
-    /// You only need to use this address if the minimum gas limit specified by the user is not actually enough to execute the
-    /// given message and you're attempting to estimate the actual necessary gas limit. We
-    /// use address(1) because it's the ecrecover precompile and therefore guaranteed to
+
+    /// We use address(1) because it's the ecrecover precompile and therefore guaranteed to
     /// never have any code on any EVM chain.
     i_gasEstimationSender = address(1);
   }
