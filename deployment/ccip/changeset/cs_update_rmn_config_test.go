@@ -14,8 +14,32 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func TestUpdateRMNHomeConfig(t *testing.T) {
+type updateRMNConfigTestCase struct {
+	useMCMS bool
+	name    string
+}
+
+func TestUpdateRMNConfig(t *testing.T) {
 	t.Parallel()
+	testCases := []updateRMNConfigTestCase{
+		{
+			useMCMS: true,
+			name:    "with MCMS",
+		},
+		{
+			useMCMS: false,
+			name:    "without MCMS",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			updateRMNConfig(t, tc)
+		})
+	}
+}
+
+func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 	e := NewMemoryEnvironmentWithJobsAndContracts(t, logger.TestLogger(t), memory.MemoryEnvironmentConfig{
 		Chains:     2,
 		Nodes:      4,
@@ -33,17 +57,19 @@ func TestUpdateRMNHomeConfig(t *testing.T) {
 
 	contractsByChain[e.HomeChainSel] = append(contractsByChain[e.HomeChainSel], state.Chains[e.HomeChainSel].RMNHome.Address())
 
-	// This is required because RMNHome is initially owned by the deployer
 	timelocksPerChain := buildTimelockPerChain(e.Env, state)
-	_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(commonchangeset.TransferToMCMSWithTimelock),
-			Config: commonchangeset.TransferToMCMSWithTimelockConfig{
-				ContractsByChain: contractsByChain,
-				MinDelay:         0,
+	if tc.useMCMS {
+		// This is required because RMNHome is initially owned by the deployer
+		_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
+			{
+				Changeset: commonchangeset.WrapChangeSet(commonchangeset.TransferToMCMSWithTimelock),
+				Config: commonchangeset.TransferToMCMSWithTimelockConfig{
+					ContractsByChain: contractsByChain,
+					MinDelay:         0,
+				},
 			},
-		},
-	})
+		})
+	}
 
 	rmnHome := state.Chains[e.HomeChainSel].RMNHome
 
@@ -51,6 +77,14 @@ func TestUpdateRMNHomeConfig(t *testing.T) {
 	require.NoError(t, err)
 	previousActiveDigest, err := rmnHome.GetActiveDigest(nil)
 	require.NoError(t, err)
+
+	var mcmsConfig *MCMSConfig = nil
+
+	if tc.useMCMS {
+		mcmsConfig = &MCMSConfig{
+			MinDelay: 0,
+		}
+	}
 
 	setRMNHomeCandidateConfig := SetRMNHomeCandidateConfig{
 		HomeChainSelector: e.HomeChainSel,
@@ -62,7 +96,7 @@ func TestUpdateRMNHomeConfig(t *testing.T) {
 			SourceChains:   []rmn_home.RMNHomeSourceChain{},
 			OffchainConfig: []byte(""),
 		},
-		MinDelay: 0,
+		MCMSConfig: mcmsConfig,
 	}
 
 	_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
@@ -88,7 +122,7 @@ func TestUpdateRMNHomeConfig(t *testing.T) {
 	promoteConfig := PromoteRMNHomeCandidateConfig{
 		HomeChainSelector: e.HomeChainSel,
 		DigestToPromote:   currentCandidateDigest,
-		MinDelay:          0,
+		MCMSConfig:        mcmsConfig,
 	}
 
 	_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
@@ -112,8 +146,8 @@ func TestUpdateRMNHomeConfig(t *testing.T) {
 				NodeIndex:        0,
 			},
 		},
-		F:        0,
-		MinDelay: 0,
+		F:          0,
+		MCMSConfig: mcmsConfig,
 	}
 
 	_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{

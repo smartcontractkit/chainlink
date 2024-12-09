@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	mcmsWrappers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
@@ -17,12 +18,24 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_remote"
 )
 
+func getDeployer(e deployment.Environment, chain uint64, mcmConfig *MCMSConfig) *bind.TransactOpts {
+	if mcmConfig == nil {
+		return e.Chains[chain].DeployerKey
+	}
+
+	return deployment.SimTransactOpts()
+}
+
+type MCMSConfig struct {
+	MinDelay time.Duration
+}
+
 type SetRMNHomeCandidateConfig struct {
 	HomeChainSelector uint64
 	RMNStaticConfig   rmn_home.RMNHomeStaticConfig
 	RMNDynamicConfig  rmn_home.RMNHomeDynamicConfig
 	DigestToOverride  [32]byte
-	MinDelay          time.Duration
+	MCMSConfig        *MCMSConfig
 }
 
 func (c SetRMNHomeCandidateConfig) Validate(state CCIPOnChainState) error {
@@ -79,7 +92,7 @@ func (c SetRMNHomeCandidateConfig) Validate(state CCIPOnChainState) error {
 type PromoteRMNHomeCandidateConfig struct {
 	HomeChainSelector uint64
 	DigestToPromote   [32]byte
-	MinDelay          time.Duration
+	MCMSConfig        *MCMSConfig
 }
 
 func (c PromoteRMNHomeCandidateConfig) Validate(state CCIPOnChainState) error {
@@ -123,9 +136,21 @@ func NewSetRMNHomeCandidateConfigChangeset(e deployment.Environment, config SetR
 		return deployment.ChangesetOutput{}, fmt.Errorf("RMNHome not found for chain %s", homeChain.String())
 	}
 
-	setCandidateTx, err := rmnHome.SetCandidate(deployment.SimTransactOpts(), config.RMNStaticConfig, config.RMNDynamicConfig, config.DigestToOverride)
+	deployer := getDeployer(e, config.HomeChainSelector, config.MCMSConfig)
+	setCandidateTx, err := rmnHome.SetCandidate(deployer, config.RMNStaticConfig, config.RMNDynamicConfig, config.DigestToOverride)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("build RMNHome set candidate calldata for chain %s: %w", homeChain.String(), err)
+	}
+
+	if config.MCMSConfig == nil {
+		chain := e.Chains[config.HomeChainSelector]
+		_, err := chain.Confirm(setCandidateTx)
+
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm tx for chain %s: %w", homeChain.String(), err)
+		}
+
+		return deployment.ChangesetOutput{}, nil
 	}
 
 	op := mcms.Operation{
@@ -150,7 +175,7 @@ func NewSetRMNHomeCandidateConfigChangeset(e deployment.Environment, config SetR
 		proposerMCMSes,
 		batches,
 		"proposal to set candidate config",
-		0,
+		config.MCMSConfig.MinDelay,
 	)
 
 	return deployment.ChangesetOutput{
@@ -185,9 +210,21 @@ func NewPromoteCandidateConfigChangeset(e deployment.Environment, config Promote
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get RMNHome active digest for chain %s: %w", homeChain.String(), err)
 	}
 
-	promoteCandidateTx, err := rmnHome.PromoteCandidateAndRevokeActive(deployment.SimTransactOpts(), currentCandidateDigest, currentActiveDigest)
+	deployer := getDeployer(e, config.HomeChainSelector, config.MCMSConfig)
+	promoteCandidateTx, err := rmnHome.PromoteCandidateAndRevokeActive(deployer, currentCandidateDigest, currentActiveDigest)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("get call data to promote RMNHome candidate digest for chain %s: %w", homeChain.String(), err)
+	}
+
+	if config.MCMSConfig == nil {
+		chain := e.Chains[config.HomeChainSelector]
+		_, err := chain.Confirm(promoteCandidateTx)
+
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm tx for chain %s: %w", homeChain.String(), err)
+		}
+
+		return deployment.ChangesetOutput{}, nil
 	}
 
 	op := mcms.Operation{
@@ -212,7 +249,7 @@ func NewPromoteCandidateConfigChangeset(e deployment.Environment, config Promote
 		proposerMCMSes,
 		batches,
 		"proposal to promote candidate config",
-		0,
+		config.MCMSConfig.MinDelay,
 	)
 
 	if err != nil {
@@ -261,7 +298,7 @@ type SetRMNRemoteConfig struct {
 	HomeChainSelector uint64
 	Signers           []rmn_remote.RMNRemoteSigner
 	F                 uint64
-	MinDelay          time.Duration
+	MCMSConfig        *MCMSConfig
 }
 
 func (c SetRMNRemoteConfig) Validate() error {
@@ -330,10 +367,19 @@ func NewSetRMNRemoteConfigChangeset(e deployment.Environment, config SetRMNRemot
 			continue
 		}
 
-		tx, err := remote.SetConfig(deployment.SimTransactOpts(), newConfig)
+		deployer := getDeployer(e, chain, config.MCMSConfig)
+		tx, err := remote.SetConfig(deployer, newConfig)
 
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("build call data to set RMNRemote config for chain %s: %w", e.Chains[chain].String(), err)
+		}
+
+		if config.MCMSConfig == nil {
+			_, err := e.Chains[chain].Confirm(tx)
+
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm tx for chain %s: %w", e.Chains[chain].String(), err)
+			}
 		}
 
 		op := mcms.Operation{
@@ -350,6 +396,10 @@ func NewSetRMNRemoteConfigChangeset(e deployment.Environment, config SetRMNRemot
 		batches = append(batches, batch)
 	}
 
+	if config.MCMSConfig == nil {
+		return deployment.ChangesetOutput{}, nil
+	}
+
 	timelocksPerChain := buildTimelockAddressPerChain(e, state)
 
 	proposerMCMSes := buildProposerPerChain(e, state)
@@ -359,7 +409,7 @@ func NewSetRMNRemoteConfigChangeset(e deployment.Environment, config SetRMNRemot
 		proposerMCMSes,
 		batches,
 		"proposal to promote candidate config",
-		0,
+		config.MCMSConfig.MinDelay,
 	)
 
 	if err != nil {
