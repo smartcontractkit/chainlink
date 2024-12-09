@@ -147,7 +147,7 @@ func NewSetRMNHomeCandidateConfigChangeset(e deployment.Environment, config SetR
 		_, err := chain.Confirm(setCandidateTx)
 
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm tx for chain %s: %w", homeChain.String(), err)
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm tx for chain %s: %w", homeChain.String(), deployment.maybeDataError(err))
 		}
 
 		return deployment.ChangesetOutput{}, nil
