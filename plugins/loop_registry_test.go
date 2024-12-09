@@ -18,9 +18,9 @@ func TestPluginPortManager(t *testing.T) {
 	require.Equal(t, "foo", pFoo.Name)
 	require.Greater(t, pFoo.EnvCfg.PrometheusPort, 0)
 	// test duplicate
-	pNil, err := m.Register("foo")
-	require.ErrorIs(t, err, ErrExists)
-	require.Nil(t, pNil)
+	pFoo2, err := m.Register("foo")
+	require.NoError(t, err)
+	require.Equal(t, pFoo, pFoo2)
 	// ensure increasing port assignment
 	pBar, err := m.Register("bar")
 	require.NoError(t, err)
