@@ -332,8 +332,8 @@ jobs:
             --max-pass-ratio "${{ inputs.maxPassRatio }}"
 
           # Print out the summary file
-          echo "\nFlakeguard Summary:"
-          cat ./flakeguard-report/all-test-summary.json            
+          echo -e "\nFlakeguard Summary:"
+          jq . ./flakeguard-report/all-test-summary.json          
 
           # Read the summary from the generated report
           summary=$(jq -c '.' ./flakeguard-report/all-test-summary.json)
