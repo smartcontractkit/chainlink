@@ -331,6 +331,10 @@ jobs:
             --codeowners-path "${{ github.workspace }}/.github/CODEOWNERS" \
             --max-pass-ratio "${{ inputs.maxPassRatio }}"
 
+          # Print out the summary file
+          echo "Flakeguard Summary:"
+          cat ./flakeguard-report/all-test-summary.json            
+
           # Read the summary from the generated report
           summary=$(jq -c '.' ./flakeguard-report/all-test-summary.json)
           echo "summary=$summary" >> $GITHUB_OUTPUT
