@@ -412,10 +412,11 @@ func deployChainContracts(
 					chain.DeployerKey,
 					chain.Client,
 					offramp.OffRampStaticConfig{
-						ChainSelector:      chain.Selector,
-						RmnRemote:          rmnProxyContract.Address(),
-						NonceManager:       nmContract.Address(),
-						TokenAdminRegistry: tokenAdminReg.Address(),
+						ChainSelector:        chain.Selector,
+						GasForCallExactCheck: 5_000,
+						RmnRemote:            rmnProxyContract.Address(),
+						NonceManager:         nmContract.Address(),
+						TokenAdminRegistry:   tokenAdminReg.Address(),
 					},
 					offramp.OffRampDynamicConfig{
 						FeeQuoter:                               feeQuoterContract.Address(),
