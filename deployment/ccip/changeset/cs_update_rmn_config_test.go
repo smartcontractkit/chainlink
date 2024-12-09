@@ -62,6 +62,7 @@ func TestUpdateRMNHomeConfig(t *testing.T) {
 			SourceChains:   []rmn_home.RMNHomeSourceChain{},
 			OffchainConfig: []byte(""),
 		},
+		MinDelay: 0,
 	}
 
 	_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
@@ -87,6 +88,7 @@ func TestUpdateRMNHomeConfig(t *testing.T) {
 	promoteConfig := PromoteRMNHomeCandidateConfig{
 		HomeChainSelector: e.HomeChainSel,
 		DigestToPromote:   currentCandidateDigest,
+		MinDelay:          0,
 	}
 
 	_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
@@ -110,7 +112,8 @@ func TestUpdateRMNHomeConfig(t *testing.T) {
 				NodeIndex:        0,
 			},
 		},
-		F: 0,
+		F:        0,
+		MinDelay: 0,
 	}
 
 	_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{

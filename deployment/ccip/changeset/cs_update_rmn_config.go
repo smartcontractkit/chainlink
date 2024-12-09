@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/big"
 	"reflect"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
@@ -21,6 +22,7 @@ type SetRMNHomeCandidateConfig struct {
 	RMNStaticConfig   rmn_home.RMNHomeStaticConfig
 	RMNDynamicConfig  rmn_home.RMNHomeDynamicConfig
 	DigestToOverride  [32]byte
+	MinDelay          time.Duration
 }
 
 func (c SetRMNHomeCandidateConfig) Validate(state CCIPOnChainState) error {
@@ -63,13 +65,12 @@ func (c SetRMNHomeCandidateConfig) Validate(state CCIPOnChainState) error {
 	}
 
 	currentDigest, err := rmnHome.GetCandidateDigest(nil)
-
 	if err != nil {
 		return fmt.Errorf("failed to get RMNHome candidate digest: %w", err)
 	}
 
 	if currentDigest != c.DigestToOverride {
-		return fmt.Errorf("current digest does not match digest to override")
+		return fmt.Errorf("current digest (%x) does not match digest to override (%x)", currentDigest[:], c.DigestToOverride[:])
 	}
 
 	return nil
@@ -78,6 +79,7 @@ func (c SetRMNHomeCandidateConfig) Validate(state CCIPOnChainState) error {
 type PromoteRMNHomeCandidateConfig struct {
 	HomeChainSelector uint64
 	DigestToPromote   [32]byte
+	MinDelay          time.Duration
 }
 
 func (c PromoteRMNHomeCandidateConfig) Validate(state CCIPOnChainState) error {
@@ -97,7 +99,7 @@ func (c PromoteRMNHomeCandidateConfig) Validate(state CCIPOnChainState) error {
 	}
 
 	if currentCandidateDigest != c.DigestToPromote {
-		return fmt.Errorf("candidate digest does not match digest to promote")
+		return fmt.Errorf("current digest (%x) does not match digest to promote (%x)", currentCandidateDigest[:], c.DigestToPromote[:])
 	}
 
 	return nil
@@ -259,6 +261,7 @@ type SetRMNRemoteConfig struct {
 	HomeChainSelector uint64
 	Signers           []rmn_remote.RMNRemoteSigner
 	F                 uint64
+	MinDelay          time.Duration
 }
 
 func (c SetRMNRemoteConfig) Validate() error {
