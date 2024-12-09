@@ -85,6 +85,8 @@ type ContractReaderFactory interface {
 
 // ContractReader is a subset of types.ContractReader defined locally to enable mocking.
 type ContractReader interface {
+	Start(ctx context.Context) error
+	Close() error
 	Bind(context.Context, []types.BoundContract) error
 	QueryKey(context.Context, types.BoundContract, query.KeyFilter, query.LimitAndSort, any) ([]types.Sequence, error)
 	GetLatestValueWithHeadData(ctx context.Context, readName string, confidenceLevel primitives.ConfidenceLevel, params any, returnVal any) (head *types.Head, err error)
@@ -171,7 +173,14 @@ func NewWorkflowRegistry(
 	workflowDonNotifier donNotifier,
 	opts ...func(*workflowRegistry),
 ) *workflowRegistry {
-	ets := []WorkflowRegistryEventType{ForceUpdateSecretsEvent}
+	ets := []WorkflowRegistryEventType{
+		ForceUpdateSecretsEvent,
+		WorkflowActivatedEvent,
+		WorkflowDeletedEvent,
+		WorkflowPausedEvent,
+		WorkflowRegisteredEvent,
+		WorkflowUpdatedEvent,
+	}
 	wr := &workflowRegistry{
 		lggr:                        lggr,
 		newContractReaderFn:         newContractReaderFn,
@@ -265,14 +274,14 @@ func (w *workflowRegistry) handlerLoop(ctx context.Context) {
 			}
 
 			if resp.Err != nil || resp.Event == nil {
-				w.lggr.Errorf("failed to handle event: %+v", resp.Err)
+				w.lggr.Errorf("failed to handle event", "err", resp.Err)
 				continue
 			}
 
 			event := resp.Event
 			w.lggr.Debugf("handling event: %+v", event)
 			if err := w.handler.Handle(ctx, *event); err != nil {
-				w.lggr.Errorf("failed to handle event: %+v", event)
+				w.lggr.Errorw("failed to handle event", "event", event, "err", err)
 				continue
 			}
 		}
@@ -438,10 +447,9 @@ func queryEvent(
 ) {
 	// create query
 	var (
-		responseBatch []WorkflowRegistryEventResponse
-		logData       values.Value
-		cursor        = ""
-		limitAndSort  = query.LimitAndSort{
+		logData      values.Value
+		cursor       = ""
+		limitAndSort = query.LimitAndSort{
 			SortBy: []query.SortBy{query.NewSortByTimestamp(query.Asc)},
 			Limit:  query.Limit{Count: cfg.QueryCount},
 		}
@@ -457,6 +465,8 @@ func queryEvent(
 		case <-ctx.Done():
 			return
 		case <-ticker:
+			responseBatch := []WorkflowRegistryEventResponse{}
+
 			if cursor != "" {
 				limitAndSort.Limit = query.CursorLimit(cursor, query.CursorFollowing, cfg.QueryCount)
 			}
@@ -468,12 +478,17 @@ func queryEvent(
 					Key: string(et),
 					Expressions: []query.Expression{
 						query.Confidence(primitives.Finalized),
-						query.Block(lastReadBlockNumber, primitives.Gt),
+						query.Block(lastReadBlockNumber, primitives.Gte),
 					},
 				},
 				limitAndSort,
 				&logData,
 			)
+			lcursor := cursor
+			if lcursor == "" {
+				lcursor = "empty"
+			}
+			lggr.Debugw("QueryKeys called", "logs", len(logs), "eventType", et, "lastReadBlockNumber", lastReadBlockNumber, "logCursor", lcursor)
 
 			if err != nil {
 				lggr.Errorw("QueryKey failure", "err", err)
@@ -497,6 +512,7 @@ func queryEvent(
 				responseBatch = append(responseBatch, toWorkflowRegistryEventResponse(log, et, lggr))
 				cursor = log.Cursor
 			}
+			lggr.Debug("composed response batch", "responseBatch", responseBatch)
 			batchCh <- responseBatch
 		}
 	}
@@ -511,12 +527,39 @@ func getWorkflowRegistryEventReader(
 		Contracts: map[string]evmtypes.ChainContractReader{
 			WorkflowRegistryContractName: {
 				ContractPollingFilter: evmtypes.ContractPollingFilter{
-					GenericEventNames: []string{string(ForceUpdateSecretsEvent)},
+					GenericEventNames: []string{
+						string(ForceUpdateSecretsEvent),
+						string(WorkflowActivatedEvent),
+						string(WorkflowDeletedEvent),
+						string(WorkflowPausedEvent),
+						string(WorkflowRegisteredEvent),
+						string(WorkflowUpdatedEvent),
+					},
 				},
 				ContractABI: workflow_registry_wrapper.WorkflowRegistryABI,
 				Configs: map[string]*evmtypes.ChainReaderDefinition{
 					string(ForceUpdateSecretsEvent): {
 						ChainSpecificName: string(ForceUpdateSecretsEvent),
+						ReadType:          evmtypes.Event,
+					},
+					string(WorkflowActivatedEvent): {
+						ChainSpecificName: string(WorkflowActivatedEvent),
+						ReadType:          evmtypes.Event,
+					},
+					string(WorkflowDeletedEvent): {
+						ChainSpecificName: string(WorkflowDeletedEvent),
+						ReadType:          evmtypes.Event,
+					},
+					string(WorkflowPausedEvent): {
+						ChainSpecificName: string(WorkflowPausedEvent),
+						ReadType:          evmtypes.Event,
+					},
+					string(WorkflowRegisteredEvent): {
+						ChainSpecificName: string(WorkflowRegisteredEvent),
+						ReadType:          evmtypes.Event,
+					},
+					string(WorkflowUpdatedEvent): {
+						ChainSpecificName: string(WorkflowUpdatedEvent),
 						ReadType:          evmtypes.Event,
 					},
 				},
@@ -536,6 +579,10 @@ func getWorkflowRegistryEventReader(
 
 	// bind contract to contract reader
 	if err := reader.Bind(ctx, []types.BoundContract{bc}); err != nil {
+		return nil, err
+	}
+
+	if err := reader.Start(ctx); err != nil {
 		return nil, err
 	}
 
@@ -675,6 +722,51 @@ func toWorkflowRegistryEventResponse(
 	switch evt {
 	case ForceUpdateSecretsEvent:
 		var data WorkflowRegistryForceUpdateSecretsRequestedV1
+		if err := dataAsValuesMap.UnwrapTo(&data); err != nil {
+			lggr.Errorf("failed to unwrap data: %+v", log.Data)
+			resp.Event = nil
+			resp.Err = err
+			return resp
+		}
+		resp.Event.Data = data
+	case WorkflowRegisteredEvent:
+		var data WorkflowRegistryWorkflowRegisteredV1
+		if err := dataAsValuesMap.UnwrapTo(&data); err != nil {
+			lggr.Errorf("failed to unwrap data: %+v", log.Data)
+			resp.Event = nil
+			resp.Err = err
+			return resp
+		}
+		resp.Event.Data = data
+	case WorkflowUpdatedEvent:
+		var data WorkflowRegistryWorkflowUpdatedV1
+		if err := dataAsValuesMap.UnwrapTo(&data); err != nil {
+			lggr.Errorf("failed to unwrap data: %+v", log.Data)
+			resp.Event = nil
+			resp.Err = err
+			return resp
+		}
+		resp.Event.Data = data
+	case WorkflowPausedEvent:
+		var data WorkflowRegistryWorkflowPausedV1
+		if err := dataAsValuesMap.UnwrapTo(&data); err != nil {
+			lggr.Errorf("failed to unwrap data: %+v", log.Data)
+			resp.Event = nil
+			resp.Err = err
+			return resp
+		}
+		resp.Event.Data = data
+	case WorkflowActivatedEvent:
+		var data WorkflowRegistryWorkflowActivatedV1
+		if err := dataAsValuesMap.UnwrapTo(&data); err != nil {
+			lggr.Errorf("failed to unwrap data: %+v", log.Data)
+			resp.Event = nil
+			resp.Err = err
+			return resp
+		}
+		resp.Event.Data = data
+	case WorkflowDeletedEvent:
+		var data WorkflowRegistryWorkflowDeletedV1
 		if err := dataAsValuesMap.UnwrapTo(&data); err != nil {
 			lggr.Errorf("failed to unwrap data: %+v", log.Data)
 			resp.Event = nil

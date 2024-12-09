@@ -199,13 +199,13 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 		require.NoError(t, err)
 
 		paused := WorkflowRegistryWorkflowRegisteredV1{
-			Status:       uint8(1),
-			WorkflowID:   giveWFID,
-			Owner:        wfOwner,
-			WorkflowName: "workflow-name",
-			BinaryURL:    binaryURL,
-			ConfigURL:    configURL,
-			SecretsURL:   secretsURL,
+			Status:        uint8(1),
+			WorkflowID:    giveWFID,
+			WorkflowOwner: wfOwner,
+			WorkflowName:  "workflow-name",
+			BinaryURL:     binaryURL,
+			ConfigURL:     configURL,
+			SecretsURL:    secretsURL,
 		}
 
 		h := &eventHandler{
@@ -253,16 +253,16 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 		require.NoError(t, err)
 
 		active := WorkflowRegistryWorkflowRegisteredV1{
-			Status:       uint8(0),
-			WorkflowID:   giveWFID,
-			Owner:        wfOwner,
-			WorkflowName: "workflow-name",
-			BinaryURL:    binaryURL,
-			ConfigURL:    configURL,
-			SecretsURL:   secretsURL,
+			Status:        uint8(0),
+			WorkflowID:    giveWFID,
+			WorkflowOwner: wfOwner,
+			WorkflowName:  "workflow-name",
+			BinaryURL:     binaryURL,
+			ConfigURL:     configURL,
+			SecretsURL:    secretsURL,
 		}
 
-		er := newEngineRegistry()
+		er := NewEngineRegistry()
 		store := wfstore.NewDBStore(db, lggr, clockwork.NewFakeClock())
 		registry := capabilities.NewRegistry(lggr)
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
@@ -322,16 +322,16 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		wfIDs := hex.EncodeToString(giveWFID[:])
 
 		active := WorkflowRegistryWorkflowRegisteredV1{
-			Status:       uint8(0),
-			WorkflowID:   giveWFID,
-			Owner:        wfOwner,
-			WorkflowName: "workflow-name",
-			BinaryURL:    binaryURL,
-			ConfigURL:    configURL,
-			SecretsURL:   secretsURL,
+			Status:        uint8(0),
+			WorkflowID:    giveWFID,
+			WorkflowOwner: wfOwner,
+			WorkflowName:  "workflow-name",
+			BinaryURL:     binaryURL,
+			ConfigURL:     configURL,
+			SecretsURL:    secretsURL,
 		}
 
-		er := newEngineRegistry()
+		er := NewEngineRegistry()
 		store := wfstore.NewDBStore(db, lggr, clockwork.NewFakeClock())
 		registry := capabilities.NewRegistry(lggr)
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
@@ -417,16 +417,16 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 		newWFIDs := hex.EncodeToString(updatedWFID[:])
 
 		active := WorkflowRegistryWorkflowRegisteredV1{
-			Status:       uint8(0),
-			WorkflowID:   giveWFID,
-			Owner:        wfOwner,
-			WorkflowName: "workflow-name",
-			BinaryURL:    binaryURL,
-			ConfigURL:    configURL,
-			SecretsURL:   secretsURL,
+			Status:        uint8(0),
+			WorkflowID:    giveWFID,
+			WorkflowOwner: wfOwner,
+			WorkflowName:  "workflow-name",
+			BinaryURL:     binaryURL,
+			ConfigURL:     configURL,
+			SecretsURL:    secretsURL,
 		}
 
-		er := newEngineRegistry()
+		er := NewEngineRegistry()
 		store := wfstore.NewDBStore(db, lggr, clockwork.NewFakeClock())
 		registry := capabilities.NewRegistry(lggr)
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
