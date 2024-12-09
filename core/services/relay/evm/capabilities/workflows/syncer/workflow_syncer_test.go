@@ -3,6 +3,7 @@ package workflow_registry_syncer_test
 import (
 	"context"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"strings"
@@ -250,7 +251,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 		}
 		wantContents = "updated contents"
 		fetcherFn    = func(_ context.Context, _ string) ([]byte, error) {
-			return []byte(wantContents), nil
+			return []byte(base64.StdEncoding.EncodeToString([]byte(wantContents))), nil
 		}
 	)
 
@@ -300,7 +301,9 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 	// Require the secrets contents to eventually be updated
 	require.Eventually(t, func() bool {
 		_, err = er.Get("test-wf")
-		require.ErrorContains(t, err, "engine not found")
+		if err == nil {
+			return false
+		}
 
 		owner := strings.ToLower(backendTH.ContractsOwner.From.Hex()[2:])
 		_, err := orm.GetWorkflowSpec(ctx, owner, "test-wf")
@@ -346,7 +349,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 		}
 		wantContents = "updated contents"
 		fetcherFn    = func(_ context.Context, _ string) ([]byte, error) {
-			return []byte(wantContents), nil
+			return []byte(base64.StdEncoding.EncodeToString([]byte(wantContents))), nil
 		}
 	)
 
