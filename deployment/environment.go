@@ -98,6 +98,7 @@ type Environment struct {
 	NodeIDs           []string
 	Offchain          OffchainClient
 	GetContext        func() context.Context
+	OCRSecrets        OCRSecrets
 }
 
 func NewEnvironment(
@@ -108,6 +109,7 @@ func NewEnvironment(
 	nodeIDs []string,
 	offchain OffchainClient,
 	ctx func() context.Context,
+	secrets OCRSecrets,
 ) *Environment {
 	return &Environment{
 		Name:              name,
@@ -117,6 +119,7 @@ func NewEnvironment(
 		NodeIDs:           nodeIDs,
 		Offchain:          offchain,
 		GetContext:        ctx,
+		OCRSecrets:        secrets,
 	}
 }
 

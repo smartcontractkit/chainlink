@@ -399,7 +399,7 @@ require (
 	github.com/shoenig/test v0.6.6 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
-	github.com/smartcontractkit/chain-selectors v1.0.31 // indirect
+	github.com/smartcontractkit/chain-selectors v1.0.34 // indirect
 	github.com/smartcontractkit/chainlink-automation v0.8.1 // indirect
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241204015713-8956bb614e9e // indirect
 	github.com/smartcontractkit/chainlink-cosmos v0.5.2-0.20241202195413-82468150ac1e // indirect
