@@ -100,7 +100,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@1540a1b52ecbac49717a8d948863f9f9327d70c4 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@66533339e44b0fe816a880d97e259682819d4668 # flakguard@0.1.0
 
       - name: Find new or updated test packages
         if: ${{ inputs.runAllTests == false }}
@@ -259,7 +259,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@1540a1b52ecbac49717a8d948863f9f9327d70c4 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@66533339e44b0fe816a880d97e259682819d4668 # flakguard@0.1.0
 
       - name: Run tests with flakeguard
         shell: bash
@@ -306,9 +306,9 @@ jobs:
             
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@1540a1b52ecbac49717a8d948863f9f9327d70c4 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@66533339e44b0fe816a880d97e259682819d4668 # flakguard@0.1.0
                 
-      - name: Generate Flakeguard Report
+      - name: Aggregate Flakeguard Results
         id: results
         shell: bash
         run: |
@@ -321,45 +321,17 @@ jobs:
           PATH=$PATH:$(go env GOPATH)/bin
           export PATH
       
-          # Generate the Flakeguard report
-          if [ "${{ github.event_name }}" == "pull_request" ]; then
-            flakeguard report \
-              --results-path ./ci_test_results \
-              --output-path ./flakeguard-report \
-              --repo-path "${{ github.workspace }}" \
-              --codeowners-path "${{ github.workspace }}/.github/CODEOWNERS" \
-              --generate-pr-comment \
-              --base-branch "${{ inputs.baseRef }}" \
-              --current-branch "${{ env.GIT_HEAD_REF }}" \
-              --current-commit-sha "${{ needs.get-tests.outputs.git_head_sha }}" \
-              --repo-url "${{ inputs.repoUrl }}" \
-              --action-run-id "${{ github.run_id }}"
-          else
-            flakeguard report \
-              --results-path ./ci_test_results \
-              --output-path ./flakeguard-report \
-              --repo-path "${{ github.workspace }}" \
-              --codeowners-path "${{ github.workspace }}/.github/CODEOWNERS"
-          fi
-      
+          # Aggregate Flakeguard test results
+          flakeguard aggregate-results \
+            --results-path ./ci_test_results \
+            --output-path ./flakeguard-report \
+            --repo-path "${{ github.workspace }}" \
+            --codeowners-path "${{ github.workspace }}/.github/CODEOWNERS" \
+            --max-pass-ratio "${{ inputs.maxPassRatio }}"
+
           # Read the summary from the generated report
           summary=$(jq -c '.' ./flakeguard-report/all-test-summary.json)
           echo "summary=$summary" >> $GITHUB_OUTPUT
-      
-      - name: Tests Summary
-        if: ${{ fromJSON(steps.results.outputs.summary).total_tests > 0 }}
-        run: |
-          FILE_SIZE=$(wc -c < ./flakeguard-report/all-test-summary.md)
-                    echo "File size: $FILE_SIZE bytes"
-          SIZE_LIMIT=$((1024 * 1024))
-
-          if [ "$FILE_SIZE" -le "$SIZE_LIMIT" ]; then
-            cat ./flakeguard-report/all-test-summary.md >> $GITHUB_STEP_SUMMARY
-          else
-            echo "**We found flaky tests, so many flaky tests that the summary is too large for github actions step summaries!**" >> $GITHUB_STEP_SUMMARY
-            echo "**Please see logs, or the attached `all-test-summary.md` artifact**" >> $GITHUB_STEP_SUMMARY
-            cat ./flakeguard-report/all-test-summary.md
-          fi
 
       - name: Upload All Tests Summary as Artifact
         if: ${{ fromJSON(steps.results.outputs.summary).total_tests > 0 }}
@@ -393,22 +365,61 @@ jobs:
           name: failed-test-results-with-logs.json
           retention-days: 7
 
-      - name: Get Failed Test Results Artifact URL
-        id: failed-test-results-url
+      - name: Generate Flakeguard Reports
+        shell: bash
         run: |
-          ARTIFACT_NAME="failed-test-results-with-logs.json"
-          RUN_ID=${{ github.run_id }}
-          API_URL="https://api.github.com/repos/${{ github.repository }}/actions/runs/$RUN_ID/artifacts"
-          ARTIFACT_ID=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" $API_URL | jq -r ".artifacts[] | select(.name==\"$ARTIFACT_NAME\") | .id")
-          ARTIFACT_URL="https://github.com/${{ github.repository }}/suites/${{ github.run_id }}/artifacts/$ARTIFACT_ID"
-          echo "artifact-url=$ARTIFACT_URL" >> $GITHUB_OUTPUT
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          set -e  # Exit immediately if a command exits with a non-zero status.
       
-      - name: Output Failed Test Results Artifact URL
+          # Fix flakeguard binary path
+          PATH=$PATH:$(go env GOPATH)/bin
+          export PATH
+      
+          # Check if the event is a pull request
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            flakeguard generate-report \
+              --aggregated-results-path ./flakeguard-report/all-test-results.json \
+              --summary-path ./flakeguard-report/all-test-summary.json \
+              --output-path ./flakeguard-report \
+              --github-repository "${{ github.repository }}" \
+              --github-run-id "${{ github.run_id }}" \
+              --failed-tests-artifact-name "failed-test-results-with-logs.json" \
+              --generate-pr-comment \
+              --base-branch "${{ github.event.pull_request.base.ref }}" \
+              --current-branch "${{ github.head_ref }}" \
+              --current-commit-sha "${{ github.event.pull_request.head.sha }}" \
+              --repo-url "https://github.com/${{ github.repository }}" \
+              --action-run-id "${{ github.run_id }}" \
+              --max-pass-ratio "${{ inputs.maxPassRatio }}"
+          else
+            flakeguard generate-report \
+              --aggregated-results-path ./flakeguard-report/all-test-results.json \
+              --summary-path ./flakeguard-report/all-test-summary.json \
+              --output-path ./flakeguard-report \
+              --github-repository "${{ github.repository }}" \
+              --github-run-id "${{ github.run_id }}" \
+              --failed-tests-artifact-name "failed-test-results-with-logs.json" \
+              --base-branch "${{ github.event.pull_request.base.ref }}" \
+              --current-branch "${{ github.head_ref }}" \
+              --current-commit-sha "${{ github.event.pull_request.head.sha }}" \
+              --repo-url "https://github.com/${{ github.repository }}" \
+              --action-run-id "${{ github.run_id }}" \
+              --max-pass-ratio "${{ inputs.maxPassRatio }}"          
+          fi
+        
+      - name: Add Github Summary
+        if: ${{ fromJSON(steps.results.outputs.summary).total_tests > 0 }}
         run: |
-          echo "Artifact URL for failed-test-results-with-logs.json: ${{ steps.failed-test-results-url.outputs.artifact-url }}"
-      
+          FILE_SIZE=$(wc -c < ./flakeguard-report/all-test-summary.md)
+                    echo "File size: $FILE_SIZE bytes"
+          SIZE_LIMIT=$((1024 * 1024))
+
+          if [ "$FILE_SIZE" -le "$SIZE_LIMIT" ]; then
+            cat ./flakeguard-report/all-test-summary.md >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**We found flaky tests, so many flaky tests that the summary is too large for github actions step summaries!**" >> $GITHUB_STEP_SUMMARY
+            echo "**Please see logs, or the attached `all-test-summary.md` artifact**" >> $GITHUB_STEP_SUMMARY
+            cat ./flakeguard-report/all-test-summary.md
+          fi
 
       - name: Post comment on PR if flaky tests found
         if: ${{ fromJSON(steps.results.outputs.summary).flaky_tests > 0 && github.event_name == 'pull_request' }}
