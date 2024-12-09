@@ -12,7 +12,7 @@ import (
 
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
@@ -46,14 +46,10 @@ func TestDeployOCR3(t *testing.T) {
 
 func TestConfigureOCR3(t *testing.T) {
 	t.Parallel()
-	lggr := logger.Test(t)
 
-	c := kslib.OracleConfigWithSecrets{
-		OracleConfig: kslib.OracleConfig{
-			MaxFaultyOracles:    1,
-			DeltaProgressMillis: 12345,
-		},
-		OCRSecrets: deployment.XXXGenerateTestOCRSecrets(),
+	c := kslib.OracleConfig{
+		MaxFaultyOracles:    1,
+		DeltaProgressMillis: 12345,
 	}
 
 	t.Run("no mcms", func(t *testing.T) {
@@ -122,13 +118,9 @@ func TestConfigureOCR3(t *testing.T) {
 		assert.NotNil(t, csOut.Proposals)
 		t.Logf("got: %v", csOut.Proposals[0])
 
-		contractSetsResp, err := kslib.GetContractSets(lggr, &kslib.GetContractSetsRequest{
-			Chains:      te.Env.Chains,
-			AddressBook: te.Env.ExistingAddresses,
-		})
-		require.NoError(t, err)
+		contracts := te.ContractSets()[te.RegistrySelector]
 		var timelocks = map[uint64]*gethwrappers.RBACTimelock{
-			te.RegistrySelector: contractSetsResp.ContractSets[te.RegistrySelector].Timelock,
+			te.RegistrySelector: contracts.Timelock,
 		}
 		// now apply the changeset such that the proposal is signed and execed
 		w2 := &bytes.Buffer{}

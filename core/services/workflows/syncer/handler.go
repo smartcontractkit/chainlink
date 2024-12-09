@@ -406,7 +406,6 @@ func (h *eventHandler) workflowRegisteredEvent(
 		return fmt.Errorf("failed to fetch binary from %s : %w", payload.BinaryURL, err)
 	}
 
-	// Base64 decode
 	decodedBinary, err := base64.StdEncoding.DecodeString(string(binary))
 	if err != nil {
 		return fmt.Errorf("failed to decode binary: %w", err)
@@ -414,20 +413,18 @@ func (h *eventHandler) workflowRegisteredEvent(
 
 	var config []byte
 	if payload.ConfigURL != "" {
-		c, err := h.fetcher(ctx, payload.ConfigURL)
+		config, err = h.fetcher(ctx, payload.ConfigURL)
 		if err != nil {
 			return fmt.Errorf("failed to fetch config from %s : %w", payload.ConfigURL, err)
 		}
-		config = c
 	}
 
 	var secrets []byte
 	if payload.SecretsURL != "" {
-		s, err := h.fetcher(ctx, payload.SecretsURL)
+		secrets, err = h.fetcher(ctx, payload.SecretsURL)
 		if err != nil {
 			return fmt.Errorf("failed to fetch secrets from %s : %w", payload.SecretsURL, err)
 		}
-		secrets = s
 	}
 
 	// Calculate the hash of the binary and config files

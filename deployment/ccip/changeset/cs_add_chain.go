@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
@@ -142,7 +143,6 @@ type AddDonAndSetCandidateChangesetConfig struct {
 	PluginType        types.PluginType
 	NodeIDs           []string
 	CCIPOCRParams     CCIPOCRParams
-	OCRSecrets        deployment.OCRSecrets
 }
 
 func (a AddDonAndSetCandidateChangesetConfig) Validate(e deployment.Environment, state CCIPOnChainState) (deployment.Nodes, error) {
@@ -191,7 +191,7 @@ func (a AddDonAndSetCandidateChangesetConfig) Validate(e deployment.Environment,
 		return nil, fmt.Errorf("invalid ccip ocr params: %w", err)
 	}
 
-	if a.OCRSecrets.IsEmpty() {
+	if e.OCRSecrets.IsEmpty() {
 		return nil, fmt.Errorf("OCR secrets must be set")
 	}
 
@@ -215,7 +215,7 @@ func AddDonAndSetCandidateChangeset(
 	}
 
 	newDONArgs, err := internal.BuildOCR3ConfigForCCIPHome(
-		cfg.OCRSecrets,
+		e.OCRSecrets,
 		state.Chains[cfg.NewChainSelector].OffRamp,
 		e.Chains[cfg.NewChainSelector],
 		nodes.NonBootstraps(),

@@ -138,17 +138,18 @@ func DeployContract[C any](
 ) (*ContractDeploy[C], error) {
 	contractDeploy := deploy(chain)
 	if contractDeploy.Err != nil {
-		lggr.Errorw("Failed to deploy contract", "err", contractDeploy.Err)
+		lggr.Errorw("Failed to deploy contract", "chain", chain.String(), "err", contractDeploy.Err)
 		return nil, contractDeploy.Err
 	}
 	_, err := chain.Confirm(contractDeploy.Tx)
 	if err != nil {
-		lggr.Errorw("Failed to confirm deployment", "err", err)
+		lggr.Errorw("Failed to confirm deployment", "chain", chain.String(), "Contract", contractDeploy.Tv.String(), "err", err)
 		return nil, err
 	}
+	lggr.Infow("Deployed contract", "Contract", contractDeploy.Tv.String(), "addr", contractDeploy.Address, "chain", chain.Selector)
 	err = addressBook.Save(chain.Selector, contractDeploy.Address.String(), contractDeploy.Tv)
 	if err != nil {
-		lggr.Errorw("Failed to save contract address", "err", err)
+		lggr.Errorw("Failed to save contract address", "Contract", contractDeploy.Tv.String(), "addr", contractDeploy.Address, "chain", chain.String(), "err", err)
 		return nil, err
 	}
 	return &contractDeploy, nil
@@ -158,9 +159,25 @@ func IsValidChainSelector(cs uint64) error {
 	if cs == 0 {
 		return fmt.Errorf("chain selector must be set")
 	}
-	_, err := chain_selectors.ChainIdFromSelector(cs)
+	_, err := chain_selectors.GetSelectorFamily(cs)
 	if err != nil {
-		return fmt.Errorf("invalid chain selector: %d - %w", cs, err)
+		return err
 	}
 	return nil
+}
+
+func ChainInfo(cs uint64) (chain_selectors.ChainDetails, error) {
+	id, err := chain_selectors.GetChainIDFromSelector(cs)
+	if err != nil {
+		return chain_selectors.ChainDetails{}, err
+	}
+	family, err := chain_selectors.GetSelectorFamily(cs)
+	if err != nil {
+		return chain_selectors.ChainDetails{}, err
+	}
+	info, err := chain_selectors.GetChainDetailsByChainIDAndFamily(id, family)
+	if err != nil {
+		return chain_selectors.ChainDetails{}, err
+	}
+	return info, nil
 }

@@ -9,6 +9,7 @@ import (
 	"sort"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -31,6 +32,8 @@ type UpdateDonRequest struct {
 
 	P2PIDs            []p2pkey.PeerID    // this is the unique identifier for the don
 	CapabilityConfigs []CapabilityConfig // if Config subfield is nil, a default config is used
+
+	UseMCMS bool
 }
 
 func (r *UpdateDonRequest) appendNodeCapabilitiesRequest() *AppendNodeCapabilitiesRequest {
@@ -38,6 +41,7 @@ func (r *UpdateDonRequest) appendNodeCapabilitiesRequest() *AppendNodeCapabiliti
 		Chain:             r.Chain,
 		Registry:          r.Registry,
 		P2pToCapabilities: make(map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability),
+		UseMCMS:           r.UseMCMS,
 	}
 	for _, p2pid := range r.P2PIDs {
 		if _, exists := out.P2pToCapabilities[p2pid]; !exists {
@@ -61,7 +65,8 @@ func (r *UpdateDonRequest) Validate() error {
 }
 
 type UpdateDonResponse struct {
-	DonInfo kcr.CapabilitiesRegistryDONInfo
+	DonInfo   kcr.CapabilitiesRegistryDONInfo
+	Proposals []timelock.MCMSWithTimelockProposal
 }
 
 func UpdateDon(lggr logger.Logger, req *UpdateDonRequest) (*UpdateDonResponse, error) {

@@ -42,9 +42,9 @@ func TestTransferToMCMSWithTimelock(t *testing.T) {
 	require.NoError(t, err)
 	addrs, err := e.ExistingAddresses.AddressesForChain(chain1)
 	require.NoError(t, err)
-	state, err := LoadMCMSWithTimelockState(e.Chains[chain1], addrs)
+	state, err := MaybeLoadMCMSWithTimelockState(e.Chains[chain1], addrs)
 	require.NoError(t, err)
-	link, err := LoadLinkTokenState(e.Chains[chain1], addrs)
+	link, err := MaybeLoadLinkTokenState(e.Chains[chain1], addrs)
 	require.NoError(t, err)
 	e, err = ApplyChangesets(t, e, map[uint64]*owner_helpers.RBACTimelock{
 		chain1: state.Timelock,
@@ -61,7 +61,7 @@ func TestTransferToMCMSWithTimelock(t *testing.T) {
 	})
 	require.NoError(t, err)
 	// We expect now that the link token is owned by the MCMS timelock.
-	link, err = LoadLinkTokenState(e.Chains[chain1], addrs)
+	link, err = MaybeLoadLinkTokenState(e.Chains[chain1], addrs)
 	require.NoError(t, err)
 	o, err := link.LinkToken.Owner(nil)
 	require.NoError(t, err)
