@@ -1,6 +1,7 @@
 package v1_2
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -18,7 +19,7 @@ func TestGeneratePriceRegistryView(t *testing.T) {
 		Chains: 1,
 	})
 	chain := e.Chains[e.AllChainSelectors()[0]]
-	f1, f2 := common.HexToAddress("0x1"), common.HexToAddress("0x1")
+	f1, f2 := common.HexToAddress("0x1"), common.HexToAddress("0x2")
 	_, tx, c, err := price_registry_1_2_0.DeployPriceRegistry(
 		chain.DeployerKey, chain.Client, []common.Address{chain.DeployerKey.From}, []common.Address{f1, f2}, uint32(10))
 	require.NoError(t, err)
@@ -31,4 +32,6 @@ func TestGeneratePriceRegistryView(t *testing.T) {
 	assert.Equal(t, v.FeeTokens, []common.Address{f1, f2})
 	assert.Equal(t, v.StalenessThreshold, "10")
 	assert.Equal(t, v.Updaters, []common.Address{chain.DeployerKey.From})
+	_, err = json.MarshalIndent(v, "", "  ")
+	require.NoError(t, err)
 }
