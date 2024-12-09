@@ -38,7 +38,6 @@ jobs:
             { "name": "llo-feeds", "setup": { "run-coverage": true, "min-coverage": 49.3, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "operatorforwarder", "setup": { "run-coverage": true, "min-coverage": 55.7, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "shared", "setup": { "run-coverage": true, "extra-coverage-params": "--no-match-path='*CallWithExactGas*' --ir-minimum", "min-coverage": 32.6, "run-gas-snapshot": true, "run-forge-fmt": false }},
-            { "name": "transmission", "setup": { "run-coverage": true, "min-coverage": 61.5, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "vrf", "setup": { "run-coverage": false, "min-coverage": 98.5, "run-gas-snapshot": false, "run-forge-fmt": false }},
             { "name": "workflow", "setup": { "run-coverage": true, "extra-coverage-params": "--ir-minimum", "min-coverage": 96.0, "run-gas-snapshot": true, "run-forge-fmt": true }}
           ]
@@ -112,8 +111,6 @@ jobs:
               - 'contracts/src/v0.8/mocks/**/*.sol'
               - 'contracts/src/v0.8/tests/**/*.sol'
               - 'contracts/src/v0.8/vendor/**/*.sol'
-            transmission:
-              - 'contracts/src/v0.8/transmission/**/*.sol'
             workflow:
               - 'contracts/src/v0.8/workflow/**/*.sol'
 
