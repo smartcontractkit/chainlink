@@ -134,6 +134,7 @@ func NewIntegrationEnvironment(t *testing.T, opts ...changeset.TestOps) (changes
 	for _, opt := range opts {
 		opt(testCfg)
 	}
+	require.NoError(t, testCfg.Validate(), "invalid test config")
 	switch testCfg.Type {
 	case changeset.Memory:
 		memEnv := changeset.NewMemoryEnvironment(t, opts...)

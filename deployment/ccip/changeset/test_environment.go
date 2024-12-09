@@ -244,6 +244,7 @@ func NewMemoryEnvironment(t *testing.T, opts ...TestOps) DeployedEnv {
 	for _, opt := range opts {
 		opt(testCfg)
 	}
+	require.NoError(t, testCfg.Validate(), "invalid test config")
 	env := &MemoryEnvironment{}
 	if testCfg.CreateJobAndContracts {
 		return NewEnvironmentWithJobsAndContracts(t, testCfg, env)
