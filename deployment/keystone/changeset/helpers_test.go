@@ -115,6 +115,7 @@ func (te TestEnv) ContractSets() map[uint64]kslib.ContractSet {
 }
 
 // SetupTestEnv sets up a keystone test environment with the given configuration
+// TODO: make more configurable; eg many tests don't need all the nodes (like when testing a registry change)
 func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 	require.NoError(t, c.Validate())
 	lggr := logger.Test(t)
@@ -220,15 +221,13 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 	}
 	var allDons = []keystone.DonCapabilities{wfDon, cwDon, assetDon}
 
-	_, err = kschangeset.ConfigureInitialContractsChangeset(env, kschangeset.InitialContractsCfg{
+	csOut, err := kschangeset.ConfigureInitialContractsChangeset(env, kschangeset.InitialContractsCfg{
 		RegistryChainSel: registryChainSel,
 		Dons:             allDons,
 		OCR3Config:       &ocr3Config,
 	})
 	require.NoError(t, err)
-	// TODO: KS-rm_deploy_opt
-	//require.Nil(t, csOut.AddressBook, "no new addresses should be created in configure initial contracts")
-	//require.NoError(t, env.ExistingAddresses.Merge(csOut.AddressBook))
+	require.Nil(t, csOut.AddressBook, "no new addresses should be created in configure initial contracts")
 
 	req := &keystone.GetContractSetsRequest{
 		Chains:      env.Chains,
@@ -256,8 +255,7 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 	validateDon(t, gotRegistry, assetNodes, assetDon)
 
 	if c.UseMCMS {
-		// TODO: mcms on all the chains, currently only on the registry chain. need to fix this for forwarders
-		// deploy, configure and xfer ownership of MCMS
+		// deploy, configure and xfer ownership of MCMS on all chains
 		timelockCfgs := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 		for sel := range env.Chains {
 			t.Logf("Enabling MCMS on chain %d", sel)
