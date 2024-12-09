@@ -115,6 +115,8 @@
 
 - [#15372](https://github.com/smartcontractkit/chainlink/pull/15372) [`d3fa330b1b`](https://github.com/smartcontractkit/chainlink/commit/d3fa330b1b3c275c48ea7ec962b4b8457f940fcd) - fix reported evm node states
 
+- [#15577](https://github.com/smartcontractkit/chainlink/pull/15577) [`6da84b21c1`](https://github.com/smartcontractkit/chainlink/commit/6da84b21c16f680f86f640df7ac4cfefab5b942e) - Fixes a race condition with the Finalizer when clearing txs #bugfix
+
 ## 2.18.0 - 2024-11-01
 
 ### Minor Changes
