@@ -13,9 +13,8 @@ func mustReadConfig(fileName string) (output ksdeploy.TopLevelConfigSource) {
 func generateOCR3Config(nodeList string, configFile string, chainID int64, pubKeysPath string) ksdeploy.OCR2OracleConfig {
 	topLevelCfg := mustReadConfig(configFile)
 	cfg := topLevelCfg.OracleConfig
-	cfg.OCRSecrets = deployment.XXXGenerateTestOCRSecrets()
 	nca := downloadNodePubKeys(nodeList, chainID, pubKeysPath)
-	c, err := ksdeploy.GenerateOCR3Config(cfg, nca)
+	c, err := ksdeploy.GenerateOCR3Config(cfg, nca, deployment.XXXGenerateTestOCRSecrets())
 	helpers.PanicErr(err)
 	return c
 }

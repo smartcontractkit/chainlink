@@ -108,6 +108,10 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]deployme
 		if ec == nil {
 			return nil, fmt.Errorf("failed to connect to chain %s", chainCfg.ChainName)
 		}
+		chainInfo, err := deployment.ChainInfo(selector)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get chain info for chain %s: %w", chainCfg.ChainName, err)
+		}
 		chains[selector] = deployment.Chain{
 			Selector:    selector,
 			Client:      ec,
@@ -115,28 +119,24 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]deployme
 			Confirm: func(tx *types.Transaction) (uint64, error) {
 				var blockNumber uint64
 				if tx == nil {
-					return 0, fmt.Errorf("tx was nil, nothing to confirm")
+					return 0, fmt.Errorf("tx was nil, nothing to confirm chain %s", chainInfo.ChainName)
 				}
 				ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 				defer cancel()
-				chainId, err := ec.ChainID(ctx)
-				if err != nil {
-					return blockNumber, fmt.Errorf("failed to get chain id: %w", err)
-				}
 				receipt, err := bind.WaitMined(ctx, ec, tx)
 				if err != nil {
-					return blockNumber, fmt.Errorf("failed to get confirmed receipt for chain %d: %w", chainId, err)
+					return blockNumber, fmt.Errorf("failed to get confirmed receipt for chain %s: %w", chainInfo.ChainName, err)
 				}
 				if receipt == nil {
-					return blockNumber, fmt.Errorf("receipt was nil for tx %s", tx.Hash().Hex())
+					return blockNumber, fmt.Errorf("receipt was nil for tx %s chain %s", tx.Hash().Hex(), chainInfo.ChainName)
 				}
 				blockNumber = receipt.BlockNumber.Uint64()
 				if receipt.Status == 0 {
 					errReason, err := deployment.GetErrorReasonFromTx(ec, chainCfg.DeployerKey.From, tx, receipt)
 					if err == nil && errReason != "" {
-						return blockNumber, fmt.Errorf("tx %s reverted,error reason: %s", tx.Hash().Hex(), errReason)
+						return blockNumber, fmt.Errorf("tx %s reverted,error reason: %s chain %s", tx.Hash().Hex(), errReason, chainInfo.ChainName)
 					}
-					return blockNumber, fmt.Errorf("tx %s reverted, could not decode error reason", tx.Hash().Hex())
+					return blockNumber, fmt.Errorf("tx %s reverted, could not decode error reason chain %s", tx.Hash().Hex(), chainInfo.ChainName)
 				}
 				return blockNumber, nil
 			},

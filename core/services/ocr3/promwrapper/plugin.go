@@ -14,27 +14,33 @@ var _ ocr3types.ReportingPlugin[any] = &reportingPlugin[any]{}
 
 type reportingPlugin[RI any] struct {
 	ocr3types.ReportingPlugin[RI]
-	chainID string
-	plugin  string
+	chainID      string
+	plugin       string
+	configDigest string
 
 	// Prometheus components for tracking metrics
 	reportsGenerated *prometheus.CounterVec
 	durations        *prometheus.HistogramVec
+	status           *prometheus.GaugeVec
 }
 
 func newReportingPlugin[RI any](
 	origin ocr3types.ReportingPlugin[RI],
 	chainID string,
 	plugin string,
+	configDigest string,
 	reportsGenerated *prometheus.CounterVec,
 	durations *prometheus.HistogramVec,
+	status *prometheus.GaugeVec,
 ) *reportingPlugin[RI] {
 	return &reportingPlugin[RI]{
 		ReportingPlugin:  origin,
 		chainID:          chainID,
 		plugin:           plugin,
+		configDigest:     configDigest,
 		reportsGenerated: reportsGenerated,
 		durations:        durations,
+		status:           status,
 	}
 }
 
@@ -88,13 +94,21 @@ func (p *reportingPlugin[RI]) ShouldTransmitAcceptedReport(ctx context.Context, 
 	return result, err
 }
 
-func (p *reportingPlugin[RI]) trackReports(
-	function functionType,
-	count int,
-) {
+func (p *reportingPlugin[RI]) Close() error {
+	p.updateStatus(false)
+	return p.ReportingPlugin.Close()
+}
+
+func (p *reportingPlugin[RI]) trackReports(function functionType, count int) {
 	p.reportsGenerated.
 		WithLabelValues(p.chainID, p.plugin, string(function)).
 		Add(float64(count))
+}
+
+func (p *reportingPlugin[RI]) updateStatus(status bool) {
+	p.status.
+		WithLabelValues(p.chainID, p.plugin, p.configDigest).
+		Set(float64(boolToInt(status)))
 }
 
 func boolToInt(arg bool) int {
@@ -117,6 +131,8 @@ func withObservedExecution[RI, R any](
 	p.durations.
 		WithLabelValues(p.chainID, p.plugin, string(function), strconv.FormatBool(success)).
 		Observe(float64(time.Since(start)))
+
+	p.updateStatus(true)
 
 	return result, err
 }

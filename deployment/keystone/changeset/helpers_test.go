@@ -7,16 +7,19 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"sort"
-
-	"math"
 	"testing"
 
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+	"golang.org/x/exp/maps"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -26,9 +29,6 @@ import (
 	kschangeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
-	"golang.org/x/exp/maps"
 )
 
 func TestSetupTestEnv(t *testing.T) {
@@ -96,12 +96,22 @@ func (c TestConfig) Validate() error {
 }
 
 type TestEnv struct {
+	t                *testing.T
 	Env              deployment.Environment
 	RegistrySelector uint64
 
 	WFNodes    map[string]memory.Node
 	CWNodes    map[string]memory.Node
 	AssetNodes map[string]memory.Node
+}
+
+func (te TestEnv) ContractSets() map[uint64]kslib.ContractSet {
+	r, err := kslib.GetContractSets(te.Env.Logger, &kslib.GetContractSetsRequest{
+		Chains:      te.Env.Chains,
+		AddressBook: te.Env.ExistingAddresses,
+	})
+	require.NoError(te.t, err)
+	return r.ContractSets
 }
 
 // SetupTestEnv sets up a keystone test environment with the given configuration
@@ -205,11 +215,8 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 	err = env.ExistingAddresses.Merge(e.ExistingAddresses)
 	require.NoError(t, err)
 
-	var ocr3Config = keystone.OracleConfigWithSecrets{
-		OracleConfig: keystone.OracleConfig{
-			MaxFaultyOracles: len(wfNodes) / 3,
-		},
-		OCRSecrets: deployment.XXXGenerateTestOCRSecrets(),
+	var ocr3Config = keystone.OracleConfig{
+		MaxFaultyOracles: len(wfNodes) / 3,
 	}
 	var allDons = []keystone.DonCapabilities{wfDon, cwDon, assetDon}
 
@@ -250,57 +257,51 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 
 	if c.UseMCMS {
 		// TODO: mcms on all the chains, currently only on the registry chain. need to fix this for forwarders
-		t.Logf("Enabling MCMS registry chain %d", registryChainSel)
 		// deploy, configure and xfer ownership of MCMS
+		timelockCfgs := make(map[uint64]commontypes.MCMSWithTimelockConfig)
+		for sel := range env.Chains {
+			t.Logf("Enabling MCMS on chain %d", sel)
+			timelockCfgs[sel] = commontypes.MCMSWithTimelockConfig{
+				Canceller:         commonchangeset.SingleGroupMCMS(t),
+				Bypasser:          commonchangeset.SingleGroupMCMS(t),
+				Proposer:          commonchangeset.SingleGroupMCMS(t),
+				TimelockExecutors: env.AllDeployerKeys(),
+				TimelockMinDelay:  big.NewInt(0),
+			}
+		}
 		env, err = commonchangeset.ApplyChangesets(t, env, nil, []commonchangeset.ChangesetApplication{
 			{
 				Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployMCMSWithTimelock),
-				Config: map[uint64]commontypes.MCMSWithTimelockConfig{
-					registryChainSel: {
-						Canceller:         commonchangeset.SingleGroupMCMS(t),
-						Bypasser:          commonchangeset.SingleGroupMCMS(t),
-						Proposer:          commonchangeset.SingleGroupMCMS(t),
-						TimelockExecutors: env.AllDeployerKeys(),
-						TimelockMinDelay:  big.NewInt(0),
-					},
-				},
+				Config:    timelockCfgs,
 			},
 		})
 		require.NoError(t, err)
 		// extract the MCMS address
 		r, err := kslib.GetContractSets(lggr, &kslib.GetContractSetsRequest{
-			Chains: map[uint64]deployment.Chain{
-				registryChainSel: env.Chains[registryChainSel],
-			},
-			AddressBook: env.ExistingAddresses,
-		})
-		require.NoError(t, err)
-		mcms := r.ContractSets[registryChainSel].MCMSWithTimelockState
-		require.NotNil(t, mcms)
-		// transfer ownership of all contracts to the MCMS
-		env, err = commonchangeset.ApplyChangesets(t, env, map[uint64]*gethwrappers.RBACTimelock{registryChainSel: mcms.Timelock}, []commonchangeset.ChangesetApplication{
-			{
-				Changeset: commonchangeset.WrapChangeSet(kschangeset.AcceptAllOwnershipsProposal),
-				Config: &kschangeset.AcceptAllOwnershipRequest{
-					ChainSelector: registryChainSel,
-					MinDelay:      0,
-				},
-			},
-		})
-		require.NoError(t, err)
-		// ensure the MCMS is deployed
-		req = &keystone.GetContractSetsRequest{
 			Chains:      env.Chains,
 			AddressBook: env.ExistingAddresses,
-		}
-		contractSetsResp, err = keystone.GetContractSets(lggr, req)
+		})
 		require.NoError(t, err)
-		require.Len(t, contractSetsResp.ContractSets, len(env.Chains))
-		// check the mcms contract on registry chain
-		gotMCMS := contractSetsResp.ContractSets[registryChainSel].MCMSWithTimelockState
-		require.NoError(t, gotMCMS.Validate())
+		for sel := range env.Chains {
+			mcms := r.ContractSets[sel].MCMSWithTimelockState
+			require.NotNil(t, mcms, "MCMS not found on chain %d", sel)
+			require.NoError(t, mcms.Validate())
+
+			// transfer ownership of all contracts to the MCMS
+			env, err = commonchangeset.ApplyChangesets(t, env, map[uint64]*gethwrappers.RBACTimelock{sel: mcms.Timelock}, []commonchangeset.ChangesetApplication{
+				{
+					Changeset: commonchangeset.WrapChangeSet(kschangeset.AcceptAllOwnershipsProposal),
+					Config: &kschangeset.AcceptAllOwnershipRequest{
+						ChainSelector: sel,
+						MinDelay:      0,
+					},
+				},
+			})
+			require.NoError(t, err)
+		}
 	}
 	return TestEnv{
+		t:                t,
 		Env:              env,
 		RegistrySelector: registryChainSel,
 		WFNodes:          wfNodes,

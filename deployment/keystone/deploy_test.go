@@ -107,6 +107,7 @@ func TestDeployCLO(t *testing.T) {
 		Offchain:          clo.NewJobClient(lggr, clo.JobClientConfig{Nops: allNops}),
 		Chains:            allChains,
 		Logger:            lggr,
+		OCRSecrets:        deployment.XXXGenerateTestOCRSecrets(),
 	}
 	// assume that all the nodes in the provided input nops are part of the don
 	for _, nop := range allNops {
@@ -119,11 +120,8 @@ func TestDeployCLO(t *testing.T) {
 	registryChainSel, err := chainsel.SelectorFromChainId(11155111)
 	require.NoError(t, err)
 
-	var ocr3Config = keystone.OracleConfigWithSecrets{
-		OracleConfig: keystone.OracleConfig{
-			MaxFaultyOracles: len(wfNops) / 3,
-		},
-		OCRSecrets: deployment.XXXGenerateTestOCRSecrets(),
+	var ocr3Config = keystone.OracleConfig{
+		MaxFaultyOracles: len(wfNops) / 3,
 	}
 
 	ctx := tests.Context(t)
@@ -142,10 +140,7 @@ func TestDeployCLO(t *testing.T) {
 	}
 	deployResp, err := keystone.ConfigureContracts(ctx, lggr, deployReq)
 	require.NoError(t, err)
-	ad := deployResp.Changeset.AddressBook
-	addrs, err := ad.Addresses()
-	require.NoError(t, err)
-	lggr.Infow("Deployed Keystone contracts", "address book", addrs)
+	ad := env.ExistingAddresses
 
 	// all contracts on home chain
 	homeChainAddrs, err := ad.AddressesForChain(registryChainSel)

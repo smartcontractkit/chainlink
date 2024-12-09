@@ -12,7 +12,7 @@ import (
 
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
@@ -48,12 +48,9 @@ func TestConfigureOCR3(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
 
-	c := kslib.OracleConfigWithSecrets{
-		OracleConfig: kslib.OracleConfig{
-			MaxFaultyOracles:    1,
-			DeltaProgressMillis: 12345,
-		},
-		OCRSecrets: deployment.XXXGenerateTestOCRSecrets(),
+	c := kslib.OracleConfig{
+		MaxFaultyOracles:    1,
+		DeltaProgressMillis: 12345,
 	}
 
 	t.Run("no mcms", func(t *testing.T) {
