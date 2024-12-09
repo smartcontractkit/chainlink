@@ -83,8 +83,8 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
     bytes32 indexed workflowID, address indexed workflowOwner, uint32 indexed donID, string workflowName
   );
   event WorkflowForceUpdateSecretsRequestedV1(address indexed owner, bytes32 secretsURLHash, string workflowName);
-  event RegistryLockedV1(address indexed lockedBy);
-  event RegistryUnlockedV1(address indexed unlockedBy);
+  event RegistryLockedV1(address lockedBy);
+  event RegistryUnlockedV1(address unlockedBy);
 
   error AddressNotAuthorized(address caller);
   error CallerIsNotWorkflowOwner(address caller);
@@ -306,7 +306,7 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
     if (!sameSecretsURL) {
       // Remove the old secrets hash if secretsURL is not empty
       if (bytes(workflow.secretsURL).length > 0) {
-        // Using keccak256 instead of _computeOwnerAndStringFieldHashKey as currentSecretsURL is memory
+        // Using keccak256 instead of computeHashKey as currentSecretsURL is memory
         bytes32 oldSecretsHash = keccak256(abi.encodePacked(msg.sender, workflow.secretsURL));
         s_secretsHashToWorkflows[oldSecretsHash].remove(workflowKey);
       }
@@ -378,34 +378,31 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
   function deleteWorkflow(
     bytes32 workflowKey
   ) external registryNotLocked {
-    address sender = msg.sender;
-
     // Retrieve workflow metadata from storage
-    WorkflowMetadata storage workflow = _getWorkflowFromStorage(sender, workflowKey);
-    uint32 donID = workflow.donID;
+    WorkflowMetadata storage workflow = _getWorkflowFromStorage(msg.sender, workflowKey);
 
     // Only checking access for the caller instead of using _validatePermissions so that even if the DON was removed from the
     // allowed list, the workflow can still be deleted.
-    if (!s_authorizedAddresses.contains(sender)) {
-      revert AddressNotAuthorized(sender);
+    if (!s_authorizedAddresses.contains(msg.sender)) {
+      revert AddressNotAuthorized(msg.sender);
     }
 
     // Remove the workflow from the owner and DON mappings
-    s_ownerWorkflowKeys[sender].remove(workflowKey);
-    s_donWorkflowKeys[donID].remove(workflowKey);
+    s_ownerWorkflowKeys[msg.sender].remove(workflowKey);
+    s_donWorkflowKeys[workflow.donID].remove(workflowKey);
 
     // Remove the workflow from the secrets hash set if secretsURL is not empty
     if (bytes(workflow.secretsURL).length > 0) {
-      // Using keccak256 instead of _computeOwnerAndStringFieldHashKey as secretsURL is storage ref
-      bytes32 secretsHash = keccak256(abi.encodePacked(sender, workflow.secretsURL));
+      // Using keccak256 instead of computeHashKey as secretsURL is storage ref
+      bytes32 secretsHash = keccak256(abi.encodePacked(msg.sender, workflow.secretsURL));
       s_secretsHashToWorkflows[secretsHash].remove(workflowKey);
     }
 
+    // Emit an event indicating the workflow has been deleted. We need to do this before deleting the workflow from storage.
+    emit WorkflowDeletedV1(workflow.workflowID, msg.sender, workflow.donID, workflow.workflowName);
+
     // Delete the workflow metadata from storage
     delete s_workflows[workflowKey];
-
-    // Emit an event indicating the workflow has been deleted
-    emit WorkflowDeletedV1(workflow.workflowID, sender, donID, workflow.workflowName);
   }
 
   /// @notice Requests a force update for workflows that share the same secrets URL.
@@ -430,10 +427,8 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
   function requestForceUpdateSecrets(
     string calldata secretsURL
   ) external registryNotLocked {
-    address sender = msg.sender;
-
     // Use secretsURL and sender hash key to get the mapping key
-    bytes32 secretsHash = computeHashKey(sender, secretsURL);
+    bytes32 secretsHash = computeHashKey(msg.sender, secretsURL);
 
     // Retrieve all workflow keys associated with the given secrets hash
     EnumerableSet.Bytes32Set storage workflowKeys = s_secretsHashToWorkflows[secretsHash];
@@ -449,8 +444,8 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
       bytes32 workflowKey = workflowKeys.at(i);
       WorkflowMetadata storage workflow = s_workflows[workflowKey];
 
-      if (s_allowedDONs.contains(workflow.donID) && s_authorizedAddresses.contains(sender)) {
-        emit WorkflowForceUpdateSecretsRequestedV1(sender, secretsHash, workflow.workflowName);
+      if (s_allowedDONs.contains(workflow.donID) && s_authorizedAddresses.contains(msg.sender)) {
+        emit WorkflowForceUpdateSecretsRequestedV1(msg.sender, secretsHash, workflow.workflowName);
       }
     }
   }
@@ -472,10 +467,8 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
   /// @param workflowKey The unique identifier for the workflow.
   /// @param newStatus The new status to set for the workflow (either `Paused` or `Active`).
   function _updateWorkflowStatus(bytes32 workflowKey, WorkflowStatus newStatus) internal {
-    address sender = msg.sender;
-
     // Retrieve workflow metadata once
-    WorkflowMetadata storage workflow = _getWorkflowFromStorage(sender, workflowKey);
+    WorkflowMetadata storage workflow = _getWorkflowFromStorage(msg.sender, workflowKey);
     uint32 donID = workflow.donID;
 
     // Avoid unnecessary storage writes if already in the desired status
@@ -485,7 +478,7 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
 
     // Check if the DON ID is allowed when activating a workflow
     if (newStatus == WorkflowStatus.ACTIVE) {
-      _validatePermissions(donID, sender);
+      _validatePermissions(donID, msg.sender);
     }
 
     // Update the workflow status
@@ -493,9 +486,9 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
 
     // Emit the appropriate event based on newStatus
     if (newStatus == WorkflowStatus.PAUSED) {
-      emit WorkflowPausedV1(workflow.workflowID, sender, donID, workflow.workflowName);
+      emit WorkflowPausedV1(workflow.workflowID, msg.sender, donID, workflow.workflowName);
     } else if (newStatus == WorkflowStatus.ACTIVE) {
-      emit WorkflowActivatedV1(workflow.workflowID, sender, donID, workflow.workflowName);
+      emit WorkflowActivatedV1(workflow.workflowID, msg.sender, donID, workflow.workflowName);
     }
   }
 

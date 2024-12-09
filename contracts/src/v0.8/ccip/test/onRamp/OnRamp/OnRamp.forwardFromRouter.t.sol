@@ -4,7 +4,7 @@ pragma solidity 0.8.24;
 import {IMessageInterceptor} from "../../../interfaces/IMessageInterceptor.sol";
 import {IRouter} from "../../../interfaces/IRouter.sol";
 
-import {BurnMintERC677} from "../../../../shared/token/ERC677/BurnMintERC677.sol";
+import {BurnMintERC20} from "../../../../shared/token/ERC20/BurnMintERC20.sol";
 import {FeeQuoter} from "../../../FeeQuoter.sol";
 import {Client} from "../../../libraries/Client.sol";
 import {Internal} from "../../../libraries/Internal.sol";
@@ -416,25 +416,31 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
     vm.startPrank(OWNER);
 
     MaybeRevertingBurnMintTokenPool newPool = new MaybeRevertingBurnMintTokenPool(
-      BurnMintERC677(sourceETH), new address[](0), address(s_mockRMNRemote), address(s_sourceRouter)
+      BurnMintERC20(sourceETH),
+      DEFAULT_TOKEN_DECIMALS,
+      new address[](0),
+      address(s_mockRMNRemote),
+      address(s_sourceRouter)
     );
-    BurnMintERC677(sourceETH).grantMintAndBurnRoles(address(newPool));
+    BurnMintERC20(sourceETH).grantMintAndBurnRoles(address(newPool));
     deal(address(sourceETH), address(newPool), type(uint256).max);
 
     // Add TokenPool to OnRamp
     s_tokenAdminRegistry.setPool(sourceETH, address(newPool));
 
     // Allow chain in TokenPool
+    bytes[] memory remotePoolAddresses = new bytes[](1);
+    remotePoolAddresses[0] = abi.encode(s_destTokenPool);
+
     TokenPool.ChainUpdate[] memory chainUpdates = new TokenPool.ChainUpdate[](1);
     chainUpdates[0] = TokenPool.ChainUpdate({
       remoteChainSelector: DEST_CHAIN_SELECTOR,
-      remotePoolAddress: abi.encode(s_destTokenPool),
+      remotePoolAddresses: remotePoolAddresses,
       remoteTokenAddress: abi.encode(s_destToken),
-      allowed: true,
       outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
       inboundRateLimiterConfig: _getInboundRateLimiterConfig()
     });
-    newPool.applyChainUpdates(chainUpdates);
+    newPool.applyChainUpdates(new uint64[](0), chainUpdates);
 
     Client.EVM2AnyMessage memory message = _generateSingleTokenMessage(address(sourceETH), 1000);
 

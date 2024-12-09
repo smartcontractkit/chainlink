@@ -142,14 +142,13 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
     TokenPool.ChainUpdate[] memory chainUpdates = new TokenPool.ChainUpdate[](1);
     chainUpdates[0] = TokenPool.ChainUpdate({
       remoteChainSelector: wrongDomain,
-      remotePoolAddress: abi.encode(address(1)),
+      remotePoolAddresses: new bytes[](0),
       remoteTokenAddress: abi.encode(address(2)),
-      allowed: true,
       outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
       inboundRateLimiterConfig: _getInboundRateLimiterConfig()
     });
 
-    s_usdcTokenPool.applyChainUpdates(chainUpdates);
+    s_usdcTokenPool.applyChainUpdates(new uint64[](0), chainUpdates);
 
     uint256 amount = 1000;
     vm.startPrank(s_routerAllowedOnRamp);

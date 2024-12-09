@@ -54,7 +54,7 @@ import {Ownable2StepMsgSender} from "../../shared/access/Ownable2StepMsgSender.s
 ///       │    Active   │    revokeCandidate │  Candidate  │◄───────────┐
 ///       │    [1,0]    │◄───────────────────┤    [1,1]    │────────────┘
 ///       │             ├───────────────────►│             │
-///       └─────────────┘    setSecondary    └─────────────┘
+///       └─────────────┘    setCandidate    └─────────────┘
 ///
 contract RMNHome is Ownable2StepMsgSender, ITypeAndVersion {
   event ConfigSet(bytes32 indexed configDigest, uint32 version, StaticConfig staticConfig, DynamicConfig dynamicConfig);

@@ -3,10 +3,13 @@ package changeset
 import (
 	"math/big"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_messenger"
@@ -26,53 +29,78 @@ func ConfigureUSDCTokenPools(
 	srcPool := state.Chains[src].USDCTokenPool
 	dstPool := state.Chains[dst].USDCTokenPool
 
-	// Attach token pools to registry
-	if err := attachTokenToTheRegistry(chains[src], state.Chains[src], chains[src].DeployerKey, srcToken.Address(), srcPool.Address()); err != nil {
-		lggr.Errorw("Failed to attach token to the registry", "err", err, "token", srcToken.Address(), "pool", srcPool.Address())
+	args := []struct {
+		sourceChain deployment.Chain
+		dstChainSel uint64
+		state       CCIPChainState
+		srcToken    *burn_mint_erc677.BurnMintERC677
+		srcPool     *usdc_token_pool.USDCTokenPool
+		dstToken    *burn_mint_erc677.BurnMintERC677
+		dstPool     *usdc_token_pool.USDCTokenPool
+	}{
+		{
+			chains[src],
+			dst,
+			state.Chains[src],
+			srcToken,
+			srcPool,
+			dstToken,
+			dstPool,
+		},
+		{
+			chains[dst],
+			src,
+			state.Chains[dst],
+			dstToken,
+			dstPool,
+			srcToken,
+			srcPool,
+		},
+	}
+
+	configurePoolGrp := errgroup.Group{}
+	for _, arg := range args {
+		configurePoolGrp.Go(configureSingleChain(lggr, arg.sourceChain, arg.dstChainSel, arg.state, arg.srcToken, arg.srcPool, arg.dstToken, arg.dstPool))
+	}
+	if err := configurePoolGrp.Wait(); err != nil {
 		return nil, nil, err
 	}
-
-	if err := attachTokenToTheRegistry(chains[dst], state.Chains[dst], chains[dst].DeployerKey, dstToken.Address(), dstPool.Address()); err != nil {
-		lggr.Errorw("Failed to attach token to the registry", "err", err, "token", dstToken.Address(), "pool", dstPool.Address())
-		return nil, nil, err
-	}
-
-	// Connect pool to each other
-	if err := setUSDCTokenPoolCounterPart(chains[src], srcPool, dst, dstToken.Address(), dstPool.Address()); err != nil {
-		lggr.Errorw("Failed to set counter part", "err", err, "srcPool", srcPool.Address(), "dstPool", dstPool.Address())
-		return nil, nil, err
-	}
-
-	if err := setUSDCTokenPoolCounterPart(chains[dst], dstPool, src, srcToken.Address(), srcPool.Address()); err != nil {
-		lggr.Errorw("Failed to set counter part", "err", err, "srcPool", dstPool.Address(), "dstPool", srcPool.Address())
-		return nil, nil, err
-	}
-
-	// Add burn/mint permissions for source
-	for _, addr := range []common.Address{
-		srcPool.Address(),
-		state.Chains[src].MockUSDCTokenMessenger.Address(),
-		state.Chains[src].MockUSDCTransmitter.Address(),
-	} {
-		if err := grantMintBurnPermissions(lggr, chains[src], srcToken, addr); err != nil {
-			lggr.Errorw("Failed to grant mint/burn permissions", "err", err, "token", srcToken.Address(), "minter", addr)
-			return nil, nil, err
-		}
-	}
-
-	// Add burn/mint permissions for dest
-	for _, addr := range []common.Address{
-		dstPool.Address(),
-		state.Chains[dst].MockUSDCTokenMessenger.Address(),
-		state.Chains[dst].MockUSDCTransmitter.Address(),
-	} {
-		if err := grantMintBurnPermissions(lggr, chains[dst], dstToken, addr); err != nil {
-			lggr.Errorw("Failed to grant mint/burn permissions", "err", err, "token", dstToken.Address(), "minter", addr)
-			return nil, nil, err
-		}
-	}
-
 	return srcToken, dstToken, nil
+}
+
+func configureSingleChain(
+	lggr logger.Logger,
+	sourceChain deployment.Chain,
+	dstChainSel uint64,
+	state CCIPChainState,
+	srcToken *burn_mint_erc677.BurnMintERC677,
+	srcPool *usdc_token_pool.USDCTokenPool,
+	dstToken *burn_mint_erc677.BurnMintERC677,
+	dstPool *usdc_token_pool.USDCTokenPool,
+) func() error {
+	return func() error {
+		if err := attachTokenToTheRegistry(sourceChain, state, sourceChain.DeployerKey, srcToken.Address(), srcPool.Address()); err != nil {
+			lggr.Errorw("Failed to attach token to the registry", "err", err, "token", srcToken.Address(), "pool", srcPool.Address())
+			return err
+		}
+
+		if err := setUSDCTokenPoolCounterPart(sourceChain, srcPool, dstChainSel, sourceChain.DeployerKey, dstToken.Address(), dstPool.Address()); err != nil {
+			lggr.Errorw("Failed to set counter part", "err", err, "srcPool", srcPool.Address(), "dstPool", dstPool.Address())
+			return err
+		}
+
+		for _, addr := range []common.Address{
+			srcPool.Address(),
+			state.MockUSDCTokenMessenger.Address(),
+			state.MockUSDCTransmitter.Address(),
+		} {
+			if err := grantMintBurnPermissions(lggr, sourceChain, srcToken, sourceChain.DeployerKey, addr); err != nil {
+				lggr.Errorw("Failed to grant mint/burn permissions", "err", err, "token", srcToken.Address(), "address", addr)
+				return err
+			}
+		}
+		return nil
+	}
 }
 
 func UpdateFeeQuoterForUSDC(
@@ -119,7 +147,8 @@ func DeployUSDC(
 	lggr logger.Logger,
 	chain deployment.Chain,
 	addresses deployment.AddressBook,
-	state CCIPChainState,
+	rmnProxy common.Address,
+	router common.Address,
 ) (
 	*burn_mint_erc677.BurnMintERC677,
 	*usdc_token_pool.USDCTokenPool,
@@ -132,10 +161,10 @@ func DeployUSDC(
 			tokenAddress, tx, tokenContract, err2 := burn_mint_erc677.DeployBurnMintERC677(
 				chain.DeployerKey,
 				chain.Client,
-				"USDC Token",
-				"USDC",
-				uint8(18),
-				big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
+				USDCName,
+				string(USDCSymbol),
+				UsdcDecimals,
+				big.NewInt(0),
 			)
 			return deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
 				Address:  tokenAddress,
@@ -146,13 +175,13 @@ func DeployUSDC(
 			}
 		})
 	if err != nil {
-		lggr.Errorw("Failed to deploy USDC token", "err", err)
+		lggr.Errorw("Failed to deploy USDC token", "chain", chain.String(), "err", err)
 		return nil, nil, nil, nil, err
 	}
 
 	tx, err := token.Contract.GrantMintRole(chain.DeployerKey, chain.DeployerKey.From)
 	if err != nil {
-		lggr.Errorw("Failed to grant mint role", "token", token.Contract.Address(), "err", err)
+		lggr.Errorw("Failed to grant mint role", "chain", chain.String(), "token", token.Contract.Address(), "err", err)
 		return nil, nil, nil, nil, err
 	}
 	_, err = chain.Confirm(tx)
@@ -178,11 +207,9 @@ func DeployUSDC(
 			}
 		})
 	if err != nil {
-		lggr.Errorw("Failed to deploy mock USDC transmitter", "err", err)
+		lggr.Errorw("Failed to deploy mock USDC transmitter", "chain", chain.String(), "err", err)
 		return nil, nil, nil, nil, err
 	}
-
-	lggr.Infow("deployed mock USDC transmitter", "addr", transmitter.Address)
 
 	messenger, err := deployment.DeployContract(lggr, chain, addresses,
 		func(chain deployment.Chain) deployment.ContractDeploy[*mock_usdc_token_messenger.MockE2EUSDCTokenMessenger] {
@@ -201,10 +228,9 @@ func DeployUSDC(
 			}
 		})
 	if err != nil {
-		lggr.Errorw("Failed to deploy USDC token messenger", "err", err)
+		lggr.Errorw("Failed to deploy USDC token messenger", "chain", chain.String(), "err", err)
 		return nil, nil, nil, nil, err
 	}
-	lggr.Infow("deployed mock USDC token messenger", "addr", messenger.Address)
 
 	tokenPool, err := deployment.DeployContract(lggr, chain, addresses,
 		func(chain deployment.Chain) deployment.ContractDeploy[*usdc_token_pool.USDCTokenPool] {
@@ -214,8 +240,8 @@ func DeployUSDC(
 				messenger.Address,
 				token.Address,
 				[]common.Address{},
-				state.RMNProxyExisting.Address(),
-				state.Router.Address(),
+				rmnProxy,
+				router,
 			)
 			return deployment.ContractDeploy[*usdc_token_pool.USDCTokenPool]{
 				Address:  tokenPoolAddress,
@@ -226,10 +252,9 @@ func DeployUSDC(
 			}
 		})
 	if err != nil {
-		lggr.Errorw("Failed to deploy USDC token pool", "err", err)
+		lggr.Errorw("Failed to deploy USDC token pool", "chain", chain.String(), "err", err)
 		return nil, nil, nil, nil, err
 	}
-	lggr.Infow("deployed USDC token pool", "addr", tokenPool.Address)
 
 	return token.Contract, tokenPool.Contract, messenger.Contract, transmitter.Contract, nil
 }

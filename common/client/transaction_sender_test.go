@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
 
@@ -292,6 +293,27 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 		result := txSender.SendTransaction(tests.Context(t), nil)
 		require.NoError(t, result.Error())
 		require.Equal(t, Successful, result.Code())
+	})
+	t.Run("All background jobs stop even if RPC returns result after soft timeout", func(t *testing.T) {
+		chainID := types.RandomID()
+		expectedError := errors.New("transaction failed")
+		fastNode := newNode(t, expectedError, nil)
+
+		// hold reply from the node till SendTransaction returns result
+		sendTxContext, sendTxCancel := context.WithCancel(tests.Context(t))
+		slowNode := newNode(t, errors.New("transaction failed"), func(_ mock.Arguments) {
+			<-sendTxContext.Done()
+		})
+
+		lggr := logger.Test(t)
+
+		_, txSender := newTestTransactionSender(t, chainID, lggr, []Node[types.ID, TestSendTxRPCClient]{fastNode, slowNode}, nil)
+		result := txSender.SendTransaction(sendTxContext, nil)
+		sendTxCancel()
+		require.EqualError(t, result.Error(), expectedError.Error())
+		// TxSender should stop all background go routines after SendTransaction is done and before test is done.
+		// Otherwise, it signals that we have a goroutine leak.
+		txSender.wg.Wait()
 	})
 }
 

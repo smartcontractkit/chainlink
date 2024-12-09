@@ -17,7 +17,7 @@ log_producer_retry_limit = 10
 
 [ChainlinkImage]
 # postgres version to use
-postgres_version = "15.6"
+postgres_version = "12.0"
 # chainlink image tag to use
 version = "2.12.0"
 # Set chainlink image using E2E_TEST_CHAINLINK_IMAGE env, as it is a test secret

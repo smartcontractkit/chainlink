@@ -3,7 +3,7 @@ package llo
 import (
 	"bytes"
 	"context"
-	"math"
+	"strconv"
 	"sync"
 	"time"
 
@@ -11,9 +11,13 @@ import (
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 )
 
 type ShouldRetireCacheService interface {
@@ -25,10 +29,11 @@ type shouldRetireCache struct {
 	services.Service
 	eng *services.Engine
 
-	lp        LogPoller
-	addr      common.Address
-	donID     uint32
-	donIDHash common.Hash
+	lp          LogPoller
+	addr        common.Address
+	donID       uint32
+	donIDTopic  common.Hash
+	filterExprs []query.Expression
 
 	pollPeriod time.Duration
 
@@ -42,13 +47,26 @@ func NewShouldRetireCache(lggr logger.Logger, lp LogPoller, addr common.Address,
 }
 
 func newShouldRetireCache(lggr logger.Logger, lp LogPoller, addr common.Address, donID uint32) *shouldRetireCache {
+	donIDTopic := DonIDToBytes32(donID)
+	exprs := []query.Expression{
+		logpoller.NewAddressFilter(addr),
+		logpoller.NewEventSigFilter(PromoteStagingConfig),
+		logpoller.NewEventByTopicFilter(1, []logpoller.HashedValueComparator{
+			{Value: donIDTopic, Operator: primitives.Eq},
+		}),
+		// NOTE: Optimize for fast retirement detection. On Arbitrum,
+		// finalization can take tens of minutes
+		// (https://grafana.ops.prod.cldev.sh/d/e0453cc9-4b4a-41e1-9f01-7c21de805b39/blockchain-finality-and-gas?orgId=1&var-env=All&var-network_name=ethereum-testnet-sepolia-arbitrum-1&var-network_name=ethereum-mainnet-arbitrum-1&from=1732460992641&to=1732547392641)
+		query.Confidence(primitives.Unconfirmed),
+	}
 	s := &shouldRetireCache{
-		lp:         lp,
-		addr:       addr,
-		donID:      donID,
-		donIDHash:  DonIDToBytes32(donID),
-		m:          make(map[ocrtypes.ConfigDigest]struct{}),
-		pollPeriod: 1 * time.Second,
+		lp:          lp,
+		addr:        addr,
+		donID:       donID,
+		donIDTopic:  donIDTopic,
+		filterExprs: exprs,
+		m:           make(map[ocrtypes.ConfigDigest]struct{}),
+		pollPeriod:  1 * time.Second,
 	}
 	s.Service, s.eng = services.Config{
 		Name:  "LLOShouldRetireCache",
@@ -79,16 +97,28 @@ func (s *shouldRetireCache) start(ctx context.Context) error {
 
 func (s *shouldRetireCache) checkShouldRetire(ctx context.Context) {
 	fromBlock := s.latestBlockNum + 1
-	logs, err := s.lp.LogsWithSigs(ctx, fromBlock, math.MaxInt64, []common.Hash{PromoteStagingConfig}, s.addr)
+
+	exprs := make([]query.Expression, 0, len(s.filterExprs)+1)
+	exprs = append(exprs, s.filterExprs...)
+	exprs = append(exprs,
+		query.Block(strconv.FormatInt(fromBlock, 10), primitives.Gte),
+	)
+
+	logs, err := s.lp.FilteredLogs(ctx, exprs, NoLimitSortAsc, "ShouldRetireCache - PromoteStagingConfig")
 	if err != nil {
 		s.eng.SugaredLogger.Errorw("checkShouldRetire: IndexedLogs", "err", err)
 		return
 	}
 
 	for _, log := range logs {
-		// TODO: This can probably be optimized
-		// MERC-3524
-		if !bytes.Equal(log.Topics[1], s.donIDHash[:]) {
+		if log.EventSig != PromoteStagingConfig {
+			// ignore unrecognized logs
+			continue
+		}
+
+		if !bytes.Equal(log.Topics[1], s.donIDTopic[:]) {
+			// skip logs for other donIDs, shouldn't happen given the
+			// FilterLogs call, but belts and braces
 			continue
 		}
 		digestBytes := log.Topics[2]

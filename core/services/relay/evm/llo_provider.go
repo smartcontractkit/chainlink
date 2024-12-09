@@ -220,8 +220,6 @@ func (w *mercuryConfigPollerWrapper) close() error {
 func newLLOConfigPollers(ctx context.Context, lggr logger.Logger, cc llo.ConfigCache, lp logpoller.LogPoller, chainID *big.Int, configuratorAddress common.Address, relayConfig types.RelayConfig) (cps []llo.ConfigPollerService, configDigester ocrtypes.OffchainConfigDigester, err error) {
 	donID := relayConfig.LLODONID
 	donIDHash := llo.DonIDToBytes32(donID)
-	// TODO: Can we auto-detect or verify based on if the contract implements `setConfig` or `setProductionConfig` interfaces?
-	// MERC-3524
 	switch relayConfig.LLOConfigMode {
 	case types.LLOConfigModeMercury:
 		// NOTE: This uses the old config digest prefix for compatibility with legacy contracts

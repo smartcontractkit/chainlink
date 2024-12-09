@@ -44,6 +44,10 @@ func TestAddressBook_Save(t *testing.T) {
 	err = ab.Save(chainsel.TEST_90000001.Selector, common.HexToAddress("0x0").Hex(), onRamp100)
 	require.Error(t, err)
 
+	// Zero address but non evm chain
+	err = NewMemoryAddressBook().Save(chainsel.APTOS_MAINNET.Selector, common.HexToAddress("0x0").Hex(), onRamp100)
+	require.NoError(t, err)
+
 	// Distinct address same TV will not
 	err = ab.Save(chainsel.TEST_90000001.Selector, addr2, onRamp100)
 	require.NoError(t, err)
@@ -206,14 +210,14 @@ func TestAddressBook_ConcurrencyAndDeadlock(t *testing.T) {
 			require.NoError(t, err)
 			for chainSelector, chainAddresses := range addresses {
 				// concurrent read chainAddresses from Addresses() method
-				for address, _ := range chainAddresses {
+				for address := range chainAddresses {
 					addresses[chainSelector][address] = onRamp110
 				}
 
 				// concurrent read chainAddresses from AddressesForChain() method
 				chainAddresses, err = baseAB.AddressesForChain(chainSelector)
 				require.NoError(t, err)
-				for address, _ := range chainAddresses {
+				for address := range chainAddresses {
 					_ = addresses[chainSelector][address]
 				}
 			}
@@ -238,4 +242,37 @@ func TestAddressBook_ConcurrencyAndDeadlock(t *testing.T) {
 	}
 
 	wg.Wait()
+}
+
+func TestAddressesContainsBundle(t *testing.T) {
+	onRamp100 := NewTypeAndVersion("OnRamp", Version1_0_0)
+	onRamp110 := NewTypeAndVersion("OnRamp", Version1_1_0)
+	onRamp120 := NewTypeAndVersion("OnRamp", Version1_2_0)
+	addr1 := common.HexToAddress("0x1").String()
+	addr2 := common.HexToAddress("0x2").String()
+	addr3 := common.HexToAddress("0x3").String()
+
+	// More than one instance should error
+	_, err := AddressesContainBundle(map[string]TypeAndVersion{
+		addr1: onRamp100,
+		addr2: onRamp100,
+	}, map[TypeAndVersion]struct{}{onRamp100: {}})
+	require.Error(t, err)
+
+	// No such instances should be false
+	exists, err := AddressesContainBundle(map[string]TypeAndVersion{
+		addr2: onRamp110,
+		addr1: onRamp110,
+	}, map[TypeAndVersion]struct{}{onRamp100: {}})
+	require.NoError(t, err)
+	assert.Equal(t, exists, false)
+
+	// 2 elements
+	exists, err = AddressesContainBundle(map[string]TypeAndVersion{
+		addr1: onRamp100,
+		addr2: onRamp110,
+		addr3: onRamp120,
+	}, map[TypeAndVersion]struct{}{onRamp100: {}, onRamp110: {}})
+	require.NoError(t, err)
+	assert.Equal(t, exists, true)
 }

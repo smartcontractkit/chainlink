@@ -14,9 +14,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
-	internal "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
+	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	kstest "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal/test"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
@@ -679,7 +680,7 @@ func testPeerID(t *testing.T, s string) p2pkey.PeerID {
 }
 
 func testChain(t *testing.T) deployment.Chain {
-	chains := memory.NewMemoryChains(t, 1)
+	chains, _ := memory.NewMemoryChains(t, 1, 5)
 	var chain deployment.Chain
 	for _, c := range chains {
 		chain = c

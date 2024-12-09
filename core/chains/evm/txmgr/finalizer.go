@@ -580,7 +580,7 @@ func (f *evmFinalizer) ProcessOldTxsWithoutReceipts(ctx context.Context, oldTxID
 			"an external wallet has been used to send a transaction from account %s with nonce %s."+
 			" Please note that Chainlink requires exclusive ownership of it's private keys and sharing keys across multiple"+
 			" chainlink instances, or using the chainlink keys with an external wallet is NOT SUPPORTED and WILL lead to missed transactions",
-			oldTx.ID, head.BlockNumber(), latestFinalizedHead.BlockNumber(), oldTx.FromAddress, oldTx.Sequence.String()), "txID", oldTx.ID, "sequence", oldTx.Sequence.String(), "fromAddress", oldTx.FromAddress)
+			oldTx.ID, head.BlockNumber(), latestFinalizedHead.BlockNumber(), oldTx.FromAddress, oldTx.Sequence), "txID", oldTx.ID, "sequence", oldTx.Sequence, "fromAddress", oldTx.FromAddress)
 
 		// Signal pending tasks for these transactions as failed
 		// Store errors and continue to allow all transactions a chance to be signaled

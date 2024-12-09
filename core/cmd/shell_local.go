@@ -382,7 +382,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 	// From now on, DB locks and DB connection will be released on every return.
 	// Keep watching on logger.Fatal* calls and os.Exit(), because defer will not be executed.
 
-	app, err := s.AppFactory.NewApplication(rootCtx, s.Config, s.Logger, ldb.DB(), s.KeyStoreAuthenticator)
+	app, err := s.AppFactory.NewApplication(rootCtx, s.Config, s.Logger, s.Registerer, ldb.DB(), s.KeyStoreAuthenticator)
 	if err != nil {
 		return s.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
@@ -469,14 +469,12 @@ func (s *Shell) runNode(c *cli.Context) error {
 		}
 	}
 
-	if s.Config.Capabilities().WorkflowRegistry().Address() != "" {
-		err2 := app.GetKeyStore().Workflow().EnsureKey(rootCtx)
-		if err2 != nil {
-			return errors.Wrap(err2, "failed to ensure workflow key")
-		}
+	err2 := app.GetKeyStore().Workflow().EnsureKey(rootCtx)
+	if err2 != nil {
+		return errors.Wrap(err2, "failed to ensure workflow key")
 	}
 
-	err2 := app.GetKeyStore().CSA().EnsureKey(rootCtx)
+	err2 = app.GetKeyStore().CSA().EnsureKey(rootCtx)
 	if err2 != nil {
 		return errors.Wrap(err2, "failed to ensure CSA key")
 	}
@@ -629,7 +627,7 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 	}
 	defer lggr.ErrorIfFn(db.Close, "Error closing db")
 
-	app, err := s.AppFactory.NewApplication(ctx, s.Config, lggr, db, s.KeyStoreAuthenticator)
+	app, err := s.AppFactory.NewApplication(ctx, s.Config, lggr, s.Registerer, db, s.KeyStoreAuthenticator)
 	if err != nil {
 		return s.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
@@ -686,7 +684,6 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 		nonces[i] = evmtypes.Nonce(beginningNonce + i)
 	}
 	if gasPriceWei <= math.MaxInt64 {
-		//nolint:gosec // disable G115
 		return s.errorOut(ec.ForceRebroadcast(ctx, nonces, gas.EvmFee{GasPrice: assets.NewWeiI(int64(gasPriceWei))}, address, uint64(overrideGasLimit)))
 	}
 	return s.errorOut(fmt.Errorf("integer overflow conversion error. GasPrice: %v", gasPriceWei))
@@ -1275,7 +1272,7 @@ func (s *Shell) RemoveBlocks(c *cli.Context) error {
 	// From now on, DB locks and DB connection will be released on every return.
 	// Keep watching on logger.Fatal* calls and os.Exit(), because defer will not be executed.
 
-	app, err := s.AppFactory.NewApplication(ctx, s.Config, s.Logger, ldb.DB(), s.KeyStoreAuthenticator)
+	app, err := s.AppFactory.NewApplication(ctx, s.Config, s.Logger, s.Registerer, ldb.DB(), s.KeyStoreAuthenticator)
 	if err != nil {
 		return s.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}

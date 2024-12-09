@@ -21,6 +21,7 @@ import (
 
 	corelogger "github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3/promwrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 )
 
@@ -59,6 +60,7 @@ type DelegateConfig struct {
 	ShouldRetireCache      datastreamsllo.ShouldRetireCache
 	EAMonitoringEndpoint   ocrcommontypes.MonitoringEndpoint
 	DonID                  uint32
+	ChainID                string
 
 	// OCR3
 	TraceLogging                 bool
@@ -98,7 +100,7 @@ func NewDelegate(cfg DelegateConfig) (job.ServiceCtx, error) {
 	} else {
 		codecLggr = corelogger.NullLogger
 	}
-	reportCodecs := NewReportCodecs(codecLggr)
+	reportCodecs := NewReportCodecs(codecLggr, cfg.DonID)
 
 	var t TelemeterService
 	if cfg.CaptureEATelemetry {
@@ -134,8 +136,9 @@ func (d *delegate) Start(ctx context.Context) error {
 				lggr = logger.With(lggr, "instanceType", "Green")
 			}
 			ocrLogger := logger.NewOCRWrapper(NewSuppressedLogger(lggr, d.cfg.ReportingPluginConfig.VerboseLogging), d.cfg.TraceLogging, func(msg string) {
-				// TODO: do we actually need to DB-persist errors?
-				// MERC-3524
+				// NOTE: Some OCR loggers include a DB-persist here
+				// We do not DB persist errors in LLO, since they could be quite voluminous and ought to be present in logs anyway.
+				// This is a performance optimization
 			})
 
 			oracle, err := ocr2plus.NewOracle(ocr2plus.OCR3OracleArgs[llotypes.ReportInfo]{
@@ -150,8 +153,21 @@ func (d *delegate) Start(ctx context.Context) error {
 				OffchainConfigDigester:       d.cfg.OffchainConfigDigester,
 				OffchainKeyring:              d.cfg.OffchainKeyring,
 				OnchainKeyring:               d.cfg.OnchainKeyring,
-				ReportingPluginFactory: datastreamsllo.NewPluginFactory(
-					d.cfg.ReportingPluginConfig, psrrc, d.src, d.cfg.RetirementReportCodec, d.cfg.ChannelDefinitionCache, d.ds, logger.Named(lggr, "ReportingPlugin"), llo.EVMOnchainConfigCodec{}, d.reportCodecs,
+				ReportingPluginFactory: promwrapper.NewReportingPluginFactory(
+					datastreamsllo.NewPluginFactory(
+						d.cfg.ReportingPluginConfig,
+						psrrc,
+						d.src,
+						d.cfg.RetirementReportCodec,
+						d.cfg.ChannelDefinitionCache,
+						d.ds,
+						logger.Named(lggr, "ReportingPlugin"),
+						llo.EVMOnchainConfigCodec{},
+						d.reportCodecs,
+					),
+					lggr,
+					d.cfg.ChainID,
+					"llo",
 				),
 				MetricsRegisterer: prometheus.WrapRegistererWith(map[string]string{"job_name": d.cfg.JobName.ValueOrZero()}, prometheus.DefaultRegisterer),
 			})
