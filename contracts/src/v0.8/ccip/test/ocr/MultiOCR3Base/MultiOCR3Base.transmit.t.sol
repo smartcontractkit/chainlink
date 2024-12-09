@@ -47,7 +47,7 @@ contract MultiOCR3Base_transmit is MultiOCR3BaseSetup {
 
   function test_TransmitSigners_gas_Success() public {
     vm.pauseGasMetering();
-    bytes32[3] memory reportContext = [s_configDigest1, s_configDigest1, s_configDigest1];
+    bytes32[2] memory reportContext = [s_configDigest1, s_configDigest1];
 
     // F = 2, need 2 signatures
     (bytes32[] memory rs, bytes32[] memory ss,, bytes32 rawVs) =
@@ -65,7 +65,7 @@ contract MultiOCR3Base_transmit is MultiOCR3BaseSetup {
 
   function test_TransmitWithoutSignatureVerification_gas_Success() public {
     vm.pauseGasMetering();
-    bytes32[3] memory reportContext = [s_configDigest3, s_configDigest3, s_configDigest3];
+    bytes32[2] memory reportContext = [s_configDigest3, s_configDigest3];
 
     s_multiOCR3.setTransmitOcrPluginType(2);
 
@@ -115,7 +115,7 @@ contract MultiOCR3Base_transmit is MultiOCR3BaseSetup {
     // Randomise picked transmitter with random offset
     vm.startPrank(transmitters[randomAddressOffset % signersLength]);
 
-    bytes32[3] memory reportContext = [s_configDigest1, s_configDigest1, s_configDigest1];
+    bytes32[2] memory reportContext = [s_configDigest1, s_configDigest1];
 
     // condition: matches signature expectation for transmit
     uint8 numSignatures = F + 1;
@@ -138,7 +138,7 @@ contract MultiOCR3Base_transmit is MultiOCR3BaseSetup {
 
   // Reverts
   function test_ForkedChain_Revert() public {
-    bytes32[3] memory reportContext = [s_configDigest1, s_configDigest1, s_configDigest1];
+    bytes32[2] memory reportContext = [s_configDigest1, s_configDigest1];
 
     (bytes32[] memory rs, bytes32[] memory ss,, bytes32 rawVs) =
       _getSignaturesForDigest(s_validSignerKeys, REPORT, reportContext, 2);
@@ -155,7 +155,7 @@ contract MultiOCR3Base_transmit is MultiOCR3BaseSetup {
   }
 
   function test_ZeroSignatures_Revert() public {
-    bytes32[3] memory reportContext = [s_configDigest1, s_configDigest1, s_configDigest1];
+    bytes32[2] memory reportContext = [s_configDigest1, s_configDigest1];
 
     s_multiOCR3.setTransmitOcrPluginType(0);
 
@@ -165,7 +165,7 @@ contract MultiOCR3Base_transmit is MultiOCR3BaseSetup {
   }
 
   function test_TooManySignatures_Revert() public {
-    bytes32[3] memory reportContext = [s_configDigest1, s_configDigest1, s_configDigest1];
+    bytes32[2] memory reportContext = [s_configDigest1, s_configDigest1];
 
     // 1 signature too many
     (bytes32[] memory rs, bytes32[] memory ss,, bytes32 rawVs) =
@@ -179,7 +179,7 @@ contract MultiOCR3Base_transmit is MultiOCR3BaseSetup {
   }
 
   function test_InsufficientSignatures_Revert() public {
-    bytes32[3] memory reportContext = [s_configDigest1, s_configDigest1, s_configDigest1];
+    bytes32[2] memory reportContext = [s_configDigest1, s_configDigest1];
 
     // Missing 1 signature for unique report
     (bytes32[] memory rs, bytes32[] memory ss,, bytes32 rawVs) =
@@ -194,7 +194,7 @@ contract MultiOCR3Base_transmit is MultiOCR3BaseSetup {
 
   function test_ConfigDigestMismatch_Revert() public {
     bytes32 configDigest;
-    bytes32[3] memory reportContext = [configDigest, configDigest, configDigest];
+    bytes32[2] memory reportContext = [configDigest, configDigest];
 
     (,,, bytes32 rawVs) = _getSignaturesForDigest(s_validSignerKeys, REPORT, reportContext, 2);
 
@@ -205,7 +205,7 @@ contract MultiOCR3Base_transmit is MultiOCR3BaseSetup {
   }
 
   function test_SignatureOutOfRegistration_Revert() public {
-    bytes32[3] memory reportContext = [s_configDigest1, s_configDigest1, s_configDigest1];
+    bytes32[2] memory reportContext = [s_configDigest1, s_configDigest1];
 
     bytes32[] memory rs = new bytes32[](2);
     bytes32[] memory ss = new bytes32[](1);
@@ -218,7 +218,7 @@ contract MultiOCR3Base_transmit is MultiOCR3BaseSetup {
   }
 
   function test_UnAuthorizedTransmitter_Revert() public {
-    bytes32[3] memory reportContext = [s_configDigest1, s_configDigest1, s_configDigest1];
+    bytes32[2] memory reportContext = [s_configDigest1, s_configDigest1];
     bytes32[] memory rs = new bytes32[](2);
     bytes32[] memory ss = new bytes32[](2);
 
@@ -229,7 +229,7 @@ contract MultiOCR3Base_transmit is MultiOCR3BaseSetup {
   }
 
   function test_NonUniqueSignature_Revert() public {
-    bytes32[3] memory reportContext = [s_configDigest1, s_configDigest1, s_configDigest1];
+    bytes32[2] memory reportContext = [s_configDigest1, s_configDigest1];
 
     (bytes32[] memory rs, bytes32[] memory ss, uint8[] memory vs, bytes32 rawVs) =
       _getSignaturesForDigest(s_validSignerKeys, REPORT, reportContext, 2);
@@ -247,7 +247,7 @@ contract MultiOCR3Base_transmit is MultiOCR3BaseSetup {
   }
 
   function test_UnauthorizedSigner_Revert() public {
-    bytes32[3] memory reportContext = [s_configDigest1, s_configDigest1, s_configDigest1];
+    bytes32[2] memory reportContext = [s_configDigest1, s_configDigest1];
 
     (bytes32[] memory rs, bytes32[] memory ss,, bytes32 rawVs) =
       _getSignaturesForDigest(s_validSignerKeys, REPORT, reportContext, 2);
@@ -264,7 +264,7 @@ contract MultiOCR3Base_transmit is MultiOCR3BaseSetup {
 
   function test_UnconfiguredPlugin_Revert() public {
     bytes32 configDigest;
-    bytes32[3] memory reportContext = [configDigest, configDigest, configDigest];
+    bytes32[2] memory reportContext = [configDigest, configDigest];
 
     s_multiOCR3.setTransmitOcrPluginType(42);
 
@@ -273,7 +273,7 @@ contract MultiOCR3Base_transmit is MultiOCR3BaseSetup {
   }
 
   function test_TransmitWithLessCalldataArgs_Revert() public {
-    bytes32[3] memory reportContext = [s_configDigest1, s_configDigest1, s_configDigest1];
+    bytes32[2] memory reportContext = [s_configDigest1, s_configDigest1];
 
     s_multiOCR3.setTransmitOcrPluginType(0);
 
@@ -281,7 +281,7 @@ contract MultiOCR3Base_transmit is MultiOCR3BaseSetup {
     vm.startPrank(s_validTransmitters[1]);
 
     // report length + function selector + report length + abiencoded location of report value + report context words
-    uint256 receivedLength = REPORT.length + 4 + 5 * 32;
+    uint256 receivedLength = REPORT.length + 4 + 4 * 32;
     vm.expectRevert(
       abi.encodeWithSelector(
         MultiOCR3Base.WrongMessageLength.selector,
@@ -294,7 +294,7 @@ contract MultiOCR3Base_transmit is MultiOCR3BaseSetup {
   }
 
   function test_TransmitWithExtraCalldataArgs_Revert() public {
-    bytes32[3] memory reportContext = [s_configDigest1, s_configDigest1, s_configDigest1];
+    bytes32[2] memory reportContext = [s_configDigest1, s_configDigest1];
     bytes32[] memory rs = new bytes32[](2);
     bytes32[] memory ss = new bytes32[](2);
 
@@ -305,7 +305,7 @@ contract MultiOCR3Base_transmit is MultiOCR3BaseSetup {
 
     // dynamic length + function selector + report length + abiencoded location of report value + report context words
     // rawVs value, lengths of rs, ss, and start locations of rs & ss -> 5 words
-    uint256 receivedLength = REPORT.length + 4 + (5 * 32) + (5 * 32) + (2 * 32) + (2 * 32);
+    uint256 receivedLength = REPORT.length + 4 + (4 * 32) + (5 * 32) + (2 * 32) + (2 * 32);
     vm.expectRevert(
       abi.encodeWithSelector(
         MultiOCR3Base.WrongMessageLength.selector,

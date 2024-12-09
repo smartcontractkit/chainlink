@@ -452,6 +452,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		solanaCfg := chainlink.SolanaFactoryConfig{
 			Keystore:    keyStore.Solana(),
 			TOMLConfigs: cfg.SolanaConfigs(),
+			DS:          ds,
 		}
 		initOps = append(initOps, chainlink.InitSolana(ctx, relayerFactory, solanaCfg))
 	}

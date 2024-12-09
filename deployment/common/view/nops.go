@@ -4,13 +4,16 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/pkg/errors"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
 type NopView struct {
 	// NodeID is the unique identifier of the node
 	NodeID       string                `json:"nodeID"`
+	PeerID       string                `json:"peerID"`
 	IsBootstrap  bool                  `json:"isBootstrap"`
 	OCRKeys      map[string]OCRKeyView `json:"ocrKeys"`
 	PayeeAddress string                `json:"payeeAddress"`
@@ -38,7 +41,7 @@ func GenerateNopsView(nodeIds []string, oc deployment.OffchainClient) (map[strin
 		// get node info
 		nodeDetails, err := oc.GetNode(context.Background(), &nodev1.GetNodeRequest{Id: node.NodeID})
 		if err != nil {
-			return nv, err
+			return nv, errors.Wrapf(err, "failed to get node details from offchain client for node %s", node.NodeID)
 		}
 		if nodeDetails == nil || nodeDetails.Node == nil {
 			return nv, fmt.Errorf("failed to get node details from offchain client for node %s", node.NodeID)
@@ -49,6 +52,7 @@ func GenerateNopsView(nodeIds []string, oc deployment.OffchainClient) (map[strin
 		}
 		nop := NopView{
 			NodeID:       node.NodeID,
+			PeerID:       node.PeerID.String(),
 			IsBootstrap:  node.IsBootstrap,
 			OCRKeys:      make(map[string]OCRKeyView),
 			PayeeAddress: node.AdminAddr,

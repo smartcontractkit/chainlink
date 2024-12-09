@@ -112,7 +112,7 @@ func MarshalMultichainPublicKey(ost map[string]ocrtypes.OnchainPublicKey) (ocrty
 		if length < 0 || length > math.MaxUint16 {
 			return nil, fmt.Errorf("pubKey doesn't fit into uint16")
 		}
-		if err = binary.Write(buf, binary.LittleEndian, uint16(length)); err != nil { //nolint:gosec
+		if err = binary.Write(buf, binary.LittleEndian, uint16(length)); err != nil {
 			return nil, err
 		}
 		_, _ = buf.Write(pubKey)

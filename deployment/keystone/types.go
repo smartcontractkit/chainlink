@@ -20,10 +20,12 @@ import (
 )
 
 var (
-	CapabilitiesRegistry deployment.ContractType = "CapabilitiesRegistry" // https://github.com/smartcontractkit/chainlink/blob/50c1b3dbf31bd145b312739b08967600a5c67f30/contracts/src/v0.8/keystone/CapabilitiesRegistry.sol#L392
-	KeystoneForwarder    deployment.ContractType = "KeystoneForwarder"    // https://github.com/smartcontractkit/chainlink/blob/50c1b3dbf31bd145b312739b08967600a5c67f30/contracts/src/v0.8/keystone/KeystoneForwarder.sol#L90
-	OCR3Capability       deployment.ContractType = "OCR3Capability"       // https://github.com/smartcontractkit/chainlink/blob/50c1b3dbf31bd145b312739b08967600a5c67f30/contracts/src/v0.8/keystone/OCR3Capability.sol#L12
-	FeedConsumer         deployment.ContractType = "FeedConsumer"         // no type and a version in contract https://github.com/smartcontractkit/chainlink/blob/89183a8a5d22b1aeca0ade3b76d16aa84067aa57/contracts/src/v0.8/keystone/KeystoneFeedsConsumer.sol#L1
+	CapabilitiesRegistry      deployment.ContractType = "CapabilitiesRegistry"      // https://github.com/smartcontractkit/chainlink/blob/50c1b3dbf31bd145b312739b08967600a5c67f30/contracts/src/v0.8/keystone/CapabilitiesRegistry.sol#L392
+	KeystoneForwarder         deployment.ContractType = "KeystoneForwarder"         // https://github.com/smartcontractkit/chainlink/blob/50c1b3dbf31bd145b312739b08967600a5c67f30/contracts/src/v0.8/keystone/KeystoneForwarder.sol#L90
+	OCR3Capability            deployment.ContractType = "OCR3Capability"            // https://github.com/smartcontractkit/chainlink/blob/50c1b3dbf31bd145b312739b08967600a5c67f30/contracts/src/v0.8/keystone/OCR3Capability.sol#L12
+	FeedConsumer              deployment.ContractType = "FeedConsumer"              // no type and a version in contract https://github.com/smartcontractkit/chainlink/blob/89183a8a5d22b1aeca0ade3b76d16aa84067aa57/contracts/src/v0.8/keystone/KeystoneFeedsConsumer.sol#L1
+	RBACTimelock              deployment.ContractType = "RBACTimelock"              // no type and a version in contract https://github.com/smartcontractkit/ccip-owner-contracts/blob/main/src/RBACTimelock.sol
+	ProposerManyChainMultiSig deployment.ContractType = "ProposerManyChainMultiSig" // no type and a version in contract https://github.com/smartcontractkit/ccip-owner-contracts/blob/main/src/ManyChainMultiSig.sol
 )
 
 type DeployResponse struct {
@@ -125,6 +127,7 @@ func (v NOP) Validate() error {
 // in is in a convenient form to handle the CLO representation of the nop data
 type DonCapabilities struct {
 	Name         string
+	F            uint8
 	Nops         []NOP
 	Capabilities []kcr.CapabilitiesRegistryCapability // every capability is hosted on each nop
 }
@@ -227,7 +230,51 @@ type RegisteredDon struct {
 	Nodes []deployment.Node
 }
 
-func (d RegisteredDon) signers(chainFamily string) []common.Address {
+type RegisteredDonConfig struct {
+	Name             string
+	NodeIDs          []string // ids in the offchain client
+	RegistryChainSel uint64
+}
+
+func NewRegisteredDon(env deployment.Environment, cfg RegisteredDonConfig) (*RegisteredDon, error) {
+	// load the don info from the capabilities registry
+	r, err := GetContractSets(env.Logger, &GetContractSetsRequest{
+		Chains:      env.Chains,
+		AddressBook: env.ExistingAddresses,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get contract sets: %w", err)
+	}
+	capReg := r.ContractSets[cfg.RegistryChainSel].CapabilitiesRegistry
+
+	di, err := capReg.GetDONs(nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get dons: %w", err)
+	}
+	// load the nodes from the offchain client
+	nodes, err := deployment.NodeInfo(cfg.NodeIDs, env.Offchain)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get node info: %w", err)
+	}
+	want := sortedHash(nodes.PeerIDs())
+	var don *kcr.CapabilitiesRegistryDONInfo
+	for i, d := range di {
+		got := sortedHash(d.NodeP2PIds)
+		if got == want {
+			don = &di[i]
+		}
+	}
+	if don == nil {
+		return nil, fmt.Errorf("don not found in registry")
+	}
+	return &RegisteredDon{
+		Name:  cfg.Name,
+		Info:  *don,
+		Nodes: nodes,
+	}, nil
+}
+
+func (d RegisteredDon) Signers(chainFamily string) []common.Address {
 	sort.Slice(d.Nodes, func(i, j int) bool {
 		return d.Nodes[i].PeerID.String() < d.Nodes[j].PeerID.String()
 	})

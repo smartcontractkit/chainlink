@@ -150,7 +150,7 @@ func (t *TestRelayer) Ready() error { panic("implement me") }
 
 func (t *TestRelayer) HealthReport() map[string]error { panic("implement me") }
 
-func (t *TestRelayer) NewChainWriter(_ context.Context, _ []byte) (types.ChainWriter, error) {
+func (t *TestRelayer) NewContractWriter(_ context.Context, _ []byte) (types.ContractWriter, error) {
 	panic("implement me")
 }
 

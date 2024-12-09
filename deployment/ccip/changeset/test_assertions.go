@@ -199,7 +199,9 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 					ccipocr3.SeqNumRange{
 						ccipocr3.SeqNum(expectedSeqNum),
 						ccipocr3.SeqNum(expectedSeqNum),
-					}))
+					},
+					true,
+				))
 			})
 		}
 	}
@@ -224,6 +226,73 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 	)
 }
 
+type commitReportTracker struct {
+	seenMessages map[uint64]map[uint64]bool
+}
+
+func newCommitReportTracker(sourceChainSelector uint64, seqNrs ccipocr3.SeqNumRange) commitReportTracker {
+	seenMessages := make(map[uint64]map[uint64]bool)
+	seenMessages[sourceChainSelector] = make(map[uint64]bool)
+
+	for i := seqNrs.Start(); i <= seqNrs.End(); i++ {
+		seenMessages[sourceChainSelector][uint64(i)] = false
+	}
+	return commitReportTracker{seenMessages: seenMessages}
+}
+
+func (c *commitReportTracker) visitCommitReport(sourceChainSelector uint64, minSeqNr uint64, maxSeqNr uint64) {
+	if _, ok := c.seenMessages[sourceChainSelector]; !ok {
+		return
+	}
+
+	for i := minSeqNr; i <= maxSeqNr; i++ {
+		c.seenMessages[sourceChainSelector][i] = true
+	}
+}
+
+func (c *commitReportTracker) allCommited(sourceChainSelector uint64) bool {
+	for _, v := range c.seenMessages[sourceChainSelector] {
+		if !v {
+			return false
+		}
+	}
+	return true
+}
+
+// ConfirmMultipleCommits waits for multiple ccipocr3.SeqNumRange to be committed by the Offramp.
+// Waiting is done in parallel per every sourceChain/destChain (lane) passed as argument.
+func ConfirmMultipleCommits(
+	t *testing.T,
+	chains map[uint64]deployment.Chain,
+	state map[uint64]CCIPChainState,
+	startBlocks map[uint64]*uint64,
+	enforceSingleCommit bool,
+	expectedSeqNums map[SourceDestPair]ccipocr3.SeqNumRange,
+) error {
+	errGrp := &errgroup.Group{}
+
+	for sourceDest, seqRange := range expectedSeqNums {
+		seqRange := seqRange
+		srcChain := sourceDest.SourceChainSelector
+		destChain := sourceDest.DestChainSelector
+
+		errGrp.Go(func() error {
+			_, err := ConfirmCommitWithExpectedSeqNumRange(
+				t,
+				chains[srcChain],
+				chains[destChain],
+				state[destChain].OffRamp,
+				startBlocks[destChain],
+				seqRange,
+				enforceSingleCommit,
+			)
+			return err
+		})
+	}
+
+	return errGrp.Wait()
+}
+
 // ConfirmCommitWithExpectedSeqNumRange waits for a commit report on the destination chain with the expected sequence number range.
 // startBlock is the block number to start watching from.
 // If startBlock is nil, it will start watching from the latest block.
@@ -234,6 +303,7 @@ func ConfirmCommitWithExpectedSeqNumRange(
 	offRamp *offramp.OffRamp,
 	startBlock *uint64,
 	expectedSeqNumRange ccipocr3.SeqNumRange,
+	enforceSingleCommit bool,
 ) (*offramp.OffRampCommitReportAccepted, error) {
 	sink := make(chan *offramp.OffRampCommitReportAccepted)
 	subscription, err := offRamp.WatchCommitReportAccepted(&bind.WatchOpts{
@@ -243,6 +313,8 @@ func ConfirmCommitWithExpectedSeqNumRange(
 	if err != nil {
 		return nil, fmt.Errorf("error to subscribe CommitReportAccepted : %w", err)
 	}
+
+	seenMessages := newCommitReportTracker(src.Selector, expectedSeqNumRange)
 
 	defer subscription.Unsubscribe()
 	var duration time.Duration
@@ -279,11 +351,19 @@ func ConfirmCommitWithExpectedSeqNumRange(
 				event := iter.Event
 				if len(event.MerkleRoots) > 0 {
 					for _, mr := range event.MerkleRoots {
+						t.Logf("Received commit report for [%d, %d] on selector %d from source selector %d expected seq nr range %s, token prices: %v, tx hash: %s",
+							mr.MinSeqNr, mr.MaxSeqNr, dest.Selector, src.Selector, expectedSeqNumRange.String(), event.PriceUpdates.TokenPriceUpdates, event.Raw.TxHash.String())
+						seenMessages.visitCommitReport(src.Selector, mr.MinSeqNr, mr.MaxSeqNr)
+
 						if mr.SourceChainSelector == src.Selector &&
 							uint64(expectedSeqNumRange.Start()) >= mr.MinSeqNr &&
 							uint64(expectedSeqNumRange.End()) <= mr.MaxSeqNr {
-							t.Logf("Received commit report for [%d, %d] on selector %d from source selector %d expected seq nr range %s, token prices: %v, tx hash: %s",
-								mr.MinSeqNr, mr.MaxSeqNr, dest.Selector, src.Selector, expectedSeqNumRange.String(), event.PriceUpdates.TokenPriceUpdates, event.Raw.TxHash.String())
+							t.Logf("All sequence numbers commited in a single report [%d, %d]", expectedSeqNumRange.Start(), expectedSeqNumRange.End())
+							return event, nil
+						}
+
+						if !enforceSingleCommit && seenMessages.allCommited(src.Selector) {
+							t.Logf("All sequence numbers already commited from range [%d, %d]", expectedSeqNumRange.Start(), expectedSeqNumRange.End())
 							return event, nil
 						}
 					}
@@ -299,11 +379,20 @@ func ConfirmCommitWithExpectedSeqNumRange(
 				// Check the interval of sequence numbers and make sure it matches
 				// the expected range.
 				for _, mr := range report.MerkleRoots {
+					t.Logf("Received commit report for [%d, %d] on selector %d from source selector %d expected seq nr range %s, token prices: %v",
+						mr.MinSeqNr, mr.MaxSeqNr, dest.Selector, src.Selector, expectedSeqNumRange.String(), report.PriceUpdates.TokenPriceUpdates)
+
+					seenMessages.visitCommitReport(src.Selector, mr.MinSeqNr, mr.MaxSeqNr)
+
 					if mr.SourceChainSelector == src.Selector &&
 						uint64(expectedSeqNumRange.Start()) >= mr.MinSeqNr &&
 						uint64(expectedSeqNumRange.End()) <= mr.MaxSeqNr {
-						t.Logf("Received commit report for [%d, %d] on selector %d from source selector %d expected seq nr range %s, token prices: %v",
-							mr.MinSeqNr, mr.MaxSeqNr, dest.Selector, src.Selector, expectedSeqNumRange.String(), report.PriceUpdates.TokenPriceUpdates)
+						t.Logf("All sequence numbers commited in a single report [%d, %d]", expectedSeqNumRange.Start(), expectedSeqNumRange.End())
+						return report, nil
+					}
+
+					if !enforceSingleCommit && seenMessages.allCommited(src.Selector) {
+						t.Logf("All sequence numbers already commited from range [%d, %d]", expectedSeqNumRange.Start(), expectedSeqNumRange.End())
 						return report, nil
 					}
 				}
@@ -394,7 +483,7 @@ func ConfirmExecWithSeqNrs(
 		return nil, fmt.Errorf("no expected sequence numbers provided")
 	}
 
-	timer := time.NewTimer(3 * time.Minute)
+	timer := time.NewTimer(8 * time.Minute)
 	defer timer.Stop()
 	tick := time.NewTicker(3 * time.Second)
 	defer tick.Stop()
@@ -507,6 +596,22 @@ func RequireConsistently(t *testing.T, condition func() bool, duration time.Dura
 			return
 		}
 	}
+}
+
+func SeqNumberRageToSlice(seqRanges map[SourceDestPair]ccipocr3.SeqNumRange) map[SourceDestPair][]uint64 {
+	flatten := make(map[SourceDestPair][]uint64)
+
+	for srcDst, seqRange := range seqRanges {
+		if _, ok := flatten[srcDst]; !ok {
+			flatten[srcDst] = make([]uint64, 0, seqRange.End()-seqRange.Start()+1)
+		}
+
+		for i := seqRange.Start(); i <= seqRange.End(); i++ {
+			flatten[srcDst] = append(flatten[srcDst], uint64(i))
+		}
+	}
+
+	return flatten
 }
 
 const (

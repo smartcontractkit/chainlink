@@ -243,6 +243,70 @@ func (_c *ORM_GetContentsByHash_Call) RunAndReturn(run func(context.Context, str
 	return _c
 }
 
+// GetContentsByWorkflowID provides a mock function with given fields: ctx, workflowID
+func (_m *ORM) GetContentsByWorkflowID(ctx context.Context, workflowID string) (string, string, error) {
+	ret := _m.Called(ctx, workflowID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetContentsByWorkflowID")
+	}
+
+	var r0 string
+	var r1 string
+	var r2 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (string, string, error)); ok {
+		return rf(ctx, workflowID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) string); ok {
+		r0 = rf(ctx, workflowID)
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) string); ok {
+		r1 = rf(ctx, workflowID)
+	} else {
+		r1 = ret.Get(1).(string)
+	}
+
+	if rf, ok := ret.Get(2).(func(context.Context, string) error); ok {
+		r2 = rf(ctx, workflowID)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
+}
+
+// ORM_GetContentsByWorkflowID_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetContentsByWorkflowID'
+type ORM_GetContentsByWorkflowID_Call struct {
+	*mock.Call
+}
+
+// GetContentsByWorkflowID is a helper method to define mock.On call
+//   - ctx context.Context
+//   - workflowID string
+func (_e *ORM_Expecter) GetContentsByWorkflowID(ctx interface{}, workflowID interface{}) *ORM_GetContentsByWorkflowID_Call {
+	return &ORM_GetContentsByWorkflowID_Call{Call: _e.mock.On("GetContentsByWorkflowID", ctx, workflowID)}
+}
+
+func (_c *ORM_GetContentsByWorkflowID_Call) Run(run func(ctx context.Context, workflowID string)) *ORM_GetContentsByWorkflowID_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *ORM_GetContentsByWorkflowID_Call) Return(_a0 string, _a1 string, _a2 error) *ORM_GetContentsByWorkflowID_Call {
+	_c.Call.Return(_a0, _a1, _a2)
+	return _c
+}
+
+func (_c *ORM_GetContentsByWorkflowID_Call) RunAndReturn(run func(context.Context, string) (string, string, error)) *ORM_GetContentsByWorkflowID_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetSecretsURLByHash provides a mock function with given fields: ctx, hash
 func (_m *ORM) GetSecretsURLByHash(ctx context.Context, hash string) (string, error) {
 	ret := _m.Called(ctx, hash)

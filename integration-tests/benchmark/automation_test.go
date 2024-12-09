@@ -77,7 +77,7 @@ func TestAutomationBenchmark(t *testing.T) {
 	config, err := tc.GetConfig([]string{testType}, tc.Automation)
 	require.NoError(t, err, "Error getting test config")
 
-	testEnvironment, benchmarkNetwork := SetupAutomationBenchmarkEnv(t, &config)
+	testEnvironment, benchmarkNetwork := SetupAutomationBenchmarkEnv(t, testType, &config)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
 	}
@@ -245,7 +245,7 @@ var networkConfig = map[string]NetworkConfig{
 	},
 }
 
-func SetupAutomationBenchmarkEnv(t *testing.T, keeperTestConfig types.AutomationBenchmarkTestConfig) (*environment.Environment, blockchain.EVMNetwork) {
+func SetupAutomationBenchmarkEnv(t *testing.T, testType string, keeperTestConfig types.AutomationBenchmarkTestConfig) (*environment.Environment, blockchain.EVMNetwork) {
 	l := logging.GetTestLogger(t)
 	testNetwork := networks.MustGetSelectedNetworkConfig(keeperTestConfig.GetNetworkConfig())[0] // Environment currently being used to run benchmark test on
 	blockTime := "1"
@@ -259,6 +259,12 @@ func SetupAutomationBenchmarkEnv(t *testing.T, keeperTestConfig types.Automation
 	networkName = strings.ReplaceAll(networkName, "_", "-")
 	testNetwork.Name = networkName
 
+	nsLabels, err := environment.GetRequiredChainLinkNamespaceLabels(string(tc.Keeper), testType)
+	require.NoError(t, err, "Error creating required chain.link labels for namespace")
+
+	workloadPodLabels, err := environment.GetRequiredChainLinkWorkloadAndPodLabels(string(tc.Keeper), testType)
+	require.NoError(t, err, "Error creating required chain.link labels for workloads and pods")
+
 	testEnvironment := environment.New(&environment.Config{
 		TTL: time.Hour * 720, // 30 days,
 		NamespacePrefix: fmt.Sprintf(
@@ -269,6 +275,9 @@ func SetupAutomationBenchmarkEnv(t *testing.T, keeperTestConfig types.Automation
 		),
 		Test:               t,
 		PreventPodEviction: true,
+		Labels:             nsLabels,
+		WorkloadLabels:     workloadPodLabels,
+		PodLabels:          workloadPodLabels,
 	})
 
 	dbResources := dbResources
@@ -316,7 +325,6 @@ func SetupAutomationBenchmarkEnv(t *testing.T, keeperTestConfig types.Automation
 				},
 			}))
 	}
-	var err error
 	if testNetwork.Simulated {
 		// TODO we need to update the image in CTF, the old one is not available anymore
 		// deploy blockscout if running on simulated
