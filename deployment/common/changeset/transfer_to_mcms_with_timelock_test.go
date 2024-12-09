@@ -45,7 +45,7 @@ func TestTransferToMCMSWithTimelock(t *testing.T) {
 	link, err := MaybeLoadLinkTokenState(e.Chains[chain1], addrs)
 	require.NoError(t, err)
 	e, err = ApplyChangesets(t, e, map[uint64]*TimelockExecutionContracts{
-		chain1: &TimelockExecutionContracts{
+		chain1: {
 			Timelock:  state.Timelock,
 			CallProxy: state.CallProxy,
 		},
