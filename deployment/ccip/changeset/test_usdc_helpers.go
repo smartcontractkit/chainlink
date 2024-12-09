@@ -175,13 +175,13 @@ func DeployUSDC(
 			}
 		})
 	if err != nil {
-		lggr.Errorw("Failed to deploy USDC token", "err", err)
+		lggr.Errorw("Failed to deploy USDC token", "chain", chain.String(), "err", err)
 		return nil, nil, nil, nil, err
 	}
 
 	tx, err := token.Contract.GrantMintRole(chain.DeployerKey, chain.DeployerKey.From)
 	if err != nil {
-		lggr.Errorw("Failed to grant mint role", "token", token.Contract.Address(), "err", err)
+		lggr.Errorw("Failed to grant mint role", "chain", chain.String(), "token", token.Contract.Address(), "err", err)
 		return nil, nil, nil, nil, err
 	}
 	_, err = chain.Confirm(tx)
@@ -207,11 +207,9 @@ func DeployUSDC(
 			}
 		})
 	if err != nil {
-		lggr.Errorw("Failed to deploy mock USDC transmitter", "err", err)
+		lggr.Errorw("Failed to deploy mock USDC transmitter", "chain", chain.String(), "err", err)
 		return nil, nil, nil, nil, err
 	}
-
-	lggr.Infow("deployed mock USDC transmitter", "addr", transmitter.Address)
 
 	messenger, err := deployment.DeployContract(lggr, chain, addresses,
 		func(chain deployment.Chain) deployment.ContractDeploy[*mock_usdc_token_messenger.MockE2EUSDCTokenMessenger] {
@@ -230,10 +228,9 @@ func DeployUSDC(
 			}
 		})
 	if err != nil {
-		lggr.Errorw("Failed to deploy USDC token messenger", "err", err)
+		lggr.Errorw("Failed to deploy USDC token messenger", "chain", chain.String(), "err", err)
 		return nil, nil, nil, nil, err
 	}
-	lggr.Infow("deployed mock USDC token messenger", "addr", messenger.Address)
 
 	tokenPool, err := deployment.DeployContract(lggr, chain, addresses,
 		func(chain deployment.Chain) deployment.ContractDeploy[*usdc_token_pool.USDCTokenPool] {
@@ -255,10 +252,9 @@ func DeployUSDC(
 			}
 		})
 	if err != nil {
-		lggr.Errorw("Failed to deploy USDC token pool", "err", err)
+		lggr.Errorw("Failed to deploy USDC token pool", "chain", chain.String(), "err", err)
 		return nil, nil, nil, nil, err
 	}
-	lggr.Infow("deployed USDC token pool", "addr", tokenPool.Address)
 
 	return token.Contract, tokenPool.Contract, messenger.Contract, transmitter.Contract, nil
 }

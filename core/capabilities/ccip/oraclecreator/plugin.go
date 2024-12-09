@@ -270,7 +270,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 			rmnPeerClient,
 			rmnCrypto,
 		)
-		factory = promwrapper.NewReportingPluginFactory[[]byte](factory, chainID, "CCIPCommit")
+		factory = promwrapper.NewReportingPluginFactory[[]byte](factory, i.lggr, chainID, "CCIPCommit")
 		transmitter = ocrimpls.NewCommitContractTransmitter[[]byte](destChainWriter,
 			ocrtypes.Account(destFromAccounts[0]),
 			hexutil.Encode(config.Config.OfframpAddress), // TODO: this works for evm only, how about non-evm?
@@ -291,7 +291,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 			contractReaders,
 			chainWriters,
 		)
-		factory = promwrapper.NewReportingPluginFactory[[]byte](factory, chainID, "CCIPExec")
+		factory = promwrapper.NewReportingPluginFactory[[]byte](factory, i.lggr, chainID, "CCIPExec")
 		transmitter = ocrimpls.NewExecContractTransmitter[[]byte](destChainWriter,
 			ocrtypes.Account(destFromAccounts[0]),
 			hexutil.Encode(config.Config.OfframpAddress), // TODO: this works for evm only, how about non-evm?

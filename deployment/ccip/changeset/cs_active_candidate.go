@@ -137,7 +137,7 @@ func SetCandidatePluginChangeset(
 	}
 
 	newDONArgs, err := internal.BuildOCR3ConfigForCCIPHome(
-		cfg.OCRSecrets,
+		e.OCRSecrets,
 		state.Chains[cfg.NewChainSelector].OffRamp,
 		e.Chains[cfg.NewChainSelector],
 		nodes.NonBootstraps(),
