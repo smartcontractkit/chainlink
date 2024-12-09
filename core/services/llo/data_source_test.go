@@ -21,27 +21,36 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 )
 
-type mockStream struct {
+type mockPipeline struct {
 	run  *pipeline.Run
 	trrs pipeline.TaskRunResults
 	err  error
+
+	streamIDs []streams.StreamID
+
+	runCount int
 }
 
-func (m *mockStream) Run(ctx context.Context) (*pipeline.Run, pipeline.TaskRunResults, error) {
+func (m *mockPipeline) Run(ctx context.Context) (*pipeline.Run, pipeline.TaskRunResults, error) {
+	m.runCount++
 	return m.run, m.trrs, m.err
 }
 
-type mockRegistry struct {
-	streams map[streams.StreamID]*mockStream
+func (m *mockPipeline) StreamIDs() []streams.StreamID {
+	return m.streamIDs
 }
 
-func (m *mockRegistry) Get(streamID streams.StreamID) (strm streams.Stream, exists bool) {
-	strm, exists = m.streams[streamID]
+type mockRegistry struct {
+	pipelines map[streams.StreamID]*mockPipeline
+}
+
+func (m *mockRegistry) Get(streamID streams.StreamID) (p streams.Pipeline, exists bool) {
+	p, exists = m.pipelines[streamID]
 	return
 }
 
-func makeStreamWithSingleResult[T any](runID int64, res T, err error) *mockStream {
-	return &mockStream{
+func makePipelineWithSingleResult[T any](runID int64, res T, err error) *mockPipeline {
+	return &mockPipeline{
 		run:  &pipeline.Run{ID: runID},
 		trrs: []pipeline.TaskRunResult{pipeline.TaskRunResult{Task: &pipeline.MemoTask{}, Result: pipeline.Result{Value: res}}},
 		err:  err,
@@ -91,7 +100,7 @@ func (m *mockTelemeter) EnqueueV3PremiumLegacy(run *pipeline.Run, trrs pipeline.
 
 func Test_DataSource(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	reg := &mockRegistry{make(map[streams.StreamID]*mockStream)}
+	reg := &mockRegistry{make(map[streams.StreamID]*mockPipeline)}
 	ds := newDataSource(lggr, reg, NullTelemeter)
 	ctx := testutils.Context(t)
 	opts := &mockOpts{}
@@ -105,9 +114,9 @@ func Test_DataSource(t *testing.T) {
 			assert.Equal(t, makeStreamValues(), vals)
 		})
 		t.Run("observes each stream with success and returns values matching map argument", func(t *testing.T) {
-			reg.streams[1] = makeStreamWithSingleResult[*big.Int](1, big.NewInt(2181), nil)
-			reg.streams[2] = makeStreamWithSingleResult[*big.Int](2, big.NewInt(40602), nil)
-			reg.streams[3] = makeStreamWithSingleResult[*big.Int](3, big.NewInt(15), nil)
+			reg.pipelines[1] = makePipelineWithSingleResult[*big.Int](1, big.NewInt(2181), nil)
+			reg.pipelines[2] = makePipelineWithSingleResult[*big.Int](2, big.NewInt(40602), nil)
+			reg.pipelines[3] = makePipelineWithSingleResult[*big.Int](3, big.NewInt(15), nil)
 
 			vals := makeStreamValues()
 			err := ds.Observe(ctx, vals, opts)
@@ -120,9 +129,9 @@ func Test_DataSource(t *testing.T) {
 			}, vals)
 		})
 		t.Run("observes each stream and returns success/errors", func(t *testing.T) {
-			reg.streams[1] = makeStreamWithSingleResult[*big.Int](1, big.NewInt(2181), errors.New("something exploded"))
-			reg.streams[2] = makeStreamWithSingleResult[*big.Int](2, big.NewInt(40602), nil)
-			reg.streams[3] = makeStreamWithSingleResult[*big.Int](3, nil, errors.New("something exploded 2"))
+			reg.pipelines[1] = makePipelineWithSingleResult[*big.Int](1, big.NewInt(2181), errors.New("something exploded"))
+			reg.pipelines[2] = makePipelineWithSingleResult[*big.Int](2, big.NewInt(40602), nil)
+			reg.pipelines[3] = makePipelineWithSingleResult[*big.Int](3, nil, errors.New("something exploded 2"))
 
 			vals := makeStreamValues()
 			err := ds.Observe(ctx, vals, opts)
@@ -139,9 +148,9 @@ func Test_DataSource(t *testing.T) {
 			tm := &mockTelemeter{}
 			ds.t = tm
 
-			reg.streams[1] = makeStreamWithSingleResult[*big.Int](100, big.NewInt(2181), nil)
-			reg.streams[2] = makeStreamWithSingleResult[*big.Int](101, big.NewInt(40602), nil)
-			reg.streams[3] = makeStreamWithSingleResult[*big.Int](102, big.NewInt(15), nil)
+			reg.pipelines[1] = makePipelineWithSingleResult[*big.Int](100, big.NewInt(2181), nil)
+			reg.pipelines[2] = makePipelineWithSingleResult[*big.Int](101, big.NewInt(40602), nil)
+			reg.pipelines[3] = makePipelineWithSingleResult[*big.Int](102, big.NewInt(15), nil)
 
 			vals := makeStreamValues()
 			err := ds.Observe(ctx, vals, opts)
@@ -165,6 +174,38 @@ func Test_DataSource(t *testing.T) {
 			assert.Equal(t, opts, pkt.opts)
 			assert.Equal(t, "2181", pkt.val.(*llo.Decimal).String())
 			assert.Nil(t, pkt.err)
+		})
+
+		t.Run("records telemetry for errors", func(t *testing.T) {
+			tm := &mockTelemeter{}
+			ds.t = tm
+
+			reg.pipelines[1] = makePipelineWithSingleResult[*big.Int](100, big.NewInt(2181), errors.New("something exploded"))
+			reg.pipelines[2] = makePipelineWithSingleResult[*big.Int](101, big.NewInt(40602), nil)
+			reg.pipelines[3] = makePipelineWithSingleResult[*big.Int](102, nil, errors.New("something exploded 2"))
+
+			vals := makeStreamValues()
+			err := ds.Observe(ctx, vals, opts)
+			assert.NoError(t, err)
+
+			assert.Equal(t, llo.StreamValues{
+				2: llo.ToDecimal(decimal.NewFromInt(40602)),
+				1: nil,
+				3: nil,
+			}, vals)
+
+			require.Len(t, tm.v3PremiumLegacyPackets, 3)
+			m := make(map[int]v3PremiumLegacyPacket)
+			for _, pkt := range tm.v3PremiumLegacyPackets {
+				m[int(pkt.run.ID)] = pkt
+			}
+			pkt := m[100]
+			assert.Equal(t, 100, int(pkt.run.ID))
+			assert.Len(t, pkt.trrs, 1)
+			assert.Equal(t, 1, int(pkt.streamID))
+			assert.Equal(t, opts, pkt.opts)
+			assert.Nil(t, pkt.val)
+			assert.NotNil(t, pkt.err)
 		})
 	})
 }

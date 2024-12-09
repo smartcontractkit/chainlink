@@ -61,6 +61,7 @@ type (
 		TaskMinBackoff() time.Duration
 		TaskMaxBackoff() time.Duration
 		TaskTags() string
+		TaskStreamID() *uint32
 		GetDescendantTasks() []Task
 	}
 
