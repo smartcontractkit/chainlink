@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	kocr3 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability"
@@ -30,12 +31,9 @@ import (
 )
 
 type TopLevelConfigSource struct {
-	OracleConfig OracleConfigWithSecrets
+	OracleConfig OracleConfig
 }
-type OracleConfigWithSecrets struct {
-	OracleConfig
-	deployment.OCRSecrets `json:"-" toml:"-"` // don't spill secrets
-}
+
 type OracleConfig struct {
 	MaxQueryLengthBytes       uint32
 	MaxObservationLengthBytes uint32
@@ -151,10 +149,10 @@ func (c *OCR2OracleConfig) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func GenerateOCR3Config(cfg OracleConfigWithSecrets, nca []NodeKeys) (OCR2OracleConfig, error) {
+func GenerateOCR3Config(cfg OracleConfig, nca []NodeKeys, secrets deployment.OCRSecrets) (OCR2OracleConfig, error) {
 	onchainPubKeys := [][]byte{}
 	allPubKeys := map[string]any{}
-	if cfg.OCRSecrets.IsEmpty() {
+	if secrets.IsEmpty() {
 		return OCR2OracleConfig{}, errors.New("OCRSecrets is required")
 	}
 	for _, n := range nca {
@@ -236,8 +234,8 @@ func GenerateOCR3Config(cfg OracleConfigWithSecrets, nca []NodeKeys) (OCR2Oracle
 	}
 
 	signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig, err := ocr3confighelper.ContractSetConfigArgsDeterministic(
-		cfg.EphemeralSk,
-		cfg.SharedSecret,
+		secrets.EphemeralSk,
+		secrets.SharedSecret,
 		time.Duration(cfg.DeltaProgressMillis)*time.Millisecond,
 		time.Duration(cfg.DeltaResendMillis)*time.Millisecond,
 		time.Duration(cfg.DeltaInitialMillis)*time.Millisecond,
@@ -284,11 +282,12 @@ func GenerateOCR3Config(cfg OracleConfigWithSecrets, nca []NodeKeys) (OCR2Oracle
 }
 
 type configureOCR3Request struct {
-	cfg      *OracleConfigWithSecrets
-	chain    deployment.Chain
-	contract *kocr3.OCR3Capability
-	nodes    []deployment.Node
-	dryRun   bool
+	cfg        *OracleConfig
+	chain      deployment.Chain
+	contract   *kocr3.OCR3Capability
+	nodes      []deployment.Node
+	dryRun     bool
+	ocrSecrets deployment.OCRSecrets
 
 	useMCMS     bool
 	contractSet *ContractSet
@@ -296,7 +295,7 @@ type configureOCR3Request struct {
 
 func (r configureOCR3Request) generateOCR3Config() (OCR2OracleConfig, error) {
 	nks := makeNodeKeysSlice(r.nodes, r.chain.Selector)
-	return GenerateOCR3Config(*r.cfg, nks)
+	return GenerateOCR3Config(*r.cfg, nks, r.ocrSecrets)
 }
 
 type configureOCR3Response struct {

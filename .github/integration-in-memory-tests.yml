@@ -48,4 +48,28 @@ runner-test-matrix:
       - PR Integration CCIP Tests
     test_cmd: cd integration-tests/contracts && go test ccipreader_test.go -timeout 5m -test.parallel=1 -count=1 -json
 
+  - id: smoke/ccip/ccip_usdc_test.go:*
+    path: integration-tests/smoke/ccip/ccip_usdc_test.go
+    test_env_type: in-memory
+    runs_on: ubuntu-latest
+    triggers:
+      - PR Integration CCIP Tests
+    test_cmd: cd integration-tests/smoke/ccip && go test ccip_usdc_test.go -timeout 18m -test.parallel=1 -count=1 -json
+
+  - id: smoke/ccip/ccip_ooo_execution_test.go:*
+    path: integration-tests/smoke/ccip/ccip_ooo_execution_test.go
+    test_env_type: in-memory
+    runs_on: ubuntu-latest
+    triggers:
+      - PR Integration CCIP Tests
+    test_cmd: cd integration-tests/ && go test smoke/ccip/ccip_ooo_execution_test.go -timeout 16m -test.parallel=1 -count=1 -json
+
+  - id: smoke/ccip/ccip_token_transfer_test.go:*
+    path: integration-tests/smoke/ccip/ccip_token_transfer_test.go
+    test_env_type: in-memory
+    runs_on: ubuntu-latest
+    triggers:
+      - PR Integration CCIP Tests
+    test_cmd: cd integration-tests/ && go test smoke/ccip/ccip_token_transfer_test.go -timeout 16m -test.parallel=1 -count=1 -json
+
   # END: CCIP tests

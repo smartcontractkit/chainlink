@@ -85,11 +85,12 @@ func Test_configureOCR3Request_generateOCR3Config(t *testing.T) {
 	err := json.Unmarshal([]byte(ocr3Cfg), &cfg)
 	require.NoError(t, err)
 	r := configureOCR3Request{
-		cfg:   &OracleConfigWithSecrets{OracleConfig: cfg, OCRSecrets: deployment.XXXGenerateTestOCRSecrets()},
+		cfg:   &cfg,
 		nodes: nodes,
 		chain: deployment.Chain{
 			Selector: chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector,
 		},
+		ocrSecrets: deployment.XXXGenerateTestOCRSecrets(),
 	}
 	got, err := r.generateOCR3Config()
 	require.NoError(t, err)

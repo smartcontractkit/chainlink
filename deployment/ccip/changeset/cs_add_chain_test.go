@@ -81,7 +81,6 @@ func TestAddChainInbound(t *testing.T) {
 		HomeChainSel:       e.HomeChainSel,
 		FeedChainSel:       e.FeedChainSel,
 		ChainConfigByChain: chainConfig,
-		OCRSecrets:         deployment.XXXGenerateTestOCRSecrets(),
 	})
 	require.NoError(t, err)
 
@@ -203,7 +202,6 @@ func TestAddChainInbound(t *testing.T) {
 				NewChainSelector:  newChain,
 				PluginType:        types.PluginTypeCCIPCommit,
 				NodeIDs:           nodeIDs,
-				OCRSecrets:        deployment.XXXGenerateTestOCRSecrets(),
 				CCIPOCRParams: DefaultOCRParams(
 					e.FeedChainSel,
 					tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[newChain].LinkToken, state.Chains[newChain].Weth9),
@@ -219,7 +217,6 @@ func TestAddChainInbound(t *testing.T) {
 				NewChainSelector:  newChain,
 				PluginType:        types.PluginTypeCCIPExec,
 				NodeIDs:           nodeIDs,
-				OCRSecrets:        deployment.XXXGenerateTestOCRSecrets(),
 				CCIPOCRParams: DefaultOCRParams(
 					e.FeedChainSel,
 					tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[newChain].LinkToken, state.Chains[newChain].Weth9),
