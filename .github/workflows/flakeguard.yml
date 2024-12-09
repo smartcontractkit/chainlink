@@ -102,7 +102,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@8ab91a5f7b37d374236bf0388908628faa036281 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@69556c87d09fdcabbc086c474d3772b3b6010a5f # flakguard@0.1.0
 
       - name: Find new or updated test packages
         if: ${{ inputs.runAllTests == false }}
@@ -261,7 +261,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@8ab91a5f7b37d374236bf0388908628faa036281 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@69556c87d09fdcabbc086c474d3772b3b6010a5f # flakguard@0.1.0
 
       - name: Run tests with flakeguard
         shell: bash
@@ -308,7 +308,7 @@ jobs:
             
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@8ab91a5f7b37d374236bf0388908628faa036281 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@69556c87d09fdcabbc086c474d3772b3b6010a5f # flakguard@0.1.0
                 
       - name: Aggregate Flakeguard Results
         id: results
@@ -338,14 +338,6 @@ jobs:
           # Read the summary from the generated report
           summary=$(jq -c '.' ./flakeguard-report/all-test-summary.json)
           echo "summary=$summary" >> $GITHUB_OUTPUT
-
-      - name: Upload All Tests Summary as Artifact
-        if: ${{ fromJSON(steps.results.outputs.summary).total_tests > 0 }}
-        uses: actions/upload-artifact@v4.4.3
-        with:
-          path: ./flakeguard-report/all-test-summary.md
-          name: all-test-summary.md
-          retention-days: 90
 
       - name: Upload All Test Results as Artifact
         if: ${{ fromJSON(steps.results.outputs.summary).total_tests > 0 }}
