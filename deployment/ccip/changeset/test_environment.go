@@ -2,14 +2,23 @@ package changeset
 
 import (
 	"fmt"
+	"math/big"
 	"testing"
-
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
+type EnvType string
+
+const (
+	Memory EnvType = "in-memory"
+	Docker EnvType = "docker"
+)
+
 type TestConfigs struct {
+	Type                     EnvType
+	CreateJob                bool
+	CreateJobAndContracts    bool
 	Chains                   int
 	NumOfUsersPerChain       int
 	Nodes                    int
@@ -19,6 +28,8 @@ type TestConfigs struct {
 	IsMultiCall3             bool
 	OCRConfigOverride        func(CCIPOCRParams) CCIPOCRParams
 	RMNEnabled               bool
+	LinkPrice                *big.Int
+	WethPrice                *big.Int
 }
 
 func (t *TestConfigs) Validate() error {
@@ -34,12 +45,14 @@ func (t *TestConfigs) Validate() error {
 	return nil
 }
 
-func defaultTestConfigs() *TestConfigs {
+func DefaultTestConfigs() *TestConfigs {
 	return &TestConfigs{
 		Chains:             2,
 		NumOfUsersPerChain: 1,
 		Nodes:              4,
 		Bootstraps:         1,
+		LinkPrice:          MockLinkPrice,
+		WethPrice:          MockWethPrice,
 	}
 }
 
@@ -101,10 +114,8 @@ func WithBootstraps(numBootstraps int) TestOps {
 
 type TestEnvironment interface {
 	SetupJobs(t *testing.T)
-	HomeChainSel() uint64
-	FeedChainSel() uint64
-	ReplayLogs(t *testing.T, oc deployment.OffchainClient, replayBlocks map[uint64]uint64)
-	Users() map[uint64][]*bind.TransactOpts
-	New(t *testing.T, tc *TestConfigs) deployment.Environment
-	StartEnvironmentWithJobsAndContracts(t *testing.T, tc *TestConfigs) deployment.Environment
+	StartNodes(t *testing.T, tc *TestConfigs, crConfig deployment.CapabilityRegistryConfig)
+	StartChains(t *testing.T, tc *TestConfigs)
+	DeployedEnvironment() DeployedEnv
+	MockUSDCAttestationServer(t *testing.T, isUSDCAttestationMissing bool) string
 }
