@@ -61,17 +61,15 @@ func NewMultiClient(lggr logger.Logger, rpcs []RPC, opts ...func(client *MultiCl
 		if err != nil {
 			return nil, fmt.Errorf("failed to dial ws url '%s': %w", rpc.WSURL, err)
 		}
-		// fetch chain name if not set
-		if mc.chainName == "" {
-			id, err := client.ChainID(context.Background())
-			if err == nil {
-				details, err := chainselectors.GetChainDetailsByChainIDAndFamily(id.String(), chainselectors.FamilyEVM)
-				if err == nil {
-					return nil, err
-				}
-				mc.chainName = details.ChainName
-			}
+		id, err := client.ChainID(context.Background())
+		if err != nil {
+			return nil, fmt.Errorf("failed to get chain id: %w", err)
 		}
+		details, err := chainselectors.GetChainDetailsByChainIDAndFamily(id.String(), chainselectors.FamilyEVM)
+		if err != nil {
+			return nil, fmt.Errorf("failed to lookup chain details %w", err)
+		}
+		mc.chainName = details.ChainName
 		clients = append(clients, client)
 	}
 	mc.Client = clients[0]

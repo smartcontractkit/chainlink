@@ -36,6 +36,8 @@ func WrapContractReaderTesterWithBindings(t *testing.T, wrapped *EVMChainCompone
 		interfacetests.ContractReaderBatchGetLatestValueSetsErrorsProperly, interfacetests.ContractReaderBatchGetLatestValueNoArgumentsWithSliceReturn, interfacetests.ContractReaderBatchGetLatestValueWithModifiersOwnMapstructureOverride,
 		interfacetests.ContractReaderQueryKeyNotFound, interfacetests.ContractReaderQueryKeyReturnsData, interfacetests.ContractReaderQueryKeyReturnsDataAsValuesDotValue, interfacetests.ContractReaderQueryKeyReturnsDataAsValuesDotValue,
 		interfacetests.ContractReaderQueryKeyCanFilterWithValueComparator, interfacetests.ContractReaderQueryKeyCanLimitResultsWithCursor,
+		interfacetests.ContractReaderQueryKeysNotFound, interfacetests.ContractReaderQueryKeysReturnsData, interfacetests.ContractReaderQueryKeysReturnsDataTwoEventTypes, interfacetests.ContractReaderQueryKeysReturnsDataAsValuesDotValue,
+		interfacetests.ContractReaderQueryKeysCanFilterWithValueComparator, interfacetests.ContractReaderQueryKeysCanLimitResultsWithCursor,
 		ContractReaderQueryKeyFilterOnDataWordsWithValueComparator, ContractReaderQueryKeyOnDataWordsWithValueComparatorOnNestedField,
 		ContractReaderQueryKeyFilterOnDataWordsWithValueComparatorOnDynamicField, ContractReaderQueryKeyFilteringOnDataWordsUsingValueComparatorsOnFieldsWithManualIndex,
 		// TODO BCFR-1073 - Fix flaky tests
@@ -71,6 +73,7 @@ func newBindingsMapping() bindingsMapping {
 		interfacetests.MethodSettingStruct:                         "AddTestStruct",
 		interfacetests.MethodSettingUint64:                         "SetAlterablePrimitiveValue",
 		interfacetests.MethodTriggeringEvent:                       "TriggerEvent",
+		interfacetests.MethodTriggeringEventWithDynamicTopic:       "TriggerEventWithDynamicTopic",
 	}
 	methodNameMappingByContract[interfacetests.AnySecondContractName] = map[string]string{
 		interfacetests.MethodReturningUint64: "GetDifferentPrimitiveValue",
@@ -249,6 +252,10 @@ func (b bindingChainWriterProxy) SubmitTransaction(ctx context.Context, contract
 			bindingsInput := bindings.TriggerEventInput{}
 			_ = convertStruct(args, &bindingsInput)
 			return chainReaderTesters.TriggerEvent(ctx, bindingsInput, transactionID, toAddress, meta)
+		case interfacetests.MethodTriggeringEventWithDynamicTopic:
+			bindingsInput := bindings.TriggerEventWithDynamicTopicInput{}
+			_ = convertStruct(args, &bindingsInput)
+			return chainReaderTesters.TriggerEventWithDynamicTopic(ctx, bindingsInput, transactionID, toAddress, meta)
 		default:
 			return errors.New("No logic implemented for method: " + method)
 		}
