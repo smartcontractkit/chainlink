@@ -674,7 +674,7 @@ func Test_LinkPriceUSD(t *testing.T) {
 func Test_GetMedianDataAvailabilityGasConfig(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
-	env := changeset.NewMemoryEnvironment(t)
+	env := changeset.NewMemoryEnvironment(t, changeset.WithChains(4))
 	state, err := changeset.LoadOnchainState(env.Env)
 	require.NoError(t, err)
 
