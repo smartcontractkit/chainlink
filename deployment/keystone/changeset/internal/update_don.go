@@ -32,6 +32,7 @@ type UpdateDonRequest struct {
 	Registry *kcr.CapabilitiesRegistry
 	Chain    deployment.Chain
 
+	ContractSet       *kslib.ContractSet
 	P2PIDs            []p2pkey.PeerID    // this is the unique identifier for the don
 	CapabilityConfigs []CapabilityConfig // if Config subfield is nil, a default config is used
 
@@ -42,6 +43,7 @@ func (r *UpdateDonRequest) AppendNodeCapabilitiesRequest() *AppendNodeCapabiliti
 	out := &AppendNodeCapabilitiesRequest{
 		Chain:             r.Chain,
 		Registry:          r.Registry,
+		ContractSet:       r.ContractSet,
 		P2pToCapabilities: make(map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability),
 		UseMCMS:           r.UseMCMS,
 	}
@@ -145,25 +147,44 @@ func UpdateDon2(lggr logger.Logger, req *UpdateDonRequest) (*UpdateDonResponse, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to compute configs: %w", err)
 	}
+	/*
+		_, err = AppendNodeCapabilitiesImpl(lggr, req.AppendNodeCapabilitiesRequest())
+		if err != nil {
+			return nil, fmt.Errorf("failed to append node capabilities: %w", err)
+		}
+	*/
 
-	_, err = AppendNodeCapabilitiesImpl(lggr, req.AppendNodeCapabilitiesRequest())
-	if err != nil {
-		return nil, fmt.Errorf("failed to append node capabilities: %w", err)
+	txOpts := req.Chain.DeployerKey
+	if req.UseMCMS {
+		txOpts = deployment.SimTransactOpts()
 	}
-
-	tx, err := req.Registry.UpdateDON(req.Chain.DeployerKey, don.Id, don.NodeP2PIds, cfgs, don.IsPublic, don.F)
+	tx, err := req.Registry.UpdateDON(txOpts, don.Id, don.NodeP2PIds, cfgs, don.IsPublic, don.F)
 	if err != nil {
 		err = kslib.DecodeErr(kcr.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to call UpdateDON: %w", err)
 	}
-
-	_, err = req.Chain.Confirm(tx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to confirm UpdateDON transaction %s: %w", tx.Hash().String(), err)
+	var ops *timelock.BatchChainOperation
+	if !req.UseMCMS {
+		_, err = req.Chain.Confirm(tx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to confirm UpdateDON transaction %s: %w", tx.Hash().String(), err)
+		}
+	} else {
+		ops = &timelock.BatchChainOperation{
+			ChainIdentifier: mcms.ChainIdentifier(req.Chain.Selector),
+			Batch: []mcms.Operation{
+				{
+					To:    req.Registry.Address(),
+					Data:  tx.Data(),
+					Value: big.NewInt(0),
+				},
+			},
+		}
 	}
+
 	out := don
 	out.CapabilityConfigurations = cfgs
-	return &UpdateDonResponse{DonInfo: out}, nil
+	return &UpdateDonResponse{DonInfo: out, Ops: ops}, nil
 }
 
 func PeerIDsToBytes(p2pIDs []p2pkey.PeerID) [][32]byte {

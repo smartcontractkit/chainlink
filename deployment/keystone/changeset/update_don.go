@@ -28,6 +28,8 @@ type UpdateDonRequest2 struct {
 	P2PIDs            []p2pkey.PeerID    // this is the unique identifier for the don
 	CapabilityConfigs []CapabilityConfig // if Config subfield is nil, a default config is used
 	UseMCMS           bool
+
+	HackUseMulitProposal bool
 }
 type UpdateDonResponse struct {
 	DonInfo kcr.CapabilitiesRegistryDONInfo
@@ -44,6 +46,10 @@ func UpdateDon(env deployment.Environment, req *UpdateDonRequest) (deployment.Ch
 
 	return deployment.ChangesetOutput{}, nil
 }
+
+var (
+	HACK_USE_MULTI_PROPOSAL = true
+)
 
 // UpdateDon updates the capabilities of a Don
 // This a complex action in practice that involves registering missing capabilities, adding the nodes, and updating
@@ -95,7 +101,12 @@ func UpdateDon2(env deployment.Environment, req *UpdateDonRequest2) (deployment.
 		if err != nil {
 			return out, fmt.Errorf("failed to build proposal: %w", err)
 		}
-		out.Proposals = append(out.Proposals, *proposal)
+		if HACK_USE_MULTI_PROPOSAL {
+			out.Proposals = append(out.Proposals, *proposal)
+		} else {
+			out.Proposals[0].Transactions = append(out.Proposals[0].Transactions, proposal.Transactions...)
+		}
+		//out.Proposals = append(out.Proposals, *proposal)
 	}
 	return out, nil
 
@@ -126,10 +137,12 @@ func updateDonRequest(env deployment.Environment, r *UpdateDonRequest2) (*Update
 	if err != nil {
 		return nil, fmt.Errorf("failed to get contract sets: %w", err)
 	}
+	contractSet := resp.ContractSets[r.RegistryChainSel]
 
 	return &UpdateDonRequest{
 		Chain:             env.Chains[r.RegistryChainSel],
 		Registry:          resp.ContractSets[r.RegistryChainSel].CapabilitiesRegistry,
+		ContractSet:       &contractSet,
 		P2PIDs:            r.P2PIDs,
 		CapabilityConfigs: r.CapabilityConfigs,
 		UseMCMS:           r.UseMCMS,
