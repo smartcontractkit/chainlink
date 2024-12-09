@@ -377,6 +377,13 @@ func (n *Node) CreateJobDistributor(ctx context.Context, jd JobDistributor) (str
 		return "", err
 	}
 	// create the job distributor in the node with the csa key
+	resp, err := n.gqlClient.ListJobDistributors(ctx)
+	if err != nil {
+		return "", fmt.Errorf("Could not list job distrubutors: %w", err)
+	}
+	if len(resp.FeedsManagers.Results) > 0 {
+		return resp.FeedsManagers.Results[0].Id, nil
+	}
 	return n.gqlClient.CreateJobDistributor(ctx, client.JobDistributorInput{
 		Name:      "Job Distributor",
 		Uri:       jd.WSRPC,
@@ -396,6 +403,7 @@ func (n *Node) SetUpAndLinkJobDistributor(ctx context.Context, jd JobDistributor
 	id, err := n.CreateJobDistributor(ctx, jd)
 	if err != nil &&
 		(!strings.Contains(err.Error(), "only a single feeds manager is supported") || !strings.Contains(err.Error(), "DuplicateFeedsManagerError")) {
+		fmt.Errorf("failed to create job distributor in node %s: %w", n.Name, err)
 		return err
 	}
 	// wait for the node to connect to the job distributor
