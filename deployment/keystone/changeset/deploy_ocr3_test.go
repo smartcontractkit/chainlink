@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -127,16 +126,16 @@ func TestConfigureOCR3(t *testing.T) {
 			AddressBook: te.Env.ExistingAddresses,
 		})
 		require.NoError(t, err)
-		var timelocks = map[uint64]*gethwrappers.RBACTimelock{
-			te.RegistrySelector: contractSetsResp.ContractSets[te.RegistrySelector].Timelock,
-		}
-		var callProxies = map[uint64]*gethwrappers.CallProxy{
-			te.RegistrySelector: contractSetsResp.ContractSets[te.RegistrySelector].CallProxy,
+		var timelockContracts = map[uint64]*commonchangeset.TimelockExecutionContracts{
+			te.RegistrySelector: {
+				Timelock:  contractSetsResp.ContractSets[te.RegistrySelector].Timelock,
+				CallProxy: contractSetsResp.ContractSets[te.RegistrySelector].CallProxy,
+			},
 		}
 		// now apply the changeset such that the proposal is signed and execed
 		w2 := &bytes.Buffer{}
 		cfg.WriteGeneratedConfig = w2
-		_, err = commonchangeset.ApplyChangesets(t, te.Env, timelocks, callProxies, []commonchangeset.ChangesetApplication{
+		_, err = commonchangeset.ApplyChangesets(t, te.Env, timelockContracts, []commonchangeset.ChangesetApplication{
 			{
 				Changeset: commonchangeset.WrapChangeSet(changeset.ConfigureOCR3Contract),
 				Config:    cfg,

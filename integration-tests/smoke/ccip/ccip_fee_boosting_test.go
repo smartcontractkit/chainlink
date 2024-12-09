@@ -102,7 +102,7 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 		TestRouter:            false,
 	}
 
-	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, nil, []commonchangeset.ChangesetApplication{
+	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.AddLanes),
 			Config:    changeset.AddLanesConfig{LaneConfigs: []changeset.LaneConfig{laneCfg}},

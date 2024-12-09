@@ -18,7 +18,7 @@ func TestDeployLinkToken(t *testing.T) {
 		Chains: 1,
 	})
 	chain1 := e.AllChainSelectors()[0]
-	e, err := changeset.ApplyChangesets(t, e, nil, nil, []changeset.ChangesetApplication{
+	e, err := changeset.ApplyChangesets(t, e, nil, []changeset.ChangesetApplication{
 		{
 			Changeset: changeset.WrapChangeSet(changeset.DeployLinkToken),
 			Config:    []uint64{chain1},
