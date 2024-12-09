@@ -3,6 +3,7 @@ package syncer
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -405,6 +406,12 @@ func (h *eventHandler) workflowRegisteredEvent(
 		return fmt.Errorf("failed to fetch binary from %s : %w", payload.BinaryURL, err)
 	}
 
+	// Base64 decode
+	decodedBinary, err := base64.StdEncoding.DecodeString(string(binary))
+	if err != nil {
+		return fmt.Errorf("failed to decode binary: %w", err)
+	}
+
 	var config []byte
 	if payload.ConfigURL != "" {
 		c, err := h.fetcher(ctx, payload.ConfigURL)
@@ -424,7 +431,7 @@ func (h *eventHandler) workflowRegisteredEvent(
 	}
 
 	// Calculate the hash of the binary and config files
-	hash, err := pkgworkflows.GenerateWorkflowID(payload.WorkflowOwner, binary, config, payload.SecretsURL)
+	hash, err := pkgworkflows.GenerateWorkflowID(payload.WorkflowOwner, decodedBinary, config, payload.SecretsURL)
 	if err != nil {
 		return fmt.Errorf("failed to generate workflow id: %w", err)
 	}
@@ -448,7 +455,7 @@ func (h *eventHandler) workflowRegisteredEvent(
 
 	wfID := hex.EncodeToString(payload.WorkflowID[:])
 	entry := &job.WorkflowSpec{
-		Workflow:      hex.EncodeToString(binary),
+		Workflow:      hex.EncodeToString(decodedBinary),
 		Config:        string(config),
 		WorkflowID:    wfID,
 		Status:        status,
@@ -474,7 +481,7 @@ func (h *eventHandler) workflowRegisteredEvent(
 		string(payload.WorkflowOwner),
 		payload.WorkflowName,
 		config,
-		binary,
+		decodedBinary,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create workflow engine", err)

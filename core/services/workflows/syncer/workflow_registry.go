@@ -39,8 +39,19 @@ type GetWorkflowMetadataListByDONParams struct {
 	Limit uint64
 }
 
+type GetWorkflowMetadata struct {
+	WorkflowID   [32]byte
+	Owner        []byte
+	DonID        uint32
+	Status       uint8
+	WorkflowName string
+	BinaryURL    string
+	ConfigURL    string
+	SecretsURL   string
+}
+
 type GetWorkflowMetadataListByDONReturnVal struct {
-	WorkflowMetadataList []WorkflowRegistryWorkflowRegisteredV1
+	WorkflowMetadataList []GetWorkflowMetadata
 }
 
 // WorkflowRegistryEvent is an event emitted by the WorkflowRegistry.  Each event is typed
@@ -512,7 +523,6 @@ func queryEvent(
 				responseBatch = append(responseBatch, toWorkflowRegistryEventResponse(log, et, lggr))
 				cursor = log.Cursor
 			}
-			lggr.Debug("composed response batch", "responseBatch", responseBatch)
 			batchCh <- responseBatch
 		}
 	}
@@ -676,8 +686,18 @@ func (l *workflowRegistryContractLoader) LoadWorkflows(ctx context.Context, don 
 
 		l.lggr.Debugw("Rehydrating existing workflows", "len", len(workflows.WorkflowMetadataList))
 		for _, workflow := range workflows.WorkflowMetadataList {
+			toRegisteredEvent := WorkflowRegistryWorkflowRegisteredV1{
+				WorkflowID:    workflow.WorkflowID,
+				WorkflowOwner: workflow.Owner,
+				DonID:         workflow.DonID,
+				Status:        workflow.Status,
+				WorkflowName:  workflow.WorkflowName,
+				BinaryURL:     workflow.BinaryURL,
+				ConfigURL:     workflow.ConfigURL,
+				SecretsURL:    workflow.SecretsURL,
+			}
 			if err = l.handler.Handle(ctx, workflowAsEvent{
-				Data:      workflow,
+				Data:      toRegisteredEvent,
 				EventType: WorkflowRegisteredEvent,
 			}); err != nil {
 				l.lggr.Errorf("failed to handle workflow registration: %s", err)
