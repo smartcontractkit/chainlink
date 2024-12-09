@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/Khan/genqlient/graphql"
 
@@ -61,7 +62,18 @@ func New(baseURI string, creds Credentials) (Client, error) {
 		credentials: creds,
 	}
 
-	if err := c.login(); err != nil {
+	fmt.Printf("Loggging in to node using cookie %s, endpoint %s\n", c.cookie, c.endpoints.Sessions)
+	var err error
+	for _ = range 5 {
+		err := c.login()
+		if err == nil {
+			break
+		} else {
+			fmt.Println("retrying.....")
+			time.Sleep(10 * time.Second)
+		}
+	}
+	if err != nil {
 		return nil, fmt.Errorf("failed to login to node: %w", err)
 	}
 

@@ -403,9 +403,9 @@ func (n *Node) SetUpAndLinkJobDistributor(ctx context.Context, jd JobDistributor
 	id, err := n.CreateJobDistributor(ctx, jd)
 	if err != nil &&
 		(!strings.Contains(err.Error(), "only a single feeds manager is supported") || !strings.Contains(err.Error(), "DuplicateFeedsManagerError")) {
-		fmt.Errorf("failed to create job distributor in node %s: %w", n.Name, err)
-		return err
+		return fmt.Errorf("failed to create job distributor in node %s: %w", n.Name, err)
 	}
+	fmt.Printf("Using job distributor with ID: %s\n", id)
 	// wait for the node to connect to the job distributor
 	err = retry.Do(ctx, retry.WithMaxDuration(1*time.Minute, retry.NewFibonacci(1*time.Second)), func(ctx context.Context) error {
 		getRes, err := jd.GetNode(ctx, &nodev1.GetNodeRequest{

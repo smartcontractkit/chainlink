@@ -91,6 +91,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("Failed to deploy prerequisites", err)
 	}
+	fmt.Printf("PreReq AddressBook %+v\n", out.AddressBook)
 	err = e.ExistingAddresses.Merge(out.AddressBook)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("Failed to merge addresses after deploying prereqs", err)
