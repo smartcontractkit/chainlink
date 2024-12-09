@@ -23,7 +23,7 @@ type SetRMNHomeCandidateConfig struct {
 	DigestToOverride  [32]byte
 }
 
-func (c SetRMNHomeCandidateConfig) Validate() error {
+func (c SetRMNHomeCandidateConfig) Validate(state CCIPOnChainState) error {
 	err := deployment.IsValidChainSelector(c.HomeChainSelector)
 	if err != nil {
 		return err
@@ -40,20 +40,36 @@ func (c SetRMNHomeCandidateConfig) Validate() error {
 		return fmt.Errorf("RMNStaticConfig.Nodes must be less than 256")
 	}
 
-	peerIds := make(map[[32]byte]struct{})
+	var (
+		peerIds            = make(map[[32]byte]struct{})
+		offchainPublicKeys = make(map[[32]byte]struct{})
+	)
+
 	for _, node := range c.RMNStaticConfig.Nodes {
 		if _, exists := peerIds[node.PeerId]; exists {
 			return fmt.Errorf("peerId %x is duplicated", node.PeerId)
 		}
 		peerIds[node.PeerId] = struct{}{}
-	}
 
-	offchainPublicKeys := make(map[[32]byte]struct{})
-	for _, node := range c.RMNStaticConfig.Nodes {
 		if _, exists := offchainPublicKeys[node.OffchainPublicKey]; exists {
 			return fmt.Errorf("offchainPublicKey %x is duplicated", node.OffchainPublicKey)
 		}
 		offchainPublicKeys[node.OffchainPublicKey] = struct{}{}
+	}
+	rmnHome := state.Chains[c.HomeChainSelector].RMNHome
+
+	if rmnHome == nil {
+		return fmt.Errorf("RMNHome not found for chain %d", c.HomeChainSelector)
+	}
+
+	currentDigest, err := rmnHome.GetCandidateDigest(nil)
+
+	if err != nil {
+		return fmt.Errorf("failed to get RMNHome candidate digest: %w", err)
+	}
+
+	if currentDigest != c.DigestToOverride {
+		return fmt.Errorf("current digest does not match digest to override")
 	}
 
 	return nil
@@ -64,10 +80,24 @@ type PromoteRMNHomeCandidateConfig struct {
 	DigestToPromote   [32]byte
 }
 
-func (c PromoteRMNHomeCandidateConfig) Validate() error {
+func (c PromoteRMNHomeCandidateConfig) Validate(state CCIPOnChainState) error {
 	err := deployment.IsValidChainSelector(c.HomeChainSelector)
 	if err != nil {
 		return err
+	}
+
+	rmnHome := state.Chains[c.HomeChainSelector].RMNHome
+	if rmnHome == nil {
+		return fmt.Errorf("RMNHome not found for chain %d", c.HomeChainSelector)
+	}
+
+	currentCandidateDigest, err := rmnHome.GetCandidateDigest(nil)
+	if err != nil {
+		return fmt.Errorf("failed to get RMNHome candidate digest: %w", err)
+	}
+
+	if currentCandidateDigest != c.DigestToPromote {
+		return fmt.Errorf("candidate digest does not match digest to promote")
 	}
 
 	return nil
@@ -79,9 +109,7 @@ func NewSetRMNHomeCandidateConfigChangeset(e deployment.Environment, config SetR
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
-	lggr := e.Logger
-
-	err = config.Validate()
+	err = config.Validate(state)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -95,8 +123,7 @@ func NewSetRMNHomeCandidateConfigChangeset(e deployment.Environment, config SetR
 
 	setCandidateTx, err := rmnHome.SetCandidate(deployment.SimTransactOpts(), config.RMNStaticConfig, config.RMNDynamicConfig, config.DigestToOverride)
 	if err != nil {
-		lggr.Errorw("Failed to build call data to set RMNHome candidate digest", "err", err, "chain", homeChain.String())
-		return deployment.ChangesetOutput{}, err
+		return deployment.ChangesetOutput{}, fmt.Errorf("build RMNHome set candidate calldata for chain %s: %w", homeChain.String(), err)
 	}
 
 	op := mcms.Operation{
@@ -105,7 +132,24 @@ func NewSetRMNHomeCandidateConfigChangeset(e deployment.Environment, config SetR
 		Value: big.NewInt(0),
 	}
 
-	prop, err := buildProposal(e, op, state, config.HomeChainSelector)
+	batches := []timelock.BatchChainOperation{
+		{
+			ChainIdentifier: mcms.ChainIdentifier(config.HomeChainSelector),
+			Batch:           []mcms.Operation{op},
+		},
+	}
+
+	timelocksPerChain := buildTimelockAddressPerChain(e, state)
+
+	proposerMCMSes := buildProposerPerChain(e, state)
+
+	prop, err := proposalutils.BuildProposalFromBatches(
+		timelocksPerChain,
+		proposerMCMSes,
+		batches,
+		"proposal to set candidate config",
+		0,
+	)
 
 	return deployment.ChangesetOutput{
 		Proposals: []timelock.MCMSWithTimelockProposal{*prop},
@@ -114,14 +158,11 @@ func NewSetRMNHomeCandidateConfigChangeset(e deployment.Environment, config SetR
 
 func NewPromoteCandidateConfigChangeset(e deployment.Environment, config PromoteRMNHomeCandidateConfig) (deployment.ChangesetOutput, error) {
 	state, err := LoadOnchainState(e)
-
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
-	lggr := e.Logger
-
-	err = config.Validate()
+	err = config.Validate(state)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -134,24 +175,17 @@ func NewPromoteCandidateConfigChangeset(e deployment.Environment, config Promote
 
 	currentCandidateDigest, err := rmnHome.GetCandidateDigest(nil)
 	if err != nil {
-		lggr.Errorw("Failed to get RMNHome candidate digest", "err", err, "chain", homeChain.String())
-		return deployment.ChangesetOutput{}, err
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get RMNHome candidate digest for chain %s: %w", homeChain.String(), err)
 	}
 
 	currentActiveDigest, err := rmnHome.GetActiveDigest(nil)
 	if err != nil {
-		lggr.Errorw("Failed to get RMNHome active digest", "err", err, "chain", homeChain.String())
-		return deployment.ChangesetOutput{}, err
-	}
-
-	if currentCandidateDigest != config.DigestToPromote {
-		return deployment.ChangesetOutput{}, fmt.Errorf("candidate digest does not match digest to promote for chain %s", homeChain.String())
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get RMNHome active digest for chain %s: %w", homeChain.String(), err)
 	}
 
 	promoteCandidateTx, err := rmnHome.PromoteCandidateAndRevokeActive(deployment.SimTransactOpts(), currentCandidateDigest, currentActiveDigest)
 	if err != nil {
-		lggr.Errorw("Failed to get call data to promote RMNHome candidate digest", "err", err, "chain", homeChain.String())
-		return deployment.ChangesetOutput{}, err
+		return deployment.ChangesetOutput{}, fmt.Errorf("get call data to promote RMNHome candidate digest for chain %s: %w", homeChain.String(), err)
 	}
 
 	op := mcms.Operation{
@@ -160,11 +194,27 @@ func NewPromoteCandidateConfigChangeset(e deployment.Environment, config Promote
 		Value: big.NewInt(0),
 	}
 
-	prop, err := buildProposal(e, op, state, config.HomeChainSelector)
+	batches := []timelock.BatchChainOperation{
+		{
+			ChainIdentifier: mcms.ChainIdentifier(config.HomeChainSelector),
+			Batch:           []mcms.Operation{op},
+		},
+	}
+
+	timelocksPerChain := buildTimelockAddressPerChain(e, state)
+
+	proposerMCMSes := buildProposerPerChain(e, state)
+
+	prop, err := proposalutils.BuildProposalFromBatches(
+		timelocksPerChain,
+		proposerMCMSes,
+		batches,
+		"proposal to promote candidate config",
+		0,
+	)
 
 	if err != nil {
-		lggr.Errorw("Failed to build proposal", "err", err, "chain", homeChain.String())
-		return deployment.ChangesetOutput{}, err
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal for chain %s: %w", homeChain.String(), err)
 	}
 
 	return deployment.ChangesetOutput{
@@ -205,39 +255,6 @@ func buildRMNRemotePerChain(e deployment.Environment, state CCIPOnChainState) ma
 	return timelocksPerChain
 }
 
-func buildRMNRemoteAddressPerChain(e deployment.Environment, state CCIPOnChainState) map[uint64]common.Address {
-	rmnRemotePerChain := buildRMNRemotePerChain(e, state)
-	rmnRemoteAddressPerChain := make(map[uint64]common.Address)
-	for chain, remote := range rmnRemotePerChain {
-		if remote == nil {
-			continue
-		}
-		rmnRemoteAddressPerChain[chain] = remote.Address()
-	}
-	return rmnRemoteAddressPerChain
-}
-
-func buildProposal(e deployment.Environment, op mcms.Operation, state CCIPOnChainState, homeChainSelector uint64) (*timelock.MCMSWithTimelockProposal, error) {
-	batches := []timelock.BatchChainOperation{
-		{
-			ChainIdentifier: mcms.ChainIdentifier(homeChainSelector),
-			Batch:           []mcms.Operation{op},
-		},
-	}
-
-	timelocksPerChain := buildTimelockAddressPerChain(e, state)
-
-	proposerMCMSes := buildProposerPerChain(e, state)
-
-	return proposalutils.BuildProposalFromBatches(
-		timelocksPerChain,
-		proposerMCMSes,
-		batches,
-		"proposal to promote candidate config",
-		0,
-	)
-}
-
 type SetRMNRemoteConfig struct {
 	HomeChainSelector uint64
 	Signers           []rmn_remote.RMNRemoteSigner
@@ -257,7 +274,7 @@ func (c SetRMNRemoteConfig) Validate() error {
 	}
 
 	if len(c.Signers) < 2*int(c.F)+1 {
-		return fmt.Errorf("signers count must great or equal to %d", 2*c.F+1)
+		return fmt.Errorf("signers count must greater than or equal to %d", 2*c.F+1)
 	}
 
 	return nil
@@ -265,7 +282,6 @@ func (c SetRMNRemoteConfig) Validate() error {
 
 func NewSetRMNRemoteConfigChangeset(e deployment.Environment, config SetRMNRemoteConfig) (deployment.ChangesetOutput, error) {
 	state, err := LoadOnchainState(e)
-
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -285,8 +301,7 @@ func NewSetRMNRemoteConfigChangeset(e deployment.Environment, config SetRMNRemot
 
 	activeConfig, err := rmnHome.GetActiveDigest(nil)
 	if err != nil {
-		lggr.Errorw("Failed to get RMNHome active digest", "err", err, "chain", homeChain.String())
-		return deployment.ChangesetOutput{}, err
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get RMNHome active digest for chain %s: %w", homeChain.String(), err)
 	}
 
 	rmnRemotePerChain := buildRMNRemotePerChain(e, state)
@@ -298,8 +313,7 @@ func NewSetRMNRemoteConfigChangeset(e deployment.Environment, config SetRMNRemot
 
 		currentVersionConfig, err := remote.GetVersionedConfig(nil)
 		if err != nil {
-			lggr.Errorw("Failed to get RMNRemote config", "err", err, "chain", e.Chains[chain].String())
-			return deployment.ChangesetOutput{}, err
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get RMNRemote config for chain %s: %w", e.Chains[chain].String(), err)
 		}
 
 		newConfig := rmn_remote.RMNRemoteConfig{
@@ -316,8 +330,7 @@ func NewSetRMNRemoteConfigChangeset(e deployment.Environment, config SetRMNRemot
 		tx, err := remote.SetConfig(deployment.SimTransactOpts(), newConfig)
 
 		if err != nil {
-			lggr.Errorw("Failed to build call data to set RMNRemote config", "err", err, "chain", e.Chains[chain].String())
-			return deployment.ChangesetOutput{}, err
+			return deployment.ChangesetOutput{}, fmt.Errorf("build call data to set RMNRemote config for chain %s: %w", e.Chains[chain].String(), err)
 		}
 
 		op := mcms.Operation{
@@ -347,8 +360,7 @@ func NewSetRMNRemoteConfigChangeset(e deployment.Environment, config SetRMNRemot
 	)
 
 	if err != nil {
-		lggr.Errorw("Failed to build proposal", "err", err)
-		return deployment.ChangesetOutput{}, err
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal for chain %s: %w", homeChain.String(), err)
 	}
 
 	return deployment.ChangesetOutput{

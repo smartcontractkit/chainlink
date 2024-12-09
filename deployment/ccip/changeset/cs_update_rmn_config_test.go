@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
@@ -131,4 +132,16 @@ func TestUpdateRMNHomeConfig(t *testing.T) {
 		require.NotNil(t, lastEvent)
 		require.Equal(t, lastEvent.Config.RmnHomeContractConfigDigest, currentActiveDigest)
 	}
+}
+
+func buildRMNRemoteAddressPerChain(e deployment.Environment, state CCIPOnChainState) map[uint64]common.Address {
+	rmnRemotePerChain := buildRMNRemotePerChain(e, state)
+	rmnRemoteAddressPerChain := make(map[uint64]common.Address)
+	for chain, remote := range rmnRemotePerChain {
+		if remote == nil {
+			continue
+		}
+		rmnRemoteAddressPerChain[chain] = remote.Address()
+	}
+	return rmnRemoteAddressPerChain
 }
