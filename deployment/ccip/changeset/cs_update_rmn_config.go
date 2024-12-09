@@ -118,6 +118,11 @@ func (c PromoteRMNHomeCandidateConfig) Validate(state CCIPOnChainState) error {
 	return nil
 }
 
+// NewSetRMNHomeCandidateConfigChangeset creates a changeset to set the RMNHome candidate config
+// DigestToOverride is the digest of the current candidate config that the new config will override
+// StaticConfig contains the list of nodes with their peerIDs (found in their rageproxy keystore) and offchain public keys (found in the RMN keystore)
+// DynamicConfig contains the list of source chains with their chain selectors, f value and the bitmap of the nodes that are oberver for each source chain
+// The bitmap is a 256 bit array where each bit represents a node. If the bit matching the index of the node in the static config is set it means that the node is an observer
 func NewSetRMNHomeCandidateConfigChangeset(e deployment.Environment, config SetRMNHomeCandidateConfig) (deployment.ChangesetOutput, error) {
 	state, err := LoadOnchainState(e)
 	if err != nil {
@@ -129,7 +134,10 @@ func NewSetRMNHomeCandidateConfigChangeset(e deployment.Environment, config SetR
 		return deployment.ChangesetOutput{}, err
 	}
 
-	homeChain := e.Chains[config.HomeChainSelector]
+	homeChain, ok := e.Chains[config.HomeChainSelector]
+	if !ok {
+		return deployment.ChangesetOutput{}, fmt.Errorf("chain %d not found", config.HomeChainSelector)
+	}
 
 	rmnHome := state.Chains[config.HomeChainSelector].RMNHome
 	if rmnHome == nil {
@@ -147,7 +155,7 @@ func NewSetRMNHomeCandidateConfigChangeset(e deployment.Environment, config SetR
 		_, err := chain.Confirm(setCandidateTx)
 
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm tx for chain %s: %w", homeChain.String(), deployment.maybeDataError(err))
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm tx for chain %s: %w", homeChain.String(), deployment.MaybeDataErr(err))
 		}
 
 		return deployment.ChangesetOutput{}, nil
@@ -194,7 +202,12 @@ func NewPromoteCandidateConfigChangeset(e deployment.Environment, config Promote
 		return deployment.ChangesetOutput{}, err
 	}
 
-	homeChain := e.Chains[config.HomeChainSelector]
+	homeChain, ok := e.Chains[config.HomeChainSelector]
+
+	if !ok {
+		return deployment.ChangesetOutput{}, fmt.Errorf("chain %d not found", config.HomeChainSelector)
+	}
+
 	rmnHome := state.Chains[config.HomeChainSelector].RMNHome
 	if rmnHome == nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("RMNHome not found for chain %s", homeChain.String())
@@ -221,7 +234,7 @@ func NewPromoteCandidateConfigChangeset(e deployment.Environment, config Promote
 		_, err := chain.Confirm(promoteCandidateTx)
 
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm tx for chain %s: %w", homeChain.String(), err)
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm tx for chain %s: %w", homeChain.String(), deployment.MaybeDataErr(err))
 		}
 
 		return deployment.ChangesetOutput{}, nil
@@ -333,7 +346,12 @@ func NewSetRMNRemoteConfigChangeset(e deployment.Environment, config SetRMNRemot
 		return deployment.ChangesetOutput{}, err
 	}
 
-	homeChain := e.Chains[config.HomeChainSelector]
+	homeChain, ok := e.Chains[config.HomeChainSelector]
+
+	if !ok {
+		return deployment.ChangesetOutput{}, fmt.Errorf("chain %d not found", config.HomeChainSelector)
+	}
+
 	rmnHome := state.Chains[config.HomeChainSelector].RMNHome
 	if rmnHome == nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("RMNHome not found for chain %s", homeChain.String())
@@ -378,7 +396,7 @@ func NewSetRMNRemoteConfigChangeset(e deployment.Environment, config SetRMNRemot
 			_, err := e.Chains[chain].Confirm(tx)
 
 			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm tx for chain %s: %w", e.Chains[chain].String(), err)
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm tx for chain %s: %w", e.Chains[chain].String(), deployment.MaybeDataErr(err))
 			}
 		}
 
