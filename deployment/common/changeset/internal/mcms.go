@@ -108,7 +108,9 @@ func DeployMCMSWithTimelockContracts(
 				// Or keep this enforced to follow the same pattern?
 				chain.DeployerKey.From,
 				[]common.Address{proposer.Address}, // proposers
-				[]common.Address{},                 // executors
+				// Executors field is empty here because we grant the executor role to the call proxy later
+				// and the call proxy cannot be deployed before the timelock.
+				[]common.Address{},
 				[]common.Address{canceller.Address, proposer.Address, bypasser.Address}, // cancellers
 				[]common.Address{bypasser.Address},                                      // bypassers
 			)
