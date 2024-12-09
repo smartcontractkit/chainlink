@@ -62,6 +62,7 @@ func (l *DeployedLocalDevEnvironment) DeployedEnvironment() changeset.DeployedEn
 }
 
 func (l *DeployedLocalDevEnvironment) StartChains(t *testing.T, _ *changeset.TestConfigs) {
+	lggr := logger.TestLogger(t)
 	envConfig, testEnv, cfg := CreateDockerEnv(t)
 	l.devEnvTestCfg = cfg
 	l.testEnv = testEnv
@@ -72,7 +73,10 @@ func (l *DeployedLocalDevEnvironment) StartChains(t *testing.T, _ *changeset.Tes
 		require.Truef(t, found, "chain not found")
 		users[details.Selector] = chain.Users
 	}
+	chains, err := devenv.NewChains(lggr, envConfig.Chains)
+	require.NoError(t, err)
 	l.DeployedEnv.Users = users
+	l.DeployedEnv.Env.Chains = chains
 }
 
 func (l *DeployedLocalDevEnvironment) StartNodes(t *testing.T, _ *changeset.TestConfigs, crConfig deployment.CapabilityRegistryConfig) {

@@ -207,6 +207,9 @@ func (m *MemoryEnvironment) StartChains(t *testing.T, tc *TestConfigs) {
 	replayBlocks, err := LatestBlocksByChain(ctx, chains)
 	require.NoError(t, err)
 	m.DeployedEnv = DeployedEnv{
+		Env: deployment.Environment{
+			Chains: m.chains,
+		},
 		HomeChainSel: homeChainSel,
 		FeedChainSel: feedSel,
 		ReplayBlocks: replayBlocks,
@@ -261,10 +264,11 @@ func NewEnvironment(t *testing.T, tc *TestConfigs, tEnv TestEnvironment) Deploye
 	dEnv := tEnv.DeployedEnvironment()
 	require.NotEmpty(t, dEnv.FeedChainSel)
 	require.NotEmpty(t, dEnv.HomeChainSel)
+	require.NotEmpty(t, dEnv.Env.Chains)
 	ab := deployment.NewMemoryAddressBook()
 	crConfig := DeployTestContracts(t, lggr, ab, dEnv.HomeChainSel, dEnv.FeedChainSel, dEnv.Env.Chains, tc.LinkPrice, tc.WethPrice)
 	tEnv.StartNodes(t, tc, crConfig)
-	require.NotEmpty(t, dEnv.Env.Chains)
+	dEnv = tEnv.DeployedEnvironment()
 	envNodes, err := deployment.NodeInfo(dEnv.Env.NodeIDs, dEnv.Env.Offchain)
 	require.NoError(t, err)
 	dEnv.Env.ExistingAddresses = ab
@@ -278,7 +282,7 @@ func NewEnvironment(t *testing.T, tc *TestConfigs, tEnv TestEnvironment) Deploye
 	)
 	require.NoError(t, err)
 
-	return tEnv.DeployedEnvironment()
+	return dEnv
 }
 
 func NewEnvironmentWithJobsAndContracts(t *testing.T, tc *TestConfigs, tEnv TestEnvironment) DeployedEnv {
