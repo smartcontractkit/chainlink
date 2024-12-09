@@ -52,7 +52,7 @@ on:
     secrets:
       SLACK_BOT_TOKEN:
         required: false
-      GITHUB_TOKEN:
+      GH_TOKEN:
         required: true
 
 env:
@@ -370,7 +370,7 @@ jobs:
       - name: Generate Flakeguard Reports
         shell: bash
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
           set -e  # Exit immediately if a command exits with a non-zero status.
       
