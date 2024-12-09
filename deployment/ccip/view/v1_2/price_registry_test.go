@@ -1,0 +1,34 @@
+package v1_2
+
+import (
+	"testing"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+
+	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry_1_2_0"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+)
+
+func TestGeneratePriceRegistryView(t *testing.T) {
+	e := memory.NewMemoryEnvironment(t, logger.TestLogger(t), zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
+		Chains: 1,
+	})
+	chain := e.Chains[e.AllChainSelectors()[0]]
+	f1, f2 := common.HexToAddress("0x1"), common.HexToAddress("0x1")
+	_, tx, c, err := price_registry_1_2_0.DeployPriceRegistry(
+		chain.DeployerKey, chain.Client, []common.Address{chain.DeployerKey.From}, []common.Address{f1, f2}, uint32(10))
+	require.NoError(t, err)
+	_, err = chain.Confirm(tx)
+	require.NoError(t, err)
+	v, err := GeneratePriceRegistryView(c)
+	require.NoError(t, err)
+	assert.Equal(t, v.Owner, chain.DeployerKey.From)
+	assert.Equal(t, v.TypeAndVersion, "PriceRegistry 1.2.0")
+	assert.Equal(t, v.FeeTokens, []common.Address{f1, f2})
+	assert.Equal(t, v.StalenessThreshold, "10")
+	assert.Equal(t, v.Updaters, []common.Address{chain.DeployerKey.From})
+}

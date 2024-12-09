@@ -48,6 +48,8 @@ func NewChain() ChainView {
 		OffRamp:            make(map[string]v1_6.OffRampView),
 		CapabilityRegistry: make(map[string]common_v1_0.CapabilityRegistryView),
 		MCMSWithTimelock:   common_v1_0.MCMSWithTimelockView{},
+		LinkToken:          common_v1_0.LinkTokenView{},
+		StaticLinkToken:    common_v1_0.StaticLinkTokenView{},
 	}
 }
 
