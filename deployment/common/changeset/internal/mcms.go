@@ -2,6 +2,7 @@ package internal
 
 import (
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/config"
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 

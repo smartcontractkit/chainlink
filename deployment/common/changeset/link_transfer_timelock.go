@@ -37,12 +37,12 @@ func LinkTransferTimelock(e deployment.Environment, req *LinkTransferTimelockReq
 		chainID := mcms.ChainIdentifier(chainSelector)
 		chain := e.Chains[chainSelector]
 		addrs, err := e.ExistingAddresses.AddressesForChain(chainSelector)
-		linkState, err := LoadLinkTokenState(chain, addrs)
+		linkState, err := MaybeLoadLinkTokenState(chain, addrs)
 		if err != nil {
 			return deployment.ChangesetOutput{}, err
 		}
 		linkAddress := linkState.LinkToken.Address()
-		mcmsState, err := LoadMCMSWithTimelockState(chain, addrs)
+		mcmsState, err := MaybeLoadMCMSWithTimelockState(chain, addrs)
 		if err != nil {
 			return deployment.ChangesetOutput{}, err
 		}

@@ -21,11 +21,11 @@ func MintLinkTimelock(e deployment.Environment, req *MintLinkTimelockRequest) (d
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	linkState, err := LoadLinkTokenState(chain, addresses)
+	linkState, err := MaybeLoadLinkTokenState(chain, addresses)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	timelockState, err := LoadMCMSWithTimelockState(chain, addresses)
+	timelockState, err := MaybeLoadMCMSWithTimelockState(chain, addresses)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
