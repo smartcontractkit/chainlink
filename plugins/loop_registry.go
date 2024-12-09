@@ -1,7 +1,6 @@
 package plugins
 
 import (
-	"errors"
 	"fmt"
 	"sort"
 	"sync"
@@ -13,8 +12,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 )
-
-var ErrExists = errors.New("plugin already registered")
 
 type RegisteredLoop struct {
 	Name   string
