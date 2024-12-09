@@ -32,7 +32,7 @@ func TestUpdateRMNHomeConfig(t *testing.T) {
 
 	contractsByChain[e.HomeChainSel] = append(contractsByChain[e.HomeChainSel], state.Chains[e.HomeChainSel].RMNHome.Address())
 
-	// This is required because RMNHome is initially owner by the deployer
+	// This is required because RMNHome is initially owned by the deployer
 	timelocksPerChain := buildTimelockPerChain(e.Env, state)
 	_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
 		{
