@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 
@@ -22,20 +21,14 @@ import (
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestActiveCandidate(t *testing.T) {
 	t.Skipf("to be enabled after latest cl-ccip is compatible")
 
-	lggr := logger.TestLogger(t)
-	tenv := NewMemoryEnvironmentWithJobsAndContracts(t, lggr, memory.MemoryEnvironmentConfig{
-		Chains:             3,
-		NumOfUsersPerChain: 1,
-		Nodes:              5,
-		Bootstraps:         1,
-	}, nil)
+	tenv := NewMemoryEnvironment(t,
+		WithChains(3),
+		WithNodes(5))
 	e := tenv.Env
 	state, err := LoadOnchainState(tenv.Env)
 	require.NoError(t, err)

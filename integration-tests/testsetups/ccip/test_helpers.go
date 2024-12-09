@@ -61,7 +61,7 @@ func (l *DeployedLocalDevEnvironment) DeployedEnvironment() changeset.DeployedEn
 	return l.DeployedEnv
 }
 
-func (l *DeployedLocalDevEnvironment) StartChains(t *testing.T, _ changeset.TestConfigs) {
+func (l *DeployedLocalDevEnvironment) StartChains(t *testing.T, _ *changeset.TestConfigs) {
 	envConfig, testEnv, cfg := CreateDockerEnv(t)
 	l.devEnvTestCfg = cfg
 	l.testEnv = testEnv
@@ -75,7 +75,7 @@ func (l *DeployedLocalDevEnvironment) StartChains(t *testing.T, _ changeset.Test
 	l.DeployedEnv.Users = users
 }
 
-func (l *DeployedLocalDevEnvironment) StartNodes(t *testing.T, _ changeset.TestConfigs, crConfig deployment.CapabilityRegistryConfig) {
+func (l *DeployedLocalDevEnvironment) StartNodes(t *testing.T, _ *changeset.TestConfigs, crConfig deployment.CapabilityRegistryConfig) {
 	require.NotNil(t, l.testEnv, "docker env is empty, start chains first")
 	require.NotEmpty(t, l.devEnvTestCfg, "integration test config is empty, start chains first")
 	require.NotNil(t, l.devEnvCfg, "dev environment config is empty, start chains first")
@@ -129,37 +129,50 @@ func (l *DeployedLocalDevEnvironment) RestartChainlinkNodes(t *testing.T) error 
 	return errGrp.Wait()
 }
 
-func NewIntegrationEnvironment(opts ...changeset.TestOps) (changeset.DeployedEnv, devenv.RMNCluster) {
+func NewIntegrationEnvironment(t *testing.T, opts ...changeset.TestOps) (changeset.DeployedEnv, devenv.RMNCluster) {
 	testCfg := changeset.DefaultTestConfigs()
 	for _, opt := range opts {
 		opt(testCfg)
 	}
-
-}
-
-func NewLocalDevEnvironmentWithRMN(
-	t *testing.T,
-	lggr logger.Logger,
-	numRmnNodes int,
-) (changeset.DeployedEnv, devenv.RMNCluster) {
-	env := NewLocalDevEnvironment()
-	changeset.NewEnvironmentWithJobsAndContracts()
-	tenv, dockerenv, testCfg := NewLocalDevEnvironmentWithDefaultPrice(t, lggr, nil)
-	l := logging.GetTestLogger(t)
-	config := GenerateTestRMNConfig(t, numRmnNodes, tenv, MustNetworksToRPCMap(dockerenv.EVMNetworks))
-	require.NotNil(t, testCfg.CCIP)
-	rmnCluster, err := devenv.NewRMNCluster(
-		t, l,
-		[]string{dockerenv.DockerNetwork.ID},
-		config,
-		testCfg.CCIP.RMNConfig.GetProxyImage(),
-		testCfg.CCIP.RMNConfig.GetProxyVersion(),
-		testCfg.CCIP.RMNConfig.GetAFN2ProxyImage(),
-		testCfg.CCIP.RMNConfig.GetAFN2ProxyVersion(),
-		dockerenv.LogStream,
-	)
-	require.NoError(t, err)
-	return tenv, *rmnCluster
+	switch testCfg.Type {
+	case changeset.Memory:
+		memEnv := changeset.NewMemoryEnvironment(t, opts...)
+		return memEnv, devenv.RMNCluster{}
+	case changeset.Docker:
+		dockerEnv := &DeployedLocalDevEnvironment{}
+		if testCfg.RMNEnabled {
+			deployedEnv := changeset.NewEnvironmentWithJobsAndContracts(t, testCfg, dockerEnv)
+			l := logging.GetTestLogger(t)
+			require.NotNil(t, dockerEnv.testEnv, "empty docker environment")
+			config := GenerateTestRMNConfig(t, testCfg.NumOfRMNNodes, deployedEnv, MustNetworksToRPCMap(dockerEnv.testEnv.EVMNetworks))
+			require.NotNil(t, dockerEnv.devEnvTestCfg.CCIP)
+			rmnCluster, err := devenv.NewRMNCluster(
+				t, l,
+				[]string{dockerEnv.testEnv.DockerNetwork.ID},
+				config,
+				dockerEnv.devEnvTestCfg.CCIP.RMNConfig.GetProxyImage(),
+				dockerEnv.devEnvTestCfg.CCIP.RMNConfig.GetProxyVersion(),
+				dockerEnv.devEnvTestCfg.CCIP.RMNConfig.GetAFN2ProxyImage(),
+				dockerEnv.devEnvTestCfg.CCIP.RMNConfig.GetAFN2ProxyVersion(),
+				dockerEnv.testEnv.LogStream,
+			)
+			require.NoError(t, err)
+			return deployedEnv, *rmnCluster
+		}
+		if testCfg.CreateJobAndContracts {
+			deployedEnv := changeset.NewEnvironmentWithJobsAndContracts(t, testCfg, dockerEnv)
+			require.NotNil(t, dockerEnv.testEnv, "empty docker environment")
+			return deployedEnv, devenv.RMNCluster{}
+		}
+		if testCfg.CreateJob {
+			deployedEnv := changeset.NewEnvironmentWithJobs(t, testCfg, dockerEnv)
+			require.NotNil(t, dockerEnv.testEnv, "empty docker environment")
+			return deployedEnv, devenv.RMNCluster{}
+		}
+	default:
+		require.Failf(t, "Type %s not supported in integration tests choose between %s and %s", string(testCfg.Type), changeset.Memory, changeset.Docker)
+	}
+	return changeset.DeployedEnv{}, devenv.RMNCluster{}
 }
 
 func MustNetworksToRPCMap(evmNetworks []*blockchain.EVMNetwork) map[uint64]string {

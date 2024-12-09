@@ -11,30 +11,20 @@ import (
 	"testing"
 	"time"
 
-	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"golang.org/x/sync/errgroup"
 
-	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
-	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	"go.uber.org/multierr"
-	"go.uber.org/zap/zapcore"
-
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
@@ -87,274 +77,6 @@ func Context(tb testing.TB) context.Context {
 	}
 	tb.Cleanup(cancel)
 	return ctx
-}
-
-type DeployedEnv struct {
-	Env          deployment.Environment
-	HomeChainSel uint64
-	FeedChainSel uint64
-	ReplayBlocks map[uint64]uint64
-	Users        map[uint64][]*bind.TransactOpts
-}
-
-func (d *DeployedEnv) SetupJobs(t *testing.T) {
-	ctx := testcontext.Get(t)
-	out, err := CCIPCapabilityJobspec(d.Env, struct{}{})
-	require.NoError(t, err)
-	for nodeID, jobs := range out.JobSpecs {
-		for _, job := range jobs {
-			// Note these auto-accept
-			_, err := d.Env.Offchain.ProposeJob(ctx,
-				&jobv1.ProposeJobRequest{
-					NodeId: nodeID,
-					Spec:   job,
-				})
-			require.NoError(t, err)
-		}
-	}
-	// Wait for plugins to register filters?
-	// TODO: Investigate how to avoid.
-	time.Sleep(30 * time.Second)
-	ReplayLogs(t, d.Env.Offchain, d.ReplayBlocks)
-}
-
-type MemoryEnvironment struct {
-	DeployedEnv
-	chains map[uint64]deployment.Chain
-}
-
-func (m *MemoryEnvironment) DeployedEnvironment() DeployedEnv {
-	return m.DeployedEnv
-}
-
-func (m *MemoryEnvironment) StartChains(t *testing.T, tc *TestConfigs) {
-	ctx := testcontext.Get(t)
-	chains, users := memory.NewMemoryChains(t, tc.Chains, tc.NumOfUsersPerChain)
-	m.chains = chains
-	homeChainSel, feedSel := allocateCCIPChainSelectors(chains)
-	replayBlocks, err := LatestBlocksByChain(ctx, chains)
-	require.NoError(t, err)
-	m.DeployedEnv = DeployedEnv{
-		HomeChainSel: homeChainSel,
-		FeedChainSel: feedSel,
-		ReplayBlocks: replayBlocks,
-		Users:        users,
-	}
-}
-
-func (m *MemoryEnvironment) StartNodes(t *testing.T, tc *TestConfigs, crConfig deployment.CapabilityRegistryConfig) {
-	require.NotNil(t, m.chains, "start chains first, chains are empty")
-	require.NotNil(t, m.DeployedEnv, "start chains and initiate deployed env first before starting nodes")
-	nodes := memory.NewNodes(t, zapcore.InfoLevel, m.chains, tc.Nodes, tc.Bootstraps, crConfig)
-	ctx := testcontext.Get(t)
-	lggr := logger.Test(t)
-	for _, node := range nodes {
-		require.NoError(t, node.App.Start(ctx))
-		t.Cleanup(func() {
-			require.NoError(t, node.App.Stop())
-		})
-	}
-	m.DeployedEnv.Env = memory.NewMemoryEnvironmentFromChainsNodes(func() context.Context { return ctx }, lggr, m.chains, nodes)
-}
-
-func (m *MemoryEnvironment) MockUSDCAttestationServer(t *testing.T, isUSDCAttestationMissing bool) string {
-	server := mockAttestationResponse(isUSDCAttestationMissing)
-	endpoint := server.URL
-	t.Cleanup(func() {
-		server.Close()
-	})
-	return endpoint
-}
-
-// NewMemoryEnvironment creates an in-memory environment based on the testconfig requested
-func NewMemoryEnvironment(t *testing.T, opts ...TestOps) DeployedEnv {
-	testCfg := DefaultTestConfigs()
-	for _, opt := range opts {
-		opt(testCfg)
-	}
-	env := &MemoryEnvironment{}
-	if testCfg.CreateJobAndContracts {
-		return NewEnvironmentWithJobsAndContracts(t, testCfg, env)
-	}
-	if testCfg.CreateJob {
-		return NewEnvironmentWithJobs(t, testCfg, env)
-	}
-	return NewEnvironment(t, testCfg, env)
-}
-
-func NewEnvironment(t *testing.T, tc *TestConfigs, tEnv TestEnvironment) DeployedEnv {
-	lggr := logger.Test(t)
-	tEnv.StartChains(t, tc)
-	dEnv := tEnv.DeployedEnvironment()
-	require.NotEmpty(t, dEnv.FeedChainSel)
-	require.NotEmpty(t, dEnv.HomeChainSel)
-	require.NotEmpty(t, dEnv.Env.Chains)
-	ab := deployment.NewMemoryAddressBook()
-	crConfig := DeployTestContracts(t, lggr, ab, dEnv.HomeChainSel, dEnv.FeedChainSel, dEnv.Env.Chains, tc.LinkPrice, tc.WethPrice)
-	tEnv.StartNodes(t, tc, crConfig)
-
-	envNodes, err := deployment.NodeInfo(dEnv.Env.NodeIDs, dEnv.Env.Offchain)
-	require.NoError(t, err)
-	dEnv.Env.ExistingAddresses = ab
-	_, err = deployHomeChain(lggr, dEnv.Env, dEnv.Env.ExistingAddresses, dEnv.Env.Chains[dEnv.HomeChainSel],
-		NewTestRMNStaticConfig(),
-		NewTestRMNDynamicConfig(),
-		NewTestNodeOperator(dEnv.Env.Chains[dEnv.HomeChainSel].DeployerKey.From),
-		map[string][][32]byte{
-			"NodeOperator": envNodes.NonBootstraps().PeerIDs(),
-		},
-	)
-	require.NoError(t, err)
-
-	return tEnv.DeployedEnvironment()
-}
-
-func NewEnvironmentWithJobsAndContracts(t *testing.T, tc *TestConfigs, tEnv TestEnvironment) DeployedEnv {
-	var err error
-	e := NewEnvironment(t, tc, tEnv)
-	allChains := e.Env.AllChainSelectors()
-	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
-
-	for _, c := range e.Env.AllChainSelectors() {
-		mcmsCfg[c] = commontypes.MCMSWithTimelockConfig{
-			Canceller:         commonchangeset.SingleGroupMCMS(t),
-			Bypasser:          commonchangeset.SingleGroupMCMS(t),
-			Proposer:          commonchangeset.SingleGroupMCMS(t),
-			TimelockExecutors: e.Env.AllDeployerKeys(),
-			TimelockMinDelay:  big.NewInt(0),
-		}
-	}
-	var (
-		usdcChains   []uint64
-		isMulticall3 bool
-	)
-	if tc != nil {
-		if tc.IsUSDC {
-			usdcChains = allChains
-		}
-		isMulticall3 = tc.IsMultiCall3
-	}
-	// Need to deploy prerequisites first so that we can form the USDC config
-	// no proposals to be made, timelock can be passed as nil here
-	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
-			Config:    allChains,
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(DeployPrerequisites),
-			Config: DeployPrerequisiteConfig{
-				ChainSelectors: allChains,
-				Opts: []PrerequisiteOpt{
-					WithUSDCChains(usdcChains),
-					WithMulticall3(isMulticall3),
-				},
-			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployMCMSWithTimelock),
-			Config:    mcmsCfg,
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(DeployChainContracts),
-			Config: DeployChainContractsConfig{
-				ChainSelectors:    allChains,
-				HomeChainSelector: e.HomeChainSel,
-			},
-		},
-	})
-	require.NoError(t, err)
-
-	state, err := LoadOnchainState(e.Env)
-	require.NoError(t, err)
-	// Assert USDC set up as expected.
-	for _, chain := range usdcChains {
-		require.NotNil(t, state.Chains[chain].MockUSDCTokenMessenger)
-		require.NotNil(t, state.Chains[chain].MockUSDCTransmitter)
-		require.NotNil(t, state.Chains[chain].USDCTokenPool)
-	}
-	// Assert link present
-	require.NotNil(t, state.Chains[e.FeedChainSel].LinkToken)
-	require.NotNil(t, state.Chains[e.FeedChainSel].Weth9)
-
-	tokenConfig := NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
-	var tokenDataProviders []pluginconfig.TokenDataObserverConfig
-	if len(usdcChains) > 0 {
-		endpoint := tEnv.MockUSDCAttestationServer(t, tc.IsUSDCAttestationMissing)
-		cctpContracts := make(map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig)
-		for _, usdcChain := range usdcChains {
-			cctpContracts[cciptypes.ChainSelector(usdcChain)] = pluginconfig.USDCCCTPTokenConfig{
-				SourcePoolAddress:            state.Chains[usdcChain].USDCTokenPool.Address().String(),
-				SourceMessageTransmitterAddr: state.Chains[usdcChain].MockUSDCTransmitter.Address().String(),
-			}
-		}
-		tokenDataProviders = append(tokenDataProviders, pluginconfig.TokenDataObserverConfig{
-			Type:    pluginconfig.USDCCCTPHandlerType,
-			Version: "1.0",
-			USDCCCTPObserverConfig: &pluginconfig.USDCCCTPObserverConfig{
-				Tokens:                 cctpContracts,
-				AttestationAPI:         endpoint,
-				AttestationAPITimeout:  commonconfig.MustNewDuration(time.Second),
-				AttestationAPIInterval: commonconfig.MustNewDuration(500 * time.Millisecond),
-			}})
-	}
-	// Build the per chain config.
-	chainConfigs := make(map[uint64]CCIPOCRParams)
-	timelocksPerChain := make(map[uint64]*gethwrappers.RBACTimelock)
-	for _, chain := range allChains {
-		timelocksPerChain[chain] = state.Chains[chain].Timelock
-		tokenInfo := tokenConfig.GetTokenInfo(e.Env.Logger, state.Chains[chain].LinkToken, state.Chains[chain].Weth9)
-		ocrParams := DefaultOCRParams(e.FeedChainSel, tokenInfo, tokenDataProviders)
-		if tc.OCRConfigOverride != nil {
-			ocrParams = tc.OCRConfigOverride(ocrParams)
-		}
-		chainConfigs[chain] = ocrParams
-	}
-	// Deploy second set of changesets to deploy and configure the CCIP contracts.
-	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(ConfigureNewChains),
-			Config: NewChainsConfig{
-				HomeChainSel:       e.HomeChainSel,
-				FeedChainSel:       e.FeedChainSel,
-				ChainConfigByChain: chainConfigs,
-			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(CCIPCapabilityJobspec),
-		},
-	})
-	require.NoError(t, err)
-
-	ReplayLogs(t, e.Env.Offchain, e.ReplayBlocks)
-
-	state, err = LoadOnchainState(e.Env)
-	require.NoError(t, err)
-	require.NotNil(t, state.Chains[e.HomeChainSel].CapabilityRegistry)
-	require.NotNil(t, state.Chains[e.HomeChainSel].CCIPHome)
-	require.NotNil(t, state.Chains[e.HomeChainSel].RMNHome)
-	for _, chain := range allChains {
-		require.NotNil(t, state.Chains[chain].LinkToken)
-		require.NotNil(t, state.Chains[chain].Weth9)
-		require.NotNil(t, state.Chains[chain].TokenAdminRegistry)
-		require.NotNil(t, state.Chains[chain].RegistryModule)
-		require.NotNil(t, state.Chains[chain].Router)
-		require.NotNil(t, state.Chains[chain].RMNRemote)
-		require.NotNil(t, state.Chains[chain].TestRouter)
-		require.NotNil(t, state.Chains[chain].NonceManager)
-		require.NotNil(t, state.Chains[chain].FeeQuoter)
-		require.NotNil(t, state.Chains[chain].OffRamp)
-		require.NotNil(t, state.Chains[chain].OnRamp)
-	}
-	return e
-}
-
-// NewEnvironmentWithJobs creates a new CCIP environment
-// with capreg, fee tokens, feeds, nodes and jobs set up.
-func NewEnvironmentWithJobs(t *testing.T, tc *TestConfigs, tEnv TestEnvironment) DeployedEnv {
-	e := NewEnvironment(t, tc, tEnv)
-	e.SetupJobs(t)
-	return e
 }
 
 func ReplayLogs(t *testing.T, oc deployment.OffchainClient, replayBlocks map[uint64]uint64) {
@@ -842,35 +564,6 @@ func ConfirmRequestOnSourceAndDest(t *testing.T, env deployment.Environment, sta
 	)
 
 	return nil
-}
-
-// TODO: Remove this to replace with ApplyChangeset
-func ProcessChangeset(t *testing.T, e deployment.Environment, c deployment.ChangesetOutput) {
-
-	// TODO: Add support for jobspecs as well
-
-	// sign and execute all proposals provided
-	if len(c.Proposals) != 0 {
-		state, err := LoadOnchainState(e)
-		require.NoError(t, err)
-		for _, prop := range c.Proposals {
-			chains := mapset.NewSet[uint64]()
-			for _, op := range prop.Transactions {
-				chains.Add(uint64(op.ChainIdentifier))
-			}
-
-			signed := commonchangeset.SignProposal(t, e, &prop)
-			for _, sel := range chains.ToSlice() {
-				commonchangeset.ExecuteProposal(t, e, signed, state.Chains[sel].Timelock, sel)
-			}
-		}
-	}
-
-	// merge address books
-	if c.AddressBook != nil {
-		err := e.ExistingAddresses.Merge(c.AddressBook)
-		require.NoError(t, err)
-	}
 }
 
 func DeployTransferableToken(

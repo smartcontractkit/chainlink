@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -21,14 +21,10 @@ import (
 func TestTokenTransfer(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := tests.Context(t)
-	config := &changeset.TestConfigs{}
 
-	tenv := changeset.NewMemoryEnvironmentWithJobsAndContracts(t, logger.TestLogger(t), memory.MemoryEnvironmentConfig{
-		Chains:             2,
-		Nodes:              4,
-		Bootstraps:         1,
-		NumOfUsersPerChain: 3,
-	}, config)
+	tenv, _ := testsetups.NewIntegrationEnvironment(t,
+		changeset.WithEnvironmentType(changeset.Memory),
+		changeset.WithUsersPerChain(3))
 
 	e := tenv.Env
 	state, err := changeset.LoadOnchainState(e)
