@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-// mockGitExecutor simulates git commands for testing
+// mockGitExecutor simulates git commands for testing as an alternative to systemGitExecutor
 type mockGitExecutor struct {
 	sha  string
 	time time.Time

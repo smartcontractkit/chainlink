@@ -20,10 +20,10 @@ type gitExecutor interface {
 	Command(ctx context.Context, args ...string) ([]byte, error)
 }
 
-// realGitExecutor implements actual git command execution
-type realGitExecutor struct{}
+// systemGitExecutor executes git commands on the host system
+type systemGitExecutor struct{}
 
-func (g *realGitExecutor) Command(ctx context.Context, args ...string) ([]byte, error) {
+func (g *systemGitExecutor) Command(ctx context.Context, args ...string) ([]byte, error) {
 	return exec.CommandContext(ctx, "git", args...).Output()
 }
 
@@ -61,7 +61,7 @@ func New(config *Config, system SystemOperator) *Updater {
 	return &Updater{
 		config: config,
 		system: system,
-		git:    &realGitExecutor{},
+		git:    &systemGitExecutor{},
 	}
 }
 
