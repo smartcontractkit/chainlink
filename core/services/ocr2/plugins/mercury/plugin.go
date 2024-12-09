@@ -80,14 +80,13 @@ func NewServices(
 		return nil, errors.New("expected job to have a non-nil PipelineSpec")
 	}
 
-	var err error
 	var pluginConfig config.PluginConfig
 	if len(jb.OCR2OracleSpec.PluginConfig) == 0 {
 		if !enableTriggerCapability {
 			return nil, fmt.Errorf("at least one transmission option must be configured")
 		}
 	} else {
-		err = json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &pluginConfig)
+		err := json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &pluginConfig)
 		if err != nil {
 			return nil, errors.WithStack(err)
 		}
@@ -102,8 +101,8 @@ func NewServices(
 	// encapsulate all the subservices and ensure we close them all if any fail to start
 	srvs := []job.ServiceCtx{ocr2Provider}
 	abort := func() {
-		if err = services.MultiCloser(srvs).Close(); err != nil {
-			lggr.Errorw("Error closing unused services", "err", err)
+		if cerr := services.MultiCloser(srvs).Close(); cerr != nil {
+			lggr.Errorw("Error closing unused services", "err", cerr)
 		}
 	}
 	saver := ocrcommon.NewResultRunSaver(pipelineRunner, lggr, cfg.MaxSuccessfulRuns(), cfg.ResultWriteQueueDepth())
@@ -113,6 +112,7 @@ func NewServices(
 	var (
 		factory         ocr3types.MercuryPluginFactory
 		factoryServices []job.ServiceCtx
+		fErr            error
 	)
 	fCfg := factoryCfg{
 		orm:                   orm,
@@ -128,31 +128,31 @@ func NewServices(
 	}
 	switch feedID.Version() {
 	case 1:
-		factory, factoryServices, err = newv1factory(fCfg)
-		if err != nil {
+		factory, factoryServices, fErr = newv1factory(fCfg)
+		if fErr != nil {
 			abort()
-			return nil, fmt.Errorf("failed to create mercury v1 factory: %w", err)
+			return nil, fmt.Errorf("failed to create mercury v1 factory: %w", fErr)
 		}
 		srvs = append(srvs, factoryServices...)
 	case 2:
-		factory, factoryServices, err = newv2factory(fCfg)
-		if err != nil {
+		factory, factoryServices, fErr = newv2factory(fCfg)
+		if fErr != nil {
 			abort()
-			return nil, fmt.Errorf("failed to create mercury v2 factory: %w", err)
+			return nil, fmt.Errorf("failed to create mercury v2 factory: %w", fErr)
 		}
 		srvs = append(srvs, factoryServices...)
 	case 3:
-		factory, factoryServices, err = newv3factory(fCfg)
-		if err != nil {
+		factory, factoryServices, fErr = newv3factory(fCfg)
+		if fErr != nil {
 			abort()
-			return nil, fmt.Errorf("failed to create mercury v3 factory: %w", err)
+			return nil, fmt.Errorf("failed to create mercury v3 factory: %w", fErr)
 		}
 		srvs = append(srvs, factoryServices...)
 	case 4:
-		factory, factoryServices, err = newv4factory(fCfg)
-		if err != nil {
+		factory, factoryServices, fErr = newv4factory(fCfg)
+		if fErr != nil {
 			abort()
-			return nil, fmt.Errorf("failed to create mercury v4 factory: %w", err)
+			return nil, fmt.Errorf("failed to create mercury v4 factory: %w", fErr)
 		}
 		srvs = append(srvs, factoryServices...)
 	default:
