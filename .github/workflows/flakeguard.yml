@@ -332,7 +332,7 @@ jobs:
             --max-pass-ratio "${{ inputs.maxPassRatio }}"
 
           # Print out the summary file
-          echo "Flakeguard Summary:"
+          echo "\nFlakeguard Summary:"
           cat ./flakeguard-report/all-test-summary.json            
 
           # Read the summary from the generated report
@@ -415,7 +415,6 @@ jobs:
           fi
         
       - name: Add Github Summary
-        if: ${{ fromJSON(steps.results.outputs.summary).total_tests > 0 }}
         run: |
           FILE_SIZE=$(wc -c < ./flakeguard-report/all-test-summary.md)
                     echo "File size: $FILE_SIZE bytes"
@@ -447,7 +446,7 @@ jobs:
             });
 
       - name: Send Slack message for failed tests
-        # if: ${{ inputs.slackNotificationAfterTestsChannelId != '' && fromJSON(steps.results.outputs.summary).flaky_tests > 0 }}
+        if: ${{ inputs.slackNotificationAfterTestsChannelId != '' && fromJSON(steps.results.outputs.summary).flaky_tests > 0 }}
         uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
