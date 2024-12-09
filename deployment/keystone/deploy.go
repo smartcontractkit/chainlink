@@ -7,18 +7,23 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math/big"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rpc"
 	"golang.org/x/exp/maps"
 
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -77,22 +82,7 @@ func ConfigureContracts(ctx context.Context, lggr logger.Logger, req ConfigureCo
 		return nil, fmt.Errorf("invalid request: %w", err)
 	}
 
-	addrBook := req.Env.ExistingAddresses
-	// TODO: KS-rm_deploy_opt remove this option; it's not used
-	if req.DoContractDeploy {
-		contractDeployCS, err := DeployContracts(req.Env, req.RegistryChainSel)
-		if err != nil {
-			return nil, fmt.Errorf("failed to deploy contracts: %w", err)
-		}
-		addrBook = contractDeployCS.AddressBook
-	} else {
-		lggr.Debug("skipping contract deployment")
-	}
-	if addrBook == nil {
-		return nil, errors.New("address book is nil")
-	}
-
-	cfgRegistryResp, err := ConfigureRegistry(ctx, lggr, req, addrBook)
+	cfgRegistryResp, err := ConfigureRegistry(ctx, lggr, req, req.Env.ExistingAddresses)
 	if err != nil {
 		return nil, fmt.Errorf("failed to configure registry: %w", err)
 	}
@@ -107,21 +97,22 @@ func ConfigureContracts(ctx context.Context, lggr logger.Logger, req ConfigureCo
 	if err != nil {
 		return nil, fmt.Errorf("failed to assimilate registry to Dons: %w", err)
 	}
-	err = ConfigureForwardContracts(req.Env, dons, addrBook)
+	// ignore response because we are not using mcms here and therefore no proposals are returned
+	_, err = ConfigureForwardContracts(req.Env, ConfigureForwarderContractsRequest{
+		Dons: dons,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to configure forwarder contracts: %w", err)
 	}
 
-	err = ConfigureOCR3Contract(req.Env, req.RegistryChainSel, dons, addrBook, req.OCR3Config)
+	err = ConfigureOCR3Contract(req.Env, req.RegistryChainSel, dons, req.OCR3Config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to configure OCR3 contract: %w", err)
 	}
 
 	return &ConfigureContractsResponse{
-		Changeset: &deployment.ChangesetOutput{
-			AddressBook: addrBook,
-		},
-		DonInfos: cfgRegistryResp.DonInfos,
+		Changeset: &deployment.ChangesetOutput{}, // no new addresses, proposals etc
+		DonInfos:  cfgRegistryResp.DonInfos,
 	}, nil
 }
 
@@ -306,47 +297,14 @@ func ConfigureRegistry(ctx context.Context, lggr logger.Logger, req ConfigureCon
 	lggr.Infow("registered DONs", "dons", len(donsResp.DonInfos))
 
 	return &ConfigureContractsResponse{
-		Changeset: &deployment.ChangesetOutput{
-			AddressBook: addrBook,
-		},
-		DonInfos: donsResp.DonInfos,
+		Changeset: &deployment.ChangesetOutput{}, // no new addresses, proposals etc
+		DonInfos:  donsResp.DonInfos,
 	}, nil
-}
-
-// ConfigureForwardContracts configures the forwarder contracts on all chains for the given DONS
-// the address book is required to contain the an address of the deployed forwarder contract for every chain in the environment
-func ConfigureForwardContracts(env *deployment.Environment, dons []RegisteredDon, addrBook deployment.AddressBook) error {
-	contractSetsResp, err := GetContractSets(env.Logger, &GetContractSetsRequest{
-		Chains:      env.Chains,
-		AddressBook: addrBook,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to get contract sets: %w", err)
-	}
-
-	// configure forwarders on all chains
-	for _, chain := range env.Chains {
-		// get the forwarder contract for the chain
-		contracts, ok := contractSetsResp.ContractSets[chain.Selector]
-		if !ok {
-			return fmt.Errorf("failed to get contract set for chain %d", chain.Selector)
-		}
-		fwrd := contracts.Forwarder
-		if fwrd == nil {
-			return fmt.Errorf("no forwarder contract found for chain %d", chain.Selector)
-		}
-
-		err := configureForwarder(env.Logger, chain, fwrd, dons)
-		if err != nil {
-			return fmt.Errorf("failed to configure forwarder for chain selector %d: %w", chain.Selector, err)
-		}
-	}
-	return nil
 }
 
 // Depreciated: use changeset.ConfigureOCR3Contract instead
 // ocr3 contract on the registry chain for the wf dons
-func ConfigureOCR3Contract(env *deployment.Environment, chainSel uint64, dons []RegisteredDon, addrBook deployment.AddressBook, cfg *OracleConfigWithSecrets) error {
+func ConfigureOCR3Contract(env *deployment.Environment, chainSel uint64, dons []RegisteredDon, cfg *OracleConfigWithSecrets) error {
 	registryChain, ok := env.Chains[chainSel]
 	if !ok {
 		return fmt.Errorf("chain %d not found in environment", chainSel)
@@ -354,7 +312,7 @@ func ConfigureOCR3Contract(env *deployment.Environment, chainSel uint64, dons []
 
 	contractSetsResp, err := GetContractSets(env.Logger, &GetContractSetsRequest{
 		Chains:      env.Chains,
-		AddressBook: addrBook,
+		AddressBook: env.ExistingAddresses,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to get contract sets: %w", err)
@@ -978,27 +936,67 @@ func containsAllDONs(donInfos []kcr.CapabilitiesRegistryDONInfo, p2pIdsToDon map
 
 // configureForwarder sets the config for the forwarder contract on the chain for all Dons that accept workflows
 // dons that don't accept workflows are not registered with the forwarder
-func configureForwarder(lggr logger.Logger, chain deployment.Chain, fwdr *kf.KeystoneForwarder, dons []RegisteredDon) error {
-	if fwdr == nil {
-		return errors.New("nil forwarder contract")
+func configureForwarder(lggr logger.Logger, chain deployment.Chain, contractSet ContractSet, dons []RegisteredDon, useMCMS bool) ([]timelock.MCMSWithTimelockProposal, error) {
+	if contractSet.Forwarder == nil {
+		return nil, errors.New("nil forwarder contract")
 	}
+	var (
+		fwdr      = contractSet.Forwarder
+		proposals []timelock.MCMSWithTimelockProposal
+	)
 	for _, dn := range dons {
 		if !dn.Info.AcceptsWorkflows {
 			continue
 		}
 		ver := dn.Info.ConfigCount // note config count on the don info is the version on the forwarder
-		signers := dn.signers(chainsel.FamilyEVM)
-		tx, err := fwdr.SetConfig(chain.DeployerKey, dn.Info.Id, ver, dn.Info.F, signers)
-		if err != nil {
-			err = DecodeErr(kf.KeystoneForwarderABI, err)
-			return fmt.Errorf("failed to call SetConfig for forwarder %s on chain %d: %w", fwdr.Address().String(), chain.Selector, err)
+		signers := dn.Signers(chainsel.FamilyEVM)
+		txOpts := chain.DeployerKey
+		if useMCMS {
+			txOpts = deployment.SimTransactOpts()
 		}
-		_, err = chain.Confirm(tx)
+		tx, err := fwdr.SetConfig(txOpts, dn.Info.Id, ver, dn.Info.F, signers)
 		if err != nil {
 			err = DecodeErr(kf.KeystoneForwarderABI, err)
-			return fmt.Errorf("failed to confirm SetConfig for forwarder %s: %w", fwdr.Address().String(), err)
+			return nil, fmt.Errorf("failed to call SetConfig for forwarder %s on chain %d: %w", fwdr.Address().String(), chain.Selector, err)
+		}
+		if !useMCMS {
+			_, err = chain.Confirm(tx)
+			if err != nil {
+				err = DecodeErr(kf.KeystoneForwarderABI, err)
+				return nil, fmt.Errorf("failed to confirm SetConfig for forwarder %s: %w", fwdr.Address().String(), err)
+			}
+		} else {
+			// create the mcms proposals
+			ops := timelock.BatchChainOperation{
+				ChainIdentifier: mcms.ChainIdentifier(chain.Selector),
+				Batch: []mcms.Operation{
+					{
+						To:    fwdr.Address(),
+						Data:  tx.Data(),
+						Value: big.NewInt(0),
+					},
+				},
+			}
+			timelocksPerChain := map[uint64]common.Address{
+				chain.Selector: contractSet.Timelock.Address(),
+			}
+			proposerMCMSes := map[uint64]*gethwrappers.ManyChainMultiSig{
+				chain.Selector: contractSet.ProposerMcm,
+			}
+
+			proposal, err := proposalutils.BuildProposalFromBatches(
+				timelocksPerChain,
+				proposerMCMSes,
+				[]timelock.BatchChainOperation{ops},
+				"proposal to set forward config",
+				0,
+			)
+			if err != nil {
+				return nil, fmt.Errorf("failed to build proposal: %w", err)
+			}
+			proposals = append(proposals, *proposal)
 		}
 		lggr.Debugw("configured forwarder", "forwarder", fwdr.Address().String(), "donId", dn.Info.Id, "version", ver, "f", dn.Info.F, "signers", signers)
 	}
-	return nil
+	return proposals, nil
 }

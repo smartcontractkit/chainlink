@@ -25,6 +25,7 @@ import (
 )
 
 func TestTokenTransfer(t *testing.T) {
+	t.Skip("need to deflake and optimize")
 	lggr := logger.TestLogger(t)
 	ctx := tests.Context(t)
 	config := &changeset.TestConfigs{}

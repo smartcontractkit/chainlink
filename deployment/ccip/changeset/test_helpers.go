@@ -286,9 +286,15 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 			TimelockMinDelay:  big.NewInt(0),
 		}
 	}
-	var usdcChains []uint64
-	if tCfg != nil && tCfg.IsUSDC {
-		usdcChains = allChains
+	var (
+		usdcChains   []uint64
+		isMulticall3 bool
+	)
+	if tCfg != nil {
+		if tCfg.IsUSDC {
+			usdcChains = allChains
+		}
+		isMulticall3 = tCfg.IsMultiCall3
 	}
 	// Need to deploy prerequisites first so that we can form the USDC config
 	// no proposals to be made, timelock can be passed as nil here
@@ -303,6 +309,7 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 				ChainSelectors: allChains,
 				Opts: []PrerequisiteOpt{
 					WithUSDCChains(usdcChains),
+					WithMulticall3(isMulticall3),
 				},
 			},
 		},
