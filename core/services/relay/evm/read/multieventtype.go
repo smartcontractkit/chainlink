@@ -50,7 +50,6 @@ func MultiEventTypeQuery(ctx context.Context, lp logpoller.LogPoller, eventQueri
 }
 
 func multiEventTypeQueryWithoutErrorWrapping(ctx context.Context, lp logpoller.LogPoller, eventQueries []EventQuery, limitAndSort query.LimitAndSort) (iter.Seq2[string, commontypes.Sequence], error) {
-
 	if err := validateEventQueries(eventQueries); err != nil {
 		return nil, fmt.Errorf("error validating event queries: %w", err)
 	}
