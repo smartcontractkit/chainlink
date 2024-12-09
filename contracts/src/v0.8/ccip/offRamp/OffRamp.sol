@@ -92,9 +92,9 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   /// @dev RMN depends on this struct, if changing, please notify the RMN maintainers.
   // solhint-disable-next-line gas-struct-packing
   struct StaticConfig {
-    uint64 chainSelector; // ──────╮ Destination chainSelector
+    uint64 chainSelector; // ───────╮ Destination chainSelector
     uint16 gasForCallExactCheck; // | Gas for call exact check
-    IRMNRemote rmnRemote; // ──────╯ RMN Verification Contract
+    IRMNRemote rmnRemote; // ───────╯ RMN Verification Contract
     address tokenAdminRegistry; // Token admin registry address
     address nonceManager; // Nonce manager address
   }
