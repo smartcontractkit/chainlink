@@ -184,10 +184,16 @@ jobs:
       - name: Setup node
         uses: ./.github/actions/setup-nodejs
         if: ${{ steps.files-changed.outputs.contracts-changeset == 'true' }}
-      
+
+      - name: Install base dependencies
+        if: ${{ steps.files-changed.outputs.contracts-changeset == 'true' }}
+        run: pnpm i
+
       - name: Validate changeset files
         if: ${{ steps.files-changed.outputs.contracts-changeset == 'true' }}
         working-directory: contracts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           pnpm changeset version
 

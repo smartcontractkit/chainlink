@@ -76,7 +76,6 @@ type NewChainsConfig struct {
 	// Common to all chains
 	HomeChainSel uint64
 	FeedChainSel uint64
-	OCRSecrets   deployment.OCRSecrets
 	// Per chain config
 	ChainConfigByChain map[uint64]CCIPOCRParams
 }
@@ -95,9 +94,6 @@ func (c NewChainsConfig) Validate() error {
 	}
 	if err := deployment.IsValidChainSelector(c.FeedChainSel); err != nil {
 		return fmt.Errorf("invalid feed chain selector: %d - %w", c.FeedChainSel, err)
-	}
-	if c.OCRSecrets.IsEmpty() {
-		return fmt.Errorf("no OCR secrets provided")
 	}
 	// Validate chain config
 	for chain, cfg := range c.ChainConfigByChain {
@@ -166,7 +162,7 @@ func configureChain(
 	e deployment.Environment,
 	c NewChainsConfig,
 ) error {
-	if c.OCRSecrets.IsEmpty() {
+	if e.OCRSecrets.IsEmpty() {
 		return fmt.Errorf("OCR secrets are empty")
 	}
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
@@ -217,7 +213,7 @@ func configureChain(
 		// For each chain, we create a DON on the home chain (2 OCR instances)
 		if err := addDON(
 			e.Logger,
-			c.OCRSecrets,
+			e.OCRSecrets,
 			capReg,
 			ccipHome,
 			rmnHome.Address(),

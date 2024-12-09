@@ -82,6 +82,7 @@ var (
 type CCIPChainState struct {
 	commoncs.MCMSWithTimelockState
 	commoncs.LinkTokenState
+	commoncs.StaticLinkTokenState
 	OnRamp    *onramp.OnRamp
 	OffRamp   *offramp.OffRamp
 	FeeQuoter *fee_quoter.FeeQuoter
@@ -219,16 +220,23 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 		chainView.MCMSWithTimelock = mcmsView
 	}
 	if c.LinkToken != nil {
-		linkTokenView, err := common_v1_0.GenerateLinkTokenView(c.LinkToken)
+		linkTokenView, err := c.GenerateLinkView()
 		if err != nil {
 			return chainView, errors.Wrapf(err, "failed to generate link token view for link token %s", c.LinkToken.Address().String())
 		}
 		chainView.LinkToken = linkTokenView
 	}
+	if c.StaticLinkToken != nil {
+		staticLinkTokenView, err := c.GenerateStaticLinkView()
+		if err != nil {
+			return chainView, err
+		}
+		chainView.StaticLinkToken = staticLinkTokenView
+	}
 	return chainView, nil
 }
 
-// Onchain state always derivable from an address book.
+// CCIPOnChainState state always derivable from an address book.
 // Offchain state always derivable from a list of nodeIds.
 // Note can translate this into Go struct needed for MCMS/Docs/UI.
 type CCIPOnChainState struct {
@@ -284,24 +292,31 @@ func LoadOnchainState(e deployment.Environment) (CCIPOnChainState, error) {
 // LoadChainState Loads all state for a chain into state
 func LoadChainState(chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (CCIPChainState, error) {
 	var state CCIPChainState
-	mcmsWithTimelock, err := commoncs.LoadMCMSWithTimelockState(chain, addresses)
+	mcmsWithTimelock, err := commoncs.MaybeLoadMCMSWithTimelockState(chain, addresses)
 	if err != nil {
 		return state, err
 	}
 	state.MCMSWithTimelockState = *mcmsWithTimelock
 
-	linkState, err := commoncs.LoadLinkTokenState(chain, addresses)
+	linkState, err := commoncs.MaybeLoadLinkTokenState(chain, addresses)
 	if err != nil {
 		return state, err
 	}
 	state.LinkTokenState = *linkState
+	staticLinkState, err := commoncs.MaybeLoadStaticLinkTokenState(chain, addresses)
+	if err != nil {
+		return state, err
+	}
+	state.StaticLinkTokenState = *staticLinkState
 	for address, tvStr := range addresses {
 		switch tvStr.String() {
 		case deployment.NewTypeAndVersion(commontypes.RBACTimelock, deployment.Version1_0_0).String(),
 			deployment.NewTypeAndVersion(commontypes.ProposerManyChainMultisig, deployment.Version1_0_0).String(),
 			deployment.NewTypeAndVersion(commontypes.CancellerManyChainMultisig, deployment.Version1_0_0).String(),
 			deployment.NewTypeAndVersion(commontypes.BypasserManyChainMultisig, deployment.Version1_0_0).String(),
-			deployment.NewTypeAndVersion(commontypes.LinkToken, deployment.Version1_0_0).String():
+			deployment.NewTypeAndVersion(commontypes.LinkToken, deployment.Version1_0_0).String(),
+			deployment.NewTypeAndVersion(commontypes.StaticLinkToken, deployment.Version1_0_0).String():
+			// Skip common contracts, they are already loaded.
 			continue
 		case deployment.NewTypeAndVersion(CapabilitiesRegistry, deployment.Version1_0_0).String():
 			cr, err := capabilities_registry.NewCapabilitiesRegistry(common.HexToAddress(address), chain.Client)
