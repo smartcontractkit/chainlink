@@ -29,8 +29,6 @@ import (
 )
 
 func TestIntegration_CCIP(t *testing.T) {
-	t.Skip("racey test, need to sync backend.Commit() calls")
-
 	// Run tke batches of tests for both pipeline and dynamic price getter setups.
 	// We will remove the pipeline batch once the feature is deleted from the code.
 	tests := []struct {
