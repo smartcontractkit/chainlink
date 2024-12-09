@@ -57,16 +57,16 @@ on:
 
 env:
   GIT_HEAD_REF: ${{ inputs.headRef || github.ref }}
-  SKIPPED_TESTS: ${{ fromJson(inputs.extraArgs)['skipped_tests'] || '' }} # Comma separated list of test names to skip running in the flaky detector. Related issue: TT-1823
-  DEFAULT_MAX_RUNNER_COUNT: ${{ fromJson(inputs.extraArgs)['default_max_runner_count'] || '8' }} # The default maximum number of GitHub runners to use for parallel test execution.
-  ALL_TESTS_RUNNER_COUNT: ${{ fromJson(inputs.extraArgs)['all_tests_runner_count'] || '2' }} # The number of GitHub runners to use when running all tests `runAllTests=true`.
-  TEST_REPEAT_COUNT: ${{ fromJson(inputs.extraArgs)['test_repeat_count'] || '5' }} # The number of times each runner should run a test to detect flaky tests.
-  RUN_WITH_RACE: ${{ fromJson(inputs.extraArgs)['run_with_race'] || 'true' }} # Whether to run tests with -race flag.
-  RUN_WITH_SHUFFLE: ${{ fromJson(inputs.extraArgs)['run_with_shuffle'] || 'false' }} # Whether to run tests with -shuffle flag.
-  SHUFFLE_SEED: ${{ fromJson(inputs.extraArgs)['shuffle_seed'] || '999' }} # The seed to use when -shuffle flag is enabled. Requires RUN_WITH_SHUFFLE to be true.
-  ALL_TESTS_RUNNER: ${{ fromJson(inputs.extraArgs)['all_tests_runner'] || 'ubuntu22.04-32cores-128GB' }} # The runner to use for running all tests.
+  SKIPPED_TESTS: ${{ fromJSON(inputs.extraArgs)['skipped_tests'] || '' }} # Comma separated list of test names to skip running in the flaky detector. Related issue: TT-1823
+  DEFAULT_MAX_RUNNER_COUNT: ${{ fromJSON(inputs.extraArgs)['default_max_runner_count'] || '8' }} # The default maximum number of GitHub runners to use for parallel test execution.
+  ALL_TESTS_RUNNER_COUNT: ${{ fromJSON(inputs.extraArgs)['all_tests_runner_count'] || '2' }} # The number of GitHub runners to use when running all tests `runAllTests=true`.
+  TEST_REPEAT_COUNT: ${{ fromJSON(inputs.extraArgs)['test_repeat_count'] || '5' }} # The number of times each runner should run a test to detect flaky tests.
+  RUN_WITH_RACE: ${{ fromJSON(inputs.extraArgs)['run_with_race'] || 'true' }} # Whether to run tests with -race flag.
+  RUN_WITH_SHUFFLE: ${{ fromJSON(inputs.extraArgs)['run_with_shuffle'] || 'false' }} # Whether to run tests with -shuffle flag.
+  SHUFFLE_SEED: ${{ fromJSON(inputs.extraArgs)['shuffle_seed'] || '999' }} # The seed to use when -shuffle flag is enabled. Requires RUN_WITH_SHUFFLE to be true.
+  ALL_TESTS_RUNNER: ${{ fromJSON(inputs.extraArgs)['all_tests_runner'] || 'ubuntu22.04-32cores-128GB' }} # The runner to use for running all tests.
   DEFAULT_RUNNER: 'ubuntu-latest' # The default runner to use for running tests.
-  UPLOAD_ALL_TEST_RESULTS: ${{ fromJson(inputs.extraArgs)['upload_all_test_results'] || 'false' }} # Whether to upload all test results as artifacts.
+  UPLOAD_ALL_TEST_RESULTS: ${{ fromJSON(inputs.extraArgs)['upload_all_test_results'] || 'false' }} # Whether to upload all test results as artifacts.
   
 
 jobs:
@@ -201,7 +201,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix: 
-        include: ${{ fromJson(needs.get-tests.outputs.matrix) }}
+        include: ${{ fromJSON(needs.get-tests.outputs.matrix) }}
     env:
       DB_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
     steps:
