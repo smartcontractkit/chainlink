@@ -20,3 +20,4 @@ jobs:
       slackNotificationAfterTestsChannelId: 'C07TRF65CNS' #flaky-test-detector-notifications
     secrets:
       SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
