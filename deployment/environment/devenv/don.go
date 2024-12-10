@@ -241,7 +241,7 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 		}
 
 		// retry twice with 5 seconds interval to create JobDistributorChainConfig
-		err = retry.Do(ctx, retry.WithMaxDuration(10*time.Second, retry.NewFibonacci(1*time.Second)), func(ctx context.Context) error {
+		err = retry.Do(ctx, retry.WithMaxDuration(10*time.Second, retry.NewConstant(3*time.Second)), func(ctx context.Context) error {
 			// check the node chain config to see if this chain already exists
 			nodeChainConfigs, err := jd.ListNodeChainConfigs(context.Background(), &nodev1.ListNodeChainConfigsRequest{
 				Filter: &nodev1.ListNodeChainConfigsRequest_Filter{
