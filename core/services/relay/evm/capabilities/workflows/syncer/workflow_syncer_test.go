@@ -146,12 +146,6 @@ func Test_EventHandlerStateSync(t *testing.T) {
 
 	require.Eventually(t, func() bool {
 		numEvents := len(testEventHandler.GetEvents())
-		fmt.Printf("FIRST NUMEVENTS: %d\n", numEvents)
-
-		if numEvents == 251 {
-			fmt.Println("NUMEVENTS: ", numEvents)
-		}
-
 		return numEvents == numberWorkflows
 	}, 5*time.Second, time.Second)
 
@@ -170,14 +164,12 @@ func Test_EventHandlerStateSync(t *testing.T) {
 		SecretsURL: "someurl",
 	}
 	workflow.ID = workflowID
+
 	registerWorkflow(t, backendTH, wfRegistryC, workflow)
 
 	require.Eventually(t, func() bool {
 		numEvents := len(testEventHandler.GetEvents())
-		fmt.Printf("SECOND NUMEVENTS: %d\n", numEvents)
-
 		expectedNumEvents := numberWorkflows + 1
-
 		return numEvents == expectedNumEvents
 	}, 5*time.Second, time.Second)
 
