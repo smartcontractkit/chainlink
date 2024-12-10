@@ -5,7 +5,7 @@ import {GLOBAL_CURSE_SUBJECT} from "../../../rmn/RMNRemote.sol";
 import {RMNRemoteSetup} from "./RMNRemoteSetup.t.sol";
 
 contract RMNRemote_global_curses is RMNRemoteSetup {
-  function test_global_curses_success() public {
+  function test_isCursed_globalCurseSubject() public {
     bytes16 randSubject = bytes16(keccak256("random subject"));
     assertFalse(s_rmnRemote.isCursed());
     assertFalse(s_rmnRemote.isCursed(randSubject));

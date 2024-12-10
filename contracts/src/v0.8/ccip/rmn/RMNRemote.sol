@@ -251,7 +251,7 @@ contract RMNRemote is Ownable2StepMsgSender, ITypeAndVersion, IRMNRemote, IRMN {
   /// @inheritdoc IRMNRemote
   function isCursed() external view override(IRMN, IRMNRemote) returns (bool) {
     // There are zero curses under normal circumstances, which means it's cheaper to check for the absence of curses.
-    // than to check the subject list twice, as we have to check for the global curse subjects.
+    // than to check the subject list for the global curse subject.
     if (s_cursedSubjects.length() == 0) {
       return false;
     }
