@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {BaseSequencerUptimeFeed} from "../shared/BaseSequencerUptimeFeed.sol";
+import {BaseSequencerUptimeFeed} from "../base/BaseSequencerUptimeFeed.sol";
 
 import {AddressAliasHelper} from "../../vendor/arb-bridge-eth/v0.8.0-custom/contracts/libraries/AddressAliasHelper.sol";
 

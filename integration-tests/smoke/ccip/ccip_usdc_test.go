@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
+	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
@@ -34,13 +34,12 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	config := &changeset.TestConfigs{
 		IsUSDC: true,
 	}
-	tenv, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr, config)
-	//tenv := changeset.NewMemoryEnvironmentWithJobsAndContracts(t, lggr, memory.MemoryEnvironmentConfig{
-	//	Chains:             3,
-	//	NumOfUsersPerChain: 3,
-	//	Nodes:              5,
-	//	Bootstraps:         1,
-	//}, config)
+	tenv := changeset.NewMemoryEnvironmentWithJobsAndContracts(t, lggr, memory.MemoryEnvironmentConfig{
+		Chains:             3,
+		NumOfUsersPerChain: 3,
+		Nodes:              4,
+		Bootstraps:         1,
+	}, config)
 
 	e := tenv.Env
 	state, err := changeset.LoadOnchainState(e)

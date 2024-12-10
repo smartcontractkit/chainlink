@@ -87,7 +87,11 @@ func (r *server) Start(ctx context.Context) error {
 		r.wg.Add(1)
 		go func() {
 			defer r.wg.Done()
-			ticker := time.NewTicker(r.requestTimeout)
+			tickerInterval := expiryCheckInterval
+			if r.requestTimeout < tickerInterval {
+				tickerInterval = r.requestTimeout
+			}
+			ticker := time.NewTicker(tickerInterval)
 			defer ticker.Stop()
 			r.lggr.Info("executable capability server started")
 			for {
@@ -118,7 +122,7 @@ func (r *server) expireRequests() {
 
 	for requestID, executeReq := range r.requestIDToRequest {
 		if executeReq.request.Expired() {
-			err := executeReq.request.Cancel(types.Error_TIMEOUT, "request expired")
+			err := executeReq.request.Cancel(types.Error_TIMEOUT, "request expired by executable server")
 			if err != nil {
 				r.lggr.Errorw("failed to cancel request", "request", executeReq, "err", err)
 			}

@@ -109,6 +109,7 @@ contract CCIPHome_applyChainConfigUpdates is CCIPHomeTestSetup {
   function test_applyChainConfigUpdates_removeChainConfigs_Success() public {
     bytes32[] memory chainReaders = new bytes32[](1);
     chainReaders[0] = keccak256(abi.encode(1));
+
     CCIPHome.ChainConfigArgs[] memory adds = new CCIPHome.ChainConfigArgs[](2);
     adds[0] = CCIPHome.ChainConfigArgs({
       chainSelector: 1,
@@ -130,6 +131,7 @@ contract CCIPHome_applyChainConfigUpdates is CCIPHomeTestSetup {
       workflowDONId: uint32(1),
       capabilitiesDONIds: new uint256[](0)
     });
+
     vm.mockCall(
       CAPABILITIES_REGISTRY,
       abi.encodeWithSelector(INodeInfoProvider.getNodesByP2PIds.selector, chainReaders),
@@ -140,9 +142,13 @@ contract CCIPHome_applyChainConfigUpdates is CCIPHomeTestSetup {
     emit CCIPHome.ChainConfigSet(1, adds[0].chainConfig);
     vm.expectEmit();
     emit CCIPHome.ChainConfigSet(2, adds[1].chainConfig);
+
     s_ccipHome.applyChainConfigUpdates(new uint64[](0), adds);
 
     assertEq(s_ccipHome.getNumChainConfigurations(), 2, "total chain configs must be 2");
+
+    assertEq(s_ccipHome.getChainConfig(adds[0].chainSelector).config, adds[0].chainConfig.config);
+    assertEq(s_ccipHome.getChainConfig(adds[1].chainSelector).config, adds[1].chainConfig.config);
 
     uint64[] memory removes = new uint64[](1);
     removes[0] = uint64(1);

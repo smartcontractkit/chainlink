@@ -41,6 +41,8 @@ var _ commoncap.ExecutableCapability = &client{}
 var _ types.Receiver = &client{}
 var _ services.Service = &client{}
 
+const expiryCheckInterval = 30 * time.Second
+
 func NewClient(remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, dispatcher types.Dispatcher,
 	requestTimeout time.Duration, lggr logger.Logger) *client {
 	return &client{
@@ -98,7 +100,11 @@ func (c *client) checkDispatcherReady() {
 }
 
 func (c *client) checkForExpiredRequests() {
-	ticker := time.NewTicker(c.requestTimeout)
+	tickerInterval := expiryCheckInterval
+	if c.requestTimeout < tickerInterval {
+		tickerInterval = c.requestTimeout
+	}
+	ticker := time.NewTicker(tickerInterval)
 	defer ticker.Stop()
 	for {
 		select {
@@ -116,7 +122,7 @@ func (c *client) expireRequests() {
 
 	for messageID, req := range c.requestIDToCallerRequest {
 		if req.Expired() {
-			req.Cancel(errors.New("request expired"))
+			req.Cancel(errors.New("request expired by executable client"))
 			delete(c.requestIDToCallerRequest, messageID)
 		}
 

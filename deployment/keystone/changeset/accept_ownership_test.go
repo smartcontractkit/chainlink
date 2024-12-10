@@ -4,7 +4,6 @@ import (
 	"math/big"
 	"testing"
 
-	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
@@ -42,11 +41,10 @@ func TestAcceptAllOwnership(t *testing.T) {
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployMCMSWithTimelock),
 			Config: map[uint64]types.MCMSWithTimelockConfig{
 				registrySel: {
-					Canceller:         commonchangeset.SingleGroupMCMS(t),
-					Bypasser:          commonchangeset.SingleGroupMCMS(t),
-					Proposer:          commonchangeset.SingleGroupMCMS(t),
-					TimelockExecutors: env.AllDeployerKeys(),
-					TimelockMinDelay:  big.NewInt(0),
+					Canceller:        commonchangeset.SingleGroupMCMS(t),
+					Bypasser:         commonchangeset.SingleGroupMCMS(t),
+					Proposer:         commonchangeset.SingleGroupMCMS(t),
+					TimelockMinDelay: big.NewInt(0),
 				},
 			},
 		},
@@ -57,8 +55,11 @@ func TestAcceptAllOwnership(t *testing.T) {
 	timelock, err := commonchangeset.MaybeLoadMCMSWithTimelockState(env.Chains[registrySel], addrs)
 	require.NoError(t, err)
 
-	_, err = commonchangeset.ApplyChangesets(t, env, map[uint64]*owner_helpers.RBACTimelock{
-		registrySel: timelock.Timelock,
+	_, err = commonchangeset.ApplyChangesets(t, env, map[uint64]*commonchangeset.TimelockExecutionContracts{
+		registrySel: &commonchangeset.TimelockExecutionContracts{
+			Timelock:  timelock.Timelock,
+			CallProxy: timelock.CallProxy,
+		},
 	}, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.AcceptAllOwnershipsProposal),

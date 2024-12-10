@@ -3,7 +3,7 @@ pragma solidity ^0.8.19;
 
 import {ISequencerUptimeFeed} from "./../interfaces/ISequencerUptimeFeed.sol";
 
-import {BaseValidator} from "../shared/BaseValidator.sol";
+import {BaseValidator} from "../base/BaseValidator.sol";
 
 import {IBridgehub, L2TransactionRequestDirect} from "@zksync/contracts/l1-contracts/contracts/bridgehub/IBridgehub.sol";
 

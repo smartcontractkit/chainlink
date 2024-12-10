@@ -12,6 +12,7 @@ contract OffRamp_afterOC3ConfigSet is OffRampSetup {
     s_offRamp = new OffRampHelper(
       OffRamp.StaticConfig({
         chainSelector: DEST_CHAIN_SELECTOR,
+        gasForCallExactCheck: GAS_FOR_CALL_EXACT_CHECK,
         rmnRemote: s_mockRMNRemote,
         tokenAdminRegistry: address(s_tokenAdminRegistry),
         nonceManager: address(s_inboundNonceManager)

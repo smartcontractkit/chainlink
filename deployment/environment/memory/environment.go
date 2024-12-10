@@ -142,6 +142,7 @@ func NewMemoryEnvironmentFromChainsNodes(
 		nodeIDs, // Note these have the p2p_ prefix.
 		NewMemoryJobClient(nodes),
 		ctx,
+		deployment.XXXGenerateTestOCRSecrets(),
 	)
 }
 
@@ -161,5 +162,6 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Lev
 		nodeIDs,
 		NewMemoryJobClient(nodes),
 		func() context.Context { return tests.Context(t) },
+		deployment.XXXGenerateTestOCRSecrets(),
 	)
 }

@@ -38,8 +38,9 @@ type moduleCache struct {
 	timeout        time.Duration
 	evictAfterSize int
 
-	clock    clockwork.Clock
-	onReaper chan struct{}
+	clock      clockwork.Clock
+	reapTicker <-chan time.Time
+	onReaper   chan struct{}
 }
 
 func newModuleCache(clock clockwork.Clock, tick, timeout time.Duration, evictAfterSize int) *moduleCache {
@@ -49,6 +50,7 @@ func newModuleCache(clock clockwork.Clock, tick, timeout time.Duration, evictAft
 		timeout:        timeout,
 		evictAfterSize: evictAfterSize,
 		clock:          clock,
+		reapTicker:     clock.NewTicker(tick).Chan(),
 		stopChan:       make(chan struct{}),
 	}
 }
@@ -67,10 +69,9 @@ func (mc *moduleCache) close() {
 }
 
 func (mc *moduleCache) reapLoop() {
-	ticker := mc.clock.NewTicker(mc.tickInterval)
 	for {
 		select {
-		case <-ticker.Chan():
+		case <-mc.reapTicker:
 			mc.evictOlderThan(mc.timeout)
 			if mc.onReaper != nil {
 				mc.onReaper <- struct{}{}
@@ -84,7 +85,7 @@ func (mc *moduleCache) reapLoop() {
 func (mc *moduleCache) add(id string, mod *module) {
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
-	mod.lastFetchedAt = time.Now()
+	mod.lastFetchedAt = mc.clock.Now()
 	mc.m[id] = mod
 	moduleCacheAddition.Inc()
 }
