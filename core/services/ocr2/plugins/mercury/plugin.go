@@ -1,6 +1,7 @@
 package mercury
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os/exec"
@@ -214,13 +215,14 @@ func newv4factory(factoryCfg factoryCfg) (ocr3types.MercuryPluginFactory, []job.
 	loopEnabled := loopCmd != ""
 
 	if loopEnabled {
-		cmdFn, opts, mercuryLggr, err := initLoop(loopCmd, factoryCfg.cfg, factoryCfg.feedID, factoryCfg.lggr)
+		cmdFn, unregisterer, opts, mercuryLggr, err := initLoop(loopCmd, factoryCfg.cfg, factoryCfg.feedID, factoryCfg.lggr)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to init loop for feed %s: %w", factoryCfg.feedID, err)
 		}
 		// in loop mode, the factory is grpc server, and we need to handle the server lifecycle
+		// and unregistration of the loop
 		factoryServer := loop.NewMercuryV4Service(mercuryLggr, opts, cmdFn, factoryCfg.ocr2Provider, ds)
-		srvs = append(srvs, factoryServer)
+		srvs = append(srvs, factoryServer, unregisterer)
 		// adapt the grpc server to the vanilla mercury plugin factory interface used by the oracle
 		factory = factoryServer
 	} else {
@@ -253,13 +255,14 @@ func newv3factory(factoryCfg factoryCfg) (ocr3types.MercuryPluginFactory, []job.
 	loopEnabled := loopCmd != ""
 
 	if loopEnabled {
-		cmdFn, opts, mercuryLggr, err := initLoop(loopCmd, factoryCfg.cfg, factoryCfg.feedID, factoryCfg.lggr)
+		cmdFn, unregisterer, opts, mercuryLggr, err := initLoop(loopCmd, factoryCfg.cfg, factoryCfg.feedID, factoryCfg.lggr)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to init loop for feed %s: %w", factoryCfg.feedID, err)
 		}
 		// in loopp mode, the factory is grpc server, and we need to handle the server lifecycle
+		// and unregistration of the loop
 		factoryServer := loop.NewMercuryV3Service(mercuryLggr, opts, cmdFn, factoryCfg.ocr2Provider, ds)
-		srvs = append(srvs, factoryServer)
+		srvs = append(srvs, factoryServer, unregisterer)
 		// adapt the grpc server to the vanilla mercury plugin factory interface used by the oracle
 		factory = factoryServer
 	} else {
@@ -292,13 +295,14 @@ func newv2factory(factoryCfg factoryCfg) (ocr3types.MercuryPluginFactory, []job.
 	loopEnabled := loopCmd != ""
 
 	if loopEnabled {
-		cmdFn, opts, mercuryLggr, err := initLoop(loopCmd, factoryCfg.cfg, factoryCfg.feedID, factoryCfg.lggr)
+		cmdFn, unregisterer, opts, mercuryLggr, err := initLoop(loopCmd, factoryCfg.cfg, factoryCfg.feedID, factoryCfg.lggr)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to init loop for feed %s: %w", factoryCfg.feedID, err)
 		}
 		// in loopp mode, the factory is grpc server, and we need to handle the server lifecycle
+		// and unregistration of the loop
 		factoryServer := loop.NewMercuryV2Service(mercuryLggr, opts, cmdFn, factoryCfg.ocr2Provider, ds)
-		srvs = append(srvs, factoryServer)
+		srvs = append(srvs, factoryServer, unregisterer)
 		// adapt the grpc server to the vanilla mercury plugin factory interface used by the oracle
 		factory = factoryServer
 	} else {
@@ -329,13 +333,14 @@ func newv1factory(factoryCfg factoryCfg) (ocr3types.MercuryPluginFactory, []job.
 	loopEnabled := loopCmd != ""
 
 	if loopEnabled {
-		cmdFn, opts, mercuryLggr, err := initLoop(loopCmd, factoryCfg.cfg, factoryCfg.feedID, factoryCfg.lggr)
+		cmdFn, unregisterer, opts, mercuryLggr, err := initLoop(loopCmd, factoryCfg.cfg, factoryCfg.feedID, factoryCfg.lggr)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to init loop for feed %s: %w", factoryCfg.feedID, err)
 		}
 		// in loopp mode, the factory is grpc server, and we need to handle the server lifecycle
+		// and unregistration of the loop
 		factoryServer := loop.NewMercuryV1Service(mercuryLggr, opts, cmdFn, factoryCfg.ocr2Provider, ds)
-		srvs = append(srvs, factoryServer)
+		srvs = append(srvs, factoryServer, unregisterer)
 		// adapt the grpc server to the vanilla mercury plugin factory interface used by the oracle
 		factory = factoryServer
 	} else {
@@ -344,20 +349,46 @@ func newv1factory(factoryCfg factoryCfg) (ocr3types.MercuryPluginFactory, []job.
 	return factory, srvs, nil
 }
 
-func initLoop(cmd string, cfg Config, feedID utils.FeedID, lggr logger.Logger) (func() *exec.Cmd, loop.GRPCOpts, logger.Logger, error) {
+func initLoop(cmd string, cfg Config, feedID utils.FeedID, lggr logger.Logger) (func() *exec.Cmd, *loopUnregisterCloser, loop.GRPCOpts, logger.Logger, error) {
 	lggr.Debugw("Initializing Mercury loop", "command", cmd)
 	mercuryLggr := lggr.Named(fmt.Sprintf("MercuryV%d", feedID.Version())).Named(feedID.String())
 	envVars, err := plugins.ParseEnvFile(env.MercuryPlugin.Env.Get())
 	if err != nil {
-		return nil, loop.GRPCOpts{}, nil, fmt.Errorf("failed to parse mercury env file: %w", err)
+		return nil, nil, loop.GRPCOpts{}, nil, fmt.Errorf("failed to parse mercury env file: %w", err)
 	}
+	loopID := mercuryLggr.Name()
 	cmdFn, opts, err := cfg.RegisterLOOP(plugins.CmdConfig{
-		ID:  mercuryLggr.Name(),
+		ID:  loopID,
 		Cmd: cmd,
 		Env: envVars,
 	})
 	if err != nil {
-		return nil, loop.GRPCOpts{}, nil, fmt.Errorf("failed to register loop: %w", err)
+		return nil, nil, loop.GRPCOpts{}, nil, fmt.Errorf("failed to register loop: %w", err)
 	}
-	return cmdFn, opts, mercuryLggr, nil
+	return cmdFn, newLoopUnregister(cfg, loopID), opts, mercuryLggr, nil
+}
+
+// loopUnregisterCloser is a helper to unregister a loop
+// as a service
+// TODO BCF-3451 all other jobs that use custom plugin providers that should be refactored to use this pattern
+// perhaps it can be implemented in the delegate on job delete.
+type loopUnregisterCloser struct {
+	r  plugins.RegistrarConfig
+	id string
+}
+
+func (l *loopUnregisterCloser) Close() error {
+	l.r.UnregisterLOOP(l.id)
+	return nil
+}
+
+func (l *loopUnregisterCloser) Start(ctx context.Context) error {
+	return nil
+}
+
+func newLoopUnregister(r plugins.RegistrarConfig, id string) *loopUnregisterCloser {
+	return &loopUnregisterCloser{
+		r:  r,
+		id: id,
+	}
 }
