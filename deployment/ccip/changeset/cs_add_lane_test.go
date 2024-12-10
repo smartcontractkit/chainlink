@@ -11,18 +11,12 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestAddLanesWithTestRouter(t *testing.T) {
-	e := NewMemoryEnvironmentWithJobsAndContracts(t, logger.TestLogger(t), memory.MemoryEnvironmentConfig{
-		Chains:     2,
-		Nodes:      4,
-		Bootstraps: 1,
-	}, nil)
+	e := NewMemoryEnvironment(t)
 	// Here we have CR + nodes set up, but no CCIP contracts deployed.
 	state, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -72,11 +66,7 @@ func TestAddLane(t *testing.T) {
 
 	t.Parallel()
 	// We add more chains to the chainlink nodes than the number of chains where CCIP is deployed.
-	e := NewMemoryEnvironmentWithJobsAndContracts(t, logger.TestLogger(t), memory.MemoryEnvironmentConfig{
-		Chains:     2,
-		Nodes:      4,
-		Bootstraps: 1,
-	}, nil)
+	e := NewMemoryEnvironment(t)
 	// Here we have CR + nodes set up, but no CCIP contracts deployed.
 	state, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
