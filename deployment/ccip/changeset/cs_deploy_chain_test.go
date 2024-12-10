@@ -37,7 +37,7 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 			TimelockMinDelay: big.NewInt(0),
 		}
 	}
-	e, err = commonchangeset.ApplyChangesets(t, e, nil, nil, []commonchangeset.ChangesetApplication{
+	e, err = commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(DeployHomeChain),
 			Config: DeployHomeChainConfig{
