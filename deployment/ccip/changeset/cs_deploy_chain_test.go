@@ -3,6 +3,7 @@ package changeset
 import (
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -29,8 +30,12 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 	p2pIds := nodes.NonBootstraps().PeerIDs()
 	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 	for _, chain := range e.AllChainSelectors() {
-		cfg[chain], err = commonchangeset.CreateMCMSConfig(e.AllDeployerKeys())
-		require.NoError(t, err)
+		cfg[chain] = commontypes.MCMSWithTimelockConfig{
+			Canceller:        commonchangeset.SingleGroupMCMS(t),
+			Bypasser:         commonchangeset.SingleGroupMCMS(t),
+			Proposer:         commonchangeset.SingleGroupMCMS(t),
+			TimelockMinDelay: big.NewInt(0),
+		}
 	}
 	e, err = commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ChangesetApplication{
 		{
@@ -93,12 +98,7 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 }
 
 func TestDeployCCIPContracts(t *testing.T) {
-	lggr := logger.TestLogger(t)
-	e := NewMemoryEnvironmentWithJobsAndContracts(t, lggr, memory.MemoryEnvironmentConfig{
-		Chains:     2,
-		Nodes:      4,
-		Bootstraps: 1,
-	}, nil)
+	e := NewMemoryEnvironment(t)
 	// Deploy all the CCIP contracts.
 	state, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)

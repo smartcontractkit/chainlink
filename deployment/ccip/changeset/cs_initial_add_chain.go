@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/imdario/mergo"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
@@ -57,6 +58,16 @@ type CCIPOCRParams struct {
 	CommitOffChainConfig pluginconfig.CommitOffchainConfig
 	// Note ontains USDC config
 	ExecuteOffChainConfig pluginconfig.ExecuteOffchainConfig
+}
+
+// Override overrides non-empty dst CCIPOCRParams attributes with non-empty src CCIPOCRParams attributes values
+// and returns the updated CCIPOCRParams.
+func (c CCIPOCRParams) Override(overrides CCIPOCRParams) (CCIPOCRParams, error) {
+	err := mergo.Merge(&c, &overrides, mergo.WithOverride)
+	if err != nil {
+		return CCIPOCRParams{}, err
+	}
+	return c, nil
 }
 
 func (c CCIPOCRParams) Validate() error {

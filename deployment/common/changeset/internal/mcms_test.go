@@ -2,9 +2,9 @@ package internal_test
 
 import (
 	"encoding/json"
+	"math/big"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
@@ -22,10 +22,8 @@ func TestDeployMCMSWithConfig(t *testing.T) {
 		chainsel.TEST_90000001.EvmChainID,
 	})
 	ab := deployment.NewMemoryAddressBook()
-	m, err := changeset.SingleGroupMCMS()
-	require.NoError(t, err)
-	_, err = internal.DeployMCMSWithConfig(types.ProposerManyChainMultisig,
-		lggr, chains[chainsel.TEST_90000001.Selector], ab, m)
+	_, err := internal.DeployMCMSWithConfig(types.ProposerManyChainMultisig,
+		lggr, chains[chainsel.TEST_90000001.Selector], ab, changeset.SingleGroupMCMS(t))
 	require.NoError(t, err)
 }
 
@@ -35,18 +33,18 @@ func TestDeployMCMSWithTimelockContracts(t *testing.T) {
 		chainsel.TEST_90000001.EvmChainID,
 	})
 	ab := deployment.NewMemoryAddressBook()
-	mcmsConfig, err := changeset.CreateMCMSConfig([]common.Address{
-		chains[chainsel.TEST_90000001.Selector].DeployerKey.From,
-	})
-	require.NoError(t, err)
-	_, err = internal.DeployMCMSWithTimelockContracts(lggr,
+	_, err := internal.DeployMCMSWithTimelockContracts(lggr,
 		chains[chainsel.TEST_90000001.Selector],
-		ab,
-		mcmsConfig)
+		ab, types.MCMSWithTimelockConfig{
+			Canceller:        changeset.SingleGroupMCMS(t),
+			Bypasser:         changeset.SingleGroupMCMS(t),
+			Proposer:         changeset.SingleGroupMCMS(t),
+			TimelockMinDelay: big.NewInt(0),
+		})
 	require.NoError(t, err)
 	addresses, err := ab.AddressesForChain(chainsel.TEST_90000001.Selector)
 	require.NoError(t, err)
-	require.Len(t, addresses, 4)
+	require.Len(t, addresses, 5)
 	mcmsState, err := changeset.MaybeLoadMCMSWithTimelockState(chains[chainsel.TEST_90000001.Selector], addresses)
 	require.NoError(t, err)
 	v, err := mcmsState.GenerateMCMSWithTimelockView()

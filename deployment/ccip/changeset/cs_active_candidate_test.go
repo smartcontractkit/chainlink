@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 
@@ -22,20 +21,14 @@ import (
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestActiveCandidate(t *testing.T) {
 	t.Skipf("to be enabled after latest cl-ccip is compatible")
 
-	lggr := logger.TestLogger(t)
-	tenv := NewMemoryEnvironmentWithJobsAndContracts(t, lggr, memory.MemoryEnvironmentConfig{
-		Chains:             3,
-		NumOfUsersPerChain: 1,
-		Nodes:              5,
-		Bootstraps:         1,
-	}, nil)
+	tenv := NewMemoryEnvironment(t,
+		WithChains(3),
+		WithNodes(5))
 	e := tenv.Env
 	state, err := LoadOnchainState(tenv.Env)
 	require.NoError(t, err)
@@ -91,11 +84,15 @@ func TestActiveCandidate(t *testing.T) {
 	ConfirmExecWithSeqNrsForAll(t, e, state, expectedSeqNumExec, startBlocks)
 
 	// compose the transfer ownership and accept ownership changesets
-	timelocks := make(map[uint64]*gethwrappers.RBACTimelock)
+	timelockContracts := make(map[uint64]*commonchangeset.TimelockExecutionContracts)
 	for _, chain := range allChains {
-		timelocks[chain] = state.Chains[chain].Timelock
+		timelockContracts[chain] = &commonchangeset.TimelockExecutionContracts{
+			Timelock:  state.Chains[chain].Timelock,
+			CallProxy: state.Chains[chain].CallProxy,
+		}
 	}
-	_, err = commonchangeset.ApplyChangesets(t, e, timelocks, []commonchangeset.ChangesetApplication{
+
+	_, err = commonchangeset.ApplyChangesets(t, e, timelockContracts, []commonchangeset.ChangesetApplication{
 		// note this doesn't have proposals.
 		{
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.TransferToMCMSWithTimelock),
@@ -177,7 +174,10 @@ func TestActiveCandidate(t *testing.T) {
 	}}, "set new candidates on commit plugin", 0)
 	require.NoError(t, err)
 	setCommitCandidateSigned := commonchangeset.SignProposal(t, e, setCommitCandidateProposal)
-	commonchangeset.ExecuteProposal(t, e, setCommitCandidateSigned, state.Chains[tenv.HomeChainSel].Timelock, tenv.HomeChainSel)
+	commonchangeset.ExecuteProposal(t, e, setCommitCandidateSigned, &commonchangeset.TimelockExecutionContracts{
+		Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
+		CallProxy: state.Chains[tenv.HomeChainSel].CallProxy,
+	}, tenv.HomeChainSel)
 
 	// create the op for the commit plugin as well
 	setExecCandidateOp, err := setCandidateOnExistingDon(
@@ -195,7 +195,10 @@ func TestActiveCandidate(t *testing.T) {
 	}}, "set new candidates on commit and exec plugins", 0)
 	require.NoError(t, err)
 	setExecCandidateSigned := commonchangeset.SignProposal(t, e, setExecCandidateProposal)
-	commonchangeset.ExecuteProposal(t, e, setExecCandidateSigned, state.Chains[tenv.HomeChainSel].Timelock, tenv.HomeChainSel)
+	commonchangeset.ExecuteProposal(t, e, setExecCandidateSigned, &commonchangeset.TimelockExecutionContracts{
+		Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
+		CallProxy: state.Chains[tenv.HomeChainSel].CallProxy,
+	}, tenv.HomeChainSel)
 
 	// check setup was successful by confirming number of nodes from cap reg
 	donInfo, err = state.Chains[tenv.HomeChainSel].CapabilityRegistry.GetDON(nil, donID)
@@ -222,7 +225,10 @@ func TestActiveCandidate(t *testing.T) {
 	}}, "promote candidates and revoke actives", 0)
 	require.NoError(t, err)
 	promoteSigned := commonchangeset.SignProposal(t, e, promoteProposal)
-	commonchangeset.ExecuteProposal(t, e, promoteSigned, state.Chains[tenv.HomeChainSel].Timelock, tenv.HomeChainSel)
+	commonchangeset.ExecuteProposal(t, e, promoteSigned, &commonchangeset.TimelockExecutionContracts{
+		Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
+		CallProxy: state.Chains[tenv.HomeChainSel].CallProxy,
+	}, tenv.HomeChainSel)
 	// [NEW ACTIVE, NO CANDIDATE] done promoting
 
 	// [NEW ACTIVE, NO CANDIDATE] check onchain state

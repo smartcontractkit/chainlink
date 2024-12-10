@@ -1,16 +1,16 @@
 package changeset_test
 
 import (
-	"github.com/smartcontractkit/chainlink/deployment/common/types"
+	"math/big"
 	"testing"
 
-	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
@@ -24,9 +24,7 @@ func TestAcceptAllOwnership(t *testing.T) {
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 	registrySel := env.AllChainSelectors()[0]
-	mcmsConfig, err := commonchangeset.CreateMCMSConfig(env.AllDeployerKeys())
-	require.NoError(t, err)
-	env, err = commonchangeset.ApplyChangesets(t, env, nil, []commonchangeset.ChangesetApplication{
+	env, err := commonchangeset.ApplyChangesets(t, env, nil, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.DeployCapabilityRegistry),
 			Config:    registrySel,
@@ -41,7 +39,14 @@ func TestAcceptAllOwnership(t *testing.T) {
 		},
 		{
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployMCMSWithTimelock),
-			Config:    map[uint64]types.MCMSWithTimelockConfig{registrySel: mcmsConfig},
+			Config: map[uint64]types.MCMSWithTimelockConfig{
+				registrySel: {
+					Canceller:        commonchangeset.SingleGroupMCMS(t),
+					Bypasser:         commonchangeset.SingleGroupMCMS(t),
+					Proposer:         commonchangeset.SingleGroupMCMS(t),
+					TimelockMinDelay: big.NewInt(0),
+				},
+			},
 		},
 	})
 	require.NoError(t, err)
@@ -50,8 +55,11 @@ func TestAcceptAllOwnership(t *testing.T) {
 	timelock, err := commonchangeset.MaybeLoadMCMSWithTimelockState(env.Chains[registrySel], addrs)
 	require.NoError(t, err)
 
-	_, err = commonchangeset.ApplyChangesets(t, env, map[uint64]*owner_helpers.RBACTimelock{
-		registrySel: timelock.Timelock,
+	_, err = commonchangeset.ApplyChangesets(t, env, map[uint64]*commonchangeset.TimelockExecutionContracts{
+		registrySel: &commonchangeset.TimelockExecutionContracts{
+			Timelock:  timelock.Timelock,
+			CallProxy: timelock.CallProxy,
+		},
 	}, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.AcceptAllOwnershipsProposal),
