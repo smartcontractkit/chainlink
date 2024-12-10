@@ -33,6 +33,7 @@ type SetupTestRegistryRequest struct {
 	P2pToCapabilities map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability
 	NopToNodes        map[kcr.CapabilitiesRegistryNodeOperator][]*internal.P2PSignerEnc
 	Dons              []Don
+	// TODO maybe add support for MCMS at this level
 }
 
 type SetupTestRegistryResponse struct {
@@ -158,7 +159,6 @@ func addDons(t *testing.T, lggr logger.Logger, chain deployment.Chain, registry 
 				cc.Config = defaultCapConfig(t, ccfg.Capability)
 			}
 			var exists bool
-			//var cc kcr.CapabilitiesRegistryCapabilityConfiguration{}
 			cc.CapabilityId, exists = capCache.Get(ccfg.Capability)
 			require.True(t, exists, "capability not found in cache %v", ccfg.Capability)
 			capConfigs = append(capConfigs, cc)

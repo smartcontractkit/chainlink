@@ -54,6 +54,27 @@ type Chain struct {
 	// Note the Sign function can be abstract supporting a variety of key storage mechanisms (e.g. KMS etc).
 	DeployerKey *bind.TransactOpts
 	Confirm     func(tx *types.Transaction) (uint64, error)
+	// Users are a set of keys that can be used to interact with the chain.
+	// These are distinct from the deployer key.
+	Users []*bind.TransactOpts
+}
+
+func (c Chain) String() string {
+	chainInfo, err := ChainInfo(c.Selector)
+	if err != nil {
+		// we should never get here, if the selector is invalid it should not be in the environment
+		panic(err)
+	}
+	return fmt.Sprintf("%s (%d)", chainInfo.ChainName, chainInfo.ChainSelector)
+}
+
+func (c Chain) Name() string {
+	chainInfo, err := ChainInfo(c.Selector)
+	if err != nil {
+		// we should never get here, if the selector is invalid it should not be in the environment
+		panic(err)
+	}
+	return chainInfo.ChainName
 }
 
 // Environment represents an instance of a deployed product
@@ -77,6 +98,7 @@ type Environment struct {
 	NodeIDs           []string
 	Offchain          OffchainClient
 	GetContext        func() context.Context
+	OCRSecrets        OCRSecrets
 }
 
 func NewEnvironment(
@@ -87,6 +109,7 @@ func NewEnvironment(
 	nodeIDs []string,
 	offchain OffchainClient,
 	ctx func() context.Context,
+	secrets OCRSecrets,
 ) *Environment {
 	return &Environment{
 		Name:              name,
@@ -96,6 +119,7 @@ func NewEnvironment(
 		NodeIDs:           nodeIDs,
 		Offchain:          offchain,
 		GetContext:        ctx,
+		OCRSecrets:        secrets,
 	}
 }
 
@@ -144,7 +168,7 @@ func ConfirmIfNoError(chain Chain, tx *types.Transaction, err error) (uint64, er
 		var d rpc.DataError
 		ok := errors.As(err, &d)
 		if ok {
-			return 0, fmt.Errorf("transaction reverted: Error %s ErrorData %v", d.Error(), d.ErrorData())
+			return 0, fmt.Errorf("transaction reverted on chain %s: Error %s ErrorData %v", chain.String(), d.Error(), d.ErrorData())
 		}
 		return 0, err
 	}

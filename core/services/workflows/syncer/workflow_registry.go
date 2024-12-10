@@ -173,7 +173,7 @@ func NewWorkflowRegistry(
 ) *workflowRegistry {
 	ets := []WorkflowRegistryEventType{ForceUpdateSecretsEvent}
 	wr := &workflowRegistry{
-		lggr:                        lggr.Named(name),
+		lggr:                        lggr,
 		newContractReaderFn:         newContractReaderFn,
 		workflowRegistryAddress:     addr,
 		eventPollerCfg:              eventPollerConfig,
@@ -633,7 +633,7 @@ func (l *workflowRegistryContractLoader) LoadWorkflows(ctx context.Context, don 
 				Data:      workflow,
 				EventType: WorkflowRegisteredEvent,
 			}); err != nil {
-				return nil, fmt.Errorf("failed to handle workflow registration: %w", err)
+				l.lggr.Errorf("failed to handle workflow registration: %s", err)
 			}
 		}
 
