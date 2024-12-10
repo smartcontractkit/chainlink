@@ -41,7 +41,6 @@ var (
 func Test_CCIPFeeBoosting(t *testing.T) {
 	e, _ := testsetups.NewIntegrationEnvironment(
 		t,
-		changeset.WithMultiCall3(),
 		changeset.WithEnvironmentType(changeset.Memory),
 		changeset.WithOCRConfigOverride(func(params changeset.CCIPOCRParams) changeset.CCIPOCRParams {
 			// Only 1 boost (=OCR round) is enough to cover the fee

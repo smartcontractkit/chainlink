@@ -18,6 +18,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/hashicorp/consul/sdk v0.16.1
 	github.com/hashicorp/go-multierror v1.1.1
+	github.com/imdario/mergo v0.3.16
 	github.com/pelletier/go-toml/v2 v2.2.3
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.33.0
@@ -290,7 +291,6 @@ require (
 	github.com/huandu/xstrings v1.4.0 // indirect
 	github.com/huin/goupnp v1.3.0 // indirect
 	github.com/iancoleman/strcase v0.3.0 // indirect
-	github.com/imdario/mergo v0.3.16 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/invopop/jsonschema v0.12.0 // indirect
 	github.com/jackc/chunkreader/v2 v2.0.1 // indirect

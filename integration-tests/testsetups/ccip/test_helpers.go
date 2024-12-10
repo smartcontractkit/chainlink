@@ -63,6 +63,7 @@ func (l *DeployedLocalDevEnvironment) DeployedEnvironment() changeset.DeployedEn
 
 func (l *DeployedLocalDevEnvironment) StartChains(t *testing.T, _ *changeset.TestConfigs) {
 	lggr := logger.TestLogger(t)
+	ctx := testcontext.Get(t)
 	envConfig, testEnv, cfg := CreateDockerEnv(t)
 	l.devEnvTestCfg = cfg
 	l.testEnv = testEnv
@@ -73,10 +74,19 @@ func (l *DeployedLocalDevEnvironment) StartChains(t *testing.T, _ *changeset.Tes
 		require.Truef(t, found, "chain not found")
 		users[details.Selector] = chain.Users
 	}
+	homeChainSel := l.devEnvTestCfg.CCIP.GetHomeChainSelector()
+	require.NotEmpty(t, homeChainSel, "homeChainSel should not be empty")
+	feedSel := l.devEnvTestCfg.CCIP.GetFeedChainSelector()
+	require.NotEmpty(t, feedSel, "feedSel should not be empty")
 	chains, err := devenv.NewChains(lggr, envConfig.Chains)
+	require.NoError(t, err)
+	replayBlocks, err := changeset.LatestBlocksByChain(ctx, chains)
 	require.NoError(t, err)
 	l.DeployedEnv.Users = users
 	l.DeployedEnv.Env.Chains = chains
+	l.DeployedEnv.FeedChainSel = feedSel
+	l.DeployedEnv.HomeChainSel = homeChainSel
+	l.DeployedEnv.ReplayBlocks = replayBlocks
 }
 
 func (l *DeployedLocalDevEnvironment) StartNodes(t *testing.T, _ *changeset.TestConfigs, crConfig deployment.CapabilityRegistryConfig) {
@@ -92,17 +102,9 @@ func (l *DeployedLocalDevEnvironment) StartNodes(t *testing.T, _ *changeset.Test
 	e, don, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, *l.devEnvCfg)
 	require.NoError(t, err)
 	require.NotNil(t, e)
-	homeChainSel := l.devEnvTestCfg.CCIP.GetHomeChainSelector()
-	require.NotEmpty(t, homeChainSel, "homeChainSel should not be empty")
-	feedSel := l.devEnvTestCfg.CCIP.GetFeedChainSelector()
-	require.NotEmpty(t, feedSel, "feedSel should not be empty")
-	replayBlocks, err := changeset.LatestBlocksByChain(ctx, e.Chains)
-	require.NoError(t, err)
 	l.DON = don
 	l.DeployedEnv.Env = *e
-	l.DeployedEnv.FeedChainSel = feedSel
-	l.DeployedEnv.HomeChainSel = homeChainSel
-	l.DeployedEnv.ReplayBlocks = replayBlocks
+
 	// fund the nodes
 	zeroLogLggr := logging.GetTestLogger(t)
 	FundNodes(t, zeroLogLggr, l.testEnv, l.devEnvTestCfg, don.PluginNodes())
