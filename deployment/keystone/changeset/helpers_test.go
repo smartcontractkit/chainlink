@@ -12,7 +12,6 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
@@ -260,11 +259,10 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 		for sel := range env.Chains {
 			t.Logf("Enabling MCMS on chain %d", sel)
 			timelockCfgs[sel] = commontypes.MCMSWithTimelockConfig{
-				Canceller:         commonchangeset.SingleGroupMCMS(t),
-				Bypasser:          commonchangeset.SingleGroupMCMS(t),
-				Proposer:          commonchangeset.SingleGroupMCMS(t),
-				TimelockExecutors: env.AllDeployerKeys(),
-				TimelockMinDelay:  big.NewInt(0),
+				Canceller:        commonchangeset.SingleGroupMCMS(t),
+				Bypasser:         commonchangeset.SingleGroupMCMS(t),
+				Proposer:         commonchangeset.SingleGroupMCMS(t),
+				TimelockMinDelay: big.NewInt(0),
 			}
 		}
 		env, err = commonchangeset.ApplyChangesets(t, env, nil, []commonchangeset.ChangesetApplication{
@@ -286,7 +284,7 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 			require.NoError(t, mcms.Validate())
 
 			// transfer ownership of all contracts to the MCMS
-			env, err = commonchangeset.ApplyChangesets(t, env, map[uint64]*gethwrappers.RBACTimelock{sel: mcms.Timelock}, []commonchangeset.ChangesetApplication{
+			env, err = commonchangeset.ApplyChangesets(t, env, map[uint64]*commonchangeset.TimelockExecutionContracts{sel: {Timelock: mcms.Timelock, CallProxy: mcms.CallProxy}}, []commonchangeset.ChangesetApplication{
 				{
 					Changeset: commonchangeset.WrapChangeSet(kschangeset.AcceptAllOwnershipsProposal),
 					Config: &kschangeset.AcceptAllOwnershipRequest{

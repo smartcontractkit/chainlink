@@ -25,6 +25,13 @@ var (
 	TestXXXMCMSSigner *ecdsa.PrivateKey
 )
 
+// TimelockExecutionContracts is a helper struct for executing timelock proposals. it contains
+// the timelock and call proxy contracts.
+type TimelockExecutionContracts struct {
+	Timelock  *owner_helpers.RBACTimelock
+	CallProxy *owner_helpers.CallProxy
+}
+
 func init() {
 	key, err := crypto.GenerateKey()
 	if err != nil {
@@ -65,7 +72,7 @@ func SignProposal(t *testing.T, env deployment.Environment, proposal *timelock.M
 }
 
 func ExecuteProposal(t *testing.T, env deployment.Environment, executor *mcms.Executor,
-	timelock *owner_helpers.RBACTimelock, sel uint64) {
+	timelockContracts *TimelockExecutionContracts, sel uint64) {
 	t.Log("Executing proposal on chain", sel)
 	// Set the root.
 	tx, err2 := executor.SetRootOnChain(env.Chains[sel].Client, env.Chains[sel].DeployerKey, mcms.ChainIdentifier(sel))
@@ -85,7 +92,7 @@ func ExecuteProposal(t *testing.T, env deployment.Environment, executor *mcms.Ex
 				block, err3 := env.Chains[sel].Confirm(opTx)
 				require.NoError(t, err3)
 				t.Log("executed", chainOp)
-				it, err3 := timelock.FilterCallScheduled(&bind.FilterOpts{
+				it, err3 := timelockContracts.Timelock.FilterCallScheduled(&bind.FilterOpts{
 					Start:   block,
 					End:     &block,
 					Context: context.Background(),
@@ -104,7 +111,8 @@ func ExecuteProposal(t *testing.T, env deployment.Environment, executor *mcms.Ex
 						Value:  it.Event.Value,
 					})
 				}
-				tx, err := timelock.ExecuteBatch(
+				timelockExecutorProxy, err := owner_helpers.NewRBACTimelock(timelockContracts.CallProxy.Address(), env.Chains[sel].Client)
+				tx, err := timelockExecutorProxy.ExecuteBatch(
 					env.Chains[sel].DeployerKey, calls, pred, salt)
 				require.NoError(t, err)
 				_, err = env.Chains[sel].Confirm(tx)

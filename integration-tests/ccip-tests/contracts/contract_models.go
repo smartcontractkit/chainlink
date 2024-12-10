@@ -503,8 +503,13 @@ func (w TokenPoolWrapper) ApplyChainUpdates(opts *bind.TransactOpts, update []to
 }
 
 func (w TokenPoolWrapper) SetChainRateLimiterConfig(opts *bind.TransactOpts, selector uint64, out token_pool.RateLimiterConfig, in token_pool.RateLimiterConfig) (*types.Transaction, error) {
+
 	if w.Latest != nil && w.Latest.PoolInterface != nil {
-		return w.Latest.PoolInterface.SetChainRateLimiterConfig(opts, selector, out, in)
+		selectors := []uint64{selector}
+		out := []token_pool.RateLimiterConfig{out}
+		in := []token_pool.RateLimiterConfig{in}
+
+		return w.Latest.PoolInterface.SetChainRateLimiterConfigs(opts, selectors, out, in)
 	}
 	if w.V1_4_0 != nil && w.V1_4_0.PoolInterface != nil {
 		return w.V1_4_0.PoolInterface.SetChainRateLimiterConfig(opts, selector,

@@ -13,6 +13,7 @@ contract OffRamp_constructor is OffRampSetup {
   function test_Constructor_Success() public {
     OffRamp.StaticConfig memory staticConfig = OffRamp.StaticConfig({
       chainSelector: DEST_CHAIN_SELECTOR,
+      gasForCallExactCheck: GAS_FOR_CALL_EXACT_CHECK,
       rmnRemote: s_mockRMNRemote,
       tokenAdminRegistry: address(s_tokenAdminRegistry),
       nonceManager: address(s_inboundNonceManager)
@@ -142,6 +143,7 @@ contract OffRamp_constructor is OffRampSetup {
     s_offRamp = new OffRampHelper(
       OffRamp.StaticConfig({
         chainSelector: DEST_CHAIN_SELECTOR,
+        gasForCallExactCheck: GAS_FOR_CALL_EXACT_CHECK,
         rmnRemote: s_mockRMNRemote,
         tokenAdminRegistry: address(s_tokenAdminRegistry),
         nonceManager: address(s_inboundNonceManager)
@@ -168,6 +170,7 @@ contract OffRamp_constructor is OffRampSetup {
     s_offRamp = new OffRampHelper(
       OffRamp.StaticConfig({
         chainSelector: DEST_CHAIN_SELECTOR,
+        gasForCallExactCheck: GAS_FOR_CALL_EXACT_CHECK,
         rmnRemote: s_mockRMNRemote,
         tokenAdminRegistry: address(s_tokenAdminRegistry),
         nonceManager: address(s_inboundNonceManager)
@@ -188,6 +191,7 @@ contract OffRamp_constructor is OffRampSetup {
     s_offRamp = new OffRampHelper(
       OffRamp.StaticConfig({
         chainSelector: DEST_CHAIN_SELECTOR,
+        gasForCallExactCheck: GAS_FOR_CALL_EXACT_CHECK,
         rmnRemote: IRMNRemote(address(0)),
         tokenAdminRegistry: address(s_tokenAdminRegistry),
         nonceManager: address(s_inboundNonceManager)
@@ -208,6 +212,7 @@ contract OffRamp_constructor is OffRampSetup {
     s_offRamp = new OffRampHelper(
       OffRamp.StaticConfig({
         chainSelector: 0,
+        gasForCallExactCheck: GAS_FOR_CALL_EXACT_CHECK,
         rmnRemote: s_mockRMNRemote,
         tokenAdminRegistry: address(s_tokenAdminRegistry),
         nonceManager: address(s_inboundNonceManager)
@@ -228,6 +233,7 @@ contract OffRamp_constructor is OffRampSetup {
     s_offRamp = new OffRampHelper(
       OffRamp.StaticConfig({
         chainSelector: DEST_CHAIN_SELECTOR,
+        gasForCallExactCheck: GAS_FOR_CALL_EXACT_CHECK,
         rmnRemote: s_mockRMNRemote,
         tokenAdminRegistry: address(0),
         nonceManager: address(s_inboundNonceManager)
@@ -248,6 +254,7 @@ contract OffRamp_constructor is OffRampSetup {
     s_offRamp = new OffRampHelper(
       OffRamp.StaticConfig({
         chainSelector: DEST_CHAIN_SELECTOR,
+        gasForCallExactCheck: GAS_FOR_CALL_EXACT_CHECK,
         rmnRemote: s_mockRMNRemote,
         tokenAdminRegistry: address(s_tokenAdminRegistry),
         nonceManager: address(0)

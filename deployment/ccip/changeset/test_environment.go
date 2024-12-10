@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -302,11 +301,10 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tc *TestConfigs, tEnv Test
 
 	for _, c := range e.Env.AllChainSelectors() {
 		mcmsCfg[c] = commontypes.MCMSWithTimelockConfig{
-			Canceller:         commonchangeset.SingleGroupMCMS(t),
-			Bypasser:          commonchangeset.SingleGroupMCMS(t),
-			Proposer:          commonchangeset.SingleGroupMCMS(t),
-			TimelockExecutors: e.Env.AllDeployerKeys(),
-			TimelockMinDelay:  big.NewInt(0),
+			Canceller:        commonchangeset.SingleGroupMCMS(t),
+			Bypasser:         commonchangeset.SingleGroupMCMS(t),
+			Proposer:         commonchangeset.SingleGroupMCMS(t),
+			TimelockMinDelay: big.NewInt(0),
 		}
 	}
 	var (
@@ -385,9 +383,12 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tc *TestConfigs, tEnv Test
 	}
 	// Build the per chain config.
 	chainConfigs := make(map[uint64]CCIPOCRParams)
-	timelocksPerChain := make(map[uint64]*gethwrappers.RBACTimelock)
+	timelockContractsPerChain := make(map[uint64]*commonchangeset.TimelockExecutionContracts)
 	for _, chain := range allChains {
-		timelocksPerChain[chain] = state.Chains[chain].Timelock
+		timelockContractsPerChain[chain] = &commonchangeset.TimelockExecutionContracts{
+			Timelock:  state.Chains[chain].Timelock,
+			CallProxy: state.Chains[chain].CallProxy,
+		}
 		tokenInfo := tokenConfig.GetTokenInfo(e.Env.Logger, state.Chains[chain].LinkToken, state.Chains[chain].Weth9)
 		ocrParams := DefaultOCRParams(e.FeedChainSel, tokenInfo, tokenDataProviders)
 		if tc.OCRConfigOverride != nil {
@@ -396,7 +397,7 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tc *TestConfigs, tEnv Test
 		chainConfigs[chain] = ocrParams
 	}
 	// Deploy second set of changesets to deploy and configure the CCIP contracts.
-	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
+	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, timelockContractsPerChain, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(ConfigureNewChains),
 			Config: NewChainsConfig{
