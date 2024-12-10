@@ -32,6 +32,7 @@
 
 # Ignore Functions v1.0.0 code that was frozen after audit
 ./src/v0.8/functions/v1_0_0
+./src/v0.8/functions/v1_3_0_zksync/FunctionsRouter.sol
 
 # Test helpers
 ./src/v0.8/vrf/testhelpers
