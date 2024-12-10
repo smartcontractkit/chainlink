@@ -34,6 +34,6 @@ func NewDeployEnvironmentFromCribOutput(lggr logger.Logger, output DeployOutput)
 		chains,
 		output.NodeIDs,
 		nil, // todo: populate the offchain client using output.DON
-		func() context.Context { return context.Background() },
+		func() context.Context { return context.Background() }, deployment.XXXGenerateTestOCRSecrets(),
 	), nil
 }
