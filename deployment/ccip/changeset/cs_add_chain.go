@@ -176,7 +176,7 @@ func (a AddDonAndSetCandidateChangesetConfig) Validate(e deployment.Environment,
 
 	// FChain should never be zero if a chain config is set in CCIPHome
 	if chainConfig.FChain == 0 {
-		return nil, fmt.Errorf("chain config not set up for new chain")
+		return nil, fmt.Errorf("chain config not set up for new chain %d", a.NewChainSelector)
 	}
 
 	err = a.CCIPOCRParams.Validate()
