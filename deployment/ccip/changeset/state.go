@@ -210,7 +210,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	if c.CCIPHome != nil && c.CapabilityRegistry != nil {
 		chView, err := v1_6.GenerateCCIPHomeView(c.CapabilityRegistry, c.CCIPHome)
 		if err != nil {
-			return chainView, errors.Wrapf(err, "failed to generate CCIP home view for CCIP home %s", c.CCIPHome)
+			return chainView, errors.Wrapf(err, "failed to generate CCIP home view for CCIP home %s", c.CCIPHome.Address())
 		}
 		chainView.CCIPHome[c.CCIPHome.Address().Hex()] = chView
 	}
