@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func TestOffRampView(t *testing.T) {
+func TestCCIPHomeView(t *testing.T) {
 	e := memory.NewMemoryEnvironment(t, logger.TestLogger(t), zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		Chains: 1,
 	})
@@ -34,4 +34,6 @@ func TestOffRampView(t *testing.T) {
 	require.NoError(t, err)
 	b, err := json.MarshalIndent(v, "", "  ")
 	t.Log(string(b))
+
+	// TODO: Add chains/dons etc.
 }
