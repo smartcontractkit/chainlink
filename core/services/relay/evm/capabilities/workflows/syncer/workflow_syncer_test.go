@@ -514,6 +514,14 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 	// generate a log event
 	registerWorkflow(t, backendTH, wfRegistryC, giveWorkflow)
 
+	/*
+		string(ForceUpdateSecretsEvent),
+			string(WorkflowActivatedEvent),
+			string(WorkflowDeletedEvent),
+			string(WorkflowPausedEvent),
+			string(WorkflowRegisteredEvent),
+			string(WorkflowUpdatedEvent), */
+
 	// Require the secrets contents to eventually be updated
 	require.Eventually(t, func() bool {
 		_, err := er.Get("test-wf")
@@ -600,6 +608,62 @@ func requestForceUpdateSecrets(
 ) {
 	_, err := wfRegC.RequestForceUpdateSecrets(th.ContractsOwner, secretsURL)
 	require.NoError(t, err)
+	th.Backend.Commit()
+	th.Backend.Commit()
+	th.Backend.Commit()
+}
+
+func activateWorkflow(
+	t *testing.T,
+	th *testutils.EVMBackendTH,
+	wfRegC *workflow_registry_wrapper.WorkflowRegistry,
+	workflowKey [32]byte,
+) {
+	t.Helper()
+	_, err := wfRegC.ActivateWorkflow(th.ContractsOwner, workflowKey)
+	require.NoError(t, err, "failed to activate workflow")
+	th.Backend.Commit()
+	th.Backend.Commit()
+	th.Backend.Commit()
+}
+
+func pauseWorkflow(
+	t *testing.T,
+	th *testutils.EVMBackendTH,
+	wfRegC *workflow_registry_wrapper.WorkflowRegistry,
+	workflowKey [32]byte,
+) {
+	t.Helper()
+	_, err := wfRegC.PauseWorkflow(th.ContractsOwner, workflowKey)
+	require.NoError(t, err, "failed to pause workflow")
+	th.Backend.Commit()
+	th.Backend.Commit()
+	th.Backend.Commit()
+}
+
+func deleteWorkflow(
+	t *testing.T,
+	th *testutils.EVMBackendTH,
+	wfRegC *workflow_registry_wrapper.WorkflowRegistry,
+	workflowKey [32]byte,
+) {
+	t.Helper()
+	_, err := wfRegC.DeleteWorkflow(th.ContractsOwner, workflowKey)
+	require.NoError(t, err, "failed to delete workflow")
+	th.Backend.Commit()
+	th.Backend.Commit()
+	th.Backend.Commit()
+}
+
+func updateWorkflow(
+	t *testing.T,
+	th *testutils.EVMBackendTH,
+	wfRegC *workflow_registry_wrapper.WorkflowRegistry,
+	workflowKey [32]byte, newWorkflowID [32]byte, binaryURL string, configURL string, secretsURL string,
+) {
+	t.Helper()
+	_, err := wfRegC.UpdateWorkflow(th.ContractsOwner, workflowKey, newWorkflowID, binaryURL, configURL, secretsURL)
+	require.NoError(t, err, "failed to update workflow")
 	th.Backend.Commit()
 	th.Backend.Commit()
 	th.Backend.Commit()
