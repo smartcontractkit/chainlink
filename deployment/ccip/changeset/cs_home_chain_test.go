@@ -3,6 +3,7 @@ package changeset
 import (
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
@@ -58,28 +59,71 @@ func TestDeployHomeChain(t *testing.T) {
 	require.Len(t, capRegSnap.Nodes, len(p2pIds))
 }
 
+func TestRemoveDonsValidate(t *testing.T) {
+	e := NewMemoryEnvironment(t)
+	s, err := LoadOnchainState(e.Env)
+	require.NoError(t, err)
+	homeChain := s.Chains[e.HomeChainSel]
+	var tt = []struct {
+		name      string
+		config    RemoveDONsConfig
+		expectErr bool
+	}{
+		{
+			name: "invalid home",
+			config: RemoveDONsConfig{
+				HomeChainSel: 0,
+				DonIDs:       []uint32{1},
+			},
+			expectErr: true,
+		},
+		{
+			name: "invalid dons",
+			config: RemoveDONsConfig{
+				HomeChainSel: e.HomeChainSel,
+				DonIDs:       []uint32{1377},
+			},
+			expectErr: true,
+		},
+		{
+			name: "no dons",
+			config: RemoveDONsConfig{
+				HomeChainSel: e.HomeChainSel,
+				DonIDs:       []uint32{},
+			},
+			expectErr: true,
+		},
+		{
+			name: "success",
+			config: RemoveDONsConfig{
+				HomeChainSel: e.HomeChainSel,
+				DonIDs:       []uint32{1},
+			},
+			expectErr: false,
+		},
+	}
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.config.Validate(homeChain)
+			if tc.expectErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
 func TestRemoveDons(t *testing.T) {
 	e := NewMemoryEnvironment(t)
 	s, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	homeChain := s.Chains[e.HomeChainSel]
 
-	// Invalid dons
-	a := RemoveDONsConfig{
-		HomeChainSel: e.HomeChainSel,
-		DonIDs:       []uint32{},
-	}
-	require.Error(t, a.Validate(homeChain))
-
 	// Remove a don w/o MCMS
 	donsBefore, err := homeChain.CapabilityRegistry.GetDONs(nil)
 	require.NoError(t, err)
-	e.Env, err = commoncs.ApplyChangesets(t, e.Env, map[uint64]*commoncs.TimelockExecutionContracts{
-		e.HomeChainSel: {
-			Timelock:  s.Chains[e.HomeChainSel].Timelock,
-			CallProxy: s.Chains[e.HomeChainSel].CallProxy,
-		},
-	}, []commoncs.ChangesetApplication{
+	e.Env, err = commoncs.ApplyChangesets(t, e.Env, nil, []commoncs.ChangesetApplication{
 		{
 			Changeset: commoncs.WrapChangeSet(RemoveDONs),
 			Config: RemoveDONsConfig{
@@ -94,4 +138,34 @@ func TestRemoveDons(t *testing.T) {
 	require.Len(t, donsAfter, len(donsBefore)-1)
 
 	// Remove a don w/ MCMS
+	donsBefore, err = homeChain.CapabilityRegistry.GetDONs(nil)
+	require.NoError(t, err)
+	e.Env, err = commoncs.ApplyChangesets(t, e.Env, map[uint64]*commoncs.TimelockExecutionContracts{
+		e.HomeChainSel: {
+			Timelock:  s.Chains[e.HomeChainSel].Timelock,
+			CallProxy: s.Chains[e.HomeChainSel].CallProxy,
+		},
+	}, []commoncs.ChangesetApplication{
+		{
+			Changeset: commoncs.WrapChangeSet(commoncs.TransferToMCMSWithTimelock),
+			Config: commoncs.TransferToMCMSWithTimelockConfig{
+				ContractsByChain: map[uint64][]common.Address{
+					e.HomeChainSel: {homeChain.CapabilityRegistry.Address()},
+				},
+				MinDelay: 0,
+			},
+		},
+		{
+			Changeset: commoncs.WrapChangeSet(RemoveDONs),
+			Config: RemoveDONsConfig{
+				HomeChainSel: e.HomeChainSel,
+				DonIDs:       []uint32{donsBefore[0].Id},
+				MCMS:         &MCMSConfig{MinDelay: 0},
+			},
+		},
+	})
+	require.NoError(t, err)
+	donsAfter, err = homeChain.CapabilityRegistry.GetDONs(nil)
+	require.NoError(t, err)
+	require.Len(t, donsAfter, len(donsBefore)-1)
 }
