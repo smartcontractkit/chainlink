@@ -24,11 +24,12 @@ type LinkTransferTimelockRequest struct {
 	MinDelay        time.Duration // delay for timelock worker to execute the transfers.
 	OverrideRoot    bool
 	StartingOpCount map[uint64]uint64
+	UseMCMS         bool
 }
 
 var _ deployment.ChangeSet[*LinkTransferTimelockRequest] = LinkTransferTimelock
 
-// LinkTransferTimelock takes the given link transfers and creates an MCMS proposal for them.
+// LinkTransferTimelock takes the given link transfers and executes them or creates an MCMS proposal for them.
 func LinkTransferTimelock(e deployment.Environment, req *LinkTransferTimelockRequest) (deployment.ChangesetOutput, error) {
 	chainMetadata := map[mcms.ChainIdentifier]mcms.ChainMetadata{}
 	timelockAddresses := map[mcms.ChainIdentifier]common.Address{}
@@ -62,9 +63,12 @@ func LinkTransferTimelock(e deployment.Environment, req *LinkTransferTimelockReq
 			ChainIdentifier: chainID,
 			Batch:           []mcms.Operation{},
 		}
-
+		opts := deployment.SimTransactOpts()
+		if !req.UseMCMS {
+			opts = chain.DeployerKey
+		}
 		for _, transfer := range req.Transfers[chainSelector] {
-			tx, err := linkContract.Transfer(deployment.SimTransactOpts(), transfer.To, transfer.Value)
+			tx, err := linkContract.Transfer(opts, transfer.To, transfer.Value)
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("error packing transfer tx data: %w", err)
 			}
@@ -79,24 +83,27 @@ func LinkTransferTimelock(e deployment.Environment, req *LinkTransferTimelockReq
 		}
 		allBatches = append(allBatches, batch)
 	}
+	if req.UseMCMS {
+		proposal, err := timelock.NewMCMSWithTimelockProposal(
+			"1",
+			req.ValidUntil,
+			[]mcms.Signature{},
+			req.OverrideRoot,
+			chainMetadata,
+			timelockAddresses,
+			"Value transfer proposal",
+			allBatches,
+			timelock.Schedule,
+			req.MinDelay.String(),
+		)
+		if err != nil {
+			return deployment.ChangesetOutput{}, err
+		}
 
-	proposal, err := timelock.NewMCMSWithTimelockProposal(
-		"1",
-		req.ValidUntil,
-		[]mcms.Signature{},
-		req.OverrideRoot,
-		chainMetadata,
-		timelockAddresses,
-		"Value transfer proposal",
-		allBatches,
-		timelock.Schedule,
-		req.MinDelay.String(),
-	)
-	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return deployment.ChangesetOutput{
+			Proposals: []timelock.MCMSWithTimelockProposal{*proposal},
+		}, nil
 	}
-	return deployment.ChangesetOutput{
-		Proposals: []timelock.MCMSWithTimelockProposal{*proposal},
-	}, nil
 
+	return deployment.ChangesetOutput{}, nil
 }
