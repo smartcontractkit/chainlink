@@ -50,17 +50,7 @@ func newMockFetcher(m map[string]mockFetchResp) FetcherFunc {
 type mockEngine struct {
 	CloseErr error
 	ReadyErr error
-}
-
-func newMockEngine(errs ...error) *mockEngine {
-	e := &mockEngine{}
-	if len(errs) > 0 {
-		e.ReadyErr = errs[0]
-	}
-	if len(errs) > 1 {
-		e.CloseErr = errs[1]
-	}
-	return e
+	StartErr error
 }
 
 func (m *mockEngine) Ready() error {
@@ -69,6 +59,10 @@ func (m *mockEngine) Ready() error {
 
 func (m *mockEngine) Close() error {
 	return m.CloseErr
+}
+
+func (m *mockEngine) Start(_ context.Context) error {
+	return m.StartErr
 }
 
 func Test_Handler(t *testing.T) {
@@ -232,6 +226,9 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				configURL:  {Body: config, Err: nil},
 				secretsURL: {Body: []byte("secrets"), Err: nil},
 			}),
+			engineFactoryFn: func(ctx context.Context, wfid string, owner string, name string, config []byte, binary []byte) (StartReadyCloser, error) {
+				return &mockEngine{}, nil
+			},
 			GiveConfig: config,
 			ConfigURL:  configURL,
 			SecretsURL: secretsURL,
@@ -252,9 +249,42 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			validationFn: defaultValidationFn,
 		},
 		{
+			Name: "fails to start engine",
+			fetcher: newMockFetcher(map[string]mockFetchResp{
+				binaryURL:  {Body: encodedBinary, Err: nil},
+				configURL:  {Body: config, Err: nil},
+				secretsURL: {Body: []byte("secrets"), Err: nil},
+			}),
+			engineFactoryFn: func(ctx context.Context, wfid string, owner string, name string, config []byte, binary []byte) (StartReadyCloser, error) {
+				return &mockEngine{StartErr: assert.AnError}, nil
+			},
+			GiveConfig: config,
+			ConfigURL:  configURL,
+			SecretsURL: secretsURL,
+			BinaryURL:  binaryURL,
+			GiveBinary: binary,
+			WFOwner:    wfOwner,
+			Event: func(wfID []byte) WorkflowRegistryWorkflowRegisteredV1 {
+				return WorkflowRegistryWorkflowRegisteredV1{
+					Status:        uint8(0),
+					WorkflowID:    [32]byte(wfID),
+					WorkflowOwner: wfOwner,
+					WorkflowName:  "workflow-name",
+					BinaryURL:     binaryURL,
+					ConfigURL:     configURL,
+					SecretsURL:    secretsURL,
+				}
+			},
+			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegistryWorkflowRegisteredV1, h *eventHandler, wfOwner []byte, wfName string, wfID string) {
+				err := h.workflowRegisteredEvent(ctx, event)
+				require.Error(t, err)
+				require.ErrorIs(t, err, assert.AnError)
+			},
+		},
+		{
 			Name: "fails if running engine exists",
 			fetcher: newMockFetcher(map[string]mockFetchResp{
-				binaryURL:  {Body: binary, Err: nil},
+				binaryURL:  {Body: encodedBinary, Err: nil},
 				configURL:  {Body: config, Err: nil},
 				secretsURL: {Body: []byte("secrets"), Err: nil},
 			}),
@@ -276,7 +306,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				}
 			},
 			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegistryWorkflowRegisteredV1, h *eventHandler, wfOwner []byte, wfName string, wfID string) {
-				me := newMockEngine()
+				me := &mockEngine{}
 				h.engineRegistry.Add(wfID, me)
 				err := h.workflowRegisteredEvent(ctx, event)
 				require.Error(t, err)
@@ -378,21 +408,22 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 }
 
 type testCase struct {
-	Name         string
-	SecretsURL   string
-	BinaryURL    string
-	GiveBinary   []byte
-	GiveConfig   []byte
-	ConfigURL    string
-	WFOwner      []byte
-	fetcher      FetcherFunc
-	Event        func([]byte) WorkflowRegistryWorkflowRegisteredV1
-	validationFn func(t *testing.T, ctx context.Context, event WorkflowRegistryWorkflowRegisteredV1, h *eventHandler, wfOwner []byte, wfName string, wfID string)
+	Name            string
+	SecretsURL      string
+	BinaryURL       string
+	GiveBinary      []byte
+	GiveConfig      []byte
+	ConfigURL       string
+	WFOwner         []byte
+	fetcher         FetcherFunc
+	Event           func([]byte) WorkflowRegistryWorkflowRegisteredV1
+	validationFn    func(t *testing.T, ctx context.Context, event WorkflowRegistryWorkflowRegisteredV1, h *eventHandler, wfOwner []byte, wfName string, wfID string)
+	engineFactoryFn func(ctx context.Context, wfid string, owner string, name string, config []byte, binary []byte) (StartReadyCloser, error)
 }
 
-func testRunningWorkflow(t *testing.T, cmd testCase) {
+func testRunningWorkflow(t *testing.T, tc testCase) {
 	t.Helper()
-	t.Run(cmd.Name, func(t *testing.T) {
+	t.Run(tc.Name, func(t *testing.T) {
 		var (
 			ctx     = testutils.Context(t)
 			lggr    = logger.TestLogger(t)
@@ -400,12 +431,12 @@ func testRunningWorkflow(t *testing.T, cmd testCase) {
 			orm     = NewWorkflowRegistryDS(db, lggr)
 			emitter = custmsg.NewLabeler()
 
-			binary     = cmd.GiveBinary
-			config     = cmd.GiveConfig
-			secretsURL = cmd.SecretsURL
-			wfOwner    = cmd.WFOwner
+			binary     = tc.GiveBinary
+			config     = tc.GiveConfig
+			secretsURL = tc.SecretsURL
+			wfOwner    = tc.WFOwner
 
-			fetcher = cmd.fetcher
+			fetcher = tc.fetcher
 		)
 
 		giveWFID, err := pkgworkflows.GenerateWorkflowID(wfOwner, binary, config, secretsURL)
@@ -413,23 +444,22 @@ func testRunningWorkflow(t *testing.T, cmd testCase) {
 
 		wfID := hex.EncodeToString(giveWFID[:])
 
-		event := cmd.Event(giveWFID[:])
+		event := tc.Event(giveWFID[:])
 
 		er := NewEngineRegistry()
+		opts := []func(*eventHandler){
+			WithEngineRegistry(er),
+		}
+		if tc.engineFactoryFn != nil {
+			opts = append(opts, WithEngineFactoryFn(tc.engineFactoryFn))
+		}
 		store := wfstore.NewDBStore(db, lggr, clockwork.NewFakeClock())
 		registry := capabilities.NewRegistry(lggr)
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
-		h := &eventHandler{
-			lggr:           lggr,
-			orm:            orm,
-			fetcher:        fetcher,
-			emitter:        emitter,
-			engineRegistry: er,
-			capRegistry:    registry,
-			workflowStore:  store,
-		}
+		h := NewEventHandler(lggr, orm, fetcher, store, registry, emitter, clockwork.NewFakeClock(),
+			workflowkey.Key{}, opts...)
 
-		cmd.validationFn(t, ctx, event, h, wfOwner, "workflow-name", wfID)
+		tc.validationFn(t, ctx, event, h, wfOwner, "workflow-name", wfID)
 	})
 }
 

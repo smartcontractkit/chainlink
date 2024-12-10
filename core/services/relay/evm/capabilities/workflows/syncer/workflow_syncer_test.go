@@ -17,7 +17,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
-	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
@@ -317,15 +316,11 @@ func (m *mockService) Start(context.Context) error { return nil }
 
 func (m *mockService) Close() error { return nil }
 
-func (m *mockService) HealthReport() map[string]error { return map[string]error{"svc": nil} }
-
 func (m *mockService) Ready() error { return nil }
-
-func (m *mockService) Name() string { return "svc" }
 
 type mockEngineFactory struct{}
 
-func (m *mockEngineFactory) new(ctx context.Context, wfid string, owner string, name string, config []byte, binary []byte) (services.Service, error) {
+func (m *mockEngineFactory) new(ctx context.Context, wfid string, owner string, name string, config []byte, binary []byte) (syncer.StartReadyCloser, error) {
 	return &mockService{}, nil
 }
 
