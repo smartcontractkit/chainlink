@@ -70,12 +70,11 @@ func (tc *TestConfigs) MustSetEnvTypeOrDefault(t *testing.T) {
 	envType := os.Getenv(ENVTESTTYPE)
 	if envType == "" || envType == string(Memory) {
 		tc.Type = Memory
-		return
 	} else if envType == string(Docker) {
 		tc.Type = Docker
-		return
+	} else {
+		t.Fatalf("env var CCIP_V16_TEST_ENV must be either %s or %s, defaults to %s if unset, got: %s", Memory, Docker, Memory, envType)
 	}
-	t.Fatalf("env var CCIP_V16_TEST_ENV must be either %s or %s, defaults to %s if unset, got: %s", Memory, Docker, Memory, envType)
 }
 
 func DefaultTestConfigs() *TestConfigs {
