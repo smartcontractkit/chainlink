@@ -82,6 +82,7 @@ type OCR2Spec {
     p2pv2Bootstrappers: [String!]
     relay: String!
     relayConfig: Map!
+    onchainSigningStrategy: Map!
     transmitterID: String
     pluginType: String!
     pluginConfig: Map!

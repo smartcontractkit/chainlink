@@ -471,6 +471,12 @@ func TestResolver_OCR2Spec(t *testing.T) {
 	pluginConfig := map[string]interface{}{
 		"juelsPerFeeCoinSource": 100000000,
 	}
+	onchainSigningStrategy := map[string]interface{}{
+		"strategyName": "multi-chain",
+		"config": map[string]any{
+			"evm": "b3df4d8748b67731a1112e8b45a764941974f5590c93672eebbc4f3504dd10ed",
+		},
+	}
 	require.NoError(t, err)
 
 	testCases := []GQLTestCase{
@@ -486,6 +492,7 @@ func TestResolver_OCR2Spec(t *testing.T) {
 						ContractID:                        contractAddress.String(),
 						ContractConfigConfirmations:       1,
 						ContractConfigTrackerPollInterval: models.Interval(1 * time.Minute),
+						OnchainSigningStrategy:            onchainSigningStrategy,
 						CreatedAt:                         f.Timestamp(),
 						OCRKeyBundleID:                    null.StringFrom(keyBundleID.String()),
 						MonitoringEndpoint:                null.StringFrom("https://monitor.endpoint"),
@@ -509,6 +516,7 @@ func TestResolver_OCR2Spec(t *testing.T) {
 									contractID
 									contractConfigConfirmations
 									contractConfigTrackerPollInterval
+									onchainSigningStrategy
 									createdAt
 									ocrKeyBundleID
 									monitoringEndpoint
@@ -533,6 +541,12 @@ func TestResolver_OCR2Spec(t *testing.T) {
 							"contractID": "0x613a38AC1659769640aaE063C651F48E0250454C",
 							"contractConfigConfirmations": 1,
 							"contractConfigTrackerPollInterval": "1m0s",
+							"onchainSigningStrategy": {
+								"strategyName": "multi-chain",
+								"config": {
+									"evm": "b3df4d8748b67731a1112e8b45a764941974f5590c93672eebbc4f3504dd10ed"
+								}
+							},
 							"createdAt": "2021-01-01T00:00:00Z",
 							"ocrKeyBundleID": "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5",
 							"monitoringEndpoint": "https://monitor.endpoint",

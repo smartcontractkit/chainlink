@@ -987,6 +987,11 @@ func (r *BootstrapSpecResolver) ContractConfigConfirmations() *int32 {
 	return &confirmations
 }
 
+// RelayConfig resolves the spec's onchain signing strategy config
+func (r *OCR2SpecResolver) OnchainSigningStrategy() gqlscalar.Map {
+	return gqlscalar.Map(r.spec.OnchainSigningStrategy)
+}
+
 // CreatedAt resolves the spec's created at timestamp.
 func (r *BootstrapSpecResolver) CreatedAt() graphql.Time {
 	return graphql.Time{Time: r.spec.CreatedAt}
