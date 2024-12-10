@@ -60,7 +60,7 @@ var (
 	RegistryModule       deployment.ContractType = "RegistryModuleOwnerCustom"
 	NonceManager         deployment.ContractType = "NonceManager"
 	FeeQuoter            deployment.ContractType = "FeeQuoter"
-	CCIPHome             deployment.ContractType = "CCIPHome"
+	CCIPHome             deployment.ContractType = "CCIPHomeView"
 	RMNHome              deployment.ContractType = "RMNHome"
 	OnRamp               deployment.ContractType = "OnRamp"
 	OffRamp              deployment.ContractType = "OffRamp"
