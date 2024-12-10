@@ -89,7 +89,7 @@ func ExecuteProposal(t *testing.T, env deployment.Environment, executor *mcms.Ex
 			if bytes.Equal(op.Data, chainOp.Data) && op.To == chainOp.To {
 				opTx, err3 := executor.ExecuteOnChain(env.Chains[sel].Client, env.Chains[sel].DeployerKey, idx)
 				require.NoError(t, err3)
-				block, err3 := env.Chains[sel].Confirm(opTx)
+				block, err3 := deployment.ConfirmIfNoError(env.Chains[sel], opTx, err3)
 				require.NoError(t, err3)
 				t.Log("executed", chainOp)
 				it, err3 := timelockContracts.Timelock.FilterCallScheduled(&bind.FilterOpts{
@@ -114,8 +114,7 @@ func ExecuteProposal(t *testing.T, env deployment.Environment, executor *mcms.Ex
 				timelockExecutorProxy, err := owner_helpers.NewRBACTimelock(timelockContracts.CallProxy.Address(), env.Chains[sel].Client)
 				tx, err := timelockExecutorProxy.ExecuteBatch(
 					env.Chains[sel].DeployerKey, calls, pred, salt)
-				require.NoError(t, err)
-				_, err = env.Chains[sel].Confirm(tx)
+				_, err = deployment.ConfirmIfNoError(env.Chains[sel], tx, err)
 				require.NoError(t, err)
 			}
 		}

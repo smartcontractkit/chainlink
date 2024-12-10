@@ -156,15 +156,15 @@ func TestAddChainInbound(t *testing.T) {
 
 	// transfer ownership to timelock
 	_, err = commonchangeset.ApplyChangesets(t, e.Env, map[uint64]*commonchangeset.TimelockExecutionContracts{
-		initialDeploy[0]: &commonchangeset.TimelockExecutionContracts{
+		initialDeploy[0]: {
 			Timelock:  state.Chains[initialDeploy[0]].Timelock,
 			CallProxy: state.Chains[initialDeploy[0]].CallProxy,
 		},
-		initialDeploy[1]: &commonchangeset.TimelockExecutionContracts{
+		initialDeploy[1]: {
 			Timelock:  state.Chains[initialDeploy[1]].Timelock,
 			CallProxy: state.Chains[initialDeploy[1]].CallProxy,
 		},
-		initialDeploy[2]: &commonchangeset.TimelockExecutionContracts{
+		initialDeploy[2]: {
 			Timelock:  state.Chains[initialDeploy[2]].Timelock,
 			CallProxy: state.Chains[initialDeploy[2]].CallProxy,
 		},
@@ -198,11 +198,11 @@ func TestAddChainInbound(t *testing.T) {
 	}
 
 	_, err = commonchangeset.ApplyChangesets(t, e.Env, map[uint64]*commonchangeset.TimelockExecutionContracts{
-		e.HomeChainSel: &commonchangeset.TimelockExecutionContracts{
+		e.HomeChainSel: {
 			Timelock:  state.Chains[e.HomeChainSel].Timelock,
 			CallProxy: state.Chains[e.HomeChainSel].CallProxy,
 		},
-		newChain: &commonchangeset.TimelockExecutionContracts{
+		newChain: {
 			Timelock:  state.Chains[newChain].Timelock,
 			CallProxy: state.Chains[newChain].CallProxy,
 		},
