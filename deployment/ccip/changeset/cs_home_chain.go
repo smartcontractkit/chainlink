@@ -386,41 +386,39 @@ func RemoveDONs(e deployment.Environment, cfg RemoveDONsConfig) (deployment.Chan
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	if cfg.MCMS != nil {
-		p, err := proposalutils.BuildProposalFromBatches(
-			map[uint64]common.Address{
-				cfg.HomeChainSel: homeChainState.Timelock.Address(),
-			},
-			map[uint64]*gethwrappers.ManyChainMultiSig{
-				cfg.HomeChainSel: homeChainState.ProposerMcm,
-			},
-			[]timelock.BatchChainOperation{
-				{
-					ChainIdentifier: mcms.ChainIdentifier(cfg.HomeChainSel),
-					Batch: []mcms.Operation{
-						{
-							To:    homeChainState.CapabilityRegistry.Address(),
-							Data:  tx.Data(),
-							Value: big.NewInt(0),
-						},
+	if cfg.MCMS == nil {
+		_, err = homeChain.Confirm(tx)
+		if err != nil {
+			return deployment.ChangesetOutput{}, err
+		}
+		return deployment.ChangesetOutput{}, nil
+	}
+	p, err := proposalutils.BuildProposalFromBatches(
+		map[uint64]common.Address{
+			cfg.HomeChainSel: homeChainState.Timelock.Address(),
+		},
+		map[uint64]*gethwrappers.ManyChainMultiSig{
+			cfg.HomeChainSel: homeChainState.ProposerMcm,
+		},
+		[]timelock.BatchChainOperation{
+			{
+				ChainIdentifier: mcms.ChainIdentifier(cfg.HomeChainSel),
+				Batch: []mcms.Operation{
+					{
+						To:    homeChainState.CapabilityRegistry.Address(),
+						Data:  tx.Data(),
+						Value: big.NewInt(0),
 					},
 				},
 			},
-			"Remove DONs",
-			cfg.MCMS.MinDelay,
-		)
-		if err != nil {
-			return deployment.ChangesetOutput{}, err
-		}
-		return deployment.ChangesetOutput{Proposals: []timelock.MCMSWithTimelockProposal{
-			*p,
-		}}, nil
-	} else {
-		_, err := homeChain.Confirm(tx)
-		if err != nil {
-			return deployment.ChangesetOutput{}, err
-		}
+		},
+		"Remove DONs",
+		cfg.MCMS.MinDelay,
+	)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
 	}
-	// Remove all DONs
-	return deployment.ChangesetOutput{}, nil
+	return deployment.ChangesetOutput{Proposals: []timelock.MCMSWithTimelockProposal{
+		*p,
+	}}, nil
 }
