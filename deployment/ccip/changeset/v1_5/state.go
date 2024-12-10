@@ -35,10 +35,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/multicall3"
 )
 
-// CCIPOnChainState state always derivable from an address book.
+// CCIPOnChainState_Legacy state always derivable from an address book.
 // Offchain state always derivable from a list of nodeIds.
 // Note can translate this into Go struct needed for MCMS/Docs/UI.
-type CCIPOnChainState struct {
+type CCIPOnChainState_Legacy struct {
 	// Populated go bindings for the appropriate version for all contracts.
 	// We would hold 2 versions of each contract here. Once we upgrade we can phase out the old one.
 	// When generating bindings, make sure the package name corresponds to the version.
