@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -55,4 +56,44 @@ func (c *KeystoneForwarderDeployer) deploy(req DeployRequest) (*DeployResponse, 
 	}
 	c.contract = forwarder
 	return resp, nil
+}
+
+type ConfigureForwarderContractsRequest struct {
+	Dons []RegisteredDon
+
+	UseMCMS bool
+}
+type ConfigureForwarderContractsResponse struct {
+	Proposals []timelock.MCMSWithTimelockProposal
+}
+
+// Depreciated: use [changeset.ConfigureForwarders] instead
+// ConfigureForwardContracts configures the forwarder contracts on all chains for the given DONS
+// the address book is required to contain the an address of the deployed forwarder contract for every chain in the environment
+func ConfigureForwardContracts(env *deployment.Environment, req ConfigureForwarderContractsRequest) (*ConfigureForwarderContractsResponse, error) {
+	contractSetsResp, err := GetContractSets(env.Logger, &GetContractSetsRequest{
+		Chains:      env.Chains,
+		AddressBook: env.ExistingAddresses,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get contract sets: %w", err)
+	}
+
+	var allProposals []timelock.MCMSWithTimelockProposal
+	// configure forwarders on all chains
+	for _, chain := range env.Chains {
+		// get the forwarder contract for the chain
+		contracts, ok := contractSetsResp.ContractSets[chain.Selector]
+		if !ok {
+			return nil, fmt.Errorf("failed to get contract set for chain %d", chain.Selector)
+		}
+		proposals, err := configureForwarder(env.Logger, chain, contracts, req.Dons, req.UseMCMS)
+		if err != nil {
+			return nil, fmt.Errorf("failed to configure forwarder for chain selector %d: %w", chain.Selector, err)
+		}
+		allProposals = append(allProposals, proposals...)
+	}
+	return &ConfigureForwarderContractsResponse{
+		Proposals: allProposals,
+	}, nil
 }

@@ -78,7 +78,7 @@ func (c *httpClient) Send(ctx context.Context, req HTTPRequest) (*HTTPResponse, 
 		// joining them to a single string in case array size is greater than 1
 		headers[k] = strings.Join(v, ",")
 	}
-	c.lggr.Debugw("received HTTP response", "statusCode", resp.StatusCode, "body", string(body), "url", req.URL, "headers", headers)
+	c.lggr.Debugw("received HTTP response", "statusCode", resp.StatusCode, "url", req.URL, "headers", headers)
 
 	return &HTTPResponse{
 		Headers:    headers,

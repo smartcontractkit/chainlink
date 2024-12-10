@@ -52,5 +52,6 @@ func NewEnvironment(ctx func() context.Context, lggr logger.Logger, config Envir
 		nodeIDs,
 		offChain,
 		ctx,
+		deployment.XXXGenerateTestOCRSecrets(),
 	), jd.don, nil
 }

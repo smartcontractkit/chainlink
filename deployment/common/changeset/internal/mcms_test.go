@@ -49,7 +49,7 @@ func TestDeployMCMSWithTimelockContracts(t *testing.T) {
 	addresses, err := ab.AddressesForChain(chainsel.TEST_90000001.Selector)
 	require.NoError(t, err)
 	require.Len(t, addresses, 4)
-	mcmsState, err := changeset.LoadMCMSWithTimelockState(chains[chainsel.TEST_90000001.Selector], addresses)
+	mcmsState, err := changeset.MaybeLoadMCMSWithTimelockState(chains[chainsel.TEST_90000001.Selector], addresses)
 	require.NoError(t, err)
 	v, err := mcmsState.GenerateMCMSWithTimelockView()
 	b, err := json.MarshalIndent(v, "", "  ")

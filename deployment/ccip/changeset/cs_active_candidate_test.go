@@ -98,14 +98,8 @@ func TestActiveCandidate(t *testing.T) {
 	_, err = commonchangeset.ApplyChangesets(t, e, timelocks, []commonchangeset.ChangesetApplication{
 		// note this doesn't have proposals.
 		{
-			Changeset: commonchangeset.WrapChangeSet(commonchangeset.NewTransferOwnershipChangeset),
+			Changeset: commonchangeset.WrapChangeSet(commonchangeset.TransferToMCMSWithTimelock),
 			Config:    genTestTransferOwnershipConfig(tenv, allChains, state),
-		},
-		// this has proposals, ApplyChangesets will sign & execute them.
-		// in practice, signing and executing are separated processes.
-		{
-			Changeset: commonchangeset.WrapChangeSet(commonchangeset.NewAcceptOwnershipChangeset),
-			Config:    genTestAcceptOwnershipConfig(tenv, allChains, state),
 		},
 	})
 	require.NoError(t, err)
@@ -150,7 +144,7 @@ func TestActiveCandidate(t *testing.T) {
 		nil,
 	)
 	ocr3ConfigMap, err := internal.BuildOCR3ConfigForCCIPHome(
-		deployment.XXXGenerateTestOCRSecrets(),
+		e.OCRSecrets,
 		state.Chains[tenv.FeedChainSel].OffRamp,
 		e.Chains[tenv.FeedChainSel],
 		nodes.NonBootstraps(),

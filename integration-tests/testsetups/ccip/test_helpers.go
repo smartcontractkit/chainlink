@@ -170,6 +170,10 @@ func NewLocalDevEnvironment(
 			},
 		},
 		{
+			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
+			Config:    allChains,
+		},
+		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.DeployPrerequisites),
 			Config: changeset.DeployPrerequisiteConfig{
 				ChainSelectors: allChains,
@@ -240,7 +244,6 @@ func NewLocalDevEnvironment(
 			Config: changeset.NewChainsConfig{
 				HomeChainSel:       homeChainSel,
 				FeedChainSel:       feedSel,
-				OCRSecrets:         deployment.XXXGenerateTestOCRSecrets(),
 				ChainConfigByChain: chainConfigs,
 			},
 		},

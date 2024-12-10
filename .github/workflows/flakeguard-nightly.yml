@@ -12,7 +12,7 @@ jobs:
     uses: ./.github/workflows/flakeguard.yml
     with:
       repoUrl: 'https://github.com/smartcontractkit/chainlink'
-      baseRef: 'origin/develop'
+      headRef: 'develop'
       projectPath: '.'
       maxPassRatio: '1.0'
       runAllTests: true
