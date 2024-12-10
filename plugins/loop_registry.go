@@ -1,6 +1,7 @@
 package plugins
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"sync"
@@ -12,6 +13,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 )
+
+var ErrExists = errors.New("plugin already registered")
 
 type RegisteredLoop struct {
 	Name   string
@@ -42,15 +45,14 @@ func NewLoopRegistry(lggr logger.Logger, tracing config.Tracing, telemetry confi
 	}
 }
 
-// Register creates a port of the plugin. It is idempotent. Duplicate calls to Register will return the same port.
+// Register creates a port of the plugin. It is not idempotent. Duplicate calls to Register will return [ErrExists]
 // Safe for concurrent use.
 func (m *LoopRegistry) Register(id string) (*RegisteredLoop, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if l, exists := m.registry[id]; exists {
-		m.lggr.Warnf("Trying to register a loop that is already registered %q", id)
-		return l, nil
+	if _, exists := m.registry[id]; exists {
+		return nil, ErrExists
 	}
 	ports, err := freeport.Take(1)
 	if err != nil {

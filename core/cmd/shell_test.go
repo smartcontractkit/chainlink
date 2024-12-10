@@ -422,15 +422,6 @@ func TestSetupSolanaRelayer(t *testing.T) {
 		require.Len(t, relayers, nEnabledChains)
 		// make sure registry has the plugin
 		require.Len(t, reg.List(), nEnabledChains)
-
-		// test idempotency
-		r2, err := rf.NewSolana(cfg)
-		require.NoError(t, err)
-		require.NotNil(t, r2)
-		require.Equal(t, len(relayers), len(r2))
-		for id, r := range relayers {
-			require.Equal(t, r.Name(), r2[id].Name())
-		}
 	})
 
 	// test that duplicate enabled chains is an error when
@@ -481,6 +472,13 @@ func TestSetupSolanaRelayer(t *testing.T) {
 		require.Contains(t, err.Error(), "failed to parse Solana env file")
 	})
 
+	t.Run("plugin already registered", func(t *testing.T) {
+		t.Setenv("CL_SOLANA_CMD", "phony_solana_cmd")
+
+		_, err := rf.NewSolana(cfg)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to create Solana LOOP command")
+	})
 }
 
 func TestSetupStarkNetRelayer(t *testing.T) {
@@ -550,15 +548,6 @@ func TestSetupStarkNetRelayer(t *testing.T) {
 		require.Len(t, relayers, nEnabledChains)
 		// make sure registry has the plugin
 		require.Len(t, reg.List(), nEnabledChains)
-
-		// test idempotency
-		r2, err := rf.NewStarkNet(ks, tConfig.StarknetConfigs())
-		require.NoError(t, err)
-		require.NotNil(t, r2)
-		require.Equal(t, len(relayers), len(r2))
-		for id, r := range relayers {
-			require.Equal(t, r.Name(), r2[id].Name())
-		}
 	})
 
 	// test that duplicate enabled chains is an error when
@@ -600,6 +589,14 @@ func TestSetupStarkNetRelayer(t *testing.T) {
 		_, err := rf.NewStarkNet(ks, t2Config.StarknetConfigs())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to parse Starknet env file")
+	})
+
+	t.Run("plugin already registered", func(t *testing.T) {
+		t.Setenv("CL_STARKNET_CMD", "phony_starknet_cmd")
+
+		_, err := rf.NewStarkNet(ks, tConfig.StarknetConfigs())
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to create StarkNet LOOP command")
 	})
 }
 
