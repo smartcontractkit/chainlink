@@ -400,6 +400,7 @@ func (w *workflowRegistry) orderAndSend(
 			if batchCount == 0 {
 				for w.heap.Len() > 0 {
 					sendLog(w.heap.Pop())
+					fmt.Println("SENDING EVENT")
 				}
 				return
 			}
@@ -489,12 +490,13 @@ func queryEvent(
 					Key: string(et),
 					Expressions: []query.Expression{
 						query.Confidence(primitives.Finalized),
-						query.Block(lastReadBlockNumber, primitives.Gte),
+						query.Block(lastReadBlockNumber, primitives.Gt),
 					},
 				},
 				limitAndSort,
 				&logData,
 			)
+
 			lcursor := cursor
 			if lcursor == "" {
 				lcursor = "empty"

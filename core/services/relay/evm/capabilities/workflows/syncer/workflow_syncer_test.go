@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -35,11 +36,24 @@ import (
 
 type testEvtHandler struct {
 	events []syncer.Event
+	mux    sync.Mutex
 }
 
 func (m *testEvtHandler) Handle(ctx context.Context, event syncer.Event) error {
+	m.mux.Lock()
+	defer m.mux.Unlock()
 	m.events = append(m.events, event)
 	return nil
+}
+
+func (m *testEvtHandler) GetEvents() []syncer.Event {
+	m.mux.Lock()
+	defer m.mux.Unlock()
+
+	eventsCopy := make([]syncer.Event, len(m.events))
+	copy(eventsCopy, m.events)
+
+	return eventsCopy
 }
 
 func newTestEvtHandler() *testEvtHandler {
@@ -66,6 +80,107 @@ func (m *testWorkflowRegistryContractLoader) LoadWorkflows(ctx context.Context, 
 		Hash:      nil,
 		Timestamp: 0,
 	}, nil
+}
+
+func Test_EventHandlerStateSync(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	backendTH := testutils.NewEVMBackendTH(t)
+	donID := uint32(1)
+
+	eventPollTicker := time.NewTicker(500 * time.Millisecond)
+	defer eventPollTicker.Stop()
+
+	// Deploy a test workflow_registry
+	wfRegistryAddr, _, wfRegistryC, err := workflow_registry_wrapper.DeployWorkflowRegistry(backendTH.ContractsOwner, backendTH.Backend.Client())
+	backendTH.Backend.Commit()
+	require.NoError(t, err)
+
+	// setup contract state to allow the secrets to be updated
+	updateAllowedDONs(t, backendTH, wfRegistryC, []uint32{donID}, true)
+	updateAuthorizedAddress(t, backendTH, wfRegistryC, []common.Address{backendTH.ContractsOwner.From}, true)
+
+	// The number of workflows should be greater than the workflow registry contracts pagination limit to ensure
+	// that the syncer will query the contract multiple times to get the full list of workflows
+	numberWorkflows := 250
+	for i := 0; i < numberWorkflows; i++ {
+		var workflowID [32]byte
+		_, err = rand.Read((workflowID)[:])
+		require.NoError(t, err)
+		workflow := RegisterWorkflowCMD{
+			Name:       fmt.Sprintf("test-wf-%d", i),
+			DonID:      donID,
+			Status:     uint8(1),
+			SecretsURL: "someurl",
+		}
+		workflow.ID = workflowID
+		registerWorkflow(t, backendTH, wfRegistryC, workflow)
+	}
+
+	testEventHandler := newTestEvtHandler()
+	loader := syncer.NewWorkflowRegistryContractLoader(lggr, wfRegistryAddr.Hex(), func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
+		return backendTH.NewContractReader(ctx, t, bytes)
+	}, testEventHandler)
+
+	// Create the registry
+	registry := syncer.NewWorkflowRegistry(
+		lggr,
+		func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
+			return backendTH.NewContractReader(ctx, t, bytes)
+		},
+		wfRegistryAddr.Hex(),
+		syncer.WorkflowEventPollerConfig{
+			QueryCount: 20,
+		},
+		testEventHandler,
+		loader,
+		&testDonNotifier{
+			don: capabilities.DON{
+				ID: donID,
+			},
+			err: nil,
+		},
+		syncer.WithTicker(eventPollTicker.C),
+	)
+
+	servicetest.Run(t, registry)
+
+	require.Eventually(t, func() bool {
+		numEvents := len(testEventHandler.GetEvents())
+		fmt.Printf("FIRST NUMEVENTS: %d\n", numEvents)
+
+		if numEvents == 251 {
+			fmt.Println("NUMEVENTS: ", numEvents)
+		}
+
+		return numEvents == numberWorkflows
+	}, 5*time.Second, time.Second)
+
+	for _, event := range testEventHandler.GetEvents() {
+		assert.Equal(t, syncer.WorkflowRegisteredEvent, event.GetEventType())
+	}
+
+	// Create a new workflow and check that the event handler picks it up
+	var workflowID [32]byte
+	_, err = rand.Read((workflowID)[:])
+	require.NoError(t, err)
+	workflow := RegisterWorkflowCMD{
+		Name:       "test-wf-register-event",
+		DonID:      donID,
+		Status:     uint8(1),
+		SecretsURL: "someurl",
+	}
+	workflow.ID = workflowID
+	registerWorkflow(t, backendTH, wfRegistryC, workflow)
+
+	require.Eventually(t, func() bool {
+		numEvents := len(testEventHandler.GetEvents())
+		fmt.Printf("SECOND NUMEVENTS: %d\n", numEvents)
+
+		expectedNumEvents := numberWorkflows + 1
+
+		return numEvents == expectedNumEvents
+	}, 5*time.Second, time.Second)
+
 }
 
 func Test_InitialStateSync(t *testing.T) {
@@ -128,10 +243,10 @@ func Test_InitialStateSync(t *testing.T) {
 	servicetest.Run(t, worker)
 
 	require.Eventually(t, func() bool {
-		return len(testEventHandler.events) == numberWorkflows
+		return len(testEventHandler.GetEvents()) == numberWorkflows
 	}, 5*time.Second, time.Second)
 
-	for _, event := range testEventHandler.events {
+	for _, event := range testEventHandler.GetEvents() {
 		assert.Equal(t, syncer.WorkflowRegisteredEvent, event.GetEventType())
 	}
 }
