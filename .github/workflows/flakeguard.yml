@@ -361,7 +361,7 @@ jobs:
         with:
           path: ./flakeguard-report/failed-test-results-with-logs.json
           name: failed-test-results-with-logs.json
-          retention-days: 7
+          retention-days: 90
 
       - name: Generate Flakeguard Reports
         shell: bash
