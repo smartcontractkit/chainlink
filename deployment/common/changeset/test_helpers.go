@@ -91,6 +91,7 @@ func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPe
 			NodeIDs:           e.NodeIDs,
 			Offchain:          e.Offchain,
 			OCRSecrets:        e.OCRSecrets,
+			GetContext:        e.GetContext,
 		}
 	}
 	return currentEnv, nil
