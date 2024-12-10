@@ -207,6 +207,13 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 		}
 		chainView.RMNProxy[c.RMNProxyNew.Address().Hex()] = rmnProxyView
 	}
+	if c.CCIPHome != nil && c.CapabilityRegistry != nil {
+		chView, err := v1_6.GenerateCCIPHomeView(c.CapabilityRegistry, c.CCIPHome)
+		if err != nil {
+			return chainView, errors.Wrapf(err, "failed to generate CCIP home view for CCIP home %s", c.CCIPHome)
+		}
+		chainView.CCIPHome[c.CCIPHome.Address().Hex()] = chView
+	}
 	if c.CapabilityRegistry != nil {
 		capRegView, err := common_v1_0.GenerateCapabilityRegistryView(c.CapabilityRegistry)
 		if err != nil {

@@ -6,7 +6,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
@@ -31,7 +30,7 @@ type CCIPHomeView struct {
 	Dons               []DonView                           `json:"dons"`
 }
 
-func GenerateCCIPHomeView(c deployment.OnchainClient, ch *ccip_home.CCIPHome) (CCIPHomeView, error) {
+func GenerateCCIPHomeView(cr *capabilities_registry.CapabilitiesRegistry, ch *ccip_home.CCIPHome) (CCIPHomeView, error) {
 	if ch == nil {
 		return CCIPHomeView{}, fmt.Errorf("cannot generate view for nil CCIPHomeView")
 	}
@@ -52,9 +51,8 @@ func GenerateCCIPHomeView(c deployment.OnchainClient, ch *ccip_home.CCIPHome) (C
 	if err != nil {
 		return CCIPHomeView{}, fmt.Errorf("failed to get capability registry for CCIPHomeView: %w", err)
 	}
-	cr, err := capabilities_registry.NewCapabilitiesRegistry(crAddr, c)
-	if err != nil {
-		return CCIPHomeView{}, fmt.Errorf("failed to instantiate capability registry for CCIPHomeView: %w", err)
+	if crAddr != cr.Address() {
+		return CCIPHomeView{}, fmt.Errorf("capability registry address mismatch for CCIPHomeView: %w", err)
 	}
 	dons, err := cr.GetDONs(nil)
 	if err != nil {
