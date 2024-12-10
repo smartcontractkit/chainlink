@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
+
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -102,7 +103,7 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 		TestRouter:            false,
 	}
 
-	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, nil, []commonchangeset.ChangesetApplication{
+	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.AddLanes),
 			Config:    changeset.AddLanesConfig{LaneConfigs: []changeset.LaneConfig{laneCfg}},
