@@ -31,11 +31,10 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 	for _, chain := range e.AllChainSelectors() {
 		cfg[chain] = commontypes.MCMSWithTimelockConfig{
-			Canceller:         commonchangeset.SingleGroupMCMS(t),
-			Bypasser:          commonchangeset.SingleGroupMCMS(t),
-			Proposer:          commonchangeset.SingleGroupMCMS(t),
-			TimelockExecutors: e.AllDeployerKeys(),
-			TimelockMinDelay:  big.NewInt(0),
+			Canceller:        commonchangeset.SingleGroupMCMS(t),
+			Bypasser:         commonchangeset.SingleGroupMCMS(t),
+			Proposer:         commonchangeset.SingleGroupMCMS(t),
+			TimelockMinDelay: big.NewInt(0),
 		}
 	}
 	e, err = commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ChangesetApplication{

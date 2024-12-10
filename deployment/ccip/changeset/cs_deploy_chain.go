@@ -65,38 +65,6 @@ func (c DeployChainContractsConfig) Validate() error {
 	return nil
 }
 
-// deployCCIPContracts assumes the following contracts are deployed:
-// - Capability registry
-// - CCIP home
-// - RMN home
-// - Fee tokens on all chains.
-// and present in ExistingAddressBook.
-// It then deploys the rest of the CCIP chain contracts to the selected chains
-// registers the nodes with the capability registry and creates a DON for
-// each new chain.
-func deployCCIPContracts(
-	e deployment.Environment,
-	ab deployment.AddressBook,
-	c NewChainsConfig) error {
-	err := deployChainContractsForChains(e, ab, c.HomeChainSel, c.Chains())
-	if err != nil {
-		e.Logger.Errorw("Failed to deploy chain contracts", "err", err)
-		return err
-	}
-	err = e.ExistingAddresses.Merge(ab)
-	if err != nil {
-		e.Logger.Errorw("Failed to merge address book", "err", err)
-		return err
-	}
-	err = configureChain(e, c)
-	if err != nil {
-		e.Logger.Errorw("Failed to add chain", "err", err)
-		return err
-	}
-
-	return nil
-}
-
 func deployChainContractsForChains(
 	e deployment.Environment,
 	ab deployment.AddressBook,
@@ -412,10 +380,11 @@ func deployChainContracts(
 					chain.DeployerKey,
 					chain.Client,
 					offramp.OffRampStaticConfig{
-						ChainSelector:      chain.Selector,
-						RmnRemote:          rmnProxyContract.Address(),
-						NonceManager:       nmContract.Address(),
-						TokenAdminRegistry: tokenAdminReg.Address(),
+						ChainSelector:        chain.Selector,
+						GasForCallExactCheck: 5_000,
+						RmnRemote:            rmnProxyContract.Address(),
+						NonceManager:         nmContract.Address(),
+						TokenAdminRegistry:   tokenAdminReg.Address(),
 					},
 					offramp.OffRampDynamicConfig{
 						FeeQuoter:                               feeQuoterContract.Address(),

@@ -533,6 +533,15 @@ contract CCIPHome is Ownable2StepMsgSender, ITypeAndVersion, ICapabilityConfigur
     return s_remoteChainSelectors.length();
   }
 
+  /// @notice Returns the chain configuration for a given chain selector.
+  /// @param chainSelector The chain selector.
+  /// @return chainConfig The chain configuration.
+  function getChainConfig(
+    uint64 chainSelector
+  ) external view returns (ChainConfig memory) {
+    return s_chainConfigurations[chainSelector];
+  }
+
   /// @notice Returns all the chain configurations.
   /// @param pageIndex The page index.
   /// @param pageSize The page size.

@@ -18,7 +18,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -279,11 +278,10 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 	for _, c := range e.Env.AllChainSelectors() {
 		mcmsCfg[c] = commontypes.MCMSWithTimelockConfig{
-			Canceller:         commonchangeset.SingleGroupMCMS(t),
-			Bypasser:          commonchangeset.SingleGroupMCMS(t),
-			Proposer:          commonchangeset.SingleGroupMCMS(t),
-			TimelockExecutors: e.Env.AllDeployerKeys(),
-			TimelockMinDelay:  big.NewInt(0),
+			Canceller:        commonchangeset.SingleGroupMCMS(t),
+			Bypasser:         commonchangeset.SingleGroupMCMS(t),
+			Proposer:         commonchangeset.SingleGroupMCMS(t),
+			TimelockMinDelay: big.NewInt(0),
 		}
 	}
 	var (
@@ -366,14 +364,17 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 	}
 	// Build the per chain config.
 	chainConfigs := make(map[uint64]CCIPOCRParams)
-	timelocksPerChain := make(map[uint64]*gethwrappers.RBACTimelock)
+	timelockContractsPerChain := make(map[uint64]*commonchangeset.TimelockExecutionContracts)
 	for _, chain := range allChains {
-		timelocksPerChain[chain] = state.Chains[chain].Timelock
+		timelockContractsPerChain[chain] = &commonchangeset.TimelockExecutionContracts{
+			Timelock:  state.Chains[chain].Timelock,
+			CallProxy: state.Chains[chain].CallProxy,
+		}
 		tokenInfo := tokenConfig.GetTokenInfo(e.Env.Logger, state.Chains[chain].LinkToken, state.Chains[chain].Weth9)
 		chainConfigs[chain] = DefaultOCRParams(e.FeedChainSel, tokenInfo, tokenDataProviders)
 	}
 	// Deploy second set of changesets to deploy and configure the CCIP contracts.
-	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
+	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, timelockContractsPerChain, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(ConfigureNewChains),
 			Config: NewChainsConfig{
@@ -822,7 +823,10 @@ func ProcessChangeset(t *testing.T, e deployment.Environment, c deployment.Chang
 
 			signed := commonchangeset.SignProposal(t, e, &prop)
 			for _, sel := range chains.ToSlice() {
-				commonchangeset.ExecuteProposal(t, e, signed, state.Chains[sel].Timelock, sel)
+				commonchangeset.ExecuteProposal(t, e, signed, &commonchangeset.TimelockExecutionContracts{
+					Timelock:  state.Chains[sel].Timelock,
+					CallProxy: state.Chains[sel].CallProxy,
+				}, sel)
 			}
 		}
 	}
