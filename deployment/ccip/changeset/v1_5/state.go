@@ -22,8 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_messenger"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_transmitter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/nonce_manager"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/registry_module_owner_custom"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_proxy_contract"
@@ -110,13 +108,20 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 			// Skip common contracts, they are already loaded.
 			continue
 		case deployment.NewTypeAndVersion(changeset.OnRamp, deployment.Version1_5_0).String():
-			onRampC, err := onramp.NewOnRamp(common.HexToAddress(address), chain.Client)
+			onRampC, err := evm_2_evm_onramp.NewEVM2EVMOnRamp(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
-			state.OnRamp = onRampC
-		case deployment.NewTypeAndVersion(OffRamp, deployment.Version1_6_0_dev).String():
-			offRamp, err := offramp.NewOffRamp(common.HexToAddress(address), chain.Client)
+			sCfg, err := onRampC.GetStaticConfig(nil)
+			if err != nil {
+				return state, err
+			}
+			if state.OnRamp == nil {
+				state.OnRamp = make(map[uint64]*evm_2_evm_onramp.EVM2EVMOnRamp)
+			}
+			state.OnRamp[sCfg.DestChainSelector] = onRampC
+		case deployment.NewTypeAndVersion(changeset.OffRamp, deployment.Version1_5_0).String():
+			offRamp, err := evm(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
