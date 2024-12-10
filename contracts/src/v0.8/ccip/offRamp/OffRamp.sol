@@ -92,8 +92,9 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   /// @dev RMN depends on this struct, if changing, please notify the RMN maintainers.
   // solhint-disable-next-line gas-struct-packing
   struct StaticConfig {
-    uint64 chainSelector; // ────╮ Destination chainSelector
-    IRMNRemote rmnRemote; // ────╯ RMN Verification Contract
+    uint64 chainSelector; // ───────╮ Destination chainSelector
+    uint16 gasForCallExactCheck; // | Gas for call exact check
+    IRMNRemote rmnRemote; // ───────╯ RMN Verification Contract
     address tokenAdminRegistry; // Token admin registry address
     address nonceManager; // Nonce manager address
   }
@@ -151,6 +152,10 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   address internal immutable i_tokenAdminRegistry;
   /// @dev The address of the nonce manager.
   address internal immutable i_nonceManager;
+  /// @dev The minimum amount of gas to perform the call with exact gas.
+  /// We include this in the offramp so that we can redeploy to adjust it should a hardfork change the gas costs of
+  /// relevant opcodes in callWithExactGas.
+  uint16 internal immutable i_gasForCallExactCheck;
 
   // DYNAMIC CONFIG
   DynamicConfig internal s_dynamicConfig;
@@ -193,6 +198,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     i_rmnRemote = staticConfig.rmnRemote;
     i_tokenAdminRegistry = staticConfig.tokenAdminRegistry;
     i_nonceManager = staticConfig.nonceManager;
+    i_gasForCallExactCheck = staticConfig.gasForCallExactCheck;
     emit StaticConfigSet(staticConfig);
 
     _setDynamicConfig(dynamicConfig);
@@ -601,7 +607,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
 
     (bool success, bytes memory returnData,) = s_sourceChainConfigs[message.header.sourceChainSelector]
       .router
-      .routeMessage(any2EvmMessage, Internal.GAS_FOR_CALL_EXACT_CHECK, message.gasLimit, message.receiver);
+      .routeMessage(any2EvmMessage, i_gasForCallExactCheck, message.gasLimit, message.receiver);
     // If CCIP receiver execution is not successful, revert the call including token transfers.
     if (!success) revert ReceiverError(returnData);
   }
@@ -665,7 +671,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
       ),
       localPoolAddress,
       gasLeft,
-      Internal.GAS_FOR_CALL_EXACT_CHECK,
+      i_gasForCallExactCheck,
       Internal.MAX_RET_BYTES
     );
 
@@ -705,11 +711,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     uint256 gasLimit
   ) internal returns (uint256 balance, uint256 gasLeft) {
     (bool success, bytes memory returnData, uint256 gasUsed) = CallWithExactGas._callWithExactGasSafeReturnData(
-      abi.encodeCall(IERC20.balanceOf, (receiver)),
-      token,
-      gasLimit,
-      Internal.GAS_FOR_CALL_EXACT_CHECK,
-      Internal.MAX_RET_BYTES
+      abi.encodeCall(IERC20.balanceOf, (receiver)), token, gasLimit, i_gasForCallExactCheck, Internal.MAX_RET_BYTES
     );
     if (!success) revert TokenHandlingError(token, returnData);
 
@@ -906,6 +908,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   function getStaticConfig() external view returns (StaticConfig memory) {
     return StaticConfig({
       chainSelector: i_chainSelector,
+      gasForCallExactCheck: i_gasForCallExactCheck,
       rmnRemote: i_rmnRemote,
       tokenAdminRegistry: i_tokenAdminRegistry,
       nonceManager: i_nonceManager

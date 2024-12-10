@@ -23,6 +23,7 @@ type MCMSWithTimelockState struct {
 	BypasserMcm  *owner_helpers.ManyChainMultiSig
 	ProposerMcm  *owner_helpers.ManyChainMultiSig
 	Timelock     *owner_helpers.RBACTimelock
+	CallProxy    *owner_helpers.CallProxy
 }
 
 // Validate checks that all fields are non-nil, ensuring it's ready
@@ -40,6 +41,9 @@ func (state MCMSWithTimelockState) Validate() error {
 	if state.BypasserMcm == nil {
 		return errors.New("bypasser not found")
 	}
+	if state.CallProxy == nil {
+		return errors.New("call proxy not found")
+	}
 	return nil
 }
 
@@ -48,6 +52,10 @@ func (state MCMSWithTimelockState) GenerateMCMSWithTimelockView() (v1_0.MCMSWith
 		return v1_0.MCMSWithTimelockView{}, err
 	}
 	timelockView, err := v1_0.GenerateTimelockView(*state.Timelock)
+	if err != nil {
+		return v1_0.MCMSWithTimelockView{}, nil
+	}
+	callProxyView, err := v1_0.GenerateCallProxyView(*state.CallProxy)
 	if err != nil {
 		return v1_0.MCMSWithTimelockView{}, nil
 	}
@@ -68,6 +76,7 @@ func (state MCMSWithTimelockState) GenerateMCMSWithTimelockView() (v1_0.MCMSWith
 		Bypasser:  bypasserView,
 		Proposer:  proposerView,
 		Canceller: cancellerView,
+		CallProxy: callProxyView,
 	}, nil
 }
 
@@ -82,6 +91,7 @@ func MaybeLoadMCMSWithTimelockState(chain deployment.Chain, addresses map[string
 	state := MCMSWithTimelockState{}
 	// We expect one of each contract on the chain.
 	timelock := deployment.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0)
+	callProxy := deployment.NewTypeAndVersion(types.CallProxy, deployment.Version1_0_0)
 	proposer := deployment.NewTypeAndVersion(types.ProposerManyChainMultisig, deployment.Version1_0_0)
 	canceller := deployment.NewTypeAndVersion(types.CancellerManyChainMultisig, deployment.Version1_0_0)
 	bypasser := deployment.NewTypeAndVersion(types.BypasserManyChainMultisig, deployment.Version1_0_0)
@@ -89,7 +99,7 @@ func MaybeLoadMCMSWithTimelockState(chain deployment.Chain, addresses map[string
 	// Ensure we either have the bundle or not.
 	_, err := deployment.AddressesContainBundle(addresses,
 		map[deployment.TypeAndVersion]struct{}{
-			timelock: {}, proposer: {}, canceller: {}, bypasser: {},
+			timelock: {}, proposer: {}, canceller: {}, bypasser: {}, callProxy: {},
 		})
 	if err != nil {
 		return nil, fmt.Errorf("unable to check MCMS contracts on chain %s error: %w", chain.Name(), err)
@@ -103,6 +113,12 @@ func MaybeLoadMCMSWithTimelockState(chain deployment.Chain, addresses map[string
 				return nil, err
 			}
 			state.Timelock = tl
+		case callProxy:
+			cp, err := owner_helpers.NewCallProxy(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return nil, err
+			}
+			state.CallProxy = cp
 		case proposer:
 			mcms, err := owner_helpers.NewManyChainMultiSig(common.HexToAddress(address), chain.Client)
 			if err != nil {

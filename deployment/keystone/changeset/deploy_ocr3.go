@@ -6,6 +6,7 @@ import (
 	"io"
 
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 )
@@ -33,7 +34,7 @@ var _ deployment.ChangeSet[ConfigureOCR3Config] = ConfigureOCR3Contract
 type ConfigureOCR3Config struct {
 	ChainSel             uint64
 	NodeIDs              []string
-	OCR3Config           *kslib.OracleConfigWithSecrets
+	OCR3Config           *kslib.OracleConfig
 	DryRun               bool
 	WriteGeneratedConfig io.Writer // if not nil, write the generated config to this writer as JSON [OCR2OracleConfig]
 

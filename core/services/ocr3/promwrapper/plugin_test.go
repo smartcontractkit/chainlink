@@ -19,15 +19,15 @@ import (
 func Test_ReportsGeneratedGauge(t *testing.T) {
 	plugin1 := newReportingPlugin(
 		fakePlugin[uint]{reports: make([]ocr3types.ReportPlus[uint], 2)},
-		"123", "empty", promOCR3ReportsGenerated, promOCR3Durations,
+		"123", "empty", "abc", promOCR3ReportsGenerated, promOCR3Durations, promOCR3PluginStatus,
 	)
 	plugin2 := newReportingPlugin(
 		fakePlugin[bool]{reports: make([]ocr3types.ReportPlus[bool], 10)},
-		"solana", "different_plugin", promOCR3ReportsGenerated, promOCR3Durations,
+		"solana", "different_plugin", "abc", promOCR3ReportsGenerated, promOCR3Durations, promOCR3PluginStatus,
 	)
 	plugin3 := newReportingPlugin(
 		fakePlugin[string]{err: errors.New("error")},
-		"1234", "empty", promOCR3ReportsGenerated, promOCR3Durations,
+		"1234", "empty", "abc", promOCR3ReportsGenerated, promOCR3Durations, promOCR3PluginStatus,
 	)
 
 	r1, err := plugin1.Reports(tests.Context(t), 1, nil)
@@ -57,20 +57,27 @@ func Test_ReportsGeneratedGauge(t *testing.T) {
 
 	g4 := testutil.ToFloat64(promOCR3ReportsGenerated.WithLabelValues("1234", "empty", "reports"))
 	require.Equal(t, 0, int(g4))
+
+	pluginHealth := testutil.ToFloat64(promOCR3PluginStatus.WithLabelValues("123", "empty", "abc"))
+	require.Equal(t, 1, int(pluginHealth))
+
+	require.NoError(t, plugin1.Close())
+	pluginHealth = testutil.ToFloat64(promOCR3PluginStatus.WithLabelValues("123", "empty", "abc"))
+	require.Equal(t, 0, int(pluginHealth))
 }
 
 func Test_DurationHistograms(t *testing.T) {
 	plugin1 := newReportingPlugin(
 		fakePlugin[uint]{},
-		"123", "empty", promOCR3ReportsGenerated, promOCR3Durations,
+		"123", "empty", "abc", promOCR3ReportsGenerated, promOCR3Durations, promOCR3PluginStatus,
 	)
 	plugin2 := newReportingPlugin(
 		fakePlugin[uint]{err: errors.New("error")},
-		"123", "empty", promOCR3ReportsGenerated, promOCR3Durations,
+		"123", "empty", "abc", promOCR3ReportsGenerated, promOCR3Durations, promOCR3PluginStatus,
 	)
 	plugin3 := newReportingPlugin(
 		fakePlugin[uint]{},
-		"solana", "commit", promOCR3ReportsGenerated, promOCR3Durations,
+		"solana", "commit", "abc", promOCR3ReportsGenerated, promOCR3Durations, promOCR3PluginStatus,
 	)
 
 	for _, p := range []*reportingPlugin[uint]{plugin1, plugin2, plugin3} {

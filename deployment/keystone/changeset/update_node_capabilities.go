@@ -54,6 +54,7 @@ type MutateNodeCapabilitiesRequest struct {
 	RegistryChainSel uint64
 
 	P2pToCapabilities map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability
+	UseMCMS           bool
 }
 
 func (req *MutateNodeCapabilitiesRequest) Validate() error {
@@ -95,6 +96,7 @@ func (req *MutateNodeCapabilitiesRequest) updateNodeCapabilitiesImplRequest(e de
 		Chain:             registryChain,
 		Registry:          registry,
 		P2pToCapabilities: req.P2pToCapabilities,
+		UseMCMS:           req.UseMCMS,
 	}, nil
 }
 
