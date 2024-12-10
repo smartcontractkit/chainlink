@@ -5,8 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
-
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -57,7 +55,7 @@ func TestAddChainInbound(t *testing.T) {
 		Proposer:         commonchangeset.SingleGroupMCMS(t),
 		TimelockMinDelay: big.NewInt(0),
 	}
-	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, nil, []commonchangeset.ChangesetApplication{
+	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
 			Config:    initialDeploy,
@@ -79,10 +77,23 @@ func TestAddChainInbound(t *testing.T) {
 	for _, chain := range initialDeploy {
 		chainConfig[chain] = DefaultOCRParams(e.FeedChainSel, nil, nil)
 	}
-	err = deployCCIPContracts(e.Env, newAddresses, NewChainsConfig{
+	newChainCfg := NewChainsConfig{
 		HomeChainSel:       e.HomeChainSel,
 		FeedChainSel:       e.FeedChainSel,
 		ChainConfigByChain: chainConfig,
+	}
+	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(DeployChainContracts),
+			Config: DeployChainContractsConfig{
+				ChainSelectors:    newChainCfg.Chains(),
+				HomeChainSelector: newChainCfg.HomeChainSel,
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(ConfigureNewChains),
+			Config:    newChainCfg,
+		},
 	})
 	require.NoError(t, err)
 
@@ -105,7 +116,7 @@ func TestAddChainInbound(t *testing.T) {
 	require.NoError(t, err)
 
 	//  Deploy contracts to new chain
-	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, nil, []commonchangeset.ChangesetApplication{
+	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
 			Config:    []uint64{newChain},
@@ -144,14 +155,19 @@ func TestAddChainInbound(t *testing.T) {
 	}
 
 	// transfer ownership to timelock
-	_, err = commonchangeset.ApplyChangesets(t, e.Env, map[uint64]*gethwrappers.RBACTimelock{
-		initialDeploy[0]: state.Chains[initialDeploy[0]].Timelock,
-		initialDeploy[1]: state.Chains[initialDeploy[1]].Timelock,
-		initialDeploy[2]: state.Chains[initialDeploy[2]].Timelock,
-	}, map[uint64]*gethwrappers.CallProxy{
-		initialDeploy[0]: state.Chains[initialDeploy[0]].CallProxy,
-		initialDeploy[1]: state.Chains[initialDeploy[1]].CallProxy,
-		initialDeploy[2]: state.Chains[initialDeploy[2]].CallProxy,
+	_, err = commonchangeset.ApplyChangesets(t, e.Env, map[uint64]*commonchangeset.TimelockExecutionContracts{
+		initialDeploy[0]: &commonchangeset.TimelockExecutionContracts{
+			Timelock:  state.Chains[initialDeploy[0]].Timelock,
+			CallProxy: state.Chains[initialDeploy[0]].CallProxy,
+		},
+		initialDeploy[1]: &commonchangeset.TimelockExecutionContracts{
+			Timelock:  state.Chains[initialDeploy[1]].Timelock,
+			CallProxy: state.Chains[initialDeploy[1]].CallProxy,
+		},
+		initialDeploy[2]: &commonchangeset.TimelockExecutionContracts{
+			Timelock:  state.Chains[initialDeploy[2]].Timelock,
+			CallProxy: state.Chains[initialDeploy[2]].CallProxy,
+		},
 	}, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.TransferToMCMSWithTimelock),
@@ -181,12 +197,15 @@ func TestAddChainInbound(t *testing.T) {
 		nodeIDs = append(nodeIDs, node.NodeID)
 	}
 
-	_, err = commonchangeset.ApplyChangesets(t, e.Env, map[uint64]*gethwrappers.RBACTimelock{
-		e.HomeChainSel: state.Chains[e.HomeChainSel].Timelock,
-		newChain:       state.Chains[newChain].Timelock,
-	}, map[uint64]*gethwrappers.CallProxy{
-		e.HomeChainSel: state.Chains[e.HomeChainSel].CallProxy,
-		newChain:       state.Chains[newChain].CallProxy,
+	_, err = commonchangeset.ApplyChangesets(t, e.Env, map[uint64]*commonchangeset.TimelockExecutionContracts{
+		e.HomeChainSel: &commonchangeset.TimelockExecutionContracts{
+			Timelock:  state.Chains[e.HomeChainSel].Timelock,
+			CallProxy: state.Chains[e.HomeChainSel].CallProxy,
+		},
+		newChain: &commonchangeset.TimelockExecutionContracts{
+			Timelock:  state.Chains[newChain].Timelock,
+			CallProxy: state.Chains[newChain].CallProxy,
+		},
 	}, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(AddDonAndSetCandidateChangeset),

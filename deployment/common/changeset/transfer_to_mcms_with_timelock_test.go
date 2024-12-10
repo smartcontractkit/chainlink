@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/stretchr/testify/require"
 
 	"math/big"
@@ -21,7 +20,7 @@ func TestTransferToMCMSWithTimelock(t *testing.T) {
 		Nodes:  1,
 	})
 	chain1 := e.AllChainSelectors()[0]
-	e, err := ApplyChangesets(t, e, nil, nil, []ChangesetApplication{
+	e, err := ApplyChangesets(t, e, nil, []ChangesetApplication{
 		{
 			Changeset: WrapChangeSet(DeployLinkToken),
 			Config:    []uint64{chain1},
@@ -45,10 +44,11 @@ func TestTransferToMCMSWithTimelock(t *testing.T) {
 	require.NoError(t, err)
 	link, err := MaybeLoadLinkTokenState(e.Chains[chain1], addrs)
 	require.NoError(t, err)
-	e, err = ApplyChangesets(t, e, map[uint64]*owner_helpers.RBACTimelock{
-		chain1: state.Timelock,
-	}, map[uint64]*owner_helpers.CallProxy{
-		chain1: state.CallProxy,
+	e, err = ApplyChangesets(t, e, map[uint64]*TimelockExecutionContracts{
+		chain1: {
+			Timelock:  state.Timelock,
+			CallProxy: state.CallProxy,
+		},
 	}, []ChangesetApplication{
 		{
 			Changeset: WrapChangeSet(TransferToMCMSWithTimelock),

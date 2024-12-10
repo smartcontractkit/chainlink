@@ -3,7 +3,7 @@ pragma solidity ^0.8.19;
 
 import {ISequencerUptimeFeed} from "./../interfaces/ISequencerUptimeFeed.sol";
 
-import {BaseValidator} from "../shared/BaseValidator.sol";
+import {BaseValidator} from "../base/BaseValidator.sol";
 
 import {IL1CrossDomainMessenger} from "@eth-optimism/contracts/L1/messaging/IL1CrossDomainMessenger.sol";
 

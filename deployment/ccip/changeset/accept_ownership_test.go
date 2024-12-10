@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
@@ -29,13 +28,15 @@ func Test_NewAcceptOwnershipChangeset(t *testing.T) {
 	source := allChains[0]
 	dest := allChains[1]
 
-	timelocks := map[uint64]*gethwrappers.RBACTimelock{
-		source: state.Chains[source].Timelock,
-		dest:   state.Chains[dest].Timelock,
-	}
-	callProxies := map[uint64]*gethwrappers.CallProxy{
-		source: state.Chains[source].CallProxy,
-		dest:   state.Chains[dest].CallProxy,
+	timelockContracts := map[uint64]*commonchangeset.TimelockExecutionContracts{
+		source: &commonchangeset.TimelockExecutionContracts{
+			Timelock:  state.Chains[source].Timelock,
+			CallProxy: state.Chains[source].CallProxy,
+		},
+		dest: &commonchangeset.TimelockExecutionContracts{
+			Timelock:  state.Chains[dest].Timelock,
+			CallProxy: state.Chains[dest].CallProxy,
+		},
 	}
 
 	// at this point we have the initial deploys done, now we need to transfer ownership
@@ -44,7 +45,7 @@ func Test_NewAcceptOwnershipChangeset(t *testing.T) {
 	require.NoError(t, err)
 
 	// compose the transfer ownership and accept ownership changesets
-	_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocks, callProxies, []commonchangeset.ChangesetApplication{
+	_, err = commonchangeset.ApplyChangesets(t, e.Env, timelockContracts, []commonchangeset.ChangesetApplication{
 		// note this doesn't have proposals.
 		{
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.TransferToMCMSWithTimelock),

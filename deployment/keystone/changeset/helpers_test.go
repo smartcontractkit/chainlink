@@ -12,7 +12,6 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
@@ -115,6 +114,7 @@ func (te TestEnv) ContractSets() map[uint64]kslib.ContractSet {
 }
 
 // SetupTestEnv sets up a keystone test environment with the given configuration
+// TODO: make more configurable; eg many tests don't need all the nodes (like when testing a registry change)
 func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 	require.NoError(t, c.Validate())
 	lggr := logger.Test(t)
@@ -130,7 +130,7 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 		Chains:            chains,
 		ExistingAddresses: deployment.NewMemoryAddressBook(),
 	}
-	e, err := commonchangeset.ApplyChangesets(t, e, nil, nil, []commonchangeset.ChangesetApplication{
+	e, err := commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(kschangeset.DeployCapabilityRegistry),
 			Config:    registryChainSel,
@@ -220,15 +220,13 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 	}
 	var allDons = []keystone.DonCapabilities{wfDon, cwDon, assetDon}
 
-	_, err = kschangeset.ConfigureInitialContractsChangeset(env, kschangeset.InitialContractsCfg{
+	csOut, err := kschangeset.ConfigureInitialContractsChangeset(env, kschangeset.InitialContractsCfg{
 		RegistryChainSel: registryChainSel,
 		Dons:             allDons,
 		OCR3Config:       &ocr3Config,
 	})
 	require.NoError(t, err)
-	// TODO: KS-rm_deploy_opt
-	//require.Nil(t, csOut.AddressBook, "no new addresses should be created in configure initial contracts")
-	//require.NoError(t, env.ExistingAddresses.Merge(csOut.AddressBook))
+	require.Nil(t, csOut.AddressBook, "no new addresses should be created in configure initial contracts")
 
 	req := &keystone.GetContractSetsRequest{
 		Chains:      env.Chains,
@@ -256,8 +254,7 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 	validateDon(t, gotRegistry, assetNodes, assetDon)
 
 	if c.UseMCMS {
-		// TODO: mcms on all the chains, currently only on the registry chain. need to fix this for forwarders
-		// deploy, configure and xfer ownership of MCMS
+		// deploy, configure and xfer ownership of MCMS on all chains
 		timelockCfgs := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 		for sel := range env.Chains {
 			t.Logf("Enabling MCMS on chain %d", sel)
@@ -268,7 +265,7 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 				TimelockMinDelay: big.NewInt(0),
 			}
 		}
-		env, err = commonchangeset.ApplyChangesets(t, env, nil, nil, []commonchangeset.ChangesetApplication{
+		env, err = commonchangeset.ApplyChangesets(t, env, nil, []commonchangeset.ChangesetApplication{
 			{
 				Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployMCMSWithTimelock),
 				Config:    timelockCfgs,
@@ -287,7 +284,7 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 			require.NoError(t, mcms.Validate())
 
 			// transfer ownership of all contracts to the MCMS
-			env, err = commonchangeset.ApplyChangesets(t, env, map[uint64]*gethwrappers.RBACTimelock{sel: mcms.Timelock}, map[uint64]*gethwrappers.CallProxy{sel: mcms.CallProxy}, []commonchangeset.ChangesetApplication{
+			env, err = commonchangeset.ApplyChangesets(t, env, map[uint64]*commonchangeset.TimelockExecutionContracts{sel: {Timelock: mcms.Timelock, CallProxy: mcms.CallProxy}}, []commonchangeset.ChangesetApplication{
 				{
 					Changeset: commonchangeset.WrapChangeSet(kschangeset.AcceptAllOwnershipsProposal),
 					Config: &kschangeset.AcceptAllOwnershipRequest{

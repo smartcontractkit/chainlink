@@ -1179,6 +1179,14 @@ func (e *Engine) Close() error {
 	})
 }
 
+func (e *Engine) HealthReport() map[string]error {
+	return map[string]error{e.Name(): nil}
+}
+
+func (e *Engine) Name() string {
+	return e.logger.Name()
+}
+
 type Config struct {
 	Workflow             sdk.WorkflowSpec
 	WorkflowID           string
