@@ -109,7 +109,7 @@ func Test_Workflow_Registry_Syncer(t *testing.T) {
 			Key: string(ForceUpdateSecretsEvent),
 			Expressions: []query.Expression{
 				query.Confidence(primitives.Finalized),
-				query.Block("0", primitives.Gt),
+				query.Block("0", primitives.Gte),
 			},
 		},
 		query.LimitAndSort{
@@ -118,9 +118,105 @@ func Test_Workflow_Registry_Syncer(t *testing.T) {
 		},
 		new(values.Value),
 	).Return([]types.Sequence{giveLog}, nil)
+	reader.EXPECT().QueryKey(
+		matches.AnyContext,
+		types.BoundContract{
+			Name:    WorkflowRegistryContractName,
+			Address: contractAddress,
+		},
+		query.KeyFilter{
+			Key: string(WorkflowPausedEvent),
+			Expressions: []query.Expression{
+				query.Confidence(primitives.Finalized),
+				query.Block("0", primitives.Gte),
+			},
+		},
+		query.LimitAndSort{
+			SortBy: []query.SortBy{query.NewSortByTimestamp(query.Asc)},
+			Limit:  query.Limit{Count: giveCfg.QueryCount},
+		},
+		new(values.Value),
+	).Return([]types.Sequence{}, nil)
+	reader.EXPECT().QueryKey(
+		matches.AnyContext,
+		types.BoundContract{
+			Name:    WorkflowRegistryContractName,
+			Address: contractAddress,
+		},
+		query.KeyFilter{
+			Key: string(WorkflowDeletedEvent),
+			Expressions: []query.Expression{
+				query.Confidence(primitives.Finalized),
+				query.Block("0", primitives.Gte),
+			},
+		},
+		query.LimitAndSort{
+			SortBy: []query.SortBy{query.NewSortByTimestamp(query.Asc)},
+			Limit:  query.Limit{Count: giveCfg.QueryCount},
+		},
+		new(values.Value),
+	).Return([]types.Sequence{}, nil)
+	reader.EXPECT().QueryKey(
+		matches.AnyContext,
+		types.BoundContract{
+			Name:    WorkflowRegistryContractName,
+			Address: contractAddress,
+		},
+		query.KeyFilter{
+			Key: string(WorkflowActivatedEvent),
+			Expressions: []query.Expression{
+				query.Confidence(primitives.Finalized),
+				query.Block("0", primitives.Gte),
+			},
+		},
+		query.LimitAndSort{
+			SortBy: []query.SortBy{query.NewSortByTimestamp(query.Asc)},
+			Limit:  query.Limit{Count: giveCfg.QueryCount},
+		},
+		new(values.Value),
+	).Return([]types.Sequence{}, nil)
+	reader.EXPECT().QueryKey(
+		matches.AnyContext,
+		types.BoundContract{
+			Name:    WorkflowRegistryContractName,
+			Address: contractAddress,
+		},
+		query.KeyFilter{
+			Key: string(WorkflowUpdatedEvent),
+			Expressions: []query.Expression{
+				query.Confidence(primitives.Finalized),
+				query.Block("0", primitives.Gte),
+			},
+		},
+		query.LimitAndSort{
+			SortBy: []query.SortBy{query.NewSortByTimestamp(query.Asc)},
+			Limit:  query.Limit{Count: giveCfg.QueryCount},
+		},
+		new(values.Value),
+	).Return([]types.Sequence{}, nil)
+	reader.EXPECT().QueryKey(
+		matches.AnyContext,
+		types.BoundContract{
+			Name:    WorkflowRegistryContractName,
+			Address: contractAddress,
+		},
+		query.KeyFilter{
+			Key: string(WorkflowRegisteredEvent),
+			Expressions: []query.Expression{
+				query.Confidence(primitives.Finalized),
+				query.Block("0", primitives.Gte),
+			},
+		},
+		query.LimitAndSort{
+			SortBy: []query.SortBy{query.NewSortByTimestamp(query.Asc)},
+			Limit:  query.Limit{Count: giveCfg.QueryCount},
+		},
+		new(values.Value),
+	).Return([]types.Sequence{}, nil)
 	reader.EXPECT().GetLatestValueWithHeadData(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(&types.Head{
 		Height: "0",
 	}, nil)
+	reader.EXPECT().Start(mock.Anything).Return(nil)
 	reader.EXPECT().Bind(mock.Anything, mock.Anything).Return(nil)
 
 	// Go run the worker

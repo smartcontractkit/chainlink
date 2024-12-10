@@ -11,6 +11,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
@@ -31,16 +32,11 @@ import (
 func TestUSDCTokenTransfer(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := tests.Context(t)
-	config := &changeset.TestConfigs{
-		IsUSDC: true,
-	}
-	tenv, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr, config)
-	//tenv := changeset.NewMemoryEnvironmentWithJobsAndContracts(t, lggr, memory.MemoryEnvironmentConfig{
-	//	Chains:             3,
-	//	NumOfUsersPerChain: 3,
-	//	Nodes:              5,
-	//	Bootstraps:         1,
-	//}, config)
+	tenv, _ := testsetups.NewIntegrationEnvironment(t,
+		changeset.WithUsersPerChain(3),
+		changeset.WithChains(3),
+		changeset.WithUSDC(),
+	)
 
 	e := tenv.Env
 	state, err := changeset.LoadOnchainState(e)
@@ -229,7 +225,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 		t,
 		e,
 		state,
-		changeset.SeqNumberRageToSlice(expectedSeqNums),
+		changeset.SeqNumberRangeToSlice(expectedSeqNums),
 		startBlocks,
 	)
 	require.Equal(t, expectedExecutionStates, execStates)

@@ -74,7 +74,6 @@ func (req *AppendNodeCapabilitiesRequest) convert(e deployment.Environment) (*in
 
 	return &internal.AppendNodeCapabilitiesRequest{
 		Chain:             registryChain,
-		Registry:          contracts.CapabilitiesRegistry,
 		ContractSet:       &contracts,
 		P2pToCapabilities: req.P2pToCapabilities,
 		UseMCMS:           req.UseMCMS,

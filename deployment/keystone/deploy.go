@@ -43,8 +43,8 @@ type ConfigureContractsRequest struct {
 	RegistryChainSel uint64
 	Env              *deployment.Environment
 
-	Dons       []DonCapabilities        // externally sourced based on the environment
-	OCR3Config *OracleConfigWithSecrets // TODO: probably should be a map of don to config; but currently we only have one wf don therefore one config
+	Dons       []DonCapabilities // externally sourced based on the environment
+	OCR3Config *OracleConfig     // TODO: probably should be a map of don to config; but currently we only have one wf don therefore one config
 
 	// TODO rm this option; unused
 	DoContractDeploy bool // if false, the contracts are assumed to be deployed and the address book is used
@@ -169,7 +169,7 @@ func DonInfos(dons []DonCapabilities, jd deployment.OffchainClient) ([]DonInfo, 
 	return donInfos, nil
 }
 
-func GetRegistryContract(e *deployment.Environment, registryChainSel uint64, addrBook deployment.AddressBook) (*kcr.CapabilitiesRegistry, deployment.Chain, error) {
+func GetRegistryContract(e *deployment.Environment, registryChainSel uint64) (*kcr.CapabilitiesRegistry, deployment.Chain, error) {
 	registryChain, ok := e.Chains[registryChainSel]
 	if !ok {
 		return nil, deployment.Chain{}, fmt.Errorf("chain %d not found in environment", registryChainSel)
@@ -177,7 +177,7 @@ func GetRegistryContract(e *deployment.Environment, registryChainSel uint64, add
 
 	contractSetsResp, err := GetContractSets(e.Logger, &GetContractSetsRequest{
 		Chains:      e.Chains,
-		AddressBook: addrBook,
+		AddressBook: e.ExistingAddresses,
 	})
 	if err != nil {
 		return nil, deployment.Chain{}, fmt.Errorf("failed to get contract sets: %w", err)
@@ -303,7 +303,7 @@ func ConfigureRegistry(ctx context.Context, lggr logger.Logger, req ConfigureCon
 
 // Depreciated: use changeset.ConfigureOCR3Contract instead
 // ocr3 contract on the registry chain for the wf dons
-func ConfigureOCR3Contract(env *deployment.Environment, chainSel uint64, dons []RegisteredDon, cfg *OracleConfigWithSecrets) error {
+func ConfigureOCR3Contract(env *deployment.Environment, chainSel uint64, dons []RegisteredDon, cfg *OracleConfig) error {
 	registryChain, ok := env.Chains[chainSel]
 	if !ok {
 		return fmt.Errorf("chain %d not found in environment", chainSel)
@@ -337,6 +337,7 @@ func ConfigureOCR3Contract(env *deployment.Environment, chainSel uint64, dons []
 			contract:    contract,
 			nodes:       don.Nodes,
 			contractSet: &contracts,
+			ocrSecrets:  env.OCRSecrets,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to configure OCR3 contract for don %s: %w", don.Name, err)
@@ -353,7 +354,7 @@ type ConfigureOCR3Resp struct {
 type ConfigureOCR3Config struct {
 	ChainSel   uint64
 	NodeIDs    []string
-	OCR3Config *OracleConfigWithSecrets
+	OCR3Config *OracleConfig
 	DryRun     bool
 
 	UseMCMS bool
@@ -397,6 +398,7 @@ func ConfigureOCR3ContractFromJD(env *deployment.Environment, cfg ConfigureOCR3C
 		dryRun:      cfg.DryRun,
 		contractSet: &contracts,
 		useMCMS:     cfg.UseMCMS,
+		ocrSecrets:  env.OCRSecrets,
 	})
 	if err != nil {
 		return nil, err
@@ -421,6 +423,21 @@ type RegisterCapabilitiesResponse struct {
 type RegisteredCapability struct {
 	kcr.CapabilitiesRegistryCapability
 	ID [32]byte
+}
+
+func FromCapabilitiesRegistryCapability(cap *kcr.CapabilitiesRegistryCapability, e deployment.Environment, registryChainSelector uint64) (*RegisteredCapability, error) {
+	registry, _, err := GetRegistryContract(&e, registryChainSelector)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get registry: %w", err)
+	}
+	id, err := registry.GetHashedCapabilityId(&bind.CallOpts{}, cap.LabelledName, cap.Version)
+	if err != nil {
+		return nil, fmt.Errorf("failed to call GetHashedCapabilityId for capability %v: %w", cap, err)
+	}
+	return &RegisteredCapability{
+		CapabilitiesRegistryCapability: *cap,
+		ID:                             id,
+	}, nil
 }
 
 // RegisterCapabilities add computes the capability id, adds it to the registry and associates the registered capabilities with appropriate don(s)
@@ -488,7 +505,7 @@ type RegisterNOPSResponse struct {
 }
 
 func RegisterNOPS(ctx context.Context, lggr logger.Logger, req RegisterNOPSRequest) (*RegisterNOPSResponse, error) {
-	registry, registryChain, err := GetRegistryContract(req.Env, req.RegistryChainSelector, req.Env.ExistingAddresses)
+	registry, registryChain, err := GetRegistryContract(req.Env, req.RegistryChainSelector)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get registry: %w", err)
 	}
@@ -627,7 +644,7 @@ type RegisterNodesResponse struct {
 // can sign the transactions update the contract state
 // TODO: 467 refactor to support MCMS. Specifically need to separate the call data generation from the actual contract call
 func RegisterNodes(lggr logger.Logger, req *RegisterNodesRequest) (*RegisterNodesResponse, error) {
-	registry, registryChain, err := GetRegistryContract(req.Env, req.RegistryChainSelector, req.Env.ExistingAddresses)
+	registry, registryChain, err := GetRegistryContract(req.Env, req.RegistryChainSelector)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get registry: %w", err)
 	}
@@ -795,7 +812,7 @@ func sortedHash(p2pids [][32]byte) string {
 }
 
 func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsResponse, error) {
-	registry, registryChain, err := GetRegistryContract(req.Env, req.RegistryChainSelector, req.Env.ExistingAddresses)
+	registry, registryChain, err := GetRegistryContract(req.Env, req.RegistryChainSelector)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get registry: %w", err)
 	}

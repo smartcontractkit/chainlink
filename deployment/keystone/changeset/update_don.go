@@ -141,7 +141,6 @@ func updateDonRequest(env deployment.Environment, r *UpdateDonRequest2) (*Update
 
 	return &UpdateDonRequest{
 		Chain:             env.Chains[r.RegistryChainSel],
-		Registry:          resp.ContractSets[r.RegistryChainSel].CapabilitiesRegistry,
 		ContractSet:       &contractSet,
 		P2PIDs:            r.P2PIDs,
 		CapabilityConfigs: r.CapabilityConfigs,

@@ -46,7 +46,6 @@ func UpdateNodes(env deployment.Environment, req *UpdateNodesRequest) (deploymen
 
 	resp, err := internal.UpdateNodes(env.Logger, &internal.UpdateNodesRequest{
 		Chain:        registryChain,
-		Registry:     contracts.CapabilitiesRegistry,
 		ContractSet:  &contracts,
 		P2pToUpdates: req.P2pToUpdates,
 		UseMCMS:      req.UseMCMS,

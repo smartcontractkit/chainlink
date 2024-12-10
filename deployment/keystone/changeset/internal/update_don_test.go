@@ -118,9 +118,9 @@ func TestUpdateDon(t *testing.T) {
 		testCfg := setupUpdateDonTest(t, lggr, cfg)
 
 		req := &internal.UpdateDonRequest{
-			Registry: testCfg.Registry,
-			Chain:    testCfg.Chain,
-			P2PIDs:   []p2pkey.PeerID{p2p_1.PeerID(), p2p_2.PeerID(), p2p_3.PeerID(), p2p_4.PeerID()},
+			ContractSet: testCfg.ContractSet,
+			Chain:       testCfg.Chain,
+			P2PIDs:      []p2pkey.PeerID{p2p_1.PeerID(), p2p_2.PeerID(), p2p_3.PeerID(), p2p_4.PeerID()},
 			CapabilityConfigs: []internal.CapabilityConfig{
 				{Capability: cap_A}, {Capability: cap_B},
 			},
