@@ -28,120 +28,119 @@ const (
 	workflowOwnerID      = "0xAA"
 )
 
-/*
-TODO investigate occasional flake - JIRA to track -> https://smartcontract-it.atlassian.net/browse/CAPPL-363
+func Test_Client_DonTopologies(t *testing.T) {
+	testutils.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CAPPL-363")
+	ctx := testutils.Context(t)
 
-	func Test_Client_DonTopologies(t *testing.T) {
-		ctx := testutils.Context(t)
+	transmissionSchedule, err := values.NewMap(map[string]any{
+		"schedule":   transmission.Schedule_OneAtATime,
+		"deltaStage": "10ms",
+	})
+	require.NoError(t, err)
 
-		transmissionSchedule, err := values.NewMap(map[string]any{
-			"schedule":   transmission.Schedule_OneAtATime,
-			"deltaStage": "10ms",
-		})
+	responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
+		require.NoError(t, responseError)
+		mp, err := response.Value.Unwrap()
 		require.NoError(t, err)
+		assert.Equal(t, "aValue1", mp.(map[string]any)["response"].(string))
+	}
 
-		responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
+	capability := &TestCapability{}
+
+	responseTimeOut := 10 * time.Minute
+
+	var methods []func(caller commoncap.ExecutableCapability)
+
+	methods = append(methods, func(caller commoncap.ExecutableCapability) {
+		executeInputs, err := values.NewMap(map[string]any{"executeValue1": "aValue1"})
+		require.NoError(t, err)
+		executeMethod(ctx, caller, transmissionSchedule, executeInputs, responseTest, t)
+	})
+
+	methods = append(methods, func(caller commoncap.ExecutableCapability) {
+		registerToWorkflowMethod(ctx, caller, transmissionSchedule, func(t *testing.T, responseError error) {
 			require.NoError(t, responseError)
-			mp, err := response.Value.Unwrap()
-			require.NoError(t, err)
-			assert.Equal(t, "aValue1", mp.(map[string]any)["response"].(string))
-		}
+		}, t)
+	})
 
-		capability := &TestCapability{}
+	methods = append(methods, func(caller commoncap.ExecutableCapability) {
+		unregisterFromWorkflowMethod(ctx, caller, transmissionSchedule, func(t *testing.T, responseError error) {
+			require.NoError(t, responseError)
+		}, t)
+	})
 
-		responseTimeOut := 10 * time.Minute
+	for _, method := range methods {
+		testClient(t, 1, responseTimeOut, 1, 0,
+			capability, method)
 
-		var methods []func(caller commoncap.ExecutableCapability)
+		testClient(t, 10, responseTimeOut, 1, 0,
+			capability, method)
 
-		methods = append(methods, func(caller commoncap.ExecutableCapability) {
+		testClient(t, 1, responseTimeOut, 10, 3,
+			capability, method)
+
+		testClient(t, 10, responseTimeOut, 10, 3,
+			capability, method)
+
+		testClient(t, 10, responseTimeOut, 10, 9,
+			capability, method)
+	}
+}
+
+func Test_Client_TransmissionSchedules(t *testing.T) {
+	testutils.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CAPPL-363")
+	ctx := testutils.Context(t)
+
+	responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
+		require.NoError(t, responseError)
+		mp, err := response.Value.Unwrap()
+		require.NoError(t, err)
+		assert.Equal(t, "aValue1", mp.(map[string]any)["response"].(string))
+	}
+
+	capability := &TestCapability{}
+
+	responseTimeOut := 10 * time.Minute
+
+	transmissionSchedule, err := values.NewMap(map[string]any{
+		"schedule":   transmission.Schedule_OneAtATime,
+		"deltaStage": "10ms",
+	})
+	require.NoError(t, err)
+
+	testClient(t, 1, responseTimeOut, 1, 0,
+		capability, func(caller commoncap.ExecutableCapability) {
+			executeInputs, err2 := values.NewMap(map[string]any{"executeValue1": "aValue1"})
+			require.NoError(t, err2)
+			executeMethod(ctx, caller, transmissionSchedule, executeInputs, responseTest, t)
+		})
+	testClient(t, 10, responseTimeOut, 10, 3,
+		capability, func(caller commoncap.ExecutableCapability) {
+			executeInputs, err2 := values.NewMap(map[string]any{"executeValue1": "aValue1"})
+			require.NoError(t, err2)
+			executeMethod(ctx, caller, transmissionSchedule, executeInputs, responseTest, t)
+		})
+
+	transmissionSchedule, err = values.NewMap(map[string]any{
+		"schedule":   transmission.Schedule_AllAtOnce,
+		"deltaStage": "10ms",
+	})
+	require.NoError(t, err)
+
+	testClient(t, 1, responseTimeOut, 1, 0,
+		capability, func(caller commoncap.ExecutableCapability) {
 			executeInputs, err := values.NewMap(map[string]any{"executeValue1": "aValue1"})
 			require.NoError(t, err)
 			executeMethod(ctx, caller, transmissionSchedule, executeInputs, responseTest, t)
 		})
-
-		methods = append(methods, func(caller commoncap.ExecutableCapability) {
-			registerToWorkflowMethod(ctx, caller, transmissionSchedule, func(t *testing.T, responseError error) {
-				require.NoError(t, responseError)
-			}, t)
-		})
-
-		methods = append(methods, func(caller commoncap.ExecutableCapability) {
-			unregisterFromWorkflowMethod(ctx, caller, transmissionSchedule, func(t *testing.T, responseError error) {
-				require.NoError(t, responseError)
-			}, t)
-		})
-
-		for _, method := range methods {
-			testClient(t, 1, responseTimeOut, 1, 0,
-				capability, method)
-
-			testClient(t, 10, responseTimeOut, 1, 0,
-				capability, method)
-
-			testClient(t, 1, responseTimeOut, 10, 3,
-				capability, method)
-
-			testClient(t, 10, responseTimeOut, 10, 3,
-				capability, method)
-
-			testClient(t, 10, responseTimeOut, 10, 9,
-				capability, method)
-		}
-	}
-
-	func Test_Client_TransmissionSchedules(t *testing.T) {
-		ctx := testutils.Context(t)
-
-		responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
-			require.NoError(t, responseError)
-			mp, err := response.Value.Unwrap()
+	testClient(t, 10, responseTimeOut, 10, 3,
+		capability, func(caller commoncap.ExecutableCapability) {
+			executeInputs, err := values.NewMap(map[string]any{"executeValue1": "aValue1"})
 			require.NoError(t, err)
-			assert.Equal(t, "aValue1", mp.(map[string]any)["response"].(string))
-		}
-
-		capability := &TestCapability{}
-
-		responseTimeOut := 10 * time.Minute
-
-		transmissionSchedule, err := values.NewMap(map[string]any{
-			"schedule":   transmission.Schedule_OneAtATime,
-			"deltaStage": "10ms",
+			executeMethod(ctx, caller, transmissionSchedule, executeInputs, responseTest, t)
 		})
-		require.NoError(t, err)
+}
 
-		testClient(t, 1, responseTimeOut, 1, 0,
-			capability, func(caller commoncap.ExecutableCapability) {
-				executeInputs, err2 := values.NewMap(map[string]any{"executeValue1": "aValue1"})
-				require.NoError(t, err2)
-				executeMethod(ctx, caller, transmissionSchedule, executeInputs, responseTest, t)
-			})
-		testClient(t, 10, responseTimeOut, 10, 3,
-			capability, func(caller commoncap.ExecutableCapability) {
-				executeInputs, err2 := values.NewMap(map[string]any{"executeValue1": "aValue1"})
-				require.NoError(t, err2)
-				executeMethod(ctx, caller, transmissionSchedule, executeInputs, responseTest, t)
-			})
-
-		transmissionSchedule, err = values.NewMap(map[string]any{
-			"schedule":   transmission.Schedule_AllAtOnce,
-			"deltaStage": "10ms",
-		})
-		require.NoError(t, err)
-
-		testClient(t, 1, responseTimeOut, 1, 0,
-			capability, func(caller commoncap.ExecutableCapability) {
-				executeInputs, err := values.NewMap(map[string]any{"executeValue1": "aValue1"})
-				require.NoError(t, err)
-				executeMethod(ctx, caller, transmissionSchedule, executeInputs, responseTest, t)
-			})
-		testClient(t, 10, responseTimeOut, 10, 3,
-			capability, func(caller commoncap.ExecutableCapability) {
-				executeInputs, err := values.NewMap(map[string]any{"executeValue1": "aValue1"})
-				require.NoError(t, err)
-				executeMethod(ctx, caller, transmissionSchedule, executeInputs, responseTest, t)
-			})
-	}
-*/
 func Test_Client_TimesOutIfInsufficientCapabilityPeerResponses(t *testing.T) {
 	ctx := testutils.Context(t)
 
