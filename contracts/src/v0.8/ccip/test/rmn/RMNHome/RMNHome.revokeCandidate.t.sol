@@ -13,11 +13,11 @@ contract RMNHome_revokeCandidate is RMNHomeTestSetup {
     bytes32 digest = s_rmnHome.setCandidate(config.staticConfig, config.dynamicConfig, ZERO_DIGEST);
     s_rmnHome.promoteCandidateAndRevokeActive(digest, ZERO_DIGEST);
 
-    config.dynamicConfig.sourceChains[1].f--;
+    config.dynamicConfig.sourceChains[1].fObserve--;
     s_rmnHome.setCandidate(config.staticConfig, config.dynamicConfig, ZERO_DIGEST);
   }
 
-  function test_revokeCandidate_success() public {
+  function test_revokeCandidate() public {
     (bytes32 priorActiveDigest, bytes32 priorCandidateDigest) = s_rmnHome.getConfigDigests();
 
     vm.expectEmit();
@@ -39,7 +39,7 @@ contract RMNHome_revokeCandidate is RMNHomeTestSetup {
     assertTrue(candidateDigest != priorCandidateDigest);
   }
 
-  function test_revokeCandidate_ConfigDigestMismatch_reverts() public {
+  function test_revokeCandidate_RevertWhen_ConfigDigestMismatch() public {
     (, bytes32 priorCandidateDigest) = s_rmnHome.getConfigDigests();
 
     bytes32 wrongDigest = keccak256("wrong_digest");
@@ -47,12 +47,12 @@ contract RMNHome_revokeCandidate is RMNHomeTestSetup {
     s_rmnHome.revokeCandidate(wrongDigest);
   }
 
-  function test_revokeCandidate_RevokingZeroDigestNotAllowed_reverts() public {
+  function test_revokeCandidate_RevertWhen_RevokingZeroDigestNotAllowed() public {
     vm.expectRevert(RMNHome.RevokingZeroDigestNotAllowed.selector);
     s_rmnHome.revokeCandidate(ZERO_DIGEST);
   }
 
-  function test_revokeCandidate_OnlyOwner_reverts() public {
+  function test_revokeCandidate_RevertWhen_OnlyCallableByOwner() public {
     vm.startPrank(address(0));
 
     vm.expectRevert(Ownable2Step.OnlyCallableByOwner.selector);
