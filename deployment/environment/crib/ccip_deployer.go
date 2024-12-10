@@ -84,8 +84,14 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 	e.ExistingAddresses = ab
 	allChainIds := e.AllChainSelectors()
 
+	out, err := commonchangeset.DeployLinkToken(*e, allChainIds)
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("Failed to deploy link token", err)
+	}
+	err = e.ExistingAddresses.Merge(out.AddressBook)
+
 	// deploy pre requisites
-	out, err := changeset.DeployPrerequisites(*e, changeset.DeployPrerequisiteConfig{
+	out, err = changeset.DeployPrerequisites(*e, changeset.DeployPrerequisiteConfig{
 		ChainSelectors: allChainIds,
 	})
 	if err != nil {
@@ -160,6 +166,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("Failed to get convert address book to address book map", err)
 	}
+	fmt.Printf("New Addresses %+v\n", addresses)
 	return DeployCCIPOutput{
 		AddressBook: *deployment.NewMemoryAddressBookFromMap(addresses),
 		NodeIDs:     maps.Keys(out.JobSpecs),
