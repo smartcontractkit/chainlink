@@ -135,6 +135,12 @@ func (l *DeployedLocalDevEnvironment) RestartChainlinkNodes(t *testing.T) error 
 	return errGrp.Wait()
 }
 
+// NewIntegrationEnvironment creates a new integration test environment based on the provided test config
+// It can create a memory environment or a docker environment based on env var CCIP_V16_TEST_ENV
+// By default, it creates a memory environment if env var CCIP_V16_TEST_ENV is not set
+// if CCIP_V16_TEST_ENV is set to 'docker', it creates a docker environment with test config provided under testconfig/ccip/ccip.toml
+// It also creates a RMN cluster if the test config has RMN enabled
+// It returns the deployed environment and RMN cluster ( in case of RMN enabled)
 func NewIntegrationEnvironment(t *testing.T, opts ...changeset.TestOps) (changeset.DeployedEnv, devenv.RMNCluster) {
 	testCfg := changeset.DefaultTestConfigs()
 	for _, opt := range opts {

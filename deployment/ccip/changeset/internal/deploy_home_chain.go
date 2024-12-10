@@ -110,10 +110,10 @@ func LatestCCIPDON(registry *capabilities_registry.CapabilitiesRegistry) (*capab
 
 // DonIDForChain returns the DON ID for the chain with the given selector
 // It looks up with the CCIPHome contract to find the OCR3 configs for the DONs, and returns the DON ID for the chain matching with the given selector from the OCR3 configs
-func DonIDForChain(registry *capabilities_registry.CapabilitiesRegistry, ccipHome *ccip_home.CCIPHome, chainSelector uint64) (uint32, error) {
+func DonIDForChain(registry *capabilities_registry.CapabilitiesRegistry, ccipHome *ccip_home.CCIPHome, chainSelector uint64) (uint32, bool, error) {
 	dons, err := registry.GetDONs(nil)
 	if err != nil {
-		return 0, err
+		return 0, false, err
 	}
 	// TODO: what happens if there are multiple dons for one chain (accidentally?)
 	for _, don := range dons {
@@ -121,14 +121,14 @@ func DonIDForChain(registry *capabilities_registry.CapabilitiesRegistry, ccipHom
 			don.CapabilityConfigurations[0].CapabilityId == CCIPCapabilityID {
 			configs, err := ccipHome.GetAllConfigs(nil, don.Id, uint8(types.PluginTypeCCIPCommit))
 			if err != nil {
-				return 0, err
+				return 0, false, err
 			}
 			if configs.ActiveConfig.Config.ChainSelector == chainSelector || configs.CandidateConfig.Config.ChainSelector == chainSelector {
-				return don.Id, nil
+				return don.Id, true, nil
 			}
 		}
 	}
-	return 0, fmt.Errorf("no DON found for chain %d", chainSelector)
+	return 0, false, nil
 }
 
 func BuildSetOCR3ConfigArgs(

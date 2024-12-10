@@ -44,7 +44,7 @@ func (p PromoteAllCandidatesChangesetConfig) Validate(e deployment.Environment, 
 		return nil, fmt.Errorf("fetch node info: %w", err)
 	}
 
-	donID, err := internal.DonIDForChain(
+	donID, exists, err := internal.DonIDForChain(
 		state.Chains[p.HomeChainSelector].CapabilityRegistry,
 		state.Chains[p.HomeChainSelector].CCIPHome,
 		p.NewChainSelector,
@@ -52,7 +52,9 @@ func (p PromoteAllCandidatesChangesetConfig) Validate(e deployment.Environment, 
 	if err != nil {
 		return nil, fmt.Errorf("fetch don id for chain: %w", err)
 	}
-
+	if !exists {
+		return nil, fmt.Errorf("don id for chain(%d) does not exist", p.NewChainSelector)
+	}
 	// check if the DON ID has a candidate digest set that we can promote
 	for _, pluginType := range []cctypes.PluginType{cctypes.PluginTypeCCIPCommit, cctypes.PluginTypeCCIPExec} {
 		candidateDigest, err := state.Chains[p.HomeChainSelector].CCIPHome.GetCandidateDigest(nil, donID, uint8(pluginType))
@@ -204,9 +206,12 @@ func setCandidateOnExistingDon(
 	nodes deployment.Nodes,
 ) ([]mcms.Operation, error) {
 	// fetch DON ID for the chain
-	donID, err := internal.DonIDForChain(capReg, ccipHome, chainSelector)
+	donID, exists, err := internal.DonIDForChain(capReg, ccipHome, chainSelector)
 	if err != nil {
 		return nil, fmt.Errorf("fetch don id for chain: %w", err)
+	}
+	if !exists {
+		return nil, fmt.Errorf("don id for chain(%d) does not exist", chainSelector)
 	}
 	fmt.Printf("donID: %d", donID)
 	encodedSetCandidateCall, err := internal.CCIPHomeABI.Pack(
@@ -301,9 +306,12 @@ func promoteAllCandidatesForChainOps(
 	nodes deployment.Nodes,
 ) ([]mcms.Operation, error) {
 	// fetch DON ID for the chain
-	donID, err := internal.DonIDForChain(capReg, ccipHome, chainSelector)
+	donID, exists, err := internal.DonIDForChain(capReg, ccipHome, chainSelector)
 	if err != nil {
 		return nil, fmt.Errorf("fetch don id for chain: %w", err)
+	}
+	if !exists {
+		return nil, fmt.Errorf("don id for chain(%d) does not exist", chainSelector)
 	}
 
 	var mcmsOps []mcms.Operation

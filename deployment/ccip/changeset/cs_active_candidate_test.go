@@ -107,8 +107,9 @@ func TestActiveCandidate(t *testing.T) {
 
 	// [ACTIVE, CANDIDATE] setup by setting candidate through cap reg
 	capReg, ccipHome := state.Chains[tenv.HomeChainSel].CapabilityRegistry, state.Chains[tenv.HomeChainSel].CCIPHome
-	donID, err := internal.DonIDForChain(capReg, ccipHome, tenv.FeedChainSel)
+	donID, exists, err := internal.DonIDForChain(capReg, ccipHome, tenv.FeedChainSel)
 	require.NoError(t, err)
+	require.True(t, exists)
 	donInfo, err := state.Chains[tenv.HomeChainSel].CapabilityRegistry.GetDON(nil, donID)
 	require.NoError(t, err)
 	require.Equal(t, 5, len(donInfo.NodeP2PIds))
