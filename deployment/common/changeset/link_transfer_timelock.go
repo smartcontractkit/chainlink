@@ -18,19 +18,22 @@ type LinkTransfer struct {
 	To    common.Address
 	Value *big.Int
 }
-type LinkTransferTimelockRequest struct {
-	Transfers       map[uint64][]LinkTransfer
+type LinkTransferTimelockConfig struct {
+	Transfers  map[uint64][]LinkTransfer
+	UseMCMS    bool
+	McmsConfig *MCMSConfig
+}
+type MCMSConfig struct {
 	ValidUntil      uint32        // unix time until the proposal will be valid
 	MinDelay        time.Duration // delay for timelock worker to execute the transfers.
 	OverrideRoot    bool
 	StartingOpCount map[uint64]uint64
-	UseMCMS         bool
 }
 
-var _ deployment.ChangeSet[*LinkTransferTimelockRequest] = LinkTransferTimelock
+var _ deployment.ChangeSet[*LinkTransferTimelockConfig] = LinkTransferTimelock
 
-// Validate checks that the LinkTransferTimelockRequest is valid.
-func (cfg LinkTransferTimelockRequest) Validate() error {
+// Validate checks that the LinkTransferTimelockConfig is valid.
+func (cfg LinkTransferTimelockConfig) Validate() error {
 	// Check that Transfers map has at least one key
 	if len(cfg.Transfers) == 0 {
 		return fmt.Errorf("transfers map must have at least one key")
@@ -42,20 +45,24 @@ func (cfg LinkTransferTimelockRequest) Validate() error {
 			return fmt.Errorf("transfers for key %d must have at least one LinkTransfer", key)
 		}
 	}
-
+	if !cfg.UseMCMS {
+		return nil
+	}
+	// Mcms specific configs
+	if cfg.McmsConfig == nil {
+		return fmt.Errorf("mcmsConfig must be set when UseMCMS is true")
+	}
 	// Check that StartingOpCount map has at least one key
-	if len(cfg.StartingOpCount) == 0 {
+	if len(cfg.McmsConfig.StartingOpCount) == 0 {
 		return fmt.Errorf("startingOpCount map must have at least one key")
 	}
-
 	// Check that Transfers and StartingOpCount have the same keys
 	for key := range cfg.Transfers {
-		if _, exists := cfg.StartingOpCount[key]; !exists {
+		if _, exists := cfg.McmsConfig.StartingOpCount[key]; !exists {
 			return fmt.Errorf("startingOpCount map is missing key %d from transfers map", key)
 		}
 	}
-
-	for key := range cfg.StartingOpCount {
+	for key := range cfg.McmsConfig.StartingOpCount {
 		if _, exists := cfg.Transfers[key]; !exists {
 			return fmt.Errorf("transfers map is missing key %d from startingOpCount map", key)
 		}
@@ -65,10 +72,10 @@ func (cfg LinkTransferTimelockRequest) Validate() error {
 }
 
 // LinkTransferTimelock takes the given link transfers and executes them or creates an MCMS proposal for them.
-func LinkTransferTimelock(e deployment.Environment, req *LinkTransferTimelockRequest) (deployment.ChangesetOutput, error) {
+func LinkTransferTimelock(e deployment.Environment, req *LinkTransferTimelockConfig) (deployment.ChangesetOutput, error) {
 	err := req.Validate()
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("invalid LinkTransferTimelockRequest: %w", err)
+		return deployment.ChangesetOutput{}, fmt.Errorf("invalid LinkTransferTimelockConfig: %w", err)
 	}
 	chainMetadata := map[mcms.ChainIdentifier]mcms.ChainMetadata{}
 	timelockAddresses := map[mcms.ChainIdentifier]common.Address{}
@@ -91,7 +98,7 @@ func LinkTransferTimelock(e deployment.Environment, req *LinkTransferTimelockReq
 
 		chainMetadata[chainID] = mcms.ChainMetadata{
 			MCMAddress:      mcmAddress,
-			StartingOpCount: req.StartingOpCount[chainSelector],
+			StartingOpCount: req.McmsConfig.StartingOpCount[chainSelector],
 		}
 		timelockAddresses[chainID] = timelockAddress
 		batch := timelock.BatchChainOperation{
@@ -121,15 +128,15 @@ func LinkTransferTimelock(e deployment.Environment, req *LinkTransferTimelockReq
 	if req.UseMCMS {
 		proposal, err := timelock.NewMCMSWithTimelockProposal(
 			"1",
-			req.ValidUntil,
+			req.McmsConfig.ValidUntil,
 			[]mcms.Signature{},
-			req.OverrideRoot,
+			req.McmsConfig.OverrideRoot,
 			chainMetadata,
 			timelockAddresses,
 			"Value transfer proposal",
 			allBatches,
 			timelock.Schedule,
-			req.MinDelay.String(),
+			req.McmsConfig.MinDelay.String(),
 		)
 		if err != nil {
 			return deployment.ChangesetOutput{}, err

@@ -6,15 +6,15 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
-type MintLinkTimelockRequest struct {
+type MintLinkTimelockConfig struct {
 	Amount        *big.Int
 	ChainSelector uint64
 }
 
-var _ deployment.ChangeSet[*MintLinkTimelockRequest] = MintLinkTimelock
+var _ deployment.ChangeSet[*MintLinkTimelockConfig] = MintLinkTimelock
 
 // MintLinkTimelock mints LINK to the timelock contract.
-func MintLinkTimelock(e deployment.Environment, req *MintLinkTimelockRequest) (deployment.ChangesetOutput, error) {
+func MintLinkTimelock(e deployment.Environment, req *MintLinkTimelockConfig) (deployment.ChangesetOutput, error) {
 
 	chain := e.Chains[req.ChainSelector]
 	addresses, err := e.ExistingAddresses.AddressesForChain(req.ChainSelector)

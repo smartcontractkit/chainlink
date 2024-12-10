@@ -87,7 +87,7 @@ func TestLinkTransferTimelock(t *testing.T) {
 		// in practice, signing and executing are separated processes.
 		{
 			Changeset: changeset.WrapChangeSet(changeset.LinkTransferTimelock),
-			Config: &changeset.LinkTransferTimelockRequest{
+			Config: &changeset.LinkTransferTimelockConfig{
 				Transfers: map[uint64][]changeset.LinkTransfer{
 					chainSelector: {
 						{
@@ -96,13 +96,15 @@ func TestLinkTransferTimelock(t *testing.T) {
 						},
 					},
 				},
-				ValidUntil:   4131638958,
-				MinDelay:     0,
-				OverrideRoot: true,
-				StartingOpCount: map[uint64]uint64{
-					chainSelector: 0,
-				},
 				UseMCMS: true,
+				McmsConfig: &changeset.MCMSConfig{
+					ValidUntil:   4131638958,
+					MinDelay:     0,
+					OverrideRoot: true,
+					StartingOpCount: map[uint64]uint64{
+						chainSelector: 0,
+					},
+				},
 			},
 		},
 	})

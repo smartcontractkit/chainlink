@@ -64,7 +64,7 @@ func TestMintLinkTimelock(t *testing.T) {
 	require.NoError(t, err)
 
 	// Mint some funds
-	_, err = changeset.MintLinkTimelock(env, &changeset.MintLinkTimelockRequest{
+	_, err = changeset.MintLinkTimelock(env, &changeset.MintLinkTimelockConfig{
 		ChainSelector: chainSelector,
 		Amount:        big.NewInt(7568),
 	})
