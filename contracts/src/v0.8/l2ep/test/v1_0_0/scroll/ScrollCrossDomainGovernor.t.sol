@@ -58,7 +58,6 @@ contract ScrollCrossDomainGovernor_Forward is ScrollCrossDomainGovernorTest {
 
   /// @notice it should be callable by crossdomain messenger address / L1 owner
   function test_Forward() public {
-    // Sets msg.sender and tx.origin
     vm.startPrank(s_strangerAddr);
 
     // Defines the cross domain message to send
@@ -78,7 +77,6 @@ contract ScrollCrossDomainGovernor_Forward is ScrollCrossDomainGovernorTest {
 
   /// @notice it should revert when contract call reverts
   function test_ForwardRevert() public {
-    // Sets msg.sender and tx.origin
     vm.startPrank(s_strangerAddr);
 
     // Sends an invalid message
@@ -93,7 +91,6 @@ contract ScrollCrossDomainGovernor_Forward is ScrollCrossDomainGovernorTest {
 
   /// @notice it should be callable by L2 owner
   function test_CallableByL2Owner() public {
-    // Sets msg.sender and tx.origin
     vm.startPrank(s_l1OwnerAddr);
 
     // Defines the cross domain message to send
@@ -120,7 +117,6 @@ contract ScrollCrossDomainGovernor_ForwardDelegate is ScrollCrossDomainGovernorT
 
   /// @notice it should be callable by crossdomain messenger address / L1 owner
   function test_CallableByCrossDomainMessengerAddressOrL1Owner() public {
-    // Sets msg.sender and tx.origin
     vm.startPrank(s_strangerAddr);
 
     // Sends the message
@@ -141,7 +137,6 @@ contract ScrollCrossDomainGovernor_ForwardDelegate is ScrollCrossDomainGovernorT
 
   /// @notice it should be callable by L2 owner
   function test_CallableByL2Owner() public {
-    // Sets msg.sender and tx.origin
     vm.startPrank(s_l1OwnerAddr);
 
     // Sends the message
@@ -162,7 +157,6 @@ contract ScrollCrossDomainGovernor_ForwardDelegate is ScrollCrossDomainGovernorT
 
   /// @notice it should revert batch when one call fails
   function test_RevertsBatchWhenOneCallFails() public {
-    // Sets msg.sender and tx.origin
     vm.startPrank(s_strangerAddr);
 
     // Sends an invalid message (empty transaction data is not allowed)
@@ -184,7 +178,6 @@ contract ScrollCrossDomainGovernor_ForwardDelegate is ScrollCrossDomainGovernorT
 
   /// @notice it should bubble up revert when contract call reverts
   function test_BubbleUpRevert() public {
-    // Sets msg.sender and tx.origin
     vm.startPrank(s_strangerAddr);
 
     // Sends an invalid message (empty transaction data is not allowed)
@@ -220,7 +213,6 @@ contract ScrollCrossDomainGovernor_TransferL1Ownership is ScrollCrossDomainGover
 
   /// @notice it should be callable by current L1 owner
   function test_CallableByL1Owner() public {
-    // Sets msg.sender and tx.origin
     vm.startPrank(s_strangerAddr);
 
     // Defines the cross domain message to send
@@ -238,7 +230,6 @@ contract ScrollCrossDomainGovernor_TransferL1Ownership is ScrollCrossDomainGover
 
   /// @notice it should be callable by current L1 owner to zero address
   function test_CallableByL1OwnerOrZeroAddress() public {
-    // Sets msg.sender and tx.origin
     vm.startPrank(s_strangerAddr);
 
     // Defines the cross domain message to send
@@ -258,7 +249,6 @@ contract ScrollCrossDomainGovernor_TransferL1Ownership is ScrollCrossDomainGover
 contract ScrollCrossDomainGovernor_AcceptL1Ownership is ScrollCrossDomainGovernorTest {
   /// @notice it should not be callable by non pending-owners
   function test_NotCallableByNonPendingOwners() public {
-    // Sets msg.sender and tx.origin
     vm.startPrank(s_strangerAddr);
 
     // Sends the message
@@ -273,7 +263,6 @@ contract ScrollCrossDomainGovernor_AcceptL1Ownership is ScrollCrossDomainGoverno
 
   /// @notice it should be callable by pending L1 owner
   function test_CallableByPendingL1Owner() public {
-    // Sets msg.sender and tx.origin
     vm.startPrank(s_strangerAddr);
 
     // Request ownership transfer

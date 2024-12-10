@@ -54,7 +54,6 @@ contract ScrollCrossDomainForwarder_Forward is ScrollCrossDomainForwarderTest {
 
   /// @notice it should be callable by crossdomain messenger address / L1 owner
   function test_Forward() public {
-    // Sets msg.sender and tx.origin
     vm.startPrank(s_strangerAddr);
 
     // Defines the cross domain message to send
@@ -74,7 +73,6 @@ contract ScrollCrossDomainForwarder_Forward is ScrollCrossDomainForwarderTest {
 
   /// @notice it should revert when contract call reverts
   function test_ForwardRevert() public {
-    // Sets msg.sender and tx.origin
     vm.startPrank(s_strangerAddr);
 
     // Sends an invalid message
@@ -106,7 +104,6 @@ contract ScrollCrossDomainForwarder_TransferL1Ownership is ScrollCrossDomainForw
 
   /// @notice it should be callable by current L1 owner
   function test_CallableByL1Owner() public {
-    // Sets msg.sender and tx.origin
     vm.startPrank(s_strangerAddr);
 
     // Defines the cross domain message to send
@@ -124,7 +121,6 @@ contract ScrollCrossDomainForwarder_TransferL1Ownership is ScrollCrossDomainForw
 
   /// @notice it should be callable by current L1 owner to zero address
   function test_CallableByL1OwnerOrZeroAddress() public {
-    // Sets msg.sender and tx.origin
     vm.startPrank(s_strangerAddr);
 
     // Defines the cross domain message to send
@@ -144,7 +140,6 @@ contract ScrollCrossDomainForwarder_TransferL1Ownership is ScrollCrossDomainForw
 contract ScrollCrossDomainForwarder_AcceptL1Ownership is ScrollCrossDomainForwarderTest {
   /// @notice it should not be callable by non pending-owners
   function test_NotCallableByNonPendingOwners() public {
-    // Sets msg.sender and tx.origin
     vm.startPrank(s_strangerAddr);
 
     // Sends the message
@@ -159,7 +154,6 @@ contract ScrollCrossDomainForwarder_AcceptL1Ownership is ScrollCrossDomainForwar
 
   /// @notice it should be callable by pending L1 owner
   function test_CallableByPendingL1Owner() public {
-    // Sets msg.sender and tx.origin
     vm.startPrank(s_strangerAddr);
 
     // Request ownership transfer

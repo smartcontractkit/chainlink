@@ -11,9 +11,10 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
@@ -31,15 +32,11 @@ import (
 func TestUSDCTokenTransfer(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := tests.Context(t)
-	config := &changeset.TestConfigs{
-		IsUSDC: true,
-	}
-	tenv := changeset.NewMemoryEnvironmentWithJobsAndContracts(t, lggr, memory.MemoryEnvironmentConfig{
-		Chains:             3,
-		NumOfUsersPerChain: 3,
-		Nodes:              4,
-		Bootstraps:         1,
-	}, config)
+	tenv, _ := testsetups.NewIntegrationEnvironment(t,
+		changeset.WithUsersPerChain(3),
+		changeset.WithChains(3),
+		changeset.WithUSDC(),
+	)
 
 	e := tenv.Env
 	state, err := changeset.LoadOnchainState(e)
@@ -228,7 +225,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 		t,
 		e,
 		state,
-		changeset.SeqNumberRageToSlice(expectedSeqNums),
+		changeset.SeqNumberRangeToSlice(expectedSeqNums),
 		startBlocks,
 	)
 	require.Equal(t, expectedExecutionStates, execStates)

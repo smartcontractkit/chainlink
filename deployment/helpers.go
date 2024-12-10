@@ -146,7 +146,7 @@ func DeployContract[C any](
 		lggr.Errorw("Failed to confirm deployment", "chain", chain.String(), "Contract", contractDeploy.Tv.String(), "err", err)
 		return nil, err
 	}
-	lggr.Infow("Deployed contract", "Contract", contractDeploy.Tv.String(), "addr", contractDeploy.Address, "chain", chain.Selector)
+	lggr.Infow("Deployed contract", "Contract", contractDeploy.Tv.String(), "addr", contractDeploy.Address, "chain", chain.String())
 	err = addressBook.Save(chain.Selector, contractDeploy.Address.String(), contractDeploy.Tv)
 	if err != nil {
 		lggr.Errorw("Failed to save contract address", "Contract", contractDeploy.Tv.String(), "addr", contractDeploy.Address, "chain", chain.String(), "err", err)
