@@ -7,12 +7,14 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
@@ -26,20 +28,15 @@ type LinkTransferTimelockConfig struct {
 	McmsConfig *MCMSConfig
 }
 type MCMSConfig struct {
-	ValidUntil      uint32        // unix time until the proposal will be valid
-	MinDelay        time.Duration // delay for timelock worker to execute the transfers.
-	OverrideRoot    bool
-	StartingOpCount map[uint64]uint64
+	ValidUntil   uint32        // unix time until the proposal will be valid
+	MinDelay     time.Duration // delay for timelock worker to execute the transfers.
+	OverrideRoot bool
 }
 
 var _ deployment.ChangeSet[*LinkTransferTimelockConfig] = LinkTransferTimelock
 
 // Validate checks that the LinkTransferTimelockConfig is valid.
 func (cfg LinkTransferTimelockConfig) Validate() error {
-	// Upper bound for min delay (7 days)
-	if cfg.McmsConfig.MinDelay > 24*7*time.Hour {
-		return fmt.Errorf("minDelay must be less than 7 days")
-	}
 
 	// Check that Transfers map has at least one key
 	if len(cfg.Transfers) == 0 {
@@ -63,6 +60,13 @@ func (cfg LinkTransferTimelockConfig) Validate() error {
 			}
 		}
 	}
+	// Check that Transfers and StartingOpCount have the same keys
+	for key := range cfg.Transfers {
+		_, err := chain_selectors.GetSelectorFamily(key)
+		if err != nil {
+			return fmt.Errorf("invalid chain selector: %w", err)
+		}
+	}
 	if !cfg.UseMCMS {
 		return nil
 	}
@@ -70,26 +74,10 @@ func (cfg LinkTransferTimelockConfig) Validate() error {
 	if cfg.McmsConfig == nil {
 		return fmt.Errorf("mcmsConfig must be set when UseMCMS is true")
 	}
-	// Check that StartingOpCount map has at least one key
-	if len(cfg.McmsConfig.StartingOpCount) == 0 {
-		return fmt.Errorf("startingOpCount map must have at least one key")
+	// Upper bound for min delay (7 days)
+	if cfg.McmsConfig.MinDelay > 24*7*time.Hour {
+		return fmt.Errorf("minDelay must be less than 7 days")
 	}
-	// Check that Transfers and StartingOpCount have the same keys
-	for key := range cfg.Transfers {
-		_, err := chain_selectors.GetSelectorFamily(key)
-		if err != nil {
-			return fmt.Errorf("invalid chain selector: %w", err)
-		}
-		if _, exists := cfg.McmsConfig.StartingOpCount[key]; !exists {
-			return fmt.Errorf("startingOpCount map is missing key %d from transfers map", key)
-		}
-	}
-	for key := range cfg.McmsConfig.StartingOpCount {
-		if _, exists := cfg.Transfers[key]; !exists {
-			return fmt.Errorf("transfers map is missing key %d from startingOpCount map", key)
-		}
-	}
-
 	return nil
 }
 
@@ -100,7 +88,12 @@ func LinkTransferTimelock(e deployment.Environment, req *LinkTransferTimelockCon
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("invalid LinkTransferTimelockConfig: %w", err)
 	}
-	chainMetadata := map[mcms.ChainIdentifier]mcms.ChainMetadata{}
+	chainSelectors := []uint64{}
+	for chainSelector := range req.Transfers {
+		chainSelectors = append(chainSelectors, chainSelector)
+	}
+	mcmsPerChain := map[uint64]*owner_helpers.ManyChainMultiSig{}
+
 	timelockAddresses := map[mcms.ChainIdentifier]common.Address{}
 	allBatches := []timelock.BatchChainOperation{}
 	for chainSelector := range req.Transfers {
@@ -116,13 +109,10 @@ func LinkTransferTimelock(e deployment.Environment, req *LinkTransferTimelockCon
 		if err != nil {
 			return deployment.ChangesetOutput{}, err
 		}
-		mcmAddress := mcmsState.ProposerMcm.Address()
 		timelockAddress := mcmsState.Timelock.Address()
 
-		chainMetadata[chainID] = mcms.ChainMetadata{
-			MCMAddress:      mcmAddress,
-			StartingOpCount: req.McmsConfig.StartingOpCount[chainSelector],
-		}
+		mcmsPerChain[uint64(chainID)] = mcmsState.ProposerMcm
+
 		timelockAddresses[chainID] = timelockAddress
 		batch := timelock.BatchChainOperation{
 			ChainIdentifier: chainID,
@@ -156,6 +146,10 @@ func LinkTransferTimelock(e deployment.Environment, req *LinkTransferTimelockCon
 			return deployment.ChangesetOutput{}, fmt.Errorf("timelock address does not have enough funds for transfers for chainID %d", chainSelector)
 		}
 		allBatches = append(allBatches, batch)
+	}
+	chainMetadata, err := proposalutils.BuildProposalMetadata(chainSelectors, mcmsPerChain)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
 	}
 	if req.UseMCMS {
 		proposal, err := timelock.NewMCMSWithTimelockProposal(

@@ -101,9 +101,6 @@ func TestLinkTransferTimelock(t *testing.T) {
 					ValidUntil:   4131638958,
 					MinDelay:     0,
 					OverrideRoot: true,
-					StartingOpCount: map[uint64]uint64{
-						chainSelector: 0,
-					},
 				},
 			},
 		},
