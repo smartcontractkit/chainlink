@@ -37,7 +37,6 @@ func Test_OutOfOrderExecution(t *testing.T) {
 		t,
 		changeset.WithUSDC(),
 		changeset.WithUSDCAttestationMissing(),
-		changeset.WithEnvironmentType(changeset.Memory),
 		changeset.WithUsersPerChain(2),
 	)
 

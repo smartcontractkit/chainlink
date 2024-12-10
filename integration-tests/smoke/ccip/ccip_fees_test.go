@@ -104,7 +104,6 @@ func Test_CCIPFees(t *testing.T) {
 	tenv, _ := testsetups.NewIntegrationEnvironment(
 		t,
 		changeset.WithMultiCall3(),
-		changeset.WithEnvironmentType(changeset.Memory),
 	)
 	e := tenv.Env
 

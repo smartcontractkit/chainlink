@@ -244,7 +244,6 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	t.Logf("Running RMN test case: %s", tc.name)
 
 	envWithRMN, rmnCluster := testsetups.NewIntegrationEnvironment(t,
-		changeset.WithEnvironmentType(changeset.Docker),
 		changeset.WithRMNEnabled(len(tc.rmnNodes)),
 	)
 	t.Logf("envWithRmn: %#v", envWithRMN)

@@ -140,6 +140,8 @@ func NewIntegrationEnvironment(t *testing.T, opts ...changeset.TestOps) (changes
 	for _, opt := range opts {
 		opt(testCfg)
 	}
+	// check for EnvType env var
+	testCfg.MustSetEnvTypeOrDefault(t)
 	require.NoError(t, testCfg.Validate(), "invalid test config")
 	switch testCfg.Type {
 	case changeset.Memory:
@@ -176,6 +178,9 @@ func NewIntegrationEnvironment(t *testing.T, opts ...changeset.TestOps) (changes
 			require.NotNil(t, dockerEnv.testEnv, "empty docker environment")
 			return deployedEnv, devenv.RMNCluster{}
 		}
+		deployedEnv := changeset.NewEnvironment(t, testCfg, dockerEnv)
+		require.NotNil(t, dockerEnv.testEnv, "empty docker environment")
+		return deployedEnv, devenv.RMNCluster{}
 	default:
 		require.Failf(t, "Type %s not supported in integration tests choose between %s and %s", string(testCfg.Type), changeset.Memory, changeset.Docker)
 	}

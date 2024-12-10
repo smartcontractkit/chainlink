@@ -23,7 +23,6 @@ func TestTokenTransfer(t *testing.T) {
 	ctx := tests.Context(t)
 
 	tenv, _ := testsetups.NewIntegrationEnvironment(t,
-		changeset.WithEnvironmentType(changeset.Memory),
 		changeset.WithUsersPerChain(3))
 
 	e := tenv.Env

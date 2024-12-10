@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"os"
 	"testing"
 	"time"
 
@@ -27,8 +28,9 @@ import (
 type EnvType string
 
 const (
-	Memory EnvType = "in-memory"
-	Docker EnvType = "docker"
+	Memory      EnvType = "in-memory"
+	Docker      EnvType = "docker"
+	ENVTESTTYPE         = "CCIP_V16_TEST_ENV"
 )
 
 type TestConfigs struct {
@@ -49,20 +51,30 @@ type TestConfigs struct {
 	WethPrice                *big.Int
 }
 
-func (t *TestConfigs) Validate() error {
-	if t.Chains < 2 {
+func (tc *TestConfigs) Validate() error {
+	if tc.Chains < 2 {
 		return fmt.Errorf("chains must be at least 2")
 	}
-	if t.Nodes < 4 {
+	if tc.Nodes < 4 {
 		return fmt.Errorf("nodes must be at least 4")
 	}
-	if t.Bootstraps < 1 {
+	if tc.Bootstraps < 1 {
 		return fmt.Errorf("bootstraps must be at least 1")
 	}
-	if t.Type == Memory && t.RMNEnabled {
+	if tc.Type == Memory && tc.RMNEnabled {
 		return fmt.Errorf("cannot run RMN tests in memory mode")
 	}
 	return nil
+}
+
+func (tc *TestConfigs) MustSetEnvTypeOrDefault(t *testing.T) {
+	envType := os.Getenv(ENVTESTTYPE)
+	if envType == "" || envType == string(Memory) {
+		tc.Type = Memory
+	} else if envType == string(Docker) {
+		tc.Type = Docker
+	}
+	t.Fatalf("env var CCIP_V16_TEST_ENV must be either %s or %s, defaults to %s if unset, got: %s", Memory, Docker, Memory, envType)
 }
 
 func DefaultTestConfigs() *TestConfigs {
@@ -82,11 +94,6 @@ type TestOps func(testCfg *TestConfigs)
 func WithMultiCall3() TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.IsMultiCall3 = true
-	}
-}
-func WithEnvironmentType(t EnvType) TestOps {
-	return func(testCfg *TestConfigs) {
-		testCfg.Type = t
 	}
 }
 

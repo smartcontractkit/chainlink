@@ -42,7 +42,6 @@ func newBatchTestSetup(t *testing.T) batchTestSetup {
 	e, _ := testsetups.NewIntegrationEnvironment(
 		t,
 		changeset.WithMultiCall3(),
-		changeset.WithEnvironmentType(changeset.Memory),
 		changeset.WithChains(3),
 		changeset.WithUsersPerChain(2),
 	)
