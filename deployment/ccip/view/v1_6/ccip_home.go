@@ -33,42 +33,42 @@ type CCIPHomeView struct {
 
 func GenerateCCIPHomeView(cr *capabilities_registry.CapabilitiesRegistry, ch *ccip_home.CCIPHome) (CCIPHomeView, error) {
 	if ch == nil {
-		return CCIPHomeView{}, fmt.Errorf("cannot generate view for nil CCIPHomeView")
+		return CCIPHomeView{}, fmt.Errorf("cannot generate view for nil CCIPHome")
 	}
 	meta, err := types.NewContractMetaData(ch, ch.Address())
 	if err != nil {
-		return CCIPHomeView{}, fmt.Errorf("failed to generate contract metadata for CCIPHomeView: %w", err)
+		return CCIPHomeView{}, fmt.Errorf("failed to generate contract metadata for CCIPHome %s: %w", ch.Address(), err)
 	}
 	numChains, err := ch.GetNumChainConfigurations(nil)
 	if err != nil {
-		return CCIPHomeView{}, fmt.Errorf("failed to get number of chain configurations for CCIPHomeView: %w", err)
+		return CCIPHomeView{}, fmt.Errorf("failed to get number of chain configurations for CCIPHome %s: %w", ch.Address(), err)
 	}
 	// Pagination shouldn't be required here, but we can add it if needed.
 	chains, err := ch.GetAllChainConfigs(nil, big.NewInt(0), numChains)
 	if err != nil {
-		return CCIPHomeView{}, fmt.Errorf("failed to get all chain configs for CCIPHomeView: %w", err)
+		return CCIPHomeView{}, fmt.Errorf("failed to get all chain configs for CCIPHome %s: %w", ch.Address(), err)
 	}
 	crAddr, err := ch.GetCapabilityRegistry(nil)
 	if err != nil {
-		return CCIPHomeView{}, fmt.Errorf("failed to get capability registry for CCIPHomeView: %w", err)
+		return CCIPHomeView{}, fmt.Errorf("failed to get capability registry for CCIPHome %s: %w", ch.Address(), err)
 	}
 	if crAddr != cr.Address() {
-		return CCIPHomeView{}, fmt.Errorf("capability registry address mismatch for CCIPHomeView: %w", err)
+		return CCIPHomeView{}, fmt.Errorf("capability registry address mismatch for CCIPHome %s: %w", ch.Address(), err)
 	}
 	dons, err := cr.GetDONs(nil)
 	if err != nil {
-		return CCIPHomeView{}, fmt.Errorf("failed to get DONs for CCIPHomeView: %w", err)
+		return CCIPHomeView{}, fmt.Errorf("failed to get DONs for CCIPHome %s: %w", ch.Address(), err)
 	}
 	// Get every don's configuration.
 	var dvs []DonView
 	for _, d := range dons {
 		commitConfigs, err := ch.GetAllConfigs(nil, d.Id, CommitPluginType)
 		if err != nil {
-			return CCIPHomeView{}, fmt.Errorf("failed to get active commit config for CCIPHomeView: %w", err)
+			return CCIPHomeView{}, fmt.Errorf("failed to get active commit config for CCIPHome %s: %w", ch.Address(), err)
 		}
 		execConfigs, err := ch.GetAllConfigs(nil, d.Id, ExecPluginType)
 		if err != nil {
-			return CCIPHomeView{}, fmt.Errorf("failed to get active commit config for CCIPHomeView: %w", err)
+			return CCIPHomeView{}, fmt.Errorf("failed to get active commit config for CCIPHome %s: %w", ch.Address(), err)
 		}
 		dvs = append(dvs, DonView{
 			DonID:         d.Id,

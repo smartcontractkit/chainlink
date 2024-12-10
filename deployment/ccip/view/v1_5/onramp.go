@@ -19,15 +19,15 @@ func GenerateOnRampView(r *evm_2_evm_onramp.EVM2EVMOnRamp) (OnRampView, error) {
 	}
 	meta, err := types.NewContractMetaData(r, r.Address())
 	if err != nil {
-		return OnRampView{}, fmt.Errorf("failed to generate contract metadata for OnRamp: %w", err)
+		return OnRampView{}, fmt.Errorf("failed to generate contract metadata for OnRamp %s: %w", r.Address(), err)
 	}
 	staticConfig, err := r.GetStaticConfig(nil)
 	if err != nil {
-		return OnRampView{}, fmt.Errorf("failed to get static config for OnRamp: %w", err)
+		return OnRampView{}, fmt.Errorf("failed to get static config for OnRamp %s: %w", r.Address(), err)
 	}
 	dynamicConfig, err := r.GetDynamicConfig(nil)
 	if err != nil {
-		return OnRampView{}, fmt.Errorf("failed to get dynamic config for OnRamp: %w", err)
+		return OnRampView{}, fmt.Errorf("failed to get dynamic config for OnRamp %s: %w", r.Address(), err)
 	}
 
 	// Add billing if needed, maybe not required for legacy contract?

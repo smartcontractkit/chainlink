@@ -19,15 +19,15 @@ func GenerateOffRampView(r *evm_2_evm_offramp.EVM2EVMOffRamp) (OffRampView, erro
 	}
 	meta, err := types.NewContractMetaData(r, r.Address())
 	if err != nil {
-		return OffRampView{}, fmt.Errorf("failed to generate contract metadata for OffRamp: %w", err)
+		return OffRampView{}, fmt.Errorf("failed to generate contract metadata for OffRamp %s: %w", r.Address(), err)
 	}
 	staticConfig, err := r.GetStaticConfig(nil)
 	if err != nil {
-		return OffRampView{}, fmt.Errorf("failed to get static config for OffRamp: %w", err)
+		return OffRampView{}, fmt.Errorf("failed to get static config for OffRamp %s: %w", r.Address(), err)
 	}
 	dynamicConfig, err := r.GetDynamicConfig(nil)
 	if err != nil {
-		return OffRampView{}, fmt.Errorf("failed to get dynamic config for OffRamp: %w", err)
+		return OffRampView{}, fmt.Errorf("failed to get dynamic config for OffRamp %s: %w", r.Address(), err)
 	}
 
 	// TODO: If needed, we can filter logs to get the OCR config.
