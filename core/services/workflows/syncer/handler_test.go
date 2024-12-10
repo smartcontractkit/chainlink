@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/secrets"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
@@ -64,6 +65,10 @@ func (m *mockEngine) Close() error {
 func (m *mockEngine) Start(_ context.Context) error {
 	return m.StartErr
 }
+
+func (m *mockEngine) HealthReport() map[string]error { return nil }
+
+func (m *mockEngine) Name() string { return "mockEngine" }
 
 func Test_Handler(t *testing.T) {
 	lggr := logger.TestLogger(t)
@@ -226,7 +231,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				configURL:  {Body: config, Err: nil},
 				secretsURL: {Body: []byte("secrets"), Err: nil},
 			}),
-			engineFactoryFn: func(ctx context.Context, wfid string, owner string, name string, config []byte, binary []byte) (StartReadyCloser, error) {
+			engineFactoryFn: func(ctx context.Context, wfid string, owner string, name string, config []byte, binary []byte) (services.Service, error) {
 				return &mockEngine{}, nil
 			},
 			GiveConfig: config,
@@ -255,7 +260,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				configURL:  {Body: config, Err: nil},
 				secretsURL: {Body: []byte("secrets"), Err: nil},
 			}),
-			engineFactoryFn: func(ctx context.Context, wfid string, owner string, name string, config []byte, binary []byte) (StartReadyCloser, error) {
+			engineFactoryFn: func(ctx context.Context, wfid string, owner string, name string, config []byte, binary []byte) (services.Service, error) {
 				return &mockEngine{StartErr: assert.AnError}, nil
 			},
 			GiveConfig: config,
@@ -418,7 +423,7 @@ type testCase struct {
 	fetcher         FetcherFunc
 	Event           func([]byte) WorkflowRegistryWorkflowRegisteredV1
 	validationFn    func(t *testing.T, ctx context.Context, event WorkflowRegistryWorkflowRegisteredV1, h *eventHandler, wfOwner []byte, wfName string, wfID string)
-	engineFactoryFn func(ctx context.Context, wfid string, owner string, name string, config []byte, binary []byte) (StartReadyCloser, error)
+	engineFactoryFn func(ctx context.Context, wfid string, owner string, name string, config []byte, binary []byte) (services.Service, error)
 }
 
 func testRunningWorkflow(t *testing.T, tc testCase) {

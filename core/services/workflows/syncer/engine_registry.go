@@ -1,42 +1,32 @@
 package syncer
 
 import (
-	"context"
 	"errors"
 	"sync"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 )
 
-// StartReadyCloser is an abstraction for engines that can be checked for readiness and closed.
-type StartReadyCloser interface {
-	Start(context.Context) error
-
-	// Ready returns nil if the engine is ready to be used.
-	Ready() error
-
-	// Close closes the engine.
-	Close() error
-}
-
 type EngineRegistry struct {
-	engines map[string]StartReadyCloser
+	engines map[string]services.Service
 	mu      sync.RWMutex
 }
 
 func NewEngineRegistry() *EngineRegistry {
 	return &EngineRegistry{
-		engines: make(map[string]StartReadyCloser),
+		engines: make(map[string]services.Service),
 	}
 }
 
 // Add adds an engine to the registry.
-func (r *EngineRegistry) Add(id string, engine StartReadyCloser) {
+func (r *EngineRegistry) Add(id string, engine services.Service) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.engines[id] = engine
 }
 
 // Get retrieves an engine from the registry.
-func (r *EngineRegistry) Get(id string) (StartReadyCloser, error) {
+func (r *EngineRegistry) Get(id string) (services.Service, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	engine, found := r.engines[id]
@@ -59,7 +49,7 @@ func (r *EngineRegistry) IsRunning(id string) bool {
 }
 
 // Pop removes an engine from the registry and returns the engine if found.
-func (r *EngineRegistry) Pop(id string) (StartReadyCloser, error) {
+func (r *EngineRegistry) Pop(id string) (services.Service, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	engine, ok := r.engines[id]
