@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 )
@@ -14,7 +15,7 @@ var _ deployment.ChangeSet[InitialContractsCfg] = ConfigureInitialContractsChang
 type InitialContractsCfg struct {
 	RegistryChainSel uint64
 	Dons             []kslib.DonCapabilities
-	OCR3Config       *kslib.OracleConfigWithSecrets
+	OCR3Config       *kslib.OracleConfig
 }
 
 func ConfigureInitialContractsChangeset(e deployment.Environment, cfg InitialContractsCfg) (deployment.ChangesetOutput, error) {

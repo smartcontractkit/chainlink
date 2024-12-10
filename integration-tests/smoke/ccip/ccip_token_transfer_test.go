@@ -1,56 +1,50 @@
 package smoke
 
 import (
-	"context"
 	"math/big"
 	"testing"
 
 	"golang.org/x/exp/maps"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 
-	sel "github.com/smartcontractkit/chain-selectors"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
+	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestTokenTransfer(t *testing.T) {
-	t.Skip("need to deflake and optimize")
 	lggr := logger.TestLogger(t)
 	ctx := tests.Context(t)
 	config := &changeset.TestConfigs{}
-	tenv, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr, config)
-	inMemoryEnv := false
 
-	// use this if you are testing locally in memory
-	// tenv := changeset.NewMemoryEnvironmentWithJobsAndContracts(t, lggr, 2, 4, config)
-	// inMemoryEnv := true
+	tenv := changeset.NewMemoryEnvironmentWithJobsAndContracts(t, logger.TestLogger(t), memory.MemoryEnvironmentConfig{
+		Chains:             2,
+		Nodes:              4,
+		Bootstraps:         1,
+		NumOfUsersPerChain: 3,
+	}, config)
 
 	e := tenv.Env
 	state, err := changeset.LoadOnchainState(e)
 	require.NoError(t, err)
+	require.GreaterOrEqual(t, len(e.Chains), 2)
 
 	allChainSelectors := maps.Keys(e.Chains)
 	sourceChain, destChain := allChainSelectors[0], allChainSelectors[1]
 	ownerSourceChain := e.Chains[sourceChain].DeployerKey
 	ownerDestChain := e.Chains[destChain].DeployerKey
 
-	oneE18 := new(big.Int).SetUint64(1e18)
-	funds := new(big.Int).Mul(oneE18, new(big.Int).SetUint64(10))
+	require.GreaterOrEqual(t, len(tenv.Users[sourceChain]), 2)
+	require.GreaterOrEqual(t, len(tenv.Users[destChain]), 2)
+	selfServeSrcTokenPoolDeployer := tenv.Users[sourceChain][1]
+	selfServeDestTokenPoolDeployer := tenv.Users[destChain][1]
 
-	// Deploy and fund self-serve actors
-	selfServeSrcTokenPoolDeployer := createAndFundSelfServeActor(ctx, t, ownerSourceChain, e.Chains[sourceChain], funds, inMemoryEnv)
-	selfServeDestTokenPoolDeployer := createAndFundSelfServeActor(ctx, t, ownerDestChain, e.Chains[destChain], funds, inMemoryEnv)
+	oneE18 := new(big.Int).SetUint64(1e18)
 
 	// Deploy tokens and pool by CCIP Owner
 	srcToken, _, destToken, _, err := changeset.DeployTransferableToken(
@@ -226,54 +220,4 @@ func TestTokenTransfer(t *testing.T) {
 	require.Equal(t, expectedExecutionStates, execStates)
 
 	changeset.WaitForTokenBalances(ctx, t, e.Chains, expectedTokenBalances)
-}
-
-func createAndFundSelfServeActor(
-	ctx context.Context,
-	t *testing.T,
-	deployer *bind.TransactOpts,
-	chain deployment.Chain,
-	amountToFund *big.Int,
-	isInMemory bool,
-) *bind.TransactOpts {
-	key, err := crypto.GenerateKey()
-	require.NoError(t, err)
-
-	// Simulated backend sets chainID to 1337 always
-	chainID := big.NewInt(1337)
-	if !isInMemory {
-		// Docker environment runs real geth so chainID has to be set accordingly
-		stringChainID, err1 := sel.GetChainIDFromSelector(chain.Selector)
-		require.NoError(t, err1)
-		chainID, _ = new(big.Int).SetString(stringChainID, 10)
-	}
-
-	actor, err := bind.NewKeyedTransactorWithChainID(key, chainID)
-	require.NoError(t, err)
-
-	nonce, err := chain.Client.PendingNonceAt(ctx, deployer.From)
-	require.NoError(t, err)
-
-	gasPrice, err := chain.Client.SuggestGasPrice(ctx)
-	require.NoError(t, err)
-
-	tx := types.NewTx(&types.LegacyTx{
-		Nonce:    nonce,
-		To:       &actor.From,
-		Value:    amountToFund,
-		Gas:      uint64(21000),
-		GasPrice: gasPrice,
-		Data:     nil,
-	})
-
-	signedTx, err := deployer.Signer(deployer.From, tx)
-	require.NoError(t, err)
-
-	err = chain.Client.SendTransaction(ctx, signedTx)
-	require.NoError(t, err)
-
-	_, err = chain.Confirm(signedTx)
-	require.NoError(t, err)
-
-	return actor
 }

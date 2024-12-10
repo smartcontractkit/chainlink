@@ -379,7 +379,6 @@ func NewMemoryEnvironmentWithJobsAndContracts(t *testing.T, lggr logger.Logger, 
 			Config: NewChainsConfig{
 				HomeChainSel:       e.HomeChainSel,
 				FeedChainSel:       e.FeedChainSel,
-				OCRSecrets:         deployment.XXXGenerateTestOCRSecrets(),
 				ChainConfigByChain: chainConfigs,
 			},
 		},
