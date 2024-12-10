@@ -3,6 +3,7 @@ package syncer
 import (
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -179,6 +180,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 	var config = []byte("")
 	var wfOwner = []byte("0xOwner")
 	var binary = wasmtest.CreateTestBinary(binaryCmd, binaryLocation, true, t)
+	var encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
 	defaultValidationFn := func(t *testing.T, ctx context.Context, h *eventHandler, wfOwner []byte, wfName string, wfID string) {
 		// Verify the record is updated in the database
 		dbSpec, err := h.orm.GetWorkflowSpec(ctx, hex.EncodeToString(wfOwner), "workflow-name")
@@ -198,7 +200,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 		{
 			Name: "success with active workflow registered",
 			fetcher: newMockFetcher(map[string]mockFetchResp{
-				binaryURL:  {Body: binary, Err: nil},
+				binaryURL:  {Body: encodedBinary, Err: nil},
 				configURL:  {Body: config, Err: nil},
 				secretsURL: {Body: []byte("secrets"), Err: nil},
 			}),
@@ -224,7 +226,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 		{
 			Name: "success with paused workflow registered",
 			fetcher: newMockFetcher(map[string]mockFetchResp{
-				binaryURL:  {Body: binary, Err: nil},
+				binaryURL:  {Body: encodedBinary, Err: nil},
 				configURL:  {Body: config, Err: nil},
 				secretsURL: {Body: []byte("secrets"), Err: nil},
 			}),
@@ -267,7 +269,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			GiveBinary: binary,
 			WFOwner:    wfOwner,
 			fetcher: newMockFetcher(map[string]mockFetchResp{
-				binaryURL:  {Body: binary, Err: nil},
+				binaryURL:  {Body: encodedBinary, Err: nil},
 				secretsURL: {Body: []byte("secrets"), Err: nil},
 			}),
 			validationFn: defaultValidationFn,
@@ -290,7 +292,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			GiveBinary: binary,
 			WFOwner:    wfOwner,
 			fetcher: newMockFetcher(map[string]mockFetchResp{
-				binaryURL: {Body: binary, Err: nil},
+				binaryURL: {Body: encodedBinary, Err: nil},
 				configURL: {Body: config, Err: nil},
 			}),
 			validationFn: defaultValidationFn,
@@ -354,15 +356,17 @@ func testRunningWorkflow(t *testing.T, cmd testCase) {
 		store := wfstore.NewDBStore(db, lggr, clockwork.NewFakeClock())
 		registry := capabilities.NewRegistry(lggr)
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
-		h := &eventHandler{
-			lggr:           lggr,
-			orm:            orm,
-			fetcher:        fetcher,
-			emitter:        emitter,
-			engineRegistry: er,
-			capRegistry:    registry,
-			workflowStore:  store,
-		}
+		h := NewEventHandler(
+			lggr,
+			orm,
+			fetcher,
+			store,
+			registry,
+			emitter,
+			clockwork.NewFakeClock(),
+			workflowkey.Key{},
+			WithEngineRegistry(er),
+		)
 		err = h.workflowRegisteredEvent(ctx, event)
 		require.NoError(t, err)
 
@@ -379,15 +383,16 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			orm     = NewWorkflowRegistryDS(db, lggr)
 			emitter = custmsg.NewLabeler()
 
-			binary     = wasmtest.CreateTestBinary(binaryCmd, binaryLocation, true, t)
-			config     = []byte("")
-			secretsURL = "http://example.com"
-			binaryURL  = "http://example.com/binary"
-			configURL  = "http://example.com/config"
-			wfOwner    = []byte("0xOwner")
+			binary        = wasmtest.CreateTestBinary(binaryCmd, binaryLocation, true, t)
+			encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
+			config        = []byte("")
+			secretsURL    = "http://example.com"
+			binaryURL     = "http://example.com/binary"
+			configURL     = "http://example.com/config"
+			wfOwner       = []byte("0xOwner")
 
 			fetcher = newMockFetcher(map[string]mockFetchResp{
-				binaryURL:  {Body: binary, Err: nil},
+				binaryURL:  {Body: encodedBinary, Err: nil},
 				configURL:  {Body: config, Err: nil},
 				secretsURL: {Body: []byte("secrets"), Err: nil},
 			})
@@ -412,15 +417,17 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		store := wfstore.NewDBStore(db, lggr, clockwork.NewFakeClock())
 		registry := capabilities.NewRegistry(lggr)
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
-		h := &eventHandler{
-			lggr:           lggr,
-			orm:            orm,
-			fetcher:        fetcher,
-			emitter:        emitter,
-			engineRegistry: er,
-			capRegistry:    registry,
-			workflowStore:  store,
-		}
+		h := NewEventHandler(
+			lggr,
+			orm,
+			fetcher,
+			store,
+			registry,
+			emitter,
+			clockwork.NewFakeClock(),
+			workflowkey.Key{},
+			WithEngineRegistry(er),
+		)
 		err = h.workflowRegisteredEvent(ctx, active)
 		require.NoError(t, err)
 
@@ -465,17 +472,18 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 			orm     = NewWorkflowRegistryDS(db, lggr)
 			emitter = custmsg.NewLabeler()
 
-			binary       = wasmtest.CreateTestBinary(binaryCmd, binaryLocation, true, t)
-			config       = []byte("")
-			updateConfig = []byte("updated")
-			secretsURL   = "http://example.com"
-			binaryURL    = "http://example.com/binary"
-			configURL    = "http://example.com/config"
-			newConfigURL = "http://example.com/new-config"
-			wfOwner      = []byte("0xOwner")
+			binary        = wasmtest.CreateTestBinary(binaryCmd, binaryLocation, true, t)
+			encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
+			config        = []byte("")
+			updateConfig  = []byte("updated")
+			secretsURL    = "http://example.com"
+			binaryURL     = "http://example.com/binary"
+			configURL     = "http://example.com/config"
+			newConfigURL  = "http://example.com/new-config"
+			wfOwner       = []byte("0xOwner")
 
 			fetcher = newMockFetcher(map[string]mockFetchResp{
-				binaryURL:    {Body: binary, Err: nil},
+				binaryURL:    {Body: encodedBinary, Err: nil},
 				configURL:    {Body: config, Err: nil},
 				newConfigURL: {Body: updateConfig, Err: nil},
 				secretsURL:   {Body: []byte("secrets"), Err: nil},
@@ -507,15 +515,17 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 		store := wfstore.NewDBStore(db, lggr, clockwork.NewFakeClock())
 		registry := capabilities.NewRegistry(lggr)
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
-		h := &eventHandler{
-			lggr:           lggr,
-			orm:            orm,
-			fetcher:        fetcher,
-			emitter:        emitter,
-			engineRegistry: er,
-			capRegistry:    registry,
-			workflowStore:  store,
-		}
+		h := NewEventHandler(
+			lggr,
+			orm,
+			fetcher,
+			store,
+			registry,
+			emitter,
+			clockwork.NewFakeClock(),
+			workflowkey.Key{},
+			WithEngineRegistry(er),
+		)
 		err = h.workflowRegisteredEvent(ctx, active)
 		require.NoError(t, err)
 

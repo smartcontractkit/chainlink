@@ -481,7 +481,7 @@ func (h *eventHandler) workflowRegisteredEvent(
 		decodedBinary,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to create workflow engine", err)
+		return fmt.Errorf("failed to create workflow engine: %w", err)
 	}
 
 	if err := engine.Start(ctx); err != nil {

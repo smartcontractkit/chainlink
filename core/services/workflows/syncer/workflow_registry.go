@@ -227,14 +227,14 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 			w.lggr.Debugw("Waiting for DON...")
 			don, err := w.workflowDonNotifier.WaitForDon(ctx)
 			if err != nil {
-				w.lggr.Errorf("failed to wait for don: %v", err)
+				w.lggr.Errorw("failed to wait for don", "err", err)
 				return
 			}
 
 			w.lggr.Debugw("Loading initial workflows for DON", "DON", don.ID)
 			loadWorkflowsHead, err := w.initialWorkflowsStateLoader.LoadWorkflows(ctx, don)
 			if err != nil {
-				w.lggr.Errorf("failed to load workflows: %v", err)
+				w.lggr.Errorw("failed to load workflows", "err", err)
 				return
 			}
 
@@ -285,7 +285,7 @@ func (w *workflowRegistry) handlerLoop(ctx context.Context) {
 			}
 
 			if resp.Err != nil || resp.Event == nil {
-				w.lggr.Errorf("failed to handle event", "err", resp.Err)
+				w.lggr.Errorw("failed to handle event", "err", resp.Err)
 				continue
 			}
 
