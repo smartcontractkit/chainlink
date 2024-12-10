@@ -9,7 +9,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"golang.org/x/exp/maps"
 
 	"github.com/stretchr/testify/require"
@@ -24,13 +23,9 @@ func Test_ActiveCandidate(t *testing.T) {
 	// We want to have the active instance execute a few messages
 	// and then setup a candidate instance. The candidate instance
 	// should not be able to transmit anything until we make it active.
-	lggr := logger.TestLogger(t)
-	tenv := NewMemoryEnvironmentWithJobsAndContracts(t, lggr, memory.MemoryEnvironmentConfig{
-		Chains:             2,
-		NumOfUsersPerChain: 1,
-		Nodes:              4,
-		Bootstraps:         1,
-	}, nil)
+	tenv := NewMemoryEnvironment(t,
+		WithChains(2),
+		WithNodes(4))
 	state, err := LoadOnchainState(tenv.Env)
 	require.NoError(t, err)
 

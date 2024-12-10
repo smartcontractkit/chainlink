@@ -8,13 +8,10 @@ import (
 	"os"
 	"strconv"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
@@ -28,8 +25,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	integrationnodes "github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -56,13 +51,74 @@ import (
 // DeployedLocalDevEnvironment is a helper struct for setting up a local dev environment with docker
 type DeployedLocalDevEnvironment struct {
 	changeset.DeployedEnv
-	testEnv *test_env.CLClusterTestEnv
-	DON     *devenv.DON
+	testEnv       *test_env.CLClusterTestEnv
+	DON           *devenv.DON
+	devEnvTestCfg tc.TestConfig
+	devEnvCfg     *devenv.EnvironmentConfig
 }
 
-func (d DeployedLocalDevEnvironment) RestartChainlinkNodes(t *testing.T) error {
+func (l *DeployedLocalDevEnvironment) DeployedEnvironment() changeset.DeployedEnv {
+	return l.DeployedEnv
+}
+
+func (l *DeployedLocalDevEnvironment) StartChains(t *testing.T, _ *changeset.TestConfigs) {
+	lggr := logger.TestLogger(t)
+	ctx := testcontext.Get(t)
+	envConfig, testEnv, cfg := CreateDockerEnv(t)
+	l.devEnvTestCfg = cfg
+	l.testEnv = testEnv
+	l.devEnvCfg = envConfig
+	users := make(map[uint64][]*bind.TransactOpts)
+	for _, chain := range envConfig.Chains {
+		details, found := chainsel.ChainByEvmChainID(chain.ChainID)
+		require.Truef(t, found, "chain not found")
+		users[details.Selector] = chain.Users
+	}
+	homeChainSel := l.devEnvTestCfg.CCIP.GetHomeChainSelector()
+	require.NotEmpty(t, homeChainSel, "homeChainSel should not be empty")
+	feedSel := l.devEnvTestCfg.CCIP.GetFeedChainSelector()
+	require.NotEmpty(t, feedSel, "feedSel should not be empty")
+	chains, err := devenv.NewChains(lggr, envConfig.Chains)
+	require.NoError(t, err)
+	replayBlocks, err := changeset.LatestBlocksByChain(ctx, chains)
+	require.NoError(t, err)
+	l.DeployedEnv.Users = users
+	l.DeployedEnv.Env.Chains = chains
+	l.DeployedEnv.FeedChainSel = feedSel
+	l.DeployedEnv.HomeChainSel = homeChainSel
+	l.DeployedEnv.ReplayBlocks = replayBlocks
+}
+
+func (l *DeployedLocalDevEnvironment) StartNodes(t *testing.T, _ *changeset.TestConfigs, crConfig deployment.CapabilityRegistryConfig) {
+	require.NotNil(t, l.testEnv, "docker env is empty, start chains first")
+	require.NotEmpty(t, l.devEnvTestCfg, "integration test config is empty, start chains first")
+	require.NotNil(t, l.devEnvCfg, "dev environment config is empty, start chains first")
+	err := StartChainlinkNodes(t, l.devEnvCfg,
+		crConfig,
+		l.testEnv, l.devEnvTestCfg)
+	require.NoError(t, err)
+	ctx := testcontext.Get(t)
+	lggr := logger.TestLogger(t)
+	e, don, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, *l.devEnvCfg)
+	require.NoError(t, err)
+	require.NotNil(t, e)
+	l.DON = don
+	l.DeployedEnv.Env = *e
+
+	// fund the nodes
+	zeroLogLggr := logging.GetTestLogger(t)
+	FundNodes(t, zeroLogLggr, l.testEnv, l.devEnvTestCfg, don.PluginNodes())
+}
+
+func (l *DeployedLocalDevEnvironment) MockUSDCAttestationServer(t *testing.T, isUSDCAttestationMissing bool) string {
+	err := ccipactions.SetMockServerWithUSDCAttestation(l.testEnv.MockAdapter, nil, isUSDCAttestationMissing)
+	require.NoError(t, err)
+	return l.testEnv.MockAdapter.InternalEndpoint
+}
+
+func (l *DeployedLocalDevEnvironment) RestartChainlinkNodes(t *testing.T) error {
 	errGrp := errgroup.Group{}
-	for _, n := range d.testEnv.ClCluster.Nodes {
+	for _, n := range l.testEnv.ClCluster.Nodes {
 		n := n
 		errGrp.Go(func() error {
 			if err := n.Container.Terminate(testcontext.Get(t)); err != nil {
@@ -79,214 +135,56 @@ func (d DeployedLocalDevEnvironment) RestartChainlinkNodes(t *testing.T) error {
 	return errGrp.Wait()
 }
 
-func NewLocalDevEnvironmentWithDefaultPrice(t *testing.T, lggr logger.Logger, tCfg *changeset.TestConfigs) (changeset.DeployedEnv, *test_env.CLClusterTestEnv, tc.TestConfig) {
-	return NewLocalDevEnvironment(t, lggr, changeset.MockLinkPrice, changeset.MockWethPrice, tCfg)
-}
-
-func NewLocalDevEnvironment(
-	t *testing.T,
-	lggr logger.Logger,
-	linkPrice, wethPrice *big.Int,
-	tCfg *changeset.TestConfigs,
-) (changeset.DeployedEnv, *test_env.CLClusterTestEnv, tc.TestConfig) {
-	if tCfg == nil {
-		// set to the default constructed value
-		tCfg = &changeset.TestConfigs{}
+func NewIntegrationEnvironment(t *testing.T, opts ...changeset.TestOps) (changeset.DeployedEnv, devenv.RMNCluster) {
+	testCfg := changeset.DefaultTestConfigs()
+	for _, opt := range opts {
+		opt(testCfg)
 	}
-
-	ctx := testcontext.Get(t)
-	// create a local docker environment with simulated chains and job-distributor
-	// we cannot create the chainlink nodes yet as we need to deploy the capability registry first
-	envConfig, testEnv, cfg := CreateDockerEnv(t)
-	require.NotNil(t, envConfig)
-	require.NotEmpty(t, envConfig.Chains, "chainConfigs should not be empty")
-	require.NotEmpty(t, envConfig.JDConfig, "jdUrl should not be empty")
-	users := make(map[uint64][]*bind.TransactOpts)
-	for _, chain := range envConfig.Chains {
-		sel, err := chainsel.SelectorFromChainId(chain.ChainID)
-		require.NoError(t, err)
-		users[sel] = chain.Users
-	}
-	chains, err := devenv.NewChains(lggr, envConfig.Chains)
-	require.NoError(t, err)
-	// locate the home chain
-	homeChainSel := cfg.CCIP.GetHomeChainSelector()
-	require.NotEmpty(t, homeChainSel, "homeChainSel should not be empty")
-	feedSel := cfg.CCIP.GetFeedChainSelector()
-	require.NotEmpty(t, feedSel, "feedSel should not be empty")
-	replayBlocks, err := changeset.LatestBlocksByChain(ctx, chains)
-	require.NoError(t, err)
-
-	ab := deployment.NewMemoryAddressBook()
-	crConfig := changeset.DeployTestContracts(t, lggr, ab, homeChainSel, feedSel, chains, linkPrice, wethPrice)
-
-	// start the chainlink nodes with the CR address
-	err = StartChainlinkNodes(t, envConfig,
-		crConfig,
-		testEnv, cfg)
-	require.NoError(t, err)
-
-	e, don, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, *envConfig)
-	require.NoError(t, err)
-	require.NotNil(t, e)
-	e.ExistingAddresses = ab
-
-	// fund the nodes
-	zeroLogLggr := logging.GetTestLogger(t)
-	FundNodes(t, zeroLogLggr, testEnv, cfg, don.PluginNodes())
-
-	env := *e
-	envNodes, err := deployment.NodeInfo(env.NodeIDs, env.Offchain)
-	require.NoError(t, err)
-	allChains := env.AllChainSelectors()
-	var usdcChains []uint64
-	if tCfg.IsUSDC {
-		usdcChains = allChains
-	}
-	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
-	for _, c := range env.AllChainSelectors() {
-		mcmsCfg[c] = commontypes.MCMSWithTimelockConfig{
-			Canceller:        commonchangeset.SingleGroupMCMS(t),
-			Bypasser:         commonchangeset.SingleGroupMCMS(t),
-			Proposer:         commonchangeset.SingleGroupMCMS(t),
-			TimelockMinDelay: big.NewInt(0),
+	// check for EnvType env var
+	testCfg.MustSetEnvTypeOrDefault(t)
+	require.NoError(t, testCfg.Validate(), "invalid test config")
+	switch testCfg.Type {
+	case changeset.Memory:
+		memEnv := changeset.NewMemoryEnvironment(t, opts...)
+		return memEnv, devenv.RMNCluster{}
+	case changeset.Docker:
+		dockerEnv := &DeployedLocalDevEnvironment{}
+		if testCfg.RMNEnabled {
+			deployedEnv := changeset.NewEnvironmentWithJobsAndContracts(t, testCfg, dockerEnv)
+			l := logging.GetTestLogger(t)
+			require.NotNil(t, dockerEnv.testEnv, "empty docker environment")
+			config := GenerateTestRMNConfig(t, testCfg.NumOfRMNNodes, deployedEnv, MustNetworksToRPCMap(dockerEnv.testEnv.EVMNetworks))
+			require.NotNil(t, dockerEnv.devEnvTestCfg.CCIP)
+			rmnCluster, err := devenv.NewRMNCluster(
+				t, l,
+				[]string{dockerEnv.testEnv.DockerNetwork.ID},
+				config,
+				dockerEnv.devEnvTestCfg.CCIP.RMNConfig.GetProxyImage(),
+				dockerEnv.devEnvTestCfg.CCIP.RMNConfig.GetProxyVersion(),
+				dockerEnv.devEnvTestCfg.CCIP.RMNConfig.GetAFN2ProxyImage(),
+				dockerEnv.devEnvTestCfg.CCIP.RMNConfig.GetAFN2ProxyVersion(),
+				dockerEnv.testEnv.LogStream,
+			)
+			require.NoError(t, err)
+			return deployedEnv, *rmnCluster
 		}
-	}
-	// Need to deploy prerequisites first so that we can form the USDC config
-	// no proposals to be made, timelock can be passed as nil here
-	env, err = commonchangeset.ApplyChangesets(t, env, nil, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.DeployHomeChain),
-			Config: changeset.DeployHomeChainConfig{
-				HomeChainSel:     homeChainSel,
-				RMNStaticConfig:  changeset.NewTestRMNStaticConfig(),
-				RMNDynamicConfig: changeset.NewTestRMNDynamicConfig(),
-				NodeOperators:    changeset.NewTestNodeOperator(chains[homeChainSel].DeployerKey.From),
-				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
-					"NodeOperator": envNodes.NonBootstraps().PeerIDs(),
-				},
-			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
-			Config:    allChains,
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.DeployPrerequisites),
-			Config: changeset.DeployPrerequisiteConfig{
-				ChainSelectors: allChains,
-				Opts: []changeset.PrerequisiteOpt{
-					changeset.WithUSDCChains(usdcChains),
-					changeset.WithMulticall3(tCfg.IsMultiCall3),
-				},
-			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployMCMSWithTimelock),
-			Config:    mcmsCfg,
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.DeployChainContracts),
-			Config: changeset.DeployChainContractsConfig{
-				ChainSelectors:    allChains,
-				HomeChainSelector: homeChainSel,
-			},
-		},
-	})
-	require.NoError(t, err)
-	state, err := changeset.LoadOnchainState(env)
-	require.NoError(t, err)
-
-	var tokenDataProviders []pluginconfig.TokenDataObserverConfig
-	if len(usdcChains) > 0 {
-		var endpoint string
-		err = ccipactions.SetMockServerWithUSDCAttestation(testEnv.MockAdapter, nil, tCfg.IsUSDCAttestationMissing)
-		require.NoError(t, err)
-		endpoint = testEnv.MockAdapter.InternalEndpoint
-		cctpContracts := make(map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig)
-		for _, usdcChain := range usdcChains {
-			cctpContracts[cciptypes.ChainSelector(usdcChain)] = pluginconfig.USDCCCTPTokenConfig{
-				SourcePoolAddress:            state.Chains[usdcChain].USDCTokenPool.Address().String(),
-				SourceMessageTransmitterAddr: state.Chains[usdcChain].MockUSDCTransmitter.Address().String(),
-			}
+		if testCfg.CreateJobAndContracts {
+			deployedEnv := changeset.NewEnvironmentWithJobsAndContracts(t, testCfg, dockerEnv)
+			require.NotNil(t, dockerEnv.testEnv, "empty docker environment")
+			return deployedEnv, devenv.RMNCluster{}
 		}
-		tokenDataProviders = append(tokenDataProviders, pluginconfig.TokenDataObserverConfig{
-			Type:    pluginconfig.USDCCCTPHandlerType,
-			Version: "1.0",
-			USDCCCTPObserverConfig: &pluginconfig.USDCCCTPObserverConfig{
-				Tokens:                 cctpContracts,
-				AttestationAPI:         endpoint,
-				AttestationAPITimeout:  commonconfig.MustNewDuration(time.Second),
-				AttestationAPIInterval: commonconfig.MustNewDuration(500 * time.Millisecond),
-			}})
-	}
-
-	// Build the per chain config.
-	tokenConfig := changeset.NewTestTokenConfig(state.Chains[feedSel].USDFeeds)
-	chainConfigs := make(map[uint64]changeset.CCIPOCRParams)
-	timelockContractsPerChain := make(map[uint64]*commonchangeset.TimelockExecutionContracts)
-	for _, chain := range allChains {
-		timelockContractsPerChain[chain] = &commonchangeset.TimelockExecutionContracts{
-			Timelock:  state.Chains[chain].Timelock,
-			CallProxy: state.Chains[chain].CallProxy,
+		if testCfg.CreateJob {
+			deployedEnv := changeset.NewEnvironmentWithJobs(t, testCfg, dockerEnv)
+			require.NotNil(t, dockerEnv.testEnv, "empty docker environment")
+			return deployedEnv, devenv.RMNCluster{}
 		}
-		tokenInfo := tokenConfig.GetTokenInfo(e.Logger, state.Chains[chain].LinkToken, state.Chains[chain].Weth9)
-		ocrParams := changeset.DefaultOCRParams(feedSel, tokenInfo, tokenDataProviders)
-		if tCfg.OCRConfigOverride != nil {
-			ocrParams = tCfg.OCRConfigOverride(ocrParams)
-		}
-		chainConfigs[chain] = ocrParams
+		deployedEnv := changeset.NewEnvironment(t, testCfg, dockerEnv)
+		require.NotNil(t, dockerEnv.testEnv, "empty docker environment")
+		return deployedEnv, devenv.RMNCluster{}
+	default:
+		require.Failf(t, "Type %s not supported in integration tests choose between %s and %s", string(testCfg.Type), changeset.Memory, changeset.Docker)
 	}
-
-	// Deploy second set of changesets to deploy and configure the CCIP contracts.
-	env, err = commonchangeset.ApplyChangesets(t, env, timelockContractsPerChain, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.ConfigureNewChains),
-			Config: changeset.NewChainsConfig{
-				HomeChainSel:       homeChainSel,
-				FeedChainSel:       feedSel,
-				ChainConfigByChain: chainConfigs,
-			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.CCIPCapabilityJobspec),
-		},
-	})
-	require.NoError(t, err)
-
-	// Ensure capreg logs are up to date.
-	changeset.ReplayLogs(t, e.Offchain, replayBlocks)
-
-	return changeset.DeployedEnv{
-		Env:          env,
-		HomeChainSel: homeChainSel,
-		FeedChainSel: feedSel,
-		ReplayBlocks: replayBlocks,
-		Users:        users,
-	}, testEnv, cfg
-}
-
-func NewLocalDevEnvironmentWithRMN(
-	t *testing.T,
-	lggr logger.Logger,
-	numRmnNodes int,
-) (changeset.DeployedEnv, devenv.RMNCluster) {
-	tenv, dockerenv, testCfg := NewLocalDevEnvironmentWithDefaultPrice(t, lggr, nil)
-	l := logging.GetTestLogger(t)
-	config := GenerateTestRMNConfig(t, numRmnNodes, tenv, MustNetworksToRPCMap(dockerenv.EVMNetworks))
-	require.NotNil(t, testCfg.CCIP)
-	rmnCluster, err := devenv.NewRMNCluster(
-		t, l,
-		[]string{dockerenv.DockerNetwork.ID},
-		config,
-		testCfg.CCIP.RMNConfig.GetProxyImage(),
-		testCfg.CCIP.RMNConfig.GetProxyVersion(),
-		testCfg.CCIP.RMNConfig.GetAFN2ProxyImage(),
-		testCfg.CCIP.RMNConfig.GetAFN2ProxyVersion(),
-		dockerenv.LogStream,
-	)
-	require.NoError(t, err)
-	return tenv, *rmnCluster
+	return changeset.DeployedEnv{}, devenv.RMNCluster{}
 }
 
 func MustNetworksToRPCMap(evmNetworks []*blockchain.EVMNetwork) map[uint64]string {

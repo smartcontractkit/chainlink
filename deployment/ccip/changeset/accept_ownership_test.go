@@ -5,22 +5,14 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
 
 func Test_NewAcceptOwnershipChangeset(t *testing.T) {
-	e := NewMemoryEnvironmentWithJobsAndContracts(t, logger.TestLogger(t), memory.MemoryEnvironmentConfig{
-		Chains:             2,
-		NumOfUsersPerChain: 1,
-		Nodes:              4,
-		Bootstraps:         1,
-	}, &TestConfigs{})
+	e := NewMemoryEnvironment(t)
 	state, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
