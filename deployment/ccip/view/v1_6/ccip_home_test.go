@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
@@ -30,10 +31,10 @@ func TestCCIPHomeView(t *testing.T) {
 	_, err = deployment.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
 
-	v, err := GenerateCCIPHomeView(chain.Client, ch)
+	v, err := GenerateCCIPHomeView(cr, ch)
 	require.NoError(t, err)
-	b, err := json.MarshalIndent(v, "", "  ")
-	t.Log(string(b))
+	assert.Equal(t, v.TypeAndVersion, "CCIPHome 1.6.0-dev")
 
-	// TODO: Add chains/dons etc.
+	_, err = json.MarshalIndent(v, "", "  ")
+	require.NoError(t, err)
 }

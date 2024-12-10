@@ -18,7 +18,8 @@ const (
 )
 
 type DonView struct {
-	DonID         uint32                  `json:"donID"`
+	DonID uint32 `json:"donID"`
+	// TODO: find a way to hexify the bytes here
 	CommitConfigs ccip_home.GetAllConfigs `json:"commitConfigs"`
 	ExecConfigs   ccip_home.GetAllConfigs `json:"execConfigs"`
 }

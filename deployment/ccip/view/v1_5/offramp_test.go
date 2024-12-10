@@ -6,6 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
@@ -52,8 +53,8 @@ func TestOffRampView(t *testing.T) {
 
 	v, err := GenerateOffRampView(c2)
 	require.NoError(t, err)
-	require.Equal(t, v.StaticConfig, sc)
-	b, err := json.MarshalIndent(v, "", "  ")
+	assert.Equal(t, v.StaticConfig, sc)
+	assert.Equal(t, v.TypeAndVersion, "EVM2EVMOffRamp 1.5.0")
+	_, err = json.MarshalIndent(v, "", "  ")
 	require.NoError(t, err)
-	t.Log(string(b))
 }
