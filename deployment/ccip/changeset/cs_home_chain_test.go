@@ -7,6 +7,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -55,4 +56,42 @@ func TestDeployHomeChain(t *testing.T) {
 		},
 	})
 	require.Len(t, capRegSnap.Nodes, len(p2pIds))
+}
+
+func TestRemoveDons(t *testing.T) {
+	e := NewMemoryEnvironment(t)
+	s, err := LoadOnchainState(e.Env)
+	require.NoError(t, err)
+	homeChain := s.Chains[e.HomeChainSel]
+
+	// Invalid dons
+	a := RemoveDONsConfig{
+		HomeChainSel: e.HomeChainSel,
+		DonIDs:       []uint32{},
+	}
+	require.Error(t, a.Validate(homeChain))
+
+	// Remove a don w/o MCMS
+	donsBefore, err := homeChain.CapabilityRegistry.GetDONs(nil)
+	require.NoError(t, err)
+	e.Env, err = commoncs.ApplyChangesets(t, e.Env, map[uint64]*commoncs.TimelockExecutionContracts{
+		e.HomeChainSel: {
+			Timelock:  s.Chains[e.HomeChainSel].Timelock,
+			CallProxy: s.Chains[e.HomeChainSel].CallProxy,
+		},
+	}, []commoncs.ChangesetApplication{
+		{
+			Changeset: commoncs.WrapChangeSet(RemoveDONs),
+			Config: RemoveDONsConfig{
+				HomeChainSel: e.HomeChainSel,
+				DonIDs:       []uint32{donsBefore[0].Id},
+			},
+		},
+	})
+	require.NoError(t, err)
+	donsAfter, err := homeChain.CapabilityRegistry.GetDONs(nil)
+	require.NoError(t, err)
+	require.Len(t, donsAfter, len(donsBefore)-1)
+
+	// Remove a don w/ MCMS
 }
