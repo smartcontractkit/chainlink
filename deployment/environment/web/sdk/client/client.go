@@ -61,8 +61,7 @@ func New(baseURI string, creds Credentials) (Client, error) {
 		endpoints:   ep,
 		credentials: creds,
 	}
-
-	fmt.Printf("Loggging in to node using cookie %s, endpoint %s\n", c.cookie, c.endpoints.Sessions)
+	
 	err := retry.Do(context.Background(), retry.WithMaxDuration(10*time.Second, retry.NewFibonacci(2*time.Second)), func(ctx context.Context) error {
 		err := c.login()
 		if err != nil {

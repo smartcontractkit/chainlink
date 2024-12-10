@@ -398,10 +398,8 @@ func (n *Node) CreateJobDistributor(ctx context.Context, jd JobDistributor) (str
 		return "", fmt.Errorf("Could not list job distrubutors: %w", err)
 	}
 	if len(resp.FeedsManagers.Results) > 0 {
-		fmt.Printf("Using existing job distributor with ID: %s\n", resp.FeedsManagers.Results[0].FeedsManagerParts.GetId())
 		return resp.FeedsManagers.Results[0].FeedsManagerParts.GetId(), nil
 	}
-	fmt.Printf("Could not find existing JD in node %s, creating... ", n.NodeId)
 	return n.gqlClient.CreateJobDistributor(ctx, client.JobDistributorInput{
 		Name:      "Job Distributor",
 		Uri:       jd.WSRPC,
@@ -423,7 +421,6 @@ func (n *Node) SetUpAndLinkJobDistributor(ctx context.Context, jd JobDistributor
 		(!strings.Contains(err.Error(), "only a single feeds manager is supported") || !strings.Contains(err.Error(), "DuplicateFeedsManagerError")) {
 		return fmt.Errorf("failed to create job distributor in node %s: %w", n.Name, err)
 	}
-	fmt.Printf("Using job distributor with ID: %s\n", id)
 	// wait for the node to connect to the job distributor
 	err = retry.Do(ctx, retry.WithMaxDuration(1*time.Minute, retry.NewFibonacci(1*time.Second)), func(ctx context.Context) error {
 		getRes, err := jd.GetNode(ctx, &nodev1.GetNodeRequest{
