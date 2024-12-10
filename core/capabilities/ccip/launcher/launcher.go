@@ -223,11 +223,13 @@ func (l *launcher) processUpdate(ctx context.Context, updated map[registrysyncer
 		if err != nil {
 			return err
 		}
+		l.lggr.Infow("updating new configs for CCIP DON", "donId", donID, "newConfigs", latestConfigs)
 
 		err = newPlugins.TransitionFrom(prevPlugins)
 		if err != nil {
 			return fmt.Errorf("could not transition state %w", err)
 		}
+		l.lggr.Debugw("successfully transitioned oracles for CCIP DON", "donId", donID)
 
 		l.instances[donID] = newPlugins
 		l.regState.IDsToDONs[donID] = updated[donID]
@@ -263,6 +265,7 @@ func (l *launcher) processAdded(ctx context.Context, added map[registrysyncer.Do
 			continue
 		}
 
+		l.lggr.Infow("successfully created DON for CCIP", "donId", donID, "newPlugins", newPlugins)
 		// now that oracles are created, we need to start them. If there are issues with starting
 		// we should shut them down
 		if err := newPlugins.StartAll(); err != nil {
@@ -271,6 +274,7 @@ func (l *launcher) processAdded(ctx context.Context, added map[registrysyncer.Do
 			}
 			return fmt.Errorf("processAdded: start oracles for CCIP DON %d: %w", donID, err)
 		}
+		l.lggr.Debugw("successfully started all oracles for CCIP DON", "donId", donID)
 
 		// update state.
 		l.instances[donID] = newPlugins
@@ -297,6 +301,7 @@ func (l *launcher) processRemoved(removed map[registrysyncer.DonID]registrysynce
 
 		}
 
+		l.lggr.Infow("successfully shutdown oracles for CCIP DON", "donId", id)
 		// after a successful shutdown we can safely remove the DON deployment from the map.
 		delete(l.instances, id)
 		delete(l.regState.IDsToDONs, id)
