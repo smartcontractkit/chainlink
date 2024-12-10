@@ -93,9 +93,8 @@ func (req *MutateNodeCapabilitiesRequest) updateNodeCapabilitiesImplRequest(e de
 
 	return &internal.UpdateNodeCapabilitiesImplRequest{
 		Chain:             registryChain,
-		Registry:          contractSet.CapabilitiesRegistry,
-		P2pToCapabilities: req.P2pToCapabilities,
 		ContractSet:       &contractSet,
+		P2pToCapabilities: req.P2pToCapabilities,
 		UseMCMS:           req.UseMCMS,
 	}, nil
 }

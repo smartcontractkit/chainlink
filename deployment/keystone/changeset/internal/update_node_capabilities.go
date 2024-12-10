@@ -12,7 +12,6 @@ import (
 
 type UpdateNodeCapabilitiesImplRequest struct {
 	Chain             deployment.Chain
-	Registry          *kcr.CapabilitiesRegistry
 	ContractSet       *kslib.ContractSet
 	P2pToCapabilities map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability
 
@@ -23,7 +22,7 @@ func (req *UpdateNodeCapabilitiesImplRequest) Validate() error {
 	if len(req.P2pToCapabilities) == 0 {
 		return fmt.Errorf("p2pToCapabilities is empty")
 	}
-	if req.Registry == nil {
+	if req.ContractSet == nil {
 		return fmt.Errorf("registry is nil")
 	}
 
@@ -51,7 +50,6 @@ func UpdateNodeCapabilitiesImpl(lggr logger.Logger, req *UpdateNodeCapabilitiesI
 
 	updateNodesReq := &UpdateNodesRequest{
 		Chain:        req.Chain,
-		Registry:     req.Registry,
 		P2pToUpdates: p2pToUpdates,
 		ContractSet:  req.ContractSet,
 		Ops:          op,

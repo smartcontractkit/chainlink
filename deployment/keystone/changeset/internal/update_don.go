@@ -27,8 +27,8 @@ type CapabilityConfig struct {
 }
 
 type UpdateDonRequest struct {
-	Registry *kcr.CapabilitiesRegistry
-	Chain    deployment.Chain
+	Chain       deployment.Chain
+	ContractSet *kslib.ContractSet // contract set for the given chain
 
 	P2PIDs            []p2pkey.PeerID    // this is the unique identifier for the don
 	CapabilityConfigs []CapabilityConfig // if Config subfield is nil, a default config is used
@@ -39,7 +39,7 @@ type UpdateDonRequest struct {
 func (r *UpdateDonRequest) appendNodeCapabilitiesRequest() *AppendNodeCapabilitiesRequest {
 	out := &AppendNodeCapabilitiesRequest{
 		Chain:             r.Chain,
-		Registry:          r.Registry,
+		ContractSet:       r.ContractSet,
 		P2pToCapabilities: make(map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability),
 		UseMCMS:           r.UseMCMS,
 	}
@@ -55,7 +55,7 @@ func (r *UpdateDonRequest) appendNodeCapabilitiesRequest() *AppendNodeCapabiliti
 }
 
 func (r *UpdateDonRequest) Validate() error {
-	if r.Registry == nil {
+	if r.ContractSet.CapabilitiesRegistry == nil {
 		return fmt.Errorf("registry is required")
 	}
 	if len(r.P2PIDs) == 0 {
@@ -74,7 +74,8 @@ func UpdateDon(lggr logger.Logger, req *UpdateDonRequest) (*UpdateDonResponse, e
 		return nil, fmt.Errorf("failed to validate request: %w", err)
 	}
 
-	getDonsResp, err := req.Registry.GetDONs(&bind.CallOpts{})
+	registry := req.ContractSet.CapabilitiesRegistry
+	getDonsResp, err := registry.GetDONs(&bind.CallOpts{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get Dons: %w", err)
 	}
@@ -83,7 +84,7 @@ func UpdateDon(lggr logger.Logger, req *UpdateDonRequest) (*UpdateDonResponse, e
 	if err != nil {
 		return nil, fmt.Errorf("failed to lookup don by p2pIDs: %w", err)
 	}
-	cfgs, err := computeConfigs(req.Registry, req.CapabilityConfigs, don)
+	cfgs, err := computeConfigs(registry, req.CapabilityConfigs, don)
 	if err != nil {
 		return nil, fmt.Errorf("failed to compute configs: %w", err)
 	}
@@ -93,7 +94,7 @@ func UpdateDon(lggr logger.Logger, req *UpdateDonRequest) (*UpdateDonResponse, e
 		return nil, fmt.Errorf("failed to append node capabilities: %w", err)
 	}
 
-	tx, err := req.Registry.UpdateDON(req.Chain.DeployerKey, don.Id, don.NodeP2PIds, cfgs, don.IsPublic, don.F)
+	tx, err := registry.UpdateDON(req.Chain.DeployerKey, don.Id, don.NodeP2PIds, cfgs, don.IsPublic, don.F)
 	if err != nil {
 		err = kslib.DecodeErr(kcr.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to call UpdateDON: %w", err)
