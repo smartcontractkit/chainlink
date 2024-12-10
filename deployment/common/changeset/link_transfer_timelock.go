@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/link_token"
+	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
 type LinkTransfer struct {
@@ -29,8 +29,47 @@ type LinkTransferTimelockRequest struct {
 
 var _ deployment.ChangeSet[*LinkTransferTimelockRequest] = LinkTransferTimelock
 
+// Validate checks that the LinkTransferTimelockRequest is valid.
+func (cfg LinkTransferTimelockRequest) Validate() error {
+	// Check that Transfers map has at least one key
+	if len(cfg.Transfers) == 0 {
+		return fmt.Errorf("transfers map must have at least one key")
+	}
+
+	// Check that each key in Transfers has at least one LinkTransfer
+	for key, transfers := range cfg.Transfers {
+		if len(transfers) == 0 {
+			return fmt.Errorf("transfers for key %d must have at least one LinkTransfer", key)
+		}
+	}
+
+	// Check that StartingOpCount map has at least one key
+	if len(cfg.StartingOpCount) == 0 {
+		return fmt.Errorf("startingOpCount map must have at least one key")
+	}
+
+	// Check that Transfers and StartingOpCount have the same keys
+	for key := range cfg.Transfers {
+		if _, exists := cfg.StartingOpCount[key]; !exists {
+			return fmt.Errorf("startingOpCount map is missing key %d from transfers map", key)
+		}
+	}
+
+	for key := range cfg.StartingOpCount {
+		if _, exists := cfg.Transfers[key]; !exists {
+			return fmt.Errorf("transfers map is missing key %d from startingOpCount map", key)
+		}
+	}
+
+	return nil
+}
+
 // LinkTransferTimelock takes the given link transfers and executes them or creates an MCMS proposal for them.
 func LinkTransferTimelock(e deployment.Environment, req *LinkTransferTimelockRequest) (deployment.ChangesetOutput, error) {
+	err := req.Validate()
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("invalid LinkTransferTimelockRequest: %w", err)
+	}
 	chainMetadata := map[mcms.ChainIdentifier]mcms.ChainMetadata{}
 	timelockAddresses := map[mcms.ChainIdentifier]common.Address{}
 	allBatches := []timelock.BatchChainOperation{}
@@ -50,10 +89,6 @@ func LinkTransferTimelock(e deployment.Environment, req *LinkTransferTimelockReq
 		mcmAddress := mcmsState.ProposerMcm.Address()
 		timelockAddress := mcmsState.Timelock.Address()
 
-		linkContract, err := link_token.NewLinkToken(linkAddress, chain.Client)
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get link contract: %w", err)
-		}
 		chainMetadata[chainID] = mcms.ChainMetadata{
 			MCMAddress:      mcmAddress,
 			StartingOpCount: req.StartingOpCount[chainSelector],
@@ -68,7 +103,7 @@ func LinkTransferTimelock(e deployment.Environment, req *LinkTransferTimelockReq
 			opts = chain.DeployerKey
 		}
 		for _, transfer := range req.Transfers[chainSelector] {
-			tx, err := linkContract.Transfer(opts, transfer.To, transfer.Value)
+			tx, err := linkState.LinkToken.Transfer(opts, transfer.To, transfer.Value)
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("error packing transfer tx data: %w", err)
 			}
@@ -76,7 +111,7 @@ func LinkTransferTimelock(e deployment.Environment, req *LinkTransferTimelockReq
 				To:           linkAddress,
 				Data:         tx.Data(),
 				Value:        big.NewInt(0),
-				ContractType: "LinkToken",
+				ContractType: string(types.LinkToken),
 			}
 			batch.Batch = append(batch.Batch, op)
 

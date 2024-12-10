@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/link_token"
 )
 
 // TestLinkTransferTimelock tests the LinkTransferTimelock changeset by
@@ -31,23 +30,26 @@ func TestLinkTransferTimelock(t *testing.T) {
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 	chainSelector := env.AllChainSelectors()[0]
 	chain := env.Chains[chainSelector]
-	// Deploy Value Token
-	resp, err := changeset.DeployLinkToken(env, []uint64{chainSelector})
-	require.NoError(t, err)
-	require.NotNil(t, resp)
-	require.NoError(t, env.ExistingAddresses.Merge(resp.AddressBook))
+	config := changeset.SingleGroupMCMS(t)
 
 	// Deploy MCMS and Timelock
-	config := changeset.SingleGroupMCMS(t)
-	respTimelock, err := changeset.DeployMCMSWithTimelock(env, map[uint64]types.MCMSWithTimelockConfig{
-		chainSelector: {
-			Canceller:        config,
-			Bypasser:         config,
-			Proposer:         config,
-			TimelockMinDelay: big.NewInt(0),
+	env, err := changeset.ApplyChangesets(t, env, nil, []changeset.ChangesetApplication{
+		{
+			Changeset: changeset.WrapChangeSet(changeset.DeployLinkToken),
+			Config:    []uint64{chainSelector},
+		},
+		{
+			Changeset: changeset.WrapChangeSet(changeset.DeployMCMSWithTimelock),
+			Config: map[uint64]types.MCMSWithTimelockConfig{
+				chainSelector: {
+					Canceller:        config,
+					Bypasser:         config,
+					Proposer:         config,
+					TimelockMinDelay: big.NewInt(0),
+				},
+			},
 		},
 	})
-	require.NoError(t, env.ExistingAddresses.Merge(respTimelock.AddressBook))
 	require.NoError(t, err)
 
 	addrs, err := env.ExistingAddresses.AddressesForChain(chainSelector)
@@ -58,20 +60,16 @@ func TestLinkTransferTimelock(t *testing.T) {
 	require.NoError(t, err)
 	linkState, err := changeset.MaybeLoadLinkTokenState(chain, addrs)
 	require.NoError(t, err)
-	linkAddress := linkState.LinkToken.Address()
 	timelockAddress := mcmsState.Timelock.Address()
-
-	linkContract, err := link_token.NewLinkToken(linkAddress, chain.Client)
-	require.NoError(t, err)
 
 	// Mint some funds
 	// grant minter permissions
-	tx, err := linkContract.GrantMintRole(chain.DeployerKey, chain.DeployerKey.From)
+	tx, err := linkState.LinkToken.GrantMintRole(chain.DeployerKey, chain.DeployerKey.From)
 	require.NoError(t, err)
 	_, err = deployment.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
 
-	tx, err = linkContract.Mint(chain.DeployerKey, timelockAddress, big.NewInt(750))
+	tx, err = linkState.LinkToken.Mint(chain.DeployerKey, timelockAddress, big.NewInt(750))
 	require.NoError(t, err)
 	_, err = deployment.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
@@ -111,13 +109,13 @@ func TestLinkTransferTimelock(t *testing.T) {
 	require.NoError(t, err)
 
 	// Check new balances
-	endBalance, err := linkContract.BalanceOf(&bind.CallOpts{Context: ctx}, chain.DeployerKey.From)
+	endBalance, err := linkState.LinkToken.BalanceOf(&bind.CallOpts{Context: ctx}, chain.DeployerKey.From)
 	require.NoError(t, err)
 	expectedBalance := big.NewInt(500)
 	require.Equal(t, expectedBalance, endBalance)
 
 	// check timelock balance
-	endBalance, err = linkContract.BalanceOf(&bind.CallOpts{Context: ctx}, timelockAddress)
+	endBalance, err = linkState.LinkToken.BalanceOf(&bind.CallOpts{Context: ctx}, timelockAddress)
 	require.NoError(t, err)
 	expectedBalance = big.NewInt(250)
 	require.Equal(t, expectedBalance, endBalance)
