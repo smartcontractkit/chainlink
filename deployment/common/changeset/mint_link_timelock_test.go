@@ -6,10 +6,10 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -21,7 +21,7 @@ import (
 func TestMintLinkTimelock(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	lggr := logger.Test(t)
+	lggr := logger.TestLogger(t)
 	cfg := memory.MemoryEnvironmentConfig{
 		Nodes:  1,
 		Chains: 2,
@@ -40,11 +40,10 @@ func TestMintLinkTimelock(t *testing.T) {
 	config := changeset.SingleGroupMCMS(t)
 	respTimelock, err := changeset.DeployMCMSWithTimelock(env, map[uint64]types.MCMSWithTimelockConfig{
 		chainSelector: {
-			Canceller:         config,
-			Bypasser:          config,
-			Proposer:          config,
-			TimelockExecutors: []common.Address{chain.DeployerKey.From},
-			TimelockMinDelay:  big.NewInt(0),
+			Canceller:        config,
+			Bypasser:         config,
+			Proposer:         config,
+			TimelockMinDelay: big.NewInt(0),
 		},
 	})
 	require.NoError(t, env.ExistingAddresses.Merge(respTimelock.AddressBook))
@@ -52,11 +51,11 @@ func TestMintLinkTimelock(t *testing.T) {
 
 	addrs, err := env.ExistingAddresses.AddressesForChain(chainSelector)
 	require.NoError(t, err)
-	require.Len(t, addrs, 5)
+	require.Len(t, addrs, 6)
 
-	mcmsState, err := changeset.LoadMCMSWithTimelockState(chain, addrs)
+	mcmsState, err := changeset.MaybeLoadMCMSWithTimelockState(chain, addrs)
 	require.NoError(t, err)
-	linkState, err := changeset.LoadLinkTokenState(chain, addrs)
+	linkState, err := changeset.MaybeLoadLinkTokenState(chain, addrs)
 	require.NoError(t, err)
 	linkAddress := linkState.LinkToken.Address()
 	timelockAddress := mcmsState.Timelock.Address()
