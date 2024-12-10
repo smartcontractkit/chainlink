@@ -9,8 +9,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
-
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 
@@ -42,17 +40,20 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 	e, _ := testsetups.NewIntegrationEnvironment(
 		t,
 		changeset.WithEnvironmentType(changeset.Memory),
-		changeset.WithOCRConfigOverride(func(params changeset.CCIPOCRParams) changeset.CCIPOCRParams {
-			// Only 1 boost (=OCR round) is enough to cover the fee
-			params.ExecuteOffChainConfig.RelativeBoostPerWaitHour = 10
-			// Disable token price updates
-			params.CommitOffChainConfig.TokenPriceBatchWriteFrequency = *config.MustNewDuration(1_000_000 * time.Hour)
-			// Disable gas price updates
-			params.CommitOffChainConfig.RemoteGasPriceBatchWriteFrequency = *config.MustNewDuration(1_000_000 * time.Hour)
-			// Disable token price updates
-			params.CommitOffChainConfig.TokenInfo = nil
-			return params
-		}),
+		// TODO check if test should use these overrides
+		/*	changeset.WithOCRConfigOverride(func(params changeset.CCIPOCRParams) changeset.CCIPOCRParams {
+				// Only 1 boost (=OCR round) is enough to cover the fee
+				params.ExecuteOffChainConfig.RelativeBoostPerWaitHour = 10
+				// Disable token price updates
+				params.CommitOffChainConfig.TokenPriceBatchWriteFrequency = *config.MustNewDuration(1_000_000 * time.Hour)
+				// Disable gas price updates
+				params.CommitOffChainConfig.RemoteGasPriceBatchWriteFrequency = *config.MustNewDuration(1_000_000 * time.Hour)
+				// Disable token price updates
+				params.CommitOffChainConfig.TokenInfo = nil
+				return params
+			}),
+
+		*/
 	)
 
 	state, err := changeset.LoadOnchainState(e.Env)
