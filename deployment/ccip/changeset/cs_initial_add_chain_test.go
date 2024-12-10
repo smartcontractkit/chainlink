@@ -61,10 +61,12 @@ func TestInitialAddChainAppliedTwice(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
+	ReplayLogs(t, e.Env.Offchain, e.ReplayBlocks)
 	// Need to keep track of the block number for each chain so that event subscription can be done from that block.
 	startBlocks := make(map[uint64]*uint64)
 	// Send a message from each chain to every other chain.
 	expectedSeqNumExec := make(map[SourceDestPair][]uint64)
+	expectedSeqNum := make(map[SourceDestPair]uint64)
 	latesthdr, err := e.Env.Chains[chain2].Client.HeaderByNumber(testcontext.Get(t), nil)
 	require.NoError(t, err)
 	block := latesthdr.Number.Uint64()
@@ -76,9 +78,15 @@ func TestInitialAddChainAppliedTwice(t *testing.T) {
 		FeeToken:     common.HexToAddress("0x0"),
 		ExtraArgs:    nil,
 	})
+
+	expectedSeqNum[SourceDestPair{
+		SourceChainSelector: chain1,
+		DestChainSelector:   chain2,
+	}] = msgSentEvent.SequenceNumber
 	expectedSeqNumExec[SourceDestPair{
 		SourceChainSelector: chain1,
 		DestChainSelector:   chain2,
 	}] = []uint64{msgSentEvent.SequenceNumber}
+	ConfirmCommitForAllWithExpectedSeqNums(t, e.Env, state, expectedSeqNum, startBlocks)
 	ConfirmExecWithSeqNrsForAll(t, e.Env, state, expectedSeqNumExec, startBlocks)
 }
