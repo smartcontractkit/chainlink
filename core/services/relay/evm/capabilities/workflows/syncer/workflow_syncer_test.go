@@ -205,7 +205,7 @@ func Test_EventHandlerStateSync(t *testing.T) {
 
 		if numEvents == expectedNumEvents {
 			// verify the events are the expected types in the expected order
-			/*. Note the below test does not work with the unrefactored workflow registry, event order is essentially random
+			// Note the below test does not work with the unrefactored workflow registry, event order is essentially random
 			for idx, event := range events {
 				switch idx % 5 {
 				case 0:
@@ -219,7 +219,7 @@ func Test_EventHandlerStateSync(t *testing.T) {
 				case 4:
 					assert.Equal(t, syncer.WorkflowDeletedEvent, event.GetEventType())
 				}
-			} */
+			}
 			return true
 		}
 
