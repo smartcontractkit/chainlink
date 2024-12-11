@@ -93,6 +93,7 @@ type Client interface {
 }
 
 type HeadTracker interface {
+	services.Service
 	LatestAndFinalizedBlock(ctx context.Context) (latest, finalized *evmtypes.Head, err error)
 }
 

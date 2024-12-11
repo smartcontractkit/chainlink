@@ -184,6 +184,7 @@ func (cr *chainReader) HealthReport() map[string]error {
 	}
 
 	commonservices.CopyHealth(report, cr.lp.HealthReport())
+	commonservices.CopyHealth(report, cr.ht.HealthReport())
 	return report
 }
 
