@@ -51,15 +51,21 @@ func (cfg LinkTransferConfig) Validate(e deployment.Environment) error {
 
 	// Check transfers config values.
 	for chainSel, transfers := range cfg.Transfers {
-		_, err := chain_selectors.GetSelectorFamily(chainSel)
+		selector, err := chain_selectors.GetSelectorFamily(chainSel)
 		if err != nil {
 			return fmt.Errorf("invalid chain selector: %w", err)
+		}
+		if selector != chain_selectors.FamilyEVM {
+			return fmt.Errorf("chain selector %d is not an EVM chain", chainSel)
 		}
 		chain, ok := e.Chains[chainSel]
 		if !ok {
 			return fmt.Errorf("chain with selector %d not found", chainSel)
 		}
 		addrs, err := e.ExistingAddresses.AddressesForChain(chainSel)
+		if err != nil {
+			return fmt.Errorf("error getting addresses for chain %d: %w", chainSel, err)
+		}
 		if len(transfers) == 0 {
 			return fmt.Errorf("transfers for chainSel %d must have at least one LinkTransfer", chainSel)
 		}
@@ -77,6 +83,9 @@ func (cfg LinkTransferConfig) Validate(e deployment.Environment) error {
 			}
 			if transfer.Value.Cmp(big.NewInt(0)) == 0 {
 				return fmt.Errorf("value for transfers must be non-zero")
+			}
+			if transfer.Value.Cmp(big.NewInt(0)) == -1 {
+				return fmt.Errorf("value for transfers must be positive")
 			}
 			totalAmount.Add(totalAmount, transfer.Value)
 		}

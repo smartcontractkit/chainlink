@@ -320,6 +320,26 @@ func TestValidate(t *testing.T) {
 			errorMsg: "value for transfers must be non-zero",
 		},
 		{
+			name: "negative value",
+			cfg: example.LinkTransferConfig{
+				Transfers: map[uint64][]example.TransferConfig{
+					chainSelector: {
+						{To: chain.DeployerKey.From, Value: big.NewInt(-5)},
+					},
+				},
+			},
+			errorMsg: "value for transfers must be positive",
+		},
+		{
+			name: "non-evm-chain",
+			cfg: example.LinkTransferConfig{
+				Transfers: map[uint64][]example.TransferConfig{
+					chain_selectors.APTOS_MAINNET.Selector: {{To: mcmsState.Timelock.Address(), Value: big.NewInt(100)}}},
+				From: chain.DeployerKey.From,
+			},
+			errorMsg: "chain selector 4741433654826277614 is not an EVM chain",
+		},
+		{
 			name: "delay greater than max allowed",
 			cfg: example.LinkTransferConfig{
 				Transfers: map[uint64][]example.TransferConfig{
