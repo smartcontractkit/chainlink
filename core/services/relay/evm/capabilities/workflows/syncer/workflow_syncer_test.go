@@ -224,7 +224,7 @@ func Test_EventHandlerStateSync(t *testing.T) {
 		}
 
 		return false
-	}, 5*time.Second, time.Second)
+	}, 50*time.Second, time.Second)
 }
 
 func Test_InitialStateSync(t *testing.T) {

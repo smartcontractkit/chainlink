@@ -202,7 +202,7 @@ func NewWorkflowRegistry(
 		stopCh:                      make(services.StopChan),
 		eventTypes:                  ets,
 		eventsCh:                    make(chan WorkflowRegistryEventResponse),
-		batchCh:                     make(chan []WorkflowRegistryEventResponse, len(ets)),
+		batchCh:                     make(chan []WorkflowRegistryEventResponse, 50000),
 		handler:                     handler,
 		initialWorkflowsStateLoader: initialWorkflowsStateLoader,
 		workflowDonNotifier:         workflowDonNotifier,
@@ -313,8 +313,6 @@ func (w *workflowRegistry) syncEventsLoop(ctx context.Context, lastReadBlockNumb
 		}
 
 		ticker = w.getTicker()
-
-		signals = make(map[WorkflowRegistryEventType]chan struct{}, 0)
 	)
 
 	// critical failure if there is no reader, the loop will exit and the parent context will be
@@ -324,18 +322,15 @@ func (w *workflowRegistry) syncEventsLoop(ctx context.Context, lastReadBlockNumb
 		w.lggr.Criticalf("contract reader unavailable : %s", err)
 		return
 	}
-
-	// fan out and query for each event type
-	for i := 0; i < len(w.eventTypes); i++ {
-		signal := make(chan struct{}, 1)
-		signals[w.eventTypes[i]] = signal
-		w.wg.Add(1)
-		go func() {
-			defer w.wg.Done()
-
-			queryEvent(
+	
+	cursor := ""
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker:
+			events, newCursor, err := queryEvent(
 				ctx,
-				signal,
 				w.lggr,
 				reader,
 				lastReadBlockNumber,
@@ -344,37 +339,22 @@ func (w *workflowRegistry) syncEventsLoop(ctx context.Context, lastReadBlockNumb
 					ContractAddress:           w.workflowRegistryAddress,
 					WorkflowEventPollerConfig: w.eventPollerCfg,
 				},
-				w.eventTypes[i],
-				w.batchCh,
+				w.eventTypes,
+				cursor,
 			)
-		}()
-	}
 
-	// Periodically send a signal to all the queryEvent goroutines to query the contract
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker:
-			w.lggr.Debugw("Syncing with WorkflowRegistry")
-			// for each event type, send a signal for it to execute a query and produce a new
-			// batch of event logs
-			for i := 0; i < len(w.eventTypes); i++ {
-				signal := signals[w.eventTypes[i]]
-				select {
-				case signal <- struct{}{}:
-				case <-ctx.Done():
-					return
-				}
+			cursor = newCursor
+			if err != nil {
+				w.lggr.Errorw("failed to query events", "err", err)
+				continue
 			}
 
-			// block on fan-in until all fetched event logs are sent to the handlers
-			w.orderAndSend(
-				ctx,
-				len(w.eventTypes),
-				w.batchCh,
-				sendLog,
-			)
+			w.lggr.Debugw("Syncing with WorkflowRegistry")
+
+			for _, event := range events {
+				sendLog(event)
+			}
+
 		}
 	}
 }
@@ -444,23 +424,26 @@ type queryEventConfig struct {
 	WorkflowEventPollerConfig
 }
 
+type sequenceWithEventType struct {
+	Sequence  types.Sequence
+	EventType WorkflowRegistryEventType
+}
+
 // queryEvent queries the contract for events of the given type on each tick from the ticker.
 // Sends a batch of event logs to the batch channel.  The batch represents all the
 // event logs read since the last query.  Loops until the context is canceled.
 func queryEvent(
 	ctx context.Context,
-	ticker <-chan struct{},
 	lggr logger.Logger,
 	reader ContractReader,
 	lastReadBlockNumber string,
 	cfg queryEventConfig,
-	et WorkflowRegistryEventType,
-	batchCh chan<- []WorkflowRegistryEventResponse,
-) {
+	eventTypes []WorkflowRegistryEventType,
+	cursor string,
+) ([]WorkflowRegistryEventResponse, string, error) {
 	// create query
 	var (
 		logData      values.Value
-		cursor       = ""
 		limitAndSort = query.LimitAndSort{
 			SortBy: []query.SortBy{query.NewSortByTimestamp(query.Asc)},
 			Limit:  query.Limit{Count: cfg.QueryCount},
@@ -471,74 +454,70 @@ func queryEvent(
 		}
 	)
 
-	// Loop until canceled
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker:
-			responseBatch := []WorkflowRegistryEventResponse{}
+	responseBatch := []WorkflowRegistryEventResponse{}
 
-			if cursor != "" {
-				limitAndSort.Limit = query.CursorLimit(cursor, query.CursorFollowing, cfg.QueryCount)
-			}
-
-			keyQueries := []types.ContractKeyFilter{
-				{
-					KeyFilter: query.KeyFilter{
-						Key: string(et),
-						Expressions: []query.Expression{
-							query.Confidence(primitives.Finalized),
-							query.Block(lastReadBlockNumber, primitives.Gt),
-						},
-					},
-					Contract:         bc,
-					SequenceDataType: &logData,
-				},
-			}
-
-			logsIter, err := reader.QueryKeys(
-				ctx,
-				keyQueries,
-				limitAndSort,
-			)
-
-			var logs []types.Sequence
-			for _, log := range logsIter {
-				logs = append(logs, log)
-			}
-
-			lcursor := cursor
-			if lcursor == "" {
-				lcursor = "empty"
-			}
-			lggr.Debugw("QueryKeys called", "logs", len(logs), "eventType", et, "lastReadBlockNumber", lastReadBlockNumber, "logCursor", lcursor)
-
-			if err != nil {
-				lggr.Errorw("QueryKey failure", "err", err)
-				continue
-			}
-
-			// ChainReader QueryKey API provides logs including the cursor value and not
-			// after the cursor value. If the response only consists of the log corresponding
-			// to the cursor and no log after it, then we understand that there are no new
-			// logs
-			if len(logs) == 1 && logs[0].Cursor == cursor {
-				lggr.Infow("No new logs since", "cursor", cursor)
-				continue
-			}
-
-			for _, log := range logs {
-				if log.Cursor == cursor {
-					continue
-				}
-
-				responseBatch = append(responseBatch, toWorkflowRegistryEventResponse(log, et, lggr))
-				cursor = log.Cursor
-			}
-			batchCh <- responseBatch
-		}
+	if cursor != "" {
+		limitAndSort.Limit = query.CursorLimit(cursor, query.CursorFollowing, cfg.QueryCount)
 	}
+
+	var keyQueries []types.ContractKeyFilter
+	for _, et := range eventTypes {
+		keyQueries = append(keyQueries, types.ContractKeyFilter{
+			KeyFilter: query.KeyFilter{
+				Key: string(et),
+				Expressions: []query.Expression{
+					query.Confidence(primitives.Finalized),
+					query.Block(lastReadBlockNumber, primitives.Gt),
+				},
+			},
+			Contract:         bc,
+			SequenceDataType: &logData,
+		})
+	}
+
+	logsIter, err := reader.QueryKeys(
+		ctx,
+		keyQueries,
+		limitAndSort,
+	)
+
+	var logs []sequenceWithEventType
+	for eventType, log := range logsIter {
+		logs = append(logs, sequenceWithEventType{
+			Sequence:  log,
+			EventType: WorkflowRegistryEventType(eventType),
+		})
+	}
+
+	lcursor := cursor
+	if lcursor == "" {
+		lcursor = "empty"
+	}
+	lggr.Debugw("QueryKeys called", "logs", len(logs), "eventTypes", eventTypes, "lastReadBlockNumber", lastReadBlockNumber, "logCursor", lcursor)
+
+	if err != nil {
+		return nil, cursor, fmt.Errorf("failed to query keys: %w", err)
+	}
+
+	// ChainReader QueryKey API provides logs including the cursor value and not
+	// after the cursor value. If the response only consists of the log corresponding
+	// to the cursor and no log after it, then we understand that there are no new
+	// logs
+	if len(logs) == 1 && logs[0].Sequence.Cursor == cursor {
+		lggr.Infow("No new logs since", "cursor", cursor)
+		return nil, cursor, nil
+	}
+
+	for _, log := range logs {
+		if log.Sequence.Cursor == cursor {
+			continue
+		}
+
+		responseBatch = append(responseBatch, toWorkflowRegistryEventResponse(log.Sequence, log.EventType, lggr))
+		cursor = log.Sequence.Cursor
+	}
+
+	return responseBatch, cursor, nil
 }
 
 func getWorkflowRegistryEventReader(
