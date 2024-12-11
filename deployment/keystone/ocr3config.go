@@ -18,12 +18,10 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	kocr3 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
@@ -300,7 +298,7 @@ func (r configureOCR3Request) generateOCR3Config() (OCR2OracleConfig, error) {
 
 type configureOCR3Response struct {
 	ocrConfig OCR2OracleConfig
-	proposal  *timelock.MCMSWithTimelockProposal
+	ops       *timelock.BatchChainOperation
 }
 
 func configureOCR3contract(req configureOCR3Request) (*configureOCR3Response, error) {
@@ -333,7 +331,7 @@ func configureOCR3contract(req configureOCR3Request) (*configureOCR3Response, er
 		return nil, fmt.Errorf("failed to call SetConfig for OCR3 contract %s using mcms: %T: %w", req.contract.Address().String(), req.useMCMS, err)
 	}
 
-	var proposal *timelock.MCMSWithTimelockProposal
+	var ops *timelock.BatchChainOperation
 	if !req.useMCMS {
 		_, err = req.chain.Confirm(tx)
 		if err != nil {
@@ -341,7 +339,7 @@ func configureOCR3contract(req configureOCR3Request) (*configureOCR3Response, er
 			return nil, fmt.Errorf("failed to confirm SetConfig for OCR3 contract %s: %w", req.contract.Address().String(), err)
 		}
 	} else {
-		ops := timelock.BatchChainOperation{
+		ops = &timelock.BatchChainOperation{
 			ChainIdentifier: mcms.ChainIdentifier(req.chain.Selector),
 			Batch: []mcms.Operation{
 				{
@@ -351,24 +349,7 @@ func configureOCR3contract(req configureOCR3Request) (*configureOCR3Response, er
 				},
 			},
 		}
-		timelocksPerChain := map[uint64]common.Address{
-			req.chain.Selector: req.contractSet.Timelock.Address(),
-		}
-		proposerMCMSes := map[uint64]*gethwrappers.ManyChainMultiSig{
-			req.chain.Selector: req.contractSet.ProposerMcm,
-		}
-
-		proposal, err = proposalutils.BuildProposalFromBatches(
-			timelocksPerChain,
-			proposerMCMSes,
-			[]timelock.BatchChainOperation{ops},
-			"proposal to set ocr3 config",
-			0,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to build proposal: %w", err)
-		}
 	}
 
-	return &configureOCR3Response{ocrConfig, proposal}, nil
+	return &configureOCR3Response{ocrConfig, ops}, nil
 }

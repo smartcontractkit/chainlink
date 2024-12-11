@@ -20,8 +20,25 @@ type UpdateDonRequest struct {
 	RegistryChainSel  uint64
 	P2PIDs            []p2pkey.PeerID    // this is the unique identifier for the don
 	CapabilityConfigs []CapabilityConfig // if Config subfield is nil, a default config is used
-	UseMCMS           bool
+
+	// MCMSConfig is optional. If non-nil, the changes will be proposed using MCMS.
+	MCMSConfig *MCMSConfig
 }
+
+func (r *UpdateDonRequest) Validate() error {
+	if len(r.P2PIDs) == 0 {
+		return fmt.Errorf("p2pIDs is required")
+	}
+	if len(r.CapabilityConfigs) == 0 {
+		return fmt.Errorf("capabilityConfigs is required")
+	}
+	return nil
+}
+
+func (r UpdateDonRequest) UseMCMS() bool {
+	return r.MCMSConfig != nil
+}
+
 type UpdateDonResponse struct {
 	DonInfo kcr.CapabilitiesRegistryDONInfo
 }
@@ -45,7 +62,7 @@ func UpdateDon(env deployment.Environment, req *UpdateDonRequest) (deployment.Ch
 	}
 
 	out := deployment.ChangesetOutput{}
-	if req.UseMCMS {
+	if req.UseMCMS() {
 		if updateResult.Ops == nil {
 			return out, fmt.Errorf("expected MCMS operation to be non-nil")
 		}
@@ -69,7 +86,7 @@ func appendRequest(r *UpdateDonRequest) *AppendNodeCapabilitiesRequest {
 	out := &AppendNodeCapabilitiesRequest{
 		RegistryChainSel:  r.RegistryChainSel,
 		P2pToCapabilities: make(map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability),
-		UseMCMS:           r.UseMCMS,
+		MCMSConfig:        r.MCMSConfig,
 	}
 	for _, p2pid := range r.P2PIDs {
 		if _, exists := out.P2pToCapabilities[p2pid]; !exists {
@@ -97,6 +114,6 @@ func updateDonRequest(env deployment.Environment, r *UpdateDonRequest) (*interna
 		ContractSet:       &contractSet,
 		P2PIDs:            r.P2PIDs,
 		CapabilityConfigs: r.CapabilityConfigs,
-		UseMCMS:           r.UseMCMS,
+		UseMCMS:           r.UseMCMS(),
 	}, nil
 }

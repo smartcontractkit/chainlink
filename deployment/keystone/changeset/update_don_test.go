@@ -97,7 +97,7 @@ func TestUpdateDon(t *testing.T) {
 					Capability: capB,
 				},
 			},
-			UseMCMS: true,
+			MCMSConfig: &changeset.MCMSConfig{MinDuration: 0},
 		}
 
 		csOut, err := changeset.UpdateDon(te.Env, &cfg)
