@@ -228,7 +228,7 @@ func deployChainContracts(
 		Signers: []rmn_remote.RMNRemoteSigner{
 			{NodeIndex: 0, OnchainPublicKey: common.Address{1}},
 		},
-		F: 0, // TODO: update when we have signers
+		FSign: 0, // TODO: update when we have signers
 	})
 	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
 		e.Logger.Errorw("Failed to confirm RMNRemote config", "chain", chain.String(), "err", err)

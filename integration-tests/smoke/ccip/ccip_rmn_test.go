@@ -472,7 +472,7 @@ func (tc *rmnTestCase) populateFields(t *testing.T, envWithRMN changeset.Deploye
 		// configure remote chain details on the home contract
 		tc.pf.rmnHomeSourceChains = append(tc.pf.rmnHomeSourceChains, rmn_home.RMNHomeSourceChain{
 			ChainSelector:       tc.pf.chainSelectors[remoteChainIdx],
-			F:                   uint64(remoteF),
+			FObserve:            uint64(remoteF),
 			ObserverNodesBitmap: createObserverNodesBitmap(tc.pf.chainSelectors[remoteChainIdx], tc.rmnNodes, tc.pf.chainSelectors),
 		})
 	}
@@ -515,7 +515,7 @@ func (tc rmnTestCase) setRmnRemoteConfig(
 		rmnRemoteConfig := rmn_remote.RMNRemoteConfig{
 			RmnHomeContractConfigDigest: activeDigest,
 			Signers:                     tc.pf.rmnRemoteSigners,
-			F:                           uint64(remoteCfg.f),
+			FSign:                       uint64(remoteCfg.f),
 		}
 
 		chain := envWithRMN.Env.Chains[tc.pf.chainSelectors[remoteCfg.chainIdx]]
