@@ -239,7 +239,13 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 				return
 			}
 
-			w.syncEventsLoop(ctx, loadWorkflowsHead.Height)
+			reader, err := w.getContractReader(ctx)
+			if err != nil {
+				w.lggr.Criticalf("contract reader unavailable : %s", err)
+				return
+			}
+
+			w.syncEventsLoop(ctx, reader, loadWorkflowsHead.Height)
 		}()
 
 		w.wg.Add(1)
@@ -301,36 +307,26 @@ func (w *workflowRegistry) handlerLoop(ctx context.Context) {
 }
 
 // syncEventsLoop polls the contract for events and passes them to a channel for handling.
-func (w *workflowRegistry) syncEventsLoop(ctx context.Context, lastReadBlockNumber string) {
-	var (
-		// sendLog is a helper that sends a WorkflowRegistryEventResponse to the eventsCh in a
-		// blocking way that will send the response or be canceled.
-		sendLog = func(resp WorkflowRegistryEventResponse) {
-			select {
-			case w.eventsCh <- resp:
-			case <-ctx.Done():
-			}
-		}
+func (w *workflowRegistry) syncEventsLoop(ctx context.Context, reader ContractReader, lastReadBlockNumber string) {
+	ticker := w.getTicker()
 
-		ticker = w.getTicker()
-
-		logData      values.Value
-		limitAndSort = query.LimitAndSort{
-			SortBy: []query.SortBy{query.NewSortByTimestamp(query.Asc)},
-			Limit:  query.Limit{Count: w.eventPollerCfg.QueryCount},
-		}
-		bc = types.BoundContract{
-			Name:    WorkflowRegistryContractName,
-			Address: w.workflowRegistryAddress,
-		}
-	)
-
-	// critical failure if there is no reader, the loop will exit and the parent context will be
-	// canceled.
-	reader, err := w.getContractReader(ctx)
-	if err != nil {
-		w.lggr.Criticalf("contract reader unavailable : %s", err)
-		return
+	var keyQueries []types.ContractKeyFilter
+	for _, et := range w.eventTypes {
+		var logData values.Value
+		keyQueries = append(keyQueries, types.ContractKeyFilter{
+			KeyFilter: query.KeyFilter{
+				Key: string(et),
+				Expressions: []query.Expression{
+					query.Confidence(primitives.Finalized),
+					query.Block(lastReadBlockNumber, primitives.Gt),
+				},
+			},
+			Contract: types.BoundContract{
+				Name:    WorkflowRegistryContractName,
+				Address: w.workflowRegistryAddress,
+			},
+			SequenceDataType: &logData,
+		})
 	}
 
 	cursor := ""
@@ -339,33 +335,19 @@ func (w *workflowRegistry) syncEventsLoop(ctx context.Context, lastReadBlockNumb
 		case <-ctx.Done():
 			return
 		case <-ticker:
-
-			responseBatch := []WorkflowRegistryEventResponse{}
-
+			limitAndSort := query.LimitAndSort{
+				SortBy: []query.SortBy{query.NewSortByTimestamp(query.Asc)},
+				Limit:  query.Limit{Count: w.eventPollerCfg.QueryCount},
+			}
 			if cursor != "" {
 				limitAndSort.Limit = query.CursorLimit(cursor, query.CursorFollowing, w.eventPollerCfg.QueryCount)
 			}
 
-			var keyQueries []types.ContractKeyFilter
-			for _, et := range w.eventTypes {
-				keyQueries = append(keyQueries, types.ContractKeyFilter{
-					KeyFilter: query.KeyFilter{
-						Key: string(et),
-						Expressions: []query.Expression{
-							query.Confidence(primitives.Finalized),
-							query.Block(lastReadBlockNumber, primitives.Gt),
-						},
-					},
-					Contract:         bc,
-					SequenceDataType: &logData,
-				})
+			logsIter, err := reader.QueryKeys(ctx, keyQueries, limitAndSort)
+			if err != nil {
+				w.lggr.Errorw("failed to query keys", "err", err)
+				continue
 			}
-
-			logsIter, err := reader.QueryKeys(
-				ctx,
-				keyQueries,
-				limitAndSort,
-			)
 
 			var logs []sequenceWithEventType
 			for eventType, log := range logsIter {
@@ -381,10 +363,6 @@ func (w *workflowRegistry) syncEventsLoop(ctx context.Context, lastReadBlockNumb
 			}
 			w.lggr.Debugw("QueryKeys called", "logs", len(logs), "eventTypes", w.eventTypes, "lastReadBlockNumber", lastReadBlockNumber, "logCursor", lcursor)
 
-			if err != nil {
-				w.lggr.Errorw("failed to query keys: %w", err)
-			}
-
 			// ChainReader QueryKey API provides logs including the cursor value and not
 			// after the cursor value. If the response only consists of the log corresponding
 			// to the cursor and no log after it, then we understand that there are no new
@@ -394,19 +372,26 @@ func (w *workflowRegistry) syncEventsLoop(ctx context.Context, lastReadBlockNumb
 				continue
 			}
 
+			var events []WorkflowRegistryEventResponse
 			for _, log := range logs {
 				if log.Sequence.Cursor == cursor {
 					continue
 				}
 
-				responseBatch = append(responseBatch, toWorkflowRegistryEventResponse(log.Sequence, log.EventType, w.lggr))
+				events = append(events, toWorkflowRegistryEventResponse(log.Sequence, log.EventType, w.lggr))
 				cursor = log.Sequence.Cursor
 			}
 
-			for _, event := range responseBatch {
-				sendLog(event)
-			}
+			w.sendEvents(ctx, events)
+		}
+	}
+}
 
+func (w *workflowRegistry) sendEvents(ctx context.Context, events []WorkflowRegistryEventResponse) {
+	for _, event := range events {
+		select {
+		case <-ctx.Done():
+		case w.eventsCh <- event:
 		}
 	}
 }
