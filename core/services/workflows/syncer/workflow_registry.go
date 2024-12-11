@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"iter"
 	"sync"
 	"time"
 
@@ -99,7 +100,7 @@ type ContractReader interface {
 	Start(ctx context.Context) error
 	Close() error
 	Bind(context.Context, []types.BoundContract) error
-	QueryKey(context.Context, types.BoundContract, query.KeyFilter, query.LimitAndSort, any) ([]types.Sequence, error)
+	QueryKeys(ctx context.Context, keyQueries []types.ContractKeyFilter, limitAndSort query.LimitAndSort) (iter.Seq2[string, types.Sequence], error)
 	GetLatestValueWithHeadData(ctx context.Context, readName string, confidenceLevel primitives.ConfidenceLevel, params any, returnVal any) (head *types.Head, err error)
 }
 
@@ -482,19 +483,30 @@ func queryEvent(
 				limitAndSort.Limit = query.CursorLimit(cursor, query.CursorFollowing, cfg.QueryCount)
 			}
 
-			logs, err := reader.QueryKey(
-				ctx,
-				bc,
-				query.KeyFilter{
-					Key: string(et),
-					Expressions: []query.Expression{
-						query.Confidence(primitives.Finalized),
-						query.Block(lastReadBlockNumber, primitives.Gt),
+			keyQueries := []types.ContractKeyFilter{
+				{
+					KeyFilter: query.KeyFilter{
+						Key: string(et),
+						Expressions: []query.Expression{
+							query.Confidence(primitives.Finalized),
+							query.Block(lastReadBlockNumber, primitives.Gt),
+						},
 					},
+					Contract:         bc,
+					SequenceDataType: &logData,
 				},
+			}
+
+			logsIter, err := reader.QueryKeys(
+				ctx,
+				keyQueries,
 				limitAndSort,
-				&logData,
 			)
+
+			var logs []types.Sequence
+			for _, log := range logsIter {
+				logs = append(logs, log)
+			}
 
 			lcursor := cursor
 			if lcursor == "" {
