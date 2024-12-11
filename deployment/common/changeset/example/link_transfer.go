@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	ethTypes "github.com/ethereum/go-ethereum/core/types"
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
@@ -54,7 +55,10 @@ func (cfg LinkTransferConfig) Validate(e deployment.Environment) error {
 		if err != nil {
 			return fmt.Errorf("invalid chain selector: %w", err)
 		}
-		chain := e.Chains[chainSel]
+		chain, ok := e.Chains[chainSel]
+		if !ok {
+			return fmt.Errorf("chain with selector %d not found", chainSel)
+		}
 		addrs, err := e.ExistingAddresses.AddressesForChain(chainSel)
 		if len(transfers) == 0 {
 			return fmt.Errorf("transfers for chainSel %d must have at least one LinkTransfer", chainSel)
@@ -93,6 +97,57 @@ func (cfg LinkTransferConfig) Validate(e deployment.Environment) error {
 	return nil
 }
 
+// initStatePerChain initializes the state for each chain selector on the provided config
+func initStatePerChain(cfg *LinkTransferConfig, e deployment.Environment) (
+	linkStatePerChain map[uint64]*changeset.LinkTokenState,
+	mcmsStatePerChain map[uint64]*changeset.MCMSWithTimelockState,
+	err error) {
+	linkStatePerChain = map[uint64]*changeset.LinkTokenState{}
+	mcmsStatePerChain = map[uint64]*changeset.MCMSWithTimelockState{}
+	// Load state for each chain
+	for chainSelector := range cfg.Transfers {
+		chain := e.Chains[chainSelector]
+		addrs, err := e.ExistingAddresses.AddressesForChain(chainSelector)
+		if err != nil {
+			return nil, nil, err
+		}
+		linkState, err := changeset.MaybeLoadLinkTokenState(chain, addrs)
+		if err != nil {
+			return nil, nil, err
+		}
+		linkStatePerChain[chainSelector] = linkState
+		mcmsState, err := changeset.MaybeLoadMCMSWithTimelockState(chain, addrs)
+		if err != nil {
+			return nil, nil, err
+		}
+		mcmsStatePerChain[chainSelector] = mcmsState
+	}
+	return linkStatePerChain, mcmsStatePerChain, nil
+}
+
+// transferOrBuildTx transfers the LINK tokens or builds the tx for the MCMS proposal
+func transferOrBuildTx(
+	e deployment.Environment,
+	linkState *changeset.LinkTokenState,
+	transfer TransferConfig,
+	opts *bind.TransactOpts,
+	chain deployment.Chain,
+	mcmsConfig *MCMSConfig) (*ethTypes.Transaction, error) {
+	tx, err := linkState.LinkToken.Transfer(opts, transfer.To, transfer.Value)
+	if err != nil {
+		return nil, fmt.Errorf("error packing transfer tx data: %w", err)
+	}
+	// only wait for tx if we are not using MCMS
+	if mcmsConfig == nil {
+		if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
+			e.Logger.Errorw("Failed to confirm transfer tx", "chain", chain.String(), "err", err)
+			return nil, err
+		}
+	}
+	return tx, nil
+
+}
+
 // LinkTransfer takes the given link transfers and executes them or creates an MCMS proposal for them.
 func LinkTransfer(e deployment.Environment, cfg *LinkTransferConfig) (deployment.ChangesetOutput, error) {
 
@@ -107,20 +162,17 @@ func LinkTransfer(e deployment.Environment, cfg *LinkTransferConfig) (deployment
 	mcmsPerChain := map[uint64]*owner_helpers.ManyChainMultiSig{}
 
 	timelockAddresses := map[mcms.ChainIdentifier]common.Address{}
+	// Initialize state for each chain
+	linkStatePerChain, mcmsStatePerChain, err := initStatePerChain(cfg, e)
+
 	allBatches := []timelock.BatchChainOperation{}
 	for chainSelector := range cfg.Transfers {
 		chainID := mcms.ChainIdentifier(chainSelector)
 		chain := e.Chains[chainSelector]
-		addrs, err := e.ExistingAddresses.AddressesForChain(chainSelector)
-		linkState, err := changeset.MaybeLoadLinkTokenState(chain, addrs)
-		if err != nil {
-			return deployment.ChangesetOutput{}, err
-		}
-		linkAddress := linkState.LinkToken.Address()
-		mcmsState, err := changeset.MaybeLoadMCMSWithTimelockState(chain, addrs)
-		if err != nil {
-			return deployment.ChangesetOutput{}, err
-		}
+		linkAddress := linkStatePerChain[chainSelector].LinkToken.Address()
+		mcmsState := mcmsStatePerChain[chainSelector]
+		linkState := linkStatePerChain[chainSelector]
+
 		timelockAddress := mcmsState.Timelock.Address()
 
 		mcmsPerChain[uint64(chainID)] = mcmsState.ProposerMcm
@@ -136,9 +188,9 @@ func LinkTransfer(e deployment.Environment, cfg *LinkTransferConfig) (deployment
 		}
 		totalAmount := big.NewInt(0)
 		for _, transfer := range cfg.Transfers[chainSelector] {
-			tx, err := linkState.LinkToken.Transfer(opts, transfer.To, transfer.Value)
+			tx, err := transferOrBuildTx(e, linkState, transfer, opts, chain, cfg.McmsConfig)
 			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("error packing transfer tx data: %w", err)
+				return deployment.ChangesetOutput{}, err
 			}
 			op := mcms.Operation{
 				To:           linkAddress,

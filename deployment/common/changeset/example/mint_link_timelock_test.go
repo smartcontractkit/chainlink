@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/link_token"
 )
 
-// TestMintLinkTimelock tests the MintLinkTimelock changeset
+// TestMintLinkTimelock tests the MintLink changeset
 func TestMintLinkTimelock(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -65,8 +65,9 @@ func TestMintLinkTimelock(t *testing.T) {
 	require.NoError(t, err)
 
 	// Mint some funds
-	_, err = example.MintLinkTimelock(env, &example.MintLinkTimelockConfig{
+	_, err = example.MintLink(env, &example.MintLinkConfig{
 		ChainSelector: chainSelector,
+		To:            timelockAddress,
 		Amount:        big.NewInt(7568),
 	})
 	require.NoError(t, err)

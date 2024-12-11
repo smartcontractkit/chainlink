@@ -3,22 +3,25 @@ package example
 import (
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
 
-type MintLinkTimelockConfig struct {
+type MintLinkConfig struct {
 	Amount        *big.Int
 	ChainSelector uint64
+	To            common.Address
 }
 
-var _ deployment.ChangeSet[*MintLinkTimelockConfig] = MintLinkTimelock
+var _ deployment.ChangeSet[*MintLinkConfig] = MintLink
 
-// MintLinkTimelock mints LINK to the timelock contract.
-func MintLinkTimelock(e deployment.Environment, req *MintLinkTimelockConfig) (deployment.ChangesetOutput, error) {
+// MintLink mints LINK to the provided contract.
+func MintLink(e deployment.Environment, cfg *MintLinkConfig) (deployment.ChangesetOutput, error) {
 
-	chain := e.Chains[req.ChainSelector]
-	addresses, err := e.ExistingAddresses.AddressesForChain(req.ChainSelector)
+	chain := e.Chains[cfg.ChainSelector]
+	addresses, err := e.ExistingAddresses.AddressesForChain(cfg.ChainSelector)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -26,10 +29,7 @@ func MintLinkTimelock(e deployment.Environment, req *MintLinkTimelockConfig) (de
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	timelockState, err := changeset.MaybeLoadMCMSWithTimelockState(chain, addresses)
-	if err != nil {
-		return deployment.ChangesetOutput{}, err
-	}
+
 	tx, err := linkState.LinkToken.GrantMintRole(chain.DeployerKey, chain.DeployerKey.From)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
@@ -38,7 +38,7 @@ func MintLinkTimelock(e deployment.Environment, req *MintLinkTimelockConfig) (de
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	tx, err = linkState.LinkToken.Mint(chain.DeployerKey, timelockState.Timelock.Address(), req.Amount)
+	tx, err = linkState.LinkToken.Mint(chain.DeployerKey, cfg.To, cfg.Amount)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
