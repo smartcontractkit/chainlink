@@ -21,7 +21,7 @@ func NewSqlxDB(t testing.TB) *sqlx.DB {
 		t.Errorf("you must provide a CL_DATABASE_URL environment variable")
 		return nil
 	}
-	return pg.NewSqlxDB(t, dbURL)
+	return pg.NewTestDB(t, dbURL)
 }
 
 func MustExec(t *testing.T, ds sqlutil.DataSource, stmt string, args ...interface{}) {
