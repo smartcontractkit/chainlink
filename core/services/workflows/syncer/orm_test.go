@@ -256,3 +256,37 @@ func Test_GetContentsByWorkflowID(t *testing.T) {
 	assert.Equal(t, giveHash, gotHash)
 	assert.Equal(t, giveContent, gotContent)
 }
+
+func Test_GetContentsByWorkflowID_SecretsProvidedButEmpty(t *testing.T) {
+	db := pgtest.NewSqlxDB(t)
+	ctx := testutils.Context(t)
+	lggr := logger.TestLogger(t)
+	orm := &orm{ds: db, lggr: lggr}
+
+	// workflow_id is missing
+	_, _, err := orm.GetContentsByWorkflowID(ctx, "doesnt-exist")
+	require.ErrorContains(t, err, "no rows in result set")
+
+	// secrets_id is nil; should return EmptySecrets
+	workflowID := "aWorkflowID"
+	giveURL := "https://example.com"
+	giveBytes, err := crypto.Keccak256([]byte(giveURL))
+	require.NoError(t, err)
+	giveHash := hex.EncodeToString(giveBytes)
+	giveContent := ""
+	_, err = orm.UpsertWorkflowSpecWithSecrets(ctx, &job.WorkflowSpec{
+		Workflow:      "",
+		Config:        "",
+		WorkflowID:    workflowID,
+		WorkflowOwner: "aWorkflowOwner",
+		WorkflowName:  "aWorkflowName",
+		BinaryURL:     "",
+		ConfigURL:     "",
+		CreatedAt:     time.Now(),
+		SpecType:      job.DefaultSpecType,
+	}, giveURL, giveHash, giveContent)
+	require.NoError(t, err)
+
+	_, _, err = orm.GetContentsByWorkflowID(ctx, workflowID)
+	require.ErrorIs(t, err, ErrEmptySecrets)
+}

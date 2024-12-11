@@ -161,6 +161,10 @@ func (orm *orm) GetContentsByWorkflowID(ctx context.Context, workflowID string) 
 		return "", "", ErrEmptySecrets
 	}
 
+	if jr.Contents.String == "" {
+		return "", "", ErrEmptySecrets
+	}
+
 	return jr.SecretsURLHash.String, jr.Contents.String, nil
 }
 
