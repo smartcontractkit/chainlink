@@ -244,6 +244,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"network is unreachable", true, "Arbitrum"},
 			{"client error service unavailable", true, "tomlConfig"},
 			{"[Request ID: 825608a8-fd8a-4b5b-aea7-92999509306d] Error invoking RPC: [Request ID: 825608a8-fd8a-4b5b-aea7-92999509306d] Transaction execution returns a null value for transaction", true, "hedera"},
+			{"call failed: 503 Service Temporarily Unavailable: <html>\r\n<head><title>503 Service Temporarily Unavailable</title></head>\r\n<body>\r\n<center><h1>503 Service Temporarily Unavailable</h1></center>\r\n</body>\r\n</html>\r\n", true, "Arbitrum"},
 		}
 		for _, test := range tests {
 			err = evmclient.NewSendErrorS(test.message)
@@ -256,19 +257,6 @@ func Test_Eth_Errors(t *testing.T) {
 			assert.True(t, err.IsServiceUnavailable(clientErrors))
 			err = evmclient.NewSendError(fmt.Errorf("failed to send transaction: %w", commonclient.ErroringNodeError))
 			assert.True(t, err.IsServiceUnavailable(clientErrors))
-		}
-	})
-
-	t.Run("IsServiceTemporarilyUnavailable", func(t *testing.T) {
-		tests := []errorCase{
-			{"call failed: 503 Service Temporarily Unavailable: <html>\r\n<head><title>503 Service Temporarily Unavailable</title></head>\r\n<body>\r\n<center><h1>503 Service Temporarily Unavailable</h1></center>\r\n</body>\r\n</html>\r\n", true, "Arbitrum"},
-			{"client error service unavailable", false, "tomlConfig"},
-		}
-		for _, test := range tests {
-			err = evmclient.NewSendErrorS(test.message)
-			assert.Equal(t, err.IsServiceTemporarilyUnavailable(clientErrors), test.expect)
-			err = newSendErrorWrapped(test.message)
-			assert.Equal(t, err.IsServiceTemporarilyUnavailable(clientErrors), test.expect)
 		}
 	})
 
