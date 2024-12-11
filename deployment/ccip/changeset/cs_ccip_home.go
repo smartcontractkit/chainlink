@@ -34,11 +34,11 @@ type PromoteAllCandidatesChangesetConfig struct {
 }
 
 func (p PromoteAllCandidatesChangesetConfig) Validate(e deployment.Environment, state CCIPOnChainState) (deployment.Nodes, error) {
-	if p.HomeChainSelector == 0 {
-		return nil, fmt.Errorf("HomeChainSelector must be set")
+	if err := deployment.IsValidChainSelector(p.HomeChainSelector); err != nil {
+		return nil, fmt.Errorf("home chain selector invalid: %w", err)
 	}
-	if p.DONChainSelector == 0 {
-		return nil, fmt.Errorf("DONChainSelector must be set")
+	if err := deployment.IsValidChainSelector(p.DONChainSelector); err != nil {
+		return nil, fmt.Errorf("don chain selector invalid: %w", err)
 	}
 	if len(p.NodeIDs) == 0 {
 		return nil, fmt.Errorf("NodeIDs must be set")
