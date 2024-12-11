@@ -70,7 +70,7 @@ func (cfg LinkTransferConfig) Validate(e deployment.Environment) error {
 		}
 		for _, transfer := range transfers {
 			if transfer.To == (common.Address{}) {
-				return fmt.Errorf("'to' address for transfers  must be set")
+				return errors.New("'to' address for transfers must be set")
 			}
 			if transfer.Value == nil {
 				return fmt.Errorf("value for transfers must be set")
