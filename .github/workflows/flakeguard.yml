@@ -281,7 +281,7 @@ jobs:
     needs: [get-tests, run-tests]
     if: always()
     name: Report
-    runs-on: ubuntu-24.04-8cores-32GB-ARM # Use a runner with more resources to avoid OOM errors when aggregating test results.
+    runs-on: ubuntu22.04-32cores-128GB # Use a runner with more resources to avoid OOM errors when aggregating test results.
     outputs:
       test_results: ${{ steps.results.outputs.results }}
     steps:
