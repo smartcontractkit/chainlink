@@ -46,7 +46,7 @@ install-chainlink-cover: operator-ui ## Install the chainlink binary with cover 
 
 .PHONY: chainlink
 chainlink: ## Build the chainlink binary.
-	go build $(GOFLAGS) .
+	go build -gcflags "all=-N -l" .
 
 .PHONY: chainlink-dev
 chainlink-dev: ## Build a dev build of chainlink binary.

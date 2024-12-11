@@ -16,6 +16,9 @@ COPY . .
 
 RUN apt-get update && apt-get install -y jq
 
+# Install Delve for debugging
+RUN go install github.com/go-delve/delve/cmd/dlv@latest
+
 # Build the golang binaries
 RUN make install-chainlink
 
@@ -78,9 +81,16 @@ ENV CL_SOLANA_CMD chainlink-solana
 COPY --from=buildplugins /go/bin/chainlink-starknet /usr/local/bin/
 ENV CL_STARKNET_CMD chainlink-starknet
 
+# Copy Delve debugger from build stage
+COPY --from=buildgo /go/bin/dlv /usr/local/bin/dlv
+
 # Dependency of CosmWasm/wasmd
 COPY --from=buildgo /go/pkg/mod/github.com/\!cosm\!wasm/wasmvm@v*/internal/api/libwasmvm.*.so /usr/lib/
 RUN chmod 755 /usr/lib/libwasmvm.*.so
+
+# Install chrony for time synchronization
+RUN apt-get update && apt-get install -y chrony \
+  && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN if [ ${CHAINLINK_USER} != root ]; then \
   useradd --uid 14933 --create-home ${CHAINLINK_USER}; \
@@ -91,9 +101,13 @@ WORKDIR /home/${CHAINLINK_USER}
 ENV XDG_CACHE_HOME /home/${CHAINLINK_USER}/.cache
 RUN mkdir -p ${XDG_CACHE_HOME}
 
+# Expose Delve's port for debugging
 EXPOSE 6688
-ENTRYPOINT ["chainlink"]
+EXPOSE 40000
+
+ENTRYPOINT ["dlv", "--listen=0.0.0.0:40000", "--headless=true", "--api-version=2", "--accept-multiclient", "exec", "/usr/local/bin/chainlink"]
 
 HEALTHCHECK CMD curl -f http://localhost:6688/health || exit 1
 
 CMD ["local", "node"]
+
