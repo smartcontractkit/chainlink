@@ -194,6 +194,19 @@ runner-test-matrix:
     test_env_vars:
       TEST_SUITE: chaos
       CHAINLINK_USER_TEAM: Foundations
+      E2E_TEST_LOKI_BASIC_AUTH: secret
+      E2E_TEST_PYROSCOPE_KEY: ''
+      E2E_TEST_PYROSCOPE_ENVIRONMENT: ''
+      E2E_TEST_PYROSCOPE_SERVER_URL: ''
+      E2E_TEST_CHAINLINK_UPGRADE_IMAGE: ''
+      E2E_TEST_LOKI_TENANT_ID: 'tenant'
+      E2E_TEST_GRAFANA_BEARER_TOKEN: 'token'
+      E2E_TEST_LOGGING_RUN_ID: '1234567890'
+      E2E_TEST_LOG_STREAM_LOG_TARGETS: ''
+      E2E_TEST_LOG_COLLECT: ''
+      E2E_TEST_CHAINLINK_VERSION: '2.18.0'
+      E2E_TEST_CHAINLINK_IMAGE: 'public.ecr.aws/chainlink/chainlink'
+      E2E_TEST_LOKI_ENDPOINT: ''
 
 
   # END: OCR tests
