@@ -30,15 +30,7 @@ func MintLink(e deployment.Environment, cfg *MintLinkConfig) (deployment.Changes
 		return deployment.ChangesetOutput{}, err
 	}
 
-	tx, err := linkState.LinkToken.GrantMintRole(chain.DeployerKey, chain.DeployerKey.From)
-	if err != nil {
-		return deployment.ChangesetOutput{}, err
-	}
-	_, err = deployment.ConfirmIfNoError(chain, tx, err)
-	if err != nil {
-		return deployment.ChangesetOutput{}, err
-	}
-	tx, err = linkState.LinkToken.Mint(chain.DeployerKey, cfg.To, cfg.Amount)
+	tx, err := linkState.LinkToken.Mint(chain.DeployerKey, cfg.To, cfg.Amount)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}

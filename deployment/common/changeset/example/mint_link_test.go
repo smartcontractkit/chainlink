@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
@@ -15,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/link_token"
 )
 
 // TestMintLinkTimelock tests the MintLink changeset
@@ -58,11 +58,19 @@ func TestMintLinkTimelock(t *testing.T) {
 	require.NoError(t, err)
 	linkState, err := changeset.MaybeLoadLinkTokenChainState(chain, addrs)
 	require.NoError(t, err)
-	linkAddress := linkState.LinkToken.Address()
-	timelockAddress := mcmsState.Timelock.Address()
 
-	linkContract, err := link_token.NewLinkToken(linkAddress, chain.Client)
+	_, err = changeset.ApplyChangesets(t, env, nil, []changeset.ChangesetApplication{
+		{
+			Changeset: changeset.WrapChangeSet(example.AddMintersBurnersLink),
+			Config: &example.AddMintersBurnersLinkConfig{
+				ChainSelector: chainSelector,
+				Minters:       []common.Address{chain.DeployerKey.From},
+			},
+		},
+	})
 	require.NoError(t, err)
+
+	timelockAddress := mcmsState.Timelock.Address()
 
 	// Mint some funds
 	_, err = example.MintLink(env, &example.MintLinkConfig{
@@ -73,7 +81,7 @@ func TestMintLinkTimelock(t *testing.T) {
 	require.NoError(t, err)
 
 	// check timelock balance
-	endBalance, err := linkContract.BalanceOf(&bind.CallOpts{Context: ctx}, timelockAddress)
+	endBalance, err := linkState.LinkToken.BalanceOf(&bind.CallOpts{Context: ctx}, timelockAddress)
 	require.NoError(t, err)
 	expectedBalance := big.NewInt(7568)
 	require.Equal(t, expectedBalance, endBalance)

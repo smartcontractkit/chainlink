@@ -358,7 +358,7 @@ func TestValidate(t *testing.T) {
 				Transfers: map[uint64][]example.TransferConfig{
 					chainSelector: {{To: common.Address{}, Value: big.NewInt(100)}}},
 			},
-			errorMsg: "'to' address for transfers  must be set",
+			errorMsg: "'to' address for transfers must be set",
 		},
 		{
 			name: "invalid config: validUntil in the past",
