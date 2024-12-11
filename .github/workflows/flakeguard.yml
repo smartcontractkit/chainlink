@@ -105,7 +105,7 @@ jobs:
           # Conditionally resolve BASE SHA
           if [ -n "${{ env.GIT_BASE_REF }}" ]; then
             git fetch origin ${{ env.GIT_BASE_REF }} --quiet
-            
+
             git_base_sha=$(git rev-parse origin/${{ env.GIT_BASE_REF }})
             echo "git_base_sha=$git_base_sha" >> $GITHUB_OUTPUT
             
@@ -350,10 +350,10 @@ jobs:
             --output-path ./flakeguard-report \
             --repo-path "${{ github.workspace }}" \
             --codeowners-path "${{ github.workspace }}/.github/CODEOWNERS" \
-            --max-pass-ratio "${{ inputs.maxPassRatio }}"
-            --repo-url "${{ inputs.repoUrl }}"
-            --base-sha "${{ needs.get-tests.outputs.git_base_sha }}"
-            --head-sha "${{ needs.get-tests.outputs.git_head_sha }}"
+            --max-pass-ratio "${{ inputs.maxPassRatio }}" \
+            --repo-url "${{ inputs.repoUrl }}" \
+            --base-sha "${{ needs.get-tests.outputs.git_base_sha }}" \
+            --head-sha "${{ needs.get-tests.outputs.git_head_sha }}" \
             --github-workflow-name "${{ github.workflow }}"
 
           # Print out the summary file
