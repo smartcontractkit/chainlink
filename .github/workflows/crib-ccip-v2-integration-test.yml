@@ -1,0 +1,87 @@
+name: CRIB CCIP-v2 Integration Tests
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/crib-ccip-v2-integration-test.yml"
+  workflow_call:
+  workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    environment: integration
+    permissions:
+      id-token: write
+      contents: read
+      actions: read
+    steps:
+      - name: Prevent running on draft PRs
+        id: check-prereqs-for-running
+        run: |
+          should_run=true
+          if [ "${{ github.event_name }}" == "pull_request" ] && [ "${{ github.event.pull_request.draft }}" == "true" ]; then
+            should_run=false
+          fi
+          echo "should_run=$should_run" >> "$GITHUB_OUTPUT"
+      - name: Checkout repository
+        uses: actions/checkout@v4.2.1
+
+      - uses: cachix/install-nix-action@ba0dd844c9180cbf77aa72a116d6fbc515d0e87b # v27
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - name: Setup GitHub token using GATI
+        id: token
+        uses: smartcontractkit/.github/actions/setup-github-token@c0b38e6c40d72d01b8d2f24f92623a2538b3dedb # main
+        with:
+          aws-role-arn: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          aws-role-duration-seconds: "1800"
+      - name: Debug workspace dir
+        shell: bash
+        run: |
+          echo ${{ github.workspace }}
+          echo $GITHUB_WORKSPACE
+
+      - name: Deploy and validate CRIB Environment for CCIP v2
+        if: steps.check-prereqs-for-running.outputs.should_run == 'true'
+        uses: smartcontractkit/.github/actions/crib-deploy-environment@f051504b88d1c6b01f244f27d1af9bdc871df210 # crib-deploy-environment@7.1.1
+        id: deploy-crib
+        with:
+          github-token: ${{ steps.token.outputs.access-token }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          aws-role-arn: ${{ secrets.AWS_OIDC_CRIB_ROLE_ARN_STAGE }}
+          aws-ecr-private-registry: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
+          ingress-base-domain: ${{ secrets.INGRESS_BASE_DOMAIN_STAGE }}
+          k8s-cluster-name: ${{ secrets.AWS_K8S_CLUSTER_NAME_STAGE }}
+          command: "ccip-v2"
+          crib-alert-slack-webhook: ${{ secrets.CRIB_ALERT_SLACK_WEBHOOK }}
+          product-image: ${{ secrets.AWS_SDLC_ECR_HOSTNAME }}/ccip
+          product-image-tag: develop
+          chainlink-team: ccip
+          chainlink-product: ccip-v2
+          k8s-api-endpoint: ${{ secrets.K8S_API_ENDPOINT_STAGE }}
+          crib-repo-ref: 'main'
+      - uses: actions/checkout@v4.2.1
+      - name: Set up Go
+        uses: ./.github/actions/setup-go
+        with:
+          go-version-file: 'go.mod'
+      - name: Run CRIB integration test
+        working-directory: integration-tests/crib
+        env:
+          K8S_STAGING_INGRESS_SUFFIX: ${{ secrets.K8S_STAGING_INGRESS_SUFFIX }}
+          CRIB_NAMESPACE: ${{ steps.deploy-crib.outputs.devspace-namespace }}
+          GAP_URL: ${{ secrets.GAP_URL }}
+        run: |-
+          # go test -v -run TestSomething
+          echo "running tests here"
+      - name: Destroy CRIB Environment
+        id: destroy
+        if: always() && steps.deploy-crib.outputs.devspace-namespace != ''
+        uses: smartcontractkit/.github/actions/crib-purge-environment@c0b38e6c40d72d01b8d2f24f92623a2538b3dedb # crib-purge-environment@0.1.0
+        with:
+          namespace: ${{ steps.deploy-crib.outputs.devspace-namespace }}
