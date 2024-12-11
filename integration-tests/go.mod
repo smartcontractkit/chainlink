@@ -44,7 +44,7 @@ require (
 	github.com/smartcontractkit/chainlink-common v0.3.1-0.20241209151352-70300ddcc776
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.6.0
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.2
-	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.18
+	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.19-0.20241211103224-345070de04e0
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.50.0
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.50.9
 	github.com/smartcontractkit/chainlink-testing-framework/wasp v1.50.2
