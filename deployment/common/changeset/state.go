@@ -80,14 +80,35 @@ func (state MCMSWithTimelockState) GenerateMCMSWithTimelockView() (v1_0.MCMSWith
 	}, nil
 }
 
-// MaybeLoadMCMSWithTimelockState looks for the addresses corresponding to
+// MaybeLoadMCMSWithTimelockState loads the MCMSWithTimelockState state for each chain in the given environment.
+func MaybeLoadMCMSWithTimelockState(env deployment.Environment, chainSelectors []uint64) (map[uint64]*MCMSWithTimelockState, error) {
+	result := map[uint64]*MCMSWithTimelockState{}
+	for _, chainSelector := range chainSelectors {
+		chain, ok := env.Chains[chainSelector]
+		if !ok {
+			return nil, fmt.Errorf("chain %d not found", chainSelector)
+		}
+		addressesChain, err := env.ExistingAddresses.AddressesForChain(chainSelector)
+		if err != nil {
+			return nil, err
+		}
+		state, err := MaybeLoadMCMSWithTimelockChainState(chain, addressesChain)
+		if err != nil {
+			return nil, err
+		}
+		result[chainSelector] = state
+	}
+	return result, nil
+}
+
+// MaybeLoadMCMSWithTimelockChainState looks for the addresses corresponding to
 // contracts deployed with DeployMCMSWithTimelock and loads them into a
 // MCMSWithTimelockState struct. If none of the contracts are found, the state struct will be nil.
 // An error indicates:
 // - Found but was unable to load a contract
 // - It only found part of the bundle of contracts
 // - If found more than one instance of a contract (we expect one bundle in the given addresses)
-func MaybeLoadMCMSWithTimelockState(chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (*MCMSWithTimelockState, error) {
+func MaybeLoadMCMSWithTimelockChainState(chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (*MCMSWithTimelockState, error) {
 	state := MCMSWithTimelockState{}
 	// We expect one of each contract on the chain.
 	timelock := deployment.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0)
@@ -153,7 +174,28 @@ func (s LinkTokenState) GenerateLinkView() (v1_0.LinkTokenView, error) {
 	return v1_0.GenerateLinkTokenView(s.LinkToken)
 }
 
-func MaybeLoadLinkTokenState(chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (*LinkTokenState, error) {
+// MaybeLoadLinkTokenState loads the LinkToken state for each chain in the given environment.
+func MaybeLoadLinkTokenState(env deployment.Environment, chainSelectors []uint64) (map[uint64]*LinkTokenState, error) {
+	result := map[uint64]*LinkTokenState{}
+	for _, chainSelector := range chainSelectors {
+		chain, ok := env.Chains[chainSelector]
+		if !ok {
+			return nil, fmt.Errorf("chain %d not found", chainSelector)
+		}
+		addressesChain, err := env.ExistingAddresses.AddressesForChain(chainSelector)
+		if err != nil {
+			return nil, err
+		}
+		state, err := MaybeLoadLinkTokenChainState(chain, addressesChain)
+		if err != nil {
+			return nil, err
+		}
+		result[chainSelector] = state
+	}
+	return result, nil
+}
+
+func MaybeLoadLinkTokenChainState(chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (*LinkTokenState, error) {
 	state := LinkTokenState{}
 	linkToken := deployment.NewTypeAndVersion(types.LinkToken, deployment.Version1_0_0)
 	// Perhaps revisit if we have a use case for multiple.

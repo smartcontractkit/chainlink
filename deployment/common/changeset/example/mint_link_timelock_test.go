@@ -54,9 +54,9 @@ func TestMintLinkTimelock(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, addrs, 6)
 
-	mcmsState, err := changeset.MaybeLoadMCMSWithTimelockState(chain, addrs)
+	mcmsState, err := changeset.MaybeLoadMCMSWithTimelockChainState(chain, addrs)
 	require.NoError(t, err)
-	linkState, err := changeset.MaybeLoadLinkTokenState(chain, addrs)
+	linkState, err := changeset.MaybeLoadLinkTokenChainState(chain, addrs)
 	require.NoError(t, err)
 	linkAddress := linkState.LinkToken.Address()
 	timelockAddress := mcmsState.Timelock.Address()

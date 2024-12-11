@@ -25,7 +25,7 @@ func MintLink(e deployment.Environment, cfg *MintLinkConfig) (deployment.Changes
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	linkState, err := changeset.MaybeLoadLinkTokenState(chain, addresses)
+	linkState, err := changeset.MaybeLoadLinkTokenChainState(chain, addresses)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}

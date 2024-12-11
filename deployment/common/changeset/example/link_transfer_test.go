@@ -69,9 +69,9 @@ func TestLinkTransferMCMS(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, addrs, 6)
 
-	mcmsState, err := changeset.MaybeLoadMCMSWithTimelockState(chain, addrs)
+	mcmsState, err := changeset.MaybeLoadMCMSWithTimelockChainState(chain, addrs)
 	require.NoError(t, err)
-	linkState, err := changeset.MaybeLoadLinkTokenState(chain, addrs)
+	linkState, err := changeset.MaybeLoadLinkTokenChainState(chain, addrs)
 	require.NoError(t, err)
 	timelockAddress := mcmsState.Timelock.Address()
 
@@ -144,9 +144,9 @@ func TestLinkTransfer(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, addrs, 6)
 
-	mcmsState, err := changeset.MaybeLoadMCMSWithTimelockState(chain, addrs)
+	mcmsState, err := changeset.MaybeLoadMCMSWithTimelockChainState(chain, addrs)
 	require.NoError(t, err)
-	linkState, err := changeset.MaybeLoadLinkTokenState(chain, addrs)
+	linkState, err := changeset.MaybeLoadLinkTokenChainState(chain, addrs)
 	require.NoError(t, err)
 	timelockAddress := mcmsState.Timelock.Address()
 
@@ -211,9 +211,9 @@ func TestValidate(t *testing.T) {
 	addrs, err := env.ExistingAddresses.AddressesForChain(chainSelector)
 	require.NoError(t, err)
 	require.Len(t, addrs, 6)
-	mcmsState, err := changeset.MaybeLoadMCMSWithTimelockState(chain, addrs)
+	mcmsState, err := changeset.MaybeLoadMCMSWithTimelockChainState(chain, addrs)
 	require.NoError(t, err)
-	linkState, err := changeset.MaybeLoadLinkTokenState(chain, addrs)
+	linkState, err := changeset.MaybeLoadLinkTokenChainState(chain, addrs)
 	require.NoError(t, err)
 	tx, err := linkState.LinkToken.GrantMintRole(chain.DeployerKey, chain.DeployerKey.From)
 	require.NoError(t, err)

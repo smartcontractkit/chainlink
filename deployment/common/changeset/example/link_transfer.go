@@ -64,7 +64,7 @@ func (cfg LinkTransferConfig) Validate(e deployment.Environment) error {
 			return fmt.Errorf("transfers for chainSel %d must have at least one LinkTransfer", chainSel)
 		}
 		totalAmount := big.NewInt(0)
-		linkState, err := changeset.MaybeLoadLinkTokenState(chain, addrs)
+		linkState, err := changeset.MaybeLoadLinkTokenChainState(chain, addrs)
 		if err != nil {
 			return fmt.Errorf("error loading link token state during validation: %w", err)
 		}
@@ -110,22 +110,18 @@ func initStatePerChain(cfg *LinkTransferConfig, e deployment.Environment) (
 	linkStatePerChain = map[uint64]*changeset.LinkTokenState{}
 	mcmsStatePerChain = map[uint64]*changeset.MCMSWithTimelockState{}
 	// Load state for each chain
+	chainSelectors := []uint64{}
 	for chainSelector := range cfg.Transfers {
-		chain := e.Chains[chainSelector]
-		addrs, err := e.ExistingAddresses.AddressesForChain(chainSelector)
-		if err != nil {
-			return nil, nil, err
-		}
-		linkState, err := changeset.MaybeLoadLinkTokenState(chain, addrs)
-		if err != nil {
-			return nil, nil, err
-		}
-		linkStatePerChain[chainSelector] = linkState
-		mcmsState, err := changeset.MaybeLoadMCMSWithTimelockState(chain, addrs)
-		if err != nil {
-			return nil, nil, err
-		}
-		mcmsStatePerChain[chainSelector] = mcmsState
+		chainSelectors = append(chainSelectors, chainSelector)
+	}
+	linkStatePerChain, err = changeset.MaybeLoadLinkTokenState(e, chainSelectors)
+	if err != nil {
+		return nil, nil, err
+	}
+	mcmsStatePerChain, err = changeset.MaybeLoadMCMSWithTimelockState(e, chainSelectors)
+	if err != nil {
+		return nil, nil, err
+
 	}
 	return linkStatePerChain, mcmsStatePerChain, nil
 }
