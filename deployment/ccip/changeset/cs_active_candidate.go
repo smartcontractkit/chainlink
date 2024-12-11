@@ -26,17 +26,19 @@ var (
 
 type PromoteAllCandidatesChangesetConfig struct {
 	HomeChainSelector uint64
-	NewChainSelector  uint64
-	NodeIDs           []string
-	MCMS              *MCMSConfig
+	// DONChainSelector is the chain selector of the DON that we want to promote the candidate config of.
+	// Note that each (chain, ccip capability version) pair has a unique DON ID.
+	DONChainSelector uint64
+	NodeIDs          []string
+	MCMS             *MCMSConfig
 }
 
 func (p PromoteAllCandidatesChangesetConfig) Validate(e deployment.Environment, state CCIPOnChainState) (deployment.Nodes, error) {
 	if p.HomeChainSelector == 0 {
 		return nil, fmt.Errorf("HomeChainSelector must be set")
 	}
-	if p.NewChainSelector == 0 {
-		return nil, fmt.Errorf("NewChainSelector must be set")
+	if p.DONChainSelector == 0 {
+		return nil, fmt.Errorf("DONChainSelector must be set")
 	}
 	if len(p.NodeIDs) == 0 {
 		return nil, fmt.Errorf("NodeIDs must be set")
@@ -53,16 +55,16 @@ func (p PromoteAllCandidatesChangesetConfig) Validate(e deployment.Environment, 
 		return nil, fmt.Errorf("fetch node info: %w", err)
 	}
 
-	donID, exists, err := internal.DonIDForChain(
+	donID, err := internal.DonIDForChain(
 		state.Chains[p.HomeChainSelector].CapabilityRegistry,
 		state.Chains[p.HomeChainSelector].CCIPHome,
-		p.NewChainSelector,
+		p.DONChainSelector,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("fetch don id for chain: %w", err)
 	}
-	if !exists {
-		return nil, fmt.Errorf("don id for chain(%d) does not exist", p.NewChainSelector)
+	if donID == 0 {
+		return nil, fmt.Errorf("don doesn't exist in CR for chain %d", p.DONChainSelector)
 	}
 
 	// Check that candidate digest and active digest are not both zero - this is enforced onchain.
@@ -121,7 +123,7 @@ func PromoteAllCandidatesChangeset(
 		txOpts,
 		state.Chains[cfg.HomeChainSelector].CapabilityRegistry,
 		state.Chains[cfg.HomeChainSelector].CCIPHome,
-		cfg.NewChainSelector,
+		cfg.DONChainSelector,
 		nodes.NonBootstraps(),
 		cfg.MCMS != nil,
 	)
@@ -241,13 +243,14 @@ func setCandidateOnExistingDon(
 	nodes deployment.Nodes,
 ) ([]mcms.Operation, error) {
 	// fetch DON ID for the chain
-	donID, exists, err := internal.DonIDForChain(capReg, ccipHome, chainSelector)
+	donID, err := internal.DonIDForChain(capReg, ccipHome, chainSelector)
 	if err != nil {
 		return nil, fmt.Errorf("fetch don id for chain: %w", err)
 	}
-	if !exists {
-		return nil, fmt.Errorf("don id for chain(%d) does not exist", chainSelector)
+	if donID == 0 {
+		return nil, fmt.Errorf("don doesn't exist in CR for chain %d", chainSelector)
 	}
+
 	fmt.Printf("donID: %d", donID)
 	encodedSetCandidateCall, err := internal.CCIPHomeABI.Pack(
 		"setCandidate",
@@ -353,12 +356,12 @@ func promoteAllCandidatesForChainOps(
 	mcmsEnabled bool,
 ) ([]mcms.Operation, error) {
 	// fetch DON ID for the chain
-	donID, exists, err := internal.DonIDForChain(capReg, ccipHome, chainSelector)
+	donID, err := internal.DonIDForChain(capReg, ccipHome, chainSelector)
 	if err != nil {
 		return nil, fmt.Errorf("fetch don id for chain: %w", err)
 	}
-	if !exists {
-		return nil, fmt.Errorf("don id for chain(%d) does not exist", chainSelector)
+	if donID == 0 {
+		return nil, fmt.Errorf("don doesn't exist in CR for chain %d", chainSelector)
 	}
 
 	var mcmsOps []mcms.Operation

@@ -8,7 +8,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
@@ -83,8 +82,9 @@ func Test_PromoteCandidate(t *testing.T) {
 				capReg   = state.Chains[tenv.HomeChainSel].CapabilityRegistry
 				ccipHome = state.Chains[tenv.HomeChainSel].CCIPHome
 			)
-			donID, _, err := internal.DonIDForChain(capReg, ccipHome, dest)
+			donID, err := internal.DonIDForChain(capReg, ccipHome, dest)
 			require.NoError(t, err)
+			require.NotEqual(t, uint32(0), donID)
 			candidateDigestCommitBefore, err := ccipHome.GetCandidateDigest(&bind.CallOpts{
 				Context: ctx,
 			}, donID, uint8(types.PluginTypeCCIPCommit))
@@ -112,18 +112,13 @@ func Test_PromoteCandidate(t *testing.T) {
 					Changeset: commonchangeset.WrapChangeSet(PromoteAllCandidatesChangeset),
 					Config: PromoteAllCandidatesChangesetConfig{
 						HomeChainSelector: tenv.HomeChainSel,
-						NewChainSelector:  tenv.FeedChainSel,
+						DONChainSelector:  dest,
 						NodeIDs:           nodeIDs,
 						MCMS:              mcmsConfig,
 					},
 				},
 			})
 			require.NoError(t, err)
-
-			// There seems to be some flakiness where the chain state isn't properly updated.
-			for i := 0; i < 10; i++ {
-				tenv.Env.Chains[tenv.HomeChainSel].Client.(*memory.Backend).Commit()
-			}
 
 			// after promoting the zero digest, active digest should also be zero
 			activeDigestCommit, err := ccipHome.GetActiveDigest(&bind.CallOpts{

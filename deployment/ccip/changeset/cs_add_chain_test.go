@@ -238,7 +238,7 @@ func TestAddChainInbound(t *testing.T) {
 			Changeset: commonchangeset.WrapChangeSet(PromoteAllCandidatesChangeset),
 			Config: PromoteAllCandidatesChangesetConfig{
 				HomeChainSelector: e.HomeChainSel,
-				NewChainSelector:  newChain,
+				DONChainSelector:  newChain,
 				NodeIDs:           nodeIDs,
 				MCMS: &MCMSConfig{
 					MinDelay: 0,
