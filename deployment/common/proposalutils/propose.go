@@ -4,10 +4,15 @@ import (
 	"fmt"
 	"time"
 
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+)
+
+const (
+	DefaultValidUntil = 72 * time.Hour
 )
 
 func buildProposalMetadata(
@@ -33,16 +38,12 @@ func buildProposalMetadata(
 	return metaDataPerChain, nil
 }
 
-type TimelockBatch struct {
-	Timelock    common.Address
-	ProposerMCM *gethwrappers.ManyChainMultiSig
-	Operations  []mcms.Operation
-}
-
 // BuildProposalFromBatches Given batches of operations, we build the metadata and timelock addresses of those opartions
 // We then return a proposal that can be executed and signed
 func BuildProposalFromBatches(
-	batches map[uint64]TimelockBatch,
+	timelocksPerChain map[uint64]common.Address,
+	proposerMcmsesPerChain map[uint64]*gethwrappers.ManyChainMultiSig,
+	batches []timelock.BatchChainOperation,
 	description string,
 	minDelay time.Duration,
 ) (*timelock.MCMSWithTimelockProposal, error) {
@@ -50,38 +51,30 @@ func BuildProposalFromBatches(
 		return nil, fmt.Errorf("no operations in batch")
 	}
 
-	var chains []uint64
-	proposersPerChain := make(map[uint64]*gethwrappers.ManyChainMultiSig)
-	timelocksPerChain := make(map[mcms.ChainIdentifier]common.Address)
-	var chainBatches []timelock.BatchChainOperation
-	for chainId, batch := range batches {
-		timelocksPerChain[mcms.ChainIdentifier(chainId)] = batch.Timelock
-		chainBatches = append(chainBatches, timelock.BatchChainOperation{
-			ChainIdentifier: mcms.ChainIdentifier(chainId),
-			Batch:           batch.Operations,
-		})
+	chains := mapset.NewSet[uint64]()
+	for _, op := range batches {
+		chains.Add(uint64(op.ChainIdentifier))
 	}
 
-	for chain, batch := range batches {
-		chains = append(chains, chain)
-		proposersPerChain[chain] = batch.ProposerMCM
-	}
-
-	mcmsMd, err := buildProposalMetadata(chains,
-		proposersPerChain)
+	mcmsMd, err := buildProposalMetadata(chains.ToSlice(), proposerMcmsesPerChain)
 	if err != nil {
 		return nil, err
 	}
 
+	tlsPerChainId := make(map[mcms.ChainIdentifier]common.Address)
+	for chainId, tl := range timelocksPerChain {
+		tlsPerChainId[mcms.ChainIdentifier(chainId)] = tl
+	}
+	validUntil := time.Now().Unix() + int64(DefaultValidUntil.Seconds())
 	return timelock.NewMCMSWithTimelockProposal(
 		"1",
-		2004259681, // TODO: should be parameterized and based on current block timestamp.
+		uint32(validUntil),
 		[]mcms.Signature{},
 		false,
 		mcmsMd,
-		timelocksPerChain,
+		tlsPerChainId,
 		description,
-		chainBatches,
+		batches,
 		timelock.Schedule,
 		minDelay.String(),
 	)
