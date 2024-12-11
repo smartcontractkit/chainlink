@@ -94,6 +94,10 @@ func (cfg LinkTransferConfig) Validate(e deployment.Environment) error {
 	if cfg.McmsConfig.MinDelay > MaxTimelockDelay {
 		return fmt.Errorf("minDelay must be less than 7 days")
 	}
+	// Check that validUntil is in the future
+	if time.Unix(int64(cfg.McmsConfig.ValidUntil), 0).Before(time.Now()) {
+		return fmt.Errorf("validUntil must be in the future")
+	}
 	return nil
 }
 
