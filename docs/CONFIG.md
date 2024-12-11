@@ -5908,7 +5908,7 @@ GasLimitDefault = 400000
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
-FinalityDepth = 2
+FinalityDepth = 50
 FinalityTagEnabled = true
 LinkContractAddress = '0x3902228D6A3d2Dc44731fD9d45FeE6a61c722D0b'
 LogBackfillBatchSize = 1000
@@ -5969,7 +5969,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [HeadTracker]
-HistoryDepth = 2000
+HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
@@ -6012,7 +6012,7 @@ GasLimitDefault = 400000
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
-FinalityDepth = 2
+FinalityDepth = 50
 FinalityTagEnabled = true
 LinkContractAddress = '0x5bB50A6888ee6a67E22afFDFD9513be7740F1c15'
 LogBackfillBatchSize = 1000
@@ -6073,7 +6073,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [HeadTracker]
-HistoryDepth = 2000
+HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
