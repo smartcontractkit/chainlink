@@ -17,7 +17,7 @@ on:
         required: true
         type: string
         description: 'The base reference or branch to compare changes for detecting flaky tests.'
-        default: 'origin/develop'
+        default: 'develop'
       headRef:
         required: false
         type: string
