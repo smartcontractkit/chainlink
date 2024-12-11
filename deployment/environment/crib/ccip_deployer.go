@@ -38,7 +38,7 @@ func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig
 	// Call DeployHomeChain changeset with nodeinfo ( the peer id and all)
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	if err != nil {
-		return deployment.CapabilityRegistryConfig{}, e.ExistingAddresses, fmt.Errorf("Failed to get node info from env", err)
+		return deployment.CapabilityRegistryConfig{}, e.ExistingAddresses, fmt.Errorf("failed to get node info from env: %w", err)
 	}
 	p2pIds := nodes.NonBootstraps().PeerIDs()
 	out, err := changeset.DeployHomeChain(tenv.Env, changeset.DeployHomeChainConfig{
@@ -51,20 +51,20 @@ func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig
 		},
 	})
 	if err != nil {
-		return deployment.CapabilityRegistryConfig{}, e.ExistingAddresses, fmt.Errorf("Failed to deploy home chain", err)
+		return deployment.CapabilityRegistryConfig{}, e.ExistingAddresses, fmt.Errorf("failed to deploy home chain: %w", err)
 	}
 	err = tenv.Env.ExistingAddresses.Merge(out.AddressBook)
 	if err != nil {
-		return deployment.CapabilityRegistryConfig{}, e.ExistingAddresses, fmt.Errorf("Failed to merge addresses after deploying home chain", err)
+		return deployment.CapabilityRegistryConfig{}, e.ExistingAddresses, fmt.Errorf("failed to merge addresses after deploying home chain, %w", err)
 	}
 
 	state, err := changeset.LoadOnchainState(*e)
 	if err != nil {
-		return deployment.CapabilityRegistryConfig{}, e.ExistingAddresses, fmt.Errorf("Failed to load on chain state", err)
+		return deployment.CapabilityRegistryConfig{}, e.ExistingAddresses, fmt.Errorf("failed to load on chain state: %w", err)
 	}
 	capRegAddr := state.Chains[homeChainSel].CapabilityRegistry.Address()
 	if capRegAddr == common.HexToAddress("0x") {
-		return deployment.CapabilityRegistryConfig{}, e.ExistingAddresses, fmt.Errorf("Cap Reg address not found")
+		return deployment.CapabilityRegistryConfig{}, e.ExistingAddresses, fmt.Errorf("cap Reg address not found: %w", err)
 	}
 	capRegConfig := deployment.CapabilityRegistryConfig{
 		EVMChainID:  homeChainSel,
@@ -77,7 +77,7 @@ func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig
 func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab deployment.AddressBook) (DeployCCIPOutput, error) {
 	e, _, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
 	if err != nil {
-		return DeployCCIPOutput{}, fmt.Errorf("Failed to initiate new environment", err)
+		return DeployCCIPOutput{}, fmt.Errorf("failed to initiate new environment: %w", err)
 	}
 	e.ExistingAddresses = ab
 	allChainIds := e.AllChainSelectors()
@@ -85,7 +85,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 	for _, chain := range e.AllChainSelectors() {
 		mcmsConfig, err := config.NewConfig(1, []common.Address{e.Chains[chain].DeployerKey.From}, []config.Config{})
 		if err != nil {
-			return DeployCCIPOutput{}, fmt.Errorf("Failed to create mcms config")
+			return DeployCCIPOutput{}, fmt.Errorf("failed to create mcms config: %w", err)
 		}
 		cfg[chain] = commontypes.MCMSWithTimelockConfig{
 			Canceller:        *mcmsConfig,
@@ -126,17 +126,17 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 	})
 	state, err := changeset.LoadOnchainState(*e)
 	if err != nil {
-		return DeployCCIPOutput{}, fmt.Errorf("Failed to load onchain state", err)
+		return DeployCCIPOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	// Add all lanes
 	err = changeset.AddLanesForAll(*e, state)
 	if err != nil {
-		return DeployCCIPOutput{}, fmt.Errorf("Failed to add lanes", err)
+		return DeployCCIPOutput{}, fmt.Errorf("failed to add lanes: %w", err)
 	}
 
 	addresses, err := e.ExistingAddresses.Addresses()
 	if err != nil {
-		return DeployCCIPOutput{}, fmt.Errorf("Failed to get convert address book to address book map", err)
+		return DeployCCIPOutput{}, fmt.Errorf("failed to get convert address book to address book map: %w", err)
 	}
 	return DeployCCIPOutput{
 		AddressBook: *deployment.NewMemoryAddressBookFromMap(addresses),
