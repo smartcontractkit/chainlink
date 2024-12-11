@@ -1,9 +1,10 @@
-package changeset
+package example
 
 import (
 	"math/big"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
 
 type MintLinkTimelockConfig struct {
@@ -21,11 +22,11 @@ func MintLinkTimelock(e deployment.Environment, req *MintLinkTimelockConfig) (de
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	linkState, err := MaybeLoadLinkTokenState(chain, addresses)
+	linkState, err := changeset.MaybeLoadLinkTokenState(chain, addresses)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	timelockState, err := MaybeLoadMCMSWithTimelockState(chain, addresses)
+	timelockState, err := changeset.MaybeLoadMCMSWithTimelockState(chain, addresses)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}

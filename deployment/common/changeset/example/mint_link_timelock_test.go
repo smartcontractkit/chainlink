@@ -1,4 +1,4 @@
-package changeset_test
+package example_test
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/example"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -64,7 +65,7 @@ func TestMintLinkTimelock(t *testing.T) {
 	require.NoError(t, err)
 
 	// Mint some funds
-	_, err = changeset.MintLinkTimelock(env, &changeset.MintLinkTimelockConfig{
+	_, err = example.MintLinkTimelock(env, &example.MintLinkTimelockConfig{
 		ChainSelector: chainSelector,
 		Amount:        big.NewInt(7568),
 	})

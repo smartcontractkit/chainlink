@@ -1,4 +1,4 @@
-package changeset
+package example
 
 import (
 	"fmt"
@@ -14,39 +14,55 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
-type LinkTransfer struct {
+const MaxTimelockDelay = 24 * 7 * time.Hour
+
+type TransferConfig struct {
 	To    common.Address
 	Value *big.Int
 }
-type LinkTransferTimelockConfig struct {
-	Transfers  map[uint64][]LinkTransfer
-	UseMCMS    bool
-	McmsConfig *MCMSConfig
-}
+
 type MCMSConfig struct {
 	ValidUntil   uint32        // unix time until the proposal will be valid
 	MinDelay     time.Duration // delay for timelock worker to execute the transfers.
 	OverrideRoot bool
 }
 
-var _ deployment.ChangeSet[*LinkTransferTimelockConfig] = LinkTransferTimelock
+type LinkTransferConfig struct {
+	Transfers  map[uint64][]TransferConfig
+	From       common.Address
+	McmsConfig *MCMSConfig
+}
 
-// Validate checks that the LinkTransferTimelockConfig is valid.
-func (cfg LinkTransferTimelockConfig) Validate() error {
+var _ deployment.ChangeSet[*LinkTransferConfig] = LinkTransfer
 
-	// Check that Transfers map has at least one key
+// Validate checks that the LinkTransferConfig is valid.
+func (cfg LinkTransferConfig) Validate(e deployment.Environment) error {
+	ctx := e.GetContext()
+	// Check that Transfers map has at least one chainSel
 	if len(cfg.Transfers) == 0 {
-		return fmt.Errorf("transfers map must have at least one key")
+		return fmt.Errorf("transfers map must have at least one chainSel")
 	}
 
 	// Check transfers config values.
-	for key, transfers := range cfg.Transfers {
+	for chainSel, transfers := range cfg.Transfers {
+		_, err := chain_selectors.GetSelectorFamily(chainSel)
+		if err != nil {
+			return fmt.Errorf("invalid chain selector: %w", err)
+		}
+		chain := e.Chains[chainSel]
+		addrs, err := e.ExistingAddresses.AddressesForChain(chainSel)
 		if len(transfers) == 0 {
-			return fmt.Errorf("transfers for key %d must have at least one LinkTransfer", key)
+			return fmt.Errorf("transfers for chainSel %d must have at least one LinkTransfer", chainSel)
+		}
+		totalAmount := big.NewInt(0)
+		linkState, err := changeset.MaybeLoadLinkTokenState(chain, addrs)
+		if err != nil {
+			return fmt.Errorf("error loading link token state during validation: %w", err)
 		}
 		for _, transfer := range transfers {
 			if transfer.To == (common.Address{}) {
@@ -59,53 +75,49 @@ func (cfg LinkTransferTimelockConfig) Validate() error {
 				return fmt.Errorf("value for transfers must be non-zero")
 			}
 		}
-	}
-	// Check that Transfers and StartingOpCount have the same keys
-	for key := range cfg.Transfers {
-		_, err := chain_selectors.GetSelectorFamily(key)
-		if err != nil {
-			return fmt.Errorf("invalid chain selector: %w", err)
+		// check that from address has enough funds for the transfers
+		balance, err := linkState.LinkToken.BalanceOf(&bind.CallOpts{Context: ctx}, cfg.From)
+		if balance.Cmp(totalAmount) < 0 {
+			return fmt.Errorf("timelock address does not have enough funds for transfers for chain selector %d", chainSel)
 		}
 	}
-	if !cfg.UseMCMS {
+
+	if cfg.McmsConfig == nil {
 		return nil
 	}
-	// Mcms specific configs
-	if cfg.McmsConfig == nil {
-		return fmt.Errorf("mcmsConfig must be set when UseMCMS is true")
-	}
+
 	// Upper bound for min delay (7 days)
-	if cfg.McmsConfig.MinDelay > 24*7*time.Hour {
+	if cfg.McmsConfig.MinDelay > MaxTimelockDelay {
 		return fmt.Errorf("minDelay must be less than 7 days")
 	}
 	return nil
 }
 
-// LinkTransferTimelock takes the given link transfers and executes them or creates an MCMS proposal for them.
-func LinkTransferTimelock(e deployment.Environment, req *LinkTransferTimelockConfig) (deployment.ChangesetOutput, error) {
-	err := req.Validate()
-	ctx := e.GetContext()
+// LinkTransfer takes the given link transfers and executes them or creates an MCMS proposal for them.
+func LinkTransfer(e deployment.Environment, cfg *LinkTransferConfig) (deployment.ChangesetOutput, error) {
+
+	err := cfg.Validate(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("invalid LinkTransferTimelockConfig: %w", err)
+		return deployment.ChangesetOutput{}, fmt.Errorf("invalid LinkTransferConfig: %w", err)
 	}
 	chainSelectors := []uint64{}
-	for chainSelector := range req.Transfers {
+	for chainSelector := range cfg.Transfers {
 		chainSelectors = append(chainSelectors, chainSelector)
 	}
 	mcmsPerChain := map[uint64]*owner_helpers.ManyChainMultiSig{}
 
 	timelockAddresses := map[mcms.ChainIdentifier]common.Address{}
 	allBatches := []timelock.BatchChainOperation{}
-	for chainSelector := range req.Transfers {
+	for chainSelector := range cfg.Transfers {
 		chainID := mcms.ChainIdentifier(chainSelector)
 		chain := e.Chains[chainSelector]
 		addrs, err := e.ExistingAddresses.AddressesForChain(chainSelector)
-		linkState, err := MaybeLoadLinkTokenState(chain, addrs)
+		linkState, err := changeset.MaybeLoadLinkTokenState(chain, addrs)
 		if err != nil {
 			return deployment.ChangesetOutput{}, err
 		}
 		linkAddress := linkState.LinkToken.Address()
-		mcmsState, err := MaybeLoadMCMSWithTimelockState(chain, addrs)
+		mcmsState, err := changeset.MaybeLoadMCMSWithTimelockState(chain, addrs)
 		if err != nil {
 			return deployment.ChangesetOutput{}, err
 		}
@@ -118,12 +130,12 @@ func LinkTransferTimelock(e deployment.Environment, req *LinkTransferTimelockCon
 			ChainIdentifier: chainID,
 			Batch:           []mcms.Operation{},
 		}
-		opts := deployment.SimTransactOpts()
-		if !req.UseMCMS {
-			opts = chain.DeployerKey
+		opts := chain.DeployerKey
+		if cfg.McmsConfig != nil {
+			opts = deployment.SimTransactOpts()
 		}
 		totalAmount := big.NewInt(0)
-		for _, transfer := range req.Transfers[chainSelector] {
+		for _, transfer := range cfg.Transfers[chainSelector] {
 			tx, err := linkState.LinkToken.Transfer(opts, transfer.To, transfer.Value)
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("error packing transfer tx data: %w", err)
@@ -137,32 +149,25 @@ func LinkTransferTimelock(e deployment.Environment, req *LinkTransferTimelockCon
 			batch.Batch = append(batch.Batch, op)
 			totalAmount.Add(totalAmount, transfer.Value)
 		}
-		// check that from address has enough funds for the transfers
-		balance, err := linkState.LinkToken.BalanceOf(&bind.CallOpts{Context: ctx}, timelockAddress)
-		if err != nil {
-			return deployment.ChangesetOutput{}, err
-		}
-		if balance.Cmp(totalAmount) < 0 {
-			return deployment.ChangesetOutput{}, fmt.Errorf("timelock address does not have enough funds for transfers for chainID %d", chainSelector)
-		}
+
 		allBatches = append(allBatches, batch)
 	}
 	chainMetadata, err := proposalutils.BuildProposalMetadata(chainSelectors, mcmsPerChain)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	if req.UseMCMS {
+	if cfg.McmsConfig != nil {
 		proposal, err := timelock.NewMCMSWithTimelockProposal(
 			"1",
-			req.McmsConfig.ValidUntil,
+			cfg.McmsConfig.ValidUntil,
 			[]mcms.Signature{},
-			req.McmsConfig.OverrideRoot,
+			cfg.McmsConfig.OverrideRoot,
 			chainMetadata,
 			timelockAddresses,
 			"Value transfer proposal",
 			allBatches,
 			timelock.Schedule,
-			req.McmsConfig.MinDelay.String(),
+			cfg.McmsConfig.MinDelay.String(),
 		)
 		if err != nil {
 			return deployment.ChangesetOutput{}, err

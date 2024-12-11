@@ -1,4 +1,4 @@
-package changeset_test
+package example_test
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/example"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
 	"github.com/stretchr/testify/require"
@@ -18,8 +19,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 )
 
-// TestLinkTransferTimelock tests the LinkTransferTimelock changeset by
-func TestLinkTransferTimelock(t *testing.T) {
+// TestLinkTransfer tests the LinkTransfer changeset by sending LINK from a timelock contract to the deployer key.
+func TestLinkTransfer(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	lggr := logger.TestLogger(t)
@@ -86,9 +87,10 @@ func TestLinkTransferTimelock(t *testing.T) {
 		// the changeset produces proposals, ApplyChangesets will sign & execute them.
 		// in practice, signing and executing are separated processes.
 		{
-			Changeset: changeset.WrapChangeSet(changeset.LinkTransferTimelock),
-			Config: &changeset.LinkTransferTimelockConfig{
-				Transfers: map[uint64][]changeset.LinkTransfer{
+			Changeset: changeset.WrapChangeSet(example.LinkTransfer),
+			Config: &example.LinkTransferConfig{
+				From: timelockAddress,
+				Transfers: map[uint64][]example.TransferConfig{
 					chainSelector: {
 						{
 							To:    chain.DeployerKey.From,
@@ -96,8 +98,7 @@ func TestLinkTransferTimelock(t *testing.T) {
 						},
 					},
 				},
-				UseMCMS: true,
-				McmsConfig: &changeset.MCMSConfig{
+				McmsConfig: &example.MCMSConfig{
 					ValidUntil:   4131638958,
 					MinDelay:     0,
 					OverrideRoot: true,
