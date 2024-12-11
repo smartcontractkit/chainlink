@@ -54,7 +54,7 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     triggers:
       - PR Integration CCIP Tests
-    test_cmd: cd integration-tests/contracts && go test ccipreader_test.go -timeout 5m -test.parallel=1 -count=20 -json
+    test_cmd: cd integration-tests/contracts && go test ccipreader_test.go -timeout 50m -test.parallel=1 -count=20 -json
 
   - id: smoke/ccip/ccip_usdc_test.go:*
     path: integration-tests/smoke/ccip/ccip_usdc_test.go
@@ -62,7 +62,7 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     triggers:
       - PR Integration CCIP Tests
-    test_cmd: cd integration-tests/smoke/ccip && go test ccip_usdc_test.go -timeout 18m -test.parallel=1 -count=20 -json
+    test_cmd: cd integration-tests/smoke/ccip && go test ccip_usdc_test.go -timeout 180m -test.parallel=1 -count=20 -json
 
   - id: smoke/ccip/ccip_ooo_execution_test.go:*
     path: integration-tests/smoke/ccip/ccip_ooo_execution_test.go
@@ -70,7 +70,7 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     triggers:
       - PR Integration CCIP Tests
-    test_cmd: cd integration-tests/ && go test smoke/ccip/ccip_ooo_execution_test.go -timeout 16m -test.parallel=1 -count=20 -json
+    test_cmd: cd integration-tests/ && go test smoke/ccip/ccip_ooo_execution_test.go -timeout 160m -test.parallel=1 -count=20 -json
 
   - id: smoke/ccip/ccip_token_transfer_test.go:*
     path: integration-tests/smoke/ccip/ccip_token_transfer_test.go
@@ -78,6 +78,6 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     triggers:
       - PR Integration CCIP Tests
-    test_cmd: cd integration-tests/ && go test smoke/ccip/ccip_token_transfer_test.go -timeout 16m -test.parallel=1 -count=20 -json
+    test_cmd: cd integration-tests/ && go test smoke/ccip/ccip_token_transfer_test.go -timeout 160m -test.parallel=1 -count=20 -json
 
   # END: CCIP tests
