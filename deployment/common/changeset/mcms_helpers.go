@@ -98,7 +98,9 @@ func (cfg RunTimelockExecutorConfig) Validate() error {
 	return nil
 }
 
-// RunTimelockExecutor executes all the operation in the given executor on the given chain.
+// RunTimelockExecutor runs the scheduled operations for the given chain.
+// If the block start is not provided, it assumes that the operations have not been scheduled yet
+// and executes all the operations for the given chain.
 // It is an error if there are no operations for the given chain.
 func RunTimelockExecutor(env deployment.Environment, cfg RunTimelockExecutorConfig) error {
 	// TODO: This sort of helper probably should move to the MCMS lib.

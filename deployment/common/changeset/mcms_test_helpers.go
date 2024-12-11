@@ -68,6 +68,13 @@ func ExecuteProposal(t *testing.T, env deployment.Environment, executor *mcms.Ex
 	if err2 != nil {
 		require.NoError(t, deployment.MaybeDataErr(err2))
 	}
+	/*
+		if env.GetContext == nil {
+			env.GetContext = func() context.Context {
+				return tests.Context(t)
+			}
+		}
+	*/
 	_, err2 = env.Chains[sel].Confirm(tx)
 	require.NoError(t, err2)
 	cfg := RunTimelockExecutorConfig{
