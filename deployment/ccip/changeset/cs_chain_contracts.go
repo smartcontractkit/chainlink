@@ -7,7 +7,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
@@ -17,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
 )
 
-var _ deployment.ChangeSet[map[uint64]UpdateOnRampsDestsConfig] = UpdateOnRampsDests
+var _ deployment.ChangeSet[UpdateOnRampsDestsConfig] = UpdateOnRampsDests
 
 type UpdateOnRampsDestsConfig struct {
 	UpdatesByChain map[uint64][]OnRampDestinationUpdate
@@ -80,8 +79,9 @@ func UpdateOnRampsDests(e deployment.Environment, cfg UpdateOnRampsDestsConfig) 
 	if err := cfg.Validate(e.GetContext(), s); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	var txes []*types.Transaction
 	var batches []timelock.BatchChainOperation
+	timelocks := make(map[uint64]common.Address)
+	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig)
 	for chainSel, updates := range cfg.UpdatesByChain {
 		txOpts := e.Chains[chainSel].DeployerKey
 		txOpts.Context = e.GetContext()
@@ -124,6 +124,8 @@ func UpdateOnRampsDests(e deployment.Environment, cfg UpdateOnRampsDestsConfig) 
 					},
 				},
 			})
+			timelocks[chainSel] = s.Chains[chainSel].Timelock.Address()
+			proposers[chainSel] = s.Chains[chainSel].ProposerMcm
 		}
 	}
 	if cfg.MCMS == nil {
@@ -131,24 +133,9 @@ func UpdateOnRampsDests(e deployment.Environment, cfg UpdateOnRampsDestsConfig) 
 	}
 
 	p, err := proposalutils.BuildProposalFromBatches(
-		map[uint64]common.Address{
-			cfg.ChainSelector: s.Chains[cfg.ChainSelector].Timelock.Address(),
-		},
-		map[uint64]*gethwrappers.ManyChainMultiSig{
-			cfg.ChainSelector: s.Chains[cfg.ChainSelector].ProposerMcm,
-		},
-		[]timelock.BatchChainOperation{
-			{
-				ChainIdentifier: mcms.ChainIdentifier(cfg.ChainSelector),
-				Batch: []mcms.Operation{
-					{
-						To:    onRamp.Address(),
-						Data:  tx.Data(),
-						Value: big.NewInt(0),
-					},
-				},
-			},
-		},
+		timelocks,
+		proposers,
+		batches,
 		"Update onramp destinations",
 		cfg.MCMS.MinDelay,
 	)
