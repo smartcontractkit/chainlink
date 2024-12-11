@@ -2,12 +2,14 @@ package changeset
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
@@ -60,28 +62,71 @@ func NewTimelockExecutionContracts(env deployment.Environment, chainSelector uin
 	}, nil
 }
 
+type RunTimelockExecutorConfig struct {
+	Executor          *mcms.Executor
+	TimelockContracts *TimelockExecutionContracts
+	ChainSelector     uint64
+	// BlockStart is optional. It filter the timelock scheduled events.
+	// If not provided, the executor assumes that the operations have not been executed yet
+	// executes all the operations for the given chain.
+	BlockStart *uint64
+	BlockEnd   *uint64
+}
+
+func (cfg RunTimelockExecutorConfig) Validate() error {
+	if cfg.Executor == nil {
+		return fmt.Errorf("executor is nil")
+	}
+	if cfg.TimelockContracts == nil {
+		return fmt.Errorf("timelock contracts is nil")
+	}
+	if cfg.ChainSelector == 0 {
+		return fmt.Errorf("chain selector is 0")
+	}
+	if cfg.BlockStart != nil && cfg.BlockEnd == nil {
+		if *cfg.BlockStart > *cfg.BlockEnd {
+			return fmt.Errorf("block start is greater than block end")
+		}
+	}
+	if cfg.BlockStart == nil && cfg.BlockEnd != nil {
+		return fmt.Errorf("block start must not be nil when block end is not nil")
+	}
+
+	if len(cfg.Executor.Operations[mcms.ChainIdentifier(cfg.ChainSelector)]) == 0 {
+		return fmt.Errorf("no operations for chain %d", cfg.ChainSelector)
+	}
+	return nil
+}
+
 // RunTimelockExecutor executes all the operation in the given executor on the given chain.
 // It is an error if there are no operations for the given chain.
-func RunTimelockExecutor(env deployment.Environment, executor *mcms.Executor, timelockContracts *TimelockExecutionContracts, sel uint64) error {
+func RunTimelockExecutor(env deployment.Environment, cfg RunTimelockExecutorConfig) error {
 	// TODO: This sort of helper probably should move to the MCMS lib.
 	// Execute all the transactions in the proposal which are for this chain.
-	if len(executor.Operations[mcms.ChainIdentifier(sel)]) == 0 {
-		return fmt.Errorf("no operations for chain %d", sel)
+	if err := cfg.Validate(); err != nil {
+		return fmt.Errorf("error validating config: %w", err)
 	}
-	for _, chainOp := range executor.Operations[mcms.ChainIdentifier(sel)] {
-		for idx, op := range executor.ChainAgnosticOps {
+	for _, chainOp := range cfg.Executor.Operations[mcms.ChainIdentifier(cfg.ChainSelector)] {
+		for idx, op := range cfg.Executor.ChainAgnosticOps {
+			start := cfg.BlockStart
+			end := cfg.BlockEnd
 			if bytes.Equal(op.Data, chainOp.Data) && op.To == chainOp.To {
-				opTx, err2 := executor.ExecuteOnChain(env.Chains[sel].Client, env.Chains[sel].DeployerKey, idx)
-				if err2 != nil {
-					return fmt.Errorf("error executing on chain: %w", err2)
+				if start == nil {
+					opTx, err2 := cfg.Executor.ExecuteOnChain(env.Chains[cfg.ChainSelector].Client, env.Chains[cfg.ChainSelector].DeployerKey, idx)
+					if err2 != nil {
+						return fmt.Errorf("error executing on chain: %w", err2)
+					}
+					block, err2 := env.Chains[cfg.ChainSelector].Confirm(opTx)
+					if err2 != nil {
+						return fmt.Errorf("error confirming on chain: %w", err2)
+					}
+					start = &block
+					end = &block
 				}
-				block, err2 := env.Chains[sel].Confirm(opTx)
-				if err2 != nil {
-					return fmt.Errorf("error confirming on chain: %w", err2)
-				}
-				it, err2 := timelockContracts.Timelock.FilterCallScheduled(&bind.FilterOpts{
-					Start:   block,
-					End:     &block,
+
+				it, err2 := cfg.TimelockContracts.Timelock.FilterCallScheduled(&bind.FilterOpts{
+					Start:   *start,
+					End:     end,
 					Context: env.GetContext(),
 				}, nil, nil)
 				if err2 != nil {
@@ -93,6 +138,7 @@ func RunTimelockExecutor(env deployment.Environment, executor *mcms.Executor, ti
 					// Note these are the same for the whole batch, can overwrite
 					pred = it.Event.Predecessor
 					salt = it.Event.Salt
+					verboseDebug(env.Logger, it.Event)
 					env.Logger.Info("scheduled", "event", it.Event)
 					calls = append(calls, owner_helpers.RBACTimelockCall{
 						Target: it.Event.Target,
@@ -101,16 +147,16 @@ func RunTimelockExecutor(env deployment.Environment, executor *mcms.Executor, ti
 					})
 				}
 
-				timelockExecutorProxy, err := owner_helpers.NewRBACTimelock(timelockContracts.CallProxy.Address(), env.Chains[sel].Client)
+				timelockExecutorProxy, err := owner_helpers.NewRBACTimelock(cfg.TimelockContracts.CallProxy.Address(), env.Chains[cfg.ChainSelector].Client)
 				if err != nil {
 					return fmt.Errorf("error creating timelock executor proxy: %w", err)
 				}
 				tx, err := timelockExecutorProxy.ExecuteBatch(
-					env.Chains[sel].DeployerKey, calls, pred, salt)
+					env.Chains[cfg.ChainSelector].DeployerKey, calls, pred, salt)
 				if err != nil {
 					return fmt.Errorf("error executing batch: %w", err)
 				}
-				_, err = env.Chains[sel].Confirm(tx)
+				_, err = env.Chains[cfg.ChainSelector].Confirm(tx)
 				if err != nil {
 					return fmt.Errorf("error confirming batch: %w", err)
 				}
@@ -118,4 +164,12 @@ func RunTimelockExecutor(env deployment.Environment, executor *mcms.Executor, ti
 		}
 	}
 	return nil
+}
+
+func verboseDebug(lggr logger.Logger, event *owner_helpers.RBACTimelockCallScheduled) {
+	b, err := json.Marshal(event)
+	if err != nil {
+		panic(err)
+	}
+	lggr.Debug("scheduled", "event", string(b))
 }

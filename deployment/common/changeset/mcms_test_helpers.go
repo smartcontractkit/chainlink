@@ -70,6 +70,10 @@ func ExecuteProposal(t *testing.T, env deployment.Environment, executor *mcms.Ex
 	}
 	_, err2 = env.Chains[sel].Confirm(tx)
 	require.NoError(t, err2)
-
-	require.NoError(t, RunTimelockExecutor(env, executor, timelockContracts, sel))
+	cfg := RunTimelockExecutorConfig{
+		Executor:          executor,
+		TimelockContracts: timelockContracts,
+		ChainSelector:     sel,
+	}
+	require.NoError(t, RunTimelockExecutor(env, cfg))
 }
