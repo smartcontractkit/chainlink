@@ -218,7 +218,14 @@ func TestActiveCandidate(t *testing.T) {
 	oldCandidateDigest, err := state.Chains[tenv.HomeChainSel].CCIPHome.GetCandidateDigest(nil, donID, uint8(cctypes.PluginTypeCCIPExec))
 	require.NoError(t, err)
 
-	promoteOps, err := promoteAllCandidatesForChainOps(state.Chains[tenv.HomeChainSel].CapabilityRegistry, state.Chains[tenv.HomeChainSel].CCIPHome, tenv.FeedChainSel, nodes.NonBootstraps())
+	promoteOps, err := promoteAllCandidatesForChainOps(
+		tenv.Env.Chains[tenv.HomeChainSel],
+		deployment.SimTransactOpts(),
+		state.Chains[tenv.HomeChainSel].CapabilityRegistry,
+		state.Chains[tenv.HomeChainSel].CCIPHome,
+		tenv.FeedChainSel,
+		nodes.NonBootstraps(),
+		true)
 	require.NoError(t, err)
 	promoteProposal, err := proposalutils.BuildProposalFromBatches(timelocksPerChain, proposerMCMSes, []timelock.BatchChainOperation{{
 		ChainIdentifier: mcms.ChainIdentifier(tenv.HomeChainSel),
