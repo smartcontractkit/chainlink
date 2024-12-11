@@ -94,6 +94,9 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 			TimelockMinDelay: big.NewInt(0),
 		}
 	}
+
+	// This will not apply any proposals because we pass nil to testing.
+	// However, setup is ok because we only need to deploy the contracts and distribute job specs
 	*e, err = commonchangeset.ApplyChangesets(nil, *e, nil, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
@@ -121,78 +124,6 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 			Config:    struct{}{},
 		},
 	})
-	//out, err := commonchangeset.DeployLinkToken(*e, allChainIds)
-	//if err != nil {
-	//	return DeployCCIPOutput{}, fmt.Errorf("Failed to deploy link token", err)
-	//}
-	//err = e.ExistingAddresses.Merge(out.AddressBook)
-	//
-	//// deploy pre requisites
-	//out, err = changeset.DeployPrerequisites(*e, changeset.DeployPrerequisiteConfig{
-	//	ChainSelectors: allChainIds,
-	//})
-	//if err != nil {
-	//	return DeployCCIPOutput{}, fmt.Errorf("Failed to deploy prerequisites", err)
-	//}
-	//err = e.ExistingAddresses.Merge(out.AddressBook)
-	//if err != nil {
-	//	return DeployCCIPOutput{}, fmt.Errorf("Failed to merge addresses after deploying prereqs", err)
-	//}
-
-	// deploy MCMS With Timelock
-	//cfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
-	//for _, chain := range e.AllChainSelectors() {
-	//	mcmsConfig, err := config.NewConfig(1, []common.Address{e.Chains[chain].DeployerKey.From}, []config.Config{})
-	//	if err != nil {
-	//		return DeployCCIPOutput{}, fmt.Errorf("Failed to create mcms config")
-	//	}
-	//	cfg[chain] = commontypes.MCMSWithTimelockConfig{
-	//		Canceller:        *mcmsConfig,
-	//		Bypasser:         *mcmsConfig,
-	//		Proposer:         *mcmsConfig,
-	//		TimelockMinDelay: big.NewInt(0),
-	//	}
-	//}
-	//out, err = commonchangeset.DeployMCMSWithTimelock(*e, cfg)
-	//if err != nil {
-	//	return DeployCCIPOutput{}, fmt.Errorf("Failed to deploy MCMS with timelock", err)
-	//}
-	//err = e.ExistingAddresses.Merge(out.AddressBook)
-	//if err != nil {
-	//	return DeployCCIPOutput{}, fmt.Errorf("Failed to merge addresses after deploying MCMS with timelock", err)
-	//}
-
-	// deploy ccip chain contracts
-	//out, err = changeset.DeployChainContracts(*e, changeset.DeployChainContractsConfig{
-	//	ChainSelectors:    allChainIds,
-	//	HomeChainSelector: homeChainSel,
-	//})
-	//if err != nil {
-	//	return DeployCCIPOutput{}, fmt.Errorf("Failed to deploy chain contracts", err)
-	//}
-	//err = e.ExistingAddresses.Merge(out.AddressBook)
-	//if err != nil {
-	//	return DeployCCIPOutput{}, fmt.Errorf("Failed to merge addresses after deploying chain contracts", err)
-	//}
-
-	//
-	//out, err = changeset.CCIPCapabilityJobspec(*e, struct{}{})
-	//if err != nil {
-	//	return DeployCCIPOutput{}, fmt.Errorf("Failed to get CCIP capability jobspec", err)
-	//}
-	//for nodeID, jobs := range out.JobSpecs {
-	//	for _, job := range jobs {
-	//		// Note these auto-accept
-	//		_, err := e.Offchain.ProposeJob(ctx,
-	//			&jobv1.ProposeJobRequest{
-	//				NodeId: nodeID,
-	//				Spec:   job,
-	//			})
-	//		if err != nil {
-	//			return DeployCCIPOutput{}, fmt.Errorf("failed to propose job: %w", err)
-	//		}
-	//	}
-	//}
 	state, err := changeset.LoadOnchainState(*e)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("Failed to load onchain state", err)
