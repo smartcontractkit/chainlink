@@ -18,8 +18,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 )
 
-// TestMintLinkTimelock tests the MintLink changeset
-func TestMintLinkTimelock(t *testing.T) {
+// TestMintLink tests the MintLink changeset
+func TestMintLink(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	lggr := logger.TestLogger(t)
