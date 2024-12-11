@@ -1,16 +1,12 @@
 package changeset
 
 import (
-	"bytes"
-	"context"
 	"crypto/ecdsa"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/config"
-	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	chainsel "github.com/smartcontractkit/chain-selectors"
@@ -24,13 +20,6 @@ var (
 	// in tests.
 	TestXXXMCMSSigner *ecdsa.PrivateKey
 )
-
-// TimelockExecutionContracts is a helper struct for executing timelock proposals. it contains
-// the timelock and call proxy contracts.
-type TimelockExecutionContracts struct {
-	Timelock  *owner_helpers.RBACTimelock
-	CallProxy *owner_helpers.CallProxy
-}
 
 func init() {
 	key, err := crypto.GenerateKey()
@@ -82,42 +71,5 @@ func ExecuteProposal(t *testing.T, env deployment.Environment, executor *mcms.Ex
 	_, err2 = env.Chains[sel].Confirm(tx)
 	require.NoError(t, err2)
 
-	// TODO: This sort of helper probably should move to the MCMS lib.
-	// Execute all the transactions in the proposal which are for this chain.
-	for _, chainOp := range executor.Operations[mcms.ChainIdentifier(sel)] {
-		for idx, op := range executor.ChainAgnosticOps {
-			if bytes.Equal(op.Data, chainOp.Data) && op.To == chainOp.To {
-				opTx, err3 := executor.ExecuteOnChain(env.Chains[sel].Client, env.Chains[sel].DeployerKey, idx)
-				require.NoError(t, err3)
-				block, err3 := env.Chains[sel].Confirm(opTx)
-				require.NoError(t, err3)
-				t.Log("executed", chainOp)
-				it, err3 := timelockContracts.Timelock.FilterCallScheduled(&bind.FilterOpts{
-					Start:   block,
-					End:     &block,
-					Context: context.Background(),
-				}, nil, nil)
-				require.NoError(t, err3)
-				var calls []owner_helpers.RBACTimelockCall
-				var pred, salt [32]byte
-				for it.Next() {
-					// Note these are the same for the whole batch, can overwrite
-					pred = it.Event.Predecessor
-					salt = it.Event.Salt
-					t.Log("scheduled", it.Event)
-					calls = append(calls, owner_helpers.RBACTimelockCall{
-						Target: it.Event.Target,
-						Data:   it.Event.Data,
-						Value:  it.Event.Value,
-					})
-				}
-				timelockExecutorProxy, err := owner_helpers.NewRBACTimelock(timelockContracts.CallProxy.Address(), env.Chains[sel].Client)
-				tx, err := timelockExecutorProxy.ExecuteBatch(
-					env.Chains[sel].DeployerKey, calls, pred, salt)
-				require.NoError(t, err)
-				_, err = env.Chains[sel].Confirm(tx)
-				require.NoError(t, err)
-			}
-		}
-	}
+	require.NoError(t, RunTimelockExecutor(env, executor, timelockContracts, sel))
 }
