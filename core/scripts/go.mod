@@ -13,7 +13,7 @@ replace github.com/smartcontractkit/chainlink/deployment => ../../deployment
 // creating potential merge conflicts.
 require (
 	github.com/smartcontractkit/chainlink/deployment v0.0.0-20241206210521-125d98cdaf66
-	github.com/smartcontractkit/chainlink/v2 v2.0.0-20241206210521-125d98cdaf66
+	github.com/smartcontractkit/chainlink/v2 v2.14.0-mercury-20240807.0.20241106193309-5560cd76211a
 )
 
 require (
@@ -33,9 +33,7 @@ require (
 	github.com/prometheus/client_golang v1.20.5
 	github.com/shopspring/decimal v1.4.0
 	github.com/smartcontractkit/chainlink-automation v0.8.1
-	github.com/smartcontractkit/chainlink-common v0.3.1-0.20241206162350-10f03fd2126b
-	github.com/smartcontractkit/chainlink/deployment v0.0.0-00010101000000-000000000000
-	github.com/smartcontractkit/chainlink/v2 v2.14.0-mercury-20240807.0.20241106193309-5560cd76211a
+	github.com/smartcontractkit/chainlink-common v0.4.1-0.20241223143929-db7919d60550
 	github.com/smartcontractkit/libocr v0.0.0-20241007185508-adbe57025f12
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/viper v1.19.0
@@ -311,7 +309,7 @@ require (
 	github.com/smartcontractkit/chainlink-feeds v0.1.1 // indirect
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.6.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.4.0 // indirect
-	github.com/smartcontractkit/chainlink-solana v1.1.1-0.20241219173444-150f7443fdd3 // indirect
+	github.com/smartcontractkit/chainlink-solana v1.1.1-0.20241223151630-eac4f1508dce // indirect
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.1.1-0.20241202202529-2033490e77b8 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.13 // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect

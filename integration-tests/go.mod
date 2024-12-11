@@ -46,8 +46,8 @@ require (
 	github.com/slack-go/slack v0.15.0
 	github.com/smartcontractkit/chain-selectors v1.0.34
 	github.com/smartcontractkit/chainlink-automation v0.8.1
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241204015713-8956bb614e9e
-	github.com/smartcontractkit/chainlink-common v0.3.1-0.20241206162350-10f03fd2126b
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241218114855-f74219171000
+	github.com/smartcontractkit/chainlink-common v0.4.1-0.20241223143929-db7919d60550
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.6.0
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.2
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.19
@@ -428,7 +428,7 @@ require (
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20241216163550-fa030d178ba3 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.1 // indirect
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.4.0 // indirect
-	github.com/smartcontractkit/chainlink-solana v1.1.1-0.20241219173444-150f7443fdd3 // indirect
+	github.com/smartcontractkit/chainlink-solana v1.1.1-0.20241223151630-eac4f1508dce // indirect
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.1.1-0.20241202202529-2033490e77b8 // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20241009055228-33d0c0bf38de // indirect
@@ -552,8 +552,6 @@ replace (
 	github.com/btcsuite/btcd/btcec/v2 => github.com/btcsuite/btcd/btcec/v2 v2.3.2
 	// replicating the replace directive on cosmos SDK
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
-
-	github.com/smartcontractkit/chainlink-common => ../chainlink-common
 
 	github.com/sourcegraph/sourcegraph/lib => github.com/sourcegraph/sourcegraph-public-snapshot/lib v0.0.0-20240822153003-c864f15af264
 )
