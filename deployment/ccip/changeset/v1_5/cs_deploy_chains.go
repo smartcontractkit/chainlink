@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_proxy_contract"
 )
 
 var _ deployment.ChangeSet[DeployChainContractsConfig1_5] = DeployChainContracts
@@ -122,7 +123,47 @@ func deployChainContracts(
 		}
 	}
 	if chainState.RMNProxy == nil {
+		_, err := deployment.DeployContract(lggr, chain, ab,
+			func(chain deployment.Chain) deployment.ContractDeploy[*rmn_proxy_contract.RMNProxyContract] {
+				rmnProxyAddr, tx2, rmnProxy, err2 := rmn_proxy_contract.DeployRMNProxyContract(
+					chain.DeployerKey,
+					chain.Client,
+					rmnAddr,
+				)
+				return deployment.ContractDeploy[*rmn_proxy_contract.RMNProxyContract]{
+					rmnProxyAddr, rmnProxy, tx2, deployment.NewTypeAndVersion(changeset.ARMProxy, deployment.Version1_0_0), err2,
+				}
+			})
+		if err != nil {
+			lggr.Errorw("Failed to deploy RMNProxy", "chain", chain.String(), "err", err)
+			return err
+		}
+	} else {
+		lggr.Infow("RMNProxy already deployed", "chain", chain.String(), "address", chainState.RMNProxy.Address)
+		// check if the RMNProxy is pointing to the correct RMN
+		rmnProxy := chainState.RMNProxy
+		setRMN, err := rmnProxy.GetARM(nil)
+		if err != nil {
+			return err
+		}
+		if setRMN != rmnAddr {
+			lggr.Infow("RMNProxy pointing to wrong RMN, changing the RMN", "chain", chain.String(), "rmnProxy", rmnProxy.Address, "rmn", rmnAddr)
+			tx, err := rmnProxy.SetARM(chain.DeployerKey, rmnAddr)
+			if err != nil {
+				return fmt.Errorf("failed to set RMN on RMNProxy for chain %s RMN %s RMNProxy %s: %w",
+					chain.String(), rmnAddr.String(), rmnProxy.Address().String(), err)
+			}
 
+			_, err = chain.Confirm(tx)
+			if err != nil {
+				lggr.Errorw("Failed to confirm RMNProxy SetARM",
+					"chain", chain.String(), "rmn", rmnAddr.String(), "rmnProxy", rmnProxy.Address().String(), "err", err)
+				return fmt.Errorf("failed to confirm RMNProxy SetARM for chain %s RMN %s RMNProxy %s: %w",
+					chain.String(), rmnAddr.String(), rmnProxy.Address().String(), err)
+			}
+			lggr.Infow("RMNProxy SetARM confirmed",
+				"chain", chain.String(), "rmn", rmnAddr.String(), "rmnProxy", rmnProxy.Address().String())
+		}
 	}
 	return nil
 }
