@@ -15,11 +15,11 @@ on:
       baseRef:
         required: false
         type: string
-        description: 'The base reference or branch to compare changes for detecting flaky tests.'
+        description: 'The base reference or branch to compare changes for detecting flaky tests. Set only when running diffs between branches. E.g. (develop)'
       headRef:
         required: false
         type: string
-        description: 'The head reference or branch to compare changes for detecting flaky tests. Default is the current branch.'
+        description: 'The head reference or branch to compare changes for detecting flaky tests. Default is the current branch. E.g. (develop)'
       runAllTests:
         required: false
         type: boolean
@@ -56,6 +56,7 @@ on:
         required: true
 
 env:
+  GIT_BASE_REF: ${{ inputs.baseRef }}
   GIT_HEAD_REF: ${{ inputs.headRef || github.ref }}
   SKIPPED_TESTS: ${{ fromJSON(inputs.extraArgs)['skipped_tests'] || '' }} # Comma separated list of test names to skip running in the flaky detector. Related issue: TT-1823
   DEFAULT_MAX_RUNNER_COUNT: ${{ fromJSON(inputs.extraArgs)['default_max_runner_count'] || '8' }} # The default maximum number of GitHub runners to use for parallel test execution.
@@ -80,6 +81,7 @@ jobs:
       affected_test_packages: ${{ steps.get-tests.outputs.packages }}
       git_head_sha: ${{ steps.get_commit_sha.outputs.git_head_sha }}
       git_head_short_sha: ${{ steps.get_commit_sha.outputs.git_head_short_sha }}
+      git_base_sha: ${{ steps.get_commit_sha.outputs.git_base_sha }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
@@ -87,13 +89,32 @@ jobs:
           fetch-depth: 0
           ref: ${{ env.GIT_HEAD_REF }}
 
-      - name: Get commit SHA
+      - name: Get SHA
         id: get_commit_sha
         run: |
+          # Resolve HEAD SHA
           git_head_sha=$(git rev-parse HEAD)
           git_head_short_sha=$(git rev-parse --short HEAD)
           echo "git_head_sha=$git_head_sha" >> $GITHUB_OUTPUT
           echo "git_head_short_sha=$git_head_short_sha" >> $GITHUB_OUTPUT          
+
+          # Print HEAD SHAs to the console
+          echo "HEAD SHA: $git_head_sha"
+          echo "HEAD Short SHA: $git_head_short_sha"          
+
+          # Conditionally resolve BASE SHA
+          if [ -n "${{ env.GIT_BASE_REF }}" ]; then
+            git fetch origin ${{ env.GIT_BASE_REF }} --quiet
+
+            git_base_sha=$(git rev-parse origin/${{ env.GIT_BASE_REF }})
+            echo "git_base_sha=$git_base_sha" >> $GITHUB_OUTPUT
+            
+            # Print BASE SHA to the console
+            echo "BASE SHA: $git_base_sha"
+          else
+            echo "BASE SHA not provided."
+            echo "git_base_sha=" >> $GITHUB_OUTPUT
+          fi  
 
       - name: Set up Go 1.21.9
         uses: actions/setup-go@v5.0.2
@@ -329,7 +350,11 @@ jobs:
             --output-path ./flakeguard-report \
             --repo-path "${{ github.workspace }}" \
             --codeowners-path "${{ github.workspace }}/.github/CODEOWNERS" \
-            --max-pass-ratio "${{ inputs.maxPassRatio }}"
+            --max-pass-ratio "${{ inputs.maxPassRatio }}" \
+            --repo-url "${{ inputs.repoUrl }}" \
+            --base-sha "${{ needs.get-tests.outputs.git_base_sha }}" \
+            --head-sha "${{ needs.get-tests.outputs.git_head_sha }}" \
+            --github-workflow-name "${{ github.workflow }}"
 
           # Print out the summary file
           echo -e "\nFlakeguard Summary:"
