@@ -2,6 +2,7 @@ package request
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -47,6 +48,8 @@ type ServerRequest struct {
 	mux  sync.Mutex
 	lggr logger.Logger
 }
+
+var errExternalErrorMsg = errors.New("failed to execute capability")
 
 func NewServerRequest(capability capabilities.ExecutableCapability, method string, capabilityID string, capabilityDonID uint32,
 	capabilityPeerID p2ptypes.PeerID,
@@ -228,20 +231,22 @@ func executeCapabilityRequest(ctx context.Context, lggr logger.Logger, capabilit
 	payload []byte) ([]byte, error) {
 	capabilityRequest, err := pb.UnmarshalCapabilityRequest(payload)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal capability request: %w", err)
+		lggr.Errorw("failed to unmarshal capability request", "err", err)
+		return nil, errExternalErrorMsg
 	}
 
 	lggr.Debugw("executing capability", "metadata", capabilityRequest.Metadata)
 	capResponse, err := capability.Execute(ctx, capabilityRequest)
 
 	if err != nil {
-		lggr.Debugw("received execution error", "workflowExecutionID", capabilityRequest.Metadata.WorkflowExecutionID, "error", err)
-		return nil, fmt.Errorf("failed to execute capability: %w", err)
+		lggr.Errorw("received execution error", "workflowExecutionID", capabilityRequest.Metadata.WorkflowExecutionID, "error", err)
+		return nil, errExternalErrorMsg
 	}
 
 	responsePayload, err := pb.MarshalCapabilityResponse(capResponse)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal capability response: %w", err)
+		lggr.Errorw("failed to marshal capability request", "err", err)
+		return nil, errExternalErrorMsg
 	}
 
 	lggr.Debugw("received execution results", "workflowExecutionID", capabilityRequest.Metadata.WorkflowExecutionID)

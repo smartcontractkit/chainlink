@@ -7,6 +7,10 @@ toolchain go1.23.4
 // Make sure we're working with the latest chainlink libs
 replace github.com/smartcontractkit/chainlink/v2 => ../
 
+// Using a separate inline `require` here to avoid surrounding line changes
+// creating potential merge conflicts.
+require github.com/smartcontractkit/chainlink/v2 v2.0.0-20241206210521-125d98cdaf66
+
 require (
 	github.com/Khan/genqlient v0.7.0
 	github.com/Masterminds/semver/v3 v3.3.0
@@ -18,7 +22,6 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/hashicorp/consul/sdk v0.16.1
 	github.com/hashicorp/go-multierror v1.1.1
-	github.com/imdario/mergo v0.3.16
 	github.com/pelletier/go-toml/v2 v2.2.3
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.33.0
@@ -26,10 +29,9 @@ require (
 	github.com/smartcontractkit/ccip-owner-contracts v0.0.0-20240926212305-a6deabdfce86
 	github.com/smartcontractkit/chain-selectors v1.0.34
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241210163448-e683c0b91a44
-	github.com/smartcontractkit/chainlink-common v0.3.1-0.20241209151352-70300ddcc776
+	github.com/smartcontractkit/chainlink-common v0.3.1-0.20241210192653-a9c706f99e83
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.6.0
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.13
-	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20241007185508-adbe57025f12
 	github.com/stretchr/testify v1.9.0
 	github.com/test-go/testify v1.1.4
@@ -291,6 +293,7 @@ require (
 	github.com/huandu/xstrings v1.4.0 // indirect
 	github.com/huin/goupnp v1.3.0 // indirect
 	github.com/iancoleman/strcase v0.3.0 // indirect
+	github.com/imdario/mergo v0.3.16 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/invopop/jsonschema v0.12.0 // indirect
 	github.com/jackc/chunkreader/v2 v2.0.1 // indirect

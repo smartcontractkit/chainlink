@@ -33,13 +33,13 @@ const (
 )
 
 type TestConfigs struct {
-	Type                     EnvType
+	Type                     EnvType // set by env var CCIP_V16_TEST_ENV, defaults to Memory
 	CreateJob                bool
 	CreateJobAndContracts    bool
-	Chains                   int
-	NumOfUsersPerChain       int
-	Nodes                    int
-	Bootstraps               int
+	Chains                   int // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
+	NumOfUsersPerChain       int // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
+	Nodes                    int // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
+	Bootstraps               int // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
 	IsUSDC                   bool
 	IsUSDCAttestationMissing bool
 	IsMultiCall3             bool

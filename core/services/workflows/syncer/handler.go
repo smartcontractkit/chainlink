@@ -438,6 +438,11 @@ func (h *eventHandler) workflowRegisteredEvent(
 		return fmt.Errorf("workflowID mismatch: %x != %x", hash, payload.WorkflowID)
 	}
 
+	// Ensure that there is no running workflow engine for the given workflow ID.
+	if h.engineRegistry.IsRunning(hex.EncodeToString(payload.WorkflowID[:])) {
+		return fmt.Errorf("workflow is already running, so not starting it : %s", hex.EncodeToString(payload.WorkflowID[:]))
+	}
+
 	// Save the workflow secrets
 	urlHash, err := h.orm.GetSecretsURLHash(payload.WorkflowOwner, []byte(payload.SecretsURL))
 	if err != nil {
