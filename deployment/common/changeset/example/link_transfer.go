@@ -1,6 +1,7 @@
 package example
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 	"time"
@@ -41,12 +42,20 @@ type LinkTransferConfig struct {
 
 var _ deployment.ChangeSet[*LinkTransferConfig] = LinkTransfer
 
+func getDeployer(e deployment.Environment, chain uint64, mcmConfig *MCMSConfig) *bind.TransactOpts {
+	if mcmConfig == nil {
+		return e.Chains[chain].DeployerKey
+	}
+
+	return deployment.SimTransactOpts()
+}
+
 // Validate checks that the LinkTransferConfig is valid.
 func (cfg LinkTransferConfig) Validate(e deployment.Environment) error {
 	ctx := e.GetContext()
 	// Check that Transfers map has at least one chainSel
 	if len(cfg.Transfers) == 0 {
-		return fmt.Errorf("transfers map must have at least one chainSel")
+		return errors.New("transfers map must have at least one chainSel")
 	}
 
 	// Check transfers config values.
@@ -79,13 +88,13 @@ func (cfg LinkTransferConfig) Validate(e deployment.Environment) error {
 				return errors.New("'to' address for transfers must be set")
 			}
 			if transfer.Value == nil {
-				return fmt.Errorf("value for transfers must be set")
+				return errors.New("value for transfers must be set")
 			}
 			if transfer.Value.Cmp(big.NewInt(0)) == 0 {
-				return fmt.Errorf("value for transfers must be non-zero")
+				return errors.New("value for transfers must be non-zero")
 			}
 			if transfer.Value.Cmp(big.NewInt(0)) == -1 {
-				return fmt.Errorf("value for transfers must be positive")
+				return errors.New("value for transfers must be positive")
 			}
 			totalAmount.Add(totalAmount, transfer.Value)
 		}
@@ -102,7 +111,7 @@ func (cfg LinkTransferConfig) Validate(e deployment.Environment) error {
 
 	// Upper bound for min delay (7 days)
 	if cfg.McmsConfig.MinDelay > MaxTimelockDelay {
-		return fmt.Errorf("minDelay must be less than 7 days")
+		return errors.New("minDelay must be less than 7 days")
 	}
 	// Check that validUntil is in the future
 	if time.Unix(int64(cfg.McmsConfig.ValidUntil), 0).Before(time.Now()) {
@@ -192,10 +201,8 @@ func LinkTransfer(e deployment.Environment, cfg *LinkTransferConfig) (deployment
 			ChainIdentifier: chainID,
 			Batch:           []mcms.Operation{},
 		}
-		opts := chain.DeployerKey
-		if cfg.McmsConfig != nil {
-			opts = deployment.SimTransactOpts()
-		}
+
+		opts := getDeployer(e, chainSelector, cfg.McmsConfig)
 		totalAmount := big.NewInt(0)
 		for _, transfer := range cfg.Transfers[chainSelector] {
 			tx, err := transferOrBuildTx(e, linkState, transfer, opts, chain, cfg.McmsConfig)
