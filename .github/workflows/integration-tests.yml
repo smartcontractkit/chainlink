@@ -382,7 +382,7 @@ jobs:
           results='${{ needs.run-core-e2e-tests-for-pr.outputs.test_results }}'
           echo "Core test results:"
           echo "$results" | jq .
-          
+
           node_migration_tests_failed=$(echo $results | jq '[.[] | select(.id == "integration-tests/migration/upgrade_version_test.go:*" ) | select(.result != "success")] | length > 0')
           echo "node_migration_tests_failed=$node_migration_tests_failed" >> $GITHUB_OUTPUT
 
@@ -730,6 +730,7 @@ jobs:
         env:
           E2E_TEST_CHAINLINK_IMAGE: ${{ env.CHAINLINK_IMAGE }}
           E2E_TEST_SOLANA_SECRET: thisisatestingonlysecret
+          CHAINLINK_USER_TEAM: "BIX"
 
       - name: Upload Coverage Data
         uses: actions/upload-artifact@v4.4.3

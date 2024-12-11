@@ -169,7 +169,7 @@ func DonInfos(dons []DonCapabilities, jd deployment.OffchainClient) ([]DonInfo, 
 	return donInfos, nil
 }
 
-func GetRegistryContract(e *deployment.Environment, registryChainSel uint64, addrBook deployment.AddressBook) (*kcr.CapabilitiesRegistry, deployment.Chain, error) {
+func GetRegistryContract(e *deployment.Environment, registryChainSel uint64) (*kcr.CapabilitiesRegistry, deployment.Chain, error) {
 	registryChain, ok := e.Chains[registryChainSel]
 	if !ok {
 		return nil, deployment.Chain{}, fmt.Errorf("chain %d not found in environment", registryChainSel)
@@ -177,7 +177,7 @@ func GetRegistryContract(e *deployment.Environment, registryChainSel uint64, add
 
 	contractSetsResp, err := GetContractSets(e.Logger, &GetContractSetsRequest{
 		Chains:      e.Chains,
-		AddressBook: addrBook,
+		AddressBook: e.ExistingAddresses,
 	})
 	if err != nil {
 		return nil, deployment.Chain{}, fmt.Errorf("failed to get contract sets: %w", err)
@@ -426,7 +426,7 @@ type RegisteredCapability struct {
 }
 
 func FromCapabilitiesRegistryCapability(cap *kcr.CapabilitiesRegistryCapability, e deployment.Environment, registryChainSelector uint64) (*RegisteredCapability, error) {
-	registry, _, err := GetRegistryContract(&e, registryChainSelector, e.ExistingAddresses)
+	registry, _, err := GetRegistryContract(&e, registryChainSelector)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get registry: %w", err)
 	}
@@ -445,10 +445,14 @@ func RegisterCapabilities(lggr logger.Logger, req RegisterCapabilitiesRequest) (
 	if len(req.DonToCapabilities) == 0 {
 		return nil, fmt.Errorf("no capabilities to register")
 	}
-	registry, registryChain, err := GetRegistryContract(req.Env, req.RegistryChainSelector, req.Env.ExistingAddresses)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get registry: %w", err)
-	}
+	cresp, err := GetContractSets(req.Env.Logger, &GetContractSetsRequest{
+		Chains:      req.Env.Chains,
+		AddressBook: req.Env.ExistingAddresses,
+	})
+	contracts := cresp.ContractSets[req.RegistryChainSelector]
+	registry := contracts.CapabilitiesRegistry
+	registryChain := req.Env.Chains[req.RegistryChainSelector]
+
 	lggr.Infow("registering capabilities...", "len", len(req.DonToCapabilities))
 	resp := &RegisterCapabilitiesResponse{
 		DonToCapabilities: make(map[string][]RegisteredCapability),
@@ -483,7 +487,7 @@ func RegisterCapabilities(lggr logger.Logger, req RegisterCapabilitiesRequest) (
 		capabilities = append(capabilities, cap)
 	}
 	// not using mcms; ignore proposals
-	_, err = AddCapabilities(lggr, registry, registryChain, capabilities, false)
+	_, err = AddCapabilities(lggr, &contracts, registryChain, capabilities, false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add capabilities: %w", err)
 	}
@@ -501,7 +505,7 @@ type RegisterNOPSResponse struct {
 }
 
 func RegisterNOPS(ctx context.Context, lggr logger.Logger, req RegisterNOPSRequest) (*RegisterNOPSResponse, error) {
-	registry, registryChain, err := GetRegistryContract(req.Env, req.RegistryChainSelector, req.Env.ExistingAddresses)
+	registry, registryChain, err := GetRegistryContract(req.Env, req.RegistryChainSelector)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get registry: %w", err)
 	}
@@ -640,7 +644,7 @@ type RegisterNodesResponse struct {
 // can sign the transactions update the contract state
 // TODO: 467 refactor to support MCMS. Specifically need to separate the call data generation from the actual contract call
 func RegisterNodes(lggr logger.Logger, req *RegisterNodesRequest) (*RegisterNodesResponse, error) {
-	registry, registryChain, err := GetRegistryContract(req.Env, req.RegistryChainSelector, req.Env.ExistingAddresses)
+	registry, registryChain, err := GetRegistryContract(req.Env, req.RegistryChainSelector)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get registry: %w", err)
 	}
@@ -808,7 +812,7 @@ func sortedHash(p2pids [][32]byte) string {
 }
 
 func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsResponse, error) {
-	registry, registryChain, err := GetRegistryContract(req.Env, req.RegistryChainSelector, req.Env.ExistingAddresses)
+	registry, registryChain, err := GetRegistryContract(req.Env, req.RegistryChainSelector)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get registry: %w", err)
 	}

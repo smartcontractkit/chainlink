@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	mapset "github.com/deckarep/golang-set/v2"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
@@ -33,7 +32,7 @@ func WrapChangeSet[C any](fn deployment.ChangeSet[C]) func(e deployment.Environm
 }
 
 // ApplyChangesets applies the changeset applications to the environment and returns the updated environment.
-func ApplyChangesets(t *testing.T, e deployment.Environment, timelocksPerChain map[uint64]*gethwrappers.RBACTimelock, changesetApplications []ChangesetApplication) (deployment.Environment, error) {
+func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPerChain map[uint64]*TimelockExecutionContracts, changesetApplications []ChangesetApplication) (deployment.Environment, error) {
 	currentEnv := e
 	for i, csa := range changesetApplications {
 		out, err := csa.Changeset(currentEnv, csa.Config)
@@ -75,11 +74,12 @@ func ApplyChangesets(t *testing.T, e deployment.Environment, timelocksPerChain m
 
 				signed := SignProposal(t, e, &prop)
 				for _, sel := range chains.ToSlice() {
-					timelock, ok := timelocksPerChain[sel]
-					if !ok || timelock == nil {
-						return deployment.Environment{}, fmt.Errorf("timelock not found for chain %d", sel)
+					timelockContracts, ok := timelockContractsPerChain[sel]
+					if !ok || timelockContracts == nil {
+						return deployment.Environment{}, fmt.Errorf("timelock contracts not found for chain %d", sel)
 					}
-					ExecuteProposal(t, e, signed, timelock, sel)
+
+					ExecuteProposal(t, e, signed, timelockContracts, sel)
 				}
 			}
 		}

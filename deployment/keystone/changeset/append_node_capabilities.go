@@ -3,7 +3,11 @@ package changeset
 import (
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
@@ -16,15 +20,39 @@ type AppendNodeCapabilitiesRequest = MutateNodeCapabilitiesRequest
 // AppendNodeCapabilities adds any new capabilities to the registry, merges the new capabilities with the existing capabilities
 // of the node, and updates the nodes in the registry host the union of the new and existing capabilities.
 func AppendNodeCapabilities(env deployment.Environment, req *AppendNodeCapabilitiesRequest) (deployment.ChangesetOutput, error) {
-	cfg, err := req.convert(env)
+	c, err := req.convert(env)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	_, err = internal.AppendNodeCapabilitiesImpl(env.Logger, cfg)
+	r, err := internal.AppendNodeCapabilitiesImpl(env.Logger, c)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	return deployment.ChangesetOutput{}, nil
+	out := deployment.ChangesetOutput{}
+	if req.UseMCMS {
+		if r.Ops == nil {
+			return out, fmt.Errorf("expected MCMS operation to be non-nil")
+		}
+		timelocksPerChain := map[uint64]common.Address{
+			c.Chain.Selector: c.ContractSet.Timelock.Address(),
+		}
+		proposerMCMSes := map[uint64]*gethwrappers.ManyChainMultiSig{
+			c.Chain.Selector: c.ContractSet.ProposerMcm,
+		}
+
+		proposal, err := proposalutils.BuildProposalFromBatches(
+			timelocksPerChain,
+			proposerMCMSes,
+			[]timelock.BatchChainOperation{*r.Ops},
+			"proposal to set update node capabilities",
+			0,
+		)
+		if err != nil {
+			return out, fmt.Errorf("failed to build proposal: %w", err)
+		}
+		out.Proposals = []timelock.MCMSWithTimelockProposal{*proposal}
+	}
+	return out, nil
 }
 
 func (req *AppendNodeCapabilitiesRequest) convert(e deployment.Environment) (*internal.AppendNodeCapabilitiesRequest, error) {
@@ -35,21 +63,19 @@ func (req *AppendNodeCapabilitiesRequest) convert(e deployment.Environment) (*in
 	if !ok {
 		return nil, fmt.Errorf("registry chain selector %d does not exist in environment", req.RegistryChainSel)
 	}
-	contracts, err := kslib.GetContractSets(e.Logger, &kslib.GetContractSetsRequest{
+	resp, err := kslib.GetContractSets(e.Logger, &kslib.GetContractSetsRequest{
 		Chains:      map[uint64]deployment.Chain{req.RegistryChainSel: registryChain},
-		AddressBook: req.AddressBook,
+		AddressBook: e.ExistingAddresses,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get contract sets: %w", err)
 	}
-	registry := contracts.ContractSets[req.RegistryChainSel].CapabilitiesRegistry
-	if registry == nil {
-		return nil, fmt.Errorf("capabilities registry not found for chain %d", req.RegistryChainSel)
-	}
+	contracts := resp.ContractSets[req.RegistryChainSel]
 
 	return &internal.AppendNodeCapabilitiesRequest{
 		Chain:             registryChain,
-		Registry:          registry,
+		ContractSet:       &contracts,
 		P2pToCapabilities: req.P2pToCapabilities,
+		UseMCMS:           req.UseMCMS,
 	}, nil
 }
