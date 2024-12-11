@@ -148,7 +148,7 @@ func (o *Config) Validate() error {
 	var chainIds []int64
 	for _, net := range o.PrivateEthereumNetworks {
 		if net.EthereumChainConfig.ChainID < 0 {
-			return fmt.Errorf("negative chain ID found for network %s", net.EthereumChainConfig.ChainID)
+			return fmt.Errorf("negative chain ID found for network %d", net.EthereumChainConfig.ChainID)
 		}
 		chainIds = append(chainIds, int64(net.EthereumChainConfig.ChainID))
 	}
