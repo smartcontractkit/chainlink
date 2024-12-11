@@ -70,6 +70,7 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
       OffRamp.StaticConfig({
         chainSelector: DEST_CHAIN_SELECTOR,
         rmnRemote: rmnRemote,
+        gasForCallExactCheck: GAS_FOR_CALL_EXACT_CHECK,
         tokenAdminRegistry: address(s_tokenAdminRegistry),
         nonceManager: address(nonceManager)
       }),
@@ -348,6 +349,7 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
     s_offRamp = new OffRampHelper(
       OffRamp.StaticConfig({
         chainSelector: DEST_CHAIN_SELECTOR,
+        gasForCallExactCheck: GAS_FOR_CALL_EXACT_CHECK,
         rmnRemote: s_mockRMNRemote,
         tokenAdminRegistry: address(s_tokenAdminRegistry),
         nonceManager: address(s_inboundNonceManager)
@@ -371,7 +373,7 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
   }
 
   function _commit(OffRamp.CommitReport memory commitReport, uint64 sequenceNumber) internal {
-    bytes32[3] memory reportContext = [s_configDigestCommit, bytes32(uint256(sequenceNumber)), s_configDigestCommit];
+    bytes32[2] memory reportContext = [s_configDigestCommit, bytes32(uint256(sequenceNumber))];
 
     (bytes32[] memory rs, bytes32[] memory ss,, bytes32 rawVs) =
       _getSignaturesForDigest(s_validSignerKeys, abi.encode(commitReport), reportContext, F + 1);
@@ -383,7 +385,7 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
   function _execute(
     Internal.ExecutionReport[] memory reports
   ) internal {
-    bytes32[3] memory reportContext = [s_configDigestExec, s_configDigestExec, s_configDigestExec];
+    bytes32[2] memory reportContext = [s_configDigestExec, s_configDigestExec];
 
     vm.startPrank(s_validTransmitters[0]);
     s_offRamp.execute(reportContext, abi.encode(reports));
