@@ -44,7 +44,7 @@ func (s *FetcherService) Start(ctx context.Context) error {
 	return s.StartOnce("FetcherService", func() error {
 		connector := s.wrapper.GetGatewayConnector()
 
-		outgoingConnectorLggr := s.lggr.Named("WorkflowSyncer")
+		outgoingConnectorLggr := s.lggr.Named("OutgoingConnectorHandler")
 
 		webAPIConfig := webapi.ServiceConfig{
 			RateLimiter: common.RateLimiterConfig{

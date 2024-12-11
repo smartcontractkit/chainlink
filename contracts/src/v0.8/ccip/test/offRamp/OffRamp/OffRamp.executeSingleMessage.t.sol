@@ -36,7 +36,7 @@ contract OffRamp_executeSingleMessage is OffRampSetup {
       abi.encodeWithSelector(
         IRouter.routeMessage.selector,
         expectedAny2EvmMessage,
-        Internal.GAS_FOR_CALL_EXACT_CHECK,
+        GAS_FOR_CALL_EXACT_CHECK,
         message.gasLimit,
         message.receiver
       )

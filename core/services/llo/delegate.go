@@ -21,6 +21,7 @@ import (
 
 	corelogger "github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3/promwrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 )
 
@@ -59,6 +60,7 @@ type DelegateConfig struct {
 	ShouldRetireCache      datastreamsllo.ShouldRetireCache
 	EAMonitoringEndpoint   ocrcommontypes.MonitoringEndpoint
 	DonID                  uint32
+	ChainID                string
 
 	// OCR3
 	TraceLogging                 bool
@@ -151,8 +153,21 @@ func (d *delegate) Start(ctx context.Context) error {
 				OffchainConfigDigester:       d.cfg.OffchainConfigDigester,
 				OffchainKeyring:              d.cfg.OffchainKeyring,
 				OnchainKeyring:               d.cfg.OnchainKeyring,
-				ReportingPluginFactory: datastreamsllo.NewPluginFactory(
-					d.cfg.ReportingPluginConfig, psrrc, d.src, d.cfg.RetirementReportCodec, d.cfg.ChannelDefinitionCache, d.ds, logger.Named(lggr, "ReportingPlugin"), llo.EVMOnchainConfigCodec{}, d.reportCodecs,
+				ReportingPluginFactory: promwrapper.NewReportingPluginFactory(
+					datastreamsllo.NewPluginFactory(
+						d.cfg.ReportingPluginConfig,
+						psrrc,
+						d.src,
+						d.cfg.RetirementReportCodec,
+						d.cfg.ChannelDefinitionCache,
+						d.ds,
+						logger.Named(lggr, "ReportingPlugin"),
+						llo.EVMOnchainConfigCodec{},
+						d.reportCodecs,
+					),
+					lggr,
+					d.cfg.ChainID,
+					"llo",
 				),
 				MetricsRegisterer: prometheus.WrapRegistererWith(map[string]string{"job_name": d.cfg.JobName.ValueOrZero()}, prometheus.DefaultRegisterer),
 			})

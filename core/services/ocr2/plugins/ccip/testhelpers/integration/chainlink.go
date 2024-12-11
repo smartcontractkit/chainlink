@@ -17,7 +17,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	types3 "github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/google/uuid"
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/jmoiron/sqlx"
@@ -369,7 +368,7 @@ func setupNodeCCIP(
 	owner *bind.TransactOpts,
 	port int64,
 	dbName string,
-	sourceChain *simulated.Backend, destChain *simulated.Backend,
+	sourceChain *testhelpers.Backend, destChain *testhelpers.Backend,
 	sourceChainID *big.Int, destChainID *big.Int,
 	bootstrapPeerID string,
 	bootstrapPort int64,

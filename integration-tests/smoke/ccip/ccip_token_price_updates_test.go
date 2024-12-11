@@ -16,25 +16,23 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func Test_CCIPTokenPriceUpdates(t *testing.T) {
-	lggr := logger.TestLogger(t)
 	ctx := changeset.Context(t)
 	callOpts := &bind.CallOpts{Context: ctx}
 
 	var tokenPriceExpiry = 5 * time.Second
-	e, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr, &changeset.TestConfigs{
-		OCRConfigOverride: func(params changeset.CCIPOCRParams) changeset.CCIPOCRParams {
+	e, _ := testsetups.NewIntegrationEnvironment(t,
+		changeset.WithOCRConfigOverride(func(params changeset.CCIPOCRParams) changeset.CCIPOCRParams {
 			params.CommitOffChainConfig.TokenPriceBatchWriteFrequency = *config.MustNewDuration(tokenPriceExpiry)
 			return params
-		},
-	})
+		}))
 	state, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	require.NoError(t, changeset.AddLanesForAll(e.Env, state))

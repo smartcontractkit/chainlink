@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"iter"
 	"maps"
 	"slices"
 	"strings"
@@ -296,6 +297,41 @@ func (cr *chainReader) QueryKey(
 	}
 
 	return sequenceOfValues, nil
+}
+
+func (cr *chainReader) QueryKeys(ctx context.Context, filters []commontypes.ContractKeyFilter,
+	limitAndSort query.LimitAndSort) (iter.Seq2[string, commontypes.Sequence], error) {
+	eventQueries := make([]read.EventQuery, 0, len(filters))
+	for _, filter := range filters {
+		binding, address, err := cr.bindings.GetReader(filter.Contract.ReadIdentifier(filter.KeyFilter.Key))
+		if err != nil {
+			return nil, err
+		}
+
+		sequenceDataType := filter.SequenceDataType
+		_, isValuePtr := filter.SequenceDataType.(*values.Value)
+		if isValuePtr {
+			sequenceDataType, err = cr.CreateContractType(filter.Contract.ReadIdentifier(filter.Key), false)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		eventBinding, ok := binding.(*read.EventBinding)
+		if !ok {
+			return nil, fmt.Errorf("query key %s is not an event", filter.KeyFilter.Key)
+		}
+
+		eventQueries = append(eventQueries, read.EventQuery{
+			Filter:           filter.KeyFilter,
+			SequenceDataType: sequenceDataType,
+			IsValuePtr:       isValuePtr,
+			EventBinding:     eventBinding,
+			Address:          common.HexToAddress(address),
+		})
+	}
+
+	return read.MultiEventTypeQuery(ctx, cr.lp, eventQueries, limitAndSort)
 }
 
 func (cr *chainReader) CreateContractType(readIdentifier string, forEncoding bool) (any, error) {
