@@ -47,7 +47,7 @@ func TestUpdateDon(t *testing.T) {
 		}
 
 		t.Run("succeeds if update sets new and existing capabilities", func(t *testing.T) {
-			cfg := changeset.UpdateDonRequest2{
+			cfg := changeset.UpdateDonRequest{
 				RegistryChainSel: te.RegistrySelector,
 				P2PIDs:           p2pIDs,
 				CapabilityConfigs: []changeset.CapabilityConfig{
@@ -60,7 +60,7 @@ func TestUpdateDon(t *testing.T) {
 				},
 			}
 
-			csOut, err := changeset.UpdateDon2(te.Env, &cfg)
+			csOut, err := changeset.UpdateDon(te.Env, &cfg)
 			require.NoError(t, err)
 			require.Len(t, csOut.Proposals, 0)
 			require.Nil(t, csOut.AddressBook)
@@ -86,7 +86,7 @@ func TestUpdateDon(t *testing.T) {
 			p2pIDs = append(p2pIDs, k)
 		}
 
-		cfg := changeset.UpdateDonRequest2{
+		cfg := changeset.UpdateDonRequest{
 			RegistryChainSel: te.RegistrySelector,
 			P2PIDs:           p2pIDs,
 			CapabilityConfigs: []changeset.CapabilityConfig{
@@ -100,15 +100,13 @@ func TestUpdateDon(t *testing.T) {
 			UseMCMS: true,
 		}
 
-		csOut, err := changeset.UpdateDon2(te.Env, &cfg)
+		csOut, err := changeset.UpdateDon(te.Env, &cfg)
 		require.NoError(t, err)
 
-		if changeset.HACK_USE_MULTI_PROPOSAL {
-			require.Len(t, csOut.Proposals, 2) // append node capabilties cs, update don
-			require.Len(t, csOut.Proposals[0].Transactions, 1)
-			require.Len(t, csOut.Proposals[0].Transactions[0].Batch, 2) // add capabilities, update nodes
-			require.Len(t, csOut.Proposals[1].Transactions, 1)
-			require.Len(t, csOut.Proposals[1].Transactions[0].Batch, 1) // update don
+		if true {
+			require.Len(t, csOut.Proposals, 1)
+			require.Len(t, csOut.Proposals[0].Transactions, 1)          // append node capabilties cs, update don
+			require.Len(t, csOut.Proposals[0].Transactions[0].Batch, 3) // add capabilities, update nodes, update don
 			require.Nil(t, csOut.AddressBook)
 		} else {
 			require.Len(t, csOut.Proposals, 1)
@@ -128,7 +126,7 @@ func TestUpdateDon(t *testing.T) {
 		}
 		_, err = commonchangeset.ApplyChangesets(t, te.Env, timelockContracts, []commonchangeset.ChangesetApplication{
 			{
-				Changeset: commonchangeset.WrapChangeSet(changeset.UpdateDon2),
+				Changeset: commonchangeset.WrapChangeSet(changeset.UpdateDon),
 				Config:    &cfg,
 			},
 		})

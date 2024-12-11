@@ -91,62 +91,6 @@ func UpdateDon(lggr logger.Logger, req *UpdateDonRequest) (*UpdateDonResponse, e
 		return nil, fmt.Errorf("failed to compute configs: %w", err)
 	}
 
-	_, err = AppendNodeCapabilitiesImpl(lggr, req.AppendNodeCapabilitiesRequest())
-	if err != nil {
-		return nil, fmt.Errorf("failed to append node capabilities: %w", err)
-	}
-	txOpts := req.Chain.DeployerKey
-	if req.UseMCMS {
-		txOpts = deployment.SimTransactOpts()
-	}
-	tx, err := registry.UpdateDON(txOpts, don.Id, don.NodeP2PIds, cfgs, don.IsPublic, don.F)
-	if err != nil {
-		err = kslib.DecodeErr(kcr.CapabilitiesRegistryABI, err)
-		return nil, fmt.Errorf("failed to call UpdateDON: %w", err)
-	}
-	var ops *timelock.BatchChainOperation
-	if !req.UseMCMS {
-		_, err = req.Chain.Confirm(tx)
-		if err != nil {
-			return nil, fmt.Errorf("failed to confirm UpdateDON transaction %s: %w", tx.Hash().String(), err)
-		}
-	} else {
-		ops = &timelock.BatchChainOperation{
-			ChainIdentifier: mcms.ChainIdentifier(req.Chain.Selector),
-			Batch: []mcms.Operation{
-				{
-					To:    registry.Address(),
-					Data:  tx.Data(),
-					Value: big.NewInt(0),
-				},
-			},
-		}
-	}
-	out := don
-	out.CapabilityConfigurations = cfgs
-	return &UpdateDonResponse{DonInfo: out, Ops: ops}, nil
-}
-
-func UpdateDon2(lggr logger.Logger, req *UpdateDonRequest) (*UpdateDonResponse, error) {
-	if err := req.Validate(); err != nil {
-		return nil, fmt.Errorf("failed to validate request: %w", err)
-	}
-
-	registry := req.ContractSet.CapabilitiesRegistry
-	getDonsResp, err := registry.GetDONs(&bind.CallOpts{})
-	if err != nil {
-		return nil, fmt.Errorf("failed to get Dons: %w", err)
-	}
-
-	don, err := lookupDonByPeerIDs(getDonsResp, req.P2PIDs)
-	if err != nil {
-		return nil, fmt.Errorf("failed to lookup don by p2pIDs: %w", err)
-	}
-	cfgs, err := computeConfigs(registry, req.CapabilityConfigs, don)
-	if err != nil {
-		return nil, fmt.Errorf("failed to compute configs: %w", err)
-	}
-
 	txOpts := req.Chain.DeployerKey
 	if req.UseMCMS {
 		txOpts = deployment.SimTransactOpts()

@@ -3,12 +3,7 @@ package changeset
 import (
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
-
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
@@ -21,15 +16,11 @@ var _ deployment.ChangeSet[*UpdateDonRequest] = UpdateDon
 // CapabilityConfig is a struct that holds a capability and its configuration
 type CapabilityConfig = internal.CapabilityConfig
 
-type UpdateDonRequest = internal.UpdateDonRequest
-
-type UpdateDonRequest2 struct {
+type UpdateDonRequest struct {
 	RegistryChainSel  uint64
 	P2PIDs            []p2pkey.PeerID    // this is the unique identifier for the don
 	CapabilityConfigs []CapabilityConfig // if Config subfield is nil, a default config is used
 	UseMCMS           bool
-
-	HackUseMulitProposal bool
 }
 type UpdateDonResponse struct {
 	DonInfo kcr.CapabilitiesRegistryDONInfo
@@ -39,22 +30,6 @@ type UpdateDonResponse struct {
 // This a complex action in practice that involves registering missing capabilities, adding the nodes, and updating
 // the capabilities of the DON
 func UpdateDon(env deployment.Environment, req *UpdateDonRequest) (deployment.ChangesetOutput, error) {
-	_, err := internal.UpdateDon(env.Logger, req)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to update don: %w", err)
-	}
-
-	return deployment.ChangesetOutput{}, nil
-}
-
-var (
-	HACK_USE_MULTI_PROPOSAL = true
-)
-
-// UpdateDon updates the capabilities of a Don
-// This a complex action in practice that involves registering missing capabilities, adding the nodes, and updating
-// the capabilities of the DON
-func UpdateDon2(env deployment.Environment, req *UpdateDonRequest2) (deployment.ChangesetOutput, error) {
 	appendResult, err := AppendNodeCapabilities(env, appendRequest(req))
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to append node capabilities: %w", err)
@@ -64,16 +39,11 @@ func UpdateDon2(env deployment.Environment, req *UpdateDonRequest2) (deployment.
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to create update don request: %w", err)
 	}
-	updateResult, err := internal.UpdateDon2(env.Logger, ur)
+	updateResult, err := internal.UpdateDon(env.Logger, ur)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to update don: %w", err)
 	}
 
-	cresp, err := kslib.GetContractSets(env.Logger, &kslib.GetContractSetsRequest{
-		Chains:      env.Chains,
-		AddressBook: env.ExistingAddresses,
-	})
-	contracts := cresp.ContractSets[req.RegistryChainSel]
 	out := deployment.ChangesetOutput{}
 	if req.UseMCMS {
 		if updateResult.Ops == nil {
@@ -84,35 +54,18 @@ func UpdateDon2(env deployment.Environment, req *UpdateDonRequest2) (deployment.
 		}
 
 		out.Proposals = appendResult.Proposals
-		timelocksPerChain := map[uint64]common.Address{
-			req.RegistryChainSel: contracts.Timelock.Address(),
-		}
-		proposerMCMSes := map[uint64]*gethwrappers.ManyChainMultiSig{
-			req.RegistryChainSel: contracts.ProposerMcm,
-		}
 
-		proposal, err := proposalutils.BuildProposalFromBatches(
-			timelocksPerChain,
-			proposerMCMSes,
-			[]timelock.BatchChainOperation{*updateResult.Ops},
-			"proposal to set update node capabilities",
-			0,
-		)
-		if err != nil {
-			return out, fmt.Errorf("failed to build proposal: %w", err)
-		}
-		if HACK_USE_MULTI_PROPOSAL {
-			out.Proposals = append(out.Proposals, *proposal)
-		} else {
-			out.Proposals[0].Transactions = append(out.Proposals[0].Transactions, proposal.Transactions...)
-		}
-		//out.Proposals = append(out.Proposals, *proposal)
+		// add the update don to the existing batch
+		// this makes the proposal all-or-nothing because all the operations are in the same batch, there is only one tr
+		// transaction and only one proposal
+		out.Proposals[0].Transactions[0].Batch = append(out.Proposals[0].Transactions[0].Batch, updateResult.Ops.Batch...)
+
 	}
 	return out, nil
 
 }
 
-func appendRequest(r *UpdateDonRequest2) *AppendNodeCapabilitiesRequest {
+func appendRequest(r *UpdateDonRequest) *AppendNodeCapabilitiesRequest {
 	out := &AppendNodeCapabilitiesRequest{
 		RegistryChainSel:  r.RegistryChainSel,
 		P2pToCapabilities: make(map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability),
@@ -129,7 +82,7 @@ func appendRequest(r *UpdateDonRequest2) *AppendNodeCapabilitiesRequest {
 	return out
 }
 
-func updateDonRequest(env deployment.Environment, r *UpdateDonRequest2) (*UpdateDonRequest, error) {
+func updateDonRequest(env deployment.Environment, r *UpdateDonRequest) (*internal.UpdateDonRequest, error) {
 	resp, err := kslib.GetContractSets(env.Logger, &kslib.GetContractSetsRequest{
 		Chains:      env.Chains,
 		AddressBook: env.ExistingAddresses,
@@ -139,7 +92,7 @@ func updateDonRequest(env deployment.Environment, r *UpdateDonRequest2) (*Update
 	}
 	contractSet := resp.ContractSets[r.RegistryChainSel]
 
-	return &UpdateDonRequest{
+	return &internal.UpdateDonRequest{
 		Chain:             env.Chains[r.RegistryChainSel],
 		ContractSet:       &contractSet,
 		P2PIDs:            r.P2PIDs,
