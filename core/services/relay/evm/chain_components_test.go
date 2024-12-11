@@ -19,6 +19,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	commontestutils "github.com/smartcontractkit/chainlink-common/pkg/loop/testutils"
 	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -27,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	evmtxmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -204,6 +207,15 @@ func TestContractReaderEventsInitValidation(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestChainReader_HealthReport(t *testing.T) {
+	lp := mocks.NewLogPoller(t)
+	lp.EXPECT().HealthReport().Return(map[string]error{"lp_name": clcommontypes.ErrFinalityViolated}).Once()
+	cr, err := evm.NewChainReaderService(testutils.Context(t), logger.NullLogger, lp, nil, nil, types.ChainReaderConfig{Contracts: nil})
+	require.NoError(t, err)
+	healthReport := cr.HealthReport()
+	require.True(t, services.ContainsError(healthReport, clcommontypes.ErrFinalityViolated), "expected chain reader to propagate logpoller's error")
 }
 
 func TestChainComponents(t *testing.T) {
