@@ -29,34 +29,25 @@ func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig
 		return deployment.CapabilityRegistryConfig{}, nil, errors.New("environment is nil")
 	}
 
-	tenv := changeset.DeployedEnv{
-		Env:          *e,
-		HomeChainSel: homeChainSel,
-		FeedChainSel: feedChainSel,
-	}
-
-	// Call DeployHomeChain changeset with nodeinfo ( the peer id and all)
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	if err != nil {
 		return deployment.CapabilityRegistryConfig{}, e.ExistingAddresses, fmt.Errorf("failed to get node info from env: %w", err)
 	}
 	p2pIds := nodes.NonBootstraps().PeerIDs()
-	out, err := changeset.DeployHomeChain(tenv.Env, changeset.DeployHomeChainConfig{
-		HomeChainSel:     homeChainSel,
-		RMNStaticConfig:  changeset.NewTestRMNStaticConfig(),
-		RMNDynamicConfig: changeset.NewTestRMNDynamicConfig(),
-		NodeOperators:    changeset.NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
-		NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
-			"NodeOperator": p2pIds,
+	*e, err = commonchangeset.ApplyChangesets(nil, *e, nil, []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(changeset.DeployHomeChain),
+			Config: changeset.DeployHomeChainConfig{
+				HomeChainSel:     homeChainSel,
+				RMNStaticConfig:  changeset.NewTestRMNStaticConfig(),
+				RMNDynamicConfig: changeset.NewTestRMNDynamicConfig(),
+				NodeOperators:    changeset.NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
+				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
+					"NodeOperator": p2pIds,
+				},
+			},
 		},
 	})
-	if err != nil {
-		return deployment.CapabilityRegistryConfig{}, e.ExistingAddresses, fmt.Errorf("failed to deploy home chain: %w", err)
-	}
-	err = tenv.Env.ExistingAddresses.Merge(out.AddressBook)
-	if err != nil {
-		return deployment.CapabilityRegistryConfig{}, e.ExistingAddresses, fmt.Errorf("failed to merge addresses after deploying home chain, %w", err)
-	}
 
 	state, err := changeset.LoadOnchainState(*e)
 	if err != nil {
