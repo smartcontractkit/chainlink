@@ -3,13 +3,13 @@ cmp stdout out.txt
 
 -- out.txt --
 NAME:
-   chainlink chains starknet - Commands for handling StarkNet chains
+   chainlink chains starknet - Commands for handling starknet chains
 
 USAGE:
    chainlink chains starknet command [command options] [arguments...]
 
 COMMANDS:
-   list  List all existing StarkNet chains
+   list  List all existing starknet chains
 
 OPTIONS:
    --help, -h  show help
