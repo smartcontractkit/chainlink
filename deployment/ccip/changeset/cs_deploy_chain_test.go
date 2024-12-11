@@ -31,11 +31,10 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 	for _, chain := range e.AllChainSelectors() {
 		cfg[chain] = commontypes.MCMSWithTimelockConfig{
-			Canceller:         commonchangeset.SingleGroupMCMS(t),
-			Bypasser:          commonchangeset.SingleGroupMCMS(t),
-			Proposer:          commonchangeset.SingleGroupMCMS(t),
-			TimelockExecutors: e.AllDeployerKeys(),
-			TimelockMinDelay:  big.NewInt(0),
+			Canceller:        commonchangeset.SingleGroupMCMS(t),
+			Bypasser:         commonchangeset.SingleGroupMCMS(t),
+			Proposer:         commonchangeset.SingleGroupMCMS(t),
+			TimelockMinDelay: big.NewInt(0),
 		}
 	}
 	e, err = commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ChangesetApplication{
@@ -99,12 +98,7 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 }
 
 func TestDeployCCIPContracts(t *testing.T) {
-	lggr := logger.TestLogger(t)
-	e := NewMemoryEnvironmentWithJobsAndContracts(t, lggr, memory.MemoryEnvironmentConfig{
-		Chains:     2,
-		Nodes:      4,
-		Bootstraps: 1,
-	}, nil)
+	e := NewMemoryEnvironment(t)
 	// Deploy all the CCIP contracts.
 	state, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)

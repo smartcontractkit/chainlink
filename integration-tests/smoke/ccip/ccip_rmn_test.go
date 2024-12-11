@@ -22,9 +22,9 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/osutil"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
-	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
@@ -32,7 +32,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestRMN_TwoMessagesOnTwoLanesIncludingBatching(t *testing.T) {
@@ -244,7 +243,9 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	ctx := testcontext.Get(t)
 	t.Logf("Running RMN test case: %s", tc.name)
 
-	envWithRMN, rmnCluster := testsetups.NewLocalDevEnvironmentWithRMN(t, logger.TestLogger(t), len(tc.rmnNodes))
+	envWithRMN, rmnCluster := testsetups.NewIntegrationEnvironment(t,
+		changeset.WithRMNEnabled(len(tc.rmnNodes)),
+	)
 	t.Logf("envWithRmn: %#v", envWithRMN)
 
 	tc.populateFields(t, envWithRMN, rmnCluster)

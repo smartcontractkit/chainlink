@@ -33,12 +33,14 @@ type SetupTestRegistryRequest struct {
 	P2pToCapabilities map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability
 	NopToNodes        map[kcr.CapabilitiesRegistryNodeOperator][]*internal.P2PSignerEnc
 	Dons              []Don
+	// TODO maybe add support for MCMS at this level
 }
 
 type SetupTestRegistryResponse struct {
 	Registry         *kcr.CapabilitiesRegistry
 	Chain            deployment.Chain
 	RegistrySelector uint64
+	ContractSet      *kslib.ContractSet
 }
 
 func SetupTestRegistry(t *testing.T, lggr logger.Logger, req *SetupTestRegistryRequest) *SetupTestRegistryResponse {
@@ -99,6 +101,9 @@ func SetupTestRegistry(t *testing.T, lggr logger.Logger, req *SetupTestRegistryR
 		Registry:         registry,
 		Chain:            chain,
 		RegistrySelector: chain.Selector,
+		ContractSet: &kslib.ContractSet{
+			CapabilitiesRegistry: registry,
+		},
 	}
 }
 

@@ -39,8 +39,19 @@ type GetWorkflowMetadataListByDONParams struct {
 	Limit uint64
 }
 
+type GetWorkflowMetadata struct {
+	WorkflowID   [32]byte
+	Owner        []byte
+	DonID        uint32
+	Status       uint8
+	WorkflowName string
+	BinaryURL    string
+	ConfigURL    string
+	SecretsURL   string
+}
+
 type GetWorkflowMetadataListByDONReturnVal struct {
-	WorkflowMetadataList []WorkflowRegistryWorkflowRegisteredV1
+	WorkflowMetadataList []GetWorkflowMetadata
 }
 
 // WorkflowRegistryEvent is an event emitted by the WorkflowRegistry.  Each event is typed
@@ -85,6 +96,8 @@ type ContractReaderFactory interface {
 
 // ContractReader is a subset of types.ContractReader defined locally to enable mocking.
 type ContractReader interface {
+	Start(ctx context.Context) error
+	Close() error
 	Bind(context.Context, []types.BoundContract) error
 	QueryKey(context.Context, types.BoundContract, query.KeyFilter, query.LimitAndSort, any) ([]types.Sequence, error)
 	GetLatestValueWithHeadData(ctx context.Context, readName string, confidenceLevel primitives.ConfidenceLevel, params any, returnVal any) (head *types.Head, err error)
@@ -171,7 +184,14 @@ func NewWorkflowRegistry(
 	workflowDonNotifier donNotifier,
 	opts ...func(*workflowRegistry),
 ) *workflowRegistry {
-	ets := []WorkflowRegistryEventType{ForceUpdateSecretsEvent}
+	ets := []WorkflowRegistryEventType{
+		ForceUpdateSecretsEvent,
+		WorkflowActivatedEvent,
+		WorkflowDeletedEvent,
+		WorkflowPausedEvent,
+		WorkflowRegisteredEvent,
+		WorkflowUpdatedEvent,
+	}
 	wr := &workflowRegistry{
 		lggr:                        lggr,
 		newContractReaderFn:         newContractReaderFn,
@@ -207,14 +227,14 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 			w.lggr.Debugw("Waiting for DON...")
 			don, err := w.workflowDonNotifier.WaitForDon(ctx)
 			if err != nil {
-				w.lggr.Errorf("failed to wait for don: %v", err)
+				w.lggr.Errorw("failed to wait for don", "err", err)
 				return
 			}
 
 			w.lggr.Debugw("Loading initial workflows for DON", "DON", don.ID)
 			loadWorkflowsHead, err := w.initialWorkflowsStateLoader.LoadWorkflows(ctx, don)
 			if err != nil {
-				w.lggr.Errorf("failed to load workflows: %v", err)
+				w.lggr.Errorw("failed to load workflows", "err", err)
 				return
 			}
 
@@ -265,14 +285,14 @@ func (w *workflowRegistry) handlerLoop(ctx context.Context) {
 			}
 
 			if resp.Err != nil || resp.Event == nil {
-				w.lggr.Errorf("failed to handle event: %+v", resp.Err)
+				w.lggr.Errorw("failed to handle event", "err", resp.Err)
 				continue
 			}
 
 			event := resp.Event
 			w.lggr.Debugf("handling event: %+v", event)
 			if err := w.handler.Handle(ctx, *event); err != nil {
-				w.lggr.Errorf("failed to handle event: %+v", event)
+				w.lggr.Errorw("failed to handle event", "event", event, "err", err)
 				continue
 			}
 		}
@@ -438,10 +458,9 @@ func queryEvent(
 ) {
 	// create query
 	var (
-		responseBatch []WorkflowRegistryEventResponse
-		logData       values.Value
-		cursor        = ""
-		limitAndSort  = query.LimitAndSort{
+		logData      values.Value
+		cursor       = ""
+		limitAndSort = query.LimitAndSort{
 			SortBy: []query.SortBy{query.NewSortByTimestamp(query.Asc)},
 			Limit:  query.Limit{Count: cfg.QueryCount},
 		}
@@ -457,6 +476,8 @@ func queryEvent(
 		case <-ctx.Done():
 			return
 		case <-ticker:
+			responseBatch := []WorkflowRegistryEventResponse{}
+
 			if cursor != "" {
 				limitAndSort.Limit = query.CursorLimit(cursor, query.CursorFollowing, cfg.QueryCount)
 			}
@@ -468,12 +489,17 @@ func queryEvent(
 					Key: string(et),
 					Expressions: []query.Expression{
 						query.Confidence(primitives.Finalized),
-						query.Block(lastReadBlockNumber, primitives.Gt),
+						query.Block(lastReadBlockNumber, primitives.Gte),
 					},
 				},
 				limitAndSort,
 				&logData,
 			)
+			lcursor := cursor
+			if lcursor == "" {
+				lcursor = "empty"
+			}
+			lggr.Debugw("QueryKeys called", "logs", len(logs), "eventType", et, "lastReadBlockNumber", lastReadBlockNumber, "logCursor", lcursor)
 
 			if err != nil {
 				lggr.Errorw("QueryKey failure", "err", err)
@@ -511,12 +537,39 @@ func getWorkflowRegistryEventReader(
 		Contracts: map[string]evmtypes.ChainContractReader{
 			WorkflowRegistryContractName: {
 				ContractPollingFilter: evmtypes.ContractPollingFilter{
-					GenericEventNames: []string{string(ForceUpdateSecretsEvent)},
+					GenericEventNames: []string{
+						string(ForceUpdateSecretsEvent),
+						string(WorkflowActivatedEvent),
+						string(WorkflowDeletedEvent),
+						string(WorkflowPausedEvent),
+						string(WorkflowRegisteredEvent),
+						string(WorkflowUpdatedEvent),
+					},
 				},
 				ContractABI: workflow_registry_wrapper.WorkflowRegistryABI,
 				Configs: map[string]*evmtypes.ChainReaderDefinition{
 					string(ForceUpdateSecretsEvent): {
 						ChainSpecificName: string(ForceUpdateSecretsEvent),
+						ReadType:          evmtypes.Event,
+					},
+					string(WorkflowActivatedEvent): {
+						ChainSpecificName: string(WorkflowActivatedEvent),
+						ReadType:          evmtypes.Event,
+					},
+					string(WorkflowDeletedEvent): {
+						ChainSpecificName: string(WorkflowDeletedEvent),
+						ReadType:          evmtypes.Event,
+					},
+					string(WorkflowPausedEvent): {
+						ChainSpecificName: string(WorkflowPausedEvent),
+						ReadType:          evmtypes.Event,
+					},
+					string(WorkflowRegisteredEvent): {
+						ChainSpecificName: string(WorkflowRegisteredEvent),
+						ReadType:          evmtypes.Event,
+					},
+					string(WorkflowUpdatedEvent): {
+						ChainSpecificName: string(WorkflowUpdatedEvent),
 						ReadType:          evmtypes.Event,
 					},
 				},
@@ -536,6 +589,10 @@ func getWorkflowRegistryEventReader(
 
 	// bind contract to contract reader
 	if err := reader.Bind(ctx, []types.BoundContract{bc}); err != nil {
+		return nil, err
+	}
+
+	if err := reader.Start(ctx); err != nil {
 		return nil, err
 	}
 
@@ -629,8 +686,18 @@ func (l *workflowRegistryContractLoader) LoadWorkflows(ctx context.Context, don 
 
 		l.lggr.Debugw("Rehydrating existing workflows", "len", len(workflows.WorkflowMetadataList))
 		for _, workflow := range workflows.WorkflowMetadataList {
+			toRegisteredEvent := WorkflowRegistryWorkflowRegisteredV1{
+				WorkflowID:    workflow.WorkflowID,
+				WorkflowOwner: workflow.Owner,
+				DonID:         workflow.DonID,
+				Status:        workflow.Status,
+				WorkflowName:  workflow.WorkflowName,
+				BinaryURL:     workflow.BinaryURL,
+				ConfigURL:     workflow.ConfigURL,
+				SecretsURL:    workflow.SecretsURL,
+			}
 			if err = l.handler.Handle(ctx, workflowAsEvent{
-				Data:      workflow,
+				Data:      toRegisteredEvent,
 				EventType: WorkflowRegisteredEvent,
 			}); err != nil {
 				l.lggr.Errorf("failed to handle workflow registration: %s", err)
@@ -675,6 +742,51 @@ func toWorkflowRegistryEventResponse(
 	switch evt {
 	case ForceUpdateSecretsEvent:
 		var data WorkflowRegistryForceUpdateSecretsRequestedV1
+		if err := dataAsValuesMap.UnwrapTo(&data); err != nil {
+			lggr.Errorf("failed to unwrap data: %+v", log.Data)
+			resp.Event = nil
+			resp.Err = err
+			return resp
+		}
+		resp.Event.Data = data
+	case WorkflowRegisteredEvent:
+		var data WorkflowRegistryWorkflowRegisteredV1
+		if err := dataAsValuesMap.UnwrapTo(&data); err != nil {
+			lggr.Errorf("failed to unwrap data: %+v", log.Data)
+			resp.Event = nil
+			resp.Err = err
+			return resp
+		}
+		resp.Event.Data = data
+	case WorkflowUpdatedEvent:
+		var data WorkflowRegistryWorkflowUpdatedV1
+		if err := dataAsValuesMap.UnwrapTo(&data); err != nil {
+			lggr.Errorf("failed to unwrap data: %+v", log.Data)
+			resp.Event = nil
+			resp.Err = err
+			return resp
+		}
+		resp.Event.Data = data
+	case WorkflowPausedEvent:
+		var data WorkflowRegistryWorkflowPausedV1
+		if err := dataAsValuesMap.UnwrapTo(&data); err != nil {
+			lggr.Errorf("failed to unwrap data: %+v", log.Data)
+			resp.Event = nil
+			resp.Err = err
+			return resp
+		}
+		resp.Event.Data = data
+	case WorkflowActivatedEvent:
+		var data WorkflowRegistryWorkflowActivatedV1
+		if err := dataAsValuesMap.UnwrapTo(&data); err != nil {
+			lggr.Errorf("failed to unwrap data: %+v", log.Data)
+			resp.Event = nil
+			resp.Err = err
+			return resp
+		}
+		resp.Event.Data = data
+	case WorkflowDeletedEvent:
+		var data WorkflowRegistryWorkflowDeletedV1
 		if err := dataAsValuesMap.UnwrapTo(&data); err != nil {
 			lggr.Errorf("failed to unwrap data: %+v", log.Data)
 			resp.Event = nil

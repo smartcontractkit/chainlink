@@ -17,15 +17,13 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func Test_CCIPMessageLimitations(t *testing.T) {
-	lggr := logger.TestLogger(t)
 	ctx := testcontext.Get(t)
 	callOpts := &bind.CallOpts{Context: ctx}
 
-	testEnv, _, _ := testsetups.NewLocalDevEnvironmentWithDefaultPrice(t, lggr, &changeset.TestConfigs{})
+	testEnv, _ := testsetups.NewIntegrationEnvironment(t)
 	chains := maps.Keys(testEnv.Env.Chains)
 
 	onChainState, err := changeset.LoadOnchainState(testEnv.Env)

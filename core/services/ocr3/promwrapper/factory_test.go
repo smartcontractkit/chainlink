@@ -10,11 +10,13 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func Test_WrapperFactory(t *testing.T) {
-	validFactory := NewReportingPluginFactory(fakeFactory[uint]{}, "solana", "plugin")
-	failingFactory := NewReportingPluginFactory(fakeFactory[uint]{err: errors.New("error")}, "123", "plugin")
+	validFactory := NewReportingPluginFactory(fakeFactory[uint]{}, logger.TestLogger(t), "solana", "plugin")
+	failingFactory := NewReportingPluginFactory(fakeFactory[uint]{err: errors.New("error")}, logger.TestLogger(t), "123", "plugin")
 
 	plugin, _, err := validFactory.NewReportingPlugin(tests.Context(t), ocr3types.ReportingPluginConfig{})
 	require.NoError(t, err)

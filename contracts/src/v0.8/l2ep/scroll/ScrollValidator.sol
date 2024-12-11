@@ -3,7 +3,7 @@ pragma solidity 0.8.24;
 
 import {ISequencerUptimeFeed} from "../interfaces/ISequencerUptimeFeed.sol";
 
-import {BaseValidator} from "../shared/BaseValidator.sol";
+import {BaseValidator} from "../base/BaseValidator.sol";
 
 import {IL1MessageQueue} from "@scroll-tech/contracts/L1/rollup/IL1MessageQueue.sol";
 import {IL1ScrollMessenger} from "@scroll-tech/contracts/L1/IL1ScrollMessenger.sol";
