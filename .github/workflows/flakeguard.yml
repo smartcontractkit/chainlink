@@ -104,7 +104,7 @@ jobs:
 
           # Conditionally resolve BASE SHA
           if [ -n "${{ env.GIT_BASE_REF }}" ]; then
-            git fetch origin ${{ env.GIT_BASE_REF }} --quiet
+            # git fetch origin ${{ env.GIT_BASE_REF }} --quiet
             git_base_sha=$(git rev-parse ${{ env.GIT_BASE_REF }})
             echo "git_base_sha=$git_base_sha" >> $GITHUB_OUTPUT
             
