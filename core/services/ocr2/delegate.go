@@ -1048,6 +1048,7 @@ func (d *Delegate) newServicesLLO(
 		RetirementReportCodec:  datastreamsllo.StandardRetirementReportCodec{},
 		EAMonitoringEndpoint:   d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, telemetryContractID, synchronization.EnhancedEAMercury),
 		DonID:                  pluginCfg.DonID,
+		ChainID:                rid.ChainID,
 
 		TraceLogging:                 d.cfg.OCR2().TraceLogging(),
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,

@@ -4,24 +4,15 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
-
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
 
 func Test_NewAcceptOwnershipChangeset(t *testing.T) {
-	e := NewMemoryEnvironmentWithJobsAndContracts(t, logger.TestLogger(t), memory.MemoryEnvironmentConfig{
-		Chains:             2,
-		NumOfUsersPerChain: 1,
-		Nodes:              4,
-		Bootstraps:         1,
-	}, &TestConfigs{})
+	e := NewMemoryEnvironment(t)
 	state, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
@@ -29,9 +20,15 @@ func Test_NewAcceptOwnershipChangeset(t *testing.T) {
 	source := allChains[0]
 	dest := allChains[1]
 
-	timelocks := map[uint64]*gethwrappers.RBACTimelock{
-		source: state.Chains[source].Timelock,
-		dest:   state.Chains[dest].Timelock,
+	timelockContracts := map[uint64]*commonchangeset.TimelockExecutionContracts{
+		source: &commonchangeset.TimelockExecutionContracts{
+			Timelock:  state.Chains[source].Timelock,
+			CallProxy: state.Chains[source].CallProxy,
+		},
+		dest: &commonchangeset.TimelockExecutionContracts{
+			Timelock:  state.Chains[dest].Timelock,
+			CallProxy: state.Chains[dest].CallProxy,
+		},
 	}
 
 	// at this point we have the initial deploys done, now we need to transfer ownership
@@ -40,7 +37,7 @@ func Test_NewAcceptOwnershipChangeset(t *testing.T) {
 	require.NoError(t, err)
 
 	// compose the transfer ownership and accept ownership changesets
-	_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocks, []commonchangeset.ChangesetApplication{
+	_, err = commonchangeset.ApplyChangesets(t, e.Env, timelockContracts, []commonchangeset.ChangesetApplication{
 		// note this doesn't have proposals.
 		{
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.TransferToMCMSWithTimelock),

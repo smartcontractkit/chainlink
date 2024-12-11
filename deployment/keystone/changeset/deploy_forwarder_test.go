@@ -8,7 +8,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -110,19 +109,23 @@ func TestConfigureForwarders(t *testing.T) {
 					WFDonName:        "test-wf-don",
 					WFNodeIDs:        wfNodes,
 					RegistryChainSel: te.RegistrySelector,
-					UseMCMS:          true,
+					MCMSConfig:       &changeset.MCMSConfig{MinDuration: 0},
 				}
 				csOut, err := changeset.ConfigureForwardContracts(te.Env, cfg)
 				require.NoError(t, err)
 				require.Len(t, csOut.Proposals, nChains)
 				require.Nil(t, csOut.AddressBook)
 
-				timelocks := make(map[uint64]*gethwrappers.RBACTimelock)
+				timelockContracts := make(map[uint64]*commonchangeset.TimelockExecutionContracts)
 				for selector, contractSet := range te.ContractSets() {
 					require.NotNil(t, contractSet.Timelock)
-					timelocks[selector] = contractSet.Timelock
+					require.NotNil(t, contractSet.CallProxy)
+					timelockContracts[selector] = &commonchangeset.TimelockExecutionContracts{
+						Timelock:  contractSet.Timelock,
+						CallProxy: contractSet.CallProxy,
+					}
 				}
-				_, err = commonchangeset.ApplyChangesets(t, te.Env, timelocks, []commonchangeset.ChangesetApplication{
+				_, err = commonchangeset.ApplyChangesets(t, te.Env, timelockContracts, []commonchangeset.ChangesetApplication{
 					{
 						Changeset: commonchangeset.WrapChangeSet(changeset.ConfigureForwardContracts),
 						Config:    cfg,

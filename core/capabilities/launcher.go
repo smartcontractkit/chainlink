@@ -398,7 +398,8 @@ func (w *launcher) addToRegistryAndSetDispatcher(ctx context.Context, capability
 }
 
 var (
-	defaultTargetRequestTimeout = time.Minute
+	// TODO: make this configurable
+	defaultTargetRequestTimeout = 8 * time.Minute
 )
 
 func (w *launcher) exposeCapabilities(ctx context.Context, myPeerID p2ptypes.PeerID, don registrysyncer.DON, state *registrysyncer.LocalRegistry, remoteWorkflowDONs []registrysyncer.DON) error {

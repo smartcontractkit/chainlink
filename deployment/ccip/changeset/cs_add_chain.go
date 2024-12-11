@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
@@ -142,7 +143,6 @@ type AddDonAndSetCandidateChangesetConfig struct {
 	PluginType        types.PluginType
 	NodeIDs           []string
 	CCIPOCRParams     CCIPOCRParams
-	OCRSecrets        deployment.OCRSecrets
 }
 
 func (a AddDonAndSetCandidateChangesetConfig) Validate(e deployment.Environment, state CCIPOnChainState) (deployment.Nodes, error) {
@@ -169,21 +169,14 @@ func (a AddDonAndSetCandidateChangesetConfig) Validate(e deployment.Environment,
 	}
 
 	// check that chain config is set up for the new chain
-	// TODO: feels like we should just have a getter for a particular chain, this pagination
-	// logic seems a bit out of place here.
-	allConfigs, err := state.Chains[a.HomeChainSelector].CCIPHome.GetAllChainConfigs(nil, big.NewInt(0), big.NewInt(100))
+	chainConfig, err := state.Chains[a.HomeChainSelector].CCIPHome.GetChainConfig(nil, a.NewChainSelector)
 	if err != nil {
 		return nil, fmt.Errorf("get all chain configs: %w", err)
 	}
-	var found bool
-	for _, chainConfig := range allConfigs {
-		if chainConfig.ChainSelector == a.NewChainSelector {
-			found = true
-			break
-		}
-	}
-	if !found {
-		return nil, fmt.Errorf("chain config not set for chain %d", a.NewChainSelector)
+
+	// FChain should never be zero if a chain config is set in CCIPHome
+	if chainConfig.FChain == 0 {
+		return nil, fmt.Errorf("chain config not set up for new chain %d", a.NewChainSelector)
 	}
 
 	err = a.CCIPOCRParams.Validate()
@@ -191,7 +184,7 @@ func (a AddDonAndSetCandidateChangesetConfig) Validate(e deployment.Environment,
 		return nil, fmt.Errorf("invalid ccip ocr params: %w", err)
 	}
 
-	if a.OCRSecrets.IsEmpty() {
+	if e.OCRSecrets.IsEmpty() {
 		return nil, fmt.Errorf("OCR secrets must be set")
 	}
 
@@ -215,7 +208,7 @@ func AddDonAndSetCandidateChangeset(
 	}
 
 	newDONArgs, err := internal.BuildOCR3ConfigForCCIPHome(
-		cfg.OCRSecrets,
+		e.OCRSecrets,
 		state.Chains[cfg.NewChainSelector].OffRamp,
 		e.Chains[cfg.NewChainSelector],
 		nodes.NonBootstraps(),

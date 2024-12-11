@@ -29,7 +29,7 @@ import (
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	common_v1_0 "github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/registry_module_owner_custom"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
@@ -53,6 +53,12 @@ import (
 )
 
 var (
+	// Legacy
+	CommitStore   deployment.ContractType = "CommitStore"
+	PriceRegistry deployment.ContractType = "PriceRegistry"
+	RMN           deployment.ContractType = "RMN"
+
+	// Not legacy
 	MockRMN              deployment.ContractType = "MockRMN"
 	RMNRemote            deployment.ContractType = "RMNRemote"
 	ARMProxy             deployment.ContractType = "ARMProxy"
@@ -63,27 +69,24 @@ var (
 	NonceManager         deployment.ContractType = "NonceManager"
 	FeeQuoter            deployment.ContractType = "FeeQuoter"
 	CCIPHome             deployment.ContractType = "CCIPHome"
-	CCIPConfig           deployment.ContractType = "CCIPConfig"
 	RMNHome              deployment.ContractType = "RMNHome"
 	OnRamp               deployment.ContractType = "OnRamp"
 	OffRamp              deployment.ContractType = "OffRamp"
 	CapabilitiesRegistry deployment.ContractType = "CapabilitiesRegistry"
 	PriceFeed            deployment.ContractType = "PriceFeed"
-	// Note test router maps to a regular router contract.
+
+	// Test contracts. Note test router maps to a regular router contract.
 	TestRouter          deployment.ContractType = "TestRouter"
 	Multicall3          deployment.ContractType = "Multicall3"
 	CCIPReceiver        deployment.ContractType = "CCIPReceiver"
-	BurnMintToken       deployment.ContractType = "BurnMintToken"
-	BurnMintTokenPool   deployment.ContractType = "BurnMintTokenPool"
-	USDCToken           deployment.ContractType = "USDCToken"
 	USDCMockTransmitter deployment.ContractType = "USDCMockTransmitter"
-	USDCTokenMessenger  deployment.ContractType = "USDCTokenMessenger"
-	USDCTokenPool       deployment.ContractType = "USDCTokenPool"
 
-	// Legacy contracts
-	CommitStore   deployment.ContractType = "CommitStore"
-	PriceRegistry deployment.ContractType = "PriceRegistry"
-	RMN           deployment.ContractType = "RMN"
+	// Pools
+	BurnMintToken      deployment.ContractType = "BurnMintToken"
+	BurnMintTokenPool  deployment.ContractType = "BurnMintTokenPool"
+	USDCToken          deployment.ContractType = "USDCToken"
+	USDCTokenMessenger deployment.ContractType = "USDCTokenMessenger"
+	USDCTokenPool      deployment.ContractType = "USDCTokenPool"
 )
 
 // CCIPChainState holds a Go binding for all the currently deployed CCIP contracts
@@ -116,8 +119,6 @@ type CCIPChainState struct {
 	CapabilityRegistry *capabilities_registry.CapabilitiesRegistry
 	CCIPHome           *ccip_home.CCIPHome
 	RMNHome            *rmn_home.RMNHome
-	// TODO remove once staging upgraded.
-	CCIPConfig *ccip_config.CCIPConfig
 
 	// Test contracts
 	Receiver               *maybe_revert_message_receiver.MaybeRevertMessageReceiver
@@ -159,7 +160,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 		if err != nil {
 			return chainView, errors.Wrapf(err, "failed to generate rmn remote view for rmn remote %s", c.RMNRemote.Address().String())
 		}
-		chainView.RMN[c.RMNRemote.Address().Hex()] = rmnView
+		chainView.RMNRemote[c.RMNRemote.Address().Hex()] = rmnView
 	}
 	if c.FeeQuoter != nil && c.Router != nil && c.TokenAdminRegistry != nil {
 		fqView, err := v1_6.GenerateFeeQuoterView(c.FeeQuoter, c.Router, c.TokenAdminRegistry)
@@ -199,6 +200,13 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 		}
 		chainView.RMNProxy[c.RMNProxy.Address().Hex()] = rmnProxyView
 	}
+	if c.CCIPHome != nil && c.CapabilityRegistry != nil {
+		chView, err := v1_6.GenerateCCIPHomeView(c.CapabilityRegistry, c.CCIPHome)
+		if err != nil {
+			return chainView, errors.Wrapf(err, "failed to generate CCIP home view for CCIP home %s", c.CCIPHome.Address())
+		}
+		chainView.CCIPHome[c.CCIPHome.Address().Hex()] = chView
+	}
 	if c.CapabilityRegistry != nil {
 		capRegView, err := common_v1_0.GenerateCapabilityRegistryView(c.CapabilityRegistry)
 		if err != nil {
@@ -235,6 +243,42 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 				return chainView, errors.Wrapf(err, "failed to generate commit store view for commit store %s", commitStore.Address().String())
 			}
 			chainView.CommitStore[commitStore.Address().Hex()] = commitStoreView
+		}
+	}
+
+	if c.PriceRegistry != nil {
+		priceRegistryView, err := v1_2.GeneratePriceRegistryView(c.PriceRegistry)
+		if err != nil {
+			return chainView, errors.Wrapf(err, "failed to generate price registry view for price registry %s", c.PriceRegistry.Address().String())
+		}
+		chainView.PriceRegistry[c.PriceRegistry.Address().String()] = priceRegistryView
+	}
+
+	if c.RMN != nil {
+		rmnView, err := v1_5.GenerateRMNView(c.RMN)
+		if err != nil {
+			return chainView, errors.Wrapf(err, "failed to generate rmn view for rmn %s", c.RMN.Address().String())
+		}
+		chainView.RMN[c.RMN.Address().Hex()] = rmnView
+	}
+
+	if c.EVM2EVMOffRamp != nil {
+		for source, offRamp := range c.EVM2EVMOffRamp {
+			offRampView, err := v1_5.GenerateOffRampView(offRamp)
+			if err != nil {
+				return chainView, errors.Wrapf(err, "failed to generate off ramp view for off ramp %s for source %d", offRamp.Address().String(), source)
+			}
+			chainView.EVM2EVMOffRamp[offRamp.Address().Hex()] = offRampView
+		}
+	}
+
+	if c.EVM2EVMOnRamp != nil {
+		for dest, onRamp := range c.EVM2EVMOnRamp {
+			onRampView, err := v1_5.GenerateOnRampView(onRamp)
+			if err != nil {
+				return chainView, errors.Wrapf(err, "failed to generate on ramp view for on ramp %s for dest %d", onRamp.Address().String(), dest)
+			}
+			chainView.EVM2EVMOnRamp[onRamp.Address().Hex()] = onRampView
 		}
 	}
 
@@ -316,6 +360,7 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 	for address, tvStr := range addresses {
 		switch tvStr.String() {
 		case deployment.NewTypeAndVersion(commontypes.RBACTimelock, deployment.Version1_0_0).String(),
+			deployment.NewTypeAndVersion(commontypes.CallProxy, deployment.Version1_0_0).String(),
 			deployment.NewTypeAndVersion(commontypes.ProposerManyChainMultisig, deployment.Version1_0_0).String(),
 			deployment.NewTypeAndVersion(commontypes.CancellerManyChainMultisig, deployment.Version1_0_0).String(),
 			deployment.NewTypeAndVersion(commontypes.BypasserManyChainMultisig, deployment.Version1_0_0).String(),
@@ -433,13 +478,6 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				return state, err
 			}
 			state.CCIPHome = ccipHome
-		case deployment.NewTypeAndVersion(CCIPConfig, deployment.Version1_0_0).String():
-			// TODO: Remove once staging upgraded.
-			ccipConfig, err := ccip_config.NewCCIPConfig(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			state.CCIPConfig = ccipConfig
 		case deployment.NewTypeAndVersion(CCIPReceiver, deployment.Version1_0_0).String():
 			mr, err := maybe_revert_message_receiver.NewMaybeRevertMessageReceiver(common.HexToAddress(address), chain.Client)
 			if err != nil {

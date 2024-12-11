@@ -48,4 +48,11 @@ var (
 		},
 		[]string{"chainID", "plugin", "function", "success"},
 	)
+	promOCR3PluginStatus = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "ocr3_reporting_plugin_status",
+			Help: "Gauge indicating whether plugin is up and running or not",
+		},
+		[]string{"chainID", "plugin", "configDigest"},
+	)
 )

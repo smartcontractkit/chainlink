@@ -136,9 +136,9 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 		require.NoError(t, err)
 		assert.Len(t, dispatcher.msgs, 2)
 		assert.Equal(t, types.Error_INTERNAL_ERROR, dispatcher.msgs[0].Error)
-		assert.Equal(t, "failed to execute capability: an error", dispatcher.msgs[0].ErrorMsg)
+		assert.Equal(t, "failed to execute capability", dispatcher.msgs[0].ErrorMsg)
 		assert.Equal(t, types.Error_INTERNAL_ERROR, dispatcher.msgs[1].Error)
-		assert.Equal(t, "failed to execute capability: an error", dispatcher.msgs[1].ErrorMsg)
+		assert.Equal(t, "failed to execute capability", dispatcher.msgs[1].ErrorMsg)
 	})
 
 	t.Run("Execute capability", func(t *testing.T) {
