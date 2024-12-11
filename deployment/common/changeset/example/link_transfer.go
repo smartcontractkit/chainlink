@@ -75,14 +75,15 @@ func (cfg LinkTransferConfig) Validate(e deployment.Environment) error {
 			if transfer.Value == nil {
 				return fmt.Errorf("value for transfers must be set")
 			}
-			if transfer.Value == big.NewInt(0) {
+			if transfer.Value.Cmp(big.NewInt(0)) == 0 {
 				return fmt.Errorf("value for transfers must be non-zero")
 			}
+			totalAmount.Add(totalAmount, transfer.Value)
 		}
 		// check that from address has enough funds for the transfers
 		balance, err := linkState.LinkToken.BalanceOf(&bind.CallOpts{Context: ctx}, cfg.From)
 		if balance.Cmp(totalAmount) < 0 {
-			return fmt.Errorf("timelock address does not have enough funds for transfers for chain selector %d", chainSel)
+			return fmt.Errorf("sender does not have enough funds for transfers for chain selector %d, required: %s, available: %s", chainSel, totalAmount.String(), balance.String())
 		}
 	}
 

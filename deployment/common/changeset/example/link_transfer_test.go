@@ -4,8 +4,11 @@ import (
 	"context"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/example"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -199,4 +202,168 @@ func TestLinkTransfer(t *testing.T) {
 	require.NoError(t, err)
 	expectedBalance = big.NewInt(500)
 	require.Equal(t, expectedBalance, endBalance)
+}
+
+func TestValidate(t *testing.T) {
+	env := setupLinkTransferTestEnv(t)
+	chainSelector := env.AllChainSelectors()[0]
+	chain := env.Chains[chainSelector]
+	addrs, err := env.ExistingAddresses.AddressesForChain(chainSelector)
+	require.NoError(t, err)
+	require.Len(t, addrs, 6)
+	mcmsState, err := changeset.MaybeLoadMCMSWithTimelockState(chain, addrs)
+	require.NoError(t, err)
+	linkState, err := changeset.MaybeLoadLinkTokenState(chain, addrs)
+	require.NoError(t, err)
+	tx, err := linkState.LinkToken.GrantMintRole(chain.DeployerKey, chain.DeployerKey.From)
+	require.NoError(t, err)
+	_, err = deployment.ConfirmIfNoError(chain, tx, err)
+	require.NoError(t, err)
+	tx, err = linkState.LinkToken.Mint(chain.DeployerKey, chain.DeployerKey.From, big.NewInt(750))
+	require.NoError(t, err)
+	_, err = deployment.ConfirmIfNoError(chain, tx, err)
+
+	require.NoError(t, err)
+	tests := []struct {
+		name     string
+		cfg      example.LinkTransferConfig
+		errorMsg string
+	}{
+		{
+			name: "valid config",
+			cfg: example.LinkTransferConfig{
+				Transfers: map[uint64][]example.TransferConfig{
+					chainSelector: {{To: mcmsState.Timelock.Address(), Value: big.NewInt(100)}}},
+				From: chain.DeployerKey.From,
+				McmsConfig: &example.MCMSConfig{
+					ValidUntil: uint32(time.Now().Add(1 * time.Hour).Unix()),
+					MinDelay:   time.Hour,
+				},
+			},
+		},
+		{
+			name: "valid non mcms config",
+			cfg: example.LinkTransferConfig{
+				Transfers: map[uint64][]example.TransferConfig{
+					chainSelector: {{To: mcmsState.Timelock.Address(), Value: big.NewInt(100)}}},
+				From: chain.DeployerKey.From,
+			},
+		},
+		{
+			name: "insufficient funds",
+			cfg: example.LinkTransferConfig{
+				Transfers: map[uint64][]example.TransferConfig{
+					chainSelector: {
+						{To: chain.DeployerKey.From, Value: big.NewInt(100)},
+						{To: chain.DeployerKey.From, Value: big.NewInt(500)},
+						{To: chain.DeployerKey.From, Value: big.NewInt(1250)},
+					},
+				},
+				From: mcmsState.Timelock.Address(),
+				McmsConfig: &example.MCMSConfig{
+					ValidUntil: uint32(time.Now().Add(1 * time.Hour).Unix()),
+					MinDelay:   time.Hour,
+				},
+			},
+			errorMsg: "sender does not have enough funds for transfers for chain selector 909606746561742123, required: 1850, available: 0",
+		},
+		{
+			name:     "invalid config: empty transfers",
+			cfg:      example.LinkTransferConfig{Transfers: map[uint64][]example.TransferConfig{}},
+			errorMsg: "transfers map must have at least one chainSel",
+		},
+		{
+			name: "invalid chain selector",
+			cfg: example.LinkTransferConfig{
+				Transfers: map[uint64][]example.TransferConfig{
+					1: {{To: common.Address{}, Value: big.NewInt(100)}}},
+			},
+			errorMsg: "invalid chain selector: unknown chain selector 1",
+		},
+		{
+			name: "chain selector not found",
+			cfg: example.LinkTransferConfig{
+				Transfers: map[uint64][]example.TransferConfig{
+					chain_selectors.ETHEREUM_TESTNET_GOERLI_ARBITRUM_1.Selector: {{To: common.Address{}, Value: big.NewInt(100)}}},
+			},
+			errorMsg: "chain with selector 6101244977088475029 not found",
+		},
+		{
+			name: "empty transfer list",
+			cfg: example.LinkTransferConfig{
+				Transfers: map[uint64][]example.TransferConfig{
+					chainSelector: {},
+				},
+			},
+			errorMsg: "transfers for chainSel 909606746561742123 must have at least one LinkTransfer",
+		},
+		{
+			name: "empty value",
+			cfg: example.LinkTransferConfig{
+				Transfers: map[uint64][]example.TransferConfig{
+					chainSelector: {
+						{To: chain.DeployerKey.From, Value: nil},
+					},
+				},
+			},
+			errorMsg: "value for transfers must be set",
+		},
+		{
+			name: "zero value",
+			cfg: example.LinkTransferConfig{
+				Transfers: map[uint64][]example.TransferConfig{
+					chainSelector: {
+						{To: chain.DeployerKey.From, Value: big.NewInt(0)},
+					},
+				},
+			},
+			errorMsg: "value for transfers must be non-zero",
+		},
+		{
+			name: "delay greater than max allowed",
+			cfg: example.LinkTransferConfig{
+				Transfers: map[uint64][]example.TransferConfig{
+					chainSelector: {{To: mcmsState.Timelock.Address(), Value: big.NewInt(100)}}},
+				From: chain.DeployerKey.From,
+				McmsConfig: &example.MCMSConfig{
+					ValidUntil: uint32(time.Now().Add(1 * time.Hour).Unix()),
+					MinDelay:   time.Hour * 24 * 10,
+				},
+			},
+			errorMsg: "minDelay must be less than 7 days",
+		},
+		{
+			name: "invalid config: transfer to address missing",
+			cfg: example.LinkTransferConfig{
+				Transfers: map[uint64][]example.TransferConfig{
+					chainSelector: {{To: common.Address{}, Value: big.NewInt(100)}}},
+			},
+			errorMsg: "'to' address for transfers  must be set",
+		},
+		{
+			name: "invalid config: validUntil in the past",
+			cfg: example.LinkTransferConfig{
+				Transfers: map[uint64][]example.TransferConfig{
+					chainSelector: {{To: mcmsState.Timelock.Address(), Value: big.NewInt(100)}}},
+				From: chain.DeployerKey.From,
+				McmsConfig: &example.MCMSConfig{
+					ValidUntil: uint32(time.Now().Add(-1 * time.Hour).Unix()),
+					MinDelay:   time.Hour,
+				},
+			},
+			errorMsg: "validUntil must be in the future",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.cfg.Validate(env)
+			if tt.errorMsg != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tt.errorMsg)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
 }
