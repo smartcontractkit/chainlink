@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
-	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -42,40 +40,15 @@ func init() {
 	TestXXXMCMSSigner = key
 }
 
-func SingleGroupMCMS() (config.Config, error) {
+func SingleGroupMCMS(t *testing.T) config.Config {
 	publicKey := TestXXXMCMSSigner.Public().(*ecdsa.PublicKey)
 	// Convert the public key to an Ethereum address
 	address := crypto.PubkeyToAddress(*publicKey)
 	c, err := config.NewConfig(1, []common.Address{address}, []config.Config{})
-
-	if err != nil {
-		return config.Config{}, err
-	}
-	return *c, nil
+	require.NoError(t, err)
+	return *c
 }
 
-func CreateMCMSConfig(depKeys []common.Address) (commontypes.MCMSWithTimelockConfig, error) {
-	c, err := SingleGroupMCMS()
-	if err != nil {
-		return commontypes.MCMSWithTimelockConfig{}, err
-	}
-	b, err := SingleGroupMCMS()
-	if err != nil {
-		return commontypes.MCMSWithTimelockConfig{}, err
-	}
-	p, err := SingleGroupMCMS()
-	if err != nil {
-		return commontypes.MCMSWithTimelockConfig{}, err
-	}
-	return commontypes.MCMSWithTimelockConfig{
-		Canceller:         c,
-		Bypasser:          b,
-		Proposer:          p,
-		TimelockExecutors: depKeys,
-		TimelockMinDelay:  big.NewInt(0),
-	}, nil
-
-}
 func SignProposal(t *testing.T, env deployment.Environment, proposal *timelock.MCMSWithTimelockProposal) *mcms.Executor {
 	executorClients := make(map[mcms.ChainIdentifier]mcms.ContractDeployBackend)
 	for _, chain := range env.Chains {
