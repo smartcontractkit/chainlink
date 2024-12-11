@@ -350,6 +350,7 @@ jobs:
             --repo-path "${{ github.workspace }}" \
             --codeowners-path "${{ github.workspace }}/.github/CODEOWNERS" \
             --max-pass-ratio "${{ inputs.maxPassRatio }}"
+            --repo-url "${{ inputs.repoUrl }}"
             --base-sha "${{ needs.get-tests.outputs.git_base_sha }}"
             --head-sha "${{ needs.get-tests.outputs.git_head_sha }}"
             --github-workflow-name "${{ github.workflow }}"
