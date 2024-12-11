@@ -108,8 +108,7 @@ func Test_EventHandlerStateSync(t *testing.T) {
 	updateAllowedDONs(t, backendTH, wfRegistryC, []uint32{donID}, true)
 	updateAuthorizedAddress(t, backendTH, wfRegistryC, []common.Address{backendTH.ContractsOwner.From}, true)
 
-	// The number of workflows should be greater than the workflow registry contracts pagination limit to ensure
-	// that the syncer will query the contract multiple times to get the full list of workflows
+	// Create some initial static state
 	numberWorkflows := 20
 	for i := 0; i < numberWorkflows; i++ {
 		var workflowID [32]byte
@@ -164,11 +163,9 @@ func Test_EventHandlerStateSync(t *testing.T) {
 
 	testEventHandler.ClearEvents()
 
-	// Create events for a number of workflows and confirm that the event handler processes them
-
+	// Create different event types for a number of workflows and confirm that the event handler processes them in order
 	numberOfEventCycles := 50
 	for i := 0; i < numberOfEventCycles; i++ {
-
 		var workflowID [32]byte
 		_, err = rand.Read((workflowID)[:])
 		require.NoError(t, err)
@@ -205,7 +202,6 @@ func Test_EventHandlerStateSync(t *testing.T) {
 
 		if numEvents == expectedNumEvents {
 			// verify the events are the expected types in the expected order
-			// Note the below test does not work with the unrefactored workflow registry, event order is essentially random
 			for idx, event := range events {
 				switch idx % 5 {
 				case 0:
@@ -565,14 +561,6 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 
 	// generate a log event
 	registerWorkflow(t, backendTH, wfRegistryC, giveWorkflow)
-
-	/*
-		string(ForceUpdateSecretsEvent),
-			string(WorkflowActivatedEvent),
-			string(WorkflowDeletedEvent),
-			string(WorkflowPausedEvent),
-			string(WorkflowRegisteredEvent),
-			string(WorkflowUpdatedEvent), */
 
 	// Require the secrets contents to eventually be updated
 	require.Eventually(t, func() bool {
