@@ -2,13 +2,13 @@
 pragma solidity ^0.8.19;
 
 import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
-import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
-import {IFunctionsCoordinator} from "./interfaces/IFunctionsCoordinator.sol";
+import {IFunctionsRouter} from "../v1_0_0/interfaces/IFunctionsRouter.sol";
+import {IFunctionsCoordinator} from "../v1_0_0/interfaces/IFunctionsCoordinator.sol";
 import {IAccessController} from "../../shared/interfaces/IAccessController.sol";
 import {GAS_BOUND_CALLER, IGasBoundCaller} from "./interfaces/zksync/IGasBoundCaller.sol";
 
-import {FunctionsSubscriptions} from "./FunctionsSubscriptions.sol";
-import {FunctionsResponse} from "./libraries/FunctionsResponse.sol";
+import {FunctionsSubscriptions} from "../v1_0_0/FunctionsSubscriptions.sol";
+import {FunctionsResponse} from "../v1_0_0/libraries/FunctionsResponse.sol";
 import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
 
 import {SafeCast} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/math/SafeCast.sol";
