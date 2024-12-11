@@ -246,7 +246,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 		}
 		weth9Contract = weth.Contract
 	} else {
-		lggr.Infow("weth9 already deployed", "addr", weth9Contract.Address)
+		lggr.Infow("weth9 already deployed", "chain", chain.String(), "addr", weth9Contract.Address)
 	}
 	// if router is not already deployed, we deploy it
 	if r == nil {

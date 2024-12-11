@@ -233,7 +233,7 @@ func deployChainContracts(
 				}
 			})
 		if err != nil {
-			e.Logger.Errorw("Failed to deploy receiver", "err", err)
+			e.Logger.Errorw("Failed to deploy receiver", "chain", chain.String(), "err", err)
 			return err
 		}
 	} else {
