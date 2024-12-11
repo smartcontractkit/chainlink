@@ -5,12 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/config"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"golang.org/x/exp/maps"
+	"math/big"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -57,7 +59,7 @@ func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig
 	if err != nil {
 		return deployment.CapabilityRegistryConfig{}, e.ExistingAddresses, fmt.Errorf("Failed to merge addresses after deploying home chain", err)
 	}
-	
+
 	state, err := changeset.LoadOnchainState(*e)
 	if err != nil {
 		return deployment.CapabilityRegistryConfig{}, e.ExistingAddresses, fmt.Errorf("Failed to load on chain state", err)
@@ -103,9 +105,15 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 	// deploy MCMS With Timelock
 	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 	for _, chain := range e.AllChainSelectors() {
-		cfg[chain], err = commonchangeset.CreateMCMSConfig(e.AllDeployerKeys())
+		mcmsConfig, err := config.NewConfig(1, []common.Address{e.Chains[chain].DeployerKey.From}, []config.Config{})
 		if err != nil {
-			return DeployCCIPOutput{}, fmt.Errorf("Failed to create MCMS config for %d", chain, err)
+			return DeployCCIPOutput{}, fmt.Errorf("Failed to create mcms config")
+		}
+		cfg[chain] = commontypes.MCMSWithTimelockConfig{
+			Canceller:        *mcmsConfig,
+			Bypasser:         *mcmsConfig,
+			Proposer:         *mcmsConfig,
+			TimelockMinDelay: big.NewInt(0),
 		}
 	}
 	out, err = commonchangeset.DeployMCMSWithTimelock(*e, cfg)
