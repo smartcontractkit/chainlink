@@ -33,7 +33,7 @@ require (
 	github.com/prometheus/client_golang v1.20.5
 	github.com/shopspring/decimal v1.4.0
 	github.com/smartcontractkit/chainlink-automation v0.8.1
-	github.com/smartcontractkit/chainlink-common v0.3.1-0.20241211150015-a9658ae0e214
+	github.com/smartcontractkit/chainlink-common v0.3.1-0.20241211192225-0b03fa331a49
 	github.com/smartcontractkit/libocr v0.0.0-20241007185508-adbe57025f12
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/viper v1.19.0
