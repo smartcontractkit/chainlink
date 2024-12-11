@@ -400,7 +400,6 @@ func (w *workflowRegistry) orderAndSend(
 			if batchCount == 0 {
 				for w.heap.Len() > 0 {
 					sendLog(w.heap.Pop())
-					fmt.Println("SENDING EVENT")
 				}
 				return
 			}
