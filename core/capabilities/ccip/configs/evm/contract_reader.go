@@ -89,6 +89,10 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 					ChainSpecificName: mustGetMethodName("getAllSourceChainConfigs", offrampABI),
 					ReadType:          evmrelaytypes.Method,
 				},
+				consts.MethodNameOffRampLatestConfigDetails: {
+					ChainSpecificName: mustGetMethodName("latestConfigDetails", offrampABI),
+					ReadType:          evmrelaytypes.Method,
+				},
 				consts.EventNameCommitReportAccepted: {
 					ChainSpecificName: mustGetEventName(consts.EventNameCommitReportAccepted, offrampABI),
 					ReadType:          evmrelaytypes.Event,
@@ -177,6 +181,10 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 				},
 				consts.MethodNameGetReportDigestHeader: {
 					ChainSpecificName: mustGetMethodName("getReportDigestHeader", rmnRemoteABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+				consts.MethodNameGetCursedSubjects: {
+					ChainSpecificName: mustGetMethodName("getCursedSubjects", rmnRemoteABI),
 					ReadType:          evmrelaytypes.Method,
 				},
 			},
@@ -282,6 +290,23 @@ var SourceReaderConfig = evmrelaytypes.ChainReaderConfig{
 				},
 				consts.MethodNameGetFeeTokens: {
 					ChainSpecificName: mustGetMethodName("getFeeTokens", feeQuoterABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+			},
+		},
+		consts.ContractNameRMNRemote: {
+			ContractABI: rmn_remote.RMNRemoteABI,
+			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
+				consts.MethodNameGetVersionedConfig: {
+					ChainSpecificName: mustGetMethodName("getVersionedConfig", rmnRemoteABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+				consts.MethodNameGetReportDigestHeader: {
+					ChainSpecificName: mustGetMethodName("getReportDigestHeader", rmnRemoteABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+				consts.MethodNameGetCursedSubjects: {
+					ChainSpecificName: mustGetMethodName("getCursedSubjects", rmnRemoteABI),
 					ReadType:          evmrelaytypes.Method,
 				},
 			},

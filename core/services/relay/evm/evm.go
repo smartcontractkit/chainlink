@@ -12,11 +12,13 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	pkgerrors "github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
@@ -86,7 +88,7 @@ func init() {
 	}
 }
 
-var _ commontypes.Relayer = &Relayer{} //nolint:staticcheck
+var _ commontypes.Relayer = &Relayer{}
 
 // The current PluginProvider interface does not support an error return. This was fine up until CCIP.
 // CCIP is the first product to introduce the idea of incomplete implementations of a provider based on
@@ -143,6 +145,7 @@ type Relayer struct {
 	ds                   sqlutil.DataSource
 	chain                legacyevm.Chain
 	lggr                 logger.SugaredLogger
+	registerer           prometheus.Registerer
 	ks                   CSAETHKeystore
 	mercuryPool          wsrpc.Pool
 	codec                commontypes.Codec
@@ -169,7 +172,8 @@ type MercuryConfig interface {
 }
 
 type RelayerOpts struct {
-	DS sqlutil.DataSource
+	DS         sqlutil.DataSource
+	Registerer prometheus.Registerer
 	CSAETHKeystore
 	MercuryPool           wsrpc.Pool
 	RetirementReportCache llo.RetirementReportCache
@@ -214,6 +218,7 @@ func NewRelayer(ctx context.Context, lggr logger.Logger, chain legacyevm.Chain, 
 		ds:                    opts.DS,
 		chain:                 chain,
 		lggr:                  sugared,
+		registerer:            opts.Registerer,
 		ks:                    opts.CSAETHKeystore,
 		mercuryPool:           opts.MercuryPool,
 		cdcFactory:            cdcFactory,
@@ -255,6 +260,14 @@ func (r *Relayer) Close() error {
 	cs := make([]io.Closer, 0, 2)
 	if r.triggerCapability != nil {
 		cs = append(cs, r.triggerCapability)
+
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+
+		err := r.capabilitiesRegistry.Remove(ctx, r.triggerCapability.ID)
+		if err != nil {
+			return err
+		}
 	}
 	cs = append(cs, r.chain)
 	return services.MultiCloser(cs).Close()
@@ -452,9 +465,6 @@ func (r *Relayer) NewMercuryProvider(ctx context.Context, rargs commontypes.Rela
 		}
 	}
 
-	// FIXME: We actually know the version here since it's in the feed ID, can
-	// we use generics to avoid passing three of this?
-	// https://smartcontract-it.atlassian.net/browse/MERC-1414
 	reportCodecV1 := reportcodecv1.NewReportCodec(*relayConfig.FeedID, lggr.Named("ReportCodecV1"))
 	reportCodecV2 := reportcodecv2.NewReportCodec(*relayConfig.FeedID, lggr.Named("ReportCodecV2"))
 	reportCodecV3 := reportcodecv3.NewReportCodec(*relayConfig.FeedID, lggr.Named("ReportCodecV3"))
@@ -542,8 +552,6 @@ func (r *Relayer) NewLLOProvider(ctx context.Context, rargs commontypes.RelayArg
 		return nil, pkgerrors.Wrap(err, "failed to get CSA key for mercury connection")
 	}
 
-	// FIXME: Remove after benchmarking is done
-	// https://smartcontract-it.atlassian.net/browse/MERC-3487
 	var transmitter LLOTransmitter
 	if lloCfg.BenchmarkMode {
 		r.lggr.Info("Benchmark mode enabled, using dummy transmitter. NOTE: THIS WILL NOT TRANSMIT ANYTHING")
@@ -563,6 +571,7 @@ func (r *Relayer) NewLLOProvider(ctx context.Context, rargs commontypes.RelayArg
 			VerboseLogging: r.mercuryCfg.VerboseLogging(),
 			MercuryTransmitterOpts: mercurytransmitter.Opts{
 				Lggr:           r.lggr,
+				Registerer:     r.registerer,
 				VerboseLogging: r.mercuryCfg.VerboseLogging(),
 				Cfg:            r.mercuryCfg.Transmitter(),
 				Clients:        clients,
@@ -845,7 +854,7 @@ func generateTransmitterFrom(ctx context.Context, rargs commontypes.RelayArgs, e
 	return transmitter, nil
 }
 
-func (r *Relayer) NewChainWriter(_ context.Context, config []byte) (commontypes.ChainWriter, error) {
+func (r *Relayer) NewContractWriter(_ context.Context, config []byte) (commontypes.ContractWriter, error) {
 	var cfg types.ChainWriterConfig
 	if err := json.Unmarshal(config, &cfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshall chain writer config err: %s", err)

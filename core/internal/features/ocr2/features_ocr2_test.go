@@ -45,8 +45,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/keystest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
@@ -112,7 +112,7 @@ func setupNodeOCR2(
 	p2pV2Bootstrappers []commontypes.BootstrapperLocator,
 ) *ocr2Node {
 	ctx := testutils.Context(t)
-	p2pKey := keystest.NewP2PKeyV2(t)
+	p2pKey := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(int64(port)))
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Insecure.OCRDevelopmentMode = ptr(true) // Disables ocr spec validation so we can have fast polling for the test.
 
@@ -239,14 +239,6 @@ func testIntegration_OCR2(t *testing.T) {
 				})
 			}
 
-			tick := time.NewTicker(1 * time.Second)
-			defer tick.Stop()
-			go func() {
-				for range tick.C {
-					b.Commit()
-				}
-			}()
-
 			blockBeforeConfig := initOCR2(t, lggr, b, ocrContract, owner, bootstrapNode, oracles, transmitters, transmitters, func(blockNum int64) string {
 				return fmt.Sprintf(`
 type				= "bootstrap"
@@ -259,6 +251,14 @@ chainID 			= 1337
 fromBlock = %d
 `, ocrContractAddress, blockNum)
 			})
+
+			tick := time.NewTicker(1 * time.Second)
+			defer tick.Stop()
+			go func() {
+				for range tick.C {
+					b.Commit()
+				}
+			}()
 
 			var jids []int32
 			var servers, slowServers = make([]*httptest.Server, 4), make([]*httptest.Server, 4)
@@ -738,14 +738,6 @@ func TestIntegration_OCR2_ForwarderFlow(t *testing.T) {
 		})
 	}
 
-	tick := time.NewTicker(1 * time.Second)
-	defer tick.Stop()
-	go func() {
-		for range tick.C {
-			b.Commit()
-		}
-	}()
-
 	blockBeforeConfig := initOCR2(t, lggr, b, ocrContract, owner, bootstrapNode, oracles, forwarderContracts, transmitters, func(int64) string {
 		return fmt.Sprintf(`
 type				= "bootstrap"
@@ -758,6 +750,14 @@ contractID			= "%s"
 chainID 			= 1337
 `, ocrContractAddress)
 	})
+
+	tick := time.NewTicker(1 * time.Second)
+	defer tick.Stop()
+	go func() {
+		for range tick.C {
+			b.Commit()
+		}
+	}()
 
 	var jids []int32
 	var servers, slowServers = make([]*httptest.Server, 4), make([]*httptest.Server, 4)

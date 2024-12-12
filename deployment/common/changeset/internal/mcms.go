@@ -6,6 +6,7 @@ import (
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
@@ -30,7 +31,7 @@ func DeployMCMSWithConfig(
 			}
 		})
 	if err != nil {
-		lggr.Errorw("Failed to deploy mcm", "err", err)
+		lggr.Errorw("Failed to deploy mcm", "chain", chain.String(), "err", err)
 		return mcm, err
 	}
 	mcmsTx, err := mcm.Contract.SetConfig(chain.DeployerKey,
@@ -42,7 +43,7 @@ func DeployMCMSWithConfig(
 		false,
 	)
 	if _, err := deployment.ConfirmIfNoError(chain, mcmsTx, err); err != nil {
-		lggr.Errorw("Failed to confirm mcm config", "err", err)
+		lggr.Errorw("Failed to confirm mcm config", "chain", chain.String(), "err", err)
 		return mcm, err
 	}
 	return mcm, nil
@@ -54,6 +55,7 @@ type MCMSWithTimelockDeploy struct {
 	Bypasser  *deployment.ContractDeploy[*owner_helpers.ManyChainMultiSig]
 	Proposer  *deployment.ContractDeploy[*owner_helpers.ManyChainMultiSig]
 	Timelock  *deployment.ContractDeploy[*owner_helpers.RBACTimelock]
+	CallProxy *deployment.ContractDeploy[*owner_helpers.CallProxy]
 }
 
 func DeployMCMSWithTimelockContractsBatch(
@@ -95,7 +97,7 @@ func DeployMCMSWithTimelockContracts(
 		return nil, err
 	}
 
-	timelock, err := deployment.DeployContract[*owner_helpers.RBACTimelock](lggr, chain, ab,
+	timelock, err := deployment.DeployContract(lggr, chain, ab,
 		func(chain deployment.Chain) deployment.ContractDeploy[*owner_helpers.RBACTimelock] {
 			timelock, tx2, cc, err2 := owner_helpers.DeployRBACTimelock(
 				chain.DeployerKey,
@@ -105,25 +107,57 @@ func DeployMCMSWithTimelockContracts(
 				// TODO: Could expose this as config?
 				// Or keep this enforced to follow the same pattern?
 				chain.DeployerKey.From,
-				[]common.Address{proposer.Address},  // proposers
-				config.TimelockExecutors,            //executors
-				[]common.Address{canceller.Address}, // cancellers
-				[]common.Address{bypasser.Address},  // bypassers
+				[]common.Address{proposer.Address}, // proposers
+				// Executors field is empty here because we grant the executor role to the call proxy later
+				// and the call proxy cannot be deployed before the timelock.
+				[]common.Address{},
+				[]common.Address{canceller.Address, proposer.Address, bypasser.Address}, // cancellers
+				[]common.Address{bypasser.Address},                                      // bypassers
 			)
 			return deployment.ContractDeploy[*owner_helpers.RBACTimelock]{
 				timelock, cc, tx2, deployment.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0), err2,
 			}
 		})
 	if err != nil {
-		lggr.Errorw("Failed to deploy timelock", "err", err)
+		lggr.Errorw("Failed to deploy timelock", "chain", chain.String(), "err", err)
 		return nil, err
 	}
-	lggr.Infow("deployed timelock", "addr", timelock.Address)
+
+	callProxy, err := deployment.DeployContract(lggr, chain, ab,
+		func(chain deployment.Chain) deployment.ContractDeploy[*owner_helpers.CallProxy] {
+			callProxy, tx2, cc, err2 := owner_helpers.DeployCallProxy(
+				chain.DeployerKey,
+				chain.Client,
+				timelock.Address,
+			)
+			return deployment.ContractDeploy[*owner_helpers.CallProxy]{
+				callProxy, cc, tx2, deployment.NewTypeAndVersion(types.CallProxy, deployment.Version1_0_0), err2,
+			}
+		})
+	if err != nil {
+		lggr.Errorw("Failed to deploy call proxy", "chain", chain.String(), "err", err)
+		return nil, err
+	}
+
+	grantRoleTx, err := timelock.Contract.GrantRole(
+		chain.DeployerKey,
+		v1_0.EXECUTOR_ROLE.ID,
+		callProxy.Address,
+	)
+	if err != nil {
+		lggr.Errorw("Failed to grant timelock executor role", "chain", chain.String(), "err", err)
+		return nil, err
+	}
+
+	if _, err := deployment.ConfirmIfNoError(chain, grantRoleTx, err); err != nil {
+		lggr.Errorw("Failed to grant timelock executor role", "chain", chain.String(), "err", err)
+		return nil, err
+	}
 	// We grant the timelock the admin role on the MCMS contracts.
 	tx, err := timelock.Contract.GrantRole(chain.DeployerKey,
 		v1_0.ADMIN_ROLE.ID, timelock.Address)
 	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
-		lggr.Errorw("Failed to grant timelock admin role", "err", err)
+		lggr.Errorw("Failed to grant timelock admin role", "chain", chain.String(), "err", err)
 		return nil, err
 	}
 	// After the proposer cycle is validated,
@@ -133,5 +167,6 @@ func DeployMCMSWithTimelockContracts(
 		Bypasser:  bypasser,
 		Proposer:  proposer,
 		Timelock:  timelock,
+		CallProxy: callProxy,
 	}, nil
 }

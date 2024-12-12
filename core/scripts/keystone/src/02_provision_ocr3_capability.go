@@ -100,8 +100,8 @@ func deployOCR3Contract(
 func generateOCR3Config(nodeKeys []NodeKeys, configFile string) ksdeploy.OCR2OracleConfig {
 	topLevelCfg := mustReadOCR3Config(configFile)
 	cfg := topLevelCfg.OracleConfig
-	cfg.OCRSecrets = deployment.XXXGenerateTestOCRSecrets()
-	c, err := ksdeploy.GenerateOCR3Config(cfg, nodeKeysToKsDeployNodeKeys(nodeKeys[1:])) // skip the bootstrap node
+	secrets := deployment.XXXGenerateTestOCRSecrets()
+	c, err := ksdeploy.GenerateOCR3Config(cfg, nodeKeysToKsDeployNodeKeys(nodeKeys[1:]), secrets) // skip the bootstrap node
 	helpers.PanicErr(err)
 	return c
 }

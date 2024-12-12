@@ -6,16 +6,26 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 )
+
+// OCR3SignerVerifierExtra is an extension of OCR3SignerVerifier that
+// also exposes the public key and max signature length which are required by the ocr3Keyring adapter.
+type OCR3SignerVerifierExtra interface {
+	ocr2key.OCR3SignerVerifier
+	PublicKey() types.OnchainPublicKey
+	MaxSignatureLength() int
+}
 
 var _ ocr3types.OnchainKeyring[[]byte] = &ocr3Keyring[[]byte]{}
 
+// ocr3Keyring is an adapter that exposes ocr3 onchain keyring.
 type ocr3Keyring[RI any] struct {
-	core types.OnchainKeyring
+	core OCR3SignerVerifierExtra
 	lggr logger.Logger
 }
 
-func NewOnchainKeyring[RI any](keyring types.OnchainKeyring, lggr logger.Logger) *ocr3Keyring[RI] {
+func NewOnchainKeyring[RI any](keyring OCR3SignerVerifierExtra, lggr logger.Logger) *ocr3Keyring[RI] {
 	return &ocr3Keyring[RI]{
 		core: keyring,
 		lggr: lggr.Named("OCR3Keyring"),
@@ -31,31 +41,20 @@ func (w *ocr3Keyring[RI]) MaxSignatureLength() int {
 }
 
 func (w *ocr3Keyring[RI]) Sign(configDigest types.ConfigDigest, seqNr uint64, r ocr3types.ReportWithInfo[RI]) (signature []byte, err error) {
-	epoch, round := uint64ToUint32AndUint8(seqNr)
-	rCtx := types.ReportContext{
-		ReportTimestamp: types.ReportTimestamp{
-			ConfigDigest: configDigest,
-			Epoch:        epoch,
-			Round:        round,
-		},
-	}
-
-	w.lggr.Debugw("signing report", "configDigest", configDigest.Hex(), "seqNr", seqNr, "report", hexutil.Encode(r.Report))
-
-	return w.core.Sign(rCtx, r.Report)
+	w.lggr.Debugw(
+		"signing report",
+		"configDigest", configDigest.Hex(),
+		"seqNr", seqNr,
+		"report", hexutil.Encode(r.Report),
+	)
+	return w.core.Sign3(configDigest, seqNr, r.Report)
 }
 
 func (w *ocr3Keyring[RI]) Verify(key types.OnchainPublicKey, configDigest types.ConfigDigest, seqNr uint64, r ocr3types.ReportWithInfo[RI], signature []byte) bool {
-	epoch, round := uint64ToUint32AndUint8(seqNr)
-	rCtx := types.ReportContext{
-		ReportTimestamp: types.ReportTimestamp{
-			ConfigDigest: configDigest,
-			Epoch:        epoch,
-			Round:        round,
-		},
-	}
-
-	w.lggr.Debugw("verifying report", "configDigest", configDigest.Hex(), "seqNr", seqNr, "report", hexutil.Encode(r.Report))
-
-	return w.core.Verify(key, rCtx, r.Report, signature)
+	w.lggr.Debugw("verifying report",
+		"configDigest", configDigest.Hex(),
+		"seqNr", seqNr,
+		"report", hexutil.Encode(r.Report),
+	)
+	return w.core.Verify3(key, configDigest, seqNr, r.Report, signature)
 }

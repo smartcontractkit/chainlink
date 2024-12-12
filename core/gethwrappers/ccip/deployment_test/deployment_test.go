@@ -41,10 +41,11 @@ func TestDeployAllV1_6(t *testing.T) {
 
 	// offramp
 	_, _, _, err = offramp.DeployOffRamp(owner, chain, offramp.OffRampStaticConfig{
-		ChainSelector:      1,
-		RmnRemote:          common.HexToAddress("0x1"),
-		TokenAdminRegistry: common.HexToAddress("0x2"),
-		NonceManager:       common.HexToAddress("0x3"),
+		ChainSelector:        1,
+		GasForCallExactCheck: 5_000,
+		RmnRemote:            common.HexToAddress("0x1"),
+		TokenAdminRegistry:   common.HexToAddress("0x2"),
+		NonceManager:         common.HexToAddress("0x3"),
 	}, offramp.OffRampDynamicConfig{
 		FeeQuoter:                               common.HexToAddress("0x4"),
 		PermissionLessExecutionThresholdSeconds: uint32((8 * time.Hour).Seconds()),

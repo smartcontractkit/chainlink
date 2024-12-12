@@ -518,7 +518,8 @@ func TestRpcClientLargePayloadTimeout(t *testing.T) {
 		{
 			Name: "SendTransaction",
 			Fn: func(ctx context.Context, rpc *client.RPCClient) error {
-				return rpc.SendTransaction(ctx, types.NewTx(&types.LegacyTx{}))
+				result := rpc.SendTransaction(ctx, types.NewTx(&types.LegacyTx{}))
+				return result.Error()
 			},
 		},
 		{

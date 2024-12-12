@@ -92,8 +92,8 @@ func TestUpdateNodeCapabilities(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			setupResp := kstest.SetupTestRegistry(t, lggr, tt.args.initialState)
-			tt.args.req.Registry = setupResp.Registry
 			tt.args.req.Chain = setupResp.Chain
+			tt.args.req.ContractSet = setupResp.ContractSet
 
 			got, err := kslib.UpdateNodeCapabilitiesImpl(tt.args.lggr, tt.args.req)
 			if (err != nil) != tt.wantErr {

@@ -3,6 +3,7 @@ package testsetups
 import (
 	"context"
 	"fmt"
+	"math"
 	"math/big"
 	"math/rand"
 	"os"
@@ -36,6 +37,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 
 	integrationactions "github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/actions"
@@ -234,12 +236,18 @@ func (c *CCIPTestConfig) SetNetworkPairs(lggr zerolog.Logger) error {
 		var chainIDs []int64
 		existingChainIDs := make(map[uint64]struct{})
 		for _, net := range c.SelectedNetworks {
+			if net.ChainID < 0 {
+				return fmt.Errorf("negative chain ID: %d", net.ChainID)
+			}
 			existingChainIDs[uint64(net.ChainID)] = struct{}{}
 		}
 		for _, id := range chainselectors.TestChainIds() {
 			// if the chain id already exists in the already provided selected networks, skip it
 			if _, exists := existingChainIDs[id]; exists {
 				continue
+			}
+			if id > math.MaxInt64 {
+				return fmt.Errorf("chain ID overflows int64: %d", id)
 			}
 			chainIDs = append(chainIDs, int64(id))
 		}
@@ -300,7 +308,7 @@ func (c *CCIPTestConfig) SetNetworkPairs(lggr zerolog.Logger) error {
 		var newNetworkPairs []NetworkPair
 		denselyConnectedNetworks := make(map[string]struct{})
 		// if densely connected networks are provided, choose all the network pairs containing the networks mentioned in the list for DenselyConnectedNetworkChainIds
-		if c.TestGroupInput.DenselyConnectedNetworkChainIds != nil && len(c.TestGroupInput.DenselyConnectedNetworkChainIds) > 0 {
+		if len(c.TestGroupInput.DenselyConnectedNetworkChainIds) > 0 {
 			for _, n := range c.TestGroupInput.DenselyConnectedNetworkChainIds {
 				denselyConnectedNetworks[n] = struct{}{}
 			}
@@ -1146,7 +1154,7 @@ func CCIPDefaultTestSetUp(
 			// if it's a new USDC deployment, set up mock server for attestation,
 			// we need to set it only once for all the lanes as the attestation path uses regex to match the path for
 			// all messages across all lanes
-			err = actions.SetMockServerWithUSDCAttestation(killgrave, setUpArgs.Env.MockServer)
+			err = actions.SetMockServerWithUSDCAttestation(killgrave, setUpArgs.Env.MockServer, false)
 			require.NoError(t, err, "failed to set up mock server for attestation")
 		}
 	}
@@ -1407,9 +1415,19 @@ func (o *CCIPTestSetUpOutputs) CreateEnvironment(
 }
 
 func createEnvironmentConfig(t *testing.T, envName string, testConfig *CCIPTestConfig, reportPath string) *environment.Config {
+	testType := testConfig.TestGroupInput.Type
+	nsLabels, err := environment.GetRequiredChainLinkNamespaceLabels(string(tc.CCIP), testType)
+	require.NoError(t, err, "Error creating required chain.link labels for namespace")
+
+	workloadPodLabels, err := environment.GetRequiredChainLinkWorkloadAndPodLabels(string(tc.CCIP), testType)
+	require.NoError(t, err, "Error creating required chain.link labels for workloads and pods")
+
 	envConfig := &environment.Config{
 		NamespacePrefix: envName,
 		Test:            t,
+		Labels:          nsLabels,
+		WorkloadLabels:  workloadPodLabels,
+		PodLabels:       workloadPodLabels,
 		//	PreventPodEviction: true, //TODO: enable this once we have a way to handle pod eviction
 	}
 	if pointer.GetBool(testConfig.TestGroupInput.StoreLaneConfig) {

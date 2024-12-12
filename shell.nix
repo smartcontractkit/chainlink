@@ -1,6 +1,6 @@
 {pkgs, isCrib}:
 with pkgs; let
-  go = go_1_21;
+  go = go_1_23;
   postgresql = postgresql_15;
   nodejs = nodejs-18_x;
   nodePackages = pkgs.nodePackages.override {inherit nodejs;};

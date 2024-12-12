@@ -20,6 +20,28 @@ import (
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
 )
 
+func FuzzReportCodecPremiumLegacy_Decode(f *testing.F) {
+	f.Add([]byte("not a protobuf"))
+	f.Add([]byte{0x0a, 0x00})             // empty protobuf
+	f.Add([]byte{0x0a, 0x02, 0x08, 0x01}) // invalid protobuf
+	f.Add(([]byte)(nil))
+	f.Add([]byte{})
+
+	validReport := newValidPremiumLegacyReport()
+	feedID := [32]uint8{0x1, 0x2, 0x3, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}
+	cd := llotypes.ChannelDefinition{Opts: llotypes.ChannelOpts(fmt.Sprintf(`{"baseUSDFee":"10.50","expirationWindow":60,"feedId":"0x%x","multiplier":10}`, feedID))}
+
+	codec := ReportCodecPremiumLegacy{logger.NullLogger, 100002}
+
+	validEncodedReport, err := codec.Encode(tests.Context(f), validReport, cd)
+	require.NoError(f, err)
+	f.Add(validEncodedReport)
+
+	f.Fuzz(func(t *testing.T, data []byte) {
+		codec.Decode(data) //nolint:errcheck // test that it doesn't panic, don't care about errors
+	})
+}
+
 func newValidPremiumLegacyReport() llo.Report {
 	return llo.Report{
 		ConfigDigest:                types.ConfigDigest{1, 2, 3},
@@ -33,7 +55,7 @@ func newValidPremiumLegacyReport() llo.Report {
 }
 
 func Test_ReportCodecPremiumLegacy(t *testing.T) {
-	rc := ReportCodecPremiumLegacy{logger.TestLogger(t)}
+	rc := ReportCodecPremiumLegacy{logger.TestLogger(t), 2}
 
 	feedID := [32]uint8{0x1, 0x2, 0x3, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}
 	cd := llotypes.ChannelDefinition{Opts: llotypes.ChannelOpts(fmt.Sprintf(`{"baseUSDFee":"10.50","expirationWindow":60,"feedId":"0x%x","multiplier":10}`, feedID))}
@@ -224,4 +246,10 @@ func Test_ExtractReportValues(t *testing.T) {
 		assert.Equal(t, decimal.Zero, linkPrice)
 		assert.Equal(t, &llo.Quote{Bid: decimal.NewFromInt(37), Benchmark: decimal.NewFromInt(38), Ask: decimal.NewFromInt(39)}, quote)
 	})
+}
+
+func Test_LLOExtraHash(t *testing.T) {
+	donID := uint32(8)
+	extraHash := LLOExtraHash(donID)
+	assert.Equal(t, "0x0000000000000000000000000000000000000000000000000000000800000001", extraHash.String())
 }

@@ -23,7 +23,7 @@ import (
 
 // GatewayConnector is a component run by Nodes to connect to a set of Gateways.
 type GatewayConnector interface {
-	job.ServiceCtx
+	services.Service
 	network.ConnectionInitiator
 
 	AddHandler(methods []string, handler GatewayConnectorHandler) error

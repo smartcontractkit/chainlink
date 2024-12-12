@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"strings"
 	"testing"
@@ -642,10 +643,15 @@ func calculateOCR2ConfigArgs(a *AutomationTest, S []int, oracleIdentities []conf
 		MaxUpkeepBatchSize:   a.PluginConfig.MaxUpkeepBatchSize,
 	})
 
+	rMax := a.PublicConfig.RMax
+	if rMax > math.MaxUint8 {
+		panic(fmt.Errorf("rmax overflows uint8: %d", rMax))
+	}
+
 	return ocr2.ContractSetConfigArgsForTests(
 		a.PublicConfig.DeltaProgress, a.PublicConfig.DeltaResend,
 		a.PublicConfig.DeltaRound, a.PublicConfig.DeltaGrace,
-		a.PublicConfig.DeltaStage, uint8(a.PublicConfig.RMax),
+		a.PublicConfig.DeltaStage, uint8(rMax),
 		S, oracleIdentities, offC,
 		nil,
 		a.PublicConfig.MaxDurationQuery, a.PublicConfig.MaxDurationObservation,
