@@ -19,15 +19,15 @@ import (
 func Test_ReportsGeneratedGauge(t *testing.T) {
 	plugin1 := newReportingPlugin(
 		fakePlugin[uint]{reports: make([]ocr3types.ReportPlus[uint], 2)},
-		"123", "empty", "abc", promOCR3ReportsGenerated, promOCR3Durations, promOCR3PluginStatus,
+		"123", "empty", "abc", promOCR3ReportsGenerated, promOCR3Durations, promOCR3Sizes, promOCR3PluginStatus,
 	)
 	plugin2 := newReportingPlugin(
 		fakePlugin[bool]{reports: make([]ocr3types.ReportPlus[bool], 10)},
-		"solana", "different_plugin", "abc", promOCR3ReportsGenerated, promOCR3Durations, promOCR3PluginStatus,
+		"solana", "different_plugin", "abc", promOCR3ReportsGenerated, promOCR3Durations, promOCR3Sizes, promOCR3PluginStatus,
 	)
 	plugin3 := newReportingPlugin(
 		fakePlugin[string]{err: errors.New("error")},
-		"1234", "empty", "abc", promOCR3ReportsGenerated, promOCR3Durations, promOCR3PluginStatus,
+		"1234", "empty", "abc", promOCR3ReportsGenerated, promOCR3Durations, promOCR3Sizes, promOCR3PluginStatus,
 	)
 
 	r1, err := plugin1.Reports(tests.Context(t), 1, nil)
@@ -64,20 +64,30 @@ func Test_ReportsGeneratedGauge(t *testing.T) {
 	require.NoError(t, plugin1.Close())
 	pluginHealth = testutil.ToFloat64(promOCR3PluginStatus.WithLabelValues("123", "empty", "abc"))
 	require.Equal(t, 0, int(pluginHealth))
+
+	for i := 0; i < 10; i++ {
+		_, err1 := plugin2.Outcome(tests.Context(t), ocr3types.OutcomeContext{}, nil, nil)
+		require.NoError(t, err1)
+	}
+	_, err1 := plugin2.Observation(tests.Context(t), ocr3types.OutcomeContext{}, nil)
+	require.NoError(t, err1)
+
+	require.Equal(t, float64(30), testutil.ToFloat64(promOCR3Sizes.WithLabelValues("solana", "different_plugin", "outcome")))
+	require.Equal(t, float64(5), testutil.ToFloat64(promOCR3Sizes.WithLabelValues("solana", "different_plugin", "observation")))
 }
 
 func Test_DurationHistograms(t *testing.T) {
 	plugin1 := newReportingPlugin(
 		fakePlugin[uint]{},
-		"123", "empty", "abc", promOCR3ReportsGenerated, promOCR3Durations, promOCR3PluginStatus,
+		"123", "empty", "abc", promOCR3ReportsGenerated, promOCR3Durations, promOCR3Sizes, promOCR3PluginStatus,
 	)
 	plugin2 := newReportingPlugin(
 		fakePlugin[uint]{err: errors.New("error")},
-		"123", "empty", "abc", promOCR3ReportsGenerated, promOCR3Durations, promOCR3PluginStatus,
+		"123", "empty", "abc", promOCR3ReportsGenerated, promOCR3Durations, promOCR3Sizes, promOCR3PluginStatus,
 	)
 	plugin3 := newReportingPlugin(
 		fakePlugin[uint]{},
-		"solana", "commit", "abc", promOCR3ReportsGenerated, promOCR3Durations, promOCR3PluginStatus,
+		"solana", "commit", "abc", promOCR3ReportsGenerated, promOCR3Durations, promOCR3Sizes, promOCR3PluginStatus,
 	)
 
 	for _, p := range []*reportingPlugin[uint]{plugin1, plugin2, plugin3} {
@@ -117,7 +127,7 @@ func (f fakePlugin[RI]) Observation(context.Context, ocr3types.OutcomeContext, o
 	if f.err != nil {
 		return nil, f.err
 	}
-	return ocrtypes.Observation{}, nil
+	return make([]byte, 5), nil
 }
 
 func (f fakePlugin[RI]) ValidateObservation(context.Context, ocr3types.OutcomeContext, ocrtypes.Query, ocrtypes.AttributedObservation) error {
@@ -132,7 +142,7 @@ func (f fakePlugin[RI]) Outcome(context.Context, ocr3types.OutcomeContext, ocrty
 	if f.err != nil {
 		return nil, f.err
 	}
-	return ocr3types.Outcome{}, nil
+	return make([]byte, 3), nil
 }
 
 func (f fakePlugin[RI]) Reports(context.Context, uint64, ocr3types.Outcome) ([]ocr3types.ReportPlus[RI], error) {
