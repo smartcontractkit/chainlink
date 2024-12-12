@@ -5,22 +5,16 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 func Test_NewAcceptOwnershipChangeset(t *testing.T) {
-	e := NewMemoryEnvironmentWithJobsAndContracts(t, logger.TestLogger(t), memory.MemoryEnvironmentConfig{
-		Chains:             2,
-		NumOfUsersPerChain: 1,
-		Nodes:              4,
-		Bootstraps:         1,
-	}, &TestConfigs{})
+	t.Parallel()
+	e := NewMemoryEnvironment(t)
 	state, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
@@ -28,12 +22,12 @@ func Test_NewAcceptOwnershipChangeset(t *testing.T) {
 	source := allChains[0]
 	dest := allChains[1]
 
-	timelockContracts := map[uint64]*commonchangeset.TimelockExecutionContracts{
-		source: &commonchangeset.TimelockExecutionContracts{
+	timelockContracts := map[uint64]*proposalutils.TimelockExecutionContracts{
+		source: &proposalutils.TimelockExecutionContracts{
 			Timelock:  state.Chains[source].Timelock,
 			CallProxy: state.Chains[source].CallProxy,
 		},
-		dest: &commonchangeset.TimelockExecutionContracts{
+		dest: &proposalutils.TimelockExecutionContracts{
 			Timelock:  state.Chains[dest].Timelock,
 			CallProxy: state.Chains[dest].CallProxy,
 		},

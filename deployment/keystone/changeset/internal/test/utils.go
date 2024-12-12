@@ -40,6 +40,7 @@ type SetupTestRegistryResponse struct {
 	Registry         *kcr.CapabilitiesRegistry
 	Chain            deployment.Chain
 	RegistrySelector uint64
+	ContractSet      *kslib.ContractSet
 }
 
 func SetupTestRegistry(t *testing.T, lggr logger.Logger, req *SetupTestRegistryRequest) *SetupTestRegistryResponse {
@@ -100,6 +101,9 @@ func SetupTestRegistry(t *testing.T, lggr logger.Logger, req *SetupTestRegistryR
 		Registry:         registry,
 		Chain:            chain,
 		RegistrySelector: chain.Selector,
+		ContractSet: &kslib.ContractSet{
+			CapabilitiesRegistry: registry,
+		},
 	}
 }
 

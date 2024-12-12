@@ -7,6 +7,10 @@ toolchain go1.23.4
 // Make sure we're working with the latest chainlink libs
 replace github.com/smartcontractkit/chainlink/v2 => ../
 
+// Using a separate inline `require` here to avoid surrounding line changes
+// creating potential merge conflicts.
+require github.com/smartcontractkit/chainlink/v2 v2.0.0-20241206210521-125d98cdaf66
+
 require (
 	github.com/Khan/genqlient v0.7.0
 	github.com/Masterminds/semver/v3 v3.3.0
@@ -24,11 +28,10 @@ require (
 	github.com/sethvargo/go-retry v0.2.4
 	github.com/smartcontractkit/ccip-owner-contracts v0.0.0-20240926212305-a6deabdfce86
 	github.com/smartcontractkit/chain-selectors v1.0.34
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241204015713-8956bb614e9e
-	github.com/smartcontractkit/chainlink-common v0.3.1-0.20241209151352-70300ddcc776
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241211150100-7683331f64a0
+	github.com/smartcontractkit/chainlink-common v0.3.1-0.20241212163958-6a43e61b9d49
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.6.0
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.13
-	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20241007185508-adbe57025f12
 	github.com/stretchr/testify v1.9.0
 	github.com/test-go/testify v1.1.4
@@ -407,7 +410,7 @@ require (
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20241202141438-a90db35252db // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.1 // indirect
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.3.2 // indirect
-	github.com/smartcontractkit/chainlink-solana v1.1.1-0.20241204153209-c3a71b0eef99 // indirect
+	github.com/smartcontractkit/chainlink-solana v1.1.1-0.20241210172617-6fd1891d0fbc // indirect
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.1.1-0.20241202202529-2033490e77b8 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.50.0 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.50.5 // indirect

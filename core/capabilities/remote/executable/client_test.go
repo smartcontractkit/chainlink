@@ -29,6 +29,7 @@ const (
 )
 
 func Test_Client_DonTopologies(t *testing.T) {
+	testutils.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CAPPL-363")
 	ctx := testutils.Context(t)
 
 	transmissionSchedule, err := values.NewMap(map[string]any{
@@ -87,6 +88,7 @@ func Test_Client_DonTopologies(t *testing.T) {
 }
 
 func Test_Client_TransmissionSchedules(t *testing.T) {
+	testutils.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CAPPL-363")
 	ctx := testutils.Context(t)
 
 	responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {

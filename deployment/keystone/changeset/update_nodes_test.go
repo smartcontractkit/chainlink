@@ -9,6 +9,7 @@ import (
 	"golang.org/x/exp/maps"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
@@ -79,7 +80,7 @@ func TestUpdateNodes(t *testing.T) {
 		cfg := changeset.UpdateNodesRequest{
 			RegistryChainSel: te.RegistrySelector,
 			P2pToUpdates:     updates,
-			UseMCMS:          true,
+			MCMSConfig:       &changeset.MCMSConfig{MinDuration: 0},
 		}
 
 		csOut, err := changeset.UpdateNodes(te.Env, &cfg)
@@ -89,7 +90,7 @@ func TestUpdateNodes(t *testing.T) {
 
 		// now apply the changeset such that the proposal is signed and execed
 		contracts := te.ContractSets()[te.RegistrySelector]
-		timelockContracts := map[uint64]*commonchangeset.TimelockExecutionContracts{
+		timelockContracts := map[uint64]*proposalutils.TimelockExecutionContracts{
 			te.RegistrySelector: {
 				Timelock:  contracts.Timelock,
 				CallProxy: contracts.CallProxy,
@@ -101,7 +102,7 @@ func TestUpdateNodes(t *testing.T) {
 				Config: &changeset.UpdateNodesRequest{
 					RegistryChainSel: te.RegistrySelector,
 					P2pToUpdates:     updates,
-					UseMCMS:          true,
+					MCMSConfig:       &changeset.MCMSConfig{MinDuration: 0},
 				},
 			},
 		})
