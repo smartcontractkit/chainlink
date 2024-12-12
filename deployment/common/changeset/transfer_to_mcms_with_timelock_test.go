@@ -61,4 +61,20 @@ func TestTransferToMCMSWithTimelock(t *testing.T) {
 	o, err := link.LinkToken.Owner(nil)
 	require.NoError(t, err)
 	require.Equal(t, state.Timelock.Address(), o)
+
+	// Try a rollback to the deployer.
+	e, err = ApplyChangesets(t, e, nil, []ChangesetApplication{
+		{
+			Changeset: WrapChangeSet(TransferToDeployer),
+			Config: TransferToDeployerConfig{
+				ContractAddress: link.LinkToken.Address(),
+				ChainSel:        chain1,
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	o, err = link.LinkToken.Owner(nil)
+	require.NoError(t, err)
+	require.Equal(t, e.Chains[chain1].DeployerKey.From, o)
 }
