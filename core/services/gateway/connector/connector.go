@@ -240,6 +240,8 @@ func (c *gatewayConnector) reconnectLoop(gatewayState *gatewayState) {
 		if err != nil {
 			c.lggr.Errorw("connection error", "url", gatewayState.url, "err", err)
 		} else {
+			c.lggr.Infow("forcing wait time before reseting connection")
+			<-time.After(1 * time.Minute)
 			c.lggr.Infow("connected successfully", "url", gatewayState.url)
 			closeCh := gatewayState.conn.Reset(conn)
 			<-closeCh
