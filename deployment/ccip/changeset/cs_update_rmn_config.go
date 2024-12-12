@@ -340,10 +340,14 @@ func buildRMNRemotePerChain(e deployment.Environment, state CCIPOnChainState) ma
 	return timelocksPerChain
 }
 
+type RMNRemoteConfig struct {
+	Signers []rmn_remote.RMNRemoteSigner
+	F       uint64
+}
+
 type SetRMNRemoteConfig struct {
 	HomeChainSelector uint64
-	Signers           []rmn_remote.RMNRemoteSigner
-	F                 uint64
+	RMNRemoteConfigs  map[uint64]RMNRemoteConfig
 	MCMSConfig        *MCMSConfig
 }
 
@@ -353,14 +357,21 @@ func (c SetRMNRemoteConfig) Validate() error {
 		return err
 	}
 
-	for i := 0; i < len(c.Signers)-1; i++ {
-		if c.Signers[i].NodeIndex >= c.Signers[i+1].NodeIndex {
-			return fmt.Errorf("signers must be in ascending order of nodeIndex")
+	for chain, config := range c.RMNRemoteConfigs {
+		err := deployment.IsValidChainSelector(chain)
+		if err != nil {
+			return err
 		}
-	}
 
-	if len(c.Signers) < 2*int(c.F)+1 {
-		return fmt.Errorf("signers count must greater than or equal to %d", 2*c.F+1)
+		for i := 0; i < len(config.Signers)-1; i++ {
+			if config.Signers[i].NodeIndex >= config.Signers[i+1].NodeIndex {
+				return fmt.Errorf("signers must be in ascending order of nodeIndex")
+			}
+		}
+
+		if len(config.Signers) < 2*int(config.F)+1 {
+			return fmt.Errorf("signers count must greater than or equal to %d", 2*config.F+1)
+		}
 	}
 
 	return nil
@@ -397,9 +408,10 @@ func NewSetRMNRemoteConfigChangeset(e deployment.Environment, config SetRMNRemot
 
 	rmnRemotePerChain := buildRMNRemotePerChain(e, state)
 	batches := make([]timelock.BatchChainOperation, 0)
-	for chain, remote := range rmnRemotePerChain {
-		if remote == nil {
-			continue
+	for chain, remoteConfig := range config.RMNRemoteConfigs {
+		remote, ok := rmnRemotePerChain[chain]
+		if !ok {
+			return deployment.ChangesetOutput{}, fmt.Errorf("RMNRemote not found for chain %d", chain)
 		}
 
 		currentVersionConfig, err := remote.GetVersionedConfig(nil)
@@ -409,8 +421,8 @@ func NewSetRMNRemoteConfigChangeset(e deployment.Environment, config SetRMNRemot
 
 		newConfig := rmn_remote.RMNRemoteConfig{
 			RmnHomeContractConfigDigest: activeConfig,
-			Signers:                     config.Signers,
-			F:                           config.F,
+			Signers:                     remoteConfig.Signers,
+			F:                           remoteConfig.F,
 		}
 
 		if reflect.DeepEqual(currentVersionConfig.Config, newConfig) {

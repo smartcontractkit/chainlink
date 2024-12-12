@@ -166,10 +166,19 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 		signers = append(signers, nop.ToRMNRemoteSigner())
 	}
 
+	remoteConfigs := make(map[uint64]RMNRemoteConfig)
+	for _, chain := range e.Env.Chains {
+		remoteConfig := RMNRemoteConfig{
+			Signers: signers,
+			F:       0,
+		}
+
+		remoteConfigs[chain.Selector] = remoteConfig
+	}
+
 	setRemoteConfig := SetRMNRemoteConfig{
 		HomeChainSelector: e.HomeChainSel,
-		Signers:           signers,
-		F:                 0,
+		RMNRemoteConfigs:  remoteConfigs,
 		MCMSConfig:        mcmsConfig,
 	}
 
