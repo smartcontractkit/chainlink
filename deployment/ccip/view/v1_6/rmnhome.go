@@ -153,9 +153,10 @@ func mapSourceChains(chains []rmn_home.RMNHomeSourceChain) []RMNHomeSourceChain 
 }
 
 func generateRmnHomeVersionedConfig(reader *rmn_home.RMNHome, digestFunc DigestFunc) (*RMNHomeVersionedConfig, error) {
+	address := reader.Address()
 	digest, err := digestFunc(nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get digest: %w", err)
+		return nil, fmt.Errorf("failed to get digest for contract %s: %w", address, err)
 	}
 
 	if digest == [32]byte{} {
@@ -164,7 +165,7 @@ func generateRmnHomeVersionedConfig(reader *rmn_home.RMNHome, digestFunc DigestF
 
 	config, err := reader.GetConfig(nil, digest)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get config: %w", err)
+		return nil, fmt.Errorf("failed to get config for contract %s: %w", address, err)
 	}
 
 	staticConfig := RMNHomeStaticConfig{
@@ -188,19 +189,21 @@ func GenerateRMNHomeView(rmnReader *rmn_home.RMNHome) (RMNHomeView, error) {
 		return RMNHomeView{}, nil
 	}
 
+	address := rmnReader.Address()
+
 	activeConfig, err := generateRmnHomeVersionedConfig(rmnReader, rmnReader.GetActiveDigest)
 	if err != nil {
-		return RMNHomeView{}, fmt.Errorf("failed to generate active config: %w", err)
+		return RMNHomeView{}, fmt.Errorf("failed to generate active config for contract %s: %w", address, err)
 	}
 
 	candidateConfig, err := generateRmnHomeVersionedConfig(rmnReader, rmnReader.GetCandidateDigest)
 	if err != nil {
-		return RMNHomeView{}, fmt.Errorf("failed to generate candidate config: %w", err)
+		return RMNHomeView{}, fmt.Errorf("failed to generate candidate config for contract %s: %w", address, err)
 	}
 
 	contractMetaData, err := types.NewContractMetaData(rmnReader, rmnReader.Address())
 	if err != nil {
-		return RMNHomeView{}, fmt.Errorf("failed to create contract metadata: %w", err)
+		return RMNHomeView{}, fmt.Errorf("failed to create contract metadata for contract %s: %w", address, err)
 	}
 
 	return RMNHomeView{
