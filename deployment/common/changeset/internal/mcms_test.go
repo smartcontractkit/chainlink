@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/internal"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -23,7 +24,7 @@ func TestDeployMCMSWithConfig(t *testing.T) {
 	})
 	ab := deployment.NewMemoryAddressBook()
 	_, err := internal.DeployMCMSWithConfig(types.ProposerManyChainMultisig,
-		lggr, chains[chainsel.TEST_90000001.Selector], ab, changeset.SingleGroupMCMS(t))
+		lggr, chains[chainsel.TEST_90000001.Selector], ab, proposalutils.SingleGroupMCMS(t))
 	require.NoError(t, err)
 }
 
@@ -36,9 +37,9 @@ func TestDeployMCMSWithTimelockContracts(t *testing.T) {
 	_, err := internal.DeployMCMSWithTimelockContracts(lggr,
 		chains[chainsel.TEST_90000001.Selector],
 		ab, types.MCMSWithTimelockConfig{
-			Canceller:        changeset.SingleGroupMCMS(t),
-			Bypasser:         changeset.SingleGroupMCMS(t),
-			Proposer:         changeset.SingleGroupMCMS(t),
+			Canceller:        proposalutils.SingleGroupMCMS(t),
+			Bypasser:         proposalutils.SingleGroupMCMS(t),
+			Proposer:         proposalutils.SingleGroupMCMS(t),
 			TimelockMinDelay: big.NewInt(0),
 		})
 	require.NoError(t, err)

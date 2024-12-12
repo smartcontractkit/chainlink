@@ -1,7 +1,8 @@
-package changeset
+package proposalutils
 
 import (
 	"crypto/ecdsa"
+	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -13,6 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
+	// "github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 var (
@@ -68,13 +71,7 @@ func ExecuteProposal(t *testing.T, env deployment.Environment, executor *mcms.Ex
 	if err2 != nil {
 		require.NoError(t, deployment.MaybeDataErr(err2))
 	}
-	/*
-		if env.GetContext == nil {
-			env.GetContext = func() context.Context {
-				return tests.Context(t)
-			}
-		}
-	*/
+
 	_, err2 = env.Chains[sel].Confirm(tx)
 	require.NoError(t, err2)
 	cfg := RunTimelockExecutorConfig{
@@ -83,4 +80,13 @@ func ExecuteProposal(t *testing.T, env deployment.Environment, executor *mcms.Ex
 		ChainSelector:     sel,
 	}
 	require.NoError(t, RunTimelockExecutor(env, cfg))
+}
+
+func SingleGroupTimelockConfig(t *testing.T) commontypes.MCMSWithTimelockConfig {
+	return commontypes.MCMSWithTimelockConfig{
+		Canceller:        SingleGroupMCMS(t),
+		Bypasser:         SingleGroupMCMS(t),
+		Proposer:         SingleGroupMCMS(t),
+		TimelockMinDelay: big.NewInt(0),
+	}
 }

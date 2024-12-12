@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
@@ -116,11 +117,11 @@ func TestConfigureForwarders(t *testing.T) {
 				require.Len(t, csOut.Proposals, nChains)
 				require.Nil(t, csOut.AddressBook)
 
-				timelockContracts := make(map[uint64]*commonchangeset.TimelockExecutionContracts)
+				timelockContracts := make(map[uint64]*proposalutils.TimelockExecutionContracts)
 				for selector, contractSet := range te.ContractSets() {
 					require.NotNil(t, contractSet.Timelock)
 					require.NotNil(t, contractSet.CallProxy)
-					timelockContracts[selector] = &commonchangeset.TimelockExecutionContracts{
+					timelockContracts[selector] = &proposalutils.TimelockExecutionContracts{
 						Timelock:  contractSet.Timelock,
 						CallProxy: contractSet.CallProxy,
 					}

@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 )
 
@@ -25,10 +26,10 @@ func TestInitialAddChainAppliedTwice(t *testing.T) {
 	allChains := e.Env.AllChainSelectors()
 	tokenConfig := NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
 	chainConfigs := make(map[uint64]CCIPOCRParams)
-	timelockContractsPerChain := make(map[uint64]*commonchangeset.TimelockExecutionContracts)
+	timelockContractsPerChain := make(map[uint64]*proposalutils.TimelockExecutionContracts)
 
 	for _, chain := range allChains {
-		timelockContractsPerChain[chain] = &commonchangeset.TimelockExecutionContracts{
+		timelockContractsPerChain[chain] = &proposalutils.TimelockExecutionContracts{
 			Timelock:  state.Chains[chain].Timelock,
 			CallProxy: state.Chains[chain].CallProxy,
 		}
