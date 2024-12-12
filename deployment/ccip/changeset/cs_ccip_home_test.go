@@ -295,14 +295,6 @@ func Test_PromoteCandidate(t *testing.T) {
 			source := allChains[0]
 			dest := allChains[1]
 
-			nodes, err := deployment.NodeInfo(tenv.Env.NodeIDs, tenv.Env.Offchain)
-			require.NoError(t, err)
-
-			var nodeIDs []string
-			for _, node := range nodes {
-				nodeIDs = append(nodeIDs, node.NodeID)
-			}
-
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
 				transferToTimelock(t, tenv, state, source, dest)
@@ -343,7 +335,6 @@ func Test_PromoteCandidate(t *testing.T) {
 					Config: PromoteAllCandidatesChangesetConfig{
 						HomeChainSelector: tenv.HomeChainSel,
 						DONChainSelector:  dest,
-						NodeIDs:           nodeIDs,
 						MCMS:              mcmsConfig,
 					},
 				},
@@ -393,14 +384,6 @@ func Test_SetCandidate(t *testing.T) {
 			source := allChains[0]
 			dest := allChains[1]
 
-			nodes, err := deployment.NodeInfo(tenv.Env.NodeIDs, tenv.Env.Offchain)
-			require.NoError(t, err)
-
-			var nodeIDs []string
-			for _, node := range nodes {
-				nodeIDs = append(nodeIDs, node.NodeID)
-			}
-
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
 				transferToTimelock(t, tenv, state, source, dest)
@@ -444,7 +427,6 @@ func Test_SetCandidate(t *testing.T) {
 						FeedChainSelector: tenv.FeedChainSel,
 						DONChainSelector:  dest,
 						PluginType:        types.PluginTypeCCIPCommit,
-						NodeIDs:           nodeIDs,
 						CCIPOCRParams: DefaultOCRParams(
 							tenv.FeedChainSel,
 							tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
@@ -460,7 +442,6 @@ func Test_SetCandidate(t *testing.T) {
 						FeedChainSelector: tenv.FeedChainSel,
 						DONChainSelector:  dest,
 						PluginType:        types.PluginTypeCCIPExec,
-						NodeIDs:           nodeIDs,
 						CCIPOCRParams: DefaultOCRParams(
 							tenv.FeedChainSel,
 							tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
