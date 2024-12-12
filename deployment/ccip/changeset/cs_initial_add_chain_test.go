@@ -13,6 +13,7 @@ import (
 )
 
 func TestInitialAddChainAppliedTwice(t *testing.T) {
+	t.Parallel()
 	// This already applies the initial add chain changeset.
 	e := NewMemoryEnvironment(t)
 

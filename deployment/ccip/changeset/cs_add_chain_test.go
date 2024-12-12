@@ -30,6 +30,7 @@ import (
 )
 
 func TestAddChainInbound(t *testing.T) {
+	t.Parallel()
 	// 4 chains where the 4th is added after initial deployment.
 	e := NewMemoryEnvironment(t,
 		WithChains(4),

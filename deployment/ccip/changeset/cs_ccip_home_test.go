@@ -27,7 +27,7 @@ import (
 
 func TestActiveCandidate(t *testing.T) {
 	t.Skipf("to be enabled after latest cl-ccip is compatible")
-
+	t.Parallel()
 	tenv := NewMemoryEnvironment(t,
 		WithChains(3),
 		WithNodes(5))
