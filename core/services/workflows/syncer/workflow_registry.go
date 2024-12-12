@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -117,6 +118,9 @@ type workflowRegistry struct {
 	// close stopCh to stop the workflowRegistry.
 	stopCh services.StopChan
 
+	// readyCh is closed once the syncer is ready.
+	readyCh chan struct{}
+
 	// all goroutines are waited on with wg.
 	wg sync.WaitGroup
 
@@ -199,6 +203,7 @@ func NewWorkflowRegistry(
 		eventPollerCfg:              eventPollerConfig,
 		heap:                        newBlockHeightHeap(),
 		stopCh:                      make(services.StopChan),
+		readyCh:                     make(chan struct{}),
 		eventTypes:                  ets,
 		eventsCh:                    make(chan WorkflowRegistryEventResponse),
 		batchCh:                     make(chan []WorkflowRegistryEventResponse, len(ets)),
@@ -217,17 +222,22 @@ func NewWorkflowRegistry(
 // and one for handling the events.
 func (w *workflowRegistry) Start(_ context.Context) error {
 	return w.StartOnce(w.Name(), func() error {
+		w.ensureInitialized()
+
+		var startErr error
 		ctx, cancel := w.stopCh.NewCtx()
 
 		w.wg.Add(1)
 		go func() {
 			defer w.wg.Done()
+			defer w.lggr.Info("syncEventsLoop exited")
 			defer cancel()
 
 			w.lggr.Debugw("Waiting for DON...")
 			don, err := w.workflowDonNotifier.WaitForDon(ctx)
 			if err != nil {
 				w.lggr.Errorw("failed to wait for don", "err", err)
+				startErr = err
 				return
 			}
 
@@ -235,6 +245,7 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 			loadWorkflowsHead, err := w.initialWorkflowsStateLoader.LoadWorkflows(ctx, don)
 			if err != nil {
 				w.lggr.Errorw("failed to load workflows", "err", err)
+				startErr = err
 				return
 			}
 
@@ -244,12 +255,20 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 		w.wg.Add(1)
 		go func() {
 			defer w.wg.Done()
+			defer w.lggr.Info("handler loop exited")
 			defer cancel()
 
 			w.handlerLoop(ctx)
 		}()
 
-		return nil
+		// Signal that the registry is ready if there are no errors and the context is not
+		// canceled.
+		if startErr == nil && ctx.Err() == nil {
+			close(w.readyCh)
+			return nil
+		}
+
+		return startErr
 	})
 }
 
@@ -262,7 +281,21 @@ func (w *workflowRegistry) Close() error {
 }
 
 func (w *workflowRegistry) Ready() error {
-	return nil
+	w.ensureInitialized()
+
+	var err error
+	checkIsReady := func() {
+		select {
+		case <-w.readyCh:
+		default:
+			err = errors.New("registry workers are not ready")
+		}
+		return
+	}
+	if w.IfStarted(checkIsReady) {
+		return err
+	}
+	return errors.New("registry is not started")
 }
 
 func (w *workflowRegistry) HealthReport() map[string]error {
@@ -271,6 +304,12 @@ func (w *workflowRegistry) HealthReport() map[string]error {
 
 func (w *workflowRegistry) Name() string {
 	return name
+}
+
+func (w *workflowRegistry) ensureInitialized() {
+	if w.readyCh == nil {
+		w.readyCh = make(chan struct{})
+	}
 }
 
 // handlerLoop handles the events that are emitted by the contract.
