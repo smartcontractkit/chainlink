@@ -491,6 +491,174 @@ func Test_SetCandidate(t *testing.T) {
 	}
 }
 
+func Test_RevokeCandidate(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		mcmsEnabled bool
+	}{
+		{
+			name:        "MCMS enabled",
+			mcmsEnabled: true,
+		},
+		{
+			name:        "MCMS disabled",
+			mcmsEnabled: false,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := testcontext.Get(t)
+			tenv := NewMemoryEnvironment(t,
+				WithChains(2),
+				WithNodes(4))
+			state, err := LoadOnchainState(tenv.Env)
+			require.NoError(t, err)
+
+			// Deploy to all chains.
+			allChains := maps.Keys(tenv.Env.Chains)
+			source := allChains[0]
+			dest := allChains[1]
+
+			nodes, err := deployment.NodeInfo(tenv.Env.NodeIDs, tenv.Env.Offchain)
+			require.NoError(t, err)
+
+			var nodeIDs []string
+			for _, node := range nodes {
+				nodeIDs = append(nodeIDs, node.NodeID)
+			}
+
+			if tc.mcmsEnabled {
+				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
+				transferToTimelock(t, tenv, state, source, dest)
+			}
+
+			var (
+				capReg   = state.Chains[tenv.HomeChainSel].CapabilityRegistry
+				ccipHome = state.Chains[tenv.HomeChainSel].CCIPHome
+			)
+			donID, err := internal.DonIDForChain(capReg, ccipHome, dest)
+			require.NoError(t, err)
+			require.NotEqual(t, uint32(0), donID)
+			candidateDigestCommitBefore, err := ccipHome.GetCandidateDigest(&bind.CallOpts{
+				Context: ctx,
+			}, donID, uint8(types.PluginTypeCCIPCommit))
+			require.NoError(t, err)
+			require.Equal(t, [32]byte{}, candidateDigestCommitBefore)
+			candidateDigestExecBefore, err := ccipHome.GetCandidateDigest(&bind.CallOpts{
+				Context: ctx,
+			}, donID, uint8(types.PluginTypeCCIPExec))
+			require.NoError(t, err)
+			require.Equal(t, [32]byte{}, candidateDigestExecBefore)
+
+			var mcmsConfig *MCMSConfig
+			if tc.mcmsEnabled {
+				mcmsConfig = &MCMSConfig{
+					MinDelay: 0,
+				}
+			}
+			tokenConfig := NewTestTokenConfig(state.Chains[tenv.FeedChainSel].USDFeeds)
+			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, map[uint64]*commonchangeset.TimelockExecutionContracts{
+				tenv.HomeChainSel: {
+					Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
+					CallProxy: state.Chains[tenv.HomeChainSel].CallProxy,
+				},
+			}, []commonchangeset.ChangesetApplication{
+				{
+					Changeset: commonchangeset.WrapChangeSet(SetCandidateChangeset),
+					Config: SetCandidateChangesetConfig{
+						HomeChainSelector: tenv.HomeChainSel,
+						FeedChainSelector: tenv.FeedChainSel,
+						DONChainSelector:  dest,
+						PluginType:        types.PluginTypeCCIPCommit,
+						NodeIDs:           nodeIDs,
+						CCIPOCRParams: DefaultOCRParams(
+							tenv.FeedChainSel,
+							tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
+							nil,
+						),
+						MCMS: mcmsConfig,
+					},
+				},
+				{
+					Changeset: commonchangeset.WrapChangeSet(SetCandidateChangeset),
+					Config: SetCandidateChangesetConfig{
+						HomeChainSelector: tenv.HomeChainSel,
+						FeedChainSelector: tenv.FeedChainSel,
+						DONChainSelector:  dest,
+						PluginType:        types.PluginTypeCCIPExec,
+						NodeIDs:           nodeIDs,
+						CCIPOCRParams: DefaultOCRParams(
+							tenv.FeedChainSel,
+							tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
+							nil,
+						),
+						MCMS: mcmsConfig,
+					},
+				},
+			})
+			require.NoError(t, err)
+
+			// after setting a new candidate on both plugins, the candidate config digest
+			// should be nonzero.
+			candidateDigestCommitAfter, err := ccipHome.GetCandidateDigest(&bind.CallOpts{
+				Context: ctx,
+			}, donID, uint8(types.PluginTypeCCIPCommit))
+			require.NoError(t, err)
+			require.NotEqual(t, [32]byte{}, candidateDigestCommitAfter)
+			require.NotEqual(t, candidateDigestCommitBefore, candidateDigestCommitAfter)
+
+			candidateDigestExecAfter, err := ccipHome.GetCandidateDigest(&bind.CallOpts{
+				Context: ctx,
+			}, donID, uint8(types.PluginTypeCCIPExec))
+			require.NoError(t, err)
+			require.NotEqual(t, [32]byte{}, candidateDigestExecAfter)
+			require.NotEqual(t, candidateDigestExecBefore, candidateDigestExecAfter)
+
+			// next we can revoke candidate - this should set the candidate digest back to zero
+			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, map[uint64]*commonchangeset.TimelockExecutionContracts{
+				tenv.HomeChainSel: {
+					Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
+					CallProxy: state.Chains[tenv.HomeChainSel].CallProxy,
+				},
+			}, []commonchangeset.ChangesetApplication{
+				{
+					Changeset: commonchangeset.WrapChangeSet(RevokeCandidateChangeset),
+					Config: RevokeCandidateChangesetConfig{
+						HomeChainSelector: tenv.HomeChainSel,
+						DONChainSelector:  dest,
+						PluginType:        types.PluginTypeCCIPCommit,
+						MCMS:              mcmsConfig,
+						NodeIDs:           nodeIDs,
+					},
+				},
+				{
+					Changeset: commonchangeset.WrapChangeSet(RevokeCandidateChangeset),
+					Config: RevokeCandidateChangesetConfig{
+						HomeChainSelector: tenv.HomeChainSel,
+						DONChainSelector:  dest,
+						PluginType:        types.PluginTypeCCIPExec,
+						MCMS:              mcmsConfig,
+						NodeIDs:           nodeIDs,
+					},
+				},
+			})
+			require.NoError(t, err)
+
+			// after revoking the candidate, the candidate digest should be zero
+			candidateDigestCommitAfterRevoke, err := ccipHome.GetCandidateDigest(&bind.CallOpts{
+				Context: ctx,
+			}, donID, uint8(types.PluginTypeCCIPCommit))
+			require.NoError(t, err)
+			require.Equal(t, [32]byte{}, candidateDigestCommitAfterRevoke)
+
+			candidateDigestExecAfterRevoke, err := ccipHome.GetCandidateDigest(&bind.CallOpts{
+				Context: ctx,
+			}, donID, uint8(types.PluginTypeCCIPExec))
+			require.NoError(t, err)
+			require.Equal(t, [32]byte{}, candidateDigestExecAfterRevoke)
+		})
+	}
+}
+
 func transferToTimelock(
 	t *testing.T,
 	tenv DeployedEnv,

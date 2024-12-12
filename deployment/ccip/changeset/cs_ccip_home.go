@@ -540,7 +540,7 @@ func setCandidateOnExistingDon(
 		nodes.DefaultF(),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("update don w/ exec config: %w", err)
+		return nil, fmt.Errorf("update don w/ setCandidate call: %w", err)
 	}
 	if !mcmsEnabled {
 		_, err = deployment.ConfirmIfNoError(homeChain, updateDonTx, err)
@@ -646,4 +646,190 @@ func promoteAllCandidatesForChainOps(
 	mcmsOps = append(mcmsOps, updateExecOp)
 
 	return mcmsOps, nil
+}
+
+type RevokeCandidateChangesetConfig struct {
+	HomeChainSelector uint64
+
+	// DONChainSelector is the chain selector whose candidate config we want to revoke.
+	DONChainSelector uint64
+	NodeIDs          []string
+	PluginType       types.PluginType
+
+	// MCMS is optional MCMS configuration, if provided the changeset will generate an MCMS proposal.
+	// If nil, the changeset will execute the commands directly using the deployer key
+	// of the provided environment.
+	MCMS *MCMSConfig
+}
+
+func (r RevokeCandidateChangesetConfig) Validate(e deployment.Environment, state CCIPOnChainState) (deployment.Nodes, error) {
+	if err := deployment.IsValidChainSelector(r.HomeChainSelector); err != nil {
+		return nil, fmt.Errorf("home chain selector invalid: %w", err)
+	}
+	if err := deployment.IsValidChainSelector(r.DONChainSelector); err != nil {
+		return nil, fmt.Errorf("don chain selector invalid: %w", err)
+	}
+	if len(r.NodeIDs) == 0 {
+		return nil, fmt.Errorf("NodeIDs must be set")
+	}
+	if state.Chains[r.HomeChainSelector].CCIPHome == nil {
+		return nil, fmt.Errorf("CCIPHome contract does not exist")
+	}
+	if state.Chains[r.HomeChainSelector].CapabilityRegistry == nil {
+		return nil, fmt.Errorf("CapabilityRegistry contract does not exist")
+	}
+
+	nodes, err := deployment.NodeInfo(r.NodeIDs, e.Offchain)
+	if err != nil {
+		return nil, fmt.Errorf("fetch node info: %w", err)
+	}
+
+	// check that the don exists for this chain
+	donID, err := internal.DonIDForChain(
+		state.Chains[r.HomeChainSelector].CapabilityRegistry,
+		state.Chains[r.HomeChainSelector].CCIPHome,
+		r.DONChainSelector,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("fetch don id for chain: %w", err)
+	}
+	if donID == 0 {
+		return nil, fmt.Errorf("don doesn't exist in CR for chain %d", r.DONChainSelector)
+	}
+
+	// check that candidate digest is not zero - this is enforced onchain.
+	candidateDigest, err := state.Chains[r.HomeChainSelector].CCIPHome.GetCandidateDigest(nil, donID, uint8(r.PluginType))
+	if err != nil {
+		return nil, fmt.Errorf("fetching candidate digest from cciphome: %w", err)
+	}
+	if candidateDigest == [32]byte{} {
+		return nil, fmt.Errorf("candidate config digest is zero, can't revoke it")
+	}
+
+	return nodes, nil
+}
+
+func RevokeCandidateChangeset(e deployment.Environment, cfg RevokeCandidateChangesetConfig) (deployment.ChangesetOutput, error) {
+	state, err := LoadOnchainState(e)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	nodes, err := cfg.Validate(e, state)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("%w: %w", deployment.ErrInvalidConfig, err)
+	}
+
+	txOpts := e.Chains[cfg.HomeChainSelector].DeployerKey
+	if cfg.MCMS != nil {
+		txOpts = deployment.SimTransactOpts()
+	}
+
+	homeChain := e.Chains[cfg.HomeChainSelector]
+	ops, err := revokeCandidateOps(
+		txOpts,
+		homeChain,
+		state.Chains[cfg.HomeChainSelector].CapabilityRegistry,
+		state.Chains[cfg.HomeChainSelector].CCIPHome,
+		cfg.DONChainSelector,
+		uint8(cfg.PluginType),
+		nodes.NonBootstraps(),
+		cfg.MCMS != nil,
+	)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("revoke candidate ops: %w", err)
+	}
+	if cfg.MCMS == nil {
+		return deployment.ChangesetOutput{}, nil
+	}
+
+	prop, err := proposalutils.BuildProposalFromBatches(
+		map[uint64]common.Address{
+			cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].Timelock.Address(),
+		},
+		map[uint64]*gethwrappers.ManyChainMultiSig{
+			cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].ProposerMcm,
+		},
+		[]timelock.BatchChainOperation{{
+			ChainIdentifier: mcms.ChainIdentifier(cfg.HomeChainSelector),
+			Batch:           ops,
+		}},
+		fmt.Sprintf("revokeCandidate for don %d", cfg.DONChainSelector),
+		cfg.MCMS.MinDelay,
+	)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	return deployment.ChangesetOutput{
+		Proposals: []timelock.MCMSWithTimelockProposal{
+			*prop,
+		},
+	}, nil
+}
+
+func revokeCandidateOps(
+	txOpts *bind.TransactOpts,
+	homeChain deployment.Chain,
+	capReg *capabilities_registry.CapabilitiesRegistry,
+	ccipHome *ccip_home.CCIPHome,
+	chainSelector uint64,
+	pluginType uint8,
+	nodes deployment.Nodes,
+	mcmsEnabled bool,
+) ([]mcms.Operation, error) {
+	// fetch DON ID for the chain
+	donID, err := internal.DonIDForChain(capReg, ccipHome, chainSelector)
+	if err != nil {
+		return nil, fmt.Errorf("fetch don id for chain: %w", err)
+	}
+	if donID == 0 {
+		return nil, fmt.Errorf("don doesn't exist in CR for chain %d", chainSelector)
+	}
+
+	candidateDigest, err := ccipHome.GetCandidateDigest(nil, donID, pluginType)
+	if err != nil {
+		return nil, fmt.Errorf("fetching candidate digest from cciphome: %w", err)
+	}
+
+	encodedRevokeCandidateCall, err := internal.CCIPHomeABI.Pack(
+		"revokeCandidate",
+		donID,
+		pluginType,
+		candidateDigest,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("pack set candidate call: %w", err)
+	}
+
+	fmt.Printf("encoded revoke candidate call: %x\n", encodedRevokeCandidateCall)
+
+	updateDonTx, err := capReg.UpdateDON(
+		txOpts,
+		donID,
+		nodes.PeerIDs(),
+		[]capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
+			{
+				CapabilityId: internal.CCIPCapabilityID,
+				Config:       encodedRevokeCandidateCall,
+			},
+		},
+		false, // isPublic
+		nodes.DefaultF(),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("update don w/ revokeCandidate call: %w", deployment.MaybeDataErr(err))
+	}
+	if !mcmsEnabled {
+		_, err = deployment.ConfirmIfNoError(homeChain, updateDonTx, err)
+		if err != nil {
+			return nil, fmt.Errorf("error confirming updateDon call: %w", err)
+		}
+	}
+
+	return []mcms.Operation{{
+		To:    capReg.Address(),
+		Data:  updateDonTx.Data(),
+		Value: big.NewInt(0),
+	}}, nil
 }
