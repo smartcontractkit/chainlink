@@ -252,7 +252,8 @@ type CCIPOnChainState struct {
 	// Populated go bindings for the appropriate version for all contracts.
 	// We would hold 2 versions of each contract here. Once we upgrade we can phase out the old one.
 	// When generating bindings, make sure the package name corresponds to the version.
-	Chains map[uint64]CCIPChainState
+	Chains    map[uint64]CCIPChainState
+	SolChains map[uint64]SolCCIPChainState
 }
 
 func (s CCIPOnChainState) View(chains []uint64) (map[string]view.ChainView, error) {
