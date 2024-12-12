@@ -365,12 +365,12 @@ func (c SetRMNRemoteConfig) Validate() error {
 
 		for i := 0; i < len(config.Signers)-1; i++ {
 			if config.Signers[i].NodeIndex >= config.Signers[i+1].NodeIndex {
-				return fmt.Errorf("signers must be in ascending order of nodeIndex")
+				return fmt.Errorf("signers must be in ascending order of nodeIndex, but found %d >= %d", config.Signers[i].NodeIndex, config.Signers[i+1].NodeIndex)
 			}
 		}
 
 		if len(config.Signers) < 2*int(config.F)+1 {
-			return fmt.Errorf("signers count must greater than or equal to %d", 2*config.F+1)
+			return fmt.Errorf("signers count (%d) must be greater than or equal to %d", len(config.Signers), 2*config.F+1)
 		}
 	}
 
@@ -411,7 +411,7 @@ func NewSetRMNRemoteConfigChangeset(e deployment.Environment, config SetRMNRemot
 	for chain, remoteConfig := range config.RMNRemoteConfigs {
 		remote, ok := rmnRemotePerChain[chain]
 		if !ok {
-			return deployment.ChangesetOutput{}, fmt.Errorf("RMNRemote not found for chain %d", chain)
+			return deployment.ChangesetOutput{}, fmt.Errorf("RMNRemote contract not found for chain %d", chain)
 		}
 
 		currentVersionConfig, err := remote.GetVersionedConfig(nil)

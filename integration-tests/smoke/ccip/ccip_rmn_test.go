@@ -301,6 +301,9 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	rmnRemoteConfig := make(map[uint64]changeset.RMNRemoteConfig)
 	for _, remoteCfg := range tc.remoteChainsConfig {
 		selector := tc.pf.chainSelectors[remoteCfg.chainIdx]
+		if remoteCfg.f < 0 {
+			t.Fatalf("remoteCfg.f is negative: %d", remoteCfg.f)
+		}
 		rmnRemoteConfig[selector] = changeset.RMNRemoteConfig{
 			F:       uint64(remoteCfg.f),
 			Signers: tc.pf.rmnRemoteSigners,

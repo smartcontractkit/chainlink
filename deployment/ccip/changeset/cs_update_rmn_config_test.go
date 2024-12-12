@@ -166,7 +166,7 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 		signers = append(signers, nop.ToRMNRemoteSigner())
 	}
 
-	remoteConfigs := make(map[uint64]RMNRemoteConfig)
+	remoteConfigs := make(map[uint64]RMNRemoteConfig, len(e.Env.Chains))
 	for _, chain := range e.Env.Chains {
 		remoteConfig := RMNRemoteConfig{
 			Signers: signers,
