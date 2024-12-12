@@ -172,6 +172,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"intrinsic gas too low", true, "Klaytn"},
 			{"max fee per gas less than block base fee", true, "zkSync"},
 			{"virtual machine entered unexpected state. please contact developers and provide transaction details that caused this error. Error description: The operator included transaction with an unacceptable gas price", true, "zkSync"},
+			{"failed to validate the transaction. reason: Validation revert: virtual machine entered unexpected state. Please contact developers and provide transaction details that caused this error. Error description: Assertion error: Fair pubdata price too high", true, "zkSync"},
 			{"client error terminally underpriced", true, "tomlConfig"},
 			{"gas price less than block base fee", true, "aStar"},
 			{"[Request ID: e4d09e44-19a4-4eb7-babe-270db4c2ebc9] Gas price '830000000000' is below configured minimum gas price '950000000000'", true, "hedera"},

@@ -83,13 +83,13 @@ func TestUpdateDon(t *testing.T) {
 			admin:         admin_4,
 		})
 		// capabilities
-		cap_A = kcr.CapabilitiesRegistryCapability{
+		initialCap = kcr.CapabilitiesRegistryCapability{
 			LabelledName:   "test",
 			Version:        "1.0.0",
 			CapabilityType: 0,
 		}
 
-		cap_B = kcr.CapabilitiesRegistryCapability{
+		capToAdd = kcr.CapabilitiesRegistryCapability{
 			LabelledName:   "cap b",
 			Version:        "1.0.0",
 			CapabilityType: 1,
@@ -104,7 +104,7 @@ func TestUpdateDon(t *testing.T) {
 				{
 					Name:         "don 1",
 					Nodes:        []deployment.Node{node_1, node_2, node_3, node_4},
-					Capabilities: []kcr.CapabilitiesRegistryCapability{cap_A},
+					Capabilities: []kcr.CapabilitiesRegistryCapability{initialCap},
 				},
 			},
 			nops: []keystone.NOP{
@@ -115,14 +115,26 @@ func TestUpdateDon(t *testing.T) {
 			},
 		}
 
-		testCfg := setupUpdateDonTest(t, lggr, cfg)
+		testCfg := registerTestDon(t, lggr, cfg)
+		// add the new capabilities to registry
+		m := make(map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability)
+		for _, node := range cfg.dons[0].Nodes {
+			m[node.PeerID] = append(m[node.PeerID], capToAdd)
+		}
+
+		_, err := internal.AppendNodeCapabilitiesImpl(lggr, &internal.AppendNodeCapabilitiesRequest{
+			Chain:             testCfg.Chain,
+			ContractSet:       testCfg.ContractSet,
+			P2pToCapabilities: m,
+		})
+		require.NoError(t, err)
 
 		req := &internal.UpdateDonRequest{
 			ContractSet: testCfg.ContractSet,
 			Chain:       testCfg.Chain,
 			P2PIDs:      []p2pkey.PeerID{p2p_1.PeerID(), p2p_2.PeerID(), p2p_3.PeerID(), p2p_4.PeerID()},
 			CapabilityConfigs: []internal.CapabilityConfig{
-				{Capability: cap_A}, {Capability: cap_B},
+				{Capability: initialCap}, {Capability: capToAdd},
 			},
 		}
 		want := &internal.UpdateDonResponse{
@@ -131,8 +143,8 @@ func TestUpdateDon(t *testing.T) {
 				ConfigCount: 1,
 				NodeP2PIds:  internal.PeerIDsToBytes([]p2pkey.PeerID{p2p_1.PeerID(), p2p_2.PeerID(), p2p_3.PeerID(), p2p_4.PeerID()}),
 				CapabilityConfigurations: []kcr.CapabilitiesRegistryCapabilityConfiguration{
-					{CapabilityId: kstest.MustCapabilityId(t, testCfg.Registry, cap_A)},
-					{CapabilityId: kstest.MustCapabilityId(t, testCfg.Registry, cap_B)},
+					{CapabilityId: kstest.MustCapabilityId(t, testCfg.Registry, initialCap)},
+					{CapabilityId: kstest.MustCapabilityId(t, testCfg.Registry, capToAdd)},
 				},
 			},
 		}
@@ -220,10 +232,11 @@ type setupUpdateDonTestResult struct {
 	chain    deployment.Chain
 }
 
-func setupUpdateDonTest(t *testing.T, lggr logger.Logger, cfg setupUpdateDonTestConfig) *kstest.SetupTestRegistryResponse {
+func registerTestDon(t *testing.T, lggr logger.Logger, cfg setupUpdateDonTestConfig) *kstest.SetupTestRegistryResponse {
 	t.Helper()
 	req := newSetupTestRegistryRequest(t, cfg.dons, cfg.nops)
 	return kstest.SetupTestRegistry(t, lggr, req)
+
 }
 
 func newSetupTestRegistryRequest(t *testing.T, dons []kslib.DonInfo, nops []keystone.NOP) *kstest.SetupTestRegistryRequest {

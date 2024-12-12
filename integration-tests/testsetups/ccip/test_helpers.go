@@ -11,6 +11,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	"go.uber.org/zap/zapcore"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
@@ -18,6 +19,7 @@ import (
 	ctftestenv "github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/networks"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/testreporters"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/conversions"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
@@ -169,7 +171,6 @@ func NewIntegrationEnvironment(t *testing.T, opts ...changeset.TestOps) (changes
 				dockerEnv.devEnvTestCfg.CCIP.RMNConfig.GetProxyVersion(),
 				dockerEnv.devEnvTestCfg.CCIP.RMNConfig.GetAFN2ProxyImage(),
 				dockerEnv.devEnvTestCfg.CCIP.RMNConfig.GetAFN2ProxyVersion(),
-				dockerEnv.testEnv.LogStream,
 			)
 			require.NoError(t, err)
 			return deployedEnv, *rmnCluster
@@ -323,11 +324,30 @@ func CreateDockerEnv(t *testing.T) (
 		}
 	}
 
+	// ignore critical CL node logs until they are fixed, as otherwise tests will fail
+	var logScannerSettings = test_env.GetDefaultChainlinkNodeLogScannerSettingsWithExtraAllowedMessages(testreporters.NewAllowedLogMessage(
+		"No live RPC nodes available",
+		"CL nodes are started before simulated chains, so this is expected",
+		zapcore.DPanicLevel,
+		testreporters.WarnAboutAllowedMsgs_No),
+		testreporters.NewAllowedLogMessage(
+			"Error stopping job service",
+			"Possible lifecycle bug in chainlink: failed to close RMN home reader:  has already been stopped: already stopped",
+			zapcore.DPanicLevel,
+			testreporters.WarnAboutAllowedMsgs_No),
+		testreporters.NewAllowedLogMessage(
+			"Shutdown grace period of 5s exceeded, closing DB and exiting...",
+			"Possible lifecycle bug in chainlink.",
+			zapcore.DPanicLevel,
+			testreporters.WarnAboutAllowedMsgs_No),
+	)
+
 	builder := test_env.NewCLTestEnvBuilder().
 		WithTestConfig(&cfg).
 		WithTestInstance(t).
 		WithMockAdapter().
 		WithJobDistributor(cfg.CCIP.JobDistributorConfig).
+		WithChainlinkNodeLogScanner(logScannerSettings).
 		WithStandardCleanup()
 
 	// if private ethereum networks are provided, we will use them to create the test environment
@@ -433,7 +453,6 @@ func StartChainlinkNodes(
 			pointer.GetString(cfg.GetChainlinkImageConfig().Image),
 			pointer.GetString(cfg.GetChainlinkImageConfig().Version),
 			toml,
-			env.LogStream,
 			test_env.WithPgDBOptions(
 				ctftestenv.WithPostgresImageVersion(pointer.GetString(cfg.GetChainlinkImageConfig().PostgresVersion)),
 			),

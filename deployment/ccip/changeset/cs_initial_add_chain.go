@@ -308,14 +308,15 @@ func createDON(
 	newChainSel uint64,
 	nodes deployment.Nodes,
 ) error {
-	donID, exists, err := internal.DonIDForChain(capReg, ccipHome, newChainSel)
+	donID, err := internal.DonIDForChain(capReg, ccipHome, newChainSel)
 	if err != nil {
 		return fmt.Errorf("fetch don id for chain: %w", err)
 	}
-	if exists {
+	if donID != 0 {
 		lggr.Infow("DON already exists not adding it again", "donID", donID, "chain", newChainSel)
 		return ValidateCCIPHomeConfigSetUp(lggr, capReg, ccipHome, newChainSel)
 	}
+
 	commitConfig, ok := ocr3Configs[cctypes.PluginTypeCCIPCommit]
 	if !ok {
 		return fmt.Errorf("missing commit plugin in ocr3Configs")
@@ -477,13 +478,14 @@ func ValidateCCIPHomeConfigSetUp(
 	chainSel uint64,
 ) error {
 	// fetch DONID
-	donID, exists, err := internal.DonIDForChain(capReg, ccipHome, chainSel)
+	donID, err := internal.DonIDForChain(capReg, ccipHome, chainSel)
 	if err != nil {
 		return fmt.Errorf("fetch don id for chain: %w", err)
 	}
-	if !exists {
+	if donID == 0 {
 		return fmt.Errorf("don id for chain(%d) does not exist", chainSel)
 	}
+
 	// final sanity checks on configs.
 	commitConfigs, err := ccipHome.GetAllConfigs(&bind.CallOpts{
 		//Pending: true,

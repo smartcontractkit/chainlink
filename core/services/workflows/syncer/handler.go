@@ -456,12 +456,13 @@ func (h *eventHandler) workflowRegisteredEvent(
 	}
 
 	wfID := hex.EncodeToString(payload.WorkflowID[:])
+	owner := hex.EncodeToString(payload.WorkflowOwner)
 	entry := &job.WorkflowSpec{
 		Workflow:      hex.EncodeToString(decodedBinary),
 		Config:        string(config),
 		WorkflowID:    wfID,
 		Status:        status,
-		WorkflowOwner: hex.EncodeToString(payload.WorkflowOwner),
+		WorkflowOwner: owner,
 		WorkflowName:  payload.WorkflowName,
 		SpecType:      job.WASMFile,
 		BinaryURL:     payload.BinaryURL,
@@ -480,7 +481,7 @@ func (h *eventHandler) workflowRegisteredEvent(
 	engine, err := h.engineFactory(
 		ctx,
 		wfID,
-		string(payload.WorkflowOwner),
+		owner,
 		payload.WorkflowName,
 		config,
 		decodedBinary,

@@ -9,9 +9,11 @@ import (
 	"golang.org/x/exp/maps"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 func Test_NewAcceptOwnershipChangeset(t *testing.T) {
+	t.Parallel()
 	e := NewMemoryEnvironment(t)
 	state, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -20,12 +22,12 @@ func Test_NewAcceptOwnershipChangeset(t *testing.T) {
 	source := allChains[0]
 	dest := allChains[1]
 
-	timelockContracts := map[uint64]*commonchangeset.TimelockExecutionContracts{
-		source: &commonchangeset.TimelockExecutionContracts{
+	timelockContracts := map[uint64]*proposalutils.TimelockExecutionContracts{
+		source: &proposalutils.TimelockExecutionContracts{
 			Timelock:  state.Chains[source].Timelock,
 			CallProxy: state.Chains[source].CallProxy,
 		},
-		dest: &commonchangeset.TimelockExecutionContracts{
+		dest: &proposalutils.TimelockExecutionContracts{
 			Timelock:  state.Chains[dest].Timelock,
 			CallProxy: state.Chains[dest].CallProxy,
 		},
