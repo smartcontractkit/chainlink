@@ -106,7 +106,7 @@ func TestUpdateNodeCapabilities(t *testing.T) {
 		cfg := changeset.UpdateNodeCapabilitiesRequest{
 			RegistryChainSel:  te.RegistrySelector,
 			P2pToCapabilities: capabiltiesToSet,
-			UseMCMS:           true,
+			MCMSConfig:        &changeset.MCMSConfig{MinDuration: 0},
 		}
 
 		csOut, err := changeset.UpdateNodeCapabilities(te.Env, &cfg)

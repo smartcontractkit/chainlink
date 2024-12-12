@@ -362,6 +362,8 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   /// @param manualExecGasExecOverrides An array of gas limits to use for manual execution.
   /// @dev If called from the DON, this array is always empty.
   /// @dev If called from manual execution, this array is always same length as messages.
+  /// @dev This function can fully revert in some cases, reverting potentially valid other reports with it. The reasons
+  /// for these reverts are so severe that we prefer to revert the entire batch instead of silently failing.
   function _executeSingleReport(
     Internal.ExecutionReport memory report,
     GasLimitOverride[] memory manualExecGasExecOverrides
@@ -583,6 +585,8 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
       destTokenAmounts: destTokenAmounts
     });
 
+    // The main message interceptor is the aggregate rate limiter, but we also allow for a custom interceptor. This is
+    // why we always have to call into the contract when it's enabled, even when there are no tokens in the message.
     address messageInterceptor = s_dynamicConfig.messageInterceptor;
     if (messageInterceptor != address(0)) {
       try IMessageInterceptor(messageInterceptor).onInboundMessage(any2EvmMessage) {}

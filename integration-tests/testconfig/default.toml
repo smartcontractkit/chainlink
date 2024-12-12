@@ -2,19 +2,6 @@
 # set to true to flush logs to selected target regardless of test result; otherwise logs are only flushed if test failed
 test_log_collect = false
 
-[Logging.Grafana]
-base_url = "https://grafana.ops.prod.cldev.sh"
-base_url_github_ci = "http://localhost:8080/primary"
-dashboard_url = "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
-
-[Logging.LogStream]
-# supported targets: file, loki, in-memory. if empty no logs will be persisted
-log_targets = ["file"]
-# context timeout for starting log producer and also time-frame for requesting logs
-log_producer_timeout = "10s"
-# number of retries before log producer gives up and stops listening to logs
-log_producer_retry_limit = 10
-
 [ChainlinkImage]
 # postgres version to use
 postgres_version = "12.0"

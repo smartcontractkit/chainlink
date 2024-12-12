@@ -12,9 +12,31 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_remote"
 )
 
+var (
+	rmn_staging_1 = RMNNopConfig{
+		NodeIndex:           0,
+		PeerId:              deployment.MustPeerIDFromString("p2p_12D3KooWRXxZq3pd4a3ZGkKj7Nt1SQQrnB8CuvbPnnV9KVeMeWqg"),
+		OffchainPublicKey:   [32]byte(common.FromHex("0xb34944857a42444d1b285d7940d6e06682309e0781e43a69676ee9f85c73c2d1")),
+		EVMOnChainPublicKey: common.HexToAddress("0x5af8ee32316a6427f169a45fdc1b3a91a85ac459e3c1cb91c69e1c51f0c1fc21"),
+	}
+	rmn_staging_2 = RMNNopConfig{
+		NodeIndex:           1,
+		PeerId:              deployment.MustPeerIDFromString("p2p_12D3KooWEmdxYQFsRbD9aFczF32zA3CcUwuSiWCk2CrmACo4v9RL"),
+		OffchainPublicKey:   [32]byte(common.FromHex("0x68d9f3f274e3985528a923a9bace3d39c55dd778b187b4120b384cc48c892859")),
+		EVMOnChainPublicKey: common.HexToAddress("0x858589216956f482a0f68b282a7050af4cd48ed2"),
+	}
+	rmn_staging_3 = RMNNopConfig{
+		NodeIndex:           2,
+		PeerId:              deployment.MustPeerIDFromString("p2p_12D3KooWJS42cNXKJvj6DeZnxEX7aGxhEuap6uNFrz554AbUDw6Q"),
+		OffchainPublicKey:   [32]byte(common.FromHex("0x5af8ee32316a6427f169a45fdc1b3a91a85ac459e3c1cb91c69e1c51f0c1fc21")),
+		EVMOnChainPublicKey: common.HexToAddress("0x7c5e94162c6fabbdeb3bfe83ae532846e337bfae"),
+	}
+)
+
 type updateRMNConfigTestCase struct {
 	useMCMS bool
 	name    string
+	nops    []RMNNopConfig
 }
 
 func TestUpdateRMNConfig(t *testing.T) {
@@ -23,10 +45,12 @@ func TestUpdateRMNConfig(t *testing.T) {
 		{
 			useMCMS: true,
 			name:    "with MCMS",
+			nops:    []RMNNopConfig{rmn_staging_1, rmn_staging_2, rmn_staging_3},
 		},
 		{
 			useMCMS: false,
 			name:    "without MCMS",
+			nops:    []RMNNopConfig{rmn_staging_1, rmn_staging_2, rmn_staging_3},
 		},
 	}
 
@@ -80,10 +104,15 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 		}
 	}
 
+	nodes := make([]rmn_home.RMNHomeNode, 0, len(tc.nops))
+	for _, nop := range tc.nops {
+		nodes = append(nodes, nop.ToRMNHomeNode())
+	}
+
 	setRMNHomeCandidateConfig := SetRMNHomeCandidateConfig{
 		HomeChainSelector: e.HomeChainSel,
 		RMNStaticConfig: rmn_home.RMNHomeStaticConfig{
-			Nodes:          []rmn_home.RMNHomeNode{},
+			Nodes:          nodes,
 			OffchainConfig: []byte(""),
 		},
 		RMNDynamicConfig: rmn_home.RMNHomeDynamicConfig{
@@ -132,16 +161,16 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 	require.NoError(t, err)
 	require.NotEqual(t, previousActiveDigest, currentActiveDigest)
 
+	signers := make([]rmn_remote.RMNRemoteSigner, 0, len(tc.nops))
+	for _, nop := range tc.nops {
+		signers = append(signers, nop.ToRMNRemoteSigner())
+	}
+
 	setRemoteConfig := SetRMNRemoteConfig{
 		HomeChainSelector: e.HomeChainSel,
-		Signers: []rmn_remote.RMNRemoteSigner{
-			{
-				OnchainPublicKey: common.Address{},
-				NodeIndex:        0,
-			},
-		},
-		F:          0,
-		MCMSConfig: mcmsConfig,
+		Signers:           signers,
+		F:                 0,
+		MCMSConfig:        mcmsConfig,
 	}
 
 	_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
