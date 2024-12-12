@@ -162,6 +162,7 @@ var arbitrum = ClientErrors{
 	L2FeeTooLow:           regexp.MustCompile(`(: |^)max fee per gas less than block base fee(:|$)`),
 	L2Full:                regexp.MustCompile(`(: |^)(queue full|sequencer pending tx pool full, please try again)(:|$)`),
 	ServiceUnavailable:    regexp.MustCompile(`(: |^)502 Bad Gateway: [\s\S]*$|network is unreachable|i/o timeout|(: |^)503 Service Temporarily Unavailable(:|$)`),
+	ServiceTimeout:        regexp.MustCompile(`(: |^)408 Request Timeout(:|$)`),
 }
 
 // Treasure
@@ -290,7 +291,7 @@ var internal = ClientErrors{
 	TerminallyStuck: regexp.MustCompile(TerminallyStuckMsg),
 }
 
-var clients = []ClientErrors{parity, geth, arbitrum, metis, substrate, avalanche, nethermind, harmony, besu, erigon, klaytn, celo, zkSync, zkEvm, treasure, mantle, aStar, hedera, gnosis, internal, defaultClient}
+var clients = []ClientErrors{parity, geth, arbitrum, metis, substrate, avalanche, nethermind, harmony, besu, erigon, klaytn, celo, zkSync, zkEvm, treasure, mantle, aStar, hedera, gnosis, internal}
 
 // ClientErrorRegexes returns a map of compiled regexes for each error type
 func ClientErrorRegexes(errsRegex config.ClientErrors) *ClientErrors {
@@ -676,9 +677,7 @@ var drpc = ClientErrors{
 
 // Linkpool, Blockdaemon, and Chainstack all return "request timed out" if the log results are too large for them to process
 var defaultClient = ClientErrors{
-	TooManyResults:     regexp.MustCompile(`request timed out`),
-	ServiceTimeout:     regexp.MustCompile(`(: |^)408 Request Timeout(:|$)`),
-	ServiceUnavailable: regexp.MustCompile(`(: |^)503 Service Temporarily Unavailable(:|$)`),
+	TooManyResults: regexp.MustCompile(`request timed out|408 Request Timed Out`),
 }
 
 // JSON-RPC error codes which can indicate a refusal of the server to process an eth_getLogs request because the result set is too large
