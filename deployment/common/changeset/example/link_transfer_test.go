@@ -11,6 +11,7 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/example"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
 	"github.com/stretchr/testify/require"
@@ -32,7 +33,7 @@ func setupLinkTransferTestEnv(t *testing.T) deployment.Environment {
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 	chainSelector := env.AllChainSelectors()[0]
-	config := changeset.SingleGroupMCMS(t)
+	config := proposalutils.SingleGroupMCMS(t)
 
 	// Deploy MCMS and Timelock
 	env, err := changeset.ApplyChangesets(t, env, nil, []changeset.ChangesetApplication{
@@ -87,7 +88,7 @@ func TestLinkTransferMCMS(t *testing.T) {
 	_, err = deployment.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
 
-	timelocks := map[uint64]*changeset.TimelockExecutionContracts{
+	timelocks := map[uint64]*proposalutils.TimelockExecutionContracts{
 		chainSelector: {
 			Timelock:  mcmsState.Timelock,
 			CallProxy: mcmsState.CallProxy,
@@ -162,7 +163,7 @@ func TestLinkTransfer(t *testing.T) {
 	_, err = deployment.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
 
-	timelocks := map[uint64]*changeset.TimelockExecutionContracts{
+	timelocks := map[uint64]*proposalutils.TimelockExecutionContracts{
 		chainSelector: {
 			Timelock:  mcmsState.Timelock,
 			CallProxy: mcmsState.CallProxy,
