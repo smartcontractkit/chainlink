@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
@@ -465,6 +466,7 @@ func SetCandidateChangeset(
 	}
 
 	setCandidateMCMSOps, err := setCandidateOnExistingDon(
+		e.Logger,
 		txOpts,
 		e.Chains[cfg.HomeChainSelector],
 		config,
@@ -509,6 +511,7 @@ func SetCandidateChangeset(
 // setCandidateOnExistingDon calls setCandidate on CCIPHome contract through the UpdateDON call on CapReg contract
 // This proposes to set up OCR3 config for the provided plugin for the DON
 func setCandidateOnExistingDon(
+	lggr logger.Logger,
 	txOpts *bind.TransactOpts,
 	homeChain deployment.Chain,
 	pluginConfig ccip_home.CCIPHomeOCR3Config,
@@ -527,7 +530,7 @@ func setCandidateOnExistingDon(
 		return nil, fmt.Errorf("don doesn't exist in CR for chain %d", chainSelector)
 	}
 
-	fmt.Printf("donID for chain %d: %d", chainSelector, donID)
+	lggr.Infof("donID for chain %d: %d", chainSelector, donID)
 
 	encodedSetCandidateCall, err := internal.CCIPHomeABI.Pack(
 		"setCandidate",
