@@ -528,7 +528,7 @@ func (l *workflowRegistryContractLoader) LoadWorkflows(ctx context.Context, don 
 		var workflows GetWorkflowMetadataListByDONReturnVal
 		headAtLastRead, err = contractReader.GetLatestValueWithHeadData(ctx, readIdentifier, primitives.Finalized, params, &workflows)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get workflow metadata for don %w", err)
+			return nil, fmt.Errorf("failed to get lastest value with head data %w", err)
 		}
 
 		l.lggr.Debugw("Rehydrating existing workflows", "len", len(workflows.WorkflowMetadataList))
