@@ -332,10 +332,13 @@ func (orm *orm) UpsertWorkflowSpecWithSecrets(
 				status = EXCLUDED.status,
 				binary_url = EXCLUDED.binary_url,
 				config_url = EXCLUDED.config_url,
-				secrets_id = EXCLUDED.secrets_id,
 				created_at = EXCLUDED.created_at,
 				updated_at = EXCLUDED.updated_at,
-				spec_type = EXCLUDED.spec_type
+				spec_type = EXCLUDED.spec_type,
+				secrets_id = CASE
+					WHEN workflow_specs.secrets_id IS NULL THEN EXCLUDED.secrets_id
+					ELSE workflow_specs.secrets_id
+				END
 			RETURNING id
 		`
 
