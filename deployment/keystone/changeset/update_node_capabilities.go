@@ -53,10 +53,11 @@ type UpdateNodeCapabilitiesRequest = MutateNodeCapabilitiesRequest
 
 // MutateNodeCapabilitiesRequest is a request to change the capabilities of nodes in the registry
 type MutateNodeCapabilitiesRequest struct {
-	RegistryChainSel uint64
-
+	RegistryChainSel  uint64
 	P2pToCapabilities map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability
-	UseMCMS           bool
+
+	// MCMSConfig is optional. If non-nil, the changes will be proposed using MCMS.
+	MCMSConfig *MCMSConfig
 }
 
 func (req *MutateNodeCapabilitiesRequest) Validate() error {
@@ -69,6 +70,10 @@ func (req *MutateNodeCapabilitiesRequest) Validate() error {
 	}
 
 	return nil
+}
+
+func (req *MutateNodeCapabilitiesRequest) UseMCMS() bool {
+	return req.MCMSConfig != nil
 }
 
 func (req *MutateNodeCapabilitiesRequest) updateNodeCapabilitiesImplRequest(e deployment.Environment) (*internal.UpdateNodeCapabilitiesImplRequest, error) {
@@ -95,7 +100,7 @@ func (req *MutateNodeCapabilitiesRequest) updateNodeCapabilitiesImplRequest(e de
 		Chain:             registryChain,
 		ContractSet:       &contractSet,
 		P2pToCapabilities: req.P2pToCapabilities,
-		UseMCMS:           req.UseMCMS,
+		UseMCMS:           req.UseMCMS(),
 	}, nil
 }
 
@@ -112,7 +117,7 @@ func UpdateNodeCapabilities(env deployment.Environment, req *UpdateNodeCapabilit
 	}
 
 	out := deployment.ChangesetOutput{}
-	if req.UseMCMS {
+	if req.UseMCMS() {
 		if r.Ops == nil {
 			return out, fmt.Errorf("expected MCMS operation to be non-nil")
 		}
@@ -128,7 +133,7 @@ func UpdateNodeCapabilities(env deployment.Environment, req *UpdateNodeCapabilit
 			proposerMCMSes,
 			[]timelock.BatchChainOperation{*r.Ops},
 			"proposal to set update node capabilities",
-			0,
+			req.MCMSConfig.MinDuration,
 		)
 		if err != nil {
 			return out, fmt.Errorf("failed to build proposal: %w", err)

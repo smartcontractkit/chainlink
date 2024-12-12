@@ -11,6 +11,10 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 )
 
+const (
+	DefaultValidUntil = 72 * time.Hour
+)
+
 func buildProposalMetadata(
 	chainSelectors []uint64,
 	proposerMcmsesPerChain map[uint64]*gethwrappers.ManyChainMultiSig,
@@ -61,10 +65,10 @@ func BuildProposalFromBatches(
 	for chainId, tl := range timelocksPerChain {
 		tlsPerChainId[mcms.ChainIdentifier(chainId)] = tl
 	}
-
+	validUntil := time.Now().Unix() + int64(DefaultValidUntil.Seconds())
 	return timelock.NewMCMSWithTimelockProposal(
 		"1",
-		2004259681, // TODO: should be parameterized and based on current block timestamp.
+		uint32(validUntil),
 		[]mcms.Signature{},
 		false,
 		mcmsMd,

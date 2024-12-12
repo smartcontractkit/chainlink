@@ -80,7 +80,7 @@ func TestUpdateNodes(t *testing.T) {
 		cfg := changeset.UpdateNodesRequest{
 			RegistryChainSel: te.RegistrySelector,
 			P2pToUpdates:     updates,
-			UseMCMS:          true,
+			MCMSConfig:       &changeset.MCMSConfig{MinDuration: 0},
 		}
 
 		csOut, err := changeset.UpdateNodes(te.Env, &cfg)
@@ -102,7 +102,7 @@ func TestUpdateNodes(t *testing.T) {
 				Config: &changeset.UpdateNodesRequest{
 					RegistryChainSel: te.RegistrySelector,
 					P2pToUpdates:     updates,
-					UseMCMS:          true,
+					MCMSConfig:       &changeset.MCMSConfig{MinDuration: 0},
 				},
 			},
 		})

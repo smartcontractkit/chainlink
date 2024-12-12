@@ -2,6 +2,7 @@ package changeset
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
@@ -14,14 +15,31 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
+type MCMSConfig struct {
+	MinDuration time.Duration
+}
+
 var _ deployment.ChangeSet[*UpdateNodesRequest] = UpdateNodes
 
 type UpdateNodesRequest struct {
 	RegistryChainSel uint64
 	P2pToUpdates     map[p2pkey.PeerID]NodeUpdate
 
-	UseMCMS bool
+	// MCMSConfig is optional. If non-nil, the changes will be proposed using MCMS.
+	MCMSConfig *MCMSConfig
 }
+
+func (r *UpdateNodesRequest) Validate() error {
+	if r.P2pToUpdates == nil {
+		return fmt.Errorf("P2pToUpdates must be non-nil")
+	}
+	return nil
+}
+
+func (r UpdateNodesRequest) UseMCMS() bool {
+	return r.MCMSConfig != nil
+}
+
 type NodeUpdate = internal.NodeUpdate
 
 // UpdateNodes updates the a set of nodes.
@@ -48,14 +66,14 @@ func UpdateNodes(env deployment.Environment, req *UpdateNodesRequest) (deploymen
 		Chain:        registryChain,
 		ContractSet:  &contracts,
 		P2pToUpdates: req.P2pToUpdates,
-		UseMCMS:      req.UseMCMS,
+		UseMCMS:      req.UseMCMS(),
 	})
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to update don: %w", err)
 	}
 
 	out := deployment.ChangesetOutput{}
-	if req.UseMCMS {
+	if req.UseMCMS() {
 		if resp.Ops == nil {
 			return out, fmt.Errorf("expected MCMS operation to be non-nil")
 		}
@@ -71,7 +89,7 @@ func UpdateNodes(env deployment.Environment, req *UpdateNodesRequest) (deploymen
 			proposerMCMSes,
 			[]timelock.BatchChainOperation{*resp.Ops},
 			"proposal to set update nodes",
-			0,
+			req.MCMSConfig.MinDuration,
 		)
 		if err != nil {
 			return out, fmt.Errorf("failed to build proposal: %w", err)

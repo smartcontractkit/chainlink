@@ -72,7 +72,6 @@ func TestConfigureOCR3(t *testing.T) {
 			NodeIDs:              wfNodes,
 			OCR3Config:           &c,
 			WriteGeneratedConfig: w,
-			UseMCMS:              false,
 		}
 
 		csOut, err := changeset.ConfigureOCR3Contract(te.Env, cfg)
@@ -105,7 +104,7 @@ func TestConfigureOCR3(t *testing.T) {
 			NodeIDs:              wfNodes,
 			OCR3Config:           &c,
 			WriteGeneratedConfig: w,
-			UseMCMS:              true,
+			MCMSConfig:           &changeset.MCMSConfig{MinDuration: 0},
 		}
 
 		csOut, err := changeset.ConfigureOCR3Contract(te.Env, cfg)
