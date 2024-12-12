@@ -395,10 +395,14 @@ func (n *Node) CreateJobDistributor(ctx context.Context, jd JobDistributor) (str
 	// create the job distributor in the node with the csa key
 	resp, err := n.gqlClient.ListJobDistributors(ctx)
 	if err != nil {
-		return "", fmt.Errorf("Could not list job distrubutors: %w", err)
+		return "", fmt.Errorf("could not list job distrubutors: %w", err)
 	}
 	if len(resp.FeedsManagers.Results) > 0 {
-		return resp.FeedsManagers.Results[0].FeedsManagerParts.GetId(), nil
+		for _, fm := range resp.FeedsManagers.Results {
+			if fm.GetPublicKey() == csaKey {
+				return fm.GetId(), nil
+			}
+		}
 	}
 	return n.gqlClient.CreateJobDistributor(ctx, client.JobDistributorInput{
 		Name:      "Job Distributor",
