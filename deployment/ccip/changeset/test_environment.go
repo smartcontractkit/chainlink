@@ -9,14 +9,15 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -33,8 +34,9 @@ const (
 )
 
 type TestConfigs struct {
-	Type                     EnvType // set by env var CCIP_V16_TEST_ENV, defaults to Memory
-	CreateJob                bool
+	Type      EnvType // set by env var CCIP_V16_TEST_ENV, defaults to Memory
+	CreateJob bool
+	// TODO: This should be CreateContracts so the booleans make sense?
 	CreateJobAndContracts    bool
 	Chains                   int // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
 	NumOfUsersPerChain       int // only used in memory mode, for docker mode, this is determined by the integration-test config toml input

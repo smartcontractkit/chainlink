@@ -13,6 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
 )
 
@@ -27,7 +28,7 @@ type UpdateOnRampsDestsConfig struct {
 
 type OnRampDestinationUpdate struct {
 	DestinationSelector uint64
-	Disable             bool // If true, disables the destination by setting router to 0x0.
+	IsEnabled           bool // If false, disables the destination by setting router to 0x0.
 	TestRouter          bool // Flag for safety only allow specifying either router or testRouter.
 	AllowListEnabled    bool
 }
@@ -92,7 +93,8 @@ func UpdateOnRampsDests(e deployment.Environment, cfg UpdateOnRampsDestsConfig) 
 		var args []onramp.OnRampDestChainConfigArgs
 		for _, update := range updates {
 			router := common.HexToAddress("0x0")
-			if !update.Disable {
+			// If not enabled, set router to 0x0.
+			if update.IsEnabled {
 				if update.TestRouter {
 					router = s.Chains[chainSel].TestRouter.Address()
 				} else {
@@ -137,6 +139,133 @@ func UpdateOnRampsDests(e deployment.Environment, cfg UpdateOnRampsDestsConfig) 
 		proposers,
 		batches,
 		"Update onramp destinations",
+		cfg.MCMS.MinDelay,
+	)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	return deployment.ChangesetOutput{Proposals: []timelock.MCMSWithTimelockProposal{
+		*p,
+	}}, nil
+}
+
+var _ deployment.ChangeSet[UpdateOffRampsSourcesConfig] = UpdateOffRampSources
+
+type UpdateOffRampsSourcesConfig struct {
+	UpdatesByChain map[uint64][]OffRampSourceUpdate
+	MCMS           *MCMSConfig
+}
+
+type OffRampSourceUpdate struct {
+	SourceSelector uint64 // Note will look up the relevant onramp and set it
+	IsEnabled      bool   // If false, disables the source by setting router to 0x0.
+	TestRouter     bool   // Flag for safety only allow specifying either router or testRouter.
+}
+
+func (cfg UpdateOffRampsSourcesConfig) Validate(ctx context.Context, state CCIPOnChainState) error {
+	supportedChains := state.SupportedChains()
+	for chainSel, updates := range cfg.UpdatesByChain {
+		chainState, ok := state.Chains[chainSel]
+		if !ok {
+			return fmt.Errorf("chain %d not found in onchain state", chainSel)
+		}
+		if chainState.TestRouter == nil {
+			return fmt.Errorf("missing test router for chain %d", chainSel)
+		}
+		if chainState.Router == nil {
+			return fmt.Errorf("missing router for chain %d", chainSel)
+		}
+		if chainState.OffRamp == nil {
+			return fmt.Errorf("missing onramp onramp for chain %d", chainSel)
+		}
+		for _, update := range updates {
+			if update.SourceSelector == chainSel {
+				return fmt.Errorf("cannot update offramp source to the same chain %d", update.SourceSelector)
+			}
+			sourceChain := state.Chains[update.SourceSelector]
+			// Source chain must have the onramp deployed.
+			// Note this also validates the specified source selector.
+			if sourceChain.OnRamp == nil {
+				return fmt.Errorf("missing onramp for source %d", update.SourceSelector)
+			}
+			// Source cannot be an unknown
+			if _, ok := supportedChains[update.SourceSelector]; !ok {
+				return fmt.Errorf("source chain %d is not a supported chain %s", update.SourceSelector, chainState.OffRamp.Address())
+			}
+		}
+	}
+	return nil
+}
+
+// UpdateOffRampSources updates the offramp sources for each offramp.
+func UpdateOffRampSources(e deployment.Environment, cfg UpdateOffRampsSourcesConfig) (deployment.ChangesetOutput, error) {
+	s, err := LoadOnchainState(e)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	if err := cfg.Validate(e.GetContext(), s); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	var batches []timelock.BatchChainOperation
+	timelocks := make(map[uint64]common.Address)
+	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig)
+	for chainSel, updates := range cfg.UpdatesByChain {
+		txOpts := e.Chains[chainSel].DeployerKey
+		txOpts.Context = e.GetContext()
+		if cfg.MCMS != nil {
+			txOpts = deployment.SimTransactOpts()
+		}
+		offRamp := s.Chains[chainSel].OffRamp
+		var args []offramp.OffRampSourceChainConfigArgs
+		for _, update := range updates {
+			router := common.HexToAddress("0x0")
+			if update.IsEnabled {
+				if update.TestRouter {
+					router = s.Chains[chainSel].TestRouter.Address()
+				} else {
+					router = s.Chains[chainSel].Router.Address()
+				}
+			}
+			onRamp := s.Chains[update.SourceSelector].OnRamp
+			args = append(args, offramp.OffRampSourceChainConfigArgs{
+				SourceChainSelector: update.SourceSelector,
+				Router:              router,
+				IsEnabled:           update.IsEnabled,
+				OnRamp:              common.LeftPadBytes(onRamp.Address().Bytes(), 32),
+			})
+		}
+		tx, err := offRamp.ApplySourceChainConfigUpdates(txOpts, args)
+		if err != nil {
+			return deployment.ChangesetOutput{}, err
+		}
+		if cfg.MCMS == nil {
+			if _, err := deployment.ConfirmIfNoError(e.Chains[chainSel], tx, err); err != nil {
+				return deployment.ChangesetOutput{}, err
+			}
+		} else {
+			batches = append(batches, timelock.BatchChainOperation{
+				ChainIdentifier: mcms.ChainIdentifier(chainSel),
+				Batch: []mcms.Operation{
+					{
+						To:    offRamp.Address(),
+						Data:  tx.Data(),
+						Value: big.NewInt(0),
+					},
+				},
+			})
+			timelocks[chainSel] = s.Chains[chainSel].Timelock.Address()
+			proposers[chainSel] = s.Chains[chainSel].ProposerMcm
+		}
+	}
+	if cfg.MCMS == nil {
+		return deployment.ChangesetOutput{}, nil
+	}
+
+	p, err := proposalutils.BuildProposalFromBatches(
+		timelocks,
+		proposers,
+		batches,
+		"Update offramp sources",
 		cfg.MCMS.MinDelay,
 	)
 	if err != nil {
