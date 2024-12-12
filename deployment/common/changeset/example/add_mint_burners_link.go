@@ -53,7 +53,7 @@ func AddMintersBurnersLink(e deployment.Environment, cfg *AddMintersBurnersLinkC
 		if err != nil {
 			return deployment.ChangesetOutput{}, err
 		}
-		if isMinter {
+		if isBurner {
 			continue
 		}
 		tx, err := linkState.LinkToken.GrantBurnRole(chain.DeployerKey, burner)
