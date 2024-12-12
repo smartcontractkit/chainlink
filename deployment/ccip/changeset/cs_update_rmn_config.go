@@ -12,11 +12,40 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	"github.com/smartcontractkit/chainlink/deployment"
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_remote"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
+
+type RMNNopConfig struct {
+	NodeIndex           uint64
+	OffchainPublicKey   [32]byte
+	EVMOnChainPublicKey common.Address
+	PeerId              p2pkey.PeerID
+}
+
+func (c RMNNopConfig) ToRMNHomeNode() rmn_home.RMNHomeNode {
+	return rmn_home.RMNHomeNode{
+		PeerId:            c.PeerId,
+		OffchainPublicKey: c.OffchainPublicKey,
+	}
+}
+
+func (c RMNNopConfig) ToRMNRemoteSigner() rmn_remote.RMNRemoteSigner {
+	return rmn_remote.RMNRemoteSigner{
+		OnchainPublicKey: c.EVMOnChainPublicKey,
+		NodeIndex:        c.NodeIndex,
+	}
+}
+
+func (c RMNNopConfig) SetBit(bitmap *big.Int, value bool) {
+	if value {
+		bitmap.SetBit(bitmap, int(c.NodeIndex), 1)
+	} else {
+		bitmap.SetBit(bitmap, int(c.NodeIndex), 0)
+	}
+}
 
 func getDeployer(e deployment.Environment, chain uint64, mcmConfig *MCMSConfig) *bind.TransactOpts {
 	if mcmConfig == nil {
@@ -274,10 +303,10 @@ func NewPromoteCandidateConfigChangeset(e deployment.Environment, config Promote
 	}, nil
 }
 
-func buildTimelockPerChain(e deployment.Environment, state CCIPOnChainState) map[uint64]*commonchangeset.TimelockExecutionContracts {
-	timelocksPerChain := make(map[uint64]*commonchangeset.TimelockExecutionContracts)
+func buildTimelockPerChain(e deployment.Environment, state CCIPOnChainState) map[uint64]*proposalutils.TimelockExecutionContracts {
+	timelocksPerChain := make(map[uint64]*proposalutils.TimelockExecutionContracts)
 	for _, chain := range e.Chains {
-		timelocksPerChain[chain.Selector] = &commonchangeset.TimelockExecutionContracts{
+		timelocksPerChain[chain.Selector] = &proposalutils.TimelockExecutionContracts{
 			Timelock:  state.Chains[chain.Selector].Timelock,
 			CallProxy: state.Chains[chain.Selector].CallProxy,
 		}

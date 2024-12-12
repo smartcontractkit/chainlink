@@ -2,28 +2,25 @@ package test_env
 
 import (
 	"fmt"
-	"math"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"go.uber.org/zap/zapcore"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/seth"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
+	ctf_docker "github.com/smartcontractkit/chainlink-testing-framework/lib/docker"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/logstream"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/testreporters"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/testsummary"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/osutil"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
@@ -46,7 +43,6 @@ type ChainlinkNodeLogScannerSettings struct {
 }
 
 type CLTestEnvBuilder struct {
-	hasLogStream                    bool
 	hasKillgrave                    bool
 	jdConfig                        *ccip.JDConfig
 	clNodeConfig                    *chainlink.Config
@@ -90,7 +86,6 @@ func GetDefaultChainlinkNodeLogScannerSettingsWithExtraAllowedMessages(extraAllo
 func NewCLTestEnvBuilder() *CLTestEnvBuilder {
 	return &CLTestEnvBuilder{
 		l:                               log.Logger,
-		hasLogStream:                    true,
 		isEVM:                           true,
 		chainlinkNodeLogScannerSettings: &DefaultChainlinkNodeLogScannerSettings,
 	}
@@ -131,12 +126,6 @@ func (b *CLTestEnvBuilder) WithTestEnv(te *CLClusterTestEnv) (*CLTestEnvBuilder,
 func (b *CLTestEnvBuilder) WithTestInstance(t *testing.T) *CLTestEnvBuilder {
 	b.t = t
 	b.l = logging.GetTestLogger(t)
-	return b
-}
-
-// WithoutLogStream disables LogStream logging component
-func (b *CLTestEnvBuilder) WithoutLogStream() *CLTestEnvBuilder {
-	b.hasLogStream = false
 	return b
 }
 
@@ -250,102 +239,105 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		b.te.WithTestInstance(b.t)
 	}
 
-	if b.hasLogStream {
-		loggingConfig := b.testConfig.GetLoggingConfig()
-		// we need to enable logging to file if we want to scan logs
-		if b.chainlinkNodeLogScannerSettings != nil && !slices.Contains(loggingConfig.LogStream.LogTargets, string(logstream.File)) {
-			b.l.Debug().Msg("Enabling logging to file in order to support Chainlink node log scanning")
-			loggingConfig.LogStream.LogTargets = append(loggingConfig.LogStream.LogTargets, string(logstream.File))
-		}
-		b.te.LogStream, err = logstream.NewLogStream(b.te.t, b.testConfig.GetLoggingConfig())
-		if err != nil {
-			return nil, err
-		}
+	// this clean up has to be added as the FIRST one, because cleanup functions are executed in reverse order (LIFO)
+	if b.t != nil && b.cleanUpType != CleanUpTypeNone {
+		b.t.Cleanup(func() {
+			logsDir := fmt.Sprintf("logs/%s-%s", b.t.Name(), time.Now().Format("2006-01-02T15-04-05"))
+			loggingErr := ctf_docker.WriteAllContainersLogs(b.l, logsDir)
+			if loggingErr != nil {
+				b.l.Error().Err(loggingErr).Msg("Error writing all Docker containers logs")
+			}
 
-		// this clean up has to be added as the FIRST one, because cleanup functions are executed in reverse order (LIFO)
-		if b.t != nil && b.cleanUpType != CleanUpTypeNone {
-			b.t.Cleanup(func() {
-				b.l.Info().Msg("Shutting down LogStream")
-				logPath, err := osutil.GetAbsoluteFolderPath("logs")
+			if b == nil || b.te == nil || b.te.ClCluster == nil || b.te.ClCluster.Nodes == nil {
+				log.Warn().Msg("Won't dump container and postgres logs, because test environment doesn't have any nodes")
+				return
+			}
+
+			if b.chainlinkNodeLogScannerSettings != nil {
+				var logFiles []*os.File
+
+				// when tests run in parallel, we need to make sure that we only process logs that belong to nodes created by the current test
+				// that is required, because some tests might have custom log messages that are allowed, but only for that test (e.g. because they restart the CL node)
+				var belongsToCurrentEnv = func(filePath string) bool {
+					for _, clNode := range b.te.ClCluster.Nodes {
+						if clNode == nil {
+							continue
+						}
+						if strings.EqualFold(filePath, clNode.ContainerName+".log") {
+							return true
+						}
+					}
+					return false
+				}
+
+				fileWalkErr := filepath.Walk(logsDir, func(path string, info os.FileInfo, err error) error {
+					if err != nil {
+						return err
+					}
+					if !info.IsDir() && belongsToCurrentEnv(info.Name()) {
+						file, fileErr := os.Open(path)
+						if fileErr != nil {
+							return fmt.Errorf("failed to open file %s: %w", path, fileErr)
+						}
+						logFiles = append(logFiles, file)
+					}
+					return nil
+				})
+
+				if len(logFiles) != len(b.te.ClCluster.Nodes) {
+					b.l.Warn().Int("Expected", len(b.te.ClCluster.Nodes)).Int("Got", len(logFiles)).Msg("Number of log files does not match number of nodes. Some logs might be missing.")
+				}
+
+				if fileWalkErr != nil {
+					b.l.Error().Err(fileWalkErr).Msg("Error walking through log files. Skipping log verification.")
+				} else {
+					verifyLogsGroup := &errgroup.Group{}
+					for _, f := range logFiles {
+						file := f
+						verifyLogsGroup.Go(func() error {
+							verifyErr := testreporters.VerifyLogFile(file, b.chainlinkNodeLogScannerSettings.FailingLogLevel, b.chainlinkNodeLogScannerSettings.Threshold, b.chainlinkNodeLogScannerSettings.AllowedMessages...)
+							_ = file.Close()
+							// ignore processing errors
+							if verifyErr != nil && !strings.Contains(verifyErr.Error(), testreporters.MultipleLogsAtLogLevelErr) && !strings.Contains(verifyErr.Error(), testreporters.OneLogAtLogLevelErr) {
+								b.l.Error().Err(verifyErr).Msg("Error processing CL node logs")
+
+								return nil
+
+								// if it's not a processing error, we want to fail the test; we also can stop processing logs all together at this point
+							} else if verifyErr != nil && (strings.Contains(verifyErr.Error(), testreporters.MultipleLogsAtLogLevelErr) || strings.Contains(verifyErr.Error(), testreporters.OneLogAtLogLevelErr)) {
+
+								return verifyErr
+							}
+							return nil
+						})
+					}
+
+					if logVerificationErr := verifyLogsGroup.Wait(); logVerificationErr != nil {
+						b.t.Errorf("Found a concerning log in Chainklink Node logs: %v", logVerificationErr)
+					}
+				}
+			}
+
+			b.l.Info().Msg("Staring to dump state of all Postgres DBs used by Chainlink Nodes")
+
+			dbDumpFolder := "db_dumps"
+			dbDumpPath := fmt.Sprintf("%s/%s-%s", dbDumpFolder, b.t.Name(), time.Now().Format("2006-01-02T15-04-05"))
+			if err := os.MkdirAll(dbDumpPath, os.ModePerm); err != nil {
+				b.l.Error().Err(err).Msg("Error creating folder for Postgres DB dump")
+			} else {
+				absDbDumpPath, err := osutil.GetAbsoluteFolderPath(dbDumpFolder)
 				if err == nil {
-					b.l.Info().Str("Absolute path", logPath).Msg("LogStream logs folder location")
+					b.l.Info().Str("Absolute path", absDbDumpPath).Msg("PostgresDB dump folder location")
 				}
 
-				// flush logs when test failed or when we are explicitly told to collect logs
-				flushLogStream := b.t.Failed() || *b.testConfig.GetLoggingConfig().TestLogCollect
-
-				// run even if test has failed, as we might be able to catch additional problems without running the test again
-				if b.chainlinkNodeLogScannerSettings != nil {
-					logProcessor := logstream.NewLogProcessor[int](b.te.LogStream)
-
-					processFn := func(log logstream.LogContent, count *int) error {
-						countSoFar := count
-						if *countSoFar < 0 {
-							return fmt.Errorf("negative count: %d", *countSoFar)
-						}
-						newCount, err := testreporters.ScanLogLine(b.l, string(log.Content), b.chainlinkNodeLogScannerSettings.FailingLogLevel, uint(*countSoFar), b.chainlinkNodeLogScannerSettings.Threshold, b.chainlinkNodeLogScannerSettings.AllowedMessages)
-						if err != nil {
-							return err
-						}
-						if newCount > math.MaxInt {
-							return fmt.Errorf("new count overflows int: %d", newCount)
-						}
-						*count = int(newCount)
-						return nil
-					}
-
-					// we cannot do parallel processing here, because ProcessContainerLogs() locks a mutex that controls whether
-					// new logs can be added to the log stream, so parallel processing would get stuck on waiting for it to be unlocked
-				LogScanningLoop:
-					for i := 0; i < b.clNodesCount; i++ {
-						// if something went wrong during environment setup we might not have all nodes, and we don't want an NPE
-						if b == nil || b.te == nil || b.te.ClCluster == nil || b.te.ClCluster.Nodes == nil || len(b.te.ClCluster.Nodes)-1 < i || b.te.ClCluster.Nodes[i] == nil {
-							continue
-						}
-						// ignore count return, because we are only interested in the error
-						_, err := logProcessor.ProcessContainerLogs(b.te.ClCluster.Nodes[i].ContainerName, processFn)
-						if err != nil && !strings.Contains(err.Error(), testreporters.MultipleLogsAtLogLevelErr) && !strings.Contains(err.Error(), testreporters.OneLogAtLogLevelErr) {
-							b.l.Error().Err(err).Msg("Error processing CL node logs")
-							continue
-						} else if err != nil && (strings.Contains(err.Error(), testreporters.MultipleLogsAtLogLevelErr) || strings.Contains(err.Error(), testreporters.OneLogAtLogLevelErr)) {
-							flushLogStream = true
-							b.t.Errorf("Found a concerning log in Chainklink Node logs: %v", err)
-							break LogScanningLoop
-						}
-					}
-					b.l.Info().Msg("Finished scanning Chainlink Node logs for concerning errors")
-				}
-
-				if flushLogStream {
-					b.l.Info().Msg("Flushing LogStream logs")
-					// we can't do much if this fails, so we just log the error in LogStream
-					if err := b.te.LogStream.FlushAndShutdown(); err != nil {
-						b.l.Error().Err(err).Msg("Error flushing and shutting down LogStream")
-					}
-					b.te.LogStream.PrintLogTargetsLocations()
-					b.te.LogStream.SaveLogLocationInTestSummary()
-				}
-				b.l.Info().Msg("Finished shutting down LogStream")
-
-				if b.t.Failed() || *b.testConfig.GetLoggingConfig().TestLogCollect {
-					b.l.Info().Msg("Dump state of all Postgres DBs used by Chainlink Nodes")
-
-					dbDumpFolder := "db_dumps"
-					dbDumpPath := fmt.Sprintf("%s/%s-%s", dbDumpFolder, b.t.Name(), time.Now().Format("2006-01-02T15-04-05"))
-					if err := os.MkdirAll(dbDumpPath, os.ModePerm); err != nil {
-						b.l.Error().Err(err).Msg("Error creating folder for Postgres DB dump")
-						return
-					}
-
-					absDbDumpPath, err := osutil.GetAbsoluteFolderPath(dbDumpFolder)
-					if err == nil {
-						b.l.Info().Str("Absolute path", absDbDumpPath).Msg("PostgresDB dump folder location")
-					}
-
-					for i := 0; i < b.clNodesCount; i++ {
+				dbDumpGroup := sync.WaitGroup{}
+				for i := 0; i < b.clNodesCount; i++ {
+					dbDumpGroup.Add(1)
+					go func() {
+						defer dbDumpGroup.Done()
 						// if something went wrong during environment setup we might not have all nodes, and we don't want an NPE
 						if b == nil || b.te == nil || b.te.ClCluster == nil || b.te.ClCluster.Nodes == nil || len(b.te.ClCluster.Nodes)-1 < i || b.te.ClCluster.Nodes[i] == nil || b.te.ClCluster.Nodes[i].PostgresDb == nil {
-							continue
+							return
 						}
 
 						filePath := filepath.Join(dbDumpPath, fmt.Sprintf("postgres_db_dump_%s.sql", b.te.ClCluster.Nodes[i].ContainerName))
@@ -353,24 +345,23 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 						if err != nil {
 							b.l.Error().Err(err).Msg("Error creating localDbDumpFile for Postgres DB dump")
 							_ = localDbDumpFile.Close()
-							continue
+							return
 						}
 
 						if err := b.te.ClCluster.Nodes[i].PostgresDb.ExecPgDumpFromContainer(localDbDumpFile); err != nil {
 							b.l.Error().Err(err).Msg("Error dumping Postgres DB")
 						}
 						_ = localDbDumpFile.Close()
-					}
-					b.l.Info().Msg("Finished dumping state of all Postgres DBs used by Chainlink Nodes")
+					}()
 				}
 
-				if b.testConfig.GetSethConfig() != nil && ((b.t.Failed() && slices.Contains(b.testConfig.GetSethConfig().TraceOutputs, seth.TraceOutput_DOT) && b.testConfig.GetSethConfig().TracingLevel != seth.TracingLevel_None) || (!b.t.Failed() && slices.Contains(b.testConfig.GetSethConfig().TraceOutputs, seth.TraceOutput_DOT) && b.testConfig.GetSethConfig().TracingLevel == seth.TracingLevel_All)) {
-					_ = testsummary.AddEntry(b.t.Name(), "dot_graphs", "true")
-				}
-			})
-		} else {
-			b.l.Warn().Msg("LogStream won't be cleaned up, because either test instance is not set or cleanup type is set to none")
-		}
+				dbDumpGroup.Wait()
+
+				b.l.Info().Msg("Finished dumping state of all Postgres DBs used by Chainlink Nodes")
+			}
+		})
+	} else {
+		b.l.Warn().Msg("Won't dump container and postgres logs, because either test instance is not set or cleanup type is set to none")
 	}
 
 	if b.hasKillgrave {
@@ -378,7 +369,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			return nil, fmt.Errorf("test environment builder failed: %w", fmt.Errorf("cannot start mock adapter without a network"))
 		}
 
-		b.te.MockAdapter = test_env.NewKillgrave([]string{b.te.DockerNetwork.Name}, "", test_env.WithLogStream(b.te.LogStream))
+		b.te.MockAdapter = test_env.NewKillgrave([]string{b.te.DockerNetwork.Name}, "")
 
 		err = b.te.StartMockAdapter()
 		if err != nil {
@@ -404,10 +395,6 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		b.l.Warn().Msg("test environment won't be cleaned up")
 	case "":
 		return b.te, fmt.Errorf("test environment builder failed: %w", fmt.Errorf("explicit cleanup type must be set when building test environment"))
-	}
-
-	if b.te.LogStream == nil && b.chainlinkNodeLogScannerSettings != nil {
-		log.Warn().Msg("Chainlink node log scanner settings provided, but LogStream is not enabled. Ignoring Chainlink node log scanner settings, as no logs will be available.")
 	}
 
 	if b.jdConfig != nil {
