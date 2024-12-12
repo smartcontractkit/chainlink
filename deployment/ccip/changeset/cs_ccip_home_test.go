@@ -366,25 +366,6 @@ func Test_PromoteCandidate(t *testing.T) {
 	}
 }
 
-func Test_AddDonSetCandidate(t *testing.T) {
-	for _, tc := range []struct {
-		name        string
-		mcmsEnabled bool
-	}{
-		{
-			name:        "MCMS enabled",
-			mcmsEnabled: true,
-		},
-		{
-			name:        "MCMS disabled",
-			mcmsEnabled: false,
-		},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-		})
-	}
-}
-
 func Test_SetCandidate(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
@@ -510,7 +491,12 @@ func Test_SetCandidate(t *testing.T) {
 	}
 }
 
-func transferToTimelock(t *testing.T, tenv DeployedEnv, state CCIPOnChainState, source, dest uint64) {
+func transferToTimelock(
+	t *testing.T,
+	tenv DeployedEnv,
+	state CCIPOnChainState,
+	source,
+	dest uint64) {
 	// Transfer ownership to timelock so that we can promote the zero digest later down the line.
 	_, err := commonchangeset.ApplyChangesets(t, tenv.Env, map[uint64]*commonchangeset.TimelockExecutionContracts{
 		source: {

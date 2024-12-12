@@ -21,7 +21,7 @@ import (
 )
 
 var (
-	_ deployment.ChangeSet[AddDONAndSetCandidateChangesetConfig] = AddDonAndSetCandidateChangeset
+	_ deployment.ChangeSet[AddDonAndSetCandidateChangesetConfig] = AddDonAndSetCandidateChangeset
 	_ deployment.ChangeSet[PromoteAllCandidatesChangesetConfig]  = PromoteAllCandidatesChangeset
 	_ deployment.ChangeSet[SetCandidateChangesetConfig]          = SetCandidateChangeset
 )
@@ -167,14 +167,14 @@ func PromoteAllCandidatesChangeset(
 	}, nil
 }
 
-// AddDONAndSetCandidateChangesetConfig is a separate config struct
+// AddDonAndSetCandidateChangesetConfig is a separate config struct
 // because the validation is slightly different from SetCandidateChangesetConfig.
 // In particular, we check to make sure we don't already have a DON for the chain.
-type AddDONAndSetCandidateChangesetConfig struct {
+type AddDonAndSetCandidateChangesetConfig struct {
 	SetCandidateChangesetConfig
 }
 
-func (a AddDONAndSetCandidateChangesetConfig) Validate(e deployment.Environment, state CCIPOnChainState) (deployment.Nodes, error) {
+func (a AddDonAndSetCandidateChangesetConfig) Validate(e deployment.Environment, state CCIPOnChainState) (deployment.Nodes, error) {
 	nodes, err := a.SetCandidateChangesetConfig.Validate(e, state)
 	if err != nil {
 		return nil, err
@@ -274,7 +274,7 @@ func (s SetCandidateChangesetConfig) Validate(e deployment.Environment, state CC
 // provide suitable calldata for CCIPHome.
 func AddDonAndSetCandidateChangeset(
 	e deployment.Environment,
-	cfg AddDONAndSetCandidateChangesetConfig,
+	cfg AddDonAndSetCandidateChangesetConfig,
 ) (deployment.ChangesetOutput, error) {
 	state, err := LoadOnchainState(e)
 	if err != nil {

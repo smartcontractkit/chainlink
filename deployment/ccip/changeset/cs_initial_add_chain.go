@@ -483,7 +483,7 @@ func ValidateCCIPHomeConfigSetUp(
 		return fmt.Errorf("fetch don id for chain: %w", err)
 	}
 	if donID == 0 {
-		return fmt.Errorf("don id for chain(%d) does not exist", chainSel)
+		return fmt.Errorf("don id for chain (%d) does not exist", chainSel)
 	}
 
 	// final sanity checks on configs.

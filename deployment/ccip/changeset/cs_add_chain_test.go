@@ -206,17 +206,22 @@ func TestAddChainInbound(t *testing.T) {
 	}, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(AddDonAndSetCandidateChangeset),
-			Config: SetCandidateChangesetConfig{
-				HomeChainSelector: e.HomeChainSel,
-				FeedChainSelector: e.FeedChainSel,
-				DONChainSelector:  newChain,
-				PluginType:        types.PluginTypeCCIPCommit,
-				NodeIDs:           nodeIDs,
-				CCIPOCRParams: DefaultOCRParams(
-					e.FeedChainSel,
-					tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[newChain].LinkToken, state.Chains[newChain].Weth9),
-					nil,
-				),
+			Config: AddDonAndSetCandidateChangesetConfig{
+				SetCandidateChangesetConfig: SetCandidateChangesetConfig{
+					HomeChainSelector: e.HomeChainSel,
+					FeedChainSelector: e.FeedChainSel,
+					DONChainSelector:  newChain,
+					PluginType:        types.PluginTypeCCIPCommit,
+					NodeIDs:           nodeIDs,
+					CCIPOCRParams: DefaultOCRParams(
+						e.FeedChainSel,
+						tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[newChain].LinkToken, state.Chains[newChain].Weth9),
+						nil,
+					),
+					MCMS: &MCMSConfig{
+						MinDelay: 0,
+					},
+				},
 			},
 		},
 		{
@@ -232,6 +237,9 @@ func TestAddChainInbound(t *testing.T) {
 					tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[newChain].LinkToken, state.Chains[newChain].Weth9),
 					nil,
 				),
+				MCMS: &MCMSConfig{
+					MinDelay: 0,
+				},
 			},
 		},
 		{
@@ -246,6 +254,7 @@ func TestAddChainInbound(t *testing.T) {
 			},
 		},
 	})
+	require.NoError(t, err)
 
 	// verify if the configs are updated
 	require.NoError(t, ValidateCCIPHomeConfigSetUp(
