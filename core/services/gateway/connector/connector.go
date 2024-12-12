@@ -28,13 +28,14 @@ type GatewayConnector interface {
 
 	AddHandler(methods []string, handler GatewayConnectorHandler) error
 	// SendToGateway takes a signed message as argument and sends it to the specified gateway
-	SendToGateway(ctx context.Context, gatewayId string, msg *api.Message) error
+	SendToGateway(ctx context.Context, gatewayID string, msg *api.Message) error
 	// SignAndSendToGateway signs the message and sends the message to the specified gateway
 	SignAndSendToGateway(ctx context.Context, gatewayID string, msg *api.MessageBody) error
 	// GatewayIDs returns the list of Gateway IDs
 	GatewayIDs() []string
 	// DonID returns the DON ID
 	DonID() string
+	AwaitConnection(ctx context.Context, gatewayID string) error
 }
 
 // Signer implementation needs to be provided by a GatewayConnector user (node)
@@ -78,10 +79,37 @@ func (c *gatewayConnector) HealthReport() map[string]error {
 func (c *gatewayConnector) Name() string { return c.lggr.Name() }
 
 type gatewayState struct {
+	// mu controls access to the signal channel
+	mu sync.Mutex
+	// signal channel is closed once the gateway is connected
+	signalCh chan struct{}
+
 	conn     network.WSConnectionWrapper
 	config   ConnectorGatewayConfig
 	url      *url.URL
 	wsClient network.WebSocketClient
+}
+
+func (gs *gatewayState) signal() {
+	gs.mu.Lock()
+	defer gs.mu.Unlock()
+
+	ch := make(chan struct{})
+	close(ch)
+	gs.signalCh = ch
+}
+
+func (gs *gatewayState) awaitConn(ctx context.Context) error {
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("await connection failed: %w", ctx.Err())
+	case <-gs.signalCh:
+		gs.mu.Lock()
+		defer gs.mu.Unlock()
+
+		gs.signalCh = nil
+		return nil
+	}
 }
 
 func NewGatewayConnector(config *ConnectorConfig, signer Signer, clock clockwork.Clock, lggr logger.Logger) (GatewayConnector, error) {
@@ -150,14 +178,22 @@ func (c *gatewayConnector) AddHandler(methods []string, handler GatewayConnector
 	return nil
 }
 
-func (c *gatewayConnector) SendToGateway(ctx context.Context, gatewayId string, msg *api.Message) error {
+func (c *gatewayConnector) AwaitConnection(ctx context.Context, gatewayID string) error {
+	gateway, ok := c.gateways[gatewayID]
+	if !ok {
+		return fmt.Errorf("invalid Gateway ID %s", gatewayID)
+	}
+	return gateway.awaitConn(ctx)
+}
+
+func (c *gatewayConnector) SendToGateway(ctx context.Context, gatewayID string, msg *api.Message) error {
 	data, err := c.codec.EncodeResponse(msg)
 	if err != nil {
-		return fmt.Errorf("error encoding response for gateway %s: %v", gatewayId, err)
+		return fmt.Errorf("error encoding response for gateway %s: %v", gatewayID, err)
 	}
-	gateway, ok := c.gateways[gatewayId]
+	gateway, ok := c.gateways[gatewayID]
 	if !ok {
-		return fmt.Errorf("invalid Gateway ID %s", gatewayId)
+		return fmt.Errorf("invalid Gateway ID %s", gatewayID)
 	}
 	if gateway.conn == nil {
 		return fmt.Errorf("connector not started")
@@ -244,6 +280,7 @@ func (c *gatewayConnector) reconnectLoop(gatewayState *gatewayState) {
 			<-time.After(1 * time.Minute)
 			c.lggr.Infow("connected successfully", "url", gatewayState.url)
 			closeCh := gatewayState.conn.Reset(conn)
+			gatewayState.signal()
 			<-closeCh
 			c.lggr.Infow("connection closed", "url", gatewayState.url)
 			// reset backoff
