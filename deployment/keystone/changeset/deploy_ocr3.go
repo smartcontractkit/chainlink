@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 )
 
@@ -38,7 +41,12 @@ type ConfigureOCR3Config struct {
 	DryRun               bool
 	WriteGeneratedConfig io.Writer // if not nil, write the generated config to this writer as JSON [OCR2OracleConfig]
 
-	UseMCMS bool
+	// MCMSConfig is optional. If non-nil, the changes will be proposed using MCMS.
+	MCMSConfig *MCMSConfig
+}
+
+func (cfg ConfigureOCR3Config) UseMCMS() bool {
+	return cfg.MCMSConfig != nil
 }
 
 func ConfigureOCR3Contract(env deployment.Environment, cfg ConfigureOCR3Config) (deployment.ChangesetOutput, error) {
@@ -47,7 +55,7 @@ func ConfigureOCR3Contract(env deployment.Environment, cfg ConfigureOCR3Config) 
 		NodeIDs:    cfg.NodeIDs,
 		OCR3Config: cfg.OCR3Config,
 		DryRun:     cfg.DryRun,
-		UseMCMS:    cfg.UseMCMS,
+		UseMCMS:    cfg.UseMCMS(),
 	})
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to configure OCR3Capability: %w", err)
@@ -67,11 +75,38 @@ func ConfigureOCR3Contract(env deployment.Environment, cfg ConfigureOCR3Config) 
 		}
 	}
 	// does not create any new addresses
-	var proposals []timelock.MCMSWithTimelockProposal
-	if cfg.UseMCMS {
-		proposals = append(proposals, *resp.Proposal)
+	var out deployment.ChangesetOutput
+	if cfg.UseMCMS() {
+		if resp.Ops == nil {
+			return out, fmt.Errorf("expected MCMS operation to be non-nil")
+		}
+		r, err := kslib.GetContractSets(env.Logger, &kslib.GetContractSetsRequest{
+			Chains:      env.Chains,
+			AddressBook: env.ExistingAddresses,
+		})
+		if err != nil {
+			return out, fmt.Errorf("failed to get contract sets: %w", err)
+		}
+		contracts := r.ContractSets[cfg.ChainSel]
+		timelocksPerChain := map[uint64]common.Address{
+			cfg.ChainSel: contracts.Timelock.Address(),
+		}
+		proposerMCMSes := map[uint64]*gethwrappers.ManyChainMultiSig{
+			cfg.ChainSel: contracts.ProposerMcm,
+		}
+
+		proposal, err := proposalutils.BuildProposalFromBatches(
+			timelocksPerChain,
+			proposerMCMSes,
+			[]timelock.BatchChainOperation{*resp.Ops},
+			"proposal to set update nodes",
+			cfg.MCMSConfig.MinDuration,
+		)
+		if err != nil {
+			return out, fmt.Errorf("failed to build proposal: %w", err)
+		}
+		out.Proposals = []timelock.MCMSWithTimelockProposal{*proposal}
+
 	}
-	return deployment.ChangesetOutput{
-		Proposals: proposals,
-	}, nil
+	return out, nil
 }

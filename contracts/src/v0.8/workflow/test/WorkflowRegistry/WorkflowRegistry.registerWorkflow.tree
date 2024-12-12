@@ -18,6 +18,8 @@ WorkflowRegistry.registerWorkflow
             │   └── it should revert
             ├── when the workflowID is invalid
             │   └── it should revert
+            ├── when the workflowID is already in used by another workflow
+            │   └── it should revert
             ├── when the workflow name is already used by the owner
             │   └── it should revert
             └── when the workflow inputs are all valid

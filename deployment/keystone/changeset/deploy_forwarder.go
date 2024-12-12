@@ -3,7 +3,11 @@ package changeset
 import (
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 )
 
@@ -35,7 +39,8 @@ type ConfigureForwardContractsRequest struct {
 	WFNodeIDs        []string
 	RegistryChainSel uint64
 
-	UseMCMS bool
+	// MCMSConfig is optional. If non-nil, the changes will be proposed using MCMS.
+	MCMSConfig *MCMSConfig
 }
 
 func (r ConfigureForwardContractsRequest) Validate() error {
@@ -43,6 +48,10 @@ func (r ConfigureForwardContractsRequest) Validate() error {
 		return fmt.Errorf("WFNodeIDs must not be empty")
 	}
 	return nil
+}
+
+func (r ConfigureForwardContractsRequest) UseMCMS() bool {
+	return r.MCMSConfig != nil
 }
 
 func ConfigureForwardContracts(env deployment.Environment, req ConfigureForwardContractsRequest) (deployment.ChangesetOutput, error) {
@@ -56,12 +65,46 @@ func ConfigureForwardContracts(env deployment.Environment, req ConfigureForwardC
 	}
 	r, err := kslib.ConfigureForwardContracts(&env, kslib.ConfigureForwarderContractsRequest{
 		Dons:    []kslib.RegisteredDon{*wfDon},
-		UseMCMS: req.UseMCMS,
+		UseMCMS: req.UseMCMS(),
 	})
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to configure forward contracts: %w", err)
 	}
-	return deployment.ChangesetOutput{
-		Proposals: r.Proposals,
-	}, nil
+
+	cresp, err := kslib.GetContractSets(env.Logger, &kslib.GetContractSetsRequest{
+		Chains:      env.Chains,
+		AddressBook: env.ExistingAddresses,
+	})
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get contract sets: %w", err)
+	}
+
+	var out deployment.ChangesetOutput
+	if req.UseMCMS() {
+		if len(r.OpsPerChain) == 0 {
+			return out, fmt.Errorf("expected MCMS operation to be non-nil")
+		}
+		for chainSelector, op := range r.OpsPerChain {
+			contracts := cresp.ContractSets[chainSelector]
+			timelocksPerChain := map[uint64]common.Address{
+				chainSelector: contracts.Timelock.Address(),
+			}
+			proposerMCMSes := map[uint64]*gethwrappers.ManyChainMultiSig{
+				chainSelector: contracts.ProposerMcm,
+			}
+
+			proposal, err := proposalutils.BuildProposalFromBatches(
+				timelocksPerChain,
+				proposerMCMSes,
+				[]timelock.BatchChainOperation{op},
+				"proposal to set update nodes",
+				req.MCMSConfig.MinDuration,
+			)
+			if err != nil {
+				return out, fmt.Errorf("failed to build proposal: %w", err)
+			}
+			out.Proposals = append(out.Proposals, *proposal)
+		}
+	}
+	return out, nil
 }

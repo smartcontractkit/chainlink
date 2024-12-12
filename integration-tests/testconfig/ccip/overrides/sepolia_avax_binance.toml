@@ -5,10 +5,6 @@ chainlink_node_funding = 2
 [Logging]
 test_log_collect = true
 
-[Logging.LogStream]
-# supported targets: file, loki, in-memory. if empty no logs will be persisted
-log_targets = ["loki"]
-
 [Network]
 selected_networks = ['SEPOLIA', 'AVALANCHE_FUJI', 'BSC_TESTNET']
 

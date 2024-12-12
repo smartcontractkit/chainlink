@@ -1108,6 +1108,7 @@ runner-test-matrix:
     test_cmd: cd integration-tests/ccip-tests/smoke && go test ccip_test.go -test.run ^TestSmokeCCIPForBidirectionalLane$ -timeout 30m -count=1 -test.parallel=1 -json
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
+      CHAINLINK_USER_TEAM: CCIP
 
   - id: ccip-smoke-usdc
     path: integration-tests/ccip-tests/smoke/ccip_test.go
@@ -1120,6 +1121,7 @@ runner-test-matrix:
     test_cmd: cd integration-tests/ccip-tests/smoke && go test ccip_test.go -test.run ^TestSmokeCCIPForBidirectionalLane$ -timeout 30m -count=1 -test.parallel=1 -json
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
+      CHAINLINK_USER_TEAM: CCIP
     test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/usdc_mock_deployment.toml
 
   - id: ccip-smoke-db-compatibility
@@ -1133,6 +1135,7 @@ runner-test-matrix:
     test_cmd: cd integration-tests/ccip-tests/smoke && go test ccip_test.go -test.run ^TestSmokeCCIPForBidirectionalLane$ -timeout 30m -count=1 -test.parallel=1 -json
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
+      CHAINLINK_USER_TEAM: CCIP
     test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/db-compatibility.toml
 
   - id: ccip-smoke-leader-lane
@@ -1159,6 +1162,7 @@ runner-test-matrix:
     test_cmd: cd integration-tests/ccip-tests/smoke && go test ccip_test.go -test.run ^TestSmokeCCIPTokenPoolRateLimits$ -timeout 30m -count=1 -test.parallel=1 -json
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
+      CHAINLINK_USER_TEAM: CCIP
 
   - id: ccip-tests/smoke/ccip_test.go:^TestSmokeCCIPMulticall$
     path: integration-tests/ccip-tests/smoke/ccip_test.go
@@ -1171,6 +1175,7 @@ runner-test-matrix:
     test_cmd: cd integration-tests/ccip-tests/smoke && go test ccip_test.go -test.run ^TestSmokeCCIPMulticall$ -timeout 30m -count=1 -test.parallel=1 -json
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
+      CHAINLINK_USER_TEAM: CCIP
 
   - id: ccip-tests/smoke/ccip_test.go:^TestSmokeCCIPManuallyExecuteAfterExecutionFailingDueToInsufficientGas$
     path: integration-tests/ccip-tests/smoke/ccip_test.go
@@ -1183,6 +1188,7 @@ runner-test-matrix:
     test_cmd: cd integration-tests/ccip-tests/smoke && go test ccip_test.go -test.run ^TestSmokeCCIPManuallyExecuteAfterExecutionFailingDueToInsufficientGas$ -timeout 30m -count=1 -test.parallel=1 -json
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
+      CHAINLINK_USER_TEAM: CCIP
 
   - id: ccip-tests/smoke/ccip_test.go:^TestSmokeCCIPOnRampLimits$
     path: integration-tests/ccip-tests/smoke/ccip_test.go
@@ -1195,6 +1201,7 @@ runner-test-matrix:
     test_cmd: cd integration-tests/ccip-tests/smoke && go test ccip_test.go -test.run ^TestSmokeCCIPOnRampLimits$ -timeout 30m -count=1 -test.parallel=1 -json
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
+      CHAINLINK_USER_TEAM: CCIP
 
   - id: ccip-tests/smoke/ccip_test.go:^TestSmokeCCIPOffRampCapacityLimit$
     path: integration-tests/ccip-tests/smoke/ccip_test.go
@@ -1205,6 +1212,7 @@ runner-test-matrix:
     test_cmd: cd integration-tests/ccip-tests/smoke && go test ccip_test.go -test.run ^TestSmokeCCIPOffRampCapacityLimit$ -timeout 30m -count=1 -test.parallel=1 -json
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
+      CHAINLINK_USER_TEAM: CCIP
 
   - id: ccip-tests/smoke/ccip_test.go:^TestSmokeCCIPOffRampAggRateLimit$
     path: integration-tests/ccip-tests/smoke/ccip_test.go
@@ -1215,6 +1223,7 @@ runner-test-matrix:
     test_cmd: cd integration-tests/ccip-tests/smoke && go test ccip_test.go -test.run ^TestSmokeCCIPOffRampAggRateLimit$ -timeout 30m -count=1 -test.parallel=1 -json
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
+      CHAINLINK_USER_TEAM: CCIP
 
   - id: ccip-tests/smoke/ccip_test.go:^TestSmokeCCIPReorgBelowFinality$
     path: integration-tests/ccip-tests/smoke/ccip_test.go
@@ -1227,6 +1236,7 @@ runner-test-matrix:
     test_cmd: cd integration-tests/ccip-tests/smoke && go test ccip_test.go -test.run ^TestSmokeCCIPReorgBelowFinality$ -timeout 30m -count=1 -test.parallel=1 -json
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
+      CHAINLINK_USER_TEAM: CCIP
     test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/ccip-reorg.toml
 
   - id: ccip-tests/smoke/ccip_test.go:^TestSmokeCCIPReorgAboveFinalityAtDestination$
@@ -1240,6 +1250,7 @@ runner-test-matrix:
     test_cmd: cd integration-tests/ccip-tests/smoke && go test ccip_test.go -test.run ^TestSmokeCCIPReorgAboveFinalityAtDestination$ -timeout 30m -count=1 -test.parallel=1 -json
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
+      CHAINLINK_USER_TEAM: CCIP
     test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/ccip-reorg.toml
 
   - id: ccip-tests/smoke/ccip_test.go:^TestSmokeCCIPReorgAboveFinalityAtSource$
@@ -1253,6 +1264,7 @@ runner-test-matrix:
     test_cmd: cd integration-tests/ccip-tests/smoke && go test ccip_test.go -test.run ^TestSmokeCCIPReorgAboveFinalityAtSource$ -timeout 30m -count=1 -test.parallel=1 -json
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
+      CHAINLINK_USER_TEAM: CCIP
     test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/ccip-reorg.toml
 
   - id: integration-tests/ccip-tests/load/ccip_test.go:TestLoadCCIPStableRPS
