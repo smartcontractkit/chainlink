@@ -9,10 +9,10 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
-	mcmsWrappers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	"github.com/smartcontractkit/chainlink/deployment"
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_remote"
@@ -274,10 +274,13 @@ func NewPromoteCandidateConfigChangeset(e deployment.Environment, config Promote
 	}, nil
 }
 
-func buildTimelockPerChain(e deployment.Environment, state CCIPOnChainState) map[uint64]*mcmsWrappers.RBACTimelock {
-	timelocksPerChain := make(map[uint64]*mcmsWrappers.RBACTimelock)
+func buildTimelockPerChain(e deployment.Environment, state CCIPOnChainState) map[uint64]*commonchangeset.TimelockExecutionContracts {
+	timelocksPerChain := make(map[uint64]*commonchangeset.TimelockExecutionContracts)
 	for _, chain := range e.Chains {
-		timelocksPerChain[chain.Selector] = state.Chains[chain.Selector].Timelock
+		timelocksPerChain[chain.Selector] = &commonchangeset.TimelockExecutionContracts{
+			Timelock:  state.Chains[chain.Selector].Timelock,
+			CallProxy: state.Chains[chain.Selector].CallProxy,
+		}
 	}
 	return timelocksPerChain
 }
@@ -286,7 +289,7 @@ func buildTimelockAddressPerChain(e deployment.Environment, state CCIPOnChainSta
 	timelocksPerChain := buildTimelockPerChain(e, state)
 	timelockAddressPerChain := make(map[uint64]common.Address)
 	for chain, timelock := range timelocksPerChain {
-		timelockAddressPerChain[chain] = timelock.Address()
+		timelockAddressPerChain[chain] = timelock.Timelock.Address()
 	}
 	return timelockAddressPerChain
 }

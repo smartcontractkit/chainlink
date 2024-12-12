@@ -1,13 +1,16 @@
 package changeset
 
 import (
-	"encoding/json"
 	"fmt"
 	"strconv"
 
+	"github.com/ethereum/go-ethereum/common"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 
@@ -50,7 +53,6 @@ type UpdateNodeCapabilitiesRequest = MutateNodeCapabilitiesRequest
 
 // MutateNodeCapabilitiesRequest is a request to change the capabilities of nodes in the registry
 type MutateNodeCapabilitiesRequest struct {
-	AddressBook      deployment.AddressBook
 	RegistryChainSel uint64
 
 	P2pToCapabilities map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability
@@ -58,9 +60,6 @@ type MutateNodeCapabilitiesRequest struct {
 }
 
 func (req *MutateNodeCapabilitiesRequest) Validate() error {
-	if req.AddressBook == nil {
-		return fmt.Errorf("address book is nil")
-	}
 	if len(req.P2pToCapabilities) == 0 {
 		return fmt.Errorf("p2pToCapabilities is empty")
 	}
@@ -80,39 +79,61 @@ func (req *MutateNodeCapabilitiesRequest) updateNodeCapabilitiesImplRequest(e de
 	if !ok {
 		return nil, fmt.Errorf("registry chain selector %d does not exist in environment", req.RegistryChainSel)
 	}
-	contracts, err := kslib.GetContractSets(e.Logger, &kslib.GetContractSetsRequest{
+	resp, err := kslib.GetContractSets(e.Logger, &kslib.GetContractSetsRequest{
 		Chains:      map[uint64]deployment.Chain{req.RegistryChainSel: registryChain},
-		AddressBook: req.AddressBook,
+		AddressBook: e.ExistingAddresses,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get contract sets: %w", err)
 	}
-	registry := contracts.ContractSets[req.RegistryChainSel].CapabilitiesRegistry
-	if registry == nil {
-		return nil, fmt.Errorf("capabilities registry not found for chain %d", req.RegistryChainSel)
+	contractSet, exists := resp.ContractSets[req.RegistryChainSel]
+	if !exists {
+		return nil, fmt.Errorf("contract set not found for chain %d", req.RegistryChainSel)
 	}
 
 	return &internal.UpdateNodeCapabilitiesImplRequest{
 		Chain:             registryChain,
-		Registry:          registry,
+		ContractSet:       &contractSet,
 		P2pToCapabilities: req.P2pToCapabilities,
 		UseMCMS:           req.UseMCMS,
 	}, nil
 }
 
 // UpdateNodeCapabilities updates the capabilities of nodes in the registry
-func UpdateNodeCapabilities(env deployment.Environment, req *MutateNodeCapabilitiesRequest) (deployment.ChangesetOutput, error) {
+func UpdateNodeCapabilities(env deployment.Environment, req *UpdateNodeCapabilitiesRequest) (deployment.ChangesetOutput, error) {
 	c, err := req.updateNodeCapabilitiesImplRequest(env)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to convert request: %w", err)
 	}
 
 	r, err := internal.UpdateNodeCapabilitiesImpl(env.Logger, c)
-	if err == nil {
-		b, err2 := json.Marshal(r)
-		if err2 != nil {
-			env.Logger.Debugf("Updated node capabilities '%s'", b)
-		}
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to update nodes: %w", err)
 	}
-	return deployment.ChangesetOutput{}, err
+
+	out := deployment.ChangesetOutput{}
+	if req.UseMCMS {
+		if r.Ops == nil {
+			return out, fmt.Errorf("expected MCMS operation to be non-nil")
+		}
+		timelocksPerChain := map[uint64]common.Address{
+			c.Chain.Selector: c.ContractSet.Timelock.Address(),
+		}
+		proposerMCMSes := map[uint64]*gethwrappers.ManyChainMultiSig{
+			c.Chain.Selector: c.ContractSet.ProposerMcm,
+		}
+
+		proposal, err := proposalutils.BuildProposalFromBatches(
+			timelocksPerChain,
+			proposerMCMSes,
+			[]timelock.BatchChainOperation{*r.Ops},
+			"proposal to set update node capabilities",
+			0,
+		)
+		if err != nil {
+			return out, fmt.Errorf("failed to build proposal: %w", err)
+		}
+		out.Proposals = []timelock.MCMSWithTimelockProposal{*proposal}
+	}
+	return out, nil
 }

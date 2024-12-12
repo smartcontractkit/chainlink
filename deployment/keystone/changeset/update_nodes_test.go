@@ -8,7 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -90,10 +89,13 @@ func TestUpdateNodes(t *testing.T) {
 
 		// now apply the changeset such that the proposal is signed and execed
 		contracts := te.ContractSets()[te.RegistrySelector]
-		timelocks := map[uint64]*gethwrappers.RBACTimelock{
-			te.RegistrySelector: contracts.Timelock,
+		timelockContracts := map[uint64]*commonchangeset.TimelockExecutionContracts{
+			te.RegistrySelector: {
+				Timelock:  contracts.Timelock,
+				CallProxy: contracts.CallProxy,
+			},
 		}
-		_, err = commonchangeset.ApplyChangesets(t, te.Env, timelocks, []commonchangeset.ChangesetApplication{
+		_, err = commonchangeset.ApplyChangesets(t, te.Env, timelockContracts, []commonchangeset.ChangesetApplication{
 			{
 				Changeset: commonchangeset.WrapChangeSet(changeset.UpdateNodes),
 				Config: &changeset.UpdateNodesRequest{

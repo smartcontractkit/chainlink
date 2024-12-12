@@ -2,7 +2,6 @@
 pragma solidity 0.8.24;
 
 import {ICapabilityConfiguration} from "../../keystone/interfaces/ICapabilityConfiguration.sol";
-
 import {INodeInfoProvider} from "../../keystone/interfaces/INodeInfoProvider.sol";
 import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 
@@ -111,7 +110,7 @@ contract CCIPHome is Ownable2StepMsgSender, ITypeAndVersion, ICapabilityConfigur
     uint64 chainSelector; //               │ The (remote) chain that the configuration is for.
     uint8 FRoleDON; //                     │ The "big F" parameter for the role DON.
     uint64 offchainConfigVersion; // ──────╯ The version of the exec offchain configuration.
-    bytes offrampAddress; // The remote chain offramp address.
+    bytes offrampAddress; // The remote chain offRamp address.
     bytes rmnHomeAddress; // The home chain RMN home address.
     OCR3Node[] nodes; // Keys & IDs of nodes part of the role DON.
     bytes offchainConfig; // The offchain configuration for the OCR3 plugin. Protobuf encoded.
@@ -241,10 +240,9 @@ contract CCIPHome is Ownable2StepMsgSender, ITypeAndVersion, ICapabilityConfigur
   }
 
   /// @inheritdoc ICapabilityConfiguration
-  /// @dev The CCIP capability will fetch the configuration needed directly from this contract.
-  /// The offchain syncer will call this function, so its important that it doesn't revert.
+  /// @dev This function is not used in the CCIPHome contract but the interface requires it to be implemented.
   function getCapabilityConfiguration(
-    uint32 /* donId */
+    uint32
   ) external pure override returns (bytes memory configuration) {
     return bytes("");
   }

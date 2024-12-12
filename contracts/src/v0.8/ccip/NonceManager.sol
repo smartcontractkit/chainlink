@@ -33,9 +33,9 @@ contract NonceManager is INonceManager, AuthorizedCallers, ITypeAndVersion {
 
   /// @dev The previous on/off ramps per chain selector.
   mapping(uint64 chainSelector => PreviousRamps previousRamps) private s_previousRamps;
-  /// @dev The current outbound nonce per sender used on the onramp.
+  /// @dev The current outbound nonce per sender used on the onRamp.
   mapping(uint64 destChainSelector => mapping(address sender => uint64 outboundNonce)) private s_outboundNonces;
-  /// @dev The current inbound nonce per sender used on the offramp.
+  /// @dev The current inbound nonce per sender used on the offRamp.
   /// Eventually in sync with the outbound nonce in the remote source chain NonceManager, used to enforce that messages
   /// are executed in the same order they are sent (assuming they are DON).
   mapping(uint64 sourceChainSelector => mapping(bytes sender => uint64 inboundNonce)) private s_inboundNonces;
@@ -71,6 +71,8 @@ contract NonceManager is INonceManager, AuthorizedCallers, ITypeAndVersion {
     if (outboundNonce == 0) {
       address prevOnRamp = s_previousRamps[destChainSelector].prevOnRamp;
       if (prevOnRamp != address(0)) {
+        // This gets the current nonce for a sender, not the already incremented nonce like getIncrementedOutboundNonce
+        // would return.
         return IEVM2AnyOnRamp(prevOnRamp).getSenderNonce(sender);
       }
     }

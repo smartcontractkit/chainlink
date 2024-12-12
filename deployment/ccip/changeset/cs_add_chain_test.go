@@ -5,12 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
-
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -34,12 +31,10 @@ import (
 
 func TestAddChainInbound(t *testing.T) {
 	// 4 chains where the 4th is added after initial deployment.
-	e := NewMemoryEnvironmentWithJobs(t, logger.TestLogger(t), memory.MemoryEnvironmentConfig{
-		Chains:             4,
-		NumOfUsersPerChain: 1,
-		Nodes:              4,
-		Bootstraps:         1,
-	})
+	e := NewMemoryEnvironment(t,
+		WithChains(4),
+		WithJobsOnly(),
+	)
 	state, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	// Take first non-home chain as the new chain.
@@ -52,11 +47,10 @@ func TestAddChainInbound(t *testing.T) {
 	require.NoError(t, e.Env.ExistingAddresses.Merge(newAddresses))
 
 	cfg := commontypes.MCMSWithTimelockConfig{
-		Canceller:         commonchangeset.SingleGroupMCMS(t),
-		Bypasser:          commonchangeset.SingleGroupMCMS(t),
-		Proposer:          commonchangeset.SingleGroupMCMS(t),
-		TimelockExecutors: e.Env.AllDeployerKeys(),
-		TimelockMinDelay:  big.NewInt(0),
+		Canceller:        commonchangeset.SingleGroupMCMS(t),
+		Bypasser:         commonchangeset.SingleGroupMCMS(t),
+		Proposer:         commonchangeset.SingleGroupMCMS(t),
+		TimelockMinDelay: big.NewInt(0),
 	}
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
 		{
@@ -158,10 +152,19 @@ func TestAddChainInbound(t *testing.T) {
 	}
 
 	// transfer ownership to timelock
-	_, err = commonchangeset.ApplyChangesets(t, e.Env, map[uint64]*gethwrappers.RBACTimelock{
-		initialDeploy[0]: state.Chains[initialDeploy[0]].Timelock,
-		initialDeploy[1]: state.Chains[initialDeploy[1]].Timelock,
-		initialDeploy[2]: state.Chains[initialDeploy[2]].Timelock,
+	_, err = commonchangeset.ApplyChangesets(t, e.Env, map[uint64]*commonchangeset.TimelockExecutionContracts{
+		initialDeploy[0]: &commonchangeset.TimelockExecutionContracts{
+			Timelock:  state.Chains[initialDeploy[0]].Timelock,
+			CallProxy: state.Chains[initialDeploy[0]].CallProxy,
+		},
+		initialDeploy[1]: &commonchangeset.TimelockExecutionContracts{
+			Timelock:  state.Chains[initialDeploy[1]].Timelock,
+			CallProxy: state.Chains[initialDeploy[1]].CallProxy,
+		},
+		initialDeploy[2]: &commonchangeset.TimelockExecutionContracts{
+			Timelock:  state.Chains[initialDeploy[2]].Timelock,
+			CallProxy: state.Chains[initialDeploy[2]].CallProxy,
+		},
 	}, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.TransferToMCMSWithTimelock),
@@ -191,9 +194,15 @@ func TestAddChainInbound(t *testing.T) {
 		nodeIDs = append(nodeIDs, node.NodeID)
 	}
 
-	_, err = commonchangeset.ApplyChangesets(t, e.Env, map[uint64]*gethwrappers.RBACTimelock{
-		e.HomeChainSel: state.Chains[e.HomeChainSel].Timelock,
-		newChain:       state.Chains[newChain].Timelock,
+	_, err = commonchangeset.ApplyChangesets(t, e.Env, map[uint64]*commonchangeset.TimelockExecutionContracts{
+		e.HomeChainSel: &commonchangeset.TimelockExecutionContracts{
+			Timelock:  state.Chains[e.HomeChainSel].Timelock,
+			CallProxy: state.Chains[e.HomeChainSel].CallProxy,
+		},
+		newChain: &commonchangeset.TimelockExecutionContracts{
+			Timelock:  state.Chains[newChain].Timelock,
+			CallProxy: state.Chains[newChain].CallProxy,
+		},
 	}, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(AddDonAndSetCandidateChangeset),

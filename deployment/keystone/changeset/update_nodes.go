@@ -3,7 +3,11 @@ package changeset
 import (
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
@@ -28,25 +32,52 @@ func UpdateNodes(env deployment.Environment, req *UpdateNodesRequest) (deploymen
 	if !ok {
 		return deployment.ChangesetOutput{}, fmt.Errorf("registry chain selector %d does not exist in environment", req.RegistryChainSel)
 	}
-	contracts, err := kslib.GetContractSets(env.Logger, &kslib.GetContractSetsRequest{
+	cresp, err := kslib.GetContractSets(env.Logger, &kslib.GetContractSetsRequest{
 		Chains:      env.Chains,
 		AddressBook: env.ExistingAddresses,
 	})
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get contract sets: %w", err)
 	}
+	contracts, exists := cresp.ContractSets[req.RegistryChainSel]
+	if !exists {
+		return deployment.ChangesetOutput{}, fmt.Errorf("contract set not found for chain %d", req.RegistryChainSel)
+	}
 
 	resp, err := internal.UpdateNodes(env.Logger, &internal.UpdateNodesRequest{
 		Chain:        registryChain,
-		Registry:     contracts.ContractSets[req.RegistryChainSel].CapabilitiesRegistry,
-		ContractSet:  contracts.ContractSets[req.RegistryChainSel],
+		ContractSet:  &contracts,
 		P2pToUpdates: req.P2pToUpdates,
 		UseMCMS:      req.UseMCMS,
 	})
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to update don: %w", err)
 	}
-	return deployment.ChangesetOutput{
-		Proposals: resp.Proposals,
-	}, nil
+
+	out := deployment.ChangesetOutput{}
+	if req.UseMCMS {
+		if resp.Ops == nil {
+			return out, fmt.Errorf("expected MCMS operation to be non-nil")
+		}
+		timelocksPerChain := map[uint64]common.Address{
+			req.RegistryChainSel: contracts.Timelock.Address(),
+		}
+		proposerMCMSes := map[uint64]*gethwrappers.ManyChainMultiSig{
+			req.RegistryChainSel: contracts.ProposerMcm,
+		}
+
+		proposal, err := proposalutils.BuildProposalFromBatches(
+			timelocksPerChain,
+			proposerMCMSes,
+			[]timelock.BatchChainOperation{*resp.Ops},
+			"proposal to set update nodes",
+			0,
+		)
+		if err != nil {
+			return out, fmt.Errorf("failed to build proposal: %w", err)
+		}
+		out.Proposals = []timelock.MCMSWithTimelockProposal{*proposal}
+	}
+
+	return out, nil
 }

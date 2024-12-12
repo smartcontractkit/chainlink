@@ -38,7 +38,7 @@ contract Router_applyRampUpdates is RouterSetup {
     );
   }
 
-  function testFuzz_OffRampUpdates(
+  function testFuzz_applyRampUpdates_OffRampUpdates(
     address[20] memory offRampsInput
   ) public {
     Router.OffRamp[] memory offRamps = new Router.OffRamp[](20);
@@ -72,7 +72,7 @@ contract Router_applyRampUpdates is RouterSetup {
     }
   }
 
-  function test_OffRampUpdatesWithRouting() public {
+  function test_applyRampUpdates_OffRampUpdatesWithRouting() public {
     // Explicitly construct chain selectors and ramp addresses so we have ramp uniqueness for the various test scenarios.
     uint256 numberOfSelectors = 10;
     uint64[] memory sourceChainSelectors = new uint64[](numberOfSelectors);
@@ -219,7 +219,7 @@ contract Router_applyRampUpdates is RouterSetup {
     }
   }
 
-  function testFuzz_OnRampUpdates(
+  function testFuzz_applyRampUpdates_OnRampUpdates(
     Router.OnRamp[] memory onRamps
   ) public {
     // Test adding onRamps
@@ -244,7 +244,7 @@ contract Router_applyRampUpdates is RouterSetup {
     }
   }
 
-  function test_OnRampDisable() public {
+  function test_applyRampUpdates_OnRampDisable() public {
     // Add onRamp
     Router.OnRamp[] memory onRampUpdates = new Router.OnRamp[](1);
     Router.OffRamp[] memory offRampUpdates = new Router.OffRamp[](0);
@@ -267,7 +267,7 @@ contract Router_applyRampUpdates is RouterSetup {
     assertTrue(s_sourceRouter.isChainSupported(DEST_CHAIN_SELECTOR));
   }
 
-  function test_OnlyOwner_Revert() public {
+  function test_applyRampUpdates_RevertWhen_OnlyOwner() public {
     vm.stopPrank();
     vm.expectRevert("Only callable by owner");
     Router.OnRamp[] memory onRampUpdates = new Router.OnRamp[](0);
@@ -275,7 +275,7 @@ contract Router_applyRampUpdates is RouterSetup {
     s_sourceRouter.applyRampUpdates(onRampUpdates, offRampUpdates, offRampUpdates);
   }
 
-  function test_OffRampMismatch_Revert() public {
+  function test_applyRampUpdates_RevertWhen_OffRampMismatch() public {
     address offRamp = address(uint160(2));
 
     Router.OnRamp[] memory onRampUpdates = new Router.OnRamp[](0);
