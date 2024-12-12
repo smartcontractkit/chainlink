@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"math/big"
 	"sort"
 	"testing"
 
@@ -259,12 +258,7 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 		timelockCfgs := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 		for sel := range env.Chains {
 			t.Logf("Enabling MCMS on chain %d", sel)
-			timelockCfgs[sel] = commontypes.MCMSWithTimelockConfig{
-				Canceller:        proposalutils.SingleGroupMCMS(t),
-				Bypasser:         proposalutils.SingleGroupMCMS(t),
-				Proposer:         proposalutils.SingleGroupMCMS(t),
-				TimelockMinDelay: big.NewInt(0),
-			}
+			timelockCfgs[sel] = proposalutils.SingleGroupTimelockConfig(t)
 		}
 		env, err = commonchangeset.ApplyChangesets(t, env, nil, []commonchangeset.ChangesetApplication{
 			{

@@ -2,7 +2,6 @@ package internal_test
 
 import (
 	"encoding/json"
-	"math/big"
 	"testing"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
@@ -36,12 +35,7 @@ func TestDeployMCMSWithTimelockContracts(t *testing.T) {
 	ab := deployment.NewMemoryAddressBook()
 	_, err := internal.DeployMCMSWithTimelockContracts(lggr,
 		chains[chainsel.TEST_90000001.Selector],
-		ab, types.MCMSWithTimelockConfig{
-			Canceller:        proposalutils.SingleGroupMCMS(t),
-			Bypasser:         proposalutils.SingleGroupMCMS(t),
-			Proposer:         proposalutils.SingleGroupMCMS(t),
-			TimelockMinDelay: big.NewInt(0),
-		})
+		ab, proposalutils.SingleGroupTimelockConfig(t))
 	require.NoError(t, err)
 	addresses, err := ab.AddressesForChain(chainsel.TEST_90000001.Selector)
 	require.NoError(t, err)

@@ -6,8 +6,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	"math/big"
-
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
@@ -29,12 +27,7 @@ func TestTransferToMCMSWithTimelock(t *testing.T) {
 		{
 			Changeset: WrapChangeSet(DeployMCMSWithTimelock),
 			Config: map[uint64]types.MCMSWithTimelockConfig{
-				chain1: {
-					Canceller:        proposalutils.SingleGroupMCMS(t),
-					Bypasser:         proposalutils.SingleGroupMCMS(t),
-					Proposer:         proposalutils.SingleGroupMCMS(t),
-					TimelockMinDelay: big.NewInt(0),
-				},
+				chain1: proposalutils.SingleGroupTimelockConfig(t),
 			},
 		},
 	})
