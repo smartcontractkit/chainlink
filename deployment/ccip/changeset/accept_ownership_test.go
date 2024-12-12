@@ -21,11 +21,11 @@ func Test_NewAcceptOwnershipChangeset(t *testing.T) {
 	dest := allChains[1]
 
 	timelockContracts := map[uint64]*commonchangeset.TimelockExecutionContracts{
-		source: &commonchangeset.TimelockExecutionContracts{
+		source: {
 			Timelock:  state.Chains[source].Timelock,
 			CallProxy: state.Chains[source].CallProxy,
 		},
-		dest: &commonchangeset.TimelockExecutionContracts{
+		dest: {
 			Timelock:  state.Chains[dest].Timelock,
 			CallProxy: state.Chains[dest].CallProxy,
 		},

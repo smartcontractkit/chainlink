@@ -206,10 +206,10 @@ func TestAddChainInbound(t *testing.T) {
 	}, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(AddDonAndSetCandidateChangeset),
-			Config: AddDonAndSetCandidateChangesetConfig{
+			Config: SetCandidateChangesetConfig{
 				HomeChainSelector: e.HomeChainSel,
 				FeedChainSelector: e.FeedChainSel,
-				NewChainSelector:  newChain,
+				DONChainSelector:  newChain,
 				PluginType:        types.PluginTypeCCIPCommit,
 				NodeIDs:           nodeIDs,
 				CCIPOCRParams: DefaultOCRParams(
@@ -220,11 +220,11 @@ func TestAddChainInbound(t *testing.T) {
 			},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(SetCandidatePluginChangeset),
-			Config: AddDonAndSetCandidateChangesetConfig{
+			Changeset: commonchangeset.WrapChangeSet(SetCandidateChangeset),
+			Config: SetCandidateChangesetConfig{
 				HomeChainSelector: e.HomeChainSel,
 				FeedChainSelector: e.FeedChainSel,
-				NewChainSelector:  newChain,
+				DONChainSelector:  newChain,
 				PluginType:        types.PluginTypeCCIPExec,
 				NodeIDs:           nodeIDs,
 				CCIPOCRParams: DefaultOCRParams(
