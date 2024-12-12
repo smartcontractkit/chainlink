@@ -56,7 +56,7 @@ func (ks EthKeyStoreSim) Eth() keystore.Eth {
 
 var _ keystore.Eth = EthKeyStoreSim{}.ETHKS
 
-func ConfirmTxs(t *testing.T, txs []*ethtypes.Transaction, chain *simulated.Backend) {
+func ConfirmTxs(t *testing.T, txs []*ethtypes.Transaction, chain *Backend) {
 	chain.Commit()
 	ctx := tests.Context(t)
 	for _, tx := range txs {

@@ -312,12 +312,19 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				}, eventHandler)
 
 				globalLogger.Debugw("Creating WorkflowRegistrySyncer")
-				wfSyncer := syncer.NewWorkflowRegistry(lggr, func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
-					return relayer.NewContractReader(ctx, bytes)
-				}, cfg.Capabilities().WorkflowRegistry().Address(),
+				wfSyncer := syncer.NewWorkflowRegistry(
+					lggr,
+					func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
+						return relayer.NewContractReader(ctx, bytes)
+					},
+					cfg.Capabilities().WorkflowRegistry().Address(),
 					syncer.WorkflowEventPollerConfig{
 						QueryCount: 100,
-					}, eventHandler, loader, workflowDonNotifier)
+					},
+					eventHandler,
+					loader,
+					workflowDonNotifier,
+				)
 
 				srvcs = append(srvcs, fetcher, wfSyncer)
 			}

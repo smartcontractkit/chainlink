@@ -1,14 +1,19 @@
 package smoke
 
 import (
+	"bufio"
 	"fmt"
 	"math/big"
 	"net/http"
+	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/utils"
+	"github.com/onsi/gomega"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
@@ -16,8 +21,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
+	ctf_docker "github.com/smartcontractkit/chainlink-testing-framework/lib/docker"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/logstream"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
@@ -26,6 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 type ocr2test struct {
@@ -224,33 +230,150 @@ func prepareORCv2SmokeTestEnv(t *testing.T, testData ocr2test, l zerolog.Logger,
 }
 
 func assertCorrectNodeConfiguration(t *testing.T, l zerolog.Logger, totalNodeCount int, testData ocr2test, testEnv *test_env.CLClusterTestEnv) {
-	expectedNodesWithConfiguration := totalNodeCount - 1 // minus bootstrap node
-	var expectedPatterns []string
+	l.Info().Msg("Checking if all nodes have correct plugin configuration applied")
 
-	if testData.env[string(env.MedianPlugin.Cmd)] != "" {
-		expectedPatterns = append(expectedPatterns, "Registered loopp.*OCR2.*Median.*")
-	}
+	// we have to use gomega here, because sometimes there's a delay in the logs being written (especially in the CI)
+	// and this check fails on the first execution, and we don't want to add any hardcoded sleeps
 
-	if testData.chainReaderAndCodec {
-		expectedPatterns = append(expectedPatterns, "relayConfig\\.chainReader")
-	} else {
-		expectedPatterns = append(expectedPatterns, "ChainReader missing from RelayConfig; falling back to internal MedianContract")
-	}
+	gom := gomega.NewGomegaWithT(t)
+	gom.Eventually(func(g gomega.Gomega) {
+		allNodesHaveCorrectConfig := false
 
-	// make sure that nodes are correctly configured by scanning the logs
-	for _, pattern := range expectedPatterns {
-		l.Info().Msgf("Checking for pattern: '%s' in CL node logs", pattern)
+		var expectedPatterns []string
+		expectedNodeCount := totalNodeCount - 1
+
+		if testData.env[string(env.MedianPlugin.Cmd)] != "" {
+			expectedPatterns = append(expectedPatterns, `Registered loopp.*OCR2.*Median.*`)
+		}
+
+		if testData.chainReaderAndCodec {
+			expectedPatterns = append(expectedPatterns, `relayConfig.chainReader`)
+		} else {
+			expectedPatterns = append(expectedPatterns, "ChainReader missing from RelayConfig; falling back to internal MedianContract")
+		}
+
+		logFilePaths := make(map[string]string)
+		tempLogsDir := os.TempDir()
+
+		var nodesToInclude []string
+		for i := 1; i < totalNodeCount; i++ {
+			nodesToInclude = append(nodesToInclude, testEnv.ClCluster.Nodes[i].ContainerName+".log")
+		}
+
+		// save all log files in temp dir
+		loggingErr := ctf_docker.WriteAllContainersLogs(l, tempLogsDir)
+		if loggingErr != nil {
+			l.Debug().Err(loggingErr).Msg("Error writing all containers logs. Trying again...")
+
+			// try again
+			return
+		}
+
+		var fileNameIncludeFilter = func(name string) bool {
+			for _, n := range nodesToInclude {
+				if strings.EqualFold(name, n) {
+					return true
+				}
+			}
+			return false
+		}
+
+		// find log files for CL nodes
+		fileWalkErr := filepath.Walk(tempLogsDir, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				if os.IsPermission(err) {
+					return nil
+				}
+				return err
+			}
+			if !info.IsDir() && fileNameIncludeFilter(info.Name()) {
+				absPath, err := filepath.Abs(path)
+				if err != nil {
+					return err
+				}
+				logFilePaths[strings.TrimSuffix(info.Name(), ".log")] = absPath
+			}
+			return nil
+		})
+
+		if fileWalkErr != nil {
+			l.Debug().Err(fileWalkErr).Msg("Error walking through log files. Trying again...")
+
+			return
+		}
+
+		if len(logFilePaths) != expectedNodeCount {
+			l.Debug().Msgf("Expected number of log files to match number of nodes (excluding bootstrap node). Expected: %d, Found: %d. Trying again...", expectedNodeCount, len(logFilePaths))
+
+			return
+		}
+
+		// search for expected pattern in log file
+		var searchForLineInFile = func(filePath string, pattern string) bool {
+			file, fileErr := os.Open(filePath)
+			if fileErr != nil {
+				return false
+			}
+
+			defer func(file *os.File) {
+				_ = file.Close()
+			}(file)
+
+			scanner := bufio.NewScanner(file)
+			scanner.Split(bufio.ScanLines)
+			pc := regexp.MustCompile(pattern)
+
+			for scanner.Scan() {
+				jsonLogLine := scanner.Text()
+				if pc.MatchString(jsonLogLine) {
+					return true
+				}
+
+			}
+			return false
+		}
+
+		wg := sync.WaitGroup{}
+		resultsCh := make(chan map[string][]string, len(logFilePaths))
+
+		// process all logs in parallel
+		for nodeName, logFilePath := range logFilePaths {
+			wg.Add(1)
+			filePath := logFilePath
+			go func() {
+				defer wg.Done()
+				var patternsFound []string
+				for _, pattern := range expectedPatterns {
+					found := searchForLineInFile(filePath, pattern)
+					if found {
+						patternsFound = append(patternsFound, pattern)
+					}
+				}
+				resultsCh <- map[string][]string{nodeName: patternsFound}
+			}()
+		}
+
+		wg.Wait()
+		close(resultsCh)
+
 		var correctlyConfiguredNodes []string
-		for i := 1; i < len(testEnv.ClCluster.Nodes); i++ {
-			logProcessor, processFn, err := logstream.GetRegexMatchingProcessor(testEnv.LogStream, pattern)
-			require.NoError(t, err, "Error getting regex matching processor")
+		var incorrectlyConfiguredNodes []string
 
-			count, err := logProcessor.ProcessContainerLogs(testEnv.ClCluster.Nodes[i].ContainerName, processFn)
-			require.NoError(t, err, "Error processing container logs")
-			if *count >= 1 {
-				correctlyConfiguredNodes = append(correctlyConfiguredNodes, testEnv.ClCluster.Nodes[i].ContainerName)
+		// check results
+		for result := range resultsCh {
+			for nodeName, patternsFound := range result {
+				if len(patternsFound) == len(expectedPatterns) {
+					correctlyConfiguredNodes = append(correctlyConfiguredNodes, nodeName)
+				} else {
+					incorrectlyConfiguredNodes = append(incorrectlyConfiguredNodes, nodeName)
+				}
 			}
 		}
-		require.Equal(t, expectedNodesWithConfiguration, len(correctlyConfiguredNodes), "expected correct plugin config to be applied to %d cl-nodes, but only following ones had it: %s; regexp used: %s", expectedNodesWithConfiguration, strings.Join(correctlyConfiguredNodes, ", "), string(pattern))
-	}
+
+		allNodesHaveCorrectConfig = len(correctlyConfiguredNodes) == expectedNodeCount
+
+		g.Expect(allNodesHaveCorrectConfig).To(gomega.BeTrue(), "%d nodes' logs were missing expected plugin configuration entries. Correctly configured nodes: %s. Nodes with missing configuration: %s. Expected log patterns: %s", expectedNodeCount-len(correctlyConfiguredNodes), strings.Join(correctlyConfiguredNodes, ", "), strings.Join(incorrectlyConfiguredNodes, ", "), strings.Join(expectedPatterns, ", "))
+	}, "1m", "10s").Should(gomega.Succeed())
+
+	l.Info().Msg("All nodes have correct plugin configuration applied")
 }
