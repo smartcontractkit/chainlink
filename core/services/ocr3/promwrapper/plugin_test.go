@@ -72,8 +72,10 @@ func Test_ReportsGeneratedGauge(t *testing.T) {
 	_, err1 := plugin2.Observation(tests.Context(t), ocr3types.OutcomeContext{}, nil)
 	require.NoError(t, err1)
 
-	require.Equal(t, float64(30), testutil.ToFloat64(promOCR3Sizes.WithLabelValues("solana", "different_plugin", "outcome")))
-	require.Equal(t, float64(5), testutil.ToFloat64(promOCR3Sizes.WithLabelValues("solana", "different_plugin", "observation")))
+	outcomesLen := testutil.ToFloat64(promOCR3Sizes.WithLabelValues("solana", "different_plugin", "outcome"))
+	require.Equal(t, 30, int(outcomesLen))
+	reportsLen := testutil.ToFloat64(promOCR3Sizes.WithLabelValues("solana", "different_plugin", "observation"))
+	require.Equal(t, 5, int(reportsLen))
 }
 
 func Test_DurationHistograms(t *testing.T) {
