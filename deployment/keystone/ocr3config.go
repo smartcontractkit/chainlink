@@ -328,7 +328,7 @@ func configureOCR3contract(req configureOCR3Request) (*configureOCR3Response, er
 	)
 	if err != nil {
 		err = DecodeErr(kocr3.OCR3CapabilityABI, err)
-		return nil, fmt.Errorf("failed to call SetConfig for OCR3 contract %s using mcms: %T: %w", req.contract.Address().String(), req.useMCMS, err)
+		return nil, fmt.Errorf("failed to call SetConfig for OCR3 contract %s using mcms: %t: %w", req.contract.Address().String(), req.useMCMS, err)
 	}
 
 	var ops *timelock.BatchChainOperation

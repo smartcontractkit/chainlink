@@ -41,7 +41,7 @@ func TestSetupTestEnv(t *testing.T) {
 			NumChains:       3,
 			UseMCMS:         useMCMS,
 		})
-		t.Run(fmt.Sprintf("set up test env using MCMS: %T", useMCMS), func(t *testing.T) {
+		t.Run(fmt.Sprintf("set up test env using MCMS: %t", useMCMS), func(t *testing.T) {
 			require.NotNil(t, te.Env.ExistingAddresses)
 			require.Len(t, te.Env.Chains, 3)
 			require.NotEmpty(t, te.RegistrySelector)
