@@ -42,9 +42,6 @@ func TestAddChainInbound(t *testing.T) {
 	// We deploy to the rest.
 	initialDeploy := e.Env.AllChainSelectorsExcluding([]uint64{newChain})
 	newAddresses := deployment.NewMemoryAddressBook()
-	err = deployPrerequisiteChainContracts(e.Env, newAddresses, initialDeploy, nil)
-	require.NoError(t, err)
-	require.NoError(t, e.Env.ExistingAddresses.Merge(newAddresses))
 
 	cfg := commontypes.MCMSWithTimelockConfig{
 		Canceller:        commonchangeset.SingleGroupMCMS(t),
@@ -56,6 +53,22 @@ func TestAddChainInbound(t *testing.T) {
 		{
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
 			Config:    initialDeploy,
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(DeployPrerequisites),
+			Config: DeployPrerequisiteConfig{
+				Configs: []DeployPrerequisiteConfigPerChain{
+					{
+						ChainSelector: initialDeploy[0],
+					},
+					{
+						ChainSelector: initialDeploy[1],
+					},
+					{
+						ChainSelector: initialDeploy[2],
+					},
+				},
+			},
 		},
 		{
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployMCMSWithTimelock),
@@ -128,7 +141,13 @@ func TestAddChainInbound(t *testing.T) {
 	require.NoError(t, err)
 	newAddresses = deployment.NewMemoryAddressBook()
 
-	err = deployPrerequisiteChainContracts(e.Env, newAddresses, []uint64{newChain}, nil)
+	err = deployPrerequisiteChainContracts(e.Env, newAddresses, DeployPrerequisiteConfig{
+		Configs: []DeployPrerequisiteConfigPerChain{
+			{
+				ChainSelector: newChain,
+			},
+		},
+	})
 	require.NoError(t, err)
 	require.NoError(t, e.Env.ExistingAddresses.Merge(newAddresses))
 	newAddresses = deployment.NewMemoryAddressBook()

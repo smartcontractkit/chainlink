@@ -306,15 +306,22 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tc *TestConfigs, tEnv Test
 			TimelockMinDelay: big.NewInt(0),
 		}
 	}
-	var (
-		usdcChains   []uint64
-		isMulticall3 bool
-	)
-	if tc != nil {
-		if tc.IsUSDC {
-			usdcChains = allChains
+
+	var prereqCfg []DeployPrerequisiteConfigPerChain
+	for _, chain := range allChains {
+		var opts []PrerequisiteOpt
+		if tc != nil {
+			if tc.IsUSDC {
+				opts = append(opts, WithUSDCEnabled())
+			}
+			if tc.IsMultiCall3 {
+				opts = append(opts, WithMulticall3())
+			}
 		}
-		isMulticall3 = tc.IsMultiCall3
+		prereqCfg = append(prereqCfg, DeployPrerequisiteConfigPerChain{
+			ChainSelector: chain,
+			Opts:          opts,
+		})
 	}
 	// Need to deploy prerequisites first so that we can form the USDC config
 	// no proposals to be made, timelock can be passed as nil here
@@ -326,11 +333,7 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tc *TestConfigs, tEnv Test
 		{
 			Changeset: commonchangeset.WrapChangeSet(DeployPrerequisites),
 			Config: DeployPrerequisiteConfig{
-				ChainSelectors: allChains,
-				Opts: []PrerequisiteOpt{
-					WithUSDCChains(usdcChains),
-					WithMulticall3(isMulticall3),
-				},
+				Configs: prereqCfg,
 			},
 		},
 		{
@@ -349,22 +352,19 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tc *TestConfigs, tEnv Test
 
 	state, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
-	// Assert USDC set up as expected.
-	for _, chain := range usdcChains {
-		require.NotNil(t, state.Chains[chain].MockUSDCTokenMessenger)
-		require.NotNil(t, state.Chains[chain].MockUSDCTransmitter)
-		require.NotNil(t, state.Chains[chain].USDCTokenPool)
-	}
 	// Assert link present
 	require.NotNil(t, state.Chains[e.FeedChainSel].LinkToken)
 	require.NotNil(t, state.Chains[e.FeedChainSel].Weth9)
 
 	tokenConfig := NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
 	var tokenDataProviders []pluginconfig.TokenDataObserverConfig
-	if len(usdcChains) > 0 {
+	if tc.IsUSDC {
 		endpoint := tEnv.MockUSDCAttestationServer(t, tc.IsUSDCAttestationMissing)
 		cctpContracts := make(map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig)
-		for _, usdcChain := range usdcChains {
+		for _, usdcChain := range allChains {
+			require.NotNil(t, state.Chains[usdcChain].MockUSDCTokenMessenger)
+			require.NotNil(t, state.Chains[usdcChain].MockUSDCTransmitter)
+			require.NotNil(t, state.Chains[usdcChain].USDCTokenPool)
 			cctpContracts[cciptypes.ChainSelector(usdcChain)] = pluginconfig.USDCCCTPTokenConfig{
 				SourcePoolAddress:            state.Chains[usdcChain].USDCTokenPool.Address().String(),
 				SourceMessageTransmitterAddr: state.Chains[usdcChain].MockUSDCTransmitter.Address().String(),

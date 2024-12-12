@@ -30,6 +30,10 @@ var _ deployment.ChangeSet[DeployChainContractsConfig] = DeployChainContracts
 // DeployChainContracts is idempotent. If there is an error, it will return the successfully deployed addresses and the error so that the caller can call the
 // changeset again with the same input to retry the failed deployment.
 // Caller should update the environment's address book with the returned addresses.
+// Points to note :
+// In case of migrating from legacy ccip to 1.6, the previous RMN address should be set while deploying RMNRemote.
+// if there is no existing RMN address found, RMNRemote will be deployed with 0x0 address for previous RMN address
+// which will set RMN to 0x0 address immutably in RMNRemote.
 func DeployChainContracts(env deployment.Environment, c DeployChainContractsConfig) (deployment.ChangesetOutput, error) {
 	if err := c.Validate(); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("invalid DeployChainContractsConfig: %w", err)

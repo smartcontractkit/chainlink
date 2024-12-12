@@ -20,7 +20,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	legacychangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_0"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_2"
@@ -129,7 +128,12 @@ type CCIPChainState struct {
 	Multicall3             *multicall3.Multicall3
 
 	// Legacy contracts
-	legacychangeset.CCIPChainStateLegacy
+	EVM2EVMOnRamp  map[uint64]*evm_2_evm_onramp.EVM2EVMOnRamp   // mapping of dest chain selector -> EVM2EVMOnRamp
+	CommitStore    map[uint64]*commit_store.CommitStore         // mapping of source chain selector -> CommitStore
+	EVM2EVMOffRamp map[uint64]*evm_2_evm_offramp.EVM2EVMOffRamp // mapping of source chain selector -> EVM2EVMOffRamp
+	MockRMN        *mock_rmn_contract.MockRMNContract
+	PriceRegistry  *price_registry_1_2_0.PriceRegistry
+	RMN            *rmn_contract.RMNContract
 }
 
 func (c CCIPChainState) GenerateView() (view.ChainView, error) {

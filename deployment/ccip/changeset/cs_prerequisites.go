@@ -10,7 +10,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_rmn_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry_1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/registry_module_owner_custom"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_proxy_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_admin_registry"
@@ -32,7 +34,7 @@ func DeployPrerequisites(env deployment.Environment, cfg DeployPrerequisiteConfi
 		return deployment.ChangesetOutput{}, errors.Wrapf(deployment.ErrInvalidConfig, "%v", err)
 	}
 	ab := deployment.NewMemoryAddressBook()
-	err = deployPrerequisiteChainContracts(env, ab, cfg.ChainSelectors, cfg.Opts...)
+	err = deployPrerequisiteChainContracts(env, ab, cfg)
 	if err != nil {
 		env.Logger.Errorw("Failed to deploy prerequisite contracts", "err", err, "addressBook", ab)
 		return deployment.ChangesetOutput{
@@ -47,13 +49,23 @@ func DeployPrerequisites(env deployment.Environment, cfg DeployPrerequisiteConfi
 }
 
 type DeployPrerequisiteContractsOpts struct {
-	USDCEnabledChains []uint64
-	Multicall3Enabled bool
+	USDCEnabled         bool
+	Multicall3Enabled   bool
+	LegacyDeploymentCfg *LegacyDeploymentConfig
+}
+
+type LegacyDeploymentConfig struct {
+	RMNConfig                  *rmn_contract.RMNConfig
+	PriceRegStalenessThreshold uint32
 }
 
 type DeployPrerequisiteConfig struct {
-	ChainSelectors []uint64
-	Opts           []PrerequisiteOpt
+	Configs []DeployPrerequisiteConfigPerChain
+}
+
+type DeployPrerequisiteConfigPerChain struct {
+	ChainSelector uint64
+	Opts          []PrerequisiteOpt
 	// TODO handle tokens and feeds in prerequisite config
 	Tokens map[TokenSymbol]common.Address
 	Feeds  map[TokenSymbol]common.Address
@@ -61,7 +73,8 @@ type DeployPrerequisiteConfig struct {
 
 func (c DeployPrerequisiteConfig) Validate() error {
 	mapAllChainSelectors := make(map[uint64]struct{})
-	for _, cs := range c.ChainSelectors {
+	for _, cfg := range c.Configs {
+		cs := cfg.ChainSelector
 		mapAllChainSelectors[cs] = struct{}{}
 		if err := deployment.IsValidChainSelector(cs); err != nil {
 			return fmt.Errorf("invalid chain selector: %d - %w", cs, err)
@@ -72,31 +85,41 @@ func (c DeployPrerequisiteConfig) Validate() error {
 
 type PrerequisiteOpt func(o *DeployPrerequisiteContractsOpts)
 
-func WithUSDCChains(chains []uint64) PrerequisiteOpt {
+func WithUSDCEnabled() PrerequisiteOpt {
 	return func(o *DeployPrerequisiteContractsOpts) {
-		o.USDCEnabledChains = chains
+		o.USDCEnabled = true
 	}
 }
 
-func WithMulticall3(enabled bool) PrerequisiteOpt {
+func WithMulticall3() PrerequisiteOpt {
 	return func(o *DeployPrerequisiteContractsOpts) {
-		o.Multicall3Enabled = enabled
+		o.Multicall3Enabled = true
 	}
 }
 
-func deployPrerequisiteChainContracts(e deployment.Environment, ab deployment.AddressBook, selectors []uint64, opts ...PrerequisiteOpt) error {
+func WithLegacyDeployment(cfg LegacyDeploymentConfig) PrerequisiteOpt {
+	return func(o *DeployPrerequisiteContractsOpts) {
+		if cfg.PriceRegStalenessThreshold == 0 {
+			panic("PriceRegStalenessThreshold must be set")
+		}
+		// TODO validate RMNConfig
+		o.LegacyDeploymentCfg = &cfg
+	}
+}
+
+func deployPrerequisiteChainContracts(e deployment.Environment, ab deployment.AddressBook, cfg DeployPrerequisiteConfig) error {
 	state, err := LoadOnchainState(e)
 	if err != nil {
 		e.Logger.Errorw("Failed to load existing onchain state", "err")
 		return err
 	}
 	deployGrp := errgroup.Group{}
-	for _, sel := range selectors {
-		chain := e.Chains[sel]
+	for _, c := range cfg.Configs {
+		chain := e.Chains[c.ChainSelector]
 		deployGrp.Go(func() error {
-			err := deployPrerequisiteContracts(e, ab, state, chain, opts...)
+			err := deployPrerequisiteContracts(e, ab, state, chain, c.Opts...)
 			if err != nil {
-				e.Logger.Errorw("Failed to deploy prerequisite contracts", "chain", sel, "err", err)
+				e.Logger.Errorw("Failed to deploy prerequisite contracts", "chain", chain.String(), "err", err)
 				return err
 			}
 			return nil
@@ -112,13 +135,6 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 	for _, opt := range opts {
 		if opt != nil {
 			opt(deployOpts)
-		}
-	}
-	var isUSDC bool
-	for _, sel := range deployOpts.USDCEnabledChains {
-		if sel == chain.Selector {
-			isUSDC = true
-			break
 		}
 	}
 	lggr := e.Logger
@@ -137,31 +153,60 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 		r = chainState.Router
 		mc3 = chainState.Multicall3
 	}
-	if rmnProxy == nil {
-		// we want to replicate the mainnet scenario where RMNProxy is already deployed with some existing RMN
-		// This will need us to use two different RMNProxy contracts
-		// 1. RMNProxyNew with RMNRemote - ( deployed later in chain contracts)
-		// 2. RMNProxy with mockRMN - ( deployed here, replicating the behavior of existing RMNProxy with already set RMN)
-		rmn, err := deployment.DeployContract(lggr, chain, ab,
-			func(chain deployment.Chain) deployment.ContractDeploy[*mock_rmn_contract.MockRMNContract] {
-				rmnAddr, tx2, rmn, err2 := mock_rmn_contract.DeployMockRMNContract(
-					chain.DeployerKey,
-					chain.Client,
-				)
-				return deployment.ContractDeploy[*mock_rmn_contract.MockRMNContract]{
-					rmnAddr, rmn, tx2, deployment.NewTypeAndVersion(MockRMN, deployment.Version1_0_0), err2,
-				}
-			})
-		if err != nil {
-			lggr.Errorw("Failed to deploy mock RMN", "chain", chain.String(), "err", err)
-			return err
+	var rmnAddr common.Address
+	// if we are setting up 1.5 version, deploy RMN contract based on the config provided
+	// else deploy the mock RMN contract
+	if deployOpts.LegacyDeploymentCfg != nil && deployOpts.LegacyDeploymentCfg.RMNConfig != nil {
+		if chainState.RMN == nil {
+			rmn, err := deployment.DeployContract(lggr, chain, ab,
+				func(chain deployment.Chain) deployment.ContractDeploy[*rmn_contract.RMNContract] {
+					rmnAddress, tx2, rmnC, err2 := rmn_contract.DeployRMNContract(
+						chain.DeployerKey,
+						chain.Client,
+						*deployOpts.LegacyDeploymentCfg.RMNConfig,
+					)
+					return deployment.ContractDeploy[*rmn_contract.RMNContract]{
+						Address: rmnAddress, Contract: rmnC, Tx: tx2, Tv: deployment.NewTypeAndVersion(RMN, deployment.Version1_5_0), Err: err2,
+					}
+				})
+			if err != nil {
+				lggr.Errorw("Failed to deploy RMN", "chain", chain.String(), "err", err)
+				return err
+			}
+			rmnAddr = rmn.Address
+		} else {
+			lggr.Infow("RMN already deployed", "chain", chain.String(), "address", chainState.RMN.Address)
+			rmnAddr = chainState.RMN.Address()
 		}
+	} else {
+		if chainState.MockRMN == nil {
+			rmn, err := deployment.DeployContract(lggr, chain, ab,
+				func(chain deployment.Chain) deployment.ContractDeploy[*mock_rmn_contract.MockRMNContract] {
+					rmnAddress, tx2, rmnC, err2 := mock_rmn_contract.DeployMockRMNContract(
+						chain.DeployerKey,
+						chain.Client,
+					)
+					return deployment.ContractDeploy[*mock_rmn_contract.MockRMNContract]{
+						rmnAddress, rmnC, tx2, deployment.NewTypeAndVersion(MockRMN, deployment.Version1_0_0), err2,
+					}
+				})
+			if err != nil {
+				lggr.Errorw("Failed to deploy mock RMN", "chain", chain.String(), "err", err)
+				return err
+			}
+			rmnAddr = rmn.Address
+		} else {
+			lggr.Infow("Mock RMN already deployed", "chain", chain.String(), "addr", chainState.MockRMN.Address)
+			rmnAddr = chainState.MockRMN.Address()
+		}
+	}
+	if rmnProxy == nil {
 		rmnProxyContract, err := deployment.DeployContract(lggr, chain, ab,
 			func(chain deployment.Chain) deployment.ContractDeploy[*rmn_proxy_contract.RMNProxyContract] {
 				rmnProxyAddr, tx2, rmnProxy, err2 := rmn_proxy_contract.DeployRMNProxyContract(
 					chain.DeployerKey,
 					chain.Client,
-					rmn.Address,
+					rmnAddr,
 				)
 				return deployment.ContractDeploy[*rmn_proxy_contract.RMNProxyContract]{
 					rmnProxyAddr, rmnProxy, tx2, deployment.NewTypeAndVersion(ARMProxy, deployment.Version1_0_0), err2,
@@ -172,6 +217,8 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 			return err
 		}
 		rmnProxy = rmnProxyContract.Contract
+	} else {
+		lggr.Infow("RMNProxy already deployed", "chain", chain.String(), "addr", rmnProxy.Address)
 	}
 	if tokenAdminReg == nil {
 		tokenAdminRegistry, err := deployment.DeployContract(e.Logger, chain, ab,
@@ -247,7 +294,9 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 		weth9Contract = weth.Contract
 	} else {
 		lggr.Infow("weth9 already deployed", "chain", chain.String(), "addr", weth9Contract.Address)
+		weth9Contract = chainState.Weth9
 	}
+
 	// if router is not already deployed, we deploy it
 	if r == nil {
 		routerContract, err := deployment.DeployContract(e.Logger, chain, ab,
@@ -291,7 +340,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 			e.Logger.Info("ccip multicall already deployed", "chain", chain.String(), "addr", mc3.Address)
 		}
 	}
-	if isUSDC {
+	if deployOpts.USDCEnabled {
 		token, pool, messenger, transmitter, err1 := DeployUSDC(e.Logger, chain, ab, rmnProxy.Address(), r.Address())
 		if err1 != nil {
 			return err1
@@ -303,6 +352,31 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 			"transmitter", transmitter.Address(),
 			"messenger", messenger.Address(),
 		)
+	}
+	// Only applicable if setting up for 1.5 version, remove this once we have fully migrated to 1.6
+	if deployOpts.LegacyDeploymentCfg != nil {
+		if chainState.PriceRegistry == nil {
+			_, err := deployment.DeployContract(lggr, chain, ab,
+				func(chain deployment.Chain) deployment.ContractDeploy[*price_registry_1_2_0.PriceRegistry] {
+					priceRegAddr, tx2, priceRegAddrC, err2 := price_registry_1_2_0.DeployPriceRegistry(
+						chain.DeployerKey,
+						chain.Client,
+						nil,
+						[]common.Address{weth9Contract.Address(), chainState.LinkToken.Address()},
+						deployOpts.LegacyDeploymentCfg.PriceRegStalenessThreshold,
+					)
+					return deployment.ContractDeploy[*price_registry_1_2_0.PriceRegistry]{
+						Address: priceRegAddr, Contract: priceRegAddrC, Tx: tx2,
+						Tv: deployment.NewTypeAndVersion(PriceRegistry, deployment.Version1_2_0), Err: err2,
+					}
+				})
+			if err != nil {
+				lggr.Errorw("Failed to deploy PriceRegistry", "chain", chain.String(), "err", err)
+				return err
+			}
+		} else {
+			lggr.Infow("PriceRegistry already deployed", "chain", chain.String(), "addr", chainState.PriceRegistry.Address)
+		}
 	}
 	return nil
 }

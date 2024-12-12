@@ -37,6 +37,12 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 			TimelockMinDelay: big.NewInt(0),
 		}
 	}
+	var prereqCfg []DeployPrerequisiteConfigPerChain
+	for _, chain := range e.AllChainSelectors() {
+		prereqCfg = append(prereqCfg, DeployPrerequisiteConfigPerChain{
+			ChainSelector: chain,
+		})
+	}
 	e, err = commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(DeployHomeChain),
@@ -61,7 +67,7 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 		{
 			Changeset: commonchangeset.WrapChangeSet(DeployPrerequisites),
 			Config: DeployPrerequisiteConfig{
-				ChainSelectors: selectors,
+				Configs: prereqCfg,
 			},
 		},
 		{
