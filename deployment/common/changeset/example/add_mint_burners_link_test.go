@@ -2,54 +2,25 @@ package example_test
 
 import (
 	"context"
-	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
-
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/example"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/types"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/example"
 )
 
 // TestAddMintersBurnersLink tests the AddMintersBurnersLink changeset
 func TestAddMintersBurnersLink(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	lggr := logger.TestLogger(t)
-	cfg := memory.MemoryEnvironmentConfig{
-		Nodes:  1,
-		Chains: 2,
-	}
-	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
+	// Deploy Link Token and Timelock contracts and add addresses to environment
+	env := setupLinkTransferTestEnv(t)
+
 	chainSelector := env.AllChainSelectors()[0]
 	chain := env.Chains[chainSelector]
-
-	// Deploy Link Token
-	resp, err := changeset.DeployLinkToken(env, []uint64{chainSelector})
-	require.NoError(t, err)
-	require.NotNil(t, resp)
-	require.NoError(t, env.ExistingAddresses.Merge(resp.AddressBook))
-
-	// Deploy MCMS and Timelock
-	config := changeset.SingleGroupMCMS(t)
-	respTimelock, err := changeset.DeployMCMSWithTimelock(env, map[uint64]types.MCMSWithTimelockConfig{
-		chainSelector: {
-			Canceller:        config,
-			Bypasser:         config,
-			Proposer:         config,
-			TimelockMinDelay: big.NewInt(0),
-		},
-	})
-	require.NoError(t, env.ExistingAddresses.Merge(respTimelock.AddressBook))
-	require.NoError(t, err)
-
 	addrs, err := env.ExistingAddresses.AddressesForChain(chainSelector)
 	require.NoError(t, err)
 	require.Len(t, addrs, 6)
