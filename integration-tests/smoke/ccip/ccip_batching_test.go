@@ -14,7 +14,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+
+	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -22,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/multicall3"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 const (
@@ -39,18 +39,11 @@ type batchTestSetup struct {
 
 func newBatchTestSetup(t *testing.T) batchTestSetup {
 	// Setup 3 chains, with 2 lanes going to the dest.
-	e := changeset.NewMemoryEnvironmentWithJobsAndContracts(
+	e, _ := testsetups.NewIntegrationEnvironment(
 		t,
-		logger.TestLogger(t),
-		memory.MemoryEnvironmentConfig{
-			Chains:             3,
-			Nodes:              4,
-			Bootstraps:         1,
-			NumOfUsersPerChain: 2,
-		},
-		&changeset.TestConfigs{
-			IsMultiCall3: true,
-		},
+		changeset.WithMultiCall3(),
+		changeset.WithChains(3),
+		changeset.WithUsersPerChain(2),
 	)
 
 	state, err := changeset.LoadOnchainState(e.Env)

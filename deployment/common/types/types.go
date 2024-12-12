@@ -5,7 +5,6 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/config"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -16,6 +15,7 @@ const (
 	CancellerManyChainMultisig deployment.ContractType = "CancellerManyChainMultiSig"
 	ProposerManyChainMultisig  deployment.ContractType = "ProposerManyChainMultiSig"
 	RBACTimelock               deployment.ContractType = "RBACTimelock"
+	CallProxy                  deployment.ContractType = "CallProxy"
 	// LinkToken is the burn/mint link token. It should be used everywhere for
 	// new deployments. Corresponds to
 	// https://github.com/smartcontractkit/chainlink/blob/develop/core/gethwrappers/shared/generated/link_token/link_token.go#L34
@@ -29,11 +29,10 @@ const (
 )
 
 type MCMSWithTimelockConfig struct {
-	Canceller         config.Config
-	Bypasser          config.Config
-	Proposer          config.Config
-	TimelockExecutors []common.Address
-	TimelockMinDelay  *big.Int
+	Canceller        config.Config
+	Bypasser         config.Config
+	Proposer         config.Config
+	TimelockMinDelay *big.Int
 }
 
 type OCRParameters struct {

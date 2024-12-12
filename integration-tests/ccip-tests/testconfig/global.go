@@ -175,120 +175,6 @@ type Common struct {
 func (p *Common) ReadFromEnvVar() error {
 	logger := logging.GetTestLogger(nil)
 
-	testLogCollect := ctfconfig.MustReadEnvVar_Boolean(ctfconfig.E2E_TEST_LOG_COLLECT_ENV)
-	if testLogCollect != nil {
-		if p.Logging == nil {
-			p.Logging = &ctfconfig.LoggingConfig{}
-		}
-		logger.Debug().Msgf("Using %s env var to override Logging.TestLogCollect", ctfconfig.E2E_TEST_LOG_COLLECT_ENV)
-		p.Logging.TestLogCollect = testLogCollect
-	}
-
-	loggingRunID := ctfconfig.MustReadEnvVar_String(ctfconfig.E2E_TEST_LOGGING_RUN_ID_ENV)
-	if loggingRunID != "" {
-		if p.Logging == nil {
-			p.Logging = &ctfconfig.LoggingConfig{}
-		}
-		logger.Debug().Msgf("Using %s env var to override Logging.RunID", ctfconfig.E2E_TEST_LOGGING_RUN_ID_ENV)
-		p.Logging.RunId = &loggingRunID
-	}
-
-	logstreamLogTargets := ctfconfig.MustReadEnvVar_Strings(ctfconfig.E2E_TEST_LOG_STREAM_LOG_TARGETS_ENV, ",")
-	if len(logstreamLogTargets) > 0 {
-		if p.Logging == nil {
-			p.Logging = &ctfconfig.LoggingConfig{}
-		}
-		if p.Logging.LogStream == nil {
-			p.Logging.LogStream = &ctfconfig.LogStreamConfig{}
-		}
-		logger.Debug().Msgf("Using %s env var to override Logging.LogStream.LogTargets", ctfconfig.E2E_TEST_LOG_STREAM_LOG_TARGETS_ENV)
-		p.Logging.LogStream.LogTargets = logstreamLogTargets
-	}
-
-	lokiTenantID := ctfconfig.MustReadEnvVar_String(ctfconfig.E2E_TEST_LOKI_TENANT_ID_ENV)
-	if lokiTenantID != "" {
-		if p.Logging == nil {
-			p.Logging = &ctfconfig.LoggingConfig{}
-		}
-		if p.Logging.Loki == nil {
-			p.Logging.Loki = &ctfconfig.LokiConfig{}
-		}
-		logger.Debug().Msgf("Using %s env var to override Logging.Loki.TenantId", ctfconfig.E2E_TEST_LOKI_TENANT_ID_ENV)
-		p.Logging.Loki.TenantId = &lokiTenantID
-	}
-
-	lokiEndpoint := ctfconfig.MustReadEnvVar_String(ctfconfig.E2E_TEST_LOKI_ENDPOINT_ENV)
-	if lokiEndpoint != "" {
-		if p.Logging == nil {
-			p.Logging = &ctfconfig.LoggingConfig{}
-		}
-		if p.Logging.Loki == nil {
-			p.Logging.Loki = &ctfconfig.LokiConfig{}
-		}
-		logger.Debug().Msgf("Using %s env var to override Logging.Loki.Endpoint", ctfconfig.E2E_TEST_LOKI_ENDPOINT_ENV)
-		p.Logging.Loki.Endpoint = &lokiEndpoint
-	}
-
-	lokiBasicAuth := ctfconfig.MustReadEnvVar_String(ctfconfig.E2E_TEST_LOKI_BASIC_AUTH_ENV)
-	if lokiBasicAuth != "" {
-		if p.Logging == nil {
-			p.Logging = &ctfconfig.LoggingConfig{}
-		}
-		if p.Logging.Loki == nil {
-			p.Logging.Loki = &ctfconfig.LokiConfig{}
-		}
-		logger.Debug().Msgf("Using %s env var to override Logging.Loki.BasicAuth", ctfconfig.E2E_TEST_LOKI_BASIC_AUTH_ENV)
-		p.Logging.Loki.BasicAuth = &lokiBasicAuth
-	}
-
-	lokiBearerToken := ctfconfig.MustReadEnvVar_String(ctfconfig.E2E_TEST_LOKI_BEARER_TOKEN_ENV)
-	if lokiBearerToken != "" {
-		if p.Logging == nil {
-			p.Logging = &ctfconfig.LoggingConfig{}
-		}
-		if p.Logging.Loki == nil {
-			p.Logging.Loki = &ctfconfig.LokiConfig{}
-		}
-		logger.Debug().Msgf("Using %s env var to override Logging.Loki.BearerToken", ctfconfig.E2E_TEST_LOKI_BEARER_TOKEN_ENV)
-		p.Logging.Loki.BearerToken = &lokiBearerToken
-	}
-
-	grafanaBaseUrl := ctfconfig.MustReadEnvVar_String(ctfconfig.E2E_TEST_GRAFANA_BASE_URL_ENV)
-	if grafanaBaseUrl != "" {
-		if p.Logging == nil {
-			p.Logging = &ctfconfig.LoggingConfig{}
-		}
-		if p.Logging.Grafana == nil {
-			p.Logging.Grafana = &ctfconfig.GrafanaConfig{}
-		}
-		logger.Debug().Msgf("Using %s env var to override Logging.Grafana.BaseUrl", ctfconfig.E2E_TEST_GRAFANA_BASE_URL_ENV)
-		p.Logging.Grafana.BaseUrl = &grafanaBaseUrl
-	}
-
-	grafanaDashboardUrl := ctfconfig.MustReadEnvVar_String(ctfconfig.E2E_TEST_GRAFANA_DASHBOARD_URL_ENV)
-	if grafanaDashboardUrl != "" {
-		if p.Logging == nil {
-			p.Logging = &ctfconfig.LoggingConfig{}
-		}
-		if p.Logging.Grafana == nil {
-			p.Logging.Grafana = &ctfconfig.GrafanaConfig{}
-		}
-		logger.Debug().Msgf("Using %s env var to override Logging.Grafana.DashboardUrl", ctfconfig.E2E_TEST_GRAFANA_DASHBOARD_URL_ENV)
-		p.Logging.Grafana.DashboardUrl = &grafanaDashboardUrl
-	}
-
-	grafanaBearerToken := ctfconfig.MustReadEnvVar_String(ctfconfig.E2E_TEST_GRAFANA_BEARER_TOKEN_ENV)
-	if grafanaBearerToken != "" {
-		if p.Logging == nil {
-			p.Logging = &ctfconfig.LoggingConfig{}
-		}
-		if p.Logging.Grafana == nil {
-			p.Logging.Grafana = &ctfconfig.GrafanaConfig{}
-		}
-		logger.Debug().Msgf("Using %s env var to override Logging.Grafana.BearerToken", ctfconfig.E2E_TEST_GRAFANA_BEARER_TOKEN_ENV)
-		p.Logging.Grafana.BearerToken = &grafanaBearerToken
-	}
-
 	selectedNetworks := ctfconfig.MustReadEnvVar_Strings(ctfconfig.E2E_TEST_SELECTED_NETWORK_ENV, ",")
 	if len(selectedNetworks) > 0 {
 		if p.Network == nil {
@@ -421,9 +307,6 @@ func (p *Common) GetSethConfig() *seth.Config {
 }
 
 func (p *Common) Validate() error {
-	if err := p.Logging.Validate(); err != nil {
-		return fmt.Errorf("error validating logging config %w", err)
-	}
 	if p.Network == nil {
 		return errors.New("no networks specified")
 	}
