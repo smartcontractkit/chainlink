@@ -49,7 +49,7 @@ func AddMintersBurnersLink(e deployment.Environment, cfg *AddMintersBurnersLinkC
 	}
 	for _, burner := range cfg.Burners {
 		// check if burner is already a burner
-		isMinter, err := linkState.LinkToken.IsBurner(&bind.CallOpts{Context: e.GetContext()}, burner)
+		isBurner, err := linkState.LinkToken.IsBurner(&bind.CallOpts{Context: e.GetContext()}, burner)
 		if err != nil {
 			return deployment.ChangesetOutput{}, err
 		}
