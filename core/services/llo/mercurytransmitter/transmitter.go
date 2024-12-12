@@ -194,31 +194,31 @@ func (mt *transmitter) Start(ctx context.Context) (err error) {
 					go s.runDeleteQueueLoop(mt.stopCh, mt.wg)
 					go s.runQueueLoop(mt.stopCh, mt.wg, donIDStr)
 				}
-				mt.collectors = append(mt.collectors, prometheus.NewGaugeFunc(
-					prometheus.GaugeOpts{
-						Namespace:   "llo",
-						Subsystem:   "mercurytransmitter",
-						Name:        "concurrent_transmit_gauge",
-						Help:        "Gauge that measures the number of transmit threads currently waiting on a remote transmit call. You may wish to alert if this exceeds some number for a given period of time, or if it ever reaches its max.",
-						ConstLabels: prometheus.Labels{"donID": donIDStr, "serverURL": s.url, "maxConcurrentTransmits": strconv.FormatInt(int64(nThreads), 10)},
-					}, func() float64 {
-						return float64(s.transmitThreadBusyCount.Load())
-					}))
-				mt.collectors = append(mt.collectors, prometheus.NewGaugeFunc(
-					prometheus.GaugeOpts{
-						Namespace:   "llo",
-						Subsystem:   "mercurytransmitter",
-						Name:        "concurrent_delete_gauge",
-						Help:        "Gauge that measures the number of delete threads currently waiting on a delete call to the DB. You may wish to alert if this exceeds some number for a given period of time, or if it ever reaches its max.",
-						ConstLabels: prometheus.Labels{"donID": donIDStr, "serverURL": s.url, "maxConcurrentDeletes": strconv.FormatInt(int64(nThreads), 10)},
-					}, func() float64 {
-						return float64(s.deleteThreadBusyCount.Load())
-					}))
-				for _, c := range mt.collectors {
-					if err := mt.registerer.Register(c); err != nil {
-						return err
-					}
-				}
+				// mt.collectors = append(mt.collectors, prometheus.NewGaugeFunc(
+				//     prometheus.GaugeOpts{
+				//         Namespace:   "llo",
+				//         Subsystem:   "mercurytransmitter",
+				//         Name:        "concurrent_transmit_gauge",
+				//         Help:        "Gauge that measures the number of transmit threads currently waiting on a remote transmit call. You may wish to alert if this exceeds some number for a given period of time, or if it ever reaches its max.",
+				//         ConstLabels: prometheus.Labels{"donID": donIDStr, "serverURL": s.url, "maxConcurrentTransmits": strconv.FormatInt(int64(nThreads), 10)},
+				//     }, func() float64 {
+				//         return float64(s.transmitThreadBusyCount.Load())
+				//     }))
+				// mt.collectors = append(mt.collectors, prometheus.NewGaugeFunc(
+				//     prometheus.GaugeOpts{
+				//         Namespace:   "llo",
+				//         Subsystem:   "mercurytransmitter",
+				//         Name:        "concurrent_delete_gauge",
+				//         Help:        "Gauge that measures the number of delete threads currently waiting on a delete call to the DB. You may wish to alert if this exceeds some number for a given period of time, or if it ever reaches its max.",
+				//         ConstLabels: prometheus.Labels{"donID": donIDStr, "serverURL": s.url, "maxConcurrentDeletes": strconv.FormatInt(int64(nThreads), 10)},
+				//     }, func() float64 {
+				//         return float64(s.deleteThreadBusyCount.Load())
+				//     }))
+				// for i, c := range mt.collectors {
+				//     if err := mt.registerer.Register(c); err != nil {
+				//         return fmt.Errorf("failed to register prometheus collector %d: %w", i, err)
+				//     }
+				// }
 			}
 			if err := (&services.MultiStart{}).Start(ctx, startClosers...); err != nil {
 				return err
