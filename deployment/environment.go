@@ -95,6 +95,7 @@ type Environment struct {
 	Logger            logger.Logger
 	ExistingAddresses AddressBook
 	Chains            map[uint64]Chain
+	SolChains         map[uint64]SolChain
 	NodeIDs           []string
 	Offchain          OffchainClient
 	GetContext        func() context.Context
@@ -331,7 +332,6 @@ func NodeInfo(nodeIDs []string, oc NodeChainConfigsLister) (Nodes, error) {
 			Enabled: 1,
 			Ids:     nodeIDs,
 		}
-
 	}
 	nodesFromJD, err := oc.ListNodes(context.Background(), &nodev1.ListNodesRequest{
 		Filter: filter,

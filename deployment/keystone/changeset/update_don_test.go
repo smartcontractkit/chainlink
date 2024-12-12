@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
@@ -118,7 +119,7 @@ func TestUpdateDon(t *testing.T) {
 
 		// now apply the changeset such that the proposal is signed and execed
 		contracts := te.ContractSets()[te.RegistrySelector]
-		timelockContracts := map[uint64]*commonchangeset.TimelockExecutionContracts{
+		timelockContracts := map[uint64]*proposalutils.TimelockExecutionContracts{
 			te.RegistrySelector: {
 				Timelock:  contracts.Timelock,
 				CallProxy: contracts.CallProxy,
