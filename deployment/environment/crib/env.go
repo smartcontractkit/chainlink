@@ -27,12 +27,17 @@ func (c CRIBEnv) GetConfig() DeployOutput {
 	}
 }
 
+type RPC struct {
+	External *string
+	Internal *string
+}
+
 type ChainConfig struct {
-	ChainID   uint64   // chain id as per EIP-155, mainly applicable for EVM chains
-	ChainName string   // name of the chain populated from chainselector repo
-	ChainType string   // should denote the chain family. Acceptable values are EVM, COSMOS, SOLANA, STARKNET, APTOS etc
-	WSRPCs    []string // websocket rpcs to connect to the chain
-	HTTPRPCs  []string // http rpcs to connect to the chain
+	ChainID   uint64 // chain id as per EIP-155, mainly applicable for EVM chains
+	ChainName string // name of the chain populated from chainselector repo
+	ChainType string // should denote the chain family. Acceptable values are EVM, COSMOS, SOLANA, STARKNET, APTOS etc
+	WSRPCs    []RPC  // websocket rpcs to connect to the chain
+	HTTPRPCs  []RPC  // http rpcs to connect to the chain
 }
 
 type NodesDetails struct {

@@ -48,20 +48,6 @@ func (r *OutputReader) ReadChainConfigs() []devenv.ChainConfig {
 	return result
 }
 
-func ToChainConfigs(cc []ChainConfig) []devenv.ChainConfig {
-	chainConfigs := make([]devenv.ChainConfig, 0)
-	for _, c := range cc {
-		chainConfigs = append(chainConfigs, devenv.ChainConfig{
-			ChainID:   c.ChainID,
-			ChainName: c.ChainName,
-			ChainType: c.ChainType,
-			WSRPCs:    c.WSRPCs,
-			HTTPRPCs:  c.HTTPRPCs,
-		})
-	}
-	return chainConfigs
-}
-
 func (r *OutputReader) ReadAddressBook() *deployment.AddressBookMap {
 	byteValue := r.readFile(AddressBookFileName)
 
