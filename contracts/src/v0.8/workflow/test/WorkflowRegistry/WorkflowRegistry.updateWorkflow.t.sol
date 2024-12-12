@@ -159,6 +159,32 @@ contract WorkflowRegistry_updateWorkflow is WorkflowRegistrySetup {
   }
 
   // whenTheCallerIsAnAuthorizedAddress whenTheRegistryIsNotLocked whenTheDonIDIsAllowed whenTheCallerIsTheWorkflowOwner
+  function test_RevertWhen_TheWorkflowIDIsAlreadyInUsedByAnotherWorkflow() external {
+    // Register a workflow first
+    _registerValidWorkflow();
+
+    // Register another workflow with another workflow ID
+    vm.startPrank(s_authorizedAddress);
+    s_registry.registerWorkflow(
+      "ValidWorkflow2",
+      s_newValidWorkflowID,
+      s_allowedDonID,
+      WorkflowRegistry.WorkflowStatus.ACTIVE,
+      s_validBinaryURL,
+      s_validConfigURL,
+      s_validSecretsURL
+    );
+
+    // Update the workflow with a workflow ID that is already in use by another workflow.
+    vm.expectRevert(WorkflowRegistry.WorkflowIDAlreadyExists.selector);
+    s_registry.updateWorkflow(
+      s_validWorkflowKey, s_newValidWorkflowID, s_validBinaryURL, s_validConfigURL, s_newValidSecretsURL
+    );
+
+    vm.stopPrank();
+  }
+
+  // whenTheCallerIsAnAuthorizedAddress whenTheRegistryIsNotLocked whenTheDonIDIsAllowed whenTheCallerIsTheWorkflowOwner
   function test_WhenTheWorkflowInputsAreAllValid() external {
     // Register a workflow first.
     _registerValidWorkflow();

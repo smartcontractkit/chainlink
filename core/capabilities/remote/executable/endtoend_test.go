@@ -78,7 +78,7 @@ func Test_RemoteExecutionCapability_CapabilityError(t *testing.T) {
 
 	methods = append(methods, func(ctx context.Context, caller commoncap.ExecutableCapability) {
 		executeCapability(ctx, t, caller, transmissionSchedule, func(t *testing.T, responseCh commoncap.CapabilityResponse, responseError error) {
-			assert.Equal(t, "error executing request: failed to execute capability: an error", responseError.Error())
+			assert.Equal(t, "error executing request: failed to execute capability", responseError.Error())
 		})
 	})
 
@@ -102,12 +102,12 @@ func Test_RemoteExecutableCapability_RandomCapabilityError(t *testing.T) {
 
 	methods = append(methods, func(ctx context.Context, caller commoncap.ExecutableCapability) {
 		executeCapability(ctx, t, caller, transmissionSchedule, func(t *testing.T, responseCh commoncap.CapabilityResponse, responseError error) {
-			assert.Equal(t, "error executing request: request expired by executable client", responseError.Error())
+			assert.Equal(t, "error executing request: failed to execute capability", responseError.Error())
 		})
 	})
 
 	for _, method := range methods {
-		testRemoteExecutableCapability(ctx, t, capability, 10, 9, 10*time.Millisecond, 10, 9, 10*time.Minute,
+		testRemoteExecutableCapability(ctx, t, capability, 10, 9, 1*time.Second, 10, 9, 10*time.Minute,
 			method)
 	}
 }

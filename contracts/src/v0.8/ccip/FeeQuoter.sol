@@ -103,12 +103,12 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     // The following three properties are defaults, they can be overridden by setting the TokenTransferFeeConfig for a token.
     uint16 defaultTokenFeeUSDCents; //           │ Default token fee charged per token transfer.
     uint32 defaultTokenDestGasOverhead; // ──────╯ Default gas charged to execute a token transfer on the destination chain.
-    uint32 defaultTxGasLimit; //─────────────────╮ Default gas limit for a tx.
-    uint64 gasMultiplierWeiPerEth; //            │ Multiplier for gas costs, 1e18 based so 11e17 = 10% extra cost.
-    uint32 networkFeeUSDCents; //                │ Flat network fee to charge for messages, multiples of 0.01 USD.
-    uint32 gasPriceStalenessThreshold; //        │ The amount of time a gas price can be stale before it is considered invalid (0 means disabled).
-    bool enforceOutOfOrder; //                   │ Whether to enforce the allowOutOfOrderExecution extraArg value to be true.
-    bytes4 chainFamilySelector; // ──────────────╯ Selector that identifies the destination chain's family. Used to determine the correct validations to perform for the dest chain.
+    uint32 defaultTxGasLimit; //──────────╮ Default gas limit for a tx.
+    uint64 gasMultiplierWeiPerEth; //     │ Multiplier for gas costs, 1e18 based so 11e17 = 10% extra cost.
+    uint32 networkFeeUSDCents; //         │ Flat network fee to charge for messages, multiples of 0.01 USD.
+    uint32 gasPriceStalenessThreshold; // │ The amount of time a gas price can be stale before it is considered invalid (0 means disabled).
+    bool enforceOutOfOrder; //            │ Whether to enforce the allowOutOfOrderExecution extraArg value to be true.
+    bytes4 chainFamilySelector; // ───────╯ Selector that identifies the destination chain's family. Used to determine the correct validations to perform for the dest chain.
   }
 
   /// @dev Struct to hold the configs and its destination chain selector. Same as DestChainConfig but with the
@@ -121,13 +121,13 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
 
   /// @dev Struct with transfer fee configuration for token transfers.
   struct TokenTransferFeeConfig {
-    uint32 minFeeUSDCents; // ────╮ Minimum fee to charge per token transfer, multiples of 0.01 USD.
-    uint32 maxFeeUSDCents; //     │ Maximum fee to charge per token transfer, multiples of 0.01 USD.
-    uint16 deciBps; //            │ Basis points charged on token transfers, multiples of 0.1bps, or 1e-5.
-    uint32 destGasOverhead; //    │ Gas charged to execute the token transfer on the destination chain.
-    //                            │ Extra data availability bytes that are returned from the source pool and sent to
-    uint32 destBytesOverhead; //  │ the destination pool. Must be >= Pool.CCIP_LOCK_OR_BURN_V1_RET_BYTES.
-    bool isEnabled; // ───────────╯ Whether this token has custom transfer fees.
+    uint32 minFeeUSDCents; // ───╮ Minimum fee to charge per token transfer, multiples of 0.01 USD.
+    uint32 maxFeeUSDCents; //    │ Maximum fee to charge per token transfer, multiples of 0.01 USD.
+    uint16 deciBps; //           │ Basis points charged on token transfers, multiples of 0.1bps, or 1e-5.
+    uint32 destGasOverhead; //   │ Gas charged to execute the token transfer on the destination chain.
+    //                           │ Data availability bytes that are returned from the source pool and sent to the dest
+    uint32 destBytesOverhead; // │ pool. Must be >= Pool.CCIP_LOCK_OR_BURN_V1_RET_BYTES. Set as multiple of 32 bytes.
+    bool isEnabled; // ──────────╯ Whether this token has custom transfer fees.
   }
 
   /// @dev Struct with token transfer fee configurations for a token, same as TokenTransferFeeConfig but with the token
@@ -517,6 +517,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     for (uint256 i = 0; i < feeds.length; ++i) {
       TokenPriceFeedConfig memory feedConfig = s_usdPriceFeedsPerToken[feeds[i].token];
 
+      // If the token is not enabled we revert the entire report as that indicates some type of misconfiguration.
       if (!feedConfig.isEnabled) {
         revert TokenNotSupported(feeds[i].token);
       }
@@ -710,6 +711,8 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
         continue;
       }
 
+      // In the case where bpsFeeUSDWei, minFeeUSDWei, and maxFeeUSDWei are all 0, we skip the fee. This is intended
+      // to allow for a fee of 0 to be set.
       tokenTransferFeeUSDWei += bpsFeeUSDWei;
     }
 
@@ -863,7 +866,9 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
 
     if (evmExtraArgs.gasLimit > uint256(destChainConfig.maxPerMsgGasLimit)) revert MessageGasLimitTooHigh();
 
-    // If the chain enforces out of order execution, the extra args must allow it, otherwise revert.
+    // If the chain enforces out of order execution, the extra args must allow it, otherwise revert. We cannot assume
+    // the user intended to use OOO on any chain that requires it as it may lead to unexpected behavior. Therefore we
+    // revert instead of assuming the user intended to use OOO.
     if (destChainConfig.enforceOutOfOrder && !evmExtraArgs.allowOutOfOrderExecution) {
       revert ExtraArgOutOfOrderExecutionMustBeTrue();
     }

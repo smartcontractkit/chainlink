@@ -144,6 +144,12 @@ presubmit: ## Format go files and imports.
 gomods: ## Install gomods
 	go install github.com/jmank88/gomods@v0.1.4
 
+.PHONY: gomodslocalupdate
+gomodslocalupdate: gomods ## Run gomod-local-update
+	go install ./tools/gomod-local-update/cmd/gomod-local-update
+	gomods -w gomod-local-update
+	gomods tidy
+
 .PHONY: mockery
 mockery: $(mockery) ## Install mockery.
 	go install github.com/vektra/mockery/v2@v2.46.3

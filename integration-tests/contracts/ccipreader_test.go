@@ -183,6 +183,123 @@ func emitCommitReports(ctx context.Context, t *testing.T, s *testSetupData, numR
 	return firstReportTs
 }
 
+func TestCCIPReader_GetOffRampConfigDigest(t *testing.T) {
+	t.Parallel()
+	ctx := tests.Context(t)
+	sb, auth := setupSimulatedBackendAndAuth(t)
+
+	addr, _, _, err := offramp.DeployOffRamp(auth, sb.Client(), offramp.OffRampStaticConfig{
+		ChainSelector:        uint64(chainD),
+		GasForCallExactCheck: 5_000,
+		RmnRemote:            utils.RandomAddress(),
+		TokenAdminRegistry:   utils.RandomAddress(),
+		NonceManager:         utils.RandomAddress(),
+	}, offramp.OffRampDynamicConfig{
+		FeeQuoter:                               utils.RandomAddress(),
+		PermissionLessExecutionThresholdSeconds: 1,
+		IsRMNVerificationDisabled:               true,
+		MessageInterceptor:                      utils.RandomAddress(),
+	}, []offramp.OffRampSourceChainConfigArgs{})
+	require.NoError(t, err)
+	sb.Commit()
+
+	offRamp, err := offramp.NewOffRamp(addr, sb.Client())
+	require.NoError(t, err)
+
+	commitConfigDigest := utils.RandomBytes32()
+	execConfigDigest := utils.RandomBytes32()
+
+	_, err = offRamp.SetOCR3Configs(auth, []offramp.MultiOCR3BaseOCRConfigArgs{
+		{
+			ConfigDigest:                   commitConfigDigest,
+			OcrPluginType:                  consts.PluginTypeCommit,
+			F:                              1,
+			IsSignatureVerificationEnabled: true,
+			Signers:                        []common.Address{utils.RandomAddress(), utils.RandomAddress(), utils.RandomAddress(), utils.RandomAddress()},
+			Transmitters:                   []common.Address{utils.RandomAddress(), utils.RandomAddress(), utils.RandomAddress(), utils.RandomAddress()},
+		},
+		{
+			ConfigDigest:                   execConfigDigest,
+			OcrPluginType:                  consts.PluginTypeExecute,
+			F:                              1,
+			IsSignatureVerificationEnabled: false,
+			Signers:                        []common.Address{utils.RandomAddress(), utils.RandomAddress(), utils.RandomAddress(), utils.RandomAddress()},
+			Transmitters:                   []common.Address{utils.RandomAddress(), utils.RandomAddress(), utils.RandomAddress(), utils.RandomAddress()},
+		},
+	})
+	require.NoError(t, err)
+	sb.Commit()
+
+	commitConfigDetails, err := offRamp.LatestConfigDetails(&bind.CallOpts{
+		Context: ctx,
+	}, consts.PluginTypeCommit)
+	require.NoError(t, err)
+	require.Equal(t, commitConfigDigest, commitConfigDetails.ConfigInfo.ConfigDigest)
+
+	execConfigDetails, err := offRamp.LatestConfigDetails(&bind.CallOpts{
+		Context: ctx,
+	}, consts.PluginTypeExecute)
+	require.NoError(t, err)
+	require.Equal(t, execConfigDigest, execConfigDetails.ConfigInfo.ConfigDigest)
+
+	db := pgtest.NewSqlxDB(t)
+	lggr := logger.TestLogger(t)
+	lggr.SetLogLevel(zapcore.ErrorLevel)
+	lpOpts := logpoller.Opts{
+		PollPeriod:               time.Millisecond,
+		FinalityDepth:            1,
+		BackfillBatchSize:        10,
+		RpcBatchSize:             10,
+		KeepFinalizedBlocksDepth: 100000,
+	}
+	cl := client.NewSimulatedBackendClient(t, sb, big.NewInt(1337))
+	headTracker := headtracker.NewSimulatedHeadTracker(cl, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
+	orm := logpoller.NewORM(big.NewInt(1337), db, lggr)
+	lp := logpoller.NewLogPoller(
+		orm,
+		cl,
+		lggr,
+		headTracker,
+		lpOpts,
+	)
+	require.NoError(t, lp.Start(ctx))
+	t.Cleanup(func() { require.NoError(t, lp.Close()) })
+
+	cr, err := evm.NewChainReaderService(ctx, lggr, lp, headTracker, cl, evmconfig.DestReaderConfig)
+	require.NoError(t, err)
+	err = cr.Start(ctx)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, cr.Close()) })
+
+	extendedCr := contractreader.NewExtendedContractReader(cr)
+	err = extendedCr.Bind(ctx, []types.BoundContract{
+		{
+			Address: addr.Hex(),
+			Name:    consts.ContractNameOffRamp,
+		},
+	})
+	require.NoError(t, err)
+
+	reader := ccipreaderpkg.NewCCIPReaderWithExtendedContractReaders(
+		ctx,
+		lggr,
+		map[cciptypes.ChainSelector]contractreader.Extended{
+			chainD: extendedCr,
+		},
+		nil,
+		chainD,
+		addr.Bytes(),
+	)
+
+	ccipReaderCommitDigest, err := reader.GetOffRampConfigDigest(ctx, consts.PluginTypeCommit)
+	require.NoError(t, err)
+	require.Equal(t, commitConfigDigest, ccipReaderCommitDigest)
+
+	ccipReaderExecDigest, err := reader.GetOffRampConfigDigest(ctx, consts.PluginTypeExecute)
+	require.NoError(t, err)
+	require.Equal(t, execConfigDigest, ccipReaderExecDigest)
+}
+
 func TestCCIPReader_CommitReportsGTETimestamp(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
@@ -473,11 +590,7 @@ func TestCCIPReader_GetExpectedNextSequenceNumber(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
 	//env := NewMemoryEnvironmentContractsOnly(t, logger.TestLogger(t), 2, 4, nil)
-	env := changeset.NewMemoryEnvironmentWithJobsAndContracts(t, logger.TestLogger(t), memory.MemoryEnvironmentConfig{
-		Chains:     2,
-		Nodes:      4,
-		Bootstraps: 1,
-	}, nil)
+	env := changeset.NewMemoryEnvironment(t)
 	state, err := changeset.LoadOnchainState(env.Env)
 	require.NoError(t, err)
 
@@ -587,11 +700,7 @@ func TestCCIPReader_Nonces(t *testing.T) {
 func Test_GetChainFeePriceUpdates(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
-	env := changeset.NewMemoryEnvironmentWithJobsAndContracts(t, logger.TestLogger(t), memory.MemoryEnvironmentConfig{
-		Chains:     2,
-		Nodes:      4,
-		Bootstraps: 1,
-	}, nil)
+	env := changeset.NewMemoryEnvironment(t)
 	state, err := changeset.LoadOnchainState(env.Env)
 	require.NoError(t, err)
 
@@ -647,11 +756,7 @@ func Test_GetChainFeePriceUpdates(t *testing.T) {
 func Test_LinkPriceUSD(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
-	env := changeset.NewMemoryEnvironmentWithJobsAndContracts(t, logger.TestLogger(t), memory.MemoryEnvironmentConfig{
-		Chains:     2,
-		Nodes:      4,
-		Bootstraps: 1,
-	}, nil)
+	env := changeset.NewMemoryEnvironment(t)
 	state, err := changeset.LoadOnchainState(env.Env)
 	require.NoError(t, err)
 
@@ -686,11 +791,7 @@ func Test_LinkPriceUSD(t *testing.T) {
 func Test_GetMedianDataAvailabilityGasConfig(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
-	env := changeset.NewMemoryEnvironmentWithJobsAndContracts(t, logger.TestLogger(t), memory.MemoryEnvironmentConfig{
-		Chains:     4,
-		Nodes:      4,
-		Bootstraps: 1,
-	}, nil)
+	env := changeset.NewMemoryEnvironment(t, changeset.WithChains(4))
 	state, err := changeset.LoadOnchainState(env.Env)
 	require.NoError(t, err)
 
@@ -749,11 +850,7 @@ func Test_GetMedianDataAvailabilityGasConfig(t *testing.T) {
 func Test_GetWrappedNativeTokenPriceUSD(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
-	env := changeset.NewMemoryEnvironmentWithJobsAndContracts(t, logger.TestLogger(t), memory.MemoryEnvironmentConfig{
-		Chains:     2,
-		Nodes:      4,
-		Bootstraps: 1,
-	}, nil)
+	env := changeset.NewMemoryEnvironment(t)
 	state, err := changeset.LoadOnchainState(env.Env)
 	require.NoError(t, err)
 
