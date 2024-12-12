@@ -263,7 +263,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 	require.NoError(t, err)
 
 	from := [20]byte(backendTH.ContractsOwner.From)
-	id, err := workflows.GenerateWorkflowID(from[:], []byte(wantContents), []byte(""), "")
+	id, err := workflows.GenerateWorkflowID(from[:], "test-wf", []byte(wantContents), []byte(""), "")
 	require.NoError(t, err)
 	giveWorkflow.ID = id
 
@@ -361,7 +361,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 	require.NoError(t, err)
 
 	from := [20]byte(backendTH.ContractsOwner.From)
-	id, err := workflows.GenerateWorkflowID(from[:], []byte(wantContents), []byte(""), "")
+	id, err := workflows.GenerateWorkflowID(from[:], "test-wf", []byte(wantContents), []byte(""), "")
 	require.NoError(t, err)
 	giveWorkflow.ID = id
 
