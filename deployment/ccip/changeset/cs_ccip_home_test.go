@@ -28,7 +28,7 @@ import (
 
 func TestActiveCandidate(t *testing.T) {
 	t.Skipf("to be enabled after latest cl-ccip is compatible")
-
+	t.Parallel()
 	tenv := NewMemoryEnvironment(t,
 		WithChains(3),
 		WithNodes(5))
@@ -87,9 +87,9 @@ func TestActiveCandidate(t *testing.T) {
 	ConfirmExecWithSeqNrsForAll(t, e, state, expectedSeqNumExec, startBlocks)
 
 	// compose the transfer ownership and accept ownership changesets
-	timelockContracts := make(map[uint64]*commonchangeset.TimelockExecutionContracts)
+	timelockContracts := make(map[uint64]*proposalutils.TimelockExecutionContracts)
 	for _, chain := range allChains {
-		timelockContracts[chain] = &commonchangeset.TimelockExecutionContracts{
+		timelockContracts[chain] = &proposalutils.TimelockExecutionContracts{
 			Timelock:  state.Chains[chain].Timelock,
 			CallProxy: state.Chains[chain].CallProxy,
 		}
@@ -165,6 +165,7 @@ func TestActiveCandidate(t *testing.T) {
 		}
 	)
 	setCommitCandidateOp, err := setCandidateOnExistingDon(
+		e.Logger,
 		deployment.SimTransactOpts(),
 		tenv.Env.Chains[tenv.HomeChainSel],
 		ocr3ConfigMap[cctypes.PluginTypeCCIPCommit],
@@ -180,14 +181,15 @@ func TestActiveCandidate(t *testing.T) {
 		Batch:           setCommitCandidateOp,
 	}}, "set new candidates on commit plugin", 0)
 	require.NoError(t, err)
-	setCommitCandidateSigned := commonchangeset.SignProposal(t, e, setCommitCandidateProposal)
-	commonchangeset.ExecuteProposal(t, e, setCommitCandidateSigned, &commonchangeset.TimelockExecutionContracts{
+	setCommitCandidateSigned := proposalutils.SignProposal(t, e, setCommitCandidateProposal)
+	proposalutils.ExecuteProposal(t, e, setCommitCandidateSigned, &proposalutils.TimelockExecutionContracts{
 		Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
 		CallProxy: state.Chains[tenv.HomeChainSel].CallProxy,
 	}, tenv.HomeChainSel)
 
 	// create the op for the commit plugin as well
 	setExecCandidateOp, err := setCandidateOnExistingDon(
+		e.Logger,
 		deployment.SimTransactOpts(),
 		tenv.Env.Chains[tenv.HomeChainSel],
 		ocr3ConfigMap[cctypes.PluginTypeCCIPExec],
@@ -204,8 +206,8 @@ func TestActiveCandidate(t *testing.T) {
 		Batch:           setExecCandidateOp,
 	}}, "set new candidates on commit and exec plugins", 0)
 	require.NoError(t, err)
-	setExecCandidateSigned := commonchangeset.SignProposal(t, e, setExecCandidateProposal)
-	commonchangeset.ExecuteProposal(t, e, setExecCandidateSigned, &commonchangeset.TimelockExecutionContracts{
+	setExecCandidateSigned := proposalutils.SignProposal(t, e, setExecCandidateProposal)
+	proposalutils.ExecuteProposal(t, e, setExecCandidateSigned, &proposalutils.TimelockExecutionContracts{
 		Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
 		CallProxy: state.Chains[tenv.HomeChainSel].CallProxy,
 	}, tenv.HomeChainSel)
@@ -241,8 +243,8 @@ func TestActiveCandidate(t *testing.T) {
 		Batch:           promoteOps,
 	}}, "promote candidates and revoke actives", 0)
 	require.NoError(t, err)
-	promoteSigned := commonchangeset.SignProposal(t, e, promoteProposal)
-	commonchangeset.ExecuteProposal(t, e, promoteSigned, &commonchangeset.TimelockExecutionContracts{
+	promoteSigned := proposalutils.SignProposal(t, e, promoteProposal)
+	proposalutils.ExecuteProposal(t, e, promoteSigned, &proposalutils.TimelockExecutionContracts{
 		Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
 		CallProxy: state.Chains[tenv.HomeChainSel].CallProxy,
 	}, tenv.HomeChainSel)
@@ -324,7 +326,7 @@ func Test_PromoteCandidate(t *testing.T) {
 					MinDelay: 0,
 				}
 			}
-			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, map[uint64]*commonchangeset.TimelockExecutionContracts{
+			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, map[uint64]*proposalutils.TimelockExecutionContracts{
 				tenv.HomeChainSel: {
 					Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
 					CallProxy: state.Chains[tenv.HomeChainSel].CallProxy,
@@ -414,7 +416,7 @@ func Test_SetCandidate(t *testing.T) {
 				}
 			}
 			tokenConfig := NewTestTokenConfig(state.Chains[tenv.FeedChainSel].USDFeeds)
-			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, map[uint64]*commonchangeset.TimelockExecutionContracts{
+			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, map[uint64]*proposalutils.TimelockExecutionContracts{
 				tenv.HomeChainSel: {
 					Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
 					CallProxy: state.Chains[tenv.HomeChainSel].CallProxy,
@@ -479,7 +481,7 @@ func transferToTimelock(
 	source,
 	dest uint64) {
 	// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-	_, err := commonchangeset.ApplyChangesets(t, tenv.Env, map[uint64]*commonchangeset.TimelockExecutionContracts{
+	_, err := commonchangeset.ApplyChangesets(t, tenv.Env, map[uint64]*proposalutils.TimelockExecutionContracts{
 		source: {
 			Timelock:  state.Chains[source].Timelock,
 			CallProxy: state.Chains[source].CallProxy,

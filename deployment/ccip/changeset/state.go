@@ -161,6 +161,15 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 		}
 		chainView.RMN[c.RMNRemote.Address().Hex()] = rmnView
 	}
+
+	if c.RMNHome != nil {
+		rmnHomeView, err := v1_6.GenerateRMNHomeView(c.RMNHome)
+		if err != nil {
+			return chainView, errors.Wrapf(err, "failed to generate rmn home view for rmn home %s", c.RMNHome.Address().String())
+		}
+		chainView.RMNHome[c.RMNHome.Address().Hex()] = rmnHomeView
+	}
+
 	if c.FeeQuoter != nil && c.Router != nil && c.TokenAdminRegistry != nil {
 		fqView, err := v1_6.GenerateFeeQuoterView(c.FeeQuoter, c.Router, c.TokenAdminRegistry)
 		if err != nil {
@@ -252,7 +261,8 @@ type CCIPOnChainState struct {
 	// Populated go bindings for the appropriate version for all contracts.
 	// We would hold 2 versions of each contract here. Once we upgrade we can phase out the old one.
 	// When generating bindings, make sure the package name corresponds to the version.
-	Chains map[uint64]CCIPChainState
+	Chains    map[uint64]CCIPChainState
+	SolChains map[uint64]SolCCIPChainState
 }
 
 func (s CCIPOnChainState) View(chains []uint64) (map[string]view.ChainView, error) {

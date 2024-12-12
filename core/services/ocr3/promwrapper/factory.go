@@ -47,6 +47,7 @@ func (r ReportingPluginFactory[RI]) NewReportingPlugin(ctx context.Context, conf
 		config.ConfigDigest.String(),
 		promOCR3ReportsGenerated,
 		promOCR3Durations,
+		promOCR3Sizes,
 		promOCR3PluginStatus,
 	)
 	return wrapped, info, err

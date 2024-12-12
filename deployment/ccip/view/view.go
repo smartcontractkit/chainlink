@@ -22,6 +22,7 @@ type ChainView struct {
 	// v1.6
 	FeeQuoter    map[string]v1_6.FeeQuoterView    `json:"feeQuoter,omitempty"`
 	NonceManager map[string]v1_6.NonceManagerView `json:"nonceManager,omitempty"`
+	RMNHome      map[string]v1_6.RMNHomeView      `json:"rmnHome,omitempty"`
 	RMN          map[string]v1_6.RMNRemoteView    `json:"rmn,omitempty"`
 	OnRamp       map[string]v1_6.OnRampView       `json:"onRamp,omitempty"`
 	OffRamp      map[string]v1_6.OffRampView      `json:"offRamp,omitempty"`
@@ -46,6 +47,7 @@ func NewChain() ChainView {
 		// v1.6
 		FeeQuoter:          make(map[string]v1_6.FeeQuoterView),
 		NonceManager:       make(map[string]v1_6.NonceManagerView),
+		RMNHome:            make(map[string]v1_6.RMNHomeView),
 		RMN:                make(map[string]v1_6.RMNRemoteView),
 		OnRamp:             make(map[string]v1_6.OnRampView),
 		OffRamp:            make(map[string]v1_6.OffRampView),

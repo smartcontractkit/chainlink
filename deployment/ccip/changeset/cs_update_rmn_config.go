@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	"github.com/smartcontractkit/chainlink/deployment"
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_remote"
@@ -304,10 +303,10 @@ func NewPromoteCandidateConfigChangeset(e deployment.Environment, config Promote
 	}, nil
 }
 
-func buildTimelockPerChain(e deployment.Environment, state CCIPOnChainState) map[uint64]*commonchangeset.TimelockExecutionContracts {
-	timelocksPerChain := make(map[uint64]*commonchangeset.TimelockExecutionContracts)
+func buildTimelockPerChain(e deployment.Environment, state CCIPOnChainState) map[uint64]*proposalutils.TimelockExecutionContracts {
+	timelocksPerChain := make(map[uint64]*proposalutils.TimelockExecutionContracts)
 	for _, chain := range e.Chains {
-		timelocksPerChain[chain.Selector] = &commonchangeset.TimelockExecutionContracts{
+		timelocksPerChain[chain.Selector] = &proposalutils.TimelockExecutionContracts{
 			Timelock:  state.Chains[chain.Selector].Timelock,
 			CallProxy: state.Chains[chain.Selector].CallProxy,
 		}

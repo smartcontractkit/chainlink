@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -118,7 +119,7 @@ func TestConfigureOCR3(t *testing.T) {
 
 		contracts := te.ContractSets()[te.RegistrySelector]
 		require.NoError(t, err)
-		var timelockContracts = map[uint64]*commonchangeset.TimelockExecutionContracts{
+		var timelockContracts = map[uint64]*proposalutils.TimelockExecutionContracts{
 			te.RegistrySelector: {
 				Timelock:  contracts.Timelock,
 				CallProxy: contracts.CallProxy,
