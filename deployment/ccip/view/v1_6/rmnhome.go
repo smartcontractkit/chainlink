@@ -1,6 +1,8 @@
 package v1_6
 
 import (
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"math/big"
 
@@ -22,6 +24,49 @@ type RMNHomeVersionedConfig struct {
 	Digest        [32]byte             `json:"digest"`
 }
 
+func decodeHexString(hexStr string, expectedLength int) ([]byte, error) {
+	bytes, err := hex.DecodeString(hexStr)
+	if err != nil {
+		return nil, err
+	}
+	if len(bytes) != expectedLength {
+		return nil, fmt.Errorf("invalid length: expected %d, got %d", expectedLength, len(bytes))
+	}
+	return bytes, nil
+}
+
+func (c RMNHomeVersionedConfig) MarshalJSON() ([]byte, error) {
+	type Alias RMNHomeVersionedConfig
+	return json.Marshal(&struct {
+		Digest string `json:"digest"`
+		*Alias
+	}{
+		Digest: hex.EncodeToString(c.Digest[:]),
+		Alias:  (*Alias)(&c),
+	})
+}
+
+func (c *RMNHomeVersionedConfig) UnmarshalJSON(data []byte) error {
+	type Alias RMNHomeVersionedConfig
+	aux := &struct {
+		Digest string `json:"digest"`
+		*Alias
+	}{
+		Alias: (*Alias)(c),
+	}
+
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+
+	digestBytes, err := decodeHexString(aux.Digest, 32)
+	if err != nil {
+		return err
+	}
+	copy(c.Digest[:], digestBytes)
+	return nil
+}
+
 type RMNHomeStaticConfig struct {
 	Nodes []RMNHomeNode `json:"nodes"`
 }
@@ -39,6 +84,47 @@ type RMNHomeSourceChain struct {
 type RMNHomeNode struct {
 	PeerId            [32]byte `json:"peerId"`
 	OffchainPublicKey [32]byte `json:"offchainPublicKey"`
+}
+
+func (n RMNHomeNode) MarshalJSON() ([]byte, error) {
+	type Alias RMNHomeNode
+	return json.Marshal(&struct {
+		PeerId            string `json:"peerId"`
+		OffchainPublicKey string `json:"offchainPublicKey"`
+		*Alias
+	}{
+		PeerId:            hex.EncodeToString(n.PeerId[:]),
+		OffchainPublicKey: hex.EncodeToString(n.OffchainPublicKey[:]),
+		Alias:             (*Alias)(&n),
+	})
+}
+
+func (n *RMNHomeNode) UnmarshalJSON(data []byte) error {
+	type Alias RMNHomeNode
+	aux := &struct {
+		PeerId            string `json:"peerId"`
+		OffchainPublicKey string `json:"offchainPublicKey"`
+		*Alias
+	}{
+		Alias: (*Alias)(n),
+	}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+
+	peerIdBytes, err := decodeHexString(aux.PeerId, 32)
+	if err != nil {
+		return err
+	}
+	copy(n.PeerId[:], peerIdBytes)
+
+	offchainPublicKeyBytes, err := decodeHexString(aux.OffchainPublicKey, 32)
+	if err != nil {
+		return err
+	}
+	copy(n.OffchainPublicKey[:], offchainPublicKeyBytes)
+
+	return nil
 }
 
 type DigestFunc func(*bind.CallOpts) ([32]byte, error)
