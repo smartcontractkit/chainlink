@@ -64,7 +64,7 @@ type ConfigureForwarderContractsRequest struct {
 	UseMCMS bool
 }
 type ConfigureForwarderContractsResponse struct {
-	Proposals []timelock.MCMSWithTimelockProposal
+	OpsPerChain map[uint64]timelock.BatchChainOperation
 }
 
 // Depreciated: use [changeset.ConfigureForwarders] instead
@@ -79,7 +79,7 @@ func ConfigureForwardContracts(env *deployment.Environment, req ConfigureForward
 		return nil, fmt.Errorf("failed to get contract sets: %w", err)
 	}
 
-	var allProposals []timelock.MCMSWithTimelockProposal
+	opPerChain := make(map[uint64]timelock.BatchChainOperation)
 	// configure forwarders on all chains
 	for _, chain := range env.Chains {
 		// get the forwarder contract for the chain
@@ -87,13 +87,15 @@ func ConfigureForwardContracts(env *deployment.Environment, req ConfigureForward
 		if !ok {
 			return nil, fmt.Errorf("failed to get contract set for chain %d", chain.Selector)
 		}
-		proposals, err := configureForwarder(env.Logger, chain, contracts, req.Dons, req.UseMCMS)
+		ops, err := configureForwarder(env.Logger, chain, contracts, req.Dons, req.UseMCMS)
 		if err != nil {
 			return nil, fmt.Errorf("failed to configure forwarder for chain selector %d: %w", chain.Selector, err)
 		}
-		allProposals = append(allProposals, proposals...)
+		for k, op := range ops {
+			opPerChain[k] = op
+		}
 	}
 	return &ConfigureForwarderContractsResponse{
-		Proposals: allProposals,
+		OpsPerChain: opPerChain,
 	}, nil
 }

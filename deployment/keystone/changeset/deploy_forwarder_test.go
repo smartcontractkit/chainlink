@@ -109,7 +109,7 @@ func TestConfigureForwarders(t *testing.T) {
 					WFDonName:        "test-wf-don",
 					WFNodeIDs:        wfNodes,
 					RegistryChainSel: te.RegistrySelector,
-					UseMCMS:          true,
+					MCMSConfig:       &changeset.MCMSConfig{MinDuration: 0},
 				}
 				csOut, err := changeset.ConfigureForwardContracts(te.Env, cfg)
 				require.NoError(t, err)

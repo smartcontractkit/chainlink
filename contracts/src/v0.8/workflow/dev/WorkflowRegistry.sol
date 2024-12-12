@@ -43,6 +43,8 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
   /// @dev Mapping to track workflows by secretsURL hash (owner + secretsURL).
   /// This is used to find all workflows that have the same secretsURL when a force secrets update event is requested.
   mapping(bytes32 secretsURLHash => EnumerableSet.Bytes32Set workflowKeys) private s_secretsHashToWorkflows;
+  /// @dev Keep track of all workflowIDs to ensure uniqueness.
+  mapping(bytes32 workflowID => bool inUse) private s_workflowIDs;
 
   /// @dev List of all authorized EOAs/contracts allowed to access this contract's state functions. All view functions are open access.
   EnumerableSet.AddressSet private s_authorizedAddresses;
@@ -203,12 +205,14 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
   ) external registryNotLocked {
     _validatePermissions(donID, msg.sender);
     _validateWorkflowName(bytes(workflowName).length);
-    _validateWorkflowMetadata(workflowID, bytes(binaryURL).length, bytes(configURL).length, bytes(secretsURL).length);
+    _validateWorkflowURLs(bytes(binaryURL).length, bytes(configURL).length, bytes(secretsURL).length);
 
     bytes32 workflowKey = computeHashKey(msg.sender, workflowName);
     if (s_workflows[workflowKey].owner != address(0)) {
       revert WorkflowAlreadyRegistered();
     }
+
+    _requireUniqueWorkflowID(workflowID);
 
     // Create new workflow entry
     s_workflows[workflowKey] = WorkflowMetadata({
@@ -272,7 +276,7 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
     string calldata configURL,
     string calldata secretsURL
   ) external registryNotLocked {
-    _validateWorkflowMetadata(newWorkflowID, bytes(binaryURL).length, bytes(configURL).length, bytes(secretsURL).length);
+    _validateWorkflowURLs(bytes(binaryURL).length, bytes(configURL).length, bytes(secretsURL).length);
 
     WorkflowMetadata storage workflow = _getWorkflowFromStorage(msg.sender, workflowKey);
 
@@ -294,6 +298,12 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
     if (sameBinaryURL && sameConfigURL && sameSecretsURL) {
       revert WorkflowContentNotUpdated();
     }
+
+    // Ensure the new workflowID is unique
+    _requireUniqueWorkflowID(newWorkflowID);
+
+    // Free the old workflowID
+    s_workflowIDs[currentWorkflowID] = false;
 
     // Update all fields that have changed and the relevant sets
     workflow.workflowID = newWorkflowID;
@@ -386,6 +396,9 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
     if (!s_authorizedAddresses.contains(msg.sender)) {
       revert AddressNotAuthorized(msg.sender);
     }
+
+    // Release the workflowID for reuse
+    s_workflowIDs[workflow.workflowID] = false;
 
     // Remove the workflow from the owner and DON mappings
     s_ownerWorkflowKeys[msg.sender].remove(workflowKey);
@@ -506,6 +519,20 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
     if (workflow.owner != sender) revert CallerIsNotWorkflowOwner(sender);
 
     return workflow;
+  }
+
+  /// @notice Ensures the given workflowID is unique and marks it as used.
+  /// @param workflowID The workflowID to validate and consume.
+  function _requireUniqueWorkflowID(
+    bytes32 workflowID
+  ) internal {
+    if (workflowID == bytes32(0)) revert InvalidWorkflowID();
+
+    if (s_workflowIDs[workflowID]) {
+      revert WorkflowIDAlreadyExists();
+    }
+
+    s_workflowIDs[workflowID] = true;
   }
 
   // ================================================================
@@ -636,16 +663,12 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
   // |                          Validation                          |
   // ================================================================
 
-  /// @dev Internal function to validate the metadata for a workflow.
-  /// @param workflowID The unique identifier for the workflow.
-  function _validateWorkflowMetadata(
-    bytes32 workflowID,
+  /// @dev Internal function to validate the urls for a workflow.
+  function _validateWorkflowURLs(
     uint256 binaryURLLength,
     uint256 configURLLength,
     uint256 secretsURLLength
   ) internal pure {
-    if (workflowID == bytes32(0)) revert InvalidWorkflowID();
-
     if (binaryURLLength > MAX_URL_LENGTH) {
       revert URLTooLong(binaryURLLength, MAX_URL_LENGTH);
     }

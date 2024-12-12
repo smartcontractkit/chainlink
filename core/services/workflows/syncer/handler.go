@@ -438,6 +438,11 @@ func (h *eventHandler) workflowRegisteredEvent(
 		return fmt.Errorf("workflowID mismatch: %x != %x", hash, payload.WorkflowID)
 	}
 
+	// Ensure that there is no running workflow engine for the given workflow ID.
+	if h.engineRegistry.IsRunning(hex.EncodeToString(payload.WorkflowID[:])) {
+		return fmt.Errorf("workflow is already running, so not starting it : %s", hex.EncodeToString(payload.WorkflowID[:]))
+	}
+
 	// Save the workflow secrets
 	urlHash, err := h.orm.GetSecretsURLHash(payload.WorkflowOwner, []byte(payload.SecretsURL))
 	if err != nil {
@@ -451,12 +456,13 @@ func (h *eventHandler) workflowRegisteredEvent(
 	}
 
 	wfID := hex.EncodeToString(payload.WorkflowID[:])
+	owner := hex.EncodeToString(payload.WorkflowOwner)
 	entry := &job.WorkflowSpec{
 		Workflow:      hex.EncodeToString(decodedBinary),
 		Config:        string(config),
 		WorkflowID:    wfID,
 		Status:        status,
-		WorkflowOwner: hex.EncodeToString(payload.WorkflowOwner),
+		WorkflowOwner: owner,
 		WorkflowName:  payload.WorkflowName,
 		SpecType:      job.WASMFile,
 		BinaryURL:     payload.BinaryURL,
@@ -475,7 +481,7 @@ func (h *eventHandler) workflowRegisteredEvent(
 	engine, err := h.engineFactory(
 		ctx,
 		wfID,
-		string(payload.WorkflowOwner),
+		owner,
 		payload.WorkflowName,
 		config,
 		decodedBinary,

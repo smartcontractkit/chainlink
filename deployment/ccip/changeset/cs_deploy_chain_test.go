@@ -98,12 +98,7 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 }
 
 func TestDeployCCIPContracts(t *testing.T) {
-	lggr := logger.TestLogger(t)
-	e := NewMemoryEnvironmentWithJobsAndContracts(t, lggr, memory.MemoryEnvironmentConfig{
-		Chains:     2,
-		Nodes:      4,
-		Bootstraps: 1,
-	}, nil)
+	e := NewMemoryEnvironment(t)
 	// Deploy all the CCIP contracts.
 	state, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
