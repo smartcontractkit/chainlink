@@ -50,8 +50,8 @@ var (
 	)
 	promOCR3Sizes = promauto.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "ocr3_reporting_plugin_sizes",
-			Help: "Tracks the size of the data produces by OCR3 plugin in bytes (e.g. reports, observations etc.)",
+			Name: "ocr3_reporting_plugin_data_sizes",
+			Help: "Tracks the size of the data produced by OCR3 plugin in bytes (e.g. reports, observations etc.)",
 		},
 		[]string{"chainID", "plugin", "function"},
 	)
