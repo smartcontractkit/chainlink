@@ -209,7 +209,8 @@ type SetCandidateChangesetConfig struct {
 	// DONChainSelector is the chain selector of the chain where the DON will be added.
 	DONChainSelector uint64
 
-	PluginType    types.PluginType
+	PluginType types.PluginType
+	// Note that the PluginType field is used to determine which field in CCIPOCRParams is used.
 	CCIPOCRParams CCIPOCRParams
 
 	// MCMS is optional MCMS configuration, if provided the changeset will generate an MCMS proposal.
