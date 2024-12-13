@@ -4,10 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/Khan/genqlient/graphql"
+	"github.com/sethvargo/go-retry"
 	"net/http"
 	"strings"
-
-	"github.com/Khan/genqlient/graphql"
+	"time"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/web/sdk/client/doer"
 	"github.com/smartcontractkit/chainlink/deployment/environment/web/sdk/internal/generated"
@@ -60,8 +61,15 @@ func New(baseURI string, creds Credentials) (Client, error) {
 		endpoints:   ep,
 		credentials: creds,
 	}
-
-	if err := c.login(); err != nil {
+	
+	err := retry.Do(context.Background(), retry.WithMaxDuration(10*time.Second, retry.NewFibonacci(2*time.Second)), func(ctx context.Context) error {
+		err := c.login()
+		if err != nil {
+			return retry.RetryableError(fmt.Errorf("retrying login to node: %w", err))
+		}
+		return nil
+	})
+	if err != nil {
 		return nil, fmt.Errorf("failed to login to node: %w", err)
 	}
 

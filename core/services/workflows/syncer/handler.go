@@ -400,25 +400,13 @@ func (h *eventHandler) workflowRegisteredEvent(
 	ctx context.Context,
 	payload WorkflowRegistryWorkflowRegisteredV1,
 ) error {
-	// Download the contents of binaryURL, configURL and secretsURL and cache them locally.
-	binary, err := h.fetcher(ctx, payload.BinaryURL)
+	// Fetch the workflow artifacts from the database or download them from the specified URLs
+	decodedBinary, config, err := h.getWorkflowArtifacts(ctx, payload)
 	if err != nil {
-		return fmt.Errorf("failed to fetch binary from %s : %w", payload.BinaryURL, err)
+		return err
 	}
 
-	decodedBinary, err := base64.StdEncoding.DecodeString(string(binary))
-	if err != nil {
-		return fmt.Errorf("failed to decode binary: %w", err)
-	}
-
-	var config []byte
-	if payload.ConfigURL != "" {
-		config, err = h.fetcher(ctx, payload.ConfigURL)
-		if err != nil {
-			return fmt.Errorf("failed to fetch config from %s : %w", payload.ConfigURL, err)
-		}
-	}
-
+	// Always fetch secrets from the SecretsURL
 	var secrets []byte
 	if payload.SecretsURL != "" {
 		secrets, err = h.fetcher(ctx, payload.SecretsURL)
@@ -428,7 +416,7 @@ func (h *eventHandler) workflowRegisteredEvent(
 	}
 
 	// Calculate the hash of the binary and config files
-	hash, err := pkgworkflows.GenerateWorkflowID(payload.WorkflowOwner, decodedBinary, config, payload.SecretsURL)
+	hash, err := pkgworkflows.GenerateWorkflowID(payload.WorkflowOwner, payload.WorkflowName, decodedBinary, config, payload.SecretsURL)
 	if err != nil {
 		return fmt.Errorf("failed to generate workflow id: %w", err)
 	}
@@ -456,12 +444,13 @@ func (h *eventHandler) workflowRegisteredEvent(
 	}
 
 	wfID := hex.EncodeToString(payload.WorkflowID[:])
+	owner := hex.EncodeToString(payload.WorkflowOwner)
 	entry := &job.WorkflowSpec{
 		Workflow:      hex.EncodeToString(decodedBinary),
 		Config:        string(config),
 		WorkflowID:    wfID,
 		Status:        status,
-		WorkflowOwner: hex.EncodeToString(payload.WorkflowOwner),
+		WorkflowOwner: owner,
 		WorkflowName:  payload.WorkflowName,
 		SpecType:      job.WASMFile,
 		BinaryURL:     payload.BinaryURL,
@@ -480,7 +469,7 @@ func (h *eventHandler) workflowRegisteredEvent(
 	engine, err := h.engineFactory(
 		ctx,
 		wfID,
-		string(payload.WorkflowOwner),
+		owner,
 		payload.WorkflowName,
 		config,
 		decodedBinary,
@@ -496,6 +485,42 @@ func (h *eventHandler) workflowRegisteredEvent(
 	h.engineRegistry.Add(wfID, engine)
 
 	return nil
+}
+
+// getWorkflowArtifacts retrieves the workflow artifacts from the database if they exist,
+// or downloads them from the specified URLs if they are not found in the database.
+func (h *eventHandler) getWorkflowArtifacts(
+	ctx context.Context,
+	payload WorkflowRegistryWorkflowRegisteredV1,
+) ([]byte, []byte, error) {
+	spec, err := h.orm.GetWorkflowSpecByID(ctx, hex.EncodeToString(payload.WorkflowID[:]))
+	if err != nil {
+		binary, err2 := h.fetcher(ctx, payload.BinaryURL)
+		if err2 != nil {
+			return nil, nil, fmt.Errorf("failed to fetch binary from %s : %w", payload.BinaryURL, err)
+		}
+
+		decodedBinary, err2 := base64.StdEncoding.DecodeString(string(binary))
+		if err2 != nil {
+			return nil, nil, fmt.Errorf("failed to decode binary: %w", err)
+		}
+
+		var config []byte
+		if payload.ConfigURL != "" {
+			config, err2 = h.fetcher(ctx, payload.ConfigURL)
+			if err2 != nil {
+				return nil, nil, fmt.Errorf("failed to fetch config from %s : %w", payload.ConfigURL, err)
+			}
+		}
+		return decodedBinary, config, nil
+	}
+
+	// there is no update in the BinaryURL or ConfigURL, lets decode the stored artifacts
+	decodedBinary, err := hex.DecodeString(spec.Workflow)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to decode stored workflow spec: %w", err)
+	}
+	return decodedBinary, []byte(spec.Config), nil
 }
 
 func (h *eventHandler) engineFactoryFn(ctx context.Context, id string, owner string, name string, config []byte, binary []byte) (services.Service, error) {

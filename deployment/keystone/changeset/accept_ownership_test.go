@@ -1,7 +1,6 @@
 package changeset_test
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -10,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -44,23 +44,18 @@ func TestAcceptAllOwnership(t *testing.T) {
 		{
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployMCMSWithTimelock),
 			Config: map[uint64]types.MCMSWithTimelockConfig{
-				registrySel: {
-					Canceller:        commonchangeset.SingleGroupMCMS(t),
-					Bypasser:         commonchangeset.SingleGroupMCMS(t),
-					Proposer:         commonchangeset.SingleGroupMCMS(t),
-					TimelockMinDelay: big.NewInt(0),
-				},
+				registrySel: proposalutils.SingleGroupTimelockConfig(t),
 			},
 		},
 	})
 	require.NoError(t, err)
 	addrs, err := env.ExistingAddresses.AddressesForChain(registrySel)
 	require.NoError(t, err)
-	timelock, err := commonchangeset.MaybeLoadMCMSWithTimelockState(env.Chains[registrySel], addrs)
+	timelock, err := commonchangeset.MaybeLoadMCMSWithTimelockChainState(env.Chains[registrySel], addrs)
 	require.NoError(t, err)
 
-	_, err = commonchangeset.ApplyChangesets(t, env, map[uint64]*commonchangeset.TimelockExecutionContracts{
-		registrySel: &commonchangeset.TimelockExecutionContracts{
+	_, err = commonchangeset.ApplyChangesets(t, env, map[uint64]*proposalutils.TimelockExecutionContracts{
+		registrySel: &proposalutils.TimelockExecutionContracts{
 			Timelock:  timelock.Timelock,
 			CallProxy: timelock.CallProxy,
 		},

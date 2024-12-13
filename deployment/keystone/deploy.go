@@ -14,15 +14,12 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rpc"
 	"golang.org/x/exp/maps"
 
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -348,7 +345,7 @@ func ConfigureOCR3Contract(env *deployment.Environment, chainSel uint64, dons []
 
 type ConfigureOCR3Resp struct {
 	OCR2OracleConfig
-	Proposal *timelock.MCMSWithTimelockProposal
+	Ops *timelock.BatchChainOperation
 }
 
 type ConfigureOCR3Config struct {
@@ -405,7 +402,7 @@ func ConfigureOCR3ContractFromJD(env *deployment.Environment, cfg ConfigureOCR3C
 	}
 	return &ConfigureOCR3Resp{
 		OCR2OracleConfig: r.ocrConfig,
-		Proposal:         r.proposal,
+		Ops:              r.ops,
 	}, nil
 
 }
@@ -941,13 +938,13 @@ func containsAllDONs(donInfos []kcr.CapabilitiesRegistryDONInfo, p2pIdsToDon map
 
 // configureForwarder sets the config for the forwarder contract on the chain for all Dons that accept workflows
 // dons that don't accept workflows are not registered with the forwarder
-func configureForwarder(lggr logger.Logger, chain deployment.Chain, contractSet ContractSet, dons []RegisteredDon, useMCMS bool) ([]timelock.MCMSWithTimelockProposal, error) {
+func configureForwarder(lggr logger.Logger, chain deployment.Chain, contractSet ContractSet, dons []RegisteredDon, useMCMS bool) (map[uint64]timelock.BatchChainOperation, error) {
 	if contractSet.Forwarder == nil {
 		return nil, errors.New("nil forwarder contract")
 	}
 	var (
-		fwdr      = contractSet.Forwarder
-		proposals []timelock.MCMSWithTimelockProposal
+		fwdr  = contractSet.Forwarder
+		opMap = make(map[uint64]timelock.BatchChainOperation)
 	)
 	for _, dn := range dons {
 		if !dn.Info.AcceptsWorkflows {
@@ -982,26 +979,9 @@ func configureForwarder(lggr logger.Logger, chain deployment.Chain, contractSet 
 					},
 				},
 			}
-			timelocksPerChain := map[uint64]common.Address{
-				chain.Selector: contractSet.Timelock.Address(),
-			}
-			proposerMCMSes := map[uint64]*gethwrappers.ManyChainMultiSig{
-				chain.Selector: contractSet.ProposerMcm,
-			}
-
-			proposal, err := proposalutils.BuildProposalFromBatches(
-				timelocksPerChain,
-				proposerMCMSes,
-				[]timelock.BatchChainOperation{ops},
-				"proposal to set forward config",
-				0,
-			)
-			if err != nil {
-				return nil, fmt.Errorf("failed to build proposal: %w", err)
-			}
-			proposals = append(proposals, *proposal)
+			opMap[chain.Selector] = ops
 		}
 		lggr.Debugw("configured forwarder", "forwarder", fwdr.Address().String(), "donId", dn.Info.Id, "version", ver, "f", dn.Info.F, "signers", signers)
 	}
-	return proposals, nil
+	return opMap, nil
 }

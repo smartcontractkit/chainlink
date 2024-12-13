@@ -52,6 +52,9 @@ type WorkflowSpecsDS interface {
 
 	// DeleteWorkflowSpec deletes the workflow spec for the given owner and name.
 	DeleteWorkflowSpec(ctx context.Context, owner, name string) error
+
+	// GetWorkflowSpecByID returns the workflow spec for the given workflowID.
+	GetWorkflowSpecByID(ctx context.Context, id string) (*job.WorkflowSpec, error)
 }
 
 type ORM interface {
@@ -161,6 +164,10 @@ func (orm *orm) GetContentsByWorkflowID(ctx context.Context, workflowID string) 
 		return "", "", ErrEmptySecrets
 	}
 
+	if jr.Contents.String == "" {
+		return "", "", ErrEmptySecrets
+	}
+
 	return jr.SecretsURLHash.String, jr.Contents.String, nil
 }
 
@@ -206,90 +213,17 @@ func (orm *orm) GetSecretsURLHash(owner, secretsURL []byte) ([]byte, error) {
 
 func (orm *orm) UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) (int64, error) {
 	var id int64
-
-	query := `
-		INSERT INTO workflow_specs (
-			workflow,
-			config,
-			workflow_id,
-			workflow_owner,
-			workflow_name,
-			status,
-			binary_url,
-			config_url,
-			secrets_id,
-			created_at,
-			updated_at,
-			spec_type
-		) VALUES (
-			:workflow,
-			:config,
-			:workflow_id,
-			:workflow_owner,
-			:workflow_name,
-			:status,
-			:binary_url,
-			:config_url,
-			:secrets_id,
-			:created_at,
-			:updated_at,
-			:spec_type
-		) ON CONFLICT (workflow_owner, workflow_name) DO UPDATE
-		SET
-			workflow = EXCLUDED.workflow,
-			config = EXCLUDED.config,
-			workflow_id = EXCLUDED.workflow_id,
-			workflow_owner = EXCLUDED.workflow_owner,
-			workflow_name = EXCLUDED.workflow_name,
-			status = EXCLUDED.status,
-			binary_url = EXCLUDED.binary_url,
-			config_url = EXCLUDED.config_url,
-			secrets_id = EXCLUDED.secrets_id,
-			created_at = EXCLUDED.created_at,
-			updated_at = EXCLUDED.updated_at,
-			spec_type = EXCLUDED.spec_type
-		RETURNING id
-	`
-
-	stmt, err := orm.ds.PrepareNamedContext(ctx, query)
-	if err != nil {
-		return 0, err
-	}
-	defer stmt.Close()
-
-	spec.UpdatedAt = time.Now()
-	err = stmt.QueryRowxContext(ctx, spec).Scan(&id)
-
-	if err != nil {
-		return 0, err
-	}
-
-	return id, nil
-}
-
-func (orm *orm) UpsertWorkflowSpecWithSecrets(
-	ctx context.Context,
-	spec *job.WorkflowSpec, url, hash, contents string) (int64, error) {
-	var id int64
 	err := sqlutil.TransactDataSource(ctx, orm.ds, nil, func(tx sqlutil.DataSource) error {
-		var sid int64
-		txErr := tx.QueryRowxContext(ctx,
-			`INSERT INTO workflow_secrets (secrets_url, secrets_url_hash, contents)
-			 VALUES ($1, $2, $3)
-			 ON CONFLICT (secrets_url_hash) DO UPDATE
-         	 SET 
-			 	secrets_url_hash = EXCLUDED.secrets_url_hash, 
-				contents = EXCLUDED.contents,
-				secrets_url = EXCLUDED.secrets_url
-			 RETURNING id`,
-			url, hash, contents,
-		).Scan(&sid)
-
-		if txErr != nil {
-			return fmt.Errorf("failed to create workflow secrets: %w", txErr)
+		txErr := tx.QueryRowxContext(
+			ctx,
+			`DELETE FROM workflow_specs WHERE workflow_owner = $1 AND workflow_name = $2 AND workflow_id != $3`,
+			spec.WorkflowOwner,
+			spec.WorkflowName,
+			spec.WorkflowID,
+		).Scan(nil)
+		if txErr != nil && !errors.Is(txErr, sql.ErrNoRows) {
+			return fmt.Errorf("failed to clean up previous workflow specs: %w", txErr)
 		}
-
-		spec.SecretsID = sql.NullInt64{Int64: sid, Valid: true}
 
 		query := `
 			INSERT INTO workflow_specs (
@@ -335,6 +269,98 @@ func (orm *orm) UpsertWorkflowSpecWithSecrets(
 			RETURNING id
 		`
 
+		stmt, err := orm.ds.PrepareNamedContext(ctx, query)
+		if err != nil {
+			return err
+		}
+		defer stmt.Close()
+
+		spec.UpdatedAt = time.Now()
+		return stmt.QueryRowxContext(ctx, spec).Scan(&id)
+	})
+
+	return id, err
+}
+
+func (orm *orm) UpsertWorkflowSpecWithSecrets(
+	ctx context.Context,
+	spec *job.WorkflowSpec, url, hash, contents string) (int64, error) {
+	var id int64
+	err := sqlutil.TransactDataSource(ctx, orm.ds, nil, func(tx sqlutil.DataSource) error {
+		var sid int64
+		txErr := tx.QueryRowxContext(ctx,
+			`INSERT INTO workflow_secrets (secrets_url, secrets_url_hash, contents)
+			 VALUES ($1, $2, $3)
+			 ON CONFLICT (secrets_url_hash) DO UPDATE
+         	 SET 
+			 	secrets_url_hash = EXCLUDED.secrets_url_hash, 
+				contents = EXCLUDED.contents,
+				secrets_url = EXCLUDED.secrets_url
+			 RETURNING id`,
+			url, hash, contents,
+		).Scan(&sid)
+
+		if txErr != nil {
+			return fmt.Errorf("failed to create workflow secrets: %w", txErr)
+		}
+
+		txErr = tx.QueryRowxContext(
+			ctx,
+			`DELETE FROM workflow_specs WHERE workflow_owner = $1 AND workflow_name = $2 AND workflow_id != $3`,
+			spec.WorkflowOwner,
+			spec.WorkflowName,
+			spec.WorkflowID,
+		).Scan(nil)
+		if txErr != nil && !errors.Is(txErr, sql.ErrNoRows) {
+			return fmt.Errorf("failed to clean up previous workflow specs: %w", txErr)
+		}
+
+		spec.SecretsID = sql.NullInt64{Int64: sid, Valid: true}
+
+		query := `
+			INSERT INTO workflow_specs (
+				workflow,
+				config,
+				workflow_id,
+				workflow_owner,
+				workflow_name,
+				status,
+				binary_url,
+				config_url,
+				secrets_id,
+				created_at,
+				updated_at,
+				spec_type
+			) VALUES (
+				:workflow,
+				:config,
+				:workflow_id,
+				:workflow_owner,
+				:workflow_name,
+				:status,
+				:binary_url,
+				:config_url,
+				:secrets_id,
+				:created_at,
+				:updated_at,
+				:spec_type
+			) ON CONFLICT (workflow_owner, workflow_name) DO UPDATE
+			SET
+				workflow = EXCLUDED.workflow,
+				config = EXCLUDED.config,
+				workflow_id = EXCLUDED.workflow_id,
+				workflow_owner = EXCLUDED.workflow_owner,
+				workflow_name = EXCLUDED.workflow_name,
+				status = EXCLUDED.status,
+				binary_url = EXCLUDED.binary_url,
+				config_url = EXCLUDED.config_url,
+				created_at = EXCLUDED.created_at,
+				updated_at = EXCLUDED.updated_at,
+				spec_type = EXCLUDED.spec_type,
+				secrets_id = EXCLUDED.secrets_id
+			RETURNING id
+		`
+
 		stmt, txErr := tx.PrepareNamedContext(ctx, query)
 		if txErr != nil {
 			return txErr
@@ -356,6 +382,22 @@ func (orm *orm) GetWorkflowSpec(ctx context.Context, owner, name string) (*job.W
 
 	var spec job.WorkflowSpec
 	err := orm.ds.GetContext(ctx, &spec, query, owner, name)
+	if err != nil {
+		return nil, err
+	}
+
+	return &spec, nil
+}
+
+func (orm *orm) GetWorkflowSpecByID(ctx context.Context, id string) (*job.WorkflowSpec, error) {
+	query := `
+		SELECT *
+		FROM workflow_specs
+		WHERE workflow_id = $1
+	`
+
+	var spec job.WorkflowSpec
+	err := orm.ds.GetContext(ctx, &spec, query, id)
 	if err != nil {
 		return nil, err
 	}
