@@ -91,7 +91,6 @@ type CCIPChainState struct {
 	OffRamp            *offramp.OffRamp
 	FeeQuoter          *fee_quoter.FeeQuoter
 	RMNProxy           *rmn_proxy_contract.RMNProxyContract
-	RMNProxyExisting   *rmn_proxy_contract.RMNProxyContract
 	NonceManager       *nonce_manager.NonceManager
 	TokenAdminRegistry *token_admin_registry.TokenAdminRegistry
 	RegistryModule     *registry_module_owner_custom.RegistryModuleOwnerCustom

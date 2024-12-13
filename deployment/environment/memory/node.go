@@ -286,6 +286,8 @@ func CreateKeys(t *testing.T,
 		}
 		backend := chain.Client.(*Backend).Sim
 		fundAddress(t, chain.DeployerKey, transmitters[evmChainID], assets.Ether(1000).ToInt(), backend)
+		// in sim chains the send transactions are performed with 0x0 address as the sender
+		fundAddress(t, chain.DeployerKey, common.Address{}, assets.Ether(1000).ToInt(), backend)
 	}
 
 	return Keys{
