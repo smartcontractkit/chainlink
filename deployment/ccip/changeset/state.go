@@ -161,6 +161,15 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 		}
 		chainView.RMN[c.RMNRemote.Address().Hex()] = rmnView
 	}
+
+	if c.RMNHome != nil {
+		rmnHomeView, err := v1_6.GenerateRMNHomeView(c.RMNHome)
+		if err != nil {
+			return chainView, errors.Wrapf(err, "failed to generate rmn home view for rmn home %s", c.RMNHome.Address().String())
+		}
+		chainView.RMNHome[c.RMNHome.Address().Hex()] = rmnHomeView
+	}
+
 	if c.FeeQuoter != nil && c.Router != nil && c.TokenAdminRegistry != nil {
 		fqView, err := v1_6.GenerateFeeQuoterView(c.FeeQuoter, c.Router, c.TokenAdminRegistry)
 		if err != nil {
@@ -302,13 +311,13 @@ func LoadOnchainState(e deployment.Environment) (CCIPOnChainState, error) {
 // LoadChainState Loads all state for a chain into state
 func LoadChainState(chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (CCIPChainState, error) {
 	var state CCIPChainState
-	mcmsWithTimelock, err := commoncs.MaybeLoadMCMSWithTimelockState(chain, addresses)
+	mcmsWithTimelock, err := commoncs.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 	if err != nil {
 		return state, err
 	}
 	state.MCMSWithTimelockState = *mcmsWithTimelock
 
-	linkState, err := commoncs.MaybeLoadLinkTokenState(chain, addresses)
+	linkState, err := commoncs.MaybeLoadLinkTokenChainState(chain, addresses)
 	if err != nil {
 		return state, err
 	}

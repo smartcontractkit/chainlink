@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 
@@ -164,11 +165,15 @@ func TestActiveCandidate(t *testing.T) {
 		}
 	)
 	setCommitCandidateOp, err := setCandidateOnExistingDon(
+		e.Logger,
+		deployment.SimTransactOpts(),
+		tenv.Env.Chains[tenv.HomeChainSel],
 		ocr3ConfigMap[cctypes.PluginTypeCCIPCommit],
 		state.Chains[tenv.HomeChainSel].CapabilityRegistry,
 		state.Chains[tenv.HomeChainSel].CCIPHome,
 		tenv.FeedChainSel,
 		nodes.NonBootstraps(),
+		true,
 	)
 	require.NoError(t, err)
 	setCommitCandidateProposal, err := proposalutils.BuildProposalFromBatches(timelocksPerChain, proposerMCMSes, []timelock.BatchChainOperation{{
@@ -184,11 +189,15 @@ func TestActiveCandidate(t *testing.T) {
 
 	// create the op for the commit plugin as well
 	setExecCandidateOp, err := setCandidateOnExistingDon(
+		e.Logger,
+		deployment.SimTransactOpts(),
+		tenv.Env.Chains[tenv.HomeChainSel],
 		ocr3ConfigMap[cctypes.PluginTypeCCIPExec],
 		state.Chains[tenv.HomeChainSel].CapabilityRegistry,
 		state.Chains[tenv.HomeChainSel].CCIPHome,
 		tenv.FeedChainSel,
 		nodes.NonBootstraps(),
+		true,
 	)
 	require.NoError(t, err)
 
@@ -288,37 +297,9 @@ func Test_PromoteCandidate(t *testing.T) {
 			source := allChains[0]
 			dest := allChains[1]
 
-			nodes, err := deployment.NodeInfo(tenv.Env.NodeIDs, tenv.Env.Offchain)
-			require.NoError(t, err)
-
-			var nodeIDs []string
-			for _, node := range nodes {
-				nodeIDs = append(nodeIDs, node.NodeID)
-			}
-
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-				_, err = commonchangeset.ApplyChangesets(t, tenv.Env, map[uint64]*proposalutils.TimelockExecutionContracts{
-					source: {
-						Timelock:  state.Chains[source].Timelock,
-						CallProxy: state.Chains[source].CallProxy,
-					},
-					dest: {
-						Timelock:  state.Chains[dest].Timelock,
-						CallProxy: state.Chains[dest].CallProxy,
-					},
-					tenv.HomeChainSel: {
-						Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
-						CallProxy: state.Chains[tenv.HomeChainSel].CallProxy,
-					},
-				}, []commonchangeset.ChangesetApplication{
-					{
-						Changeset: commonchangeset.WrapChangeSet(commonchangeset.TransferToMCMSWithTimelock),
-						Config:    genTestTransferOwnershipConfig(tenv, allChains, state),
-					},
-				})
-				require.NoError(t, err)
-				assertTimelockOwnership(t, tenv, allChains, state)
+				transferToTimelock(t, tenv, state, source, dest)
 			}
 
 			var (
@@ -356,7 +337,6 @@ func Test_PromoteCandidate(t *testing.T) {
 					Config: PromoteAllCandidatesChangesetConfig{
 						HomeChainSelector: tenv.HomeChainSel,
 						DONChainSelector:  dest,
-						NodeIDs:           nodeIDs,
 						MCMS:              mcmsConfig,
 					},
 				},
@@ -377,4 +357,149 @@ func Test_PromoteCandidate(t *testing.T) {
 			require.Equal(t, [32]byte{}, activeDigestExec)
 		})
 	}
+}
+
+func Test_SetCandidate(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		mcmsEnabled bool
+	}{
+		{
+			name:        "MCMS enabled",
+			mcmsEnabled: true,
+		},
+		{
+			name:        "MCMS disabled",
+			mcmsEnabled: false,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := testcontext.Get(t)
+			tenv := NewMemoryEnvironment(t,
+				WithChains(2),
+				WithNodes(4))
+			state, err := LoadOnchainState(tenv.Env)
+			require.NoError(t, err)
+
+			// Deploy to all chains.
+			allChains := maps.Keys(tenv.Env.Chains)
+			source := allChains[0]
+			dest := allChains[1]
+
+			if tc.mcmsEnabled {
+				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
+				transferToTimelock(t, tenv, state, source, dest)
+			}
+
+			var (
+				capReg   = state.Chains[tenv.HomeChainSel].CapabilityRegistry
+				ccipHome = state.Chains[tenv.HomeChainSel].CCIPHome
+			)
+			donID, err := internal.DonIDForChain(capReg, ccipHome, dest)
+			require.NoError(t, err)
+			require.NotEqual(t, uint32(0), donID)
+			candidateDigestCommitBefore, err := ccipHome.GetCandidateDigest(&bind.CallOpts{
+				Context: ctx,
+			}, donID, uint8(types.PluginTypeCCIPCommit))
+			require.NoError(t, err)
+			require.Equal(t, [32]byte{}, candidateDigestCommitBefore)
+			candidateDigestExecBefore, err := ccipHome.GetCandidateDigest(&bind.CallOpts{
+				Context: ctx,
+			}, donID, uint8(types.PluginTypeCCIPExec))
+			require.NoError(t, err)
+			require.Equal(t, [32]byte{}, candidateDigestExecBefore)
+
+			var mcmsConfig *MCMSConfig
+			if tc.mcmsEnabled {
+				mcmsConfig = &MCMSConfig{
+					MinDelay: 0,
+				}
+			}
+			tokenConfig := NewTestTokenConfig(state.Chains[tenv.FeedChainSel].USDFeeds)
+			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, map[uint64]*proposalutils.TimelockExecutionContracts{
+				tenv.HomeChainSel: {
+					Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
+					CallProxy: state.Chains[tenv.HomeChainSel].CallProxy,
+				},
+			}, []commonchangeset.ChangesetApplication{
+				{
+					Changeset: commonchangeset.WrapChangeSet(SetCandidateChangeset),
+					Config: SetCandidateChangesetConfig{
+						HomeChainSelector: tenv.HomeChainSel,
+						FeedChainSelector: tenv.FeedChainSel,
+						DONChainSelector:  dest,
+						PluginType:        types.PluginTypeCCIPCommit,
+						CCIPOCRParams: DefaultOCRParams(
+							tenv.FeedChainSel,
+							tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
+							nil,
+						),
+						MCMS: mcmsConfig,
+					},
+				},
+				{
+					Changeset: commonchangeset.WrapChangeSet(SetCandidateChangeset),
+					Config: SetCandidateChangesetConfig{
+						HomeChainSelector: tenv.HomeChainSel,
+						FeedChainSelector: tenv.FeedChainSel,
+						DONChainSelector:  dest,
+						PluginType:        types.PluginTypeCCIPExec,
+						CCIPOCRParams: DefaultOCRParams(
+							tenv.FeedChainSel,
+							tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
+							nil,
+						),
+						MCMS: mcmsConfig,
+					},
+				},
+			})
+			require.NoError(t, err)
+
+			// after setting a new candidate on both plugins, the candidate config digest
+			// should be nonzero.
+			candidateDigestCommitAfter, err := ccipHome.GetCandidateDigest(&bind.CallOpts{
+				Context: ctx,
+			}, donID, uint8(types.PluginTypeCCIPCommit))
+			require.NoError(t, err)
+			require.NotEqual(t, [32]byte{}, candidateDigestCommitAfter)
+			require.NotEqual(t, candidateDigestCommitBefore, candidateDigestCommitAfter)
+
+			candidateDigestExecAfter, err := ccipHome.GetCandidateDigest(&bind.CallOpts{
+				Context: ctx,
+			}, donID, uint8(types.PluginTypeCCIPExec))
+			require.NoError(t, err)
+			require.NotEqual(t, [32]byte{}, candidateDigestExecAfter)
+			require.NotEqual(t, candidateDigestExecBefore, candidateDigestExecAfter)
+		})
+	}
+}
+
+func transferToTimelock(
+	t *testing.T,
+	tenv DeployedEnv,
+	state CCIPOnChainState,
+	source,
+	dest uint64) {
+	// Transfer ownership to timelock so that we can promote the zero digest later down the line.
+	_, err := commonchangeset.ApplyChangesets(t, tenv.Env, map[uint64]*proposalutils.TimelockExecutionContracts{
+		source: {
+			Timelock:  state.Chains[source].Timelock,
+			CallProxy: state.Chains[source].CallProxy,
+		},
+		dest: {
+			Timelock:  state.Chains[dest].Timelock,
+			CallProxy: state.Chains[dest].CallProxy,
+		},
+		tenv.HomeChainSel: {
+			Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
+			CallProxy: state.Chains[tenv.HomeChainSel].CallProxy,
+		},
+	}, []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(commonchangeset.TransferToMCMSWithTimelock),
+			Config:    genTestTransferOwnershipConfig(tenv, []uint64{source, dest}, state),
+		},
+	})
+	require.NoError(t, err)
+	assertTimelockOwnership(t, tenv, []uint64{source, dest}, state)
 }

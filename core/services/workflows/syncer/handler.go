@@ -428,7 +428,7 @@ func (h *eventHandler) workflowRegisteredEvent(
 	}
 
 	// Calculate the hash of the binary and config files
-	hash, err := pkgworkflows.GenerateWorkflowID(payload.WorkflowOwner, decodedBinary, config, payload.SecretsURL)
+	hash, err := pkgworkflows.GenerateWorkflowID(payload.WorkflowOwner, payload.WorkflowName, decodedBinary, config, payload.SecretsURL)
 	if err != nil {
 		return fmt.Errorf("failed to generate workflow id: %w", err)
 	}

@@ -18,10 +18,11 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/osutil"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+
+	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
@@ -35,7 +36,6 @@ import (
 )
 
 func TestRMN_TwoMessagesOnTwoLanesIncludingBatching(t *testing.T) {
-	t.Skip("This test is flaky and needs to be fixed")
 	runRmnTestCase(t, rmnTestCase{
 		name:        "messages on two lanes including batching",
 		waitForExec: true,
@@ -59,7 +59,6 @@ func TestRMN_TwoMessagesOnTwoLanesIncludingBatching(t *testing.T) {
 }
 
 func TestRMN_MultipleMessagesOnOneLaneNoWaitForExec(t *testing.T) {
-	t.Skip("This test is flaky and needs to be fixed")
 	runRmnTestCase(t, rmnTestCase{
 		name:        "multiple messages for rmn batching inspection and one rmn node down",
 		waitForExec: false, // do not wait for execution reports
@@ -82,7 +81,6 @@ func TestRMN_MultipleMessagesOnOneLaneNoWaitForExec(t *testing.T) {
 }
 
 func TestRMN_NotEnoughObservers(t *testing.T) {
-	t.Skip("This test is flaky and needs to be fixed")
 	runRmnTestCase(t, rmnTestCase{
 		name:                "one message but not enough observers, should not get a commit report",
 		passIfNoCommitAfter: 15 * time.Second,
@@ -105,7 +103,6 @@ func TestRMN_NotEnoughObservers(t *testing.T) {
 }
 
 func TestRMN_DifferentSigners(t *testing.T) {
-	t.Skip("This test is flaky and needs to be fixed")
 	runRmnTestCase(t, rmnTestCase{
 		name: "different signers and different observers",
 		homeChainConfig: homeChainConfig{
@@ -130,7 +127,6 @@ func TestRMN_DifferentSigners(t *testing.T) {
 }
 
 func TestRMN_NotEnoughSigners(t *testing.T) {
-	t.Skip("This test is flaky and needs to be fixed")
 	runRmnTestCase(t, rmnTestCase{
 		name:                "different signers and different observers",
 		passIfNoCommitAfter: 15 * time.Second,
@@ -156,7 +152,6 @@ func TestRMN_NotEnoughSigners(t *testing.T) {
 }
 
 func TestRMN_DifferentRmnNodesForDifferentChains(t *testing.T) {
-	t.Skip("This test is flaky and needs to be fixed")
 	runRmnTestCase(t, rmnTestCase{
 		name:        "different rmn nodes support different chains",
 		waitForExec: false,
@@ -183,12 +178,14 @@ func TestRMN_DifferentRmnNodesForDifferentChains(t *testing.T) {
 }
 
 func TestRMN_TwoMessagesOneSourceChainCursed(t *testing.T) {
-	t.Skip("This test is flaky and needs to be fixed")
 	runRmnTestCase(t, rmnTestCase{
-		name:                "two messages, one source chain is cursed",
+		name:                "two messages, one source chain is cursed the other chain was cursed but curse is revoked",
 		passIfNoCommitAfter: 15 * time.Second,
 		cursedSubjectsPerChain: map[int][]int{
 			chain1: {chain0},
+		},
+		revokedCursedSubjectsPerChain: map[int]map[int]time.Duration{
+			chain0: {globalCurse: 5 * time.Second}, // chain0 will be globally cursed and curse will be revoked later
 		},
 		homeChainConfig: homeChainConfig{
 			f: map[int]int{chain0: 1, chain1: 1},
@@ -210,7 +207,6 @@ func TestRMN_TwoMessagesOneSourceChainCursed(t *testing.T) {
 }
 
 func TestRMN_GlobalCurseTwoMessagesOnTwoLanes(t *testing.T) {
-	t.Skip("This test is flaky and needs to be fixed")
 	runRmnTestCase(t, rmnTestCase{
 		name:        "global curse messages on two lanes",
 		waitForExec: false,
@@ -316,6 +312,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	t.Logf("Sent all messages, seqNumCommit: %v seqNumExec: %v", seqNumCommit, seqNumExec)
 
 	tc.callContractsToCurseChains(ctx, t, onChainState, envWithRMN)
+	tc.callContractsToCurseAndRevokeCurse(ctx, t, onChainState, envWithRMN)
 
 	tc.enableOracles(ctx, t, envWithRMN, disabledNodes)
 
@@ -428,22 +425,25 @@ type rmnTestCase struct {
 	// If set to a positive value, the test will wait for that duration and will assert that commit report was not delivered.
 	passIfNoCommitAfter    time.Duration
 	cursedSubjectsPerChain map[int][]int
-	waitForExec            bool
-	homeChainConfig        homeChainConfig
-	remoteChainsConfig     []remoteChainConfig
-	rmnNodes               []rmnNode
-	messagesToSend         []messageToSend
+	// revokedCursedSubjectsPerChain is used to revoke this specific curses after a timer expires
+	revokedCursedSubjectsPerChain map[int]map[int]time.Duration // chainIdx -> subjectIdx -> timer to revoke
+	waitForExec                   bool
+	homeChainConfig               homeChainConfig
+	remoteChainsConfig            []remoteChainConfig
+	rmnNodes                      []rmnNode
+	messagesToSend                []messageToSend
 
 	// populated fields after environment setup
 	pf testCasePopulatedFields
 }
 
 type testCasePopulatedFields struct {
-	chainSelectors            []uint64
-	rmnHomeNodes              []rmn_home.RMNHomeNode
-	rmnRemoteSigners          []rmn_remote.RMNRemoteSigner
-	rmnHomeSourceChains       []rmn_home.RMNHomeSourceChain
-	cursedSubjectsPerChainSel map[uint64][]uint64
+	chainSelectors                   []uint64
+	rmnHomeNodes                     []rmn_home.RMNHomeNode
+	rmnRemoteSigners                 []rmn_remote.RMNRemoteSigner
+	rmnHomeSourceChains              []rmn_home.RMNHomeSourceChain
+	cursedSubjectsPerChainSel        map[uint64][]uint64
+	revokedCursedSubjectsPerChainSel map[uint64]map[uint64]time.Duration
 }
 
 func (tc *rmnTestCase) populateFields(t *testing.T, envWithRMN changeset.DeployedEnv, rmnCluster devenv.RMNCluster) {
@@ -496,6 +496,22 @@ func (tc *rmnTestCase) populateFields(t *testing.T, envWithRMN changeset.Deploye
 				subjSel = tc.pf.chainSelectors[subject]
 			}
 			tc.pf.cursedSubjectsPerChainSel[chainSel] = append(tc.pf.cursedSubjectsPerChainSel[chainSel], subjSel)
+		}
+	}
+
+	// populate revoked cursed subjects with actual chain selectors
+	tc.pf.revokedCursedSubjectsPerChainSel = make(map[uint64]map[uint64]time.Duration)
+	for chainIdx, subjects := range tc.revokedCursedSubjectsPerChain {
+		chainSel := tc.pf.chainSelectors[chainIdx]
+		for subject, revokeAfter := range subjects {
+			subjSel := uint64(globalCurse)
+			if subject != globalCurse {
+				subjSel = tc.pf.chainSelectors[subject]
+			}
+			if _, ok := tc.pf.revokedCursedSubjectsPerChainSel[chainSel]; !ok {
+				tc.pf.revokedCursedSubjectsPerChainSel[chainSel] = make(map[uint64]time.Duration)
+			}
+			tc.pf.revokedCursedSubjectsPerChainSel[chainSel][subjSel] = revokeAfter
 		}
 	}
 }
@@ -637,6 +653,44 @@ func (tc rmnTestCase) callContractsToCurseChains(ctx context.Context, t *testing
 			txCurse, errCurse := chState.RMNRemote.Curse(chain.DeployerKey, subj)
 			_, errConfirm := deployment.ConfirmIfNoError(chain, txCurse, errCurse)
 			require.NoError(t, errConfirm)
+		}
+
+		cs, err := chState.RMNRemote.GetCursedSubjects(&bind.CallOpts{Context: ctx})
+		require.NoError(t, err)
+		t.Logf("Cursed subjects: %v", cs)
+	}
+}
+
+func (tc rmnTestCase) callContractsToCurseAndRevokeCurse(ctx context.Context, t *testing.T, onChainState changeset.CCIPOnChainState, envWithRMN changeset.DeployedEnv) {
+	for _, remoteCfg := range tc.remoteChainsConfig {
+		remoteSel := tc.pf.chainSelectors[remoteCfg.chainIdx]
+		chState, ok := onChainState.Chains[remoteSel]
+		require.True(t, ok)
+		chain, ok := envWithRMN.Env.Chains[remoteSel]
+		require.True(t, ok)
+
+		cursedSubjects, ok := tc.revokedCursedSubjectsPerChain[remoteCfg.chainIdx]
+		if !ok {
+			continue // nothing to curse on this chain
+		}
+
+		for subjectDescription, revokeAfter := range cursedSubjects {
+			subj := reader.GlobalCurseSubject
+			if subjectDescription != globalCurse {
+				subj = chainSelectorToBytes16(tc.pf.chainSelectors[subjectDescription])
+			}
+			t.Logf("cursing subject %d (%d)", subj, subjectDescription)
+			txCurse, errCurse := chState.RMNRemote.Curse(chain.DeployerKey, subj)
+			_, errConfirm := deployment.ConfirmIfNoError(chain, txCurse, errCurse)
+			require.NoError(t, errConfirm)
+
+			go func() {
+				<-time.NewTimer(revokeAfter).C
+				t.Logf("revoking curse on subject %d (%d)", subj, subjectDescription)
+				txUncurse, errUncurse := chState.RMNRemote.Uncurse(chain.DeployerKey, subj)
+				_, errConfirm = deployment.ConfirmIfNoError(chain, txUncurse, errUncurse)
+				require.NoError(t, errConfirm)
+			}()
 		}
 
 		cs, err := chState.RMNRemote.GetCursedSubjects(&bind.CallOpts{Context: ctx})
