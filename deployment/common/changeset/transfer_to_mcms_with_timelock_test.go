@@ -6,8 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	"math/big"
-
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -28,23 +27,18 @@ func TestTransferToMCMSWithTimelock(t *testing.T) {
 		{
 			Changeset: WrapChangeSet(DeployMCMSWithTimelock),
 			Config: map[uint64]types.MCMSWithTimelockConfig{
-				chain1: {
-					Canceller:        SingleGroupMCMS(t),
-					Bypasser:         SingleGroupMCMS(t),
-					Proposer:         SingleGroupMCMS(t),
-					TimelockMinDelay: big.NewInt(0),
-				},
+				chain1: proposalutils.SingleGroupTimelockConfig(t),
 			},
 		},
 	})
 	require.NoError(t, err)
 	addrs, err := e.ExistingAddresses.AddressesForChain(chain1)
 	require.NoError(t, err)
-	state, err := MaybeLoadMCMSWithTimelockState(e.Chains[chain1], addrs)
+	state, err := MaybeLoadMCMSWithTimelockChainState(e.Chains[chain1], addrs)
 	require.NoError(t, err)
-	link, err := MaybeLoadLinkTokenState(e.Chains[chain1], addrs)
+	link, err := MaybeLoadLinkTokenChainState(e.Chains[chain1], addrs)
 	require.NoError(t, err)
-	e, err = ApplyChangesets(t, e, map[uint64]*TimelockExecutionContracts{
+	e, err = ApplyChangesets(t, e, map[uint64]*proposalutils.TimelockExecutionContracts{
 		chain1: {
 			Timelock:  state.Timelock,
 			CallProxy: state.CallProxy,
@@ -62,7 +56,7 @@ func TestTransferToMCMSWithTimelock(t *testing.T) {
 	})
 	require.NoError(t, err)
 	// We expect now that the link token is owned by the MCMS timelock.
-	link, err = MaybeLoadLinkTokenState(e.Chains[chain1], addrs)
+	link, err = MaybeLoadLinkTokenChainState(e.Chains[chain1], addrs)
 	require.NoError(t, err)
 	o, err := link.LinkToken.Owner(nil)
 	require.NoError(t, err)

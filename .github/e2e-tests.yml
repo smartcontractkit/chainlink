@@ -966,7 +966,7 @@ runner-test-matrix:
   - id: smoke/ccip/ccip_rmn_test.go:^TestRMN_TwoMessagesOnTwoLanesIncludingBatching$
     path: integration-tests/smoke/ccip/ccip_rmn_test.go
     test_env_type: docker
-    runs_on: ubuntu-latest
+    runs_on: ubuntu20.04-8cores-32GB
     triggers:
       - PR E2E Core Tests
       - Nightly E2E Tests
@@ -982,7 +982,7 @@ runner-test-matrix:
   - id: smoke/ccip/ccip_rmn_test.go:^TestRMN_MultipleMessagesOnOneLaneNoWaitForExec$
     path: integration-tests/smoke/ccip/ccip_rmn_test.go
     test_env_type: docker
-    runs_on: ubuntu-latest
+    runs_on: ubuntu20.04-8cores-32GB
     triggers:
       - PR E2E Core Tests
       - Nightly E2E Tests
@@ -998,7 +998,7 @@ runner-test-matrix:
   - id: smoke/ccip/ccip_rmn_test.go:^TestRMN_NotEnoughObservers$
     path: integration-tests/smoke/ccip/ccip_rmn_test.go
     test_env_type: docker
-    runs_on: ubuntu-latest
+    runs_on: ubuntu20.04-8cores-32GB
     triggers:
       - PR E2E Core Tests
       - Nightly E2E Tests
@@ -1014,7 +1014,7 @@ runner-test-matrix:
   - id: smoke/ccip/ccip_rmn_test.go:^TestRMN_DifferentSigners$
     path: integration-tests/smoke/ccip/ccip_rmn_test.go
     test_env_type: docker
-    runs_on: ubuntu-latest
+    runs_on: ubuntu20.04-8cores-32GB
     triggers:
       - PR E2E Core Tests
       - Nightly E2E Tests
@@ -1030,7 +1030,7 @@ runner-test-matrix:
   - id: smoke/ccip/ccip_rmn_test.go:^TestRMN_NotEnoughSigners$
     path: integration-tests/smoke/ccip/ccip_rmn_test.go
     test_env_type: docker
-    runs_on: ubuntu-latest
+    runs_on: ubuntu20.04-8cores-32GB
     triggers:
       - PR E2E Core Tests
       - Nightly E2E Tests
@@ -1046,7 +1046,7 @@ runner-test-matrix:
   - id: smoke/ccip/ccip_rmn_test.go:^TestRMN_DifferentRmnNodesForDifferentChains$
     path: integration-tests/smoke/ccip/ccip_rmn_test.go
     test_env_type: docker
-    runs_on: ubuntu-latest
+    runs_on: ubuntu20.04-8cores-32GB
     triggers:
       - PR E2E Core Tests
       - Nightly E2E Tests
@@ -1062,7 +1062,7 @@ runner-test-matrix:
   - id: smoke/ccip/ccip_rmn_test.go:^TestRMN_TwoMessagesOneSourceChainCursed$
     path: integration-tests/smoke/ccip/ccip_rmn_test.go
     test_env_type: docker
-    runs_on: ubuntu-latest
+    runs_on: ubuntu20.04-8cores-32GB
     triggers:
       - PR E2E Core Tests
       - Nightly E2E Tests
@@ -1078,7 +1078,7 @@ runner-test-matrix:
   - id: smoke/ccip/ccip_rmn_test.go:^TestRMN_GlobalCurseTwoMessagesOnTwoLanes$
     path: integration-tests/smoke/ccip/ccip_rmn_test.go
     test_env_type: docker
-    runs_on: ubuntu-latest
+    runs_on: ubuntu20.04-8cores-32GB
     triggers:
       - PR E2E Core Tests
       - Nightly E2E Tests

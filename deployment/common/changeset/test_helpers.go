@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 type ChangesetApplication struct {
@@ -32,7 +33,7 @@ func WrapChangeSet[C any](fn deployment.ChangeSet[C]) func(e deployment.Environm
 }
 
 // ApplyChangesets applies the changeset applications to the environment and returns the updated environment.
-func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPerChain map[uint64]*TimelockExecutionContracts, changesetApplications []ChangesetApplication) (deployment.Environment, error) {
+func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPerChain map[uint64]*proposalutils.TimelockExecutionContracts, changesetApplications []ChangesetApplication) (deployment.Environment, error) {
 	currentEnv := e
 	for i, csa := range changesetApplications {
 		out, err := csa.Changeset(currentEnv, csa.Config)
@@ -72,14 +73,14 @@ func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPe
 					chains.Add(uint64(op.ChainIdentifier))
 				}
 
-				signed := SignProposal(t, e, &prop)
+				signed := proposalutils.SignProposal(t, e, &prop)
 				for _, sel := range chains.ToSlice() {
 					timelockContracts, ok := timelockContractsPerChain[sel]
 					if !ok || timelockContracts == nil {
 						return deployment.Environment{}, fmt.Errorf("timelock contracts not found for chain %d", sel)
 					}
 
-					ExecuteProposal(t, e, signed, timelockContracts, sel)
+					proposalutils.ExecuteProposal(t, e, signed, timelockContracts, sel)
 				}
 			}
 		}
@@ -91,6 +92,7 @@ func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPe
 			NodeIDs:           e.NodeIDs,
 			Offchain:          e.Offchain,
 			OCRSecrets:        e.OCRSecrets,
+			GetContext:        e.GetContext,
 		}
 	}
 	return currentEnv, nil

@@ -1,12 +1,12 @@
 package changeset
 
 import (
-	"math/big"
 	"testing"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
@@ -30,6 +30,7 @@ import (
 )
 
 func TestAddChainInbound(t *testing.T) {
+	t.Parallel()
 	// 4 chains where the 4th is added after initial deployment.
 	e := NewMemoryEnvironment(t,
 		WithChains(4),
@@ -46,12 +47,7 @@ func TestAddChainInbound(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, e.Env.ExistingAddresses.Merge(newAddresses))
 
-	cfg := commontypes.MCMSWithTimelockConfig{
-		Canceller:        commonchangeset.SingleGroupMCMS(t),
-		Bypasser:         commonchangeset.SingleGroupMCMS(t),
-		Proposer:         commonchangeset.SingleGroupMCMS(t),
-		TimelockMinDelay: big.NewInt(0),
-	}
+	cfg := proposalutils.SingleGroupTimelockConfig(t)
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
@@ -152,7 +148,7 @@ func TestAddChainInbound(t *testing.T) {
 	}
 
 	// transfer ownership to timelock
-	_, err = commonchangeset.ApplyChangesets(t, e.Env, map[uint64]*commonchangeset.TimelockExecutionContracts{
+	_, err = commonchangeset.ApplyChangesets(t, e.Env, map[uint64]*proposalutils.TimelockExecutionContracts{
 		initialDeploy[0]: {
 			Timelock:  state.Chains[initialDeploy[0]].Timelock,
 			CallProxy: state.Chains[initialDeploy[0]].CallProxy,
@@ -183,18 +179,11 @@ func TestAddChainInbound(t *testing.T) {
 
 	assertTimelockOwnership(t, e, initialDeploy, state)
 
-	nodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
-	require.NoError(t, err)
-
 	// TODO This currently is not working - Able to send the request here but request gets stuck in execution
 	// Send a new message and expect that this is delivered once the chain is completely set up as inbound
 	//TestSendRequest(t, e.Env, state, initialDeploy[0], newChain, true)
-	var nodeIDs []string
-	for _, node := range nodes {
-		nodeIDs = append(nodeIDs, node.NodeID)
-	}
 
-	_, err = commonchangeset.ApplyChangesets(t, e.Env, map[uint64]*commonchangeset.TimelockExecutionContracts{
+	_, err = commonchangeset.ApplyChangesets(t, e.Env, map[uint64]*proposalutils.TimelockExecutionContracts{
 		e.HomeChainSel: {
 			Timelock:  state.Chains[e.HomeChainSel].Timelock,
 			CallProxy: state.Chains[e.HomeChainSel].CallProxy,
@@ -212,7 +201,6 @@ func TestAddChainInbound(t *testing.T) {
 					FeedChainSelector: e.FeedChainSel,
 					DONChainSelector:  newChain,
 					PluginType:        types.PluginTypeCCIPCommit,
-					NodeIDs:           nodeIDs,
 					CCIPOCRParams: DefaultOCRParams(
 						e.FeedChainSel,
 						tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[newChain].LinkToken, state.Chains[newChain].Weth9),
@@ -231,7 +219,6 @@ func TestAddChainInbound(t *testing.T) {
 				FeedChainSelector: e.FeedChainSel,
 				DONChainSelector:  newChain,
 				PluginType:        types.PluginTypeCCIPExec,
-				NodeIDs:           nodeIDs,
 				CCIPOCRParams: DefaultOCRParams(
 					e.FeedChainSel,
 					tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[newChain].LinkToken, state.Chains[newChain].Weth9),
@@ -247,7 +234,6 @@ func TestAddChainInbound(t *testing.T) {
 			Config: PromoteAllCandidatesChangesetConfig{
 				HomeChainSelector: e.HomeChainSel,
 				DONChainSelector:  newChain,
-				NodeIDs:           nodeIDs,
 				MCMS: &MCMSConfig{
 					MinDelay: 0,
 				},

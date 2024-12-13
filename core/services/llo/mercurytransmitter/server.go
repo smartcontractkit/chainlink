@@ -62,6 +62,22 @@ var (
 	},
 		[]string{"donID", "serverURL", "code"},
 	)
+	promTransmitConcurrentTransmitGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: "llo",
+		Subsystem: "mercurytransmitter",
+		Name:      "concurrent_transmit_gauge",
+		Help:      "Gauge that measures the number of transmit threads currently waiting on a remote transmit call. You may wish to alert if this exceeds some number for a given period of time, or if it ever reaches its max.",
+	},
+		[]string{"donID", "serverURL"},
+	)
+	promTransmitConcurrentDeleteGauge = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: "llo",
+		Subsystem: "mercurytransmitter",
+		Name:      "concurrent_delete_gauge",
+		Help:      "Gauge that measures the number of delete threads currently waiting on a delete call to the DB. You may wish to alert if this exceeds some number for a given period of time, or if it ever reaches its max.",
+	},
+		[]string{"donID", "serverURL"},
+	)
 )
 
 type ReportPacker interface {
@@ -87,12 +103,14 @@ type server struct {
 	evmPremiumLegacyPacker ReportPacker
 	jsonPacker             ReportPacker
 
-	transmitSuccessCount          prometheus.Counter
-	transmitDuplicateCount        prometheus.Counter
-	transmitConnectionErrorCount  prometheus.Counter
-	transmitQueueDeleteErrorCount prometheus.Counter
-	transmitQueueInsertErrorCount prometheus.Counter
-	transmitQueuePushErrorCount   prometheus.Counter
+	transmitSuccessCount            prometheus.Counter
+	transmitDuplicateCount          prometheus.Counter
+	transmitConnectionErrorCount    prometheus.Counter
+	transmitQueueDeleteErrorCount   prometheus.Counter
+	transmitQueueInsertErrorCount   prometheus.Counter
+	transmitQueuePushErrorCount     prometheus.Counter
+	transmitConcurrentTransmitGauge prometheus.Gauge
+	transmitConcurrentDeleteGauge   prometheus.Gauge
 
 	transmitThreadBusyCount atomic.Int32
 	deleteThreadBusyCount   atomic.Int32
@@ -130,6 +148,8 @@ func newServer(lggr logger.Logger, verboseLogging bool, cfg QueueConfig, client 
 		promTransmitQueueDeleteErrorCount.WithLabelValues(donIDStr, serverURL),
 		promTransmitQueueInsertErrorCount.WithLabelValues(donIDStr, serverURL),
 		promTransmitQueuePushErrorCount.WithLabelValues(donIDStr, serverURL),
+		promTransmitConcurrentTransmitGauge.WithLabelValues(donIDStr, serverURL),
+		promTransmitConcurrentDeleteGauge.WithLabelValues(donIDStr, serverURL),
 		atomic.Int32{},
 		atomic.Int32{},
 	}
@@ -161,7 +181,7 @@ func (s *server) runDeleteQueueLoop(stopCh services.StopChan, wg *sync.WaitGroup
 		select {
 		case hash := <-s.deleteQueue:
 			for {
-				s.deleteThreadBusyCount.Add(1)
+				s.deleteThreadBusyCountInc()
 				if err := s.pm.orm.Delete(ctx, [][32]byte{hash}); err != nil {
 					s.lggr.Errorw("Failed to delete transmission record", "err", err, "transmissionHash", hash)
 					s.transmitQueueDeleteErrorCount.Inc()
@@ -170,7 +190,7 @@ func (s *server) runDeleteQueueLoop(stopCh services.StopChan, wg *sync.WaitGroup
 						// Wait a backoff duration before trying to delete again
 						continue
 					case <-stopCh:
-						s.deleteThreadBusyCount.Add(-1)
+						s.deleteThreadBusyCountDec()
 						// abort and return immediately on stop even if items remain in queue
 						return
 					}
@@ -179,12 +199,29 @@ func (s *server) runDeleteQueueLoop(stopCh services.StopChan, wg *sync.WaitGroup
 			}
 			// success
 			b.Reset()
-			s.deleteThreadBusyCount.Add(-1)
+			s.deleteThreadBusyCountDec()
 		case <-stopCh:
 			// abort and return immediately on stop even if items remain in queue
 			return
 		}
 	}
+}
+
+func (s *server) transmitThreadBusyCountInc() {
+	val := s.transmitThreadBusyCount.Add(1)
+	s.transmitConcurrentTransmitGauge.Set(float64(val))
+}
+func (s *server) transmitThreadBusyCountDec() {
+	val := s.transmitThreadBusyCount.Add(-1)
+	s.transmitConcurrentTransmitGauge.Set(float64(val))
+}
+func (s *server) deleteThreadBusyCountInc() {
+	val := s.deleteThreadBusyCount.Add(1)
+	s.transmitConcurrentDeleteGauge.Set(float64(val))
+}
+func (s *server) deleteThreadBusyCountDec() {
+	val := s.deleteThreadBusyCount.Add(-1)
+	s.transmitConcurrentDeleteGauge.Set(float64(val))
 }
 
 func (s *server) runQueueLoop(stopCh services.StopChan, wg *sync.WaitGroup, donIDStr string) {
@@ -208,8 +245,8 @@ func (s *server) runQueueLoop(stopCh services.StopChan, wg *sync.WaitGroup, donI
 				return false
 			}
 
-			s.transmitThreadBusyCount.Add(1)
-			defer s.transmitThreadBusyCount.Add(-1)
+			s.transmitThreadBusyCountInc()
+			defer s.transmitThreadBusyCountDec()
 
 			req, res, err := func(ctx context.Context) (*pb.TransmitRequest, *pb.TransmitResponse, error) {
 				ctx, cancelFn := context.WithTimeout(ctx, utils.WithJitter(s.transmitTimeout))

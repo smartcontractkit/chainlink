@@ -15,7 +15,8 @@ const (
 	DefaultValidUntil = 72 * time.Hour
 )
 
-func buildProposalMetadata(
+
+func BuildProposalMetadata(
 	chainSelectors []uint64,
 	proposerMcmsesPerChain map[uint64]*gethwrappers.ManyChainMultiSig,
 ) (map[mcms.ChainIdentifier]mcms.ChainMetadata, error) {
@@ -56,7 +57,7 @@ func BuildProposalFromBatches(
 		chains.Add(uint64(op.ChainIdentifier))
 	}
 
-	mcmsMd, err := buildProposalMetadata(chains.ToSlice(), proposerMcmsesPerChain)
+	mcmsMd, err := BuildProposalMetadata(chains.ToSlice(), proposerMcmsesPerChain)
 	if err != nil {
 		return nil, err
 	}

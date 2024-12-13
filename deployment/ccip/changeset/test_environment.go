@@ -20,6 +20,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 )
@@ -299,12 +300,7 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tc *TestConfigs, tEnv Test
 	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 
 	for _, c := range e.Env.AllChainSelectors() {
-		mcmsCfg[c] = commontypes.MCMSWithTimelockConfig{
-			Canceller:        commonchangeset.SingleGroupMCMS(t),
-			Bypasser:         commonchangeset.SingleGroupMCMS(t),
-			Proposer:         commonchangeset.SingleGroupMCMS(t),
-			TimelockMinDelay: big.NewInt(0),
-		}
+		mcmsCfg[c] = proposalutils.SingleGroupTimelockConfig(t)
 	}
 	var (
 		usdcChains   []uint64
@@ -382,9 +378,9 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tc *TestConfigs, tEnv Test
 	}
 	// Build the per chain config.
 	chainConfigs := make(map[uint64]CCIPOCRParams)
-	timelockContractsPerChain := make(map[uint64]*commonchangeset.TimelockExecutionContracts)
+	timelockContractsPerChain := make(map[uint64]*proposalutils.TimelockExecutionContracts)
 	for _, chain := range allChains {
-		timelockContractsPerChain[chain] = &commonchangeset.TimelockExecutionContracts{
+		timelockContractsPerChain[chain] = &proposalutils.TimelockExecutionContracts{
 			Timelock:  state.Chains[chain].Timelock,
 			CallProxy: state.Chains[chain].CallProxy,
 		}

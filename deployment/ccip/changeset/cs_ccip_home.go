@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
@@ -32,7 +33,6 @@ type PromoteAllCandidatesChangesetConfig struct {
 	// DONChainSelector is the chain selector of the DON that we want to promote the candidate config of.
 	// Note that each (chain, ccip capability version) pair has a unique DON ID.
 	DONChainSelector uint64
-	NodeIDs          []string
 
 	// MCMS is optional MCMS configuration, if provided the changeset will generate an MCMS proposal.
 	// If nil, the changeset will execute the commands directly using the deployer key
@@ -47,7 +47,7 @@ func (p PromoteAllCandidatesChangesetConfig) Validate(e deployment.Environment, 
 	if err := deployment.IsValidChainSelector(p.DONChainSelector); err != nil {
 		return nil, fmt.Errorf("don chain selector invalid: %w", err)
 	}
-	if len(p.NodeIDs) == 0 {
+	if len(e.NodeIDs) == 0 {
 		return nil, fmt.Errorf("NodeIDs must be set")
 	}
 	if state.Chains[p.HomeChainSelector].CCIPHome == nil {
@@ -56,8 +56,12 @@ func (p PromoteAllCandidatesChangesetConfig) Validate(e deployment.Environment, 
 	if state.Chains[p.HomeChainSelector].CapabilityRegistry == nil {
 		return nil, fmt.Errorf("CapabilityRegistry contract does not exist")
 	}
+	if state.Chains[p.DONChainSelector].OffRamp == nil {
+		// should not be possible, but a defensive check.
+		return nil, fmt.Errorf("OffRamp contract does not exist")
+	}
 
-	nodes, err := deployment.NodeInfo(p.NodeIDs, e.Offchain)
+	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	if err != nil {
 		return nil, fmt.Errorf("fetch node info: %w", err)
 	}
@@ -103,7 +107,10 @@ func (p PromoteAllCandidatesChangesetConfig) Validate(e deployment.Environment, 
 }
 
 // PromoteAllCandidatesChangeset generates a proposal to call promoteCandidate on the CCIPHome through CapReg.
-// This needs to be called after SetCandidateProposal is executed.
+// Note that a DON must exist prior to being able to use this changeset effectively,
+// i.e AddDonAndSetCandidateChangeset must be called first.
+// This can also be used to promote a 0x0 candidate config to be the active, effectively shutting down the DON.
+// At that point you can call the RemoveDON changeset to remove the DON entirely from the capability registry.
 func PromoteAllCandidatesChangeset(
 	e deployment.Environment,
 	cfg PromoteAllCandidatesChangesetConfig,
@@ -203,8 +210,8 @@ type SetCandidateChangesetConfig struct {
 	// DONChainSelector is the chain selector of the chain where the DON will be added.
 	DONChainSelector uint64
 
-	PluginType    types.PluginType
-	NodeIDs       []string
+	PluginType types.PluginType
+	// Note that the PluginType field is used to determine which field in CCIPOCRParams is used.
 	CCIPOCRParams CCIPOCRParams
 
 	// MCMS is optional MCMS configuration, if provided the changeset will generate an MCMS proposal.
@@ -223,7 +230,7 @@ func (s SetCandidateChangesetConfig) Validate(e deployment.Environment, state CC
 	if err := deployment.IsValidChainSelector(s.DONChainSelector); err != nil {
 		return nil, fmt.Errorf("don chain selector invalid: %w", err)
 	}
-	if len(s.NodeIDs) == 0 {
+	if len(e.NodeIDs) == 0 {
 		return nil, fmt.Errorf("nodeIDs must be set")
 	}
 	if state.Chains[s.HomeChainSelector].CCIPHome == nil {
@@ -232,17 +239,22 @@ func (s SetCandidateChangesetConfig) Validate(e deployment.Environment, state CC
 	if state.Chains[s.HomeChainSelector].CapabilityRegistry == nil {
 		return nil, fmt.Errorf("CapabilityRegistry contract does not exist")
 	}
+	if state.Chains[s.DONChainSelector].OffRamp == nil {
+		// should not be possible, but a defensive check.
+		return nil, fmt.Errorf("OffRamp contract does not exist on don chain selector %d", s.DONChainSelector)
+	}
 	if s.PluginType != types.PluginTypeCCIPCommit &&
 		s.PluginType != types.PluginTypeCCIPExec {
 		return nil, fmt.Errorf("PluginType must be set to either CCIPCommit or CCIPExec")
 	}
 
-	nodes, err := deployment.NodeInfo(s.NodeIDs, e.Offchain)
+	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	if err != nil {
 		return nil, fmt.Errorf("get node info: %w", err)
 	}
 
 	// TODO: validate token config
+	// TODO: validate gas config
 
 	// check that chain config is set up for the new chain
 	chainConfig, err := state.Chains[s.HomeChainSelector].CCIPHome.GetChainConfig(nil, s.DONChainSelector)
@@ -269,6 +281,11 @@ func (s SetCandidateChangesetConfig) Validate(e deployment.Environment, state CC
 
 // AddDonAndSetCandidateChangeset adds new DON for destination to home chain
 // and sets the plugin config as candidateConfig for the don.
+//
+// This is the first step to creating a CCIP DON and must be executed before any
+// other changesets (SetCandidateChangeset, PromoteAllCandidatesChangeset)
+// can be executed.
+//
 // Note that these operations must be done together because the createDON call
 // in the capability registry calls the capability config contract, so we must
 // provide suitable calldata for CCIPHome.
@@ -409,8 +426,7 @@ func newDonWithCandidateOp(
 }
 
 // SetCandidateChangeset generates a proposal to call setCandidate on the CCIPHome through the capability registry.
-// If the MCMS is enabled, it will generate an MCMS proposal.
-// If the MCMS is disabled, it will execute the txes directly using the deployer key.
+// A DON must exist in order to use this changeset effectively, i.e AddDonAndSetCandidateChangeset must be called first.
 func SetCandidateChangeset(
 	e deployment.Environment,
 	cfg SetCandidateChangesetConfig,
@@ -450,6 +466,7 @@ func SetCandidateChangeset(
 	}
 
 	setCandidateMCMSOps, err := setCandidateOnExistingDon(
+		e.Logger,
 		txOpts,
 		e.Chains[cfg.HomeChainSelector],
 		config,
@@ -494,6 +511,7 @@ func SetCandidateChangeset(
 // setCandidateOnExistingDon calls setCandidate on CCIPHome contract through the UpdateDON call on CapReg contract
 // This proposes to set up OCR3 config for the provided plugin for the DON
 func setCandidateOnExistingDon(
+	lggr logger.Logger,
 	txOpts *bind.TransactOpts,
 	homeChain deployment.Chain,
 	pluginConfig ccip_home.CCIPHomeOCR3Config,
@@ -512,7 +530,7 @@ func setCandidateOnExistingDon(
 		return nil, fmt.Errorf("don doesn't exist in CR for chain %d", chainSelector)
 	}
 
-	fmt.Printf("donID for chain %d: %d", chainSelector, donID)
+	lggr.Infof("donID for chain %d: %d", chainSelector, donID)
 
 	encodedSetCandidateCall, err := internal.CCIPHomeABI.Pack(
 		"setCandidate",
@@ -541,6 +559,12 @@ func setCandidateOnExistingDon(
 	)
 	if err != nil {
 		return nil, fmt.Errorf("update don w/ setCandidate call: %w", err)
+	}
+	if !mcmsEnabled {
+		_, err = deployment.ConfirmIfNoError(homeChain, updateDonTx, err)
+		if err != nil {
+			return nil, fmt.Errorf("error confirming updateDon call: %w", err)
+		}
 	}
 	if !mcmsEnabled {
 		_, err = deployment.ConfirmIfNoError(homeChain, updateDonTx, err)

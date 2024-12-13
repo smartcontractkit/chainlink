@@ -290,3 +290,86 @@ func Test_GetContentsByWorkflowID_SecretsProvidedButEmpty(t *testing.T) {
 	_, _, err = orm.GetContentsByWorkflowID(ctx, workflowID)
 	require.ErrorIs(t, err, ErrEmptySecrets)
 }
+
+func Test_UpsertWorkflowSpecWithSecrets(t *testing.T) {
+	db := pgtest.NewSqlxDB(t)
+	ctx := testutils.Context(t)
+	lggr := logger.TestLogger(t)
+	orm := &orm{ds: db, lggr: lggr}
+
+	t.Run("inserts new spec and new secrets", func(t *testing.T) {
+		giveURL := "https://example.com"
+		giveBytes, err := crypto.Keccak256([]byte(giveURL))
+		require.NoError(t, err)
+		giveHash := hex.EncodeToString(giveBytes)
+		giveContent := "some contents"
+
+		spec := &job.WorkflowSpec{
+			Workflow:      "test_workflow",
+			Config:        "test_config",
+			WorkflowID:    "cid-123",
+			WorkflowOwner: "owner-123",
+			WorkflowName:  "Test Workflow",
+			Status:        job.WorkflowSpecStatusActive,
+			BinaryURL:     "http://example.com/binary",
+			ConfigURL:     "http://example.com/config",
+			CreatedAt:     time.Now(),
+			SpecType:      job.WASMFile,
+		}
+
+		_, err = orm.UpsertWorkflowSpecWithSecrets(ctx, spec, giveURL, giveHash, giveContent)
+		require.NoError(t, err)
+
+		// Verify the record exists in the database
+		var dbSpec job.WorkflowSpec
+		err = db.Get(&dbSpec, `SELECT * FROM workflow_specs WHERE workflow_owner = $1 AND workflow_name = $2`, spec.WorkflowOwner, spec.WorkflowName)
+		require.NoError(t, err)
+		require.Equal(t, spec.Workflow, dbSpec.Workflow)
+
+		// Verify the secrets exists in the database
+		contents, err := orm.GetContents(ctx, giveURL)
+		require.NoError(t, err)
+		require.Equal(t, giveContent, contents)
+	})
+
+	t.Run("updates existing spec and secrets", func(t *testing.T) {
+		giveURL := "https://example.com"
+		giveBytes, err := crypto.Keccak256([]byte(giveURL))
+		require.NoError(t, err)
+		giveHash := hex.EncodeToString(giveBytes)
+		giveContent := "some contents"
+
+		spec := &job.WorkflowSpec{
+			Workflow:      "test_workflow",
+			Config:        "test_config",
+			WorkflowID:    "cid-123",
+			WorkflowOwner: "owner-123",
+			WorkflowName:  "Test Workflow",
+			Status:        job.WorkflowSpecStatusActive,
+			BinaryURL:     "http://example.com/binary",
+			ConfigURL:     "http://example.com/config",
+			CreatedAt:     time.Now(),
+			SpecType:      job.WASMFile,
+		}
+
+		_, err = orm.UpsertWorkflowSpecWithSecrets(ctx, spec, giveURL, giveHash, giveContent)
+		require.NoError(t, err)
+
+		// Update the status
+		spec.Status = job.WorkflowSpecStatusPaused
+
+		_, err = orm.UpsertWorkflowSpecWithSecrets(ctx, spec, giveURL, giveHash, "new contents")
+		require.NoError(t, err)
+
+		// Verify the record is updated in the database
+		var dbSpec job.WorkflowSpec
+		err = db.Get(&dbSpec, `SELECT * FROM workflow_specs WHERE workflow_owner = $1 AND workflow_name = $2`, spec.WorkflowOwner, spec.WorkflowName)
+		require.NoError(t, err)
+		require.Equal(t, spec.Config, dbSpec.Config)
+
+		// Verify the secrets is updated in the database
+		contents, err := orm.GetContents(ctx, giveURL)
+		require.NoError(t, err)
+		require.Equal(t, "new contents", contents)
+	})
+}
