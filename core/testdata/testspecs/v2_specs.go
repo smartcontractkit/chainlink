@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	tomlTools "github.com/pelletier/go-toml"
+	"github.com/pelletier/go-toml/v2"
 	"github.com/test-go/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -886,7 +886,7 @@ ds -> ds_parse -> ds_multiply;
 
 func GenerateStreamSpecJob(spec StreamSpec) (job.Job, error) {
 	jb := job.Job{ExternalJobID: uuid.New()}
-	err := tomlTools.Unmarshal([]byte(spec.Toml()), &jb)
+	err := toml.Unmarshal([]byte(spec.Toml()), &jb)
 	return jb, err
 }
 
