@@ -826,8 +826,6 @@ func revokeCandidateOps(
 		return nil, fmt.Errorf("pack set candidate call: %w", err)
 	}
 
-	fmt.Printf("encoded revoke candidate call: %x\n", encodedRevokeCandidateCall)
-
 	updateDonTx, err := capReg.UpdateDON(
 		txOpts,
 		donID,
