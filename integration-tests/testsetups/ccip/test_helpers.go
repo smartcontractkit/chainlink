@@ -420,10 +420,11 @@ func StartChainlinkNodes(
 			cfg.NodeConfig.CommonChainConfigTOML,
 			cfg.NodeConfig.ChainConfigTOMLByChainID,
 		)
-
-		toml.Capabilities.ExternalRegistry.NetworkID = ptr.Ptr(registryConfig.NetworkType)
-		toml.Capabilities.ExternalRegistry.ChainID = ptr.Ptr(strconv.FormatUint(registryConfig.EVMChainID, 10))
-		toml.Capabilities.ExternalRegistry.Address = ptr.Ptr(registryConfig.Contract.String())
+		if registryConfig.Contract != (common.Address{}) {
+			toml.Capabilities.ExternalRegistry.NetworkID = ptr.Ptr(registryConfig.NetworkType)
+			toml.Capabilities.ExternalRegistry.ChainID = ptr.Ptr(strconv.FormatUint(registryConfig.EVMChainID, 10))
+			toml.Capabilities.ExternalRegistry.Address = ptr.Ptr(registryConfig.Contract.String())
+		}
 
 		if err != nil {
 			return err

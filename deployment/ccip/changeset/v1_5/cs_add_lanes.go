@@ -19,6 +19,8 @@ import (
 	integrationtesthelpers "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers/integration"
 )
 
+var _ deployment.ChangeSet[AddLanesConfig] = AddLanes
+
 type AddLanesConfig struct {
 	Configs []AddLaneConfig
 }
