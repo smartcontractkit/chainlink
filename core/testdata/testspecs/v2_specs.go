@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	tomlTools "github.com/pelletier/go-toml"
 	"github.com/test-go/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -881,6 +882,12 @@ ds -> ds_parse -> ds_multiply;
 
 	toml := fmt.Sprintf(template, params.Name, params.StreamID)
 	return StreamSpec{StreamSpecParams: params, toml: toml}
+}
+
+func GenerateStreamSpecJob(spec StreamSpec) (job.Job, error) {
+	jb := job.Job{ExternalJobID: uuid.New()}
+	err := tomlTools.Unmarshal([]byte(spec.Toml()), &jb)
+	return jb, err
 }
 
 // WorkflowJobSpec is a test helper that wraps both the TOML and job.Job representation of a workflow job spec

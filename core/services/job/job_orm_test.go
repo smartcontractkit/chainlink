@@ -444,6 +444,18 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 		cltest.AssertCount(t, db, "jobs", 0)
 	})
 
+	t.Run("it creates and deletes records for stream jobs", func(t *testing.T) {
+		ctx := testutils.Context(t)
+		jb, err := testspecs.GenerateStreamSpecJob(testspecs.GenerateStreamSpec(testspecs.StreamSpecParams{Name: "Test-stream", StreamID: 1}))
+		require.NoError(t, err)
+		err = jobORM.CreateJob(ctx, &jb)
+		require.NoError(t, err)
+		cltest.AssertCount(t, db, "jobs", 1)
+		err = jobORM.DeleteJob(ctx, jb.ID, jb.Type)
+		require.NoError(t, err)
+		cltest.AssertCount(t, db, "jobs", 0)
+	})
+
 	t.Run("does not allow to delete external initiators if they have referencing external_initiator_webhook_specs", func(t *testing.T) {
 		// create new db because this will rollback transaction and poison it
 		db := pgtest.NewSqlxDB(t)
