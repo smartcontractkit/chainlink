@@ -223,10 +223,15 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 			w.lggr.Debugw("Loading initial workflows for DON", "DON", don.ID)
 			loadWorkflowsHead, err := w.initialWorkflowsStateLoader.LoadWorkflows(ctx, don)
 			if err != nil {
-				// TODO - this is a temporary fix to handle the case where the contract is empty, to track: https://smartcontract-it.atlassian.net/browse/CAPPL-393
+				// TODO - this is a temporary fix to handle the case where the chainreader errors because the contract
+				// contains no workflows.  To track: https://smartcontract-it.atlassian.net/browse/CAPPL-393
 				if !strings.Contains(err.Error(), "attempting to unmarshal an empty string while arguments are expected") {
 					w.lggr.Errorw("failed to load workflows", "err", err)
 					return
+				}
+
+				loadWorkflowsHead = &types.Head{
+					Height: "0",
 				}
 			}
 
