@@ -283,6 +283,9 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 	require.NoError(t, err)
 	for _, chain := range allChains {
 		rmnProxy := state.Chains[chain].RMNProxy
+		proxyOwner, err := rmnProxy.Owner(nil)
+		require.NoError(t, err)
+		require.Equal(t, state.Chains[chain].Timelock.Address(), proxyOwner)
 		rmnAddr, err := rmnProxy.GetARM(nil)
 		require.NoError(t, err)
 		require.Equal(t, rmnAddr, state.Chains[chain].RMNRemote.Address())
