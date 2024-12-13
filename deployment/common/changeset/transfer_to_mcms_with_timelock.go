@@ -142,3 +142,65 @@ func TransferToMCMSWithTimelock(
 
 	return deployment.ChangesetOutput{Proposals: []timelock.MCMSWithTimelockProposal{*proposal}}, nil
 }
+
+var _ deployment.ChangeSet[TransferToDeployerConfig] = TransferToDeployer
+
+type TransferToDeployerConfig struct {
+	ContractAddress common.Address
+	ChainSel        uint64
+}
+
+// TransferToDeployer relies on the deployer key
+// still being a timelock admin and transfers the ownership of a contract
+// back to the deployer key. It's effectively the rollback function of transferring
+// to the timelock.
+func TransferToDeployer(e deployment.Environment, cfg TransferToDeployerConfig) (deployment.ChangesetOutput, error) {
+	_, ownable, err := LoadOwnableContract(cfg.ContractAddress, e.Chains[cfg.ChainSel].Client)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	tx, err := ownable.TransferOwnership(deployment.SimTransactOpts(), e.Chains[cfg.ChainSel].DeployerKey.From)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	addrs, err := e.ExistingAddresses.AddressesForChain(cfg.ChainSel)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	tls, err := MaybeLoadMCMSWithTimelockChainState(e.Chains[cfg.ChainSel], addrs)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	calls := []owner_helpers.RBACTimelockCall{
+		{
+			Target: ownable.Address(),
+			Data:   tx.Data(),
+			Value:  big.NewInt(0),
+		},
+	}
+	tx, err = tls.Timelock.ScheduleBatch(e.Chains[cfg.ChainSel].DeployerKey, calls, [32]byte{}, [32]byte{}, big.NewInt(0))
+	if _, err = deployment.ConfirmIfNoError(e.Chains[cfg.ChainSel], tx, err); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	e.Logger.Infof("scheduled transfer ownership batch with tx %s", tx.Hash().Hex())
+	timelockExecutorProxy, err := owner_helpers.NewRBACTimelock(tls.CallProxy.Address(), e.Chains[cfg.ChainSel].Client)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("error creating timelock executor proxy: %w", err)
+	}
+	tx, err = timelockExecutorProxy.ExecuteBatch(
+		e.Chains[cfg.ChainSel].DeployerKey, calls, [32]byte{}, [32]byte{})
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("error executing batch: %w", err)
+	}
+	if _, err = deployment.ConfirmIfNoError(e.Chains[cfg.ChainSel], tx, err); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	e.Logger.Infof("executed transfer ownership to deployer key with tx %s", tx.Hash().Hex())
+
+	tx, err = ownable.AcceptOwnership(e.Chains[cfg.ChainSel].DeployerKey)
+	if _, err = deployment.ConfirmIfNoError(e.Chains[cfg.ChainSel], tx, err); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	e.Logger.Infof("deployer key accepted ownership tx %s", tx.Hash().Hex())
+	return deployment.ChangesetOutput{}, nil
+}

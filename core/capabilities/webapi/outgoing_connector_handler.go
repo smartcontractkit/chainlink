@@ -96,8 +96,15 @@ func (c *OutgoingConnectorHandler) HandleSingleNodeRequest(ctx context.Context, 
 	}
 	sort.Strings(gatewayIDs)
 
-	err = c.gc.SignAndSendToGateway(ctx, gatewayIDs[0], body)
-	if err != nil {
+	selectedGateway := gatewayIDs[0]
+
+	l.Infow("selected gateway, awaiting connection", "gatewayID", selectedGateway)
+
+	if err := c.gc.AwaitConnection(ctx, selectedGateway); err != nil {
+		return nil, errors.Wrap(err, "await connection canceled")
+	}
+
+	if err := c.gc.SignAndSendToGateway(ctx, selectedGateway, body); err != nil {
 		return nil, errors.Wrap(err, "failed to send request to gateway")
 	}
 
