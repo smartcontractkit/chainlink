@@ -15,6 +15,7 @@ import (
 	gcmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 )
 
 type wrapper struct {
@@ -48,6 +49,7 @@ func TestNewFetcherService(t *testing.T) {
 			fetcher.och.HandleGatewayMessage(ctx, "gateway1", gatewayResp)
 		}).Return(nil).Times(1)
 		connector.EXPECT().DonID().Return("don-id")
+		connector.EXPECT().AwaitConnection(matches.AnyContext, "gateway1").Return(nil)
 		connector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
 
 		payload, err := fetcher.Fetch(ctx, url)

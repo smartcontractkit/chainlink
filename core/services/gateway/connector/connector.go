@@ -181,14 +181,14 @@ func (c *gatewayConnector) AwaitConnection(ctx context.Context, gatewayID string
 func (c *gatewayConnector) SendToGateway(ctx context.Context, gatewayID string, msg *api.Message) error {
 	data, err := c.codec.EncodeResponse(msg)
 	if err != nil {
-		return fmt.Errorf("error encoding response for gateway %s: %v", gatewayID, err)
+		return fmt.Errorf("error encoding response for gateway %s: %w", gatewayID, err)
 	}
 	gateway, ok := c.gateways[gatewayID]
 	if !ok {
 		return fmt.Errorf("invalid Gateway ID %s", gatewayID)
 	}
 	if gateway.conn == nil {
-		return fmt.Errorf("connector not started")
+		return errors.New("connector not started")
 	}
 	return gateway.conn.Write(ctx, websocket.BinaryMessage, data)
 }
