@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -24,6 +25,13 @@ const (
 	workflowID1          = "15c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0"
 	workflowExecutionID1 = "95ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0abbadeed"
 )
+
+func Test_Hex(t *testing.T) {
+	b := []byte{}
+
+	strResult := hexutil.Encode(b)
+	assert.Equal(t, "", strResult)
+}
 
 func Test_ClientRequest_MessageValidation(t *testing.T) {
 	lggr := logger.TestLogger(t)
