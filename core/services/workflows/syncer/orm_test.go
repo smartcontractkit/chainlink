@@ -197,6 +197,45 @@ func Test_GetWorkflowSpec(t *testing.T) {
 	})
 }
 
+func Test_GetWorkflowSpecByID(t *testing.T) {
+	db := pgtest.NewSqlxDB(t)
+	ctx := testutils.Context(t)
+	lggr := logger.TestLogger(t)
+	orm := &orm{ds: db, lggr: lggr}
+
+	t.Run("gets a workflow spec by ID", func(t *testing.T) {
+		spec := &job.WorkflowSpec{
+			Workflow:      "test_workflow",
+			Config:        "test_config",
+			WorkflowID:    "cid-123",
+			WorkflowOwner: "owner-123",
+			WorkflowName:  "Test Workflow",
+			Status:        job.WorkflowSpecStatusActive,
+			BinaryURL:     "http://example.com/binary",
+			ConfigURL:     "http://example.com/config",
+			CreatedAt:     time.Now(),
+			SpecType:      job.WASMFile,
+		}
+
+		id, err := orm.UpsertWorkflowSpec(ctx, spec)
+		require.NoError(t, err)
+		require.NotZero(t, id)
+
+		dbSpec, err := orm.GetWorkflowSpecByID(ctx, spec.WorkflowID)
+		require.NoError(t, err)
+		require.Equal(t, spec.Workflow, dbSpec.Workflow)
+
+		err = orm.DeleteWorkflowSpec(ctx, spec.WorkflowOwner, spec.WorkflowName)
+		require.NoError(t, err)
+	})
+
+	t.Run("fails if no workflow spec exists", func(t *testing.T) {
+		dbSpec, err := orm.GetWorkflowSpecByID(ctx, "inexistent-workflow-id")
+		require.Error(t, err)
+		require.Nil(t, dbSpec)
+	})
+}
+
 func Test_GetContentsByWorkflowID(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	ctx := testutils.Context(t)
