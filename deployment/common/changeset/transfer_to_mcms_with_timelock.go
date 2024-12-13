@@ -156,9 +156,13 @@ type TransferToDeployerConfig struct {
 // back to the deployer key. It's effectively the rollback function of transferring
 // to the timelock.
 func TransferToDeployer(e deployment.Environment, cfg TransferToDeployerConfig) (deployment.ChangesetOutput, error) {
-	_, ownable, err := LoadOwnableContract(cfg.ContractAddress, e.Chains[cfg.ChainSel].Client)
+	owner, ownable, err := LoadOwnableContract(cfg.ContractAddress, e.Chains[cfg.ChainSel].Client)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
+	}
+	if owner == e.Chains[cfg.ChainSel].DeployerKey.From {
+		e.Logger.Infof("Contract %s already owned by deployer", cfg.ContractAddress)
+		return deployment.ChangesetOutput{}, nil
 	}
 	tx, err := ownable.TransferOwnership(deployment.SimTransactOpts(), e.Chains[cfg.ChainSel].DeployerKey.From)
 	if err != nil {
