@@ -167,7 +167,7 @@ func TransferToDeployer(e deployment.Environment, cfg TransferToDeployerConfig) 
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	tls, err := MaybeLoadMCMSWithTimelockState(e.Chains[cfg.ChainSel], addrs)
+	tls, err := MaybeLoadMCMSWithTimelockChainState(e.Chains[cfg.ChainSel], addrs)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
