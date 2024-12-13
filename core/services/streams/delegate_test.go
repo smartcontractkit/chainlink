@@ -15,11 +15,11 @@ import (
 
 type mockRegistry struct{}
 
-func (m *mockRegistry) Get(streamID StreamID) (strm Stream, exists bool) { return }
-func (m *mockRegistry) Register(streamID StreamID, spec pipeline.Spec, rrs ResultRunSaver) error {
+func (m *mockRegistry) Get(streamID StreamID) (p Pipeline, exists bool) { return }
+func (m *mockRegistry) Register(jb job.Job, rrs ResultRunSaver) error {
 	return nil
 }
-func (m *mockRegistry) Unregister(streamID StreamID) {}
+func (m *mockRegistry) Unregister(int32) {}
 
 type mockDelegateConfig struct{}
 
@@ -49,8 +49,7 @@ func Test_Delegate(t *testing.T) {
 
 			strmSrv := srvs[1].(*StreamService)
 			assert.Equal(t, registry, strmSrv.registry)
-			assert.Equal(t, StreamID(42), strmSrv.id)
-			assert.Equal(t, jb.PipelineSpec, strmSrv.spec)
+			assert.Equal(t, jb, strmSrv.jb)
 			assert.NotNil(t, strmSrv.lggr)
 			assert.Equal(t, srvs[0], strmSrv.rrs)
 		})

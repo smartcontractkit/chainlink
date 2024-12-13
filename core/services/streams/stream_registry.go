@@ -10,8 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
-// TODO: Rename, this is actually a PipelineRegistry (? is it ?)
-
 // alias for easier refactoring
 type StreamID = llo.StreamID
 

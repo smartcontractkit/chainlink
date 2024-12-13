@@ -3,7 +3,6 @@ package streams
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -25,7 +24,6 @@ type Pipeline interface {
 }
 
 type multiStreamPipeline struct {
-	sync.RWMutex
 	lggr      logger.Logger
 	spec      pipeline.Spec
 	runner    Runner
@@ -76,7 +74,13 @@ func newMultiStreamPipeline(lggr logger.Logger, jb job.Job, runner Runner, rrs R
 		},
 	})
 
-	return &multiStreamPipeline{sync.RWMutex{}, lggr.Named("MultiStreamPipeline").With("spec.ID", spec.ID, "jobID", spec.JobID, "jobName", spec.JobName, "jobType", spec.JobType), spec, runner, rrs, streamIDs, vars}, nil
+	return &multiStreamPipeline{
+		lggr.Named("MultiStreamPipeline").With("spec.ID", spec.ID, "jobID", spec.JobID, "jobName", spec.JobName, "jobType", spec.JobType),
+		spec,
+		runner,
+		rrs,
+		streamIDs,
+		vars}, nil
 }
 
 func (s *multiStreamPipeline) Run(ctx context.Context) (run *pipeline.Run, trrs pipeline.TaskRunResults, err error) {
