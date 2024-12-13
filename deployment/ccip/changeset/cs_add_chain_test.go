@@ -196,7 +196,7 @@ func TestAddChainInbound(t *testing.T) {
 		{
 			Changeset: commonchangeset.WrapChangeSet(AddDonAndSetCandidateChangeset),
 			Config: AddDonAndSetCandidateChangesetConfig{
-				SetCandidateChangesetConfig: SetCandidateChangesetConfig{
+				SetCandidateConfigBase: SetCandidateConfigBase{
 					HomeChainSelector: e.HomeChainSel,
 					FeedChainSelector: e.FeedChainSel,
 					DONChainSelector:  newChain,
@@ -214,7 +214,7 @@ func TestAddChainInbound(t *testing.T) {
 		},
 		{
 			Changeset: commonchangeset.WrapChangeSet(SetCandidateChangeset),
-			Config: SetCandidateChangesetConfig{
+			Config: SetCandidateConfigBase{
 				HomeChainSelector: e.HomeChainSel,
 				FeedChainSelector: e.FeedChainSel,
 				DONChainSelector:  newChain,
