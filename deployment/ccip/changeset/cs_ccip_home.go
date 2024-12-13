@@ -253,9 +253,6 @@ func (s SetCandidateChangesetConfig) Validate(e deployment.Environment, state CC
 		return nil, fmt.Errorf("get node info: %w", err)
 	}
 
-	// TODO: validate token config
-	// TODO: validate gas config
-
 	// check that chain config is set up for the new chain
 	chainConfig, err := state.Chains[s.HomeChainSelector].CCIPHome.GetChainConfig(nil, s.DONChainSelector)
 	if err != nil {
@@ -271,6 +268,9 @@ func (s SetCandidateChangesetConfig) Validate(e deployment.Environment, state CC
 	if err != nil {
 		return nil, fmt.Errorf("invalid ccip ocr params: %w", err)
 	}
+
+	// TODO: validate token config in the commit config, if commit is the plugin.
+	// TODO: validate gas config in the chain config in cciphome for this DONChainSelector.
 
 	if e.OCRSecrets.IsEmpty() {
 		return nil, fmt.Errorf("OCR secrets must be set")

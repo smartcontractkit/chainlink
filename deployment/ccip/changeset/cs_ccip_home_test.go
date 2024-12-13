@@ -539,7 +539,7 @@ func Test_RevokeCandidate(t *testing.T) {
 				}
 			}
 			tokenConfig := NewTestTokenConfig(state.Chains[tenv.FeedChainSel].USDFeeds)
-			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, map[uint64]*commonchangeset.TimelockExecutionContracts{
+			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, map[uint64]*proposalutils.TimelockExecutionContracts{
 				tenv.HomeChainSel: {
 					Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
 					CallProxy: state.Chains[tenv.HomeChainSel].CallProxy,
@@ -552,7 +552,6 @@ func Test_RevokeCandidate(t *testing.T) {
 						FeedChainSelector: tenv.FeedChainSel,
 						DONChainSelector:  dest,
 						PluginType:        types.PluginTypeCCIPCommit,
-						NodeIDs:           nodeIDs,
 						CCIPOCRParams: DefaultOCRParams(
 							tenv.FeedChainSel,
 							tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
@@ -568,7 +567,6 @@ func Test_RevokeCandidate(t *testing.T) {
 						FeedChainSelector: tenv.FeedChainSel,
 						DONChainSelector:  dest,
 						PluginType:        types.PluginTypeCCIPExec,
-						NodeIDs:           nodeIDs,
 						CCIPOCRParams: DefaultOCRParams(
 							tenv.FeedChainSel,
 							tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
@@ -597,7 +595,7 @@ func Test_RevokeCandidate(t *testing.T) {
 			require.NotEqual(t, candidateDigestExecBefore, candidateDigestExecAfter)
 
 			// next we can revoke candidate - this should set the candidate digest back to zero
-			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, map[uint64]*commonchangeset.TimelockExecutionContracts{
+			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, map[uint64]*proposalutils.TimelockExecutionContracts{
 				tenv.HomeChainSel: {
 					Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
 					CallProxy: state.Chains[tenv.HomeChainSel].CallProxy,
