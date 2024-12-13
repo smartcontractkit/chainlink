@@ -24,6 +24,7 @@ var (
 	_ deployment.ChangeSet[AddDonAndSetCandidateChangesetConfig] = AddDonAndSetCandidateChangeset
 	_ deployment.ChangeSet[PromoteAllCandidatesChangesetConfig]  = PromoteAllCandidatesChangeset
 	_ deployment.ChangeSet[SetCandidateChangesetConfig]          = SetCandidateChangeset
+	_ deployment.ChangeSet[RevokeCandidateChangesetConfig]       = RevokeCandidateChangeset
 )
 
 type PromoteAllCandidatesChangesetConfig struct {
