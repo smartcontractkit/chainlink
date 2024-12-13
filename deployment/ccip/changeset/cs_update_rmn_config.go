@@ -11,12 +11,112 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_remote"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
+
+type SetRMNRemoteOnRMNProxyConfig struct {
+	ChainSelectors []uint64
+	MCMSConfig     *MCMSConfig
+}
+
+func (c SetRMNRemoteOnRMNProxyConfig) Validate(state CCIPOnChainState) error {
+	for _, chain := range c.ChainSelectors {
+		err := deployment.IsValidChainSelector(chain)
+		if err != nil {
+			return err
+		}
+		chainState, exists := state.Chains[chain]
+		if !exists {
+			return fmt.Errorf("chain %d not found in state", chain)
+		}
+		if chainState.RMNRemote == nil {
+			return fmt.Errorf("RMNRemote not found for chain %d", chain)
+		}
+		if chainState.RMNProxy == nil {
+			return fmt.Errorf("RMNProxy not found for chain %d", chain)
+		}
+	}
+	return nil
+}
+
+func SetRMNRemoteOnRMNProxy(e deployment.Environment, cfg SetRMNRemoteOnRMNProxyConfig) (deployment.ChangesetOutput, error) {
+	state, err := LoadOnchainState(e)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+	}
+	if err := cfg.Validate(state); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	var timelockBatch []timelock.BatchChainOperation
+	multiSigs := make(map[uint64]*gethwrappers.ManyChainMultiSig)
+	timelocks := make(map[uint64]common.Address)
+	for _, sel := range cfg.ChainSelectors {
+		chain, exists := e.Chains[sel]
+		if !exists {
+			return deployment.ChangesetOutput{}, fmt.Errorf("chain %d not found", sel)
+		}
+		txOpts := chain.DeployerKey
+		if cfg.MCMSConfig != nil {
+			txOpts = deployment.SimTransactOpts()
+		}
+		mcmsOps, err := setRMNRemoteOnRMNProxyOp(txOpts, chain, state.Chains[sel], cfg.MCMSConfig != nil)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to set RMNRemote on RMNProxy for chain %s: %w", chain.String(), err)
+		}
+		if cfg.MCMSConfig != nil {
+			timelockBatch = append(timelockBatch, timelock.BatchChainOperation{
+				ChainIdentifier: mcms.ChainIdentifier(sel),
+				Batch:           []mcms.Operation{mcmsOps},
+			})
+			multiSigs[sel] = state.Chains[sel].ProposerMcm
+			timelocks[sel] = state.Chains[sel].Timelock.Address()
+		}
+	}
+	// If we're not using MCMS, we can just return now as we've already confirmed the transactions
+	if len(timelockBatch) == 0 {
+		return deployment.ChangesetOutput{}, nil
+	}
+	prop, err := proposalutils.BuildProposalFromBatches(
+		timelocks,
+		multiSigs,
+		timelockBatch,
+		fmt.Sprintf("proposal to set RMNRemote on RMNProxy for chains %v", cfg.ChainSelectors),
+		cfg.MCMSConfig.MinDelay,
+	)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	return deployment.ChangesetOutput{
+		Proposals: []timelock.MCMSWithTimelockProposal{
+			*prop,
+		},
+	}, nil
+}
+
+func setRMNRemoteOnRMNProxyOp(txOpts *bind.TransactOpts, chain deployment.Chain, chainState CCIPChainState, mcmsEnabled bool) (mcms.Operation, error) {
+	rmnProxy := chainState.RMNProxy
+	rmnRemoteAddr := chainState.RMNRemote.Address()
+	setRMNTx, err := rmnProxy.SetARM(txOpts, rmnRemoteAddr)
+	if err != nil {
+		return mcms.Operation{}, fmt.Errorf("failed to build call data/transaction to set RMNRemote on RMNProxy for chain %s: %w", chain.String(), err)
+	}
+	if !mcmsEnabled {
+		_, err = deployment.ConfirmIfNoError(chain, setRMNTx, err)
+		if err != nil {
+			return mcms.Operation{}, fmt.Errorf("failed to confirm tx to set RMNRemote on RMNProxy  for chain %s: %w", chain.String(), deployment.MaybeDataErr(err))
+		}
+	}
+	return mcms.Operation{
+		To:    rmnProxy.Address(),
+		Data:  setRMNTx.Data(),
+		Value: big.NewInt(0),
+	}, nil
+}
 
 type RMNNopConfig struct {
 	NodeIndex           uint64
@@ -339,10 +439,14 @@ func buildRMNRemotePerChain(e deployment.Environment, state CCIPOnChainState) ma
 	return timelocksPerChain
 }
 
+type RMNRemoteConfig struct {
+	Signers []rmn_remote.RMNRemoteSigner
+	F       uint64
+}
+
 type SetRMNRemoteConfig struct {
 	HomeChainSelector uint64
-	Signers           []rmn_remote.RMNRemoteSigner
-	F                 uint64
+	RMNRemoteConfigs  map[uint64]RMNRemoteConfig
 	MCMSConfig        *MCMSConfig
 }
 
@@ -352,14 +456,21 @@ func (c SetRMNRemoteConfig) Validate() error {
 		return err
 	}
 
-	for i := 0; i < len(c.Signers)-1; i++ {
-		if c.Signers[i].NodeIndex >= c.Signers[i+1].NodeIndex {
-			return fmt.Errorf("signers must be in ascending order of nodeIndex")
+	for chain, config := range c.RMNRemoteConfigs {
+		err := deployment.IsValidChainSelector(chain)
+		if err != nil {
+			return err
 		}
-	}
 
-	if len(c.Signers) < 2*int(c.F)+1 {
-		return fmt.Errorf("signers count must greater than or equal to %d", 2*c.F+1)
+		for i := 0; i < len(config.Signers)-1; i++ {
+			if config.Signers[i].NodeIndex >= config.Signers[i+1].NodeIndex {
+				return fmt.Errorf("signers must be in ascending order of nodeIndex, but found %d >= %d", config.Signers[i].NodeIndex, config.Signers[i+1].NodeIndex)
+			}
+		}
+
+		if len(config.Signers) < 2*int(config.F)+1 {
+			return fmt.Errorf("signers count (%d) must be greater than or equal to %d", len(config.Signers), 2*config.F+1)
+		}
 	}
 
 	return nil
@@ -396,9 +507,10 @@ func NewSetRMNRemoteConfigChangeset(e deployment.Environment, config SetRMNRemot
 
 	rmnRemotePerChain := buildRMNRemotePerChain(e, state)
 	batches := make([]timelock.BatchChainOperation, 0)
-	for chain, remote := range rmnRemotePerChain {
-		if remote == nil {
-			continue
+	for chain, remoteConfig := range config.RMNRemoteConfigs {
+		remote, ok := rmnRemotePerChain[chain]
+		if !ok {
+			return deployment.ChangesetOutput{}, fmt.Errorf("RMNRemote contract not found for chain %d", chain)
 		}
 
 		currentVersionConfig, err := remote.GetVersionedConfig(nil)
@@ -408,8 +520,8 @@ func NewSetRMNRemoteConfigChangeset(e deployment.Environment, config SetRMNRemot
 
 		newConfig := rmn_remote.RMNRemoteConfig{
 			RmnHomeContractConfigDigest: activeConfig,
-			Signers:                     config.Signers,
-			F:                           config.F,
+			Signers:                     remoteConfig.Signers,
+			F:                           remoteConfig.F,
 		}
 
 		if reflect.DeepEqual(currentVersionConfig.Config, newConfig) {

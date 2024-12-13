@@ -340,6 +340,12 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tc *TestConfigs, tEnv Test
 				HomeChainSelector: e.HomeChainSel,
 			},
 		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(SetRMNRemoteOnRMNProxy),
+			Config: SetRMNRemoteOnRMNProxyConfig{
+				ChainSelectors: allChains,
+			},
+		},
 	})
 	require.NoError(t, err)
 

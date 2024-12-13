@@ -87,18 +87,10 @@ type CCIPChainState struct {
 	commoncs.MCMSWithTimelockState
 	commoncs.LinkTokenState
 	commoncs.StaticLinkTokenState
-	OnRamp    *onramp.OnRamp
-	OffRamp   *offramp.OffRamp
-	FeeQuoter *fee_quoter.FeeQuoter
-	// We need 2 RMNProxy contracts because we are in the process of migrating to a new version.
-	// We will switch to the existing one once the migration is complete.
-	// This is the new RMNProxy contract that will be used for testing RMNRemote before migration.
-	// Initially RMNProxyNew will point to RMNRemote
-	RMNProxyNew *rmn_proxy_contract.RMNProxyContract
-	// Existing RMNProxy contract that is used in production, This already has existing 1.5 RMN set.
-	// once RMNRemote is tested with RMNProxyNew, as part of migration
-	// RMNProxyExisting will point to RMNRemote. This will switch over CCIP 1.5 to 1.6
-	RMNProxyExisting   *rmn_proxy_contract.RMNProxyContract
+	OnRamp             *onramp.OnRamp
+	OffRamp            *offramp.OffRamp
+	FeeQuoter          *fee_quoter.FeeQuoter
+	RMNProxy           *rmn_proxy_contract.RMNProxyContract
 	NonceManager       *nonce_manager.NonceManager
 	TokenAdminRegistry *token_admin_registry.TokenAdminRegistry
 	RegistryModule     *registry_module_owner_custom.RegistryModuleOwnerCustom
@@ -209,12 +201,12 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 		chainView.CommitStore[c.CommitStore.Address().Hex()] = commitStoreView
 	}
 
-	if c.RMNProxyNew != nil {
-		rmnProxyView, err := v1_0.GenerateRMNProxyView(c.RMNProxyNew)
+	if c.RMNProxy != nil {
+		rmnProxyView, err := v1_0.GenerateRMNProxyView(c.RMNProxy)
 		if err != nil {
-			return chainView, errors.Wrapf(err, "failed to generate rmn proxy view for rmn proxy %s", c.RMNProxyNew.Address().String())
+			return chainView, errors.Wrapf(err, "failed to generate rmn proxy view for rmn proxy %s", c.RMNProxy.Address().String())
 		}
-		chainView.RMNProxy[c.RMNProxyNew.Address().Hex()] = rmnProxyView
+		chainView.RMNProxy[c.RMNProxy.Address().Hex()] = rmnProxyView
 	}
 	if c.CCIPHome != nil && c.CapabilityRegistry != nil {
 		chView, err := v1_6.GenerateCCIPHomeView(c.CapabilityRegistry, c.CCIPHome)
@@ -311,13 +303,13 @@ func LoadOnchainState(e deployment.Environment) (CCIPOnChainState, error) {
 // LoadChainState Loads all state for a chain into state
 func LoadChainState(chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (CCIPChainState, error) {
 	var state CCIPChainState
-	mcmsWithTimelock, err := commoncs.MaybeLoadMCMSWithTimelockState(chain, addresses)
+	mcmsWithTimelock, err := commoncs.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 	if err != nil {
 		return state, err
 	}
 	state.MCMSWithTimelockState = *mcmsWithTimelock
 
-	linkState, err := commoncs.MaybeLoadLinkTokenState(chain, addresses)
+	linkState, err := commoncs.MaybeLoadLinkTokenChainState(chain, addresses)
 	if err != nil {
 		return state, err
 	}
@@ -361,19 +353,7 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 			if err != nil {
 				return state, err
 			}
-			state.RMNProxyExisting = armProxy
-		case deployment.NewTypeAndVersion(ARMProxy, deployment.Version1_6_0_dev).String():
-			armProxy, err := rmn_proxy_contract.NewRMNProxyContract(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			state.RMNProxyNew = armProxy
-		case deployment.NewTypeAndVersion(ARMProxy, deployment.Version1_6_0_dev).String():
-			armProxy, err := rmn_proxy_contract.NewRMNProxyContract(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			state.RMNProxyNew = armProxy
+			state.RMNProxy = armProxy
 		case deployment.NewTypeAndVersion(MockRMN, deployment.Version1_0_0).String():
 			mockRMN, err := mock_rmn_contract.NewMockRMNContract(common.HexToAddress(address), chain.Client)
 			if err != nil {
