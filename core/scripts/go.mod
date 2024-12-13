@@ -301,7 +301,7 @@ require (
 	github.com/sethvargo/go-retry v0.2.4 // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
 	github.com/shirou/gopsutil/v3 v3.24.3 // indirect
-	github.com/smartcontractkit/ccip-owner-contracts v0.0.0-20240926212305-a6deabdfce86 // indirect
+	github.com/smartcontractkit/ccip-owner-contracts v0.0.0-20241213213240-f3ebba41fd66 // indirect
 	github.com/smartcontractkit/chain-selectors v1.0.34 // indirect
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241213122413-5e8f65dd6b1b // indirect
 	github.com/smartcontractkit/chainlink-cosmos v0.5.2-0.20241202195413-82468150ac1e // indirect
