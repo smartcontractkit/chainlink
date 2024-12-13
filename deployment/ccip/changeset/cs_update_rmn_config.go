@@ -52,9 +52,15 @@ func SetRMNRemoteOnRMNProxy(e deployment.Environment, cfg SetRMNRemoteOnRMNProxy
 	if err := cfg.Validate(state); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
+	timelocks, err := state.GetAllTimeLocksForChains(cfg.ChainSelectors)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get timelocks for chains %v: %w", cfg.ChainSelectors, err)
+	}
+	multiSigs, err := state.GetAllProposerMCMSForChains(cfg.ChainSelectors)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get proposer MCMS for chains %v: %w", cfg.ChainSelectors, err)
+	}
 	var timelockBatch []timelock.BatchChainOperation
-	multiSigs := make(map[uint64]*gethwrappers.ManyChainMultiSig)
-	timelocks := make(map[uint64]common.Address)
 	for _, sel := range cfg.ChainSelectors {
 		chain, exists := e.Chains[sel]
 		if !exists {
@@ -73,8 +79,6 @@ func SetRMNRemoteOnRMNProxy(e deployment.Environment, cfg SetRMNRemoteOnRMNProxy
 				ChainIdentifier: mcms.ChainIdentifier(sel),
 				Batch:           []mcms.Operation{mcmsOps},
 			})
-			multiSigs[sel] = state.Chains[sel].ProposerMcm
-			timelocks[sel] = state.Chains[sel].Timelock.Address()
 		}
 	}
 	// If we're not using MCMS, we can just return now as we've already confirmed the transactions

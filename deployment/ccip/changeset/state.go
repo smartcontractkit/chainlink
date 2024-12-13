@@ -3,6 +3,8 @@ package changeset
 import (
 	"fmt"
 
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+
 	burn_mint_token_pool "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/burn_mint_token_pool_1_4_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/erc20"
 
@@ -255,6 +257,36 @@ type CCIPOnChainState struct {
 	// When generating bindings, make sure the package name corresponds to the version.
 	Chains    map[uint64]CCIPChainState
 	SolChains map[uint64]SolCCIPChainState
+}
+
+func (s CCIPOnChainState) GetAllProposerMCMSForChains(chains []uint64) (map[uint64]*gethwrappers.ManyChainMultiSig, error) {
+	multiSigs := make(map[uint64]*gethwrappers.ManyChainMultiSig)
+	for _, chain := range chains {
+		chainState, ok := s.Chains[chain]
+		if !ok {
+			return nil, fmt.Errorf("chain %d not found", chain)
+		}
+		if chainState.ProposerMcm == nil {
+			return nil, fmt.Errorf("proposer mcm not found for chain %d", chain)
+		}
+		multiSigs[chain] = chainState.ProposerMcm
+	}
+	return multiSigs, nil
+}
+
+func (s CCIPOnChainState) GetAllTimeLocksForChains(chains []uint64) (map[uint64]common.Address, error) {
+	timelocks := make(map[uint64]common.Address)
+	for _, chain := range chains {
+		chainState, ok := s.Chains[chain]
+		if !ok {
+			return nil, fmt.Errorf("chain %d not found", chain)
+		}
+		if chainState.Timelock == nil {
+			return nil, fmt.Errorf("timelock not found for chain %d", chain)
+		}
+		timelocks[chain] = chainState.Timelock.Address()
+	}
+	return timelocks, nil
 }
 
 func (s CCIPOnChainState) View(chains []uint64) (map[string]view.ChainView, error) {

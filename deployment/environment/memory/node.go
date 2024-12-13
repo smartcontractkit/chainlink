@@ -286,7 +286,7 @@ func CreateKeys(t *testing.T,
 		}
 		backend := chain.Client.(*Backend).Sim
 		fundAddress(t, chain.DeployerKey, transmitters[evmChainID], assets.Ether(1000).ToInt(), backend)
-		// in sim chains the send transactions are performed with 0x0 address as the sender
+		// need to look more into it, but it seems like with sim chains nodes are sending txs with 0x from address
 		fundAddress(t, chain.DeployerKey, common.Address{}, assets.Ether(1000).ToInt(), backend)
 	}
 
