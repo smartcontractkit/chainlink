@@ -782,7 +782,7 @@ func (o *orm) DeleteJob(ctx context.Context, id int32, jobType Type) error {
 	if len(q) > 0 {
 		query += fmt.Sprintf(`deleted_specific_specs AS (
 								%s
-							),)`, q)
+							),`, q)
 	}
 	query += `	
 		deleted_job_pipeline_specs AS (
