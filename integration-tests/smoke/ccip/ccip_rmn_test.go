@@ -508,6 +508,9 @@ func (tc *rmnTestCase) populateFields(t *testing.T, envWithRMN changeset.Deploye
 			if subject != globalCurse {
 				subjSel = tc.pf.chainSelectors[subject]
 			}
+			if _, ok := tc.pf.revokedCursedSubjectsPerChainSel[chainSel]; !ok {
+				tc.pf.revokedCursedSubjectsPerChainSel[chainSel] = make(map[uint64]time.Duration)
+			}
 			tc.pf.revokedCursedSubjectsPerChainSel[chainSel][subjSel] = revokeAfter
 		}
 	}
