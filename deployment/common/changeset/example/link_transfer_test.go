@@ -111,7 +111,6 @@ func TestLinkTransferMCMS(t *testing.T) {
 					},
 				},
 				McmsConfig: &example.MCMSConfig{
-					ValidUntil:   4131638958,
 					MinDelay:     0,
 					OverrideRoot: true,
 				},
@@ -237,8 +236,7 @@ func TestValidate(t *testing.T) {
 					chainSelector: {{To: mcmsState.Timelock.Address(), Value: big.NewInt(100)}}},
 				From: chain.DeployerKey.From,
 				McmsConfig: &example.MCMSConfig{
-					ValidUntil: uint32(time.Now().Add(1 * time.Hour).Unix()),
-					MinDelay:   time.Hour,
+					MinDelay: time.Hour,
 				},
 			},
 		},
@@ -262,8 +260,7 @@ func TestValidate(t *testing.T) {
 				},
 				From: mcmsState.Timelock.Address(),
 				McmsConfig: &example.MCMSConfig{
-					ValidUntil: uint32(time.Now().Add(1 * time.Hour).Unix()),
-					MinDelay:   time.Hour,
+					MinDelay: time.Hour,
 				},
 			},
 			errorMsg: "sender does not have enough funds for transfers for chain selector 909606746561742123, required: 1850, available: 0",
@@ -347,8 +344,7 @@ func TestValidate(t *testing.T) {
 					chainSelector: {{To: mcmsState.Timelock.Address(), Value: big.NewInt(100)}}},
 				From: chain.DeployerKey.From,
 				McmsConfig: &example.MCMSConfig{
-					ValidUntil: uint32(time.Now().Add(1 * time.Hour).Unix()),
-					MinDelay:   time.Hour * 24 * 10,
+					MinDelay: time.Hour * 24 * 10,
 				},
 			},
 			errorMsg: "minDelay must be less than 7 days",
@@ -360,19 +356,6 @@ func TestValidate(t *testing.T) {
 					chainSelector: {{To: common.Address{}, Value: big.NewInt(100)}}},
 			},
 			errorMsg: "'to' address for transfers must be set",
-		},
-		{
-			name: "invalid config: validUntil in the past",
-			cfg: example.LinkTransferConfig{
-				Transfers: map[uint64][]example.TransferConfig{
-					chainSelector: {{To: mcmsState.Timelock.Address(), Value: big.NewInt(100)}}},
-				From: chain.DeployerKey.From,
-				McmsConfig: &example.MCMSConfig{
-					ValidUntil: uint32(time.Now().Add(-1 * time.Hour).Unix()),
-					MinDelay:   time.Hour,
-				},
-			},
-			errorMsg: "validUntil must be in the future",
 		},
 	}
 

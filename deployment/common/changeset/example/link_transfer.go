@@ -29,7 +29,6 @@ type TransferConfig struct {
 }
 
 type MCMSConfig struct {
-	ValidUntil   uint32        // unix time until the proposal will be valid
 	MinDelay     time.Duration // delay for timelock worker to execute the transfers.
 	OverrideRoot bool
 }
@@ -113,10 +112,7 @@ func (cfg LinkTransferConfig) Validate(e deployment.Environment) error {
 	if cfg.McmsConfig.MinDelay > MaxTimelockDelay {
 		return errors.New("minDelay must be less than 7 days")
 	}
-	// Check that validUntil is in the future
-	if time.Unix(int64(cfg.McmsConfig.ValidUntil), 0).Before(time.Now()) {
-		return fmt.Errorf("validUntil must be in the future")
-	}
+
 	return nil
 }
 
@@ -180,7 +176,7 @@ func LinkTransfer(e deployment.Environment, cfg *LinkTransferConfig) (deployment
 	}
 	mcmsPerChain := map[uint64]*owner_helpers.ManyChainMultiSig{}
 
-	timelockAddresses := map[mcms.ChainIdentifier]common.Address{}
+	timelockAddresses := map[uint64]common.Address{}
 	// Initialize state for each chain
 	linkStatePerChain, mcmsStatePerChain, err := initStatePerChain(cfg, e)
 
@@ -196,7 +192,7 @@ func LinkTransfer(e deployment.Environment, cfg *LinkTransferConfig) (deployment
 
 		mcmsPerChain[uint64(chainID)] = mcmsState.ProposerMcm
 
-		timelockAddresses[chainID] = timelockAddress
+		timelockAddresses[chainSelector] = timelockAddress
 		batch := timelock.BatchChainOperation{
 			ChainIdentifier: chainID,
 			Batch:           []mcms.Operation{},
@@ -221,22 +217,14 @@ func LinkTransfer(e deployment.Environment, cfg *LinkTransferConfig) (deployment
 
 		allBatches = append(allBatches, batch)
 	}
-	chainMetadata, err := proposalutils.BuildProposalMetadata(chainSelectors, mcmsPerChain)
-	if err != nil {
-		return deployment.ChangesetOutput{}, err
-	}
+
 	if cfg.McmsConfig != nil {
-		proposal, err := timelock.NewMCMSWithTimelockProposal(
-			"1",
-			cfg.McmsConfig.ValidUntil,
-			[]mcms.Signature{},
-			cfg.McmsConfig.OverrideRoot,
-			chainMetadata,
+		proposal, err := proposalutils.BuildProposalFromBatches(
 			timelockAddresses,
-			"Value transfer proposal",
+			mcmsPerChain,
 			allBatches,
-			timelock.Schedule,
-			cfg.McmsConfig.MinDelay.String(),
+			"LINK Value transfer proposal",
+			cfg.McmsConfig.MinDelay,
 		)
 		if err != nil {
 			return deployment.ChangesetOutput{}, err
