@@ -1,14 +1,15 @@
-package changeset
+package changeset_test
 
 import (
-	"context"
 	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
@@ -34,13 +35,13 @@ func setupSetConfigTestEnv(t *testing.T) deployment.Environment {
 	config := proposalutils.SingleGroupMCMS(t)
 
 	// Deploy MCMS and Timelock
-	env, err := ApplyChangesets(t, env, nil, []ChangesetApplication{
+	env, err := commonchangeset.ApplyChangesets(t, env, nil, []commonchangeset.ChangesetApplication{
 		{
-			Changeset: WrapChangeSet(DeployLinkToken),
+			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
 			Config:    []uint64{chainSelector},
 		},
 		{
-			Changeset: WrapChangeSet(DeployMCMSWithTimelock),
+			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployMCMSWithTimelock),
 			Config: map[uint64]types.MCMSWithTimelockConfig{
 				chainSelector: {
 					Canceller:        config,
@@ -58,7 +59,7 @@ func setupSetConfigTestEnv(t *testing.T) deployment.Environment {
 // TestSetConfigMCMS tests the SetConfigMCMS changeset by calling SetConfig and checking the config values.
 func TestSetConfigMCMS(t *testing.T) {
 	t.Parallel()
-	ctx := context.Background()
+	ctx := tests.Context(t)
 
 	env := setupSetConfigTestEnv(t)
 	chainSelector := env.AllChainSelectors()[0]
@@ -67,7 +68,7 @@ func TestSetConfigMCMS(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, addrs, 6)
 
-	mcmsState, err := MaybeLoadMCMSWithTimelockChainState(chain, addrs)
+	mcmsState, err := commonchangeset.MaybeLoadMCMSWithTimelockChainState(chain, addrs)
 	require.NoError(t, err)
 
 	timelockAddress := mcmsState.Timelock.Address()
@@ -77,11 +78,11 @@ func TestSetConfigMCMS(t *testing.T) {
 	cfg.Quorum = 2 // quorum should change to 2 out of 2 signers
 	// Transfer ownership to timelock
 	// Apply the changesets
-	_, err = ApplyChangesets(t, env, nil, []ChangesetApplication{
+	_, err = commonchangeset.ApplyChangesets(t, env, nil, []commonchangeset.ChangesetApplication{
 		{
-			Changeset: WrapChangeSet(SetConfigMCMS),
-			Config: SetConfigParams{
-				ConfigsPerChain: map[uint64]ConfigPerRole{
+			Changeset: commonchangeset.WrapChangeSet(commonchangeset.SetConfigMCMS),
+			Config: commonchangeset.SetConfigParams{
+				ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRole{
 					chainSelector: {
 						Proposer:  cfg,
 						Canceller: cfg,
@@ -111,7 +112,7 @@ func TestSetConfigMCMS(t *testing.T) {
 // TestSetConfigMCMSProposal tests the SetConfigMCMS changeset proposal generation by calling SetConfig and checking the config values.
 func TestSetConfigMCMSProposal(t *testing.T) {
 	t.Parallel()
-	ctx := context.Background()
+	ctx := tests.Context(t)
 
 	env := setupSetConfigTestEnv(t)
 	chainSelector := env.AllChainSelectors()[0]
@@ -120,7 +121,7 @@ func TestSetConfigMCMSProposal(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, addrs, 6)
 
-	mcmsState, err := MaybeLoadMCMSWithTimelockChainState(chain, addrs)
+	mcmsState, err := commonchangeset.MaybeLoadMCMSWithTimelockChainState(chain, addrs)
 	require.NoError(t, err)
 
 	timelockAddress := mcmsState.Timelock.Address()
@@ -135,22 +136,22 @@ func TestSetConfigMCMSProposal(t *testing.T) {
 	cfg.Signers = append(cfg.Signers, timelockAddress)
 	cfg.Quorum = 2 // quorum should change to 2 out of 2 signers
 	// Apply the changeset
-	_, err = ApplyChangesets(t, env, timelockMap, []ChangesetApplication{
+	_, err = commonchangeset.ApplyChangesets(t, env, timelockMap, []commonchangeset.ChangesetApplication{
 		{
-			Changeset: WrapChangeSet(TransferToMCMSWithTimelock),
-			Config: TransferToMCMSWithTimelockConfig{
+			Changeset: commonchangeset.WrapChangeSet(commonchangeset.TransferToMCMSWithTimelock),
+			Config: commonchangeset.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: map[uint64][]common.Address{
 					chainSelector: {mcmsState.ProposerMcm.Address(), mcmsState.BypasserMcm.Address(), mcmsState.CancellerMcm.Address()},
 				},
 			},
 		},
 		{
-			Changeset: WrapChangeSet(SetConfigMCMS),
-			Config: SetConfigParams{
-				ProposalConfig: &ProposalConfig{
+			Changeset: commonchangeset.WrapChangeSet(commonchangeset.SetConfigMCMS),
+			Config: commonchangeset.SetConfigParams{
+				ProposalConfig: &commonchangeset.ProposalConfig{
 					MinDelay: 0,
 				},
-				ConfigsPerChain: map[uint64]ConfigPerRole{
+				ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRole{
 					chainSelector: {
 						Proposer:  cfg,
 						Canceller: cfg,
@@ -185,7 +186,7 @@ func TestValidate(t *testing.T) {
 	addrs, err := env.ExistingAddresses.AddressesForChain(chainSelector)
 	require.NoError(t, err)
 	require.Len(t, addrs, 6)
-	mcmsState, err := MaybeLoadMCMSWithTimelockChainState(chain, addrs)
+	mcmsState, err := commonchangeset.MaybeLoadMCMSWithTimelockChainState(chain, addrs)
 	require.NoError(t, err)
 	cfg := proposalutils.SingleGroupMCMS(t)
 	timelockAddress := mcmsState.Timelock.Address()
@@ -198,16 +199,16 @@ func TestValidate(t *testing.T) {
 	require.NoError(t, err)
 	tests := []struct {
 		name     string
-		cfg      SetConfigParams
+		cfg      commonchangeset.SetConfigParams
 		errorMsg string
 	}{
 		{
 			name: "valid config",
-			cfg: SetConfigParams{
-				ProposalConfig: &ProposalConfig{
+			cfg: commonchangeset.SetConfigParams{
+				ProposalConfig: &commonchangeset.ProposalConfig{
 					MinDelay: 0,
 				},
-				ConfigsPerChain: map[uint64]ConfigPerRole{
+				ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRole{
 					chainSelector: {
 						Proposer:  cfg,
 						Canceller: cfg,
@@ -218,8 +219,8 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "valid non mcms config",
-			cfg: SetConfigParams{
-				ConfigsPerChain: map[uint64]ConfigPerRole{
+			cfg: commonchangeset.SetConfigParams{
+				ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRole{
 					chainSelector: {
 						Proposer:  cfg,
 						Canceller: cfg,
@@ -230,15 +231,15 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "no chain configurations",
-			cfg: SetConfigParams{
-				ConfigsPerChain: map[uint64]ConfigPerRole{},
+			cfg: commonchangeset.SetConfigParams{
+				ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRole{},
 			},
 			errorMsg: "no chain configs provided",
 		},
 		{
 			name: "non evm chain",
-			cfg: SetConfigParams{
-				ConfigsPerChain: map[uint64]ConfigPerRole{
+			cfg: commonchangeset.SetConfigParams{
+				ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRole{
 					chain_selectors.APTOS_MAINNET.Selector: {
 						Proposer:  cfg,
 						Canceller: cfg,
@@ -250,8 +251,8 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "chain selector not found in environment",
-			cfg: SetConfigParams{
-				ConfigsPerChain: map[uint64]ConfigPerRole{
+			cfg: commonchangeset.SetConfigParams{
+				ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRole{
 					123: {
 						Proposer:  cfg,
 						Canceller: cfg,
@@ -263,11 +264,11 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "invalid proposer config",
-			cfg: SetConfigParams{
-				ProposalConfig: &ProposalConfig{
+			cfg: commonchangeset.SetConfigParams{
+				ProposalConfig: &commonchangeset.ProposalConfig{
 					MinDelay: 0,
 				},
-				ConfigsPerChain: map[uint64]ConfigPerRole{
+				ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRole{
 					chainSelector: {
 						Proposer:  cfgInvalid,
 						Canceller: cfg,
@@ -279,11 +280,11 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "invalid canceller config",
-			cfg: SetConfigParams{
-				ProposalConfig: &ProposalConfig{
+			cfg: commonchangeset.SetConfigParams{
+				ProposalConfig: &commonchangeset.ProposalConfig{
 					MinDelay: 0,
 				},
-				ConfigsPerChain: map[uint64]ConfigPerRole{
+				ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRole{
 					chainSelector: {
 						Proposer:  cfg,
 						Canceller: cfgInvalid,
@@ -295,11 +296,11 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "invalid bypasser config",
-			cfg: SetConfigParams{
-				ProposalConfig: &ProposalConfig{
+			cfg: commonchangeset.SetConfigParams{
+				ProposalConfig: &commonchangeset.ProposalConfig{
 					MinDelay: 0,
 				},
-				ConfigsPerChain: map[uint64]ConfigPerRole{
+				ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRole{
 					chainSelector: {
 						Proposer:  cfg,
 						Canceller: cfg,
