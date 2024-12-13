@@ -138,10 +138,6 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 		mc3 = chainState.Multicall3
 	}
 	if rmnProxy == nil {
-		// we want to replicate the mainnet scenario where RMNProxy is already deployed with some existing RMN
-		// This will need us to use two different RMNProxy contracts
-		// 1. RMNProxy with RMNRemote - ( deployed later in chain contracts)
-		// 2. RMNProxyExisting with mockRMN - ( deployed here, replicating the behavior of existing RMNProxy with already set RMN)
 		rmn, err := deployment.DeployContract(lggr, chain, ab,
 			func(chain deployment.Chain) deployment.ContractDeploy[*mock_rmn_contract.MockRMNContract] {
 				rmnAddr, tx2, rmn, err2 := mock_rmn_contract.DeployMockRMNContract(
