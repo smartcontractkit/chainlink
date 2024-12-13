@@ -18,10 +18,11 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/osutil"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+
+	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
@@ -35,7 +36,6 @@ import (
 )
 
 func TestRMN_TwoMessagesOnTwoLanesIncludingBatching(t *testing.T) {
-	t.Skip("This test is flaky and needs to be fixed")
 	runRmnTestCase(t, rmnTestCase{
 		name:        "messages on two lanes including batching",
 		waitForExec: true,
@@ -59,7 +59,6 @@ func TestRMN_TwoMessagesOnTwoLanesIncludingBatching(t *testing.T) {
 }
 
 func TestRMN_MultipleMessagesOnOneLaneNoWaitForExec(t *testing.T) {
-	t.Skip("This test is flaky and needs to be fixed")
 	runRmnTestCase(t, rmnTestCase{
 		name:        "multiple messages for rmn batching inspection and one rmn node down",
 		waitForExec: false, // do not wait for execution reports
@@ -82,7 +81,6 @@ func TestRMN_MultipleMessagesOnOneLaneNoWaitForExec(t *testing.T) {
 }
 
 func TestRMN_NotEnoughObservers(t *testing.T) {
-	t.Skip("This test is flaky and needs to be fixed")
 	runRmnTestCase(t, rmnTestCase{
 		name:                "one message but not enough observers, should not get a commit report",
 		passIfNoCommitAfter: 15 * time.Second,
@@ -105,7 +103,6 @@ func TestRMN_NotEnoughObservers(t *testing.T) {
 }
 
 func TestRMN_DifferentSigners(t *testing.T) {
-	t.Skip("This test is flaky and needs to be fixed")
 	runRmnTestCase(t, rmnTestCase{
 		name: "different signers and different observers",
 		homeChainConfig: homeChainConfig{
@@ -130,7 +127,6 @@ func TestRMN_DifferentSigners(t *testing.T) {
 }
 
 func TestRMN_NotEnoughSigners(t *testing.T) {
-	t.Skip("This test is flaky and needs to be fixed")
 	runRmnTestCase(t, rmnTestCase{
 		name:                "different signers and different observers",
 		passIfNoCommitAfter: 15 * time.Second,
@@ -156,7 +152,6 @@ func TestRMN_NotEnoughSigners(t *testing.T) {
 }
 
 func TestRMN_DifferentRmnNodesForDifferentChains(t *testing.T) {
-	t.Skip("This test is flaky and needs to be fixed")
 	runRmnTestCase(t, rmnTestCase{
 		name:        "different rmn nodes support different chains",
 		waitForExec: false,
@@ -183,7 +178,6 @@ func TestRMN_DifferentRmnNodesForDifferentChains(t *testing.T) {
 }
 
 func TestRMN_TwoMessagesOneSourceChainCursed(t *testing.T) {
-	t.Skip("This test is flaky and needs to be fixed")
 	runRmnTestCase(t, rmnTestCase{
 		name:                "two messages, one source chain is cursed",
 		passIfNoCommitAfter: 15 * time.Second,
@@ -210,7 +204,6 @@ func TestRMN_TwoMessagesOneSourceChainCursed(t *testing.T) {
 }
 
 func TestRMN_GlobalCurseTwoMessagesOnTwoLanes(t *testing.T) {
-	t.Skip("This test is flaky and needs to be fixed")
 	runRmnTestCase(t, rmnTestCase{
 		name:        "global curse messages on two lanes",
 		waitForExec: false,
