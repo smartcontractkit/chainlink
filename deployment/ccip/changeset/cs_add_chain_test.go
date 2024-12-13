@@ -214,18 +214,20 @@ func TestAddChainInbound(t *testing.T) {
 		},
 		{
 			Changeset: commonchangeset.WrapChangeSet(SetCandidateChangeset),
-			Config: SetCandidateConfigBase{
-				HomeChainSelector: e.HomeChainSel,
-				FeedChainSelector: e.FeedChainSel,
-				DONChainSelector:  newChain,
-				PluginType:        types.PluginTypeCCIPExec,
-				CCIPOCRParams: DefaultOCRParams(
-					e.FeedChainSel,
-					tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[newChain].LinkToken, state.Chains[newChain].Weth9),
-					nil,
-				),
-				MCMS: &MCMSConfig{
-					MinDelay: 0,
+			Config: SetCandidateChangesetConfig{
+				SetCandidateConfigBase: SetCandidateConfigBase{
+					HomeChainSelector: e.HomeChainSel,
+					FeedChainSelector: e.FeedChainSel,
+					DONChainSelector:  newChain,
+					PluginType:        types.PluginTypeCCIPExec,
+					CCIPOCRParams: DefaultOCRParams(
+						e.FeedChainSel,
+						tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[newChain].LinkToken, state.Chains[newChain].Weth9),
+						nil,
+					),
+					MCMS: &MCMSConfig{
+						MinDelay: 0,
+					},
 				},
 			},
 		},

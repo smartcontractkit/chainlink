@@ -173,6 +173,9 @@ func PromoteAllCandidatesChangeset(
 	}, nil
 }
 
+// SetCandidateConfigBase is a common base config struct for AddDonAndSetCandidateChangesetConfig and SetCandidateChangesetConfig.
+// This is extracted to deduplicate most of the validation logic.
+// Remaining validation logic is done in the specific config structs that inherit from this.
 type SetCandidateConfigBase struct {
 	HomeChainSelector uint64
 	FeedChainSelector uint64
