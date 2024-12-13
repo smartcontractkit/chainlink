@@ -181,7 +181,7 @@ func MaybeDataErr(err error) error {
 	var d rpc.DataError
 	ok := errors.As(err, &d)
 	if ok {
-		return d
+		return fmt.Errorf("%s: %v", d.Error(), d.ErrorData())
 	}
 	return err
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 
@@ -15,6 +16,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
+)
+
+const (
+	defaultFetchTimeoutMs = 20_000
 )
 
 var _ connector.GatewayConnectorHandler = &OutgoingConnectorHandler{}
@@ -51,8 +56,24 @@ func NewOutgoingConnectorHandler(gc connector.GatewayConnector, config ServiceCo
 }
 
 // HandleSingleNodeRequest sends a request to first available gateway node and blocks until response is received
-// TODO: handle retries and timeouts
-func (c *OutgoingConnectorHandler) HandleSingleNodeRequest(ctx context.Context, messageID string, payload []byte) (*api.Message, error) {
+// TODO: handle retries
+func (c *OutgoingConnectorHandler) HandleSingleNodeRequest(ctx context.Context, messageID string, req capabilities.Request) (*api.Message, error) {
+	// set default timeout if not provided for all outgoing requests
+	if req.TimeoutMs == 0 {
+		req.TimeoutMs = defaultFetchTimeoutMs
+	}
+
+	// Create a subcontext with the timeout plus some margin for the gateway to process the request
+	timeoutDuration := time.Duration(req.TimeoutMs) * time.Millisecond
+	margin := 100 * time.Millisecond
+	ctx, cancel := context.WithTimeout(ctx, timeoutDuration+margin)
+	defer cancel()
+
+	payload, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal fetch request: %w", err)
+	}
+
 	ch := make(chan *api.Message, 1)
 	c.responseChsMu.Lock()
 	c.responseChs[messageID] = ch
@@ -75,7 +96,7 @@ func (c *OutgoingConnectorHandler) HandleSingleNodeRequest(ctx context.Context, 
 	}
 	sort.Strings(gatewayIDs)
 
-	err := c.gc.SignAndSendToGateway(ctx, gatewayIDs[0], body)
+	err = c.gc.SignAndSendToGateway(ctx, gatewayIDs[0], body)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to send request to gateway")
 	}

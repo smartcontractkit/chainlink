@@ -15,11 +15,11 @@ on:
       baseRef:
         required: false
         type: string
-        description: 'The base reference or branch to compare changes for detecting flaky tests.'
+        description: 'The base reference or branch to compare changes for detecting flaky tests. Set only when running diffs between branches. E.g. (develop)'
       headRef:
         required: false
         type: string
-        description: 'The head reference or branch to compare changes for detecting flaky tests. Default is the current branch.'
+        description: 'The head reference or branch to compare changes for detecting flaky tests. Default is the current branch. E.g. (develop)'
       runAllTests:
         required: false
         type: boolean
@@ -56,6 +56,7 @@ on:
         required: true
 
 env:
+  GIT_BASE_REF: ${{ inputs.baseRef }}
   GIT_HEAD_REF: ${{ inputs.headRef || github.ref }}
   SKIPPED_TESTS: ${{ fromJSON(inputs.extraArgs)['skipped_tests'] || '' }} # Comma separated list of test names to skip running in the flaky detector. Related issue: TT-1823
   DEFAULT_MAX_RUNNER_COUNT: ${{ fromJSON(inputs.extraArgs)['default_max_runner_count'] || '8' }} # The default maximum number of GitHub runners to use for parallel test execution.
@@ -80,6 +81,7 @@ jobs:
       affected_test_packages: ${{ steps.get-tests.outputs.packages }}
       git_head_sha: ${{ steps.get_commit_sha.outputs.git_head_sha }}
       git_head_short_sha: ${{ steps.get_commit_sha.outputs.git_head_short_sha }}
+      git_base_sha: ${{ steps.get_commit_sha.outputs.git_base_sha }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
@@ -87,13 +89,32 @@ jobs:
           fetch-depth: 0
           ref: ${{ env.GIT_HEAD_REF }}
 
-      - name: Get commit SHA
+      - name: Get SHA
         id: get_commit_sha
         run: |
+          # Resolve HEAD SHA
           git_head_sha=$(git rev-parse HEAD)
           git_head_short_sha=$(git rev-parse --short HEAD)
           echo "git_head_sha=$git_head_sha" >> $GITHUB_OUTPUT
           echo "git_head_short_sha=$git_head_short_sha" >> $GITHUB_OUTPUT          
+
+          # Print HEAD SHAs to the console
+          echo "HEAD SHA: $git_head_sha"
+          echo "HEAD Short SHA: $git_head_short_sha"          
+
+          # Conditionally resolve BASE SHA
+          if [ -n "${{ env.GIT_BASE_REF }}" ]; then
+            git fetch origin ${{ env.GIT_BASE_REF }} --quiet
+
+            git_base_sha=$(git rev-parse origin/${{ env.GIT_BASE_REF }})
+            echo "git_base_sha=$git_base_sha" >> $GITHUB_OUTPUT
+            
+            # Print BASE SHA to the console
+            echo "BASE SHA: $git_base_sha"
+          else
+            echo "BASE SHA not provided."
+            echo "git_base_sha=" >> $GITHUB_OUTPUT
+          fi  
 
       - name: Set up Go 1.21.9
         uses: actions/setup-go@v5.0.2
@@ -102,7 +123,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@404e04e1e2e2dd5a384b09bd05b8d80409b6609a # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@fc2d7e38486853d2bed06e9074868087f5b55506 # flakguard@0.1.0
 
       - name: Find new or updated test packages
         if: ${{ inputs.runAllTests == false }}
@@ -115,7 +136,7 @@ jobs:
           PATH=$PATH:$(go env GOPATH)/bin
           export PATH
 
-          PACKAGES=$(flakeguard find --find-by-test-files-diff=${{ inputs.findByTestFilesDiff }} --find-by-affected-packages=${{ inputs.findByAffectedPackages }} --base-ref=origin/${{ inputs.baseRef }} --project-path=${{ inputs.projectPath }})
+          PACKAGES=$(flakeguard find --find-by-test-files-diff=${{ inputs.findByTestFilesDiff }} --find-by-affected-packages=${{ inputs.findByAffectedPackages }} --base-ref=origin/${{ env.GIT_BASE_REF }} --project-path=${{ inputs.projectPath }})
           echo $PACKAGES
           echo "packages=$PACKAGES" >> $GITHUB_OUTPUT
 
@@ -130,7 +151,7 @@ jobs:
           PATH=$PATH:$(go env GOPATH)/bin
           export PATH
 
-          TEST_FILES=$(flakeguard find --only-show-changed-test-files=true --base-ref=origin/${{ inputs.baseRef }} --project-path=${{ inputs.projectPath }})
+          TEST_FILES=$(flakeguard find --only-show-changed-test-files=true --base-ref=origin/${{ env.GIT_BASE_REF }} --project-path=${{ inputs.projectPath }})
           echo $TEST_FILES
           echo "test_files=$TEST_FILES" >> $GITHUB_OUTPUT
           
@@ -261,11 +282,11 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@404e04e1e2e2dd5a384b09bd05b8d80409b6609a # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@fc2d7e38486853d2bed06e9074868087f5b55506 # flakguard@0.1.0
 
       - name: Run tests with flakeguard
         shell: bash
-        run: flakeguard run --project-path=${{ inputs.projectPath }} --test-packages=${{ matrix.testPackages }} --run-count=${{ env.TEST_REPEAT_COUNT }} --max-pass-ratio=${{ inputs.maxPassRatio }} --race=${{ env.RUN_WITH_RACE }} --shuffle=${{ env.RUN_WITH_SHUFFLE }} --shuffle-seed=${{ env.SHUFFLE_SEED }} --skip-tests=${{ env.SKIPPED_TESTS }} --output-json=test-result.json
+        run: flakeguard run --project-path=${{ inputs.projectPath }} --test-packages=${{ matrix.testPackages }} --run-count=${{ env.TEST_REPEAT_COUNT }} --max-pass-ratio=${{ inputs.maxPassRatio }} --race=${{ env.RUN_WITH_RACE }} --shuffle=${{ env.RUN_WITH_SHUFFLE }} --shuffle-seed=${{ env.SHUFFLE_SEED }} --skip-tests=${{ env.SKIPPED_TESTS }} --output-json=test-result.json --omit-test-outputs-on-success=true
         env:
           CL_DATABASE_URL: ${{ env.DB_URL }}
 
@@ -281,7 +302,7 @@ jobs:
     needs: [get-tests, run-tests]
     if: always()
     name: Report
-    runs-on: ubuntu-24.04-8cores-32GB-ARM # Use a runner with more resources to avoid OOM errors when aggregating test results.
+    runs-on: ubuntu-latest
     outputs:
       test_results: ${{ steps.results.outputs.results }}
     steps:
@@ -308,7 +329,7 @@ jobs:
             
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@404e04e1e2e2dd5a384b09bd05b8d80409b6609a # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@fc2d7e38486853d2bed06e9074868087f5b55506 # flakguard@0.1.0
                 
       - name: Aggregate Flakeguard Results
         id: results
@@ -329,7 +350,11 @@ jobs:
             --output-path ./flakeguard-report \
             --repo-path "${{ github.workspace }}" \
             --codeowners-path "${{ github.workspace }}/.github/CODEOWNERS" \
-            --max-pass-ratio "${{ inputs.maxPassRatio }}"
+            --max-pass-ratio "${{ inputs.maxPassRatio }}" \
+            --repo-url "${{ inputs.repoUrl }}" \
+            --base-sha "${{ needs.get-tests.outputs.git_base_sha }}" \
+            --head-sha "${{ needs.get-tests.outputs.git_head_sha }}" \
+            --github-workflow-name "${{ github.workflow }}"
 
           # Print out the summary file
           echo -e "\nFlakeguard Summary:"
@@ -461,7 +486,7 @@ jobs:
                       "type": "section",
                       "text": {
                         "type": "mrkdwn",
-                        "text": "${{ inputs.runAllTests == true && format('Ran all tests for `{0}` branch.', inputs.headRef) || format('Ran changed tests between `{0}` and `{1}` (`{2}`).', inputs.baseRef, needs.get-tests.outputs.git_head_short_sha, env.GIT_HEAD_REF) }}"
+                        "text": "${{ inputs.runAllTests == true && format('Ran all tests for `{0}` branch.', env.GIT_HEAD_REF) || format('Ran changed tests between `{0}` and `{1}` (`{2}`).', env.GIT_BASE_REF, needs.get-tests.outputs.git_head_short_sha, env.GIT_HEAD_REF) }}"
                       }
                     },
                     {
@@ -481,7 +506,7 @@ jobs:
                       "type": "section",
                       "text": {
                         "type": "mrkdwn",
-                        "text": "${{ format('<{0}/{1}/actions/runs/{2}|View Flaky Detector Details> | <{3}/compare/{4}...{5}#files_bucket|Compare Changes>{6}', github.server_url, github.repository, github.run_id, inputs.repoUrl, inputs.baseRef, needs.get-tests.outputs.git_head_sha, github.event_name == 'pull_request' && format(' | <{0}|View PR>', github.event.pull_request.html_url) || '') }}"
+                        "text": "${{ format('<{0}/{1}/actions/runs/{2}|View Flaky Detector Details> | <{3}/compare/{4}...{5}#files_bucket|Compare Changes>{6}', github.server_url, github.repository, github.run_id, inputs.repoUrl, env.GIT_BASE_REF, needs.get-tests.outputs.git_head_sha, github.event_name == 'pull_request' && format(' | <{0}|View PR>', github.event.pull_request.html_url) || '') }}"
                       }
                     }
                   ]
@@ -514,7 +539,7 @@ jobs:
                       "type": "section",
                       "text": {
                         "type": "mrkdwn",
-                        "text": "${{ inputs.runAllTests == true && format('Ran all tests for `{0}` branch.', env.GIT_HEAD_REF) || format('Ran changed tests between `{0}` and `{1}` (`{2}`).', inputs.baseRef, needs.get-tests.outputs.git_head_short_sha, env.GIT_HEAD_REF) }}"
+                        "text": "${{ inputs.runAllTests == true && format('Ran all tests for `{0}` branch.', env.GIT_HEAD_REF) || format('Ran changed tests between `{0}` and `{1}` (`{2}`).', env.GIT_BASE_REF, needs.get-tests.outputs.git_head_short_sha, env.GIT_HEAD_REF) }}"
                       }
                     },
                     {
