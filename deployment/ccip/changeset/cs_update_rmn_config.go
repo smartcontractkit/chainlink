@@ -11,12 +11,112 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_remote"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
+
+type SetRMNRemoteOnRMNProxyConfig struct {
+	ChainSelectors []uint64
+	MCMSConfig     *MCMSConfig
+}
+
+func (c SetRMNRemoteOnRMNProxyConfig) Validate(state CCIPOnChainState) error {
+	for _, chain := range c.ChainSelectors {
+		err := deployment.IsValidChainSelector(chain)
+		if err != nil {
+			return err
+		}
+		chainState, exists := state.Chains[chain]
+		if !exists {
+			return fmt.Errorf("chain %d not found in state", chain)
+		}
+		if chainState.RMNRemote == nil {
+			return fmt.Errorf("RMNRemote not found for chain %d", chain)
+		}
+		if chainState.RMNProxy == nil {
+			return fmt.Errorf("RMNProxy not found for chain %d", chain)
+		}
+	}
+	return nil
+}
+
+func SetRMNRemoteOnRMNProxy(e deployment.Environment, cfg SetRMNRemoteOnRMNProxyConfig) (deployment.ChangesetOutput, error) {
+	state, err := LoadOnchainState(e)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+	}
+	if err := cfg.Validate(state); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	var timelockBatch []timelock.BatchChainOperation
+	multiSigs := make(map[uint64]*gethwrappers.ManyChainMultiSig)
+	timelocks := make(map[uint64]common.Address)
+	for _, sel := range cfg.ChainSelectors {
+		chain, exists := e.Chains[sel]
+		if !exists {
+			return deployment.ChangesetOutput{}, fmt.Errorf("chain %d not found", sel)
+		}
+		txOpts := chain.DeployerKey
+		if cfg.MCMSConfig != nil {
+			txOpts = deployment.SimTransactOpts()
+		}
+		mcmsOps, err := setRMNRemoteOnRMNProxyOp(txOpts, chain, state.Chains[sel], cfg.MCMSConfig != nil)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to set RMNRemote on RMNProxy for chain %s: %w", chain.String(), err)
+		}
+		if cfg.MCMSConfig != nil {
+			timelockBatch = append(timelockBatch, timelock.BatchChainOperation{
+				ChainIdentifier: mcms.ChainIdentifier(sel),
+				Batch:           []mcms.Operation{mcmsOps},
+			})
+			multiSigs[sel] = state.Chains[sel].ProposerMcm
+			timelocks[sel] = state.Chains[sel].Timelock.Address()
+		}
+	}
+	// If we're not using MCMS, we can just return now as we've already confirmed the transactions
+	if len(timelockBatch) == 0 {
+		return deployment.ChangesetOutput{}, nil
+	}
+	prop, err := proposalutils.BuildProposalFromBatches(
+		timelocks,
+		multiSigs,
+		timelockBatch,
+		fmt.Sprintf("proposal to set RMNRemote on RMNProxy for chains %v", cfg.ChainSelectors),
+		cfg.MCMSConfig.MinDelay,
+	)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	return deployment.ChangesetOutput{
+		Proposals: []timelock.MCMSWithTimelockProposal{
+			*prop,
+		},
+	}, nil
+}
+
+func setRMNRemoteOnRMNProxyOp(txOpts *bind.TransactOpts, chain deployment.Chain, chainState CCIPChainState, mcmsEnabled bool) (mcms.Operation, error) {
+	rmnProxy := chainState.RMNProxy
+	rmnRemoteAddr := chainState.RMNRemote.Address()
+	setRMNTx, err := rmnProxy.SetARM(txOpts, rmnRemoteAddr)
+	if err != nil {
+		return mcms.Operation{}, fmt.Errorf("failed to build call data/transaction to set RMNRemote on RMNProxy for chain %s: %w", chain.String(), err)
+	}
+	if !mcmsEnabled {
+		_, err = deployment.ConfirmIfNoError(chain, setRMNTx, err)
+		if err != nil {
+			return mcms.Operation{}, fmt.Errorf("failed to confirm tx to set RMNRemote on RMNProxy  for chain %s: %w", chain.String(), deployment.MaybeDataErr(err))
+		}
+	}
+	return mcms.Operation{
+		To:    rmnProxy.Address(),
+		Data:  setRMNTx.Data(),
+		Value: big.NewInt(0),
+	}, nil
+}
 
 type RMNNopConfig struct {
 	NodeIndex           uint64
