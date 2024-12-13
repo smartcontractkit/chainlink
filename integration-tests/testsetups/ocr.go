@@ -135,7 +135,6 @@ func WithForwarderFlow(forwarderFlow bool) OCRSoakTestOption {
 
 // NewOCRSoakTest creates a new OCR soak test to setup and run
 func NewOCRSoakTest(t *testing.T, config *tc.TestConfig, opts ...OCRSoakTestOption) (*OCRSoakTest, error) {
-	sc := NewSentinelCoordinator(logging.GetTestLogger(t))
 	test := &OCRSoakTest{
 		Config: config,
 		TestReporter: testreporters.OCRSoakTestReporter{
@@ -148,7 +147,6 @@ func NewOCRSoakTest(t *testing.T, config *tc.TestConfig, opts ...OCRSoakTestOpti
 		ocrRoundStates:   make([]*testreporters.OCRRoundState, 0),
 		ocrV1InstanceMap: make(map[string]contracts.OffchainAggregator),
 		ocrV2InstanceMap: make(map[string]contracts.OffchainAggregatorV2),
-		sc:               sc,
 	}
 
 	ocrVersion := "1"
@@ -164,7 +162,6 @@ func NewOCRSoakTest(t *testing.T, config *tc.TestConfig, opts ...OCRSoakTestOpti
 	}
 	t.Cleanup(func() {
 		test.deleteChaosSimulations()
-		test.sc.Shutdown()
 	})
 	return test, test.ensureInputValues()
 }
@@ -301,10 +298,10 @@ func (o *OCRSoakTest) Environment() *environment.Environment {
 	return o.testEnvironment
 }
 
-func NewSentinelCoordinator(log zerolog.Logger) *SentinelCoordinator {
+func newSentinelCoordinator(log zerolog.Logger) *SentinelCoordinator {
 	ctx, cancel := context.WithCancel(context.Background())
 	wg := &sync.WaitGroup{}
-	s := sentinel.NewSentinel(sentinel.SentinelConfig{Logger: log})
+	s := sentinel.NewSentinel(sentinel.SentinelConfig{})
 
 	return &SentinelCoordinator{
 		sentinel: s,
@@ -371,7 +368,7 @@ func (o *OCRSoakTest) handleSentinelLogs(logCh chan sentinelapi.Log) {
 	for {
 		select {
 		case <-o.sc.ctx.Done():
-			o.log.Info().Msg("Sentinel log handler received cancellation signal. Exiting goroutine.")
+			o.log.Debug().Msg("Sentinel log handler received cancellation signal. Exiting goroutine.")
 			return
 		case log, ok := <-logCh:
 			if !ok {
@@ -485,9 +482,6 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 	o.setupOCRContracts(ocrTestConfig, forwarders)
 	o.log.Info().Msg("OCR Soak Test Setup Complete")
 
-	// Initialize Sentinel and set up subscriptions
-	err := o.setupSentinel()
-	require.NoError(o.t, err, "Failed to set up Sentinel")
 }
 
 // initializeClients sets up the Seth client, Chainlink nodes, and mock server.
@@ -622,6 +616,12 @@ func (o *OCRSoakTest) storeOCRInstancesV2() {
 
 // Run starts the OCR soak test
 func (o *OCRSoakTest) Run() {
+	o.sc = newSentinelCoordinator(o.log)
+	defer o.sc.Shutdown()
+	// Initialize Sentinel and set up subscriptions
+	err := o.setupSentinel()
+	require.NoError(o.t, err, "Failed to set up Sentinel")
+
 	config, err := tc.GetConfig([]string{"soak"}, tc.OCR)
 	require.NoError(o.t, err, "Error getting config")
 
@@ -820,6 +820,11 @@ func (o *OCRSoakTest) LoadState() error {
 }
 
 func (o *OCRSoakTest) Resume() {
+	o.sc = newSentinelCoordinator(o.log)
+	defer o.sc.Shutdown()
+	// Initialize Sentinel and set up subscriptions
+	err := o.setupSentinel()
+	require.NoError(o.t, err, "Failed to set up Sentinel")
 	o.testIssues = append(o.testIssues, &testreporters.TestIssue{
 		StartTime: time.Now(),
 		Message:   "Test Resumed",
@@ -860,7 +865,7 @@ func (o *OCRSoakTest) Resume() {
 
 	o.log.Info().Msg("Test Complete, collecting on-chain events")
 
-	err := o.collectEvents()
+	err = o.collectEvents()
 	o.log.Error().Err(err).Interface("Query", o.filterQuery).Msg("Error collecting on-chain events, expect malformed report")
 	o.TestReporter.RecordEvents(o.ocrRoundStates, o.testIssues)
 }
@@ -885,9 +890,6 @@ func (sc *SentinelCoordinator) Shutdown() {
 
 // testLoop is the primary test loop that will trigger new rounds and watch events
 func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
-	// Gracefully shut down Sentinel when the test finishes
-	defer o.sc.Shutdown()
-
 	endTest := time.After(testDuration)
 	interruption := make(chan os.Signal, 1)
 	//nolint:staticcheck //ignore SA1016 we need to send the os.Kill signal
