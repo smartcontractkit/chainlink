@@ -147,4 +147,9 @@ contract RMNRemoteSetup is BaseTest {
       }
     }
   }
+
+  /// @dev returns a pseudo-random bytes32
+  function _randomBytes32() internal returns (bytes32) {
+    return bytes32(vm.randomUint());
+  }
 }

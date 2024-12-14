@@ -78,7 +78,7 @@ contract E2E is OnRampSetup, OffRampSetup {
     s_nonceManager2 = new NonceManager(new address[](0));
 
     (
-      // Deploy the new source chain onramp
+      // Deploy the new source chain onRamp
       // Outsource to shared helper function with OnRampSetup
       s_onRamp2,
       s_metadataHash2
@@ -97,10 +97,10 @@ contract E2E is OnRampSetup, OffRampSetup {
     onRampUpdates[0] = Router.OnRamp({destChainSelector: DEST_CHAIN_SELECTOR, onRamp: address(s_onRamp2)});
     s_sourceRouter2.applyRampUpdates(onRampUpdates, new Router.OffRamp[](0), new Router.OffRamp[](0));
 
-    // Deploy offramp
+    // Deploy offRamp
     _deployOffRamp(s_mockRMNRemote, s_inboundNonceManager);
 
-    // Enable source chains on offramp
+    // Enable source chains on offRamp
     OffRamp.SourceChainConfigArgs[] memory sourceChainConfigs = new OffRamp.SourceChainConfigArgs[](2);
     sourceChainConfigs[0] = OffRamp.SourceChainConfigArgs({
       router: s_destRouter,
@@ -162,7 +162,7 @@ contract E2E is OnRampSetup, OffRampSetup {
       merkleRoots[0] = MerkleHelper.getMerkleRoot(hashedMessages1);
       merkleRoots[1] = MerkleHelper.getMerkleRoot(hashedMessages2);
 
-      // TODO make these real sigs :)
+      // TODO make these real sigs
       IRMNRemote.Signature[] memory rmnSignatures = new IRMNRemote.Signature[](0);
 
       Internal.MerkleRoot[] memory roots = new Internal.MerkleRoot[](2);

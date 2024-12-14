@@ -5,18 +5,17 @@ import {Ownable2Step} from "../../../../shared/access/Ownable2Step.sol";
 import {BurnMintERC677} from "../../../../shared/token/ERC677/BurnMintERC677.sol";
 import {RateLimiter} from "../../../libraries/RateLimiter.sol";
 import {TokenPool} from "../../../pools/TokenPool.sol";
-
+import {BaseTest} from "../../BaseTest.t.sol";
 import {TokenPoolHelper} from "../../helpers/TokenPoolHelper.sol";
-import {RouterSetup} from "../../router/Router/RouterSetup.t.sol";
 
 import {IERC20} from "../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
-contract TokenPool_applyChainUpdates is RouterSetup {
+contract TokenPool_applyChainUpdates is BaseTest {
   IERC20 internal s_token;
   TokenPoolHelper internal s_tokenPool;
 
   function setUp() public virtual override {
-    RouterSetup.setUp();
+    super.setUp();
     s_token = new BurnMintERC677("LINK", "LNK", 18, 0);
     deal(address(s_token), OWNER, type(uint256).max);
 

@@ -3,11 +3,14 @@ pragma solidity 0.8.24;
 
 // Imports to any non-library are not allowed due to the significant cascading
 // compile time increase they cause when imported into this base test.
-
 import {IRMNRemote} from "../interfaces/IRMNRemote.sol";
+
+import {Router} from "../Router.sol";
 import {Internal} from "../libraries/Internal.sol";
 import {RateLimiter} from "../libraries/RateLimiter.sol";
+import {WETH9} from "./WETH9.sol";
 import {MockRMN} from "./mocks/MockRMN.sol";
+
 import {Test} from "forge-std/Test.sol";
 
 contract BaseTest is Test {
@@ -46,6 +49,8 @@ contract BaseTest is Test {
 
   MockRMN internal s_mockRMN;
   IRMNRemote internal s_mockRMNRemote;
+  Router internal s_sourceRouter;
+  Router internal s_destRouter;
 
   function setUp() public virtual {
     // BaseTest.setUp is often called multiple times from tests' setUp due to inheritance.
@@ -68,6 +73,12 @@ contract BaseTest is Test {
     vm.mockCall(address(s_mockRMNRemote), abi.encodeWithSelector(IRMNRemote.verify.selector), bytes(""));
     vm.mockCall(address(s_mockRMNRemote), abi.encodeWithSignature("isCursed()"), abi.encode(false));
     vm.mockCall(address(s_mockRMNRemote), abi.encodeWithSignature("isCursed(bytes16)"), abi.encode(false)); // no curses by defaule
+
+    s_sourceRouter = new Router(address(new WETH9()), address(s_mockRMN));
+    vm.label(address(s_sourceRouter), "sourceRouter");
+    // Deploy a destination router
+    s_destRouter = new Router(address(new WETH9()), address(s_mockRMN));
+    vm.label(address(s_destRouter), "destRouter");
   }
 
   function _setMockRMNChainCurse(uint64 chainSelector, bool isCursed) internal {
@@ -99,8 +110,12 @@ contract BaseTest is Test {
     return priceUpdates;
   }
 
-  /// @dev returns a pseudo-random bytes32
-  function _randomBytes32() internal returns (bytes32) {
-    return bytes32(vm.randomUint());
+  function _generateSourceTokenData() internal pure returns (Internal.SourceTokenData memory) {
+    return Internal.SourceTokenData({
+      sourcePoolAddress: abi.encode(address(12312412312)),
+      destTokenAddress: abi.encode(address(9809808909)),
+      extraData: "",
+      destGasAmount: DEFAULT_TOKEN_DEST_GAS_OVERHEAD
+    });
   }
 }

@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
-import {Router} from "../../../Router.sol";
 import {IAny2EVMMessageReceiver} from "../../../interfaces/IAny2EVMMessageReceiver.sol";
 import {IRouter} from "../../../interfaces/IRouter.sol";
-import {Client} from "../../../libraries/Client.sol";
 
+import {Router} from "../../../Router.sol";
+import {Client} from "../../../libraries/Client.sol";
 import {MaybeRevertMessageReceiver} from "../../helpers/receivers/MaybeRevertMessageReceiver.sol";
 import {OffRampSetup} from "../../offRamp/OffRamp/OffRampSetup.t.sol";
 
@@ -19,6 +19,19 @@ contract Router_routeMessage is OffRampSetup {
     uint256 callDataLength
   ) internal view returns (uint256) {
     return ((gasleft() - 2 * (16 * callDataLength + GAS_FOR_CALL_EXACT_CHECK)) * 62) / 64;
+  }
+
+  function _generateReceiverMessage(
+    uint64 chainSelector
+  ) internal pure returns (Client.Any2EVMMessage memory) {
+    Client.EVMTokenAmount[] memory ta = new Client.EVMTokenAmount[](0);
+    return Client.Any2EVMMessage({
+      messageId: bytes32("a"),
+      sourceChainSelector: chainSelector,
+      sender: bytes("a"),
+      data: bytes("a"),
+      destTokenAmounts: ta
+    });
   }
 
   function test_routeMessage_ManualExec() public {

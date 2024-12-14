@@ -5,11 +5,11 @@ import {BurnMintERC20} from "../../../../shared/token/ERC20/BurnMintERC20.sol";
 import {Router} from "../../../Router.sol";
 import {LockReleaseTokenPool} from "../../../pools/LockReleaseTokenPool.sol";
 import {TokenPool} from "../../../pools/TokenPool.sol";
+import {BaseTest} from "../../BaseTest.t.sol";
 
 import {IERC20} from "../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
-import {RouterSetup} from "../../router/Router/RouterSetup.t.sol";
 
-contract LockReleaseTokenPoolSetup is RouterSetup {
+contract LockReleaseTokenPoolSetup is BaseTest {
   IERC20 internal s_token;
   LockReleaseTokenPool internal s_lockReleaseTokenPool;
   LockReleaseTokenPool internal s_lockReleaseTokenPoolWithAllowList;
@@ -22,7 +22,7 @@ contract LockReleaseTokenPoolSetup is RouterSetup {
   address internal s_sourcePoolAddress = address(53852352095);
 
   function setUp() public virtual override {
-    RouterSetup.setUp();
+    super.setUp();
     s_token = new BurnMintERC20("LINK", "LNK", 18, 0, 0);
     deal(address(s_token), OWNER, type(uint256).max);
     s_lockReleaseTokenPool = new LockReleaseTokenPool(
