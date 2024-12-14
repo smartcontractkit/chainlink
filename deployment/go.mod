@@ -21,9 +21,15 @@ require (
 	github.com/rs/zerolog v1.33.0
 	github.com/sethvargo/go-retry v0.2.4
 	github.com/smartcontractkit/ccip-owner-contracts v0.0.0-20240926212305-a6deabdfce86
+<<<<<<< Updated upstream
 	github.com/smartcontractkit/chain-selectors v1.0.31
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241204015713-8956bb614e9e
 	github.com/smartcontractkit/chainlink-common v0.3.1-0.20241202172404-26d4a0b45b23
+=======
+	github.com/smartcontractkit/chain-selectors v1.0.34
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241211150100-7683331f64a0
+	github.com/smartcontractkit/chainlink-common v0.3.1-0.20241213174939-dbebc0fc753a
+>>>>>>> Stashed changes
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.6.0
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.13
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
