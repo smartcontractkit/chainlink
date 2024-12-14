@@ -48,23 +48,33 @@ func NewEVMEncoder(config *values.Map) (consensustypes.Encoder, error) {
 		return nil, err
 	}
 
+	chainCodecConfig := types.ChainCodecConfig{
+		TypeABI: string(jsonSelector),
+	}
+
 	var subabi map[string]string
-	err = config.Underlying[subabiConfigFieldName].UnwrapTo(subabi)
-	if err != nil {
-		return nil, err
+	subabiConfig, ok := config.Underlying[subabiConfigFieldName]
+	if ok {
+		err = subabiConfig.UnwrapTo(&subabi)
+		if err != nil {
+			return nil, err
+		}
+		codecs, err := makePreCodecModifierCodecs(subabi)
+		if err != nil {
+			return nil, err
+		}
+		chainCodecConfig.ModifierConfigs = commoncodec.ModifiersConfig{
+			&commoncodec.PreCodecModifierConfig{
+				Fields: subabi,
+				Codecs: codecs,
+			},
+		}
 	}
 
 	codecConfig := types.CodecConfig{Configs: map[string]types.ChainCodecConfig{
-		encoderName: {
-			TypeABI: string(jsonSelector),
-			ModifierConfigs: commoncodec.ModifiersConfig{
-				&commoncodec.PreCodecModifierConfig{
-					Fields:       subabi,
-					CodecFactory: codecFactory,
-				},
-			},
-		},
+		encoderName: chainCodecConfig,
 	}}
+
 	c, err := codec.NewCodec(codecConfig)
 	if err != nil {
 		return nil, err
@@ -73,22 +83,30 @@ func NewEVMEncoder(config *values.Map) (consensustypes.Encoder, error) {
 	return &capEncoder{codec: c}, nil
 }
 
-func codecFactory(typeABI string) (commontypes.RemoteCodec, error) {
-	selector, err := abiutil.ParseSelector("inner(" + typeABI + ")")
-	if err != nil {
-		return nil, err
+func makePreCodecModifierCodecs(subabi map[string]string) (map[string]commontypes.RemoteCodec, error) {
+	codecs := map[string]commontypes.RemoteCodec{}
+	for _, abi := range subabi {
+		selector, err := abiutil.ParseSelector("inner(" + abi + ")")
+		if err != nil {
+			return nil, err
+		}
+		jsonSelector, err := json.Marshal(selector.Inputs)
+		if err != nil {
+			return nil, err
+		}
+		emptyName := ""
+		codecConfig := types.CodecConfig{Configs: map[string]types.ChainCodecConfig{
+			emptyName: {
+				TypeABI: string(jsonSelector),
+			},
+		}}
+		codec, err := codec.NewCodec(codecConfig)
+		if err != nil {
+			return nil, err
+		}
+		codecs[abi] = codec
 	}
-	jsonSelector, err := json.Marshal(selector.Inputs)
-	if err != nil {
-		return nil, err
-	}
-	emptyName := ""
-	codecConfig := types.CodecConfig{Configs: map[string]types.ChainCodecConfig{
-		emptyName: {
-			TypeABI: string(jsonSelector),
-		},
-	}}
-	return codec.NewCodec(codecConfig)
+	return codecs, nil
 }
 
 func (c *capEncoder) Encode(ctx context.Context, input values.Map) ([]byte, error) {
