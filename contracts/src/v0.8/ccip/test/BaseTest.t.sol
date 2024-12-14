@@ -47,9 +47,6 @@ contract BaseTest is Test {
   MockRMN internal s_mockRMN;
   IRMNRemote internal s_mockRMNRemote;
 
-  // nonce for pseudo-random number generation, not to be exposed to test suites
-  uint256 private s_randNonce;
-
   function setUp() public virtual {
     // BaseTest.setUp is often called multiple times from tests' setUp due to inheritance.
     if (s_baseTestInitialized) return;
@@ -69,14 +66,8 @@ contract BaseTest is Test {
     s_mockRMNRemote = IRMNRemote(makeAddr("MOCK RMN REMOTE"));
     vm.etch(address(s_mockRMNRemote), bytes("fake bytecode"));
     vm.mockCall(address(s_mockRMNRemote), abi.encodeWithSelector(IRMNRemote.verify.selector), bytes(""));
-    _setMockRMNGlobalCurse(false);
+    vm.mockCall(address(s_mockRMNRemote), abi.encodeWithSignature("isCursed()"), abi.encode(false));
     vm.mockCall(address(s_mockRMNRemote), abi.encodeWithSignature("isCursed(bytes16)"), abi.encode(false)); // no curses by defaule
-  }
-
-  function _setMockRMNGlobalCurse(
-    bool isCursed
-  ) internal {
-    vm.mockCall(address(s_mockRMNRemote), abi.encodeWithSignature("isCursed()"), abi.encode(isCursed));
   }
 
   function _setMockRMNChainCurse(uint64 chainSelector, bool isCursed) internal {
@@ -110,16 +101,6 @@ contract BaseTest is Test {
 
   /// @dev returns a pseudo-random bytes32
   function _randomBytes32() internal returns (bytes32) {
-    return keccak256(abi.encodePacked(++s_randNonce));
-  }
-
-  /// @dev returns a pseudo-random number
-  function _randomNum() internal returns (uint256) {
-    return uint256(_randomBytes32());
-  }
-
-  /// @dev returns a pseudo-random address
-  function _randomAddress() internal returns (address) {
-    return address(uint160(_randomNum()));
+    return bytes32(vm.randomUint());
   }
 }

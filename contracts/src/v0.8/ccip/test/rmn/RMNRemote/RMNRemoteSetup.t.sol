@@ -49,7 +49,7 @@ contract RMNRemoteSetup is BaseTest {
     }
 
     for (uint256 i = 0; i < numSigners; ++i) {
-      s_signerWallets.push(vm.createWallet(_randomNum()));
+      s_signerWallets.push(vm.createWallet(vm.randomUint()));
     }
 
     _sort(s_signerWallets);
@@ -84,11 +84,11 @@ contract RMNRemoteSetup is BaseTest {
 
   /// @notice generates a random dest lane update
   function _generateRandomDestLaneUpdate() private returns (Internal.MerkleRoot memory) {
-    uint64 minSeqNum = uint32(_randomNum());
+    uint64 minSeqNum = uint32(vm.randomUint());
     uint64 maxSeqNum = minSeqNum + 100;
     return Internal.MerkleRoot({
-      sourceChainSelector: uint64(_randomNum()),
-      onRampAddress: abi.encode(_randomAddress()),
+      sourceChainSelector: uint64(vm.randomUint()),
+      onRampAddress: abi.encode(vm.randomAddress()),
       minSeqNr: minSeqNum,
       maxSeqNr: maxSeqNum,
       merkleRoot: _randomBytes32()
