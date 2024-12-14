@@ -120,7 +120,7 @@ contract HybridLockReleaseUSDCTokenPool_releaseOrMint is HybridLockReleaseUSDCTo
     );
   }
 
-  function test_WhileMigrationPause_Revert() public {
+  function test_RevertWhen_WhileMigrationPause() public {
     address recipient = address(1234);
 
     // Designate the SOURCE_CHAIN as not using native-USDC, and so the L/R mechanism must be used instead

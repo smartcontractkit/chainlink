@@ -49,7 +49,7 @@ contract BurnMintTokenPool_releaseOrMint is BurnMintTokenPoolSetup {
     assertEq(s_burnMintERC20.balanceOf(receiver), amount);
   }
 
-  function test_PoolMintNotHealthy_Revert() public {
+  function test_RevertWhen_PoolMintNotHealthy() public {
     // Should not mint tokens if cursed.
     s_mockRMN.setGlobalCursed(true);
     uint256 before = s_burnMintERC20.balanceOf(OWNER);
@@ -72,7 +72,7 @@ contract BurnMintTokenPool_releaseOrMint is BurnMintTokenPoolSetup {
     assertEq(s_burnMintERC20.balanceOf(OWNER), before);
   }
 
-  function test_ChainNotAllowed_Revert() public {
+  function test_RevertWhen_ChainNotAllowed() public {
     uint64 wrongChainSelector = 8838833;
 
     vm.expectRevert(abi.encodeWithSelector(TokenPool.ChainNotAllowed.selector, wrongChainSelector));

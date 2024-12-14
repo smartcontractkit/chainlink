@@ -63,13 +63,13 @@ contract OnRamp_getFee is OnRampSetup {
 
   // Reverts
 
-  function test_Unhealthy_Revert() public {
+  function test_RevertWhen_Unhealthy() public {
     _setMockRMNChainCurse(DEST_CHAIN_SELECTOR, true);
     vm.expectRevert(abi.encodeWithSelector(OnRamp.CursedByRMN.selector, DEST_CHAIN_SELECTOR));
     s_onRamp.getFee(DEST_CHAIN_SELECTOR, _generateEmptyMessage());
   }
 
-  function test_EnforceOutOfOrder_Revert() public {
+  function test_RevertWhen_EnforceOutOfOrder() public {
     // Update dynamic config to enforce allowOutOfOrderExecution = true.
     vm.stopPrank();
     vm.startPrank(OWNER);
@@ -87,7 +87,7 @@ contract OnRamp_getFee is OnRampSetup {
     s_onRamp.getFee(DEST_CHAIN_SELECTOR, message);
   }
 
-  function test_NotAFeeTokenButPricedToken_Revert() public {
+  function test_RevertWhen_NotAFeeTokenButPricedToken() public {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
     message.feeToken = s_sourceTokens[1];
 

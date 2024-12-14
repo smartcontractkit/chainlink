@@ -22,12 +22,12 @@ contract FactoryBurnMintERC20_mint is BurnMintERC20Setup {
 
   // Revert
 
-  function test_SenderNotMinter_Reverts() public {
+  function test_RevertWhen_SenderNotMinters() public {
     vm.expectRevert(abi.encodeWithSelector(FactoryBurnMintERC20.SenderNotMinter.selector, OWNER));
     s_burnMintERC20.mint(STRANGER, 1e18);
   }
 
-  function test_MaxSupplyExceeded_Reverts() public {
+  function test_RevertWhen_MaxSupplyExceededs() public {
     changePrank(s_mockPool);
 
     // Mint max supply

@@ -127,7 +127,7 @@ contract FeeQuoter_updatePrices is FeeQuoterSetup {
 
   // Reverts
 
-  function test_OnlyCallableByUpdater_Revert() public {
+  function test_RevertWhen_OnlyCallableByUpdater() public {
     Internal.PriceUpdates memory priceUpdates = Internal.PriceUpdates({
       tokenPriceUpdates: new Internal.TokenPriceUpdate[](0),
       gasPriceUpdates: new Internal.GasPriceUpdate[](0)

@@ -40,7 +40,7 @@ contract USDCBridgeMigrator_cancelMigrationProposal is HybridLockReleaseUSDCToke
     s_usdcTokenPool.cancelExistingCCTPMigrationProposal();
   }
 
-  function test_cannotCancelANonExistentMigrationProposal_Revert() public {
+  function test_RevertWhen_cannotCancelANonExistentMigrationProposal() public {
     vm.expectRevert(USDCBridgeMigrator.NoMigrationProposalPending.selector);
 
     // Proposal to migrate doesn't exist, and so the chain selector is zero, and therefore should revert

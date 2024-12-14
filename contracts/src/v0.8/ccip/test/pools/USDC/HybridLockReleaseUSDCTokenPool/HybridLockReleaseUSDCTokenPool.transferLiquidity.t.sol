@@ -63,7 +63,7 @@ contract HybridLockReleaseUSDCTokenPool_TransferLiquidity is HybridLockReleaseUS
     );
   }
 
-  function test_cannotTransferLiquidityDuringPendingMigration_Revert() public {
+  function test_RevertWhen_cannotTransferLiquidityDuringPendingMigration() public {
     // Set as the OWNER so we can provide liquidity
     vm.startPrank(OWNER);
 

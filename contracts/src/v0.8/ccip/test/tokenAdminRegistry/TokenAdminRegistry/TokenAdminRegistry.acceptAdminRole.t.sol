@@ -36,7 +36,7 @@ contract TokenAdminRegistry_acceptAdminRole is TokenAdminRegistrySetup {
     assertEq(config.administrator, newAdmin);
   }
 
-  function test_acceptAdminRole_OnlyPendingAdministrator_Revert() public {
+  function test_RevertWhen_acceptAdminRole_OnlyPendingAdministrator() public {
     address token = s_sourceTokens[0];
     address currentAdmin = s_tokenAdminRegistry.getTokenConfig(token).administrator;
     address newAdmin = makeAddr("newAdmin");

@@ -11,7 +11,7 @@ contract CCIPHome_constructor is CCIPHomeTestSetup {
     assertEq(address(ccipHome.getCapabilityRegistry()), CAPABILITIES_REGISTRY);
   }
 
-  function test_constructor_CapabilitiesRegistryAddressZero_reverts() public {
+  function test_RevertWhen_constructor_CapabilitiesRegistryAddressZero() public {
     vm.expectRevert(CCIPHome.ZeroAddressNotAllowed.selector);
     new CCIPHome(address(0));
   }

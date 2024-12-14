@@ -24,7 +24,7 @@ contract ARMProxy_isCursed is ARMProxyTestSetup {
     assertTrue(IRMN(address(s_armProxy)).isCursed());
   }
 
-  function test_isCursed_RevertReasonForwarded_Revert() public {
+  function test_RevertWhen_isCursedReasonForwarded_Revert() public {
     bytes memory err = bytes("revert");
     s_mockRMN.setIsCursedRevert(err);
     s_armProxy.setARM(address(s_mockRMN));
@@ -32,7 +32,7 @@ contract ARMProxy_isCursed is ARMProxyTestSetup {
     IRMN(address(s_armProxy)).isCursed();
   }
 
-  function test_call_ARMCallEmptyContract_Revert() public {
+  function test_RevertWhen_call_ARMCallEmptyContract() public {
     s_armProxy.setARM(EMPTY_ADDRESS); // No code at address 1, should revert.
     vm.expectRevert();
     bytes memory b = new bytes(0);

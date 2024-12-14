@@ -267,7 +267,7 @@ contract Router_applyRampUpdates is RouterSetup {
     assertTrue(s_sourceRouter.isChainSupported(DEST_CHAIN_SELECTOR));
   }
 
-  function test_applyRampUpdates_RevertWhen_OnlyOwner() public {
+  function test_RevertWhen_applyRampUpdatesWhen_OnlyOwner() public {
     vm.stopPrank();
     vm.expectRevert("Only callable by owner");
     Router.OnRamp[] memory onRampUpdates = new Router.OnRamp[](0);
@@ -275,7 +275,7 @@ contract Router_applyRampUpdates is RouterSetup {
     s_sourceRouter.applyRampUpdates(onRampUpdates, offRampUpdates, offRampUpdates);
   }
 
-  function test_applyRampUpdates_RevertWhen_OffRampMismatch() public {
+  function test_RevertWhen_applyRampUpdatesWhen_OffRampMismatch() public {
     address offRamp = address(uint160(2));
 
     Router.OnRamp[] memory onRampUpdates = new Router.OnRamp[](0);

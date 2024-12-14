@@ -87,7 +87,7 @@ contract TokenAdminRegistry_proposeAdministrator is TokenAdminRegistrySetup {
     }
   }
 
-  function test_proposeAdministrator_OnlyRegistryModule_Revert() public {
+  function test_RevertWhen_proposeAdministrator_OnlyRegistryModule() public {
     address newToken = makeAddr("newToken");
     vm.stopPrank();
 
@@ -95,14 +95,14 @@ contract TokenAdminRegistry_proposeAdministrator is TokenAdminRegistrySetup {
     s_tokenAdminRegistry.proposeAdministrator(newToken, OWNER);
   }
 
-  function test_proposeAdministrator_ZeroAddress_Revert() public {
+  function test_RevertWhen_proposeAdministrator_ZeroAddress() public {
     address newToken = makeAddr("newToken");
 
     vm.expectRevert(abi.encodeWithSelector(TokenAdminRegistry.ZeroAddress.selector));
     s_tokenAdminRegistry.proposeAdministrator(newToken, address(0));
   }
 
-  function test_proposeAdministrator_AlreadyRegistered_Revert() public {
+  function test_RevertWhen_proposeAdministrator_AlreadyRegistered() public {
     address newAdmin = makeAddr("newAdmin");
     address newToken = makeAddr("newToken");
 

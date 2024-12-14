@@ -27,7 +27,7 @@ contract TokenAdminRegistry_removeRegistryModule is TokenAdminRegistrySetup {
     vm.assertEq(vm.getRecordedLogs().length, 0);
   }
 
-  function test_removeRegistryModule_OnlyOwner_Revert() public {
+  function test_RevertWhen_removeRegistryModule_OnlyOwner() public {
     address newModule = makeAddr("newModule");
     vm.stopPrank();
 

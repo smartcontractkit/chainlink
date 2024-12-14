@@ -204,7 +204,7 @@ contract RateLimiter_consume is RateLimiterSetup {
 
   // Reverts
 
-  function test_AggregateValueMaxCapacityExceeded_Revert() public {
+  function test_RevertWhen_AggregateValueMaxCapacityExceeded() public {
     RateLimiter.TokenBucket memory rateLimiter = s_helper.getRateLimiter();
 
     vm.expectRevert(
@@ -215,7 +215,7 @@ contract RateLimiter_consume is RateLimiterSetup {
     s_helper.consume(rateLimiter.capacity + 1, address(0));
   }
 
-  function test_TokenMaxCapacityExceeded_Revert() public {
+  function test_RevertWhen_TokenMaxCapacityExceeded() public {
     RateLimiter.TokenBucket memory rateLimiter = s_helper.getRateLimiter();
 
     vm.expectRevert(
@@ -226,7 +226,7 @@ contract RateLimiter_consume is RateLimiterSetup {
     s_helper.consume(rateLimiter.capacity + 1, s_token);
   }
 
-  function test_ConsumingMoreThanUint128_Revert() public {
+  function test_RevertWhen_ConsumingMoreThanUint128() public {
     RateLimiter.TokenBucket memory rateLimiter = s_helper.getRateLimiter();
 
     uint256 request = uint256(type(uint128).max) + 1;
@@ -237,7 +237,7 @@ contract RateLimiter_consume is RateLimiterSetup {
     s_helper.consume(request, address(0));
   }
 
-  function test_AggregateValueRateLimitReached_Revert() public {
+  function test_RevertWhen_AggregateValueRateLimitReached() public {
     RateLimiter.TokenBucket memory rateLimiter = s_helper.getRateLimiter();
 
     uint256 overLimit = 20;
@@ -256,7 +256,7 @@ contract RateLimiter_consume is RateLimiterSetup {
     s_helper.consume(requestTokens2, address(0));
   }
 
-  function test_TokenRateLimitReached_Revert() public {
+  function test_RevertWhen_TokenRateLimitReached() public {
     RateLimiter.TokenBucket memory rateLimiter = s_helper.getRateLimiter();
 
     uint256 overLimit = 20;
@@ -275,7 +275,7 @@ contract RateLimiter_consume is RateLimiterSetup {
     s_helper.consume(requestTokens2, s_token);
   }
 
-  function test_RateLimitReachedOverConsecutiveBlocks_Revert() public {
+  function test_RevertWhen_RateLimitReachedOverConsecutiveBlocks() public {
     uint256 initBlockTime = BLOCK_TIME + 10000;
     vm.warp(initBlockTime);
 

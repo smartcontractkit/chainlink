@@ -82,7 +82,7 @@ contract FeeQuoter_applyPremiumMultiplierWeiPerEthUpdates is FeeQuoterSetup {
 
   // Reverts
 
-  function test_OnlyCallableByOwnerOrAdmin_Revert() public {
+  function test_RevertWhen_OnlyCallableByOwnerOrAdmin() public {
     FeeQuoter.PremiumMultiplierWeiPerEthArgs[] memory premiumMultiplierWeiPerEthArgs;
     vm.startPrank(STRANGER);
 

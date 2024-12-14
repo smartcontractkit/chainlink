@@ -13,7 +13,7 @@ contract Router_getFee is OnRampSetup {
   }
 
   // Reverts
-  function test_UnsupportedDestinationChain_Revert() public {
+  function test_RevertWhen_UnsupportedDestinationChain() public {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
 
     vm.expectRevert(abi.encodeWithSelector(IRouterClient.UnsupportedDestinationChain.selector, 999));

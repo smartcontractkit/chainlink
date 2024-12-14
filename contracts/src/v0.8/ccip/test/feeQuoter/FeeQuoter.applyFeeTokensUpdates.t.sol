@@ -48,7 +48,7 @@ contract FeeQuoter_applyFeeTokensUpdates is FeeQuoterSetup {
     s_feeQuoter.applyFeeTokensUpdates(feeTokens, feeTokens);
   }
 
-  function test_OnlyCallableByOwner_Revert() public {
+  function test_RevertWhen_OnlyCallableByOwner() public {
     vm.startPrank(STRANGER);
 
     vm.expectRevert(Ownable2Step.OnlyCallableByOwner.selector);

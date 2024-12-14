@@ -50,7 +50,7 @@ contract FeeQuoter_convertTokenAmount is FeeQuoterSetup {
 
   // Reverts
 
-  function test_LinkTokenNotSupported_Revert() public {
+  function test_RevertWhen_LinkTokenNotSupported() public {
     vm.expectRevert(abi.encodeWithSelector(FeeQuoter.TokenNotSupported.selector, DUMMY_CONTRACT_ADDRESS));
     s_feeQuoter.convertTokenAmount(DUMMY_CONTRACT_ADDRESS, 3e16, s_sourceTokens[0]);
 

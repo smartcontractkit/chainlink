@@ -14,7 +14,7 @@ contract MultiAggregateRateLimiter_getTokenValue is MultiAggregateRateLimiterSet
   }
 
   // Reverts
-  function test_NoTokenPrice_Reverts() public {
+  function test_RevertWhen_NoTokenPrices() public {
     address tokenWithNoPrice = makeAddr("Token with no price");
     Client.EVMTokenAmount memory tokenAmount = Client.EVMTokenAmount({token: tokenWithNoPrice, amount: 10});
 

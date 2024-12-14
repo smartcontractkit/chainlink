@@ -74,14 +74,14 @@ contract TokenPoolWithAllowList_applyAllowListUpdates is TokenPoolWithAllowListS
 
   // Reverts
 
-  function test_OnlyOwner_Revert() public {
+  function test_RevertWhen_OnlyOwner() public {
     vm.stopPrank();
     vm.expectRevert(Ownable2Step.OnlyCallableByOwner.selector);
     address[] memory newAddresses = new address[](2);
     s_tokenPool.applyAllowListUpdates(new address[](0), newAddresses);
   }
 
-  function test_AllowListNotEnabled_Revert() public {
+  function test_RevertWhen_AllowListNotEnabled() public {
     s_tokenPool = new TokenPoolHelper(
       s_token, DEFAULT_TOKEN_DECIMALS, new address[](0), address(s_mockRMN), address(s_sourceRouter)
     );

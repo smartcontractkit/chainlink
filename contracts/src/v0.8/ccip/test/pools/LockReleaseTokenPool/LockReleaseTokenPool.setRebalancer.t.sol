@@ -11,7 +11,7 @@ contract LockReleaseTokenPool_setRebalancer is LockReleaseTokenPoolSetup {
     assertEq(address(s_lockReleaseTokenPool.getRebalancer()), STRANGER);
   }
 
-  function test_SetRebalancer_Revert() public {
+  function test_RevertWhen_SetRebalancer() public {
     vm.startPrank(STRANGER);
 
     vm.expectRevert(Ownable2Step.OnlyCallableByOwner.selector);

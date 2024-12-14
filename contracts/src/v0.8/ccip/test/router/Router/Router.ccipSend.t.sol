@@ -184,14 +184,14 @@ contract Router_ccipSend is OnRampSetup {
 
   // Reverts
 
-  function test_WhenNotHealthy_Revert() public {
+  function test_RevertWhen_WhenNotHealthy() public {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
     s_mockRMN.setGlobalCursed(true);
     vm.expectRevert(Router.BadARMSignal.selector);
     s_sourceRouter.ccipSend(DEST_CHAIN_SELECTOR, message);
   }
 
-  function test_UnsupportedDestinationChain_Revert() public {
+  function test_RevertWhen_UnsupportedDestinationChain() public {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
     uint64 wrongChain = DEST_CHAIN_SELECTOR + 1;
 
@@ -200,7 +200,7 @@ contract Router_ccipSend is OnRampSetup {
     s_sourceRouter.ccipSend(wrongChain, message);
   }
 
-  function test_FeeTokenAmountTooLow_Revert() public {
+  function test_RevertWhen_FeeTokenAmountTooLow() public {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
     IERC20(s_sourceTokens[0]).approve(address(s_sourceRouter), 0);
 

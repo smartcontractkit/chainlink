@@ -200,13 +200,13 @@ contract TokenPool_applyChainUpdates is RouterSetup {
 
   // Reverts
 
-  function test_applyChainUpdates_OnlyCallableByOwner_Revert() public {
+  function test_RevertWhen_applyChainUpdates_OnlyCallableByOwner() public {
     vm.startPrank(STRANGER);
     vm.expectRevert(Ownable2Step.OnlyCallableByOwner.selector);
     s_tokenPool.applyChainUpdates(new uint64[](0), new TokenPool.ChainUpdate[](0));
   }
 
-  function test_applyChainUpdates_ZeroAddressNotAllowed_Revert() public {
+  function test_RevertWhen_applyChainUpdates_ZeroAddressNotAllowed() public {
     bytes[] memory remotePoolAddresses = new bytes[](1);
     remotePoolAddresses[0] = "";
 
@@ -235,7 +235,7 @@ contract TokenPool_applyChainUpdates is RouterSetup {
     s_tokenPool.applyChainUpdates(new uint64[](0), chainUpdates);
   }
 
-  function test_applyChainUpdates_NonExistentChain_Revert() public {
+  function test_RevertWhen_applyChainUpdates_NonExistentChain() public {
     uint64[] memory chainRemoves = new uint64[](1);
     chainRemoves[0] = 1;
 
@@ -243,7 +243,7 @@ contract TokenPool_applyChainUpdates is RouterSetup {
     s_tokenPool.applyChainUpdates(chainRemoves, new TokenPool.ChainUpdate[](0));
   }
 
-  function test_applyChainUpdates_InvalidRateLimitRate_Revert() public {
+  function test_RevertWhen_applyChainUpdates_InvalidRateLimitRate() public {
     uint64 unusedChainSelector = 2 ** 64 - 1;
 
     TokenPool.ChainUpdate[] memory chainUpdates = new TokenPool.ChainUpdate[](1);

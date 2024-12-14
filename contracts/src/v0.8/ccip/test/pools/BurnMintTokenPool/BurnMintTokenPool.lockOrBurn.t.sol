@@ -66,7 +66,7 @@ contract BurnMintTokenPool_lockOrBurn is BurnMintTokenPoolSetup {
   }
 
   // Should not burn tokens if cursed.
-  function test_PoolBurnRevertNotHealthy_Revert() public {
+  function test_RevertWhen_PoolBurnRevertNotHealthy() public {
     s_mockRMN.setGlobalCursed(true);
     uint256 before = s_burnMintERC20.balanceOf(address(s_pool));
     vm.startPrank(s_burnMintOnRamp);
@@ -85,7 +85,7 @@ contract BurnMintTokenPool_lockOrBurn is BurnMintTokenPoolSetup {
     assertEq(s_burnMintERC20.balanceOf(address(s_pool)), before);
   }
 
-  function test_ChainNotAllowed_Revert() public {
+  function test_RevertWhen_ChainNotAllowed() public {
     uint64 wrongChainSelector = 8838833;
 
     vm.expectRevert(abi.encodeWithSelector(TokenPool.ChainNotAllowed.selector, wrongChainSelector));

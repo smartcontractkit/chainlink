@@ -78,7 +78,7 @@ contract FeeQuoter_constructor is FeeQuoterSetup {
     }
   }
 
-  function test_InvalidStalenessThreshold_Revert() public {
+  function test_RevertWhen_InvalidStalenessThreshold() public {
     FeeQuoter.StaticConfig memory staticConfig = FeeQuoter.StaticConfig({
       linkToken: s_sourceTokens[0],
       maxFeeJuelsPerMsg: MAX_MSG_FEES_JUELS,
@@ -98,7 +98,7 @@ contract FeeQuoter_constructor is FeeQuoterSetup {
     );
   }
 
-  function test_InvalidLinkTokenEqZeroAddress_Revert() public {
+  function test_RevertWhen_InvalidLinkTokenEqZeroAddress() public {
     FeeQuoter.StaticConfig memory staticConfig = FeeQuoter.StaticConfig({
       linkToken: address(0),
       maxFeeJuelsPerMsg: MAX_MSG_FEES_JUELS,
@@ -118,7 +118,7 @@ contract FeeQuoter_constructor is FeeQuoterSetup {
     );
   }
 
-  function test_InvalidMaxFeeJuelsPerMsg_Revert() public {
+  function test_RevertWhen_InvalidMaxFeeJuelsPerMsg() public {
     FeeQuoter.StaticConfig memory staticConfig = FeeQuoter.StaticConfig({
       linkToken: s_sourceTokens[0],
       maxFeeJuelsPerMsg: 0,

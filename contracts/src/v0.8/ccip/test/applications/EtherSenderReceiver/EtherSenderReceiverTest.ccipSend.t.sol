@@ -99,7 +99,7 @@ contract EtherSenderReceiverTest_ccipSend is EtherSenderReceiverTestSetup {
     }
   }
 
-  function test_ccipSend_reverts_insufficientFee_weth() public {
+  function test_RevertWhen_ccipSends_insufficientFee_weth() public {
     Client.EVMTokenAmount[] memory tokenAmounts = new Client.EVMTokenAmount[](1);
     tokenAmounts[0] = Client.EVMTokenAmount({
       token: address(0), // callers may not specify this.
@@ -127,7 +127,7 @@ contract EtherSenderReceiverTest_ccipSend is EtherSenderReceiverTestSetup {
     s_etherSenderReceiver.ccipSend{value: AMOUNT}(DESTINATION_CHAIN_SELECTOR, message);
   }
 
-  function test_ccipSend_reverts_insufficientFee_feeToken() public {
+  function test_RevertWhen_ccipSends_insufficientFee_feeToken() public {
     Client.EVMTokenAmount[] memory tokenAmounts = new Client.EVMTokenAmount[](1);
     tokenAmounts[0] = Client.EVMTokenAmount({
       token: address(0), // callers may not specify this.
@@ -155,7 +155,7 @@ contract EtherSenderReceiverTest_ccipSend is EtherSenderReceiverTestSetup {
     s_etherSenderReceiver.ccipSend{value: AMOUNT}(DESTINATION_CHAIN_SELECTOR, message);
   }
 
-  function test_ccipSend_reverts_insufficientFee_native() public {
+  function test_RevertWhen_ccipSends_insufficientFee_native() public {
     Client.EVMTokenAmount[] memory tokenAmounts = new Client.EVMTokenAmount[](1);
     tokenAmounts[0] = Client.EVMTokenAmount({
       token: address(0), // callers may not specify this.

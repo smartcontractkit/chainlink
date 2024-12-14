@@ -41,7 +41,7 @@ contract TokenPool_removeRemotePool is TokenPoolSetup {
 
   // Reverts
 
-  function test_NonExistentChain_Revert() public {
+  function test_RevertWhen_NonExistentChain() public {
     uint64 chainSelector = DEST_CHAIN_SELECTOR + 1;
     bytes memory remotePool = abi.encode(type(uint256).max);
 
@@ -50,7 +50,7 @@ contract TokenPool_removeRemotePool is TokenPoolSetup {
     s_tokenPool.removeRemotePool(chainSelector, remotePool);
   }
 
-  function test_InvalidRemotePoolForChain_Revert() public {
+  function test_RevertWhen_InvalidRemotePoolForChain() public {
     uint64 chainSelector = DEST_CHAIN_SELECTOR;
     bytes memory remotePool = abi.encode(type(uint256).max);
 

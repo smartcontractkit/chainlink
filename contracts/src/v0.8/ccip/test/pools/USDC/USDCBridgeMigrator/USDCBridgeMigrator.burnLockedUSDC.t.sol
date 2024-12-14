@@ -99,7 +99,7 @@ contract USDCBridgeMigrator_BurnLockedUSDC is HybridLockReleaseUSDCTokenPool_loc
     test_PrimaryMechanism();
   }
 
-  function test_invalidPermissions_Revert() public {
+  function test_RevertWhen_invalidPermissions() public {
     address CIRCLE = makeAddr("CIRCLE");
 
     vm.startPrank(OWNER);

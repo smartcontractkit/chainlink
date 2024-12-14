@@ -29,7 +29,7 @@ contract RegistryModuleOwnerCustom_registerAdminViaGetCCIPAdmin is RegistryModul
     assertEq(s_tokenAdminRegistry.getTokenConfig(s_token).pendingAdministrator, OWNER);
   }
 
-  function test_registerAdminViaGetCCIPAdmin_Revert() public {
+  function test_RevertWhen_registerAdminViaGetCCIPAdmin() public {
     address expectedOwner = IGetCCIPAdmin(s_token).getCCIPAdmin();
 
     vm.startPrank(makeAddr("Not_expected_owner"));

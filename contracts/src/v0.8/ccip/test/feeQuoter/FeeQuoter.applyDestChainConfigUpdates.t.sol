@@ -72,7 +72,7 @@ contract FeeQuoter_applyDestChainConfigUpdates is FeeQuoterSetup {
 
   // Reverts
 
-  function test_applyDestChainConfigUpdatesDefaultTxGasLimitEqZero_Revert() public {
+  function test_RevertWhen_applyDestChainConfigUpdatesDefaultTxGasLimitEqZero() public {
     FeeQuoter.DestChainConfigArgs[] memory destChainConfigArgs = _generateFeeQuoterDestChainConfigArgs();
     FeeQuoter.DestChainConfigArgs memory destChainConfigArg = destChainConfigArgs[0];
 
@@ -83,7 +83,7 @@ contract FeeQuoter_applyDestChainConfigUpdates is FeeQuoterSetup {
     s_feeQuoter.applyDestChainConfigUpdates(destChainConfigArgs);
   }
 
-  function test_applyDestChainConfigUpdatesDefaultTxGasLimitGtMaxPerMessageGasLimit_Revert() public {
+  function test_RevertWhen_applyDestChainConfigUpdatesDefaultTxGasLimitGtMaxPerMessageGasLimit() public {
     FeeQuoter.DestChainConfigArgs[] memory destChainConfigArgs = _generateFeeQuoterDestChainConfigArgs();
     FeeQuoter.DestChainConfigArgs memory destChainConfigArg = destChainConfigArgs[0];
 
@@ -99,7 +99,7 @@ contract FeeQuoter_applyDestChainConfigUpdates is FeeQuoterSetup {
     s_feeQuoter.applyDestChainConfigUpdates(destChainConfigArgs);
   }
 
-  function test_InvalidDestChainConfigDestChainSelectorEqZero_Revert() public {
+  function test_RevertWhen_InvalidDestChainConfigDestChainSelectorEqZero() public {
     FeeQuoter.DestChainConfigArgs[] memory destChainConfigArgs = _generateFeeQuoterDestChainConfigArgs();
     FeeQuoter.DestChainConfigArgs memory destChainConfigArg = destChainConfigArgs[0];
 
@@ -110,7 +110,7 @@ contract FeeQuoter_applyDestChainConfigUpdates is FeeQuoterSetup {
     s_feeQuoter.applyDestChainConfigUpdates(destChainConfigArgs);
   }
 
-  function test_InvalidChainFamilySelector_Revert() public {
+  function test_RevertWhen_InvalidChainFamilySelector() public {
     FeeQuoter.DestChainConfigArgs[] memory destChainConfigArgs = _generateFeeQuoterDestChainConfigArgs();
     FeeQuoter.DestChainConfigArgs memory destChainConfigArg = destChainConfigArgs[0];
 

@@ -57,7 +57,7 @@ contract MultiAggregateRateLimiter_getTokenBucket is MultiAggregateRateLimiterSe
 
   // Reverts
 
-  function test_TimeUnderflow_Revert() public {
+  function test_RevertWhen_TimeUnderflow() public {
     vm.warp(BLOCK_TIME - 1);
 
     vm.expectRevert(stdError.arithmeticError);

@@ -53,7 +53,7 @@ contract OnRamp_applyDestChainConfigUpdates is OnRampSetup {
     assertEq(numLogs, vm.getRecordedLogs().length); // indicates no changes made
   }
 
-  function test_ApplyDestChainConfigUpdates_WithInvalidChainSelector_Revert() external {
+  function test_RevertWhen_ApplyDestChainConfigUpdates_WithInvalidChainSelector() external {
     OnRamp.DestChainConfigArgs[] memory configArgs = new OnRamp.DestChainConfigArgs[](1);
     configArgs[0].destChainSelector = 0; // invalid
     vm.expectRevert(abi.encodeWithSelector(OnRamp.InvalidDestChainConfig.selector, 0));
@@ -162,7 +162,7 @@ contract OnRamp_applyAllowlistUpdates is OnRampSetup {
     assertTrue(isActive);
   }
 
-  function test_applyAllowlistUpdates_Revert() public {
+  function test_RevertWhen_applyAllowlistUpdates() public {
     OnRamp.DestChainConfigArgs[] memory configArgs = new OnRamp.DestChainConfigArgs[](2);
     configArgs[0] = OnRamp.DestChainConfigArgs({
       destChainSelector: DEST_CHAIN_SELECTOR,

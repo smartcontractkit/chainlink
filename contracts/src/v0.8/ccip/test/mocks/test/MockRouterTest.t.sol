@@ -31,7 +31,7 @@ contract MockRouterTest is TokenSetup {
     s_sourceFeeToken = _deploySourceToken("sLINK", type(uint256).max, 18);
   }
 
-  function test_ccipSendWithInsufficientNativeTokens_Revert() public {
+  function test_RevertWhen_ccipSendWithInsufficientNativeTokens() public {
     //Should revert because did not include sufficient eth to pay for fees
     vm.expectRevert(IRouterClient.InsufficientFeeTokenAmount.selector);
     mockRouter.ccipSend(MOCK_CHAIN_SELECTOR, message);
@@ -42,14 +42,14 @@ contract MockRouterTest is TokenSetup {
     mockRouter.ccipSend{value: 0.1 ether}(MOCK_CHAIN_SELECTOR, message);
   }
 
-  function test_ccipSendWithInvalidMsgValue_Revert() public {
+  function test_RevertWhen_ccipSendWithInvalidMsgValue() public {
     message.feeToken = address(1); //Set to non native-token fees
 
     vm.expectRevert(IRouterClient.InvalidMsgValue.selector);
     mockRouter.ccipSend{value: 0.1 ether}(MOCK_CHAIN_SELECTOR, message);
   }
 
-  function test_ccipSendWithLinkFeeTokenbutInsufficientAllowance_Revert() public {
+  function test_RevertWhen_ccipSendWithLinkFeeTokenbutInsufficientAllowance() public {
     message.feeToken = s_sourceFeeToken;
 
     vm.expectRevert(bytes("ERC20: insufficient allowance"));
@@ -78,7 +78,7 @@ contract MockRouterTest is TokenSetup {
     mockRouter.ccipSend{value: 0.1 ether}(MOCK_CHAIN_SELECTOR, message);
   }
 
-  function test_ccipSendWithInvalidEVMExtraArgs_Revert() public {
+  function test_RevertWhen_ccipSendWithInvalidEVMExtraArgs() public {
     uint256 gasLimit = 500_000;
     bytes4 invalidExtraArgsTag = bytes4(keccak256("CCIP EVMExtraArgsInvalid"));
     message.extraArgs = abi.encodeWithSelector(invalidExtraArgsTag, gasLimit);

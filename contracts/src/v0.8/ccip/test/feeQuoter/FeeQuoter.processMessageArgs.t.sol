@@ -130,7 +130,7 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
 
   // Reverts
 
-  function test_processMessageArgs_MessageFeeTooHigh_Revert() public {
+  function test_RevertWhen_processMessageArgs_MessageFeeTooHigh() public {
     vm.expectRevert(
       abi.encodeWithSelector(FeeQuoter.MessageFeeTooHigh.selector, MAX_MSG_FEES_JUELS + 1, MAX_MSG_FEES_JUELS)
     );
@@ -145,7 +145,7 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
     );
   }
 
-  function test_processMessageArgs_InvalidExtraArgs_Revert() public {
+  function test_RevertWhen_processMessageArgs_InvalidExtraArgs() public {
     vm.expectRevert(FeeQuoter.InvalidExtraArgsTag.selector);
 
     s_feeQuoter.processMessageArgs(
@@ -158,7 +158,7 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
     );
   }
 
-  function test_processMessageArgs_MalformedEVMExtraArgs_Revert() public {
+  function test_RevertWhen_processMessageArgs_MalformedEVMExtraArgs() public {
     // abi.decode error
     vm.expectRevert();
 
@@ -199,7 +199,7 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
     }
   }
 
-  function test_processMessageArgs_TokenAmountArraysMismatching_Revert() public {
+  function test_RevertWhen_processMessageArgs_TokenAmountArraysMismatching() public {
     Client.EVMTokenAmount[] memory sourceTokenAmounts = new Client.EVMTokenAmount[](2);
     sourceTokenAmounts[0].amount = 1e18;
     sourceTokenAmounts[0].token = s_sourceTokens[0];
@@ -220,7 +220,7 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
     );
   }
 
-  function test_applyTokensTransferFeeConfigUpdates_InvalidFeeRange_Revert() public {
+  function test_RevertWhen_applyTokensTransferFeeConfigUpdates_InvalidFeeRange() public {
     address sourceETH = s_sourceTokens[1];
 
     // Set token config to allow larger data
@@ -243,7 +243,7 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
     );
   }
 
-  function test_processMessageArgs_SourceTokenDataTooLarge_Revert() public {
+  function test_RevertWhen_processMessageArgs_SourceTokenDataTooLarge() public {
     address sourceETH = s_sourceTokens[1];
 
     Client.EVMTokenAmount[] memory sourceTokenAmounts = new Client.EVMTokenAmount[](1);
@@ -300,7 +300,7 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
     );
   }
 
-  function test_processMessageArgs_InvalidEVMAddressDestToken_Revert() public {
+  function test_RevertWhen_processMessageArgs_InvalidEVMAddressDestToken() public {
     bytes memory nonEvmAddress = abi.encode(type(uint208).max);
 
     Client.EVMTokenAmount[] memory sourceTokenAmounts = new Client.EVMTokenAmount[](1);

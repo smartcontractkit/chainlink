@@ -47,7 +47,7 @@ contract USDCTokenPool_setDomains is USDCTokenPoolSetup {
 
   // Reverts
 
-  function test_OnlyOwner_Revert() public {
+  function test_RevertWhen_OnlyOwner() public {
     USDCTokenPool.DomainUpdate[] memory domainUpdates = new USDCTokenPool.DomainUpdate[](0);
 
     vm.startPrank(STRANGER);
@@ -56,7 +56,7 @@ contract USDCTokenPool_setDomains is USDCTokenPoolSetup {
     s_usdcTokenPool.setDomains(domainUpdates);
   }
 
-  function test_InvalidDomain_Revert() public {
+  function test_RevertWhen_InvalidDomain() public {
     bytes32 validCaller = bytes32(uint256(25));
     // Ensure valid domain works
     USDCTokenPool.DomainUpdate[] memory domainUpdates = new USDCTokenPool.DomainUpdate[](1);

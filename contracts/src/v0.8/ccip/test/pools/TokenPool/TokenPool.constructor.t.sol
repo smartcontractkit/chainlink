@@ -30,7 +30,7 @@ contract TokenPool_constructor is TokenPoolSetup {
 
   // Reverts
 
-  function test_constructor_RevertWhen_ZeroAddressNotAllowed() public {
+  function test_RevertWhen_constructorWhen_ZeroAddressNotAllowed() public {
     vm.expectRevert(TokenPool.ZeroAddressNotAllowed.selector);
 
     s_tokenPool = new TokenPoolHelper(
@@ -38,7 +38,7 @@ contract TokenPool_constructor is TokenPoolSetup {
     );
   }
 
-  function test_constructor_RevertWhen_InvalidDecimalArgs() public {
+  function test_RevertWhen_constructorWhen_InvalidDecimalArgs() public {
     uint8 invalidDecimals = DEFAULT_TOKEN_DECIMALS + 1;
 
     vm.expectRevert(

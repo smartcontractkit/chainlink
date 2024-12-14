@@ -181,7 +181,7 @@ contract Router_routeMessage is OffRampSetup {
   }
 
   // Reverts
-  function test_routeMessage_OnlyOffRamp_Revert() public {
+  function test_RevertWhen_routeMessage_OnlyOffRamp() public {
     vm.stopPrank();
     vm.startPrank(STRANGER);
 
@@ -191,7 +191,7 @@ contract Router_routeMessage is OffRampSetup {
     );
   }
 
-  function test_routeMessage_WhenNotHealthy_Revert() public {
+  function test_RevertWhen_routeMessage_WhenNotHealthy() public {
     s_mockRMN.setGlobalCursed(true);
     vm.expectRevert(Router.BadARMSignal.selector);
     s_destRouter.routeMessage(

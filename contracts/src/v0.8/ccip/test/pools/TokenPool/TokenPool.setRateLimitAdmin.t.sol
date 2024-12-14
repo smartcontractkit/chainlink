@@ -17,7 +17,7 @@ contract TokenPool_setRateLimitAdmin is TokenPoolSetup {
 
   // Reverts
 
-  function test_SetRateLimitAdmin_Revert() public {
+  function test_RevertWhen_SetRateLimitAdmin() public {
     vm.startPrank(STRANGER);
 
     vm.expectRevert(Ownable2Step.OnlyCallableByOwner.selector);

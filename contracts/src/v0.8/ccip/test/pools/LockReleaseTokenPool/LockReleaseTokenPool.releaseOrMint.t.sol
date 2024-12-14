@@ -93,7 +93,7 @@ contract LockReleaseTokenPool_releaseOrMint is LockReleaseTokenPoolSetup {
     );
   }
 
-  function test_ChainNotAllowed_Revert() public {
+  function test_RevertWhen_ChainNotAllowed() public {
     uint64[] memory chainsToRemove = new uint64[](1);
     chainsToRemove[0] = SOURCE_CHAIN_SELECTOR;
 
@@ -116,7 +116,7 @@ contract LockReleaseTokenPool_releaseOrMint is LockReleaseTokenPoolSetup {
     );
   }
 
-  function test_PoolMintNotHealthy_Revert() public {
+  function test_RevertWhen_PoolMintNotHealthy() public {
     // Should not mint tokens if cursed.
     s_mockRMN.setGlobalCursed(true);
     uint256 before = s_token.balanceOf(OWNER);

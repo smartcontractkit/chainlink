@@ -49,7 +49,7 @@ contract RMNHome_setCandidate is RMNHomeTestSetup {
     assertEq(storedStaticConfig.offchainConfig, versionedConfig.staticConfig.offchainConfig);
   }
 
-  function test_setCandidate_ConfigDigestMismatch_reverts() public {
+  function test_RevertWhen_setCandidate_ConfigDigestMismatch() public {
     Config memory config = _getBaseConfig();
 
     bytes32 digest = s_rmnHome.setCandidate(config.staticConfig, config.dynamicConfig, ZERO_DIGEST);
@@ -63,7 +63,7 @@ contract RMNHome_setCandidate is RMNHomeTestSetup {
     s_rmnHome.setCandidate(config.staticConfig, config.dynamicConfig, digest);
   }
 
-  function test_setCandidate_OnlyOwner_reverts() public {
+  function test_RevertWhen_setCandidate_OnlyOwner() public {
     Config memory config = _getBaseConfig();
 
     vm.startPrank(address(0));

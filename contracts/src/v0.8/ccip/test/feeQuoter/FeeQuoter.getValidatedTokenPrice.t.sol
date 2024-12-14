@@ -139,7 +139,7 @@ contract FeeQuoter_getValidatedTokenPrice is FeeQuoterSetup {
 
   // Reverts
 
-  function test_OverflowFeedPrice_Revert() public {
+  function test_RevertWhen_OverflowFeedPrice() public {
     address tokenAddress = _deploySourceToken("testToken", 0, 18);
     address feedAddress = _deployTokenPriceDataFeed(tokenAddress, 18, int256(uint256(type(uint224).max) + 1));
 
@@ -151,7 +151,7 @@ contract FeeQuoter_getValidatedTokenPrice is FeeQuoterSetup {
     s_feeQuoter.getValidatedTokenPrice(tokenAddress);
   }
 
-  function test_UnderflowFeedPrice_Revert() public {
+  function test_RevertWhen_UnderflowFeedPrice() public {
     address tokenAddress = _deploySourceToken("testToken", 0, 18);
     address feedAddress = _deployTokenPriceDataFeed(tokenAddress, 18, -1);
 
@@ -163,12 +163,12 @@ contract FeeQuoter_getValidatedTokenPrice is FeeQuoterSetup {
     s_feeQuoter.getValidatedTokenPrice(tokenAddress);
   }
 
-  function test_TokenNotSupported_Revert() public {
+  function test_RevertWhen_TokenNotSupported() public {
     vm.expectRevert(abi.encodeWithSelector(FeeQuoter.TokenNotSupported.selector, DUMMY_CONTRACT_ADDRESS));
     s_feeQuoter.getValidatedTokenPrice(DUMMY_CONTRACT_ADDRESS);
   }
 
-  function test_TokenNotSupportedFeed_Revert() public {
+  function test_RevertWhen_TokenNotSupportedFeed() public {
     address sourceToken = _initialiseSingleTokenPriceFeed();
     MockV3Aggregator(s_dataFeedByToken[sourceToken]).updateAnswer(0);
     Internal.PriceUpdates memory priceUpdates = Internal.PriceUpdates({

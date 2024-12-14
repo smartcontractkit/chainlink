@@ -106,7 +106,7 @@ contract FeeQuoter_updateTokenPriceFeeds is FeeQuoterSetup {
 
   // Reverts
 
-  function test_FeedUpdatedByNonOwner_Revert() public {
+  function test_RevertWhen_FeedUpdatedByNonOwner() public {
     FeeQuoter.TokenPriceFeedUpdate[] memory tokenPriceFeedUpdates = new FeeQuoter.TokenPriceFeedUpdate[](1);
     tokenPriceFeedUpdates[0] =
       _getSingleTokenPriceFeedUpdateStruct(s_sourceTokens[0], s_dataFeedByToken[s_sourceTokens[0]], 18);

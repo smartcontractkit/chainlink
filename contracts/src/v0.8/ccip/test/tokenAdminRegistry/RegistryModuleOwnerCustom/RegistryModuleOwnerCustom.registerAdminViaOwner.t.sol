@@ -29,7 +29,7 @@ contract RegistryModuleOwnerCustom_registerAdminViaOwner is RegistryModuleOwnerC
     assertEq(s_tokenAdminRegistry.getTokenConfig(s_token).pendingAdministrator, OWNER);
   }
 
-  function test_registerAdminViaOwner_Revert() public {
+  function test_RevertWhen_registerAdminViaOwner() public {
     address expectedOwner = IOwner(s_token).owner();
 
     vm.startPrank(makeAddr("Not_expected_owner"));

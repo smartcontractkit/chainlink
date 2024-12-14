@@ -5,7 +5,7 @@ import {USDCBridgeMigrator} from "../../../../pools/USDC/USDCBridgeMigrator.sol"
 import {HybridLockReleaseUSDCTokenPoolSetup} from "./USDCBridgeMigratorSetup.t.sol";
 
 contract USDCBridgeMigrator_excludeTokensFromBurn is HybridLockReleaseUSDCTokenPoolSetup {
-  function test_excludeTokensWhenNoMigrationProposalPending_Revert() public {
+  function test_RevertWhen_excludeTokensWhenNoMigrationProposalPending() public {
     vm.expectRevert(abi.encodeWithSelector(USDCBridgeMigrator.NoMigrationProposalPending.selector));
 
     vm.startPrank(OWNER);

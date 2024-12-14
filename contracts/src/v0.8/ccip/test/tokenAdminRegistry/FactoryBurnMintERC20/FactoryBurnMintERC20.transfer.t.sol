@@ -15,7 +15,7 @@ contract FactoryBurnMintERC20_transfer is BurnMintERC20Setup {
 
   // Reverts
 
-  function test_InvalidAddress_Reverts() public {
+  function test_RevertWhen_InvalidAddresss() public {
     vm.expectRevert();
 
     s_burnMintERC20.transfer(address(s_burnMintERC20), s_amount);

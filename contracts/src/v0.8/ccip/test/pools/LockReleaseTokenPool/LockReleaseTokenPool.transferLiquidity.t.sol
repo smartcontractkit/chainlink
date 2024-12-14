@@ -31,7 +31,7 @@ contract LockReleaseTokenPool_transferLiquidity is LockReleaseTokenPoolSetup {
     assertEq(s_token.balanceOf(address(s_lockReleaseTokenPool)), balancePre + s_amount);
   }
 
-  function test_transferLiquidity_transferTooMuch_Revert() public {
+  function test_RevertWhen_transferLiquidity_transferTooMuch() public {
     uint256 balancePre = s_token.balanceOf(address(s_lockReleaseTokenPool));
 
     s_oldLockReleaseTokenPool.setRebalancer(address(s_lockReleaseTokenPool));

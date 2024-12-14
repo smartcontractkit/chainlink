@@ -56,12 +56,12 @@ contract FeeQuoter_getTokenAndGasPrices is FeeQuoterSetup {
     assertEq(gasPrice, 0);
   }
 
-  function test_UnsupportedChain_Revert() public {
+  function test_RevertWhen_UnsupportedChain() public {
     vm.expectRevert(abi.encodeWithSelector(FeeQuoter.DestinationChainNotEnabled.selector, DEST_CHAIN_SELECTOR + 1));
     s_feeQuoter.getTokenAndGasPrices(s_sourceTokens[0], DEST_CHAIN_SELECTOR + 1);
   }
 
-  function test_StaleGasPrice_Revert() public {
+  function test_RevertWhen_StaleGasPrice() public {
     uint256 diff = TWELVE_HOURS + 1;
     vm.warp(block.timestamp + diff);
     vm.expectRevert(abi.encodeWithSelector(FeeQuoter.StaleGasPrice.selector, DEST_CHAIN_SELECTOR, TWELVE_HOURS, diff));

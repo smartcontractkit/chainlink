@@ -233,7 +233,7 @@ contract OffRamp_applySourceChainConfigUpdates is OffRampSetup {
 
   // Reverts
 
-  function test_ZeroOnRampAddress_Revert() public {
+  function test_RevertWhen_ZeroOnRampAddress() public {
     OffRamp.SourceChainConfigArgs[] memory sourceChainConfigs = new OffRamp.SourceChainConfigArgs[](1);
     sourceChainConfigs[0] = OffRamp.SourceChainConfigArgs({
       router: s_destRouter,
@@ -250,7 +250,7 @@ contract OffRamp_applySourceChainConfigUpdates is OffRampSetup {
     s_offRamp.applySourceChainConfigUpdates(sourceChainConfigs);
   }
 
-  function test_RouterAddress_Revert() public {
+  function test_RevertWhen_RouterAddress() public {
     OffRamp.SourceChainConfigArgs[] memory sourceChainConfigs = new OffRamp.SourceChainConfigArgs[](1);
     sourceChainConfigs[0] = OffRamp.SourceChainConfigArgs({
       router: IRouter(address(0)),
@@ -263,7 +263,7 @@ contract OffRamp_applySourceChainConfigUpdates is OffRampSetup {
     s_offRamp.applySourceChainConfigUpdates(sourceChainConfigs);
   }
 
-  function test_ZeroSourceChainSelector_Revert() public {
+  function test_RevertWhen_ZeroSourceChainSelector() public {
     OffRamp.SourceChainConfigArgs[] memory sourceChainConfigs = new OffRamp.SourceChainConfigArgs[](1);
     sourceChainConfigs[0] = OffRamp.SourceChainConfigArgs({
       router: s_destRouter,
@@ -276,7 +276,7 @@ contract OffRamp_applySourceChainConfigUpdates is OffRampSetup {
     s_offRamp.applySourceChainConfigUpdates(sourceChainConfigs);
   }
 
-  function test_InvalidOnRampUpdate_Revert() public {
+  function test_RevertWhen_InvalidOnRampUpdate() public {
     OffRamp.SourceChainConfigArgs[] memory sourceChainConfigs = new OffRamp.SourceChainConfigArgs[](1);
     sourceChainConfigs[0] = OffRamp.SourceChainConfigArgs({
       router: s_destRouter,

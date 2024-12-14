@@ -230,12 +230,12 @@ contract OffRamp_batchExecute is OffRampSetup {
   }
 
   // Reverts
-  function test_ZeroReports_Revert() public {
+  function test_RevertWhen_ZeroReports() public {
     vm.expectRevert(OffRamp.EmptyBatch.selector);
     s_offRamp.batchExecute(new Internal.ExecutionReport[](0), new OffRamp.GasLimitOverride[][](1));
   }
 
-  function test_OutOfBoundsGasLimitsAccess_Revert() public {
+  function test_RevertWhen_OutOfBoundsGasLimitsAccess() public {
     Internal.Any2EVMRampMessage[] memory messages1 = new Internal.Any2EVMRampMessage[](2);
     Internal.Any2EVMRampMessage[] memory messages2 = new Internal.Any2EVMRampMessage[](1);
 

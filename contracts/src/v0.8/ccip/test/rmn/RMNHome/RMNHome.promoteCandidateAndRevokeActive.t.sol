@@ -43,12 +43,12 @@ contract RMNHome_promoteCandidateAndRevokeActive is RMNHomeTestSetup {
     assertEq(candidateConfig.configDigest, ZERO_DIGEST);
   }
 
-  function test_promoteCandidateAndRevokeActive_NoOpStateTransitionNotAllowed_reverts() public {
+  function test_RevertWhen_promoteCandidateAndRevokeActive_NoOpStateTransitionNotAllowed() public {
     vm.expectRevert(RMNHome.NoOpStateTransitionNotAllowed.selector);
     s_rmnHome.promoteCandidateAndRevokeActive(ZERO_DIGEST, ZERO_DIGEST);
   }
 
-  function test_promoteCandidateAndRevokeActive_ConfigDigestMismatch_reverts() public {
+  function test_RevertWhen_promoteCandidateAndRevokeActive_ConfigDigestMismatch() public {
     (bytes32 priorActiveDigest, bytes32 priorCandidateDigest) = s_rmnHome.getConfigDigests();
     bytes32 wrongActiveDigest = keccak256("wrongActiveDigest");
     bytes32 wrongCandidateDigest = keccak256("wrongCandidateDigest");
@@ -63,7 +63,7 @@ contract RMNHome_promoteCandidateAndRevokeActive is RMNHomeTestSetup {
     s_rmnHome.promoteCandidateAndRevokeActive(priorCandidateDigest, wrongActiveDigest);
   }
 
-  function test_promoteCandidateAndRevokeActive_OnlyOwner_reverts() public {
+  function test_RevertWhen_promoteCandidateAndRevokeActive_OnlyOwner() public {
     vm.startPrank(address(0));
 
     vm.expectRevert(Ownable2Step.OnlyCallableByOwner.selector);

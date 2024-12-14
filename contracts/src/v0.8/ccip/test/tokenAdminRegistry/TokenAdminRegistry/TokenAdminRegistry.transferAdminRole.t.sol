@@ -23,7 +23,7 @@ contract TokenAdminRegistry_transferAdminRole is TokenAdminRegistrySetup {
     assertEq(config.administrator, currentAdmin);
   }
 
-  function test_transferAdminRole_OnlyAdministrator_Revert() public {
+  function test_RevertWhen_transferAdminRole_OnlyAdministrator() public {
     vm.stopPrank();
 
     vm.expectRevert(

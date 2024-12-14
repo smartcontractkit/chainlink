@@ -130,7 +130,7 @@ contract TokenPool_addRemotePool is TokenPoolSetup {
 
   // Reverts
 
-  function test_NonExistentChain_Revert() public {
+  function test_RevertWhen_NonExistentChain() public {
     uint64 chainSelector = DEST_CHAIN_SELECTOR + 1;
     bytes memory remotePool = abi.encode(type(uint256).max);
 
@@ -139,7 +139,7 @@ contract TokenPool_addRemotePool is TokenPoolSetup {
     s_tokenPool.addRemotePool(chainSelector, remotePool);
   }
 
-  function test_ZeroLengthAddressNotAllowed_Revert() public {
+  function test_RevertWhen_ZeroLengthAddressNotAllowed() public {
     bytes memory remotePool = "";
 
     vm.expectRevert(abi.encodeWithSelector(TokenPool.ZeroAddressNotAllowed.selector));
@@ -147,7 +147,7 @@ contract TokenPool_addRemotePool is TokenPoolSetup {
     s_tokenPool.addRemotePool(DEST_CHAIN_SELECTOR, remotePool);
   }
 
-  function test_PoolAlreadyAdded_Revert() public {
+  function test_RevertWhen_PoolAlreadyAdded() public {
     uint64 chainSelector = DEST_CHAIN_SELECTOR;
 
     bytes memory remotePool = abi.encode(type(uint256).max);

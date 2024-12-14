@@ -175,7 +175,7 @@ contract MultiAggregateRateLimiter_updateRateLimitTokens is MultiAggregateRateLi
 
   // Reverts
 
-  function test_ZeroSourceToken_Revert() public {
+  function test_RevertWhen_ZeroSourceToken() public {
     MultiAggregateRateLimiter.RateLimitTokenArgs[] memory adds = new MultiAggregateRateLimiter.RateLimitTokenArgs[](1);
     adds[0] = MultiAggregateRateLimiter.RateLimitTokenArgs({
       localTokenArgs: MultiAggregateRateLimiter.LocalRateLimitToken({
@@ -189,7 +189,7 @@ contract MultiAggregateRateLimiter_updateRateLimitTokens is MultiAggregateRateLi
     s_rateLimiter.updateRateLimitTokens(new MultiAggregateRateLimiter.LocalRateLimitToken[](0), adds);
   }
 
-  function test_ZeroDestToken_Revert() public {
+  function test_RevertWhen_ZeroDestToken() public {
     MultiAggregateRateLimiter.RateLimitTokenArgs[] memory adds = new MultiAggregateRateLimiter.RateLimitTokenArgs[](1);
     adds[0] = MultiAggregateRateLimiter.RateLimitTokenArgs({
       localTokenArgs: MultiAggregateRateLimiter.LocalRateLimitToken({
@@ -203,7 +203,7 @@ contract MultiAggregateRateLimiter_updateRateLimitTokens is MultiAggregateRateLi
     s_rateLimiter.updateRateLimitTokens(new MultiAggregateRateLimiter.LocalRateLimitToken[](0), adds);
   }
 
-  function test_ZeroDestToken_AbiEncoded_Revert() public {
+  function test_RevertWhen_ZeroDestToken_AbiEncoded() public {
     MultiAggregateRateLimiter.RateLimitTokenArgs[] memory adds = new MultiAggregateRateLimiter.RateLimitTokenArgs[](1);
     adds[0] = MultiAggregateRateLimiter.RateLimitTokenArgs({
       localTokenArgs: MultiAggregateRateLimiter.LocalRateLimitToken({
@@ -217,7 +217,7 @@ contract MultiAggregateRateLimiter_updateRateLimitTokens is MultiAggregateRateLi
     s_rateLimiter.updateRateLimitTokens(new MultiAggregateRateLimiter.LocalRateLimitToken[](0), adds);
   }
 
-  function test_NonOwner_Revert() public {
+  function test_RevertWhen_NonOwner() public {
     MultiAggregateRateLimiter.RateLimitTokenArgs[] memory adds = new MultiAggregateRateLimiter.RateLimitTokenArgs[](4);
 
     vm.startPrank(STRANGER);

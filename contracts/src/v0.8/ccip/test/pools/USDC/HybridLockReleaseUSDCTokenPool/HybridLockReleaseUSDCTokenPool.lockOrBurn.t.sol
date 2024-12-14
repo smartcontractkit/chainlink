@@ -110,7 +110,7 @@ contract HybridLockReleaseUSDCTokenPool_lockOrBurn is HybridLockReleaseUSDCToken
     test_PrimaryMechanism();
   }
 
-  function test_WhileMigrationPause_Revert() public {
+  function test_RevertWhen_WhileMigrationPause() public {
     // Mark the destination chain as supporting CCTP, so use L/R instead.
     uint64[] memory destChainAdds = new uint64[](1);
     destChainAdds[0] = DEST_CHAIN_SELECTOR;

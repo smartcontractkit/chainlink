@@ -266,7 +266,7 @@ contract MultiAggregateRateLimiter_onOutboundMessage is MultiAggregateRateLimite
 
   // Reverts
 
-  function test_onOutboundMessage_ValidateMessageWithRateLimitExceeded_Revert() public {
+  function test_RevertWhen_onOutboundMessage_ValidateMessageWithRateLimitExceeded() public {
     vm.startPrank(MOCK_OFFRAMP);
 
     Client.EVMTokenAmount[] memory tokenAmounts = new Client.EVMTokenAmount[](2);
@@ -278,7 +278,7 @@ contract MultiAggregateRateLimiter_onOutboundMessage is MultiAggregateRateLimite
     s_rateLimiter.onOutboundMessage(CHAIN_SELECTOR_1, _generateEVM2AnyMessage(tokenAmounts));
   }
 
-  function test_onOutboundMessage_ValidateMessageFromUnauthorizedCaller_Revert() public {
+  function test_RevertWhen_onOutboundMessage_ValidateMessageFromUnauthorizedCaller() public {
     vm.startPrank(STRANGER);
 
     vm.expectRevert(abi.encodeWithSelector(AuthorizedCallers.UnauthorizedCaller.selector, STRANGER));
