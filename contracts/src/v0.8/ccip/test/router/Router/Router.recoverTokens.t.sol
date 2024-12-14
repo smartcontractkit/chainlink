@@ -9,7 +9,7 @@ import {MaybeRevertMessageReceiver} from "../../helpers/receivers/MaybeRevertMes
 import {OnRampSetup} from "../../onRamp/OnRamp/OnRampSetup.t.sol";
 
 contract Router_recoverTokens is OnRampSetup {
-  function test_RecoverTokens_Success() public {
+  function test_RecoverTokens() public {
     // Assert we can recover sourceToken
     IERC20 token = IERC20(s_sourceTokens[0]);
     uint256 balanceBefore = token.balanceOf(OWNER);

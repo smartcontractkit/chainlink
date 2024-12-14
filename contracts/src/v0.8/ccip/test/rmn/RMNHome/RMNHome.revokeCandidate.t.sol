@@ -17,7 +17,7 @@ contract RMNHome_revokeCandidate is RMNHomeTestSetup {
     s_rmnHome.setCandidate(config.staticConfig, config.dynamicConfig, ZERO_DIGEST);
   }
 
-  function test_revokeCandidate_success() public {
+  function test_revokeCandidate() public {
     (bytes32 priorActiveDigest, bytes32 priorCandidateDigest) = s_rmnHome.getConfigDigests();
 
     vm.expectEmit();

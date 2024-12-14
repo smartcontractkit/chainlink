@@ -12,7 +12,7 @@ contract RMNHome_setDynamicConfig is RMNHomeTestSetup {
     s_rmnHome.setCandidate(config.staticConfig, config.dynamicConfig, ZERO_DIGEST);
   }
 
-  function test_setDynamicConfig_success() public {
+  function test_setDynamicConfig() public {
     (bytes32 priorActiveDigest,) = s_rmnHome.getConfigDigests();
 
     Config memory config = _getBaseConfig();

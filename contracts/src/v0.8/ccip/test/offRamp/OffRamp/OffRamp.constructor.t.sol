@@ -10,7 +10,7 @@ import {OffRampHelper} from "../../helpers/OffRampHelper.sol";
 import {OffRampSetup} from "./OffRampSetup.t.sol";
 
 contract OffRamp_constructor is OffRampSetup {
-  function test_Constructor_Success() public {
+  function test_Constructor() public {
     OffRamp.StaticConfig memory staticConfig = OffRamp.StaticConfig({
       chainSelector: DEST_CHAIN_SELECTOR,
       gasForCallExactCheck: GAS_FOR_CALL_EXACT_CHECK,

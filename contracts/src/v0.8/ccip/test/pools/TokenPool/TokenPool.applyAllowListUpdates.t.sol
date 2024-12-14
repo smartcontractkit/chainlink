@@ -8,7 +8,7 @@ import {TokenPoolHelper} from "../../helpers/TokenPoolHelper.sol";
 import {TokenPoolWithAllowListSetup} from "./TokenPoolWithAllowListSetup.t.sol";
 
 contract TokenPoolWithAllowList_applyAllowListUpdates is TokenPoolWithAllowListSetup {
-  function test_SetAllowList_Success() public {
+  function test_SetAllowList() public {
     address[] memory newAddresses = new address[](2);
     newAddresses[0] = address(1);
     newAddresses[1] = address(2);
@@ -60,7 +60,7 @@ contract TokenPoolWithAllowList_applyAllowListUpdates is TokenPoolWithAllowListS
     assertEq(0, setAddresses.length);
   }
 
-  function test_SetAllowListSkipsZero_Success() public {
+  function test_SetAllowListSkipsZero() public {
     uint256 setAddressesLength = s_tokenPool.getAllowList().length;
 
     address[] memory newAddresses = new address[](1);

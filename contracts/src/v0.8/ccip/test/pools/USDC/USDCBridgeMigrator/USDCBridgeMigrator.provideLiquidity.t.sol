@@ -18,7 +18,7 @@ contract USDCBridgeMigrator_provideLiquidity is USDCBridgeMigrator_BurnLockedUSD
   }
 
   function test_cannotProvideLiquidity_AfterMigration_Revert() public {
-    test_lockOrBurn_then_BurnInCCTPMigration_Success();
+    test_lockOrBurn_then_BurnInCCTPMigration();
 
     vm.startPrank(OWNER);
 

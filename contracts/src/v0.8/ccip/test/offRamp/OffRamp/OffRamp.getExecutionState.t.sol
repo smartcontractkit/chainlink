@@ -32,7 +32,7 @@ contract OffRamp_getExecutionState is OffRampSetup {
     }
   }
 
-  function test_GetExecutionState_Success() public {
+  function test_GetExecutionState() public {
     s_offRamp.setExecutionStateHelper(SOURCE_CHAIN_SELECTOR_1, 0, Internal.MessageExecutionState.FAILURE);
     assertEq(s_offRamp.getExecutionStateBitMap(SOURCE_CHAIN_SELECTOR_1, 0), 3);
 
@@ -72,7 +72,7 @@ contract OffRamp_getExecutionState is OffRampSetup {
     );
   }
 
-  function test_GetDifferentChainExecutionState_Success() public {
+  function test_GetDifferentChainExecutionState() public {
     s_offRamp.setExecutionStateHelper(SOURCE_CHAIN_SELECTOR_1, 0, Internal.MessageExecutionState.FAILURE);
     assertEq(s_offRamp.getExecutionStateBitMap(SOURCE_CHAIN_SELECTOR_1, 0), 3);
     assertEq(s_offRamp.getExecutionStateBitMap(SOURCE_CHAIN_SELECTOR_1 + 1, 0), 0);
@@ -119,7 +119,7 @@ contract OffRamp_getExecutionState is OffRampSetup {
     );
   }
 
-  function test_FillExecutionState_Success() public {
+  function test_FillExecutionState() public {
     for (uint64 i = 0; i < 384; ++i) {
       s_offRamp.setExecutionStateHelper(SOURCE_CHAIN_SELECTOR_1, i, Internal.MessageExecutionState.FAILURE);
     }

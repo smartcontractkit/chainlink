@@ -13,7 +13,7 @@ contract CCIPHome_beforeCapabilityConfigSet is CCIPHomeTestSetup {
     vm.startPrank(address(CAPABILITIES_REGISTRY));
   }
 
-  function test_beforeCapabilityConfigSet_success() public {
+  function test_beforeCapabilityConfigSet() public {
     // first set a config
     bytes memory callData = abi.encodeCall(
       CCIPHome.setCandidate,

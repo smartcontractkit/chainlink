@@ -18,7 +18,7 @@ contract OffRamp_execute is OffRampSetup {
   }
 
   // Asserts that execute completes
-  function test_SingleReport_Success() public {
+  function test_SingleReport() public {
     Internal.Any2EVMRampMessage[] memory messages =
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
     Internal.ExecutionReport[] memory reports = _generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages);
@@ -42,7 +42,7 @@ contract OffRamp_execute is OffRampSetup {
     );
   }
 
-  function test_MultipleReports_Success() public {
+  function test_MultipleReports() public {
     Internal.Any2EVMRampMessage[] memory messages1 = new Internal.Any2EVMRampMessage[](2);
     Internal.Any2EVMRampMessage[] memory messages2 = new Internal.Any2EVMRampMessage[](1);
 
@@ -95,7 +95,7 @@ contract OffRamp_execute is OffRampSetup {
     );
   }
 
-  function test_LargeBatch_Success() public {
+  function test_LargeBatch() public {
     Internal.ExecutionReport[] memory reports = new Internal.ExecutionReport[](10);
     for (uint64 i = 0; i < reports.length; ++i) {
       Internal.Any2EVMRampMessage[] memory messages = new Internal.Any2EVMRampMessage[](3);
@@ -131,7 +131,7 @@ contract OffRamp_execute is OffRampSetup {
     }
   }
 
-  function test_MultipleReportsWithPartialValidationFailures_Success() public {
+  function test_MultipleReportsWithPartialValidationFailures() public {
     _enableInboundMessageInterceptor();
 
     Internal.Any2EVMRampMessage[] memory messages1 = new Internal.Any2EVMRampMessage[](2);

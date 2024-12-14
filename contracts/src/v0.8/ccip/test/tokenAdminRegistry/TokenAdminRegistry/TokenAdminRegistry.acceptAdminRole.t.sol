@@ -5,7 +5,7 @@ import {TokenAdminRegistry} from "../../../tokenAdminRegistry/TokenAdminRegistry
 import {TokenAdminRegistrySetup} from "./TokenAdminRegistrySetup.t.sol";
 
 contract TokenAdminRegistry_acceptAdminRole is TokenAdminRegistrySetup {
-  function test_acceptAdminRole_Success() public {
+  function test_acceptAdminRole() public {
     address token = s_sourceTokens[0];
 
     address currentAdmin = s_tokenAdminRegistry.getTokenConfig(token).administrator;

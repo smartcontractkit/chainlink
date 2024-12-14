@@ -5,7 +5,7 @@ import {USDCBridgeMigrator} from "../../../../pools/USDC/USDCBridgeMigrator.sol"
 import {HybridLockReleaseUSDCTokenPoolSetup} from "./USDCBridgeMigratorSetup.t.sol";
 
 contract USDCBridgeMigrator_cancelMigrationProposal is HybridLockReleaseUSDCTokenPoolSetup {
-  function test_cancelExistingCCTPMigrationProposal_Success() public {
+  function test_cancelExistingCCTPMigrationProposal() public {
     vm.startPrank(OWNER);
 
     // Mark the destination chain as supporting CCTP, so use L/R instead.

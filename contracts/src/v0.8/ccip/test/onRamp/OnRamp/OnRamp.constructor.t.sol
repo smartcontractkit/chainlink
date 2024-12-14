@@ -10,7 +10,7 @@ import {OnRampHelper} from "../../helpers/OnRampHelper.sol";
 import {OnRampSetup} from "./OnRampSetup.t.sol";
 
 contract OnRamp_constructor is OnRampSetup {
-  function test_Constructor_Success() public {
+  function test_Constructor() public {
     OnRamp.StaticConfig memory staticConfig = OnRamp.StaticConfig({
       chainSelector: SOURCE_CHAIN_SELECTOR,
       rmnRemote: s_mockRMNRemote,

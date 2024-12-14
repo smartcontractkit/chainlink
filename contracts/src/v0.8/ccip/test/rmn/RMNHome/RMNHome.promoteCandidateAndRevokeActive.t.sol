@@ -7,7 +7,7 @@ import {RMNHome} from "../../../rmn/RMNHome.sol";
 import {RMNHomeTestSetup} from "./RMNHomeTestSetup.t.sol";
 
 contract RMNHome_promoteCandidateAndRevokeActive is RMNHomeTestSetup {
-  function test_promoteCandidateAndRevokeActive_success() public {
+  function test_promoteCandidateAndRevokeActive() public {
     Config memory config = _getBaseConfig();
     bytes32 firstConfigToPromote = s_rmnHome.setCandidate(config.staticConfig, config.dynamicConfig, ZERO_DIGEST);
 

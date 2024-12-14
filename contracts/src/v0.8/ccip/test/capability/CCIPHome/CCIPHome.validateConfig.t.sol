@@ -96,11 +96,11 @@ contract CCIPHome__validateConfig is CCIPHomeTestSetup {
 
   // Successes.
 
-  function test__validateConfig_Success() public {
+  function test__validateConfig() public {
     s_ccipHome.validateConfig(_getCorrectOCR3Config());
   }
 
-  function test__validateConfigLessTransmittersThanSigners_Success() public {
+  function test__validateConfigLessTransmittersThanSigners() public {
     // fChain is 1, so there should be at least 4 transmitters.
     CCIPHome.OCR3Config memory config = _getCorrectOCR3Config(5, 1);
     config.nodes[1].transmitterKey = bytes("");
@@ -108,7 +108,7 @@ contract CCIPHome__validateConfig is CCIPHomeTestSetup {
     s_ccipHome.validateConfig(config);
   }
 
-  function test__validateConfigSmallerFChain_Success() public {
+  function test__validateConfigSmallerFChain() public {
     CCIPHome.OCR3Config memory config = _getCorrectOCR3Config(11, 3);
 
     // Set fChain to 2

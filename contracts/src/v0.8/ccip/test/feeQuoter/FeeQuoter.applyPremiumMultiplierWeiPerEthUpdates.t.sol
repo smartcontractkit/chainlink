@@ -26,7 +26,7 @@ contract FeeQuoter_applyPremiumMultiplierWeiPerEthUpdates is FeeQuoterSetup {
     );
   }
 
-  function test_applyPremiumMultiplierWeiPerEthUpdatesSingleToken_Success() public {
+  function test_applyPremiumMultiplierWeiPerEthUpdatesSingleToken() public {
     FeeQuoter.PremiumMultiplierWeiPerEthArgs[] memory premiumMultiplierWeiPerEthArgs =
       new FeeQuoter.PremiumMultiplierWeiPerEthArgs[](1);
     premiumMultiplierWeiPerEthArgs[0] = s_feeQuoterPremiumMultiplierWeiPerEthArgs[0];
@@ -45,7 +45,7 @@ contract FeeQuoter_applyPremiumMultiplierWeiPerEthUpdates is FeeQuoterSetup {
     );
   }
 
-  function test_applyPremiumMultiplierWeiPerEthUpdatesMultipleTokens_Success() public {
+  function test_applyPremiumMultiplierWeiPerEthUpdatesMultipleTokens() public {
     FeeQuoter.PremiumMultiplierWeiPerEthArgs[] memory premiumMultiplierWeiPerEthArgs =
       new FeeQuoter.PremiumMultiplierWeiPerEthArgs[](2);
     premiumMultiplierWeiPerEthArgs[0] = s_feeQuoterPremiumMultiplierWeiPerEthArgs[0];

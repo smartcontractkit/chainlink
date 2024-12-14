@@ -6,7 +6,7 @@ import {FeeQuoterHelper} from "../helpers/FeeQuoterHelper.sol";
 import {FeeQuoterSetup} from "./FeeQuoterSetup.t.sol";
 
 contract FeeQuoter_constructor is FeeQuoterSetup {
-  function test_Setup_Success() public virtual {
+  function test_Setup() public virtual {
     address[] memory priceUpdaters = new address[](2);
     priceUpdaters[0] = STRANGER;
     priceUpdaters[1] = OWNER;

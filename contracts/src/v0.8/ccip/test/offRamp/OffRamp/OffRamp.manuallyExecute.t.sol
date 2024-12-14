@@ -23,7 +23,7 @@ contract OffRamp_manuallyExecute is OffRampSetup {
     s_offRamp.setVerifyOverrideResult(SOURCE_CHAIN_SELECTOR_3, 1);
   }
 
-  function test_manuallyExecute_Success() public {
+  function test_manuallyExecute() public {
     Internal.Any2EVMRampMessage[] memory messages =
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
     messages[0].receiver = address(s_reverting_receiver);
@@ -49,7 +49,7 @@ contract OffRamp_manuallyExecute is OffRampSetup {
     );
   }
 
-  function test_manuallyExecute_WithGasOverride_Success() public {
+  function test_manuallyExecute_WithGasOverride() public {
     Internal.Any2EVMRampMessage[] memory messages =
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
     messages[0].receiver = address(s_reverting_receiver);
@@ -75,7 +75,7 @@ contract OffRamp_manuallyExecute is OffRampSetup {
     );
   }
 
-  function test_manuallyExecute_DoesNotRevertIfUntouched_Success() public {
+  function test_manuallyExecute_DoesNotRevertIfUntouched() public {
     Internal.Any2EVMRampMessage[] memory messages =
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
     messages[0].receiver = address(s_reverting_receiver);
@@ -108,7 +108,7 @@ contract OffRamp_manuallyExecute is OffRampSetup {
     );
   }
 
-  function test_manuallyExecute_WithMultiReportGasOverride_Success() public {
+  function test_manuallyExecute_WithMultiReportGasOverride() public {
     Internal.Any2EVMRampMessage[] memory messages1 = new Internal.Any2EVMRampMessage[](3);
     Internal.Any2EVMRampMessage[] memory messages2 = new Internal.Any2EVMRampMessage[](2);
 
@@ -174,7 +174,7 @@ contract OffRamp_manuallyExecute is OffRampSetup {
     }
   }
 
-  function test_manuallyExecute_WithPartialMessages_Success() public {
+  function test_manuallyExecute_WithPartialMessages() public {
     Internal.Any2EVMRampMessage[] memory messages = new Internal.Any2EVMRampMessage[](3);
 
     for (uint64 i = 0; i < 3; ++i) {
@@ -246,7 +246,7 @@ contract OffRamp_manuallyExecute is OffRampSetup {
     );
   }
 
-  function test_manuallyExecute_LowGasLimit_Success() public {
+  function test_manuallyExecute_LowGasLimit() public {
     Internal.Any2EVMRampMessage[] memory messages =
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
     messages[0].gasLimit = 1;
@@ -473,7 +473,7 @@ contract OffRamp_manuallyExecute is OffRampSetup {
     s_offRamp.manuallyExecute(_generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), gasLimitOverrides);
   }
 
-  function test_manuallyExecute_ReentrancyFails_Success() public {
+  function test_manuallyExecute_ReentrancyFails() public {
     uint256 tokenAmount = 1e9;
     IERC20 tokenToAbuse = IERC20(s_destFeeToken);
 

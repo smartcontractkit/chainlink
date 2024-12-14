@@ -9,7 +9,7 @@ contract FactoryBurnMintERC20_burnFromAlias is BurnMintERC20Setup {
     BurnMintERC20Setup.setUp();
   }
 
-  function test_BurnFrom_Success() public {
+  function test_BurnFrom() public {
     s_burnMintERC20.approve(s_mockPool, s_amount);
 
     changePrank(s_mockPool);

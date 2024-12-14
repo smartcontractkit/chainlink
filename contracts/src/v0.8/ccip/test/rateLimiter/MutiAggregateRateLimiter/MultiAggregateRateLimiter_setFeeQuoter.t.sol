@@ -7,7 +7,7 @@ import {MultiAggregateRateLimiter} from "../../../MultiAggregateRateLimiter.sol"
 import {MultiAggregateRateLimiterSetup} from "./MultiAggregateRateLimiterSetup.t.sol";
 
 contract MultiAggregateRateLimiter_setFeeQuoter is MultiAggregateRateLimiterSetup {
-  function test_Owner_Success() public {
+  function test_Owner() public {
     address newAddress = address(42);
 
     vm.expectEmit();

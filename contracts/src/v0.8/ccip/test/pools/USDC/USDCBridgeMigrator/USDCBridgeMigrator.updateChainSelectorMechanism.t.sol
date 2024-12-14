@@ -7,7 +7,7 @@ import {USDCBridgeMigrator_BurnLockedUSDC} from "./USDCBridgeMigrator.burnLocked
 
 contract USDCBridgeMigrator_updateChainSelectorMechanism is USDCBridgeMigrator_BurnLockedUSDC {
   function test_cannotRevertChainMechanism_afterMigration_Revert() public {
-    test_lockOrBurn_then_BurnInCCTPMigration_Success();
+    test_lockOrBurn_then_BurnInCCTPMigration();
 
     vm.startPrank(OWNER);
 

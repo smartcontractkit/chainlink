@@ -24,7 +24,7 @@ contract BurnMintTokenPoolSetup is BurnMintSetup {
 }
 
 contract BurnMintTokenPool_releaseOrMint is BurnMintTokenPoolSetup {
-  function test_PoolMint_Success() public {
+  function test_PoolMint() public {
     uint256 amount = 1e19;
     address receiver = makeAddr("receiver_address");
 

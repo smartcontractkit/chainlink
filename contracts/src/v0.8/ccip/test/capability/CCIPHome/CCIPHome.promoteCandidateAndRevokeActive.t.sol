@@ -7,7 +7,7 @@ import {Internal} from "../../../libraries/Internal.sol";
 import {CCIPHomeTestSetup} from "./CCIPHomeTestSetup.t.sol";
 
 contract CCIPHome_promoteCandidateAndRevokeActive is CCIPHomeTestSetup {
-  function test_promoteCandidateAndRevokeActive_multiplePlugins_success() public {
+  function test_promoteCandidateAndRevokeActive_multiplePlugins() public {
     promoteCandidateAndRevokeActive(Internal.OCRPluginType.Commit);
     promoteCandidateAndRevokeActive(Internal.OCRPluginType.Execution);
 

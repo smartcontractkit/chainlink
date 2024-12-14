@@ -7,7 +7,7 @@ import {Internal} from "../../libraries/Internal.sol";
 import {FeeQuoterSetup} from "./FeeQuoterSetup.t.sol";
 
 contract FeeQuoter_getValidatedTokenPrice is FeeQuoterSetup {
-  function test_GetValidatedTokenPrice_Success() public view {
+  function test_GetValidatedTokenPrice() public view {
     Internal.PriceUpdates memory priceUpdates = abi.decode(s_encodedInitialPriceUpdates, (Internal.PriceUpdates));
     address token = priceUpdates.tokenPriceUpdates[0].sourceToken;
 
@@ -16,7 +16,7 @@ contract FeeQuoter_getValidatedTokenPrice is FeeQuoterSetup {
     assertEq(priceUpdates.tokenPriceUpdates[0].usdPerToken, tokenPrice);
   }
 
-  function test_GetValidatedTokenPriceFromFeed_Success() public {
+  function test_GetValidatedTokenPriceFromFeed() public {
     uint256 originalTimestampValue = block.timestamp;
 
     // Right below staleness threshold
@@ -29,7 +29,7 @@ contract FeeQuoter_getValidatedTokenPrice is FeeQuoterSetup {
     assertEq(tokenPriceAnswer, uint224(1e18));
   }
 
-  function test_GetValidatedTokenPriceFromFeedOverStalenessPeriod_Success() public {
+  function test_GetValidatedTokenPriceFromFeedOverStalenessPeriod() public {
     uint256 originalTimestampValue = block.timestamp;
 
     // Right above staleness threshold
@@ -42,7 +42,7 @@ contract FeeQuoter_getValidatedTokenPrice is FeeQuoterSetup {
     assertEq(tokenPriceAnswer, uint224(1e18));
   }
 
-  function test_GetValidatedTokenPriceFromFeedMaxInt224Value_Success() public {
+  function test_GetValidatedTokenPriceFromFeedMaxInt224Value() public {
     address tokenAddress = _deploySourceToken("testToken", 0, 18);
     address feedAddress = _deployTokenPriceDataFeed(tokenAddress, 18, int256(uint256(type(uint224).max)));
 
@@ -56,7 +56,7 @@ contract FeeQuoter_getValidatedTokenPrice is FeeQuoterSetup {
     assertEq(tokenPriceAnswer, uint224(type(uint224).max));
   }
 
-  function test_GetValidatedTokenPriceFromFeedErc20Below18Decimals_Success() public {
+  function test_GetValidatedTokenPriceFromFeedErc20Below18Decimals() public {
     address tokenAddress = _deploySourceToken("testToken", 0, 6);
     address feedAddress = _deployTokenPriceDataFeed(tokenAddress, 8, 1e8);
 
@@ -70,7 +70,7 @@ contract FeeQuoter_getValidatedTokenPrice is FeeQuoterSetup {
     assertEq(tokenPriceAnswer, uint224(1e30));
   }
 
-  function test_GetValidatedTokenPriceFromFeedErc20Above18Decimals_Success() public {
+  function test_GetValidatedTokenPriceFromFeedErc20Above18Decimals() public {
     address tokenAddress = _deploySourceToken("testToken", 0, 24);
     address feedAddress = _deployTokenPriceDataFeed(tokenAddress, 8, 1e8);
 
@@ -84,7 +84,7 @@ contract FeeQuoter_getValidatedTokenPrice is FeeQuoterSetup {
     assertEq(tokenPriceAnswer, uint224(1e12));
   }
 
-  function test_GetValidatedTokenPriceFromFeedFeedAt18Decimals_Success() public {
+  function test_GetValidatedTokenPriceFromFeedFeedAt18Decimals() public {
     address tokenAddress = _deploySourceToken("testToken", 0, 18);
     address feedAddress = _deployTokenPriceDataFeed(tokenAddress, 18, 1e18);
 
@@ -98,7 +98,7 @@ contract FeeQuoter_getValidatedTokenPrice is FeeQuoterSetup {
     assertEq(tokenPriceAnswer, uint224(1e18));
   }
 
-  function test_GetValidatedTokenPriceFromFeedFeedAt0Decimals_Success() public {
+  function test_GetValidatedTokenPriceFromFeedFeedAt0Decimals() public {
     address tokenAddress = _deploySourceToken("testToken", 0, 0);
     address feedAddress = _deployTokenPriceDataFeed(tokenAddress, 0, 1e31);
 
@@ -112,7 +112,7 @@ contract FeeQuoter_getValidatedTokenPrice is FeeQuoterSetup {
     assertEq(tokenPriceAnswer, uint224(1e67));
   }
 
-  function test_GetValidatedTokenPriceFromFeedFlippedDecimals_Success() public {
+  function test_GetValidatedTokenPriceFromFeedFlippedDecimals() public {
     address tokenAddress = _deploySourceToken("testToken", 0, 20);
     address feedAddress = _deployTokenPriceDataFeed(tokenAddress, 20, 1e18);
 
@@ -126,7 +126,7 @@ contract FeeQuoter_getValidatedTokenPrice is FeeQuoterSetup {
     assertEq(tokenPriceAnswer, uint224(1e14));
   }
 
-  function test_StaleFeeToken_Success() public {
+  function test_StaleFeeToken() public {
     vm.warp(block.timestamp + TWELVE_HOURS + 1);
 
     Internal.PriceUpdates memory priceUpdates = abi.decode(s_encodedInitialPriceUpdates, (Internal.PriceUpdates));

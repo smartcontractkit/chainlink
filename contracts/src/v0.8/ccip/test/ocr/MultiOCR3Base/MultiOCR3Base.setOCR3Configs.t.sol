@@ -8,7 +8,7 @@ import {MultiOCR3BaseSetup} from "./MultiOCR3BaseSetup.t.sol";
 import {Vm} from "forge-std/Vm.sol";
 
 contract MultiOCR3Base_setOCR3Configs is MultiOCR3BaseSetup {
-  function test_SetConfigsZeroInput_Success() public {
+  function test_SetConfigsZeroInput() public {
     vm.recordLogs();
     s_multiOCR3.setOCR3Configs(new MultiOCR3Base.OCRConfigArgs[](0));
 
@@ -17,7 +17,7 @@ contract MultiOCR3Base_setOCR3Configs is MultiOCR3BaseSetup {
     assertEq(logEntries.length, 0);
   }
 
-  function test_SetConfigWithSigners_Success() public {
+  function test_SetConfigWithSigners() public {
     uint8 F = 2;
 
     _assertOCRConfigUnconfigured(s_multiOCR3.latestConfigDetails(0));
@@ -59,7 +59,7 @@ contract MultiOCR3Base_setOCR3Configs is MultiOCR3BaseSetup {
     _assertOCRConfigEquality(s_multiOCR3.latestConfigDetails(0), expectedConfig);
   }
 
-  function test_SetConfigWithSignersMismatchingTransmitters_Success() public {
+  function test_SetConfigWithSignersMismatchingTransmitters() public {
     uint8 F = 2;
 
     _assertOCRConfigUnconfigured(s_multiOCR3.latestConfigDetails(0));
@@ -101,7 +101,7 @@ contract MultiOCR3Base_setOCR3Configs is MultiOCR3BaseSetup {
     _assertOCRConfigEquality(s_multiOCR3.latestConfigDetails(0), expectedConfig);
   }
 
-  function test_SetConfigWithoutSigners_Success() public {
+  function test_SetConfigWithoutSigners() public {
     uint8 F = 1;
     address[] memory signers = new address[](0);
 
@@ -144,7 +144,7 @@ contract MultiOCR3Base_setOCR3Configs is MultiOCR3BaseSetup {
     _assertOCRConfigEquality(s_multiOCR3.latestConfigDetails(0), expectedConfig);
   }
 
-  function test_SetConfigIgnoreSigners_Success() public {
+  function test_SetConfigIgnoreSigners() public {
     uint8 F = 1;
 
     _assertOCRConfigUnconfigured(s_multiOCR3.latestConfigDetails(0));
@@ -192,7 +192,7 @@ contract MultiOCR3Base_setOCR3Configs is MultiOCR3BaseSetup {
     }
   }
 
-  function test_SetMultipleConfigs_Success() public {
+  function test_SetMultipleConfigs() public {
     _assertOCRConfigUnconfigured(s_multiOCR3.latestConfigDetails(0));
     _assertOCRConfigUnconfigured(s_multiOCR3.latestConfigDetails(1));
     _assertOCRConfigUnconfigured(s_multiOCR3.latestConfigDetails(2));
@@ -321,7 +321,7 @@ contract MultiOCR3Base_setOCR3Configs is MultiOCR3BaseSetup {
     _assertOCRConfigEquality(s_multiOCR3.latestConfigDetails(ocrConfig.ocrPluginType), expectedConfig);
   }
 
-  function test_UpdateConfigTransmittersWithoutSigners_Success() public {
+  function test_UpdateConfigTransmittersWithoutSigners() public {
     _assertOCRConfigUnconfigured(s_multiOCR3.latestConfigDetails(0));
 
     MultiOCR3Base.OCRConfigArgs[] memory ocrConfigs = new MultiOCR3Base.OCRConfigArgs[](1);
@@ -380,7 +380,7 @@ contract MultiOCR3Base_setOCR3Configs is MultiOCR3BaseSetup {
     }
   }
 
-  function test_UpdateConfigSigners_Success() public {
+  function test_UpdateConfigSigners() public {
     _assertOCRConfigUnconfigured(s_multiOCR3.latestConfigDetails(0));
 
     MultiOCR3Base.OCRConfigArgs[] memory ocrConfigs = new MultiOCR3Base.OCRConfigArgs[](1);

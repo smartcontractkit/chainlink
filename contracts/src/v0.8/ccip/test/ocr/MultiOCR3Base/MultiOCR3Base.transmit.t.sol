@@ -45,7 +45,7 @@ contract MultiOCR3Base_transmit is MultiOCR3BaseSetup {
     s_multiOCR3.setOCR3Configs(ocrConfigs);
   }
 
-  function test_TransmitSigners_gas_Success() public {
+  function test_TransmitSigners_gas() public {
     vm.pauseGasMetering();
     bytes32[2] memory reportContext = [s_configDigest1, s_configDigest1];
 
@@ -63,7 +63,7 @@ contract MultiOCR3Base_transmit is MultiOCR3BaseSetup {
     s_multiOCR3.transmitWithSignatures(reportContext, REPORT, rs, ss, rawVs);
   }
 
-  function test_TransmitWithoutSignatureVerification_gas_Success() public {
+  function test_TransmitWithoutSignatureVerification_gas() public {
     vm.pauseGasMetering();
     bytes32[2] memory reportContext = [s_configDigest3, s_configDigest3];
 

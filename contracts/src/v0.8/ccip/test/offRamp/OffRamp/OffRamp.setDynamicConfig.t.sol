@@ -6,7 +6,7 @@ import {OffRamp} from "../../../offRamp/OffRamp.sol";
 import {OffRampSetup} from "./OffRampSetup.t.sol";
 
 contract OffRamp_setDynamicConfig is OffRampSetup {
-  function test_SetDynamicConfig_Success() public {
+  function test_SetDynamicConfig() public {
     OffRamp.DynamicConfig memory dynamicConfig = _generateDynamicOffRampConfig(address(s_feeQuoter));
 
     vm.expectEmit();
@@ -18,7 +18,7 @@ contract OffRamp_setDynamicConfig is OffRampSetup {
     _assertSameConfig(dynamicConfig, newConfig);
   }
 
-  function test_SetDynamicConfigWithInterceptor_Success() public {
+  function test_SetDynamicConfigWithInterceptor() public {
     OffRamp.DynamicConfig memory dynamicConfig = _generateDynamicOffRampConfig(address(s_feeQuoter));
     dynamicConfig.messageInterceptor = address(s_inboundMessageInterceptor);
 

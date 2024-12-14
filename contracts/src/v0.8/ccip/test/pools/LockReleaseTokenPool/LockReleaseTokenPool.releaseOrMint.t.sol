@@ -27,7 +27,7 @@ contract LockReleaseTokenPool_releaseOrMint is LockReleaseTokenPoolSetup {
     s_lockReleaseTokenPoolWithAllowList.applyChainUpdates(new uint64[](0), chainUpdate);
   }
 
-  function test_ReleaseOrMint_Success() public {
+  function test_ReleaseOrMint() public {
     vm.startPrank(s_allowedOffRamp);
 
     uint256 amount = 100;

@@ -57,7 +57,7 @@ contract OnRamp_withdrawFeeTokens is OnRampSetup {
     }
   }
 
-  function test_WithdrawFeeTokens_Success() public {
+  function test_WithdrawFeeTokens() public {
     vm.expectEmit();
     emit OnRamp.FeeTokenWithdrawn(FEE_AGGREGATOR, s_sourceFeeToken, s_nopFees[s_sourceFeeToken]);
 

@@ -7,7 +7,7 @@ import {TokenPool} from "../../../pools/TokenPool.sol";
 import {TokenPoolSetup} from "./TokenPoolSetup.t.sol";
 
 contract TokenPool_addRemotePool is TokenPoolSetup {
-  function test_addRemotePool_Success() public {
+  function test_addRemotePool() public {
     // Use a longer data type to ensure it also works for non-evm
     bytes memory remotePool = abi.encode(makeAddr("non-evm-1"), makeAddr("non-evm-2"));
 

@@ -6,7 +6,7 @@ import {Internal} from "../../libraries/Internal.sol";
 import {FeeQuoterSetup} from "./FeeQuoterSetup.t.sol";
 
 contract FeeQuoter_getTokenAndGasPrices is FeeQuoterSetup {
-  function test_GetFeeTokenAndGasPrices_Success() public view {
+  function test_GetFeeTokenAndGasPrices() public view {
     (uint224 feeTokenPrice, uint224 gasPrice) = s_feeQuoter.getTokenAndGasPrices(s_sourceFeeToken, DEST_CHAIN_SELECTOR);
 
     Internal.PriceUpdates memory priceUpdates = abi.decode(s_encodedInitialPriceUpdates, (Internal.PriceUpdates));
@@ -15,7 +15,7 @@ contract FeeQuoter_getTokenAndGasPrices is FeeQuoterSetup {
     assertEq(gasPrice, priceUpdates.gasPriceUpdates[0].usdPerUnitGas);
   }
 
-  function test_StalenessCheckDisabled_Success() public {
+  function test_StalenessCheckDisabled() public {
     uint64 neverStaleChainSelector = 345678;
     FeeQuoter.DestChainConfigArgs[] memory destChainConfigArgs = _generateFeeQuoterDestChainConfigArgs();
     destChainConfigArgs[0].destChainSelector = neverStaleChainSelector;
@@ -38,7 +38,7 @@ contract FeeQuoter_getTokenAndGasPrices is FeeQuoterSetup {
     assertEq(gasPrice, 999);
   }
 
-  function test_ZeroGasPrice_Success() public {
+  function test_ZeroGasPrice() public {
     uint64 zeroGasDestChainSelector = 345678;
     FeeQuoter.DestChainConfigArgs[] memory destChainConfigArgs = _generateFeeQuoterDestChainConfigArgs();
     destChainConfigArgs[0].destChainSelector = zeroGasDestChainSelector;

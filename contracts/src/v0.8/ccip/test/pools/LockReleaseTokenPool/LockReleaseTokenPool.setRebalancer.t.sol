@@ -5,7 +5,7 @@ import {Ownable2Step} from "../../../../shared/access/Ownable2Step.sol";
 import {LockReleaseTokenPoolSetup} from "./LockReleaseTokenPoolSetup.t.sol";
 
 contract LockReleaseTokenPool_setRebalancer is LockReleaseTokenPoolSetup {
-  function test_SetRebalancer_Success() public {
+  function test_SetRebalancer() public {
     assertEq(address(s_lockReleaseTokenPool.getRebalancer()), OWNER);
     s_lockReleaseTokenPool.setRebalancer(STRANGER);
     assertEq(address(s_lockReleaseTokenPool.getRebalancer()), STRANGER);

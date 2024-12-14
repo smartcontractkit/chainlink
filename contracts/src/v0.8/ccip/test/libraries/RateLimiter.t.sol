@@ -18,7 +18,7 @@ contract RateLimiterSetup is Test {
 }
 
 contract RateLimiter_constructor is RateLimiterSetup {
-  function test_Constructor_Success() public view {
+  function test_Constructor() public view {
     RateLimiter.TokenBucket memory rateLimiter = s_helper.getRateLimiter();
     assertEq(s_config.rate, rateLimiter.rate);
     assertEq(s_config.capacity, rateLimiter.capacity);
@@ -29,7 +29,7 @@ contract RateLimiter_constructor is RateLimiterSetup {
 }
 
 contract RateLimiter_setTokenBucketConfig is RateLimiterSetup {
-  function test_SetRateLimiterConfig_Success() public {
+  function test_SetRateLimiterConfig() public {
     RateLimiter.TokenBucket memory rateLimiter = s_helper.getRateLimiter();
     assertEq(s_config.rate, rateLimiter.rate);
     assertEq(s_config.capacity, rateLimiter.capacity);
@@ -52,7 +52,7 @@ contract RateLimiter_setTokenBucketConfig is RateLimiterSetup {
 }
 
 contract RateLimiter_currentTokenBucketState is RateLimiterSetup {
-  function test_CurrentTokenBucketState_Success() public {
+  function test_CurrentTokenBucketState() public {
     RateLimiter.TokenBucket memory bucket = s_helper.currentTokenBucketState();
     assertEq(s_config.rate, bucket.rate);
     assertEq(s_config.capacity, bucket.capacity);
@@ -72,7 +72,7 @@ contract RateLimiter_currentTokenBucketState is RateLimiterSetup {
     assertEq(BLOCK_TIME, bucket.lastUpdated);
   }
 
-  function test_Refill_Success() public {
+  function test_Refill() public {
     RateLimiter.TokenBucket memory bucket = s_helper.currentTokenBucketState();
     assertEq(s_config.rate, bucket.rate);
     assertEq(s_config.capacity, bucket.capacity);
@@ -109,7 +109,7 @@ contract RateLimiter_currentTokenBucketState is RateLimiterSetup {
 contract RateLimiter_consume is RateLimiterSetup {
   address internal s_token = address(100);
 
-  function test_ConsumeAggregateValue_Success() public {
+  function test_ConsumeAggregateValue() public {
     RateLimiter.TokenBucket memory rateLimiter = s_helper.getRateLimiter();
     assertEq(s_config.rate, rateLimiter.rate);
     assertEq(s_config.capacity, rateLimiter.capacity);
@@ -132,7 +132,7 @@ contract RateLimiter_consume is RateLimiterSetup {
     assertEq(BLOCK_TIME, rateLimiter.lastUpdated);
   }
 
-  function test_ConsumeTokens_Success() public {
+  function test_ConsumeTokens() public {
     uint256 requestTokens = 50;
 
     vm.expectEmit();
@@ -141,7 +141,7 @@ contract RateLimiter_consume is RateLimiterSetup {
     s_helper.consume(requestTokens, s_token);
   }
 
-  function test_Refill_Success() public {
+  function test_Refill() public {
     uint256 requestTokens = 50;
 
     vm.expectEmit();
@@ -172,7 +172,7 @@ contract RateLimiter_consume is RateLimiterSetup {
     assertEq(BLOCK_TIME + warpTime, rateLimiter.lastUpdated);
   }
 
-  function test_ConsumeUnlimited_Success() public {
+  function test_ConsumeUnlimited() public {
     s_helper.consume(0, address(0));
 
     RateLimiter.TokenBucket memory rateLimiter = s_helper.getRateLimiter();

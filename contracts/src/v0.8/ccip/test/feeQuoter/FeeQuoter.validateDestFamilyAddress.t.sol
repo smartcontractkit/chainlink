@@ -5,12 +5,12 @@ import {Internal} from "../../libraries/Internal.sol";
 import {FeeQuoterSetup} from "./FeeQuoterSetup.t.sol";
 
 contract FeeQuoter_validateDestFamilyAddress is FeeQuoterSetup {
-  function test_ValidEVMAddress_Success() public view {
+  function test_ValidEVMAddress() public view {
     bytes memory encodedAddress = abi.encode(address(10000));
     s_feeQuoter.validateDestFamilyAddress(Internal.CHAIN_FAMILY_SELECTOR_EVM, encodedAddress);
   }
 
-  function test_ValidNonEVMAddress_Success() public view {
+  function test_ValidNonEVMAddress() public view {
     s_feeQuoter.validateDestFamilyAddress(bytes4(uint32(1)), abi.encode(type(uint208).max));
   }
 

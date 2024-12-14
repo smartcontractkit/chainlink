@@ -20,7 +20,7 @@ contract OffRamp_commit is OffRampSetup {
     s_latestSequenceNumber = uint64(uint256(s_configDigestCommit));
   }
 
-  function test_ReportAndPriceUpdate_Success() public {
+  function test_ReportAndPriceUpdate() public {
     OffRamp.CommitReport memory commitReport = _constructCommitReport();
 
     vm.expectEmit();
@@ -64,7 +64,7 @@ contract OffRamp_commit is OffRampSetup {
     assertEq(block.timestamp, s_offRamp.getMerkleRoot(SOURCE_CHAIN_SELECTOR_1, root));
   }
 
-  function test_RootWithRMNDisabled_success() public {
+  function test_RootWithRMNDisabled() public {
     // force RMN verification to fail
     vm.mockCallRevert(address(s_mockRMNRemote), abi.encodeWithSelector(IRMNRemote.verify.selector), bytes(""));
 
@@ -101,7 +101,7 @@ contract OffRamp_commit is OffRampSetup {
     assertEq(block.timestamp, s_offRamp.getMerkleRoot(SOURCE_CHAIN_SELECTOR_1, root));
   }
 
-  function test_StaleReportWithRoot_Success() public {
+  function test_StaleReportWithRoot() public {
     uint64 maxSeq = 12;
     uint224 tokenStartPrice = IFeeQuoter(s_offRamp.getDynamicConfig().feeQuoter).getTokenPrice(s_sourceFeeToken).value;
 
@@ -144,7 +144,7 @@ contract OffRamp_commit is OffRampSetup {
     assertEq(tokenStartPrice, IFeeQuoter(s_offRamp.getDynamicConfig().feeQuoter).getTokenPrice(s_sourceFeeToken).value);
   }
 
-  function test_OnlyTokenPriceUpdates_Success() public {
+  function test_OnlyTokenPriceUpdates() public {
     // force RMN verification to fail
     vm.mockCallRevert(address(s_mockRMNRemote), abi.encodeWithSelector(IRMNRemote.verify.selector), bytes(""));
 
@@ -166,7 +166,7 @@ contract OffRamp_commit is OffRampSetup {
     assertEq(s_latestSequenceNumber, s_offRamp.getLatestPriceSequenceNumber());
   }
 
-  function test_OnlyGasPriceUpdates_Success() public {
+  function test_OnlyGasPriceUpdates() public {
     // force RMN verification to fail
     vm.mockCallRevert(address(s_mockRMNRemote), abi.encodeWithSelector(IRMNRemote.verify.selector), bytes(""));
 
@@ -187,7 +187,7 @@ contract OffRamp_commit is OffRampSetup {
     assertEq(s_latestSequenceNumber, s_offRamp.getLatestPriceSequenceNumber());
   }
 
-  function test_PriceSequenceNumberCleared_Success() public {
+  function test_PriceSequenceNumberCleared() public {
     Internal.MerkleRoot[] memory roots = new Internal.MerkleRoot[](0);
     OffRamp.CommitReport memory commitReport = OffRamp.CommitReport({
       priceUpdates: _getSingleTokenPriceUpdateStruct(s_sourceFeeToken, 4e18),
@@ -236,7 +236,7 @@ contract OffRamp_commit is OffRampSetup {
     _commit(commitReport, s_latestSequenceNumber);
   }
 
-  function test_ValidPriceUpdateThenStaleReportWithRoot_Success() public {
+  function test_ValidPriceUpdateThenStaleReportWithRoot() public {
     uint64 maxSeq = 12;
     uint224 tokenPrice1 = 4e18;
     uint224 tokenPrice2 = 5e18;

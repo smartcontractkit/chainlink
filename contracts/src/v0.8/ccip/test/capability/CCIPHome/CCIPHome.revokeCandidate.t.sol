@@ -18,7 +18,7 @@ contract CCIPHome_revokeCandidate is CCIPHomeTestSetup {
     s_ccipHome.setCandidate(DEFAULT_DON_ID, DEFAULT_PLUGIN_TYPE, config, ZERO_DIGEST);
   }
 
-  function test_revokeCandidate_success() public {
+  function test_revokeCandidate() public {
     (bytes32 priorActiveDigest, bytes32 priorCandidateDigest) =
       s_ccipHome.getConfigDigests(DEFAULT_DON_ID, DEFAULT_PLUGIN_TYPE);
 

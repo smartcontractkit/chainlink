@@ -38,7 +38,7 @@ contract FeeQuoter_applyDestChainConfigUpdates is FeeQuoterSetup {
     );
   }
 
-  function test_applyDestChainConfigUpdates_Success() public {
+  function test_applyDestChainConfigUpdates() public {
     FeeQuoter.DestChainConfigArgs[] memory destChainConfigArgs = new FeeQuoter.DestChainConfigArgs[](2);
     destChainConfigArgs[0] = _generateFeeQuoterDestChainConfigArgs()[0];
     destChainConfigArgs[0].destChainConfig.isEnabled = false;
@@ -61,7 +61,7 @@ contract FeeQuoter_applyDestChainConfigUpdates is FeeQuoterSetup {
     _assertFeeQuoterDestChainConfigsEqual(destChainConfigArgs[1].destChainConfig, gotDestChainConfig1);
   }
 
-  function test_applyDestChainConfigUpdatesZeroInput_Success() public {
+  function test_applyDestChainConfigUpdatesZeroInput() public {
     FeeQuoter.DestChainConfigArgs[] memory destChainConfigArgs = new FeeQuoter.DestChainConfigArgs[](0);
 
     vm.recordLogs();

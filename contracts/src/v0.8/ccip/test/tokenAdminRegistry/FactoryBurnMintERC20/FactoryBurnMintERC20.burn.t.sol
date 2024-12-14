@@ -6,7 +6,7 @@ import {FactoryBurnMintERC20} from "../../../tokenAdminRegistry/TokenPoolFactory
 import {BurnMintERC20Setup} from "./BurnMintERC20Setup.t.sol";
 
 contract FactoryBurnMintERC20_burn is BurnMintERC20Setup {
-  function test_BasicBurn_Success() public {
+  function test_BasicBurn() public {
     s_burnMintERC20.grantBurnRole(OWNER);
     deal(address(s_burnMintERC20), OWNER, s_amount);
 

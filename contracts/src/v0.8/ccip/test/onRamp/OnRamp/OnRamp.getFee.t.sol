@@ -10,7 +10,7 @@ import {OnRampSetup} from "./OnRampSetup.t.sol";
 contract OnRamp_getFee is OnRampSetup {
   using USDPriceWith18Decimals for uint224;
 
-  function test_EmptyMessage_Success() public view {
+  function test_EmptyMessage() public view {
     address[2] memory testTokens = [s_sourceFeeToken, s_sourceRouter.getWrappedNative()];
     uint224[2] memory feeTokenPrices = [s_feeTokenPrice, s_wrappedTokenPrice];
 
@@ -25,7 +25,7 @@ contract OnRamp_getFee is OnRampSetup {
     }
   }
 
-  function test_SingleTokenMessage_Success() public view {
+  function test_SingleTokenMessage() public view {
     address[2] memory testTokens = [s_sourceFeeToken, s_sourceRouter.getWrappedNative()];
     uint224[2] memory feeTokenPrices = [s_feeTokenPrice, s_wrappedTokenPrice];
 
@@ -41,7 +41,7 @@ contract OnRamp_getFee is OnRampSetup {
     }
   }
 
-  function test_GetFeeOfZeroForTokenMessage_Success() public {
+  function test_GetFeeOfZeroForTokenMessage() public {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
 
     uint256 feeAmount = s_onRamp.getFee(DEST_CHAIN_SELECTOR, message);

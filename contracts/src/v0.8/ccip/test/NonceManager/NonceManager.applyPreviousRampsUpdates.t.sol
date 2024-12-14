@@ -5,7 +5,7 @@ import {NonceManager} from "../../NonceManager.sol";
 import {OnRampSetup} from "../onRamp/OnRamp/OnRampSetup.t.sol";
 
 contract NonceManager_applyPreviousRampsUpdates is OnRampSetup {
-  function test_SingleRampUpdate_success() public {
+  function test_SingleRampUpdate() public {
     address prevOnRamp = makeAddr("prevOnRamp");
     address prevOffRamp = makeAddr("prevOffRamp");
     NonceManager.PreviousRampsArgs[] memory previousRamps = new NonceManager.PreviousRampsArgs[](1);

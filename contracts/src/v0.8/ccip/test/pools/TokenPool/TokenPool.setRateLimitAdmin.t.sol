@@ -7,7 +7,7 @@ import {TokenPool} from "../../../pools/TokenPool.sol";
 import {TokenPoolSetup} from "./TokenPoolSetup.t.sol";
 
 contract TokenPool_setRateLimitAdmin is TokenPoolSetup {
-  function test_SetRateLimitAdmin_Success() public {
+  function test_SetRateLimitAdmin() public {
     assertEq(address(0), s_tokenPool.getRateLimitAdmin());
     vm.expectEmit();
     emit TokenPool.RateLimitAdminSet(OWNER);

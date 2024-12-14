@@ -48,7 +48,7 @@ contract TokenPool_applyChainUpdates is RouterSetup {
     }
   }
 
-  function test_applyChainUpdates_Success() public {
+  function test_applyChainUpdates() public {
     RateLimiter.Config memory outboundRateLimit1 = RateLimiter.Config({isEnabled: true, capacity: 100e28, rate: 1e18});
     RateLimiter.Config memory inboundRateLimit1 = RateLimiter.Config({isEnabled: true, capacity: 100e29, rate: 1e19});
     RateLimiter.Config memory outboundRateLimit2 = RateLimiter.Config({isEnabled: true, capacity: 100e26, rate: 1e16});

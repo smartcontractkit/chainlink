@@ -12,7 +12,7 @@ import {MockE2EUSDCTransmitter} from "../../../mocks/MockE2EUSDCTransmitter.sol"
 import {HybridLockReleaseUSDCTokenPoolSetup} from "./HybridLockReleaseUSDCTokenPoolSetup.t.sol";
 
 contract HybridLockReleaseUSDCTokenPool_releaseOrMint is HybridLockReleaseUSDCTokenPoolSetup {
-  function test_OnLockReleaseMechanism_Success() public {
+  function test_OnLockReleaseMechanism() public {
     address recipient = address(1234);
 
     // Designate the SOURCE_CHAIN as not using native-USDC, and so the L/R mechanism must be used instead

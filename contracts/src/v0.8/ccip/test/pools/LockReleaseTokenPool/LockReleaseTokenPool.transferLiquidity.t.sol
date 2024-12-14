@@ -18,7 +18,7 @@ contract LockReleaseTokenPool_transferLiquidity is LockReleaseTokenPoolSetup {
     deal(address(s_token), address(s_oldLockReleaseTokenPool), s_amount);
   }
 
-  function test_transferLiquidity_Success() public {
+  function test_transferLiquidity() public {
     uint256 balancePre = s_token.balanceOf(address(s_lockReleaseTokenPool));
 
     s_oldLockReleaseTokenPool.setRebalancer(address(s_lockReleaseTokenPool));

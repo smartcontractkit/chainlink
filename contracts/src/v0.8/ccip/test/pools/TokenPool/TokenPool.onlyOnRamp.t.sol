@@ -6,7 +6,7 @@ import {TokenPool} from "../../../pools/TokenPool.sol";
 import {TokenPoolSetup} from "./TokenPoolSetup.t.sol";
 
 contract TokenPool_onlyOnRamp is TokenPoolSetup {
-  function test_onlyOnRamp_Success() public {
+  function test_onlyOnRamp() public {
     uint64 chainSelector = DEST_CHAIN_SELECTOR;
     address onRamp = makeAddr("onRamp");
 

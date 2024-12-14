@@ -21,7 +21,7 @@ contract Router_routeMessage is OffRampSetup {
     return ((gasleft() - 2 * (16 * callDataLength + GAS_FOR_CALL_EXACT_CHECK)) * 62) / 64;
   }
 
-  function test_routeMessage_ManualExec_Success() public {
+  function test_routeMessage_ManualExec() public {
     Client.Any2EVMMessage memory message = _generateReceiverMessage(SOURCE_CHAIN_SELECTOR);
     // Manuel execution cannot run out of gas
 
@@ -36,7 +36,7 @@ contract Router_routeMessage is OffRampSetup {
     assertGt(gasUsed, 3_000);
   }
 
-  function test_routeMessage_ExecutionEvent_Success() public {
+  function test_routeMessage_ExecutionEvent() public {
     Client.Any2EVMMessage memory message = _generateReceiverMessage(SOURCE_CHAIN_SELECTOR);
     // Should revert with reason
     bytes memory realError1 = new bytes(2);
@@ -165,7 +165,7 @@ contract Router_routeMessage is OffRampSetup {
     assertEq(expectedRetData, retData);
   }
 
-  function test_routeMessage_AutoExec_Success() public {
+  function test_routeMessage_AutoExec() public {
     (bool success,,) = s_destRouter.routeMessage(
       _generateReceiverMessage(SOURCE_CHAIN_SELECTOR), GAS_FOR_CALL_EXACT_CHECK, 100_000, address(s_receiver)
     );

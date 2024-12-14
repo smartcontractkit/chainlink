@@ -11,7 +11,7 @@ contract RMNRemote_uncurse is RMNRemoteSetup {
     s_rmnRemote.curse(s_curseSubjects);
   }
 
-  function test_uncurse_success() public {
+  function test_uncurse() public {
     vm.expectEmit();
     emit RMNRemote.Uncursed(s_curseSubjects);
 

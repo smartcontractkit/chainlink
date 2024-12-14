@@ -14,7 +14,7 @@ contract RMNRemote_setConfig is RMNRemoteSetup {
     s_rmnRemote.setConfig(config);
   }
 
-  function test_setConfig_addSigner_removeSigner_success() public {
+  function test_setConfig_addSigner_removeSigner() public {
     uint32 currentConfigVersion = 0;
     uint256 numSigners = s_signers.length;
     RMNRemote.Config memory config =

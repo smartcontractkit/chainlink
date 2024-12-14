@@ -37,7 +37,7 @@ contract MockRouterTest is TokenSetup {
     mockRouter.ccipSend(MOCK_CHAIN_SELECTOR, message);
   }
 
-  function test_ccipSendWithSufficientNativeFeeTokens_Success() public {
+  function test_ccipSendWithSufficientNativeFeeTokens() public {
     //ccipSend with sufficient native tokens for fees
     mockRouter.ccipSend{value: 0.1 ether}(MOCK_CHAIN_SELECTOR, message);
   }
@@ -56,7 +56,7 @@ contract MockRouterTest is TokenSetup {
     mockRouter.ccipSend(MOCK_CHAIN_SELECTOR, message);
   }
 
-  function test_ccipSendWithLinkFeeTokenAndValidMsgValue_Success() public {
+  function test_ccipSendWithLinkFeeTokenAndValidMsgValue() public {
     message.feeToken = s_sourceFeeToken;
 
     vm.startPrank(OWNER, OWNER);
@@ -66,13 +66,13 @@ contract MockRouterTest is TokenSetup {
     mockRouter.ccipSend(MOCK_CHAIN_SELECTOR, message);
   }
 
-  function test_ccipSendWithEVMExtraArgsV1_Success() public {
+  function test_ccipSendWithEVMExtraArgsV1() public {
     Client.EVMExtraArgsV1 memory extraArgs = Client.EVMExtraArgsV1({gasLimit: 500_000});
     message.extraArgs = Client._argsToBytes(extraArgs);
     mockRouter.ccipSend{value: 0.1 ether}(MOCK_CHAIN_SELECTOR, message);
   }
 
-  function test_ccipSendWithEVMExtraArgsV2_Success() public {
+  function test_ccipSendWithEVMExtraArgsV2() public {
     Client.EVMExtraArgsV2 memory extraArgs = Client.EVMExtraArgsV2({gasLimit: 500_000, allowOutOfOrderExecution: true});
     message.extraArgs = Client._argsToBytes(extraArgs);
     mockRouter.ccipSend{value: 0.1 ether}(MOCK_CHAIN_SELECTOR, message);

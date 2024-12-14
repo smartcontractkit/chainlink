@@ -5,7 +5,7 @@ import {CCIPHome} from "../../../capability/CCIPHome.sol";
 import {CCIPHomeTestSetup} from "./CCIPHomeTestSetup.t.sol";
 
 contract CCIPHome_constructor is CCIPHomeTestSetup {
-  function test_constructor_success() public {
+  function test_constructor() public {
     CCIPHome ccipHome = new CCIPHome(CAPABILITIES_REGISTRY);
 
     assertEq(address(ccipHome.getCapabilityRegistry()), CAPABILITIES_REGISTRY);

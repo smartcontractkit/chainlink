@@ -7,7 +7,7 @@ import {RMNHome} from "../../../rmn/RMNHome.sol";
 import {RMNHomeTestSetup} from "./RMNHomeTestSetup.t.sol";
 
 contract RMNHome_setCandidate is RMNHomeTestSetup {
-  function test_setCandidate_success() public {
+  function test_setCandidate() public {
     Config memory config = _getBaseConfig();
     RMNHome.VersionedConfig memory versionedConfig = RMNHome.VersionedConfig({
       version: 1,

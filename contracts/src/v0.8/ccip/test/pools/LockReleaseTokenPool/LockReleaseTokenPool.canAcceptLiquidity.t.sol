@@ -5,7 +5,7 @@ import {LockReleaseTokenPool} from "../../../pools/LockReleaseTokenPool.sol";
 import {LockReleaseTokenPoolSetup} from "./LockReleaseTokenPoolSetup.t.sol";
 
 contract LockReleaseTokenPool_canAcceptLiquidity is LockReleaseTokenPoolSetup {
-  function test_CanAcceptLiquidity_Success() public {
+  function test_CanAcceptLiquidity() public {
     assertEq(true, s_lockReleaseTokenPool.canAcceptLiquidity());
 
     s_lockReleaseTokenPool = new LockReleaseTokenPool(

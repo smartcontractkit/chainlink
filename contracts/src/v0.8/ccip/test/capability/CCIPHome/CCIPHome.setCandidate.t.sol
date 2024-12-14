@@ -7,7 +7,7 @@ import {Internal} from "../../../libraries/Internal.sol";
 import {CCIPHomeTestSetup} from "./CCIPHomeTestSetup.t.sol";
 
 contract CCIPHome_setCandidate is CCIPHomeTestSetup {
-  function test_setCandidate_success() public {
+  function test_setCandidate() public {
     CCIPHome.OCR3Config memory config = _getBaseConfig(Internal.OCRPluginType.Commit);
     CCIPHome.VersionedConfig memory versionedConfig =
       CCIPHome.VersionedConfig({version: 1, config: config, configDigest: ZERO_DIGEST});

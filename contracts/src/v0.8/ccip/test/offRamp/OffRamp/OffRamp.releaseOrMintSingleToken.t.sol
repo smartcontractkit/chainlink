@@ -17,7 +17,7 @@ contract OffRamp_releaseOrMintSingleToken is OffRampSetup {
     _setupMultipleOffRamps();
   }
 
-  function test__releaseOrMintSingleToken_Success() public {
+  function test__releaseOrMintSingleToken() public {
     uint256 amount = 123123;
     address token = s_sourceTokens[0];
     bytes memory originalSender = abi.encode(OWNER);

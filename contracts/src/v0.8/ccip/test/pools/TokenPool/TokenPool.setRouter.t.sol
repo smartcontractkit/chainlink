@@ -5,7 +5,7 @@ import {TokenPool} from "../../../pools/TokenPool.sol";
 import {TokenPoolWithAllowListSetup} from "./TokenPoolWithAllowListSetup.t.sol";
 
 contract TokenPoolWithAllowList_setRouter is TokenPoolWithAllowListSetup {
-  function test_SetRouter_Success() public {
+  function test_SetRouter() public {
     assertEq(address(s_sourceRouter), s_tokenPool.getRouter());
 
     address newRouter = makeAddr("newRouter");

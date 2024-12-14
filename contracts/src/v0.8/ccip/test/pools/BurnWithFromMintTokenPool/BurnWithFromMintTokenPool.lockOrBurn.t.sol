@@ -25,7 +25,7 @@ contract BurnWithFromMintTokenPoolSetup is BurnMintSetup {
 }
 
 contract BurnWithFromMintTokenPool_lockOrBurn is BurnWithFromMintTokenPoolSetup {
-  function test_Setup_Success() public view {
+  function test_Setup() public view {
     assertEq(address(s_burnMintERC20), address(s_pool.getToken()));
     assertEq(address(s_mockRMN), s_pool.getRmnProxy());
     assertEq(false, s_pool.getAllowListEnabled());
@@ -33,7 +33,7 @@ contract BurnWithFromMintTokenPool_lockOrBurn is BurnWithFromMintTokenPoolSetup 
     assertEq("BurnWithFromMintTokenPool 1.5.1", s_pool.typeAndVersion());
   }
 
-  function test_PoolBurn_Success() public {
+  function test_PoolBurn() public {
     uint256 burnAmount = 20_000e18;
 
     deal(address(s_burnMintERC20), address(s_pool), burnAmount);

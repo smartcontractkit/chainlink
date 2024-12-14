@@ -17,7 +17,7 @@ contract ARMProxy_isCursed is ARMProxyTestSetup {
     s_armProxy = new ARMProxy(address(s_mockRMN));
   }
 
-  function test_IsCursed_Success() public {
+  function test_IsCursed() public {
     s_armProxy.setARM(address(s_mockRMN));
     assertFalse(IRMN(address(s_armProxy)).isCursed());
     s_mockRMN.setGlobalCursed(true);

@@ -9,7 +9,7 @@ import {TokenAdminRegistry} from "../../../tokenAdminRegistry/TokenAdminRegistry
 import {RegistryModuleOwnerCustomSetup} from "./RegistryModuleOwnerCustomSetup.t.sol";
 
 contract RegistryModuleOwnerCustom_registerAdminViaGetCCIPAdmin is RegistryModuleOwnerCustomSetup {
-  function test_registerAdminViaGetCCIPAdmin_Success() public {
+  function test_registerAdminViaGetCCIPAdmin() public {
     assertEq(s_tokenAdminRegistry.getTokenConfig(s_token).administrator, address(0));
 
     address expectedOwner = IGetCCIPAdmin(s_token).getCCIPAdmin();

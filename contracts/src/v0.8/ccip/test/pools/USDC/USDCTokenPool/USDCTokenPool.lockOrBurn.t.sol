@@ -12,7 +12,7 @@ import {USDCTokenPoolSetup} from "./USDCTokenPoolSetup.t.sol";
 
 contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
   // Base test case, included for PR gas comparisons as fuzz tests are excluded from forge snapshot due to being flaky.
-  function test_LockOrBurn_Success() public {
+  function test_LockOrBurn() public {
     bytes32 receiver = bytes32(uint256(uint160(STRANGER)));
     uint256 amount = 1;
     s_token.transfer(address(s_usdcTokenPool), amount);

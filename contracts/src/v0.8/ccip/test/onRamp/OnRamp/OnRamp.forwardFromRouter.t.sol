@@ -68,7 +68,7 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, feeAmount, OWNER);
   }
 
-  function test_ForwardFromRouter_Success_ConfigurableSourceRouter() public {
+  function test_ForwardFromRouter_ConfigurableSourceRouter() public {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
     message.extraArgs = Client._argsToBytes(Client.EVMExtraArgsV1({gasLimit: GAS_LIMIT * 2}));
     uint256 feeAmount = 1234567890;
@@ -117,7 +117,7 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, feeAmount, OWNER);
   }
 
-  function test_ForwardFromRouter_Success() public {
+  function test_ForwardFromRouter() public {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
 
     uint256 feeAmount = 1234567890;
@@ -129,7 +129,7 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, feeAmount, OWNER);
   }
 
-  function test_ForwardFromRouterExtraArgsV2_Success() public {
+  function test_ForwardFromRouterExtraArgsV2() public {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
     message.extraArgs = abi.encodeWithSelector(
       Client.EVM_EXTRA_ARGS_V2_TAG, Client.EVMExtraArgsV2({gasLimit: GAS_LIMIT * 2, allowOutOfOrderExecution: false})
@@ -143,7 +143,7 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, feeAmount, OWNER);
   }
 
-  function test_ForwardFromRouterExtraArgsV2AllowOutOfOrderTrue_Success() public {
+  function test_ForwardFromRouterExtraArgsV2AllowOutOfOrderTrue() public {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
     message.extraArgs = abi.encodeWithSelector(
       Client.EVM_EXTRA_ARGS_V2_TAG, Client.EVMExtraArgsV2({gasLimit: GAS_LIMIT * 2, allowOutOfOrderExecution: true})
@@ -157,7 +157,7 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, feeAmount, OWNER);
   }
 
-  function test_ShouldIncrementSeqNumAndNonce_Success() public {
+  function test_ShouldIncrementSeqNumAndNonce() public {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
 
     for (uint64 i = 1; i < 4; ++i) {
@@ -176,7 +176,7 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
     }
   }
 
-  function test_ShouldIncrementNonceOnlyOnOrdered_Success() public {
+  function test_ShouldIncrementNonceOnlyOnOrdered() public {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
     message.extraArgs = abi.encodeWithSelector(
       Client.EVM_EXTRA_ARGS_V2_TAG, Client.EVMExtraArgsV2({gasLimit: GAS_LIMIT * 2, allowOutOfOrderExecution: true})
@@ -281,7 +281,7 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
     );
   }
 
-  function test_forwardFromRouter_WithInterception_Success() public {
+  function test_forwardFromRouter_WithInterception() public {
     _enableOutboundMessageInterceptor();
 
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();

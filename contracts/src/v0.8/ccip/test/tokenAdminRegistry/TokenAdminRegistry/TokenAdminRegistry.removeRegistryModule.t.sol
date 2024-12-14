@@ -6,7 +6,7 @@ import {TokenAdminRegistry} from "../../../tokenAdminRegistry/TokenAdminRegistry
 import {TokenAdminRegistrySetup} from "./TokenAdminRegistrySetup.t.sol";
 
 contract TokenAdminRegistry_removeRegistryModule is TokenAdminRegistrySetup {
-  function test_removeRegistryModule_Success() public {
+  function test_removeRegistryModule() public {
     address newModule = makeAddr("newModule");
 
     s_tokenAdminRegistry.addRegistryModule(newModule);

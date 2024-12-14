@@ -6,7 +6,7 @@ import {RMNRemote} from "../../../rmn/RMNRemote.sol";
 import {RMNRemoteSetup} from "./RMNRemoteSetup.t.sol";
 
 contract RMNRemote_curse is RMNRemoteSetup {
-  function test_curse_success() public {
+  function test_curse() public {
     vm.expectEmit();
     emit RMNRemote.Cursed(s_curseSubjects);
 

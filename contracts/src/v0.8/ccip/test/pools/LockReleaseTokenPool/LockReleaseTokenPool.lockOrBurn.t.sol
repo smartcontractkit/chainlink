@@ -30,7 +30,7 @@ contract LockReleaseTokenPool_lockOrBurn is LockReleaseTokenPoolSetup {
     );
   }
 
-  function test_LockOrBurnWithAllowList_Success() public {
+  function test_LockOrBurnWithAllowList() public {
     uint256 amount = 100;
     vm.startPrank(s_allowedOnRamp);
 

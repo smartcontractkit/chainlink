@@ -5,7 +5,7 @@ import {TokenAdminRegistry} from "../../../tokenAdminRegistry/TokenAdminRegistry
 import {TokenAdminRegistrySetup} from "./TokenAdminRegistrySetup.t.sol";
 
 contract TokenAdminRegistry_proposeAdministrator is TokenAdminRegistrySetup {
-  function test_proposeAdministrator_module_Success() public {
+  function test_proposeAdministrator_module() public {
     vm.startPrank(s_registryModule);
     address newAdmin = makeAddr("newAdmin");
     address newToken = makeAddr("newToken");
@@ -25,7 +25,7 @@ contract TokenAdminRegistry_proposeAdministrator is TokenAdminRegistrySetup {
     assertTrue(s_tokenAdminRegistry.isAdministrator(newToken, newAdmin));
   }
 
-  function test_proposeAdministrator_owner_Success() public {
+  function test_proposeAdministrator_owner() public {
     address newAdmin = makeAddr("newAdmin");
     address newToken = makeAddr("newToken");
 
@@ -42,7 +42,7 @@ contract TokenAdminRegistry_proposeAdministrator is TokenAdminRegistrySetup {
     assertTrue(s_tokenAdminRegistry.isAdministrator(newToken, newAdmin));
   }
 
-  function test_proposeAdministrator_reRegisterWhileUnclaimed_Success() public {
+  function test_proposeAdministrator_reRegisterWhileUnclaimed() public {
     address newAdmin = makeAddr("wrongAddress");
     address newToken = makeAddr("newToken");
 

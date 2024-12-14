@@ -14,7 +14,7 @@ contract RMNRemote_verify_withConfigSet is RMNRemoteSetup {
     _generatePayloadAndSigs(2, 4);
   }
 
-  function test_verify_success() public view {
+  function test_verify() public view {
     s_rmnRemote.verify(OFF_RAMP_ADDRESS, s_merkleRoots, s_signatures);
   }
 

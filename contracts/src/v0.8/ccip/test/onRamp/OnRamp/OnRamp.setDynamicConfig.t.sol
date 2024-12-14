@@ -6,7 +6,7 @@ import {OnRamp} from "../../../onRamp/OnRamp.sol";
 import {OnRampSetup} from "./OnRampSetup.t.sol";
 
 contract OnRamp_setDynamicConfig is OnRampSetup {
-  function test_setDynamicConfig_Success() public {
+  function test_setDynamicConfig() public {
     OnRamp.StaticConfig memory staticConfig = s_onRamp.getStaticConfig();
     OnRamp.DynamicConfig memory newConfig = OnRamp.DynamicConfig({
       feeQuoter: address(23423),

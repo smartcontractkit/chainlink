@@ -27,7 +27,7 @@ contract BurnMintWithLockReleaseFlagTokenPoolSetup is BurnMintSetup {
 }
 
 contract BurnMintWithLockReleaseFlagTokenPool_lockOrBurn is BurnMintWithLockReleaseFlagTokenPoolSetup {
-  function test_LockOrBurn_CorrectReturnData_Success() public {
+  function test_LockOrBurn_CorrectReturnData() public {
     uint256 burnAmount = 20_000e18;
 
     deal(address(s_burnMintERC20), address(s_pool), burnAmount);

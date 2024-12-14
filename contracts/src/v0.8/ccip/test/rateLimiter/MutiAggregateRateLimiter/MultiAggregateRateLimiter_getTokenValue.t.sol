@@ -6,7 +6,7 @@ import {Client} from "../../../libraries/Client.sol";
 import {MultiAggregateRateLimiterSetup} from "./MultiAggregateRateLimiterSetup.t.sol";
 
 contract MultiAggregateRateLimiter_getTokenValue is MultiAggregateRateLimiterSetup {
-  function test_GetTokenValue_Success() public view {
+  function test_GetTokenValue() public view {
     uint256 numberOfTokens = 10;
     Client.EVMTokenAmount memory tokenAmount = Client.EVMTokenAmount({token: TOKEN, amount: 10});
     uint256 value = s_rateLimiter.getTokenValue(tokenAmount);

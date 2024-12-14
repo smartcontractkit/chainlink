@@ -9,7 +9,7 @@ import {TokenAdminRegistry} from "../../../tokenAdminRegistry/TokenAdminRegistry
 import {RegistryModuleOwnerCustomSetup} from "./RegistryModuleOwnerCustomSetup.t.sol";
 
 contract RegistryModuleOwnerCustom_registerAdminViaOwner is RegistryModuleOwnerCustomSetup {
-  function test_registerAdminViaOwner_Success() public {
+  function test_registerAdminViaOwner() public {
     assertEq(s_tokenAdminRegistry.getTokenConfig(s_token).administrator, address(0));
 
     address expectedOwner = IOwner(s_token).owner();

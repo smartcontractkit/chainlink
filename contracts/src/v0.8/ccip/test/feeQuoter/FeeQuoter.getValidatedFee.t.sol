@@ -11,7 +11,7 @@ import {FeeQuoterFeeSetup} from "./FeeQuoterSetup.t.sol";
 contract FeeQuoter_getValidatedFee is FeeQuoterFeeSetup {
   using USDPriceWith18Decimals for uint224;
 
-  function test_EmptyMessage_Success() public view {
+  function test_EmptyMessage() public view {
     address[2] memory testTokens = [s_sourceFeeToken, s_sourceRouter.getWrappedNative()];
     uint224[2] memory feeTokenPrices = [s_feeTokenPrice, s_wrappedTokenPrice];
 
@@ -35,7 +35,7 @@ contract FeeQuoter_getValidatedFee is FeeQuoterFeeSetup {
     }
   }
 
-  function test_ZeroDataAvailabilityMultiplier_Success() public {
+  function test_ZeroDataAvailabilityMultiplier() public {
     FeeQuoter.DestChainConfigArgs[] memory destChainConfigArgs = new FeeQuoter.DestChainConfigArgs[](1);
     FeeQuoter.DestChainConfig memory destChainConfig = s_feeQuoter.getDestChainConfig(DEST_CHAIN_SELECTOR);
     destChainConfigArgs[0] =
@@ -56,7 +56,7 @@ contract FeeQuoter_getValidatedFee is FeeQuoterFeeSetup {
     assertEq(totalPriceInFeeToken, feeAmount);
   }
 
-  function test_HighGasMessage_Success() public view {
+  function test_HighGasMessage() public view {
     address[2] memory testTokens = [s_sourceFeeToken, s_sourceRouter.getWrappedNative()];
     uint224[2] memory feeTokenPrices = [s_feeTokenPrice, s_wrappedTokenPrice];
 
@@ -87,7 +87,7 @@ contract FeeQuoter_getValidatedFee is FeeQuoterFeeSetup {
     }
   }
 
-  function test_SingleTokenMessage_Success() public view {
+  function test_SingleTokenMessage() public view {
     address[2] memory testTokens = [s_sourceFeeToken, s_sourceRouter.getWrappedNative()];
     uint224[2] memory feeTokenPrices = [s_feeTokenPrice, s_wrappedTokenPrice];
 
@@ -122,7 +122,7 @@ contract FeeQuoter_getValidatedFee is FeeQuoterFeeSetup {
     }
   }
 
-  function test_MessageWithDataAndTokenTransfer_Success() public view {
+  function test_MessageWithDataAndTokenTransfer() public view {
     address[2] memory testTokens = [s_sourceFeeToken, s_sourceRouter.getWrappedNative()];
     uint224[2] memory feeTokenPrices = [s_feeTokenPrice, s_wrappedTokenPrice];
 

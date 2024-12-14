@@ -7,7 +7,7 @@ import {HybridLockReleaseUSDCTokenPool} from "../../../../pools/USDC/HybridLockR
 import {HybridLockReleaseUSDCTokenPoolSetup} from "./HybridLockReleaseUSDCTokenPoolSetup.t.sol";
 
 contract HybridLockReleaseUSDCTokenPool_TransferLiquidity is HybridLockReleaseUSDCTokenPoolSetup {
-  function test_transferLiquidity_Success() public {
+  function test_transferLiquidity() public {
     // Set as the OWNER so we can provide liquidity
     vm.startPrank(OWNER);
 

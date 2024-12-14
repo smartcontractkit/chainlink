@@ -9,7 +9,7 @@ import {BurnFromMintTokenPoolSetup} from "./BurnFromMintTokenPoolSetup.t.sol";
 import {IERC20} from "../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
 contract BurnFromMintTokenPool_lockOrBurn is BurnFromMintTokenPoolSetup {
-  function test_setup_Success() public view {
+  function test_setup() public view {
     assertEq(address(s_burnMintERC20), address(s_pool.getToken()));
     assertEq(address(s_mockRMN), s_pool.getRmnProxy());
     assertEq(false, s_pool.getAllowListEnabled());
@@ -17,7 +17,7 @@ contract BurnFromMintTokenPool_lockOrBurn is BurnFromMintTokenPoolSetup {
     assertEq("BurnFromMintTokenPool 1.5.1", s_pool.typeAndVersion());
   }
 
-  function test_PoolBurn_Success() public {
+  function test_PoolBurn() public {
     uint256 burnAmount = 20_000e18;
 
     deal(address(s_burnMintERC20), address(s_pool), burnAmount);

@@ -6,7 +6,7 @@ import {Internal} from "../../libraries/Internal.sol";
 import {FeeQuoterSetup} from "./FeeQuoterSetup.t.sol";
 
 contract FeeQuoter_convertTokenAmount is FeeQuoterSetup {
-  function test_ConvertTokenAmount_Success() public view {
+  function test_ConvertTokenAmount() public view {
     Internal.PriceUpdates memory initialPriceUpdates = abi.decode(s_encodedInitialPriceUpdates, (Internal.PriceUpdates));
     uint256 amount = 3e16;
     uint256 conversionRate = (uint256(initialPriceUpdates.tokenPriceUpdates[2].usdPerToken) * 1e18)

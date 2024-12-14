@@ -6,7 +6,7 @@ import {FeeQuoter} from "../../FeeQuoter.sol";
 import {FeeQuoterSetup} from "./FeeQuoterSetup.t.sol";
 
 contract FeeQuoter_applyFeeTokensUpdates is FeeQuoterSetup {
-  function test_ApplyFeeTokensUpdates_Success() public {
+  function test_ApplyFeeTokensUpdates() public {
     address[] memory feeTokens = new address[](1);
     feeTokens[0] = s_sourceTokens[1];
 

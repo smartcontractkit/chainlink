@@ -23,7 +23,7 @@ contract RegistryModuleOwnerCustom_registerAccessControlDefaultAdmin is Registry
     s_token = address(new AccessController(OWNER));
   }
 
-  function test_registerAccessControlDefaultAdmin_Success() public {
+  function test_registerAccessControlDefaultAdmin() public {
     assertEq(s_tokenAdminRegistry.getTokenConfig(s_token).administrator, address(0));
 
     bytes32 defaultAdminRole = AccessController(s_token).DEFAULT_ADMIN_ROLE();
