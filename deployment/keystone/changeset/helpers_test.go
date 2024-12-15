@@ -23,9 +23,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-	"github.com/smartcontractkit/chainlink/deployment/keystone"
-	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 	kschangeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
@@ -104,8 +103,8 @@ type TestEnv struct {
 	AssetNodes map[string]memory.Node
 }
 
-func (te TestEnv) ContractSets() map[uint64]kslib.ContractSet {
-	r, err := kslib.GetContractSets(te.Env.Logger, &kslib.GetContractSetsRequest{
+func (te TestEnv) ContractSets() map[uint64]internal.ContractSet {
+	r, err := internal.GetContractSets(te.Env.Logger, &internal.GetContractSetsRequest{
 		Chains:      te.Env.Chains,
 		AddressBook: te.Env.ExistingAddresses,
 	})
@@ -172,35 +171,35 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 
 	// TODO: partition nodes into multiple nops
 
-	wfDon := keystone.DonCapabilities{
-		Name: keystone.WFDonName,
-		Nops: []keystone.NOP{
+	wfDon := internal.DonCapabilities{
+		Name: internal.WFDonName,
+		Nops: []internal.NOP{
 			{
 				Name:  "nop 1",
 				Nodes: maps.Keys(wfNodes),
 			},
 		},
-		Capabilities: []kcr.CapabilitiesRegistryCapability{keystone.OCR3Cap},
+		Capabilities: []kcr.CapabilitiesRegistryCapability{internal.OCR3Cap},
 	}
-	cwDon := keystone.DonCapabilities{
-		Name: keystone.TargetDonName,
-		Nops: []keystone.NOP{
+	cwDon := internal.DonCapabilities{
+		Name: internal.TargetDonName,
+		Nops: []internal.NOP{
 			{
 				Name:  "nop 2",
 				Nodes: maps.Keys(cwNodes),
 			},
 		},
-		Capabilities: []kcr.CapabilitiesRegistryCapability{keystone.WriteChainCap},
+		Capabilities: []kcr.CapabilitiesRegistryCapability{internal.WriteChainCap},
 	}
-	assetDon := keystone.DonCapabilities{
-		Name: keystone.StreamDonName,
-		Nops: []keystone.NOP{
+	assetDon := internal.DonCapabilities{
+		Name: internal.StreamDonName,
+		Nops: []internal.NOP{
 			{
 				Name:  "nop 3",
 				Nodes: maps.Keys(assetNodes),
 			},
 		},
-		Capabilities: []kcr.CapabilitiesRegistryCapability{keystone.StreamTriggerCap},
+		Capabilities: []kcr.CapabilitiesRegistryCapability{internal.StreamTriggerCap},
 	}
 
 	allChains := make(map[uint64]deployment.Chain)
@@ -215,10 +214,10 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 	err = env.ExistingAddresses.Merge(e.ExistingAddresses)
 	require.NoError(t, err)
 
-	var ocr3Config = keystone.OracleConfig{
+	var ocr3Config = internal.OracleConfig{
 		MaxFaultyOracles: len(wfNodes) / 3,
 	}
-	var allDons = []keystone.DonCapabilities{wfDon, cwDon, assetDon}
+	var allDons = []internal.DonCapabilities{wfDon, cwDon, assetDon}
 
 	csOut, err := kschangeset.ConfigureInitialContractsChangeset(env, kschangeset.InitialContractsCfg{
 		RegistryChainSel: registryChainSel,
@@ -228,12 +227,12 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 	require.NoError(t, err)
 	require.Nil(t, csOut.AddressBook, "no new addresses should be created in configure initial contracts")
 
-	req := &keystone.GetContractSetsRequest{
+	req := &internal.GetContractSetsRequest{
 		Chains:      env.Chains,
 		AddressBook: env.ExistingAddresses,
 	}
 
-	contractSetsResp, err := keystone.GetContractSets(lggr, req)
+	contractSetsResp, err := internal.GetContractSets(lggr, req)
 	require.NoError(t, err)
 	require.Len(t, contractSetsResp.ContractSets, len(env.Chains))
 	// check the registry
@@ -268,7 +267,7 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 		})
 		require.NoError(t, err)
 		// extract the MCMS address
-		r, err := kslib.GetContractSets(lggr, &kslib.GetContractSetsRequest{
+		r, err := internal.GetContractSets(lggr, &internal.GetContractSetsRequest{
 			Chains:      env.Chains,
 			AddressBook: env.ExistingAddresses,
 		})
@@ -330,7 +329,7 @@ func validateInitialChainState(t *testing.T, env deployment.Environment, registr
 		}
 		containsForwarder := false
 		for _, tv := range chainAddrs {
-			if tv.Type == keystone.KeystoneForwarder {
+			if tv.Type == internal.KeystoneForwarder {
 				containsForwarder = true
 				break
 			}
@@ -350,7 +349,7 @@ func validateNodes(t *testing.T, gotRegistry *kcr.CapabilitiesRegistry, nodes ma
 }
 
 // validateDon checks that the don exists and has the expected capabilities
-func validateDon(t *testing.T, gotRegistry *kcr.CapabilitiesRegistry, nodes map[string]memory.Node, don kslib.DonCapabilities) {
+func validateDon(t *testing.T, gotRegistry *kcr.CapabilitiesRegistry, nodes map[string]memory.Node, don internal.DonCapabilities) {
 	gotDons, err := gotRegistry.GetDONs(nil)
 	require.NoError(t, err)
 	wantP2PID := sortedHash(p2pIDs(t, maps.Keys(nodes)))
@@ -389,7 +388,7 @@ func p2pIDs(t *testing.T, vals []string) [][32]byte {
 	return out
 }
 
-func expectedHashedCapabilities(t *testing.T, registry *kcr.CapabilitiesRegistry, don kslib.DonCapabilities) [][32]byte {
+func expectedHashedCapabilities(t *testing.T, registry *kcr.CapabilitiesRegistry, don internal.DonCapabilities) [][32]byte {
 	out := make([][32]byte, len(don.Capabilities))
 	var err error
 	for i, cap := range don.Capabilities {

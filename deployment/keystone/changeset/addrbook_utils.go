@@ -8,7 +8,7 @@ import (
 	ccipowner "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/keystone"
+	keystone "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	capReg "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/feeds_consumer"
 	keystoneForwarder "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder"

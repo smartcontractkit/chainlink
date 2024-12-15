@@ -1,4 +1,4 @@
-package keystone
+package internal
 
 import (
 	"encoding/hex"

@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 
-	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
@@ -40,7 +39,7 @@ type SetupTestRegistryResponse struct {
 	Registry         *kcr.CapabilitiesRegistry
 	Chain            deployment.Chain
 	RegistrySelector uint64
-	ContractSet      *kslib.ContractSet
+	ContractSet      *internal.ContractSet
 }
 
 func SetupTestRegistry(t *testing.T, lggr logger.Logger, req *SetupTestRegistryRequest) *SetupTestRegistryResponse {
@@ -101,21 +100,21 @@ func SetupTestRegistry(t *testing.T, lggr logger.Logger, req *SetupTestRegistryR
 		Registry:         registry,
 		Chain:            chain,
 		RegistrySelector: chain.Selector,
-		ContractSet: &kslib.ContractSet{
+		ContractSet: &internal.ContractSet{
 			CapabilitiesRegistry: registry,
 		},
 	}
 }
 
 func deployCapReg(t *testing.T, chain deployment.Chain) *kcr.CapabilitiesRegistry {
-	capabilitiesRegistryDeployer, err := kslib.NewCapabilitiesRegistryDeployer()
+	capabilitiesRegistryDeployer, err := internal.NewCapabilitiesRegistryDeployer()
 	require.NoError(t, err)
-	_, err = capabilitiesRegistryDeployer.Deploy(kslib.DeployRequest{Chain: chain})
+	_, err = capabilitiesRegistryDeployer.Deploy(internal.DeployRequest{Chain: chain})
 	require.NoError(t, err)
 	return capabilitiesRegistryDeployer.Contract()
 }
 
-func addNops(t *testing.T, lggr logger.Logger, chain deployment.Chain, registry *kcr.CapabilitiesRegistry, nops []kcr.CapabilitiesRegistryNodeOperator) *kslib.RegisterNOPSResponse {
+func addNops(t *testing.T, lggr logger.Logger, chain deployment.Chain, registry *kcr.CapabilitiesRegistry, nops []kcr.CapabilitiesRegistryNodeOperator) *internal.RegisterNOPSResponse {
 	env := &deployment.Environment{
 		Logger: lggr,
 		Chains: map[uint64]deployment.Chain{
@@ -124,13 +123,13 @@ func addNops(t *testing.T, lggr logger.Logger, chain deployment.Chain, registry 
 		ExistingAddresses: deployment.NewMemoryAddressBookFromMap(map[uint64]map[string]deployment.TypeAndVersion{
 			chain.Selector: {
 				registry.Address().String(): deployment.TypeAndVersion{
-					Type:    kslib.CapabilitiesRegistry,
+					Type:    internal.CapabilitiesRegistry,
 					Version: deployment.Version1_0_0,
 				},
 			},
 		}),
 	}
-	resp, err := kslib.RegisterNOPS(context.TODO(), lggr, kslib.RegisterNOPSRequest{
+	resp, err := internal.RegisterNOPS(context.TODO(), lggr, internal.RegisterNOPSRequest{
 		Env:                   env,
 		RegistryChainSelector: chain.Selector,
 		Nops:                  nops,
@@ -142,7 +141,7 @@ func addNops(t *testing.T, lggr logger.Logger, chain deployment.Chain, registry 
 func addNodes(t *testing.T, lggr logger.Logger, chain deployment.Chain, registry *kcr.CapabilitiesRegistry, nodes []kcr.CapabilitiesRegistryNodeParams) {
 	tx, err := registry.AddNodes(chain.DeployerKey, nodes)
 	if err != nil {
-		err2 := kslib.DecodeErr(kcr.CapabilitiesRegistryABI, err)
+		err2 := internal.DecodeErr(kcr.CapabilitiesRegistryABI, err)
 		require.Fail(t, fmt.Sprintf("failed to call AddNodes: %s:  %s", err, err2))
 	}
 	_, err = chain.Confirm(tx)
@@ -175,7 +174,7 @@ func addDons(t *testing.T, lggr logger.Logger, chain deployment.Chain, registry 
 		f := len(don.P2PIDs)/3 + 1
 		tx, err := registry.AddDON(chain.DeployerKey, internal.PeerIDsToBytes(don.P2PIDs), capConfigs, isPublic, acceptsWorkflows, uint8(f))
 		if err != nil {
-			err2 := kslib.DecodeErr(kcr.CapabilitiesRegistryABI, err)
+			err2 := internal.DecodeErr(kcr.CapabilitiesRegistryABI, err)
 			require.Fail(t, fmt.Sprintf("failed to call AddDON: %s:  %s", err, err2))
 		}
 		_, err = chain.Confirm(tx)
@@ -205,23 +204,23 @@ func NewCapabiltyCache(t *testing.T) *CapabilityCache {
 	}
 }
 func (cc *CapabilityCache) Get(cap kcr.CapabilitiesRegistryCapability) ([32]byte, bool) {
-	id, exists := cc.nameToId[kslib.CapabilityID(cap)]
+	id, exists := cc.nameToId[internal.CapabilityID(cap)]
 	return id, exists
 }
 
 // AddCapabilities adds the capabilities to the registry and returns the registered capabilities
 // if the capability is already registered, it will not be re-registered
 // if duplicate capabilities are passed, they will be deduped
-func (cc *CapabilityCache) AddCapabilities(lggr logger.Logger, chain deployment.Chain, registry *kcr.CapabilitiesRegistry, capabilities []kcr.CapabilitiesRegistryCapability) []kslib.RegisteredCapability {
+func (cc *CapabilityCache) AddCapabilities(lggr logger.Logger, chain deployment.Chain, registry *kcr.CapabilitiesRegistry, capabilities []kcr.CapabilitiesRegistryCapability) []internal.RegisteredCapability {
 	t := cc.t
-	var out []kslib.RegisteredCapability
+	var out []internal.RegisteredCapability
 	// get the registered capabilities & dedup
 	seen := make(map[kcr.CapabilitiesRegistryCapability]struct{})
 	var toRegister []kcr.CapabilitiesRegistryCapability
 	for _, cap := range capabilities {
-		id, cached := cc.nameToId[kslib.CapabilityID(cap)]
+		id, cached := cc.nameToId[internal.CapabilityID(cap)]
 		if cached {
-			out = append(out, kslib.RegisteredCapability{
+			out = append(out, internal.RegisteredCapability{
 				CapabilitiesRegistryCapability: cap,
 				ID:                             id,
 			})
@@ -238,7 +237,7 @@ func (cc *CapabilityCache) AddCapabilities(lggr logger.Logger, chain deployment.
 	}
 	tx, err := registry.AddCapabilities(chain.DeployerKey, toRegister)
 	if err != nil {
-		err2 := kslib.DecodeErr(kcr.CapabilitiesRegistryABI, err)
+		err2 := internal.DecodeErr(kcr.CapabilitiesRegistryABI, err)
 		require.Fail(t, fmt.Sprintf("failed to call AddCapabilities: %s:  %s", err, err2))
 	}
 	_, err = chain.Confirm(tx)
@@ -249,12 +248,12 @@ func (cc *CapabilityCache) AddCapabilities(lggr logger.Logger, chain deployment.
 		capb := capb
 		id, err := registry.GetHashedCapabilityId(&bind.CallOpts{}, capb.LabelledName, capb.Version)
 		require.NoError(t, err)
-		out = append(out, kslib.RegisteredCapability{
+		out = append(out, internal.RegisteredCapability{
 			CapabilitiesRegistryCapability: capb,
 			ID:                             id,
 		})
 		// cache the id
-		cc.nameToId[kslib.CapabilityID(capb)] = id
+		cc.nameToId[internal.CapabilityID(capb)] = id
 	}
 	return out
 }
@@ -270,7 +269,7 @@ func testChain(t *testing.T) deployment.Chain {
 	return chain
 }
 
-func capabilityIds(registry *capabilities_registry.CapabilitiesRegistry, rcs []kslib.RegisteredCapability) ([][32]byte, error) {
+func capabilityIds(registry *capabilities_registry.CapabilitiesRegistry, rcs []internal.RegisteredCapability) ([][32]byte, error) {
 	out := make([][32]byte, len(rcs))
 	for i := range rcs {
 		id, err := registry.GetHashedCapabilityId(&bind.CallOpts{}, rcs[i].LabelledName, rcs[i].Version)
@@ -282,7 +281,7 @@ func capabilityIds(registry *capabilities_registry.CapabilitiesRegistry, rcs []k
 	return out, nil
 }
 
-func mustCapabilityIds(t *testing.T, registry *capabilities_registry.CapabilitiesRegistry, rcs []kslib.RegisteredCapability) [][32]byte {
+func mustCapabilityIds(t *testing.T, registry *capabilities_registry.CapabilitiesRegistry, rcs []internal.RegisteredCapability) [][32]byte {
 	t.Helper()
 	out, err := capabilityIds(registry, rcs)
 	require.NoError(t, err)
