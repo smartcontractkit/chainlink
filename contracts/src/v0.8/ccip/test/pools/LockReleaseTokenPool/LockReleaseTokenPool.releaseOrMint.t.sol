@@ -118,7 +118,7 @@ contract LockReleaseTokenPool_releaseOrMint is LockReleaseTokenPoolSetup {
 
   function test_RevertWhen_PoolMintNotHealthy() public {
     // Should not mint tokens if cursed.
-    s_mockRMN.setGlobalCursed(true);
+    vm.mockCall(address(s_mockRMNRemote), abi.encodeWithSignature("isCursed(bytes16)"), abi.encode(true));
     uint256 before = s_token.balanceOf(OWNER);
     vm.startPrank(s_allowedOffRamp);
     vm.expectRevert(TokenPool.CursedByRMN.selector);

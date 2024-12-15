@@ -85,7 +85,7 @@ contract USDCSetup is BaseTest {
   }
 
   function _setUpRamps() internal {
-    s_router = new Router(address(s_token), address(s_mockRMN));
+    s_router = new Router(address(s_token), address(s_mockRMNRemote));
 
     Router.OnRamp[] memory onRampUpdates = new Router.OnRamp[](1);
     onRampUpdates[0] = Router.OnRamp({destChainSelector: DEST_CHAIN_SELECTOR, onRamp: s_routerAllowedOnRamp});

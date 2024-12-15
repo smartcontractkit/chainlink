@@ -185,10 +185,11 @@ contract Router_ccipSend is OnRampSetup {
   // Reverts
 
   function test_RevertWhen_WhenNotHealthy() public {
-    Client.EVM2AnyMessage memory message = _generateEmptyMessage();
-    s_mockRMN.setGlobalCursed(true);
+    vm.mockCall(address(s_mockRMNRemote), abi.encodeWithSignature("isCursed()"), abi.encode(true));
+
     vm.expectRevert(Router.BadARMSignal.selector);
-    s_sourceRouter.ccipSend(DEST_CHAIN_SELECTOR, message);
+
+    s_sourceRouter.ccipSend(DEST_CHAIN_SELECTOR, _generateEmptyMessage());
   }
 
   function test_RevertWhen_UnsupportedDestinationChain() public {

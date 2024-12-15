@@ -16,7 +16,7 @@ contract BurnWithFromMintTokenPoolSetup is BurnMintSetup {
     BurnMintSetup.setUp();
 
     s_pool = new BurnWithFromMintTokenPool(
-      s_burnMintERC20, DEFAULT_TOKEN_DECIMALS, new address[](0), address(s_mockRMN), address(s_sourceRouter)
+      s_burnMintERC20, DEFAULT_TOKEN_DECIMALS, new address[](0), address(s_mockRMNRemote), address(s_sourceRouter)
     );
     s_burnMintERC20.grantMintAndBurnRoles(address(s_pool));
 
@@ -27,7 +27,7 @@ contract BurnWithFromMintTokenPoolSetup is BurnMintSetup {
 contract BurnWithFromMintTokenPool_lockOrBurn is BurnWithFromMintTokenPoolSetup {
   function test_Setup() public view {
     assertEq(address(s_burnMintERC20), address(s_pool.getToken()));
-    assertEq(address(s_mockRMN), s_pool.getRmnProxy());
+    assertEq(address(s_mockRMNRemote), s_pool.getRmnProxy());
     assertEq(false, s_pool.getAllowListEnabled());
     assertEq(type(uint256).max, s_burnMintERC20.allowance(address(s_pool), address(s_pool)));
     assertEq("BurnWithFromMintTokenPool 1.5.1", s_pool.typeAndVersion());
@@ -68,7 +68,7 @@ contract BurnWithFromMintTokenPool_lockOrBurn is BurnWithFromMintTokenPoolSetup 
 
   // Should not burn tokens if cursed.
   function test_RevertWhen_PoolBurnRevertNotHealthy() public {
-    s_mockRMN.setGlobalCursed(true);
+    vm.mockCall(address(s_mockRMNRemote), abi.encodeWithSignature("isCursed(bytes16)"), abi.encode(true));
     uint256 before = s_burnMintERC20.balanceOf(address(s_pool));
     vm.startPrank(s_burnMintOnRamp);
 

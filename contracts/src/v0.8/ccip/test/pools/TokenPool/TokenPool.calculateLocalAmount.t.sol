@@ -44,7 +44,7 @@ contract TokenPool_calculateLocalAmount is TokenPoolSetup {
     vm.mockCall(address(s_token), abi.encodeWithSelector(IERC20Metadata.decimals.selector), abi.encode(localDecimals));
 
     s_tokenPool =
-      new TokenPoolHelper(s_token, localDecimals, new address[](0), address(s_mockRMN), address(s_sourceRouter));
+      new TokenPoolHelper(s_token, localDecimals, new address[](0), address(s_mockRMNRemote), address(s_sourceRouter));
 
     vm.expectRevert(
       abi.encodeWithSelector(TokenPool.OverflowDetected.selector, remoteDecimals, localDecimals, remoteAmount)
@@ -61,7 +61,7 @@ contract TokenPool_calculateLocalAmount is TokenPoolSetup {
     vm.mockCall(address(s_token), abi.encodeWithSelector(IERC20Metadata.decimals.selector), abi.encode(localDecimals));
 
     s_tokenPool =
-      new TokenPoolHelper(s_token, localDecimals, new address[](0), address(s_mockRMN), address(s_sourceRouter));
+      new TokenPoolHelper(s_token, localDecimals, new address[](0), address(s_mockRMNRemote), address(s_sourceRouter));
 
     vm.expectRevert(
       abi.encodeWithSelector(TokenPool.OverflowDetected.selector, remoteDecimals, localDecimals, remoteAmount)
@@ -90,7 +90,7 @@ contract TokenPool_calculateLocalAmount is TokenPoolSetup {
     vm.mockCall(address(s_token), abi.encodeWithSelector(IERC20Metadata.decimals.selector), abi.encode(localDecimals));
 
     s_tokenPool =
-      new TokenPoolHelper(s_token, localDecimals, new address[](0), address(s_mockRMN), address(s_sourceRouter));
+      new TokenPoolHelper(s_token, localDecimals, new address[](0), address(s_mockRMNRemote), address(s_sourceRouter));
 
     vm.expectRevert(
       abi.encodeWithSelector(TokenPool.OverflowDetected.selector, remoteDecimals, localDecimals, remoteAmount)

@@ -9,7 +9,7 @@ contract LockReleaseTokenPool_canAcceptLiquidity is LockReleaseTokenPoolSetup {
     assertEq(true, s_lockReleaseTokenPool.canAcceptLiquidity());
 
     s_lockReleaseTokenPool = new LockReleaseTokenPool(
-      s_token, DEFAULT_TOKEN_DECIMALS, new address[](0), address(s_mockRMN), false, address(s_sourceRouter)
+      s_token, DEFAULT_TOKEN_DECIMALS, new address[](0), address(s_mockRMNRemote), false, address(s_sourceRouter)
     );
     assertEq(false, s_lockReleaseTokenPool.canAcceptLiquidity());
   }

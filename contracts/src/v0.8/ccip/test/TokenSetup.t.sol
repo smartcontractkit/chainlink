@@ -46,7 +46,7 @@ contract TokenSetup is BaseTest {
     }
 
     LockReleaseTokenPool pool = new LockReleaseTokenPool(
-      IERC20(token), DEFAULT_TOKEN_DECIMALS, new address[](0), address(s_mockRMN), true, router
+      IERC20(token), DEFAULT_TOKEN_DECIMALS, new address[](0), address(s_mockRMNRemote), true, router
     );
 
     if (isSourcePool) {
@@ -64,7 +64,7 @@ contract TokenSetup is BaseTest {
     }
 
     BurnMintTokenPool pool = new MaybeRevertingBurnMintTokenPool(
-      BurnMintERC20(token), DEFAULT_TOKEN_DECIMALS, new address[](0), address(s_mockRMN), router
+      BurnMintERC20(token), DEFAULT_TOKEN_DECIMALS, new address[](0), address(s_mockRMNRemote), router
     );
     BurnMintERC20(token).grantMintAndBurnRoles(address(pool));
 

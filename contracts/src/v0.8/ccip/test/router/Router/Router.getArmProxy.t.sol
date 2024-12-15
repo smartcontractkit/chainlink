@@ -5,6 +5,6 @@ import {BaseTest} from "../../BaseTest.t.sol";
 
 contract Router_getArmProxy is BaseTest {
   function test_getArmProxy() public view {
-    assertEq(s_sourceRouter.getArmProxy(), address(s_mockRMN));
+    assertEq(s_sourceRouter.getArmProxy(), address(s_mockRMNRemote));
   }
 }

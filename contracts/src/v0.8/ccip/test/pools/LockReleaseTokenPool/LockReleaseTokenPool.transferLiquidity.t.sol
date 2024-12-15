@@ -12,7 +12,7 @@ contract LockReleaseTokenPool_transferLiquidity is LockReleaseTokenPoolSetup {
     super.setUp();
 
     s_oldLockReleaseTokenPool = new LockReleaseTokenPool(
-      s_token, DEFAULT_TOKEN_DECIMALS, new address[](0), address(s_mockRMN), true, address(s_sourceRouter)
+      s_token, DEFAULT_TOKEN_DECIMALS, new address[](0), address(s_mockRMNRemote), true, address(s_sourceRouter)
     );
 
     deal(address(s_token), address(s_oldLockReleaseTokenPool), s_amount);

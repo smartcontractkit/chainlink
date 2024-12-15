@@ -26,13 +26,13 @@ contract LockReleaseTokenPoolSetup is BaseTest {
     s_token = new BurnMintERC20("LINK", "LNK", 18, 0, 0);
     deal(address(s_token), OWNER, type(uint256).max);
     s_lockReleaseTokenPool = new LockReleaseTokenPool(
-      s_token, DEFAULT_TOKEN_DECIMALS, new address[](0), address(s_mockRMN), true, address(s_sourceRouter)
+      s_token, DEFAULT_TOKEN_DECIMALS, new address[](0), address(s_mockRMNRemote), true, address(s_sourceRouter)
     );
 
     s_allowedList.push(USER_1);
     s_allowedList.push(OWNER);
     s_lockReleaseTokenPoolWithAllowList = new LockReleaseTokenPool(
-      s_token, DEFAULT_TOKEN_DECIMALS, s_allowedList, address(s_mockRMN), true, address(s_sourceRouter)
+      s_token, DEFAULT_TOKEN_DECIMALS, s_allowedList, address(s_mockRMNRemote), true, address(s_sourceRouter)
     );
 
     bytes[] memory remotePoolAddresses = new bytes[](1);

@@ -81,7 +81,7 @@ contract LockReleaseTokenPool_lockOrBurn is LockReleaseTokenPoolSetup {
 
   function test_RevertWhen_PoolBurnRevertNotHealthy() public {
     // Should not burn tokens if cursed.
-    s_mockRMN.setGlobalCursed(true);
+    vm.mockCall(address(s_mockRMNRemote), abi.encodeWithSignature("isCursed(bytes16)"), abi.encode(true));
     uint256 before = s_token.balanceOf(address(s_lockReleaseTokenPoolWithAllowList));
 
     vm.startPrank(s_allowedOnRamp);

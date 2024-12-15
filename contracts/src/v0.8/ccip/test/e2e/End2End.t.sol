@@ -45,7 +45,7 @@ contract E2E is OnRampSetup, OffRampSetup {
     OffRampSetup.setUp();
 
     // Deploy new source router for the new source chain
-    s_sourceRouter2 = new Router(s_sourceRouter.getWrappedNative(), address(s_mockRMN));
+    s_sourceRouter2 = new Router(s_sourceRouter.getWrappedNative(), address(s_mockRMNRemote));
 
     // Deploy new TokenAdminRegistry for the new source chain
     s_tokenAdminRegistry2 = new TokenAdminRegistry();
@@ -55,7 +55,12 @@ contract E2E is OnRampSetup, OffRampSetup {
       address token = s_sourceTokens[i];
       address pool = address(
         new LockReleaseTokenPool(
-          IERC20(token), DEFAULT_TOKEN_DECIMALS, new address[](0), address(s_mockRMN), true, address(s_sourceRouter2)
+          IERC20(token),
+          DEFAULT_TOKEN_DECIMALS,
+          new address[](0),
+          address(s_mockRMNRemote),
+          true,
+          address(s_sourceRouter2)
         )
       );
 
@@ -191,9 +196,6 @@ contract E2E is OnRampSetup, OffRampSetup {
 
     // Scoped to RMN and verify to reduce stack pressure
     {
-      s_mockRMN.setTaggedRootBlessed(IRMN.TaggedRoot({commitStore: address(s_offRamp), root: merkleRoots[0]}), true);
-      s_mockRMN.setTaggedRootBlessed(IRMN.TaggedRoot({commitStore: address(s_offRamp), root: merkleRoots[1]}), true);
-
       bytes32[] memory proofs = new bytes32[](0);
       bytes32[] memory hashedLeaves = new bytes32[](1);
       hashedLeaves[0] = merkleRoots[0];

@@ -205,7 +205,7 @@ contract Router_routeMessage is OffRampSetup {
   }
 
   function test_RevertWhen_routeMessage_WhenNotHealthy() public {
-    s_mockRMN.setGlobalCursed(true);
+    vm.mockCall(address(s_mockRMNRemote), abi.encodeWithSignature("isCursed()"), abi.encode(true));
     vm.expectRevert(Router.BadARMSignal.selector);
     s_destRouter.routeMessage(
       _generateReceiverMessage(SOURCE_CHAIN_SELECTOR), GAS_FOR_CALL_EXACT_CHECK, 100_000, address(s_receiver)

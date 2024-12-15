@@ -15,7 +15,7 @@ contract BurnMintTokenPoolSetup is BurnMintSetup {
     BurnMintSetup.setUp();
 
     s_pool = new BurnMintTokenPool(
-      s_burnMintERC20, DEFAULT_TOKEN_DECIMALS, new address[](0), address(s_mockRMN), address(s_sourceRouter)
+      s_burnMintERC20, DEFAULT_TOKEN_DECIMALS, new address[](0), address(s_mockRMNRemote), address(s_sourceRouter)
     );
     s_burnMintERC20.grantMintAndBurnRoles(address(s_pool));
 
@@ -51,7 +51,7 @@ contract BurnMintTokenPool_releaseOrMint is BurnMintTokenPoolSetup {
 
   function test_RevertWhen_PoolMintNotHealthy() public {
     // Should not mint tokens if cursed.
-    s_mockRMN.setGlobalCursed(true);
+    vm.mockCall(address(s_mockRMNRemote), abi.encodeWithSignature("isCursed(bytes16)"), abi.encode(true));
     uint256 before = s_burnMintERC20.balanceOf(OWNER);
     vm.startPrank(s_burnMintOffRamp);
 

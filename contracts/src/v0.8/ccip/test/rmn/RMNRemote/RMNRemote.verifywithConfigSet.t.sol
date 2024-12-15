@@ -18,7 +18,7 @@ contract RMNRemote_verify_withConfigSet is RMNRemoteSetup {
     s_rmnRemote.verify(OFF_RAMP_ADDRESS, s_merkleRoots, s_signatures);
   }
 
-  function test_RevertWhen_verify_InvalidSignature() public {
+  function test_verify_RevertWhen_InvalidSignature() public {
     IRMNRemote.Signature memory sig = s_signatures[s_signatures.length - 1];
     sig.r = _randomBytes32();
     s_signatures.pop();

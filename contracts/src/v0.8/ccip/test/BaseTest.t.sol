@@ -9,7 +9,6 @@ import {Router} from "../Router.sol";
 import {Internal} from "../libraries/Internal.sol";
 import {RateLimiter} from "../libraries/RateLimiter.sol";
 import {WETH9} from "./WETH9.sol";
-import {MockRMN} from "./mocks/MockRMN.sol";
 
 import {Test} from "forge-std/Test.sol";
 
@@ -47,7 +46,6 @@ contract BaseTest is Test {
   uint16 internal constant GAS_FOR_CALL_EXACT_CHECK = 5_000;
   uint32 internal constant MAX_GAS_LIMIT = 4_000_000;
 
-  MockRMN internal s_mockRMN;
   IRMNRemote internal s_mockRMNRemote;
   Router internal s_sourceRouter;
   Router internal s_destRouter;
@@ -66,18 +64,17 @@ contract BaseTest is Test {
     // Set the block time to a constant known value
     vm.warp(BLOCK_TIME);
 
-    // setup mock RMN & RMNRemote
-    s_mockRMN = new MockRMN();
+    // setup RMNRemote
     s_mockRMNRemote = IRMNRemote(makeAddr("MOCK RMN REMOTE"));
     vm.etch(address(s_mockRMNRemote), bytes("fake bytecode"));
     vm.mockCall(address(s_mockRMNRemote), abi.encodeWithSelector(IRMNRemote.verify.selector), bytes(""));
     vm.mockCall(address(s_mockRMNRemote), abi.encodeWithSignature("isCursed()"), abi.encode(false));
     vm.mockCall(address(s_mockRMNRemote), abi.encodeWithSignature("isCursed(bytes16)"), abi.encode(false)); // no curses by defaule
 
-    s_sourceRouter = new Router(address(new WETH9()), address(s_mockRMN));
+    s_sourceRouter = new Router(address(new WETH9()), address(s_mockRMNRemote));
     vm.label(address(s_sourceRouter), "sourceRouter");
     // Deploy a destination router
-    s_destRouter = new Router(address(new WETH9()), address(s_mockRMN));
+    s_destRouter = new Router(address(new WETH9()), address(s_mockRMNRemote));
     vm.label(address(s_destRouter), "destRouter");
   }
 
