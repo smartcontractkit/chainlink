@@ -179,6 +179,19 @@ type DeployedEnv struct {
 	Users        map[uint64][]*bind.TransactOpts
 }
 
+func (d *DeployedEnv) TimelockContracts(t *testing.T) map[uint64]*proposalutils.TimelockExecutionContracts {
+	timelocks := make(map[uint64]*proposalutils.TimelockExecutionContracts)
+	state, err := LoadOnchainState(d.Env)
+	require.NoError(t, err)
+	for chain, chainState := range state.Chains {
+		timelocks[chain] = &proposalutils.TimelockExecutionContracts{
+			Timelock:  chainState.Timelock,
+			CallProxy: chainState.CallProxy,
+		}
+	}
+	return timelocks
+}
+
 func (d *DeployedEnv) SetupJobs(t *testing.T) {
 	ctx := testcontext.Get(t)
 	out, err := CCIPCapabilityJobspec(d.Env, struct{}{})
@@ -279,6 +292,7 @@ func NewEnvironment(t *testing.T, tc *TestConfigs, tEnv TestEnvironment) Deploye
 	crConfig := DeployTestContracts(t, lggr, ab, dEnv.HomeChainSel, dEnv.FeedChainSel, dEnv.Env.Chains, tc.LinkPrice, tc.WethPrice)
 	tEnv.StartNodes(t, tc, crConfig)
 	dEnv = tEnv.DeployedEnvironment()
+	// TODO: Should use ApplyChangesets here.
 	envNodes, err := deployment.NodeInfo(dEnv.Env.NodeIDs, dEnv.Env.Offchain)
 	require.NoError(t, err)
 	dEnv.Env.ExistingAddresses = ab
