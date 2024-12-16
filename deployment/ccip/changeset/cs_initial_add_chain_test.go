@@ -50,7 +50,6 @@ func TestInitialAddChainAppliedTwice(t *testing.T) {
 	require.NoError(t, err)
 	// send requests
 	chain1, chain2 := allChains[0], allChains[1]
-
 	_, err = AddLanes(e.Env, AddLanesConfig{
 		LaneConfigs: []LaneConfig{
 			{

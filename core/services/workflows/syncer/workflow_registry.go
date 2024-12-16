@@ -342,7 +342,7 @@ func (w *workflowRegistry) readRegistryEvents(ctx context.Context, reader Contra
 			for _, event := range events {
 				err := w.handler.Handle(ctx, event.Event)
 				if err != nil {
-					w.lggr.Errorw("failed to handle event", "err", err)
+					w.lggr.Errorw("failed to handle event", "err", err, "type", event.Event.EventType)
 				}
 			}
 		}

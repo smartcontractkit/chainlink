@@ -35,6 +35,8 @@ import (
 
 	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 
+	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
+
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
@@ -47,7 +49,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/shutdown"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
-	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/v2/core/store/migrate"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
@@ -805,7 +806,7 @@ func (s *Shell) PrepareTestDatabase(c *cli.Context) error {
 
 	// Creating pristine DB copy to speed up FullTestDB
 	dbUrl := cfg.Database().URL()
-	db, err := sqlx.Open(string(dialects.Postgres), dbUrl.String())
+	db, err := sqlx.Open(string(pgcommon.Postgres), dbUrl.String())
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -1088,7 +1089,7 @@ type dbConfig interface {
 	MaxOpenConns() int
 	MaxIdleConns() int
 	URL() url.URL
-	Dialect() dialects.DialectName
+	Dialect() pgcommon.DialectName
 }
 
 func newConnection(ctx context.Context, cfg dbConfig) (*sqlx.DB, error) {
@@ -1104,7 +1105,7 @@ func dropAndCreateDB(parsed url.URL, force bool) (err error) {
 	// to a different one. template1 should be present on all postgres installations
 	dbname := parsed.Path[1:]
 	parsed.Path = "/template1"
-	db, err := sql.Open(string(dialects.Postgres), parsed.String())
+	db, err := sql.Open(string(pgcommon.Postgres), parsed.String())
 	if err != nil {
 		return fmt.Errorf("unable to open postgres database for creating test db: %+v", err)
 	}
@@ -1203,7 +1204,7 @@ func checkSchema(dbURL url.URL, prevSchema string) error {
 }
 
 func insertFixtures(dbURL url.URL, pathToFixtures string) (err error) {
-	db, err := sql.Open(string(dialects.Postgres), dbURL.String())
+	db, err := sql.Open(string(pgcommon.Postgres), dbURL.String())
 	if err != nil {
 		return fmt.Errorf("unable to open postgres database for creating test db: %+v", err)
 	}

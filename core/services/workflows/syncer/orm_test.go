@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -410,5 +412,45 @@ func Test_UpsertWorkflowSpecWithSecrets(t *testing.T) {
 		contents, err := orm.GetContents(ctx, giveURL)
 		require.NoError(t, err)
 		require.Equal(t, "new contents", contents)
+	})
+
+	t.Run("updates existing spec and secrets if spec has executions", func(t *testing.T) {
+		giveURL := "https://example.com"
+		giveBytes, err := crypto.Keccak256([]byte(giveURL))
+		require.NoError(t, err)
+		giveHash := hex.EncodeToString(giveBytes)
+		giveContent := "some contents"
+
+		spec := &job.WorkflowSpec{
+			Workflow:      "test_workflow",
+			Config:        "test_config",
+			WorkflowID:    "cid-123",
+			WorkflowOwner: "owner-123",
+			WorkflowName:  "Test Workflow",
+			Status:        job.WorkflowSpecStatusActive,
+			BinaryURL:     "http://example.com/binary",
+			ConfigURL:     "http://example.com/config",
+			CreatedAt:     time.Now(),
+			SpecType:      job.WASMFile,
+		}
+
+		_, err = orm.UpsertWorkflowSpecWithSecrets(ctx, spec, giveURL, giveHash, giveContent)
+		require.NoError(t, err)
+
+		_, err = db.ExecContext(
+			ctx,
+			`INSERT INTO workflow_executions (id, workflow_id, status, created_at) VALUES ($1, $2, $3, $4)`,
+			uuid.New().String(),
+			"cid-123",
+			"started",
+			time.Now(),
+		)
+		require.NoError(t, err)
+
+		// Update the status
+		spec.WorkflowID = "cid-456"
+
+		_, err = orm.UpsertWorkflowSpecWithSecrets(ctx, spec, giveURL, giveHash, "new contents")
+		require.NoError(t, err)
 	})
 }

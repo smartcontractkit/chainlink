@@ -11,10 +11,11 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
+
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
-	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 )
 
 // LockedDB bounds DB connection and DB locks.
@@ -28,7 +29,7 @@ type LockedDBConfig interface {
 	ConnectionConfig
 	URL() url.URL
 	DefaultQueryTimeout() time.Duration
-	Dialect() dialects.DialectName
+	Dialect() pg.DialectName
 }
 
 type lockedDb struct {

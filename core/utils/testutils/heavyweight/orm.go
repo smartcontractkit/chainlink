@@ -14,12 +14,13 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
+	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/internal/testdb"
 )
@@ -53,10 +54,10 @@ const (
 )
 
 func (c Kind) PrepareDB(t testing.TB, overrideFn func(c *chainlink.Config, s *chainlink.Secrets)) (chainlink.GeneralConfig, *sqlx.DB) {
-	testutils.SkipShort(t, "FullTestDB")
+	tests.SkipShort(t, "FullTestDB")
 
 	gcfg := configtest.NewGeneralConfigSimulated(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.Database.Dialect = dialects.Postgres
+		c.Database.Dialect = pgcommon.Postgres
 		if overrideFn != nil {
 			overrideFn(c, s)
 		}
@@ -65,7 +66,7 @@ func (c Kind) PrepareDB(t testing.TB, overrideFn func(c *chainlink.Config, s *ch
 	require.NoError(t, os.MkdirAll(gcfg.RootDir(), 0700))
 	migrationTestDBURL, err := testdb.CreateOrReplace(gcfg.Database().URL(), generateName(), c != KindEmpty)
 	require.NoError(t, err)
-	db, err := pg.NewConnection(tests.Context(t), migrationTestDBURL, dialects.Postgres, gcfg.Database())
+	db, err := pg.NewConnection(tests.Context(t), migrationTestDBURL, pgcommon.Postgres, gcfg.Database())
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, db.Close()) // must close before dropping
@@ -74,7 +75,7 @@ func (c Kind) PrepareDB(t testing.TB, overrideFn func(c *chainlink.Config, s *ch
 	})
 
 	gcfg = configtest.NewGeneralConfigSimulated(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.Database.Dialect = dialects.Postgres
+		c.Database.Dialect = pgcommon.Postgres
 		s.Database.URL = models.MustSecretURL(migrationTestDBURL)
 		if overrideFn != nil {
 			overrideFn(c, s)
