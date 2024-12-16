@@ -83,7 +83,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
-const APPLICATION_HEARTBEAT_SECONDS = 1
+const ApplicationHeartbeatSeconds = 1
 
 // Application implements the common functions used in the core node.
 type Application interface {
@@ -197,17 +197,6 @@ type ApplicationOpts struct {
 	NewOracleFactoryFn         standardcapabilities.NewOracleFactoryFn
 }
 
-//	type myType struct {
-//		services.Service
-//		eng *service.Engine
-//	}
-//	t := myType{}
-//	t.Service, t.eng = service.Config{
-//		Name: "MyType",
-//		Start: t.start,
-//		Close: t.close,
-//	}.NewServiceEngine(lggr)
-
 type ApplicationHeartbeat struct {
 	commonservices.Service
 	eng *commonservices.Engine
@@ -218,7 +207,7 @@ type ApplicationHeartbeat struct {
 
 func NewApplicationHeartbeat(lggr logger.Logger) ApplicationHeartbeat {
 	h := ApplicationHeartbeat{
-		beat: APPLICATION_HEARTBEAT_SECONDS * time.Second,
+		beat: ApplicationHeartbeatSeconds * time.Second,
 		lggr: lggr,
 	}
 	h.Service, h.eng = commonservices.Config{
@@ -248,17 +237,18 @@ func (h *ApplicationHeartbeat) start(_ context.Context) error {
 		_, innerSpan := beholder.GetTracer().Start(engCtx, "heartbeat.beat")
 		defer innerSpan.End()
 
-		h.lggr.Critical("heartbeat")
 		gauge.Record(engCtx, 1)
 		count.Record(engCtx, 1)
 
-		cme.Emit(engCtx, "heartbeat")
-		panic("yo dawg")
+		err = cme.Emit(engCtx, "heartbeat")
+		if err != nil {
+			h.lggr.Errorw("heartbeat emit failed", "err", err)
+		}
 	}
 
 	// consistent tick period
 	constantTickFn := func() time.Duration {
-		return time.Second * h.beat
+		return h.beat
 	}
 
 	h.eng.GoTick(timeutil.NewTicker(constantTickFn), tickFn)
