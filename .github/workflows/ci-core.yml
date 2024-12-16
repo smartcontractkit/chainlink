@@ -41,6 +41,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@v4.2.1
         with:
+          persist-credentials: false
           repository: smartcontractkit/chainlink
       - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
         id: match-some
@@ -106,6 +107,8 @@ jobs:
     needs: [filter, run-frequency]
     steps:
       - uses: actions/checkout@v4.2.1
+        with:
+          persist-credentials: false
       - name: Golang Lint
         uses: ./.github/actions/golangci-lint
         if: ${{ needs.filter.outputs.should-run-golangci == 'true' }}
@@ -152,6 +155,8 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v4.2.1
+        with:
+          persist-credentials: false
 
       - name: Change Modtime of Files (cache optimization)
         shell: bash
@@ -298,6 +303,8 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v4.2.1
+        with:
+          persist-credentials: false
 
       - name: Setup node
         uses: actions/setup-node@v4.0.4
@@ -382,6 +389,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@v4.2.1
         with:
+          persist-credentials: false
           fetch-depth: 0 # fetches all history for all tags and branches to provide more metadata for sonar reports
 
       - name: Download all workflow run artifacts
@@ -502,6 +510,7 @@ jobs:
           exit 0
       - uses: actions/checkout@v4.2.1
         with:
+          persist-credentials: false
           fetch-depth: 0
       - name: Setup Go
         uses: ./.github/actions/setup-go

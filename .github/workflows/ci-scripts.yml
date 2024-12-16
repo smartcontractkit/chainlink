@@ -17,6 +17,8 @@ jobs:
       pull-requests: read
     steps:
       - uses: actions/checkout@v4.2.1
+        with:
+          persist-credentials: false
       - name: Golang Lint
         uses: ./.github/actions/golangci-lint
         with:
@@ -30,6 +32,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4.2.1
+        with:
+          persist-credentials: false
       - name: Setup Go
         uses: ./.github/actions/setup-go
         with:

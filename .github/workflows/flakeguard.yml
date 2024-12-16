@@ -84,8 +84,9 @@ jobs:
       git_base_sha: ${{ steps.get_commit_sha.outputs.git_base_sha }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
         with:
+          persist-credentials: false
           fetch-depth: 0
           ref: ${{ env.GIT_HEAD_REF }}
 
@@ -227,8 +228,9 @@ jobs:
       DB_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
     steps:
       - name: Checkout repository
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
         with:
+          persist-credentials: false
           ref: ${{ env.GIT_HEAD_REF }}
 
       - name: Setup NodeJS
@@ -307,8 +309,9 @@ jobs:
       test_results: ${{ steps.results.outputs.results }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
         with:
+          persist-credentials: false
           ref: ${{ env.GIT_HEAD_REF }}
 
       - name: Set Pretty Project Path

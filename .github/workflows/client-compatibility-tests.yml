@@ -50,6 +50,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4.2.1
         with:
+          persist-credentials: false
           fetch-depth: 0
       - name: Check for go.mod changes
         id: changes
@@ -326,6 +327,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@v4.2.1
         with:
+          persist-credentials: false
           ref: ${{ needs.select-versions.outputs.chainlink_version }}
       - name: Build Chainlink Image
         uses: ./.github/actions/build-chainlink-image
@@ -595,6 +597,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@v4.2.1
         with:
+          persist-credentials: false
           repository: smartcontractkit/chainlink
           ref: ${{ needs.select-versions.outputs.chainlink_version }}
       - name: Setup GAP for Grafana
@@ -851,6 +854,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@v4.2.1
         with:
+          persist-credentials: false
           ref: ${{ needs.select-versions.outputs.chainlink_version }}
       - name: Get test results for ${{ matrix.product }}
         id: get-product-results
