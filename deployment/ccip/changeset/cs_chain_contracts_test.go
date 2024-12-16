@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
@@ -222,6 +223,83 @@ func TestUpdateFQDests(t *testing.T) {
 			dest2sourceCfg, err := state.Chains[dest].FeeQuoter.GetDestChainConfig(&bind.CallOpts{Context: ctx}, source)
 			require.NoError(t, err)
 			AssertEqualFeeConfig(t, fqCfg2, dest2sourceCfg)
+		})
+	}
+}
+
+func TestUpdateRouterRamps(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		mcmsEnabled bool
+	}{
+		{
+			name:        "MCMS enabled",
+			mcmsEnabled: true,
+		},
+		{
+			name:        "MCMS disabled",
+			mcmsEnabled: false,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := testcontext.Get(t)
+			tenv := NewMemoryEnvironment(t)
+			state, err := LoadOnchainState(tenv.Env)
+			require.NoError(t, err)
+
+			allChains := maps.Keys(tenv.Env.Chains)
+			source := allChains[0]
+			dest := allChains[1]
+
+			if tc.mcmsEnabled {
+				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
+				transferToTimelock(t, tenv, state, source, dest)
+			}
+
+			var mcmsConfig *MCMSConfig
+			if tc.mcmsEnabled {
+				mcmsConfig = &MCMSConfig{
+					MinDelay: 0,
+				}
+			}
+
+			// Updates test router.
+			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, tenv.TimelockContracts(t), []commonchangeset.ChangesetApplication{
+				{
+					Changeset: commonchangeset.WrapChangeSet(UpdateRouterRamps),
+					Config: UpdateRouterRampsConfig{
+						TestRouter: true,
+						UpdatesByChain: map[uint64]RouterUpdates{
+							source: {
+								OffRampUpdates: map[uint64]bool{
+									dest: true,
+								},
+								OnRampUpdates: map[uint64]bool{
+									dest: true,
+								},
+							},
+							dest: {
+								OffRampUpdates: map[uint64]bool{
+									source: true,
+								},
+								OnRampUpdates: map[uint64]bool{
+									source: true,
+								},
+							},
+						},
+						MCMS: mcmsConfig,
+					},
+				},
+			})
+			require.NoError(t, err)
+
+			// Assert the router configuration is as we expect.
+			source2destOnRampTest, err := state.Chains[source].TestRouter.GetOnRamp(&bind.CallOpts{Context: ctx}, dest)
+			require.NoError(t, err)
+			require.Equal(t, state.Chains[source].OnRamp.Address(), source2destOnRampTest)
+			source2destOnRampReal, err := state.Chains[source].Router.GetOnRamp(&bind.CallOpts{Context: ctx}, dest)
+			require.NoError(t, err)
+			require.Equal(t, common.HexToAddress("0x0"), source2destOnRampReal)
 		})
 	}
 }
