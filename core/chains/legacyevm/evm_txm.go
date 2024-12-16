@@ -17,7 +17,6 @@ import (
 func newEvmTxm(
 	ds sqlutil.DataSource,
 	cfg evmconfig.EVM,
-	evmRPCEnabled bool,
 	databaseConfig txmgr.DatabaseConfig,
 	listenerConfig txmgr.ListenerConfig,
 	client evmclient.Client,
@@ -31,10 +30,6 @@ func newEvmTxm(
 	err error,
 ) {
 	chainID := cfg.ChainID()
-	if !evmRPCEnabled {
-		txm = &txmgr.NullTxManager{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
-		return txm, nil, nil
-	}
 
 	lggr = lggr.Named("Txm")
 	lggr.Infow("Initializing EVM transaction manager",

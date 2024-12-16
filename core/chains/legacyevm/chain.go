@@ -245,9 +245,18 @@ func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Nod
 	}
 
 	// note: gas estimator is started as a part of the txm
-	txm, gasEstimator, err := newEvmTxm(opts.DS, cfg.EVM(), opts.AppConfig.EVMRPCEnabled(), opts.AppConfig.Database(), opts.AppConfig.Database().Listener(), client, l, logPoller, opts, headTracker, clientsByChainID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to instantiate EvmTxm for chain with ID %s: %w", chainID.String(), err)
+	var txm txmgr.TxManager
+	var gasEstimator gas.EvmFeeEstimator
+	if !opts.AppConfig.EVMRPCEnabled() {
+		txm = &txmgr.NullTxManager{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
+	} else if !cfg.EVM().TXMEnabled() {
+		txm = &txmgr.NullTxManager{ErrMsg: fmt.Sprintf("TXM disabled for chain %d", chainID)}
+	} else {
+		var err error
+		txm, gasEstimator, err = newEvmTxm(opts.DS, cfg.EVM(), opts.AppConfig.Database(), opts.AppConfig.Database().Listener(), client, l, logPoller, opts, headTracker, clientsByChainID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to instantiate EvmTxm for chain with ID %s: %w", chainID.String(), err)
+		}
 	}
 
 	headBroadcaster.Subscribe(txm)

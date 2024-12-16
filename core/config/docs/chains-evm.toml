@@ -104,6 +104,8 @@ LogBroadcasterEnabled = true # Default
 #
 # Set to zero to disable.
 NoNewFinalizedHeadsThreshold = '0' # Default
+# TXMEnabled is a feature flag for the Transaction Manager
+TXMEnabled = true # Default
 
 [EVM.Transactions]
 # ForwardersEnabled enables or disables sending transactions through forwarder contracts.

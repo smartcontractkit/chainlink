@@ -586,6 +586,7 @@ func TestConfig_Marshal(t *testing.T) {
 				FinalityTagEnabled:   ptr[bool](true),
 				FlagsContractAddress: mustAddress("0xae4E781a6218A8031764928E88d457937A954fC3"),
 				FinalizedBlockOffset: ptr[uint32](16),
+				TXMEnabled:           ptr(true),
 
 				GasEstimator: evmcfg.GasEstimator{
 					Mode:               ptr("SuggestedPrice"),

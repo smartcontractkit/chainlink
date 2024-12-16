@@ -219,9 +219,20 @@ func TestChainScopedConfig(t *testing.T) {
 
 			assert.Equal(t, false, cfg3.EVM().LogBroadcasterEnabled())
 		})
+	})
 
-		t.Run("use Noop logBroadcaster when LogBroadcaster is disabled", func(t *testing.T) {
+	t.Run("TXMEnabled", func(t *testing.T) {
+		t.Run("turn on TXMEnabled by default", func(t *testing.T) {
+			assert.Equal(t, true, cfg.EVM().TXMEnabled())
+		})
 
+		t.Run("verify TXMEnabled is set correctly", func(t *testing.T) {
+			val := false
+			cfg3 := testutils.NewTestChainScopedConfig(t, func(c *toml.EVMConfig) {
+				c.TXMEnabled = ptr(val)
+			})
+
+			assert.Equal(t, false, cfg3.EVM().TXMEnabled())
 		})
 	})
 }

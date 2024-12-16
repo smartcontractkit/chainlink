@@ -318,6 +318,7 @@ RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '9m0s'
+TXMEnabled = true
 
 [EVM.Transactions]
 ForwardersEnabled = false
@@ -428,6 +429,7 @@ RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
+TXMEnabled = true
 
 [EVM.Transactions]
 ForwardersEnabled = false
@@ -532,6 +534,7 @@ RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 10
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '6m0s'
+TXMEnabled = true
 
 [EVM.Transactions]
 ForwardersEnabled = false
