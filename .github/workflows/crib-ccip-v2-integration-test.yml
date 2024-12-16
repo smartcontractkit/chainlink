@@ -48,7 +48,7 @@ jobs:
 
       - name: Deploy and validate CRIB Environment for CCIP v2
         if: steps.check-prereqs-for-running.outputs.should_run == 'true'
-        uses: smartcontractkit/.github/actions/crib-deploy-environment@88437540e1ccbf72e0163c39f804198372dc6556 # crib-deploy-environment@7.1.1
+        uses: smartcontractkit/.github/actions/crib-deploy-environment@0d57046d1a3951141ec61a732cd87f07f72e7799 # crib-deploy-environment@7.1.1
         id: deploy-crib
         with:
           github-token: ${{ steps.token.outputs.access-token }}
@@ -65,7 +65,7 @@ jobs:
           chainlink-team: ccip
           chainlink-product: ccip
           k8s-api-endpoint: ${{ secrets.K8S_API_ENDPOINT_STAGE }}
-          crib-repo-ref: 'main'
+          crib-repo-ref: 'crib-352/rpc-type'
       - uses: actions/checkout@v4.2.1
       - name: Set up Go
         uses: ./.github/actions/setup-go
