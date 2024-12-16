@@ -104,7 +104,7 @@ LogBroadcasterEnabled = true # Default
 #
 # Set to zero to disable.
 NoNewFinalizedHeadsThreshold = '0' # Default
-# TXMEnabled is a feature flag for the Transaction Manager
+# TXMEnabled is a feature flag for the Transaction Manager. This flag also enables or disables the gas estimator since it is dependent on the TXM to start it.
 TXMEnabled = true # Default
 
 [EVM.Transactions]
