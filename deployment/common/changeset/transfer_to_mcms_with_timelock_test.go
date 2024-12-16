@@ -1,7 +1,6 @@
 package changeset
 
 import (
-	"encoding/hex"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -81,7 +80,7 @@ func TestTransferToMCMSWithTimelock(t *testing.T) {
 	require.Equal(t, e.Chains[chain1].DeployerKey.From, o)
 }
 
-func TestRevokeTimelockDeployer(t *testing.T) {
+func TestRenounceTimelockDeployer(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	e := memory.NewMemoryEnvironment(t, lggr, 0, memory.MemoryEnvironmentConfig{
 		Chains: 1,
@@ -110,12 +109,23 @@ func TestRevokeTimelockDeployer(t *testing.T) {
 	adminRole, err := tl.ADMINROLE(nil)
 	require.NoError(t, err)
 
-	r, err := tl.GetRoleAdmin(&bind.CallOpts{}, adminRole)
+	r, err := tl.GetRoleMemberCount(&bind.CallOpts{}, adminRole)
 	require.NoError(t, err)
-	h := hex.EncodeToString(r[:])
-	t.Logf("admin role: %s", h)
-	a := common.BytesToAddress(r[:])
+	require.Equal(t, 2, r.Int64())
 
-	require.Equal(t, a, e.Chains[chain1].DeployerKey.From)
+	// Revoke Deployer
+	e, err = ApplyChangesets(t, e, nil, []ChangesetApplication{
+		{
+			Changeset: WrapChangeSet(RenounceTimelockDeployer),
+			Config: RenounceTimelockDeployerConfig{
+				ChainSel: chain1,
+			},
+		},
+	})
+	require.NoError(t, err)
 
+	// Check that the deployer is no longer an admin
+	r, err = tl.GetRoleMemberCount(&bind.CallOpts{}, adminRole)
+	require.NoError(t, err)
+	require.Equal(t, 1, r.Int64())
 }
