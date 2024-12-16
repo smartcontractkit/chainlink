@@ -1,6 +1,7 @@
 package changeset
 
 import (
+	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -128,4 +129,11 @@ func TestRenounceTimelockDeployer(t *testing.T) {
 	r, err = tl.GetRoleMemberCount(&bind.CallOpts{}, adminRole)
 	require.NoError(t, err)
 	require.Equal(t, 1, r.Int64())
+
+	// Retrive the admin address
+	admin, err := tl.GetRoleMember(&bind.CallOpts{}, adminRole, big.NewInt(0))
+	require.NoError(t, err)
+
+	// Check that the admin is the timelock
+	require.Equal(t, tl.Address(), admin)
 }
