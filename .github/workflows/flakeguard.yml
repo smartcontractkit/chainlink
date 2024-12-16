@@ -379,7 +379,7 @@ jobs:
           curl -k -X POST "${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}" \
             -H "Authorization: Splunk ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}" \
             -H "Content-Type: application/json" \
-            -d @data.json
+            -d @./flakeguard-report/all-test-results.json
       
       - name: Upload Failed Test Results as Artifact
         if: ${{ fromJSON(steps.results.outputs.summary).failed_runs > 0 }}
