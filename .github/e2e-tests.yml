@@ -193,6 +193,7 @@ runner-test-matrix:
     test_cmd: cd integration-tests/chaos && DETACH_RUNNER=false go test -test.run "^TestOCRChaos$" -v -test.parallel=10 -timeout 60m -count=1 -json
     test_env_vars:
       TEST_SUITE: chaos
+      CHAINLINK_USER_TEAM: Foundations
 
   # END: OCR tests
 
@@ -624,6 +625,7 @@ runner-test-matrix:
     pyroscope_env: ci-automation-on-demand-chaos
     test_env_vars:
       TEST_SUITE: chaos
+      CHAINLINK_USER_TEAM: Automation
 
   - id: benchmark/automation_test.go:TestAutomationBenchmark
     path: integration-tests/benchmark/automation_test.go

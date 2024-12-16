@@ -258,9 +258,6 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	require.NoError(t, err)
 	t.Logf("onChainState: %#v", onChainState)
 
-	homeChain, ok := envWithRMN.Env.Chains[envWithRMN.HomeChainSel]
-	require.True(t, ok)
-
 	homeChainState, ok := onChainState.Chains[envWithRMN.HomeChainSel]
 	require.True(t, ok)
 
@@ -274,23 +271,28 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	dynamicConfig := rmn_home.RMNHomeDynamicConfig{SourceChains: tc.pf.rmnHomeSourceChains, OffchainConfig: []byte{}}
 	t.Logf("Setting RMNHome candidate with staticConfig: %+v, dynamicConfig: %+v, current candidateDigest: %x",
 		staticConfig, dynamicConfig, allDigests.CandidateConfigDigest[:])
-	tx, err := homeChainState.RMNHome.SetCandidate(homeChain.DeployerKey, staticConfig, dynamicConfig, allDigests.CandidateConfigDigest)
-	require.NoError(t, err)
-
-	_, err = deployment.ConfirmIfNoError(homeChain, tx, err)
-	require.NoError(t, err)
 
 	candidateDigest, err := homeChainState.RMNHome.GetCandidateDigest(&bind.CallOpts{Context: ctx})
+	require.NoError(t, err)
+
+	_, err = changeset.NewSetRMNHomeCandidateConfigChangeset(envWithRMN.Env, changeset.SetRMNHomeCandidateConfig{
+		HomeChainSelector: envWithRMN.HomeChainSel,
+		RMNStaticConfig:   staticConfig,
+		RMNDynamicConfig:  dynamicConfig,
+		DigestToOverride:  candidateDigest,
+	})
+	require.NoError(t, err)
+
+	candidateDigest, err = homeChainState.RMNHome.GetCandidateDigest(&bind.CallOpts{Context: ctx})
 	require.NoError(t, err)
 
 	t.Logf("RMNHome candidateDigest after setting new candidate: %x", candidateDigest[:])
 	t.Logf("Promoting RMNHome candidate with candidateDigest: %x", candidateDigest[:])
 
-	tx, err = homeChainState.RMNHome.PromoteCandidateAndRevokeActive(
-		homeChain.DeployerKey, candidateDigest, allDigests.ActiveConfigDigest)
-	require.NoError(t, err)
-
-	_, err = deployment.ConfirmIfNoError(homeChain, tx, err)
+	_, err = changeset.NewPromoteCandidateConfigChangeset(envWithRMN.Env, changeset.PromoteRMNHomeCandidateConfig{
+		HomeChainSelector: envWithRMN.HomeChainSel,
+		DigestToPromote:   candidateDigest,
+	})
 	require.NoError(t, err)
 
 	// check the active digest is the same as the candidate digest
@@ -300,7 +302,23 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 		"active digest should be the same as the previously candidate digest after promotion, previous candidate: %x, active: %x",
 		candidateDigest[:], activeDigest[:])
 
-	tc.setRmnRemoteConfig(ctx, t, onChainState, activeDigest, envWithRMN)
+	rmnRemoteConfig := make(map[uint64]changeset.RMNRemoteConfig)
+	for _, remoteCfg := range tc.remoteChainsConfig {
+		selector := tc.pf.chainSelectors[remoteCfg.chainIdx]
+		if remoteCfg.f < 0 {
+			t.Fatalf("remoteCfg.f is negative: %d", remoteCfg.f)
+		}
+		rmnRemoteConfig[selector] = changeset.RMNRemoteConfig{
+			F:       uint64(remoteCfg.f),
+			Signers: tc.pf.rmnRemoteSigners,
+		}
+	}
+
+	_, err = changeset.NewSetRMNRemoteConfigChangeset(envWithRMN.Env, changeset.SetRMNRemoteConfig{
+		HomeChainSelector: envWithRMN.HomeChainSel,
+		RMNRemoteConfigs:  rmnRemoteConfig,
+	})
+	require.NoError(t, err)
 
 	tc.killMarkedRmnNodes(t, rmnCluster)
 
@@ -522,46 +540,6 @@ func (tc rmnTestCase) validate() error {
 			"test will wait for non-transmitted roots")
 	}
 	return nil
-}
-
-func (tc rmnTestCase) setRmnRemoteConfig(
-	ctx context.Context,
-	t *testing.T,
-	onChainState changeset.CCIPOnChainState,
-	activeDigest [32]byte,
-	envWithRMN changeset.DeployedEnv) {
-	for _, remoteCfg := range tc.remoteChainsConfig {
-		remoteSel := tc.pf.chainSelectors[remoteCfg.chainIdx]
-		chState, ok := onChainState.Chains[remoteSel]
-		require.True(t, ok)
-		if remoteCfg.f < 0 {
-			t.Fatalf("negative F: %d", remoteCfg.f)
-		}
-		rmnRemoteConfig := rmn_remote.RMNRemoteConfig{
-			RmnHomeContractConfigDigest: activeDigest,
-			Signers:                     tc.pf.rmnRemoteSigners,
-			F:                           uint64(remoteCfg.f),
-		}
-
-		chain := envWithRMN.Env.Chains[tc.pf.chainSelectors[remoteCfg.chainIdx]]
-
-		t.Logf("Setting RMNRemote config with RMNHome active digest: %x, cfg: %+v", activeDigest[:], rmnRemoteConfig)
-		tx2, err2 := chState.RMNRemote.SetConfig(chain.DeployerKey, rmnRemoteConfig)
-		require.NoError(t, err2)
-		_, err2 = deployment.ConfirmIfNoError(chain, tx2, err2)
-		require.NoError(t, err2)
-
-		// confirm the config is set correctly
-		config, err2 := chState.RMNRemote.GetVersionedConfig(&bind.CallOpts{Context: ctx})
-		require.NoError(t, err2)
-		require.Equalf(t,
-			activeDigest,
-			config.Config.RmnHomeContractConfigDigest,
-			"RMNRemote config digest should be the same as the active digest of RMNHome after setting, RMNHome active: %x, RMNRemote config: %x",
-			activeDigest[:], config.Config.RmnHomeContractConfigDigest[:])
-
-		t.Logf("RMNRemote config digest after setting: %x", config.Config.RmnHomeContractConfigDigest[:])
-	}
 }
 
 func (tc rmnTestCase) killMarkedRmnNodes(t *testing.T, rmnCluster devenv.RMNCluster) {
