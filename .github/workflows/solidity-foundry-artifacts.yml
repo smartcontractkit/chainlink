@@ -88,8 +88,10 @@ jobs:
       - name: Transform modified files
         id: changes-transform
         shell: bash
+        env:
+          GH_INPUTS_PRODUCT: ${{ inputs.product }}
         run: |
-          if [ "${{ inputs.product }}" = "shared" ]; then
+          if [ "$GH_INPUTS_PRODUCT" = "shared" ]; then
             echo "::debug:: Product is shared, transforming changes"
             if [[ "${{ steps.changes-dorny.outputs.product }}" == "true" && "${{ steps.changes-dorny.outputs.other_shared }}" == "true" ]]; then
               echo "::debug:: Changes were found in 'shared' folder and in 'interfaces' and root folders"
@@ -141,8 +143,10 @@ jobs:
 
       - name: Should skip code coverage report
         id: skip-code-coverage
+        env:
+          GH_INPUTS_PRODUCT: ${{ inputs.product }}
         run: |
-          if [[ "${{ inputs.product }}" = "automation" || "${{ inputs.product }}" = "vrf" || "${{ inputs.product }}" = "functions" ]]; then
+          if [[ "$GH_INPUTS_PRODUCT" = "automation" || "$GH_INPUTS_PRODUCT" = "vrf" || "$GH_INPUTS_PRODUCT" = "functions" ]]; then
             echo "generate_code_coverage=false" >> $GITHUB_OUTPUT
           else
             echo "generate_code_coverage=true" >> $GITHUB_OUTPUT

@@ -700,10 +700,13 @@ jobs:
           yarn --cwd ./gauntlet build
           yarn --cwd ./gauntlet gauntlet
       - name: Generate config overrides
+        env:
+          GH_INPUTS_EVM_REF: ${{ inputs.evm-ref }}
+          GH_SHA: ${{ github.sha }}
         run: | # https://github.com/smartcontractkit/chainlink-testing-framework/lib/blob/main/config/README.md
           cat << EOF > config.toml
           [ChainlinkImage]
-          version="${{ inputs.evm-ref || github.sha }}"
+          version="${{ env.evm-ref || env.GH_SHA }}"
           [Common]
           user="${{ github.actor }}"
           internal_docker_repo = "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com"

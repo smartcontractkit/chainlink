@@ -179,8 +179,10 @@ jobs:
 
       - name: Replace chainlink-evm deps
         if: ${{ needs.filter.outputs.should-run-ci-core == 'true' && inputs.evm-ref != ''}}
+        env:
+          GH_INPUTS_EVM_REF: ${{ inputs.evm-ref }}
         shell: bash
-        run: go get github.com/smartcontractkit/chainlink-integrations/evm/relayer@${{ inputs.evm-ref }}
+        run: go get github.com/smartcontractkit/chainlink-integrations/evm/relayer@$GH_INPUTS_EVM_REF
 
       - name: Setup Solana
         if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
@@ -328,8 +330,10 @@ jobs:
 
       - name: Replace chainlink-evm deps
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.evm-ref != ''}}
+        env:
+          GH_INPUTS_EVM_REF: ${{ inputs.evm-ref }}
         shell: bash
-        run: go get github.com/smartcontractkit/chainlink-integrations/evm/relayer@${{ inputs.evm-ref }}
+        run: go get github.com/smartcontractkit/chainlink-integrations/evm/relayer@$GH_INPUTS_EVM_REF
 
       - name: Build binary
         run: go build -o chainlink.test .
