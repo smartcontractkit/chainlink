@@ -315,7 +315,7 @@ func newTestUniverse[RI any](t *testing.T, ks *keyringsAndSigners[RI]) *testUniv
 		contractName,
 		methodTransmitWithSignatures,
 		ocr3HelperAddr.Hex(),
-		ocrimpls.ToCommitCalldata,
+		ocrimpls.toCommitCalldata,
 	)
 	transmitterWithoutSigs := ocrimpls.XXXNewContractTransmitterTestsOnly[RI](
 		chainWriter,
@@ -323,7 +323,7 @@ func newTestUniverse[RI any](t *testing.T, ks *keyringsAndSigners[RI]) *testUniv
 		contractName,
 		methodTransmitWithoutSignatures,
 		ocr3HelperAddr.Hex(),
-		ocrimpls.ToExecCalldata,
+		ocrimpls.toExecCalldata,
 	)
 
 	return &testUniverse[RI]{
