@@ -61,7 +61,7 @@ func Test_Registry(t *testing.T) {
 		sr := newRegistry(lggr, runner)
 
 		// registers new pipeline with multiple stream IDs
-		assert.Len(t, sr.pipelines, 0)
+		assert.Empty(t, sr.pipelines)
 		// err := sr.Register(job.Job{PipelineSpec: &pipeline.Spec{ID: 32, DotDagSource: "source"}}, nil)
 		// TODO: what if the dag is unparseable?
 		// err := sr.Register(1, pipeline.Spec{ID: 32, DotDagSource: "source"}, nil)
@@ -96,15 +96,13 @@ result3 -> result3_parse -> multiply3;
 		err = sr.Register(job.Job{ID: 100, Type: job.Stream, PipelineSpec: &pipeline.Spec{ID: 33, DotDagSource: `
 result1          [type=memo value="900.0022"];
 		`}}, nil)
-		require.Error(t, err)
-		assert.EqualError(t, err, "cannot register job with ID: 100; it is already registered")
+		require.EqualError(t, err, "cannot register job with ID: 100; it is already registered")
 
 		// errors when attempt to register a new job with duplicates stream IDs within ig
 		err = sr.Register(job.Job{ID: 101, StreamID: ptr(StreamID(100)), Type: job.Stream, PipelineSpec: &pipeline.Spec{ID: 33, DotDagSource: `
 result1          [type=memo value="900.0022" streamID=100];
 		`}}, nil)
-		require.Error(t, err)
-		assert.EqualError(t, err, "cannot register job with ID: 101; invalid stream IDs: duplicate stream ID: 100")
+		require.EqualError(t, err, "cannot register job with ID: 101; invalid stream IDs: duplicate stream ID: 100")
 
 		// errors with unparseable pipeline
 		err = sr.Register(job.Job{ID: 101, Type: job.Stream, PipelineSpec: &pipeline.Spec{ID: 33, DotDagSource: "source"}}, nil)

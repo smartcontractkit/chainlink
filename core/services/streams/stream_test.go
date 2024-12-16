@@ -67,19 +67,12 @@ func Test_Stream(t *testing.T) {
 	})
 
 	jb := job.Job{StreamID: ptr(StreamID(123)), PipelineSpec: &pipeline.Spec{DotDagSource: `
-result1          [type=memo value="900.0022" streamID=124];
+succeed             [type=memo value=42 streamID=124];
+succeed;
 	`}}
 
 	t.Run("Run", func(t *testing.T) {
 		strm, err := newMultiStreamPipeline(lggr, jb, runner, nil)
-		require.NoError(t, err)
-
-		jb.PipelineSpec.DotDagSource = `
-succeed             [type=memo value=42]
-succeed;
-`
-
-		strm, err = newMultiStreamPipeline(lggr, jb, runner, nil)
 		require.NoError(t, err)
 
 		t.Run("executes the pipeline (success)", func(t *testing.T) {

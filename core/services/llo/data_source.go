@@ -117,10 +117,11 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 			defer wg.Done()
 			val, err := oc.Observe(ctx, streamID, opts)
 			if err != nil {
-				if errors.As(err, &ErrMissingStream{}) {
-					promMissingStreamCount.WithLabelValues(fmt.Sprintf("%d", streamID)).Inc()
+				strmIDStr := strconv.FormatUint(uint64(streamID), 10)
+				if errors.As(err, &MissingStreamError{}) {
+					promMissingStreamCount.WithLabelValues(strmIDStr).Inc()
 				}
-				promObservationErrorCount.WithLabelValues(strconv.FormatUint(uint64(streamID), 10)).Inc()
+				promObservationErrorCount.WithLabelValues(strmIDStr).Inc()
 				mu.Lock()
 				errs = append(errs, ErrObservationFailed{inner: err, streamID: streamID, reason: "failed to observe stream"})
 				mu.Unlock()

@@ -61,7 +61,7 @@ func (oc *observationContext) Observe(ctx context.Context, streamID streams.Stre
 	// Extract stream value based on streamID attribute
 	for _, trr := range trrs {
 		if trr.Task.TaskStreamID() != nil && *trr.Task.TaskStreamID() == streamID {
-			val, err := resultToStreamValue(trr.Result.Value)
+			val, err = resultToStreamValue(trr.Result.Value)
 			if err != nil {
 				return nil, fmt.Errorf("failed to convert result to StreamValue for streamID %d: %w", streamID, err)
 			}
@@ -148,18 +148,18 @@ func toDecimal(val interface{}) (decimal.Decimal, error) {
 	return utils.ToDecimal(val)
 }
 
-type ErrMissingStream struct {
+type MissingStreamError struct {
 	StreamID streams.StreamID
 }
 
-func (e ErrMissingStream) Error() string {
+func (e MissingStreamError) Error() string {
 	return fmt.Sprintf("no pipeline for stream: %d", e.StreamID)
 }
 
 func (oc *observationContext) run(ctx context.Context, streamID streams.StreamID) (*pipeline.Run, pipeline.TaskRunResults, error) {
 	strm, exists := oc.r.Get(streamID)
 	if !exists {
-		return nil, nil, ErrMissingStream{StreamID: streamID}
+		return nil, nil, MissingStreamError{StreamID: streamID}
 	}
 
 	// In case of multiple streamIDs per pipeline then the

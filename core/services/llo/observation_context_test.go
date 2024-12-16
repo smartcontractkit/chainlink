@@ -123,7 +123,7 @@ type mockPipelineConfig struct{}
 
 func (m *mockPipelineConfig) DefaultHTTPLimit() int64 { return 10000 }
 func (m *mockPipelineConfig) DefaultHTTPTimeout() commonconfig.Duration {
-	return *commonconfig.MustNewDuration(time.Duration(1 * time.Hour))
+	return *commonconfig.MustNewDuration(1 * time.Hour)
 }
 func (m *mockPipelineConfig) MaxRunDuration() time.Duration  { return 1 * time.Hour }
 func (m *mockPipelineConfig) ReaperInterval() time.Duration  { return 0 }
@@ -147,12 +147,16 @@ func createBridge(t *testing.T, name string, val string, borm bridges.ORM) {
 			t.Fatal("expected only one call to the bridge")
 		}
 		_, herr := io.ReadAll(req.Body)
-		require.NoError(t, herr)
+		if herr != nil {
+			t.Fatal(herr)
+		}
 
 		res.WriteHeader(http.StatusOK)
 		resp := fmt.Sprintf(`{"result": %s}`, val)
 		_, herr = res.Write([]byte(resp))
-		require.NoError(t, herr)
+		if herr != nil {
+			t.Fatal(herr)
+		}
 	}))
 	t.Cleanup(bridge.Close)
 	u, _ := url.Parse(bridge.URL)

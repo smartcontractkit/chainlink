@@ -186,7 +186,7 @@ func Test_DataSource(t *testing.T) {
 
 			vals := makeStreamValues()
 			err := ds.Observe(ctx, vals, opts)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			assert.Equal(t, llo.StreamValues{
 				2: llo.ToDecimal(decimal.NewFromInt(40602)),
@@ -205,7 +205,7 @@ func Test_DataSource(t *testing.T) {
 			assert.Equal(t, 1, int(pkt.streamID))
 			assert.Equal(t, opts, pkt.opts)
 			assert.Nil(t, pkt.val)
-			assert.NotNil(t, pkt.err)
+			assert.Error(t, pkt.err)
 		})
 	})
 }

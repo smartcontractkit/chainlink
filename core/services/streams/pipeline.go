@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -39,7 +41,7 @@ func NewMultiStreamPipeline(lggr logger.Logger, jb job.Job, runner Runner, rrs R
 func newMultiStreamPipeline(lggr logger.Logger, jb job.Job, runner Runner, rrs RunResultSaver) (*multiStreamPipeline, error) {
 	if jb.PipelineSpec == nil {
 		// should never happen
-		return nil, fmt.Errorf("job has no pipeline spec")
+		return nil, errors.New("job has no pipeline spec")
 	}
 	spec := *jb.PipelineSpec
 	if spec.Pipeline == nil {
