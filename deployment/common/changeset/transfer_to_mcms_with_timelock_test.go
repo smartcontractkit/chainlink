@@ -112,7 +112,7 @@ func TestRenounceTimelockDeployer(t *testing.T) {
 
 	r, err := tl.GetRoleMemberCount(&bind.CallOpts{}, adminRole)
 	require.NoError(t, err)
-	require.Equal(t, 2, r.Int64())
+	require.Equal(t, int64(2), r.Int64())
 
 	// Revoke Deployer
 	e, err = ApplyChangesets(t, e, nil, []ChangesetApplication{
@@ -128,7 +128,7 @@ func TestRenounceTimelockDeployer(t *testing.T) {
 	// Check that the deployer is no longer an admin
 	r, err = tl.GetRoleMemberCount(&bind.CallOpts{}, adminRole)
 	require.NoError(t, err)
-	require.Equal(t, 1, r.Int64())
+	require.Equal(t, int64(1), r.Int64())
 
 	// Retrive the admin address
 	admin, err := tl.GetRoleMember(&bind.CallOpts{}, adminRole, big.NewInt(0))
