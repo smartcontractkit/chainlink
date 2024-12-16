@@ -1117,6 +1117,7 @@ RPCDefaultBatchSize = 17
 RPCBlockQueryDelay = 10
 FinalizedBlockOffset = 16
 NoNewFinalizedHeadsThreshold = '1h0m0s'
+TXMEnabled = true
 
 [EVM.Transactions]
 ForwardersEnabled = true
