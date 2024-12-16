@@ -10214,7 +10214,7 @@ Set to zero to disable.
 ```toml
 TXMEnabled = true # Default
 ```
-TXMEnabled is a feature flag for the Transaction Manager
+TXMEnabled is a feature flag for the Transaction Manager. This flag also enables or disables the gas estimator since it is dependent on the TXM to start it.
 
 ## EVM.Transactions
 ```toml
