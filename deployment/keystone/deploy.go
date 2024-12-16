@@ -483,6 +483,10 @@ func RegisterCapabilities(lggr logger.Logger, req RegisterCapabilitiesRequest) (
 	for cap := range uniqueCaps {
 		capabilities = append(capabilities, cap)
 	}
+	if len(capabilities) == 0 {
+		lggr.Warn("no new capabilities to register")
+		return &RegisterCapabilitiesResponse{}, nil
+	}
 	// not using mcms; ignore proposals
 	_, err = AddCapabilities(lggr, &contracts, registryChain, capabilities, false)
 	if err != nil {

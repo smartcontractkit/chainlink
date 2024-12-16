@@ -34,9 +34,9 @@ func TestTransferToMCMSWithTimelock(t *testing.T) {
 	require.NoError(t, err)
 	addrs, err := e.ExistingAddresses.AddressesForChain(chain1)
 	require.NoError(t, err)
-	state, err := MaybeLoadMCMSWithTimelockState(e.Chains[chain1], addrs)
+	state, err := MaybeLoadMCMSWithTimelockChainState(e.Chains[chain1], addrs)
 	require.NoError(t, err)
-	link, err := MaybeLoadLinkTokenState(e.Chains[chain1], addrs)
+	link, err := MaybeLoadLinkTokenChainState(e.Chains[chain1], addrs)
 	require.NoError(t, err)
 	e, err = ApplyChangesets(t, e, map[uint64]*proposalutils.TimelockExecutionContracts{
 		chain1: {
@@ -56,9 +56,25 @@ func TestTransferToMCMSWithTimelock(t *testing.T) {
 	})
 	require.NoError(t, err)
 	// We expect now that the link token is owned by the MCMS timelock.
-	link, err = MaybeLoadLinkTokenState(e.Chains[chain1], addrs)
+	link, err = MaybeLoadLinkTokenChainState(e.Chains[chain1], addrs)
 	require.NoError(t, err)
 	o, err := link.LinkToken.Owner(nil)
 	require.NoError(t, err)
 	require.Equal(t, state.Timelock.Address(), o)
+
+	// Try a rollback to the deployer.
+	e, err = ApplyChangesets(t, e, nil, []ChangesetApplication{
+		{
+			Changeset: WrapChangeSet(TransferToDeployer),
+			Config: TransferToDeployerConfig{
+				ContractAddress: link.LinkToken.Address(),
+				ChainSel:        chain1,
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	o, err = link.LinkToken.Owner(nil)
+	require.NoError(t, err)
+	require.Equal(t, e.Chains[chain1].DeployerKey.From, o)
 }
