@@ -55,13 +55,13 @@ func NewEVMEncoder(config *values.Map) (consensustypes.Encoder, error) {
 	var subabi map[string]string
 	subabiConfig, ok := config.Underlying[subabiConfigFieldName]
 	if ok {
-		err = subabiConfig.UnwrapTo(&subabi)
-		if err != nil {
-			return nil, err
+		err2 := subabiConfig.UnwrapTo(&subabi)
+		if err2 != nil {
+			return nil, err2
 		}
-		codecs, err := makePreCodecModifierCodecs(subabi)
-		if err != nil {
-			return nil, err
+		codecs, err2 := makePreCodecModifierCodecs(subabi)
+		if err2 != nil {
+			return nil, err2
 		}
 		chainCodecConfig.ModifierConfigs = commoncodec.ModifiersConfig{
 			&commoncodec.PreCodecModifierConfig{
