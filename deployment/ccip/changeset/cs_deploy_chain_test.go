@@ -99,7 +99,7 @@ func TestDeployCCIPContracts(t *testing.T) {
 	// Deploy all the CCIP contracts.
 	state, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
-	snap, err := state.View(e.Env.AllChainSelectors())
+	snap, _, err := state.View(e.Env.AllChainSelectors())
 	require.NoError(t, err)
 
 	// Assert expect every deployed address to be in the address book.

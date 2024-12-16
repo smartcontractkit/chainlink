@@ -289,29 +289,32 @@ func (s CCIPOnChainState) GetAllTimeLocksForChains(chains []uint64) (map[uint64]
 	return timelocks, nil
 }
 
-func (s CCIPOnChainState) View(chains []uint64) (map[string]view.ChainView, error) {
+func (s CCIPOnChainState) View(chains []uint64) (map[string]view.ChainView, map[string]view.SolChainView, error) {
 	m := make(map[string]view.ChainView)
+	sm := make(map[string]view.SolChainView)
 	for _, chainSelector := range chains {
 		chainInfo, err := deployment.ChainInfo(chainSelector)
 		if err != nil {
-			return m, err
+			return m, sm, err
 		}
 		if _, ok := s.Chains[chainSelector]; !ok {
-			return m, fmt.Errorf("chain not supported %d", chainSelector)
+			return m, sm, fmt.Errorf("chain not supported %d", chainSelector)
 		}
 		chainState := s.Chains[chainSelector]
+		// TODO: call Solana view generation here (switch case on chainSelector)
 		chainView, err := chainState.GenerateView()
 		if err != nil {
-			return m, err
+			return m, sm, err
 		}
 		m[chainInfo.ChainName] = chainView
 	}
-	return m, nil
+	return m, sm, nil
 }
 
 func LoadOnchainState(e deployment.Environment) (CCIPOnChainState, error) {
 	state := CCIPOnChainState{
-		Chains: make(map[uint64]CCIPChainState),
+		Chains:    make(map[uint64]CCIPChainState),
+		SolChains: make(map[uint64]SolCCIPChainState),
 	}
 	for chainSelector, chain := range e.Chains {
 		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
@@ -323,6 +326,7 @@ func LoadOnchainState(e deployment.Environment) (CCIPOnChainState, error) {
 				return state, err
 			}
 		}
+		// TODO: Load Solana state here based on chainSelector
 		chainState, err := LoadChainState(chain, addresses)
 		if err != nil {
 			return state, err
@@ -333,6 +337,7 @@ func LoadOnchainState(e deployment.Environment) (CCIPOnChainState, error) {
 }
 
 // LoadChainState Loads all state for a chain into state
+// TODO: Add function LoadSolanaChainState
 func LoadChainState(chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (CCIPChainState, error) {
 	var state CCIPChainState
 	mcmsWithTimelock, err := commoncs.MaybeLoadMCMSWithTimelockChainState(chain, addresses)

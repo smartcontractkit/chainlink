@@ -59,9 +59,17 @@ func NewChain() ChainView {
 	}
 }
 
+type SolChainView struct {
+}
+
+func NewSolChain() SolChainView {
+	return SolChainView{}
+}
+
 type CCIPView struct {
-	Chains map[string]ChainView    `json:"chains,omitempty"`
-	Nops   map[string]view.NopView `json:"nops,omitempty"`
+	Chains    map[string]ChainView    `json:"chains,omitempty"`
+	SolChains map[string]SolChainView `json:"solChains,omitempty"`
+	Nops      map[string]view.NopView `json:"nops,omitempty"`
 }
 
 func (v CCIPView) MarshalJSON() ([]byte, error) {
