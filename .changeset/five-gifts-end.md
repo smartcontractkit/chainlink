@@ -2,4 +2,4 @@
 "chainlink": patch
 ---
 
-added stream job delete capability
+#added stream job delete capability
