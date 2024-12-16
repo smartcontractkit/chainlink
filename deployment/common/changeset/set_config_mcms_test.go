@@ -5,6 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/config"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
@@ -50,126 +51,109 @@ func setupSetConfigTestEnv(t *testing.T) deployment.Environment {
 	return env
 }
 
-// TestSetConfigMCMS tests the SetConfigMCMS changeset by calling SetConfig and checking the config values.
-func TestSetConfigMCMS(t *testing.T) {
-	t.Parallel()
-	ctx := tests.Context(t)
+// TestSetConfigMCMSVariants tests the SetConfigMCMS changeset variants.
+func TestSetConfigMCMSVariants(t *testing.T) {
 
-	env := setupSetConfigTestEnv(t)
-	chainSelector := env.AllChainSelectors()[0]
-	chain := env.Chains[chainSelector]
-	addrs, err := env.ExistingAddresses.AddressesForChain(chainSelector)
-	require.NoError(t, err)
-	require.Len(t, addrs, 6)
-
-	mcmsState, err := commonchangeset.MaybeLoadMCMSWithTimelockChainState(chain, addrs)
-	require.NoError(t, err)
-
-	timelockAddress := mcmsState.Timelock.Address()
-	cfg := proposalutils.SingleGroupMCMS(t)
 	// Add the timelock as a signer to check state changes
-	cfg.Signers = append(cfg.Signers, timelockAddress)
-	cfg.Quorum = 2 // quorum should change to 2 out of 2 signers
-
-	// Set config on all 3 MCMS contracts
-	_, err = commonchangeset.ApplyChangesets(t, env, nil, []commonchangeset.ChangesetApplication{
+	for _, tc := range []struct {
+		name       string
+		changeSets func(mcmsState *commonchangeset.MCMSWithTimelockState, chainSel uint64, cfg config.Config) []commonchangeset.ChangesetApplication
+	}{
 		{
-			Changeset: commonchangeset.WrapChangeSet(commonchangeset.SetConfigMCMS),
-			Config: commonchangeset.SetConfigParams{
-				ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRole{
-					chainSelector: {
-						Proposer:  cfg,
-						Canceller: cfg,
-						Bypasser:  cfg,
+			name: "MCMS disabled",
+			changeSets: func(mcmsState *commonchangeset.MCMSWithTimelockState, chainSel uint64, cfg config.Config) []commonchangeset.ChangesetApplication {
+
+				return []commonchangeset.ChangesetApplication{
+					{
+						Changeset: commonchangeset.WrapChangeSet(commonchangeset.SetConfigMCMS),
+						Config: commonchangeset.SetConfigParams{
+							ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRole{
+								chainSel: {
+									Proposer:  cfg,
+									Canceller: cfg,
+									Bypasser:  cfg,
+								},
+							},
+						},
 					},
-				},
+				}
 			},
 		},
-	})
-	require.NoError(t, err)
-	// Check new State
-	expected := cfg.ToRawConfig()
-	opts := &bind.CallOpts{Context: ctx}
-	newConf, err := mcmsState.ProposerMcm.GetConfig(opts)
-	require.NoError(t, err)
-	require.Equal(t, expected, newConf)
-
-	newConf, err = mcmsState.BypasserMcm.GetConfig(opts)
-	require.NoError(t, err)
-	require.Equal(t, expected, newConf)
-
-	newConf, err = mcmsState.CancellerMcm.GetConfig(opts)
-	require.NoError(t, err)
-	require.Equal(t, expected, newConf)
-}
-
-// TestSetConfigMCMSProposal tests the SetConfigMCMS changeset proposal generation by calling SetConfig and checking the config values.
-func TestSetConfigMCMSProposal(t *testing.T) {
-	t.Parallel()
-	ctx := tests.Context(t)
-
-	env := setupSetConfigTestEnv(t)
-	chainSelector := env.AllChainSelectors()[0]
-	chain := env.Chains[chainSelector]
-	addrs, err := env.ExistingAddresses.AddressesForChain(chainSelector)
-	require.NoError(t, err)
-	require.Len(t, addrs, 6)
-
-	mcmsState, err := commonchangeset.MaybeLoadMCMSWithTimelockChainState(chain, addrs)
-	require.NoError(t, err)
-
-	timelockAddress := mcmsState.Timelock.Address()
-	timelockMap := map[uint64]*proposalutils.TimelockExecutionContracts{
-		chainSelector: {
-			Timelock:  mcmsState.Timelock,
-			CallProxy: mcmsState.CallProxy,
+		{
+			name: "MCMS enabled",
+			changeSets: func(mcmsState *commonchangeset.MCMSWithTimelockState, chainSel uint64, cfg config.Config) []commonchangeset.ChangesetApplication {
+				return []commonchangeset.ChangesetApplication{
+					{
+						Changeset: commonchangeset.WrapChangeSet(commonchangeset.TransferToMCMSWithTimelock),
+						Config: commonchangeset.TransferToMCMSWithTimelockConfig{
+							ContractsByChain: map[uint64][]common.Address{
+								chainSel: {mcmsState.ProposerMcm.Address(), mcmsState.BypasserMcm.Address(), mcmsState.CancellerMcm.Address()},
+							},
+						},
+					},
+					{
+						Changeset: commonchangeset.WrapChangeSet(commonchangeset.SetConfigMCMS),
+						Config: commonchangeset.SetConfigParams{
+							ProposalConfig: &commonchangeset.ProposalConfig{
+								MinDelay: 0,
+							},
+							ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRole{
+								chainSel: {
+									Proposer:  cfg,
+									Canceller: cfg,
+									Bypasser:  cfg,
+								},
+							},
+						},
+					},
+				}
+			},
 		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := tests.Context(t)
+
+			env := setupSetConfigTestEnv(t)
+			chainSelector := env.AllChainSelectors()[0]
+			chain := env.Chains[chainSelector]
+			addrs, err := env.ExistingAddresses.AddressesForChain(chainSelector)
+			require.NoError(t, err)
+			require.Len(t, addrs, 6)
+
+			mcmsState, err := commonchangeset.MaybeLoadMCMSWithTimelockChainState(chain, addrs)
+			require.NoError(t, err)
+			timelockAddress := mcmsState.Timelock.Address()
+			cfg := proposalutils.SingleGroupMCMS(t)
+			cfg.Signers = append(cfg.Signers, timelockAddress)
+			cfg.Quorum = 2 // quorum should change to 2 out of 2 signers
+			timelockMap := map[uint64]*proposalutils.TimelockExecutionContracts{
+				chainSelector: {
+					Timelock:  mcmsState.Timelock,
+					CallProxy: mcmsState.CallProxy,
+				},
+			}
+
+			// Set config on all 3 MCMS contracts
+			changesetsToApply := tc.changeSets(mcmsState, chainSelector, cfg)
+			_, err = commonchangeset.ApplyChangesets(t, env, timelockMap, changesetsToApply)
+			require.NoError(t, err)
+
+			// Check new State
+			expected := cfg.ToRawConfig()
+			opts := &bind.CallOpts{Context: ctx}
+			newConf, err := mcmsState.ProposerMcm.GetConfig(opts)
+			require.NoError(t, err)
+			require.Equal(t, expected, newConf)
+
+			newConf, err = mcmsState.BypasserMcm.GetConfig(opts)
+			require.NoError(t, err)
+			require.Equal(t, expected, newConf)
+
+			newConf, err = mcmsState.CancellerMcm.GetConfig(opts)
+			require.NoError(t, err)
+			require.Equal(t, expected, newConf)
+		})
 	}
-	cfg := proposalutils.SingleGroupMCMS(t)
-	// Add the timelock as a signer to check state changes
-	cfg.Signers = append(cfg.Signers, timelockAddress)
-	cfg.Quorum = 2 // quorum should change to 2 out of 2 signers
-	// Apply the changeset
-	_, err = commonchangeset.ApplyChangesets(t, env, timelockMap, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(commonchangeset.TransferToMCMSWithTimelock),
-			Config: commonchangeset.TransferToMCMSWithTimelockConfig{
-				ContractsByChain: map[uint64][]common.Address{
-					chainSelector: {mcmsState.ProposerMcm.Address(), mcmsState.BypasserMcm.Address(), mcmsState.CancellerMcm.Address()},
-				},
-			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(commonchangeset.SetConfigMCMS),
-			Config: commonchangeset.SetConfigParams{
-				ProposalConfig: &commonchangeset.ProposalConfig{
-					MinDelay: 0,
-				},
-				ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRole{
-					chainSelector: {
-						Proposer:  cfg,
-						Canceller: cfg,
-						Bypasser:  cfg,
-					},
-				},
-			},
-		},
-	})
-	require.NoError(t, err)
-	// Check new State
-	expected := cfg.ToRawConfig()
-	opts := &bind.CallOpts{Context: ctx}
-	newConf, err := mcmsState.ProposerMcm.GetConfig(opts)
-	require.NoError(t, err)
-	require.Equal(t, expected, newConf)
-
-	newConf, err = mcmsState.BypasserMcm.GetConfig(opts)
-	require.NoError(t, err)
-	require.Equal(t, expected, newConf)
-
-	newConf, err = mcmsState.CancellerMcm.GetConfig(opts)
-	require.NoError(t, err)
-	require.Equal(t, expected, newConf)
 }
 
 func TestValidate(t *testing.T) {
