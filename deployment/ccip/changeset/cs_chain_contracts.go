@@ -13,32 +13,32 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 )
 
 var (
-	_ deployment.ChangeSet[UpdateOnRampsDestsConfig]    = UpdateOnRampsDests
-	_ deployment.ChangeSet[UpdateOffRampsSourcesConfig] = UpdateOffRampSources
-	_ deployment.ChangeSet[UpdateRouterRampsConfig]     = UpdateRouterRamps
+	_ deployment.ChangeSet[UpdateOnRampDestsConfig]    = UpdateOnRampsDests
+	_ deployment.ChangeSet[UpdateOffRampSourcesConfig] = UpdateOffRampSources
+	_ deployment.ChangeSet[UpdateRouterRampsConfig]    = UpdateRouterRamps
 )
 
-type UpdateOnRampsDestsConfig struct {
-	UpdatesByChain map[uint64][]OnRampDestinationUpdate
+type UpdateOnRampDestsConfig struct {
+	UpdatesByChain map[uint64]map[uint64]OnRampDestinationUpdate
 	// Disallow mixing MCMS/non-MCMS per chain for simplicity.
 	// (can still be acheived by calling this function multiple times)
 	MCMS *MCMSConfig
 }
 
 type OnRampDestinationUpdate struct {
-	DestinationSelector uint64
-	IsEnabled           bool // If false, disables the destination by setting router to 0x0.
-	TestRouter          bool // Flag for safety only allow specifying either router or testRouter.
-	AllowListEnabled    bool
+	IsEnabled        bool // If false, disables the destination by setting router to 0x0.
+	TestRouter       bool // Flag for safety only allow specifying either router or testRouter.
+	AllowListEnabled bool
 }
 
-func (cfg UpdateOnRampsDestsConfig) Validate(ctx context.Context, state CCIPOnChainState) error {
+func (cfg UpdateOnRampDestsConfig) Validate(ctx context.Context, state CCIPOnChainState) error {
 	supportedChains := state.SupportedChains()
 	for chainSel, updates := range cfg.UpdatesByChain {
 		chainState, ok := state.Chains[chainSel]
@@ -54,20 +54,17 @@ func (cfg UpdateOnRampsDestsConfig) Validate(ctx context.Context, state CCIPOnCh
 		if chainState.OnRamp == nil {
 			return fmt.Errorf("missing onramp onramp for chain %d", chainSel)
 		}
-		for _, update := range updates {
-			if update.DestinationSelector == 0 {
-				return fmt.Errorf("destination selector cannot be 0")
+		for destination := range updates {
+			// Destination cannot be an unknown destination.
+			if _, ok := supportedChains[destination]; !ok {
+				return fmt.Errorf("destination chain %d is not a supported %s", destination, chainState.OnRamp.Address())
 			}
 			sc, err := chainState.OnRamp.GetStaticConfig(&bind.CallOpts{Context: ctx})
 			if err != nil {
 				return fmt.Errorf("failed to get onramp static config %s: %w", chainState.OnRamp.Address(), err)
 			}
-			if update.DestinationSelector == sc.ChainSelector {
+			if destination == sc.ChainSelector {
 				return fmt.Errorf("cannot update onramp destination to the same chain")
-			}
-			// Destination cannot be an unknown destination.
-			if _, ok := supportedChains[update.DestinationSelector]; !ok {
-				return fmt.Errorf("destination chain %d is not a supported %s", update.DestinationSelector, chainState.OnRamp.Address())
 			}
 		}
 	}
@@ -77,7 +74,7 @@ func (cfg UpdateOnRampsDestsConfig) Validate(ctx context.Context, state CCIPOnCh
 // UpdateOnRampsDests updates the onramp destinations for each onramp
 // in the chains specified. Multichain support is important - consider when we add a new chain
 // and need to update the onramp destinations for all chains to support the new chain.
-func UpdateOnRampsDests(e deployment.Environment, cfg UpdateOnRampsDestsConfig) (deployment.ChangesetOutput, error) {
+func UpdateOnRampsDests(e deployment.Environment, cfg UpdateOnRampDestsConfig) (deployment.ChangesetOutput, error) {
 	s, err := LoadOnchainState(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
@@ -96,7 +93,7 @@ func UpdateOnRampsDests(e deployment.Environment, cfg UpdateOnRampsDestsConfig) 
 		}
 		onRamp := s.Chains[chainSel].OnRamp
 		var args []onramp.OnRampDestChainConfigArgs
-		for _, update := range updates {
+		for destination, update := range updates {
 			router := common.HexToAddress("0x0")
 			// If not enabled, set router to 0x0.
 			if update.IsEnabled {
@@ -107,7 +104,7 @@ func UpdateOnRampsDests(e deployment.Environment, cfg UpdateOnRampsDestsConfig) 
 				}
 			}
 			args = append(args, onramp.OnRampDestChainConfigArgs{
-				DestChainSelector: update.DestinationSelector,
+				DestChainSelector: destination,
 				Router:            router,
 				AllowlistEnabled:  update.AllowListEnabled,
 			})
@@ -154,18 +151,124 @@ func UpdateOnRampsDests(e deployment.Environment, cfg UpdateOnRampsDestsConfig) 
 	}}, nil
 }
 
-type UpdateOffRampsSourcesConfig struct {
-	UpdatesByChain map[uint64][]OffRampSourceUpdate
+type UpdateFeeQuoterDestsConfig struct {
+	UpdatesByChain map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig
+	// Disallow mixing MCMS/non-MCMS per chain for simplicity.
+	// (can still be acheived by calling this function multiple times)
+	MCMS *MCMSConfig
+}
+
+func (cfg UpdateFeeQuoterDestsConfig) Validate(ctx context.Context, state CCIPOnChainState) error {
+	supportedChains := state.SupportedChains()
+	for chainSel, updates := range cfg.UpdatesByChain {
+		chainState, ok := state.Chains[chainSel]
+		if !ok {
+			return fmt.Errorf("chain %d not found in onchain state", chainSel)
+		}
+		if chainState.TestRouter == nil {
+			return fmt.Errorf("missing test router for chain %d", chainSel)
+		}
+		if chainState.Router == nil {
+			return fmt.Errorf("missing router for chain %d", chainSel)
+		}
+		if chainState.OnRamp == nil {
+			return fmt.Errorf("missing onramp onramp for chain %d", chainSel)
+		}
+		for destination := range updates {
+			// Destination cannot be an unknown destination.
+			if _, ok := supportedChains[destination]; !ok {
+				return fmt.Errorf("destination chain %d is not a supported %s", destination, chainState.OnRamp.Address())
+			}
+			sc, err := chainState.OnRamp.GetStaticConfig(&bind.CallOpts{Context: ctx})
+			if err != nil {
+				return fmt.Errorf("failed to get onramp static config %s: %w", chainState.OnRamp.Address(), err)
+			}
+			if destination == sc.ChainSelector {
+				return fmt.Errorf("cannot update onramp destination to the same chain")
+			}
+		}
+	}
+	return nil
+}
+
+func UpdateFeeQuoterDests(e deployment.Environment, cfg UpdateFeeQuoterDestsConfig) (deployment.ChangesetOutput, error) {
+	s, err := LoadOnchainState(e)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	if err := cfg.Validate(e.GetContext(), s); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	var batches []timelock.BatchChainOperation
+	timelocks := make(map[uint64]common.Address)
+	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig)
+	for chainSel, updates := range cfg.UpdatesByChain {
+		txOpts := e.Chains[chainSel].DeployerKey
+		txOpts.Context = e.GetContext()
+		if cfg.MCMS != nil {
+			txOpts = deployment.SimTransactOpts()
+		}
+		fq := s.Chains[chainSel].FeeQuoter
+		var args []fee_quoter.FeeQuoterDestChainConfigArgs
+		for destination, dc := range updates {
+			args = append(args, fee_quoter.FeeQuoterDestChainConfigArgs{
+				DestChainSelector: destination,
+				DestChainConfig:   dc,
+			})
+		}
+		tx, err := fq.ApplyDestChainConfigUpdates(txOpts, args)
+		if err != nil {
+			return deployment.ChangesetOutput{}, err
+		}
+		if cfg.MCMS == nil {
+			if _, err := deployment.ConfirmIfNoError(e.Chains[chainSel], tx, err); err != nil {
+				return deployment.ChangesetOutput{}, err
+			}
+		} else {
+			batches = append(batches, timelock.BatchChainOperation{
+				ChainIdentifier: mcms.ChainIdentifier(chainSel),
+				Batch: []mcms.Operation{
+					{
+						To:    fq.Address(),
+						Data:  tx.Data(),
+						Value: big.NewInt(0),
+					},
+				},
+			})
+			timelocks[chainSel] = s.Chains[chainSel].Timelock.Address()
+			proposers[chainSel] = s.Chains[chainSel].ProposerMcm
+		}
+	}
+	if cfg.MCMS == nil {
+		return deployment.ChangesetOutput{}, nil
+	}
+
+	p, err := proposalutils.BuildProposalFromBatches(
+		timelocks,
+		proposers,
+		batches,
+		"Update fq destinations",
+		cfg.MCMS.MinDelay,
+	)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	return deployment.ChangesetOutput{Proposals: []timelock.MCMSWithTimelockProposal{
+		*p,
+	}}, nil
+}
+
+type UpdateOffRampSourcesConfig struct {
+	UpdatesByChain map[uint64]map[uint64]OffRampSourceUpdate
 	MCMS           *MCMSConfig
 }
 
 type OffRampSourceUpdate struct {
-	SourceSelector uint64 // Note will look up the relevant onramp and set it
-	IsEnabled      bool   // If false, disables the source by setting router to 0x0.
-	TestRouter     bool   // Flag for safety only allow specifying either router or testRouter.
+	IsEnabled  bool // If false, disables the source by setting router to 0x0.
+	TestRouter bool // Flag for safety only allow specifying either router or testRouter.
 }
 
-func (cfg UpdateOffRampsSourcesConfig) Validate(ctx context.Context, state CCIPOnChainState) error {
+func (cfg UpdateOffRampSourcesConfig) Validate(ctx context.Context, state CCIPOnChainState) error {
 	supportedChains := state.SupportedChains()
 	for chainSel, updates := range cfg.UpdatesByChain {
 		chainState, ok := state.Chains[chainSel]
@@ -181,19 +284,20 @@ func (cfg UpdateOffRampsSourcesConfig) Validate(ctx context.Context, state CCIPO
 		if chainState.OffRamp == nil {
 			return fmt.Errorf("missing onramp onramp for chain %d", chainSel)
 		}
-		for _, update := range updates {
-			if update.SourceSelector == chainSel {
-				return fmt.Errorf("cannot update offramp source to the same chain %d", update.SourceSelector)
+		for source := range updates {
+			// Source cannot be an unknown
+			if _, ok := supportedChains[source]; !ok {
+				return fmt.Errorf("source chain %d is not a supported chain %s", source, chainState.OffRamp.Address())
 			}
-			sourceChain := state.Chains[update.SourceSelector]
+
+			if source == chainSel {
+				return fmt.Errorf("cannot update offramp source to the same chain %d", source)
+			}
+			sourceChain := state.Chains[source]
 			// Source chain must have the onramp deployed.
 			// Note this also validates the specified source selector.
 			if sourceChain.OnRamp == nil {
-				return fmt.Errorf("missing onramp for source %d", update.SourceSelector)
-			}
-			// Source cannot be an unknown
-			if _, ok := supportedChains[update.SourceSelector]; !ok {
-				return fmt.Errorf("source chain %d is not a supported chain %s", update.SourceSelector, chainState.OffRamp.Address())
+				return fmt.Errorf("missing onramp for source %d", source)
 			}
 		}
 	}
@@ -201,7 +305,7 @@ func (cfg UpdateOffRampsSourcesConfig) Validate(ctx context.Context, state CCIPO
 }
 
 // UpdateOffRampSources updates the offramp sources for each offramp.
-func UpdateOffRampSources(e deployment.Environment, cfg UpdateOffRampsSourcesConfig) (deployment.ChangesetOutput, error) {
+func UpdateOffRampSources(e deployment.Environment, cfg UpdateOffRampSourcesConfig) (deployment.ChangesetOutput, error) {
 	s, err := LoadOnchainState(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
@@ -220,7 +324,7 @@ func UpdateOffRampSources(e deployment.Environment, cfg UpdateOffRampsSourcesCon
 		}
 		offRamp := s.Chains[chainSel].OffRamp
 		var args []offramp.OffRampSourceChainConfigArgs
-		for _, update := range updates {
+		for source, update := range updates {
 			router := common.HexToAddress("0x0")
 			if update.IsEnabled {
 				if update.TestRouter {
@@ -229,9 +333,9 @@ func UpdateOffRampSources(e deployment.Environment, cfg UpdateOffRampsSourcesCon
 					router = s.Chains[chainSel].Router.Address()
 				}
 			}
-			onRamp := s.Chains[update.SourceSelector].OnRamp
+			onRamp := s.Chains[source].OnRamp
 			args = append(args, offramp.OffRampSourceChainConfigArgs{
-				SourceChainSelector: update.SourceSelector,
+				SourceChainSelector: source,
 				Router:              router,
 				IsEnabled:           update.IsEnabled,
 				OnRamp:              common.LeftPadBytes(onRamp.Address().Bytes(), 32),
@@ -288,18 +392,8 @@ type UpdateRouterRampsConfig struct {
 }
 
 type RouterUpdates struct {
-	OffRampUpdates []RouterOffRampUpdate
-	OnRampUpdates  []RouterOnRampUpdate
-}
-
-type RouterOnRampUpdate struct {
-	DestSelector uint64 // will look up the relevant onramp and set it.
-	IsEnabled    bool   // If false disbles the destination by setting onramp to 0x0.
-}
-
-type RouterOffRampUpdate struct {
-	SourceSelector uint64 // Note will look up the relevant offramp and set it.
-	IsEnabled      bool   // If false disbles the source by removing the offramp.
+	OffRampUpdates map[uint64]bool
+	OnRampUpdates  map[uint64]bool
 }
 
 func (cfg UpdateRouterRampsConfig) Validate(ctx context.Context, state CCIPOnChainState) error {
@@ -318,32 +412,32 @@ func (cfg UpdateRouterRampsConfig) Validate(ctx context.Context, state CCIPOnCha
 		if chainState.OffRamp == nil {
 			return fmt.Errorf("missing onramp onramp for chain %d", chainSel)
 		}
-		for _, offRampUpdate := range update.OffRampUpdates {
-			if offRampUpdate.SourceSelector == chainSel {
-				return fmt.Errorf("cannot update offramp source to the same chain %d", offRampUpdate.SourceSelector)
+		for source := range update.OffRampUpdates {
+			// Source cannot be an unknown
+			if _, ok := supportedChains[source]; !ok {
+				return fmt.Errorf("source chain %d is not a supported chain %s", source, chainState.OffRamp.Address())
 			}
-			sourceChain := state.Chains[offRampUpdate.SourceSelector]
+			if source == chainSel {
+				return fmt.Errorf("cannot update offramp source to the same chain %d", source)
+			}
+			sourceChain := state.Chains[source]
 			// Source chain must have the onramp deployed.
 			// Note this also validates the specified source selector.
 			if sourceChain.OnRamp == nil {
-				return fmt.Errorf("missing onramp for source %d", offRampUpdate.SourceSelector)
-			}
-			// Source cannot be an unknown
-			if _, ok := supportedChains[offRampUpdate.SourceSelector]; !ok {
-				return fmt.Errorf("source chain %d is not a supported chain %s", offRampUpdate.SourceSelector, chainState.OffRamp.Address())
+				return fmt.Errorf("missing onramp for source %d", source)
 			}
 		}
-		for _, onRampUpdate := range update.OnRampUpdates {
-			if onRampUpdate.DestSelector == chainSel {
-				return fmt.Errorf("cannot update onRamp dest to the same chain %d", onRampUpdate.DestSelector)
-			}
-			destChain := state.Chains[onRampUpdate.DestSelector]
-			if destChain.OffRamp == nil {
-				return fmt.Errorf("missing offramp for dest %d", onRampUpdate.DestSelector)
-			}
+		for destination := range update.OnRampUpdates {
 			// Source cannot be an unknown
-			if _, ok := supportedChains[onRampUpdate.DestSelector]; !ok {
-				return fmt.Errorf("dest chain %d is not a supported chain %s", onRampUpdate.DestSelector, chainState.OffRamp.Address())
+			if _, ok := supportedChains[destination]; !ok {
+				return fmt.Errorf("dest chain %d is not a supported chain %s", destination, chainState.OffRamp.Address())
+			}
+			if destination == chainSel {
+				return fmt.Errorf("cannot update onRamp dest to the same chain %d", destination)
+			}
+			destChain := state.Chains[destination]
+			if destChain.OffRamp == nil {
+				return fmt.Errorf("missing offramp for dest %d", destination)
 			}
 		}
 
@@ -384,15 +478,15 @@ func UpdateRouterRamps(e deployment.Environment, cfg UpdateRouterRampsConfig) (d
 		// For now its simple, all sources use the same offramp.
 		offRamp := s.Chains[chainSel].OffRamp
 		var removes, adds []router.RouterOffRamp
-		for _, offRampUpdate := range update.OffRampUpdates {
-			if offRampUpdate.IsEnabled {
+		for source, enabled := range update.OffRampUpdates {
+			if enabled {
 				adds = append(adds, router.RouterOffRamp{
-					SourceChainSelector: offRampUpdate.SourceSelector,
+					SourceChainSelector: source,
 					OffRamp:             offRamp.Address(),
 				})
 			} else {
 				removes = append(removes, router.RouterOffRamp{
-					SourceChainSelector: offRampUpdate.SourceSelector,
+					SourceChainSelector: source,
 					OffRamp:             offRamp.Address(),
 				})
 			}
@@ -400,15 +494,15 @@ func UpdateRouterRamps(e deployment.Environment, cfg UpdateRouterRampsConfig) (d
 		// Ditto here, only one onramp expected until 1.7.
 		onRamp := s.Chains[chainSel].OnRamp
 		var onRampUpdates []router.RouterOnRamp
-		for _, onRampUpdate := range update.OnRampUpdates {
-			if onRampUpdate.IsEnabled {
+		for dest, enabled := range update.OnRampUpdates {
+			if enabled {
 				onRampUpdates = append(onRampUpdates, router.RouterOnRamp{
-					DestChainSelector: onRampUpdate.DestSelector,
+					DestChainSelector: dest,
 					OnRamp:            onRamp.Address(),
 				})
 			} else {
 				onRampUpdates = append(onRampUpdates, router.RouterOnRamp{
-					DestChainSelector: onRampUpdate.DestSelector,
+					DestChainSelector: dest,
 					OnRamp:            common.HexToAddress("0x0"),
 				})
 			}
