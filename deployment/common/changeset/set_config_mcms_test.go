@@ -66,7 +66,7 @@ func TestSetConfigMCMSVariants(t *testing.T) {
 				return []commonchangeset.ChangesetApplication{
 					{
 						Changeset: commonchangeset.WrapChangeSet(commonchangeset.SetConfigMCMS),
-						Config: commonchangeset.SetConfigParams{
+						Config: commonchangeset.MCMSConfig{
 							ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRole{
 								chainSel: {
 									Proposer:  cfgProp,
@@ -93,8 +93,8 @@ func TestSetConfigMCMSVariants(t *testing.T) {
 					},
 					{
 						Changeset: commonchangeset.WrapChangeSet(commonchangeset.SetConfigMCMS),
-						Config: commonchangeset.SetConfigParams{
-							ProposalConfig: &commonchangeset.ProposalConfig{
+						Config: commonchangeset.MCMSConfig{
+							ProposalConfig: &commonchangeset.TimelockConfig{
 								MinDelay: 0,
 							},
 							ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRole{
@@ -184,13 +184,13 @@ func TestValidate(t *testing.T) {
 	require.NoError(t, err)
 	tests := []struct {
 		name     string
-		cfg      commonchangeset.SetConfigParams
+		cfg      commonchangeset.MCMSConfig
 		errorMsg string
 	}{
 		{
 			name: "valid config",
-			cfg: commonchangeset.SetConfigParams{
-				ProposalConfig: &commonchangeset.ProposalConfig{
+			cfg: commonchangeset.MCMSConfig{
+				ProposalConfig: &commonchangeset.TimelockConfig{
 					MinDelay: 0,
 				},
 				ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRole{
@@ -204,7 +204,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "valid non mcms config",
-			cfg: commonchangeset.SetConfigParams{
+			cfg: commonchangeset.MCMSConfig{
 				ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRole{
 					chainSelector: {
 						Proposer:  cfg,
@@ -216,14 +216,14 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "no chain configurations",
-			cfg: commonchangeset.SetConfigParams{
+			cfg: commonchangeset.MCMSConfig{
 				ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRole{},
 			},
 			errorMsg: "no chain configs provided",
 		},
 		{
 			name: "non evm chain",
-			cfg: commonchangeset.SetConfigParams{
+			cfg: commonchangeset.MCMSConfig{
 				ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRole{
 					chain_selectors.APTOS_MAINNET.Selector: {
 						Proposer:  cfg,
@@ -236,7 +236,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "chain selector not found in environment",
-			cfg: commonchangeset.SetConfigParams{
+			cfg: commonchangeset.MCMSConfig{
 				ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRole{
 					123: {
 						Proposer:  cfg,
@@ -249,8 +249,8 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "invalid proposer config",
-			cfg: commonchangeset.SetConfigParams{
-				ProposalConfig: &commonchangeset.ProposalConfig{
+			cfg: commonchangeset.MCMSConfig{
+				ProposalConfig: &commonchangeset.TimelockConfig{
 					MinDelay: 0,
 				},
 				ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRole{
@@ -265,8 +265,8 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "invalid canceller config",
-			cfg: commonchangeset.SetConfigParams{
-				ProposalConfig: &commonchangeset.ProposalConfig{
+			cfg: commonchangeset.MCMSConfig{
+				ProposalConfig: &commonchangeset.TimelockConfig{
 					MinDelay: 0,
 				},
 				ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRole{
@@ -281,8 +281,8 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "invalid bypasser config",
-			cfg: commonchangeset.SetConfigParams{
-				ProposalConfig: &commonchangeset.ProposalConfig{
+			cfg: commonchangeset.MCMSConfig{
+				ProposalConfig: &commonchangeset.TimelockConfig{
 					MinDelay: 0,
 				},
 				ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRole{

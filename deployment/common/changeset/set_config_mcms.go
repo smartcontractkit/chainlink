@@ -1,6 +1,7 @@
 package changeset
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math/big"
@@ -14,6 +15,8 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -24,19 +27,19 @@ type ConfigPerRole struct {
 	Canceller config.Config
 	Bypasser  config.Config
 }
-type ProposalConfig struct {
+type TimelockConfig struct {
 	MinDelay time.Duration // delay for timelock worker to execute the transfers.
 }
 
-type SetConfigParams struct {
+type MCMSConfig struct {
 	ConfigsPerChain map[uint64]ConfigPerRole
-	ProposalConfig  *ProposalConfig
+	ProposalConfig  *TimelockConfig
 }
 
-var _ deployment.ChangeSet[SetConfigParams] = SetConfigMCMS
+var _ deployment.ChangeSet[MCMSConfig] = SetConfigMCMS
 
-// Validate checks that the SetConfigParams is valid
-func (cfg SetConfigParams) Validate(e deployment.Environment, selectors []uint64) error {
+// Validate checks that the MCMSConfig is valid
+func (cfg MCMSConfig) Validate(e deployment.Environment, selectors []uint64) error {
 	if len(cfg.ConfigsPerChain) == 0 {
 		return errors.New("no chain configs provided")
 	}
@@ -75,12 +78,13 @@ func (cfg SetConfigParams) Validate(e deployment.Environment, selectors []uint64
 }
 
 // setConfigOrTxData executes set config tx or gets the tx data for the MCMS proposal
-func setConfigOrTxData(chain deployment.Chain, cfg config.Config, contract *gethwrappers.ManyChainMultiSig, useMCMS bool) (*types.Transaction, error) {
+func setConfigOrTxData(ctx context.Context, lggr logger.Logger, chain deployment.Chain, cfg config.Config, contract *gethwrappers.ManyChainMultiSig, useMCMS bool) (*types.Transaction, error) {
 	groupQuorums, groupParents, signerAddresses, signerGroups := cfg.ExtractSetConfigInputs()
 	opts := deployment.SimTransactOpts()
 	if !useMCMS {
 		opts = chain.DeployerKey
 	}
+	opts.Context = ctx
 	tx, err := contract.SetConfig(opts, signerAddresses, signerGroups, groupQuorums, groupParents, false)
 	if err != nil {
 		return nil, err
@@ -90,6 +94,7 @@ func setConfigOrTxData(chain deployment.Chain, cfg config.Config, contract *geth
 		if err != nil {
 			return nil, err
 		}
+		lggr.Infow("SetConfigMCMS tx confirmed", "txHash", tx.Hash().Hex())
 	}
 	return tx, nil
 }
@@ -101,19 +106,19 @@ type setConfigTxs struct {
 }
 
 // setConfigPerRole sets the configuration for each of the MCMS contract roles on the mcmsState.
-func setConfigPerRole(chain deployment.Chain, cfg ConfigPerRole, mcmsState *MCMSWithTimelockState, useMCMS bool) (setConfigTxs, error) {
+func setConfigPerRole(ctx context.Context, lggr logger.Logger, chain deployment.Chain, cfg ConfigPerRole, mcmsState *MCMSWithTimelockState, useMCMS bool) (setConfigTxs, error) {
 	// Proposer set config
-	proposerTx, err := setConfigOrTxData(chain, cfg.Proposer, mcmsState.ProposerMcm, useMCMS)
+	proposerTx, err := setConfigOrTxData(ctx, lggr, chain, cfg.Proposer, mcmsState.ProposerMcm, useMCMS)
 	if err != nil {
 		return setConfigTxs{}, err
 	}
 	// Canceller set config
-	cancellerTx, err := setConfigOrTxData(chain, cfg.Canceller, mcmsState.CancellerMcm, useMCMS)
+	cancellerTx, err := setConfigOrTxData(ctx, lggr, chain, cfg.Canceller, mcmsState.CancellerMcm, useMCMS)
 	if err != nil {
 		return setConfigTxs{}, err
 	}
 	// Bypasser set config
-	bypasserTx, err := setConfigOrTxData(chain, cfg.Bypasser, mcmsState.BypasserMcm, useMCMS)
+	bypasserTx, err := setConfigOrTxData(ctx, lggr, chain, cfg.Bypasser, mcmsState.BypasserMcm, useMCMS)
 	if err != nil {
 		return setConfigTxs{}, err
 	}
@@ -152,8 +157,10 @@ func addTxsToProposalBatch(setConfigTxsChain setConfigTxs, chainSelector uint64,
 }
 
 // SetConfigMCMS sets the configuration of the MCMS contract on the chain identified by the chainSelector.
-func SetConfigMCMS(e deployment.Environment, cfg SetConfigParams) (deployment.ChangesetOutput, error) {
+func SetConfigMCMS(e deployment.Environment, cfg MCMSConfig) (deployment.ChangesetOutput, error) {
 	selectors := []uint64{}
+	lggr := e.Logger
+	ctx := e.GetContext()
 	for chainSelector := range cfg.ConfigsPerChain {
 		selectors = append(selectors, chainSelector)
 	}
@@ -173,17 +180,11 @@ func SetConfigMCMS(e deployment.Environment, cfg SetConfigParams) (deployment.Ch
 	}
 
 	for chainSelector, c := range cfg.ConfigsPerChain {
-		chain, ok := e.Chains[chainSelector]
-		if !ok {
-			return deployment.ChangesetOutput{}, errors.New("chain not found in environment")
-		}
-		state, ok := mcmsStatePerChain[chainSelector]
-		if !ok {
-			return deployment.ChangesetOutput{}, fmt.Errorf("MCMS state not found for chain selector: %d", chainSelector)
-		}
+		chain := e.Chains[chainSelector]
+		state := mcmsStatePerChain[chainSelector]
 		timelocksPerChain[chainSelector] = state.Timelock.Address()
 		proposerMcmsPerChain[chainSelector] = state.ProposerMcm
-		setConfigTxsChain, err := setConfigPerRole(chain, c, state, useMCMS)
+		setConfigTxsChain, err := setConfigPerRole(ctx, lggr, chain, c, state, useMCMS)
 		if err != nil {
 			return deployment.ChangesetOutput{}, err
 		}
@@ -200,6 +201,7 @@ func SetConfigMCMS(e deployment.Environment, cfg SetConfigParams) (deployment.Ch
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal from batch: %w", err)
 		}
+		lggr.Infow("SetConfigMCMS proposal created", "proposal", proposal)
 		return deployment.ChangesetOutput{Proposals: []timelock.MCMSWithTimelockProposal{*proposal}}, nil
 	}
 
