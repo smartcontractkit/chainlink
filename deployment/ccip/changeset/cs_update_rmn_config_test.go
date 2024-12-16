@@ -8,6 +8,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_remote"
 )
@@ -214,4 +216,87 @@ func buildRMNRemoteAddressPerChain(e deployment.Environment, state CCIPOnChainSt
 		rmnRemoteAddressPerChain[chain] = remote.Address()
 	}
 	return rmnRemoteAddressPerChain
+}
+
+func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
+	t.Parallel()
+	e := NewMemoryEnvironment(t, WithNoJobsAndContracts())
+	allChains := e.Env.AllChainSelectors()
+	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
+	var err error
+	for _, c := range e.Env.AllChainSelectors() {
+		mcmsCfg[c] = proposalutils.SingleGroupTimelockConfig(t)
+	}
+	// Need to deploy prerequisites first so that we can form the USDC config
+	// no proposals to be made, timelock can be passed as nil here
+	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
+			Config:    allChains,
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(DeployPrerequisites),
+			Config: DeployPrerequisiteConfig{
+				ChainSelectors: allChains,
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployMCMSWithTimelock),
+			Config:    mcmsCfg,
+		},
+	})
+	require.NoError(t, err)
+	contractsByChain := make(map[uint64][]common.Address)
+	state, err := LoadOnchainState(e.Env)
+	require.NoError(t, err)
+	for _, chain := range allChains {
+		rmnProxy := state.Chains[chain].RMNProxy
+		require.NotNil(t, rmnProxy)
+		contractsByChain[chain] = []common.Address{rmnProxy.Address()}
+	}
+	timelockContractsPerChain := make(map[uint64]*proposalutils.TimelockExecutionContracts)
+	for _, chain := range allChains {
+		timelockContractsPerChain[chain] = &proposalutils.TimelockExecutionContracts{
+			Timelock:  state.Chains[chain].Timelock,
+			CallProxy: state.Chains[chain].CallProxy,
+		}
+	}
+	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, timelockContractsPerChain, []commonchangeset.ChangesetApplication{
+		// transfer ownership of RMNProxy to timelock
+		{
+			Changeset: commonchangeset.WrapChangeSet(commonchangeset.TransferToMCMSWithTimelock),
+			Config: commonchangeset.TransferToMCMSWithTimelockConfig{
+				ContractsByChain: contractsByChain,
+				MinDelay:         0,
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(DeployChainContracts),
+			Config: DeployChainContractsConfig{
+				ChainSelectors:    allChains,
+				HomeChainSelector: e.HomeChainSel,
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(SetRMNRemoteOnRMNProxy),
+			Config: SetRMNRemoteOnRMNProxyConfig{
+				ChainSelectors: allChains,
+				MCMSConfig: &MCMSConfig{
+					MinDelay: 0,
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+	state, err = LoadOnchainState(e.Env)
+	require.NoError(t, err)
+	for _, chain := range allChains {
+		rmnProxy := state.Chains[chain].RMNProxy
+		proxyOwner, err := rmnProxy.Owner(nil)
+		require.NoError(t, err)
+		require.Equal(t, state.Chains[chain].Timelock.Address(), proxyOwner)
+		rmnAddr, err := rmnProxy.GetARM(nil)
+		require.NoError(t, err)
+		require.Equal(t, rmnAddr, state.Chains[chain].RMNRemote.Address())
+	}
 }

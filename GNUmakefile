@@ -133,13 +133,6 @@ testdb-force: ## Prepares the test database, drops any pesky user connections th
 testdb-user-only: ## Prepares the test database with user only.
 	go run . local db preparetest --user-only
 
-# Format for CI
-.PHONY: presubmit
-presubmit: ## Format go files and imports.
-	goimports -w .
-	gofmt -w .
-	go mod tidy
-
 .PHONY: gomods
 gomods: ## Install gomods
 	go install github.com/jmank88/gomods@v0.1.4

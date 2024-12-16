@@ -40,6 +40,7 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -798,7 +799,7 @@ func setupForwarderEnabledNode(t *testing.T, owner *bind.TransactOpts, portV2 in
 
 func TestIntegration_OCR(t *testing.T) {
 	t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809; passes local but fails CI")
-	testutils.SkipShort(t, "long test")
+	tests.SkipShort(t, "long test")
 	t.Parallel()
 	tests := []struct {
 		id      int
@@ -1031,7 +1032,7 @@ observationSource = """
 
 func TestIntegration_OCR_ForwarderFlow(t *testing.T) {
 	t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809")
-	testutils.SkipShort(t, "long test")
+	tests.SkipShort(t, "long test")
 	t.Parallel()
 	numOracles := 4
 	t.Run("ocr_forwarder_flow", func(t *testing.T) {
