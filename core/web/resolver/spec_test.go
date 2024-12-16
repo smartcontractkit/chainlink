@@ -2,6 +2,7 @@ package resolver
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -1157,6 +1158,88 @@ func TestResolver_StandardCapabilitiesSpec(t *testing.T) {
 							"createdAt": "2021-01-01T00:00:00Z",
 							"command": "testcommand",
 							"config": "testconfig"
+						}
+					}
+				}
+			`,
+		},
+	}
+
+	RunGQLTests(t, testCases)
+}
+
+func TestResolver_StreamSpec(t *testing.T) {
+	var (
+		id1      = int32(1)
+		id2      = int32(2)
+		streamID = uint32(3)
+	)
+
+	testCases := []GQLTestCase{
+		{
+			name:          "stream spec with stream ID",
+			authenticated: true,
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				f.App.On("JobORM").Return(f.Mocks.jobORM)
+				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", mock.Anything, id1).Return(job.Job{
+					Type:     job.Stream,
+					StreamID: &streamID,
+				}, nil)
+			},
+			query: fmt.Sprintf(`
+				query GetJob {
+					job(id: "%d") {
+						... on Job {
+							spec {
+								__typename
+								... on StreamSpec {
+									streamID
+								}
+							}
+						}
+					}
+				}
+			`, id1),
+			result: fmt.Sprintf(`
+				{
+					"job": {
+						"spec": {
+							"__typename": "StreamSpec",
+							"streamID": "%d"
+						}
+					}
+				}
+			`, streamID),
+		},
+		{
+			name:          "stream spec without stream ID",
+			authenticated: true,
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				f.App.On("JobORM").Return(f.Mocks.jobORM)
+				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", mock.Anything, id2).Return(job.Job{
+					Type: job.Stream,
+				}, nil)
+			},
+			query: fmt.Sprintf(`
+				query GetJob {
+					job(id: "%d") {
+						... on Job {
+							spec {
+								__typename
+								... on StreamSpec {
+									streamID
+								}
+							}
+						}
+					}
+				}
+			`, id2),
+			result: `
+				{
+					"job": {
+						"spec": {
+							"__typename": "StreamSpec",
+							"streamID": null
 						}
 					}
 				}

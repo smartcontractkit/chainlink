@@ -182,5 +182,5 @@ type StandardCapabilitiesSpec {
 }
 
 type StreamSpec {
-    streamID: String!
+    streamID: String
 }
