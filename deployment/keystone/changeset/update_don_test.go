@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
@@ -103,22 +104,14 @@ func TestUpdateDon(t *testing.T) {
 		csOut, err := changeset.UpdateDon(te.Env, &cfg)
 		require.NoError(t, err)
 
-		if true {
-			require.Len(t, csOut.Proposals, 1)
-			require.Len(t, csOut.Proposals[0].Transactions, 1)          // append node capabilties cs, update don
-			require.Len(t, csOut.Proposals[0].Transactions[0].Batch, 3) // add capabilities, update nodes, update don
-			require.Nil(t, csOut.AddressBook)
-		} else {
-			require.Len(t, csOut.Proposals, 1)
-			require.Len(t, csOut.Proposals[0].Transactions, 2)          // append node capabilties cs, update don
-			require.Len(t, csOut.Proposals[0].Transactions[0].Batch, 2) // add capabilities, update nodes
-			require.Len(t, csOut.Proposals[0].Transactions[1].Batch, 1) // update don
-			require.Nil(t, csOut.AddressBook)
-		}
+		require.Len(t, csOut.Proposals, 1)
+		require.Len(t, csOut.Proposals[0].Transactions, 1)          // append node capabilties cs, update don
+		require.Len(t, csOut.Proposals[0].Transactions[0].Batch, 3) // add capabilities, update nodes, update don
+		require.Nil(t, csOut.AddressBook)
 
 		// now apply the changeset such that the proposal is signed and execed
 		contracts := te.ContractSets()[te.RegistrySelector]
-		timelockContracts := map[uint64]*commonchangeset.TimelockExecutionContracts{
+		timelockContracts := map[uint64]*proposalutils.TimelockExecutionContracts{
 			te.RegistrySelector: {
 				Timelock:  contracts.Timelock,
 				CallProxy: contracts.CallProxy,

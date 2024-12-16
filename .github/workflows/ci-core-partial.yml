@@ -46,6 +46,7 @@ jobs:
     permissions:
       id-token: write
       contents: write
+      actions: write
     strategy:
       fail-fast: false
       matrix:
@@ -86,7 +87,7 @@ jobs:
           go-mod-download-directory: ${{ matrix.type.test-suite == 'ccip-deployment' && matrix.type.module-directory || '' }}
 
       - name: Build Tests
-        uses: smartcontractkit/.github/apps/go-conditional-tests@37882e110590e636627a26371bdbd56ddfcce821 # go-conditional-tests@0.1.0
+        uses: smartcontractkit/.github/apps/go-conditional-tests@57f99fbea73056c490c766d50ef582a13ec4f3bb # go-conditional-tests@0.2.0
         timeout-minutes: 10
         with:
           pipeline-step: "build"
@@ -98,7 +99,7 @@ jobs:
           build-flags: ${{ matrix.type.build-flags }}
 
       - name: Run Tests
-        uses: smartcontractkit/.github/apps/go-conditional-tests@37882e110590e636627a26371bdbd56ddfcce821 # go-conditional-tests@0.1.0
+        uses: smartcontractkit/.github/apps/go-conditional-tests@57f99fbea73056c490c766d50ef582a13ec4f3bb # go-conditional-tests@0.2.0
         timeout-minutes: 15
         env:
           CL_DATABASE_URL: ${{ env.DB_URL }}
@@ -112,7 +113,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Update Test Index
-        uses: smartcontractkit/.github/apps/go-conditional-tests@37882e110590e636627a26371bdbd56ddfcce821 # go-conditional-tests@0.1.0
+        uses: smartcontractkit/.github/apps/go-conditional-tests@57f99fbea73056c490c766d50ef582a13ec4f3bb # go-conditional-tests@0.2.0
         with:
           pipeline-step: "update"
           collect-coverage: ${{ needs.filter.outputs.should-collect-coverage }}
@@ -130,7 +131,7 @@ jobs:
     if: ${{ needs.filter.outputs.should-collect-coverage == 'true' }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout the repo
+      - name: Checkout the repo 
         uses: actions/checkout@v4.2.1
         with:
           # fetches all history for all tags and branches to provide more metadata for sonar reports

@@ -444,7 +444,7 @@ func testRunningWorkflow(t *testing.T, tc testCase) {
 			fetcher = tc.fetcher
 		)
 
-		giveWFID, err := pkgworkflows.GenerateWorkflowID(wfOwner, binary, config, secretsURL)
+		giveWFID, err := pkgworkflows.GenerateWorkflowID(wfOwner, "workflow-name", binary, config, secretsURL)
 		require.NoError(t, err)
 
 		wfID := hex.EncodeToString(giveWFID[:])
@@ -492,7 +492,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			})
 		)
 
-		giveWFID, err := pkgworkflows.GenerateWorkflowID(wfOwner, binary, config, secretsURL)
+		giveWFID, err := pkgworkflows.GenerateWorkflowID(wfOwner, "workflow-name", binary, config, secretsURL)
 
 		require.NoError(t, err)
 		wfIDs := hex.EncodeToString(giveWFID[:])
@@ -584,9 +584,9 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 			})
 		)
 
-		giveWFID, err := pkgworkflows.GenerateWorkflowID(wfOwner, binary, config, secretsURL)
+		giveWFID, err := pkgworkflows.GenerateWorkflowID(wfOwner, "workflow-name", binary, config, secretsURL)
 		require.NoError(t, err)
-		updatedWFID, err := pkgworkflows.GenerateWorkflowID(wfOwner, binary, updateConfig, secretsURL)
+		updatedWFID, err := pkgworkflows.GenerateWorkflowID(wfOwner, "workflow-name", binary, updateConfig, secretsURL)
 		require.NoError(t, err)
 
 		require.NoError(t, err)

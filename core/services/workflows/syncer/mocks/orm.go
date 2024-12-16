@@ -540,6 +540,65 @@ func (_c *ORM_GetWorkflowSpec_Call) RunAndReturn(run func(context.Context, strin
 	return _c
 }
 
+// GetWorkflowSpecByID provides a mock function with given fields: ctx, id
+func (_m *ORM) GetWorkflowSpecByID(ctx context.Context, id string) (*job.WorkflowSpec, error) {
+	ret := _m.Called(ctx, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetWorkflowSpecByID")
+	}
+
+	var r0 *job.WorkflowSpec
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (*job.WorkflowSpec, error)); ok {
+		return rf(ctx, id)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) *job.WorkflowSpec); ok {
+		r0 = rf(ctx, id)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*job.WorkflowSpec)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ORM_GetWorkflowSpecByID_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetWorkflowSpecByID'
+type ORM_GetWorkflowSpecByID_Call struct {
+	*mock.Call
+}
+
+// GetWorkflowSpecByID is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id string
+func (_e *ORM_Expecter) GetWorkflowSpecByID(ctx interface{}, id interface{}) *ORM_GetWorkflowSpecByID_Call {
+	return &ORM_GetWorkflowSpecByID_Call{Call: _e.mock.On("GetWorkflowSpecByID", ctx, id)}
+}
+
+func (_c *ORM_GetWorkflowSpecByID_Call) Run(run func(ctx context.Context, id string)) *ORM_GetWorkflowSpecByID_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *ORM_GetWorkflowSpecByID_Call) Return(_a0 *job.WorkflowSpec, _a1 error) *ORM_GetWorkflowSpecByID_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ORM_GetWorkflowSpecByID_Call) RunAndReturn(run func(context.Context, string) (*job.WorkflowSpec, error)) *ORM_GetWorkflowSpecByID_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Update provides a mock function with given fields: ctx, secretsURL, contents
 func (_m *ORM) Update(ctx context.Context, secretsURL string, contents string) (int64, error) {
 	ret := _m.Called(ctx, secretsURL, contents)

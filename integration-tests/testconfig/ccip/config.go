@@ -147,6 +147,9 @@ func (o *JDConfig) GetJDDBVersion() string {
 func (o *Config) Validate() error {
 	var chainIds []int64
 	for _, net := range o.PrivateEthereumNetworks {
+		if net.EthereumChainConfig.ChainID < 0 {
+			return fmt.Errorf("negative chain ID found for network %d", net.EthereumChainConfig.ChainID)
+		}
 		chainIds = append(chainIds, int64(net.EthereumChainConfig.ChainID))
 	}
 	homeChainSelector, err := strconv.ParseUint(pointer.GetString(o.HomeChainSelector), 10, 64)
@@ -189,14 +192,21 @@ func IsSelectorValid(selector uint64, chainIds []int64) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if chainId >= math.MaxInt64 {
-		return false, fmt.Errorf("chain id overflows int64: %d", chainId)
-	}
-	expId := int64(chainId)
-	for _, id := range chainIds {
-		if id == expId {
+
+	for _, cID := range chainIds {
+		if isEqualUint64AndInt64(chainId, cID) {
 			return true, nil
 		}
 	}
 	return false, nil
+}
+
+func isEqualUint64AndInt64(u uint64, i int64) bool {
+	if i < 0 {
+		return false // uint64 cannot be equal to a negative int64
+	}
+	if u > math.MaxInt64 {
+		return false // uint64 cannot be equal to an int64 if it exceeds the maximum int64 value
+	}
+	return u == uint64(i)
 }

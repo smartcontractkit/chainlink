@@ -1,0 +1,24 @@
+[
+  {
+    "ChainID": 1337,
+    "ChainName": "alpha",
+    "ChainType": "EVM",
+    "WSRPCs": [
+      "wss://crib-local-geth-1337-ws.local:443"
+    ],
+    "HTTPRPCs": [
+      "https://crib-local-geth-1337-ws.local:443"
+    ]
+  },
+  {
+    "ChainID": 2337,
+    "ChainName": "alpha",
+    "ChainType": "EVM",
+    "WSRPCs": [
+      "wss://crib-local-geth-2337-ws.local:443"
+    ],
+    "HTTPRPCs": [
+      "https://crib-local-geth-2337-ws.local:443"
+    ]
+  }
+]
