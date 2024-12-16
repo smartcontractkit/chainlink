@@ -223,7 +223,7 @@ func TestChainScopedConfig(t *testing.T) {
 
 	t.Run("TXMEnabled", func(t *testing.T) {
 		t.Run("turn on TXMEnabled by default", func(t *testing.T) {
-			assert.Equal(t, true, cfg.EVM().TXMEnabled())
+			assert.True(t, cfg.EVM().TXMEnabled())
 		})
 
 		t.Run("verify TXMEnabled is set correctly", func(t *testing.T) {
@@ -232,7 +232,7 @@ func TestChainScopedConfig(t *testing.T) {
 				c.TXMEnabled = ptr(val)
 			})
 
-			assert.Equal(t, false, cfg3.EVM().TXMEnabled())
+			assert.False(t, cfg3.EVM().TXMEnabled())
 		})
 	})
 }
