@@ -26,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/timeutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
@@ -208,13 +209,11 @@ type ApplicationOpts struct {
 //	}.NewServiceEngine(lggr)
 
 type ApplicationHeartbeat struct {
-	//commonservices.Service
-	//eng *commonservices.Engine
+	commonservices.Service
+	eng *commonservices.Engine
 
-	wg      sync.WaitGroup
-	beat    time.Duration
-	lggr    logger.Logger
-	started bool
+	beat time.Duration
+	lggr logger.Logger
 }
 
 func NewApplicationHeartbeat(lggr logger.Logger) ApplicationHeartbeat {
@@ -222,19 +221,16 @@ func NewApplicationHeartbeat(lggr logger.Logger) ApplicationHeartbeat {
 		beat: APPLICATION_HEARTBEAT_SECONDS * time.Second,
 		lggr: lggr,
 	}
-	//h.Service, h.eng = commonservices.Config{
-	//	Name:  "NodeHeartbeat",
-	//	Start: h.start,
-	//	Close: h.close,
-	//}.NewServiceEngine(lggr)
+	h.Service, h.eng = commonservices.Config{
+		Name:  "NodeHeartbeat",
+		Start: h.start,
+		Close: h.close,
+	}.NewServiceEngine(lggr)
 	return h
 }
 
-func (h *ApplicationHeartbeat) Start(ctx context.Context) error {
-	h.lggr.Info("Starting ApplicationHeartbeat")
-	ticker := time.NewTicker(h.beat)
-	defer ticker.Stop()
-
+func (h *ApplicationHeartbeat) start(_ context.Context) error {
+	// Setup beholder resources
 	gauge, err := beholder.GetMeter().Int64Gauge("heartbeat")
 	if err != nil {
 		return err
@@ -246,53 +242,31 @@ func (h *ApplicationHeartbeat) Start(ctx context.Context) error {
 
 	cme := custmsg.NewLabeler()
 
-	ctx, span := beholder.GetTracer().Start(ctx, "heartbeat")
-	h.wg.Add(1)
-	go (func() {
-		defer h.wg.Done()
-		for {
-			select {
-			case <-ctx.Done():
-				h.lggr.Info("shutting down heartbeat")
-				span.End()
-				return
-			case <-ticker.C:
-				h.lggr.Info("heartbeat")
-				gauge.Record(ctx, 1)
-				count.Record(ctx, 1)
+	// Define tick functions
+	tickFn := func(engCtx context.Context) {
+		// TODO allow override of tracer provider into engine for beholder
+		_, innerSpan := beholder.GetTracer().Start(engCtx, "heartbeat.beat")
+		defer innerSpan.End()
 
-				cme.Emit(ctx, "heartbeat")
+		h.lggr.Critical("heartbeat")
+		gauge.Record(engCtx, 1)
+		count.Record(engCtx, 1)
 
-				_, innerSpan := beholder.GetTracer().Start(ctx, "heartbeat.beat")
-				innerSpan.End()
-
-			}
-		}
-	})()
-
-	h.started = true
-	h.lggr.Info("Started ApplicationHeartbeat")
-	return nil
-}
-
-func (h *ApplicationHeartbeat) Close() error {
-	h.wg.Wait()
-	return nil
-}
-
-func (h *ApplicationHeartbeat) Ready() error {
-	if !h.started {
-		return errors.New("heartbeat not started")
+		cme.Emit(engCtx, "heartbeat")
+		panic("yo dawg")
 	}
+
+	// consistent tick period
+	constantTickFn := func() time.Duration {
+		return time.Second * h.beat
+	}
+
+	h.eng.GoTick(timeutil.NewTicker(constantTickFn), tickFn)
 	return nil
 }
 
-func (h *ApplicationHeartbeat) HealthReport() map[string]error {
-	return make(map[string]error)
-}
-
-func (h *ApplicationHeartbeat) Name() string {
-	return "ApplicationHeartbeat"
+func (h *ApplicationHeartbeat) close() error {
+	return nil
 }
 
 // NewApplication initializes a new store if one is not already
