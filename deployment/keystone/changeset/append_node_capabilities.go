@@ -29,7 +29,7 @@ func AppendNodeCapabilities(env deployment.Environment, req *AppendNodeCapabilit
 		return deployment.ChangesetOutput{}, err
 	}
 	out := deployment.ChangesetOutput{}
-	if req.UseMCMS {
+	if req.UseMCMS() {
 		if r.Ops == nil {
 			return out, fmt.Errorf("expected MCMS operation to be non-nil")
 		}
@@ -45,7 +45,7 @@ func AppendNodeCapabilities(env deployment.Environment, req *AppendNodeCapabilit
 			proposerMCMSes,
 			[]timelock.BatchChainOperation{*r.Ops},
 			"proposal to set update node capabilities",
-			0,
+			req.MCMSConfig.MinDuration,
 		)
 		if err != nil {
 			return out, fmt.Errorf("failed to build proposal: %w", err)
@@ -76,6 +76,6 @@ func (req *AppendNodeCapabilitiesRequest) convert(e deployment.Environment) (*in
 		Chain:             registryChain,
 		ContractSet:       &contracts,
 		P2pToCapabilities: req.P2pToCapabilities,
-		UseMCMS:           req.UseMCMS,
+		UseMCMS:           req.UseMCMS(),
 	}, nil
 }
