@@ -256,7 +256,7 @@ func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Nod
 		var err error
 		txm, gasEstimator, err = newEvmTxm(opts.DS, cfg.EVM(), opts.AppConfig.Database(), opts.AppConfig.Database().Listener(), client, l, logPoller, opts, headTracker, clientsByChainID)
 		if err != nil {
-			return nil, fmt.Errorf("failed to instantiate EvmTxm for chain with ID %s: %w", chainID.String(), err)
+			return nil, fmt.Errorf("failed to instantiate EvmTxm for chain with ID %s: %w", chainID, err)
 		}
 	}
 
