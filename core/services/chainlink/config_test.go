@@ -1485,7 +1485,7 @@ func TestConfig_Validate(t *testing.T) {
 			- GasEstimator.BumpThreshold: invalid value (0): cannot be 0 if auto-purge feature is enabled for Foo
 			- Transactions.AutoPurge.Threshold: missing: needs to be set if auto-purge feature is enabled for Foo
 			- Transactions.AutoPurge.MinAttempts: missing: needs to be set if auto-purge feature is enabled for Foo
-			- TxmV2.TxmV2.BlockTime: missing: must be set if txmv2 feature is enabled
+			- TxmV2.BlockTime: missing: must be set if txmv2 feature is enabled
 			- GasEstimator: 2 errors:
 				- FeeCapDefault: invalid value (101 wei): must be equal to PriceMax (99 wei) since you are using FixedPrice estimation with gas bumping disabled in EIP1559 mode - PriceMax will be used as the FeeCap for transactions instead of FeeCapDefault
 				- PriceMax: invalid value (1 gwei): must be greater than or equal to PriceDefault
@@ -1518,7 +1518,7 @@ func TestConfig_Validate(t *testing.T) {
 			- Nodes: missing: must have at least one node
 		- 5: 2 errors:
 			- Transactions.AutoPurge.DetectionApiUrl: invalid value (): must be set for scroll
-			- TxmV2.TxmV2.BlockTime: missing: must be set if txmv2 feature is enabled
+			- TxmV2.BlockTime: missing: must be set if txmv2 feature is enabled
 		- 6.Nodes: missing: 0th node (primary) must have a valid WSURL when http polling is disabled
 	- Cosmos: 5 errors:
 		- 1.ChainID: invalid value (Malaga-420): duplicate - must be unique
