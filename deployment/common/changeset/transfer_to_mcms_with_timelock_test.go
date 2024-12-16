@@ -129,7 +129,7 @@ func TestRenounceTimelockDeployer(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(1), r.Int64())
 
-	// Retrive the admin address
+	// Retrieve the admin address
 	admin, err := tl.GetRoleMember(&bind.CallOpts{}, adminRole, big.NewInt(0))
 	require.NoError(t, err)
 
