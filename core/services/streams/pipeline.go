@@ -63,6 +63,9 @@ func newMultiStreamPipeline(lggr logger.Logger, jb job.Job, runner Runner, rrs R
 	if jb.StreamID != nil {
 		streamIDs = append(streamIDs, *jb.StreamID)
 	}
+	if err := validateStreamIDs(streamIDs); err != nil {
+		return nil, fmt.Errorf("invalid stream IDs: %w", err)
+	}
 	vars := pipeline.NewVarsFrom(map[string]interface{}{
 		"pipelineSpec": map[string]interface{}{
 			"id": jb.PipelineSpecID,
@@ -81,6 +84,17 @@ func newMultiStreamPipeline(lggr logger.Logger, jb job.Job, runner Runner, rrs R
 		rrs,
 		streamIDs,
 		vars}, nil
+}
+
+func validateStreamIDs(streamIDs []StreamID) error {
+	seen := make(map[StreamID]struct{})
+	for _, id := range streamIDs {
+		if _, ok := seen[id]; ok {
+			return fmt.Errorf("duplicate stream ID: %v", id)
+		}
+		seen[id] = struct{}{}
+	}
+	return nil
 }
 
 func (s *multiStreamPipeline) Run(ctx context.Context) (run *pipeline.Run, trrs pipeline.TaskRunResults, err error) {

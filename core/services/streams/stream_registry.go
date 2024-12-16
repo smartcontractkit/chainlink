@@ -58,22 +58,23 @@ func (s *streamRegistry) Register(jb job.Job, rrs ResultRunSaver) error {
 	if jb.Type != job.Stream {
 		return fmt.Errorf("cannot register job type %s; only Stream jobs are supported", jb.Type)
 	}
+	p, err := NewMultiStreamPipeline(s.lggr, jb, s.runner, rrs)
+	if err != nil {
+		return fmt.Errorf("cannot register job with ID: %d; %w", jb.ID, err)
+	}
 	s.Lock()
 	defer s.Unlock()
 	if _, exists := s.pipelinesByJobID[jb.ID]; exists {
 		return fmt.Errorf("cannot register job with ID: %d; it is already registered", jb.ID)
 	}
-	p, err := NewMultiStreamPipeline(s.lggr, jb, s.runner, rrs)
-	if err != nil {
-		return fmt.Errorf("cannot register job with ID: %d; %w", jb.ID, err)
-	}
-	s.pipelinesByJobID[jb.ID] = p
-	// FIXME: Naming is so awkward, call it a Multistream or something instead? Or combistream?
-	streamIDs := p.StreamIDs()
-	for _, strmID := range streamIDs {
+	for _, strmID := range p.StreamIDs() {
 		if _, exists := s.pipelines[strmID]; exists {
 			return fmt.Errorf("cannot register job with ID: %d; stream id %d is already registered", jb.ID, strmID)
 		}
+	}
+	s.pipelinesByJobID[jb.ID] = p
+	streamIDs := p.StreamIDs()
+	for _, strmID := range streamIDs {
 		s.pipelines[strmID] = p
 	}
 	return nil

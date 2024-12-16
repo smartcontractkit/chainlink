@@ -167,7 +167,7 @@ answer1      [type=median index=0];
 """
 `,
 			assertion: func(t *testing.T, jb job.Job, err error) {
-				assert.EqualError(t, err, "jobs of type 'stream' require streamID to be specified")
+				assert.EqualError(t, err, "no streamID found in spec (must be either specified as top-level key 'streamID' or at least one streamID tag must be provided in the pipeline)")
 			},
 		},
 	}
