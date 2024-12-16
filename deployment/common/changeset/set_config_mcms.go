@@ -37,13 +37,13 @@ var _ deployment.ChangeSet[SetConfigParams] = SetConfigMCMS
 
 // Validate checks that the SetConfigParams is valid
 func (cfg SetConfigParams) Validate(e deployment.Environment, selectors []uint64) error {
+	if len(cfg.ConfigsPerChain) == 0 {
+		return errors.New("no chain configs provided")
+	}
 	// configs should have at least one chain
 	state, err := MaybeLoadMCMSWithTimelockState(e, selectors)
 	if err != nil {
 		return err
-	}
-	if len(cfg.ConfigsPerChain) == 0 {
-		return errors.New("no chain configs provided")
 	}
 	for chainSelector, c := range cfg.ConfigsPerChain {
 		family, err := chain_selectors.GetSelectorFamily(chainSelector)
@@ -114,16 +114,17 @@ func setConfigPerRole(chain deployment.Chain, cfg ConfigPerRole, mcmsState *MCMS
 	}
 	// Bypasser set config
 	bypasserTx, err := setConfigOrTxData(chain, cfg.Bypasser, mcmsState.BypasserMcm, useMCMS)
-
 	if err != nil {
 		return setConfigTxs{}, err
 	}
+
 	return setConfigTxs{
 		proposerTx:  proposerTx,
 		cancellerTx: cancellerTx,
 		bypasserTx:  bypasserTx,
 	}, nil
 }
+
 func addTxsToProposalBatch(setConfigTxsChain setConfigTxs, chainSelector uint64, state MCMSWithTimelockState) timelock.BatchChainOperation {
 	result := timelock.BatchChainOperation{
 		ChainIdentifier: mcms.ChainIdentifier(chainSelector),

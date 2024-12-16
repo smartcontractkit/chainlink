@@ -1,7 +1,6 @@
 package changeset_test
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -32,8 +31,8 @@ func setupSetConfigTestEnv(t *testing.T) deployment.Environment {
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 	chainSelector := env.AllChainSelectors()[0]
-	config := proposalutils.SingleGroupMCMS(t)
 
+	config := proposalutils.SingleGroupTimelockConfig(t)
 	// Deploy MCMS and Timelock
 	env, err := commonchangeset.ApplyChangesets(t, env, nil, []commonchangeset.ChangesetApplication{
 		{
@@ -43,12 +42,7 @@ func setupSetConfigTestEnv(t *testing.T) deployment.Environment {
 		{
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployMCMSWithTimelock),
 			Config: map[uint64]types.MCMSWithTimelockConfig{
-				chainSelector: {
-					Canceller:        config,
-					Bypasser:         config,
-					Proposer:         config,
-					TimelockMinDelay: big.NewInt(0),
-				},
+				chainSelector: config,
 			},
 		},
 	})
@@ -76,8 +70,8 @@ func TestSetConfigMCMS(t *testing.T) {
 	// Add the timelock as a signer to check state changes
 	cfg.Signers = append(cfg.Signers, timelockAddress)
 	cfg.Quorum = 2 // quorum should change to 2 out of 2 signers
-	// Transfer ownership to timelock
-	// Apply the changesets
+
+	// Set config on all 3 MCMS contracts
 	_, err = commonchangeset.ApplyChangesets(t, env, nil, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.SetConfigMCMS),
