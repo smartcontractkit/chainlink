@@ -1,8 +1,10 @@
 package changeset
 
 import (
+	"encoding/hex"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
@@ -77,4 +79,43 @@ func TestTransferToMCMSWithTimelock(t *testing.T) {
 	o, err = link.LinkToken.Owner(nil)
 	require.NoError(t, err)
 	require.Equal(t, e.Chains[chain1].DeployerKey.From, o)
+}
+
+func TestRevokeTimelockDeployer(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	e := memory.NewMemoryEnvironment(t, lggr, 0, memory.MemoryEnvironmentConfig{
+		Chains: 1,
+		Nodes:  1,
+	})
+	chain1 := e.AllChainSelectors()[0]
+	e, err := ApplyChangesets(t, e, nil, []ChangesetApplication{
+		{
+			Changeset: WrapChangeSet(DeployMCMSWithTimelock),
+			Config: map[uint64]types.MCMSWithTimelockConfig{
+				chain1: proposalutils.SingleGroupTimelockConfig(t),
+			},
+		},
+	})
+	require.NoError(t, err)
+	addrs, err := e.ExistingAddresses.AddressesForChain(chain1)
+	require.NoError(t, err)
+
+	state, err := MaybeLoadMCMSWithTimelockChainState(e.Chains[chain1], addrs)
+	require.NoError(t, err)
+
+	tl := state.Timelock
+	require.NotNil(t, tl)
+
+	// WHAT AM I DOING HERE? HOW DO I TEST?
+	adminRole, err := tl.ADMINROLE(nil)
+	require.NoError(t, err)
+
+	r, err := tl.GetRoleAdmin(&bind.CallOpts{}, adminRole)
+	require.NoError(t, err)
+	h := hex.EncodeToString(r[:])
+	t.Logf("admin role: %s", h)
+	a := common.BytesToAddress(r[:])
+
+	require.Equal(t, a, e.Chains[chain1].DeployerKey.From)
+
 }
