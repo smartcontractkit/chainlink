@@ -68,7 +68,7 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 
 	// TODO: discrepancy between client and the gas estimator gas price to be fixed - hardcoded for now
 	// fetchedGasPriceDest, err := e.Env.Chains[destChain].Client.SuggestGasPrice(tests.Context(t))
-	fetchedGasPriceDest := big.NewInt(20e9)
+	fetchedGasPriceDest := big.NewInt(20e9) // 20 Gwei = default gas price
 	require.NoError(t, err)
 	originalGasPriceDestUSD := new(big.Int).Div(
 		new(big.Int).Mul(fetchedGasPriceDest, wethPrice),
