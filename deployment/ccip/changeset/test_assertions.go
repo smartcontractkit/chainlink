@@ -221,8 +221,8 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 			return false
 		}
 	},
-		3*time.Minute,
-		1*time.Second,
+		tests.WaitTimeout(t),
+		2*time.Second,
 		"all commitments did not confirm",
 	)
 }

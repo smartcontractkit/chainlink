@@ -2,7 +2,9 @@ package keystone
 
 import (
 	"fmt"
+	"math/big"
 
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -10,12 +12,11 @@ import (
 )
 
 // AddCapabilities adds the capabilities to the registry
-// it tries to add all capabilities in one go, if that fails, it falls back to adding them one by one
-
-func AddCapabilities(lggr logger.Logger, registry *kcr.CapabilitiesRegistry, chain deployment.Chain, capabilities []kcr.CapabilitiesRegistryCapability, useMCMS bool) ([]timelock.MCMSWithTimelockProposal, error) {
+func AddCapabilities(lggr logger.Logger, contractSet *ContractSet, chain deployment.Chain, capabilities []kcr.CapabilitiesRegistryCapability, useMCMS bool) (*timelock.BatchChainOperation, error) {
 	if len(capabilities) == 0 {
 		return nil, nil
 	}
+	registry := contractSet.CapabilitiesRegistry
 	deduped, err := dedupCapabilities(registry, capabilities)
 	if err != nil {
 		return nil, fmt.Errorf("failed to dedup capabilities: %w", err)
@@ -29,7 +30,7 @@ func AddCapabilities(lggr logger.Logger, registry *kcr.CapabilitiesRegistry, cha
 		err = DecodeErr(kcr.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to add capabilities: %w", err)
 	}
-	var proposals []timelock.MCMSWithTimelockProposal
+	var batch *timelock.BatchChainOperation
 	if !useMCMS {
 		_, err = chain.Confirm(tx)
 		if err != nil {
@@ -37,9 +38,18 @@ func AddCapabilities(lggr logger.Logger, registry *kcr.CapabilitiesRegistry, cha
 		}
 		lggr.Info("registered capabilities", "capabilities", deduped)
 	} else {
-		// TODO
+		batch = &timelock.BatchChainOperation{
+			ChainIdentifier: mcms.ChainIdentifier(chain.Selector),
+			Batch: []mcms.Operation{
+				{
+					To:    registry.Address(),
+					Data:  tx.Data(),
+					Value: big.NewInt(0),
+				},
+			},
+		}
 	}
-	return proposals, nil
+	return batch, nil
 }
 
 // CapabilityID returns a unique id for the capability

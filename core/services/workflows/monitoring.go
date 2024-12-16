@@ -143,19 +143,19 @@ func MetricViews() []sdkmetric.View {
 		sdkmetric.NewView(
 			sdkmetric.Instrument{Name: "platform_engine_workflow_earlyexit_time_seconds"},
 			sdkmetric.Stream{Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
-				Boundaries: []float64{0, 1, 10, 100},
+				Boundaries: []float64{0, 1, 10, 30, 120},
 			}},
 		),
 		sdkmetric.NewView(
 			sdkmetric.Instrument{Name: "platform_engine_workflow_completed_time_seconds"},
 			sdkmetric.Stream{Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
-				Boundaries: []float64{0, 100, 1000, 10_000, 50_000, 100_0000, 500_000},
+				Boundaries: []float64{0, 10, 30, 60, 120, 300, 600, 900, 1200},
 			}},
 		),
 		sdkmetric.NewView(
 			sdkmetric.Instrument{Name: "platform_engine_workflow_error_time_seconds"},
 			sdkmetric.Stream{Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
-				Boundaries: []float64{0, 20, 60, 120, 240},
+				Boundaries: []float64{0, 30, 60, 120, 240, 600},
 			}},
 		),
 		sdkmetric.NewView(

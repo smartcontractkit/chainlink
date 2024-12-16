@@ -7,14 +7,16 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
+
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
@@ -48,7 +50,7 @@ func overrides(c *chainlink.Config, s *chainlink.Secrets) {
 	c.InsecureFastScrypt = ptr(true)
 	c.ShutdownGracePeriod = commonconfig.MustNewDuration(testutils.DefaultWaitTimeout)
 
-	c.Database.Dialect = dialects.TransactionWrappedPostgres
+	c.Database.Dialect = pgcommon.TransactionWrappedPostgres
 	c.Database.Lock.Enabled = ptr(false)
 	c.Database.MaxIdleConns = ptr[int64](20)
 	c.Database.MaxOpenConns = ptr[int64](20)
