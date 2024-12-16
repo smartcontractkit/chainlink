@@ -54,6 +54,12 @@ on:
         required: false
       GH_TOKEN:
         required: true
+      FLAKEGUARD_SPLUNK_ENDPOINT:
+        description: "The Splunk HTTP Event Collector (HEC) endpoint."
+        required: true
+      FLAKEGUARD_SPLUNK_HEC:
+        description: "The Splunk HTTP Event Collector (HEC) token."
+        required: true
 
 env:
   GIT_BASE_REF: ${{ inputs.baseRef }}
