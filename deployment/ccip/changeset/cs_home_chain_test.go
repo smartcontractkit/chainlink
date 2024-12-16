@@ -9,6 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -141,7 +142,7 @@ func TestRemoveDons(t *testing.T) {
 	// Remove a don w/ MCMS
 	donsBefore, err = homeChain.CapabilityRegistry.GetDONs(nil)
 	require.NoError(t, err)
-	e.Env, err = commoncs.ApplyChangesets(t, e.Env, map[uint64]*commoncs.TimelockExecutionContracts{
+	e.Env, err = commoncs.ApplyChangesets(t, e.Env, map[uint64]*proposalutils.TimelockExecutionContracts{
 		e.HomeChainSel: {
 			Timelock:  s.Chains[e.HomeChainSel].Timelock,
 			CallProxy: s.Chains[e.HomeChainSel].CallProxy,
