@@ -181,17 +181,6 @@ func deployChainContracts(
 		e.Logger.Errorw("RMNProxy not found", "chain", chain.String())
 		return fmt.Errorf("rmn proxy not found for chain %s, deploy the prerequisites first", chain.String())
 	}
-	var rmnLegacyAddr common.Address
-	if chainState.MockRMN != nil {
-		rmnLegacyAddr = chainState.MockRMN.Address()
-	}
-	// If RMN is deployed, set rmnLegacyAddr to the RMN address
-	if chainState.RMN != nil {
-		rmnLegacyAddr = chainState.RMN.Address()
-	}
-	if rmnLegacyAddr == (common.Address{}) {
-		e.Logger.Warnf("No legacy RMN contract found for chain %s, will not setRMN in RMNRemote", chain.String())
-	}
 	if chainState.Receiver == nil {
 		_, err := deployment.DeployContract(e.Logger, chain, ab,
 			func(chain deployment.Chain) deployment.ContractDeploy[*maybe_revert_message_receiver.MaybeRevertMessageReceiver] {
@@ -210,6 +199,17 @@ func deployChainContracts(
 		}
 	} else {
 		e.Logger.Infow("receiver already deployed", "addr", chainState.Receiver.Address, "chain", chain.String())
+	}
+	var rmnLegacyAddr common.Address
+	if chainState.MockRMN != nil {
+		rmnLegacyAddr = chainState.MockRMN.Address()
+	}
+	// If RMN is deployed, set rmnLegacyAddr to the RMN address
+	if chainState.RMN != nil {
+		rmnLegacyAddr = chainState.RMN.Address()
+	}
+	if rmnLegacyAddr == (common.Address{}) {
+		e.Logger.Warnf("No legacy RMN contract found for chain %s, will not setRMN in RMNRemote", chain.String())
 	}
 	rmnRemoteContract := chainState.RMNRemote
 	if chainState.RMNRemote == nil {
@@ -234,6 +234,7 @@ func deployChainContracts(
 	} else {
 		e.Logger.Infow("rmn remote already deployed", "chain", chain.String(), "addr", chainState.RMNRemote.Address)
 	}
+
 	activeDigest, err := rmnHome.GetActiveDigest(&bind.CallOpts{})
 	if err != nil {
 		e.Logger.Errorw("Failed to get active digest", "chain", chain.String(), "err", err)
@@ -252,7 +253,6 @@ func deployChainContracts(
 		e.Logger.Errorw("Failed to confirm RMNRemote config", "chain", chain.String(), "err", err)
 		return err
 	}
-
 	if chainState.TestRouter == nil {
 		_, err := deployment.DeployContract(e.Logger, chain, ab,
 			func(chain deployment.Chain) deployment.ContractDeploy[*router.Router] {

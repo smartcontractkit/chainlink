@@ -47,6 +47,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink/v2/common/client"
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
@@ -531,7 +532,7 @@ func NewEthMocks(t testing.TB) *evmclimocks.Client {
 }
 
 func NewEthMocksWithStartupAssertions(t testing.TB) *evmclimocks.Client {
-	testutils.SkipShort(t, "long test")
+	tests.SkipShort(t, "long test")
 	c := NewEthMocks(t)
 	chHead := make(<-chan *evmtypes.Head)
 	c.On("Dial", mock.Anything).Maybe().Return(nil)
@@ -554,7 +555,7 @@ func NewEthMocksWithStartupAssertions(t testing.TB) *evmclimocks.Client {
 
 // NewEthMocksWithTransactionsOnBlocksAssertions sets an Eth mock with transactions on blocks
 func NewEthMocksWithTransactionsOnBlocksAssertions(t testing.TB) *evmclimocks.Client {
-	testutils.SkipShort(t, "long test")
+	tests.SkipShort(t, "long test")
 	c := NewEthMocks(t)
 	chHead := make(<-chan *evmtypes.Head)
 	c.On("Dial", mock.Anything).Maybe().Return(nil)

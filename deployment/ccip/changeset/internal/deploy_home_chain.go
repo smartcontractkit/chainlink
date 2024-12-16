@@ -143,6 +143,8 @@ func DonIDForChain(registry *capabilities_registry.CapabilitiesRegistry, ccipHom
 	return donIDs[0], nil
 }
 
+// BuildSetOCR3ConfigArgs builds the OCR3 config arguments for the OffRamp contract
+// using the donID's OCR3 configs from the CCIPHome contract.
 func BuildSetOCR3ConfigArgs(
 	donID uint32,
 	ccipHome *ccip_home.CCIPHome,

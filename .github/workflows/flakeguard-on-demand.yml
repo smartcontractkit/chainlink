@@ -14,14 +14,13 @@ on:
         description: 'The path to the project to run the flaky test detection.'
         default: '.'          
       baseRef:
-        required: true
+        required: false
         type: string
-        description: 'The base reference or branch to compare changes for detecting flaky tests.'
-        default: 'origin/develop'
+        description: 'The base reference or branch to compare changes for detecting flaky tests. Set only when running diffs between branches. E.g. (develop)'
       headRef:
         required: false
         type: string
-        description: 'The head reference or branch to compare changes for detecting flaky tests. Default is the current branch.'        
+        description: 'The head reference or branch to compare changes for detecting flaky tests. Default is the current branch. E.g. (develop)'
       runAllTests:
         required: false
         type: boolean

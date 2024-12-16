@@ -219,6 +219,37 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 		rmnProxy = rmnProxyContract.Contract
 	} else {
 		lggr.Infow("RMNProxy already deployed", "chain", chain.String(), "addr", rmnProxy.Address)
+		// check if the RMNProxy is pointing to the correct RMN contract
+		currentRMNAddr, err := rmnProxy.GetARM(nil)
+		if err != nil {
+			lggr.Errorw("Failed to get RMN from RMNProxy", "chain", chain.String(), "err", err)
+			return err
+		}
+		if currentRMNAddr != rmnAddr {
+			lggr.Infow("RMNProxy is not pointing to the correct RMN contract, updating RMN", "chain", chain.String(), "currentRMN", currentRMNAddr, "expectedRMN", rmnAddr)
+			rmnOwner, err := rmnProxy.Owner(nil)
+			if err != nil {
+				lggr.Errorw("Failed to get owner of RMNProxy", "chain", chain.String(), "err", err)
+				return err
+			}
+			if rmnOwner != chain.DeployerKey.From {
+				lggr.Warnw(
+					"RMNProxy is not owned by the deployer and RMNProxy is not pointing to the correct RMN contract, "+
+						"run SetRMNRemoteOnRMNProxy to update RMN with a proposal",
+					"chain", chain.String(), "owner", rmnOwner, "currentRMN", currentRMNAddr, "expectedRMN", rmnAddr)
+			} else {
+				tx, err := rmnProxy.SetARM(chain.DeployerKey, rmnAddr)
+				if err != nil {
+					lggr.Errorw("Failed to set RMN on RMNProxy", "chain", chain.String(), "err", err)
+					return err
+				}
+				_, err = chain.Confirm(tx)
+				if err != nil {
+					lggr.Errorw("Failed to confirm setRMN on RMNProxy", "chain", chain.String(), "err", err)
+					return err
+				}
+			}
+		}
 	}
 	if tokenAdminReg == nil {
 		tokenAdminRegistry, err := deployment.DeployContract(e.Logger, chain, ab,

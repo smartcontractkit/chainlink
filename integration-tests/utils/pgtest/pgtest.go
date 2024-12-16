@@ -3,33 +3,18 @@ package pgtest
 import (
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
-	"github.com/scylladb/go-reflectx"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
+
+	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 )
 
 func NewSqlxDB(t testing.TB) *sqlx.DB {
-	db, err := sqlx.Open(string(dialects.TransactionWrappedPostgres), uuid.New().String())
-	require.NoError(t, err)
-	t.Cleanup(func() { assert.NoError(t, db.Close()) })
-	db.MapperFunc(reflectx.CamelToSnakeASCII)
-
-	return db
-}
-
-func MustExec(t *testing.T, ds sqlutil.DataSource, stmt string, args ...interface{}) {
-	ctx := tests.Context(t)
-	require.NoError(t, utils.JustError(ds.ExecContext(ctx, stmt, args...)))
-}
-
-func MustCount(t *testing.T, db *sqlx.DB, stmt string, args ...interface{}) (cnt int) {
-	require.NoError(t, db.Get(&cnt, stmt, args...))
-	return
+	dbURL := string(env.DatabaseURL.Get())
+	if dbURL == "" {
+		t.Errorf("you must provide a CL_DATABASE_URL environment variable")
+		return nil
+	}
+	return pg.NewTestDB(t, dbURL)
 }

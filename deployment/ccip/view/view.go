@@ -28,6 +28,7 @@ type ChainView struct {
 	FeeQuoter    map[string]v1_6.FeeQuoterView    `json:"feeQuoter,omitempty"`
 	NonceManager map[string]v1_6.NonceManagerView `json:"nonceManager,omitempty"`
 	RMNRemote    map[string]v1_6.RMNRemoteView    `json:"rmnRemote,omitempty"`
+	RMNHome      map[string]v1_6.RMNHomeView      `json:"rmnHome,omitempty"`
 	OnRamp       map[string]v1_6.OnRampView       `json:"onRamp,omitempty"`
 	OffRamp      map[string]v1_6.OffRampView      `json:"offRamp,omitempty"`
 	// TODO: Perhaps restrict to one CCIPHome/CR? Shouldn't
@@ -44,14 +45,19 @@ func NewChain() ChainView {
 		// v1.0
 		RMNProxy: make(map[string]v1_0.RMNProxyView),
 		// v1.2
-		Router: make(map[string]v1_2.RouterView),
+		Router:        make(map[string]v1_2.RouterView),
+		PriceRegistry: make(map[string]v1_2.PriceRegistryView),
 		// v1.5
 		TokenAdminRegistry: make(map[string]v1_5.TokenAdminRegistryView),
 		CommitStore:        make(map[string]v1_5.CommitStoreView),
+		EVM2EVMOnRamp:      make(map[string]v1_5.OnRampView),
+		EVM2EVMOffRamp:     make(map[string]v1_5.OffRampView),
+		RMN:                make(map[string]v1_5.RMNView),
 		// v1.6
 		FeeQuoter:          make(map[string]v1_6.FeeQuoterView),
 		NonceManager:       make(map[string]v1_6.NonceManagerView),
 		RMNRemote:          make(map[string]v1_6.RMNRemoteView),
+		RMNHome:            make(map[string]v1_6.RMNHomeView),
 		OnRamp:             make(map[string]v1_6.OnRampView),
 		OffRamp:            make(map[string]v1_6.OffRampView),
 		CapabilityRegistry: make(map[string]common_v1_0.CapabilityRegistryView),
