@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -75,7 +76,6 @@ type NewChainsConfig struct {
 	// Common to all chains
 	HomeChainSel uint64
 	FeedChainSel uint64
-	OCRSecrets   deployment.OCRSecrets
 	// Per chain config
 	ChainConfigByChain map[uint64]CCIPOCRParams
 }
@@ -94,9 +94,6 @@ func (c NewChainsConfig) Validate() error {
 	}
 	if err := deployment.IsValidChainSelector(c.FeedChainSel); err != nil {
 		return fmt.Errorf("invalid feed chain selector: %d - %w", c.FeedChainSel, err)
-	}
-	if c.OCRSecrets.IsEmpty() {
-		return fmt.Errorf("no OCR secrets provided")
 	}
 	// Validate chain config
 	for chain, cfg := range c.ChainConfigByChain {
@@ -165,7 +162,7 @@ func configureChain(
 	e deployment.Environment,
 	c NewChainsConfig,
 ) error {
-	if c.OCRSecrets.IsEmpty() {
+	if e.OCRSecrets.IsEmpty() {
 		return fmt.Errorf("OCR secrets are empty")
 	}
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
@@ -178,19 +175,20 @@ func configureChain(
 		e.Logger.Errorw("Failed to load existing onchain state", "err")
 		return err
 	}
+	homeChain := e.Chains[c.HomeChainSel]
 	capReg := existingState.Chains[c.HomeChainSel].CapabilityRegistry
 	if capReg == nil {
-		e.Logger.Errorw("Failed to get capability registry")
+		e.Logger.Errorw("Failed to get capability registry", "chain", homeChain.String())
 		return fmt.Errorf("capability registry not found")
 	}
 	ccipHome := existingState.Chains[c.HomeChainSel].CCIPHome
 	if ccipHome == nil {
-		e.Logger.Errorw("Failed to get ccip home", "err", err)
+		e.Logger.Errorw("Failed to get ccip home", "chain", homeChain.String(), "err", err)
 		return fmt.Errorf("ccip home not found")
 	}
 	rmnHome := existingState.Chains[c.HomeChainSel].RMNHome
 	if rmnHome == nil {
-		e.Logger.Errorw("Failed to get rmn home", "err", err)
+		e.Logger.Errorw("Failed to get rmn home", "chain", homeChain.String(), "err", err)
 		return fmt.Errorf("rmn home not found")
 	}
 
@@ -215,7 +213,7 @@ func configureChain(
 		// For each chain, we create a DON on the home chain (2 OCR instances)
 		if err := addDON(
 			e.Logger,
-			c.OCRSecrets,
+			e.OCRSecrets,
 			capReg,
 			ccipHome,
 			rmnHome.Address(),
@@ -244,6 +242,20 @@ func setupConfigInfo(chainSelector uint64, readers [][32]byte, fChain uint8, cfg
 	}
 }
 
+func isChainConfigEqual(a, b ccip_home.CCIPHomeChainConfig) bool {
+	mapReader := make(map[[32]byte]struct{})
+	for i := range a.Readers {
+		mapReader[a.Readers[i]] = struct{}{}
+	}
+	for i := range b.Readers {
+		if _, ok := mapReader[b.Readers[i]]; !ok {
+			return false
+		}
+	}
+	return bytes.Equal(a.Config, b.Config) &&
+		a.FChain == b.FChain
+}
+
 func addChainConfig(
 	lggr logger.Logger,
 	h deployment.Chain,
@@ -261,13 +273,25 @@ func addChainConfig(
 		return ccip_home.CCIPHomeChainConfigArgs{}, err
 	}
 	chainConfig := setupConfigInfo(chainSelector, p2pIDs, uint8(len(p2pIDs)/3), encodedExtraChainConfig)
+	existingCfg, err := ccipConfig.GetChainConfig(nil, chainSelector)
+	if err != nil {
+		return ccip_home.CCIPHomeChainConfigArgs{}, fmt.Errorf("get chain config for selector %d: %w", chainSelector, err)
+	}
+	if isChainConfigEqual(existingCfg, chainConfig.ChainConfig) {
+		lggr.Infow("Chain config already exists, not applying again",
+			"homeChain", h.String(),
+			"addedChain", chainSelector,
+			"chainConfig", chainConfig,
+		)
+		return chainConfig, nil
+	}
 	tx, err := ccipConfig.ApplyChainConfigUpdates(h.DeployerKey, nil, []ccip_home.CCIPHomeChainConfigArgs{
 		chainConfig,
 	})
 	if _, err := deployment.ConfirmIfNoError(h, tx, err); err != nil {
 		return ccip_home.CCIPHomeChainConfigArgs{}, err
 	}
-	lggr.Infow("Applied chain config updates", "chainConfig", chainConfig)
+	lggr.Infow("Applied chain config updates", "homeChain", h.String(), "addedChain", chainSelector, "chainConfig", chainConfig)
 	return chainConfig, nil
 }
 
@@ -284,6 +308,15 @@ func createDON(
 	newChainSel uint64,
 	nodes deployment.Nodes,
 ) error {
+	donID, err := internal.DonIDForChain(capReg, ccipHome, newChainSel)
+	if err != nil {
+		return fmt.Errorf("fetch don id for chain: %w", err)
+	}
+	if donID != 0 {
+		lggr.Infow("DON already exists not adding it again", "donID", donID, "chain", newChainSel)
+		return ValidateCCIPHomeConfigSetUp(lggr, capReg, ccipHome, newChainSel)
+	}
+
 	commitConfig, ok := ocr3Configs[cctypes.PluginTypeCCIPCommit]
 	if !ok {
 		return fmt.Errorf("missing commit plugin in ocr3Configs")
@@ -299,19 +332,19 @@ func createDON(
 		return err
 	}
 
-	donID := latestDon.Id + 1
+	donID = latestDon.Id + 1
 
-	err = internal.SetupCommitDON(donID, commitConfig, capReg, home, nodes, ccipHome)
+	err = internal.SetupCommitDON(lggr, donID, commitConfig, capReg, home, nodes, ccipHome)
 	if err != nil {
 		return fmt.Errorf("setup commit don: %w", err)
 	}
 
 	// TODO: bug in contract causing this to not work as expected.
-	err = internal.SetupExecDON(donID, execConfig, capReg, home, nodes, ccipHome)
+	err = internal.SetupExecDON(lggr, donID, execConfig, capReg, home, nodes, ccipHome)
 	if err != nil {
 		return fmt.Errorf("setup exec don: %w", err)
 	}
-	return ValidateCCIPHomeConfigSetUp(capReg, ccipHome, newChainSel)
+	return ValidateCCIPHomeConfigSetUp(lggr, capReg, ccipHome, newChainSel)
 }
 
 func addDON(
@@ -352,11 +385,37 @@ func addDON(
 		"chainSelector", dest.Selector,
 	)
 
+	// check if OCR3 config is already set on offramp
+	ocr3ConfigSet, err := isOCR3ConfigSetOnOffRamp(lggr, dest, offRamp, offrampOCR3Configs)
+	if err != nil {
+		return fmt.Errorf("error checking if OCR3 config is set on offramp: %w", err)
+	}
+	if ocr3ConfigSet {
+		lggr.Infow("OCR3 config already set on offramp, not applying again", "chain", dest.String())
+		return nil
+	}
 	tx, err := offRamp.SetOCR3Configs(dest.DeployerKey, offrampOCR3Configs)
 	if _, err := deployment.ConfirmIfNoError(dest, tx, err); err != nil {
 		return err
 	}
+	lggr.Infow("Set OCR3 Configs", "chain", dest.String())
+	// now check if OCR3 config is set on offramp
+	ocr3ConfigSet, err = isOCR3ConfigSetOnOffRamp(lggr, dest, offRamp, offrampOCR3Configs)
+	if err != nil {
+		return fmt.Errorf("error checking if OCR3 config is set on offramp: %w", err)
+	}
+	if !ocr3ConfigSet {
+		return fmt.Errorf("OCR3 config not set on offramp properly, check logs, chain %s", dest.String())
+	}
+	return nil
+}
 
+func isOCR3ConfigSetOnOffRamp(
+	lggr logger.Logger,
+	chain deployment.Chain,
+	offRamp *offramp.OffRamp,
+	offrampOCR3Configs []offramp.MultiOCR3BaseOCRConfigArgs,
+) (bool, error) {
 	mapOfframpOCR3Configs := make(map[cctypes.PluginType]offramp.MultiOCR3BaseOCRConfigArgs)
 	for _, config := range offrampOCR3Configs {
 		mapOfframpOCR3Configs[cctypes.PluginType(config.OcrPluginType)] = config
@@ -367,39 +426,53 @@ func addDON(
 			Context: context.Background(),
 		}, uint8(pluginType))
 		if err != nil {
-			return err
+			return false, fmt.Errorf("error fetching OCR3 config for plugin %s chain %s: %w", pluginType.String(), chain.String(), err)
 		}
+		lggr.Debugw("Fetched OCR3 Configs",
+			"MultiOCR3BaseOCRConfig.F", ocrConfig.ConfigInfo.F,
+			"MultiOCR3BaseOCRConfig.N", ocrConfig.ConfigInfo.N,
+			"MultiOCR3BaseOCRConfig.IsSignatureVerificationEnabled", ocrConfig.ConfigInfo.IsSignatureVerificationEnabled,
+			"Signers", ocrConfig.Signers,
+			"Transmitters", ocrConfig.Transmitters,
+			"configDigest", hex.EncodeToString(ocrConfig.ConfigInfo.ConfigDigest[:]),
+			"chain", chain.String(),
+		)
 		// TODO: assertions to be done as part of full state
 		// resprentation validation CCIP-3047
 		if mapOfframpOCR3Configs[pluginType].ConfigDigest != ocrConfig.ConfigInfo.ConfigDigest {
-			return fmt.Errorf("%s OCR3 config digest mismatch", pluginType.String())
+			lggr.Infow("OCR3 config digest mismatch", "pluginType", pluginType.String())
+			return false, nil
 		}
 		if mapOfframpOCR3Configs[pluginType].F != ocrConfig.ConfigInfo.F {
-			return fmt.Errorf("%s OCR3 config F mismatch", pluginType.String())
+			lggr.Infow("OCR3 config F mismatch", "pluginType", pluginType.String())
+			return false, nil
 		}
 		if mapOfframpOCR3Configs[pluginType].IsSignatureVerificationEnabled != ocrConfig.ConfigInfo.IsSignatureVerificationEnabled {
-			return fmt.Errorf("%s OCR3 config signature verification mismatch", pluginType.String())
+			lggr.Infow("OCR3 config signature verification mismatch", "pluginType", pluginType.String())
+			return false, nil
 		}
 		if pluginType == cctypes.PluginTypeCCIPCommit {
 			// only commit will set signers, exec doesn't need them.
 			for i, signer := range mapOfframpOCR3Configs[pluginType].Signers {
 				if !bytes.Equal(signer.Bytes(), ocrConfig.Signers[i].Bytes()) {
-					return fmt.Errorf("%s OCR3 config signer mismatch", pluginType.String())
+					lggr.Infow("OCR3 config signer mismatch", "pluginType", pluginType.String())
+					return false, nil
 				}
 			}
 		}
 		for i, transmitter := range mapOfframpOCR3Configs[pluginType].Transmitters {
 			if !bytes.Equal(transmitter.Bytes(), ocrConfig.Transmitters[i].Bytes()) {
-				return fmt.Errorf("%s OCR3 config transmitter mismatch", pluginType.String())
+				lggr.Infow("OCR3 config transmitter mismatch", "pluginType", pluginType.String())
+				return false, nil
 			}
 		}
 	}
-
-	return nil
+	return true, nil
 }
 
 // ValidateCCIPHomeConfigSetUp checks that the commit and exec active and candidate configs are set up correctly
 func ValidateCCIPHomeConfigSetUp(
+	lggr logger.Logger,
 	capReg *capabilities_registry.CapabilitiesRegistry,
 	ccipHome *ccip_home.CCIPHome,
 	chainSel uint64,
@@ -409,6 +482,10 @@ func ValidateCCIPHomeConfigSetUp(
 	if err != nil {
 		return fmt.Errorf("fetch don id for chain: %w", err)
 	}
+	if donID == 0 {
+		return fmt.Errorf("don id for chain (%d) does not exist", chainSel)
+	}
+
 	// final sanity checks on configs.
 	commitConfigs, err := ccipHome.GetAllConfigs(&bind.CallOpts{
 		//Pending: true,
@@ -420,10 +497,12 @@ func ValidateCCIPHomeConfigSetUp(
 	if err != nil {
 		return fmt.Errorf("get active commit digest: %w", err)
 	}
+	lggr.Debugw("Fetched active commit digest", "commitActiveDigest", hex.EncodeToString(commitActiveDigest[:]))
 	commitCandidateDigest, err := ccipHome.GetCandidateDigest(nil, donID, uint8(cctypes.PluginTypeCCIPCommit))
 	if err != nil {
 		return fmt.Errorf("get commit candidate digest: %w", err)
 	}
+	lggr.Debugw("Fetched candidate commit digest", "commitCandidateDigest", hex.EncodeToString(commitCandidateDigest[:]))
 	if commitConfigs.ActiveConfig.ConfigDigest == [32]byte{} {
 		return fmt.Errorf(
 			"active config digest is empty for commit, expected nonempty, donID: %d, cfg: %+v, config digest from GetActiveDigest call: %x, config digest from GetCandidateDigest call: %x",
@@ -439,6 +518,10 @@ func ValidateCCIPHomeConfigSetUp(
 	if err != nil {
 		return fmt.Errorf("get all exec configs: %w", err)
 	}
+	lggr.Debugw("Fetched exec configs",
+		"ActiveConfig.ConfigDigest", hex.EncodeToString(execConfigs.ActiveConfig.ConfigDigest[:]),
+		"CandidateConfig.ConfigDigest", hex.EncodeToString(execConfigs.CandidateConfig.ConfigDigest[:]),
+	)
 	if execConfigs.ActiveConfig.ConfigDigest == [32]byte{} {
 		return fmt.Errorf("active config digest is empty for exec, expected nonempty, cfg: %v", execConfigs.ActiveConfig)
 	}

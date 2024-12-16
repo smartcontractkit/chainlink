@@ -70,6 +70,7 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
       OffRamp.StaticConfig({
         chainSelector: DEST_CHAIN_SELECTOR,
         rmnRemote: rmnRemote,
+        gasForCallExactCheck: GAS_FOR_CALL_EXACT_CHECK,
         tokenAdminRegistry: address(s_tokenAdminRegistry),
         nonceManager: address(nonceManager)
       }),
@@ -348,6 +349,7 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
     s_offRamp = new OffRampHelper(
       OffRamp.StaticConfig({
         chainSelector: DEST_CHAIN_SELECTOR,
+        gasForCallExactCheck: GAS_FOR_CALL_EXACT_CHECK,
         rmnRemote: s_mockRMNRemote,
         tokenAdminRegistry: address(s_tokenAdminRegistry),
         nonceManager: address(s_inboundNonceManager)

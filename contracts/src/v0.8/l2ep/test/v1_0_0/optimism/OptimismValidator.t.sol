@@ -9,7 +9,7 @@ import {OptimismSequencerUptimeFeed} from "../../../optimism/OptimismSequencerUp
 import {OptimismValidator} from "../../../optimism/OptimismValidator.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
 
-contract OptimismValidatorTest is L2EPTest {
+contract OptimismValidator_Setup is L2EPTest {
   /// Helper constants
   address internal constant L2_SEQ_STATUS_RECORDER_ADDRESS = 0x491B1dDA0A8fa069bbC1125133A975BF4e85a91b;
   uint32 internal constant INIT_GAS_LIMIT = 1900000;
@@ -42,26 +42,16 @@ contract OptimismValidatorTest is L2EPTest {
   }
 }
 
-contract OptimismValidator_SetGasLimit is OptimismValidatorTest {
-  /// @notice it correctly updates the gas limit
-  function test_CorrectlyUpdatesTheGasLimit() public {
-    uint32 newGasLimit = 2000000;
-    assertEq(s_optimismValidator.getGasLimit(), INIT_GAS_LIMIT);
-    s_optimismValidator.setGasLimit(newGasLimit);
-    assertEq(s_optimismValidator.getGasLimit(), newGasLimit);
-  }
-}
-
-contract OptimismValidator_Validate is OptimismValidatorTest {
+contract OptimismValidator_Validate is OptimismValidator_Setup {
   /// @notice it reverts if called by account with no access
-  function test_RevertsIfCalledByAnAccountWithNoAccess() public {
+  function test_Validate_RevertWhen_CalledByAccountWithNoAccess() public {
     vm.startPrank(s_strangerAddr);
     vm.expectRevert("No access");
     s_optimismValidator.validate(0, 0, 1, 1);
   }
 
-  /// @notice it posts sequencer status when there is not status change
-  function test_PostSequencerStatusWhenThereIsNotStatusChange() public {
+  /// @notice it posts sequencer status when there is no status change
+  function test_Validate_PostSequencerStatus_NoStatusChange() public {
     // Gives access to the s_eoaValidator
     s_optimismValidator.addAccess(s_eoaValidator);
 
@@ -84,8 +74,8 @@ contract OptimismValidator_Validate is OptimismValidatorTest {
     s_optimismValidator.validate(0, 0, 0, 0);
   }
 
-  /// @notice it post sequencer offline
-  function test_PostSequencerOffline() public {
+  /// @notice it posts sequencer offline
+  function test_Validate_PostSequencerOffline() public {
     // Gives access to the s_eoaValidator
     s_optimismValidator.addAccess(s_eoaValidator);
 

@@ -58,7 +58,7 @@ type AddAggregatorInput struct {
 type AddChainInput struct {
 	NetworkID string `json:"networkID,omitempty"`
 	Template  string `json:"template,omitempty"`
-	// The Display Name lets a user differentiate multiple CCIP chains on the same network. It is not unique and used for display purposes only.
+	// The Display String lets a user differentiate multiple CCIP chains on the same network. It is not unique and used for display purposes only.
 	DisplayName *string `json:"displayName,omitempty"`
 }
 
@@ -102,7 +102,7 @@ type AddLaneInput struct {
 	ChainAid string `json:"chainAID,omitempty"`
 	ChainBid string `json:"chainBID,omitempty"`
 	Template string `json:"template,omitempty"`
-	// The Display Name lets a user differentiate multiple CCIP chains on the same network. It is not unique and used for display purposes only.
+	// The Display String lets a user differentiate multiple CCIP chains on the same network. It is not unique and used for display purposes only.
 	DisplayName *string `json:"displayName,omitempty"`
 }
 
@@ -353,7 +353,7 @@ type CCIPChain struct {
 	FeeTokens          []string           `json:"feeTokens,omitempty"`
 	WrappedNativeToken string             `json:"wrappedNativeToken,omitempty"`
 	ArchivedAt         *Time              `json:"archivedAt,omitempty"`
-	// The Display Name lets a user differentiate multiple CCIP chains on the same network. It is not unique and used for display purposes only.
+	// The Display String lets a user differentiate multiple CCIP chains on the same network. It is not unique and used for display purposes only.
 	DisplayName      *string                `json:"displayName,omitempty"`
 	DeployedTemplate map[string]interface{} `json:"deployedTemplate,omitempty"`
 	Labels           map[string]interface{} `json:"labels,omitempty"`
@@ -1001,7 +1001,7 @@ type ImportAggregatorInput struct {
 type ImportChainInput struct {
 	NetworkID string `json:"networkID,omitempty"`
 	Template  string `json:"template,omitempty"`
-	// The Display Name lets a user differentiate multiple CCIP chains on the same network. It is not unique and used for display purposes only.
+	// The Display String lets a user differentiate multiple CCIP chains on the same network. It is not unique and used for display purposes only.
 	DisplayName *string `json:"displayName,omitempty"`
 }
 
@@ -1047,7 +1047,7 @@ type ImportLaneInput struct {
 	ChainAid string `json:"chainAID,omitempty"`
 	ChainBid string `json:"chainBID,omitempty"`
 	Template string `json:"template,omitempty"`
-	// The Display Name lets a user differentiate multiple CCIP chains on the same network. It is not unique and used for display purposes only.
+	// The Display String lets a user differentiate multiple CCIP chains on the same network. It is not unique and used for display purposes only.
 	DisplayName *string `json:"displayName,omitempty"`
 }
 

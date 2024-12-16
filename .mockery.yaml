@@ -583,12 +583,6 @@ packages:
   github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer:
     interfaces:
       ORM:
-      ContractReader:
-        config:
-          mockname: "Mock{{ .InterfaceName }}"
-          filename: contract_reader_mock.go
-          inpackage: true
-          dir: "{{ .InterfaceDir }}"
       Handler:
         config:
           mockname: "Mock{{ .InterfaceName }}"

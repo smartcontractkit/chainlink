@@ -18,10 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 )
 
-const (
-	defaultFetchTimeoutMs = 20_000
-)
-
 type FetcherService struct {
 	services.StateMachine
 	lggr    logger.Logger
@@ -44,7 +40,7 @@ func (s *FetcherService) Start(ctx context.Context) error {
 	return s.StartOnce("FetcherService", func() error {
 		connector := s.wrapper.GetGatewayConnector()
 
-		outgoingConnectorLggr := s.lggr.Named("WorkflowSyncer")
+		outgoingConnectorLggr := s.lggr.Named("OutgoingConnectorHandler")
 
 		webAPIConfig := webapi.ServiceConfig{
 			RateLimiter: common.RateLimiterConfig{
@@ -88,17 +84,11 @@ func hash(url string) string {
 }
 
 func (s *FetcherService) Fetch(ctx context.Context, url string) ([]byte, error) {
-	payloadBytes, err := json.Marshal(ghcapabilities.Request{
-		URL:       url,
-		Method:    http.MethodGet,
-		TimeoutMs: defaultFetchTimeoutMs,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal fetch request: %w", err)
-	}
-
 	messageID := strings.Join([]string{ghcapabilities.MethodWorkflowSyncer, hash(url)}, "/")
-	resp, err := s.och.HandleSingleNodeRequest(ctx, messageID, payloadBytes)
+	resp, err := s.och.HandleSingleNodeRequest(ctx, messageID, ghcapabilities.Request{
+		URL:    url,
+		Method: http.MethodGet,
+	})
 	if err != nil {
 		return nil, err
 	}

@@ -14,7 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/weth9_wrapper"
@@ -101,11 +101,10 @@ func setupTokens(
 
 func Test_CCIPFees(t *testing.T) {
 	t.Parallel()
-	tenv := changeset.NewMemoryEnvironmentWithJobsAndContracts(t, logger.TestLogger(t), memory.MemoryEnvironmentConfig{
-		Chains:     2,
-		Nodes:      4,
-		Bootstraps: 1,
-	}, nil)
+	tenv, _ := testsetups.NewIntegrationEnvironment(
+		t,
+		changeset.WithMultiCall3(),
+	)
 	e := tenv.Env
 
 	allChains := tenv.Env.AllChainSelectors()

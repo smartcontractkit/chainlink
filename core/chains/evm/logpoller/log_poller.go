@@ -23,6 +23,8 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"golang.org/x/exp/maps"
 
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/timeutil"
@@ -91,6 +93,7 @@ type Client interface {
 }
 
 type HeadTracker interface {
+	services.Service
 	LatestAndFinalizedBlock(ctx context.Context) (latest, finalized *evmtypes.Head, err error)
 }
 
@@ -99,7 +102,6 @@ var (
 	ErrReplayRequestAborted               = pkgerrors.New("aborted, replay request cancelled")
 	ErrReplayInProgress                   = pkgerrors.New("replay request cancelled, but replay is already in progress")
 	ErrLogPollerShutdown                  = pkgerrors.New("replay aborted due to log poller shutdown")
-	ErrFinalityViolated                   = pkgerrors.New("finality violated")
 )
 
 type logPoller struct {
@@ -525,7 +527,7 @@ func (lp *logPoller) Close() error {
 
 func (lp *logPoller) Healthy() error {
 	if lp.finalityViolated.Load() {
-		return ErrFinalityViolated
+		return commontypes.ErrFinalityViolated
 	}
 	return nil
 }

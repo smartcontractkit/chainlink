@@ -3,7 +3,6 @@ package changeset
 import (
 	"testing"
 
-	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
@@ -14,6 +13,7 @@ import (
 )
 
 func TestDeployHomeChain(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		Bootstraps: 1,
@@ -43,10 +43,7 @@ func TestDeployHomeChain(t *testing.T) {
 	require.NotNil(t, state.Chains[homeChainSel].RMNHome)
 	snap, err := state.View([]uint64{homeChainSel})
 	require.NoError(t, err)
-	chainid, err := chainsel.ChainIdFromSelector(homeChainSel)
-	require.NoError(t, err)
-	chainName, err := chainsel.NameFromChainId(chainid)
-	require.NoError(t, err)
+	chainName := e.Chains[homeChainSel].Name()
 	_, ok := snap[chainName]
 	require.True(t, ok)
 	capRegSnap, ok := snap[chainName].CapabilityRegistry[state.Chains[homeChainSel].CapabilityRegistry.Address().String()]
