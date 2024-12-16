@@ -334,8 +334,8 @@ type RemoveDONsConfig struct {
 }
 
 func (c RemoveDONsConfig) Validate(homeChain CCIPChainState) error {
-	if c.HomeChainSel == 0 {
-		return fmt.Errorf("home chain selector must be set")
+	if err := deployment.IsValidChainSelector(c.HomeChainSel); err != nil {
+		return fmt.Errorf("home chain selector must be set %w", err)
 	}
 	if len(c.DonIDs) == 0 {
 		return fmt.Errorf("don ids must be set")
@@ -347,22 +347,8 @@ func (c RemoveDONsConfig) Validate(homeChain CCIPChainState) error {
 	if homeChain.CCIPHome == nil {
 		return fmt.Errorf("ccip home does not exist")
 	}
-	// DON ids must exist
-	dons, err := homeChain.CapabilityRegistry.GetDONs(nil)
-	if err != nil {
-		return fmt.Errorf("failed to get dons: %w", err)
-	}
-	for _, donID := range c.DonIDs {
-		exists := false
-		for _, don := range dons {
-			if don.Id == donID {
-				exists = true
-				break
-			}
-		}
-		if !exists {
-			return fmt.Errorf("don id %d does not exist", donID)
-		}
+	if err := internal.DONIdExists(homeChain.CapabilityRegistry, c.DonIDs); err != nil {
+		return err
 	}
 	return nil
 }
@@ -375,13 +361,19 @@ func RemoveDONs(e deployment.Environment, cfg RemoveDONsConfig) (deployment.Chan
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	homeChain := e.Chains[cfg.HomeChainSel]
-	txOpts := homeChain.DeployerKey
-	if cfg.MCMS != nil {
-		// Remove all DONs
-		txOpts = deployment.SimTransactOpts()
+	homeChain, ok := e.Chains[cfg.HomeChainSel]
+	if !ok {
+		return deployment.ChangesetOutput{}, fmt.Errorf("home chain %d not found", cfg.HomeChainSel)
 	}
 	homeChainState := state.Chains[cfg.HomeChainSel]
+	if err := cfg.Validate(homeChainState); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	txOpts := homeChain.DeployerKey
+	if cfg.MCMS != nil {
+		txOpts = deployment.SimTransactOpts()
+	}
+
 	tx, err := homeChainState.CapabilityRegistry.RemoveDONs(txOpts, cfg.DonIDs)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
@@ -391,6 +383,7 @@ func RemoveDONs(e deployment.Environment, cfg RemoveDONsConfig) (deployment.Chan
 		if err != nil {
 			return deployment.ChangesetOutput{}, err
 		}
+		e.Logger.Infof("Removed dons using deployer key tx %s", tx.Hash().String())
 		return deployment.ChangesetOutput{}, nil
 	}
 	p, err := proposalutils.BuildProposalFromBatches(
@@ -418,6 +411,7 @@ func RemoveDONs(e deployment.Environment, cfg RemoveDONsConfig) (deployment.Chan
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
+	e.Logger.Infof("Created proposal to remove dons")
 	return deployment.ChangesetOutput{Proposals: []timelock.MCMSWithTimelockProposal{
 		*p,
 	}}, nil
