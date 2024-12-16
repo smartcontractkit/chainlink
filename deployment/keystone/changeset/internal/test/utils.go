@@ -21,14 +21,47 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
+	workflow_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/workflow/generated/workflow_registry_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
+
+type SetupTestWorkflowRegistryResponse struct {
+	Registry         *workflow_registry.WorkflowRegistry
+	Chain            deployment.Chain
+	RegistrySelector uint64
+	AddressBook      deployment.AddressBook
+}
+
+func SetupTestWorkflowRegistry(t *testing.T, lggr logger.Logger, chainSel uint64) *SetupTestWorkflowRegistryResponse {
+	chain := testChain(t)
+
+	deployer, err := kslib.NewWorkflowRegistryDeployer()
+	require.NoError(t, err)
+	resp, err := deployer.Deploy(kslib.DeployRequest{Chain: chain})
+	require.NoError(t, err)
+
+	addressBook := deployment.NewMemoryAddressBookFromMap(
+		map[uint64]map[string]deployment.TypeAndVersion{
+			chainSel: map[string]deployment.TypeAndVersion{
+				resp.Address.Hex(): resp.Tv,
+			},
+		},
+	)
+
+	return &SetupTestWorkflowRegistryResponse{
+		Registry:         deployer.Contract(),
+		Chain:            chain,
+		RegistrySelector: chain.Selector,
+		AddressBook:      addressBook,
+	}
+}
 
 type Don struct {
 	Name              string
 	P2PIDs            []p2pkey.PeerID
 	CapabilityConfigs []internal.CapabilityConfig
 }
+
 type SetupTestRegistryRequest struct {
 	P2pToCapabilities map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability
 	NopToNodes        map[kcr.CapabilitiesRegistryNodeOperator][]*internal.P2PSignerEnc

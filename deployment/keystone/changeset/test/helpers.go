@@ -1,4 +1,4 @@
-package changeset_test
+package test
 
 import (
 	"bytes"
@@ -6,17 +6,16 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"math"
 	"sort"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/exp/maps"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -26,32 +25,10 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/keystone"
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 	kschangeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/workflowregistry"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
-
-func TestSetupTestEnv(t *testing.T) {
-	t.Parallel()
-	ctx := tests.Context(t)
-	for _, useMCMS := range []bool{true, false} {
-		te := SetupTestEnv(t, TestConfig{
-			WFDonConfig:     DonConfig{N: 4},
-			AssetDonConfig:  DonConfig{N: 4},
-			WriterDonConfig: DonConfig{N: 4},
-			NumChains:       3,
-			UseMCMS:         useMCMS,
-		})
-		t.Run(fmt.Sprintf("set up test env using MCMS: %t", useMCMS), func(t *testing.T) {
-			require.NotNil(t, te.Env.ExistingAddresses)
-			require.Len(t, te.Env.Chains, 3)
-			require.NotEmpty(t, te.RegistrySelector)
-			require.NotNil(t, te.Env.Offchain)
-			r, err := te.Env.Offchain.ListNodes(ctx, &node.ListNodesRequest{})
-			require.NoError(t, err)
-			require.Len(t, r.Nodes, 12)
-		})
-	}
-}
 
 type DonConfig struct {
 	N int
@@ -141,6 +118,10 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 		},
 		{
 			Changeset: commonchangeset.WrapChangeSet(kschangeset.DeployForwarder),
+			Config:    registryChainSel,
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(workflowregistry.Deploy),
 			Config:    registryChainSel,
 		},
 	})
@@ -318,7 +299,7 @@ func validateInitialChainState(t *testing.T, env deployment.Environment, registr
 	// all contracts on registry chain
 	registryChainAddrs, err := ad.AddressesForChain(registryChainSel)
 	require.NoError(t, err)
-	require.Len(t, registryChainAddrs, 3) // registry, ocr3, forwarder
+	require.Len(t, registryChainAddrs, 4) // registry, ocr3, forwarder, workflowRegistry
 	// only forwarder on non-home chain
 	for sel := range env.Chains {
 		chainAddrs, err := ad.AddressesForChain(sel)
@@ -326,7 +307,7 @@ func validateInitialChainState(t *testing.T, env deployment.Environment, registr
 		if sel != registryChainSel {
 			require.Len(t, chainAddrs, 1)
 		} else {
-			require.Len(t, chainAddrs, 3)
+			require.Len(t, chainAddrs, 4)
 		}
 		containsForwarder := false
 		for _, tv := range chainAddrs {
