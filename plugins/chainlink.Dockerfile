@@ -12,12 +12,18 @@ RUN go mod download
 # Env vars needed for chainlink build
 ARG COMMIT_SHA
 
+# Flags for Go Delve debugger
+ARG GO_GCFLAGS
+
 COPY . .
 
 RUN apt-get update && apt-get install -y jq
 
+# Install Delve for debugging
+RUN go install github.com/go-delve/delve/cmd/dlv@latest
+
 # Build the golang binaries
-RUN make install-chainlink
+RUN make GO_GCFLAGS="${GO_GCFLAGS}" install-chainlink
 
 # Install medianpoc binary
 RUN make install-medianpoc
@@ -52,6 +58,7 @@ WORKDIR /chainlink-starknet/relayer
 COPY --from=buildgo /chainlink-starknet/relayer .
 RUN go install ./pkg/chainlink/cmd/chainlink-starknet
 
+
 # Final image: ubuntu with chainlink binary
 FROM ubuntu:20.04
 
@@ -68,6 +75,8 @@ RUN curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
 COPY --from=buildgo /go/bin/chainlink /usr/local/bin/
 COPY --from=buildgo /go/bin/chainlink-medianpoc /usr/local/bin/
 COPY --from=buildgo /go/bin/chainlink-ocr3-capability /usr/local/bin/
+# Copy Delve debugger from build stage
+COPY --from=buildgo /go/bin/dlv /usr/local/bin/dlv
 
 COPY --from=buildplugins /go/bin/chainlink-feeds /usr/local/bin/
 ENV CL_MEDIAN_CMD chainlink-feeds
@@ -92,6 +101,7 @@ ENV XDG_CACHE_HOME /home/${CHAINLINK_USER}/.cache
 RUN mkdir -p ${XDG_CACHE_HOME}
 
 EXPOSE 6688
+EXPOSE 40000
 ENTRYPOINT ["chainlink"]
 
 HEALTHCHECK CMD curl -f http://localhost:6688/health || exit 1
