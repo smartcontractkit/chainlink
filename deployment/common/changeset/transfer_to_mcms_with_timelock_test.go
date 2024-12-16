@@ -106,7 +106,6 @@ func TestRenounceTimelockDeployer(t *testing.T) {
 	tl := state.Timelock
 	require.NotNil(t, tl)
 
-	// WHAT AM I DOING HERE? HOW DO I TEST?
 	adminRole, err := tl.ADMINROLE(nil)
 	require.NoError(t, err)
 
