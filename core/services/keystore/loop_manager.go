@@ -77,3 +77,7 @@ func (m *Manager) HealthReport() map[string]error {
 func (m *Manager) Name() string {
 	return "LOOPP-Keystore-Manager"
 }
+
+func (m *Manager) TEST() {
+	println("Called TEST")
+}

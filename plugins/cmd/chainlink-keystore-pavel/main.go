@@ -1,4 +1,4 @@
-package chainlink_keystore_pavel
+package main
 
 import (
 	"context"

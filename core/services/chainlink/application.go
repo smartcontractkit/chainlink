@@ -458,6 +458,13 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	loopRegistrarConfig := plugins.NewRegistrarConfig(opts.GRPCOpts, opts.LoopRegistry.Register, opts.LoopRegistry.Unregister)
 
+	keystoreManager := keystore.NewLOOPPKeystoreManager(loopRegistrarConfig, globalLogger)
+	keyStore.AddLOOPPManager(keystoreManager)
+
+	//Just for development
+	keystoreManager.Register("someID", "chainlink-keystore-pavel")
+	srvcs = append(srvcs, keystoreManager)
+
 	var (
 		delegates = map[job.Type]job.Delegate{
 			job.DirectRequest: directrequest.NewDelegate(
@@ -767,6 +774,9 @@ func (app *ChainlinkApplication) Start(ctx context.Context) error {
 	}
 
 	app.started = true
+
+	m, _ := app.KeyStore.GetLOOPPManager()
+	m.TEST()
 
 	return nil
 }
