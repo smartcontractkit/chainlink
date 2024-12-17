@@ -17,19 +17,19 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 )
 
-type toCalldataFunc func(
+type ToCalldataFunc func(
 	rawReportCtx [2][32]byte,
-	report ocr3types.ReportWithInfo[[]byte],
+	report []byte,
 	rs, ss [][32]byte,
 	vs [32]byte,
-) (any, error)
+) any
 
 func ToCommitCalldata(
 	rawReportCtx [2][32]byte,
-	report ocr3types.ReportWithInfo[[]byte],
+	report []byte,
 	rs, ss [][32]byte,
 	vs [32]byte,
-) (any, error) {
+) any {
 	// Note that the name of the struct field is very important, since the encoder used
 	// by the chainwriter uses mapstructure, which will use the struct field name to map
 	// to the argument name in the function call.
@@ -47,19 +47,19 @@ func ToCommitCalldata(
 		RawVs         [32]byte
 	}{
 		ReportContext: rawReportCtx,
-		Report:        report.Report,
+		Report:        report,
 		Rs:            rs,
 		Ss:            ss,
 		RawVs:         vs,
-	}, nil
+	}
 }
 
 func ToExecCalldata(
 	rawReportCtx [2][32]byte,
-	report ocr3types.ReportWithInfo[[]byte],
+	report []byte,
 	rs, ss [][32]byte,
 	vs [32]byte,
-) (any, error) {
+) any {
 	// Note that the name of the struct field is very important, since the encoder used
 	// by the chainwriter uses mapstructure, which will use the struct field name to map
 	// to the argument name in the function call.
@@ -74,8 +74,8 @@ func ToExecCalldata(
 		Report        []byte
 	}{
 		ReportContext: rawReportCtx,
-		Report:        report.Report,
-	}, nil
+		Report:        report,
+	}
 }
 
 var _ ocr3types.ContractTransmitter[[]byte] = &commitTransmitter{}
@@ -86,7 +86,7 @@ type commitTransmitter struct {
 	contractName   string
 	method         string
 	offrampAddress string
-	toCalldataFn   toCalldataFunc
+	toCalldataFn   ToCalldataFunc
 }
 
 func XXXNewContractTransmitterTestsOnly(
@@ -95,7 +95,7 @@ func XXXNewContractTransmitterTestsOnly(
 	contractName string,
 	method string,
 	offrampAddress string,
-	toCalldataFn toCalldataFunc,
+	toCalldataFn ToCalldataFunc,
 ) ocr3types.ContractTransmitter[[]byte] {
 	return &commitTransmitter{
 		cw:             cw,
@@ -176,10 +176,7 @@ func (c *commitTransmitter) Transmit(
 	}
 
 	// chain writer takes in the raw calldata and packs it on its own.
-	args, err := c.toCalldataFn(rawReportCtx, reportWithInfo, rs, ss, vs)
-	if err != nil {
-		return fmt.Errorf("failed to generate call data: %w", err)
-	}
+	args := c.toCalldataFn(rawReportCtx, reportWithInfo.Report, rs, ss, vs)
 
 	// TODO: no meta fields yet, what should we add?
 	// probably whats in the info part of the report?
