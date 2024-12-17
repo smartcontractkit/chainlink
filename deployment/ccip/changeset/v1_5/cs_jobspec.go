@@ -98,10 +98,6 @@ func jobSpecsForLane(
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse chain ID %s for chain %s: %w", destEVMChainIdStr, destChain.String(), err)
 			}
-			destChainDetails, err := chain_selectors.GetChainDetailsByChainIDAndFamily(destEVMChainIdStr, chain_selectors.FamilyEVM)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get chain details for chain ID %s: %w", destEVMChainIdStr, err)
-			}
 			ccipJobParam := integrationtesthelpers.CCIPJobSpecParams{
 				OffRamp:                destChainState.EVM2EVMOffRamp[cfg.SourceChainSelector].Address(),
 				CommitStore:            destChainState.CommitStore[cfg.SourceChainSelector].Address(),
@@ -116,7 +112,10 @@ func jobSpecsForLane(
 				P2PV2Bootstrappers:     nodes.BootstrapLocators(),
 			}
 			if !node.IsBootstrap {
-				ocrCfg := node.SelToOCRConfig[destChainDetails]
+				ocrCfg, found := node.OCRConfigForChainSelector(cfg.DestinationChainSelector)
+				if !found {
+					return nil, fmt.Errorf("OCR config not found for chain %s", destChain.String())
+				}
 				ocrKeyBundleID := ocrCfg.KeyBundleID
 				transmitterID := ocrCfg.TransmitAccount
 				commitSpec, err := ccipJobParam.CommitJobSpec()
