@@ -463,6 +463,14 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tc *TestConfigs, tEnv Test
 			},
 		},
 		{
+			// Enable the OCR config on the remote chains.
+			Changeset: commonchangeset.WrapChangeSet(SetOCR3OffRamp),
+			Config: SetOCR3OffRampConfig{
+				HomeChainSel:    e.HomeChainSel,
+				RemoteChainSels: allChains,
+			},
+		},
+		{
 			// Promote everything
 			Changeset: commonchangeset.WrapChangeSet(PromoteAllCandidatesChangeset),
 			Config: PromoteAllCandidatesChangesetConfig{

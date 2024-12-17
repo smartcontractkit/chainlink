@@ -338,7 +338,6 @@ func (s SetCandidateConfigBase) Validate(e deployment.Environment, state CCIPOnC
 // AddDonAndSetCandidateChangesetConfig is a separate config struct
 // because the validation is slightly different from SetCandidateChangesetConfig.
 // In particular, we check to make sure we don't already have a DON for the chain.
-// WARNING this ignores the plugin type and sets both plugins
 type AddDonAndSetCandidateChangesetConfig struct {
 	SetCandidateConfigBase
 }
