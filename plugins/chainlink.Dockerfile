@@ -72,11 +72,12 @@ RUN curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
   && apt-get update && apt-get install -y postgresql-client-16 \
   && apt-get clean all
 
+# Copy Delve debugger from build stage
+COPY --from=buildgo /go/bin/dlv /usr/local/bin/dlv
+
 COPY --from=buildgo /go/bin/chainlink /usr/local/bin/
 COPY --from=buildgo /go/bin/chainlink-medianpoc /usr/local/bin/
 COPY --from=buildgo /go/bin/chainlink-ocr3-capability /usr/local/bin/
-# Copy Delve debugger from build stage
-COPY --from=buildgo /go/bin/dlv /usr/local/bin/dlv
 
 COPY --from=buildplugins /go/bin/chainlink-feeds /usr/local/bin/
 ENV CL_MEDIAN_CMD chainlink-feeds
