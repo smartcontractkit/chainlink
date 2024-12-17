@@ -2,6 +2,7 @@ package resolver
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -471,6 +472,12 @@ func TestResolver_OCR2Spec(t *testing.T) {
 	pluginConfig := map[string]interface{}{
 		"juelsPerFeeCoinSource": 100000000,
 	}
+	onchainSigningStrategy := map[string]interface{}{
+		"strategyName": "multi-chain",
+		"config": map[string]any{
+			"evm": "b3df4d8748b67731a1112e8b45a764941974f5590c93672eebbc4f3504dd10ed",
+		},
+	}
 	require.NoError(t, err)
 
 	testCases := []GQLTestCase{
@@ -486,6 +493,7 @@ func TestResolver_OCR2Spec(t *testing.T) {
 						ContractID:                        contractAddress.String(),
 						ContractConfigConfirmations:       1,
 						ContractConfigTrackerPollInterval: models.Interval(1 * time.Minute),
+						OnchainSigningStrategy:            onchainSigningStrategy,
 						CreatedAt:                         f.Timestamp(),
 						OCRKeyBundleID:                    null.StringFrom(keyBundleID.String()),
 						MonitoringEndpoint:                null.StringFrom("https://monitor.endpoint"),
@@ -509,6 +517,7 @@ func TestResolver_OCR2Spec(t *testing.T) {
 									contractID
 									contractConfigConfirmations
 									contractConfigTrackerPollInterval
+									onchainSigningStrategy
 									createdAt
 									ocrKeyBundleID
 									monitoringEndpoint
@@ -533,6 +542,12 @@ func TestResolver_OCR2Spec(t *testing.T) {
 							"contractID": "0x613a38AC1659769640aaE063C651F48E0250454C",
 							"contractConfigConfirmations": 1,
 							"contractConfigTrackerPollInterval": "1m0s",
+							"onchainSigningStrategy": {
+								"strategyName": "multi-chain",
+								"config": {
+									"evm": "b3df4d8748b67731a1112e8b45a764941974f5590c93672eebbc4f3504dd10ed"
+								}
+							},
 							"createdAt": "2021-01-01T00:00:00Z",
 							"ocrKeyBundleID": "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5",
 							"monitoringEndpoint": "https://monitor.endpoint",
@@ -1157,6 +1172,88 @@ func TestResolver_StandardCapabilitiesSpec(t *testing.T) {
 							"createdAt": "2021-01-01T00:00:00Z",
 							"command": "testcommand",
 							"config": "testconfig"
+						}
+					}
+				}
+			`,
+		},
+	}
+
+	RunGQLTests(t, testCases)
+}
+
+func TestResolver_StreamSpec(t *testing.T) {
+	var (
+		id1      = int32(1)
+		id2      = int32(2)
+		streamID = uint32(3)
+	)
+
+	testCases := []GQLTestCase{
+		{
+			name:          "stream spec with stream ID",
+			authenticated: true,
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				f.App.On("JobORM").Return(f.Mocks.jobORM)
+				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", mock.Anything, id1).Return(job.Job{
+					Type:     job.Stream,
+					StreamID: &streamID,
+				}, nil)
+			},
+			query: fmt.Sprintf(`
+				query GetJob {
+					job(id: "%d") {
+						... on Job {
+							spec {
+								__typename
+								... on StreamSpec {
+									streamID
+								}
+							}
+						}
+					}
+				}
+			`, id1),
+			result: fmt.Sprintf(`
+				{
+					"job": {
+						"spec": {
+							"__typename": "StreamSpec",
+							"streamID": "%d"
+						}
+					}
+				}
+			`, streamID),
+		},
+		{
+			name:          "stream spec without stream ID",
+			authenticated: true,
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				f.App.On("JobORM").Return(f.Mocks.jobORM)
+				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", mock.Anything, id2).Return(job.Job{
+					Type: job.Stream,
+				}, nil)
+			},
+			query: fmt.Sprintf(`
+				query GetJob {
+					job(id: "%d") {
+						... on Job {
+							spec {
+								__typename
+								... on StreamSpec {
+									streamID
+								}
+							}
+						}
+					}
+				}
+			`, id2),
+			result: `
+				{
+					"job": {
+						"spec": {
+							"__typename": "StreamSpec",
+							"streamID": null
 						}
 					}
 				}
