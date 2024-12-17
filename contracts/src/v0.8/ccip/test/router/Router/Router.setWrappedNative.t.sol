@@ -12,7 +12,7 @@ contract Router_setWrappedNative is OnRampSetup {
   }
 
   // Reverts
-  function test_OnlyOwner_Revert() public {
+  function test_RevertWhen_OnlyOwner() public {
     vm.stopPrank();
     vm.expectRevert("Only callable by owner");
     s_sourceRouter.setWrappedNative(address(1));

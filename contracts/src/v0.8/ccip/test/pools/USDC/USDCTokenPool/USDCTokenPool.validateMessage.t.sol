@@ -28,7 +28,7 @@ contract USDCTokenPool__validateMessage is USDCTokenPoolSetup {
 
   // Reverts
 
-  function test_ValidateInvalidMessage_Revert() public {
+  function test_RevertWhen_ValidateInvalidMessage() public {
     USDCMessage memory usdcMessage = USDCMessage({
       version: 0,
       sourceDomain: 1553252,

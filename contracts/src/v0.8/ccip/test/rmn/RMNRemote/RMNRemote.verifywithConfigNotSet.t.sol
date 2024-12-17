@@ -8,7 +8,7 @@ import {RMNRemote} from "../../../rmn/RMNRemote.sol";
 import {RMNRemoteSetup} from "./RMNRemoteSetup.t.sol";
 
 contract RMNRemote_verify_withConfigNotSet is RMNRemoteSetup {
-  function test_verify_reverts() public {
+  function test_RevertWhen_verifys() public {
     Internal.MerkleRoot[] memory merkleRoots = new Internal.MerkleRoot[](0);
     IRMNRemote.Signature[] memory signatures = new IRMNRemote.Signature[](0);
 

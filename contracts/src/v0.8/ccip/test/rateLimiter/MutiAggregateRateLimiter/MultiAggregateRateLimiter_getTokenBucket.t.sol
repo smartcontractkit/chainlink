@@ -8,7 +8,7 @@ import {MultiAggregateRateLimiterSetup} from "./MultiAggregateRateLimiterSetup.t
 import {stdError} from "forge-std/Test.sol";
 
 contract MultiAggregateRateLimiter_getTokenBucket is MultiAggregateRateLimiterSetup {
-  function test_GetTokenBucket_Success() public view {
+  function test_GetTokenBucket() public view {
     RateLimiter.TokenBucket memory bucketInbound = s_rateLimiter.currentRateLimiterState(CHAIN_SELECTOR_1, false);
     _assertConfigWithTokenBucketEquality(s_rateLimiterConfig1, bucketInbound);
     assertEq(BLOCK_TIME, bucketInbound.lastUpdated);
@@ -18,7 +18,7 @@ contract MultiAggregateRateLimiter_getTokenBucket is MultiAggregateRateLimiterSe
     assertEq(BLOCK_TIME, bucketOutbound.lastUpdated);
   }
 
-  function test_Refill_Success() public {
+  function test_Refill() public {
     s_rateLimiterConfig1.capacity = s_rateLimiterConfig1.capacity * 2;
 
     MultiAggregateRateLimiter.RateLimiterConfigArgs[] memory configUpdates =
@@ -57,7 +57,7 @@ contract MultiAggregateRateLimiter_getTokenBucket is MultiAggregateRateLimiterSe
 
   // Reverts
 
-  function test_TimeUnderflow_Revert() public {
+  function test_RevertWhen_TimeUnderflow() public {
     vm.warp(BLOCK_TIME - 1);
 
     vm.expectRevert(stdError.arithmeticError);

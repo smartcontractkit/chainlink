@@ -5,7 +5,7 @@ import {NonceManager} from "../../NonceManager.sol";
 import {OnRampSetup} from "../onRamp/OnRamp/OnRampSetup.t.sol";
 
 contract NonceManager_applyPreviousRampsUpdates is OnRampSetup {
-  function test_SingleRampUpdate_success() public {
+  function test_SingleRampUpdate() public {
     address prevOnRamp = makeAddr("prevOnRamp");
     address prevOffRamp = makeAddr("prevOffRamp");
     NonceManager.PreviousRampsArgs[] memory previousRamps = new NonceManager.PreviousRampsArgs[](1);
@@ -80,7 +80,7 @@ contract NonceManager_applyPreviousRampsUpdates is OnRampSetup {
     assertEq(vm.getRecordedLogs().length, 0);
   }
 
-  function test_applyPreviousRampsUpdates_RevertWhen_PreviousRampAlreadySetOnRamp() public {
+  function test_RevertWhen_applyPreviousRampsUpdatesWhen_PreviousRampAlreadySetOnRamp() public {
     NonceManager.PreviousRampsArgs[] memory previousRamps = new NonceManager.PreviousRampsArgs[](1);
     address prevOnRamp = makeAddr("prevOnRamp");
     previousRamps[0] = NonceManager.PreviousRampsArgs({
@@ -101,7 +101,7 @@ contract NonceManager_applyPreviousRampsUpdates is OnRampSetup {
     s_outboundNonceManager.applyPreviousRampsUpdates(previousRamps);
   }
 
-  function test_applyPreviousRampsUpdates_RevertWhen_PreviousRampAlreadySetOffRamp() public {
+  function test_RevertWhen_applyPreviousRampsUpdatesWhen_PreviousRampAlreadySetOffRamp() public {
     NonceManager.PreviousRampsArgs[] memory previousRamps = new NonceManager.PreviousRampsArgs[](1);
     address prevOffRamp = makeAddr("prevOffRamp");
     previousRamps[0] = NonceManager.PreviousRampsArgs({
@@ -122,7 +122,7 @@ contract NonceManager_applyPreviousRampsUpdates is OnRampSetup {
     s_outboundNonceManager.applyPreviousRampsUpdates(previousRamps);
   }
 
-  function test_applyPreviousRampsUpdates_RevertWhen_PreviousRampAlreadySetOnRampAndOffRamp_Revert() public {
+  function test_RevertWhen_applyPreviousRampsUpdatesWhen_PreviousRampAlreadySetOnRampAndOffRamp_Revert() public {
     NonceManager.PreviousRampsArgs[] memory previousRamps = new NonceManager.PreviousRampsArgs[](1);
     address prevOnRamp = makeAddr("prevOnRamp");
     address prevOffRamp = makeAddr("prevOffRamp");

@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
-import {Router} from "../../../Router.sol";
 import {IAny2EVMMessageReceiver} from "../../../interfaces/IAny2EVMMessageReceiver.sol";
 import {IRouter} from "../../../interfaces/IRouter.sol";
+
+import {Router} from "../../../Router.sol";
 import {Client} from "../../../libraries/Client.sol";
-
+import {BaseTest} from "../../BaseTest.t.sol";
 import {MaybeRevertMessageReceiver} from "../../helpers/receivers/MaybeRevertMessageReceiver.sol";
-import {RouterSetup} from "./RouterSetup.t.sol";
 
-contract Router_applyRampUpdates is RouterSetup {
+contract Router_applyRampUpdates is BaseTest {
   MaybeRevertMessageReceiver internal s_receiver;
 
-  function setUp() public virtual override(RouterSetup) {
+  function setUp() public virtual override {
     super.setUp();
     s_receiver = new MaybeRevertMessageReceiver(false);
   }
@@ -22,7 +22,14 @@ contract Router_applyRampUpdates is RouterSetup {
   ) internal {
     vm.startPrank(offRamp.offRamp);
 
-    Client.Any2EVMMessage memory message = _generateReceiverMessage(offRamp.sourceChainSelector);
+    Client.Any2EVMMessage memory message = Client.Any2EVMMessage({
+      messageId: bytes32("a"),
+      sourceChainSelector: offRamp.sourceChainSelector,
+      sender: bytes("a"),
+      data: bytes("a"),
+      destTokenAmounts: new Client.EVMTokenAmount[](0)
+    });
+
     vm.expectCall(address(s_receiver), abi.encodeWithSelector(IAny2EVMMessageReceiver.ccipReceive.selector, message));
     s_sourceRouter.routeMessage(message, GAS_FOR_CALL_EXACT_CHECK, 100_000, address(s_receiver));
   }
@@ -34,7 +41,16 @@ contract Router_applyRampUpdates is RouterSetup {
 
     vm.expectRevert(IRouter.OnlyOffRamp.selector);
     s_sourceRouter.routeMessage(
-      _generateReceiverMessage(offRamp.sourceChainSelector), GAS_FOR_CALL_EXACT_CHECK, 100_000, address(s_receiver)
+      Client.Any2EVMMessage({
+        messageId: bytes32("a"),
+        sourceChainSelector: offRamp.sourceChainSelector,
+        sender: bytes("a"),
+        data: bytes("a"),
+        destTokenAmounts: new Client.EVMTokenAmount[](0)
+      }),
+      GAS_FOR_CALL_EXACT_CHECK,
+      100_000,
+      address(s_receiver)
     );
   }
 
@@ -267,7 +283,7 @@ contract Router_applyRampUpdates is RouterSetup {
     assertTrue(s_sourceRouter.isChainSupported(DEST_CHAIN_SELECTOR));
   }
 
-  function test_applyRampUpdates_RevertWhen_OnlyOwner() public {
+  function test_RevertWhen_applyRampUpdatesWhen_OnlyOwner() public {
     vm.stopPrank();
     vm.expectRevert("Only callable by owner");
     Router.OnRamp[] memory onRampUpdates = new Router.OnRamp[](0);
@@ -275,7 +291,7 @@ contract Router_applyRampUpdates is RouterSetup {
     s_sourceRouter.applyRampUpdates(onRampUpdates, offRampUpdates, offRampUpdates);
   }
 
-  function test_applyRampUpdates_RevertWhen_OffRampMismatch() public {
+  function test_RevertWhen_applyRampUpdatesWhen_OffRampMismatch() public {
     address offRamp = address(uint160(2));
 
     Router.OnRamp[] memory onRampUpdates = new Router.OnRamp[](0);

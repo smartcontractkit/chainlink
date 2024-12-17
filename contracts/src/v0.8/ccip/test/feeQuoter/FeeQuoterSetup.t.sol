@@ -17,6 +17,18 @@ contract FeeQuoterSetup is TokenSetup {
   address internal constant CUSTOM_TOKEN = address(12345);
   address internal constant CUSTOM_TOKEN_2 = address(bytes20(keccak256("CUSTOM_TOKEN_2")));
 
+  uint32 internal constant MAX_DATA_SIZE = 30_000;
+  uint16 internal constant MAX_TOKENS_LENGTH = 5;
+  uint32 internal constant MAX_GAS_LIMIT = 4_000_000;
+
+  // OnRamp
+  uint96 internal constant MAX_MSG_FEES_JUELS = 1_000e18;
+  uint32 internal constant DEST_GAS_OVERHEAD = 300_000;
+  uint16 internal constant DEST_GAS_PER_PAYLOAD_BYTE = 16;
+
+  uint16 internal constant DEFAULT_TOKEN_FEE_USD_CENTS = 50;
+  uint32 internal constant DEFAULT_TOKEN_BYTES_OVERHEAD = 32;
+
   // Use 16 gas per data availability byte in our tests.
   // This is an overestimation in OP stack, it ignores 4 gas per 0 byte rule.
   // Arbitrum on the other hand, does always use 16 gas per data availability byte.

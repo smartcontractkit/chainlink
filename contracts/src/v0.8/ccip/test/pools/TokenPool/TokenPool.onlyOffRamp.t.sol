@@ -6,7 +6,7 @@ import {TokenPool} from "../../../pools/TokenPool.sol";
 import {TokenPoolSetup} from "./TokenPoolSetup.t.sol";
 
 contract TokenPool_onlyOffRamp is TokenPoolSetup {
-  function test_onlyOffRamp_Success() public {
+  function test_onlyOffRamp() public {
     uint64 chainSelector = DEST_CHAIN_SELECTOR;
     address offRamp = makeAddr("onRamp");
 
@@ -19,7 +19,7 @@ contract TokenPool_onlyOffRamp is TokenPoolSetup {
     s_tokenPool.onlyOffRampModifier(chainSelector);
   }
 
-  function test_ChainNotAllowed_Revert() public {
+  function test_RevertWhen_ChainNotAllowed() public {
     uint64 chainSelector = DEST_CHAIN_SELECTOR + 1;
     address offRamp = makeAddr("onRamp");
 
@@ -60,7 +60,7 @@ contract TokenPool_onlyOffRamp is TokenPoolSetup {
     s_tokenPool.onlyOffRampModifier(chainSelector);
   }
 
-  function test_CallerIsNotARampOnRouter_Revert() public {
+  function test_RevertWhen_CallerIsNotARampOnRouter() public {
     uint64 chainSelector = DEST_CHAIN_SELECTOR;
     address offRamp = makeAddr("offRamp");
 

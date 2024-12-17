@@ -6,14 +6,14 @@ import {Client} from "../../../libraries/Client.sol";
 import {OnRampSetup} from "../../onRamp/OnRamp/OnRampSetup.t.sol";
 
 contract Router_getFee is OnRampSetup {
-  function test_GetFeeSupportedChain_Success() public view {
+  function test_GetFeeSupportedChain() public view {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
     uint256 expectedFee = s_sourceRouter.getFee(DEST_CHAIN_SELECTOR, message);
     assertGt(expectedFee, 10e9);
   }
 
   // Reverts
-  function test_UnsupportedDestinationChain_Revert() public {
+  function test_RevertWhen_UnsupportedDestinationChain() public {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
 
     vm.expectRevert(abi.encodeWithSelector(IRouterClient.UnsupportedDestinationChain.selector, 999));

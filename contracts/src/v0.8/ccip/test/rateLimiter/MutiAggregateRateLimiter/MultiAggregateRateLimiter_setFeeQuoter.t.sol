@@ -7,7 +7,7 @@ import {MultiAggregateRateLimiter} from "../../../MultiAggregateRateLimiter.sol"
 import {MultiAggregateRateLimiterSetup} from "./MultiAggregateRateLimiterSetup.t.sol";
 
 contract MultiAggregateRateLimiter_setFeeQuoter is MultiAggregateRateLimiterSetup {
-  function test_Owner_Success() public {
+  function test_Owner() public {
     address newAddress = address(42);
 
     vm.expectEmit();
@@ -19,14 +19,14 @@ contract MultiAggregateRateLimiter_setFeeQuoter is MultiAggregateRateLimiterSetu
 
   // Reverts
 
-  function test_OnlyOwner_Revert() public {
+  function test_RevertWhen_OnlyOwner() public {
     vm.startPrank(STRANGER);
     vm.expectRevert(Ownable2Step.OnlyCallableByOwner.selector);
 
     s_rateLimiter.setFeeQuoter(STRANGER);
   }
 
-  function test_ZeroAddress_Revert() public {
+  function test_RevertWhen_ZeroAddress() public {
     vm.expectRevert(AuthorizedCallers.ZeroAddressNotAllowed.selector);
     s_rateLimiter.setFeeQuoter(address(0));
   }

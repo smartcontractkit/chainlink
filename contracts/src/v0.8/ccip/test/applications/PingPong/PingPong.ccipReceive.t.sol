@@ -7,7 +7,7 @@ import {Client} from "../../../libraries/Client.sol";
 import {PingPongDappSetup} from "./PingPongDappSetup.t.sol";
 
 contract PingPong_ccipReceive is PingPongDappSetup {
-  function test_CcipReceive_Success() public {
+  function test_CcipReceive() public {
     Client.EVMTokenAmount[] memory tokenAmounts = new Client.EVMTokenAmount[](0);
 
     uint256 pingPongNumber = 5;

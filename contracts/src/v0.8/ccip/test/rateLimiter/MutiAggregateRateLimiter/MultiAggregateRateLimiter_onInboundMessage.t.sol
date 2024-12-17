@@ -34,7 +34,7 @@ contract MultiAggregateRateLimiter_onInboundMessage is MultiAggregateRateLimiter
     s_rateLimiter.updateRateLimitTokens(new MultiAggregateRateLimiter.LocalRateLimitToken[](0), tokensToAdd);
   }
 
-  function test_ValidateMessageWithNoTokens_Success() public {
+  function test_ValidateMessageWithNoTokens() public {
     vm.startPrank(MOCK_OFFRAMP);
 
     vm.recordLogs();
@@ -45,7 +45,7 @@ contract MultiAggregateRateLimiter_onInboundMessage is MultiAggregateRateLimiter
     assertEq(logEntries.length, 0);
   }
 
-  function test_ValidateMessageWithTokens_Success() public {
+  function test_ValidateMessageWithTokens() public {
     vm.startPrank(MOCK_OFFRAMP);
 
     Client.EVMTokenAmount[] memory tokenAmounts = new Client.EVMTokenAmount[](2);
@@ -59,7 +59,7 @@ contract MultiAggregateRateLimiter_onInboundMessage is MultiAggregateRateLimiter
     s_rateLimiter.onInboundMessage(_generateAny2EVMMessage(CHAIN_SELECTOR_1, tokenAmounts));
   }
 
-  function test_ValidateMessageWithDisabledRateLimitToken_Success() public {
+  function test_ValidateMessageWithDisabledRateLimitToken() public {
     MultiAggregateRateLimiter.LocalRateLimitToken[] memory removes =
       new MultiAggregateRateLimiter.LocalRateLimitToken[](1);
     removes[0] = MultiAggregateRateLimiter.LocalRateLimitToken({
@@ -80,7 +80,7 @@ contract MultiAggregateRateLimiter_onInboundMessage is MultiAggregateRateLimiter
     s_rateLimiter.onInboundMessage(_generateAny2EVMMessage(CHAIN_SELECTOR_1, tokenAmounts));
   }
 
-  function test_ValidateMessageWithRateLimitDisabled_Success() public {
+  function test_ValidateMessageWithRateLimitDisabled() public {
     MultiAggregateRateLimiter.RateLimiterConfigArgs[] memory configUpdates =
       new MultiAggregateRateLimiter.RateLimiterConfigArgs[](1);
     configUpdates[0] = MultiAggregateRateLimiter.RateLimiterConfigArgs({
@@ -104,7 +104,7 @@ contract MultiAggregateRateLimiter_onInboundMessage is MultiAggregateRateLimiter
     assertEq(logEntries.length, 0);
   }
 
-  function test_ValidateMessageWithTokensOnDifferentChains_Success() public {
+  function test_ValidateMessageWithTokensOnDifferentChains() public {
     MultiAggregateRateLimiter.RateLimitTokenArgs[] memory tokensToAdd =
       new MultiAggregateRateLimiter.RateLimitTokenArgs[](s_sourceTokens.length);
     for (uint224 i = 0; i < s_sourceTokens.length; ++i) {
@@ -152,7 +152,7 @@ contract MultiAggregateRateLimiter_onInboundMessage is MultiAggregateRateLimiter
     assertEq(bucketChain2.capacity - totalValue, bucketChain2.tokens);
   }
 
-  function test_ValidateMessageWithDifferentTokensOnDifferentChains_Success() public {
+  function test_ValidateMessageWithDifferentTokensOnDifferentChains() public {
     MultiAggregateRateLimiter.RateLimitTokenArgs[] memory tokensToAdd =
       new MultiAggregateRateLimiter.RateLimitTokenArgs[](1);
 
@@ -203,7 +203,7 @@ contract MultiAggregateRateLimiter_onInboundMessage is MultiAggregateRateLimiter
     assertEq(bucketChain2.capacity - totalValue2, bucketChain2.tokens);
   }
 
-  function test_ValidateMessageWithRateLimitReset_Success() public {
+  function test_ValidateMessageWithRateLimitReset() public {
     vm.startPrank(MOCK_OFFRAMP);
 
     Client.EVMTokenAmount[] memory tokenAmounts = new Client.EVMTokenAmount[](2);
@@ -228,7 +228,7 @@ contract MultiAggregateRateLimiter_onInboundMessage is MultiAggregateRateLimiter
 
   // Reverts
 
-  function test_ValidateMessageWithRateLimitExceeded_Revert() public {
+  function test_RevertWhen_ValidateMessageWithRateLimitExceeded() public {
     vm.startPrank(MOCK_OFFRAMP);
 
     Client.EVMTokenAmount[] memory tokenAmounts = new Client.EVMTokenAmount[](2);
@@ -240,7 +240,7 @@ contract MultiAggregateRateLimiter_onInboundMessage is MultiAggregateRateLimiter
     s_rateLimiter.onInboundMessage(_generateAny2EVMMessage(CHAIN_SELECTOR_1, tokenAmounts));
   }
 
-  function test_ValidateMessageFromUnauthorizedCaller_Revert() public {
+  function test_RevertWhen_ValidateMessageFromUnauthorizedCaller() public {
     vm.startPrank(STRANGER);
 
     vm.expectRevert(abi.encodeWithSelector(AuthorizedCallers.UnauthorizedCaller.selector, STRANGER));

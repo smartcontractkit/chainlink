@@ -8,7 +8,7 @@ import {TokenPoolHelper} from "../../helpers/TokenPoolHelper.sol";
 import {TokenPoolWithAllowListSetup} from "./TokenPoolWithAllowListSetup.t.sol";
 
 contract TokenPoolWithAllowList_applyAllowListUpdates is TokenPoolWithAllowListSetup {
-  function test_SetAllowList_Success() public {
+  function test_SetAllowList() public {
     address[] memory newAddresses = new address[](2);
     newAddresses[0] = address(1);
     newAddresses[1] = address(2);
@@ -60,7 +60,7 @@ contract TokenPoolWithAllowList_applyAllowListUpdates is TokenPoolWithAllowListS
     assertEq(0, setAddresses.length);
   }
 
-  function test_SetAllowListSkipsZero_Success() public {
+  function test_SetAllowListSkipsZero() public {
     uint256 setAddressesLength = s_tokenPool.getAllowList().length;
 
     address[] memory newAddresses = new address[](1);
@@ -74,16 +74,16 @@ contract TokenPoolWithAllowList_applyAllowListUpdates is TokenPoolWithAllowListS
 
   // Reverts
 
-  function test_OnlyOwner_Revert() public {
+  function test_RevertWhen_OnlyOwner() public {
     vm.stopPrank();
     vm.expectRevert(Ownable2Step.OnlyCallableByOwner.selector);
     address[] memory newAddresses = new address[](2);
     s_tokenPool.applyAllowListUpdates(new address[](0), newAddresses);
   }
 
-  function test_AllowListNotEnabled_Revert() public {
+  function test_RevertWhen_AllowListNotEnabled() public {
     s_tokenPool = new TokenPoolHelper(
-      s_token, DEFAULT_TOKEN_DECIMALS, new address[](0), address(s_mockRMN), address(s_sourceRouter)
+      s_token, DEFAULT_TOKEN_DECIMALS, new address[](0), address(s_mockRMNRemote), address(s_sourceRouter)
     );
 
     vm.expectRevert(TokenPool.AllowListNotEnabled.selector);

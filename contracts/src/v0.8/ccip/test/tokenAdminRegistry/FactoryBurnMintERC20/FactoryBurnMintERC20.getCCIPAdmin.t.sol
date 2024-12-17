@@ -5,11 +5,11 @@ import {FactoryBurnMintERC20} from "../../../tokenAdminRegistry/TokenPoolFactory
 import {BurnMintERC20Setup} from "./BurnMintERC20Setup.t.sol";
 
 contract FactoryBurnMintERC20_getCCIPAdmin is BurnMintERC20Setup {
-  function test_getCCIPAdmin_Success() public view {
+  function test_getCCIPAdmin() public view {
     assertEq(s_alice, s_burnMintERC20.getCCIPAdmin());
   }
 
-  function test_setCCIPAdmin_Success() public {
+  function test_setCCIPAdmin() public {
     address newAdmin = makeAddr("newAdmin");
 
     vm.expectEmit();
