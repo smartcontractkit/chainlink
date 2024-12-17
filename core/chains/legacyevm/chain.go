@@ -194,10 +194,10 @@ func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Nod
 	chainID := cfg.EVM().ChainID()
 	l := opts.Logger
 	var client evmclient.Client
+	var err error
 	if !opts.AppConfig.EVMRPCEnabled() {
 		client = evmclient.NewNullClient(chainID, l)
 	} else if opts.GenEthClient == nil {
-		var err error
 		client, err = evmclient.NewEvmClient(cfg.EVM().NodePool(), cfg.EVM(), cfg.EVM().NodePool().Errors(), l, chainID, nodes, cfg.EVM().ChainType())
 		if err != nil {
 			return nil, err
@@ -245,8 +245,8 @@ func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Nod
 	}
 
 	// initialize gas estimator
-	gasEstimator, err := newGasEstimator(cfg.EVM(), client, l, opts, clientsByChainID)
-	if err != nil {
+	var gasEstimator gas.EvmFeeEstimator
+	if gasEstimator, err = newGasEstimator(cfg.EVM(), client, l, opts, clientsByChainID); err != nil {
 		return nil, fmt.Errorf("failed to instantiate gas estimator for chain with ID %s: %w", chainID, err)
 	}
 
@@ -258,7 +258,6 @@ func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Nod
 	} else if !cfg.EVM().TransactionManagerEnabled() {
 		txm = &txmgr.NullTxManager{ErrMsg: fmt.Sprintf("TXM disabled for chain %d", chainID)}
 	} else {
-		var err error
 		txm, err = newEvmTxm(opts.DS, cfg.EVM(), opts.AppConfig.Database(), opts.AppConfig.Database().Listener(), client, l, logPoller, opts, headTracker, gasEstimator)
 		if err != nil {
 			return nil, fmt.Errorf("failed to instantiate EvmTxm for chain with ID %s: %w", chainID, err)
