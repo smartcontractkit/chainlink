@@ -13,13 +13,14 @@ import {ITokenAdminRegistry} from "../interfaces/ITokenAdminRegistry.sol";
 
 import {CallWithExactGas} from "../../shared/call/CallWithExactGas.sol";
 import {Client} from "../libraries/Client.sol";
+
+import {ERC165Checker} from "../libraries/ERC165Checker.sol";
 import {Internal} from "../libraries/Internal.sol";
 import {MerkleMultiProof} from "../libraries/MerkleMultiProof.sol";
 import {Pool} from "../libraries/Pool.sol";
 import {MultiOCR3Base} from "../ocr/MultiOCR3Base.sol";
 
 import {IERC20} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts/token/ERC20/IERC20.sol";
-import {ERC165Checker} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts/utils/introspection/ERC165Checker.sol";
 import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts/utils/structs/EnumerableSet.sol";
 
 /// @notice OffRamp enables OCR networks to execute multiple messages in an OffRamp in a single transaction.
@@ -604,9 +605,12 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     // 3. If the receiver is a contract but it does not support the IAny2EVMMessageReceiver interface.
     //
     // The ordering of these checks is important, as the first check is the cheapest to execute.
+    //
+    // To prevent message delivery bypass issues, a modified version of the ERC165Checker is used exclusively here
+    // which checks for sufficient gas before making the external call.
     if (
       (message.data.length == 0 && message.gasLimit == 0) || message.receiver.code.length == 0
-        || !message.receiver.supportsInterface(type(IAny2EVMMessageReceiver).interfaceId)
+        || !message.receiver._supportsInterface(type(IAny2EVMMessageReceiver).interfaceId)
     ) return;
 
     (bool success, bytes memory returnData,) = s_sourceChainConfigs[message.header.sourceChainSelector]
@@ -647,7 +651,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     // This is done to prevent a pool from reverting the entire transaction if it doesn't support the interface.
     // The call gets a max or 30k gas per instance, of which there are three. This means offchain gas estimations should
     // account for 90k gas overhead due to the interface check.
-    if (localPoolAddress == address(0) || !localPoolAddress.supportsInterface(Pool.CCIP_POOL_V1)) {
+    if (localPoolAddress == address(0) || !localPoolAddress._supportsInterface(Pool.CCIP_POOL_V1)) {
       revert NotACompatiblePool(localPoolAddress);
     }
 
