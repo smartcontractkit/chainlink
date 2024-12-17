@@ -283,7 +283,7 @@ func (a AddDonAndSetCandidateChangesetConfig) Validate(e deployment.Environment,
 			return fmt.Errorf("fetch don id for chain: %w", err)
 		}
 		if donID != 0 {
-			return fmt.Errorf("don already exists in CR for chain %d, it has id %d", a.DONChainSelector, donID)
+			return fmt.Errorf("don already exists in CR for chain %d, it has id %d", chainSelector, donID)
 		}
 	}
 

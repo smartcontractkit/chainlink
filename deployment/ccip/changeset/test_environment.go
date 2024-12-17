@@ -452,6 +452,18 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tc *TestConfigs, tEnv Test
 			},
 		},
 		{
+			// Add the commit/exec OCR instances for the new chains.
+			Changeset: commonchangeset.WrapChangeSet(SetCandidateChangeset),
+			Config: SetCandidateChangesetConfig{
+				SetCandidateConfigBase{
+					HomeChainSelector: e.HomeChainSel,
+					FeedChainSelector: e.FeedChainSel,
+					DONChainSelector:  ocrConfigs,
+					PluginType:        types.PluginTypeCCIPExec,
+				},
+			},
+		},
+		{
 			// Promote everything
 			Changeset: commonchangeset.WrapChangeSet(PromoteAllCandidatesChangeset),
 			Config: PromoteAllCandidatesChangesetConfig{
