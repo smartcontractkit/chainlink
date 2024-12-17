@@ -1,15 +1,17 @@
 package ccip
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/rs/zerolog"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
+	"github.com/stretchr/testify/require"
 	"io"
 	"os"
+	"testing"
 	"time"
 )
 
@@ -17,9 +19,12 @@ const (
 	transmitted = iota
 	committed
 	executed
-	LokiLoadLabel = "ccip_load_test"
-	ErrLokiClient = "failed to create Loki client for monitoring"
-	ErrLokiPush   = "failed to push metrics to Loki"
+	LokiLoadLabel   = "ccip_load_test"
+	ErrLokiClient   = "failed to create Loki client for monitoring"
+	ErrLokiPush     = "failed to push metrics to Loki"
+	abPath          = "/Users/austin.wang/ccip-core/repos/chainlink/integration-tests/load/ccip/testfiles/ccip-v2-scripts-address-book.json"
+	nodeIdsPath     = "/Users/austin.wang/ccip-core/repos/chainlink/integration-tests/load/ccip/testfiles/ccip-v2-scripts-node-details.json"
+	chainConfigPath = "/Users/austin.wang/ccip-core/repos/chainlink/integration-tests/load/ccip/testfiles/ccip-v2-scripts-chains-details.json"
 )
 
 // todo: Have a different struct for commit/exec?
@@ -30,36 +35,23 @@ type LokiMetric struct {
 	SequenceNumber uint64    `json:"sequence_number"`
 }
 
-func GetAddressFromTypeAndVersion(ab deployment.AddressBook, cs uint64, tv string) (common.Address, error) {
-	allAddr, err := ab.AddressesForChain(cs)
-	if err != nil {
-		return common.Address{}, err
-	}
-	for addr, tv := range allAddr {
-		if tv.Type == tv.Type && tv.Version == tv.Version {
-			return common.HexToAddress(addr), nil
-		}
-	}
-
-	return common.Address{}, fmt.Errorf("address not found for chain selector %d and typeAndVersion %s", cs, tv)
-}
-
-func SendMetricsToLoki(l zerolog.Logger, lc *wasp.LokiClient, updatedLabels map[string]string, metrics *LokiMetric) {
+func SendMetricsToLoki(l logger.Logger, lc *wasp.LokiClient, updatedLabels map[string]string, metrics *LokiMetric) {
 	if err := lc.HandleStruct(wasp.LabelsMapToModel(updatedLabels), time.Now(), metrics); err != nil {
-		l.Error().Err(err).Msg(ErrLokiPush)
+		l.Error(ErrLokiPush)
 	}
 }
 
 func setLokiLabels(src, dst uint64) map[string]string {
 	return map[string]string{
-		"sourceSelector":      fmt.Sprintf("%d", src),
+		"sourceEvmChainId":    fmt.Sprintf("%d", src),
+		"destEvmChainId":      fmt.Sprintf("%d", src),
 		"destinationSelector": fmt.Sprintf("%d", dst),
 		"testType":            LokiLoadLabel,
 	}
 }
 
-func readFile(inputDir string, fileName string) []byte {
-	file, err := os.Open(fmt.Sprintf("%s/%s", inputDir, fileName))
+func readFile(filePath string) []byte {
+	file, err := os.Open(filePath)
 	if err != nil {
 		fmt.Println("Error opening file:", err)
 		panic(err)
@@ -75,42 +67,28 @@ func readFile(inputDir string, fileName string) []byte {
 	return byteValue
 }
 
-func ReadAddressBook(inputDir string) *deployment.AddressBookMap {
-	byteValue := readFile(inputDir, AddressBookFileName)
+func readFromFile[T []string | *deployment.AddressBookMap | []devenv.ChainConfig](t *testing.T, inputDir string) T {
+	byteValue := readFile(inputDir)
 
-	var result map[uint64]map[string]deployment.TypeAndVersion
-
+	var result T
 	// Unmarshal the JSON into the map
 	err := json.Unmarshal(byteValue, &result)
-	if err != nil {
-		fmt.Println("Error unmarshalling JSON:", err)
-		panic(err)
-	}
-
-	// Print the deserialized map
-	fmt.Println(result)
-	return deployment.NewMemoryAddressBookFromMap(result)
-}
-
-func ReadNodesDetails(inputDir string) NodesDetails {
-	byteValue := readFile(inputDir, NodesDetailsFileName)
-
-	var result NodesDetails
-
-	// Unmarshal the JSON into the map
-	err := json.Unmarshal(byteValue, &result)
-	if err != nil {
-		fmt.Println("Error unmarshalling JSON:", err)
-		panic(err)
-	}
+	require.NoError(t, err)
 
 	// Print the deserialized map
 	fmt.Println(result)
 	return result
 }
 
-func NewDeployEnvironmentFromCribOutput(lggr logger.Logger, ab deployment.AddressBook, nodeIDs []string) (*deployment.Environment, error) {
-	chains, err := devenv.NewChains(lggr, output.Chains)
+func CreateEnvironmentFromCribOutput(t *testing.T, lggr logger.Logger) (*deployment.Environment, error) {
+	ab := readFromFile[*deployment.AddressBookMap](t, abPath)
+	nodeIds := readFromFile[[]string](t, nodeIdsPath)
+	chainDetails := readFromFile[[]devenv.ChainConfig](t, chainConfigPath)
+
+	// todo: make sure to call chainDetails.SetDeployerKey() for each chain
+	// where private keys should be stored in env vars or .toml
+
+	chains, err := devenv.NewChains(lggr, chainDetails)
 	if err != nil {
 		return nil, err
 	}
@@ -119,7 +97,9 @@ func NewDeployEnvironmentFromCribOutput(lggr logger.Logger, ab deployment.Addres
 		lggr,
 		ab,
 		chains,
-		nodeIDs,
-		nil, // todo: populate the offchain client using output.DON
+		nodeIds,
+		nil,
+		func() context.Context { return context.Background() },
+		deployment.XXXGenerateTestOCRSecrets(),
 	), nil
 }

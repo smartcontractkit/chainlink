@@ -80,10 +80,6 @@ func (b *Backend) NonceAt(ctx context.Context, account common.Address, blockNumb
 	return b.Sim.Client().NonceAt(ctx, account, blockNumber)
 }
 
-func (b *Backend) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
-	return b.Sim.Client().BlockByNumber(ctx, number)
-}
-
 func NewBackend(sim *simulated.Backend) *Backend {
 	if sim == nil {
 		panic("simulated backend is nil")

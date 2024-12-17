@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/rs/zerolog"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 	"github.com/smartcontractkit/chainlink/deployment"
-	ccipdeployment "github.com/smartcontractkit/chainlink/deployment/ccip"
+	ccipchangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
+
 	"sync/atomic"
 	"time"
 )
@@ -21,7 +22,7 @@ type ChainSelectorPair struct {
 }
 
 type DestinationGun struct {
-	l             zerolog.Logger
+	l             logger.Logger
 	env           deployment.Environment
 	seqNums       map[ChainSelectorPair]*atomic.Uint64
 	roundNum      *atomic.Int32
@@ -30,7 +31,7 @@ type DestinationGun struct {
 	loki          *wasp.LokiClient
 }
 
-func NewDestinationGun(l zerolog.Logger, chainSelector uint64, env deployment.Environment, receiver common.Address, loki *wasp.LokiClient) *DestinationGun {
+func NewDestinationGun(l logger.Logger, chainSelector uint64, env deployment.Environment, receiver common.Address, loki *wasp.LokiClient) *DestinationGun {
 	seqNums := make(map[ChainSelectorPair]*atomic.Uint64)
 	for _, cs := range env.AllChainSelectorsExcluding([]uint64{chainSelector}) {
 
@@ -60,7 +61,7 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 
 	waspGroup := fmt.Sprintf("%d-%s", m.chainSelector, "messageOnly")
 
-	state, err := ccipdeployment.LoadOnchainState(m.env)
+	state, err := ccipchangeset.LoadOnchainState(m.env)
 	if err != nil {
 		return &wasp.Response{Error: err.Error(), Group: waspGroup, Failed: true}
 	}
@@ -75,12 +76,7 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 		dst: m.chainSelector,
 	}
 	m.seqNums[csPair].Add(1)
-	m.l.Info().
-		Int32("RoundNum", requestedRound).
-		Uint64("Destination ChainSelector", m.chainSelector).
-		Uint64("Source ChainSelector", src).
-		Uint64("SequenceNumber", m.seqNums[csPair].Load()).
-		Msg("starting transmit")
+	m.l.Infow("Starting transmit with ", "RoundNum", requestedRound, "Destination ChainSelector", m.chainSelector, "Source ChainSelector", src, "SequenceNumber", m.seqNums[csPair].Load())
 
 	r := state.Chains[src].Router
 
@@ -116,10 +112,10 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 	return &wasp.Response{Failed: false, Group: waspGroup}
 }
 
-// GetCycledClient will return a valid client from a random source chain
+// MustSourceChain will return a chain selector to send a message from
 func (m *DestinationGun) MustSourceChain() (uint64, error) {
 
-	// TODO: check if this chain has sent a message recently, if so, switch to the next chain
+	// TODO: make this smarter by checking if this chain has sent a message recently, if so, switch to the next chain
 	otherCS := m.env.AllChainSelectorsExcluding([]uint64{m.chainSelector})
 	if len(otherCS) == 0 {
 		return 0, fmt.Errorf("no other chains to send from")
@@ -133,7 +129,8 @@ func (m *DestinationGun) MustSourceChain() (uint64, error) {
 func (m *DestinationGun) GetMessage() (router.ClientEVM2AnyMessage, error) {
 	rcv, err := utils.ABIEncode(`[{"type":"address"}]`, m.receiver)
 	if err != nil {
-		m.l.Error().Err(err).Msg("Error encoding receiver address")
+		m.l.Error("Error encoding receiver address")
+		return router.ClientEVM2AnyMessage{}, err
 	}
 
 	return router.ClientEVM2AnyMessage{

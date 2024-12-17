@@ -3,11 +3,10 @@ package ccip
 import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
-	"github.com/smartcontractkit/chainlink/deployment"
-	ccipdeployment "github.com/smartcontractkit/chainlink/deployment/ccip"
+	ccipchangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/stretchr/testify/require"
 	"math/big"
@@ -21,9 +20,7 @@ var (
 		"branch": "ccip_load_crib",
 		"commit": "ccip_load_crib",
 	}
-	wg          sync.WaitGroup
-	abPath      = "/Users/austin.wang/ccip-core/repos/chainlink/integration-tests/load/ccip/testfiles/ccip-v2-scripts-address-book.json"
-	nodeIdsPath = "/Users/austin.wang/ccip-core/repos/chainlink/integration-tests/load/ccip/testfiles/ccip-v2-scripts-node-details.json"
+	wg sync.WaitGroup
 )
 
 // step 1: setup
@@ -36,32 +33,24 @@ var (
 // Stop the chains, cleanup the environment
 func TestCCIPLoad_RPS(t *testing.T) {
 	ctx := tests.Context(t)
-	l := logging.GetTestLogger(t)
+	lggr := logger.Test(t)
 
 	config, err := tc.GetConfig([]string{"Load"}, tc.CCIP)
-	if err != nil {
-		t.Fatal(err)
-	}
-	l.Info().Interface("loadedTestConfig", config).Msg("Loaded Test Config")
+	require.NoError(t, err)
+	lggr.Infof("loaded test config: %+v", config)
 
-	l.Info().Msg("Starting ccip load test")
-	l.Info().
-		Int("Number of Nodes", *(config.CCIP.Load.NoOfNodes)).
-		Interface("config", config.CCIP.Load).
-		Msg("Test Config")
+	lggr.Info("starting ccip load test")
+	lggr.Infof("Number of nodes: %d", *(config.CCIP.Load.NoOfNodes))
+	lggr.Infof("config: %+v", config.CCIP.Load)
+	lggr.Info("Test Config")
 
-	var env = generateEnvironment()
-
-	var env = deployment.Environment{}
-	// output, err := actions.SetupCCIPHomeChain(l, sethClient, config.CCIP, workerNodes)
-	// require.NoError(t, err)
-	// env, err = crib.DeployPrerequisites(output, config.CCIP)
-	// merge addressbooks
-	// env, err := crib.DeployCCIPContracts(output, config.CCIP)
+	env, err := CreateEnvironmentFromCribOutput(t, lggr)
+	require.NoError(t, err)
+	require.NotNil(t, env)
 
 	// Need to keep track of the block number for each chain so that event subscription can be done from that block.
 	startBlocks := make(map[uint64]*uint64)
-	state, err := ccipdeployment.LoadOnchainState(env)
+	state, err := ccipchangeset.LoadOnchainState(*env)
 	require.NoError(t, err)
 
 	cfgl := config.Logging.Loki
@@ -69,7 +58,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	// Parse all events from the simulated chains, send to Loki
 	loki, err := wasp.NewLokiClient(wasp.NewLokiConfig(cfgl.Endpoint, cfgl.TenantId, cfgl.BasicAuth, cfgl.BearerToken))
 	if err != nil {
-		l.Error().Err(err).Msg("Failed to create Loki client")
+		env.Logger.Error("failed to create loki client")
 		return
 	}
 	defer loki.StopNow()
@@ -92,7 +81,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			// this schedule is per generator
 			// in this example, it would be 1 request per 10seconds per generator (dest chain)
 			// so if there are 3 generators, it would be 3 requests per 10 seconds over the network
-			Gun:        NewDestinationGun(l, selector, env, state.Chains[selector].Receiver.Address(), loki),
+			Gun:        NewDestinationGun(env.Logger, selector, env, state.Chains[selector].Receiver.Address(), loki),
 			Labels:     CommonTestLabels,
 			LokiConfig: wasp.NewLokiConfig(cfgl.Endpoint, cfgl.TenantId, cfgl.BasicAuth, cfgl.BearerToken),
 			// use the same loki client using `NewLokiClient` with the same config for sending events
@@ -122,9 +111,9 @@ func TestCCIPLoad_RPS(t *testing.T) {
 				fmt.Printf("CommitReportAccepted event: %+v\n", event)
 
 				blockNum := commitIterator.Event.Raw.BlockNumber
-				block, err := env.Chains[chainSelector].Client.BlockByNumber(ctx, big.NewInt(int64(blockNum)))
+				header, err := env.Chains[chainSelector].Client.HeaderByNumber(ctx, big.NewInt(int64(blockNum)))
 				require.NoError(t, err)
-				timestamp := time.Unix(int64(block.Time()), 0)
+				timestamp := time.Unix(int64(header.Time()), 0)
 
 				for _, root := range event.MerkleRoots {
 					lokiLabels = setLokiLabels(root.SourceChainSelector, chainSelector)
@@ -148,9 +137,9 @@ func TestCCIPLoad_RPS(t *testing.T) {
 				fmt.Printf("ExecutionStateChanged event: %+v\n", event)
 
 				blockNum := execIterator.Event.Raw.BlockNumber
-				block, err := env.Chains[chainSelector].Client.BlockByNumber(ctx, big.NewInt(int64(blockNum)))
+				header, err := env.Chains[chainSelector].Client.HeaderByNumber(ctx, big.NewInt(int64(blockNum)))
 				require.NoError(t, err)
-				timestamp := time.Unix(int64(block.Time()), 0)
+				timestamp := time.Unix(int64(header.Time), 0)
 
 				// todo: push loki calls to channel?
 				lokiLabels = setLokiLabels(execIterator.Event.SourceChainSelector, chainSelector)
@@ -171,10 +160,4 @@ func TestCCIPLoad_RPS(t *testing.T) {
 
 	// crib.StopChains(env)
 	// crib.StopNodes(env)
-}
-
-func generateEnvironment() {
-	ab := readAddressBook(abPath)
-	nIds := readNodeIds(nodeIdsPath)
-
 }
