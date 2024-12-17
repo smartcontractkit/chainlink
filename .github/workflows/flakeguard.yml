@@ -381,20 +381,6 @@ jobs:
           path: ./flakeguard-report/all-test-results.json
           name: all-test-results.json
           retention-days: 90
-
-      - name: Send Flakeguard Results to Splunk
-        if: ${{ fromJSON(steps.results.outputs.summary).total_tests > 0 }}
-        continue-on-error: true
-        run: |
-          echo "Sending Flakeguard results to Splunk"
-          jq -n --argjson data "$(cat ./flakeguard-report/all-test-results.json)" \
-            --arg event "${{ inputs.event }}" \
-            '{event: $event, data: $data}' > splunk.json
-          RESPONSE=$(curl -k --fail -X POST "${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}" \
-            -H "Authorization: Splunk ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}" \
-            -H "Content-Type: application/json" \
-            -d @splunk.json)
-          echo "Response from Splunk: $RESPONSE"
       
       - name: Upload Failed Test Results as Artifact
         if: ${{ fromJSON(steps.results.outputs.summary).failed_runs > 0 }}
@@ -577,3 +563,14 @@ jobs:
                 }
               ]
             }
+
+      - name: Send Flakeguard Results to Splunk
+        if: ${{ fromJSON(steps.results.outputs.summary).total_tests > 0 }}
+        run: |
+          echo "Sending Flakeguard results to Splunk"
+          jq --arg event "${{ inputs.event }}" \
+            '. | {event: $event, data: .}' ./flakeguard-report/all-test-results.json > splunk.json
+          curl -k --fail -X POST "${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}" \
+            -H "Authorization: Splunk ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}" \
+            -H "Content-Type: application/json" \
+            -d @splunk.json
