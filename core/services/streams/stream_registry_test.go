@@ -107,7 +107,7 @@ result1          [type=memo value="900.0022" streamID=100];
 		// errors with unparseable pipeline
 		err = sr.Register(job.Job{ID: 101, Type: job.Stream, PipelineSpec: &pipeline.Spec{ID: 33, DotDagSource: "source"}}, nil)
 		require.Error(t, err)
-		assert.EqualError(t, err, "cannot register job with ID: 101; unparseable pipeline: UnmarshalTaskFromMap: unknown task type: \"\"")
+		require.EqualError(t, err, "cannot register job with ID: 101; unparseable pipeline: UnmarshalTaskFromMap: unknown task type: \"\"")
 
 		// errors when attempt to re-register a stream with an existing streamID at top-level
 		err = sr.Register(job.Job{ID: 101, StreamID: ptr(StreamID(3)), Type: job.Stream, PipelineSpec: &pipeline.Spec{ID: 33, DotDagSource: `
@@ -123,7 +123,7 @@ result2 -> result2_parse;
 result3 -> result3_parse -> multiply3;
 `}}, nil)
 		require.Error(t, err)
-		assert.EqualError(t, err, "cannot register job with ID: 101; stream id 3 is already registered")
+		require.EqualError(t, err, "cannot register job with ID: 101; stream id 3 is already registered")
 
 		// errors when attempt to re-register a stream with an existing streamID in DAG
 		err = sr.Register(job.Job{ID: 101, StreamID: ptr(StreamID(4)), Type: job.Stream, PipelineSpec: &pipeline.Spec{ID: 33, DotDagSource: `
@@ -139,7 +139,7 @@ result2 -> result2_parse;
 result3 -> result3_parse -> multiply3;
 `}}, nil)
 		require.Error(t, err)
-		assert.EqualError(t, err, "cannot register job with ID: 101; stream id 1 is already registered")
+		require.EqualError(t, err, "cannot register job with ID: 101; stream id 1 is already registered")
 
 		// registers new job with all new stream IDs
 		err = sr.Register(job.Job{ID: 101, StreamID: ptr(StreamID(4)), Type: job.Stream, PipelineSpec: &pipeline.Spec{ID: 33, DotDagSource: `
