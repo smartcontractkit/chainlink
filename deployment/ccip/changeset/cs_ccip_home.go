@@ -1,8 +1,12 @@
 package changeset
 
 import (
+	"bytes"
+	"encoding/hex"
 	"fmt"
 	"math/big"
+	"os"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -11,9 +15,15 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
@@ -27,6 +37,73 @@ var (
 	_ deployment.ChangeSet[RevokeCandidateChangesetConfig]       = RevokeCandidateChangeset
 	_ deployment.ChangeSet[UpdateChainConfigConfig]              = UpdateChainConfig
 )
+
+type CCIPOCRParams struct {
+	OCRParameters commontypes.OCRParameters
+	// Note contains pointers to Arb feeds for prices
+	CommitOffChainConfig pluginconfig.CommitOffchainConfig
+	// Note ontains USDC config
+	ExecuteOffChainConfig pluginconfig.ExecuteOffchainConfig
+}
+
+func (c CCIPOCRParams) Validate() error {
+	if err := c.OCRParameters.Validate(); err != nil {
+		return fmt.Errorf("invalid OCR parameters: %w", err)
+	}
+	if err := c.CommitOffChainConfig.Validate(); err != nil {
+		return fmt.Errorf("invalid commit off-chain config: %w", err)
+	}
+	if err := c.ExecuteOffChainConfig.Validate(); err != nil {
+		return fmt.Errorf("invalid execute off-chain config: %w", err)
+	}
+	return nil
+}
+
+// DefaultOCRParams returns the default OCR parameters for a chain,
+// except for a few values which must be parameterized (passed as arguments).
+func DefaultOCRParams(
+	feedChainSel uint64,
+	tokenInfo map[ccipocr3.UnknownEncodedAddress]pluginconfig.TokenInfo,
+	tokenDataObservers []pluginconfig.TokenDataObserverConfig,
+) CCIPOCRParams {
+	return CCIPOCRParams{
+		OCRParameters: commontypes.OCRParameters{
+			DeltaProgress:                           internal.DeltaProgress,
+			DeltaResend:                             internal.DeltaResend,
+			DeltaInitial:                            internal.DeltaInitial,
+			DeltaRound:                              internal.DeltaRound,
+			DeltaGrace:                              internal.DeltaGrace,
+			DeltaCertifiedCommitRequest:             internal.DeltaCertifiedCommitRequest,
+			DeltaStage:                              internal.DeltaStage,
+			Rmax:                                    internal.Rmax,
+			MaxDurationQuery:                        internal.MaxDurationQuery,
+			MaxDurationObservation:                  internal.MaxDurationObservation,
+			MaxDurationShouldAcceptAttestedReport:   internal.MaxDurationShouldAcceptAttestedReport,
+			MaxDurationShouldTransmitAcceptedReport: internal.MaxDurationShouldTransmitAcceptedReport,
+		},
+		ExecuteOffChainConfig: pluginconfig.ExecuteOffchainConfig{
+			BatchGasLimit:             internal.BatchGasLimit,
+			RelativeBoostPerWaitHour:  internal.RelativeBoostPerWaitHour,
+			InflightCacheExpiry:       *config.MustNewDuration(internal.InflightCacheExpiry),
+			RootSnoozeTime:            *config.MustNewDuration(internal.RootSnoozeTime),
+			MessageVisibilityInterval: *config.MustNewDuration(internal.FirstBlockAge),
+			BatchingStrategyID:        internal.BatchingStrategyID,
+			TokenDataObservers:        tokenDataObservers,
+		},
+		CommitOffChainConfig: pluginconfig.CommitOffchainConfig{
+			RemoteGasPriceBatchWriteFrequency:  *config.MustNewDuration(internal.RemoteGasPriceBatchWriteFrequency),
+			TokenPriceBatchWriteFrequency:      *config.MustNewDuration(internal.TokenPriceBatchWriteFrequency),
+			TokenInfo:                          tokenInfo,
+			PriceFeedChainSelector:             ccipocr3.ChainSelector(feedChainSel),
+			NewMsgScanBatchSize:                merklemulti.MaxNumberTreeLeaves,
+			MaxReportTransmissionCheckAttempts: 5,
+			RMNEnabled:                         os.Getenv("ENABLE_RMN") == "true", // only enabled in manual test
+			RMNSignaturesTimeout:               30 * time.Minute,
+			MaxMerkleTreeSize:                  merklemulti.MaxNumberTreeLeaves,
+			SignObservationPrefix:              "chainlink ccip 1.6 rmn observation",
+		},
+	}
+}
 
 type PromoteAllCandidatesChangesetConfig struct {
 	HomeChainSelector uint64
@@ -1035,4 +1112,80 @@ func UpdateChainConfig(e deployment.Environment, cfg UpdateChainConfigConfig) (d
 	return deployment.ChangesetOutput{Proposals: []timelock.MCMSWithTimelockProposal{
 		*p,
 	}}, nil
+}
+
+func isChainConfigEqual(a, b ccip_home.CCIPHomeChainConfig) bool {
+	mapReader := make(map[[32]byte]struct{})
+	for i := range a.Readers {
+		mapReader[a.Readers[i]] = struct{}{}
+	}
+	for i := range b.Readers {
+		if _, ok := mapReader[b.Readers[i]]; !ok {
+			return false
+		}
+	}
+	return bytes.Equal(a.Config, b.Config) &&
+		a.FChain == b.FChain
+}
+
+// ValidateCCIPHomeConfigSetUp checks that the commit and exec active and candidate configs are set up correctly
+// TODO: Utilize this
+func ValidateCCIPHomeConfigSetUp(
+	lggr logger.Logger,
+	capReg *capabilities_registry.CapabilitiesRegistry,
+	ccipHome *ccip_home.CCIPHome,
+	chainSel uint64,
+) error {
+	// fetch DONID
+	donID, err := internal.DonIDForChain(capReg, ccipHome, chainSel)
+	if err != nil {
+		return fmt.Errorf("fetch don id for chain: %w", err)
+	}
+	if donID == 0 {
+		return fmt.Errorf("don id for chain (%d) does not exist", chainSel)
+	}
+
+	// final sanity checks on configs.
+	commitConfigs, err := ccipHome.GetAllConfigs(&bind.CallOpts{
+		//Pending: true,
+	}, donID, uint8(cctypes.PluginTypeCCIPCommit))
+	if err != nil {
+		return fmt.Errorf("get all commit configs: %w", err)
+	}
+	commitActiveDigest, err := ccipHome.GetActiveDigest(nil, donID, uint8(cctypes.PluginTypeCCIPCommit))
+	if err != nil {
+		return fmt.Errorf("get active commit digest: %w", err)
+	}
+	lggr.Debugw("Fetched active commit digest", "commitActiveDigest", hex.EncodeToString(commitActiveDigest[:]))
+	commitCandidateDigest, err := ccipHome.GetCandidateDigest(nil, donID, uint8(cctypes.PluginTypeCCIPCommit))
+	if err != nil {
+		return fmt.Errorf("get commit candidate digest: %w", err)
+	}
+	lggr.Debugw("Fetched candidate commit digest", "commitCandidateDigest", hex.EncodeToString(commitCandidateDigest[:]))
+	if commitConfigs.ActiveConfig.ConfigDigest == [32]byte{} {
+		return fmt.Errorf(
+			"active config digest is empty for commit, expected nonempty, donID: %d, cfg: %+v, config digest from GetActiveDigest call: %x, config digest from GetCandidateDigest call: %x",
+			donID, commitConfigs.ActiveConfig, commitActiveDigest, commitCandidateDigest)
+	}
+	if commitConfigs.CandidateConfig.ConfigDigest != [32]byte{} {
+		return fmt.Errorf(
+			"candidate config digest is nonempty for commit, expected empty, donID: %d, cfg: %+v, config digest from GetCandidateDigest call: %x, config digest from GetActiveDigest call: %x",
+			donID, commitConfigs.CandidateConfig, commitCandidateDigest, commitActiveDigest)
+	}
+
+	execConfigs, err := ccipHome.GetAllConfigs(nil, donID, uint8(cctypes.PluginTypeCCIPExec))
+	if err != nil {
+		return fmt.Errorf("get all exec configs: %w", err)
+	}
+	lggr.Debugw("Fetched exec configs",
+		"ActiveConfig.ConfigDigest", hex.EncodeToString(execConfigs.ActiveConfig.ConfigDigest[:]),
+		"CandidateConfig.ConfigDigest", hex.EncodeToString(execConfigs.CandidateConfig.ConfigDigest[:]),
+	)
+	if execConfigs.ActiveConfig.ConfigDigest == [32]byte{} {
+		return fmt.Errorf("active config digest is empty for exec, expected nonempty, cfg: %v", execConfigs.ActiveConfig)
+	}
+	if execConfigs.CandidateConfig.ConfigDigest != [32]byte{} {
+		return fmt.Errorf("candidate config digest is nonempty for exec, expected empty, cfg: %v", execConfigs.CandidateConfig)
+	}
+	return nil
 }

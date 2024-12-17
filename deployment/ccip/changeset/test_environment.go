@@ -439,20 +439,19 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tc *TestConfigs, tEnv Test
 			},
 		},
 		{
-			// Add the commit/exec OCR instances for the new chains.
+			// Add the DONs and candidate commit OCR instances for the chain.
 			Changeset: commonchangeset.WrapChangeSet(AddDonAndSetCandidateChangeset),
 			Config: AddDonAndSetCandidateChangesetConfig{
 				SetCandidateConfigBase{
 					HomeChainSelector: e.HomeChainSel,
 					FeedChainSelector: e.FeedChainSel,
 					DONChainSelector:  ocrConfigs,
-					// NOTE this is ignored??
-					PluginType: types.PluginTypeCCIPCommit,
+					PluginType:        types.PluginTypeCCIPCommit,
 				},
 			},
 		},
 		{
-			// Add the commit/exec OCR instances for the new chains.
+			// Add the exec OCR instances for the new chains.
 			Changeset: commonchangeset.WrapChangeSet(SetCandidateChangeset),
 			Config: SetCandidateChangesetConfig{
 				SetCandidateConfigBase{
@@ -471,14 +470,6 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tc *TestConfigs, tEnv Test
 				DONChainSelectors: allChains,
 			},
 		},
-		//{
-		//	Changeset: commonchangeset.WrapChangeSet(ConfigureNewChains),
-		//	Config: NewChainsConfig{
-		//		HomeChainSel:       e.HomeChainSel,
-		//		FeedChainSel:       e.FeedChainSel,
-		//		ChainConfigByChain: ocrConfigs,
-		//	},
-		//},
 		{
 			Changeset: commonchangeset.WrapChangeSet(CCIPCapabilityJobspec),
 		},

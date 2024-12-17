@@ -1,7 +1,9 @@
 package changeset
 
 import (
+	"bytes"
 	"context"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 
@@ -11,9 +13,11 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
@@ -24,6 +28,7 @@ var (
 	_ deployment.ChangeSet[UpdateOnRampDestsConfig]    = UpdateOnRampsDests
 	_ deployment.ChangeSet[UpdateOffRampSourcesConfig] = UpdateOffRampSources
 	_ deployment.ChangeSet[UpdateRouterRampsConfig]    = UpdateRouterRamps
+	_ deployment.ChangeSet[UpdateFeeQuoterDestsConfig] = UpdateFeeQuoterDests
 	_ deployment.ChangeSet[SetOCR3OffRampConfig]       = SetOCR3OffRamp
 )
 
@@ -595,6 +600,14 @@ func SetOCR3OffRamp(e deployment.Environment, cfg SetOCR3OffRampConfig) (deploym
 		if err != nil {
 			return deployment.ChangesetOutput{}, err
 		}
+		set, err := isOCR3ConfigSetOnOffRamp(e.Logger, e.Chains[remote], state.Chains[remote].OffRamp, args)
+		if err != nil {
+			return deployment.ChangesetOutput{}, err
+		}
+		if set {
+			e.Logger.Infof("OCR3 config already set on offramp for chain %d", remote)
+			continue
+		}
 		txOpts := e.Chains[remote].DeployerKey
 		if cfg.MCMS != nil {
 			txOpts = deployment.SimTransactOpts()
@@ -640,4 +653,64 @@ func SetOCR3OffRamp(e deployment.Environment, cfg SetOCR3OffRampConfig) (deploym
 	return deployment.ChangesetOutput{Proposals: []timelock.MCMSWithTimelockProposal{
 		*p,
 	}}, nil
+}
+
+func isOCR3ConfigSetOnOffRamp(
+	lggr logger.Logger,
+	chain deployment.Chain,
+	offRamp *offramp.OffRamp,
+	offrampOCR3Configs []offramp.MultiOCR3BaseOCRConfigArgs,
+) (bool, error) {
+	mapOfframpOCR3Configs := make(map[cctypes.PluginType]offramp.MultiOCR3BaseOCRConfigArgs)
+	for _, config := range offrampOCR3Configs {
+		mapOfframpOCR3Configs[cctypes.PluginType(config.OcrPluginType)] = config
+	}
+
+	for _, pluginType := range []cctypes.PluginType{cctypes.PluginTypeCCIPCommit, cctypes.PluginTypeCCIPExec} {
+		ocrConfig, err := offRamp.LatestConfigDetails(&bind.CallOpts{
+			Context: context.Background(),
+		}, uint8(pluginType))
+		if err != nil {
+			return false, fmt.Errorf("error fetching OCR3 config for plugin %s chain %s: %w", pluginType.String(), chain.String(), err)
+		}
+		lggr.Debugw("Fetched OCR3 Configs",
+			"MultiOCR3BaseOCRConfig.F", ocrConfig.ConfigInfo.F,
+			"MultiOCR3BaseOCRConfig.N", ocrConfig.ConfigInfo.N,
+			"MultiOCR3BaseOCRConfig.IsSignatureVerificationEnabled", ocrConfig.ConfigInfo.IsSignatureVerificationEnabled,
+			"Signers", ocrConfig.Signers,
+			"Transmitters", ocrConfig.Transmitters,
+			"configDigest", hex.EncodeToString(ocrConfig.ConfigInfo.ConfigDigest[:]),
+			"chain", chain.String(),
+		)
+		// TODO: assertions to be done as part of full state
+		// resprentation validation CCIP-3047
+		if mapOfframpOCR3Configs[pluginType].ConfigDigest != ocrConfig.ConfigInfo.ConfigDigest {
+			lggr.Infow("OCR3 config digest mismatch", "pluginType", pluginType.String())
+			return false, nil
+		}
+		if mapOfframpOCR3Configs[pluginType].F != ocrConfig.ConfigInfo.F {
+			lggr.Infow("OCR3 config F mismatch", "pluginType", pluginType.String())
+			return false, nil
+		}
+		if mapOfframpOCR3Configs[pluginType].IsSignatureVerificationEnabled != ocrConfig.ConfigInfo.IsSignatureVerificationEnabled {
+			lggr.Infow("OCR3 config signature verification mismatch", "pluginType", pluginType.String())
+			return false, nil
+		}
+		if pluginType == cctypes.PluginTypeCCIPCommit {
+			// only commit will set signers, exec doesn't need them.
+			for i, signer := range mapOfframpOCR3Configs[pluginType].Signers {
+				if !bytes.Equal(signer.Bytes(), ocrConfig.Signers[i].Bytes()) {
+					lggr.Infow("OCR3 config signer mismatch", "pluginType", pluginType.String())
+					return false, nil
+				}
+			}
+		}
+		for i, transmitter := range mapOfframpOCR3Configs[pluginType].Transmitters {
+			if !bytes.Equal(transmitter.Bytes(), ocrConfig.Transmitters[i].Bytes()) {
+				lggr.Infow("OCR3 config transmitter mismatch", "pluginType", pluginType.String())
+				return false, nil
+			}
+		}
+	}
+	return true, nil
 }
