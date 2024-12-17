@@ -570,7 +570,15 @@ jobs:
           echo "Sending Flakeguard results to Splunk"
           jq --arg event "${{ inputs.event }}" \
             '. | {event: $event, data: .}' ./flakeguard-report/all-test-results.json > splunk.json
-          curl -k --fail -X POST "${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}" \
+          
+          set +e
+          SPLUNK_RESP=$(curl -k -X POST "${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}" \
             -H "Authorization: Splunk ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}" \
             -H "Content-Type: application/json" \
-            -d @splunk.json
+            -d @splunk.json)
+          CURL_EXIT_CODE=$?
+          echo "Splunk response: $SPLUNK_RESP"
+          if [ $CURL_EXIT_CODE -ne 0 ]; then
+            echo "Error: Failed to send data to Splunk"
+            exit $CURL_EXIT_CODE
+          fi
