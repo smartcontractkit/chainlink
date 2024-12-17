@@ -97,7 +97,7 @@ abigen: ## Build & install abigen.
 .PHONY: generate
 generate: abigen codecgen mockery protoc gomods ## Execute all go:generate commands.
 	gomods -w go generate -x ./...
-	mockery
+	find . -type f -name .mockery.yaml -execdir mockery \; ## Execute mockery for all .mockery.yaml files
 
 .PHONY: rm-mocked
 rm-mocked:
