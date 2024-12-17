@@ -49,6 +49,10 @@ on:
         type: string
         default: '{}'
         description: 'JSON of extra arguments for the workflow.'
+      event: 
+        required: true
+        type: string
+        description: 'The event that triggered flakeguard run. (e.g. pull_request, nightly, on_demand)'
     secrets:
       SLACK_BOT_TOKEN:
         required: false
@@ -380,12 +384,17 @@ jobs:
 
       - name: Send Flakeguard Results to Splunk
         if: ${{ fromJSON(steps.results.outputs.summary).total_tests > 0 }}
+        continue-on-error: true
         run: |
           echo "Sending Flakeguard results to Splunk"
-          curl -k -X POST "${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}" \
+          jq -n --argjson data "$(cat ./flakeguard-report/all-test-results.json)" \
+            --arg event "${{ inputs.event }}" \
+            '{event: $event, data: $data}' > splunk.json
+          RESPONSE=$(curl -k --fail -X POST "${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}" \
             -H "Authorization: Splunk ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}" \
             -H "Content-Type: application/json" \
-            -d @./flakeguard-report/all-test-results.json
+            -d @splunk.json)
+          echo "Response from Splunk: $RESPONSE"
       
       - name: Upload Failed Test Results as Artifact
         if: ${{ fromJSON(steps.results.outputs.summary).failed_runs > 0 }}

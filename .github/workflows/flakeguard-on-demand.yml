@@ -53,7 +53,7 @@ on:
 
 jobs:
   trigger-flaky-test-detection:
-    name: Find Flaky Tests
+    name: Flakeguard on Demand
     uses: ./.github/workflows/flakeguard.yml
     with:
       repoUrl: ${{ inputs.repoUrl }}
@@ -66,6 +66,7 @@ jobs:
       findByAffectedPackages: ${{ inputs.findByAffectedPackages }}
       slackNotificationAfterTestsChannelId: ${{ inputs.slack_notification_after_tests_channel_id || 'C07TRF65CNS' }} #flaky-test-detector-notifications
       extraArgs: ${{ inputs.extraArgs }}
+      event: 'on_demand'
     secrets:
       SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
