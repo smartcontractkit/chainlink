@@ -5,14 +5,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
@@ -321,4 +325,94 @@ func addNodes(
 	}
 	_, err = chain.Confirm(tx)
 	return err
+}
+
+type RemoveDONsConfig struct {
+	HomeChainSel uint64
+	DonIDs       []uint32
+	MCMS         *MCMSConfig
+}
+
+func (c RemoveDONsConfig) Validate(homeChain CCIPChainState) error {
+	if err := deployment.IsValidChainSelector(c.HomeChainSel); err != nil {
+		return fmt.Errorf("home chain selector must be set %w", err)
+	}
+	if len(c.DonIDs) == 0 {
+		return fmt.Errorf("don ids must be set")
+	}
+	// Cap reg must exist
+	if homeChain.CapabilityRegistry == nil {
+		return fmt.Errorf("cap reg does not exist")
+	}
+	if homeChain.CCIPHome == nil {
+		return fmt.Errorf("ccip home does not exist")
+	}
+	if err := internal.DONIdExists(homeChain.CapabilityRegistry, c.DonIDs); err != nil {
+		return err
+	}
+	return nil
+}
+
+// RemoveDONs removes DONs from the CapabilitiesRegistry contract.
+// TODO: Could likely be moved to common, but needs
+// a common state struct first.
+func RemoveDONs(e deployment.Environment, cfg RemoveDONsConfig) (deployment.ChangesetOutput, error) {
+	state, err := LoadOnchainState(e)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	homeChain, ok := e.Chains[cfg.HomeChainSel]
+	if !ok {
+		return deployment.ChangesetOutput{}, fmt.Errorf("home chain %d not found", cfg.HomeChainSel)
+	}
+	homeChainState := state.Chains[cfg.HomeChainSel]
+	if err := cfg.Validate(homeChainState); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	txOpts := homeChain.DeployerKey
+	if cfg.MCMS != nil {
+		txOpts = deployment.SimTransactOpts()
+	}
+
+	tx, err := homeChainState.CapabilityRegistry.RemoveDONs(txOpts, cfg.DonIDs)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	if cfg.MCMS == nil {
+		_, err = homeChain.Confirm(tx)
+		if err != nil {
+			return deployment.ChangesetOutput{}, err
+		}
+		e.Logger.Infof("Removed dons using deployer key tx %s", tx.Hash().String())
+		return deployment.ChangesetOutput{}, nil
+	}
+	p, err := proposalutils.BuildProposalFromBatches(
+		map[uint64]common.Address{
+			cfg.HomeChainSel: homeChainState.Timelock.Address(),
+		},
+		map[uint64]*gethwrappers.ManyChainMultiSig{
+			cfg.HomeChainSel: homeChainState.ProposerMcm,
+		},
+		[]timelock.BatchChainOperation{
+			{
+				ChainIdentifier: mcms.ChainIdentifier(cfg.HomeChainSel),
+				Batch: []mcms.Operation{
+					{
+						To:    homeChainState.CapabilityRegistry.Address(),
+						Data:  tx.Data(),
+						Value: big.NewInt(0),
+					},
+				},
+			},
+		},
+		"Remove DONs",
+		cfg.MCMS.MinDelay,
+	)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	e.Logger.Infof("Created proposal to remove dons")
+	return deployment.ChangesetOutput{Proposals: []timelock.MCMSWithTimelockProposal{
+		*p,
+	}}, nil
 }

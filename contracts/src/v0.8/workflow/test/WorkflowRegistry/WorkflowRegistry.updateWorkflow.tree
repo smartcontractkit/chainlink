@@ -25,6 +25,8 @@ WorkflowRegistry.updateWorkflow
                 │   └── it should revert
                 ├── when the workflowID is invalid
                 │   └── it should revert
+                ├── when the workflowID is already in used by another workflow
+                │   └── it should revert
                 └── when the workflow inputs are all valid
                     ├── it should update the existing workflow in s_workflows with the new values
                     ├── it should emit {WorkflowUpdatedV1}

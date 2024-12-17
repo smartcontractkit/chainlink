@@ -3,13 +3,13 @@ cmp stdout out.txt
 
 -- out.txt --
 NAME:
-   chainlink chains cosmos - Commands for handling Cosmos chains
+   chainlink chains cosmos - Commands for handling cosmos chains
 
 USAGE:
    chainlink chains cosmos command [command options] [arguments...]
 
 COMMANDS:
-   list  List all existing Cosmos chains
+   list  List all existing cosmos chains
 
 OPTIONS:
    --help, -h  show help

@@ -22,10 +22,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 
 	htMocks "github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
@@ -1106,7 +1109,8 @@ func TestLogPoller_ReorgDeeperThanFinality(t *testing.T) {
 
 			secondPoll := th.PollAndSaveLogs(testutils.Context(t), firstPoll)
 			assert.Equal(t, firstPoll, secondPoll)
-			assert.Equal(t, logpoller.ErrFinalityViolated, th.LogPoller.Healthy())
+			require.Equal(t, commontypes.ErrFinalityViolated, th.LogPoller.Healthy())
+			require.Equal(t, commontypes.ErrFinalityViolated, th.LogPoller.HealthReport()[th.LogPoller.Name()])
 
 			// Manually remove re-org'd chain from the log poller to bring it back to life
 			// LogPoller should be healthy again after first poll
@@ -1116,7 +1120,8 @@ func TestLogPoller_ReorgDeeperThanFinality(t *testing.T) {
 			// Poll from latest
 			recoveryPoll := th.PollAndSaveLogs(testutils.Context(t), 1)
 			assert.Equal(t, int64(35), recoveryPoll)
-			assert.NoError(t, th.LogPoller.Healthy())
+			require.NoError(t, th.LogPoller.Healthy())
+			require.NoError(t, th.LogPoller.HealthReport()[th.LogPoller.Name()])
 		})
 	}
 }

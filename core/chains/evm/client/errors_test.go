@@ -172,6 +172,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"intrinsic gas too low", true, "Klaytn"},
 			{"max fee per gas less than block base fee", true, "zkSync"},
 			{"virtual machine entered unexpected state. please contact developers and provide transaction details that caused this error. Error description: The operator included transaction with an unacceptable gas price", true, "zkSync"},
+			{"failed to validate the transaction. reason: Validation revert: virtual machine entered unexpected state. Please contact developers and provide transaction details that caused this error. Error description: Assertion error: Fair pubdata price too high", true, "zkSync"},
 			{"client error terminally underpriced", true, "tomlConfig"},
 			{"gas price less than block base fee", true, "aStar"},
 			{"[Request ID: e4d09e44-19a4-4eb7-babe-270db4c2ebc9] Gas price '830000000000' is below configured minimum gas price '950000000000'", true, "hedera"},
@@ -244,6 +245,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"network is unreachable", true, "Arbitrum"},
 			{"client error service unavailable", true, "tomlConfig"},
 			{"[Request ID: 825608a8-fd8a-4b5b-aea7-92999509306d] Error invoking RPC: [Request ID: 825608a8-fd8a-4b5b-aea7-92999509306d] Transaction execution returns a null value for transaction", true, "hedera"},
+			{"call failed: 503 Service Temporarily Unavailable: <html>\r\n<head><title>503 Service Temporarily Unavailable</title></head>\r\n<body>\r\n<center><h1>503 Service Temporarily Unavailable</h1></center>\r\n</body>\r\n</html>\r\n", true, "Arbitrum"},
 		}
 		for _, test := range tests {
 			err = evmclient.NewSendErrorS(test.message)
@@ -256,6 +258,20 @@ func Test_Eth_Errors(t *testing.T) {
 			assert.True(t, err.IsServiceUnavailable(clientErrors))
 			err = evmclient.NewSendError(fmt.Errorf("failed to send transaction: %w", commonclient.ErroringNodeError))
 			assert.True(t, err.IsServiceUnavailable(clientErrors))
+		}
+	})
+
+	t.Run("IsServiceTimeout", func(t *testing.T) {
+		tests := []errorCase{
+			{"call failed: 408 Request Timeout: {", true, "Arbitrum"},
+			{"408 Request Timeout: {\"id\":303,\"jsonrpc\":\"2.0\",\"error\":{\"code\\\":-32009,\\\"message\\\":\\\"request timeout\\\"}}\",\"errVerbose\":\"408 Request Timeout:\n", true, "Arbitrum"},
+			{"request timeout", false, "tomlConfig"},
+		}
+		for _, test := range tests {
+			err = evmclient.NewSendErrorS(test.message)
+			assert.Equal(t, err.IsServiceTimeout(clientErrors), test.expect)
+			err = newSendErrorWrapped(test.message)
+			assert.Equal(t, err.IsServiceTimeout(clientErrors), test.expect)
 		}
 	})
 
