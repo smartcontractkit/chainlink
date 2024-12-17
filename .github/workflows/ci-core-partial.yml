@@ -68,8 +68,7 @@ jobs:
       - name: Setup Go
         uses: ./.github/actions/setup-go
         with:
-          build-cache-version: ${{ matrix.type.test-suite }}
-          restore-build-cache-only: "false"
+          only-modules: "true"
 
       - name: Setup Solana
         uses: ./.github/actions/setup-solana
