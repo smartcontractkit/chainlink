@@ -6,12 +6,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/types"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
 )
@@ -28,21 +29,47 @@ type FinalOCR2Config struct {
 type CommitOCR2ConfigParams struct {
 	DestinationChainSelector uint64
 	SourceChainSelector      uint64
-	CommitOffchainConfig     ccip.CommitOffchainConfig
 	OCR2ConfigParams         confighelper.PublicConfig
+	GasPriceHeartBeat        config.Duration
+	DAGasPriceDeviationPPB   uint32
+	ExecGasPriceDeviationPPB uint32
+	TokenPriceHeartBeat      config.Duration
+	TokenPriceDeviationPPB   uint32
+	InflightCacheExpiry      config.Duration
+	PriceReportingDisabled   bool
 }
 
-func (c CommitOCR2ConfigParams) SetCommitOffChainCfg() error {
+func (c CommitOCR2ConfigParams) PopulateOffChainAndOnChainCfg(priceReg common.Address) error {
 	cfgBytes, err := ccipconfig.EncodeOffchainConfig(
 		testhelpers.NewCommitOffchainConfig(
-			c.CommitOffchainConfig.GasPriceHeartBeat,
-			c.CommitOffchainConfig.GasPriceDeviationPPB,
-		))
+			c.GasPriceHeartBeat,
+			c.DAGasPriceDeviationPPB,
+			c.ExecGasPriceDeviationPPB,
+			c.TokenPriceHeartBeat,
+			c.TokenPriceDeviationPPB,
+			c.InflightCacheExpiry,
+			c.PriceReportingDisabled,
+		),
+	)
+	if err != nil {
+		return errors.Wrapf(err, "failed to encode offchain config for source chain %d and destination chain %d",
+			c.SourceChainSelector, c.DestinationChainSelector)
+	}
+	c.OCR2ConfigParams.ReportingPluginConfig = cfgBytes
+	c.OCR2ConfigParams.OnchainConfig, err = abihelpers.EncodeAbiStruct(testhelpers.NewCommitOnchainConfig(priceReg))
+	if err != nil {
+		return fmt.Errorf("failed to encode onchain config for source chain %d and destination chain %d: %w",
+			c.SourceChainSelector, c.DestinationChainSelector, err)
+	}
+	return nil
 }
 
 func (c CommitOCR2ConfigParams) Validate(state changeset.CCIPOnChainState) error {
 	if err := deployment.IsValidChainSelector(c.DestinationChainSelector); err != nil {
 		return fmt.Errorf("invalid DestinationChainSelector: %w", err)
+	}
+	if err := deployment.IsValidChainSelector(c.SourceChainSelector); err != nil {
+		return fmt.Errorf("invalid SourceChainSelector: %w", err)
 	}
 
 	chain, exists := state.Chains[c.DestinationChainSelector]
@@ -56,24 +83,66 @@ func (c CommitOCR2ConfigParams) Validate(state changeset.CCIPOnChainState) error
 	if !exists {
 		return fmt.Errorf("chain %d does not have a commit store for source chain %d", c.DestinationChainSelector, c.SourceChainSelector)
 	}
-	// TODO : add validation for rest of the configs
+	if chain.PriceRegistry == nil {
+		return fmt.Errorf("chain %d does not have a price registry", c.DestinationChainSelector)
+	}
 	return nil
 }
 
 type ExecuteOCR2ConfigParams struct {
-	DestinationChainSelector uint64
-	SourceChainSelector      uint64
-	ExecOffchainConfig       ccip.ExecOffchainConfig
-	ExecOnchainConfig        ccip.ExecOnchainConfig
-	OCR2ConfigParams         types.OCRParameters
+	DestinationChainSelector    uint64
+	SourceChainSelector         uint64
+	DestOptimisticConfirmations uint32
+	BatchGasLimit               uint32
+	RelativeBoostPerWaitHour    float64
+	InflightCacheExpiry         config.Duration
+	RootSnoozeTime              config.Duration
+	BatchingStrategyID          uint32
+	MessageVisibilityInterval   config.Duration
+	ExecOnchainConfig           evm_2_evm_offramp.EVM2EVMOffRampDynamicConfig
+	OCR2ConfigParams            confighelper.PublicConfig
+}
+
+func (c ExecuteOCR2ConfigParams) PopulateOffChainAndOnChainCfg(router, priceReg common.Address) error {
+	var err error
+	c.OCR2ConfigParams.ReportingPluginConfig, err = testhelpers.NewExecOffchainConfig(
+		c.DestOptimisticConfirmations,
+		c.BatchGasLimit,
+		c.RelativeBoostPerWaitHour,
+		c.InflightCacheExpiry,
+		c.RootSnoozeTime,
+		c.BatchingStrategyID,
+	).Encode()
+	if err != nil {
+		return fmt.Errorf("failed to encode offchain config for exec plugin, source chain %d dest chain %d :%w",
+			c.SourceChainSelector, c.DestinationChainSelector, err)
+	}
+	c.OCR2ConfigParams.OnchainConfig, err = abihelpers.EncodeAbiStruct(testhelpers.NewExecOnchainConfig(
+		c.ExecOnchainConfig.PermissionLessExecutionThresholdSeconds,
+		router,
+		priceReg,
+		c.ExecOnchainConfig.MaxNumberOfTokensPerMsg,
+		c.ExecOnchainConfig.MaxDataBytes,
+	))
+	if err != nil {
+		return fmt.Errorf("failed to encode onchain config for exec plugin, source chain %d dest chain %d :%w",
+			c.SourceChainSelector, c.DestinationChainSelector, err)
+	}
+	return nil
 }
 
 func (e ExecuteOCR2ConfigParams) Validate(state changeset.CCIPOnChainState) error {
-	if err := e.OCR2ConfigParams.Validate(); err != nil {
-		return err
-	}
 	if err := e.ExecOnchainConfig.Validate(); err != nil {
 		return err
+	}
+	if err := e.ExecOffchainConfig.Validate(); err != nil {
+		return err
+	}
+	if err := deployment.IsValidChainSelector(e.SourceChainSelector); err != nil {
+		return fmt.Errorf("invalid SourceChainSelector: %w", err)
+	}
+	if err := deployment.IsValidChainSelector(e.DestinationChainSelector); err != nil {
+		return fmt.Errorf("invalid DestinationChainSelector: %w", err)
 	}
 	chain, exists := state.Chains[e.DestinationChainSelector]
 	if !exists {
@@ -86,7 +155,12 @@ func (e ExecuteOCR2ConfigParams) Validate(state changeset.CCIPOnChainState) erro
 	if !exists {
 		return fmt.Errorf("chain %d does not have an EVM2EVMOffRamp for source chain %d", e.DestinationChainSelector, e.SourceChainSelector)
 	}
-	// TODO : add validation for rest of the configs
+	if chain.PriceRegistry == nil {
+		return fmt.Errorf("chain %d does not have a price registry", e.DestinationChainSelector)
+	}
+	if chain.Router == nil {
+		return fmt.Errorf("chain %d does not have a router", e.DestinationChainSelector)
+	}
 	return nil
 }
 
@@ -109,7 +183,80 @@ func (o OCR2Config) Validate(state changeset.CCIPOnChainState) error {
 	return nil
 }
 
-func DeriveOCR2Config(
+// SetOCR2ConfigForTest sets the OCR2 config on the chain for commit and offramp
+// This is currently not suitable for prod environments it's only for testing
+func SetOCR2ConfigForTest(env deployment.Environment, c OCR2Config) (deployment.ChangesetOutput, error) {
+	state, err := changeset.LoadOnchainState(env)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load CCIP onchain state: %w", err)
+	}
+	if err := c.Validate(state); err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("invalid OCR2 config: %w", err)
+	}
+	for _, commit := range c.CommitConfigs {
+		if err := commit.PopulateOffChainAndOnChainCfg(state.Chains[commit.DestinationChainSelector].PriceRegistry.Address()); err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to populate offchain and onchain config for commit: %w", err)
+		}
+		finalCfg, err := deriveOCR2Config(env, commit.DestinationChainSelector, commit.OCR2ConfigParams)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to derive OCR2 config for commit: %w", err)
+		}
+		commitStore := state.Chains[commit.DestinationChainSelector].CommitStore[commit.SourceChainSelector]
+		chain := env.Chains[commit.DestinationChainSelector]
+		tx, err := commitStore.SetOCR2Config(
+			chain.DeployerKey,
+			finalCfg.Signers,
+			finalCfg.Transmitters,
+			finalCfg.F,
+			finalCfg.OnchainConfig,
+			finalCfg.OffchainConfigVersion,
+			finalCfg.OffchainConfig,
+		)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to set OCR2 config for commit store %s on chain %s: %w",
+				commitStore.Address().String(), chain.String(), err)
+		}
+		_, err = chain.Confirm(tx)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm OCR2 for commit store %s config on chain %s: %w",
+				commitStore.Address().String(), chain.String(), err)
+		}
+	}
+	for _, exec := range c.ExecConfigs {
+		if err := exec.PopulateOffChainAndOnChainCfg(
+			state.Chains[exec.DestinationChainSelector].Router.Address(),
+			state.Chains[exec.DestinationChainSelector].PriceRegistry.Address()); err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to populate offchain and onchain config for offramp: %w", err)
+		}
+		finalCfg, err := deriveOCR2Config(env, exec.DestinationChainSelector, exec.OCR2ConfigParams)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to derive OCR2 config for offramp: %w", err)
+		}
+		offRamp := state.Chains[exec.DestinationChainSelector].EVM2EVMOffRamp[exec.SourceChainSelector]
+		chain := env.Chains[exec.DestinationChainSelector]
+		tx, err := offRamp.SetOCR2Config(
+			chain.DeployerKey,
+			finalCfg.Signers,
+			finalCfg.Transmitters,
+			finalCfg.F,
+			finalCfg.OnchainConfig,
+			finalCfg.OffchainConfigVersion,
+			finalCfg.OffchainConfig,
+		)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to set OCR2 config for offramp %s on chain %s: %w",
+				offRamp.Address().String(), chain.String(), err)
+		}
+		_, err = chain.Confirm(tx)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm OCR2 for offramp %s config on chain %s: %w",
+				offRamp.Address().String(), chain.String(), err)
+		}
+	}
+	return deployment.ChangesetOutput{}, nil
+}
+
+func deriveOCR2Config(
 	env deployment.Environment,
 	chainSel uint64,
 	ocrParams confighelper.PublicConfig,
@@ -154,7 +301,7 @@ func DeriveOCR2Config(
 		ocrParams.MaxDurationReport,
 		ocrParams.MaxDurationShouldAcceptFinalizedReport,
 		ocrParams.MaxDurationShouldTransmitAcceptedReport,
-		ocrParams.F,
+		int(nodes.DefaultF()),
 		ocrParams.OnchainConfig,
 	)
 	var signersAddresses []common.Address
@@ -183,36 +330,4 @@ func DeriveOCR2Config(
 		OffchainConfigVersion: offchainConfigVersion,
 		OffchainConfig:        offchainConfig,
 	}, nil
-}
-
-// SetOCR2Config sets the OCR2 config on the chain for commit and offramp
-// This is currently not suitable for prod environments it's only for testing
-func SetOCR2Config(env deployment.Environment, c OCR2Config) (deployment.ChangesetOutput, error) {
-	state, err := changeset.LoadOnchainState(env)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load CCIP onchain state: %w", err)
-	}
-	if err := c.Validate(state); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("invalid OCR2 config: %w", err)
-	}
-	for _, commit := range c.CommitConfigs {
-		if err := setOCR2ConfigCommit(env, state, commit); err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to set OCR2 config commit: %w", err)
-		}
-	}
-	for _, exec := range c.ExecConfigs {
-		if err := setOCR2ConfigExec(env, state, exec); err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to set OCR2 config exec: %w", err)
-		}
-	}
-	return deployment.ChangesetOutput{}, nil
-}
-
-func setOCR2ConfigExec(env deployment.Environment, state changeset.CCIPOnChainState, c ExecuteOCR2ConfigParams) error {
-
-	return nil
-}
-
-func setOCR2ConfigCommit(env deployment.Environment, state changeset.CCIPOnChainState, c CommitOCR2ConfigParams) error {
-	return nil
 }

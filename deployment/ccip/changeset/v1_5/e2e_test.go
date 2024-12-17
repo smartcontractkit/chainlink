@@ -3,18 +3,34 @@ package v1_5
 import (
 	"testing"
 
-	"go.uber.org/zap/zapcore"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 )
 
 func TestE2ELegacy(t *testing.T) {
-	e := memory.NewMemoryEnvironment(t, logger.TestLogger(t), zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-		Chains:             2,
-		NumOfUsersPerChain: 1,
-		Nodes:              4,
-		Bootstraps:         1,
-	})
-	// prep
+	e := NewMemoryEnvironment(t)
+	state, err := changeset.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+	allChains := e.Env.AllChainSelectors()
+	src, dest := allChains[0], allChains[1]
+	srcChain := e.Env.Chains[src]
+	destChain := e.Env.Chains[dest]
+	sentEvent, err := SendRequest(t, e.Env, state,
+		changeset.WithSourceChain(src),
+		changeset.WithDestChain(dest),
+		changeset.WithTestRouter(false),
+		changeset.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
+			Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
+			Data:         []byte("hello"),
+			TokenAmounts: nil,
+			FeeToken:     common.HexToAddress("0x0"),
+			ExtraArgs:    nil,
+		}),
+	)
+	require.NoError(t, err)
+	require.NotNil(t, sentEvent)
+	WaitForCommit(t, srcChain, destChain, state.Chains[dest].CommitStore[src], sentEvent.Message.SequenceNumber)
 }
