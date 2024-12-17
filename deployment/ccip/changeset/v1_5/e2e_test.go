@@ -5,20 +5,31 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 )
 
+// This test only works if the destination chain id is 1337
 func TestE2ELegacy(t *testing.T) {
-	e := NewMemoryEnvironment(t)
+	e := NewMemoryEnvironment(t, changeset.WithChains(3))
 	state, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
-	allChains := e.Env.AllChainSelectors()
-	src, dest := allChains[0], allChains[1]
+	allChains := e.Env.AllChainSelectorsExcluding([]uint64{chainselectors.GETH_TESTNET.Selector})
+	require.Contains(t, e.Env.AllChainSelectors(), chainselectors.GETH_TESTNET.Selector)
+	require.Len(t, allChains, 2)
+	src, dest := allChains[1], chainselectors.GETH_TESTNET.Selector
 	srcChain := e.Env.Chains[src]
 	destChain := e.Env.Chains[dest]
+	pairs := []changeset.SourceDestPair{
+		{SourceChainSelector: src, DestChainSelector: dest},
+	}
+	e.Env = AddLanes(t, e.Env, state, pairs)
+	// reload state after adding lanes
+	state, err = changeset.LoadOnchainState(e.Env)
+	require.NoError(t, err)
 	sentEvent, err := SendRequest(t, e.Env, state,
 		changeset.WithSourceChain(src),
 		changeset.WithDestChain(dest),

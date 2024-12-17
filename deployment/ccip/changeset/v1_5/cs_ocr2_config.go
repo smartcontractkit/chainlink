@@ -271,8 +271,9 @@ func deriveOCR2Config(
 				OnchainPublicKey:  cfg.OnchainPublicKey,
 				TransmitAccount:   cfg.TransmitAccount,
 				OffchainPublicKey: cfg.OffchainPublicKey,
-				PeerID:            cfg.PeerID.String()[4:],
-			}, ConfigEncryptionPublicKey: cfg.ConfigEncryptionPublicKey,
+				PeerID:            cfg.PeerID.Raw(),
+			},
+			ConfigEncryptionPublicKey: cfg.ConfigEncryptionPublicKey,
 		})
 	}
 

@@ -27,6 +27,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5"
 	integrationnodes "github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -135,6 +136,29 @@ func (l *DeployedLocalDevEnvironment) RestartChainlinkNodes(t *testing.T) error 
 
 	}
 	return errGrp.Wait()
+}
+
+func NewIntegrationLegacyEnvironment(t *testing.T, opts ...changeset.TestOps) changeset.DeployedEnv {
+	testCfg := changeset.DefaultTestConfigs()
+	for _, opt := range opts {
+		opt(testCfg)
+	}
+	// check for EnvType env var
+	testCfg.MustSetEnvTypeOrDefault(t)
+	require.NoError(t, testCfg.Validate(), "invalid test config")
+	switch testCfg.Type {
+	case changeset.Memory:
+		memEnv := v1_5.NewMemoryEnvironment(t, opts...)
+		return memEnv
+	case changeset.Docker:
+		dockerEnv := &DeployedLocalDevEnvironment{}
+		deployedEnv := v1_5.NewEnvironment(t, testCfg, dockerEnv)
+		require.NotNil(t, dockerEnv.testEnv, "empty docker environment")
+		return deployedEnv
+	default:
+		require.Failf(t, "Type %s not supported in integration tests choose between %s and %s", string(testCfg.Type), changeset.Memory, changeset.Docker)
+	}
+	return changeset.DeployedEnv{}
 }
 
 // NewIntegrationEnvironment creates a new integration test environment based on the provided test config

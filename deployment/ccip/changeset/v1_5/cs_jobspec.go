@@ -2,9 +2,6 @@ package v1_5
 
 import (
 	"fmt"
-	"strconv"
-
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -28,6 +25,7 @@ func (c JobSpecsForLanesConfig) Validate() error {
 type JobSpecInput struct {
 	SourceChainSelector      uint64
 	DestinationChainSelector uint64
+	DestEVMChainID           uint64
 	DestinationStartBlock    uint64
 	TokenPricesUSDPipeline   string
 	PriceGetterConfigJson    string
@@ -86,24 +84,16 @@ func jobSpecsForLane(
 	for _, node := range nodes {
 		var specs []string
 		for _, cfg := range lanesCfg.Configs {
-			var err error
 			destChainState := state.Chains[cfg.DestinationChainSelector]
 			sourceChain := env.Chains[cfg.SourceChainSelector]
 			destChain := env.Chains[cfg.DestinationChainSelector]
-			destEVMChainIdStr, err := chain_selectors.GetChainIDFromSelector(cfg.DestinationChainSelector)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get chain ID from selector for chain %s: %w", destChain.String(), err)
-			}
-			destEVMChainId, err := strconv.ParseUint(destEVMChainIdStr, 10, 64)
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse chain ID %s for chain %s: %w", destEVMChainIdStr, destChain.String(), err)
-			}
+
 			ccipJobParam := integrationtesthelpers.CCIPJobSpecParams{
 				OffRamp:                destChainState.EVM2EVMOffRamp[cfg.SourceChainSelector].Address(),
 				CommitStore:            destChainState.CommitStore[cfg.SourceChainSelector].Address(),
 				SourceChainName:        sourceChain.Name(),
 				DestChainName:          destChain.Name(),
-				DestEvmChainId:         destEVMChainId,
+				DestEvmChainId:         cfg.DestEVMChainID,
 				TokenPricesUSDPipeline: cfg.TokenPricesUSDPipeline,
 				PriceGetterConfig:      cfg.PriceGetterConfigJson,
 				DestStartBlock:         cfg.DestinationStartBlock,
