@@ -49,7 +49,7 @@ type EVM interface {
 	NodeNoNewHeadsThreshold() time.Duration
 	FinalizedBlockOffset() uint32
 	NoNewFinalizedHeadsThreshold() time.Duration
-	TXMEnabled() bool
+	TransactionManagerEnabled() bool
 
 	IsEnabled() bool
 	TOMLString() (string, error)

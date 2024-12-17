@@ -221,18 +221,18 @@ func TestChainScopedConfig(t *testing.T) {
 		})
 	})
 
-	t.Run("TXMEnabled", func(t *testing.T) {
-		t.Run("turn on TXMEnabled by default", func(t *testing.T) {
-			assert.True(t, cfg.EVM().TXMEnabled())
+	t.Run("TransactionManagerEnabled", func(t *testing.T) {
+		t.Run("turn on TransactionManagerEnabled by default", func(t *testing.T) {
+			assert.True(t, cfg.EVM().TransactionManagerEnabled())
 		})
 
-		t.Run("verify TXMEnabled is set correctly", func(t *testing.T) {
+		t.Run("verify TransactionManagerEnabled is set correctly", func(t *testing.T) {
 			val := false
 			cfg3 := testutils.NewTestChainScopedConfig(t, func(c *toml.EVMConfig) {
-				c.TXMEnabled = ptr(val)
+				c.TransactionManagerEnabled = ptr(val)
 			})
 
-			assert.False(t, cfg3.EVM().TXMEnabled())
+			assert.False(t, cfg3.EVM().TransactionManagerEnabled())
 		})
 	})
 }

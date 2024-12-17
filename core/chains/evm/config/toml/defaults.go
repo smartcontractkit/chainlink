@@ -239,8 +239,8 @@ func (c *Chain) SetFrom(f *Chain) {
 	if v := f.NoNewFinalizedHeadsThreshold; v != nil {
 		c.NoNewFinalizedHeadsThreshold = v
 	}
-	if v := f.TXMEnabled; v != nil {
-		c.TXMEnabled = v
+	if v := f.TransactionManagerEnabled; v != nil {
+		c.TransactionManagerEnabled = v
 	}
 
 	c.Transactions.setFrom(&f.Transactions)

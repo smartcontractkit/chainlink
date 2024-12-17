@@ -579,14 +579,14 @@ func TestConfig_Marshal(t *testing.T) {
 				BalanceMonitor: evmcfg.BalanceMonitor{
 					Enabled: ptr(true),
 				},
-				BlockBackfillDepth:   ptr[uint32](100),
-				BlockBackfillSkip:    ptr(true),
-				ChainType:            chaintype.NewConfig("Optimism"),
-				FinalityDepth:        ptr[uint32](42),
-				FinalityTagEnabled:   ptr[bool](true),
-				FlagsContractAddress: mustAddress("0xae4E781a6218A8031764928E88d457937A954fC3"),
-				FinalizedBlockOffset: ptr[uint32](16),
-				TXMEnabled:           ptr(true),
+				BlockBackfillDepth:        ptr[uint32](100),
+				BlockBackfillSkip:         ptr(true),
+				ChainType:                 chaintype.NewConfig("Optimism"),
+				FinalityDepth:             ptr[uint32](42),
+				FinalityTagEnabled:        ptr[bool](true),
+				FlagsContractAddress:      mustAddress("0xae4E781a6218A8031764928E88d457937A954fC3"),
+				FinalizedBlockOffset:      ptr[uint32](16),
+				TransactionManagerEnabled: ptr(true),
 
 				GasEstimator: evmcfg.GasEstimator{
 					Mode:               ptr("SuggestedPrice"),
@@ -1117,7 +1117,7 @@ RPCDefaultBatchSize = 17
 RPCBlockQueryDelay = 10
 FinalizedBlockOffset = 16
 NoNewFinalizedHeadsThreshold = '1h0m0s'
-TXMEnabled = true
+TransactionManagerEnabled = true
 
 [EVM.Transactions]
 ForwardersEnabled = true

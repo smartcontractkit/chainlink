@@ -192,6 +192,6 @@ func (e *EVMConfig) NoNewFinalizedHeadsThreshold() time.Duration {
 	return e.C.NoNewFinalizedHeadsThreshold.Duration()
 }
 
-func (e *EVMConfig) TXMEnabled() bool {
-	return *e.C.TXMEnabled
+func (e *EVMConfig) TransactionManagerEnabled() bool {
+	return *e.C.TransactionManagerEnabled
 }

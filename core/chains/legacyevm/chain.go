@@ -247,10 +247,10 @@ func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Nod
 	// note: gas estimator is started as a part of the txm
 	var txm txmgr.TxManager
 	var gasEstimator gas.EvmFeeEstimator
-	//nolint:gocritic // ignoring styling issue
+	//nolint:gocritic // ignoring suggestion to convert to switch statement
 	if !opts.AppConfig.EVMRPCEnabled() {
 		txm = &txmgr.NullTxManager{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
-	} else if !cfg.EVM().TXMEnabled() {
+	} else if !cfg.EVM().TransactionManagerEnabled() {
 		txm = &txmgr.NullTxManager{ErrMsg: fmt.Sprintf("TXM disabled for chain %d", chainID)}
 	} else {
 		var err error

@@ -386,7 +386,7 @@ type Chain struct {
 	RPCBlockQueryDelay           *uint16
 	FinalizedBlockOffset         *uint32
 	NoNewFinalizedHeadsThreshold *commonconfig.Duration
-	TXMEnabled                   *bool
+	TransactionManagerEnabled    *bool
 
 	Transactions   Transactions      `toml:",omitempty"`
 	BalanceMonitor BalanceMonitor    `toml:",omitempty"`

@@ -17,7 +17,7 @@ RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0'
 LogBroadcasterEnabled = true
-TXMEnabled = true
+TransactionManagerEnabled = true
 
 [Transactions]
 ForwardersEnabled = false
