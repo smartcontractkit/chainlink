@@ -78,7 +78,7 @@ func (tc *TestConfigs) MustSetEnvTypeOrDefault(t *testing.T) {
 	} else if envType == string(AnvilDocker) {
 		tc.Type = AnvilDocker
 	} else {
-		t.Fatalf("env var CCIP_V16_TEST_ENV must be either %s or %s, defaults to %s if unset, got: %s", Memory, Docker, Memory, envType)
+		t.Fatalf("env var CCIP_V16_TEST_ENV must be either %s, %s or %s, defaults to %s if unset, got: %s", Memory, Docker, AnvilDocker, Memory, envType)
 	}
 }
 
