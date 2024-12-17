@@ -152,7 +152,7 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 	if !ok {
 		return nil, fmt.Errorf("no OCR key bundle found for chain family %s, forgot to create one?", destChainFamily)
 	}
-	onchainKeyring := ocrimpls.NewOnchainKeyring[[]byte](keybundle, i.lggr)
+	onchainKeyring := ocrimpls.NewOnchainKeyring(keybundle, i.lggr)
 
 	// build the contract transmitter
 	// assume that we are using the first account in the keybundle as the from account
@@ -271,7 +271,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 			rmnCrypto,
 		)
 		factory = promwrapper.NewReportingPluginFactory[[]byte](factory, i.lggr, chainID, "CCIPCommit")
-		transmitter = ocrimpls.NewCommitContractTransmitter[[]byte](destChainWriter,
+		transmitter = ocrimpls.NewCommitContractTransmitter(destChainWriter,
 			ocrtypes.Account(destFromAccounts[0]),
 			hexutil.Encode(config.Config.OfframpAddress), // TODO: this works for evm only, how about non-evm?
 		)
@@ -292,7 +292,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 			chainWriters,
 		)
 		factory = promwrapper.NewReportingPluginFactory[[]byte](factory, i.lggr, chainID, "CCIPExec")
-		transmitter = ocrimpls.NewExecContractTransmitter[[]byte](destChainWriter,
+		transmitter = ocrimpls.NewExecContractTransmitter(destChainWriter,
 			ocrtypes.Account(destFromAccounts[0]),
 			hexutil.Encode(config.Config.OfframpAddress), // TODO: this works for evm only, how about non-evm?
 		)

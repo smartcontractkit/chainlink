@@ -103,7 +103,7 @@ func testTransmitter(
 	report []byte,
 ) {
 	ctx := tests.Context(t)
-	uni := newTestUniverse[[]byte](t, nil)
+	uni := newTestUniverse(t, nil)
 
 	c, err := uni.wrapper.LatestConfigDetails(nil, pluginType)
 	require.NoError(t, err, "failed to get latest config details")
@@ -178,28 +178,28 @@ func testTransmitter(
 	require.Equal(t, seqNr, events[0].SequenceNumber, "seq num mismatch")
 }
 
-type testUniverse[RI any] struct {
+type testUniverse struct {
 	simClient              *client.SimulatedBackendClient
 	backend                *simulated.Backend
 	deployer               *bind.TransactOpts
 	transmitters           []common.Address
 	signers                []common.Address
 	wrapper                *multi_ocr3_helper.MultiOCR3Helper
-	transmitterWithSigs    ocr3types.ContractTransmitter[RI]
-	transmitterWithoutSigs ocr3types.ContractTransmitter[RI]
-	keyrings               []ocr3types.OnchainKeyring[RI]
+	transmitterWithSigs    ocr3types.ContractTransmitter[[]byte]
+	transmitterWithoutSigs ocr3types.ContractTransmitter[[]byte]
+	keyrings               []ocr3types.OnchainKeyring[[]byte]
 	f                      uint8
 	db                     *sqlx.DB
 	txm                    txmgr.TxManager
 	gasEstimator           gas.EvmFeeEstimator
 }
 
-type keyringsAndSigners[RI any] struct {
-	keyrings []ocr3types.OnchainKeyring[RI]
+type keyringsAndSigners struct {
+	keyrings []ocr3types.OnchainKeyring[[]byte]
 	signers  []common.Address
 }
 
-func newTestUniverse[RI any](t *testing.T, ks *keyringsAndSigners[RI]) *testUniverse[RI] {
+func newTestUniverse(t *testing.T, ks *keyringsAndSigners) *testUniverse {
 	t.Helper()
 
 	db := pgtest.NewSqlxDB(t)
@@ -233,7 +233,7 @@ func newTestUniverse[RI any](t *testing.T, ks *keyringsAndSigners[RI]) *testUniv
 	// create the oracle identities for setConfig
 	// need to create at least 4 identities otherwise setConfig will fail
 	var (
-		keyrings []ocr3types.OnchainKeyring[RI]
+		keyrings []ocr3types.OnchainKeyring[[]byte]
 		signers  []common.Address
 	)
 	if ks != nil {
@@ -243,7 +243,7 @@ func newTestUniverse[RI any](t *testing.T, ks *keyringsAndSigners[RI]) *testUniv
 		for i := 0; i < 4; i++ {
 			kb, err2 := ocr2key.New(kschaintype.EVM)
 			require.NoError(t, err2, "failed to create key")
-			kr := ocrimpls.NewOnchainKeyring[RI](kb, logger.TestLogger(t))
+			kr := ocrimpls.NewOnchainKeyring(kb, logger.TestLogger(t))
 			signers = append(signers, common.BytesToAddress(kr.PublicKey()))
 			keyrings = append(keyrings, kr)
 		}
@@ -309,7 +309,7 @@ func newTestUniverse[RI any](t *testing.T, ks *keyringsAndSigners[RI]) *testUniv
 	require.NoError(t, chainWriter.Start(testutils.Context(t)), "failed to start chain writer")
 	t.Cleanup(func() { require.NoError(t, chainWriter.Close()) })
 
-	transmitterWithSigs := ocrimpls.XXXNewContractTransmitterTestsOnly[RI](
+	transmitterWithSigs := ocrimpls.XXXNewContractTransmitterTestsOnly(
 		chainWriter,
 		ocrtypes.Account(transmitters[0].Hex()),
 		contractName,
@@ -317,7 +317,7 @@ func newTestUniverse[RI any](t *testing.T, ks *keyringsAndSigners[RI]) *testUniv
 		ocr3HelperAddr.Hex(),
 		ocrimpls.ToCommitCalldata,
 	)
-	transmitterWithoutSigs := ocrimpls.XXXNewContractTransmitterTestsOnly[RI](
+	transmitterWithoutSigs := ocrimpls.XXXNewContractTransmitterTestsOnly(
 		chainWriter,
 		ocrtypes.Account(transmitters[0].Hex()),
 		contractName,
@@ -326,7 +326,7 @@ func newTestUniverse[RI any](t *testing.T, ks *keyringsAndSigners[RI]) *testUniv
 		ocrimpls.ToExecCalldata,
 	)
 
-	return &testUniverse[RI]{
+	return &testUniverse{
 		simClient:              simClient,
 		backend:                backend,
 		deployer:               owner,
@@ -343,7 +343,7 @@ func newTestUniverse[RI any](t *testing.T, ks *keyringsAndSigners[RI]) *testUniv
 	}
 }
 
-func (uni testUniverse[RI]) SignReport(t *testing.T, configDigest ocrtypes.ConfigDigest, rwi ocr3types.ReportWithInfo[RI], seqNum uint64) []ocrtypes.AttributedOnchainSignature {
+func (uni testUniverse) SignReport(t *testing.T, configDigest ocrtypes.ConfigDigest, rwi ocr3types.ReportWithInfo[[]byte], seqNum uint64) []ocrtypes.AttributedOnchainSignature {
 	var attributedSigs []ocrtypes.AttributedOnchainSignature
 	for i := uint8(0); i < uni.f+1; i++ {
 		t.Log("signing report with", hexutil.Encode(uni.keyrings[i].PublicKey()))
@@ -357,7 +357,7 @@ func (uni testUniverse[RI]) SignReport(t *testing.T, configDigest ocrtypes.Confi
 	return attributedSigs
 }
 
-func (uni testUniverse[RI]) TransmittedEvents(t *testing.T) []*multi_ocr3_helper.MultiOCR3HelperTransmitted {
+func (uni testUniverse) TransmittedEvents(t *testing.T) []*multi_ocr3_helper.MultiOCR3HelperTransmitted {
 	iter, err := uni.wrapper.FilterTransmitted(&bind.FilterOpts{
 		Start: 0,
 	}, nil)
