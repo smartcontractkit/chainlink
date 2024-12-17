@@ -20,7 +20,7 @@ import (
 
 type toCalldataFunc func(rawReportCtx [2][32]byte, report ocr3types.ReportWithInfo[[]byte], rs, ss [][32]byte, vs [32]byte) (any, error)
 
-func toCommitCalldata(rawReportCtx [2][32]byte, report ocr3types.ReportWithInfo[[]byte], rs, ss [][32]byte, vs [32]byte) (any, error) {
+func ToCommitCalldata(rawReportCtx [2][32]byte, report ocr3types.ReportWithInfo[[]byte], rs, ss [][32]byte, vs [32]byte) (any, error) {
 	// Note that the name of the struct field is very important, since the encoder used
 	// by the chainwriter uses mapstructure, which will use the struct field name to map
 	// to the argument name in the function call.
@@ -45,7 +45,7 @@ func toCommitCalldata(rawReportCtx [2][32]byte, report ocr3types.ReportWithInfo[
 	}, nil
 }
 
-func toExecCalldata(rawReportCtx [2][32]byte, report ocr3types.ReportWithInfo[[]byte], _, _ [][32]byte, _ [32]byte) (any, error) {
+func ToExecCalldata(rawReportCtx [2][32]byte, report ocr3types.ReportWithInfo[[]byte], _, _ [][32]byte, _ [32]byte) (any, error) {
 	// Note that the name of the struct field is very important, since the encoder used
 	// by the chainwriter uses mapstructure, which will use the struct field name to map
 	// to the argument name in the function call.
@@ -111,7 +111,7 @@ func NewCommitContractTransmitter[RI any](
 		contractName:   consts.ContractNameOffRamp,
 		method:         consts.MethodCommit,
 		offrampAddress: offrampAddress,
-		toCalldataFn:   toCommitCalldata,
+		toCalldataFn:   ToCommitCalldata,
 	}
 }
 
@@ -126,7 +126,7 @@ func NewExecContractTransmitter(
 		contractName:   consts.ContractNameOffRamp,
 		method:         consts.MethodExecute,
 		offrampAddress: offrampAddress,
-		toCalldataFn:   toExecCalldata,
+		toCalldataFn:   ToExecCalldata,
 	}
 }
 
