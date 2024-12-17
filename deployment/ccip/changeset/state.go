@@ -356,7 +356,11 @@ func (s CCIPOnChainState) View(chains []uint64) (map[string]view.ChainView, erro
 		if err != nil {
 			return m, err
 		}
-		m[chainInfo.ChainName] = chainView
+		name := chainInfo.ChainName
+		if chainInfo.ChainName == "" {
+			name = fmt.Sprintf("%d", chainSelector)
+		}
+		m[name] = chainView
 	}
 	return m, nil
 }
