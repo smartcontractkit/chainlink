@@ -240,3 +240,8 @@ addresses_to_fund = [
 [Seth]
 # Seth specific configuration, no need for generating ephemeral addresses for ccip-tests.
 ephemeral_addresses_number = 0
+
+
+[Load.CCIP.Load]
+LokiEndpoint = "http://localhost:3030/loki/api/v1/push"
+NoOfNodes = 4

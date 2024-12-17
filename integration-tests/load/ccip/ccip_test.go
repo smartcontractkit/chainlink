@@ -7,6 +7,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 	ccipchangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	crib "github.com/smartcontractkit/chainlink/deployment/environment/crib"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/stretchr/testify/require"
 	"math/big"
@@ -23,6 +24,8 @@ var (
 	wg sync.WaitGroup
 )
 
+const CRIB_DIRECTORY = "/Users/austin.wang/ccip-core/repos/crib/deployments/ccip-v2/.tmp"
+
 // step 1: setup
 // Parse the test config, initialize CRIB with configurations defined
 // step 2: load
@@ -37,14 +40,12 @@ func TestCCIPLoad_RPS(t *testing.T) {
 
 	config, err := tc.GetConfig([]string{"Load"}, tc.CCIP)
 	require.NoError(t, err)
-	lggr.Infof("loaded test config: %+v", config)
+	lggr.Infof("loaded ccip test config: %+v", config.CCIP.Load)
 
-	lggr.Info("starting ccip load test")
-	lggr.Infof("Number of nodes: %d", *(config.CCIP.Load.NoOfNodes))
-	lggr.Infof("config: %+v", config.CCIP.Load)
-	lggr.Info("Test Config")
+	cribEnv := crib.NewDevspaceEnvFromStateDir(CRIB_DIRECTORY)
 
-	env, err := CreateEnvironmentFromCribOutput(t, lggr)
+	cribDeployOutput := cribEnv.GetConfig()
+	env, err := crib.NewDeployEnvironmentFromCribOutput(lggr, cribDeployOutput)
 	require.NoError(t, err)
 	require.NotNil(t, env)
 
@@ -53,17 +54,12 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	state, err := ccipchangeset.LoadOnchainState(*env)
 	require.NoError(t, err)
 
-	cfgl := config.Logging.Loki
-
 	// Parse all events from the simulated chains, send to Loki
-	loki, err := wasp.NewLokiClient(wasp.NewLokiConfig(cfgl.Endpoint, cfgl.TenantId, cfgl.BasicAuth, cfgl.BearerToken))
-	if err != nil {
-		env.Logger.Error("failed to create loki client")
-		return
-	}
+	loki, err := wasp.NewLokiClient(wasp.NewLokiConfig(config.CCIP.Load.LokiEndpoint, nil, nil, nil))
+	require.NoError(t, err)
 	defer loki.StopNow()
 
-	// Based on the config, initiate a DestinationGun
+	// Based on the config, initialize DestinationGun
 	p := wasp.NewProfile()
 	for selector, chain := range env.Chains {
 		latesthdr, err := chain.Client.HeaderByNumber(ctx, nil)
@@ -81,9 +77,9 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			// this schedule is per generator
 			// in this example, it would be 1 request per 10seconds per generator (dest chain)
 			// so if there are 3 generators, it would be 3 requests per 10 seconds over the network
-			Gun:        NewDestinationGun(env.Logger, selector, env, state.Chains[selector].Receiver.Address(), loki),
+			Gun:        NewDestinationGun(env.Logger, selector, *env, state.Chains[selector].Receiver.Address(), loki),
 			Labels:     CommonTestLabels,
-			LokiConfig: wasp.NewLokiConfig(cfgl.Endpoint, cfgl.TenantId, cfgl.BasicAuth, cfgl.BearerToken),
+			LokiConfig: wasp.NewLokiConfig(config.CCIP.Load.LokiEndpoint, nil, nil, nil),
 			// use the same loki client using `NewLokiClient` with the same config for sending events
 		}))
 	}
@@ -113,14 +109,14 @@ func TestCCIPLoad_RPS(t *testing.T) {
 				blockNum := commitIterator.Event.Raw.BlockNumber
 				header, err := env.Chains[chainSelector].Client.HeaderByNumber(ctx, big.NewInt(int64(blockNum)))
 				require.NoError(t, err)
-				timestamp := time.Unix(int64(header.Time()), 0)
+				timestamp := time.Unix(int64(header.Time), 0)
 
 				for _, root := range event.MerkleRoots {
 					lokiLabels = setLokiLabels(root.SourceChainSelector, chainSelector)
 
 					for i := root.MinSeqNr; i <= root.MaxSeqNr; i++ {
 						// todo: push loki calls to channel?
-						SendMetricsToLoki(l, loki, lokiLabels, &LokiMetric{
+						SendMetricsToLoki(lggr, loki, lokiLabels, &LokiMetric{
 							EventType:      committed,
 							Timestamp:      timestamp,
 							SequenceNumber: i,
@@ -143,7 +139,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 
 				// todo: push loki calls to channel?
 				lokiLabels = setLokiLabels(execIterator.Event.SourceChainSelector, chainSelector)
-				SendMetricsToLoki(l, loki, lokiLabels, &LokiMetric{
+				SendMetricsToLoki(lggr, loki, lokiLabels, &LokiMetric{
 					EventType:      executed,
 					Timestamp:      timestamp,
 					GasUsed:        execIterator.Event.GasUsed.Uint64(),

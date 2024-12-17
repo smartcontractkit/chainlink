@@ -11,8 +11,7 @@ import (
 	ccipchangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
-
-	"sync/atomic"
+	"go.uber.org/atomic"
 	"time"
 )
 
@@ -38,11 +37,7 @@ func NewDestinationGun(l logger.Logger, chainSelector uint64, env deployment.Env
 		seqNums[ChainSelectorPair{
 			src: cs,
 			dst: chainSelector,
-		}] = &atomic.Uint64{}
-		seqNums[ChainSelectorPair{
-			src: chainSelector,
-			dst: cs,
-		}].Store(1)
+		}] = atomic.NewUint64(1)
 	}
 	return &DestinationGun{
 		l:             l,

@@ -445,6 +445,8 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				return state, err
 			}
 			state.OffRamp = offRamp
+		case deployment.NewTypeAndVersion(ARMProxy, deployment.Version1_6_0_dev).String():
+			fallthrough
 		case deployment.NewTypeAndVersion(ARMProxy, deployment.Version1_0_0).String():
 			armProxy, err := rmn_proxy_contract.NewRMNProxy(common.HexToAddress(address), chain.Client)
 			if err != nil {
