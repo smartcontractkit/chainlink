@@ -11,16 +11,55 @@ import {Test} from "forge-std/Test.sol";
 contract ERC165CheckerTest is Test {
   using ERC165Checker for address;
 
-  MaybeRevertMessageReceiver internal s_receiver;
+  address internal s_receiver;
 
   bytes4 public constant EXAMPLE_INTERFACE_ID = 0xdeadbeef;
 
   constructor() {
-    s_receiver = new MaybeRevertMessageReceiver(false);
+    s_receiver = address(new MaybeRevertMessageReceiver(false));
   }
 
-  function test_supportsInterface() public view {
-    assertTrue(s_receiver.supportsInterface(type(IAny2EVMMessageReceiver).interfaceId));
+  function test__supportsInterface() public view {
+    assertTrue(s_receiver._supportsInterface(type(IAny2EVMMessageReceiver).interfaceId));
+  }
+
+  function test__getSupportedInterfaces() public view {
+    bytes4[] memory interfaceIds = new bytes4[](1);
+
+    interfaceIds[0] = type(IAny2EVMMessageReceiver).interfaceId;
+
+    bool[] memory supportedIds = s_receiver._getSupportedInterfaces(interfaceIds);
+    assertTrue(supportedIds[0]);
+    assertEq(interfaceIds.length, supportedIds.length);
+  }
+
+  function test__supportsAllInterfaces() public view {
+    bytes4[] memory interfaceIds = new bytes4[](1);
+
+    interfaceIds[0] = type(IAny2EVMMessageReceiver).interfaceId;
+
+    assertTrue(s_receiver._supportsAllInterfaces(interfaceIds));
+  }
+
+  function test__supportsAllInterfaces_notAllSupported() public view {
+    bytes4[] memory interfaceIds = new bytes4[](2);
+
+    interfaceIds[0] = type(IAny2EVMMessageReceiver).interfaceId;
+    interfaceIds[1] = EXAMPLE_INTERFACE_ID;
+
+    assertFalse(s_receiver._supportsAllInterfaces(interfaceIds));
+  }
+
+  function test__supportsAllInterfaces_notSupportsERC165() public view {
+    bytes4[] memory interfaceIds = new bytes4[](2);
+
+    interfaceIds[0] = type(IAny2EVMMessageReceiver).interfaceId;
+    interfaceIds[1] = EXAMPLE_INTERFACE_ID;
+
+    // An address that does not support ERC165
+    address randomAddress = address(0xdead);
+
+    assertFalse(randomAddress._supportsAllInterfaces(interfaceIds));
   }
 
   function test_supportsInterface_RevertWhen_NotEnoughGasForSupportsInterface() public {
@@ -35,6 +74,6 @@ contract ERC165CheckerTest is Test {
 
   // Meant to test the call with a manual gas limit override
   function invokeERC165Checker() external view {
-    address(s_receiver)._supportsInterface(EXAMPLE_INTERFACE_ID);
+    s_receiver._supportsInterface(EXAMPLE_INTERFACE_ID);
   }
 }
