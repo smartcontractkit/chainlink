@@ -58,7 +58,7 @@ func init() {
 	}
 
 	// use evm overrides specifically
-	_, _, customDefaults, fb, err = initDefaults(os.ReadDir, os.ReadFile, fmt.Sprintf("%s/evm", dir))
+	_, _, customDefaults, fb, err = initDefaults(os.ReadDir, os.ReadFile, dir+"/evm")
 	if err != nil {
 		log.Fatalf("failed to read custom overrides: %s", err)
 	}
@@ -75,7 +75,7 @@ func initDefaults(
 ) ([]*big.Big, map[string]string, map[string]Chain, *Chain, error) {
 	entries, err := dirReader(root)
 	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("failed to read directory: %s", err)
+		return nil, nil, nil, nil, fmt.Errorf("failed to read directory: %w", err)
 	}
 
 	var fb *Chain
