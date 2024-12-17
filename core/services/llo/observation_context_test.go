@@ -328,7 +328,7 @@ result3 -> result3_parse -> multiply3;
 	// concurrency stress test
 	g, ctx := errgroup.WithContext(ctx)
 	for i := uint32(0); i < 1000; i++ {
-		strmID := streams.StreamID(1 + i%3)
+		strmID := 1 + i%3
 		g.Go(func() error {
 			_, err := oc.Observe(ctx, strmID, opts)
 			return err
