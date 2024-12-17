@@ -441,6 +441,212 @@ func SetupCommitDON(
 	return nil
 }
 
+func BuildCommitOCR3ConfigForCCIPHome(
+	ocrSecrets deployment.OCRSecrets,
+	offRamp *offramp.OffRamp,
+	dest deployment.Chain,
+	nodes deployment.Nodes,
+	rmnHomeAddress common.Address,
+	ocrParams types2.OCRParameters,
+	commitOffchainCfg pluginconfig.CommitOffchainConfig,
+) (*ccip_home.CCIPHomeOCR3Config, error) {
+	p2pIDs := nodes.PeerIDs()
+	// Get OCR3 Config from helper
+	var schedule []int
+	var oracles []confighelper.OracleIdentityExtra
+	for _, node := range nodes {
+		schedule = append(schedule, 1)
+		cfg, exists := node.OCRConfigForChainSelector(dest.Selector)
+		if !exists {
+			return nil, fmt.Errorf("no OCR config for chain %d", dest.Selector)
+		}
+		oracles = append(oracles, confighelper.OracleIdentityExtra{
+			OracleIdentity: confighelper.OracleIdentity{
+				OnchainPublicKey:  cfg.OnchainPublicKey,
+				TransmitAccount:   cfg.TransmitAccount,
+				OffchainPublicKey: cfg.OffchainPublicKey,
+				PeerID:            cfg.PeerID.String()[4:],
+			}, ConfigEncryptionPublicKey: cfg.ConfigEncryptionPublicKey,
+		})
+	}
+
+	encodedOffchainConfig, err := pluginconfig.EncodeCommitOffchainConfig(pluginconfig.CommitOffchainConfig{
+		RemoteGasPriceBatchWriteFrequency:  commitOffchainCfg.RemoteGasPriceBatchWriteFrequency,
+		TokenPriceBatchWriteFrequency:      commitOffchainCfg.TokenPriceBatchWriteFrequency,
+		PriceFeedChainSelector:             commitOffchainCfg.PriceFeedChainSelector,
+		TokenInfo:                          commitOffchainCfg.TokenInfo,
+		NewMsgScanBatchSize:                commitOffchainCfg.NewMsgScanBatchSize,
+		MaxReportTransmissionCheckAttempts: commitOffchainCfg.MaxReportTransmissionCheckAttempts,
+		MaxMerkleTreeSize:                  commitOffchainCfg.MaxMerkleTreeSize,
+		SignObservationPrefix:              commitOffchainCfg.SignObservationPrefix,
+		RMNEnabled:                         commitOffchainCfg.RMNEnabled,
+		RMNSignaturesTimeout:               commitOffchainCfg.RMNSignaturesTimeout,
+	})
+	if err != nil {
+		return nil, err
+	}
+	signers, transmitters, configF, _, offchainConfigVersion, offchainConfig, err := ocr3confighelper.ContractSetConfigArgsDeterministic(
+		ocrSecrets.EphemeralSk,
+		ocrSecrets.SharedSecret,
+		ocrParams.DeltaProgress,
+		ocrParams.DeltaResend,
+		ocrParams.DeltaInitial,
+		ocrParams.DeltaRound,
+		ocrParams.DeltaGrace,
+		ocrParams.DeltaCertifiedCommitRequest,
+		ocrParams.DeltaStage,
+		ocrParams.Rmax,
+		schedule,
+		oracles,
+		encodedOffchainConfig,
+		nil, // maxDurationInitialization
+		ocrParams.MaxDurationQuery,
+		ocrParams.MaxDurationObservation,
+		ocrParams.MaxDurationShouldAcceptAttestedReport,
+		ocrParams.MaxDurationShouldTransmitAcceptedReport,
+		int(nodes.DefaultF()),
+		[]byte{}, // empty OnChainConfig
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	signersBytes := make([][]byte, len(signers))
+	for i, signer := range signers {
+		signersBytes[i] = signer
+	}
+
+	transmittersBytes := make([][]byte, len(transmitters))
+	for i, transmitter := range transmitters {
+		parsed, err2 := common.ParseHexOrString(string(transmitter))
+		if err2 != nil {
+			return nil, err2
+		}
+		transmittersBytes[i] = parsed
+	}
+
+	var ocrNodes []ccip_home.CCIPHomeOCR3Node
+	for i := range nodes {
+		ocrNodes = append(ocrNodes, ccip_home.CCIPHomeOCR3Node{
+			P2pId:          p2pIDs[i],
+			SignerKey:      signersBytes[i],
+			TransmitterKey: transmittersBytes[i],
+		})
+	}
+
+	return &ccip_home.CCIPHomeOCR3Config{
+		PluginType:            uint8(types.PluginTypeCCIPCommit),
+		ChainSelector:         dest.Selector,
+		FRoleDON:              configF,
+		OffchainConfigVersion: offchainConfigVersion,
+		OfframpAddress:        offRamp.Address().Bytes(),
+		Nodes:                 ocrNodes,
+		OffchainConfig:        offchainConfig,
+		RmnHomeAddress:        rmnHomeAddress.Bytes(),
+	}, nil
+}
+
+func BuildExecOCR3ConfigForCCIPHome(
+	ocrSecrets deployment.OCRSecrets,
+	offRamp *offramp.OffRamp,
+	dest deployment.Chain,
+	nodes deployment.Nodes,
+	rmnHomeAddress common.Address,
+	ocrParams types2.OCRParameters,
+	execOffchainCfg pluginconfig.ExecuteOffchainConfig,
+) (*ccip_home.CCIPHomeOCR3Config, error) {
+	p2pIDs := nodes.PeerIDs()
+	// Get OCR3 Config from helper
+	var schedule []int
+	var oracles []confighelper.OracleIdentityExtra
+	for _, node := range nodes {
+		schedule = append(schedule, 1)
+		cfg, exists := node.OCRConfigForChainSelector(dest.Selector)
+		if !exists {
+			return nil, fmt.Errorf("no OCR config for chain %d", dest.Selector)
+		}
+		oracles = append(oracles, confighelper.OracleIdentityExtra{
+			OracleIdentity: confighelper.OracleIdentity{
+				OnchainPublicKey:  cfg.OnchainPublicKey,
+				TransmitAccount:   cfg.TransmitAccount,
+				OffchainPublicKey: cfg.OffchainPublicKey,
+				PeerID:            cfg.PeerID.String()[4:],
+			}, ConfigEncryptionPublicKey: cfg.ConfigEncryptionPublicKey,
+		})
+	}
+
+	encodedOffchainConfig, err := pluginconfig.EncodeExecuteOffchainConfig(pluginconfig.ExecuteOffchainConfig{
+		BatchGasLimit:             execOffchainCfg.BatchGasLimit,
+		RelativeBoostPerWaitHour:  execOffchainCfg.RelativeBoostPerWaitHour,
+		MessageVisibilityInterval: execOffchainCfg.MessageVisibilityInterval,
+		InflightCacheExpiry:       execOffchainCfg.InflightCacheExpiry,
+		RootSnoozeTime:            execOffchainCfg.RootSnoozeTime,
+		BatchingStrategyID:        execOffchainCfg.BatchingStrategyID,
+		TokenDataObservers:        execOffchainCfg.TokenDataObservers,
+	})
+	if err != nil {
+		return nil, err
+	}
+	signers, transmitters, configF, _, offchainConfigVersion, offchainConfig, err := ocr3confighelper.ContractSetConfigArgsDeterministic(
+		ocrSecrets.EphemeralSk,
+		ocrSecrets.SharedSecret,
+		ocrParams.DeltaProgress,
+		ocrParams.DeltaResend,
+		ocrParams.DeltaInitial,
+		ocrParams.DeltaRound,
+		ocrParams.DeltaGrace,
+		ocrParams.DeltaCertifiedCommitRequest,
+		ocrParams.DeltaStage,
+		ocrParams.Rmax,
+		schedule,
+		oracles,
+		encodedOffchainConfig,
+		nil, // maxDurationInitialization
+		ocrParams.MaxDurationQuery,
+		ocrParams.MaxDurationObservation,
+		ocrParams.MaxDurationShouldAcceptAttestedReport,
+		ocrParams.MaxDurationShouldTransmitAcceptedReport,
+		int(nodes.DefaultF()),
+		[]byte{}, // empty OnChainConfig
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	signersBytes := make([][]byte, len(signers))
+	for i, signer := range signers {
+		signersBytes[i] = signer
+	}
+
+	transmittersBytes := make([][]byte, len(transmitters))
+	for i, transmitter := range transmitters {
+		parsed, err2 := common.ParseHexOrString(string(transmitter))
+		if err2 != nil {
+			return nil, err2
+		}
+		transmittersBytes[i] = parsed
+	}
+
+	var ocrNodes []ccip_home.CCIPHomeOCR3Node
+	for i := range nodes {
+		ocrNodes = append(ocrNodes, ccip_home.CCIPHomeOCR3Node{
+			P2pId:          p2pIDs[i],
+			SignerKey:      signersBytes[i],
+			TransmitterKey: transmittersBytes[i],
+		})
+	}
+	return &ccip_home.CCIPHomeOCR3Config{
+		PluginType:            uint8(types.PluginTypeCCIPExec),
+		ChainSelector:         dest.Selector,
+		FRoleDON:              configF,
+		OffchainConfigVersion: offchainConfigVersion,
+		OfframpAddress:        offRamp.Address().Bytes(),
+		Nodes:                 ocrNodes,
+		OffchainConfig:        offchainConfig,
+		RmnHomeAddress:        rmnHomeAddress.Bytes(),
+	}, nil
+}
+
 func BuildOCR3ConfigForCCIPHome(
 	ocrSecrets deployment.OCRSecrets,
 	offRamp *offramp.OffRamp,

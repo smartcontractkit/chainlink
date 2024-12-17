@@ -303,7 +303,3 @@ func TestUpdateRouterRamps(t *testing.T) {
 		})
 	}
 }
-
-func TestAddNewChain(t *testing.T) {
-
-}

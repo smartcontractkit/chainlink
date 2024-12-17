@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
@@ -23,6 +24,7 @@ var (
 	_ deployment.ChangeSet[UpdateOnRampDestsConfig]    = UpdateOnRampsDests
 	_ deployment.ChangeSet[UpdateOffRampSourcesConfig] = UpdateOffRampSources
 	_ deployment.ChangeSet[UpdateRouterRampsConfig]    = UpdateRouterRamps
+	_ deployment.ChangeSet[SetOCR3OffRampConfig]       = SetOCR3OffRamp
 )
 
 type UpdateOnRampDestsConfig struct {
@@ -544,6 +546,97 @@ func UpdateRouterRamps(e deployment.Environment, cfg UpdateRouterRampsConfig) (d
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
+	return deployment.ChangesetOutput{Proposals: []timelock.MCMSWithTimelockProposal{
+		*p,
+	}}, nil
+}
+
+type SetOCR3OffRampConfig struct {
+	HomeChainSel    uint64
+	RemoteChainSels []uint64
+	MCMS            *MCMSConfig
+}
+
+func (c SetOCR3OffRampConfig) Validate(ctx context.Context, state CCIPOnChainState) error {
+	if _, ok := state.Chains[c.HomeChainSel]; !ok {
+		return fmt.Errorf("home chain %d not found in onchain state", c.HomeChainSel)
+	}
+	for _, remote := range c.RemoteChainSels {
+		if _, ok := state.Chains[remote]; !ok {
+			return fmt.Errorf("remote chain %d not found in onchain state", remote)
+		}
+	}
+	return nil
+}
+
+// SetOCR3OffRamp will set the OCR3 offramp for the given chain.
+// to the active configuration on CCIPHome. This
+// is used to complete the candidate->active promotion cycle, it's
+// run after the candidate is confirmed to be working correctly.
+// Multichain is especially helpful for NOP rotations where we have
+// to touch all the chain to change signers.
+func SetOCR3OffRamp(e deployment.Environment, cfg SetOCR3OffRampConfig) (deployment.ChangesetOutput, error) {
+	state, err := LoadOnchainState(e)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	if err := cfg.Validate(e.GetContext(), state); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	var batches []timelock.BatchChainOperation
+	timelocks := make(map[uint64]common.Address)
+	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig)
+	for _, remote := range cfg.RemoteChainSels {
+		donID, err := internal.DonIDForChain(
+			state.Chains[cfg.HomeChainSel].CapabilityRegistry,
+			state.Chains[cfg.HomeChainSel].CCIPHome,
+			remote)
+		args, err := internal.BuildSetOCR3ConfigArgs(donID, state.Chains[cfg.HomeChainSel].CCIPHome, remote)
+		if err != nil {
+			return deployment.ChangesetOutput{}, err
+		}
+		txOpts := e.Chains[remote].DeployerKey
+		if cfg.MCMS != nil {
+			txOpts = deployment.SimTransactOpts()
+		}
+		offRamp := state.Chains[remote].OffRamp
+		tx, err := offRamp.SetOCR3Configs(txOpts, args)
+		if err != nil {
+			return deployment.ChangesetOutput{}, err
+		}
+		if cfg.MCMS == nil {
+			if _, err := deployment.ConfirmIfNoError(e.Chains[remote], tx, err); err != nil {
+				return deployment.ChangesetOutput{}, err
+			}
+		} else {
+			batches = append(batches, timelock.BatchChainOperation{
+				ChainIdentifier: mcms.ChainIdentifier(remote),
+				Batch: []mcms.Operation{
+					{
+						To:    offRamp.Address(),
+						Data:  tx.Data(),
+						Value: big.NewInt(0),
+					},
+				},
+			})
+			timelocks[remote] = state.Chains[remote].Timelock.Address()
+			proposers[remote] = state.Chains[remote].ProposerMcm
+		}
+	}
+	if cfg.MCMS == nil {
+		return deployment.ChangesetOutput{}, nil
+	}
+	p, err := proposalutils.BuildProposalFromBatches(
+		timelocks,
+		proposers,
+		batches,
+		"Update OCR3 config",
+		cfg.MCMS.MinDelay,
+	)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	e.Logger.Infof("Proposing OCR3 config update for", cfg.RemoteChainSels)
 	return deployment.ChangesetOutput{Proposals: []timelock.MCMSWithTimelockProposal{
 		*p,
 	}}, nil

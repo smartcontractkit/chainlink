@@ -88,7 +88,7 @@ func Test_PromoteCandidate(t *testing.T) {
 					Changeset: commonchangeset.WrapChangeSet(PromoteAllCandidatesChangeset),
 					Config: PromoteAllCandidatesChangesetConfig{
 						HomeChainSelector: tenv.HomeChainSel,
-						DONChainSelector:  dest,
+						DONChainSelectors: []uint64{dest},
 						MCMS:              mcmsConfig,
 					},
 				},
@@ -180,14 +180,15 @@ func Test_SetCandidate(t *testing.T) {
 						SetCandidateConfigBase: SetCandidateConfigBase{
 							HomeChainSelector: tenv.HomeChainSel,
 							FeedChainSelector: tenv.FeedChainSel,
-							DONChainSelector:  dest,
-							PluginType:        types.PluginTypeCCIPCommit,
-							CCIPOCRParams: DefaultOCRParams(
-								tenv.FeedChainSel,
-								tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
-								nil,
-							),
-							MCMS: mcmsConfig,
+							DONChainSelector: map[uint64]CCIPOCRParams{
+								dest: DefaultOCRParams(
+									tenv.FeedChainSel,
+									tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
+									nil,
+								),
+							},
+							PluginType: types.PluginTypeCCIPCommit,
+							MCMS:       mcmsConfig,
 						},
 					},
 				},
@@ -197,14 +198,15 @@ func Test_SetCandidate(t *testing.T) {
 						SetCandidateConfigBase: SetCandidateConfigBase{
 							HomeChainSelector: tenv.HomeChainSel,
 							FeedChainSelector: tenv.FeedChainSel,
-							DONChainSelector:  dest,
-							PluginType:        types.PluginTypeCCIPExec,
-							CCIPOCRParams: DefaultOCRParams(
-								tenv.FeedChainSel,
-								tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
-								nil,
-							),
-							MCMS: mcmsConfig,
+							DONChainSelector: map[uint64]CCIPOCRParams{
+								dest: DefaultOCRParams(
+									tenv.FeedChainSel,
+									tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
+									nil,
+								),
+							},
+							PluginType: types.PluginTypeCCIPExec,
+							MCMS:       mcmsConfig,
 						},
 					},
 				},
@@ -299,14 +301,15 @@ func Test_RevokeCandidate(t *testing.T) {
 						SetCandidateConfigBase: SetCandidateConfigBase{
 							HomeChainSelector: tenv.HomeChainSel,
 							FeedChainSelector: tenv.FeedChainSel,
-							DONChainSelector:  dest,
-							PluginType:        types.PluginTypeCCIPCommit,
-							CCIPOCRParams: DefaultOCRParams(
-								tenv.FeedChainSel,
-								tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
-								nil,
-							),
-							MCMS: mcmsConfig,
+							DONChainSelector: map[uint64]CCIPOCRParams{
+								dest: DefaultOCRParams(
+									tenv.FeedChainSel,
+									tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
+									nil,
+								),
+							},
+							PluginType: types.PluginTypeCCIPCommit,
+							MCMS:       mcmsConfig,
 						},
 					},
 				},
@@ -316,14 +319,15 @@ func Test_RevokeCandidate(t *testing.T) {
 						SetCandidateConfigBase: SetCandidateConfigBase{
 							HomeChainSelector: tenv.HomeChainSel,
 							FeedChainSelector: tenv.FeedChainSel,
-							DONChainSelector:  dest,
-							PluginType:        types.PluginTypeCCIPExec,
-							CCIPOCRParams: DefaultOCRParams(
-								tenv.FeedChainSel,
-								tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
-								nil,
-							),
-							MCMS: mcmsConfig,
+							DONChainSelector: map[uint64]CCIPOCRParams{
+								dest: DefaultOCRParams(
+									tenv.FeedChainSel,
+									tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
+									nil,
+								),
+							},
+							PluginType: types.PluginTypeCCIPExec,
+							MCMS:       mcmsConfig,
 						},
 					},
 				},
@@ -498,8 +502,8 @@ func Test_UpdateChainConfigs(t *testing.T) {
 						ChainAdds: map[uint64]ChainConfig{
 							otherChain: {
 								EncodableChainConifg: chainconfig.ChainConfig{
-									GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(internal.DAGasPriceDeviationPPB)},
-									DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(internal.GasPriceDeviationPPB)},
+									GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(internal.GasPriceDeviationPPB)},
+									DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(internal.DAGasPriceDeviationPPB)},
 									OptimisticConfirmations: internal.OptimisticConfirmations,
 								},
 								FChain:  otherChainConfig.FChain,

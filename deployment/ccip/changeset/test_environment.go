@@ -12,12 +12,15 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -399,8 +402,11 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tc *TestConfigs, tEnv Test
 			}})
 	}
 	// Build the per chain config.
-	chainConfigs := make(map[uint64]CCIPOCRParams)
+	ocrConfigs := make(map[uint64]CCIPOCRParams)
+	chainConfigs := make(map[uint64]ChainConfig)
 	timelockContractsPerChain := make(map[uint64]*proposalutils.TimelockExecutionContracts)
+	nodeInfo, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
+	require.NoError(t, err)
 	for _, chain := range allChains {
 		timelockContractsPerChain[chain] = &proposalutils.TimelockExecutionContracts{
 			Timelock:  state.Chains[chain].Timelock,
@@ -411,18 +417,56 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tc *TestConfigs, tEnv Test
 		if tc.OCRConfigOverride != nil {
 			ocrParams = tc.OCRConfigOverride(ocrParams)
 		}
-		chainConfigs[chain] = ocrParams
+		ocrConfigs[chain] = ocrParams
+		chainConfigs[chain] = ChainConfig{
+			Readers: nodeInfo.NonBootstraps().PeerIDs(),
+			FChain:  uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),
+			EncodableChainConifg: chainconfig.ChainConfig{
+				GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(internal.GasPriceDeviationPPB)},
+				DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(internal.DAGasPriceDeviationPPB)},
+				OptimisticConfirmations: internal.OptimisticConfirmations,
+			},
+		}
 	}
 	// Deploy second set of changesets to deploy and configure the CCIP contracts.
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, timelockContractsPerChain, []commonchangeset.ChangesetApplication{
 		{
-			Changeset: commonchangeset.WrapChangeSet(ConfigureNewChains),
-			Config: NewChainsConfig{
-				HomeChainSel:       e.HomeChainSel,
-				FeedChainSel:       e.FeedChainSel,
-				ChainConfigByChain: chainConfigs,
+			// Add the chain configs for the new chains.
+			Changeset: commonchangeset.WrapChangeSet(UpdateChainConfig),
+			Config: UpdateChainConfigConfig{
+				HomeChainSelector: e.HomeChainSel,
+				ChainAdds:         chainConfigs,
 			},
 		},
+		{
+			// Add the commit/exec OCR instances for the new chains.
+			Changeset: commonchangeset.WrapChangeSet(AddDonAndSetCandidateChangeset),
+			Config: AddDonAndSetCandidateChangesetConfig{
+				SetCandidateConfigBase{
+					HomeChainSelector: e.HomeChainSel,
+					FeedChainSelector: e.FeedChainSel,
+					DONChainSelector:  ocrConfigs,
+					// NOTE this is ignored??
+					PluginType: types.PluginTypeCCIPCommit,
+				},
+			},
+		},
+		{
+			// Promote everything
+			Changeset: commonchangeset.WrapChangeSet(PromoteAllCandidatesChangeset),
+			Config: PromoteAllCandidatesChangesetConfig{
+				HomeChainSelector: e.HomeChainSel,
+				DONChainSelectors: allChains,
+			},
+		},
+		//{
+		//	Changeset: commonchangeset.WrapChangeSet(ConfigureNewChains),
+		//	Config: NewChainsConfig{
+		//		HomeChainSel:       e.HomeChainSel,
+		//		FeedChainSel:       e.FeedChainSel,
+		//		ChainConfigByChain: ocrConfigs,
+		//	},
+		//},
 		{
 			Changeset: commonchangeset.WrapChangeSet(CCIPCapabilityJobspec),
 		},
