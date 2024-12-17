@@ -211,3 +211,34 @@ func TransferToDeployer(e deployment.Environment, cfg TransferToDeployerConfig) 
 	e.Logger.Infof("deployer key accepted ownership tx %s", tx.Hash().Hex())
 	return deployment.ChangesetOutput{}, nil
 }
+
+var _ deployment.ChangeSet[RenounceTimelockDeployerConfig] = RenounceTimelockDeployer
+
+type RenounceTimelockDeployerConfig struct {
+	ChainSel uint64
+}
+
+// RenounceTimelockDeployer revokes the deployer key from administering the contract.
+func RenounceTimelockDeployer(e deployment.Environment, cfg RenounceTimelockDeployerConfig) (deployment.ChangesetOutput, error) {
+	contracts, err := MaybeLoadMCMSWithTimelockState(e, []uint64{cfg.ChainSel})
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	tl := contracts[cfg.ChainSel].Timelock
+	if tl == nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("timelock not found on chain %d", cfg.ChainSel)
+	}
+	admin, err := tl.ADMINROLE(&bind.CallOpts{})
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get admin role: %w", err)
+	}
+	tx, err := tl.RenounceRole(e.Chains[cfg.ChainSel].DeployerKey, admin, e.Chains[cfg.ChainSel].DeployerKey.From)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to revoke deployer key: %w", err)
+	}
+	if _, err := deployment.ConfirmIfNoError(e.Chains[cfg.ChainSel], tx, err); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	e.Logger.Infof("revoked deployer key from owning contract %s", tl.Address().Hex())
+	return deployment.ChangesetOutput{}, nil
+}

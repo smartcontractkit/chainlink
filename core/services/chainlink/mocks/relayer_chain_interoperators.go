@@ -4,6 +4,7 @@ import (
 	"context"
 	"slices"
 
+	commonTypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	services2 "github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
@@ -69,6 +70,6 @@ func (f *FakeRelayerChainInteroperators) ChainStatus(ctx context.Context, id typ
 	panic("unimplemented")
 }
 
-func (f *FakeRelayerChainInteroperators) ChainStatuses(ctx context.Context, offset, limit int) ([]types.ChainStatus, int, error) {
+func (f *FakeRelayerChainInteroperators) ChainStatuses(ctx context.Context, offset, limit int) ([]commonTypes.ChainStatusWithID, int, error) {
 	panic("unimplemented")
 }

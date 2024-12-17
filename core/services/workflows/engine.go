@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	fifteenMinutesMs             = 15 * 60 * 1000
+	fifteenMinutesSec            = 15 * 60
 	reservedFieldNameStepTimeout = "cre_step_timeout"
 	maxStepTimeoutOverrideSec    = 10 * 60 // 10 minutes
 )
@@ -446,7 +446,7 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, trig
 	}
 	eventsCh, err := t.trigger.RegisterTrigger(ctx, triggerRegRequest)
 	if err != nil {
-		e.metrics.incrementRegisterTriggerFailureCounter(ctx)
+		e.metrics.with(platform.KeyTriggerID, triggerID).incrementRegisterTriggerFailureCounter(ctx)
 		// It's confusing that t.ID is different from triggerID, but
 		// t.ID is the capability ID, and triggerID is the trigger ID.
 		//
@@ -704,7 +704,7 @@ func (e *Engine) finishExecution(ctx context.Context, cma custmsg.MessageEmitter
 		e.metrics.updateWorkflowTimeoutDurationHistogram(ctx, executionDuration)
 	}
 
-	if executionDuration > fifteenMinutesMs {
+	if executionDuration > fifteenMinutesSec {
 		logCustMsg(ctx, cma, fmt.Sprintf("execution duration exceeded 15 minutes: %d (seconds)", executionDuration), l)
 		l.Warnf("execution duration exceeded 15 minutes: %d (seconds)", executionDuration)
 	}

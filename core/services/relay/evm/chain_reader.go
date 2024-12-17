@@ -206,7 +206,11 @@ func (cr *chainReader) GetLatestValue(ctx context.Context, readName string, conf
 	ptrToValue, isValue := returnVal.(*values.Value)
 	if !isValue {
 		_, err = binding.GetLatestValueWithHeadData(ctx, common.HexToAddress(address), confidenceLevel, params, returnVal)
-		return err
+		if err != nil {
+			return err
+		}
+
+		return nil
 	}
 
 	contractType, err := cr.CreateContractType(readName, false)

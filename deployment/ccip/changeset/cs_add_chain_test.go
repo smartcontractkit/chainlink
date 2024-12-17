@@ -197,7 +197,7 @@ func TestAddChainInbound(t *testing.T) {
 		{
 			Changeset: commonchangeset.WrapChangeSet(AddDonAndSetCandidateChangeset),
 			Config: AddDonAndSetCandidateChangesetConfig{
-				SetCandidateChangesetConfig: SetCandidateChangesetConfig{
+				SetCandidateConfigBase: SetCandidateConfigBase{
 					HomeChainSelector: e.HomeChainSel,
 					FeedChainSelector: e.FeedChainSel,
 					DONChainSelector:  newChain,
@@ -216,17 +216,19 @@ func TestAddChainInbound(t *testing.T) {
 		{
 			Changeset: commonchangeset.WrapChangeSet(SetCandidateChangeset),
 			Config: SetCandidateChangesetConfig{
-				HomeChainSelector: e.HomeChainSel,
-				FeedChainSelector: e.FeedChainSel,
-				DONChainSelector:  newChain,
-				PluginType:        types.PluginTypeCCIPExec,
-				CCIPOCRParams: DefaultOCRParams(
-					e.FeedChainSel,
-					tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[newChain].LinkToken, state.Chains[newChain].Weth9),
-					nil,
-				),
-				MCMS: &MCMSConfig{
-					MinDelay: 0,
+				SetCandidateConfigBase: SetCandidateConfigBase{
+					HomeChainSelector: e.HomeChainSel,
+					FeedChainSelector: e.FeedChainSel,
+					DONChainSelector:  newChain,
+					PluginType:        types.PluginTypeCCIPExec,
+					CCIPOCRParams: DefaultOCRParams(
+						e.FeedChainSel,
+						tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[newChain].LinkToken, state.Chains[newChain].Weth9),
+						nil,
+					),
+					MCMS: &MCMSConfig{
+						MinDelay: 0,
+					},
 				},
 			},
 		},
