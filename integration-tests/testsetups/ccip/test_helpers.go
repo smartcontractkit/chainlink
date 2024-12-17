@@ -14,6 +14,8 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	ctfv2_blockchain "github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 	ctftestenv "github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
@@ -188,6 +190,38 @@ func NewIntegrationEnvironment(t *testing.T, opts ...changeset.TestOps) (changes
 		deployedEnv := changeset.NewEnvironment(t, testCfg, dockerEnv)
 		require.NotNil(t, dockerEnv.testEnv, "empty docker environment")
 		return deployedEnv, devenv.RMNCluster{}
+	case changeset.AnvilDocker:
+		anvilDockerEnv := &DeployedLocalAnvilDevEnvironment{}
+		if testCfg.RMNEnabled {
+			deployedEnv := changeset.NewEnvironmentWithJobsAndContracts(t, testCfg, anvilDockerEnv)
+			l := logging.GetTestLogger(t)
+			config := GenerateTestRMNConfig(t, testCfg.NumOfRMNNodes, deployedEnv, MustGetNetworksToRPCMap(anvilDockerEnv.bcs))
+			require.NotNil(t, anvilDockerEnv.devEnvTestCfg.CCIP)
+			rmnCluster, err := devenv.NewRMNCluster(
+				t, l,
+				[]string{framework.DefaultNetworkName},
+				config,
+				anvilDockerEnv.devEnvTestCfg.CCIP.RMNConfig.GetProxyImage(),
+				anvilDockerEnv.devEnvTestCfg.CCIP.RMNConfig.GetProxyVersion(),
+				anvilDockerEnv.devEnvTestCfg.CCIP.RMNConfig.GetAFN2ProxyImage(),
+				anvilDockerEnv.devEnvTestCfg.CCIP.RMNConfig.GetAFN2ProxyVersion(),
+			)
+			require.NoError(t, err)
+			return deployedEnv, *rmnCluster
+		}
+		if testCfg.CreateJobAndContracts {
+			deployedEnv := changeset.NewEnvironmentWithJobsAndContracts(t, testCfg, anvilDockerEnv)
+			//require.NotNil(t, anvilDockerEnv.testEnv, "empty docker environment")
+			return deployedEnv, devenv.RMNCluster{}
+		}
+		if testCfg.CreateJob {
+			deployedEnv := changeset.NewEnvironmentWithJobs(t, testCfg, anvilDockerEnv)
+			//require.NotNil(t, anvilDockerEnv.testEnv, "empty docker environment")
+			return deployedEnv, devenv.RMNCluster{}
+		}
+		deployedEnv := changeset.NewEnvironment(t, testCfg, anvilDockerEnv)
+		//require.NotNil(t, anvilDockerEnv.testEnv, "empty docker environment")
+		return deployedEnv, devenv.RMNCluster{}
 	default:
 		require.Failf(t, "Type %s not supported in integration tests choose between %s and %s", string(testCfg.Type), changeset.Memory, changeset.Docker)
 	}
@@ -205,6 +239,25 @@ func MustNetworksToRPCMap(evmNetworks []*blockchain.EVMNetwork) map[uint64]strin
 			panic(err)
 		}
 		rpcs[sel] = network.HTTPURLs[0]
+	}
+	return rpcs
+}
+
+func MustGetNetworksToRPCMap(networks []*ctfv2_blockchain.Output) map[uint64]string {
+	rpcs := make(map[uint64]string)
+	for _, network := range networks {
+		id, err := strconv.ParseInt(network.ChainID, 10, 64)
+		if err != nil {
+			panic(err)
+		}
+		if id < 0 {
+			panic(fmt.Errorf("negative chain ID: %d", network.ChainID))
+		}
+		sel, err := chainsel.SelectorFromChainId(uint64(id))
+		if err != nil {
+			panic(err)
+		}
+		rpcs[sel] = network.Nodes[0].HostHTTPUrl
 	}
 	return rpcs
 }

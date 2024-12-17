@@ -9,14 +9,15 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -30,6 +31,7 @@ type EnvType string
 const (
 	Memory      EnvType = "in-memory"
 	Docker      EnvType = "docker"
+	AnvilDocker EnvType = "anvil-docker"
 	ENVTESTTYPE         = "CCIP_V16_TEST_ENV"
 )
 
@@ -73,6 +75,8 @@ func (tc *TestConfigs) MustSetEnvTypeOrDefault(t *testing.T) {
 		tc.Type = Memory
 	} else if envType == string(Docker) {
 		tc.Type = Docker
+	} else if envType == string(AnvilDocker) {
+		tc.Type = AnvilDocker
 	} else {
 		t.Fatalf("env var CCIP_V16_TEST_ENV must be either %s or %s, defaults to %s if unset, got: %s", Memory, Docker, Memory, envType)
 	}
