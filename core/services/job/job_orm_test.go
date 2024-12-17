@@ -43,6 +43,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
+	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
@@ -441,6 +442,18 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 		require.NoError(t, err)
 		cltest.AssertCount(t, db, "webhook_specs", 0)
 		cltest.AssertCount(t, db, "external_initiator_webhook_specs", 0)
+		cltest.AssertCount(t, db, "jobs", 0)
+	})
+
+	t.Run("it creates and deletes records for stream jobs", func(t *testing.T) {
+		ctx := testutils.Context(t)
+		jb, err := streams.ValidatedStreamSpec(testspecs.GenerateStreamSpec(testspecs.StreamSpecParams{Name: "Test-stream", StreamID: 1}).Toml())
+		require.NoError(t, err)
+		err = jobORM.CreateJob(ctx, &jb)
+		require.NoError(t, err)
+		cltest.AssertCount(t, db, "jobs", 1)
+		err = jobORM.DeleteJob(ctx, jb.ID, jb.Type)
+		require.NoError(t, err)
 		cltest.AssertCount(t, db, "jobs", 0)
 	})
 

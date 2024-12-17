@@ -9,10 +9,11 @@ USAGE:
    chainlink chains command [command options] [arguments...]
 
 COMMANDS:
-   evm       Commands for handling EVM chains
-   cosmos    Commands for handling Cosmos chains
-   solana    Commands for handling Solana chains
-   starknet  Commands for handling StarkNet chains
+   aptos     Commands for handling aptos chains
+   cosmos    Commands for handling cosmos chains
+   evm       Commands for handling evm chains
+   solana    Commands for handling solana chains
+   starknet  Commands for handling starknet chains
 
 OPTIONS:
    --help, -h  show help
