@@ -236,7 +236,7 @@ func (s *server) runQueueLoop(stopCh services.StopChan, wg *sync.WaitGroup, feed
 		}
 		res, err := func(ctx context.Context) (*pb.TransmitResponse, error) {
 			ctx, cancel := context.WithTimeout(ctx, utils.WithJitter(s.transmitTimeout))
-			cancel()
+			defer cancel()
 			return s.c.Transmit(ctx, t.Req)
 		}(ctx)
 		if ctx.Err() != nil {
