@@ -13,8 +13,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -27,7 +29,48 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry_1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
+	ocr2validate "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 )
+
+type LegacyJobclient struct {
+	*memory.JobClient
+}
+
+// ProposeJob is an overridden implementation of the jobclient.ProposeJob method which allows offchainreporting2 job type
+func (j *LegacyJobclient) ProposeJob(ctx context.Context, in *jobv1.ProposeJobRequest, opts ...grpc.CallOption) (*jobv1.ProposeJobResponse, error) {
+	n := j.Nodes[in.NodeId]
+	// TODO: Use FMS
+	jb, err := ocr2validate.ValidatedOracleSpecToml(
+		ctx,
+		n.App.GetConfig().OCR2(),
+		n.App.GetConfig().Insecure(),
+		in.Spec,
+		nil, // not required for validation
+	)
+	if err != nil {
+		jb, err = ocrbootstrap.ValidatedBootstrapSpecToml(in.Spec)
+		if err != nil {
+			return nil, fmt.Errorf("failed to validate job spec only bootstrap and offchainreporting2 are supported : %w", err)
+		}
+	}
+	err = n.App.AddJobV2(ctx, &jb)
+	if err != nil {
+		return nil, err
+	}
+	return &jobv1.ProposeJobResponse{Proposal: &jobv1.Proposal{
+		Id: "",
+		// Auto approve for now
+		Status:             jobv1.ProposalStatus_PROPOSAL_STATUS_APPROVED,
+		DeliveryStatus:     jobv1.ProposalDeliveryStatus_PROPOSAL_DELIVERY_STATUS_DELIVERED,
+		Spec:               in.Spec,
+		JobId:              jb.ExternalJobID.String(),
+		CreatedAt:          nil,
+		UpdatedAt:          nil,
+		AckedAt:            nil,
+		ResponseReceivedAt: nil,
+	}}, nil
+}
 
 // NewMemoryEnvironment creates an in-memory environment based on the testconfig requested
 func NewMemoryEnvironment(t *testing.T, opts ...changeset.TestOps) changeset.DeployedEnv {
@@ -47,6 +90,9 @@ func NewEnvironment(t *testing.T, tc *changeset.TestConfigs, tEnv changeset.Test
 	require.NotEmpty(t, e.Env.Chains)
 	tEnv.StartNodes(t, tc, deployment.CapabilityRegistryConfig{})
 	e = tEnv.DeployedEnvironment()
+	e.Env.Offchain = &LegacyJobclient{
+		JobClient: e.Env.Offchain.(*memory.JobClient),
+	}
 	allChains := e.Env.AllChainSelectors()
 
 	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
@@ -103,11 +149,11 @@ func NewEnvironment(t *testing.T, tc *changeset.TestConfigs, tEnv changeset.Test
 			}
 		}
 	}
-	addLanesCfg, commitOCR2Configs, execOCR2Configs := LaneConfigsForChains(t, state, pairs)
+	addLanesCfg, commitOCR2Configs, execOCR2Configs, jobspecs := LaneConfigsForChains(t, e.Env, state, pairs)
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
 		{
-			Changeset: commonchangeset.WrapChangeSet(AddLanes),
-			Config: AddLanesConfig{
+			Changeset: commonchangeset.WrapChangeSet(DeployLanes),
+			Config: DeployLanesConfig{
 				Configs: addLanesCfg,
 			},
 		},
@@ -118,19 +164,27 @@ func NewEnvironment(t *testing.T, tc *changeset.TestConfigs, tEnv changeset.Test
 				ExecConfigs:   execOCR2Configs,
 			},
 		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(JobSpecsForLanes),
+			Config: JobSpecsForLanesConfig{
+				Configs: jobspecs,
+			},
+		},
 	})
 	require.NoError(t, err)
 	return e
 }
 
-func LaneConfigsForChains(t *testing.T, state changeset.CCIPOnChainState, pairs []changeset.SourceDestPair) (
-	[]AddLaneConfig,
+func LaneConfigsForChains(t *testing.T, env deployment.Environment, state changeset.CCIPOnChainState, pairs []changeset.SourceDestPair) (
+	[]DeployLaneConfig,
 	[]CommitOCR2ConfigParams,
 	[]ExecuteOCR2ConfigParams,
+	[]JobSpecInput,
 ) {
-	var addLanesCfg []AddLaneConfig
+	var addLanesCfg []DeployLaneConfig
 	var commitOCR2Configs []CommitOCR2ConfigParams
 	var execOCR2Configs []ExecuteOCR2ConfigParams
+	var jobSpecs []JobSpecInput
 	for _, pair := range pairs {
 		dest := pair.DestChainSelector
 		src := pair.SourceChainSelector
@@ -146,7 +200,15 @@ func LaneConfigsForChains(t *testing.T, state changeset.CCIPOnChainState, pairs 
 		require.NotNil(t, destChainState.RMNProxy)
 		require.NotNil(t, destChainState.TokenAdminRegistry)
 		tokenPrice, _, _ := CreatePricesPipeline(t, state, src, dest)
-		addLanesCfg = append(addLanesCfg, AddLaneConfig{
+		block, err := env.Chains[dest].Client.HeaderByNumber(context.Background(), nil)
+		require.NoError(t, err)
+		jobSpecs = append(jobSpecs, JobSpecInput{
+			SourceChainSelector:      src,
+			DestinationChainSelector: dest,
+			TokenPricesUSDPipeline:   tokenPrice,
+			DestinationStartBlock:    block.Number.Uint64(),
+		})
+		addLanesCfg = append(addLanesCfg, DeployLaneConfig{
 			SourceChainSelector:      src,
 			DestinationChainSelector: dest,
 			OnRampStaticCfg: evm_2_evm_onramp.EVM2EVMOnRampStaticConfig{
@@ -227,7 +289,6 @@ func LaneConfigsForChains(t *testing.T, state changeset.CCIPOnChainState, pairs 
 					UsdPerUnitGas:     big.NewInt(20000e9),
 				},
 			},
-			TokenPricesUSDPipeline: tokenPrice,
 		})
 		commitOCR2Configs = append(commitOCR2Configs, CommitOCR2ConfigParams{
 			SourceChainSelector:      src,
@@ -259,7 +320,7 @@ func LaneConfigsForChains(t *testing.T, state changeset.CCIPOnChainState, pairs 
 			OCR2ConfigParams: DefaultOCRParams(),
 		})
 	}
-	return addLanesCfg, commitOCR2Configs, execOCR2Configs
+	return addLanesCfg, commitOCR2Configs, execOCR2Configs, jobSpecs
 }
 
 func CreatePricesPipeline(t *testing.T, state changeset.CCIPOnChainState, source, dest uint64) (string, *httptest.Server, *httptest.Server) {
@@ -346,7 +407,7 @@ func SendRequest(
 	}
 
 	require.True(t, it.Next())
-	t.Logf("CCIP message (id %x) sent from chain selector %d to chain selector %d tx %s seqNum %d nonce %d sender %s",
+	t.Logf("CCIP message (id %x) sent from chain selector %d to chain selector %d tx %s seqNum %d sender %s",
 		it.Event.Message.MessageId[:],
 		cfg.SourceChain,
 		cfg.DestChain,

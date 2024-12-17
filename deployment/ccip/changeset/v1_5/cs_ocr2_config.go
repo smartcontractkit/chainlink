@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
-	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
 )
 
@@ -39,23 +38,21 @@ type CommitOCR2ConfigParams struct {
 	PriceReportingDisabled   bool
 }
 
-func (c CommitOCR2ConfigParams) PopulateOffChainAndOnChainCfg(priceReg common.Address) error {
-	cfgBytes, err := ccipconfig.EncodeOffchainConfig(
-		testhelpers.NewCommitOffchainConfig(
-			c.GasPriceHeartBeat,
-			c.DAGasPriceDeviationPPB,
-			c.ExecGasPriceDeviationPPB,
-			c.TokenPriceHeartBeat,
-			c.TokenPriceDeviationPPB,
-			c.InflightCacheExpiry,
-			c.PriceReportingDisabled,
-		),
-	)
+func (c *CommitOCR2ConfigParams) PopulateOffChainAndOnChainCfg(priceReg common.Address) error {
+	var err error
+	c.OCR2ConfigParams.ReportingPluginConfig, err = testhelpers.NewCommitOffchainConfig(
+		c.GasPriceHeartBeat,
+		c.DAGasPriceDeviationPPB,
+		c.ExecGasPriceDeviationPPB,
+		c.TokenPriceHeartBeat,
+		c.TokenPriceDeviationPPB,
+		c.InflightCacheExpiry,
+		c.PriceReportingDisabled,
+	).Encode()
 	if err != nil {
 		return errors.Wrapf(err, "failed to encode offchain config for source chain %d and destination chain %d",
 			c.SourceChainSelector, c.DestinationChainSelector)
 	}
-	c.OCR2ConfigParams.ReportingPluginConfig = cfgBytes
 	c.OCR2ConfigParams.OnchainConfig, err = abihelpers.EncodeAbiStruct(testhelpers.NewCommitOnchainConfig(priceReg))
 	if err != nil {
 		return fmt.Errorf("failed to encode onchain config for source chain %d and destination chain %d: %w",
@@ -64,7 +61,7 @@ func (c CommitOCR2ConfigParams) PopulateOffChainAndOnChainCfg(priceReg common.Ad
 	return nil
 }
 
-func (c CommitOCR2ConfigParams) Validate(state changeset.CCIPOnChainState) error {
+func (c *CommitOCR2ConfigParams) Validate(state changeset.CCIPOnChainState) error {
 	if err := deployment.IsValidChainSelector(c.DestinationChainSelector); err != nil {
 		return fmt.Errorf("invalid DestinationChainSelector: %w", err)
 	}
@@ -103,7 +100,7 @@ type ExecuteOCR2ConfigParams struct {
 	OCR2ConfigParams            confighelper.PublicConfig
 }
 
-func (c ExecuteOCR2ConfigParams) PopulateOffChainAndOnChainCfg(router, priceReg common.Address) error {
+func (c *ExecuteOCR2ConfigParams) PopulateOffChainAndOnChainCfg(router, priceReg common.Address) error {
 	var err error
 	c.OCR2ConfigParams.ReportingPluginConfig, err = testhelpers.NewExecOffchainConfig(
 		c.DestOptimisticConfirmations,
@@ -131,13 +128,7 @@ func (c ExecuteOCR2ConfigParams) PopulateOffChainAndOnChainCfg(router, priceReg 
 	return nil
 }
 
-func (e ExecuteOCR2ConfigParams) Validate(state changeset.CCIPOnChainState) error {
-	if err := e.ExecOnchainConfig.Validate(); err != nil {
-		return err
-	}
-	if err := e.ExecOffchainConfig.Validate(); err != nil {
-		return err
-	}
+func (e *ExecuteOCR2ConfigParams) Validate(state changeset.CCIPOnChainState) error {
 	if err := deployment.IsValidChainSelector(e.SourceChainSelector); err != nil {
 		return fmt.Errorf("invalid SourceChainSelector: %w", err)
 	}
@@ -214,7 +205,7 @@ func SetOCR2ConfigForTest(env deployment.Environment, c OCR2Config) (deployment.
 		)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to set OCR2 config for commit store %s on chain %s: %w",
-				commitStore.Address().String(), chain.String(), err)
+				commitStore.Address().String(), chain.String(), deployment.MaybeDataErr(err))
 		}
 		_, err = chain.Confirm(tx)
 		if err != nil {

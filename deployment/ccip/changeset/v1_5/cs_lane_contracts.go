@@ -1,12 +1,9 @@
 package v1_5
 
 import (
-	"context"
 	"fmt"
-	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -15,17 +12,15 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry_1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
-	integrationtesthelpers "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers/integration"
 )
 
-var _ deployment.ChangeSet[AddLanesConfig] = AddLanes
+var _ deployment.ChangeSet[DeployLanesConfig] = DeployLanes
 
-type AddLanesConfig struct {
-	Configs []AddLaneConfig
+type DeployLanesConfig struct {
+	Configs []DeployLaneConfig
 }
 
-func (c *AddLanesConfig) Validate(e deployment.Environment, state changeset.CCIPOnChainState) error {
+func (c *DeployLanesConfig) Validate(e deployment.Environment, state changeset.CCIPOnChainState) error {
 	for _, cfg := range c.Configs {
 		if err := cfg.Validate(e, state); err != nil {
 			return err
@@ -34,7 +29,7 @@ func (c *AddLanesConfig) Validate(e deployment.Environment, state changeset.CCIP
 	return nil
 }
 
-type AddLaneConfig struct {
+type DeployLaneConfig struct {
 	SourceChainSelector      uint64
 	DestinationChainSelector uint64
 
@@ -52,15 +47,9 @@ type AddLaneConfig struct {
 	// Price Registry specific configuration
 	InitialTokenPrices []price_registry_1_2_0.InternalTokenPriceUpdate
 	GasPriceUpdates    []price_registry_1_2_0.InternalGasPriceUpdate
-
-	// Job specific configuration
-	TokenPricesUSDPipeline string
-	PriceGetterConfigJson  string
-	USDCAttestationAPI     string
-	USDCCfg                *config.USDCConfig
 }
 
-func (c *AddLaneConfig) Validate(e deployment.Environment, state changeset.CCIPOnChainState) error {
+func (c *DeployLaneConfig) Validate(e deployment.Environment, state changeset.CCIPOnChainState) error {
 	if err := deployment.IsValidChainSelector(c.SourceChainSelector); err != nil {
 		return err
 	}
@@ -94,7 +83,7 @@ func (c *AddLaneConfig) Validate(e deployment.Environment, state changeset.CCIPO
 	return nil
 }
 
-func AddLanes(env deployment.Environment, c AddLanesConfig) (deployment.ChangesetOutput, error) {
+func DeployLanes(env deployment.Environment, c DeployLanesConfig) (deployment.ChangesetOutput, error) {
 	state, err := changeset.LoadOnchainState(env)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load CCIP onchain state: %w", err)
@@ -103,110 +92,19 @@ func AddLanes(env deployment.Environment, c AddLanesConfig) (deployment.Changese
 		return deployment.ChangesetOutput{}, fmt.Errorf("invalid DeployChainContractsConfig: %w", err)
 	}
 	newAddresses := deployment.NewMemoryAddressBook()
-	blocksByDest := make(map[uint64]uint64)
 	for _, cfg := range c.Configs {
-		number, err := env.Chains[cfg.DestinationChainSelector].Client.HeaderByNumber(context.Background(), nil)
-		if err != nil {
+		if err := deployLane(env, state, newAddresses, cfg); err != nil {
 			return deployment.ChangesetOutput{
 				AddressBook: newAddresses,
 			}, err
 		}
-		blocksByDest[cfg.DestinationChainSelector] = number.Number.Uint64()
-		if err := addLane(env, state, newAddresses, cfg); err != nil {
-			return deployment.ChangesetOutput{
-				AddressBook: newAddresses,
-			}, err
-		}
-	}
-	jobSpecs, err := jobSpecsForLane(env, state, c, blocksByDest)
-	if err != nil {
-		return deployment.ChangesetOutput{
-			AddressBook: newAddresses,
-		}, err
 	}
 	return deployment.ChangesetOutput{
 		AddressBook: newAddresses,
-		JobSpecs:    jobSpecs,
 	}, nil
 }
 
-func jobSpecsForLane(
-	env deployment.Environment,
-	state changeset.CCIPOnChainState,
-	addLanesCfg AddLanesConfig,
-	blocksByDest map[uint64]uint64,
-) (map[string][]string, error) {
-	nodes, err := deployment.NodeInfo(env.NodeIDs, env.Offchain)
-	if err != nil {
-		return nil, err
-	}
-	nodesToJobSpecs := make(map[string][]string)
-	for _, node := range nodes {
-		var specs []string
-		for _, cfg := range addLanesCfg.Configs {
-			var err error
-			destChainState := state.Chains[cfg.DestinationChainSelector]
-			sourceChain := env.Chains[cfg.SourceChainSelector]
-			destChain := env.Chains[cfg.DestinationChainSelector]
-			destEVMChainIdStr, err := chain_selectors.GetChainIDFromSelector(cfg.DestinationChainSelector)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get chain ID from selector for chain %s: %w", destChain.String(), err)
-			}
-			destEVMChainId, err := strconv.ParseUint(destEVMChainIdStr, 10, 64)
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse chain ID %s for chain %s: %w", destEVMChainIdStr, destChain.String(), err)
-			}
-			ccipJobParam := integrationtesthelpers.CCIPJobSpecParams{
-				OffRamp:                destChainState.EVM2EVMOffRamp[cfg.SourceChainSelector].Address(),
-				CommitStore:            destChainState.CommitStore[cfg.SourceChainSelector].Address(),
-				SourceChainName:        sourceChain.Name(),
-				DestChainName:          destChain.Name(),
-				DestEvmChainId:         destEVMChainId,
-				TokenPricesUSDPipeline: cfg.TokenPricesUSDPipeline,
-				PriceGetterConfig:      cfg.PriceGetterConfigJson,
-				DestStartBlock:         blocksByDest[cfg.DestinationChainSelector],
-				USDCAttestationAPI:     cfg.USDCAttestationAPI,
-				USDCConfig:             cfg.USDCCfg,
-				P2PV2Bootstrappers:     nodes.BootstrapLocators(),
-			}
-			if !node.IsBootstrap {
-				commitSpec, err := ccipJobParam.CommitJobSpec()
-				if err != nil {
-					return nil, fmt.Errorf("failed to generate commit job spec for source %s and destination %s: %w",
-						sourceChain.String(), destChain.String(), err)
-				}
-				commitSpecStr, err := commitSpec.String()
-				if err != nil {
-					return nil, fmt.Errorf("failed to convert commit job spec to string for source %s and destination %s: %w",
-						sourceChain.String(), destChain.String(), err)
-				}
-				execSpec, err := ccipJobParam.ExecutionJobSpec()
-				if err != nil {
-					return nil, fmt.Errorf("failed to generate execution job spec for source %s and destination %s: %w",
-						sourceChain.String(), destChain.String(), err)
-				}
-				execSpecStr, err := execSpec.String()
-				if err != nil {
-					return nil, fmt.Errorf("failed to convert execution job spec to string for source %s and destination %s: %w",
-						sourceChain.String(), destChain.String(), err)
-				}
-				specs = append(specs, commitSpecStr, execSpecStr)
-			} else {
-				bootstrapSpec := ccipJobParam.BootstrapJob(destChainState.CommitStore[cfg.SourceChainSelector].Address().String())
-				bootstrapSpecStr, err := bootstrapSpec.String()
-				if err != nil {
-					return nil, fmt.Errorf("failed to convert bootstrap job spec to string for source %s and destination %s: %w",
-						sourceChain.String(), destChain.String(), err)
-				}
-				specs = append(specs, bootstrapSpecStr)
-			}
-		}
-		nodesToJobSpecs[node.NodeID] = append(nodesToJobSpecs[node.NodeID], specs...)
-	}
-	return nodesToJobSpecs, nil
-}
-
-func addLane(e deployment.Environment, state changeset.CCIPOnChainState, ab deployment.AddressBook, cfg AddLaneConfig) error {
+func deployLane(e deployment.Environment, state changeset.CCIPOnChainState, ab deployment.AddressBook, cfg DeployLaneConfig) error {
 	// update prices on the source price registry
 	sourceChainState := state.Chains[cfg.SourceChainSelector]
 	destChainState := state.Chains[cfg.DestinationChainSelector]
@@ -261,7 +159,7 @@ func addLane(e deployment.Environment, state changeset.CCIPOnChainState, ab depl
 	// Deploy commit store on source chain
 	commitStore, commitStoreExists := destChainState.CommitStore[cfg.SourceChainSelector]
 	if !commitStoreExists {
-		commitStoreC, err := deployment.DeployContract(e.Logger, sourceChain, ab,
+		commitStoreC, err := deployment.DeployContract(e.Logger, destChain, ab,
 			func(chain deployment.Chain) deployment.ContractDeploy[*commit_store.CommitStore] {
 				commitStoreAddress, tx, commitStoreC, err2 := commit_store.DeployCommitStore(
 					destChain.DeployerKey,
@@ -292,7 +190,7 @@ func addLane(e deployment.Environment, state changeset.CCIPOnChainState, ab depl
 	// Deploy offRamp on destination chain
 	offRamp, offRampExists := destChainState.EVM2EVMOffRamp[cfg.SourceChainSelector]
 	if !offRampExists {
-		offRampC, err := deployment.DeployContract(e.Logger, sourceChain, ab,
+		offRampC, err := deployment.DeployContract(e.Logger, destChain, ab,
 			func(chain deployment.Chain) deployment.ContractDeploy[*evm_2_evm_offramp.EVM2EVMOffRamp] {
 				offRampAddress, tx, offRampC, err2 := evm_2_evm_offramp.DeployEVM2EVMOffRamp(
 					destChain.DeployerKey,

@@ -9,6 +9,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry_1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/registry_module_owner_custom"
@@ -383,6 +384,25 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 			"transmitter", transmitter.Address(),
 			"messenger", messenger.Address(),
 		)
+	}
+	if chainState.Receiver == nil {
+		_, err := deployment.DeployContract(e.Logger, chain, ab,
+			func(chain deployment.Chain) deployment.ContractDeploy[*maybe_revert_message_receiver.MaybeRevertMessageReceiver] {
+				receiverAddr, tx, receiver, err2 := maybe_revert_message_receiver.DeployMaybeRevertMessageReceiver(
+					chain.DeployerKey,
+					chain.Client,
+					false,
+				)
+				return deployment.ContractDeploy[*maybe_revert_message_receiver.MaybeRevertMessageReceiver]{
+					receiverAddr, receiver, tx, deployment.NewTypeAndVersion(CCIPReceiver, deployment.Version1_0_0), err2,
+				}
+			})
+		if err != nil {
+			e.Logger.Errorw("Failed to deploy receiver", "chain", chain.String(), "err", err)
+			return err
+		}
+	} else {
+		e.Logger.Infow("receiver already deployed", "addr", chainState.Receiver.Address, "chain", chain.String())
 	}
 	// Only applicable if setting up for 1.5 version, remove this once we have fully migrated to 1.6
 	if deployOpts.LegacyDeploymentCfg != nil {

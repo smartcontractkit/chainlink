@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -80,10 +81,11 @@ func generateMemoryChain(t *testing.T, inputs map[uint64]EVMChain) map[uint64]de
 				}
 				for {
 					backend.Commit()
-					receipt, err := backend.TransactionReceipt(context.Background(), tx.Hash())
-					if err != nil {
-						t.Log("failed to get receipt", "chain", chainInfo.ChainName, err)
-						continue
+					ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+					defer cancel()
+					receipt, err := bind.WaitMined(ctx, backend, tx)
+					if err != nil || receipt == nil {
+						return 0, fmt.Errorf("failed to get confirmed receipt for chain %s: %w", chainInfo.ChainName, err)
 					}
 					if receipt.Status == 0 {
 						errReason, err := deployment.GetErrorReasonFromTx(chain.Backend.Client(), chain.DeployerKey.From, tx, receipt)

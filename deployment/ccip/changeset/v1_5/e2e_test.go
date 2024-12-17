@@ -1,6 +1,7 @@
 package v1_5
 
 import (
+	"context"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -32,5 +33,8 @@ func TestE2ELegacy(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.NotNil(t, sentEvent)
+	destStartBlock, err := destChain.Client.HeaderByNumber(context.Background(), nil)
+	require.NoError(t, err)
 	WaitForCommit(t, srcChain, destChain, state.Chains[dest].CommitStore[src], sentEvent.Message.SequenceNumber)
+	WaitForExecute(t, srcChain, destChain, state.Chains[dest].EVM2EVMOffRamp[src], []uint64{sentEvent.Message.SequenceNumber}, destStartBlock.Number.Uint64())
 }
