@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 
+	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -25,6 +26,7 @@ var (
 	_ deployment.ChangeSet[PromoteAllCandidatesChangesetConfig]  = PromoteAllCandidatesChangeset
 	_ deployment.ChangeSet[SetCandidateChangesetConfig]          = SetCandidateChangeset
 	_ deployment.ChangeSet[RevokeCandidateChangesetConfig]       = RevokeCandidateChangeset
+	_ deployment.ChangeSet[UpdateChainConfigConfig]              = UpdateChainConfig
 )
 
 type PromoteAllCandidatesChangesetConfig struct {
@@ -886,5 +888,122 @@ func revokeCandidateOps(
 		To:    capReg.Address(),
 		Data:  updateDonTx.Data(),
 		Value: big.NewInt(0),
+	}}, nil
+}
+
+type ChainConfig struct {
+	Readers              [][32]byte
+	FChain               uint8
+	EncodableChainConifg chainconfig.ChainConfig
+}
+
+type UpdateChainConfigConfig struct {
+	HomeChainSelector uint64
+	ChainRemoves      []uint64
+	ChainAdds         map[uint64]ChainConfig
+	MCMS              *MCMSConfig
+}
+
+func (c UpdateChainConfigConfig) Validate(state CCIPOnChainState) error {
+	if err := deployment.IsValidChainSelector(c.HomeChainSelector); err != nil {
+		return fmt.Errorf("home chain selector invalid: %w", err)
+	}
+	if len(c.ChainRemoves) == 0 && len(c.ChainAdds) == 0 {
+		return fmt.Errorf("no chain adds or removes")
+	}
+	for _, remove := range c.ChainRemoves {
+		if err := deployment.IsValidChainSelector(remove); err != nil {
+			return fmt.Errorf("chain remove selector invalid: %w", err)
+		}
+		if _, ok := state.SupportedChains()[remove]; !ok {
+			return fmt.Errorf("chain to remove %d is not supported", remove)
+		}
+	}
+	for add, ccfg := range c.ChainAdds {
+		if err := deployment.IsValidChainSelector(add); err != nil {
+			return fmt.Errorf("chain remove selector invalid: %w", err)
+		}
+		if _, ok := state.SupportedChains()[add]; !ok {
+			return fmt.Errorf("chain to add %d is not supported", add)
+		}
+		if ccfg.FChain == 0 {
+			return fmt.Errorf("FChain must be set")
+		}
+		if len(ccfg.Readers) == 0 {
+			return fmt.Errorf("Readers must be set")
+		}
+	}
+	return nil
+}
+
+func UpdateChainConfig(e deployment.Environment, cfg UpdateChainConfigConfig) (deployment.ChangesetOutput, error) {
+	state, err := LoadOnchainState(e)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	if err := cfg.Validate(state); err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("%w: %w", deployment.ErrInvalidConfig, err)
+	}
+	txOpts := e.Chains[cfg.HomeChainSelector].DeployerKey
+	txOpts.Context = e.GetContext()
+	if cfg.MCMS != nil {
+		txOpts = deployment.SimTransactOpts()
+	}
+	var adds []ccip_home.CCIPHomeChainConfigArgs
+	for chain, ccfg := range cfg.ChainAdds {
+		encodedChainConfig, err := chainconfig.EncodeChainConfig(chainconfig.ChainConfig{
+			GasPriceDeviationPPB:    ccfg.EncodableChainConifg.GasPriceDeviationPPB,
+			DAGasPriceDeviationPPB:  ccfg.EncodableChainConifg.DAGasPriceDeviationPPB,
+			OptimisticConfirmations: ccfg.EncodableChainConifg.OptimisticConfirmations,
+		})
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("encoding chain config: %w", err)
+		}
+		adds = append(adds, ccip_home.CCIPHomeChainConfigArgs{
+			ChainSelector: chain,
+			ChainConfig: ccip_home.CCIPHomeChainConfig{
+				Readers: ccfg.Readers,
+				FChain:  ccfg.FChain,
+				Config:  encodedChainConfig,
+			},
+		})
+	}
+
+	tx, err := state.Chains[cfg.HomeChainSelector].CCIPHome.ApplyChainConfigUpdates(txOpts, cfg.ChainRemoves, adds)
+	if cfg.MCMS == nil {
+		_, err = deployment.ConfirmIfNoError(e.Chains[cfg.HomeChainSelector], tx, err)
+		if err != nil {
+			return deployment.ChangesetOutput{}, err
+		}
+		e.Logger.Infof("Updated chain config on chain %d removes %v, adds %v", cfg.HomeChainSelector, cfg.ChainRemoves, cfg.ChainAdds)
+		return deployment.ChangesetOutput{}, nil
+	}
+
+	p, err := proposalutils.BuildProposalFromBatches(
+		map[uint64]common.Address{
+			cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].Timelock.Address(),
+		},
+		map[uint64]*gethwrappers.ManyChainMultiSig{
+			cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].ProposerMcm,
+		},
+		[]timelock.BatchChainOperation{{
+			ChainIdentifier: mcms.ChainIdentifier(cfg.HomeChainSelector),
+			Batch: []mcms.Operation{
+				{
+					To:    state.Chains[cfg.HomeChainSelector].CCIPHome.Address(),
+					Data:  tx.Data(),
+					Value: big.NewInt(0),
+				},
+			},
+		}},
+		"Update chain config",
+		cfg.MCMS.MinDelay,
+	)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	e.Logger.Infof("Proposed chain config update on chain %d removes %v, adds %v", cfg.HomeChainSelector, cfg.ChainRemoves, cfg.ChainAdds)
+	return deployment.ChangesetOutput{Proposals: []timelock.MCMSWithTimelockProposal{
+		*p,
 	}}, nil
 }

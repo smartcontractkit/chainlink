@@ -1,11 +1,15 @@
 package changeset
 
 import (
+	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/stretchr/testify/assert"
 	"golang.org/x/exp/maps"
 
+	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
@@ -414,4 +418,105 @@ func transferToTimelock(
 	})
 	require.NoError(t, err)
 	assertTimelockOwnership(t, tenv, []uint64{source, dest}, state)
+}
+
+func Test_UpdateChainConfigs(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		mcmsEnabled bool
+	}{
+		{
+			name:        "MCMS enabled",
+			mcmsEnabled: true,
+		},
+		{
+			name:        "MCMS disabled",
+			mcmsEnabled: false,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tenv := NewMemoryEnvironment(t, WithChains(3))
+			state, err := LoadOnchainState(tenv.Env)
+			require.NoError(t, err)
+
+			allChains := maps.Keys(tenv.Env.Chains)
+			source := allChains[0]
+			dest := allChains[1]
+			otherChain := allChains[2]
+
+			if tc.mcmsEnabled {
+				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
+				transferToTimelock(t, tenv, state, source, dest)
+			}
+
+			ccipHome := state.Chains[tenv.HomeChainSel].CCIPHome
+			otherChainConfig, err := ccipHome.GetChainConfig(nil, otherChain)
+			require.NoError(t, err)
+			assert.True(t, otherChainConfig.FChain != 0)
+
+			var mcmsConfig *MCMSConfig
+			if tc.mcmsEnabled {
+				mcmsConfig = &MCMSConfig{
+					MinDelay: 0,
+				}
+			}
+			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, map[uint64]*proposalutils.TimelockExecutionContracts{
+				tenv.HomeChainSel: {
+					Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
+					CallProxy: state.Chains[tenv.HomeChainSel].CallProxy,
+				},
+			}, []commonchangeset.ChangesetApplication{
+				{
+					Changeset: commonchangeset.WrapChangeSet(UpdateChainConfig),
+					Config: UpdateChainConfigConfig{
+						HomeChainSelector: tenv.HomeChainSel,
+						ChainRemoves:      []uint64{otherChain},
+						ChainAdds:         make(map[uint64]ChainConfig),
+						MCMS:              mcmsConfig,
+					},
+				},
+			})
+			require.NoError(t, err)
+
+			// other chain should be gone
+			chainConfigAfter, err := ccipHome.GetChainConfig(nil, otherChain)
+			require.NoError(t, err)
+			assert.True(t, chainConfigAfter.FChain == 0)
+
+			// Lets add it back now.
+			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, map[uint64]*proposalutils.TimelockExecutionContracts{
+				tenv.HomeChainSel: {
+					Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
+					CallProxy: state.Chains[tenv.HomeChainSel].CallProxy,
+				},
+			}, []commonchangeset.ChangesetApplication{
+				{
+					Changeset: commonchangeset.WrapChangeSet(UpdateChainConfig),
+					Config: UpdateChainConfigConfig{
+						HomeChainSelector: tenv.HomeChainSel,
+						ChainRemoves:      []uint64{},
+						ChainAdds: map[uint64]ChainConfig{
+							otherChain: {
+								EncodableChainConifg: chainconfig.ChainConfig{
+									GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(internal.DAGasPriceDeviationPPB)},
+									DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(internal.GasPriceDeviationPPB)},
+									OptimisticConfirmations: internal.OptimisticConfirmations,
+								},
+								FChain:  otherChainConfig.FChain,
+								Readers: otherChainConfig.Readers,
+							},
+						},
+						MCMS: mcmsConfig,
+					},
+				},
+			})
+			require.NoError(t, err)
+
+			chainConfigAfter2, err := ccipHome.GetChainConfig(nil, otherChain)
+			require.NoError(t, err)
+			assert.Equal(t, chainConfigAfter2.FChain, otherChainConfig.FChain)
+			assert.Equal(t, chainConfigAfter2.Readers, otherChainConfig.Readers)
+			assert.Equal(t, chainConfigAfter2.Config, otherChainConfig.Config)
+		})
+	}
 }
