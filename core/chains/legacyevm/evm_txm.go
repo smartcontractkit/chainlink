@@ -67,7 +67,7 @@ func newGasEstimator(
 	opts ChainRelayOpts,
 	clientsByChainID map[string]rollups.DAClient,
 ) (estimator gas.EvmFeeEstimator, err error) {
-	lggr = lggr.Named("GasEstimator")
+	lggr = lggr.Named("Txm")
 	chainID := cfg.ChainID()
 	// build estimator from factory
 	if opts.GenGasEstimator == nil {
