@@ -170,7 +170,7 @@ func createBridge(t *testing.T, name string, val string, borm bridges.ORM, maxCa
 	bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		callcount++
 		if callcount > maxCalls {
-			panic(fmt.Sprintf("too many calls to bridge %s", name))
+			panic("too many calls to bridge" + name)
 		}
 		_, herr := io.ReadAll(req.Body)
 		if herr != nil {
@@ -326,9 +326,8 @@ result3 -> result3_parse -> multiply3;
 	opts := llo.DSOpts(nil)
 
 	// concurrency stress test
-	oc = newObservationContext(r, telem)
 	g, ctx := errgroup.WithContext(ctx)
-	for i := 0; i < 1000; i++ {
+	for i := uint32(0); i < 1000; i++ {
 		strmID := streams.StreamID(1 + i%3)
 		g.Go(func() error {
 			_, err := oc.Observe(ctx, strmID, opts)
