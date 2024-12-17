@@ -91,7 +91,7 @@ func (o *OCR2TaskJobSpec) String() (string, error) {
 	ocr2TemplateString := `
 type                                   = "{{ .JobType }}"
 name                                   = "{{.Name}}"
-externalJobID						   = "{{.ExternalJobID}}"
+externalJobID                          = "{{.ExternalJobID}}"
 forwardingAllowed                      = {{.ForwardingAllowed}}
 {{if .MaxTaskDuration}}
 maxTaskDuration                        = "{{ .MaxTaskDuration }}" {{end}}
