@@ -48,7 +48,7 @@ jobs:
 
       - name: Deploy and validate CRIB Environment for CCIP v2
         if: steps.check-prereqs-for-running.outputs.should_run == 'true'
-        uses: smartcontractkit/.github/actions/crib-deploy-environment@0d57046d1a3951141ec61a732cd87f07f72e7799 # crib-deploy-environment@7.1.1
+        uses: smartcontractkit/.github/actions/crib-deploy-environment@57f99fbea73056c490c766d50ef582a13ec4f3bb # crib-deploy-environment@7.2.0
         id: deploy-crib
         with:
           github-token: ${{ steps.token.outputs.access-token }}
