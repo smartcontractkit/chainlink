@@ -13,7 +13,6 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
-	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 )
@@ -52,10 +51,12 @@ func ToExecCalldata(rawReportCtx [2][32]byte, report ocr3types.ReportWithInfo[[]
 	// If, for whatever reason, we want to change the field name, make sure to add a `mapstructure:"<arg_name>"` tag
 	// for that field.
 
-	info, err := ccipocr3.DecodeExecuteReportInfo(report.Info)
-	if err != nil {
-		return nil, err
-	}
+	/*
+		info, err := ccipocr3.DecodeExecuteReportInfo(report.Info)
+		if err != nil {
+			return nil, err
+		}
+	*/
 
 	// WARNING: Be careful if you change the data types.
 	// Using a different type e.g. `type Foo [32]byte` instead of `[32]byte`
@@ -63,11 +64,11 @@ func ToExecCalldata(rawReportCtx [2][32]byte, report ocr3types.ReportWithInfo[[]
 	return struct {
 		ReportContext [2][32]byte
 		Report        []byte
-		Info          ccipocr3.ExecuteReportInfo
+		//Info          ccipocr3.ExecuteReportInfo
 	}{
 		ReportContext: rawReportCtx,
 		Report:        report.Report,
-		Info:          info,
+		//Info:          info,
 	}, nil
 }
 
