@@ -13,14 +13,23 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 )
 
+// This test does not run in CI, it is only written as an example of how to write a test for the legacy CCIP
 func TestE2ELegacy(t *testing.T) {
 	e := testsetups.NewIntegrationLegacyEnvironment(t)
 	state, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	allChains := e.Env.AllChainSelectors()
+	require.Len(t, allChains, 2)
 	src, dest := allChains[0], allChains[1]
 	srcChain := e.Env.Chains[src]
 	destChain := e.Env.Chains[dest]
+	pairs := []changeset.SourceDestPair{
+		{SourceChainSelector: src, DestChainSelector: dest},
+	}
+	e.Env = v1_5.AddLanes(t, e.Env, state, pairs)
+	// reload state after adding lanes
+	state, err = changeset.LoadOnchainState(e.Env)
+	require.NoError(t, err)
 	sentEvent, err := v1_5.SendRequest(t, e.Env, state,
 		changeset.WithSourceChain(src),
 		changeset.WithDestChain(dest),

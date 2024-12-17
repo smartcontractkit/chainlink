@@ -508,6 +508,7 @@ func WaitForExecute(
 			if backend, ok := dest.Client.(*memory.Backend); ok {
 				backend.Commit()
 			}
+			t.Logf("Waiting for execute for sequence numbers %v", seqNrs)
 			it, err := offRamp.FilterExecutionStateChanged(
 				&bind.FilterOpts{
 					Start: blockNum,
@@ -518,6 +519,9 @@ func WaitForExecute(
 				if cciptypes.MessageExecutionState(it.Event.State) == cciptypes.ExecutionStateSuccess {
 					t.Logf("Execution for sequence number %d found", it.Event.SequenceNumber)
 					return
+				} else {
+					t.Logf("Execution for sequence number %d failed status %d", it.Event.SequenceNumber, it.Event.State)
+					t.Fail()
 				}
 			}
 		case <-timer.C:
