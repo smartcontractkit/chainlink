@@ -29,7 +29,7 @@ contract LockReleaseTokenPoolSetup is BaseTest {
       s_token, DEFAULT_TOKEN_DECIMALS, new address[](0), address(s_mockRMNRemote), true, address(s_sourceRouter)
     );
 
-    s_allowedList.push(USER_1);
+    s_allowedList.push(vm.randomAddress());
     s_allowedList.push(OWNER);
     s_lockReleaseTokenPoolWithAllowList = new LockReleaseTokenPool(
       s_token, DEFAULT_TOKEN_DECIMALS, s_allowedList, address(s_mockRMNRemote), true, address(s_sourceRouter)

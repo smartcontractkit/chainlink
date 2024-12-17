@@ -13,38 +13,23 @@ import {WETH9} from "./WETH9.sol";
 import {Test} from "forge-std/Test.sol";
 
 contract BaseTest is Test {
-  // Addresses
   address internal constant OWNER = 0x00007e64E1fB0C487F25dd6D3601ff6aF8d32e4e;
   address internal constant STRANGER = address(999999);
 
-  address internal constant USER_1 = address(1);
+  // Timing
+  uint256 internal constant BLOCK_TIME = 1234567890;
+  uint32 internal constant TWELVE_HOURS = 60 * 60 * 12;
 
   // Message info
   uint64 internal constant SOURCE_CHAIN_SELECTOR = 1;
   uint64 internal constant DEST_CHAIN_SELECTOR = 2;
   uint32 internal constant GAS_LIMIT = 200_000;
 
-  // Timing
-  uint256 internal constant BLOCK_TIME = 1234567890;
-  uint32 internal constant TWELVE_HOURS = 60 * 60 * 12;
-
-  // Onramp
-  uint96 internal constant MAX_MSG_FEES_JUELS = 1_000e18;
-  uint32 internal constant DEST_GAS_OVERHEAD = 300_000;
-  uint16 internal constant DEST_GAS_PER_PAYLOAD_BYTE = 16;
-
-  uint16 internal constant DEFAULT_TOKEN_FEE_USD_CENTS = 50;
   uint32 internal constant DEFAULT_TOKEN_DEST_GAS_OVERHEAD = 90_000;
-  uint32 internal constant DEFAULT_TOKEN_BYTES_OVERHEAD = 32;
   uint8 internal constant DEFAULT_TOKEN_DECIMALS = 18;
+  uint16 internal constant GAS_FOR_CALL_EXACT_CHECK = 5_000;
 
   bool private s_baseTestInitialized;
-
-  // OffRamp
-  uint32 internal constant MAX_DATA_SIZE = 30_000;
-  uint16 internal constant MAX_TOKENS_LENGTH = 5;
-  uint16 internal constant GAS_FOR_CALL_EXACT_CHECK = 5_000;
-  uint32 internal constant MAX_GAS_LIMIT = 4_000_000;
 
   IRMNRemote internal s_mockRMNRemote;
   Router internal s_sourceRouter;
