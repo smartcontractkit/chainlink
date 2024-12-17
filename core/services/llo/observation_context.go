@@ -157,7 +157,7 @@ func (e MissingStreamError) Error() string {
 }
 
 func (oc *observationContext) run(ctx context.Context, streamID streams.StreamID) (*pipeline.Run, pipeline.TaskRunResults, error) {
-	strm, exists := oc.r.Get(streamID)
+	p, exists := oc.r.Get(streamID)
 	if !exists {
 		return nil, nil, MissingStreamError{StreamID: streamID}
 	}
@@ -165,7 +165,7 @@ func (oc *observationContext) run(ctx context.Context, streamID streams.StreamID
 	// In case of multiple streamIDs per pipeline then the
 	// first call executes and the others wait for result
 	oc.executionsMu.Lock()
-	ex, isExecuting := oc.executions[strm]
+	ex, isExecuting := oc.executions[p]
 	if isExecuting {
 		oc.executionsMu.Unlock()
 		// wait for it to finish
@@ -180,10 +180,10 @@ func (oc *observationContext) run(ctx context.Context, streamID streams.StreamID
 	// execute here
 	ch := make(chan struct{})
 	ex = &execution{done: ch}
-	oc.executions[strm] = ex
+	oc.executions[p] = ex
 	oc.executionsMu.Unlock()
 
-	run, trrs, err := strm.Run(ctx)
+	run, trrs, err := p.Run(ctx)
 	ex.run = run
 	ex.trrs = trrs
 	ex.err = err
