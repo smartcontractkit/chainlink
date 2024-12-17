@@ -33,9 +33,35 @@ runs:
       working-directory: ${{ inputs.go-mod-download-directory }}
       run: go mod download
 
+    - name: Set go Cache Key Inputs
+      shell: bash
+      id: go-cache-inputs
+      env:
+        BRANCH_NAME: ${{ github.head_ref || github.ref_name }} 
+      run: |
+        echo "gobuildcache=$(go env GOCACHE)" >> $GITHUB_OUTPUT
+        echo "branchname=${BRANCH_NAME}" >> $GITHUB_OUTPUT
+
+    - uses: actions/cache/restore@v4
+      name: Restore go build cache for initial test binary
+      id: cache-restore
+      with:
+        path: |
+          ${{ steps.go-cache-inputs.outputs.gobuildcache }}
+        key: ${{ runner.os }}-gobuild-core-test-binary-${{ hashFiles('./go.mod') }}-${{ steps.go-cache-inputs.outputs.branchname }}
+        restore-keys: |
+          ${{ runner.os }}-gomod--core-test-binary-
+
     - name: Build binary
       shell: bash
       run: go build -o chainlink.test .
+
+    - uses: actions/cache/save@v4
+      name: Save go build cache for initial test binary
+      with:
+        path: |
+          ${{ steps.go-cache-inputs.outputs.gobuildcache }}
+        key: ${{ steps.cache-restore.outputs.cache-primary-key }}
 
     - name: Setup DB
       shell: bash
