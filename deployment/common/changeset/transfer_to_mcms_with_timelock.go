@@ -218,25 +218,55 @@ type RenounceTimelockDeployerConfig struct {
 	ChainSel uint64
 }
 
+func (cfg RenounceTimelockDeployerConfig) Validate(e deployment.Environment) error {
+	if err := deployment.IsValidChainSelector(cfg.ChainSel); err != nil {
+		return fmt.Errorf("invalid chain selector: %w", err)
+	}
+
+	_, ok := e.Chains[cfg.ChainSel]
+	if !ok {
+		return fmt.Errorf("chain selector: %d not found in environment", cfg.ChainSel)
+	}
+
+	// MCMS should already exists
+	state, err := MaybeLoadMCMSWithTimelockState(e, []uint64{cfg.ChainSel})
+	if err != nil {
+		return err
+	}
+
+	contract, ok := state[cfg.ChainSel]
+	if !ok {
+		return fmt.Errorf("mcms contracts not found on chain %d", cfg.ChainSel)
+	}
+	if contract.Timelock == nil {
+		return fmt.Errorf("timelock not found on chain %d", cfg.ChainSel)
+	}
+
+	return nil
+}
+
 // RenounceTimelockDeployer revokes the deployer key from administering the contract.
 func RenounceTimelockDeployer(e deployment.Environment, cfg RenounceTimelockDeployerConfig) (deployment.ChangesetOutput, error) {
+	if err := cfg.Validate(e); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
 	contracts, err := MaybeLoadMCMSWithTimelockState(e, []uint64{cfg.ChainSel})
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
 	tl := contracts[cfg.ChainSel].Timelock
-	if tl == nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("timelock not found on chain %d", cfg.ChainSel)
-	}
-	admin, err := tl.ADMINROLE(&bind.CallOpts{})
+	admin, err := tl.ADMINROLE(&bind.CallOpts{Context: e.GetContext()})
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get admin role: %w", err)
 	}
-	tx, err := tl.RenounceRole(e.Chains[cfg.ChainSel].DeployerKey, admin, e.Chains[cfg.ChainSel].DeployerKey.From)
+
+	chain := e.Chains[cfg.ChainSel]
+	tx, err := tl.RenounceRole(chain.DeployerKey, admin, chain.DeployerKey.From)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to revoke deployer key: %w", err)
 	}
-	if _, err := deployment.ConfirmIfNoError(e.Chains[cfg.ChainSel], tx, err); err != nil {
+	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
 	e.Logger.Infof("revoked deployer key from owning contract %s", tl.Address().Hex())
