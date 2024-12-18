@@ -302,6 +302,7 @@ func (s CCIPOnChainState) View(chains []uint64) (map[string]view.ChainView, map[
 		}
 		chainState := s.Chains[chainSelector]
 		// TODO: call Solana view generation here (switch case on chainSelector)
+		// https://smartcontract-it.atlassian.net/browse/INTAUTO-359
 		chainView, err := chainState.GenerateView()
 		if err != nil {
 			return m, sm, err
@@ -327,6 +328,7 @@ func LoadOnchainState(e deployment.Environment) (CCIPOnChainState, error) {
 			}
 		}
 		// TODO: Load Solana state here based on chainSelector
+		// https://smartcontract-it.atlassian.net/browse/INTAUTO-361
 		chainState, err := LoadChainState(chain, addresses)
 		if err != nil {
 			return state, err
@@ -338,6 +340,7 @@ func LoadOnchainState(e deployment.Environment) (CCIPOnChainState, error) {
 
 // LoadChainState Loads all state for a chain into state
 // TODO: Add function LoadSolanaChainState
+// https://smartcontract-it.atlassian.net/browse/INTAUTO-362
 func LoadChainState(chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (CCIPChainState, error) {
 	var state CCIPChainState
 	mcmsWithTimelock, err := commoncs.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
