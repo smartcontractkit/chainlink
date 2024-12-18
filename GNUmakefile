@@ -4,6 +4,7 @@ COMMIT_SHA ?= $(shell git rev-parse HEAD)
 VERSION = $(shell jq -r '.version' package.json)
 GO_LDFLAGS := $(shell tools/bin/ldflags)
 GOFLAGS = -ldflags "$(GO_LDFLAGS)"
+GCFLAGS = -gcflags "$(GO_GCFLAGS)"
 
 .PHONY: install
 install: install-chainlink-autoinstall ## Install chainlink and all its dependencies.
@@ -38,7 +39,7 @@ docs: ## Install and run pkgsite to view Go docs
 
 .PHONY: install-chainlink
 install-chainlink: operator-ui ## Install the chainlink binary.
-	go install $(GOFLAGS) .
+	go install $(GCFLAGS) $(GOFLAGS) .
 
 .PHONY: install-chainlink-cover
 install-chainlink-cover: operator-ui ## Install the chainlink binary with cover flag.
