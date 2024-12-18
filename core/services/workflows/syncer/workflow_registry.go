@@ -217,7 +217,7 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 			}
 
 			w.lggr.Debugw("Loading initial workflows for DON", "DON", don.ID)
-			loadWorkflowsHead, err := w.LoadWorkflows(ctx, don, reader)
+			loadWorkflowsHead, err := w.loadWorkflows(ctx, don, reader)
 			if err != nil {
 				// TODO - this is a temporary fix to handle the case where the chainreader errors because the contract
 				// contains no workflows.  To track: https://smartcontract-it.atlassian.net/browse/CAPPL-393
@@ -231,7 +231,6 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 				}
 			}
 
-			fmt.Printf("LOADHEAD: %v\n", loadWorkflowsHead.Height)
 			w.readRegistryEvents(ctx, reader, loadWorkflowsHead.Height)
 		}()
 
@@ -445,7 +444,7 @@ func (r workflowAsEvent) GetData() any {
 	return r.Data
 }
 
-func (w *workflowRegistry) LoadWorkflows(ctx context.Context, don capabilities.DON, contractReader ContractReader) (*types.Head, error) {
+func (w *workflowRegistry) loadWorkflows(ctx context.Context, don capabilities.DON, contractReader ContractReader) (*types.Head, error) {
 	contractBinding := types.BoundContract{
 		Address: w.workflowRegistryAddress,
 		Name:    WorkflowRegistryContractName,

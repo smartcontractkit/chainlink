@@ -714,7 +714,6 @@ type testSecretsWorkEventHandler struct {
 }
 
 func (m *testSecretsWorkEventHandler) Handle(ctx context.Context, event syncer.Event) error {
-
 	switch {
 	case event.GetEventType() == syncer.ForceUpdateSecretsEvent:
 		return m.wrappedHandler.Handle(ctx, event)
