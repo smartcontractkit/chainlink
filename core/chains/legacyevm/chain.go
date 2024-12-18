@@ -245,8 +245,8 @@ func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Nod
 	}
 
 	// initialize gas estimator
-	var gasEstimator gas.EvmFeeEstimator
-	if gasEstimator, err = newGasEstimator(cfg.EVM(), client, l, opts, clientsByChainID); err != nil {
+	gasEstimator, err := newGasEstimator(cfg.EVM(), client, l, opts, clientsByChainID)
+	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate gas estimator for chain with ID %s: %w", chainID, err)
 	}
 
