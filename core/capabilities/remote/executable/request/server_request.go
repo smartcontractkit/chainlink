@@ -26,7 +26,7 @@ type response struct {
 type ServerRequest struct {
 	capability capabilities.ExecutableCapability
 
-	capabilityPeerId p2ptypes.PeerID
+	capabilityPeerID p2ptypes.PeerID
 	capabilityID     string
 	capabilityDonID  uint32
 
@@ -60,7 +60,7 @@ func NewServerRequest(capability capabilities.ExecutableCapability, method strin
 		createdTime:             time.Now(),
 		capabilityID:            capabilityID,
 		capabilityDonID:         capabilityDonID,
-		capabilityPeerId:        capabilityPeerID,
+		capabilityPeerID:        capabilityPeerID,
 		dispatcher:              dispatcher,
 		requesters:              map[p2ptypes.PeerID]bool{},
 		responseSentToRequester: map[p2ptypes.PeerID]bool{},
@@ -77,7 +77,7 @@ func (e *ServerRequest) OnMessage(ctx context.Context, msg *types.MessageBody) e
 	defer e.mux.Unlock()
 
 	if msg.Sender == nil {
-		return fmt.Errorf("sender missing from message")
+		return errors.New("sender missing from message")
 	}
 
 	requester, err := remote.ToPeerID(msg.Sender)
@@ -206,7 +206,7 @@ func (e *ServerRequest) sendResponse(requester p2ptypes.PeerID) error {
 		CallerDonId:     e.callingDon.ID,
 		Method:          types.MethodExecute,
 		MessageId:       []byte(e.requestMessageID),
-		Sender:          e.capabilityPeerId[:],
+		Sender:          e.capabilityPeerID[:],
 		Receiver:        requester[:],
 	}
 
