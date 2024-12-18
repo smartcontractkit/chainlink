@@ -37,6 +37,7 @@ func (m mockCfg) TransmitTimeout() commonconfig.Duration {
 }
 
 func Test_MercuryTransmitter_Transmit(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
 	var jobID int32
@@ -403,6 +404,7 @@ func Test_MercuryTransmitter_FetchInitialMaxFinalizedBlockNumber(t *testing.T) {
 }
 
 func Test_sortReportsLatestFirst(t *testing.T) {
+	t.Parallel()
 	reports := []*pb.Report{
 		nil,
 		{ObservationsTimestamp: 1},
@@ -457,6 +459,7 @@ func (m *mockQ) Init(transmissions []*Transmission) {}
 func (m *mockQ) IsEmpty() bool                      { return false }
 
 func Test_MercuryTransmitter_runQueueLoop(t *testing.T) {
+	t.Parallel()
 	feedIDHex := utils.NewHash().Hex()
 	lggr := logger.TestLogger(t)
 	c := &mocks.MockWSRPCClient{}

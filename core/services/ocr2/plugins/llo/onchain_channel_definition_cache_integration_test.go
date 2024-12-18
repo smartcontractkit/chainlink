@@ -83,6 +83,7 @@ func (m *MockReadCloser) Close() error {
 }
 
 func Test_ChannelDefinitionCache_Integration(t *testing.T) {
+	t.Parallel()
 	var (
 		invalidDefinitions    = []byte(`{{{`)
 		invalidDefinitionsSHA = sha3.Sum256(invalidDefinitions)

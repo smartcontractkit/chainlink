@@ -27,6 +27,7 @@ func bootstrapPersistenceManager(t *testing.T, jobID int32, db *sqlx.DB) (*Persi
 }
 
 func TestPersistenceManager(t *testing.T) {
+	t.Parallel()
 	jobID1 := rand.Int32()
 	jobID2 := jobID1 + 1
 
@@ -69,6 +70,7 @@ func TestPersistenceManager(t *testing.T) {
 }
 
 func TestPersistenceManagerAsyncDelete(t *testing.T) {
+	t.Parallel()
 	ctx := testutils.Context(t)
 	jobID := rand.Int32()
 	db := pgtest.NewSqlxDB(t)
@@ -114,6 +116,7 @@ func TestPersistenceManagerAsyncDelete(t *testing.T) {
 }
 
 func TestPersistenceManagerPrune(t *testing.T) {
+	t.Parallel()
 	jobID1 := rand.Int32()
 	jobID2 := jobID1 + 1
 	db := pgtest.NewSqlxDB(t)

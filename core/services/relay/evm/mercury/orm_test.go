@@ -20,6 +20,7 @@ var (
 )
 
 func TestORM(t *testing.T) {
+	t.Parallel()
 	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
 
@@ -151,6 +152,7 @@ func TestORM(t *testing.T) {
 }
 
 func TestORM_InsertTransmitRequest_MultipleServerURLs(t *testing.T) {
+	t.Parallel()
 	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
 
@@ -196,6 +198,7 @@ func TestORM_InsertTransmitRequest_MultipleServerURLs(t *testing.T) {
 }
 
 func TestORM_PruneTransmitRequests(t *testing.T) {
+	t.Parallel()
 	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
 	jobID := rand.Int32() // foreign key constraints disabled so value doesn't matter
@@ -289,6 +292,7 @@ func TestORM_PruneTransmitRequests(t *testing.T) {
 }
 
 func TestORM_InsertTransmitRequest_LatestReport(t *testing.T) {
+	t.Parallel()
 	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
 	jobID := rand.Int32() // foreign key constraints disabled so value doesn't matter

@@ -93,6 +93,7 @@ func (m *testWorkflowRegistryContractLoader) LoadWorkflows(ctx context.Context, 
 }
 
 func Test_EventHandlerStateSync(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	backendTH := testutils.NewEVMBackendTH(t)
 	donID := uint32(1)
@@ -221,6 +222,7 @@ func Test_EventHandlerStateSync(t *testing.T) {
 }
 
 func Test_InitialStateSync(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	backendTH := testutils.NewEVMBackendTH(t)
 	donID := uint32(1)
@@ -285,6 +287,7 @@ func Test_InitialStateSync(t *testing.T) {
 }
 
 func Test_SecretsWorker(t *testing.T) {
+	t.Parallel()
 	var (
 		ctx       = coretestutils.Context(t)
 		lggr      = logger.TestLogger(t)
@@ -385,6 +388,7 @@ func Test_SecretsWorker(t *testing.T) {
 }
 
 func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
+	t.Parallel()
 	var (
 		ctx       = coretestutils.Context(t)
 		lggr      = logger.TestLogger(t)
@@ -482,6 +486,7 @@ func (m *mockEngineFactory) new(ctx context.Context, wfid string, owner string, 
 }
 
 func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
+	t.Parallel()
 	var (
 		ctx       = coretestutils.Context(t)
 		lggr      = logger.TestLogger(t)

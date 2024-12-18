@@ -59,6 +59,7 @@ import (
 )
 
 func TestFilterNamesFromSpec21(t *testing.T) {
+	t.Parallel()
 	b := make([]byte, 20)
 	_, err := crand.Read(b)
 	require.NoError(t, err)
@@ -85,6 +86,7 @@ func TestFilterNamesFromSpec21(t *testing.T) {
 }
 
 func TestIntegration_KeeperPluginConditionalUpkeep(t *testing.T) {
+	t.Parallel()
 	g := gomega.NewWithT(t)
 	lggr := logger.TestLogger(t)
 
@@ -182,6 +184,7 @@ func TestIntegration_KeeperPluginConditionalUpkeep(t *testing.T) {
 
 func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 	t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809; DEPENDENT ON SPECIFIC BLOCK PATTTERN?")
+	t.Parallel()
 	g := gomega.NewWithT(t)
 
 	// setup blockchain
@@ -275,6 +278,7 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 }
 
 func TestIntegration_KeeperPluginLogUpkeep_Retry(t *testing.T) {
+	t.Parallel()
 	g := gomega.NewWithT(t)
 
 	// setup blockchain
@@ -395,6 +399,7 @@ func TestIntegration_KeeperPluginLogUpkeep_Retry(t *testing.T) {
 }
 
 func TestIntegration_KeeperPluginLogUpkeep_ErrHandler(t *testing.T) {
+	t.Parallel()
 	g := gomega.NewWithT(t)
 
 	// setup blockchain

@@ -12,6 +12,7 @@ import (
 )
 
 func Test_OffchainConfigDigester_ConfigDigest(t *testing.T) {
+	t.Parallel()
 	ctx := tests.Context(t)
 	// ChainID and ContractAddress are taken into account for computation
 	cd1, err := OffchainConfigDigester{ChainID: big.NewInt(0)}.ConfigDigest(ctx, types.ContractConfig{})

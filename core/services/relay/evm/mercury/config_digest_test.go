@@ -25,6 +25,7 @@ import (
 // Adapted from: https://github.com/smartcontractkit/offchain-reporting/blob/991ebe1462fd56826a1ddfb34287d542acb2baee/lib/offchainreporting2/chains/evmutil/config_digest_test.go
 
 func TestConfigCalculationMatches(t *testing.T) {
+	t.Parallel()
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err, "could not make private key for EOA owner")
 	owner, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))

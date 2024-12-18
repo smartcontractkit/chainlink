@@ -38,6 +38,7 @@ import (
 )
 
 func TestFunctionsConfigPoller(t *testing.T) {
+	t.Parallel()
 	t.Run("FunctionsPlugin", func(t *testing.T) {
 		runTest(t, functions.FunctionsPlugin, functions.FunctionsDigestPrefix)
 	})
