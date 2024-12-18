@@ -23,8 +23,8 @@ const (
 
 type Dispatcher interface {
 	services.Service
-	SetReceiver(capabilityId string, donId uint32, receiver Receiver) error
-	RemoveReceiver(capabilityId string, donId uint32)
+	SetReceiver(capabilityID string, donID uint32, receiver Receiver) error
+	RemoveReceiver(capabilityID string, donID uint32)
 	Send(peerID p2ptypes.PeerID, msgBody *MessageBody) error
 }
 

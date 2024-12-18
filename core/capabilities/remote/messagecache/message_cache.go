@@ -1,9 +1,9 @@
-package remote
+package messagecache
 
 // MessageCache is a simple store for messages, grouped by event ID and peer ID.
 // It is used to collect messages from multiple peers until they are ready for aggregation
 // based on quantity and freshness.
-type messageCache[EventID comparable, PeerID comparable] struct {
+type MessageCache[EventID comparable, PeerID comparable] struct {
 	events map[EventID]*eventState[PeerID]
 }
 
@@ -18,14 +18,14 @@ type msgState struct {
 	payload   []byte
 }
 
-func NewMessageCache[EventID comparable, PeerID comparable]() *messageCache[EventID, PeerID] {
-	return &messageCache[EventID, PeerID]{
+func NewMessageCache[EventID comparable, PeerID comparable]() *MessageCache[EventID, PeerID] {
+	return &MessageCache[EventID, PeerID]{
 		events: make(map[EventID]*eventState[PeerID]),
 	}
 }
 
 // Insert or overwrite a message for <eventID>. Return creation timestamp of the event.
-func (c *messageCache[EventID, PeerID]) Insert(eventID EventID, peerID PeerID, timestamp int64, payload []byte) int64 {
+func (c *MessageCache[EventID, PeerID]) Insert(eventID EventID, peerID PeerID, timestamp int64, payload []byte) int64 {
 	if _, ok := c.events[eventID]; !ok {
 		c.events[eventID] = &eventState[PeerID]{
 			peerMsgs:          make(map[PeerID]*msgState),
@@ -43,7 +43,7 @@ func (c *messageCache[EventID, PeerID]) Insert(eventID EventID, peerID PeerID, t
 // received more recently than <minTimestamp>.
 // Return all messages that satisfy the above condition.
 // Ready() will return true at most once per event if <once> is true.
-func (c *messageCache[EventID, PeerID]) Ready(eventID EventID, minCount uint32, minTimestamp int64, once bool) (bool, [][]byte) {
+func (c *MessageCache[EventID, PeerID]) Ready(eventID EventID, minCount uint32, minTimestamp int64, once bool) (bool, [][]byte) {
 	ev, ok := c.events[eventID]
 	if !ok {
 		return false, nil
@@ -51,6 +51,7 @@ func (c *messageCache[EventID, PeerID]) Ready(eventID EventID, minCount uint32, 
 	if ev.wasReady && once {
 		return false, nil
 	}
+	//nolint:gosec // G115
 	if uint32(len(ev.peerMsgs)) < minCount {
 		return false, nil
 	}
@@ -69,13 +70,13 @@ func (c *messageCache[EventID, PeerID]) Ready(eventID EventID, minCount uint32, 
 	return false, nil
 }
 
-func (c *messageCache[EventID, PeerID]) Delete(eventID EventID) {
+func (c *MessageCache[EventID, PeerID]) Delete(eventID EventID) {
 	delete(c.events, eventID)
 }
 
 // Return the number of events deleted.
 // Scans all keys, which might be slow for large caches.
-func (c *messageCache[EventID, PeerID]) DeleteOlderThan(cutoffTimestamp int64) int {
+func (c *MessageCache[EventID, PeerID]) DeleteOlderThan(cutoffTimestamp int64) int {
 	nDeleted := 0
 	for id, event := range c.events {
 		if event.creationTimestamp < cutoffTimestamp {

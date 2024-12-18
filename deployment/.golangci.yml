@@ -10,6 +10,9 @@ linters:
     - misspell
     - rowserrcheck
     - errorlint
+    - containedctx
+    - fatcontext
+    - noctx
 linters-settings:
   exhaustive:
     default-signifies-exhaustive: true
