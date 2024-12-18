@@ -80,11 +80,18 @@ jobs:
       - name: Test ws connection
         env:
           GETH_WS_ENDPOINT: wss://gap-${{ steps.deploy-crib.outputs.devspace-namespace }}-geth-1337-ws.public.main.stage.cldev.sh
+        shell: bash
         run: |
+          set -xeuo pipefail
+
           npm install -g wscat
+
+          echo "checking ws conection via gap"
           wscat --no-check -c "${GETH_WS_ENDPOINT}" \
             --header "x-authorization-github-jwt: Bearer ${{ steps.get-jwt-token.outputs.result }}" \
             -x '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}'
+
+          echo "finished checking ws conection via gap"
 #      - uses: actions/checkout@v4.2.1
 #      - name: Set up Go
 #        uses: ./.github/actions/setup-go
@@ -99,9 +106,9 @@ jobs:
 #        run: |-
 #          # go test -v -run TestSomething
 #          echo "running tests here"
-      - name: Destroy CRIB Environment
-        id: destroy
-        if: always() && steps.deploy-crib.outputs.devspace-namespace != ''
-        uses: smartcontractkit/.github/actions/crib-purge-environment@c0b38e6c40d72d01b8d2f24f92623a2538b3dedb # crib-purge-environment@0.1.0
-        with:
-          namespace: ${{ steps.deploy-crib.outputs.devspace-namespace }}
+#      - name: Destroy CRIB Environment
+#        id: destroy
+#        if: always() && steps.deploy-crib.outputs.devspace-namespace != ''
+#        uses: smartcontractkit/.github/actions/crib-purge-environment@c0b38e6c40d72d01b8d2f24f92623a2538b3dedb # crib-purge-environment@0.1.0
+#        with:
+#          namespace: ${{ steps.deploy-crib.outputs.devspace-namespace }}
