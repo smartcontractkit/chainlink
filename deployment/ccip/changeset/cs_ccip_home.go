@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -111,12 +112,17 @@ type PromoteAllCandidatesChangesetConfig struct {
 
 	// RemoteChainSelectors is the chain selector of the DONs that we want to promote the candidate config of.
 	// Note that each (chain, ccip capability version) pair has a unique DON ID.
-	RemoteChainSelectors []uint64
+	RemoteChainCfg []PromoteAllCandidatesChangesetConfigPerRemoteChain
 
 	// MCMS is optional MCMS configuration, if provided the changeset will generate an MCMS proposal.
 	// If nil, the changeset will execute the commands directly using the deployer key
 	// of the provided environment.
 	MCMS *MCMSConfig
+}
+
+type PromoteAllCandidatesChangesetConfigPerRemoteChain struct {
+	Chain      uint64
+	PluginType types.PluginType
 }
 
 func (p PromoteAllCandidatesChangesetConfig) Validate(e deployment.Environment) ([]uint32, error) {
@@ -136,53 +142,46 @@ func (p PromoteAllCandidatesChangesetConfig) Validate(e deployment.Environment) 
 	}
 
 	var donIDs []uint32
-	for _, chainSelector := range p.RemoteChainSelectors {
-		if err := deployment.IsValidChainSelector(chainSelector); err != nil {
+	for _, cfg := range p.RemoteChainCfg {
+		if err := deployment.IsValidChainSelector(cfg.Chain); err != nil {
 			return nil, fmt.Errorf("don chain selector invalid: %w", err)
 		}
-		chainState, exists := state.Chains[chainSelector]
+		chainState, exists := state.Chains[cfg.Chain]
 		if !exists {
-			return nil, fmt.Errorf("chain %d does not exist", chainSelector)
+			return nil, fmt.Errorf("chain %d does not exist", cfg.Chain)
 		}
 		if chainState.OffRamp == nil {
 			// should not be possible, but a defensive check.
 			return nil, fmt.Errorf("OffRamp contract does not exist")
 		}
 
+		if cfg.PluginType != types.PluginTypeCCIPCommit &&
+			cfg.PluginType != types.PluginTypeCCIPExec {
+			return nil, fmt.Errorf("PluginType must be set to either CCIPCommit or CCIPExec for chain %d", cfg.Chain)
+		}
+
 		donID, err := internal.DonIDForChain(
 			state.Chains[p.HomeChainSelector].CapabilityRegistry,
 			state.Chains[p.HomeChainSelector].CCIPHome,
-			chainSelector,
+			cfg.Chain,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("fetch don id for chain: %w", err)
 		}
 		if donID == 0 {
-			return nil, fmt.Errorf("don doesn't exist in CR for chain %d", p.RemoteChainSelectors)
+			return nil, fmt.Errorf("don doesn't exist in CR for chain %d", cfg.Chain)
 		}
 		// Check that candidate digest and active digest are not both zero - this is enforced onchain.
-		commitConfigs, err := state.Chains[p.HomeChainSelector].CCIPHome.GetAllConfigs(&bind.CallOpts{
+		pluginConfigs, err := state.Chains[p.HomeChainSelector].CCIPHome.GetAllConfigs(&bind.CallOpts{
 			Context: e.GetContext(),
-		}, donID, uint8(cctypes.PluginTypeCCIPCommit))
+		}, donID, uint8(cfg.PluginType))
 		if err != nil {
-			return nil, fmt.Errorf("fetching commit configs from cciphome: %w", err)
+			return nil, fmt.Errorf("fetching %s configs from cciphome: %w", cfg.PluginType.String(), err)
 		}
 
-		execConfigs, err := state.Chains[p.HomeChainSelector].CCIPHome.GetAllConfigs(&bind.CallOpts{
-			Context: e.GetContext(),
-		}, donID, uint8(cctypes.PluginTypeCCIPExec))
-		if err != nil {
-			return nil, fmt.Errorf("fetching exec configs from cciphome: %w", err)
-		}
-
-		if commitConfigs.ActiveConfig.ConfigDigest == [32]byte{} &&
-			commitConfigs.CandidateConfig.ConfigDigest == [32]byte{} {
-			return nil, fmt.Errorf("commit active and candidate config digests are both zero")
-		}
-
-		if execConfigs.ActiveConfig.ConfigDigest == [32]byte{} &&
-			execConfigs.CandidateConfig.ConfigDigest == [32]byte{} {
-			return nil, fmt.Errorf("exec active and candidate config digests are both zero")
+		if pluginConfigs.ActiveConfig.ConfigDigest == [32]byte{} &&
+			pluginConfigs.CandidateConfig.ConfigDigest == [32]byte{} {
+			return nil, fmt.Errorf("%s active and candidate config digests are both zero", cfg.PluginType.String())
 		}
 		donIDs = append(donIDs, donID)
 	}
