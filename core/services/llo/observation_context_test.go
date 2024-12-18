@@ -274,76 +274,6 @@ result3 -> result3_parse -> multiply3;
 	})
 }
 
-func TestObservationContext_Observe_integrationRealPipeline_concurrencyStressTest(t *testing.T) {
-	ctx := tests.Context(t)
-	lggr := logger.TestLogger(t)
-	db := pgtest.NewSqlxDB(t)
-	bridgesORM := bridges.NewORM(db)
-
-	createBridge(t, "foo-bridge", `123.456`, bridgesORM, 1)
-	createBridge(t, "bar-bridge", `"124.456"`, bridgesORM, 1)
-
-	c := clhttptest.NewTestLocalOnlyHTTPClient()
-	runner := pipeline.NewRunner(
-		nil,
-		bridgesORM,
-		&mockPipelineConfig{},
-		&mockBridgeConfig{},
-		nil,
-		nil,
-		nil,
-		lggr,
-		c,
-		c,
-	)
-
-	r := streams.NewRegistry(lggr, runner)
-
-	jobStreamID := streams.StreamID(5)
-
-	jb := job.Job{
-		Type:     job.Stream,
-		StreamID: &jobStreamID,
-		PipelineSpec: &pipeline.Spec{
-			DotDagSource: `
-// Benchmark Price
-result1          [type=memo value="900.0022"];
-multiply2 	  	 [type=multiply times=1 streamID=1 index=0]; // force conversion to decimal
-
-result2          [type=bridge name="foo-bridge" requestData="{\"data\":{\"data\":\"foo\"}}"];
-result2_parse    [type=jsonparse path="result" streamID=2 index=1];
-
-result3          [type=bridge name="bar-bridge" requestData="{\"data\":{\"data\":\"bar\"}}"];
-result3_parse    [type=jsonparse path="result"];
-multiply3 	  	 [type=multiply times=1 streamID=3 index=2]; // force conversion to decimal
-
-result1 -> multiply2;
-result2 -> result2_parse;
-result3 -> result3_parse -> multiply3; 
-`,
-		},
-	}
-	err := r.Register(jb, nil)
-	require.NoError(t, err)
-
-	telem := &mockTelemeter{}
-	oc := newObservationContext(r, telem)
-	opts := llo.DSOpts(nil)
-
-	// concurrency stress test
-	g, ctx := errgroup.WithContext(ctx)
-	for i := uint32(0); i < 1000; i++ {
-		strmID := 1 + i%3
-		g.Go(func() error {
-			_, err := oc.Observe(ctx, strmID, opts)
-			return err
-		})
-	}
-	if err := g.Wait(); err != nil {
-		t.Fatalf("Observation failed: %v", err)
-	}
-}
-
 func BenchmarkObservationContext_Observe_integrationRealPipeline_concurrencyStressTest_manyStreams(t *testing.B) {
 	ctx := tests.Context(t)
 	lggr := logger.TestLogger(t)
@@ -408,6 +338,7 @@ result3 -> result3_parse -> multiply3;
 	opts := llo.DSOpts(nil)
 
 	// concurrency stress test
+	t.ResetTimer()
 	g, ctx := errgroup.WithContext(ctx)
 	for i := uint32(0); i < n; i++ {
 		for _, strmID := range []uint32{i, i + n, i + 2*n, i + 3*n} {
