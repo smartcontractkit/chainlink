@@ -228,12 +228,11 @@ func startCLNodes(
 	in *CTFV2Conf,
 ) *ns.Output {
 	tomlNodeConfig := in.NodeSet.NodeSpecs[0].Node.TestConfigOverrides
-	for _, bc := range blockchains {
-		tomlNodeConfig += getChainSpecificNodeSpec(bc)
-	}
+	tomlNodeConfig += getChainSpecificNodeSpec(blockchains)
 	tomlNodeConfig += fmt.Sprintf(`
 
 		# This is needed for external registry
+		[Capabilities]
 		[Capabilities.ExternalRegistry]
 		Address = '%s'
 		NetworkID = 'evm'
@@ -248,26 +247,46 @@ func startCLNodes(
 	return nodeOut
 }
 
-func getChainSpecificNodeSpec(bs *blockchain.Output) string {
+func getChainSpecificNodeSpec(bcs []*blockchain.Output) string {
+	//TODO: Can improve this based on number of chains instead of hardcoding for two chains
 	tomlNodeConfig := fmt.Sprintf(`
+		[[EVM]]
+		ChainID = '%s'
+		AutoCreateKey = true
+		FinalityDepth = 1
+		MinContractPayment = '0'
+		
+		[EVM.GasEstimator]
+		PriceMax = '200 gwei'
+		LimitDefault = 6000000
+		FeeCapDefault = '200 gwei'
+		
+		[[EVM.Nodes]]
+		Name = '%s'
+		WSURL = '%s'
+		HTTPURL = '%s'
 		
 		[[EVM]]
 		ChainID = '%s'
 		LogPollInterval = '500ms'
-		
+
 		[EVM.Transactions]
 		ForwardersEnabled = false
 		
 		[EVM.GasEstimator]
 		LimitDefault = 5000000
-		
+
 		[[EVM.Nodes]]
 		Name = '%s'
 		WSURL = '%s'
 		HTTPURL = '%s'`,
-		bs.ChainID,
-		"chain-"+bs.ChainID,
-		bs.Nodes[0].DockerInternalWSUrl,
-		bs.Nodes[0].DockerInternalHTTPUrl)
+		bcs[0].ChainID,
+		"chain-"+bcs[0].ChainID,
+		bcs[0].Nodes[0].DockerInternalWSUrl,
+		bcs[0].Nodes[0].DockerInternalHTTPUrl,
+		bcs[1].ChainID,
+		"chain-"+bcs[1].ChainID,
+		bcs[1].Nodes[0].DockerInternalWSUrl,
+		bcs[1].Nodes[0].DockerInternalHTTPUrl)
 	return tomlNodeConfig
 }
