@@ -13,13 +13,10 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
-	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
-	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -32,48 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry_1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
-	ocr2validate "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 )
-
-type LegacyJobclient struct {
-	*memory.JobClient
-}
-
-// ProposeJob is an overridden implementation of the jobclient.ProposeJob method which allows offchainreporting2 job type
-func (j *LegacyJobclient) ProposeJob(ctx context.Context, in *jobv1.ProposeJobRequest, opts ...grpc.CallOption) (*jobv1.ProposeJobResponse, error) {
-	n := j.Nodes[in.NodeId]
-	// TODO: Use FMS
-	jb, err := ocr2validate.ValidatedOracleSpecToml(
-		ctx,
-		n.App.GetConfig().OCR2(),
-		n.App.GetConfig().Insecure(),
-		in.Spec,
-		nil, // not required for validation
-	)
-	if err != nil {
-		jb, err = ocrbootstrap.ValidatedBootstrapSpecToml(in.Spec)
-		if err != nil {
-			return nil, fmt.Errorf("failed to validate job spec only bootstrap and offchainreporting2 are supported : %w", err)
-		}
-	}
-	err = n.App.AddJobV2(ctx, &jb)
-	if err != nil {
-		return nil, err
-	}
-	return &jobv1.ProposeJobResponse{Proposal: &jobv1.Proposal{
-		Id: "",
-		// Auto approve for now
-		Status:             jobv1.ProposalStatus_PROPOSAL_STATUS_APPROVED,
-		DeliveryStatus:     jobv1.ProposalDeliveryStatus_PROPOSAL_DELIVERY_STATUS_DELIVERED,
-		Spec:               in.Spec,
-		JobId:              jb.ExternalJobID.String(),
-		CreatedAt:          nil,
-		UpdatedAt:          nil,
-		AckedAt:            nil,
-		ResponseReceivedAt: nil,
-	}}, nil
-}
 
 // NewMemoryEnvironment creates an in-memory environment based on the testconfig requested
 // This environment currently only works when destination chain is 1337
@@ -95,11 +51,6 @@ func NewEnvironment(t *testing.T, tc *changeset.TestConfigs, tEnv changeset.Test
 	require.NotEmpty(t, e.Env.Chains)
 	tEnv.StartNodes(t, tc, deployment.CapabilityRegistryConfig{})
 	e = tEnv.DeployedEnvironment()
-	if _, ok := e.Env.Offchain.(*memory.JobClient); ok {
-		e.Env.Offchain = &LegacyJobclient{
-			JobClient: e.Env.Offchain.(*memory.JobClient),
-		}
-	}
 	allChains := e.Env.AllChainSelectors()
 
 	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
