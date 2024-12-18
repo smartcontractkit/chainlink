@@ -10,10 +10,6 @@ import (
 
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
-	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
-
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
@@ -87,41 +83,6 @@ func TestToPeerID(t *testing.T) {
 	id, err := remote.ToPeerID([]byte("12345678901234567890123456789012"))
 	require.NoError(t, err)
 	require.Equal(t, "12D3KooWD8QYTQVYjB6oog4Ej8PcPpqTrPRnxLQap8yY8KUQRVvq", id.String())
-}
-
-func TestDefaultModeAggregator_Aggregate(t *testing.T) {
-	val, err := values.NewMap(triggerEvent1)
-	require.NoError(t, err)
-	capResponse1 := commoncap.TriggerResponse{
-		Event: commoncap.TriggerEvent{
-			Outputs: val,
-		},
-		Err: nil,
-	}
-	marshaled1, err := pb.MarshalTriggerResponse(capResponse1)
-	require.NoError(t, err)
-
-	val2, err := values.NewMap(triggerEvent2)
-	require.NoError(t, err)
-	capResponse2 := commoncap.TriggerResponse{
-		Event: commoncap.TriggerEvent{
-			Outputs: val2,
-		},
-		Err: nil,
-	}
-	marshaled2, err := pb.MarshalTriggerResponse(capResponse2)
-	require.NoError(t, err)
-
-	agg := remote.NewDefaultModeAggregator(2)
-	_, err = agg.Aggregate("", [][]byte{marshaled1})
-	require.Error(t, err)
-
-	_, err = agg.Aggregate("", [][]byte{marshaled1, marshaled2})
-	require.Error(t, err)
-
-	res, err := agg.Aggregate("", [][]byte{marshaled1, marshaled2, marshaled1})
-	require.NoError(t, err)
-	require.Equal(t, res, capResponse1)
 }
 
 func TestSanitizeLogString(t *testing.T) {
