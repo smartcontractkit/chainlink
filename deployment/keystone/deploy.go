@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/rpc"
 	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
@@ -605,27 +604,10 @@ func DefaultCapConfig(capType uint8, nNodes int) *capabilitiespb.CapabilityConfi
 	}
 }
 
+// DEPRECATED: use deployment.DecodeErr instead
+// todo: refactor all keystone deps to use deployment.DecodeErr
 func DecodeErr(encodedABI string, err error) error {
-	if err == nil {
-		return nil
-	}
-
-	//revive:disable
-	var d rpc.DataError
-	ok := errors.As(err, &d)
-	if ok {
-		encErr, ok := d.ErrorData().(string)
-		if !ok {
-			return fmt.Errorf("error without error data: %s", d.Error())
-		}
-		errStr, parseErr := deployment.ParseErrorFromABI(encErr, encodedABI)
-		if parseErr != nil {
-			return fmt.Errorf("failed to decode error '%s' with abi: %w", encErr, parseErr)
-		}
-		return fmt.Errorf("contract error: %s", errStr)
-
-	}
-	return fmt.Errorf("cannot decode error with abi: %w", err)
+	return deployment.DecodeErr(encodedABI, err)
 }
 
 // register nodes

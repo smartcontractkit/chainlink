@@ -70,6 +70,8 @@ func genTestTransferOwnershipConfig(
 			state.Chains[chain].FeeQuoter.Address(),
 			state.Chains[chain].NonceManager.Address(),
 			state.Chains[chain].RMNRemote.Address(),
+			state.Chains[chain].TestRouter.Address(),
+			state.Chains[chain].Router.Address(),
 		}
 	}
 

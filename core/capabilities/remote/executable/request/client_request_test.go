@@ -167,7 +167,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		nonDonPeer := NewP2PPeerID(t)
 		msg.Sender = nonDonPeer[:]
 		err = request.OnMessage(ctx, msg)
-		require.NotNil(t, err)
+		require.Error(t, err)
 
 		select {
 		case <-request.ResponseChan():
@@ -190,7 +190,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		err = request.OnMessage(ctx, msg)
 		require.NoError(t, err)
 		err = request.OnMessage(ctx, msg)
-		require.NotNil(t, err)
+		require.Error(t, err)
 
 		select {
 		case <-request.ResponseChan():
@@ -211,7 +211,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 		<-dispatcher.msgs
 		<-dispatcher.msgs
-		assert.Equal(t, 0, len(dispatcher.msgs))
+		assert.Empty(t, dispatcher.msgs)
 
 		msgWithError := &types.MessageBody{
 			CapabilityId:    capInfo.ID,
@@ -249,7 +249,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 		<-dispatcher.msgs
 		<-dispatcher.msgs
-		assert.Equal(t, 0, len(dispatcher.msgs))
+		assert.Empty(t, dispatcher.msgs)
 
 		msgWithError := &types.MessageBody{
 			CapabilityId:    capInfo.ID,
@@ -299,7 +299,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 		<-dispatcher.msgs
 		<-dispatcher.msgs
-		assert.Equal(t, 0, len(dispatcher.msgs))
+		assert.Empty(t, dispatcher.msgs)
 
 		msg.Sender = capabilityPeers[0][:]
 		err = request.OnMessage(ctx, msg)
@@ -497,11 +497,11 @@ func (t *clientRequestTestDispatcher) HealthReport() map[string]error {
 	return nil
 }
 
-func (t *clientRequestTestDispatcher) SetReceiver(capabilityId string, donId uint32, receiver types.Receiver) error {
+func (t *clientRequestTestDispatcher) SetReceiver(capabilityID string, donID uint32, receiver types.Receiver) error {
 	return nil
 }
 
-func (t *clientRequestTestDispatcher) RemoveReceiver(capabilityId string, donId uint32) {}
+func (t *clientRequestTestDispatcher) RemoveReceiver(capabilityID string, donID uint32) {}
 
 func (t *clientRequestTestDispatcher) Send(peerID p2ptypes.PeerID, msgBody *types.MessageBody) error {
 	t.msgs <- msgBody

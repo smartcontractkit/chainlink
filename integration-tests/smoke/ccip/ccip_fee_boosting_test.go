@@ -9,6 +9,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 
@@ -17,7 +18,6 @@ import (
 	"github.com/test-go/testify/require"
 	"golang.org/x/exp/maps"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
@@ -39,20 +39,17 @@ var (
 func Test_CCIPFeeBoosting(t *testing.T) {
 	e, _ := testsetups.NewIntegrationEnvironment(
 		t,
-		// TODO check if test should use these overrides
-		/*	changeset.WithOCRConfigOverride(func(params changeset.CCIPOCRParams) changeset.CCIPOCRParams {
-				// Only 1 boost (=OCR round) is enough to cover the fee
-				params.ExecuteOffChainConfig.RelativeBoostPerWaitHour = 10
-				// Disable token price updates
-				params.CommitOffChainConfig.TokenPriceBatchWriteFrequency = *config.MustNewDuration(1_000_000 * time.Hour)
-				// Disable gas price updates
-				params.CommitOffChainConfig.RemoteGasPriceBatchWriteFrequency = *config.MustNewDuration(1_000_000 * time.Hour)
-				// Disable token price updates
-				params.CommitOffChainConfig.TokenInfo = nil
-				return params
-			}),
-
-		*/
+		changeset.WithOCRConfigOverride(func(params changeset.CCIPOCRParams) changeset.CCIPOCRParams {
+			// Only 1 boost (=OCR round) is enough to cover the fee
+			params.ExecuteOffChainConfig.RelativeBoostPerWaitHour = 10
+			// Disable token price updates
+			params.CommitOffChainConfig.TokenPriceBatchWriteFrequency = *config.MustNewDuration(1_000_000 * time.Hour)
+			// Disable gas price updates
+			params.CommitOffChainConfig.RemoteGasPriceBatchWriteFrequency = *config.MustNewDuration(1_000_000 * time.Hour)
+			// Disable token price updates
+			params.CommitOffChainConfig.TokenInfo = nil
+			return params
+		}),
 	)
 
 	state, err := changeset.LoadOnchainState(e.Env)
@@ -69,7 +66,9 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 		", dest chain selector:", destChain,
 	)
 
-	fetchedGasPriceDest, err := e.Env.Chains[destChain].Client.SuggestGasPrice(tests.Context(t))
+	// TODO: discrepancy between client and the gas estimator gas price to be fixed - hardcoded for now
+	// fetchedGasPriceDest, err := e.Env.Chains[destChain].Client.SuggestGasPrice(tests.Context(t))
+	fetchedGasPriceDest := big.NewInt(20e9) // 20 Gwei = default gas price
 	require.NoError(t, err)
 	originalGasPriceDestUSD := new(big.Int).Div(
 		new(big.Int).Mul(fetchedGasPriceDest, wethPrice),

@@ -10,6 +10,8 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/aggregation"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/messagecache"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/validation"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -30,7 +32,7 @@ type triggerPublisher struct {
 	workflowDONs    map[uint32]commoncap.DON
 	membersCache    map[uint32]map[p2ptypes.PeerID]bool
 	dispatcher      types.Dispatcher
-	messageCache    *messageCache[registrationKey, p2ptypes.PeerID]
+	messageCache    *messagecache.MessageCache[registrationKey, p2ptypes.PeerID]
 	registrations   map[registrationKey]*pubRegState
 	mu              sync.RWMutex // protects messageCache and registrations
 	batchingQueue   map[[32]byte]*batchedResponse
@@ -42,8 +44,8 @@ type triggerPublisher struct {
 }
 
 type registrationKey struct {
-	callerDonId uint32
-	workflowId  string
+	callerDonID uint32
+	workflowID  string
 }
 
 type pubRegState struct {
@@ -84,7 +86,7 @@ func NewTriggerPublisher(config *commoncap.RemoteTriggerConfig, underlying commo
 		workflowDONs:    workflowDONs,
 		membersCache:    membersCache,
 		dispatcher:      dispatcher,
-		messageCache:    NewMessageCache[registrationKey, p2ptypes.PeerID](),
+		messageCache:    messagecache.NewMessageCache[registrationKey, p2ptypes.PeerID](),
 		registrations:   make(map[registrationKey]*pubRegState),
 		batchingQueue:   make(map[[32]byte]*batchedResponse),
 		batchingEnabled: config.MaxBatchSize > 1 && config.BatchCollectionPeriod >= minAllowedBatchCollectionPeriod,
@@ -148,7 +150,7 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 			p.lggr.Debugw("not ready to aggregate yet", "capabilityId", p.capInfo.ID, "workflowId", req.Metadata.WorkflowID, "minRequired", minRequired)
 			return
 		}
-		aggregated, err := AggregateModeRaw(payloads, uint32(callerDon.F+1))
+		aggregated, err := aggregation.AggregateModeRaw(payloads, uint32(callerDon.F+1))
 		if err != nil {
 			p.lggr.Errorw("failed to aggregate trigger registrations", "capabilityId", p.capInfo.ID, "workflowId", req.Metadata.WorkflowID, "err", err)
 			return
@@ -189,14 +191,14 @@ func (p *triggerPublisher) registrationCleanupLoop() {
 			now := time.Now().UnixMilli()
 			p.mu.Lock()
 			for key, req := range p.registrations {
-				callerDon := p.workflowDONs[key.callerDonId]
+				callerDon := p.workflowDONs[key.callerDonID]
 				ready, _ := p.messageCache.Ready(key, uint32(2*callerDon.F+1), now-p.config.RegistrationExpiry.Milliseconds(), false)
 				if !ready {
-					p.lggr.Infow("trigger registration expired", "capabilityId", p.capInfo.ID, "callerDonID", key.callerDonId, "workflowId", key.workflowId)
+					p.lggr.Infow("trigger registration expired", "capabilityId", p.capInfo.ID, "callerDonID", key.callerDonID, "workflowId", key.workflowID)
 					ctx, cancel := p.stopCh.NewCtx()
 					err := p.underlying.UnregisterTrigger(ctx, req.request)
 					cancel()
-					p.lggr.Infow("unregistered trigger", "capabilityId", p.capInfo.ID, "callerDonID", key.callerDonId, "workflowId", key.workflowId, "err", err)
+					p.lggr.Infow("unregistered trigger", "capabilityId", p.capInfo.ID, "callerDonID", key.callerDonID, "workflowId", key.workflowID, "err", err)
 					// after calling UnregisterTrigger, the underlying trigger will not send any more events to the channel
 					delete(p.registrations, key)
 					p.messageCache.Delete(key)
@@ -215,11 +217,11 @@ func (p *triggerPublisher) triggerEventLoop(callbackCh <-chan commoncap.TriggerR
 			return
 		case response, ok := <-callbackCh:
 			if !ok {
-				p.lggr.Infow("triggerEventLoop channel closed", "capabilityId", p.capInfo.ID, "workflowId", key.workflowId)
+				p.lggr.Infow("triggerEventLoop channel closed", "capabilityId", p.capInfo.ID, "workflowId", key.workflowID)
 				return
 			}
 			triggerEvent := response.Event
-			p.lggr.Debugw("received trigger event", "capabilityId", p.capInfo.ID, "workflowId", key.workflowId, "triggerEventID", triggerEvent.ID)
+			p.lggr.Debugw("received trigger event", "capabilityId", p.capInfo.ID, "workflowId", key.workflowID, "triggerEventID", triggerEvent.ID)
 			marshaledResponse, err := pb.MarshalTriggerResponse(response)
 			if err != nil {
 				p.lggr.Debugw("can't marshal trigger event", "err", err)
@@ -232,9 +234,9 @@ func (p *triggerPublisher) triggerEventLoop(callbackCh <-chan commoncap.TriggerR
 				// a single-element "batch"
 				p.sendBatch(&batchedResponse{
 					rawResponse:    marshaledResponse,
-					callerDonID:    key.callerDonId,
+					callerDonID:    key.callerDonID,
 					triggerEventID: triggerEvent.ID,
-					workflowIDs:    []string{key.workflowId},
+					workflowIDs:    []string{key.workflowID},
 				})
 			}
 		}
@@ -244,7 +246,7 @@ func (p *triggerPublisher) triggerEventLoop(callbackCh <-chan commoncap.TriggerR
 func (p *triggerPublisher) enqueueForBatching(rawResponse []byte, key registrationKey, triggerEventID string) {
 	// put in batching queue, group by hash(callerDonId, triggerEventID, response)
 	combined := make([]byte, 4)
-	binary.LittleEndian.PutUint32(combined, key.callerDonId)
+	binary.LittleEndian.PutUint32(combined, key.callerDonID)
 	combined = append(combined, []byte(triggerEventID)...)
 	combined = append(combined, rawResponse...)
 	sha := sha256.Sum256(combined)
@@ -253,13 +255,13 @@ func (p *triggerPublisher) enqueueForBatching(rawResponse []byte, key registrati
 	if !exists {
 		elem = &batchedResponse{
 			rawResponse:    rawResponse,
-			callerDonID:    key.callerDonId,
+			callerDonID:    key.callerDonID,
 			triggerEventID: triggerEventID,
-			workflowIDs:    []string{key.workflowId},
+			workflowIDs:    []string{key.workflowID},
 		}
 		p.batchingQueue[sha] = elem
 	} else {
-		elem.workflowIDs = append(elem.workflowIDs, key.workflowId)
+		elem.workflowIDs = append(elem.workflowIDs, key.workflowID)
 	}
 	p.bqMu.Unlock()
 }

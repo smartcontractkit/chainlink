@@ -1,11 +1,15 @@
 package changeset
 
 import (
+	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/stretchr/testify/assert"
 	"golang.org/x/exp/maps"
 
+	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
@@ -83,9 +87,9 @@ func Test_PromoteCandidate(t *testing.T) {
 				{
 					Changeset: commonchangeset.WrapChangeSet(PromoteAllCandidatesChangeset),
 					Config: PromoteAllCandidatesChangesetConfig{
-						HomeChainSelector: tenv.HomeChainSel,
-						DONChainSelector:  dest,
-						MCMS:              mcmsConfig,
+						HomeChainSelector:    tenv.HomeChainSel,
+						RemoteChainSelectors: []uint64{dest},
+						MCMS:                 mcmsConfig,
 					},
 				},
 			})
@@ -176,14 +180,15 @@ func Test_SetCandidate(t *testing.T) {
 						SetCandidateConfigBase: SetCandidateConfigBase{
 							HomeChainSelector: tenv.HomeChainSel,
 							FeedChainSelector: tenv.FeedChainSel,
-							DONChainSelector:  dest,
-							PluginType:        types.PluginTypeCCIPCommit,
-							CCIPOCRParams: DefaultOCRParams(
-								tenv.FeedChainSel,
-								tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
-								nil,
-							),
-							MCMS: mcmsConfig,
+							OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
+								dest: DefaultOCRParams(
+									tenv.FeedChainSel,
+									tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
+									nil,
+								),
+							},
+							PluginType: types.PluginTypeCCIPCommit,
+							MCMS:       mcmsConfig,
 						},
 					},
 				},
@@ -193,14 +198,15 @@ func Test_SetCandidate(t *testing.T) {
 						SetCandidateConfigBase: SetCandidateConfigBase{
 							HomeChainSelector: tenv.HomeChainSel,
 							FeedChainSelector: tenv.FeedChainSel,
-							DONChainSelector:  dest,
-							PluginType:        types.PluginTypeCCIPExec,
-							CCIPOCRParams: DefaultOCRParams(
-								tenv.FeedChainSel,
-								tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
-								nil,
-							),
-							MCMS: mcmsConfig,
+							OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
+								dest: DefaultOCRParams(
+									tenv.FeedChainSel,
+									tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
+									nil,
+								),
+							},
+							PluginType: types.PluginTypeCCIPExec,
+							MCMS:       mcmsConfig,
 						},
 					},
 				},
@@ -295,14 +301,15 @@ func Test_RevokeCandidate(t *testing.T) {
 						SetCandidateConfigBase: SetCandidateConfigBase{
 							HomeChainSelector: tenv.HomeChainSel,
 							FeedChainSelector: tenv.FeedChainSel,
-							DONChainSelector:  dest,
-							PluginType:        types.PluginTypeCCIPCommit,
-							CCIPOCRParams: DefaultOCRParams(
-								tenv.FeedChainSel,
-								tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
-								nil,
-							),
-							MCMS: mcmsConfig,
+							OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
+								dest: DefaultOCRParams(
+									tenv.FeedChainSel,
+									tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
+									nil,
+								),
+							},
+							PluginType: types.PluginTypeCCIPCommit,
+							MCMS:       mcmsConfig,
 						},
 					},
 				},
@@ -312,14 +319,15 @@ func Test_RevokeCandidate(t *testing.T) {
 						SetCandidateConfigBase: SetCandidateConfigBase{
 							HomeChainSelector: tenv.HomeChainSel,
 							FeedChainSelector: tenv.FeedChainSel,
-							DONChainSelector:  dest,
-							PluginType:        types.PluginTypeCCIPExec,
-							CCIPOCRParams: DefaultOCRParams(
-								tenv.FeedChainSel,
-								tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
-								nil,
-							),
-							MCMS: mcmsConfig,
+							OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
+								dest: DefaultOCRParams(
+									tenv.FeedChainSel,
+									tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
+									nil,
+								),
+							},
+							PluginType: types.PluginTypeCCIPExec,
+							MCMS:       mcmsConfig,
 						},
 					},
 				},
@@ -352,19 +360,19 @@ func Test_RevokeCandidate(t *testing.T) {
 				{
 					Changeset: commonchangeset.WrapChangeSet(RevokeCandidateChangeset),
 					Config: RevokeCandidateChangesetConfig{
-						HomeChainSelector: tenv.HomeChainSel,
-						DONChainSelector:  dest,
-						PluginType:        types.PluginTypeCCIPCommit,
-						MCMS:              mcmsConfig,
+						HomeChainSelector:   tenv.HomeChainSel,
+						RemoteChainSelector: dest,
+						PluginType:          types.PluginTypeCCIPCommit,
+						MCMS:                mcmsConfig,
 					},
 				},
 				{
 					Changeset: commonchangeset.WrapChangeSet(RevokeCandidateChangeset),
 					Config: RevokeCandidateChangesetConfig{
-						HomeChainSelector: tenv.HomeChainSel,
-						DONChainSelector:  dest,
-						PluginType:        types.PluginTypeCCIPExec,
-						MCMS:              mcmsConfig,
+						HomeChainSelector:   tenv.HomeChainSel,
+						RemoteChainSelector: dest,
+						PluginType:          types.PluginTypeCCIPExec,
+						MCMS:                mcmsConfig,
 					},
 				},
 			})
@@ -414,4 +422,105 @@ func transferToTimelock(
 	})
 	require.NoError(t, err)
 	assertTimelockOwnership(t, tenv, []uint64{source, dest}, state)
+}
+
+func Test_UpdateChainConfigs(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		mcmsEnabled bool
+	}{
+		{
+			name:        "MCMS enabled",
+			mcmsEnabled: true,
+		},
+		{
+			name:        "MCMS disabled",
+			mcmsEnabled: false,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tenv := NewMemoryEnvironment(t, WithChains(3))
+			state, err := LoadOnchainState(tenv.Env)
+			require.NoError(t, err)
+
+			allChains := maps.Keys(tenv.Env.Chains)
+			source := allChains[0]
+			dest := allChains[1]
+			otherChain := allChains[2]
+
+			if tc.mcmsEnabled {
+				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
+				transferToTimelock(t, tenv, state, source, dest)
+			}
+
+			ccipHome := state.Chains[tenv.HomeChainSel].CCIPHome
+			otherChainConfig, err := ccipHome.GetChainConfig(nil, otherChain)
+			require.NoError(t, err)
+			assert.True(t, otherChainConfig.FChain != 0)
+
+			var mcmsConfig *MCMSConfig
+			if tc.mcmsEnabled {
+				mcmsConfig = &MCMSConfig{
+					MinDelay: 0,
+				}
+			}
+			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, map[uint64]*proposalutils.TimelockExecutionContracts{
+				tenv.HomeChainSel: {
+					Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
+					CallProxy: state.Chains[tenv.HomeChainSel].CallProxy,
+				},
+			}, []commonchangeset.ChangesetApplication{
+				{
+					Changeset: commonchangeset.WrapChangeSet(UpdateChainConfig),
+					Config: UpdateChainConfigConfig{
+						HomeChainSelector:  tenv.HomeChainSel,
+						RemoteChainRemoves: []uint64{otherChain},
+						RemoteChainAdds:    make(map[uint64]ChainConfig),
+						MCMS:               mcmsConfig,
+					},
+				},
+			})
+			require.NoError(t, err)
+
+			// other chain should be gone
+			chainConfigAfter, err := ccipHome.GetChainConfig(nil, otherChain)
+			require.NoError(t, err)
+			assert.True(t, chainConfigAfter.FChain == 0)
+
+			// Lets add it back now.
+			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, map[uint64]*proposalutils.TimelockExecutionContracts{
+				tenv.HomeChainSel: {
+					Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
+					CallProxy: state.Chains[tenv.HomeChainSel].CallProxy,
+				},
+			}, []commonchangeset.ChangesetApplication{
+				{
+					Changeset: commonchangeset.WrapChangeSet(UpdateChainConfig),
+					Config: UpdateChainConfigConfig{
+						HomeChainSelector:  tenv.HomeChainSel,
+						RemoteChainRemoves: []uint64{},
+						RemoteChainAdds: map[uint64]ChainConfig{
+							otherChain: {
+								EncodableChainConfig: chainconfig.ChainConfig{
+									GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(internal.GasPriceDeviationPPB)},
+									DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(internal.DAGasPriceDeviationPPB)},
+									OptimisticConfirmations: internal.OptimisticConfirmations,
+								},
+								FChain:  otherChainConfig.FChain,
+								Readers: otherChainConfig.Readers,
+							},
+						},
+						MCMS: mcmsConfig,
+					},
+				},
+			})
+			require.NoError(t, err)
+
+			chainConfigAfter2, err := ccipHome.GetChainConfig(nil, otherChain)
+			require.NoError(t, err)
+			assert.Equal(t, chainConfigAfter2.FChain, otherChainConfig.FChain)
+			assert.Equal(t, chainConfigAfter2.Readers, otherChainConfig.Readers)
+			assert.Equal(t, chainConfigAfter2.Config, otherChainConfig.Config)
+		})
+	}
 }
