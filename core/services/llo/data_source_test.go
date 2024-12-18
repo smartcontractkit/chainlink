@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"sync"
 	"testing"
@@ -229,7 +230,11 @@ func BenchmarkObserve(b *testing.B) {
 	db := pgtest.NewSqlxDB(b)
 	bridgesORM := bridges.NewORM(db)
 
-	n := uint32(b.N)
+	if b.N > math.MaxInt32 {
+		b.Fatalf("N is too large: %d", b.N)
+	}
+
+	n := uint32(b.N) //nolint:gosec // G115 // overflow impossible
 
 	createBridge(b, "foo-bridge", `123.456`, bridgesORM, 0)
 	createBridge(b, "bar-bridge", `"124.456"`, bridgesORM, 0)
@@ -250,15 +255,14 @@ func BenchmarkObserve(b *testing.B) {
 
 	r := streams.NewRegistry(lggr, runner)
 	for i := uint32(0); i < n; i++ {
-		jobStreamID := streams.StreamID(i)
-
+		i := i
 		jb := job.Job{
-			ID:       int32(i),
+			ID:       int32(i), //nolint:gosec // G115 // overflow impossible
 			Name:     null.StringFrom(fmt.Sprintf("job-%d", i)),
 			Type:     job.Stream,
-			StreamID: &jobStreamID,
+			StreamID: &i,
 			PipelineSpec: &pipeline.Spec{
-				ID: int32(i * 100),
+				ID: int32(i * 100), //nolint:gosec // G115 // overflow impossible
 				DotDagSource: fmt.Sprintf(`
 // Benchmark Price
 result1          [type=memo value="900.0022"];
@@ -284,7 +288,7 @@ result3 -> result3_parse -> multiply3;
 	ds := newDataSource(lggr, r, NullTelemeter)
 	vals := make(map[llotypes.StreamID]llo.StreamValue)
 	for i := uint32(0); i < 4*n; i++ {
-		vals[llotypes.StreamID(i)] = nil
+		vals[i] = nil
 	}
 
 	b.ResetTimer()

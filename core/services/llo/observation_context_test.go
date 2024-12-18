@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"math/rand/v2"
 	"net/http"
 	"net/http/httptest"
@@ -274,16 +275,19 @@ result3 -> result3_parse -> multiply3;
 	})
 }
 
-func BenchmarkObservationContext_Observe_integrationRealPipeline_concurrencyStressTest_manyStreams(t *testing.B) {
-	ctx := tests.Context(t)
-	lggr := logger.TestLogger(t)
-	db := pgtest.NewSqlxDB(t)
+func BenchmarkObservationContext_Observe_integrationRealPipeline_concurrencyStressTest_manyStreams(b *testing.B) {
+	ctx := tests.Context(b)
+	lggr := logger.TestLogger(b)
+	db := pgtest.NewSqlxDB(b)
 	bridgesORM := bridges.NewORM(db)
 
-	n := uint32(t.N)
+	if b.N > math.MaxInt32 {
+		b.Fatalf("N is too large: %d", b.N)
+	}
+	n := uint32(b.N) //nolint:gosec // G115 // overflow impossible
 
-	createBridge(t, "foo-bridge", `123.456`, bridgesORM, 0)
-	createBridge(t, "bar-bridge", `"124.456"`, bridgesORM, 0)
+	createBridge(b, "foo-bridge", `123.456`, bridgesORM, 0)
+	createBridge(b, "bar-bridge", `"124.456"`, bridgesORM, 0)
 
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	runner := pipeline.NewRunner(
@@ -302,15 +306,14 @@ func BenchmarkObservationContext_Observe_integrationRealPipeline_concurrencyStre
 	r := streams.NewRegistry(lggr, runner)
 
 	for i := uint32(0); i < n; i++ {
-		jobStreamID := streams.StreamID(i)
-
+		i := i
 		jb := job.Job{
-			ID:       int32(i),
+			ID:       int32(i), //nolint:gosec // G115 // overflow impossible
 			Name:     null.StringFrom(fmt.Sprintf("job-%d", i)),
 			Type:     job.Stream,
-			StreamID: &jobStreamID,
+			StreamID: &i,
 			PipelineSpec: &pipeline.Spec{
-				ID: int32(i * 100),
+				ID: int32(i * 100), //nolint:gosec // G115 // overflow impossible
 				DotDagSource: fmt.Sprintf(`
 // Benchmark Price
 result1          [type=memo value="900.0022"];
@@ -330,7 +333,7 @@ result3 -> result3_parse -> multiply3;
 			},
 		}
 		err := r.Register(jb, nil)
-		require.NoError(t, err)
+		require.NoError(b, err)
 	}
 
 	telem := &mockTelemeter{}
@@ -338,18 +341,18 @@ result3 -> result3_parse -> multiply3;
 	opts := llo.DSOpts(nil)
 
 	// concurrency stress test
-	t.ResetTimer()
+	b.ResetTimer()
 	g, ctx := errgroup.WithContext(ctx)
 	for i := uint32(0); i < n; i++ {
 		for _, strmID := range []uint32{i, i + n, i + 2*n, i + 3*n} {
 			g.Go(func() error {
 				// ignore errors, only care about races
-				oc.Observe(ctx, strmID, opts)
+				oc.Observe(ctx, strmID, opts) //nolint:errcheck // ignore error
 				return nil
 			})
 		}
 	}
 	if err := g.Wait(); err != nil {
-		t.Fatalf("Observation failed: %v", err)
+		b.Fatalf("Observation failed: %v", err)
 	}
 }
