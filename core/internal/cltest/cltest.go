@@ -999,7 +999,7 @@ func WaitForPipeline(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns
 	t.Helper()
 
 	var pr []pipeline.Run
-	gomega.NewWithT(t).Eventually(func() bool {
+	if !gomega.NewWithT(t).Eventually(func() bool {
 		prs, _, err := jo.PipelineRuns(testutils.Context(t), &jobID, 0, 1000)
 		require.NoError(t, err)
 
@@ -1029,7 +1029,9 @@ func WaitForPipeline(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns
 			jobID,
 			len(pr),
 		),
-	)
+	) {
+		t.Fatal()
+	}
 	return pr
 }
 

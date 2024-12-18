@@ -289,6 +289,14 @@ func (s CCIPOnChainState) GetAllTimeLocksForChains(chains []uint64) (map[uint64]
 	return timelocks, nil
 }
 
+func (s CCIPOnChainState) SupportedChains() map[uint64]struct{} {
+	chains := make(map[uint64]struct{})
+	for chain := range s.Chains {
+		chains[chain] = struct{}{}
+	}
+	return chains
+}
+
 func (s CCIPOnChainState) View(chains []uint64) (map[string]view.ChainView, error) {
 	m := make(map[string]view.ChainView)
 	for _, chainSelector := range chains {
