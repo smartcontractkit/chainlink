@@ -51,6 +51,7 @@ func (c *MessageCache[EventID, PeerID]) Ready(eventID EventID, minCount uint32, 
 	if ev.wasReady && once {
 		return false, nil
 	}
+	//nolint:gosec // G115
 	if uint32(len(ev.peerMsgs)) < minCount {
 		return false, nil
 	}
