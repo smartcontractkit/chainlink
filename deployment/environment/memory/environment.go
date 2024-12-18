@@ -81,11 +81,13 @@ func generateMemoryChain(t *testing.T, inputs map[uint64]EVMChain) map[uint64]de
 				}
 				for {
 					backend.Commit()
-					ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
-					defer cancel()
-					receipt, err := bind.WaitMined(ctx, backend, tx)
-					if err != nil || receipt == nil {
-						return 0, fmt.Errorf("failed to get confirmed receipt for chain %s: %w", chainInfo.ChainName, err)
+					receipt, err := func() (*types.Receipt, error) {
+						ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+						defer cancel()
+						return bind.WaitMined(ctx, backend, tx)
+					}()
+					if err != nil {
+						return 0, fmt.Errorf("tx %s failed to confirm: %v, chain %s", tx.Hash().Hex(), err, chainInfo.ChainSelector)
 					}
 					if receipt.Status == 0 {
 						errReason, err := deployment.GetErrorReasonFromTx(chain.Backend.Client(), chain.DeployerKey.From, tx, receipt)
