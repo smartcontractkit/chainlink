@@ -57,7 +57,7 @@ image = "postgres:13.0"
 [[nodeset.node_specs]]
 
 [nodeset.node_specs.node]
-image = "public.ecr.aws/chainlink/chainlink:v2.17.0"
+image = "chainlink:latest"
 test_config_overrides = """
 [Feature]
 FeedsManager = true
