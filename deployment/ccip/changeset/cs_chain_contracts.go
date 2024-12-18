@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
@@ -66,7 +66,7 @@ func (cfg UpdateOnRampDestsConfig) Validate(e deployment.Environment) error {
 		if chainState.OnRamp == nil {
 			return fmt.Errorf("missing onramp onramp for chain %d", chainSel)
 		}
-		if err := ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.OnRamp); err != nil {
+		if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.OnRamp); err != nil {
 			return err
 		}
 
@@ -194,7 +194,7 @@ func (cfg UpdateFeeQuoterDestsConfig) Validate(e deployment.Environment) error {
 		if chainState.OnRamp == nil {
 			return fmt.Errorf("missing onramp onramp for chain %d", chainSel)
 		}
-		if err := ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.FeeQuoter); err != nil {
+		if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.FeeQuoter); err != nil {
 			return err
 		}
 
@@ -312,7 +312,7 @@ func (cfg UpdateOffRampSourcesConfig) Validate(e deployment.Environment) error {
 		if chainState.OffRamp == nil {
 			return fmt.Errorf("missing onramp onramp for chain %d", chainSel)
 		}
-		if err := ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.OffRamp); err != nil {
+		if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.OffRamp); err != nil {
 			return err
 		}
 
@@ -448,7 +448,7 @@ func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment) error {
 		if chainState.OffRamp == nil {
 			return fmt.Errorf("missing onramp onramp for chain %d", chainSel)
 		}
-		if err := ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.Router); err != nil {
+		if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.Router); err != nil {
 			return err
 		}
 
@@ -608,7 +608,7 @@ func (c SetOCR3OffRampConfig) Validate(e deployment.Environment) error {
 		if !ok {
 			return fmt.Errorf("remote chain %d not found in onchain state", remote)
 		}
-		if err := ValidateOwnership(e.GetContext(), c.MCMS != nil, e.Chains[remote].DeployerKey.From, chainState.Timelock.Address(), chainState.OffRamp); err != nil {
+		if err := commoncs.ValidateOwnership(e.GetContext(), c.MCMS != nil, e.Chains[remote].DeployerKey.From, chainState.Timelock.Address(), chainState.OffRamp); err != nil {
 			return err
 		}
 	}
@@ -754,17 +754,4 @@ func isOCR3ConfigSetOnOffRamp(
 		}
 	}
 	return true, nil
-}
-
-func ValidateOwnership(ctx context.Context, mcms bool, deployerKey, timelock common.Address, contract changeset.Ownable) error {
-	owner, err := contract.Owner(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		return fmt.Errorf("failed to get owner: %w", err)
-	}
-	if mcms && owner != timelock {
-		return fmt.Errorf("%s not owned by deployer key", contract.Address())
-	} else if !mcms && owner != deployerKey {
-		return fmt.Errorf("%s not owned by deployer key", contract.Address())
-	}
-	return nil
 }
