@@ -21,7 +21,11 @@ var (
 		"branch": "ccip_load_crib",
 		"commit": "ccip_load_crib",
 	}
-	wg sync.WaitGroup
+	wg                     sync.WaitGroup
+	SIM_CHAIN_PRIVATE_KEYS = map[uint64]string{
+		1337: "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+		2337: "59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d",
+	}
 )
 
 const CRIB_DIRECTORY = "/Users/austin.wang/ccip-core/repos/crib/deployments/ccip-v2/.tmp"
@@ -44,7 +48,8 @@ func TestCCIPLoad_RPS(t *testing.T) {
 
 	cribEnv := crib.NewDevspaceEnvFromStateDir(CRIB_DIRECTORY)
 
-	cribDeployOutput := cribEnv.GetConfig()
+	cribDeployOutput, err := cribEnv.GetConfig(SIM_CHAIN_PRIVATE_KEYS)
+	require.NoError(t, err)
 	env, err := crib.NewDeployEnvironmentFromCribOutput(lggr, cribDeployOutput)
 	require.NoError(t, err)
 	require.NotNil(t, env)
@@ -71,8 +76,8 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			T:           t,
 			GenName:     "ccipLoad",
 			LoadType:    wasp.RPS,
-			CallTimeout: 20 * time.Second,
-			Schedule:    wasp.Plain(1, 20*time.Second),
+			CallTimeout: 5 * time.Second,
+			Schedule:    wasp.Plain(1, 5*time.Second),
 			// will need to be divided by number of chains
 			// this schedule is per generator
 			// in this example, it would be 1 request per 10seconds per generator (dest chain)
@@ -91,6 +96,8 @@ func TestCCIPLoad_RPS(t *testing.T) {
 		wg.Add(1)
 		go func(chainSelector uint64, startBlock *uint64) {
 			defer wg.Done()
+			lggr.Infow("Starting to query for events on ", "chainSelector", chainSelector, "startblock", startBlock)
+
 			filterOpts := &bind.FilterOpts{
 				Start:   *startBlock,
 				End:     nil, // To the latest block
@@ -102,6 +109,8 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			commitIterator, err := offRamp.FilterCommitReportAccepted(filterOpts)
 			require.NoError(t, err)
 
+			fmt.Printf("Events on commitIterator %+v", commitIterator)
+
 			for commitIterator.Next() {
 				event := commitIterator.Event
 				fmt.Printf("CommitReportAccepted event: %+v\n", event)
@@ -112,7 +121,8 @@ func TestCCIPLoad_RPS(t *testing.T) {
 				timestamp := time.Unix(int64(header.Time), 0)
 
 				for _, root := range event.MerkleRoots {
-					lokiLabels = setLokiLabels(root.SourceChainSelector, chainSelector)
+					lokiLabels, err = setLokiLabels(root.SourceChainSelector, chainSelector)
+					require.NoError(t, err)
 
 					for i := root.MinSeqNr; i <= root.MaxSeqNr; i++ {
 						// todo: push loki calls to channel?
@@ -138,7 +148,8 @@ func TestCCIPLoad_RPS(t *testing.T) {
 				timestamp := time.Unix(int64(header.Time), 0)
 
 				// todo: push loki calls to channel?
-				lokiLabels = setLokiLabels(execIterator.Event.SourceChainSelector, chainSelector)
+				lokiLabels, err = setLokiLabels(execIterator.Event.SourceChainSelector, chainSelector)
+				require.NoError(t, err)
 				SendMetricsToLoki(lggr, loki, lokiLabels, &LokiMetric{
 					EventType:      executed,
 					Timestamp:      timestamp,

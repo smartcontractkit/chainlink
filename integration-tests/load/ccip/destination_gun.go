@@ -81,23 +81,29 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 	}
 
 	fee, err := r.GetFee(
-		&bind.CallOpts{Context: context.Background()}, src, msg)
+		&bind.CallOpts{Context: context.Background()}, m.chainSelector, msg)
 	if err != nil {
+		m.l.Errorw("could not get fee ", "dstChainSelector", m.chainSelector, "msg", msg, "fee", fee)
 		return &wasp.Response{Error: err.Error(), Group: waspGroup, Failed: true}
 	}
+	m.l.Debugw("setting fee for ", "srcChain", src, "dstChain", m.chainSelector, "fee", fee, "msg", msg)
 	if msg.FeeToken == common.HexToAddress("0x0") {
 		m.env.Chains[src].DeployerKey.Value = fee
 		defer func() { m.env.Chains[src].DeployerKey.Value = nil }()
 	}
-	_, err = r.CcipSend(
+	tx, err := r.CcipSend(
 		m.env.Chains[src].DeployerKey,
 		m.chainSelector,
 		msg)
 	if err != nil {
+		m.l.Errorw("execution reverted from ", "sourceChain", src, "destchain", m.chainSelector, "err", err, "tx", tx)
 		return &wasp.Response{Error: err.Error(), Group: waspGroup, Failed: true}
 	}
 
-	lokiLabels := setLokiLabels(src, m.chainSelector)
+	lokiLabels, err := setLokiLabels(src, m.chainSelector)
+	if err != nil {
+		m.l.Errorw("Failed setting loki labels", "error", err)
+	}
 	SendMetricsToLoki(m.l, m.loki, lokiLabels, &LokiMetric{
 		EventType:      transmitted,
 		Timestamp:      time.Now(),

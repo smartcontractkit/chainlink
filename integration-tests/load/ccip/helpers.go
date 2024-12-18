@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -41,13 +42,21 @@ func SendMetricsToLoki(l logger.Logger, lc *wasp.LokiClient, updatedLabels map[s
 	}
 }
 
-func setLokiLabels(src, dst uint64) map[string]string {
+func setLokiLabels(src, dst uint64) (map[string]string, error) {
+	srcChainId, err := chainselectors.GetChainIDFromSelector(src)
+	if err != nil {
+		return nil, err
+	}
+	dstChainId, err := chainselectors.GetChainIDFromSelector(dst)
+	if err != nil {
+		return nil, err
+	}
 	return map[string]string{
-		"sourceEvmChainId":    fmt.Sprintf("%d", src),
-		"destEvmChainId":      fmt.Sprintf("%d", src),
+		"sourceEvmChainId":    fmt.Sprintf("%s", srcChainId),
+		"destEvmChainId":      fmt.Sprintf("%s", dstChainId),
 		"destinationSelector": fmt.Sprintf("%d", dst),
 		"testType":            LokiLoadLabel,
-	}
+	}, nil
 }
 
 func readFile(filePath string) []byte {
