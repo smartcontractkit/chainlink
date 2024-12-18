@@ -87,9 +87,9 @@ func Test_PromoteCandidate(t *testing.T) {
 				{
 					Changeset: commonchangeset.WrapChangeSet(PromoteAllCandidatesChangeset),
 					Config: PromoteAllCandidatesChangesetConfig{
-						HomeChainSelector: tenv.HomeChainSel,
-						DONChainSelectors: []uint64{dest},
-						MCMS:              mcmsConfig,
+						HomeChainSelector:    tenv.HomeChainSel,
+						RemoteChainSelectors: []uint64{dest},
+						MCMS:                 mcmsConfig,
 					},
 				},
 			})
@@ -180,7 +180,7 @@ func Test_SetCandidate(t *testing.T) {
 						SetCandidateConfigBase: SetCandidateConfigBase{
 							HomeChainSelector: tenv.HomeChainSel,
 							FeedChainSelector: tenv.FeedChainSel,
-							DONChainSelector: map[uint64]CCIPOCRParams{
+							OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
 								dest: DefaultOCRParams(
 									tenv.FeedChainSel,
 									tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
@@ -198,7 +198,7 @@ func Test_SetCandidate(t *testing.T) {
 						SetCandidateConfigBase: SetCandidateConfigBase{
 							HomeChainSelector: tenv.HomeChainSel,
 							FeedChainSelector: tenv.FeedChainSel,
-							DONChainSelector: map[uint64]CCIPOCRParams{
+							OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
 								dest: DefaultOCRParams(
 									tenv.FeedChainSel,
 									tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
@@ -301,7 +301,7 @@ func Test_RevokeCandidate(t *testing.T) {
 						SetCandidateConfigBase: SetCandidateConfigBase{
 							HomeChainSelector: tenv.HomeChainSel,
 							FeedChainSelector: tenv.FeedChainSel,
-							DONChainSelector: map[uint64]CCIPOCRParams{
+							OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
 								dest: DefaultOCRParams(
 									tenv.FeedChainSel,
 									tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
@@ -319,7 +319,7 @@ func Test_RevokeCandidate(t *testing.T) {
 						SetCandidateConfigBase: SetCandidateConfigBase{
 							HomeChainSelector: tenv.HomeChainSel,
 							FeedChainSelector: tenv.FeedChainSel,
-							DONChainSelector: map[uint64]CCIPOCRParams{
+							OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
 								dest: DefaultOCRParams(
 									tenv.FeedChainSel,
 									tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
@@ -360,19 +360,19 @@ func Test_RevokeCandidate(t *testing.T) {
 				{
 					Changeset: commonchangeset.WrapChangeSet(RevokeCandidateChangeset),
 					Config: RevokeCandidateChangesetConfig{
-						HomeChainSelector: tenv.HomeChainSel,
-						DONChainSelector:  dest,
-						PluginType:        types.PluginTypeCCIPCommit,
-						MCMS:              mcmsConfig,
+						HomeChainSelector:   tenv.HomeChainSel,
+						RemoteChainSelector: dest,
+						PluginType:          types.PluginTypeCCIPCommit,
+						MCMS:                mcmsConfig,
 					},
 				},
 				{
 					Changeset: commonchangeset.WrapChangeSet(RevokeCandidateChangeset),
 					Config: RevokeCandidateChangesetConfig{
-						HomeChainSelector: tenv.HomeChainSel,
-						DONChainSelector:  dest,
-						PluginType:        types.PluginTypeCCIPExec,
-						MCMS:              mcmsConfig,
+						HomeChainSelector:   tenv.HomeChainSel,
+						RemoteChainSelector: dest,
+						PluginType:          types.PluginTypeCCIPExec,
+						MCMS:                mcmsConfig,
 					},
 				},
 			})
@@ -473,10 +473,10 @@ func Test_UpdateChainConfigs(t *testing.T) {
 				{
 					Changeset: commonchangeset.WrapChangeSet(UpdateChainConfig),
 					Config: UpdateChainConfigConfig{
-						HomeChainSelector: tenv.HomeChainSel,
-						ChainRemoves:      []uint64{otherChain},
-						ChainAdds:         make(map[uint64]ChainConfig),
-						MCMS:              mcmsConfig,
+						HomeChainSelector:  tenv.HomeChainSel,
+						RemoteChainRemoves: []uint64{otherChain},
+						RemoteChainAdds:    make(map[uint64]ChainConfig),
+						MCMS:               mcmsConfig,
 					},
 				},
 			})
@@ -497,11 +497,11 @@ func Test_UpdateChainConfigs(t *testing.T) {
 				{
 					Changeset: commonchangeset.WrapChangeSet(UpdateChainConfig),
 					Config: UpdateChainConfigConfig{
-						HomeChainSelector: tenv.HomeChainSel,
-						ChainRemoves:      []uint64{},
-						ChainAdds: map[uint64]ChainConfig{
+						HomeChainSelector:  tenv.HomeChainSel,
+						RemoteChainRemoves: []uint64{},
+						RemoteChainAdds: map[uint64]ChainConfig{
 							otherChain: {
-								EncodableChainConifg: chainconfig.ChainConfig{
+								EncodableChainConfig: chainconfig.ChainConfig{
 									GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(internal.GasPriceDeviationPPB)},
 									DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(internal.DAGasPriceDeviationPPB)},
 									OptimisticConfirmations: internal.OptimisticConfirmations,

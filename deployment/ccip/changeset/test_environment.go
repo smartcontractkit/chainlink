@@ -421,7 +421,7 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tc *TestConfigs, tEnv Test
 		chainConfigs[chain] = ChainConfig{
 			Readers: nodeInfo.NonBootstraps().PeerIDs(),
 			FChain:  uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),
-			EncodableChainConifg: chainconfig.ChainConfig{
+			EncodableChainConfig: chainconfig.ChainConfig{
 				GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(internal.GasPriceDeviationPPB)},
 				DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(internal.DAGasPriceDeviationPPB)},
 				OptimisticConfirmations: internal.OptimisticConfirmations,
@@ -435,7 +435,7 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tc *TestConfigs, tEnv Test
 			Changeset: commonchangeset.WrapChangeSet(UpdateChainConfig),
 			Config: UpdateChainConfigConfig{
 				HomeChainSelector: e.HomeChainSel,
-				ChainAdds:         chainConfigs,
+				RemoteChainAdds:   chainConfigs,
 			},
 		},
 		{
@@ -443,10 +443,10 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tc *TestConfigs, tEnv Test
 			Changeset: commonchangeset.WrapChangeSet(AddDonAndSetCandidateChangeset),
 			Config: AddDonAndSetCandidateChangesetConfig{
 				SetCandidateConfigBase{
-					HomeChainSelector: e.HomeChainSel,
-					FeedChainSelector: e.FeedChainSel,
-					DONChainSelector:  ocrConfigs,
-					PluginType:        types.PluginTypeCCIPCommit,
+					HomeChainSelector:               e.HomeChainSel,
+					FeedChainSelector:               e.FeedChainSel,
+					OCRConfigPerRemoteChainSelector: ocrConfigs,
+					PluginType:                      types.PluginTypeCCIPCommit,
 				},
 			},
 		},
@@ -455,10 +455,10 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tc *TestConfigs, tEnv Test
 			Changeset: commonchangeset.WrapChangeSet(SetCandidateChangeset),
 			Config: SetCandidateChangesetConfig{
 				SetCandidateConfigBase{
-					HomeChainSelector: e.HomeChainSel,
-					FeedChainSelector: e.FeedChainSel,
-					DONChainSelector:  ocrConfigs,
-					PluginType:        types.PluginTypeCCIPExec,
+					HomeChainSelector:               e.HomeChainSel,
+					FeedChainSelector:               e.FeedChainSel,
+					OCRConfigPerRemoteChainSelector: ocrConfigs,
+					PluginType:                      types.PluginTypeCCIPExec,
 				},
 			},
 		},
@@ -466,8 +466,8 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tc *TestConfigs, tEnv Test
 			// Promote everything
 			Changeset: commonchangeset.WrapChangeSet(PromoteAllCandidatesChangeset),
 			Config: PromoteAllCandidatesChangesetConfig{
-				HomeChainSelector: e.HomeChainSel,
-				DONChainSelectors: allChains,
+				HomeChainSelector:    e.HomeChainSel,
+				RemoteChainSelectors: allChains,
 			},
 		},
 		{
