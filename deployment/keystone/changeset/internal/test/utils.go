@@ -141,7 +141,7 @@ func addNops(t *testing.T, lggr logger.Logger, chain deployment.Chain, registry 
 func addNodes(t *testing.T, lggr logger.Logger, chain deployment.Chain, registry *kcr.CapabilitiesRegistry, nodes []kcr.CapabilitiesRegistryNodeParams) {
 	tx, err := registry.AddNodes(chain.DeployerKey, nodes)
 	if err != nil {
-		err2 := internal.DecodeErr(kcr.CapabilitiesRegistryABI, err)
+		err2 := deployment.DecodeErr(kcr.CapabilitiesRegistryABI, err)
 		require.Fail(t, fmt.Sprintf("failed to call AddNodes: %s:  %s", err, err2))
 	}
 	_, err = chain.Confirm(tx)
@@ -174,7 +174,7 @@ func addDons(t *testing.T, lggr logger.Logger, chain deployment.Chain, registry 
 		f := len(don.P2PIDs)/3 + 1
 		tx, err := registry.AddDON(chain.DeployerKey, internal.PeerIDsToBytes(don.P2PIDs), capConfigs, isPublic, acceptsWorkflows, uint8(f))
 		if err != nil {
-			err2 := internal.DecodeErr(kcr.CapabilitiesRegistryABI, err)
+			err2 := deployment.DecodeErr(kcr.CapabilitiesRegistryABI, err)
 			require.Fail(t, fmt.Sprintf("failed to call AddDON: %s:  %s", err, err2))
 		}
 		_, err = chain.Confirm(tx)
@@ -237,7 +237,7 @@ func (cc *CapabilityCache) AddCapabilities(lggr logger.Logger, chain deployment.
 	}
 	tx, err := registry.AddCapabilities(chain.DeployerKey, toRegister)
 	if err != nil {
-		err2 := internal.DecodeErr(kcr.CapabilitiesRegistryABI, err)
+		err2 := deployment.DecodeErr(kcr.CapabilitiesRegistryABI, err)
 		require.Fail(t, fmt.Sprintf("failed to call AddCapabilities: %s:  %s", err, err2))
 	}
 	_, err = chain.Confirm(tx)

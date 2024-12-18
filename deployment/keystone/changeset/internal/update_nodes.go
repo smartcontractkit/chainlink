@@ -102,7 +102,7 @@ func UpdateNodes(lggr logger.Logger, req *UpdateNodesRequest) (*UpdateNodesRespo
 
 	params, err := req.NodeParams()
 	if err != nil {
-		err = DecodeErr(kcr.CapabilitiesRegistryABI, err)
+		err = deployment.DecodeErr(kcr.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to make node params: %w", err)
 	}
 	txOpts := req.Chain.DeployerKey
@@ -112,7 +112,7 @@ func UpdateNodes(lggr logger.Logger, req *UpdateNodesRequest) (*UpdateNodesRespo
 	registry := req.ContractSet.CapabilitiesRegistry
 	tx, err := registry.UpdateNodes(txOpts, params)
 	if err != nil {
-		err = DecodeErr(kcr.CapabilitiesRegistryABI, err)
+		err = deployment.DecodeErr(kcr.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to call UpdateNodes: %w", err)
 	}
 
@@ -203,7 +203,7 @@ func makeNodeParams(registry *kcr.CapabilitiesRegistry,
 
 	nodes, err := registry.GetNodesByP2PIds(&bind.CallOpts{}, PeerIDsToBytes(p2pIds))
 	if err != nil {
-		err = DecodeErr(kcr.CapabilitiesRegistryABI, err)
+		err = deployment.DecodeErr(kcr.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to get nodes by p2p ids: %w", err)
 	}
 	for _, node := range nodes {

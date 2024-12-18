@@ -563,7 +563,7 @@ func TestUpdateNodes(t *testing.T) {
 		toRegister := p2pToCapabilitiesUpdated[testPeerID(t, "peerID_1")]
 		tx, err := registry.AddCapabilities(chain.DeployerKey, toRegister)
 		if err != nil {
-			err2 := internal.DecodeErr(kcr.CapabilitiesRegistryABI, err)
+			err2 := deployment.DecodeErr(kcr.CapabilitiesRegistryABI, err)
 			require.Fail(t, fmt.Sprintf("failed to call AddCapabilities: %s:  %s", err, err2))
 		}
 		_, err = chain.Confirm(tx)

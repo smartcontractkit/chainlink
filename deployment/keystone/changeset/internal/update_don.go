@@ -95,7 +95,7 @@ func UpdateDon(lggr logger.Logger, req *UpdateDonRequest) (*UpdateDonResponse, e
 	}
 	tx, err := registry.UpdateDON(txOpts, don.Id, don.NodeP2PIds, cfgs, don.IsPublic, don.F)
 	if err != nil {
-		err = DecodeErr(kcr.CapabilitiesRegistryABI, err)
+		err = deployment.DecodeErr(kcr.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to call UpdateDON: %w", err)
 	}
 	var ops *timelock.BatchChainOperation

@@ -26,7 +26,7 @@ func TestKeystoneView(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	require.NoError(t, env.ExistingAddresses.Merge(resp.AddressBook))
-	resp, err = DeployForwarder(env, registryChain)
+	resp, err = DeployForwarder(env, DeployForwarderRequest{})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	require.NoError(t, env.ExistingAddresses.Merge(resp.AddressBook))

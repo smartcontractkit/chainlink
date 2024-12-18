@@ -327,7 +327,7 @@ func configureOCR3contract(req configureOCR3Request) (*configureOCR3Response, er
 		ocrConfig.OffchainConfig,
 	)
 	if err != nil {
-		err = DecodeErr(kocr3.OCR3CapabilityABI, err)
+		err = deployment.DecodeErr(kocr3.OCR3CapabilityABI, err)
 		return nil, fmt.Errorf("failed to call SetConfig for OCR3 contract %s using mcms: %T: %w", req.contract.Address().String(), req.useMCMS, err)
 	}
 
@@ -335,7 +335,7 @@ func configureOCR3contract(req configureOCR3Request) (*configureOCR3Response, er
 	if !req.useMCMS {
 		_, err = req.chain.Confirm(tx)
 		if err != nil {
-			err = DecodeErr(kocr3.OCR3CapabilityABI, err)
+			err = deployment.DecodeErr(kocr3.OCR3CapabilityABI, err)
 			return nil, fmt.Errorf("failed to confirm SetConfig for OCR3 contract %s: %w", req.contract.Address().String(), err)
 		}
 	} else {
