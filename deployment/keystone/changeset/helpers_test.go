@@ -140,7 +140,7 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 		},
 		{
 			Changeset: commonchangeset.WrapChangeSet(kschangeset.DeployForwarder),
-			Config:    registryChainSel,
+			Config:    kschangeset.DeployForwarderRequest{},
 		},
 	})
 	require.NoError(t, err)

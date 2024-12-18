@@ -619,7 +619,6 @@ type RegisterNodesResponse struct {
 
 // registerNodes registers the nodes with the registry. it assumes that the deployer key in the Chain
 // can sign the transactions update the contract state
-// TODO: 467 refactor to support MCMS. Specifically need to separate the call data generation from the actual contract call
 func RegisterNodes(lggr logger.Logger, req *RegisterNodesRequest) (*RegisterNodesResponse, error) {
 	registry, registryChain, err := GetRegistryContract(req.Env, req.RegistryChainSelector)
 	if err != nil {
