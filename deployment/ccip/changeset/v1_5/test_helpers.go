@@ -176,10 +176,8 @@ func NewEnvironment(t *testing.T, tc *changeset.TestConfigs, tEnv changeset.Test
 }
 
 func AddLanes(t *testing.T, e deployment.Environment, state changeset.CCIPOnChainState, pairs []changeset.SourceDestPair) deployment.Environment {
-	state, err := changeset.LoadOnchainState(e)
-	require.NoError(t, err)
-
 	addLanesCfg, commitOCR2Configs, execOCR2Configs, jobspecs := LaneConfigsForChains(t, e, state, pairs)
+	var err error
 	e, err = commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(DeployLanes),

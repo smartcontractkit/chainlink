@@ -296,6 +296,9 @@ func deriveOCR2Config(
 		int(nodes.DefaultF()),
 		ocrParams.OnchainConfig,
 	)
+	if err != nil {
+		return FinalOCR2Config{}, fmt.Errorf("failed to derive OCR2 config: %w", err)
+	}
 	var signersAddresses []common.Address
 	for _, signer := range signers {
 		if len(signer) != 20 {

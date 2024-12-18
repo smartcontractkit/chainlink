@@ -130,7 +130,7 @@ func deployLane(e deployment.Environment, state changeset.CCIPOnChainState, ab d
 	if !onRampExists {
 		onRampC, err := deployment.DeployContract(e.Logger, sourceChain, ab,
 			func(chain deployment.Chain) deployment.ContractDeploy[*evm_2_evm_onramp.EVM2EVMOnRamp] {
-				onRampAddress, tx, onRampC, err2 := evm_2_evm_onramp.DeployEVM2EVMOnRamp(
+				onRampAddress, tx2, onRampC, err2 := evm_2_evm_onramp.DeployEVM2EVMOnRamp(
 					sourceChain.DeployerKey,
 					sourceChain.Client,
 					cfg.OnRampStaticCfg,
@@ -141,7 +141,7 @@ func deployLane(e deployment.Environment, state changeset.CCIPOnChainState, ab d
 					cfg.OnRampNopsAndWeight,
 				)
 				return deployment.ContractDeploy[*evm_2_evm_onramp.EVM2EVMOnRamp]{
-					Address: onRampAddress, Contract: onRampC, Tx: tx,
+					Address: onRampAddress, Contract: onRampC, Tx: tx2,
 					Tv: deployment.NewTypeAndVersion(changeset.OnRamp, deployment.Version1_5_0), Err: err2,
 				}
 			})
@@ -161,7 +161,7 @@ func deployLane(e deployment.Environment, state changeset.CCIPOnChainState, ab d
 	if !commitStoreExists {
 		commitStoreC, err := deployment.DeployContract(e.Logger, destChain, ab,
 			func(chain deployment.Chain) deployment.ContractDeploy[*commit_store.CommitStore] {
-				commitStoreAddress, tx, commitStoreC, err2 := commit_store.DeployCommitStore(
+				commitStoreAddress, tx2, commitStoreC, err2 := commit_store.DeployCommitStore(
 					destChain.DeployerKey,
 					destChain.Client,
 					commit_store.CommitStoreStaticConfig{
@@ -172,7 +172,7 @@ func deployLane(e deployment.Environment, state changeset.CCIPOnChainState, ab d
 					},
 				)
 				return deployment.ContractDeploy[*commit_store.CommitStore]{
-					Address: commitStoreAddress, Contract: commitStoreC, Tx: tx,
+					Address: commitStoreAddress, Contract: commitStoreC, Tx: tx2,
 					Tv: deployment.NewTypeAndVersion(changeset.CommitStore, deployment.Version1_5_0), Err: err2,
 				}
 			})
@@ -192,7 +192,7 @@ func deployLane(e deployment.Environment, state changeset.CCIPOnChainState, ab d
 	if !offRampExists {
 		offRampC, err := deployment.DeployContract(e.Logger, destChain, ab,
 			func(chain deployment.Chain) deployment.ContractDeploy[*evm_2_evm_offramp.EVM2EVMOffRamp] {
-				offRampAddress, tx, offRampC, err2 := evm_2_evm_offramp.DeployEVM2EVMOffRamp(
+				offRampAddress, tx2, offRampC, err2 := evm_2_evm_offramp.DeployEVM2EVMOffRamp(
 					destChain.DeployerKey,
 					destChain.Client,
 					evm_2_evm_offramp.EVM2EVMOffRampStaticConfig{
@@ -207,7 +207,7 @@ func deployLane(e deployment.Environment, state changeset.CCIPOnChainState, ab d
 					cfg.OffRampRateLimiterCfg,
 				)
 				return deployment.ContractDeploy[*evm_2_evm_offramp.EVM2EVMOffRamp]{
-					Address: offRampAddress, Contract: offRampC, Tx: tx,
+					Address: offRampAddress, Contract: offRampC, Tx: tx2,
 					Tv: deployment.NewTypeAndVersion(changeset.OffRamp, deployment.Version1_5_0), Err: err2,
 				}
 			})
