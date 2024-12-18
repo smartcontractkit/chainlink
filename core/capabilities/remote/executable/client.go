@@ -43,6 +43,11 @@ var _ services.Service = &client{}
 
 const expiryCheckInterval = 30 * time.Second
 
+var (
+	ErrRequestExpired                  = errors.New("request expired by executable client")
+	ErrContextDoneBeforeResponseQuorum = errors.New("context done before remote client received a quorum of responses")
+)
+
 func NewClient(remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, dispatcher types.Dispatcher,
 	requestTimeout time.Duration, lggr logger.Logger) *client {
 	return &client{
@@ -122,7 +127,7 @@ func (c *client) expireRequests() {
 
 	for messageID, req := range c.requestIDToCallerRequest {
 		if req.Expired() {
-			req.Cancel(errors.New("request expired by executable client"))
+			req.Cancel(ErrRequestExpired)
 			delete(c.requestIDToCallerRequest, messageID)
 		}
 
@@ -164,12 +169,22 @@ func (c *client) Execute(ctx context.Context, capReq commoncap.CapabilityRequest
 		return commoncap.CapabilityResponse{}, fmt.Errorf("failed to send request: %w", err)
 	}
 
-	resp := <-req.ResponseChan()
-	if resp.Err != nil {
-		return commoncap.CapabilityResponse{}, fmt.Errorf("error executing request: %w", resp.Err)
+	var respResult []byte
+	var respErr error
+	select {
+	case resp := <-req.ResponseChan():
+		respResult = resp.Result
+		respErr = resp.Err
+	case <-ctx.Done():
+		// NOTE: ClientRequest will not block on sending to ResponseChan() because that channel is buffered (with size 1)
+		return commoncap.CapabilityResponse{}, errors.Join(ErrContextDoneBeforeResponseQuorum, ctx.Err())
 	}
 
-	capabilityResponse, err := pb.UnmarshalCapabilityResponse(resp.Result)
+	if respErr != nil {
+		return commoncap.CapabilityResponse{}, fmt.Errorf("error executing request: %w", respErr)
+	}
+
+	capabilityResponse, err := pb.UnmarshalCapabilityResponse(respResult)
 	if err != nil {
 		return commoncap.CapabilityResponse{}, fmt.Errorf("failed to unmarshal capability response: %w", err)
 	}

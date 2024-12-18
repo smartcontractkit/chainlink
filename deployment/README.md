@@ -6,14 +6,14 @@ deployment/configuration logic to be tested against ephemeral environments
 and then exposed for use in persistent environments like testnet/mainnet.
 
 ## Table of Contents
-- [Address Book](##Address-Book)
-- [View](##View)
-- [Environment](##Environment)
-- [Job Distributor](##Job-Distributor)
-- [Changesets](##Changesets)
-- [Directory Structure](##Directory-Structure)
-- [Integration Testing](##Integration-Testing)
-- [FAQ](##FAQ)
+- [Address Book](#address-book)
+- [View](#view)
+- [Environment](#environment)
+- [Job Distributor](#job-distributor)
+- [Changesets](#changsets)
+- [Directory Structure](#directory-structure)
+- [Integration Testing](#integration-testing)
+- [FAQ](#faq)
 
 ## Address Book
 An [address book](https://github.com/smartcontractkit/chainlink/blob/develop/deployment/address_book.go#L79) represents
@@ -100,14 +100,14 @@ TODO: Add various examples in deployment/example.
 contracts (like MCMS, LinkToken etc) which can be shared
 by products.
 
-/deployment/<product>/internal
+/deployment/product/internal
 - Internal building blocks for changesets  
 
-/deployment/<product>/view
+/deployment/product/view
 - Hold readonly mappings Go bindings to json marshallable objects. 
 - Used to generate a view of the system.
 
-/deployment/<product>/changeset
+/deployment/product/changeset
 - Think of this as the public API for deployment and configuration
 of your product. 
 - All the changesets should have an associated test using a memory or devenv

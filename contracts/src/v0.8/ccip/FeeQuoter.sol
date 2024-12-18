@@ -600,7 +600,8 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     // fee logic for other chains should be implemented in the future.
     uint256 executionCost = uint112(packedGasPrice)
       * (
-        destChainConfig.destGasOverhead + (message.data.length * destChainConfig.destGasPerPayloadByte) + tokenTransferGas
+        destChainConfig.destGasOverhead
+          + ((message.data.length + tokenTransferBytesOverhead) * destChainConfig.destGasPerPayloadByte) + tokenTransferGas
           + _parseEVMExtraArgsFromBytes(message.extraArgs, destChainConfig).gasLimit
       ) * destChainConfig.gasMultiplierWeiPerEth;
 

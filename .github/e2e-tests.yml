@@ -193,6 +193,7 @@ runner-test-matrix:
     test_cmd: cd integration-tests/chaos && DETACH_RUNNER=false go test -test.run "^TestOCRChaos$" -v -test.parallel=10 -timeout 60m -count=1 -json
     test_env_vars:
       TEST_SUITE: chaos
+      CHAINLINK_USER_TEAM: Foundations
 
   # END: OCR tests
 
@@ -624,6 +625,7 @@ runner-test-matrix:
     pyroscope_env: ci-automation-on-demand-chaos
     test_env_vars:
       TEST_SUITE: chaos
+      CHAINLINK_USER_TEAM: Automation
 
   - id: benchmark/automation_test.go:TestAutomationBenchmark
     path: integration-tests/benchmark/automation_test.go
@@ -966,7 +968,7 @@ runner-test-matrix:
   - id: smoke/ccip/ccip_rmn_test.go:^TestRMN_TwoMessagesOnTwoLanesIncludingBatching$
     path: integration-tests/smoke/ccip/ccip_rmn_test.go
     test_env_type: docker
-    runs_on: ubuntu-latest
+    runs_on: ubuntu20.04-8cores-32GB
     triggers:
       - PR E2E Core Tests
       - Nightly E2E Tests
@@ -975,14 +977,14 @@ runner-test-matrix:
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       E2E_JD_VERSION: 0.6.0
-      E2E_RMN_RAGEPROXY_VERSION: master-f461a9e
-      E2E_RMN_AFN2PROXY_VERSION: master-f461a9e
+      E2E_RMN_RAGEPROXY_VERSION: 678509b
+      E2E_RMN_AFN2PROXY_VERSION: 678509b
       CCIP_V16_TEST_ENV: docker
 
   - id: smoke/ccip/ccip_rmn_test.go:^TestRMN_MultipleMessagesOnOneLaneNoWaitForExec$
     path: integration-tests/smoke/ccip/ccip_rmn_test.go
     test_env_type: docker
-    runs_on: ubuntu-latest
+    runs_on: ubuntu20.04-8cores-32GB
     triggers:
       - PR E2E Core Tests
       - Nightly E2E Tests
@@ -991,14 +993,14 @@ runner-test-matrix:
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       E2E_JD_VERSION: 0.6.0
-      E2E_RMN_RAGEPROXY_VERSION: master-f461a9e
-      E2E_RMN_AFN2PROXY_VERSION: master-f461a9e
+      E2E_RMN_RAGEPROXY_VERSION: 678509b
+      E2E_RMN_AFN2PROXY_VERSION: 678509b
       CCIP_V16_TEST_ENV: docker
 
   - id: smoke/ccip/ccip_rmn_test.go:^TestRMN_NotEnoughObservers$
     path: integration-tests/smoke/ccip/ccip_rmn_test.go
     test_env_type: docker
-    runs_on: ubuntu-latest
+    runs_on: ubuntu20.04-8cores-32GB
     triggers:
       - PR E2E Core Tests
       - Nightly E2E Tests
@@ -1007,14 +1009,14 @@ runner-test-matrix:
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       E2E_JD_VERSION: 0.6.0
-      E2E_RMN_RAGEPROXY_VERSION: master-f461a9e
-      E2E_RMN_AFN2PROXY_VERSION: master-f461a9e
+      E2E_RMN_RAGEPROXY_VERSION: 678509b
+      E2E_RMN_AFN2PROXY_VERSION: 678509b
       CCIP_V16_TEST_ENV: docker
 
   - id: smoke/ccip/ccip_rmn_test.go:^TestRMN_DifferentSigners$
     path: integration-tests/smoke/ccip/ccip_rmn_test.go
     test_env_type: docker
-    runs_on: ubuntu-latest
+    runs_on: ubuntu20.04-8cores-32GB
     triggers:
       - PR E2E Core Tests
       - Nightly E2E Tests
@@ -1023,14 +1025,14 @@ runner-test-matrix:
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       E2E_JD_VERSION: 0.6.0
-      E2E_RMN_RAGEPROXY_VERSION: master-f461a9e
-      E2E_RMN_AFN2PROXY_VERSION: master-f461a9e
+      E2E_RMN_RAGEPROXY_VERSION: 678509b
+      E2E_RMN_AFN2PROXY_VERSION: 678509b
       CCIP_V16_TEST_ENV: docker
 
   - id: smoke/ccip/ccip_rmn_test.go:^TestRMN_NotEnoughSigners$
     path: integration-tests/smoke/ccip/ccip_rmn_test.go
     test_env_type: docker
-    runs_on: ubuntu-latest
+    runs_on: ubuntu20.04-8cores-32GB
     triggers:
       - PR E2E Core Tests
       - Nightly E2E Tests
@@ -1039,14 +1041,14 @@ runner-test-matrix:
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       E2E_JD_VERSION: 0.6.0
-      E2E_RMN_RAGEPROXY_VERSION: master-f461a9e
-      E2E_RMN_AFN2PROXY_VERSION: master-f461a9e
+      E2E_RMN_RAGEPROXY_VERSION: 678509b
+      E2E_RMN_AFN2PROXY_VERSION: 678509b
       CCIP_V16_TEST_ENV: docker
 
   - id: smoke/ccip/ccip_rmn_test.go:^TestRMN_DifferentRmnNodesForDifferentChains$
     path: integration-tests/smoke/ccip/ccip_rmn_test.go
     test_env_type: docker
-    runs_on: ubuntu-latest
+    runs_on: ubuntu20.04-8cores-32GB
     triggers:
       - PR E2E Core Tests
       - Nightly E2E Tests
@@ -1055,14 +1057,14 @@ runner-test-matrix:
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       E2E_JD_VERSION: 0.6.0
-      E2E_RMN_RAGEPROXY_VERSION: master-f461a9e
-      E2E_RMN_AFN2PROXY_VERSION: master-f461a9e
+      E2E_RMN_RAGEPROXY_VERSION: 678509b
+      E2E_RMN_AFN2PROXY_VERSION: 678509b
       CCIP_V16_TEST_ENV: docker
 
   - id: smoke/ccip/ccip_rmn_test.go:^TestRMN_TwoMessagesOneSourceChainCursed$
     path: integration-tests/smoke/ccip/ccip_rmn_test.go
     test_env_type: docker
-    runs_on: ubuntu-latest
+    runs_on: ubuntu20.04-8cores-32GB
     triggers:
       - PR E2E Core Tests
       - Nightly E2E Tests
@@ -1071,14 +1073,14 @@ runner-test-matrix:
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       E2E_JD_VERSION: 0.6.0
-      E2E_RMN_RAGEPROXY_VERSION: master-f461a9e
-      E2E_RMN_AFN2PROXY_VERSION: master-f461a9e
+      E2E_RMN_RAGEPROXY_VERSION: 678509b
+      E2E_RMN_AFN2PROXY_VERSION: 678509b
       CCIP_V16_TEST_ENV: docker
 
   - id: smoke/ccip/ccip_rmn_test.go:^TestRMN_GlobalCurseTwoMessagesOnTwoLanes$
     path: integration-tests/smoke/ccip/ccip_rmn_test.go
     test_env_type: docker
-    runs_on: ubuntu-latest
+    runs_on: ubuntu20.04-8cores-32GB
     triggers:
       - PR E2E Core Tests
       - Nightly E2E Tests
@@ -1087,8 +1089,8 @@ runner-test-matrix:
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       E2E_JD_VERSION: 0.6.0
-      E2E_RMN_RAGEPROXY_VERSION: master-f461a9e
-      E2E_RMN_AFN2PROXY_VERSION: master-f461a9e
+      E2E_RMN_RAGEPROXY_VERSION: 678509b
+      E2E_RMN_AFN2PROXY_VERSION: 678509b
       CCIP_V16_TEST_ENV: docker
 
   # END: CCIPv1.6 tests
