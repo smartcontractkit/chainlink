@@ -70,9 +70,13 @@ func ToExecCalldata(
 	// WARNING: Be careful if you change the data types.
 	// Using a different type e.g. `type Foo [32]byte` instead of `[32]byte`
 	// will trigger undefined chainWriter behavior, e.g. transactions submitted with wrong arguments.
-	info, err := ccipocr3.DecodeExecuteReportInfo(report.Info)
-	if err != nil {
-		return nil, err
+	var info ccipocr3.ExecuteReportInfo
+	if len(report.Info) != 0 {
+		var err error
+		info, err = ccipocr3.DecodeExecuteReportInfo(report.Info)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return struct {
