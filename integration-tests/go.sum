@@ -1436,8 +1436,8 @@ github.com/smartcontractkit/chain-selectors v1.0.34 h1:MJ17OGu8+jjl426pcKrJkCf3f
 github.com/smartcontractkit/chain-selectors v1.0.34/go.mod h1:xsKM0aN3YGcQKTPRPDDtPx2l4mlTN1Djmg0VVXV40b8=
 github.com/smartcontractkit/chainlink-automation v0.8.1 h1:sTc9LKpBvcKPc1JDYAmgBc2xpDKBco/Q4h4ydl6+UUU=
 github.com/smartcontractkit/chainlink-automation v0.8.1/go.mod h1:Iij36PvWZ6blrdC5A/nrQUBuf3MH3JvsBB9sSyc9W08=
-github.com/smartcontractkit/chainlink-ccip v0.0.0-20241213122413-5e8f65dd6b1b h1:iSQJ6ng4FhEswf8SXunGkaJlVP3E3JlgLB8Oo2f3Ud4=
-github.com/smartcontractkit/chainlink-ccip v0.0.0-20241213122413-5e8f65dd6b1b/go.mod h1:F8xQAIW0ymb2BZhqn89sWZLXreJhM5KDVF6Qb4y44N0=
+github.com/smartcontractkit/chainlink-ccip v0.0.0-20241218114855-f74219171000 h1:6Zzr/R1j6P7bbvcUlt5WUIbItvrrGdGzIsiAzQezcwo=
+github.com/smartcontractkit/chainlink-ccip v0.0.0-20241218114855-f74219171000/go.mod h1:ncjd6mPZSRlelEqH/2KeLE1pU3UlqzBSn8RYkEoECzY=
 github.com/smartcontractkit/chainlink-common v0.3.1-0.20241214155818-b403079b2805 h1:Pz8jB/6qe10xT10h2S3LFYJrnebNpG5rJ/w16HZGwPQ=
 github.com/smartcontractkit/chainlink-common v0.3.1-0.20241214155818-b403079b2805/go.mod h1:yti7e1+G9hhkYhj+L5sVUULn9Bn3bBL5/AxaNqdJ5YQ=
 github.com/smartcontractkit/chainlink-cosmos v0.5.2-0.20241202195413-82468150ac1e h1:PRoeby6ZlTuTkv2f+7tVU4+zboTfRzI+beECynF4JQ0=
