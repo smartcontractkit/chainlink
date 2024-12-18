@@ -8,33 +8,6 @@ version="2.7.0"
 # if set to true will save logs even if test did not fail
 test_log_collect=false
 
-[Logging.LogStream]
-# supported targets: file, loki, in-memory. if empty no logs will be persistet
-log_targets=["file"]
-# context timeout for starting log producer and also time-frame for requesting logs
-log_producer_timeout="10s"
-# number of retries before log producer gives up and stops listening to logs
-log_producer_retry_limit=10
-
-[Logging.Loki]
-tenant_id="tenant_id"
-# full URL of Loki ingest endpoint
-endpoint="https://loki.url/api/v3/push"
-# currently only needed when using public instance
-basic_auth_secret="loki-basic-auth"
-# only needed for cloud grafana
-bearer_token_secret="bearer_token"
-
-# LogStream will try to shorten Grafana URLs by default (if all 3 variables are set)
-[Logging.Grafana]
-# grafana url (trailing "/" will be stripped)
-base_url="http://grafana.url"
-# url of your grafana dashboard (prefix and suffix "/" are stirpped), example: /d/ad61652-2712-1722/my-dashboard
-dashboard_url="/d/your-dashboard"
-# Grafana dashboard uid to annotate. Find it in Dashboard Settings -> JSON Model
-dashboard_uid="dashboard-uid-to-annotate"
-bearer_token_secret="my-awesome-token"
-
 # if you want to use polygon_mumbial
 [Network]
 selected_networks=["polygon_mumbai"]

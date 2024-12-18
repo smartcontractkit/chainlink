@@ -10,10 +10,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -72,7 +72,6 @@ func TestConfigureOCR3(t *testing.T) {
 			NodeIDs:              wfNodes,
 			OCR3Config:           &c,
 			WriteGeneratedConfig: w,
-			UseMCMS:              false,
 		}
 
 		csOut, err := changeset.ConfigureOCR3Contract(te.Env, cfg)
@@ -105,7 +104,7 @@ func TestConfigureOCR3(t *testing.T) {
 			NodeIDs:              wfNodes,
 			OCR3Config:           &c,
 			WriteGeneratedConfig: w,
-			UseMCMS:              true,
+			MCMSConfig:           &changeset.MCMSConfig{MinDuration: 0},
 		}
 
 		csOut, err := changeset.ConfigureOCR3Contract(te.Env, cfg)
@@ -119,13 +118,18 @@ func TestConfigureOCR3(t *testing.T) {
 		t.Logf("got: %v", csOut.Proposals[0])
 
 		contracts := te.ContractSets()[te.RegistrySelector]
-		var timelocks = map[uint64]*gethwrappers.RBACTimelock{
-			te.RegistrySelector: contracts.Timelock,
+		require.NoError(t, err)
+		var timelockContracts = map[uint64]*proposalutils.TimelockExecutionContracts{
+			te.RegistrySelector: {
+				Timelock:  contracts.Timelock,
+				CallProxy: contracts.CallProxy,
+			},
 		}
+
 		// now apply the changeset such that the proposal is signed and execed
 		w2 := &bytes.Buffer{}
 		cfg.WriteGeneratedConfig = w2
-		_, err = commonchangeset.ApplyChangesets(t, te.Env, timelocks, []commonchangeset.ChangesetApplication{
+		_, err = commonchangeset.ApplyChangesets(t, te.Env, timelockContracts, []commonchangeset.ChangesetApplication{
 			{
 				Changeset: commonchangeset.WrapChangeSet(changeset.ConfigureOCR3Contract),
 				Config:    cfg,

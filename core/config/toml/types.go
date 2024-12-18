@@ -16,6 +16,7 @@ import (
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
 
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -23,10 +24,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
-	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-
 	configutils "github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
 
@@ -339,7 +338,7 @@ type Database struct {
 	DefaultIdleInTxSessionTimeout *commonconfig.Duration
 	DefaultLockTimeout            *commonconfig.Duration
 	DefaultQueryTimeout           *commonconfig.Duration
-	Dialect                       dialects.DialectName `toml:"-"`
+	Dialect                       pgcommon.DialectName `toml:"-"`
 	LogQueries                    *bool
 	MaxIdleConns                  *int64
 	MaxOpenConns                  *int64

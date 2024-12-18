@@ -150,7 +150,7 @@ type setupOptions struct {
 // functional options to configure the setup
 func setup(t *testing.T, ds sqlutil.DataSource, optionFns ...func(*setupOptions)) (*fluxmonitorv2.FluxMonitor, *testMocks) {
 	t.Helper()
-	testutils.SkipShort(t, "long test")
+	tests.SkipShort(t, "long test")
 
 	tm := setupMocks(t)
 	options := setupOptions{
