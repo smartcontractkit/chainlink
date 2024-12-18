@@ -12,7 +12,7 @@ import (
 
 var _ deployment.ChangeSet[[]uint64] = DeployLinkToken
 
-// DeployLinkToken deploys a link token contract to the chain identified by the chainSelector.
+// DeployLinkToken deploys a link token contract to the chain identified by the ChainSelector.
 func DeployLinkToken(e deployment.Environment, chains []uint64) (deployment.ChangesetOutput, error) {
 	for _, chain := range chains {
 		_, ok := e.Chains[chain]

@@ -78,7 +78,7 @@ func GetContractSets(lggr logger.Logger, req *GetContractSetsRequest) (*GetContr
 
 func loadContractSet(lggr logger.Logger, chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (*ContractSet, error) {
 	var out ContractSet
-	mcmsWithTimelock, err := commonchangeset.MaybeLoadMCMSWithTimelockState(chain, addresses)
+	mcmsWithTimelock, err := commonchangeset.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load mcms contract: %w", err)
 	}

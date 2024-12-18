@@ -8,9 +8,10 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
@@ -143,6 +144,8 @@ func DonIDForChain(registry *capabilities_registry.CapabilitiesRegistry, ccipHom
 	return donIDs[0], nil
 }
 
+// BuildSetOCR3ConfigArgs builds the OCR3 config arguments for the OffRamp contract
+// using the donID's OCR3 configs from the CCIPHome contract.
 func BuildSetOCR3ConfigArgs(
 	donID uint32,
 	ccipHome *ccip_home.CCIPHome,
@@ -563,4 +566,25 @@ func BuildOCR3ConfigForCCIPHome(
 	}
 
 	return ocr3Configs, nil
+}
+
+func DONIdExists(cr *capabilities_registry.CapabilitiesRegistry, donIDs []uint32) error {
+	// DON ids must exist
+	dons, err := cr.GetDONs(nil)
+	if err != nil {
+		return fmt.Errorf("failed to get dons: %w", err)
+	}
+	for _, donID := range donIDs {
+		exists := false
+		for _, don := range dons {
+			if don.Id == donID {
+				exists = true
+				break
+			}
+		}
+		if !exists {
+			return fmt.Errorf("don id %d does not exist", donID)
+		}
+	}
+	return nil
 }

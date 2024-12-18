@@ -4,9 +4,10 @@ import (
 	"net/url"
 	"time"
 
+	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
+
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 )
 
 type backupConfig struct {
@@ -109,7 +110,7 @@ func (d *databaseConfig) URL() url.URL {
 	return *d.s.URL.URL()
 }
 
-func (d *databaseConfig) Dialect() dialects.DialectName {
+func (d *databaseConfig) Dialect() pgcommon.DialectName {
 	return d.c.Dialect
 }
 

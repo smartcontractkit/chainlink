@@ -14,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
+	commonTypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
@@ -53,7 +54,7 @@ type LegacyChainer interface {
 
 type ChainStatuser interface {
 	ChainStatus(ctx context.Context, id types.RelayID) (types.ChainStatus, error)
-	ChainStatuses(ctx context.Context, offset, limit int) ([]types.ChainStatus, int, error)
+	ChainStatuses(ctx context.Context, offset, limit int) ([]commonTypes.ChainStatusWithID, int, error)
 }
 
 // NodesStatuser is an interface for node configuration and state.
@@ -261,9 +262,9 @@ func (rs *CoreRelayerChainInteroperators) ChainStatus(ctx context.Context, id ty
 	return lr.GetChainStatus(ctx)
 }
 
-func (rs *CoreRelayerChainInteroperators) ChainStatuses(ctx context.Context, offset, limit int) ([]types.ChainStatus, int, error) {
+func (rs *CoreRelayerChainInteroperators) ChainStatuses(ctx context.Context, offset, limit int) ([]commonTypes.ChainStatusWithID, int, error) {
 	var (
-		stats    []types.ChainStatus
+		stats    []commonTypes.ChainStatusWithID
 		totalErr error
 	)
 	rs.mu.Lock()
@@ -283,7 +284,7 @@ func (rs *CoreRelayerChainInteroperators) ChainStatuses(ctx context.Context, off
 			totalErr = errors.Join(totalErr, err)
 			continue
 		}
-		stats = append(stats, stat)
+		stats = append(stats, commonTypes.ChainStatusWithID{ChainStatus: stat, RelayID: rid})
 	}
 
 	if totalErr != nil {

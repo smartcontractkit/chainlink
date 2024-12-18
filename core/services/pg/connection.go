@@ -19,7 +19,7 @@ import (
 	"go.opentelemetry.io/otel"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 
-	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
+	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
 )
 
 // NOTE: This is the default level in Postgres anyway, we just make it
@@ -51,7 +51,7 @@ type ConnectionConfig interface {
 	MaxIdleConns() int
 }
 
-func NewConnection(ctx context.Context, uri string, dialect dialects.DialectName, config ConnectionConfig) (*sqlx.DB, error) {
+func NewConnection(ctx context.Context, uri string, dialect pgcommon.DialectName, config ConnectionConfig) (*sqlx.DB, error) {
 	opts := []otelsql.Option{otelsql.WithAttributes(semconv.DBSystemPostgreSQL),
 		otelsql.WithTracerProvider(otel.GetTracerProvider()),
 		otelsql.WithSQLCommenter(true),
@@ -70,7 +70,7 @@ func NewConnection(ctx context.Context, uri string, dialect dialects.DialectName
 		lockTimeout, idleInTxSessionTimeout, defaultIsolation.String())
 
 	var sqldb *sql.DB
-	if dialect == dialects.TransactionWrappedPostgres {
+	if dialect == pgcommon.TransactionWrappedPostgres {
 		// Dbtx uses the uri as a unique identifier for each transaction. Each ORM
 		// should be encapsulated in it's own transaction, and thus needs its own
 		// unique id.
@@ -78,7 +78,11 @@ func NewConnection(ctx context.Context, uri string, dialect dialects.DialectName
 		// We can happily throw away the original uri here because if we are using
 		// txdb it should have already been set at the point where we called
 		// txdb.Register
-		var err error
+
+		err := pgcommon.RegisterTxDb(uri)
+		if err != nil {
+			return nil, fmt.Errorf("failed to register txdb: %w", err)
+		}
 		sqldb, err = otelsql.Open(string(dialect), uuid.New().String(), opts...)
 		if err != nil {
 			return nil, fmt.Errorf("failed to open txdb: %w", err)

@@ -12,7 +12,9 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
@@ -29,7 +31,7 @@ const (
 )
 
 func Test_Client_DonTopologies(t *testing.T) {
-	testutils.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CAPPL-363")
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CAPPL-363")
 	ctx := testutils.Context(t)
 
 	transmissionSchedule, err := values.NewMap(map[string]any{
@@ -88,7 +90,7 @@ func Test_Client_DonTopologies(t *testing.T) {
 }
 
 func Test_Client_TransmissionSchedules(t *testing.T) {
-	testutils.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CAPPL-363")
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CAPPL-363")
 	ctx := testutils.Context(t)
 
 	responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
@@ -145,7 +147,8 @@ func Test_Client_TimesOutIfInsufficientCapabilityPeerResponses(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
-		assert.Error(t, responseError)
+		require.Error(t, responseError)
+		require.ErrorIs(t, responseError, executable.ErrRequestExpired)
 	}
 
 	capability := &TestCapability{}
@@ -159,6 +162,31 @@ func Test_Client_TimesOutIfInsufficientCapabilityPeerResponses(t *testing.T) {
 	// number of capability peers is less than F + 1
 
 	testClient(t, 10, 1*time.Second, 10, 11,
+		capability,
+		func(caller commoncap.ExecutableCapability) {
+			executeInputs, err := values.NewMap(map[string]any{"executeValue1": "aValue1"})
+			require.NoError(t, err)
+			executeMethod(ctx, caller, transmissionSchedule, executeInputs, responseTest, t)
+		})
+}
+
+func Test_Client_ContextCanceledBeforeQuorumReached(t *testing.T) {
+	ctx, cancel := context.WithCancel(testutils.Context(t))
+
+	responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
+		require.Error(t, responseError)
+		require.ErrorIs(t, responseError, executable.ErrContextDoneBeforeResponseQuorum)
+	}
+
+	capability := &TestCapability{}
+	transmissionSchedule, err := values.NewMap(map[string]any{
+		"schedule":   transmission.Schedule_AllAtOnce,
+		"deltaStage": "20s",
+	})
+	require.NoError(t, err)
+
+	cancel()
+	testClient(t, 2, 20*time.Second, 2, 2,
 		capability,
 		func(caller commoncap.ExecutableCapability) {
 			executeInputs, err := values.NewMap(map[string]any{"executeValue1": "aValue1"})

@@ -318,18 +318,13 @@ func (c *Compute) createFetcher() func(ctx context.Context, req *wasmpb.FetchReq
 			headersReq[k] = v.String()
 		}
 
-		payloadBytes, err := json.Marshal(ghcapabilities.Request{
+		resp, err := c.outgoingConnectorHandler.HandleSingleNodeRequest(ctx, messageID, ghcapabilities.Request{
 			URL:       req.Url,
 			Method:    req.Method,
 			Headers:   headersReq,
 			Body:      req.Body,
 			TimeoutMs: req.TimeoutMs,
 		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal fetch request: %w", err)
-		}
-
-		resp, err := c.outgoingConnectorHandler.HandleSingleNodeRequest(ctx, messageID, payloadBytes)
 		if err != nil {
 			return nil, err
 		}
