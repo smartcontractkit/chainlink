@@ -211,16 +211,13 @@ func NewIntegrationEnvironment(t *testing.T, opts ...changeset.TestOps) (changes
 		}
 		if testCfg.CreateJobAndContracts {
 			deployedEnv := changeset.NewEnvironmentWithJobsAndContracts(t, testCfg, anvilDockerEnv)
-			//require.NotNil(t, anvilDockerEnv.testEnv, "empty docker environment")
 			return deployedEnv, devenv.RMNCluster{}
 		}
 		if testCfg.CreateJob {
 			deployedEnv := changeset.NewEnvironmentWithJobs(t, testCfg, anvilDockerEnv)
-			//require.NotNil(t, anvilDockerEnv.testEnv, "empty docker environment")
 			return deployedEnv, devenv.RMNCluster{}
 		}
 		deployedEnv := changeset.NewEnvironment(t, testCfg, anvilDockerEnv)
-		//require.NotNil(t, anvilDockerEnv.testEnv, "empty docker environment")
 		return deployedEnv, devenv.RMNCluster{}
 	default:
 		require.Failf(t, "Type %s not supported in integration tests choose between %s and %s", string(testCfg.Type), changeset.Memory, changeset.Docker)
@@ -249,9 +246,6 @@ func MustGetNetworksToRPCMap(networks []*ctfv2_blockchain.Output) map[uint64]str
 		id, err := strconv.ParseUint(network.ChainID, 10, 64)
 		if err != nil {
 			panic(err)
-		}
-		if id < 0 {
-			panic(fmt.Errorf("negative chain ID: %d", id))
 		}
 		sel, err := chainsel.SelectorFromChainId(id)
 		if err != nil {
