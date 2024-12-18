@@ -100,30 +100,30 @@ type ExecuteOCR2ConfigParams struct {
 	OCR2ConfigParams            confighelper.PublicConfig
 }
 
-func (c *ExecuteOCR2ConfigParams) PopulateOffChainAndOnChainCfg(router, priceReg common.Address) error {
+func (e *ExecuteOCR2ConfigParams) PopulateOffChainAndOnChainCfg(router, priceReg common.Address) error {
 	var err error
-	c.OCR2ConfigParams.ReportingPluginConfig, err = testhelpers.NewExecOffchainConfig(
-		c.DestOptimisticConfirmations,
-		c.BatchGasLimit,
-		c.RelativeBoostPerWaitHour,
-		c.InflightCacheExpiry,
-		c.RootSnoozeTime,
-		c.BatchingStrategyID,
+	e.OCR2ConfigParams.ReportingPluginConfig, err = testhelpers.NewExecOffchainConfig(
+		e.DestOptimisticConfirmations,
+		e.BatchGasLimit,
+		e.RelativeBoostPerWaitHour,
+		e.InflightCacheExpiry,
+		e.RootSnoozeTime,
+		e.BatchingStrategyID,
 	).Encode()
 	if err != nil {
 		return fmt.Errorf("failed to encode offchain config for exec plugin, source chain %d dest chain %d :%w",
-			c.SourceChainSelector, c.DestinationChainSelector, err)
+			e.SourceChainSelector, e.DestinationChainSelector, err)
 	}
-	c.OCR2ConfigParams.OnchainConfig, err = abihelpers.EncodeAbiStruct(testhelpers.NewExecOnchainConfig(
-		c.ExecOnchainConfig.PermissionLessExecutionThresholdSeconds,
+	e.OCR2ConfigParams.OnchainConfig, err = abihelpers.EncodeAbiStruct(testhelpers.NewExecOnchainConfig(
+		e.ExecOnchainConfig.PermissionLessExecutionThresholdSeconds,
 		router,
 		priceReg,
-		c.ExecOnchainConfig.MaxNumberOfTokensPerMsg,
-		c.ExecOnchainConfig.MaxDataBytes,
+		e.ExecOnchainConfig.MaxNumberOfTokensPerMsg,
+		e.ExecOnchainConfig.MaxDataBytes,
 	))
 	if err != nil {
 		return fmt.Errorf("failed to encode onchain config for exec plugin, source chain %d dest chain %d :%w",
-			c.SourceChainSelector, c.DestinationChainSelector, err)
+			e.SourceChainSelector, e.DestinationChainSelector, err)
 	}
 	return nil
 }

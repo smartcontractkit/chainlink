@@ -519,10 +519,9 @@ func WaitForExecute(
 				if cciptypes.MessageExecutionState(it.Event.State) == cciptypes.ExecutionStateSuccess {
 					t.Logf("Execution for sequence number %d found", it.Event.SequenceNumber)
 					return
-				} else {
-					t.Logf("Execution for sequence number %d failed status %d", it.Event.SequenceNumber, it.Event.State)
-					t.Fail()
 				}
+				t.Logf("Execution for sequence number %d resulted in status %d", it.Event.SequenceNumber, it.Event.State)
+				t.Fail()
 			}
 		case <-timer.C:
 			t.Fatalf("timed out waiting for execute for sequence numbers %v for offramp %s ", seqNrs, offRamp.Address().String())
