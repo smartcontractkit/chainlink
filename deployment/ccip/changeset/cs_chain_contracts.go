@@ -45,7 +45,11 @@ type OnRampDestinationUpdate struct {
 	AllowListEnabled bool
 }
 
-func (cfg UpdateOnRampDestsConfig) Validate(ctx context.Context, state CCIPOnChainState) error {
+func (cfg UpdateOnRampDestsConfig) Validate(e deployment.Environment) error {
+	state, err := LoadOnchainState(e)
+	if err != nil {
+		return err
+	}
 	supportedChains := state.SupportedChains()
 	for chainSel, updates := range cfg.UpdatesByChain {
 		chainState, ok := state.Chains[chainSel]
@@ -61,12 +65,22 @@ func (cfg UpdateOnRampDestsConfig) Validate(ctx context.Context, state CCIPOnCha
 		if chainState.OnRamp == nil {
 			return fmt.Errorf("missing onramp onramp for chain %d", chainSel)
 		}
+		owner, err := chainState.OnRamp.Owner(&bind.CallOpts{Context: e.GetContext()})
+		if err != nil {
+			return fmt.Errorf("failed to get onramp owner %s: %w", chainState.OnRamp.Address(), err)
+		}
+		if cfg.MCMS != nil && owner != chainState.Timelock.Address() {
+			return fmt.Errorf("onramp %s is not owned by the timelock", chainState.OnRamp.Address())
+		} else if cfg.MCMS == nil && owner != e.Chains[chainSel].DeployerKey.From {
+			return fmt.Errorf("onramp %s is not owned by the deployer key", chainState.OnRamp.Address())
+		}
+
 		for destination := range updates {
 			// Destination cannot be an unknown destination.
 			if _, ok := supportedChains[destination]; !ok {
 				return fmt.Errorf("destination chain %d is not a supported %s", destination, chainState.OnRamp.Address())
 			}
-			sc, err := chainState.OnRamp.GetStaticConfig(&bind.CallOpts{Context: ctx})
+			sc, err := chainState.OnRamp.GetStaticConfig(&bind.CallOpts{Context: e.GetContext()})
 			if err != nil {
 				return fmt.Errorf("failed to get onramp static config %s: %w", chainState.OnRamp.Address(), err)
 			}
@@ -82,11 +96,11 @@ func (cfg UpdateOnRampDestsConfig) Validate(ctx context.Context, state CCIPOnCha
 // in the chains specified. Multichain support is important - consider when we add a new chain
 // and need to update the onramp destinations for all chains to support the new chain.
 func UpdateOnRampsDests(e deployment.Environment, cfg UpdateOnRampDestsConfig) (deployment.ChangesetOutput, error) {
-	s, err := LoadOnchainState(e)
-	if err != nil {
+	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	if err := cfg.Validate(e.GetContext(), s); err != nil {
+	s, err := LoadOnchainState(e)
+	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
 	var batches []timelock.BatchChainOperation
@@ -165,7 +179,11 @@ type UpdateFeeQuoterDestsConfig struct {
 	MCMS *MCMSConfig
 }
 
-func (cfg UpdateFeeQuoterDestsConfig) Validate(ctx context.Context, state CCIPOnChainState) error {
+func (cfg UpdateFeeQuoterDestsConfig) Validate(e deployment.Environment) error {
+	state, err := LoadOnchainState(e)
+	if err != nil {
+		return err
+	}
 	supportedChains := state.SupportedChains()
 	for chainSel, updates := range cfg.UpdatesByChain {
 		chainState, ok := state.Chains[chainSel]
@@ -181,12 +199,21 @@ func (cfg UpdateFeeQuoterDestsConfig) Validate(ctx context.Context, state CCIPOn
 		if chainState.OnRamp == nil {
 			return fmt.Errorf("missing onramp onramp for chain %d", chainSel)
 		}
+		owner, err := chainState.FeeQuoter.Owner(&bind.CallOpts{Context: e.GetContext()})
+		if err != nil {
+			return fmt.Errorf("failed to get fee quoter owner %s: %w", chainState.FeeQuoter.Address(), err)
+		}
+		if cfg.MCMS != nil && owner != chainState.Timelock.Address() {
+			return fmt.Errorf("fq %s is not owned by the timelock", chainState.FeeQuoter.Address())
+		} else if cfg.MCMS == nil && owner != e.Chains[chainSel].DeployerKey.From {
+			return fmt.Errorf("fq %s is not owned by the deployer key", chainState.FeeQuoter.Address())
+		}
 		for destination := range updates {
 			// Destination cannot be an unknown destination.
 			if _, ok := supportedChains[destination]; !ok {
 				return fmt.Errorf("destination chain %d is not a supported %s", destination, chainState.OnRamp.Address())
 			}
-			sc, err := chainState.OnRamp.GetStaticConfig(&bind.CallOpts{Context: ctx})
+			sc, err := chainState.OnRamp.GetStaticConfig(&bind.CallOpts{Context: e.GetContext()})
 			if err != nil {
 				return fmt.Errorf("failed to get onramp static config %s: %w", chainState.OnRamp.Address(), err)
 			}
@@ -199,11 +226,11 @@ func (cfg UpdateFeeQuoterDestsConfig) Validate(ctx context.Context, state CCIPOn
 }
 
 func UpdateFeeQuoterDests(e deployment.Environment, cfg UpdateFeeQuoterDestsConfig) (deployment.ChangesetOutput, error) {
-	s, err := LoadOnchainState(e)
-	if err != nil {
+	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	if err := cfg.Validate(e.GetContext(), s); err != nil {
+	s, err := LoadOnchainState(e)
+	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
 	var batches []timelock.BatchChainOperation
@@ -275,7 +302,11 @@ type OffRampSourceUpdate struct {
 	TestRouter bool // Flag for safety only allow specifying either router or testRouter.
 }
 
-func (cfg UpdateOffRampSourcesConfig) Validate(ctx context.Context, state CCIPOnChainState) error {
+func (cfg UpdateOffRampSourcesConfig) Validate(e deployment.Environment) error {
+	state, err := LoadOnchainState(e)
+	if err != nil {
+		return err
+	}
 	supportedChains := state.SupportedChains()
 	for chainSel, updates := range cfg.UpdatesByChain {
 		chainState, ok := state.Chains[chainSel]
@@ -290,6 +321,15 @@ func (cfg UpdateOffRampSourcesConfig) Validate(ctx context.Context, state CCIPOn
 		}
 		if chainState.OffRamp == nil {
 			return fmt.Errorf("missing onramp onramp for chain %d", chainSel)
+		}
+		owner, err := chainState.OffRamp.Owner(&bind.CallOpts{Context: e.GetContext()})
+		if err != nil {
+			return fmt.Errorf("failed to get offramp owner %s: %w", chainState.OffRamp.Address(), err)
+		}
+		if cfg.MCMS != nil && owner != chainState.Timelock.Address() {
+			return fmt.Errorf("offramp %s is not owned by the timelock", chainState.OffRamp.Address())
+		} else if cfg.MCMS == nil && owner != e.Chains[chainSel].DeployerKey.From {
+			return fmt.Errorf("offramp %s is not owned by the deployer key", chainState.OffRamp.Address())
 		}
 		for source := range updates {
 			// Source cannot be an unknown
@@ -313,11 +353,11 @@ func (cfg UpdateOffRampSourcesConfig) Validate(ctx context.Context, state CCIPOn
 
 // UpdateOffRampSources updates the offramp sources for each offramp.
 func UpdateOffRampSources(e deployment.Environment, cfg UpdateOffRampSourcesConfig) (deployment.ChangesetOutput, error) {
-	s, err := LoadOnchainState(e)
-	if err != nil {
+	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	if err := cfg.Validate(e.GetContext(), s); err != nil {
+	s, err := LoadOnchainState(e)
+	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
 	var batches []timelock.BatchChainOperation
@@ -403,7 +443,11 @@ type RouterUpdates struct {
 	OnRampUpdates  map[uint64]bool
 }
 
-func (cfg UpdateRouterRampsConfig) Validate(ctx context.Context, state CCIPOnChainState) error {
+func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment) error {
+	state, err := LoadOnchainState(e)
+	if err != nil {
+		return err
+	}
 	supportedChains := state.SupportedChains()
 	for chainSel, update := range cfg.UpdatesByChain {
 		chainState, ok := state.Chains[chainSel]
@@ -419,6 +463,16 @@ func (cfg UpdateRouterRampsConfig) Validate(ctx context.Context, state CCIPOnCha
 		if chainState.OffRamp == nil {
 			return fmt.Errorf("missing onramp onramp for chain %d", chainSel)
 		}
+		owner, err := chainState.Router.Owner(&bind.CallOpts{Context: e.GetContext()})
+		if err != nil {
+			return fmt.Errorf("failed to get router owner %s: %w", chainState.Router.Address(), err)
+		}
+		if cfg.MCMS != nil && owner != chainState.Timelock.Address() {
+			return fmt.Errorf("router %s is not owned by the timelock", chainState.Router.Address())
+		} else if cfg.MCMS == nil && owner != e.Chains[chainSel].DeployerKey.From {
+			return fmt.Errorf("router %s is not owned by the deployer key", chainState.Router.Address())
+		}
+
 		for source := range update.OffRampUpdates {
 			// Source cannot be an unknown
 			if _, ok := supportedChains[source]; !ok {
@@ -460,11 +514,11 @@ func (cfg UpdateRouterRampsConfig) Validate(ctx context.Context, state CCIPOnCha
 // on all chains to support the new chain through the test router first. Once tested,
 // Enable the new destination on the real router.
 func UpdateRouterRamps(e deployment.Environment, cfg UpdateRouterRampsConfig) (deployment.ChangesetOutput, error) {
-	s, err := LoadOnchainState(e)
-	if err != nil {
+	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	if err := cfg.Validate(e.GetContext(), s); err != nil {
+	s, err := LoadOnchainState(e)
+	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
 	var batches []timelock.BatchChainOperation
@@ -562,13 +616,27 @@ type SetOCR3OffRampConfig struct {
 	MCMS            *MCMSConfig
 }
 
-func (c SetOCR3OffRampConfig) Validate(ctx context.Context, state CCIPOnChainState) error {
+func (c SetOCR3OffRampConfig) Validate(e deployment.Environment) error {
+	state, err := LoadOnchainState(e)
+	if err != nil {
+		return err
+	}
 	if _, ok := state.Chains[c.HomeChainSel]; !ok {
 		return fmt.Errorf("home chain %d not found in onchain state", c.HomeChainSel)
 	}
 	for _, remote := range c.RemoteChainSels {
-		if _, ok := state.Chains[remote]; !ok {
+		chainState, ok := state.Chains[remote]
+		if !ok {
 			return fmt.Errorf("remote chain %d not found in onchain state", remote)
+		}
+		owner, err := state.Chains[remote].OffRamp.Owner(&bind.CallOpts{Context: e.GetContext()})
+		if err != nil {
+			return fmt.Errorf("failed to get router owner %s: %w", chainState.OffRamp.Address(), err)
+		}
+		if c.MCMS != nil && owner != chainState.Timelock.Address() {
+			return fmt.Errorf("offramp %s is not owned by the timelock", chainState.OffRamp.Address())
+		} else if c.MCMS == nil && owner != e.Chains[remote].DeployerKey.From {
+			return fmt.Errorf("offramp %s is not owned by the deployer key", chainState.OffRamp.Address())
 		}
 	}
 	return nil
@@ -581,11 +649,11 @@ func (c SetOCR3OffRampConfig) Validate(ctx context.Context, state CCIPOnChainSta
 // Multichain is especially helpful for NOP rotations where we have
 // to touch all the chain to change signers.
 func SetOCR3OffRamp(e deployment.Environment, cfg SetOCR3OffRampConfig) (deployment.ChangesetOutput, error) {
-	state, err := LoadOnchainState(e)
-	if err != nil {
+	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	if err := cfg.Validate(e.GetContext(), state); err != nil {
+	state, err := LoadOnchainState(e)
+	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
 	var batches []timelock.BatchChainOperation
