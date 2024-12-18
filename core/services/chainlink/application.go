@@ -307,10 +307,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 					fetcher.Fetch, workflowstore.NewDBStore(opts.DS, lggr, clockwork.NewRealClock()), opts.CapabilitiesRegistry,
 					custmsg.NewLabeler(), clockwork.NewRealClock(), keys[0])
 
-				loader := syncer.NewWorkflowRegistryContractLoader(lggr, cfg.Capabilities().WorkflowRegistry().Address(), func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
-					return relayer.NewContractReader(ctx, bytes)
-				}, eventHandler)
-
 				globalLogger.Debugw("Creating WorkflowRegistrySyncer")
 				wfSyncer := syncer.NewWorkflowRegistry(
 					lggr,
@@ -322,7 +318,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 						QueryCount: 100,
 					},
 					eventHandler,
-					loader,
 					workflowDonNotifier,
 				)
 
@@ -961,7 +956,7 @@ func (app *ChainlinkApplication) RunJobV2(
 					common.BigToHash(big.NewInt(42)).Bytes(), // seed
 					evmutils.NewHash().Bytes(),               // sender
 					evmutils.NewHash().Bytes(),               // fee
-					evmutils.NewHash().Bytes()},              // requestID
+					evmutils.NewHash().Bytes()}, // requestID
 					[]byte{}),
 				Topics:      []common.Hash{{}, jb.ExternalIDEncodeBytesToTopic()}, // jobID BYTES
 				TxHash:      evmutils.NewHash(),
