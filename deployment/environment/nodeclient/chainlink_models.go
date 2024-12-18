@@ -531,7 +531,7 @@ type TronChainConfig struct {
 
 // TronChainAttributes is the model that represents the tron chain
 type TronChainAttributes struct {
-	ChainID string              `json:"chainID"`
+	ChainID string          `json:"chainID"`
 	Config  TronChainConfig `json:"config"`
 }
 
@@ -549,7 +549,7 @@ type TronChainCreate struct {
 type TronNodeAttributes struct {
 	Name    string `json:"name"`
 	ChainID string `json:"chainId"`
-	Url     string `json:"url"`
+	URL     string `json:"url"`
 }
 
 // TronNode is the model that represents the tron node when read
