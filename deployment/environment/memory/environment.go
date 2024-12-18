@@ -59,9 +59,15 @@ func NewMemoryChains(t *testing.T, numChains int, numUsers int) (map[uint64]depl
 	return generateMemoryChain(t, mchains), users
 }
 
-func NewMemoryChainsWithChainIDs(t *testing.T, chainIDs []uint64) map[uint64]deployment.Chain {
-	mchains := GenerateChainsWithIds(t, chainIDs)
-	return generateMemoryChain(t, mchains)
+func NewMemoryChainsWithChainIDs(t *testing.T, chainIDs []uint64, numUsers int) (map[uint64]deployment.Chain, map[uint64][]*bind.TransactOpts) {
+	mchains := GenerateChainsWithIds(t, chainIDs, numUsers)
+	users := make(map[uint64][]*bind.TransactOpts)
+	for id, chain := range mchains {
+		sel, err := chainsel.SelectorFromChainId(id)
+		require.NoError(t, err)
+		users[sel] = chain.Users
+	}
+	return generateMemoryChain(t, mchains), users
 }
 
 func generateMemoryChain(t *testing.T, inputs map[uint64]EVMChain) map[uint64]deployment.Chain {

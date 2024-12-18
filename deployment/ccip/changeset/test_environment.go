@@ -43,10 +43,11 @@ type TestConfigs struct {
 	CreateJob bool
 	// TODO: This should be CreateContracts so the booleans make sense?
 	CreateJobAndContracts    bool
-	Chains                   int // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
-	NumOfUsersPerChain       int // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
-	Nodes                    int // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
-	Bootstraps               int // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
+	Chains                   int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
+	ChainIDs                 []uint64 // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
+	NumOfUsersPerChain       int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
+	Nodes                    int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
+	Bootstraps               int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
 	IsUSDC                   bool
 	IsUSDCAttestationMissing bool
 	IsMultiCall3             bool
@@ -101,6 +102,12 @@ type TestOps func(testCfg *TestConfigs)
 func WithMultiCall3() TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.IsMultiCall3 = true
+	}
+}
+
+func WithChainIds(chainIDs []uint64) TestOps {
+	return func(testCfg *TestConfigs) {
+		testCfg.ChainIDs = chainIDs
 	}
 }
 
@@ -228,7 +235,22 @@ func (m *MemoryEnvironment) DeployedEnvironment() DeployedEnv {
 
 func (m *MemoryEnvironment) StartChains(t *testing.T, tc *TestConfigs) {
 	ctx := testcontext.Get(t)
-	chains, users := memory.NewMemoryChains(t, tc.Chains, tc.NumOfUsersPerChain)
+	var chains map[uint64]deployment.Chain
+	var users map[uint64][]*bind.TransactOpts
+	if len(tc.ChainIDs) > 0 {
+		chains, users = memory.NewMemoryChainsWithChainIDs(t, tc.ChainIDs, tc.NumOfUsersPerChain)
+		if tc.Chains > len(tc.ChainIDs) {
+			additionalChains, additionalUsers := memory.NewMemoryChains(t, tc.Chains-len(tc.ChainIDs), tc.NumOfUsersPerChain)
+			for k, v := range additionalChains {
+				chains[k] = v
+			}
+			for k, v := range additionalUsers {
+				users[k] = v
+			}
+		}
+	} else {
+		chains, users = memory.NewMemoryChains(t, tc.Chains, tc.NumOfUsersPerChain)
+	}
 	m.Chains = chains
 	homeChainSel, feedSel := allocateCCIPChainSelectors(chains)
 	replayBlocks, err := LatestBlocksByChain(ctx, chains)

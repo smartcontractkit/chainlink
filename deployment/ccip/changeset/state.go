@@ -252,10 +252,10 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	}
 	// Legacy contracts
 	if c.CommitStore != nil {
-		for _, commitStore := range c.CommitStore {
+		for source, commitStore := range c.CommitStore {
 			commitStoreView, err := v1_5.GenerateCommitStoreView(commitStore)
 			if err != nil {
-				return chainView, errors.Wrapf(err, "failed to generate commit store view for commit store %s", commitStore.Address().String())
+				return chainView, errors.Wrapf(err, "failed to generate commit store view for commit store %s for source %d", commitStore.Address().String(), source)
 			}
 			chainView.CommitStore[commitStore.Address().Hex()] = commitStoreView
 		}

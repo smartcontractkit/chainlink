@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -75,35 +74,6 @@ func (j *LegacyJobclient) ProposeJob(ctx context.Context, in *jobv1.ProposeJobRe
 	}}, nil
 }
 
-type MemoryEnvironment struct {
-	changeset.MemoryEnvironment
-}
-
-// StartChains is to override the default changeset.MemoryEnvironment.StartChains method
-// to ensure we always have a chain with chain id 1337
-// this is required for the offchain config digest to be consistent with onchain config digest
-// off chain config digests are calculated based on the chain id which needs to be always 1337 for simulated backend
-// chains, otherwise it will not match with the onchain config digest
-func (m *MemoryEnvironment) StartChains(t *testing.T, tc *changeset.TestConfigs) {
-	ctx := testcontext.Get(t)
-	chains, users := memory.NewMemoryChains(t, tc.Chains-1, tc.NumOfUsersPerChain)
-	// Add chain with chain id 1337
-	chain1337 := memory.NewMemoryChainsWithChainIDs(t, []uint64{1337})
-	for k, v := range chain1337 {
-		chains[k] = v
-	}
-	replayBlocks, err := changeset.LatestBlocksByChain(ctx, chains)
-	require.NoError(t, err)
-	m.Chains = chains
-	m.DeployedEnv = changeset.DeployedEnv{
-		Env: deployment.Environment{
-			Chains: chains,
-		},
-		ReplayBlocks: replayBlocks,
-		Users:        users,
-	}
-}
-
 // NewMemoryEnvironment creates an in-memory environment based on the testconfig requested
 // This environment currently only works when destination chain is 1337
 // Otherwise it shows error for offchain and onchain config digest mismatch
@@ -113,7 +83,7 @@ func NewMemoryEnvironment(t *testing.T, opts ...changeset.TestOps) changeset.Dep
 		opt(testCfg)
 	}
 	require.NoError(t, testCfg.Validate(), "invalid test config")
-	env := &MemoryEnvironment{}
+	env := &changeset.MemoryEnvironment{}
 	return NewEnvironment(t, testCfg, env)
 }
 
