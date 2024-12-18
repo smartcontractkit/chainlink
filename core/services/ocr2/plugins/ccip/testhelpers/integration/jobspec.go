@@ -42,7 +42,7 @@ func (o *OCR2TaskJobSpec) String() (string, error) {
 	if o.OCR2OracleSpec.FeedID != nil {
 		feedID = o.OCR2OracleSpec.FeedID.Hex()
 	}
-	externalId, err := ExternalJobID(o.Name)
+	externalID, err := ExternalJobID(o.Name)
 	if err != nil {
 		return "", err
 	}
@@ -70,7 +70,7 @@ func (o *OCR2TaskJobSpec) String() (string, error) {
 	}{
 		Name:                  o.Name,
 		JobType:               o.JobType,
-		ExternalJobID:         externalId,
+		ExternalJobID:         externalID,
 		ForwardingAllowed:     o.ForwardingAllowed,
 		MaxTaskDuration:       o.MaxTaskDuration,
 		ContractID:            o.OCR2OracleSpec.ContractID,
