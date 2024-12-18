@@ -12,24 +12,25 @@ import {IERC165} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils
  * what to do in these cases.
  *
  * Note this is exactly the same as the OZ version, with the exception that external calls will revert
- * if < 30_000 gas is available, to prevent message delivery issues in CCIP.
+ * if < 31_000 gas is available, to prevent message delivery issues in CCIP.
  */
-library ERC165Checker {
+library ERC165CheckerReverting {
   // As per the EIP-165 spec, no interface should ever match 0xffffffff
   bytes4 private constant _INTERFACE_ID_INVALID = 0xffffffff;
 
-  error NotEnoughGasForSupportsInterfaceCall();
+  // bytes4(keccak256("NotEnoughGasForSupportsInterfaceCall()"))
+  bytes4 private constant NOT_ENOUGH_GAS_SIG = 0x161c3bf7;
 
   /**
    * @dev Returns true if `account` supports the {IERC165} interface.
    */
-  function _supportsERC165(
+  function _supportsERC165Reverting(
     address account
   ) internal view returns (bool) {
     // Any contract that implements ERC165 must explicitly indicate support of
     // InterfaceId_ERC165 and explicitly indicate non-support of InterfaceId_Invalid
-    return _supportsERC165InterfaceUnchecked(account, type(IERC165).interfaceId)
-      && !_supportsERC165InterfaceUnchecked(account, _INTERFACE_ID_INVALID);
+    return _supportsERC165InterfaceUncheckedReverting(account, type(IERC165).interfaceId)
+      && !_supportsERC165InterfaceUncheckedReverting(account, _INTERFACE_ID_INVALID);
   }
 
   /**
@@ -38,9 +39,9 @@ library ERC165Checker {
    *
    * See {IERC165-supportsInterface}.
    */
-  function _supportsInterface(address account, bytes4 interfaceId) internal view returns (bool) {
+  function _supportsInterfaceReverting(address account, bytes4 interfaceId) internal view returns (bool) {
     // query support of both ERC165 as per the spec and support of _interfaceId
-    return _supportsERC165(account) && _supportsERC165InterfaceUnchecked(account, interfaceId);
+    return _supportsERC165Reverting(account) && _supportsERC165InterfaceUncheckedReverting(account, interfaceId);
   }
 
   /**
@@ -53,15 +54,18 @@ library ERC165Checker {
    *
    * _Available since v3.4._
    */
-  function _getSupportedInterfaces(address account, bytes4[] memory interfaceIds) internal view returns (bool[] memory) {
+  function _getSupportedInterfacesReverting(
+    address account,
+    bytes4[] memory interfaceIds
+  ) internal view returns (bool[] memory) {
     // an array of booleans corresponding to interfaceIds and whether they're supported or not
     bool[] memory interfaceIdsSupported = new bool[](interfaceIds.length);
 
     // query support of ERC165 itself
-    if (_supportsERC165(account)) {
+    if (_supportsERC165Reverting(account)) {
       // query support of each interface in interfaceIds
       for (uint256 i = 0; i < interfaceIds.length; i++) {
-        interfaceIdsSupported[i] = _supportsERC165InterfaceUnchecked(account, interfaceIds[i]);
+        interfaceIdsSupported[i] = _supportsERC165InterfaceUncheckedReverting(account, interfaceIds[i]);
       }
     }
 
@@ -77,15 +81,15 @@ library ERC165Checker {
    *
    * See {IERC165-supportsInterface}.
    */
-  function _supportsAllInterfaces(address account, bytes4[] memory interfaceIds) internal view returns (bool) {
+  function _supportsAllInterfacesReverting(address account, bytes4[] memory interfaceIds) internal view returns (bool) {
     // query support of ERC165 itself
-    if (!_supportsERC165(account)) {
+    if (!_supportsERC165Reverting(account)) {
       return false;
     }
 
     // query support of each interface in interfaceIds
     for (uint256 i = 0; i < interfaceIds.length; i++) {
-      if (!_supportsERC165InterfaceUnchecked(account, interfaceIds[i])) {
+      if (!_supportsERC165InterfaceUncheckedReverting(account, interfaceIds[i])) {
         return false;
       }
     }
@@ -109,7 +113,7 @@ library ERC165Checker {
    *
    * Interface identification is specified in ERC-165.
    */
-  function _supportsERC165InterfaceUnchecked(address account, bytes4 interfaceId) internal view returns (bool) {
+  function _supportsERC165InterfaceUncheckedReverting(address account, bytes4 interfaceId) internal view returns (bool) {
     // prepare call
     bytes memory encodedParams = abi.encodeWithSelector(IERC165.supportsInterface.selector, interfaceId);
 
@@ -118,16 +122,21 @@ library ERC165Checker {
     uint256 returnSize;
     uint256 returnValue;
 
-    // Enforce that there's enough gas avilable so that the call will not fail due to OOG error. Without this
-    // supportsInterface() may return false when it should return true.
-    if (gasleft() < 30_000) revert NotEnoughGasForSupportsInterfaceCall();
-
     assembly {
+      // Enforce that there's enough gas avilable so that the call will not fail due to OOG error. Without this supportsInterface() may return false when it should return true.
+
+      // 32,000 gas was chosen to ensure enough gas to invoke the staticcall after the check
+      // without breaking the 63/64 rule. Under EIP-150 there must be at least ~30,476 gas
+      // remaining before the staticcall.
+      if lt(gas(), 32000) {
+        mstore(0x0, NOT_ENOUGH_GAS_SIG)
+        revert(0x0, 0x4)
+      }
+
       success := staticcall(30000, account, add(encodedParams, 0x20), mload(encodedParams), 0x00, 0x20)
       returnSize := returndatasize()
       returnValue := mload(0x00)
     }
-
     return success && returnSize >= 0x20 && returnValue > 0;
   }
 }

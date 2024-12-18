@@ -13,7 +13,7 @@ import {ITokenAdminRegistry} from "../interfaces/ITokenAdminRegistry.sol";
 
 import {CallWithExactGas} from "../../shared/call/CallWithExactGas.sol";
 import {Client} from "../libraries/Client.sol";
-import {ERC165Checker} from "../libraries/ERC165Checker.sol";
+import {ERC165CheckerReverting} from "../libraries/ERC165CheckerReverting.sol";
 import {Internal} from "../libraries/Internal.sol";
 import {MerkleMultiProof} from "../libraries/MerkleMultiProof.sol";
 import {Pool} from "../libraries/Pool.sol";
@@ -28,7 +28,7 @@ import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts
 /// @dev MultiOCR3Base is used to store multiple OCR configs for the OffRamp. The execution plugin type has to be
 /// configured without signature verification, and the commit plugin type with verification.
 contract OffRamp is ITypeAndVersion, MultiOCR3Base {
-  using ERC165Checker for address;
+  using ERC165CheckerReverting for address;
   using EnumerableSet for EnumerableSet.UintSet;
 
   error ZeroChainSelectorNotAllowed();
@@ -609,7 +609,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     // which checks for sufficient gas before making the external call.
     if (
       (message.data.length == 0 && message.gasLimit == 0) || message.receiver.code.length == 0
-        || !message.receiver._supportsInterface(type(IAny2EVMMessageReceiver).interfaceId)
+        || !message.receiver._supportsInterfaceReverting(type(IAny2EVMMessageReceiver).interfaceId)
     ) return;
 
     (bool success, bytes memory returnData,) = s_sourceChainConfigs[message.header.sourceChainSelector]
@@ -650,7 +650,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     // This is done to prevent a pool from reverting the entire transaction if it doesn't support the interface.
     // The call gets a max or 30k gas per instance, of which there are three. This means offchain gas estimations should
     // account for 90k gas overhead due to the interface check.
-    if (localPoolAddress == address(0) || !localPoolAddress._supportsInterface(Pool.CCIP_POOL_V1)) {
+    if (localPoolAddress == address(0) || !localPoolAddress._supportsInterfaceReverting(Pool.CCIP_POOL_V1)) {
       revert NotACompatiblePool(localPoolAddress);
     }
 
