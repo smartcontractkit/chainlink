@@ -118,19 +118,36 @@ type PromoteAllCandidatesChangesetConfig struct {
 	MCMS *MCMSConfig
 }
 
-func (p PromoteAllCandidatesChangesetConfig) Validate(e deployment.Environment, state CCIPOnChainState) ([]uint32, error) {
+func (p PromoteAllCandidatesChangesetConfig) Validate(e deployment.Environment) ([]uint32, error) {
+	state, err := LoadOnchainState(e)
+	if err != nil {
+		return nil, err
+	}
 	if err := deployment.IsValidChainSelector(p.HomeChainSelector); err != nil {
 		return nil, fmt.Errorf("home chain selector invalid: %w", err)
 	}
+	homeChainState, exists := state.Chains[p.HomeChainSelector]
+	if !exists {
+		return nil, fmt.Errorf("home chain %d does not exist", p.HomeChainSelector)
+	}
+	if err := ValidateOwnership(e.GetContext(), p.MCMS != nil, e.Chains[p.HomeChainSelector].DeployerKey.From, homeChainState.Timelock.Address(), homeChainState.CapabilityRegistry); err != nil {
+		return nil, err
+	}
+
 	var donIDs []uint32
 	for _, chainSelector := range p.DONChainSelectors {
 		if err := deployment.IsValidChainSelector(chainSelector); err != nil {
 			return nil, fmt.Errorf("don chain selector invalid: %w", err)
 		}
-		if state.Chains[chainSelector].OffRamp == nil {
+		chainState, exists := state.Chains[chainSelector]
+		if !exists {
+			return nil, fmt.Errorf("chain %d does not exist", chainSelector)
+		}
+		if chainState.OffRamp == nil {
 			// should not be possible, but a defensive check.
 			return nil, fmt.Errorf("OffRamp contract does not exist")
 		}
+
 		donID, err := internal.DonIDForChain(
 			state.Chains[p.HomeChainSelector].CapabilityRegistry,
 			state.Chains[p.HomeChainSelector].CCIPHome,
@@ -190,14 +207,13 @@ func PromoteAllCandidatesChangeset(
 	e deployment.Environment,
 	cfg PromoteAllCandidatesChangesetConfig,
 ) (deployment.ChangesetOutput, error) {
+	donIDs, err := cfg.Validate(e)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("%w: %w", deployment.ErrInvalidConfig, err)
+	}
 	state, err := LoadOnchainState(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
-	}
-
-	donIDs, err := cfg.Validate(e, state)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("%w: %w", deployment.ErrInvalidConfig, err)
 	}
 
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
@@ -285,6 +301,14 @@ func (s SetCandidateConfigBase) Validate(e deployment.Environment, state CCIPOnC
 	if err := deployment.IsValidChainSelector(s.FeedChainSelector); err != nil {
 		return fmt.Errorf("feed chain selector invalid: %w", err)
 	}
+	homeChainState, exists := state.Chains[s.HomeChainSelector]
+	if !exists {
+		return fmt.Errorf("home chain %d does not exist", s.HomeChainSelector)
+	}
+	if err := ValidateOwnership(e.GetContext(), s.MCMS != nil, e.Chains[s.HomeChainSelector].DeployerKey.From, homeChainState.Timelock.Address(), homeChainState.CapabilityRegistry); err != nil {
+		return err
+	}
+
 	for chainSelector, params := range s.DONChainSelector {
 		if err := deployment.IsValidChainSelector(chainSelector); err != nil {
 			return fmt.Errorf("don chain selector invalid: %w", err)
@@ -835,6 +859,13 @@ func (r RevokeCandidateChangesetConfig) Validate(e deployment.Environment, state
 	if state.Chains[r.HomeChainSelector].CapabilityRegistry == nil {
 		return 0, fmt.Errorf("CapabilityRegistry contract does not exist")
 	}
+	homeChainState, exists := state.Chains[r.HomeChainSelector]
+	if !exists {
+		return 0, fmt.Errorf("home chain %d does not exist", r.HomeChainSelector)
+	}
+	if err := ValidateOwnership(e.GetContext(), r.MCMS != nil, e.Chains[r.HomeChainSelector].DeployerKey.From, homeChainState.Timelock.Address(), homeChainState.CapabilityRegistry); err != nil {
+		return 0, err
+	}
 
 	// check that the don exists for this chain
 	donID, err = internal.DonIDForChain(
@@ -997,12 +1028,23 @@ type UpdateChainConfigConfig struct {
 	MCMS              *MCMSConfig
 }
 
-func (c UpdateChainConfigConfig) Validate(state CCIPOnChainState) error {
+func (c UpdateChainConfigConfig) Validate(e deployment.Environment) error {
+	state, err := LoadOnchainState(e)
+	if err != nil {
+		return err
+	}
 	if err := deployment.IsValidChainSelector(c.HomeChainSelector); err != nil {
 		return fmt.Errorf("home chain selector invalid: %w", err)
 	}
 	if len(c.ChainRemoves) == 0 && len(c.ChainAdds) == 0 {
 		return fmt.Errorf("no chain adds or removes")
+	}
+	homeChainState, exists := state.Chains[c.HomeChainSelector]
+	if !exists {
+		return fmt.Errorf("home chain %d does not exist", c.HomeChainSelector)
+	}
+	if err := ValidateOwnership(e.GetContext(), c.MCMS != nil, e.Chains[c.HomeChainSelector].DeployerKey.From, homeChainState.Timelock.Address(), homeChainState.CCIPHome); err != nil {
+		return err
 	}
 	for _, remove := range c.ChainRemoves {
 		if err := deployment.IsValidChainSelector(remove); err != nil {
@@ -1030,12 +1072,12 @@ func (c UpdateChainConfigConfig) Validate(state CCIPOnChainState) error {
 }
 
 func UpdateChainConfig(e deployment.Environment, cfg UpdateChainConfigConfig) (deployment.ChangesetOutput, error) {
+	if err := cfg.Validate(e); err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("%w: %w", deployment.ErrInvalidConfig, err)
+	}
 	state, err := LoadOnchainState(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
-	}
-	if err := cfg.Validate(state); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("%w: %w", deployment.ErrInvalidConfig, err)
 	}
 	txOpts := e.Chains[cfg.HomeChainSelector].DeployerKey
 	txOpts.Context = e.GetContext()
