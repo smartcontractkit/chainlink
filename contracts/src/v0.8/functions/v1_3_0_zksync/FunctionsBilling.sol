@@ -3,8 +3,7 @@ pragma solidity ^0.8.19;
 
 import {IFunctionsSubscriptions} from "../v1_0_0/interfaces/IFunctionsSubscriptions.sol";
 import {AggregatorV3Interface} from "../../shared/interfaces/AggregatorV3Interface.sol";
-import {IFunctionsBilling, FunctionsBillingConfig} from "./interfaces/IFunctionsBilling.sol";
-import {ZKSyncChainSpecificUtil} from "./libraries/ZKSyncChainSpecificUtil.sol";
+import {IFunctionsBilling, FunctionsBillingConfig} from "../v1_0_0/interfaces/IFunctionsBilling.sol";
 
 import {Routable} from "../v1_0_0/Routable.sol";
 import {FunctionsResponse} from "../v1_0_0/libraries/FunctionsResponse.sol";
@@ -201,8 +200,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     /// @NOTE: Basis Points are 1/100th of 1%, divide by 10_000 to bring back to original units
 
     uint256 executionGas = s_config.gasOverheadBeforeCallback + s_config.gasOverheadAfterCallback + callbackGasLimit;
-    uint256 l1FeeWei = ZKSyncChainSpecificUtil._getCurrentTxL1GasFees();
-    uint96 estimatedGasReimbursementJuels = _getJuelsFromWei((gasPriceWithOverestimation * executionGas) + l1FeeWei);
+    uint96 estimatedGasReimbursementJuels = _getJuelsFromWei(gasPriceWithOverestimation * executionGas);
 
     uint96 feesJuels = uint96(donFeeJuels) + uint96(adminFeeJuels) + uint96(operationFeeJuels);
 
@@ -295,10 +293,9 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     FunctionsResponse.Commitment memory commitment = abi.decode(onchainMetadata, (FunctionsResponse.Commitment));
 
     uint256 gasOverheadWei = (commitment.gasOverheadBeforeCallback + commitment.gasOverheadAfterCallback) * tx.gasprice;
-    uint256 l1FeeShareWei = ZKSyncChainSpecificUtil._getCurrentTxL1GasFees() / reportBatchSize;
 
     // Gas overhead without callback
-    uint96 gasOverheadJuels = _getJuelsFromWei(gasOverheadWei + l1FeeShareWei);
+    uint96 gasOverheadJuels = _getJuelsFromWei(gasOverheadWei);
     uint96 juelsPerGas = _getJuelsFromWei(tx.gasprice);
 
     // The Functions Router will perform the callback to the client contract
