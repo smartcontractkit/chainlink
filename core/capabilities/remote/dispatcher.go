@@ -3,7 +3,6 @@ package remote
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"sync"
 	"time"
 
@@ -43,8 +42,8 @@ type dispatcher struct {
 }
 
 type key struct {
-	capID string
-	donID uint32
+	capId string
+	donId uint32
 }
 
 var _ services.Service = &dispatcher{}
@@ -75,7 +74,7 @@ func (d *dispatcher) Start(ctx context.Context) error {
 	d.peer = d.peerWrapper.GetPeer()
 	d.peerID = d.peer.ID()
 	if d.peer == nil {
-		return errors.New("peer is not initialized")
+		return fmt.Errorf("peer is not initialized")
 	}
 	d.wg.Add(1)
 	go func() {
@@ -104,13 +103,13 @@ type receiver struct {
 	ch     chan *types.MessageBody
 }
 
-func (d *dispatcher) SetReceiver(capabilityID string, donID uint32, rec types.Receiver) error {
+func (d *dispatcher) SetReceiver(capabilityId string, donId uint32, rec types.Receiver) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	k := key{capabilityID, donID}
+	k := key{capabilityId, donId}
 	_, ok := d.receivers[k]
 	if ok {
-		return fmt.Errorf("%w: receiver already exists for capability %s and don %d", ErrReceiverExists, capabilityID, donID)
+		return fmt.Errorf("%w: receiver already exists for capability %s and don %d", ErrReceiverExists, capabilityId, donId)
 	}
 
 	receiverCh := make(chan *types.MessageBody, d.cfg.ReceiverBufferSize())
@@ -135,24 +134,23 @@ func (d *dispatcher) SetReceiver(capabilityID string, donID uint32, rec types.Re
 		ch:     receiverCh,
 	}
 
-	d.lggr.Debugw("receiver set", "capabilityId", capabilityID, "donId", donID)
+	d.lggr.Debugw("receiver set", "capabilityId", capabilityId, "donId", donId)
 	return nil
 }
 
-func (d *dispatcher) RemoveReceiver(capabilityID string, donID uint32) {
+func (d *dispatcher) RemoveReceiver(capabilityId string, donId uint32) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	receiverKey := key{capabilityID, donID}
+	receiverKey := key{capabilityId, donId}
 	if receiver, ok := d.receivers[receiverKey]; ok {
 		receiver.cancel()
 		delete(d.receivers, receiverKey)
-		d.lggr.Debugw("receiver removed", "capabilityId", capabilityID, "donID", donID)
+		d.lggr.Debugw("receiver removed", "capabilityId", capabilityId, "donId", donId)
 	}
 }
 
 func (d *dispatcher) Send(peerID p2ptypes.PeerID, msgBody *types.MessageBody) error {
-	//nolint:gosec // G115
 	msgBody.Version = uint32(d.cfg.SupportedVersion())
 	msgBody.Sender = d.peerID[:]
 	msgBody.Receiver = peerID[:]
@@ -196,17 +194,17 @@ func (d *dispatcher) receive() {
 			receiver, ok := d.receivers[k]
 			d.mu.RUnlock()
 			if !ok {
-				d.lggr.Debugw("received message for unregistered capability", "capabilityId", SanitizeLogString(k.capID), "donId", k.donID)
+				d.lggr.Debugw("received message for unregistered capability", "capabilityId", SanitizeLogString(k.capId), "donId", k.donId)
 				d.tryRespondWithError(msg.Sender, body, types.Error_CAPABILITY_NOT_FOUND)
 				continue
 			}
 
 			receiverQueueUsage := float64(len(receiver.ch)) / float64(d.cfg.ReceiverBufferSize())
-			capReceiveChannelUsage.WithLabelValues(k.capID, strconv.FormatUint(uint64(k.donID), 10)).Set(receiverQueueUsage)
+			capReceiveChannelUsage.WithLabelValues(k.capId, fmt.Sprint(k.donId)).Set(receiverQueueUsage)
 			select {
 			case receiver.ch <- body:
 			default:
-				d.lggr.Warnw("receiver channel full, dropping message", "capabilityId", k.capID, "donId", k.donID)
+				d.lggr.Warnw("receiver channel full, dropping message", "capabilityId", k.capId, "donId", k.donId)
 			}
 		}
 	}
