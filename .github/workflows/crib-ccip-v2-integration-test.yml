@@ -57,7 +57,7 @@ jobs:
           aws-ecr-private-registry: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
           ingress-base-domain: ${{ secrets.INGRESS_BASE_DOMAIN_STAGE }}
           k8s-cluster-name: ${{ secrets.AWS_K8S_CLUSTER_NAME_STAGE }}
-          command: "ccip-v2"
+          command: "deploy-geth"
           crib-alert-slack-webhook: ${{ secrets.CRIB_ALERT_SLACK_WEBHOOK }}
           product-image: ${{ secrets.AWS_SDLC_ECR_HOSTNAME }}/ccip
           product-image-tag: develop
@@ -66,20 +66,39 @@ jobs:
           chainlink-product: ccip
           k8s-api-endpoint: ${{ secrets.K8S_API_ENDPOINT_STAGE }}
           crib-repo-ref: 'crib-352/rpc-type'
-      - uses: actions/checkout@v4.2.1
-      - name: Set up Go
-        uses: ./.github/actions/setup-go
+      - name: Get GH JWT Token
+        id: get-jwt-token
+        uses: actions/github-script@v7
         with:
-          go-version-file: 'go.mod'
-      - name: Run CRIB integration test
-        working-directory: integration-tests/crib
+          script: |
+            const audience = 'gap';
+            const id_token = await core.getIDToken(audience);
+            if (!id_token) {
+              throw new Error("Failed to retrieve the JWT token");
+            }
+            return id_token
+      - name: Test ws connection
         env:
-          K8S_STAGING_INGRESS_SUFFIX: ${{ secrets.K8S_STAGING_INGRESS_SUFFIX }}
-          CRIB_NAMESPACE: ${{ steps.deploy-crib.outputs.devspace-namespace }}
-          GAP_URL: ${{ secrets.GAP_URL }}
-        run: |-
-          # go test -v -run TestSomething
-          echo "running tests here"
+          GETH_WS_ENDPOINT: wss://gap-${{ steps.deploy-crib.outputs.devspace-namespace }}-geth-1337-ws.public.main.stage.cldev.sh
+        run: |
+          npm install -g wscat
+          wscat --no-check -c "${GETH_WS_ENDPOINT}" \
+            --header "x-authorization-github-jwt: Bearer ${{ steps.get-jwt-token.outputs.result }}" \
+            -x '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}'
+#      - uses: actions/checkout@v4.2.1
+#      - name: Set up Go
+#        uses: ./.github/actions/setup-go
+#        with:
+#          go-version-file: 'go.mod'
+#      - name: Run CRIB integration test
+#        working-directory: integration-tests/crib
+#        env:
+#          K8S_STAGING_INGRESS_SUFFIX: ${{ secrets.K8S_STAGING_INGRESS_SUFFIX }}
+#          CRIB_NAMESPACE: ${{ steps.deploy-crib.outputs.devspace-namespace }}
+#          GAP_URL: ${{ secrets.GAP_URL }}
+#        run: |-
+#          # go test -v -run TestSomething
+#          echo "running tests here"
       - name: Destroy CRIB Environment
         id: destroy
         if: always() && steps.deploy-crib.outputs.devspace-namespace != ''
