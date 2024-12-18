@@ -11,6 +11,8 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -319,4 +321,25 @@ func BuildOCR3ConfigForCCIPHome(
 	}
 
 	return ocr3Configs, nil
+}
+
+func DONIdExists(cr *capabilities_registry.CapabilitiesRegistry, donIDs []uint32) error {
+	// DON ids must exist
+	dons, err := cr.GetDONs(nil)
+	if err != nil {
+		return fmt.Errorf("failed to get dons: %w", err)
+	}
+	for _, donID := range donIDs {
+		exists := false
+		for _, don := range dons {
+			if don.Id == donID {
+				exists = true
+				break
+			}
+		}
+		if !exists {
+			return fmt.Errorf("don id %d does not exist", donID)
+		}
+	}
+	return nil
 }

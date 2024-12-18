@@ -290,25 +290,14 @@ func NewApp(s *Shell) *cli.App {
 			},
 		},
 		{
-			Name:  "chains",
-			Usage: "Commands for handling chain configuration",
-			Subcommands: cli.Commands{
-				chainCommand("EVM", EVMChainClient(s), cli.Int64Flag{Name: "id", Usage: "chain ID"}),
-				chainCommand("Cosmos", CosmosChainClient(s), cli.StringFlag{Name: "id", Usage: "chain ID"}),
-				chainCommand("Solana", SolanaChainClient(s),
-					cli.StringFlag{Name: "id", Usage: "chain ID, options: [mainnet, testnet, devnet, localnet]"}),
-				chainCommand("StarkNet", StarkNetChainClient(s), cli.StringFlag{Name: "id", Usage: "chain ID"}),
-			},
+			Name:        "chains",
+			Usage:       "Commands for handling chain configuration",
+			Subcommands: initChainSubCmds(s),
 		},
 		{
-			Name:  "nodes",
-			Usage: "Commands for handling node configuration",
-			Subcommands: cli.Commands{
-				initEVMNodeSubCmd(s),
-				initCosmosNodeSubCmd(s),
-				initSolanaNodeSubCmd(s),
-				initStarkNetNodeSubCmd(s),
-			},
+			Name:        "nodes",
+			Usage:       "Commands for handling node configuration",
+			Subcommands: initNodeSubCmds(s),
 		},
 		{
 			Name:        "forwarders",

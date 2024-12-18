@@ -176,6 +176,7 @@ type OffChainReporting2Spec struct {
 	BlockchainTimeout                 models.Interval        `json:"blockchainTimeout"`
 	ContractConfigTrackerPollInterval models.Interval        `json:"contractConfigTrackerPollInterval"`
 	ContractConfigConfirmations       uint16                 `json:"contractConfigConfirmations"`
+	OnchainSigningStrategy            map[string]interface{} `json:"onchainSigningStrategy"`
 	CreatedAt                         time.Time              `json:"createdAt"`
 	UpdatedAt                         time.Time              `json:"updatedAt"`
 	CollectTelemetry                  bool                   `json:"collectTelemetry"`
@@ -194,6 +195,7 @@ func NewOffChainReporting2Spec(spec *job.OCR2OracleSpec) *OffChainReporting2Spec
 		BlockchainTimeout:                 spec.BlockchainTimeout,
 		ContractConfigTrackerPollInterval: spec.ContractConfigTrackerPollInterval,
 		ContractConfigConfirmations:       spec.ContractConfigConfirmations,
+		OnchainSigningStrategy:            spec.OnchainSigningStrategy,
 		CreatedAt:                         spec.CreatedAt,
 		UpdatedAt:                         spec.UpdatedAt,
 		CollectTelemetry:                  spec.CaptureEATelemetry,
