@@ -199,8 +199,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
           decodedReport.results[i],
           decodedReport.errors[i],
           decodedReport.onchainMetadata[i],
-          decodedReport.offchainMetadata[i],
-          uint8(numberOfFulfillments) // will not exceed "MaxRequestBatchSize" on the Job's ReportingPluginConfig
+          decodedReport.offchainMetadata[i]
         )
       );
 
