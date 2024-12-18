@@ -87,7 +87,7 @@ func generateMemoryChain(t *testing.T, inputs map[uint64]EVMChain) map[uint64]de
 						return bind.WaitMined(ctx, backend, tx)
 					}()
 					if err != nil {
-						return 0, fmt.Errorf("tx %s failed to confirm: %v, chain %s", tx.Hash().Hex(), err, chainInfo.ChainSelector)
+						return 0, fmt.Errorf("tx %s failed to confirm: %v, chain %d", tx.Hash().Hex(), err, chainInfo.ChainSelector)
 					}
 					if receipt.Status == 0 {
 						errReason, err := deployment.GetErrorReasonFromTx(chain.Backend.Client(), chain.DeployerKey.From, tx, receipt)
