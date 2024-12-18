@@ -570,9 +570,12 @@ jobs:
         if: ${{ fromJSON(steps.results.outputs.summary).total_tests > 0 }}
         run: |
           echo "Sending Flakeguard results to Splunk"
-          jq --arg event "${{ inputs.event }}" \
+          jq -c --arg event "${{ inputs.event }}" \
             '. | {"sourcetype": "_json", "event": {"event": $event, data: .}}' ./flakeguard-report/all-test-results.json > splunk.json
           
+          # DEBUG: Print the Splunk JSON
+          cat splunk.json
+
           curl "${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}" \
             -H "Authorization: Splunk ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}" \
             -d @splunk.json
