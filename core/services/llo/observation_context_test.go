@@ -14,7 +14,10 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/atomic"
 	"golang.org/x/sync/errgroup"
+
+	"gopkg.in/guregu/null.v4"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
@@ -23,7 +26,7 @@ import (
 	clhttptest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/null"
+	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
@@ -42,7 +45,7 @@ func makePipelineWithMultipleStreamResults(streamIDs []streams.StreamID, results
 	}
 	trrs := make([]pipeline.TaskRunResult, len(streamIDs))
 	for i, res := range results {
-		trrs[i] = pipeline.TaskRunResult{Task: &pipeline.MemoTask{BaseTask: pipeline.BaseTask{StreamID: null.Uint32From(streamIDs[i])}}, Result: pipeline.Result{Value: res}}
+		trrs[i] = pipeline.TaskRunResult{Task: &pipeline.MemoTask{BaseTask: pipeline.BaseTask{StreamID: clnull.Uint32From(streamIDs[i])}}, Result: pipeline.Result{Value: res}}
 	}
 	return &mockPipeline{
 		run:       &pipeline.Run{},
@@ -154,7 +157,9 @@ func (m *mockPipelineConfig) DefaultHTTPTimeout() commonconfig.Duration {
 func (m *mockPipelineConfig) MaxRunDuration() time.Duration  { return 1 * time.Hour }
 func (m *mockPipelineConfig) ReaperInterval() time.Duration  { return 0 }
 func (m *mockPipelineConfig) ReaperThreshold() time.Duration { return 0 }
-func (m *mockPipelineConfig) VerboseLogging() bool           { return true }
+
+// func (m *mockPipelineConfig) VerboseLogging() bool           { return true }
+func (m *mockPipelineConfig) VerboseLogging() bool { return false }
 
 type mockBridgeConfig struct{}
 
@@ -165,23 +170,23 @@ func (m *mockBridgeConfig) BridgeCacheTTL() time.Duration {
 	return 0
 }
 
-func createBridge(t *testing.T, name string, val string, borm bridges.ORM, maxCalls int) {
-	callcount := 0
+func createBridge(t testing.TB, name string, val string, borm bridges.ORM, maxCalls int64) {
+	callcount := atomic.NewInt64(0)
 	bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-		callcount++
-		if callcount > maxCalls {
+		n := callcount.Inc()
+		if maxCalls > 0 && n > maxCalls {
 			panic("too many calls to bridge" + name)
 		}
 		_, herr := io.ReadAll(req.Body)
 		if herr != nil {
-			t.Fatal(herr)
+			panic(herr)
 		}
 
 		res.WriteHeader(http.StatusOK)
 		resp := fmt.Sprintf(`{"result": %s}`, val)
 		_, herr = res.Write([]byte(resp))
 		if herr != nil {
-			t.Fatal(herr)
+			panic(herr)
 		}
 	}))
 	t.Cleanup(bridge.Close)
@@ -333,6 +338,85 @@ result3 -> result3_parse -> multiply3;
 			_, err := oc.Observe(ctx, strmID, opts)
 			return err
 		})
+	}
+	if err := g.Wait(); err != nil {
+		t.Fatalf("Observation failed: %v", err)
+	}
+}
+
+func BenchmarkObservationContext_Observe_integrationRealPipeline_concurrencyStressTest_manyStreams(t *testing.B) {
+	ctx := tests.Context(t)
+	lggr := logger.TestLogger(t)
+	db := pgtest.NewSqlxDB(t)
+	bridgesORM := bridges.NewORM(db)
+
+	n := uint32(t.N)
+
+	createBridge(t, "foo-bridge", `123.456`, bridgesORM, 0)
+	createBridge(t, "bar-bridge", `"124.456"`, bridgesORM, 0)
+
+	c := clhttptest.NewTestLocalOnlyHTTPClient()
+	runner := pipeline.NewRunner(
+		nil,
+		bridgesORM,
+		&mockPipelineConfig{},
+		&mockBridgeConfig{},
+		nil,
+		nil,
+		nil,
+		lggr,
+		c,
+		c,
+	)
+
+	r := streams.NewRegistry(lggr, runner)
+
+	for i := uint32(0); i < n; i++ {
+		jobStreamID := streams.StreamID(i)
+
+		jb := job.Job{
+			ID:       int32(i),
+			Name:     null.StringFrom(fmt.Sprintf("job-%d", i)),
+			Type:     job.Stream,
+			StreamID: &jobStreamID,
+			PipelineSpec: &pipeline.Spec{
+				ID: int32(i * 100),
+				DotDagSource: fmt.Sprintf(`
+// Benchmark Price
+result1          [type=memo value="900.0022"];
+multiply2 	  	 [type=multiply times=1 streamID=%d index=0]; // force conversion to decimal
+
+result2          [type=bridge name="foo-bridge" requestData="{\"data\":{\"data\":\"foo\"}}"];
+result2_parse    [type=jsonparse path="result" streamID=%d index=1];
+
+result3          [type=bridge name="bar-bridge" requestData="{\"data\":{\"data\":\"bar\"}}"];
+result3_parse    [type=jsonparse path="result"];
+multiply3 	  	 [type=multiply times=1 streamID=%d index=2]; // force conversion to decimal
+
+result1 -> multiply2;
+result2 -> result2_parse;
+result3 -> result3_parse -> multiply3; 
+`, i+n, i+2*n, i+3*n),
+			},
+		}
+		err := r.Register(jb, nil)
+		require.NoError(t, err)
+	}
+
+	telem := &mockTelemeter{}
+	oc := newObservationContext(r, telem)
+	opts := llo.DSOpts(nil)
+
+	// concurrency stress test
+	g, ctx := errgroup.WithContext(ctx)
+	for i := uint32(0); i < n; i++ {
+		for _, strmID := range []uint32{i, i + n, i + 2*n, i + 3*n} {
+			g.Go(func() error {
+				// ignore errors, only care about races
+				oc.Observe(ctx, strmID, opts)
+				return nil
+			})
+		}
 	}
 	if err := g.Wait(); err != nil {
 		t.Fatalf("Observation failed: %v", err)

@@ -44,6 +44,9 @@ func newMultiStreamPipeline(lggr logger.Logger, jb job.Job, runner Runner, rrs R
 		return nil, errors.New("job has no pipeline spec")
 	}
 	spec := *jb.PipelineSpec
+	spec.JobID = jb.ID
+	spec.JobName = jb.Name.ValueOrZero()
+	spec.JobType = string(jb.Type)
 	if spec.Pipeline == nil {
 		pipeline, err := spec.ParsePipeline()
 		if err != nil {
