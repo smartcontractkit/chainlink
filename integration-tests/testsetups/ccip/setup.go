@@ -3,16 +3,20 @@ package ccip
 import (
 	"context"
 	"fmt"
+	"math/big"
+	"net/url"
+	"strconv"
+	"testing"
+	"time"
+
+	"github.com/pkg/errors"
+
 	"github.com/AlekSi/pointer"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/crypto"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/credentials/insecure"
-	"math/big"
-	"strconv"
-	"testing"
-	"time"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	cl "github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
@@ -60,7 +64,7 @@ type DeployedLocalAnvilDevEnvironment struct {
 	devEnvCfg     *devenv.EnvironmentConfig
 	in            *CTFV2Conf
 	pvtKeys       []string
-	MockAdapter *fake.Output
+	MockAdapter   *fake.Output
 }
 
 func (l *DeployedLocalAnvilDevEnvironment) DeployedEnvironment() changeset.DeployedEnv {
@@ -103,9 +107,11 @@ func (l *DeployedLocalAnvilDevEnvironment) StartNodes(t *testing.T, _ *changeset
 	nodeOut := startCLNodes(t, crConfig, l.bcs, l.in)
 	ctx := testcontext.Get(t)
 	lggr := logger.TestLogger(t)
-	l.devEnvCfg.JDConfig.NodeInfo = getNodeInfo(nodeOut, pointer.GetInt(l.devEnvTestCfg.CCIP.CLNode.NoOfBootstraps))
+	nodeInfo, err := getNodeInfo(nodeOut, pointer.GetInt(l.devEnvTestCfg.CCIP.CLNode.NoOfBootstraps))
+	require.NoError(t, err, "failed to get node info")
+	l.devEnvCfg.JDConfig.NodeInfo = nodeInfo
 	e, don, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, *l.devEnvCfg)
-	require.NoError(t, err)
+	require.NoError(t, err, "failed to create dev environment")
 	require.NotNil(t, e)
 	l.DON = don
 	l.DeployedEnv.Env = *e
@@ -118,6 +124,7 @@ func (l *DeployedLocalAnvilDevEnvironment) StartNodes(t *testing.T, _ *changeset
 			WithTracing(seth.TracingLevel_All, []string{seth.TraceOutput_Console}).
 			WithPrivateKeys(l.pvtKeys).
 			Build()
+		require.NoError(t, err, "failed to create source chain seth client")
 		nodeClients, err := cl.New(nodeOut.CLNodes)
 		require.NoError(t, err, "failed to create node clients")
 		err = ns.FundNodes(scSrc.Client, nodeClients, l.pvtKeys[0], l.in.Common.NodeFundingAmount)
@@ -125,15 +132,18 @@ func (l *DeployedLocalAnvilDevEnvironment) StartNodes(t *testing.T, _ *changeset
 	}
 }
 
-func getNodeInfo(nodeOut *ns.Output, bootstrapNodeCount int) []devenv.NodeInfo {
+func getNodeInfo(nodeOut *ns.Output, bootstrapNodeCount int) ([]devenv.NodeInfo, error) {
 	var nodeInfo []devenv.NodeInfo
 	for i := 1; i <= len(nodeOut.CLNodes); i++ {
+		p2pURL, err := url.Parse(nodeOut.CLNodes[i-1].Node.DockerP2PUrl)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to parse p2p url")
+		}
 		if i <= bootstrapNodeCount {
 			nodeInfo = append(nodeInfo, devenv.NodeInfo{
 				IsBootstrap: true,
 				Name:        fmt.Sprintf("bootstrap-%d", i),
-				// TODO : make this configurable
-				P2PPort: "6690",
+				P2PPort:     p2pURL.Port(),
 				CLConfig: clclient.ChainlinkConfig{
 					URL:        nodeOut.CLNodes[i-1].Node.HostURL,
 					Email:      nodeOut.CLNodes[i-1].Node.APIAuthUser,
@@ -145,8 +155,7 @@ func getNodeInfo(nodeOut *ns.Output, bootstrapNodeCount int) []devenv.NodeInfo {
 			nodeInfo = append(nodeInfo, devenv.NodeInfo{
 				IsBootstrap: false,
 				Name:        fmt.Sprintf("node-%d", i),
-				// TODO : make this configurable
-				P2PPort: "6690",
+				P2PPort:     p2pURL.Port(),
 				CLConfig: clclient.ChainlinkConfig{
 					URL:        nodeOut.CLNodes[i-1].Node.HostURL,
 					Email:      nodeOut.CLNodes[i-1].Node.APIAuthUser,
@@ -156,7 +165,7 @@ func getNodeInfo(nodeOut *ns.Output, bootstrapNodeCount int) []devenv.NodeInfo {
 			})
 		}
 	}
-	return nodeInfo
+	return nodeInfo, nil
 }
 
 func (l *DeployedLocalAnvilDevEnvironment) MockUSDCAttestationServer(t *testing.T, isFaulty bool) string {
@@ -164,7 +173,7 @@ func (l *DeployedLocalAnvilDevEnvironment) MockUSDCAttestationServer(t *testing.
 	// The path is set with regex to match any path that starts with /v1/attestations
 	path := "/v1/attestations"
 	fakeOut, err := fake.NewFakeDataProvider(l.in.Fake)
-	require.NoError(t, err)
+	require.NoError(t, err, "failed to create mock data provider")
 	l.MockAdapter = fakeOut
 	err = fake.JSON(
 		"GET",
@@ -174,7 +183,7 @@ func (l *DeployedLocalAnvilDevEnvironment) MockUSDCAttestationServer(t *testing.
 			"attestation": "0x9049623e91719ef2aa63c55f357be2529b0e7122ae552c18aff8db58b4633c4d3920ff03d3a6d1ddf11f06bf64d7fd60d45447ac81f527ba628877dc5ca759651b08ffae25a6d3b1411749765244f0a1c131cbfe04430d687a2e12fd9d2e6dc08e118ad95d94ad832332cf3c4f7a4f3da0baa803b7be024b02db81951c0f0714de1b",
 		}, 200,
 	)
-	require.NoError(t, err)
+	require.NoError(t, err, "failed to set up mock usdc attestation server")
 	if isFaulty {
 		err = fake.JSON(
 			"GET",
@@ -184,7 +193,7 @@ func (l *DeployedLocalAnvilDevEnvironment) MockUSDCAttestationServer(t *testing.
 				"error":  "internal error",
 			}, 200,
 		)
-		require.NoError(t, err)
+		require.NoError(t, err, "failed to set up mock faulty usdc attestation server")
 	}
 	return fakeOut.BaseURLHost
 }
@@ -196,12 +205,12 @@ func createAnvilDockerNetwork(t *testing.T) (
 	*CTFV2Conf,
 ) {
 	in, err := framework.Load[CTFV2Conf](t)
-	require.NoError(t, err)
+	require.NoError(t, err, "failed to load ccip test config")
 	if in.Network.NumberOfNetworks > len(in.BlockchainNetworks) {
 		// if number of networks is greater than number of blockchain networks, dynamically add the required networks
 		networksNeeded := in.Network.NumberOfNetworks - len(in.BlockchainNetworks)
 		finalPortID, err := strconv.Atoi(in.BlockchainNetworks[len(in.BlockchainNetworks)-1].Port)
-		require.NoError(t, err)
+		require.NoError(t, err, "failed to convert port number to int")
 		for i := 1; i <= networksNeeded; i++ {
 			in.BlockchainNetworks = append(in.BlockchainNetworks, &blockchain.Input{
 				ChainID: strconv.Itoa(90000000 + i),
@@ -214,7 +223,7 @@ func createAnvilDockerNetwork(t *testing.T) (
 	var blockchains []*blockchain.Output
 	for c := 0; c < in.Network.NumberOfNetworks; c++ {
 		bc, err := blockchain.NewBlockchainNetwork(in.BlockchainNetworks[c])
-		require.NoError(t, err)
+		require.NoError(t, err, "failed to create blockchain network")
 		blockchains = append(blockchains, bc)
 		// mine periodically if not overridden
 		//TODO: Need to handle this check in a better way instead of checking for nil
@@ -224,7 +233,7 @@ func createAnvilDockerNetwork(t *testing.T) (
 		}
 	}
 	jdOutput, err := jd.NewJD(in.JD)
-	require.NoError(t, err)
+	require.NoError(t, err, "failed to create new job distributor")
 	jdConfig := devenv.JDConfig{
 		GRPC:  jdOutput.HostGRPCUrl,
 		WSRPC: jdOutput.DockerWSRPCUrl,
@@ -234,12 +243,14 @@ func createAnvilDockerNetwork(t *testing.T) (
 	for _, chain := range blockchains {
 		chainID, err := strconv.ParseInt(chain.ChainID, 10, 64)
 		require.NoError(t, err, "invalid chain id")
+		id, err := strconv.ParseUint(chain.ChainID, 10, 64)
+		require.NoError(t, err, "invalid chain id")
 		pvtKey, err := crypto.HexToECDSA(in.Network.PrivateKeys[0])
-		require.NoError(t, err)
+		require.NoError(t, err, "invalid private key")
 		deployer, err := bind.NewKeyedTransactorWithChainID(pvtKey, big.NewInt(chainID))
-		require.NoError(t, err)
+		require.NoError(t, err, "failed to create deployer")
 		chainCfg := devenv.ChainConfig{
-			ChainID:     uint64(chainID),
+			ChainID:     id,
 			ChainName:   "chain-" + chain.ChainID,
 			ChainType:   devenv.EVMChainType,
 			WSRPCs:      []string{chain.Nodes[0].HostWSUrl},
@@ -280,7 +291,7 @@ func startCLNodes(
 	in.NodeSet.NodeSpecs[0].Node.TestConfigOverrides = tomlNodeConfig
 
 	nodeOut, err := ns.NewSharedDBNodeSet(in.NodeSet, blockchains[0])
-	require.NoError(t, err)
+	require.NoError(t, err, "failed to create node set")
 	require.NotNil(t, nodeOut)
 	return nodeOut
 }

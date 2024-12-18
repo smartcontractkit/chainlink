@@ -246,14 +246,14 @@ func MustNetworksToRPCMap(evmNetworks []*blockchain.EVMNetwork) map[uint64]strin
 func MustGetNetworksToRPCMap(networks []*ctfv2_blockchain.Output) map[uint64]string {
 	rpcs := make(map[uint64]string)
 	for _, network := range networks {
-		id, err := strconv.ParseInt(network.ChainID, 10, 64)
+		id, err := strconv.ParseUint(network.ChainID, 10, 64)
 		if err != nil {
 			panic(err)
 		}
 		if id < 0 {
-			panic(fmt.Errorf("negative chain ID: %d", network.ChainID))
+			panic(fmt.Errorf("negative chain ID: %d", id))
 		}
-		sel, err := chainsel.SelectorFromChainId(uint64(id))
+		sel, err := chainsel.SelectorFromChainId(id)
 		if err != nil {
 			panic(err)
 		}

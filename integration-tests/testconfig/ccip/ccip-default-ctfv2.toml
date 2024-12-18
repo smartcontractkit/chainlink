@@ -49,6 +49,7 @@ port = 9111
 
 [nodeset]
 nodes = 5
+p2p_port_range_start = 6690
 override_mode = "all"
 
 [nodeset.db]
