@@ -3,13 +3,13 @@ cmp stdout out.txt
 
 -- out.txt --
 NAME:
-   chainlink chains evm - Commands for handling EVM chains
+   chainlink chains evm - Commands for handling evm chains
 
 USAGE:
    chainlink chains evm command [command options] [arguments...]
 
 COMMANDS:
-   list  List all existing EVM chains
+   list  List all existing evm chains
 
 OPTIONS:
    --help, -h  show help

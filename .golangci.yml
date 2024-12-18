@@ -1,5 +1,6 @@
 run:
   timeout: 15m0s
+  allow-parallel-runners: true
 linters:
   enable:
     - containedctx
