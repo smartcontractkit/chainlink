@@ -143,7 +143,7 @@ func NewEnvironment(t *testing.T, tc *changeset.TestConfigs, tEnv changeset.Test
 				opts = append(opts, changeset.WithUSDCEnabled())
 			}
 			if tc.IsMultiCall3 {
-				opts = append(opts, changeset.WithMulticall3())
+				opts = append(opts, changeset.WithMultiCall3Enabled())
 			}
 		}
 		opts = append(opts, changeset.WithLegacyDeployment(changeset.LegacyDeploymentConfig{

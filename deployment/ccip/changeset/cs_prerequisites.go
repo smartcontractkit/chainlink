@@ -92,7 +92,7 @@ func WithUSDCEnabled() PrerequisiteOpt {
 	}
 }
 
-func WithMulticall3() PrerequisiteOpt {
+func WithMultiCall3Enabled() PrerequisiteOpt {
 	return func(o *DeployPrerequisiteContractsOpts) {
 		o.Multicall3Enabled = true
 	}

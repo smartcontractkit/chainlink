@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
@@ -330,7 +331,7 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tc *TestConfigs, tEnv Test
 				opts = append(opts, WithUSDCEnabled())
 			}
 			if tc.IsMultiCall3 {
-				opts = append(opts, WithMulticall3())
+				opts = append(opts, WithMultiCall3Enabled())
 			}
 		}
 		prereqCfg = append(prereqCfg, DeployPrerequisiteConfigPerChain{
