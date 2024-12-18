@@ -497,19 +497,19 @@ func (h *eventHandler) getWorkflowArtifacts(
 	if err != nil {
 		binary, err2 := h.fetcher(ctx, payload.BinaryURL)
 		if err2 != nil {
-			return nil, nil, fmt.Errorf("failed to fetch binary from %s : %w", payload.BinaryURL, err)
+			return nil, nil, fmt.Errorf("failed to fetch binary from %s : %w", payload.BinaryURL, err2)
 		}
 
 		decodedBinary, err2 := base64.StdEncoding.DecodeString(string(binary))
 		if err2 != nil {
-			return nil, nil, fmt.Errorf("failed to decode binary: %w", err)
+			return nil, nil, fmt.Errorf("failed to decode binary: %w", err2)
 		}
 
 		var config []byte
 		if payload.ConfigURL != "" {
 			config, err2 = h.fetcher(ctx, payload.ConfigURL)
 			if err2 != nil {
-				return nil, nil, fmt.Errorf("failed to fetch config from %s : %w", payload.ConfigURL, err)
+				return nil, nil, fmt.Errorf("failed to fetch config from %s : %w", payload.ConfigURL, err2)
 			}
 		}
 		return decodedBinary, config, nil
