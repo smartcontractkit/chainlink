@@ -42,4 +42,14 @@ func Test_Fees(t *testing.T) {
 		fee := CalculateFee(tokenPriceInUSD, BaseUSDFee)
 		assert.Equal(t, big.NewInt(0), fee)
 	})
+
+	t.Run("ridiculously high value rounds down fee to zero", func(t *testing.T) {
+		// 20dp
+		tokenPriceInUSD, err := decimal.NewFromString("12984833000000000000")
+		require.NoError(t, err)
+		BaseUSDFee, err = decimal.NewFromString("0.1")
+		require.NoError(t, err)
+		fee := CalculateFee(tokenPriceInUSD, BaseUSDFee)
+		assert.Equal(t, big.NewInt(0), fee)
+	})
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"iter"
 	"maps"
 	"slices"
 	"strings"
@@ -19,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -178,7 +180,13 @@ func (cr *chainReader) Close() error {
 func (cr *chainReader) Ready() error { return nil }
 
 func (cr *chainReader) HealthReport() map[string]error {
-	return map[string]error{cr.Name(): nil}
+	report := map[string]error{
+		cr.Name(): cr.Healthy(),
+	}
+
+	commonservices.CopyHealth(report, cr.lp.HealthReport())
+	commonservices.CopyHealth(report, cr.ht.HealthReport())
+	return report
 }
 
 func (cr *chainReader) Bind(ctx context.Context, bindings []commontypes.BoundContract) error {
@@ -197,7 +205,12 @@ func (cr *chainReader) GetLatestValue(ctx context.Context, readName string, conf
 
 	ptrToValue, isValue := returnVal.(*values.Value)
 	if !isValue {
-		return binding.GetLatestValue(ctx, common.HexToAddress(address), confidenceLevel, params, returnVal)
+		_, err = binding.GetLatestValueWithHeadData(ctx, common.HexToAddress(address), confidenceLevel, params, returnVal)
+		if err != nil {
+			return err
+		}
+
+		return nil
 	}
 
 	contractType, err := cr.CreateContractType(readName, false)
@@ -217,6 +230,37 @@ func (cr *chainReader) GetLatestValue(ctx context.Context, readName string, conf
 	*ptrToValue = value
 
 	return nil
+}
+
+func (cr *chainReader) GetLatestValueWithHeadData(ctx context.Context, readName string, confidenceLevel primitives.ConfidenceLevel, params any, returnVal any) (head *commontypes.Head, err error) {
+	binding, address, err := cr.bindings.GetReader(readName)
+	if err != nil {
+		return nil, err
+	}
+
+	ptrToValue, isValue := returnVal.(*values.Value)
+	if !isValue {
+		return binding.GetLatestValueWithHeadData(ctx, common.HexToAddress(address), confidenceLevel, params, returnVal)
+	}
+
+	contractType, err := cr.CreateContractType(readName, false)
+	if err != nil {
+		return nil, err
+	}
+
+	head, err = cr.GetLatestValueWithHeadData(ctx, readName, confidenceLevel, params, contractType)
+	if err != nil {
+		return nil, err
+	}
+
+	value, err := values.Wrap(contractType)
+	if err != nil {
+		return nil, err
+	}
+
+	*ptrToValue = value
+
+	return head, nil
 }
 
 func (cr *chainReader) BatchGetLatestValues(ctx context.Context, request commontypes.BatchGetLatestValuesRequest) (commontypes.BatchGetLatestValuesResult, error) {
@@ -266,6 +310,41 @@ func (cr *chainReader) QueryKey(
 	return sequenceOfValues, nil
 }
 
+func (cr *chainReader) QueryKeys(ctx context.Context, filters []commontypes.ContractKeyFilter,
+	limitAndSort query.LimitAndSort) (iter.Seq2[string, commontypes.Sequence], error) {
+	eventQueries := make([]read.EventQuery, 0, len(filters))
+	for _, filter := range filters {
+		binding, address, err := cr.bindings.GetReader(filter.Contract.ReadIdentifier(filter.KeyFilter.Key))
+		if err != nil {
+			return nil, err
+		}
+
+		sequenceDataType := filter.SequenceDataType
+		_, isValuePtr := filter.SequenceDataType.(*values.Value)
+		if isValuePtr {
+			sequenceDataType, err = cr.CreateContractType(filter.Contract.ReadIdentifier(filter.Key), false)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		eventBinding, ok := binding.(*read.EventBinding)
+		if !ok {
+			return nil, fmt.Errorf("query key %s is not an event", filter.KeyFilter.Key)
+		}
+
+		eventQueries = append(eventQueries, read.EventQuery{
+			Filter:           filter.KeyFilter,
+			SequenceDataType: sequenceDataType,
+			IsValuePtr:       isValuePtr,
+			EventBinding:     eventBinding,
+			Address:          common.HexToAddress(address),
+		})
+	}
+
+	return read.MultiEventTypeQuery(ctx, cr.lp, eventQueries, limitAndSort)
+}
+
 func (cr *chainReader) CreateContractType(readIdentifier string, forEncoding bool) (any, error) {
 	return cr.codec.CreateType(cr.bindings.ReadTypeIdentifier(readIdentifier, forEncoding), forEncoding)
 }
@@ -302,7 +381,7 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 		return fmt.Errorf("%w: event %q doesn't exist", commontypes.ErrInvalidConfig, chainReaderDefinition.ChainSpecificName)
 	}
 
-	indexedAsUnIndexedABITypes, indexedTopicsCodecTypes, eventDWs := getEventTypes(event)
+	indexedAsUnIndexedABITypes, indexedTopicsCodecTypes, dwsDetails := getEventTypes(event)
 	if err := indexedTopicsCodecTypes.Init(); err != nil {
 		return err
 	}
@@ -337,7 +416,7 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 		maps.Copy(codecModifiers, topicsModifiers)
 
 		// TODO BCFR-44 no dw modifier for now
-		dataWordsDetails, dWSCodecTypeInfo, initDWQueryingErr := cr.initDWQuerying(contractName, eventName, eventDWs, eventDefinitions.GenericDataWordDetails)
+		dataWordsDetails, dWSCodecTypeInfo, initDWQueryingErr := cr.initDWQuerying(contractName, eventName, dwsDetails, eventDefinitions.GenericDataWordDetails)
 		if initDWQueryingErr != nil {
 			return fmt.Errorf("failed to init dw querying for event: %q, err: %w", eventName, initDWQueryingErr)
 		}
@@ -473,56 +552,36 @@ func (cr *chainReader) addDecoderDef(contractName, itemType string, outputs abi.
 func getEventTypes(event abi.Event) ([]abi.Argument, types.CodecEntry, map[string]read.DataWordDetail) {
 	indexedAsUnIndexedTypes := make([]abi.Argument, 0, types.MaxTopicFields)
 	indexedTypes := make([]abi.Argument, 0, len(event.Inputs))
-	dataWords := make(map[string]read.DataWordDetail)
-	var dwIndex int
-
 	for _, input := range event.Inputs {
-		if !input.Indexed {
-			dwIndex = calculateFieldDWIndex(input, event.Name+"."+input.Name, dataWords, dwIndex)
-			continue
+		if input.Indexed {
+			indexedAsUnIndexed := input
+			indexedAsUnIndexed.Indexed = false
+			// when presenting the filter off-chain, the caller will provide the unHashed version of the input and CR will hash topics when needed.
+			indexedAsUnIndexedTypes = append(indexedAsUnIndexedTypes, indexedAsUnIndexed)
+			indexedTypes = append(indexedTypes, input)
 		}
-
-		indexedAsUnIndexed := input
-		indexedAsUnIndexed.Indexed = false
-		// when presenting the filter off-chain, the caller will provide the unHashed version of the input and CR will hash topics when needed.
-		indexedAsUnIndexedTypes = append(indexedAsUnIndexedTypes, indexedAsUnIndexed)
-		indexedTypes = append(indexedTypes, input)
 	}
 
-	return indexedAsUnIndexedTypes, types.NewCodecEntry(indexedTypes, nil, nil), dataWords
+	return indexedAsUnIndexedTypes, types.NewCodecEntry(indexedTypes, nil, nil), getDWIndexesWithTypes(event.Name, event.Inputs)
 }
 
-// calculateFieldDWIndex recursively calculates the indices of all static unindexed fields in the event
-// and calculates the offset for all unsearchable / dynamic fields.
-func calculateFieldDWIndex(arg abi.Argument, fieldPath string, dataWords map[string]read.DataWordDetail, index int) int {
-	if isDynamic(arg.Type) {
-		return index + 1
+func getDWIndexesWithTypes(eventName string, eventInputs abi.Arguments) map[string]read.DataWordDetail {
+	var dwIndexOffset int
+	dataWords := make(map[string]read.DataWordDetail)
+	dynamicQueue := make([]abi.Argument, 0)
+
+	for _, input := range eventInputs.NonIndexed() {
+		// each dynamic field has an extra field that stores the dwIndexOffset that points to the start of the dynamic data.
+		if isDynamic(input.Type) {
+			dynamicQueue = append(dynamicQueue, input)
+			dwIndexOffset++
+		} else {
+			dwIndexOffset = processDWStaticField(input.Type, eventName+"."+input.Name, dataWords, dwIndexOffset)
+		}
 	}
 
-	return processFields(arg.Type, fieldPath, dataWords, index)
-}
-
-func processFields(fieldType abi.Type, parentFieldPath string, dataWords map[string]read.DataWordDetail, index int) int {
-	switch fieldType.T {
-	case abi.TupleTy:
-		// Recursively process tuple elements
-		for i, tupleElem := range fieldType.TupleElems {
-			fieldName := fieldType.TupleRawNames[i]
-			fullFieldPath := fmt.Sprintf("%s.%s", parentFieldPath, fieldName)
-			index = processFields(*tupleElem, fullFieldPath, dataWords, index)
-		}
-		return index
-	case abi.ArrayTy:
-		// Static arrays are not searchable, however, we can reliably calculate their size so that the fields
-		// after them can be searched.
-		return index + fieldType.Size
-	default:
-		dataWords[parentFieldPath] = read.DataWordDetail{
-			Index:    index,
-			Argument: abi.Argument{Type: fieldType},
-		}
-		return index + 1
-	}
+	processDWDynamicFields(eventName, dataWords, dynamicQueue, dwIndexOffset)
+	return dataWords
 }
 
 func isDynamic(fieldType abi.Type) bool {
@@ -538,6 +597,49 @@ func isDynamic(fieldType abi.Type) bool {
 		}
 	}
 	return false
+}
+
+func processDWStaticField(fieldType abi.Type, parentFieldPath string, dataWords map[string]read.DataWordDetail, index int) int {
+	switch fieldType.T {
+	case abi.TupleTy:
+		// Recursively process tuple elements
+		for i, tupleElem := range fieldType.TupleElems {
+			fieldName := fieldType.TupleRawNames[i]
+			fullFieldPath := fmt.Sprintf("%s.%s", parentFieldPath, fieldName)
+			index = processDWStaticField(*tupleElem, fullFieldPath, dataWords, index)
+		}
+		return index
+	case abi.ArrayTy:
+		// Static arrays are not searchable, however, we can reliably calculate their size so that the fields
+		// after them can be searched.
+		return index + fieldType.Size
+	default:
+		dataWords[parentFieldPath] = read.DataWordDetail{
+			Index:    index,
+			Argument: abi.Argument{Type: fieldType},
+		}
+		return index + 1
+	}
+}
+
+// processDWDynamicFields indexes static fields in dynamic structs.
+// These fields come first after the static fields in the event encoding, so we can calculate their indices.
+func processDWDynamicFields(eventName string, dataWords map[string]read.DataWordDetail, dynamicQueue []abi.Argument, dwIndex int) {
+	for _, arg := range dynamicQueue {
+		switch arg.Type.T {
+		case abi.TupleTy:
+			for i, tupleElem := range arg.Type.TupleElems {
+				// any field after a dynamic field can't be predictably indexed.
+				if isDynamic(*tupleElem) {
+					return
+				}
+				dwIndex = processDWStaticField(*tupleElem, fmt.Sprintf("%s.%s.%s", eventName, arg.Name, arg.Type.TupleRawNames[i]), dataWords, dwIndex)
+			}
+		default:
+			// exit if we see a dynamic field, as we can't predict the index of fields after it.
+			return
+		}
+	}
 }
 
 // ConfirmationsFromConfig maps chain agnostic confidence levels defined in config to predefined EVM finality.

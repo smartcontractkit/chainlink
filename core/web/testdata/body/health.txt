@@ -31,3 +31,4 @@ ok StarkNet.Baz.Chain
 ok StarkNet.Baz.Relayer
 ok StarkNet.Baz.Txm
 ok TelemetryManager
+ok WorkflowDBStore

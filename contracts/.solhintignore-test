@@ -1,0 +1,26 @@
+./src/v0.8/automation/
+./src/v0.8/vrf/
+./src/v0.8/mocks
+./src/v0.8/tests
+./src/v0.8/llo-feeds/
+./src/v0.8/automation/
+./src/v0.8/transmission/
+./src/v0.8/l2ep/
+./src/v0.8/shared/
+./src/v0.8/operatorforwarder/
+./src/v0.8/functions/
+./src/v0.8/liquiditymanager/
+./src/v0.8/keystone/
+./src/v0.8/llo-feeds/
+
+
+# Ignore Functions v1.0.0 code that was frozen after audit
+./src/v0.8/functions/v1_0_0
+
+
+# Always ignore vendor
+./src/v0.8/vendor
+./node_modules/
+
+# Ignore tweaked vendored contracts
+./src/v0.8/shared/enumerable/EnumerableSetWithBytes16.sol

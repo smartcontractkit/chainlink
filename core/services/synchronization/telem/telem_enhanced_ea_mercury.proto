@@ -59,4 +59,5 @@ message EnhancedEAMercury {
   int64 round=19;
   int64 epoch=20;
   string asset_symbol=21;
+  uint32 don_id=36;
 }

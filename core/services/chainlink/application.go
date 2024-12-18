@@ -20,6 +20,7 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -213,10 +214,16 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		opts.CapabilitiesRegistry = capabilities.NewRegistry(globalLogger)
 	}
 
-	// TODO: wire this up to config so we only instantiate it
-	// if a workflow registry address is provided.
-	workflowRegistrySyncer := syncer.NewWorkflowRegistry()
-	srvcs = append(srvcs, workflowRegistrySyncer)
+	var gatewayConnectorWrapper *gatewayconnector.ServiceWrapper
+	if cfg.Capabilities().GatewayConnector().DonID() != "" {
+		globalLogger.Debugw("Creating GatewayConnector wrapper", "donID", cfg.Capabilities().GatewayConnector().DonID())
+		gatewayConnectorWrapper = gatewayconnector.NewGatewayConnectorServiceWrapper(
+			cfg.Capabilities().GatewayConnector(),
+			keyStore.Eth(),
+			clockwork.NewRealClock(),
+			globalLogger)
+		srvcs = append(srvcs, gatewayConnectorWrapper)
+	}
 
 	var externalPeerWrapper p2ptypes.PeerWrapper
 	if cfg.Capabilities().Peering().Enabled() {
@@ -262,30 +269,69 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				return nil, fmt.Errorf("could not configure syncer: %w", err)
 			}
 
+			workflowDonNotifier := capabilities.NewDonNotifier()
+
 			wfLauncher := capabilities.NewLauncher(
 				globalLogger,
 				externalPeerWrapper,
 				dispatcher,
 				opts.CapabilitiesRegistry,
+				workflowDonNotifier,
 			)
 			registrySyncer.AddLauncher(wfLauncher)
 
 			srvcs = append(srvcs, wfLauncher, registrySyncer)
+
+			if cfg.Capabilities().WorkflowRegistry().Address() != "" {
+				if gatewayConnectorWrapper == nil {
+					return nil, errors.New("unable to create workflow registry syncer without gateway connector")
+				}
+
+				err = keyStore.Workflow().EnsureKey(context.Background())
+				if err != nil {
+					return nil, fmt.Errorf("failed to ensure workflow key: %w", err)
+				}
+
+				keys, err := keyStore.Workflow().GetAll()
+				if err != nil {
+					return nil, fmt.Errorf("failed to get all workflow keys: %w", err)
+				}
+				if len(keys) != 1 {
+					return nil, fmt.Errorf("expected 1 key, got %d", len(keys))
+				}
+
+				lggr := globalLogger.Named("WorkflowRegistrySyncer")
+				fetcher := syncer.NewFetcherService(lggr, gatewayConnectorWrapper)
+
+				eventHandler := syncer.NewEventHandler(lggr, syncer.NewWorkflowRegistryDS(opts.DS, globalLogger),
+					fetcher.Fetch, workflowstore.NewDBStore(opts.DS, lggr, clockwork.NewRealClock()), opts.CapabilitiesRegistry,
+					custmsg.NewLabeler(), clockwork.NewRealClock(), keys[0])
+
+				loader := syncer.NewWorkflowRegistryContractLoader(lggr, cfg.Capabilities().WorkflowRegistry().Address(), func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
+					return relayer.NewContractReader(ctx, bytes)
+				}, eventHandler)
+
+				globalLogger.Debugw("Creating WorkflowRegistrySyncer")
+				wfSyncer := syncer.NewWorkflowRegistry(
+					lggr,
+					func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
+						return relayer.NewContractReader(ctx, bytes)
+					},
+					cfg.Capabilities().WorkflowRegistry().Address(),
+					syncer.WorkflowEventPollerConfig{
+						QueryCount: 100,
+					},
+					eventHandler,
+					loader,
+					workflowDonNotifier,
+				)
+
+				srvcs = append(srvcs, fetcher, wfSyncer)
+			}
 		}
 	} else {
 		globalLogger.Debug("External registry not configured, skipping registry syncer and starting with an empty registry")
 		opts.CapabilitiesRegistry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
-	}
-
-	var gatewayConnectorWrapper *gatewayconnector.ServiceWrapper
-	if cfg.Capabilities().GatewayConnector().DonID() != "" {
-		globalLogger.Debugw("Creating GatewayConnector wrapper", "donID", cfg.Capabilities().GatewayConnector().DonID())
-		gatewayConnectorWrapper = gatewayconnector.NewGatewayConnectorServiceWrapper(
-			cfg.Capabilities().GatewayConnector(),
-			keyStore.Eth(),
-			clockwork.NewRealClock(),
-			globalLogger)
-		srvcs = append(srvcs, gatewayConnectorWrapper)
 	}
 
 	// LOOPs can be created as options, in the  case of LOOP relayers, or
@@ -294,7 +340,11 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	// we need to initialize in case we serve OCR2 LOOPs
 	loopRegistry := opts.LoopRegistry
 	if loopRegistry == nil {
-		loopRegistry = plugins.NewLoopRegistry(globalLogger, opts.Config.Tracing(), opts.Config.Telemetry())
+		beholderAuthHeaders, csaPubKeyHex, err := keystore.BuildBeholderAuth(keyStore)
+		if err != nil {
+			return nil, fmt.Errorf("could not build Beholder auth: %w", err)
+		}
+		loopRegistry = plugins.NewLoopRegistry(globalLogger, opts.Config.Tracing(), opts.Config.Telemetry(), beholderAuthHeaders, csaPubKeyHex)
 	}
 
 	// If the audit logger is enabled
@@ -376,7 +426,9 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		if err != nil {
 			return nil, errors.Wrap(err, "NewApplication: failed to initialize LDAP Authentication module")
 		}
-		sessionReaper = ldapauth.NewLDAPServerStateSync(opts.DS, cfg.WebServer().LDAP(), globalLogger)
+		syncer := ldapauth.NewLDAPServerStateSyncer(opts.DS, cfg.WebServer().LDAP(), globalLogger)
+		srvcs = append(srvcs, syncer)
+		sessionReaper = utils.NewSleeperTaskCtx(syncer)
 	case sessions.LocalAuth:
 		authenticationProvider = localauth.NewORM(opts.DS, cfg.WebServer().SessionTimeout().Duration(), globalLogger, auditLogger)
 		sessionReaper = localauth.NewSessionReaper(opts.DS, cfg.WebServer(), globalLogger)
@@ -394,6 +446,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		streamRegistry = streams.NewRegistry(globalLogger, pipelineRunner)
 		workflowORM    = workflowstore.NewDBStore(opts.DS, globalLogger, clockwork.NewRealClock())
 	)
+	srvcs = append(srvcs, workflowORM)
 
 	promReporter := headreporter.NewPrometheusReporter(opts.DS, legacyEVMChains)
 	chainIDs := make([]*big.Int, legacyEVMChains.Len())
@@ -471,7 +524,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	delegates[job.Workflow] = workflows.NewDelegate(
 		globalLogger,
 		opts.CapabilitiesRegistry,
-		workflowRegistrySyncer,
 		workflowORM,
 	)
 

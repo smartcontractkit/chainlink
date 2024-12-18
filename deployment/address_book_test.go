@@ -2,6 +2,8 @@ package deployment
 
 import (
 	"errors"
+	"math/big"
+	"sync"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -41,6 +43,10 @@ func TestAddressBook_Save(t *testing.T) {
 	// Zero address
 	err = ab.Save(chainsel.TEST_90000001.Selector, common.HexToAddress("0x0").Hex(), onRamp100)
 	require.Error(t, err)
+
+	// Zero address but non evm chain
+	err = NewMemoryAddressBook().Save(chainsel.APTOS_MAINNET.Selector, common.HexToAddress("0x0").Hex(), onRamp100)
+	require.NoError(t, err)
 
 	// Distinct address same TV will not
 	err = ab.Save(chainsel.TEST_90000001.Selector, addr2, onRamp100)
@@ -117,4 +123,156 @@ func TestAddressBook_Merge(t *testing.T) {
 			addr1: onRamp110,
 		},
 	})
+}
+
+func TestAddressBook_Remove(t *testing.T) {
+	onRamp100 := NewTypeAndVersion("OnRamp", Version1_0_0)
+	onRamp110 := NewTypeAndVersion("OnRamp", Version1_1_0)
+	addr1 := common.HexToAddress("0x1").String()
+	addr2 := common.HexToAddress("0x2").String()
+	addr3 := common.HexToAddress("0x3").String()
+
+	baseAB := NewMemoryAddressBookFromMap(map[uint64]map[string]TypeAndVersion{
+		chainsel.TEST_90000001.Selector: {
+			addr1: onRamp100,
+			addr2: onRamp100,
+		},
+		chainsel.TEST_90000002.Selector: {
+			addr1: onRamp110,
+			addr3: onRamp110,
+		},
+	})
+
+	copyOfBaseAB := NewMemoryAddressBookFromMap(baseAB.cloneAddresses(baseAB.addressesByChain))
+
+	// this address book shouldn't be removed (state of baseAB not changed, error thrown)
+	failAB := NewMemoryAddressBookFromMap(map[uint64]map[string]TypeAndVersion{
+		chainsel.TEST_90000001.Selector: {
+			addr1: onRamp100,
+			addr3: onRamp100, // doesn't exist in TEST_90000001.Selector
+		},
+	})
+	require.Error(t, baseAB.Remove(failAB))
+	require.EqualValues(t, baseAB, copyOfBaseAB)
+
+	// this Address book should be removed without error
+	successAB := NewMemoryAddressBookFromMap(map[uint64]map[string]TypeAndVersion{
+		chainsel.TEST_90000002.Selector: {
+			addr3: onRamp100,
+		},
+		chainsel.TEST_90000001.Selector: {
+			addr2: onRamp100,
+		},
+	})
+
+	expectingAB := NewMemoryAddressBookFromMap(map[uint64]map[string]TypeAndVersion{
+		chainsel.TEST_90000001.Selector: {
+			addr1: onRamp100,
+		},
+		chainsel.TEST_90000002.Selector: {
+			addr1: onRamp110},
+	})
+
+	require.NoError(t, baseAB.Remove(successAB))
+	require.EqualValues(t, baseAB, expectingAB)
+}
+
+func TestAddressBook_ConcurrencyAndDeadlock(t *testing.T) {
+	onRamp100 := NewTypeAndVersion("OnRamp", Version1_0_0)
+	onRamp110 := NewTypeAndVersion("OnRamp", Version1_1_0)
+
+	baseAB := NewMemoryAddressBookFromMap(map[uint64]map[string]TypeAndVersion{
+		chainsel.TEST_90000001.Selector: {
+			common.BigToAddress(big.NewInt(1)).String(): onRamp100,
+		},
+	})
+
+	// concurrent writes
+	var i int64
+	wg := sync.WaitGroup{}
+	for i = 2; i < 1000; i++ {
+		wg.Add(1)
+		go func(input int64) {
+			require.NoError(t, baseAB.Save(
+				chainsel.TEST_90000001.Selector,
+				common.BigToAddress(big.NewInt(input)).String(),
+				onRamp100,
+			))
+			wg.Done()
+		}(i)
+	}
+
+	// concurrent reads
+	for i = 0; i < 100; i++ {
+		wg.Add(1)
+		go func(input int64) {
+			addresses, err := baseAB.Addresses()
+			require.NoError(t, err)
+			for chainSelector, chainAddresses := range addresses {
+				// concurrent read chainAddresses from Addresses() method
+				for address := range chainAddresses {
+					addresses[chainSelector][address] = onRamp110
+				}
+
+				// concurrent read chainAddresses from AddressesForChain() method
+				chainAddresses, err = baseAB.AddressesForChain(chainSelector)
+				require.NoError(t, err)
+				for address := range chainAddresses {
+					_ = addresses[chainSelector][address]
+				}
+			}
+			require.NoError(t, err)
+			wg.Done()
+		}(i)
+	}
+
+	// concurrent merges, starts from 1001 to avoid address conflicts
+	for i = 1001; i < 1100; i++ {
+		wg.Add(1)
+		go func(input int64) {
+			// concurrent merge
+			additionalAB := NewMemoryAddressBookFromMap(map[uint64]map[string]TypeAndVersion{
+				chainsel.TEST_90000002.Selector: {
+					common.BigToAddress(big.NewInt(input)).String(): onRamp100,
+				},
+			})
+			require.NoError(t, baseAB.Merge(additionalAB))
+			wg.Done()
+		}(i)
+	}
+
+	wg.Wait()
+}
+
+func TestAddressesContainsBundle(t *testing.T) {
+	onRamp100 := NewTypeAndVersion("OnRamp", Version1_0_0)
+	onRamp110 := NewTypeAndVersion("OnRamp", Version1_1_0)
+	onRamp120 := NewTypeAndVersion("OnRamp", Version1_2_0)
+	addr1 := common.HexToAddress("0x1").String()
+	addr2 := common.HexToAddress("0x2").String()
+	addr3 := common.HexToAddress("0x3").String()
+
+	// More than one instance should error
+	_, err := AddressesContainBundle(map[string]TypeAndVersion{
+		addr1: onRamp100,
+		addr2: onRamp100,
+	}, map[TypeAndVersion]struct{}{onRamp100: {}})
+	require.Error(t, err)
+
+	// No such instances should be false
+	exists, err := AddressesContainBundle(map[string]TypeAndVersion{
+		addr2: onRamp110,
+		addr1: onRamp110,
+	}, map[TypeAndVersion]struct{}{onRamp100: {}})
+	require.NoError(t, err)
+	assert.Equal(t, exists, false)
+
+	// 2 elements
+	exists, err = AddressesContainBundle(map[string]TypeAndVersion{
+		addr1: onRamp100,
+		addr2: onRamp110,
+		addr3: onRamp120,
+	}, map[TypeAndVersion]struct{}{onRamp100: {}, onRamp110: {}})
+	require.NoError(t, err)
+	assert.Equal(t, exists, true)
 }

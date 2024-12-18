@@ -723,9 +723,9 @@ func (_c *Client_EstimateGas_Call) RunAndReturn(run func(context.Context, ethere
 	return _c
 }
 
-// FeeHistory provides a mock function with given fields: ctx, blockCount, rewardPercentiles
-func (_m *Client) FeeHistory(ctx context.Context, blockCount uint64, rewardPercentiles []float64) (*ethereum.FeeHistory, error) {
-	ret := _m.Called(ctx, blockCount, rewardPercentiles)
+// FeeHistory provides a mock function with given fields: ctx, blockCount, lastBlock, rewardPercentiles
+func (_m *Client) FeeHistory(ctx context.Context, blockCount uint64, lastBlock *big.Int, rewardPercentiles []float64) (*ethereum.FeeHistory, error) {
+	ret := _m.Called(ctx, blockCount, lastBlock, rewardPercentiles)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FeeHistory")
@@ -733,19 +733,19 @@ func (_m *Client) FeeHistory(ctx context.Context, blockCount uint64, rewardPerce
 
 	var r0 *ethereum.FeeHistory
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, uint64, []float64) (*ethereum.FeeHistory, error)); ok {
-		return rf(ctx, blockCount, rewardPercentiles)
+	if rf, ok := ret.Get(0).(func(context.Context, uint64, *big.Int, []float64) (*ethereum.FeeHistory, error)); ok {
+		return rf(ctx, blockCount, lastBlock, rewardPercentiles)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, uint64, []float64) *ethereum.FeeHistory); ok {
-		r0 = rf(ctx, blockCount, rewardPercentiles)
+	if rf, ok := ret.Get(0).(func(context.Context, uint64, *big.Int, []float64) *ethereum.FeeHistory); ok {
+		r0 = rf(ctx, blockCount, lastBlock, rewardPercentiles)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*ethereum.FeeHistory)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, uint64, []float64) error); ok {
-		r1 = rf(ctx, blockCount, rewardPercentiles)
+	if rf, ok := ret.Get(1).(func(context.Context, uint64, *big.Int, []float64) error); ok {
+		r1 = rf(ctx, blockCount, lastBlock, rewardPercentiles)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -761,14 +761,15 @@ type Client_FeeHistory_Call struct {
 // FeeHistory is a helper method to define mock.On call
 //   - ctx context.Context
 //   - blockCount uint64
+//   - lastBlock *big.Int
 //   - rewardPercentiles []float64
-func (_e *Client_Expecter) FeeHistory(ctx interface{}, blockCount interface{}, rewardPercentiles interface{}) *Client_FeeHistory_Call {
-	return &Client_FeeHistory_Call{Call: _e.mock.On("FeeHistory", ctx, blockCount, rewardPercentiles)}
+func (_e *Client_Expecter) FeeHistory(ctx interface{}, blockCount interface{}, lastBlock interface{}, rewardPercentiles interface{}) *Client_FeeHistory_Call {
+	return &Client_FeeHistory_Call{Call: _e.mock.On("FeeHistory", ctx, blockCount, lastBlock, rewardPercentiles)}
 }
 
-func (_c *Client_FeeHistory_Call) Run(run func(ctx context.Context, blockCount uint64, rewardPercentiles []float64)) *Client_FeeHistory_Call {
+func (_c *Client_FeeHistory_Call) Run(run func(ctx context.Context, blockCount uint64, lastBlock *big.Int, rewardPercentiles []float64)) *Client_FeeHistory_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(uint64), args[2].([]float64))
+		run(args[0].(context.Context), args[1].(uint64), args[2].(*big.Int), args[3].([]float64))
 	})
 	return _c
 }
@@ -778,7 +779,7 @@ func (_c *Client_FeeHistory_Call) Return(feeHistory *ethereum.FeeHistory, err er
 	return _c
 }
 
-func (_c *Client_FeeHistory_Call) RunAndReturn(run func(context.Context, uint64, []float64) (*ethereum.FeeHistory, error)) *Client_FeeHistory_Call {
+func (_c *Client_FeeHistory_Call) RunAndReturn(run func(context.Context, uint64, *big.Int, []float64) (*ethereum.FeeHistory, error)) *Client_FeeHistory_Call {
 	_c.Call.Return(run)
 	return _c
 }

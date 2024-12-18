@@ -96,11 +96,12 @@ func Test_MercuryTransmitter_Transmit(t *testing.T) {
 			report := sampleV3Report
 			c := &mocks.MockWSRPCClient{}
 			clients[sURL] = c
-			triggerService := triggers.NewMercuryTriggerService(0, lggr)
+			triggerService, err := triggers.NewMercuryTriggerService(0, "", "", lggr)
+			require.NoError(t, err)
 			mt := NewTransmitter(lggr, mockCfg{}, clients, sampleClientPubKey, jobID, sampleFeedID, orm, codec, benchmarkPriceDecoder, triggerService)
 			// init the queue since we skipped starting transmitter
 			mt.servers[sURL].q.Init([]*Transmission{})
-			err := mt.Transmit(testutils.Context(t), sampleReportContext, report, sampleSigs)
+			err = mt.Transmit(testutils.Context(t), sampleReportContext, report, sampleSigs)
 			require.NoError(t, err)
 			// queue is empty
 			require.Equal(t, mt.servers[sURL].q.(*transmitQueue).pq.Len(), 0)

@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"sort"
-	"strconv"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -18,31 +18,35 @@ import (
 	types3 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"google.golang.org/grpc"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	csav1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/csa"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
+// OnchainClient is an EVM chain client.
+// For EVM specifically we can use existing geth interface
+// to abstract chain clients.
 type OnchainClient interface {
-	// For EVM specifically we can use existing geth interface
-	// to abstract chain clients.
 	bind.ContractBackend
 	bind.DeployBackend
 	BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error)
 	NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error)
 }
 
+// OffchainClient interacts with the job-distributor
+// which is a family agnostic interface for performing
+// DON operations.
 type OffchainClient interface {
-	// The job distributor grpc interface can be used to abstract offchain read/writes
 	jobv1.JobServiceClient
 	nodev1.NodeServiceClient
 	csav1.CSAServiceClient
 }
 
+// Chain represents an EVM chain.
 type Chain struct {
 	// Selectors used as canonical chain identifier.
 	Selector uint64
@@ -50,14 +54,74 @@ type Chain struct {
 	// Note the Sign function can be abstract supporting a variety of key storage mechanisms (e.g. KMS etc).
 	DeployerKey *bind.TransactOpts
 	Confirm     func(tx *types.Transaction) (uint64, error)
+	// Users are a set of keys that can be used to interact with the chain.
+	// These are distinct from the deployer key.
+	Users []*bind.TransactOpts
 }
 
+func (c Chain) String() string {
+	chainInfo, err := ChainInfo(c.Selector)
+	if err != nil {
+		// we should never get here, if the selector is invalid it should not be in the environment
+		panic(err)
+	}
+	return fmt.Sprintf("%s (%d)", chainInfo.ChainName, chainInfo.ChainSelector)
+}
+
+func (c Chain) Name() string {
+	chainInfo, err := ChainInfo(c.Selector)
+	if err != nil {
+		// we should never get here, if the selector is invalid it should not be in the environment
+		panic(err)
+	}
+	return chainInfo.ChainName
+}
+
+// Environment represents an instance of a deployed product
+// including on and offchain components. It is intended to be
+// cross-family to enable a coherent view of a product deployed
+// to all its chains.
+// TODO: Add SolChains, AptosChain etc.
+// using Go bindings/libraries from their respective
+// repositories i.e. chainlink-solana, chainlink-cosmos
+// You can think of ExistingAddresses as a set of
+// family agnostic "onchain pointers" meant to be used in conjunction
+// with chain fields to read/write relevant chain state. Similarly,
+// you can think of NodeIDs as "offchain pointers" to be used in
+// conjunction with the Offchain client to read/write relevant
+// offchain state (i.e. state in the DON(s)).
 type Environment struct {
-	Name     string
-	Chains   map[uint64]Chain
-	Offchain OffchainClient
-	NodeIDs  []string
-	Logger   logger.Logger
+	Name              string
+	Logger            logger.Logger
+	ExistingAddresses AddressBook
+	Chains            map[uint64]Chain
+	SolChains         map[uint64]SolChain
+	NodeIDs           []string
+	Offchain          OffchainClient
+	GetContext        func() context.Context
+	OCRSecrets        OCRSecrets
+}
+
+func NewEnvironment(
+	name string,
+	logger logger.Logger,
+	existingAddrs AddressBook,
+	chains map[uint64]Chain,
+	nodeIDs []string,
+	offchain OffchainClient,
+	ctx func() context.Context,
+	secrets OCRSecrets,
+) *Environment {
+	return &Environment{
+		Name:              name,
+		Logger:            logger,
+		ExistingAddresses: existingAddrs,
+		Chains:            chains,
+		NodeIDs:           nodeIDs,
+		Offchain:          offchain,
+		GetContext:        ctx,
+		OCRSecrets:        secrets,
+	}
 }
 
 func (e Environment) AllChainSelectors() []uint64 {
@@ -91,13 +155,21 @@ func (e Environment) AllChainSelectorsExcluding(excluding []uint64) []uint64 {
 	return selectors
 }
 
+func (e Environment) AllDeployerKeys() []common.Address {
+	var deployerKeys []common.Address
+	for sel := range e.Chains {
+		deployerKeys = append(deployerKeys, e.Chains[sel].DeployerKey.From)
+	}
+	return deployerKeys
+}
+
 func ConfirmIfNoError(chain Chain, tx *types.Transaction, err error) (uint64, error) {
 	if err != nil {
 		//revive:disable
 		var d rpc.DataError
 		ok := errors.As(err, &d)
 		if ok {
-			return 0, fmt.Errorf("transaction reverted: Error %s ErrorData %v", d.Error(), d.ErrorData())
+			return 0, fmt.Errorf("transaction reverted on chain %s: Error %s ErrorData %v", chain.String(), d.Error(), d.ErrorData())
 		}
 		return 0, err
 	}
@@ -109,7 +181,7 @@ func MaybeDataErr(err error) error {
 	var d rpc.DataError
 	ok := errors.As(err, &d)
 	if ok {
-		return d
+		return fmt.Errorf("%s: %v", d.Error(), d.ErrorData())
 	}
 	return err
 }
@@ -180,11 +252,38 @@ func (n Nodes) BootstrapLocators() []string {
 
 type Node struct {
 	NodeID         string
-	SelToOCRConfig map[uint64]OCRConfig
+	Name           string
+	CSAKey         string
+	SelToOCRConfig map[chain_selectors.ChainDetails]OCRConfig
 	PeerID         p2pkey.PeerID
 	IsBootstrap    bool
 	MultiAddr      string
 	AdminAddr      string
+	Labels         []*ptypes.Label
+}
+
+func (n Node) OCRConfigForChainDetails(details chain_selectors.ChainDetails) (OCRConfig, bool) {
+	c, ok := n.SelToOCRConfig[details]
+	return c, ok
+}
+
+func (n Node) OCRConfigForChainSelector(chainSel uint64) (OCRConfig, bool) {
+	fam, err := chain_selectors.GetSelectorFamily(chainSel)
+	if err != nil {
+		return OCRConfig{}, false
+	}
+
+	id, err := chain_selectors.GetChainIDFromSelector(chainSel)
+	if err != nil {
+		return OCRConfig{}, false
+	}
+
+	want, err := chain_selectors.GetChainDetailsByChainIDAndFamily(id, fam)
+	if err != nil {
+		return OCRConfig{}, false
+	}
+	c, ok := n.SelToOCRConfig[want]
+	return c, ok
 }
 
 func (n Node) FirstOCRKeybundle() OCRConfig {
@@ -203,49 +302,68 @@ func MustPeerIDFromString(s string) p2pkey.PeerID {
 }
 
 type NodeChainConfigsLister interface {
+	ListNodes(ctx context.Context, in *nodev1.ListNodesRequest, opts ...grpc.CallOption) (*nodev1.ListNodesResponse, error)
 	ListNodeChainConfigs(ctx context.Context, in *nodev1.ListNodeChainConfigsRequest, opts ...grpc.CallOption) (*nodev1.ListNodeChainConfigsResponse, error)
 }
 
 // Gathers all the node info through JD required to be able to set
-// OCR config for example.
+// OCR config for example. nodeIDs can be JD IDs or PeerIDs
 func NodeInfo(nodeIDs []string, oc NodeChainConfigsLister) (Nodes, error) {
+	if len(nodeIDs) == 0 {
+		return nil, nil
+	}
+	// if nodeIDs starts with `p2p_` lookup by p2p_id instead
+	filterByPeerIDs := strings.HasPrefix(nodeIDs[0], "p2p_")
+	var filter *nodev1.ListNodesRequest_Filter
+	if filterByPeerIDs {
+		selector := strings.Join(nodeIDs, ",")
+		filter = &nodev1.ListNodesRequest_Filter{
+			Enabled: 1,
+			Selectors: []*ptypes.Selector{
+				{
+					Key:   "p2p_id",
+					Op:    ptypes.SelectorOp_IN,
+					Value: &selector,
+				},
+			},
+		}
+	} else {
+		filter = &nodev1.ListNodesRequest_Filter{
+			Enabled: 1,
+			Ids:     nodeIDs,
+		}
+	}
+	nodesFromJD, err := oc.ListNodes(context.Background(), &nodev1.ListNodesRequest{
+		Filter: filter,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list nodes: %w", err)
+	}
+
 	var nodes []Node
-	for _, nodeID := range nodeIDs {
+	for _, node := range nodesFromJD.GetNodes() {
 		// TODO: Filter should accept multiple nodes
 		nodeChainConfigs, err := oc.ListNodeChainConfigs(context.Background(), &nodev1.ListNodeChainConfigsRequest{Filter: &nodev1.ListNodeChainConfigsRequest_Filter{
-			NodeIds: []string{nodeID},
+			NodeIds: []string{node.Id},
 		}})
 		if err != nil {
 			return nil, err
 		}
-		selToOCRConfig := make(map[uint64]OCRConfig)
+		selToOCRConfig := make(map[chain_selectors.ChainDetails]OCRConfig)
 		bootstrap := false
 		var peerID p2pkey.PeerID
 		var multiAddr string
 		var adminAddr string
 		for _, chainConfig := range nodeChainConfigs.ChainConfigs {
-			if chainConfig.Chain.Type == nodev1.ChainType_CHAIN_TYPE_SOLANA {
-				// Note supported for CCIP yet.
-				continue
-			}
 			// NOTE: Assume same peerID/multiAddr for all chains.
 			// Might make sense to change proto as peerID/multiAddr is 1-1 with nodeID?
 			peerID = MustPeerIDFromString(chainConfig.Ocr2Config.P2PKeyBundle.PeerId)
 			multiAddr = chainConfig.Ocr2Config.Multiaddr
-			adminAddr = chainConfig.AdminAddress
 			if chainConfig.Ocr2Config.IsBootstrap {
 				// NOTE: Assume same peerID for all chains.
 				// Might make sense to change proto as peerID is 1-1 with nodeID?
 				bootstrap = true
 				break
-			}
-			evmChainID, err := strconv.Atoi(chainConfig.Chain.Id)
-			if err != nil {
-				return nil, err
-			}
-			sel, err := chain_selectors.SelectorFromChainId(uint64(evmChainID))
-			if err != nil {
-				return nil, err
 			}
 			b := common.Hex2Bytes(chainConfig.Ocr2Config.OcrKeyBundle.OffchainPublicKey)
 			var opk types2.OffchainPublicKey
@@ -255,22 +373,59 @@ func NodeInfo(nodeIDs []string, oc NodeChainConfigsLister) (Nodes, error) {
 			var cpk types3.ConfigEncryptionPublicKey
 			copy(cpk[:], b)
 
-			selToOCRConfig[sel] = OCRConfig{
+			var pubkey types3.OnchainPublicKey
+			if chainConfig.Chain.Type == nodev1.ChainType_CHAIN_TYPE_EVM {
+				// convert from pubkey to address
+				pubkey = common.HexToAddress(chainConfig.Ocr2Config.OcrKeyBundle.OnchainSigningAddress).Bytes()
+			} else {
+				pubkey = common.Hex2Bytes(chainConfig.Ocr2Config.OcrKeyBundle.OnchainSigningAddress)
+			}
+
+			ocrConfig := OCRConfig{
 				OffchainPublicKey:         opk,
-				OnchainPublicKey:          common.HexToAddress(chainConfig.Ocr2Config.OcrKeyBundle.OnchainSigningAddress).Bytes(),
+				OnchainPublicKey:          pubkey,
 				PeerID:                    MustPeerIDFromString(chainConfig.Ocr2Config.P2PKeyBundle.PeerId),
 				TransmitAccount:           types2.Account(chainConfig.AccountAddress),
 				ConfigEncryptionPublicKey: cpk,
 				KeyBundleID:               chainConfig.Ocr2Config.OcrKeyBundle.BundleId,
 			}
+
+			if chainConfig.Chain.Type == nodev1.ChainType_CHAIN_TYPE_EVM {
+				// NOTE: Assume same adminAddr for all chains. We always use EVM addr
+				adminAddr = chainConfig.AdminAddress
+			}
+
+			var family string
+			switch chainConfig.Chain.Type {
+			case nodev1.ChainType_CHAIN_TYPE_EVM:
+				family = chain_selectors.FamilyEVM
+			case nodev1.ChainType_CHAIN_TYPE_APTOS:
+				family = chain_selectors.FamilyAptos
+			case nodev1.ChainType_CHAIN_TYPE_SOLANA:
+				family = chain_selectors.FamilySolana
+			case nodev1.ChainType_CHAIN_TYPE_STARKNET:
+				family = chain_selectors.FamilyStarknet
+			default:
+				return nil, fmt.Errorf("unsupported chain type %s", chainConfig.Chain.Type)
+			}
+
+			details, err := chain_selectors.GetChainDetailsByChainIDAndFamily(chainConfig.Chain.Id, family)
+			if err != nil {
+				return nil, err
+			}
+
+			selToOCRConfig[details] = ocrConfig
 		}
 		nodes = append(nodes, Node{
-			NodeID:         nodeID,
+			NodeID:         node.Id,
+			Name:           node.Name,
+			CSAKey:         node.PublicKey,
 			SelToOCRConfig: selToOCRConfig,
 			IsBootstrap:    bootstrap,
 			PeerID:         peerID,
 			MultiAddr:      multiAddr,
 			AdminAddr:      adminAddr,
+			Labels:         node.Labels,
 		})
 	}
 
@@ -278,6 +433,7 @@ func NodeInfo(nodeIDs []string, oc NodeChainConfigsLister) (Nodes, error) {
 }
 
 type CapabilityRegistryConfig struct {
-	EVMChainID uint64         // chain id of the chain the CR is deployed on
-	Contract   common.Address // address of the CR contract
+	EVMChainID  uint64         // chain id of the chain the CR is deployed on
+	Contract    common.Address // address of the CR contract
+	NetworkType string         // network type of the chain
 }

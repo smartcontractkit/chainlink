@@ -352,7 +352,6 @@ func DeployLocalCluster(
 					pointer.GetString(clNode.ChainlinkImage.Image),
 					pointer.GetString(clNode.ChainlinkImage.Version),
 					toml,
-					env.LogStream,
 					test_env.WithPgDBOptions(
 						ctftestenv.WithPostgresImageName(clNode.DBImage),
 						ctftestenv.WithPostgresImageVersion(clNode.DBTag),
@@ -381,7 +380,6 @@ func DeployLocalCluster(
 					pointer.GetString(testInputs.EnvInput.NewCLCluster.Common.ChainlinkImage.Image),
 					pointer.GetString(testInputs.EnvInput.NewCLCluster.Common.ChainlinkImage.Version),
 					toml,
-					env.LogStream,
 					test_env.WithPgDBOptions(
 						ctftestenv.WithPostgresImageName(testInputs.EnvInput.NewCLCluster.Common.DBImage),
 						ctftestenv.WithPostgresImageVersion(testInputs.EnvInput.NewCLCluster.Common.DBTag),

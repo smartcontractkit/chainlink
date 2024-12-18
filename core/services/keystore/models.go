@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/solkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/starkkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -158,6 +159,7 @@ type keyRing struct {
 	StarkNet   map[string]starkkey.Key
 	Aptos      map[string]aptoskey.Key
 	VRF        map[string]vrfkey.KeyV2
+	Workflow   map[string]workflowkey.Key
 	LegacyKeys LegacyKeyStorage
 }
 
@@ -173,6 +175,7 @@ func newKeyRing() *keyRing {
 		StarkNet: make(map[string]starkkey.Key),
 		Aptos:    make(map[string]aptoskey.Key),
 		VRF:      make(map[string]vrfkey.KeyV2),
+		Workflow: make(map[string]workflowkey.Key),
 	}
 }
 
@@ -236,6 +239,9 @@ func (kr *keyRing) raw() (rawKeys rawKeyRing) {
 	for _, vrfKey := range kr.VRF {
 		rawKeys.VRF = append(rawKeys.VRF, vrfKey.Raw())
 	}
+	for _, workflowKey := range kr.Workflow {
+		rawKeys.Workflow = append(rawKeys.Workflow, workflowKey.Raw())
+	}
 	return rawKeys
 }
 
@@ -281,6 +287,12 @@ func (kr *keyRing) logPubKeys(lggr logger.Logger) {
 	for _, VRFKey := range kr.VRF {
 		vrfIDs = append(vrfIDs, VRFKey.ID())
 	}
+	workflowIDs := make([]string, len(kr.Workflow))
+	i := 0
+	for _, workflowKey := range kr.Workflow {
+		workflowIDs[i] = workflowKey.ID()
+		i++
+	}
 	if len(csaIDs) > 0 {
 		lggr.Infow(fmt.Sprintf("Unlocked %d CSA keys", len(csaIDs)), "keys", csaIDs)
 	}
@@ -311,6 +323,9 @@ func (kr *keyRing) logPubKeys(lggr logger.Logger) {
 	if len(vrfIDs) > 0 {
 		lggr.Infow(fmt.Sprintf("Unlocked %d VRF keys", len(vrfIDs)), "keys", vrfIDs)
 	}
+	if len(workflowIDs) > 0 {
+		lggr.Infow(fmt.Sprintf("Unlocked %d Workflow keys", len(workflowIDs)), "keys", workflowIDs)
+	}
 	if len(kr.LegacyKeys.legacyRawKeys) > 0 {
 		lggr.Infow(fmt.Sprintf("%d keys stored in legacy system", kr.LegacyKeys.legacyRawKeys.len()))
 	}
@@ -330,6 +345,7 @@ type rawKeyRing struct {
 	StarkNet   []starkkey.Raw
 	Aptos      []aptoskey.Raw
 	VRF        []vrfkey.Raw
+	Workflow   []workflowkey.Raw
 	LegacyKeys LegacyKeyStorage `json:"-"`
 }
 
@@ -375,6 +391,10 @@ func (rawKeys rawKeyRing) keys() (*keyRing, error) {
 	for _, rawVRFKey := range rawKeys.VRF {
 		vrfKey := rawVRFKey.Key()
 		keyRing.VRF[vrfKey.ID()] = vrfKey
+	}
+	for _, rawWorkflowKey := range rawKeys.Workflow {
+		workflowKey := rawWorkflowKey.Key()
+		keyRing.Workflow[workflowKey.ID()] = workflowKey
 	}
 
 	keyRing.LegacyKeys = rawKeys.LegacyKeys

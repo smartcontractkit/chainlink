@@ -5,16 +5,36 @@ import (
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 )
 
+var _ deployment.ChangeSet[InitialContractsCfg] = ConfigureInitialContractsChangeset
+
+type InitialContractsCfg struct {
+	RegistryChainSel uint64
+	Dons             []kslib.DonCapabilities
+	OCR3Config       *kslib.OracleConfig
+}
+
+func ConfigureInitialContractsChangeset(e deployment.Environment, cfg InitialContractsCfg) (deployment.ChangesetOutput, error) {
+	req := &kslib.ConfigureContractsRequest{
+		Env:              &e,
+		RegistryChainSel: cfg.RegistryChainSel,
+		Dons:             cfg.Dons,
+		OCR3Config:       cfg.OCR3Config,
+	}
+	return ConfigureInitialContracts(e.Logger, req)
+}
+
+// Deprecated: Use ConfigureInitialContractsChangeset instead.
 func ConfigureInitialContracts(lggr logger.Logger, req *kslib.ConfigureContractsRequest) (deployment.ChangesetOutput, error) {
 	if err := req.Validate(); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to validate request: %w", err)
 	}
 
-	regAddrs, err := req.AddressBook.AddressesForChain(req.RegistryChainSel)
+	regAddrs, err := req.Env.ExistingAddresses.AddressesForChain(req.RegistryChainSel)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("no addresses found for chain %d: %w", req.RegistryChainSel, err)
 	}
@@ -38,7 +58,7 @@ func ConfigureInitialContracts(lggr logger.Logger, req *kslib.ConfigureContracts
 	// forwarder on all chains
 	foundForwarder = false
 	for _, c := range req.Env.Chains {
-		addrs, err2 := req.AddressBook.AddressesForChain(c.Selector)
+		addrs, err2 := req.Env.ExistingAddresses.AddressesForChain(c.Selector)
 		if err2 != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("no addresses found for chain %d: %w", c.Selector, err2)
 		}

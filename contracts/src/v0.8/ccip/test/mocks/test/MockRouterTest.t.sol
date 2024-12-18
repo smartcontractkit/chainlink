@@ -13,7 +13,7 @@ contract MockRouterTest is TokenSetup {
 
   MockCCIPRouter public mockRouter;
 
-  uint64 public constant mockChainSelector = 123456;
+  uint64 public constant MOCK_CHAIN_SELECTOR = 123456;
 
   Client.EVM2AnyMessage public message;
 
@@ -34,26 +34,26 @@ contract MockRouterTest is TokenSetup {
   function test_ccipSendWithInsufficientNativeTokens_Revert() public {
     //Should revert because did not include sufficient eth to pay for fees
     vm.expectRevert(IRouterClient.InsufficientFeeTokenAmount.selector);
-    mockRouter.ccipSend(mockChainSelector, message);
+    mockRouter.ccipSend(MOCK_CHAIN_SELECTOR, message);
   }
 
   function test_ccipSendWithSufficientNativeFeeTokens_Success() public {
     //ccipSend with sufficient native tokens for fees
-    mockRouter.ccipSend{value: 0.1 ether}(mockChainSelector, message);
+    mockRouter.ccipSend{value: 0.1 ether}(MOCK_CHAIN_SELECTOR, message);
   }
 
   function test_ccipSendWithInvalidMsgValue_Revert() public {
     message.feeToken = address(1); //Set to non native-token fees
 
     vm.expectRevert(IRouterClient.InvalidMsgValue.selector);
-    mockRouter.ccipSend{value: 0.1 ether}(mockChainSelector, message);
+    mockRouter.ccipSend{value: 0.1 ether}(MOCK_CHAIN_SELECTOR, message);
   }
 
   function test_ccipSendWithLinkFeeTokenbutInsufficientAllowance_Revert() public {
     message.feeToken = s_sourceFeeToken;
 
     vm.expectRevert(bytes("ERC20: insufficient allowance"));
-    mockRouter.ccipSend(mockChainSelector, message);
+    mockRouter.ccipSend(MOCK_CHAIN_SELECTOR, message);
   }
 
   function test_ccipSendWithLinkFeeTokenAndValidMsgValue_Success() public {
@@ -63,6 +63,26 @@ contract MockRouterTest is TokenSetup {
 
     IERC20(s_sourceFeeToken).safeApprove(address(mockRouter), type(uint256).max);
 
-    mockRouter.ccipSend(mockChainSelector, message);
+    mockRouter.ccipSend(MOCK_CHAIN_SELECTOR, message);
+  }
+
+  function test_ccipSendWithEVMExtraArgsV1_Success() public {
+    Client.EVMExtraArgsV1 memory extraArgs = Client.EVMExtraArgsV1({gasLimit: 500_000});
+    message.extraArgs = Client._argsToBytes(extraArgs);
+    mockRouter.ccipSend{value: 0.1 ether}(MOCK_CHAIN_SELECTOR, message);
+  }
+
+  function test_ccipSendWithEVMExtraArgsV2_Success() public {
+    Client.EVMExtraArgsV2 memory extraArgs = Client.EVMExtraArgsV2({gasLimit: 500_000, allowOutOfOrderExecution: true});
+    message.extraArgs = Client._argsToBytes(extraArgs);
+    mockRouter.ccipSend{value: 0.1 ether}(MOCK_CHAIN_SELECTOR, message);
+  }
+
+  function test_ccipSendWithInvalidEVMExtraArgs_Revert() public {
+    uint256 gasLimit = 500_000;
+    bytes4 invalidExtraArgsTag = bytes4(keccak256("CCIP EVMExtraArgsInvalid"));
+    message.extraArgs = abi.encodeWithSelector(invalidExtraArgsTag, gasLimit);
+    vm.expectRevert(MockCCIPRouter.InvalidExtraArgsTag.selector);
+    mockRouter.ccipSend{value: 0.1 ether}(MOCK_CHAIN_SELECTOR, message);
   }
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 )
@@ -18,8 +19,12 @@ type CapabilitiesRegistryDeployer struct {
 	contract *capabilities_registry.CapabilitiesRegistry
 }
 
-func NewCapabilitiesRegistryDeployer(lggr logger.Logger) *CapabilitiesRegistryDeployer {
-	return &CapabilitiesRegistryDeployer{lggr: lggr}
+func NewCapabilitiesRegistryDeployer() (*CapabilitiesRegistryDeployer, error) {
+	lggr, err := logger.New()
+	if err != nil {
+		return nil, err
+	}
+	return &CapabilitiesRegistryDeployer{lggr: lggr}, nil
 }
 
 func (c *CapabilitiesRegistryDeployer) Contract() *capabilities_registry.CapabilitiesRegistry {

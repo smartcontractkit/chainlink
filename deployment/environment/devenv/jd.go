@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 
+	"golang.org/x/oauth2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/metadata"
 
 	csav1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/csa"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
@@ -17,11 +19,67 @@ type JDConfig struct {
 	GRPC     string
 	WSRPC    string
 	Creds    credentials.TransportCredentials
+	Auth     oauth2.TokenSource
+	GAP      string
 	NodeInfo []NodeInfo
 }
 
+func authTokenInterceptor(source oauth2.TokenSource) grpc.UnaryClientInterceptor {
+	return func(
+		ctx context.Context,
+		method string,
+		req, reply any,
+		cc *grpc.ClientConn,
+		invoker grpc.UnaryInvoker,
+		opts ...grpc.CallOption,
+	) error {
+		token, err := source.Token()
+		if err != nil {
+			return err
+		}
+
+		return invoker(
+			metadata.AppendToOutgoingContext(ctx, "authorization", "Bearer "+token.AccessToken),
+			method, req, reply, cc, opts...,
+		)
+	}
+}
+
+func gapTokenInterceptor(token string) grpc.UnaryClientInterceptor {
+	return func(
+		ctx context.Context,
+		method string,
+		req, reply any,
+		cc *grpc.ClientConn,
+		invoker grpc.UnaryInvoker,
+		opts ...grpc.CallOption,
+	) error {
+		return invoker(
+			metadata.AppendToOutgoingContext(ctx, "x-authorization-github-jwt", "Bearer "+token),
+			method, req, reply, cc, opts...,
+		)
+	}
+}
+
 func NewJDConnection(cfg JDConfig) (*grpc.ClientConn, error) {
-	conn, err := grpc.NewClient(cfg.GRPC, grpc.WithTransportCredentials(cfg.Creds))
+	opts := []grpc.DialOption{}
+	interceptors := []grpc.UnaryClientInterceptor{}
+
+	if cfg.Creds != nil {
+		opts = append(opts, grpc.WithTransportCredentials(cfg.Creds))
+	}
+	if cfg.Auth != nil {
+		interceptors = append(interceptors, authTokenInterceptor(cfg.Auth))
+	}
+	if cfg.GAP != "" {
+		interceptors = append(interceptors, gapTokenInterceptor(cfg.GAP))
+	}
+
+	if len(interceptors) > 0 {
+		opts = append(opts, grpc.WithChainUnaryInterceptor(interceptors...))
+	}
+
+	conn, err := grpc.NewClient(cfg.GRPC, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect Job Distributor service. Err: %w", err)
 	}

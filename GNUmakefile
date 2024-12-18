@@ -133,16 +133,15 @@ testdb-force: ## Prepares the test database, drops any pesky user connections th
 testdb-user-only: ## Prepares the test database with user only.
 	go run . local db preparetest --user-only
 
-# Format for CI
-.PHONY: presubmit
-presubmit: ## Format go files and imports.
-	goimports -w .
-	gofmt -w .
-	go mod tidy
-
 .PHONY: gomods
 gomods: ## Install gomods
 	go install github.com/jmank88/gomods@v0.1.4
+
+.PHONY: gomodslocalupdate
+gomodslocalupdate: gomods ## Run gomod-local-update
+	go install ./tools/gomod-local-update/cmd/gomod-local-update
+	gomods -w gomod-local-update
+	gomods tidy
 
 .PHONY: mockery
 mockery: $(mockery) ## Install mockery.
@@ -178,6 +177,7 @@ golangci-lint: ## Run golangci-lint for all issues.
 
 .PHONY: modgraph
 modgraph:
+	go install github.com/jmank88/modgraph@v0.1.0
 	./tools/bin/modgraph > go.md
 
 .PHONY: test-short

@@ -8,8 +8,14 @@ import (
 )
 
 type KeystoneChainView struct {
-	CapabilityRegistry map[string]common_v1_0.CapRegView `json:"capabilityRegistry,omitempty"`
+	CapabilityRegistry map[string]common_v1_0.CapabilityRegistryView `json:"capabilityRegistry,omitempty"`
 	// TODO forwarders etc
+}
+
+func NewKeystoneChainView() KeystoneChainView {
+	return KeystoneChainView{
+		CapabilityRegistry: make(map[string]common_v1_0.CapabilityRegistryView),
+	}
 }
 
 type KeystoneView struct {
@@ -18,5 +24,7 @@ type KeystoneView struct {
 }
 
 func (v KeystoneView) MarshalJSON() ([]byte, error) {
-	return json.Marshal(v)
+	// Alias to avoid recursive calls
+	type Alias KeystoneView
+	return json.MarshalIndent(&struct{ Alias }{Alias: Alias(v)}, "", " ")
 }

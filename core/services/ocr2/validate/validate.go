@@ -73,9 +73,6 @@ func ValidatedOracleSpecToml(ctx context.Context, config OCR2Config, insConf Ins
 	if err = validateTimingParameters(config, insConf, spec); err != nil {
 		return jb, err
 	}
-	if err = validateAdaptiveSendSpec(ctx, jb); err != nil {
-		return jb, err
-	}
 	return jb, nil
 }
 
@@ -379,11 +376,4 @@ func validateOCR2LLOSpec(jsonConfig job.JSONConfig) error {
 		return pkgerrors.Wrap(err, "error while unmarshaling plugin config")
 	}
 	return pkgerrors.Wrap(pluginConfig.Validate(), "LLO PluginConfig is invalid")
-}
-
-func validateAdaptiveSendSpec(ctx context.Context, spec job.Job) error {
-	if spec.AdaptiveSendSpec != nil {
-		return spec.AdaptiveSendSpec.Validate()
-	}
-	return nil
 }

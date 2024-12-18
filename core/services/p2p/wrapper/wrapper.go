@@ -36,7 +36,7 @@ func NewExternalPeerWrapper(keystoreP2P keystore.P2P, p2pConfig config.P2P, ds s
 	return &peerWrapper{
 		keystoreP2P: keystoreP2P,
 		p2pConfig:   p2pConfig,
-		lggr:        lggr,
+		lggr:        lggr.Named("PeerWrapper"),
 		ds:          ds,
 	}
 }
@@ -126,7 +126,7 @@ func (e *peerWrapper) HealthReport() map[string]error {
 }
 
 func (e *peerWrapper) Name() string {
-	return "PeerWrapper"
+	return e.lggr.Name()
 }
 
 func (e *peerWrapper) Sign(msg []byte) ([]byte, error) {

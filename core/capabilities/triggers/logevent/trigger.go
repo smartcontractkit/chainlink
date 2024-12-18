@@ -2,6 +2,7 @@ package logevent
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -62,6 +63,11 @@ func newLogEventTrigger(ctx context.Context,
 	// Bind Contract in ContractReader
 	boundContracts := []types.BoundContract{{Name: reqConfig.ContractName, Address: reqConfig.ContractAddress}}
 	err = contractReader.Bind(ctx, boundContracts)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	err = contractReader.Start(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -198,7 +204,7 @@ func createTriggerResponse(log types.Sequence, version string) capabilities.Trig
 		Cursor: log.Cursor,
 		Data:   dataAsMap,
 		Head: logeventcap.Head{
-			Hash:      fmt.Sprintf("0x%x", log.Hash),
+			Hash:      "0x" + hex.EncodeToString(log.Hash),
 			Height:    log.Height,
 			Timestamp: log.Timestamp,
 		},

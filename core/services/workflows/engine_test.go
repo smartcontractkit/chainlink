@@ -20,7 +20,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
+	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	gcmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 
@@ -35,7 +37,6 @@ import (
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
 )
 
 const testWorkflowId = "<workflow-id>"
@@ -85,6 +86,7 @@ targets:
       address: "0x54e220867af6683aE6DcBF535B4f952cB5116510"
       params: ["$(report)"]
       abi: "receive(report bytes)"
+      cre_step_timeout: 610
 `
 
 type testHooks struct {
@@ -149,6 +151,12 @@ func newTestEngineWithYAMLSpec(t *testing.T, reg *coreCap.Registry, spec string,
 	return newTestEngine(t, reg, sdkSpec, opts...)
 }
 
+type mockSecretsFetcher struct{}
+
+func (s mockSecretsFetcher) SecretsFor(ctx context.Context, workflowOwner, workflowName, workflowID string) (map[string]string, error) {
+	return map[string]string{}, nil
+}
+
 // newTestEngine creates a new engine with some test defaults.
 func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec, opts ...func(c *Config)) (*Engine, *testHooks) {
 	initFailed := make(chan struct{})
@@ -174,7 +182,7 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 		onExecutionFinished: func(weid string) {
 			executionFinished <- weid
 		},
-		SecretsFetcher: syncer.NewWorkflowRegistry(),
+		SecretsFetcher: mockSecretsFetcher{},
 		clock:          clock,
 	}
 	for _, o := range opts {
@@ -184,7 +192,7 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 	if cfg.Store == nil {
 		cfg.Store = newTestDBStore(t, cfg.clock)
 	}
-	eng, err := NewEngine(cfg)
+	eng, err := NewEngine(testutils.Context(t), cfg)
 	require.NoError(t, err)
 	return eng, &testHooks{initSuccessful: initSuccessful, initFailed: initFailed, executionFinished: executionFinished}
 }
@@ -973,26 +981,26 @@ func TestEngine_Error(t *testing.T) {
 	}{
 		{
 			name:   "Error with error and reason",
-			labels: map[string]string{wIDKey: "my-workflow-id"},
+			labels: map[string]string{platform.KeyWorkflowID: "my-workflow-id"},
 			err:    err,
 			reason: "some reason",
 			want:   "workflowID my-workflow-id: some reason: some error",
 		},
 		{
 			name:   "Error with error and no reason",
-			labels: map[string]string{eIDKey: "dd3708ac7d8dd6fa4fae0fb87b73f318a4da2526c123e159b72435e3b2fe8751"},
+			labels: map[string]string{platform.KeyWorkflowExecutionID: "dd3708ac7d8dd6fa4fae0fb87b73f318a4da2526c123e159b72435e3b2fe8751"},
 			err:    err,
 			want:   "workflowExecutionID dd3708ac7d8dd6fa4fae0fb87b73f318a4da2526c123e159b72435e3b2fe8751: some error",
 		},
 		{
 			name:   "Error with no error and reason",
-			labels: map[string]string{cIDKey: "streams-trigger:network_eth@1.0.0"},
+			labels: map[string]string{platform.KeyCapabilityID: "streams-trigger:network_eth@1.0.0"},
 			reason: "some reason",
 			want:   "capabilityID streams-trigger:network_eth@1.0.0: some reason",
 		},
 		{
 			name:   "Error with no error and no reason",
-			labels: map[string]string{tIDKey: "wf_123_trigger_456"},
+			labels: map[string]string{platform.KeyTriggerID: "wf_123_trigger_456"},
 			want:   "triggerID wf_123_trigger_456: ",
 		},
 		{
@@ -1005,9 +1013,9 @@ func TestEngine_Error(t *testing.T) {
 		{
 			name: "Multiple labels",
 			labels: map[string]string{
-				wIDKey: "my-workflow-id",
-				eIDKey: "dd3708ac7d8dd6fa4fae0fb87b73f318a4da2526c123e159b72435e3b2fe8751",
-				cIDKey: "streams-trigger:network_eth@1.0.0",
+				platform.KeyWorkflowID:          "my-workflow-id",
+				platform.KeyWorkflowExecutionID: "dd3708ac7d8dd6fa4fae0fb87b73f318a4da2526c123e159b72435e3b2fe8751",
+				platform.KeyCapabilityID:        "streams-trigger:network_eth@1.0.0",
 			},
 			err:    err,
 			reason: "some reason",
@@ -1120,8 +1128,8 @@ triggers:
         - "0x3333333333333333333300000000000000000000000000000000000000000000" # BTCUSD
 
 actions:
-  - id: custom_compute@1.0.0
-    ref: custom_compute
+  - id: custom-compute@1.0.0
+    ref: custom-compute
     config:
       maxMemoryMBs: 128
       tickInterval: 100ms
@@ -1166,7 +1174,7 @@ targets:
 func TestEngine_MergesWorkflowConfigAndCRConfig_CRConfigPrecedence(t *testing.T) {
 	var (
 		ctx              = testutils.Context(t)
-		actionID         = "custom_compute@1.0.0"
+		actionID         = "custom-compute@1.0.0"
 		giveTimeout      = 300 * time.Millisecond
 		giveTickInterval = 100 * time.Millisecond
 		registryConfig   = map[string]any{
@@ -1422,24 +1430,27 @@ func TestEngine_WithCustomComputeStep(t *testing.T) {
 	ctx := testutils.Context(t)
 	log := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
-	cfg := webapi.ServiceConfig{
-		RateLimiter: common.RateLimiterConfig{
-			GlobalRPS:      100.0,
-			GlobalBurst:    100,
-			PerSenderRPS:   100.0,
-			PerSenderBurst: 100,
+	cfg := compute.Config{
+		ServiceConfig: webapi.ServiceConfig{
+			RateLimiter: common.RateLimiterConfig{
+				GlobalRPS:      100.0,
+				GlobalBurst:    100,
+				PerSenderRPS:   100.0,
+				PerSenderBurst: 100,
+			},
 		},
 	}
 
 	connector := gcmocks.NewGatewayConnector(t)
 	handler, err := webapi.NewOutgoingConnectorHandler(
 		connector,
-		cfg,
+		cfg.ServiceConfig,
 		ghcapabilities.MethodComputeAction, log)
 	require.NoError(t, err)
 
 	idGeneratorFn := func() string { return "validRequestID" }
-	compute := compute.NewAction(cfg, log, reg, handler, idGeneratorFn)
+	compute, err := compute.NewAction(cfg, log, reg, handler, idGeneratorFn)
+	require.NoError(t, err)
 	require.NoError(t, compute.Start(ctx))
 	defer compute.Close()
 
@@ -1486,23 +1497,26 @@ func TestEngine_CustomComputePropagatesBreaks(t *testing.T) {
 	ctx := testutils.Context(t)
 	log := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
-	cfg := webapi.ServiceConfig{
-		RateLimiter: common.RateLimiterConfig{
-			GlobalRPS:      100.0,
-			GlobalBurst:    100,
-			PerSenderRPS:   100.0,
-			PerSenderBurst: 100,
+	cfg := compute.Config{
+		ServiceConfig: webapi.ServiceConfig{
+			RateLimiter: common.RateLimiterConfig{
+				GlobalRPS:      100.0,
+				GlobalBurst:    100,
+				PerSenderRPS:   100.0,
+				PerSenderBurst: 100,
+			},
 		},
 	}
 	connector := gcmocks.NewGatewayConnector(t)
 	handler, err := webapi.NewOutgoingConnectorHandler(
 		connector,
-		cfg,
+		cfg.ServiceConfig,
 		ghcapabilities.MethodComputeAction, log)
 	require.NoError(t, err)
 
 	idGeneratorFn := func() string { return "validRequestID" }
-	compute := compute.NewAction(cfg, log, reg, handler, idGeneratorFn)
+	compute, err := compute.NewAction(cfg, log, reg, handler, idGeneratorFn)
+	require.NoError(t, err)
 	require.NoError(t, compute.Start(ctx))
 	defer compute.Close()
 
@@ -1549,8 +1563,8 @@ triggers:
         - "0x3333333333333333333300000000000000000000000000000000000000000000" # BTCUSD
 
 actions:
-  - id: custom_compute@1.0.0
-    ref: custom_compute
+  - id: custom-compute@1.0.0
+    ref: custom-compute
     config:
       fidelityToken: $(ENV.secrets.fidelity)
     inputs:
@@ -1592,7 +1606,7 @@ type mockFetcher struct {
 	retval map[string]string
 }
 
-func (m *mockFetcher) SecretsFor(workflowOwner, workflowName string) (map[string]string, error) {
+func (m *mockFetcher) SecretsFor(ctx context.Context, workflowOwner, workflowName, workflowID string) (map[string]string, error) {
 	return m.retval, nil
 }
 
@@ -1612,7 +1626,7 @@ func TestEngine_FetchesSecrets(t *testing.T) {
 	action := newMockCapability(
 		// Create a remote capability so we don't use the local transmission protocol.
 		capabilities.MustNewRemoteCapabilityInfo(
-			"custom_compute@1.0.0",
+			"custom-compute@1.0.0",
 			capabilities.CapabilityTypeAction,
 			"a custom compute action with custom config",
 			&capabilities.DON{ID: 1},

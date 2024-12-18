@@ -2,15 +2,16 @@ package ccipdata_test
 
 import (
 	"context"
+	"math"
 	"math/big"
 	"reflect"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -57,11 +58,11 @@ func commitAndGetBlockTs(ec *client.SimulatedBackendClient) uint64 {
 
 func newSim(t *testing.T) (*bind.TransactOpts, *client.SimulatedBackendClient) {
 	user := testutils.MustNewSimTransactor(t)
-	sim := backends.NewSimulatedBackend(map[common.Address]core.GenesisAccount{
+	sim := simulated.NewBackend(map[common.Address]types.Account{
 		user.From: {
 			Balance: big.NewInt(0).Mul(big.NewInt(10), big.NewInt(1e18)),
 		},
-	}, 10e6)
+	}, simulated.WithBlockGasLimit(10e6))
 	ec := client.NewSimulatedBackendClient(t, sim, testutils.SimulatedChainID)
 	return user, ec
 }
@@ -137,7 +138,7 @@ func setupPriceRegistryReaderTH(t *testing.T) priceRegReaderTH {
 	b2 := commitAndGetBlockTs(ec)
 
 	// Capture all lp data.
-	lp.PollAndSaveLogs(context.Background(), 1)
+	lp.PollAndSaveLogs(ctx, 1)
 
 	return priceRegReaderTH{
 		lp:   lp,
@@ -162,15 +163,16 @@ func setupPriceRegistryReaderTH(t *testing.T) priceRegReaderTH {
 }
 
 func testPriceRegistryReader(t *testing.T, th priceRegReaderTH, pr ccipdata.PriceRegistryReader) {
+	ctx := testutils.Context(t)
 	// Assert have expected fee tokens.
-	gotFeeTokens, err := pr.GetFeeTokens(context.Background())
+	gotFeeTokens, err := pr.GetFeeTokens(ctx)
 	require.NoError(t, err)
 	evmAddrs, err := ccipcalc.GenericAddrsToEvm(gotFeeTokens...)
 	require.NoError(t, err)
 	assert.Equal(t, th.expectedFeeTokens, evmAddrs)
 
 	// Note unsupported chain selector simply returns an empty set not an error
-	gasUpdates, err := pr.GetGasPriceUpdatesCreatedAfter(context.Background(), 1e6, time.Unix(0, 0), 0)
+	gasUpdates, err := pr.GetGasPriceUpdatesCreatedAfter(ctx, 1e6, time.Unix(0, 0), 0)
 	require.NoError(t, err)
 	assert.Len(t, gasUpdates, 0)
 
@@ -188,26 +190,30 @@ func testPriceRegistryReader(t *testing.T, th priceRegReaderTH, pr ccipdata.Pric
 			}
 			expectedToken = append(expectedToken, th.expectedTokenUpdates[th.blockTs[j]]...)
 		}
-		gasUpdates, err = pr.GetAllGasPriceUpdatesCreatedAfter(context.Background(), time.Unix(int64(ts-1), 0), 0)
+		if ts > math.MaxInt64 {
+			t.Fatalf("timestamp overflows int64: %d", ts)
+		}
+		unixTS := time.Unix(int64(ts-1), 0) //nolint:gosec // G115 false positive
+		gasUpdates, err = pr.GetAllGasPriceUpdatesCreatedAfter(ctx, unixTS, 0)
 		require.NoError(t, err)
 		assert.Len(t, gasUpdates, len(expectedGas))
 
-		gasUpdates, err = pr.GetGasPriceUpdatesCreatedAfter(context.Background(), th.destSelectors[0], time.Unix(int64(ts-1), 0), 0)
+		gasUpdates, err = pr.GetGasPriceUpdatesCreatedAfter(ctx, th.destSelectors[0], unixTS, 0)
 		require.NoError(t, err)
 		assert.Len(t, gasUpdates, len(expectedDest0Gas))
 
-		tokenUpdates, err2 := pr.GetTokenPriceUpdatesCreatedAfter(context.Background(), time.Unix(int64(ts-1), 0), 0)
+		tokenUpdates, err2 := pr.GetTokenPriceUpdatesCreatedAfter(ctx, unixTS, 0)
 		require.NoError(t, err2)
 		assert.Len(t, tokenUpdates, len(expectedToken))
 	}
 
 	// Empty token set should return empty set no error.
-	gotEmpty, err := pr.GetTokenPrices(context.Background(), []cciptypes.Address{})
+	gotEmpty, err := pr.GetTokenPrices(ctx, []cciptypes.Address{})
 	require.NoError(t, err)
 	assert.Len(t, gotEmpty, 0)
 
 	// We expect latest token prices to apply
-	allTokenUpdates, err := pr.GetTokenPriceUpdatesCreatedAfter(context.Background(), time.Unix(0, 0), 0)
+	allTokenUpdates, err := pr.GetTokenPriceUpdatesCreatedAfter(ctx, time.Unix(0, 0), 0)
 	require.NoError(t, err)
 	// Build latest map
 	latest := make(map[cciptypes.Address]*big.Int)
@@ -222,7 +228,7 @@ func testPriceRegistryReader(t *testing.T, th priceRegReaderTH, pr ccipdata.Pric
 		latest[allTokenUpdates[i].Token] = allTokenUpdates[i].Value
 		allTokens = append(allTokens, allTokenUpdates[i].Token)
 	}
-	tokenPrices, err := pr.GetTokenPrices(context.Background(), allTokens)
+	tokenPrices, err := pr.GetTokenPrices(ctx, allTokens)
 	require.NoError(t, err)
 	require.Len(t, tokenPrices, len(allTokens))
 	for _, p := range tokenPrices {

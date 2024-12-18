@@ -3,133 +3,131 @@ package changeset_test
 import (
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/exp/maps"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink/deployment"
-	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
-	kstest "github.com/smartcontractkit/chainlink/deployment/keystone/test"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
 func TestAppendNodeCapabilities(t *testing.T) {
+	t.Parallel()
+
 	var (
-		initialp2pToCapabilities = map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability{
-			testPeerID(t, "0x1"): []kcr.CapabilitiesRegistryCapability{
-				{
-					LabelledName:   "test",
-					Version:        "1.0.0",
-					CapabilityType: 0,
-				},
-			},
+		capA = kcr.CapabilitiesRegistryCapability{
+			LabelledName: "capA",
+			Version:      "0.4.2",
 		}
-		nopToNodes = map[kcr.CapabilitiesRegistryNodeOperator][]*kslib.P2PSignerEnc{
-			testNop(t, "testNop"): []*kslib.P2PSignerEnc{
-				&kslib.P2PSignerEnc{
-					Signer:              [32]byte{0: 1},
-					P2PKey:              testPeerID(t, "0x1"),
-					EncryptionPublicKey: [32]byte{7: 7, 13: 13},
-				},
-			},
+		capB = kcr.CapabilitiesRegistryCapability{
+			LabelledName: "capB",
+			Version:      "3.16.0",
 		}
+		caps = []kcr.CapabilitiesRegistryCapability{capA, capB}
 	)
-
-	lggr := logger.Test(t)
-
-	type args struct {
-		lggr         logger.Logger
-		req          *changeset.AppendNodeCapabilitiesRequest
-		initialState *kstest.SetupTestRegistryRequest
-	}
-	tests := []struct {
-		name    string
-		args    args
-		want    deployment.ChangesetOutput
-		wantErr bool
-	}{
-		{
-			name: "invalid request",
-			args: args{
-				lggr: lggr,
-				req: &changeset.AppendNodeCapabilitiesRequest{
-					Chain: deployment.Chain{},
-				},
-				initialState: &kstest.SetupTestRegistryRequest{},
-			},
-			wantErr: true,
-		},
-		{
-			name: "happy path",
-			args: args{
-				lggr: lggr,
-				initialState: &kstest.SetupTestRegistryRequest{
-					P2pToCapabilities: initialp2pToCapabilities,
-					NopToNodes:        nopToNodes,
-				},
-				req: &changeset.AppendNodeCapabilitiesRequest{
-					P2pToCapabilities: map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability{
-						testPeerID(t, "0x1"): []kcr.CapabilitiesRegistryCapability{
-							{
-								LabelledName:   "cap2",
-								Version:        "1.0.0",
-								CapabilityType: 0,
-							},
-							{
-								LabelledName:   "cap3",
-								Version:        "1.0.0",
-								CapabilityType: 3,
-							},
-						},
-					},
-					NopToNodes: nopToNodes,
-				},
-			},
-			want:    deployment.ChangesetOutput{},
-			wantErr: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// chagen the name and args to be mor egeneral
-			setupResp := kstest.SetupTestRegistry(t, lggr, tt.args.initialState)
-
-			tt.args.req.Registry = setupResp.Registry
-			tt.args.req.Chain = setupResp.Chain
-
-			got, err := changeset.AppendNodeCapabilitiesImpl(tt.args.lggr, tt.args.req)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("AppendNodeCapabilities() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if tt.wantErr {
-				return
-			}
-			require.NotNil(t, got)
-			// should be one node param for each input p2p id
-			assert.Len(t, got.NodeParams, len(tt.args.req.P2pToCapabilities))
-			for _, nodeParam := range got.NodeParams {
-				initialCapsOnNode := tt.args.initialState.P2pToCapabilities[nodeParam.P2pId]
-				appendCaps := tt.args.req.P2pToCapabilities[nodeParam.P2pId]
-				assert.Len(t, nodeParam.HashedCapabilityIds, len(initialCapsOnNode)+len(appendCaps))
-			}
+	t.Run("no mcms", func(t *testing.T) {
+		te := SetupTestEnv(t, TestConfig{
+			WFDonConfig:     DonConfig{N: 4},
+			AssetDonConfig:  DonConfig{N: 4},
+			WriterDonConfig: DonConfig{N: 4},
+			NumChains:       1,
 		})
+
+		newCapabilities := make(map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability)
+		for id, _ := range te.WFNodes {
+			k, err := p2pkey.MakePeerID(id)
+			require.NoError(t, err)
+			newCapabilities[k] = caps
+		}
+
+		t.Run("succeeds if existing capabilities not explicit", func(t *testing.T) {
+			cfg := changeset.AppendNodeCapabilitiesRequest{
+				RegistryChainSel:  te.RegistrySelector,
+				P2pToCapabilities: newCapabilities,
+			}
+
+			csOut, err := changeset.AppendNodeCapabilities(te.Env, &cfg)
+			require.NoError(t, err)
+			require.Len(t, csOut.Proposals, 0)
+			require.Nil(t, csOut.AddressBook)
+
+			validateCapabilityAppends(t, te, newCapabilities)
+		})
+	})
+	t.Run("with mcms", func(t *testing.T) {
+		te := SetupTestEnv(t, TestConfig{
+			WFDonConfig:     DonConfig{N: 4},
+			AssetDonConfig:  DonConfig{N: 4},
+			WriterDonConfig: DonConfig{N: 4},
+			NumChains:       1,
+			UseMCMS:         true,
+		})
+
+		newCapabilities := make(map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability)
+		for id, _ := range te.WFNodes {
+			k, err := p2pkey.MakePeerID(id)
+			require.NoError(t, err)
+			newCapabilities[k] = caps
+		}
+
+		cfg := changeset.AppendNodeCapabilitiesRequest{
+			RegistryChainSel:  te.RegistrySelector,
+			P2pToCapabilities: newCapabilities,
+			MCMSConfig:        &changeset.MCMSConfig{MinDuration: 0},
+		}
+
+		csOut, err := changeset.AppendNodeCapabilities(te.Env, &cfg)
+		require.NoError(t, err)
+		require.Len(t, csOut.Proposals, 1)
+		require.Len(t, csOut.Proposals[0].Transactions, 1)
+		require.Len(t, csOut.Proposals[0].Transactions[0].Batch, 2) // add capabilities, update nodes
+		require.Nil(t, csOut.AddressBook)
+
+		// now apply the changeset such that the proposal is signed and execed
+		contracts := te.ContractSets()[te.RegistrySelector]
+		timelockContracts := map[uint64]*proposalutils.TimelockExecutionContracts{
+			te.RegistrySelector: {
+				Timelock:  contracts.Timelock,
+				CallProxy: contracts.CallProxy,
+			},
+		}
+
+		_, err = commonchangeset.ApplyChangesets(t, te.Env, timelockContracts, []commonchangeset.ChangesetApplication{
+			{
+				Changeset: commonchangeset.WrapChangeSet(changeset.AppendNodeCapabilities),
+				Config:    &cfg,
+			},
+		})
+		require.NoError(t, err)
+		validateCapabilityAppends(t, te, newCapabilities)
+	})
+
+}
+
+// validateUpdate checks reads nodes from the registry and checks they have the expected updates
+func validateCapabilityAppends(t *testing.T, te TestEnv, appended map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability) {
+	registry := te.ContractSets()[te.RegistrySelector].CapabilitiesRegistry
+	wfP2PIDs := p2pIDs(t, maps.Keys(te.WFNodes))
+	nodes, err := registry.GetNodesByP2PIds(nil, wfP2PIDs)
+	require.NoError(t, err)
+	require.Len(t, nodes, len(wfP2PIDs))
+	for _, node := range nodes {
+		want := appended[node.P2pId]
+		require.NotNil(t, want)
+		assertContainsCapabilities(t, registry, want, node)
 	}
 }
 
-func testPeerID(t *testing.T, s string) p2pkey.PeerID {
-	var out [32]byte
-	b := []byte(s)
-	copy(out[:], b)
-	return p2pkey.PeerID(out)
-}
-
-func testNop(t *testing.T, name string) kcr.CapabilitiesRegistryNodeOperator {
-	return kcr.CapabilitiesRegistryNodeOperator{
-		Admin: common.HexToAddress("0xFFFFFFFF45297A703e4508186d4C1aa1BAf80000"),
-		Name:  name,
+func assertContainsCapabilities(t *testing.T, registry *kcr.CapabilitiesRegistry, want []kcr.CapabilitiesRegistryCapability, got kcr.INodeInfoProviderNodeInfo) {
+	wantHashes := make([][32]byte, len(want))
+	for i, c := range want {
+		h, err := registry.GetHashedCapabilityId(nil, c.LabelledName, c.Version)
+		require.NoError(t, err)
+		wantHashes[i] = h
+		assert.Contains(t, got.HashedCapabilityIds, h, "missing capability %v", c)
 	}
+	assert.LessOrEqual(t, len(want), len(got.HashedCapabilityIds))
 }

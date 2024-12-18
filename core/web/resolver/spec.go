@@ -1,6 +1,8 @@
 package resolver
 
 import (
+	"strconv"
+
 	"github.com/graph-gophers/graphql-go"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -131,6 +133,19 @@ func (r *SpecResolver) ToStandardCapabilitiesSpec() (*StandardCapabilitiesSpecRe
 	}
 
 	return &StandardCapabilitiesSpecResolver{spec: *r.j.StandardCapabilitiesSpec}, true
+}
+
+func (r *SpecResolver) ToStreamSpec() (*StreamSpecResolver, bool) {
+	if r.j.Type != job.Stream {
+		return nil, false
+	}
+	res := &StreamSpecResolver{}
+	if r.j.StreamID != nil {
+		sid := strconv.FormatUint(uint64(*r.j.StreamID), 10)
+		res.streamID = &sid
+	}
+
+	return res, true
 }
 
 type CronSpecResolver struct {
@@ -977,6 +992,11 @@ func (r *BootstrapSpecResolver) ContractConfigConfirmations() *int32 {
 	return &confirmations
 }
 
+// RelayConfig resolves the spec's onchain signing strategy config
+func (r *OCR2SpecResolver) OnchainSigningStrategy() gqlscalar.Map {
+	return gqlscalar.Map(r.spec.OnchainSigningStrategy)
+}
+
 // CreatedAt resolves the spec's created at timestamp.
 func (r *BootstrapSpecResolver) CreatedAt() graphql.Time {
 	return graphql.Time{Time: r.spec.CreatedAt}
@@ -1044,4 +1064,12 @@ func (r *StandardCapabilitiesSpecResolver) Command() string {
 
 func (r *StandardCapabilitiesSpecResolver) Config() *string {
 	return &r.spec.Config
+}
+
+type StreamSpecResolver struct {
+	streamID *string
+}
+
+func (r *StreamSpecResolver) StreamID() *string {
+	return r.streamID
 }

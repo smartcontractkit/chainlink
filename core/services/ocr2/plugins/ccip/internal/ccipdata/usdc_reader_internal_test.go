@@ -1,20 +1,20 @@
 package ccipdata
 
 import (
-	"context"
 	"fmt"
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
@@ -35,8 +35,9 @@ func TestLogPollerClient_GetUSDCMessagePriorToLogIndexInTx(t *testing.T) {
 	lggr := logger.Test(t)
 
 	t.Run("multiple found - selected last", func(t *testing.T) {
+		ctx := tests.Context(t)
 		lp := lpmocks.NewLogPoller(t)
-		u, _ := NewUSDCReader(lggr, "job_123", utils.RandomAddress(), lp, false)
+		u, _ := NewUSDCReader(ctx, lggr, "job_123", utils.RandomAddress(), lp, false)
 
 		lp.On("IndexedLogsByTxHash",
 			mock.Anything,
@@ -49,15 +50,16 @@ func TestLogPollerClient_GetUSDCMessagePriorToLogIndexInTx(t *testing.T) {
 			{LogIndex: ccipLogIndex, Data: []byte("0")},
 			{LogIndex: ccipLogIndex + 1, Data: []byte("1")},
 		}, nil)
-		usdcMessageData, err := u.GetUSDCMessagePriorToLogIndexInTx(context.Background(), ccipLogIndex, 0, txHash.String())
+		usdcMessageData, err := u.GetUSDCMessagePriorToLogIndexInTx(ctx, ccipLogIndex, 0, txHash.String())
 		assert.NoError(t, err)
 		assert.Equal(t, expectedPostParse, hexutil.Encode(usdcMessageData))
 		lp.AssertExpectations(t)
 	})
 
 	t.Run("multiple found - selected first", func(t *testing.T) {
+		ctx := tests.Context(t)
 		lp := lpmocks.NewLogPoller(t)
-		u, _ := NewUSDCReader(lggr, "job_123", utils.RandomAddress(), lp, false)
+		u, _ := NewUSDCReader(ctx, lggr, "job_123", utils.RandomAddress(), lp, false)
 
 		lp.On("IndexedLogsByTxHash",
 			mock.Anything,
@@ -70,15 +72,16 @@ func TestLogPollerClient_GetUSDCMessagePriorToLogIndexInTx(t *testing.T) {
 			{LogIndex: ccipLogIndex, Data: []byte("0")},
 			{LogIndex: ccipLogIndex + 1, Data: []byte("1")},
 		}, nil)
-		usdcMessageData, err := u.GetUSDCMessagePriorToLogIndexInTx(context.Background(), ccipLogIndex, 1, txHash.String())
+		usdcMessageData, err := u.GetUSDCMessagePriorToLogIndexInTx(ctx, ccipLogIndex, 1, txHash.String())
 		assert.NoError(t, err)
 		assert.Equal(t, expectedPostParse, hexutil.Encode(usdcMessageData))
 		lp.AssertExpectations(t)
 	})
 
 	t.Run("logs fetched from memory in subsequent calls", func(t *testing.T) {
+		ctx := tests.Context(t)
 		lp := lpmocks.NewLogPoller(t)
-		u, _ := NewUSDCReader(lggr, "job_123", utils.RandomAddress(), lp, false)
+		u, _ := NewUSDCReader(ctx, lggr, "job_123", utils.RandomAddress(), lp, false)
 
 		lp.On("IndexedLogsByTxHash",
 			mock.Anything,
@@ -93,12 +96,12 @@ func TestLogPollerClient_GetUSDCMessagePriorToLogIndexInTx(t *testing.T) {
 		}, nil).Once()
 
 		// first call logs must be fetched from lp
-		usdcMessageData, err := u.GetUSDCMessagePriorToLogIndexInTx(context.Background(), ccipLogIndex, 1, txHash.String())
+		usdcMessageData, err := u.GetUSDCMessagePriorToLogIndexInTx(ctx, ccipLogIndex, 1, txHash.String())
 		assert.NoError(t, err)
 		assert.Equal(t, expectedPostParse, hexutil.Encode(usdcMessageData))
 
 		// subsequent call, logs must be fetched from memory
-		usdcMessageData, err = u.GetUSDCMessagePriorToLogIndexInTx(context.Background(), ccipLogIndex, 1, txHash.String())
+		usdcMessageData, err = u.GetUSDCMessagePriorToLogIndexInTx(ctx, ccipLogIndex, 1, txHash.String())
 		assert.NoError(t, err)
 		assert.Equal(t, expectedPostParse, hexutil.Encode(usdcMessageData))
 
@@ -106,8 +109,9 @@ func TestLogPollerClient_GetUSDCMessagePriorToLogIndexInTx(t *testing.T) {
 	})
 
 	t.Run("none found", func(t *testing.T) {
+		ctx := tests.Context(t)
 		lp := lpmocks.NewLogPoller(t)
-		u, _ := NewUSDCReader(lggr, "job_123", utils.RandomAddress(), lp, false)
+		u, _ := NewUSDCReader(ctx, lggr, "job_123", utils.RandomAddress(), lp, false)
 		lp.On("IndexedLogsByTxHash",
 			mock.Anything,
 			u.usdcMessageSent,
@@ -115,7 +119,7 @@ func TestLogPollerClient_GetUSDCMessagePriorToLogIndexInTx(t *testing.T) {
 			txHash,
 		).Return([]logpoller.Log{}, nil)
 
-		usdcMessageData, err := u.GetUSDCMessagePriorToLogIndexInTx(context.Background(), ccipLogIndex, 0, txHash.String())
+		usdcMessageData, err := u.GetUSDCMessagePriorToLogIndexInTx(ctx, ccipLogIndex, 0, txHash.String())
 		assert.Errorf(t, err, fmt.Sprintf("no USDC message found prior to log index %d in tx %s", ccipLogIndex, txHash.Hex()))
 		assert.Nil(t, usdcMessageData)
 
@@ -137,11 +141,12 @@ func TestParse(t *testing.T) {
 
 func TestFilters(t *testing.T) {
 	t.Run("filters of different jobs should be distinct", func(t *testing.T) {
+		ctx := tests.Context(t)
 		lggr := logger.Test(t)
 		chainID := testutils.NewRandomEVMChainID()
 		db := pgtest.NewSqlxDB(t)
 		o := logpoller.NewORM(chainID, db, lggr)
-		ec := backends.NewSimulatedBackend(map[common.Address]core.GenesisAccount{}, 10e6)
+		ec := simulated.NewBackend(map[common.Address]types.Account{}, simulated.WithBlockGasLimit(10e6))
 		esc := client.NewSimulatedBackendClient(t, ec, chainID)
 		lpOpts := logpoller.Opts{
 			PollPeriod:               1 * time.Hour,
@@ -163,15 +168,15 @@ func TestFilters(t *testing.T) {
 		f1 := logpoller.FilterName("USDC message sent", jobID1, transmitter.Hex())
 		f2 := logpoller.FilterName("USDC message sent", jobID2, transmitter.Hex())
 
-		_, err := NewUSDCReader(lggr, jobID1, transmitter, lp, true)
+		_, err := NewUSDCReader(ctx, lggr, jobID1, transmitter, lp, true)
 		assert.NoError(t, err)
 		assert.True(t, lp.HasFilter(f1))
 
-		_, err = NewUSDCReader(lggr, jobID2, transmitter, lp, true)
+		_, err = NewUSDCReader(ctx, lggr, jobID2, transmitter, lp, true)
 		assert.NoError(t, err)
 		assert.True(t, lp.HasFilter(f2))
 
-		err = CloseUSDCReader(lggr, jobID2, transmitter, lp)
+		err = CloseUSDCReader(ctx, lggr, jobID2, transmitter, lp)
 		assert.NoError(t, err)
 		assert.True(t, lp.HasFilter(f1))
 		assert.False(t, lp.HasFilter(f2))

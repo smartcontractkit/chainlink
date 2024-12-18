@@ -72,7 +72,7 @@ func (o *orm) Insert(ctx context.Context, transmissions []*Transmission) error {
 			DonID:            o.donID,
 			ServerURL:        t.ServerURL,
 			ConfigDigest:     t.ConfigDigest,
-			SeqNr:            int64(t.SeqNr), //nolint
+			SeqNr:            int64(t.SeqNr), //nolint:gosec // G115 false positive
 			Report:           t.Report.Report,
 			LifecycleStage:   string(t.Report.Info.LifeCycleStage),
 			ReportFormat:     uint32(t.Report.Info.ReportFormat),
@@ -162,7 +162,7 @@ func (o *orm) Get(ctx context.Context, serverURL string) ([]*Transmission, error
 			}
 			transmission.Sigs = append(transmission.Sigs, ocrtypes.AttributedOnchainSignature{
 				Signature: sig,
-				Signer:    commontypes.OracleID(signers[i]), //nolint
+				Signer:    commontypes.OracleID(signers[i]), //nolint:gosec // G115 false positive
 			})
 		}
 

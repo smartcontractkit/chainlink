@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	ethCommon "github.com/ethereum/go-ethereum/common"
 
@@ -256,6 +257,12 @@ func (h *triggerConnectorHandler) Start(ctx context.Context) error {
 }
 func (h *triggerConnectorHandler) Close() error {
 	return h.StopOnce("GatewayConnectorServiceWrapper", func() error {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		err := h.registry.Remove(ctx, h.ID)
+		if err != nil {
+			return err
+		}
 		return nil
 	})
 }
@@ -265,7 +272,7 @@ func (h *triggerConnectorHandler) HealthReport() map[string]error {
 }
 
 func (h *triggerConnectorHandler) Name() string {
-	return "WebAPITrigger"
+	return h.lggr.Name()
 }
 
 func (h *triggerConnectorHandler) sendResponse(ctx context.Context, gatewayID string, requestBody *api.MessageBody, payload any) error {

@@ -21,15 +21,32 @@ inputs:
       Only restore the module cache, don't automatically update it.
       Leave the updating to go-mod-cache.yml.
     default: "true"
+  restore-build-cache-only:
+    description: |
+      Only restore the build cache, don't automatically update/upload it.
+    default: "false"
 
 runs:
   using: composite
   steps:
+    - name: Get Go Version
+      shell: bash
+      id: go-version
+      run: |
+        version=$(sed -ne '/^toolchain /s/^toolchain go//p' ${{ inputs.go-version-file }})
+        if [ -z "$version" ]; then
+          version=$(sed -ne '/^go /s/^go //p' ${{ inputs.go-version-file }})
+          echo "Toolchain version not found in ${{ inputs.go-version-file }}, using go directive instead."
+        fi
+        echo "Go Version: $version"
+        echo "version=$version" >> "$GITHUB_OUTPUT"
+
     - name: Set up Go
       uses: actions/setup-go@v5.0.2
       with:
-        go-version-file: ${{ inputs.go-version-file }}
+        go-version: ${{ steps.go-version.outputs.version }}
         cache: false
+        check-latest: true
 
     - name: Get branch name
       if: ${{ inputs.only-modules == 'false' }}
@@ -81,7 +98,7 @@ runs:
     - uses: actions/cache/restore@v4.1.1
       name: Cache Go Build Outputs (restore)
       # For certain events, we don't necessarily want to create a build cache, but we will benefit from restoring from one. 
-      if: ${{ inputs.only-modules == 'false' && github.event == 'merge_queue' }}
+      if: ${{ inputs.only-modules == 'false' && (github.event_name == 'merge_group' || inputs.restore-build-cache-only == 'true') }}
       with:
         path: |
           ${{ steps.go-cache-dir.outputs.gobuildcache }}
@@ -93,8 +110,8 @@ runs:
           ${{ runner.os }}-gobuild-${{ inputs.cache-version }}-
 
     - uses: actions/cache@v4.1.1
-      # don't save cache on merge queue events, only restore
-      if: ${{ inputs.only-modules == 'false' && github.event != 'merge_queue' }}
+      # don't save cache on merge queue events
+      if: ${{ inputs.only-modules == 'false' && (github.event_name != 'merge_group' && inputs.restore-build-cache-only == 'false') }}
       name: Cache Go Build Outputs
       with:
         path: |

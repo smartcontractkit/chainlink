@@ -16,6 +16,7 @@ import (
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
 
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -23,10 +24,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
-	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-
 	configutils "github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
 
@@ -339,7 +338,7 @@ type Database struct {
 	DefaultIdleInTxSessionTimeout *commonconfig.Duration
 	DefaultLockTimeout            *commonconfig.Duration
 	DefaultQueryTimeout           *commonconfig.Duration
-	Dialect                       dialects.DialectName `toml:"-"`
+	Dialect                       pgcommon.DialectName `toml:"-"`
 	LogQueries                    *bool
 	MaxIdleConns                  *int64
 	MaxOpenConns                  *int64
@@ -1330,6 +1329,7 @@ func (m *MercuryTLS) ValidateConfig() (err error) {
 type MercuryTransmitter struct {
 	TransmitQueueMaxSize *uint32
 	TransmitTimeout      *commonconfig.Duration
+	TransmitConcurrency  *uint32
 }
 
 func (m *MercuryTransmitter) setFrom(f *MercuryTransmitter) {
@@ -1338,6 +1338,9 @@ func (m *MercuryTransmitter) setFrom(f *MercuryTransmitter) {
 	}
 	if v := f.TransmitTimeout; v != nil {
 		m.TransmitTimeout = v
+	}
+	if v := f.TransmitConcurrency; v != nil {
+		m.TransmitConcurrency = v
 	}
 }
 
@@ -1448,6 +1451,26 @@ func (r *ExternalRegistry) setFrom(f *ExternalRegistry) {
 	}
 }
 
+type WorkflowRegistry struct {
+	Address   *string
+	NetworkID *string
+	ChainID   *string
+}
+
+func (r *WorkflowRegistry) setFrom(f *WorkflowRegistry) {
+	if f.Address != nil {
+		r.Address = f.Address
+	}
+
+	if f.NetworkID != nil {
+		r.NetworkID = f.NetworkID
+	}
+
+	if f.ChainID != nil {
+		r.ChainID = f.ChainID
+	}
+}
+
 type Dispatcher struct {
 	SupportedVersion   *int
 	ReceiverBufferSize *int
@@ -1537,12 +1560,14 @@ type Capabilities struct {
 	Peering          P2P              `toml:",omitempty"`
 	Dispatcher       Dispatcher       `toml:",omitempty"`
 	ExternalRegistry ExternalRegistry `toml:",omitempty"`
+	WorkflowRegistry WorkflowRegistry `toml:",omitempty"`
 	GatewayConnector GatewayConnector `toml:",omitempty"`
 }
 
 func (c *Capabilities) setFrom(f *Capabilities) {
 	c.Peering.setFrom(&f.Peering)
 	c.ExternalRegistry.setFrom(&f.ExternalRegistry)
+	c.WorkflowRegistry.setFrom(&f.WorkflowRegistry)
 	c.Dispatcher.setFrom(&f.Dispatcher)
 	c.GatewayConnector.setFrom(&f.GatewayConnector)
 }
@@ -1657,12 +1682,14 @@ func (t *Tracing) ValidateConfig() (err error) {
 }
 
 type Telemetry struct {
-	Enabled            *bool
-	CACertFile         *string
-	Endpoint           *string
-	InsecureConnection *bool
-	ResourceAttributes map[string]string `toml:",omitempty"`
-	TraceSampleRatio   *float64
+	Enabled               *bool
+	CACertFile            *string
+	Endpoint              *string
+	InsecureConnection    *bool
+	ResourceAttributes    map[string]string `toml:",omitempty"`
+	TraceSampleRatio      *float64
+	EmitterBatchProcessor *bool
+	EmitterExportTimeout  *commonconfig.Duration
 }
 
 func (b *Telemetry) setFrom(f *Telemetry) {
@@ -1683,6 +1710,12 @@ func (b *Telemetry) setFrom(f *Telemetry) {
 	}
 	if v := f.TraceSampleRatio; v != nil {
 		b.TraceSampleRatio = v
+	}
+	if v := f.EmitterBatchProcessor; v != nil {
+		b.EmitterBatchProcessor = v
+	}
+	if v := f.EmitterExportTimeout; v != nil {
+		b.EmitterExportTimeout = v
 	}
 }
 

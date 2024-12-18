@@ -4,15 +4,14 @@ import (
 	"encoding/json"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	ccipdeployment "github.com/smartcontractkit/chainlink/deployment/ccip"
 	ccipview "github.com/smartcontractkit/chainlink/deployment/ccip/view"
 	"github.com/smartcontractkit/chainlink/deployment/common/view"
 )
 
 var _ deployment.ViewState = ViewCCIP
 
-func ViewCCIP(e deployment.Environment, ab deployment.AddressBook) (json.Marshaler, error) {
-	state, err := ccipdeployment.LoadOnchainState(e, ab)
+func ViewCCIP(e deployment.Environment) (json.Marshaler, error) {
+	state, err := LoadOnchainState(e)
 	if err != nil {
 		return nil, err
 	}

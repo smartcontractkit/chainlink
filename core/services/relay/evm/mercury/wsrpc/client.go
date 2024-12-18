@@ -189,7 +189,7 @@ func (w *client) resetTransport() {
 	if !ok {
 		panic("resetTransport should never be called unless client is in 'started' state")
 	}
-	ctx, cancel := w.chStop.Ctx(context.Background())
+	ctx, cancel := w.chStop.NewCtx()
 	defer cancel()
 	b := utils.NewRedialBackoff()
 	for {

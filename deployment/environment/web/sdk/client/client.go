@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/Khan/genqlient/graphql"
+	"github.com/sethvargo/go-retry"
 	"net/http"
 	"strings"
-
-	"github.com/AlekSi/pointer"
-	"github.com/Khan/genqlient/graphql"
+	"time"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/web/sdk/client/doer"
 	"github.com/smartcontractkit/chainlink/deployment/environment/web/sdk/internal/generated"
@@ -18,6 +18,7 @@ type Client interface {
 	FetchCSAPublicKey(ctx context.Context) (*string, error)
 	FetchP2PPeerID(ctx context.Context) (*string, error)
 	FetchAccountAddress(ctx context.Context, chainID string) (*string, error)
+	FetchKeys(ctx context.Context, chainType string) ([]string, error)
 	FetchOCR2KeyBundleID(ctx context.Context, chainType string) (string, error)
 	GetJob(ctx context.Context, id string) (*generated.GetJobResponse, error)
 	ListJobs(ctx context.Context, offset, limit int) (*generated.ListJobsResponse, error)
@@ -60,8 +61,15 @@ func New(baseURI string, creds Credentials) (Client, error) {
 		endpoints:   ep,
 		credentials: creds,
 	}
-
-	if err := c.login(); err != nil {
+	
+	err := retry.Do(context.Background(), retry.WithMaxDuration(10*time.Second, retry.NewFibonacci(2*time.Second)), func(ctx context.Context) error {
+		err := c.login()
+		if err != nil {
+			return retry.RetryableError(fmt.Errorf("retrying login to node: %w", err))
+		}
+		return nil
+	})
+	if err != nil {
 		return nil, fmt.Errorf("failed to login to node: %w", err)
 	}
 
@@ -121,10 +129,36 @@ func (c *client) FetchAccountAddress(ctx context.Context, chainID string) (*stri
 	}
 	for _, keyDetail := range keys.EthKeys.GetResults() {
 		if keyDetail.GetChain().Enabled && keyDetail.GetChain().Id == chainID {
-			return pointer.ToString(keyDetail.Address), nil
+			return &keyDetail.Address, nil
 		}
 	}
 	return nil, fmt.Errorf("no account found for chain %s", chainID)
+}
+
+func (c *client) FetchKeys(ctx context.Context, chainType string) ([]string, error) {
+	keys, err := generated.FetchKeys(ctx, c.gqlClient)
+	if err != nil {
+		return nil, err
+	}
+	if keys == nil {
+		return nil, fmt.Errorf("no accounts found")
+	}
+	switch generated.OCR2ChainType(chainType) {
+	case generated.OCR2ChainTypeAptos:
+		var accounts []string
+		for _, key := range keys.AptosKeys.GetResults() {
+			accounts = append(accounts, key.Account)
+		}
+		return accounts, nil
+	case generated.OCR2ChainTypeSolana:
+		var accounts []string
+		for _, key := range keys.SolanaKeys.GetResults() {
+			accounts = append(accounts, key.Id)
+		}
+		return accounts, nil
+	default:
+		return nil, fmt.Errorf("unsupported chainType %v", chainType)
+	}
 }
 
 func (c *client) GetJob(ctx context.Context, id string) (*generated.GetJobResponse, error) {
@@ -176,7 +210,11 @@ func (c *client) CreateJobDistributor(ctx context.Context, in JobDistributorInpu
 		feedsManager := success.GetFeedsManager()
 		return feedsManager.GetId(), nil
 	}
-	return "", fmt.Errorf("failed to create feeds manager")
+	if err, ok := response.GetCreateFeedsManager().(*generated.CreateFeedsManagerCreateFeedsManagerSingleFeedsManagerError); ok {
+		msg := err.GetMessage()
+		return "", fmt.Errorf("failed to create feeds manager: %v", msg)
+	}
+	return "", fmt.Errorf("failed to create feeds manager: %v", response.GetCreateFeedsManager().GetTypename())
 }
 
 func (c *client) UpdateJobDistributor(ctx context.Context, id string, in JobDistributorInput) error {

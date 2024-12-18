@@ -13,7 +13,7 @@
 
 # Services
 /core/services/directrequest @smartcontractkit/foundations
-/core/services/feeds @smartcontractkit/deployment-automation @eutopian @yevshev @smartcontractkit/core
+/core/services/feeds @smartcontractkit/deployment-automation @eutopian @smartcontractkit/core
 /core/services/synchronization/telem @smartcontractkit/realtime @smartcontractkit/core
 /core/capabilities/ @smartcontractkit/keystone @smartcontractkit/capabilities-team
 /core/capabilities/ccip @smartcontractkit/ccip-offchain
@@ -30,6 +30,10 @@
 /core/services/relay/evm/mercury @smartcontractkit/data-streams-engineers @smartcontractkit/core
 /core/services/webhook @smartcontractkit/foundations @smartcontractkit/bix-framework @smartcontractkit/core
 /core/services/llo @smartcontractkit/data-streams-engineers @smartcontractkit/core
+
+# CCIP
+/core/services/ccip @smartcontractkit/ccip
+/core/services/ocr2/plugins/ccip @smartcontractkit/ccip
 
 # CCIP
 /core/services/ccip @smartcontractkit/ccip
@@ -95,6 +99,7 @@ core/scripts/gateway @smartcontractkit/dev-services
 # TODO: transmission folder, owner should be found
 /contracts/src/v0.8/vrf @smartcontractkit/dev-services
 /contracts/src/v0.8/keystone @smartcontractkit/keystone
+/contracts/src/v0.8/workflow @smartcontractkit/dev-services
 
 /core/gethwrappers/ccip @smartcontractkit/ccip-onchain
 /core/gethwrappers/functions @smartcontractkit/dev-services
@@ -103,6 +108,7 @@ core/scripts/gateway @smartcontractkit/dev-services
 /core/gethwrappers/llo-feeds @smartcontractkit/data-streams-engineers
 /core/gethwrappers/operatorforwarder @smartcontractkit/data-feeds-engineers
 /core/gethwrappers/shared @smartcontractkit/core-solidity
+/core/gethwrappers/workflow @smartcontractkit/dev-services
 
 # The following don't exist yet but should. They are already included here to allow the teams to
 # set these folders up and own them immediately.
@@ -127,16 +133,15 @@ core/scripts/gateway @smartcontractkit/dev-services
 
 # Tests
 /integration-tests/ @smartcontractkit/test-tooling-team @smartcontractkit/core
-/integration-tests/ccip-tests @smartcontractkit/ccip-offchain @smartcontractkit/core
+/integration-tests/ccip-tests @smartcontractkit/ccip-offchain @smartcontractkit/core @smartcontractkit/ccip
 /integration-tests/**/*keeper* @smartcontractkit/dev-services @smartcontractkit/core
 /integration-tests/**/*automation* @smartcontractkit/dev-services @smartcontractkit/core
-/integration-tests/**/*ccip* @smartcontractkit/ccip-offchain @smartcontractkit/core
+/integration-tests/**/*ccip* @smartcontractkit/ccip-offchain @smartcontractkit/core @smartcontractkit/ccip
 
 # Deployment tooling
-# Initially the common structures owned by CCIP
-/deployment @smartcontractkit/ccip @smartcontractkit/keystone @smartcontractkit/core
-/deployment/ccip @smartcontractkit/ccip @smartcontractkit/core
-/deployment/keystone @smartcontractkit/keystone @smartcontractkit/core
+/deployment @smartcontractkit/ccip @smartcontractkit/keystone @smartcontractkit/core @smartcontractkit/deployment-automation
+/deployment/ccip @smartcontractkit/ccip @smartcontractkit/core @smartcontractkit/deployment-automation
+/deployment/keystone @smartcontractkit/keystone @smartcontractkit/core @smartcontractkit/deployment-automation
 # TODO: As more products add their deployment logic here, add the team as an owner
 
 # CI/CD

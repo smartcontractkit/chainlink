@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/shopspring/decimal"
@@ -13,12 +15,12 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
 
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	reportcodecv3 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
 	reporttypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/types"
@@ -28,10 +30,13 @@ var (
 	_ llo.ReportCodec = ReportCodecPremiumLegacy{}
 )
 
-type ReportCodecPremiumLegacy struct{ logger.Logger }
+type ReportCodecPremiumLegacy struct {
+	logger.Logger
+	donID uint32
+}
 
-func NewReportCodecPremiumLegacy(lggr logger.Logger) llo.ReportCodec {
-	return ReportCodecPremiumLegacy{lggr.Named("ReportCodecPremiumLegacy")}
+func NewReportCodecPremiumLegacy(lggr logger.Logger, donID uint32) ReportCodecPremiumLegacy {
+	return ReportCodecPremiumLegacy{logger.Sugared(lggr).Named("ReportCodecPremiumLegacy"), donID}
 }
 
 type ReportFormatEVMPremiumLegacyOpts struct {
@@ -85,13 +90,16 @@ func (r ReportCodecPremiumLegacy) Encode(ctx context.Context, report llo.Report,
 	rf := v3.ReportFields{
 		ValidFromTimestamp: report.ValidAfterSeconds + 1,
 		Timestamp:          report.ObservationTimestampSeconds,
-		NativeFee:          CalculateFee(nativePrice.Decimal(), opts.BaseUSDFee),
-		LinkFee:            CalculateFee(linkPrice.Decimal(), opts.BaseUSDFee),
+		NativeFee:          CalculateFee(nativePrice, opts.BaseUSDFee),
+		LinkFee:            CalculateFee(linkPrice, opts.BaseUSDFee),
 		ExpiresAt:          report.ObservationTimestampSeconds + opts.ExpirationWindow,
 		BenchmarkPrice:     quote.Benchmark.Mul(multiplier).BigInt(),
 		Bid:                quote.Bid.Mul(multiplier).BigInt(),
 		Ask:                quote.Ask.Mul(multiplier).BigInt(),
 	}
+
+	r.Logger.Debugw("Encoding report", "report", report, "opts", opts, "nativePrice", nativePrice, "linkPrice", linkPrice, "quote", quote, "multiplier", multiplier, "rf", rf)
+
 	return codec.BuildReport(ctx, rf)
 }
 
@@ -114,7 +122,10 @@ func (r ReportCodecPremiumLegacy) Pack(digest types.ConfigDigest, seqNr uint64, 
 		ss = append(ss, s)
 		vs[i] = v
 	}
-	reportCtx := LegacyReportContext(digest, seqNr)
+	reportCtx, err := LegacyReportContext(digest, seqNr, r.donID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get legacy report context: %w", err)
+	}
 	rawReportCtx := evmutil.RawReportContext(reportCtx)
 
 	payload, err := mercury.PayloadTypes.Pack(rawReportCtx, []byte(report), rs, ss, vs)
@@ -124,53 +135,100 @@ func (r ReportCodecPremiumLegacy) Pack(digest types.ConfigDigest, seqNr uint64, 
 	return payload, nil
 }
 
-// TODO: Test this
-// MERC-3524
-func ExtractReportValues(report llo.Report) (nativePrice, linkPrice *llo.Decimal, quote *llo.Quote, err error) {
+// ExtractReportValues extracts the native price, link price and quote from the report
+// Can handle either *Decimal or *Quote types for native/link prices
+func ExtractReportValues(report llo.Report) (nativePrice, linkPrice decimal.Decimal, quote *llo.Quote, err error) {
 	if len(report.Values) != 3 {
-		return nil, nil, nil, fmt.Errorf("ReportCodecPremiumLegacy requires exactly 3 values (NativePrice, LinkPrice, Quote{Bid, Mid, Ask}); got report.Values: %#v", report.Values)
+		err = fmt.Errorf("ReportCodecPremiumLegacy requires exactly 3 values (NativePrice, LinkPrice, Quote{Bid, Mid, Ask}); got report.Values: %v", report.Values)
+		return
+	}
+	nativePrice, err = extractPrice(report.Values[0])
+	if err != nil {
+		err = fmt.Errorf("ReportCodecPremiumLegacy failed to extract native price: %w", err)
+		return
+	}
+	linkPrice, err = extractPrice(report.Values[1])
+	if err != nil {
+		err = fmt.Errorf("ReportCodecPremiumLegacy failed to extract link price: %w", err)
+		return
 	}
 	var is bool
-	nativePrice, is = report.Values[0].(*llo.Decimal)
-	if nativePrice == nil {
-		// Missing price median will cause a zero fee
-		nativePrice = llo.ToDecimal(decimal.Zero)
-	} else if !is {
-		return nil, nil, nil, fmt.Errorf("ReportCodecPremiumLegacy expects first value to be of type *Decimal; got: %T", report.Values[0])
-	}
-	linkPrice, is = report.Values[1].(*llo.Decimal)
-	if linkPrice == nil {
-		// Missing price median will cause a zero fee
-		linkPrice = llo.ToDecimal(decimal.Zero)
-	} else if !is {
-		return nil, nil, nil, fmt.Errorf("ReportCodecPremiumLegacy expects second value to be of type *Decimal; got: %T", report.Values[1])
-	}
 	quote, is = report.Values[2].(*llo.Quote)
 	if !is {
-		return nil, nil, nil, fmt.Errorf("ReportCodecPremiumLegacy expects third value to be of type *Quote; got: %T", report.Values[2])
+		err = fmt.Errorf("ReportCodecPremiumLegacy expects third stream value to be of type *Quote; got: %T", report.Values[2])
+		return
+	}
+	if quote == nil {
+		err = errors.New("ReportCodecPremiumLegacy expects third stream value to be non-nil")
+		return
 	}
 	return nativePrice, linkPrice, quote, nil
 }
 
-// TODO: Consider embedding the DON ID here?
-// MERC-3524
-var LLOExtraHash = common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000001")
+func extractPrice(price llo.StreamValue) (decimal.Decimal, error) {
+	switch p := price.(type) {
+	case *llo.Decimal:
+		if p == nil {
+			// Missing price will cause a zero fee
+			return decimal.Zero, nil
+		}
+		return p.Decimal(), nil
+	case *llo.Quote:
+		// in case of quote feed, use the benchmark price
+		if p == nil {
+			return decimal.Zero, nil
+		}
+		return p.Benchmark, nil
 
-func SeqNrToEpochAndRound(seqNr uint64) (epoch uint32, round uint8) {
+	case nil:
+		return decimal.Zero, nil
+	default:
+		return decimal.Zero, fmt.Errorf("expected *Decimal or *Quote; got: %T", price)
+	}
+}
+
+const PluginVersion uint32 = 1 // the legacy mercury plugin is 0
+
+// Uniquely identifies this as LLO plugin, rather than the legacy plugin (which
+// uses all zeroes).
+//
+// This is quite a hack but serves the purpose of uniquely identifying
+// dons/plugin versions to the mercury server without having to modify any
+// existing tooling or breaking backwards compatibility. It should be safe
+// since the DonID is encoded into the config digest anyway so report context
+// is already dependent on it, and all LLO jobs in the same don are expected to
+// have the same don ID set.
+//
+// Packs donID+pluginVersion as (uint32, uint32), for example donID=2,
+// PluginVersion=1 Yields:
+// 0x0000000000000000000000000000000000000000000000000000000200000001
+func LLOExtraHash(donID uint32) common.Hash {
+	combined := uint64(donID)<<32 | uint64(PluginVersion)
+	return common.BigToHash(new(big.Int).SetUint64(combined))
+}
+
+func SeqNrToEpochAndRound(seqNr uint64) (epoch uint32, round uint8, err error) {
 	// Simulate 256 rounds/epoch
-	epoch = uint32(seqNr / 256) // nolint
-	round = uint8(seqNr % 256)  // nolint
+	if seqNr/256 > math.MaxUint32 {
+		err = fmt.Errorf("epoch overflows uint32: %d", seqNr)
+		return
+	}
+	epoch = uint32(seqNr / 256) //nolint:gosec // G115 false positive
+	round = uint8(seqNr % 256)  //nolint:gosec // G115 false positive
 	return
 }
 
-func LegacyReportContext(cd ocr2types.ConfigDigest, seqNr uint64) ocr2types.ReportContext {
-	epoch, round := SeqNrToEpochAndRound(seqNr)
+func LegacyReportContext(cd ocr2types.ConfigDigest, seqNr uint64, donID uint32) (ocr2types.ReportContext, error) {
+	epoch, round, err := SeqNrToEpochAndRound(seqNr)
+	if err != nil {
+		return ocr2types.ReportContext{}, err
+	}
 	return ocr2types.ReportContext{
 		ReportTimestamp: ocr2types.ReportTimestamp{
 			ConfigDigest: cd,
-			Epoch:        uint32(epoch),
-			Round:        uint8(round),
+			Epoch:        epoch,
+			Round:        round,
 		},
-		ExtraHash: LLOExtraHash, // ExtraHash is always zero for mercury, we use LLOExtraHash here to differentiate from the legacy plugin
-	}
+		ExtraHash: LLOExtraHash(donID), // ExtraHash is always zero for mercury, we use LLOExtraHash here to differentiate from the legacy plugin
+	}, nil
 }

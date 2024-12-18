@@ -2,25 +2,24 @@ package cmd
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 	"github.com/urfave/cli"
 )
 
-func initCosmosNodeSubCmd(s *Shell) cli.Command {
-	return nodeCommand("Cosmos", NewCosmosNodeClient(s))
-}
-
-func initStarkNetNodeSubCmd(s *Shell) cli.Command {
-	return nodeCommand("StarkNet", NewStarkNetNodeClient(s))
-}
-
-func initEVMNodeSubCmd(s *Shell) cli.Command {
-	return nodeCommand("EVM", NewEVMNodeClient(s))
-}
-
-func initSolanaNodeSubCmd(s *Shell) cli.Command {
-	return nodeCommand("Solana", NewSolanaNodeClient(s))
+func initNodeSubCmds(s *Shell) []cli.Command {
+	cmds := []cli.Command{}
+	for _, network := range slices.Sorted(maps.Keys(relay.SupportedNetworks)) {
+		if network == relay.NetworkDummy {
+			continue
+		}
+		cmds = append(cmds, nodeCommand(network, NewNodeClient(s, network)))
+	}
+	return cmds
 }
 
 // nodeCommand returns a cli.Command with subcommands for the given NodeClient.
@@ -40,6 +39,41 @@ func nodeCommand(typ string, client NodeClient) cli.Command {
 	}
 }
 
+// EVMNodePresenter implements TableRenderer for an EVMNodeResource.
+type NodePresenter struct {
+	presenters.NodeResource
+}
+
+// ToRow presents the EVMNodeResource as a slice of strings.
+func (p *NodePresenter) ToRow() []string {
+	return []string{p.Name, p.ChainID, p.State, p.Config}
+}
+
+// RenderTable implements TableRenderer
+func (p NodePresenter) RenderTable(rt RendererTable) error {
+	var rows [][]string
+	rows = append(rows, p.ToRow())
+	renderList(nodeHeaders, rows, rt.Writer)
+
+	return nil
+}
+
+// NodePresenters implements TableRenderer for a slice of NodePresenter.
+type NodePresenters []NodePresenter
+
+// RenderTable implements TableRenderer
+func (ps NodePresenters) RenderTable(rt RendererTable) error {
+	rows := [][]string{}
+
+	for _, p := range ps {
+		rows = append(rows, p.ToRow())
+	}
+
+	renderList(nodeHeaders, rows, rt.Writer)
+
+	return nil
+}
+
 // NodeClient is a generic client interface for any of node.
 type NodeClient interface {
 	IndexNodes(c *cli.Context) error
@@ -52,10 +86,10 @@ type nodeClient[P TableRenderer] struct {
 
 // newNodeClient returns a new NodeClient for a particular type of NodeStatus.
 // P is a TableRenderer for []types.NodeStatus.
-func newNodeClient[P TableRenderer](s *Shell, name string) NodeClient {
-	return &nodeClient[P]{
+func NewNodeClient(s *Shell, network string) NodeClient {
+	return &nodeClient[NodePresenters]{
 		Shell: s,
-		path:  "/v2/nodes/" + name,
+		path:  "/v2/nodes/" + network,
 	}
 }
 

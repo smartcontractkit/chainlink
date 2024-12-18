@@ -1,16 +1,23 @@
 # Structure
 
 This guide is split into two sections: [Guidelines](#guidelines) and [Rules](#rules).
-Guidelines are recommendations that should be followed but are hard to enforce in an automated way.
+Guidelines are recommendations that should be followed, but are hard to enforce in an automated way.
 Rules are all enforced through CI, this can be through Solhint rules or other tools.
 
 ## Background
 
-Our starting point is the [official Solidity Style Guide](https://docs.soliditylang.org/en/v0.8.21/style-guide.html) and [ConsenSys's Secure Development practices](https://consensys.github.io/smart-contract-best-practices/), but we deviate in some ways. We lean heavily on [Prettier](https://github.com/smartcontractkit/chainlink/blob/develop/contracts/.prettierrc) for formatting, and if you have to set up a new Solidity project we recommend starting with [our prettier config](https://github.com/smartcontractkit/chainlink/blob/develop/contracts/.prettierrc). We are trying to automate as much of this style guide with Solhint as possible.
+Our starting point is the [official Solidity Style Guide](https://docs.soliditylang.org/en/v0.8.21/style-guide.html) and
+[ConsenSys's Secure Development practices](https://consensys.github.io/smart-contract-best-practices/), 
+but we deviate in some ways.
+We are trying to automate as much of this style guide with Solhint as possible.
 
-This guide is not meant to be applied retroactively. There is no need to rewrite existing code to adhere to this guide, and when making (small) changes in existing files, it is not required to adhere to this guide if it conflicts with other practices in that existing file. Consistency is preferred.
+This guide is not meant to be applied retroactively.
+There is no need to rewrite existing code to adhere to this guide.
+When making (small) changes in existing files,
+it is not required to adhere to this guide if it conflicts with other practices in that existing file.
+Consistency is preferred.
 
-We will be looking into `forge fmt`, but for now, we still use `prettier`.
+We use `forge fmt` for all new projects, but some older ones still rely on `prettier`.
 
 
 # <a name="guidelines"></a>Guidelines
@@ -113,7 +120,7 @@ struct FeeTokenConfigArgs {
 
 - Events should only be triggered on state changes. If the value is set but not changed, we prefer avoiding a log emission indicating a change. (e.g. Either do not emit a log, or name the event `ConfigSet` instead of `ConfigUpdated`.)
 - Events should be emitted for all state changes, not emitting should be an exception
-- When possible event names should correspond to the method they are in or the action that is being taken. Events preferably follow the format <subject><actionPerformed>, where the action performed is the past tense of the imperative verb in the method name.  e.g. calling `setConfig` should emit an event called `ConfigSet`, not `ConfigUpdated` in a method named `setConfig`.
+- When possible, event names should correspond to the method they are in or the action that is being taken. Events preferably follow the format <subject><actionPerformed>, where the action performed is the past tense of the imperative verb in the method name.  e.g. calling `setConfig` should emit an event called `ConfigSet`, not `ConfigUpdated` in a method named `setConfig`.
 
 
 ### Expose Errors
@@ -125,7 +132,7 @@ It is common to call a contract and then check the call succeeded:
 require(success, "Contract call failed");
 ```
 
-While this may look descriptive it swallows the error. Instead, bubble up the error:
+While this may look descriptive, it swallows the error. Instead, bubble up the error:
 
 ```solidity
 bool success;
@@ -160,7 +167,7 @@ The original error will not be human-readable in an off-chain explorer because i
 ## Dependencies
 
 - Prefer not reinventing the wheel, especially if there is an Openzeppelin wheel.
-- The `shared` folder can be treated as a first-party dependency and it is recommended to check if some functionality might already be in there before either writing it yourself or adding a third party dependency.
+- The `shared` folder can be treated as a first-party dependency, and it is recommended to check if some functionality might already be in there before either writing it yourself or adding a third party dependency.
 - When we have reinvented the wheel already (like with ownership), it is OK to keep using these contracts. If there are clear benefits of using another standard like OZ, we can deprecate the custom implementation and start using the new standard in all new projects. Migration will not be required unless there are serious issues with the old implementation.
 - When the decision is made to use a new standard, it is no longer allowed to use the old standard for new projects.
 
@@ -191,28 +198,19 @@ The original error will not be human-readable in an off-chain explorer because i
 - Golf your code. Make it cheap, within reason.
   - Focus on the hot path
 - Most of the cost of executing Solidity is related to reading/writing storage
+  - Pack your structs and top level contract storage
 - Calling other contracts will also be costly
 - Common types to safely use are
   - uint40 for timestamps (or uint32 if you really need the space)
   - uint96 for LINK, as there are only 1b LINK tokens
 - prefer `++i` over `i++`
+- Avoid `unchecked` 
+- Only use `assembly` when there is no option to do something in Solidity or when it saves a significant amount of gas over the alternative implementation.
 - If you’re unsure about golfing, ask in the #tech-solidity channel
 
 ## Testing
 
-- Test using Foundry.
-- Aim for at least 90% *useful* coverage as a baseline, but (near) 100% is achievable in Solidity. Always 100% test the critical path.
-  - Make sure to test for each event emitted
-  - Test each reverting path
-- Consider fuzzing, start with stateless (very easy in Foundry) and if that works, try stateful fuzzing.
-- Consider fork testing if applicable
-
-### Foundry
-
-- Create a Foundry profile for each project folder in `foundry.toml`
-- Foundry tests live in the project folder in `src`, not in the `contracts/test/` folder
-- Set the block number and timestamp. It is preferred to set these values to some reasonable value close to reality.
-- There should be no code between `vm.expectEmit`/`vm.expectRevert` and the function call
+Please read the [Foundry Guide](FOUNDRY_GUIDE.md). No new tests should be written in Hardhat.
 
 ## Picking a Pragma
 
@@ -284,7 +282,7 @@ All rules have a `rule` tag which indicates how the rule is enforced.
 
 ## Comments
 
-- Comments should be in the `//` (default) or `///` (Natspec) format, not the `/*  */` format.
+- Comments should be in the `//` (default) or `///` (for Natspec) format, not the `/*  */` or `/**  **/` format.
   - rule: `tbd`
 - Comments should follow [NatSpec](https://docs.soliditylang.org/en/latest/natspec-format.html)
   - rule: `tbd`
@@ -304,7 +302,7 @@ import {AnythingElse} from "../code/AnythingElse.sol";
 import {ThirdPartyCode} from "../../vendor/ThirdPartyCode.sol";
 ```
 
-- An example would be
+- An example would be the following. Note that third party interfaces go with the third party imports.
 
 ```solidity
 import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";

@@ -13,7 +13,7 @@ import (
 
 func SetupForwarderContract(t *testing.T, reportCreator *framework.DON,
 	backend *framework.EthBlockchain) (common.Address, *forwarder.KeystoneForwarder) {
-	addr, _, fwd, err := forwarder.DeployKeystoneForwarder(backend.TransactionOpts(), backend)
+	addr, _, fwd, err := forwarder.DeployKeystoneForwarder(backend.TransactionOpts(), backend.Client())
 	require.NoError(t, err)
 	backend.Commit()
 
@@ -31,7 +31,7 @@ func SetupForwarderContract(t *testing.T, reportCreator *framework.DON,
 
 func SetupConsumerContract(t *testing.T, backend *framework.EthBlockchain,
 	forwarderAddress common.Address, workflowOwner string, workflowName string) (common.Address, *feeds_consumer.KeystoneFeedsConsumer) {
-	addr, _, consumer, err := feeds_consumer.DeployKeystoneFeedsConsumer(backend.TransactionOpts(), backend)
+	addr, _, consumer, err := feeds_consumer.DeployKeystoneFeedsConsumer(backend.TransactionOpts(), backend.Client())
 	require.NoError(t, err)
 	backend.Commit()
 

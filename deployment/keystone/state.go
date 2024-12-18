@@ -5,7 +5,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/deployment"
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	common_v1_0 "github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/view"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
@@ -23,15 +26,30 @@ type GetContractSetsResponse struct {
 }
 
 type ContractSet struct {
+	commonchangeset.MCMSWithTimelockState
 	OCR3                 *ocr3_capability.OCR3Capability
 	Forwarder            *forwarder.KeystoneForwarder
 	CapabilitiesRegistry *capabilities_registry.CapabilitiesRegistry
 }
 
-func (cs ContractSet) View() (view.KeystoneChainView, error) {
-	var out view.KeystoneChainView
+func (cs ContractSet) TransferableContracts() []common.Address {
+	var out []common.Address
+	if cs.OCR3 != nil {
+		out = append(out, cs.OCR3.Address())
+	}
+	if cs.Forwarder != nil {
+		out = append(out, cs.Forwarder.Address())
+	}
 	if cs.CapabilitiesRegistry != nil {
-		capRegView, err := common_v1_0.GenerateCapRegView(cs.CapabilitiesRegistry)
+		out = append(out, cs.CapabilitiesRegistry.Address())
+	}
+	return out
+}
+
+func (cs ContractSet) View() (view.KeystoneChainView, error) {
+	out := view.NewKeystoneChainView()
+	if cs.CapabilitiesRegistry != nil {
+		capRegView, err := common_v1_0.GenerateCapabilityRegistryView(cs.CapabilitiesRegistry)
 		if err != nil {
 			return view.KeystoneChainView{}, err
 		}
@@ -40,7 +58,7 @@ func (cs ContractSet) View() (view.KeystoneChainView, error) {
 	return out, nil
 }
 
-func GetContractSets(req *GetContractSetsRequest) (*GetContractSetsResponse, error) {
+func GetContractSets(lggr logger.Logger, req *GetContractSetsRequest) (*GetContractSetsResponse, error) {
 	resp := &GetContractSetsResponse{
 		ContractSets: make(map[uint64]ContractSet),
 	}
@@ -49,7 +67,7 @@ func GetContractSets(req *GetContractSetsRequest) (*GetContractSetsResponse, err
 		if err != nil {
 			return nil, fmt.Errorf("failed to get addresses for chain %d: %w", id, err)
 		}
-		cs, err := loadContractSet(chain, addrs)
+		cs, err := loadContractSet(lggr, chain, addrs)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load contract set for chain %d: %w", id, err)
 		}
@@ -58,8 +76,13 @@ func GetContractSets(req *GetContractSetsRequest) (*GetContractSetsResponse, err
 	return resp, nil
 }
 
-func loadContractSet(chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (*ContractSet, error) {
+func loadContractSet(lggr logger.Logger, chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (*ContractSet, error) {
 	var out ContractSet
+	mcmsWithTimelock, err := commonchangeset.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load mcms contract: %w", err)
+	}
+	out.MCMSWithTimelockState = *mcmsWithTimelock
 
 	for addr, tv := range addresses {
 		// todo handle versions
@@ -83,7 +106,8 @@ func loadContractSet(chain deployment.Chain, addresses map[string]deployment.Typ
 			}
 			out.OCR3 = c
 		default:
-			return nil, fmt.Errorf("unknown contract type %s", tv.Type)
+			lggr.Warnw("unknown contract type", "type", tv.Type)
+			// ignore unknown contract types
 		}
 	}
 	return &out, nil

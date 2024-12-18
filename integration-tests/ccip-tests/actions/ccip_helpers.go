@@ -631,7 +631,11 @@ func (ccipModule *CCIPCommon) UpdateTokenPricesAtRegularInterval(ctx context.Con
 		aggregators = append(aggregators, contract)
 	}
 	go func(aggregators []*contracts.MockAggregator) {
-		rand.NewSource(uint64(time.Now().UnixNano()))
+		now := time.Now().UnixNano()
+		if now < 0 {
+			panic(fmt.Errorf("negative timestamp: %d", now))
+		}
+		rand.NewSource(uint64(now))
 		ticker := time.NewTicker(interval)
 		for {
 			select {
@@ -1661,7 +1665,11 @@ func (sourceCCIP *SourceCCIPModule) IsPastRequestTriggeredWithinTimeframe(ctx co
 	if err != nil {
 		return nil, fmt.Errorf("error while getting average source block time. Error: %w", err)
 	}
-	filterFromBlock := latestBlock - uint64(timeframe.Duration()/avgBlockTime)
+	blocks := timeframe.Duration() / avgBlockTime
+	if blocks < 0 {
+		return nil, fmt.Errorf("negative blocks: %d", blocks)
+	}
+	filterFromBlock := latestBlock - uint64(blocks) //nolint:gosec // G115 false positive
 
 	onRampContract, err := evm_2_evm_onramp.NewEVM2EVMOnRamp(common.HexToAddress(sourceCCIP.OnRamp.EthAddress.Hex()),
 		sourceCCIP.Common.ChainClient.Backend())
@@ -1678,7 +1686,7 @@ func (sourceCCIP *SourceCCIPModule) IsPastRequestTriggeredWithinTimeframe(ctx co
 		_ = iterator.Close()
 	}()
 	if iterator.Next() {
-		hdr, err := sourceCCIP.Common.ChainClient.HeaderByNumber(context.Background(), big.NewInt(int64(iterator.Event.Raw.BlockNumber)))
+		hdr, err := sourceCCIP.Common.ChainClient.HeaderByNumber(context.Background(), new(big.Int).SetUint64(iterator.Event.Raw.BlockNumber))
 		if err != nil {
 			return nil, fmt.Errorf("error getting header for block: %d, Error: %w", iterator.Event.Raw.BlockNumber, err)
 		}
@@ -3072,7 +3080,7 @@ func (lane *CCIPLane) ExecuteManually(options ...ManualExecutionOption) error {
 				GasLimit:         big.NewInt(DefaultDestinationGasLimit),
 			}
 			timeNow := time.Now().UTC()
-			tx, err := args.ExecuteManually()
+			tx, err := args.ExecuteManually(lane.Context)
 			if err != nil {
 				return fmt.Errorf("could not execute manually: %w seqNum %d", err, seqNum)
 			}
@@ -4157,7 +4165,7 @@ func (c *CCIPTestEnv) SetUpNodeKeysAndFund(
 	nodeFund *big.Float,
 	chains []blockchain.EVMClient,
 ) error {
-	if c.CLNodes == nil || len(c.CLNodes) == 0 {
+	if len(c.CLNodes) == 0 {
 		return fmt.Errorf("no chainlink nodes to setup")
 	}
 	var chainlinkNodes []*nodeclient.ChainlinkClient
@@ -4371,20 +4379,29 @@ func NewBalanceSheet() *BalanceSheet {
 	}
 }
 
+type attestationStatusResponse struct {
+	Status      string `json:"status"`
+	Attestation string `json:"attestation"`
+	Error       string `json:"error"`
+}
+
 // SetMockServerWithUSDCAttestation responds with a mock attestation for any msgHash
 // The path is set with regex to match any path that starts with /v1/attestations
 func SetMockServerWithUSDCAttestation(
 	killGrave *ctftestenv.Killgrave,
 	mockserver *ctfClient.MockserverClient,
+	isFaulty bool,
 ) error {
 	path := "/v1/attestations"
-	response := struct {
-		Status      string `json:"status"`
-		Attestation string `json:"attestation"`
-		Error       string `json:"error"`
-	}{
+	response := attestationStatusResponse{
 		Status:      "complete",
 		Attestation: "0x9049623e91719ef2aa63c55f357be2529b0e7122ae552c18aff8db58b4633c4d3920ff03d3a6d1ddf11f06bf64d7fd60d45447ac81f527ba628877dc5ca759651b08ffae25a6d3b1411749765244f0a1c131cbfe04430d687a2e12fd9d2e6dc08e118ad95d94ad832332cf3c4f7a4f3da0baa803b7be024b02db81951c0f0714de1b",
+	}
+	if isFaulty {
+		response = attestationStatusResponse{
+			Status: "pending",
+			Error:  "internal error",
+		}
 	}
 	if killGrave == nil && mockserver == nil {
 		return fmt.Errorf("both killgrave and mockserver are nil")

@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
@@ -46,6 +47,7 @@ type MultiClient struct {
 	Backups     []*ethclient.Client
 	RetryConfig RetryConfig
 	lggr        logger.Logger
+	chainName   string
 }
 
 func NewMultiClient(lggr logger.Logger, rpcs []RPC, opts ...func(client *MultiClient)) (*MultiClient, error) {
@@ -59,6 +61,15 @@ func NewMultiClient(lggr logger.Logger, rpcs []RPC, opts ...func(client *MultiCl
 		if err != nil {
 			return nil, fmt.Errorf("failed to dial ws url '%s': %w", rpc.WSURL, err)
 		}
+		id, err := client.ChainID(context.Background())
+		if err != nil {
+			return nil, fmt.Errorf("failed to get chain id: %w", err)
+		}
+		details, err := chainselectors.GetChainDetailsByChainIDAndFamily(id.String(), chainselectors.FamilyEVM)
+		if err != nil {
+			return nil, fmt.Errorf("failed to lookup chain details %w", err)
+		}
+		mc.chainName = details.ChainName
 		clients = append(clients, client)
 	}
 	mc.Client = clients[0]
@@ -103,9 +114,9 @@ func (mc *MultiClient) WaitMined(ctx context.Context, tx *types.Transaction) (*t
 	resultCh := make(chan *types.Receipt)
 	doneCh := make(chan struct{})
 
-	waitMined := func(client *ethclient.Client, tx types.Transaction) {
+	waitMined := func(client *ethclient.Client, tx *types.Transaction) {
 		mc.lggr.Debugf("Waiting for tx %s to be mined with client %v", tx.Hash().Hex(), client)
-		receipt, err := bind.WaitMined(ctx, client, &tx)
+		receipt, err := bind.WaitMined(ctx, client, tx)
 		if err != nil {
 			mc.lggr.Warnf("WaitMined error %v with client %v", err, client)
 			return
@@ -118,9 +129,7 @@ func (mc *MultiClient) WaitMined(ctx context.Context, tx *types.Transaction) (*t
 	}
 
 	for _, client := range append([]*ethclient.Client{mc.Client}, mc.Backups...) {
-		txn := tx
-		c := client
-		go waitMined(c, *txn)
+		go waitMined(client, tx)
 	}
 	var receipt *types.Receipt
 	select {
@@ -136,11 +145,12 @@ func (mc *MultiClient) WaitMined(ctx context.Context, tx *types.Transaction) (*t
 
 func (mc *MultiClient) retryWithBackups(opName string, op func(*ethclient.Client) error) error {
 	var err error
-	for _, client := range append([]*ethclient.Client{mc.Client}, mc.Backups...) {
+	for i, client := range append([]*ethclient.Client{mc.Client}, mc.Backups...) {
 		err2 := retry.Do(func() error {
+			mc.lggr.Debugf("Trying op %s with chain %s client index %d", opName, mc.chainName, i)
 			err = op(client)
 			if err != nil {
-				mc.lggr.Warnf("retryable error '%s' for op %s with client %v", err.Error(), opName, client)
+				mc.lggr.Warnf("retryable error '%s' for op %s with chain %s client index %d", err.Error(), opName, mc.chainName, i)
 				return err
 			}
 			return nil
@@ -148,7 +158,7 @@ func (mc *MultiClient) retryWithBackups(opName string, op func(*ethclient.Client
 		if err2 == nil {
 			return nil
 		}
-		mc.lggr.Infof("Client %v failed, trying next client", client)
+		mc.lggr.Infof("Client at index %d failed, trying next client chain %s", i, mc.chainName)
 	}
-	return errors.Wrapf(err, "All backup clients %v failed", mc.Backups)
+	return errors.Wrapf(err, "All backup clients %v failed for chain %s", mc.Backups, mc.chainName)
 }

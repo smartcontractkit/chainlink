@@ -50,7 +50,7 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
     uint32 sourceDomain;
   }
 
-  string public constant override typeAndVersion = "USDCTokenPool 1.5.0";
+  string public constant override typeAndVersion = "USDCTokenPool 1.5.1";
 
   // We restrict to the first version. New pool may be required for subsequent versions.
   uint32 public constant SUPPORTED_USDC_VERSION = 0;
@@ -78,7 +78,7 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
     address[] memory allowlist,
     address rmnProxy,
     address router
-  ) TokenPool(token, allowlist, rmnProxy, router) {
+  ) TokenPool(token, 6, allowlist, rmnProxy, router) {
     if (address(tokenMessenger) == address(0)) revert InvalidConfig();
     IMessageTransmitter transmitter = IMessageTransmitter(tokenMessenger.localMessageTransmitter());
     uint32 transmitterVersion = transmitter.version();
@@ -126,7 +126,7 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
 
   /// @notice Mint tokens from the pool to the recipient
   /// * sourceTokenData is part of the verified message and passed directly from
-  /// the offramp so it is guaranteed to be what the lockOrBurn pool released on the
+  /// the offRamp so it is guaranteed to be what the lockOrBurn pool released on the
   /// source chain. It contains (nonce, sourceDomain) which is guaranteed by CCTP
   /// to be unique.
   /// * offchainTokenData is untrusted (can be supplied by manual execution), but we assert
