@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/aggregation"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/messagecache"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
@@ -30,7 +31,7 @@ type triggerSubscriber struct {
 	localDonInfo        commoncap.DON
 	dispatcher          types.Dispatcher
 	aggregator          types.Aggregator
-	messageCache        *messageCache[triggerEventKey, p2ptypes.PeerID]
+	messageCache        *messagecache.MessageCache[triggerEventKey, p2ptypes.PeerID]
 	registeredWorkflows map[string]*subRegState
 	mu                  sync.RWMutex // protects registeredWorkflows and messageCache
 	stopCh              services.StopChan
@@ -85,7 +86,7 @@ func NewTriggerSubscriber(config *commoncap.RemoteTriggerConfig, capInfo commonc
 		localDonInfo:        localDonInfo,
 		dispatcher:          dispatcher,
 		aggregator:          aggregator,
-		messageCache:        NewMessageCache[triggerEventKey, p2ptypes.PeerID](),
+		messageCache:        messagecache.NewMessageCache[triggerEventKey, p2ptypes.PeerID](),
 		registeredWorkflows: make(map[string]*subRegState),
 		stopCh:              make(services.StopChan),
 		lggr:                lggr.Named("TriggerSubscriber"),

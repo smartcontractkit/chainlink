@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/aggregation"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/messagecache"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/validation"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -31,7 +32,7 @@ type triggerPublisher struct {
 	workflowDONs    map[uint32]commoncap.DON
 	membersCache    map[uint32]map[p2ptypes.PeerID]bool
 	dispatcher      types.Dispatcher
-	messageCache    *messageCache[registrationKey, p2ptypes.PeerID]
+	messageCache    *messagecache.MessageCache[registrationKey, p2ptypes.PeerID]
 	registrations   map[registrationKey]*pubRegState
 	mu              sync.RWMutex // protects messageCache and registrations
 	batchingQueue   map[[32]byte]*batchedResponse
@@ -85,7 +86,7 @@ func NewTriggerPublisher(config *commoncap.RemoteTriggerConfig, underlying commo
 		workflowDONs:    workflowDONs,
 		membersCache:    membersCache,
 		dispatcher:      dispatcher,
-		messageCache:    NewMessageCache[registrationKey, p2ptypes.PeerID](),
+		messageCache:    messagecache.NewMessageCache[registrationKey, p2ptypes.PeerID](),
 		registrations:   make(map[registrationKey]*pubRegState),
 		batchingQueue:   make(map[[32]byte]*batchedResponse),
 		batchingEnabled: config.MaxBatchSize > 1 && config.BatchCollectionPeriod >= minAllowedBatchCollectionPeriod,
