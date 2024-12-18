@@ -60,6 +60,7 @@ type DeployedLocalAnvilDevEnvironment struct {
 	devEnvCfg     *devenv.EnvironmentConfig
 	in            *CTFV2Conf
 	pvtKeys       []string
+	MockAdapter *fake.Output
 }
 
 func (l *DeployedLocalAnvilDevEnvironment) DeployedEnvironment() changeset.DeployedEnv {
@@ -158,9 +159,34 @@ func getNodeInfo(nodeOut *ns.Output, bootstrapNodeCount int) []devenv.NodeInfo {
 	return nodeInfo
 }
 
-func (l *DeployedLocalAnvilDevEnvironment) MockUSDCAttestationServer(_ *testing.T, _ bool) string {
-	//TODO: Implement this
-	return ""
+func (l *DeployedLocalAnvilDevEnvironment) MockUSDCAttestationServer(t *testing.T, isFaulty bool) string {
+	// SetMockServerWithUSDCAttestation responds with a mock attestation for any msgHash
+	// The path is set with regex to match any path that starts with /v1/attestations
+	path := "/v1/attestations"
+	fakeOut, err := fake.NewFakeDataProvider(l.in.Fake)
+	require.NoError(t, err)
+	l.MockAdapter = fakeOut
+	err = fake.JSON(
+		"GET",
+		path,
+		map[string]any{
+			"status":      "complete",
+			"attestation": "0x9049623e91719ef2aa63c55f357be2529b0e7122ae552c18aff8db58b4633c4d3920ff03d3a6d1ddf11f06bf64d7fd60d45447ac81f527ba628877dc5ca759651b08ffae25a6d3b1411749765244f0a1c131cbfe04430d687a2e12fd9d2e6dc08e118ad95d94ad832332cf3c4f7a4f3da0baa803b7be024b02db81951c0f0714de1b",
+		}, 200,
+	)
+	require.NoError(t, err)
+	if isFaulty {
+		err = fake.JSON(
+			"GET",
+			path,
+			map[string]any{
+				"status": "pending",
+				"error":  "internal error",
+			}, 200,
+		)
+		require.NoError(t, err)
+	}
+	return fakeOut.BaseURLHost
 }
 
 func createAnvilDockerNetwork(t *testing.T) (
@@ -171,7 +197,19 @@ func createAnvilDockerNetwork(t *testing.T) (
 ) {
 	in, err := framework.Load[CTFV2Conf](t)
 	require.NoError(t, err)
-
+	if in.Network.NumberOfNetworks > len(in.BlockchainNetworks) {
+		// if number of networks is greater than number of blockchain networks, dynamically add the required networks
+		networksNeeded := in.Network.NumberOfNetworks - len(in.BlockchainNetworks)
+		finalPortID, err := strconv.Atoi(in.BlockchainNetworks[len(in.BlockchainNetworks)-1].Port)
+		require.NoError(t, err)
+		for i := 1; i <= networksNeeded; i++ {
+			in.BlockchainNetworks = append(in.BlockchainNetworks, &blockchain.Input{
+				ChainID: strconv.Itoa(90000000 + i),
+				Type:    "anvil",
+				Port:    strconv.Itoa(finalPortID + i),
+			})
+		}
+	}
 	// spin up 2 anvils
 	var blockchains []*blockchain.Output
 	for c := 0; c < in.Network.NumberOfNetworks; c++ {
@@ -249,44 +287,52 @@ func startCLNodes(
 
 func getChainSpecificNodeSpec(bcs []*blockchain.Output) string {
 	//TODO: Can improve this based on number of chains instead of hardcoding for two chains
-	tomlNodeConfig := fmt.Sprintf(`
-		[[EVM]]
-		ChainID = '%s'
-		AutoCreateKey = true
-		FinalityDepth = 1
-		MinContractPayment = '0'
+	var tomlNodeConfig string
+	for i, bc := range bcs {
+		if i == 0 {
+			tomlNodeConfig += fmt.Sprintf(`
+				[[EVM]]
+				ChainID = '%s'
+				AutoCreateKey = true
+				FinalityDepth = 1
+				MinContractPayment = '0'
+				
+				[EVM.GasEstimator]
+				PriceMax = '200 gwei'
+				LimitDefault = 6000000
+				FeeCapDefault = '200 gwei'
+				
+				[[EVM.Nodes]]
+				Name = '%s'
+				WSURL = '%s'
+				HTTPURL = '%s'
+				`,
+				bc.ChainID,
+				"chain-"+bc.ChainID,
+				bc.Nodes[0].DockerInternalWSUrl,
+				bc.Nodes[0].DockerInternalHTTPUrl)
+		} else {
+			tomlNodeConfig += fmt.Sprintf(`
+				[[EVM]]
+				ChainID = '%s'
+				LogPollInterval = '500ms'
 		
-		[EVM.GasEstimator]
-		PriceMax = '200 gwei'
-		LimitDefault = 6000000
-		FeeCapDefault = '200 gwei'
+				[EVM.Transactions]
+				ForwardersEnabled = false
+				
+				[EVM.GasEstimator]
+				LimitDefault = 5000000
 		
-		[[EVM.Nodes]]
-		Name = '%s'
-		WSURL = '%s'
-		HTTPURL = '%s'
-		
-		[[EVM]]
-		ChainID = '%s'
-		LogPollInterval = '500ms'
-
-		[EVM.Transactions]
-		ForwardersEnabled = false
-		
-		[EVM.GasEstimator]
-		LimitDefault = 5000000
-
-		[[EVM.Nodes]]
-		Name = '%s'
-		WSURL = '%s'
-		HTTPURL = '%s'`,
-		bcs[0].ChainID,
-		"chain-"+bcs[0].ChainID,
-		bcs[0].Nodes[0].DockerInternalWSUrl,
-		bcs[0].Nodes[0].DockerInternalHTTPUrl,
-		bcs[1].ChainID,
-		"chain-"+bcs[1].ChainID,
-		bcs[1].Nodes[0].DockerInternalWSUrl,
-		bcs[1].Nodes[0].DockerInternalHTTPUrl)
+				[[EVM.Nodes]]
+				Name = '%s'
+				WSURL = '%s'
+				HTTPURL = '%s'
+`,
+				bc.ChainID,
+				"chain-"+bc.ChainID,
+				bc.Nodes[0].DockerInternalWSUrl,
+				bc.Nodes[0].DockerInternalHTTPUrl)
+		}
+	}
 	return tomlNodeConfig
 }
