@@ -369,9 +369,9 @@ jobs:
             --repo-url "${{ inputs.repoUrl }}" \
             --base-sha "${{ needs.get-tests.outputs.git_base_sha }}" \
             --head-sha "${{ needs.get-tests.outputs.git_head_sha }}" \
-            --github-workflow-name "${{ github.workflow }}"
-            --splunk-url "${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}"
-            --splunk-token "${{ secrets.FLAKEGUARD_SPLUNK_HEC }}"
+            --github-workflow-name "${{ github.workflow }}" \
+            --splunk-url "${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}" \
+            --splunk-token "${{ secrets.FLAKEGUARD_SPLUNK_HEC }}" \
             --splunk-event "${{ inputs.splunkEvent }}"
 
           # Print out the summary file
