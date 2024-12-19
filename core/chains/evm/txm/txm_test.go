@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	evmtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -191,10 +192,14 @@ func TestBroadcastTransaction(t *testing.T) {
 		}
 		tx, err := txm.CreateTransaction(tests.Context(t), txRequest)
 		require.NoError(t, err)
+		legacyTx := evmtypes.LegacyTx{
+			To: &address,
+		}
 		attempt := &types.Attempt{
-			TxID:     tx.ID,
-			Fee:      gas.EvmFee{GasPrice: assets.NewWeiI(1)},
-			GasLimit: 22000,
+			TxID:              tx.ID,
+			Fee:               gas.EvmFee{GasPrice: assets.NewWeiI(1)},
+			GasLimit:          22000,
+			SignedTransaction: evmtypes.NewTx(&legacyTx),
 		}
 		ab.On("NewAttempt", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(attempt, nil).Once()
 		client.On("SendTransaction", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
