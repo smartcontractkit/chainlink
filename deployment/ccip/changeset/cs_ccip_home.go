@@ -143,13 +143,13 @@ func (p PromoteAllCandidatesChangesetConfig) Validate(e deployment.Environment) 
 	}
 
 	var donIDs []uint32
-	for _, selector := range p.RemoteChainSelectors {
-		if err := deployment.IsValidChainSelector(selector); err != nil {
+	for _, chainSelector := range p.RemoteChainSelectors {
+		if err := deployment.IsValidChainSelector(chainSelector); err != nil {
 			return nil, fmt.Errorf("don chain selector invalid: %w", err)
 		}
-		chainState, exists := state.Chains[selector]
+		chainState, exists := state.Chains[chainSelector]
 		if !exists {
-			return nil, fmt.Errorf("chain %d does not exist", selector)
+			return nil, fmt.Errorf("chain %d does not exist", chainSelector)
 		}
 		if chainState.OffRamp == nil {
 			// should not be possible, but a defensive check.
@@ -159,13 +159,13 @@ func (p PromoteAllCandidatesChangesetConfig) Validate(e deployment.Environment) 
 		donID, err := internal.DonIDForChain(
 			state.Chains[p.HomeChainSelector].CapabilityRegistry,
 			state.Chains[p.HomeChainSelector].CCIPHome,
-			selector,
+			chainSelector,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("fetch don id for chain: %w", err)
 		}
 		if donID == 0 {
-			return nil, fmt.Errorf("don doesn't exist in CR for chain %d", selector)
+			return nil, fmt.Errorf("don doesn't exist in CR for chain %d", chainSelector)
 		}
 		// Check that candidate digest and active digest are not both zero - this is enforced onchain.
 		pluginConfigs, err := state.Chains[p.HomeChainSelector].CCIPHome.GetAllConfigs(&bind.CallOpts{
