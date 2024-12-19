@@ -135,7 +135,7 @@ jobs:
       - name: Install flakeguard
         if: ${{ inputs.runAllTests == false }}
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@00d9baff8b1b965980e06f5d5df427ad96c75125 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@7c45cff27ac6b0d4244754660661cdbfcfaf2f9e # flakguard@0.1.0
 
       - name: Find new or updated test packages
         if: ${{ inputs.runAllTests == false }}
@@ -294,7 +294,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@00d9baff8b1b965980e06f5d5df427ad96c75125 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@7c45cff27ac6b0d4244754660661cdbfcfaf2f9e # flakguard@0.1.0
 
       - name: Run tests with flakeguard
         shell: bash
@@ -345,7 +345,7 @@ jobs:
             
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@00d9baff8b1b965980e06f5d5df427ad96c75125 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@7c45cff27ac6b0d4244754660661cdbfcfaf2f9e # flakguard@0.1.0
                 
       - name: Aggregate Flakeguard Results
         id: results
@@ -385,7 +385,7 @@ jobs:
           echo "summary=$summary" >> $GITHUB_OUTPUT
 
       - name: Upload All Test Results as Artifact
-        if: always() && ${{ fromJSON(steps.results.outputs.summary).total_tests > 0 }}
+        if: ${{ always() && fromJSON(steps.results.outputs.summary).total_tests > 0 }}
         uses: actions/upload-artifact@v4.4.3
         with:
           path: ./flakeguard-report/all-test-results.json
@@ -393,7 +393,7 @@ jobs:
           retention-days: 90
       
       - name: Upload Failed Test Results as Artifact
-        if: always() && ${{ fromJSON(steps.results.outputs.summary).failed_runs > 0 }}
+        if: ${{ always() && fromJSON(steps.results.outputs.summary).failed_runs > 0 }}
         uses: actions/upload-artifact@v4.4.3
         with:
           path: ./flakeguard-report/failed-test-results.json
@@ -401,7 +401,7 @@ jobs:
           retention-days: 90 
           
       - name: Upload Failed Test Results With Logs as Artifact
-        if: always() && ${{ fromJSON(steps.results.outputs.summary).failed_runs > 0 }}
+        if: ${{ always() && fromJSON(steps.results.outputs.summary).failed_runs > 0 }}
         uses: actions/upload-artifact@v4.4.3
         with:
           path: ./flakeguard-report/failed-test-results-with-logs.json
@@ -468,7 +468,7 @@ jobs:
           fi
 
       - name: Post comment on PR if flaky tests found
-        if: always() && ${{ fromJSON(steps.results.outputs.summary).flaky_tests > 0 && github.event_name == 'pull_request' }}
+        if: ${{ always() && fromJSON(steps.results.outputs.summary).flaky_tests > 0 && github.event_name == 'pull_request' }}
         uses: actions/github-script@v7
         continue-on-error: true
         with:
@@ -485,7 +485,7 @@ jobs:
             });
 
       - name: Send Slack message for failed tests
-        if: always && ${{ inputs.slackNotificationAfterTestsChannelId != '' && fromJSON(steps.results.outputs.summary).flaky_tests > 0 }}
+        if: ${{ always() && inputs.slackNotificationAfterTestsChannelId != '' && fromJSON(steps.results.outputs.summary).flaky_tests > 0 }}
         uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
@@ -538,7 +538,7 @@ jobs:
 
       - name: Send general Slack message
         uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
-        if: always() && ${{ inputs.slackNotificationAfterTestsChannelId != '' && fromJSON(steps.results.outputs.summary).flaky_tests == 0 && fromJSON(steps.results.outputs.summary).total_tests > 0 }}
+        if: ${{ always() && inputs.slackNotificationAfterTestsChannelId != '' && fromJSON(steps.results.outputs.summary).flaky_tests == 0 && fromJSON(steps.results.outputs.summary).total_tests > 0 }}
         id: slack
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
