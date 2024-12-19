@@ -1,6 +1,7 @@
 package v1_5
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
@@ -15,7 +16,7 @@ type OnRampView struct {
 
 func GenerateOnRampView(r *evm_2_evm_onramp.EVM2EVMOnRamp) (OnRampView, error) {
 	if r == nil {
-		return OnRampView{}, fmt.Errorf("cannot generate view for nil OnRamp")
+		return OnRampView{}, errors.New("cannot generate view for nil OnRamp")
 	}
 	meta, err := types.NewContractMetaData(r, r.Address())
 	if err != nil {

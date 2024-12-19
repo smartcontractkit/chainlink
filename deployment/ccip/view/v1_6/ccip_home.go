@@ -61,7 +61,7 @@ func GenerateCCIPHomeView(cr *capabilities_registry.CapabilitiesRegistry, ch *cc
 		return CCIPHomeView{}, fmt.Errorf("failed to get DONs for CCIPHome %s: %w", ch.Address(), err)
 	}
 	// Get every don's configuration.
-	var dvs []DonView
+	dvs := make([]DonView, 0)
 	for _, d := range dons {
 		commitConfigs, err := ch.GetAllConfigs(nil, d.Id, CommitPluginType)
 		if err != nil {

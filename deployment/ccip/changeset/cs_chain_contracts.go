@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -81,7 +82,7 @@ func (cfg UpdateOnRampDestsConfig) Validate(e deployment.Environment) error {
 				return fmt.Errorf("failed to get onramp static config %s: %w", chainState.OnRamp.Address(), err)
 			}
 			if destination == sc.ChainSelector {
-				return fmt.Errorf("cannot update onramp destination to the same chain")
+				return errors.New("cannot update onramp destination to the same chain")
 			}
 		}
 	}
@@ -102,10 +103,8 @@ func UpdateOnRampsDests(e deployment.Environment, cfg UpdateOnRampDestsConfig) (
 	var batches []timelock.BatchChainOperation
 	timelocks := make(map[uint64]common.Address)
 	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig)
-	ctx := e.GetContext()
 	for chainSel, updates := range cfg.UpdatesByChain {
 		txOpts := e.Chains[chainSel].DeployerKey
-		txOpts.Context = ctx
 		if cfg.MCMS != nil {
 			txOpts = deployment.SimTransactOpts()
 		}
@@ -210,7 +209,7 @@ func (cfg UpdateFeeQuoterDestsConfig) Validate(e deployment.Environment) error {
 				return fmt.Errorf("failed to get onramp static config %s: %w", chainState.OnRamp.Address(), err)
 			}
 			if destination == sc.ChainSelector {
-				return fmt.Errorf("cannot update onramp destination to the same chain")
+				return errors.New("cannot update onramp destination to the same chain")
 			}
 		}
 	}
@@ -228,10 +227,8 @@ func UpdateFeeQuoterDests(e deployment.Environment, cfg UpdateFeeQuoterDestsConf
 	var batches []timelock.BatchChainOperation
 	timelocks := make(map[uint64]common.Address)
 	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig)
-	ctx := e.GetContext()
 	for chainSel, updates := range cfg.UpdatesByChain {
 		txOpts := e.Chains[chainSel].DeployerKey
-		txOpts.Context = ctx
 		if cfg.MCMS != nil {
 			txOpts = deployment.SimTransactOpts()
 		}
@@ -351,10 +348,8 @@ func UpdateOffRampSources(e deployment.Environment, cfg UpdateOffRampSourcesConf
 	var batches []timelock.BatchChainOperation
 	timelocks := make(map[uint64]common.Address)
 	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig)
-	ctx := e.GetContext()
 	for chainSel, updates := range cfg.UpdatesByChain {
 		txOpts := e.Chains[chainSel].DeployerKey
-		txOpts.Context = ctx
 		if cfg.MCMS != nil {
 			txOpts = deployment.SimTransactOpts()
 		}
@@ -506,10 +501,8 @@ func UpdateRouterRamps(e deployment.Environment, cfg UpdateRouterRampsConfig) (d
 	var batches []timelock.BatchChainOperation
 	timelocks := make(map[uint64]common.Address)
 	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig)
-	ctx := e.GetContext()
 	for chainSel, update := range cfg.UpdatesByChain {
 		txOpts := e.Chains[chainSel].DeployerKey
-		txOpts.Context = ctx
 		if cfg.MCMS != nil {
 			txOpts = deployment.SimTransactOpts()
 		}

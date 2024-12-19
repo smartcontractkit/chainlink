@@ -649,7 +649,7 @@ func deployTokenPoolsInParallel(
 		return nil, nil, nil, nil, err
 	}
 	if srcToken == nil || srcPool == nil || dstToken == nil || dstPool == nil {
-		return nil, nil, nil, nil, fmt.Errorf("failed to deploy token and pool")
+		return nil, nil, nil, nil, errors.New("failed to deploy token and pool")
 	}
 	return srcToken, srcPool, dstToken, dstPool, nil
 }

@@ -2,6 +2,7 @@ package changeset
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"sync"
@@ -485,7 +486,7 @@ func ConfirmExecWithSeqNrs(
 	expectedSeqNrs []uint64,
 ) (executionStates map[uint64]int, err error) {
 	if len(expectedSeqNrs) == 0 {
-		return nil, fmt.Errorf("no expected sequence numbers provided")
+		return nil, errors.New("no expected sequence numbers provided")
 	}
 
 	timer := time.NewTimer(8 * time.Minute)

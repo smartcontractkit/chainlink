@@ -1,6 +1,7 @@
 package changeset
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -81,7 +82,7 @@ func deployChainContractsForChains(
 	capReg := existingState.Chains[homeChainSel].CapabilityRegistry
 	if capReg == nil {
 		e.Logger.Errorw("Failed to get capability registry")
-		return fmt.Errorf("capability registry not found")
+		return errors.New("capability registry not found")
 	}
 	cr, err := capReg.GetHashedCapabilityId(
 		&bind.CallOpts{}, internal.CapabilityLabelledName, internal.CapabilityVersion)
@@ -105,12 +106,12 @@ func deployChainContractsForChains(
 		return err
 	}
 	if ccipHome.Address() != existingState.Chains[homeChainSel].CCIPHome.Address() {
-		return fmt.Errorf("ccip home address mismatch")
+		return errors.New("ccip home address mismatch")
 	}
 	rmnHome := existingState.Chains[homeChainSel].RMNHome
 	if rmnHome == nil {
 		e.Logger.Errorw("Failed to get rmn home", "err", err)
-		return fmt.Errorf("rmn home not found")
+		return errors.New("rmn home not found")
 	}
 	deployGrp := errgroup.Group{}
 	for _, chainSel := range chainsToDeploy {

@@ -217,13 +217,15 @@ func CreatePricesPipeline(t *testing.T, state changeset.CCIPOnChainState, source
 	destLink := state.Chains[dest].LinkToken
 	linkUSD := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, err := w.Write([]byte(`{"UsdPerLink": "8000000000000000000"}`))
-		require.NoError(t, err)
+		// can't use require.NoError here for linting
+		panic(err)
 	}))
 	t.Cleanup(linkUSD.Close)
 
 	ethUSD := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, err := w.Write([]byte(`{"UsdPerETH": "1700000000000000000000"}`))
-		require.NoError(t, err)
+		// can't use require.NoError here for linting
+		panic(err)
 	}))
 	t.Cleanup(ethUSD.Close)
 

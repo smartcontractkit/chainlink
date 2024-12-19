@@ -2,7 +2,8 @@ package changeset
 
 import (
 	"context"
-	"fmt"
+	"errors"
+	"math"
 	"math/big"
 	"os"
 	"testing"
@@ -61,16 +62,16 @@ type TestConfigs struct {
 
 func (tc *TestConfigs) Validate() error {
 	if tc.Chains < 2 {
-		return fmt.Errorf("chains must be at least 2")
+		return errors.New("chains must be at least 2")
 	}
 	if tc.Nodes < 4 {
-		return fmt.Errorf("nodes must be at least 4")
+		return errors.New("nodes must be at least 4")
 	}
 	if tc.Bootstraps < 1 {
-		return fmt.Errorf("bootstraps must be at least 1")
+		return errors.New("bootstraps must be at least 1")
 	}
 	if tc.Type == Memory && tc.RMNEnabled {
-		return fmt.Errorf("cannot run RMN tests in memory mode")
+		return errors.New("cannot run RMN tests in memory mode")
 	}
 	return nil
 }
@@ -505,9 +506,14 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tc *TestConfigs, tEnv Test
 			ocrParams = tc.OCRConfigOverride(ocrParams)
 		}
 		ocrConfigs[chain] = ocrParams
+		fChain := len(nodeInfo.NonBootstraps().PeerIDs()) / 3
+		if fChain > math.MaxUint8 {
+			t.Fatal("fChain too large")
+		}
 		chainConfigs[chain] = ChainConfig{
 			Readers: nodeInfo.NonBootstraps().PeerIDs(),
-			FChain:  uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),
+			//nolint:gosec // already handled above
+			FChain: uint8(fChain),
 			EncodableChainConfig: chainconfig.ChainConfig{
 				GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(internal.GasPriceDeviationPPB)},
 				DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(internal.DAGasPriceDeviationPPB)},
