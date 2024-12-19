@@ -26,8 +26,8 @@ library ERC165CheckerReverting {
     // As a gas optimization, short circuit return false if interfaceId is not supported, as it is most likely interfaceId
     // to be unsupported by the target.
     return _supportsERC165InterfaceUncheckedReverting(account, interfaceId)
-        && !_supportsERC165InterfaceUncheckedReverting(account, INTERFACE_ID_INVALID)
-        && _supportsERC165InterfaceUncheckedReverting(account, type(IERC165).interfaceId);
+      && !_supportsERC165InterfaceUncheckedReverting(account, INTERFACE_ID_INVALID)
+      && _supportsERC165InterfaceUncheckedReverting(account, type(IERC165).interfaceId);
   }
 
   /// @notice Query if a contract implements an interface, does not check ERC165 support
