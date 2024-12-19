@@ -586,7 +586,6 @@ func TestConfig_Marshal(t *testing.T) {
 				FinalityTagEnabled:        ptr[bool](true),
 				FlagsContractAddress:      mustAddress("0xae4E781a6218A8031764928E88d457937A954fC3"),
 				FinalizedBlockOffset:      ptr[uint32](16),
-				TransactionManagerEnabled: ptr(true),
 
 				GasEstimator: evmcfg.GasEstimator{
 					Mode:               ptr("SuggestedPrice"),
@@ -655,6 +654,7 @@ func TestConfig_Marshal(t *testing.T) {
 				NoNewFinalizedHeadsThreshold: &hour,
 
 				Transactions: evmcfg.Transactions{
+					Enabled:              ptr(true),
 					MaxInFlight:          ptr[uint32](19),
 					MaxQueued:            ptr[uint32](99),
 					ReaperInterval:       &minute,
@@ -1117,9 +1117,9 @@ RPCDefaultBatchSize = 17
 RPCBlockQueryDelay = 10
 FinalizedBlockOffset = 16
 NoNewFinalizedHeadsThreshold = '1h0m0s'
-TransactionManagerEnabled = true
 
 [EVM.Transactions]
+Enabled = true
 ForwardersEnabled = true
 MaxInFlight = 19
 MaxQueued = 99

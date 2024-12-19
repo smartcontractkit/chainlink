@@ -191,7 +191,3 @@ func (e *EVMConfig) FinalizedBlockOffset() uint32 {
 func (e *EVMConfig) NoNewFinalizedHeadsThreshold() time.Duration {
 	return e.C.NoNewFinalizedHeadsThreshold.Duration()
 }
-
-func (e *EVMConfig) TransactionManagerEnabled() bool {
-	return *e.C.TransactionManagerEnabled
-}

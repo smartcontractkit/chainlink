@@ -49,7 +49,6 @@ type EVM interface {
 	NodeNoNewHeadsThreshold() time.Duration
 	FinalizedBlockOffset() uint32
 	NoNewFinalizedHeadsThreshold() time.Duration
-	TransactionManagerEnabled() bool
 
 	IsEnabled() bool
 	TOMLString() (string, error)
@@ -104,6 +103,7 @@ type ClientErrors interface {
 }
 
 type Transactions interface {
+	Enabled() bool
 	ForwardersEnabled() bool
 	ReaperInterval() time.Duration
 	ResendAfterThreshold() time.Duration

@@ -255,7 +255,7 @@ func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Nod
 	//nolint:gocritic // ignoring suggestion to convert to switch statement
 	if !opts.AppConfig.EVMRPCEnabled() {
 		txm = &txmgr.NullTxManager{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
-	} else if !cfg.EVM().TransactionManagerEnabled() {
+	} else if !cfg.EVM().Transactions().Enabled() {
 		txm = &txmgr.NullTxManager{ErrMsg: fmt.Sprintf("TXM disabled for chain %d", chainID)}
 	} else {
 		txm, err = newEvmTxm(opts.DS, cfg.EVM(), opts.AppConfig.Database(), opts.AppConfig.Database().Listener(), client, l, logPoller, opts, headTracker, gasEstimator)
