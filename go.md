@@ -122,6 +122,8 @@ flowchart LR
 	click chainlink-solana href "https://github.com/smartcontractkit/chainlink-solana"
 	chainlink-starknet/relayer --> chainlink-common
 	click chainlink-starknet/relayer href "https://github.com/smartcontractkit/chainlink-starknet"
+	chainlink-testing-framework/framework
+	click chainlink-testing-framework/framework href "https://github.com/smartcontractkit/chainlink-testing-framework"
 	chainlink-testing-framework/havoc --> chainlink-testing-framework/lib/grafana
 	click chainlink-testing-framework/havoc href "https://github.com/smartcontractkit/chainlink-testing-framework"
 	chainlink-testing-framework/lib --> chainlink-testing-framework/seth
@@ -140,6 +142,7 @@ flowchart LR
 	chainlink/deployment --> chainlink-testing-framework/lib
 	chainlink/deployment --> chainlink/v2
 	click chainlink/deployment href "https://github.com/smartcontractkit/chainlink"
+	chainlink/integration-tests --> chainlink-testing-framework/framework
 	chainlink/integration-tests --> chainlink-testing-framework/havoc
 	chainlink/integration-tests --> chainlink/deployment
 	click chainlink/integration-tests href "https://github.com/smartcontractkit/chainlink"
@@ -185,6 +188,7 @@ flowchart LR
 	click chainlink-protos-repo href "https://github.com/smartcontractkit/chainlink-protos"
 
 	subgraph chainlink-testing-framework-repo[chainlink-testing-framework]
+		 chainlink-testing-framework/framework
 		 chainlink-testing-framework/havoc
 		 chainlink-testing-framework/lib
 		 chainlink-testing-framework/lib/grafana

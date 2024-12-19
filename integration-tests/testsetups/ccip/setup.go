@@ -36,6 +36,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
+const DefaultChainNamePrefix = "chain-"
+
 type NetworkSetup struct {
 	NumberOfNetworks int      `toml:"number_of_networks" validate:"required"`
 	PrivateKeys      []string `toml:"private_keys" validate:"required"`
@@ -251,7 +253,7 @@ func createAnvilDockerNetwork(t *testing.T) (
 		require.NoError(t, err, "failed to create deployer")
 		chainCfg := devenv.ChainConfig{
 			ChainID:     id,
-			ChainName:   "chain-" + chain.ChainID,
+			ChainName:   DefaultChainNamePrefix + chain.ChainID,
 			ChainType:   devenv.EVMChainType,
 			WSRPCs:      []string{chain.Nodes[0].HostWSUrl},
 			HTTPRPCs:    []string{chain.Nodes[0].HostHTTPUrl},
@@ -279,7 +281,6 @@ func startCLNodes(
 	tomlNodeConfig := in.NodeSet.NodeSpecs[0].Node.TestConfigOverrides
 	tomlNodeConfig += getChainSpecificNodeSpec(blockchains)
 	tomlNodeConfig += fmt.Sprintf(`
-
 		# This is needed for external registry
 		[Capabilities]
 		[Capabilities.ExternalRegistry]
@@ -316,8 +317,7 @@ func getChainSpecificNodeSpec(bcs []*blockchain.Output) string {
 				[[EVM.Nodes]]
 				Name = '%s'
 				WSURL = '%s'
-				HTTPURL = '%s'
-				`,
+				HTTPURL = '%s'`,
 				bc.ChainID,
 				"chain-"+bc.ChainID,
 				bc.Nodes[0].DockerInternalWSUrl,
@@ -337,8 +337,7 @@ func getChainSpecificNodeSpec(bcs []*blockchain.Output) string {
 				[[EVM.Nodes]]
 				Name = '%s'
 				WSURL = '%s'
-				HTTPURL = '%s'
-`,
+				HTTPURL = '%s'`,
 				bc.ChainID,
 				"chain-"+bc.ChainID,
 				bc.Nodes[0].DockerInternalWSUrl,
