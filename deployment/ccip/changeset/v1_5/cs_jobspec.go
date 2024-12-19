@@ -28,7 +28,7 @@ type JobSpecInput struct {
 	DestEVMChainID           uint64
 	DestinationStartBlock    uint64
 	TokenPricesUSDPipeline   string
-	PriceGetterConfigJson    string
+	PriceGetterConfigJSON    string
 	USDCAttestationAPI       string
 	USDCCfg                  *config.USDCConfig
 }
@@ -40,8 +40,8 @@ func (j JobSpecInput) Validate() error {
 	if err := deployment.IsValidChainSelector(j.DestinationChainSelector); err != nil {
 		return fmt.Errorf("DestinationChainSelector is invalid: %w", err)
 	}
-	if j.TokenPricesUSDPipeline == "" && j.PriceGetterConfigJson == "" {
-		return fmt.Errorf("TokenPricesUSDPipeline or PriceGetterConfigJson is required")
+	if j.TokenPricesUSDPipeline == "" && j.PriceGetterConfigJSON == "" {
+		return fmt.Errorf("TokenPricesUSDPipeline or PriceGetterConfigJSON is required")
 	}
 	if j.USDCCfg != nil {
 		if err := j.USDCCfg.ValidateUSDCConfig(); err != nil {
@@ -95,7 +95,7 @@ func jobSpecsForLane(
 				DestChainName:          destChain.Name(),
 				DestEvmChainId:         cfg.DestEVMChainID,
 				TokenPricesUSDPipeline: cfg.TokenPricesUSDPipeline,
-				PriceGetterConfig:      cfg.PriceGetterConfigJson,
+				PriceGetterConfig:      cfg.PriceGetterConfigJSON,
 				DestStartBlock:         cfg.DestinationStartBlock,
 				USDCAttestationAPI:     cfg.USDCAttestationAPI,
 				USDCConfig:             cfg.USDCCfg,

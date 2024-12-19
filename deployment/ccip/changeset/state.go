@@ -2,6 +2,7 @@ package changeset
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
@@ -366,7 +367,7 @@ func (s CCIPOnChainState) View(chains []uint64) (map[string]view.ChainView, erro
 		}
 		name := chainInfo.ChainName
 		if chainInfo.ChainName == "" {
-			name = fmt.Sprintf("%d", chainSelector)
+			name = strconv.FormatUint(chainSelector, 10)
 		}
 		m[name] = chainView
 	}
@@ -380,12 +381,11 @@ func LoadOnchainState(e deployment.Environment) (CCIPOnChainState, error) {
 	for chainSelector, chain := range e.Chains {
 		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
 		if err != nil {
-			// Chain not found in address book, initialize empty
-			if errors.Is(err, deployment.ErrChainNotFound) {
-				addresses = make(map[string]deployment.TypeAndVersion)
-			} else {
+			if !errors.Is(err, deployment.ErrChainNotFound) {
 				return state, err
 			}
+			// Chain not found in address book, initialize empty
+			addresses = make(map[string]deployment.TypeAndVersion)
 		}
 		chainState, err := LoadChainState(chain, addresses)
 		if err != nil {

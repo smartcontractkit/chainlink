@@ -19,7 +19,7 @@ func TestE2ELegacy(t *testing.T) {
 		t,
 		changeset.WithLegacyDeployment(),
 		changeset.WithChains(3),
-		changeset.WithChainIds([]uint64{chainselectors.GETH_TESTNET.EvmChainID}))
+		changeset.WithChainIDs([]uint64{chainselectors.GETH_TESTNET.EvmChainID}))
 	state, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	allChains := e.Env.AllChainSelectorsExcluding([]uint64{chainselectors.GETH_TESTNET.Selector})

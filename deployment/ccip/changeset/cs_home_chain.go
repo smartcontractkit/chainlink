@@ -240,21 +240,21 @@ func deployHomeChainContracts(
 		return capReg, err
 	}
 	// Need to fetch nodeoperators ids to be able to add nodes for corresponding node operators
-	p2pIDsByNodeOpId := make(map[uint32][][32]byte)
+	p2pIDsByNodeOpID := make(map[uint32][][32]byte)
 	for addedEvent.Next() {
 		for nopName, p2pID := range nodeP2PIDsPerNodeOpAdmin {
 			if addedEvent.Event.Name == nopName {
 				lggr.Infow("Added node operator", "admin", addedEvent.Event.Admin, "name", addedEvent.Event.Name)
-				p2pIDsByNodeOpId[addedEvent.Event.NodeOperatorId] = p2pID
+				p2pIDsByNodeOpID[addedEvent.Event.NodeOperatorId] = p2pID
 			}
 		}
 	}
-	if len(p2pIDsByNodeOpId) != len(nodeP2PIDsPerNodeOpAdmin) {
-		lggr.Errorw("Failed to add all node operators", "added", maps.Keys(p2pIDsByNodeOpId), "expected", maps.Keys(nodeP2PIDsPerNodeOpAdmin), "chain", chain.String())
+	if len(p2pIDsByNodeOpID) != len(nodeP2PIDsPerNodeOpAdmin) {
+		lggr.Errorw("Failed to add all node operators", "added", maps.Keys(p2pIDsByNodeOpID), "expected", maps.Keys(nodeP2PIDsPerNodeOpAdmin), "chain", chain.String())
 		return capReg, errors.New("failed to add all node operators")
 	}
 	// Adds initial set of nodes to CR, who all have the CCIP capability
-	if err := addNodes(lggr, capReg.Contract, chain, p2pIDsByNodeOpId); err != nil {
+	if err := addNodes(lggr, capReg.Contract, chain, p2pIDsByNodeOpID); err != nil {
 		return capReg, err
 	}
 	return capReg, nil

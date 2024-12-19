@@ -85,14 +85,14 @@ func LaneConfigsForChains(t *testing.T, env deployment.Environment, state change
 		tokenPrice, _, _ := CreatePricesPipeline(t, state, src, dest)
 		block, err := env.Chains[dest].Client.HeaderByNumber(context.Background(), nil)
 		require.NoError(t, err)
-		destEVMChainIdStr, err := chain_selectors.GetChainIDFromSelector(dest)
+		destEVMChainIDStr, err := chain_selectors.GetChainIDFromSelector(dest)
 		require.NoError(t, err)
-		destEVMChainId, err := strconv.ParseUint(destEVMChainIdStr, 10, 64)
+		destEVMChainID, err := strconv.ParseUint(destEVMChainIDStr, 10, 64)
 		require.NoError(t, err)
 		jobSpecs = append(jobSpecs, JobSpecInput{
 			SourceChainSelector:      src,
 			DestinationChainSelector: dest,
-			DestEVMChainID:           destEVMChainId,
+			DestEVMChainID:           destEVMChainID,
 			TokenPricesUSDPipeline:   tokenPrice,
 			DestinationStartBlock:    block.Number.Uint64(),
 		})

@@ -83,7 +83,7 @@ type RMNHomeSourceChain struct {
 }
 
 type RMNHomeNode struct {
-	PeerId            [32]byte `json:"peerId"`
+	PeerID            [32]byte `json:"peerId"`
 	OffchainPublicKey [32]byte `json:"offchainPublicKey"`
 }
 
@@ -94,7 +94,7 @@ func (n RMNHomeNode) MarshalJSON() ([]byte, error) {
 		OffchainPublicKey string `json:"offchainPublicKey"`
 		*Alias
 	}{
-		PeerId:            hex.EncodeToString(n.PeerId[:]),
+		PeerId:            hex.EncodeToString(n.PeerID[:]),
 		OffchainPublicKey: hex.EncodeToString(n.OffchainPublicKey[:]),
 		Alias:             (*Alias)(&n),
 	})
@@ -103,7 +103,7 @@ func (n RMNHomeNode) MarshalJSON() ([]byte, error) {
 func (n *RMNHomeNode) UnmarshalJSON(data []byte) error {
 	type Alias RMNHomeNode
 	aux := &struct {
-		PeerId            string `json:"peerId"`
+		PeerID            string `json:"peerId"`
 		OffchainPublicKey string `json:"offchainPublicKey"`
 		*Alias
 	}{
@@ -113,11 +113,11 @@ func (n *RMNHomeNode) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	peerIdBytes, err := decodeHexString(aux.PeerId, 32)
+	peerIDBytes, err := decodeHexString(aux.PeerID, 32)
 	if err != nil {
 		return err
 	}
-	copy(n.PeerId[:], peerIdBytes)
+	copy(n.PeerID[:], peerIDBytes)
 
 	offchainPublicKeyBytes, err := decodeHexString(aux.OffchainPublicKey, 32)
 	if err != nil {
@@ -134,7 +134,7 @@ func mapNodes(nodes []rmn_home.RMNHomeNode) []RMNHomeNode {
 	result := make([]RMNHomeNode, len(nodes))
 	for i, node := range nodes {
 		result[i] = RMNHomeNode{
-			PeerId:            node.PeerId,
+			PeerID:            node.PeerId,
 			OffchainPublicKey: node.OffchainPublicKey,
 		}
 	}

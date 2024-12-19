@@ -28,7 +28,7 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 	homeChainSel := selectors[0]
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
-	p2pIds := nodes.NonBootstraps().PeerIDs()
+	p2pIDs := nodes.NonBootstraps().PeerIDs()
 	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 	for _, chain := range e.AllChainSelectors() {
 		cfg[chain] = proposalutils.SingleGroupTimelockConfig(t)
@@ -48,7 +48,7 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 				RMNDynamicConfig: NewTestRMNDynamicConfig(),
 				NodeOperators:    NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
 				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
-					"NodeOperator": p2pIds,
+					"NodeOperator": p2pIDs,
 				},
 			},
 		},

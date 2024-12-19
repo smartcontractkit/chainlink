@@ -33,7 +33,7 @@ func TestCCIPHomeView(t *testing.T) {
 
 	v, err := GenerateCCIPHomeView(cr, ch)
 	require.NoError(t, err)
-	assert.Equal(t, v.TypeAndVersion, "CCIPHome 1.6.0-dev")
+	assert.Equal(t, "CCIPHome 1.6.0-dev", v.TypeAndVersion)
 
 	_, err = json.MarshalIndent(v, "", "  ")
 	require.NoError(t, err)

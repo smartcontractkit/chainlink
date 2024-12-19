@@ -123,7 +123,7 @@ func deployChainContractsForChains(
 		}
 		deployGrp.Go(
 			func() error {
-				err := deployChainContracts(e, chain, ab, rmnHome)
+				err := deployChain(e, chain, ab, rmnHome)
 				if err != nil {
 					e.Logger.Errorw("Failed to deploy chain contracts", "chain", chainSel, "err", err)
 					return fmt.Errorf("failed to deploy chain contracts for chain %d: %w", chainSel, err)
@@ -138,7 +138,7 @@ func deployChainContractsForChains(
 	return nil
 }
 
-func deployChainContracts(
+func deployChain(
 	e deployment.Environment,
 	chain deployment.Chain,
 	ab deployment.AddressBook,

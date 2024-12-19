@@ -505,7 +505,7 @@ func UpdateRouterRamps(e deployment.Environment, cfg UpdateRouterRampsConfig) (d
 	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig)
 	for chainSel, update := range cfg.UpdatesByChain {
 		txOpts := e.Chains[chainSel].DeployerKey
-		txOpts.Context = e.GetContext()
+		txOpts.Context = context.WithValue(e.GetContext(), "chainSel", chainSel)
 		if cfg.MCMS != nil {
 			txOpts = deployment.SimTransactOpts()
 		}
@@ -637,6 +637,9 @@ func SetOCR3OffRamp(e deployment.Environment, cfg SetOCR3OffRampConfig) (deploym
 			state.Chains[cfg.HomeChainSel].CapabilityRegistry,
 			state.Chains[cfg.HomeChainSel].CCIPHome,
 			remote)
+		if err != nil {
+			return deployment.ChangesetOutput{}, err
+		}
 		args, err := internal.BuildSetOCR3ConfigArgs(donID, state.Chains[cfg.HomeChainSel].CCIPHome, remote)
 		if err != nil {
 			return deployment.ChangesetOutput{}, err

@@ -112,7 +112,7 @@ func WithLegacyDeployment() TestOps {
 	}
 }
 
-func WithChainIds(chainIDs []uint64) TestOps {
+func WithChainIDs(chainIDs []uint64) TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.ChainIDs = chainIDs
 	}

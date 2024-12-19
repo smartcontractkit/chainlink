@@ -26,14 +26,14 @@ func TestDeployHomeChain(t *testing.T) {
 	homeChainSel := e.AllChainSelectors()[0]
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
-	p2pIds := nodes.NonBootstraps().PeerIDs()
+	p2pIDs := nodes.NonBootstraps().PeerIDs()
 	homeChainCfg := DeployHomeChainConfig{
 		HomeChainSel:     homeChainSel,
 		RMNStaticConfig:  NewTestRMNStaticConfig(),
 		RMNDynamicConfig: NewTestRMNDynamicConfig(),
 		NodeOperators:    NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
 		NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
-			"NodeOperator": p2pIds,
+			"NodeOperator": p2pIDs,
 		},
 	}
 	output, err := DeployHomeChain(e, homeChainCfg)
@@ -58,7 +58,7 @@ func TestDeployHomeChain(t *testing.T) {
 			Name:  "NodeOperator",
 		},
 	}, capRegSnap.Nops)
-	require.Len(t, capRegSnap.Nodes, len(p2pIds))
+	require.Len(t, capRegSnap.Nodes, len(p2pIDs))
 }
 
 func TestRemoveDonsValidate(t *testing.T) {

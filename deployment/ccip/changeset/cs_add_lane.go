@@ -2,6 +2,7 @@ package changeset
 
 import (
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -26,13 +27,13 @@ type InitialPrices struct {
 
 func (p InitialPrices) Validate() error {
 	if p.LinkPrice == nil {
-		return fmt.Errorf("missing link price")
+		return errors.New("missing link price")
 	}
 	if p.WethPrice == nil {
-		return fmt.Errorf("missing weth price")
+		return errors.New("missing weth price")
 	}
 	if p.GasPrice == nil {
-		return fmt.Errorf("missing gas price")
+		return errors.New("missing gas price")
 	}
 	return nil
 }
@@ -75,7 +76,7 @@ func AddLanes(e deployment.Environment, cfg AddLanesConfig) (deployment.Changese
 		return deployment.ChangesetOutput{}, fmt.Errorf("invalid AddLanesConfig: %w", err)
 	}
 	newAddresses := deployment.NewMemoryAddressBook()
-	err := addLanes(e, cfg)
+	err := addAllLanes(e, cfg)
 	if err != nil {
 		e.Logger.Errorw("Failed to add lanes", "err", err)
 		return deployment.ChangesetOutput{}, err
@@ -93,7 +94,7 @@ var DefaultInitialPrices = InitialPrices{
 	GasPrice:  ToPackedFee(big.NewInt(8e14), big.NewInt(0)),
 }
 
-func addLanes(e deployment.Environment, cfg AddLanesConfig) error {
+func addAllLanes(e deployment.Environment, cfg AddLanesConfig) error {
 	state, err := LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
