@@ -48,7 +48,7 @@ contract RMNRemote is Ownable2StepMsgSender, ITypeAndVersion, IRMNRemote, IRMN {
   struct Config {
     bytes32 rmnHomeContractConfigDigest; // Digest of the RMNHome contract config.
     Signer[] signers; // List of signers.
-    uint64 f; // Max number of faulty RMN nodes; f+1 signers are required to verify a report, must configure 2f+1 signers in total.
+    uint64 fSign; // Max number of faulty RMN nodes; f+1 signers are required to verify a report, must configure 2f+1 signers in total.
   }
 
   /// @dev part of the payload that RMN nodes sign: keccak256(abi.encode(RMN_V1_6_ANY2EVM_REPORT, report)).
@@ -101,7 +101,7 @@ contract RMNRemote is Ownable2StepMsgSender, ITypeAndVersion, IRMNRemote, IRMN {
     if (s_configCount == 0) {
       revert ConfigNotSet();
     }
-    if (signatures.length < s_config.f + 1) revert ThresholdNotMet();
+    if (signatures.length < s_config.fSign + 1) revert ThresholdNotMet();
 
     bytes32 digest = keccak256(
       abi.encode(
@@ -150,7 +150,7 @@ contract RMNRemote is Ownable2StepMsgSender, ITypeAndVersion, IRMNRemote, IRMN {
     }
 
     // min signers requirement is tenable.
-    if (newConfig.signers.length < 2 * newConfig.f + 1) {
+    if (newConfig.signers.length < 2 * newConfig.fSign + 1) {
       revert NotEnoughSigners();
     }
 
