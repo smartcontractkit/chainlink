@@ -9,7 +9,7 @@ import {MultiAggregateRateLimiterSetup} from "./MultiAggregateRateLimiterSetup.t
 import {Vm} from "forge-std/Vm.sol";
 
 contract MultiAggregateRateLimiter_applyRateLimiterConfigUpdates is MultiAggregateRateLimiterSetup {
-  function test_ZeroConfigs_Success() public {
+  function test_ZeroConfigs() public {
     MultiAggregateRateLimiter.RateLimiterConfigArgs[] memory configUpdates =
       new MultiAggregateRateLimiter.RateLimiterConfigArgs[](0);
 
@@ -20,7 +20,7 @@ contract MultiAggregateRateLimiter_applyRateLimiterConfigUpdates is MultiAggrega
     assertEq(logEntries.length, 0);
   }
 
-  function test_SingleConfig_Success() public {
+  function test_SingleConfig() public {
     MultiAggregateRateLimiter.RateLimiterConfigArgs[] memory configUpdates =
       new MultiAggregateRateLimiter.RateLimiterConfigArgs[](1);
     configUpdates[0] = MultiAggregateRateLimiter.RateLimiterConfigArgs({
@@ -46,7 +46,7 @@ contract MultiAggregateRateLimiter_applyRateLimiterConfigUpdates is MultiAggrega
     assertEq(BLOCK_TIME, bucket1.lastUpdated);
   }
 
-  function test_SingleConfigOutbound_Success() public {
+  function test_SingleConfigOutbound() public {
     MultiAggregateRateLimiter.RateLimiterConfigArgs[] memory configUpdates =
       new MultiAggregateRateLimiter.RateLimiterConfigArgs[](1);
     configUpdates[0] = MultiAggregateRateLimiter.RateLimiterConfigArgs({
@@ -72,7 +72,7 @@ contract MultiAggregateRateLimiter_applyRateLimiterConfigUpdates is MultiAggrega
     assertEq(BLOCK_TIME, bucket1.lastUpdated);
   }
 
-  function test_MultipleConfigs_Success() public {
+  function test_MultipleConfigs() public {
     MultiAggregateRateLimiter.RateLimiterConfigArgs[] memory configUpdates =
       new MultiAggregateRateLimiter.RateLimiterConfigArgs[](5);
 
@@ -103,7 +103,7 @@ contract MultiAggregateRateLimiter_applyRateLimiterConfigUpdates is MultiAggrega
     }
   }
 
-  function test_MultipleConfigsBothLanes_Success() public {
+  function test_MultipleConfigsBothLanes() public {
     MultiAggregateRateLimiter.RateLimiterConfigArgs[] memory configUpdates =
       new MultiAggregateRateLimiter.RateLimiterConfigArgs[](2);
 
@@ -134,7 +134,7 @@ contract MultiAggregateRateLimiter_applyRateLimiterConfigUpdates is MultiAggrega
     }
   }
 
-  function test_UpdateExistingConfig_Success() public {
+  function test_UpdateExistingConfig() public {
     MultiAggregateRateLimiter.RateLimiterConfigArgs[] memory configUpdates =
       new MultiAggregateRateLimiter.RateLimiterConfigArgs[](1);
     configUpdates[0] = MultiAggregateRateLimiter.RateLimiterConfigArgs({
@@ -170,7 +170,7 @@ contract MultiAggregateRateLimiter_applyRateLimiterConfigUpdates is MultiAggrega
     );
   }
 
-  function test_UpdateExistingConfigWithNoDifference_Success() public {
+  function test_UpdateExistingConfigWithNoDifference() public {
     MultiAggregateRateLimiter.RateLimiterConfigArgs[] memory configUpdates =
       new MultiAggregateRateLimiter.RateLimiterConfigArgs[](1);
     configUpdates[0] = MultiAggregateRateLimiter.RateLimiterConfigArgs({
@@ -198,7 +198,7 @@ contract MultiAggregateRateLimiter_applyRateLimiterConfigUpdates is MultiAggrega
   }
 
   // Reverts
-  function test_ZeroChainSelector_Revert() public {
+  function test_RevertWhen_ZeroChainSelector() public {
     MultiAggregateRateLimiter.RateLimiterConfigArgs[] memory configUpdates =
       new MultiAggregateRateLimiter.RateLimiterConfigArgs[](1);
     configUpdates[0] = MultiAggregateRateLimiter.RateLimiterConfigArgs({
@@ -211,7 +211,7 @@ contract MultiAggregateRateLimiter_applyRateLimiterConfigUpdates is MultiAggrega
     s_rateLimiter.applyRateLimiterConfigUpdates(configUpdates);
   }
 
-  function test_OnlyCallableByOwner_Revert() public {
+  function test_RevertWhen_OnlyCallableByOwner() public {
     MultiAggregateRateLimiter.RateLimiterConfigArgs[] memory configUpdates =
       new MultiAggregateRateLimiter.RateLimiterConfigArgs[](1);
     configUpdates[0] = MultiAggregateRateLimiter.RateLimiterConfigArgs({
@@ -225,7 +225,7 @@ contract MultiAggregateRateLimiter_applyRateLimiterConfigUpdates is MultiAggrega
     s_rateLimiter.applyRateLimiterConfigUpdates(configUpdates);
   }
 
-  function test_ConfigRateMoreThanCapacity_Revert() public {
+  function test_RevertWhen_ConfigRateMoreThanCapacity() public {
     MultiAggregateRateLimiter.RateLimiterConfigArgs[] memory configUpdates =
       new MultiAggregateRateLimiter.RateLimiterConfigArgs[](1);
     configUpdates[0] = MultiAggregateRateLimiter.RateLimiterConfigArgs({
@@ -240,7 +240,7 @@ contract MultiAggregateRateLimiter_applyRateLimiterConfigUpdates is MultiAggrega
     s_rateLimiter.applyRateLimiterConfigUpdates(configUpdates);
   }
 
-  function test_ConfigRateZero_Revert() public {
+  function test_RevertWhen_ConfigRateZero() public {
     MultiAggregateRateLimiter.RateLimiterConfigArgs[] memory configUpdates =
       new MultiAggregateRateLimiter.RateLimiterConfigArgs[](1);
     configUpdates[0] = MultiAggregateRateLimiter.RateLimiterConfigArgs({
@@ -255,7 +255,7 @@ contract MultiAggregateRateLimiter_applyRateLimiterConfigUpdates is MultiAggrega
     s_rateLimiter.applyRateLimiterConfigUpdates(configUpdates);
   }
 
-  function test_DisableConfigRateNonZero_Revert() public {
+  function test_RevertWhen_DisableConfigRateNonZero() public {
     MultiAggregateRateLimiter.RateLimiterConfigArgs[] memory configUpdates =
       new MultiAggregateRateLimiter.RateLimiterConfigArgs[](1);
     configUpdates[0] = MultiAggregateRateLimiter.RateLimiterConfigArgs({
@@ -270,7 +270,7 @@ contract MultiAggregateRateLimiter_applyRateLimiterConfigUpdates is MultiAggrega
     s_rateLimiter.applyRateLimiterConfigUpdates(configUpdates);
   }
 
-  function test_DiableConfigCapacityNonZero_Revert() public {
+  function test_RevertWhen_DiableConfigCapacityNonZero() public {
     MultiAggregateRateLimiter.RateLimiterConfigArgs[] memory configUpdates =
       new MultiAggregateRateLimiter.RateLimiterConfigArgs[](1);
     configUpdates[0] = MultiAggregateRateLimiter.RateLimiterConfigArgs({

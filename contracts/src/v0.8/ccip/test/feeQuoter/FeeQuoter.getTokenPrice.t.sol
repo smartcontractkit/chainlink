@@ -7,7 +7,7 @@ import {Internal} from "../../libraries/Internal.sol";
 import {FeeQuoterSetup} from "./FeeQuoterSetup.t.sol";
 
 contract FeeQuoter_getTokenPrice is FeeQuoterSetup {
-  function test_GetTokenPriceFromFeed_Success() public {
+  function test_GetTokenPriceFromFeed() public {
     uint256 originalTimestampValue = block.timestamp;
 
     // Above staleness threshold
@@ -24,7 +24,7 @@ contract FeeQuoter_getTokenPrice is FeeQuoterSetup {
     assertEq(tokenPriceAnswer.timestamp, uint32(originalTimestampValue));
   }
 
-  function test_GetTokenPrice_LocalMoreRecent_Success() public {
+  function test_GetTokenPrice_LocalMoreRecent() public {
     uint256 originalTimestampValue = block.timestamp;
 
     Internal.PriceUpdates memory update = Internal.PriceUpdates({

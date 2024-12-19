@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability"
+	workflow_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/workflow/generated/workflow_registry_wrapper"
 )
 
 type GetContractSetsRequest struct {
@@ -30,6 +31,7 @@ type ContractSet struct {
 	OCR3                 *ocr3_capability.OCR3Capability
 	Forwarder            *forwarder.KeystoneForwarder
 	CapabilitiesRegistry *capabilities_registry.CapabilitiesRegistry
+	WorkflowRegistry     *workflow_registry.WorkflowRegistry
 }
 
 func (cs ContractSet) TransferableContracts() []common.Address {
@@ -42,6 +44,9 @@ func (cs ContractSet) TransferableContracts() []common.Address {
 	}
 	if cs.CapabilitiesRegistry != nil {
 		out = append(out, cs.CapabilitiesRegistry.Address())
+	}
+	if cs.WorkflowRegistry != nil {
+		out = append(out, cs.WorkflowRegistry.Address())
 	}
 	return out
 }
@@ -105,6 +110,12 @@ func loadContractSet(lggr logger.Logger, chain deployment.Chain, addresses map[s
 				return nil, fmt.Errorf("failed to create OCR3Capability contract from address %s: %w", addr, err)
 			}
 			out.OCR3 = c
+		case WorkflowRegistry:
+			c, err := workflow_registry.NewWorkflowRegistry(common.HexToAddress(addr), chain.Client)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create OCR3Capability contract from address %s: %w", addr, err)
+			}
+			out.WorkflowRegistry = c
 		default:
 			lggr.Warnw("unknown contract type", "type", tv.Type)
 			// ignore unknown contract types

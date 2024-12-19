@@ -12,7 +12,7 @@ contract FeeQuoter_getTokenTransferCost is FeeQuoterFeeSetup {
 
   address internal s_selfServeTokenDefaultPricing = makeAddr("self-serve-token-default-pricing");
 
-  function test_NoTokenTransferChargesZeroFee_Success() public view {
+  function test_NoTokenTransferChargesZeroFee() public view {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
     (uint256 feeUSDWei, uint32 destGasOverhead, uint32 destBytesOverhead) =
       s_feeQuoter.getTokenTransferCost(DEST_CHAIN_SELECTOR, message.feeToken, s_feeTokenPrice, message.tokenAmounts);
@@ -22,7 +22,7 @@ contract FeeQuoter_getTokenTransferCost is FeeQuoterFeeSetup {
     assertEq(0, destBytesOverhead);
   }
 
-  function test_getTokenTransferCost_selfServeUsesDefaults_Success() public view {
+  function test_getTokenTransferCost_selfServeUsesDefaults() public view {
     Client.EVM2AnyMessage memory message = _generateSingleTokenMessage(s_selfServeTokenDefaultPricing, 1000);
 
     // Get config to assert it isn't set
@@ -40,7 +40,7 @@ contract FeeQuoter_getTokenTransferCost is FeeQuoterFeeSetup {
     assertEq(DEFAULT_TOKEN_BYTES_OVERHEAD, destBytesOverhead);
   }
 
-  function test_SmallTokenTransferChargesMinFeeAndGas_Success() public view {
+  function test_SmallTokenTransferChargesMinFeeAndGas() public view {
     Client.EVM2AnyMessage memory message = _generateSingleTokenMessage(s_sourceFeeToken, 1000);
     FeeQuoter.TokenTransferFeeConfig memory transferFeeConfig =
       s_feeQuoter.getTokenTransferFeeConfig(DEST_CHAIN_SELECTOR, message.tokenAmounts[0].token);
@@ -53,7 +53,7 @@ contract FeeQuoter_getTokenTransferCost is FeeQuoterFeeSetup {
     assertEq(transferFeeConfig.destBytesOverhead, destBytesOverhead);
   }
 
-  function test_ZeroAmountTokenTransferChargesMinFeeAndGas_Success() public view {
+  function test_ZeroAmountTokenTransferChargesMinFeeAndGas() public view {
     Client.EVM2AnyMessage memory message = _generateSingleTokenMessage(s_sourceFeeToken, 0);
     FeeQuoter.TokenTransferFeeConfig memory transferFeeConfig =
       s_feeQuoter.getTokenTransferFeeConfig(DEST_CHAIN_SELECTOR, message.tokenAmounts[0].token);
@@ -66,7 +66,7 @@ contract FeeQuoter_getTokenTransferCost is FeeQuoterFeeSetup {
     assertEq(transferFeeConfig.destBytesOverhead, destBytesOverhead);
   }
 
-  function test_LargeTokenTransferChargesMaxFeeAndGas_Success() public view {
+  function test_LargeTokenTransferChargesMaxFeeAndGas() public view {
     Client.EVM2AnyMessage memory message = _generateSingleTokenMessage(s_sourceFeeToken, 1e36);
     FeeQuoter.TokenTransferFeeConfig memory transferFeeConfig =
       s_feeQuoter.getTokenTransferFeeConfig(DEST_CHAIN_SELECTOR, message.tokenAmounts[0].token);
@@ -79,7 +79,7 @@ contract FeeQuoter_getTokenTransferCost is FeeQuoterFeeSetup {
     assertEq(transferFeeConfig.destBytesOverhead, destBytesOverhead);
   }
 
-  function test_FeeTokenBpsFee_Success() public view {
+  function test_FeeTokenBpsFee() public view {
     uint256 tokenAmount = 10000e18;
 
     Client.EVM2AnyMessage memory message = _generateSingleTokenMessage(s_sourceFeeToken, tokenAmount);
@@ -99,7 +99,7 @@ contract FeeQuoter_getTokenTransferCost is FeeQuoterFeeSetup {
     assertEq(transferFeeConfig.destBytesOverhead, destBytesOverhead);
   }
 
-  function test_CustomTokenBpsFee_Success() public view {
+  function test_CustomTokenBpsFee() public view {
     uint256 tokenAmount = 200000e18;
 
     Client.EVM2AnyMessage memory message = Client.EVM2AnyMessage({
@@ -127,7 +127,7 @@ contract FeeQuoter_getTokenTransferCost is FeeQuoterFeeSetup {
     assertEq(transferFeeConfig.destBytesOverhead, destBytesOverhead);
   }
 
-  function test_ZeroFeeConfigChargesMinFee_Success() public {
+  function test_ZeroFeeConfigChargesMinFee() public {
     FeeQuoter.TokenTransferFeeConfigArgs[] memory tokenTransferFeeConfigArgs = _generateTokenTransferFeeConfigArgs(1, 1);
     tokenTransferFeeConfigArgs[0].destChainSelector = DEST_CHAIN_SELECTOR;
     tokenTransferFeeConfigArgs[0].tokenTransferFeeConfigs[0].token = s_sourceFeeToken;
@@ -185,7 +185,7 @@ contract FeeQuoter_getTokenTransferCost is FeeQuoterFeeSetup {
     assertEq(bytesOverheadMultiple, bytesOverheadSingle * transfers);
   }
 
-  function test_MixedTokenTransferFee_Success() public view {
+  function test_MixedTokenTransferFee() public view {
     address[3] memory testTokens = [s_sourceFeeToken, s_sourceRouter.getWrappedNative(), CUSTOM_TOKEN];
     uint224[3] memory tokenPrices = [s_feeTokenPrice, s_wrappedTokenPrice, CUSTOM_TOKEN_PRICE];
     FeeQuoter.TokenTransferFeeConfig[3] memory tokenTransferFeeConfigs = [

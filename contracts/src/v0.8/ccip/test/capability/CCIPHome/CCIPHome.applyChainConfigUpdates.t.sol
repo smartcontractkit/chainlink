@@ -13,7 +13,7 @@ contract CCIPHome_applyChainConfigUpdates is CCIPHomeTestSetup {
     s_ccipHome = new CCIPHomeHelper(CAPABILITIES_REGISTRY);
   }
 
-  function test_applyChainConfigUpdates_addChainConfigs_Success() public {
+  function test_applyChainConfigUpdates_addChainConfigs() public {
     bytes32[] memory chainReaders = new bytes32[](1);
     chainReaders[0] = keccak256(abi.encode(1));
     CCIPHome.ChainConfigArgs[] memory adds = new CCIPHome.ChainConfigArgs[](2);
@@ -54,7 +54,7 @@ contract CCIPHome_applyChainConfigUpdates is CCIPHomeTestSetup {
     assertEq(s_ccipHome.getNumChainConfigurations(), 2, "total chain configs must be 2");
   }
 
-  function test_getPaginatedCCIPHomes_Success() public {
+  function test_getPaginatedCCIPHomes() public {
     bytes32[] memory chainReaders = new bytes32[](1);
     chainReaders[0] = keccak256(abi.encode(1));
     CCIPHome.ChainConfigArgs[] memory adds = new CCIPHome.ChainConfigArgs[](2);
@@ -106,7 +106,7 @@ contract CCIPHome_applyChainConfigUpdates is CCIPHomeTestSetup {
     assertEq(configs.length, 0, "chain configs length must be 0");
   }
 
-  function test_applyChainConfigUpdates_removeChainConfigs_Success() public {
+  function test_applyChainConfigUpdates_removeChainConfigs() public {
     bytes32[] memory chainReaders = new bytes32[](1);
     chainReaders[0] = keccak256(abi.encode(1));
 
@@ -162,7 +162,7 @@ contract CCIPHome_applyChainConfigUpdates is CCIPHomeTestSetup {
 
   // Reverts.
 
-  function test_applyChainConfigUpdates_selectorNotFound_Reverts() public {
+  function test_RevertWhen_applyChainConfigUpdates_selectorNotFound() public {
     uint64[] memory removes = new uint64[](1);
     removes[0] = uint64(1);
 
@@ -170,7 +170,7 @@ contract CCIPHome_applyChainConfigUpdates is CCIPHomeTestSetup {
     s_ccipHome.applyChainConfigUpdates(removes, new CCIPHome.ChainConfigArgs[](0));
   }
 
-  function test_applyChainConfigUpdates_nodeNotInRegistry_Reverts() public {
+  function test_RevertWhen_applyChainConfigUpdates_nodeNotInRegistry() public {
     bytes32[] memory chainReaders = new bytes32[](1);
     chainReaders[0] = keccak256(abi.encode(1));
     CCIPHome.ChainConfigArgs[] memory adds = new CCIPHome.ChainConfigArgs[](1);
@@ -189,7 +189,7 @@ contract CCIPHome_applyChainConfigUpdates is CCIPHomeTestSetup {
     s_ccipHome.applyChainConfigUpdates(new uint64[](0), adds);
   }
 
-  function test__applyChainConfigUpdates_FChainNotPositive_Reverts() public {
+  function test_RevertWhen__applyChainConfigUpdates_FChainNotPositive() public {
     bytes32[] memory chainReaders = new bytes32[](1);
     chainReaders[0] = keccak256(abi.encode(1));
     CCIPHome.ChainConfigArgs[] memory adds = new CCIPHome.ChainConfigArgs[](2);

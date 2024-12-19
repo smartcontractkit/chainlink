@@ -4,7 +4,7 @@ pragma solidity 0.8.24;
 import {BurnMintERC20Setup} from "./BurnMintERC20Setup.t.sol";
 
 contract FactoryBurnMintERC20_transfer is BurnMintERC20Setup {
-  function test_Transfer_Success() public {
+  function test_Transfer() public {
     uint256 balancePre = s_burnMintERC20.balanceOf(STRANGER);
     uint256 sendingAmount = s_amount / 2;
 
@@ -15,7 +15,7 @@ contract FactoryBurnMintERC20_transfer is BurnMintERC20Setup {
 
   // Reverts
 
-  function test_InvalidAddress_Reverts() public {
+  function test_RevertWhen_InvalidAddresss() public {
     vm.expectRevert();
 
     s_burnMintERC20.transfer(address(s_burnMintERC20), s_amount);

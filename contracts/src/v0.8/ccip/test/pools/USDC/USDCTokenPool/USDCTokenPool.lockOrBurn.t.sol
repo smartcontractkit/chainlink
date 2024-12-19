@@ -12,7 +12,7 @@ import {USDCTokenPoolSetup} from "./USDCTokenPoolSetup.t.sol";
 
 contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
   // Base test case, included for PR gas comparisons as fuzz tests are excluded from forge snapshot due to being flaky.
-  function test_LockOrBurn_Success() public {
+  function test_LockOrBurn() public {
     bytes32 receiver = bytes32(uint256(uint160(STRANGER)));
     uint256 amount = 1;
     s_token.transfer(address(s_usdcTokenPool), amount);
@@ -132,7 +132,7 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
   }
 
   // Reverts
-  function test_UnknownDomain_Revert() public {
+  function test_RevertWhen_UnknownDomain() public {
     uint64 wrongDomain = DEST_CHAIN_SELECTOR + 1;
     // We need to setup the wrong chainSelector so it reaches the domain check
     Router.OnRamp[] memory onRampUpdates = new Router.OnRamp[](1);
@@ -168,7 +168,7 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
     );
   }
 
-  function test_CallerIsNotARampOnRouter_Revert() public {
+  function test_RevertWhen_CallerIsNotARampOnRouter() public {
     vm.expectRevert(abi.encodeWithSelector(TokenPool.CallerIsNotARampOnRouter.selector, OWNER));
 
     s_usdcTokenPool.lockOrBurn(
@@ -182,7 +182,7 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
     );
   }
 
-  function test_LockOrBurnWithAllowList_Revert() public {
+  function test_RevertWhen_LockOrBurnWithAllowList() public {
     vm.startPrank(s_routerAllowedOnRamp);
 
     vm.expectRevert(abi.encodeWithSelector(TokenPool.SenderNotAllowed.selector, STRANGER));

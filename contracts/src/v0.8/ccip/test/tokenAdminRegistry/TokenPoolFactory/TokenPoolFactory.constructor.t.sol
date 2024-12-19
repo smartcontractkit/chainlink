@@ -12,7 +12,7 @@ import {TokenPoolFactorySetup} from "./TokenPoolFactorySetup.t.sol";
 contract TokenPoolFactory_constructor is TokenPoolFactorySetup {
   using Create2 for bytes32;
 
-  function test_constructor_Revert() public {
+  function test_RevertWhen_constructor() public {
     // Revert cause the tokenAdminRegistry is address(0)
     vm.expectRevert(TokenPoolFactory.InvalidZeroAddress.selector);
     new TokenPoolFactory(ITokenAdminRegistry(address(0)), RegistryModuleOwnerCustom(address(0)), address(0), address(0));

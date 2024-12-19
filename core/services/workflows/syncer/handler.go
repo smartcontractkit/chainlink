@@ -3,6 +3,7 @@ package syncer
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -497,19 +498,19 @@ func (h *eventHandler) getWorkflowArtifacts(
 	if err != nil {
 		binary, err2 := h.fetcher(ctx, payload.BinaryURL)
 		if err2 != nil {
-			return nil, nil, fmt.Errorf("failed to fetch binary from %s : %w", payload.BinaryURL, err)
+			return nil, nil, fmt.Errorf("failed to fetch binary from %s : %w", payload.BinaryURL, err2)
 		}
 
 		decodedBinary, err2 := base64.StdEncoding.DecodeString(string(binary))
 		if err2 != nil {
-			return nil, nil, fmt.Errorf("failed to decode binary: %w", err)
+			return nil, nil, fmt.Errorf("failed to decode binary: %w", err2)
 		}
 
 		var config []byte
 		if payload.ConfigURL != "" {
 			config, err2 = h.fetcher(ctx, payload.ConfigURL)
 			if err2 != nil {
-				return nil, nil, fmt.Errorf("failed to fetch config from %s : %w", payload.ConfigURL, err)
+				return nil, nil, fmt.Errorf("failed to fetch config from %s : %w", payload.ConfigURL, err2)
 			}
 		}
 		return decodedBinary, config, nil
@@ -642,9 +643,15 @@ func (h *eventHandler) workflowDeletedEvent(
 		return err
 	}
 
-	if err := h.orm.DeleteWorkflowSpec(ctx, hex.EncodeToString(payload.WorkflowOwner), payload.WorkflowName); err != nil {
+	err := h.orm.DeleteWorkflowSpec(ctx, hex.EncodeToString(payload.WorkflowOwner), payload.WorkflowName)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			h.lggr.Warnw("workflow spec not found", "workflowID", hex.EncodeToString(payload.WorkflowID[:]))
+			return nil
+		}
 		return fmt.Errorf("failed to delete workflow spec: %w", err)
 	}
+
 	return nil
 }
 

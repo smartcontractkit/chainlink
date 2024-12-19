@@ -5,23 +5,22 @@ import {Ownable2Step} from "../../../../shared/access/Ownable2Step.sol";
 import {BurnMintERC677} from "../../../../shared/token/ERC677/BurnMintERC677.sol";
 import {RateLimiter} from "../../../libraries/RateLimiter.sol";
 import {TokenPool} from "../../../pools/TokenPool.sol";
-
+import {BaseTest} from "../../BaseTest.t.sol";
 import {TokenPoolHelper} from "../../helpers/TokenPoolHelper.sol";
-import {RouterSetup} from "../../router/Router/RouterSetup.t.sol";
 
 import {IERC20} from "../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
-contract TokenPool_applyChainUpdates is RouterSetup {
+contract TokenPool_applyChainUpdates is BaseTest {
   IERC20 internal s_token;
   TokenPoolHelper internal s_tokenPool;
 
   function setUp() public virtual override {
-    RouterSetup.setUp();
+    super.setUp();
     s_token = new BurnMintERC677("LINK", "LNK", 18, 0);
     deal(address(s_token), OWNER, type(uint256).max);
 
     s_tokenPool = new TokenPoolHelper(
-      s_token, DEFAULT_TOKEN_DECIMALS, new address[](0), address(s_mockRMN), address(s_sourceRouter)
+      s_token, DEFAULT_TOKEN_DECIMALS, new address[](0), address(s_mockRMNRemote), address(s_sourceRouter)
     );
   }
 
@@ -48,7 +47,7 @@ contract TokenPool_applyChainUpdates is RouterSetup {
     }
   }
 
-  function test_applyChainUpdates_Success() public {
+  function test_applyChainUpdates() public {
     RateLimiter.Config memory outboundRateLimit1 = RateLimiter.Config({isEnabled: true, capacity: 100e28, rate: 1e18});
     RateLimiter.Config memory inboundRateLimit1 = RateLimiter.Config({isEnabled: true, capacity: 100e29, rate: 1e19});
     RateLimiter.Config memory outboundRateLimit2 = RateLimiter.Config({isEnabled: true, capacity: 100e26, rate: 1e16});
@@ -200,13 +199,13 @@ contract TokenPool_applyChainUpdates is RouterSetup {
 
   // Reverts
 
-  function test_applyChainUpdates_OnlyCallableByOwner_Revert() public {
+  function test_RevertWhen_applyChainUpdates_OnlyCallableByOwner() public {
     vm.startPrank(STRANGER);
     vm.expectRevert(Ownable2Step.OnlyCallableByOwner.selector);
     s_tokenPool.applyChainUpdates(new uint64[](0), new TokenPool.ChainUpdate[](0));
   }
 
-  function test_applyChainUpdates_ZeroAddressNotAllowed_Revert() public {
+  function test_RevertWhen_applyChainUpdates_ZeroAddressNotAllowed() public {
     bytes[] memory remotePoolAddresses = new bytes[](1);
     remotePoolAddresses[0] = "";
 
@@ -235,7 +234,7 @@ contract TokenPool_applyChainUpdates is RouterSetup {
     s_tokenPool.applyChainUpdates(new uint64[](0), chainUpdates);
   }
 
-  function test_applyChainUpdates_NonExistentChain_Revert() public {
+  function test_RevertWhen_applyChainUpdates_NonExistentChain() public {
     uint64[] memory chainRemoves = new uint64[](1);
     chainRemoves[0] = 1;
 
@@ -243,7 +242,7 @@ contract TokenPool_applyChainUpdates is RouterSetup {
     s_tokenPool.applyChainUpdates(chainRemoves, new TokenPool.ChainUpdate[](0));
   }
 
-  function test_applyChainUpdates_InvalidRateLimitRate_Revert() public {
+  function test_RevertWhen_applyChainUpdates_InvalidRateLimitRate() public {
     uint64 unusedChainSelector = 2 ** 64 - 1;
 
     TokenPool.ChainUpdate[] memory chainUpdates = new TokenPool.ChainUpdate[](1);

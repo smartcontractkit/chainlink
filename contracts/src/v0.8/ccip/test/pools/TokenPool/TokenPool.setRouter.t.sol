@@ -5,7 +5,7 @@ import {TokenPool} from "../../../pools/TokenPool.sol";
 import {TokenPoolWithAllowListSetup} from "./TokenPoolWithAllowListSetup.t.sol";
 
 contract TokenPoolWithAllowList_setRouter is TokenPoolWithAllowListSetup {
-  function test_SetRouter_Success() public {
+  function test_SetRouter() public {
     assertEq(address(s_sourceRouter), s_tokenPool.getRouter());
 
     address newRouter = makeAddr("newRouter");
@@ -20,7 +20,7 @@ contract TokenPoolWithAllowList_setRouter is TokenPoolWithAllowListSetup {
 
   // Reverts
 
-  function test_ZeroAddressNotAllowed_Revert() public {
+  function test_RevertWhen_ZeroAddressNotAllowed() public {
     address newRouter = address(0);
 
     vm.expectRevert(TokenPool.ZeroAddressNotAllowed.selector);
