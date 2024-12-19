@@ -126,16 +126,15 @@ jobs:
             echo "git_base_sha=" >> $GITHUB_OUTPUT
           fi  
 
-      - name: Set up Go 1.21.9
-        uses: actions/setup-go@v5.0.2
-        if: ${{ inputs.runAllTests == false }}
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
         with:
-          cache: false
+          restore-build-cache-only: "true"
 
       - name: Install flakeguard
         if: ${{ inputs.runAllTests == false }}
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@29ed5aaa0367219d587131dde16f9bc838063590 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@09a056061154b169f2a73d8df4a03fe83ceffebd # flakguard@0.1.0
 
       - name: Find new or updated test packages
         if: ${{ inputs.runAllTests == false }}
@@ -294,7 +293,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@29ed5aaa0367219d587131dde16f9bc838063590 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@09a056061154b169f2a73d8df4a03fe83ceffebd # flakguard@0.1.0
 
       - name: Run tests with flakeguard
         shell: bash
@@ -322,6 +321,10 @@ jobs:
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           ref: ${{ env.GIT_HEAD_REF }}
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+        with:
+          restore-build-cache-only: "true"
 
       - name: Set Pretty Project Path
         id: set_project_path_pretty
@@ -341,7 +344,7 @@ jobs:
             
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@29ed5aaa0367219d587131dde16f9bc838063590 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@09a056061154b169f2a73d8df4a03fe83ceffebd # flakguard@0.1.0
                 
       - name: Aggregate Flakeguard Results
         id: results
@@ -565,17 +568,3 @@ jobs:
                 }
               ]
             }
-
-      - name: Send Flakeguard Results to Splunk
-        if: ${{ fromJSON(steps.results.outputs.summary).total_tests > 0 }}
-        run: |
-          echo "Sending Flakeguard results to Splunk"
-          jq -c --arg event "${{ inputs.event }}" \
-            '. | {"sourcetype": "_json", "event": {"event": $event, data: .}}' ./flakeguard-report/all-test-results.json > splunk.json
-          
-          # DEBUG: Print the Splunk JSON
-          cat splunk.json
-
-          curl "${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}" \
-            -H "Authorization: Splunk ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}" \
-            -d @splunk.json
