@@ -9,11 +9,6 @@ import {Ownable2StepMsgSender} from "../../shared/access/Ownable2StepMsgSender.s
 import {EnumerableSet} from "../../shared/enumerable/EnumerableSetWithBytes16.sol";
 import {Internal} from "../libraries/Internal.sol";
 
-/// @dev An active curse on this subject will cause isCursed() to return true. Use this subject if there is an issue
-/// with a remote chain, for which there exists a legacy lane contract deployed on the same chain as this RMN contract
-/// is deployed, relying on isCursed().
-bytes16 constant LEGACY_CURSE_SUBJECT = 0x01000000000000000000000000000000;
-
 /// @dev An active curse on this subject will cause isCursed() and isCursed(bytes16) to return true. Use this subject
 /// for issues affecting all of CCIP chains, or pertaining to the chain that this contract is deployed on, instead of
 /// using the local chain selector as a subject.
@@ -256,11 +251,11 @@ contract RMNRemote is Ownable2StepMsgSender, ITypeAndVersion, IRMNRemote, IRMN {
   /// @inheritdoc IRMNRemote
   function isCursed() external view override(IRMN, IRMNRemote) returns (bool) {
     // There are zero curses under normal circumstances, which means it's cheaper to check for the absence of curses.
-    // than to check the subject list twice, as we have to check for both the legacy and global curse subjects.
+    // than to check the subject list for the global curse subject.
     if (s_cursedSubjects.length() == 0) {
       return false;
     }
-    return s_cursedSubjects.contains(LEGACY_CURSE_SUBJECT) || s_cursedSubjects.contains(GLOBAL_CURSE_SUBJECT);
+    return s_cursedSubjects.contains(GLOBAL_CURSE_SUBJECT);
   }
 
   /// @inheritdoc IRMNRemote

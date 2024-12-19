@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/aggregation"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/streams"
@@ -280,7 +281,7 @@ func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON registrysync
 						w.lggr,
 					)
 				} else {
-					aggregator = remote.NewDefaultModeAggregator(uint32(remoteDON.F) + 1)
+					aggregator = aggregation.NewDefaultModeAggregator(uint32(remoteDON.F) + 1)
 				}
 
 				// TODO: We need to implement a custom, Mercury-specific

@@ -97,7 +97,7 @@ func ConfigureForwardContracts(env deployment.Environment, req ConfigureForwardC
 				timelocksPerChain,
 				proposerMCMSes,
 				[]timelock.BatchChainOperation{op},
-				"proposal to set update nodes",
+				"proposal to set forwarder config",
 				req.MCMSConfig.MinDuration,
 			)
 			if err != nil {

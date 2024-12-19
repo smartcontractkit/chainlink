@@ -9,14 +9,18 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+
+	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -34,8 +38,9 @@ const (
 )
 
 type TestConfigs struct {
-	Type                     EnvType // set by env var CCIP_V16_TEST_ENV, defaults to Memory
-	CreateJob                bool
+	Type      EnvType // set by env var CCIP_V16_TEST_ENV, defaults to Memory
+	CreateJob bool
+	// TODO: This should be CreateContracts so the booleans make sense?
 	CreateJobAndContracts    bool
 	Chains                   int // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
 	NumOfUsersPerChain       int // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
@@ -177,6 +182,19 @@ type DeployedEnv struct {
 	Users        map[uint64][]*bind.TransactOpts
 }
 
+func (d *DeployedEnv) TimelockContracts(t *testing.T) map[uint64]*proposalutils.TimelockExecutionContracts {
+	timelocks := make(map[uint64]*proposalutils.TimelockExecutionContracts)
+	state, err := LoadOnchainState(d.Env)
+	require.NoError(t, err)
+	for chain, chainState := range state.Chains {
+		timelocks[chain] = &proposalutils.TimelockExecutionContracts{
+			Timelock:  chainState.Timelock,
+			CallProxy: chainState.CallProxy,
+		}
+	}
+	return timelocks
+}
+
 func (d *DeployedEnv) SetupJobs(t *testing.T) {
 	ctx := testcontext.Get(t)
 	out, err := CCIPCapabilityJobspec(d.Env, struct{}{})
@@ -277,6 +295,7 @@ func NewEnvironment(t *testing.T, tc *TestConfigs, tEnv TestEnvironment) Deploye
 	crConfig := DeployTestContracts(t, lggr, ab, dEnv.HomeChainSel, dEnv.FeedChainSel, dEnv.Env.Chains, tc.LinkPrice, tc.WethPrice)
 	tEnv.StartNodes(t, tc, crConfig)
 	dEnv = tEnv.DeployedEnvironment()
+	// TODO: Should use ApplyChangesets here.
 	envNodes, err := deployment.NodeInfo(dEnv.Env.NodeIDs, dEnv.Env.Offchain)
 	require.NoError(t, err)
 	dEnv.Env.ExistingAddresses = ab
@@ -383,8 +402,11 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tc *TestConfigs, tEnv Test
 			}})
 	}
 	// Build the per chain config.
-	chainConfigs := make(map[uint64]CCIPOCRParams)
+	ocrConfigs := make(map[uint64]CCIPOCRParams)
+	chainConfigs := make(map[uint64]ChainConfig)
 	timelockContractsPerChain := make(map[uint64]*proposalutils.TimelockExecutionContracts)
+	nodeInfo, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
+	require.NoError(t, err)
 	for _, chain := range allChains {
 		timelockContractsPerChain[chain] = &proposalutils.TimelockExecutionContracts{
 			Timelock:  state.Chains[chain].Timelock,
@@ -395,16 +417,65 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tc *TestConfigs, tEnv Test
 		if tc.OCRConfigOverride != nil {
 			ocrParams = tc.OCRConfigOverride(ocrParams)
 		}
-		chainConfigs[chain] = ocrParams
+		ocrConfigs[chain] = ocrParams
+		chainConfigs[chain] = ChainConfig{
+			Readers: nodeInfo.NonBootstraps().PeerIDs(),
+			FChain:  uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),
+			EncodableChainConfig: chainconfig.ChainConfig{
+				GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(internal.GasPriceDeviationPPB)},
+				DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(internal.DAGasPriceDeviationPPB)},
+				OptimisticConfirmations: internal.OptimisticConfirmations,
+			},
+		}
 	}
 	// Deploy second set of changesets to deploy and configure the CCIP contracts.
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, timelockContractsPerChain, []commonchangeset.ChangesetApplication{
 		{
-			Changeset: commonchangeset.WrapChangeSet(ConfigureNewChains),
-			Config: NewChainsConfig{
-				HomeChainSel:       e.HomeChainSel,
-				FeedChainSel:       e.FeedChainSel,
-				ChainConfigByChain: chainConfigs,
+			// Add the chain configs for the new chains.
+			Changeset: commonchangeset.WrapChangeSet(UpdateChainConfig),
+			Config: UpdateChainConfigConfig{
+				HomeChainSelector: e.HomeChainSel,
+				RemoteChainAdds:   chainConfigs,
+			},
+		},
+		{
+			// Add the DONs and candidate commit OCR instances for the chain.
+			Changeset: commonchangeset.WrapChangeSet(AddDonAndSetCandidateChangeset),
+			Config: AddDonAndSetCandidateChangesetConfig{
+				SetCandidateConfigBase{
+					HomeChainSelector:               e.HomeChainSel,
+					FeedChainSelector:               e.FeedChainSel,
+					OCRConfigPerRemoteChainSelector: ocrConfigs,
+					PluginType:                      types.PluginTypeCCIPCommit,
+				},
+			},
+		},
+		{
+			// Add the exec OCR instances for the new chains.
+			Changeset: commonchangeset.WrapChangeSet(SetCandidateChangeset),
+			Config: SetCandidateChangesetConfig{
+				SetCandidateConfigBase{
+					HomeChainSelector:               e.HomeChainSel,
+					FeedChainSelector:               e.FeedChainSel,
+					OCRConfigPerRemoteChainSelector: ocrConfigs,
+					PluginType:                      types.PluginTypeCCIPExec,
+				},
+			},
+		},
+		{
+			// Promote everything
+			Changeset: commonchangeset.WrapChangeSet(PromoteAllCandidatesChangeset),
+			Config: PromoteAllCandidatesChangesetConfig{
+				HomeChainSelector:    e.HomeChainSel,
+				RemoteChainSelectors: allChains,
+			},
+		},
+		{
+			// Enable the OCR config on the remote chains.
+			Changeset: commonchangeset.WrapChangeSet(SetOCR3OffRamp),
+			Config: SetOCR3OffRampConfig{
+				HomeChainSel:    e.HomeChainSel,
+				RemoteChainSels: allChains,
 			},
 		},
 		{

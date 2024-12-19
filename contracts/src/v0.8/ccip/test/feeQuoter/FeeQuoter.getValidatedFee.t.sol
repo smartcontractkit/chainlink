@@ -103,7 +103,7 @@ contract FeeQuoter_getValidatedFee is FeeQuoterFeeSetup {
 
       uint256 feeAmount = s_feeQuoter.getValidatedFee(DEST_CHAIN_SELECTOR, message);
 
-      uint256 gasUsed = GAS_LIMIT + DEST_GAS_OVERHEAD
+      uint256 gasUsed = GAS_LIMIT + DEST_GAS_OVERHEAD + tokenBytesOverhead * DEST_GAS_PER_PAYLOAD_BYTE
         + s_feeQuoter.getTokenTransferFeeConfig(DEST_CHAIN_SELECTOR, message.tokenAmounts[0].token).destGasOverhead;
       uint256 gasFeeUSD = (gasUsed * destChainConfig.gasMultiplierWeiPerEth * USD_PER_GAS);
       (uint256 transferFeeUSD,,) =
@@ -152,12 +152,20 @@ contract FeeQuoter_getValidatedFee is FeeQuoterFeeSetup {
         tokenBytesOverhead += destBytesOverhead == 0 ? uint32(Pool.CCIP_LOCK_OR_BURN_V1_RET_BYTES) : destBytesOverhead;
       }
 
-      uint256 gasUsed =
-        customGasLimit + DEST_GAS_OVERHEAD + message.data.length * DEST_GAS_PER_PAYLOAD_BYTE + tokenGasOverhead;
-      uint256 gasFeeUSD = (gasUsed * destChainConfig.gasMultiplierWeiPerEth * USD_PER_GAS);
-      (uint256 transferFeeUSD,,) =
+      (uint256 transferFeeUSD,, uint256 tokenTransferBytesOverhead) =
         s_feeQuoter.getTokenTransferCost(DEST_CHAIN_SELECTOR, message.feeToken, feeTokenPrices[i], message.tokenAmounts);
+
+      uint256 gasFeeUSD;
+
+      {
+        uint256 gasUsed = customGasLimit + DEST_GAS_OVERHEAD
+          + (message.data.length + tokenTransferBytesOverhead) * DEST_GAS_PER_PAYLOAD_BYTE + tokenGasOverhead;
+
+        gasFeeUSD = (gasUsed * destChainConfig.gasMultiplierWeiPerEth * USD_PER_GAS);
+      }
+
       uint256 messageFeeUSD = (transferFeeUSD * premiumMultiplierWeiPerEth);
+
       uint256 dataAvailabilityFeeUSD = s_feeQuoter.getDataAvailabilityCost(
         DEST_CHAIN_SELECTOR,
         USD_PER_DATA_AVAILABILITY_GAS,

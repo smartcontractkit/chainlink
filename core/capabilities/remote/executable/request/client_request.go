@@ -212,7 +212,7 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 	}
 
 	if msg.Sender == nil {
-		return fmt.Errorf("sender missing from message")
+		return errors.New("sender missing from message")
 	}
 
 	c.lggr.Debugw("OnMessage called for client request", "messageID", msg.MessageId)

@@ -1,3 +1,5 @@
+# N/B: ci-core, which runs on PRs, will trigger linting for affected directories/modules
+# no need to run lint twice
 name: Integration Tests
 run-name: Integration Tests ${{ inputs.distinct_run_name && inputs.distinct_run_name || '' }}
 on:
@@ -116,47 +118,6 @@ jobs:
       core_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.core_changes }}
       ccip_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.ccip_changes }}
 
-  lint-integration-tests:
-    name: Lint ${{ matrix.project.name }}
-    runs-on: ubuntu-24.04-8cores-32GB-ARM
-    # We don't directly merge dependabot PRs, so let's not waste the resources
-    if: github.actor != 'dependabot[bot]'
-    strategy:
-      matrix:
-        project:
-          - name: integration-tests
-            id: e2e-tests
-            path: ./integration-tests
-            cache_id: e2e-tests
-          - name: load
-            id: load
-            path: ./integration-tests/load
-            cache_id: load
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@v4.2.1
-        with:
-          repository: smartcontractkit/chainlink
-          ref: ${{ inputs.cl_ref }}
-      - name: Setup Go
-        uses: smartcontractkit/.github/actions/ctf-setup-go@b0d756c57fcdbcff187e74166562a029fdd5d1b9 # ctf-setup-go@0.0.0
-        with:
-          test_download_vendor_packages_command: cd ${{ matrix.project.path }} && go mod download
-          go_mod_path: ${{ matrix.project.path }}/go.mod
-          cache_key_id: ${{ matrix.project.cache_id }}
-          cache_restore_only: "true"
-      - name: Lint Go
-        uses: golangci/golangci-lint-action@3cfe3a4abbb849e10058ce4af15d205b6da42804 # v4.0.0
-        with:
-          version: v1.62.0
-          # We already cache these directories in setup-go
-          skip-pkg-cache: true
-          skip-build-cache: true
-          # only-new-issues is only applicable to PRs, otherwise it is always set to false
-          only-new-issues: false # disabled for PRs due to unreliability
-          args: --out-format colored-line-number,checkstyle:golangci-lint-report.xml
-          working-directory: ${{ matrix.project.path }}
-
   build-chainlink:
     environment: integration
     permissions:
@@ -171,6 +132,7 @@ jobs:
           - name: (plugins)
             dockerfile: plugins/chainlink.Dockerfile
             tag-suffix: -plugins
+
     name: Build Chainlink Image ${{ matrix.image.name }}
     runs-on: ubuntu22.04-8cores-32GB
     needs: [changes, enforce-ctf-version]
@@ -374,7 +336,7 @@ jobs:
     if: always()
     name: ETH Smoke Tests
     runs-on: ubuntu-latest
-    needs: [lint-integration-tests, run-core-e2e-tests-for-pr, run-ccip-e2e-tests-for-pr, run-core-e2e-tests-for-merge-queue, run-ccip-e2e-tests-for-merge-queue]
+    needs: [run-core-e2e-tests-for-pr, run-ccip-e2e-tests-for-pr, run-core-e2e-tests-for-merge-queue, run-ccip-e2e-tests-for-merge-queue]
     steps:
       - name: Check Core test results
         id: check_core_results
@@ -412,10 +374,6 @@ jobs:
 
       - name: Fail the job if core tests in merge queue not successful
         if: always() && needs.run-core-e2e-tests-for-merge-queue.result == 'failure'
-        run: exit 1
-
-      - name: Fail the job if lint not successful
-        if: always() && needs.lint-integration-tests.result == 'failure'
         run: exit 1
 
   cleanup:
