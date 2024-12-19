@@ -6,7 +6,7 @@ import {HybridLockReleaseUSDCTokenPool} from "../../../../pools/USDC/HybridLockR
 import {USDCBridgeMigrator_BurnLockedUSDC} from "./USDCBridgeMigrator.burnLockedUSDC.t.sol";
 
 contract USDCBridgeMigrator_provideLiquidity is USDCBridgeMigrator_BurnLockedUSDC {
-  function test_cannotModifyLiquidityWithoutPermissions_Revert() public {
+  function test_RevertWhen_cannotModifyLiquidityWithoutPermissions() public {
     address randomAddr = makeAddr("RANDOM");
 
     vm.startPrank(randomAddr);
@@ -17,8 +17,8 @@ contract USDCBridgeMigrator_provideLiquidity is USDCBridgeMigrator_BurnLockedUSD
     s_usdcTokenPool.provideLiquidity(DEST_CHAIN_SELECTOR, 1e6);
   }
 
-  function test_cannotProvideLiquidity_AfterMigration_Revert() public {
-    test_lockOrBurn_then_BurnInCCTPMigration_Success();
+  function test_RevertWhen_cannotProvideLiquidity_AfterMigration() public {
+    test_lockOrBurn_then_BurnInCCTPMigration();
 
     vm.startPrank(OWNER);
 
@@ -31,7 +31,7 @@ contract USDCBridgeMigrator_provideLiquidity is USDCBridgeMigrator_BurnLockedUSD
     s_usdcTokenPool.provideLiquidity(DEST_CHAIN_SELECTOR, 1e6);
   }
 
-  function test_cannotProvideLiquidityWhenMigrationProposalPending_Revert() public {
+  function test_RevertWhen_cannotProvideLiquidityWhenMigrationProposalPending() public {
     vm.startPrank(OWNER);
 
     // Mark the destination chain as supporting CCTP, so use L/R instead.

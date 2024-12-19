@@ -24,7 +24,7 @@ contract MultiAggregateRateLimiter_updateRateLimitTokens is MultiAggregateRateLi
     s_rateLimiter.updateRateLimitTokens(removes, new MultiAggregateRateLimiter.RateLimitTokenArgs[](0));
   }
 
-  function test_UpdateRateLimitTokensSingleChain_Success() public {
+  function test_UpdateRateLimitTokensSingleChain() public {
     MultiAggregateRateLimiter.RateLimitTokenArgs[] memory adds = new MultiAggregateRateLimiter.RateLimitTokenArgs[](2);
     adds[0] = MultiAggregateRateLimiter.RateLimitTokenArgs({
       localTokenArgs: MultiAggregateRateLimiter.LocalRateLimitToken({
@@ -61,7 +61,7 @@ contract MultiAggregateRateLimiter_updateRateLimitTokens is MultiAggregateRateLi
     }
   }
 
-  function test_UpdateRateLimitTokensMultipleChains_Success() public {
+  function test_UpdateRateLimitTokensMultipleChains() public {
     MultiAggregateRateLimiter.RateLimitTokenArgs[] memory adds = new MultiAggregateRateLimiter.RateLimitTokenArgs[](2);
     adds[0] = MultiAggregateRateLimiter.RateLimitTokenArgs({
       localTokenArgs: MultiAggregateRateLimiter.LocalRateLimitToken({
@@ -104,7 +104,7 @@ contract MultiAggregateRateLimiter_updateRateLimitTokens is MultiAggregateRateLi
     assertEq(remoteTokensChain2[0], adds[1].remoteToken);
   }
 
-  function test_UpdateRateLimitTokens_AddsAndRemoves_Success() public {
+  function test_UpdateRateLimitTokens_AddsAndRemoves() public {
     MultiAggregateRateLimiter.RateLimitTokenArgs[] memory adds = new MultiAggregateRateLimiter.RateLimitTokenArgs[](2);
     adds[0] = MultiAggregateRateLimiter.RateLimitTokenArgs({
       localTokenArgs: MultiAggregateRateLimiter.LocalRateLimitToken({
@@ -150,7 +150,7 @@ contract MultiAggregateRateLimiter_updateRateLimitTokens is MultiAggregateRateLi
     assertEq(adds[1].localTokenArgs.localToken, localTokens[0]);
   }
 
-  function test_UpdateRateLimitTokens_RemoveNonExistentToken_Success() public {
+  function test_UpdateRateLimitTokens_RemoveNonExistentToken() public {
     MultiAggregateRateLimiter.RateLimitTokenArgs[] memory adds = new MultiAggregateRateLimiter.RateLimitTokenArgs[](0);
 
     MultiAggregateRateLimiter.LocalRateLimitToken[] memory removes =
@@ -175,7 +175,7 @@ contract MultiAggregateRateLimiter_updateRateLimitTokens is MultiAggregateRateLi
 
   // Reverts
 
-  function test_ZeroSourceToken_Revert() public {
+  function test_RevertWhen_ZeroSourceToken() public {
     MultiAggregateRateLimiter.RateLimitTokenArgs[] memory adds = new MultiAggregateRateLimiter.RateLimitTokenArgs[](1);
     adds[0] = MultiAggregateRateLimiter.RateLimitTokenArgs({
       localTokenArgs: MultiAggregateRateLimiter.LocalRateLimitToken({
@@ -189,7 +189,7 @@ contract MultiAggregateRateLimiter_updateRateLimitTokens is MultiAggregateRateLi
     s_rateLimiter.updateRateLimitTokens(new MultiAggregateRateLimiter.LocalRateLimitToken[](0), adds);
   }
 
-  function test_ZeroDestToken_Revert() public {
+  function test_RevertWhen_ZeroDestToken() public {
     MultiAggregateRateLimiter.RateLimitTokenArgs[] memory adds = new MultiAggregateRateLimiter.RateLimitTokenArgs[](1);
     adds[0] = MultiAggregateRateLimiter.RateLimitTokenArgs({
       localTokenArgs: MultiAggregateRateLimiter.LocalRateLimitToken({
@@ -203,7 +203,7 @@ contract MultiAggregateRateLimiter_updateRateLimitTokens is MultiAggregateRateLi
     s_rateLimiter.updateRateLimitTokens(new MultiAggregateRateLimiter.LocalRateLimitToken[](0), adds);
   }
 
-  function test_ZeroDestToken_AbiEncoded_Revert() public {
+  function test_RevertWhen_ZeroDestToken_AbiEncoded() public {
     MultiAggregateRateLimiter.RateLimitTokenArgs[] memory adds = new MultiAggregateRateLimiter.RateLimitTokenArgs[](1);
     adds[0] = MultiAggregateRateLimiter.RateLimitTokenArgs({
       localTokenArgs: MultiAggregateRateLimiter.LocalRateLimitToken({
@@ -217,7 +217,7 @@ contract MultiAggregateRateLimiter_updateRateLimitTokens is MultiAggregateRateLi
     s_rateLimiter.updateRateLimitTokens(new MultiAggregateRateLimiter.LocalRateLimitToken[](0), adds);
   }
 
-  function test_NonOwner_Revert() public {
+  function test_RevertWhen_NonOwner() public {
     MultiAggregateRateLimiter.RateLimitTokenArgs[] memory adds = new MultiAggregateRateLimiter.RateLimitTokenArgs[](4);
 
     vm.startPrank(STRANGER);

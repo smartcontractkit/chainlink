@@ -21,7 +21,7 @@ contract LockReleaseTokenPool_provideLiquidity is LockReleaseTokenPoolSetup {
 
   // Reverts
 
-  function test_Unauthorized_Revert() public {
+  function test_RevertWhen_Unauthorized() public {
     vm.startPrank(STRANGER);
     vm.expectRevert(abi.encodeWithSelector(TokenPool.Unauthorized.selector, STRANGER));
 
@@ -36,9 +36,9 @@ contract LockReleaseTokenPool_provideLiquidity is LockReleaseTokenPoolSetup {
     s_lockReleaseTokenPool.provideLiquidity(amount);
   }
 
-  function test_LiquidityNotAccepted_Revert() public {
+  function test_RevertWhen_LiquidityNotAccepted() public {
     s_lockReleaseTokenPool = new LockReleaseTokenPool(
-      s_token, DEFAULT_TOKEN_DECIMALS, new address[](0), address(s_mockRMN), false, address(s_sourceRouter)
+      s_token, DEFAULT_TOKEN_DECIMALS, new address[](0), address(s_mockRMNRemote), false, address(s_sourceRouter)
     );
 
     vm.expectRevert(LockReleaseTokenPool.LiquidityNotAccepted.selector);

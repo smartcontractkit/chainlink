@@ -7,7 +7,7 @@ import {Internal} from "../../../libraries/Internal.sol";
 import {CCIPHomeTestSetup} from "./CCIPHomeTestSetup.t.sol";
 
 contract CCIPHome_getConfigDigests is CCIPHomeTestSetup {
-  function test_getConfigDigests_success() public {
+  function test_getConfigDigests() public {
     (bytes32 activeDigest, bytes32 candidateDigest) = s_ccipHome.getConfigDigests(DEFAULT_DON_ID, DEFAULT_PLUGIN_TYPE);
     assertEq(activeDigest, ZERO_DIGEST);
     assertEq(candidateDigest, ZERO_DIGEST);

@@ -10,6 +10,7 @@ import (
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
@@ -29,10 +30,10 @@ func TestUpdateNodeCapabilities(t *testing.T) {
 		caps = []kcr.CapabilitiesRegistryCapability{capA, capB}
 	)
 	t.Run("no mcms", func(t *testing.T) {
-		te := SetupTestEnv(t, TestConfig{
-			WFDonConfig:     DonConfig{N: 4},
-			AssetDonConfig:  DonConfig{N: 4},
-			WriterDonConfig: DonConfig{N: 4},
+		te := test.SetupTestEnv(t, test.TestConfig{
+			WFDonConfig:     test.DonConfig{N: 4},
+			AssetDonConfig:  test.DonConfig{N: 4},
+			WriterDonConfig: test.DonConfig{N: 4},
 			NumChains:       1,
 		})
 
@@ -79,10 +80,10 @@ func TestUpdateNodeCapabilities(t *testing.T) {
 		})
 	})
 	t.Run("with mcms", func(t *testing.T) {
-		te := SetupTestEnv(t, TestConfig{
-			WFDonConfig:     DonConfig{N: 4},
-			AssetDonConfig:  DonConfig{N: 4},
-			WriterDonConfig: DonConfig{N: 4},
+		te := test.SetupTestEnv(t, test.TestConfig{
+			WFDonConfig:     test.DonConfig{N: 4},
+			AssetDonConfig:  test.DonConfig{N: 4},
+			WriterDonConfig: test.DonConfig{N: 4},
 			NumChains:       1,
 			UseMCMS:         true,
 		})
@@ -140,7 +141,7 @@ func TestUpdateNodeCapabilities(t *testing.T) {
 }
 
 // validateUpdate checks reads nodes from the registry and checks they have the expected updates
-func validateCapabilityUpdates(t *testing.T, te TestEnv, expected map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability) {
+func validateCapabilityUpdates(t *testing.T, te test.TestEnv, expected map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability) {
 	registry := te.ContractSets()[te.RegistrySelector].CapabilitiesRegistry
 	wfP2PIDs := p2pIDs(t, maps.Keys(te.WFNodes))
 	nodes, err := registry.GetNodesByP2PIds(nil, wfP2PIDs)

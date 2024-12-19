@@ -8,7 +8,7 @@ import {HybridLockReleaseUSDCTokenPool_lockOrBurn} from
   "../HybridLockReleaseUSDCTokenPool/HybridLockReleaseUSDCTokenPool.lockOrBurn.t.sol";
 
 contract USDCBridgeMigrator_BurnLockedUSDC is HybridLockReleaseUSDCTokenPool_lockOrBurn {
-  function test_lockOrBurn_then_BurnInCCTPMigration_Success() public {
+  function test_lockOrBurn_then_BurnInCCTPMigration() public {
     bytes32 receiver = bytes32(uint256(uint160(STRANGER)));
     address CIRCLE = makeAddr("CIRCLE CCTP Migrator");
 
@@ -96,10 +96,10 @@ contract USDCBridgeMigrator_BurnLockedUSDC is HybridLockReleaseUSDCTokenPool_loc
       s_usdcTokenPool.shouldUseLockRelease(DEST_CHAIN_SELECTOR), "Lock/Release mech should be disabled after a burn"
     );
 
-    test_PrimaryMechanism_Success();
+    test_PrimaryMechanism();
   }
 
-  function test_invalidPermissions_Revert() public {
+  function test_RevertWhen_invalidPermissions() public {
     address CIRCLE = makeAddr("CIRCLE");
 
     vm.startPrank(OWNER);

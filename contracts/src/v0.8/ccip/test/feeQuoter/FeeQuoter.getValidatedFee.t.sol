@@ -11,7 +11,7 @@ import {FeeQuoterFeeSetup} from "./FeeQuoterSetup.t.sol";
 contract FeeQuoter_getValidatedFee is FeeQuoterFeeSetup {
   using USDPriceWith18Decimals for uint224;
 
-  function test_EmptyMessage_Success() public view {
+  function test_EmptyMessage() public view {
     address[2] memory testTokens = [s_sourceFeeToken, s_sourceRouter.getWrappedNative()];
     uint224[2] memory feeTokenPrices = [s_feeTokenPrice, s_wrappedTokenPrice];
 
@@ -35,7 +35,7 @@ contract FeeQuoter_getValidatedFee is FeeQuoterFeeSetup {
     }
   }
 
-  function test_ZeroDataAvailabilityMultiplier_Success() public {
+  function test_ZeroDataAvailabilityMultiplier() public {
     FeeQuoter.DestChainConfigArgs[] memory destChainConfigArgs = new FeeQuoter.DestChainConfigArgs[](1);
     FeeQuoter.DestChainConfig memory destChainConfig = s_feeQuoter.getDestChainConfig(DEST_CHAIN_SELECTOR);
     destChainConfigArgs[0] =
@@ -56,7 +56,7 @@ contract FeeQuoter_getValidatedFee is FeeQuoterFeeSetup {
     assertEq(totalPriceInFeeToken, feeAmount);
   }
 
-  function test_HighGasMessage_Success() public view {
+  function test_HighGasMessage() public view {
     address[2] memory testTokens = [s_sourceFeeToken, s_sourceRouter.getWrappedNative()];
     uint224[2] memory feeTokenPrices = [s_feeTokenPrice, s_wrappedTokenPrice];
 
@@ -87,7 +87,7 @@ contract FeeQuoter_getValidatedFee is FeeQuoterFeeSetup {
     }
   }
 
-  function test_SingleTokenMessage_Success() public view {
+  function test_SingleTokenMessage() public view {
     address[2] memory testTokens = [s_sourceFeeToken, s_sourceRouter.getWrappedNative()];
     uint224[2] memory feeTokenPrices = [s_feeTokenPrice, s_wrappedTokenPrice];
 
@@ -122,7 +122,7 @@ contract FeeQuoter_getValidatedFee is FeeQuoterFeeSetup {
     }
   }
 
-  function test_MessageWithDataAndTokenTransfer_Success() public view {
+  function test_MessageWithDataAndTokenTransfer() public view {
     address[2] memory testTokens = [s_sourceFeeToken, s_sourceRouter.getWrappedNative()];
     uint224[2] memory feeTokenPrices = [s_feeTokenPrice, s_wrappedTokenPrice];
 
@@ -203,12 +203,12 @@ contract FeeQuoter_getValidatedFee is FeeQuoterFeeSetup {
 
   // Reverts
 
-  function test_DestinationChainNotEnabled_Revert() public {
+  function test_RevertWhen_DestinationChainNotEnabled() public {
     vm.expectRevert(abi.encodeWithSelector(FeeQuoter.DestinationChainNotEnabled.selector, DEST_CHAIN_SELECTOR + 1));
     s_feeQuoter.getValidatedFee(DEST_CHAIN_SELECTOR + 1, _generateEmptyMessage());
   }
 
-  function test_EnforceOutOfOrder_Revert() public {
+  function test_RevertWhen_EnforceOutOfOrder() public {
     // Update config to enforce allowOutOfOrderExecution = true.
     vm.stopPrank();
     vm.startPrank(OWNER);
@@ -226,7 +226,7 @@ contract FeeQuoter_getValidatedFee is FeeQuoterFeeSetup {
     s_feeQuoter.getValidatedFee(DEST_CHAIN_SELECTOR, message);
   }
 
-  function test_MessageTooLarge_Revert() public {
+  function test_RevertWhen_MessageTooLarge() public {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
     message.data = new bytes(MAX_DATA_SIZE + 1);
     vm.expectRevert(abi.encodeWithSelector(FeeQuoter.MessageTooLarge.selector, MAX_DATA_SIZE, message.data.length));
@@ -234,7 +234,7 @@ contract FeeQuoter_getValidatedFee is FeeQuoterFeeSetup {
     s_feeQuoter.getValidatedFee(DEST_CHAIN_SELECTOR, message);
   }
 
-  function test_TooManyTokens_Revert() public {
+  function test_RevertWhen_TooManyTokens() public {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
     uint256 tooMany = MAX_TOKENS_LENGTH + 1;
     message.tokenAmounts = new Client.EVMTokenAmount[](tooMany);
@@ -243,14 +243,14 @@ contract FeeQuoter_getValidatedFee is FeeQuoterFeeSetup {
   }
 
   // Asserts gasLimit must be <=maxGasLimit
-  function test_MessageGasLimitTooHigh_Revert() public {
+  function test_RevertWhen_MessageGasLimitTooHigh() public {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
     message.extraArgs = Client._argsToBytes(Client.EVMExtraArgsV1({gasLimit: MAX_GAS_LIMIT + 1}));
     vm.expectRevert(abi.encodeWithSelector(FeeQuoter.MessageGasLimitTooHigh.selector));
     s_feeQuoter.getValidatedFee(DEST_CHAIN_SELECTOR, message);
   }
 
-  function test_NotAFeeToken_Revert() public {
+  function test_RevertWhen_NotAFeeToken() public {
     address notAFeeToken = address(0x111111);
     Client.EVM2AnyMessage memory message = _generateSingleTokenMessage(notAFeeToken, 1);
     message.feeToken = notAFeeToken;
@@ -260,7 +260,7 @@ contract FeeQuoter_getValidatedFee is FeeQuoterFeeSetup {
     s_feeQuoter.getValidatedFee(DEST_CHAIN_SELECTOR, message);
   }
 
-  function test_InvalidEVMAddress_Revert() public {
+  function test_RevertWhen_InvalidEVMAddress() public {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
     message.receiver = abi.encode(type(uint208).max);
 

@@ -68,7 +68,7 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, feeAmount, OWNER);
   }
 
-  function test_ForwardFromRouter_Success_ConfigurableSourceRouter() public {
+  function test_ForwardFromRouter_ConfigurableSourceRouter() public {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
     message.extraArgs = Client._argsToBytes(Client.EVMExtraArgsV1({gasLimit: GAS_LIMIT * 2}));
     uint256 feeAmount = 1234567890;
@@ -117,7 +117,7 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, feeAmount, OWNER);
   }
 
-  function test_ForwardFromRouter_Success() public {
+  function test_ForwardFromRouter() public {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
 
     uint256 feeAmount = 1234567890;
@@ -129,7 +129,7 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, feeAmount, OWNER);
   }
 
-  function test_ForwardFromRouterExtraArgsV2_Success() public {
+  function test_ForwardFromRouterExtraArgsV2() public {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
     message.extraArgs = abi.encodeWithSelector(
       Client.EVM_EXTRA_ARGS_V2_TAG, Client.EVMExtraArgsV2({gasLimit: GAS_LIMIT * 2, allowOutOfOrderExecution: false})
@@ -143,7 +143,7 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, feeAmount, OWNER);
   }
 
-  function test_ForwardFromRouterExtraArgsV2AllowOutOfOrderTrue_Success() public {
+  function test_ForwardFromRouterExtraArgsV2AllowOutOfOrderTrue() public {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
     message.extraArgs = abi.encodeWithSelector(
       Client.EVM_EXTRA_ARGS_V2_TAG, Client.EVMExtraArgsV2({gasLimit: GAS_LIMIT * 2, allowOutOfOrderExecution: true})
@@ -157,7 +157,7 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, feeAmount, OWNER);
   }
 
-  function test_ShouldIncrementSeqNumAndNonce_Success() public {
+  function test_ShouldIncrementSeqNumAndNonce() public {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
 
     for (uint64 i = 1; i < 4; ++i) {
@@ -176,7 +176,7 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
     }
   }
 
-  function test_ShouldIncrementNonceOnlyOnOrdered_Success() public {
+  function test_ShouldIncrementNonceOnlyOnOrdered() public {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
     message.extraArgs = abi.encodeWithSelector(
       Client.EVM_EXTRA_ARGS_V2_TAG, Client.EVMExtraArgsV2({gasLimit: GAS_LIMIT * 2, allowOutOfOrderExecution: true})
@@ -281,7 +281,7 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
     );
   }
 
-  function test_forwardFromRouter_WithInterception_Success() public {
+  function test_forwardFromRouter_WithInterception() public {
     _enableOutboundMessageInterceptor();
 
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
@@ -301,7 +301,7 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
 
   // Reverts
 
-  function test_Paused_Revert() public {
+  function test_RevertWhen_Paused() public {
     // We pause by disabling the whitelist
     vm.stopPrank();
     vm.startPrank(OWNER);
@@ -310,7 +310,7 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, _generateEmptyMessage(), 0, OWNER);
   }
 
-  function test_InvalidExtraArgsTag_Revert() public {
+  function test_RevertWhen_InvalidExtraArgsTag() public {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
     message.extraArgs = bytes("bad args");
 
@@ -319,26 +319,26 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, 0, OWNER);
   }
 
-  function test_Permissions_Revert() public {
+  function test_RevertWhen_Permissions() public {
     vm.stopPrank();
     vm.startPrank(OWNER);
     vm.expectRevert(OnRamp.MustBeCalledByRouter.selector);
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, _generateEmptyMessage(), 0, OWNER);
   }
 
-  function test_OriginalSender_Revert() public {
+  function test_RevertWhen_OriginalSender() public {
     vm.expectRevert(OnRamp.RouterMustSetOriginalSender.selector);
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, _generateEmptyMessage(), 0, address(0));
   }
 
-  function test_UnAllowedOriginalSender_Revert() public {
+  function test_RevertWhen_UnAllowedOriginalSender() public {
     vm.stopPrank();
     vm.startPrank(STRANGER);
     vm.expectRevert(abi.encodeWithSelector(OnRamp.SenderNotAllowed.selector, STRANGER));
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, _generateEmptyMessage(), 0, STRANGER);
   }
 
-  function test_MessageInterceptionError_Revert() public {
+  function test_RevertWhen_MessageInterceptionError() public {
     _enableOutboundMessageInterceptor();
 
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
@@ -357,7 +357,7 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, feeAmount, OWNER);
   }
 
-  function test_MultiCannotSendZeroTokens_Revert() public {
+  function test_RevertWhen_MultiCannotSendZeroTokens() public {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
     message.tokenAmounts = new Client.EVMTokenAmount[](1);
     message.tokenAmounts[0].amount = 0;
@@ -366,7 +366,7 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, 0, OWNER);
   }
 
-  function test_UnsupportedToken_Revert() public {
+  function test_RevertWhen_UnsupportedToken() public {
     address wrongToken = address(1);
 
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
@@ -389,7 +389,7 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, 0, OWNER);
   }
 
-  function test_forwardFromRouter_UnsupportedToken_Revert() public {
+  function test_RevertWhen_forwardFromRouter_UnsupportedToken() public {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
     message.tokenAmounts = new Client.EVMTokenAmount[](1);
     message.tokenAmounts[0].amount = 1;
@@ -400,7 +400,7 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, 0, OWNER);
   }
 
-  function test_MesssageFeeTooHigh_Revert() public {
+  function test_RevertWhen_MesssageFeeTooHigh() public {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
 
     vm.expectRevert(
@@ -410,7 +410,7 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, MAX_MSG_FEES_JUELS + 1, OWNER);
   }
 
-  function test_SourceTokenDataTooLarge_Revert() public {
+  function test_RevertWhen_SourceTokenDataTooLarge() public {
     address sourceETH = s_sourceTokens[1];
     vm.stopPrank();
     vm.startPrank(OWNER);

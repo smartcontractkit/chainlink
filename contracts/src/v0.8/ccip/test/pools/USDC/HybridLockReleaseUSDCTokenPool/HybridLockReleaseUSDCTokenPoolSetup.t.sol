@@ -15,11 +15,13 @@ contract HybridLockReleaseUSDCTokenPoolSetup is USDCSetup {
   function setUp() public virtual override {
     super.setUp();
 
-    s_usdcTokenPool =
-      new HybridLockReleaseUSDCTokenPool(s_mockUSDC, s_token, new address[](0), address(s_mockRMN), address(s_router));
+    s_usdcTokenPool = new HybridLockReleaseUSDCTokenPool(
+      s_mockUSDC, s_token, new address[](0), address(s_mockRMNRemote), address(s_router)
+    );
 
-    s_usdcTokenPoolTransferLiquidity =
-      new HybridLockReleaseUSDCTokenPool(s_mockUSDC, s_token, new address[](0), address(s_mockRMN), address(s_router));
+    s_usdcTokenPoolTransferLiquidity = new HybridLockReleaseUSDCTokenPool(
+      s_mockUSDC, s_token, new address[](0), address(s_mockRMNRemote), address(s_router)
+    );
 
     BurnMintERC677(address(s_token)).grantMintAndBurnRoles(address(s_usdcTokenPool));
 

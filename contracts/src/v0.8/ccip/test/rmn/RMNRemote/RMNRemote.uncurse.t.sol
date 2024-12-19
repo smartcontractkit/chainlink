@@ -11,7 +11,7 @@ contract RMNRemote_uncurse is RMNRemoteSetup {
     s_rmnRemote.curse(s_curseSubjects);
   }
 
-  function test_uncurse_success() public {
+  function test_uncurse() public {
     vm.expectEmit();
     emit RMNRemote.Uncursed(s_curseSubjects);
 
@@ -22,14 +22,14 @@ contract RMNRemote_uncurse is RMNRemoteSetup {
     assertFalse(s_rmnRemote.isCursed(CURSE_SUBJ_2));
   }
 
-  function test_uncurse_NotCursed_duplicatedUncurseSubject_reverts() public {
+  function test_RevertWhen_uncurse_NotCursed_duplicatedUncurseSubject() public {
     s_curseSubjects.push(CURSE_SUBJ_1);
 
     vm.expectRevert(abi.encodeWithSelector(RMNRemote.NotCursed.selector, CURSE_SUBJ_1));
     s_rmnRemote.uncurse(s_curseSubjects);
   }
 
-  function test_uncurse_calledByNonOwner_reverts() public {
+  function test_RevertWhen_uncurse_calledByNonOwner() public {
     vm.expectRevert(Ownable2Step.OnlyCallableByOwner.selector);
     vm.stopPrank();
     vm.prank(STRANGER);

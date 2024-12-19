@@ -17,7 +17,7 @@ contract OffRamp_releaseOrMintSingleToken is OffRampSetup {
     _setupMultipleOffRamps();
   }
 
-  function test__releaseOrMintSingleToken_Success() public {
+  function test__releaseOrMintSingleToken() public {
     uint256 amount = 123123;
     address token = s_sourceTokens[0];
     bytes memory originalSender = abi.encode(OWNER);
@@ -56,7 +56,7 @@ contract OffRamp_releaseOrMintSingleToken is OffRampSetup {
     assertEq(startingBalance + amount, dstToken1.balanceOf(OWNER));
   }
 
-  function test_releaseOrMintToken_InvalidDataLength_Revert() public {
+  function test_RevertWhen_releaseOrMintToken_InvalidDataLength() public {
     uint256 amount = 123123;
     address token = s_sourceTokens[0];
 
@@ -78,7 +78,7 @@ contract OffRamp_releaseOrMintSingleToken is OffRampSetup {
     s_offRamp.releaseOrMintSingleToken(tokenAmount, abi.encode(OWNER), OWNER, SOURCE_CHAIN_SELECTOR, "");
   }
 
-  function test_releaseOrMintToken_RevertWhen_TokenHandlingError_BalanceOf() public {
+  function test_RevertWhen_releaseOrMintTokenWhen_TokenHandlingError_BalanceOf() public {
     uint256 amount = 123123;
     address token = s_sourceTokens[0];
     address destTokenAddress = s_destTokenBySourceToken[token];
@@ -101,7 +101,7 @@ contract OffRamp_releaseOrMintSingleToken is OffRampSetup {
     s_offRamp.releaseOrMintSingleToken(tokenAmount, abi.encode(OWNER), OWNER, SOURCE_CHAIN_SELECTOR, "");
   }
 
-  function test_releaseOrMintToken_ReleaseOrMintBalanceMismatch_Revert() public {
+  function test_RevertWhen_releaseOrMintToken_ReleaseOrMintBalanceMismatch() public {
     uint256 amount = 123123;
     address token = s_sourceTokens[0];
     uint256 mockedStaticBalance = 50000;
@@ -129,7 +129,7 @@ contract OffRamp_releaseOrMintSingleToken is OffRampSetup {
     s_offRamp.releaseOrMintSingleToken(tokenAmount, abi.encode(OWNER), OWNER, SOURCE_CHAIN_SELECTOR, "");
   }
 
-  function test_releaseOrMintToken_skip_ReleaseOrMintBalanceMismatch_if_pool_Revert() public {
+  function test_RevertWhen_releaseOrMintToken_skip_ReleaseOrMintBalanceMismatch_if_pool() public {
     uint256 amount = 123123;
     address token = s_sourceTokens[0];
     uint256 mockedStaticBalance = 50000;
@@ -154,7 +154,7 @@ contract OffRamp_releaseOrMintSingleToken is OffRampSetup {
     );
   }
 
-  function test__releaseOrMintSingleToken_NotACompatiblePool_Revert() public {
+  function test_RevertWhen__releaseOrMintSingleToken_NotACompatiblePool() public {
     uint256 amount = 123123;
     address token = s_sourceTokens[0];
     address destToken = s_destTokenBySourceToken[token];
@@ -197,7 +197,7 @@ contract OffRamp_releaseOrMintSingleToken is OffRampSetup {
     s_offRamp.releaseOrMintSingleToken(tokenAmount, originalSender, OWNER, SOURCE_CHAIN_SELECTOR_1, offchainTokenData);
   }
 
-  function test_releaseOrMintSingleToken_RevertWhen_TokenHandlingError_transfer() public {
+  function test_RevertWhen_releaseOrMintSingleTokenWhen_TokenHandlingError_transfer() public {
     address receiver = makeAddr("receiver");
     uint256 amount = 123123;
     address token = s_sourceTokens[0];

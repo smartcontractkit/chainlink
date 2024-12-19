@@ -7,7 +7,7 @@ import {RMNHome} from "../../../rmn/RMNHome.sol";
 import {RMNHomeTestSetup} from "./RMNHomeTestSetup.t.sol";
 
 contract RMNHome_setCandidate is RMNHomeTestSetup {
-  function test_setCandidate_success() public {
+  function test_setCandidate() public {
     Config memory config = _getBaseConfig();
     RMNHome.VersionedConfig memory versionedConfig = RMNHome.VersionedConfig({
       version: 1,
@@ -49,7 +49,7 @@ contract RMNHome_setCandidate is RMNHomeTestSetup {
     assertEq(storedStaticConfig.offchainConfig, versionedConfig.staticConfig.offchainConfig);
   }
 
-  function test_setCandidate_ConfigDigestMismatch_reverts() public {
+  function test_RevertWhen_setCandidate_ConfigDigestMismatch() public {
     Config memory config = _getBaseConfig();
 
     bytes32 digest = s_rmnHome.setCandidate(config.staticConfig, config.dynamicConfig, ZERO_DIGEST);
@@ -63,7 +63,7 @@ contract RMNHome_setCandidate is RMNHomeTestSetup {
     s_rmnHome.setCandidate(config.staticConfig, config.dynamicConfig, digest);
   }
 
-  function test_setCandidate_OnlyOwner_reverts() public {
+  function test_RevertWhen_setCandidate_OnlyOwner() public {
     Config memory config = _getBaseConfig();
 
     vm.startPrank(address(0));

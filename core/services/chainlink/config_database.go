@@ -107,6 +107,9 @@ func (d *databaseConfig) DefaultQueryTimeout() time.Duration {
 }
 
 func (d *databaseConfig) URL() url.URL {
+	if d.s.URL == nil {
+		return url.URL{}
+	}
 	return *d.s.URL.URL()
 }
 

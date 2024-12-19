@@ -11,7 +11,7 @@ import {USDCTokenPool} from "../../../../pools/USDC/USDCTokenPool.sol";
 import {HybridLockReleaseUSDCTokenPoolSetup} from "./HybridLockReleaseUSDCTokenPoolSetup.t.sol";
 
 contract HybridLockReleaseUSDCTokenPool_lockOrBurn is HybridLockReleaseUSDCTokenPoolSetup {
-  function test_onLockReleaseMechanism_Success() public {
+  function test_onLockReleaseMechanism() public {
     bytes32 receiver = bytes32(uint256(uint160(STRANGER)));
 
     // Mark the destination chain as supporting CCTP, so use L/R instead.
@@ -47,7 +47,7 @@ contract HybridLockReleaseUSDCTokenPool_lockOrBurn is HybridLockReleaseUSDCToken
     assertEq(s_token.balanceOf(address(s_usdcTokenPool)), amount, "Incorrect token amount in the tokenPool");
   }
 
-  function test_PrimaryMechanism_Success() public {
+  function test_PrimaryMechanism() public {
     bytes32 receiver = bytes32(uint256(uint160(STRANGER)));
     uint256 amount = 1;
 
@@ -91,9 +91,9 @@ contract HybridLockReleaseUSDCTokenPool_lockOrBurn is HybridLockReleaseUSDCToken
     assertEq(s_mockUSDC.s_nonce() - 1, nonce);
   }
 
-  function test_onLockReleaseMechanism_thenSwitchToPrimary_Success() public {
+  function test_onLockReleaseMechanism_thenSwitchToPrimary() public {
     // Test Enabling the LR mechanism and sending an outgoing message
-    test_PrimaryMechanism_Success();
+    test_PrimaryMechanism();
 
     // Disable the LR mechanism so that primary CCTP is used and then attempt to send a message
     uint64[] memory destChainRemoves = new uint64[](1);
@@ -107,10 +107,10 @@ contract HybridLockReleaseUSDCTokenPool_lockOrBurn is HybridLockReleaseUSDCToken
     s_usdcTokenPool.updateChainSelectorMechanisms(destChainRemoves, new uint64[](0));
 
     // Send an outgoing message
-    test_PrimaryMechanism_Success();
+    test_PrimaryMechanism();
   }
 
-  function test_WhileMigrationPause_Revert() public {
+  function test_RevertWhen_WhileMigrationPause() public {
     // Mark the destination chain as supporting CCTP, so use L/R instead.
     uint64[] memory destChainAdds = new uint64[](1);
     destChainAdds[0] = DEST_CHAIN_SELECTOR;

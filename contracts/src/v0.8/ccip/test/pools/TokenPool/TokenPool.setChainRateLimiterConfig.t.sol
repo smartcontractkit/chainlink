@@ -50,7 +50,7 @@ contract TokenPool_setChainRateLimiterConfig is TokenPoolSetup {
 
   // Reverts
 
-  function test_OnlyOwnerOrRateLimitAdmin_Revert() public {
+  function test_RevertWhen_OnlyOwnerOrRateLimitAdmin() public {
     vm.startPrank(STRANGER);
 
     vm.expectRevert(abi.encodeWithSelector(TokenPool.Unauthorized.selector, STRANGER));
@@ -59,7 +59,7 @@ contract TokenPool_setChainRateLimiterConfig is TokenPoolSetup {
     );
   }
 
-  function test_NonExistentChain_Revert() public {
+  function test_RevertWhen_NonExistentChain() public {
     uint64 wrongChainSelector = 9084102894;
 
     vm.expectRevert(abi.encodeWithSelector(TokenPool.NonExistentChain.selector, wrongChainSelector));

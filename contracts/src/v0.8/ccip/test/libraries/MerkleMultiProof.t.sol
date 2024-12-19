@@ -160,14 +160,14 @@ contract MerkleMultiProofTest is Test {
     assertEq(MerkleMultiProof._merkleRoot(leaves, proofs, 7), finalResult);
   }
 
-  function test_MerkleRootSingleLeaf_Success() public pure {
+  function test_MerkleRootSingleLeaf() public pure {
     bytes32[] memory leaves = new bytes32[](1);
     leaves[0] = "root";
     bytes32[] memory proofs = new bytes32[](0);
     assertEq(MerkleMultiProof._merkleRoot(leaves, proofs, 0), leaves[0]);
   }
 
-  function test_EmptyLeaf_Revert() public {
+  function test_RevertWhen_EmptyLeaf() public {
     bytes32[] memory leaves = new bytes32[](0);
     bytes32[] memory proofs = new bytes32[](0);
 

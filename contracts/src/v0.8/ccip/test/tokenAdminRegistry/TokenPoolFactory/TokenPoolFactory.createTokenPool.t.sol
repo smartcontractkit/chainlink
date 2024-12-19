@@ -38,7 +38,7 @@ contract TokenPoolFactory_createTokenPool is TokenPoolFactorySetup {
     s_sourceRouter.applyRampUpdates(new Router.OnRamp[](0), new Router.OffRamp[](0), offRampUpdates);
   }
 
-  function test_createTokenPool_WithNoExistingTokenOnRemoteChain_Success() public {
+  function test_createTokenPool_WithNoExistingTokenOnRemoteChain() public {
     vm.startPrank(OWNER);
 
     bytes32 dynamicSalt = keccak256(abi.encodePacked(FAKE_SALT, OWNER));
@@ -75,7 +75,7 @@ contract TokenPoolFactory_createTokenPool is TokenPoolFactorySetup {
     assertEq(IOwner(poolAddress).owner(), OWNER, "Token should be owned by the owner");
   }
 
-  function test_createTokenPool_WithNoExistingRemoteContracts_predict_Success() public {
+  function test_createTokenPool_WithNoExistingRemoteContracts_predict() public {
     vm.startPrank(OWNER);
     bytes32 dynamicSalt = keccak256(abi.encodePacked(FAKE_SALT, OWNER));
 
@@ -204,7 +204,7 @@ contract TokenPoolFactory_createTokenPool is TokenPoolFactorySetup {
     assertEq(IOwner(poolAddress).owner(), OWNER, "Pool should be controlled by the OWNER");
   }
 
-  function test_createTokenPool_ExistingRemoteToken_AndPredictPool_Success() public {
+  function test_createTokenPool_ExistingRemoteToken_AndPredictPool() public {
     vm.startPrank(OWNER);
     bytes32 dynamicSalt = keccak256(abi.encodePacked(FAKE_SALT, OWNER));
 
@@ -301,7 +301,7 @@ contract TokenPoolFactory_createTokenPool is TokenPoolFactorySetup {
     );
   }
 
-  function test_createTokenPool_WithRemoteTokenAndRemotePool_Success() public {
+  function test_createTokenPool_WithRemoteTokenAndRemotePool() public {
     vm.startPrank(OWNER);
 
     bytes memory RANDOM_TOKEN_ADDRESS = abi.encode(makeAddr("RANDOM_TOKEN"));
@@ -351,7 +351,7 @@ contract TokenPoolFactory_createTokenPool is TokenPoolFactorySetup {
     assertEq(IOwner(poolAddress).owner(), OWNER, "Token should be owned by the owner");
   }
 
-  function test_createTokenPoolLockRelease_ExistingToken_predict_Success() public {
+  function test_createTokenPoolLockRelease_ExistingToken_predict() public {
     vm.startPrank(OWNER);
 
     // We have to create a new factory, registry module, and token admin registry to simulate the other chain
@@ -446,7 +446,7 @@ contract TokenPoolFactory_createTokenPool is TokenPoolFactorySetup {
     );
   }
 
-  function test_createTokenPool_BurnFromMintTokenPool_Success() public {
+  function test_createTokenPool_BurnFromMintTokenPool() public {
     vm.startPrank(OWNER);
 
     bytes memory RANDOM_TOKEN_ADDRESS = abi.encode(makeAddr("RANDOM_TOKEN"));
@@ -496,7 +496,7 @@ contract TokenPoolFactory_createTokenPool is TokenPoolFactorySetup {
     assertEq(IOwner(poolAddress).owner(), OWNER, "Token should be owned by the owner");
   }
 
-  function test_createTokenPool_RemoteTokenHasDifferentDecimals_Success() public {
+  function test_createTokenPool_RemoteTokenHasDifferentDecimals() public {
     vm.startPrank(OWNER);
     bytes32 dynamicSalt = keccak256(abi.encodePacked(FAKE_SALT, OWNER));
 

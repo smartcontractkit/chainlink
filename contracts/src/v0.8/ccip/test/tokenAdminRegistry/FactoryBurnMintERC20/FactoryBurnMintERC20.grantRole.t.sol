@@ -5,7 +5,7 @@ import {FactoryBurnMintERC20} from "../../../tokenAdminRegistry/TokenPoolFactory
 import {BurnMintERC20Setup} from "./BurnMintERC20Setup.t.sol";
 
 contract FactoryBurnMintERC20_grantRole is BurnMintERC20Setup {
-  function test_GrantMintAccess_Success() public {
+  function test_GrantMintAccess() public {
     assertFalse(s_burnMintERC20.isMinter(STRANGER));
 
     vm.expectEmit();
@@ -23,7 +23,7 @@ contract FactoryBurnMintERC20_grantRole is BurnMintERC20Setup {
     assertFalse(s_burnMintERC20.isMinter(STRANGER));
   }
 
-  function test_GrantBurnAccess_Success() public {
+  function test_GrantBurnAccess() public {
     assertFalse(s_burnMintERC20.isBurner(STRANGER));
 
     vm.expectEmit();
@@ -41,7 +41,7 @@ contract FactoryBurnMintERC20_grantRole is BurnMintERC20Setup {
     assertFalse(s_burnMintERC20.isBurner(STRANGER));
   }
 
-  function test_GrantMany_Success() public {
+  function test_GrantMany() public {
     // Since alice was already granted mint and burn roles in the setup, we will revoke them
     // and then grant them again for the purposes of the test
     s_burnMintERC20.revokeMintRole(s_alice);

@@ -138,7 +138,7 @@ contract Router_ccipSend is OnRampSetup {
     vm.resumeGasMetering();
   }
 
-  function test_NonLinkFeeToken_Success() public {
+  function test_NonLinkFeeToken() public {
     address[] memory feeTokens = new address[](1);
     feeTokens[0] = s_sourceTokens[1];
     s_feeQuoter.applyFeeTokensUpdates(new address[](0), feeTokens);
@@ -149,7 +149,7 @@ contract Router_ccipSend is OnRampSetup {
     s_sourceRouter.ccipSend(DEST_CHAIN_SELECTOR, message);
   }
 
-  function test_NativeFeeToken_Success() public {
+  function test_NativeFeeToken() public {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
     message.feeToken = address(0); // Raw native
     uint256 nativeQuote = s_sourceRouter.getFee(DEST_CHAIN_SELECTOR, message);
@@ -158,7 +158,7 @@ contract Router_ccipSend is OnRampSetup {
     s_sourceRouter.ccipSend{value: nativeQuote}(DEST_CHAIN_SELECTOR, message);
   }
 
-  function test_NativeFeeTokenOverpay_Success() public {
+  function test_NativeFeeTokenOverpay() public {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
     message.feeToken = address(0); // Raw native
     uint256 nativeQuote = s_sourceRouter.getFee(DEST_CHAIN_SELECTOR, message);
@@ -170,7 +170,7 @@ contract Router_ccipSend is OnRampSetup {
     assertEq(address(s_sourceRouter).balance, 0);
   }
 
-  function test_WrappedNativeFeeToken_Success() public {
+  function test_WrappedNativeFeeToken() public {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
     message.feeToken = s_sourceRouter.getWrappedNative();
     uint256 nativeQuote = s_sourceRouter.getFee(DEST_CHAIN_SELECTOR, message);
@@ -184,14 +184,15 @@ contract Router_ccipSend is OnRampSetup {
 
   // Reverts
 
-  function test_WhenNotHealthy_Revert() public {
-    Client.EVM2AnyMessage memory message = _generateEmptyMessage();
-    s_mockRMN.setGlobalCursed(true);
+  function test_RevertWhen_WhenNotHealthy() public {
+    vm.mockCall(address(s_mockRMNRemote), abi.encodeWithSignature("isCursed()"), abi.encode(true));
+
     vm.expectRevert(Router.BadARMSignal.selector);
-    s_sourceRouter.ccipSend(DEST_CHAIN_SELECTOR, message);
+
+    s_sourceRouter.ccipSend(DEST_CHAIN_SELECTOR, _generateEmptyMessage());
   }
 
-  function test_UnsupportedDestinationChain_Revert() public {
+  function test_RevertWhen_UnsupportedDestinationChain() public {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
     uint64 wrongChain = DEST_CHAIN_SELECTOR + 1;
 
@@ -200,7 +201,7 @@ contract Router_ccipSend is OnRampSetup {
     s_sourceRouter.ccipSend(wrongChain, message);
   }
 
-  function test_FeeTokenAmountTooLow_Revert() public {
+  function test_RevertWhen_FeeTokenAmountTooLow() public {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
     IERC20(s_sourceTokens[0]).approve(address(s_sourceRouter), 0);
 

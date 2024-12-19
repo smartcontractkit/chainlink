@@ -5,7 +5,7 @@ import {OnRamp} from "../../../onRamp/OnRamp.sol";
 import {OnRampSetup} from "../../onRamp/OnRamp/OnRampSetup.t.sol";
 
 contract Router_getSupportedTokens is OnRampSetup {
-  function test_GetSupportedTokens_Revert() public {
+  function test_RevertWhen_GetSupportedTokens() public {
     vm.expectRevert(OnRamp.GetSupportedTokensFunctionalityRemovedCheckAdminRegistry.selector);
     s_onRamp.getSupportedTokens(DEST_CHAIN_SELECTOR);
   }
