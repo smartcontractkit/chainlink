@@ -7,7 +7,7 @@ import {RMNRemoteSetup} from "./RMNRemoteSetup.t.sol";
 contract RMNRemote_setConfig is RMNRemoteSetup {
   function test_RevertWhen_setConfig_ZeroValueNotAllowed() public {
     RMNRemote.Config memory config =
-      RMNRemote.Config({rmnHomeContractConfigDigest: bytes32(0), signers: s_signers, f: 1});
+      RMNRemote.Config({rmnHomeContractConfigDigest: bytes32(0), signers: s_signers, fSign: 1});
 
     vm.expectRevert(RMNRemote.ZeroValueNotAllowed.selector);
 
