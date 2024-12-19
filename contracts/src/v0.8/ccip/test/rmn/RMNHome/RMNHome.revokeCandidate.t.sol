@@ -39,7 +39,7 @@ contract RMNHome_revokeCandidate is RMNHomeTestSetup {
     assertTrue(candidateDigest != priorCandidateDigest);
   }
 
-  function test_revokeCandidate_RevertWhen_ConfigDigestMismatch() public {
+  function test_RevertWhen_revokeCandidate_ConfigDigestMismatch() public {
     (, bytes32 priorCandidateDigest) = s_rmnHome.getConfigDigests();
 
     bytes32 wrongDigest = keccak256("wrong_digest");
@@ -47,12 +47,12 @@ contract RMNHome_revokeCandidate is RMNHomeTestSetup {
     s_rmnHome.revokeCandidate(wrongDigest);
   }
 
-  function test_revokeCandidate_RevertWhen_RevokingZeroDigestNotAllowed() public {
+  function test_RevertWhen_revokeCandidate_RevokingZeroDigestNotAllowed() public {
     vm.expectRevert(RMNHome.RevokingZeroDigestNotAllowed.selector);
     s_rmnHome.revokeCandidate(ZERO_DIGEST);
   }
 
-  function test_revokeCandidate_RevertWhen_OnlyCallableByOwner() public {
+  function test_RevertWhen_revokeCandidate_OnlyOwner() public {
     vm.startPrank(address(0));
 
     vm.expectRevert(Ownable2Step.OnlyCallableByOwner.selector);

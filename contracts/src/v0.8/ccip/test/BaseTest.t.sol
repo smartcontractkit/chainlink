@@ -3,52 +3,37 @@ pragma solidity 0.8.24;
 
 // Imports to any non-library are not allowed due to the significant cascading
 // compile time increase they cause when imported into this base test.
-
 import {IRMNRemote} from "../interfaces/IRMNRemote.sol";
+
+import {Router} from "../Router.sol";
 import {Internal} from "../libraries/Internal.sol";
 import {RateLimiter} from "../libraries/RateLimiter.sol";
-import {MockRMN} from "./mocks/MockRMN.sol";
+import {WETH9} from "./WETH9.sol";
+
 import {Test} from "forge-std/Test.sol";
 
 contract BaseTest is Test {
-  // Addresses
   address internal constant OWNER = 0x00007e64E1fB0C487F25dd6D3601ff6aF8d32e4e;
   address internal constant STRANGER = address(999999);
 
-  address internal constant USER_1 = address(1);
+  // Timing
+  uint256 internal constant BLOCK_TIME = 1234567890;
+  uint32 internal constant TWELVE_HOURS = 60 * 60 * 12;
 
   // Message info
   uint64 internal constant SOURCE_CHAIN_SELECTOR = 1;
   uint64 internal constant DEST_CHAIN_SELECTOR = 2;
   uint32 internal constant GAS_LIMIT = 200_000;
 
-  // Timing
-  uint256 internal constant BLOCK_TIME = 1234567890;
-  uint32 internal constant TWELVE_HOURS = 60 * 60 * 12;
-
-  // Onramp
-  uint96 internal constant MAX_MSG_FEES_JUELS = 1_000e18;
-  uint32 internal constant DEST_GAS_OVERHEAD = 300_000;
-  uint16 internal constant DEST_GAS_PER_PAYLOAD_BYTE = 16;
-
-  uint16 internal constant DEFAULT_TOKEN_FEE_USD_CENTS = 50;
   uint32 internal constant DEFAULT_TOKEN_DEST_GAS_OVERHEAD = 90_000;
-  uint32 internal constant DEFAULT_TOKEN_BYTES_OVERHEAD = 32;
   uint8 internal constant DEFAULT_TOKEN_DECIMALS = 18;
+  uint16 internal constant GAS_FOR_CALL_EXACT_CHECK = 5_000;
 
   bool private s_baseTestInitialized;
 
-  // OffRamp
-  uint32 internal constant MAX_DATA_SIZE = 30_000;
-  uint16 internal constant MAX_TOKENS_LENGTH = 5;
-  uint16 internal constant GAS_FOR_CALL_EXACT_CHECK = 5_000;
-  uint32 internal constant MAX_GAS_LIMIT = 4_000_000;
-
-  MockRMN internal s_mockRMN;
   IRMNRemote internal s_mockRMNRemote;
-
-  // nonce for pseudo-random number generation, not to be exposed to test suites
-  uint256 private s_randNonce;
+  Router internal s_sourceRouter;
+  Router internal s_destRouter;
 
   function setUp() public virtual {
     // BaseTest.setUp is often called multiple times from tests' setUp due to inheritance.
@@ -64,19 +49,18 @@ contract BaseTest is Test {
     // Set the block time to a constant known value
     vm.warp(BLOCK_TIME);
 
-    // setup mock RMN & RMNRemote
-    s_mockRMN = new MockRMN();
+    // setup RMNRemote
     s_mockRMNRemote = IRMNRemote(makeAddr("MOCK RMN REMOTE"));
     vm.etch(address(s_mockRMNRemote), bytes("fake bytecode"));
     vm.mockCall(address(s_mockRMNRemote), abi.encodeWithSelector(IRMNRemote.verify.selector), bytes(""));
-    _setMockRMNGlobalCurse(false);
+    vm.mockCall(address(s_mockRMNRemote), abi.encodeWithSignature("isCursed()"), abi.encode(false));
     vm.mockCall(address(s_mockRMNRemote), abi.encodeWithSignature("isCursed(bytes16)"), abi.encode(false)); // no curses by defaule
-  }
 
-  function _setMockRMNGlobalCurse(
-    bool isCursed
-  ) internal {
-    vm.mockCall(address(s_mockRMNRemote), abi.encodeWithSignature("isCursed()"), abi.encode(isCursed));
+    s_sourceRouter = new Router(address(new WETH9()), address(s_mockRMNRemote));
+    vm.label(address(s_sourceRouter), "sourceRouter");
+    // Deploy a destination router
+    s_destRouter = new Router(address(new WETH9()), address(s_mockRMNRemote));
+    vm.label(address(s_destRouter), "destRouter");
   }
 
   function _setMockRMNChainCurse(uint64 chainSelector, bool isCursed) internal {
@@ -108,18 +92,12 @@ contract BaseTest is Test {
     return priceUpdates;
   }
 
-  /// @dev returns a pseudo-random bytes32
-  function _randomBytes32() internal returns (bytes32) {
-    return keccak256(abi.encodePacked(++s_randNonce));
-  }
-
-  /// @dev returns a pseudo-random number
-  function _randomNum() internal returns (uint256) {
-    return uint256(_randomBytes32());
-  }
-
-  /// @dev returns a pseudo-random address
-  function _randomAddress() internal returns (address) {
-    return address(uint160(_randomNum()));
+  function _generateSourceTokenData() internal pure returns (Internal.SourceTokenData memory) {
+    return Internal.SourceTokenData({
+      sourcePoolAddress: abi.encode(address(12312412312)),
+      destTokenAddress: abi.encode(address(9809808909)),
+      extraData: "",
+      destGasAmount: DEFAULT_TOKEN_DEST_GAS_OVERHEAD
+    });
   }
 }

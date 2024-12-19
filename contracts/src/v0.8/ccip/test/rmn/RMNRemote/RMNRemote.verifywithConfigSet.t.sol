@@ -8,6 +8,7 @@ import {RMNRemoteSetup} from "./RMNRemoteSetup.t.sol";
 contract RMNRemote_verify_withConfigSet is RMNRemoteSetup {
   function setUp() public override {
     super.setUp();
+
     RMNRemote.Config memory config =
       RMNRemote.Config({rmnHomeContractConfigDigest: _randomBytes32(), signers: s_signers, fSign: 3});
     s_rmnRemote.setConfig(config);
@@ -18,34 +19,27 @@ contract RMNRemote_verify_withConfigSet is RMNRemoteSetup {
     s_rmnRemote.verify(OFF_RAMP_ADDRESS, s_merkleRoots, s_signatures);
   }
 
-  // Reverts
-
   function test_verify_RevertWhen_InvalidSignature() public {
-    IRMNRemote.Signature memory sig = s_signatures[s_signatures.length - 1];
-    sig.r = _randomBytes32();
-    s_signatures.pop();
-    s_signatures.push(sig);
+    s_signatures[s_signatures.length - 1].r = 0x0;
 
     vm.expectRevert(RMNRemote.InvalidSignature.selector);
+
     s_rmnRemote.verify(OFF_RAMP_ADDRESS, s_merkleRoots, s_signatures);
   }
 
   function test_verify_RevertWhen_OutOfOrderSignatures_not_sorted() public {
     IRMNRemote.Signature memory sig1 = s_signatures[s_signatures.length - 1];
-    s_signatures.pop();
-    IRMNRemote.Signature memory sig2 = s_signatures[s_signatures.length - 1];
-    s_signatures.pop();
-    s_signatures.push(sig1);
-    s_signatures.push(sig2);
+    IRMNRemote.Signature memory sig2 = s_signatures[s_signatures.length - 2];
+
+    s_signatures[s_signatures.length - 1] = sig2;
+    s_signatures[s_signatures.length - 2] = sig1;
 
     vm.expectRevert(RMNRemote.OutOfOrderSignatures.selector);
     s_rmnRemote.verify(OFF_RAMP_ADDRESS, s_merkleRoots, s_signatures);
   }
 
   function test_verify_RevertWhen_OutOfOrderSignatures_duplicateSignature() public {
-    IRMNRemote.Signature memory sig = s_signatures[s_signatures.length - 2];
-    s_signatures.pop();
-    s_signatures.push(sig);
+    s_signatures[s_signatures.length - 1] = s_signatures[s_signatures.length - 2];
 
     vm.expectRevert(RMNRemote.OutOfOrderSignatures.selector);
     s_rmnRemote.verify(OFF_RAMP_ADDRESS, s_merkleRoots, s_signatures);

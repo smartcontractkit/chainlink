@@ -10,43 +10,39 @@ import (
 
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
-	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
-
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
 const (
-	capId1   = "cap1"
-	capId2   = "cap2"
-	donId1   = uint32(1)
+	capID1   = "cap1"
+	capID2   = "cap2"
+	donID1   = uint32(1)
 	payload1 = "hello world"
 	payload2 = "goodbye world"
 )
 
 func TestValidateMessage(t *testing.T) {
-	privKey1, peerId1 := newKeyPair(t)
-	_, peerId2 := newKeyPair(t)
+	privKey1, peerID1 := newKeyPair(t)
+	_, peerID2 := newKeyPair(t)
 
 	// valid
-	p2pMsg := encodeAndSign(t, privKey1, peerId1, peerId2, capId1, donId1, []byte(payload1))
-	body, err := remote.ValidateMessage(p2pMsg, peerId2)
+	p2pMsg := encodeAndSign(t, privKey1, peerID1, peerID2, capID1, donID1, []byte(payload1))
+	body, err := remote.ValidateMessage(p2pMsg, peerID2)
 	require.NoError(t, err)
-	require.Equal(t, peerId1[:], body.Sender)
+	require.Equal(t, peerID1[:], body.Sender)
 	require.Equal(t, payload1, string(body.Payload))
 
 	// invalid sender
-	p2pMsg = encodeAndSign(t, privKey1, peerId1, peerId2, capId1, donId1, []byte(payload1))
-	p2pMsg.Sender = peerId2
-	_, err = remote.ValidateMessage(p2pMsg, peerId2)
+	p2pMsg = encodeAndSign(t, privKey1, peerID1, peerID2, capID1, donID1, []byte(payload1))
+	p2pMsg.Sender = peerID2
+	_, err = remote.ValidateMessage(p2pMsg, peerID2)
 	require.Error(t, err)
 
 	// invalid receiver
-	p2pMsg = encodeAndSign(t, privKey1, peerId1, peerId2, capId1, donId1, []byte(payload1))
-	_, err = remote.ValidateMessage(p2pMsg, peerId1)
+	p2pMsg = encodeAndSign(t, privKey1, peerID1, peerID2, capID1, donID1, []byte(payload1))
+	_, err = remote.ValidateMessage(p2pMsg, peerID1)
 	require.Error(t, err)
 }
 
@@ -58,12 +54,12 @@ func newKeyPair(t *testing.T) (ed25519.PrivateKey, ragetypes.PeerID) {
 	return privKey, peerID
 }
 
-func encodeAndSign(t *testing.T, senderPrivKey ed25519.PrivateKey, senderId p2ptypes.PeerID, receiverId p2ptypes.PeerID, capabilityId string, donId uint32, payload []byte) p2ptypes.Message {
+func encodeAndSign(t *testing.T, senderPrivKey ed25519.PrivateKey, senderID p2ptypes.PeerID, receiverID p2ptypes.PeerID, capabilityID string, donID uint32, payload []byte) p2ptypes.Message {
 	body := remotetypes.MessageBody{
-		Sender:          senderId[:],
-		Receiver:        receiverId[:],
-		CapabilityId:    capabilityId,
-		CapabilityDonId: donId,
+		Sender:          senderID[:],
+		Receiver:        receiverID[:],
+		CapabilityId:    capabilityID,
+		CapabilityDonId: donID,
 		Payload:         payload,
 	}
 	rawBody, err := proto.Marshal(&body)
@@ -78,7 +74,7 @@ func encodeAndSign(t *testing.T, senderPrivKey ed25519.PrivateKey, senderId p2pt
 	require.NoError(t, err)
 
 	return p2ptypes.Message{
-		Sender:  senderId,
+		Sender:  senderID,
 		Payload: rawMsg,
 	}
 }
@@ -87,41 +83,6 @@ func TestToPeerID(t *testing.T) {
 	id, err := remote.ToPeerID([]byte("12345678901234567890123456789012"))
 	require.NoError(t, err)
 	require.Equal(t, "12D3KooWD8QYTQVYjB6oog4Ej8PcPpqTrPRnxLQap8yY8KUQRVvq", id.String())
-}
-
-func TestDefaultModeAggregator_Aggregate(t *testing.T) {
-	val, err := values.NewMap(triggerEvent1)
-	require.NoError(t, err)
-	capResponse1 := commoncap.TriggerResponse{
-		Event: commoncap.TriggerEvent{
-			Outputs: val,
-		},
-		Err: nil,
-	}
-	marshaled1, err := pb.MarshalTriggerResponse(capResponse1)
-	require.NoError(t, err)
-
-	val2, err := values.NewMap(triggerEvent2)
-	require.NoError(t, err)
-	capResponse2 := commoncap.TriggerResponse{
-		Event: commoncap.TriggerEvent{
-			Outputs: val2,
-		},
-		Err: nil,
-	}
-	marshaled2, err := pb.MarshalTriggerResponse(capResponse2)
-	require.NoError(t, err)
-
-	agg := remote.NewDefaultModeAggregator(2)
-	_, err = agg.Aggregate("", [][]byte{marshaled1})
-	require.Error(t, err)
-
-	_, err = agg.Aggregate("", [][]byte{marshaled1, marshaled2})
-	require.Error(t, err)
-
-	res, err := agg.Aggregate("", [][]byte{marshaled1, marshaled2, marshaled1})
-	require.NoError(t, err)
-	require.Equal(t, res, capResponse1)
 }
 
 func TestSanitizeLogString(t *testing.T) {

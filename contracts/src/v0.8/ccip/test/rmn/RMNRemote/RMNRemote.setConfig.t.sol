@@ -5,6 +5,15 @@ import {RMNRemote} from "../../../rmn/RMNRemote.sol";
 import {RMNRemoteSetup} from "./RMNRemoteSetup.t.sol";
 
 contract RMNRemote_setConfig is RMNRemoteSetup {
+  function test_RevertWhen_setConfig_ZeroValueNotAllowed() public {
+    RMNRemote.Config memory config =
+      RMNRemote.Config({rmnHomeContractConfigDigest: bytes32(0), signers: s_signers, f: 1});
+
+    vm.expectRevert(RMNRemote.ZeroValueNotAllowed.selector);
+
+    s_rmnRemote.setConfig(config);
+  }
+
   function test_setConfig_addSigner_removeSigner() public {
     uint32 currentConfigVersion = 0;
     uint256 numSigners = s_signers.length;
@@ -47,18 +56,7 @@ contract RMNRemote_setConfig is RMNRemoteSetup {
     assertEq(version, currentConfigVersion);
   }
 
-  // Reverts
-
-  function test_setConfig_RevertWhen_ZeroValueNotAllowed() public {
-    RMNRemote.Config memory config =
-      RMNRemote.Config({rmnHomeContractConfigDigest: bytes32(0), signers: s_signers, fSign: 1});
-
-    vm.expectRevert(RMNRemote.ZeroValueNotAllowed.selector);
-
-    s_rmnRemote.setConfig(config);
-  }
-
-  function test_setConfig_RevertWhen_invalidSignerOrder() public {
+  function test_RevertWhen_setConfig_invalidSignerOrder() public {
     s_signers.push(RMNRemote.Signer({onchainPublicKey: address(4), nodeIndex: 0}));
     RMNRemote.Config memory config =
       RMNRemote.Config({rmnHomeContractConfigDigest: _randomBytes32(), signers: s_signers, fSign: 1});
@@ -67,7 +65,7 @@ contract RMNRemote_setConfig is RMNRemoteSetup {
     s_rmnRemote.setConfig(config);
   }
 
-  function test_setConfig_RevertWhen_notEnoughSigners() public {
+  function test_RevertWhen_setConfig_notEnoughSigners() public {
     RMNRemote.Config memory config = RMNRemote.Config({
       rmnHomeContractConfigDigest: _randomBytes32(),
       signers: s_signers,
@@ -78,7 +76,7 @@ contract RMNRemote_setConfig is RMNRemoteSetup {
     s_rmnRemote.setConfig(config);
   }
 
-  function test_setConfig_RevertWhen_duplicateOnChainPublicKey() public {
+  function test_RevertWhen_setConfig_duplicateOnChainPublicKey() public {
     s_signers.push(RMNRemote.Signer({onchainPublicKey: s_signerWallets[0].addr, nodeIndex: uint64(s_signers.length)}));
     RMNRemote.Config memory config =
       RMNRemote.Config({rmnHomeContractConfigDigest: _randomBytes32(), signers: s_signers, fSign: 1});

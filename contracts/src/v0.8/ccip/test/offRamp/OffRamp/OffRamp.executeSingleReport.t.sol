@@ -22,7 +22,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     s_offRamp.setVerifyOverrideResult(SOURCE_CHAIN_SELECTOR_3, 1);
   }
 
-  function test_SingleMessageNoTokens_Success() public {
+  function test_SingleMessageNoTokens() public {
     Internal.Any2EVMRampMessage[] memory messages =
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
 
@@ -59,7 +59,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     assertGt(s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_1, messages[0].sender), nonceBefore);
   }
 
-  function test_SingleMessageNoTokensUnordered_Success() public {
+  function test_SingleMessageNoTokensUnordered() public {
     Internal.Any2EVMRampMessage[] memory messages =
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
     messages[0].header.nonce = 0;
@@ -110,7 +110,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     );
   }
 
-  function test_SingleMessageNoTokensOtherChain_Success() public {
+  function test_SingleMessageNoTokensOtherChain() public {
     Internal.Any2EVMRampMessage[] memory messagesChain1 =
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
     s_offRamp.executeSingleReport(
@@ -133,7 +133,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     assertEq(s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_1, messagesChain1[0].sender), nonceChain1);
   }
 
-  function test_ReceiverError_Success() public {
+  function test_ReceiverError() public {
     Internal.Any2EVMRampMessage[] memory messages =
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
 
@@ -165,7 +165,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     assertEq(uint64(1), s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_1, abi.encode(OWNER)));
   }
 
-  function test_SkippedIncorrectNonce_Success() public {
+  function test_SkippedIncorrectNonce() public {
     Internal.Any2EVMRampMessage[] memory messages =
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
 
@@ -182,7 +182,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     );
   }
 
-  function test_SkippedIncorrectNonceStillExecutes_Success() public {
+  function test_SkippedIncorrectNonceStillExecutes() public {
     Internal.Any2EVMRampMessage[] memory messages =
       _generateMessagesWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
 
@@ -206,7 +206,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     );
   }
 
-  function test__execute_SkippedAlreadyExecutedMessage_Success() public {
+  function test__execute_SkippedAlreadyExecutedMessage() public {
     Internal.Any2EVMRampMessage[] memory messages =
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
 
@@ -231,7 +231,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     );
   }
 
-  function test__execute_SkippedAlreadyExecutedMessageUnordered_Success() public {
+  function test__execute_SkippedAlreadyExecutedMessageUnordered() public {
     Internal.Any2EVMRampMessage[] memory messages =
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
     messages[0].header.nonce = 0;
@@ -260,7 +260,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
 
   // Send a message to a contract that does not implement the CCIPReceiver interface
   // This should execute successfully.
-  function test_SingleMessageToNonCCIPReceiver_Success() public {
+  function test_SingleMessageToNonCCIPReceiver() public {
     Internal.Any2EVMRampMessage[] memory messages =
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
     MaybeRevertMessageReceiverNo165 newReceiver = new MaybeRevertMessageReceiverNo165(true);
@@ -337,7 +337,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     );
   }
 
-  function test_TwoMessagesWithTokensAndGE_Success() public {
+  function test_TwoMessagesWithTokensAndGE() public {
     Internal.Any2EVMRampMessage[] memory messages =
       _generateMessagesWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
     // Set message 1 to use another receiver to simulate more fair gas costs
@@ -456,7 +456,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     );
   }
 
-  function test_WithCurseOnAnotherSourceChain_Success() public {
+  function test_WithCurseOnAnotherSourceChain() public {
     _setMockRMNChainCurse(SOURCE_CHAIN_SELECTOR_2, true);
     s_offRamp.executeSingleReport(
       _generateReportFromMessages(
@@ -466,7 +466,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     );
   }
 
-  function test_Unhealthy_Success() public {
+  function test_Unhealthy() public {
     _setMockRMNChainCurse(SOURCE_CHAIN_SELECTOR_1, true);
 
     vm.expectEmit();
@@ -492,7 +492,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
 
   // Reverts
 
-  function test_MismatchingDestChainSelector_Revert() public {
+  function test_RevertWhen_MismatchingDestChainSelector() public {
     Internal.Any2EVMRampMessage[] memory messages =
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_3, ON_RAMP_ADDRESS_3);
     messages[0].header.destChainSelector = DEST_CHAIN_SELECTOR + 1;
@@ -505,7 +505,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     s_offRamp.executeSingleReport(executionReport, new OffRamp.GasLimitOverride[](0));
   }
 
-  function test_UnhealthySingleChainCurse_Revert() public {
+  function test_RevertWhen_UnhealthySingleChainCurse() public {
     _setMockRMNChainCurse(SOURCE_CHAIN_SELECTOR_1, true);
     vm.expectEmit();
     emit OffRamp.SkippedReportExecution(SOURCE_CHAIN_SELECTOR_1);
@@ -527,7 +527,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     _assertNoEmit(OffRamp.SkippedReportExecution.selector);
   }
 
-  function test_UnexpectedTokenData_Revert() public {
+  function test_RevertWhen_UnexpectedTokenData() public {
     Internal.ExecutionReport memory report = _generateReportFromMessages(
       SOURCE_CHAIN_SELECTOR_1, _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1)
     );
@@ -538,7 +538,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     s_offRamp.executeSingleReport(report, new OffRamp.GasLimitOverride[](0));
   }
 
-  function test_EmptyReport_Revert() public {
+  function test_RevertWhen_EmptyReport() public {
     vm.expectRevert(abi.encodeWithSelector(OffRamp.EmptyReport.selector, SOURCE_CHAIN_SELECTOR_1));
 
     s_offRamp.executeSingleReport(
@@ -553,7 +553,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     );
   }
 
-  function test_RootNotCommitted_Revert() public {
+  function test_RevertWhen_RootNotCommitted() public {
     s_offRamp.setVerifyOverrideResult(SOURCE_CHAIN_SELECTOR_1, 0);
     vm.expectRevert(abi.encodeWithSelector(OffRamp.RootNotCommitted.selector, SOURCE_CHAIN_SELECTOR_1));
 
@@ -564,7 +564,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     );
   }
 
-  function test_ManualExecutionNotYetEnabled_Revert() public {
+  function test_RevertWhen_ManualExecutionNotYetEnabled() public {
     s_offRamp.setVerifyOverrideResult(SOURCE_CHAIN_SELECTOR_1, BLOCK_TIME);
 
     vm.expectRevert(abi.encodeWithSelector(OffRamp.ManualExecutionNotYetEnabled.selector, SOURCE_CHAIN_SELECTOR_1));
@@ -576,7 +576,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     );
   }
 
-  function test_NonExistingSourceChain_Revert() public {
+  function test_RevertWhen_NonExistingSourceChain() public {
     uint64 newSourceChainSelector = SOURCE_CHAIN_SELECTOR_1 + 1;
     bytes memory newOnRamp = abi.encode(ON_RAMP_ADDRESS, 1);
 
@@ -588,7 +588,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     );
   }
 
-  function test_DisabledSourceChain_Revert() public {
+  function test_RevertWhen_DisabledSourceChain() public {
     Internal.Any2EVMRampMessage[] memory messages =
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_2, ON_RAMP_ADDRESS_2);
 
@@ -598,7 +598,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     );
   }
 
-  function test_TokenDataMismatch_Revert() public {
+  function test_RevertWhen_TokenDataMismatch() public {
     Internal.Any2EVMRampMessage[] memory messages =
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
     Internal.ExecutionReport memory report = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages);
@@ -613,7 +613,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     s_offRamp.executeSingleReport(report, new OffRamp.GasLimitOverride[](0));
   }
 
-  function test_RouterYULCall_Revert() public {
+  function test_RevertWhen_RouterYULCall() public {
     Internal.Any2EVMRampMessage[] memory messages =
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
 
@@ -636,7 +636,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     );
   }
 
-  function test_RetryFailedMessageWithoutManualExecution_Revert() public {
+  function test_RevertWhen_RetryFailedMessageWithoutManualExecution() public {
     Internal.Any2EVMRampMessage[] memory messages =
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
 

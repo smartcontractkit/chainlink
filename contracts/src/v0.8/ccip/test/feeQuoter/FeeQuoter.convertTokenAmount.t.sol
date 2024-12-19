@@ -6,7 +6,7 @@ import {Internal} from "../../libraries/Internal.sol";
 import {FeeQuoterSetup} from "./FeeQuoterSetup.t.sol";
 
 contract FeeQuoter_convertTokenAmount is FeeQuoterSetup {
-  function test_ConvertTokenAmount_Success() public view {
+  function test_ConvertTokenAmount() public view {
     Internal.PriceUpdates memory initialPriceUpdates = abi.decode(s_encodedInitialPriceUpdates, (Internal.PriceUpdates));
     uint256 amount = 3e16;
     uint256 conversionRate = (uint256(initialPriceUpdates.tokenPriceUpdates[2].usdPerToken) * 1e18)
@@ -50,7 +50,7 @@ contract FeeQuoter_convertTokenAmount is FeeQuoterSetup {
 
   // Reverts
 
-  function test_LinkTokenNotSupported_Revert() public {
+  function test_RevertWhen_LinkTokenNotSupported() public {
     vm.expectRevert(abi.encodeWithSelector(FeeQuoter.TokenNotSupported.selector, DUMMY_CONTRACT_ADDRESS));
     s_feeQuoter.convertTokenAmount(DUMMY_CONTRACT_ADDRESS, 3e16, s_sourceTokens[0]);
 

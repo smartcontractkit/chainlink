@@ -1,0 +1,13 @@
+dir: "{{ .InterfaceDir }}/mocks"
+mockname: "{{ .InterfaceName }}"
+outpkg: mocks
+filename: "{{ .InterfaceName | snakecase }}.go"
+packages:
+  github.com/smartcontractkit/chainlink/deployment:
+    interfaces:
+      OffchainClient:
+        config:
+          mockname: "Mock{{ .InterfaceName }}"
+          filename: offchain_client_mock.go
+          inpackage: true
+          dir: "{{ .InterfaceDir }}/mocks"

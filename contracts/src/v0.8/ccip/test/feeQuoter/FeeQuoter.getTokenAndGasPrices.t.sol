@@ -6,7 +6,7 @@ import {Internal} from "../../libraries/Internal.sol";
 import {FeeQuoterSetup} from "./FeeQuoterSetup.t.sol";
 
 contract FeeQuoter_getTokenAndGasPrices is FeeQuoterSetup {
-  function test_GetFeeTokenAndGasPrices_Success() public view {
+  function test_GetFeeTokenAndGasPrices() public view {
     (uint224 feeTokenPrice, uint224 gasPrice) = s_feeQuoter.getTokenAndGasPrices(s_sourceFeeToken, DEST_CHAIN_SELECTOR);
 
     Internal.PriceUpdates memory priceUpdates = abi.decode(s_encodedInitialPriceUpdates, (Internal.PriceUpdates));
@@ -15,7 +15,7 @@ contract FeeQuoter_getTokenAndGasPrices is FeeQuoterSetup {
     assertEq(gasPrice, priceUpdates.gasPriceUpdates[0].usdPerUnitGas);
   }
 
-  function test_StalenessCheckDisabled_Success() public {
+  function test_StalenessCheckDisabled() public {
     uint64 neverStaleChainSelector = 345678;
     FeeQuoter.DestChainConfigArgs[] memory destChainConfigArgs = _generateFeeQuoterDestChainConfigArgs();
     destChainConfigArgs[0].destChainSelector = neverStaleChainSelector;
@@ -38,7 +38,7 @@ contract FeeQuoter_getTokenAndGasPrices is FeeQuoterSetup {
     assertEq(gasPrice, 999);
   }
 
-  function test_ZeroGasPrice_Success() public {
+  function test_ZeroGasPrice() public {
     uint64 zeroGasDestChainSelector = 345678;
     FeeQuoter.DestChainConfigArgs[] memory destChainConfigArgs = _generateFeeQuoterDestChainConfigArgs();
     destChainConfigArgs[0].destChainSelector = zeroGasDestChainSelector;
@@ -56,12 +56,12 @@ contract FeeQuoter_getTokenAndGasPrices is FeeQuoterSetup {
     assertEq(gasPrice, 0);
   }
 
-  function test_UnsupportedChain_Revert() public {
+  function test_RevertWhen_UnsupportedChain() public {
     vm.expectRevert(abi.encodeWithSelector(FeeQuoter.DestinationChainNotEnabled.selector, DEST_CHAIN_SELECTOR + 1));
     s_feeQuoter.getTokenAndGasPrices(s_sourceTokens[0], DEST_CHAIN_SELECTOR + 1);
   }
 
-  function test_StaleGasPrice_Revert() public {
+  function test_RevertWhen_StaleGasPrice() public {
     uint256 diff = TWELVE_HOURS + 1;
     vm.warp(block.timestamp + diff);
     vm.expectRevert(abi.encodeWithSelector(FeeQuoter.StaleGasPrice.selector, DEST_CHAIN_SELECTOR, TWELVE_HOURS, diff));

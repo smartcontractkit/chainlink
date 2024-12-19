@@ -406,9 +406,9 @@ func (_RMNRemote *RMNRemoteCallerSession) TypeAndVersion() (string, error) {
 	return _RMNRemote.Contract.TypeAndVersion(&_RMNRemote.CallOpts)
 }
 
-func (_RMNRemote *RMNRemoteCaller) Verify(opts *bind.CallOpts, offrampAddress common.Address, merkleRoots []InternalMerkleRoot, signatures []IRMNRemoteSignature) error {
+func (_RMNRemote *RMNRemoteCaller) Verify(opts *bind.CallOpts, offRampAddress common.Address, merkleRoots []InternalMerkleRoot, signatures []IRMNRemoteSignature) error {
 	var out []interface{}
-	err := _RMNRemote.contract.Call(opts, &out, "verify", offrampAddress, merkleRoots, signatures)
+	err := _RMNRemote.contract.Call(opts, &out, "verify", offRampAddress, merkleRoots, signatures)
 
 	if err != nil {
 		return err
@@ -418,12 +418,12 @@ func (_RMNRemote *RMNRemoteCaller) Verify(opts *bind.CallOpts, offrampAddress co
 
 }
 
-func (_RMNRemote *RMNRemoteSession) Verify(offrampAddress common.Address, merkleRoots []InternalMerkleRoot, signatures []IRMNRemoteSignature) error {
-	return _RMNRemote.Contract.Verify(&_RMNRemote.CallOpts, offrampAddress, merkleRoots, signatures)
+func (_RMNRemote *RMNRemoteSession) Verify(offRampAddress common.Address, merkleRoots []InternalMerkleRoot, signatures []IRMNRemoteSignature) error {
+	return _RMNRemote.Contract.Verify(&_RMNRemote.CallOpts, offRampAddress, merkleRoots, signatures)
 }
 
-func (_RMNRemote *RMNRemoteCallerSession) Verify(offrampAddress common.Address, merkleRoots []InternalMerkleRoot, signatures []IRMNRemoteSignature) error {
-	return _RMNRemote.Contract.Verify(&_RMNRemote.CallOpts, offrampAddress, merkleRoots, signatures)
+func (_RMNRemote *RMNRemoteCallerSession) Verify(offRampAddress common.Address, merkleRoots []InternalMerkleRoot, signatures []IRMNRemoteSignature) error {
+	return _RMNRemote.Contract.Verify(&_RMNRemote.CallOpts, offRampAddress, merkleRoots, signatures)
 }
 
 func (_RMNRemote *RMNRemoteTransactor) AcceptOwnership(opts *bind.TransactOpts) (*types.Transaction, error) {
@@ -1212,7 +1212,7 @@ type RMNRemoteInterface interface {
 
 	TypeAndVersion(opts *bind.CallOpts) (string, error)
 
-	Verify(opts *bind.CallOpts, offrampAddress common.Address, merkleRoots []InternalMerkleRoot, signatures []IRMNRemoteSignature) error
+	Verify(opts *bind.CallOpts, offRampAddress common.Address, merkleRoots []InternalMerkleRoot, signatures []IRMNRemoteSignature) error
 
 	AcceptOwnership(opts *bind.TransactOpts) (*types.Transaction, error)
 

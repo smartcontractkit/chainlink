@@ -7,7 +7,7 @@ import {Internal} from "../../../libraries/Internal.sol";
 import {CCIPHomeTestSetup} from "./CCIPHomeTestSetup.t.sol";
 
 contract CCIPHome_promoteCandidateAndRevokeActive is CCIPHomeTestSetup {
-  function test_promoteCandidateAndRevokeActive_multiplePlugins_success() public {
+  function test_promoteCandidateAndRevokeActive_multiplePlugins() public {
     promoteCandidateAndRevokeActive(Internal.OCRPluginType.Commit);
     promoteCandidateAndRevokeActive(Internal.OCRPluginType.Execution);
 
@@ -57,12 +57,12 @@ contract CCIPHome_promoteCandidateAndRevokeActive is CCIPHomeTestSetup {
     assertEq(keccak256(abi.encode(activeConfig.config)), keccak256(abi.encode(config)));
   }
 
-  function test_promoteCandidateAndRevokeActive_NoOpStateTransitionNotAllowed_reverts() public {
+  function test_RevertWhen_promoteCandidateAndRevokeActive_NoOpStateTransitionNotAllowed() public {
     vm.expectRevert(CCIPHome.NoOpStateTransitionNotAllowed.selector);
     s_ccipHome.promoteCandidateAndRevokeActive(DEFAULT_DON_ID, DEFAULT_PLUGIN_TYPE, ZERO_DIGEST, ZERO_DIGEST);
   }
 
-  function test_promoteCandidateAndRevokeActive_ConfigDigestMismatch_reverts() public {
+  function test_RevertWhen_promoteCandidateAndRevokeActive_ConfigDigestMismatch() public {
     (bytes32 priorActiveDigest, bytes32 priorCandidateDigest) =
       s_ccipHome.getConfigDigests(DEFAULT_DON_ID, DEFAULT_PLUGIN_TYPE);
     bytes32 wrongActiveDigest = keccak256("wrongActiveDigest");
@@ -84,7 +84,7 @@ contract CCIPHome_promoteCandidateAndRevokeActive is CCIPHomeTestSetup {
     );
   }
 
-  function test_promoteCandidateAndRevokeActive_CanOnlySelfCall_reverts() public {
+  function test_RevertWhen_promoteCandidateAndRevokeActive_CanOnlySelfCall() public {
     vm.stopPrank();
 
     vm.expectRevert(CCIPHome.CanOnlySelfCall.selector);

@@ -6,7 +6,7 @@ import {RMNHome} from "../../../rmn/RMNHome.sol";
 import {RMNHomeTestSetup} from "./RMNHomeTestSetup.t.sol";
 
 contract RMNHome_validateStaticAndDynamicConfig is RMNHomeTestSetup {
-  function test_validateStaticAndDynamicConfig_RevertWhen_OutOfBoundsNodesLength() public {
+  function test_RevertWhen_validateStaticAndDynamicConfig_OutOfBoundsNodesLength() public {
     Config memory config = _getBaseConfig();
     config.staticConfig.nodes = new RMNHome.Node[](257);
 
@@ -14,7 +14,7 @@ contract RMNHome_validateStaticAndDynamicConfig is RMNHomeTestSetup {
     s_rmnHome.setCandidate(config.staticConfig, config.dynamicConfig, ZERO_DIGEST);
   }
 
-  function test_validateStaticAndDynamicConfig_RevertWhen_DuplicatePeerId() public {
+  function test_RevertWhen_validateStaticAndDynamicConfig_DuplicatePeerId() public {
     Config memory config = _getBaseConfig();
     config.staticConfig.nodes[1].peerId = config.staticConfig.nodes[0].peerId;
 
@@ -22,7 +22,7 @@ contract RMNHome_validateStaticAndDynamicConfig is RMNHomeTestSetup {
     s_rmnHome.setCandidate(config.staticConfig, config.dynamicConfig, ZERO_DIGEST);
   }
 
-  function test_validateStaticAndDynamicConfig_RevertWhen_DuplicateOffchainPublicKey() public {
+  function test_RevertWhen_validateStaticAndDynamicConfig_DuplicateOffchainPublicKey() public {
     Config memory config = _getBaseConfig();
     config.staticConfig.nodes[1].offchainPublicKey = config.staticConfig.nodes[0].offchainPublicKey;
 
@@ -30,7 +30,7 @@ contract RMNHome_validateStaticAndDynamicConfig is RMNHomeTestSetup {
     s_rmnHome.setCandidate(config.staticConfig, config.dynamicConfig, ZERO_DIGEST);
   }
 
-  function test_validateStaticAndDynamicConfig_RevertWhen_DuplicateSourceChain() public {
+  function test_RevertWhen_validateStaticAndDynamicConfig_DuplicateSourceChain() public {
     Config memory config = _getBaseConfig();
     config.dynamicConfig.sourceChains[1].chainSelector = config.dynamicConfig.sourceChains[0].chainSelector;
 
@@ -38,7 +38,7 @@ contract RMNHome_validateStaticAndDynamicConfig is RMNHomeTestSetup {
     s_rmnHome.setCandidate(config.staticConfig, config.dynamicConfig, ZERO_DIGEST);
   }
 
-  function test_validateStaticAndDynamicConfig_RevertWhen_OutOfBoundsObserverNodeIndex() public {
+  function test_RevertWhen_validateStaticAndDynamicConfig_OutOfBoundsObserverNodeIndex() public {
     Config memory config = _getBaseConfig();
     config.dynamicConfig.sourceChains[0].observerNodesBitmap = 1 << config.staticConfig.nodes.length;
 
@@ -46,7 +46,7 @@ contract RMNHome_validateStaticAndDynamicConfig is RMNHomeTestSetup {
     s_rmnHome.setCandidate(config.staticConfig, config.dynamicConfig, ZERO_DIGEST);
   }
 
-  function test_validateStaticAndDynamicConfig_RevertWhen_NotEnoughObservers() public {
+  function test_RevertWhen_validateStaticAndDynamicConfig_NotEnoughObservers() public {
     Config memory config = _getBaseConfig();
     config.dynamicConfig.sourceChains[0].fObserve++;
 

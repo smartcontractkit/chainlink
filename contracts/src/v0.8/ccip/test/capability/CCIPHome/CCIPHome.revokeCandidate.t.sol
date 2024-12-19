@@ -18,7 +18,7 @@ contract CCIPHome_revokeCandidate is CCIPHomeTestSetup {
     s_ccipHome.setCandidate(DEFAULT_DON_ID, DEFAULT_PLUGIN_TYPE, config, ZERO_DIGEST);
   }
 
-  function test_revokeCandidate_success() public {
+  function test_revokeCandidate() public {
     (bytes32 priorActiveDigest, bytes32 priorCandidateDigest) =
       s_ccipHome.getConfigDigests(DEFAULT_DON_ID, DEFAULT_PLUGIN_TYPE);
 
@@ -42,7 +42,7 @@ contract CCIPHome_revokeCandidate is CCIPHomeTestSetup {
     assertTrue(candidateDigest != priorCandidateDigest);
   }
 
-  function test_revokeCandidate_ConfigDigestMismatch_reverts() public {
+  function test_RevertWhen_revokeCandidate_ConfigDigestMismatch() public {
     (, bytes32 priorCandidateDigest) = s_ccipHome.getConfigDigests(DEFAULT_DON_ID, DEFAULT_PLUGIN_TYPE);
 
     bytes32 wrongDigest = keccak256("wrong_digest");
@@ -50,12 +50,12 @@ contract CCIPHome_revokeCandidate is CCIPHomeTestSetup {
     s_ccipHome.revokeCandidate(DEFAULT_DON_ID, DEFAULT_PLUGIN_TYPE, wrongDigest);
   }
 
-  function test_revokeCandidate_RevokingZeroDigestNotAllowed_reverts() public {
+  function test_RevertWhen_revokeCandidate_RevokingZeroDigestNotAllowed() public {
     vm.expectRevert(CCIPHome.RevokingZeroDigestNotAllowed.selector);
     s_ccipHome.revokeCandidate(DEFAULT_DON_ID, DEFAULT_PLUGIN_TYPE, ZERO_DIGEST);
   }
 
-  function test_revokeCandidate_CanOnlySelfCall_reverts() public {
+  function test_RevertWhen_revokeCandidate_CanOnlySelfCall() public {
     vm.startPrank(address(0));
 
     vm.expectRevert(CCIPHome.CanOnlySelfCall.selector);

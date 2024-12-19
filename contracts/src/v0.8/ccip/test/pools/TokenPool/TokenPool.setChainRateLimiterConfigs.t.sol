@@ -79,7 +79,7 @@ contract TokenPool_setChainRateLimiterConfigs is TokenPoolSetup {
 
   // Reverts
 
-  function test_OnlyOwnerOrRateLimitAdmin_Revert() public {
+  function test_RevertWhen_OnlyOwnerOrRateLimitAdmin() public {
     uint64[] memory chainSelectors = new uint64[](1);
     chainSelectors[0] = DEST_CHAIN_SELECTOR;
 
@@ -95,7 +95,7 @@ contract TokenPool_setChainRateLimiterConfigs is TokenPoolSetup {
     s_tokenPool.setChainRateLimiterConfigs(chainSelectors, newOutboundConfigs, newInboundConfigs);
   }
 
-  function test_NonExistentChain_Revert() public {
+  function test_RevertWhen_NonExistentChain() public {
     uint64 wrongChainSelector = 9084102894;
 
     uint64[] memory chainSelectors = new uint64[](1);
@@ -108,7 +108,7 @@ contract TokenPool_setChainRateLimiterConfigs is TokenPoolSetup {
     s_tokenPool.setChainRateLimiterConfigs(chainSelectors, newOutboundConfigs, newInboundConfigs);
   }
 
-  function test_MismatchedArrayLengths_Revert() public {
+  function test_RevertWhen_MismatchedArrayLengths() public {
     uint64[] memory chainSelectors = new uint64[](1);
 
     RateLimiter.Config[] memory newOutboundConfigs = new RateLimiter.Config[](1);

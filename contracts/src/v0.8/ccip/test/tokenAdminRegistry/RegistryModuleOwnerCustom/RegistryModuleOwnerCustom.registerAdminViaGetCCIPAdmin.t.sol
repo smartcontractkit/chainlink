@@ -9,7 +9,7 @@ import {TokenAdminRegistry} from "../../../tokenAdminRegistry/TokenAdminRegistry
 import {RegistryModuleOwnerCustomSetup} from "./RegistryModuleOwnerCustomSetup.t.sol";
 
 contract RegistryModuleOwnerCustom_registerAdminViaGetCCIPAdmin is RegistryModuleOwnerCustomSetup {
-  function test_registerAdminViaGetCCIPAdmin_Success() public {
+  function test_registerAdminViaGetCCIPAdmin() public {
     assertEq(s_tokenAdminRegistry.getTokenConfig(s_token).administrator, address(0));
 
     address expectedOwner = IGetCCIPAdmin(s_token).getCCIPAdmin();
@@ -29,7 +29,7 @@ contract RegistryModuleOwnerCustom_registerAdminViaGetCCIPAdmin is RegistryModul
     assertEq(s_tokenAdminRegistry.getTokenConfig(s_token).pendingAdministrator, OWNER);
   }
 
-  function test_registerAdminViaGetCCIPAdmin_Revert() public {
+  function test_RevertWhen_registerAdminViaGetCCIPAdmin() public {
     address expectedOwner = IGetCCIPAdmin(s_token).getCCIPAdmin();
 
     vm.startPrank(makeAddr("Not_expected_owner"));

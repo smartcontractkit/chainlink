@@ -7,7 +7,7 @@ import {Internal} from "../../../libraries/Internal.sol";
 import {CCIPHomeTestSetup} from "./CCIPHomeTestSetup.t.sol";
 
 contract CCIPHome_setCandidate is CCIPHomeTestSetup {
-  function test_setCandidate_success() public {
+  function test_setCandidate() public {
     CCIPHome.OCR3Config memory config = _getBaseConfig(Internal.OCRPluginType.Commit);
     CCIPHome.VersionedConfig memory versionedConfig =
       CCIPHome.VersionedConfig({version: 1, config: config, configDigest: ZERO_DIGEST});
@@ -28,7 +28,7 @@ contract CCIPHome_setCandidate is CCIPHomeTestSetup {
     assertEq(keccak256(abi.encode(storedVersionedConfig.config)), keccak256(abi.encode(versionedConfig.config)));
   }
 
-  function test_setCandidate_ConfigDigestMismatch_reverts() public {
+  function test_RevertWhen_setCandidate_ConfigDigestMismatch() public {
     CCIPHome.OCR3Config memory config = _getBaseConfig(Internal.OCRPluginType.Commit);
 
     bytes32 digest = s_ccipHome.setCandidate(DEFAULT_DON_ID, DEFAULT_PLUGIN_TYPE, config, ZERO_DIGEST);
@@ -42,7 +42,7 @@ contract CCIPHome_setCandidate is CCIPHomeTestSetup {
     s_ccipHome.setCandidate(DEFAULT_DON_ID, DEFAULT_PLUGIN_TYPE, config, digest);
   }
 
-  function test_setCandidate_CanOnlySelfCall_reverts() public {
+  function test_RevertWhen_setCandidate_CanOnlySelfCall() public {
     vm.stopPrank();
 
     vm.expectRevert(CCIPHome.CanOnlySelfCall.selector);

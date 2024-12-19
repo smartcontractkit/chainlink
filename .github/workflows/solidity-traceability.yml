@@ -1,5 +1,5 @@
 # This workflow handles the enforcement of code Traceability via changesets and jira issue linking for our Solidity codebase.
-name: Solidity Tracability
+name: Solidity Traceability
 
 on:
   merge_group:

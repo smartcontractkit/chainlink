@@ -6,7 +6,7 @@ import {FactoryBurnMintERC20} from "../../../tokenAdminRegistry/TokenPoolFactory
 import {BurnMintERC20Setup} from "./BurnMintERC20Setup.t.sol";
 
 contract FactoryBurnMintERC20_burn is BurnMintERC20Setup {
-  function test_BasicBurn_Success() public {
+  function test_BasicBurn() public {
     s_burnMintERC20.grantBurnRole(OWNER);
     deal(address(s_burnMintERC20), OWNER, s_amount);
 
@@ -20,13 +20,13 @@ contract FactoryBurnMintERC20_burn is BurnMintERC20Setup {
 
   // Revert
 
-  function test_SenderNotBurner_Reverts() public {
+  function test_RevertWhen_SenderNotBurners() public {
     vm.expectRevert(abi.encodeWithSelector(FactoryBurnMintERC20.SenderNotBurner.selector, OWNER));
 
     s_burnMintERC20.burnFrom(STRANGER, s_amount);
   }
 
-  function test_ExceedsBalance_Reverts() public {
+  function test_RevertWhen_ExceedsBalances() public {
     changePrank(s_mockPool);
 
     vm.expectRevert("ERC20: burn amount exceeds balance");
@@ -34,7 +34,7 @@ contract FactoryBurnMintERC20_burn is BurnMintERC20Setup {
     s_burnMintERC20.burn(s_amount * 2);
   }
 
-  function test_BurnFromZeroAddress_Reverts() public {
+  function test_RevertWhen_BurnFromZeroAddresss() public {
     s_burnMintERC20.grantBurnRole(address(0));
     changePrank(address(0));
 

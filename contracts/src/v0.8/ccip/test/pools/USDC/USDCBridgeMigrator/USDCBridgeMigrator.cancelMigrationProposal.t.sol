@@ -5,7 +5,7 @@ import {USDCBridgeMigrator} from "../../../../pools/USDC/USDCBridgeMigrator.sol"
 import {HybridLockReleaseUSDCTokenPoolSetup} from "./USDCBridgeMigratorSetup.t.sol";
 
 contract USDCBridgeMigrator_cancelMigrationProposal is HybridLockReleaseUSDCTokenPoolSetup {
-  function test_cancelExistingCCTPMigrationProposal_Success() public {
+  function test_cancelExistingCCTPMigrationProposal() public {
     vm.startPrank(OWNER);
 
     // Mark the destination chain as supporting CCTP, so use L/R instead.
@@ -40,7 +40,7 @@ contract USDCBridgeMigrator_cancelMigrationProposal is HybridLockReleaseUSDCToke
     s_usdcTokenPool.cancelExistingCCTPMigrationProposal();
   }
 
-  function test_cannotCancelANonExistentMigrationProposal_Revert() public {
+  function test_RevertWhen_cannotCancelANonExistentMigrationProposal() public {
     vm.expectRevert(USDCBridgeMigrator.NoMigrationProposalPending.selector);
 
     // Proposal to migrate doesn't exist, and so the chain selector is zero, and therefore should revert

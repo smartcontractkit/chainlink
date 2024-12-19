@@ -6,7 +6,7 @@ import {Internal} from "../../libraries/Internal.sol";
 import {FeeQuoterSetup} from "./FeeQuoterSetup.t.sol";
 
 contract FeeQuoter_getDataAvailabilityCost is FeeQuoterSetup {
-  function test_EmptyMessageCalculatesDataAvailabilityCost_Success() public {
+  function test_EmptyMessageCalculatesDataAvailabilityCost() public {
     uint256 dataAvailabilityCostUSD =
       s_feeQuoter.getDataAvailabilityCost(DEST_CHAIN_SELECTOR, USD_PER_DATA_AVAILABILITY_GAS, 0, 0, 0);
 
@@ -42,7 +42,7 @@ contract FeeQuoter_getDataAvailabilityCost is FeeQuoterSetup {
     assertFalse(dataAvailabilityCostUSD == dataAvailabilityCostUSD2);
   }
 
-  function test_SimpleMessageCalculatesDataAvailabilityCost_Success() public view {
+  function test_SimpleMessageCalculatesDataAvailabilityCost() public view {
     uint256 dataAvailabilityCostUSD =
       s_feeQuoter.getDataAvailabilityCost(DEST_CHAIN_SELECTOR, USD_PER_DATA_AVAILABILITY_GAS, 100, 5, 50);
 
@@ -58,7 +58,7 @@ contract FeeQuoter_getDataAvailabilityCost is FeeQuoterSetup {
     assertEq(expectedDataAvailabilityCostUSD, dataAvailabilityCostUSD);
   }
 
-  function test_SimpleMessageCalculatesDataAvailabilityCostUnsupportedDestChainSelector_Success() public view {
+  function test_SimpleMessageCalculatesDataAvailabilityCostUnsupportedDestChainSelector() public view {
     uint256 dataAvailabilityCostUSD = s_feeQuoter.getDataAvailabilityCost(0, USD_PER_DATA_AVAILABILITY_GAS, 100, 5, 50);
 
     assertEq(dataAvailabilityCostUSD, 0);

@@ -132,7 +132,7 @@ contract FeeQuoter_onReport is FeeQuoterSetup {
     assertEq(vm.getRecordedLogs().length, 0);
   }
 
-  function test_onReport_RevertWhen_TokenNotSupported() public {
+  function test_RevertWhen_onReportWhen_TokenNotSupported() public {
     FeeQuoter.ReceivedCCIPFeedReport[] memory report = new FeeQuoter.ReceivedCCIPFeedReport[](1);
     report[0] =
       FeeQuoter.ReceivedCCIPFeedReport({token: s_sourceTokens[1], price: 4e18, timestamp: uint32(block.timestamp)});
@@ -143,7 +143,7 @@ contract FeeQuoter_onReport is FeeQuoterSetup {
     s_feeQuoter.onReport(encodedPermissionsMetadata, abi.encode(report));
   }
 
-  function test_onReport_RevertWhen_InvalidForwarder() public {
+  function test_RevertWhen_onReportWhen_InvalidForwarder() public {
     FeeQuoter.ReceivedCCIPFeedReport[] memory report = new FeeQuoter.ReceivedCCIPFeedReport[](1);
     report[0] =
       FeeQuoter.ReceivedCCIPFeedReport({token: s_sourceTokens[0], price: 4e18, timestamp: uint32(block.timestamp)});

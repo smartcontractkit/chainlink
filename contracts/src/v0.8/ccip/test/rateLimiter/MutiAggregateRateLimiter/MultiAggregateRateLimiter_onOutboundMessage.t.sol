@@ -31,7 +31,7 @@ contract MultiAggregateRateLimiter_onOutboundMessage is MultiAggregateRateLimite
     s_rateLimiter.updateRateLimitTokens(new MultiAggregateRateLimiter.LocalRateLimitToken[](0), tokensToAdd);
   }
 
-  function test_ValidateMessageWithNoTokens_Success() public {
+  function test_ValidateMessageWithNoTokens() public {
     vm.startPrank(MOCK_ONRAMP);
 
     vm.recordLogs();
@@ -41,7 +41,7 @@ contract MultiAggregateRateLimiter_onOutboundMessage is MultiAggregateRateLimite
     assertEq(vm.getRecordedLogs().length, 0);
   }
 
-  function test_onOutboundMessage_ValidateMessageWithTokens_Success() public {
+  function test_onOutboundMessage_ValidateMessageWithTokens() public {
     vm.startPrank(MOCK_ONRAMP);
 
     Client.EVMTokenAmount[] memory tokenAmounts = new Client.EVMTokenAmount[](2);
@@ -55,7 +55,7 @@ contract MultiAggregateRateLimiter_onOutboundMessage is MultiAggregateRateLimite
     s_rateLimiter.onOutboundMessage(CHAIN_SELECTOR_1, _generateEVM2AnyMessage(tokenAmounts));
   }
 
-  function test_onOutboundMessage_ValidateMessageWithDisabledRateLimitToken_Success() public {
+  function test_onOutboundMessage_ValidateMessageWithDisabledRateLimitToken() public {
     MultiAggregateRateLimiter.LocalRateLimitToken[] memory removes =
       new MultiAggregateRateLimiter.LocalRateLimitToken[](1);
     removes[0] = MultiAggregateRateLimiter.LocalRateLimitToken({
@@ -76,7 +76,7 @@ contract MultiAggregateRateLimiter_onOutboundMessage is MultiAggregateRateLimite
     s_rateLimiter.onOutboundMessage(CHAIN_SELECTOR_1, _generateEVM2AnyMessage(tokenAmounts));
   }
 
-  function test_onOutboundMessage_ValidateMessageWithRateLimitDisabled_Success() public {
+  function test_onOutboundMessage_ValidateMessageWithRateLimitDisabled() public {
     MultiAggregateRateLimiter.RateLimiterConfigArgs[] memory configUpdates =
       new MultiAggregateRateLimiter.RateLimiterConfigArgs[](1);
     configUpdates[0] = MultiAggregateRateLimiter.RateLimiterConfigArgs({
@@ -99,7 +99,7 @@ contract MultiAggregateRateLimiter_onOutboundMessage is MultiAggregateRateLimite
     assertEq(vm.getRecordedLogs().length, 0);
   }
 
-  function test_onOutboundMessage_ValidateMessageWithTokensOnDifferentChains_Success() public {
+  function test_onOutboundMessage_ValidateMessageWithTokensOnDifferentChains() public {
     MultiAggregateRateLimiter.RateLimitTokenArgs[] memory tokensToAdd =
       new MultiAggregateRateLimiter.RateLimitTokenArgs[](s_sourceTokens.length);
     for (uint224 i = 0; i < s_sourceTokens.length; ++i) {
@@ -147,7 +147,7 @@ contract MultiAggregateRateLimiter_onOutboundMessage is MultiAggregateRateLimite
     assertEq(bucketChain2.capacity - totalValue, bucketChain2.tokens);
   }
 
-  function test_onOutboundMessage_ValidateMessageWithDifferentTokensOnDifferentChains_Success() public {
+  function test_onOutboundMessage_ValidateMessageWithDifferentTokensOnDifferentChains() public {
     MultiAggregateRateLimiter.RateLimitTokenArgs[] memory tokensToAdd =
       new MultiAggregateRateLimiter.RateLimitTokenArgs[](1);
 
@@ -198,7 +198,7 @@ contract MultiAggregateRateLimiter_onOutboundMessage is MultiAggregateRateLimite
     assertEq(bucketChain2.capacity - totalValue2, bucketChain2.tokens);
   }
 
-  function test_onOutboundMessage_ValidateMessageWithRateLimitReset_Success() public {
+  function test_onOutboundMessage_ValidateMessageWithRateLimitReset() public {
     vm.startPrank(MOCK_ONRAMP);
 
     Client.EVMTokenAmount[] memory tokenAmounts = new Client.EVMTokenAmount[](2);
@@ -221,7 +221,7 @@ contract MultiAggregateRateLimiter_onOutboundMessage is MultiAggregateRateLimite
     s_rateLimiter.onOutboundMessage(CHAIN_SELECTOR_1, _generateEVM2AnyMessage(tokenAmounts));
   }
 
-  function test_RateLimitValueDifferentLanes_Success() public {
+  function test_RateLimitValueDifferentLanes() public {
     vm.pauseGasMetering();
     // start from blocktime that does not equal rate limiter init timestamp
     vm.warp(BLOCK_TIME + 1);
@@ -266,7 +266,7 @@ contract MultiAggregateRateLimiter_onOutboundMessage is MultiAggregateRateLimite
 
   // Reverts
 
-  function test_onOutboundMessage_ValidateMessageWithRateLimitExceeded_Revert() public {
+  function test_RevertWhen_onOutboundMessage_ValidateMessageWithRateLimitExceeded() public {
     vm.startPrank(MOCK_OFFRAMP);
 
     Client.EVMTokenAmount[] memory tokenAmounts = new Client.EVMTokenAmount[](2);
@@ -278,7 +278,7 @@ contract MultiAggregateRateLimiter_onOutboundMessage is MultiAggregateRateLimite
     s_rateLimiter.onOutboundMessage(CHAIN_SELECTOR_1, _generateEVM2AnyMessage(tokenAmounts));
   }
 
-  function test_onOutboundMessage_ValidateMessageFromUnauthorizedCaller_Revert() public {
+  function test_RevertWhen_onOutboundMessage_ValidateMessageFromUnauthorizedCaller() public {
     vm.startPrank(STRANGER);
 
     vm.expectRevert(abi.encodeWithSelector(AuthorizedCallers.UnauthorizedCaller.selector, STRANGER));

@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
+	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
@@ -29,10 +30,10 @@ func TestUpdateDon(t *testing.T) {
 		caps = []kcr.CapabilitiesRegistryCapability{capA, capB}
 	)
 	t.Run("no mcms", func(t *testing.T) {
-		te := SetupTestEnv(t, TestConfig{
-			WFDonConfig:     DonConfig{N: 4},
-			AssetDonConfig:  DonConfig{N: 4},
-			WriterDonConfig: DonConfig{N: 4},
+		te := test.SetupTestEnv(t, test.TestConfig{
+			WFDonConfig:     test.DonConfig{N: 4},
+			AssetDonConfig:  test.DonConfig{N: 4},
+			WriterDonConfig: test.DonConfig{N: 4},
 			NumChains:       1,
 		})
 
@@ -70,10 +71,10 @@ func TestUpdateDon(t *testing.T) {
 		})
 	})
 	t.Run("with mcms", func(t *testing.T) {
-		te := SetupTestEnv(t, TestConfig{
-			WFDonConfig:     DonConfig{N: 4},
-			AssetDonConfig:  DonConfig{N: 4},
-			WriterDonConfig: DonConfig{N: 4},
+		te := test.SetupTestEnv(t, test.TestConfig{
+			WFDonConfig:     test.DonConfig{N: 4},
+			AssetDonConfig:  test.DonConfig{N: 4},
+			WriterDonConfig: test.DonConfig{N: 4},
 			NumChains:       1,
 			UseMCMS:         true,
 		})

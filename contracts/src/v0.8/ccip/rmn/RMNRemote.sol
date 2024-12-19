@@ -94,7 +94,7 @@ contract RMNRemote is Ownable2StepMsgSender, ITypeAndVersion, IRMNRemote, IRMN {
 
   /// @inheritdoc IRMNRemote
   function verify(
-    address offrampAddress,
+    address offRampAddress,
     Internal.MerkleRoot[] calldata merkleRoots,
     Signature[] calldata signatures
   ) external view {
@@ -110,7 +110,7 @@ contract RMNRemote is Ownable2StepMsgSender, ITypeAndVersion, IRMNRemote, IRMN {
           destChainId: block.chainid,
           destChainSelector: i_localChainSelector,
           rmnRemoteContractAddress: address(this),
-          offrampAddress: offrampAddress,
+          offrampAddress: offRampAddress,
           rmnHomeContractConfigDigest: s_config.rmnHomeContractConfigDigest,
           merkleRoots: merkleRoots
         })

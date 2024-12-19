@@ -6,7 +6,7 @@ import {OnRamp} from "../../../onRamp/OnRamp.sol";
 import {OnRampSetup} from "./OnRampSetup.t.sol";
 
 contract OnRamp_setDynamicConfig is OnRampSetup {
-  function test_setDynamicConfig_Success() public {
+  function test_setDynamicConfig() public {
     OnRamp.StaticConfig memory staticConfig = s_onRamp.getStaticConfig();
     OnRamp.DynamicConfig memory newConfig = OnRamp.DynamicConfig({
       feeQuoter: address(23423),
@@ -27,7 +27,7 @@ contract OnRamp_setDynamicConfig is OnRampSetup {
 
   // Reverts
 
-  function test_setDynamicConfig_InvalidConfigFeeQuoterEqAddressZero_Revert() public {
+  function test_RevertWhen_setDynamicConfig_InvalidConfigFeeQuoterEqAddressZero() public {
     OnRamp.DynamicConfig memory newConfig = OnRamp.DynamicConfig({
       feeQuoter: address(0),
       reentrancyGuardEntered: false,
@@ -40,7 +40,7 @@ contract OnRamp_setDynamicConfig is OnRampSetup {
     s_onRamp.setDynamicConfig(newConfig);
   }
 
-  function test_setDynamicConfig_InvalidConfigInvalidConfig_Revert() public {
+  function test_RevertWhen_setDynamicConfig_InvalidConfigInvalidConfig() public {
     OnRamp.DynamicConfig memory newConfig = OnRamp.DynamicConfig({
       feeQuoter: address(23423),
       reentrancyGuardEntered: false,
@@ -55,7 +55,7 @@ contract OnRamp_setDynamicConfig is OnRampSetup {
     s_onRamp.setDynamicConfig(newConfig);
   }
 
-  function test_setDynamicConfig_InvalidConfigFeeAggregatorEqAddressZero_Revert() public {
+  function test_RevertWhen_setDynamicConfig_InvalidConfigFeeAggregatorEqAddressZero() public {
     OnRamp.DynamicConfig memory newConfig = OnRamp.DynamicConfig({
       feeQuoter: address(23423),
       reentrancyGuardEntered: false,
@@ -68,13 +68,13 @@ contract OnRamp_setDynamicConfig is OnRampSetup {
     s_onRamp.setDynamicConfig(newConfig);
   }
 
-  function test_setDynamicConfig_InvalidConfigOnlyOwner_Revert() public {
+  function test_RevertWhen_setDynamicConfig_InvalidConfigOnlyOwner() public {
     vm.startPrank(STRANGER);
     vm.expectRevert(Ownable2Step.OnlyCallableByOwner.selector);
     s_onRamp.setDynamicConfig(_generateDynamicOnRampConfig(address(2)));
   }
 
-  function test_setDynamicConfig_InvalidConfigReentrancyGuardEnteredEqTrue_Revert() public {
+  function test_RevertWhen_setDynamicConfig_InvalidConfigReentrancyGuardEnteredEqTrue() public {
     OnRamp.DynamicConfig memory newConfig = OnRamp.DynamicConfig({
       feeQuoter: address(23423),
       reentrancyGuardEntered: true,

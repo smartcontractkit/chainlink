@@ -10,7 +10,7 @@ import {OffRampSetup} from "./OffRampSetup.t.sol";
 import {Vm} from "forge-std/Vm.sol";
 
 contract OffRamp_applySourceChainConfigUpdates is OffRampSetup {
-  function test_ApplyZeroUpdates_Success() public {
+  function test_ApplyZeroUpdates() public {
     OffRamp.SourceChainConfigArgs[] memory sourceChainConfigs = new OffRamp.SourceChainConfigArgs[](0);
 
     vm.recordLogs();
@@ -23,7 +23,7 @@ contract OffRamp_applySourceChainConfigUpdates is OffRampSetup {
     assertEq(s_offRamp.getSourceChainSelectors().length, 0);
   }
 
-  function test_AddNewChain_Success() public {
+  function test_AddNewChain() public {
     OffRamp.SourceChainConfigArgs[] memory sourceChainConfigs = new OffRamp.SourceChainConfigArgs[](1);
     sourceChainConfigs[0] = OffRamp.SourceChainConfigArgs({
       router: s_destRouter,
@@ -46,7 +46,7 @@ contract OffRamp_applySourceChainConfigUpdates is OffRampSetup {
     _assertSourceChainConfigEquality(s_offRamp.getSourceChainConfig(SOURCE_CHAIN_SELECTOR_1), expectedSourceChainConfig);
   }
 
-  function test_ReplaceExistingChain_Success() public {
+  function test_ReplaceExistingChain() public {
     OffRamp.SourceChainConfigArgs[] memory sourceChainConfigs = new OffRamp.SourceChainConfigArgs[](1);
     sourceChainConfigs[0] = OffRamp.SourceChainConfigArgs({
       router: s_destRouter,
@@ -77,7 +77,7 @@ contract OffRamp_applySourceChainConfigUpdates is OffRampSetup {
     assertEq(resultSourceChainSelectors.length, 1);
   }
 
-  function test_AddMultipleChains_Success() public {
+  function test_AddMultipleChains() public {
     OffRamp.SourceChainConfigArgs[] memory sourceChainConfigs = new OffRamp.SourceChainConfigArgs[](3);
     sourceChainConfigs[0] = OffRamp.SourceChainConfigArgs({
       router: s_destRouter,
@@ -171,7 +171,7 @@ contract OffRamp_applySourceChainConfigUpdates is OffRampSetup {
     );
   }
 
-  function test_ReplaceExistingChainOnRamp_Success() public {
+  function test_ReplaceExistingChainOnRamp() public {
     OffRamp.SourceChainConfigArgs[] memory sourceChainConfigs = new OffRamp.SourceChainConfigArgs[](1);
     sourceChainConfigs[0] = OffRamp.SourceChainConfigArgs({
       router: s_destRouter,
@@ -192,7 +192,7 @@ contract OffRamp_applySourceChainConfigUpdates is OffRampSetup {
     s_offRamp.applySourceChainConfigUpdates(sourceChainConfigs);
   }
 
-  function test_allowNonOnRampUpdateAfterLaneIsUsed_success() public {
+  function test_allowNonOnRampUpdateAfterLaneIsUsed() public {
     OffRamp.SourceChainConfigArgs[] memory sourceChainConfigs = new OffRamp.SourceChainConfigArgs[](1);
     sourceChainConfigs[0] = OffRamp.SourceChainConfigArgs({
       router: s_destRouter,
@@ -233,7 +233,7 @@ contract OffRamp_applySourceChainConfigUpdates is OffRampSetup {
 
   // Reverts
 
-  function test_ZeroOnRampAddress_Revert() public {
+  function test_RevertWhen_ZeroOnRampAddress() public {
     OffRamp.SourceChainConfigArgs[] memory sourceChainConfigs = new OffRamp.SourceChainConfigArgs[](1);
     sourceChainConfigs[0] = OffRamp.SourceChainConfigArgs({
       router: s_destRouter,
@@ -250,7 +250,7 @@ contract OffRamp_applySourceChainConfigUpdates is OffRampSetup {
     s_offRamp.applySourceChainConfigUpdates(sourceChainConfigs);
   }
 
-  function test_RouterAddress_Revert() public {
+  function test_RevertWhen_RouterAddress() public {
     OffRamp.SourceChainConfigArgs[] memory sourceChainConfigs = new OffRamp.SourceChainConfigArgs[](1);
     sourceChainConfigs[0] = OffRamp.SourceChainConfigArgs({
       router: IRouter(address(0)),
@@ -263,7 +263,7 @@ contract OffRamp_applySourceChainConfigUpdates is OffRampSetup {
     s_offRamp.applySourceChainConfigUpdates(sourceChainConfigs);
   }
 
-  function test_ZeroSourceChainSelector_Revert() public {
+  function test_RevertWhen_ZeroSourceChainSelector() public {
     OffRamp.SourceChainConfigArgs[] memory sourceChainConfigs = new OffRamp.SourceChainConfigArgs[](1);
     sourceChainConfigs[0] = OffRamp.SourceChainConfigArgs({
       router: s_destRouter,
@@ -276,7 +276,7 @@ contract OffRamp_applySourceChainConfigUpdates is OffRampSetup {
     s_offRamp.applySourceChainConfigUpdates(sourceChainConfigs);
   }
 
-  function test_InvalidOnRampUpdate_Revert() public {
+  function test_RevertWhen_InvalidOnRampUpdate() public {
     OffRamp.SourceChainConfigArgs[] memory sourceChainConfigs = new OffRamp.SourceChainConfigArgs[](1);
     sourceChainConfigs[0] = OffRamp.SourceChainConfigArgs({
       router: s_destRouter,

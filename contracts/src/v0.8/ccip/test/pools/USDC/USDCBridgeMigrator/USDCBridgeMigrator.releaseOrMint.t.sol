@@ -11,7 +11,7 @@ import {HybridLockReleaseUSDCTokenPool_releaseOrMint} from
   "../HybridLockReleaseUSDCTokenPool/HybridLockReleaseUSDCTokenPool.releaseOrMint.t.sol";
 
 contract USDCBridgeMigrator_releaseOrMint is HybridLockReleaseUSDCTokenPool_releaseOrMint {
-  function test_unstickManualTxAfterMigration_destChain_Success() public {
+  function test_unstickManualTxAfterMigration_destChain() public {
     address recipient = address(1234);
     // Test the edge case where a tx is stuck in the manual tx queue and the destination chain is the one that
     // should process is after a migration. I.E the message will have the Lock-Release flag set in the OffChainData,
@@ -83,7 +83,7 @@ contract USDCBridgeMigrator_releaseOrMint is HybridLockReleaseUSDCTokenPool_rele
     );
   }
 
-  function test_unstickManualTxAfterMigration_homeChain_Success() public {
+  function test_unstickManualTxAfterMigration_homeChain() public {
     address CIRCLE = makeAddr("CIRCLE");
     address recipient = address(1234);
 

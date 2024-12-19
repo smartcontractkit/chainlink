@@ -5,7 +5,7 @@ import {TokenPool} from "../../../pools/TokenPool.sol";
 import {TokenPoolSetup} from "./TokenPoolSetup.t.sol";
 
 contract TokenPool_removeRemotePool is TokenPoolSetup {
-  function test_removeRemotePool_Success() public {
+  function test_removeRemotePool() public {
     uint64 chainSelector = DEST_CHAIN_SELECTOR;
     // Use a longer data type to ensure it also works for non-evm
     bytes memory remotePool = abi.encode(makeAddr("non-evm-1"), makeAddr("non-evm-2"));
@@ -41,7 +41,7 @@ contract TokenPool_removeRemotePool is TokenPoolSetup {
 
   // Reverts
 
-  function test_NonExistentChain_Revert() public {
+  function test_RevertWhen_NonExistentChain() public {
     uint64 chainSelector = DEST_CHAIN_SELECTOR + 1;
     bytes memory remotePool = abi.encode(type(uint256).max);
 
@@ -50,7 +50,7 @@ contract TokenPool_removeRemotePool is TokenPoolSetup {
     s_tokenPool.removeRemotePool(chainSelector, remotePool);
   }
 
-  function test_InvalidRemotePoolForChain_Revert() public {
+  function test_RevertWhen_InvalidRemotePoolForChain() public {
     uint64 chainSelector = DEST_CHAIN_SELECTOR;
     bytes memory remotePool = abi.encode(type(uint256).max);
 
