@@ -98,7 +98,7 @@ func WithMultiCall3Enabled() PrerequisiteOpt {
 	}
 }
 
-func WithLegacyDeployment(cfg LegacyDeploymentConfig) PrerequisiteOpt {
+func WithLegacyDeploymentEnabled(cfg LegacyDeploymentConfig) PrerequisiteOpt {
 	return func(o *DeployPrerequisiteContractsOpts) {
 		if cfg.PriceRegStalenessThreshold == 0 {
 			panic("PriceRegStalenessThreshold must be set")

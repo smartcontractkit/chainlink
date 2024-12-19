@@ -13,16 +13,15 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
-	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
@@ -30,72 +29,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry_1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
 )
-
-// NewMemoryEnvironment creates an in-memory environment based on the testconfig requested
-// This environment currently only works when destination chain is 1337
-// Otherwise it shows error for offchain and onchain config digest mismatch
-func NewMemoryEnvironment(t *testing.T, opts ...changeset.TestOps) changeset.DeployedEnv {
-	testCfg := changeset.DefaultTestConfigs()
-	for _, opt := range opts {
-		opt(testCfg)
-	}
-	require.NoError(t, testCfg.Validate(), "invalid test config")
-	env := &changeset.MemoryEnvironment{}
-	return NewEnvironment(t, testCfg, env)
-}
-
-func NewEnvironment(t *testing.T, tc *changeset.TestConfigs, tEnv changeset.TestEnvironment) changeset.DeployedEnv {
-	var err error
-	tEnv.StartChains(t, tc)
-	e := tEnv.DeployedEnvironment()
-	require.NotEmpty(t, e.Env.Chains)
-	tEnv.StartNodes(t, tc, deployment.CapabilityRegistryConfig{})
-	e = tEnv.DeployedEnvironment()
-	allChains := e.Env.AllChainSelectors()
-
-	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
-	for _, c := range e.Env.AllChainSelectors() {
-		mcmsCfg[c] = proposalutils.SingleGroupTimelockConfig(t)
-	}
-	var prereqCfg []changeset.DeployPrerequisiteConfigPerChain
-	for _, chain := range allChains {
-		var opts []changeset.PrerequisiteOpt
-		if tc != nil {
-			if tc.IsUSDC {
-				opts = append(opts, changeset.WithUSDCEnabled())
-			}
-			if tc.IsMultiCall3 {
-				opts = append(opts, changeset.WithMultiCall3Enabled())
-			}
-		}
-		opts = append(opts, changeset.WithLegacyDeployment(changeset.LegacyDeploymentConfig{
-			PriceRegStalenessThreshold: 60 * 60 * 24 * 14, // two weeks
-		}))
-		prereqCfg = append(prereqCfg, changeset.DeployPrerequisiteConfigPerChain{
-			ChainSelector: chain,
-			Opts:          opts,
-		})
-	}
-
-	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
-			Config:    allChains,
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.DeployPrerequisites),
-			Config: changeset.DeployPrerequisiteConfig{
-				Configs: prereqCfg,
-			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployMCMSWithTimelock),
-			Config:    mcmsCfg,
-		},
-	})
-	require.NoError(t, err)
-	return e
-}
 
 func AddLanes(t *testing.T, e deployment.Environment, state changeset.CCIPOnChainState, pairs []changeset.SourceDestPair) deployment.Environment {
 	addLanesCfg, commitOCR2Configs, execOCR2Configs, jobspecs := LaneConfigsForChains(t, e, state, pairs)

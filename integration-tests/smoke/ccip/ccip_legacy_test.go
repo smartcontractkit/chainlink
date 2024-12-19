@@ -15,7 +15,7 @@ import (
 
 // This test does not run in CI, it is only written as an example of how to write a test for the legacy CCIP
 func TestE2ELegacy(t *testing.T) {
-	e := testsetups.NewIntegrationLegacyEnvironment(t)
+	e, _ := testsetups.NewIntegrationEnvironment(t, changeset.WithLegacyDeployment())
 	state, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	allChains := e.Env.AllChainSelectors()

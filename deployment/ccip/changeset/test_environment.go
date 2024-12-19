@@ -43,6 +43,7 @@ type TestConfigs struct {
 	CreateJob bool
 	// TODO: This should be CreateContracts so the booleans make sense?
 	CreateJobAndContracts    bool
+	LegacyDeployment         bool
 	Chains                   int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
 	ChainIDs                 []uint64 // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
 	NumOfUsersPerChain       int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
@@ -102,6 +103,12 @@ type TestOps func(testCfg *TestConfigs)
 func WithMultiCall3() TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.IsMultiCall3 = true
+	}
+}
+
+func WithLegacyDeployment() TestOps {
+	return func(testCfg *TestConfigs) {
+		testCfg.LegacyDeployment = true
 	}
 }
 
@@ -298,6 +305,9 @@ func NewMemoryEnvironment(t *testing.T, opts ...TestOps) DeployedEnv {
 	}
 	require.NoError(t, testCfg.Validate(), "invalid test config")
 	env := &MemoryEnvironment{}
+	if testCfg.LegacyDeployment {
+		return NewLegacyEnvironment(t, testCfg, env)
+	}
 	if testCfg.CreateJobAndContracts {
 		return NewEnvironmentWithJobsAndContracts(t, testCfg, env)
 	}
@@ -305,6 +315,59 @@ func NewMemoryEnvironment(t *testing.T, opts ...TestOps) DeployedEnv {
 		return NewEnvironmentWithJobs(t, testCfg, env)
 	}
 	return NewEnvironment(t, testCfg, env)
+}
+
+func NewLegacyEnvironment(t *testing.T, tc *TestConfigs, tEnv TestEnvironment) DeployedEnv {
+	var err error
+	tEnv.StartChains(t, tc)
+	e := tEnv.DeployedEnvironment()
+	require.NotEmpty(t, e.Env.Chains)
+	tEnv.StartNodes(t, tc, deployment.CapabilityRegistryConfig{})
+	e = tEnv.DeployedEnvironment()
+	allChains := e.Env.AllChainSelectors()
+
+	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
+	for _, c := range e.Env.AllChainSelectors() {
+		mcmsCfg[c] = proposalutils.SingleGroupTimelockConfig(t)
+	}
+	var prereqCfg []DeployPrerequisiteConfigPerChain
+	for _, chain := range allChains {
+		var opts []PrerequisiteOpt
+		if tc != nil {
+			if tc.IsUSDC {
+				opts = append(opts, WithUSDCEnabled())
+			}
+			if tc.IsMultiCall3 {
+				opts = append(opts, WithMultiCall3Enabled())
+			}
+		}
+		opts = append(opts, WithLegacyDeploymentEnabled(LegacyDeploymentConfig{
+			PriceRegStalenessThreshold: 60 * 60 * 24 * 14, // two weeks
+		}))
+		prereqCfg = append(prereqCfg, DeployPrerequisiteConfigPerChain{
+			ChainSelector: chain,
+			Opts:          opts,
+		})
+	}
+
+	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
+			Config:    allChains,
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(DeployPrerequisites),
+			Config: DeployPrerequisiteConfig{
+				Configs: prereqCfg,
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployMCMSWithTimelock),
+			Config:    mcmsCfg,
+		},
+	})
+	require.NoError(t, err)
+	return e
 }
 
 func NewEnvironment(t *testing.T, tc *TestConfigs, tEnv TestEnvironment) DeployedEnv {
