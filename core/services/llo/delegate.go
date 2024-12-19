@@ -146,7 +146,7 @@ func (d *delegate) Start(ctx context.Context) error {
 				V2Bootstrappers:              d.cfg.V2Bootstrappers,
 				ContractConfigTracker:        configTracker,
 				ContractTransmitter:          d.cfg.ContractTransmitter,
-				Database:                     d.cfg.NewOCR3DB(int32(i)),
+				Database:                     d.cfg.NewOCR3DB(int32(i)), // //nolint:gosec // G115 // impossible due to check on line 119
 				LocalConfig:                  d.cfg.LocalConfig,
 				Logger:                       ocrLogger,
 				MonitoringEndpoint:           d.cfg.OCR3MonitoringEndpoint,
