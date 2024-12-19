@@ -49,7 +49,7 @@ on:
         type: string
         default: '{}'
         description: 'JSON of extra arguments for the workflow.'
-      event: 
+      splunkEvent: 
         required: true
         type: string
         description: 'The event that triggered flakeguard run. (e.g. pull_request, nightly, on_demand)'
@@ -370,6 +370,9 @@ jobs:
             --base-sha "${{ needs.get-tests.outputs.git_base_sha }}" \
             --head-sha "${{ needs.get-tests.outputs.git_head_sha }}" \
             --github-workflow-name "${{ github.workflow }}"
+            --splunk-url "${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}"
+            --splunk-token "${{ secrets.FLAKEGUARD_SPLUNK_HEC }}"
+            --splunk-event "${{ inputs.splunkEvent }}"
 
           # Print out the summary file
           echo -e "\nFlakeguard Summary:"
