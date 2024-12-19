@@ -312,12 +312,7 @@ contract VerifierVerifyMultipleConfigDigestTest is VerifierVerifyTest {
     address[] memory initialSigners = _getSignerAddresses(_getSigners(15));
     bytes32 configDigest = keccak256("test");
 
-    s_verifier.setConfig(
-      configDigest,
-      initialSigners,
-      4,
-      new Common.AddressAndWeight[](0)
-    );
+    s_verifier.setConfig(configDigest, initialSigners, 4, new Common.AddressAndWeight[](0));
 
     // Get new signers and update config
     address[] memory newSigners = _getSignerAddresses(_getSigners(20));
@@ -340,9 +335,7 @@ contract VerifierVerifyMultipleConfigDigestTest is VerifierVerifyTest {
       s_reportContext,
       _getSigners(5) // Old number of signers
     );
-    vm.expectRevert(
-      abi.encodeWithSelector(Verifier.IncorrectSignatureCount.selector, 5, 7)
-    );
+    vm.expectRevert(abi.encodeWithSelector(Verifier.IncorrectSignatureCount.selector, 5, 7));
 
     s_verifierProxy.verify(signedReportOldSigners, bytes(""));
   }
@@ -352,12 +345,7 @@ contract VerifierVerifyMultipleConfigDigestTest is VerifierVerifyTest {
     address[] memory signers = _getSignerAddresses(_getSigners(15));
     bytes32 configDigest = keccak256("test");
 
-    s_verifier.setConfig(
-      configDigest,
-      signers,
-      4,
-      new Common.AddressAndWeight[](0)
-    );
+    s_verifier.setConfig(configDigest, signers, 4, new Common.AddressAndWeight[](0));
 
     // Update config with same signers and f
     s_verifier.updateConfig(configDigest, signers, signers, 4);
@@ -372,6 +360,5 @@ contract VerifierVerifyMultipleConfigDigestTest is VerifierVerifyTest {
 
     bytes memory response = s_verifierProxy.verify(signedReport, bytes(""));
     assertReportsEqual(response, s_testReportOne);
-
   }
 }

@@ -65,7 +65,5 @@ interface IVerifier is IERC165 {
    * @param configDigest Config Digest to fetch data for
    * @return blockNumber block at which this config was set
    */
-  function latestConfigDetails(
-    bytes32 configDigest
-  ) external view returns (uint32 blockNumber);
+  function latestConfigDetails(bytes32 configDigest) external view returns (uint32 blockNumber);
 }

@@ -191,10 +191,9 @@ contract BaseTest is Test {
     uint64 offchainConfigVersion,
     bytes memory offchainConfig
   ) internal pure returns (bytes32) {
-
     // Convert addresses to bytes array to match configurator
     bytes[] memory signersAsBytes = new bytes[](signers.length);
-    for (uint i; i < signers.length; ++i){
+    for (uint i; i < signers.length; ++i) {
       signersAsBytes[i] = abi.encodePacked(signers[i]);
     }
 
@@ -316,7 +315,7 @@ contract BaseTestWithConfiguredVerifierAndFeeManager is BaseTest {
       FAULT_TOLERANCE,
       new Common.AddressAndWeight[](0)
     );
-    
+
     v3ConfigDigest = _configDigestFromConfigData(
       FEED_ID_V3,
       SOURCE_CHAIN_ID,

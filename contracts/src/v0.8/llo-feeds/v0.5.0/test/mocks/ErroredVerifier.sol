@@ -45,12 +45,7 @@ contract ErroredVerifier is IVerifier {
     revert FailedToUnsetConfig();
   }
 
-  function setConfig(
-    bytes32,
-    address[] calldata,
-    uint8,
-    Common.AddressAndWeight[] calldata
-  ) external pure override {
+  function setConfig(bytes32, address[] calldata, uint8, Common.AddressAndWeight[] calldata) external pure override {
     revert FailedToSetConfig();
   }
 

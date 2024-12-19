@@ -21,7 +21,7 @@ contract MockConfigurator {
     bytes memory offchainConfig
   ) external {
     ConfigurationState storage configurationState = s_configurationStates[configId];
-    
+
     uint64 newConfigCount = ++configurationState.configCount;
 
     bytes32 configDigest = _configDigestFromConfigData(

@@ -30,12 +30,7 @@ contract Verifier_setConfig is BaseTest {
       bytes("")
     );
 
-    s_verifier.setConfig(
-      configDigest,
-      s_signerAddrs,
-      FAULT_TOLERANCE,
-      new Common.AddressAndWeight[](0)
-    );
+    s_verifier.setConfig(configDigest, s_signerAddrs, FAULT_TOLERANCE, new Common.AddressAndWeight[](0));
   }
 }
 

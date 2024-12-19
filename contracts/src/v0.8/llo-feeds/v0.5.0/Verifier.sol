@@ -55,18 +55,10 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
   event ReportVerified(bytes32 indexed feedId, address requester);
 
   /// @notice This event is emitted whenever a new DON configuration is set.
-  event ConfigSet(
-    bytes32 indexed configDigest,
-    address[] signers,
-    uint8 f
-  );
+  event ConfigSet(bytes32 indexed configDigest, address[] signers, uint8 f);
 
   /// @notice This event is
-  event ConfigUpdated(
-    bytes32 indexed configDigest,
-    address[] prevSigners,
-    address[] newSigners
-  );
+  event ConfigUpdated(bytes32 indexed configDigest, address[] prevSigners, address[] newSigners);
 
   /// @notice This event is emitted whenever a configuration is deactivated
   event ConfigDeactivated(bytes32 indexed configDigest);
@@ -212,7 +204,6 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
     if (rs.length != ss.length) revert MismatchedSignatures(rs.length, ss.length);
   }
 
-
   /// @notice Verifies that a report has been signed by the correct
   /// signers and that enough signers have signed the reports.
   /// @param hashedReport The keccak256 hash of the raw report's bytes
@@ -260,13 +251,13 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
     if (config.f == 0) revert DigestNotSet(configDigest);
 
     // We must be removing the number of signers that were originally set
-    if(config.oracleCount != prevSigners.length){
+    if (config.oracleCount != prevSigners.length) {
       revert NonUniqueSignatures();
     }
 
     for (uint256 i; i < prevSigners.length; ++i) {
       // Check the signers being removed are not zero address or duplicates
-      if(config.oracles[prevSigners[i]].role == Role.Unset){
+      if (config.oracles[prevSigners[i]].role == Role.Unset) {
         revert NonUniqueSignatures();
       }
 
@@ -275,7 +266,6 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
 
     // Once signers have been cleared we can set the new signers
     _setConfig(configDigest, newSigners, f, new Common.AddressAndWeight[](0), true);
-
 
     emit ConfigUpdated(configDigest, prevSigners, newSigners);
   }
@@ -299,7 +289,7 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
   ) internal {
     VerifierState storage verifierState = s_verifierStates[configDigest];
 
-    if(verifierState.f > 0 && !_updateConfig) {
+    if (verifierState.f > 0 && !_updateConfig) {
       revert ConfigDigestAlreadySet();
     }
 
@@ -316,27 +306,15 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
       // Here the contract checks to see if a signer's address has already
       // been set to ensure that the group of signer addresses that will
       // sign reports with the config digest are unique.
-      bool isSignerAlreadySet = verifierState.oracles[signerAddr].role !=
-        Role.Unset;
+      bool isSignerAlreadySet = verifierState.oracles[signerAddr].role != Role.Unset;
       if (isSignerAlreadySet) revert NonUniqueSignatures();
-      verifierState.oracles[signerAddr] = Signer({
-        role: Role.Signer,
-        index: i
-      });
+      verifierState.oracles[signerAddr] = Signer({role: Role.Signer, index: i});
     }
 
-    if(!_updateConfig) {
-      IVerifierProxy(i_verifierProxyAddr).setVerifier(
-        bytes32(0),
-        configDigest,
-        recipientAddressesAndWeights
-      );
+    if (!_updateConfig) {
+      IVerifierProxy(i_verifierProxyAddr).setVerifier(bytes32(0), configDigest, recipientAddressesAndWeights);
 
-      emit ConfigSet(
-        configDigest,
-        signers,
-        f
-      );
+      emit ConfigSet(configDigest, signers, f);
     }
   }
 
@@ -361,12 +339,8 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
   }
 
   /// @inheritdoc IVerifier
-  function latestConfigDetails(
-    bytes32 configDigest
-  ) external view override returns (uint32 blockNumber) {
+  function latestConfigDetails(bytes32 configDigest) external view override returns (uint32 blockNumber) {
     VerifierState storage verifierState = s_verifierStates[configDigest];
-    return (
-      verifierState.latestConfigBlockNumber
-    );
+    return (verifierState.latestConfigBlockNumber);
   }
 }
