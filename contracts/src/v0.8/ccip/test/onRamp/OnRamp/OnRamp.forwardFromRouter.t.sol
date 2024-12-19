@@ -212,32 +212,7 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
     assertEq(IERC20(s_sourceFeeToken).balanceOf(address(s_onRamp)), feeAmount);
   }
 
-  function test_ShouldStoreNonLinkFees() public {
-    Client.EVM2AnyMessage memory message = _generateEmptyMessage();
-    message.feeToken = s_sourceTokens[1];
-
-    uint256 feeAmount = 1234567890;
-    IERC20(s_sourceTokens[1]).transferFrom(OWNER, address(s_onRamp), feeAmount);
-
-    // Calculate conversion done by prices contract
-    uint256 feeTokenPrice = s_feeQuoter.getTokenPrice(s_sourceTokens[1]).value;
-    uint256 linkTokenPrice = s_feeQuoter.getTokenPrice(s_sourceFeeToken).value;
-    uint256 conversionRate = (feeTokenPrice * 1e18) / linkTokenPrice;
-    uint256 expectedJuels = (feeAmount * conversionRate) / 1e18;
-
-    // TODO: re-enable after solving stack too deep
-    //    vm.expectEmit();
-    //    emit OnRamp.CCIPMessageSent(DEST_CHAIN_SELECTOR, 1, _messageToEvent(message, 1, 1, feeAmount, expectedJuels, OWNER));
-
-    s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, feeAmount, OWNER);
-
-    assertEq(IERC20(s_sourceTokens[1]).balanceOf(address(s_onRamp)), feeAmount);
-  }
-
   // Make sure any valid sender, receiver and feeAmount can be handled.
-  // https://github.com/foundry-rs/foundry/issues/5689
-  /// forge-dynamicConfig: default.fuzz.runs = 32
-  /// forge-dynamicConfig: ccip.fuzz.runs = 32
   function testFuzz_ForwardFromRouter_Success(address originalSender, address receiver, uint96 feeTokenAmount) public {
     // To avoid RouterMustSetOriginalSender
     vm.assume(originalSender != address(0));
@@ -270,15 +245,11 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
 
     Internal.EVM2AnyRampMessage memory expectedEvent = _messageToEvent(message, 1, 1, feeTokenAmount, originalSender);
 
-    // TODO: re-enable after solving stack too deep
-    //    vm.expectEmit();
-    //    emit OnRamp.CCIPMessageSent(DEST_CHAIN_SELECTOR, expectedEvent.header.sequenceNumber, expectedEvent);
-
     // Assert the message Id is correct
-    //    assertEq(
-    //      expectedEvent.header.messageId,
-    //      s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, feeTokenAmount, originalSender)
-    //    );
+    assertEq(
+      expectedEvent.header.messageId,
+      s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, feeTokenAmount, originalSender)
+    );
   }
 
   function test_forwardFromRouter_WithInterception() public {
