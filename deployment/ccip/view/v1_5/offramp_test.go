@@ -2,6 +2,7 @@ package v1_5
 
 import (
 	"encoding/json"
+	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -9,8 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
-
-	"math/big"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
@@ -53,8 +52,8 @@ func TestOffRampView(t *testing.T) {
 
 	v, err := GenerateOffRampView(c2)
 	require.NoError(t, err)
-	assert.Equal(t, v.StaticConfig, sc)
-	assert.Equal(t, v.TypeAndVersion, "EVM2EVMOffRamp 1.5.0")
+	assert.Equal(t, sc, v.StaticConfig)
+	assert.Equal(t, "EVM2EVMOffRamp 1.5.0", v.TypeAndVersion)
 	_, err = json.MarshalIndent(v, "", "  ")
 	require.NoError(t, err)
 }

@@ -36,7 +36,7 @@ var (
 type UpdateOnRampDestsConfig struct {
 	UpdatesByChain map[uint64]map[uint64]OnRampDestinationUpdate
 	// Disallow mixing MCMS/non-MCMS per chain for simplicity.
-	// (can still be acheived by calling this function multiple times)
+	// (can still be achieved by calling this function multiple times)
 	MCMS *MCMSConfig
 }
 
@@ -170,7 +170,7 @@ func UpdateOnRampsDests(e deployment.Environment, cfg UpdateOnRampDestsConfig) (
 type UpdateFeeQuoterDestsConfig struct {
 	UpdatesByChain map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig
 	// Disallow mixing MCMS/non-MCMS per chain for simplicity.
-	// (can still be acheived by calling this function multiple times)
+	// (can still be achieved by calling this function multiple times)
 	MCMS *MCMSConfig
 }
 
@@ -480,7 +480,6 @@ func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment) error {
 				return fmt.Errorf("missing offramp for dest %d", destination)
 			}
 		}
-
 	}
 	return nil
 }

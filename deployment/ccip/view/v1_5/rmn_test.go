@@ -45,9 +45,9 @@ func TestGenerateRMNView(t *testing.T) {
 	v, err := GenerateRMNView(c)
 	require.NoError(t, err)
 	assert.Equal(t, v.Owner, chain.DeployerKey.From)
-	assert.Equal(t, v.TypeAndVersion, "RMN 1.5.0")
-	assert.Equal(t, v.ConfigDetails.Version, uint32(1))
-	assert.Equal(t, v.ConfigDetails.Config, cfg)
+	assert.Equal(t, "RMN 1.5.0", v.TypeAndVersion)
+	assert.Equal(t, uint32(1), v.ConfigDetails.Version)
+	assert.Equal(t, cfg, v.ConfigDetails.Config)
 	_, err = json.MarshalIndent(v, "", "  ")
 	require.NoError(t, err)
 }

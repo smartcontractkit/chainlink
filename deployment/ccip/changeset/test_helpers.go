@@ -504,7 +504,7 @@ func deploySingleFeed(
 	deployFunc func(deployment.Chain) deployment.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface],
 	symbol TokenSymbol,
 ) (common.Address, string, error) {
-	//tokenTV := deployment.NewTypeAndVersion(PriceFeed, deployment.Version1_0_0)
+	// tokenTV := deployment.NewTypeAndVersion(PriceFeed, deployment.Version1_0_0)
 	mockTokenFeed, err := deployment.DeployContract(lggr, chain, ab, deployFunc)
 	if err != nil {
 		lggr.Errorw("Failed to deploy token feed", "err", err, "symbol", symbol)

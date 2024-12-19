@@ -208,15 +208,18 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 		}
 	}
 
-	done := make(chan struct{})
+	errFound := make(chan error)
 	go func() {
-		require.NoError(t, wg.Wait())
-		close(done)
+		errFound <- wg.Wait()
 	}()
 
 	require.Eventually(t, func() bool {
 		select {
-		case <-done:
+		case err := <-errFound:
+			if err != nil {
+				t.Errorf("Error waiting for all commits: %v", err)
+				return false
+			}
 			return true
 		default:
 			return false
@@ -360,12 +363,12 @@ func ConfirmCommitWithExpectedSeqNumRange(
 						if mr.SourceChainSelector == src.Selector &&
 							uint64(expectedSeqNumRange.Start()) >= mr.MinSeqNr &&
 							uint64(expectedSeqNumRange.End()) <= mr.MaxSeqNr {
-							t.Logf("All sequence numbers commited in a single report [%d, %d]", expectedSeqNumRange.Start(), expectedSeqNumRange.End())
+							t.Logf("All sequence numbers committed in a single report [%d, %d]", expectedSeqNumRange.Start(), expectedSeqNumRange.End())
 							return event, nil
 						}
 
 						if !enforceSingleCommit && seenMessages.allCommited(src.Selector) {
-							t.Logf("All sequence numbers already commited from range [%d, %d]", expectedSeqNumRange.Start(), expectedSeqNumRange.End())
+							t.Logf("All sequence numbers already committed from range [%d, %d]", expectedSeqNumRange.Start(), expectedSeqNumRange.End())
 							return event, nil
 						}
 					}
@@ -389,12 +392,12 @@ func ConfirmCommitWithExpectedSeqNumRange(
 					if mr.SourceChainSelector == src.Selector &&
 						uint64(expectedSeqNumRange.Start()) >= mr.MinSeqNr &&
 						uint64(expectedSeqNumRange.End()) <= mr.MaxSeqNr {
-						t.Logf("All sequence numbers commited in a single report [%d, %d]", expectedSeqNumRange.Start(), expectedSeqNumRange.End())
+						t.Logf("All sequence numbers committed in a single report [%d, %d]", expectedSeqNumRange.Start(), expectedSeqNumRange.End())
 						return report, nil
 					}
 
 					if !enforceSingleCommit && seenMessages.allCommited(src.Selector) {
-						t.Logf("All sequence numbers already commited from range [%d, %d]", expectedSeqNumRange.Start(), expectedSeqNumRange.End())
+						t.Logf("All sequence numbers already committed from range [%d, %d]", expectedSeqNumRange.Start(), expectedSeqNumRange.End())
 						return report, nil
 					}
 				}
