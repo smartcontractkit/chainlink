@@ -80,7 +80,7 @@ func TestAddLane(t *testing.T) {
 		chain := state.Chains[sel]
 		offRamps, err := chain.Router.GetOffRamps(nil)
 		require.NoError(t, err)
-		require.Len(t, offRamps, 0)
+		require.Empty(t, offRamps)
 	}
 
 	replayBlocks, err := LatestBlocksByChain(testcontext.Get(t), e.Env.Chains)
@@ -114,7 +114,7 @@ func TestAddLane(t *testing.T) {
 			require.Equal(t, common.LeftPadBytes(state.Chains[chain1].OnRamp.Address().Bytes(), 32), srcCfg.OnRamp)
 			require.False(t, srcCfg.IsEnabled)
 		} else {
-			require.Len(t, offRamps, 0)
+			require.Empty(t, offRamps)
 		}
 	}
 

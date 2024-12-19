@@ -2,6 +2,7 @@ package changeset
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"net/http"
@@ -11,12 +12,12 @@ import (
 	"testing"
 	"time"
 
+	errors2 "github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
@@ -24,7 +25,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
@@ -124,7 +124,7 @@ func LatestBlocksByChain(ctx context.Context, chains map[uint64]deployment.Chain
 	for _, chain := range chains {
 		latesthdr, err := chain.Client.HeaderByNumber(ctx, nil)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get latest header for chain %d", chain.Selector)
+			return nil, errors2.Wrapf(err, "failed to get latest header for chain %d", chain.Selector)
 		}
 		block := latesthdr.Number.Uint64()
 		latestBlocks[chain.Selector] = block
@@ -193,11 +193,11 @@ func CCIPSendRequest(
 
 	tx, err := r.CcipSend(cfg.Sender, cfg.DestChain, msg)
 	if err != nil {
-		return nil, 0, errors.Wrap(err, "failed to send CCIP message")
+		return nil, 0, errors2.Wrap(err, "failed to send CCIP message")
 	}
 	blockNum, err := e.Chains[cfg.SourceChain].Confirm(tx)
 	if err != nil {
-		return tx, 0, errors.Wrap(err, "failed to confirm CCIP message")
+		return tx, 0, errors2.Wrap(err, "failed to confirm CCIP message")
 	}
 	return tx, blockNum, nil
 }
@@ -462,7 +462,7 @@ func DeployFeeds(
 		aggregatorCr, err2 := aggregator_v3_interface.NewAggregatorV3Interface(linkFeed, chain.Client)
 
 		return deployment.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface]{
-			Address: linkFeed, Contract: aggregatorCr, Tv: linkTV, Tx: tx, Err: multierr.Append(err1, err2),
+			Address: linkFeed, Contract: aggregatorCr, Tv: linkTV, Tx: tx, Err: errors.Join(err1, err2),
 		}
 	}
 
@@ -475,7 +475,7 @@ func DeployFeeds(
 		aggregatorCr, err2 := aggregator_v3_interface.NewAggregatorV3Interface(wethFeed, chain.Client)
 
 		return deployment.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface]{
-			Address: wethFeed, Contract: aggregatorCr, Tv: linkTV, Tx: tx, Err: multierr.Append(err1, err2),
+			Address: wethFeed, Contract: aggregatorCr, Tv: linkTV, Tx: tx, Err: errors.Join(err1, err2),
 		}
 	}
 
@@ -638,10 +638,7 @@ func deployTokenPoolsInParallel(
 		if err != nil {
 			return err
 		}
-		if err := attachTokenToTheRegistry(chains[src], state.Chains[src], srcActor, srcToken.Address(), srcPool.Address()); err != nil {
-			return err
-		}
-		return nil
+		return attachTokenToTheRegistry(chains[src], state.Chains[src], srcActor, srcToken.Address(), srcPool.Address())
 	})
 	deployGrp.Go(func() error {
 		var err error
@@ -649,10 +646,7 @@ func deployTokenPoolsInParallel(
 		if err != nil {
 			return err
 		}
-		if err := attachTokenToTheRegistry(chains[dst], state.Chains[dst], dstActor, dstToken.Address(), dstPool.Address()); err != nil {
-			return err
-		}
-		return nil
+		return attachTokenToTheRegistry(chains[dst], state.Chains[dst], dstActor, dstToken.Address(), dstPool.Address())
 	})
 	if err := deployGrp.Wait(); err != nil {
 		return nil, nil, nil, nil, err
@@ -685,7 +679,7 @@ func setUSDCTokenPoolCounterPart(
 	var fixedAddr [32]byte
 	copy(fixedAddr[:], allowedCaller[:32])
 
-	domain, _ := reader.AllAvailableDomains()[destChainSelector]
+	domain := reader.AllAvailableDomains()[destChainSelector]
 
 	domains := []usdc_token_pool.USDCTokenPoolDomainUpdate{
 		{
@@ -839,7 +833,7 @@ func deployTransferTokenOneEnd(
 				big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
 			)
 			return deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
-				tokenAddress, token, tx, deployment.NewTypeAndVersion(BurnMintToken, deployment.Version1_0_0), err2,
+				Address: tokenAddress, Contract: token, Tx: tx, Tv: deployment.NewTypeAndVersion(BurnMintToken, deployment.Version1_0_0), Err: err2,
 			}
 		})
 	if err != nil {
@@ -868,7 +862,7 @@ func deployTransferTokenOneEnd(
 				common.HexToAddress(routerAddress),
 			)
 			return deployment.ContractDeploy[*burn_mint_token_pool.BurnMintTokenPool]{
-				tokenPoolAddress, tokenPoolContract, tx, deployment.NewTypeAndVersion(BurnMintTokenPool, deployment.Version1_5_1), err2,
+				Address: tokenPoolAddress, Contract: tokenPoolContract, Tx: tx, Tv: deployment.NewTypeAndVersion(BurnMintTokenPool, deployment.Version1_5_1), Err: err2,
 			}
 		})
 	if err != nil {
@@ -1003,29 +997,29 @@ func TransferMultiple(
 		t.Run(tt.Name, func(t *testing.T) {
 			expectedTokenBalances.add(tt.DestChain, tt.Receiver, tt.ExpectedTokenBalances)
 
-			pairId := SourceDestPair{
+			pairID := SourceDestPair{
 				SourceChainSelector: tt.SourceChain,
 				DestChainSelector:   tt.DestChain,
 			}
 
 			msg, blocks := Transfer(
 				ctx, t, env, state, tt.SourceChain, tt.DestChain, tt.Tokens, tt.Receiver, tt.Data, tt.ExtraArgs)
-			if _, ok := expectedExecutionStates[pairId]; !ok {
-				expectedExecutionStates[pairId] = make(map[uint64]int)
+			if _, ok := expectedExecutionStates[pairID]; !ok {
+				expectedExecutionStates[pairID] = make(map[uint64]int)
 			}
-			expectedExecutionStates[pairId][msg.SequenceNumber] = tt.ExpectedStatus
+			expectedExecutionStates[pairID][msg.SequenceNumber] = tt.ExpectedStatus
 
 			if _, ok := startBlocks[tt.DestChain]; !ok {
 				startBlocks[tt.DestChain] = blocks[tt.DestChain]
 			}
 
-			seqNr, ok := expectedSeqNums[pairId]
+			seqNr, ok := expectedSeqNums[pairID]
 			if ok {
-				expectedSeqNums[pairId] = cciptypes.NewSeqNumRange(
+				expectedSeqNums[pairID] = cciptypes.NewSeqNumRange(
 					seqNr.Start(), cciptypes.SeqNum(msg.SequenceNumber),
 				)
 			} else {
-				expectedSeqNums[pairId] = cciptypes.NewSeqNumRange(
+				expectedSeqNums[pairID] = cciptypes.NewSeqNumRange(
 					cciptypes.SeqNum(msg.SequenceNumber), cciptypes.SeqNum(msg.SequenceNumber),
 				)
 			}

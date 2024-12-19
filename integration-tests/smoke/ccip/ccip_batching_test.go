@@ -259,7 +259,7 @@ func Test_CCIPBatching_MultiSource(t *testing.T) {
 	// assert that all states are successful
 	for _, states := range execStates {
 		for _, state := range states {
-			require.Equal(t, changeset.EXECUTION_STATE_SUCCESS, state)
+			require.Equal(t, changeset.ExecutionStateSuccess, state)
 		}
 	}
 }
@@ -318,7 +318,7 @@ func Test_CCIPBatching_SingleSource(t *testing.T) {
 	require.NoError(t, err)
 	// assert that all states are successful
 	for _, state := range states {
-		require.Equal(t, changeset.EXECUTION_STATE_SUCCESS, state)
+		require.Equal(t, changeset.ExecutionStateSuccess, state)
 	}
 }
 

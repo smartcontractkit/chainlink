@@ -88,8 +88,8 @@ func Test_CCIPMessaging(t *testing.T) {
 		},
 			common.HexToAddress("0xdead"),
 			[]byte("hello eoa"),
-			nil,                               // default extraArgs
-			changeset.EXECUTION_STATE_SUCCESS, // success because offRamp won't call an EOA
+			nil,                             // default extraArgs
+			changeset.ExecutionStateSuccess, // success because offRamp won't call an EOA
 		)
 	})
 
@@ -102,8 +102,8 @@ func Test_CCIPMessaging(t *testing.T) {
 			},
 			state.Chains[destChain].FeeQuoter.Address(),
 			[]byte("hello FeeQuoter"),
-			nil,                               // default extraArgs
-			changeset.EXECUTION_STATE_SUCCESS, // success because offRamp won't call a contract not implementing CCIPReceiver
+			nil,                             // default extraArgs
+			changeset.ExecutionStateSuccess, // success because offRamp won't call a contract not implementing CCIPReceiver
 		)
 	})
 
@@ -119,7 +119,7 @@ func Test_CCIPMessaging(t *testing.T) {
 			state.Chains[destChain].Receiver.Address(),
 			[]byte("hello CCIPReceiver"),
 			nil, // default extraArgs
-			changeset.EXECUTION_STATE_SUCCESS,
+			changeset.ExecutionStateSuccess,
 			func(t *testing.T) {
 				iter, err := state.Chains[destChain].Receiver.FilterMessageReceived(&bind.FilterOpts{
 					Context: ctx,
@@ -144,7 +144,7 @@ func Test_CCIPMessaging(t *testing.T) {
 			state.Chains[destChain].Receiver.Address(),
 			[]byte("hello CCIPReceiver with low exec gas"),
 			changeset.MakeEVMExtraArgsV2(1, false), // 1 gas is too low.
-			changeset.EXECUTION_STATE_FAILURE,      // state would be failed onchain due to low gas
+			changeset.ExecutionStateFailure,        // state would be failed onchain due to low gas
 		)
 
 		manuallyExecute(ctx, t, latestHead.Number.Uint64(), state, destChain, out, sourceChain, e, sender)
@@ -229,7 +229,7 @@ func manuallyExecute(
 
 	newExecutionState, err := state.Chains[destChain].OffRamp.GetExecutionState(&bind.CallOpts{Context: ctx}, sourceChain, out.msgSentEvent.SequenceNumber)
 	require.NoError(t, err)
-	require.Equal(t, uint8(changeset.EXECUTION_STATE_SUCCESS), newExecutionState)
+	require.Equal(t, uint8(changeset.ExecutionStateSuccess), newExecutionState)
 }
 
 func getMerkleRoot(

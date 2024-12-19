@@ -102,7 +102,7 @@ func TestTokenTransfer(t *testing.T) {
 			ExpectedTokenBalances: map[common.Address]*big.Int{
 				destToken.Address(): oneE18,
 			},
-			ExpectedStatus: changeset.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: changeset.ExecutionStateSuccess,
 		},
 		{
 			Name:        "Send token to contract",
@@ -118,7 +118,7 @@ func TestTokenTransfer(t *testing.T) {
 			ExpectedTokenBalances: map[common.Address]*big.Int{
 				destToken.Address(): oneE18,
 			},
-			ExpectedStatus: changeset.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: changeset.ExecutionStateSuccess,
 		},
 		{
 			Name:        "Send N tokens to contract",
@@ -144,7 +144,7 @@ func TestTokenTransfer(t *testing.T) {
 				selfServeSrcToken.Address(): new(big.Int).Add(oneE18, oneE18),
 				srcToken.Address():          oneE18,
 			},
-			ExpectedStatus: changeset.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: changeset.ExecutionStateSuccess,
 		},
 		{
 			Name:        "Sending token transfer with custom gasLimits to the EOA is successful",
@@ -166,7 +166,7 @@ func TestTokenTransfer(t *testing.T) {
 				selfServeSrcToken.Address(): oneE18,
 				srcToken.Address():          new(big.Int).Add(oneE18, oneE18),
 			},
-			ExpectedStatus: changeset.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: changeset.ExecutionStateSuccess,
 		},
 		{
 			Name:        "Sending PTT with too low gas limit leads to the revert when receiver is a contract",
@@ -189,7 +189,7 @@ func TestTokenTransfer(t *testing.T) {
 				selfServeSrcToken.Address(): big.NewInt(0),
 				srcToken.Address():          big.NewInt(0),
 			},
-			ExpectedStatus: changeset.EXECUTION_STATE_FAILURE,
+			ExpectedStatus: changeset.ExecutionStateFailure,
 		},
 	}
 

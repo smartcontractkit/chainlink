@@ -476,7 +476,7 @@ func AddDonAndSetCandidateChangeset(
 			ChainIdentifier: mcms.ChainIdentifier(cfg.HomeChainSelector),
 			Batch:           donOps,
 		}},
-		fmt.Sprintf("addDON on new Chain && setCandidate for plugin %s", cfg.PluginType.String()),
+		"addDON on new Chain && setCandidate for plugin "+cfg.PluginType.String(),
 		cfg.MCMS.MinDelay,
 	)
 	if err != nil {

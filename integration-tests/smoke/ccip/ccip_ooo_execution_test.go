@@ -128,7 +128,7 @@ func Test_OutOfOrderExecution(t *testing.T) {
 		nil,
 		changeset.MakeEVMExtraArgsV2(0, true),
 	)
-	expectedStatuses[firstMessage.SequenceNumber] = changeset.EXECUTION_STATE_SUCCESS
+	expectedStatuses[firstMessage.SequenceNumber] = changeset.ExecutionStateSuccess
 	t.Logf("Out of order messages sent from chain %d to chain %d with sequence number %d",
 		sourceChain, destChain, firstMessage.SequenceNumber,
 	)
@@ -183,7 +183,7 @@ func Test_OutOfOrderExecution(t *testing.T) {
 		[]byte("this message has enough gas to execute"),
 		changeset.MakeEVMExtraArgsV2(300_000, true),
 	)
-	expectedStatuses[fourthMessage.SequenceNumber] = changeset.EXECUTION_STATE_SUCCESS
+	expectedStatuses[fourthMessage.SequenceNumber] = changeset.ExecutionStateSuccess
 	t.Logf("Out of order programmable token transfer from chain %d to chain %d with sequence number %d",
 		sourceChain, destChain, fourthMessage.SequenceNumber,
 	)
@@ -202,7 +202,7 @@ func Test_OutOfOrderExecution(t *testing.T) {
 			ExtraArgs:    changeset.MakeEVMExtraArgsV2(0, false),
 		}))
 	require.NoError(t, err)
-	expectedStatuses[fifthMessage.SequenceNumber] = changeset.EXECUTION_STATE_SUCCESS
+	expectedStatuses[fifthMessage.SequenceNumber] = changeset.ExecutionStateSuccess
 	t.Logf("Ordered message send by %v from chain %d to chain %d with sequence number %d",
 		anotherSender.From, sourceChain, destChain, fifthMessage.SequenceNumber,
 	)
@@ -240,11 +240,11 @@ func Test_OutOfOrderExecution(t *testing.T) {
 
 	secondMsgState, err := state.Chains[destChain].OffRamp.GetExecutionState(&bind.CallOpts{Context: ctx}, sourceChain, secondMsg.SequenceNumber)
 	require.NoError(t, err)
-	require.Equal(t, uint8(changeset.EXECUTION_STATE_UNTOUCHED), secondMsgState)
+	require.Equal(t, uint8(changeset.ExecutionStateUntouched), secondMsgState)
 
 	thirdMsgState, err := state.Chains[destChain].OffRamp.GetExecutionState(&bind.CallOpts{Context: ctx}, sourceChain, thirdMessage.SequenceNumber)
 	require.NoError(t, err)
-	require.Equal(t, uint8(changeset.EXECUTION_STATE_UNTOUCHED), thirdMsgState)
+	require.Equal(t, uint8(changeset.ExecutionStateUntouched), thirdMsgState)
 
 	changeset.WaitForTheTokenBalance(ctx, t, destToken.Address(), firstReceiver, e.Chains[destChain], oneE18)
 	changeset.WaitForTheTokenBalance(ctx, t, destUSDC.Address(), secondReceiver, e.Chains[destChain], big.NewInt(0))

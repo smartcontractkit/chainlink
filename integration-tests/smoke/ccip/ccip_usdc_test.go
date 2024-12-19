@@ -110,7 +110,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 			ExpectedTokenBalances: map[common.Address]*big.Int{
 				aChainUSDC.Address(): tinyOneCoin,
 			},
-			ExpectedStatus: changeset.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: changeset.ExecutionStateSuccess,
 		},
 		{
 			Name:        "multiple USDC tokens within the same message",
@@ -131,7 +131,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 				// 2 coins because of the same Receiver
 				aChainUSDC.Address(): new(big.Int).Add(tinyOneCoin, tinyOneCoin),
 			},
-			ExpectedStatus: changeset.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: changeset.ExecutionStateSuccess,
 		},
 		{
 			Name:        "USDC token together with another token transferred to EOA",
@@ -152,7 +152,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 				cChainUSDC.Address():  tinyOneCoin,
 				cChainToken.Address(): new(big.Int).Mul(tinyOneCoin, big.NewInt(10)),
 			},
-			ExpectedStatus: changeset.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: changeset.ExecutionStateSuccess,
 		},
 		{
 			Name:        "USDC programmable token transfer to valid contract receiver",
@@ -169,7 +169,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 			ExpectedTokenBalances: map[common.Address]*big.Int{
 				cChainUSDC.Address(): tinyOneCoin,
 			},
-			ExpectedStatus: changeset.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: changeset.ExecutionStateSuccess,
 		},
 		{
 			Name:        "USDC programmable token transfer with too little gas",
@@ -187,7 +187,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 				bChainUSDC.Address(): new(big.Int).SetUint64(0),
 			},
 			ExtraArgs:      changeset.MakeEVMExtraArgsV2(1, false),
-			ExpectedStatus: changeset.EXECUTION_STATE_FAILURE,
+			ExpectedStatus: changeset.ExecutionStateFailure,
 		},
 		{
 			Name:        "USDC token transfer from a different source chain",
@@ -204,7 +204,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 			ExpectedTokenBalances: map[common.Address]*big.Int{
 				cChainUSDC.Address(): tinyOneCoin,
 			},
-			ExpectedStatus: changeset.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: changeset.ExecutionStateSuccess,
 		},
 	}
 

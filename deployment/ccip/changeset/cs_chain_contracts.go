@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -103,7 +104,7 @@ func UpdateOnRampsDests(e deployment.Environment, cfg UpdateOnRampDestsConfig) (
 	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig)
 	for chainSel, updates := range cfg.UpdatesByChain {
 		txOpts := e.Chains[chainSel].DeployerKey
-		txOpts.Context = e.GetContext()
+		txOpts.Context = context.WithValue(e.GetContext(), "chainSel", chainSel)
 		if cfg.MCMS != nil {
 			txOpts = deployment.SimTransactOpts()
 		}
@@ -228,7 +229,7 @@ func UpdateFeeQuoterDests(e deployment.Environment, cfg UpdateFeeQuoterDestsConf
 	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig)
 	for chainSel, updates := range cfg.UpdatesByChain {
 		txOpts := e.Chains[chainSel].DeployerKey
-		txOpts.Context = e.GetContext()
+		txOpts.Context = context.WithValue(e.GetContext(), "chainSel", chainSel)
 		if cfg.MCMS != nil {
 			txOpts = deployment.SimTransactOpts()
 		}
@@ -350,7 +351,7 @@ func UpdateOffRampSources(e deployment.Environment, cfg UpdateOffRampSourcesConf
 	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig)
 	for chainSel, updates := range cfg.UpdatesByChain {
 		txOpts := e.Chains[chainSel].DeployerKey
-		txOpts.Context = e.GetContext()
+		txOpts.Context = context.WithValue(e.GetContext(), "chainSel", chainSel)
 		if cfg.MCMS != nil {
 			txOpts = deployment.SimTransactOpts()
 		}
@@ -689,7 +690,7 @@ func SetOCR3OffRamp(e deployment.Environment, cfg SetOCR3OffRampConfig) (deploym
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	e.Logger.Infof("Proposing OCR3 config update for", cfg.RemoteChainSels)
+	e.Logger.Infof("Proposing OCR3 config update for %v", cfg.RemoteChainSels)
 	return deployment.ChangesetOutput{Proposals: []timelock.MCMSWithTimelockProposal{
 		*p,
 	}}, nil

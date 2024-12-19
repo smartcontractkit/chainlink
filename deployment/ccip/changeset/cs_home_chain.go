@@ -16,6 +16,7 @@ import (
 	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -36,7 +37,7 @@ func DeployHomeChain(env deployment.Environment, cfg DeployHomeChainConfig) (dep
 	}
 	ab := deployment.NewMemoryAddressBook()
 	// Note we also deploy the cap reg.
-	_, err = deployHomeChain(env.Logger, env, ab, env.Chains[cfg.HomeChainSel], cfg.RMNStaticConfig, cfg.RMNDynamicConfig, cfg.NodeOperators, cfg.NodeP2PIDsPerNodeOpAdmin)
+	_, err = deployHomeChainContracts(env.Logger, env, ab, env.Chains[cfg.HomeChainSel], cfg.RMNStaticConfig, cfg.RMNDynamicConfig, cfg.NodeOperators, cfg.NodeP2PIDsPerNodeOpAdmin)
 	if err != nil {
 		env.Logger.Errorw("Failed to deploy cap reg", "err", err, "addresses", env.ExistingAddresses)
 		return deployment.ChangesetOutput{
@@ -122,7 +123,7 @@ func deployCapReg(
 	return capReg, nil
 }
 
-func deployHomeChain(
+func deployHomeChainContracts(
 	lggr logger.Logger,
 	e deployment.Environment,
 	ab deployment.AddressBook,
@@ -241,10 +242,10 @@ func deployHomeChain(
 	// Need to fetch nodeoperators ids to be able to add nodes for corresponding node operators
 	p2pIDsByNodeOpId := make(map[uint32][][32]byte)
 	for addedEvent.Next() {
-		for nopName, p2pId := range nodeP2PIDsPerNodeOpAdmin {
+		for nopName, p2pID := range nodeP2PIDsPerNodeOpAdmin {
 			if addedEvent.Event.Name == nopName {
 				lggr.Infow("Added node operator", "admin", addedEvent.Event.Admin, "name", addedEvent.Event.Name)
-				p2pIDsByNodeOpId[addedEvent.Event.NodeOperatorId] = p2pId
+				p2pIDsByNodeOpId[addedEvent.Event.NodeOperatorId] = p2pID
 			}
 		}
 	}
@@ -275,7 +276,7 @@ func addNodes(
 	lggr logger.Logger,
 	capReg *capabilities_registry.CapabilitiesRegistry,
 	chain deployment.Chain,
-	p2pIDsByNodeOpId map[uint32][][32]byte,
+	p2pIDsByNodeOpID map[uint32][][32]byte,
 ) error {
 	var nodeParams []capabilities_registry.CapabilitiesRegistryNodeParams
 	nodes, err := capReg.GetNodes(nil)
@@ -291,7 +292,7 @@ func addNodes(
 			HashedCapabilityIds: node.HashedCapabilityIds,
 		}
 	}
-	for nopID, p2pIDs := range p2pIDsByNodeOpId {
+	for nopID, p2pIDs := range p2pIDsByNodeOpID {
 		for _, p2pID := range p2pIDs {
 			// if any p2pIDs are empty throw error
 			if bytes.Equal(p2pID[:], make([]byte, 32)) {
@@ -347,10 +348,7 @@ func (c RemoveDONsConfig) Validate(homeChain CCIPChainState) error {
 	if homeChain.CCIPHome == nil {
 		return fmt.Errorf("ccip home does not exist")
 	}
-	if err := internal.DONIdExists(homeChain.CapabilityRegistry, c.DonIDs); err != nil {
-		return err
-	}
-	return nil
+	return internal.DONIdExists(homeChain.CapabilityRegistry, c.DonIDs)
 }
 
 // RemoveDONs removes DONs from the CapabilitiesRegistry contract.

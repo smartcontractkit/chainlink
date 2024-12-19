@@ -300,7 +300,7 @@ func NewEnvironment(t *testing.T, tc *TestConfigs, tEnv TestEnvironment) Deploye
 	envNodes, err := deployment.NodeInfo(dEnv.Env.NodeIDs, dEnv.Env.Offchain)
 	require.NoError(t, err)
 	dEnv.Env.ExistingAddresses = ab
-	_, err = deployHomeChain(lggr, dEnv.Env, dEnv.Env.ExistingAddresses, dEnv.Env.Chains[dEnv.HomeChainSel],
+	_, err = deployHomeChainContracts(lggr, dEnv.Env, dEnv.Env.ExistingAddresses, dEnv.Env.Chains[dEnv.HomeChainSel],
 		NewTestRMNStaticConfig(),
 		NewTestRMNDynamicConfig(),
 		NewTestNodeOperator(dEnv.Env.Chains[dEnv.HomeChainSel].DeployerKey.From),

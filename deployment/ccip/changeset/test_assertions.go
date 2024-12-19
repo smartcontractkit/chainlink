@@ -516,7 +516,7 @@ func ConfirmExecWithSeqNrs(
 				scc, executionState := GetExecutionState(t, source, dest, offRamp, expectedSeqNr)
 				t.Logf("Waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence number %d, current onchain minSeqNr: %d, execution state: %s",
 					dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr, scc.MinSeqNr, executionStateToString(executionState))
-				if executionState == EXECUTION_STATE_SUCCESS || executionState == EXECUTION_STATE_FAILURE {
+				if executionState == ExecutionStateSuccess || executionState == ExecutionStateFailure {
 					t.Logf("Observed %s execution state on chain %d (offramp %s) from chain %d with expected sequence number %d",
 						executionStateToString(executionState), dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr)
 					executionStates[expectedSeqNr] = int(executionState)
@@ -562,7 +562,7 @@ func ConfirmNoExecConsistentlyWithSeqNr(
 		scc, executionState := GetExecutionState(t, source, dest, offRamp, expectedSeqNr)
 		t.Logf("Waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence number %d, current onchain minSeqNr: %d, execution state: %s",
 			dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr, scc.MinSeqNr, executionStateToString(executionState))
-		if executionState == EXECUTION_STATE_UNTOUCHED {
+		if executionState == ExecutionStateUntouched {
 			return true
 		}
 		t.Logf("Observed %s execution state on chain %d (offramp %s) from chain %d with expected sequence number %d",
@@ -620,21 +620,21 @@ func SeqNumberRangeToSlice(seqRanges map[SourceDestPair]ccipocr3.SeqNumRange) ma
 }
 
 const (
-	EXECUTION_STATE_UNTOUCHED  = 0
-	EXECUTION_STATE_INPROGRESS = 1
-	EXECUTION_STATE_SUCCESS    = 2
-	EXECUTION_STATE_FAILURE    = 3
+	ExecutionStateUntouched  = 0
+	ExecutionStateInprogress = 1
+	ExecutionStateSuccess    = 2
+	ExecutionStateFailure    = 3
 )
 
 func executionStateToString(state uint8) string {
 	switch state {
-	case EXECUTION_STATE_UNTOUCHED:
+	case ExecutionStateUntouched:
 		return "UNTOUCHED"
-	case EXECUTION_STATE_INPROGRESS:
+	case ExecutionStateInprogress:
 		return "IN_PROGRESS"
-	case EXECUTION_STATE_SUCCESS:
+	case ExecutionStateSuccess:
 		return "SUCCESS"
-	case EXECUTION_STATE_FAILURE:
+	case ExecutionStateFailure:
 		return "FAILURE"
 	default:
 		return "UNKNOWN"

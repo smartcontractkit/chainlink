@@ -189,15 +189,15 @@ func (c SetRMNHomeCandidateConfig) Validate(state CCIPOnChainState) error {
 	}
 
 	var (
-		peerIds            = make(map[[32]byte]struct{})
+		peerIDs            = make(map[[32]byte]struct{})
 		offchainPublicKeys = make(map[[32]byte]struct{})
 	)
 
 	for _, node := range c.RMNStaticConfig.Nodes {
-		if _, exists := peerIds[node.PeerId]; exists {
+		if _, exists := peerIDs[node.PeerId]; exists {
 			return fmt.Errorf("peerId %x is duplicated", node.PeerId)
 		}
-		peerIds[node.PeerId] = struct{}{}
+		peerIDs[node.PeerId] = struct{}{}
 
 		if _, exists := offchainPublicKeys[node.OffchainPublicKey]; exists {
 			return fmt.Errorf("offchainPublicKey %x is duplicated", node.OffchainPublicKey)
@@ -321,7 +321,7 @@ func NewSetRMNHomeCandidateConfigChangeset(e deployment.Environment, config SetR
 
 	return deployment.ChangesetOutput{
 		Proposals: []timelock.MCMSWithTimelockProposal{*prop},
-	}, nil
+	}, err
 }
 
 func NewPromoteCandidateConfigChangeset(e deployment.Environment, config PromoteRMNHomeCandidateConfig) (deployment.ChangesetOutput, error) {
