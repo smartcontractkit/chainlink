@@ -75,9 +75,10 @@ func MustABIEncode(abiString string, args ...interface{}) []byte {
 
 // getNodeOperatorIDMap returns a map of node operator names to their IDs
 // If maxNops is greater than the number of node operators, it will return all node operators
-// nolint:ll Unused now but could be useful in the future.
+//
+//nolint:ll,unused Unused // now but could be useful in the future.
 func getNodeOperatorIDMap(capReg *capabilities_registry.CapabilitiesRegistry, maxNops uint32) (map[string]uint32, error) {
-	nopIdByName := make(map[string]uint32)
+	nopIDByName := make(map[string]uint32)
 	operators, err := capReg.GetNodeOperators(nil)
 	if err != nil {
 		return nil, err
@@ -90,9 +91,9 @@ func getNodeOperatorIDMap(capReg *capabilities_registry.CapabilitiesRegistry, ma
 		if err != nil {
 			return nil, err
 		}
-		nopIdByName[operator.Name] = i
+		nopIDByName[operator.Name] = i
 	}
-	return nopIdByName, nil
+	return nopIDByName, nil
 }
 
 func LatestCCIPDON(registry *capabilities_registry.CapabilitiesRegistry) (*capabilities_registry.CapabilitiesRegistryDONInfo, error) {

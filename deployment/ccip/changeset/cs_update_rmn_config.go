@@ -126,12 +126,12 @@ type RMNNopConfig struct {
 	NodeIndex           uint64
 	OffchainPublicKey   [32]byte
 	EVMOnChainPublicKey common.Address
-	PeerId              p2pkey.PeerID
+	PeerID              p2pkey.PeerID
 }
 
 func (c RMNNopConfig) ToRMNHomeNode() rmn_home.RMNHomeNode {
 	return rmn_home.RMNHomeNode{
-		PeerId:            c.PeerId,
+		PeerId:            c.PeerID,
 		OffchainPublicKey: c.OffchainPublicKey,
 	}
 }

@@ -64,10 +64,10 @@ func LaneConfigsForChains(t *testing.T, env deployment.Environment, state change
 	[]ExecuteOCR2ConfigParams,
 	[]JobSpecInput,
 ) {
-	var addLanesCfg []DeployLaneConfig
-	var commitOCR2Configs []CommitOCR2ConfigParams
-	var execOCR2Configs []ExecuteOCR2ConfigParams
-	var jobSpecs []JobSpecInput
+	addLanesCfg := make([]DeployLaneConfig, 0, len(pairs))
+	commitOCR2Configs := make([]CommitOCR2ConfigParams, 0, len(pairs))
+	execOCR2Configs := make([]ExecuteOCR2ConfigParams, 0, len(pairs))
+	jobSpecs := make([]JobSpecInput, 0, len(pairs))
 	for _, pair := range pairs {
 		dest := pair.DestChainSelector
 		src := pair.SourceChainSelector

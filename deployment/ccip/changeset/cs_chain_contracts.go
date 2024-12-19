@@ -102,9 +102,10 @@ func UpdateOnRampsDests(e deployment.Environment, cfg UpdateOnRampDestsConfig) (
 	var batches []timelock.BatchChainOperation
 	timelocks := make(map[uint64]common.Address)
 	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig)
+	ctx := e.GetContext()
 	for chainSel, updates := range cfg.UpdatesByChain {
 		txOpts := e.Chains[chainSel].DeployerKey
-		txOpts.Context = context.WithValue(e.GetContext(), "chainSel", chainSel)
+		txOpts.Context = ctx
 		if cfg.MCMS != nil {
 			txOpts = deployment.SimTransactOpts()
 		}
@@ -227,9 +228,10 @@ func UpdateFeeQuoterDests(e deployment.Environment, cfg UpdateFeeQuoterDestsConf
 	var batches []timelock.BatchChainOperation
 	timelocks := make(map[uint64]common.Address)
 	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig)
+	ctx := e.GetContext()
 	for chainSel, updates := range cfg.UpdatesByChain {
 		txOpts := e.Chains[chainSel].DeployerKey
-		txOpts.Context = context.WithValue(e.GetContext(), "chainSel", chainSel)
+		txOpts.Context = ctx
 		if cfg.MCMS != nil {
 			txOpts = deployment.SimTransactOpts()
 		}
@@ -349,9 +351,10 @@ func UpdateOffRampSources(e deployment.Environment, cfg UpdateOffRampSourcesConf
 	var batches []timelock.BatchChainOperation
 	timelocks := make(map[uint64]common.Address)
 	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig)
+	ctx := e.GetContext()
 	for chainSel, updates := range cfg.UpdatesByChain {
 		txOpts := e.Chains[chainSel].DeployerKey
-		txOpts.Context = context.WithValue(e.GetContext(), "chainSel", chainSel)
+		txOpts.Context = ctx
 		if cfg.MCMS != nil {
 			txOpts = deployment.SimTransactOpts()
 		}
@@ -503,9 +506,10 @@ func UpdateRouterRamps(e deployment.Environment, cfg UpdateRouterRampsConfig) (d
 	var batches []timelock.BatchChainOperation
 	timelocks := make(map[uint64]common.Address)
 	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig)
+	ctx := e.GetContext()
 	for chainSel, update := range cfg.UpdatesByChain {
 		txOpts := e.Chains[chainSel].DeployerKey
-		txOpts.Context = context.WithValue(e.GetContext(), "chainSel", chainSel)
+		txOpts.Context = ctx
 		if cfg.MCMS != nil {
 			txOpts = deployment.SimTransactOpts()
 		}
