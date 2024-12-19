@@ -358,6 +358,9 @@ func (t *Txm) sendTransactionWithError(ctx context.Context, tx *types.Transactio
 	}
 
 	t.metrics.IncrementNumBroadcastedTxs(ctx)
+	if bErr := t.metrics.EmitTxMessage(ctx, attempt.Hash, address, tx.ToAddress, *tx.Nonce); bErr != nil {
+		t.lggr.Errorw("Beholder error emitting tx message", "err", bErr)
+	}
 	return t.txStore.UpdateTransactionBroadcast(ctx, attempt.TxID, *tx.Nonce, attempt.Hash, address)
 }
 
