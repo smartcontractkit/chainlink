@@ -77,11 +77,12 @@ func (tc *TestConfigs) Validate() error {
 
 func (tc *TestConfigs) MustSetEnvTypeOrDefault(t *testing.T) {
 	envType := os.Getenv(ENVTESTTYPE)
-	if envType == "" || envType == string(Memory) {
+	switch envType {
+	case string(Memory):
 		tc.Type = Memory
-	} else if envType == string(Docker) {
+	case string(Docker):
 		tc.Type = Docker
-	} else {
+	default:
 		t.Fatalf("env var CCIP_V16_TEST_ENV must be either %s or %s, defaults to %s if unset, got: %s", Memory, Docker, Memory, envType)
 	}
 }
@@ -330,7 +331,7 @@ func NewLegacyEnvironment(t *testing.T, tc *TestConfigs, tEnv TestEnvironment) D
 	for _, c := range e.Env.AllChainSelectors() {
 		mcmsCfg[c] = proposalutils.SingleGroupTimelockConfig(t)
 	}
-	var prereqCfg []DeployPrerequisiteConfigPerChain
+	prereqCfg := make([]DeployPrerequisiteConfigPerChain, 0)
 	for _, chain := range allChains {
 		var opts []PrerequisiteOpt
 		if tc != nil {
@@ -408,7 +409,7 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tc *TestConfigs, tEnv Test
 		mcmsCfg[c] = proposalutils.SingleGroupTimelockConfig(t)
 	}
 
-	var prereqCfg []DeployPrerequisiteConfigPerChain
+	prereqCfg := make([]DeployPrerequisiteConfigPerChain, 0)
 	for _, chain := range allChains {
 		var opts []PrerequisiteOpt
 		if tc != nil {

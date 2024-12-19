@@ -225,7 +225,7 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 	allChains := e.Env.AllChainSelectors()
 	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 	var err error
-	var prereqCfgs []DeployPrerequisiteConfigPerChain
+	prereqCfgs := make([]DeployPrerequisiteConfigPerChain, 0, len(e.Env.AllChainSelectors()))
 	for _, c := range e.Env.AllChainSelectors() {
 		mcmsCfg[c] = proposalutils.SingleGroupTimelockConfig(t)
 		prereqCfgs = append(prereqCfgs, DeployPrerequisiteConfigPerChain{

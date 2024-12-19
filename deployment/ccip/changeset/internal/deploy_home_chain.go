@@ -76,7 +76,7 @@ func MustABIEncode(abiString string, args ...interface{}) []byte {
 // getNodeOperatorIDMap returns a map of node operator names to their IDs
 // If maxNops is greater than the number of node operators, it will return all node operators
 //
-//nolint:ll,unused Unused // now but could be useful in the future.
+//nolint:ll,unused // could be useful in the future.
 func getNodeOperatorIDMap(capReg *capabilities_registry.CapabilitiesRegistry, maxNops uint32) (map[string]uint32, error) {
 	nopIDByName := make(map[string]uint32)
 	operators, err := capReg.GetNodeOperators(nil)

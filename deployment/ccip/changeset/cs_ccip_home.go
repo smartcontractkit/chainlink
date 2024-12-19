@@ -420,7 +420,7 @@ func AddDonAndSetCandidateChangeset(
 	if cfg.MCMS != nil {
 		txOpts = deployment.SimTransactOpts()
 	}
-	var donOps []mcms.Operation
+	donOps := make([]mcms.Operation, 0)
 	for chainSelector, params := range cfg.OCRConfigPerRemoteChainSelector {
 		newDONArgs, err := internal.BuildOCR3ConfigForCCIPHome(
 			e.OCRSecrets,

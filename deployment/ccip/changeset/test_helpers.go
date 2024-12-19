@@ -66,8 +66,7 @@ var (
 func Context(tb testing.TB) context.Context {
 	ctx := context.Background()
 	var cancel func()
-	switch t := tb.(type) {
-	case *testing.T:
+	if t := tb.(*testing.T); t != nil {
 		if d, ok := t.Deadline(); ok {
 			ctx, cancel = context.WithDeadline(ctx, d)
 		}
@@ -134,7 +133,7 @@ func LatestBlocksByChain(ctx context.Context, chains map[uint64]deployment.Chain
 
 func allocateCCIPChainSelectors(chains map[uint64]deployment.Chain) (homeChainSel uint64, feeChainSel uint64) {
 	// Lower chainSel is home chain.
-	var chainSels []uint64
+	chainSels := make([]uint64, 0)
 	// Say first chain is home chain.
 	for chainSel := range chains {
 		chainSels = append(chainSels, chainSel)

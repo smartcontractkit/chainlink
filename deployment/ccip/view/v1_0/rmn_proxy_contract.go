@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_proxy_contract"
@@ -16,7 +17,7 @@ type RMNProxyView struct {
 
 func GenerateRMNProxyView(r *rmn_proxy_contract.RMNProxyContract) (RMNProxyView, error) {
 	if r == nil {
-		return RMNProxyView{}, fmt.Errorf("cannot generate view for nil RMNProxy")
+		return RMNProxyView{}, errors.New("cannot generate view for nil RMNProxy")
 	}
 	meta, err := types.NewContractMetaData(r, r.Address())
 	if err != nil {

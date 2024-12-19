@@ -259,8 +259,8 @@ func deriveOCR2Config(
 	}
 	nodes := nodeInfo.NonBootstraps()
 	// Get OCR3 Config from helper
-	var schedule []int
-	var oracles []confighelper.OracleIdentityExtra
+	schedule := make([]int, 0, len(nodes))
+	oracles := make([]confighelper.OracleIdentityExtra, 0, len(nodes))
 	for _, node := range nodes {
 		schedule = append(schedule, 1)
 		cfg, exists := node.OCRConfigForChainSelector(chainSel)
@@ -300,14 +300,14 @@ func deriveOCR2Config(
 	if err != nil {
 		return FinalOCR2Config{}, fmt.Errorf("failed to derive OCR2 config: %w", err)
 	}
-	var signersAddresses []common.Address
+	signersAddresses := make([]common.Address, 0, len(signers))
 	for _, signer := range signers {
 		if len(signer) != 20 {
 			return FinalOCR2Config{}, fmt.Errorf("address is not 20 bytes %s", signer)
 		}
 		signersAddresses = append(signersAddresses, common.BytesToAddress(signer))
 	}
-	var transmittersAddresses []common.Address
+	transmittersAddresses := make([]common.Address, 0, len(transmitters))
 	for _, transmitter := range transmitters {
 		bytes, err := hexutil.Decode(string(transmitter))
 		if err != nil {

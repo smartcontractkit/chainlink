@@ -89,3 +89,10 @@ func (params OCRParameters) Validate() error {
 	}
 	return nil
 }
+
+func MustGetInt(num uint64) int {
+	if num > uint64(int(^uint(0)>>1)) {
+		panic(fmt.Sprintf("Number %d is too large to convert to int", num))
+	}
+	return int(num)
+}

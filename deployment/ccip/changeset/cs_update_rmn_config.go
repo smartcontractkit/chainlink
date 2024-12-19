@@ -14,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_remote"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -145,9 +146,9 @@ func (c RMNNopConfig) ToRMNRemoteSigner() rmn_remote.RMNRemoteSigner {
 
 func (c RMNNopConfig) SetBit(bitmap *big.Int, value bool) {
 	if value {
-		bitmap.SetBit(bitmap, int(c.NodeIndex), 1)
+		bitmap.SetBit(bitmap, types.MustGetInt(c.NodeIndex), 1)
 	} else {
-		bitmap.SetBit(bitmap, int(c.NodeIndex), 0)
+		bitmap.SetBit(bitmap, types.MustGetInt(c.NodeIndex), 0)
 	}
 }
 
@@ -472,7 +473,7 @@ func (c SetRMNRemoteConfig) Validate() error {
 			}
 		}
 
-		if len(config.Signers) < 2*int(config.F)+1 {
+		if len(config.Signers) < 2*types.MustGetInt(config.F)+1 {
 			return fmt.Errorf("signers count (%d) must be greater than or equal to %d", len(config.Signers), 2*config.F+1)
 		}
 	}

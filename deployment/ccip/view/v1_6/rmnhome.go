@@ -90,11 +90,11 @@ type RMNHomeNode struct {
 func (n RMNHomeNode) MarshalJSON() ([]byte, error) {
 	type Alias RMNHomeNode
 	return json.Marshal(&struct {
-		PeerId            string `json:"peerId"`
+		PeerID            string `json:"peerId"`
 		OffchainPublicKey string `json:"offchainPublicKey"`
 		*Alias
 	}{
-		PeerId:            hex.EncodeToString(n.PeerID[:]),
+		PeerID:            hex.EncodeToString(n.PeerID[:]),
 		OffchainPublicKey: hex.EncodeToString(n.OffchainPublicKey[:]),
 		Alias:             (*Alias)(&n),
 	})

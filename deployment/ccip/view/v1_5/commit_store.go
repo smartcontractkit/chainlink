@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
@@ -24,7 +25,7 @@ type CommitStoreView struct {
 
 func GenerateCommitStoreView(c *commit_store.CommitStore) (CommitStoreView, error) {
 	if c == nil {
-		return CommitStoreView{}, fmt.Errorf("cannot generate view for nil CommitStore")
+		return CommitStoreView{}, errors.New("cannot generate view for nil CommitStore")
 	}
 	meta, err := types.NewContractMetaData(c, c.Address())
 	if err != nil {
