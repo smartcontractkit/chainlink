@@ -6,9 +6,9 @@ import {IERC165} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils
 /// @notice Library used to query support of an interface declared via {IERC165}.
 /// @dev These functions return the actual result of the query: they do not `revert` if an interface is not supported.
 library ERC165CheckerReverting {
-  error InsufficientGasForStaticcall();
+  error InsufficientGasForStaticCall();
 
-  // As per the EIP-165 spec, no interface should ever match 0xffffffff
+  // As per the EIP-165 spec, no interface should ever match 0xffffffff.
   bytes4 private constant INTERFACE_ID_INVALID = 0xffffffff;
 
   /// @dev 30k gas is required to make the staticcall. Under the 63/64 rule this means that 30,477 gas must be available
@@ -17,26 +17,17 @@ library ERC165CheckerReverting {
   /// 30,000 = ((30,477 * 63) / 64)
   uint256 private constant MINIMUM_GAS_REQUIREMENT = 31_000;
 
-  /// @notice Returns true if `account` supports the {IERC165} interface.
-  /// @dev Any contract that implements ERC165 must explicitly indicate support of InterfaceId_ERC165 and explicitly
-  /// indicate non-support of InterfaceId_Invalid as per the standard.
-  /// @param account the address to be queried for support for ERC165
-  /// @return true if the contract at account indicates support for ERC165, false otherwise
-  function _supportsERC165Reverting(
-    address account
-  ) internal view returns (bool) {
-    return _supportsERC165InterfaceUncheckedReverting(account, type(IERC165).interfaceId)
-      && !_supportsERC165InterfaceUncheckedReverting(account, INTERFACE_ID_INVALID);
-  }
-
-  /// @notice Returns true if `account` supports a defined interface
-  /// @dev The function must support both the interfaceId and interfaces specified by ERC165 generally as per the standard
-  /// @param account the contract to be queried for support
-  /// @param interfaceId the interface being checked for support
+  /// @notice Returns true if `account` supports a defined interface.
+  /// @dev The function must support both the interfaceId and interfaces specified by ERC165 generally as per the standard.
+  /// @param account the contract to be queried for support.
+  /// @param interfaceId the interface being checked for support.
   /// @return true if the contract at account indicates support of the interface with, false otherwise.
   function _supportsInterfaceReverting(address account, bytes4 interfaceId) internal view returns (bool) {
-    // query support of both ERC165 as per the spec and support of _interfaceId
-    return _supportsERC165Reverting(account) && _supportsERC165InterfaceUncheckedReverting(account, interfaceId);
+    // As a gas optimization, short circuit return false if interfaceId is not supported, as it is most likely interfaceId
+    // to be unsupported by the target.
+    return _supportsERC165InterfaceUncheckedReverting(account, interfaceId)
+        && !_supportsERC165InterfaceUncheckedReverting(account, INTERFACE_ID_INVALID)
+        && _supportsERC165InterfaceUncheckedReverting(account, type(IERC165).interfaceId);
   }
 
   /// @notice Query if a contract implements an interface, does not check ERC165 support
@@ -45,7 +36,7 @@ library ERC165CheckerReverting {
   /// @return true if the contract at account indicates support of the interface with
   /// identifier interfaceId, false otherwise
   /// @dev Assumes that account contains a contract that supports ERC165, otherwise
-  /// the behavior of this method is undefined. This precondition can be checked
+  /// the behavior of this method is undefined. This precondition can be checked.
   /// @dev Function will only revert if the minimum gas requirement is not met before the staticcall is performed.
   function _supportsERC165InterfaceUncheckedReverting(address account, bytes4 interfaceId) internal view returns (bool) {
     bytes memory encodedParams = abi.encodeWithSelector(IERC165.supportsInterface.selector, interfaceId);
@@ -54,7 +45,7 @@ library ERC165CheckerReverting {
     uint256 returnSize;
     uint256 returnValue;
 
-    bytes4 notEnoughGasSelector = InsufficientGasForStaticcall.selector;
+    bytes4 notEnoughGasSelector = InsufficientGasForStaticCall.selector;
 
     assembly {
       // The EVM does not return a specific error code if a revert is due to OOG. This check ensures that
