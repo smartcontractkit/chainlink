@@ -7,7 +7,7 @@ echo " │          Compiling CCIP contracts...         │"
 echo " └──────────────────────────────────────────────┘"
 
 SOLC_VERSION="0.8.26"
-OPTIMIZE_RUNS=50000
+OPTIMIZE_RUNS=80000
 # This has to match the value in the `ccip-viair` foundry profile.
 OPTIMIZE_RUNS_OFFRAMP=800
 
