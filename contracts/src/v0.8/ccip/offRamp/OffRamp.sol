@@ -605,7 +605,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     //
     // The ordering of these checks is important, as the first check is the cheapest to execute.
     //
-    // To prevent message delivery bypass issues, a modified version of the ERC165Checker is used exclusively here
+    // To prevent message delivery bypass issues, a modified version of the ERC165Checker is used
     // which checks for sufficient gas before making the external call.
     if (
       (message.data.length == 0 && message.gasLimit == 0) || message.receiver.code.length == 0
