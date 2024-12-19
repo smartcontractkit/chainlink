@@ -15,6 +15,7 @@ import (
 	gcmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 )
 
 type wrapper struct {
@@ -48,6 +49,7 @@ func TestNewFetcherService(t *testing.T) {
 			fetcher.och.HandleGatewayMessage(ctx, "gateway1", gatewayResp)
 		}).Return(nil).Times(1)
 		connector.EXPECT().DonID().Return("don-id")
+		connector.EXPECT().AwaitConnection(matches.AnyContext, "gateway1").Return(nil)
 		connector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
 
 		payload, err := fetcher.Fetch(ctx, url)
@@ -55,6 +57,40 @@ func TestNewFetcherService(t *testing.T) {
 
 		expectedPayload := []byte("response body")
 		require.Equal(t, expectedPayload, payload)
+	})
+
+	t.Run("NOK-response_payload_too_large", func(t *testing.T) {
+		headers := map[string]string{"Content-Type": "application/json"}
+		responsePayload, err := json.Marshal(ghcapabilities.Response{
+			StatusCode:     400,
+			Headers:        headers,
+			ErrorMessage:   "http: request body too large",
+			ExecutionError: true,
+		})
+		require.NoError(t, err)
+		gatewayResponse := &api.Message{
+			Body: api.MessageBody{
+				MessageId: msgID,
+				Method:    ghcapabilities.MethodWebAPITarget,
+				Payload:   responsePayload,
+			},
+		}
+
+		connector.EXPECT().AddHandler([]string{capabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
+
+		fetcher := NewFetcherService(lggr, wrapper)
+		require.NoError(t, fetcher.Start(ctx))
+		defer fetcher.Close()
+
+		connector.EXPECT().SignAndSendToGateway(mock.Anything, "gateway1", mock.Anything).Run(func(ctx context.Context, gatewayID string, msg *api.MessageBody) {
+			fetcher.och.HandleGatewayMessage(ctx, "gateway1", gatewayResponse)
+		}).Return(nil).Times(1)
+		connector.EXPECT().DonID().Return("don-id")
+		connector.EXPECT().AwaitConnection(matches.AnyContext, "gateway1").Return(nil)
+		connector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
+
+		_, err = fetcher.Fetch(ctx, url)
+		require.Error(t, err, "execution error from gateway: http: request body too large")
 	})
 }
 

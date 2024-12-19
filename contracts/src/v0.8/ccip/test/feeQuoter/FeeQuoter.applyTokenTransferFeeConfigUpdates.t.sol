@@ -59,7 +59,7 @@ contract FeeQuoter_applyTokenTransferFeeConfigUpdates is FeeQuoterSetup {
     }
   }
 
-  function test_ApplyTokenTransferFeeConfig_Success() public {
+  function test_ApplyTokenTransferFeeConfig() public {
     FeeQuoter.TokenTransferFeeConfigArgs[] memory tokenTransferFeeConfigArgs = _generateTokenTransferFeeConfigArgs(1, 2);
     tokenTransferFeeConfigArgs[0].destChainSelector = DEST_CHAIN_SELECTOR;
     tokenTransferFeeConfigArgs[0].tokenTransferFeeConfigs[0].token = address(5);
@@ -152,7 +152,7 @@ contract FeeQuoter_applyTokenTransferFeeConfigUpdates is FeeQuoterSetup {
 
   // Reverts
 
-  function test_OnlyCallableByOwnerOrAdmin_Revert() public {
+  function test_RevertWhen_OnlyCallableByOwnerOrAdmin() public {
     vm.startPrank(STRANGER);
     FeeQuoter.TokenTransferFeeConfigArgs[] memory tokenTransferFeeConfigArgs;
 
@@ -163,7 +163,7 @@ contract FeeQuoter_applyTokenTransferFeeConfigUpdates is FeeQuoterSetup {
     );
   }
 
-  function test_InvalidDestBytesOverhead_Revert() public {
+  function test_RevertWhen_InvalidDestBytesOverhead() public {
     FeeQuoter.TokenTransferFeeConfigArgs[] memory tokenTransferFeeConfigArgs = _generateTokenTransferFeeConfigArgs(1, 1);
     tokenTransferFeeConfigArgs[0].destChainSelector = DEST_CHAIN_SELECTOR;
     tokenTransferFeeConfigArgs[0].tokenTransferFeeConfigs[0].token = address(5);

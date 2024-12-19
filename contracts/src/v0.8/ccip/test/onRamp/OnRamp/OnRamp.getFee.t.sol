@@ -10,7 +10,7 @@ import {OnRampSetup} from "./OnRampSetup.t.sol";
 contract OnRamp_getFee is OnRampSetup {
   using USDPriceWith18Decimals for uint224;
 
-  function test_EmptyMessage_Success() public view {
+  function test_EmptyMessage() public view {
     address[2] memory testTokens = [s_sourceFeeToken, s_sourceRouter.getWrappedNative()];
     uint224[2] memory feeTokenPrices = [s_feeTokenPrice, s_wrappedTokenPrice];
 
@@ -25,7 +25,7 @@ contract OnRamp_getFee is OnRampSetup {
     }
   }
 
-  function test_SingleTokenMessage_Success() public view {
+  function test_SingleTokenMessage() public view {
     address[2] memory testTokens = [s_sourceFeeToken, s_sourceRouter.getWrappedNative()];
     uint224[2] memory feeTokenPrices = [s_feeTokenPrice, s_wrappedTokenPrice];
 
@@ -41,7 +41,7 @@ contract OnRamp_getFee is OnRampSetup {
     }
   }
 
-  function test_GetFeeOfZeroForTokenMessage_Success() public {
+  function test_GetFeeOfZeroForTokenMessage() public {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
 
     uint256 feeAmount = s_onRamp.getFee(DEST_CHAIN_SELECTOR, message);
@@ -63,13 +63,13 @@ contract OnRamp_getFee is OnRampSetup {
 
   // Reverts
 
-  function test_Unhealthy_Revert() public {
+  function test_RevertWhen_Unhealthy() public {
     _setMockRMNChainCurse(DEST_CHAIN_SELECTOR, true);
     vm.expectRevert(abi.encodeWithSelector(OnRamp.CursedByRMN.selector, DEST_CHAIN_SELECTOR));
     s_onRamp.getFee(DEST_CHAIN_SELECTOR, _generateEmptyMessage());
   }
 
-  function test_EnforceOutOfOrder_Revert() public {
+  function test_RevertWhen_EnforceOutOfOrder() public {
     // Update dynamic config to enforce allowOutOfOrderExecution = true.
     vm.stopPrank();
     vm.startPrank(OWNER);
@@ -87,7 +87,7 @@ contract OnRamp_getFee is OnRampSetup {
     s_onRamp.getFee(DEST_CHAIN_SELECTOR, message);
   }
 
-  function test_NotAFeeTokenButPricedToken_Revert() public {
+  function test_RevertWhen_NotAFeeTokenButPricedToken() public {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
     message.feeToken = s_sourceTokens[1];
 

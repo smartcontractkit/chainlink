@@ -8,10 +8,11 @@ import {OffRampHelper} from "../../helpers/OffRampHelper.sol";
 import {OffRampSetup} from "./OffRampSetup.t.sol";
 
 contract OffRamp_afterOC3ConfigSet is OffRampSetup {
-  function test_afterOCR3ConfigSet_SignatureVerificationDisabled_Revert() public {
+  function test_RevertWhen_afterOCR3ConfigSet_SignatureVerificationDisabled() public {
     s_offRamp = new OffRampHelper(
       OffRamp.StaticConfig({
         chainSelector: DEST_CHAIN_SELECTOR,
+        gasForCallExactCheck: GAS_FOR_CALL_EXACT_CHECK,
         rmnRemote: s_mockRMNRemote,
         tokenAdminRegistry: address(s_tokenAdminRegistry),
         nonceManager: address(s_inboundNonceManager)

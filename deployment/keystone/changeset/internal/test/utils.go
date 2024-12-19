@@ -21,24 +21,59 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
+	workflow_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/workflow/generated/workflow_registry_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
+
+type SetupTestWorkflowRegistryResponse struct {
+	Registry         *workflow_registry.WorkflowRegistry
+	Chain            deployment.Chain
+	RegistrySelector uint64
+	AddressBook      deployment.AddressBook
+}
+
+func SetupTestWorkflowRegistry(t *testing.T, lggr logger.Logger, chainSel uint64) *SetupTestWorkflowRegistryResponse {
+	chain := testChain(t)
+
+	deployer, err := kslib.NewWorkflowRegistryDeployer()
+	require.NoError(t, err)
+	resp, err := deployer.Deploy(kslib.DeployRequest{Chain: chain})
+	require.NoError(t, err)
+
+	addressBook := deployment.NewMemoryAddressBookFromMap(
+		map[uint64]map[string]deployment.TypeAndVersion{
+			chainSel: map[string]deployment.TypeAndVersion{
+				resp.Address.Hex(): resp.Tv,
+			},
+		},
+	)
+
+	return &SetupTestWorkflowRegistryResponse{
+		Registry:         deployer.Contract(),
+		Chain:            chain,
+		RegistrySelector: chain.Selector,
+		AddressBook:      addressBook,
+	}
+}
 
 type Don struct {
 	Name              string
 	P2PIDs            []p2pkey.PeerID
 	CapabilityConfigs []internal.CapabilityConfig
 }
+
 type SetupTestRegistryRequest struct {
 	P2pToCapabilities map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability
 	NopToNodes        map[kcr.CapabilitiesRegistryNodeOperator][]*internal.P2PSignerEnc
 	Dons              []Don
+	// TODO maybe add support for MCMS at this level
 }
 
 type SetupTestRegistryResponse struct {
 	Registry         *kcr.CapabilitiesRegistry
 	Chain            deployment.Chain
 	RegistrySelector uint64
+	ContractSet      *kslib.ContractSet
 }
 
 func SetupTestRegistry(t *testing.T, lggr logger.Logger, req *SetupTestRegistryRequest) *SetupTestRegistryResponse {
@@ -99,6 +134,9 @@ func SetupTestRegistry(t *testing.T, lggr logger.Logger, req *SetupTestRegistryR
 		Registry:         registry,
 		Chain:            chain,
 		RegistrySelector: chain.Selector,
+		ContractSet: &kslib.ContractSet{
+			CapabilitiesRegistry: registry,
+		},
 	}
 }
 
@@ -158,7 +196,6 @@ func addDons(t *testing.T, lggr logger.Logger, chain deployment.Chain, registry 
 				cc.Config = defaultCapConfig(t, ccfg.Capability)
 			}
 			var exists bool
-			//var cc kcr.CapabilitiesRegistryCapabilityConfiguration{}
 			cc.CapabilityId, exists = capCache.Get(ccfg.Capability)
 			require.True(t, exists, "capability not found in cache %v", ccfg.Capability)
 			capConfigs = append(capConfigs, cc)

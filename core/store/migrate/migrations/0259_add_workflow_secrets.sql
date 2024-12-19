@@ -39,3 +39,4 @@ DROP INDEX IF EXISTS idx_secrets_url_hash;
 -- Drop the workflow_artifacts table
 DROP TABLE IF EXISTS workflow_secrets;
 -- +goose StatementEnd
+

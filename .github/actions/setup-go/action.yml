@@ -29,10 +29,22 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Get Go Version
+      shell: bash
+      id: go-version
+      run: |
+        version=$(sed -ne '/^toolchain /s/^toolchain go//p' ${{ inputs.go-version-file }})
+        if [ -z "$version" ]; then
+          version=$(sed -ne '/^go /s/^go //p' ${{ inputs.go-version-file }})
+          echo "Toolchain version not found in ${{ inputs.go-version-file }}, using go directive instead."
+        fi
+        echo "Go Version: $version"
+        echo "version=$version" >> "$GITHUB_OUTPUT"
+
     - name: Set up Go
       uses: actions/setup-go@v5.0.2
       with:
-        go-version-file: ${{ inputs.go-version-file }}
+        go-version: ${{ steps.go-version.outputs.version }}
         cache: false
         check-latest: true
 

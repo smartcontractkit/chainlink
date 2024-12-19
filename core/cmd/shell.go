@@ -53,6 +53,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/versioning"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/store/migrate"
@@ -111,6 +112,10 @@ func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing, cfgTeleme
 				AuthPublicKeyHex:         csaPubKeyHex,
 				AuthHeaders:              beholderAuthHeaders,
 			}
+			// note: due to the OTEL specification, all histogram buckets
+			// must be defined when the beholder client is created
+			clientCfg.MetricViews = append(clientCfg.MetricViews, workflows.MetricViews()...)
+
 			if tracingCfg.Enabled {
 				clientCfg.TraceSpanExporter, err = tracingCfg.NewSpanExporter()
 				if err != nil {
@@ -394,7 +399,7 @@ func takeBackupIfVersionUpgrade(dbUrl url.URL, rootDir string, cfg periodicbacku
 	}
 
 	// Because backups can take a long time we must start a "fake" health report to prevent
-	//node shutdown because of healthcheck fail/timeout
+	// node shutdown because of healthcheck fail/timeout
 	err = databaseBackup.RunBackup(appv.String())
 	return err
 }

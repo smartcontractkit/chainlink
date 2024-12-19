@@ -10,12 +10,14 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -220,8 +222,8 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 			return false
 		}
 	},
-		3*time.Minute,
-		1*time.Second,
+		tests.WaitTimeout(t),
+		2*time.Second,
 		"all commitments did not confirm",
 	)
 }
@@ -257,6 +259,40 @@ func (c *commitReportTracker) allCommited(sourceChainSelector uint64) bool {
 		}
 	}
 	return true
+}
+
+// ConfirmMultipleCommits waits for multiple ccipocr3.SeqNumRange to be committed by the Offramp.
+// Waiting is done in parallel per every sourceChain/destChain (lane) passed as argument.
+func ConfirmMultipleCommits(
+	t *testing.T,
+	chains map[uint64]deployment.Chain,
+	state map[uint64]CCIPChainState,
+	startBlocks map[uint64]*uint64,
+	enforceSingleCommit bool,
+	expectedSeqNums map[SourceDestPair]ccipocr3.SeqNumRange,
+) error {
+	errGrp := &errgroup.Group{}
+
+	for sourceDest, seqRange := range expectedSeqNums {
+		seqRange := seqRange
+		srcChain := sourceDest.SourceChainSelector
+		destChain := sourceDest.DestChainSelector
+
+		errGrp.Go(func() error {
+			_, err := ConfirmCommitWithExpectedSeqNumRange(
+				t,
+				chains[srcChain],
+				chains[destChain],
+				state[destChain].OffRamp,
+				startBlocks[destChain],
+				seqRange,
+				enforceSingleCommit,
+			)
+			return err
+		})
+	}
+
+	return errGrp.Wait()
 }
 
 // ConfirmCommitWithExpectedSeqNumRange waits for a commit report on the destination chain with the expected sequence number range.
@@ -449,7 +485,7 @@ func ConfirmExecWithSeqNrs(
 		return nil, fmt.Errorf("no expected sequence numbers provided")
 	}
 
-	timer := time.NewTimer(3 * time.Minute)
+	timer := time.NewTimer(8 * time.Minute)
 	defer timer.Stop()
 	tick := time.NewTicker(3 * time.Second)
 	defer tick.Stop()
@@ -564,6 +600,22 @@ func RequireConsistently(t *testing.T, condition func() bool, duration time.Dura
 	}
 }
 
+func SeqNumberRangeToSlice(seqRanges map[SourceDestPair]ccipocr3.SeqNumRange) map[SourceDestPair][]uint64 {
+	flatten := make(map[SourceDestPair][]uint64)
+
+	for srcDst, seqRange := range seqRanges {
+		if _, ok := flatten[srcDst]; !ok {
+			flatten[srcDst] = make([]uint64, 0, seqRange.End()-seqRange.Start()+1)
+		}
+
+		for i := seqRange.Start(); i <= seqRange.End(); i++ {
+			flatten[srcDst] = append(flatten[srcDst], uint64(i))
+		}
+	}
+
+	return flatten
+}
+
 const (
 	EXECUTION_STATE_UNTOUCHED  = 0
 	EXECUTION_STATE_INPROGRESS = 1
@@ -584,4 +636,20 @@ func executionStateToString(state uint8) string {
 	default:
 		return "UNKNOWN"
 	}
+}
+
+func AssertEqualFeeConfig(t *testing.T, want, have fee_quoter.FeeQuoterDestChainConfig) {
+	assert.Equal(t, want.DestGasOverhead, have.DestGasOverhead)
+	assert.Equal(t, want.IsEnabled, have.IsEnabled)
+	assert.Equal(t, want.ChainFamilySelector, have.ChainFamilySelector)
+	assert.Equal(t, want.DefaultTokenDestGasOverhead, have.DefaultTokenDestGasOverhead)
+	assert.Equal(t, want.DefaultTokenFeeUSDCents, have.DefaultTokenFeeUSDCents)
+	assert.Equal(t, want.DefaultTxGasLimit, have.DefaultTxGasLimit)
+	assert.Equal(t, want.DestGasPerPayloadByte, have.DestGasPerPayloadByte)
+	assert.Equal(t, want.DestGasPerDataAvailabilityByte, have.DestGasPerDataAvailabilityByte)
+	assert.Equal(t, want.DestDataAvailabilityMultiplierBps, have.DestDataAvailabilityMultiplierBps)
+	assert.Equal(t, want.DestDataAvailabilityOverheadGas, have.DestDataAvailabilityOverheadGas)
+	assert.Equal(t, want.MaxDataBytes, have.MaxDataBytes)
+	assert.Equal(t, want.MaxNumberOfTokensPerMsg, have.MaxNumberOfTokensPerMsg)
+	assert.Equal(t, want.MaxPerMsgGasLimit, have.MaxPerMsgGasLimit)
 }

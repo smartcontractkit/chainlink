@@ -885,7 +885,8 @@ func (d *Delegate) newServicesMercury(
 
 	lc.ContractConfigTrackerPollInterval = 1 * time.Second // This is the fastest that libocr supports. See: https://github.com/smartcontractkit/offchain-reporting/pull/520
 
-	ocrLogger := ocrcommon.NewOCRWrapper(lggr, d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
+	// Disable OCR debug+info logging for legacy mercury jobs unless tracelogging is enabled, because its simply too verbose (150 jobs => ~50k logs per second)
+	ocrLogger := ocrcommon.NewOCRWrapper(llo.NewSuppressedLogger(lggr, d.cfg.OCR2().TraceLogging()), d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
 		lggr.ErrorIf(d.jobORM.RecordError(ctx, jb.ID, msg), "unable to record error")
 	})
 
@@ -1048,6 +1049,7 @@ func (d *Delegate) newServicesLLO(
 		RetirementReportCodec:  datastreamsllo.StandardRetirementReportCodec{},
 		EAMonitoringEndpoint:   d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, telemetryContractID, synchronization.EnhancedEAMercury),
 		DonID:                  pluginCfg.DonID,
+		ChainID:                rid.ChainID,
 
 		TraceLogging:                 d.cfg.OCR2().TraceLogging(),
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,

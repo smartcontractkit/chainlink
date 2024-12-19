@@ -94,8 +94,8 @@ func TestAppendNodeCapabilities(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			setupResp := kstest.SetupTestRegistry(t, lggr, tt.args.initialState)
 
-			tt.args.req.Registry = setupResp.Registry
 			tt.args.req.Chain = setupResp.Chain
+			tt.args.req.ContractSet = setupResp.ContractSet
 
 			got, err := internal.AppendNodeCapabilitiesImpl(tt.args.lggr, tt.args.req)
 			if (err != nil) != tt.wantErr {

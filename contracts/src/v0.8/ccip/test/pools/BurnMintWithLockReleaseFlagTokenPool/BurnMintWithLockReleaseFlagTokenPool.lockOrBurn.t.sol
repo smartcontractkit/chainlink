@@ -18,7 +18,7 @@ contract BurnMintWithLockReleaseFlagTokenPoolSetup is BurnMintSetup {
     BurnMintSetup.setUp();
 
     s_pool = new BurnMintWithLockReleaseFlagTokenPool(
-      s_burnMintERC20, DEFAULT_TOKEN_DECIMALS, new address[](0), address(s_mockRMN), address(s_sourceRouter)
+      s_burnMintERC20, DEFAULT_TOKEN_DECIMALS, new address[](0), address(s_mockRMNRemote), address(s_sourceRouter)
     );
     s_burnMintERC20.grantMintAndBurnRoles(address(s_pool));
 
@@ -27,7 +27,7 @@ contract BurnMintWithLockReleaseFlagTokenPoolSetup is BurnMintSetup {
 }
 
 contract BurnMintWithLockReleaseFlagTokenPool_lockOrBurn is BurnMintWithLockReleaseFlagTokenPoolSetup {
-  function test_LockOrBurn_CorrectReturnData_Success() public {
+  function test_LockOrBurn_CorrectReturnData() public {
     uint256 burnAmount = 20_000e18;
 
     deal(address(s_burnMintERC20), address(s_pool), burnAmount);

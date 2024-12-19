@@ -27,7 +27,7 @@ contract LockReleaseTokenPool_releaseOrMint is LockReleaseTokenPoolSetup {
     s_lockReleaseTokenPoolWithAllowList.applyChainUpdates(new uint64[](0), chainUpdate);
   }
 
-  function test_ReleaseOrMint_Success() public {
+  function test_ReleaseOrMint() public {
     vm.startPrank(s_allowedOffRamp);
 
     uint256 amount = 100;
@@ -93,7 +93,7 @@ contract LockReleaseTokenPool_releaseOrMint is LockReleaseTokenPoolSetup {
     );
   }
 
-  function test_ChainNotAllowed_Revert() public {
+  function test_RevertWhen_ChainNotAllowed() public {
     uint64[] memory chainsToRemove = new uint64[](1);
     chainsToRemove[0] = SOURCE_CHAIN_SELECTOR;
 
@@ -116,9 +116,9 @@ contract LockReleaseTokenPool_releaseOrMint is LockReleaseTokenPoolSetup {
     );
   }
 
-  function test_PoolMintNotHealthy_Revert() public {
+  function test_RevertWhen_PoolMintNotHealthy() public {
     // Should not mint tokens if cursed.
-    s_mockRMN.setGlobalCursed(true);
+    vm.mockCall(address(s_mockRMNRemote), abi.encodeWithSignature("isCursed(bytes16)"), abi.encode(true));
     uint256 before = s_token.balanceOf(OWNER);
     vm.startPrank(s_allowedOffRamp);
     vm.expectRevert(TokenPool.CursedByRMN.selector);

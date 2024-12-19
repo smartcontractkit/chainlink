@@ -167,11 +167,12 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		return nil, fmt.Errorf("failed to get home chain contract reader: %w", err)
 	}
 
-	hcr := ccipreaderpkg.NewHomeChainReader(
+	hcr := ccipreaderpkg.NewObservedHomeChainReader(
 		homeChainContractReader,
 		d.lggr.Named("HomeChainReader"),
 		100*time.Millisecond,
 		ccipConfigBinding,
+		d.capabilityConfig.ExternalRegistry().ChainID(),
 	)
 
 	// get the chain selector for the home chain

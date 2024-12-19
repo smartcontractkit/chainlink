@@ -9,7 +9,7 @@ contract FactoryBurnMintERC20_burnFrom is BurnMintERC20Setup {
     BurnMintERC20Setup.setUp();
   }
 
-  function test_BurnFrom_Success() public {
+  function test_BurnFrom() public {
     s_burnMintERC20.approve(s_mockPool, s_amount);
 
     changePrank(s_mockPool);
@@ -21,13 +21,13 @@ contract FactoryBurnMintERC20_burnFrom is BurnMintERC20Setup {
 
   // Reverts
 
-  function test_SenderNotBurner_Reverts() public {
+  function test_RevertWhen_SenderNotBurners() public {
     vm.expectRevert(abi.encodeWithSelector(FactoryBurnMintERC20.SenderNotBurner.selector, OWNER));
 
     s_burnMintERC20.burnFrom(OWNER, s_amount);
   }
 
-  function test_InsufficientAllowance_Reverts() public {
+  function test_RevertWhen_InsufficientAllowances() public {
     changePrank(s_mockPool);
 
     vm.expectRevert("ERC20: insufficient allowance");
@@ -35,7 +35,7 @@ contract FactoryBurnMintERC20_burnFrom is BurnMintERC20Setup {
     s_burnMintERC20.burnFrom(OWNER, s_amount);
   }
 
-  function test_ExceedsBalance_Reverts() public {
+  function test_RevertWhen_ExceedsBalances() public {
     s_burnMintERC20.approve(s_mockPool, s_amount * 2);
 
     changePrank(s_mockPool);

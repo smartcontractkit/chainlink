@@ -3,7 +3,7 @@ cmp stdout out.txt
 
 -- out.txt --
 NAME:
-   chainlink chains solana list - List all existing Solana chains
+   chainlink chains solana list - List all existing solana chains
 
 USAGE:
    chainlink chains solana list [arguments...]

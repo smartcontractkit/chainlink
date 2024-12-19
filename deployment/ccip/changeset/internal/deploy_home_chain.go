@@ -46,6 +46,10 @@ const (
 	MaxDurationObservation                  = 5 * time.Second
 	MaxDurationShouldAcceptAttestedReport   = 10 * time.Second
 	MaxDurationShouldTransmitAcceptedReport = 10 * time.Second
+
+	GasPriceDeviationPPB    = 1000
+	DAGasPriceDeviationPPB  = 0
+	OptimisticConfirmations = 1
 )
 
 var (
@@ -112,24 +116,44 @@ func LatestCCIPDON(registry *capabilities_registry.CapabilitiesRegistry) (*capab
 func DonIDForChain(registry *capabilities_registry.CapabilitiesRegistry, ccipHome *ccip_home.CCIPHome, chainSelector uint64) (uint32, error) {
 	dons, err := registry.GetDONs(nil)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("get Dons from capability registry: %w", err)
 	}
-	// TODO: what happens if there are multiple dons for one chain (accidentally?)
+	var donIDs []uint32
 	for _, don := range dons {
 		if len(don.CapabilityConfigurations) == 1 &&
 			don.CapabilityConfigurations[0].CapabilityId == CCIPCapabilityID {
 			configs, err := ccipHome.GetAllConfigs(nil, don.Id, uint8(types.PluginTypeCCIPCommit))
 			if err != nil {
-				return 0, err
+				return 0, fmt.Errorf("get all commit configs from cciphome: %w", err)
+			}
+			if configs.ActiveConfig.ConfigDigest == [32]byte{} && configs.CandidateConfig.ConfigDigest == [32]byte{} {
+				configs, err = ccipHome.GetAllConfigs(nil, don.Id, uint8(types.PluginTypeCCIPExec))
+				if err != nil {
+					return 0, fmt.Errorf("get all exec configs from cciphome: %w", err)
+				}
 			}
 			if configs.ActiveConfig.Config.ChainSelector == chainSelector || configs.CandidateConfig.Config.ChainSelector == chainSelector {
-				return don.Id, nil
+				donIDs = append(donIDs, don.Id)
 			}
 		}
 	}
-	return 0, fmt.Errorf("no DON found for chain %d", chainSelector)
+
+	// more than one DON is an error
+	if len(donIDs) > 1 {
+		return 0, fmt.Errorf("more than one DON found for (chain selector %d, ccip capability id %x) pair", chainSelector, CCIPCapabilityID[:])
+	}
+
+	// no DON found - don ID of 0 indicates that (this is the case in the CR as well).
+	if len(donIDs) == 0 {
+		return 0, nil
+	}
+
+	// DON found - return it.
+	return donIDs[0], nil
 }
 
+// BuildSetOCR3ConfigArgs builds the OCR3 config arguments for the OffRamp contract
+// using the donID's OCR3 configs from the CCIPHome contract.
 func BuildSetOCR3ConfigArgs(
 	donID uint32,
 	ccipHome *ccip_home.CCIPHome,
@@ -170,240 +194,6 @@ func BuildSetOCR3ConfigArgs(
 		})
 	}
 	return offrampOCR3Configs, nil
-}
-
-func SetupExecDON(
-	donID uint32,
-	execConfig ccip_home.CCIPHomeOCR3Config,
-	capReg *capabilities_registry.CapabilitiesRegistry,
-	home deployment.Chain,
-	nodes deployment.Nodes,
-	ccipHome *ccip_home.CCIPHome,
-) error {
-	encodedSetCandidateCall, err := CCIPHomeABI.Pack(
-		"setCandidate",
-		donID,
-		execConfig.PluginType,
-		execConfig,
-		[32]byte{},
-	)
-	if err != nil {
-		return fmt.Errorf("pack set candidate call: %w", err)
-	}
-
-	// set candidate call
-	tx, err := capReg.UpdateDON(
-		home.DeployerKey,
-		donID,
-		nodes.PeerIDs(),
-		[]capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
-			{
-				CapabilityId: CCIPCapabilityID,
-				Config:       encodedSetCandidateCall,
-			},
-		},
-		false,
-		nodes.DefaultF(),
-	)
-	if err != nil {
-		return fmt.Errorf("update don w/ exec config: %w", err)
-	}
-
-	if _, err := deployment.ConfirmIfNoError(home, tx, err); err != nil {
-		return fmt.Errorf("confirm update don w/ exec config: %w", err)
-	}
-
-	execCandidateDigest, err := ccipHome.GetCandidateDigest(nil, donID, execConfig.PluginType)
-	if err != nil {
-		return fmt.Errorf("get exec candidate digest 1st time: %w", err)
-	}
-
-	if execCandidateDigest == [32]byte{} {
-		return fmt.Errorf("candidate digest is empty, expected nonempty")
-	}
-
-	// promote candidate call
-	encodedPromotionCall, err := CCIPHomeABI.Pack(
-		"promoteCandidateAndRevokeActive",
-		donID,
-		execConfig.PluginType,
-		execCandidateDigest,
-		[32]byte{},
-	)
-	if err != nil {
-		return fmt.Errorf("pack promotion call: %w", err)
-	}
-
-	tx, err = capReg.UpdateDON(
-		home.DeployerKey,
-		donID,
-		nodes.PeerIDs(),
-		[]capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
-			{
-				CapabilityId: CCIPCapabilityID,
-				Config:       encodedPromotionCall,
-			},
-		},
-		false,
-		nodes.DefaultF(),
-	)
-	if err != nil {
-		return fmt.Errorf("update don w/ exec config: %w", err)
-	}
-	bn, err := deployment.ConfirmIfNoError(home, tx, err)
-	if err != nil {
-		return fmt.Errorf("confirm update don w/ exec config: %w", err)
-	}
-	if bn == 0 {
-		return fmt.Errorf("UpdateDON tx not confirmed")
-	}
-	// check if candidate digest is promoted
-	pEvent, err := ccipHome.FilterConfigPromoted(&bind.FilterOpts{
-		Context: context.Background(),
-		Start:   bn,
-	}, [][32]byte{execCandidateDigest})
-	if err != nil {
-		return fmt.Errorf("filter exec config promoted: %w", err)
-	}
-	if !pEvent.Next() {
-		return fmt.Errorf("exec config not promoted")
-	}
-	// check that candidate digest is empty.
-	execCandidateDigest, err = ccipHome.GetCandidateDigest(nil, donID, execConfig.PluginType)
-	if err != nil {
-		return fmt.Errorf("get exec candidate digest 2nd time: %w", err)
-	}
-
-	if execCandidateDigest != [32]byte{} {
-		return fmt.Errorf("candidate digest is nonempty after promotion, expected empty")
-	}
-
-	// check that active digest is non-empty.
-	execActiveDigest, err := ccipHome.GetActiveDigest(nil, donID, uint8(types.PluginTypeCCIPExec))
-	if err != nil {
-		return fmt.Errorf("get active exec digest: %w", err)
-	}
-
-	if execActiveDigest == [32]byte{} {
-		return fmt.Errorf("active exec digest is empty, expected nonempty")
-	}
-
-	execConfigs, err := ccipHome.GetAllConfigs(nil, donID, uint8(types.PluginTypeCCIPExec))
-	if err != nil {
-		return fmt.Errorf("get all exec configs 2nd time: %w", err)
-	}
-
-	// print the above info
-	fmt.Printf("completed exec DON creation and promotion: donID: %d execCandidateDigest: %x, execActiveDigest: %x, execCandidateDigestFromGetAllConfigs: %x, execActiveDigestFromGetAllConfigs: %x\n",
-		donID, execCandidateDigest, execActiveDigest, execConfigs.CandidateConfig.ConfigDigest, execConfigs.ActiveConfig.ConfigDigest)
-
-	return nil
-}
-
-func SetupCommitDON(
-	donID uint32,
-	commitConfig ccip_home.CCIPHomeOCR3Config,
-	capReg *capabilities_registry.CapabilitiesRegistry,
-	home deployment.Chain,
-	nodes deployment.Nodes,
-	ccipHome *ccip_home.CCIPHome,
-) error {
-	encodedSetCandidateCall, err := CCIPHomeABI.Pack(
-		"setCandidate",
-		donID,
-		commitConfig.PluginType,
-		commitConfig,
-		[32]byte{},
-	)
-	if err != nil {
-		return fmt.Errorf("pack set candidate call: %w", err)
-	}
-	tx, err := capReg.AddDON(home.DeployerKey, nodes.PeerIDs(), []capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
-		{
-			CapabilityId: CCIPCapabilityID,
-			Config:       encodedSetCandidateCall,
-		},
-	}, false, false, nodes.DefaultF())
-	if err != nil {
-		return fmt.Errorf("add don w/ commit config: %w", err)
-	}
-
-	if _, err := deployment.ConfirmIfNoError(home, tx, err); err != nil {
-		return fmt.Errorf("confirm add don w/ commit config: %w", err)
-	}
-
-	commitCandidateDigest, err := ccipHome.GetCandidateDigest(nil, donID, commitConfig.PluginType)
-	if err != nil {
-		return fmt.Errorf("get commit candidate digest: %w", err)
-	}
-
-	if commitCandidateDigest == [32]byte{} {
-		return fmt.Errorf("candidate digest is empty, expected nonempty")
-	}
-	fmt.Printf("commit candidate digest after setCandidate: %x\n", commitCandidateDigest)
-
-	encodedPromotionCall, err := CCIPHomeABI.Pack(
-		"promoteCandidateAndRevokeActive",
-		donID,
-		commitConfig.PluginType,
-		commitCandidateDigest,
-		[32]byte{},
-	)
-	if err != nil {
-		return fmt.Errorf("pack promotion call: %w", err)
-	}
-
-	tx, err = capReg.UpdateDON(
-		home.DeployerKey,
-		donID,
-		nodes.PeerIDs(),
-		[]capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
-			{
-				CapabilityId: CCIPCapabilityID,
-				Config:       encodedPromotionCall,
-			},
-		},
-		false,
-		nodes.DefaultF(),
-	)
-	if err != nil {
-		return fmt.Errorf("update don w/ commit config: %w", err)
-	}
-
-	if _, err := deployment.ConfirmIfNoError(home, tx, err); err != nil {
-		return fmt.Errorf("confirm update don w/ commit config: %w", err)
-	}
-
-	// check that candidate digest is empty.
-	commitCandidateDigest, err = ccipHome.GetCandidateDigest(nil, donID, commitConfig.PluginType)
-	if err != nil {
-		return fmt.Errorf("get commit candidate digest 2nd time: %w", err)
-	}
-
-	if commitCandidateDigest != [32]byte{} {
-		return fmt.Errorf("candidate digest is nonempty after promotion, expected empty")
-	}
-
-	// check that active digest is non-empty.
-	commitActiveDigest, err := ccipHome.GetActiveDigest(nil, donID, uint8(types.PluginTypeCCIPCommit))
-	if err != nil {
-		return fmt.Errorf("get active commit digest: %w", err)
-	}
-
-	if commitActiveDigest == [32]byte{} {
-		return fmt.Errorf("active commit digest is empty, expected nonempty")
-	}
-
-	commitConfigs, err := ccipHome.GetAllConfigs(nil, donID, uint8(types.PluginTypeCCIPCommit))
-	if err != nil {
-		return fmt.Errorf("get all commit configs 2nd time: %w", err)
-	}
-
-	// print the above information
-	fmt.Printf("completed commit DON creation and promotion: donID: %d, commitCandidateDigest: %x, commitActiveDigest: %x, commitCandidateDigestFromGetAllConfigs: %x, commitActiveDigestFromGetAllConfigs: %x\n",
-		donID, commitCandidateDigest, commitActiveDigest, commitConfigs.CandidateConfig.ConfigDigest, commitConfigs.ActiveConfig.ConfigDigest)
-
-	return nil
 }
 
 func BuildOCR3ConfigForCCIPHome(
@@ -535,4 +325,25 @@ func BuildOCR3ConfigForCCIPHome(
 	}
 
 	return ocr3Configs, nil
+}
+
+func DONIdExists(cr *capabilities_registry.CapabilitiesRegistry, donIDs []uint32) error {
+	// DON ids must exist
+	dons, err := cr.GetDONs(nil)
+	if err != nil {
+		return fmt.Errorf("failed to get dons: %w", err)
+	}
+	for _, donID := range donIDs {
+		exists := false
+		for _, don := range dons {
+			if don.Id == donID {
+				exists = true
+				break
+			}
+		}
+		if !exists {
+			return fmt.Errorf("don id %d does not exist", donID)
+		}
+	}
+	return nil
 }

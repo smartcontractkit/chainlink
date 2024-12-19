@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
-import {Router} from "../../../Router.sol";
 import {IAny2EVMMessageReceiver} from "../../../interfaces/IAny2EVMMessageReceiver.sol";
 import {IRouter} from "../../../interfaces/IRouter.sol";
-import {Client} from "../../../libraries/Client.sol";
 
+import {Router} from "../../../Router.sol";
+import {Client} from "../../../libraries/Client.sol";
 import {MaybeRevertMessageReceiver} from "../../helpers/receivers/MaybeRevertMessageReceiver.sol";
 import {OffRampSetup} from "../../offRamp/OffRamp/OffRampSetup.t.sol";
 
@@ -21,7 +21,20 @@ contract Router_routeMessage is OffRampSetup {
     return ((gasleft() - 2 * (16 * callDataLength + GAS_FOR_CALL_EXACT_CHECK)) * 62) / 64;
   }
 
-  function test_routeMessage_ManualExec_Success() public {
+  function _generateReceiverMessage(
+    uint64 chainSelector
+  ) internal pure returns (Client.Any2EVMMessage memory) {
+    Client.EVMTokenAmount[] memory ta = new Client.EVMTokenAmount[](0);
+    return Client.Any2EVMMessage({
+      messageId: bytes32("a"),
+      sourceChainSelector: chainSelector,
+      sender: bytes("a"),
+      data: bytes("a"),
+      destTokenAmounts: ta
+    });
+  }
+
+  function test_routeMessage_ManualExec() public {
     Client.Any2EVMMessage memory message = _generateReceiverMessage(SOURCE_CHAIN_SELECTOR);
     // Manuel execution cannot run out of gas
 
@@ -36,7 +49,7 @@ contract Router_routeMessage is OffRampSetup {
     assertGt(gasUsed, 3_000);
   }
 
-  function test_routeMessage_ExecutionEvent_Success() public {
+  function test_routeMessage_ExecutionEvent() public {
     Client.Any2EVMMessage memory message = _generateReceiverMessage(SOURCE_CHAIN_SELECTOR);
     // Should revert with reason
     bytes memory realError1 = new bytes(2);
@@ -165,7 +178,7 @@ contract Router_routeMessage is OffRampSetup {
     assertEq(expectedRetData, retData);
   }
 
-  function test_routeMessage_AutoExec_Success() public {
+  function test_routeMessage_AutoExec() public {
     (bool success,,) = s_destRouter.routeMessage(
       _generateReceiverMessage(SOURCE_CHAIN_SELECTOR), GAS_FOR_CALL_EXACT_CHECK, 100_000, address(s_receiver)
     );
@@ -181,7 +194,7 @@ contract Router_routeMessage is OffRampSetup {
   }
 
   // Reverts
-  function test_routeMessage_OnlyOffRamp_Revert() public {
+  function test_RevertWhen_routeMessage_OnlyOffRamp() public {
     vm.stopPrank();
     vm.startPrank(STRANGER);
 
@@ -191,8 +204,8 @@ contract Router_routeMessage is OffRampSetup {
     );
   }
 
-  function test_routeMessage_WhenNotHealthy_Revert() public {
-    s_mockRMN.setGlobalCursed(true);
+  function test_RevertWhen_routeMessage_WhenNotHealthy() public {
+    vm.mockCall(address(s_mockRMNRemote), abi.encodeWithSignature("isCursed()"), abi.encode(true));
     vm.expectRevert(Router.BadARMSignal.selector);
     s_destRouter.routeMessage(
       _generateReceiverMessage(SOURCE_CHAIN_SELECTOR), GAS_FOR_CALL_EXACT_CHECK, 100_000, address(s_receiver)

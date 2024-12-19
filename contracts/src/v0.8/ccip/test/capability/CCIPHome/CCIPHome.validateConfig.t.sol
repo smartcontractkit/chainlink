@@ -96,11 +96,11 @@ contract CCIPHome__validateConfig is CCIPHomeTestSetup {
 
   // Successes.
 
-  function test__validateConfig_Success() public {
+  function test__validateConfig() public {
     s_ccipHome.validateConfig(_getCorrectOCR3Config());
   }
 
-  function test__validateConfigLessTransmittersThanSigners_Success() public {
+  function test__validateConfigLessTransmittersThanSigners() public {
     // fChain is 1, so there should be at least 4 transmitters.
     CCIPHome.OCR3Config memory config = _getCorrectOCR3Config(5, 1);
     config.nodes[1].transmitterKey = bytes("");
@@ -108,7 +108,7 @@ contract CCIPHome__validateConfig is CCIPHomeTestSetup {
     s_ccipHome.validateConfig(config);
   }
 
-  function test__validateConfigSmallerFChain_Success() public {
+  function test__validateConfigSmallerFChain() public {
     CCIPHome.OCR3Config memory config = _getCorrectOCR3Config(11, 3);
 
     // Set fChain to 2
@@ -119,7 +119,7 @@ contract CCIPHome__validateConfig is CCIPHomeTestSetup {
 
   // Reverts
 
-  function test__validateConfig_ChainSelectorNotSet_Reverts() public {
+  function test_RevertWhen__validateConfig_ChainSelectorNotSet() public {
     CCIPHome.OCR3Config memory config = _getCorrectOCR3Config();
     config.chainSelector = 0; // invalid
 
@@ -127,7 +127,7 @@ contract CCIPHome__validateConfig is CCIPHomeTestSetup {
     s_ccipHome.validateConfig(config);
   }
 
-  function test__validateConfig_OfframpAddressCannotBeZero_Reverts() public {
+  function test_RevertWhen__validateConfig_OfframpAddressCannotBeZero() public {
     CCIPHome.OCR3Config memory config = _getCorrectOCR3Config();
     config.offrampAddress = ""; // invalid
 
@@ -135,7 +135,7 @@ contract CCIPHome__validateConfig is CCIPHomeTestSetup {
     s_ccipHome.validateConfig(config);
   }
 
-  function test__validateConfig_ABIEncodedAddress_OfframpAddressCannotBeZero_Reverts() public {
+  function test_RevertWhen__validateConfig_ABIEncodedAddress_OfframpAddressCannotBeZero() public {
     CCIPHome.OCR3Config memory config = _getCorrectOCR3Config();
     config.offrampAddress = abi.encode(address(0)); // invalid
 
@@ -143,7 +143,7 @@ contract CCIPHome__validateConfig is CCIPHomeTestSetup {
     s_ccipHome.validateConfig(config);
   }
 
-  function test__validateConfig_RMNHomeAddressCannotBeZero_Reverts() public {
+  function test_RevertWhen__validateConfig_RMNHomeAddressCannotBeZero() public {
     CCIPHome.OCR3Config memory config = _getCorrectOCR3Config();
     config.rmnHomeAddress = ""; // invalid
 
@@ -151,7 +151,7 @@ contract CCIPHome__validateConfig is CCIPHomeTestSetup {
     s_ccipHome.validateConfig(config);
   }
 
-  function test__validateConfig_ABIEncodedAddress_RMNHomeAddressCannotBeZero_Reverts() public {
+  function test_RevertWhen__validateConfig_ABIEncodedAddress_RMNHomeAddressCannotBeZero() public {
     CCIPHome.OCR3Config memory config = _getCorrectOCR3Config();
     config.rmnHomeAddress = abi.encode(address(0)); // invalid
 
@@ -159,7 +159,7 @@ contract CCIPHome__validateConfig is CCIPHomeTestSetup {
     s_ccipHome.validateConfig(config);
   }
 
-  function test__validateConfig_ChainSelectorNotFound_Reverts() public {
+  function test_RevertWhen__validateConfig_ChainSelectorNotFound() public {
     CCIPHome.OCR3Config memory config = _getCorrectOCR3Config();
     config.chainSelector = 2; // not set
 
@@ -167,7 +167,7 @@ contract CCIPHome__validateConfig is CCIPHomeTestSetup {
     s_ccipHome.validateConfig(config);
   }
 
-  function test__validateConfig_NotEnoughTransmitters_Reverts() public {
+  function test_RevertWhen__validateConfig_NotEnoughTransmitters() public {
     CCIPHome.OCR3Config memory config = _getCorrectOCR3Config();
     uint256 numberOfTransmitters = 3;
 
@@ -185,7 +185,7 @@ contract CCIPHome__validateConfig is CCIPHomeTestSetup {
     s_ccipHome.validateConfig(config);
   }
 
-  function test__validateConfig_NotEnoughTransmittersEmptyAddresses_Reverts() public {
+  function test_RevertWhen__validateConfig_NotEnoughTransmittersEmptyAddresses() public {
     CCIPHome.OCR3Config memory config = _getCorrectOCR3Config();
     config.nodes[0].transmitterKey = bytes("");
 
@@ -201,7 +201,7 @@ contract CCIPHome__validateConfig is CCIPHomeTestSetup {
     s_ccipHome.validateConfig(config);
   }
 
-  function test__validateConfig_TooManySigners_Reverts() public {
+  function test_RevertWhen__validateConfig_TooManySigners() public {
     CCIPHome.OCR3Config memory config = _getCorrectOCR3Config();
     config.nodes = new CCIPHome.OCR3Node[](257);
 
@@ -209,7 +209,7 @@ contract CCIPHome__validateConfig is CCIPHomeTestSetup {
     s_ccipHome.validateConfig(config);
   }
 
-  function test__validateConfig_FChainTooHigh_Reverts() public {
+  function test_RevertWhen__validateConfig_FChainTooHigh() public {
     CCIPHome.OCR3Config memory config = _getCorrectOCR3Config();
     config.FRoleDON = 2; // too low
 
@@ -220,7 +220,7 @@ contract CCIPHome__validateConfig is CCIPHomeTestSetup {
     s_ccipHome.validateConfig(config);
   }
 
-  function test__validateConfig_FMustBePositive_Reverts() public {
+  function test_RevertWhen__validateConfig_FMustBePositive() public {
     CCIPHome.OCR3Config memory config = _getCorrectOCR3Config();
     config.FRoleDON = 0; // not positive
 
@@ -228,7 +228,7 @@ contract CCIPHome__validateConfig is CCIPHomeTestSetup {
     s_ccipHome.validateConfig(config);
   }
 
-  function test__validateConfig_FTooHigh_Reverts() public {
+  function test_RevertWhen__validateConfig_FTooHigh() public {
     CCIPHome.OCR3Config memory config = _getCorrectOCR3Config();
     config.FRoleDON = 2; // too high
 
@@ -236,7 +236,7 @@ contract CCIPHome__validateConfig is CCIPHomeTestSetup {
     s_ccipHome.validateConfig(config);
   }
 
-  function test__validateConfig_ZeroP2PId_Reverts() public {
+  function test_RevertWhen__validateConfig_ZeroP2PId() public {
     CCIPHome.OCR3Config memory config = _getCorrectOCR3Config();
     config.nodes[1].p2pId = bytes32(0);
 
@@ -244,7 +244,7 @@ contract CCIPHome__validateConfig is CCIPHomeTestSetup {
     s_ccipHome.validateConfig(config);
   }
 
-  function test__validateConfig_ZeroSignerKey_Reverts() public {
+  function test_RevertWhen__validateConfig_ZeroSignerKey() public {
     CCIPHome.OCR3Config memory config = _getCorrectOCR3Config();
     config.nodes[2].signerKey = bytes("");
 

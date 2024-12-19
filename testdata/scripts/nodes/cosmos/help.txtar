@@ -3,13 +3,13 @@ cmp stdout out.txt
 
 -- out.txt --
 NAME:
-   chainlink nodes cosmos - Commands for handling Cosmos node configuration
+   chainlink nodes cosmos - Commands for handling cosmos node configuration
 
 USAGE:
    chainlink nodes cosmos command [command options] [arguments...]
 
 COMMANDS:
-   list  List all existing Cosmos nodes
+   list  List all existing cosmos nodes
 
 OPTIONS:
    --help, -h  show help

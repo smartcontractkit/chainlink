@@ -29,7 +29,7 @@ contract OnRampTokenPoolReentrancy is OnRampSetup {
       new FacadeClient(address(s_sourceRouter), DEST_CHAIN_SELECTOR, s_sourceToken, s_feeToken, i_receiver);
 
     s_maliciousTokenPool = new ReentrantMaliciousTokenPool(
-      address(s_facadeClient), s_sourceToken, address(s_mockRMN), address(s_sourceRouter)
+      address(s_facadeClient), s_sourceToken, address(s_mockRMNRemote), address(s_sourceRouter)
     );
 
     bytes[] memory remotePoolAddresses = new bytes[](1);
@@ -59,7 +59,7 @@ contract OnRampTokenPoolReentrancy is OnRampSetup {
   ///   (reenter)-> Facade -> 2nd call to ccipSend
   /// In this case, Facade's second call would produce an EVM2Any msg with a lower sequence number.
   /// The issue was fixed by implementing a reentrancy guard in OnRamp.
-  function test_OnRampTokenPoolReentrancy_Success() public {
+  function test_OnRampTokenPoolReentrancy() public {
     uint256 amount = 1;
 
     Client.EVMTokenAmount[] memory tokenAmounts = new Client.EVMTokenAmount[](1);

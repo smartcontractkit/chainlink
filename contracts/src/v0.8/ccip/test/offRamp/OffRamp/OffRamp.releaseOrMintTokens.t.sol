@@ -118,7 +118,7 @@ contract OffRamp_releaseOrMintTokens is OffRampSetup {
 
   // Revert
 
-  function test_releaseOrMintTokens_RevertWhen_TokenHandlingError() public {
+  function test_RevertWhen_releaseOrMintTokensWhen_TokenHandlingError() public {
     Client.EVMTokenAmount[] memory srcTokenAmounts = _getCastedSourceEVMTokenAmountsWithZeroAmounts();
 
     bytes memory unknownError = bytes("unknown error");
@@ -138,7 +138,7 @@ contract OffRamp_releaseOrMintTokens is OffRampSetup {
     );
   }
 
-  function test_releaseOrMintTokens_RevertWhenInvalidDataLengthReturnData() public {
+  function test_RevertWhen_releaseOrMintTokensWhenInvalidDataLengthReturnData() public {
     uint256 amount = 100;
     Client.EVMTokenAmount[] memory srcTokenAmounts = _getCastedSourceEVMTokenAmountsWithZeroAmounts();
     srcTokenAmounts[0].amount = amount;
@@ -172,7 +172,7 @@ contract OffRamp_releaseOrMintTokens is OffRampSetup {
     );
   }
 
-  function test_releaseOrMintTokens_RevertWhen_PoolIsNotAPool() public {
+  function test_RevertWhen_releaseOrMintTokensWhen_PoolIsNotAPool() public {
     // The offRamp is a contract, but not a pool
     address fakePoolAddress = address(s_offRamp);
 
@@ -191,7 +191,7 @@ contract OffRamp_releaseOrMintTokens is OffRampSetup {
     );
   }
 
-  function test_releaseOrMintTokens_RevertWhenPoolDoesNotSupportDest() public {
+  function test_RevertWhen_releaseOrMintTokensWhenPoolDoesNotSupportDest() public {
     Client.EVMTokenAmount[] memory srcTokenAmounts = _getCastedSourceEVMTokenAmountsWithZeroAmounts();
     uint256 amount1 = 100;
     srcTokenAmounts[0].amount = amount1;

@@ -8,6 +8,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -15,6 +17,9 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	kocr3 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability"
@@ -24,12 +29,9 @@ import (
 )
 
 type TopLevelConfigSource struct {
-	OracleConfig OracleConfigWithSecrets
+	OracleConfig OracleConfig
 }
-type OracleConfigWithSecrets struct {
-	OracleConfig
-	deployment.OCRSecrets `json:"-" toml:"-"` // don't spill secrets
-}
+
 type OracleConfig struct {
 	MaxQueryLengthBytes       uint32
 	MaxObservationLengthBytes uint32
@@ -107,10 +109,48 @@ func (c OCR2OracleConfig) MarshalJSON() ([]byte, error) {
 	return json.Marshal(alias)
 }
 
-func GenerateOCR3Config(cfg OracleConfigWithSecrets, nca []NodeKeys) (OCR2OracleConfig, error) {
+func (c *OCR2OracleConfig) UnmarshalJSON(data []byte) error {
+	type aliasT struct {
+		Signers               []string
+		Transmitters          []string
+		F                     uint8
+		OnchainConfig         string
+		OffchainConfigVersion uint64
+		OffchainConfig        string
+	}
+	var alias aliasT
+	err := json.Unmarshal(data, &alias)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal OCR2OracleConfig alias: %w", err)
+	}
+	c.F = alias.F
+	c.OffchainConfigVersion = alias.OffchainConfigVersion
+	c.Signers = make([][]byte, len(alias.Signers))
+	for i, signer := range alias.Signers {
+		c.Signers[i], err = hex.DecodeString(strings.TrimPrefix(signer, "0x"))
+		if err != nil {
+			return fmt.Errorf("failed to decode signer: %w", err)
+		}
+	}
+	c.Transmitters = make([]common.Address, len(alias.Transmitters))
+	for i, transmitter := range alias.Transmitters {
+		c.Transmitters[i] = common.HexToAddress(transmitter)
+	}
+	c.OnchainConfig, err = hex.DecodeString(strings.TrimPrefix(alias.OnchainConfig, "0x"))
+	if err != nil {
+		return fmt.Errorf("failed to decode onchain config: %w", err)
+	}
+	c.OffchainConfig, err = hex.DecodeString(strings.TrimPrefix(alias.OffchainConfig, "0x"))
+	if err != nil {
+		return fmt.Errorf("failed to decode offchain config: %w", err)
+	}
+	return nil
+}
+
+func GenerateOCR3Config(cfg OracleConfig, nca []NodeKeys, secrets deployment.OCRSecrets) (OCR2OracleConfig, error) {
 	onchainPubKeys := [][]byte{}
 	allPubKeys := map[string]any{}
-	if cfg.OCRSecrets.IsEmpty() {
+	if secrets.IsEmpty() {
 		return OCR2OracleConfig{}, errors.New("OCRSecrets is required")
 	}
 	for _, n := range nca {
@@ -192,8 +232,8 @@ func GenerateOCR3Config(cfg OracleConfigWithSecrets, nca []NodeKeys) (OCR2Oracle
 	}
 
 	signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig, err := ocr3confighelper.ContractSetConfigArgsDeterministic(
-		cfg.EphemeralSk,
-		cfg.SharedSecret,
+		secrets.EphemeralSk,
+		secrets.SharedSecret,
 		time.Duration(cfg.DeltaProgressMillis)*time.Millisecond,
 		time.Duration(cfg.DeltaResendMillis)*time.Millisecond,
 		time.Duration(cfg.DeltaInitialMillis)*time.Millisecond,
@@ -240,20 +280,25 @@ func GenerateOCR3Config(cfg OracleConfigWithSecrets, nca []NodeKeys) (OCR2Oracle
 }
 
 type configureOCR3Request struct {
-	cfg      *OracleConfigWithSecrets
-	chain    deployment.Chain
-	contract *kocr3.OCR3Capability
-	nodes    []deployment.Node
-	dryRun   bool
+	cfg        *OracleConfig
+	chain      deployment.Chain
+	contract   *kocr3.OCR3Capability
+	nodes      []deployment.Node
+	dryRun     bool
+	ocrSecrets deployment.OCRSecrets
+
+	useMCMS     bool
+	contractSet *ContractSet
 }
 
 func (r configureOCR3Request) generateOCR3Config() (OCR2OracleConfig, error) {
 	nks := makeNodeKeysSlice(r.nodes, r.chain.Selector)
-	return GenerateOCR3Config(*r.cfg, nks)
+	return GenerateOCR3Config(*r.cfg, nks, r.ocrSecrets)
 }
 
 type configureOCR3Response struct {
 	ocrConfig OCR2OracleConfig
+	ops       *timelock.BatchChainOperation
 }
 
 func configureOCR3contract(req configureOCR3Request) (*configureOCR3Response, error) {
@@ -265,9 +310,15 @@ func configureOCR3contract(req configureOCR3Request) (*configureOCR3Response, er
 		return nil, fmt.Errorf("failed to generate OCR3 config: %w", err)
 	}
 	if req.dryRun {
-		return &configureOCR3Response{ocrConfig}, nil
+		return &configureOCR3Response{ocrConfig, nil}, nil
 	}
-	tx, err := req.contract.SetConfig(req.chain.DeployerKey,
+
+	txOpt := req.chain.DeployerKey
+	if req.useMCMS {
+		txOpt = deployment.SimTransactOpts()
+	}
+
+	tx, err := req.contract.SetConfig(txOpt,
 		ocrConfig.Signers,
 		ocrConfig.Transmitters,
 		ocrConfig.F,
@@ -277,12 +328,28 @@ func configureOCR3contract(req configureOCR3Request) (*configureOCR3Response, er
 	)
 	if err != nil {
 		err = DecodeErr(kocr3.OCR3CapabilityABI, err)
-		return nil, fmt.Errorf("failed to call SetConfig for OCR3 contract %s: %w", req.contract.Address().String(), err)
+		return nil, fmt.Errorf("failed to call SetConfig for OCR3 contract %s using mcms: %t: %w", req.contract.Address().String(), req.useMCMS, err)
 	}
-	_, err = req.chain.Confirm(tx)
-	if err != nil {
-		err = DecodeErr(kocr3.OCR3CapabilityABI, err)
-		return nil, fmt.Errorf("failed to confirm SetConfig for OCR3 contract %s: %w", req.contract.Address().String(), err)
+
+	var ops *timelock.BatchChainOperation
+	if !req.useMCMS {
+		_, err = req.chain.Confirm(tx)
+		if err != nil {
+			err = DecodeErr(kocr3.OCR3CapabilityABI, err)
+			return nil, fmt.Errorf("failed to confirm SetConfig for OCR3 contract %s: %w", req.contract.Address().String(), err)
+		}
+	} else {
+		ops = &timelock.BatchChainOperation{
+			ChainIdentifier: mcms.ChainIdentifier(req.chain.Selector),
+			Batch: []mcms.Operation{
+				{
+					To:    req.contract.Address(),
+					Data:  tx.Data(),
+					Value: big.NewInt(0),
+				},
+			},
+		}
 	}
-	return &configureOCR3Response{ocrConfig}, nil
+
+	return &configureOCR3Response{ocrConfig, ops}, nil
 }

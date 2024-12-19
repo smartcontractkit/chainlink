@@ -13,7 +13,7 @@ contract CCIPHome_beforeCapabilityConfigSet is CCIPHomeTestSetup {
     vm.startPrank(address(CAPABILITIES_REGISTRY));
   }
 
-  function test_beforeCapabilityConfigSet_success() public {
+  function test_beforeCapabilityConfigSet() public {
     // first set a config
     bytes memory callData = abi.encodeCall(
       CCIPHome.setCandidate,
@@ -61,7 +61,7 @@ contract CCIPHome_beforeCapabilityConfigSet is CCIPHomeTestSetup {
     assertEq(activeDigest, newCandidateDigest);
   }
 
-  function test_beforeCapabilityConfigSet_OnlyCapabilitiesRegistryCanCall_reverts() public {
+  function test_RevertWhen_beforeCapabilityConfigSet_OnlyCapabilitiesRegistryCanCall() public {
     bytes memory callData = abi.encodeCall(
       CCIPHome.setCandidate,
       (DEFAULT_DON_ID, DEFAULT_PLUGIN_TYPE, _getBaseConfig(Internal.OCRPluginType.Commit), ZERO_DIGEST)
@@ -74,14 +74,14 @@ contract CCIPHome_beforeCapabilityConfigSet is CCIPHomeTestSetup {
     s_ccipHome.beforeCapabilityConfigSet(new bytes32[](0), callData, 0, DEFAULT_DON_ID);
   }
 
-  function test_beforeCapabilityConfigSet_InvalidSelector_reverts() public {
+  function test_RevertWhen_beforeCapabilityConfigSet_InvalidSelector() public {
     bytes memory callData = abi.encodeCall(CCIPHome.getConfigDigests, (DEFAULT_DON_ID, DEFAULT_PLUGIN_TYPE));
 
     vm.expectRevert(abi.encodeWithSelector(CCIPHome.InvalidSelector.selector, CCIPHome.getConfigDigests.selector));
     s_ccipHome.beforeCapabilityConfigSet(new bytes32[](0), callData, 0, DEFAULT_DON_ID);
   }
 
-  function test_beforeCapabilityConfigSet_DONIdMismatch_reverts() public {
+  function test_RevertWhen_beforeCapabilityConfigSet_DONIdMismatch() public {
     uint32 wrongDonId = DEFAULT_DON_ID + 1;
 
     bytes memory callData = abi.encodeCall(
@@ -93,7 +93,7 @@ contract CCIPHome_beforeCapabilityConfigSet is CCIPHomeTestSetup {
     s_ccipHome.beforeCapabilityConfigSet(new bytes32[](0), callData, 0, wrongDonId);
   }
 
-  function test_beforeCapabilityConfigSet_InnerCallReverts_reverts() public {
+  function test_RevertWhen_beforeCapabilityConfigSet_InnerCallReverts() public {
     bytes memory callData = abi.encodeCall(CCIPHome.revokeCandidate, (DEFAULT_DON_ID, DEFAULT_PLUGIN_TYPE, ZERO_DIGEST));
 
     vm.expectRevert(CCIPHome.RevokingZeroDigestNotAllowed.selector);

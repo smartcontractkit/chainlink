@@ -5,14 +5,19 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
@@ -111,7 +116,7 @@ func deployCapReg(
 			}
 		})
 	if err != nil {
-		lggr.Errorw("Failed to deploy capreg", "err", err)
+		lggr.Errorw("Failed to deploy capreg", "chain", chain.String(), "err", err)
 		return nil, err
 	}
 	return capReg, nil
@@ -152,10 +157,9 @@ func deployHomeChain(
 			}
 		})
 	if err != nil {
-		lggr.Errorw("Failed to deploy CCIPHome", "err", err)
+		lggr.Errorw("Failed to deploy CCIPHome", "chain", chain.String(), "err", err)
 		return nil, err
 	}
-	lggr.Infow("deployed CCIPHome", "addr", ccipHome.Address)
 
 	rmnHome, err := deployment.DeployContract(
 		lggr, chain, ab,
@@ -170,10 +174,9 @@ func deployHomeChain(
 		},
 	)
 	if err != nil {
-		lggr.Errorw("Failed to deploy RMNHome", "err", err)
+		lggr.Errorw("Failed to deploy RMNHome", "chain", chain.String(), "err", err)
 		return nil, err
 	}
-	lggr.Infow("deployed RMNHome", "addr", rmnHome.Address)
 
 	// considering the RMNHome is recently deployed, there is no digest to overwrite
 	tx, err := rmnHome.Contract.SetCandidate(chain.DeployerKey, rmnHomeStatic, rmnHomeDynamic, [32]byte{})
@@ -184,19 +187,19 @@ func deployHomeChain(
 
 	rmnCandidateDigest, err := rmnHome.Contract.GetCandidateDigest(nil)
 	if err != nil {
-		lggr.Errorw("Failed to get RMNHome candidate digest", "err", err)
+		lggr.Errorw("Failed to get RMNHome candidate digest", "chain", chain.String(), "err", err)
 		return nil, err
 	}
 
 	tx, err = rmnHome.Contract.PromoteCandidateAndRevokeActive(chain.DeployerKey, rmnCandidateDigest, [32]byte{})
 	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
-		lggr.Errorw("Failed to promote candidate and revoke active on RMNHome", "err", err)
+		lggr.Errorw("Failed to promote candidate and revoke active on RMNHome", "chain", chain.String(), "err", err)
 		return nil, err
 	}
 
 	rmnActiveDigest, err := rmnHome.Contract.GetActiveDigest(nil)
 	if err != nil {
-		lggr.Errorw("Failed to get RMNHome active digest", "err", err)
+		lggr.Errorw("Failed to get RMNHome active digest", "chain", chain.String(), "err", err)
 		return nil, err
 	}
 	lggr.Infow("Got rmn home active digest", "digest", rmnActiveDigest)
@@ -217,14 +220,14 @@ func deployHomeChain(
 		},
 	})
 	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
-		lggr.Errorw("Failed to add capabilities", "err", err)
+		lggr.Errorw("Failed to add capabilities", "chain", chain.String(), "err", err)
 		return nil, err
 	}
 
 	tx, err = capReg.Contract.AddNodeOperators(chain.DeployerKey, nodeOps)
 	txBlockNum, err := deployment.ConfirmIfNoError(chain, tx, err)
 	if err != nil {
-		lggr.Errorw("Failed to add node operators", "err", err)
+		lggr.Errorw("Failed to add node operators", "chain", chain.String(), "err", err)
 		return nil, err
 	}
 	addedEvent, err := capReg.Contract.FilterNodeOperatorAdded(&bind.FilterOpts{
@@ -232,7 +235,7 @@ func deployHomeChain(
 		Context: context.Background(),
 	}, nil, nil)
 	if err != nil {
-		lggr.Errorw("Failed to filter NodeOperatorAdded event", "err", err)
+		lggr.Errorw("Failed to filter NodeOperatorAdded event", "chain", chain.String(), "err", err)
 		return capReg, err
 	}
 	// Need to fetch nodeoperators ids to be able to add nodes for corresponding node operators
@@ -246,7 +249,7 @@ func deployHomeChain(
 		}
 	}
 	if len(p2pIDsByNodeOpId) != len(nodeP2PIDsPerNodeOpAdmin) {
-		lggr.Errorw("Failed to add all node operators", "added", maps.Keys(p2pIDsByNodeOpId), "expected", maps.Keys(nodeP2PIDsPerNodeOpAdmin))
+		lggr.Errorw("Failed to add all node operators", "added", maps.Keys(p2pIDsByNodeOpId), "expected", maps.Keys(nodeP2PIDsPerNodeOpAdmin), "chain", chain.String())
 		return capReg, errors.New("failed to add all node operators")
 	}
 	// Adds initial set of nodes to CR, who all have the CCIP capability
@@ -317,9 +320,99 @@ func addNodes(
 	}
 	tx, err := capReg.AddNodes(chain.DeployerKey, nodeParams)
 	if err != nil {
-		lggr.Errorw("Failed to add nodes", "err", deployment.MaybeDataErr(err))
+		lggr.Errorw("Failed to add nodes", "chain", chain.String(), "err", deployment.MaybeDataErr(err))
 		return err
 	}
 	_, err = chain.Confirm(tx)
 	return err
+}
+
+type RemoveDONsConfig struct {
+	HomeChainSel uint64
+	DonIDs       []uint32
+	MCMS         *MCMSConfig
+}
+
+func (c RemoveDONsConfig) Validate(homeChain CCIPChainState) error {
+	if err := deployment.IsValidChainSelector(c.HomeChainSel); err != nil {
+		return fmt.Errorf("home chain selector must be set %w", err)
+	}
+	if len(c.DonIDs) == 0 {
+		return fmt.Errorf("don ids must be set")
+	}
+	// Cap reg must exist
+	if homeChain.CapabilityRegistry == nil {
+		return fmt.Errorf("cap reg does not exist")
+	}
+	if homeChain.CCIPHome == nil {
+		return fmt.Errorf("ccip home does not exist")
+	}
+	if err := internal.DONIdExists(homeChain.CapabilityRegistry, c.DonIDs); err != nil {
+		return err
+	}
+	return nil
+}
+
+// RemoveDONs removes DONs from the CapabilitiesRegistry contract.
+// TODO: Could likely be moved to common, but needs
+// a common state struct first.
+func RemoveDONs(e deployment.Environment, cfg RemoveDONsConfig) (deployment.ChangesetOutput, error) {
+	state, err := LoadOnchainState(e)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	homeChain, ok := e.Chains[cfg.HomeChainSel]
+	if !ok {
+		return deployment.ChangesetOutput{}, fmt.Errorf("home chain %d not found", cfg.HomeChainSel)
+	}
+	homeChainState := state.Chains[cfg.HomeChainSel]
+	if err := cfg.Validate(homeChainState); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	txOpts := homeChain.DeployerKey
+	if cfg.MCMS != nil {
+		txOpts = deployment.SimTransactOpts()
+	}
+
+	tx, err := homeChainState.CapabilityRegistry.RemoveDONs(txOpts, cfg.DonIDs)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	if cfg.MCMS == nil {
+		_, err = homeChain.Confirm(tx)
+		if err != nil {
+			return deployment.ChangesetOutput{}, err
+		}
+		e.Logger.Infof("Removed dons using deployer key tx %s", tx.Hash().String())
+		return deployment.ChangesetOutput{}, nil
+	}
+	p, err := proposalutils.BuildProposalFromBatches(
+		map[uint64]common.Address{
+			cfg.HomeChainSel: homeChainState.Timelock.Address(),
+		},
+		map[uint64]*gethwrappers.ManyChainMultiSig{
+			cfg.HomeChainSel: homeChainState.ProposerMcm,
+		},
+		[]timelock.BatchChainOperation{
+			{
+				ChainIdentifier: mcms.ChainIdentifier(cfg.HomeChainSel),
+				Batch: []mcms.Operation{
+					{
+						To:    homeChainState.CapabilityRegistry.Address(),
+						Data:  tx.Data(),
+						Value: big.NewInt(0),
+					},
+				},
+			},
+		},
+		"Remove DONs",
+		cfg.MCMS.MinDelay,
+	)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	e.Logger.Infof("Created proposal to remove dons")
+	return deployment.ChangesetOutput{Proposals: []timelock.MCMSWithTimelockProposal{
+		*p,
+	}}, nil
 }

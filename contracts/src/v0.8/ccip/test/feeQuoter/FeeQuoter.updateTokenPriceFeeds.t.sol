@@ -9,7 +9,7 @@ import {FeeQuoterSetup} from "./FeeQuoterSetup.t.sol";
 import {Vm} from "forge-std/Vm.sol";
 
 contract FeeQuoter_updateTokenPriceFeeds is FeeQuoterSetup {
-  function test_ZeroFeeds_Success() public {
+  function test_ZeroFeeds() public {
     Vm.Log[] memory logEntries = vm.getRecordedLogs();
 
     FeeQuoter.TokenPriceFeedUpdate[] memory tokenPriceFeedUpdates = new FeeQuoter.TokenPriceFeedUpdate[](0);
@@ -20,7 +20,7 @@ contract FeeQuoter_updateTokenPriceFeeds is FeeQuoterSetup {
     assertEq(logEntries.length, 0);
   }
 
-  function test_SingleFeedUpdate_Success() public {
+  function test_SingleFeedUpdate() public {
     FeeQuoter.TokenPriceFeedUpdate[] memory tokenPriceFeedUpdates = new FeeQuoter.TokenPriceFeedUpdate[](1);
     tokenPriceFeedUpdates[0] =
       _getSingleTokenPriceFeedUpdateStruct(s_sourceTokens[0], s_dataFeedByToken[s_sourceTokens[0]], 18);
@@ -37,7 +37,7 @@ contract FeeQuoter_updateTokenPriceFeeds is FeeQuoterSetup {
     );
   }
 
-  function test_MultipleFeedUpdate_Success() public {
+  function test_MultipleFeedUpdate() public {
     FeeQuoter.TokenPriceFeedUpdate[] memory tokenPriceFeedUpdates = new FeeQuoter.TokenPriceFeedUpdate[](2);
 
     for (uint256 i = 0; i < 2; ++i) {
@@ -62,7 +62,7 @@ contract FeeQuoter_updateTokenPriceFeeds is FeeQuoterSetup {
     );
   }
 
-  function test_FeedUnset_Success() public {
+  function test_FeedUnset() public {
     Internal.TimestampedPackedUint224 memory priceQueryInitial = s_feeQuoter.getTokenPrice(s_sourceTokens[0]);
     assertFalse(priceQueryInitial.value == 0);
     assertFalse(priceQueryInitial.timestamp == 0);
@@ -106,7 +106,7 @@ contract FeeQuoter_updateTokenPriceFeeds is FeeQuoterSetup {
 
   // Reverts
 
-  function test_FeedUpdatedByNonOwner_Revert() public {
+  function test_RevertWhen_FeedUpdatedByNonOwner() public {
     FeeQuoter.TokenPriceFeedUpdate[] memory tokenPriceFeedUpdates = new FeeQuoter.TokenPriceFeedUpdate[](1);
     tokenPriceFeedUpdates[0] =
       _getSingleTokenPriceFeedUpdateStruct(s_sourceTokens[0], s_dataFeedByToken[s_sourceTokens[0]], 18);

@@ -10,7 +10,7 @@ import {OnRampHelper} from "../../helpers/OnRampHelper.sol";
 import {OnRampSetup} from "./OnRampSetup.t.sol";
 
 contract OnRamp_constructor is OnRampSetup {
-  function test_Constructor_Success() public {
+  function test_Constructor() public {
     OnRamp.StaticConfig memory staticConfig = OnRamp.StaticConfig({
       chainSelector: SOURCE_CHAIN_SELECTOR,
       rmnRemote: s_mockRMNRemote,
@@ -41,7 +41,7 @@ contract OnRamp_constructor is OnRampSetup {
     assertEq(1, s_onRamp.getExpectedNextSequenceNumber(DEST_CHAIN_SELECTOR));
   }
 
-  function test_Constructor_EnableAllowList_ForwardFromRouter_Reverts() public {
+  function test_RevertWhen_Constructor_EnableAllowList_ForwardFromRouter() public {
     OnRamp.StaticConfig memory staticConfig = OnRamp.StaticConfig({
       chainSelector: SOURCE_CHAIN_SELECTOR,
       rmnRemote: s_mockRMNRemote,
@@ -74,7 +74,7 @@ contract OnRamp_constructor is OnRampSetup {
     tempOnRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, 0, OWNER);
   }
 
-  function test_Constructor_InvalidConfigChainSelectorEqZero_Revert() public {
+  function test_RevertWhen_Constructor_InvalidConfigChainSelectorEqZero() public {
     vm.expectRevert(OnRamp.InvalidConfig.selector);
     new OnRampHelper(
       OnRamp.StaticConfig({
@@ -88,7 +88,7 @@ contract OnRamp_constructor is OnRampSetup {
     );
   }
 
-  function test_Constructor_InvalidConfigRMNProxyEqAddressZero_Revert() public {
+  function test_RevertWhen_Constructor_InvalidConfigRMNProxyEqAddressZero() public {
     vm.expectRevert(OnRamp.InvalidConfig.selector);
     s_onRamp = new OnRampHelper(
       OnRamp.StaticConfig({
@@ -102,7 +102,7 @@ contract OnRamp_constructor is OnRampSetup {
     );
   }
 
-  function test_Constructor_InvalidConfigNonceManagerEqAddressZero_Revert() public {
+  function test_RevertWhen_Constructor_InvalidConfigNonceManagerEqAddressZero() public {
     vm.expectRevert(OnRamp.InvalidConfig.selector);
     new OnRampHelper(
       OnRamp.StaticConfig({
@@ -116,7 +116,7 @@ contract OnRamp_constructor is OnRampSetup {
     );
   }
 
-  function test_Constructor_InvalidConfigTokenAdminRegistryEqAddressZero_Revert() public {
+  function test_RevertWhen_Constructor_InvalidConfigTokenAdminRegistryEqAddressZero() public {
     vm.expectRevert(OnRamp.InvalidConfig.selector);
     new OnRampHelper(
       OnRamp.StaticConfig({

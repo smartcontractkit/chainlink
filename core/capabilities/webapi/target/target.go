@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -57,6 +58,12 @@ func (c *Capability) Start(ctx context.Context) error {
 }
 
 func (c *Capability) Close() error {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	err := c.registry.Remove(ctx, c.capabilityInfo.ID)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -128,18 +135,13 @@ func (c *Capability) Execute(ctx context.Context, req capabilities.CapabilityReq
 		return capabilities.CapabilityResponse{}, err
 	}
 
-	payloadBytes, err := json.Marshal(payload)
-	if err != nil {
-		return capabilities.CapabilityResponse{}, err
-	}
-
 	// Default to SingleNode delivery mode
 	deliveryMode := defaultIfNil(workflowCfg.DeliveryMode, webapi.SingleNode)
 
 	switch deliveryMode {
 	case webapi.SingleNode:
 		// blocking call to handle single node request. waits for response from gateway
-		resp, err := c.connectorHandler.HandleSingleNodeRequest(ctx, messageID, payloadBytes)
+		resp, err := c.connectorHandler.HandleSingleNodeRequest(ctx, messageID, payload)
 		if err != nil {
 			return capabilities.CapabilityResponse{}, err
 		}

@@ -22,6 +22,7 @@ import (
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3/promwrapper"
 
 	"github.com/smartcontractkit/libocr/commontypes"
 	libocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus"
@@ -229,6 +230,12 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 ) (ocr3types.ReportingPluginFactory[[]byte], ocr3types.ContractTransmitter[[]byte], error) {
 	var factory ocr3types.ReportingPluginFactory[[]byte]
 	var transmitter ocr3types.ContractTransmitter[[]byte]
+
+	chainID, err := chainsel.GetChainIDFromSelector(uint64(config.Config.ChainSelector))
+	if err != nil {
+		return nil, nil, fmt.Errorf("unsupported chain selector %d %w", config.Config.ChainSelector, err)
+	}
+
 	if config.Config.PluginType == uint8(cctypes.PluginTypeCCIPCommit) {
 		if !i.peerWrapper.IsStarted() {
 			return nil, nil, fmt.Errorf("peer wrapper is not started")
@@ -263,7 +270,8 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 			rmnPeerClient,
 			rmnCrypto,
 		)
-		transmitter = ocrimpls.NewCommitContractTransmitter[[]byte](destChainWriter,
+		factory = promwrapper.NewReportingPluginFactory[[]byte](factory, i.lggr, chainID, "CCIPCommit")
+		transmitter = ocrimpls.NewCommitContractTransmitter(destChainWriter,
 			ocrtypes.Account(destFromAccounts[0]),
 			hexutil.Encode(config.Config.OfframpAddress), // TODO: this works for evm only, how about non-evm?
 		)
@@ -283,7 +291,8 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 			contractReaders,
 			chainWriters,
 		)
-		transmitter = ocrimpls.NewExecContractTransmitter[[]byte](destChainWriter,
+		factory = promwrapper.NewReportingPluginFactory[[]byte](factory, i.lggr, chainID, "CCIPExec")
+		transmitter = ocrimpls.NewExecContractTransmitter(destChainWriter,
 			ocrtypes.Account(destFromAccounts[0]),
 			hexutil.Encode(config.Config.OfframpAddress), // TODO: this works for evm only, how about non-evm?
 		)

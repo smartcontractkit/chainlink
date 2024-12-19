@@ -3,7 +3,7 @@ cmp stdout out.txt
 
 -- out.txt --
 NAME:
-   chainlink nodes evm list - List all existing EVM nodes
+   chainlink nodes evm list - List all existing evm nodes
 
 USAGE:
    chainlink nodes evm list [arguments...]
