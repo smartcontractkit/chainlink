@@ -160,7 +160,7 @@ func BuildSetOCR3ConfigArgs(
 	ccipHome *ccip_home.CCIPHome,
 	destSelector uint64,
 ) ([]offramp.MultiOCR3BaseOCRConfigArgs, error) {
-	var offrampOCR3Configs []offramp.MultiOCR3BaseOCRConfigArgs
+	offrampOCR3Configs := make([]offramp.MultiOCR3BaseOCRConfigArgs, 0)
 	for _, pluginType := range []types.PluginType{types.PluginTypeCCIPCommit, types.PluginTypeCCIPExec} {
 		ocrConfig, err2 := ccipHome.GetAllConfigs(&bind.CallOpts{
 			Context: context.Background(),
@@ -209,8 +209,8 @@ func BuildOCR3ConfigForCCIPHome(
 ) (map[types.PluginType]ccip_home.CCIPHomeOCR3Config, error) {
 	p2pIDs := nodes.PeerIDs()
 	// Get OCR3 Config from helper
-	var schedule []int
-	var oracles []confighelper.OracleIdentityExtra
+	schedule := make([]int, 0)
+	oracles := make([]confighelper.OracleIdentityExtra, 0)
 	for _, node := range nodes {
 		schedule = append(schedule, 1)
 		cfg, exists := node.OCRConfigForChainSelector(dest.Selector)

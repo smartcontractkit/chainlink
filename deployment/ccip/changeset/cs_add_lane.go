@@ -53,14 +53,14 @@ type AddLanesConfig struct {
 func (c AddLanesConfig) Validate() error {
 	for _, pair := range c.LaneConfigs {
 		if pair.SourceSelector == pair.DestSelector {
-			return fmt.Errorf("cannot add lane to the same chain")
+			return errors.New("cannot add lane to the same chain")
 		}
 		if err := pair.InitialPricesBySource.Validate(); err != nil {
 			return fmt.Errorf("error in validating initial prices for chain %d : %w", pair.SourceSelector, err)
 		}
 		// TODO: add more FeeQuoterDestChainConfigArgs validation
 		if pair.FeeQuoterDestChain == (fee_quoter.FeeQuoterDestChainConfig{}) {
-			return fmt.Errorf("missing fee quoter dest chain config")
+			return errors.New("missing fee quoter dest chain config")
 		}
 	}
 	return nil

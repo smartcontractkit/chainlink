@@ -3,6 +3,7 @@ package changeset
 import (
 	"bytes"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math/big"
 	"os"
@@ -139,10 +140,10 @@ func (p PromoteAllCandidatesChangesetConfig) Validate(e deployment.Environment) 
 
 	if p.PluginType != types.PluginTypeCCIPCommit &&
 		p.PluginType != types.PluginTypeCCIPExec {
-		return nil, fmt.Errorf("PluginType must be set to either CCIPCommit or CCIPExec")
+		return nil, errors.New("PluginType must be set to either CCIPCommit or CCIPExec")
 	}
 
-	var donIDs []uint32
+	donIDs := make([]uint32, 0)
 	for _, chainSelector := range p.RemoteChainSelectors {
 		if err := deployment.IsValidChainSelector(chainSelector); err != nil {
 			return nil, fmt.Errorf("don chain selector invalid: %w", err)
@@ -153,7 +154,7 @@ func (p PromoteAllCandidatesChangesetConfig) Validate(e deployment.Environment) 
 		}
 		if chainState.OffRamp == nil {
 			// should not be possible, but a defensive check.
-			return nil, fmt.Errorf("OffRamp contract does not exist")
+			return nil, errors.New("OffRamp contract does not exist")
 		}
 
 		donID, err := internal.DonIDForChain(
@@ -182,13 +183,13 @@ func (p PromoteAllCandidatesChangesetConfig) Validate(e deployment.Environment) 
 		donIDs = append(donIDs, donID)
 	}
 	if len(e.NodeIDs) == 0 {
-		return nil, fmt.Errorf("NodeIDs must be set")
+		return nil, errors.New("NodeIDs must be set")
 	}
 	if state.Chains[p.HomeChainSelector].CCIPHome == nil {
-		return nil, fmt.Errorf("CCIPHome contract does not exist")
+		return nil, errors.New("CCIPHome contract does not exist")
 	}
 	if state.Chains[p.HomeChainSelector].CapabilityRegistry == nil {
-		return nil, fmt.Errorf("CapabilityRegistry contract does not exist")
+		return nil, errors.New("CapabilityRegistry contract does not exist")
 	}
 
 	return donIDs, nil
@@ -224,7 +225,7 @@ func PromoteAllCandidatesChangeset(
 
 	homeChain := e.Chains[cfg.HomeChainSelector]
 
-	var ops []mcms.Operation
+	ops := make([]mcms.Operation, 0)
 	for _, donID := range donIDs {
 		promoteCandidateOps, err := promoteAllCandidatesForChainOps(
 			txOpts,
@@ -1064,7 +1065,7 @@ func UpdateChainConfig(e deployment.Environment, cfg UpdateChainConfigConfig) (d
 	if cfg.MCMS != nil {
 		txOpts = deployment.SimTransactOpts()
 	}
-	var adds []ccip_home.CCIPHomeChainConfigArgs
+	adds := make([]ccip_home.CCIPHomeChainConfigArgs, 0)
 	for chain, ccfg := range cfg.RemoteChainAdds {
 		encodedChainConfig, err := chainconfig.EncodeChainConfig(chainconfig.ChainConfig{
 			GasPriceDeviationPPB:    ccfg.EncodableChainConfig.GasPriceDeviationPPB,
