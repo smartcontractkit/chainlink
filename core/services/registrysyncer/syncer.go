@@ -76,7 +76,6 @@ func New(
 	registryAddress string,
 	orm ORM,
 ) (RegistrySyncer, error) {
-
 	metricLabeler, err := newSyncerMetricLabeler()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create syncer metric labeler: %w", err)
