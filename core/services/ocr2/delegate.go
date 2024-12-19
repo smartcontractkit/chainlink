@@ -1056,7 +1056,6 @@ func (d *Delegate) newServicesLLO(
 		V2Bootstrappers:              bootstrapPeers,
 		ContractTransmitter:          provider.ContractTransmitter(),
 		ContractConfigTrackers:       provider.ContractConfigTrackers(),
-		Database:                     ocrDB,
 		LocalConfig:                  lc,
 		OCR3MonitoringEndpoint:       d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, telemetryContractID, synchronization.OCR3Mercury),
 		OffchainConfigDigester:       provider.OffchainConfigDigester(),
@@ -1065,6 +1064,9 @@ func (d *Delegate) newServicesLLO(
 
 		// Enable verbose logging if either Mercury.VerboseLogging is on or OCR2.TraceLogging is on
 		ReportingPluginConfig: datastreamsllo.Config{VerboseLogging: d.cfg.Mercury().VerboseLogging() || d.cfg.OCR2().TraceLogging()},
+		NewOCR3DB: func(pluginID int32) ocr3types.Database {
+			return NewDB(d.ds, spec.ID, pluginID, lggr)
+		},
 	}
 	oracle, err := llo.NewDelegate(cfg)
 	if err != nil {
