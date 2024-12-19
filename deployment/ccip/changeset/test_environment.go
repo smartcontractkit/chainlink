@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
@@ -468,6 +469,16 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tc *TestConfigs, tEnv Test
 			Config: PromoteAllCandidatesChangesetConfig{
 				HomeChainSelector:    e.HomeChainSel,
 				RemoteChainSelectors: allChains,
+				PluginType:           types.PluginTypeCCIPCommit,
+			},
+		},
+		{
+			// Promote everything
+			Changeset: commonchangeset.WrapChangeSet(PromoteAllCandidatesChangeset),
+			Config: PromoteAllCandidatesChangesetConfig{
+				HomeChainSelector:    e.HomeChainSel,
+				RemoteChainSelectors: allChains,
+				PluginType:           types.PluginTypeCCIPExec,
 			},
 		},
 		{

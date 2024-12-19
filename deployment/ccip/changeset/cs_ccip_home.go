@@ -112,17 +112,13 @@ type PromoteAllCandidatesChangesetConfig struct {
 
 	// RemoteChainSelectors is the chain selector of the DONs that we want to promote the candidate config of.
 	// Note that each (chain, ccip capability version) pair has a unique DON ID.
-	RemoteChainCfg []PromoteAllCandidatesChangesetConfigPerRemoteChain
+	RemoteChainSelectors []uint64
 
+	PluginType types.PluginType
 	// MCMS is optional MCMS configuration, if provided the changeset will generate an MCMS proposal.
 	// If nil, the changeset will execute the commands directly using the deployer key
 	// of the provided environment.
 	MCMS *MCMSConfig
-}
-
-type PromoteAllCandidatesChangesetConfigPerRemoteChain struct {
-	Chain      uint64
-	PluginType types.PluginType
 }
 
 func (p PromoteAllCandidatesChangesetConfig) Validate(e deployment.Environment) ([]uint32, error) {
@@ -141,47 +137,47 @@ func (p PromoteAllCandidatesChangesetConfig) Validate(e deployment.Environment) 
 		return nil, err
 	}
 
+	if p.PluginType != types.PluginTypeCCIPCommit &&
+		p.PluginType != types.PluginTypeCCIPExec {
+		return nil, fmt.Errorf("PluginType must be set to either CCIPCommit or CCIPExec")
+	}
+
 	var donIDs []uint32
-	for _, cfg := range p.RemoteChainCfg {
-		if err := deployment.IsValidChainSelector(cfg.Chain); err != nil {
+	for _, selector := range p.RemoteChainSelectors {
+		if err := deployment.IsValidChainSelector(selector); err != nil {
 			return nil, fmt.Errorf("don chain selector invalid: %w", err)
 		}
-		chainState, exists := state.Chains[cfg.Chain]
+		chainState, exists := state.Chains[selector]
 		if !exists {
-			return nil, fmt.Errorf("chain %d does not exist", cfg.Chain)
+			return nil, fmt.Errorf("chain %d does not exist", selector)
 		}
 		if chainState.OffRamp == nil {
 			// should not be possible, but a defensive check.
 			return nil, fmt.Errorf("OffRamp contract does not exist")
 		}
 
-		if cfg.PluginType != types.PluginTypeCCIPCommit &&
-			cfg.PluginType != types.PluginTypeCCIPExec {
-			return nil, fmt.Errorf("PluginType must be set to either CCIPCommit or CCIPExec for chain %d", cfg.Chain)
-		}
-
 		donID, err := internal.DonIDForChain(
 			state.Chains[p.HomeChainSelector].CapabilityRegistry,
 			state.Chains[p.HomeChainSelector].CCIPHome,
-			cfg.Chain,
+			selector,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("fetch don id for chain: %w", err)
 		}
 		if donID == 0 {
-			return nil, fmt.Errorf("don doesn't exist in CR for chain %d", cfg.Chain)
+			return nil, fmt.Errorf("don doesn't exist in CR for chain %d", selector)
 		}
 		// Check that candidate digest and active digest are not both zero - this is enforced onchain.
 		pluginConfigs, err := state.Chains[p.HomeChainSelector].CCIPHome.GetAllConfigs(&bind.CallOpts{
 			Context: e.GetContext(),
-		}, donID, uint8(cfg.PluginType))
+		}, donID, uint8(p.PluginType))
 		if err != nil {
-			return nil, fmt.Errorf("fetching %s configs from cciphome: %w", cfg.PluginType.String(), err)
+			return nil, fmt.Errorf("fetching %s configs from cciphome: %w", p.PluginType.String(), err)
 		}
 
 		if pluginConfigs.ActiveConfig.ConfigDigest == [32]byte{} &&
 			pluginConfigs.CandidateConfig.ConfigDigest == [32]byte{} {
-			return nil, fmt.Errorf("%s active and candidate config digests are both zero", cfg.PluginType.String())
+			return nil, fmt.Errorf("%s active and candidate config digests are both zero", p.PluginType.String())
 		}
 		donIDs = append(donIDs, donID)
 	}
@@ -237,12 +233,13 @@ func PromoteAllCandidatesChangeset(
 			state.Chains[cfg.HomeChainSelector].CCIPHome,
 			nodes.NonBootstraps(),
 			donID,
+			cfg.PluginType,
 			cfg.MCMS != nil,
 		)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("generating promote candidate ops: %w", err)
 		}
-		ops = append(ops, promoteCandidateOps...)
+		ops = append(ops, promoteCandidateOps)
 	}
 
 	// Disabled MCMS means that we already executed the txes, so just return early w/out the proposals.
@@ -790,44 +787,27 @@ func promoteAllCandidatesForChainOps(
 	ccipHome *ccip_home.CCIPHome,
 	nodes deployment.Nodes,
 	donID uint32,
+	pluginType cctypes.PluginType,
 	mcmsEnabled bool,
-) ([]mcms.Operation, error) {
+) (mcms.Operation, error) {
 	if donID == 0 {
-		return nil, fmt.Errorf("donID is zero")
+		return mcms.Operation{}, fmt.Errorf("donID is zero")
 	}
 
-	var mcmsOps []mcms.Operation
-	updateCommitOp, err := promoteCandidateOp(
+	updatePluginOp, err := promoteCandidateOp(
 		txOpts,
 		homeChain,
 		capReg,
 		ccipHome,
 		nodes,
 		donID,
-		uint8(cctypes.PluginTypeCCIPCommit),
+		uint8(pluginType),
 		mcmsEnabled,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("promote candidate op: %w", err)
+		return mcms.Operation{}, fmt.Errorf("promote candidate op for plugin %s: %w", pluginType.String(), err)
 	}
-	mcmsOps = append(mcmsOps, updateCommitOp)
-
-	updateExecOp, err := promoteCandidateOp(
-		txOpts,
-		homeChain,
-		capReg,
-		ccipHome,
-		nodes,
-		donID,
-		uint8(cctypes.PluginTypeCCIPExec),
-		mcmsEnabled,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("promote candidate op: %w", err)
-	}
-	mcmsOps = append(mcmsOps, updateExecOp)
-
-	return mcmsOps, nil
+	return updatePluginOp, nil
 }
 
 type RevokeCandidateChangesetConfig struct {
