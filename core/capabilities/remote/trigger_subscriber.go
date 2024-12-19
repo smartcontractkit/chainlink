@@ -60,7 +60,7 @@ var _ services.Service = &triggerSubscriber{}
 
 // TODO makes this configurable with a default
 const (
-	defaultSendChannelBufferSize = 1000
+	DefaultSendChannelBufferSize = 1000
 	maxBatchedWorkflowIDs        = 1000
 )
 
@@ -120,7 +120,7 @@ func (s *triggerSubscriber) RegisterTrigger(ctx context.Context, request commonc
 	regState, ok := s.registeredWorkflows[request.Metadata.WorkflowID]
 	if !ok {
 		regState = &subRegState{
-			callback:   make(chan commoncap.TriggerResponse, defaultSendChannelBufferSize),
+			callback:   make(chan commoncap.TriggerResponse, DefaultSendChannelBufferSize),
 			rawRequest: rawRequest,
 		}
 		s.registeredWorkflows[request.Metadata.WorkflowID] = regState
@@ -171,14 +171,18 @@ func (s *triggerSubscriber) UnregisterTrigger(ctx context.Context, request commo
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	state := s.registeredWorkflows[request.Metadata.WorkflowID]
-	if state != nil && state.callback != nil {
-		close(state.callback)
-	}
-	delete(s.registeredWorkflows, request.Metadata.WorkflowID)
+	s.closeSubscription(request.Metadata.WorkflowID)
 	// Registrations will quickly expire on all remote nodes.
 	// Alternatively, we could send UnregisterTrigger messages right away.
 	return nil
+}
+
+func (s *triggerSubscriber) closeSubscription(workflowID string) {
+	state := s.registeredWorkflows[workflowID]
+	if state != nil && state.callback != nil {
+		close(state.callback)
+	}
+	delete(s.registeredWorkflows, workflowID)
 }
 
 func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
@@ -204,7 +208,7 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 		}
 		for _, workflowID := range meta.WorkflowIds {
 			s.mu.RLock()
-			registration, found := s.registeredWorkflows[workflowID]
+			_, found := s.registeredWorkflows[workflowID]
 			s.mu.RUnlock()
 			if !found {
 				s.lggr.Errorw("received message for unregistered workflow", "capabilityId", s.capInfo.ID, "workflowID", SanitizeLogString(workflowID), "sender", sender)
@@ -231,11 +235,27 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 					continue
 				}
 				s.lggr.Infow("remote trigger event aggregated", "triggerEventID", meta.TriggerEventId, "capabilityId", s.capInfo.ID, "workflowId", workflowID)
-				registration.callback <- aggregatedResponse
+				s.sendResponse(workflowID, aggregatedResponse)
 			}
 		}
 	} else {
 		s.lggr.Errorw("received trigger event with unknown method", "method", SanitizeLogString(msg.Method), "sender", sender)
+	}
+}
+
+func (s *triggerSubscriber) sendResponse(workflowID string, response commoncap.TriggerResponse) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	registration, found := s.registeredWorkflows[workflowID]
+	if found {
+		select {
+		case registration.callback <- response:
+		default:
+			s.lggr.Warn("slow consumer detected, closing subscription", "capabilityId", s.capInfo.ID, "workflowId", workflowID)
+			s.closeSubscription(workflowID)
+			return
+		}
 	}
 }
 
