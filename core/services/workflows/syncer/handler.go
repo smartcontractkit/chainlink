@@ -644,9 +644,14 @@ func (h *eventHandler) workflowDeletedEvent(
 	}
 
 	err := h.orm.DeleteWorkflowSpec(ctx, hex.EncodeToString(payload.WorkflowOwner), payload.WorkflowName)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			h.lggr.Warnw("workflow spec not found", "workflowID", hex.EncodeToString(payload.WorkflowID[:]))
+			return nil
+		}
 		return fmt.Errorf("failed to delete workflow spec: %w", err)
 	}
+
 	return nil
 }
 
