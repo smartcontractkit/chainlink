@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"iter"
 	"maps"
 	"slices"
 	"strings"
@@ -19,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -178,7 +180,13 @@ func (cr *chainReader) Close() error {
 func (cr *chainReader) Ready() error { return nil }
 
 func (cr *chainReader) HealthReport() map[string]error {
-	return map[string]error{cr.Name(): nil}
+	report := map[string]error{
+		cr.Name(): cr.Healthy(),
+	}
+
+	commonservices.CopyHealth(report, cr.lp.HealthReport())
+	commonservices.CopyHealth(report, cr.ht.HealthReport())
+	return report
 }
 
 func (cr *chainReader) Bind(ctx context.Context, bindings []commontypes.BoundContract) error {
@@ -198,7 +206,11 @@ func (cr *chainReader) GetLatestValue(ctx context.Context, readName string, conf
 	ptrToValue, isValue := returnVal.(*values.Value)
 	if !isValue {
 		_, err = binding.GetLatestValueWithHeadData(ctx, common.HexToAddress(address), confidenceLevel, params, returnVal)
-		return err
+		if err != nil {
+			return err
+		}
+
+		return nil
 	}
 
 	contractType, err := cr.CreateContractType(readName, false)
@@ -296,6 +308,41 @@ func (cr *chainReader) QueryKey(
 	}
 
 	return sequenceOfValues, nil
+}
+
+func (cr *chainReader) QueryKeys(ctx context.Context, filters []commontypes.ContractKeyFilter,
+	limitAndSort query.LimitAndSort) (iter.Seq2[string, commontypes.Sequence], error) {
+	eventQueries := make([]read.EventQuery, 0, len(filters))
+	for _, filter := range filters {
+		binding, address, err := cr.bindings.GetReader(filter.Contract.ReadIdentifier(filter.KeyFilter.Key))
+		if err != nil {
+			return nil, err
+		}
+
+		sequenceDataType := filter.SequenceDataType
+		_, isValuePtr := filter.SequenceDataType.(*values.Value)
+		if isValuePtr {
+			sequenceDataType, err = cr.CreateContractType(filter.Contract.ReadIdentifier(filter.Key), false)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		eventBinding, ok := binding.(*read.EventBinding)
+		if !ok {
+			return nil, fmt.Errorf("query key %s is not an event", filter.KeyFilter.Key)
+		}
+
+		eventQueries = append(eventQueries, read.EventQuery{
+			Filter:           filter.KeyFilter,
+			SequenceDataType: sequenceDataType,
+			IsValuePtr:       isValuePtr,
+			EventBinding:     eventBinding,
+			Address:          common.HexToAddress(address),
+		})
+	}
+
+	return read.MultiEventTypeQuery(ctx, cr.lp, eventQueries, limitAndSort)
 }
 
 func (cr *chainReader) CreateContractType(readIdentifier string, forEncoding bool) (any, error) {

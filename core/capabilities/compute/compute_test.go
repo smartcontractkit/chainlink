@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/wasmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 
 	cappkg "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
@@ -76,6 +77,7 @@ func setup(t *testing.T, config Config) testHarness {
 }
 
 func TestComputeStartAddsToRegistry(t *testing.T) {
+	t.Parallel()
 	th := setup(t, defaultConfig)
 
 	require.NoError(t, th.compute.Start(tests.Context(t)))
@@ -108,6 +110,7 @@ func TestComputeExecuteMissingConfig(t *testing.T) {
 }
 
 func TestComputeExecuteMissingBinary(t *testing.T) {
+	t.Parallel()
 	th := setup(t, defaultConfig)
 
 	require.NoError(t, th.compute.Start(tests.Context(t)))
@@ -188,6 +191,7 @@ func TestComputeFetch(t *testing.T) {
 	th := setup(t, defaultConfig)
 
 	th.connector.EXPECT().DonID().Return("don-id")
+	th.connector.EXPECT().AwaitConnection(matches.AnyContext, "gateway1").Return(nil)
 	th.connector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
 
 	msgID := strings.Join([]string{

@@ -57,7 +57,14 @@ contract LiquidityManagerSetup is LiquidityManagerBaseTest {
     LiquidityManagerBaseTest.setUp();
 
     s_bridgeAdapter = new MockL1BridgeAdapter(s_l1Token, false);
-    s_lockReleaseTokenPool = new LockReleaseTokenPool(s_l1Token, new address[](0), address(1), true, address(123));
+    s_lockReleaseTokenPool = new LockReleaseTokenPool(
+      s_l1Token,
+      DEFAULT_TOKEN_DECIMALS,
+      new address[](0),
+      address(1),
+      true,
+      address(123)
+    );
     s_liquidityManager = new LiquidityManagerHelper(
       s_l1Token,
       i_localChainSelector,
@@ -71,6 +78,7 @@ contract LiquidityManagerSetup is LiquidityManagerBaseTest {
     s_wethBridgeAdapter = new MockL1BridgeAdapter(IERC20(address(s_l1Weth)), true);
     s_wethLockReleaseTokenPool = new LockReleaseTokenPool(
       IERC20(address(s_l1Weth)),
+      DEFAULT_TOKEN_DECIMALS,
       new address[](0),
       address(1),
       true,
@@ -272,6 +280,7 @@ contract LiquidityManager_rebalanceLiquidity is LiquidityManagerSetup {
     MockL1BridgeAdapter remoteBridgeAdapter = new MockL1BridgeAdapter(s_l2Token, false);
     LockReleaseTokenPool remotePool = new LockReleaseTokenPool(
       s_l2Token,
+      DEFAULT_TOKEN_DECIMALS,
       new address[](0),
       address(1),
       true,
@@ -401,6 +410,7 @@ contract LiquidityManager_rebalanceLiquidity is LiquidityManagerSetup {
     MockL1BridgeAdapter remoteBridgeAdapter = new MockL1BridgeAdapter(s_l2Token, false);
     LockReleaseTokenPool remotePool = new LockReleaseTokenPool(
       s_l2Token,
+      DEFAULT_TOKEN_DECIMALS,
       new address[](0),
       address(1),
       true,
@@ -522,6 +532,7 @@ contract LiquidityManager_rebalanceLiquidity is LiquidityManagerSetup {
     MockL1BridgeAdapter remoteBridgeAdapter = new MockL1BridgeAdapter(IERC20(address(s_l2Weth)), true);
     LockReleaseTokenPool remotePool = new LockReleaseTokenPool(
       IERC20(address(s_l2Weth)),
+      DEFAULT_TOKEN_DECIMALS,
       new address[](0),
       address(1),
       true,
@@ -817,6 +828,7 @@ contract LiquidityManager_setLocalLiquidityContainer is LiquidityManagerSetup {
   function test_setLocalLiquidityContainerSuccess() external {
     LockReleaseTokenPool newPool = new LockReleaseTokenPool(
       s_l1Token,
+      DEFAULT_TOKEN_DECIMALS,
       new address[](0),
       address(1),
       true,

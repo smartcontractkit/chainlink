@@ -2,6 +2,7 @@ package usdcreader
 
 import (
 	"context"
+	"encoding/binary"
 	"math/big"
 	"testing"
 	"time"
@@ -11,12 +12,16 @@ import (
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
-
+	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
 	sel "github.com/smartcontractkit/chain-selectors"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/contractreader"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
@@ -27,7 +32,6 @@ import (
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/usdc_reader_tester"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -36,6 +40,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
+
+const ChainID = 1337
 
 func Test_USDCReader_MessageHashes(t *testing.T) {
 	finalityDepth := 5
@@ -48,7 +54,7 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 	polygonChain := cciptypes.ChainSelector(sel.POLYGON_MAINNET.Selector)
 	polygonDomainCCTP := reader.CCTPDestDomains[uint64(polygonChain)]
 
-	ts := testSetup(ctx, t, ethereumChain, evmconfig.USDCReaderConfig, finalityDepth)
+	ts := testSetup(ctx, t, ethereumChain, evmconfig.USDCReaderConfig, finalityDepth, false)
 
 	usdcReader, err := reader.NewUSDCMessageReader(
 		ctx,
@@ -202,6 +208,154 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 	}
 }
 
+// Benchmark Results:
+// Benchmark_MessageHashes/Small_Dataset-14       3723        272421 ns/op       126949 B/op      2508 allocs/op
+// Benchmark_MessageHashes/Medium_Dataset-14       196       6164706 ns/op      1501435 B/op     20274 allocs/op
+// Benchmark_MessageHashes/Large_Dataset-14          7     163930268 ns/op     37193160 B/op    463954 allocs/op
+//
+// Notes:
+// - Small dataset processes 3,723 iterations with 126KB memory usage per iteration.
+// - Medium dataset processes 196 iterations with 1.5MB memory usage per iteration.
+// - Large dataset processes only 7 iterations with ~37MB memory usage per iteration.
+func Benchmark_MessageHashes(b *testing.B) {
+	finalityDepth := 5
+
+	// Adding a new parameter: tokenCount
+	testCases := []struct {
+		name       string
+		msgCount   int
+		startNonce int64
+		tokenCount int
+	}{
+		{"Small_Dataset", 100, 1, 5},
+		{"Medium_Dataset", 10_000, 1, 10},
+		{"Large_Dataset", 100_000, 1, 50},
+	}
+
+	for _, tc := range testCases {
+		b.Run(tc.name, func(b *testing.B) {
+			ctx := testutils.Context(b)
+			sourceChain := cciptypes.ChainSelector(sel.ETHEREUM_MAINNET_OPTIMISM_1.Selector)
+			sourceDomainCCTP := reader.CCTPDestDomains[uint64(sourceChain)]
+			destChain := cciptypes.ChainSelector(sel.AVALANCHE_MAINNET.Selector)
+			destDomainCCTP := reader.CCTPDestDomains[uint64(destChain)]
+
+			ts := testSetup(ctx, b, sourceChain, evmconfig.USDCReaderConfig, finalityDepth, true)
+
+			usdcReader, err := reader.NewUSDCMessageReader(
+				ctx,
+				logger.TestLogger(b),
+				map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig{
+					sourceChain: {
+						SourceMessageTransmitterAddr: ts.contractAddr.String(),
+					},
+				},
+				map[cciptypes.ChainSelector]contractreader.ContractReaderFacade{
+					sourceChain: ts.reader,
+				})
+			require.NoError(b, err)
+
+			// Populate the database with the specified number of logs
+			populateDatabase(b, ts, sourceChain, sourceDomainCCTP, destDomainCCTP, tc.startNonce, tc.msgCount, finalityDepth)
+
+			// Create a map of tokens to query for, with the specified tokenCount
+			tokens := make(map[reader.MessageTokenID]cciptypes.RampTokenAmount)
+			for i := 1; i <= tc.tokenCount; i++ {
+				//nolint:gosec // disable G115
+				tokens[reader.NewMessageTokenID(cciptypes.SeqNum(i), 1)] = cciptypes.RampTokenAmount{
+					ExtraData: reader.NewSourceTokenDataPayload(uint64(tc.startNonce)+uint64(i), sourceDomainCCTP).ToBytes(),
+				}
+			}
+
+			b.ResetTimer()
+
+			for i := 0; i < b.N; i++ {
+				hashes, err := usdcReader.MessageHashes(ctx, sourceChain, destChain, tokens)
+				require.NoError(b, err)
+				require.Len(b, hashes, tc.tokenCount) // Ensure the number of matches is as expected
+			}
+		})
+	}
+}
+
+func populateDatabase(b *testing.B,
+	testEnv *testSetupData,
+	source cciptypes.ChainSelector,
+	sourceDomainCCTP uint32,
+	destDomainCCTP uint32,
+	startNonce int64,
+	numOfMessages int,
+	finalityDepth int) {
+	ctx := testutils.Context(b)
+
+	abi, err := usdc_reader_tester.USDCReaderTesterMetaData.GetAbi()
+	require.NoError(b, err)
+
+	var logs []logpoller.Log
+	messageSentEventSig := abi.Events["MessageSent"].ID
+	require.NoError(b, err)
+	messageTransmitterAddress := testEnv.contractAddr
+
+	for i := 0; i < numOfMessages; i++ {
+		// Create topics array with just the event signature
+		topics := [][]byte{
+			messageSentEventSig[:], // Topic[0] is event signature
+		}
+
+		// Create log entry
+		logs = append(logs, logpoller.Log{
+			EvmChainId:     ubig.New(new(big.Int).SetUint64(uint64(source))),
+			LogIndex:       int64(i + 1),
+			BlockHash:      utils.NewHash(),
+			BlockNumber:    int64(i + 1),
+			BlockTimestamp: time.Now(),
+			EventSig:       messageSentEventSig,
+			Topics:         topics,
+			Address:        messageTransmitterAddress,
+			TxHash:         utils.NewHash(),
+			Data:           createMessageSentLogPollerData(startNonce, i, sourceDomainCCTP, destDomainCCTP),
+			CreatedAt:      time.Now(),
+		})
+	}
+
+	require.NoError(b, testEnv.orm.InsertLogs(ctx, logs))
+	require.NoError(b, testEnv.orm.InsertBlock(ctx, utils.RandomHash(), int64(numOfMessages+finalityDepth), time.Now(), int64(numOfMessages+finalityDepth)))
+}
+
+func createMessageSentLogPollerData(startNonce int64, i int, sourceDomainCCTP uint32, destDomainCCTP uint32) []byte {
+	nonce := int(startNonce) + i
+
+	var buf []byte
+
+	buf = binary.BigEndian.AppendUint32(buf, reader.CCTPMessageVersion)
+
+	buf = binary.BigEndian.AppendUint32(buf, sourceDomainCCTP)
+
+	buf = binary.BigEndian.AppendUint32(buf, destDomainCCTP)
+	// #nosec G115
+	buf = binary.BigEndian.AppendUint64(buf, uint64(nonce))
+
+	senderBytes := [12]byte{}
+	buf = append(buf, senderBytes[:]...)
+
+	var message [32]byte
+	copy(message[:], buf)
+
+	data := make([]byte, 0)
+
+	offsetBytes := make([]byte, 32)
+	binary.BigEndian.PutUint64(offsetBytes[24:], 32)
+	data = append(data, offsetBytes...)
+
+	lengthBytes := make([]byte, 32)
+	binary.BigEndian.PutUint64(lengthBytes[24:], uint64(len(message)))
+	data = append(data, lengthBytes...)
+
+	data = append(data, message[:]...)
+	return data
+}
+
+// we might want to use batching (evm/batching or evm/batching) but might be slow
 func emitMessageSent(t *testing.T, testEnv *testSetupData, source, dest uint32, nonce uint64) {
 	payload := utils.RandomBytes32()
 	_, err := testEnv.contract.EmitMessageSent(
@@ -219,21 +373,18 @@ func emitMessageSent(t *testing.T, testEnv *testSetupData, source, dest uint32, 
 	testEnv.sb.Commit()
 }
 
-func testSetup(ctx context.Context, t *testing.T, readerChain cciptypes.ChainSelector, cfg evmtypes.ChainReaderConfig, depth int) *testSetupData {
-	const chainID = 1337
-
+func testSetup(ctx context.Context, t testing.TB, readerChain cciptypes.ChainSelector, cfg evmtypes.ChainReaderConfig, depth int, useHeavyDB bool) *testSetupData {
 	// Generate a new key pair for the simulated account
 	privateKey, err := crypto.GenerateKey()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	// Set up the genesis account with balance
 	blnc, ok := big.NewInt(0).SetString("999999999999999999999999999999999999", 10)
 	assert.True(t, ok)
 	alloc := map[common.Address]gethtypes.Account{crypto.PubkeyToAddress(privateKey.PublicKey): {Balance: blnc}}
 	simulatedBackend := simulated.NewBackend(alloc, simulated.WithBlockGasLimit(0))
 	// Create a transactor
-
-	auth, err := bind.NewKeyedTransactorWithChainID(privateKey, big.NewInt(chainID))
-	assert.NoError(t, err)
+	auth, err := bind.NewKeyedTransactorWithChainID(privateKey, big.NewInt(ChainID))
+	require.NoError(t, err)
 	auth.GasLimit = uint64(0)
 
 	address, _, _, err := usdc_reader_tester.DeployUSDCReaderTester(
@@ -248,7 +399,15 @@ func testSetup(ctx context.Context, t *testing.T, readerChain cciptypes.ChainSel
 
 	lggr := logger.TestLogger(t)
 	lggr.SetLogLevel(zapcore.ErrorLevel)
-	db := pgtest.NewSqlxDB(t)
+
+	// Parameterize database selection
+	var db *sqlx.DB
+	if useHeavyDB {
+		_, db = heavyweight.FullTestDBV2(t, nil) // Use heavyweight database for benchmarks
+	} else {
+		db = pgtest.NewSqlxDB(t) // Use simple in-memory DB for tests
+	}
+
 	lpOpts := logpoller.Opts{
 		PollPeriod:               time.Millisecond,
 		FinalityDepth:            int64(depth),
@@ -258,7 +417,10 @@ func testSetup(ctx context.Context, t *testing.T, readerChain cciptypes.ChainSel
 	}
 	cl := client.NewSimulatedBackendClient(t, simulatedBackend, big.NewInt(0).SetUint64(uint64(readerChain)))
 	headTracker := headtracker.NewSimulatedHeadTracker(cl, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
-	lp := logpoller.NewLogPoller(logpoller.NewORM(big.NewInt(0).SetUint64(uint64(readerChain)), db, lggr),
+	orm := logpoller.NewORM(big.NewInt(0).SetUint64(uint64(readerChain)), db, lggr)
+
+	lp := logpoller.NewLogPoller(
+		orm,
 		cl,
 		lggr,
 		headTracker,
@@ -285,6 +447,8 @@ func testSetup(ctx context.Context, t *testing.T, readerChain cciptypes.ChainSel
 		auth:         auth,
 		cl:           cl,
 		reader:       cr,
+		orm:          orm,
+		db:           db,
 		lp:           lp,
 	}
 }
@@ -296,5 +460,7 @@ type testSetupData struct {
 	auth         *bind.TransactOpts
 	cl           client.Client
 	reader       types.ContractReader
+	orm          logpoller.ORM
+	db           *sqlx.DB
 	lp           logpoller.LogPoller
 }

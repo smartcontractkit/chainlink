@@ -73,6 +73,53 @@ func (_c *GatewayConnector_AddHandler_Call) RunAndReturn(run func([]string, conn
 	return _c
 }
 
+// AwaitConnection provides a mock function with given fields: ctx, gatewayID
+func (_m *GatewayConnector) AwaitConnection(ctx context.Context, gatewayID string) error {
+	ret := _m.Called(ctx, gatewayID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for AwaitConnection")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = rf(ctx, gatewayID)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// GatewayConnector_AwaitConnection_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AwaitConnection'
+type GatewayConnector_AwaitConnection_Call struct {
+	*mock.Call
+}
+
+// AwaitConnection is a helper method to define mock.On call
+//   - ctx context.Context
+//   - gatewayID string
+func (_e *GatewayConnector_Expecter) AwaitConnection(ctx interface{}, gatewayID interface{}) *GatewayConnector_AwaitConnection_Call {
+	return &GatewayConnector_AwaitConnection_Call{Call: _e.mock.On("AwaitConnection", ctx, gatewayID)}
+}
+
+func (_c *GatewayConnector_AwaitConnection_Call) Run(run func(ctx context.Context, gatewayID string)) *GatewayConnector_AwaitConnection_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *GatewayConnector_AwaitConnection_Call) Return(_a0 error) *GatewayConnector_AwaitConnection_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GatewayConnector_AwaitConnection_Call) RunAndReturn(run func(context.Context, string) error) *GatewayConnector_AwaitConnection_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ChallengeResponse provides a mock function with given fields: _a0, challenge
 func (_m *GatewayConnector) ChallengeResponse(_a0 *url.URL, challenge []byte) ([]byte, error) {
 	ret := _m.Called(_a0, challenge)
@@ -269,6 +316,98 @@ func (_c *GatewayConnector_GatewayIDs_Call) RunAndReturn(run func() []string) *G
 	return _c
 }
 
+// HealthReport provides a mock function with given fields:
+func (_m *GatewayConnector) HealthReport() map[string]error {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for HealthReport")
+	}
+
+	var r0 map[string]error
+	if rf, ok := ret.Get(0).(func() map[string]error); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(map[string]error)
+		}
+	}
+
+	return r0
+}
+
+// GatewayConnector_HealthReport_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'HealthReport'
+type GatewayConnector_HealthReport_Call struct {
+	*mock.Call
+}
+
+// HealthReport is a helper method to define mock.On call
+func (_e *GatewayConnector_Expecter) HealthReport() *GatewayConnector_HealthReport_Call {
+	return &GatewayConnector_HealthReport_Call{Call: _e.mock.On("HealthReport")}
+}
+
+func (_c *GatewayConnector_HealthReport_Call) Run(run func()) *GatewayConnector_HealthReport_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GatewayConnector_HealthReport_Call) Return(_a0 map[string]error) *GatewayConnector_HealthReport_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GatewayConnector_HealthReport_Call) RunAndReturn(run func() map[string]error) *GatewayConnector_HealthReport_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Name provides a mock function with given fields:
+func (_m *GatewayConnector) Name() string {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for Name")
+	}
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
+// GatewayConnector_Name_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Name'
+type GatewayConnector_Name_Call struct {
+	*mock.Call
+}
+
+// Name is a helper method to define mock.On call
+func (_e *GatewayConnector_Expecter) Name() *GatewayConnector_Name_Call {
+	return &GatewayConnector_Name_Call{Call: _e.mock.On("Name")}
+}
+
+func (_c *GatewayConnector_Name_Call) Run(run func()) *GatewayConnector_Name_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GatewayConnector_Name_Call) Return(_a0 string) *GatewayConnector_Name_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GatewayConnector_Name_Call) RunAndReturn(run func() string) *GatewayConnector_Name_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // NewAuthHeader provides a mock function with given fields: _a0
 func (_m *GatewayConnector) NewAuthHeader(_a0 *url.URL) ([]byte, error) {
 	ret := _m.Called(_a0)
@@ -327,9 +466,54 @@ func (_c *GatewayConnector_NewAuthHeader_Call) RunAndReturn(run func(*url.URL) (
 	return _c
 }
 
-// SendToGateway provides a mock function with given fields: ctx, gatewayId, msg
-func (_m *GatewayConnector) SendToGateway(ctx context.Context, gatewayId string, msg *api.Message) error {
-	ret := _m.Called(ctx, gatewayId, msg)
+// Ready provides a mock function with given fields:
+func (_m *GatewayConnector) Ready() error {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for Ready")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// GatewayConnector_Ready_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Ready'
+type GatewayConnector_Ready_Call struct {
+	*mock.Call
+}
+
+// Ready is a helper method to define mock.On call
+func (_e *GatewayConnector_Expecter) Ready() *GatewayConnector_Ready_Call {
+	return &GatewayConnector_Ready_Call{Call: _e.mock.On("Ready")}
+}
+
+func (_c *GatewayConnector_Ready_Call) Run(run func()) *GatewayConnector_Ready_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GatewayConnector_Ready_Call) Return(_a0 error) *GatewayConnector_Ready_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GatewayConnector_Ready_Call) RunAndReturn(run func() error) *GatewayConnector_Ready_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// SendToGateway provides a mock function with given fields: ctx, gatewayID, msg
+func (_m *GatewayConnector) SendToGateway(ctx context.Context, gatewayID string, msg *api.Message) error {
+	ret := _m.Called(ctx, gatewayID, msg)
 
 	if len(ret) == 0 {
 		panic("no return value specified for SendToGateway")
@@ -337,7 +521,7 @@ func (_m *GatewayConnector) SendToGateway(ctx context.Context, gatewayId string,
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, string, *api.Message) error); ok {
-		r0 = rf(ctx, gatewayId, msg)
+		r0 = rf(ctx, gatewayID, msg)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -352,13 +536,13 @@ type GatewayConnector_SendToGateway_Call struct {
 
 // SendToGateway is a helper method to define mock.On call
 //   - ctx context.Context
-//   - gatewayId string
+//   - gatewayID string
 //   - msg *api.Message
-func (_e *GatewayConnector_Expecter) SendToGateway(ctx interface{}, gatewayId interface{}, msg interface{}) *GatewayConnector_SendToGateway_Call {
-	return &GatewayConnector_SendToGateway_Call{Call: _e.mock.On("SendToGateway", ctx, gatewayId, msg)}
+func (_e *GatewayConnector_Expecter) SendToGateway(ctx interface{}, gatewayID interface{}, msg interface{}) *GatewayConnector_SendToGateway_Call {
+	return &GatewayConnector_SendToGateway_Call{Call: _e.mock.On("SendToGateway", ctx, gatewayID, msg)}
 }
 
-func (_c *GatewayConnector_SendToGateway_Call) Run(run func(ctx context.Context, gatewayId string, msg *api.Message)) *GatewayConnector_SendToGateway_Call {
+func (_c *GatewayConnector_SendToGateway_Call) Run(run func(ctx context.Context, gatewayID string, msg *api.Message)) *GatewayConnector_SendToGateway_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context), args[1].(string), args[2].(*api.Message))
 	})

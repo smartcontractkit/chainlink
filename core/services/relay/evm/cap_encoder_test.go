@@ -217,6 +217,78 @@ func TestEVMEncoder_InvalidIDs(t *testing.T) {
 	assert.ErrorContains(t, err, "incorrect length for id")
 }
 
+func TestEVMEncoder_SubABI(t *testing.T) {
+	config := map[string]any{
+		"abi": "(bytes32 FeedID, bytes Bundle, uint32 Timestamp)[] Reports",
+		"subabi": map[string]string{
+			"Reports.Bundle": "uint256 Ask, uint256 Bid",
+		},
+	}
+	wrapped, err := values.NewMap(config)
+	require.NoError(t, err)
+	enc, err := evm.NewEVMEncoder(wrapped)
+	require.NoError(t, err)
+
+	type SubReport struct {
+		Ask int
+		Bid int
+	}
+	type ReportStruct struct {
+		FeedID    [32]byte
+		Bundle    SubReport
+		Timestamp uint32
+	}
+	reportOne := ReportStruct{
+		FeedID: [32]byte{1},
+		Bundle: SubReport{
+			Ask: 5,
+			Bid: 6,
+		},
+		Timestamp: 47890122,
+	}
+	reportTwo := ReportStruct{
+		FeedID: [32]byte{2},
+		Bundle: SubReport{
+			Ask: 7,
+			Bid: 8,
+		},
+		Timestamp: 47890122,
+	}
+
+	// output of a reduce aggregator + metadata fields appended by OCR
+	input := map[string]any{
+		"Reports":                        []any{reportOne, reportTwo},
+		consensustypes.MetadataFieldName: getMetadata(workflowID),
+	}
+	wrapped, err = values.NewMap(input)
+	require.NoError(t, err)
+	encoded, err := enc.Encode(testutils.Context(t), *wrapped)
+	require.NoError(t, err)
+
+	expected :=
+		// start of the outer tuple
+		getHexMetadata() +
+			// start of the inner tuple (user_fields)
+			"0000000000000000000000000000000000000000000000000000000000000020" + // offset of Reports array
+			"0000000000000000000000000000000000000000000000000000000000000002" + // length of Reports array
+			"0000000000000000000000000000000000000000000000000000000000000040" + // offset of ReportOne
+			"0000000000000000000000000000000000000000000000000000000000000100" + // offset of ReportTwo
+			"0100000000000000000000000000000000000000000000000000000000000000" + // ReportOne FeedID
+			"0000000000000000000000000000000000000000000000000000000000000060" + // offset of ReportOne Bundle
+			"0000000000000000000000000000000000000000000000000000000002dabeca" + // ReportOne Timestamp
+			"0000000000000000000000000000000000000000000000000000000000000040" + // length of ReportOne Bundle
+			"0000000000000000000000000000000000000000000000000000000000000005" + // ReportOne Ask
+			"0000000000000000000000000000000000000000000000000000000000000006" + // ReportOne Bid
+			"0200000000000000000000000000000000000000000000000000000000000000" + // ReportTwo FeedID
+			"0000000000000000000000000000000000000000000000000000000000000060" + // offset of ReportTwo Bundle
+			"0000000000000000000000000000000000000000000000000000000002dabeca" + // ReportTwo Timestamp
+			"0000000000000000000000000000000000000000000000000000000000000040" + // length of ReportTwo Bundle
+			"0000000000000000000000000000000000000000000000000000000000000007" + // ReportTwo Ask
+			"0000000000000000000000000000000000000000000000000000000000000008" // ReportTwo Bid
+
+	require.Equal(t, expected, hex.EncodeToString(encoded))
+}
+
 func getHexMetadata() string {
 	return "01" + executionID + timestampHex + donIDHex + configVersionHex + workflowID + workflowName + workflowOwnerID + reportID
 }

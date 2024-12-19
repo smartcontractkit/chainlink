@@ -6,12 +6,15 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/deployment"
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	common_v1_0 "github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/view"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability"
+	workflow_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/workflow/generated/workflow_registry_wrapper"
 )
 
 type GetContractSetsRequest struct {
@@ -24,9 +27,28 @@ type GetContractSetsResponse struct {
 }
 
 type ContractSet struct {
+	commonchangeset.MCMSWithTimelockState
 	OCR3                 *ocr3_capability.OCR3Capability
 	Forwarder            *forwarder.KeystoneForwarder
 	CapabilitiesRegistry *capabilities_registry.CapabilitiesRegistry
+	WorkflowRegistry     *workflow_registry.WorkflowRegistry
+}
+
+func (cs ContractSet) TransferableContracts() []common.Address {
+	var out []common.Address
+	if cs.OCR3 != nil {
+		out = append(out, cs.OCR3.Address())
+	}
+	if cs.Forwarder != nil {
+		out = append(out, cs.Forwarder.Address())
+	}
+	if cs.CapabilitiesRegistry != nil {
+		out = append(out, cs.CapabilitiesRegistry.Address())
+	}
+	if cs.WorkflowRegistry != nil {
+		out = append(out, cs.WorkflowRegistry.Address())
+	}
+	return out
 }
 
 func (cs ContractSet) View() (view.KeystoneChainView, error) {
@@ -61,6 +83,11 @@ func GetContractSets(lggr logger.Logger, req *GetContractSetsRequest) (*GetContr
 
 func loadContractSet(lggr logger.Logger, chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (*ContractSet, error) {
 	var out ContractSet
+	mcmsWithTimelock, err := commonchangeset.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load mcms contract: %w", err)
+	}
+	out.MCMSWithTimelockState = *mcmsWithTimelock
 
 	for addr, tv := range addresses {
 		// todo handle versions
@@ -83,6 +110,12 @@ func loadContractSet(lggr logger.Logger, chain deployment.Chain, addresses map[s
 				return nil, fmt.Errorf("failed to create OCR3Capability contract from address %s: %w", addr, err)
 			}
 			out.OCR3 = c
+		case WorkflowRegistry:
+			c, err := workflow_registry.NewWorkflowRegistry(common.HexToAddress(addr), chain.Client)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create OCR3Capability contract from address %s: %w", addr, err)
+			}
+			out.WorkflowRegistry = c
 		default:
 			lggr.Warnw("unknown contract type", "type", tv.Type)
 			// ignore unknown contract types

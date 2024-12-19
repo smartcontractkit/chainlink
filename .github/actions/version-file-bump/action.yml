@@ -1,5 +1,5 @@
 name: version-file-bump
-description: "Ensure that the VERSION file has been bumped since the last release."
+description: "Ensure that the package.json version field has been bumped since the last release."
 inputs:
   github-token:
     description: "Github access token"

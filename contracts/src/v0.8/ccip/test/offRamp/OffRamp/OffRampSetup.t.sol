@@ -70,6 +70,7 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
       OffRamp.StaticConfig({
         chainSelector: DEST_CHAIN_SELECTOR,
         rmnRemote: rmnRemote,
+        gasForCallExactCheck: GAS_FOR_CALL_EXACT_CHECK,
         tokenAdminRegistry: address(s_tokenAdminRegistry),
         nonceManager: address(nonceManager)
       }),
@@ -194,25 +195,36 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
     return _generateAny2EVMMessage(sourceChainSelector, onRamp, sequenceNumber, tokenAmounts, false);
   }
 
+  function _generateAny2EVMMessageWithMaybeRevertingSingleToken(
+    uint64 sequenceNumber,
+    uint256 amount
+  ) internal view returns (Internal.Any2EVMRampMessage memory) {
+    Client.EVMTokenAmount[] memory tokenAmounts = new Client.EVMTokenAmount[](1);
+    tokenAmounts[0].token = s_sourceTokens[1];
+    tokenAmounts[0].amount = amount;
+
+    return _generateAny2EVMMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, sequenceNumber, tokenAmounts, false);
+  }
+
   function _generateAny2EVMMessage(
     uint64 sourceChainSelector,
     bytes memory onRamp,
     uint64 sequenceNumber,
-    Client.EVMTokenAmount[] memory tokenAmounts,
+    Client.EVMTokenAmount[] memory sourceTokenAmounts,
     bool allowOutOfOrderExecution
   ) internal view returns (Internal.Any2EVMRampMessage memory) {
     bytes memory data = abi.encode(0);
 
     Internal.Any2EVMTokenTransfer[] memory any2EVMTokenTransfer =
-      new Internal.Any2EVMTokenTransfer[](tokenAmounts.length);
+      new Internal.Any2EVMTokenTransfer[](sourceTokenAmounts.length);
 
     // Correctly set the TokenDataPayload for each token. Tokens have to be set up in the TokenSetup.
-    for (uint256 i = 0; i < tokenAmounts.length; ++i) {
+    for (uint256 i = 0; i < sourceTokenAmounts.length; ++i) {
       any2EVMTokenTransfer[i] = Internal.Any2EVMTokenTransfer({
-        sourcePoolAddress: abi.encode(s_sourcePoolByToken[tokenAmounts[i].token]),
-        destTokenAddress: s_destTokenBySourceToken[tokenAmounts[i].token],
+        sourcePoolAddress: abi.encode(s_sourcePoolByToken[sourceTokenAmounts[i].token]),
+        destTokenAddress: s_destTokenBySourceToken[sourceTokenAmounts[i].token],
         extraData: "",
-        amount: tokenAmounts[i].amount,
+        amount: sourceTokenAmounts[i].amount,
         destGasAmount: DEFAULT_TOKEN_DEST_GAS_OVERHEAD
       });
     }
@@ -337,6 +349,7 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
     s_offRamp = new OffRampHelper(
       OffRamp.StaticConfig({
         chainSelector: DEST_CHAIN_SELECTOR,
+        gasForCallExactCheck: GAS_FOR_CALL_EXACT_CHECK,
         rmnRemote: s_mockRMNRemote,
         tokenAdminRegistry: address(s_tokenAdminRegistry),
         nonceManager: address(s_inboundNonceManager)
@@ -360,7 +373,7 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
   }
 
   function _commit(OffRamp.CommitReport memory commitReport, uint64 sequenceNumber) internal {
-    bytes32[3] memory reportContext = [s_configDigestCommit, bytes32(uint256(sequenceNumber)), s_configDigestCommit];
+    bytes32[2] memory reportContext = [s_configDigestCommit, bytes32(uint256(sequenceNumber))];
 
     (bytes32[] memory rs, bytes32[] memory ss,, bytes32 rawVs) =
       _getSignaturesForDigest(s_validSignerKeys, abi.encode(commitReport), reportContext, F + 1);
@@ -372,7 +385,7 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
   function _execute(
     Internal.ExecutionReport[] memory reports
   ) internal {
-    bytes32[3] memory reportContext = [s_configDigestExec, s_configDigestExec, s_configDigestExec];
+    bytes32[2] memory reportContext = [s_configDigestExec, s_configDigestExec];
 
     vm.startPrank(s_validTransmitters[0]);
     s_offRamp.execute(reportContext, abi.encode(reports));

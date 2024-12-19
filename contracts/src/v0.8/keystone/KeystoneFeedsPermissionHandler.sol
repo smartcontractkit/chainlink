@@ -10,11 +10,11 @@ abstract contract KeystoneFeedsPermissionHandler is Ownable2StepMsgSender {
   /// @notice Holds the details for permissions of a report
   /// @dev Workflow names and report names are stored as bytes to optimize for gas efficiency.
   struct Permission {
-    address forwarder; // ──────╮ The address of the forwarder (20 bytes)
-    bytes10 workflowName; //    │ The name of the workflow in bytes10
-    bytes2 reportName; // ──────╯ The name of the report in bytes2
-    address workflowOwner; // ──╮ The address of the workflow owner (20 bytes)
-    bool isAllowed; // ─────────╯ Whether the report is allowed or not (1 byte)
+    address forwarder; // ─────╮ The address of the forwarder (20 bytes)
+    bytes10 workflowName; //   │ The name of the workflow in bytes10
+    bytes2 reportName; // ─────╯ The name of the report in bytes2
+    address workflowOwner; // ─╮ The address of the workflow owner (20 bytes)
+    bool isAllowed; // ────────╯ Whether the report is allowed or not (1 byte)
   }
 
   /// @notice Event emitted when report permissions are set

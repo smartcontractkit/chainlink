@@ -3,8 +3,10 @@ package llo
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -22,14 +24,18 @@ import (
 
 var (
 	promMissingStreamCount = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "llo_stream_missing_count",
-		Help: "Number of times we tried to observe a stream, but it was missing",
+		Namespace: "llo",
+		Subsystem: "datasource",
+		Name:      "stream_missing_count",
+		Help:      "Number of times we tried to observe a stream, but it was missing",
 	},
 		[]string{"streamID"},
 	)
 	promObservationErrorCount = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "llo_stream_observation_error_count",
-		Help: "Number of times we tried to observe a stream, but it failed with an error",
+		Namespace: "llo",
+		Subsystem: "datasource",
+		Name:      "stream_observation_error_count",
+		Help:      "Number of times we tried to observe a stream, but it failed with an error",
 	},
 		[]string{"streamID"},
 	)
@@ -85,11 +91,7 @@ func newDataSource(lggr logger.Logger, registry Registry, t Telemeter) *dataSour
 
 // Observe looks up all streams in the registry and populates a map of stream ID => value
 func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues, opts llo.DSOpts) error {
-	var wg sync.WaitGroup
-	wg.Add(len(streamValues))
-	var svmu sync.Mutex
-	var errs []ErrObservationFailed
-	var errmu sync.Mutex
+	now := time.Now()
 
 	if opts.VerboseLogging() {
 		streamIDs := make([]streams.StreamID, 0, len(streamValues))
@@ -100,6 +102,13 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 		d.lggr.Debugw("Observing streams", "streamIDs", streamIDs, "configDigest", opts.ConfigDigest(), "seqNr", opts.OutCtx().SeqNr)
 	}
 
+	var wg sync.WaitGroup
+	wg.Add(len(streamValues))
+
+	var mu sync.Mutex
+	successfulStreamIDs := make([]streams.StreamID, 0, len(streamValues))
+	var errs []ErrObservationFailed
+
 	for _, streamID := range maps.Keys(streamValues) {
 		go func(streamID llotypes.StreamID) {
 			defer wg.Done()
@@ -108,17 +117,17 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 
 			stream, exists := d.registry.Get(streamID)
 			if !exists {
-				errmu.Lock()
+				mu.Lock()
 				errs = append(errs, ErrObservationFailed{streamID: streamID, reason: fmt.Sprintf("missing stream: %d", streamID)})
-				errmu.Unlock()
+				mu.Unlock()
 				promMissingStreamCount.WithLabelValues(fmt.Sprintf("%d", streamID)).Inc()
 				return
 			}
 			run, trrs, err := stream.Run(ctx)
 			if err != nil {
-				errmu.Lock()
+				mu.Lock()
 				errs = append(errs, ErrObservationFailed{inner: err, run: run, streamID: streamID, reason: "pipeline run failed"})
-				errmu.Unlock()
+				mu.Unlock()
 				promObservationErrorCount.WithLabelValues(fmt.Sprintf("%d", streamID)).Inc()
 				// TODO: Consolidate/reduce telemetry. We should send all observation results in a single packet
 				// https://smartcontract-it.atlassian.net/browse/MERC-6290
@@ -129,44 +138,50 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 			// https://smartcontract-it.atlassian.net/browse/MERC-6290
 			val, err = ExtractStreamValue(trrs)
 			if err != nil {
-				errmu.Lock()
+				mu.Lock()
 				errs = append(errs, ErrObservationFailed{inner: err, run: run, streamID: streamID, reason: "failed to extract big.Int"})
-				errmu.Unlock()
+				mu.Unlock()
 				return
 			}
 
 			d.t.EnqueueV3PremiumLegacy(run, trrs, streamID, opts, val, nil)
 
+			mu.Lock()
+			defer mu.Unlock()
+
+			successfulStreamIDs = append(successfulStreamIDs, streamID)
 			if val != nil {
-				svmu.Lock()
-				defer svmu.Unlock()
 				streamValues[streamID] = val
 			}
 		}(streamID)
 	}
 
 	wg.Wait()
+	elapsed := time.Since(now)
 
-	// Failed observations are always logged at warn level
-	var failedStreamIDs []streams.StreamID
-	if len(errs) > 0 {
+	// Only log on errors or if VerboseLogging is turned on
+	if len(errs) > 0 || opts.VerboseLogging() {
+		slices.Sort(successfulStreamIDs)
 		sort.Slice(errs, func(i, j int) bool { return errs[i].streamID < errs[j].streamID })
-		failedStreamIDs = make([]streams.StreamID, len(errs))
+
+		failedStreamIDs := make([]streams.StreamID, len(errs))
 		errStrs := make([]string, len(errs))
 		for i, e := range errs {
 			errStrs[i] = e.String()
 			failedStreamIDs[i] = e.streamID
 		}
-		d.lggr.Warnw("Observation failed for streams", "failedStreamIDs", failedStreamIDs, "errs", errStrs, "configDigest", opts.ConfigDigest(), "seqNr", opts.OutCtx().SeqNr)
-	}
 
-	if opts.VerboseLogging() {
-		successes := make([]streams.StreamID, 0, len(streamValues))
-		for strmID := range streamValues {
-			successes = append(successes, strmID)
+		lggr := logger.With(d.lggr, "elapsed", elapsed, "nSuccessfulStreams", len(successfulStreamIDs), "nFailedStreams", len(failedStreamIDs), "successfulStreamIDs", successfulStreamIDs, "failedStreamIDs", failedStreamIDs, "errs", errStrs, "configDigest", opts.ConfigDigest(), "seqNr", opts.OutCtx().SeqNr)
+
+		if opts.VerboseLogging() {
+			lggr = logger.With(lggr, "streamValues", streamValues)
 		}
-		sort.Slice(successes, func(i, j int) bool { return successes[i] < successes[j] })
-		d.lggr.Debugw("Observation complete", "successfulStreamIDs", successes, "failedStreamIDs", failedStreamIDs, "configDigest", opts.ConfigDigest(), "values", streamValues, "seqNr", opts.OutCtx().SeqNr)
+
+		if len(errs) == 0 && opts.VerboseLogging() {
+			lggr.Infow("Observation succeeded for all streams")
+		} else if len(errs) > 0 {
+			lggr.Warnw("Observation failed for streams")
+		}
 	}
 
 	return nil
@@ -177,9 +192,6 @@ func ExtractStreamValue(trrs pipeline.TaskRunResults) (llo.StreamValue, error) {
 	// pipeline.TaskRunResults comes ordered asc by index, this is guaranteed
 	// by the pipeline executor
 	finaltrrs := trrs.Terminals()
-
-	// TODO: Special handling for missing native/link streams?
-	// https://smartcontract-it.atlassian.net/browse/MERC-5949
 
 	// HACK: Right now we rely on the number of outputs to determine whether
 	// its a Decimal or a Quote.

@@ -249,6 +249,7 @@ CertFile = ''
 [Mercury.Transmitter]
 TransmitQueueMaxSize = 10000
 TransmitTimeout = '5s'
+TransmitConcurrency = 100
 
 [Capabilities]
 [Capabilities.Peering]
@@ -276,6 +277,11 @@ PerSenderRPS = 10.0
 PerSenderBurst = 50
 
 [Capabilities.ExternalRegistry]
+Address = ''
+NetworkID = 'evm'
+ChainID = '1'
+
+[Capabilities.WorkflowRegistry]
 Address = ''
 NetworkID = 'evm'
 ChainID = '1'

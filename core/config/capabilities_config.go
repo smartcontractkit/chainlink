@@ -11,6 +11,13 @@ type CapabilitiesExternalRegistry interface {
 	RelayID() types.RelayID
 }
 
+type CapabilitiesWorkflowRegistry interface {
+	Address() string
+	NetworkID() string
+	ChainID() string
+	RelayID() types.RelayID
+}
+
 type GatewayConnector interface {
 	ChainIDForNodeKey() string
 	NodeAddress() string
@@ -30,5 +37,6 @@ type Capabilities interface {
 	Peering() P2P
 	Dispatcher() Dispatcher
 	ExternalRegistry() CapabilitiesExternalRegistry
+	WorkflowRegistry() CapabilitiesWorkflowRegistry
 	GatewayConnector() GatewayConnector
 }

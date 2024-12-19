@@ -8,6 +8,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -16,19 +18,20 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+
 	"github.com/smartcontractkit/chainlink/deployment"
+	kocr3 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
 type TopLevelConfigSource struct {
-	OracleConfig OracleConfigWithSecrets
+	OracleConfig OracleConfig
 }
-type OracleConfigWithSecrets struct {
-	OracleConfig
-	deployment.OCRSecrets `json:"-" toml:"-"` // don't spill secrets
-}
+
 type OracleConfig struct {
 	MaxQueryLengthBytes       uint32
 	MaxObservationLengthBytes uint32
@@ -68,7 +71,8 @@ type NodeKeys struct {
 	EncryptionPublicKey   string `json:"EncryptionPublicKey"`
 }
 
-type Orc2drOracleConfig struct {
+// OCR2OracleConfig is the input configuration for an OCR2/3 contract.
+type OCR2OracleConfig struct {
 	Signers               [][]byte
 	Transmitters          []common.Address
 	F                     uint8
@@ -77,7 +81,7 @@ type Orc2drOracleConfig struct {
 	OffchainConfig        []byte
 }
 
-func (c Orc2drOracleConfig) MarshalJSON() ([]byte, error) {
+func (c OCR2OracleConfig) MarshalJSON() ([]byte, error) {
 	alias := struct {
 		Signers               []string
 		Transmitters          []string
@@ -105,16 +109,54 @@ func (c Orc2drOracleConfig) MarshalJSON() ([]byte, error) {
 	return json.Marshal(alias)
 }
 
-func GenerateOCR3Config(cfg OracleConfigWithSecrets, nca []NodeKeys) (Orc2drOracleConfig, error) {
+func (c *OCR2OracleConfig) UnmarshalJSON(data []byte) error {
+	type aliasT struct {
+		Signers               []string
+		Transmitters          []string
+		F                     uint8
+		OnchainConfig         string
+		OffchainConfigVersion uint64
+		OffchainConfig        string
+	}
+	var alias aliasT
+	err := json.Unmarshal(data, &alias)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal OCR2OracleConfig alias: %w", err)
+	}
+	c.F = alias.F
+	c.OffchainConfigVersion = alias.OffchainConfigVersion
+	c.Signers = make([][]byte, len(alias.Signers))
+	for i, signer := range alias.Signers {
+		c.Signers[i], err = hex.DecodeString(strings.TrimPrefix(signer, "0x"))
+		if err != nil {
+			return fmt.Errorf("failed to decode signer: %w", err)
+		}
+	}
+	c.Transmitters = make([]common.Address, len(alias.Transmitters))
+	for i, transmitter := range alias.Transmitters {
+		c.Transmitters[i] = common.HexToAddress(transmitter)
+	}
+	c.OnchainConfig, err = hex.DecodeString(strings.TrimPrefix(alias.OnchainConfig, "0x"))
+	if err != nil {
+		return fmt.Errorf("failed to decode onchain config: %w", err)
+	}
+	c.OffchainConfig, err = hex.DecodeString(strings.TrimPrefix(alias.OffchainConfig, "0x"))
+	if err != nil {
+		return fmt.Errorf("failed to decode offchain config: %w", err)
+	}
+	return nil
+}
+
+func GenerateOCR3Config(cfg OracleConfig, nca []NodeKeys, secrets deployment.OCRSecrets) (OCR2OracleConfig, error) {
 	onchainPubKeys := [][]byte{}
 	allPubKeys := map[string]any{}
-	if cfg.OCRSecrets.IsEmpty() {
-		return Orc2drOracleConfig{}, errors.New("OCRSecrets is required")
+	if secrets.IsEmpty() {
+		return OCR2OracleConfig{}, errors.New("OCRSecrets is required")
 	}
 	for _, n := range nca {
 		// evm keys always required
 		if n.OCR2OnchainPublicKey == "" {
-			return Orc2drOracleConfig{}, errors.New("OCR2OnchainPublicKey is required")
+			return OCR2OracleConfig{}, errors.New("OCR2OnchainPublicKey is required")
 		}
 		ethPubKey := common.HexToAddress(n.OCR2OnchainPublicKey)
 		pubKeys := map[string]types.OnchainPublicKey{
@@ -124,7 +166,7 @@ func GenerateOCR3Config(cfg OracleConfigWithSecrets, nca []NodeKeys) (Orc2drOrac
 		if n.AptosOnchainPublicKey != "" {
 			aptosPubKey, err := hex.DecodeString(n.AptosOnchainPublicKey)
 			if err != nil {
-				return Orc2drOracleConfig{}, fmt.Errorf("failed to decode AptosOnchainPublicKey: %w", err)
+				return OCR2OracleConfig{}, fmt.Errorf("failed to decode AptosOnchainPublicKey: %w", err)
 			}
 			pubKeys[string(chaintype.Aptos)] = aptosPubKey
 		}
@@ -133,13 +175,13 @@ func GenerateOCR3Config(cfg OracleConfigWithSecrets, nca []NodeKeys) (Orc2drOrac
 			raw := hex.EncodeToString(key)
 			_, exists := allPubKeys[raw]
 			if exists {
-				return Orc2drOracleConfig{}, fmt.Errorf("Duplicate onchain public key: '%s'", raw)
+				return OCR2OracleConfig{}, fmt.Errorf("Duplicate onchain public key: '%s'", raw)
 			}
 			allPubKeys[raw] = struct{}{}
 		}
 		pubKey, err := ocrcommon.MarshalMultichainPublicKey(pubKeys)
 		if err != nil {
-			return Orc2drOracleConfig{}, fmt.Errorf("failed to marshal multichain public key: %w", err)
+			return OCR2OracleConfig{}, fmt.Errorf("failed to marshal multichain public key: %w", err)
 		}
 		onchainPubKeys = append(onchainPubKeys, pubKey)
 	}
@@ -148,13 +190,13 @@ func GenerateOCR3Config(cfg OracleConfigWithSecrets, nca []NodeKeys) (Orc2drOrac
 	for _, n := range nca {
 		pkBytes, err := hex.DecodeString(n.OCR2OffchainPublicKey)
 		if err != nil {
-			return Orc2drOracleConfig{}, fmt.Errorf("failed to decode OCR2OffchainPublicKey: %w", err)
+			return OCR2OracleConfig{}, fmt.Errorf("failed to decode OCR2OffchainPublicKey: %w", err)
 		}
 
 		pkBytesFixed := [ed25519.PublicKeySize]byte{}
 		nCopied := copy(pkBytesFixed[:], pkBytes)
 		if nCopied != ed25519.PublicKeySize {
-			return Orc2drOracleConfig{}, fmt.Errorf("wrong num elements copied from ocr2 offchain public key. expected %d but got %d", ed25519.PublicKeySize, nCopied)
+			return OCR2OracleConfig{}, fmt.Errorf("wrong num elements copied from ocr2 offchain public key. expected %d but got %d", ed25519.PublicKeySize, nCopied)
 		}
 
 		offchainPubKeysBytes = append(offchainPubKeysBytes, types.OffchainPublicKey(pkBytesFixed))
@@ -164,13 +206,13 @@ func GenerateOCR3Config(cfg OracleConfigWithSecrets, nca []NodeKeys) (Orc2drOrac
 	for _, n := range nca {
 		pkBytes, err := hex.DecodeString(n.OCR2ConfigPublicKey)
 		if err != nil {
-			return Orc2drOracleConfig{}, fmt.Errorf("failed to decode OCR2ConfigPublicKey: %w", err)
+			return OCR2OracleConfig{}, fmt.Errorf("failed to decode OCR2ConfigPublicKey: %w", err)
 		}
 
 		pkBytesFixed := [ed25519.PublicKeySize]byte{}
 		n := copy(pkBytesFixed[:], pkBytes)
 		if n != ed25519.PublicKeySize {
-			return Orc2drOracleConfig{}, fmt.Errorf("wrong num elements copied from ocr2 config public key. expected %d but got %d", ed25519.PublicKeySize, n)
+			return OCR2OracleConfig{}, fmt.Errorf("wrong num elements copied from ocr2 config public key. expected %d but got %d", ed25519.PublicKeySize, n)
 		}
 
 		configPubKeysBytes = append(configPubKeysBytes, types.ConfigEncryptionPublicKey(pkBytesFixed))
@@ -190,8 +232,8 @@ func GenerateOCR3Config(cfg OracleConfigWithSecrets, nca []NodeKeys) (Orc2drOrac
 	}
 
 	signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig, err := ocr3confighelper.ContractSetConfigArgsDeterministic(
-		cfg.EphemeralSk,
-		cfg.SharedSecret,
+		secrets.EphemeralSk,
+		secrets.SharedSecret,
 		time.Duration(cfg.DeltaProgressMillis)*time.Millisecond,
 		time.Duration(cfg.DeltaResendMillis)*time.Millisecond,
 		time.Duration(cfg.DeltaInitialMillis)*time.Millisecond,
@@ -212,7 +254,7 @@ func GenerateOCR3Config(cfg OracleConfigWithSecrets, nca []NodeKeys) (Orc2drOrac
 		nil, // empty onChain config
 	)
 	if err != nil {
-		return Orc2drOracleConfig{}, fmt.Errorf("failed to generate contract config args: %w", err)
+		return OCR2OracleConfig{}, fmt.Errorf("failed to generate contract config args: %w", err)
 	}
 
 	var configSigners [][]byte
@@ -222,10 +264,10 @@ func GenerateOCR3Config(cfg OracleConfigWithSecrets, nca []NodeKeys) (Orc2drOrac
 
 	transmitterAddresses, err := evm.AccountToAddress(transmitters)
 	if err != nil {
-		return Orc2drOracleConfig{}, fmt.Errorf("failed to convert transmitters to addresses: %w", err)
+		return OCR2OracleConfig{}, fmt.Errorf("failed to convert transmitters to addresses: %w", err)
 	}
 
-	config := Orc2drOracleConfig{
+	config := OCR2OracleConfig{
 		Signers:               configSigners,
 		Transmitters:          transmitterAddresses,
 		F:                     f,
@@ -235,4 +277,79 @@ func GenerateOCR3Config(cfg OracleConfigWithSecrets, nca []NodeKeys) (Orc2drOrac
 	}
 
 	return config, nil
+}
+
+type configureOCR3Request struct {
+	cfg        *OracleConfig
+	chain      deployment.Chain
+	contract   *kocr3.OCR3Capability
+	nodes      []deployment.Node
+	dryRun     bool
+	ocrSecrets deployment.OCRSecrets
+
+	useMCMS     bool
+	contractSet *ContractSet
+}
+
+func (r configureOCR3Request) generateOCR3Config() (OCR2OracleConfig, error) {
+	nks := makeNodeKeysSlice(r.nodes, r.chain.Selector)
+	return GenerateOCR3Config(*r.cfg, nks, r.ocrSecrets)
+}
+
+type configureOCR3Response struct {
+	ocrConfig OCR2OracleConfig
+	ops       *timelock.BatchChainOperation
+}
+
+func configureOCR3contract(req configureOCR3Request) (*configureOCR3Response, error) {
+	if req.contract == nil {
+		return nil, fmt.Errorf("OCR3 contract is nil")
+	}
+	ocrConfig, err := req.generateOCR3Config()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate OCR3 config: %w", err)
+	}
+	if req.dryRun {
+		return &configureOCR3Response{ocrConfig, nil}, nil
+	}
+
+	txOpt := req.chain.DeployerKey
+	if req.useMCMS {
+		txOpt = deployment.SimTransactOpts()
+	}
+
+	tx, err := req.contract.SetConfig(txOpt,
+		ocrConfig.Signers,
+		ocrConfig.Transmitters,
+		ocrConfig.F,
+		ocrConfig.OnchainConfig,
+		ocrConfig.OffchainConfigVersion,
+		ocrConfig.OffchainConfig,
+	)
+	if err != nil {
+		err = DecodeErr(kocr3.OCR3CapabilityABI, err)
+		return nil, fmt.Errorf("failed to call SetConfig for OCR3 contract %s using mcms: %t: %w", req.contract.Address().String(), req.useMCMS, err)
+	}
+
+	var ops *timelock.BatchChainOperation
+	if !req.useMCMS {
+		_, err = req.chain.Confirm(tx)
+		if err != nil {
+			err = DecodeErr(kocr3.OCR3CapabilityABI, err)
+			return nil, fmt.Errorf("failed to confirm SetConfig for OCR3 contract %s: %w", req.contract.Address().String(), err)
+		}
+	} else {
+		ops = &timelock.BatchChainOperation{
+			ChainIdentifier: mcms.ChainIdentifier(req.chain.Selector),
+			Batch: []mcms.Operation{
+				{
+					To:    req.contract.Address(),
+					Data:  tx.Data(),
+					Value: big.NewInt(0),
+				},
+			},
+		}
+	}
+
+	return &configureOCR3Response{ocrConfig, ops}, nil
 }

@@ -9,8 +9,8 @@ WorkflowRegistry.pauseWorkflow
         │   └── it should revert
         └── when the workflow is active
             ├── when the donID is not allowed
-            │   ├── it should pause the workflow for an authorized address 
-            │   └── it should pause the workflow for an unauthorized address
+            │   ├── it should pause the workflow for an authorized address and emit {WorkflowPausedV1}
+            │   └── it should pause the workflow for an unauthorized address and emit {WorkflowPausedV1}
             └── when the donID is allowed
-                ├── it should pause the workflow for an authorized address 
-                └── it should pause the workflow for an unauthorized address
+                ├── it should pause the workflow for an authorized address and emit {WorkflowPausedV1}
+                └── it should pause the workflow for an unauthorized address and emit {WorkflowPausedV1}

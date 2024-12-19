@@ -26,7 +26,7 @@ type CapabilityRegistryView struct {
 
 // MarshalJSON marshals the CapabilityRegistryView to JSON. It includes the Capabilities, Nodes, Nops, and Dons
 // and a denormalized summary of the Dons with their associated Nodes and Capabilities, which is useful for a high-level view
-func (v CapabilityRegistryView) MarshalJSON() ([]byte, error) {
+func (v *CapabilityRegistryView) MarshalJSON() ([]byte, error) {
 	// Alias to avoid recursive calls
 	type Alias struct {
 		types.ContractMetaData
@@ -49,6 +49,36 @@ func (v CapabilityRegistryView) MarshalJSON() ([]byte, error) {
 	}
 	a.DonCapabilities = dc
 	return json.MarshalIndent(&a, "", " ")
+}
+
+// UnmarshalJSON unmarshals the CapabilityRegistryView from JSON. Since the CapabilityRegistryView doesn't hold a DonCapabilities field,
+// it is not unmarshaled.
+func (v *CapabilityRegistryView) UnmarshalJSON(data []byte) error {
+	// Alias to avoid recursive calls
+	type Alias struct {
+		types.ContractMetaData
+		Capabilities    []CapabilityView      `json:"capabilities,omitempty"`
+		Nodes           []NodeView            `json:"nodes,omitempty"`
+		Nops            []NopView             `json:"nops,omitempty"`
+		Dons            []DonView             `json:"dons,omitempty"`
+		DonCapabilities []DonDenormalizedView `json:"don_capabilities_summary,omitempty"`
+	}
+	a := Alias{
+		ContractMetaData: v.ContractMetaData,
+		Capabilities:     v.Capabilities,
+		Nodes:            v.Nodes,
+		Nops:             v.Nops,
+		Dons:             v.Dons,
+	}
+	if err := json.Unmarshal(data, &a); err != nil {
+		return err
+	}
+	v.ContractMetaData = a.ContractMetaData
+	v.Capabilities = a.Capabilities
+	v.Nodes = a.Nodes
+	v.Nops = a.Nops
+	v.Dons = a.Dons
+	return nil
 }
 
 // GenerateCapabilityRegistryView generates a CapRegView from a CapabilitiesRegistry contract.
@@ -112,7 +142,7 @@ type DonDenormalizedView struct {
 // Nodes and Capabilities. This is a useful form of the CapabilityRegistryView, but it is not definitive.
 // The full CapRegView should be used for the most accurate information as it can contain
 // Capabilities and Nodes the are not associated with any Don.
-func (v CapabilityRegistryView) DonDenormalizedView() ([]DonDenormalizedView, error) {
+func (v *CapabilityRegistryView) DonDenormalizedView() ([]DonDenormalizedView, error) {
 	var out []DonDenormalizedView
 	for _, don := range v.Dons {
 		var nodes []NodeDenormalizedView
@@ -137,6 +167,91 @@ func (v CapabilityRegistryView) DonDenormalizedView() ([]DonDenormalizedView, er
 			Capabilities: capabilities,
 		})
 	}
+	return out, nil
+}
+
+func (v *CapabilityRegistryView) NodesToNodesParams() ([]capabilities_registry.CapabilitiesRegistryNodeParams, error) {
+	var nodesParams []capabilities_registry.CapabilitiesRegistryNodeParams
+	for _, node := range v.Nodes {
+		signer, err := hexTo32Bytes(node.Signer)
+		if err != nil {
+			return nil, err
+		}
+		encryptionPubKey, err := hexTo32Bytes(node.EncryptionPublicKey)
+		if err != nil {
+			return nil, err
+		}
+		capIDs := make([][32]byte, len(node.CapabilityIDs))
+		for i, id := range node.CapabilityIDs {
+			cid, err := hexTo32Bytes(id)
+			if err != nil {
+				return nil, err
+			}
+			capIDs[i] = cid
+		}
+		nodesParams = append(nodesParams, capabilities_registry.CapabilitiesRegistryNodeParams{
+			Signer:              signer,
+			P2pId:               node.P2pId,
+			EncryptionPublicKey: encryptionPubKey,
+			NodeOperatorId:      node.NodeOperatorID,
+			HashedCapabilityIds: capIDs,
+		})
+	}
+
+	return nodesParams, nil
+}
+
+func (v *CapabilityRegistryView) CapabilitiesToCapabilitiesParams() []capabilities_registry.CapabilitiesRegistryCapability {
+	var capabilitiesParams []capabilities_registry.CapabilitiesRegistryCapability
+	for _, capability := range v.Capabilities {
+		capabilitiesParams = append(capabilitiesParams, capabilities_registry.CapabilitiesRegistryCapability{
+			LabelledName:          capability.LabelledName,
+			Version:               capability.Version,
+			CapabilityType:        capability.CapabilityType,
+			ResponseType:          capability.ResponseType,
+			ConfigurationContract: capability.ConfigurationContract,
+		})
+	}
+	return capabilitiesParams
+}
+
+func (v *CapabilityRegistryView) NopsToNopsParams() []capabilities_registry.CapabilitiesRegistryNodeOperator {
+	var nopsParams []capabilities_registry.CapabilitiesRegistryNodeOperator
+	for _, nop := range v.Nops {
+		nopsParams = append(nopsParams, capabilities_registry.CapabilitiesRegistryNodeOperator{
+			Admin: nop.Admin,
+			Name:  nop.Name,
+		})
+	}
+	return nopsParams
+}
+
+func (v *CapabilityRegistryView) CapabilityConfigToCapabilityConfigParams(don DonView) ([]capabilities_registry.CapabilitiesRegistryCapabilityConfiguration, error) {
+	var cfgs []capabilities_registry.CapabilitiesRegistryCapabilityConfiguration
+	for _, cfg := range don.CapabilityConfigurations {
+		cid, err := hexTo32Bytes(cfg.ID)
+		if err != nil {
+			return nil, err
+		}
+		config, err := hex.DecodeString(cfg.Config)
+		if err != nil {
+			return nil, err
+		}
+		cfgs = append(cfgs, capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
+			CapabilityId: cid,
+			Config:       config,
+		})
+	}
+	return cfgs, nil
+}
+
+func hexTo32Bytes(val string) ([32]byte, error) {
+	var out [32]byte
+	b, err := hex.DecodeString(val)
+	if err != nil {
+		return out, err
+	}
+	copy(out[:], b)
 	return out, nil
 }
 
@@ -272,7 +387,7 @@ func NewNodeView(n capabilities_registry.INodeInfoProviderNodeInfo) NodeView {
 			ConfigCount:         n.ConfigCount,
 			WorkflowDONID:       n.WorkflowDONId,
 			Signer:              hex.EncodeToString(n.Signer[:]),
-			P2pId:               p2pkey.PeerID(n.P2pId),
+			P2pId:               n.P2pId,
 			EncryptionPublicKey: hex.EncodeToString(n.EncryptionPublicKey[:]),
 		},
 		NodeOperatorID:   n.NodeOperatorId,
@@ -328,7 +443,7 @@ func NewNopView(nop capabilities_registry.CapabilitiesRegistryNodeOperator) NopV
 	}
 }
 
-func (v CapabilityRegistryView) nodeDenormalizedView(n NodeView) (NodeDenormalizedView, error) {
+func (v *CapabilityRegistryView) nodeDenormalizedView(n NodeView) (NodeDenormalizedView, error) {
 	nop, err := nodeNop(n, v.Nops)
 	if err != nil {
 		return NodeDenormalizedView{}, err

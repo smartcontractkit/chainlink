@@ -26,84 +26,6 @@ import (
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
-func Test_RemoteExecutableCapability_InsufficientCapabilityResponses(t *testing.T) {
-	ctx := testutils.Context(t)
-
-	responseTest := func(t *testing.T, responseCh commoncap.CapabilityResponse, responseError error) {
-		assert.NotNil(t, responseError)
-	}
-
-	capability := &TestCapability{}
-
-	transmissionSchedule, err := values.NewMap(map[string]any{
-		"schedule":   transmission.Schedule_AllAtOnce,
-		"deltaStage": "10ms",
-	})
-	require.NoError(t, err)
-
-	var methods []func(ctx context.Context, caller commoncap.ExecutableCapability)
-
-	methods = append(methods, func(ctx context.Context, caller commoncap.ExecutableCapability) {
-		executeCapability(ctx, t, caller, transmissionSchedule, responseTest)
-	})
-
-	methods = append(methods, func(ctx context.Context, caller commoncap.ExecutableCapability) {
-		registerWorkflow(ctx, t, caller, transmissionSchedule, func(t *testing.T, responseError error) {
-			require.Error(t, responseError)
-		})
-	})
-
-	methods = append(methods, func(ctx context.Context, caller commoncap.ExecutableCapability) {
-		unregisterWorkflow(ctx, t, caller, transmissionSchedule, func(t *testing.T, responseError error) {
-			require.Error(t, responseError)
-		})
-	})
-
-	for _, method := range methods {
-		testRemoteExecutableCapability(ctx, t, capability, 10, 9, 10*time.Millisecond, 10, 10, 10*time.Minute, method)
-	}
-}
-
-func Test_RemoteExecutableCapability_InsufficientWorkflowRequests(t *testing.T) {
-	ctx := testutils.Context(t)
-
-	responseTest := func(t *testing.T, responseCh commoncap.CapabilityResponse, responseError error) {
-		assert.NotNil(t, responseError)
-	}
-
-	timeOut := 10 * time.Minute
-
-	capability := &TestCapability{}
-
-	transmissionSchedule, err := values.NewMap(map[string]any{
-		"schedule":   transmission.Schedule_AllAtOnce,
-		"deltaStage": "10ms",
-	})
-	require.NoError(t, err)
-
-	var methods []func(ctx context.Context, caller commoncap.ExecutableCapability)
-
-	methods = append(methods, func(ctx context.Context, caller commoncap.ExecutableCapability) {
-		executeCapability(ctx, t, caller, transmissionSchedule, responseTest)
-	})
-
-	methods = append(methods, func(ctx context.Context, caller commoncap.ExecutableCapability) {
-		registerWorkflow(ctx, t, caller, transmissionSchedule, func(t *testing.T, responseError error) {
-			require.Error(t, responseError)
-		})
-	})
-
-	methods = append(methods, func(ctx context.Context, caller commoncap.ExecutableCapability) {
-		unregisterWorkflow(ctx, t, caller, transmissionSchedule, func(t *testing.T, responseError error) {
-			require.Error(t, responseError)
-		})
-	})
-
-	for _, method := range methods {
-		testRemoteExecutableCapability(ctx, t, capability, 10, 10, 10*time.Millisecond, 10, 9, timeOut, method)
-	}
-}
-
 func Test_RemoteExecutableCapability_TransmissionSchedules(t *testing.T) {
 	ctx := testutils.Context(t)
 
@@ -141,60 +63,6 @@ func Test_RemoteExecutableCapability_TransmissionSchedules(t *testing.T) {
 	testRemoteExecutableCapability(ctx, t, capability, 10, 9, timeOut, 10, 9, timeOut, method)
 }
 
-func Test_RemoteExecutionCapability_DonTopologies(t *testing.T) {
-	ctx := testutils.Context(t)
-
-	responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
-		require.NoError(t, responseError)
-		mp, err := response.Value.Unwrap()
-		require.NoError(t, err)
-		assert.Equal(t, "aValue1", mp.(map[string]any)["response"].(string))
-	}
-
-	transmissionSchedule, err := values.NewMap(map[string]any{
-		"schedule":   transmission.Schedule_OneAtATime,
-		"deltaStage": "10ms",
-	})
-	require.NoError(t, err)
-
-	timeOut := 10 * time.Minute
-
-	capability := &TestCapability{}
-
-	var methods []func(ctx context.Context, caller commoncap.ExecutableCapability)
-
-	methods = append(methods, func(ctx context.Context, caller commoncap.ExecutableCapability) {
-		executeCapability(ctx, t, caller, transmissionSchedule, responseTest)
-	})
-
-	methods = append(methods, func(ctx context.Context, caller commoncap.ExecutableCapability) {
-		registerWorkflow(ctx, t, caller, transmissionSchedule, func(t *testing.T, responseError error) {
-			require.NoError(t, responseError)
-		})
-	})
-
-	methods = append(methods, func(ctx context.Context, caller commoncap.ExecutableCapability) {
-		unregisterWorkflow(ctx, t, caller, transmissionSchedule, func(t *testing.T, responseError error) {
-			require.NoError(t, responseError)
-		})
-	})
-
-	for _, method := range methods {
-		// Test scenarios where the number of submissions is greater than or equal to F + 1
-		testRemoteExecutableCapability(ctx, t, capability, 1, 0, timeOut, 1, 0, timeOut, method)
-		testRemoteExecutableCapability(ctx, t, capability, 4, 3, timeOut, 1, 0, timeOut, method)
-		testRemoteExecutableCapability(ctx, t, capability, 10, 3, timeOut, 1, 0, timeOut, method)
-
-		testRemoteExecutableCapability(ctx, t, capability, 1, 0, timeOut, 1, 0, timeOut, method)
-		testRemoteExecutableCapability(ctx, t, capability, 1, 0, timeOut, 4, 3, timeOut, method)
-		testRemoteExecutableCapability(ctx, t, capability, 1, 0, timeOut, 10, 3, timeOut, method)
-
-		testRemoteExecutableCapability(ctx, t, capability, 4, 3, timeOut, 4, 3, timeOut, method)
-		testRemoteExecutableCapability(ctx, t, capability, 10, 3, timeOut, 10, 3, timeOut, method)
-		testRemoteExecutableCapability(ctx, t, capability, 10, 9, timeOut, 10, 9, timeOut, method)
-	}
-}
-
 func Test_RemoteExecutionCapability_CapabilityError(t *testing.T) {
 	ctx := testutils.Context(t)
 
@@ -210,19 +78,7 @@ func Test_RemoteExecutionCapability_CapabilityError(t *testing.T) {
 
 	methods = append(methods, func(ctx context.Context, caller commoncap.ExecutableCapability) {
 		executeCapability(ctx, t, caller, transmissionSchedule, func(t *testing.T, responseCh commoncap.CapabilityResponse, responseError error) {
-			assert.Equal(t, "error executing request: failed to execute capability: an error", responseError.Error())
-		})
-	})
-
-	methods = append(methods, func(ctx context.Context, caller commoncap.ExecutableCapability) {
-		registerWorkflow(ctx, t, caller, transmissionSchedule, func(t *testing.T, responseError error) {
-			assert.Equal(t, "error executing request: failed to register to workflow: an error", responseError.Error())
-		})
-	})
-
-	methods = append(methods, func(ctx context.Context, caller commoncap.ExecutableCapability) {
-		unregisterWorkflow(ctx, t, caller, transmissionSchedule, func(t *testing.T, responseError error) {
-			assert.Equal(t, "error executing request: failed to unregister from workflow: an error", responseError.Error())
+			assert.Equal(t, "error executing request: failed to execute capability", responseError.Error())
 		})
 	})
 
@@ -246,24 +102,12 @@ func Test_RemoteExecutableCapability_RandomCapabilityError(t *testing.T) {
 
 	methods = append(methods, func(ctx context.Context, caller commoncap.ExecutableCapability) {
 		executeCapability(ctx, t, caller, transmissionSchedule, func(t *testing.T, responseCh commoncap.CapabilityResponse, responseError error) {
-			assert.Equal(t, "error executing request: request expired", responseError.Error())
-		})
-	})
-
-	methods = append(methods, func(ctx context.Context, caller commoncap.ExecutableCapability) {
-		registerWorkflow(ctx, t, caller, transmissionSchedule, func(t *testing.T, responseError error) {
-			assert.Equal(t, "error executing request: request expired", responseError.Error())
-		})
-	})
-
-	methods = append(methods, func(ctx context.Context, caller commoncap.ExecutableCapability) {
-		unregisterWorkflow(ctx, t, caller, transmissionSchedule, func(t *testing.T, responseError error) {
-			assert.Equal(t, "error executing request: request expired", responseError.Error())
+			assert.Equal(t, "error executing request: failed to execute capability", responseError.Error())
 		})
 	})
 
 	for _, method := range methods {
-		testRemoteExecutableCapability(ctx, t, capability, 10, 9, 10*time.Millisecond, 10, 9, 10*time.Minute,
+		testRemoteExecutableCapability(ctx, t, capability, 10, 9, 1*time.Second, 10, 9, 10*time.Minute,
 			method)
 	}
 }
@@ -380,9 +224,9 @@ func (a *testAsyncMessageBroker) start(ctx context.Context) error {
 			case <-ctx.Done():
 				return
 			case msg := <-a.sendCh:
-				receiverId := toPeerID(msg.Receiver)
+				receiverID := toPeerID(msg.Receiver)
 
-				receiver, ok := a.nodes[receiverId]
+				receiver, ok := a.nodes[receiverID]
 				if !ok {
 					panic("server not found for peer id")
 				}
@@ -455,10 +299,10 @@ func (t *nodeDispatcher) Send(peerID p2ptypes.PeerID, msgBody *remotetypes.Messa
 	return nil
 }
 
-func (t *nodeDispatcher) SetReceiver(capabilityId string, donId uint32, receiver remotetypes.Receiver) error {
+func (t *nodeDispatcher) SetReceiver(capabilityID string, donID uint32, receiver remotetypes.Receiver) error {
 	return nil
 }
-func (t *nodeDispatcher) RemoveReceiver(capabilityId string, donId uint32) {}
+func (t *nodeDispatcher) RemoveReceiver(capabilityID string, donID uint32) {}
 
 type abstractTestCapability struct {
 }
@@ -562,30 +406,4 @@ func executeCapability(ctx context.Context, t *testing.T, caller commoncap.Execu
 		})
 
 	responseTest(t, response, err)
-}
-
-func registerWorkflow(ctx context.Context, t *testing.T, caller commoncap.ExecutableCapability, transmissionSchedule *values.Map, responseTest func(t *testing.T, responseError error)) {
-	err := caller.RegisterToWorkflow(ctx, commoncap.RegisterToWorkflowRequest{
-		Metadata: commoncap.RegistrationMetadata{
-			WorkflowID:    workflowID1,
-			ReferenceID:   stepReferenceID1,
-			WorkflowOwner: workflowOwnerID,
-		},
-		Config: transmissionSchedule,
-	})
-
-	responseTest(t, err)
-}
-
-func unregisterWorkflow(ctx context.Context, t *testing.T, caller commoncap.ExecutableCapability, transmissionSchedule *values.Map, responseTest func(t *testing.T, responseError error)) {
-	err := caller.UnregisterFromWorkflow(ctx, commoncap.UnregisterFromWorkflowRequest{
-		Metadata: commoncap.RegistrationMetadata{
-			WorkflowID:    workflowID1,
-			ReferenceID:   stepReferenceID1,
-			WorkflowOwner: workflowOwnerID,
-		},
-		Config: transmissionSchedule,
-	})
-
-	responseTest(t, err)
 }

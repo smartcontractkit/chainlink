@@ -34,13 +34,14 @@ contract BaseTest is Test {
   uint16 internal constant DEFAULT_TOKEN_FEE_USD_CENTS = 50;
   uint32 internal constant DEFAULT_TOKEN_DEST_GAS_OVERHEAD = 90_000;
   uint32 internal constant DEFAULT_TOKEN_BYTES_OVERHEAD = 32;
+  uint8 internal constant DEFAULT_TOKEN_DECIMALS = 18;
 
   bool private s_baseTestInitialized;
 
   // OffRamp
   uint32 internal constant MAX_DATA_SIZE = 30_000;
   uint16 internal constant MAX_TOKENS_LENGTH = 5;
-  uint16 internal constant GAS_FOR_CALL_EXACT_CHECK = 5000;
+  uint16 internal constant GAS_FOR_CALL_EXACT_CHECK = 5_000;
   uint32 internal constant MAX_GAS_LIMIT = 4_000_000;
 
   MockRMN internal s_mockRMN;

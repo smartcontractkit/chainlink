@@ -4,7 +4,7 @@ pragma solidity 0.8.24;
 import {IERC165} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC165.sol";
 import {IReceiver} from "../../interfaces/IReceiver.sol";
 
-contract MaliciousReportReceiver is IReceiver, IERC165 {
+contract MaliciousReportReceiver is IReceiver {
   event MessageReceived(bytes metadata, bytes[] mercuryReports);
   bytes public latestReport;
 

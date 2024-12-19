@@ -41,8 +41,6 @@ type channelDefinitionCacheFactory struct {
 	mu     sync.Mutex
 }
 
-// TODO: Test this
-// MERC-3653
 func (f *channelDefinitionCacheFactory) NewCache(cfg lloconfig.PluginConfig) (llotypes.ChannelDefinitionCache, error) {
 	if cfg.ChannelDefinitions != "" {
 		return NewStaticChannelDefinitionCache(f.lggr, cfg.ChannelDefinitions)

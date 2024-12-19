@@ -139,6 +139,35 @@ contract WorkflowRegistry_registerWorkflow is WorkflowRegistrySetup {
   }
 
   // whenTheCallerIsAnAuthorizedAddress whenTheRegistryIsNotLocked whenTheDonIDIsAllowed
+  function test_RevertWhen_TheWorkflowIDIsAlreadyInUsedByAnotherWorkflow() external {
+    vm.startPrank(s_authorizedAddress);
+
+    // Register a valid workflow first
+    s_registry.registerWorkflow(
+      s_validWorkflowName,
+      s_validWorkflowID,
+      s_allowedDonID,
+      WorkflowRegistry.WorkflowStatus.ACTIVE,
+      s_validBinaryURL,
+      s_validConfigURL,
+      s_validSecretsURL
+    );
+
+    vm.expectRevert(WorkflowRegistry.WorkflowIDAlreadyExists.selector);
+    s_registry.registerWorkflow(
+      "ValidWorkflow2",
+      s_validWorkflowID,
+      s_allowedDonID,
+      WorkflowRegistry.WorkflowStatus.ACTIVE,
+      s_validBinaryURL,
+      s_validConfigURL,
+      s_validSecretsURL
+    );
+
+    vm.stopPrank();
+  }
+
+  // whenTheCallerIsAnAuthorizedAddress whenTheRegistryIsNotLocked whenTheDonIDIsAllowed
   function test_RevertWhen_TheWorkflowNameIsAlreadyUsedByTheOwner() external {
     vm.startPrank(s_authorizedAddress);
 
@@ -173,7 +202,7 @@ contract WorkflowRegistry_registerWorkflow is WorkflowRegistrySetup {
     vm.startPrank(s_authorizedAddress);
 
     // it should emit {WorkflowRegisteredV1}
-    vm.expectEmit(true, true, true, true);
+    vm.expectEmit();
     emit WorkflowRegistry.WorkflowRegisteredV1(
       s_validWorkflowID,
       s_authorizedAddress,

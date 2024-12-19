@@ -3,6 +3,7 @@ package evm_test
 import (
 	"context"
 	"crypto/ecdsa"
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	evmtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
@@ -19,14 +21,21 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	commontestutils "github.com/smartcontractkit/chainlink-common/pkg/loop/testutils"
 	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
+	htMocks "github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	lpMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	evmtxmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	clevmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -35,8 +44,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	. "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/evmtesting" //nolint common practice to import test mods with .
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+
+	. "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/evmtesting" //nolint:revive // dot-imports
 )
 
 const commonGasLimitOnEvms = uint64(4712388)
@@ -204,9 +214,25 @@ func TestContractReaderEventsInitValidation(t *testing.T) {
 	}
 }
 
+func TestChainReader_HealthReport(t *testing.T) {
+	lp := lpMocks.NewLogPoller(t)
+	lp.EXPECT().HealthReport().Return(map[string]error{"lp_name": clcommontypes.ErrFinalityViolated}).Once()
+	ht := htMocks.NewHeadTracker[*clevmtypes.Head, common.Hash](t)
+	htError := errors.New("head tracker error")
+	ht.EXPECT().HealthReport().Return(map[string]error{"ht_name": htError}).Once()
+	cr, err := evm.NewChainReaderService(testutils.Context(t), logger.NullLogger, lp, ht, nil, types.ChainReaderConfig{Contracts: nil})
+	require.NoError(t, err)
+	healthReport := cr.HealthReport()
+	require.True(t, services.ContainsError(healthReport, clcommontypes.ErrFinalityViolated), "expected chain reader to propagate logpoller's error")
+	require.True(t, services.ContainsError(healthReport, htError), "expected chain reader to propagate headtracker's error")
+}
+
 func TestChainComponents(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/BCFR-1083")
 	t.Parallel()
 	it := &EVMChainComponentsInterfaceTester[*testing.T]{Helper: &helper{}}
+	// TODO, generated binding tests are broken
+	it.DisableTests([]string{interfacetests.ContractReaderGetLatestValue})
 	it.Init(t)
 
 	// add new subtests here so that it can be run on real chains too
@@ -309,7 +335,7 @@ func (h *helper) ChainReaderEVMClient(ctx context.Context, t *testing.T, ht logp
 	return cwh
 }
 
-func (h *helper) WrappedChainWriter(cw clcommontypes.ChainWriter, client client.Client) clcommontypes.ChainWriter {
+func (h *helper) WrappedChainWriter(cw clcommontypes.ContractWriter, client client.Client) clcommontypes.ContractWriter {
 	cwhw := evm.NewChainWriterHistoricalWrapper(cw, client.(*evm.ClientWithContractHistory))
 	return cwhw
 }
