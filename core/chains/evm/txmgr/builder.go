@@ -138,7 +138,7 @@ func NewTxmV2(
 	}
 	var c txm.Client
 	if chainConfig.ChainType() == chaintype.ChainDualBroadcast {
-		c = clientwrappers.NewDualBroadcastClient(client, keyStore, txmV2Config.CustomURL())
+		c = clientwrappers.NewDualBroadcastClient(client, keyStore, txmV2Config.CustomURL(), lggr)
 	} else {
 		c = clientwrappers.NewChainClient(client)
 	}

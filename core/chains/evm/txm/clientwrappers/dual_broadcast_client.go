@@ -15,6 +15,8 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm/types"
 )
@@ -27,13 +29,15 @@ type DualBroadcastClient struct {
 	c         client.Client
 	keystore  DualBroadcastClientKeystore
 	customURL *url.URL
+	lggr      logger.Logger
 }
 
-func NewDualBroadcastClient(c client.Client, keystore DualBroadcastClientKeystore, customURL *url.URL) *DualBroadcastClient {
+func NewDualBroadcastClient(c client.Client, keystore DualBroadcastClientKeystore, customURL *url.URL, lggr logger.Logger) *DualBroadcastClient {
 	return &DualBroadcastClient{
 		c:         c,
 		keystore:  keystore,
 		customURL: customURL,
+		lggr:      lggr,
 	}
 }
 
@@ -70,6 +74,7 @@ func (d *DualBroadcastClient) SendTransaction(ctx context.Context, tx *types.Tra
 		if meta.DualBroadcastParams != nil {
 			params = *meta.DualBroadcastParams
 		}
+		d.lggr.Debugw("Sending transaction to DualBroadcast API", "URL", d.customURL.String()+"?"+params)
 		body := []byte(fmt.Sprintf(`{"jsonrpc":"2.0","method":"eth_sendRawTransaction","params":["%s"], "id":1}`, hexutil.Encode(data)))
 		if _, err = d.signAndPostMessage(ctx, tx.FromAddress, body, params); err != nil {
 			return err
