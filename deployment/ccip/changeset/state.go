@@ -6,6 +6,11 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
 	burn_mint_token_pool "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/burn_mint_token_pool_1_4_0"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry_1_2_0"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/erc20"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_messenger"
@@ -25,7 +30,7 @@ import (
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	common_v1_0 "github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/registry_module_owner_custom"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
@@ -49,8 +54,10 @@ import (
 )
 
 var (
-	//  Legacy
-	CommitStore deployment.ContractType = "CommitStore"
+	// Legacy
+	CommitStore   deployment.ContractType = "CommitStore"
+	PriceRegistry deployment.ContractType = "PriceRegistry"
+	RMN           deployment.ContractType = "RMN"
 
 	// Not legacy
 	MockRMN              deployment.ContractType = "MockRMN"
@@ -97,10 +104,8 @@ type CCIPChainState struct {
 	TokenAdminRegistry *token_admin_registry.TokenAdminRegistry
 	RegistryModule     *registry_module_owner_custom.RegistryModuleOwnerCustom
 	Router             *router.Router
-	CommitStore        *commit_store.CommitStore
 	Weth9              *weth9.WETH9
 	RMNRemote          *rmn_remote.RMNRemote
-	MockRMN            *mock_rmn_contract.MockRMNContract
 	// Map between token Descriptor (e.g. LinkSymbol, WethSymbol)
 	// and the respective token contract
 	// This is more of an illustration of how we'll have tokens, and it might need some work later to work properly.
@@ -123,6 +128,14 @@ type CCIPChainState struct {
 	MockUSDCTransmitter    *mock_usdc_token_transmitter.MockE2EUSDCTransmitter
 	MockUSDCTokenMessenger *mock_usdc_token_messenger.MockE2EUSDCTokenMessenger
 	Multicall3             *multicall3.Multicall3
+
+	// Legacy contracts
+	EVM2EVMOnRamp  map[uint64]*evm_2_evm_onramp.EVM2EVMOnRamp   // mapping of dest chain selector -> EVM2EVMOnRamp
+	CommitStore    map[uint64]*commit_store.CommitStore         // mapping of source chain selector -> CommitStore
+	EVM2EVMOffRamp map[uint64]*evm_2_evm_offramp.EVM2EVMOffRamp // mapping of source chain selector -> EVM2EVMOffRamp
+	MockRMN        *mock_rmn_contract.MockRMNContract
+	PriceRegistry  *price_registry_1_2_0.PriceRegistry
+	RMN            *rmn_contract.RMNContract
 }
 
 func (c CCIPChainState) GenerateView() (view.ChainView, error) {
@@ -153,7 +166,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 		if err != nil {
 			return chainView, errors.Wrapf(err, "failed to generate rmn remote view for rmn remote %s", c.RMNRemote.Address().String())
 		}
-		chainView.RMN[c.RMNRemote.Address().Hex()] = rmnView
+		chainView.RMNRemote[c.RMNRemote.Address().Hex()] = rmnView
 	}
 
 	if c.RMNHome != nil {
@@ -193,14 +206,6 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 			return chainView, errors.Wrapf(err, "failed to generate off ramp view for off ramp %s", c.OffRamp.Address().String())
 		}
 		chainView.OffRamp[c.OffRamp.Address().Hex()] = offRampView
-	}
-
-	if c.CommitStore != nil {
-		commitStoreView, err := v1_5.GenerateCommitStoreView(c.CommitStore)
-		if err != nil {
-			return chainView, errors.Wrapf(err, "failed to generate commit store view for commit store %s", c.CommitStore.Address().String())
-		}
-		chainView.CommitStore[c.CommitStore.Address().Hex()] = commitStoreView
 	}
 
 	if c.RMNProxy != nil {
@@ -245,6 +250,53 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 		}
 		chainView.StaticLinkToken = staticLinkTokenView
 	}
+	// Legacy contracts
+	if c.CommitStore != nil {
+		for source, commitStore := range c.CommitStore {
+			commitStoreView, err := v1_5.GenerateCommitStoreView(commitStore)
+			if err != nil {
+				return chainView, errors.Wrapf(err, "failed to generate commit store view for commit store %s for source %d", commitStore.Address().String(), source)
+			}
+			chainView.CommitStore[commitStore.Address().Hex()] = commitStoreView
+		}
+	}
+
+	if c.PriceRegistry != nil {
+		priceRegistryView, err := v1_2.GeneratePriceRegistryView(c.PriceRegistry)
+		if err != nil {
+			return chainView, errors.Wrapf(err, "failed to generate price registry view for price registry %s", c.PriceRegistry.Address().String())
+		}
+		chainView.PriceRegistry[c.PriceRegistry.Address().String()] = priceRegistryView
+	}
+
+	if c.RMN != nil {
+		rmnView, err := v1_5.GenerateRMNView(c.RMN)
+		if err != nil {
+			return chainView, errors.Wrapf(err, "failed to generate rmn view for rmn %s", c.RMN.Address().String())
+		}
+		chainView.RMN[c.RMN.Address().Hex()] = rmnView
+	}
+
+	if c.EVM2EVMOffRamp != nil {
+		for source, offRamp := range c.EVM2EVMOffRamp {
+			offRampView, err := v1_5.GenerateOffRampView(offRamp)
+			if err != nil {
+				return chainView, errors.Wrapf(err, "failed to generate off ramp view for off ramp %s for source %d", offRamp.Address().String(), source)
+			}
+			chainView.EVM2EVMOffRamp[offRamp.Address().Hex()] = offRampView
+		}
+	}
+
+	if c.EVM2EVMOnRamp != nil {
+		for dest, onRamp := range c.EVM2EVMOnRamp {
+			onRampView, err := v1_5.GenerateOnRampView(onRamp)
+			if err != nil {
+				return chainView, errors.Wrapf(err, "failed to generate on ramp view for on ramp %s for dest %d", onRamp.Address().String(), dest)
+			}
+			chainView.EVM2EVMOnRamp[onRamp.Address().Hex()] = onRampView
+		}
+	}
+
 	return chainView, nil
 }
 
@@ -312,7 +364,11 @@ func (s CCIPOnChainState) View(chains []uint64) (map[string]view.ChainView, erro
 		if err != nil {
 			return m, err
 		}
-		m[chainInfo.ChainName] = chainView
+		name := chainInfo.ChainName
+		if chainInfo.ChainName == "" {
+			name = fmt.Sprintf("%d", chainSelector)
+		}
+		m[name] = chainView
 	}
 	return m, nil
 }
@@ -394,12 +450,6 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				return state, err
 			}
 			state.RMNProxy = armProxy
-		case deployment.NewTypeAndVersion(MockRMN, deployment.Version1_0_0).String():
-			mockRMN, err := mock_rmn_contract.NewMockRMNContract(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			state.MockRMN = mockRMN
 		case deployment.NewTypeAndVersion(RMNRemote, deployment.Version1_6_0_dev).String():
 			rmnRemote, err := rmn_remote.NewRMNRemote(common.HexToAddress(address), chain.Client)
 			if err != nil {
@@ -424,12 +474,6 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				return state, err
 			}
 			state.NonceManager = nm
-		case deployment.NewTypeAndVersion(CommitStore, deployment.Version1_5_0).String():
-			cs, err := commit_store.NewCommitStore(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			state.CommitStore = cs
 		case deployment.NewTypeAndVersion(TokenAdminRegistry, deployment.Version1_5_0).String():
 			tm, err := token_admin_registry.NewTokenAdminRegistry(common.HexToAddress(address), chain.Client)
 			if err != nil {
@@ -555,6 +599,64 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				return state, fmt.Errorf("failed to get token symbol of token at %s: %w", address, err)
 			}
 			state.BurnMintTokens677[TokenSymbol(symbol)] = tok
+		// legacy addresses below
+		case deployment.NewTypeAndVersion(OnRamp, deployment.Version1_5_0).String():
+			onRampC, err := evm_2_evm_onramp.NewEVM2EVMOnRamp(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			sCfg, err := onRampC.GetStaticConfig(nil)
+			if err != nil {
+				return state, fmt.Errorf("failed to get static config chain %s: %w", chain.String(), err)
+			}
+			if state.EVM2EVMOnRamp == nil {
+				state.EVM2EVMOnRamp = make(map[uint64]*evm_2_evm_onramp.EVM2EVMOnRamp)
+			}
+			state.EVM2EVMOnRamp[sCfg.DestChainSelector] = onRampC
+		case deployment.NewTypeAndVersion(OffRamp, deployment.Version1_5_0).String():
+			offRamp, err := evm_2_evm_offramp.NewEVM2EVMOffRamp(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			sCfg, err := offRamp.GetStaticConfig(nil)
+			if err != nil {
+				return state, err
+			}
+			if state.EVM2EVMOffRamp == nil {
+				state.EVM2EVMOffRamp = make(map[uint64]*evm_2_evm_offramp.EVM2EVMOffRamp)
+			}
+			state.EVM2EVMOffRamp[sCfg.SourceChainSelector] = offRamp
+		case deployment.NewTypeAndVersion(CommitStore, deployment.Version1_5_0).String():
+			commitStore, err := commit_store.NewCommitStore(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			sCfg, err := commitStore.GetStaticConfig(nil)
+			if err != nil {
+				return state, err
+			}
+			if state.CommitStore == nil {
+				state.CommitStore = make(map[uint64]*commit_store.CommitStore)
+			}
+			state.CommitStore[sCfg.SourceChainSelector] = commitStore
+		case deployment.NewTypeAndVersion(PriceRegistry, deployment.Version1_2_0).String():
+			pr, err := price_registry_1_2_0.NewPriceRegistry(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.PriceRegistry = pr
+		case deployment.NewTypeAndVersion(RMN, deployment.Version1_5_0).String():
+			rmnC, err := rmn_contract.NewRMNContract(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.RMN = rmnC
+		case deployment.NewTypeAndVersion(MockRMN, deployment.Version1_0_0).String():
+			mockRMN, err := mock_rmn_contract.NewMockRMNContract(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.MockRMN = mockRMN
 		default:
 			return state, fmt.Errorf("unknown contract %s", tvStr)
 		}
