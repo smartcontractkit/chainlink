@@ -371,7 +371,7 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, 0, OWNER);
   }
 
-  function test_MessageFeeTooHigh_Revert() public {
+  function test_RevertWhen_MessageFeeTooHigh() public {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
 
     vm.expectRevert(

@@ -320,7 +320,7 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
     // workflow_execution_id  offset  33, size 32
     // timestamp              offset  65, size  4
     // don_id                 offset  69, size  4
-    // don_config_version,	  offset  73, size  4
+    // don_config_version,    offset  73, size  4
     // workflow_cid           offset  77, size 32
     // workflow_name          offset 109, size 10
     // workflow_owner         offset 119, size 20
