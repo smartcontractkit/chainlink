@@ -8,7 +8,7 @@ echo " └───────────────────────�
 
 SOLC_VERSION="0.8.26"
 OPTIMIZE_RUNS=26000
-OPTIMIZE_RUNS_OFFRAMP=500
+OPTIMIZE_RUNS_OFFRAMP=800
 
 
 SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
@@ -40,9 +40,6 @@ compileContract () {
       "$ROOT"/contracts/src/v0.8/"$1"
 }
 
-
-# Solc produces and overwrites intermediary contracts.
-# Contracts should be ordered in reverse-import-complexity-order to minimize overwrite risks.
 compileContract ccip/offRamp/OffRamp.sol
 compileContract ccip/FeeQuoter.sol
 compileContract ccip/onRamp/OnRamp.sol
