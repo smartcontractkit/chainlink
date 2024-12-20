@@ -18,6 +18,7 @@ import (
 )
 
 type deployedContracts struct {
+	OCRContract       common.Address `json:"ocrContract"`
 	ForwarderContract common.Address `json:"forwarderContract"`
 	// The block number of the transaction that set the config on the OCR3 contract. We use this to replay blocks from this point on
 	// when we load the OCR3 job specs on the nodes.
