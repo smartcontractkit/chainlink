@@ -5,7 +5,7 @@ import {TokenAdminRegistry} from "../../../tokenAdminRegistry/TokenAdminRegistry
 import {TokenAdminRegistrySetup} from "./TokenAdminRegistrySetup.t.sol";
 
 contract TokenAdminRegistry_transferAdminRole is TokenAdminRegistrySetup {
-  function test_transferAdminRole_Success() public {
+  function test_transferAdminRole() public {
     address token = s_sourceTokens[0];
 
     address currentAdmin = s_tokenAdminRegistry.getTokenConfig(token).administrator;
@@ -23,7 +23,7 @@ contract TokenAdminRegistry_transferAdminRole is TokenAdminRegistrySetup {
     assertEq(config.administrator, currentAdmin);
   }
 
-  function test_transferAdminRole_OnlyAdministrator_Revert() public {
+  function test_RevertWhen_transferAdminRole_OnlyAdministrator() public {
     vm.stopPrank();
 
     vm.expectRevert(

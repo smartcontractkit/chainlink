@@ -72,7 +72,7 @@ func (o *orm) Insert(ctx context.Context, transmissions []*Transmission) error {
 			DonID:            o.donID,
 			ServerURL:        t.ServerURL,
 			ConfigDigest:     t.ConfigDigest,
-			SeqNr:            int64(t.SeqNr), //nolint:gosec // G115 false positive
+			SeqNr:            int64(t.SeqNr),
 			Report:           t.Report.Report,
 			LifecycleStage:   string(t.Report.Info.LifeCycleStage),
 			ReportFormat:     uint32(t.Report.Info.ReportFormat),

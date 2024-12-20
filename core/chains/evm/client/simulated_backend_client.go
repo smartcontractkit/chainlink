@@ -363,7 +363,7 @@ func (c *SimulatedBackendClient) SubscribeToHeads(
 					}
 					head = &evmtypes.Head{
 						Difficulty: h.Difficulty,
-						Timestamp:  time.Unix(int64(h.Time), 0), //nolint:gosec // G115 false positive
+						Timestamp:  time.Unix(int64(h.Time), 0),
 						Number:     h.Number.Int64(),
 						Hash:       h.Hash(),
 						ParentHash: h.ParentHash,

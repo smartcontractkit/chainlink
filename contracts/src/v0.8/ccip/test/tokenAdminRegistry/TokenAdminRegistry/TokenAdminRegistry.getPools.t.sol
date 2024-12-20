@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import {TokenAdminRegistrySetup} from "./TokenAdminRegistrySetup.t.sol";
 
 contract TokenAdminRegistry_getPools is TokenAdminRegistrySetup {
-  function test_getPools_Success() public {
+  function test_getPools() public {
     address[] memory tokens = new address[](1);
     tokens[0] = s_sourceTokens[0];
 
