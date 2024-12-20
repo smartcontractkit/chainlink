@@ -106,6 +106,8 @@ LogBroadcasterEnabled = true # Default
 NoNewFinalizedHeadsThreshold = '0' # Default
 
 [EVM.Transactions]
+# Enabled is a feature flag for the Transaction Manager. This flag also enables or disables the gas estimator since it is dependent on the TXM to start it.
+Enabled = true # Default
 # ForwardersEnabled enables or disables sending transactions through forwarder contracts.
 ForwardersEnabled = false # Default
 # MaxInFlight controls how many transactions are allowed to be "in-flight" i.e. broadcast but unconfirmed at any one time. You can consider this a form of transaction throttling.

@@ -13,8 +13,8 @@ import (
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	ksdeploy "github.com/smartcontractkit/chainlink/deployment/keystone"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability"
+	forwarder "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder_1_0_0"
+	ocr3_capability "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 )
 
 type deployedContracts struct {

@@ -4,13 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/config"
+
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
-	"math/big"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -71,8 +73,9 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 		return DeployCCIPOutput{}, fmt.Errorf("failed to initiate new environment: %w", err)
 	}
 	e.ExistingAddresses = ab
-	allChainIds := e.AllChainSelectors()
+	chainSelectors := e.AllChainSelectors()
 	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
+	var prereqCfgs []changeset.DeployPrerequisiteConfigPerChain
 	for _, chain := range e.AllChainSelectors() {
 		mcmsConfig, err := config.NewConfig(1, []common.Address{e.Chains[chain].DeployerKey.From}, []config.Config{})
 		if err != nil {
@@ -84,6 +87,9 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 			Proposer:         *mcmsConfig,
 			TimelockMinDelay: big.NewInt(0),
 		}
+		prereqCfgs = append(prereqCfgs, changeset.DeployPrerequisiteConfigPerChain{
+			ChainSelector: chain,
+		})
 	}
 
 	// This will not apply any proposals because we pass nil to testing.
@@ -91,12 +97,12 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 	*e, err = commonchangeset.ApplyChangesets(nil, *e, nil, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
-			Config:    allChainIds,
+			Config:    chainSelectors,
 		},
 		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.DeployPrerequisites),
 			Config: changeset.DeployPrerequisiteConfig{
-				ChainSelectors: allChainIds,
+				Configs: prereqCfgs,
 			},
 		},
 		{
@@ -106,7 +112,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.DeployChainContracts),
 			Config: changeset.DeployChainContractsConfig{
-				ChainSelectors:    allChainIds,
+				ChainSelectors:    chainSelectors,
 				HomeChainSelector: homeChainSel,
 			},
 		},

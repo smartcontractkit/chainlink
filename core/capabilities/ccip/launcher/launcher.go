@@ -23,7 +23,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
-	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
+	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 )
 
 var (
@@ -294,7 +294,6 @@ func (l *launcher) processRemoved(removed map[registrysyncer.DonID]registrysynce
 
 		if err := p.CloseAll(); err != nil {
 			return fmt.Errorf("failed to shutdown oracles for CCIP DON %d: %w", id, err)
-
 		}
 
 		// after a successful shutdown we can safely remove the DON deployment from the map.

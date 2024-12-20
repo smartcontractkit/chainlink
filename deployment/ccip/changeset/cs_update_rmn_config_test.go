@@ -224,8 +224,12 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 	allChains := e.Env.AllChainSelectors()
 	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 	var err error
+	var prereqCfgs []DeployPrerequisiteConfigPerChain
 	for _, c := range e.Env.AllChainSelectors() {
 		mcmsCfg[c] = proposalutils.SingleGroupTimelockConfig(t)
+		prereqCfgs = append(prereqCfgs, DeployPrerequisiteConfigPerChain{
+			ChainSelector: c,
+		})
 	}
 	// Need to deploy prerequisites first so that we can form the USDC config
 	// no proposals to be made, timelock can be passed as nil here
@@ -237,7 +241,7 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 		{
 			Changeset: commonchangeset.WrapChangeSet(DeployPrerequisites),
 			Config: DeployPrerequisiteConfig{
-				ChainSelectors: allChains,
+				Configs: prereqCfgs,
 			},
 		},
 		{
