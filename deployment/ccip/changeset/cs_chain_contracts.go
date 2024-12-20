@@ -56,7 +56,7 @@ func (cfg UpdateNonceManagerConfig) Validate(e deployment.Environment) error {
 	if err != nil {
 		return err
 	}
-	for sourceSel := range cfg.UpdatesByChain {
+	for sourceSel, update := range cfg.UpdatesByChain {
 		sourceChainState, ok := state.Chains[sourceSel]
 		if !ok {
 			return fmt.Errorf("chain %d not found in onchain state", sourceSel)
@@ -70,6 +70,14 @@ func (cfg UpdateNonceManagerConfig) Validate(e deployment.Environment) error {
 		}
 		if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, sourceChain.DeployerKey.From, sourceChainState.Timelock.Address(), sourceChainState.OnRamp); err != nil {
 			return fmt.Errorf("chain %s: %w", sourceChain.String(), err)
+		}
+		for _, prevRamp := range update.PreviousRampsArgs {
+			if prevRamp.RemoteChainSelector == sourceSel {
+				return errors.New("source and dest chain cannot be the same")
+			}
+			if _, ok := state.Chains[prevRamp.RemoteChainSelector]; !ok {
+				return fmt.Errorf("dest chain %d not found in onchain state for chain %d", prevRamp.RemoteChainSelector, sourceSel)
+			}
 		}
 	}
 	return nil
