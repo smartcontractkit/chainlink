@@ -358,6 +358,7 @@ func TestUpdateNonceManagersCS(t *testing.T) {
 			callers, err := state.Chains[source].NonceManager.GetAllAuthorizedCallers(nil)
 			require.NoError(t, err)
 			require.NotContains(t, callers, state.Chains[source].OnRamp.Address())
+			require.Contains(t, callers, state.Chains[source].OffRamp.Address())
 		})
 	}
 }
