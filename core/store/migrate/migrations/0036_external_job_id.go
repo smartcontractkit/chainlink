@@ -56,7 +56,6 @@ func Up36(ctx context.Context, tx *sql.Tx) error {
 		stmt += ` AS vals(external_job_id, id) WHERE vals.id = j.id`
 		if _, err := tx.ExecContext(ctx, stmt); err != nil {
 			return err
-
 		}
 	}
 

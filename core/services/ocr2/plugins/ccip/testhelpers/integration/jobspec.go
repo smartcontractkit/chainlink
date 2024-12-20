@@ -2,11 +2,13 @@ package integrationtesthelpers
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"fmt"
 	"text/template"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
 	"github.com/lib/pq"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -28,6 +30,7 @@ type OCR2TaskJobSpec struct {
 	ForwardingAllowed bool   `toml:"forwardingAllowed"`
 	OCR2OracleSpec    job.OCR2OracleSpec
 	ObservationSource string `toml:"observationSource"` // List of commands for the Chainlink node
+	ExternalJobID     string `toml:"externalJobID"`
 }
 
 // Type returns the type of the job
@@ -39,9 +42,14 @@ func (o *OCR2TaskJobSpec) String() (string, error) {
 	if o.OCR2OracleSpec.FeedID != nil {
 		feedID = o.OCR2OracleSpec.FeedID.Hex()
 	}
+	externalID, err := ExternalJobID(o.Name)
+	if err != nil {
+		return "", err
+	}
 	specWrap := struct {
 		Name                     string
 		JobType                  string
+		ExternalJobID            string
 		MaxTaskDuration          string
 		ForwardingAllowed        bool
 		ContractID               string
@@ -62,6 +70,7 @@ func (o *OCR2TaskJobSpec) String() (string, error) {
 	}{
 		Name:                  o.Name,
 		JobType:               o.JobType,
+		ExternalJobID:         externalID,
 		ForwardingAllowed:     o.ForwardingAllowed,
 		MaxTaskDuration:       o.MaxTaskDuration,
 		ContractID:            o.OCR2OracleSpec.ContractID,
@@ -82,6 +91,7 @@ func (o *OCR2TaskJobSpec) String() (string, error) {
 	ocr2TemplateString := `
 type                                   = "{{ .JobType }}"
 name                                   = "{{.Name}}"
+externalJobID                          = "{{.ExternalJobID}}"
 forwardingAllowed                      = {{.ForwardingAllowed}}
 {{if .MaxTaskDuration}}
 maxTaskDuration                        = "{{ .MaxTaskDuration }}" {{end}}
@@ -331,4 +341,19 @@ func (c *CCIPIntegrationTestHarness) NewCCIPJobSpecParams(tokenPricesUSDPipeline
 		DestStartBlock:         configBlock,
 		USDCAttestationAPI:     usdcAttestationAPI,
 	}
+}
+
+func ExternalJobID(jobName string) (string, error) {
+	in := []byte(jobName)
+	sha256Hash := sha256.New()
+	sha256Hash.Write(in)
+	in = sha256Hash.Sum(nil)[:16]
+	// tag as valid UUID v4 https://github.com/google/uuid/blob/0f11ee6918f41a04c201eceeadf612a377bc7fbc/version4.go#L53-L54
+	in[6] = (in[6] & 0x0f) | 0x40 // Version 4
+	in[8] = (in[8] & 0x3f) | 0x80 // Variant is 10
+	id, err := uuid.FromBytes(in)
+	if err != nil {
+		return "", err
+	}
+	return id.String(), nil
 }

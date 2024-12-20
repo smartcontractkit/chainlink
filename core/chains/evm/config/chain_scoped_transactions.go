@@ -11,6 +11,10 @@ type transactionsConfig struct {
 	c toml.Transactions
 }
 
+func (t *transactionsConfig) Enabled() bool {
+	return *t.c.Enabled
+}
+
 func (t *transactionsConfig) ForwardersEnabled() bool {
 	return *t.c.ForwardersEnabled
 }
