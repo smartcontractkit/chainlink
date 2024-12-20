@@ -106,7 +106,7 @@ contract OffRamp_executeSingleMessage is OffRampSetup {
 
   // Reverts
 
-  function test_executeSingleMessage_RevertWhen_TokenHandlingError() public {
+  function test_RevertWhen_executeSingleMessageWhen_TokenHandlingError() public {
     Internal.Any2EVMRampMessage memory message = _generateAny2EVMMessageWithMaybeRevertingSingleToken(1, 50);
     address destPool = s_destPoolByToken[message.tokenAmounts[0].destTokenAddress];
 
@@ -119,7 +119,7 @@ contract OffRamp_executeSingleMessage is OffRampSetup {
     s_offRamp.executeSingleMessage(message, new bytes[](message.tokenAmounts.length), new uint32[](0));
   }
 
-  function test_executeSingleMessage_RevertWhen_ZeroGasDONExecution() public {
+  function test_RevertWhen_executeSingleMessageWhen_ZeroGasDONExecution() public {
     Internal.Any2EVMRampMessage memory message =
       _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1);
     message.gasLimit = 0;
@@ -129,7 +129,7 @@ contract OffRamp_executeSingleMessage is OffRampSetup {
     s_offRamp.executeSingleMessage(message, new bytes[](message.tokenAmounts.length), new uint32[](0));
   }
 
-  function test_executeSingleMessage_RevertWhen_MessageSender() public {
+  function test_RevertWhen_executeSingleMessageWhen_MessageSender() public {
     vm.stopPrank();
     Internal.Any2EVMRampMessage memory message =
       _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1);
@@ -137,7 +137,7 @@ contract OffRamp_executeSingleMessage is OffRampSetup {
     s_offRamp.executeSingleMessage(message, new bytes[](message.tokenAmounts.length), new uint32[](0));
   }
 
-  function test_executeSingleMessage_RevertWhen_MessageValidationError() public {
+  function test_RevertWhen_executeSingleMessageWhen_MessageValidationError() public {
     vm.stopPrank();
     vm.startPrank(OWNER);
     _enableInboundMessageInterceptor();
@@ -154,7 +154,7 @@ contract OffRamp_executeSingleMessage is OffRampSetup {
     s_offRamp.executeSingleMessage(message, new bytes[](message.tokenAmounts.length), new uint32[](0));
   }
 
-  function test_executeSingleMessage_RevertWhen_WithFailingValidationNoRouterCall() public {
+  function test_RevertWhen_executeSingleMessageWhen_WithFailingValidationNoRouterCall() public {
     vm.stopPrank();
     vm.startPrank(OWNER);
     _enableInboundMessageInterceptor();

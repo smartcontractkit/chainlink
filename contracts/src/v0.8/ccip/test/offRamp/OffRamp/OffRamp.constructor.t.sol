@@ -10,7 +10,7 @@ import {OffRampHelper} from "../../helpers/OffRampHelper.sol";
 import {OffRampSetup} from "./OffRampSetup.t.sol";
 
 contract OffRamp_constructor is OffRampSetup {
-  function test_Constructor_Success() public {
+  function test_Constructor() public {
     OffRamp.StaticConfig memory staticConfig = OffRamp.StaticConfig({
       chainSelector: DEST_CHAIN_SELECTOR,
       gasForCallExactCheck: GAS_FOR_CALL_EXACT_CHECK,
@@ -126,7 +126,7 @@ contract OffRamp_constructor is OffRampSetup {
   }
 
   // Revert
-  function test_ZeroOnRampAddress_Revert() public {
+  function test_RevertWhen_ZeroOnRampAddress() public {
     uint64[] memory sourceChainSelectors = new uint64[](1);
     sourceChainSelectors[0] = SOURCE_CHAIN_SELECTOR_1;
 
@@ -153,7 +153,7 @@ contract OffRamp_constructor is OffRampSetup {
     );
   }
 
-  function test_SourceChainSelector_Revert() public {
+  function test_RevertWhen_SourceChainSelector() public {
     uint64[] memory sourceChainSelectors = new uint64[](1);
     sourceChainSelectors[0] = SOURCE_CHAIN_SELECTOR_1;
 
@@ -180,7 +180,7 @@ contract OffRamp_constructor is OffRampSetup {
     );
   }
 
-  function test_ZeroRMNRemote_Revert() public {
+  function test_RevertWhen_ZeroRMNRemote() public {
     uint64[] memory sourceChainSelectors = new uint64[](1);
     sourceChainSelectors[0] = SOURCE_CHAIN_SELECTOR_1;
 
@@ -201,7 +201,7 @@ contract OffRamp_constructor is OffRampSetup {
     );
   }
 
-  function test_ZeroChainSelector_Revert() public {
+  function test_RevertWhen_ZeroChainSelector() public {
     uint64[] memory sourceChainSelectors = new uint64[](1);
     sourceChainSelectors[0] = SOURCE_CHAIN_SELECTOR_1;
 
@@ -222,7 +222,7 @@ contract OffRamp_constructor is OffRampSetup {
     );
   }
 
-  function test_ZeroTokenAdminRegistry_Revert() public {
+  function test_RevertWhen_ZeroTokenAdminRegistry() public {
     uint64[] memory sourceChainSelectors = new uint64[](1);
     sourceChainSelectors[0] = SOURCE_CHAIN_SELECTOR_1;
 
@@ -243,7 +243,7 @@ contract OffRamp_constructor is OffRampSetup {
     );
   }
 
-  function test_ZeroNonceManager_Revert() public {
+  function test_RevertWhen_ZeroNonceManager() public {
     uint64[] memory sourceChainSelectors = new uint64[](1);
     sourceChainSelectors[0] = SOURCE_CHAIN_SELECTOR_1;
 

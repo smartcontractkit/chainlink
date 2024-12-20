@@ -18,7 +18,7 @@ contract OffRamp_execute is OffRampSetup {
   }
 
   // Asserts that execute completes
-  function test_SingleReport_Success() public {
+  function test_SingleReport() public {
     Internal.Any2EVMRampMessage[] memory messages =
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
     Internal.ExecutionReport[] memory reports = _generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages);
@@ -42,7 +42,7 @@ contract OffRamp_execute is OffRampSetup {
     );
   }
 
-  function test_MultipleReports_Success() public {
+  function test_MultipleReports() public {
     Internal.Any2EVMRampMessage[] memory messages1 = new Internal.Any2EVMRampMessage[](2);
     Internal.Any2EVMRampMessage[] memory messages2 = new Internal.Any2EVMRampMessage[](1);
 
@@ -95,7 +95,7 @@ contract OffRamp_execute is OffRampSetup {
     );
   }
 
-  function test_LargeBatch_Success() public {
+  function test_LargeBatch() public {
     Internal.ExecutionReport[] memory reports = new Internal.ExecutionReport[](10);
     for (uint64 i = 0; i < reports.length; ++i) {
       Internal.Any2EVMRampMessage[] memory messages = new Internal.Any2EVMRampMessage[](3);
@@ -131,7 +131,7 @@ contract OffRamp_execute is OffRampSetup {
     }
   }
 
-  function test_MultipleReportsWithPartialValidationFailures_Success() public {
+  function test_MultipleReportsWithPartialValidationFailures() public {
     _enableInboundMessageInterceptor();
 
     Internal.Any2EVMRampMessage[] memory messages1 = new Internal.Any2EVMRampMessage[](2);
@@ -197,7 +197,7 @@ contract OffRamp_execute is OffRampSetup {
 
   // Reverts
 
-  function test_UnauthorizedTransmitter_Revert() public {
+  function test_RevertWhen_UnauthorizedTransmitter() public {
     bytes32[2] memory reportContext = [s_configDigestExec, s_configDigestExec];
 
     Internal.Any2EVMRampMessage[] memory messages =
@@ -208,7 +208,7 @@ contract OffRamp_execute is OffRampSetup {
     s_offRamp.execute(reportContext, abi.encode(reports));
   }
 
-  function test_NoConfig_Revert() public {
+  function test_RevertWhen_NoConfig() public {
     _redeployOffRampWithNoOCRConfigs();
     s_offRamp.setVerifyOverrideResult(SOURCE_CHAIN_SELECTOR_1, 1);
 
@@ -223,7 +223,7 @@ contract OffRamp_execute is OffRampSetup {
     s_offRamp.execute(reportContext, abi.encode(reports));
   }
 
-  function test_NoConfigWithOtherConfigPresent_Revert() public {
+  function test_RevertWhen_NoConfigWithOtherConfigPresent() public {
     _redeployOffRampWithNoOCRConfigs();
     s_offRamp.setVerifyOverrideResult(SOURCE_CHAIN_SELECTOR_1, 1);
 
@@ -249,7 +249,7 @@ contract OffRamp_execute is OffRampSetup {
     s_offRamp.execute(reportContext, abi.encode(reports));
   }
 
-  function test_WrongConfigWithSigners_Revert() public {
+  function test_RevertWhen_WrongConfigWithSigners() public {
     _redeployOffRampWithNoOCRConfigs();
     s_offRamp.setVerifyOverrideResult(SOURCE_CHAIN_SELECTOR_1, 1);
 
@@ -269,14 +269,14 @@ contract OffRamp_execute is OffRampSetup {
     s_offRamp.setOCR3Configs(ocrConfigs);
   }
 
-  function test_ZeroReports_Revert() public {
+  function test_RevertWhen_ZeroReports() public {
     Internal.ExecutionReport[] memory reports = new Internal.ExecutionReport[](0);
 
     vm.expectRevert(OffRamp.EmptyBatch.selector);
     _execute(reports);
   }
 
-  function test_IncorrectArrayType_Revert() public {
+  function test_RevertWhen_IncorrectArrayType() public {
     bytes32[2] memory reportContext = [s_configDigestExec, s_configDigestExec];
 
     uint256[] memory wrongData = new uint256[](2);
@@ -287,7 +287,7 @@ contract OffRamp_execute is OffRampSetup {
     s_offRamp.execute(reportContext, abi.encode(wrongData));
   }
 
-  function test_NonArray_Revert() public {
+  function test_RevertWhen_NonArray() public {
     bytes32[2] memory reportContext = [s_configDigestExec, s_configDigestExec];
 
     Internal.Any2EVMRampMessage[] memory messages =

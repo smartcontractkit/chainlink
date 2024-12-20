@@ -10,11 +10,11 @@ import {PingPongDappSetup} from "./PingPongDappSetup.t.sol";
 contract PingPong_startPingPong is PingPongDappSetup {
   uint256 internal s_pingPongNumber = 1;
 
-  function test_StartPingPong_With_Sequenced_Ordered_Success() public {
+  function test_StartPingPong_With_Sequenced_Ordered() public {
     _assertPingPongSuccess();
   }
 
-  function test_StartPingPong_With_OOO_Success() public {
+  function test_StartPingPong_With_OOO() public {
     s_pingPong.setOutOfOrderExecution(true);
 
     _assertPingPongSuccess();

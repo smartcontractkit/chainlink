@@ -5,13 +5,13 @@ import {CCIPHome} from "../../../capability/CCIPHome.sol";
 import {CCIPHomeTestSetup} from "./CCIPHomeTestSetup.t.sol";
 
 contract CCIPHome_constructor is CCIPHomeTestSetup {
-  function test_constructor_success() public {
+  function test_constructor() public {
     CCIPHome ccipHome = new CCIPHome(CAPABILITIES_REGISTRY);
 
     assertEq(address(ccipHome.getCapabilityRegistry()), CAPABILITIES_REGISTRY);
   }
 
-  function test_constructor_CapabilitiesRegistryAddressZero_reverts() public {
+  function test_RevertWhen_constructor_CapabilitiesRegistryAddressZero() public {
     vm.expectRevert(CCIPHome.ZeroAddressNotAllowed.selector);
     new CCIPHome(address(0));
   }

@@ -6,7 +6,7 @@ import {OffRamp} from "../../../offRamp/OffRamp.sol";
 import {OffRampSetup} from "./OffRampSetup.t.sol";
 
 contract OffRamp_setDynamicConfig is OffRampSetup {
-  function test_SetDynamicConfig_Success() public {
+  function test_SetDynamicConfig() public {
     OffRamp.DynamicConfig memory dynamicConfig = _generateDynamicOffRampConfig(address(s_feeQuoter));
 
     vm.expectEmit();
@@ -18,7 +18,7 @@ contract OffRamp_setDynamicConfig is OffRampSetup {
     _assertSameConfig(dynamicConfig, newConfig);
   }
 
-  function test_SetDynamicConfigWithInterceptor_Success() public {
+  function test_SetDynamicConfigWithInterceptor() public {
     OffRamp.DynamicConfig memory dynamicConfig = _generateDynamicOffRampConfig(address(s_feeQuoter));
     dynamicConfig.messageInterceptor = address(s_inboundMessageInterceptor);
 
@@ -33,7 +33,7 @@ contract OffRamp_setDynamicConfig is OffRampSetup {
 
   // Reverts
 
-  function test_NonOwner_Revert() public {
+  function test_RevertWhen_NonOwner() public {
     vm.startPrank(STRANGER);
     OffRamp.DynamicConfig memory dynamicConfig = _generateDynamicOffRampConfig(address(s_feeQuoter));
 
@@ -42,7 +42,7 @@ contract OffRamp_setDynamicConfig is OffRampSetup {
     s_offRamp.setDynamicConfig(dynamicConfig);
   }
 
-  function test_FeeQuoterZeroAddress_Revert() public {
+  function test_RevertWhen_FeeQuoterZeroAddress() public {
     OffRamp.DynamicConfig memory dynamicConfig = _generateDynamicOffRampConfig(address(0));
 
     vm.expectRevert(OffRamp.ZeroAddressNotAllowed.selector);

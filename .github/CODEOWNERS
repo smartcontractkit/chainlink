@@ -13,7 +13,7 @@
 
 # Services
 /core/services/directrequest @smartcontractkit/foundations
-/core/services/feeds @smartcontractkit/deployment-automation @eutopian @yevshev @smartcontractkit/core
+/core/services/feeds @smartcontractkit/deployment-automation @eutopian @smartcontractkit/core
 /core/services/synchronization/telem @smartcontractkit/realtime @smartcontractkit/core
 /core/capabilities/ @smartcontractkit/keystone @smartcontractkit/capabilities-team
 /core/capabilities/ccip @smartcontractkit/ccip-offchain
@@ -140,8 +140,8 @@ core/scripts/gateway @smartcontractkit/dev-services
 
 # Deployment tooling
 /deployment @smartcontractkit/ccip @smartcontractkit/keystone @smartcontractkit/core @smartcontractkit/deployment-automation
-/deployment/ccip @smartcontractkit/ccip @smartcontractkit/core
-/deployment/keystone @smartcontractkit/keystone @smartcontractkit/core
+/deployment/ccip @smartcontractkit/ccip @smartcontractkit/core @smartcontractkit/deployment-automation
+/deployment/keystone @smartcontractkit/keystone @smartcontractkit/core @smartcontractkit/deployment-automation
 # TODO: As more products add their deployment logic here, add the team as an owner
 
 # CI/CD

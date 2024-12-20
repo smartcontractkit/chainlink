@@ -6,7 +6,7 @@ import {FeeQuoterHelper} from "../helpers/FeeQuoterHelper.sol";
 import {FeeQuoterSetup} from "./FeeQuoterSetup.t.sol";
 
 contract FeeQuoter_constructor is FeeQuoterSetup {
-  function test_Setup_Success() public virtual {
+  function test_Setup() public virtual {
     address[] memory priceUpdaters = new address[](2);
     priceUpdaters[0] = STRANGER;
     priceUpdaters[1] = OWNER;
@@ -78,7 +78,7 @@ contract FeeQuoter_constructor is FeeQuoterSetup {
     }
   }
 
-  function test_InvalidStalenessThreshold_Revert() public {
+  function test_RevertWhen_InvalidStalenessThreshold() public {
     FeeQuoter.StaticConfig memory staticConfig = FeeQuoter.StaticConfig({
       linkToken: s_sourceTokens[0],
       maxFeeJuelsPerMsg: MAX_MSG_FEES_JUELS,
@@ -98,7 +98,7 @@ contract FeeQuoter_constructor is FeeQuoterSetup {
     );
   }
 
-  function test_InvalidLinkTokenEqZeroAddress_Revert() public {
+  function test_RevertWhen_InvalidLinkTokenEqZeroAddress() public {
     FeeQuoter.StaticConfig memory staticConfig = FeeQuoter.StaticConfig({
       linkToken: address(0),
       maxFeeJuelsPerMsg: MAX_MSG_FEES_JUELS,
@@ -118,7 +118,7 @@ contract FeeQuoter_constructor is FeeQuoterSetup {
     );
   }
 
-  function test_InvalidMaxFeeJuelsPerMsg_Revert() public {
+  function test_RevertWhen_InvalidMaxFeeJuelsPerMsg() public {
     FeeQuoter.StaticConfig memory staticConfig = FeeQuoter.StaticConfig({
       linkToken: s_sourceTokens[0],
       maxFeeJuelsPerMsg: 0,

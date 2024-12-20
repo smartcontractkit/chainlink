@@ -22,6 +22,7 @@ import (
 )
 
 func TestObservationFilter(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	obs1 := CommitObservation{Interval: cciptypes.CommitStoreInterval{Min: 1, Max: 10}}
 	b1, err := obs1.Marshal()
@@ -39,6 +40,7 @@ type CommitObservationLegacy struct {
 }
 
 func TestObservationCompat_MultiChainGas(t *testing.T) {
+	t.Parallel()
 	obsLegacy := CommitObservationLegacy{
 		Interval: cciptypes.CommitStoreInterval{
 			Min: 1,
@@ -66,6 +68,7 @@ func TestObservationCompat_MultiChainGas(t *testing.T) {
 }
 
 func TestCommitObservationJsonDeserialization(t *testing.T) {
+	t.Parallel()
 	expectedObservation := CommitObservation{
 		Interval: cciptypes.CommitStoreInterval{
 			Min: 1,
@@ -93,6 +96,7 @@ func TestCommitObservationJsonDeserialization(t *testing.T) {
 }
 
 func TestCommitObservationMarshal(t *testing.T) {
+	t.Parallel()
 	obs := CommitObservation{
 		Interval: cciptypes.CommitStoreInterval{
 			Min: 1,
@@ -120,6 +124,7 @@ func TestCommitObservationMarshal(t *testing.T) {
 }
 
 func TestExecutionObservationJsonDeserialization(t *testing.T) {
+	t.Parallel()
 	expectedObservation := ExecutionObservation{Messages: map[uint64]MsgData{
 		2: {TokenData: tokenData("c")},
 		1: {TokenData: tokenData("c")},
@@ -142,6 +147,7 @@ func TestExecutionObservationJsonDeserialization(t *testing.T) {
 }
 
 func TestObservationSize(t *testing.T) {
+	t.Parallel()
 	testParams := gopter.DefaultTestParameters()
 	testParams.MinSuccessfulTests = 100
 	p := gopter.NewProperties(testParams)
@@ -166,6 +172,7 @@ func TestObservationSize(t *testing.T) {
 }
 
 func TestNewExecutionObservation(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name         string
 		observations []ObservedMessage
@@ -222,6 +229,7 @@ func tokenData(value string) [][]byte {
 }
 
 func TestCommitObservationJsonSerializationDeserialization(t *testing.T) {
+	t.Parallel()
 	jsonEncoded := `{
 		"interval": {
 			"Min":1,
@@ -276,6 +284,7 @@ func TestCommitObservationJsonSerializationDeserialization(t *testing.T) {
 }
 
 func TestAddressEncodingBackwardsCompatibility(t *testing.T) {
+	t.Parallel()
 	// The intention of this test is to remind including proper formatting of addresses after config is updated.
 	//
 	// The following tests will fail when a new cciptypes.Address field is added or removed.

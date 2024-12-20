@@ -104,13 +104,13 @@ func TestDispatcher_CleanStartClose(t *testing.T) {
 func TestDispatcher_Receive(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := testutils.Context(t)
-	privKey1, peerId1 := newKeyPair(t)
-	_, peerId2 := newKeyPair(t)
+	privKey1, peerID1 := newKeyPair(t)
+	_, peerID2 := newKeyPair(t)
 
 	peer := mocks.NewPeer(t)
 	recvCh := make(chan p2ptypes.Message)
 	peer.On("Receive", mock.Anything).Return((<-chan p2ptypes.Message)(recvCh))
-	peer.On("ID", mock.Anything).Return(peerId2)
+	peer.On("ID", mock.Anything).Return(peerID2)
 	wrapper := mocks.NewPeerWrapper(t)
 	wrapper.On("GetPeer").Return(peer)
 	signer := mocks.NewSigner(t)
@@ -131,39 +131,39 @@ func TestDispatcher_Receive(t *testing.T) {
 	require.NoError(t, dispatcher.Start(ctx))
 
 	rcv := newReceiver()
-	err = dispatcher.SetReceiver(capId1, donId1, rcv)
+	err = dispatcher.SetReceiver(capID1, donID1, rcv)
 	require.NoError(t, err)
 
 	// supported capability
-	recvCh <- encodeAndSign(t, privKey1, peerId1, peerId2, capId1, donId1, []byte(payload1))
+	recvCh <- encodeAndSign(t, privKey1, peerID1, peerID2, capID1, donID1, []byte(payload1))
 	// unknown capability
-	recvCh <- encodeAndSign(t, privKey1, peerId1, peerId2, capId2, donId1, []byte(payload1))
+	recvCh <- encodeAndSign(t, privKey1, peerID1, peerID2, capID2, donID1, []byte(payload1))
 	// sender doesn't match
-	invalid := encodeAndSign(t, privKey1, peerId1, peerId2, capId2, donId1, []byte(payload1))
-	invalid.Sender = peerId2
+	invalid := encodeAndSign(t, privKey1, peerID1, peerID2, capID2, donID1, []byte(payload1))
+	invalid.Sender = peerID2
 	recvCh <- invalid
 	// supported capability again
-	recvCh <- encodeAndSign(t, privKey1, peerId1, peerId2, capId1, donId1, []byte(payload2))
+	recvCh <- encodeAndSign(t, privKey1, peerID1, peerID2, capID1, donID1, []byte(payload2))
 
 	m := <-rcv.ch
 	require.Equal(t, payload1, string(m.Payload))
 	m = <-rcv.ch
 	require.Equal(t, payload2, string(m.Payload))
 
-	dispatcher.RemoveReceiver(capId1, donId1)
+	dispatcher.RemoveReceiver(capID1, donID1)
 	require.NoError(t, dispatcher.Close())
 }
 
 func TestDispatcher_RespondWithError(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := testutils.Context(t)
-	privKey1, peerId1 := newKeyPair(t)
-	_, peerId2 := newKeyPair(t)
+	privKey1, peerID1 := newKeyPair(t)
+	_, peerID2 := newKeyPair(t)
 
 	peer := mocks.NewPeer(t)
 	recvCh := make(chan p2ptypes.Message)
 	peer.On("Receive", mock.Anything).Return((<-chan p2ptypes.Message)(recvCh))
-	peer.On("ID", mock.Anything).Return(peerId2)
+	peer.On("ID", mock.Anything).Return(peerID2)
 	sendCh := make(chan p2ptypes.PeerID)
 	peer.On("Send", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 		peerID := args.Get(0).(p2ptypes.PeerID)
@@ -189,9 +189,9 @@ func TestDispatcher_RespondWithError(t *testing.T) {
 	require.NoError(t, dispatcher.Start(ctx))
 
 	// unknown capability
-	recvCh <- encodeAndSign(t, privKey1, peerId1, peerId2, capId1, donId1, []byte(payload1))
+	recvCh <- encodeAndSign(t, privKey1, peerID1, peerID2, capID1, donID1, []byte(payload1))
 	responseDestPeerID := <-sendCh
-	require.Equal(t, peerId1, responseDestPeerID)
+	require.Equal(t, peerID1, responseDestPeerID)
 
 	require.NoError(t, dispatcher.Close())
 }

@@ -3,12 +3,12 @@ pragma solidity 0.8.24;
 
 import {BurnMintERC20} from "../../../../shared/token/ERC20/BurnMintERC20.sol";
 import {TokenPool} from "../../../pools/TokenPool.sol";
+import {BaseTest} from "../../BaseTest.t.sol";
 import {TokenPoolHelper} from "../../helpers/TokenPoolHelper.sol";
-import {RouterSetup} from "../../router/Router/RouterSetup.t.sol";
 
 import {IERC20} from "../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
-contract TokenPoolSetup is RouterSetup {
+contract TokenPoolSetup is BaseTest {
   IERC20 internal s_token;
   TokenPoolHelper internal s_tokenPool;
 
@@ -16,12 +16,12 @@ contract TokenPoolSetup is RouterSetup {
   address internal s_initialRemoteToken = makeAddr("initialRemoteToken");
 
   function setUp() public virtual override {
-    RouterSetup.setUp();
+    super.setUp();
     s_token = new BurnMintERC20("LINK", "LNK", 18, 0, 0);
     deal(address(s_token), OWNER, type(uint256).max);
 
     s_tokenPool = new TokenPoolHelper(
-      s_token, DEFAULT_TOKEN_DECIMALS, new address[](0), address(s_mockRMN), address(s_sourceRouter)
+      s_token, DEFAULT_TOKEN_DECIMALS, new address[](0), address(s_mockRMNRemote), address(s_sourceRouter)
     );
 
     bytes[] memory remotePoolAddresses = new bytes[](1);

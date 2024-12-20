@@ -12,7 +12,7 @@ contract RMNHome_setDynamicConfig is RMNHomeTestSetup {
     s_rmnHome.setCandidate(config.staticConfig, config.dynamicConfig, ZERO_DIGEST);
   }
 
-  function test_setDynamicConfig_success() public {
+  function test_setDynamicConfig() public {
     (bytes32 priorActiveDigest,) = s_rmnHome.getConfigDigests();
 
     Config memory config = _getBaseConfig();
@@ -36,7 +36,7 @@ contract RMNHome_setDynamicConfig is RMNHomeTestSetup {
   }
 
   // Asserts the validation function is being called
-  function test_setDynamicConfig_MinObserversTooHigh_reverts() public {
+  function test_RevertWhen_setDynamicConfig_MinObserversTooHigh() public {
     Config memory config = _getBaseConfig();
     config.dynamicConfig.sourceChains[0].f++;
 
@@ -44,7 +44,7 @@ contract RMNHome_setDynamicConfig is RMNHomeTestSetup {
     s_rmnHome.setDynamicConfig(config.dynamicConfig, ZERO_DIGEST);
   }
 
-  function test_setDynamicConfig_DigestNotFound_reverts() public {
+  function test_RevertWhen_setDynamicConfig_DigestNotFound() public {
     // Zero always reverts
     vm.expectRevert(abi.encodeWithSelector(RMNHome.DigestNotFound.selector, ZERO_DIGEST));
     s_rmnHome.setDynamicConfig(_getBaseConfig().dynamicConfig, ZERO_DIGEST);
@@ -55,7 +55,7 @@ contract RMNHome_setDynamicConfig is RMNHomeTestSetup {
     s_rmnHome.setDynamicConfig(_getBaseConfig().dynamicConfig, nonExistentDigest);
   }
 
-  function test_setDynamicConfig_OnlyOwner_reverts() public {
+  function test_RevertWhen_setDynamicConfig_OnlyOwner() public {
     Config memory config = _getBaseConfig();
 
     vm.startPrank(address(0));

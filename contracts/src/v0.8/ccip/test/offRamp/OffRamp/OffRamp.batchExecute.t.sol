@@ -15,7 +15,7 @@ contract OffRamp_batchExecute is OffRampSetup {
     s_offRamp.setVerifyOverrideResult(SOURCE_CHAIN_SELECTOR_3, 1);
   }
 
-  function test_SingleReport_Success() public {
+  function test_SingleReport() public {
     Internal.Any2EVMRampMessage[] memory messages =
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
 
@@ -37,7 +37,7 @@ contract OffRamp_batchExecute is OffRampSetup {
     assertGt(s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_1, messages[0].sender), nonceBefore);
   }
 
-  function test_MultipleReportsSameChain_Success() public {
+  function test_MultipleReportsSameChain() public {
     Internal.Any2EVMRampMessage[] memory messages1 = new Internal.Any2EVMRampMessage[](2);
     Internal.Any2EVMRampMessage[] memory messages2 = new Internal.Any2EVMRampMessage[](1);
 
@@ -87,7 +87,7 @@ contract OffRamp_batchExecute is OffRampSetup {
     assertGt(s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_1, messages1[0].sender), nonceBefore);
   }
 
-  function test_MultipleReportsDifferentChains_Success() public {
+  function test_MultipleReportsDifferentChains() public {
     Internal.Any2EVMRampMessage[] memory messages1 = new Internal.Any2EVMRampMessage[](2);
     Internal.Any2EVMRampMessage[] memory messages2 = new Internal.Any2EVMRampMessage[](1);
 
@@ -143,7 +143,7 @@ contract OffRamp_batchExecute is OffRampSetup {
     assertGt(nonceChain3, 0);
   }
 
-  function test_MultipleReportsDifferentChainsSkipCursedChain_Success() public {
+  function test_MultipleReportsDifferentChainsSkipCursedChain() public {
     _setMockRMNChainCurse(SOURCE_CHAIN_SELECTOR_1, true);
 
     Internal.Any2EVMRampMessage[] memory messages1 = new Internal.Any2EVMRampMessage[](2);
@@ -182,7 +182,7 @@ contract OffRamp_batchExecute is OffRampSetup {
     }
   }
 
-  function test_MultipleReportsSkipDuplicate_Success() public {
+  function test_MultipleReportsSkipDuplicate() public {
     Internal.Any2EVMRampMessage[] memory messages =
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
 
@@ -205,7 +205,7 @@ contract OffRamp_batchExecute is OffRampSetup {
     );
   }
 
-  function test_Unhealthy_Success() public {
+  function test_Unhealthy() public {
     _setMockRMNChainCurse(SOURCE_CHAIN_SELECTOR_1, true);
     vm.expectEmit();
     emit OffRamp.SkippedReportExecution(SOURCE_CHAIN_SELECTOR_1);
@@ -230,12 +230,12 @@ contract OffRamp_batchExecute is OffRampSetup {
   }
 
   // Reverts
-  function test_ZeroReports_Revert() public {
+  function test_RevertWhen_ZeroReports() public {
     vm.expectRevert(OffRamp.EmptyBatch.selector);
     s_offRamp.batchExecute(new Internal.ExecutionReport[](0), new OffRamp.GasLimitOverride[][](1));
   }
 
-  function test_OutOfBoundsGasLimitsAccess_Revert() public {
+  function test_RevertWhen_OutOfBoundsGasLimitsAccess() public {
     Internal.Any2EVMRampMessage[] memory messages1 = new Internal.Any2EVMRampMessage[](2);
     Internal.Any2EVMRampMessage[] memory messages2 = new Internal.Any2EVMRampMessage[](1);
 

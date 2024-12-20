@@ -9,8 +9,11 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_rmn_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry_1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/registry_module_owner_custom"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_proxy_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_admin_registry"
@@ -32,7 +35,7 @@ func DeployPrerequisites(env deployment.Environment, cfg DeployPrerequisiteConfi
 		return deployment.ChangesetOutput{}, errors.Wrapf(deployment.ErrInvalidConfig, "%v", err)
 	}
 	ab := deployment.NewMemoryAddressBook()
-	err = deployPrerequisiteChainContracts(env, ab, cfg.ChainSelectors, cfg.Opts...)
+	err = deployPrerequisiteChainContracts(env, ab, cfg)
 	if err != nil {
 		env.Logger.Errorw("Failed to deploy prerequisite contracts", "err", err, "addressBook", ab)
 		return deployment.ChangesetOutput{
@@ -47,13 +50,23 @@ func DeployPrerequisites(env deployment.Environment, cfg DeployPrerequisiteConfi
 }
 
 type DeployPrerequisiteContractsOpts struct {
-	USDCEnabledChains []uint64
-	Multicall3Enabled bool
+	USDCEnabled         bool
+	Multicall3Enabled   bool
+	LegacyDeploymentCfg *LegacyDeploymentConfig
+}
+
+type LegacyDeploymentConfig struct {
+	RMNConfig                  *rmn_contract.RMNConfig
+	PriceRegStalenessThreshold uint32
 }
 
 type DeployPrerequisiteConfig struct {
-	ChainSelectors []uint64
-	Opts           []PrerequisiteOpt
+	Configs []DeployPrerequisiteConfigPerChain
+}
+
+type DeployPrerequisiteConfigPerChain struct {
+	ChainSelector uint64
+	Opts          []PrerequisiteOpt
 	// TODO handle tokens and feeds in prerequisite config
 	Tokens map[TokenSymbol]common.Address
 	Feeds  map[TokenSymbol]common.Address
@@ -61,7 +74,8 @@ type DeployPrerequisiteConfig struct {
 
 func (c DeployPrerequisiteConfig) Validate() error {
 	mapAllChainSelectors := make(map[uint64]struct{})
-	for _, cs := range c.ChainSelectors {
+	for _, cfg := range c.Configs {
+		cs := cfg.ChainSelector
 		mapAllChainSelectors[cs] = struct{}{}
 		if err := deployment.IsValidChainSelector(cs); err != nil {
 			return fmt.Errorf("invalid chain selector: %d - %w", cs, err)
@@ -72,31 +86,41 @@ func (c DeployPrerequisiteConfig) Validate() error {
 
 type PrerequisiteOpt func(o *DeployPrerequisiteContractsOpts)
 
-func WithUSDCChains(chains []uint64) PrerequisiteOpt {
+func WithUSDCEnabled() PrerequisiteOpt {
 	return func(o *DeployPrerequisiteContractsOpts) {
-		o.USDCEnabledChains = chains
+		o.USDCEnabled = true
 	}
 }
 
-func WithMulticall3(enabled bool) PrerequisiteOpt {
+func WithMultiCall3Enabled() PrerequisiteOpt {
 	return func(o *DeployPrerequisiteContractsOpts) {
-		o.Multicall3Enabled = enabled
+		o.Multicall3Enabled = true
 	}
 }
 
-func deployPrerequisiteChainContracts(e deployment.Environment, ab deployment.AddressBook, selectors []uint64, opts ...PrerequisiteOpt) error {
+func WithLegacyDeploymentEnabled(cfg LegacyDeploymentConfig) PrerequisiteOpt {
+	return func(o *DeployPrerequisiteContractsOpts) {
+		if cfg.PriceRegStalenessThreshold == 0 {
+			panic("PriceRegStalenessThreshold must be set")
+		}
+		// TODO validate RMNConfig
+		o.LegacyDeploymentCfg = &cfg
+	}
+}
+
+func deployPrerequisiteChainContracts(e deployment.Environment, ab deployment.AddressBook, cfg DeployPrerequisiteConfig) error {
 	state, err := LoadOnchainState(e)
 	if err != nil {
 		e.Logger.Errorw("Failed to load existing onchain state", "err")
 		return err
 	}
 	deployGrp := errgroup.Group{}
-	for _, sel := range selectors {
-		chain := e.Chains[sel]
+	for _, c := range cfg.Configs {
+		chain := e.Chains[c.ChainSelector]
 		deployGrp.Go(func() error {
-			err := deployPrerequisiteContracts(e, ab, state, chain, opts...)
+			err := deployPrerequisiteContracts(e, ab, state, chain, c.Opts...)
 			if err != nil {
-				e.Logger.Errorw("Failed to deploy prerequisite contracts", "chain", sel, "err", err)
+				e.Logger.Errorw("Failed to deploy prerequisite contracts", "chain", chain.String(), "err", err)
 				return err
 			}
 			return nil
@@ -112,13 +136,6 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 	for _, opt := range opts {
 		if opt != nil {
 			opt(deployOpts)
-		}
-	}
-	var isUSDC bool
-	for _, sel := range deployOpts.USDCEnabledChains {
-		if sel == chain.Selector {
-			isUSDC = true
-			break
 		}
 	}
 	lggr := e.Logger
@@ -137,37 +154,103 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 		r = chainState.Router
 		mc3 = chainState.Multicall3
 	}
-	if rmnProxy == nil {
-		rmn, err := deployment.DeployContract(lggr, chain, ab,
-			func(chain deployment.Chain) deployment.ContractDeploy[*mock_rmn_contract.MockRMNContract] {
-				rmnAddr, tx2, rmn, err2 := mock_rmn_contract.DeployMockRMNContract(
-					chain.DeployerKey,
-					chain.Client,
-				)
-				return deployment.ContractDeploy[*mock_rmn_contract.MockRMNContract]{
-					Address: rmnAddr, Contract: rmn, Tx: tx2, Tv: deployment.NewTypeAndVersion(MockRMN, deployment.Version1_0_0), Err: err2,
-				}
-			})
-		if err != nil {
-			lggr.Errorw("Failed to deploy mock RMN", "chain", chain.String(), "err", err)
-			return err
+	var rmnAddr common.Address
+	// if we are setting up 1.5 version, deploy RMN contract based on the config provided
+	// else deploy the mock RMN contract
+	if deployOpts.LegacyDeploymentCfg != nil && deployOpts.LegacyDeploymentCfg.RMNConfig != nil {
+		if chainState.RMN == nil {
+			rmn, err := deployment.DeployContract(lggr, chain, ab,
+				func(chain deployment.Chain) deployment.ContractDeploy[*rmn_contract.RMNContract] {
+					rmnAddress, tx2, rmnC, err2 := rmn_contract.DeployRMNContract(
+						chain.DeployerKey,
+						chain.Client,
+						*deployOpts.LegacyDeploymentCfg.RMNConfig,
+					)
+					return deployment.ContractDeploy[*rmn_contract.RMNContract]{
+						Address: rmnAddress, Contract: rmnC, Tx: tx2, Tv: deployment.NewTypeAndVersion(RMN, deployment.Version1_5_0), Err: err2,
+					}
+				})
+			if err != nil {
+				lggr.Errorw("Failed to deploy RMN", "chain", chain.String(), "err", err)
+				return err
+			}
+			rmnAddr = rmn.Address
+		} else {
+			lggr.Infow("RMN already deployed", "chain", chain.String(), "address", chainState.RMN.Address)
+			rmnAddr = chainState.RMN.Address()
 		}
+	} else {
+		if chainState.MockRMN == nil {
+			rmn, err := deployment.DeployContract(lggr, chain, ab,
+				func(chain deployment.Chain) deployment.ContractDeploy[*mock_rmn_contract.MockRMNContract] {
+					rmnAddress, tx2, rmnC, err2 := mock_rmn_contract.DeployMockRMNContract(
+						chain.DeployerKey,
+						chain.Client,
+					)
+					return deployment.ContractDeploy[*mock_rmn_contract.MockRMNContract]{
+						Address: rmnAddress, Contract: rmnC, Tx: tx2, Tv: deployment.NewTypeAndVersion(MockRMN, deployment.Version1_0_0), Err: err2,
+					}
+				})
+			if err != nil {
+				lggr.Errorw("Failed to deploy mock RMN", "chain", chain.String(), "err", err)
+				return err
+			}
+			rmnAddr = rmn.Address
+		} else {
+			lggr.Infow("Mock RMN already deployed", "chain", chain.String(), "addr", chainState.MockRMN.Address)
+			rmnAddr = chainState.MockRMN.Address()
+		}
+	}
+	if rmnProxy == nil {
 		rmnProxyContract, err := deployment.DeployContract(lggr, chain, ab,
 			func(chain deployment.Chain) deployment.ContractDeploy[*rmn_proxy_contract.RMNProxyContract] {
 				rmnProxyAddr, tx2, rmnProxy, err2 := rmn_proxy_contract.DeployRMNProxyContract(
 					chain.DeployerKey,
 					chain.Client,
-					rmn.Address,
+					rmnAddr,
 				)
 				return deployment.ContractDeploy[*rmn_proxy_contract.RMNProxyContract]{
-					rmnProxyAddr, rmnProxy, tx2, deployment.NewTypeAndVersion(ARMProxy, deployment.Version1_0_0), err2,
+					Address: rmnProxyAddr, Contract: rmnProxy, Tx: tx2, Tv: deployment.NewTypeAndVersion(ARMProxy, deployment.Version1_0_0), Err: err2,
 				}
 			})
 		if err != nil {
-			lggr.Errorw("Failed to deploy RMNProxyExisting", "chain", chain.String(), "err", err)
+			lggr.Errorw("Failed to deploy RMNProxy", "chain", chain.String(), "err", err)
 			return err
 		}
 		rmnProxy = rmnProxyContract.Contract
+	} else {
+		lggr.Infow("RMNProxy already deployed", "chain", chain.String(), "addr", rmnProxy.Address)
+		// check if the RMNProxy is pointing to the correct RMN contract
+		currentRMNAddr, err := rmnProxy.GetARM(nil)
+		if err != nil {
+			lggr.Errorw("Failed to get RMN from RMNProxy", "chain", chain.String(), "err", err)
+			return err
+		}
+		if currentRMNAddr != rmnAddr {
+			lggr.Infow("RMNProxy is not pointing to the correct RMN contract, updating RMN", "chain", chain.String(), "currentRMN", currentRMNAddr, "expectedRMN", rmnAddr)
+			rmnOwner, err := rmnProxy.Owner(nil)
+			if err != nil {
+				lggr.Errorw("Failed to get owner of RMNProxy", "chain", chain.String(), "err", err)
+				return err
+			}
+			if rmnOwner != chain.DeployerKey.From {
+				lggr.Warnw(
+					"RMNProxy is not owned by the deployer and RMNProxy is not pointing to the correct RMN contract, "+
+						"run SetRMNRemoteOnRMNProxy to update RMN with a proposal",
+					"chain", chain.String(), "owner", rmnOwner, "currentRMN", currentRMNAddr, "expectedRMN", rmnAddr)
+			} else {
+				tx, err := rmnProxy.SetARM(chain.DeployerKey, rmnAddr)
+				if err != nil {
+					lggr.Errorw("Failed to set RMN on RMNProxy", "chain", chain.String(), "err", err)
+					return err
+				}
+				_, err = chain.Confirm(tx)
+				if err != nil {
+					lggr.Errorw("Failed to confirm setRMN on RMNProxy", "chain", chain.String(), "err", err)
+					return err
+				}
+			}
+		}
 	}
 	if tokenAdminReg == nil {
 		tokenAdminRegistry, err := deployment.DeployContract(e.Logger, chain, ab,
@@ -176,7 +259,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 					chain.DeployerKey,
 					chain.Client)
 				return deployment.ContractDeploy[*token_admin_registry.TokenAdminRegistry]{
-					tokenAdminRegistryAddr, tokenAdminRegistry, tx2, deployment.NewTypeAndVersion(TokenAdminRegistry, deployment.Version1_5_0), err2,
+					Address: tokenAdminRegistryAddr, Contract: tokenAdminRegistry, Tx: tx2, Tv: deployment.NewTypeAndVersion(TokenAdminRegistry, deployment.Version1_5_0), Err: err2,
 				}
 			})
 		if err != nil {
@@ -195,7 +278,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 					chain.Client,
 					tokenAdminReg.Address())
 				return deployment.ContractDeploy[*registry_module_owner_custom.RegistryModuleOwnerCustom]{
-					regModAddr, regMod, tx2, deployment.NewTypeAndVersion(RegistryModule, deployment.Version1_5_0), err2,
+					Address: regModAddr, Contract: regMod, Tx: tx2, Tv: deployment.NewTypeAndVersion(RegistryModule, deployment.Version1_5_0), Err: err2,
 				}
 			})
 		if err != nil {
@@ -233,7 +316,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 					chain.Client,
 				)
 				return deployment.ContractDeploy[*weth9.WETH9]{
-					weth9Addr, weth9c, tx2, deployment.NewTypeAndVersion(WETH9, deployment.Version1_0_0), err2,
+					Address: weth9Addr, Contract: weth9c, Tx: tx2, Tv: deployment.NewTypeAndVersion(WETH9, deployment.Version1_0_0), Err: err2,
 				}
 			})
 		if err != nil {
@@ -242,8 +325,10 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 		}
 		weth9Contract = weth.Contract
 	} else {
-		lggr.Infow("weth9 already deployed", "addr", weth9Contract.Address)
+		lggr.Infow("weth9 already deployed", "chain", chain.String(), "addr", weth9Contract.Address)
+		weth9Contract = chainState.Weth9
 	}
+
 	// if router is not already deployed, we deploy it
 	if r == nil {
 		routerContract, err := deployment.DeployContract(e.Logger, chain, ab,
@@ -255,7 +340,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 					rmnProxy.Address(),
 				)
 				return deployment.ContractDeploy[*router.Router]{
-					routerAddr, routerC, tx2, deployment.NewTypeAndVersion(Router, deployment.Version1_2_0), err2,
+					Address: routerAddr, Contract: routerC, Tx: tx2, Tv: deployment.NewTypeAndVersion(Router, deployment.Version1_2_0), Err: err2,
 				}
 			})
 		if err != nil {
@@ -275,7 +360,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 					chain.Client,
 				)
 				return deployment.ContractDeploy[*multicall3.Multicall3]{
-					multicall3Addr, multicall3Wrapper, tx2, deployment.NewTypeAndVersion(Multicall3, deployment.Version1_0_0), err2,
+					Address: multicall3Addr, Contract: multicall3Wrapper, Tx: tx2, Tv: deployment.NewTypeAndVersion(Multicall3, deployment.Version1_0_0), Err: err2,
 				}
 			})
 		if err != nil {
@@ -287,7 +372,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 			e.Logger.Info("ccip multicall already deployed", "chain", chain.String(), "addr", mc3.Address)
 		}
 	}
-	if isUSDC {
+	if deployOpts.USDCEnabled {
 		token, pool, messenger, transmitter, err1 := DeployUSDC(e.Logger, chain, ab, rmnProxy.Address(), r.Address())
 		if err1 != nil {
 			return err1
@@ -299,6 +384,50 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 			"transmitter", transmitter.Address(),
 			"messenger", messenger.Address(),
 		)
+	}
+	if chainState.Receiver == nil {
+		_, err := deployment.DeployContract(e.Logger, chain, ab,
+			func(chain deployment.Chain) deployment.ContractDeploy[*maybe_revert_message_receiver.MaybeRevertMessageReceiver] {
+				receiverAddr, tx, receiver, err2 := maybe_revert_message_receiver.DeployMaybeRevertMessageReceiver(
+					chain.DeployerKey,
+					chain.Client,
+					false,
+				)
+				return deployment.ContractDeploy[*maybe_revert_message_receiver.MaybeRevertMessageReceiver]{
+					Address: receiverAddr, Contract: receiver, Tx: tx, Tv: deployment.NewTypeAndVersion(CCIPReceiver, deployment.Version1_0_0), Err: err2,
+				}
+			})
+		if err != nil {
+			e.Logger.Errorw("Failed to deploy receiver", "chain", chain.String(), "err", err)
+			return err
+		}
+	} else {
+		e.Logger.Infow("receiver already deployed", "addr", chainState.Receiver.Address, "chain", chain.String())
+	}
+	// Only applicable if setting up for 1.5 version, remove this once we have fully migrated to 1.6
+	if deployOpts.LegacyDeploymentCfg != nil {
+		if chainState.PriceRegistry == nil {
+			_, err := deployment.DeployContract(lggr, chain, ab,
+				func(chain deployment.Chain) deployment.ContractDeploy[*price_registry_1_2_0.PriceRegistry] {
+					priceRegAddr, tx2, priceRegAddrC, err2 := price_registry_1_2_0.DeployPriceRegistry(
+						chain.DeployerKey,
+						chain.Client,
+						nil,
+						[]common.Address{weth9Contract.Address(), chainState.LinkToken.Address()},
+						deployOpts.LegacyDeploymentCfg.PriceRegStalenessThreshold,
+					)
+					return deployment.ContractDeploy[*price_registry_1_2_0.PriceRegistry]{
+						Address: priceRegAddr, Contract: priceRegAddrC, Tx: tx2,
+						Tv: deployment.NewTypeAndVersion(PriceRegistry, deployment.Version1_2_0), Err: err2,
+					}
+				})
+			if err != nil {
+				lggr.Errorw("Failed to deploy PriceRegistry", "chain", chain.String(), "err", err)
+				return err
+			}
+		} else {
+			lggr.Infow("PriceRegistry already deployed", "chain", chain.String(), "addr", chainState.PriceRegistry.Address)
+		}
 	}
 	return nil
 }

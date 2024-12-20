@@ -18,7 +18,7 @@ contract TokenPool_parseRemoteDecimals is TokenPoolSetup {
     assertEq(s_tokenPool.parseRemoteDecimals(""), s_tokenPool.getTokenDecimals());
   }
 
-  function test_parseRemoteDecimals_RevertWhen_InvalidRemoteChainDecimals_DigitTooLarge() public {
+  function test_RevertWhen_parseRemoteDecimalsWhen_InvalidRemoteChainDecimals_DigitTooLarge() public {
     bytes memory encodedDecimals = abi.encode(uint256(256));
 
     vm.expectRevert(abi.encodeWithSelector(TokenPool.InvalidRemoteChainDecimals.selector, encodedDecimals));
@@ -26,7 +26,7 @@ contract TokenPool_parseRemoteDecimals is TokenPoolSetup {
     s_tokenPool.parseRemoteDecimals(encodedDecimals);
   }
 
-  function test_parseRemoteDecimals_RevertWhen_InvalidRemoteChainDecimals_WrongType() public {
+  function test_RevertWhen_parseRemoteDecimalsWhen_InvalidRemoteChainDecimals_WrongType() public {
     bytes memory encodedDecimals = abi.encode(uint256(256), "wrong type");
 
     vm.expectRevert(abi.encodeWithSelector(TokenPool.InvalidRemoteChainDecimals.selector, encodedDecimals));

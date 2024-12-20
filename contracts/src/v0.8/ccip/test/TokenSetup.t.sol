@@ -6,12 +6,12 @@ import {BurnMintTokenPool} from "../pools/BurnMintTokenPool.sol";
 import {LockReleaseTokenPool} from "../pools/LockReleaseTokenPool.sol";
 import {TokenPool} from "../pools/TokenPool.sol";
 import {TokenAdminRegistry} from "../tokenAdminRegistry/TokenAdminRegistry.sol";
+import {BaseTest} from "./BaseTest.t.sol";
 import {MaybeRevertingBurnMintTokenPool} from "./helpers/MaybeRevertingBurnMintTokenPool.sol";
-import {RouterSetup} from "./router/Router/RouterSetup.t.sol";
 
 import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
-contract TokenSetup is RouterSetup {
+contract TokenSetup is BaseTest {
   address[] internal s_sourceTokens;
   address[] internal s_destTokens;
 
@@ -46,7 +46,7 @@ contract TokenSetup is RouterSetup {
     }
 
     LockReleaseTokenPool pool = new LockReleaseTokenPool(
-      IERC20(token), DEFAULT_TOKEN_DECIMALS, new address[](0), address(s_mockRMN), true, router
+      IERC20(token), DEFAULT_TOKEN_DECIMALS, new address[](0), address(s_mockRMNRemote), true, router
     );
 
     if (isSourcePool) {
@@ -64,7 +64,7 @@ contract TokenSetup is RouterSetup {
     }
 
     BurnMintTokenPool pool = new MaybeRevertingBurnMintTokenPool(
-      BurnMintERC20(token), DEFAULT_TOKEN_DECIMALS, new address[](0), address(s_mockRMN), router
+      BurnMintERC20(token), DEFAULT_TOKEN_DECIMALS, new address[](0), address(s_mockRMNRemote), router
     );
     BurnMintERC20(token).grantMintAndBurnRoles(address(pool));
 
@@ -77,7 +77,7 @@ contract TokenSetup is RouterSetup {
   }
 
   function setUp() public virtual override {
-    RouterSetup.setUp();
+    super.setUp();
 
     bool isSetup = s_sourceTokens.length != 0;
     if (isSetup) {
