@@ -11,7 +11,7 @@ import {ERC165Checker} from
   "../../../../vendor/openzeppelin-solidity/v5.0.2/contracts/utils/introspection/ERC165Checker.sol";
 
 contract CCIPClientExample_sanity is OnRampSetup {
-  function test_ImmutableExamples_Success() public {
+  function test_ImmutableExamples() public {
     CCIPClientExample exampleContract = new CCIPClientExample(s_sourceRouter, IERC20(s_sourceFeeToken));
     deal(address(exampleContract), 100 ether);
     deal(s_sourceFeeToken, address(exampleContract), 100 ether);

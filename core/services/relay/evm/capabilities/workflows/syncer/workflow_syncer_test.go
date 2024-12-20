@@ -125,9 +125,6 @@ func Test_EventHandlerStateSync(t *testing.T) {
 	}
 
 	testEventHandler := newTestEvtHandler()
-	loader := syncer.NewWorkflowRegistryContractLoader(lggr, wfRegistryAddr.Hex(), func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
-		return backendTH.NewContractReader(ctx, t, bytes)
-	}, testEventHandler)
 
 	// Create the registry
 	registry := syncer.NewWorkflowRegistry(
@@ -140,7 +137,6 @@ func Test_EventHandlerStateSync(t *testing.T) {
 			QueryCount: 20,
 		},
 		testEventHandler,
-		loader,
 		&testDonNotifier{
 			don: capabilities.DON{
 				ID: donID,
@@ -255,9 +251,6 @@ func Test_InitialStateSync(t *testing.T) {
 	}
 
 	testEventHandler := newTestEvtHandler()
-	loader := syncer.NewWorkflowRegistryContractLoader(lggr, wfRegistryAddr.Hex(), func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
-		return backendTH.NewContractReader(ctx, t, bytes)
-	}, testEventHandler)
 
 	// Create the worker
 	worker := syncer.NewWorkflowRegistry(
@@ -270,7 +263,6 @@ func Test_InitialStateSync(t *testing.T) {
 			QueryCount: 20,
 		},
 		testEventHandler,
-		loader,
 		&testDonNotifier{
 			don: capabilities.DON{
 				ID: donID,
@@ -346,8 +338,11 @@ func Test_SecretsWorker(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, contents, giveContents)
 
-	handler := syncer.NewEventHandler(lggr, orm, fetcherFn, nil, nil,
-		emitter, clockwork.NewFakeClock(), workflowkey.Key{})
+	handler := &testSecretsWorkEventHandler{
+		wrappedHandler: syncer.NewEventHandler(lggr, orm, fetcherFn, nil, nil,
+			emitter, clockwork.NewFakeClock(), workflowkey.Key{}),
+		registeredCh: make(chan syncer.Event, 1),
+	}
 
 	worker := syncer.NewWorkflowRegistry(
 		lggr,
@@ -357,7 +352,6 @@ func Test_SecretsWorker(t *testing.T) {
 		wfRegistryAddr.Hex(),
 		syncer.WorkflowEventPollerConfig{QueryCount: 20},
 		handler,
-		&testWorkflowRegistryContractLoader{},
 		&testDonNotifier{
 			don: capabilities.DON{
 				ID: donID,
@@ -373,6 +367,9 @@ func Test_SecretsWorker(t *testing.T) {
 	registerWorkflow(t, backendTH, wfRegistryC, giveWorkflow)
 
 	servicetest.Run(t, worker)
+
+	// wait for the workflow to be registered
+	<-handler.registeredCh
 
 	// generate a log event
 	requestForceUpdateSecrets(t, backendTH, wfRegistryC, giveSecretsURL)
@@ -434,7 +431,6 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 		wfRegistryAddr.Hex(),
 		syncer.WorkflowEventPollerConfig{QueryCount: 20},
 		handler,
-		&testWorkflowRegistryContractLoader{},
 		&testDonNotifier{
 			don: capabilities.DON{
 				ID: donID,
@@ -543,7 +539,6 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 		wfRegistryAddr.Hex(),
 		syncer.WorkflowEventPollerConfig{QueryCount: 20},
 		handler,
-		&testWorkflowRegistryContractLoader{},
 		&testDonNotifier{
 			don: capabilities.DON{
 				ID: donID,
@@ -707,4 +702,25 @@ func updateWorkflow(
 	th.Backend.Commit()
 	th.Backend.Commit()
 	th.Backend.Commit()
+}
+
+type evtHandler interface {
+	Handle(ctx context.Context, event syncer.Event) error
+}
+
+type testSecretsWorkEventHandler struct {
+	wrappedHandler evtHandler
+	registeredCh   chan syncer.Event
+}
+
+func (m *testSecretsWorkEventHandler) Handle(ctx context.Context, event syncer.Event) error {
+	switch {
+	case event.GetEventType() == syncer.ForceUpdateSecretsEvent:
+		return m.wrappedHandler.Handle(ctx, event)
+	case event.GetEventType() == syncer.WorkflowRegisteredEvent:
+		m.registeredCh <- event
+		return nil
+	default:
+		panic(fmt.Sprintf("unexpected event type: %v", event.GetEventType()))
+	}
 }

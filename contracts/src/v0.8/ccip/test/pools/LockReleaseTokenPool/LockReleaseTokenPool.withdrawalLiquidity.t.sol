@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.24;
+pragma solidity ^0.8.24;
 
 import {LockReleaseTokenPool} from "../../../pools/LockReleaseTokenPool.sol";
 
@@ -20,14 +20,14 @@ contract LockReleaseTokenPool_withdrawalLiquidity is LockReleaseTokenPoolSetup {
   }
 
   // Reverts
-  function test_Unauthorized_Revert() public {
+  function test_RevertWhen_Unauthorized() public {
     vm.startPrank(STRANGER);
     vm.expectRevert(abi.encodeWithSelector(TokenPool.Unauthorized.selector, STRANGER));
 
     s_lockReleaseTokenPool.withdrawLiquidity(1);
   }
 
-  function test_InsufficientLiquidity_Revert() public {
+  function test_RevertWhen_InsufficientLiquidity() public {
     uint256 maxUint256 = 2 ** 256 - 1;
     s_token.approve(address(s_lockReleaseTokenPool), maxUint256);
     s_lockReleaseTokenPool.provideLiquidity(maxUint256);

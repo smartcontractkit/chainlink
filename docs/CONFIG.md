@@ -2034,6 +2034,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '9m0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -2138,6 +2139,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -2242,6 +2244,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -2346,6 +2349,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -2451,6 +2455,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '13m0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -2559,6 +2564,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -2663,6 +2669,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -2768,6 +2775,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -2872,6 +2880,7 @@ FinalizedBlockOffset = 2
 NoNewFinalizedHeadsThreshold = '45s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -2975,6 +2984,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -3078,6 +3088,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -3182,6 +3193,7 @@ FinalizedBlockOffset = 2
 NoNewFinalizedHeadsThreshold = '40s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -3287,6 +3299,7 @@ FinalizedBlockOffset = 2
 NoNewFinalizedHeadsThreshold = '2m0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -3391,6 +3404,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -3495,6 +3509,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '6m0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 5000
@@ -3599,6 +3614,7 @@ FinalizedBlockOffset = 2
 NoNewFinalizedHeadsThreshold = '0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -3704,6 +3720,7 @@ FinalizedBlockOffset = 2
 NoNewFinalizedHeadsThreshold = '0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -3809,6 +3826,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '1h10m0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -3917,6 +3935,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -4021,6 +4040,7 @@ FinalizedBlockOffset = 2
 NoNewFinalizedHeadsThreshold = '0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -4129,6 +4149,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -4236,6 +4257,7 @@ FinalizedBlockOffset = 2
 NoNewFinalizedHeadsThreshold = '0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -4340,6 +4362,7 @@ FinalizedBlockOffset = 2
 NoNewFinalizedHeadsThreshold = '0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -4444,6 +4467,7 @@ FinalizedBlockOffset = 2
 NoNewFinalizedHeadsThreshold = '0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -4551,6 +4575,7 @@ FinalizedBlockOffset = 2
 NoNewFinalizedHeadsThreshold = '0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -4659,6 +4684,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -4767,6 +4793,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '1h30m0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -4875,6 +4902,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -4978,6 +5006,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -5082,6 +5111,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -5186,6 +5216,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -5291,6 +5322,7 @@ FinalizedBlockOffset = 2
 NoNewFinalizedHeadsThreshold = '40s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -5395,6 +5427,7 @@ FinalizedBlockOffset = 2
 NoNewFinalizedHeadsThreshold = '40s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -5499,6 +5532,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '1h10m0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -5607,6 +5641,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '45m0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -5714,6 +5749,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -5819,6 +5855,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '2h0m0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -5927,6 +5964,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -6031,6 +6069,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -6135,6 +6174,7 @@ FinalizedBlockOffset = 2
 NoNewFinalizedHeadsThreshold = '0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -6243,6 +6283,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -6348,6 +6389,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -6452,6 +6494,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '1h30m0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -6559,6 +6602,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -6663,6 +6707,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '15m0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -6771,6 +6816,7 @@ FinalizedBlockOffset = 2
 NoNewFinalizedHeadsThreshold = '2m0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -6876,6 +6922,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -6984,6 +7031,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -7092,6 +7140,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -7199,6 +7248,7 @@ FinalizedBlockOffset = 2
 NoNewFinalizedHeadsThreshold = '1m0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -7303,6 +7353,7 @@ FinalizedBlockOffset = 2
 NoNewFinalizedHeadsThreshold = '1m0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -7407,6 +7458,7 @@ FinalizedBlockOffset = 2
 NoNewFinalizedHeadsThreshold = '1m0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -7511,6 +7563,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '45m0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -7616,6 +7669,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '15m0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -7727,6 +7781,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '15m0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -7836,6 +7891,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -7939,6 +7995,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -8044,6 +8101,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -8150,6 +8208,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -8254,6 +8313,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '1h50m0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -8362,6 +8422,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 5000
@@ -8465,6 +8526,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '12m0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 5000
@@ -8568,6 +8630,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '5m0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -8672,6 +8735,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -8780,6 +8844,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '12m0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -8889,6 +8954,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -8997,6 +9063,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -9104,6 +9171,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -9211,6 +9279,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -9320,6 +9389,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -9429,6 +9499,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '1h50m0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -9537,6 +9608,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -9641,6 +9713,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '15m0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -9749,6 +9822,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -9853,6 +9927,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -10138,6 +10213,7 @@ Set to zero to disable.
 ## EVM.Transactions
 ```toml
 [EVM.Transactions]
+Enabled = true # Default
 ForwardersEnabled = false # Default
 MaxInFlight = 16 # Default
 MaxQueued = 250 # Default
@@ -10146,6 +10222,12 @@ ReaperThreshold = '168h' # Default
 ResendAfterThreshold = '1m' # Default
 ```
 
+
+### Enabled
+```toml
+Enabled = true # Default
+```
+Enabled is a feature flag for the Transaction Manager. This flag also enables or disables the gas estimator since it is dependent on the TXM to start it.
 
 ### ForwardersEnabled
 ```toml
@@ -11182,6 +11264,7 @@ OCR2CacheTTL = '1m' # Default
 TxTimeout = '1m' # Default
 TxRetryTimeout = '10s' # Default
 TxConfirmTimeout = '30s' # Default
+TxExpirationRebroadcast = false # Default
 TxRetentionTimeout = '0s' # Default
 SkipPreflight = true # Default
 Commitment = 'confirmed' # Default
@@ -11251,6 +11334,13 @@ TxRetryTimeout is the duration for tx manager to attempt rebroadcasting to RPC, 
 TxConfirmTimeout = '30s' # Default
 ```
 TxConfirmTimeout is the duration to wait when confirming a tx signature, before discarding as unconfirmed.
+
+### TxExpirationRebroadcast
+```toml
+TxExpirationRebroadcast = false # Default
+```
+TxExpirationRebroadcast enables or disables transaction rebroadcast if expired. Expiration check is performed every `ConfirmPollPeriod`
+A transaction is considered expired if the blockhash it was sent with is 150 blocks older than the latest blockhash.
 
 ### TxRetentionTimeout
 ```toml

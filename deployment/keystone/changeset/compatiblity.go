@@ -88,3 +88,8 @@ type ConfigureContractsResponse = internal.ConfigureContractsResponse
 // DonCapabilities is a set of capabilities hosted by a set of node operators
 // in is in a convenient form to handle the CLO representation of the nop data
 type DonCapabilities = internal.DonCapabilities
+
+type DeployRequest = internal.DeployRequest
+type DeployResponse = internal.DeployResponse
+
+type ContractSet = internal.ContractSet

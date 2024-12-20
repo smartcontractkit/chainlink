@@ -1,16 +1,14 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.24;
+pragma solidity ^0.8.24;
 
 import {MultiAggregateRateLimiter} from "../../../MultiAggregateRateLimiter.sol";
 import {Client} from "../../../libraries/Client.sol";
 import {Internal} from "../../../libraries/Internal.sol";
 import {RateLimiter} from "../../../libraries/RateLimiter.sol";
-import {BaseTest} from "../../BaseTest.t.sol";
-
 import {FeeQuoterSetup} from "../../feeQuoter/FeeQuoterSetup.t.sol";
 import {MultiAggregateRateLimiterHelper} from "../../helpers/MultiAggregateRateLimiterHelper.sol";
 
-contract MultiAggregateRateLimiterSetup is BaseTest, FeeQuoterSetup {
+contract MultiAggregateRateLimiterSetup is FeeQuoterSetup {
   MultiAggregateRateLimiterHelper internal s_rateLimiter;
 
   address internal constant TOKEN = 0x21118E64E1fB0c487F25Dd6d3601FF6af8D32E4e;
@@ -27,8 +25,7 @@ contract MultiAggregateRateLimiterSetup is BaseTest, FeeQuoterSetup {
 
   address[] internal s_authorizedCallers;
 
-  function setUp() public virtual override(BaseTest, FeeQuoterSetup) {
-    BaseTest.setUp();
+  function setUp() public virtual override {
     FeeQuoterSetup.setUp();
 
     Internal.PriceUpdates memory priceUpdates = _getSingleTokenPriceUpdateStruct(TOKEN, TOKEN_PRICE);

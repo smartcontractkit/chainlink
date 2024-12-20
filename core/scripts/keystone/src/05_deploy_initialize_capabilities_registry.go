@@ -20,7 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
+	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 )
 
 type peer struct {

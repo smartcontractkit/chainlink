@@ -13,12 +13,11 @@ import (
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability"
+	forwarder "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder_1_0_0"
+	ocr3_capability "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 )
 
 type deployedContracts struct {
-	OCRContract       common.Address `json:"ocrContract"`
 	ForwarderContract common.Address `json:"forwarderContract"`
 	// The block number of the transaction that set the config on the OCR3 contract. We use this to replay blocks from this point on
 	// when we load the OCR3 job specs on the nodes.

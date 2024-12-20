@@ -51,7 +51,7 @@ If you want to redeploy all resources, then you'll want to do the following:
 ```bash
 # From /crib
 devspace purge --profile keystone # Remove all k8s resources
-./cribbit.sh crib-<new-namespace> # Purge currently leaves some hanging resources, make a new namespace
+DEVSPACE_NAMESPACE=crib-<new-namespace> crib init # Purge currently leaves some hanging resources, make a new namespace
 devspace deploy --profile keysone --clean # Wipe any keystone related persisted data, like artefacts and caches.
 ```
 

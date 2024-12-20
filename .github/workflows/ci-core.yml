@@ -33,7 +33,9 @@ jobs:
     permissions:
       pull-requests: read
     outputs:
+      affected-packages: ${{ steps.resolved-modules.outputs.module_names }}
       deployment-changes: ${{ steps.match-some.outputs.deployment == 'true' }}
+      scripts-changes: ${{ steps.match-some.outputs.scripts == 'true' }}
       should-run-ci-core: ${{ steps.match-some.outputs.core-ci == 'true' || steps.match-every.outputs.non-ignored == 'true' ||  github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' }}
       should-run-golangci: ${{ steps.match-some.outputs.golang-ci == 'true' || steps.match-every.outputs.non-ignored == 'true' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
@@ -47,7 +49,8 @@ jobs:
         with:
           # "if any changed file matches one or more of the conditions" (https://github.com/dorny/paths-filter/issues/225)
           predicate-quantifier: some
-          # deployment - any changes to files in `deployments/`
+          # deployment - any changes to files in the `deployments/`
+          # scripts - any changes to files in the `core/scripts/`
           # core-ci - any changes that could affect this workflow definition
           # golang-ci - any changes that could affect the linting result
           filters: |
@@ -60,6 +63,8 @@ jobs:
               - '.golangci.yml'
               - '.github/workflows/ci-core.yml'
               - '.github/actions/**'
+            scripts:
+              - 'core/scripts/**'
       - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
         id: match-every
         with:
@@ -67,14 +72,18 @@ jobs:
           predicate-quantifier: every
           # non-integration-tests - only changes made outside of the `integration-tests` directory
           # non-ignored - only changes except for the negated ones
+          # all - changes in any directory
           #  - This is opt-in on purpose. To be safe, new files are assumed to have an affect on CI Core unless listed here specifically.
+          # Enable listing of files matching each filter.
+          # Paths to files will be available in `${FILTER_NAME}_files` output variable.
+          # Paths will be formatted as JSON array
+          list-files: json
           filters: |
             non-integration-tests:
               - '**'
               - '!integration-tests/**'
             non-ignored:
               - '**'
-              - '!docs/**'
               - '!integration-tests/**'
               - '!tools/secrets/**'
               - '!tools/goreleaser-config/**'
@@ -91,24 +100,39 @@ jobs:
               - '!nix-darwin-shell-hook.sh'
               - '!LICENSE'
               - '!.github/**'
-    
+            all:
+              - '**'
+
+      - name: Resolve affected files to affected modules
+        id: resolved-modules
+        shell: bash
+        run: |
+          # Ensure the step uses `with.list-files: json` to get the list of files in JSON format
+          bash ./.github/scripts/map-affected-files-to-modules.sh '${{ steps.match-every.outputs.all_files }}'
+  
   golangci:
-    # We don't directly merge dependabot PRs, so let's not waste the resources
+    name: GolangCI Lint
+    needs: [filter, run-frequency]
+    # We don't directly merge dependabot PRs to not waste the resources.
     if: ${{ (github.event_name == 'pull_request' ||  github.event_name == 'schedule') && github.actor != 'dependabot[bot]' }}
-    name: lint
     permissions:
-      # For golangci-lint-actions to annotate code in the PR.
+      # To annotate code in the PR.
       checks: write
       contents: read
       # For golangci-lint-action's `only-new-issues` option.
       pull-requests: read
     runs-on: ubuntu-24.04-8cores-32GB-ARM
-    needs: [filter, run-frequency]
+    strategy:
+      fail-fast: false
+      matrix:
+        modules: ${{ fromJson(needs.filter.outputs.affected-packages) }}
     steps:
-      - uses: actions/checkout@v4.2.1
-      - name: Golang Lint
+      - name: Checkout
+        uses: actions/checkout@v4.2.1
+      - name: Golang Lint (${{ matrix.modules }})
         uses: ./.github/actions/golangci-lint
-        if: ${{ needs.filter.outputs.should-run-golangci == 'true' }}
+        with: 
+          go-directory: ${{ matrix.modules }}
       - name: Notify Slack
         if: ${{ failure() && needs.run-frequency.outputs.one-per-day-frequency == 'true' }}
         uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
@@ -117,6 +141,22 @@ jobs:
         with:
           channel-id: "#team-core"
           slack-message: "golangci-lint failed: \n${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}"
+  
+  # Fails if any golangci-lint matrix jobs fails and silently succeeds otherwise
+  # Consolidates golangci-lint matrix job results under one required `lint` check
+  # Inclusive check: all (new) modules are analyzed, but no need to enable "required" checks for each one
+  golangci-matrix-results-validation:
+    name: lint
+    needs: [golangci]
+    # We don't directly merge dependabot PRs to not waste the resources.
+    if: ${{ (github.event_name == 'pull_request' ||  github.event_name == 'schedule') && github.actor != 'dependabot[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Golangci-lint Matrix Results
+        if: ${{ needs.golangci.result != 'success' }}
+        run: |
+          echo "At least one 'GolangCI Lint' matrix job failed. Check the failed lint jobs."
+          exit 1
 
   core:
     env:
@@ -136,11 +176,11 @@ jobs:
           - cmd: go_core_ccip_deployment_tests
             os: ubuntu22.04-32cores-128GB
             printResults: true
+          - cmd: go_core_fuzz
+            os: ubuntu22.04-8cores-32GB
           - cmd: go_core_race_tests
             # use 64cores for certain scheduled runs only
             os: ${{ needs.run-frequency.outputs.two-per-day-frequency == 'true' && 'ubuntu-latest-64cores-256GB' || 'ubuntu-latest-32cores-128GB' }}
-          - cmd: go_core_fuzz
-            os: ubuntu22.04-8cores-32GB
     name: Core Tests (${{ matrix.type.cmd }})
     # We don't directly merge dependabot PRs, so let's not waste the resources
     if: ${{ github.actor != 'dependabot[bot]' }}
@@ -285,8 +325,38 @@ jobs:
           channel-id: "#topic-data-races"
           slack-message: "Race tests failed: \n${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}"
 
+  core-scripts-tests:
+    name: test-scripts
+    needs: [filter]
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'schedule' || needs.filter.outputs.scripts-changes == 'true' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.2.1
+
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+        with:
+          go-version-file: core/scripts/go.mod
+          go-module-file: core/scripts/go.sum
+      
+      - name: Run Tests
+        env:
+          OUTPUT_FILE: ./output.txt
+        run: ./tools/bin/go_core_scripts_tests ./...
+
+      - name: Store test report artifacts
+        if: ${{ always() && needs.filter.outputs.should-run-ci-core == 'true' }}
+        uses: actions/upload-artifact@v4.4.3
+        with:
+          name: go_core_scripts_tests_logs
+          path: |
+            ./output.txt
+            ./coverage.txt
+          retention-days: 7 
+
   detect-flakey-tests:
-    needs: [filter, core]
+    needs: [filter, core, core-scripts-tests]
     name: Flakey Test Detection
     runs-on: ubuntu-latest
     if: always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
@@ -375,8 +445,8 @@ jobs:
 
   scan:
     name: SonarQube Scan
-    needs: [core, run-frequency]
-    if: ${{ always() && needs.run-frequency.outputs.four-per-day-frequency == 'true' && github.actor != 'dependabot[bot]' }}
+    needs: [golangci, core, core-scripts-tests]
+    if: ${{ always() && github.actor != 'dependabot[bot]' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
@@ -384,36 +454,60 @@ jobs:
         with:
           fetch-depth: 0 # fetches all history for all tags and branches to provide more metadata for sonar reports
 
-      - name: Download all workflow run artifacts
+      - name: Download all workflow artifacts
         uses: actions/download-artifact@v4.1.8
 
       - name: Check and Set SonarQube Report Paths
         shell: bash
         run: |
           # Check and assign paths for coverage/test reports in go_core_tests_logs
-          if [ -d "go_core_tests_logs" ]; then
-            sonarqube_coverage_report_paths=$(find go_core_tests_logs -name coverage.txt | paste -sd "," -)
-            sonarqube_tests_report_paths=$(find go_core_tests_logs -name output.txt | paste -sd "," -)
+          core_artifact="go_core_tests_logs"
+          if [ -d "$core_artifact" ]; then
+            echo "Found $core_artifact"
+            sonarqube_coverage_report_paths=$(find "$core_artifact" -name coverage.txt | paste -sd "," -)
+            sonarqube_tests_report_paths=$(find "$core_artifact" -name output.txt | paste -sd "," -)
+            echo "Coverage report paths: $sonarqube_coverage_report_paths"
+            echo "Tests report paths: $sonarqube_tests_report_paths"
           else
+            echo "Did not find $core_artifact"
             sonarqube_coverage_report_paths=""
             sonarqube_tests_report_paths=""
           fi
 
           # Check and assign paths for coverage/test reports in go_core_tests_integration_logs
-          if [ -d "go_core_tests_integration_logs" ]; then
-            integration_coverage_paths=$(find go_core_tests_integration_logs -name coverage.txt | paste -sd "," -)
-            integration_tests_paths=$(find go_core_tests_integration_logs -name output.txt | paste -sd "," -)
+          integration_tests_artifact="go_core_tests_integration_logs"
+          if [ -d "$integration_tests_artifact" ]; then
+            echo "Found $integration_tests_artifact"
+            integration_coverage_paths=$(find "$integration_tests_artifact" -name coverage.txt | paste -sd "," -)
+            integration_tests_paths=$(find "$integration_tests_artifact" -name output.txt | paste -sd "," -)
+            
             # Append to existing paths if they are set, otherwise assign directly
             sonarqube_coverage_report_paths="${sonarqube_coverage_report_paths:+$sonarqube_coverage_report_paths,}$integration_coverage_paths"
             sonarqube_tests_report_paths="${sonarqube_tests_report_paths:+$sonarqube_tests_report_paths,}$integration_tests_paths"
           fi
 
-          # Check and assign paths for lint reports
-          if [ -d "golangci-lint-report" ]; then
-            sonarqube_lint_report_paths=$(find golangci-lint-report -name golangci-lint-report.xml | paste -sd "," -)
-          else
-            sonarqube_lint_report_paths=""
+          # Check and assign paths for coverage/test reports in go_core_scripts_tests_logs
+          scripts_tests_artifact="go_core_scripts_tests_logs"
+          if [ -d "$scripts_tests_artifact" ]; then
+              echo "Found $scripts_tests_artifact"
+              scripts_coverage_paths=$(find "$scripts_tests_artifact" -name coverage.txt | paste -sd "," -)
+              scripts_tests_paths=$(find "$scripts_tests_artifact" -name output.txt | paste -sd "," -)
+    
+              # Append to existing paths if they are set, otherwise assign directly
+              sonarqube_coverage_report_paths="${sonarqube_coverage_report_paths:+$sonarqube_coverage_report_paths,}$scripts_coverage_paths"
+              sonarqube_tests_report_paths="${sonarqube_tests_report_paths:+$sonarqube_tests_report_paths,}$scripts_tests_paths"
           fi
+
+          # Check and assign paths for lint reports
+          # To find reports in the folders named differently (because of the matrix strategy), 
+          # We need to loop through the artifacts. It allows usage of RegExp folders (skipped if not found).
+          for golang_lint_artifact in golangci-lint-report*
+          do
+              echo "Found golangci-lint-report artifacts"
+              sonarqube_lint_report_paths=$(find -type f -name 'golangci-lint-report.xml' -printf "%p,")
+              echo "Lint report paths: $sonarqube_lint_report_paths"
+              break
+          done
 
           ARGS=""
           if [[ -z "$sonarqube_tests_report_paths" ]]; then

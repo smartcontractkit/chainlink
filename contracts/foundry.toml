@@ -22,12 +22,23 @@ multiline_func_header = "params_first"
 sort_imports = true
 single_line_statement_blocks = "preserve"
 
+# This profile should be used for testing CCIP locally and in CI.
 [profile.ccip]
-solc_version = '0.8.24'
+solc_version = '0.8.26'
 src = 'src/v0.8/ccip'
 test = 'src/v0.8/ccip/test'
-optimizer_runs = 500
 evm_version = 'paris'
+optimizer_runs = 500
+
+# This profile should be used prior to any release to ensure the tests are passing with via-ir enabled. Enabling via-ir
+# locally or in CI will slow down the compilation process, so it is not recommended to use it for everyday development.
+[profile.ccip-viair]
+solc_version = '0.8.26'
+src = 'src/v0.8/ccip'
+test = 'src/v0.8/ccip/test'
+evm_version = 'paris'
+optimizer_runs = 800
+via_ir = true
 
 [profile.functions]
 solc_version = '0.8.19'
