@@ -22,10 +22,10 @@ import (
 	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
+	"github.com/smartcontractkit/chainlink-framework/multinode"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
-	"github.com/smartcontractkit/chainlink/v2/common/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
@@ -49,7 +49,7 @@ var (
 
 	second        = *commoncfg.MustNewDuration(time.Second)
 	minute        = *commoncfg.MustNewDuration(time.Minute)
-	selectionMode = client.NodeSelectionModeHighestHead
+	selectionMode = multinode.NodeSelectionModeHighestHead
 
 	multiChain = Config{
 		Core: toml.Core{
@@ -258,7 +258,7 @@ func TestConfig_Marshal(t *testing.T) {
 		require.NoError(t, err)
 		return &a
 	}
-	selectionMode := client.NodeSelectionModeHighestHead
+	selectionMode := multinode.NodeSelectionModeHighestHead
 
 	global := Config{
 		Core: toml.Core{

@@ -12,8 +12,8 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+	"github.com/smartcontractkit/chainlink-framework/multinode"
 
-	"github.com/smartcontractkit/chainlink/v2/common/client"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
@@ -337,7 +337,7 @@ func TestShell_RebroadcastTransactions_Txm(t *testing.T) {
 		n := i
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == n
-		}), mock.Anything).Once().Return(client.Successful, nil)
+		}), mock.Anything).Once().Return(multinode.Successful, nil)
 	}
 
 	assert.NoError(t, c.RebroadcastTransactions(ctx))
@@ -417,7 +417,7 @@ func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 				n := i
 				ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 					return uint(tx.Nonce()) == n
-				}), mock.Anything).Once().Return(client.Successful, nil)
+				}), mock.Anything).Once().Return(multinode.Successful, nil)
 			}
 
 			assert.NoError(t, c.RebroadcastTransactions(ctx))
@@ -469,7 +469,7 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 
 			mockRelayerChainInteroperators := &chainlinkmocks.FakeRelayerChainInteroperators{EVMChains: legacy}
 			app.On("GetRelayers").Return(mockRelayerChainInteroperators).Maybe()
-			ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(client.Successful, nil)
+			ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(multinode.Successful, nil)
 
 			client := cmd.Shell{
 				Config:                 config,

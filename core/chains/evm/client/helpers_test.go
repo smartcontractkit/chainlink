@@ -11,8 +11,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
-	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
-	clientMocks "github.com/smartcontractkit/chainlink/v2/common/client/mocks"
+	"github.com/smartcontractkit/chainlink-framework/multinode"
+	"github.com/smartcontractkit/chainlink-framework/multinode/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -128,7 +128,7 @@ func (tc TestNodePoolConfig) DeathDeclarationDelay() time.Duration {
 
 func NewChainClientWithTestNode(
 	t *testing.T,
-	nodeCfg commonclient.NodeConfig,
+	nodeCfg multinode.NodeConfig,
 	noNewHeadsThreshold time.Duration,
 	leaseDuration time.Duration,
 	rpcUrl string,
@@ -150,19 +150,19 @@ func NewChainClientWithTestNode(
 	nodePoolCfg := TestNodePoolConfig{
 		NodeFinalizedBlockPollInterval: 1 * time.Second,
 	}
-	rpc := NewRPCClient(nodePoolCfg, lggr, parsed, rpcHTTPURL, "eth-primary-rpc-0", id, chainID, commonclient.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+	rpc := NewRPCClient(nodePoolCfg, lggr, parsed, rpcHTTPURL, "eth-primary-rpc-0", id, chainID, multinode.Primary, multinode.QueryTimeout, multinode.QueryTimeout, "")
 
-	n := commonclient.NewNode[*big.Int, *evmtypes.Head, *RPCClient](
-		nodeCfg, clientMocks.ChainConfig{NoNewHeadsThresholdVal: noNewHeadsThreshold}, lggr, parsed, rpcHTTPURL, "eth-primary-node-0", id, chainID, 1, rpc, "EVM")
-	primaries := []commonclient.Node[*big.Int, *RPCClient]{n}
+	n := multinode.NewNode[*big.Int, *evmtypes.Head, *RPCClient](
+		nodeCfg, mocks.ChainConfig{NoNewHeadsThresholdVal: noNewHeadsThreshold}, lggr, parsed, rpcHTTPURL, "eth-primary-node-0", id, chainID, 1, rpc, "EVM")
+	primaries := []multinode.Node[*big.Int, *RPCClient]{n}
 
-	var sendonlys []commonclient.SendOnlyNode[*big.Int, *RPCClient]
+	var sendonlys []multinode.SendOnlyNode[*big.Int, *RPCClient]
 	for i, u := range sendonlyRPCURLs {
 		if u.Scheme != "http" && u.Scheme != "https" {
 			return nil, pkgerrors.Errorf("sendonly ethereum rpc url scheme must be http(s): %s", u.String())
 		}
-		rpc := NewRPCClient(nodePoolCfg, lggr, nil, &sendonlyRPCURLs[i], fmt.Sprintf("eth-sendonly-rpc-%d", i), id, chainID, commonclient.Secondary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
-		s := commonclient.NewSendOnlyNode[*big.Int, *RPCClient](
+		rpc := NewRPCClient(nodePoolCfg, lggr, nil, &sendonlyRPCURLs[i], fmt.Sprintf("eth-sendonly-rpc-%d", i), id, chainID, multinode.Secondary, multinode.QueryTimeout, multinode.QueryTimeout, "")
+		s := multinode.NewSendOnlyNode[*big.Int, *RPCClient](
 			lggr, u, fmt.Sprintf("eth-sendonly-%d", i), chainID, rpc)
 		sendonlys = append(sendonlys, s)
 	}
@@ -198,13 +198,13 @@ func NewChainClientWithMockedRpc(
 	lggr := logger.Test(t)
 
 	cfg := TestNodePoolConfig{
-		NodeSelectionMode: commonclient.NodeSelectionModeRoundRobin,
+		NodeSelectionMode: multinode.NodeSelectionModeRoundRobin,
 	}
 	parsed, _ := url.ParseRequestURI("ws://test")
 
-	n := commonclient.NewNode[*big.Int, *evmtypes.Head, *RPCClient](
-		cfg, clientMocks.ChainConfig{NoNewHeadsThresholdVal: noNewHeadsThreshold}, lggr, parsed, nil, "eth-primary-node-0", 1, chainID, 1, rpc, "EVM")
-	primaries := []commonclient.Node[*big.Int, *RPCClient]{n}
+	n := multinode.NewNode[*big.Int, *evmtypes.Head, *RPCClient](
+		cfg, mocks.ChainConfig{NoNewHeadsThresholdVal: noNewHeadsThreshold}, lggr, parsed, nil, "eth-primary-node-0", 1, chainID, 1, rpc, "EVM")
+	primaries := []multinode.Node[*big.Int, *RPCClient]{n}
 	clientErrors := NewTestClientErrors()
 	c := NewChainClient(lggr, selectionMode, leaseDuration, primaries, nil, chainID, &clientErrors, 0, "")
 	t.Cleanup(c.Close)
