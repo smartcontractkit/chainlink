@@ -138,9 +138,10 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 	defer r.receiveLock.Unlock()
 
 	switch msg.Method {
-	case types.MethodExecute, types.MethodRegisterToWorkflow, types.MethodUnregisterFromWorkflow:
+	case types.MethodExecute:
 	default:
 		r.lggr.Errorw("received request for unsupported method type", "method", remote.SanitizeLogString(msg.Method))
+		return
 	}
 
 	messageID, err := GetMessageID(msg)

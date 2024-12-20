@@ -6,6 +6,7 @@ on:
       repoUrl:
         required: true
         type: string
+        default: 'https://github.com/smartcontractkit/chainlink'
         description: 'The URL of the repository to compare changes for detecting flaky tests.'
       projectPath:
         required: true
@@ -53,6 +54,12 @@ on:
       SLACK_BOT_TOKEN:
         required: false
       GH_TOKEN:
+        required: true
+      FLAKEGUARD_SPLUNK_ENDPOINT:
+        description: "The Splunk HTTP Event Collector (HEC) endpoint."
+        required: true
+      FLAKEGUARD_SPLUNK_HEC:
+        description: "The Splunk HTTP Event Collector (HEC) token."
         required: true
 
 env:
@@ -116,14 +123,15 @@ jobs:
             echo "git_base_sha=" >> $GITHUB_OUTPUT
           fi  
 
-      - name: Set up Go 1.21.9
-        uses: actions/setup-go@v5.0.2
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
         with:
-          cache: false
+          restore-build-cache-only: "true"
 
       - name: Install flakeguard
+        if: ${{ inputs.runAllTests == false }}
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@ea4ffd8c51ce02efebf5ea6bca503fe10b6cee92 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@7c45cff27ac6b0d4244754660661cdbfcfaf2f9e # flakguard@0.1.0
 
       - name: Find new or updated test packages
         if: ${{ inputs.runAllTests == false }}
@@ -282,7 +290,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@ea4ffd8c51ce02efebf5ea6bca503fe10b6cee92 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@7c45cff27ac6b0d4244754660661cdbfcfaf2f9e # flakguard@0.1.0
 
       - name: Run tests with flakeguard
         shell: bash
@@ -310,6 +318,10 @@ jobs:
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           ref: ${{ env.GIT_HEAD_REF }}
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+        with:
+          restore-build-cache-only: "true"
 
       - name: Set Pretty Project Path
         id: set_project_path_pretty
@@ -329,7 +341,7 @@ jobs:
             
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@ea4ffd8c51ce02efebf5ea6bca503fe10b6cee92 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@7c45cff27ac6b0d4244754660661cdbfcfaf2f9e # flakguard@0.1.0
                 
       - name: Aggregate Flakeguard Results
         id: results
@@ -354,7 +366,11 @@ jobs:
             --repo-url "${{ inputs.repoUrl }}" \
             --base-sha "${{ needs.get-tests.outputs.git_base_sha }}" \
             --head-sha "${{ needs.get-tests.outputs.git_head_sha }}" \
-            --github-workflow-name "${{ github.workflow }}"
+            --github-workflow-name "${{ github.workflow }}" \
+            --github-workflow-run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            --splunk-url "${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}" \
+            --splunk-token "${{ secrets.FLAKEGUARD_SPLUNK_HEC }}" \
+            --splunk-event "${{ github.event }}"
 
           # Print out the summary file
           echo -e "\nFlakeguard Summary:"
@@ -365,7 +381,7 @@ jobs:
           echo "summary=$summary" >> $GITHUB_OUTPUT
 
       - name: Upload All Test Results as Artifact
-        if: ${{ fromJSON(steps.results.outputs.summary).total_tests > 0 }}
+        if: ${{ (success() || failure()) && fromJSON(steps.results.outputs.summary).total_tests > 0 }}
         uses: actions/upload-artifact@v4.4.3
         with:
           path: ./flakeguard-report/all-test-results.json
@@ -373,7 +389,7 @@ jobs:
           retention-days: 90
       
       - name: Upload Failed Test Results as Artifact
-        if: ${{ fromJSON(steps.results.outputs.summary).failed_runs > 0 }}
+        if: ${{ (success() || failure()) && fromJSON(steps.results.outputs.summary).failed_runs > 0 }}
         uses: actions/upload-artifact@v4.4.3
         with:
           path: ./flakeguard-report/failed-test-results.json
@@ -381,7 +397,7 @@ jobs:
           retention-days: 90 
           
       - name: Upload Failed Test Results With Logs as Artifact
-        if: ${{ fromJSON(steps.results.outputs.summary).failed_runs > 0 }}
+        if: ${{ (success() || failure()) && fromJSON(steps.results.outputs.summary).failed_runs > 0 }}
         uses: actions/upload-artifact@v4.4.3
         with:
           path: ./flakeguard-report/failed-test-results-with-logs.json
@@ -390,6 +406,7 @@ jobs:
 
       - name: Generate Flakeguard Reports
         shell: bash
+        if: success() || failure()
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
@@ -432,6 +449,7 @@ jobs:
           fi
         
       - name: Add Github Summary
+        if: (success() || failure())
         run: |
           FILE_SIZE=$(wc -c < ./flakeguard-report/all-test-summary.md)
                     echo "File size: $FILE_SIZE bytes"
@@ -446,7 +464,7 @@ jobs:
           fi
 
       - name: Post comment on PR if flaky tests found
-        if: ${{ fromJSON(steps.results.outputs.summary).flaky_tests > 0 && github.event_name == 'pull_request' }}
+        if: ${{ (success() || failure()) && fromJSON(steps.results.outputs.summary).flaky_tests > 0 && github.event_name == 'pull_request' }}
         uses: actions/github-script@v7
         continue-on-error: true
         with:
@@ -463,7 +481,7 @@ jobs:
             });
 
       - name: Send Slack message for failed tests
-        if: ${{ inputs.slackNotificationAfterTestsChannelId != '' && fromJSON(steps.results.outputs.summary).flaky_tests > 0 }}
+        if: ${{ (success() || failure()) && inputs.slackNotificationAfterTestsChannelId != '' && fromJSON(steps.results.outputs.summary).flaky_tests > 0 }}
         uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
@@ -516,7 +534,7 @@ jobs:
 
       - name: Send general Slack message
         uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
-        if: ${{ inputs.slackNotificationAfterTestsChannelId != '' && fromJSON(steps.results.outputs.summary).flaky_tests == 0 && fromJSON(steps.results.outputs.summary).total_tests > 0 }}
+        if: ${{ (success() || failure()) && inputs.slackNotificationAfterTestsChannelId != '' && fromJSON(steps.results.outputs.summary).flaky_tests == 0 && fromJSON(steps.results.outputs.summary).total_tests > 0 }}
         id: slack
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}

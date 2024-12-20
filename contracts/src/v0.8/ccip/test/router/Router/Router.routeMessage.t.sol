@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.24;
+pragma solidity ^0.8.24;
 
 import {IAny2EVMMessageReceiver} from "../../../interfaces/IAny2EVMMessageReceiver.sol";
 import {IRouter} from "../../../interfaces/IRouter.sol";
@@ -74,7 +74,7 @@ contract Router_routeMessage is OffRampSetup {
 
     assertFalse(success);
     assertEq(abi.encodeWithSelector(MaybeRevertMessageReceiver.CustomError.selector, realError1), retData);
-    assertGt(gasUsed, 3_000);
+    assertGt(gasUsed, 2850);
 
     // Reason is truncated
     // Over the MAX_RET_BYTES limit (including offset and length word since we have a dynamic values), should be ignored

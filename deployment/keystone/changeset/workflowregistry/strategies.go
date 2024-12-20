@@ -13,7 +13,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
 
@@ -40,7 +39,7 @@ type mcmsTransaction struct {
 	Description string
 	Address     common.Address
 	ChainSel    uint64
-	ContractSet *kslib.ContractSet
+	ContractSet *changeset.ContractSet
 }
 
 func (m *mcmsTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.Transaction, error)) (deployment.ChangesetOutput, error) {

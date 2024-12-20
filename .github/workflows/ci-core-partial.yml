@@ -1,4 +1,4 @@
-name: Core Unit Tests
+name: Experimental Test Optimization
 
 on:
   push:

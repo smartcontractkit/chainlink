@@ -2,26 +2,40 @@ package changeset
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
+	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
 
-var _ deployment.ChangeSet[uint64] = DeployForwarder
+var _ deployment.ChangeSet[DeployForwarderRequest] = DeployForwarder
+
+type DeployForwarderRequest struct {
+	ChainSelectors []uint64 // filter to only deploy to these chains; if empty, deploy to all chains
+}
 
 // DeployForwarder deploys the KeystoneForwarder contract to all chains in the environment
 // callers must merge the output addressbook with the existing one
 // TODO: add selectors to deploy only to specific chains
-func DeployForwarder(env deployment.Environment, _ uint64) (deployment.ChangesetOutput, error) {
+func DeployForwarder(env deployment.Environment, cfg DeployForwarderRequest) (deployment.ChangesetOutput, error) {
 	lggr := env.Logger
 	ab := deployment.NewMemoryAddressBook()
-	for _, chain := range env.Chains {
+	selectors := cfg.ChainSelectors
+	if len(selectors) == 0 {
+		selectors = slices.Collect(maps.Keys(env.Chains))
+	}
+	for _, sel := range selectors {
+		chain, ok := env.Chains[sel]
+		if !ok {
+			return deployment.ChangesetOutput{}, fmt.Errorf("chain with selector %d not found", sel)
+		}
 		lggr.Infow("deploying forwarder", "chainSelector", chain.Selector)
-		forwarderResp, err := kslib.DeployForwarder(chain, ab)
+		forwarderResp, err := internal.DeployForwarder(chain, ab)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy KeystoneForwarder to chain selector %d: %w", chain.Selector, err)
 		}
@@ -55,7 +69,7 @@ func (r ConfigureForwardContractsRequest) UseMCMS() bool {
 }
 
 func ConfigureForwardContracts(env deployment.Environment, req ConfigureForwardContractsRequest) (deployment.ChangesetOutput, error) {
-	wfDon, err := kslib.NewRegisteredDon(env, kslib.RegisteredDonConfig{
+	wfDon, err := internal.NewRegisteredDon(env, internal.RegisteredDonConfig{
 		NodeIDs:          req.WFNodeIDs,
 		Name:             req.WFDonName,
 		RegistryChainSel: req.RegistryChainSel,
@@ -63,15 +77,15 @@ func ConfigureForwardContracts(env deployment.Environment, req ConfigureForwardC
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to create registered don: %w", err)
 	}
-	r, err := kslib.ConfigureForwardContracts(&env, kslib.ConfigureForwarderContractsRequest{
-		Dons:    []kslib.RegisteredDon{*wfDon},
+	r, err := internal.ConfigureForwardContracts(&env, internal.ConfigureForwarderContractsRequest{
+		Dons:    []internal.RegisteredDon{*wfDon},
 		UseMCMS: req.UseMCMS(),
 	})
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to configure forward contracts: %w", err)
 	}
 
-	cresp, err := kslib.GetContractSets(env.Logger, &kslib.GetContractSetsRequest{
+	cresp, err := internal.GetContractSets(env.Logger, &internal.GetContractSetsRequest{
 		Chains:      env.Chains,
 		AddressBook: env.ExistingAddresses,
 	})

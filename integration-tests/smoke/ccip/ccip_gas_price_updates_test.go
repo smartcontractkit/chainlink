@@ -34,7 +34,7 @@ func Test_CCIPGasPriceUpdates(t *testing.T) {
 	)
 	state, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
-	require.NoError(t, changeset.AddLanesForAll(e.Env, state))
+	changeset.AddLanesForAll(t, &e, state)
 
 	allChainSelectors := maps.Keys(e.Env.Chains)
 	assert.GreaterOrEqual(t, len(allChainSelectors), 2, "test requires at least 2 chains")

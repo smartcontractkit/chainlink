@@ -88,7 +88,7 @@ func Test_PromoteCandidate(t *testing.T) {
 			}, []commonchangeset.ChangesetApplication{
 				{
 					Changeset: commonchangeset.WrapChangeSet(PromoteAllCandidatesChangeset),
-					Config: PromoteAllCandidatesChangesetConfig{
+					Config: PromoteCandidatesChangesetConfig{
 						HomeChainSelector:    tenv.HomeChainSel,
 						RemoteChainSelectors: []uint64{dest},
 						MCMS:                 mcmsConfig,

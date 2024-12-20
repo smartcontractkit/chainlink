@@ -683,9 +683,9 @@ func (d *Delegate) newServicesGenericPlugin(
 		providerClientConn = providerConn.ClientConn()
 	} else {
 		// We chose to deal with the difference between a LOOP provider and an embedded provider here rather than
-		//in NewServerAdapter because this has a smaller blast radius, as the scope of this workaround is to
-		//enable the medianpoc for EVM and not touch the other providers.
-		//TODO: remove this workaround when the EVM relayer is running inside of an LOOPP
+		// in NewServerAdapter because this has a smaller blast radius, as the scope of this workaround is to
+		// enable the medianpoc for EVM and not touch the other providers.
+		// TODO: remove this workaround when the EVM relayer is running inside of an LOOPP
 		d.lggr.Info("provider is not a LOOPP provider, switching to provider server")
 
 		ps, err2 := loop.NewProviderServer(provider, types.OCR2PluginType(pCfg.ProviderType), d.lggr)
@@ -1056,7 +1056,6 @@ func (d *Delegate) newServicesLLO(
 		V2Bootstrappers:              bootstrapPeers,
 		ContractTransmitter:          provider.ContractTransmitter(),
 		ContractConfigTrackers:       provider.ContractConfigTrackers(),
-		Database:                     ocrDB,
 		LocalConfig:                  lc,
 		OCR3MonitoringEndpoint:       d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, telemetryContractID, synchronization.OCR3Mercury),
 		OffchainConfigDigester:       provider.OffchainConfigDigester(),
@@ -1065,6 +1064,9 @@ func (d *Delegate) newServicesLLO(
 
 		// Enable verbose logging if either Mercury.VerboseLogging is on or OCR2.TraceLogging is on
 		ReportingPluginConfig: datastreamsllo.Config{VerboseLogging: d.cfg.Mercury().VerboseLogging() || d.cfg.OCR2().TraceLogging()},
+		NewOCR3DB: func(pluginID int32) ocr3types.Database {
+			return NewDB(d.ds, spec.ID, pluginID, lggr)
+		},
 	}
 	oracle, err := llo.NewDelegate(cfg)
 	if err != nil {

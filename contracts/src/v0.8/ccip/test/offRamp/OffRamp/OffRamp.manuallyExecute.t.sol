@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.24;
+pragma solidity ^0.8.24;
 
 import {Internal} from "../../../libraries/Internal.sol";
 import {MultiOCR3Base} from "../../../ocr/MultiOCR3Base.sol";
@@ -292,7 +292,7 @@ contract OffRamp_manuallyExecute is OffRampSetup {
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
 
     Internal.ExecutionReport[] memory reports = _generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages);
-    uint256 chain1 = block.chainid;
+    uint256 chain1 = uint200(block.chainid);
     uint256 chain2 = chain1 + 1;
     vm.chainId(chain2);
     vm.expectRevert(abi.encodeWithSelector(MultiOCR3Base.ForkedChain.selector, chain1, chain2));
