@@ -4,6 +4,7 @@ COMMIT_SHA ?= $(shell git rev-parse HEAD)
 VERSION = $(shell jq -r '.version' package.json)
 GO_LDFLAGS := $(shell tools/bin/ldflags)
 GOFLAGS = -ldflags "$(GO_LDFLAGS)"
+GCFLAGS = -gcflags "$(GO_GCFLAGS)"
 
 .PHONY: install
 install: install-chainlink-autoinstall ## Install chainlink and all its dependencies.
@@ -38,7 +39,7 @@ docs: ## Install and run pkgsite to view Go docs
 
 .PHONY: install-chainlink
 install-chainlink: operator-ui ## Install the chainlink binary.
-	go install $(GOFLAGS) .
+	go install $(GCFLAGS) $(GOFLAGS) .
 
 .PHONY: install-chainlink-cover
 install-chainlink-cover: operator-ui ## Install the chainlink binary with cover flag.
@@ -97,7 +98,7 @@ abigen: ## Build & install abigen.
 .PHONY: generate
 generate: abigen codecgen mockery protoc gomods ## Execute all go:generate commands.
 	gomods -w go generate -x ./...
-	mockery
+	find . -type f -name .mockery.yaml -execdir mockery \; ## Execute mockery for all .mockery.yaml files
 
 .PHONY: rm-mocked
 rm-mocked:
@@ -132,13 +133,6 @@ testdb-force: ## Prepares the test database, drops any pesky user connections th
 .PHONY: testdb-user-only
 testdb-user-only: ## Prepares the test database with user only.
 	go run . local db preparetest --user-only
-
-# Format for CI
-.PHONY: presubmit
-presubmit: ## Format go files and imports.
-	goimports -w .
-	gofmt -w .
-	go mod tidy
 
 .PHONY: gomods
 gomods: ## Install gomods
@@ -180,7 +174,7 @@ config-docs: ## Generate core node configuration documentation
 .PHONY: golangci-lint
 golangci-lint: ## Run golangci-lint for all issues.
 	[ -d "./golangci-lint" ] || mkdir ./golangci-lint && \
-	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v1.61.0 golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 | tee ./golangci-lint/$(shell date +%Y-%m-%d_%H:%M:%S).txt
+	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v1.62.2 golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 | tee ./golangci-lint/$(shell date +%Y-%m-%d_%H:%M:%S).txt
 
 .PHONY: modgraph
 modgraph:

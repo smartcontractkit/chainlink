@@ -68,7 +68,7 @@ env:
   ALL_TESTS_RUNNER: ${{ fromJSON(inputs.extraArgs)['all_tests_runner'] || 'ubuntu22.04-32cores-128GB' }} # The runner to use for running all tests.
   DEFAULT_RUNNER: 'ubuntu-latest' # The default runner to use for running tests.
   UPLOAD_ALL_TEST_RESULTS: ${{ fromJSON(inputs.extraArgs)['upload_all_test_results'] || 'false' }} # Whether to upload all test results as artifacts.
-  
+  OMIT_TEST_OUTPUTS_ON_SUCCESS: ${{ fromJSON(inputs.extraArgs)['omit_test_outputs_on_success'] || 'true' }}
 
 jobs:
   get-tests:
@@ -123,7 +123,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@fc2d7e38486853d2bed06e9074868087f5b55506 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@ea4ffd8c51ce02efebf5ea6bca503fe10b6cee92 # flakguard@0.1.0
 
       - name: Find new or updated test packages
         if: ${{ inputs.runAllTests == false }}
@@ -282,11 +282,11 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@fc2d7e38486853d2bed06e9074868087f5b55506 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@ea4ffd8c51ce02efebf5ea6bca503fe10b6cee92 # flakguard@0.1.0
 
       - name: Run tests with flakeguard
         shell: bash
-        run: flakeguard run --project-path=${{ inputs.projectPath }} --test-packages=${{ matrix.testPackages }} --run-count=${{ env.TEST_REPEAT_COUNT }} --max-pass-ratio=${{ inputs.maxPassRatio }} --race=${{ env.RUN_WITH_RACE }} --shuffle=${{ env.RUN_WITH_SHUFFLE }} --shuffle-seed=${{ env.SHUFFLE_SEED }} --skip-tests=${{ env.SKIPPED_TESTS }} --output-json=test-result.json --omit-test-outputs-on-success=true
+        run: flakeguard run --project-path=${{ inputs.projectPath }} --test-packages=${{ matrix.testPackages }} --run-count=${{ env.TEST_REPEAT_COUNT }} --max-pass-ratio=${{ inputs.maxPassRatio }} --race=${{ env.RUN_WITH_RACE }} --shuffle=${{ env.RUN_WITH_SHUFFLE }} --shuffle-seed=${{ env.SHUFFLE_SEED }} --skip-tests=${{ env.SKIPPED_TESTS }} --output-json=test-result.json --omit-test-outputs-on-success=${{ env.OMIT_TEST_OUTPUTS_ON_SUCCESS }}
         env:
           CL_DATABASE_URL: ${{ env.DB_URL }}
 
@@ -329,7 +329,7 @@ jobs:
             
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@fc2d7e38486853d2bed06e9074868087f5b55506 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@ea4ffd8c51ce02efebf5ea6bca503fe10b6cee92 # flakguard@0.1.0
                 
       - name: Aggregate Flakeguard Results
         id: results

@@ -555,6 +555,61 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		_, err = h.engineRegistry.Get(wfIDs)
 		require.Error(t, err)
 	})
+	t.Run("success deleting non-existing workflow spec", func(t *testing.T) {
+		var (
+			ctx     = testutils.Context(t)
+			lggr    = logger.TestLogger(t)
+			db      = pgtest.NewSqlxDB(t)
+			orm     = NewWorkflowRegistryDS(db, lggr)
+			emitter = custmsg.NewLabeler()
+
+			binary        = wasmtest.CreateTestBinary(binaryCmd, binaryLocation, true, t)
+			encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
+			config        = []byte("")
+			secretsURL    = "http://example.com"
+			binaryURL     = "http://example.com/binary"
+			configURL     = "http://example.com/config"
+			wfOwner       = []byte("0xOwner")
+
+			fetcher = newMockFetcher(map[string]mockFetchResp{
+				binaryURL:  {Body: encodedBinary, Err: nil},
+				configURL:  {Body: config, Err: nil},
+				secretsURL: {Body: []byte("secrets"), Err: nil},
+			})
+		)
+
+		giveWFID, err := pkgworkflows.GenerateWorkflowID(wfOwner, "workflow-name", binary, config, secretsURL)
+		require.NoError(t, err)
+
+		er := NewEngineRegistry()
+		store := wfstore.NewDBStore(db, lggr, clockwork.NewFakeClock())
+		registry := capabilities.NewRegistry(lggr)
+		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
+		h := NewEventHandler(
+			lggr,
+			orm,
+			fetcher,
+			store,
+			registry,
+			emitter,
+			clockwork.NewFakeClock(),
+			workflowkey.Key{},
+			WithEngineRegistry(er),
+		)
+
+		deleteEvent := WorkflowRegistryWorkflowDeletedV1{
+			WorkflowID:    giveWFID,
+			WorkflowOwner: wfOwner,
+			WorkflowName:  "workflow-name",
+			DonID:         1,
+		}
+		err = h.workflowDeletedEvent(ctx, deleteEvent)
+		require.NoError(t, err)
+
+		// Verify the record is deleted in the database
+		_, err = orm.GetWorkflowSpec(ctx, hex.EncodeToString(wfOwner), "workflow-name")
+		require.Error(t, err)
+	})
 }
 
 func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {

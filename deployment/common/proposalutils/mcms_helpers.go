@@ -149,7 +149,9 @@ func RunTimelockExecutor(env deployment.Environment, cfg RunTimelockExecutorConf
 						Value:  it.Event.Value,
 					})
 				}
-
+				if len(calls) == 0 {
+					return fmt.Errorf("no calls found for chain %d in blocks [%d, %d]", cfg.ChainSelector, *start, *end)
+				}
 				timelockExecutorProxy, err := owner_helpers.NewRBACTimelock(cfg.TimelockContracts.CallProxy.Address(), env.Chains[cfg.ChainSelector].Client)
 				if err != nil {
 					return fmt.Errorf("error creating timelock executor proxy: %w", err)

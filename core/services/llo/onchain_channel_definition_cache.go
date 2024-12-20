@@ -279,7 +279,6 @@ func (c *channelDefinitionCache) readLogs(ctx context.Context) (err error) {
 			c.newLogCh <- unpacked
 		}
 		c.newLogMu.Unlock()
-
 	}
 
 	return nil

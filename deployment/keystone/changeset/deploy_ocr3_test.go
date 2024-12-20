@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
 )
 
 func TestDeployOCR3(t *testing.T) {
@@ -54,10 +55,10 @@ func TestConfigureOCR3(t *testing.T) {
 
 	t.Run("no mcms", func(t *testing.T) {
 
-		te := SetupTestEnv(t, TestConfig{
-			WFDonConfig:     DonConfig{N: 4},
-			AssetDonConfig:  DonConfig{N: 4},
-			WriterDonConfig: DonConfig{N: 4},
+		te := test.SetupTestEnv(t, test.TestConfig{
+			WFDonConfig:     test.DonConfig{N: 4},
+			AssetDonConfig:  test.DonConfig{N: 4},
+			WriterDonConfig: test.DonConfig{N: 4},
 			NumChains:       1,
 		})
 
@@ -85,10 +86,10 @@ func TestConfigureOCR3(t *testing.T) {
 	})
 
 	t.Run("mcms", func(t *testing.T) {
-		te := SetupTestEnv(t, TestConfig{
-			WFDonConfig:     DonConfig{N: 4},
-			AssetDonConfig:  DonConfig{N: 4},
-			WriterDonConfig: DonConfig{N: 4},
+		te := test.SetupTestEnv(t, test.TestConfig{
+			WFDonConfig:     test.DonConfig{N: 4},
+			AssetDonConfig:  test.DonConfig{N: 4},
+			WriterDonConfig: test.DonConfig{N: 4},
 			NumChains:       1,
 			UseMCMS:         true,
 		})

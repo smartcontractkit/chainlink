@@ -157,6 +157,11 @@ func NewIntegrationEnvironment(t *testing.T, opts ...changeset.TestOps) (changes
 		return memEnv, devenv.RMNCluster{}
 	case changeset.Docker:
 		dockerEnv := &DeployedLocalDevEnvironment{}
+		if testCfg.LegacyDeployment {
+			deployedEnv := changeset.NewLegacyEnvironment(t, testCfg, dockerEnv)
+			require.NotNil(t, dockerEnv.testEnv, "empty docker environment")
+			return deployedEnv, devenv.RMNCluster{}
+		}
 		if testCfg.RMNEnabled {
 			deployedEnv := changeset.NewEnvironmentWithJobsAndContracts(t, testCfg, dockerEnv)
 			l := logging.GetTestLogger(t)
@@ -440,10 +445,11 @@ func StartChainlinkNodes(
 			cfg.NodeConfig.CommonChainConfigTOML,
 			cfg.NodeConfig.ChainConfigTOMLByChainID,
 		)
-
-		toml.Capabilities.ExternalRegistry.NetworkID = ptr.Ptr(registryConfig.NetworkType)
-		toml.Capabilities.ExternalRegistry.ChainID = ptr.Ptr(strconv.FormatUint(registryConfig.EVMChainID, 10))
-		toml.Capabilities.ExternalRegistry.Address = ptr.Ptr(registryConfig.Contract.String())
+		if registryConfig.Contract != (common.Address{}) {
+			toml.Capabilities.ExternalRegistry.NetworkID = ptr.Ptr(registryConfig.NetworkType)
+			toml.Capabilities.ExternalRegistry.ChainID = ptr.Ptr(strconv.FormatUint(registryConfig.EVMChainID, 10))
+			toml.Capabilities.ExternalRegistry.Address = ptr.Ptr(registryConfig.Contract.String())
+		}
 
 		if err != nil {
 			return err

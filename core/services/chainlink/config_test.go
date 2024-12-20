@@ -654,6 +654,7 @@ func TestConfig_Marshal(t *testing.T) {
 				NoNewFinalizedHeadsThreshold: &hour,
 
 				Transactions: evmcfg.Transactions{
+					Enabled:              ptr(true),
 					MaxInFlight:          ptr[uint32](19),
 					MaxQueued:            ptr[uint32](99),
 					ReaperInterval:       &minute,
@@ -750,6 +751,7 @@ func TestConfig_Marshal(t *testing.T) {
 				TxTimeout:                commoncfg.MustNewDuration(time.Hour),
 				TxRetryTimeout:           commoncfg.MustNewDuration(time.Minute),
 				TxConfirmTimeout:         commoncfg.MustNewDuration(time.Second),
+				TxExpirationRebroadcast:  ptr(false),
 				TxRetentionTimeout:       commoncfg.MustNewDuration(0 * time.Second),
 				SkipPreflight:            ptr(true),
 				Commitment:               ptr("banana"),
@@ -1118,6 +1120,7 @@ FinalizedBlockOffset = 16
 NoNewFinalizedHeadsThreshold = '1h0m0s'
 
 [EVM.Transactions]
+Enabled = true
 ForwardersEnabled = true
 MaxInFlight = 19
 MaxQueued = 99
@@ -1279,6 +1282,7 @@ OCR2CacheTTL = '1h0m0s'
 TxTimeout = '1h0m0s'
 TxRetryTimeout = '1m0s'
 TxConfirmTimeout = '1s'
+TxExpirationRebroadcast = false
 TxRetentionTimeout = '0s'
 SkipPreflight = true
 Commitment = 'banana'

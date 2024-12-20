@@ -241,32 +241,36 @@ func (c *defaultEvmBatchCaller) unpackBatchResults(
 			return nil, callErr
 		}
 
-		if err = c.codec.Decode(
-			ctx,
-			packedBytes,
-			call.ReturnVal,
-			codec.WrapItemType(call.ContractName, call.ReadName, false),
-		); err != nil {
-			if len(packedBytes) == 0 {
-				callErr := newErrorFromCall(
-					fmt.Errorf("%w: %w: %s", types.ErrInternal, errEmptyOutput, err.Error()),
-					call, block, batchReadType,
-				)
+		// the codec can't do anything with no bytes, so skip decoding and allow
+		// the result to be the empty struct or value
+		if len(packedBytes) > 0 {
+			if err = c.codec.Decode(
+				ctx,
+				packedBytes,
+				call.ReturnVal,
+				codec.WrapItemType(call.ContractName, call.ReadName, false),
+			); err != nil {
+				if len(packedBytes) == 0 {
+					callErr := newErrorFromCall(
+						fmt.Errorf("%w: %w: %s", types.ErrInternal, errEmptyOutput, err.Error()),
+						call, block, batchReadType,
+					)
 
-				callErr.Result = &hexEncodedOutputs[idx]
+					callErr.Result = &hexEncodedOutputs[idx]
 
-				results[idx].err = callErr
-			} else {
-				callErr := newErrorFromCall(
-					fmt.Errorf("%w: codec decode result: %s", types.ErrInvalidType, err.Error()),
-					call, block, batchReadType,
-				)
+					results[idx].err = callErr
+				} else {
+					callErr := newErrorFromCall(
+						fmt.Errorf("%w: codec decode result: %s", types.ErrInvalidType, err.Error()),
+						call, block, batchReadType,
+					)
 
-				callErr.Result = &hexEncodedOutputs[idx]
-				results[idx].err = callErr
+					callErr.Result = &hexEncodedOutputs[idx]
+					results[idx].err = callErr
+				}
+
+				continue
 			}
-
-			continue
 		}
 
 		results[idx].returnVal = call.ReturnVal

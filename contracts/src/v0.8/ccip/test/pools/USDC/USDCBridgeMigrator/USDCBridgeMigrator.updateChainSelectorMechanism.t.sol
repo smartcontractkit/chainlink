@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.24;
+pragma solidity ^0.8.24;
 
 import {HybridLockReleaseUSDCTokenPool} from "../../../../pools/USDC/HybridLockReleaseUSDCTokenPool.sol";
 
 import {USDCBridgeMigrator_BurnLockedUSDC} from "./USDCBridgeMigrator.burnLockedUSDC.t.sol";
 
 contract USDCBridgeMigrator_updateChainSelectorMechanism is USDCBridgeMigrator_BurnLockedUSDC {
-  function test_cannotRevertChainMechanism_afterMigration_Revert() public {
-    test_lockOrBurn_then_BurnInCCTPMigration_Success();
+  function test_RevertWhen_cannotRevertChainMechanism_afterMigration() public {
+    test_lockOrBurn_then_BurnInCCTPMigration();
 
     vm.startPrank(OWNER);
 

@@ -99,7 +99,7 @@ func ConfigureOCR3Contract(env deployment.Environment, cfg ConfigureOCR3Config) 
 			timelocksPerChain,
 			proposerMCMSes,
 			[]timelock.BatchChainOperation{*resp.Ops},
-			"proposal to set update nodes",
+			"proposal to set OCR3 config",
 			cfg.MCMSConfig.MinDuration,
 		)
 		if err != nil {

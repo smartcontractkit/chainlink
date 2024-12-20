@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
 )
 
 func TestDeployForwarder(t *testing.T) {
@@ -56,10 +57,10 @@ func TestConfigureForwarders(t *testing.T) {
 		for _, nChains := range []int{1, 3} {
 			name := fmt.Sprintf("nChains=%d", nChains)
 			t.Run(name, func(t *testing.T) {
-				te := SetupTestEnv(t, TestConfig{
-					WFDonConfig:     DonConfig{N: 4},
-					AssetDonConfig:  DonConfig{N: 4},
-					WriterDonConfig: DonConfig{N: 4},
+				te := test.SetupTestEnv(t, test.TestConfig{
+					WFDonConfig:     test.DonConfig{N: 4},
+					AssetDonConfig:  test.DonConfig{N: 4},
+					WriterDonConfig: test.DonConfig{N: 4},
 					NumChains:       nChains,
 				})
 
@@ -93,10 +94,10 @@ func TestConfigureForwarders(t *testing.T) {
 		for _, nChains := range []int{1, 3} {
 			name := fmt.Sprintf("nChains=%d", nChains)
 			t.Run(name, func(t *testing.T) {
-				te := SetupTestEnv(t, TestConfig{
-					WFDonConfig:     DonConfig{N: 4},
-					AssetDonConfig:  DonConfig{N: 4},
-					WriterDonConfig: DonConfig{N: 4},
+				te := test.SetupTestEnv(t, test.TestConfig{
+					WFDonConfig:     test.DonConfig{N: 4},
+					AssetDonConfig:  test.DonConfig{N: 4},
+					WriterDonConfig: test.DonConfig{N: 4},
 					NumChains:       nChains,
 					UseMCMS:         true,
 				})
