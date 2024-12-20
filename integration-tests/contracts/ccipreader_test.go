@@ -785,7 +785,7 @@ func Test_LinkPriceUSD(t *testing.T) {
 	linkPriceUSD, err := reader.LinkPriceUSD(ctx)
 	require.NoError(t, err)
 	require.NotNil(t, linkPriceUSD.Int)
-	require.Equal(t, changeset.DefaultInitialPrices.LinkPrice, linkPriceUSD.Int)
+	require.Equal(t, changeset.DefaultLinkPrice, linkPriceUSD.Int)
 }
 
 func Test_GetMedianDataAvailabilityGasConfig(t *testing.T) {
@@ -884,7 +884,7 @@ func Test_GetWrappedNativeTokenPriceUSD(t *testing.T) {
 
 	// Only chainD has reader contracts bound
 	require.Len(t, prices, 1)
-	require.Equal(t, changeset.DefaultInitialPrices.WethPrice, prices[cciptypes.ChainSelector(chain1)].Int)
+	require.Equal(t, changeset.DefaultWethPrice, prices[cciptypes.ChainSelector(chain1)].Int)
 }
 
 // Benchmark Results:

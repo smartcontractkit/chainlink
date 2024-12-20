@@ -90,7 +90,7 @@ func TestAddLanesWithTestRouter(t *testing.T) {
 							chain2: true,
 						},
 					},
-					// off
+					// offramp update on dest chain
 					chain2: {
 						OffRampUpdates: map[uint64]bool{
 							chain1: true,

@@ -390,9 +390,8 @@ func MakeEVMExtraArgsV2(gasLimit uint64, allowOOO bool) []byte {
 	return extraArgs
 }
 
-func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, state CCIPOnChainState, from, to uint64, isTestRouter bool) {
+func AddLane(t *testing.T, e *DeployedEnv, from, to uint64, isTestRouter bool, gasprice map[uint64]*big.Int, tokenPrices map[common.Address]*big.Int, fqCfg fee_quoter.FeeQuoterDestChainConfig) {
 	var err error
-	stateChain1 := state.Chains[from]
 	e.Env, err = commoncs.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commoncs.ChangesetApplication{
 		{
 			Changeset: commoncs.WrapChangeSet(UpdateOnRampsDests),
@@ -413,13 +412,8 @@ func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, st
 			Config: UpdateFeeQuoterPricesConfig{
 				InitialPrices: map[uint64]FeeQuoterPriceUpdatePerSource{
 					from: {
-						TokenPrices: map[common.Address]*big.Int{
-							stateChain1.LinkToken.Address(): DefaultLinkPrice,
-							stateChain1.Weth9.Address():     DefaultWethPrice,
-						},
-						GasPrices: map[uint64]*big.Int{
-							to: DefaultGasPrice,
-						},
+						TokenPrices: tokenPrices,
+						GasPrices:   gasprice,
 					},
 				},
 			},
@@ -429,7 +423,7 @@ func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, st
 			Config: UpdateFeeQuoterDestsConfig{
 				UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
 					from: {
-						to: DefaultFeeQuoterDestChainConfig(),
+						to: fqCfg,
 					},
 				},
 			},
@@ -441,7 +435,7 @@ func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, st
 					to: {
 						from: {
 							IsEnabled:  true,
-							TestRouter: true,
+							TestRouter: isTestRouter,
 						},
 					},
 				},
@@ -450,7 +444,7 @@ func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, st
 		{
 			Changeset: commoncs.WrapChangeSet(UpdateRouterRamps),
 			Config: UpdateRouterRampsConfig{
-				TestRouter: true,
+				TestRouter: isTestRouter,
 				UpdatesByChain: map[uint64]RouterUpdates{
 					// onRamp update on source chain
 					from: {
@@ -458,10 +452,10 @@ func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, st
 							to: true,
 						},
 					},
-					// off
-					from: {
+					// offramp update on dest chain
+					to: {
 						OffRampUpdates: map[uint64]bool{
-							to: true,
+							from: true,
 						},
 					},
 				},
@@ -469,6 +463,17 @@ func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, st
 		},
 	})
 	require.NoError(t, err)
+}
+
+func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, state CCIPOnChainState, from, to uint64, isTestRouter bool) {
+	stateChainFrom := state.Chains[from]
+	AddLane(t, e, from, to, isTestRouter,
+		map[uint64]*big.Int{
+			to: DefaultGasPrice,
+		}, map[common.Address]*big.Int{
+			stateChainFrom.LinkToken.Address(): DefaultLinkPrice,
+			stateChainFrom.Weth9.Address():     DefaultWethPrice,
+		}, DefaultFeeQuoterDestChainConfig())
 }
 
 // AddLanesForAll adds densely connected lanes for all chains in the environment so that each chain
