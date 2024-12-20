@@ -103,6 +103,40 @@ func TestAddress(t *testing.T) {
 	})
 }
 
+func TestHexToAddress(t *testing.T) {
+	t.Run("Valid Hex Addresses", func(t *testing.T) {
+		validHexAddresses := []string{
+			"41a614f803b6fd780986a42c78ec9c7f77e6ded13c",
+			"41b2a2e1b2e1b2e1b2e1b2e1b2e1b2e1b2e1b2e1b2",
+			"41c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+		}
+
+		for _, hexStr := range validHexAddresses {
+			t.Run(hexStr, func(t *testing.T) {
+				addr, err := HexToAddress(hexStr)
+				require.Nil(t, err)
+				require.Equal(t, "0x"+hexStr, addr.Hex())
+			})
+		}
+	})
+
+	t.Run("Invalid Hex Addresses", func(t *testing.T) {
+		invalidHexAddresses := []string{
+			"41a614f803b6fd780986a42c78ec9c7f77e6ded13",      // Too short
+			"41b2a2e1b2e1b2e1b2e1b2e1b2e1b2e1b2e1b2e1b2e1b2", // Too long
+			"41g3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",     // Invalid character 'g'
+			"c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",     // Missing prefix '41'
+		}
+
+		for _, hexStr := range invalidHexAddresses {
+			t.Run(hexStr, func(t *testing.T) {
+				_, err := HexToAddress(hexStr)
+				require.NotNil(t, err)
+			})
+		}
+	})
+}
+
 // Helper Functions for testing
 
 // isValid checks if the address is a valid TRON address
