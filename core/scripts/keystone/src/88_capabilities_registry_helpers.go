@@ -25,7 +25,7 @@ import (
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
+	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 )
 
 type CapabilityRegistryProvisioner struct {
