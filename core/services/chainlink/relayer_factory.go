@@ -379,6 +379,6 @@ type TronFactoryConfig struct {
 
 func (r *RelayerFactory) NewTron(ks keystore.Tron, chainCfgs RawConfigs) (map[types.RelayID]loop.Relayer, error) {
 	plugin := env.NewPlugin("tron")
-	loopKs := &keystore.TronLoopKeystore{Tron: ks}
+	loopKs := &keystore.TronLOOPKeystore{Tron: ks}
 	return r.NewLOOPRelayer("Tron", relay.NetworkTron, plugin, loopKs, chainCfgs)
 }

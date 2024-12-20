@@ -164,15 +164,15 @@ func (ks *tron) Sign(_ context.Context, id string, msg []byte) (signature []byte
 	return k.Sign(msg)
 }
 
-// TronLoopKeystore implements the [github.com/smartcontractkit/chainlink-common/pkg/loop.Keystore] interface and
+// TronLOOPKeystore implements the [github.com/smartcontractkit/chainlink-common/pkg/loop.Keystore] interface and
 // handles signing for Tron messages.
-type TronLoopKeystore struct {
+type TronLOOPKeystore struct {
 	Tron
 }
 
-var _ loop.Keystore = &TronLoopKeystore{}
+var _ loop.Keystore = &TronLOOPKeystore{}
 
-func (lk *TronLoopKeystore) Accounts(ctx context.Context) ([]string, error) {
+func (lk *TronLOOPKeystore) Accounts(ctx context.Context) ([]string, error) {
 	keys, err := lk.GetAll()
 	if err != nil {
 		return nil, err
