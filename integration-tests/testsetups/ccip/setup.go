@@ -241,7 +241,7 @@ func createAnvilDockerNetwork(t *testing.T) (
 		WSRPC: jdOutput.DockerWSRPCUrl,
 		Creds: insecure.NewCredentials(),
 	}
-	var chains []devenv.ChainConfig
+	chains := make([]devenv.ChainConfig, 0, len(blockchains))
 	for _, chain := range blockchains {
 		chainID, err := strconv.ParseInt(chain.ChainID, 10, 64)
 		require.NoError(t, err, "invalid chain id")
