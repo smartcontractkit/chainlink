@@ -63,8 +63,8 @@ func newBatchTestSetup(t *testing.T) batchTestSetup {
 	)
 
 	// connect sourceChain1 and sourceChain2 to destChain
-	require.NoError(t, changeset.AddLaneWithDefaultPricesAndFeeQuoterConfig(e.Env, state, sourceChain1, destChain, false))
-	require.NoError(t, changeset.AddLaneWithDefaultPricesAndFeeQuoterConfig(e.Env, state, sourceChain2, destChain, false))
+	changeset.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain1, destChain, false)
+	changeset.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain2, destChain, false)
 
 	return batchTestSetup{e, state, sourceChain1, sourceChain2, destChain}
 }
