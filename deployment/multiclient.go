@@ -109,16 +109,16 @@ func (mc *MultiClient) NonceAt(ctx context.Context, account common.Address, bloc
 }
 
 func (mc *MultiClient) WaitMined(ctx context.Context, tx *types.Transaction) (*types.Receipt, error) {
-	mc.lggr.Debugf("Waiting for tx %s to be mined", tx.Hash().Hex())
+	mc.lggr.Debugf("Waiting for tx %s to be mined for chain %s", tx.Hash().Hex(), mc.chainName)
 	// no retries here because we want to wait for the tx to be mined
 	resultCh := make(chan *types.Receipt)
 	doneCh := make(chan struct{})
 
 	waitMined := func(client *ethclient.Client, tx *types.Transaction) {
-		mc.lggr.Debugf("Waiting for tx %s to be mined with client %v", tx.Hash().Hex(), client)
+		mc.lggr.Debugf("Waiting for tx %s to be mined with chain %s", tx.Hash().Hex(), mc.chainName)
 		receipt, err := bind.WaitMined(ctx, client, tx)
 		if err != nil {
-			mc.lggr.Warnf("WaitMined error %v with client %v", err, client)
+			mc.lggr.Warnf("WaitMined error %v with chain %s", err, mc.chainName)
 			return
 		}
 		select {
@@ -135,6 +135,7 @@ func (mc *MultiClient) WaitMined(ctx context.Context, tx *types.Transaction) (*t
 	select {
 	case receipt = <-resultCh:
 		close(doneCh)
+		mc.lggr.Debugf("Tx %s mined with chain %s", tx.Hash().Hex(), mc.chainName)
 		return receipt, nil
 	case <-ctx.Done():
 		mc.lggr.Warnf("WaitMined context done %v", ctx.Err())

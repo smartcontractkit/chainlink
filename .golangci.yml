@@ -1,5 +1,5 @@
 run:
-  timeout: 15m0s
+  timeout: 15m
   allow-parallel-runners: true
 linters:
   enable:
@@ -97,7 +97,7 @@ linters-settings:
       - name: waitgroup-by-value
       - name: unconditional-recursion
       - name: struct-tag
-      # - name: string-format
+      - name: string-format
       - name: string-of-int
       - name: range-val-address
       - name: range-val-in-closure

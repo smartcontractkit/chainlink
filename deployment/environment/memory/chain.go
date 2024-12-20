@@ -14,6 +14,7 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 )
 
@@ -52,10 +53,10 @@ func GenerateChains(t *testing.T, numChains int, numUsers int) map[uint64]EVMCha
 	return chains
 }
 
-func GenerateChainsWithIds(t *testing.T, chainIDs []uint64) map[uint64]EVMChain {
+func GenerateChainsWithIds(t *testing.T, chainIDs []uint64, numUsers int) map[uint64]EVMChain {
 	chains := make(map[uint64]EVMChain)
 	for _, chainID := range chainIDs {
-		chains[chainID] = evmChain(t, 1)
+		chains[chainID] = evmChain(t, numUsers)
 	}
 	return chains
 }

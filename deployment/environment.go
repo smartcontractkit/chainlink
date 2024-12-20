@@ -74,6 +74,9 @@ func (c Chain) Name() string {
 		// we should never get here, if the selector is invalid it should not be in the environment
 		panic(err)
 	}
+	if chainInfo.ChainName == "" {
+		return fmt.Sprintf("%d", c.Selector)
+	}
 	return chainInfo.ChainName
 }
 

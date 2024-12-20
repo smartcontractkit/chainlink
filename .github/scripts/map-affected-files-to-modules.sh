@@ -21,25 +21,35 @@ echo "Found modules: $modules"
 declare -A unique_modules
 
 for path_to_file in $changed_files; do
-	echo "Resolving a module affected by a file: '$path_to_file'"
+  echo "Resolving a module affected by a file: '$path_to_file'"
+  # the flag that indicates if the path matches any module
+  is_path_in_modules=false
   for module in $modules; do
     echo "Validating against module: '$module'"
-
-    # if no slash in the path, it is the root 
-    # (i.e. `main.go`, `.gitignore` vs `core/main.go`)
-    if [[ ! $path_to_file =~ \/ ]]; then
-      echo "File '$path_to_file' mapped to the "root" module."
-      unique_modules["."]="."
-      break
     # if a module's name matches with a file path 
     # add it, to the affected modules array, skipping the root (`.`) 
-    elif [[ $module != "." && $path_to_file =~ ^$module* ]]; then
-      echo "File '$path_to_file' mapped the module '$module'"
+    if [[ $module != "." && $path_to_file =~ ^$module* ]]; then
+      echo -e "File '$path_to_file' mapped to the module '$module'\n"
       unique_modules["$module"]="$module"
+      is_path_in_modules=true
       break
     fi
-	done
-done
+  done
+  # if no matched module default to root module
+  if [[ $is_path_in_modules == false ]]; then
+    echo "File '$path_to_file' did not match any module, defaulting to root '.'"
+    unique_modules["."]="."
+    is_path_in_modules=false
+  fi
+  is_path_in_modules=false
+done 
+
+# if the path is empty (for any reason), it will not get to the loop,
+# so if the unique_modules array is empty, default to the root module
+if [[ ${#unique_modules[@]} -eq 0 ]]; then
+  echo "No files were changed, defaulting to the root module '.'"
+  unique_modules["."]="."
+fi
 
 # Convert keys (module names) of the associative array to an indexed array
 affected_modules=("${!unique_modules[@]}")
