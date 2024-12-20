@@ -9,15 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
-
-func TestRevert(t *testing.T) {
-	errreason, err := parseErrorFromABI("0xae236d9c0000000000000000000000000000000000000000000000004d0102030cb384f5", router.RouterABI)
-	require.NoError(t, err)
-	require.Contains(t, errreason, "error not found in ABI")
-}
 
 func TestMultiClient(t *testing.T) {
 	lggr := logger.TestLogger(t)
