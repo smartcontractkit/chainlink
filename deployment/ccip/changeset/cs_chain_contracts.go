@@ -54,8 +54,8 @@ type NonceManagerUpdate struct {
 type PreviousRampCfg struct {
 	RemoteChainSelector uint64
 	OverrideExisting    bool
-	OnRamp              bool
-	OffRamp             bool
+	EnableOnRamp        bool
+	EnableOffRamp       bool
 }
 
 func (cfg UpdateNonceManagerConfig) Validate(e deployment.Environment) error {
@@ -85,17 +85,17 @@ func (cfg UpdateNonceManagerConfig) Validate(e deployment.Environment) error {
 			if _, ok := state.Chains[prevRamp.RemoteChainSelector]; !ok {
 				return fmt.Errorf("dest chain %d not found in onchain state for chain %d", prevRamp.RemoteChainSelector, sourceSel)
 			}
-			if !prevRamp.OnRamp && !prevRamp.OffRamp {
+			if !prevRamp.EnableOnRamp && !prevRamp.EnableOffRamp {
 				return errors.New("must specify either onramp or offramp")
 			}
-			if prevRamp.OnRamp {
+			if prevRamp.EnableOnRamp {
 				if prevOnRamp := state.Chains[sourceSel].EVM2EVMOnRamp; prevOnRamp == nil {
 					return fmt.Errorf("no previous onramp for source chain %d", sourceSel)
 				} else if prevOnRamp[prevRamp.RemoteChainSelector] == nil {
 					return fmt.Errorf("no previous onramp for source chain %d and dest chain %d", sourceSel, prevRamp.RemoteChainSelector)
 				}
 			}
-			if prevRamp.OffRamp {
+			if prevRamp.EnableOffRamp {
 				if prevOffRamp := state.Chains[sourceSel].EVM2EVMOffRamp; prevOffRamp == nil {
 					return fmt.Errorf("missing previous offramps for chain %d", sourceSel)
 				} else if prevOffRamp[prevRamp.RemoteChainSelector] == nil {
@@ -138,10 +138,10 @@ func UpdateNonceManagersCS(e deployment.Environment, cfg UpdateNonceManagerConfi
 			previousRampsArgs := make([]nonce_manager.NonceManagerPreviousRampsArgs, 0)
 			for _, prevRamp := range updates.PreviousRampsArgs {
 				var onRamp, offRamp common.Address
-				if prevRamp.OnRamp {
+				if prevRamp.EnableOnRamp {
 					onRamp = s.Chains[chainSel].EVM2EVMOnRamp[prevRamp.RemoteChainSelector].Address()
 				}
-				if prevRamp.OffRamp {
+				if prevRamp.EnableOffRamp {
 					offRamp = s.Chains[chainSel].EVM2EVMOffRamp[prevRamp.RemoteChainSelector].Address()
 				}
 				previousRampsArgs = append(previousRampsArgs, nonce_manager.NonceManagerPreviousRampsArgs{
