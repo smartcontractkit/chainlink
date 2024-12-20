@@ -7,6 +7,18 @@ import "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/inte
 // OracleConfig is the configuration for an oracle
 type OracleConfig = internal.OracleConfig
 
+// OCR3OnchainConfig is the onchain configuration of an OCR2 contract
+type OCR3OnchainConfig = internal.OCR2OracleConfig
+
+// NodeKeys is a set of public keys for a node
+type NodeKeys = internal.NodeKeys
+
+// TopLevelConfigSource is the top level configuration source
+type TopLevelConfigSource = internal.TopLevelConfigSource
+
+// GenerateOCR3Config generates an OCR3 config
+var GenerateOCR3Config = internal.GenerateOCR3Config
+
 // FeedConsumer is a feed consumer contract type
 var FeedConsumer = internal.FeedConsumer
 
