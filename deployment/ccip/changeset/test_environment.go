@@ -551,7 +551,7 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tc *TestConfigs, tEnv Test
 		{
 			// Promote everything
 			Changeset: commonchangeset.WrapChangeSet(PromoteAllCandidatesChangeset),
-			Config: PromoteAllCandidatesChangesetConfig{
+			Config: PromoteCandidatesChangesetConfig{
 				HomeChainSelector:    e.HomeChainSel,
 				RemoteChainSelectors: allChains,
 				PluginType:           types.PluginTypeCCIPCommit,
@@ -560,7 +560,7 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tc *TestConfigs, tEnv Test
 		{
 			// Promote everything
 			Changeset: commonchangeset.WrapChangeSet(PromoteAllCandidatesChangeset),
-			Config: PromoteAllCandidatesChangesetConfig{
+			Config: PromoteCandidatesChangesetConfig{
 				HomeChainSelector:    e.HomeChainSel,
 				RemoteChainSelectors: allChains,
 				PluginType:           types.PluginTypeCCIPExec,

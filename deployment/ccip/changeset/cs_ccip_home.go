@@ -34,7 +34,7 @@ import (
 
 var (
 	_ deployment.ChangeSet[AddDonAndSetCandidateChangesetConfig] = AddDonAndSetCandidateChangeset
-	_ deployment.ChangeSet[PromoteAllCandidatesChangesetConfig]  = PromoteAllCandidatesChangeset
+	_ deployment.ChangeSet[PromoteCandidatesChangesetConfig]     = PromoteAllCandidatesChangeset
 	_ deployment.ChangeSet[SetCandidateChangesetConfig]          = SetCandidateChangeset
 	_ deployment.ChangeSet[RevokeCandidateChangesetConfig]       = RevokeCandidateChangeset
 	_ deployment.ChangeSet[UpdateChainConfigConfig]              = UpdateChainConfig
@@ -107,7 +107,7 @@ func DefaultOCRParams(
 	}
 }
 
-type PromoteAllCandidatesChangesetConfig struct {
+type PromoteCandidatesChangesetConfig struct {
 	HomeChainSelector uint64
 
 	// RemoteChainSelectors is the chain selector of the DONs that we want to promote the candidate config of.
@@ -121,7 +121,7 @@ type PromoteAllCandidatesChangesetConfig struct {
 	MCMS *MCMSConfig
 }
 
-func (p PromoteAllCandidatesChangesetConfig) Validate(e deployment.Environment) ([]uint32, error) {
+func (p PromoteCandidatesChangesetConfig) Validate(e deployment.Environment) ([]uint32, error) {
 	state, err := LoadOnchainState(e)
 	if err != nil {
 		return nil, err
@@ -201,7 +201,7 @@ func (p PromoteAllCandidatesChangesetConfig) Validate(e deployment.Environment) 
 // At that point you can call the RemoveDON changeset to remove the DON entirely from the capability registry.
 func PromoteAllCandidatesChangeset(
 	e deployment.Environment,
-	cfg PromoteAllCandidatesChangesetConfig,
+	cfg PromoteCandidatesChangesetConfig,
 ) (deployment.ChangesetOutput, error) {
 	donIDs, err := cfg.Validate(e)
 	if err != nil {
