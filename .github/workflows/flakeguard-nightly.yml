@@ -8,7 +8,7 @@ on:
 
 jobs:
   trigger-flaky-test-detection:
-    name: Flakeguard Nightly
+    name: Find Flaky Tests
     uses: ./.github/workflows/flakeguard.yml
     with:
       repoUrl: 'https://github.com/smartcontractkit/chainlink'

@@ -53,7 +53,7 @@ on:
 
 jobs:
   trigger-flaky-test-detection:
-    name: Flakeguard on Demand
+    name: Find Flaky Tests
     uses: ./.github/workflows/flakeguard.yml
     with:
       repoUrl: ${{ inputs.repoUrl }}
