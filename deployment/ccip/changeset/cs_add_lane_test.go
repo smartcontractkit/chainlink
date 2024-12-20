@@ -43,7 +43,7 @@ func TestAddLanesWithTestRouter(t *testing.T) {
 		{
 			Changeset: commoncs.WrapChangeSet(UpdateFeeQuoterPricesCS),
 			Config: UpdateFeeQuoterPricesConfig{
-				InitialPrices: map[uint64]FeeQuoterPriceUpdatePerSource{
+				PricesByChain: map[uint64]FeeQuoterPriceUpdatePerSource{
 					chain1: {
 						TokenPrices: map[common.Address]*big.Int{
 							stateChain1.LinkToken.Address(): DefaultLinkPrice,

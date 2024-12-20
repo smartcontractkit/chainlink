@@ -96,7 +96,7 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 		{
 			Changeset: commoncs.WrapChangeSet(changeset.UpdateFeeQuoterPricesCS),
 			Config: changeset.UpdateFeeQuoterPricesConfig{
-				InitialPrices: map[uint64]changeset.FeeQuoterPriceUpdatePerSource{
+				PricesByChain: map[uint64]changeset.FeeQuoterPriceUpdatePerSource{
 					destChain: {
 						TokenPrices: map[common.Address]*big.Int{
 							state.Chains[destChain].LinkToken.Address(): linkPrice,
@@ -137,7 +137,7 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 		{
 			Changeset: commoncs.WrapChangeSet(changeset.UpdateFeeQuoterPricesCS),
 			Config: changeset.UpdateFeeQuoterPricesConfig{
-				InitialPrices: map[uint64]changeset.FeeQuoterPriceUpdatePerSource{
+				PricesByChain: map[uint64]changeset.FeeQuoterPriceUpdatePerSource{
 					sourceChain: {
 						GasPrices: map[uint64]*big.Int{
 							destChain: originalGasPriceDestUSD,

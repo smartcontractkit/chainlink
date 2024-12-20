@@ -149,7 +149,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 					{
 						Changeset: commonchangeset.WrapChangeSet(changeset.UpdateFeeQuoterPricesCS),
 						Config: changeset.UpdateFeeQuoterPricesConfig{
-							InitialPrices: map[uint64]changeset.FeeQuoterPriceUpdatePerSource{
+							PricesByChain: map[uint64]changeset.FeeQuoterPriceUpdatePerSource{
 								from: {
 									TokenPrices: map[common.Address]*big.Int{
 										stateChain1.LinkToken.Address(): changeset.DefaultLinkPrice,

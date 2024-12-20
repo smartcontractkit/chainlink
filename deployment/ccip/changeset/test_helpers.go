@@ -410,7 +410,7 @@ func AddLane(t *testing.T, e *DeployedEnv, from, to uint64, isTestRouter bool, g
 		{
 			Changeset: commoncs.WrapChangeSet(UpdateFeeQuoterPricesCS),
 			Config: UpdateFeeQuoterPricesConfig{
-				InitialPrices: map[uint64]FeeQuoterPriceUpdatePerSource{
+				PricesByChain: map[uint64]FeeQuoterPriceUpdatePerSource{
 					from: {
 						TokenPrices: tokenPrices,
 						GasPrices:   gasprice,
