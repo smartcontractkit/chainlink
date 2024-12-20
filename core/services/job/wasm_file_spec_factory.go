@@ -11,6 +11,8 @@ import (
 	"path"
 	"strings"
 
+	"github.com/bytecodealliance/wasmtime-go/v28"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 
@@ -33,7 +35,7 @@ func (w WasmFileSpecFactory) Spec(ctx context.Context, workflow, configLocation 
 	}
 
 	moduleConfig := &host.ModuleConfig{Logger: logger.NullLogger}
-	spec, err := host.GetWorkflowSpec(ctx, moduleConfig, compressedBinary, config)
+	spec, err := host.GetWorkflowSpec(ctx, moduleConfig, compressedBinary, wasmtime.NewModule, config)
 	if err != nil {
 		return sdk.WorkflowSpec{}, nil, "", err
 	} else if spec == nil {

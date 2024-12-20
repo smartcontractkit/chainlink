@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/andybalholm/brotli"
+	"github.com/bytecodealliance/wasmtime-go/v28"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -42,7 +43,8 @@ func TestWasmFileSpecFactory(t *testing.T) {
 		actual, rawSpec, actualSha, err2 := factory.Spec(testutils.Context(t), binaryLocation, configLocation)
 		require.NoError(t, err2)
 
-		expected, err2 := host.GetWorkflowSpec(ctx, &host.ModuleConfig{Logger: logger.NullLogger, IsUncompressed: true}, rawBinary, config)
+		expected, err2 := host.GetWorkflowSpec(ctx, &host.ModuleConfig{Logger: logger.NullLogger, IsUncompressed: true},
+			rawBinary, wasmtime.NewModule, config)
 		require.NoError(t, err2)
 
 		expectedSha := sha256.New()
@@ -65,7 +67,8 @@ func TestWasmFileSpecFactory(t *testing.T) {
 		actual, rawSpec, actualSha, err2 := factory.Spec(testutils.Context(t), brLoc, configLocation)
 		require.NoError(t, err2)
 
-		expected, err2 := host.GetWorkflowSpec(ctx, &host.ModuleConfig{Logger: logger.NullLogger, IsUncompressed: true}, rawBinary, config)
+		expected, err2 := host.GetWorkflowSpec(ctx, &host.ModuleConfig{Logger: logger.NullLogger, IsUncompressed: true},
+			rawBinary, wasmtime.NewModule, config)
 		require.NoError(t, err2)
 
 		expectedSha := sha256.New()
