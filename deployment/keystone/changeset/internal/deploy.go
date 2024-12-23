@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
@@ -351,7 +352,7 @@ type ConfigureOCR3Resp struct {
 type ConfigureOCR3Config struct {
 	ChainSel   uint64
 	NodeIDs    []string
-	Address    *string // hex encoded address of the OCR3 contract to configure
+	Address    *common.Address // address of the OCR3 contract to configure
 	OCR3Config *OracleConfig
 	DryRun     bool
 
@@ -973,7 +974,7 @@ func configureForwarder(lggr logger.Logger, chain deployment.Chain, contractSet 
 // contract in the set if there is no address specified.  If an address is specified, it returns the
 // contract with that address.  If the address is specified but not found in the contract set, it returns
 // an error.
-func getOCR3Contract(contracts map[string]*ocr3_capability.OCR3Capability, addr *string) (*ocr3_capability.OCR3Capability, error) {
+func getOCR3Contract(contracts map[common.Address]*ocr3_capability.OCR3Capability, addr *common.Address) (*ocr3_capability.OCR3Capability, error) {
 	// Fail if the OCR3 contract address is unspecified and there are multiple OCR3 contracts
 	if addr == nil && len(contracts) > 1 {
 		return nil, errors.New("OCR contract address is unspecified")
