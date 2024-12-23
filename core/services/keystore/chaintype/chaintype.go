@@ -50,6 +50,8 @@ func NewChainType(typ uint8) (ChainType, error) {
 		return StarkNet, nil
 	case 5:
 		return Aptos, nil
+	case 6:
+		return Tron, nil
 	default:
 		return "", fmt.Errorf("unexpected chaintype.ChainType: %#v", typ)
 	}
@@ -67,6 +69,8 @@ func (c ChainType) Type() (uint8, error) {
 		return 4, nil
 	case Aptos:
 		return 5, nil
+	case Tron:
+		return 6, nil
 	default:
 		return 0, fmt.Errorf("unexpected chaintype.ChainType: %#v", c)
 	}

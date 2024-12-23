@@ -46,14 +46,7 @@ type Key struct {
 }
 
 func New() (Key, error) {
-	privKeyECDSA, err := ecdsa.GenerateKey(crypto.S256(), rand.Reader)
-	if err != nil {
-		return Key{}, err
-	}
-	return Key{
-		privKey: privKeyECDSA,
-		pubKey:  &privKeyECDSA.PublicKey,
-	}, nil
+	return newFrom(rand.Reader)
 }
 
 // MustNewInsecure return Key if no error
