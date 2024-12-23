@@ -28,7 +28,7 @@ type GetContractSetsResponse struct {
 
 type ContractSet struct {
 	commonchangeset.MCMSWithTimelockState
-	OCR3                 *ocr3_capability.OCR3Capability
+	OCR3                 map[string]*ocr3_capability.OCR3Capability
 	Forwarder            *forwarder.KeystoneForwarder
 	CapabilitiesRegistry *capabilities_registry.CapabilitiesRegistry
 	WorkflowRegistry     *workflow_registry.WorkflowRegistry
@@ -37,7 +37,9 @@ type ContractSet struct {
 func (cs ContractSet) TransferableContracts() []common.Address {
 	var out []common.Address
 	if cs.OCR3 != nil {
-		out = append(out, cs.OCR3.Address())
+		for _, ocr := range cs.OCR3 {
+			out = append(out, ocr.Address())
+		}
 	}
 	if cs.Forwarder != nil {
 		out = append(out, cs.Forwarder.Address())
@@ -109,7 +111,10 @@ func loadContractSet(lggr logger.Logger, chain deployment.Chain, addresses map[s
 			if err != nil {
 				return nil, fmt.Errorf("failed to create OCR3Capability contract from address %s: %w", addr, err)
 			}
-			out.OCR3 = c
+			if out.OCR3 == nil {
+				out.OCR3 = make(map[string]*ocr3_capability.OCR3Capability)
+			}
+			out.OCR3[addr] = c
 		case WorkflowRegistry:
 			c, err := workflow_registry.NewWorkflowRegistry(common.HexToAddress(addr), chain.Client)
 			if err != nil {
