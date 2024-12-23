@@ -63,6 +63,34 @@ contract HybridLockReleaseUSDCTokenPool_TransferLiquidity is HybridLockReleaseUS
     );
   }
 
+  function test_transferLiquidity_MultipleChainsSequentially() public {
+    // Set as the OWNER so we can provide liquidity
+    vm.startPrank(OWNER);
+
+    uint64 RANDOM_CHAIN_SELECTOR = DEST_CHAIN_SELECTOR + 1;
+
+    s_usdcTokenPool.setLiquidityProvider(DEST_CHAIN_SELECTOR, OWNER);
+    s_usdcTokenPool.setLiquidityProvider(RANDOM_CHAIN_SELECTOR, OWNER);
+
+    s_token.approve(address(s_usdcTokenPool), type(uint256).max);
+
+    uint256 liquidityAmount = 1e9;
+
+    // Provide some liquidity to the pool
+    s_usdcTokenPool.provideLiquidity(DEST_CHAIN_SELECTOR, liquidityAmount);
+    s_usdcTokenPool.provideLiquidity(RANDOM_CHAIN_SELECTOR, liquidityAmount);
+
+    // Set the new token pool as the rebalancer
+    s_usdcTokenPool.transferOwnership(address(s_usdcTokenPoolTransferLiquidity));
+
+    // Test the ability to transfer liquidity from multiple chains in multiple sequential calls
+    s_usdcTokenPoolTransferLiquidity.transferLiquidity(address(s_usdcTokenPool), DEST_CHAIN_SELECTOR);
+    s_usdcTokenPoolTransferLiquidity.transferLiquidity(address(s_usdcTokenPool), RANDOM_CHAIN_SELECTOR);
+
+    assertEq(s_token.balanceOf(address(s_usdcTokenPoolTransferLiquidity)), liquidityAmount * 2);
+    assertEq(s_usdcTokenPoolTransferLiquidity.getLockedTokensForChain(RANDOM_CHAIN_SELECTOR), liquidityAmount);
+  }
+
   function test_RevertWhen_cannotTransferLiquidityDuringPendingMigration() public {
     // Set as the OWNER so we can provide liquidity
     vm.startPrank(OWNER);
