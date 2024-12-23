@@ -64,7 +64,7 @@ func TestConfigureOCR3(t *testing.T) {
 		})
 
 		var wfNodes []string
-		for id, _ := range te.WFNodes {
+		for id := range te.WFNodes {
 			wfNodes = append(wfNodes, id)
 		}
 
@@ -130,7 +130,7 @@ func TestConfigureOCR3(t *testing.T) {
 		}
 
 		var wfNodes []string
-		for id, _ := range te.WFNodes {
+		for id := range te.WFNodes {
 			wfNodes = append(wfNodes, id)
 		}
 
@@ -180,7 +180,7 @@ func TestConfigureOCR3(t *testing.T) {
 		require.Len(t, addrs, 5)
 
 		var wfNodes []string
-		for id, _ := range te.WFNodes {
+		for id := range te.WFNodes {
 			wfNodes = append(wfNodes, id)
 		}
 
@@ -223,7 +223,7 @@ func TestConfigureOCR3(t *testing.T) {
 		require.Len(t, addrs, 5)
 
 		var wfNodes []string
-		for id, _ := range te.WFNodes {
+		for id := range te.WFNodes {
 			wfNodes = append(wfNodes, id)
 		}
 
@@ -252,7 +252,7 @@ func TestConfigureOCR3(t *testing.T) {
 		})
 
 		var wfNodes []string
-		for id, _ := range te.WFNodes {
+		for id := range te.WFNodes {
 			wfNodes = append(wfNodes, id)
 		}
 
