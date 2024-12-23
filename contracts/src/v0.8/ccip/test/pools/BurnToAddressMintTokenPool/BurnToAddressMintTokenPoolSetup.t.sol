@@ -7,7 +7,7 @@ import {BurnMintSetup} from "../BurnMintTokenPool/BurnMintSetup.t.sol";
 contract BurnToAddressMintTokenPoolSetup is BurnMintSetup {
   BurnToAddressMintTokenPool internal s_pool;
 
-  uint256 initialTokenAmount = 20_000e18;
+  uint256 internal initialTokenAmount = 20_000e18;
 
   function setUp() public virtual override {
     BurnMintSetup.setUp();
