@@ -18,23 +18,19 @@ export FOUNDRY_PROFILE="$PROJECT"$FOUNDRY_PROJECT_SUFFIX
 compileContract() {
   local contract
   contract=$(basename "$1")
-  echo "Compiling " "$contract"
+  echo "Compiling" "$contract"
 
-  if [ ! -z "$2" ]; then
+  if [ -n "$2" ]; then
     echo "Compiling from another project: ""$2"
     PROJECT=$2
   fi
 
-  local contractPath
-  contractPath="$CONTRACTS_DIR"/src/v0.8/"$PROJECT"/"$1.sol"
-
   local command
-  command="forge build $contractPath \
+  command="forge build $CONTRACTS_DIR/src/v0.8/$PROJECT/"$1.sol" \
    $(getOptimizations "$contract") \
    --extra-output-files bin abi \
    -o $CONTRACTS_DIR/solc/$PROJECT/$contract"
 
-#  echo "Running command: " "$command"
   $command
 }
 
@@ -57,15 +53,15 @@ compileContract FeeQuoter
 compileContract onRamp/OnRamp
 compileContract applications/PingPongDemo
 compileContract applications/EtherSenderReceiver
-compileContract rmn/RMNRemote
-compileContract rmn/RMNHome
-compileContract rmn/ARMProxy
 compileContract MultiAggregateRateLimiter
 compileContract Router
 compileContract tokenAdminRegistry/TokenAdminRegistry
 compileContract tokenAdminRegistry/RegistryModuleOwnerCustom
 compileContract capability/CCIPHome
 compileContract NonceManager
+compileContract rmn/RMNRemote
+compileContract rmn/RMNHome
+compileContract rmn/RMNProxy
 
 # Pools
 compileContract pools/LockReleaseTokenPool
@@ -73,7 +69,7 @@ compileContract pools/BurnMintTokenPool
 compileContract pools/BurnFromMintTokenPool
 compileContract pools/BurnWithFromMintTokenPool
 compileContract pools/TokenPool
-
+compileContract pools/USDC/USDCTokenPool
 
 # Test helpers
 compileContract test/helpers/BurnMintERC677Helper
@@ -89,9 +85,6 @@ compileContract test/helpers/CCIPReaderTester
 
 # Offchain test encoding utils
 compileContract interfaces/encodingutils/ICCIPEncodingUtils
-
-# Customer contracts
-compileContract pools/USDC/USDCTokenPool
 
 compileContract MockV3Aggregator tests
 compileContract token/ERC677/BurnMintERC677 shared

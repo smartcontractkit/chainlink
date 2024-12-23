@@ -3,24 +3,24 @@ pragma solidity ^0.8.24;
 
 import {IRMN} from "../../../interfaces/IRMN.sol";
 
-import {ARMProxy} from "../../../rmn/ARMProxy.sol";
+import {RMNProxy} from "../../../rmn/RMNProxy.sol";
 import {GLOBAL_CURSE_SUBJECT, RMNRemote} from "../../../rmn/RMNRemote.sol";
-import {ARMProxyTestSetup} from "./ARMProxyTestSetup.t.sol";
+import {RMNProxyTestSetup} from "./RMNProxyTestSetup.t.sol";
 
-contract ARMProxy_isCursed is ARMProxyTestSetup {
+contract RMNProxy_isCursed is RMNProxyTestSetup {
   RMNRemote internal s_mockRMNRemote;
 
   function setUp() public virtual override {
     super.setUp();
     s_mockRMNRemote = new RMNRemote(1, IRMN(address(0)));
-    s_armProxy = new ARMProxy(address(s_mockRMNRemote));
+    s_rmnProxy = new RMNProxy(address(s_mockRMNRemote));
   }
 
   function test_IsCursed_GlobalCurseSubject() public {
-    assertFalse(IRMN(address(s_armProxy)).isCursed());
+    assertFalse(IRMN(address(s_rmnProxy)).isCursed());
 
     s_mockRMNRemote.curse(GLOBAL_CURSE_SUBJECT);
-    vm.assertTrue(IRMN(address(s_armProxy)).isCursed());
+    vm.assertTrue(IRMN(address(s_rmnProxy)).isCursed());
   }
 
   error CustomError(bytes err);
@@ -31,15 +31,15 @@ contract ARMProxy_isCursed is ARMProxyTestSetup {
       address(s_mockRMNRemote), abi.encodeWithSignature("isCursed()"), abi.encodeWithSelector(CustomError.selector, err)
     );
 
-    s_armProxy.setARM(address(s_mockRMNRemote));
+    s_rmnProxy.setARM(address(s_mockRMNRemote));
     vm.expectRevert(abi.encodeWithSelector(CustomError.selector, err));
-    IRMN(address(s_armProxy)).isCursed();
+    IRMN(address(s_rmnProxy)).isCursed();
   }
 
   function test_RevertWhen_call_ARMCallEmptyContract() public {
-    s_armProxy.setARM(EMPTY_ADDRESS); // No code at address 1, should revert.
+    s_rmnProxy.setARM(EMPTY_ADDRESS); // No code at address 1, should revert.
     vm.expectRevert();
-    (bool success,) = address(s_armProxy).call(new bytes(0));
+    (bool success,) = address(s_rmnProxy).call(new bytes(0));
     success;
   }
 }

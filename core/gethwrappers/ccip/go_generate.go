@@ -9,7 +9,7 @@ package ccip
 //go:generate go run ../generation/generate/wrap_short.go ccip MultiAggregateRateLimiter multi_aggregate_rate_limiter
 //go:generate go run ../generation/generate/wrap_short.go ccip TokenAdminRegistry token_admin_registry
 //go:generate go run ../generation/generate/wrap_short.go ccip RegistryModuleOwnerCustom registry_module_owner_custom
-//go:generate go run ../generation/generate/wrap_short.go ccip ARMProxy rmn_proxy_contract
+//go:generate go run ../generation/generate/wrap_short.go ccip RMNProxy rmn_proxy_contract
 //go:generate go run ../generation/generate/wrap_short.go ccip RMNRemote rmn_remote
 //go:generate go run ../generation/generate/wrap_short.go ccip RMNHome rmn_home
 
