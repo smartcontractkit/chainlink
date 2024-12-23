@@ -222,7 +222,10 @@ contract HybridLockReleaseUSDCTokenPool is USDCTokenPool, USDCBridgeMigrator {
   /// @param from The address of the old pool.
   /// @param remoteChainSelector The chain for which liquidity is being transferred.
   function transferLiquidity(address from, uint64 remoteChainSelector) external onlyOwner {
-    Ownable2StepMsgSender(from).acceptOwnership();
+    // Only accept ownership the first time otherwise the call will revert due to no pending owner.
+    if (Ownable2StepMsgSender(from).owner() != address(this)) {
+      Ownable2StepMsgSender(from).acceptOwnership();
+    }
 
     // Withdraw all available liquidity from the old pool. No check is needed for pending migrations, as the old pool
     // will revert if the migration has begun.
