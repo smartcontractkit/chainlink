@@ -54,7 +54,7 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.50.0
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.50.9
 	github.com/smartcontractkit/chainlink-testing-framework/wasp v1.50.2
-	github.com/smartcontractkit/libocr v0.0.0-20241007185508-adbe57025f12
+	github.com/smartcontractkit/libocr v0.0.0-20241223215956-e5b78d8e3919
 	github.com/spf13/cobra v1.8.1
 	github.com/stretchr/testify v1.9.0
 	github.com/subosito/gotenv v1.6.0

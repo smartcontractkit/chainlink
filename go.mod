@@ -86,7 +86,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.4.0
 	github.com/smartcontractkit/chainlink-solana v1.1.1-0.20241223151630-eac4f1508dce
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.1.1-0.20241202202529-2033490e77b8
-	github.com/smartcontractkit/libocr v0.0.0-20241007185508-adbe57025f12
+	github.com/smartcontractkit/libocr v0.0.0-20241223215956-e5b78d8e3919
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20241009055228-33d0c0bf38de
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20241009055228-33d0c0bf38de
 	github.com/smartcontractkit/wsrpc v0.8.3

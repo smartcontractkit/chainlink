@@ -1467,8 +1467,8 @@ github.com/smartcontractkit/chainlink-testing-framework/wasp v1.50.2 h1:7bCdbTUW
 github.com/smartcontractkit/chainlink-testing-framework/wasp v1.50.2/go.mod h1:MltlNu3jcXm/DyLN98I5TFNtu/o1NNAcaPAFKMXWk70=
 github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 h1:12ijqMM9tvYVEm+nR826WsrNi6zCKpwBhuApq127wHs=
 github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7/go.mod h1:FX7/bVdoep147QQhsOPkYsPEXhGZjeYx6lBSaSXtZOA=
-github.com/smartcontractkit/libocr v0.0.0-20241007185508-adbe57025f12 h1:NzZGjaqez21I3DU7objl3xExTH4fxYvzTqar8DC6360=
-github.com/smartcontractkit/libocr v0.0.0-20241007185508-adbe57025f12/go.mod h1:fb1ZDVXACvu4frX3APHZaEBp0xi1DIm34DcA0CwTsZM=
+github.com/smartcontractkit/libocr v0.0.0-20241223215956-e5b78d8e3919 h1:IpGoPTXpvllN38kT2z2j13sifJMz4nbHglidvop7mfg=
+github.com/smartcontractkit/libocr v0.0.0-20241223215956-e5b78d8e3919/go.mod h1:fb1ZDVXACvu4frX3APHZaEBp0xi1DIm34DcA0CwTsZM=
 github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20241009055228-33d0c0bf38de h1:n0w0rKF+SVM+S3WNlup6uabXj2zFlFNfrlsKCMMb/co=
 github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20241009055228-33d0c0bf38de/go.mod h1:Sl2MF/Fp3fgJIVzhdGhmZZX2BlnM0oUUyBP4s4xYb6o=
 github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20241009055228-33d0c0bf38de h1:66VQxXx3lvTaAZrMBkIcdH9VEjujUEvmBQdnyOJnkOc=
