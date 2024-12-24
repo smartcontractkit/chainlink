@@ -35,4 +35,4 @@ package ccip
 //go:generate go run ../generation/generate/wrap_short.go ccip CCIPReaderTester ccip_reader_tester
 
 // EncodingUtils
-//go:generate go run ../generation/generate/wrap_short.go ccip ICCIPEncodingUtils ccip_encoding_utils
+//go:generate go run ../generation/generate/wrap_short.go ccip EncodingUtils ccip_encoding_utils

@@ -77,8 +77,7 @@ compileContract test/mocks/MockE2EUSDCTokenMessenger
 compileContract test/mocks/MockE2EUSDCTransmitter
 compileContract test/WETH9
 compileContract test/helpers/CCIPReaderTester
-
 # Offchain test encoding utils
-compileContract interfaces/encodingutils/ICCIPEncodingUtils
+compileContract test/helpers/EncodingUtils
 
 
