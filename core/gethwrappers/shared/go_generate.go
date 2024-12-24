@@ -9,3 +9,4 @@ package gethwrappers
 
 //go:generate go run ../generation/generate/wrap_short.go vendor ERC20 erc20
 //go:generate go run ../generation/generate/wrap_short.go vendor Multicall3 multicall3
+//go:generate go run ../generation/generate/wrap_short.go tests MockV3Aggregator mock_v3_aggregator_contract

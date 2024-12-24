@@ -22,7 +22,6 @@ package ccip
 //go:generate go run ../generation/generate/wrap_short.go ccip USDCTokenPool usdc_token_pool
 
 // Helpers
-//go:generate go run ../generation/generate/wrap_short.go ccip MockV3Aggregator mock_v3_aggregator_contract
 //go:generate go run ../generation/generate/wrap_short.go ccip MaybeRevertMessageReceiver maybe_revert_message_receiver
 //go:generate go run ../generation/generate/wrap_short.go ccip PingPongDemo ping_pong_demo
 //go:generate go run ../generation/generate/wrap_short.go ccip MessageHasher message_hasher

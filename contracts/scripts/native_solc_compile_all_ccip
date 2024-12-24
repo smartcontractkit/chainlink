@@ -20,11 +20,6 @@ compileContract() {
   contract=$(basename "$1")
   echo "Compiling" "$contract"
 
-  if [ -n "$2" ]; then
-    echo "Compiling from another project: ""$2"
-    PROJECT=$2
-  fi
-
   local command
   command="forge build $CONTRACTS_DIR/src/v0.8/$PROJECT/"$1.sol" \
    $(getOptimizations "$contract") \
@@ -86,6 +81,4 @@ compileContract test/helpers/CCIPReaderTester
 # Offchain test encoding utils
 compileContract interfaces/encodingutils/ICCIPEncodingUtils
 
-compileContract MockV3Aggregator tests
-compileContract token/ERC677/BurnMintERC677 shared
-compileContract token/ERC20/BurnMintERC20 shared
+
