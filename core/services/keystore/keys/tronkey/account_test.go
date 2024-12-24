@@ -114,7 +114,7 @@ func TestHexToAddress(t *testing.T) {
 		for _, hexStr := range validHexAddresses {
 			t.Run(hexStr, func(t *testing.T) {
 				addr, err := HexToAddress(hexStr)
-				require.Nil(t, err)
+				require.NoError(t, err)
 				require.Equal(t, "0x"+hexStr, addr.Hex())
 			})
 		}
@@ -131,7 +131,7 @@ func TestHexToAddress(t *testing.T) {
 		for _, hexStr := range invalidHexAddresses {
 			t.Run(hexStr, func(t *testing.T) {
 				_, err := HexToAddress(hexStr)
-				require.NotNil(t, err)
+				require.Error(t, err)
 			})
 		}
 	})
