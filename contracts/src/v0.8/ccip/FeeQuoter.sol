@@ -44,6 +44,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   error MessageTooLarge(uint256 maxSize, uint256 actualSize);
   error UnsupportedNumberOfTokens(uint256 numberOfTokens, uint256 maxNumberOfTokensPerMsg);
   error InvalidFeeRange(uint256 minFeeUSDCents, uint256 maxFeeUSDCents);
+  error SolAddressCannotBeWritable(bytes SolAddress);
 
   event FeeTokenAdded(address indexed feeToken);
   event FeeTokenRemoved(address indexed feeToken);
@@ -602,7 +603,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       * (
         destChainConfig.destGasOverhead
           + ((message.data.length + tokenTransferBytesOverhead) * destChainConfig.destGasPerPayloadByte) + tokenTransferGas
-          + _parseEVMExtraArgsFromBytes(message.extraArgs, destChainConfig).gasLimit
+          + _parseGasLimitFromExtraArgBytes(message.extraArgs, destChainConfig)
       ) * destChainConfig.gasMultiplierWeiPerEth;
 
     // Calculate number of fee tokens to charge.
@@ -852,6 +853,61 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     if (chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_EVM) {
       Internal._validateEVMAddress(destAddress);
     }
+
+    if (chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_SOL) {
+      Internal._validateSolAddress(destAddress);
+    }
+  }
+
+  function _parseGasLimitFromExtraArgBytes(
+    bytes calldata extraArgs,
+    DestChainConfig memory destChainConfig
+  ) internal pure returns (uint256 gasLimit) {
+    if (destChainConfig.chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_EVM) {
+      return _parseEVMExtraArgsFromBytes(extraArgs, destChainConfig).gasLimit;
+    } else if (destChainConfig.chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_SOL) {
+      // If extra args are empty, generate default values.
+      return _parseSolExtraArgsFromBytes(extraArgs, destChainConfig).computeUnits;
+    }
+  }
+
+  function _parseSolExtraArgsFromBytes(
+    bytes calldata extraArgs,
+    DestChainConfig memory destChainConfig
+  ) internal pure returns (Client.SolExtraArgsV1 memory) {
+
+    Client.SolExtraArgsV1 memory SolExtraArgs = _parseUnvalidatedSolExtraArgsFromBytes(extraArgs, destChainConfig.defaultTxGasLimit);
+
+    // Check that compute units is within the allowed range
+    if (SolExtraArgs.computeUnits > uint256(destChainConfig.maxPerMsgGasLimit)) revert MessageGasLimitTooHigh();
+
+    // The Program name being invoked cannotb
+    if (SolExtraArgs.accounts[0].isWritable) revert SolAddressCannotBeWritable(SolExtraArgs.accounts[0].pubKey);
+
+    // Check that every other account provided is a valid Sol Account
+    for (uint256 i = 0; i < SolExtraArgs.accounts.length; ++i) {
+      Internal._validateSolAddress(SolExtraArgs.accounts[i].pubKey);
+    }
+
+    return SolExtraArgs;
+  }
+
+  function _parseUnvalidatedSolExtraArgsFromBytes(
+    bytes calldata extraArgs,
+    uint64 defaultTxGasLimit
+  ) internal pure returns (Client.SolExtraArgsV1 memory) {
+    if (extraArgs.length == 0) {
+      return Client.SolExtraArgsV1({
+        computeUnits: uint32(defaultTxGasLimit), //TODO: Potentially unsafe cast
+        accounts: new Client.SolanaAccountMeta[](0)
+      });
+    }
+
+    bytes memory argsData = extraArgs[4:];
+
+    Client.SolExtraArgsV1 memory solExtraArgs = abi.decode(argsData, (Client.SolExtraArgsV1));
+
+    return solExtraArgs;
   }
 
   /// @dev Convert the extra args bytes into a struct with validations against the dest chain config.
@@ -1039,11 +1095,8 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       DestChainConfig memory destChainConfig = destChainConfigArg.destChainConfig;
 
       // destChainSelector must be non-zero, defaultTxGasLimit must be set, and must be less than maxPerMsgGasLimit.
-      // Only EVM chains are supported for now, additional validation logic will be added when supporting other chain
-      // families
       if (
         destChainSelector == 0 || destChainConfig.defaultTxGasLimit == 0
-          || destChainConfig.chainFamilySelector != Internal.CHAIN_FAMILY_SELECTOR_EVM
           || destChainConfig.defaultTxGasLimit > destChainConfig.maxPerMsgGasLimit
       ) {
         revert InvalidDestChainConfig(destChainSelector);

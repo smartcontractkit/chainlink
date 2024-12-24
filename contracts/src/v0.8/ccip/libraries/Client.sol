@@ -42,6 +42,9 @@ library Client {
   // bytes4(keccak256("CCIP EVMExtraArgsV2"));
   bytes4 public constant EVM_EXTRA_ARGS_V2_TAG = 0x181dcf10;
 
+  // bytes4(keccak256("CCIP SolExtraArgsV1"));
+  bytes4 public constant SOL_EXTRA_EXTRA_ARGS_V1_TAG = 0x3f2538fa;
+
   /// @param gasLimit: gas limit for the callback on the destination chain.
   /// @param allowOutOfOrderExecution: if true, it indicates that the message can be executed in any order relative to
   /// other messages from the same sender. This value's default varies by chain. On some chains, a particular value is
@@ -49,6 +52,16 @@ library Client {
   struct EVMExtraArgsV2 {
     uint256 gasLimit;
     bool allowOutOfOrderExecution;
+  }
+
+  struct SolExtraArgsV1 {
+    uint32 computeUnits;
+    SolanaAccountMeta[] accounts;
+  }
+
+  struct SolanaAccountMeta {
+    bytes pubKey;
+    bool isWritable;
   }
 
   function _argsToBytes(
