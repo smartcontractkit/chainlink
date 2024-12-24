@@ -31,7 +31,6 @@ import (
 
 	capabilities_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	kf "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder_1_0_0"
-	ocr3_capability "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
@@ -324,8 +323,9 @@ func ConfigureOCR3Contract(env *deployment.Environment, chainSel uint64, dons []
 			return fmt.Errorf("failed to get contract set for chain %d", chainSel)
 		}
 
-		contract, err := getOCR3Contract(contracts.OCR3, nil)
+		contract, err := contracts.GetOCR3Contract(nil)
 		if err != nil {
+			env.Logger.Errorf("failed to get OCR3 contract: %s", err)
 			return fmt.Errorf("failed to get OCR3 contract: %w", err)
 		}
 
@@ -382,8 +382,9 @@ func ConfigureOCR3ContractFromJD(env *deployment.Environment, cfg ConfigureOCR3C
 		return nil, fmt.Errorf("failed to get contract set for chain %d", cfg.ChainSel)
 	}
 
-	contract, err := getOCR3Contract(contracts.OCR3, cfg.Address)
+	contract, err := contracts.GetOCR3Contract(cfg.Address)
 	if err != nil {
+		env.Logger.Errorf("%sfailed to get OCR3 contract at %s : %s", prefix, cfg.Address, err)
 		return nil, fmt.Errorf("failed to get OCR3 contract: %w", err)
 	}
 
@@ -968,31 +969,4 @@ func configureForwarder(lggr logger.Logger, chain deployment.Chain, contractSet 
 		lggr.Debugw("configured forwarder", "forwarder", fwdr.Address().String(), "donId", dn.Info.Id, "version", ver, "f", dn.Info.F, "signers", signers)
 	}
 	return opMap, nil
-}
-
-// getOCR3Contract returns the OCR3 contract from the contract set.  By default, it returns the only
-// contract in the set if there is no address specified.  If an address is specified, it returns the
-// contract with that address.  If the address is specified but not found in the contract set, it returns
-// an error.
-func getOCR3Contract(contracts map[common.Address]*ocr3_capability.OCR3Capability, addr *common.Address) (*ocr3_capability.OCR3Capability, error) {
-	// Fail if the OCR3 contract address is unspecified and there are multiple OCR3 contracts
-	if addr == nil && len(contracts) > 1 {
-		return nil, errors.New("OCR contract address is unspecified")
-	}
-
-	// Use the first OCR3 contract if the address is unspecified
-	if addr == nil && len(contracts) == 1 {
-		// use the first OCR3 contract
-		for _, c := range contracts {
-			return c, nil
-		}
-	}
-
-	// Select the OCR3 contract by address
-	if contract, ok := contracts[*addr]; ok {
-		return contract, nil
-	}
-
-	// Fail if the OCR3 contract address is specified but not found in the contract set
-	return nil, fmt.Errorf("OCR3 contract address %s not found in contract set", *addr)
 }

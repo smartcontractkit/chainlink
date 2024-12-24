@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -65,6 +66,10 @@ func (cs ContractSet) View() (view.KeystoneChainView, error) {
 	return out, nil
 }
 
+func (cs ContractSet) GetOCR3Contract(addr *common.Address) (*ocr3_capability.OCR3Capability, error) {
+	return getOCR3Contract(cs.OCR3, addr)
+}
+
 func GetContractSets(lggr logger.Logger, req *GetContractSetsRequest) (*GetContractSetsResponse, error) {
 	resp := &GetContractSetsResponse{
 		ContractSets: make(map[uint64]ContractSet),
@@ -127,4 +132,36 @@ func loadContractSet(lggr logger.Logger, chain deployment.Chain, addresses map[s
 		}
 	}
 	return &out, nil
+}
+
+// getOCR3Contract returns the OCR3 contract from the contract set.  By default, it returns the only
+// contract in the set if there is no address specified.  If an address is specified, it returns the
+// contract with that address.  If the address is specified but not found in the contract set, it returns
+// an error.
+func getOCR3Contract(contracts map[common.Address]*ocr3_capability.OCR3Capability, addr *common.Address) (*ocr3_capability.OCR3Capability, error) {
+	// Fail if the OCR3 contract address is unspecified and there are multiple OCR3 contracts
+	if addr == nil && len(contracts) > 1 {
+		return nil, errors.New("OCR contract address is unspecified")
+	}
+
+	// Use the first OCR3 contract if the address is unspecified
+	if addr == nil && len(contracts) == 1 {
+		// use the first OCR3 contract
+		for _, c := range contracts {
+			return c, nil
+		}
+	}
+
+	// Select the OCR3 contract by address
+	if contract, ok := contracts[*addr]; ok {
+		return contract, nil
+	}
+
+	addrSet := make([]string, 0, len(contracts))
+	for a := range contracts {
+		addrSet = append(addrSet, a.String())
+	}
+
+	// Fail if the OCR3 contract address is specified but not found in the contract set
+	return nil, fmt.Errorf("OCR3 contract address %s not found in contract set %v", *addr, addrSet)
 }
