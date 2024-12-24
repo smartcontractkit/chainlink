@@ -11,9 +11,8 @@ import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/
 import {SafeERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
 import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/structs/EnumerableSet.sol";
 
-/// @notice Token pool used for tokens on their native chain. This uses a lock and release mechanism.
-/// Because of lock/unlock requiring liquidity, this pool contract also has function to add and remove
-/// liquidity. This allows for proper bookkeeping for both user and liquidity provider balances.
+/// @notice A variation on Lock Release token pools where liquidity is shared among some chains, and stored independently
+/// for others. Chains which do not share liquidity are known as siloed chains.
 /// @dev One token per LockReleaseTokenPool.
 contract SiloedLockReleaseTokenPool is TokenPool, ITypeAndVersion {
   using SafeERC20 for IERC20;
@@ -29,12 +28,12 @@ contract SiloedLockReleaseTokenPool is TokenPool, ITypeAndVersion {
 
   event RebalancerSet(uint64 indexed remoteChainSelector, address oldRebalancer, address newRebalancer);
 
-  string public constant override typeAndVersion = "SiloedLockReleaseTokenPool 1.5.1";
+  string public constant override typeAndVersion = "SiloedLockReleaseTokenPool 1.5.10-dev";
 
   mapping(uint64 chainSelector => uint256 lockedBalance) internal s_lockedTokensByChainSelector;
   mapping(uint64 remoteChainSelector => address rebalancer) internal s_rebalancerByChain;
-
   mapping(uint64 remoteChainSelector => bool shouldSiloFunds) internal s_siloedChainSelectors;
+
   EnumerableSet.UintSet internal s_siloedChains;
 
   constructor(
@@ -127,10 +126,10 @@ contract SiloedLockReleaseTokenPool is TokenPool, ITypeAndVersion {
       emit ChainSiloeDesignationUpdated(adds[i], true);
     }
   }
+
   /// @notice Gets the rebalancer able to provide liquidity for a remote chain selector
   /// @param remoteChainSelector The CCIP specific selector for the remote chain being interacted with.
   /// @return The current liquidity manager, owner if the chain's funds are not siloed.
-
   function getRebalancerByChain(
     uint64 remoteChainSelector
   ) external view returns (address) {
@@ -140,6 +139,8 @@ contract SiloedLockReleaseTokenPool is TokenPool, ITypeAndVersion {
 
   /// @notice Sets the LiquidityManager address.
   /// @dev Only callable by the owner.
+  /// @param remoteChainSelector the remote chain to set.
+  /// @param rebalancer the address allowed to add liquidity for the given siloed chain.
   function setRebalancer(uint64 remoteChainSelector, address rebalancer) external onlyOwner {
     address oldRebalancer = s_rebalancerByChain[remoteChainSelector];
 
@@ -149,6 +150,7 @@ contract SiloedLockReleaseTokenPool is TokenPool, ITypeAndVersion {
   }
 
   /// @notice Adds liquidity to the pool. The tokens should be approved first.
+  /// @param remoteChainSelector the remote chain to set.
   /// @param amount The amount of liquidity to provide.
   function provideLiquidity(uint64 remoteChainSelector, uint256 amount) external {
     // Save gas by performing the enumerable set query once for both authorization and internal accounting
@@ -165,6 +167,8 @@ contract SiloedLockReleaseTokenPool is TokenPool, ITypeAndVersion {
   }
 
   /// @notice Removed liquidity to the pool. The tokens will be sent to msg.sender.
+  /// @param remoteChainSelector the remote chain to set. If the chain is not siloed, then no accounting will be updated,
+  /// which can be considered the liquidity for all non-siloed chains sharing liquidity.
   /// @param amount The amount of liquidity to remove.
   function withdrawLiquidity(uint64 remoteChainSelector, uint256 amount) external onlyOwner {
     // If funds are siloed by chain, prevent more than has been locked from being removed from the token pool.
@@ -185,6 +189,8 @@ contract SiloedLockReleaseTokenPool is TokenPool, ITypeAndVersion {
   /// changing which pool CCIP uses, to ensure both pools can operate. Then the pool should be changed in the
   /// TokenAdminRegistry, which will activate the new pool. All new transactions will use the new pool and its
   /// liquidity. Finally, the remaining liquidity can be transferred to the new pool using this function one more time.
+  /// @param remoteChainSelector the remote chain to set. If the chain is not siloed, then no accounting will be updated,
+  /// which can be considered the liquidity for all non-siloed chains sharing liquidity.
   /// @param from The address of the old pool.
   /// @param amount The amount of liquidity to transfer.
   function transferLiquidity(uint64 remoteChainSelector, address from, uint256 amount) external onlyOwner {
@@ -193,6 +199,8 @@ contract SiloedLockReleaseTokenPool is TokenPool, ITypeAndVersion {
 
     SiloedLockReleaseTokenPool(from).withdrawLiquidity(remoteChainSelector, amount);
 
+    // Since both siloed and non-siloed token liquidity can be transferred, allow transfers from both, but only
+    // update internal accounting for siloed chains.
     if (s_siloedChainSelectors[remoteChainSelector]) {
       s_lockedTokensByChainSelector[remoteChainSelector] += amount;
     }
