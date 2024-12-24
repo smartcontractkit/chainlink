@@ -127,14 +127,15 @@ contract SiloedLockReleaseTokenPool is TokenPool, ITypeAndVersion {
       emit ChainSiloeDesignationUpdated(adds[i], true);
     }
   }
-  /// @notice Gets LiquidityManager, can be address(0) if none is configured.
+  /// @notice Gets the rebalancer able to provide liquidity for a remote chain selector
   /// @param remoteChainSelector The CCIP specific selector for the remote chain being interacted with.
-  /// @return The current liquidity manager.
+  /// @return The current liquidity manager, owner if the chain's funds are not siloed.
 
   function getRebalancerByChain(
     uint64 remoteChainSelector
   ) external view returns (address) {
-    return s_rebalancerByChain[remoteChainSelector];
+    if (s_siloedChainSelectors[remoteChainSelector]) return s_rebalancerByChain[remoteChainSelector];
+    else return owner();
   }
 
   /// @notice Sets the LiquidityManager address.
@@ -167,11 +168,10 @@ contract SiloedLockReleaseTokenPool is TokenPool, ITypeAndVersion {
   /// @param amount The amount of liquidity to remove.
   function withdrawLiquidity(uint64 remoteChainSelector, uint256 amount) external onlyOwner {
     // If funds are siloed by chain, prevent more than has been locked from being removed from the token pool.
-    if (s_siloedChains.contains(remoteChainSelector)) {
+    if (s_siloedChainSelectors[remoteChainSelector]) {
       s_lockedTokensByChainSelector[remoteChainSelector] -= amount;
     }
 
-    if (i_token.balanceOf(address(this)) < amount) revert InsufficientLiquidity();
     i_token.safeTransfer(msg.sender, amount);
     emit LiquidityRemoved(remoteChainSelector, msg.sender, amount);
   }

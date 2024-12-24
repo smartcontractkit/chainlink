@@ -32,6 +32,8 @@ contract SiloedLockReleaseTokenPoolSetup is BaseTest {
       s_token, DEFAULT_TOKEN_DECIMALS, new address[](0), address(s_mockRMNRemote), address(s_sourceRouter)
     );
 
+    s_token.approve(address(s_siloedLockReleaseTokenPool), type(uint256).max);
+
     bytes[] memory remotePoolAddresses = new bytes[](2);
     remotePoolAddresses[0] = abi.encode(s_destPoolAddress);
     remotePoolAddresses[1] = abi.encode(s_siloedDestPoolAddress);

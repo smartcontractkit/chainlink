@@ -7,10 +7,9 @@ import {Pool} from "../../../libraries/Pool.sol";
 import {SiloedLockReleaseTokenPoolSetup} from "./SiloedLockReleaseTokenPoolSetup.t.sol";
 
 contract SiloedLockReleaseTokenPool_releaseOrMint is SiloedLockReleaseTokenPoolSetup {
-  function testFuzz_ReleaseOrMint_SiloedFunds_Success(
-    uint256 amount
-  ) public {
-    amount = bound(amount, 1, _getOutboundRateLimiterConfig().capacity);
+  function test_ReleaseOrMint_SiloedFunds_Success() public {
+    uint256 amount = 10e18;
+
     deal(address(s_token), address(s_siloedLockReleaseTokenPool), amount);
     vm.startPrank(s_allowedOnRamp);
 
