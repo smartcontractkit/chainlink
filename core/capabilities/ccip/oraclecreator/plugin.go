@@ -328,9 +328,9 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 		execBatchGasLimit = defaultExecGasLimit
 	}
 
-	homeChainID, err := i.getChainID(i.homeChainSelector)
+	homeChainID, err := chainsel.GetChainIDFromSelector(uint64(i.homeChainSelector))
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to get chain ID from chain selector %d: %w", i.homeChainSelector, err)
 	}
 
 	contractReaders := make(map[cciptypes.ChainSelector]types.ContractReader)
@@ -338,7 +338,8 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 	for relayID, relayer := range i.relayers {
 		chainID := relayID.ChainID
 		relayChainFamily := relayID.Network
-		chainSelector, err1 := i.getChainSelector(chainID, relayChainFamily)
+		chainDetails, err1 := chainsel.GetChainDetailsByChainIDAndFamily(chainID, relayChainFamily)
+		chainSelector := cciptypes.ChainSelector(chainDetails.ChainSelector)
 		if err1 != nil {
 			return nil, nil, fmt.Errorf("failed to get chain selector from chain ID %s: %w", chainID, err1)
 		}
@@ -419,22 +420,6 @@ func decodeAndValidateOffchainConfig(
 		return offChainConfig{}, fmt.Errorf("invalid offchain config: both commit and exec configs are either set or unset")
 	}
 	return ofc, nil
-}
-
-func (i *pluginOracleCreator) getChainSelector(chainID string, chainFamily string) (cciptypes.ChainSelector, error) {
-	chainDetails, err := chainsel.GetChainDetailsByChainIDAndFamily(chainID, chainFamily)
-	if err != nil {
-		return 0, fmt.Errorf("failed to get chain selector from chain ID %s and family %s", chainID, chainFamily)
-	}
-	return cciptypes.ChainSelector(chainDetails.ChainSelector), nil
-}
-
-func (i *pluginOracleCreator) getChainID(chainSelector cciptypes.ChainSelector) (string, error) {
-	chainID, err := chainsel.GetChainIDFromSelector(uint64(chainSelector))
-	if err != nil {
-		return "", fmt.Errorf("failed to get chain ID from chain selector %d: %w", chainSelector, err)
-	}
-	return chainID, nil
 }
 
 func getChainReaderConfig(
