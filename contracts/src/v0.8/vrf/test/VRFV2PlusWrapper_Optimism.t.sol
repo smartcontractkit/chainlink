@@ -3,7 +3,7 @@ pragma solidity 0.8.19;
 
 import {BaseTest} from "./BaseTest.t.sol";
 import {MockLinkToken} from "../../functions/tests/v1_X/testhelpers/MockLinkToken.sol";
-import {MockV3Aggregator} from "../../tests/MockV3Aggregator.sol";
+import {MockV3Aggregator} from "../../shared/mocks/MockV3Aggregator.sol";
 import {ExposedVRFCoordinatorV2_5_Optimism} from "../dev/testhelpers/ExposedVRFCoordinatorV2_5_Optimism.sol";
 import {VRFV2PlusWrapper_Optimism} from "../dev/VRFV2PlusWrapper_Optimism.sol";
 import {OptimismL1Fees} from "../dev/OptimismL1Fees.sol";
