@@ -2,8 +2,8 @@
 pragma solidity 0.8.16;
 
 import "./VerifiableLoadBase.sol";
-import "../automation/interfaces/ILogAutomation.sol";
-import "../automation/interfaces/StreamsLookupCompatibleInterface.sol";
+import "../interfaces/ILogAutomation.sol";
+import "../interfaces/StreamsLookupCompatibleInterface.sol";
 
 contract VerifiableLoadLogTriggerUpkeep is VerifiableLoadBase, StreamsLookupCompatibleInterface, ILogAutomation {
   bool public useMercury;
