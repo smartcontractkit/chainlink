@@ -69,7 +69,6 @@ jobs:
               - '!contracts/src/v0.8/**/*.t.sol'
               - '!contracts/src/v0.8/*.t.sol'
               - '!contracts/src/v0.8/**/testhelpers/**'
-              - '!contracts/src/v0.8/testhelpers/**'
               - '!contracts/src/v0.8/vendor/**'
             other_shared:
               - modified|added: 'contracts/src/v0.8/(interfaces/**/*.sol|*.sol)'
