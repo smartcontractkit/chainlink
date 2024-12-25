@@ -21,8 +21,8 @@ import {IERC20Metadata as IERC20} from "../../../vendor/openzeppelin-solidity/v4
 import {MockUpkeep} from "../../mocks/MockUpkeep.sol";
 import {IWrappedNative} from "../../interfaces/v2_3/IWrappedNative.sol";
 import {WETH9} from "../WETH9.sol";
-import {MockGasBoundCaller} from "../../../tests/MockGasBoundCaller.sol";
-import {MockZKSyncSystemContext} from "../../../tests/MockZKSyncSystemContext.sol";
+import {MockGasBoundCaller} from "../../mocks/MockGasBoundCaller.sol";
+import {MockZKSyncSystemContext} from "../../mocks/MockZKSyncSystemContext.sol";
 
 /**
  * @title BaseTest provides basic test setup procedures and dependencies for use by other

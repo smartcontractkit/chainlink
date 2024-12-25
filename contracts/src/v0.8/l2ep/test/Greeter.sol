@@ -1,6 +1,6 @@
 pragma solidity ^0.8.0;
 
-import "../shared/access/ConfirmedOwner.sol";
+import "../../shared/access/ConfirmedOwner.sol";
 
 contract Greeter is ConfirmedOwner {
   string public greeting;
