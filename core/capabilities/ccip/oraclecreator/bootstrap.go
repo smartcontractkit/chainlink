@@ -11,6 +11,7 @@ import (
 	"time"
 
 	mapset "github.com/deckarep/golang-set/v2"
+
 	logger2 "github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
