@@ -10,7 +10,7 @@ import {IERC20} from "../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/
 
 contract BurnToAddressMintTokenPool_lockOrBurn is BurnToAddressMintTokenPoolSetup {
   function test_LockOrBurn() public {
-    uint256 burnAmount = initialTokenAmount;
+    uint256 burnAmount = s_initialTokenAmount;
 
     deal(address(s_burnMintERC20), address(s_pool), burnAmount);
     assertEq(s_burnMintERC20.balanceOf(address(s_pool)), burnAmount);
@@ -48,7 +48,7 @@ contract BurnToAddressMintTokenPool_lockOrBurn is BurnToAddressMintTokenPoolSetu
   // Reverts
 
   function test_LockOrBurn_RevertWhen_LockedTokensUnderflows() public {
-    uint256 burnAmount = initialTokenAmount + 1;
+    uint256 burnAmount = s_initialTokenAmount + 1;
 
     deal(address(s_burnMintERC20), address(s_pool), burnAmount);
 

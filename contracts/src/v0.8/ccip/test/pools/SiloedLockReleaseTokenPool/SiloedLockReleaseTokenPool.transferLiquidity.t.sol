@@ -4,8 +4,6 @@ pragma solidity ^0.8.24;
 import {SiloedLockReleaseTokenPool} from "../../../pools/SiloedLockReleaseTokenPool.sol";
 import {SiloedLockReleaseTokenPoolSetup} from "./SiloedLockReleaseTokenPoolSetup.t.sol";
 
-import {Ownable2Step} from "../../../../shared/access/Ownable2Step.sol";
-
 contract SiloedLockReleaseTokenPool_transferLiquidity is SiloedLockReleaseTokenPoolSetup {
   function test_transferLiquidity_Success() public {
     uint256 amount = 10e24;

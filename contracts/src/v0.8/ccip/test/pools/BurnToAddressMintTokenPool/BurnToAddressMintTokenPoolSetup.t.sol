@@ -7,7 +7,7 @@ import {BurnMintSetup} from "../BurnMintTokenPool/BurnMintSetup.t.sol";
 contract BurnToAddressMintTokenPoolSetup is BurnMintSetup {
   BurnToAddressMintTokenPool internal s_pool;
 
-  uint256 internal initialTokenAmount = 20_000e18;
+  uint256 internal s_initialTokenAmount = 20_000e18;
 
   function setUp() public virtual override {
     BurnMintSetup.setUp();
@@ -19,7 +19,7 @@ contract BurnToAddressMintTokenPoolSetup is BurnMintSetup {
       address(s_mockRMNRemote),
       address(s_sourceRouter),
       address(0xdead),
-      initialTokenAmount
+      s_initialTokenAmount
     );
     s_burnMintERC20.grantMintAndBurnRoles(address(s_pool));
 
