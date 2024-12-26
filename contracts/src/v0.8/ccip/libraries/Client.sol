@@ -60,7 +60,7 @@ library Client {
   }
 
   struct SolanaAccountMeta {
-    bytes pubKey;
+    bytes32 pubKey;
     bool isWritable;
   }
 
@@ -68,5 +68,11 @@ library Client {
     EVMExtraArgsV2 memory extraArgs
   ) internal pure returns (bytes memory bts) {
     return abi.encodeWithSelector(EVM_EXTRA_ARGS_V2_TAG, extraArgs);
+  }
+
+  function _solArgsToBytes(
+    SolExtraArgsV1 memory extraArgs
+  ) internal pure returns (bytes memory bts) {
+    return abi.encodeWithSelector(SOL_EXTRA_EXTRA_ARGS_V1_TAG, extraArgs);
   }
 }
