@@ -12,6 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4.2.1
         with:
+          persist-credentials: false
           ref: develop
         if: env.GITHUB_REPOSITORY != 'smartcontractkit/chainlink'
       - name: Sync

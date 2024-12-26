@@ -34,7 +34,7 @@ func TestDeployForwarder(t *testing.T) {
 
 		// deploy forwarder
 		env.ExistingAddresses = ab
-		resp, err := changeset.DeployForwarder(env, registrySel)
+		resp, err := changeset.DeployForwarder(env, changeset.DeployForwarderRequest{})
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		// registry, ocr3, forwarder should be deployed on registry chain

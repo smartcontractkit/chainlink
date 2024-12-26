@@ -11,7 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 
-	ksdeploy "github.com/smartcontractkit/chainlink/deployment/keystone"
+	ksdeploy "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -97,7 +97,7 @@ func deployOCR3Contract(
 	return o, true
 }
 
-func generateOCR3Config(nodeKeys []NodeKeys, configFile string) ksdeploy.OCR2OracleConfig {
+func generateOCR3Config(nodeKeys []NodeKeys, configFile string) ksdeploy.OCR3OnchainConfig {
 	topLevelCfg := mustReadOCR3Config(configFile)
 	cfg := topLevelCfg.OracleConfig
 	secrets := deployment.XXXGenerateTestOCRSecrets()
@@ -106,7 +106,7 @@ func generateOCR3Config(nodeKeys []NodeKeys, configFile string) ksdeploy.OCR2Ora
 	return c
 }
 
-func setOCRConfig(o *onchainMeta, env helpers.Environment, ocrConf ksdeploy.OCR2OracleConfig, artefacts string) {
+func setOCRConfig(o *onchainMeta, env helpers.Environment, ocrConf ksdeploy.OCR3OnchainConfig, artefacts string) {
 	fmt.Println("Setting OCR3 contract config...")
 	tx, err := o.OCR3.SetConfig(env.Owner,
 		ocrConf.Signers,

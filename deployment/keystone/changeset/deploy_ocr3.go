@@ -11,7 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
+	kslib "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
 
 var _ deployment.ChangeSet[uint64] = DeployOCR3

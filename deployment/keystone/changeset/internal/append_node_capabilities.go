@@ -5,14 +5,14 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/deployment"
-	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
+
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
 type AppendNodeCapabilitiesRequest struct {
 	Chain       deployment.Chain
-	ContractSet *kslib.ContractSet
+	ContractSet *ContractSet
 
 	P2pToCapabilities map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability
 	UseMCMS           bool
@@ -48,7 +48,7 @@ func AppendNodeCapabilitiesImpl(lggr logger.Logger, req *AppendNodeCapabilitiesR
 	for _, cap := range req.P2pToCapabilities {
 		capabilities = append(capabilities, cap...)
 	}
-	op, err := kslib.AddCapabilities(lggr, req.ContractSet, req.Chain, capabilities, req.UseMCMS)
+	op, err := AddCapabilities(lggr, req.ContractSet, req.Chain, capabilities, req.UseMCMS)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add capabilities: %w", err)
 	}

@@ -18,8 +18,6 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-
-	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 )
 
 // CapabilityConfig is a struct that holds a capability and its configuration
@@ -30,7 +28,7 @@ type CapabilityConfig struct {
 
 type UpdateDonRequest struct {
 	Chain       deployment.Chain
-	ContractSet *kslib.ContractSet // contract set for the given chain
+	ContractSet *ContractSet // contract set for the given chain
 
 	P2PIDs            []p2pkey.PeerID    // this is the unique identifier for the don
 	CapabilityConfigs []CapabilityConfig // if Config subfield is nil, a default config is used
@@ -97,7 +95,7 @@ func UpdateDon(lggr logger.Logger, req *UpdateDonRequest) (*UpdateDonResponse, e
 	}
 	tx, err := registry.UpdateDON(txOpts, don.Id, don.NodeP2PIds, cfgs, don.IsPublic, don.F)
 	if err != nil {
-		err = kslib.DecodeErr(kcr.CapabilitiesRegistryABI, err)
+		err = deployment.DecodeErr(kcr.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to call UpdateDON: %w", err)
 	}
 	var ops *timelock.BatchChainOperation
@@ -150,7 +148,7 @@ func computeConfigs(registry *kcr.CapabilitiesRegistry, caps []CapabilityConfig,
 		}
 		out[i].CapabilityId = id
 		if out[i].Config == nil {
-			c := kslib.DefaultCapConfig(cap.Capability.CapabilityType, int(donInfo.F))
+			c := DefaultCapConfig(cap.Capability.CapabilityType, int(donInfo.F))
 			cb, err := proto.Marshal(c)
 			if err != nil {
 				return nil, fmt.Errorf("failed to marshal capability config for %v: %w", c, err)

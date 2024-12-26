@@ -1,4 +1,4 @@
-package keystone
+package internal
 
 import (
 	"bytes"
@@ -540,7 +540,7 @@ func RegisterNOPS(ctx context.Context, lggr logger.Logger, req RegisterNOPSReque
 	}
 	tx, err := registry.AddNodeOperators(registryChain.DeployerKey, nops)
 	if err != nil {
-		err = DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
+		err = deployment.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to call AddNodeOperators: %w", err)
 	}
 	// for some reason that i don't understand, the confirm must be called before the WaitMined or the latter will hang
@@ -603,12 +603,6 @@ func DefaultCapConfig(capType uint8, nNodes int) *capabilitiespb.CapabilityConfi
 	}
 }
 
-// DEPRECATED: use deployment.DecodeErr instead
-// todo: refactor all keystone deps to use deployment.DecodeErr
-func DecodeErr(encodedABI string, err error) error {
-	return deployment.DecodeErr(encodedABI, err)
-}
-
 // register nodes
 type RegisterNodesRequest struct {
 	Env                   *deployment.Environment
@@ -624,7 +618,6 @@ type RegisterNodesResponse struct {
 
 // registerNodes registers the nodes with the registry. it assumes that the deployer key in the Chain
 // can sign the transactions update the contract state
-// TODO: 467 refactor to support MCMS. Specifically need to separate the call data generation from the actual contract call
 func RegisterNodes(lggr logger.Logger, req *RegisterNodesRequest) (*RegisterNodesResponse, error) {
 	registry, registryChain, err := GetRegistryContract(req.Env, req.RegistryChainSelector)
 	if err != nil {
@@ -727,7 +720,7 @@ func RegisterNodes(lggr logger.Logger, req *RegisterNodesRequest) (*RegisterNode
 	lggr.Debugw("unique node params to add", "count", len(uniqueNodeParams), "params", uniqueNodeParams)
 	tx, err := registry.AddNodes(registryChain.DeployerKey, uniqueNodeParams)
 	if err != nil {
-		err = DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
+		err = deployment.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
 		// no typed errors in the abi, so we have to do string matching
 		// try to add all nodes in one go, if that fails, fall back to 1-by-1
 		if !strings.Contains(err.Error(), "NodeAlreadyExists") {
@@ -737,7 +730,7 @@ func RegisterNodes(lggr logger.Logger, req *RegisterNodesRequest) (*RegisterNode
 		for _, singleNodeParams := range uniqueNodeParams {
 			tx, err = registry.AddNodes(registryChain.DeployerKey, []capabilities_registry.CapabilitiesRegistryNodeParams{singleNodeParams})
 			if err != nil {
-				err = DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
+				err = deployment.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
 				if strings.Contains(err.Error(), "NodeAlreadyExists") {
 					lggr.Warnw("node already exists, skipping", "p2pid", hex.EncodeToString(singleNodeParams.P2pId[:]))
 					continue
@@ -806,7 +799,7 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 
 	donInfos, err := registry.GetDONs(&bind.CallOpts{})
 	if err != nil {
-		err = DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
+		err = deployment.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to call GetDONs: %w", err)
 	}
 	existingDONs := make(map[string]struct{})
@@ -860,7 +853,7 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 
 		tx, err := registry.AddDON(registryChain.DeployerKey, p2pIds, cfgs, true, wfSupported, don.F)
 		if err != nil {
-			err = DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
+			err = deployment.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
 			return nil, fmt.Errorf("failed to call AddDON for don '%s' p2p2Id hash %s capability %v: %w", don.Name, p2pSortedHash, cfgs, err)
 		}
 		_, err = registryChain.Confirm(tx)
@@ -887,7 +880,7 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 		}
 	}
 	if err != nil {
-		err = DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
+		err = deployment.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to call GetDONs: %w", err)
 	}
 	if !foundAll {
@@ -943,13 +936,13 @@ func configureForwarder(lggr logger.Logger, chain deployment.Chain, contractSet 
 		}
 		tx, err := fwdr.SetConfig(txOpts, dn.Info.Id, ver, dn.Info.F, signers)
 		if err != nil {
-			err = DecodeErr(kf.KeystoneForwarderABI, err)
+			err = deployment.DecodeErr(kf.KeystoneForwarderABI, err)
 			return nil, fmt.Errorf("failed to call SetConfig for forwarder %s on chain %d: %w", fwdr.Address().String(), chain.Selector, err)
 		}
 		if !useMCMS {
 			_, err = chain.Confirm(tx)
 			if err != nil {
-				err = DecodeErr(kf.KeystoneForwarderABI, err)
+				err = deployment.DecodeErr(kf.KeystoneForwarderABI, err)
 				return nil, fmt.Errorf("failed to confirm SetConfig for forwarder %s: %w", fwdr.Address().String(), err)
 			}
 		} else {

@@ -1,4 +1,4 @@
-package keystone
+package internal
 
 import (
 	"fmt"
@@ -56,21 +56,6 @@ func DeployCapabilitiesRegistry(chain deployment.Chain, ab deployment.AddressBoo
 		return nil, fmt.Errorf("failed to save CapabilitiesRegistry: %w", err)
 	}
 	return capabilitiesRegistryResp, nil
-}
-
-// DeployWorkflowRegistry deploys the WorkflowRegistry contract to the chain
-// and saves the address in the address book. This mutates the address book.
-func DeployWorkflowRegistry(chain deployment.Chain, ab deployment.AddressBook) (*DeployResponse, error) {
-	deployer, err := NewWorkflowRegistryDeployer()
-	resp, err := deployer.Deploy(DeployRequest{Chain: chain})
-	if err != nil {
-		return nil, fmt.Errorf("failed to deploy WorkflowRegistry: %w", err)
-	}
-	err = ab.Save(chain.Selector, resp.Address.String(), resp.Tv)
-	if err != nil {
-		return nil, fmt.Errorf("failed to save WorkflowRegistry: %w", err)
-	}
-	return resp, nil
 }
 
 // DeployOCR3 deploys the OCR3Capability contract to the chain

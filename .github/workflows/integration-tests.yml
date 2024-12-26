@@ -54,6 +54,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@v4.2.1
         with:
+          persist-credentials: false
           repository: smartcontractkit/chainlink
           ref: ${{ inputs.cl_ref }}
       - name: Check Merge Group Condition
@@ -88,6 +89,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@v4.2.1
         with:
+          persist-credentials: false
           repository: smartcontractkit/chainlink
           ref: ${{ inputs.cl_ref }}
       - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
@@ -140,6 +142,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@v4.2.1
         with:
+          persist-credentials: false
           repository: smartcontractkit/chainlink
           ref: ${{ inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Setup Github Token
@@ -386,6 +389,7 @@ jobs:
         if: ${{ github.event_name == 'pull_request' }}
         uses: actions/checkout@v4.2.1
         with:
+          persist-credentials: false
           repository: smartcontractkit/chainlink
           ref: ${{ inputs.cl_ref }}
 
@@ -405,6 +409,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@v4.2.1
         with:
+          persist-credentials: false
           repository: smartcontractkit/chainlink
           ref: ${{ inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Download All Artifacts
@@ -429,6 +434,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@v4.2.1
         with:
+          persist-credentials: false
           repository: smartcontractkit/chainlink
           ref: ${{ inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Setup Go
@@ -449,6 +455,7 @@ jobs:
       - name: Checkout solana
         uses: actions/checkout@v4.2.1
         with:
+          persist-credentials: false
           repository: smartcontractkit/chainlink-solana
           ref: develop
           fetch-depth: 0
@@ -476,6 +483,7 @@ jobs:
       - name: Checkout the solana repo
         uses: actions/checkout@v4.2.1
         with:
+          persist-credentials: false
           repository: smartcontractkit/chainlink-solana
           ref: ${{ needs.get_solana_sha.outputs.sha }}
       - name: Get ProjectSerum Version
@@ -524,6 +532,7 @@ jobs:
       - name: Checkout the solana repo
         uses: actions/checkout@v4.2.1
         with:
+          persist-credentials: false
           repository: smartcontractkit/chainlink-solana
           ref: ${{ needs.get_solana_sha.outputs.sha }}
       - name: Build contracts
@@ -558,6 +567,7 @@ jobs:
         if: (needs.changes.outputs.core_changes == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'
         uses: actions/checkout@v4.2.1
         with:
+          persist-credentials: false
           repository: smartcontractkit/chainlink-solana
           ref: ${{ needs.get_solana_sha.outputs.sha }}
       - name: Download Artifacts
@@ -606,6 +616,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@v4.2.1
         with:
+          persist-credentials: false
           repository: smartcontractkit/chainlink-solana
           ref: ${{ needs.get_solana_sha.outputs.sha }}
       - name: Run Setup
@@ -646,10 +657,13 @@ jobs:
           yarn --cwd ./gauntlet build
           yarn --cwd ./gauntlet gauntlet
       - name: Generate config overrides
+        env:
+          GH_INPUTS_EVM_REF: ${{ inputs.evm-ref }}
+          GH_SHA: ${{ github.sha }}
         run: | # https://github.com/smartcontractkit/chainlink-testing-framework/lib/blob/main/config/README.md
           cat << EOF > config.toml
           [ChainlinkImage]
-          version="${{ inputs.evm-ref || github.sha }}"
+          version="${{ env.evm-ref || env.GH_SHA }}"
           [Common]
           user="${{ github.actor }}"
           internal_docker_repo = "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com"

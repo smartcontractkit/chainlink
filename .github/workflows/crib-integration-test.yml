@@ -20,6 +20,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4.2.1
+        with:
+          persist-credentials: false
 
       - uses: cachix/install-nix-action@ba0dd844c9180cbf77aa72a116d6fbc515d0e87b # v27
         with:
@@ -93,6 +95,8 @@ jobs:
           product-image: ${{ secrets.AWS_SDLC_ECR_HOSTNAME }}/chainlink
           product-image-tag: develop
       - uses: actions/checkout@v4.2.1
+        with:
+          persist-credentials: false
       - name: Set up Go
         uses: ./.github/actions/setup-go
         with:

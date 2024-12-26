@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	kstest "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal/test"
 
@@ -30,7 +29,7 @@ func Test_UpdateNodesRequest_validate(t *testing.T) {
 		p2pToUpdates map[p2pkey.PeerID]internal.NodeUpdate
 		nopToNodes   map[kcr.CapabilitiesRegistryNodeOperator][]*internal.P2PSignerEnc
 		chain        deployment.Chain
-		contractSet  *kslib.ContractSet
+		contractSet  *internal.ContractSet
 	}
 	tests := []struct {
 		name    string
@@ -465,14 +464,14 @@ func TestUpdateNodes(t *testing.T) {
 			require.NoError(t, err)
 
 			// register the capabilities that the Update will use
-			expectedUpdatedCaps := make(map[p2pkey.PeerID][]kslib.RegisteredCapability)
+			expectedUpdatedCaps := make(map[p2pkey.PeerID][]internal.RegisteredCapability)
 			capCache := kstest.NewCapabiltyCache(t)
 			for p2p, update := range tt.args.req.P2pToUpdates {
 				if len(update.Capabilities) > 0 {
 					expectedCaps := capCache.AddCapabilities(tt.args.lggr, tt.args.req.Chain, registry, update.Capabilities)
 					expectedUpdatedCaps[p2p] = expectedCaps
 				} else {
-					expectedUpdatedCaps[p2p] = []kslib.RegisteredCapability{
+					expectedUpdatedCaps[p2p] = []internal.RegisteredCapability{
 						{CapabilitiesRegistryCapability: phonyCap, ID: id},
 					}
 				}
@@ -564,7 +563,7 @@ func TestUpdateNodes(t *testing.T) {
 		toRegister := p2pToCapabilitiesUpdated[testPeerID(t, "peerID_1")]
 		tx, err := registry.AddCapabilities(chain.DeployerKey, toRegister)
 		if err != nil {
-			err2 := kslib.DecodeErr(kcr.CapabilitiesRegistryABI, err)
+			err2 := deployment.DecodeErr(kcr.CapabilitiesRegistryABI, err)
 			require.Fail(t, fmt.Sprintf("failed to call AddCapabilities: %s:  %s", err, err2))
 		}
 		_, err = chain.Confirm(tx)
@@ -654,7 +653,7 @@ func TestAppendCapabilities(t *testing.T) {
 	wantCaps = append(wantCaps, newCaps...)
 
 	for i, got := range gotCaps {
-		assert.Equal(t, kslib.CapabilityID(wantCaps[i]), kslib.CapabilityID(got))
+		assert.Equal(t, internal.CapabilityID(wantCaps[i]), internal.CapabilityID(got))
 	}
 
 	// trying to append an existing capability should not change the result

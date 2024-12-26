@@ -50,6 +50,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@v4.2.1
         with:
+          persist-credentials: false
           ref: ${{ env.head_ref }}
       - name: Find modified contracts
         uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
@@ -86,8 +87,10 @@ jobs:
       - name: Transform modified files
         id: changes-transform
         shell: bash
+        env:
+          GH_INPUTS_PRODUCT: ${{ inputs.product }}
         run: |
-          if [ "${{ inputs.product }}" = "shared" ]; then
+          if [ "$GH_INPUTS_PRODUCT" = "shared" ]; then
             echo "::debug:: Product is shared, transforming changes"
             if [[ "${{ steps.changes-dorny.outputs.product }}" == "true" && "${{ steps.changes-dorny.outputs.other_shared }}" == "true" ]]; then
               echo "::debug:: Changes were found in 'shared' folder and in 'interfaces' and root folders"
@@ -128,6 +131,8 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v4.2.1
+        with:
+          persist-credentials: false
 
       - name: Extract Foundry version
         id: extract-foundry-version
@@ -137,8 +142,10 @@ jobs:
 
       - name: Should skip code coverage report
         id: skip-code-coverage
+        env:
+          GH_INPUTS_PRODUCT: ${{ inputs.product }}
         run: |
-          if [[ "${{ inputs.product }}" = "automation" || "${{ inputs.product }}" = "vrf" || "${{ inputs.product }}" = "functions" ]]; then
+          if [[ "$GH_INPUTS_PRODUCT" = "automation" || "$GH_INPUTS_PRODUCT" = "vrf" || "$GH_INPUTS_PRODUCT" = "functions" ]]; then
             echo "generate_code_coverage=false" >> $GITHUB_OUTPUT
           else
             echo "generate_code_coverage=true" >> $GITHUB_OUTPUT

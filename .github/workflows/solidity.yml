@@ -17,6 +17,8 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v4.2.1
+        with:
+          persist-credentials: false
       - name: Detect readonly solidity file changes
         id: ch
         uses: ./.github/actions/detect-solidity-readonly-file-changes
@@ -29,6 +31,8 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v4.2.1
+        with:
+          persist-credentials: false
       - name: Detect changes
         id: ch
         uses: ./.github/actions/detect-solidity-file-changes
@@ -44,6 +48,8 @@ jobs:
       pre-release-version: ${{ steps.release-tag-check.outputs.pre-release-version }}
     steps:
       - uses: actions/checkout@v4.2.1
+        with:
+          persist-credentials: false
       - name: Check release tag
         id: release-tag-check
         uses: smartcontractkit/chainlink-github-actions/release/release-tag-check@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
@@ -62,6 +68,8 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v4.2.1
+        with:
+          persist-credentials: false
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
       - name: Run Prepublish test
@@ -77,11 +85,13 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@v4.2.1
         with:
+          persist-credentials: false
           path: chainlink
 
       - name: Checkout diff-so-fancy
         uses: actions/checkout@v4.2.1
         with:
+          persist-credentials: false
           repository: so-fancy/diff-so-fancy
           ref: a673cb4d2707f64d92b86498a2f5f71c8e2643d5 # v1.4.3
           path: diff-so-fancy
@@ -128,6 +138,8 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v4.2.1
+        with:
+          persist-credentials: false
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
       - name: Run pnpm lint
@@ -148,6 +160,8 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v4.2.1
+        with:
+          persist-credentials: false
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
       - name: Run prettier check
@@ -162,6 +176,8 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v4.2.1
+        with:
+          persist-credentials: false
 
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
@@ -191,6 +207,8 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v4.2.1
+        with:
+          persist-credentials: false
 
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs

@@ -1,6 +1,6 @@
 // TODO: KS-458 copied from https://github.com/smartcontractkit/chainlink/blob/65924811dc53a211613927c814d7f04fd85439a4/core/scripts/keystone/src/88_gen_ocr3_config.go#L1
 // to unblock go mod issues when trying to import the scripts package
-package keystone
+package internal
 
 import (
 	"crypto/ed25519"
@@ -327,15 +327,15 @@ func configureOCR3contract(req configureOCR3Request) (*configureOCR3Response, er
 		ocrConfig.OffchainConfig,
 	)
 	if err != nil {
-		err = DecodeErr(kocr3.OCR3CapabilityABI, err)
-		return nil, fmt.Errorf("failed to call SetConfig for OCR3 contract %s using mcms: %t: %w", req.contract.Address().String(), req.useMCMS, err)
+		err = deployment.DecodeErr(kocr3.OCR3CapabilityABI, err)
+		return nil, fmt.Errorf("failed to call SetConfig for OCR3 contract %s using mcms: %T: %w", req.contract.Address().String(), req.useMCMS, err)
 	}
 
 	var ops *timelock.BatchChainOperation
 	if !req.useMCMS {
 		_, err = req.chain.Confirm(tx)
 		if err != nil {
-			err = DecodeErr(kocr3.OCR3CapabilityABI, err)
+			err = deployment.DecodeErr(kocr3.OCR3CapabilityABI, err)
 			return nil, fmt.Errorf("failed to confirm SetConfig for OCR3 contract %s: %w", req.contract.Address().String(), err)
 		}
 	} else {

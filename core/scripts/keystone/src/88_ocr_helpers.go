@@ -6,10 +6,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 
-	ksdeploy "github.com/smartcontractkit/chainlink/deployment/keystone"
+	ksdeploy "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
 
-func ocrConfToContractConfig(ocrConf ksdeploy.OCR2OracleConfig, configCount uint32) types.ContractConfig {
+func ocrConfToContractConfig(ocrConf ksdeploy.OCR3OnchainConfig, configCount uint32) types.ContractConfig {
 	cc := types.ContractConfig{
 		Signers:               convertByteSliceToOnchainPublicKeys(ocrConf.Signers),
 		Transmitters:          convertAddressesToAccounts(ocrConf.Transmitters),

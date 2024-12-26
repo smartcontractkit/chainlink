@@ -8,7 +8,8 @@ import (
 	ccipowner "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/keystone"
+
+	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	capReg "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	feeds_consumer "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/feeds_consumer_1_0_0"
 	keystoneForwarder "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder_1_0_0"
@@ -56,7 +57,7 @@ func capRegistriesFromAddrBook(addrBook deployment.AddressBook, chain deployment
 	return getContractsFromAddrBook[capReg.CapabilitiesRegistry](
 		addrBook,
 		chain,
-		keystone.CapabilitiesRegistry,
+		internal.CapabilitiesRegistry,
 		capReg.NewCapabilitiesRegistry,
 	)
 }
@@ -66,7 +67,7 @@ func ocr3FromAddrBook(addrBook deployment.AddressBook, chain deployment.Chain) (
 	return getContractsFromAddrBook[ocr3Capability.OCR3Capability](
 		addrBook,
 		chain,
-		keystone.OCR3Capability,
+		internal.OCR3Capability,
 		ocr3Capability.NewOCR3Capability,
 	)
 }
@@ -76,7 +77,7 @@ func forwardersFromAddrBook(addrBook deployment.AddressBook, chain deployment.Ch
 	return getContractsFromAddrBook[keystoneForwarder.KeystoneForwarder](
 		addrBook,
 		chain,
-		keystone.KeystoneForwarder,
+		internal.KeystoneForwarder,
 		keystoneForwarder.NewKeystoneForwarder,
 	)
 }
@@ -86,7 +87,7 @@ func feedsConsumersFromAddrBook(addrBook deployment.AddressBook, chain deploymen
 	return getContractsFromAddrBook[feeds_consumer.KeystoneFeedsConsumer](
 		addrBook,
 		chain,
-		keystone.FeedConsumer,
+		internal.FeedConsumer,
 		feeds_consumer.NewKeystoneFeedsConsumer,
 	)
 }
@@ -96,7 +97,7 @@ func proposersFromAddrBook(addrBook deployment.AddressBook, chain deployment.Cha
 	return getContractsFromAddrBook[ccipowner.ManyChainMultiSig](
 		addrBook,
 		chain,
-		keystone.ProposerManyChainMultiSig,
+		internal.ProposerManyChainMultiSig,
 		ccipowner.NewManyChainMultiSig,
 	)
 }
@@ -106,7 +107,7 @@ func timelocksFromAddrBook(addrBook deployment.AddressBook, chain deployment.Cha
 	return getContractsFromAddrBook[ccipowner.RBACTimelock](
 		addrBook,
 		chain,
-		keystone.RBACTimelock,
+		internal.RBACTimelock,
 		ccipowner.NewRBACTimelock,
 	)
 }

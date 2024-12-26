@@ -38,27 +38,33 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4.2.1
         with:
+          persist-credentials: false
           ref: ${{ env.CHECKOUT_REF }}
 
       - name: Get image tag
         id: get-image-tag
+        env:
+          GH_EVENT_NAME: ${{ github.event_name }}
+          GH_EVENT_NUMBER: ${{ github.event.number }}
+          GH_INPUTS_BUILD_PUBLISH: ${{ inputs.build-publish }}
+          LABEL_HAS_BUILD_PUBLISH: ${{ contains(github.event.pull_request.labels.*.name, 'build-publish') }}
         run: |
           short_sha=$(git rev-parse --short HEAD)
           echo "release-type=snapshot" | tee -a $GITHUB_OUTPUT
-          if [[ ${{ github.event_name }} == 'push' ]]; then
+          if [[ $GH_EVENT_NAME == 'push' ]]; then
             echo "image-tag=develop" | tee -a $GITHUB_OUTPUT
             echo "release-type=nightly" | tee -a $GITHUB_OUTPUT
-          elif [[ ${{ github.event_name }} == 'workflow_dispatch' ]]; then
+          elif [[ $GH_EVENT_NAME == 'workflow_dispatch' ]]; then
             echo "image-tag=${short_sha}" | tee -a $GITHUB_OUTPUT
-              if [[ "${{ inputs.build-publish }}" == 'false' ]]; then
+              if [[ "$GH_INPUTS_BUILD_PUBLISH" == 'false' ]]; then
                 echo "release-type=snapshot" | tee -a $GITHUB_OUTPUT
               else
                 echo "release-type=nightly" | tee -a $GITHUB_OUTPUT
             fi
           else
-            if [[ ${{ github.event_name }} == "pull_request" ]]; then
-              echo "image-tag=pr-${{ github.event.number }}-${short_sha}" | tee -a $GITHUB_OUTPUT
-              if [[ ${{ contains(github.event.pull_request.labels.*.name, 'build-publish') }} == "true" ]]; then
+            if [[ $GH_EVENT_NAME == "pull_request" ]]; then
+              echo "image-tag=pr-${GH_EVENT_NUMBER}-${short_sha}" | tee -a $GITHUB_OUTPUT
+              if [[ $LABEL_HAS_BUILD_PUBLISH == "true" ]]; then
                 echo "release-type=nightly" | tee -a $GITHUB_OUTPUT
               fi
             fi
@@ -86,6 +92,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4.2.1
         with:
+          persist-credentials: false
           ref: ${{ env.CHECKOUT_REF }}
           fetch-depth: 0
 
@@ -124,6 +131,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4.2.1
         with:
+          persist-credentials: false
           ref: ${{ env.CHECKOUT_REF }}
 
       - name: Configure aws credentials
