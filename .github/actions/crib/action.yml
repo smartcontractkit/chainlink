@@ -131,7 +131,7 @@ runs:
         go-version-file: "go.mod"
 
     - name: Run CRIB integration test
-      if: integration-tests-run == 'true'
+      if: inputs.integration-tests-run == 'true'
       shell: bash
       working-directory: integration-tests/crib
       env:
