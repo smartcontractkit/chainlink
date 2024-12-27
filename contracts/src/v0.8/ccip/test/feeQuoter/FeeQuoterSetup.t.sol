@@ -342,6 +342,19 @@ contract FeeQuoterFeeSetup is FeeQuoterSetup {
     });
   }
 
+  // Used to generate a message with a specific extraArgs tag for Solana
+  function _generateEmptyMessage2Sol() public view returns (Client.EVM2AnyMessage memory) {
+    return Client.EVM2AnyMessage({
+      receiver: abi.encode(OWNER),
+      data: "",
+      tokenAmounts: new Client.EVMTokenAmount[](0),
+      feeToken: s_sourceFeeToken,
+      extraArgs: Client._solArgsToBytes(
+        Client.SolExtraArgsV1({computeUnits: GAS_LIMIT, accounts: new Client.SolanaAccountMeta[](0)})
+      )
+    });
+  }
+
   function _generateSingleTokenMessage(
     address token,
     uint256 amount
