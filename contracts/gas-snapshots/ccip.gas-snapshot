@@ -71,7 +71,7 @@ FeeQuoter_applyPremiumMultiplierWeiPerEthUpdates:test_applyPremiumMultiplierWeiP
 FeeQuoter_applyPremiumMultiplierWeiPerEthUpdates:test_applyPremiumMultiplierWeiPerEthUpdatesZeroInput() (gas: 12380)
 FeeQuoter_applyTokenTransferFeeConfigUpdates:test_ApplyTokenTransferFeeConfig() (gas: 88556)
 FeeQuoter_applyTokenTransferFeeConfigUpdates:test_ApplyTokenTransferFeeZeroInput() (gas: 13196)
-FeeQuoter_constructor:test_Setup() (gas: 5593070)
+FeeQuoter_constructor:test_Setup() (gas: 5481451)
 FeeQuoter_convertTokenAmount:test_ConvertTokenAmount() (gas: 68417)
 FeeQuoter_getDataAvailabilityCost:test_EmptyMessageCalculatesDataAvailabilityCost() (gas: 96298)
 FeeQuoter_getDataAvailabilityCost:test_SimpleMessageCalculatesDataAvailabilityCost() (gas: 20964)

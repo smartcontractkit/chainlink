@@ -209,10 +209,6 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   /// @dev The amount of time a token price can be stale before it is considered invalid.
   uint32 private immutable i_tokenPriceStalenessThreshold;
 
-  /// @dev the Set of all valid chain family selectors as bytes32. Bytes4Set is not supported so we
-  /// expand to bytes32 for storage.
-  EnumerableSet.Bytes32Set internal s_validchainFamilySelectors;
-
   constructor(
     StaticConfig memory staticConfig,
     address[] memory priceUpdaters,
@@ -232,11 +228,6 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     i_linkToken = staticConfig.linkToken;
     i_maxFeeJuelsPerMsg = staticConfig.maxFeeJuelsPerMsg;
     i_tokenPriceStalenessThreshold = staticConfig.tokenPriceStalenessThreshold;
-
-    // These two chain family selectors are known to be supported at deployment so they should be
-    // added automatically.
-    s_validchainFamilySelectors.add(bytes32(Internal.CHAIN_FAMILY_SELECTOR_EVM));
-    s_validchainFamilySelectors.add(bytes32(Internal.CHAIN_FAMILY_SELECTOR_SOL));
 
     _applyFeeTokensUpdates(new address[](0), feeTokens);
     _updateTokenPriceFeeds(tokenPriceFeeds);
@@ -1144,7 +1135,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       DestChainConfig memory destChainConfig = destChainConfigArg.destChainConfig;
 
       // destChainSelector must be non-zero, defaultTxGasLimit must be set, must be less than maxPerMsgGasLimit
-      // Note: With the addition of Solana and other Non-evm Chains, family selector is not validated.
+      // TODO: With the addition of Solana and other Non-evm Chains, family selector is not validated.
       if (
         destChainSelector == 0 || destChainConfig.defaultTxGasLimit == 0
           || destChainConfig.defaultTxGasLimit > destChainConfig.maxPerMsgGasLimit
