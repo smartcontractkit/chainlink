@@ -221,13 +221,20 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, Ownable2StepMsgSender 
 
     // Convert message fee to juels and retrieve converted args.
     // Validate pool return data after it is populated (view function - no state changes).
+    // Using newMessage.data prevents a stack too deep error.
     bool isOutOfOrderExecution;
     bytes memory convertedExtraArgs;
     bytes[] memory destExecDataPerToken;
     (newMessage.feeValueJuels, isOutOfOrderExecution, convertedExtraArgs, destExecDataPerToken) = IFeeQuoter(
       s_dynamicConfig.feeQuoter
     ).processMessageArgs(
-      destChainSelector, message.feeToken, feeTokenAmount, message.extraArgs, newMessage.tokenAmounts, tokenAmounts
+      newMessage.data,
+      destChainSelector,
+      message.feeToken,
+      feeTokenAmount,
+      message.extraArgs,
+      newMessage.tokenAmounts,
+      tokenAmounts
     );
 
     newMessage.header.nonce = isOutOfOrderExecution

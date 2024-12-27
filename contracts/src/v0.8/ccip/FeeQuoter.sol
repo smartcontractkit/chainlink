@@ -25,6 +25,7 @@ import {EnumerableSet} from "../vendor/openzeppelin-solidity/v5.0.2/contracts/ut
 /// The authorized callers in the contract represent the fee price updaters.
 contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver, KeystoneFeedsPermissionHandler {
   using EnumerableSet for EnumerableSet.AddressSet;
+  using EnumerableSet for EnumerableSet.Bytes32Set;
   using USDPriceWith18Decimals for uint224;
   using KeystoneFeedDefaultMetadataLib for bytes;
 
@@ -44,6 +45,8 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   error MessageTooLarge(uint256 maxSize, uint256 actualSize);
   error UnsupportedNumberOfTokens(uint256 numberOfTokens, uint256 maxNumberOfTokensPerMsg);
   error InvalidFeeRange(uint256 minFeeUSDCents, uint256 maxFeeUSDCents);
+  error FirstSolExtraArgsAddressCannotBeWritable();
+  error SolExtraArgsMustBeProvided();
 
   event FeeTokenAdded(address indexed feeToken);
   event FeeTokenRemoved(address indexed feeToken);
@@ -57,6 +60,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   event PremiumMultiplierWeiPerEthUpdated(address indexed token, uint64 premiumMultiplierWeiPerEth);
   event DestChainConfigUpdated(uint64 indexed destChainSelector, DestChainConfig destChainConfig);
   event DestChainAdded(uint64 indexed destChainSelector, DestChainConfig destChainConfig);
+  event ChainFamilySelectorModified(bytes4 chainFamilySelector, bool isAdded);
 
   /// @dev Contains token price configuration used in both the keystone price updates and the price feed fallback logic.
   struct TokenPriceFeedConfig {
@@ -602,7 +606,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       * (
         destChainConfig.destGasOverhead
           + ((message.data.length + tokenTransferBytesOverhead) * destChainConfig.destGasPerPayloadByte) + tokenTransferGas
-          + _parseEVMExtraArgsFromBytes(message.extraArgs, destChainConfig).gasLimit
+          + _parseGasLimitFromExtraArgBytes(message.extraArgs, destChainConfig)
       ) * destChainConfig.gasMultiplierWeiPerEth;
 
     // Calculate number of fee tokens to charge.
@@ -848,10 +852,71 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   /// @param chainFamilySelector Tag to identify the target family.
   /// @param destAddress Dest address to validate.
   /// @dev precondition - assumes the family tag is correct and validated.
+  /// @dev Since Solana addresses are parsed as bytes32, and no other form of validation occurs, no explicit
+  /// call is needed to a library function for address validation.
   function _validateDestFamilyAddress(bytes4 chainFamilySelector, bytes memory destAddress) internal pure {
     if (chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_EVM) {
       Internal._validateEVMAddress(destAddress);
     }
+  }
+
+  function _parseGasLimitFromExtraArgBytes(
+    bytes calldata extraArgs,
+    DestChainConfig memory destChainConfig
+  ) internal pure returns (uint256 gasLimit) {
+    if (destChainConfig.chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_EVM) {
+      gasLimit = _parseEVMExtraArgsFromBytes(extraArgs, destChainConfig).gasLimit;
+    } else if (destChainConfig.chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_SOL) {
+      // If extra args are empty, generate default values.
+      gasLimit = _parseSolExtraArgsFromBytes(extraArgs, destChainConfig, 0).computeUnits;
+    } else {
+      gasLimit = destChainConfig.defaultTxGasLimit;
+    }
+
+    return gasLimit;
+  }
+
+  /// @notice Parse and validate the Solana specific Extra Args Bytes.
+  /// @param messageDataLengthBytes The length of the arbitrary message data. If this is non-zero, then an extraArgs
+  /// MUST be provided otherwise an error will be returned, due to requirements in how Solana accounts operate.
+  function _parseSolExtraArgsFromBytes(
+    bytes calldata extraArgs,
+    DestChainConfig memory destChainConfig,
+    uint256 messageDataLengthBytes
+  ) internal pure returns (Client.SolExtraArgsV1 memory) {
+    Client.SolExtraArgsV1 memory SolExtraArgs =
+      _parseUnvalidatedSolExtraArgsFromBytes(extraArgs, destChainConfig.defaultTxGasLimit);
+
+    // If the message data length is non-zero, then accounts extra args must be provided.
+    if (messageDataLengthBytes != 0 && SolExtraArgs.accounts.length == 0) revert SolExtraArgsMustBeProvided();
+
+    // The Program name being invoked, which is the first account provided, cannot be writable on Solana.
+    if (SolExtraArgs.accounts.length != 0 && SolExtraArgs.accounts[0].isWritable) {
+      revert FirstSolExtraArgsAddressCannotBeWritable();
+    }
+
+    // Check that compute units is within the allowed range.
+    if (SolExtraArgs.computeUnits > uint256(destChainConfig.maxPerMsgGasLimit)) revert MessageGasLimitTooHigh();
+
+    return SolExtraArgs;
+  }
+
+  function _parseUnvalidatedSolExtraArgsFromBytes(
+    bytes calldata extraArgs,
+    uint64 defaultTxGasLimit
+  ) internal pure returns (Client.SolExtraArgsV1 memory) {
+    if (extraArgs.length == 0) {
+      return Client.SolExtraArgsV1({
+        computeUnits: uint32(defaultTxGasLimit), //TODO: Fix Potentially unsafe cast
+        accounts: new Client.SolanaAccountMeta[](0)
+      });
+    }
+
+    bytes memory argsData = extraArgs[4:];
+
+    Client.SolExtraArgsV1 memory solExtraArgs = abi.decode(argsData, (Client.SolExtraArgsV1));
+
+    return solExtraArgs;
   }
 
   /// @dev Convert the extra args bytes into a struct with validations against the dest chain config.
@@ -928,7 +993,10 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
 
   /// @inheritdoc IFeeQuoter
   /// @dev precondition - onRampTokenTransfers and sourceTokenAmounts lengths must be equal.
+  /// @param messageData The arbitrary bytes to be processed. Solana address requirements require that if an arbitrary message
+  /// exists, then extraArgs must also be checked for a valid recipient account.
   function processMessageArgs(
+    bytes calldata messageData,
     uint64 destChainSelector,
     address feeToken,
     uint256 feeTokenAmount,
@@ -945,6 +1013,12 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       bytes[] memory destExecDataPerToken
     )
   {
+    // Prevents a stack too deep error on messageData
+    {
+      bytes memory data = messageData;
+      (convertedExtraArgs, isOutOfOrderExecution) = _processChainFamilySelector(destChainSelector, data, extraArgs);
+    }
+
     // Convert feeToken to link if not already in link.
     if (feeToken == i_linkToken) {
       msgFeeJuels = feeTokenAmount;
@@ -954,16 +1028,38 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
 
     if (msgFeeJuels > i_maxFeeJuelsPerMsg) revert MessageFeeTooHigh(msgFeeJuels, i_maxFeeJuelsPerMsg);
 
-    uint64 defaultTxGasLimit = s_destChainConfigs[destChainSelector].defaultTxGasLimit;
-
-    // NOTE: Only EVM chains are supported for now, additional validation logic will be added when supporting other
-    // chain families to parse non-EVM args.
-    // Since the message is called after getFee, which will already validate the params, no validation is necessary.
-    Client.EVMExtraArgsV2 memory parsedExtraArgs = _parseUnvalidatedEVMExtraArgsFromBytes(extraArgs, defaultTxGasLimit);
-    isOutOfOrderExecution = parsedExtraArgs.allowOutOfOrderExecution;
     destExecDataPerToken = _processPoolReturnData(destChainSelector, onRampTokenTransfers, sourceTokenAmounts);
 
-    return (msgFeeJuels, isOutOfOrderExecution, Client._argsToBytes(parsedExtraArgs), destExecDataPerToken);
+    return (msgFeeJuels, isOutOfOrderExecution, convertedExtraArgs, destExecDataPerToken);
+  }
+
+  /// @notice Parses the extra Args based on the chain family selector. Isolated into a separate function
+  /// as it was the only way to prevent a stack too deep error, and makes future chain family additions easier.
+  function _processChainFamilySelector(
+    uint64 destChainSelector,
+    bytes memory message,
+    bytes calldata extraArgs
+  ) internal view returns (bytes memory convertedExtraArgs, bool isOutOfOrderExecution) {
+    DestChainConfig memory destChainConfig = s_destChainConfigs[destChainSelector];
+    if (destChainConfig.chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_EVM) {
+      // Since the message is called after getFee, which will already validate the params, no validation is necessary.
+      Client.EVMExtraArgsV2 memory parsedExtraArgs =
+        _parseUnvalidatedEVMExtraArgsFromBytes(extraArgs, destChainConfig.defaultTxGasLimit);
+
+      convertedExtraArgs = Client._argsToBytes(parsedExtraArgs);
+
+      isOutOfOrderExecution = parsedExtraArgs.allowOutOfOrderExecution;
+    } else if (destChainConfig.chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_SOL) {
+      Client.SolExtraArgsV1 memory parsedExtraArgs =
+        _parseSolExtraArgsFromBytes(extraArgs, destChainConfig, message.length);
+
+      convertedExtraArgs = Client._solArgsToBytes(parsedExtraArgs);
+
+      // On Solana OOO execution is enabled for all messages.
+      isOutOfOrderExecution = true;
+    }
+
+    return (convertedExtraArgs, isOutOfOrderExecution);
   }
 
   /// @notice Validates pool return data.
@@ -1038,12 +1134,10 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       uint64 destChainSelector = destChainConfigArgs[i].destChainSelector;
       DestChainConfig memory destChainConfig = destChainConfigArg.destChainConfig;
 
-      // destChainSelector must be non-zero, defaultTxGasLimit must be set, and must be less than maxPerMsgGasLimit.
-      // Only EVM chains are supported for now, additional validation logic will be added when supporting other chain
-      // families
+      // destChainSelector must be non-zero, defaultTxGasLimit must be set, must be less than maxPerMsgGasLimit
+      // TODO: With the addition of Solana and other Non-evm Chains, family selector is not validated.
       if (
         destChainSelector == 0 || destChainConfig.defaultTxGasLimit == 0
-          || destChainConfig.chainFamilySelector != Internal.CHAIN_FAMILY_SELECTOR_EVM
           || destChainConfig.defaultTxGasLimit > destChainConfig.maxPerMsgGasLimit
       ) {
         revert InvalidDestChainConfig(destChainSelector);

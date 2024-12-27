@@ -24,6 +24,7 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
       ,
       /* destExecDataPerToken */
     ) = s_feeQuoter.processMessageArgs(
+      "",
       DEST_CHAIN_SELECTOR,
       // LINK
       s_sourceTokens[0],
@@ -49,6 +50,7 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
       ,
       /* destExecDataPerToken */
     ) = s_feeQuoter.processMessageArgs(
+      "",
       DEST_CHAIN_SELECTOR,
       feeToken,
       feeTokenAmount,
@@ -68,6 +70,7 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
       bytes memory convertedExtraArgs,
       /* destExecDataPerToken */
     ) = s_feeQuoter.processMessageArgs(
+      "",
       DEST_CHAIN_SELECTOR,
       s_sourceTokens[0],
       0,
@@ -90,6 +93,7 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
       bytes memory convertedExtraArgs,
       /* destExecDataPerToken */
     ) = s_feeQuoter.processMessageArgs(
+      "",
       DEST_CHAIN_SELECTOR,
       s_sourceTokens[0],
       0,
@@ -114,6 +118,7 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
       bytes memory convertedExtraArgs,
       /* destExecDataPerToken */
     ) = s_feeQuoter.processMessageArgs(
+      "",
       DEST_CHAIN_SELECTOR,
       s_sourceTokens[0],
       0,
@@ -128,6 +133,42 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
     );
   }
 
+  function test_processMessageArgs_WithSolExtraArgsV1() public {
+    // Apply the chain update to set the chain family selector to SOL
+    FeeQuoter.DestChainConfig memory s_destChainConfig = _generateFeeQuoterDestChainConfigArgs()[0].destChainConfig;
+    s_destChainConfig.chainFamilySelector = Internal.CHAIN_FAMILY_SELECTOR_SOL;
+
+    FeeQuoter.DestChainConfigArgs[] memory destChainConfigs = new FeeQuoter.DestChainConfigArgs[](1);
+    destChainConfigs[0] =
+      FeeQuoter.DestChainConfigArgs({destChainSelector: DEST_CHAIN_SELECTOR, destChainConfig: s_destChainConfig});
+    s_feeQuoter.applyDestChainConfigUpdates(destChainConfigs);
+
+    bytes memory extraArgs =
+      Client._solArgsToBytes(Client.SolExtraArgsV1({computeUnits: 0, accounts: new Client.SolanaAccountMeta[](0)}));
+
+    (
+      /* uint256 msgFeeJuels */
+      ,
+      bool isOutOfOrderExecution,
+      bytes memory convertedExtraArgs,
+      /* destExecDataPerToken */
+    ) = s_feeQuoter.processMessageArgs(
+      "",
+      DEST_CHAIN_SELECTOR,
+      s_sourceTokens[0],
+      0,
+      extraArgs,
+      new Internal.EVM2AnyTokenTransfer[](0),
+      new Client.EVMTokenAmount[](0)
+    );
+
+    assertTrue(isOutOfOrderExecution);
+    assertEq(
+      convertedExtraArgs,
+      Client._solArgsToBytes(s_feeQuoter.parseSOLExtraArgsFromBytes(extraArgs, s_destChainConfig, 0))
+    );
+  }
+
   // Reverts
 
   function test_RevertWhen_processMessageArgs_MessageFeeTooHigh() public {
@@ -136,6 +177,7 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
     );
 
     s_feeQuoter.processMessageArgs(
+      "",
       DEST_CHAIN_SELECTOR,
       s_sourceTokens[0],
       MAX_MSG_FEES_JUELS + 1,
@@ -149,6 +191,7 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
     vm.expectRevert(FeeQuoter.InvalidExtraArgsTag.selector);
 
     s_feeQuoter.processMessageArgs(
+      "",
       DEST_CHAIN_SELECTOR,
       s_sourceTokens[0],
       0,
@@ -163,6 +206,7 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
     vm.expectRevert();
 
     s_feeQuoter.processMessageArgs(
+      "",
       DEST_CHAIN_SELECTOR,
       s_sourceTokens[0],
       0,
@@ -191,7 +235,7 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
     // No revert - successful
     ( /* msgFeeJuels */ , /* isOutOfOrderExecution */, /* convertedExtraArgs */, bytes[] memory destExecData) =
     s_feeQuoter.processMessageArgs(
-      DEST_CHAIN_SELECTOR, s_sourceTokens[0], MAX_MSG_FEES_JUELS, "", tokenAmounts, sourceTokenAmounts
+      "", DEST_CHAIN_SELECTOR, s_sourceTokens[0], MAX_MSG_FEES_JUELS, "", tokenAmounts, sourceTokenAmounts
     );
 
     for (uint256 i = 0; i < destExecData.length; ++i) {
@@ -211,6 +255,7 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
     vm.expectRevert();
 
     s_feeQuoter.processMessageArgs(
+      "",
       DEST_CHAIN_SELECTOR,
       s_sourceTokens[0],
       MAX_MSG_FEES_JUELS,
@@ -255,20 +300,20 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
 
     // No data set, should succeed
     s_feeQuoter.processMessageArgs(
-      DEST_CHAIN_SELECTOR, s_sourceTokens[0], MAX_MSG_FEES_JUELS, "", tokenAmounts, sourceTokenAmounts
+      "", DEST_CHAIN_SELECTOR, s_sourceTokens[0], MAX_MSG_FEES_JUELS, "", tokenAmounts, sourceTokenAmounts
     );
 
     // Set max data length, should succeed
     tokenAmounts[0].extraData = new bytes(Pool.CCIP_LOCK_OR_BURN_V1_RET_BYTES);
     s_feeQuoter.processMessageArgs(
-      DEST_CHAIN_SELECTOR, s_sourceTokens[0], MAX_MSG_FEES_JUELS, "", tokenAmounts, sourceTokenAmounts
+      "", DEST_CHAIN_SELECTOR, s_sourceTokens[0], MAX_MSG_FEES_JUELS, "", tokenAmounts, sourceTokenAmounts
     );
 
     // Set data to max length +1, should revert
     tokenAmounts[0].extraData = new bytes(Pool.CCIP_LOCK_OR_BURN_V1_RET_BYTES + 1);
     vm.expectRevert(abi.encodeWithSelector(FeeQuoter.SourceTokenDataTooLarge.selector, sourceETH));
     s_feeQuoter.processMessageArgs(
-      DEST_CHAIN_SELECTOR, s_sourceTokens[0], MAX_MSG_FEES_JUELS, "", tokenAmounts, sourceTokenAmounts
+      "", DEST_CHAIN_SELECTOR, s_sourceTokens[0], MAX_MSG_FEES_JUELS, "", tokenAmounts, sourceTokenAmounts
     );
 
     // Set token config to allow larger data
@@ -288,7 +333,7 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
     );
 
     s_feeQuoter.processMessageArgs(
-      DEST_CHAIN_SELECTOR, s_sourceTokens[0], MAX_MSG_FEES_JUELS, "", tokenAmounts, sourceTokenAmounts
+      "", DEST_CHAIN_SELECTOR, s_sourceTokens[0], MAX_MSG_FEES_JUELS, "", tokenAmounts, sourceTokenAmounts
     );
 
     // Set the token data larger than the configured token data, should revert
@@ -296,7 +341,7 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
 
     vm.expectRevert(abi.encodeWithSelector(FeeQuoter.SourceTokenDataTooLarge.selector, sourceETH));
     s_feeQuoter.processMessageArgs(
-      DEST_CHAIN_SELECTOR, s_sourceTokens[0], MAX_MSG_FEES_JUELS, "", tokenAmounts, sourceTokenAmounts
+      "", DEST_CHAIN_SELECTOR, s_sourceTokens[0], MAX_MSG_FEES_JUELS, "", tokenAmounts, sourceTokenAmounts
     );
   }
 
@@ -313,7 +358,7 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
 
     vm.expectRevert(abi.encodeWithSelector(Internal.InvalidEVMAddress.selector, nonEvmAddress));
     s_feeQuoter.processMessageArgs(
-      DEST_CHAIN_SELECTOR, s_sourceTokens[0], MAX_MSG_FEES_JUELS, "", tokenAmounts, sourceTokenAmounts
+      "", DEST_CHAIN_SELECTOR, s_sourceTokens[0], MAX_MSG_FEES_JUELS, "", tokenAmounts, sourceTokenAmounts
     );
   }
 }
