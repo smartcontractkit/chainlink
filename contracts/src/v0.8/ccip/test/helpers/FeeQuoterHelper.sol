@@ -66,6 +66,22 @@ contract FeeQuoterHelper is FeeQuoter {
     return _parseEVMExtraArgsFromBytes(extraArgs, destChainConfig);
   }
 
+  function parseSOLExtraArgsFromBytes(
+    bytes calldata extraArgs,
+    DestChainConfig memory destChainConfig,
+    uint256 messageDataLengthBytes
+  ) external pure returns (Client.SolExtraArgsV1 memory) {
+    return _parseSolExtraArgsFromBytes(extraArgs, destChainConfig, messageDataLengthBytes);
+  }
+
+  function parseSOLExtraArgsFromBytes(
+    bytes calldata extraArgs,
+    uint64 destChainSelector,
+    uint256 messageDataLengthBytes
+  ) external view returns (Client.SolExtraArgsV1 memory) {
+    return _parseSolExtraArgsFromBytes(extraArgs, s_destChainConfigs[destChainSelector], messageDataLengthBytes);
+  }
+
   function validateDestFamilyAddress(bytes4 chainFamilySelector, bytes memory destAddress) external pure {
     _validateDestFamilyAddress(chainFamilySelector, destAddress);
   }
@@ -76,5 +92,12 @@ contract FeeQuoterHelper is FeeQuoter {
     uint256 feedValue
   ) external pure returns (uint224) {
     return _calculateRebasedValue(dataFeedDecimal, tokenDecimal, feedValue);
+  }
+
+  function parseGasLimitFromExtraArgBytes(
+    bytes calldata extraArgs,
+    DestChainConfig memory destChainConfig
+  ) external pure returns (uint256 gasLimit) {
+    return _parseGasLimitFromExtraArgBytes(extraArgs, destChainConfig);
   }
 }
