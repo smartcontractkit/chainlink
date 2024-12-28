@@ -142,6 +142,8 @@ runs:
         GAP_URL: ${{ inputs.api-gw-host-crib }}
         SETH_LOG_LEVEL: info
         TEST_PERSISTENCE: true
+        E2E_TEST_CHAINLINK_IMAGE: public.ecr.aws/chainlink/chainlink
+        E2E_TEST_CHAINLINK_VERSION: latest
       run: go test -v -run TestCRIBChaos
 
     - name: Destroy CRIB Environment
