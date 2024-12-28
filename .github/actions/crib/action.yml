@@ -39,6 +39,9 @@ inputs:
   k8s-staging-ingress-suffix:
     description: "K8S staging ingress suffix"
     required: true
+  gap-url-integration-tests:
+    description: "GAP URL for integration tests"
+    required: true
   crib-alert-slack-webhook:
     description: "CRIB alert Slack webhook"
     required: true
@@ -139,7 +142,7 @@ runs:
         CRIB_NAMESPACE: ${{ steps.deploy-crib.outputs.devspace-namespace }}
         CRIB_NETWORK: geth
         CRIB_NODES: 5
-        GAP_URL: ${{ inputs.api-gw-host-crib }}
+        GAP_URL: ${{ inputs.gap-url-integration-tests }}
         SETH_LOG_LEVEL: info
         TEST_PERSISTENCE: true
         E2E_TEST_CHAINLINK_IMAGE: public.ecr.aws/chainlink/chainlink

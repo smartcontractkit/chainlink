@@ -171,6 +171,7 @@ jobs:
           aws-token-issuer-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
           ingress-base-domain: ${{ secrets.INGRESS_BASE_DOMAIN_STAGE }}
           k8s-staging-ingress-suffix: ${{ secrets.K8S_STAGING_INGRESS_SUFFIX }}
+          gap-url-integration-tests: ${{ secrets.GAP_URL }}
           crib-alert-slack-webhook: ${{ secrets.CRIB_ALERT_SLACK_WEBHOOK }}
           crib-chainlink-docker-image-name: ${{ format('{0}/{1}', env.ECR_HOSTNAME, needs.checks.outputs.ecr-image-name) }}
           crib-chainlink-docker-image-tag: ${{ needs.build-sign-publish-chainlink.outputs.docker-image-tag}}
