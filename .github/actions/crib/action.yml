@@ -70,7 +70,7 @@ runs:
         nix_path: nixpkgs=channel:nixos-unstable
 
     - name: setup-gap crib
-      uses: smartcontractkit/.github/actions/setup-gap@7db14549894156db3c395e30b49f9d00754185ff # setup-gap@3.0.1
+      uses: smartcontractkit/.github/actions/setup-gap@00b58566e0ee2761e56d9db0ea72b783fdb89b8d # setup-gap@0.4.0
       with:
         aws-role-duration-seconds: ${{ inputs.aws-role-duration-seconds }}
         aws-role-arn: ${{ inputs.aws-role-arn }}
@@ -84,7 +84,7 @@ runs:
         proxy-port: 8080
 
     - name: setup-gap k8s
-      uses: smartcontractkit/.github/actions/setup-gap@7db14549894156db3c395e30b49f9d00754185ff # setup-gap@3.0.1
+      uses: smartcontractkit/.github/actions/setup-gap@00b58566e0ee2761e56d9db0ea72b783fdb89b8d # setup-gap@0.4.0
       with:
         aws-role-duration-seconds: ${{ inputs.aws-role-duration-seconds }}
         aws-role-arn: ${{ inputs.aws-role-arn }}
