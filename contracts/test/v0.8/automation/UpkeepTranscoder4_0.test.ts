@@ -335,7 +335,7 @@ const setup = async () => {
   linkToken = await linkTokenFactory.connect(owner).deploy()
   // need full path because there are two contracts with name MockV3Aggregator
   const mockV3AggregatorFactory = (await ethers.getContractFactory(
-    'src/v0.8/tests/MockV3Aggregator.sol:MockV3Aggregator',
+    'src/v0.8/shared/mocks/MockV3Aggregator.sol:MockV3Aggregator',
   )) as unknown as MockV3AggregatorFactory
 
   gasPriceFeed = await mockV3AggregatorFactory.connect(owner).deploy(0, gasWei)

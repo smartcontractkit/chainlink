@@ -416,7 +416,7 @@ describe('ZKSyncAutomationRegistry2_3', () => {
     )
     // need full path because there are two contracts with name MockV3Aggregator
     mockV3AggregatorFactory = (await ethers.getContractFactory(
-      'src/v0.8/tests/MockV3Aggregator.sol:MockV3Aggregator',
+      'src/v0.8/shared/mocks/MockV3Aggregator.sol:MockV3Aggregator',
     )) as unknown as MockV3AggregatorFactory
     mockZKSyncSystemContextFactory = await ethers.getContractFactory(
       'MockZKSyncSystemContext',

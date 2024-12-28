@@ -69,7 +69,7 @@ describeMaybe('Automation Gas Analysis', () => {
     const getFact = ethers.getContractFactory
     const linkTokenFactory = await getFact('LinkToken')
     const mockV3AggregatorFactory = await getFact(
-      'src/v0.8/tests/MockV3Aggregator.sol:MockV3Aggregator',
+      'src/v0.8/shared/mocks/MockV3Aggregator.sol:MockV3Aggregator',
     )
     const upkeepMockFactory = await getFact('UpkeepMock')
     const registry12Factory = await getFact('KeeperRegistry1_2')
