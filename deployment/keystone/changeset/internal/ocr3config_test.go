@@ -1,6 +1,6 @@
 // TODO: KS-458 copied from https://github.com/smartcontractkit/chainlink/blob/65924811dc53a211613927c814d7f04fd85439a4/core/scripts/keystone/src/88_gen_ocr3_config.go#L1
 // to unblock go mod issues when trying to import the scripts package
-package keystone
+package internal
 
 import (
 	"encoding/json"

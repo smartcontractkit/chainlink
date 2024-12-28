@@ -77,7 +77,6 @@ func setup(t *testing.T, config Config) testHarness {
 }
 
 func TestComputeStartAddsToRegistry(t *testing.T) {
-	t.Parallel()
 	th := setup(t, defaultConfig)
 
 	require.NoError(t, th.compute.Start(tests.Context(t)))
@@ -110,7 +109,6 @@ func TestComputeExecuteMissingConfig(t *testing.T) {
 }
 
 func TestComputeExecuteMissingBinary(t *testing.T) {
-	t.Parallel()
 	th := setup(t, defaultConfig)
 
 	require.NoError(t, th.compute.Start(tests.Context(t)))

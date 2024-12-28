@@ -1,4 +1,4 @@
-package keystone
+package internal
 
 import (
 	"fmt"
@@ -27,7 +27,7 @@ func AddCapabilities(lggr logger.Logger, contractSet *ContractSet, chain deploym
 	}
 	tx, err := registry.AddCapabilities(txOpts, deduped)
 	if err != nil {
-		err = DecodeErr(kcr.CapabilitiesRegistryABI, err)
+		err = deployment.DecodeErr(kcr.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to add capabilities: %w", err)
 	}
 	var batch *timelock.BatchChainOperation

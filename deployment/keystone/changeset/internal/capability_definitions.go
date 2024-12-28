@@ -1,4 +1,4 @@
-package keystone
+package internal
 
 import kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 

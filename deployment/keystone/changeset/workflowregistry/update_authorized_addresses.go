@@ -10,7 +10,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 
-	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	workflow_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/workflow/generated/workflow_registry_wrapper"
 )
@@ -35,7 +34,7 @@ func (r *UpdateAuthorizedAddressesRequest) Validate() error {
 }
 
 func getWorkflowRegistry(env deployment.Environment, chainSel uint64) (*workflow_registry.WorkflowRegistry, error) {
-	resp, err := kslib.GetContractSets(env.Logger, &kslib.GetContractSetsRequest{
+	resp, err := changeset.GetContractSets(env.Logger, &changeset.GetContractSetsRequest{
 		Chains:      env.Chains,
 		AddressBook: env.ExistingAddresses,
 	})
@@ -57,7 +56,7 @@ func UpdateAuthorizedAddresses(env deployment.Environment, req *UpdateAuthorized
 		return deployment.ChangesetOutput{}, err
 	}
 
-	resp, err := kslib.GetContractSets(env.Logger, &kslib.GetContractSetsRequest{
+	resp, err := changeset.GetContractSets(env.Logger, &changeset.GetContractSetsRequest{
 		Chains:      env.Chains,
 		AddressBook: env.ExistingAddresses,
 	})
@@ -99,7 +98,7 @@ func UpdateAuthorizedAddresses(env deployment.Environment, req *UpdateAuthorized
 	return s.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
 		tx, err := registry.UpdateAuthorizedAddresses(opts, addr, req.Allowed)
 		if err != nil {
-			err = kslib.DecodeErr(workflow_registry.WorkflowRegistryABI, err)
+			err = deployment.DecodeErr(workflow_registry.WorkflowRegistryABI, err)
 		}
 		return tx, err
 	})
