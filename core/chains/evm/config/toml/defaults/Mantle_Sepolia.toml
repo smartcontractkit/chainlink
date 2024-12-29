@@ -32,3 +32,7 @@ BlockHistorySize = 200
 # the gas price is relayed to other changes for quotes so we want accurate/avg not pessimistic values.
 # So we set this to zero so FeeCap = baseFee + tipcap.
 EIP1559FeeCapBufferBlocks = 0
+
+[GasEstimator.DAOracle]
+OracleType = 'opstack'
+OracleAddress = '0x420000000000000000000000000000000000000F'
