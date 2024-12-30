@@ -69,7 +69,7 @@ runs:
     # If multiple jobs call actions/cache, then only one will get priority to create upon a cache miss.
     # We will only restore the cache by default (by calling actions/cache/restore) and let the
     # `go-mod-cache.yml` workflow handle the creation.
-    - uses: actions/cache/restore@v4.1.1
+    - uses: actions/cache/restore@v4
       if: ${{ inputs.restore-module-cache-only == 'true' }}
       name: Cache Go Modules
       with:
@@ -83,7 +83,7 @@ runs:
 
     # If this is called, then it will create the cache entry upon a cache miss.
     # The cache is created after a cache miss, and after job completes successfully.
-    - uses: actions/cache@v4.1.1
+    - uses: actions/cache@v4
       if: ${{ inputs.restore-module-cache-only != 'true' }}
       name: Cache Go Modules
       with:
@@ -95,7 +95,7 @@ runs:
         restore-keys: |
           ${{ runner.os }}-gomod-${{ inputs.cache-version }}-
 
-    - uses: actions/cache/restore@v4.1.1
+    - uses: actions/cache/restore@v4
       name: Cache Go Build Outputs (restore)
       # For certain events, we don't necessarily want to create a build cache, but we will benefit from restoring from one. 
       if: ${{ inputs.only-modules == 'false' && (github.event_name == 'merge_group' || inputs.restore-build-cache-only == 'true') }}
@@ -109,7 +109,7 @@ runs:
           ${{ runner.os }}-gobuild-${{ inputs.build-cache-version || inputs.cache-version }}-
           ${{ runner.os }}-gobuild-${{ inputs.cache-version }}-
 
-    - uses: actions/cache@v4.1.1
+    - uses: actions/cache@v4
       # don't save cache on merge queue events
       if: ${{ inputs.only-modules == 'false' && (github.event_name != 'merge_group' && inputs.restore-build-cache-only == 'false') }}
       name: Cache Go Build Outputs
