@@ -1,8 +1,6 @@
 ChainID = '133'
 FinalityTagEnabled = true
-MinContractPayment = '0.1 link'
 LogBroadcasterEnabled = false
-NewHeadsPollInterval = '8s'
 
 [GasEstimator]
 EIP1559DynamicFees = true
@@ -16,3 +14,6 @@ GasLimit = 10500000
 
 [HeadTracker]
 FinalityTagBypass = false
+
+[NodePool]
+NewHeadsPollInterval = '8s'
