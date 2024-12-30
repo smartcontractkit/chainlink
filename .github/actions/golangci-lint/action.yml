@@ -26,12 +26,14 @@ runs:
       # Only do a full checkout on merge_groups
       if: github.event_name == 'merge_group'
       with:
+        persist-credentials: false
         fetch-depth: 0
 
     - name: Checkout repo
       uses: actions/checkout@v4.2.1
       if: github.event_name != 'merge_group'
       with:
+        persist-credentials: false
         fetch-depth: 1
 
     - name: Setup Go
