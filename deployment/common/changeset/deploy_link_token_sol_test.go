@@ -13,7 +13,11 @@ import (
 
 	// "github.com/stretchr/testify/require"
 	// "go.uber.org/zap/zapcore"
-	// "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"go.uber.org/zap/zapcore"
+
 	// "github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	// "github.com/smartcontractkit/chainlink/v2/core/logger"
 	bin "github.com/gagliardetto/binary"
@@ -285,4 +289,22 @@ func TestCcipRouterDeploy(t *testing.T) {
 	_, err = common.SendAndConfirm(ctx, solanaGoClient, []solana.Instruction{instruction}, adminPrivateKey, DefaultCommitment)
 	require.NoError(t, err)
 	t.Logf("Program deployed successfully with ID: %s", programID)
+}
+
+func TestBuildSolana(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
+		Chains: 1,
+	})
+	e.SolChains = memory.NewMemoryChainsSol(t)
+	addresses, err := changeset.BuildSolana(e, []uint64{deployment.SolanaChainSelector})
+	require.NoError(t, err)
+	require.NotNil(t, addresses)
+	solAddresses, err := addresses.AddressBook.AddressesForChain(deployment.SolanaChainSelector)
+	require.NoError(t, err)
+	for address, tv := range solAddresses {
+		t.Logf("Address: %s", address)
+		t.Logf("TypeAndVersion: %s", tv.String())
+	}
+	e.Logger.Infof("Successfully deployed contracts: %v", addresses)
 }
