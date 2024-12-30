@@ -13,6 +13,11 @@ NoNewFinalizedHeadsThreshold = '60m0s'
 
 FinalityTagEnabled = true
 
+LogBroadcasterEnabled = false
+
+[NodePool]
+NewHeadsPollInterval = '2s'
+
 [GasEstimator]
 EIP1559DynamicFees = true
 Mode = 'FeeHistory'
