@@ -37,7 +37,7 @@ require (
 	github.com/smartcontractkit/libocr v0.0.0-20241223215956-e5b78d8e3919
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/viper v1.19.0
-	github.com/stretchr/testify v1.9.0
+	github.com/stretchr/testify v1.10.0
 	github.com/umbracle/ethgo v0.1.3
 	github.com/umbracle/fastrlp v0.0.0-20220527094140-59d5dd30e722
 	github.com/urfave/cli v1.22.14
@@ -118,7 +118,7 @@ require (
 	github.com/danielkov/gin-helmet v0.0.0-20171108135313-1387e224435e // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/deckarep/golang-set/v2 v2.6.0 // indirect
-	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0 // indirect
+	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.3.0 // indirect
 	github.com/dfuse-io/logging v0.0.0-20210109005628-b97a57253f70 // indirect
 	github.com/dgraph-io/badger/v2 v2.2007.4 // indirect
 	github.com/dgraph-io/ristretto v0.1.1 // indirect
@@ -138,8 +138,8 @@ require (
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.3 // indirect
-	github.com/gagliardetto/binary v0.7.7 // indirect
-	github.com/gagliardetto/solana-go v1.8.4 // indirect
+	github.com/gagliardetto/binary v0.8.0 // indirect
+	github.com/gagliardetto/solana-go v1.12.0 // indirect
 	github.com/gagliardetto/treeout v0.1.4 // indirect
 	github.com/gballet/go-libpcsclite v0.0.0-20191108122812-4678299bea08 // indirect
 	github.com/gedex/inflector v0.0.0-20170307190818-16278e9db813 // indirect
@@ -321,7 +321,7 @@ require (
 	github.com/spf13/cast v1.6.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/status-im/keycard-go v0.2.0 // indirect
-	github.com/streamingfast/logging v0.0.0-20220405224725-2755dab2ce75 // indirect
+	github.com/streamingfast/logging v0.0.0-20230608130331-f22c91403091 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/supranational/blst v0.3.13 // indirect
@@ -381,16 +381,16 @@ require (
 	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/arch v0.11.0 // indirect
 	golang.org/x/crypto v0.31.0 // indirect
-	golang.org/x/exp v0.0.0-20241009180824-f66d83c29e7c // indirect
-	golang.org/x/mod v0.21.0 // indirect
-	golang.org/x/net v0.30.0 // indirect
+	golang.org/x/exp v0.0.0-20241210194714-1829a127f884 // indirect
+	golang.org/x/mod v0.22.0 // indirect
+	golang.org/x/net v0.32.0 // indirect
 	golang.org/x/oauth2 v0.23.0 // indirect
 	golang.org/x/sync v0.10.0 // indirect
 	golang.org/x/sys v0.28.0 // indirect
 	golang.org/x/term v0.27.0 // indirect
 	golang.org/x/text v0.21.0 // indirect
 	golang.org/x/time v0.7.0 // indirect
-	golang.org/x/tools v0.26.0 // indirect
+	golang.org/x/tools v0.28.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
 	gonum.org/v1/gonum v0.15.1 // indirect
 	google.golang.org/genproto v0.0.0-20241021214115-324edc3d5d38 // indirect

@@ -33,12 +33,12 @@ require (
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.6.0
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.13
 	github.com/smartcontractkit/libocr v0.0.0-20241223215956-e5b78d8e3919
-	github.com/stretchr/testify v1.9.0
+	github.com/stretchr/testify v1.10.0
 	github.com/test-go/testify v1.1.4
 	github.com/testcontainers/testcontainers-go v0.34.0
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.27.0
-	golang.org/x/exp v0.0.0-20241009180824-f66d83c29e7c
+	golang.org/x/exp v0.0.0-20241210194714-1829a127f884
 	golang.org/x/oauth2 v0.23.0
 	golang.org/x/sync v0.10.0
 	google.golang.org/grpc v1.67.1
@@ -160,7 +160,7 @@ require (
 	github.com/crate-crypto/go-kzg-4844 v1.0.0 // indirect
 	github.com/danieljoos/wincred v1.1.2 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
-	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0 // indirect
+	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.3.0 // indirect
 	github.com/dennwc/varint v1.0.0 // indirect
 	github.com/dfuse-io/logging v0.0.0-20210109005628-b97a57253f70 // indirect
 	github.com/dgraph-io/badger/v2 v2.2007.4 // indirect
@@ -189,8 +189,8 @@ require (
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.3 // indirect
-	github.com/gagliardetto/binary v0.7.7 // indirect
-	github.com/gagliardetto/solana-go v1.8.4 // indirect
+	github.com/gagliardetto/binary v0.8.0 // indirect
+	github.com/gagliardetto/solana-go v1.12.0 // indirect
 	github.com/gagliardetto/treeout v0.1.4 // indirect
 	github.com/gballet/go-libpcsclite v0.0.0-20191108122812-4678299bea08 // indirect
 	github.com/getsentry/sentry-go v0.27.0 // indirect
@@ -429,7 +429,7 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/spf13/viper v1.19.0 // indirect
 	github.com/status-im/keycard-go v0.2.0 // indirect
-	github.com/streamingfast/logging v0.0.0-20220405224725-2755dab2ce75 // indirect
+	github.com/streamingfast/logging v0.0.0-20230608130331-f22c91403091 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/supranational/blst v0.3.13 // indirect
@@ -494,13 +494,13 @@ require (
 	go4.org/netipx v0.0.0-20230125063823-8449b0a6169f // indirect
 	golang.org/x/arch v0.11.0 // indirect
 	golang.org/x/crypto v0.31.0 // indirect
-	golang.org/x/mod v0.21.0 // indirect
-	golang.org/x/net v0.30.0 // indirect
+	golang.org/x/mod v0.22.0 // indirect
+	golang.org/x/net v0.32.0 // indirect
 	golang.org/x/sys v0.28.0 // indirect
 	golang.org/x/term v0.27.0 // indirect
 	golang.org/x/text v0.21.0 // indirect
 	golang.org/x/time v0.7.0 // indirect
-	golang.org/x/tools v0.26.0 // indirect
+	golang.org/x/tools v0.28.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	gonum.org/v1/gonum v0.15.1 // indirect
