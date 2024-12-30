@@ -9,7 +9,7 @@ LogPollInterval = '2s'
 # batching_size_finalization_percentage = 30% according to the explorer batching view
 # ( batching_size_finalization_percentage * finality_depth) * block_time / 60 secs = ~10  min (finality time)
 # After running soak tests using 10m threw issues as there are batchs that take 35m, so we are bumping it to 45m to be sure 
-NoNewFinalizedHeadsThreshold = ''
+NoNewFinalizedHeadsThreshold = '60m0s'
 
 FinalityTagEnabled = true
 
