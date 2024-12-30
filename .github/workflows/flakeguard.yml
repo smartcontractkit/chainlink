@@ -91,8 +91,9 @@ jobs:
       git_base_sha: ${{ steps.get_commit_sha.outputs.git_base_sha }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
         with:
+          persist-credentials: false
           fetch-depth: 0
           ref: ${{ env.GIT_HEAD_REF }}
 
@@ -140,11 +141,14 @@ jobs:
         env:
           # Needed to run go test -list
           CL_DATABASE_URL: postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable
+          GH_INPUTS_PROJECT_PATH: ${{ inputs.projectPath }}
+          GH_INPUTS_FIND_BY_TEST_FILES_DIFF: ${{ inputs.findByTestFilesDiff }}
+          GH_INPUTS_FIND_BY_AFFECTED_PACKAGES: ${{ inputs.findByAffectedPackages }}
         run: |
           PATH=$PATH:$(go env GOPATH)/bin
           export PATH
 
-          PACKAGES=$(flakeguard find --find-by-test-files-diff=${{ inputs.findByTestFilesDiff }} --find-by-affected-packages=${{ inputs.findByAffectedPackages }} --base-ref=origin/${{ env.GIT_BASE_REF }} --project-path=${{ inputs.projectPath }})
+          PACKAGES=$(flakeguard find --find-by-test-files-diff=$GH_INPUTS_FIND_BY_TEST_FILES_DIFF --find-by-affected-packages=$GH_INPUTS_FIND_BY_AFFECTED_PACKAGES --base-ref=origin/${{ env.GIT_BASE_REF }} --project-path=${GH_INPUTS_PROJECT_PATH})
           echo $PACKAGES
           echo "packages=$PACKAGES" >> $GITHUB_OUTPUT
 
@@ -155,19 +159,22 @@ jobs:
         env:
           # Needed to run go test -list
           CL_DATABASE_URL: postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable
+          GH_INPUTS_PROJECT_PATH: ${{ inputs.projectPath }}
         run: |
           PATH=$PATH:$(go env GOPATH)/bin
           export PATH
 
-          TEST_FILES=$(flakeguard find --only-show-changed-test-files=true --base-ref=origin/${{ env.GIT_BASE_REF }} --project-path=${{ inputs.projectPath }})
+          TEST_FILES=$(flakeguard find --only-show-changed-test-files=true --base-ref=origin/${{ env.GIT_BASE_REF }} --project-path=${GH_INPUTS_PROJECT_PATH})
           echo $TEST_FILES
           echo "test_files=$TEST_FILES" >> $GITHUB_OUTPUT
           
       - name: Split test packages into groups
         id: split-packages
         shell: bash
+        env:
+          GH_INPUTS_RUN_ALL_TESTS: ${{ inputs.runAllTests }}
         run: |
-          if [[ "${{ inputs.runAllTests }}" == "true" ]]; then
+          if [[ "$GH_INPUTS_RUN_ALL_TESTS" == "true" ]]; then
             # Use ALL_TESTS_RUNNER for a specified number of groups, each with "./..." to run all tests
             ALL_TESTS_RUNNER_COUNT=${{ env.ALL_TESTS_RUNNER_COUNT }}
             
@@ -235,8 +242,9 @@ jobs:
       DB_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
     steps:
       - name: Checkout repository
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
         with:
+          persist-credentials: false
           ref: ${{ env.GIT_HEAD_REF }}
 
       - name: Setup NodeJS
@@ -280,8 +288,10 @@ jobs:
 
       - name: Go mod tidy
         shell: bash
+        env:
+          GH_INPUTS_PROJECT_PATH: ${{ inputs.projectPath }}
         run: |
-          cd ${{ inputs.projectPath }}
+          cd $GH_INPUTS_PROJECT_PATH
           go mod tidy
 
       - name: Generate random id
@@ -294,9 +304,11 @@ jobs:
 
       - name: Run tests with flakeguard
         shell: bash
-        run: flakeguard run --project-path=${{ inputs.projectPath }} --test-packages=${{ matrix.testPackages }} --run-count=${{ env.TEST_REPEAT_COUNT }} --max-pass-ratio=${{ inputs.maxPassRatio }} --race=${{ env.RUN_WITH_RACE }} --shuffle=${{ env.RUN_WITH_SHUFFLE }} --shuffle-seed=${{ env.SHUFFLE_SEED }} --skip-tests=${{ env.SKIPPED_TESTS }} --output-json=test-result.json --omit-test-outputs-on-success=${{ env.OMIT_TEST_OUTPUTS_ON_SUCCESS }}
         env:
+          GH_INPUTS_PROJECT_PATH: ${{ inputs.projectPath }}
+          GH_INPUTS_MAX_PASS_RATIO: ${{ inputs.maxPassRatio }}
           CL_DATABASE_URL: ${{ env.DB_URL }}
+        run: flakeguard run --project-path=$GH_INPUTS_PROJECT_PATH} --test-packages=${{ matrix.testPackages }} --run-count=${{ env.TEST_REPEAT_COUNT }} --max-pass-ratio=$GH_INPUTS_MAX_PASS_RATIO --race=${{ env.RUN_WITH_RACE }} --shuffle=${{ env.RUN_WITH_SHUFFLE }} --shuffle-seed=${{ env.SHUFFLE_SEED }} --skip-tests=${{ env.SKIPPED_TESTS }} --output-json=test-result.json --omit-test-outputs-on-success=${{ env.OMIT_TEST_OUTPUTS_ON_SUCCESS }}
 
       - name: Upload test result as artifact
         if: always()
@@ -315,8 +327,9 @@ jobs:
       test_results: ${{ steps.results.outputs.results }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
         with:
+          persist-credentials: false
           ref: ${{ env.GIT_HEAD_REF }}
       - name: Setup Go
         uses: ./.github/actions/setup-go
@@ -325,11 +338,13 @@ jobs:
 
       - name: Set Pretty Project Path
         id: set_project_path_pretty
+        env:
+          GH_INPUTS_PROJECT_PATH: ${{ inputs.projectPath }}
         run: |
-          if [ "${{ inputs.projectPath }}" = "." ]; then
+          if [ "$GH_INPUTS_PROJECT_PATH" = "." ]; then
             echo "path=github.com/${{ github.repository }}" >> $GITHUB_OUTPUT
           else
-            echo "path=github.com/${{ github.repository }}/${{ inputs.projectPath }}" >> $GITHUB_OUTPUT
+            echo "path=github.com/${{ github.repository }}/${GH_INPUTS_PROJECT_PATH}" >> $GITHUB_OUTPUT
           fi
 
       - name: Download all test result artifacts
@@ -346,6 +361,9 @@ jobs:
       - name: Aggregate Flakeguard Results
         id: results
         shell: bash
+        env:
+          GH_INPUTS_REPO_URL: ${{ inputs.repoUrl }}
+          GH_INPUTS_MAX_PASS_RATIO: ${{ inputs.maxPassRatio }}
         run: |
           set -e  # Exit immediately if a command exits with a non-zero status.
       
@@ -362,8 +380,8 @@ jobs:
             --output-path ./flakeguard-report \
             --repo-path "${{ github.workspace }}" \
             --codeowners-path "${{ github.workspace }}/.github/CODEOWNERS" \
-            --max-pass-ratio "${{ inputs.maxPassRatio }}" \
-            --repo-url "${{ inputs.repoUrl }}" \
+            --max-pass-ratio "$GH_INPUTS_MAX_PASS_RATIO" \
+            --repo-url "$GH_INPUTS_REPO_URL" \
             --base-sha "${{ needs.get-tests.outputs.git_base_sha }}" \
             --head-sha "${{ needs.get-tests.outputs.git_head_sha }}" \
             --github-workflow-name "${{ github.workflow }}" \
@@ -409,6 +427,10 @@ jobs:
         if: success() || failure()
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_INPUTS_MAX_PASS_RATIO: ${{ inputs.maxPassRatio }}
+          GH_EVENT_NAME: ${{ github.event_name }}
+          GH_EVENT_PULL_REQUEST_BASE_REF: ${{ github.event.pull_request.base.ref }}
+          GH_EVENT_PULL_REQUEST_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -e  # Exit immediately if a command exits with a non-zero status.
       
@@ -417,7 +439,7 @@ jobs:
           export PATH
       
           # Check if the event is a pull request
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
+          if [ "$GH_EVENT_NAME" = "pull_request" ]; then
             flakeguard generate-report \
               --aggregated-results-path ./flakeguard-report/all-test-results.json \
               --summary-path ./flakeguard-report/all-test-summary.json \
@@ -426,12 +448,12 @@ jobs:
               --github-run-id "${{ github.run_id }}" \
               --failed-tests-artifact-name "failed-test-results-with-logs.json" \
               --generate-pr-comment \
-              --base-branch "${{ github.event.pull_request.base.ref }}" \
+              --base-branch "$GH_EVENT_PULL_REQUEST_BASE_REF" \
               --current-branch "${{ github.head_ref }}" \
-              --current-commit-sha "${{ github.event.pull_request.head.sha }}" \
+              --current-commit-sha "$GH_EVENT_PULL_REQUEST_HEAD_SHA" \
               --repo-url "https://github.com/${{ github.repository }}" \
               --action-run-id "${{ github.run_id }}" \
-              --max-pass-ratio "${{ inputs.maxPassRatio }}"
+              --max-pass-ratio "$GH_INPUTS_MAX_PASS_RATIO"
           else
             flakeguard generate-report \
               --aggregated-results-path ./flakeguard-report/all-test-results.json \
@@ -440,12 +462,12 @@ jobs:
               --github-repository "${{ github.repository }}" \
               --github-run-id "${{ github.run_id }}" \
               --failed-tests-artifact-name "failed-test-results-with-logs.json" \
-              --base-branch "${{ github.event.pull_request.base.ref }}" \
+              --base-branch "$GH_EVENT_PULL_REQUEST_BASE_REF" \
               --current-branch "${{ github.head_ref }}" \
-              --current-commit-sha "${{ github.event.pull_request.head.sha }}" \
+              --current-commit-sha "$GH_EVENT_PULL_REQUEST_HEAD_SHA" \
               --repo-url "https://github.com/${{ github.repository }}" \
               --action-run-id "${{ github.run_id }}" \
-              --max-pass-ratio "${{ inputs.maxPassRatio }}"          
+              --max-pass-ratio "$GH_INPUTS_MAX_PASS_RATIO"          
           fi
         
       - name: Add Github Summary

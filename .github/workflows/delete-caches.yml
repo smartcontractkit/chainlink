@@ -21,7 +21,9 @@ jobs:
       PR_NUMBER: ${{ github.event.pull_request.number }}
     steps:
       - name: Check out code
-        uses: actions/checkout@v4.1.2
+        uses: actions/checkout@v4.2.1
+        with:
+          persist-credentials: false
 
       - name: Setup gh-actions-cache extension
         env:
