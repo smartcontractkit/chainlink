@@ -1,10 +1,7 @@
 package memory
 
 import (
-	"bytes"
 	"math/big"
-	"os/exec"
-	"strconv"
 	"testing"
 	"time"
 
@@ -15,12 +12,13 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	solRpc "github.com/gagliardetto/solana-go/rpc"
 	"github.com/stretchr/testify/require"
-	"github.com/test-go/testify/assert"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
+	chainselectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 )
 
@@ -104,35 +102,19 @@ func evmChain(t *testing.T, numUsers int) EVMChain {
 // TODO: add dynamic users and admin like done in evmChain
 func solChain(t *testing.T) SolChain {
 	t.Helper()
-	port := "8899"
-	portInt, _ := strconv.Atoi(port)
 
-	faucetPort := "8877"
-	url := "http://127.0.0.1:" + port
-	wsURL := "ws://127.0.0.1:" + strconv.Itoa(portInt+1)
-
-	args := []string{
-		"--reset",
-		"--rpc-port", port,
-		"--faucet-port", faucetPort,
-		"--ledger", t.TempDir(),
+	bcInput := &blockchain.Input{
+		Type:      "solana",
+		Image:     "f4hrenh9it/solana",
+		Port:      "8545",
+		ChainID:   chainselectors.SOLANA_DEVNET.ChainID,
+		PublicKey: "9n1pyVGGo6V4mpiSDMVay5As9NurEkY283wwRk1Kto2C",
 	}
+	output, err := blockchain.NewBlockchainNetwork(bcInput)
+	url := output.Nodes[0].HostHTTPUrl
+	wsURL := output.Nodes[0].HostWSUrl
 
-	cmd := exec.Command("solana-test-validator", args...)
-
-	var stdErr bytes.Buffer
-	cmd.Stderr = &stdErr
-	var stdOut bytes.Buffer
-	cmd.Stdout = &stdOut
-	require.NoError(t, cmd.Start())
-	t.Cleanup(func() {
-		assert.NoError(t, cmd.Process.Kill())
-		if err2 := cmd.Wait(); assert.Error(t, err2) {
-			if !assert.Contains(t, err2.Error(), "signal: killed", cmd.ProcessState.String()) {
-				t.Logf("solana-test-validator\n stdout: %s\n stderr: %s", stdOut.String(), stdErr.String())
-			}
-		}
-	})
+	require.NoError(t, err)
 
 	// Wait for api server to boot
 	var ready bool
@@ -148,7 +130,7 @@ func solChain(t *testing.T) SolChain {
 		break
 	}
 	if !ready {
-		t.Logf("Cmd output: %s\nCmd error: %s\n", stdOut.String(), stdErr.String())
+		t.Logf("solana-test-validator is not ready after 30 attempts")
 	}
 	require.True(t, ready)
 	t.Logf("solana-test-validator is ready at %s", url)
