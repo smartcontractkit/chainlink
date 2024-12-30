@@ -96,7 +96,7 @@ func (sucm *stepUpdateManager) len() int64 {
 }
 
 type secretsFetcher interface {
-	SecretsFor(ctx context.Context, workflowOwner, workflowName, workflowID string) (map[string]string, error)
+	SecretsFor(ctx context.Context, workflowOwner, hexWorkflowName, workflowID string) (map[string]string, error)
 }
 
 // Engine handles the lifecycle of a single workflow and its executions.
