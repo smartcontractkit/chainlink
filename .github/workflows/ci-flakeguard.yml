@@ -1,4 +1,4 @@
-name: CI - Flakes
+name: Flakeguard CI Core
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
