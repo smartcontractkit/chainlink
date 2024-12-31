@@ -42,7 +42,7 @@ func (c *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.Commi
 	for _, update := range report.PriceUpdates.TokenPriceUpdates {
 		token, err := solana.PublicKeyFromBase58(string(update.TokenID))
 		if err != nil {
-			return nil, fmt.Errorf("invalid token address: %s, %v", update.TokenID, err)
+			return nil, fmt.Errorf("invalid token address: %s, %w", update.TokenID, err)
 		}
 		if update.Price.IsEmpty() {
 			return nil, fmt.Errorf("empty price for token: %s", update.TokenID)
