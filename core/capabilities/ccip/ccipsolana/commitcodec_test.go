@@ -5,21 +5,25 @@ import (
 	"math/rand"
 	"testing"
 
+	solanago "github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	solanacommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 var randomCommitReport = func() cciptypes.CommitPluginReport {
-	pubkey := solanacommon.MakeRandom32ByteArray()
+	pubkey, err := solanago.NewRandomPrivateKey()
+	if err != nil {
+		panic(err)
+	}
+
 	return cciptypes.CommitPluginReport{
 		MerkleRoots: []cciptypes.MerkleRootChain{
 			{
-				OnRampAddress: pubkey[:],
+				OnRampAddress: cciptypes.UnknownAddress(pubkey.PublicKey().String()),
 				ChainSel:      cciptypes.ChainSelector(rand.Uint64()),
 				SeqNumsRange: cciptypes.NewSeqNumRange(
 					cciptypes.SeqNum(rand.Uint64()),
@@ -32,13 +36,13 @@ var randomCommitReport = func() cciptypes.CommitPluginReport {
 			TokenPriceUpdates: []cciptypes.TokenPrice{
 				{
 					TokenID: "C8WSPj3yyus1YN3yNB6YA5zStYtbjQWtpmKadmvyUXq8",
-					Price:   cciptypes.NewBigInt(big.NewInt(64)),
+					Price:   cciptypes.NewBigInt(big.NewInt(rand.Int63())),
 				},
 			},
 			GasPriceUpdates: []cciptypes.GasPriceChain{
-				{GasPrice: cciptypes.NewBigInt(big.NewInt(64)), ChainSel: cciptypes.ChainSelector(rand.Uint64())},
-				{GasPrice: cciptypes.NewBigInt(big.NewInt(64)), ChainSel: cciptypes.ChainSelector(rand.Uint64())},
-				{GasPrice: cciptypes.NewBigInt(big.NewInt(64)), ChainSel: cciptypes.ChainSelector(rand.Uint64())},
+				{GasPrice: cciptypes.NewBigInt(big.NewInt(rand.Int63())), ChainSel: cciptypes.ChainSelector(rand.Uint64())},
+				{GasPrice: cciptypes.NewBigInt(big.NewInt(rand.Int63())), ChainSel: cciptypes.ChainSelector(rand.Uint64())},
+				{GasPrice: cciptypes.NewBigInt(big.NewInt(rand.Int63())), ChainSel: cciptypes.ChainSelector(rand.Uint64())},
 			},
 		},
 	}

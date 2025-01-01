@@ -3,12 +3,12 @@ package ccipsolana
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"fmt"
 
 	agbinary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
 
@@ -71,7 +71,7 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 				SourcePoolAddress: tokenAmount.SourcePoolAddress,
 				DestTokenAddress:  DestTokenAddress,
 				ExtraData:         tokenAmount.ExtraData,
-				Amount:            tokens.ToLittleEndianU256(tokenAmount.Amount.Int.Uint64()),
+				Amount:            ToBigEndianU256(tokenAmount.Amount.Int.Uint64()),
 				//DestGasAmount:     destGasAmount,
 			})
 		}
@@ -92,10 +92,15 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 		}
 	}
 
+	var offchainTokenData [][]byte
+	if len(chainReport.OffchainTokenData) > 0 {
+		offchainTokenData = chainReport.OffchainTokenData[0]
+	}
+
 	solanaReport := ccip_router.ExecutionReportSingleChain{
 		SourceChainSelector: uint64(chainReport.SourceChainSelector),
 		Message:             msg,
-		OffchainTokenData:   chainReport.OffchainTokenData[0],
+		OffchainTokenData:   offchainTokenData,
 		Proofs:              solanaProofs,
 	}
 
@@ -134,7 +139,7 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte)
 		tokenAmounts = append(tokenAmounts, cciptypes.RampTokenAmount{
 			SourcePoolAddress: tokenAmount.SourcePoolAddress,
 			// TODO: should this be abi-encoded?
-			DestTokenAddress: tokenAmount.DestTokenAddress.Bytes(),
+			DestTokenAddress: cciptypes.UnknownAddress(tokenAmount.DestTokenAddress.String()),
 			ExtraData:        tokenAmount.ExtraData,
 			Amount:           priceHelper(tokenAmount.Amount[:]),
 			//DestExecData:     destData,
@@ -154,7 +159,7 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte)
 		},
 		Sender:         executeReport.Message.Sender,
 		Data:           executeReport.Message.Data,
-		Receiver:       executeReport.Message.Receiver.Bytes(),
+		Receiver:       cciptypes.UnknownAddress(executeReport.Message.Receiver.String()),
 		ExtraArgs:      cciptypes.Bytes{},          // <-- todo: info not available, but not required atm
 		FeeToken:       cciptypes.UnknownAddress{}, // <-- todo: info not available, but not required atm
 		FeeTokenAmount: cciptypes.BigInt{},         // <-- todo: info not available, but not required atm
@@ -162,16 +167,27 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte)
 	}
 	messages = append(messages, message)
 
+	offchainTokenData := make([][][]byte, 0, 1)
+	if executeReport.OffchainTokenData != nil {
+		offchainTokenData = append(offchainTokenData, executeReport.OffchainTokenData)
+	}
+
 	chainReport := cciptypes.ExecutePluginReportSingleChain{
 		SourceChainSelector: cciptypes.ChainSelector(executeReport.SourceChainSelector),
 		Messages:            messages,
-		OffchainTokenData:   [][][]byte{executeReport.OffchainTokenData},
+		OffchainTokenData:   offchainTokenData,
 		Proofs:              proofs,
 	}
 
 	report.ChainReports = append(report.ChainReports, chainReport)
 
 	return report, nil
+}
+
+func ToBigEndianU256(v uint64) [32]byte {
+	out := make([]byte, 32)
+	binary.BigEndian.PutUint64(out[24:], v)
+	return [32]byte(out)
 }
 
 // Ensure ExecutePluginCodec implements the ExecutePluginCodec interface

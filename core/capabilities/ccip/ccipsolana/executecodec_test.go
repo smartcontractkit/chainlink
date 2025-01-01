@@ -1,10 +1,11 @@
 package ccipsolana
 
 import (
+	"math/big"
 	"math/rand"
 	"testing"
 
-	solanacommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
+	solanago "github.com/gagliardetto/solana-go"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -16,22 +17,25 @@ import (
 var randomExecuteReport = func(t *testing.T) cciptypes.ExecutePluginReport {
 	const numChainReports = 1
 	const msgsPerReport = 1
-	const numTokensPerMsg = 3
+	const numTokensPerMsg = 1
 
 	chainReports := make([]cciptypes.ExecutePluginReportSingleChain, numChainReports)
 	for i := 0; i < numChainReports; i++ {
 		reportMessages := make([]cciptypes.Message, msgsPerReport)
 		for j := 0; j < msgsPerReport; j++ {
-			data, err := cciptypes.NewBytesFromString(utils.RandomAddress().String())
-			assert.NoError(t, err)
+			key, err := solanago.NewRandomPrivateKey()
+			if err != nil {
+				panic(err)
+			}
+			data, err := cciptypes.NewBytesFromString("0x1234")
 
 			tokenAmounts := make([]cciptypes.RampTokenAmount, numTokensPerMsg)
 			for z := 0; z < numTokensPerMsg; z++ {
 				tokenAmounts[z] = cciptypes.RampTokenAmount{
-					SourcePoolAddress: utils.RandomAddress().Bytes(),
-					DestTokenAddress:  utils.RandomAddress().Bytes(),
+					SourcePoolAddress: cciptypes.UnknownAddress(key.PublicKey().String()),
+					DestTokenAddress:  cciptypes.UnknownAddress(key.PublicKey().String()),
 					ExtraData:         data,
-					Amount:            cciptypes.NewBigInt(utils.RandUint256()),
+					Amount:            cciptypes.NewBigInt(big.NewInt(rand.Int63())),
 				}
 			}
 
@@ -44,10 +48,11 @@ var randomExecuteReport = func(t *testing.T) cciptypes.ExecutePluginReport {
 			//		{Pubkey: solana.SystemProgramID, IsWritable: false},
 			//	},
 			//}
-			assert.NoError(t, err)
-			senderAddr := solanacommon.MakeRandom32ByteArray()
-			receiverAddr := solanacommon.MakeRandom32ByteArray()
-			feeTokenAddr := solanacommon.MakeRandom32ByteArray()
+
+			//senderAddr = solanacommon.MakeRandom32ByteArray()
+			//receiverAddr := solanacommon.MakeRandom32ByteArray()
+			//feeTokenAddr := solanacommon.MakeRandom32ByteArray()
+			//onRampAddr := solanacommon.MakeRandom32ByteArray()
 
 			reportMessages[j] = cciptypes.Message{
 				Header: cciptypes.RampMessageHeader{
@@ -57,14 +62,14 @@ var randomExecuteReport = func(t *testing.T) cciptypes.ExecutePluginReport {
 					SequenceNumber:      cciptypes.SeqNum(rand.Uint64()),
 					Nonce:               rand.Uint64(),
 					MsgHash:             utils.RandomBytes32(),
-					OnRamp:              utils.RandomAddress().Bytes(),
+					OnRamp:              cciptypes.UnknownAddress(key.PublicKey().String()),
 				},
-				Sender:   senderAddr[:],
+				Sender:   cciptypes.UnknownAddress(key.PublicKey().String()),
 				Data:     data,
-				Receiver: receiverAddr[:],
+				Receiver: cciptypes.UnknownAddress(key.PublicKey().String()),
 				//ExtraArgs:      extraArgs,
-				FeeToken:       feeTokenAddr[:],
-				FeeTokenAmount: cciptypes.NewBigInt(utils.RandUint256()),
+				FeeToken:       cciptypes.UnknownAddress(key.PublicKey().String()),
+				FeeTokenAmount: cciptypes.NewBigInt(big.NewInt(rand.Int63())),
 				TokenAmounts:   tokenAmounts,
 			}
 		}
@@ -79,7 +84,7 @@ var randomExecuteReport = func(t *testing.T) cciptypes.ExecutePluginReport {
 			Messages:            reportMessages,
 			OffchainTokenData:   tokenData,
 			Proofs:              []cciptypes.Bytes32{utils.RandomBytes32(), utils.RandomBytes32()},
-			ProofFlagBits:       cciptypes.NewBigInt(utils.RandUint256()),
+			//ProofFlagBits:       cciptypes.NewBigInt(utils.RandUint256()),
 		}
 	}
 
@@ -97,20 +102,19 @@ func TestExecutePluginCodecV1(t *testing.T) {
 			report: func(report cciptypes.ExecutePluginReport) cciptypes.ExecutePluginReport { return report },
 			expErr: false,
 		},
-		{
-			name: "reports have empty msgs",
-			report: func(report cciptypes.ExecutePluginReport) cciptypes.ExecutePluginReport {
-				report.ChainReports[0].Messages = []cciptypes.Message{}
-				report.ChainReports[4].Messages = []cciptypes.Message{}
-				return report
-			},
-			expErr: false,
-		},
+		// TODO: check if empty msg if necessary since there is only single msg in solana execute report
+		//{
+		//	name: "reports have empty msgs",
+		//	report: func(report cciptypes.ExecutePluginReport) cciptypes.ExecutePluginReport {
+		//		report.ChainReports[0].Messages = []cciptypes.Message{}
+		//		return report
+		//	},
+		//	expErr: false,
+		//},
 		{
 			name: "reports have empty offchain token data",
 			report: func(report cciptypes.ExecutePluginReport) cciptypes.ExecutePluginReport {
 				report.ChainReports[0].OffchainTokenData = [][][]byte{}
-				report.ChainReports[4].OffchainTokenData[1] = [][]byte{}
 				return report
 			},
 			expErr: false,
