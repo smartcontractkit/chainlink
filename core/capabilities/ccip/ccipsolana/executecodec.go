@@ -3,7 +3,6 @@ package ccipsolana
 import (
 	"bytes"
 	"context"
-	"encoding/binary"
 	"fmt"
 
 	agbinary "github.com/gagliardetto/binary"
@@ -24,6 +23,9 @@ func NewExecutePluginCodecV1() *ExecutePluginCodecV1 {
 }
 
 func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.ExecutePluginReport) ([]byte, error) {
+	// TODO:
+	//  1. destGasAmount
+	//  2. ExtraArgs
 	var buf bytes.Buffer
 	encoder := agbinary.NewBorshEncoder(&buf)
 
@@ -72,7 +74,7 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 				SourcePoolAddress: tokenAmount.SourcePoolAddress,
 				DestTokenAddress:  DestTokenAddress,
 				ExtraData:         tokenAmount.ExtraData,
-				Amount:            ToBigEndianU256(tokenAmount.Amount.Int.Uint64()),
+				Amount:            BigIntToBytes32(tokenAmount.Amount),
 				// DestGasAmount:     destGasAmount,
 			})
 		}
@@ -84,10 +86,9 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 				SequenceNumber:      uint64(message.Header.SequenceNumber),
 				Nonce:               message.Header.Nonce,
 			},
-			Sender:   message.Sender,
-			Data:     message.Data,
-			Receiver: receiver,
-			// GasLimit:     gasLimit,
+			Sender:       message.Sender,
+			Data:         message.Data,
+			Receiver:     receiver,
 			TokenAmounts: tokenAmounts,
 			// ExtraArgs:
 		}
@@ -185,10 +186,11 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte)
 	return report, nil
 }
 
-func ToBigEndianU256(v uint64) [32]byte {
-	out := make([]byte, 32)
-	binary.BigEndian.PutUint64(out[24:], v)
-	return [32]byte(out)
+func BigIntToBytes32(n cciptypes.BigInt) [32]uint8 {
+	var b [32]uint8
+	raw := n.Bytes()
+	copy(b[32-len(raw):], raw) // Right-align and zero-pad
+	return b
 }
 
 // Ensure ExecutePluginCodec implements the ExecutePluginCodec interface

@@ -20,7 +20,7 @@ require (
 	github.com/deckarep/golang-set/v2 v2.6.0
 	github.com/dominikbraun/graph v0.23.0
 	github.com/esote/minmaxheap v1.0.0
-	github.com/ethereum/go-ethereum v1.14.11
+	github.com/ethereum/go-ethereum v1.14.12
 	github.com/fatih/color v1.17.0
 	github.com/fxamacker/cbor/v2 v2.7.0
 	github.com/gagliardetto/binary v0.8.0
@@ -227,7 +227,7 @@ require (
 	github.com/gofrs/flock v0.8.1 // indirect
 	github.com/gofrs/uuid v4.4.0+incompatible // indirect
 	github.com/gogo/protobuf v1.3.3 // indirect
-	github.com/golang-jwt/jwt/v4 v4.5.0 // indirect
+	github.com/golang-jwt/jwt/v4 v4.5.1 // indirect
 	github.com/golang-jwt/jwt/v5 v5.2.1 // indirect
 	github.com/golang/glog v1.2.2 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
