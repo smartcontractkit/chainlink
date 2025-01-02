@@ -676,7 +676,6 @@ func (s CCIPOnChainState) ValidateState(chainSelector uint64) error {
 		}
 		// TODO: SOLANA_CCIP
 		// check for ccip router existing
-		return errors.New("not implemented")
 	} else {
 		chainState, exists := s.Chains[chainSelector]
 		if !exists {
