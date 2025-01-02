@@ -28,7 +28,6 @@ const (
 	revision  = "2e4e27e1d64f8633b4742100a395936c13614fb8" // Dec 27 2023
 	cloneDir  = "./temp-repo"
 	anchorDir = "chains/solana/contracts" // Path to the Anchor project within the repo
-	outputDir = "./build-outputs"         // Directory for build outputs
 )
 
 // Map program names to their Rust file paths (relative to the Anchor project root)
@@ -210,7 +209,7 @@ func BuildSolana(e deployment.Environment, chains []uint64) (deployment.Changese
 				return deployment.ChangesetOutput{AddressBook: newAddresses}, err
 			}
 			if family == chainsel.FamilySolana {
-				newAddresses.Save(chain, output.Key, deployment.NewTypeAndVersion(output.Name, deployment.Version1_0_0))
+				newAddresses.Save(chain, output.Key, deployment.NewTypeAndVersion(output.Name, deployment.Version1_6_0_dev))
 			} else {
 				e.Logger.Errorf("Unknown chain family %s", family)
 			}
