@@ -346,6 +346,9 @@ func (s CCIPOnChainState) SupportedChains() map[uint64]struct{} {
 	for chain := range s.Chains {
 		chains[chain] = struct{}{}
 	}
+	for chain := range s.SolChains {
+		chains[chain] = struct{}{}
+	}
 	return chains
 }
 
@@ -662,4 +665,26 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 		}
 	}
 	return state, nil
+}
+
+// ValidateState validates the state of the CCIP deployment
+func (s CCIPOnChainState) ValidateState(chainSelector uint64) error {
+	if deployment.IsSolanaChainFamily(chainSelector) {
+		_, exists := s.SolChains[chainSelector]
+		if !exists {
+			return fmt.Errorf("chain %d does not exist", chainSelector)
+		}
+		// TODO: SOLANA_CCIP
+		// check for ccip router existing
+	} else {
+		chainState, exists := s.Chains[chainSelector]
+		if !exists {
+			return fmt.Errorf("chain %d does not exist", chainSelector)
+		}
+		if chainState.OffRamp == nil {
+			// should not be possible, but a defensive check.
+			return fmt.Errorf("OffRamp contract does not exist")
+		}
+	}
+	return nil
 }

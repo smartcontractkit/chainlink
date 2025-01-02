@@ -198,8 +198,8 @@ func BuildSetOCR3ConfigArgs(
 
 func BuildOCR3ConfigForCCIPHome(
 	ocrSecrets deployment.OCRSecrets,
-	offRamp *offramp.OffRamp,
-	dest deployment.Chain,
+	offRampAddress []byte,
+	destSelector uint64,
 	nodes deployment.Nodes,
 	rmnHomeAddress common.Address,
 	ocrParams types2.OCRParameters,
@@ -212,9 +212,9 @@ func BuildOCR3ConfigForCCIPHome(
 	var oracles []confighelper.OracleIdentityExtra
 	for _, node := range nodes {
 		schedule = append(schedule, 1)
-		cfg, exists := node.OCRConfigForChainSelector(dest.Selector)
+		cfg, exists := node.OCRConfigForChainSelector(destSelector)
 		if !exists {
-			return nil, fmt.Errorf("no OCR config for chain %d", dest.Selector)
+			return nil, fmt.Errorf("no OCR config for chain %d", destSelector)
 		}
 		oracles = append(oracles, confighelper.OracleIdentityExtra{
 			OracleIdentity: confighelper.OracleIdentity{
@@ -314,10 +314,10 @@ func BuildOCR3ConfigForCCIPHome(
 
 		ocr3Configs[pluginType] = ccip_home.CCIPHomeOCR3Config{
 			PluginType:            uint8(pluginType),
-			ChainSelector:         dest.Selector,
+			ChainSelector:         destSelector,
 			FRoleDON:              configF,
 			OffchainConfigVersion: offchainConfigVersion,
-			OfframpAddress:        offRamp.Address().Bytes(),
+			OfframpAddress:        offRampAddress,
 			Nodes:                 ocrNodes,
 			OffchainConfig:        offchainConfig,
 			RmnHomeAddress:        rmnHomeAddress.Bytes(),

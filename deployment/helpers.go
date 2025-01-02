@@ -206,3 +206,11 @@ func ChainInfo(cs uint64) (chain_selectors.ChainDetails, error) {
 	}
 	return info, nil
 }
+
+func IsSolanaChainFamily(cs uint64) bool {
+	family, err := chain_selectors.GetSelectorFamily(cs)
+	if err != nil {
+		return false
+	}
+	return family == chain_selectors.FamilySolana
+}
