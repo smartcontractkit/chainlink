@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.24;
+pragma solidity ^0.8.19;
 
 import {IReceiver} from "./interfaces/IReceiver.sol";
 import {IRouter} from "./interfaces/IRouter.sol";
@@ -316,15 +316,15 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
     bytes memory rawReport
   ) internal pure returns (bytes32 workflowExecutionId, uint64 configId, bytes2 reportId) {
     // (first 32 bytes of memory contain length of the report)
-    // version                  // offset  32, size  1
-    // workflow_execution_id    // offset  33, size 32
-    // timestamp                // offset  65, size  4
-    // don_id                   // offset  69, size  4
-    // don_config_version,	    // offset  73, size  4
-    // workflow_cid             // offset  77, size 32
-    // workflow_name            // offset 109, size 10
-    // workflow_owner           // offset 119, size 20
-    // report_id              // offset 139, size  2
+    // version                offset  32, size  1
+    // workflow_execution_id  offset  33, size 32
+    // timestamp              offset  65, size  4
+    // don_id                 offset  69, size  4
+    // don_config_version,    offset  73, size  4
+    // workflow_cid           offset  77, size 32
+    // workflow_name          offset 109, size 10
+    // workflow_owner         offset 119, size 20
+    // report_id              offset 139, size  2
     assembly {
       workflowExecutionId := mload(add(rawReport, 33))
       // shift right by 24 bytes to get the combined don_id and don_config_version

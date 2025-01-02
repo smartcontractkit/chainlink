@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.24;
+pragma solidity ^0.8.24;
 
 import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 import {IAny2EVMMessageReceiver} from "../interfaces/IAny2EVMMessageReceiver.sol";
@@ -13,13 +13,13 @@ import {ITokenAdminRegistry} from "../interfaces/ITokenAdminRegistry.sol";
 
 import {CallWithExactGas} from "../../shared/call/CallWithExactGas.sol";
 import {Client} from "../libraries/Client.sol";
+import {ERC165CheckerReverting} from "../libraries/ERC165CheckerReverting.sol";
 import {Internal} from "../libraries/Internal.sol";
 import {MerkleMultiProof} from "../libraries/MerkleMultiProof.sol";
 import {Pool} from "../libraries/Pool.sol";
 import {MultiOCR3Base} from "../ocr/MultiOCR3Base.sol";
 
 import {IERC20} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts/token/ERC20/IERC20.sol";
-import {ERC165Checker} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts/utils/introspection/ERC165Checker.sol";
 import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts/utils/structs/EnumerableSet.sol";
 
 /// @notice OffRamp enables OCR networks to execute multiple messages in an OffRamp in a single transaction.
@@ -28,7 +28,7 @@ import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts
 /// @dev MultiOCR3Base is used to store multiple OCR configs for the OffRamp. The execution plugin type has to be
 /// configured without signature verification, and the commit plugin type with verification.
 contract OffRamp is ITypeAndVersion, MultiOCR3Base {
-  using ERC165Checker for address;
+  using ERC165CheckerReverting for address;
   using EnumerableSet for EnumerableSet.UintSet;
 
   error ZeroChainSelectorNotAllowed();
@@ -48,7 +48,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   error InvalidRoot();
   error CanOnlySelfCall();
   error ReceiverError(bytes err);
-  error TokenHandlingError(bytes err);
+  error TokenHandlingError(address target, bytes err);
   error ReleaseOrMintBalanceMismatch(uint256 amountReleased, uint256 balancePre, uint256 balancePost);
   error EmptyReport(uint64 sourceChainSelector);
   error EmptyBatch();
@@ -92,8 +92,9 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   /// @dev RMN depends on this struct, if changing, please notify the RMN maintainers.
   // solhint-disable-next-line gas-struct-packing
   struct StaticConfig {
-    uint64 chainSelector; // ────╮ Destination chainSelector
-    IRMNRemote rmnRemote; // ────╯ RMN Verification Contract
+    uint64 chainSelector; // ───────╮ Destination chainSelector
+    uint16 gasForCallExactCheck; // | Gas for call exact check
+    IRMNRemote rmnRemote; // ───────╯ RMN Verification Contract
     address tokenAdminRegistry; // Token admin registry address
     address nonceManager; // Nonce manager address
   }
@@ -151,6 +152,10 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   address internal immutable i_tokenAdminRegistry;
   /// @dev The address of the nonce manager.
   address internal immutable i_nonceManager;
+  /// @dev The minimum amount of gas to perform the call with exact gas.
+  /// We include this in the offramp so that we can redeploy to adjust it should a hardfork change the gas costs of
+  /// relevant opcodes in callWithExactGas.
+  uint16 internal immutable i_gasForCallExactCheck;
 
   // DYNAMIC CONFIG
   DynamicConfig internal s_dynamicConfig;
@@ -193,6 +198,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     i_rmnRemote = staticConfig.rmnRemote;
     i_tokenAdminRegistry = staticConfig.tokenAdminRegistry;
     i_nonceManager = staticConfig.nonceManager;
+    i_gasForCallExactCheck = staticConfig.gasForCallExactCheck;
     emit StaticConfigSet(staticConfig);
 
     _setDynamicConfig(dynamicConfig);
@@ -322,7 +328,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   /// @notice Transmit function for execution reports. The function takes no signatures, and expects the exec plugin
   /// type to be configured with no signatures.
   /// @param report serialized execution report.
-  function execute(bytes32[3] calldata reportContext, bytes calldata report) external {
+  function execute(bytes32[2] calldata reportContext, bytes calldata report) external {
     _batchExecute(abi.decode(report, (Internal.ExecutionReport[])), new GasLimitOverride[][](0));
 
     bytes32[] memory emptySigs = new bytes32[](0);
@@ -356,6 +362,8 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   /// @param manualExecGasExecOverrides An array of gas limits to use for manual execution.
   /// @dev If called from the DON, this array is always empty.
   /// @dev If called from manual execution, this array is always same length as messages.
+  /// @dev This function can fully revert in some cases, reverting potentially valid other reports with it. The reasons
+  /// for these reverts are so severe that we prefer to revert the entire batch instead of silently failing.
   function _executeSingleReport(
     Internal.ExecutionReport memory report,
     GasLimitOverride[] memory manualExecGasExecOverrides
@@ -577,6 +585,8 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
       destTokenAmounts: destTokenAmounts
     });
 
+    // The main message interceptor is the aggregate rate limiter, but we also allow for a custom interceptor. This is
+    // why we always have to call into the contract when it's enabled, even when there are no tokens in the message.
     address messageInterceptor = s_dynamicConfig.messageInterceptor;
     if (messageInterceptor != address(0)) {
       try IMessageInterceptor(messageInterceptor).onInboundMessage(any2EvmMessage) {}
@@ -594,14 +604,17 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     // 3. If the receiver is a contract but it does not support the IAny2EVMMessageReceiver interface.
     //
     // The ordering of these checks is important, as the first check is the cheapest to execute.
+    //
+    // To prevent message delivery bypass issues, a modified version of the ERC165Checker is used
+    // which checks for sufficient gas before making the external call.
     if (
       (message.data.length == 0 && message.gasLimit == 0) || message.receiver.code.length == 0
-        || !message.receiver.supportsInterface(type(IAny2EVMMessageReceiver).interfaceId)
+        || !message.receiver._supportsInterfaceReverting(type(IAny2EVMMessageReceiver).interfaceId)
     ) return;
 
     (bool success, bytes memory returnData,) = s_sourceChainConfigs[message.header.sourceChainSelector]
       .router
-      .routeMessage(any2EvmMessage, Internal.GAS_FOR_CALL_EXACT_CHECK, message.gasLimit, message.receiver);
+      .routeMessage(any2EvmMessage, i_gasForCallExactCheck, message.gasLimit, message.receiver);
     // If CCIP receiver execution is not successful, revert the call including token transfers.
     if (!success) revert ReceiverError(returnData);
   }
@@ -637,7 +650,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     // This is done to prevent a pool from reverting the entire transaction if it doesn't support the interface.
     // The call gets a max or 30k gas per instance, of which there are three. This means offchain gas estimations should
     // account for 90k gas overhead due to the interface check.
-    if (localPoolAddress == address(0) || !localPoolAddress.supportsInterface(Pool.CCIP_POOL_V1)) {
+    if (localPoolAddress == address(0) || !localPoolAddress._supportsInterfaceReverting(Pool.CCIP_POOL_V1)) {
       revert NotACompatiblePool(localPoolAddress);
     }
 
@@ -665,12 +678,12 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
       ),
       localPoolAddress,
       gasLeft,
-      Internal.GAS_FOR_CALL_EXACT_CHECK,
+      i_gasForCallExactCheck,
       Internal.MAX_RET_BYTES
     );
 
     // Wrap and rethrow the error so we can catch it lower in the stack.
-    if (!success) revert TokenHandlingError(returnData);
+    if (!success) revert TokenHandlingError(localPoolAddress, returnData);
 
     // If the call was successful, the returnData should be the amount released or minted denominated in the local
     // token's decimals.
@@ -705,13 +718,9 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     uint256 gasLimit
   ) internal returns (uint256 balance, uint256 gasLeft) {
     (bool success, bytes memory returnData, uint256 gasUsed) = CallWithExactGas._callWithExactGasSafeReturnData(
-      abi.encodeCall(IERC20.balanceOf, (receiver)),
-      token,
-      gasLimit,
-      Internal.GAS_FOR_CALL_EXACT_CHECK,
-      Internal.MAX_RET_BYTES
+      abi.encodeCall(IERC20.balanceOf, (receiver)), token, gasLimit, i_gasForCallExactCheck, Internal.MAX_RET_BYTES
     );
-    if (!success) revert TokenHandlingError(returnData);
+    if (!success) revert TokenHandlingError(token, returnData);
 
     // If the call was successful, the returnData should contain only the balance.
     if (returnData.length != Internal.MAX_BALANCE_OF_RET_BYTES) {
@@ -773,7 +782,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   /// price updates is submitted, we are OK to revert to preserve the invariant that we always revert on invalid
   /// sequence number ranges. If that happens, prices will be updated in later rounds.
   function commit(
-    bytes32[3] calldata reportContext,
+    bytes32[2] calldata reportContext,
     bytes calldata report,
     bytes32[] calldata rs,
     bytes32[] calldata ss,
@@ -906,6 +915,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   function getStaticConfig() external view returns (StaticConfig memory) {
     return StaticConfig({
       chainSelector: i_chainSelector,
+      gasForCallExactCheck: i_gasForCallExactCheck,
       rmnRemote: i_rmnRemote,
       tokenAdminRegistry: i_tokenAdminRegistry,
       nonceManager: i_nonceManager

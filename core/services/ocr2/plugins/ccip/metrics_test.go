@@ -13,6 +13,7 @@ const (
 )
 
 func Test_SequenceNumbers(t *testing.T) {
+	t.Parallel()
 	collector := NewPluginMetricsCollector("test", sourceChainId, destChainId)
 
 	collector.SequenceNumber(Report, 10)
@@ -23,6 +24,7 @@ func Test_SequenceNumbers(t *testing.T) {
 }
 
 func Test_NumberOfMessages(t *testing.T) {
+	t.Parallel()
 	collector := NewPluginMetricsCollector("test", sourceChainId, destChainId)
 	collector2 := NewPluginMetricsCollector("test2", destChainId, sourceChainId)
 
@@ -37,6 +39,7 @@ func Test_NumberOfMessages(t *testing.T) {
 }
 
 func Test_UnexpiredCommitRoots(t *testing.T) {
+	t.Parallel()
 	collector := NewPluginMetricsCollector("test", sourceChainId, destChainId)
 
 	collector.UnexpiredCommitRoots(10)

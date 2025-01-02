@@ -35,7 +35,7 @@ import (
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
+	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -167,11 +167,12 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		return nil, fmt.Errorf("failed to get home chain contract reader: %w", err)
 	}
 
-	hcr := ccipreaderpkg.NewHomeChainReader(
+	hcr := ccipreaderpkg.NewObservedHomeChainReader(
 		homeChainContractReader,
 		d.lggr.Named("HomeChainReader"),
 		100*time.Millisecond,
 		ccipConfigBinding,
+		d.capabilityConfig.ExternalRegistry().ChainID(),
 	)
 
 	// get the chain selector for the home chain

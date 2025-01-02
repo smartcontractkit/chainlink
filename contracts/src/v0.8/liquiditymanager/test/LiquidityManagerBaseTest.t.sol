@@ -25,6 +25,7 @@ contract LiquidityManagerBaseTest is Test {
   address internal constant FINANCE = address(0x00000fffffffffffffffffffff);
   address internal constant OWNER = address(0x00000078772732723782873283);
   address internal constant STRANGER = address(0x00000999999911111111222222);
+  uint8 internal constant DEFAULT_TOKEN_DECIMALS = 18;
 
   function setUp() public virtual {
     s_l1Token = new ERC20("l1", "L1");

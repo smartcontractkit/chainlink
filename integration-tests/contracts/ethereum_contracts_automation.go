@@ -2809,14 +2809,14 @@ type AutomationConsumerBenchmarkUpkeepObserver struct {
 
 	firstBlockNum       uint64                                     // Records the number of the first block that came in
 	lastBlockNum        uint64                                     // Records the number of the last block that came in
-	blockRange          int64                                      // How many blocks to watch upkeeps for
+	blockRange          uint64                                     // How many blocks to watch upkeeps for
 	upkeepSLA           int64                                      // SLA after which an upkeep is counted as 'missed'
 	metricsReporter     *testreporters.KeeperBenchmarkTestReporter // Testreporter to track results
 	upkeepIndex         int64
 	firstEligibleBuffer int64
 
 	// State variables, changes as we get blocks
-	blocksSinceSubscription int64   // How many blocks have passed since subscribing
+	blocksSinceSubscription uint64  // How many blocks have passed since subscribing
 	blocksSinceEligible     int64   // How many blocks have come in since upkeep has been eligible for check
 	countEligible           int64   // Number of times the upkeep became eligible
 	countMissed             int64   // Number of times we missed SLA for performing upkeep
@@ -2832,7 +2832,7 @@ func NewAutomationConsumerBenchmarkUpkeepObserver(
 	contract AutomationConsumerBenchmark,
 	registry KeeperRegistry,
 	upkeepID *big.Int,
-	blockRange int64,
+	blockRange uint64,
 	upkeepSLA int64,
 	metricsReporter *testreporters.KeeperBenchmarkTestReporter,
 	upkeepIndex int64,
@@ -2906,7 +2906,7 @@ func (o *AutomationConsumerBenchmarkUpkeepObserver) ReceiveHeader(receivedHeader
 		o.blocksSinceEligible = 0
 	}
 
-	isEligible, err := o.instance.CheckEligible(context.Background(), big.NewInt(o.upkeepIndex), big.NewInt(o.blockRange), big.NewInt(o.firstEligibleBuffer))
+	isEligible, err := o.instance.CheckEligible(context.Background(), big.NewInt(o.upkeepIndex), new(big.Int).SetUint64(o.blockRange), big.NewInt(o.firstEligibleBuffer))
 	if err != nil {
 		return false, err
 	}
@@ -2924,7 +2924,7 @@ func (o *AutomationConsumerBenchmarkUpkeepObserver) ReceiveHeader(receivedHeader
 		o.blocksSinceEligible++
 	}
 
-	if o.blocksSinceSubscription >= o.blockRange || int64(o.lastBlockNum-o.firstBlockNum) >= o.blockRange {
+	if o.blocksSinceSubscription >= o.blockRange || o.lastBlockNum-o.firstBlockNum >= o.blockRange {
 		if o.blocksSinceEligible > 0 {
 			if o.blocksSinceEligible > o.upkeepSLA {
 				o.l.Warn().
@@ -2953,7 +2953,7 @@ func (o *AutomationConsumerBenchmarkUpkeepObserver) ReceiveHeader(receivedHeader
 			Str("Upkeep_ID", o.upkeepID.String()).
 			Str("Contract_Address", o.instance.Address()).
 			Int64("Upkeeps_Performed", upkeepCount.Int64()).
-			Int64("Total_Blocks_Watched", o.blocksSinceSubscription).
+			Uint64("Total_Blocks_Watched", o.blocksSinceSubscription).
 			Str("Registry_Address", o.registry.Address()).
 			Msg("Finished Watching for Upkeeps")
 

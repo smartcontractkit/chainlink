@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"sync"
 	"time"
 
@@ -22,9 +23,11 @@ type asyncDeleter interface {
 
 var _ services.Service = (*transmitQueue)(nil)
 
-var transmitQueueLoad = promauto.NewGaugeVec(prometheus.GaugeOpts{
-	Name: "llo_transmit_queue_load",
-	Help: "Current count of items in the transmit queue",
+var promTransmitQueueLoad = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	Namespace: "llo",
+	Subsystem: "mercurytransmitter",
+	Name:      "transmit_queue_load",
+	Help:      "Current count of items in the transmit queue",
 },
 	[]string{"donID", "serverURL", "capacity"},
 )
@@ -75,7 +78,7 @@ func NewTransmitQueue(lggr logger.Logger, serverURL string, maxlen int, asyncDel
 		maxlen,
 		false,
 		nil,
-		transmitQueueLoad.WithLabelValues(fmt.Sprintf("%d", asyncDeleter.DonID()), serverURL, fmt.Sprintf("%d", maxlen)),
+		promTransmitQueueLoad.WithLabelValues(strconv.FormatUint(uint64(asyncDeleter.DonID()), 10), serverURL, strconv.FormatInt(int64(maxlen), 10)),
 	}
 }
 
@@ -95,8 +98,8 @@ func (tq *transmitQueue) Push(t *Transmission) (ok bool) {
 
 	if tq.maxlen != 0 && tq.pq.Len() == tq.maxlen {
 		// evict oldest entry to make room
-		tq.lggr.Criticalf("Transmit queue is full; dropping oldest transmission (reached max length of %d)", tq.maxlen)
 		removed := heap.PopMax(tq.pq)
+		tq.lggr.Criticalw(fmt.Sprintf("Transmit queue is full; dropping oldest transmission (reached max length of %d)", tq.maxlen), "transmission", removed)
 		if removed, ok := removed.(*Transmission); ok {
 			tq.asyncDeleter.AsyncDelete(removed.Hash())
 		}

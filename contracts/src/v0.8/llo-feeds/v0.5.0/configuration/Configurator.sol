@@ -161,6 +161,7 @@ contract Configurator is IConfigurator, ConfirmedOwner, TypeAndVersionInterface,
 
     ConfigurationState memory configurationState = s_configurationStates[configId];
     if (
+      predecessorConfigDigest == bytes32(0) ||
       predecessorConfigDigest !=
       s_configurationStates[configId].configDigest[configurationState.isGreenProduction ? 1 : 0]
     ) revert InvalidPredecessorConfigDigest(predecessorConfigDigest);

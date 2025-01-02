@@ -2,7 +2,6 @@ package evm
 
 import (
 	"context"
-
 	"math/big"
 
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -15,12 +14,12 @@ import (
 // Since the geth simulated backend doesn't support historical data, we use this
 // thin wrapper.
 type ChainWriterHistoricalWrapper struct {
-	commontypes.ChainWriter
+	commontypes.ContractWriter
 	cwh *ClientWithContractHistory
 }
 
-func NewChainWriterHistoricalWrapper(cw commontypes.ChainWriter, cwh *ClientWithContractHistory) *ChainWriterHistoricalWrapper {
-	return &ChainWriterHistoricalWrapper{ChainWriter: cw, cwh: cwh}
+func NewChainWriterHistoricalWrapper(cw commontypes.ContractWriter, cwh *ClientWithContractHistory) *ChainWriterHistoricalWrapper {
+	return &ChainWriterHistoricalWrapper{ContractWriter: cw, cwh: cwh}
 }
 
 func (cwhw *ChainWriterHistoricalWrapper) SubmitTransaction(ctx context.Context, contractName, method string, args any, transactionID string, toAddress string, meta *commontypes.TxMeta, value *big.Int) error {
@@ -38,7 +37,7 @@ func (cwhw *ChainWriterHistoricalWrapper) SubmitTransaction(ctx context.Context,
 			return err
 		}
 	}
-	return cwhw.ChainWriter.SubmitTransaction(ctx, contractName, method, args, transactionID, toAddress, meta, value)
+	return cwhw.ContractWriter.SubmitTransaction(ctx, contractName, method, args, transactionID, toAddress, meta, value)
 }
 
 func (cwhw *ChainWriterHistoricalWrapper) getPrimitiveValueIfPossible(args any) (bool, uint64) {
