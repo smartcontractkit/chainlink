@@ -1,17 +1,26 @@
 package changeset
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
+	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+
+	solRpc "github.com/gagliardetto/solana-go/rpc"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+	solCommomUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 )
 
 func TestUpdateOnRampsDests(t *testing.T) {
@@ -361,4 +370,84 @@ func TestUpdateNonceManagersCS(t *testing.T) {
 			require.Contains(t, callers, state.Chains[source].OffRamp.Address())
 		})
 	}
+}
+
+// TODO: skipping all mcms timelock stuff for now
+func TestUpdateOnRampsDestsSolana(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
+		Bootstraps: 1,
+		Chains:     2,
+		Nodes:      4,
+	})
+	selectors := e.AllChainSelectors()
+	homeChainSel := selectors[0]
+	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
+	require.NoError(t, err)
+	p2pIds := nodes.NonBootstraps().PeerIDs()
+	evmChainSel := selectors[0]
+	solChainSelector := deployment.SolanaChainSelector
+	lggr.Info(fmt.Sprintf("EVM: %v", evmChainSel))
+	lggr.Info(fmt.Sprintf("Solana: %v", solChainSelector))
+
+	e, err = commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(DeployHomeChain),
+			Config: DeployHomeChainConfig{
+				HomeChainSel:     homeChainSel,
+				RMNStaticConfig:  NewTestRMNStaticConfig(),
+				RMNDynamicConfig: NewTestRMNDynamicConfig(),
+				NodeOperators:    NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
+				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
+					"NodeOperator": p2pIds,
+				},
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkTokenSolana),
+			Config:    []uint64{deployment.SolanaChainSelector},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(DeployChainContractsSolana),
+			Config: DeployChainContractsConfig{
+				ChainSelectors:    []uint64{deployment.SolanaChainSelector},
+				HomeChainSelector: homeChainSel,
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(UpdateOnRampsDestsSolana),
+			Config: UpdateOnRampDestsConfig{
+				UpdatesByChain: map[uint64]map[uint64]OnRampDestinationUpdate{
+					// source: {
+					// 	dest: {
+					// 		IsEnabled:        true,
+					// 		TestRouter:       false,
+					// 		AllowListEnabled: false,
+					// 	},
+					// },
+					solChainSelector: {
+						evmChainSel: {
+							IsEnabled:        true,
+							TestRouter:       false,
+							AllowListEnabled: false,
+						},
+					},
+				},
+				MCMS: nil,
+			},
+		},
+	})
+
+	// UPDATE BINDINGS
+	require.NoError(t, err)
+	chain := e.SolChains[deployment.SolanaChainSelector]
+	state, _ := LoadOnchainStateSolana(e)
+	ccipRouterId := state.SolChains[deployment.SolanaChainSelector].CcipRouter
+	var sourceChainStateAccount ccip_router.SourceChain
+	err = solCommomUtil.GetAccountDataBorshInto(e.GetContext(), chain.Client, GetEvmSourceChainStatePDA(ccipRouterId, evmChainSel), solRpc.CommitmentConfirmed, &sourceChainStateAccount)
+	lggr.Infof(fmt.Sprintf("%+v", sourceChainStateAccount.State))
+	require.NoError(t, err)
+	require.Equal(t, uint64(1), sourceChainStateAccount.State.MinSeqNr)
+	require.Equal(t, true, sourceChainStateAccount.Config.IsEnabled)
+
 }

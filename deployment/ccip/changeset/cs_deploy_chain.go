@@ -8,8 +8,14 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+	solConfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	"golang.org/x/sync/errgroup"
 
+	bin "github.com/gagliardetto/binary"
+	"github.com/gagliardetto/solana-go"
+	solRpc "github.com/gagliardetto/solana-go/rpc"
+	solCommomUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
@@ -474,6 +480,10 @@ func deployChainContracts(
 	return nil
 }
 
+var (
+	EnableExecutionAfter = int64(1800) // 30min
+)
+
 func deployChainContractsSolana(
 	e deployment.Environment,
 	chain deployment.SolChain,
@@ -481,15 +491,15 @@ func deployChainContractsSolana(
 	rmnHome *rmn_home.RMNHome,
 ) error {
 	// // check for existing contracts
-	// state, err := LoadOnchainState(e)
-	// if err != nil {
-	// 	e.Logger.Errorw("Failed to load existing onchain state", "err")
-	// 	return err
-	// }
-	// chainState, chainExists := state.Chains[chain.Selector]
-	// if !chainExists {
-	// 	return fmt.Errorf("chain %s not found in existing state, deploy the prerequisites first", chain.String())
-	// }
+	state, err := LoadOnchainStateSolana(e)
+	if err != nil {
+		e.Logger.Errorw("Failed to load existing onchain state", "err")
+		return err
+	}
+	chainState, chainExists := state.SolChains[chain.Selector]
+	if !chainExists {
+		return fmt.Errorf("chain %s not found in existing state, deploy the prerequisites first", chain.String())
+	}
 	// if chainState.Weth9 == nil {
 	// 	return fmt.Errorf("weth9 not found for chain %s, deploy the prerequisites first", chain.String())
 	// }
@@ -497,242 +507,112 @@ func deployChainContractsSolana(
 	// 	return fmt.Errorf("timelock not found for chain %s, deploy the mcms contracts first", chain.String())
 	// }
 	// weth9Contract := chainState.Weth9
-	// if chainState.LinkToken == nil {
-	// 	return fmt.Errorf("link token not found for chain %s, deploy the prerequisites first", chain.String())
-	// }
-	// linkTokenContract := chainState.LinkToken
-	// if chainState.TokenAdminRegistry == nil {
-	// 	return fmt.Errorf("token admin registry not found for chain %s, deploy the prerequisites first", chain.String())
-	// }
-	// tokenAdminReg := chainState.TokenAdminRegistry
-	// if chainState.RegistryModule == nil {
-	// 	return fmt.Errorf("registry module not found for chain %s, deploy the prerequisites first", chain.String())
-	// }
-	// if chainState.Router == nil {
-	// 	return fmt.Errorf("router not found for chain %s, deploy the prerequisites first", chain.String())
-	// }
-	// rmnProxyContract := chainState.RMNProxy
-	// if chainState.RMNProxy == nil {
-	// 	e.Logger.Errorw("RMNProxy not found", "chain", chain.String())
-	// 	return fmt.Errorf("rmn proxy not found for chain %s, deploy the prerequisites first", chain.String())
-	// }
-	// var rmnLegacyAddr common.Address
-	// if chainState.MockRMN != nil {
-	// 	rmnLegacyAddr = chainState.MockRMN.Address()
-	// }
-	// // If RMN is deployed, set rmnLegacyAddr to the RMN address
-	// if chainState.RMN != nil {
-	// 	rmnLegacyAddr = chainState.RMN.Address()
-	// }
-	// if rmnLegacyAddr == (common.Address{}) {
-	// 	e.Logger.Warnf("No legacy RMN contract found for chain %s, will not setRMN in RMNRemote", chain.String())
-	// }
-	// rmnRemoteContract := chainState.RMNRemote
-	// if chainState.RMNRemote == nil {
-	// 	// TODO: Correctly configure RMN remote.
-	// 	rmnRemote, err := deployment.DeployContract(e.Logger, chain, ab,
-	// 		func(chain deployment.Chain) deployment.ContractDeploy[*rmn_remote.RMNRemote] {
-	// 			rmnRemoteAddr, tx, rmnRemote, err2 := rmn_remote.DeployRMNRemote(
-	// 				chain.DeployerKey,
-	// 				chain.Client,
-	// 				chain.Selector,
-	// 				rmnLegacyAddr,
-	// 			)
-	// 			return deployment.ContractDeploy[*rmn_remote.RMNRemote]{
-	// 				rmnRemoteAddr, rmnRemote, tx, deployment.NewTypeAndVersion(RMNRemote, deployment.Version1_6_0_dev), err2,
-	// 			}
-	// 		})
-	// 	if err != nil {
-	// 		e.Logger.Errorw("Failed to deploy RMNRemote", "chain", chain.String(), "err", err)
-	// 		return err
-	// 	}
-	// 	rmnRemoteContract = rmnRemote.Contract
-	// } else {
-	// 	e.Logger.Infow("rmn remote already deployed", "chain", chain.String(), "addr", chainState.RMNRemote.Address)
-	// }
+	if chainState.LinkToken.IsZero() {
+		return fmt.Errorf("link token not found for chain %s, deploy the prerequisites first", chain.String())
+	}
+	linkTokenContract := chainState.LinkToken
+	e.Logger.Infow("link token", "addr", linkTokenContract.String())
 
-	// activeDigest, err := rmnHome.GetActiveDigest(&bind.CallOpts{})
-	// if err != nil {
-	// 	e.Logger.Errorw("Failed to get active digest", "chain", chain.String(), "err", err)
-	// 	return err
-	// }
-	// e.Logger.Infow("setting active home digest to rmn remote", "chain", chain.String(), "digest", activeDigest)
+	if chainState.CcipRouter.IsZero() {
+		// deploy and initialize router
 
-	// tx, err := rmnRemoteContract.SetConfig(chain.DeployerKey, rmn_remote.RMNRemoteConfig{
-	// 	RmnHomeContractConfigDigest: activeDigest,
-	// 	Signers: []rmn_remote.RMNRemoteSigner{
-	// 		{NodeIndex: 0, OnchainPublicKey: common.Address{1}},
-	// 	},
-	// 	F: 0, // TODO: update when we have signers
-	// })
-	// if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
-	// 	e.Logger.Errorw("Failed to confirm RMNRemote config", "chain", chain.String(), "err", err)
-	// 	return err
-	// }
-	// if chainState.TestRouter == nil {
-	// 	_, err := deployment.DeployContract(e.Logger, chain, ab,
-	// 		func(chain deployment.Chain) deployment.ContractDeploy[*router.Router] {
-	// 			routerAddr, tx2, routerC, err2 := router.DeployRouter(
-	// 				chain.DeployerKey,
-	// 				chain.Client,
-	// 				weth9Contract.Address(),
-	// 				rmnProxyContract.Address(),
-	// 			)
-	// 			return deployment.ContractDeploy[*router.Router]{
-	// 				routerAddr, routerC, tx2, deployment.NewTypeAndVersion(TestRouter, deployment.Version1_2_0), err2,
-	// 			}
-	// 		})
-	// 	if err != nil {
-	// 		e.Logger.Errorw("Failed to deploy test router", "chain", chain.String(), "err", err)
-	// 		return err
-	// 	}
-	// } else {
-	// 	e.Logger.Infow("test router already deployed", "chain", chain.String(), "addr", chainState.TestRouter.Address)
-	// }
+		programID, err := deployment.DeploySolProgramCLI("ccip_router")
+		if err != nil {
+			return fmt.Errorf("failed to deploy program: %v", err)
+		}
 
-	// nmContract := chainState.NonceManager
-	// if chainState.NonceManager == nil {
-	// 	nonceManager, err := deployment.DeployContract(e.Logger, chain, ab,
-	// 		func(chain deployment.Chain) deployment.ContractDeploy[*nonce_manager.NonceManager] {
-	// 			nonceManagerAddr, tx2, nonceManager, err2 := nonce_manager.DeployNonceManager(
-	// 				chain.DeployerKey,
-	// 				chain.Client,
-	// 				[]common.Address{}, // Need to add onRamp after
-	// 			)
-	// 			return deployment.ContractDeploy[*nonce_manager.NonceManager]{
-	// 				nonceManagerAddr, nonceManager, tx2, deployment.NewTypeAndVersion(NonceManager, deployment.Version1_6_0_dev), err2,
-	// 			}
-	// 		})
-	// 	if err != nil {
-	// 		e.Logger.Errorw("Failed to deploy nonce manager", "chain", chain.String(), "err", err)
-	// 		return err
-	// 	}
-	// 	nmContract = nonceManager.Contract
-	// } else {
-	// 	e.Logger.Infow("nonce manager already deployed", "chain", chain.String(), "addr", chainState.NonceManager.Address)
-	// }
-	// feeQuoterContract := chainState.FeeQuoter
-	// if chainState.FeeQuoter == nil {
-	// 	feeQuoter, err := deployment.DeployContract(e.Logger, chain, ab,
-	// 		func(chain deployment.Chain) deployment.ContractDeploy[*fee_quoter.FeeQuoter] {
-	// 			prAddr, tx2, pr, err2 := fee_quoter.DeployFeeQuoter(
-	// 				chain.DeployerKey,
-	// 				chain.Client,
-	// 				fee_quoter.FeeQuoterStaticConfig{
-	// 					MaxFeeJuelsPerMsg:            big.NewInt(0).Mul(big.NewInt(2e2), big.NewInt(1e18)),
-	// 					LinkToken:                    linkTokenContract.Address(),
-	// 					TokenPriceStalenessThreshold: uint32(24 * 60 * 60),
-	// 				},
-	// 				[]common.Address{state.Chains[chain.Selector].Timelock.Address()},      // timelock should be able to update, ramps added after
-	// 				[]common.Address{weth9Contract.Address(), linkTokenContract.Address()}, // fee tokens
-	// 				[]fee_quoter.FeeQuoterTokenPriceFeedUpdate{},
-	// 				[]fee_quoter.FeeQuoterTokenTransferFeeConfigArgs{}, // TODO: tokens
-	// 				[]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs{
-	// 					{
-	// 						PremiumMultiplierWeiPerEth: 9e17, // 0.9 ETH
-	// 						Token:                      linkTokenContract.Address(),
-	// 					},
-	// 					{
-	// 						PremiumMultiplierWeiPerEth: 1e18,
-	// 						Token:                      weth9Contract.Address(),
-	// 					},
-	// 				},
-	// 				[]fee_quoter.FeeQuoterDestChainConfigArgs{},
-	// 			)
-	// 			return deployment.ContractDeploy[*fee_quoter.FeeQuoter]{
-	// 				prAddr, pr, tx2, deployment.NewTypeAndVersion(FeeQuoter, deployment.Version1_6_0_dev), err2,
-	// 			}
-	// 		})
-	// 	if err != nil {
-	// 		e.Logger.Errorw("Failed to deploy fee quoter", "chain", chain.String(), "err", err)
-	// 		return err
-	// 	}
-	// 	feeQuoterContract = feeQuoter.Contract
-	// } else {
-	// 	e.Logger.Infow("fee quoter already deployed", "chain", chain.String(), "addr", chainState.FeeQuoter.Address)
-	// }
-	// onRampContract := chainState.OnRamp
-	// if onRampContract == nil {
-	// 	onRamp, err := deployment.DeployContract(e.Logger, chain, ab,
-	// 		func(chain deployment.Chain) deployment.ContractDeploy[*onramp.OnRamp] {
-	// 			onRampAddr, tx2, onRamp, err2 := onramp.DeployOnRamp(
-	// 				chain.DeployerKey,
-	// 				chain.Client,
-	// 				onramp.OnRampStaticConfig{
-	// 					ChainSelector:      chain.Selector,
-	// 					RmnRemote:          rmnProxyContract.Address(),
-	// 					NonceManager:       nmContract.Address(),
-	// 					TokenAdminRegistry: tokenAdminReg.Address(),
-	// 				},
-	// 				onramp.OnRampDynamicConfig{
-	// 					FeeQuoter:     feeQuoterContract.Address(),
-	// 					FeeAggregator: common.HexToAddress("0x1"), // TODO real fee aggregator
-	// 				},
-	// 				[]onramp.OnRampDestChainConfigArgs{},
-	// 			)
-	// 			return deployment.ContractDeploy[*onramp.OnRamp]{
-	// 				onRampAddr, onRamp, tx2, deployment.NewTypeAndVersion(OnRamp, deployment.Version1_6_0_dev), err2,
-	// 			}
-	// 		})
-	// 	if err != nil {
-	// 		e.Logger.Errorw("Failed to deploy onramp", "chain", chain.String(), "err", err)
-	// 		return err
-	// 	}
-	// 	onRampContract = onRamp.Contract
-	// } else {
-	// 	e.Logger.Infow("onramp already deployed", "chain", chain.String(), "addr", chainState.OnRamp.Address)
-	// }
-	// offRampContract := chainState.OffRamp
-	// if offRampContract == nil {
-	// 	offRamp, err := deployment.DeployContract(e.Logger, chain, ab,
-	// 		func(chain deployment.Chain) deployment.ContractDeploy[*offramp.OffRamp] {
-	// 			offRampAddr, tx2, offRamp, err2 := offramp.DeployOffRamp(
-	// 				chain.DeployerKey,
-	// 				chain.Client,
-	// 				offramp.OffRampStaticConfig{
-	// 					ChainSelector:        chain.Selector,
-	// 					GasForCallExactCheck: 5_000,
-	// 					RmnRemote:            rmnProxyContract.Address(),
-	// 					NonceManager:         nmContract.Address(),
-	// 					TokenAdminRegistry:   tokenAdminReg.Address(),
-	// 				},
-	// 				offramp.OffRampDynamicConfig{
-	// 					FeeQuoter:                               feeQuoterContract.Address(),
-	// 					PermissionLessExecutionThresholdSeconds: uint32(86400),
-	// 					IsRMNVerificationDisabled:               true,
-	// 				},
-	// 				[]offramp.OffRampSourceChainConfigArgs{},
-	// 			)
-	// 			return deployment.ContractDeploy[*offramp.OffRamp]{
-	// 				Address: offRampAddr, Contract: offRamp, Tx: tx2, Tv: deployment.NewTypeAndVersion(OffRamp, deployment.Version1_6_0_dev), Err: err2,
-	// 			}
-	// 		})
-	// 	if err != nil {
-	// 		e.Logger.Errorw("Failed to deploy offramp", "chain", chain.String(), "err", err)
-	// 		return err
-	// 	}
-	// 	offRampContract = offRamp.Contract
-	// } else {
-	// 	e.Logger.Infow("offramp already deployed", "chain", chain.String(), "addr", chainState.OffRamp.Address)
-	// }
-	// // Basic wiring is always needed.
-	// tx, err = feeQuoterContract.ApplyAuthorizedCallerUpdates(chain.DeployerKey, fee_quoter.AuthorizedCallersAuthorizedCallerArgs{
-	// 	// TODO: We enable the deployer initially to set prices
-	// 	// Should be removed after.
-	// 	AddedCallers: []common.Address{offRampContract.Address(), chain.DeployerKey.From},
-	// })
-	// if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
-	// 	e.Logger.Errorw("Failed to confirm fee quoter authorized caller update", "chain", chain.String(), "err", err)
-	// 	return err
-	// }
-	// e.Logger.Infow("Added fee quoter authorized callers", "chain", chain.String(), "callers", []common.Address{offRampContract.Address(), chain.DeployerKey.From})
-	// tx, err = nmContract.ApplyAuthorizedCallerUpdates(chain.DeployerKey, nonce_manager.AuthorizedCallersAuthorizedCallerArgs{
-	// 	AddedCallers: []common.Address{offRampContract.Address(), onRampContract.Address()},
-	// })
-	// if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
-	// 	e.Logger.Errorw("Failed to update nonce manager with ramps", "chain", chain.String(), "err", err)
-	// 	return err
-	// }
-	// e.Logger.Infow("Added nonce manager authorized callers", "chain", chain.String(), "callers", []common.Address{offRampContract.Address(), onRampContract.Address()})
+		tv := deployment.NewTypeAndVersion("SolCcipRouter", deployment.Version1_0_0)
+		e.Logger.Infow("Deployed contract", "Contract", tv.String(), "addr", programID, "chain", chain.String())
+
+		CcipRouterProgram := solana.MustPublicKeyFromBase58(programID)
+		RouterConfigPDA := GetRouterConfigPDA(CcipRouterProgram)
+		RouterStatePDA := GetRouterStatePDA(CcipRouterProgram)
+		ExternalExecutionConfigPDA := GetExternalExecutionConfigPDA(CcipRouterProgram)
+		ExternalTokenPoolsSignerPDA := GetExternalTokenPoolsSignerPDA(CcipRouterProgram)
+
+		data, err := chain.Client.GetAccountInfoWithOpts(e.GetContext(), CcipRouterProgram, &solRpc.GetAccountInfoOpts{
+			Commitment: solRpc.CommitmentConfirmed,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to deploy program: %v", err)
+		}
+		var programData struct {
+			DataType uint32
+			Address  solana.PublicKey
+		}
+		err = bin.UnmarshalBorsh(&programData, data.Bytes())
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal program data: %v", err)
+		}
+		ccip_router.SetProgramID(CcipRouterProgram)
+
+		defaultGasLimit := bin.Uint128{Lo: 3000, Hi: 0, Endianness: nil}
+
+		instruction, err := ccip_router.NewInitializeInstruction(
+			deployment.SolanaChainSelector, // chain selector
+			defaultGasLimit,                // default gas limit
+			true,                           // allow out of order execution
+			EnableExecutionAfter,           // period to wait before allowing manual execution
+			RouterConfigPDA,
+			RouterStatePDA,
+			chain.DeployerKey.PublicKey(),
+			solana.SystemProgramID,
+			CcipRouterProgram,
+			programData.Address,
+			ExternalExecutionConfigPDA,
+			ExternalTokenPoolsSignerPDA,
+		).ValidateAndBuild()
+
+		if err != nil {
+			return fmt.Errorf("failed to build instruction: %v", err)
+		}
+		err = chain.Confirm([]solana.Instruction{instruction})
+
+		if err != nil {
+			return fmt.Errorf("failed to confirm instructions: %v", err)
+		}
+
+		// move validation to the test file
+
+		err = ab.Save(chain.Selector, programID, tv)
+		if err != nil {
+			return fmt.Errorf("failed to save address: %v", err)
+		}
+
+	} else {
+		// TODO: test this
+		e.Logger.Infow("router already deployed", "chain", chain.String(), "addr", chainState.CcipRouter.String())
+		CcipRouterProgram := chainState.CcipRouter
+		RouterConfigPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("config")}, CcipRouterProgram)
+		var configAccount ccip_router.Config
+		err = solCommomUtil.GetAccountDataBorshInto(e.GetContext(), chain.Client, RouterConfigPDA, solConfig.DefaultCommitment, &configAccount)
+		if err != nil {
+			return fmt.Errorf("failed to initialize router config: %v", err)
+		}
+		if configAccount.SolanaChainSelector != deployment.SolanaChainSelector {
+			return fmt.Errorf("failed to initialize router config: chain selector mismatch")
+		}
+	}
+
+	// token admin registry stuff can go here
+	// but apparently i need a token to initialise the registry
+	// so i am not sure if i can put it here
+	// should i use the link token ?
+
+	// rmn stuff when solana has rmn
+
+	// nonce pda gets initialised upon ccip_send
+	// so no need to do nonce manager
+
+	// fee quoter stuff
+	// but that also gets done during getFee call
+	// and is dependent on destination config
+	// so maybe no need here as well
+
+	// onramp and offramp are also lane dependent
+	// so you dont need to initialise unless adding chain
+
+	// TEST ROUTER ??
+
 	return nil
 }

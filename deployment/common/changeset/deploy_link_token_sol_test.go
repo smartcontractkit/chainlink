@@ -2,7 +2,6 @@ package changeset_test
 
 import (
 	"context"
-	"encoding/binary"
 	"strconv"
 	"testing"
 	"time"
@@ -35,20 +34,16 @@ var (
 	DefaultCommitment = rpc.CommitmentConfirmed
 	StubProgram       = "EQPCTRibpsPcQNb464QVBkS1PkFfuK8kYdpd5Y17HaGh"
 
-	CcipRouterProgram          = solana.MustPublicKeyFromBase58("x9jMoGpPrJrHSmEH46B3AxcadjFaeq8ts77tCTyJaHL")
+	// CcipRouterProgram          = solana.MustPublicKeyFromBase58("ZWzN9gkPMkNRh4CBt8n4vA6VfZxvHCD2FPa98U4gvRP")
 	CcipReceiverProgram        = solana.MustPublicKeyFromBase58("CtEVnHsQzhTNWav8skikiV2oF6Xx7r7uGGa8eCDQtTjH")
 	CcipReceiverAddress        = solana.MustPublicKeyFromBase58("DS2tt4BX7YwCw7yrDNwbAdnYrxjeCPeGJbHmZEYC8RTb")
 	CcipInvalidReceiverProgram = solana.MustPublicKeyFromBase58("9Vjda3WU2gsJgE4VdU6QuDw8rfHLyigfFyWs3XDPNUn8")
 	CcipTokenPoolProgram       = solana.MustPublicKeyFromBase58("GRvFSLwR7szpjgNEZbGe4HtxfJYXqySXuuRUAJDpu4WH")
 	Token2022Program           = solana.MustPublicKeyFromBase58("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb")
 
-	RouterConfigPDA, _, _                    = solana.FindProgramAddress([][]byte{[]byte("config")}, CcipRouterProgram)
-	RouterStatePDA, _, _                     = solana.FindProgramAddress([][]byte{[]byte("state")}, CcipRouterProgram)
-	ExternalExecutionConfigPDA, _, _         = solana.FindProgramAddress([][]byte{[]byte("external_execution_config")}, CcipRouterProgram)
-	ExternalTokenPoolsSignerPDA, _, _        = solana.FindProgramAddress([][]byte{[]byte("external_token_pools_signer")}, CcipRouterProgram)
 	ReceiverTargetAccountPDA, _, _           = solana.FindProgramAddress([][]byte{[]byte("counter")}, CcipReceiverProgram)
 	ReceiverExternalExecutionConfigPDA, _, _ = solana.FindProgramAddress([][]byte{[]byte("external_execution_config")}, CcipReceiverProgram)
-	BillingSignerPDA, _, _                   = solana.FindProgramAddress([][]byte{[]byte("fee_billing_signer")}, CcipRouterProgram)
+	// BillingSignerPDA, _, _                   = solana.FindProgramAddress([][]byte{[]byte("fee_billing_signer")}, CcipRouterProgram)
 
 	BillingTokenConfigPrefix = []byte("fee_billing_token_config")
 	DestChainConfigPrefix    = []byte("destination_billing_config")
@@ -56,9 +51,9 @@ var (
 	SolanaChainSelector uint64 = 15
 	EvmChainSelector    uint64 = 21
 
-	SolanaChainStatePDA, _, _ = solana.FindProgramAddress([][]byte{[]byte("chain_state"), binary.LittleEndian.AppendUint64([]byte{}, SolanaChainSelector)}, CcipRouterProgram)
-	EvmChainLE                = common.Uint64ToLE(EvmChainSelector)
-	EvmChainStatePDA, _, _    = solana.FindProgramAddress([][]byte{[]byte("chain_state"), binary.LittleEndian.AppendUint64([]byte{}, EvmChainSelector)}, CcipRouterProgram)
+	// SolanaChainStatePDA, _, _ = solana.FindProgramAddress([][]byte{[]byte("chain_state"), binary.LittleEndian.AppendUint64([]byte{}, SolanaChainSelector)}, CcipRouterProgram)
+	EvmChainLE = common.Uint64ToLE(EvmChainSelector)
+	// EvmChainStatePDA, _, _    = solana.FindProgramAddress([][]byte{[]byte("chain_state"), binary.LittleEndian.AppendUint64([]byte{}, EvmChainSelector)}, CcipRouterProgram)
 
 	OnRampAddress        = []byte{1, 2, 3}
 	EnableExecutionAfter = int64(1800) // 30min
@@ -89,9 +84,9 @@ func setDevNet(keypairPath string) error {
 // TestDeployProgram is a test for deploying the Solana program.
 func TestDeployProgram(t *testing.T) {
 	// Path to your .so file and keypair file
-	programFile := "/Users/yashvardhan/chainlink-internal-integrations/solana/contracts/target/deploy/external_program_cpi_stub.so"
+	// programFile := "/Users/yashvardhan/chainlink-internal-integrations/solana/contracts/target/deploy/external_program_cpi_stub.so"
 	keypairPath := "/Users/yashvardhan/.config/solana/id.json" //wallet
-	programKeyPair := "/Users/yashvardhan/chainlink-internal-integrations/solana/contracts/target/deploy/external_program_cpi_stub-keypair.json"
+	// programKeyPair := "/Users/yashvardhan/chainlink-internal-integrations/solana/contracts/target/deploy/external_program_cpi_stub-keypair.json"
 	// keypairPath := "/Users/yashvardhan/chainlink-internal-integrations/solana/contracts/target/deploy/external_program_cpi_stub-keypair.json"
 
 	ExternalCpiStubProgram := solana.MustPublicKeyFromBase58("EQPCTRibpsPcQNb464QVBkS1PkFfuK8kYdpd5Y17HaGh")
@@ -110,7 +105,7 @@ func TestDeployProgram(t *testing.T) {
 	} else {
 		fmt.Println("Program does not exist or is not executable.")
 		// Deploy the program
-		programID, err := deployment.DeploySolProgramCLI(programFile, keypairPath, programKeyPair)
+		programID, err := deployment.DeploySolProgramCLI("external_program_cpi_stub")
 		if err != nil {
 			t.Fatalf("Failed to deploy program: %v", err)
 		}
@@ -232,9 +227,9 @@ func getRpcClient(t *testing.T) *rpc.Client {
 
 func TestCcipRouterDeploy(t *testing.T) {
 	// Path to your .so file and keypair file
-	programFile := "/Users/ttata/dev/chainlink-ccip/chains/solana/contracts/target/deploy/ccip_router.so"
-	keypairPath := "/Users/ttata/.config/solana/id.json" //wallet
-	programKeyPair := "/Users/ttata/dev/chainlink-ccip/chains/solana/contracts/target/deploy/ccip_router-keypair.json"
+	// programFile := "/Users/ttata/dev/chainlink-ccip/chains/solana/contracts/target/deploy/ccip_router.so"
+	keypairPath := "/Users/yashvardhan/.config/solana/id.json" //wallet
+	// programKeyPair := "/Users/ttata/dev/chainlink-ccip/chains/solana/contracts/target/deploy/ccip_router-keypair.json"
 
 	adminPrivateKey, _ := solana.PrivateKeyFromSolanaKeygenFile(keypairPath)
 	adminPublicKey := adminPrivateKey.PublicKey()
@@ -243,18 +238,20 @@ func TestCcipRouterDeploy(t *testing.T) {
 	require.NoError(t, err)
 	ctx := context.Background()
 	testutils.FundAccounts(ctx, []solana.PrivateKey{adminPrivateKey}, solanaGoClient, t)
+
 	// get program data account before deploying, hitting NotFound error
-	data, err := solanaGoClient.GetAccountInfoWithOpts(ctx, CcipRouterProgram, &rpc.GetAccountInfoOpts{
-		Commitment: DefaultCommitment,
-	})
-	require.ErrorAs(t, err, &rpc.ErrNotFound)
+	// data, err := solanaGoClient.GetAccountInfoWithOpts(ctx, CcipRouterProgram, &rpc.GetAccountInfoOpts{
+	// 	Commitment: DefaultCommitment,
+	// })
+	// require.ErrorAs(t, err, &rpc.ErrNotFound)
 	// Deploy the program
-	programID, err := deployment.DeploySolProgramCLI(programFile, keypairPath, programKeyPair)
+	programID, err := deployment.DeploySolProgramCLI("ccip_router")
+	CcipRouterProgram := solana.MustPublicKeyFromBase58(programID)
 	if err != nil {
 		t.Fatalf("Failed to deploy program: %v", err)
 	}
 	// get program data account
-	data, err = solanaGoClient.GetAccountInfoWithOpts(ctx, CcipRouterProgram, &rpc.GetAccountInfoOpts{
+	data, err := solanaGoClient.GetAccountInfoWithOpts(ctx, CcipRouterProgram, &rpc.GetAccountInfoOpts{
 		Commitment: DefaultCommitment,
 	})
 	require.NoError(t, err)
@@ -263,7 +260,10 @@ func TestCcipRouterDeploy(t *testing.T) {
 		Address  solana.PublicKey
 	}
 	require.NoError(t, bin.UnmarshalBorsh(&programData, data.Bytes()))
-
+	RouterConfigPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("config")}, CcipRouterProgram)
+	RouterStatePDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("state")}, CcipRouterProgram)
+	ExternalExecutionConfigPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("external_execution_config")}, CcipRouterProgram)
+	ExternalTokenPoolsSignerPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("external_token_pools_signer")}, CcipRouterProgram)
 	ccip_router.SetProgramID(CcipRouterProgram)
 	instruction, err := ccip_router.NewInitializeInstruction(
 		SolanaChainSelector,  // chain selector

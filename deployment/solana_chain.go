@@ -13,7 +13,9 @@ import (
 
 // TODO: hard coding these for test, need to figure out the dynamic way like evm
 var (
-	SolanaChainSelector uint64 = 16423721717087811551 //devnet
+	SolanaChainSelector uint64 = 16423721717087811551                        //devnet
+	keypairPath                = "/Users/yashvardhan/.config/solana/id.json" //wallet
+	deployBinPath              = "/Users/yashvardhan/chainlink-ccip/chains/solana/contracts/target/deploy"
 )
 
 // SolChain represents a Solana chain.
@@ -57,7 +59,10 @@ type ContractDeploySolana struct {
 	Err       error
 }
 
-func DeploySolProgramCLI(programFile, keypairPath, programKeyPair string) (string, error) {
+func DeploySolProgramCLI(programName string) (string, error) {
+	programFile := fmt.Sprintf("%s/%s.so", deployBinPath, programName)
+	programKeyPair := fmt.Sprintf("%s/%s-keypair.json", deployBinPath, programName)
+
 	// Construct the CLI command: solana program deploy
 	// TODO: @terry doing this on the fly
 	cmd := exec.Command("solana", "program", "deploy", programFile, "--keypair", keypairPath, "--program-id", programKeyPair)
@@ -97,7 +102,6 @@ func parseProgramID(output string) (string, error) {
 }
 
 func GetSolanaDeployerKey() solana.PrivateKey {
-	keypairPath := "/Users/yashvardhan/.config/solana/id.json" //wallet
 	adminPrivateKey, _ := solana.PrivateKeyFromSolanaKeygenFile(keypairPath)
 	return adminPrivateKey
 }

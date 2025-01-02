@@ -196,6 +196,7 @@ func NewMemoryChainsSol(t *testing.T) map[uint64]deployment.SolChain {
 	solChains := make(map[uint64]deployment.SolChain)
 	t.Logf("Spinning up devnet")
 	url, _ := solChain(t)
+	// url := "http://127.0.0.1:8899"
 	client := solRpc.New(url)
 	adminPrivateKey := deployment.GetSolanaDeployerKey()
 	newSolChain := deployment.SolChain{
