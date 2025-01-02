@@ -152,7 +152,7 @@ func Test_EventHandlerStateSync(t *testing.T) {
 	require.Eventually(t, func() bool {
 		numEvents := len(testEventHandler.GetEvents())
 		return numEvents == numberWorkflows
-	}, tests.WaitTimeout(t), 100*time.Millisecond)
+	}, tests.WaitTimeout(t), time.Second)
 
 	for _, event := range testEventHandler.GetEvents() {
 		assert.Equal(t, syncer.WorkflowRegisteredEvent, event.GetEventType())
@@ -217,7 +217,7 @@ func Test_EventHandlerStateSync(t *testing.T) {
 		}
 
 		return false
-	}, tests.WaitTimeout(t), 100*time.Millisecond)
+	}, tests.WaitTimeout(t), time.Second)
 }
 
 func Test_InitialStateSync(t *testing.T) {
@@ -277,7 +277,7 @@ func Test_InitialStateSync(t *testing.T) {
 
 	require.Eventually(t, func() bool {
 		return len(testEventHandler.GetEvents()) == numberWorkflows
-	}, tests.WaitTimeout(t), 100*time.Millisecond)
+	}, tests.WaitTimeout(t), time.Second)
 
 	for _, event := range testEventHandler.GetEvents() {
 		assert.Equal(t, syncer.WorkflowRegisteredEvent, event.GetEventType())
@@ -381,7 +381,7 @@ func Test_SecretsWorker(t *testing.T) {
 		lggr.Debugf("got secrets %v", secrets)
 		require.NoError(t, err)
 		return secrets == wantContents
-	}, tests.WaitTimeout(t), 100*time.Millisecond)
+	}, tests.WaitTimeout(t), time.Second)
 }
 
 func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
@@ -460,7 +460,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 		owner := strings.ToLower(backendTH.ContractsOwner.From.Hex()[2:])
 		_, err := orm.GetWorkflowSpec(ctx, owner, "test-wf")
 		return err == nil
-	}, tests.WaitTimeout(t), 100*time.Millisecond)
+	}, tests.WaitTimeout(t), time.Second)
 }
 
 type mockService struct{}
@@ -568,7 +568,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 		owner := strings.ToLower(backendTH.ContractsOwner.From.Hex()[2:])
 		_, err = orm.GetWorkflowSpec(ctx, owner, "test-wf")
 		return err == nil
-	}, tests.WaitTimeout(t), 100*time.Millisecond)
+	}, tests.WaitTimeout(t), time.Second)
 }
 
 func updateAuthorizedAddress(
