@@ -676,6 +676,7 @@ func (s CCIPOnChainState) ValidateState(chainSelector uint64) error {
 		}
 		// TODO: SOLANA_CCIP
 		// check for ccip router existing
+		return errors.New("not implemented")
 	} else {
 		chainState, exists := s.Chains[chainSelector]
 		if !exists {
@@ -683,7 +684,7 @@ func (s CCIPOnChainState) ValidateState(chainSelector uint64) error {
 		}
 		if chainState.OffRamp == nil {
 			// should not be possible, but a defensive check.
-			return fmt.Errorf("OffRamp contract does not exist")
+			return errors.New("OffRamp contract does not exist")
 		}
 	}
 	return nil
