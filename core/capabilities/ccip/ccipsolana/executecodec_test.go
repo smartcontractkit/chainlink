@@ -29,7 +29,7 @@ var randomExecuteReport = func(t *testing.T) cciptypes.ExecutePluginReport {
 				panic(err)
 			}
 			data, err := cciptypes.NewBytesFromString("0x1234")
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			tokenAmounts := make([]cciptypes.RampTokenAmount, numTokensPerMsg)
 			for z := 0; z < numTokensPerMsg; z++ {
@@ -42,19 +42,19 @@ var randomExecuteReport = func(t *testing.T) cciptypes.ExecutePluginReport {
 			}
 
 			// TODO enable extraArgs ?
-			//extraArgs := ccip_router.SolanaExtraArgs{
-			//	ComputeUnits: 1000,
-			//	Accounts: []ccip_router.SolanaAccountMeta{
-			//		{Pubkey: config.CcipReceiverProgram},
-			//		{Pubkey: config.ReceiverTargetAccountPDA, IsWritable: true},
-			//		{Pubkey: solana.SystemProgramID, IsWritable: false},
-			//	},
-			//}
+			// extraArgs := ccip_router.SolanaExtraArgs{
+			//	 ComputeUnits: 1000,
+			//	 Accounts: []ccip_router.SolanaAccountMeta{
+			//		 {Pubkey: config.CcipReceiverProgram},
+			//		 {Pubkey: config.ReceiverTargetAccountPDA, IsWritable: true},
+			//		 {Pubkey: solana.SystemProgramID, IsWritable: false},
+			//	 },
+			// }
 
-			//senderAddr = solanacommon.MakeRandom32ByteArray()
-			//receiverAddr := solanacommon.MakeRandom32ByteArray()
-			//feeTokenAddr := solanacommon.MakeRandom32ByteArray()
-			//onRampAddr := solanacommon.MakeRandom32ByteArray()
+			// senderAddr = solanacommon.MakeRandom32ByteArray()
+			// receiverAddr := solanacommon.MakeRandom32ByteArray()
+			// feeTokenAddr := solanacommon.MakeRandom32ByteArray()
+			// onRampAddr := solanacommon.MakeRandom32ByteArray()
 
 			reportMessages[j] = cciptypes.Message{
 				Header: cciptypes.RampMessageHeader{
@@ -105,14 +105,14 @@ func TestExecutePluginCodecV1(t *testing.T) {
 			expErr: false,
 		},
 		// TODO: check if empty msg if necessary since there is only single msg in solana execute report
-		//{
-		//	name: "reports have empty msgs",
-		//	report: func(report cciptypes.ExecutePluginReport) cciptypes.ExecutePluginReport {
-		//		report.ChainReports[0].Messages = []cciptypes.Message{}
-		//		return report
-		//	},
-		//	expErr: false,
-		//},
+		// {
+		//	 name: "reports have empty msgs",
+		//	 report: func(report cciptypes.ExecutePluginReport) cciptypes.ExecutePluginReport {
+		//		 report.ChainReports[0].Messages = []cciptypes.Message{}
+		//		 return report
+		//	 },
+		//	 expErr: false,
+		// },
 		{
 			name: "reports have empty offchain token data",
 			report: func(report cciptypes.ExecutePluginReport) cciptypes.ExecutePluginReport {
