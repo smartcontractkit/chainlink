@@ -8,6 +8,7 @@ import (
 
 	agbinary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
@@ -33,9 +34,9 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 	chainReport := report.ChainReports[0]
 
 	// skip proofFlagBits check, as ProofFlagBits is missing in current ExecutionReportSingleChain
-	//if chainReport.ProofFlagBits.IsEmpty() {
-	//	return nil, fmt.Errorf("proof flag bits are empty")
-	//}
+	// if chainReport.ProofFlagBits.IsEmpty() {
+	//	 return nil, fmt.Errorf("proof flag bits are empty")
+	// }
 
 	solanaProofs := make([][32]byte, 0, len(chainReport.Proofs))
 	for _, proof := range chainReport.Proofs {
@@ -57,10 +58,10 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 				return nil, fmt.Errorf("empty amount for token: %s", tokenAmount.DestTokenAddress)
 			}
 
-			//destGasAmount, err := abiDecodeUint32(tokenAmount.DestExecData)
-			//if err != nil {
-			//	return nil, fmt.Errorf("decode dest gas amount: %w", err)
-			//}
+			// destGasAmount, err := abiDecodeUint32(tokenAmount.DestExecData)
+			// if err != nil {
+			//	 return nil, fmt.Errorf("decode dest gas amount: %w", err)
+			// }
 
 			DestTokenAddress, err := solana.PublicKeyFromBase58(string(tokenAmount.DestTokenAddress))
 			if err != nil {
@@ -72,7 +73,7 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 				DestTokenAddress:  DestTokenAddress,
 				ExtraData:         tokenAmount.ExtraData,
 				Amount:            ToBigEndianU256(tokenAmount.Amount.Int.Uint64()),
-				//DestGasAmount:     destGasAmount,
+				// DestGasAmount:     destGasAmount,
 			})
 		}
 		msg = ccip_router.Any2SolanaRampMessage{
@@ -86,9 +87,9 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 			Sender:   message.Sender,
 			Data:     message.Data,
 			Receiver: receiver,
-			//GasLimit:     gasLimit,
+			// GasLimit:     gasLimit,
 			TokenAmounts: tokenAmounts,
-			//ExtraArgs:
+			// ExtraArgs:
 		}
 	}
 
@@ -131,10 +132,10 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte)
 
 	tokenAmounts := make([]cciptypes.RampTokenAmount, 0, len(executeReport.Message.TokenAmounts))
 	for _, tokenAmount := range executeReport.Message.TokenAmounts {
-		//destData, err := abiEncodeUint32(tokenAmount.DestGasAmount)
-		//if err != nil {
-		//	return cciptypes.ExecutePluginReport{}, fmt.Errorf("abi encode dest gas amount: %w", err)
-		//}
+		// destData, err := abiEncodeUint32(tokenAmount.DestGasAmount)
+		// if err != nil {
+		// 	 return cciptypes.ExecutePluginReport{}, fmt.Errorf("abi encode dest gas amount: %w", err)
+		// }
 
 		tokenAmounts = append(tokenAmounts, cciptypes.RampTokenAmount{
 			SourcePoolAddress: tokenAmount.SourcePoolAddress,
@@ -142,7 +143,7 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte)
 			DestTokenAddress: cciptypes.UnknownAddress(tokenAmount.DestTokenAddress.String()),
 			ExtraData:        tokenAmount.ExtraData,
 			Amount:           priceHelper(tokenAmount.Amount[:]),
-			//DestExecData:     destData,
+			// DestExecData:     destData,
 		})
 	}
 

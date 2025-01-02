@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	solanago "github.com/gagliardetto/solana-go"
+
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -28,6 +29,7 @@ var randomExecuteReport = func(t *testing.T) cciptypes.ExecutePluginReport {
 				panic(err)
 			}
 			data, err := cciptypes.NewBytesFromString("0x1234")
+			assert.NoError(t, err)
 
 			tokenAmounts := make([]cciptypes.RampTokenAmount, numTokensPerMsg)
 			for z := 0; z < numTokensPerMsg; z++ {
