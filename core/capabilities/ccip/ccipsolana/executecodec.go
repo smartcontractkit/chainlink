@@ -3,6 +3,7 @@ package ccipsolana
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"fmt"
 
 	agbinary "github.com/gagliardetto/binary"
@@ -23,9 +24,6 @@ func NewExecutePluginCodecV1() *ExecutePluginCodecV1 {
 }
 
 func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.ExecutePluginReport) ([]byte, error) {
-	// TODO:
-	//  1. destGasAmount
-	//  2. ExtraArgs
 	var buf bytes.Buffer
 	encoder := agbinary.NewBorshEncoder(&buf)
 
@@ -34,20 +32,14 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 	}
 
 	chainReport := report.ChainReports[0]
-
-	// skip proofFlagBits check, as ProofFlagBits is missing in current ExecutionReportSingleChain
-	// if chainReport.ProofFlagBits.IsEmpty() {
-	//	 return nil, fmt.Errorf("proof flag bits are empty")
-	// }
-
 	solanaProofs := make([][32]byte, 0, len(chainReport.Proofs))
 	for _, proof := range chainReport.Proofs {
 		solanaProofs = append(solanaProofs, proof)
 	}
 
 	var msg ccip_router.Any2SolanaRampMessage
-	if len(chainReport.Messages) > 0 {
-		// currently report only include single message
+	if len(chainReport.Messages) != 0 {
+		// currently only allow commiting one message at a time
 		message := chainReport.Messages[0]
 		receiver, err := solana.PublicKeyFromBase58(string(message.Receiver))
 		if err != nil {
@@ -60,11 +52,6 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 				return nil, fmt.Errorf("empty amount for token: %s", tokenAmount.DestTokenAddress)
 			}
 
-			// destGasAmount, err := abiDecodeUint32(tokenAmount.DestExecData)
-			// if err != nil {
-			//	 return nil, fmt.Errorf("decode dest gas amount: %w", err)
-			// }
-
 			DestTokenAddress, err := solana.PublicKeyFromBase58(string(tokenAmount.DestTokenAddress))
 			if err != nil {
 				return nil, fmt.Errorf("invalid receiver address: %s, %w", string(message.Receiver), err)
@@ -74,10 +61,18 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 				SourcePoolAddress: tokenAmount.SourcePoolAddress,
 				DestTokenAddress:  DestTokenAddress,
 				ExtraData:         tokenAmount.ExtraData,
-				Amount:            BigIntToBytes32(tokenAmount.Amount),
-				// DestGasAmount:     destGasAmount,
+				Amount:            bigIntToBytes32(tokenAmount.Amount),
+				DestGasAmount:     bytesToUint32(tokenAmount.DestExecData),
 			})
 		}
+
+		var extraArgs ccip_router.SolanaExtraArgs
+		decoder := agbinary.NewBorshDecoder(message.ExtraArgs)
+		err = extraArgs.UnmarshalWithDecoder(decoder)
+		if err != nil {
+			return nil, fmt.Errorf("invalid extra arguments: %w", err)
+		}
+
 		msg = ccip_router.Any2SolanaRampMessage{
 			Header: ccip_router.RampMessageHeader{
 				MessageId:           message.Header.MessageID,
@@ -90,7 +85,7 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 			Data:         message.Data,
 			Receiver:     receiver,
 			TokenAmounts: tokenAmounts,
-			// ExtraArgs:
+			ExtraArgs:    extraArgs,
 		}
 	}
 
@@ -133,19 +128,23 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte)
 
 	tokenAmounts := make([]cciptypes.RampTokenAmount, 0, len(executeReport.Message.TokenAmounts))
 	for _, tokenAmount := range executeReport.Message.TokenAmounts {
-		// destData, err := abiEncodeUint32(tokenAmount.DestGasAmount)
-		// if err != nil {
-		// 	 return cciptypes.ExecutePluginReport{}, fmt.Errorf("abi encode dest gas amount: %w", err)
-		// }
+		destData := make([]byte, 4)
+		binary.BigEndian.PutUint32(destData, tokenAmount.DestGasAmount)
 
 		tokenAmounts = append(tokenAmounts, cciptypes.RampTokenAmount{
 			SourcePoolAddress: tokenAmount.SourcePoolAddress,
-			// TODO: should this be abi-encoded?
-			DestTokenAddress: cciptypes.UnknownAddress(tokenAmount.DestTokenAddress.String()),
-			ExtraData:        tokenAmount.ExtraData,
-			Amount:           priceHelper(tokenAmount.Amount[:]),
-			// DestExecData:     destData,
+			DestTokenAddress:  cciptypes.UnknownAddress(tokenAmount.DestTokenAddress.String()),
+			ExtraData:         tokenAmount.ExtraData,
+			Amount:            priceHelper(tokenAmount.Amount[:]),
+			DestExecData:      destData,
 		})
+	}
+
+	var buf bytes.Buffer
+	encoder := agbinary.NewBorshEncoder(&buf)
+	err = executeReport.Message.ExtraArgs.MarshalWithEncoder(encoder)
+	if err != nil {
+		return cciptypes.ExecutePluginReport{}, fmt.Errorf("unpack encoded report: %w", err)
 	}
 
 	messages := make([]cciptypes.Message, 0, 1)
@@ -162,7 +161,7 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte)
 		Sender:         executeReport.Message.Sender,
 		Data:           executeReport.Message.Data,
 		Receiver:       cciptypes.UnknownAddress(executeReport.Message.Receiver.String()),
-		ExtraArgs:      cciptypes.Bytes{},          // <-- todo: info not available, but not required atm
+		ExtraArgs:      buf.Bytes(),
 		FeeToken:       cciptypes.UnknownAddress{}, // <-- todo: info not available, but not required atm
 		FeeTokenAmount: cciptypes.BigInt{},         // <-- todo: info not available, but not required atm
 		TokenAmounts:   tokenAmounts,
@@ -186,7 +185,17 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte)
 	return report, nil
 }
 
-func BigIntToBytes32(n cciptypes.BigInt) [32]uint8 {
+func bytesToUint32(b []byte) uint32 {
+	if len(b) < 4 {
+		var padded [4]byte
+		copy(padded[4-len(b):], b) // Pad from the right for big-endian
+		return binary.BigEndian.Uint32(padded[:])
+	}
+
+	return binary.BigEndian.Uint32(b)
+}
+
+func bigIntToBytes32(n cciptypes.BigInt) [32]uint8 {
 	var b [32]uint8
 	raw := n.Bytes()
 	copy(b[32-len(raw):], raw) // Right-align and zero-pad

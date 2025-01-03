@@ -1,16 +1,22 @@
 package ccipsolana
 
 import (
+	"bytes"
+	"encoding/binary"
 	"math/big"
 	"math/rand"
 	"testing"
 
+	agbinary "github.com/gagliardetto/binary"
 	solanago "github.com/gagliardetto/solana-go"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 
+	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -28,33 +34,37 @@ var randomExecuteReport = func(t *testing.T) cciptypes.ExecutePluginReport {
 			if err != nil {
 				panic(err)
 			}
-			data, err := cciptypes.NewBytesFromString("0x1234")
+			extraData, err := cciptypes.NewBytesFromString("0x1234")
 			require.NoError(t, err)
+
+			destGasAmount := uint32(10)
+			destExecData := make([]byte, 4)
+			binary.BigEndian.PutUint32(destExecData, destGasAmount)
 
 			tokenAmounts := make([]cciptypes.RampTokenAmount, numTokensPerMsg)
 			for z := 0; z < numTokensPerMsg; z++ {
 				tokenAmounts[z] = cciptypes.RampTokenAmount{
 					SourcePoolAddress: cciptypes.UnknownAddress(key.PublicKey().String()),
 					DestTokenAddress:  cciptypes.UnknownAddress(key.PublicKey().String()),
-					ExtraData:         data,
+					ExtraData:         extraData,
 					Amount:            cciptypes.NewBigInt(big.NewInt(rand.Int63())),
+					DestExecData:      destExecData,
 				}
 			}
 
-			// TODO enable extraArgs
-			// extraArgs := ccip_router.SolanaExtraArgs{
-			//	 ComputeUnits: 1000,
-			//	 Accounts: []ccip_router.SolanaAccountMeta{
-			//		 {Pubkey: config.CcipReceiverProgram},
-			//		 {Pubkey: config.ReceiverTargetAccountPDA, IsWritable: true},
-			//		 {Pubkey: solana.SystemProgramID, IsWritable: false},
-			//	 },
-			// }
+			extraArgs := ccip_router.SolanaExtraArgs{
+				ComputeUnits: 1000,
+				Accounts: []ccip_router.SolanaAccountMeta{
+					{Pubkey: config.CcipReceiverProgram},
+					{Pubkey: config.ReceiverTargetAccountPDA, IsWritable: true},
+					{Pubkey: solana.SystemProgramID, IsWritable: false},
+				},
+			}
 
-			// senderAddr = solanacommon.MakeRandom32ByteArray()
-			// receiverAddr := solanacommon.MakeRandom32ByteArray()
-			// feeTokenAddr := solanacommon.MakeRandom32ByteArray()
-			// onRampAddr := solanacommon.MakeRandom32ByteArray()
+			var buf bytes.Buffer
+			encoder := agbinary.NewBorshEncoder(&buf)
+			err = extraArgs.MarshalWithEncoder(encoder)
+			require.NoError(t, err)
 
 			reportMessages[j] = cciptypes.Message{
 				Header: cciptypes.RampMessageHeader{
@@ -66,10 +76,10 @@ var randomExecuteReport = func(t *testing.T) cciptypes.ExecutePluginReport {
 					MsgHash:             utils.RandomBytes32(),
 					OnRamp:              cciptypes.UnknownAddress(key.PublicKey().String()),
 				},
-				Sender:   cciptypes.UnknownAddress(key.PublicKey().String()),
-				Data:     data,
-				Receiver: cciptypes.UnknownAddress(key.PublicKey().String()),
-				//ExtraArgs:      extraArgs,
+				Sender:         cciptypes.UnknownAddress(key.PublicKey().String()),
+				Data:           extraData,
+				Receiver:       cciptypes.UnknownAddress(key.PublicKey().String()),
+				ExtraArgs:      buf.Bytes(),
 				FeeToken:       cciptypes.UnknownAddress(key.PublicKey().String()),
 				FeeTokenAmount: cciptypes.NewBigInt(big.NewInt(rand.Int63())),
 				TokenAmounts:   tokenAmounts,
@@ -86,7 +96,6 @@ var randomExecuteReport = func(t *testing.T) cciptypes.ExecutePluginReport {
 			Messages:            reportMessages,
 			OffchainTokenData:   tokenData,
 			Proofs:              []cciptypes.Bytes32{utils.RandomBytes32(), utils.RandomBytes32()},
-			//ProofFlagBits:       cciptypes.NewBigInt(utils.RandUint256()),
 		}
 	}
 
@@ -142,7 +151,6 @@ func TestExecutePluginCodecV1(t *testing.T) {
 					report.ChainReports[i].Messages[j].Header.MsgHash = cciptypes.Bytes32{}
 					report.ChainReports[i].Messages[j].Header.OnRamp = cciptypes.UnknownAddress{}
 					report.ChainReports[i].Messages[j].FeeToken = cciptypes.UnknownAddress{}
-					report.ChainReports[i].Messages[j].ExtraArgs = cciptypes.Bytes{}
 					report.ChainReports[i].Messages[j].FeeTokenAmount = cciptypes.BigInt{}
 				}
 			}
