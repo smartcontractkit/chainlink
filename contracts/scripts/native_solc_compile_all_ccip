@@ -22,6 +22,7 @@ compileContract() {
 
   local command
   command="forge build $CONTRACTS_DIR/src/v0.8/$PROJECT/"$1.sol" \
+   --root $CONTRACTS_DIR \
    $(getOptimizations "$contract") \
    --extra-output-files bin abi \
    -o $CONTRACTS_DIR/solc/$PROJECT/$contract"

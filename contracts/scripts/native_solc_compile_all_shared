@@ -24,6 +24,7 @@ compileContract() {
 
   local command
   command="forge build $CONTRACTS_DIR/src/v0.8/$PROJECT/"$1.sol" \
+   --root $CONTRACTS_DIR \
    --extra-output-files bin abi \
    --use 0.8.19 \
    -o $CONTRACTS_DIR/solc/$PROJECT/$contract"
