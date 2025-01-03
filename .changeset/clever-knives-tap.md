@@ -2,4 +2,4 @@
 "chainlink": patch
 ---
 
-Add Sei config and error mapping
+#added Sei config and error mapping
