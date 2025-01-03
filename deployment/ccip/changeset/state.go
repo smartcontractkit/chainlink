@@ -21,6 +21,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_0"
@@ -669,14 +670,12 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 
 // ValidateState validates the state of the CCIP deployment
 func (s CCIPOnChainState) ValidateState(chainSelector uint64) error {
-	if deployment.IsSolanaChainFamily(chainSelector) {
-		_, exists := s.SolChains[chainSelector]
-		if !exists {
-			return fmt.Errorf("chain %d does not exist", chainSelector)
-		}
-		// TODO: SOLANA_CCIP
-		// check for ccip router existing
-	} else {
+	family, err := chain_selectors.GetSelectorFamily(chainSelector)
+	if err != nil {
+		return err
+	}
+	switch family {
+	case chain_selectors.FamilyEVM:
 		chainState, exists := s.Chains[chainSelector]
 		if !exists {
 			return fmt.Errorf("chain %d does not exist", chainSelector)
@@ -685,6 +684,15 @@ func (s CCIPOnChainState) ValidateState(chainSelector uint64) error {
 			// should not be possible, but a defensive check.
 			return errors.New("OffRamp contract does not exist")
 		}
+	case chain_selectors.FamilySolana:
+		_, exists := s.SolChains[chainSelector]
+		if !exists {
+			return fmt.Errorf("chain %d does not exist", chainSelector)
+		}
+		// TODO: SOLANA_CCIP
+		// check for ccip router existing
+	default:
+		return fmt.Errorf("unknown chain family %s", family)
 	}
 	return nil
 }
