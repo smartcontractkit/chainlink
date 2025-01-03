@@ -64,9 +64,13 @@ func CCIPCapabilityJobspecChangeset(env deployment.Environment, _ any) (deployme
 				continue
 			}
 			_, exists := keyBundles[family]
-			if !exists {
-				keyBundles[family] = config.KeyBundleID
+			if exists {
+				if keyBundles[family] != config.KeyBundleID {
+					return deployment.ChangesetOutput{}, fmt.Errorf("multiple different %v OCR keys found for node %v", family, node.PeerID)
+				}
+				continue
 			}
+			keyBundles[family] = config.KeyBundleID
 		}
 
 		var spec string
