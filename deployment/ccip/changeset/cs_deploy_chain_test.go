@@ -14,7 +14,13 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+
+	solConfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+	solCommomUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 )
+
+// TODO: Solana re-write
 
 func TestDeployChainContractsChangeset(t *testing.T) {
 	t.Parallel()
@@ -24,6 +30,7 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 		Chains:     2,
 		Nodes:      4,
 	})
+	fmt.Println("Created Env")
 	selectors := e.AllChainSelectors()
 	homeChainSel := selectors[0]
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
@@ -99,10 +106,113 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 	}
 }
 
+func TestDeployChainContractsChangesetSolana(t *testing.T) {
+	t.Parallel()
+	lggr := logger.TestLogger(t)
+	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
+		Bootstraps: 1,
+		Chains:     2,
+		Nodes:      4,
+	})
+	fmt.Println("Created Env")
+	selectors := e.AllChainSelectors()
+	homeChainSel := selectors[0]
+	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
+	require.NoError(t, err)
+	p2pIds := nodes.NonBootstraps().PeerIDs()
+	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
+	for _, chain := range e.AllChainSelectors() {
+		cfg[chain] = proposalutils.SingleGroupTimelockConfig(t)
+	}
+	// var prereqCfg []DeployPrerequisiteConfigPerChain
+	// for _, chain := range e.AllChainSelectors() {
+	// 	prereqCfg = append(prereqCfg, DeployPrerequisiteConfigPerChain{
+	// 		ChainSelector: chain,
+	// 	})
+	// }
+	fmt.Println(e.SolChains)
+	e, err = commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(DeployHomeChain),
+			Config: DeployHomeChainConfig{
+				HomeChainSel:     homeChainSel,
+				RMNStaticConfig:  NewTestRMNStaticConfig(),
+				RMNDynamicConfig: NewTestRMNDynamicConfig(),
+				NodeOperators:    NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
+				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
+					"NodeOperator": p2pIds,
+				},
+			},
+		},
+		// {
+		// 	Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
+		// 	Config:    selectors,
+		// },
+		{
+			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkTokenSolana),
+			Config:    []uint64{deployment.SolanaChainSelector},
+		},
+		// {
+		// 	Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployMCMSWithTimelock),
+		// 	Config:    cfg,
+		// },
+		// {
+		// 	Changeset: commonchangeset.WrapChangeSet(DeployPrerequisites),
+		// 	Config: DeployPrerequisiteConfig{
+		// 		Configs: prereqCfg,
+		// 	},
+		// },
+		// {
+		// 	Changeset: commonchangeset.WrapChangeSet(DeployChainContracts),
+		// 	Config: DeployChainContractsConfig{
+		// 		ChainSelectors:    selectors,
+		// 		HomeChainSelector: homeChainSel,
+		// 	},
+		// },
+		{
+			Changeset: commonchangeset.WrapChangeSet(DeployChainContractsSolana),
+			Config: DeployChainContractsConfig{
+				ChainSelectors:    []uint64{deployment.SolanaChainSelector},
+				HomeChainSelector: homeChainSel,
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	// load onchain state
+	state, err := LoadOnchainStateSolana(e)
+	require.NoError(t, err)
+
+	// // verify all contracts populated
+	// require.NotNil(t, state.Chains[homeChainSel].CapabilityRegistry)
+	// require.NotNil(t, state.Chains[homeChainSel].CCIPHome)
+	// require.NotNil(t, state.Chains[homeChainSel].RMNHome)
+	// for _, sel := range selectors {
+	require.NotNil(t, state.SolChains[deployment.SolanaChainSelector].LinkToken)
+	// 	require.NotNil(t, state.Chains[sel].Weth9)
+	// 	require.NotNil(t, state.Chains[sel].TokenAdminRegistry)
+	// 	require.NotNil(t, state.Chains[sel].RegistryModule)
+	require.NotNil(t, state.SolChains[deployment.SolanaChainSelector].CcipRouter)
+	// 	require.NotNil(t, state.Chains[sel].RMNRemote)
+	// 	require.NotNil(t, state.Chains[sel].TestRouter)
+	// 	require.NotNil(t, state.Chains[sel].NonceManager)
+	// 	require.NotNil(t, state.Chains[sel].FeeQuoter)
+	// 	require.NotNil(t, state.Chains[sel].OffRamp)
+	// 	require.NotNil(t, state.Chains[sel].OnRamp)
+	// }
+
+	var configAccount ccip_router.Config
+	err = solCommomUtil.GetAccountDataBorshInto(e.GetContext(), e.SolChains[deployment.SolanaChainSelector].Client, GetRouterConfigPDA(state.SolChains[deployment.SolanaChainSelector].CcipRouter), solConfig.DefaultCommitment, &configAccount)
+	require.NoError(t, err)
+	require.Equal(t, deployment.SolanaChainSelector, configAccount.SolanaChainSelector)
+
+}
+
 func TestDeployCCIPContracts(t *testing.T) {
 	t.Parallel()
 	e := NewMemoryEnvironment(t)
 	// Deploy all the CCIP contracts.
+	// TODO: not sure how this ends up deploying contracts ?
 	state, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	snap, err := state.View(e.Env.AllChainSelectors())

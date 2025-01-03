@@ -14,6 +14,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	"github.com/gagliardetto/solana-go"
+	solRpc "github.com/gagliardetto/solana-go/rpc"
+	solCommomUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
@@ -139,6 +142,48 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]deployme
 					return blockNumber, fmt.Errorf("tx %s reverted, could not decode error reason chain %s", tx.Hash().Hex(), chainInfo.ChainName)
 				}
 				return blockNumber, nil
+			},
+		}
+	}
+	return chains, nil
+}
+
+// This is for devenv, I have not used it yet
+func NewSolChains(logger logger.Logger, configs []ChainConfig) (map[uint64]deployment.SolChain, error) {
+	chains := make(map[uint64]deployment.SolChain)
+	for _, chainCfg := range configs {
+		selector, err := chainselectors.SelectorFromChainId(chainCfg.ChainID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get selector from chain id %d: %w", chainCfg.ChainID, err)
+		}
+
+		var ec *solRpc.Client
+		for _, rpc := range chainCfg.HTTPRPCs {
+			ec = solRpc.New(rpc)
+			// error handling for rpc init
+			logger.Infof("connected to http rpc %s", rpc)
+			break
+		}
+		if ec == nil {
+			return nil, fmt.Errorf("failed to connect to chain %s", chainCfg.ChainName)
+		}
+		// chainInfo, err := deployment.ChainInfo(selector)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get chain info for chain %s: %w", chainCfg.ChainName, err)
+		}
+		adminPrivateKey := deployment.GetSolanaDeployerKey()
+		chains[selector] = deployment.SolChain{
+			Selector:    selector,
+			Client:      ec,
+			DeployerKey: &adminPrivateKey,
+			Confirm: func(instructions []solana.Instruction, opts ...solCommomUtil.TxModifier) error {
+				_, err := solCommomUtil.SendAndConfirm(
+					context.Background(), ec, instructions, adminPrivateKey, solRpc.CommitmentConfirmed, opts...,
+				)
+				if err != nil {
+					return err
+				}
+				return nil
 			},
 		}
 	}

@@ -14,6 +14,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 )
 
+// TODO: Solana re-write
+
 func TestAddLanesWithTestRouter(t *testing.T) {
 	t.Parallel()
 	e := NewMemoryEnvironment(t)

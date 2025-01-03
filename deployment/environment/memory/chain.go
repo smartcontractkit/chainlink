@@ -1,15 +1,21 @@
 package memory
 
 import (
+	"bytes"
 	"math/big"
+	"os/exec"
+	"strconv"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
+	solRpc "github.com/gagliardetto/solana-go/rpc"
 	"github.com/stretchr/testify/require"
+	"github.com/test-go/testify/assert"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
@@ -86,4 +92,60 @@ func evmChain(t *testing.T, numUsers int) EVMChain {
 		DeployerKey: owner,
 		Users:       users,
 	}
+}
+
+// TODO: make it random port to support multiple chains
+// TODO: add dynamic users and admin like done in evmChain
+func solChain(t *testing.T) (string, string) {
+	t.Helper()
+	port := "8899"
+	portInt, _ := strconv.Atoi(port)
+
+	faucetPort := "8877"
+	url := "http://127.0.0.1:" + port
+	wsURL := "ws://127.0.0.1:" + strconv.Itoa(portInt+1)
+
+	args := []string{
+		"--reset",
+		"--rpc-port", port,
+		"--faucet-port", faucetPort,
+		"--ledger", t.TempDir(),
+	}
+
+	cmd := exec.Command("solana-test-validator", args...)
+
+	var stdErr bytes.Buffer
+	cmd.Stderr = &stdErr
+	var stdOut bytes.Buffer
+	cmd.Stdout = &stdOut
+	require.NoError(t, cmd.Start())
+	t.Cleanup(func() {
+		assert.NoError(t, cmd.Process.Kill())
+		if err2 := cmd.Wait(); assert.Error(t, err2) {
+			if !assert.Contains(t, err2.Error(), "signal: killed", cmd.ProcessState.String()) {
+				t.Logf("solana-test-validator\n stdout: %s\n stderr: %s", stdOut.String(), stdErr.String())
+			}
+		}
+	})
+
+	// Wait for api server to boot
+	var ready bool
+	for i := 0; i < 30; i++ {
+		time.Sleep(time.Second)
+		client := solRpc.New(url)
+		out, err := client.GetHealth(tests.Context(t))
+		if err != nil || out != solRpc.HealthOk {
+			t.Logf("API server not ready yet (attempt %d)\n", i+1)
+			continue
+		}
+		ready = true
+		break
+	}
+	if !ready {
+		t.Logf("Cmd output: %s\nCmd error: %s\n", stdOut.String(), stdErr.String())
+	}
+	require.True(t, ready)
+	t.Logf("solana-test-validator is ready at %s", url)
+
+	return url, wsURL
 }

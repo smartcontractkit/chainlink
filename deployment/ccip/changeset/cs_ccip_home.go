@@ -29,7 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	capabilities_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 )
 
 var (
@@ -1061,6 +1061,7 @@ func (c UpdateChainConfigConfig) Validate(e deployment.Environment) error {
 	return nil
 }
 
+// TODO: can this handle solana stuff
 func UpdateChainConfig(e deployment.Environment, cfg UpdateChainConfigConfig) (deployment.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("%w: %w", deployment.ErrInvalidConfig, err)

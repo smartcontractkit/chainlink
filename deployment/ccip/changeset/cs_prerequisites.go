@@ -25,6 +25,12 @@ var (
 	_ deployment.ChangeSet[DeployPrerequisiteConfig] = DeployPrerequisites
 )
 
+// TODO: Solana re-write
+// common.Address used
+// LoadOnchainState used which wont work for solana
+// deployPrerequisiteContracts needs to be re-written for solana
+// basically everything
+
 // DeployPrerequisites deploys the pre-requisite contracts for CCIP
 // pre-requisite contracts are the contracts which can be reused from previous versions of CCIP
 // Or the contracts which are already deployed on the chain ( for example, tokens, feeds, etc)

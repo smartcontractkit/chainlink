@@ -11,6 +11,8 @@ import (
 
 var _ deployment.ChangeSet[any] = CCIPCapabilityJobspec
 
+// TODO: Solana re-write
+
 // CCIPCapabilityJobspec returns the job specs for the CCIP capability.
 // The caller needs to propose these job specs to the offchain system.
 func CCIPCapabilityJobspec(env deployment.Environment, _ any) (deployment.ChangesetOutput, error) {

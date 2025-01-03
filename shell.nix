@@ -6,6 +6,44 @@ with pkgs; let
   nodePackages = pkgs.nodePackages.override {inherit nodejs;};
   pnpm = pnpm_9;
 
+  version = "v2.0.18";
+  getBinDerivation =
+    {
+      name,
+      filename,
+      sha256,
+    }:
+    pkgs.stdenv.mkDerivation rec {
+      inherit name;
+      url = "https://github.com/anza-xyz/agave/releases/download/${version}/${filename}";
+      src = pkgs.fetchzip {
+        inherit url sha256;
+      };
+
+      installPhase = ''
+        mkdir -p $out/bin
+        ls -lah $src
+        cp -r $src/bin/* $out/bin
+      '';
+    };
+
+  solanaBinaries = {
+      x86_64-linux = getBinDerivation {
+        name = "solana-cli-x86_64-linux";
+        filename = "solana-release-x86_64-unknown-linux-gnu.tar.bz2";
+        ### BEGIN_LINUX_SHA256 ###
+        sha256 = "sha256-3FW6IMZeDtyU4GTsRIwT9BFLNzLPEuP+oiQdur7P13s=";
+        ### END_LINUX_SHA256 ###
+      };
+      aarch64-apple-darwin = getBinDerivation {
+        name = "solana-cli-aarch64-apple-darwin";
+        filename = "solana-release-aarch64-apple-darwin.tar.bz2";
+        ### BEGIN_DARWIN_SHA256 ###
+        sha256 = "sha256-6VjycYU0NU0evXoqtGAZMYGHQEKijofnFQnBJNVsb6Q=";
+        ### END_DARWIN_SHA256 ###
+      };
+  };
+
   mkShell' = mkShell.override {
     # The current nix default sdk for macOS fails to compile go projects, so we use a newer one for now.
     stdenv =
@@ -18,7 +56,7 @@ in
     nativeBuildInputs =
       [
         go
-        postgresql
+        postgresql_17
 
         python3
         python3Packages.pip
@@ -40,7 +78,7 @@ in
         gopls
         delve
         golangci-lint
-        github-cli
+        git
         jq
 
         # gofuzz
@@ -50,9 +88,12 @@ in
         pkg-config
         libudev-zero
         libusb1
+        solanaBinaries.x86_64-linux
       ] ++ lib.optionals isCrib [
         nur.repos.goreleaser.goreleaser-pro
         patchelf
+      ] ++ pkgs.lib.optionals (pkgs.stdenv.isDarwin && pkgs.stdenv.hostPlatform.isAarch64) [
+        solanaBinaries.aarch64-apple-darwin
       ];
 
     shellHook = ''
